@@ -18,11 +18,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
-	"net"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -39,12 +36,7 @@ import (
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/crypto/ssh"
 	"k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8sClient "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
 const (
@@ -70,47 +62,6 @@ func GetCurrentK8SEnv() string { return os.Getenv("K8S_VERSION") }
 // SSHMeta.
 type Kubectl struct {
 	*SSHMeta
-	k8sClient.Clientset
-}
-
-// logHTTPTransport is a wrapper of http.Transport to log all http requests
-type logHTTPTransport struct {
-	transport *http.Transport
-	logger    *logrus.Entry
-}
-
-func (l *logHTTPTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	var reqURL, reqMethod, reqStr, rspStr string
-
-	reqStr = "<empty>"
-	if req != nil {
-		reqURL = req.URL.String()
-		reqMethod = req.Method
-		if req.Body != nil {
-			newBody, err := req.GetBody()
-			if err == nil {
-				body, _ := ioutil.ReadAll(newBody)
-				reqStr = string(body)
-			}
-		}
-	}
-
-	resp, err := l.transport.RoundTrip(req)
-
-	if err != nil {
-		rspStr = "error: " + err.Error()
-	} else {
-		rspStr = resp.Status
-	}
-	reqLog := l.logger.WithFields(
-		logrus.Fields{
-			"to":     reqURL,
-			"method": reqMethod,
-			"data":   reqStr,
-			"result": rspStr,
-		})
-	reqLog.Debugf("HTTPRequest")
-	return resp, err
 }
 
 // CreateKubectl initializes a Kubectl helper with the provided vmName and log
@@ -133,48 +84,8 @@ func CreateKubectl(vmName string, log *logrus.Entry) *Kubectl {
 	}
 	node.logger = log
 
-	k8sConfig, err := clientcmd.BuildConfigFromKubeconfigGetter("", func() (*clientcmdapi.Config, error) {
-		res = node.Exec("cat ${HOME}/.kube/config")
-		if res.WasSuccessful() {
-			return clientcmd.Load(res.stdout.Bytes())
-		}
-		return nil, fmt.Errorf("unable to read kubeconfig file: %s", res.GetStdErr())
-	})
-	if err != nil {
-		ginkgo.Fail(fmt.Sprintf(
-			"Cannot set kubernetes configuration: %s", err), 1)
-		return nil
-	}
-
-	k8sConfig.WrapTransport = func(rt http.RoundTripper) http.RoundTripper {
-		httpTransport, ok := rt.(*http.Transport)
-		if !ok {
-			return rt
-		}
-		httpTransport.DialContext = func(_ context.Context, network, addr string) (net.Conn, error) {
-			// Create a connection to the kubeapiserver via the ssh tunnel
-			conn, err := ssh.Dial("tcp", node.sshClient.GetHostPort(), node.sshClient.Config)
-			if err != nil {
-				return nil, err
-			}
-			return conn.Dial(network, addr)
-		}
-		// Create a wrapper so we can log the requests
-		return &logHTTPTransport{
-			logger:    log,
-			transport: httpTransport,
-		}
-	}
-
-	c, err := k8sClient.NewForConfig(k8sConfig)
-	if err != nil {
-		ginkgo.Fail(fmt.Sprintf(
-			"Cannot create kubernetes client: %s", err), 1)
-		return nil
-	}
 	return &Kubectl{
-		SSHMeta:   node,
-		Clientset: *c,
+		SSHMeta: node,
 	}
 }
 
@@ -722,33 +633,10 @@ func (kub *Kubectl) CiliumEndpointsList(pod string) *CmdRes {
 	return kub.CiliumExec(pod, "cilium endpoint list -o json")
 }
 
-// CiliumEndpointGet returns the output of `cilium endpoint get` for the
-// provided endpoint ID.
-func (kub *Kubectl) CiliumEndpointGet(pod string, id string) *CmdRes {
-	return kub.CiliumExec(pod, fmt.Sprintf(
-		"cilium endpoint get %s -o json", id))
-}
-
-// CiliumEndpointsIDs returns a mapping  of a pod name to it is corresponding
-// endpoint's security identity
-func (kub *Kubectl) CiliumEndpointsIDs(pod string) map[string]string {
-	filter := `{range [*]}{@.status.external-identifiers.pod-name}{"="}{@.id}{"\n"}{end}`
-	return kub.CiliumExec(pod, fmt.Sprintf(
-		"cilium endpoint list -o jsonpath='%s'", filter)).KVOutput()
-}
-
 // CiliumEndpointsStatus returns a mapping  of a pod name to it is corresponding
 // endpoint's status
 func (kub *Kubectl) CiliumEndpointsStatus(pod string) map[string]string {
 	filter := `{range [*]}{@.status.external-identifiers.pod-name}{"="}{@.status.state}{"\n"}{end}`
-	return kub.CiliumExec(pod, fmt.Sprintf(
-		"cilium endpoint list -o jsonpath='%s'", filter)).KVOutput()
-}
-
-// CiliumEndpointsIdentityIDs returns a mapping with of a pod name to it is
-// corresponding endpoint's security identity
-func (kub *Kubectl) CiliumEndpointsIdentityIDs(pod string) map[string]string {
-	filter := `{range [*]}{@.status.external-identifiers.container-name}{"="}{@.status.identity.id}{"\n"}{end}`
 	return kub.CiliumExec(pod, fmt.Sprintf(
 		"cilium endpoint list -o jsonpath='%s'", filter)).KVOutput()
 }
@@ -806,22 +694,6 @@ func (kub *Kubectl) CiliumEndpointWaitReady() error {
 		return true
 	}
 	return WithTimeout(body, "cannot retrieve endpoints", &TimeoutConfig{Timeout: HelperTimeout})
-}
-
-// CiliumEndpointPolicyVersion returns a mapping of each endpoint's ID to its
-// policy revision number for all endpoints in the specified Cilium pod.
-func (kub *Kubectl) CiliumEndpointPolicyVersion(pod string) map[string]int64 {
-	result := map[string]int64{}
-	filter := `{range [*]}{@.id}{"="}{@.status.policy.realized.policy-revision}{"\n"}{end}`
-
-	data := kub.CiliumExec(
-		pod,
-		fmt.Sprintf("cilium endpoint list -o jsonpath='%s'", filter))
-	for k, v := range data.KVOutput() {
-		val, _ := govalidator.ToInt(v)
-		result[k] = val
-	}
-	return result
 }
 
 // CiliumExec runs cmd in the specified Cilium pod.
@@ -912,6 +784,13 @@ func (kub *Kubectl) CiliumNodesWait() (bool, error) {
 	return true, nil
 }
 
+// CiliumIsPolicyLoaded returns true if the policy is loaded in the given
+// cilium Pod. it returns false in case that the policy is not in place
+func (kub *Kubectl) CiliumIsPolicyLoaded(pod string, policyCmd string) bool {
+	res := kub.CiliumExec(pod, fmt.Sprintf("cilium policy get %s", policyCmd))
+	return res.WasSuccessful()
+}
+
 // CiliumPolicyRevision returns the policy revision in the specified Cilium pod.
 // Returns an error if the policy revision cannot be retrieved.
 func (kub *Kubectl) CiliumPolicyRevision(pod string) (int, error) {
@@ -931,13 +810,6 @@ func (kub *Kubectl) CiliumPolicyRevision(pod string) (int, error) {
 		return -1, err
 	}
 	return revi, nil
-}
-
-// CiliumIsPolicyLoaded returns true if the policy is loaded in the given
-// cilium Pod. it returns false in case that the policy is not in place
-func (kub *Kubectl) CiliumIsPolicyLoaded(pod string, policyCmd string) bool {
-	res := kub.CiliumExec(pod, fmt.Sprintf("cilium policy get %s", policyCmd))
-	return res.WasSuccessful()
 }
 
 // ResourceLifeCycleAction represents an action performed upon objects in
@@ -1258,90 +1130,4 @@ func (kub *Kubectl) GetCiliumPodOnNode(namespace string, node string) (string, e
 	}
 
 	return res.Output().String(), nil
-}
-
-// podHasExited returns true if the pod has finished up running.
-func (kub *Kubectl) podHasExited(ns, podName string) (bool, error) {
-	pod, err := kub.CoreV1().Pods(ns).Get(podName, metav1.GetOptions{})
-	if err != nil {
-		return false, err
-	}
-	switch pod.Status.Phase {
-	case v1.PodFailed, v1.PodSucceeded:
-		return true, nil
-	}
-	return false, nil
-}
-
-// WaitForPodExit waits for the given pod in the given namespace until the pod
-// is finished running or until the given context deadline is reached.
-func (kub *Kubectl) WaitForPodExit(ctx context.Context, ns, podName string) error {
-	return WithTimeoutErr(ctx, func() (bool, error) {
-		return kub.podHasExited(ns, podName)
-	}, time.Second)
-}
-
-// isPodReady returns true if the given pod in the given namespace is running
-// and in ready state.
-func (kub *Kubectl) isPodReady(ns, podName string) (bool, error) {
-	pod, err := kub.CoreV1().Pods(ns).Get(podName, metav1.GetOptions{})
-	if err != nil {
-		return false, err
-	}
-	switch pod.Status.Phase {
-	case v1.PodFailed, v1.PodSucceeded:
-		return false, errors.New("Pod is not running")
-	case v1.PodRunning:
-		// Consider an endpoint with reserved identity 5 / "init" (reserved:init) as not ready.
-		if pod.Annotations["cilium.io/identity"] == "init" {
-			return false, nil
-		}
-		for _, cond := range pod.Status.Conditions {
-			if cond.Type == v1.PodReady && cond.Status == v1.ConditionTrue {
-				return true, nil
-			}
-		}
-	}
-	return false, nil
-}
-
-// WaitForPodReady waits for the given pod in the given namespace until the pod
-// is running and in ready state or until the given context deadline is reached.
-func (kub *Kubectl) WaitForPodReady(ctx context.Context, ns, podName string) error {
-	return WithTimeoutErr(ctx, func() (bool, error) {
-		return kub.isPodReady(ns, podName)
-	}, time.Second)
-}
-
-// podHasExitedSuccessfully returns true if the pod has finished up running. Error is returned
-// if an unsuccessful exit has occurred.
-func (kub *Kubectl) podHasExitedSuccessfully(ns, podName string) (bool, error) {
-	pod, err := kub.CoreV1().Pods(ns).Get(podName, metav1.GetOptions{})
-	if err != nil {
-		return false, err
-	}
-	if pod.Spec.RestartPolicy == v1.RestartPolicyAlways {
-		return true, fmt.Errorf("pod %q will never terminate with a succeeded state since its restart policy is Always", pod.Name)
-	}
-	switch pod.Status.Phase {
-	case v1.PodSucceeded:
-		return true, nil
-	case v1.PodFailed:
-		return true, fmt.Errorf("pod %q failed with status: %+v", pod.Name, pod.Status)
-	default:
-		return false, nil
-	}
-}
-
-// WaitForPodSuccess waits for the given pod in the given namespace until the
-// pod has successfully exited or until the given context deadline is reached.
-func (kub *Kubectl) WaitForPodSuccess(ctx context.Context, ns, podName string) (bool, error) {
-	err := WithTimeoutErr(ctx, func() (bool, error) {
-		return kub.podHasExitedSuccessfully(ns, podName)
-	}, time.Second)
-
-	if err != nil {
-		return false, err
-	}
-	return true, nil
 }
