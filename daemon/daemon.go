@@ -1296,6 +1296,9 @@ func (d *Daemon) validateExistingMaps() error {
 }
 
 func (d *Daemon) collectStaleMapGarbage() {
+	if d.DryModeEnabled() {
+		return
+	}
 	walker := func(path string, _ os.FileInfo, _ error) error {
 		return d.staleMapWalker(path)
 	}
