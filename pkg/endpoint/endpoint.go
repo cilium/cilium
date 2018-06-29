@@ -1800,7 +1800,7 @@ func (e *Endpoint) GetK8sPodName() string {
 // GetK8sNamespaceAndPodNameLocked returns the namespace and pod name.  This
 // function requires e.Mutex to be held.
 func (e *Endpoint) GetK8sNamespaceAndPodNameLocked() string {
-	return e.k8sNamespace + ":" + e.k8sPodName
+	return e.k8sNamespace + "/" + e.k8sPodName
 }
 
 // SetK8sPodName modifies the endpoint's pod name
