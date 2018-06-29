@@ -365,7 +365,7 @@ func (kub *Kubectl) MicroscopeStart() (error, func() error) {
 		}
 
 		err = WriteOrAppendToFile(
-			filepath.Join(testPath, monitorLogFileName),
+			filepath.Join(testPath, MonitorLogFileName),
 			res.CombineOutput().Bytes(),
 			LogPerm)
 		if err != nil {

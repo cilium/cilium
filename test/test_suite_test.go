@@ -286,4 +286,15 @@ var _ = AfterEach(func() {
 
 		ginkgoext.GinkgoPrint("[[ATTACHMENT|%s]]", zipFileName)
 	}
+
+	if !ginkgo.CurrentGinkgoTestDescription().Failed && helpers.IsRunningOnJenkins() {
+		// If the test success delete the monitor.log filename to not store all
+		// the data in Jenkins
+		testPath, err := helpers.CreateReportDirectory()
+		if err != nil {
+			log.WithError(err).Error("cannot retrieve test result path")
+			return
+		}
+		_ = os.Remove(filepath.Join(testPath, helpers.MonitorLogFileName))
+	}
 })
