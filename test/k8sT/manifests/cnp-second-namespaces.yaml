@@ -2,18 +2,15 @@ apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
 description: "Policy to stress test L7 proxy"
 metadata:
-  name: "l7-stresstest"
-  namespace: "development"
+  name: "cnp-second-namespace"
 spec:
   endpointSelector:
     matchLabels:
-      id: server
+      id: app1
   ingress:
   - fromEndpoints:
     - matchLabels:
-        id: client
-      matchExpressions:
-      - {key: 'k8s:io.kubernetes.pod.namespace', operator: Exists}
+        "k8s:io.kubernetes.pod.namespace": second
     toPorts:
     - ports:
       - port: "80"
@@ -21,4 +18,4 @@ spec:
       rules:
         http:
         - method: "GET"
-          path: "/$"
+          path: "/public"
