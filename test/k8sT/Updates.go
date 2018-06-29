@@ -12,13 +12,18 @@ import (
 )
 
 var _ = Describe("K8sValidatedUpdates", func() {
+	var (
+		kubectl            *helpers.Kubectl
+		logger             *logrus.Entry
+		demoPath           string
+		l3Policy, l7Policy string
+		apps               []string
 
-	var kubectl *helpers.Kubectl
-	var logger *logrus.Entry
-	var demoPath string
-	var l3Policy, l7Policy string
-	var apps []string
-	var app1Service string = "app1-service.default.svc.cluster.local"
+		app1Service = "app1-service.default.svc.cluster.local"
+
+		microscopeErr    error
+		microscopeCancel = func() error { return nil }
+	)
 
 	BeforeAll(func() {
 		logger = log.WithFields(logrus.Fields{"testName": "K8sValidatedUpdates"})
@@ -43,12 +48,18 @@ var _ = Describe("K8sValidatedUpdates", func() {
 		ExpectAllPodsTerminated(kubectl)
 	})
 
+	JustBeforeEach(func() {
+		microscopeErr, microscopeCancel = kubectl.MicroscopeStart()
+		Expect(microscopeErr).To(BeNil(), "Microscope cannot be started")
+	})
+
 	AfterFailed(func() {
 		kubectl.CiliumReport(helpers.KubeSystemNamespace, "cilium endpoint list")
 	})
 
 	JustAfterEach(func() {
 		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+		Expect(microscopeCancel()).To(BeNil(), "cannot stop microscope")
 	})
 
 	AfterEach(func() {
@@ -155,6 +166,12 @@ var _ = Describe("K8sValidatedUpdates", func() {
 			"Cilium Pods are not updating correctly",
 			&helpers.TimeoutConfig{Timeout: timeout})
 		Expect(err).To(BeNil(), "Pods are not updating")
+
+		Expect(microscopeCancel()).To(BeNil(), "cannot stop microscope")
+		Expect(kubectl.WaitCleanAllTerminatingPods()).To(BeNil(), "Pods didn't terminate correctly")
+
+		microscopeErr, microscopeCancel = kubectl.MicroscopeStart()
+		Expect(microscopeErr).To(BeNil(), "Microscope cannot be started")
 
 		err = kubectl.WaitforPods(
 			helpers.KubeSystemNamespace, "-l k8s-app=cilium", timeout)
