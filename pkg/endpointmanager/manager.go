@@ -133,6 +133,14 @@ func LookupIPv4(ipv4 string) *endpoint.Endpoint {
 	return ep
 }
 
+// LookupCiliumID looks up endpoint by endpoint ID
+func LookupPodName(podname string) *endpoint.Endpoint {
+	mutex.RLock()
+	ep := lookupPodNameLocked(podname)
+	mutex.RUnlock()
+	return ep
+}
+
 // UpdateReferences makes an endpoint available by all possible reference
 // fields as available for this endpoint (containerID, IPv4 address, ...)
 // Must be called with ep.Mutex.RLock held.
