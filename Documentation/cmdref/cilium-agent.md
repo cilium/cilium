@@ -61,6 +61,7 @@ cilium-agent
       --logstash-agent string                       Logstash agent address (default "127.0.0.1:8080")
       --logstash-probe-timer uint32                 Logstash probe timer (seconds) (default 10)
       --masquerade                                  Masquerade packets from endpoints leaving the host (default true)
+      --mtu int                                     Overwrite auto-detected MTU of underlying network (default 1500)
       --nat46-range string                          IPv6 prefix to map IPv4 addresses to (default "0:0:0:0:0:FFFF::/96")
       --pprof                                       Enable serving the pprof debugging API
       --prefilter-device string                     Device facing external network for XDP prefiltering (default "undefined")
