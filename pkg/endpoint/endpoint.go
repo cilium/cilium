@@ -2017,7 +2017,7 @@ func (e *Endpoint) bumpPolicyRevision(revision uint64) {
 func (e *Endpoint) OnProxyPolicyUpdate(revision uint64) {
 	e.Mutex.Lock()
 	if revision > e.proxyPolicyRevision {
-		e.proxyPolicyRevision = revision
+		e.setProxyPolicyRevision(revision)
 	}
 	e.Mutex.Unlock()
 }
@@ -2348,12 +2348,37 @@ func (e *Endpoint) setPolicyRevision(rev uint64) {
 			close(ps.ch)
 			delete(e.policyRevisionSignals, ps)
 		default:
-			if rev >= ps.wantedRev {
+			if e.policyRevision >= ps.wantedRev && e.proxyPolicyRevision >= ps.wantedRev {
 				close(ps.ch)
 				delete(e.policyRevisionSignals, ps)
 			}
 		}
 	}
+}
+
+// setProxyPolicyRevision sets the policy wantedRev with the given revision.
+func (e *Endpoint) setProxyPolicyRevision(rev uint64) {
+	e.proxyPolicyRevision = rev
+	for ps := range e.policyRevisionSignals {
+		select {
+		case <-ps.ctx.Done():
+			close(ps.ch)
+			delete(e.policyRevisionSignals, ps)
+		default:
+			if (!e.HasProxy() || e.proxyPolicyRevision >= ps.wantedRev) && e.policyRevision >= ps.wantedRev {
+				close(ps.ch)
+				delete(e.policyRevisionSignals, ps)
+			}
+		}
+	}
+}
+
+// HasProxy returns true if the given endpoint has a proxy redirect configured.
+// Must be called with e.RLock held
+func (e *Endpoint) HasProxy() bool {
+	return e.DesiredL4Policy != nil &&
+		e.DesiredL4Policy.Ingress.HasRedirect() &&
+		e.DesiredL4Policy.Egress.HasRedirect()
 }
 
 // cleanPolicySignals closes and removes all policy revision signals.
