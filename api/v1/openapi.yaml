@@ -1411,6 +1411,9 @@ definitions:
     properties:
       name:
         type: string
+        description: |
+          Name of the node including the cluster association. This is typically
+          <clustername>/<hostname>.
       primary-address:
         description: Primary address used for intra-cluster communication
         "$ref": "#/definitions/NodeAddressing"

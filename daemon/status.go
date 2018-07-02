@@ -99,7 +99,7 @@ func (d *Daemon) getNodeStatus() *models.ClusterStatus {
 	ipv4 := !option.Config.IPv4Disabled
 
 	clusterStatus := models.ClusterStatus{
-		Self: node.GetLocalNode().Name,
+		Self: node.GetLocalNode().Fullname(),
 	}
 	for _, node := range node.GetNodes() {
 		clusterStatus.Nodes = append(clusterStatus.Nodes, node.GetModel(ipv4))
