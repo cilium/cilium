@@ -26,8 +26,9 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common/addressing"
-	"github.com/cilium/cilium/common/plugins"
+	"github.com/cilium/cilium/pkg/datapath/route"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpoint/connector"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	healthPkg "github.com/cilium/cilium/pkg/health/client"
@@ -84,14 +85,14 @@ func logFromCommand(cmd *exec.Cmd, netns string) error {
 }
 
 func configureHealthRouting(netns, dev string, addressing *models.NodeAddressing) error {
-	routes := []plugins.Route{}
-	v4Routes, err := plugins.IPv4Routes(addressing, mtu.GetRouteMTU())
+	routes := []route.Route{}
+	v4Routes, err := connector.IPv4Routes(addressing, mtu.GetRouteMTU())
 	if err == nil {
 		routes = append(routes, v4Routes...)
 	} else {
 		log.Debugf("Couldn't get IPv4 routes for health routing")
 	}
-	v6Routes, err := plugins.IPv6Routes(addressing, mtu.GetRouteMTU())
+	v6Routes, err := connector.IPv6Routes(addressing, mtu.GetRouteMTU())
 	if err != nil {
 		return fmt.Errorf("Failed to get IPv6 routes")
 	}
@@ -183,7 +184,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 		},
 	}
 
-	if _, _, err := plugins.SetupVethWithNames(vethName, vethPeerName, mtu.GetDeviceMTU(), info); err != nil {
+	if _, _, err := connector.SetupVethWithNames(vethName, vethPeerName, mtu.GetDeviceMTU(), info); err != nil {
 		return fmt.Errorf("Error while creating veth: %s", err)
 	}
 

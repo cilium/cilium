@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,13 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package plugins
+package connector
 
 import (
 	"fmt"
 	"net"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/datapath/route"
 	"github.com/cilium/cilium/pkg/node"
 )
 
@@ -34,53 +35,13 @@ func IPv4Gateway(addr *models.NodeAddressing) string {
 	return addr.IPV4.IP
 }
 
-type Route struct {
-	Prefix  net.IPNet
-	Nexthop *net.IP
-	MTU     int
-}
-
-// ToIPCommand converts the route into a full "ip route ..." command
-func (r *Route) ToIPCommand(dev string) []string {
-	res := []string{"ip"}
-	if r.Prefix.IP.To4() == nil {
-		res = append(res, "-6")
-	}
-	res = append(res, "route", "add", r.Prefix.String())
-	if r.Nexthop != nil {
-		res = append(res, "via", r.Nexthop.String())
-	}
-	if r.MTU != 0 {
-		res = append(res, "mtu", fmt.Sprintf("%d", r.MTU))
-	}
-	res = append(res, "dev", dev)
-	return res
-}
-
-// ByMask is used to sort an array of routes by mask, narrow first.
-type ByMask []Route
-
-func (a ByMask) Len() int {
-	return len(a)
-}
-
-func (a ByMask) Less(i, j int) bool {
-	lenA, _ := a[i].Prefix.Mask.Size()
-	lenB, _ := a[j].Prefix.Mask.Size()
-	return lenA > lenB
-}
-
-func (a ByMask) Swap(i, j int) {
-	a[i], a[j] = a[j], a[i]
-}
-
 // IPv6Routes returns IPv6 routes to be installed in endpoint's networking namespace.
-func IPv6Routes(addr *models.NodeAddressing, linkMTU int) ([]Route, error) {
+func IPv6Routes(addr *models.NodeAddressing, linkMTU int) ([]route.Route, error) {
 	ip := net.ParseIP(addr.IPV6.IP)
 	if ip == nil {
-		return []Route{}, fmt.Errorf("Invalid IP address: %s", addr.IPV6.IP)
+		return []route.Route{}, fmt.Errorf("Invalid IP address: %s", addr.IPV6.IP)
 	}
-	return []Route{
+	return []route.Route{
 		{
 			Prefix: net.IPNet{
 				IP:   ip,
@@ -96,12 +57,12 @@ func IPv6Routes(addr *models.NodeAddressing, linkMTU int) ([]Route, error) {
 }
 
 // IPv4Routes returns IPv4 routes to be installed in endpoint's networking namespace.
-func IPv4Routes(addr *models.NodeAddressing, linkMTU int) ([]Route, error) {
+func IPv4Routes(addr *models.NodeAddressing, linkMTU int) ([]route.Route, error) {
 	ip := net.ParseIP(addr.IPV4.IP)
 	if ip == nil {
-		return []Route{}, fmt.Errorf("Invalid IP address: %s", addr.IPV4.IP)
+		return []route.Route{}, fmt.Errorf("Invalid IP address: %s", addr.IPV4.IP)
 	}
-	return []Route{
+	return []route.Route{
 		{
 			Prefix: net.IPNet{
 				IP:   ip,
@@ -116,6 +77,8 @@ func IPv4Routes(addr *models.NodeAddressing, linkMTU int) ([]Route, error) {
 	}, nil
 }
 
+// SufficientAddressing returns an error if the provided NodeAddressing does
+// not provide sufficient information to derive all IPAM required settings.
 func SufficientAddressing(addr *models.NodeAddressing) error {
 	if addr == nil {
 		return fmt.Errorf("Cilium daemon did not provide addressing information")

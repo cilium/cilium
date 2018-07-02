@@ -24,8 +24,10 @@ import (
 	"github.com/cilium/cilium/api/v1/client/endpoint"
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common/addressing"
-	"github.com/cilium/cilium/common/plugins"
 	"github.com/cilium/cilium/pkg/client"
+	"github.com/cilium/cilium/pkg/datapath/link"
+	"github.com/cilium/cilium/pkg/datapath/route"
+	"github.com/cilium/cilium/pkg/endpoint/connector"
 	endpointIDPkg "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -63,7 +65,7 @@ func endpointID(id string) string {
 	return endpointIDPkg.NewID(endpointIDPkg.DockerEndpointPrefix, id)
 }
 
-func newLibnetworkRoute(route plugins.Route) api.StaticRoute {
+func newLibnetworkRoute(route route.Route) api.StaticRoute {
 	rt := api.StaticRoute{
 		Destination: route.Prefix.String(),
 		RouteType:   lnTypes.CONNECTED,
@@ -112,7 +114,7 @@ func NewDriver(url string) (Driver, error) {
 		}
 	}
 
-	if err := plugins.SufficientAddressing(d.conf.Addressing); err != nil {
+	if err := connector.SufficientAddressing(d.conf.Addressing); err != nil {
 		scopedLog.WithError(err).Fatal("Insufficient addressing")
 	}
 
@@ -134,7 +136,7 @@ func (driver *driver) updateRoutes(addressing *models.NodeAddressing) {
 	driver.routes = []api.StaticRoute{}
 
 	if driver.conf.Addressing.IPV6 != nil {
-		if routes, err := plugins.IPv6Routes(driver.conf.Addressing, int(driver.conf.RouteMTU)); err != nil {
+		if routes, err := connector.IPv6Routes(driver.conf.Addressing, int(driver.conf.RouteMTU)); err != nil {
 			log.Fatalf("Unable to generate IPv6 routes: %s", err)
 		} else {
 			for _, r := range routes {
@@ -142,11 +144,11 @@ func (driver *driver) updateRoutes(addressing *models.NodeAddressing) {
 			}
 		}
 
-		driver.gatewayIPv6 = plugins.IPv6Gateway(driver.conf.Addressing)
+		driver.gatewayIPv6 = connector.IPv6Gateway(driver.conf.Addressing)
 	}
 
 	if driver.conf.Addressing.IPV4 != nil {
-		if routes, err := plugins.IPv4Routes(driver.conf.Addressing, int(driver.conf.RouteMTU)); err != nil {
+		if routes, err := connector.IPv4Routes(driver.conf.Addressing, int(driver.conf.RouteMTU)); err != nil {
 			log.Fatalf("Unable to generate IPv4 routes: %s", err)
 		} else {
 			for _, r := range routes {
@@ -154,7 +156,7 @@ func (driver *driver) updateRoutes(addressing *models.NodeAddressing) {
 			}
 		}
 
-		driver.gatewayIPv4 = plugins.IPv6Gateway(driver.conf.Addressing)
+		driver.gatewayIPv4 = connector.IPv6Gateway(driver.conf.Addressing)
 	}
 }
 
@@ -322,7 +324,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	veth, _, _, err := plugins.SetupVeth(create.EndpointID, int(driver.conf.DeviceMTU), endpoint)
+	veth, _, _, err := connector.SetupVeth(create.EndpointID, int(driver.conf.DeviceMTU), endpoint)
 	if err != nil {
 		sendError(w, "Error while setting up veth pair: "+err.Error(), http.StatusBadRequest)
 		return
@@ -365,7 +367,7 @@ func (driver *driver) deleteEndpoint(w http.ResponseWriter, r *http.Request) {
 	}
 	log.WithField(logfields.Request, logfields.Repr(&del)).Debug("Delete endpoint request")
 
-	if err := plugins.DelLinkByName(plugins.Endpoint2IfName(del.EndpointID)); err != nil {
+	if err := link.DeleteByName(connector.Endpoint2IfName(del.EndpointID)); err != nil {
 		log.WithError(err).Warn("Error while deleting link")
 	}
 
@@ -408,7 +410,7 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	res := &api.JoinResponse{
 		InterfaceName: &api.InterfaceName{
-			SrcName:   plugins.Endpoint2TempIfName(j.EndpointID),
+			SrcName:   connector.Endpoint2TempIfName(j.EndpointID),
 			DstPrefix: ContainerInterfacePrefix,
 		},
 		StaticRoutes:          driver.routes,
@@ -423,7 +425,7 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 	// msg=\"failed to set gateway while updating gateway: file exists\" \n"
 	//
 	// If empty, it works as expected without docker runtime errors
-	// res.Gateway = plugins.IPv4Gateway(addr)
+	// res.Gateway = connector.IPv4Gateway(addr)
 
 	log.WithField(logfields.Response, logfields.Repr(res)).Debug("Join response")
 	objectResponse(w, res)
