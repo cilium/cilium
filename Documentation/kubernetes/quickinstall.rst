@@ -66,15 +66,6 @@ chapter.
       [adjust the etcd address]
 
 
-**Optional:** If you want to adjust the MTU of the pods, define the ``MTU`` environment
-variable in the ``env`` section:
-
-.. code:: bash
-
-    env:
-      - name: "MTU"
-        value: "8950"
-
 3. Deploy ``cilium`` with your local changes
 
 .. code:: bash
