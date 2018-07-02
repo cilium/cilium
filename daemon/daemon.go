@@ -1231,10 +1231,9 @@ func NewDaemon() (*Daemon, error) {
 		log.Infof("  Loopback IPv4: %s", node.GetIPv4Loopback().String())
 	}
 
-	// Populate list of nodes with local node entry
-	log.Info("Adding local node to local cluster node list")
-	ni, n := node.GetLocalNode()
-	node.UpdateNode(ni, n, node.TunnelRoute, nil)
+	if err := node.ConfigureLocalNode(); err != nil {
+		log.WithError(err).Fatal("Unable to initialize local node")
+	}
 
 	// This needs to be done after the node addressing has been configured
 	// as the node address is required as sufix
