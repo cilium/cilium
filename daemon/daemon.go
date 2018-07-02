@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/apierror"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -131,6 +132,8 @@ type Daemon struct {
 
 	// ipcacheListeners lists all parties interested in IP -> ID mappings.
 	ipcacheListeners []ipcache.IPIdentityMappingListener
+
+	clustermesh *clustermesh.RemoteClustersCache
 }
 
 // UpdateProxyRedirect updates the redirect rules in the proxy for a particular
@@ -1253,6 +1256,16 @@ func NewDaemon() (*Daemon, error) {
 
 	if err := node.ConfigureLocalNode(); err != nil {
 		log.WithError(err).Fatal("Unable to initialize local node")
+	}
+
+	if path := option.Config.ClusterMeshConfig; path != "" {
+		log.WithField("path", path).Info("Enabling inter cluster routing")
+		clustermesh, err := clustermesh.NewRemoteClustersCache("clustermesh", path, node.KeyCreator)
+		if err != nil {
+			log.WithError(err).Fatal("Unable to initialize clustermesh")
+		}
+
+		d.clustermesh = clustermesh
 	}
 
 	// This needs to be done after the node addressing has been configured
