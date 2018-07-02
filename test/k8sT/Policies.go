@@ -164,43 +164,6 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			_ = kubectl.Exec(cmd)
 		})
 
-		It("tests PolicyEnforcement updates", func() {
-			By("Waiting for cilium pod and endpoints on K8s1 to be ready")
-
-			err := kubectl.CiliumEndpointWaitReady()
-			Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
-			validateNoPolicyEnabled()
-
-			By("Set PolicyEnforcement to always")
-
-			err = kubectl.CiliumExecAll(fmt.Sprintf("cilium config %s=%s",
-				helpers.PolicyEnforcement, helpers.PolicyEnforcementAlways))
-			Expect(err).To(BeNil(), "cannot change cilium config correctly")
-
-			err = kubectl.CiliumEndpointWaitReady()
-			Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
-
-			// Check that policy enforcement is enabled for all app pods
-			Expect(kubectl.WaitCEPReady()).To(BeNil(), "Cep is not ready after a specified timeout")
-			for _, app := range apps {
-				pod := appPods[app]
-				cep := kubectl.CepGet(helpers.DefaultNamespace, pod)
-				Expect(cep).NotTo(BeNil(), "Endpoint %q does not exist", pod)
-
-				Expect(cep.Status.Policy.Realized.PolicyEnabled).To(Equal(models.EndpointPolicyEnabledBoth),
-					"Policy status does not match for endpoint %s", pod)
-			}
-
-			By("Return PolicyEnforcement to default")
-			err = kubectl.CiliumExecAll(fmt.Sprintf("cilium config %s=%s",
-				helpers.PolicyEnforcement, helpers.PolicyEnforcementDefault))
-			Expect(err).To(BeNil(), "cannot change cilium config correctly")
-
-			err = kubectl.CiliumEndpointWaitReady()
-			Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
-			validateNoPolicyEnabled()
-		}, 500)
-
 		It("checks all kind of Kubernetes policies", func() {
 
 			logger.Infof("PolicyRulesTest: cluster service ip '%s'", clusterIP)
