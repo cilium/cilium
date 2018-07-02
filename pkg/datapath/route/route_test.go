@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package plugins
+package route
 
 import (
 	"fmt"
@@ -26,16 +26,16 @@ import (
 // Hook up gocheck into the "go test" runner.
 func Test(t *testing.T) { TestingT(t) }
 
-type PluginsSuite struct{}
+type RouteSuite struct{}
 
-var _ = Suite(&PluginsSuite{})
+var _ = Suite(&RouteSuite{})
 
 func parseIP(ip string) *net.IP {
 	result := net.ParseIP(ip)
 	return &result
 }
 
-func (p *PluginsSuite) TestToIPCommand(c *C) {
+func (p *RouteSuite) TestToIPCommand(c *C) {
 	routes := []*Route{
 		{
 			Prefix: net.IPNet{
