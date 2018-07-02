@@ -153,7 +153,7 @@ skip_service_lookup:
 	 * entry to allow reverse packets and return set cb[CB_POLICY] to
 	 * POLICY_SKIP if the packet is a reply packet to an existing
 	 * incoming connection. */
-	ret = ct_lookup6(&CT_MAP6, tuple, skb, l4_off, SECLABEL, CT_EGRESS,
+	ret = ct_lookup6(&CT_MAP6, tuple, skb, l4_off, CT_EGRESS,
 			 &ct_state);
 	if (ret < 0)
 		return ret;
@@ -458,7 +458,7 @@ skip_service_lookup:
 	 * entry to allow reverse packets and return set cb[CB_POLICY] to
 	 * POLICY_SKIP if the packet is a reply packet to an existing
 	 * incoming connection. */
-	ret = ct_lookup4(&CT_MAP4, &tuple, skb, l4_off, SECLABEL, CT_EGRESS,
+	ret = ct_lookup4(&CT_MAP4, &tuple, skb, l4_off, CT_EGRESS,
 			 &ct_state);
 	if (ret < 0)
 		return ret;
@@ -756,7 +756,7 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 		}
 	}
 
-	ret = ct_lookup6(&CT_MAP6, &tuple, skb, l4_off, SECLABEL, CT_INGRESS,
+	ret = ct_lookup6(&CT_MAP6, &tuple, skb, l4_off, CT_INGRESS,
 			 &ct_state);
 	if (ret < 0)
 		return ret;
@@ -858,7 +858,7 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
-	ret = ct_lookup4(&CT_MAP4, &tuple, skb, l4_off, SECLABEL, CT_INGRESS, &ct_state);
+	ret = ct_lookup4(&CT_MAP4, &tuple, skb, l4_off, CT_INGRESS, &ct_state);
 	if (ret < 0)
 		return ret;
 
