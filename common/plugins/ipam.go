@@ -19,7 +19,6 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 )
 
@@ -91,7 +90,7 @@ func IPv6Routes(addr *models.NodeAddressing, linkMTU int) ([]Route, error) {
 		{
 			Prefix:  node.IPv6DefaultRoute,
 			Nexthop: &ip,
-			MTU:     linkMTU - mtu.TunnelOverhead,
+			MTU:     linkMTU,
 		},
 	}, nil
 }
@@ -112,7 +111,7 @@ func IPv4Routes(addr *models.NodeAddressing, linkMTU int) ([]Route, error) {
 		{
 			Prefix:  node.IPv4DefaultRoute,
 			Nexthop: &ip,
-			MTU:     linkMTU - mtu.TunnelOverhead,
+			MTU:     linkMTU,
 		},
 	}, nil
 }

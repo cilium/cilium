@@ -23,6 +23,9 @@ type DaemonConfigurationStatus struct {
 	// addressing
 	Addressing *NodeAddressing `json:"addressing,omitempty"`
 
+	// MTU on workload facing devices
+	DeviceMTU int64 `json:"deviceMTU,omitempty"`
+
 	// Immutable configuration (read-only)
 	Immutable ConfigurationMap `json:"immutable,omitempty"`
 
@@ -40,9 +43,14 @@ type DaemonConfigurationStatus struct {
 
 	// Currently applied configuration
 	Realized *DaemonConfigurationSpec `json:"realized,omitempty"`
+
+	// MTU for network facing routes
+	RouteMTU int64 `json:"routeMTU,omitempty"`
 }
 
 /* polymorph DaemonConfigurationStatus addressing false */
+
+/* polymorph DaemonConfigurationStatus deviceMTU false */
 
 /* polymorph DaemonConfigurationStatus immutable false */
 
@@ -55,6 +63,8 @@ type DaemonConfigurationStatus struct {
 /* polymorph DaemonConfigurationStatus nodeMonitor false */
 
 /* polymorph DaemonConfigurationStatus realized false */
+
+/* polymorph DaemonConfigurationStatus routeMTU false */
 
 // Validate validates this daemon configuration status
 func (m *DaemonConfigurationStatus) Validate(formats strfmt.Registry) error {
