@@ -85,8 +85,33 @@ const (
 	// ClusterName is the name of the ClusterName option
 	ClusterName = "cluster-name"
 
-	// ClusterNameEnv is the name of the environment variable of the ClusterName option
+	// ClusterNameEnv is the name of the environment variable of the
+	// ClusterName option
 	ClusterNameEnv = "CILIUM_CLUSTER_NAME"
+
+	// ClusterIDName is the name of the ClusterID option
+	ClusterIDName = "cluster-id"
+
+	// ClusterIDEnv is the name of the environment variable of the
+	// ClusterID option
+	ClusterIDEnv = "CILIUM_CLUSTER_ID"
+
+	// ClusterIDMin is the minimum value of the cluster ID
+	ClusterIDMin = 0
+
+	// ClusterIDMax is the maximum value of the cluster ID
+	ClusterIDMax = 255
+
+	// ClusterIDShift specifies the number of bits the cluster ID will be
+	// shifted
+	ClusterIDShift = 16
+
+	// ClusterMeshConfigName is the name of the ClusterMeshConfig option
+	ClusterMeshConfigName = "clustermesh-config"
+
+	// ClusterMeshConfigNameEnv is the name of the environment variable of
+	// the ClusterMeshConfig option
+	ClusterMeshConfigNameEnv = "CILIUM_CLUSTERMESH_CONFIG"
 )
 
 // Available option for daemonConfig.Tunnel
@@ -191,6 +216,12 @@ type daemonConfig struct {
 
 	// ClusterName is the name of the cluster
 	ClusterName string
+
+	// ClusterID is the unique identifier of the cluster
+	ClusterID int
+
+	// ClusterMeshConfig is the path to the clustermesh configuration directory
+	ClusterMeshConfig string
 }
 
 var (
@@ -279,6 +310,25 @@ func (c *daemonConfig) Validate() error {
 	}
 
 	c.ClusterName = viper.GetString(ClusterName)
+	c.ClusterID = viper.GetInt(ClusterIDName)
+	c.ClusterMeshConfig = viper.GetString(ClusterMeshConfigName)
+
+	if c.ClusterID < ClusterIDMin || c.ClusterID > ClusterIDMax {
+		return fmt.Errorf("invalid cluster id %d: must be in range %d..%d",
+			c.ClusterID, ClusterIDMin, ClusterIDMax)
+	}
+
+	if c.ClusterMeshConfig != "" {
+		if c.ClusterID == 0 {
+			return fmt.Errorf("option %s must be specified to use %s",
+				ClusterIDName, ClusterMeshConfigName)
+		}
+
+		if c.ClusterName == defaults.ClusterName {
+			return fmt.Errorf("cannot use default cluster name (%s) with option %s",
+				defaults.ClusterName, ClusterMeshConfigName)
+		}
+	}
 
 	return nil
 }

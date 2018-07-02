@@ -24,11 +24,17 @@ import (
 )
 
 var (
-	// nodesStorePrefix is the kvstore prefix of the shared store
+	// NodeStorePrefix is the kvstore prefix of the shared store
 	//
 	// WARNING - STABLE API: Changing the structure or values of this will
 	// break backwards compatibility
-	nodeStorePrefix = path.Join(kvstore.BaseKeyPrefix, "state", "nodes", "v1")
+	NodeStorePrefix = path.Join(kvstore.BaseKeyPrefix, "state", "nodes", "v1")
+
+	// KeyCreator creates a node for a shared store
+	KeyCreator = func() store.Key {
+		n := Node{}
+		return &n
+	}
 
 	nodeStore *store.SharedStore
 )
@@ -56,11 +62,8 @@ func registerNode() error {
 
 	// Join the shared store holding node information of entire cluster
 	store, err := store.JoinSharedStore(store.Configuration{
-		Prefix: nodeStorePrefix,
-		KeyCreator: func() store.Key {
-			n := Node{}
-			return &n
-		},
+		Prefix:                  NodeStorePrefix,
+		KeyCreator:              KeyCreator,
 		SynchronizationInterval: time.Minute,
 	})
 

@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/counter"
@@ -138,6 +139,8 @@ type Daemon struct {
 	// prefixLengths tracks a mapping from CIDR prefix length to the count
 	// of rules that refer to that prefix length.
 	prefixLengths *counter.PrefixLengthCounter
+
+	clustermesh *clustermesh.ClusterMesh
 }
 
 // UpdateProxyRedirect updates the redirect rules in the proxy for a particular
@@ -1261,6 +1264,8 @@ func NewDaemon() (*Daemon, error) {
 		log.WithError(err).Fatal("postinit failed")
 	}
 	log.Info("Addressing information:")
+	log.Infof("  Cluster-Name: %s", option.Config.ClusterName)
+	log.Infof("  Cluster-ID: %d", option.Config.ClusterID)
 	log.Infof("  Local node-name: %s", node.GetName())
 	log.Infof("  Node-IPv6: %s", node.GetIPv6())
 	log.Infof("  External-Node IPv4: %s", node.GetExternalIPv4())
@@ -1284,6 +1289,20 @@ func NewDaemon() (*Daemon, error) {
 
 	if err := node.ConfigureLocalNode(); err != nil {
 		log.WithError(err).Fatal("Unable to initialize local node")
+	}
+
+	if path := option.Config.ClusterMeshConfig; path != "" {
+		log.WithField("path", path).Info("Enabling inter cluster routing")
+		clustermesh, err := clustermesh.NewClusterMesh(clustermesh.Configuration{
+			Name:            "clustermesh",
+			ConfigDirectory: path,
+			NodeKeyCreator:  node.KeyCreator,
+		})
+		if err != nil {
+			log.WithError(err).Fatal("Unable to initialize clustermesh")
+		}
+
+		d.clustermesh = clustermesh
 	}
 
 	// This needs to be done after the node addressing has been configured
