@@ -136,58 +136,6 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			kubectl.Delete(knpAllowEgress)
 			kubectl.Delete(knpAllowIngress)
 		})
-
-		It("tests PolicyEnforcement updates", func() {
-			By("Waiting for cilium pod and endpoints on K8s1 to be ready")
-			_, endpoints := kubectl.WaitCiliumEndpointReady(podFilter, helpers.K8s1)
-			policyStatus := endpoints.GetPolicyStatus()
-			// default mode with no policy, all endpoints must be in allow all
-			Expect(policyStatus[models.EndpointPolicyEnabledNone]).Should(Equal(4))
-			Expect(policyStatus[models.EndpointPolicyEnabledIngress]).Should(Equal(0))
-			Expect(policyStatus[models.EndpointPolicyEnabledEgress]).Should(Equal(0))
-			Expect(policyStatus[models.EndpointPolicyEnabledBoth]).Should(Equal(0))
-
-			By("Set PolicyEnforcement to always")
-
-			status := kubectl.CiliumExec(
-				ciliumPod, fmt.Sprintf("cilium config %s=%s",
-					helpers.PolicyEnforcement, helpers.PolicyEnforcementAlways))
-			status.ExpectSuccess()
-
-			err := kubectl.CiliumEndpointWaitReady()
-			Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
-
-			endpoints, err = kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
-			Expect(err).Should(BeNil())
-			Expect(endpoints.AreReady()).Should(BeTrue())
-			policyStatus = endpoints.GetPolicyStatus()
-			// Always-on mode with no policy, all endpoints must be in default deny
-			Expect(policyStatus[models.EndpointPolicyEnabledNone]).Should(Equal(0))
-			Expect(policyStatus[models.EndpointPolicyEnabledIngress]).Should(Equal(0))
-			Expect(policyStatus[models.EndpointPolicyEnabledEgress]).Should(Equal(0))
-			Expect(policyStatus[models.EndpointPolicyEnabledBoth]).Should(Equal(4))
-
-			By("Return PolicyEnforcement to default")
-
-			status = kubectl.CiliumExec(
-				ciliumPod, fmt.Sprintf("cilium config %s=%s",
-					helpers.PolicyEnforcement, helpers.PolicyEnforcementDefault))
-			status.ExpectSuccess()
-
-			err = kubectl.CiliumEndpointWaitReady()
-			Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
-
-			endpoints, err = kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
-			Expect(err).Should(BeNil())
-			Expect(endpoints.AreReady()).Should(BeTrue())
-			policyStatus = endpoints.GetPolicyStatus()
-			// Default mode with no policy, all endpoints must still be in default allow
-			Expect(policyStatus[models.EndpointPolicyEnabledNone]).Should(Equal(4))
-			Expect(policyStatus[models.EndpointPolicyEnabledIngress]).Should(Equal(0))
-			Expect(policyStatus[models.EndpointPolicyEnabledEgress]).Should(Equal(0))
-			Expect(policyStatus[models.EndpointPolicyEnabledBoth]).Should(Equal(0))
-		}, 500)
-
 		It("checks all kind of Kubernetes policies", func() {
 			logger.Infof("PolicyRulesTest: cluster service ip '%s'", clusterIP)
 
