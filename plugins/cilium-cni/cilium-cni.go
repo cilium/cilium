@@ -328,6 +328,17 @@ func cmdAdd(args *skel.CmdArgs) error {
 		addLabels = append(addLabels, fmt.Sprintf("%s:%s=%s", labels.LabelSourceMesos, label.Key, label.Value))
 	}
 
+	configResult, err := client.ConfigGet()
+	if err != nil {
+		return fmt.Errorf("unable to retrieve configuration from cilium-agent: %s", err)
+	}
+
+	if configResult == nil || configResult.Status == nil {
+		return fmt.Errorf("did not receive configuration from cilium-agent")
+	}
+
+	conf := *configResult.Status
+
 	ep := &models.EndpointChangeRequest{
 		ContainerID: args.ContainerID,
 		Labels:      addLabels,
@@ -335,7 +346,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 		Addressing:  &models.AddressPair{},
 	}
 
-	veth, peer, tmpIfName, err := plugins.SetupVeth(ep.ContainerID, n.MTU, ep)
+	veth, peer, tmpIfName, err := plugins.SetupVeth(ep.ContainerID, int(conf.DeviceMTU), ep)
 	if err != nil {
 		return err
 	}
@@ -394,7 +405,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 	res := &cniTypesVer.Result{}
 
 	if IPv6IsEnabled(ipam) {
-		ipConfig, routes, err := prepareIP(ep.Addressing.IPV6, true, &state, n.MTU)
+		ipConfig, routes, err := prepareIP(ep.Addressing.IPV6, true, &state, int(conf.RouteMTU))
 		if err != nil {
 			return err
 		}
@@ -406,7 +417,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 	}
 
 	if IPv4IsEnabled(ipam) {
-		ipConfig, routes, err := prepareIP(ep.Addressing.IPV4, false, &state, n.MTU)
+		ipConfig, routes, err := prepareIP(ep.Addressing.IPV4, false, &state, int(conf.RouteMTU))
 		if err != nil {
 			return err
 		}

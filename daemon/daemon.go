@@ -681,7 +681,7 @@ func (d *Daemon) compileBase() error {
 	args[initArgRundir] = option.Config.StateDir
 	args[initArgIPv4NodeIP] = node.GetInternalIPv4().String()
 	args[initArgIPv6NodeIP] = node.GetIPv6().String()
-	args[initArgMTU] = fmt.Sprintf("%d", mtu.StandardMTU)
+	args[initArgMTU] = fmt.Sprintf("%d", mtu.GetDeviceMTU())
 
 	if option.Config.Device != "undefined" {
 		_, err := netlink.LinkByName(option.Config.Device)
@@ -1510,7 +1510,9 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 			Type:    kvStore,
 			Options: kvStoreOpts,
 		},
-		Realized: spec,
+		Realized:  spec,
+		DeviceMTU: int64(mtu.GetDeviceMTU()),
+		RouteMTU:  int64(mtu.GetRouteMTU()),
 	}
 
 	cfg := &models.DaemonConfiguration{
