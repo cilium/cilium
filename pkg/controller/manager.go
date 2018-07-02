@@ -116,7 +116,7 @@ func (m *Manager) removeController(ctrl *Controller) {
 
 // RemoveController stops and removes a controller from the manager. If DoFunc
 // is currently running, DoFunc is allowed to complete in the background.
-func (m *Manager) RemoveController(name string) error {
+func (m *Manager) RemoveController(ctrl *Controller) error {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
@@ -124,9 +124,10 @@ func (m *Manager) RemoveController(name string) error {
 		return fmt.Errorf("empty controller map")
 	}
 
-	oldCtrl, ok := m.controllers[name]
-	if !ok {
-		return fmt.Errorf("unable to find controller %s", name)
+	oldCtrl, ok := m.controllers[ctrl.name]
+	if !ok || oldCtrl.uuid != ctrl.uuid {
+		// only remove if it's in the map and the uuid matches
+		return fmt.Errorf("unable to find controller %s", ctrl.name)
 	}
 
 	m.removeController(oldCtrl)
