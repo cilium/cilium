@@ -8,7 +8,7 @@ $K8S_VERSION = ENV['K8S_VERSION'] || "1.10"
 $K8S_NODES = (ENV['K8S_NODES'] || "2").to_i
 $NFS = ENV['NFS']=="1"? true : false
 $SERVER_BOX = (ENV['SERVER_BOX'] || "cilium/ubuntu-dev")
-$SERVER_VERSION="91"
+$SERVER_VERSION="92"
 $IPv6=(ENV['IPv6'] || "0")
 $CONTAINER_RUNTIME=(ENV['CONTAINER_RUNTIME'] || "docker")
 

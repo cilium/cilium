@@ -42,7 +42,7 @@ func (x SocketAddress_Protocol) String() string {
 	return proto.EnumName(SocketAddress_Protocol_name, int32(x))
 }
 func (SocketAddress_Protocol) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_address_f4d4ccf656e6b43c, []int{1, 0}
+	return fileDescriptor_address_db08d0ef9ed44b0d, []int{1, 0}
 }
 
 type Pipe struct {
@@ -60,7 +60,7 @@ func (m *Pipe) Reset()         { *m = Pipe{} }
 func (m *Pipe) String() string { return proto.CompactTextString(m) }
 func (*Pipe) ProtoMessage()    {}
 func (*Pipe) Descriptor() ([]byte, []int) {
-	return fileDescriptor_address_f4d4ccf656e6b43c, []int{0}
+	return fileDescriptor_address_db08d0ef9ed44b0d, []int{0}
 }
 func (m *Pipe) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Pipe.Unmarshal(m, b)
@@ -90,14 +90,16 @@ func (m *Pipe) GetPath() string {
 type SocketAddress struct {
 	Protocol SocketAddress_Protocol `protobuf:"varint,1,opt,name=protocol,proto3,enum=envoy.api.v2.core.SocketAddress_Protocol" json:"protocol,omitempty"`
 	// The address for this socket. :ref:`Listeners <config_listeners>` will bind
-	// to the address or outbound connections will be made. An empty address is
-	// not allowed, specify ``0.0.0.0`` or ``::`` to bind any. It's still possible to
-	// distinguish on an address via the prefix/suffix matching in
-	// FilterChainMatch after connection. For :ref:`clusters
-	// <config_cluster_manager_cluster>`, an address may be either an IP or
-	// hostname to be resolved via DNS. If it is a hostname, :ref:`resolver_name
-	// <envoy_api_field_core.SocketAddress.resolver_name>` should be set unless default
-	// (i.e. DNS) resolution is expected.
+	// to the address. An empty address is not allowed. Specify ``0.0.0.0`` or ``::``
+	// to bind to any address. [#comment:TODO(zuercher) reinstate when implemented:
+	// It is possible to distinguish a Listener address via the prefix/suffix matching
+	// in :ref:`FilterChainMatch <envoy_api_msg_listener.FilterChainMatch>`.] When used
+	// within an upstream :ref:`BindConfig <envoy_api_msg_core.BindConfig>`, the address
+	// controls the source address of outbound connections. For :ref:`clusters
+	// <config_cluster_manager_cluster>`, the cluster type determines whether the
+	// address must be an IP (*STATIC* or *EDS* clusters) or a hostname resolved by DNS
+	// (*STRICT_DNS* or *LOGICAL_DNS* clusters). Address resolution can be customized
+	// via :ref:`resolver_name <envoy_api_field_core.SocketAddress.resolver_name>`.
 	Address string `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
 	// Types that are valid to be assigned to PortSpecifier:
 	//	*SocketAddress_PortValue
@@ -122,7 +124,7 @@ func (m *SocketAddress) Reset()         { *m = SocketAddress{} }
 func (m *SocketAddress) String() string { return proto.CompactTextString(m) }
 func (*SocketAddress) ProtoMessage()    {}
 func (*SocketAddress) Descriptor() ([]byte, []int) {
-	return fileDescriptor_address_f4d4ccf656e6b43c, []int{1}
+	return fileDescriptor_address_db08d0ef9ed44b0d, []int{1}
 }
 func (m *SocketAddress) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SocketAddress.Unmarshal(m, b)
@@ -291,7 +293,7 @@ func (m *TcpKeepalive) Reset()         { *m = TcpKeepalive{} }
 func (m *TcpKeepalive) String() string { return proto.CompactTextString(m) }
 func (*TcpKeepalive) ProtoMessage()    {}
 func (*TcpKeepalive) Descriptor() ([]byte, []int) {
-	return fileDescriptor_address_f4d4ccf656e6b43c, []int{2}
+	return fileDescriptor_address_db08d0ef9ed44b0d, []int{2}
 }
 func (m *TcpKeepalive) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TcpKeepalive.Unmarshal(m, b)
@@ -352,7 +354,7 @@ func (m *BindConfig) Reset()         { *m = BindConfig{} }
 func (m *BindConfig) String() string { return proto.CompactTextString(m) }
 func (*BindConfig) ProtoMessage()    {}
 func (*BindConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_address_f4d4ccf656e6b43c, []int{3}
+	return fileDescriptor_address_db08d0ef9ed44b0d, []int{3}
 }
 func (m *BindConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_BindConfig.Unmarshal(m, b)
@@ -403,7 +405,7 @@ func (m *Address) Reset()         { *m = Address{} }
 func (m *Address) String() string { return proto.CompactTextString(m) }
 func (*Address) ProtoMessage()    {}
 func (*Address) Descriptor() ([]byte, []int) {
-	return fileDescriptor_address_f4d4ccf656e6b43c, []int{4}
+	return fileDescriptor_address_db08d0ef9ed44b0d, []int{4}
 }
 func (m *Address) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Address.Unmarshal(m, b)
@@ -548,7 +550,7 @@ func (m *CidrRange) Reset()         { *m = CidrRange{} }
 func (m *CidrRange) String() string { return proto.CompactTextString(m) }
 func (*CidrRange) ProtoMessage()    {}
 func (*CidrRange) Descriptor() ([]byte, []int) {
-	return fileDescriptor_address_f4d4ccf656e6b43c, []int{5}
+	return fileDescriptor_address_db08d0ef9ed44b0d, []int{5}
 }
 func (m *CidrRange) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CidrRange.Unmarshal(m, b)
@@ -593,10 +595,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("envoy/api/v2/core/address.proto", fileDescriptor_address_f4d4ccf656e6b43c)
+	proto.RegisterFile("envoy/api/v2/core/address.proto", fileDescriptor_address_db08d0ef9ed44b0d)
 }
 
-var fileDescriptor_address_f4d4ccf656e6b43c = []byte{
+var fileDescriptor_address_db08d0ef9ed44b0d = []byte{
 	// 644 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x53, 0xc1, 0x6e, 0xd3, 0x4a,
 	0x14, 0xcd, 0x24, 0x6e, 0x9b, 0xdc, 0x36, 0x79, 0xe9, 0xe8, 0x49, 0xb5, 0xa2, 0xf7, 0xda, 0x28,
