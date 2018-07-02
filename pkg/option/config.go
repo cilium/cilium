@@ -83,6 +83,13 @@ const (
 
 	// ClusterNameEnv is the name of the environment variable of the ClusterName option
 	ClusterNameEnv = "CILIUM_CLUSTER_NAME"
+
+	// ClusterMeshConfigName is the name of the ClusterMeshConfig option
+	ClusterMeshConfigName = "clustermesh-config"
+
+	// ClusterMeshConfigNameEnv is the name of environment variable of the
+	// ClusterMeshConfig option
+	ClusterMeshConfigNameEnv = "CILIUM_CLUSTERMESH_CONFIG"
 )
 
 // Available option for daemonConfig.Tunnel
@@ -187,6 +194,9 @@ type daemonConfig struct {
 
 	// ClusterName is the name of the cluster
 	ClusterName string
+
+	// ClusterMeshConfig is the path to the clustermesh configuration directory
+	ClusterMeshConfig string
 }
 
 var (
@@ -275,6 +285,7 @@ func (c *daemonConfig) Validate() error {
 	}
 
 	c.ClusterName = viper.GetString(ClusterName)
+	c.ClusterMeshConfig = viper.GetString(ClusterMeshConfigName)
 
 	return nil
 }
