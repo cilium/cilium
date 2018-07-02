@@ -25,6 +25,6 @@ var log = logging.DefaultLogger
 
 func (n *Node) getLogger() *logrus.Entry {
 	return log.WithFields(logrus.Fields{
-		logfields.NodeName: n.Name,
+		logfields.NodeName: n.Fullname(),
 	})
 }
