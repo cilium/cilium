@@ -648,3 +648,14 @@ func (c *consulClient) Encode(in []byte) string {
 func (c *consulClient) Decode(in string) ([]byte, error) {
 	return base64.URLEncoding.DecodeString(in)
 }
+
+// ListAndWatch implements the BackendOperations.ListAndWatch using consul
+func (c *consulClient) ListAndWatch(name, prefix string, chanSize int) *Watcher {
+	w := newWatcher(name, prefix, chanSize)
+
+	log.WithField(fieldWatcher, w).Debug("Starting watcher...")
+
+	go c.Watch(w)
+
+	return w
+}

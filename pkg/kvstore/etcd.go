@@ -878,3 +878,14 @@ func (e *etcdClient) Encode(in []byte) string {
 func (e *etcdClient) Decode(in string) ([]byte, error) {
 	return []byte(in), nil
 }
+
+// ListAndWatch implements the BackendOperations.ListAndWatch using etcd
+func (e *etcdClient) ListAndWatch(name, prefix string, chanSize int) *Watcher {
+	w := newWatcher(name, prefix, chanSize)
+
+	log.WithField(fieldWatcher, w).Debug("Starting watcher...")
+
+	go e.Watch(w)
+
+	return w
+}
