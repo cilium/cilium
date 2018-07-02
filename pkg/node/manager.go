@@ -41,8 +41,6 @@ const (
 	TunnelRoute RouteType = 1 << iota
 	// DirectRoute is the route type to set up the L3 route using iproute
 	DirectRoute
-
-	defaultClusterName = "default"
 )
 
 type clusterConfiguation struct {
@@ -58,7 +56,7 @@ var clusterConf = newClusterConfiguration()
 
 func newClusterConfiguration() clusterConfiguation {
 	return clusterConfiguation{
-		name:        defaultClusterName,
+		name:        option.Config.ClusterName,
 		nodes:       map[Identity]*Node{},
 		auxPrefixes: []*net.IPNet{},
 	}
