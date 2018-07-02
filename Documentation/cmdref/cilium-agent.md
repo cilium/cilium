@@ -21,6 +21,7 @@ cilium-agent
       --allow-localhost string                      Policy when to allow local stack to reach local endpoints { auto | always | policy }  (default "auto")
       --auto-ipv6-node-routes                       Automatically adds IPv6 L3 routes to reach other nodes for non-overlay mode (--device) (BETA)
       --bpf-root string                             Path to BPF filesystem
+      --cluster-name string                         Name of the cluster (default "default")
       --config string                               Configuration file (default "$HOME/ciliumd.yaml")
       --conntrack-garbage-collector-interval uint   Garbage collection interval for the connection tracking table (in seconds) (default 60)
       --container-runtime stringSlice               Sets the container runtime(s) used by Cilium { containerd | crio | docker | none | auto } ( "auto" uses the container runtime found in the order: "docker", "containerd", "crio" ) (default [auto])
