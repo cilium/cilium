@@ -117,7 +117,9 @@ func WithTimeout(body func() bool, msg string, config *TimeoutConfig) error {
 	done := time.After(config.Timeout * time.Second)
 	ticker := time.NewTicker(config.Ticker * time.Second)
 	defer ticker.Stop()
-
+	if body() {
+		return nil
+	}
 	for {
 		select {
 		case <-ticker.C:
