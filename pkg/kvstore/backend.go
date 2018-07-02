@@ -153,4 +153,12 @@ type BackendOperations interface {
 
 	// Decodes a key previously encoded back into the original binary slice
 	Decode(in string) ([]byte, error)
+
+	// ListAndWatch creates a new watcher which will watch the specified
+	// prefix for changes. Before doing this, it will list the current keys
+	// matching the prefix and report them as new keys. Name can be set to
+	// anything and is used for logging messages. The Events channel is
+	// created with the specified sizes. Upon every change observed, a
+	// KeyValueEvent will be sent to the Events channel
+	ListAndWatch(name, prefix string, chanSize int) *Watcher
 }

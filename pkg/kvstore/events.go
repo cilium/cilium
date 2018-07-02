@@ -78,6 +78,15 @@ type Watcher struct {
 	stopped bool
 }
 
+func newWatcher(name, prefix string, chanSize int) *Watcher {
+	return &Watcher{
+		name:      name,
+		prefix:    prefix,
+		Events:    make(EventChan, chanSize),
+		stopWatch: make(stopChan, 0),
+	}
+}
+
 // String returns the name of the wather
 func (w *Watcher) String() string {
 	return w.name
@@ -93,18 +102,7 @@ func (w *Watcher) String() string {
 // Returns a watcher structure plus a channel that is closed when the initial
 // list operation has been completed
 func ListAndWatch(name, prefix string, chanSize int) *Watcher {
-	w := &Watcher{
-		name:      name,
-		prefix:    prefix,
-		Events:    make(EventChan, chanSize),
-		stopWatch: make(stopChan, 0),
-	}
-
-	log.WithField(fieldWatcher, w).Debug("Starting watcher...")
-
-	go Client().Watch(w)
-
-	return w
+	return Client().ListAndWatch(name, prefix, chanSize)
 }
 
 // Stop stops a watcher previously created and started with Watch()
