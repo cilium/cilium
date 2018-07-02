@@ -22,7 +22,6 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -30,8 +29,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 )
-
-var log = logging.DefaultLogger
 
 // RouteType represents the route type to be configured when adding the node
 // routes
@@ -42,11 +39,14 @@ const (
 	TunnelRoute RouteType = 1 << iota
 	// DirectRoute is the route type to set up the L3 route using iproute
 	DirectRoute
+
+	defaultClusterName = "default"
 )
 
 type clusterConfiguation struct {
 	lock.RWMutex
 
+	name                  string
 	nodes                 map[Identity]*Node
 	ciliumHostInitialized bool
 	usePerNodeRoutes      bool
@@ -57,6 +57,7 @@ var clusterConf = newClusterConfiguration()
 
 func newClusterConfiguration() clusterConfiguation {
 	return clusterConfiguation{
+		name:        defaultClusterName,
 		nodes:       map[Identity]*Node{},
 		auxPrefixes: []*net.IPNet{},
 	}

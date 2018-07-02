@@ -826,8 +826,8 @@ func (e *Endpoint) runIdentityToK8sPodSync() {
 // FormatGlobalEndpointID returns the global ID of endpoint in the format
 // / <global ID Prefix>:<cluster name>:<node name>:<endpoint ID> as a string.
 func (e *Endpoint) FormatGlobalEndpointID() string {
-	nodeIdentity, _ := node.GetLocalNode()
-	metadata := []string{endpointid.CiliumGlobalIdPrefix, ipcache.AddressSpace, nodeIdentity.Name, strconv.Itoa(int(e.ID))}
+	n := node.GetLocalNode()
+	metadata := []string{endpointid.CiliumGlobalIdPrefix, ipcache.AddressSpace, n.Name, strconv.Itoa(int(e.ID))}
 	return strings.Join(metadata, ":")
 }
 

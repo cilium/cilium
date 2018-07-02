@@ -55,6 +55,9 @@ const (
 
 	// K8sRequireIPv6PodCIDRName is the name of the K8sRequireIPv6PodCIDR option
 	K8sRequireIPv6PodCIDRName = "k8s-require-ipv6-pod-cidr"
+
+	// AutoIPv6NodeRoutesName is the name of the AutoIPv6NodeRoutes option
+	AutoIPv6NodeRoutesName = "auto-ipv6-node-routes"
 )
 
 // daemonConfig is the configuration used by Daemon.
@@ -132,6 +135,10 @@ type daemonConfig struct {
 	// IPv6 PodCIDR. Cilium will block bootstrapping until the information
 	// is available.
 	K8sRequireIPv6PodCIDR bool
+
+	// AutoIPv6NodeRoutes enables automatic route injection of IPv6
+	// endpoint routes based on node discovery information
+	AutoIPv6NodeRoutes bool
 }
 
 var (

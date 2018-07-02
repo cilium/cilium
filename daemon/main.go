@@ -86,8 +86,6 @@ var (
 
 	// Arguments variables keep in alphabetical order
 
-	// autoIPv6NodeRoutes automatically adds L3 direct routing when using direct mode (-d)
-	autoIPv6NodeRoutes    bool
 	bpfRoot               string
 	cmdRefDir             string
 	debugVerboseFlags     []string
@@ -314,8 +312,8 @@ func init() {
 	viper.BindEnv("access-labels", "CILIUM_ACCESS_LABELS")
 	flags.StringVar(&option.Config.AllowLocalhost,
 		"allow-localhost", option.AllowLocalhostAuto, "Policy when to allow local stack to reach local endpoints { auto | always | policy } ")
-	flags.Bool(
-		"auto-ipv6-node-routes", false, "Automatically adds IPv6 L3 routes to reach other nodes for non-overlay mode (--device) (BETA)")
+	flags.BoolVar(&option.Config.AutoIPv6NodeRoutes,
+		option.AutoIPv6NodeRoutesName, false, "Automatically adds IPv6 L3 routes to reach other nodes for non-overlay mode (--device) (BETA)")
 	flags.StringVar(&bpfRoot,
 		"bpf-root", "", "Path to BPF filesystem")
 	flags.StringVar(&cfgFile,
@@ -625,8 +623,6 @@ func initEnv(cmd *cobra.Command) {
 
 	logging.DefaultLogLevel = defaults.DefaultLogLevel
 	option.Config.Opts.Set(option.Debug, viper.GetBool("debug"))
-
-	autoIPv6NodeRoutes = viper.GetBool("auto-ipv6-node-routes")
 
 	option.Config.Opts.Set(option.DropNotify, true)
 	option.Config.Opts.Set(option.TraceNotify, true)

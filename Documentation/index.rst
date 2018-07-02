@@ -87,5 +87,6 @@ The documentation is divided into the following sections:
 
    cheatsheet
    cmdref/index
+   kvstore
    further_reading
    glossary

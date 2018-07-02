@@ -18,6 +18,7 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/option"
 
 	"k8s.io/api/core/v1"
 )
@@ -55,6 +56,9 @@ type Node struct {
 	// IPv6HealthIP if not nil, this is the IPv6 address of the
 	// cilium-health endpoint located on the node.
 	IPv6HealthIP net.IP
+
+	// cluster membership
+	cluster *clusterConfiguation
 }
 
 // Address is a node address which contains an IP and the address type.
@@ -176,20 +180,31 @@ func (n *Node) GetModel(ipv4 bool) *models.NodeElement {
 	}
 }
 
-// GetLocalNode returns the identity and node spec for the local node
-func GetLocalNode() (Identity, *Node) {
-	return Identity{Name: nodeName}, &Node{
-		Name: nodeName,
-		IPAddresses: []Address{
-			{
-				AddressType: v1.NodeInternalIP,
-				IP:          GetExternalIPv4(),
-			},
-		},
-		IPv4AllocCIDR: GetIPv4AllocRange(),
-		IPv6AllocCIDR: GetIPv6AllocRange(),
-		IPv4HealthIP:  GetIPv4HealthIP(),
-		IPv6HealthIP:  GetIPv6HealthIP(),
+// OnUpdate is called each time the node information is updated
+//
+// Updates the new node in the nodes' map with the given identity. This also
+// updates the local routing tables and tunnel lookup maps according to the
+// node's preferred way of being reached.
+func (n *Node) OnUpdate() {
+	n.getLogger().Debug("Updated node information received")
+
+	routeTypes := TunnelRoute
+
+	// Add IPv6 routing only in non encap. With encap we do it with bpf tunnel
+	// FIXME create a function to know on which mode is the daemon running on
+	var ownAddr net.IP
+	if option.Config.AutoIPv6NodeRoutes && option.Config.Device != "undefined" {
+		// ignore own node
+		if n.Name != GetName() {
+			ownAddr = GetIPv6()
+			routeTypes |= DirectRoute
+		}
 	}
 
+	UpdateNode(Identity{Name: n.Name}, n, routeTypes, ownAddr)
+}
+
+// OnDelete is called when a node has been deleted from the cluster
+func (n *Node) OnDelete() {
+	DeleteNode(Identity{Name: n.Name}, TunnelRoute|DirectRoute)
 }
