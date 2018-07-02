@@ -11,12 +11,19 @@ services:
     hostname: "etcd"
     command: "etcd -name etcd0 -advertise-client-urls http://0.0.0.0:4002 -listen-client-urls http://0.0.0.0:4002 -initial-cluster-token etcd-cluster-1 -initial-cluster-state new"
     privileged: true
+  base_image:
+    image: "quay.io/cilium/cilium-builder:2018-06-21"
+    volumes:
+      - "./../:/go/src/github.com/cilium/cilium/"
+    privileged: true
   test:
+    extends:
+      service: base_image
     depends_on:
       - consul
       - etcd
-    image: "quay.io/cilium/cilium-builder:2018-06-21"
     command: "bash -c 'cd /go/src/github.com/cilium/cilium/; make tests-ginkgo-real'"
-    privileged: true
-    volumes:
-      - "./../:/go/src/github.com/cilium/cilium/"
+  precheck:
+    extends:
+      service: base_image
+    command: "bash -c 'cd /go/src/github.com/cilium/cilium/; make precheck || exit 1'"
