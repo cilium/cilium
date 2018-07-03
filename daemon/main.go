@@ -104,7 +104,6 @@ var (
 	masquerade            bool
 	nat46prefix           string
 	prometheusServeAddr   string
-	singleClusterRoute    bool
 	socketPath            string
 	tracePayloadLen       int
 	v4Address             string
@@ -409,7 +408,7 @@ func init() {
 	flags.Bool("sidecar-http-proxy", false, "Disable host HTTP proxy, assuming proxies in sidecar containers")
 	flags.MarkHidden("sidecar-http-proxy")
 	viper.BindEnv("sidecar-http-proxy", "CILIUM_SIDECAR_HTTP_PROXY")
-	flags.BoolVar(&singleClusterRoute, "single-cluster-route", false,
+	flags.Bool(option.SingleClusterRouteName, false,
 		"Use a single cluster route instead of per node routes")
 	flags.StringVar(&socketPath,
 		"socket-path", defaults.SockPath, "Sets daemon's socket path to listen for connections")

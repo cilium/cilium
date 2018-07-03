@@ -69,6 +69,14 @@ const (
 
 	// TunnelNameEnv is the name of the environment variable for option.TunnelName
 	TunnelNameEnv = "CILIUM_TUNNEL"
+
+	// SingleClusterRouteName is the name of the SingleClusterRoute option
+	//
+	// SingleClusterRoute enables use of a single route covering the entire
+	// cluster CIDR to point to the cilium_host interface instead of using
+	// a separate route for each cluster node CIDR. This option is not
+	// compatible with Tunnel=TunnelDisabled
+	SingleClusterRouteName = "single-cluster-route"
 )
 
 // Available option for daemonConfig.Tunnel
@@ -245,10 +253,14 @@ func (c *daemonConfig) Validate() error {
 		return fmt.Errorf("MTU '%d' cannot be 0 or negative", c.MTU)
 	}
 
-	tunnel := viper.GetString(TunnelName)
-	switch tunnel {
-	case TunnelVXLAN, TunnelGeneve, TunnelDisabled:
-		c.Tunnel = tunnel
+	c.Tunnel = viper.GetString(TunnelName)
+	switch c.Tunnel {
+	case TunnelVXLAN, TunnelGeneve:
+	case TunnelDisabled:
+		if viper.GetBool(SingleClusterRouteName) {
+			return fmt.Errorf("option --%s cannot be used in combination with --%s=%s",
+				SingleClusterRouteName, TunnelName, TunnelDisabled)
+		}
 	default:
 		return fmt.Errorf("invalid tunnel mode '%s', valid modes = {%s}", c.Tunnel, GetTunnelModes())
 	}
