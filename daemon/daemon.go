@@ -1097,10 +1097,6 @@ func NewDaemon() (*Daemon, error) {
 			option.Config.HostAllowsWorld = true
 			log.Warn("k8s mode: Configuring ingress policy for host to also allow from world. For more information, see https://cilium.link/host-vs-world")
 		}
-
-		if !viper.GetBool(option.SingleClusterRouteName) {
-			node.EnablePerNodeRoutes()
-		}
 	}
 
 	// If the device has been specified, the IPv4AllocPrefix and the
