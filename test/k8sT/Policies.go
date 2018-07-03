@@ -70,6 +70,10 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			"cilium endpoint list")
 	})
 
+	AfterAll(func() {
+		_ = kubectl.WaitCleanAllTerminatingPods()
+	})
+
 	JustBeforeEach(func() {
 		microscopeErr, microscopeCancel = kubectl.MicroscopeStart()
 		Expect(microscopeErr).To(BeNil(), "Microscope cannot be started")
@@ -807,6 +811,7 @@ EOF`, k, v)
 		})
 
 		AfterAll(func() {
+			_ = kubectl.Delete(demoPath)
 			_ = kubectl.Delete(demoManifest)
 			_ = kubectl.NamespaceDelete(secondNS)
 			_ = kubectl.NamespaceDelete(cnpSecondNS)
