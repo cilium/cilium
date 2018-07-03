@@ -101,10 +101,7 @@ __policy_can_access(void *map, struct __sk_buff *skb, __u32 identity,
 #ifdef HAVE_L4_POLICY
 get_proxy_port:
 	if (likely(policy)) {
-		if (policy->proxy_port)
-			return policy->proxy_port;
-		else
-			return l4_proxy_lookup(skb, proto, dport, dir);
+		return policy->proxy_port;
 	}
 #endif /* HAVE_L4_POLICY */
 allow:
