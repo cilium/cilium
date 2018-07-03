@@ -240,8 +240,7 @@ var _ = Describe("RuntimeValidatedConnectivityTest", func() {
 		It("Basic connectivity test", func() {
 			filename := "00-cilium-cni.conf"
 			cniConf := `{"name": "cilium",
-				"type": "cilium-cni",
-				"mtu": 1450}`
+				"type": "cilium-cni"}`
 			err := helpers.RenderTemplateToFile(filename, cniConf, os.ModePerm)
 			Expect(err).To(BeNil())
 
