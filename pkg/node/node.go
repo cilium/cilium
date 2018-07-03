@@ -208,3 +208,9 @@ func (n *Node) OnUpdate() {
 func (n *Node) OnDelete() {
 	DeleteNode(Identity{Name: n.Name}, TunnelRoute|DirectRoute)
 }
+
+// IsLocal returns true if this is the node on which the agent itself is
+// running on
+func (n *Node) IsLocal() bool {
+	return n != nil && n.Name == GetName()
+}
