@@ -14,6 +14,10 @@
 
 package mtu
 
+import (
+	"github.com/cilium/cilium/pkg/option"
+)
+
 const (
 	// MaxMTU is the highest MTU that can be used for devices and routes
 	// handled by Cilium. It will typically be used to configure inbound
@@ -67,6 +71,10 @@ func UseMTU(mtu int) {
 // GetRouteMTU returns the MTU to be used on the network. When running in
 // tunneling mode, this will have tunnel overhead accounted for.
 func GetRouteMTU() int {
+	if option.Config.Tunnel == option.TunnelDisabled {
+		return StandardMTU
+	}
+
 	return TunnelMTU
 }
 
