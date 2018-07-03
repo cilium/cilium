@@ -9,6 +9,8 @@
 Developer / Contributor Guide
 =============================
 
+kuestion
+
 We're happy you're interested in contributing to the Cilium project.
 
 This guide will help you make sure you have an environment capable of testing
@@ -978,7 +980,7 @@ Getting Started
 #. Clone the cilium repository
 
    ::
-  
+
       go get -d github.com/cilium/cilium
       cd $GOPATH/src/github.com/cilium/cilium
 
@@ -1032,7 +1034,7 @@ requirements have been met:
         Signed-off-by: Joe Stringer <joe@covalent.io>
 
    .. note:
-   
+
        Make sure to include a blank line in between commit title and commit
        description.
 
@@ -1125,7 +1127,7 @@ Getting a pull request merged
    One of the reviewers will start a CI run by replying with a comment
    ``test-me-please`` as described in :ref:`trigger_phrases``. If you are a
    core team member, you may trigger the CI run yourself.
-  
+
    #. Hound: basic ``golang/lint`` static code analyzer. You need to make the
       puppy happy.
    #. :ref:`ci_jenkins`: Will run a series of tests:
@@ -1671,7 +1673,7 @@ If you intent to release a new minor release, see the
 #. Create a branch for the release pull request:
 
    ::
-   
+
        git checkout -b pr/prepare-v1.0.3
 
 #. Update the ``VERSION`` file to represent ``X.Y.Z+1``
@@ -1681,7 +1683,7 @@ If you intent to release a new minor release, see the
 #. Update the image tag versions in the examples:
 
    ::
-   
+
        make -C examples/kubernetes clean all
 
 #. Update the ``cilium_version`` and ``cilium_tag`` variables in
@@ -1690,13 +1692,13 @@ If you intent to release a new minor release, see the
 #. Update the ``AUTHORS file``
 
    ::
-   
+
        make update-authors
 
 #. Generate the ``NEWS.rst`` addition:
 
    ::
-   
+
        git shortlog v1.0.2.. > add-to-NEWS.rst
 
 #. Add a new section to ``NEWS.rst``:
@@ -1721,7 +1723,7 @@ If you intent to release a new minor release, see the
        Make sure to create the PR against the desired stable branch. In this
        case ``v1.0``
 
-#. Follow standard procedures to get the 
+#. Follow standard procedures to get the
 #. Checkout out the stable branch and pull your merged changes:
 
    ::
@@ -1832,7 +1834,7 @@ On Freeze date
    the pull request merged
 
    ::
-   
+
        git checkout -b pr/prepare-v1.2
        git add [...]
        git commit
