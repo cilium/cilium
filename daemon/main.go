@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -415,8 +415,8 @@ func init() {
 		"socket-path", defaults.SockPath, "Sets daemon's socket path to listen for connections")
 	flags.StringVar(&option.Config.RunDir,
 		"state-dir", defaults.RuntimePath, "Directory path to store runtime state")
-	flags.StringVarP(&option.Config.Tunnel,
-		"tunnel", "t", "vxlan", `Tunnel mode "vxlan" or "geneve"`)
+	flags.StringP(option.TunnelName, "t", option.TunnelVXLAN, fmt.Sprintf("Tunnel mode {%s}", option.GetTunnelModes()))
+	viper.BindEnv(option.TunnelName, option.TunnelNameEnv)
 	flags.IntVar(&tracePayloadLen,
 		"trace-payloadlen", 128, "Length of payload to capture when tracing")
 	flags.Bool(
@@ -583,9 +583,6 @@ func initEnv(cmd *cobra.Command) {
 		}
 	}
 
-	if !(viper.GetString("tunnel") == "vxlan" || viper.GetString("tunnel") == "geneve") {
-		log.Fatalf("Invalid setting for -t, must be {vxlan, geneve}")
-	}
 	checkMinRequirements()
 
 	if err := pidfile.Write(defaults.PidFilePath); err != nil {

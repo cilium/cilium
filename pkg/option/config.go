@@ -25,6 +25,8 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
+
+	"github.com/spf13/viper"
 )
 
 const (
@@ -61,7 +63,30 @@ const (
 
 	// MTUName is the name of the MTU option
 	MTUName = "mtu"
+
+	// TunnelName is the name of the Tunnel option
+	TunnelName = "tunnel"
+
+	// TunnelNameEnv is the name of the environment variable for option.TunnelName
+	TunnelNameEnv = "CILIUM_TUNNEL"
 )
+
+// Available option for daemonConfig.Tunnel
+const (
+	// TunnelVXLAN specifies VXLAN encapsulation
+	TunnelVXLAN = "vxlan"
+
+	// TunnelGeneve specifies Geneve encapsulation
+	TunnelGeneve = "geneve"
+
+	// TunnelDisabled specifies to disable encapsulation
+	TunnelDisabled = "disabled"
+)
+
+// GetTunnelModes returns the list of all tunnel modes
+func GetTunnelModes() string {
+	return fmt.Sprintf("%s, %s, %s", TunnelVXLAN, TunnelGeneve, TunnelDisabled)
+}
 
 // daemonConfig is the configuration used by Daemon.
 type daemonConfig struct {
@@ -218,6 +243,14 @@ func (c *daemonConfig) Validate() error {
 
 	if c.MTU <= 0 {
 		return fmt.Errorf("MTU '%d' cannot be 0 or negative", c.MTU)
+	}
+
+	tunnel := viper.GetString(TunnelName)
+	switch tunnel {
+	case TunnelVXLAN, TunnelGeneve, TunnelDisabled:
+		c.Tunnel = tunnel
+	default:
+		return fmt.Errorf("invalid tunnel mode '%s', valid modes = {%s}", c.Tunnel, GetTunnelModes())
 	}
 
 	return nil
