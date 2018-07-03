@@ -28,3 +28,10 @@ data:
   # If you want to clean cilium state; change this value to true
   clean-cilium-state: "false"
   legacy-host-allows-world: "false"
+
+  # Encapsulation mode for communication between nodes
+  # Possible values:
+  #   - disabled
+  #   - vxlan (default)
+  #   - geneve
+  tunnel: "vxlan"

@@ -56,7 +56,6 @@ spec:
         command: [ "cilium-agent" ]
         args:
           - "--debug=$(CILIUM_DEBUG)"
-          - "-t=vxlan"
           - "--kvstore=etcd"
           - "--kvstore-opt=etcd.config=/var/lib/etcd-config/etcd.config"
           - "--disable-ipv4=$(DISABLE_IPV4)"
@@ -102,6 +101,12 @@ spec:
                 name: cilium-config
                 optional: true
                 key: legacy-host-allows-world
+          - name: CILIUM_TUNNEL
+            valueFrom:
+              configMapKeyRef:
+                key: tunnel
+                name: cilium-config
+                optional: true
         livenessProbe:
           exec:
             command:
