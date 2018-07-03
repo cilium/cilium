@@ -269,7 +269,9 @@ func updatePolicyKey(cmd *cobra.Command, args []string, add bool) {
 		u8p := u8proto.U8proto(proto)
 		entry := fmt.Sprintf("%d %d/%s", label, port, u8p.String())
 		if add == true {
-			if err := policyMap.Allow(label, port, u8p, parsedTd); err != nil {
+			// TODO: Support passing a non-zero proxy port.
+			var proxyPort uint16 = 0
+			if err := policyMap.Allow(label, port, u8p, parsedTd, proxyPort); err != nil {
 				Fatalf("Cannot add policy key '%s': %s\n", entry, err)
 			}
 		} else {

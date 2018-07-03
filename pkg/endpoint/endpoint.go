@@ -431,16 +431,19 @@ type Endpoint struct {
 	// You must hold Endpoint.Mutex to read or write it.
 	realizedRedirects map[string]uint16
 
-	// realizedMapState contains the current set of PolicyKeys which are presently
-	// inserted (realized) in the endpoint's BPF PolicyMap.
-	// All fields within the PolicyKey should be in host byte-order.
-	realizedMapState map[policymap.PolicyKey]struct{}
+	// realizedMapState maps each PolicyKey which is presently
+	// inserted (realized) in the endpoint's BPF PolicyMap to a proxy port.
+	// Proxy port 0 indicates no proxy redirection.
+	// All fields within the PolicyKey and the proxy port must be in host byte-order.
+	realizedMapState map[policymap.PolicyKey]uint16
 
-	// desiredMapState contains the set of PolicyKeys which should be synched
-	// with, but may not yet be synched with, the endpoint's BPF PolicyMap.
-	// This set of keys is updated upon regeneration of policy for an endpoint.
-	// All fields within the PolicyKey should be in host byte-order.
-	desiredMapState map[policymap.PolicyKey]struct{}
+	// desiredMapState maps each PolicyKeys which should be synched
+	// with, but may not yet be synched with, the endpoint's BPF PolicyMap, to
+	// a proxy port.
+	// This map is updated upon regeneration of policy for an endpoint.
+	// Proxy port 0 indicates no proxy redirection.
+	// All fields within the PolicyKey and the proxy port must be in host byte-order.
+	desiredMapState map[policymap.PolicyKey]uint16
 }
 
 // WaitForProxyCompletions blocks until all proxy changes have been completed.
@@ -2428,11 +2431,11 @@ func (e *Endpoint) InsertEvent() {
 func (e *Endpoint) syncPolicyMap() error {
 
 	if e.realizedMapState == nil {
-		e.realizedMapState = make(map[policymap.PolicyKey]struct{})
+		e.realizedMapState = make(map[policymap.PolicyKey]uint16)
 	}
 
 	if e.desiredMapState == nil {
-		e.desiredMapState = make(map[policymap.PolicyKey]struct{})
+		e.desiredMapState = make(map[policymap.PolicyKey]uint16)
 	}
 
 	if e.PolicyMap == nil {
@@ -2478,7 +2481,7 @@ func (e *Endpoint) syncPolicyMap() error {
 			// converted to network byte-order.
 			err := e.PolicyMap.DeleteKey(keyHostOrder)
 			if err != nil {
-				log.Errorf("failed to delete key %s: %s", entry.Key, err)
+				e.getLogger().WithError(err).Errorf("Failed to delete PolicyMap key %s", entry.Key)
 				errors = append(errors, err)
 			} else {
 				// Operation was successful, remove from realized state.
@@ -2487,15 +2490,15 @@ func (e *Endpoint) syncPolicyMap() error {
 		}
 	}
 
-	for keyToAdd := range e.desiredMapState {
-		if _, ok := e.realizedMapState[keyToAdd]; !ok {
-			err := e.PolicyMap.AllowKey(keyToAdd)
+	for keyToAdd, proxyPort := range e.desiredMapState {
+		if oldProxyPort, ok := e.realizedMapState[keyToAdd]; !ok || oldProxyPort != proxyPort {
+			err := e.PolicyMap.AllowKey(keyToAdd, proxyPort)
 			if err != nil {
-				log.Errorf("failed to add key %s: %s", keyToAdd, err)
+				e.getLogger().WithError(err).Errorf("Failed to add PolicyMap key %s %d", keyToAdd, proxyPort)
 				errors = append(errors, err)
 			} else {
 				// Operation was successful, add to realized state.
-				e.realizedMapState[keyToAdd] = struct{}{}
+				e.realizedMapState[keyToAdd] = proxyPort
 			}
 		}
 	}
