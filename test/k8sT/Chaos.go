@@ -113,6 +113,8 @@ var _ = Describe("K8sValidatedChaosTest", func() {
 			helpers.KubectlCmd, helpers.KubeSystemNamespace))
 		res.ExpectSuccess()
 
+		ExpectAllPodsTerminated(kubectl)
+
 		ExpectCiliumReady(kubectl)
 		err = kubectl.CiliumEndpointWaitReady()
 		Expect(err).To(BeNil(), "Endpoints are not ready after Cilium restarts")
