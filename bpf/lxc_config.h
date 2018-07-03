@@ -41,35 +41,10 @@
 #define LB_L3
 #define LB_L4
 #define CONNTRACK
-#define NR_CFG_CIDRL4_INGRESS 2
-#define CFG_CIDRL4_INGRESS 0, 80, 8080, 0, 1, 80, 8080, 0, (), 0
-#define NR_CFG_CIDRL4_EGRESS 1
-#define CFG_CIDRL4_EGRESS 0, 80, 8080, 0, (), 0
 #define POLICY_INGRESS
 #define POLICY_EGRESS
 #define ENABLE_IPv4
 #define HAVE_L4_POLICY
-
-#ifndef SKIP_CIDR_PREFIXES
-#define CIDR6_INGRESS_MAP cilium_cidr6_ingress_foo
-#define CIDR4_INGRESS_MAP cilium_cidr4_ingress_foo
-#define CIDR6_EGRESS_MAP cilium_cidr6_egress_foo
-#define CIDR4_EGRESS_MAP cilium_cidr4_egress_foo
-/* It appears that we can support around ninety prefixes in an unrolled loop
- * for LPM CIDR handling in older kernels along with the rest of the logic in
- * the datapath, hence the defines below. This number was arrived to by
- * adjusting the number of prefixes and running:
- *    $ make -C bpf && sudo test/bpf/verifier-test.sh
- *
- *  If you're from a future where all supported kernels include LPM map type,
- *  consider deprecating the hash-based CIDR lookup and removing the below.
- */
-#define CIDR4_EGRESS_PREFIXES 26, 25, 24, 23, 22, 21, \
-20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0
-#define CIDR6_EGRESS_PREFIXES CIDR4_EGRESS_PREFIXES
-#define CIDR6_INGRESS_PREFIXES CIDR6_EGRESS_PREFIXES
-#define CIDR4_INGRESS_PREFIXES CIDR4_EGRESS_PREFIXES
-#endif
 
 /* It appears that we can support around the below number of prefixes in an
  * unrolled loop for LPM CIDR handling in older kernels along with the rest of

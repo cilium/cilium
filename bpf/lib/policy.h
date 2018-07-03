@@ -131,46 +131,59 @@ allow:
  *   - Negative error code if the packet should be dropped
  */
 static inline int __inline__
-policy_can_access_ingress(struct __sk_buff *skb, __u32 src_identity,
+policy_can_access_ingress(struct __sk_buff *skb, __u32 *src_identity,
 			  __u16 dport, __u8 proto, size_t cidr_addr_size,
 			  void *cidr_addr)
 {
 #ifdef DROP_ALL
 	return DROP_POLICY;
 #else
-	int ret = __policy_can_access(&POLICY_MAP, skb, src_identity, dport,
+	int ret;
+
+	if (identity_is_reserved(*src_identity)) {
+		if (cidr_addr_size == sizeof(union v6addr)) {
+			struct remote_endpoint_info *info;
+
+			info = lookup_ip6_remote_endpoint(cidr_addr);
+			if (info)
+				*src_identity = info->sec_label;
+
+			cilium_dbg(skb, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
+				   ((__u32 *) cidr_addr)[3], *src_identity);
+		}
+
+		if (cidr_addr_size == sizeof(__be32)) {
+			struct remote_endpoint_info *info;
+			__be32 saddr = *(__be32 *)cidr_addr;
+
+			if ((info = lookup_ip4_remote_endpoint(saddr)))
+				*src_identity = info->sec_label;
+
+			cilium_dbg(skb, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
+				   saddr, *src_identity);
+		}
+	}
+
+	ret = __policy_can_access(&POLICY_MAP, skb, *src_identity, dport,
 				      proto, cidr_addr_size, cidr_addr,
 				      CT_INGRESS);
 	if (ret >= TC_ACT_OK)
 		return ret;
 
-	/* CIDR policy only applies to traffic peering with something that is
-	 * not managed by Cilium. */
-	if (identity_is_reserved(src_identity)) {
-		// cidr_addr_size is a compile time constant so this should all be inlined neatly.
-		if (cidr_addr_size == sizeof(union v6addr) && lpm6_ingress_lookup(cidr_addr))
-			goto allow;
-		if (cidr_addr_size == sizeof(__be32) && lpm4_ingress_lookup(*(__be32 *)cidr_addr))
-			goto allow;
-	}
-
-	cilium_dbg(skb, DBG_POLICY_DENIED, src_identity, SECLABEL);
+	cilium_dbg(skb, DBG_POLICY_DENIED, *src_identity, SECLABEL);
 
 #ifndef IGNORE_DROP
 	return DROP_POLICY;
 #else
-	ret = TC_ACT_OK;
-#endif
-
-allow:
 	return TC_ACT_OK;
+#endif
 #endif /* DROP_ALL */
 }
 
 #else /* POLICY_INGRESS */
 
 static inline int
-policy_can_access_ingress(struct __sk_buff *skb, __u32 src_label,
+policy_can_access_ingress(struct __sk_buff *skb, __u32 *src_label,
 			  __u16 dport, __u8 proto, size_t cidr_addr_size,
 			  void *cidr_addr)
 {
