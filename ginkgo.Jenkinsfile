@@ -96,13 +96,13 @@ pipeline {
             steps {
                 parallel(
                     "Runtime":{
-                        sh 'cd ${TESTDIR}; ginkgo --focus=" RuntimeValidated*" -v --failFast=${FAILFAST}'
+                        sh 'cd ${TESTDIR}; ginkgo --focus=" RuntimeValidated*" -v --failFast=${FAILFAST} --seed=1528949664'
                     },
                     "K8s-1.7":{
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.7 ginkgo --focus=" K8sValidated*" -v --failFast=${FAILFAST}'
+                        sh 'cd ${TESTDIR}; K8S_VERSION=1.7 ginkgo --focus=" K8sValidated*" -v --failFast=${FAILFAST} --seed=1528949664'
                     },
                     "K8s-1.10":{
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.10 ginkgo --focus=" K8sValidated*" -v --failFast=${FAILFAST}'
+                        sh 'cd ${TESTDIR}; K8S_VERSION=1.10 ginkgo --focus=" K8sValidated*" -v --failFast=${FAILFAST} --seed=1528949664'
                     },
                     failFast: true
                 )
