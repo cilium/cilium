@@ -38,6 +38,9 @@ if [[ ! $(command -v cilium) ]]; then
 	exit 1
 fi
 
+# Remove old legacy files
+rm $RUNDIR/encap.state 2> /dev/null || true
+
 # Enable JIT if compiled into kernel
 echo 1 > /proc/sys/net/core/bpf_jit_enable || true
 
@@ -320,15 +323,10 @@ if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
 	POLICY_MAP="cilium_policy_reserved_${ID_WORLD}"
 	OPTS="-DSECLABEL=${ID_WORLD} -DPOLICY_MAP=${POLICY_MAP}"
 	bpf_load $ENCAP_DEV "$OPTS" "ingress" bpf_overlay.c bpf_overlay.o from-overlay ${CALLS_MAP}
-	echo "$ENCAP_DEV" > $RUNDIR/encap.state
 else
-	FILE=$RUNDIR/encap.state
-	if [ -f $FILE ]; then
-		DEV=$(cat $FILE)
-		echo "Removed BPF program from device $DEV"
-		tc qdisc del dev $DEV clsact 2> /dev/null || true
-		rm $FILE
-	fi
+	# Remove eventual existing encapsulation device from previous run
+	ip link del cilium_vxlan 2> /dev/null || true
+	ip link del cilium_geneve 2> /dev/null || true
 fi
 
 if [ "$MODE" = "direct" ]; then
