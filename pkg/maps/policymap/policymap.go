@@ -147,16 +147,16 @@ func (key *PolicyKey) ToNetwork() PolicyKey {
 
 // AllowKey pushes an entry into the PolicyMap for the given PolicyKey k.
 // Returns an error if the update of the PolicyMap fails.
-func (pm *PolicyMap) AllowKey(k PolicyKey) error {
-	return pm.Allow(k.Identity, k.DestPort, u8proto.U8proto(k.Nexthdr), TrafficDirection(k.TrafficDirection))
+func (pm *PolicyMap) AllowKey(k PolicyKey, proxyPort uint16) error {
+	return pm.Allow(k.Identity, k.DestPort, u8proto.U8proto(k.Nexthdr), TrafficDirection(k.TrafficDirection), proxyPort)
 }
 
 // Allow pushes an entry into the PolicyMap to allow traffic in the given
 // `trafficDirection` for identity `id` with destination port `dport` over
-// protocol `proto`. It is assumed that `dport` is in host byte-order.
-func (pm *PolicyMap) Allow(id uint32, dport uint16, proto u8proto.U8proto, trafficDirection TrafficDirection) error {
+// protocol `proto`. It is assumed that `dport` and `proxyPort` are in host byte-order.
+func (pm *PolicyMap) Allow(id uint32, dport uint16, proto u8proto.U8proto, trafficDirection TrafficDirection, proxyPort uint16) error {
 	key := PolicyKey{Identity: id, DestPort: byteorder.HostToNetwork(dport).(uint16), Nexthdr: uint8(proto), TrafficDirection: trafficDirection.Uint8()}
-	entry := PolicyEntry{}
+	entry := PolicyEntry{ProxyPort: byteorder.HostToNetwork(proxyPort).(uint16)}
 	return bpf.UpdateElement(pm.Fd, unsafe.Pointer(&key), unsafe.Pointer(&entry), 0)
 }
 

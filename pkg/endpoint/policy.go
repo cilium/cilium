@@ -111,9 +111,21 @@ func (e *Endpoint) convertL4FilterToPolicyMapKeys(filter *policy.L4Filter, direc
 	return keysToAdd
 }
 
-func (e *Endpoint) computeDesiredL4PolicyMapEntries(keysToAdd map[policymap.PolicyKey]struct{}) {
+// lookupRedirectPort returns the redirect L4 proxy port for the given L4
+// policy map key, in host byte order. Returns 0 if not found or the
+// filter doesn't require a redirect.
+// Must be called with Endpoint.Mutex held.
+func (e *Endpoint) lookupRedirectPort(l4Filter *policy.L4Filter) uint16 {
+	if !l4Filter.IsRedirect() {
+		return 0
+	}
+	proxyID := e.ProxyID(l4Filter)
+	return e.realizedRedirects[proxyID]
+}
+
+func (e *Endpoint) computeDesiredL4PolicyMapEntries(keysToAdd PolicyMapState) {
 	if keysToAdd == nil {
-		keysToAdd = map[policymap.PolicyKey]struct{}{}
+		keysToAdd = PolicyMapState{}
 	}
 
 	if e.DesiredL4Policy == nil {
@@ -123,14 +135,20 @@ func (e *Endpoint) computeDesiredL4PolicyMapEntries(keysToAdd map[policymap.Poli
 	for _, filter := range e.DesiredL4Policy.Ingress {
 		keysFromFilter := e.convertL4FilterToPolicyMapKeys(&filter, policymap.Ingress)
 		for _, keyFromFilter := range keysFromFilter {
-			keysToAdd[keyFromFilter] = struct{}{}
+			// This proxy port may get overwritten later by
+			// e.addNewRedirectsFromMap. We don't know at this point about new
+			// redirect ports that are to be allocated.
+			keysToAdd[keyFromFilter] = PolicyMapStateEntry{ProxyPort: e.lookupRedirectPort(&filter)}
 		}
 	}
 
 	for _, filter := range e.DesiredL4Policy.Egress {
 		keysFromFilter := e.convertL4FilterToPolicyMapKeys(&filter, policymap.Egress)
 		for _, keyFromFilter := range keysFromFilter {
-			keysToAdd[keyFromFilter] = struct{}{}
+			// This proxy port may get overwritten later by
+			// e.addNewRedirectsFromMap. We don't know at this point about new
+			// redirect ports that are to be allocated.
+			keysToAdd[keyFromFilter] = PolicyMapStateEntry{ProxyPort: e.lookupRedirectPort(&filter)}
 		}
 	}
 	return
@@ -203,7 +221,7 @@ func (e *Endpoint) resolveL4Policy(repo *policy.Repository) (policyChanged bool,
 
 func (e *Endpoint) computeDesiredPolicyMapState(owner Owner, labelsMap *identityPkg.IdentityCache,
 	repo *policy.Repository) {
-	desiredPolicyKeys := make(map[policymap.PolicyKey]struct{})
+	desiredPolicyKeys := make(PolicyMapState)
 	if e.LabelsMap != labelsMap {
 		e.LabelsMap = labelsMap
 	}
@@ -218,14 +236,14 @@ func (e *Endpoint) computeDesiredPolicyMapState(owner Owner, labelsMap *identity
 // communicate with the localhost. It inserts the PolicyKey corresponding to
 // the localhost in the desiredPolicyKeys if the endpoint is allowed to
 // communicate with the localhost.
-func (e *Endpoint) determineAllowLocalhost(desiredPolicyKeys map[policymap.PolicyKey]struct{}) {
+func (e *Endpoint) determineAllowLocalhost(desiredPolicyKeys PolicyMapState) {
 
 	if desiredPolicyKeys == nil {
-		desiredPolicyKeys = map[policymap.PolicyKey]struct{}{}
+		desiredPolicyKeys = PolicyMapState{}
 	}
 
 	if option.Config.AlwaysAllowLocalhost() || (e.DesiredL4Policy != nil && e.DesiredL4Policy.HasRedirect()) {
-		desiredPolicyKeys[localHostKey] = struct{}{}
+		desiredPolicyKeys[localHostKey] = PolicyMapStateEntry{}
 	}
 }
 
@@ -237,22 +255,22 @@ func (e *Endpoint) determineAllowLocalhost(desiredPolicyKeys map[policymap.Polic
 // This must be run after determineAllowLocalhost().
 //
 // For more information, see https://cilium.link/host-vs-world
-func (e *Endpoint) determineAllowFromWorld(desiredPolicyKeys map[policymap.PolicyKey]struct{}) {
+func (e *Endpoint) determineAllowFromWorld(desiredPolicyKeys PolicyMapState) {
 
 	if desiredPolicyKeys == nil {
-		desiredPolicyKeys = map[policymap.PolicyKey]struct{}{}
+		desiredPolicyKeys = PolicyMapState{}
 	}
 
 	_, localHostAllowed := desiredPolicyKeys[localHostKey]
 	if option.Config.HostAllowsWorld && localHostAllowed {
-		desiredPolicyKeys[worldKey] = struct{}{}
+		desiredPolicyKeys[worldKey] = PolicyMapStateEntry{}
 	}
 }
 
-func (e *Endpoint) computeDesiredL3PolicyMapEntries(owner Owner, identityCache *identityPkg.IdentityCache, repo *policy.Repository, desiredPolicyKeys map[policymap.PolicyKey]struct{}) {
+func (e *Endpoint) computeDesiredL3PolicyMapEntries(owner Owner, identityCache *identityPkg.IdentityCache, repo *policy.Repository, desiredPolicyKeys PolicyMapState) {
 
 	if desiredPolicyKeys == nil {
-		desiredPolicyKeys = map[policymap.PolicyKey]struct{}{}
+		desiredPolicyKeys = PolicyMapState{}
 	}
 
 	ingressCtx := policy.SearchContext{
@@ -289,7 +307,7 @@ func (e *Endpoint) computeDesiredL3PolicyMapEntries(owner Owner, identityCache *
 				Identity:         identity.Uint32(),
 				TrafficDirection: policymap.Ingress.Uint8(),
 			}
-			desiredPolicyKeys[keyToAdd] = struct{}{}
+			desiredPolicyKeys[keyToAdd] = PolicyMapStateEntry{}
 		}
 
 		var egressAccess api.Decision
@@ -308,7 +326,7 @@ func (e *Endpoint) computeDesiredL3PolicyMapEntries(owner Owner, identityCache *
 				Identity:         identity.Uint32(),
 				TrafficDirection: policymap.Egress.Uint8(),
 			}
-			desiredPolicyKeys[keyToAdd] = struct{}{}
+			desiredPolicyKeys[keyToAdd] = PolicyMapStateEntry{}
 		}
 	}
 }
