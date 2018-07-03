@@ -20,7 +20,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/color"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
@@ -282,10 +282,10 @@ func (bo *BoolOptions) Dump() {
 	sort.Strings(opts)
 
 	for _, k := range opts {
-		text := common.Green("Enabled")
+		text := color.Green("Enabled")
 
 		if !bo.Opts[k] {
-			text = common.Red("Disabled")
+			text = color.Red("Disabled")
 		}
 
 		fmt.Printf("%-24s %s\n", k, text)

@@ -19,7 +19,7 @@ import (
 	"os"
 	"text/tabwriter"
 
-	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/color"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labels/model"
@@ -74,12 +74,12 @@ func printEndpointLabels(lbls *labels.OpLabels) {
 	w := tabwriter.NewWriter(os.Stdout, 2, 0, 3, ' ', 0)
 
 	for _, v := range lbls.IdentityLabels() {
-		text := common.Green("Enabled")
+		text := color.Green("Enabled")
 		fmt.Fprintf(w, "%s\t%s\n", v, text)
 	}
 
 	for _, v := range lbls.Disabled {
-		text := common.Red("Disabled")
+		text := color.Red("Disabled")
 		fmt.Fprintf(w, "%s\t%s\n", v, text)
 	}
 	w.Flush()

@@ -25,8 +25,8 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/color"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/maps/policymap"
@@ -292,9 +292,9 @@ func dumpConfig(Opts map[string]string) {
 		if enabled, err := option.NormalizeBool(Opts[k]); err != nil {
 			Fatalf("Invalid option answer %s: %s", Opts[k], err)
 		} else if enabled {
-			fmt.Printf("%-24s %s\n", k, common.Green("Enabled"))
+			fmt.Printf("%-24s %s\n", k, color.Green("Enabled"))
 		} else {
-			fmt.Printf("%-24s %s\n", k, common.Red("Disabled"))
+			fmt.Printf("%-24s %s\n", k, color.Red("Disabled"))
 		}
 	}
 }
