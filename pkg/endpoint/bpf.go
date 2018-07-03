@@ -43,7 +43,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/u8proto"
 	"github.com/cilium/cilium/pkg/version"
 )
 
@@ -51,84 +50,6 @@ const (
 	// ExecTimeout is the execution timeout to use in join_ep.sh executions
 	ExecTimeout = 300 * time.Second
 )
-
-// lookupRedirectPortBE returns the redirect L4 proxy port for the given L4
-// filter, in big-endian (network) byte order. Returns 0 if not found or the
-// filter doesn't require a redirect.
-// Must be called with Endpoint.Mutex held.
-func (e *Endpoint) lookupRedirectPortBE(l4Filter *policy.L4Filter) uint16 {
-	if !l4Filter.IsRedirect() {
-		return 0
-	}
-	proxyID := e.ProxyID(l4Filter)
-	return byteorder.HostToNetwork(e.realizedRedirects[proxyID]).(uint16)
-}
-
-// filterAccumulator accumulates proxyport / L4 allow configurations during
-// e.writeL4Map() iteration. One will be defined for L4-only filters,
-// and one for L3-dependent L4 filters.
-type filterAccumulator struct {
-	config string
-	array  string
-	index  int
-}
-
-func (fa *filterAccumulator) add(dport, redirect uint16, protoNum uint8) {
-	entry := fmt.Sprintf("%d,%d,%d,%d", fa.index, dport, redirect, protoNum)
-	if fa.array != "" {
-		fa.array = fa.array + "," + entry
-	} else {
-		fa.array = entry
-	}
-	fa.index++
-}
-
-func (fa *filterAccumulator) writeL4Map(fw *bufio.Writer) {
-	if fa.array == "" {
-		fmt.Fprintf(fw, "#undef %s\n", fa.config)
-	} else {
-		fmt.Fprintf(fw, "#define %s %s, (), 0\n", fa.config, fa.array)
-		fmt.Fprintf(fw, "#define NR_%s %d\n", fa.config, fa.index)
-	}
-}
-
-func (e *Endpoint) writeL4Map(fw *bufio.Writer, m policy.L4PolicyMap, configL3L4 string) error {
-	l3l4cfg := &filterAccumulator{config: configL3L4}
-
-	for _, l4 := range m {
-		// Represents struct l4_allow in bpf/lib/l4.h
-		protoNum, err := u8proto.ParseProtocol(string(l4.Protocol))
-		if err != nil {
-			return fmt.Errorf("invalid protocol %s", l4.Protocol)
-		}
-
-		dport := byteorder.HostToNetwork(uint16(l4.Port)).(uint16)
-		redirect := e.lookupRedirectPortBE(&l4)
-		l3l4cfg.add(dport, redirect, uint8(protoNum))
-	}
-
-	l3l4cfg.writeL4Map(fw)
-
-	return nil
-}
-
-func (e *Endpoint) writeL4Policy(fw *bufio.Writer) error {
-	if e.DesiredL4Policy == nil {
-		return nil
-	}
-
-	// Out of caution, make a local copy of the DesiredL4Policy in case
-	// enpdoint's DesiredL4Policy gets updated elsewhere.
-	l4policy := e.DesiredL4Policy
-
-	fmt.Fprintf(fw, "#define HAVE_L4_POLICY\n")
-
-	if err := e.writeL4Map(fw, l4policy.Ingress, "CFG_L3L4_INGRESS"); err != nil {
-		return err
-	}
-
-	return e.writeL4Map(fw, l4policy.Egress, "CFG_L3L4_EGRESS")
-}
 
 func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	headerPath := filepath.Join(prefix, common.CHeaderFileName)
@@ -243,8 +164,8 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	// Endpoint options
 	fw.WriteString(e.Opts.GetFmtList())
 
-	if err := e.writeL4Policy(fw); err != nil {
-		return err
+	if e.DesiredL4Policy != nil {
+		fmt.Fprintf(fw, "#define HAVE_L4_POLICY\n")
 	}
 
 	ipcachePrefixes6, ipcachePrefixes4 := policy.GetDefaultPrefixLengths()
