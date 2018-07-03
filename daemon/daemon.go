@@ -1098,7 +1098,7 @@ func NewDaemon() (*Daemon, error) {
 			log.Warn("k8s mode: Configuring ingress policy for host to also allow from world. For more information, see https://cilium.link/host-vs-world")
 		}
 
-		if !singleClusterRoute {
+		if !viper.GetBool(option.SingleClusterRouteName) {
 			node.EnablePerNodeRoutes()
 		}
 	}
