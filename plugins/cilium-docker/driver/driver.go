@@ -156,7 +156,7 @@ func (driver *driver) updateRoutes(addressing *models.NodeAddressing) {
 			}
 		}
 
-		driver.gatewayIPv4 = connector.IPv6Gateway(driver.conf.Addressing)
+		driver.gatewayIPv4 = connector.IPv4Gateway(driver.conf.Addressing)
 	}
 }
 
