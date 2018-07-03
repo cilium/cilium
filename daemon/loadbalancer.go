@@ -573,9 +573,7 @@ func (d *Daemon) SyncLBMap() error {
 	// are modifying the BPF maps, and calling Dump on a Map RLocks the maps.
 	log.Debug("iterating over services read from BPF LB Map and seeing if they have the same ID set in the KV store")
 	for _, svc := range newSVCList {
-		// Check if the services read from the lbmap have the same ID set in the
-		// KVStore.
-		kvL3n4AddrID, err := service.AcquireID(svc.FE.L3n4Addr, 0)
+		kvL3n4AddrID, err := service.RestoreID(svc.FE.L3n4Addr, uint32(svc.FE.ID))
 		if err != nil {
 			log.WithError(err).WithFields(logrus.Fields{
 				logfields.L3n4Addr: logfields.Repr(svc.FE.L3n4Addr),

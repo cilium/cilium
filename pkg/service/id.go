@@ -30,6 +30,20 @@ func AcquireID(l3n4Addr types.L3n4Addr, baseID uint32) (*types.L3n4AddrID, error
 	return acquireLocalID(l3n4Addr, baseID)
 }
 
+// RestoreID restores  previously used service ID
+func RestoreID(l3n4Addr types.L3n4Addr, baseID uint32) (*types.L3n4AddrID, error) {
+	log.WithField(logfields.L3n4Addr, logfields.Repr(l3n4Addr)).Debug("Restoring service")
+
+	if enableGlobalServiceIDs {
+		// global service IDs do not require to pass in the existing
+		// service ID. The global state will guarantee that the same
+		// service will resolve to the same service ID again.
+		return acquireGlobalID(l3n4Addr, 0)
+	}
+
+	return acquireLocalID(l3n4Addr, baseID)
+}
+
 // GetID returns the L3n4AddrID that belongs to the given id.
 func GetID(id uint32) (*types.L3n4AddrID, error) {
 	if enableGlobalServiceIDs {
