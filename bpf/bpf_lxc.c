@@ -772,7 +772,7 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 			return ret2;
 	}
 
-	verdict = policy_can_access_ingress(skb, src_label, tuple.dport,
+	verdict = policy_can_access_ingress(skb, &src_label, tuple.dport,
 					    tuple.nexthdr, sizeof(tuple.saddr),
 					    &tuple.saddr);
 
@@ -882,7 +882,7 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 			return ret2;
 	}
 
-	verdict = policy_can_access_ingress(skb, src_label, tuple.dport,
+	verdict = policy_can_access_ingress(skb, &src_label, tuple.dport,
 					    tuple.nexthdr, sizeof(orig_sip),
 					    &orig_sip);
 

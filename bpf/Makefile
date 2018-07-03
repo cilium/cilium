@@ -51,9 +51,7 @@ LXC_OPTIONS = \
 	 -DSKIP_DEBUG \
 	 -DDROP_ALL \
 	 -DHAVE_LPM_MAP_TYPE \
-	 -DHAVE_LRU_MAP_TYPE \
-	 -DSKIP_CIDR_PREFIXES
-	# FIXME: GH-2906: Test with both HAVE_LPM_MAP_TYPE and SKIP_CIDR_PREFIXES
+	 -DHAVE_LRU_MAP_TYPE
 
 bpf_lxc.o: bpf_lxc.c $(LIB)
 	$(QUIET) set -e; \

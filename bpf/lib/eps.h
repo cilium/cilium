@@ -45,7 +45,7 @@ lookup_ip4_endpoint(struct iphdr *ip4)
 	return map_lookup_elem(&cilium_lxc, &key);
 }
 
-#if defined POLICY_EGRESS && defined LXC_ID
+#if (defined POLICY_EGRESS || defined POLICY_INGRESS) && defined LXC_ID
 /* IPCACHE_STATIC_PREFIX gets sizeof non-IP, non-prefix part of ipcache_key */
 #define IPCACHE_STATIC_PREFIX							\
 	(8 * (sizeof(struct ipcache_key) - sizeof(struct bpf_lpm_trie_key)	\
