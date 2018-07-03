@@ -598,25 +598,51 @@ func (d *Daemon) installIptablesRules() error {
 	}
 
 	if masquerade {
-		// Masquerade all traffic from the host into the cilium_host interface
-		// if the source is not the internal IP
+		ingressSnatSrcAddrExclusion := node.GetHostMasqueradeIPv4().String()
+		if option.Config.Tunnel == option.TunnelDisabled {
+			ingressSnatSrcAddrExclusion = node.GetIPv4ClusterRange().String()
+		}
+
+		// Masquerade all traffic from the host into the cilium_host
+		// interface if the source is not the internal IP
+		//
+		// The following conditions must be met:
+		// * Must be targeted for the cilium_host interface
+		// * Tunnel mode:
+		//   * May not already be originating from the masquerade IP
+		// * Non-tunnel mode:
+		//   * May not orignate from any IP inside of the cluster range
 		if err := runProg("iptables", []string{
 			"-t", "nat",
 			"-A", ciliumPostNatChain,
-			"!", "-s", node.GetHostMasqueradeIPv4().String(),
+			"!", "-s", ingressSnatSrcAddrExclusion,
 			"-o", "cilium_host",
 			"-m", "comment", "--comment", "cilium host->cluster masquerade",
 			"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String()}, false); err != nil {
 			return err
 		}
 
-		// Masquerade all traffic from node prefix not going to node prefix
-		// which is not going over the tunnel device
+		egressSnatDstAddrExclusion := node.GetIPv4AllocRange().String()
+		if option.Config.Tunnel == option.TunnelDisabled {
+			egressSnatDstAddrExclusion = node.GetIPv4ClusterRange().String()
+		}
+
+		// Masquerade all egress traffic leaving the node
+		//
+		// The following conditions must be met:
+		// * May not leave on a cilium_ interface, this excludes all
+		//   tunnel traffic
+		// * Must originate from an IP in the local allocation range
+		// * Tunnel mode:
+		//   * May not be targeted to an IP in the local allocation
+		//     range
+		// * Non-tunnel mode:
+		//   * May not be targeted to an IP in the cluster range
 		if err := runProg("iptables", []string{
 			"-t", "nat",
 			"-A", "CILIUM_POST",
 			"-s", node.GetIPv4AllocRange().String(),
-			"!", "-d", node.GetIPv4AllocRange().String(),
+			"!", "-d", egressSnatDstAddrExclusion,
 			"!", "-o", "cilium_+",
 			"-m", "comment", "--comment", "cilium masquerade non-cluster",
 			"-j", "MASQUERADE"}, false); err != nil {
