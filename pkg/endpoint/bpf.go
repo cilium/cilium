@@ -422,6 +422,20 @@ func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, des
 			e.realizedRedirects[proxyID] = redirectPort
 			desiredRedirects[proxyID] = true
 
+			// Update the proxy port in the policy map.
+			// This may override proxy ports written by
+			// e.computeDesiredPolicyMapState.
+			var direction policymap.TrafficDirection
+			if l4.Ingress {
+				direction = policymap.Ingress
+			} else {
+				direction = policymap.Egress
+			}
+			keysFromFilter := e.convertL4FilterToPolicyMapKeys(&l4, direction)
+			for _, keyFromFilter := range keysFromFilter {
+				e.desiredMapState[keyFromFilter] = PolicyMapStateEntry{ProxyPort: redirectPort}
+			}
+
 			// Update the endpoint API model to report that Cilium manages a
 			// redirect for that port.
 			e.proxyStatisticsMutex.Lock()
@@ -448,6 +462,22 @@ func (e *Endpoint) addNewRedirects(owner Owner, m *policy.L4Policy, proxyWaitGro
 		return desiredRedirects, fmt.Errorf("Unable to allocate egress redirects: %s", err)
 	}
 	return desiredRedirects, nil
+}
+
+func (e *Endpoint) removeOldRedirectPolicyMapEntries(desiredRedirects map[string]bool) {
+	for id, redirectPort := range e.realizedRedirects {
+		// Remove only the redirects that are not required.
+		if desiredRedirects[id] {
+			continue
+		}
+		// Clear all occurrences of this proxy port in the policy map.
+		for k, v := range e.desiredMapState {
+			if v.ProxyPort == redirectPort {
+				v.ProxyPort = 0
+				e.desiredMapState[k] = v
+			}
+		}
+	}
 }
 
 // Must be called with endpoint.Mutex held.
@@ -591,8 +621,6 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 		}
 	}
 
-	var proxyWaitGroup *completion.WaitGroup
-
 	// Only generate & populate policy map if a security identity is set up for
 	// this endpoint.
 	if e.SecurityIdentity != nil {
@@ -606,28 +634,17 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 			return 0, compilationExecuted, fmt.Errorf("unable to regenerate policy for '%s': %s", e.PolicyMap.String(), err)
 		}
 
-		// Synchronously try to update PolicyMap for this endpoint. If any
-		// part of updating the PolicyMap fails, bail out and do not generate
-		// BPF. Unfortunately, this means that the map will be in an inconsistent
-		// state with the current program (if it exists) for this endpoint.
-		// GH-3897 would fix this by creating a new map to do an atomic swap
-		// with the old one.
-		err := e.syncPolicyMap()
-		if err != nil {
-			e.Mutex.Unlock()
-			return 0, compilationExecuted, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %s", err)
-		}
-
 		// Now that policy has been regenerated, set up a context to
 		// wait for proxy completions.
 		completionCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		proxyWaitGroup = completion.NewWaitGroup(completionCtx)
+		proxyWaitGroup := completion.NewWaitGroup(completionCtx)
 		defer func() {
 			cancel()
 		}()
 
 		// Walk the L4Policy for ports that require
 		// an L7 redirect and add them to the endpoint.
+		// Also update the desired policy map state to set the newly allocated proxy ports.
 		if e.DesiredL4Policy != nil {
 			desiredRedirects, err = e.addNewRedirects(owner, e.DesiredL4Policy, proxyWaitGroup)
 			if err != nil {
@@ -635,11 +652,35 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 				return 0, compilationExecuted, err
 			}
 		}
+
 		// Update policies after adding redirects, otherwise we will not wait for
-		// acks for the first policy upates for the first added redirects.
+		// acks for the first policy updates for the first added redirects.
 		if err = e.updateNetworkPolicy(owner, proxyWaitGroup); err != nil {
 			e.Mutex.Unlock()
 			return 0, compilationExecuted, err
+		}
+
+		// To avoid traffic loss, wait for the proxy to be ready to accept
+		// traffic on new redirect ports, before we update the policy map that
+		// will redirect traffic to those ports.
+		err = e.WaitForProxyCompletions(proxyWaitGroup)
+		if err != nil {
+			return 0, compilationExecuted, fmt.Errorf("Error while configuring proxy redirects: %s", err)
+		}
+
+		// Synchronously try to update PolicyMap for this endpoint. If any
+		// part of updating the PolicyMap fails, bail out and do not generate
+		// BPF. Unfortunately, this means that the map will be in an inconsistent
+		// state with the current program (if it exists) for this endpoint.
+		// GH-3897 would fix this by creating a new map to do an atomic swap
+		// with the old one.
+		//
+		// This must be done after adding the new redirects, because the newly
+		// allocated proxy ports have to be updated in the policy map.
+		err := e.syncPolicyMap()
+		if err != nil {
+			e.Mutex.Unlock()
+			return 0, compilationExecuted, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %s", err)
 		}
 	}
 
@@ -685,14 +726,6 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 	rundir := owner.GetStateDir()
 	debug := strconv.FormatBool(owner.DebugEnabled())
 
-	// To avoid traffic loss, wait for the proxy to be ready to accept traffic
-	// on new redirect ports, before we generate the policy that will redirect
-	// traffic to those ports.
-	err = e.WaitForProxyCompletions(proxyWaitGroup)
-	if err != nil {
-		return 0, compilationExecuted, fmt.Errorf("Error while configuring proxy redirects: %s", err)
-	}
-
 	if bpfHeaderfilesChanged {
 		// Compile and install BPF programs for this endpoint
 		err = e.runInit(libdir, rundir, epdir, epInfoCache.ifName, debug)
@@ -708,11 +741,29 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 		e.Mutex.RUnlock()
 	}
 
-	// To avoid traffic loss, wait for the policy to be pushed into BPF before
+	// Remove all obsolete redirects from the desired policy map.
+	e.removeOldRedirectPolicyMapEntries(desiredRedirects)
+
+	// Synchronously try to update PolicyMap for this endpoint. If any
+	// part of updating the PolicyMap fails, bail out and do not generate
+	// BPF. Unfortunately, this means that the map will be in an inconsistent
+	// state with the current program (if it exists) for this endpoint.
+	// GH-3897 would fix this by creating a new map to do an atomic swap
+	// with the old one.
+	//
+	// This must be done before removing the old redirects below, because the
+	// allocated proxy ports are to be cleared from the policy map first.
+	err = e.syncPolicyMap()
+	if err != nil {
+		e.Mutex.Unlock()
+		return 0, compilationExecuted, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %s", err)
+	}
+
+	// To avoid traffic loss, wait for the policy map to be updated before
 	// deleting obsolete redirects, to make sure no packets are redirected to
 	// those ports.
 	completionCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	proxyWaitGroup = completion.NewWaitGroup(completionCtx)
+	proxyWaitGroup := completion.NewWaitGroup(completionCtx)
 	defer cancel()
 	e.Mutex.Lock()
 	e.removeOldRedirects(owner, desiredRedirects, proxyWaitGroup)
