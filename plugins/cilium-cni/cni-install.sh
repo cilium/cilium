@@ -36,8 +36,7 @@ else
 	cat > ${CNI_CONF_NAME} <<EOF
 {
     "name": "cilium",
-    "type": "cilium-cni",
-    "mtu": ${MTU}
+    "type": "cilium-cni"
 }
 EOF
 	mkdir -p $(dirname $CILIUM_CNI_CONF)
