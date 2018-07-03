@@ -72,7 +72,7 @@ cilium-agent
       --socket-path string                          Sets daemon's socket path to listen for connections (default "/var/run/cilium/cilium.sock")
       --state-dir string                            Directory path to store runtime state (default "/var/run/cilium")
       --trace-payloadlen int                        Length of payload to capture when tracing (default 128)
-  -t, --tunnel string                               Tunnel mode "vxlan" or "geneve" (default "vxlan")
+  -t, --tunnel string                               Tunnel mode {vxlan, geneve, disabled} (default "vxlan")
       --version                                     Print version information
 ```
 
