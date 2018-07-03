@@ -16,6 +16,7 @@ package node
 
 import (
 	"k8s.io/api/core/v1"
+	"time"
 )
 
 var localNode Node
@@ -46,5 +47,19 @@ func ConfigureLocalNode() error {
 
 	UpdateNode(Identity{Name: localNode.Name}, &localNode, TunnelRoute, nil)
 
-	return registerNode()
+	nodeRegistered := make(chan struct{})
+	go func() {
+		if err := registerNode(); err != nil {
+			log.WithError(err).Fatal("Unable to initialize local node")
+		}
+		close(nodeRegistered)
+	}()
+	go func() {
+		select {
+		case <-nodeRegistered:
+		case <-time.NewTimer(3 * time.Minute).C:
+			log.Fatalf("Unable to initialize local node due timeout")
+		}
+	}()
+	return nil
 }
