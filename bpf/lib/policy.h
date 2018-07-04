@@ -216,41 +216,22 @@ policy_can_egress(struct __sk_buff *skb, __u16 identity, __u16 dport, __u8 proto
 
 static inline int policy_can_egress6(struct __sk_buff *skb,
 				     struct ipv6_ct_tuple *tuple,
-				     __u16 default_identity,
-				     union v6addr *daddr)
+				     __u16 identity, union v6addr *daddr)
 {
 #ifdef DROP_ALL
 	return DROP_POLICY;
 #else
-	struct remote_endpoint_info *info;
-	__u16 identity = default_identity;
-
-	info = lookup_ip6_remote_endpoint(daddr);
-	if (info)
-		identity = info->sec_label;
-	cilium_dbg(skb, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
-		   daddr->p4, identity);
-
 	return policy_can_egress(skb, identity, tuple->dport, tuple->nexthdr);
 #endif /* DROP_ALL */
 }
 
 static inline int policy_can_egress4(struct __sk_buff *skb,
 				     struct ipv4_ct_tuple *tuple,
-				     __u16 default_identity, __be32 daddr)
+				     __u16 identity, __be32 daddr)
 {
 #ifdef DROP_ALL
 	return DROP_POLICY;
 #else
-	struct remote_endpoint_info *info;
-	__u16 identity = default_identity;
-
-	info = lookup_ip4_remote_endpoint(daddr);
-	if (info)
-		identity = info->sec_label;
-	cilium_dbg(skb, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
-		   daddr, identity);
-
 	return policy_can_egress(skb, identity, tuple->dport, tuple->nexthdr);
 #endif /* DROP_ALL */
 }
@@ -259,7 +240,7 @@ static inline int policy_can_egress4(struct __sk_buff *skb,
 
 static inline int
 policy_can_egress6(struct __sk_buff *skb, struct ipv6_ct_tuple *tuple,
-		   __u16 default_identity, union v6addr *daddr)
+		   __u16 identity, union v6addr *daddr)
 {
 #ifdef DROP_ALL
 	return DROP_POLICY;
@@ -270,7 +251,7 @@ policy_can_egress6(struct __sk_buff *skb, struct ipv6_ct_tuple *tuple,
 
 static inline int
 policy_can_egress4(struct __sk_buff *skb, struct ipv4_ct_tuple *tuple,
-		   __u16 default_identity, __be32 daddr)
+		   __u16 identity, __be32 daddr)
 {
 #ifdef DROP_ALL
 	return DROP_POLICY;

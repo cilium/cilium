@@ -95,6 +95,7 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	void *data, *data_end;
 	union v6addr *daddr, orig_dip;
 	uint16_t dstID = WORLD_ID;
+	__u32 tunnel_endpoint = 0;
 
 	if (unlikely(!is_valid_lxc_src_mac(eth)))
 		return DROP_INVALID_SMAC;
@@ -166,8 +167,20 @@ skip_service_lookup:
 
 	/* Determine the destination category for policy fallback. */
 	BPF_V6(router_ip, ROUTER_IP);
-	if (ipv6_match_prefix_64(daddr, &router_ip))
-		dstID = CLUSTER_ID;
+
+	if (1) {
+		struct remote_endpoint_info *info;
+
+		info = lookup_ip6_remote_endpoint(&orig_dip);
+		if (info != NULL) {
+			dstID = info->sec_label;
+			tunnel_endpoint = info->tunnel_endpoint;
+		} else if (ipv6_match_prefix_64(daddr, &router_ip))
+			dstID = CLUSTER_ID;
+
+		cilium_dbg(skb, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
+			   orig_dip.p4, dstID);
+	}
 
 	/* If the packet is in the establishing direction and it's destined
 	 * within the cluster, it must match policy or be dropped. If it's
@@ -268,7 +281,9 @@ skip_service_lookup:
 
 	/* The packet goes to a peer not managed by this agent instance */
 #ifdef ENCAP_IFINDEX
-	if (1) {
+	if (tunnel_endpoint) {
+		return encap_and_redirect_with_nodeid(skb, tunnel_endpoint, SECLABEL);
+	} else {
 		/* FIXME GH-1391: Get rid of the initializer */
 		struct endpoint_key key = {};
 
@@ -406,6 +421,7 @@ static inline int handle_ipv4_from_lxc(struct __sk_buff *skb)
 	struct ct_state ct_state = {};
 	__be32 orig_dip;
 	uint16_t dstID = WORLD_ID;
+	__u32 tunnel_endpoint = 0;
 
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -466,14 +482,24 @@ skip_service_lookup:
 	forwarding_reason = ret;
 
 	/* Determine the destination category for policy fallback. */
-	if ((orig_dip & IPV4_CLUSTER_MASK) == IPV4_CLUSTER_RANGE)
-		dstID = CLUSTER_ID;
+	if (1) {
+		struct remote_endpoint_info *info;
+
+		info = lookup_ip4_remote_endpoint(orig_dip);
+		if (info != NULL) {
+			dstID = info->sec_label;
+			tunnel_endpoint = info->tunnel_endpoint;
+		} else if ((orig_dip & IPV4_CLUSTER_MASK) == IPV4_CLUSTER_RANGE)
+			dstID = CLUSTER_ID;
+
+		cilium_dbg(skb, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
+			   orig_dip, dstID);
+	}
 
 	/* If the packet is in the establishing direction and it's destined
 	 * within the cluster, it must match policy or be dropped. If it's
 	 * bound for the host/outside, perform the CIDR policy check. */
-	verdict = policy_can_egress4(skb, &tuple, dstID,
-				     ipv4_ct_tuple_get_daddr(&tuple));
+	verdict = policy_can_egress4(skb, &tuple, dstID, ipv4_ct_tuple_get_daddr(&tuple));
 	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
 		/* If the connection was previously known and packet is now
 		 * denied, remove the connection tracking entry */
@@ -563,7 +589,9 @@ skip_service_lookup:
 	}
 
 #ifdef ENCAP_IFINDEX
-	if (1) {
+	if (tunnel_endpoint) {
+		return encap_and_redirect_with_nodeid(skb, tunnel_endpoint, SECLABEL);
+	} else {
 		/* FIXME GH-1391: Get rid of the initializer */
 		struct endpoint_key key = {};
 
