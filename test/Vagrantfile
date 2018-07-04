@@ -19,6 +19,11 @@ $CPU = (ENV['CPU'] || "2").to_i
 ENV["VAGRANT_DEFAULT_PROVIDER"] = "virtualbox"
 Vagrant.configure("2") do |config|
 
+    # setup ssh multiplexing to reuse connections
+    config.ssh.extra_args = ["-o", "ControlMaster=auto", 
+                             "-o", "ControlPath=~/.ssh/ssh-%r@%h:%p",
+                             "-o", "ControlPersist=1m"]
+
     config.vm.define "runtime" do |server|
         server.vm.provider "virtualbox" do |vb|
             vb.customize ["modifyvm", :id, "--hwvirtex", "on"]
