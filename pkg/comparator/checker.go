@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -66,4 +66,22 @@ func compare(a, b interface{}, nameA, nameB string) string {
 		return err.Error()
 	}
 	return "Unified diff:\n" + out
+}
+
+// MapStringEquals returns true if both maps are equal.
+func MapStringEquals(m1, m2 map[string]string) bool {
+	switch {
+	case m1 == nil && m2 == nil:
+		return true
+	case m1 == nil && m2 != nil,
+		m1 != nil && m2 == nil,
+		len(m1) != len(m2):
+		return false
+	}
+	for k1, v1 := range m1 {
+		if v2, ok := m2[k1]; !ok || v2 != v1 {
+			return false
+		}
+	}
+	return true
 }
