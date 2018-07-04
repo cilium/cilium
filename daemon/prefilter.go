@@ -20,7 +20,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/prefilter"
-	"github.com/cilium/cilium/pkg/apierror"
+	"github.com/cilium/cilium/pkg/api"
 	"github.com/go-openapi/runtime/middleware"
 )
 
@@ -38,7 +38,7 @@ func (h *getPrefilter) Handle(params GetPrefilterParams) middleware.Responder {
 	var revision int64
 	if h.d.preFilter == nil {
 		msg := fmt.Errorf("Prefilter is not enabled in daemon")
-		return apierror.Error(GetPrefilterFailureCode, msg)
+		return api.Error(GetPrefilterFailureCode, msg)
 	}
 	list, revision = h.d.preFilter.Dump(list)
 	spec := &models.PrefilterSpec{
@@ -68,19 +68,19 @@ func (h *patchPrefilter) Handle(params PatchPrefilterParams) middleware.Responde
 	spec := params.PrefilterSpec
 	if h.d.preFilter == nil {
 		msg := fmt.Errorf("Prefilter is not enabled in daemon")
-		return apierror.Error(PatchPrefilterFailureCode, msg)
+		return api.Error(PatchPrefilterFailureCode, msg)
 	}
 	for _, cidrStr := range spec.Deny {
 		_, cidr, err := net.ParseCIDR(cidrStr)
 		if err != nil {
 			msg := fmt.Errorf("Invalid CIDR string %s", cidrStr)
-			return apierror.Error(PatchPrefilterInvalidCIDRCode, msg)
+			return api.Error(PatchPrefilterInvalidCIDRCode, msg)
 		}
 		list = append(list, *cidr)
 	}
 	err := h.d.preFilter.Insert(spec.Revision, list)
 	if err != nil {
-		return apierror.Error(PatchPrefilterFailureCode, err)
+		return api.Error(PatchPrefilterFailureCode, err)
 	}
 	return NewPatchPrefilterOK()
 }

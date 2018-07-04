@@ -19,7 +19,7 @@ import (
 
 	. "github.com/cilium/cilium/api/v1/server/restapi/service"
 	"github.com/cilium/cilium/common/types"
-	"github.com/cilium/cilium/pkg/apierror"
+	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
@@ -149,7 +149,7 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 
 	f, err := types.NewL3n4AddrFromModel(params.Config.FrontendAddress)
 	if err != nil {
-		return apierror.Error(PutServiceIDInvalidFrontendCode, err)
+		return api.Error(PutServiceIDInvalidFrontendCode, err)
 	}
 
 	frontend := types.L3n4AddrID{
@@ -161,7 +161,7 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 	for _, v := range params.Config.BackendAddresses {
 		b, err := types.NewLBBackEndFromBackendModel(v)
 		if err != nil {
-			return apierror.Error(PutServiceIDInvalidBackendCode, err)
+			return api.Error(PutServiceIDInvalidBackendCode, err)
 		}
 		backends = append(backends, *b)
 	}
@@ -176,7 +176,7 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 	// global key value store
 
 	if created, err := h.d.SVCAdd(frontend, backends, revnat); err != nil {
-		return apierror.Error(PutServiceIDFailureCode, err)
+		return api.Error(PutServiceIDFailureCode, err)
 	} else if created {
 		return NewPutServiceIDCreated()
 	} else {
@@ -214,7 +214,7 @@ func (h *deleteServiceID) Handle(params DeleteServiceIDParams) middleware.Respon
 
 	if err := h.d.svcDelete(svc); err != nil {
 		log.WithError(err).WithField(logfields.Object, logfields.Repr(svc)).Warn("DELETE /service/{id}: error deleting service")
-		return apierror.Error(DeleteServiceIDFailureCode, err)
+		return api.Error(DeleteServiceIDFailureCode, err)
 	}
 
 	return NewDeleteServiceIDOK()

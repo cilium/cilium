@@ -24,7 +24,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
-	"github.com/cilium/cilium/pkg/apierror"
+	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
@@ -122,7 +122,7 @@ func (h *getEndpointID) Handle(params GetEndpointIDParams) middleware.Responder 
 	ep, err := endpointmanager.Lookup(params.ID)
 
 	if err != nil {
-		return apierror.Error(GetEndpointIDInvalidCode, err)
+		return api.Error(GetEndpointIDInvalidCode, err)
 	} else if ep == nil {
 		return NewGetEndpointIDNotFound()
 	} else {
@@ -206,19 +206,19 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 	})
 
 	if n, err := endpointid.ParseCiliumID(params.ID); err != nil {
-		return apierror.Error(PutEndpointIDInvalidCode, err)
+		return api.Error(PutEndpointIDInvalidCode, err)
 	} else if n != epTemplate.ID {
-		return apierror.New(PutEndpointIDInvalidCode,
+		return api.New(PutEndpointIDInvalidCode,
 			"ID parameter does not match ID in endpoint parameter")
 	} else if epTemplate.ID == 0 {
-		return apierror.New(PutEndpointIDInvalidCode,
+		return api.New(PutEndpointIDInvalidCode,
 			"endpoint ID cannot be 0")
 	}
 
 	code, err := h.d.createEndpoint(epTemplate, params.ID, params.Endpoint.Labels)
 	if err != nil {
 		logger.WithError(err).Error("Endpoint cannot be created")
-		return apierror.Error(code, err)
+		return api.Error(code, err)
 	}
 
 	// Wait for endpoint to be in "ready" state if specified in API call.
@@ -231,11 +231,11 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 			if e != nil {
 				h.d.deleteEndpoint(e)
 			}
-			return apierror.Error(PutEndpointIDFailedCode, err)
+			return api.Error(PutEndpointIDFailedCode, err)
 		}
 
 		if e == nil {
-			return apierror.Error(PutEndpointIDFailedCode, fmt.Errorf("error retrieving endpoint to check if it is in %s state", endpoint.StateReady))
+			return api.Error(PutEndpointIDFailedCode, fmt.Errorf("error retrieving endpoint to check if it is in %s state", endpoint.StateReady))
 		}
 
 		logger.Debugf("synchronously waiting for endpoint '%d' to be in '%s' state",
@@ -267,14 +267,14 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 				} else if epState == endpoint.StateDisconnected || epState == endpoint.StateDisconnecting {
 					// Short circuit in case a call to delete the endpoint is
 					// made while we are waiting for it to be in "ready" state.
-					return apierror.Error(PutEndpointIDFailedCode, fmt.Errorf("endpoint %d went into state %s while waiting for it to be %s", e.ID, epState, endpoint.StateReady))
+					return api.Error(PutEndpointIDFailedCode, fmt.Errorf("endpoint %d went into state %s while waiting for it to be %s", e.ID, epState, endpoint.StateReady))
 				}
 			case <-timeout:
 				// Delete endpoint because PUT operation fails if timeout is
 				// exceeded.
 				logger.Warning("Endpoint did not synchronously regenerate after timeout")
 				h.d.deleteEndpoint(e)
-				return apierror.Error(PutEndpointIDFailedCode, fmt.Errorf("endpoint %d did not synchronously regenerate after timeout", e.ID))
+				return api.Error(PutEndpointIDFailedCode, fmt.Errorf("endpoint %d did not synchronously regenerate after timeout", e.ID))
 			}
 		}
 	}
@@ -307,7 +307,7 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 	// Note: newEp's labels are ignored.
 	newEp, err2 := endpoint.NewEndpointFromChangeModel(epTemplate)
 	if err2 != nil {
-		return apierror.Error(PutEndpointIDInvalidCode, err2)
+		return api.Error(PutEndpointIDInvalidCode, err2)
 	}
 
 	// Log invalid state transitions, but do not error out for backwards
@@ -318,13 +318,13 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 
 	ep, err := endpointmanager.Lookup(params.ID)
 	if err != nil {
-		return apierror.Error(GetEndpointIDInvalidCode, err)
+		return api.Error(GetEndpointIDInvalidCode, err)
 	}
 	if ep == nil {
 		return NewPatchEndpointIDNotFound()
 	}
 	if err = endpoint.APICanModify(ep); err != nil {
-		return apierror.Error(PatchEndpointIDInvalidCode, err)
+		return api.Error(PatchEndpointIDInvalidCode, err)
 	}
 
 	// FIXME: Support changing these?
@@ -426,7 +426,7 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 
 	if reason != "" {
 		if err := ep.RegenerateWait(h.d, reason); err != nil {
-			return apierror.Error(PatchEndpointIDFailedCode, err)
+			return api.Error(PatchEndpointIDFailedCode, err)
 		}
 		// FIXME: Special return code to indicate regeneration happened?
 	}
@@ -543,11 +543,11 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []er
 
 func (d *Daemon) DeleteEndpoint(id string) (int, error) {
 	if ep, err := endpointmanager.Lookup(id); err != nil {
-		return 0, apierror.Error(DeleteEndpointIDInvalidCode, err)
+		return 0, api.Error(DeleteEndpointIDInvalidCode, err)
 	} else if ep == nil {
-		return 0, apierror.New(DeleteEndpointIDNotFoundCode, "endpoint not found")
+		return 0, api.New(DeleteEndpointIDNotFoundCode, "endpoint not found")
 	} else if err = endpoint.APICanModify(ep); err != nil {
-		return 0, apierror.Error(DeleteEndpointIDInvalidCode, err)
+		return 0, api.Error(DeleteEndpointIDInvalidCode, err)
 	} else {
 		return d.deleteEndpoint(ep), nil
 	}
@@ -566,10 +566,10 @@ func (h *deleteEndpointID) Handle(params DeleteEndpointIDParams) middleware.Resp
 
 	d := h.daemon
 	if nerr, err := d.DeleteEndpoint(params.ID); err != nil {
-		if apierr, ok := err.(*apierror.APIError); ok {
+		if apierr, ok := err.(*api.APIError); ok {
 			return apierr
 		}
-		return apierror.Error(DeleteEndpointIDErrorsCode, err)
+		return api.Error(DeleteEndpointIDErrorsCode, err)
 	} else if nerr > 0 {
 		return NewDeleteEndpointIDErrors().WithPayload(int64(nerr))
 	} else {
@@ -581,26 +581,26 @@ func (h *deleteEndpointID) Handle(params DeleteEndpointIDParams) middleware.Resp
 func (d *Daemon) EndpointUpdate(id string, cfg *models.EndpointConfigurationSpec) error {
 	ep, err := endpointmanager.Lookup(id)
 	if err != nil {
-		return apierror.Error(PatchEndpointIDInvalidCode, err)
+		return api.Error(PatchEndpointIDInvalidCode, err)
 	}
 	if err = endpoint.APICanModify(ep); err != nil {
-		return apierror.Error(PatchEndpointIDInvalidCode, err)
+		return api.Error(PatchEndpointIDInvalidCode, err)
 	}
 
 	if ep != nil {
 		if err := ep.Update(d, cfg); err != nil {
 			switch err.(type) {
 			case endpoint.UpdateValidationError:
-				return apierror.Error(PatchEndpointIDConfigInvalidCode, err)
+				return api.Error(PatchEndpointIDConfigInvalidCode, err)
 			default:
-				return apierror.Error(PatchEndpointIDConfigFailedCode, err)
+				return api.Error(PatchEndpointIDConfigFailedCode, err)
 			}
 		}
 		ep.Mutex.RLock()
 		endpointmanager.UpdateReferences(ep)
 		ep.Mutex.RUnlock()
 	} else {
-		return apierror.New(PatchEndpointIDConfigNotFoundCode, "endpoint %s not found", id)
+		return api.New(PatchEndpointIDConfigNotFoundCode, "endpoint %s not found", id)
 	}
 
 	return nil
@@ -619,10 +619,10 @@ func (h *patchEndpointIDConfig) Handle(params PatchEndpointIDConfigParams) middl
 
 	d := h.daemon
 	if err := d.EndpointUpdate(params.ID, params.EndpointConfiguration); err != nil {
-		if apierr, ok := err.(*apierror.APIError); ok {
+		if apierr, ok := err.(*api.APIError); ok {
 			return apierr
 		}
-		return apierror.Error(PatchEndpointIDFailedCode, err)
+		return api.Error(PatchEndpointIDFailedCode, err)
 	}
 
 	return NewPatchEndpointIDConfigOK()
@@ -641,7 +641,7 @@ func (h *getEndpointIDConfig) Handle(params GetEndpointIDConfigParams) middlewar
 
 	ep, err := endpointmanager.Lookup(params.ID)
 	if err != nil {
-		return apierror.Error(GetEndpointIDInvalidCode, err)
+		return api.Error(GetEndpointIDInvalidCode, err)
 	} else if ep == nil {
 		return NewGetEndpointIDConfigNotFound()
 	} else {
@@ -672,7 +672,7 @@ func (h *getEndpointIDLabels) Handle(params GetEndpointIDLabelsParams) middlewar
 
 	ep, err := endpointmanager.Lookup(params.ID)
 	if err != nil {
-		return apierror.Error(GetEndpointIDInvalidCode, err)
+		return api.Error(GetEndpointIDInvalidCode, err)
 	}
 	if ep == nil {
 		return NewGetEndpointIDLabelsNotFound()
@@ -711,7 +711,7 @@ func (h *getEndpointIDLog) Handle(params GetEndpointIDLogParams) middleware.Resp
 	ep, err := endpointmanager.Lookup(params.ID)
 
 	if err != nil {
-		return apierror.Error(GetEndpointIDLogInvalidCode, err)
+		return api.Error(GetEndpointIDLogInvalidCode, err)
 	} else if ep == nil {
 		return NewGetEndpointIDLogNotFound()
 	} else {
@@ -733,7 +733,7 @@ func (h *getEndpointIDHealthz) Handle(params GetEndpointIDHealthzParams) middlew
 	ep, err := endpointmanager.Lookup(params.ID)
 
 	if err != nil {
-		return apierror.Error(GetEndpointIDHealthzInvalidCode, err)
+		return api.Error(GetEndpointIDHealthzInvalidCode, err)
 	} else if ep == nil {
 		return NewGetEndpointIDHealthzNotFound()
 	} else {
@@ -837,7 +837,7 @@ func (h *putEndpointIDLabels) Handle(params PatchEndpointIDLabelsParams) middlew
 
 	code, err := d.modifyEndpointIdentityLabelsFromAPI(params.ID, add, del)
 	if err != nil {
-		return apierror.Error(code, err)
+		return api.Error(code, err)
 	}
 	return NewPatchEndpointIDLabelsOK()
 }
