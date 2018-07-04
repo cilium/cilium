@@ -2131,6 +2131,11 @@ func (e *Endpoint) SetIdentityLabels(owner Owner, l pkgLabels.Labels) {
 func (e *Endpoint) ModifyIdentityLabels(owner Owner, addLabels, delLabels pkgLabels.Labels) error {
 	e.Mutex.Lock()
 
+	switch e.GetStateLocked() {
+	case StateDisconnected, StateDisconnecting:
+		return nil
+	}
+
 	newLabels := e.OpLabels.DeepCopy()
 
 	for k := range delLabels {
