@@ -37,7 +37,7 @@ var (
 func (n *Node) GetKeyName() string {
 	// WARNING - STABLE API: Changing the structure of the key may break
 	// backwards compatibility
-	return path.Join(n.cluster.name, n.Name)
+	return path.Join(n.Cluster, n.Name)
 }
 
 // Marshal returns the node object as JSON byte slice

@@ -46,13 +46,15 @@ const (
 type clusterConfiguation struct {
 	lock.RWMutex
 
-	name                  string
 	nodes                 map[Identity]*Node
 	ciliumHostInitialized bool
 	auxPrefixes           []*net.IPNet
 }
 
-var clusterConf *clusterConfiguation
+var clusterConf = &clusterConfiguation{
+	nodes:       map[Identity]*Node{},
+	auxPrefixes: []*net.IPNet{},
+}
 
 func (cc *clusterConfiguation) getNode(ni Identity) *Node {
 	cc.RLock()
