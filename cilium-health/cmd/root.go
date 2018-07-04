@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/pkg/apisocket"
+	"github.com/cilium/cilium/pkg/api"
 	clientPkg "github.com/cilium/cilium/pkg/health/client"
 	"github.com/cilium/cilium/pkg/health/defaults"
 	serverPkg "github.com/cilium/cilium/pkg/health/server"
@@ -162,7 +162,7 @@ func runServer() {
 			scopedLog.WithError(err).Debugf("Cannot find socket")
 			time.Sleep(1 * time.Second)
 		}
-		if err := apisocket.SetDefaultPermissions(defaults.SockPath); err != nil {
+		if err := api.SetDefaultPermissions(defaults.SockPath); err != nil {
 			scopedLog.WithError(err).Fatal("Cannot set default permissions on socket")
 		}
 	}()
