@@ -1133,3 +1133,102 @@ func (kub *Kubectl) GetCiliumPodOnNode(namespace string, node string) (string, e
 
 	return res.Output().String(), nil
 }
+
+// CiliumPreFlightCheck specify that it checks that various subsystems within
+// Cilium are in a good state. If one of the multiple preflight fails it'll
+// return an error.
+func (kub *Kubectl) CiliumPreFlightCheck() error {
+	// Doing this withTimeout because the Status can be ready, but the other
+	// nodes cannot be show up yet, and the cilium-health can fail as a false positive.
+	var err error
+	body := func() bool {
+		err = kub.CiliumControllersPreFlightCheck()
+		if err != nil {
+			return false
+		}
+		err = kub.CiliumHealthPreFlightCheck()
+		if err != nil {
+			return false
+		}
+		return true
+	}
+	timeoutErr := WithTimeout(body, "PreflightCheck failed", &TimeoutConfig{Timeout: HelperTimeout})
+	if timeoutErr != nil {
+		return fmt.Errorf("CiliumPreFlightCheck error: %s: %s", timeoutErr, err)
+	}
+	return nil
+}
+
+// CiliumControllersPreFlightCheck validates that all controllers are not
+// failing. If any of the controllers fails will return an error.
+func (kub *Kubectl) CiliumControllersPreFlightCheck() error {
+	var controllersFilter = `{range .controllers[*]}{.name}{"="}{.status.consecutive-failure-count}{"\n"}{end}`
+	ciliumPods, err := kub.GetCiliumPods(KubeSystemNamespace)
+	if err != nil {
+		return err
+	}
+	for _, pod := range ciliumPods {
+		status := kub.CiliumExec(pod, fmt.Sprintf(
+			"cilium status --all-controllers -o jsonpath='%s'", controllersFilter))
+		if !status.WasSuccessful() {
+			return fmt.Errorf("cilium-agent %q: Cannot run cilium status: %s",
+				pod, status.OutputPrettyPrint())
+		}
+		for controller, status := range status.KVOutput() {
+			if status != "0" {
+				failmsg := kub.CiliumExec(pod, "cilium status --all-controllers")
+				return fmt.Errorf(
+					"cilium-agent %q: controller %s is failing: %s",
+					pod, controller, failmsg.OutputPrettyPrint())
+			}
+		}
+	}
+	return nil
+}
+
+// CiliumHealthPreFlightCheck checks that the health status is working
+// correctly and the number of nodes does not mistmatch with the running pods.
+// It return an error if health mark a node as failed.
+func (kub *Kubectl) CiliumHealthPreFlightCheck() error {
+	var nodesFilter = `{.nodes[*].name}`
+	var statusFilter = `{range .nodes[*]}{.name}{"="}{.host.primary-address.http.status}{"\n"}{end}`
+
+	ciliumPods, err := kub.GetCiliumPods(KubeSystemNamespace)
+	if err != nil {
+		return err
+	}
+	for _, pod := range ciliumPods {
+		status := kub.CiliumExec(pod, "cilium-health status -o json --probe")
+		if !status.WasSuccessful() {
+			return fmt.Errorf(
+				"Cluster connectivity is unhealthy on %q: %s",
+				pod, status.OutputPrettyPrint())
+		}
+
+		// By Checking that the node list is the same
+		nodes, err := status.Filter(nodesFilter)
+		if err != nil {
+			return fmt.Errorf("Cannot unmarshal health status: %s", err)
+		}
+
+		nodeCount := strings.Split(nodes.String(), " ")
+		if len(ciliumPods) != len(nodeCount) {
+			return fmt.Errorf(
+				"cilium-agent %q: Only %d/%d nodes appeared in cilium-health status. nodes = '%+v'",
+				pod, len(nodeCount), len(ciliumPods), nodeCount)
+		}
+
+		healthStatus, err := status.Filter(statusFilter)
+		if err != nil {
+			return fmt.Errorf("Cannot unmarshal health status: %s", err)
+		}
+
+		for node, status := range healthStatus.KVOutput() {
+			if status != "" {
+				return fmt.Errorf("cilium-agent %q: connectivity to node %q is unhealthy: %q",
+					pod, node, status)
+			}
+		}
+	}
+	return nil
+}
