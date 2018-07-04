@@ -23,7 +23,7 @@ import (
 	"syscall"
 
 	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/pkg/apisocket"
+	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging"
@@ -97,7 +97,7 @@ func runNodeMonitor() {
 	defer server.Close() // Do not accept new connections
 
 	if os.Getuid() == 0 {
-		err := apisocket.SetDefaultPermissions(defaults.MonitorSockPath)
+		err := api.SetDefaultPermissions(defaults.MonitorSockPath)
 		if err != nil {
 			scopedLog.WithError(err).Fatal("Cannot set default permissions on socket")
 		}

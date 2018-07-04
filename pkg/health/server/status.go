@@ -16,7 +16,7 @@ package server
 
 import (
 	. "github.com/cilium/cilium/api/v1/health/server/restapi/connectivity"
-	"github.com/cilium/cilium/pkg/apierror"
+	"github.com/cilium/cilium/pkg/api"
 
 	"github.com/go-openapi/runtime/middleware"
 )
@@ -52,7 +52,7 @@ func (h *putStatusProbe) Handle(params PutStatusProbeParams) middleware.Responde
 
 	status, err := h.FetchStatusResponse()
 	if err != nil {
-		return apierror.Error(PutStatusProbeFailedCode, err)
+		return api.Error(PutStatusProbeFailedCode, err)
 	}
 	return NewPutStatusProbeOK().WithPayload(status)
 }
