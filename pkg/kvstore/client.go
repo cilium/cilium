@@ -15,20 +15,12 @@
 package kvstore
 
 import (
-	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/lock"
+	"fmt"
 )
 
 var (
 	// defaultClient is the default client initialized by initClient
 	defaultClient BackendOperations
-
-	// leaseInstance is the backend specific lease object. The lease is
-	// created by initClient()
-	leaseInstance interface{}
-	leaseMutex    lock.RWMutex
-
-	kvstoreControllers = controller.NewManager()
 )
 
 func initClient(module backendModule) error {
@@ -38,12 +30,7 @@ func initClient(module backendModule) error {
 	}
 
 	defaultClient = c
-
 	deleteLegacyPrefixes()
-	if err := renewDefaultLease(); err != nil {
-		defaultClient = nil
-		return err
-	}
 
 	return nil
 }
@@ -51,4 +38,23 @@ func initClient(module backendModule) error {
 // Client returns the global kvstore client or nil if the client is not configured yet
 func Client() BackendOperations {
 	return defaultClient
+}
+
+// NewClient returns a new kvstore client based on the configuration
+func NewClient(selectedBackend string, opts map[string]string) (BackendOperations, error) {
+	module := getBackend(selectedBackend)
+	if module == nil {
+		return nil, fmt.Errorf("unknown key-value store type %q. See cilium.link/err-kvstore for details", selectedBackend)
+	}
+
+	if err := module.setConfig(opts); err != nil {
+		return nil, err
+	}
+
+	c, err := module.newClient()
+	if err != nil {
+		return nil, err
+	}
+
+	return c, nil
 }

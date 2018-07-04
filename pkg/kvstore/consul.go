@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/backoff"
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	consulAPI "github.com/hashicorp/consul/api"
@@ -65,6 +66,11 @@ var (
 func init() {
 	// register consul module for use
 	registerBackend(consulName, module)
+}
+
+func (c *consulModule) createInstance() backendModule {
+	cpy := *module
+	return &cpy
 }
 
 func (c *consulModule) getName() string {
@@ -117,6 +123,8 @@ var (
 
 type consulClient struct {
 	*consulAPI.Client
+	lease       string
+	controllers *controller.Manager
 }
 
 func newConsulClient(config *consulAPI.Config) (BackendOperations, error) {
@@ -156,7 +164,33 @@ func newConsulClient(config *consulAPI.Config) (BackendOperations, error) {
 		log.WithError(err).Fatal("Unable to contact consul server")
 	}
 
-	return &consulClient{c}, nil
+	entry := &consulAPI.SessionEntry{
+		TTL:      fmt.Sprintf("%ds", int(LeaseTTL.Seconds())),
+		Behavior: consulAPI.SessionBehaviorDelete,
+	}
+
+	lease, _, err := c.Session().Create(entry, nil)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create default lease: %s", err)
+	}
+
+	client := &consulClient{
+		Client:      c,
+		lease:       lease,
+		controllers: controller.NewManager(),
+	}
+
+	client.controllers.UpdateController(fmt.Sprintf("consul-lease-keepalive-%p", c),
+		controller.ControllerParams{
+			DoFunc: func() error {
+				_, _, err := c.Session().Renew(lease, nil)
+				return err
+			},
+			RunInterval: KeepAliveInterval,
+		},
+	)
+
+	return client, nil
 }
 
 func (c *consulClient) LockPath(path string) (kvLocker, error) {
@@ -515,12 +549,7 @@ func (c *consulClient) Update(key string, value []byte, lease bool) error {
 	k := &consulAPI.KVPair{Key: key, Value: value}
 
 	if lease {
-		id, ok := leaseInstance.(string)
-		if !ok {
-			return fmt.Errorf("argument not a LeaseID")
-		}
-
-		k.Session = id
+		k.Session = c.lease
 	}
 
 	_, err := c.KV().Put(k, nil)
@@ -536,12 +565,7 @@ func (c *consulClient) CreateOnly(key string, value []byte, lease bool) error {
 	}
 
 	if lease {
-		id, ok := leaseInstance.(string)
-		if !ok {
-			return fmt.Errorf("argument not a LeaseID")
-		}
-
-		k.Session = id
+		k.Session = c.lease
 	}
 
 	success, _, err := c.KV().CAS(k, nil)
@@ -600,40 +624,14 @@ func (c *consulClient) ListPrefix(prefix string) (KeyValuePairs, error) {
 	return p, nil
 }
 
-// CreateLease creates a new lease with the given ttl
-func (c *consulClient) CreateLease(ttl time.Duration) (interface{}, error) {
-	entry := &consulAPI.SessionEntry{
-		TTL:      fmt.Sprintf("%ds", int(ttl.Seconds())),
-		Behavior: consulAPI.SessionBehaviorDelete,
+// Close closes the consul session
+func (c *consulClient) Close() {
+	if c.controllers != nil {
+		c.controllers.RemoveAll()
 	}
-
-	id, _, err := c.Session().Create(entry, nil)
-	return id, err
-}
-
-// KeepAlive keeps a lease created with CreateLease alive
-func (c *consulClient) KeepAlive(lease interface{}) error {
-	id, ok := lease.(string)
-	if !ok {
-		return fmt.Errorf("argument not a LeaseID")
+	if c.lease != "" {
+		c.Session().Destroy(c.lease, nil)
 	}
-
-	_, _, err := c.Session().Renew(id, nil)
-	return err
-}
-
-// DeleteLease deletes a lease
-func (c *consulClient) DeleteLease(lease interface{}) error {
-	id, ok := lease.(string)
-	if !ok {
-		return fmt.Errorf("argument not a LeaseID")
-	}
-
-	_, err := c.Session().Destroy(id, nil)
-	return err
-}
-
-func (c *consulClient) closeClient() {
 }
 
 // GetCapabilities returns the capabilities of the backend

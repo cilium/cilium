@@ -16,7 +16,6 @@ package kvstore
 
 import (
 	"encoding/json"
-	"time"
 
 	"github.com/cilium/cilium/common/types"
 )
@@ -58,6 +57,9 @@ type backendModule interface {
 	// newClient must initializes the backend and create a new kvstore
 	// client which implements the BackendOperations interface
 	newClient() (BackendOperations, error)
+
+	// createInstance creates a new instance of the module
+	createInstance() backendModule
 }
 
 var (
@@ -78,7 +80,7 @@ func registerBackend(name string, module backendModule) {
 // getBackend finds a registered backend by name
 func getBackend(name string) backendModule {
 	if backend, ok := registeredBackends[name]; ok {
-		return backend
+		return backend.createInstance()
 	}
 
 	return nil
@@ -139,18 +141,8 @@ type BackendOperations interface {
 	// keys first.
 	Watch(w *Watcher)
 
-	// CreateLease creates a lease with the specified ttl
-	CreateLease(ttl time.Duration) (interface{}, error)
-
-	// KeepAlive keeps a lease previously created with CreateLease alive
-	// for the duration specified at CreateLease time
-	KeepAlive(lease interface{}) error
-
-	// DeleteLease deletes a lease
-	DeleteLease(interface{}) error
-
-	// close closes the kvstore client
-	closeClient()
+	// Close closes the kvstore client
+	Close()
 
 	// GetCapabilities returns the capabilities of the backend
 	GetCapabilities() Capabilities
