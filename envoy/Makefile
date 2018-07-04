@@ -43,11 +43,11 @@ else
 # Dockerfile builds require special options
 ifdef PKG_BUILD
 BAZEL_OPTS ?= --batch
-BAZEL_BUILD_OPTS = --spawn_strategy=standalone --genrule_strategy=standalone
+BAZEL_BUILD_OPTS = --spawn_strategy=standalone --genrule_strategy=standalone --local_resources 2048,2.0,1.0
 all: clean-bins release
 else
 BAZEL_OPTS ?=
-BAZEL_BUILD_OPTS = --experimental_strict_action_env
+BAZEL_BUILD_OPTS = --experimental_strict_action_env --local_resources 2048,2.0,1.0
 all: clean-bins envoy-default api
 endif
 
