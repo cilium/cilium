@@ -171,6 +171,9 @@ static inline int rewrite_dmac_to_host(struct __sk_buff *skb)
 
 static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 {
+#ifdef ENCAP_IFINDEX
+	struct remote_endpoint_info *info;
+#endif
 	union v6addr node_ip = { };
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -235,7 +238,10 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 
 #ifdef ENCAP_IFINDEX
 	dst = (union v6addr *) &ip6->daddr;
-	if (likely(ipv6_match_prefix_96(dst, &node_ip))) {
+	info = ipcache_lookup6(&cilium_ipcache, dst, V6_CACHE_KEY_LEN);
+	if (info != NULL && info->tunnel_endpoint != 0) {
+		return encap_and_redirect_with_nodeid(skb, info->tunnel_endpoint, flowlabel);
+	} else if (likely(ipv6_match_prefix_96(dst, &node_ip))) {
 		struct endpoint_key key = {};
 		int ret;
 
@@ -338,6 +344,9 @@ reverse_proxy(struct __sk_buff *skb, int l4_off, struct iphdr *ip4, __u8 nh)
 
 static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 {
+#ifdef ENCAP_IFINDEX
+	struct remote_endpoint_info *info;
+#endif
 	struct ipv4_ct_tuple tuple = {};
 	struct endpoint_info *ep;
 	void *data, *data_end;
@@ -385,8 +394,10 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 	}
 
 #ifdef ENCAP_IFINDEX
-	/* Check if destination is within our cluster prefix */
-	if ((ip4->daddr & IPV4_CLUSTER_MASK) == IPV4_CLUSTER_RANGE) {
+	info = ipcache_lookup4(&cilium_ipcache, ip4->daddr, V4_CACHE_KEY_LEN);
+	if (info != NULL && info->tunnel_endpoint != 0) {
+		return encap_and_redirect_with_nodeid(skb, info->tunnel_endpoint, secctx);
+	} else if ((ip4->daddr & IPV4_CLUSTER_MASK) == IPV4_CLUSTER_RANGE) {
 		/* IPv4 lookup key: daddr & IPV4_MASK */
 		struct endpoint_key key = {};
 		int ret;

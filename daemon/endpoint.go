@@ -854,6 +854,7 @@ func (d *Daemon) OnIPIdentityCacheChange(modType ipcache.CacheModification, oldI
 	log.WithFields(logrus.Fields{logfields.Modification: modType,
 		logfields.IPAddr:   newIPIDPair.IP,
 		logfields.IPMask:   newIPIDPair.Mask,
+		"hostIP":           newIPIDPair.HostIP,
 		logfields.Identity: newIPIDPair.ID}).
 		Debug("daemon notified of IP-Identity cache state change")
 
@@ -866,7 +867,15 @@ func (d *Daemon) OnIPIdentityCacheChange(modType ipcache.CacheModification, oldI
 
 	switch modType {
 	case ipcache.Upsert:
-		value := ipCacheBPF.RemoteEndpointInfo{SecurityIdentity: uint16(newIPIDPair.ID)}
+		value := ipCacheBPF.RemoteEndpointInfo{
+			SecurityIdentity: uint16(newIPIDPair.ID),
+		}
+
+		if newIPIDPair.HostIP != nil {
+			if ip4 := newIPIDPair.HostIP.To4(); ip4 != nil {
+				copy(value.TunnelEndpoint[:], ip4)
+			}
+		}
 		err := ipCacheBPF.IPCache.Update(&key, &value)
 		if err != nil {
 			log.WithError(err).WithFields(logrus.Fields{"key": key.String(),

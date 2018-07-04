@@ -120,6 +120,7 @@ func NewKey(ip net.IP, mask net.IPMask) Key {
 type RemoteEndpointInfo struct {
 	SecurityIdentity uint16
 	Pad              [3]uint16
+	TunnelEndpoint   [4]byte
 }
 
 func (v *RemoteEndpointInfo) String() string {
