@@ -1130,3 +1130,83 @@ func (kub *Kubectl) GetCiliumPodOnNode(namespace string, node string) (string, e
 
 	return res.Output().String(), nil
 }
+
+// CiliumPreFlightCheck validates that all prefligth are correct. If one of the
+// multiple prefligth fails it'll return an error.
+func (kub *Kubectl) CiliumPreFlightCheck() error {
+	err := kub.CiliumControllersPreFlightCheck()
+	if err != nil {
+		return err
+	}
+	err = kub.CiliumHealthPreFlightCheck()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// CiliumControllersPreFlightCheck validates that all controllers are not
+// failing. If any of the controllers fails will return an error.
+func (kub *Kubectl) CiliumControllersPreFlightCheck() error {
+	var controllersFilter = `{range .controllers[*]}{.name}{"="}{.status.consecutive-failure-count}{"\n"}{end}`
+	ciliumPods, err := kub.GetCiliumPods(KubeSystemNamespace)
+	if err != nil {
+		return err
+	}
+	for _, pod := range ciliumPods {
+		status := kub.CiliumExec(pod, fmt.Sprintf(
+			"cilium status --all-controllers -o jsonpath='%s'", controllersFilter))
+		if !status.WasSuccessful() {
+			return fmt.Errorf("Cannot get status on %q: %s", pod, status.OutputPrettyPrint())
+		}
+		for controller, status := range status.KVOutput() {
+			if status != "0" {
+				return fmt.Errorf("Controller %s is failing in cilium", controller)
+			}
+		}
+	}
+	return nil
+}
+
+// CiliumHealthPreFlightCheck checks that the health status is working
+// correctly and the number of nodes does not mistmatch with the running pods.
+// It return an error if health mark a node as failed.
+func (kub *Kubectl) CiliumHealthPreFlightCheck() error {
+	var nodesFilter = `{.nodes[*].name}`
+	var statusFilter = `{range .nodes[*]}{.name}{"="}{.host.primary-address.http.status}{"\n"}{end}`
+
+	ciliumPods, err := kub.GetCiliumPods(KubeSystemNamespace)
+	if err != nil {
+		return err
+	}
+	for _, pod := range ciliumPods {
+		status := kub.CiliumExec(pod, "cilium-health status -o json")
+		if !status.WasSuccessful() {
+			return fmt.Errorf("Cannot get status on %q: %s", pod, status.OutputPrettyPrint())
+		}
+
+		// By Checking that the node list is the same
+		nodes, err := status.Filter(nodesFilter)
+		if err != nil {
+			return fmt.Errorf("Cannot unmarshal health status: %s", err)
+		}
+
+		nodeCount := strings.Split(nodes.String(), " ")
+		if len(ciliumPods) != len(nodeCount) {
+			return fmt.Errorf("On Pod %s the node list mistmatch", pod)
+		}
+
+		healthStatus, err := status.Filter(statusFilter)
+		if err != nil {
+			return fmt.Errorf("Cannot unmarshal health status: %s", err)
+		}
+
+		for node, status := range healthStatus.KVOutput() {
+			if status != "" {
+				return fmt.Errorf("Status on pod %q connectivity to %q is invalid %q",
+					pod, node, status)
+			}
+		}
+	}
+	return nil
+}
