@@ -107,8 +107,6 @@ struct bpf_elf_map __section_maps cilium_tunnel_map = {
 #define LPM_MAP_TYPE BPF_MAP_TYPE_HASH
 #endif
 
-#if defined POLICY_INGRESS || defined POLICY_EGRESS
-
 #ifndef HAVE_LPM_MAP_TYPE
 /* Define a function with the following NAME which iterates through PREFIXES
  * (a list of integers ordered from high to low representing prefix length),
@@ -130,13 +128,9 @@ _Pragma("unroll")							\
 }
 #endif /* HAVE_LPM_MAP_TYPE */
 
-#endif /* POLICY_INGRESS || POLICY_EGRESS */
-
-#if defined(POLICY_INGRESS) || defined(POLICY_EGRESS)
 #ifndef SKIP_UNDEF_LPM_LOOKUP_FN
 #undef LPM_LOOKUP_FN
 #endif
-#endif /* POLICY_INGRESS || POLICY_EGRESS */
 
 struct ipcache_key {
 	struct bpf_lpm_trie_key lpm_key;

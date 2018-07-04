@@ -155,12 +155,13 @@ func (r *kvReferenceCounter) release(key string) (err error) {
 
 // UpsertIPToKVStore updates / inserts the provided IP->Identity mapping into the
 // kvstore, which will subsequently trigger an event in NewIPIdentityWatcher().
-func UpsertIPToKVStore(IP net.IP, ID identity.NumericIdentity, metadata string) error {
+func UpsertIPToKVStore(IP, hostIP net.IP, ID identity.NumericIdentity, metadata string) error {
 	ipKey := path.Join(IPIdentitiesPath, AddressSpace, IP.String())
 	ipIDPair := identity.IPIdentityPair{
 		IP:       IP,
 		ID:       ID,
 		Metadata: metadata,
+		HostIP:   hostIP,
 	}
 
 	return globalMap.upsert(ipKey, ipIDPair)

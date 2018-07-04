@@ -47,6 +47,7 @@ type Identity struct {
 type IPIdentityPair struct {
 	IP       net.IP          `json:"IP"`
 	Mask     net.IPMask      `json:"Mask"`
+	HostIP   net.IP          `json:"HostIP"`
 	ID       NumericIdentity `json:"ID"`
 	Metadata string          `json:"Metadata"`
 }

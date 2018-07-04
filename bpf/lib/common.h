@@ -170,7 +170,8 @@ struct endpoint_info {
 
 struct remote_endpoint_info {
 	__u16		sec_label;
-	__u16		pad[3];
+	__u16		pad;
+	__u32		tunnel_endpoint;
 };
 
 struct policy_key {
