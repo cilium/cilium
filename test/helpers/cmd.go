@@ -158,7 +158,7 @@ func (res *CmdRes) FindResults(filter string) ([]reflect.Value, error) {
 // Filter returns the contents of res's stdout filtered using the provided
 // JSONPath filter in a buffer. Returns an error if the unmarshalling of the
 // contents of res's stdout fails.
-func (res *CmdRes) Filter(filter string) (*bytes.Buffer, error) {
+func (res *CmdRes) Filter(filter string) (*FilterBuffer, error) {
 	var data interface{}
 	result := new(bytes.Buffer)
 
@@ -173,7 +173,7 @@ func (res *CmdRes) Filter(filter string) (*bytes.Buffer, error) {
 	if err != nil {
 		return nil, err
 	}
-	return result, nil
+	return &FilterBuffer{result}, nil
 }
 
 // ByLines returns res's stdout split by the newline character .
