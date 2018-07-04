@@ -36,6 +36,7 @@ pipeline {
         GOPATH = "${WORKSPACE}"
         TESTDIR = "${WORKSPACE}/${PROJ_PATH}/test"
         SERVER_BOX = "cilium/ubuntu"
+        NIGHTLY_TAG = "${new Date().format("yyyyMMdd")}-${BUILD_NUMBER}"
     }
 
     options {
@@ -107,6 +108,20 @@ pipeline {
             post {
                 always {
                     sh "cd ${TESTDIR}; vagrant destroy -f || true"
+                }
+            }
+        }
+        stage('Nightly-Docker-Image') {
+            when {
+                branch 'master'
+            }
+            steps {
+                withDockerRegistry([ credentialsId: "NIGHTLY_DOCKER_HUB_CRED", url: "" ]) {
+                    sh 'make docker-image'
+                    sh 'docker tag cilium/cilium:latest cilium/nightly:latest'
+                    sh 'docker tag cilium/nightly:latest cilium/nightly:${NIGHTLY_TAG}'
+                    sh 'docker push cilium/nightly:${NIGHTLY_TAG}'
+                    sh 'docker push cilium/nightly:latest'
                 }
             }
         }
