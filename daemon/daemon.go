@@ -35,7 +35,7 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/types"
 	monitorLaunch "github.com/cilium/cilium/monitor/launch"
-	"github.com/cilium/cilium/pkg/apierror"
+	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/completion"
@@ -1453,7 +1453,7 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 		delete(cfgSpec.Options, "MonitorNumPages")
 	}
 	if err := option.Config.Opts.Validate(cfgSpec.Options); err != nil {
-		return apierror.Error(PatchConfigBadRequestCode, err)
+		return api.Error(PatchConfigBadRequestCode, err)
 	}
 
 	// Track changes to daemon's configuration
@@ -1477,7 +1477,7 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 		default:
 			msg := fmt.Errorf("Invalid option for PolicyEnforcement %s", enforcement)
 			log.Warn(msg)
-			return apierror.Error(PatchConfigFailureCode, msg)
+			return api.Error(PatchConfigFailureCode, msg)
 		}
 		log.Debug("finished configuring PolicyEnforcement for daemon")
 	}
@@ -1491,7 +1491,7 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 		log.Debug("daemon configuration has changed; recompiling base programs")
 		if err := d.compileBase(); err != nil {
 			msg := fmt.Errorf("Unable to recompile base programs: %s", err)
-			return apierror.Error(PatchConfigFailureCode, msg)
+			return api.Error(PatchConfigFailureCode, msg)
 		}
 		d.TriggerPolicyUpdates(true)
 	}
