@@ -87,6 +87,11 @@ var (
 	statusCheckerStarted sync.Once
 )
 
+func (e *etcdModule) createInstance() backendModule {
+	cpy := *etcdInstance
+	return &cpy
+}
+
 func (e *etcdModule) getName() string {
 	return etcdName
 }
@@ -139,6 +144,8 @@ type etcdClient struct {
 
 	client      *client.Client
 	session     *concurrency.Session
+	lease       *client.LeaseGrantResponse
+	controllers *controller.Manager
 	lockPathsMU lock.Mutex
 	lockPaths   map[string]*lock.Mutex
 }
@@ -167,10 +174,33 @@ func (e *etcdClient) renewSession() error {
 
 	go e.checkMinVersion()
 
-	if err := renewDefaultLease(); err != nil {
-		e.client.Close()
-		return err
+	e.renewLease()
+
+	return nil
+}
+
+func (e *etcdClient) renewLease() error {
+	if e.lease != nil {
+		e.client.Revoke(ctx.TODO(), e.lease.ID)
 	}
+
+	lease, err := e.client.Grant(ctx.TODO(), int64(LeaseTTL.Seconds()))
+	if err != nil {
+		e.client.Close()
+		return fmt.Errorf("unable to create default lease: %s", err)
+	}
+
+	e.lease = lease
+
+	e.controllers.UpdateController(fmt.Sprintf("etcd-lease-keepalive-%p", e),
+		controller.ControllerParams{
+			DoFunc: func() error {
+				_, err := e.client.KeepAliveOnce(ctx.TODO(), lease.ID)
+				return err
+			},
+			RunInterval: KeepAliveInterval,
+		},
+	)
 
 	return nil
 }
@@ -220,10 +250,17 @@ func newEtcdClient(config *client.Config, cfgPath string) (BackendOperations, er
 	if err != nil {
 		return nil, fmt.Errorf("Unable to contact etcd: %s", err)
 	}
+
 	ec := &etcdClient{
-		client:    c,
-		session:   s,
-		lockPaths: map[string]*lock.Mutex{},
+		client:      c,
+		session:     s,
+		lockPaths:   map[string]*lock.Mutex{},
+		controllers: controller.NewManager(),
+	}
+
+	if err := ec.renewLease(); err != nil {
+		c.Close()
+		return nil, fmt.Errorf("unable to create default lease: %s", err)
 	}
 
 	statusCheckerStarted.Do(func() {
@@ -232,7 +269,7 @@ func newEtcdClient(config *client.Config, cfgPath string) (BackendOperations, er
 
 	go ec.checkMinVersion()
 
-	kvstoreControllers.UpdateController("kvstore-etcd-session-renew",
+	ec.controllers.UpdateController("kvstore-etcd-session-renew",
 		controller.ControllerParams{
 			DoFunc: func() error {
 				return ec.renewSession()
@@ -728,28 +765,20 @@ func (e *etcdClient) Delete(key string) error {
 	return err
 }
 
-func createOpPut(key string, value []byte, lease bool) (*client.Op, error) {
+func (e *etcdClient) createOpPut(key string, value []byte, lease bool) *client.Op {
 	if lease {
-		r, ok := leaseInstance.(*client.LeaseGrantResponse)
-		if !ok {
-			return nil, fmt.Errorf("argument not a LeaseID")
-		}
-		op := client.OpPut(key, string(value), client.WithLease(r.ID))
-		return &op, nil
+		op := client.OpPut(key, string(value), client.WithLease(e.lease.ID))
+		return &op
 	}
 
 	op := client.OpPut(key, string(value))
-	return &op, nil
+	return &op
 }
 
 // Update creates or updates a key
 func (e *etcdClient) Update(key string, value []byte, lease bool) error {
 	if lease {
-		r, ok := leaseInstance.(*client.LeaseGrantResponse)
-		if !ok {
-			return fmt.Errorf("argument not a LeaseID")
-		}
-		_, err := e.client.Put(ctx.Background(), key, string(value), client.WithLease(r.ID))
+		_, err := e.client.Put(ctx.Background(), key, string(value), client.WithLease(e.lease.ID))
 		return err
 	}
 
@@ -759,11 +788,7 @@ func (e *etcdClient) Update(key string, value []byte, lease bool) error {
 
 // CreateOnly creates a key with the value and will fail if the key already exists
 func (e *etcdClient) CreateOnly(key string, value []byte, lease bool) error {
-	req, err := createOpPut(key, value, lease)
-	if err != nil {
-		return err
-	}
-
+	req := e.createOpPut(key, value, lease)
 	cond := client.Compare(client.Version(key), "=", 0)
 	txnresp, err := e.client.Txn(ctx.TODO()).If(cond).Then(*req).Commit()
 	if err != nil {
@@ -779,11 +804,7 @@ func (e *etcdClient) CreateOnly(key string, value []byte, lease bool) error {
 
 // CreateIfExists creates a key with the value only if key condKey exists
 func (e *etcdClient) CreateIfExists(condKey, key string, value []byte, lease bool) error {
-	req, err := createOpPut(key, value, lease)
-	if err != nil {
-		return err
-	}
-
+	req := e.createOpPut(key, value, lease)
 	cond := client.Compare(client.Version(condKey), "!=", 0)
 	txnresp, err := e.client.Txn(ctx.TODO()).If(cond).Then(*req).Commit()
 	if err != nil {
@@ -832,34 +853,14 @@ func (e *etcdClient) ListPrefix(prefix string) (KeyValuePairs, error) {
 	return pairs, nil
 }
 
-// CreateLease creates a new lease with the given ttl
-func (e *etcdClient) CreateLease(ttl time.Duration) (interface{}, error) {
-	return e.client.Grant(ctx.TODO(), int64(ttl.Seconds()))
-}
-
-// KeepAlive keeps a lease created with CreateLease alive
-func (e *etcdClient) KeepAlive(lease interface{}) error {
-	r, ok := lease.(*client.LeaseGrantResponse)
-	if !ok {
-		return fmt.Errorf("argument not a LeaseID")
+// Close closes the etcd session
+func (e *etcdClient) Close() {
+	if e.controllers != nil {
+		e.controllers.RemoveAll()
 	}
-
-	_, err := e.client.KeepAliveOnce(ctx.TODO(), r.ID)
-	return err
-}
-
-// DeleteLease deletes a lease
-func (e *etcdClient) DeleteLease(lease interface{}) error {
-	r, ok := lease.(*client.LeaseGrantResponse)
-	if !ok {
-		return fmt.Errorf("argument not a LeaseID")
+	if e.lease != nil {
+		e.client.Revoke(ctx.TODO(), e.lease.ID)
 	}
-
-	_, err := e.client.Revoke(ctx.TODO(), r.ID)
-	return err
-}
-
-func (e *etcdClient) closeClient() {
 	e.client.Close()
 }
 
