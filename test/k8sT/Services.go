@@ -215,7 +215,7 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 			servicePath       = helpers.ManifestGet("external_service.yaml")
 		)
 
-		BeforeEach(func() {
+		BeforeAll(func() {
 			kubectl.Apply(servicePath).ExpectSuccess("cannot install external service")
 			kubectl.Apply(podPath).ExpectSuccess("cannot install pod path")
 
@@ -226,6 +226,11 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 		AfterEach(func() {
 			_ = kubectl.Delete(policyPath)
 			_ = kubectl.Delete(endpointPath)
+
+			kubectl.WaitCleanAllTerminatingPods()
+		})
+
+		AfterAll(func() {
 			_ = kubectl.Delete(servicePath)
 			_ = kubectl.Delete(podPath)
 
