@@ -158,7 +158,7 @@ func (res *CmdRes) FindResults(filter string) ([]reflect.Value, error) {
 // Filter returns the contents of res's stdout filtered using the provided
 // JSONPath filter in a buffer. Returns an error if the unmarshalling of the
 // contents of res's stdout fails.
-func (res *CmdRes) Filter(filter string) (*bytes.Buffer, error) {
+func (res *CmdRes) Filter(filter string) (*FilterBuffer, error) {
 	var data interface{}
 	result := new(bytes.Buffer)
 
@@ -173,7 +173,7 @@ func (res *CmdRes) Filter(filter string) (*bytes.Buffer, error) {
 	if err != nil {
 		return nil, err
 	}
-	return result, nil
+	return &FilterBuffer{result}, nil
 }
 
 // ByLines returns res's stdout split by the newline character .
@@ -277,6 +277,33 @@ func (res *CmdRes) WaitUntilMatchRegexp(expr string) error {
 		body,
 		fmt.Sprintf("The output doesn't match regexp %q after timeout", expr),
 		&TimeoutConfig{Timeout: HelperTimeout})
+}
+
+// FilterBuffer structs that extends buffer methods
+type FilterBuffer struct {
+	*bytes.Buffer
+}
+
+// ByLines returns buf string plit by the newline characters
+func (buf *FilterBuffer) ByLines() []string {
+	return strings.Split(buf.String(), "\n")
+}
+
+// KVOutput returns a map of the buff string split based on
+// the separator '='.
+// For example, the following strings would be split as follows:
+// 		a=1
+// 		b=2
+// 		c=3
+func (buf *FilterBuffer) KVOutput() map[string]string {
+	result := make(map[string]string)
+	for _, line := range buf.ByLines() {
+		vals := strings.Split(line, "=")
+		if len(vals) == 2 {
+			result[vals[0]] = vals[1]
+		}
+	}
+	return result
 }
 
 // BeSuccesfulMatcher a new Ginkgo matcher for CmdRes struct
