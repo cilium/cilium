@@ -30,8 +30,9 @@ var (
 	// is mounted
 	BasePath = "/home/vagrant/go/src/github.com/cilium/cilium/test"
 
+	DNSEngine = "kubedns"
 	// KubeDNSdeployment manifest to install kube-dns on the server.
-	KubeDNSdeployment = GetFilePath("provision/manifest/dns_deployment.yaml")
+	KubeDNSdeployment = GetFilePath("provision/manifest/" + DNSEngine + "deployment.yaml")
 )
 
 const (

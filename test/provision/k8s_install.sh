@@ -24,6 +24,9 @@ export KUBEADM_SLAVE_OPTIONS=""
 export KUBEADM_OPTIONS=""
 export K8S_FULL_VERSION=""
 export INSTALL_KUBEDNS=1
+export DNS_DEPLOYMENT="${PROVISIONSRC}/manifest/dns_deployment.yaml"
+export KUBEDNS_DEPLOYMENT="${PROVISIONSRC}/manifest/kubedns_deployment.yaml"
+export COREDNS_DEPLOYMENT="${PROVISIONSRC}/manifest/coredns_deployment.yaml"
 
 source ${PROVISIONSRC}/helpers.bash
 
@@ -38,6 +41,7 @@ if [[ -f  "/etc/provision_finished" ]]; then
     exit 0
 fi
 
+sudo ln -sf $KUBEDNS_DEPLOYMENT $DNS_DEPLOYMENT
 $PROVISIONSRC/dns.sh
 
 cat <<EOF > /etc/hosts
@@ -131,6 +135,7 @@ case $K8S_VERSION in
             kubectl=${K8S_FULL_VERSION}*
         ;;
     "1.11"|"1.12")
+        sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
         install_k8s_using_binary "v${K8S_FULL_VERSION}" "${KUBERNETES_CNI_VERSION}"
         ;;
 esac
@@ -180,7 +185,7 @@ if [[ "${HOST}" == "k8s1" ]]; then
 
     sudo systemctl start etcd
     if [[ $INSTALL_KUBEDNS -eq 1 ]]; then
-        kubectl -n kube-system delete svc,deployment,sa,cm kube-dns || true
+        kubectl -n kube-system delete svc,deployment,sa,cm -l k8s-app=kube-dns || true
         kubectl -n kube-system apply -f ${PROVISIONSRC}/manifest/dns_deployment.yaml
     fi
 

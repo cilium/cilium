@@ -62,6 +62,12 @@ func init() {
 	config.CiliumTestConfig.ParseFlags()
 
 	os.RemoveAll(helpers.TestResultsPath)
+
+	k8sVersion := os.Getenv("K8S_VERSION")
+	switch k8sVersion {
+	case "1.11", "1.12":
+		helpers.DNSEngine = "coredns"
+	}
 }
 
 func configLogsOutput() {
