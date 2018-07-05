@@ -28,3 +28,7 @@ data:
   # If you want to clean cilium state; change this value to true
   clean-cilium-state: "false"
   legacy-host-allows-world: "false"
+
+  # Regular expression matching compatible Istio sidecar istio-proxy
+  # container image names
+  sidecar-istio-proxy-image: "cilium/istio_proxy"
