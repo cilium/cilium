@@ -57,6 +57,7 @@ pipeline {
             steps {
                 sh 'cd ${TESTDIR}; K8S_VERSION=1.8 vagrant up --no-provision'
                 sh 'cd ${TESTDIR}; K8S_VERSION=1.9 vagrant up --no-provision'
+                sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant up --no-provision'
             }
         }
         stage('BDD-Test-k8s') {
@@ -74,6 +75,9 @@ pipeline {
                     "K8s-1.9":{
                         sh 'cd ${TESTDIR}; K8S_VERSION=1.9 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
                     },
+                        "K8s-1.10":{
+                            sh 'cd ${TESTDIR}; K8S_VERSION=1.10 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
+                        },
                 )
             }
             post {
@@ -91,7 +95,6 @@ pipeline {
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
             }
             steps {
-                sh 'cd ${TESTDIR}; K8S_VERSION=1.11 vagrant up --no-provision'
                 sh 'cd ${TESTDIR}; K8S_VERSION=1.12 vagrant up --no-provision'
             }
         }
@@ -127,7 +130,6 @@ pipeline {
             sh "cd ${TESTDIR}; K8S_VERSION=1.8 vagrant destroy -f || true"
             sh "cd ${TESTDIR}; K8S_VERSION=1.9 vagrant destroy -f || true"
             sh "cd ${TESTDIR}; K8S_VERSION=1.10 vagrant destroy -f || true"
-            sh "cd ${TESTDIR}; K8S_VERSION=1.11 vagrant destroy -f || true"
             sh "cd ${TESTDIR}; K8S_VERSION=1.12 vagrant destroy -f || true"
             sh "cd ${TESTDIR}; ./post_build_agent.sh || true"
             cleanWs()
