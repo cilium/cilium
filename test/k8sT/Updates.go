@@ -28,8 +28,7 @@ var _ = Describe("K8sValidatedUpdates", func() {
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
-		_ = kubectl.DeleteResource(
-			"ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
+		_ = kubectl.Delete(helpers.DNSDeployment())
 
 		// Delete kube-dns because if not will be a restore the old endpoints
 		// from master instead of create the new ones.
@@ -56,7 +55,7 @@ var _ = Describe("K8sValidatedUpdates", func() {
 	})
 
 	AfterAll(func() {
-		_ = kubectl.Apply(helpers.KubeDNSdeployment)
+		_ = kubectl.Apply(helpers.DNSDeployment())
 	})
 
 	AfterFailed(func() {
@@ -106,7 +105,7 @@ var _ = Describe("K8sValidatedUpdates", func() {
 
 	It("Updating Cilium stable to master", func() {
 		By("Installing kube-dns")
-		kubectl.Apply(helpers.KubeDNSdeployment).ExpectSuccess("Kube-dns cannot be installed")
+		kubectl.Apply(helpers.DNSDeployment()).ExpectSuccess("Kube-dns cannot be installed")
 
 		By("Creating some endpoints and L7 policy")
 		kubectl.Apply(demoPath).ExpectSuccess()
