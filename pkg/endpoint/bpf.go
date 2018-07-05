@@ -39,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
@@ -168,22 +169,26 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 		fmt.Fprintf(fw, "#define HAVE_L4_POLICY\n")
 	}
 
-	ipcachePrefixes6, ipcachePrefixes4 := policy.GetDefaultPrefixLengths()
-	if e.L3Policy != nil {
-		// This will include the default prefix lengths from above.
-		ipcachePrefixes6, ipcachePrefixes4 = e.L3Policy.ToBPFData()
-	}
+	// In case the Linux kernel doesn't support LPM map type, pass the set of
+	// prefix length for the datapath to lookup the map.
+	if ipcache.IPCache.MapType != bpf.BPF_MAP_TYPE_LPM_TRIE {
+		ipcachePrefixes6, ipcachePrefixes4 := policy.GetDefaultPrefixLengths()
+		if e.L3Policy != nil {
+			// This will include the default prefix lengths from above.
+			ipcachePrefixes6, ipcachePrefixes4 = e.L3Policy.ToBPFData()
+		}
 
-	fw.WriteString("#define IPCACHE6_PREFIXES ")
-	for _, prefix := range ipcachePrefixes6 {
-		fmt.Fprintf(fw, "%d,", prefix)
+		fw.WriteString("#define IPCACHE6_PREFIXES ")
+		for _, prefix := range ipcachePrefixes6 {
+			fmt.Fprintf(fw, "%d,", prefix)
+		}
+		fw.WriteString("\n")
+		fw.WriteString("#define IPCACHE4_PREFIXES ")
+		for _, prefix := range ipcachePrefixes4 {
+			fmt.Fprintf(fw, "%d,", prefix)
+		}
+		fw.WriteString("\n")
 	}
-	fw.WriteString("\n")
-	fw.WriteString("#define IPCACHE4_PREFIXES ")
-	for _, prefix := range ipcachePrefixes4 {
-		fmt.Fprintf(fw, "%d,", prefix)
-	}
-	fw.WriteString("\n")
 
 	return fw.Flush()
 }
