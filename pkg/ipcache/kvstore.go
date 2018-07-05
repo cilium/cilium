@@ -282,9 +282,9 @@ func deleteIPNetsFromKVStore(prefixes []*net.IPNet) (err error) {
 // for IPv4) which matches the IP in the specified pair. Only performs the
 // search if the pair's IP represents a host IP.
 // Returns the identity and whether the IP was found.
-func findShadowedCIDR(pair *identity.IPIdentityPair) (identity.NumericIdentity, bool) {
+func findShadowedCIDR(pair *identity.IPIdentityPair) (Identity, bool) {
 	if !pair.IsHost() {
-		return identity.InvalidIdentity, false
+		return Identity{ID: identity.InvalidIdentity}, false
 	}
 	bits := net.IPv6len * 8
 	if pair.IP.To4() != nil {
@@ -338,7 +338,7 @@ restart:
 				cacheChanged      bool
 				cacheModification CacheModification
 				ipIDPair          identity.IPIdentityPair
-				cachedIdentity    identity.NumericIdentity
+				cachedIdentity    Identity
 				ipIsInCache       bool
 			)
 
@@ -382,8 +382,11 @@ restart:
 				if !ipIDPair.IsHost() {
 					ones, bits := ipIDPair.Mask.Size()
 					if ipIsInCache && ones == bits {
-						if cachedIdentity != ipIDPair.ID {
-							IPIdentityCache.Upsert(ipStr, ipIDPair.ID)
+						if cachedIdentity.ID != ipIDPair.ID {
+							IPIdentityCache.Upsert(ipStr, Identity{
+								ID:     ipIDPair.ID,
+								Source: FromKVStore,
+							})
 							scopedLog.WithField(logfields.IPAddr, ipIDPair.IP).
 								Infof("Received KVstore update for CIDR overlapping with endpoint IP.")
 						}
@@ -392,8 +395,11 @@ restart:
 				}
 
 				// Insert or update the IP -> ID mapping.
-				if !ipIsInCache || cachedIdentity != ipIDPair.ID {
-					IPIdentityCache.Upsert(ipStr, ipIDPair.ID)
+				if !ipIsInCache || cachedIdentity.ID != ipIDPair.ID {
+					IPIdentityCache.Upsert(ipStr, Identity{
+						ID:     ipIDPair.ID,
+						Source: FromKVStore,
+					})
 					cacheChanged = true
 					cacheModification = Upsert
 				}
@@ -417,17 +423,17 @@ restart:
 
 				if ipIsInCache {
 					cacheChanged = true
-					IPIdentityCache.delete(ipStr)
+					IPIdentityCache.Delete(ipStr)
 
 					// Set up the IPIDPair and cacheModification for listener callbacks
 					prefixIdentity, shadowedCIDR := findShadowedCIDR(&ipIDPair)
 					if shadowedCIDR {
 						scopedLog.WithField(logfields.IPAddr, ipIDPair.IP).
 							Infof("Received KVstore deletion for endpoint IP shadowing CIDR, restoring CIDR.")
-						ipIDPair.ID = prefixIdentity
+						ipIDPair.ID = prefixIdentity.ID
 						cacheModification = Upsert
 					} else {
-						ipIDPair.ID = cachedIdentity
+						ipIDPair.ID = cachedIdentity.ID
 						cacheModification = Delete
 					}
 				}
@@ -449,7 +455,7 @@ restart:
 					// listener so it can easily clean up
 					// the old mapping.
 					pair := ipIDPair
-					pair.ID = cachedIdentity
+					pair.ID = cachedIdentity.ID
 					oldIPIDPair = &pair
 				}
 				// Callback upon cache updates.

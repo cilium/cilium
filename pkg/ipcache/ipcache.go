@@ -32,11 +32,37 @@ var (
 	IPIdentityCache = NewIPCache()
 )
 
+// Source is the description of the source of an identity
+type Source string
+
+const (
+	// FromKubernetes is the source used for identities derived from k8s
+	// resources (pods)
+	FromKubernetes Source = "k8s"
+
+	// FromKVStore is the source used for identities derived from the
+	// kvstore
+	FromKVStore Source = "kvstore"
+
+	// FromAgentLocal is the source used for identities derived during the
+	// agent bootup process. This includes identities for host IPs.
+	FromAgentLocal Source = "agent-local"
+)
+
+// Identity is the identity representation of an IP<->Identity cache.
+type Identity struct {
+	// ID is the numeric identity
+	ID identity.NumericIdentity
+
+	// Source is the source of the identity in the cache
+	Source Source
+}
+
 // IPCache is a caching of endpoint IP to security identity (and vice-versa) for
 // all endpoints which are part of the same cluster.
 type IPCache struct {
 	mutex             lock.RWMutex
-	ipToIdentityCache map[string]identity.NumericIdentity
+	ipToIdentityCache map[string]Identity
 	identityToIPCache map[identity.NumericIdentity]map[string]struct{}
 
 	// prefixLengths reference-count the number of CIDRs that use
@@ -56,7 +82,7 @@ type Implementation interface {
 // identity (and vice-versa) initialized.
 func NewIPCache() *IPCache {
 	return &IPCache{
-		ipToIdentityCache: map[string]identity.NumericIdentity{},
+		ipToIdentityCache: map[string]Identity{},
 		identityToIPCache: map[identity.NumericIdentity]map[string]struct{}{},
 		v4PrefixLengths:   map[int]int{},
 		v6PrefixLengths:   map[int]int{},
@@ -138,11 +164,31 @@ func unrefPrefixLength(prefixLengths map[int]int, length int) {
 	}
 }
 
+func allowOverwrite(existing, new Source) bool {
+	switch existing {
+	case FromKubernetes:
+		// k8s entries can be overwritten by everyone else
+		return true
+	case FromKVStore:
+		return new == FromKVStore || new == FromAgentLocal
+	case FromAgentLocal:
+		return new == FromAgentLocal
+	}
+
+	return true
+}
+
 // Upsert adds / updates the provided IP (endpoint or CIDR prefix) and identity
 // into the IPCache.
-func (ipc *IPCache) Upsert(IP string, identity identity.NumericIdentity) {
+func (ipc *IPCache) Upsert(IP string, identity Identity) bool {
 	ipc.mutex.Lock()
 	defer ipc.mutex.Unlock()
+
+	if existingIdentity, found := ipc.ipToIdentityCache[IP]; found {
+		if !allowOverwrite(existingIdentity.Source, identity.Source) {
+			return false
+		}
+	}
 
 	// An update is treated as a deletion and then an insert.
 	ipc.deleteLocked(IP)
@@ -155,11 +201,11 @@ func (ipc *IPCache) Upsert(IP string, identity identity.NumericIdentity) {
 	// Update both maps.
 	ipc.ipToIdentityCache[IP] = identity
 
-	_, found := ipc.identityToIPCache[identity]
+	_, found := ipc.identityToIPCache[identity.ID]
 	if !found {
-		ipc.identityToIPCache[identity] = map[string]struct{}{}
+		ipc.identityToIPCache[identity.ID] = map[string]struct{}{}
 	}
-	ipc.identityToIPCache[identity][IP] = struct{}{}
+	ipc.identityToIPCache[identity.ID][IP] = struct{}{}
 
 	// Add a reference for the prefix length if this is a CIDR.
 	if _, cidr, err := net.ParseCIDR(IP); err == nil {
@@ -171,6 +217,8 @@ func (ipc *IPCache) Upsert(IP string, identity identity.NumericIdentity) {
 			refPrefixLength(ipc.v4PrefixLengths, pl)
 		}
 	}
+
+	return true
 }
 
 // deleteLocked removes removes the provided IP-to-security-identity mapping
@@ -183,9 +231,9 @@ func (ipc *IPCache) deleteLocked(IP string) {
 	identity, found := ipc.ipToIdentityCache[IP]
 	if found {
 		delete(ipc.ipToIdentityCache, IP)
-		delete(ipc.identityToIPCache[identity], IP)
-		if len(ipc.identityToIPCache[identity]) == 0 {
-			delete(ipc.identityToIPCache, identity)
+		delete(ipc.identityToIPCache[identity.ID], IP)
+		if len(ipc.identityToIPCache[identity.ID]) == 0 {
+			delete(ipc.identityToIPCache, identity.ID)
 		}
 
 		// Remove a reference for the prefix length if this is a CIDR.
@@ -201,8 +249,8 @@ func (ipc *IPCache) deleteLocked(IP string) {
 	}
 }
 
-// delete removes the provided IP-to-security-identity mapping from the IPCache.
-func (ipc *IPCache) delete(IP string) {
+// Delete removes the provided IP-to-security-identity mapping from the IPCache.
+func (ipc *IPCache) Delete(IP string) {
 	ipc.mutex.Lock()
 	defer ipc.mutex.Unlock()
 	ipc.deleteLocked(IP)
@@ -211,7 +259,7 @@ func (ipc *IPCache) delete(IP string) {
 // LookupByIP returns the corresponding security identity that endpoint IP maps
 // to within the provided IPCache, as well as if the corresponding entry exists
 // in the IPCache.
-func (ipc *IPCache) LookupByIP(IP string) (identity.NumericIdentity, bool) {
+func (ipc *IPCache) LookupByIP(IP string) (Identity, bool) {
 	ipc.mutex.RLock()
 	defer ipc.mutex.RUnlock()
 	return ipc.LookupByIPRLocked(IP)
@@ -220,7 +268,7 @@ func (ipc *IPCache) LookupByIP(IP string) (identity.NumericIdentity, bool) {
 // LookupByIPRLocked returns the corresponding security identity that endpoint IP maps
 // to within the provided IPCache, as well as if the corresponding entry exists
 // in the IPCache.
-func (ipc *IPCache) LookupByIPRLocked(IP string) (identity.NumericIdentity, bool) {
+func (ipc *IPCache) LookupByIPRLocked(IP string) (Identity, bool) {
 
 	identity, exists := ipc.ipToIdentityCache[IP]
 	return identity, exists
@@ -230,7 +278,7 @@ func (ipc *IPCache) LookupByIPRLocked(IP string) (identity.NumericIdentity, bool
 // prefix is fully specified (ie, w.x.y.z/32 for IPv4), find the host for the
 // identity in the provided IPCache, and returns the corresponding security
 // identity as well as whether the entry exists in the IPCache.
-func (ipc *IPCache) LookupByPrefixRLocked(prefix string) (identity identity.NumericIdentity, exists bool) {
+func (ipc *IPCache) LookupByPrefixRLocked(prefix string) (identity Identity, exists bool) {
 	if _, cidr, err := net.ParseCIDR(prefix); err == nil {
 		// If it's a fully specfied prefix, attempt to find the host
 		ones, bits := cidr.Mask.Size()
@@ -248,7 +296,7 @@ func (ipc *IPCache) LookupByPrefixRLocked(prefix string) (identity identity.Nume
 // LookupByPrefix returns the corresponding security identity that endpoint IP
 // maps to within the provided IPCache, as well as if the corresponding entry
 // exists in the IPCache.
-func (ipc *IPCache) LookupByPrefix(IP string) (identity.NumericIdentity, bool) {
+func (ipc *IPCache) LookupByPrefix(IP string) (Identity, bool) {
 	ipc.mutex.RLock()
 	defer ipc.mutex.RUnlock()
 	return ipc.LookupByPrefixRLocked(IP)
