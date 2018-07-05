@@ -36,6 +36,10 @@ const (
 	// value for the Cilium monitor
 	MonitorTraceNotification = "TraceNotification"
 
+	// MonitorEarlyTrace represents the EarlyTraceNotification configuration
+	// value for the Cilium monitor
+	MonitorEarlyTrace = "EarlyTraceNotification"
+
 	// MonitorDebug represents the Debug configuration  value for
 	// the Cilium monitor
 	MonitorDebug = "Debug"
@@ -81,8 +85,8 @@ var _ = Describe("RuntimeValidatedMonitorTest", func() {
 		})
 
 		monitorConfig := func() {
-			res := vm.ExecCilium(fmt.Sprintf("config %s=true %s=true %s=true",
-				MonitorDebug, MonitorDropNotification, MonitorTraceNotification))
+			res := vm.ExecCilium(fmt.Sprintf("config %s=true %s=true %s=true %s=true",
+				MonitorDebug, MonitorDropNotification, MonitorTraceNotification, MonitorEarlyTrace))
 			ExpectWithOffset(1, res.WasSuccessful()).To(BeTrue(), "cannot update monitor config")
 		}
 

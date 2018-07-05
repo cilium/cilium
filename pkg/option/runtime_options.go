@@ -27,6 +27,7 @@ const (
 	DebugLB             = "DebugLB"
 	DropNotify          = "DropNotification"
 	TraceNotify         = "TraceNotification"
+	EarlyTrace          = "EarlyTraceNotification"
 	NAT46               = "NAT46"
 	IngressPolicy       = "IngressPolicy"
 	EgressPolicy        = "EgressPolicy"
@@ -76,6 +77,11 @@ var (
 	specTraceNotify = Option{
 		Define:      "TRACE_NOTIFY",
 		Description: "Enable trace notifications",
+	}
+
+	specEarlyTrace = Option{
+		Define:      "EARLY_TRACE",
+		Description: "Enable early trace when packets are received from endpoint",
 	}
 
 	specNAT46 = Option{
