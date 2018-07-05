@@ -29,9 +29,6 @@ var (
 	// BasePath is the path in the Vagrant VMs to which the test directory
 	// is mounted
 	BasePath = "/home/vagrant/go/src/github.com/cilium/cilium/test"
-
-	// KubeDNSdeployment manifest to install kube-dns on the server.
-	KubeDNSdeployment = GetFilePath("provision/manifest/dns_deployment.yaml")
 )
 
 const (
