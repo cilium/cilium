@@ -161,7 +161,7 @@ spec:
           # To read labels from CRI-O containers running in the host
         - name: crio-socket
           hostPath:
-            path: /var/run/crio.sock
+            path: /var/run/crio/crio.sock
           # To install cilium cni plugin in the host
         - name: cni-path
           hostPath:
