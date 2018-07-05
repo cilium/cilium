@@ -338,9 +338,10 @@ func (kub *Kubectl) Logs(namespace string, pod string) *CmdRes {
 // the output to `helpers.monitorLogFileName` file.
 func (kub *Kubectl) MicroscopeStart() (error, func() error) {
 	microscope := "microscope"
+	var microscopeCmd = microscope + "| ts '[%Y-%m-%d %H:%M:%S]'"
 	var cb = func() error { return nil }
-	cmd := fmt.Sprintf("%[1]s -ti -n %[2]s exec %[3]s -- %[3]s",
-		KubectlCmd, KubeSystemNamespace, microscope)
+	cmd := fmt.Sprintf("%[1]s -ti -n %[2]s exec %[3]s -- %[4]s",
+		KubectlCmd, KubeSystemNamespace, microscope, microscopeCmd)
 	_ = kub.Apply(microscopeManifest)
 
 	err := kub.WaitforPods(
