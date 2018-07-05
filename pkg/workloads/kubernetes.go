@@ -15,8 +15,6 @@
 package workloads
 
 import (
-	"strings"
-
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -26,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sDockerLbls "k8s.io/kubernetes/pkg/kubelet/types"
+	"regexp"
 )
 
 const (
@@ -42,6 +41,10 @@ const (
 	//         "imagePullSecrets": null
 	//     }
 	AnnotationIstioSidecarStatus = "sidecar.istio.io/status"
+)
+
+var (
+	SidecarIstioProxyImageRegexp *regexp.Regexp
 )
 
 // fetchK8sLabels returns the kubernetes labels from the given container labels
@@ -104,6 +107,11 @@ func fetchK8sLabels(containerID string, containerLbls map[string]string) (map[st
 // injected by Istio with a sidecar proxy that is compatible with Cilium.
 func isInjectedWithIstioSidecarProxy(containerID string, pod *corev1.Pod) bool {
 	scopedLog := log.WithField(logfields.ContainerID, shortContainerID(containerID))
+
+	if SidecarIstioProxyImageRegexp == nil {
+		scopedLog.Fatal("No sidecar-istio-proxy-image regexp has been configured")
+	}
+
 	istioStatusString, ok := pod.GetAnnotations()[AnnotationIstioSidecarStatus]
 	if !ok {
 		// Istio's injection annotation was not found.
@@ -122,7 +130,7 @@ func isInjectedWithIstioSidecarProxy(containerID string, pod *corev1.Pod) bool {
 		}
 		scopedLog.Debug("Found istio-proxy container in pod")
 
-		if !strings.Contains(container.Image, "cilium/istio_proxy") {
+		if !SidecarIstioProxyImageRegexp.MatchString(container.Image) {
 			continue
 		}
 		scopedLog.Debugf("istio-proxy container runs Cilium-compatible image: %s", container.Image)

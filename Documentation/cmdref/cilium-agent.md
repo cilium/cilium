@@ -68,6 +68,7 @@ cilium-agent
       --prefilter-mode string                       Prefilter mode { native | generic } (default: native) (default "native")
       --prometheus-serve-addr string                IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
       --restore                                     Restores state, if possible, from previous daemon (default true)
+      --sidecar-istio-proxy-image string            Regular expression matching compatible Istio sidecar istio-proxy container image names (default "cilium/istio_proxy")
       --single-cluster-route                        Use a single cluster route instead of per node routes
       --socket-path string                          Sets daemon's socket path to listen for connections (default "/var/run/cilium/cilium.sock")
       --state-dir string                            Directory path to store runtime state (default "/var/run/cilium")
