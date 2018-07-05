@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
@@ -43,6 +44,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/serializer"
 	"github.com/cilium/cilium/pkg/service"
 
@@ -64,6 +66,7 @@ const (
 
 	k8sAPIGroupCRD              = "CustomResourceDefinition"
 	k8sAPIGroupNodeV1Core       = "core/v1::Node"
+	k8sAPIGroupNamespaceV1Core  = "core/v1::Namespace"
 	k8sAPIGroupServiceV1Core    = "core/v1::Service"
 	k8sAPIGroupEndpointV1Core   = "core/v1::Endpoint"
 	k8sAPIGroupPodV1Core        = "core/v1::Pods"
@@ -244,6 +247,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	serCNPs := serializer.NewFunctionQueue(20)
 	serPods := serializer.NewFunctionQueue(1024)
 	serNodes := serializer.NewFunctionQueue(20)
+	serNamespaces := serializer.NewFunctionQueue(20)
 
 	switch {
 	case networkPolicyV1VerConstr.Check(k8sServerVer):
@@ -488,6 +492,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 			},
 		},
 	)
+
 	go podsController.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupPodV1Core)
 
@@ -531,6 +536,33 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 
 	go nodesController.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupNodeV1Core)
+
+	_, namespaceController := cache.NewInformer(
+		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
+			"namespaces", v1.NamespaceAll, fields.Everything()),
+		&v1.Pod{},
+		reSyncPeriod,
+		cache.ResourceEventHandlerFuncs{
+			// AddFunc does not matter since the endpoint will fetch
+			// namespace labels when the endpoint is created
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+				if oldns := copyObjToV1Namespace(oldObj); oldns != nil {
+					if newns := copyObjToV1Namespace(newObj); newns != nil {
+						serNamespaces.Enqueue(func() error {
+							d.updateK8sV1Namespace(oldns, newns)
+							return nil
+						}, serializer.NoRetry)
+					}
+				}
+			},
+			// DelFunc does not matter since, when a namespace is deleted, all
+			// pods belonging to that namespace are also deleted.
+		},
+	)
+
+	go namespaceController.Run(wait.NeverStop)
+	d.k8sAPIGroups.addAPI(k8sAPIGroupNamespaceV1Core)
 
 	endpoint.RunK8sCiliumEndpointSyncGC()
 
@@ -605,6 +637,16 @@ func copyObjToV1Node(obj interface{}) *v1.Node {
 		return nil
 	}
 	return node.DeepCopy()
+}
+
+func copyObjToV1Namespace(obj interface{}) *v1.Namespace {
+	ns, ok := obj.(*v1.Namespace)
+	if !ok {
+		log.WithField(logfields.Object, logfields.Repr(obj)).
+			Warn("Ignoring invalid k8s v1 Namespace")
+		return nil
+	}
+	return ns.DeepCopy()
 }
 
 func copyObjToV1Pod(obj interface{}) *v1.Pod {
@@ -1658,7 +1700,46 @@ func (d *Daemon) deleteK8sPodV1(pod *v1.Pod) {
 	default:
 		logger.Debug("Deleted ipcache map entry on pod delete")
 	}
+}
 
+func (d *Daemon) updateK8sV1Namespace(oldNS, newNS *v1.Namespace) {
+	if oldNS == nil || newNS == nil {
+		return
+	}
+
+	// We only care about label updates
+	if comparator.MapStringEquals(oldNS.GetLabels(), newNS.GetLabels()) {
+		return
+	}
+
+	oldNSLabels := map[string]string{}
+	newNSLabels := map[string]string{}
+
+	for k, v := range oldNS.GetLabels() {
+		oldNSLabels[policy.JoinPath(ciliumio.PodNamespaceMetaLabels, k)] = v
+	}
+	for k, v := range newNS.GetLabels() {
+		newNSLabels[policy.JoinPath(ciliumio.PodNamespaceMetaLabels, k)] = v
+	}
+
+	oldLabels := labels.Map2Labels(oldNSLabels, labels.LabelSourceK8s)
+	newLabels := labels.Map2Labels(newNSLabels, labels.LabelSourceK8s)
+
+	oldIdtyLabels, _ := labels.FilterLabels(oldLabels)
+	newIdtyLabels, _ := labels.FilterLabels(newLabels)
+
+	eps := endpointmanager.GetEndpoints()
+	for _, ep := range eps {
+		epNS := ep.GetK8sNamespace()
+		if oldNS.Name == epNS {
+			err := ep.ModifyIdentityLabels(d, newIdtyLabels, oldIdtyLabels)
+			if err != nil {
+				log.WithError(err).WithField(logfields.EndpointID, ep.ID).
+					Warningf("unable to update endpoint with new namespace labels")
+			}
+
+		}
+	}
 }
 
 func (d *Daemon) updateK8sNodeTunneling(k8sNodeOld, k8sNodeNew *v1.Node) error {
