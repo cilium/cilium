@@ -101,6 +101,12 @@ spec:
                 name: cilium-config
                 optional: true
                 key: legacy-host-allows-world
+          - name: "CILIUM_SIDECAR_ISTIO_PROXY_IMAGE"
+            valueFrom:
+              configMapKeyRef:
+                name: cilium-config
+                key: sidecar-istio-proxy-image
+                optional: true
         livenessProbe:
           exec:
             command:
