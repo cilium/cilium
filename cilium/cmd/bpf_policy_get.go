@@ -96,6 +96,7 @@ func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
 		labelsIDTitle         = "IDENTITY"
 		labelsDesTitle        = "LABELS (source:key[=value])"
 		portTitle             = "PORT/PROTO"
+		proxyPortTitle        = "PROXY PORT"
 		bytesTitle            = "BYTES"
 		packetsTitle          = "PACKETS"
 	)
@@ -115,9 +116,9 @@ func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
 	}
 
 	if printIDs {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t\n", trafficDirectionTitle, labelsIDTitle, portTitle, bytesTitle, packetsTitle)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t\n", trafficDirectionTitle, labelsIDTitle, portTitle, proxyPortTitle, bytesTitle, packetsTitle)
 	} else {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t\n", trafficDirectionTitle, labelsDesTitle, portTitle, bytesTitle, packetsTitle)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t\n", trafficDirectionTitle, labelsDesTitle, portTitle, proxyPortTitle, bytesTitle, packetsTitle)
 	}
 	for _, stat := range statsMap {
 		id := identity.NumericIdentity(stat.Key.Identity)
@@ -129,20 +130,24 @@ func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
 			proto := u8proto.U8proto(stat.Key.Nexthdr)
 			port = fmt.Sprintf("%d/%s", dport, proto.String())
 		}
+		proxyPort := "NONE"
+		if stat.ProxyPort != 0 {
+			proxyPort = strconv.FormatUint(uint64(byteorder.NetworkToHost(stat.ProxyPort).(uint16)), 10)
+		}
 		if printIDs {
-			fmt.Fprintf(w, "%s\t%d\t%s\t%d\t%d\t\n", trafficDirectionString, id, port, stat.Bytes, stat.Packets)
+			fmt.Fprintf(w, "%s\t%d\t%s\t%s\t%d\t%d\t\n", trafficDirectionString, id, port, proxyPort, stat.Bytes, stat.Packets)
 		} else if lbls := labelsID[id]; lbls != nil && len(lbls.Labels) > 0 {
 			first := true
 			for _, lbl := range lbls.Labels.GetPrintableModel() {
 				if first {
-					fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%d\t\n", trafficDirectionString, lbl, port, stat.Bytes, stat.Packets)
+					fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%d\t%d\t\n", trafficDirectionString, lbl, port, proxyPort, stat.Bytes, stat.Packets)
 					first = false
 				} else {
-					fmt.Fprintf(w, "\t%s\t\t\t\t\t\n", lbl)
+					fmt.Fprintf(w, "\t%s\t\t\t\t\t\t\n", lbl)
 				}
 			}
 		} else {
-			fmt.Fprintf(w, "%s\t%d\t%s\t%d\t%d\t\n", trafficDirectionString, id, port, stat.Bytes, stat.Packets)
+			fmt.Fprintf(w, "%s\t%d\t%s\t%s\t%d\t%d\t\n", trafficDirectionString, id, port, proxyPort, stat.Bytes, stat.Packets)
 		}
 	}
 }
