@@ -21,6 +21,7 @@ import (
 	"path"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -153,7 +154,7 @@ func (r *kvReferenceCounter) release(key string) (err error) {
 }
 
 // UpsertIPToKVStore updates / inserts the provided IP->Identity mapping into the
-// kvstore, which will subsequently trigger an event in ipIdentityWatcher().
+// kvstore, which will subsequently trigger an event in NewIPIdentityWatcher().
 func UpsertIPToKVStore(IP net.IP, ID identity.NumericIdentity, metadata string) error {
 	ipKey := path.Join(IPIdentitiesPath, AddressSpace, IP.String())
 	ipIDPair := identity.IPIdentityPair{
@@ -167,7 +168,7 @@ func UpsertIPToKVStore(IP net.IP, ID identity.NumericIdentity, metadata string) 
 
 // upsertIPNetToKVStore updates / inserts the provided CIDR->Identity mapping
 // into the kvstore, which will subsequently trigger an event in
-// ipIdentityWatcher().
+// NewIPIdentityWatcher().
 func upsertIPNetToKVStore(prefix *net.IPNet, ID *identity.Identity) error {
 	// Reserved identities are handled locally, don't push them to kvstore.
 	if ID.IsReserved() {
@@ -253,7 +254,7 @@ func upsertIPNetsToKVStore(prefixes []*net.IPNet, identities []*identity.Identit
 
 // DeleteIPFromKVStore removes the IP->Identity mapping for the specified ip
 // from the kvstore, which will subsequently trigger an event in
-// ipIdentityWatcher().
+// NewIPIdentityWatcher().
 func DeleteIPFromKVStore(ip string) error {
 	ipKey := path.Join(IPIdentitiesPath, AddressSpace, ip)
 	return globalMap.release(ipKey)
@@ -261,7 +262,7 @@ func DeleteIPFromKVStore(ip string) error {
 
 // deleteIPNetsFromKVStore removes the Prefix->Identity mappings for the
 // specified slice of prefixes from the kvstore, which will subsequently
-// trigger an event in ipIdentityWatcher().
+// trigger an event in NewIPIdentityWatcher().
 func deleteIPNetsFromKVStore(prefixes []*net.IPNet) (err error) {
 	for _, prefix := range prefixes {
 		ipKey := path.Join(IPIdentitiesPath, AddressSpace, prefix.String())
@@ -292,15 +293,42 @@ func findShadowedCIDR(pair *identity.IPIdentityPair) (identity.NumericIdentity, 
 	return IPIdentityCache.LookupByIP(cidrStr)
 }
 
-func ipIdentityWatcher(listeners []IPIdentityMappingListener) {
-	log.Info("Starting IP identity watcher")
+// IPIdentityWatcher is a watcher that will notify when IP<->identity mappings
+// change in the kvstore
+type IPIdentityWatcher struct {
+	backend  kvstore.BackendOperations
+	stop     chan struct{}
+	stopOnce sync.Once
+}
+
+// NewIPIdentityWatcher creates a new IPIdentityWatcher using the specified
+// kvstore backend
+func NewIPIdentityWatcher(backend kvstore.BackendOperations) *IPIdentityWatcher {
+	watcher := &IPIdentityWatcher{
+		backend: backend,
+		stop:    make(chan struct{}),
+	}
+
+	return watcher
+}
+
+// Watch starts the watcher and blocks waiting for events. When events are
+// received from the kvstore, All IPIdentityMappingListener are notified. The
+// function returns when IPIdentityWatcher.Close() is called. The watcher will
+// automatically restart as required.
+func (iw *IPIdentityWatcher) Watch(listeners []IPIdentityMappingListener) {
+restart:
+	watcher := iw.backend.ListAndWatch("endpointIPWatcher", IPIdentitiesPath, 512)
 
 	for {
-
-		watcher := kvstore.ListAndWatch("endpointIPWatcher", IPIdentitiesPath, 512)
-
+		select {
 		// Get events from channel as they come in.
-		for event := range watcher.Events {
+		case event, ok := <-watcher.Events:
+			if !ok {
+				log.Debugf("%s closed, restarting watch", watcher.String())
+				time.Sleep(500 * time.Millisecond)
+				goto restart
+			}
 
 			scopedLog := log.WithFields(logrus.Fields{"kvstore-event": event.Typ.String(), "key": event.Key})
 			scopedLog.Debug("received event")
@@ -428,10 +456,20 @@ func ipIdentityWatcher(listeners []IPIdentityMappingListener) {
 					listener.OnIPIdentityCacheChange(cacheModification, oldIPIDPair, ipIDPair)
 				}
 			}
-		}
 
-		log.Debugf("%s closed, restarting watch", watcher.String())
+		case <-iw.stop:
+			// identity watcher was stopped
+			watcher.Stop()
+			return
+		}
 	}
+}
+
+// Close stops the IPIdentityWatcher and causes Watch() to return
+func (iw *IPIdentityWatcher) Close() {
+	iw.stopOnce.Do(func() {
+		close(iw.stop)
+	})
 }
 
 // InitIPIdentityWatcher initializes the watcher for ip-identity mapping events
@@ -439,6 +477,8 @@ func ipIdentityWatcher(listeners []IPIdentityMappingListener) {
 func InitIPIdentityWatcher(listeners []IPIdentityMappingListener) {
 	globalMap = newKVReferenceCounter(kvstoreImplementation{})
 	setupIPIdentityWatcher.Do(func() {
-		go ipIdentityWatcher(listeners)
+		log.Info("Starting IP identity watcher")
+		watch := NewIPIdentityWatcher(kvstore.Client())
+		go watch.Watch(listeners)
 	})
 }
