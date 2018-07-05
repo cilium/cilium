@@ -28,6 +28,8 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -453,6 +455,15 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		&v1.Pod{},
 		reSyncPeriod,
 		cache.ResourceEventHandlerFuncs{
+			AddFunc: func(newObj interface{}) {
+				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+				if newK8sPod := copyObjToV1Pod(newObj); newK8sPod != nil {
+					serPods.Enqueue(func() error {
+						d.addK8sPodV1(newK8sPod)
+						return nil
+					}, serializer.NoRetry)
+				}
+			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
 				if oldK8sPod := copyObjToV1Pod(oldObj); oldK8sPod != nil {
@@ -462,6 +473,15 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 							return nil
 						}, serializer.NoRetry)
 					}
+				}
+			},
+			DeleteFunc: func(oldObj interface{}) {
+				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+				if oldK8sPod := copyObjToV1Pod(oldObj); oldK8sPod != nil {
+					serPods.Enqueue(func() error {
+						d.deleteK8sPodV1(oldK8sPod)
+						return nil
+					}, serializer.NoRetry)
 				}
 			},
 		},
@@ -1465,10 +1485,101 @@ func (d *Daemon) updateCiliumNetworkPolicyV2(ciliumV2Store cache.Store,
 	d.addCiliumNetworkPolicyV2(ciliumV2Store, newRuleCpy)
 }
 
+func (d *Daemon) updatePodHostIP(pod *v1.Pod) (bool, error) {
+	if pod.Spec.HostNetwork {
+		return true, fmt.Errorf("pod is using host networking")
+	}
+
+	hostIP := net.ParseIP(pod.Status.HostIP)
+	if hostIP == nil {
+		return true, fmt.Errorf("no/invalid HostIP: %s", pod.Status.HostIP)
+	}
+
+	podIP := net.ParseIP(pod.Status.PodIP)
+	if podIP == nil {
+		return true, fmt.Errorf("no/invalid PodIP: %s", pod.Status.PodIP)
+	}
+
+	updated := ipcache.IPIdentityCache.Upsert(pod.Status.PodIP, ipcache.Identity{
+		ID:     identity.ReservedIdentityCluster,
+		Source: ipcache.FromKubernetes,
+	})
+	if !updated {
+		return true, fmt.Errorf("ipcache entry owned by kvstore or agent")
+	}
+
+	id := identity.IPIdentityPair{
+		IP:     podIP,
+		HostIP: hostIP,
+		ID:     identity.ReservedIdentityCluster,
+	}
+
+	for _, listener := range d.ipcacheListeners {
+		listener.OnIPIdentityCacheChange(ipcache.Upsert, nil, id)
+	}
+
+	return false, nil
+}
+
+func (d *Daemon) deletePodHostIP(pod *v1.Pod) (bool, error) {
+	if pod.Spec.HostNetwork {
+		return true, fmt.Errorf("pod is using host networking")
+	}
+
+	podIP := net.ParseIP(pod.Status.PodIP)
+	if podIP == nil {
+		return true, fmt.Errorf("no/invalid PodIP: %s", pod.Status.PodIP)
+	}
+
+	// a small race condition exists here as deletion could occur in
+	// parallel based on another event but it doesn't matter as the
+	// identity is going away
+	id, exists := ipcache.IPIdentityCache.LookupByIP(pod.Status.PodIP)
+	if !exists {
+		return true, fmt.Errorf("identity for IP does not exist in case")
+	}
+
+	if id.Source != ipcache.FromKubernetes {
+		return true, fmt.Errorf("ipcache entry not owned by kubernetes source")
+	}
+
+	ipcache.IPIdentityCache.Delete(pod.Status.PodIP)
+
+	idPair := identity.IPIdentityPair{IP: podIP}
+	for _, listener := range d.ipcacheListeners {
+		listener.OnIPIdentityCacheChange(ipcache.Delete, nil, idPair)
+	}
+
+	return false, nil
+}
+
+func (d *Daemon) addK8sPodV1(pod *v1.Pod) {
+	logger := log.WithFields(logrus.Fields{
+		logfields.K8sPodName:   pod.ObjectMeta.Name,
+		logfields.K8sNamespace: pod.ObjectMeta.Namespace,
+		"podIP":                pod.Status.PodIP,
+		"hostIP":               pod.Status.HostIP,
+	})
+
+	skipped, err := d.updatePodHostIP(pod)
+	switch {
+	case skipped:
+		logger.WithError(err).Debug("Skipped ipcache map update on pod add")
+	case err != nil:
+		logger.WithError(err).Warning("Unable to update ipcache map entry on pod add ")
+	default:
+		logger.Debug("Updated ipcache map entry on pod add")
+	}
+}
+
 func (d *Daemon) updateK8sPodV1(oldK8sPod, newK8sPod *v1.Pod) {
 	if oldK8sPod == nil || newK8sPod == nil {
 		return
 	}
+
+	// The pod IP can never change, it can only switch from unassigned to
+	// assigned
+	d.addK8sPodV1(newK8sPod)
 
 	// We only care about label updates
 	oldPodLabels := oldK8sPod.GetLabels()
@@ -1500,4 +1611,24 @@ func (d *Daemon) updateK8sPodV1(oldK8sPod, newK8sPod *v1.Pod) {
 		logfields.EndpointID: podEP.GetID(),
 		logfields.Labels:     logfields.Repr(newIdtyLabels),
 	}).Debug("Update endpoint with new labels")
+}
+
+func (d *Daemon) deleteK8sPodV1(pod *v1.Pod) {
+	logger := log.WithFields(logrus.Fields{
+		logfields.K8sPodName:   pod.ObjectMeta.Name,
+		logfields.K8sNamespace: pod.ObjectMeta.Namespace,
+		"podIP":                pod.Status.PodIP,
+		"hostIP":               pod.Status.HostIP,
+	})
+
+	skipped, err := d.deletePodHostIP(pod)
+	switch {
+	case skipped:
+		logger.WithError(err).Debug("Skipped ipcache map delete on pod delete")
+	case err != nil:
+		logger.WithError(err).Warning("Unable to delete ipcache map entry on pod delete")
+	default:
+		logger.Debug("Deleted ipcache map entry on pod delete")
+	}
+
 }

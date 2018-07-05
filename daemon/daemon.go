@@ -1027,27 +1027,30 @@ func (d *Daemon) syncLXCMap() error {
 		}
 		prefix := ipIDPair.PrefixString()
 		cachedIdentity, exists := ipcache.IPIdentityCache.LookupByIP(prefix)
-		if !exists || cachedIdentity != ipIDPair.ID {
+		if !exists || cachedIdentity.ID != ipIDPair.ID {
 			// Upsert will not propagate (reserved:foo->ID) mappings across the cluster,
 			// and we specifically don't want to do so.
 			// Manually push it into each IPIdentityMappingListener.
 			log.WithFields(logrus.Fields{
 				logfields.IPAddr:       ipIDPair.IP,
 				logfields.IPMask:       ipIDPair.Mask,
-				logfields.OldIdentity:  cachedIdentity,
+				logfields.OldIdentity:  cachedIdentity.ID,
 				logfields.Identity:     ipIDPair.ID,
 				logfields.Modification: ipcache.Upsert,
 			}).Debug("Adding special identity to ipcache")
-			ipcache.IPIdentityCache.Upsert(prefix, ipIDPair.ID)
+			ipcache.IPIdentityCache.Upsert(prefix, ipcache.Identity{
+				ID:     ipIDPair.ID,
+				Source: ipcache.FromAgentLocal,
+			})
 
 			var oldIPIDPair *identity.IPIdentityPair
-			if cachedIdentity != ipIDPair.ID {
+			if cachedIdentity.ID != ipIDPair.ID {
 				// If an existing mapping is updated,
 				// provide the existing mapping to the
 				// listener so it can easily clean up
 				// the old mapping.
 				pair := ipIDPair
-				pair.ID = cachedIdentity
+				pair.ID = cachedIdentity.ID
 				oldIPIDPair = &pair
 			}
 			for _, listener := range d.ipcacheListeners {
