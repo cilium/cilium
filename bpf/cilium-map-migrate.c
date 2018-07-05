@@ -329,6 +329,11 @@ static int bpf_handle_pending(struct bpf_elf_ctx *ctx,
 	struct stat sb;
 	int fd, ret;
 
+	if (sizeof(fs_base) + sizeof(name) + sizeof("/") > sizeof(file)) {
+		fprintf(stderr, "Filename bigger '%s/%s' than %ld\n", fs_base, name, sizeof(file));
+	    return -1;
+	}
+
 	snprintf(file, sizeof(file), "%s/%s", fs_base, name);
 	ret = stat(file, &sb);
 	if (ret < 0) {
@@ -366,12 +371,12 @@ static int bpf_handle_finalize(struct bpf_elf_ctx *ctx,
 			       const struct bpf_elf_map *map,
 			       const char *name, int exit)
 {
-	char file[PATH_MAX + 1], dest[PATH_MAX + 1];
+	char file[PATH_MAX + sizeof(":") + sizeof(STATE_PENDING) + 1];
+	char dest[PATH_MAX + 1];
 	struct stat sb;
 	int ret;
 
-	snprintf(file, sizeof(file), "%s/%s:%s", fs_base, name,
-		 STATE_PENDING);
+	snprintf(file, sizeof(file), "%s/%s:%s", fs_base, name, STATE_PENDING);
 	ret = stat(file, &sb);
 	if (ret < 0) {
 		if (errno == ENOENT)
@@ -381,6 +386,10 @@ static int bpf_handle_finalize(struct bpf_elf_ctx *ctx,
 	}
 
 	if (exit) {
+        if (sizeof(fs_base) + sizeof(name) + sizeof("/") > sizeof(dest)) {
+            fprintf(stderr, "Filename bigger '%s/%s' than %ld\n", fs_base, name, sizeof(dest));
+            return -1;
+        }
 		snprintf(dest, sizeof(dest), "%s/%s", fs_base, name);
 		syslog(LOG_WARNING, "Restoring migrated node %s into %s due to bad exit.\n",
 		       file, dest);
