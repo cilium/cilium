@@ -159,7 +159,8 @@ int from_overlay(struct __sk_buff *skb)
 
 	bpf_clear_cb(skb);
 
-	send_trace_notify(skb, TRACE_FROM_OVERLAY, 0, 0, 0, skb->ingress_ifindex, 0);
+	send_trace_notify(skb, TRACE_FROM_OVERLAY, 0, 0, 0,
+			  skb->ingress_ifindex, 0, 0);
 
 	switch (skb->protocol) {
 	case bpf_htons(ETH_P_IPV6):

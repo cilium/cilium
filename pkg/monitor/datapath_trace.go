@@ -36,7 +36,7 @@ type TraceNotify struct {
 	DstLabel uint32
 	DstID    uint16
 	Reason   uint8
-	Pad      uint8
+	Flags    uint8
 	Ifindex  uint32
 	// data
 }
@@ -53,6 +53,7 @@ const (
 	TraceFromHost
 	TraceFromStack
 	TraceFromOverlay
+	TraceCreateCT
 )
 
 var traceObsPoints = map[uint8]string{
@@ -66,6 +67,7 @@ var traceObsPoints = map[uint8]string{
 	TraceFromHost:    "from-host",
 	TraceFromStack:   "from-stack",
 	TraceFromOverlay: "from-overlay",
+	TraceCreateCT:    "create-ct",
 }
 
 func obsPoint(obsPoint uint8) string {
@@ -119,8 +121,20 @@ func (n *TraceNotify) traceSummary() string {
 		return "<- stack"
 	case TraceFromOverlay:
 		return "<- overlay"
+	case TraceCreateCT:
+		return "^^ conntrack new"
 	default:
 		return "unknown trace"
+	}
+}
+
+// printFlags interprets the flags based on the observation point and prints it.
+func printFlags(obsPoint, flags uint8) {
+	switch obsPoint {
+	case TraceCreateCT:
+		fmt.Printf(", %s", ctFlags(int16(flags)))
+	default:
+		break
 	}
 }
 
@@ -142,6 +156,10 @@ func (n *TraceNotify) DumpVerbose(dissect bool, data []byte, prefix string) {
 
 	if n.SrcLabel != 0 || n.DstLabel != 0 {
 		fmt.Printf(", identity %d->%d", n.SrcLabel, n.DstLabel)
+	}
+
+	if n.Flags != 0 {
+		printFlags(n.ObsPoint, n.Flags)
 	}
 
 	if n.DstID != 0 {

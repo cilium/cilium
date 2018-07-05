@@ -113,7 +113,7 @@ ipv4_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 	proxy4_update_timeout(&value);
 
 	// Trace the packet before its destination address and port are rewritten.
-	send_trace_notify(skb, TRACE_TO_PROXY, SECLABEL, 0, 0, HOST_IFINDEX,
+	send_trace_notify(skb, TRACE_TO_PROXY, SECLABEL, 0, 0, HOST_IFINDEX, 0,
 			  forwarding_reason);
 
 	if (l4_modify_port(skb, l4_off, TCP_DPORT_OFF, csum,
@@ -165,7 +165,7 @@ ipv6_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 	proxy6_update_timeout(&value);
 
 	// Trace the packet before its destination address and port are rewritten.
-	send_trace_notify(skb, TRACE_TO_PROXY, SECLABEL, 0, 0, HOST_IFINDEX,
+	send_trace_notify(skb, TRACE_TO_PROXY, SECLABEL, 0, 0, HOST_IFINDEX, 0,
 			  forwarding_reason);
 
 	if (l4_modify_port(skb, l4_off, TCP_DPORT_OFF, csum, new_port, old_port) < 0)

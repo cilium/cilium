@@ -45,6 +45,7 @@ enum {
 	TRACE_FROM_HOST,
 	TRACE_FROM_STACK,
 	TRACE_FROM_OVERLAY,
+	TRACE_CREATE_CT,
 };
 
 /* Reasons for forwarding a packet. */
@@ -65,7 +66,7 @@ struct trace_notify {
 	__u32		dst_label;
 	__u16		dst_id;
 	__u8		reason;
-	__u8		pad;
+	__u8		flags;
 	__u32		ifindex;
 };
 
@@ -77,12 +78,13 @@ struct trace_notify {
  * @dst:	destination identity
  * @dst_id:	designated destination endpoint ID
  * @ifindex:	designated destination ifindex
+ * @flags	flags specific to the observation point
  * @reason:	reason for forwarding the packet (TRACE_REASON_*)
  *
  * Generate a notification to indicate a packet was forwarded at an observation point.
  */
 static inline void send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst,
-				     __u16 dst_id, __u32 ifindex, __u8 reason)
+				     __u16 dst_id, __u32 ifindex, __u8 flags, __u8 reason)
 {
 	uint64_t skb_len = (uint64_t)skb->len, cap_len = min((uint64_t)TRACE_PAYLOAD_LEN, (uint64_t)skb_len);
 	uint32_t hash = get_hash_recalc(skb);
@@ -97,7 +99,7 @@ static inline void send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u3
 		.dst_label = dst,
 		.dst_id = dst_id,
 		.reason = reason,
-		.pad = 0,
+		.flags = flags,
 		.ifindex = ifindex,
 	};
 
@@ -128,7 +130,7 @@ static inline void send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u3
 #else
 
 static inline void send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst,
-				     __u16 dst_id, __u32 ifindex, __u8 reason)
+				     __u16 dst_id, __u32 ifindex, __u8 flags, __u8 reason)
 {
 	switch (obs_point) {
 		case TRACE_TO_LXC:
@@ -152,5 +154,22 @@ static inline void send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u3
 }
 
 #endif
+
+/**
+ * send_ct_notify
+ * @skb:	socket buffer
+ * @off:	offset to tcp header, if available
+ * @obs_point:	observation point (TRACE_*)
+ * @src:	source identity
+ * @flags:	flags in the tuple being created (CT_*)
+ * @reason:	reason for forwarding the packet (TRACE_REASON_*)
+ *
+ * Generate a notification to indicate a connection was seen at an observation point.
+ */
+static inline void send_ct_notify(struct __sk_buff *skb, __u8 obs_point,
+				  __u32 src, __u8 tuple_flags, __u8 reason)
+{
+	return send_trace_notify(skb, obs_point, src, 0, 0, 0, tuple_flags, reason);
+}
 
 #endif /* __LIB_TRACE__ */

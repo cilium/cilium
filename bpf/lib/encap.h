@@ -44,7 +44,8 @@ static inline int __inline__ encap_and_redirect(struct __sk_buff *skb, struct en
 	if (unlikely(ret < 0))
 		return DROP_WRITE_ERROR;
 
-	send_trace_notify(skb, TRACE_TO_OVERLAY, seclabel, 0, 0, ENCAP_IFINDEX, 0);
+	send_trace_notify(skb, TRACE_TO_OVERLAY, seclabel, 0, 0, ENCAP_IFINDEX,
+			  0, 0);
 
 	return redirect(ENCAP_IFINDEX, 0);
 }

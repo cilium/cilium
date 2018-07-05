@@ -324,8 +324,8 @@ to_host:
 		if (ret != TC_ACT_OK)
 			return ret;
 
-		send_trace_notify(skb, TRACE_TO_HOST, SECLABEL, HOST_ID, 0, HOST_IFINDEX,
-				  forwarding_reason);
+		send_trace_notify(skb, TRACE_TO_HOST, SECLABEL, HOST_ID, 0,
+				  HOST_IFINDEX, 0, forwarding_reason);
 
 		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
 		return redirect(HOST_IFINDEX, 0);
@@ -341,7 +341,7 @@ pass_to_stack:
 	if (ipv6_store_flowlabel(skb, l3_off, SECLABEL_NB) < 0)
 		return DROP_WRITE_ERROR;
 
-	send_trace_notify(skb, TRACE_TO_STACK, SECLABEL, dstID, 0, 0,
+	send_trace_notify(skb, TRACE_TO_STACK, SECLABEL, dstID, 0, 0, 0,
 			  forwarding_reason);
 
 	cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, 0);
@@ -607,8 +607,8 @@ to_host:
 		if (ret != TC_ACT_OK)
 			return ret;
 
-		send_trace_notify(skb, TRACE_TO_HOST, SECLABEL, HOST_ID, 0, HOST_IFINDEX,
-				  forwarding_reason);
+		send_trace_notify(skb, TRACE_TO_HOST, SECLABEL, HOST_ID, 0,
+				  HOST_IFINDEX, 0, forwarding_reason);
 
 		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
 		return redirect(HOST_IFINDEX, 0);
@@ -626,7 +626,7 @@ pass_to_stack:
 	 * network.
 	 */
 
-	send_trace_notify(skb, TRACE_TO_STACK, SECLABEL, dstID, 0, 0,
+	send_trace_notify(skb, TRACE_TO_STACK, SECLABEL, dstID, 0, 0, 0,
 			  forwarding_reason);
 
 	cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, 0);
@@ -663,7 +663,7 @@ int handle_ingress(struct __sk_buff *skb)
 
 	bpf_clear_cb(skb);
 
-	send_trace_notify(skb, TRACE_FROM_LXC, SECLABEL, 0, 0, 0, 0);
+	send_trace_notify(skb, TRACE_FROM_LXC, SECLABEL, 0, 0, 0, 0, 0);
 
 #ifdef DROP_ALL
 	if (skb->protocol == bpf_htons(ETH_P_ARP)) {
@@ -976,8 +976,8 @@ __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *sk
 					ifindex, ret, TC_ACT_SHOT, METRIC_INGRESS);
 
 	if (ifindex == skb->cb[CB_IFINDEX]) { // Not redirected to host / proxy.
-		send_trace_notify(skb, TRACE_TO_LXC, src_label, SECLABEL, LXC_ID, ifindex,
-				  forwarding_reason);
+		send_trace_notify(skb, TRACE_TO_LXC, src_label, SECLABEL,
+				  LXC_ID, ifindex, 0, forwarding_reason);
 	}
 
 	ifindex = skb->cb[CB_IFINDEX];

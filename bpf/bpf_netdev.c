@@ -423,23 +423,24 @@ __section("from-netdev")
 int from_netdev(struct __sk_buff *skb)
 {
 	__u32 identity = 0;
+	int trace;
 	int ret;
 
 	bpf_clear_cb(skb);
 
-#ifdef FROM_HOST
 	if (1) {
-		int trace = TRACE_FROM_HOST;
+#ifdef FROM_HOST
+		trace = TRACE_FROM_HOST;
 		bool from_proxy;
 
 		from_proxy = handle_identity_from_host(skb, &identity);
 		if (from_proxy)
 			trace = TRACE_FROM_PROXY;
-		send_trace_notify(skb, trace, identity, 0, 0, skb->ingress_ifindex, 0);
-	}
 #else
-	send_trace_notify(skb, TRACE_FROM_STACK, 0, 0, 0, skb->ingress_ifindex, 0);
+		trace = TRACE_FROM_STACK;
 #endif
+	}
+	send_trace_notify(skb, trace, 0, 0, 0, skb->ingress_ifindex, 0, 0);
 
 	switch (skb->protocol) {
 	case bpf_htons(ETH_P_IPV6):

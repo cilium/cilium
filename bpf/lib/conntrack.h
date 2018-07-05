@@ -524,6 +524,9 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 	if (map_update_elem(map, tuple, &entry, 0) < 0)
 		return DROP_CT_CREATE_FAILED;
 
+	send_ct_notify(skb, TRACE_CREATE_CT, SECLABEL, tuple->flags,
+		       TRACE_REASON_POLICY);
+
 	/* Create an ICMPv6 entry to relate errors */
 	struct ipv6_ct_tuple icmp_tuple = {
 		.nexthdr = IPPROTO_ICMPV6,
@@ -601,6 +604,9 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 	entry.src_sec_id = ct_state->src_sec_id;
 	if (map_update_elem(map, tuple, &entry, 0) < 0)
 		return DROP_CT_CREATE_FAILED;
+
+	send_ct_notify(skb, TRACE_CREATE_CT, SECLABEL, tuple->flags,
+		       TRACE_REASON_POLICY);
 
 	if (ct_state->addr) {
 		__u8 flags = tuple->flags;
