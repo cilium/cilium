@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -453,6 +454,15 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		&v1.Pod{},
 		reSyncPeriod,
 		cache.ResourceEventHandlerFuncs{
+			AddFunc: func(newObj interface{}) {
+				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+				if newK8sPod := copyObjToV1Pod(newObj); newK8sPod != nil {
+					serPods.Enqueue(func() error {
+						d.addK8sPodV1(newK8sPod)
+						return nil
+					}, serializer.NoRetry)
+				}
+			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
 				if oldK8sPod := copyObjToV1Pod(oldObj); oldK8sPod != nil {
@@ -462,6 +472,15 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 							return nil
 						}, serializer.NoRetry)
 					}
+				}
+			},
+			DeleteFunc: func(oldObj interface{}) {
+				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+				if oldK8sPod := copyObjToV1Pod(oldObj); oldK8sPod != nil {
+					serPods.Enqueue(func() error {
+						d.deleteK8sPodV1(oldK8sPod)
+						return nil
+					}, serializer.NoRetry)
 				}
 			},
 		},
@@ -1465,10 +1484,92 @@ func (d *Daemon) updateCiliumNetworkPolicyV2(ciliumV2Store cache.Store,
 	d.addCiliumNetworkPolicyV2(ciliumV2Store, newRuleCpy)
 }
 
+func updatePodHostIP(pod *v1.Pod) {
+	logger := log.WithFields(logrus.Fields{
+		logfields.K8sPodName:   pod.ObjectMeta.Name,
+		logfields.K8sNamespace: pod.ObjectMeta.Namespace,
+	})
+
+	if pod.Spec.HostNetwork {
+		return
+	}
+
+	hostIP := net.ParseIP(pod.Status.HostIP)
+	if hostIP == nil {
+		logger.Debugf("Skipping ipcache update, no/invalid HostIP: %s", pod.Status.HostIP)
+		return
+	}
+
+	podIP := net.ParseIP(pod.Status.PodIP)
+	if podIP == nil {
+		logger.Debugf("Skipping ipcache update, no/invalid PodIP: %s", pod.Status.PodIP)
+		return
+	}
+
+	key := bpfIPCache.NewKey(podIP, net.IPMask{})
+	value := bpfIPCache.RemoteEndpointInfo{
+		SecurityIdentity: uint16(identity.ReservedIdentityCluster),
+	}
+
+	ip4 := hostIP.To4()
+	if ip4 == nil {
+		logger.Debugf("Skipping ipcache update, HostIP is not an IPv4 address")
+		return
+	}
+
+	copy(value.TunnelEndpoint[:], ip4)
+
+	err := bpfIPCache.IPCache.Update(&key, &value)
+	if err != nil {
+		logger.WithError(err).WithFields(logrus.Fields{"key": key.String(),
+			"value": value.String()}).
+			Warning("Unable to update ipcache bpf map")
+	}
+
+	logger.WithFields(logrus.Fields{"key": key.String(), "value": value.String()}).
+		Debug("Updated ipcache entry for pod")
+}
+
+func deletePodHostIP(pod *v1.Pod) {
+	logger := log.WithFields(logrus.Fields{
+		logfields.K8sPodName:   pod.ObjectMeta.Name,
+		logfields.K8sNamespace: pod.ObjectMeta.Namespace,
+	})
+
+	if pod.Spec.HostNetwork {
+		return
+	}
+
+	podIP := net.ParseIP(pod.Status.PodIP)
+	if podIP == nil {
+		logger.Debugf("Skipping ipcache update, no/invalid PodIP: %s", pod.Status.PodIP)
+		return
+	}
+
+	key := bpfIPCache.NewKey(podIP, net.IPMask{})
+
+	err := bpfIPCache.IPCache.Delete(&key)
+	if err != nil {
+		logger.WithError(err).WithFields(logrus.Fields{"key": key.String()}).
+			Warning("Unable to delete key from ipcache bpf map")
+	}
+
+	logger.WithFields(logrus.Fields{"key": key.String()}).
+		Debug("Deleted ipcache entry for pod")
+}
+
+func (d *Daemon) addK8sPodV1(newK8sPod *v1.Pod) {
+	updatePodHostIP(newK8sPod)
+}
+
 func (d *Daemon) updateK8sPodV1(oldK8sPod, newK8sPod *v1.Pod) {
 	if oldK8sPod == nil || newK8sPod == nil {
 		return
 	}
+
+	// The pod can never change, it can only switch from unassigned to
+	// assigned
+	updatePodHostIP(newK8sPod)
 
 	// We only care about label updates
 	oldPodLabels := oldK8sPod.GetLabels()
@@ -1500,4 +1601,8 @@ func (d *Daemon) updateK8sPodV1(oldK8sPod, newK8sPod *v1.Pod) {
 		logfields.EndpointID: podEP.GetID(),
 		logfields.Labels:     logfields.Repr(newIdtyLabels),
 	}).Debug("Update endpoint with new labels")
+}
+
+func (d *Daemon) deleteK8sPodV1(oldK8sPod *v1.Pod) {
+	deletePodHostIP(oldK8sPod)
 }
