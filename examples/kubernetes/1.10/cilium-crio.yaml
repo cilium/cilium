@@ -29,6 +29,10 @@ data:
   clean-cilium-state: "false"
   legacy-host-allows-world: "false"
 
+  # Regular expression matching compatible Istio sidecar istio-proxy
+  # container image names
+  sidecar-istio-proxy-image: "cilium/istio_proxy"
+
   # Encapsulation mode for communication between nodes
   # Possible values:
   #   - disabled
@@ -139,6 +143,12 @@ spec:
                 name: cilium-config
                 optional: true
                 key: legacy-host-allows-world
+          - name: "CILIUM_SIDECAR_ISTIO_PROXY_IMAGE"
+            valueFrom:
+              configMapKeyRef:
+                name: cilium-config
+                key: sidecar-istio-proxy-image
+                optional: true
           - name: CILIUM_TUNNEL
             valueFrom:
               configMapKeyRef:
