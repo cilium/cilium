@@ -332,6 +332,7 @@ function write_cilium_cfg() {
     fi
 
     cilium_options+=" --access-log=/var/log/cilium-access.log"
+    cilium_options+=" --fixed-identity-mapping=128=kv-store --fixed-identity-mapping=129=kube-dns"
 
 cat <<EOF >> "$filename"
 sleep 2s
