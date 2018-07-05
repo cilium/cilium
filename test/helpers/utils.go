@@ -358,3 +358,14 @@ func WriteOrAppendToFile(filename string, data []byte, perm os.FileMode) error {
 	}
 	return err
 }
+
+// DNSDeployment returns the manifest to install dns engine on the server.
+func DNSDeployment() string {
+	var DNSEngine = "kubedns"
+	k8sVersion := GetCurrentK8SEnv()
+	switch k8sVersion {
+	case "1.11", "1.12":
+		DNSEngine = "coredns"
+	}
+	return GetFilePath("provision/manifest/" + DNSEngine + "_deployment.yaml")
+}
