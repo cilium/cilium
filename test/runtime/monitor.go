@@ -49,7 +49,9 @@ var _ = Describe("RuntimeValidatedMonitorTest", func() {
 	BeforeAll(func() {
 		logger = log.WithFields(logrus.Fields{"testName": "RuntimeMonitorTest"})
 		logger.Info("Starting")
-		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
+		ExpectCiliumReady(vm)
+
 		areEndpointsReady := vm.WaitEndpointsReady()
 		Expect(areEndpointsReady).Should(BeTrue())
 	})

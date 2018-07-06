@@ -108,7 +108,9 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 
 	BeforeAll(func() {
 		logger = log.WithFields(logrus.Fields{"testName": "RuntimeValidatedKafka"})
-		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+
+		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
+		ExpectCiliumReady(vm)
 
 		containers("create")
 		epsReady := vm.WaitEndpointsReady()

@@ -105,10 +105,9 @@ var _ = Describe("DisabledRuntimeValidatedConntrackTable", func() {
 	BeforeAll(func() {
 		logger = log.WithFields(logrus.Fields{"testName": "RuntimeConntrack"})
 		logger.Info("Starting")
-		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
-		err := vm.WaitUntilReady(100)
-		Expect(err).To(BeNil())
-		vm.NetworkCreate(helpers.CiliumDockerNetwork, "")
+
+		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
+		ExpectCiliumReady(vm)
 
 		containers(helpers.Create)
 	})
