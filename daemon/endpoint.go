@@ -184,8 +184,8 @@ func (d *Daemon) createEndpoint(epTemplate *models.EndpointChangeRequest, id str
 	// counters before `SetIdentityLabels` since `SetIdentityLabels` can
 	// trigger an endpoint regenerate
 	// and change the state to "waiting-to-regenerate"
-	metrics.EndpointStateCount.
-		WithLabelValues(ep.GetState()).Inc()
+	//metrics.EndpointStateCount.
+	//	WithLabelValues(ep.GetState()).Inc()
 
 	ep.SetIdentityLabels(d, addLabels)
 
