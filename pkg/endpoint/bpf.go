@@ -75,7 +75,7 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 		}
 	}
 	if err != nil {
-		e.LogStatus(BPF, Warning, fmt.Sprintf("Unable to create a base64: %s", err))
+		e.logStatusLocked(BPF, Warning, fmt.Sprintf("Unable to create a base64: %s", err))
 	}
 
 	if e.DockerID == "" {
