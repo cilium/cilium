@@ -390,57 +390,45 @@ settings), then configuring a route within the endpoint at a lower MTU to
 ensure that transmitted packets will fit within tunnel encapsulation. This
 addresses the above issue for all new pods.
 
-Endpoints that were deployed on Cilium 1.0 must be redeployed to remediate this
-issue.
+The MTU for endpoints deployed on Cilium 1.0 must be updated to remediate this
+issue. Users are recommended to follow the below upgrade instructions prior to
+upgrading to Cilium 1.1 to prepare the endpoints for the new MTU behavior.
 
 Upgrade Steps
 ^^^^^^^^^^^^^
 
-When upgrading from Cilium 1.0 to 1.1 or later, existing pods will not
-automatically inherit these new settings. To apply the new MTU settings to
-existing endpoints, they must be re-deployed. To fetch a list of affected pods
-in kubernetes environments, run the following command:
+The `mtu-update`_ tool is provided as a Kubernetes `DaemonSet` to assist the
+live migration of applications from the Cilium 1.0 MTU handling behavior to the
+Cilium 1.1 or later MTU handling behavior. To prevent any packet loss during
+upgrade, these steps should be followed before upgrading to Cilium 1.1;
+however, they are also safe to run after upgrade.
+
+To deploy the `mtu-update`_ DaemonSet:
 
 .. code-block:: shell-session
 
-  $ kubectl get cep --all-namespaces
-  NAMESPACE     NAME                         AGE
-  default       deathstar-765fd545f9-m6bpt   50m
-  default       deathstar-765fd545f9-vlfth   50m
-  default       tiefighter                   50m
-  default       xwing                        50m
-  kube-system   cilium-health-k8s1           27s
-  kube-system   cilium-health-k8s2           25s
-  kube-system   kube-dns-59d8c5f9b5-g2pnt    2h
+  $ kubectl create -f https://raw.githubusercontent.com/cilium/mtu-update/v1.1/mtu-update.yaml
 
-The ``cilium-health`` endpoints do not need to be redeployed, as Cilium will
-redeploy them automatically upon upgrade. Depending on how the endpoints were
-originally deployed, this may be as simple as running
-``kubectl delete pod <podname>``. Once each pod has been redeployed, you can
-fetch a list of the related interfaces and confirm that the new MTU settings
-have been applied via the following commands:
+This will deploy the `mtu-update`_ daemon on each node in your cluster, where it
+will proceed to search for Cilium-managed pods and update the MTU inside these
+pods to match the Cilium 1.1 behavior.
+
+To determine whether this was successful:
 
 .. code-block:: shell-session
 
-  $ kubectl get cep --all-namespaces -o yaml | grep -e "pod-name:" -e "interface-name"
-        pod-name: default:deathstar-765fd545f9-m6bpt
-        interface-name: lxc55330
-        pod-name: default:deathstar-765fd545f9-vlfth
-        interface-name: lxc4fe9b
-        pod-name: default:tiefighter
-        interface-name: lxcf1e94
-        pod-name: default:xwing
-        interface-name: lxc7cb0f
-        pod-name: ':'
-        interface-name: cilium_health
-        pod-name: ':'
-        interface-name: cilium_health
-        pod-name: kube-system:kube-dns-59d8c5f9b5-g2pnt
-        interface-name: lxc0e2f6
-  $ ip link show lxc0e2f6 | grep mtu
-  22: lxc0e2f6@if21: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default
+  $ kubectl get ds mtu-update -n kube-system
+  NAME         DESIRED   CURRENT   READY     UP-TO-DATE   AVAILABLE   NODE SELECTOR   AGE
+  mtu-update   1         1         1         1            1           <none>          18s
 
-The first command above lists all Cilium endpoints and their corresponding
-interface names, and the second command demonstrates how to find the MTU for
-the interface. Typically the MTU should be 1500 bytes after the endpoints have
-been re-deployed, unless the Cilium CNI configuration requests a different MTU.
+When the ``DESIRED`` count matches the ``READY`` count, the MTU has been
+successfully updated for running pods. It is now safe to remove the
+`mtu-update`_ daemonset:
+
+.. code-block:: shell-session
+
+  $ kubectl delete -f https://raw.githubusercontent.com/cilium/mtu-update/v1.1/mtu-update.yaml
+
+For more information, visit the `mtu-update`_ website.
+
+.. _mtu-update: https://github.com/cilium/mtu-update
