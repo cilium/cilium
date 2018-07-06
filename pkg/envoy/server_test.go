@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/distiller"
 
 	"github.com/golang/protobuf/ptypes/wrappers"
 
@@ -332,7 +333,7 @@ var L4Policy2 = &policy.L4Policy{
 }
 
 func (s *ServerSuite) TestGetHTTPRule(c *C) {
-	obtained, _ := getHTTPRule(PortRuleHTTP1)
+	obtained, _ := distiller.GetHTTPRule(PortRuleHTTP1)
 	c.Assert(obtained, comparator.DeepEquals, ExpectedHeaders1)
 }
 

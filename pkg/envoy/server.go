@@ -21,7 +21,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -30,20 +29,20 @@ import (
 	envoy_api_v2 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
 	envoy_api_v2_core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
 	envoy_api_v2_listener "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/listener"
-	envoy_api_v2_route "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/route"
 	envoy_config_bootstrap_v2 "github.com/cilium/cilium/pkg/envoy/envoy/config/bootstrap/v2"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/distiller"
+	"github.com/cilium/cilium/pkg/policy/distiller/sort"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 
 	"github.com/gogo/protobuf/sortkeys"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/struct"
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/spf13/viper"
 )
 
@@ -260,67 +259,6 @@ func (s *XDSServer) stop() {
 	os.Remove(s.socketPath)
 }
 
-func getHTTPRule(h *api.PortRuleHTTP) (headers []*envoy_api_v2_route.HeaderMatcher, ruleRef string) {
-	// Count the number of header matches we need
-	cnt := len(h.Headers)
-	if h.Path != "" {
-		cnt++
-	}
-	if h.Method != "" {
-		cnt++
-	}
-	if h.Host != "" {
-		cnt++
-	}
-
-	isRegex := wrappers.BoolValue{Value: true}
-	headers = make([]*envoy_api_v2_route.HeaderMatcher, 0, cnt)
-	if h.Path != "" {
-		headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: ":path", Value: h.Path, Regex: &isRegex})
-		ruleRef = `PathRegexp("` + h.Path + `")`
-	}
-	if h.Method != "" {
-		headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: ":method", Value: h.Method, Regex: &isRegex})
-		if ruleRef != "" {
-			ruleRef += " && "
-		}
-		ruleRef += `MethodRegexp("` + h.Method + `")`
-	}
-
-	if h.Host != "" {
-		headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: ":authority", Value: h.Host, Regex: &isRegex})
-		if ruleRef != "" {
-			ruleRef += " && "
-		}
-		ruleRef += `HostRegexp("` + h.Host + `")`
-	}
-	for _, hdr := range h.Headers {
-		strs := strings.SplitN(hdr, " ", 2)
-		if ruleRef != "" {
-			ruleRef += " && "
-		}
-		ruleRef += `Header("`
-		if len(strs) == 2 {
-			// Remove ':' in "X-Key: true"
-			key := strings.TrimRight(strs[0], ":")
-			// Header presence and matching (literal) value needed.
-			headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: key, Value: strs[1]})
-			ruleRef += key + `","` + strs[1]
-		} else {
-			// Only header presence needed
-			headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: strs[0]})
-			ruleRef += strs[0]
-		}
-		ruleRef += `")`
-	}
-	if len(headers) == 0 {
-		headers = nil
-	} else {
-		SortHeaderMatchers(headers)
-	}
-	return
-}
-
 func createBootstrap(filePath string, name, cluster, version string, xdsSock, envoyClusterName string, adminPort uint32) {
 	bs := &envoy_config_bootstrap_v2.Bootstrap{
 		Node: &envoy_api_v2_core.Node{Id: name, Cluster: cluster, Metadata: nil, Locality: nil, BuildVersion: version},
@@ -422,10 +360,10 @@ func getPortNetworkPolicyRule(sel api.EndpointSelector, l7Parser policy.L7Parser
 		if len(l7Rules.HTTP) > 0 { // Just cautious. This should never be false.
 			httpRules := make([]*cilium.HttpNetworkPolicyRule, 0, len(l7Rules.HTTP))
 			for _, l7 := range l7Rules.HTTP {
-				headers, _ := getHTTPRule(&l7)
+				headers, _ := distiller.GetHTTPRule(&l7)
 				httpRules = append(httpRules, &cilium.HttpNetworkPolicyRule{Headers: headers})
 			}
-			SortHTTPNetworkPolicyRules(httpRules)
+			sort.SortHTTPNetworkPolicyRules(httpRules)
 			r.L7Rules = &cilium.PortNetworkPolicyRule_HttpRules{
 				HttpRules: &cilium.HttpNetworkPolicyRules{
 					HttpRules: httpRules,
@@ -492,7 +430,7 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool,
 			continue
 		}
 
-		SortPortNetworkPolicyRules(pnp.Rules)
+		sort.SortPortNetworkPolicyRules(pnp.Rules)
 
 		PerPortPolicies = append(PerPortPolicies, pnp)
 	}
@@ -501,7 +439,7 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool,
 		return nil
 	}
 
-	SortPortNetworkPolicies(PerPortPolicies)
+	sort.SortPortNetworkPolicies(PerPortPolicies)
 
 	return PerPortPolicies
 }
