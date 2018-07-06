@@ -32,6 +32,7 @@
 #define CT_DEFAULT_LIFETIME_NONTCP	60	/* 60 seconds */
 #define CT_DEFAULT_SYN_TIMEOUT		60	/* 60 seconds */
 #define CT_DEFAULT_CLOSE_TIMEOUT	10	/* 10 seconds */
+#define CT_DEFAULT_REPORT_INTERVAL	5	/* 5 seconds */
 
 #ifndef CT_LIFETIME_TCP
 #define CT_LIFETIME_TCP CT_DEFAULT_LIFETIME_TCP
@@ -49,6 +50,10 @@
 #define CT_CLOSE_TIMEOUT CT_DEFAULT_CLOSE_TIMEOUT
 #endif
 
+#ifndef CT_REPORT_INTERVAL
+#define CT_REPORT_INTERVAL CT_DEFAULT_REPORT_INTERVAL
+#endif
+
 #ifdef CONNTRACK
 
 #define TUPLE_F_OUT		0	/* Outgoing flow */
@@ -62,15 +67,27 @@ enum {
 	ACTION_CLOSE,
 };
 
-static inline void __inline__ __ct_update_timeout(struct ct_entry *entry,
+static inline bool __inline__ __ct_update_timeout(struct ct_entry *entry,
 						  __u32 lifetime)
 {
+	__u32 now = bpf_ktime_get_sec();
 #ifdef NEEDS_TIMEOUT
-	entry->lifetime = bpf_ktime_get_sec() + lifetime;
+	entry->lifetime = now + lifetime;
 #endif
+	if (entry->last_report + CT_REPORT_INTERVAL < now) {
+		entry->last_report = now;
+		return true;
+	}
+	return false;
 }
 
-static inline void __inline__ ct_update_timeout(struct ct_entry *entry, bool syn, bool tcp)
+/**
+ * Update the CT timeouts for the specified entry.
+ *
+ * If CT_REPORT_INTERVAL has elapsed since the last update, updates the
+ * last_updated timestamp and returns true. Otherwise returns false.
+ */
+static inline bool __inline__ ct_update_timeout(struct ct_entry *entry, bool syn, bool tcp)
 {
 	__u32 lifetime = CT_LIFETIME_NONTCP;
 
@@ -83,7 +100,7 @@ static inline void __inline__ ct_update_timeout(struct ct_entry *entry, bool syn
 			lifetime = CT_SYN_TIMEOUT;
 	}
 
-	__ct_update_timeout(entry, lifetime);
+	return __ct_update_timeout(entry, lifetime);
 }
 
 static inline void __inline__ ct_reset_closing(struct ct_entry *entry)
@@ -108,7 +125,8 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 	if ((entry = map_lookup_elem(map, tuple))) {
 		cilium_dbg(skb, DBG_CT_MATCH, entry->lifetime, entry->rev_nat_index);
 		if (ct_entry_alive(entry)) {
-			ct_update_timeout(entry, pkt_is_syn, is_tcp);
+			if (ct_update_timeout(entry, pkt_is_syn, is_tcp))
+				ct_state->report = 1;
 		}
 		if (ct_state) {
 			ct_state->rev_nat_index = entry->rev_nat_index;

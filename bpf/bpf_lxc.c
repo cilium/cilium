@@ -219,6 +219,10 @@ skip_service_lookup:
 		return DROP_POLICY;
 	}
 
+	if (ret != CT_NEW && ct_state.report) {
+		send_ct_notify(skb, TRACE_ACTIVE_CT, SECLABEL, tuple->flags, ret);
+	}
+
 	if (redirect_to_proxy(verdict)) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 		union v6addr host_ip = {};
@@ -515,6 +519,10 @@ skip_service_lookup:
 		return DROP_POLICY;
 	}
 
+	if (ret != CT_NEW && ct_state.report) {
+		send_ct_notify(skb, TRACE_ACTIVE_CT, SECLABEL, tuple.flags, ret);
+	}
+
 	if (redirect_to_proxy(verdict)) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 
@@ -798,6 +806,8 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 			return ret;
 
 		/* NOTE: tuple has been invalidated after this */
+	} else if (ct_state.report) {
+		send_ct_notify(skb, TRACE_ACTIVE_CT, SECLABEL, tuple.flags, ret);
 	}
 
 	if (redirect_to_proxy(verdict) && (ret == CT_NEW || ret == CT_ESTABLISHED)) {
@@ -908,6 +918,8 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 			return ret;
 
 		/* NOTE: tuple has been invalidated after this */
+	} else if (ct_state.report) {
+		send_ct_notify(skb, TRACE_ACTIVE_CT, SECLABEL, tuple.flags, ret);
 	}
 
 	if (redirect_to_proxy(verdict) && (ret == CT_NEW || ret == CT_ESTABLISHED)) {

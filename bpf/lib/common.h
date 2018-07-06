@@ -389,7 +389,9 @@ struct ct_entry {
 	      reserve:11;
 	__u16 rev_nat_index;
 	__u16 slave;
+	__u16 pad;
 	__u32 src_sec_id;
+	__u32 last_report; /* Timestamp of last trace_ct_notify to userspace */
 };
 
 struct lb6_key {
@@ -439,7 +441,8 @@ struct lb_sequence {
 struct ct_state {
 	__u16 rev_nat_index;
 	__u16 loopback:1,
-	      reserved:15;
+	      report:1, /* A trace_ct_notify() call should be made. */
+	      reserved:14;
 	__be16 orig_dport;
 	__be32 addr;
 	__be32 svc_addr;

@@ -54,6 +54,7 @@ const (
 	TraceFromStack
 	TraceFromOverlay
 	TraceCreateCT
+	TraceActiveCT
 )
 
 var traceObsPoints = map[uint8]string{
@@ -68,6 +69,7 @@ var traceObsPoints = map[uint8]string{
 	TraceFromStack:   "from-stack",
 	TraceFromOverlay: "from-overlay",
 	TraceCreateCT:    "create-ct",
+	TraceActiveCT:    "active-ct",
 }
 
 func obsPoint(obsPoint uint8) string {
@@ -123,6 +125,8 @@ func (n *TraceNotify) traceSummary() string {
 		return "<- overlay"
 	case TraceCreateCT:
 		return "^^ conntrack new"
+	case TraceActiveCT:
+		return "^^ conntrack active"
 	default:
 		return "unknown trace"
 	}
@@ -131,7 +135,7 @@ func (n *TraceNotify) traceSummary() string {
 // printFlags interprets the flags based on the observation point and prints it.
 func printFlags(obsPoint, flags uint8) {
 	switch obsPoint {
-	case TraceCreateCT:
+	case TraceCreateCT, TraceActiveCT:
 		fmt.Printf(", %s", ctFlags(int16(flags)))
 	default:
 		break
