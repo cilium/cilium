@@ -32,6 +32,7 @@
 
 #include "csum.h"
 #include "conntrack.h"
+#include "trace.h"
 
 #define CILIUM_LB_MAP_MAX_FE		256
 
@@ -467,6 +468,10 @@ static inline int __inline__ lb6_local(void *map, struct __sk_buff *skb, int l3_
 		ct_update6_slave(map, tuple, state);
 	}
 
+	if (ret != CT_NEW && state->report) {
+		send_ct_notify(skb, TRACE_ACTIVE_CT, SECLABEL, tuple->flags, ret);
+	}
+
 	/* Restore flags so that SERVICE flag is only used in used when the
 	 * service lookup happens and future lookups use EGRESS or INGRESS.
 	 */
@@ -739,6 +744,10 @@ static inline int __inline__ lb4_local(void *map, struct __sk_buff *skb,
 		}
 		state->slave = lb4_select_slave(skb, key, svc->count, svc->weight);
 		ct_update4_slave(map, tuple, state);
+	}
+
+	if (ret != CT_NEW && state->report) {
+		send_ct_notify(skb, TRACE_ACTIVE_CT, SECLABEL, tuple->flags, ret);
 	}
 
 	/* Restore flags so that SERVICE flag is only used in used when the

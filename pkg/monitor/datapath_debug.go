@@ -114,6 +114,7 @@ var ctStateText = map[uint32]string{
 const (
 	ctEgress  = 0
 	ctIngress = 1
+	ctService = 2
 )
 
 var ctDirection = map[int]string{
@@ -134,6 +135,7 @@ var tupleFlags = map[int16]string{
 	0: "IN",
 	1: "OUT",
 	2: "RELATED",
+	4: "SERVICE",
 }
 
 func ctFlags(flags int16) string {

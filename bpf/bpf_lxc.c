@@ -219,6 +219,10 @@ skip_service_lookup:
 		return DROP_POLICY;
 	}
 
+	if (ret != CT_NEW && ct_state.report) {
+		send_ct_notify(skb, TRACE_ACTIVE_CT, SECLABEL, tuple->flags, ret);
+	}
+
 	if (redirect_to_proxy(verdict)) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 		union v6addr host_ip = {};
@@ -324,8 +328,8 @@ to_host:
 		if (ret != TC_ACT_OK)
 			return ret;
 
-		send_trace_notify(skb, TRACE_TO_HOST, SECLABEL, HOST_ID, 0, HOST_IFINDEX,
-				  forwarding_reason);
+		send_trace_notify(skb, TRACE_TO_HOST, SECLABEL, HOST_ID, 0,
+				  HOST_IFINDEX, 0, forwarding_reason);
 
 		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
 		return redirect(HOST_IFINDEX, 0);
@@ -341,7 +345,7 @@ pass_to_stack:
 	if (ipv6_store_flowlabel(skb, l3_off, SECLABEL_NB) < 0)
 		return DROP_WRITE_ERROR;
 
-	send_trace_notify(skb, TRACE_TO_STACK, SECLABEL, dstID, 0, 0,
+	send_trace_notify(skb, TRACE_TO_STACK, SECLABEL, dstID, 0, 0, 0,
 			  forwarding_reason);
 
 	cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, 0);
@@ -515,6 +519,10 @@ skip_service_lookup:
 		return DROP_POLICY;
 	}
 
+	if (ret != CT_NEW && ct_state.report) {
+		send_ct_notify(skb, TRACE_ACTIVE_CT, SECLABEL, tuple.flags, ret);
+	}
+
 	if (redirect_to_proxy(verdict)) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 
@@ -607,8 +615,8 @@ to_host:
 		if (ret != TC_ACT_OK)
 			return ret;
 
-		send_trace_notify(skb, TRACE_TO_HOST, SECLABEL, HOST_ID, 0, HOST_IFINDEX,
-				  forwarding_reason);
+		send_trace_notify(skb, TRACE_TO_HOST, SECLABEL, HOST_ID, 0,
+				  HOST_IFINDEX, 0, forwarding_reason);
 
 		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
 		return redirect(HOST_IFINDEX, 0);
@@ -626,7 +634,7 @@ pass_to_stack:
 	 * network.
 	 */
 
-	send_trace_notify(skb, TRACE_TO_STACK, SECLABEL, dstID, 0, 0,
+	send_trace_notify(skb, TRACE_TO_STACK, SECLABEL, dstID, 0, 0, 0,
 			  forwarding_reason);
 
 	cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, 0);
@@ -663,7 +671,7 @@ int handle_ingress(struct __sk_buff *skb)
 
 	bpf_clear_cb(skb);
 
-	send_trace_notify(skb, TRACE_FROM_LXC, SECLABEL, 0, 0, 0, 0);
+	send_trace_notify(skb, TRACE_FROM_LXC, SECLABEL, 0, 0, 0, 0, 0);
 
 #ifdef DROP_ALL
 	if (skb->protocol == bpf_htons(ETH_P_ARP)) {
@@ -798,6 +806,8 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 			return ret;
 
 		/* NOTE: tuple has been invalidated after this */
+	} else if (ct_state.report) {
+		send_ct_notify(skb, TRACE_ACTIVE_CT, SECLABEL, tuple.flags, ret);
 	}
 
 	if (redirect_to_proxy(verdict) && (ret == CT_NEW || ret == CT_ESTABLISHED)) {
@@ -908,6 +918,8 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 			return ret;
 
 		/* NOTE: tuple has been invalidated after this */
+	} else if (ct_state.report) {
+		send_ct_notify(skb, TRACE_ACTIVE_CT, SECLABEL, tuple.flags, ret);
 	}
 
 	if (redirect_to_proxy(verdict) && (ret == CT_NEW || ret == CT_ESTABLISHED)) {
@@ -976,8 +988,8 @@ __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *sk
 					ifindex, ret, TC_ACT_SHOT, METRIC_INGRESS);
 
 	if (ifindex == skb->cb[CB_IFINDEX]) { // Not redirected to host / proxy.
-		send_trace_notify(skb, TRACE_TO_LXC, src_label, SECLABEL, LXC_ID, ifindex,
-				  forwarding_reason);
+		send_trace_notify(skb, TRACE_TO_LXC, src_label, SECLABEL,
+				  LXC_ID, ifindex, 0, forwarding_reason);
 	}
 
 	ifindex = skb->cb[CB_IFINDEX];
