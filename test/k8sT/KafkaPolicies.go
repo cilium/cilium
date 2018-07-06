@@ -29,7 +29,6 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 
 	var (
 		kubectl             *helpers.Kubectl
-		ciliumPod           string
 		microscopeErr       error
 		microscopeCancel    = func() error { return nil }
 		logger              = log.WithFields(logrus.Fields{"testName": "K8sValidatedKafkaPolicyTest"})
@@ -122,9 +121,6 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 
 			appPods = helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "app")
 
-			ciliumPod, err = kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s2)
-			Expect(err).To(BeNil(), "Cannot get cilium Pod")
-
 			By("Wait for Kafka broker to be up")
 			err = waitForKafkaBroker(appPods[empireHqApp], createTopicCmd(topicTest))
 			Expect(err).To(BeNil(), "Timeout: Kafka cluster failed to come up correctly")
@@ -191,25 +187,6 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 				Expect(cep).ToNot(BeNil(), "cannot get cep for app %q and pod %s", app, appPods[app])
 				Expect(cep.Status.Policy.Spec.PolicyEnabled).To(Equal(policy), "Policy for %q mismatch", app)
 			}
-
-			By("Validating Policy trace")
-			trace := kubectl.CiliumExec(ciliumPod, fmt.Sprintf(
-				"cilium policy trace --src-k8s-pod default:%s --dst-k8s-pod default:%s --dport 9092",
-				appPods[empireHqApp], appPods[kafkaApp]))
-			trace.ExpectSuccess("Cilium policy trace failed")
-			trace.ExpectContains("Final verdict: ALLOWED")
-
-			trace = kubectl.CiliumExec(ciliumPod, fmt.Sprintf(
-				"cilium policy trace --src-k8s-pod default:%s --dst-k8s-pod default:%s --dport 9092",
-				appPods[backupApp], appPods[kafkaApp]))
-			trace.ExpectSuccess("Cilium policy trace failed")
-			trace.ExpectContains("Final verdict: ALLOWED")
-
-			trace = kubectl.CiliumExec(ciliumPod, fmt.Sprintf(
-				"cilium policy trace --src-k8s-pod default:%s --dst-k8s-pod default:%s --dport 80",
-				appPods[empireHqApp], appPods[kafkaApp]))
-			trace.ExpectSuccess("Failed cilium policy trace")
-			trace.ExpectContains("Final verdict: DENIED")
 
 			By("Testing Kafka L7 policy enforcement status")
 			err = kubectl.ExecKafkaPodCmd(
