@@ -51,7 +51,8 @@ LXC_OPTIONS = \
 	 -DSKIP_DEBUG \
 	 -DDROP_ALL \
 	 -DHAVE_LPM_MAP_TYPE \
-	 -DHAVE_LRU_MAP_TYPE
+	 -DHAVE_LRU_MAP_TYPE \
+	 -DEARLY_TRACE
 
 bpf_lxc.o: bpf_lxc.c $(LIB)
 	$(QUIET) set -e; \

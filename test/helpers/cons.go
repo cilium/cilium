@@ -118,6 +118,7 @@ const (
 	OptionDebug               = "Debug"
 	OptionDropNotify          = "DropNotification"
 	OptionTraceNotify         = "TraceNotification"
+	OptionEarlyTrace          = "EarlyTraceNotification"
 	OptionNAT46               = "NAT46"
 	OptionIngressPolicy       = "IngressPolicy"
 	OptionEgressPolicy        = "EgressPolicy"

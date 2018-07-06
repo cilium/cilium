@@ -23,6 +23,7 @@ var (
 		DebugLB:             &specDebugLB,
 		DropNotify:          &specDropNotify,
 		TraceNotify:         &specTraceNotify,
+		EarlyTrace:          &specEarlyTrace,
 		NAT46:               &specNAT46,
 		IngressPolicy:       &IngressSpecPolicy,
 		EgressPolicy:        &EgressSpecPolicy,

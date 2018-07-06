@@ -84,6 +84,18 @@ struct trace_notify {
 static inline void send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst,
 				     __u16 dst_id, __u32 ifindex, __u8 reason)
 {
+#ifndef EARLY_TRACE
+	switch (obs_point) {
+	case TRACE_FROM_LXC:
+	case TRACE_FROM_PROXY:
+	case TRACE_FROM_HOST:
+	case TRACE_FROM_STACK:
+	case TRACE_FROM_OVERLAY:
+		return;
+	default:
+		break;
+	}
+#endif
 	uint64_t skb_len = (uint64_t)skb->len, cap_len = min((uint64_t)TRACE_PAYLOAD_LEN, (uint64_t)skb_len);
 	uint32_t hash = get_hash_recalc(skb);
 	struct trace_notify msg = {
