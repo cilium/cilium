@@ -37,7 +37,9 @@ var _ = Describe(verifierTest, func() {
 	BeforeAll(func() {
 		logger = log.WithFields(logrus.Fields{"testName": verifierTest})
 		logger.Info("Starting")
-		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+
+		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
+		ExpectCiliumReady(vm)
 
 		By("Stopping Cilium")
 		res := vm.ExecWithSudo("systemctl stop cilium")

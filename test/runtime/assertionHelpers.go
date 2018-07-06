@@ -39,3 +39,16 @@ func ExpectEndpointSummary(vm *helpers.SSHMeta, policyEnforcementType string, nu
 	ExpectWithOffset(1, err).Should(BeNil(), "error getting endpoint summary")
 	ExpectWithOffset(1, endpoints[policyEnforcementType]).To(Equal(numWithPolicyEnforcementType), "number of endpoints with %s=%s does not match", helpers.PolicyEnforcement, policyEnforcementType)
 }
+
+// ExpectCiliumReady asserts that cilium status is ready
+func ExpectCiliumReady(vm *helpers.SSHMeta) {
+	err := vm.WaitUntilReady(100)
+	Expect(err).To(BeFalse(), "Cilium-agent cannot be started")
+
+	vm.NetworkCreate(helpers.CiliumDockerNetwork, "")
+	vm.NetworkGet(helpers.CiliumDockerNetwork).ExpectSuccess(
+		"Cilium docker network is not created")
+
+	vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault).ExpectSuccess(
+		"Cannot set policy enforcement default")
+}

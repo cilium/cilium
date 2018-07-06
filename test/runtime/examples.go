@@ -36,7 +36,9 @@ var _ = Describe("RuntimeValidatedPolicyValidationTests", func() {
 	initialize := func() {
 		logger = log.WithFields(logrus.Fields{"test": "RuntimeValidatedPolicyValidationTests"})
 		logger.Info("Starting")
-		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+
+		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
+		ExpectCiliumReady(vm)
 	}
 
 	BeforeEach(func() {

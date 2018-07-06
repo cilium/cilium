@@ -34,8 +34,8 @@ var _ = Describe("RuntimeValidatedKVStoreTest", func() {
 	initialize := func() {
 		logger = log.WithFields(logrus.Fields{"testName": "RuntimeKVStoreTest"})
 		logger.Info("Starting")
-		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
-		logger.Info("done creating Cilium and Docker helpers")
+		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
+		ExpectCiliumReady(vm)
 	}
 	containers := func(option string) {
 		switch option {
