@@ -104,10 +104,10 @@ LPM_LOOKUP_FN(lookup_ip4_remote_endpoint, __be32, IPCACHE4_PREFIXES,
 	      cilium_ipcache, ipcache_lookup4)
 #undef LPM_LOOKUP_FN
 #else /* HAVE_LPM_MAP_TYPE */
-#define V6_CACHE_KEY_LEN IPCACHE_PREFIX_LEN(sizeof(union v6addr)*8)
+#define V6_CACHE_KEY_LEN (sizeof(union v6addr)*8)
 #define lookup_ip6_remote_endpoint(addr) \
 	ipcache_lookup6(&cilium_ipcache, addr, V6_CACHE_KEY_LEN)
-#define V4_CACHE_KEY_LEN IPCACHE_PREFIX_LEN(sizeof(__u32)*8)
+#define V4_CACHE_KEY_LEN (sizeof(__u32)*8)
 #define lookup_ip4_remote_endpoint(addr) \
 	ipcache_lookup4(&cilium_ipcache, addr, V4_CACHE_KEY_LEN)
 #endif /* HAVE_LPM_MAP_TYPE */
