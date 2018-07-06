@@ -497,6 +497,9 @@ static inline void __inline__ ct_delete6(void *map, struct ipv6_ct_tuple *tuple,
 
 	if ((err = map_delete_elem(map, tuple)) < 0)
 		cilium_dbg(skb, DBG_ERROR_RET, BPF_FUNC_map_delete_elem, err);
+
+	send_ct_notify(skb, TRACE_DELETE_CT, SECLABEL, tuple->flags,
+		       -DROP_POLICY);
 }
 
 static inline void __inline__ ct_update6_slave(void *map,
@@ -575,6 +578,9 @@ static inline void __inline__ ct_delete4(void *map, struct ipv4_ct_tuple *tuple,
 
 	if ((err = map_delete_elem(map, tuple)) < 0)
 		cilium_dbg(skb, DBG_ERROR_RET, BPF_FUNC_map_delete_elem, err);
+
+	send_ct_notify(skb, TRACE_DELETE_CT, SECLABEL, tuple->flags,
+		       -DROP_POLICY);
 }
 
 static inline void __inline__ ct_update4_slave(void *map,

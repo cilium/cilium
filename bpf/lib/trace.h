@@ -47,6 +47,7 @@ enum {
 	TRACE_FROM_OVERLAY,
 	TRACE_CREATE_CT,
 	TRACE_ACTIVE_CT,
+	TRACE_DELETE_CT,
 };
 
 /* Reasons for forwarding a packet. */

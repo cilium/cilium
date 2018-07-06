@@ -55,6 +55,7 @@ const (
 	TraceFromOverlay
 	TraceCreateCT
 	TraceActiveCT
+	TraceDeleteCT
 )
 
 var traceObsPoints = map[uint8]string{
@@ -70,6 +71,7 @@ var traceObsPoints = map[uint8]string{
 	TraceFromOverlay: "from-overlay",
 	TraceCreateCT:    "create-ct",
 	TraceActiveCT:    "active-ct",
+	TraceDeleteCT:    "delete-ct",
 }
 
 func obsPoint(obsPoint uint8) string {
@@ -127,6 +129,8 @@ func (n *TraceNotify) traceSummary() string {
 		return "^^ conntrack new"
 	case TraceActiveCT:
 		return "^^ conntrack active"
+	case TraceDeleteCT:
+		return "^^ conntrack delete"
 	default:
 		return "unknown trace"
 	}
@@ -135,7 +139,7 @@ func (n *TraceNotify) traceSummary() string {
 // printFlags interprets the flags based on the observation point and prints it.
 func printFlags(obsPoint, flags uint8) {
 	switch obsPoint {
-	case TraceCreateCT, TraceActiveCT:
+	case TraceCreateCT, TraceActiveCT, TraceDeleteCT:
 		fmt.Printf(", %s", ctFlags(int16(flags)))
 	default:
 		break
@@ -144,9 +148,15 @@ func printFlags(obsPoint, flags uint8) {
 
 // DumpInfo prints a summary of the trace messages.
 func (n *TraceNotify) DumpInfo(data []byte) {
+	var reason string
+	if n.ObsPoint == TraceDeleteCT {
+		reason = DropReason(n.Reason)
+	} else {
+		reason = connState(n.Reason)
+	}
 	fmt.Printf("%s flow %#x identity %d->%d state %s ifindex %s: %s\n",
 		n.traceSummary(), n.Hash, n.SrcLabel, n.DstLabel,
-		connState(n.Reason), ifname(int(n.Ifindex)), GetConnectionSummary(data[TraceNotifyLen:]))
+		reason, ifname(int(n.Ifindex)), GetConnectionSummary(data[TraceNotifyLen:]))
 }
 
 // DumpVerbose prints the trace notification in human readable form
