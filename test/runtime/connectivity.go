@@ -25,7 +25,8 @@ var _ = Describe("RuntimeValidatedConnectivityTest", func() {
 	initialize := func() {
 		logger = log.WithFields(logrus.Fields{"test": "RuntimeConnectivityTest"})
 		logger.Info("Starting")
-		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
+		ExpectCiliumReady(vm)
 	}
 
 	JustBeforeEach(func() {
@@ -320,7 +321,8 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 	initialize := func() {
 		logger = log.WithFields(logrus.Fields{"test": "RunConntrackTest"})
 		logger.Info("Starting")
-		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
+		ExpectCiliumReady(vm)
 
 		ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementAlways)
 	}

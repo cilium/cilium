@@ -62,7 +62,10 @@ var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 	BeforeAll(func() {
 		logger = log.WithFields(logrus.Fields{"testName": "RuntimePolicyEnforcement"})
 		logger.Info("Starting")
-		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+
+		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
+		ExpectCiliumReady(vm)
+
 		vm.ContainerCreate(appContainerName, helpers.HttpdImage, helpers.CiliumDockerNetwork, "-l id.app")
 		areEndpointsReady := vm.WaitEndpointsReady()
 		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
@@ -251,7 +254,9 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 	BeforeAll(func() {
 		logger = log.WithFields(logrus.Fields{"test": "RunPolicies"})
 		logger.Info("Starting")
-		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+
+		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
+		ExpectCiliumReady(vm)
 
 		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
 		vm.PolicyDelAll()
@@ -1382,7 +1387,9 @@ var _ = Describe("RuntimeValidatedPolicyImportTests", func() {
 	BeforeAll(func() {
 		logger = log.WithFields(logrus.Fields{"test": "RuntimeValidatedPolicyImportTests"})
 		logger.Info("Starting")
-		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+
+		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
+		ExpectCiliumReady(vm)
 
 		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
 
