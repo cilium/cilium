@@ -490,10 +490,12 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	defer func() {
 		regenerateTimeNs := time.Since(regenerateStart)
 		regenerateTimeSec := float64(regenerateTimeNs) / float64(time.Second)
-		e.getLogger().WithField(logfields.PolicyRegenerationTime, time.Since(regenerateStart).String()).
+		e.getLogger().WithField(logfields.PolicyRegenerationTime, regenerateTimeSec).
 			Info("Regeneration of policy has completed")
 
 		if err == nil && isPolicyComp {
+			fmt.Println("MK in regeneratePolicy defer err = nil and isPolicyComp true!!!!!!!!!!!!!")
+			fmt.Printf("MK in regeneratePolicy incrementing metrics... regenerateTimeSec: %.10f", regenerateTimeSec)
 			metrics.PolicyRegenerationCount.Inc()
 			metrics.PolicyRegenerationTime.Add(regenerateTimeSec)
 			metrics.PolicyRegenerationTimeSquare.Add(math.Pow(regenerateTimeSec, 2))
@@ -652,13 +654,15 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	defer func() {
 		metrics.EndpointCountRegenerating.Dec()
 		if retErr == nil && compilationExecuted {
+			fmt.Println("MK in regenerate endpoint defer retErr = nil and compilationExecuted true!!!!!!!!!!!!!")
 			metrics.EndpointRegenerationCount.
 				WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
 
 			// Capture successful endpoint generation time
 			regenerateTimeNs := time.Since(regenerateStart)
 			regenerateTimeSec := float64(regenerateTimeNs) / float64(time.Second)
-			e.getLogger().WithField(logfields.EndpointRegenerationTime, time.Since(regenerateStart).String()).Info("Regeneration of endpoint has completed")
+			e.getLogger().WithField(logfields.EndpointRegenerationTime, regenerateTimeSec).Info("Regeneration of endpoint has completed")
+			fmt.Printf("MK in regenerate endpoint incrementing metrics... regenerateTimeSec: %.10f", regenerateTimeSec)
 			metrics.EndpointRegenerationTime.Add(regenerateTimeSec)
 			metrics.EndpointRegenerationTimeSquare.Add(math.Pow(regenerateTimeSec, 2))
 		} else {
