@@ -1499,8 +1499,6 @@ func (e *Endpoint) LogStatus(typ StatusType, code StatusCode, msg string) {
 	defer e.Mutex.Unlock()
 	// FIXME GH2323 instead of a mutex we could use a channel to send the status
 	// log message to a single writer?
-	e.Status.indexMU.Lock()
-	defer e.Status.indexMU.Unlock()
 	e.logStatusLocked(typ, code, msg)
 }
 
@@ -1512,12 +1510,12 @@ func (e *Endpoint) LogStatusOK(typ StatusType, msg string) {
 // given msg string.
 // must be called with endpoint.Mutex held
 func (e *Endpoint) LogStatusOKLocked(typ StatusType, msg string) {
-	e.Status.indexMU.Lock()
-	defer e.Status.indexMU.Unlock()
 	e.logStatusLocked(typ, OK, msg)
 }
 
 func (e *Endpoint) logStatusLocked(typ StatusType, code StatusCode, msg string) {
+	e.Status.indexMU.Lock()
+	defer e.Status.indexMU.Unlock()
 	sts := &statusLogMsg{
 		Status: Status{
 			Code:  code,
