@@ -136,20 +136,40 @@ func (e *Endpoint) computeDesiredL4PolicyMapEntries(keysToAdd PolicyMapState) {
 	for _, filter := range e.DesiredL4Policy.Ingress {
 		keysFromFilter := e.convertL4FilterToPolicyMapKeys(&filter, policymap.Ingress)
 		for _, keyFromFilter := range keysFromFilter {
-			// This proxy port may get overwritten later by
-			// e.addNewRedirectsFromMap. We don't know at this point about new
-			// redirect ports that are to be allocated.
-			keysToAdd[keyFromFilter] = PolicyMapStateEntry{ProxyPort: e.lookupRedirectPort(&filter)}
+			var proxyPort uint16
+			// Preserve the already-allocated proxy ports for redirects that
+			// already exist.
+			if filter.IsRedirect() {
+				proxyPort = e.lookupRedirectPort(&filter)
+				// If the currently allocated proxy port is 0, this is a new
+				// redirect, for which no port has been allocated yet. Ignore
+				// it for now. This will be configured by
+				// e.addNewRedirectsFromMap once the port has been allocated.
+				if proxyPort == 0 {
+					continue
+				}
+			}
+			keysToAdd[keyFromFilter] = PolicyMapStateEntry{ProxyPort: proxyPort}
 		}
 	}
 
 	for _, filter := range e.DesiredL4Policy.Egress {
 		keysFromFilter := e.convertL4FilterToPolicyMapKeys(&filter, policymap.Egress)
 		for _, keyFromFilter := range keysFromFilter {
-			// This proxy port may get overwritten later by
-			// e.addNewRedirectsFromMap. We don't know at this point about new
-			// redirect ports that are to be allocated.
-			keysToAdd[keyFromFilter] = PolicyMapStateEntry{ProxyPort: e.lookupRedirectPort(&filter)}
+			var proxyPort uint16
+			// Preserve the already-allocated proxy ports for redirects that
+			// already exist.
+			if filter.IsRedirect() {
+				proxyPort = e.lookupRedirectPort(&filter)
+				// If the currently allocated proxy port is 0, this is a new
+				// redirect, for which no port has been allocated yet. Ignore
+				// it for now. This will be configured by
+				// e.addNewRedirectsFromMap once the port has been allocated.
+				if proxyPort == 0 {
+					continue
+				}
+			}
+			keysToAdd[keyFromFilter] = PolicyMapStateEntry{ProxyPort: proxyPort}
 		}
 	}
 	return
