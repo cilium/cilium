@@ -339,7 +339,9 @@ func (e *etcdClient) LockPath(path string) (kvLocker, error) {
 	mu := concurrency.NewMutex(e.session, path)
 	e.RUnlock()
 
-	err := mu.Lock(ctx.Background())
+	ctx, cancel := ctx.WithTimeout(ctx.Background(), 1*time.Minute)
+	defer cancel()
+	err := mu.Lock(ctx)
 	if err != nil {
 		return nil, err
 	}
