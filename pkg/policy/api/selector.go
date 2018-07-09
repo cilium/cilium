@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-
 	"github.com/mitchellh/hashstructure"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sLbls "k8s.io/apimachinery/pkg/labels"
@@ -199,6 +198,18 @@ func NewESFromMatchRequirements(matchLabels map[string]string, reqs []metav1.Lab
 	return EndpointSelector{
 		LabelSelector: labelSelector,
 		requirements:  labelSelectorToRequirements(labelSelector),
+	}
+}
+
+// SyncRequirementsWithLabelSelector returns an EndpointSelector which ensures
+// that the requirements within the specified EndpointSelector are in sync
+// with the LabelSelector. This is because the LabelSelector has publicly
+// accessible fields, which can be updated without concurrently updating the
+// requirements, so the two fields can become out of sync.
+func (n *EndpointSelector) SyncRequirementsWithLabelSelector() EndpointSelector {
+	return EndpointSelector{
+		LabelSelector: n.LabelSelector,
+		requirements:  labelSelectorToRequirements(n.LabelSelector),
 	}
 }
 

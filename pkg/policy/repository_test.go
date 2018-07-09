@@ -21,11 +21,9 @@ import (
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
-
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/op/go-logging"
 	. "gopkg.in/check.v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func (ds *PolicyTestSuite) TestAddSearchDelete(c *C) {
@@ -604,24 +602,21 @@ func (ds *PolicyTestSuite) TestL3DependentL4IngressFromRequires(c *C) {
 	policy, err := repo.ResolveL4IngressPolicy(ctx)
 	c.Assert(err, IsNil)
 
+	expectedSelector := api.NewESFromMatchRequirements(map[string]string{"any.id": "bar1"}, []v1.LabelSelectorRequirement{
+		{
+			Key:      "any.id",
+			Operator: v1.LabelSelectorOpIn,
+			Values:   []string{"bar2"},
+		},
+	})
+
 	expectedPolicy := L4PolicyMap{
 		"80/TCP": L4Filter{
 			Port:     80,
 			Protocol: api.ProtoTCP,
 			U8Proto:  0x6,
 			Endpoints: api.EndpointSelectorSlice{
-				api.EndpointSelector{
-					LabelSelector: &v1.LabelSelector{
-						MatchLabels: map[string]string{"any.id": "bar1"},
-						MatchExpressions: []v1.LabelSelectorRequirement{
-							{
-								Key:      "any.id",
-								Operator: v1.LabelSelectorOpIn,
-								Values:   []string{"bar2"},
-							},
-						},
-					},
-				},
+				expectedSelector,
 			},
 			L7RulesPerEp:     L7DataMap{},
 			Ingress:          true,
@@ -670,24 +665,21 @@ func (ds *PolicyTestSuite) TestL3DependentL4EgressFromRequires(c *C) {
 	policy, err := repo.ResolveL4EgressPolicy(ctx)
 	c.Assert(err, IsNil)
 
+	expectedSelector := api.NewESFromMatchRequirements(map[string]string{"any.id": "bar1"}, []v1.LabelSelectorRequirement{
+		{
+			Key:      "any.id",
+			Operator: v1.LabelSelectorOpIn,
+			Values:   []string{"bar2"},
+		},
+	})
+
 	expectedPolicy := L4PolicyMap{
 		"80/TCP": L4Filter{
 			Port:     80,
 			Protocol: api.ProtoTCP,
 			U8Proto:  0x6,
 			Endpoints: api.EndpointSelectorSlice{
-				api.EndpointSelector{
-					LabelSelector: &v1.LabelSelector{
-						MatchLabels: map[string]string{"any.id": "bar1"},
-						MatchExpressions: []v1.LabelSelectorRequirement{
-							{
-								Key:      "any.id",
-								Operator: v1.LabelSelectorOpIn,
-								Values:   []string{"bar2"},
-							},
-						},
-					},
-				},
+				expectedSelector,
 			},
 			L7RulesPerEp:     L7DataMap{},
 			DerivedFromRules: labels.LabelArrayList{nil},
