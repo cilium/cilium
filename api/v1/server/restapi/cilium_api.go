@@ -87,6 +87,12 @@ func NewCiliumAPI(spec *loads.Document) *CiliumAPI {
 		PolicyGetIdentityIDHandler: policy.GetIdentityIDHandlerFunc(func(params policy.GetIdentityIDParams) middleware.Responder {
 			return middleware.NotImplemented("operation PolicyGetIdentityID has not yet been implemented")
 		}),
+		DaemonGetMapHandler: daemon.GetMapHandlerFunc(func(params daemon.GetMapParams) middleware.Responder {
+			return middleware.NotImplemented("operation DaemonGetMap has not yet been implemented")
+		}),
+		DaemonGetMapNameHandler: daemon.GetMapNameHandlerFunc(func(params daemon.GetMapNameParams) middleware.Responder {
+			return middleware.NotImplemented("operation DaemonGetMapName has not yet been implemented")
+		}),
 		PolicyGetPolicyHandler: policy.GetPolicyHandlerFunc(func(params policy.GetPolicyParams) middleware.Responder {
 			return middleware.NotImplemented("operation PolicyGetPolicy has not yet been implemented")
 		}),
@@ -191,6 +197,10 @@ type CiliumAPI struct {
 	PolicyGetIdentityHandler policy.GetIdentityHandler
 	// PolicyGetIdentityIDHandler sets the operation handler for the get identity ID operation
 	PolicyGetIdentityIDHandler policy.GetIdentityIDHandler
+	// DaemonGetMapHandler sets the operation handler for the get map operation
+	DaemonGetMapHandler daemon.GetMapHandler
+	// DaemonGetMapNameHandler sets the operation handler for the get map name operation
+	DaemonGetMapNameHandler daemon.GetMapNameHandler
 	// PolicyGetPolicyHandler sets the operation handler for the get policy operation
 	PolicyGetPolicyHandler policy.GetPolicyHandler
 	// PolicyGetPolicyResolveHandler sets the operation handler for the get policy resolve operation
@@ -342,6 +352,14 @@ func (o *CiliumAPI) Validate() error {
 
 	if o.PolicyGetIdentityIDHandler == nil {
 		unregistered = append(unregistered, "policy.GetIdentityIDHandler")
+	}
+
+	if o.DaemonGetMapHandler == nil {
+		unregistered = append(unregistered, "daemon.GetMapHandler")
+	}
+
+	if o.DaemonGetMapNameHandler == nil {
+		unregistered = append(unregistered, "daemon.GetMapNameHandler")
 	}
 
 	if o.PolicyGetPolicyHandler == nil {
@@ -568,6 +586,16 @@ func (o *CiliumAPI) initHandlerCache() {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
 	o.handlers["GET"]["/identity/{id}"] = policy.NewGetIdentityID(o.context, o.PolicyGetIdentityIDHandler)
+
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/map"] = daemon.NewGetMap(o.context, o.DaemonGetMapHandler)
+
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/map/{name}"] = daemon.NewGetMapName(o.context, o.DaemonGetMapNameHandler)
 
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)
