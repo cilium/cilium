@@ -202,6 +202,17 @@ func NewESFromMatchRequirements(matchLabels map[string]string, reqs []metav1.Lab
 	}
 }
 
+// SyncRequirementsWithLabelSelector returns an EndpointSelector which ensures
+// that the requirements within the specified EndpointSelector are in sync
+// with the LabelSelector. This is because the LabelSelector has publicly
+// accessible fields, so they two can go out of sync.
+func (n *EndpointSelector) SyncRequirementsWithLabelSelector() EndpointSelector {
+	return EndpointSelector{
+		LabelSelector: n.LabelSelector,
+		requirements:  labelSelectorToRequirements(n.LabelSelector),
+	}
+}
+
 // newReservedEndpointSelector returns a selector that matches on all
 // endpoints with the specified reserved label.
 func newReservedEndpointSelector(ID string) EndpointSelector {
