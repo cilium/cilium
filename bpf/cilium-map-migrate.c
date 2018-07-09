@@ -307,17 +307,18 @@ typedef int (*bpf_handle_state_t)(struct bpf_elf_ctx *ctx,
 				  const struct bpf_elf_map *map,
 				  const char *name, int exit);
 
-char fs_base[PATH_MAX + 1];
+char * fs_base = NULL;
 
 void fs_base_init()
 {
 	const char *mnt_env = getenv(BPF_ENV_MNT);
-
+	char file[PATH_MAX + 1];
 	if (mnt_env) {
-		snprintf(fs_base, sizeof(fs_base), "%s/tc/globals", mnt_env);
+		snprintf(file, sizeof(file) - 1, "%s/tc/globals", mnt_env);
 	} else {
-		strcpy(fs_base, "/sys/fs/bpf/tc/globals");
+		strcpy(file, "/sys/fs/bpf/tc/globals");
 	}
+	fs_base = strdup(file);
 }
 
 static int bpf_handle_pending(struct bpf_elf_ctx *ctx,
@@ -552,7 +553,7 @@ static int migrate_state(const char *pathname, bpf_handle_state_t cb, int exit)
 int main(int argc, char **argv)
 {
 	const char *pathname = NULL;
-	bpf_handle_state_t fn;
+	bpf_handle_state_t fn = NULL;
 	int opt, exit = 0;
 
 	fs_base_init();
@@ -577,5 +578,7 @@ int main(int argc, char **argv)
 
 	exit = pathname ? migrate_state(pathname, fn, exit) : -1;
 	closelog();
+	if (fs_base)
+		free(fs_base);
 	return exit;
 }
