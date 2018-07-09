@@ -14,7 +14,7 @@ $CONTAINER_RUNTIME=(ENV['CONTAINER_RUNTIME'] || "docker")
 
 # RAM and CPU settings
 $MEMORY = (ENV['MEMORY'] || "4096").to_i
-$CPU = (ENV['CPU'] || "2").to_i
+$CPU = (ENV['CPUS'] || "2").to_i
 
 ENV["VAGRANT_DEFAULT_PROVIDER"] = "virtualbox"
 Vagrant.configure("2") do |config|
