@@ -153,7 +153,7 @@ func NewMap() *Map {
 				}
 				return &k, &v, nil
 			},
-		),
+		).WithCache(),
 	}
 }
 

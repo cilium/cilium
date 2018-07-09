@@ -40,7 +40,7 @@ var (
 			}
 
 			return svcKey.ToNetwork(), svcVal.ToNetwork(), nil
-		})
+		}).WithCache()
 	// RevNat6Map represents the BPF map for reverse NAT in IPv6 load balancer
 	RevNat6Map = bpf.NewMap("cilium_lb6_reverse_nat",
 		bpf.MapTypeHash,
@@ -59,7 +59,7 @@ var (
 			revKey := NewRevNat6Key(ukey)
 
 			return revKey.ToNetwork(), revNat.ToNetwork(), nil
-		})
+		}).WithCache()
 	// RRSeq6Map represents the BPF map for wrr sequences in IPv6 load balancer
 	RRSeq6Map = bpf.NewMap("cilium_lb6_rr_seq",
 		bpf.MapTypeHash,
@@ -75,7 +75,7 @@ var (
 			}
 
 			return svcKey.ToNetwork(), &svcVal, nil
-		})
+		}).WithCache()
 )
 
 // Service6Key must match 'struct lb6_key' in "bpf/lib/common.h".
