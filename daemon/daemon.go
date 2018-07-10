@@ -1198,7 +1198,7 @@ func NewDaemon() (*Daemon, error) {
 		log.Info("Annotating k8s node with CIDR ranges")
 		err := k8s.AnnotateNode(k8s.Client(), node.GetName(),
 			node.GetIPv4AllocRange(), node.GetIPv6NodeRange(),
-			nil, nil)
+			nil, nil, node.GetInternalIPv4())
 		if err != nil {
 			log.WithError(err).Warning("Cannot annotate k8s node with CIDR range")
 		}
