@@ -51,7 +51,7 @@ lookup_ip4_endpoint(struct iphdr *ip4)
 	      - sizeof(union v6addr)))
 #define IPCACHE_PREFIX_LEN(PREFIX) (IPCACHE_STATIC_PREFIX + PREFIX)
 
-#define V6_CACHE_KEY_LEN IPCACHE_PREFIX_LEN(sizeof(union v6addr)*8)
+#define V6_CACHE_KEY_LEN (sizeof(union v6addr)*8)
 
 static __always_inline struct remote_endpoint_info *
 ipcache_lookup6(struct bpf_elf_map *map, union v6addr *addr, __u32 prefix)
@@ -65,7 +65,7 @@ ipcache_lookup6(struct bpf_elf_map *map, union v6addr *addr, __u32 prefix)
 	return map_lookup_elem(map, &key);
 }
 
-#define V4_CACHE_KEY_LEN IPCACHE_PREFIX_LEN(sizeof(__u32)*8)
+#define V4_CACHE_KEY_LEN (sizeof(__u32)*8)
 
 static __always_inline struct remote_endpoint_info *
 ipcache_lookup4(struct bpf_elf_map *map, __be32 addr, __u32 prefix)
