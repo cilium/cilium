@@ -188,6 +188,11 @@ func (ipc *IPCache) Upsert(IP string, identity Identity) bool {
 		if !allowOverwrite(existingIdentity.Source, identity.Source) {
 			return false
 		}
+
+		// Skip update if IP is already mapped to the given identity
+		if existingIdentity == identity {
+			return false
+		}
 	}
 
 	// An update is treated as a deletion and then an insert.
