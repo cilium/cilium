@@ -1683,9 +1683,10 @@ func (d *Daemon) addK8sNodeV1(k8sNode *v1.Node) {
 
 	n := k8s.ParseNode(k8sNode)
 	var hostIP net.IP
-	if n.Name != node.GetName() {
-		hostIP = n.GetNodeIP(false)
+	if n.Name == node.GetName() {
+		return
 	}
+	hostIP = n.GetNodeIP(false)
 	ip4 := hostIP.To4()
 	if ip4 == nil {
 		logger.Debugf("Skipping ipcache update, HostIP is not an IPv4 address %s", hostIP)

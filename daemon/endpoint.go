@@ -924,10 +924,13 @@ func (d *Daemon) OnIPIdentityCacheGC() {
 					keyToIP := k.String()
 
 					// Don't RLock as part of the same goroutine.
-					if _, exists := ipcache.IPIdentityCache.LookupByPrefixRLocked(keyToIP); !exists {
-						// Cannot delete from map during callback because DumpWithCallback
-						// RLocks the map.
-						keysToRemove[keyToIP] = k
+					if i, exists := ipcache.IPIdentityCache.LookupByPrefixRLocked(keyToIP); !exists {
+						switch i.Source {
+						case ipcache.FromKVStore, ipcache.FromAgentLocal:
+							// Cannot delete from map during callback because DumpWithCallback
+							// RLocks the map.
+							keysToRemove[keyToIP] = k
+						}
 					}
 				}
 
