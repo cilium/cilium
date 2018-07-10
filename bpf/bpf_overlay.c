@@ -64,8 +64,6 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 
 		l4_off = l3_off + hdrlen;
 		return ipv6_local_delivery(skb, l3_off, l4_off, key.tunnel_id, ip6, nexthdr, ep, METRIC_INGRESS);
-	} else {
-		return DROP_NON_LOCAL;
 	}
 
 to_host:
@@ -115,8 +113,6 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 			goto to_host;
 
 		return ipv4_local_delivery(skb, ETH_HLEN, l4_off, key.tunnel_id, ip4, ep, METRIC_INGRESS);
-	} else {
-		return DROP_NON_LOCAL;
 	}
 
 to_host:
