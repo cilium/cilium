@@ -16,6 +16,7 @@ package k8s
 
 import (
 	"fmt"
+	"net"
 	"time"
 
 	"github.com/cilium/cilium/pkg/annotation"
@@ -34,7 +35,8 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "node1",
 			Annotations: map[string]string{
-				annotation.V4CIDRName: "10.254.0.0/16",
+				annotation.V4CIDRName:   "10.254.0.0/16",
+				annotation.CiliumHostIP: "10.254.0.1",
 			},
 		},
 		Spec: v1.NodeSpec{
@@ -81,7 +83,8 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 		node.GetIPv4AllocRange(),
 		node.GetIPv6NodeRange(),
 		nil,
-		nil)
+		nil,
+		net.ParseIP("10.254.0.1"))
 
 	c.Assert(err, IsNil)
 
@@ -97,7 +100,8 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "node2",
 			Annotations: map[string]string{
-				annotation.V4CIDRName: "10.254.0.0/16",
+				annotation.V4CIDRName:   "10.254.0.0/16",
+				annotation.CiliumHostIP: "10.254.0.1",
 			},
 		},
 		Spec: v1.NodeSpec{
@@ -149,7 +153,8 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 		node.GetIPv4AllocRange(),
 		node.GetIPv6NodeRange(),
 		nil,
-		nil)
+		nil,
+		net.ParseIP("10.254.0.1"))
 
 	c.Assert(err, IsNil)
 
