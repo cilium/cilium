@@ -131,7 +131,7 @@ func (e *EgressRule) sanitize() error {
 		"ToCIDRSet":   true,
 		"ToEndpoints": true,
 		"ToEntities":  true,
-		"ToServices":  false,
+		"ToServices":  true,
 	}
 	for m1 := range l3Members {
 		for m2 := range l3Members {
