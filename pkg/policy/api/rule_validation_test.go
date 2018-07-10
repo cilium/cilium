@@ -236,3 +236,36 @@ func (s *PolicyAPITestSuite) TestCIDRsanitize(c *C) {
 	_, err = cidr.sanitize()
 	c.Assert(err, NotNil)
 }
+
+func (s *PolicyAPITestSuite) TestToServicesSanitize(c *C) {
+
+	svcLabels := map[string]string{
+		"app": "tested-service",
+	}
+	selector := ServiceSelector(NewESFromMatchRequirements(svcLabels, nil))
+	toServicesL3L4 := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		Egress: []EgressRule{
+			{
+				ToServices: []Service{
+					{
+						K8sServiceSelector: &K8sServiceSelectorNamespace{
+							Selector:  selector,
+							Namespace: "",
+						},
+					},
+				},
+				ToPorts: []PortRule{{
+					Ports: []PortProtocol{
+						{Port: "80", Protocol: ProtoTCP},
+						{Port: "81", Protocol: ProtoTCP},
+					},
+				}},
+			},
+		},
+	}
+
+	err := toServicesL3L4.Sanitize()
+	c.Assert(err, IsNil)
+
+}
