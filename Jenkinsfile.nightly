@@ -60,7 +60,7 @@ pipeline {
                 K8S_VERSION=1.9
                 MEMORY=4096
                 CPU=4
-                FAILFAST=setIfPR("true", "false")
+                FAILFAST=setIfLabel("ci/fail-fast", "true", "false")
             }
             steps {
                 parallel(

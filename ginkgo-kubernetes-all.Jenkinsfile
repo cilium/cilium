@@ -37,6 +37,7 @@ pipeline {
         TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
         GOPATH="${WORKSPACE}"
         SERVER_BOX = "cilium/ubuntu"
+        FAILFAST=setIfLabel("ci/fail-fast", "true", "false")
     }
 
     options {
@@ -70,21 +71,23 @@ pipeline {
         }
         stage('BDD-Test-k8s') {
             environment {
-                FAILFAST=setIfPR("true", "false")
                 CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
             }
             options {
                 timeout(time: 90, unit: 'MINUTES')
             }
             steps {
-                parallel(
-                    "K8s-1.8":{
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.8 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
-                    },
-                    "K8s-1.9":{
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.9 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
-                    },
-                )
+                script {
+                    parallel(
+                        "K8s-1.8":{
+                            sh 'cd ${TESTDIR}; K8S_VERSION=1.8 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
+                        },
+                        "K8s-1.9":{
+                            sh 'cd ${TESTDIR}; K8S_VERSION=1.9 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
+                        },
+                        failFast: "${FAILFAST}".toBoolean()
+                    )
+                }
             }
             post {
                 always {
@@ -113,21 +116,23 @@ pipeline {
         }
         stage('Non-release-k8s-versions') {
             environment {
-                FAILFAST=setIfPR("true", "false")
                 CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
             }
             options {
                 timeout(time: 90, unit: 'MINUTES')
             }
             steps {
-                parallel(
-                    "K8s-1.11":{
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.11 ginkgo --focus=" K8s*" --failFast=${FAILFAST}'
-                    },
-                    "K8s-1.12":{
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.12 ginkgo --focus=" K8s*" --failFast=${FAILFAST}'
-                    },
-                )
+                script {
+                    parallel(
+                        "K8s-1.11":{
+                            sh 'cd ${TESTDIR}; K8S_VERSION=1.11 ginkgo --focus=" K8s*" --failFast=${FAILFAST}'
+                        },
+                        "K8s-1.12":{
+                            sh 'cd ${TESTDIR}; K8S_VERSION=1.12 ginkgo --focus=" K8s*" --failFast=${FAILFAST}'
+                        },
+                        failFast: "${FAILFAST}".toBoolean()
+                    )
+                }
             }
             post {
                 always {
