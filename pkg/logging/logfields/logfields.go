@@ -99,6 +99,9 @@ const (
 	// V6HealthIP is an address used to contact the cilium-health endpoint
 	V6HealthIP = "v6healthIP.IPv6"
 
+	// V4CiliumHostIP is an address used for the cilium_host interface.
+	V4CiliumHostIP = "v4CiliumHostIP.IPv4"
+
 	// L3n4Addr is a L3 (IP) + L4 (port and protocol) address object.
 	L3n4Addr = "l3n4Addr"
 

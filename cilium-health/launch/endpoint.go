@@ -239,7 +239,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 
 	// Propagate health IPs to all other nodes
 	if k8s.IsEnabled() {
-		err := k8s.AnnotateNode(k8s.Client(), node.GetName(), nil, nil, ip4, ip6)
+		err := k8s.AnnotateNode(k8s.Client(), node.GetName(), nil, nil, ip4, ip6, nil)
 		if err != nil {
 			return fmt.Errorf("Cannot annotate node CIDR range data: %s", err)
 		}
