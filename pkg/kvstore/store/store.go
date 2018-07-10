@@ -32,7 +32,7 @@ import (
 const (
 	// listTimeoutDefault is the default timeout to wait while performing
 	// the initial list operation of objects from the kvstore
-	listTimeoutDefault = 30 * time.Second
+	listTimeoutDefault = 3 * time.Minute
 
 	// synchronizationIntervalDefault is the default interval to
 	// synchronize keys with the kvstore
