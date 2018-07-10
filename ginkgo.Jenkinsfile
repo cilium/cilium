@@ -85,7 +85,7 @@ pipeline {
             environment {
                 GOPATH="${WORKSPACE}"
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
-                FAILFAST=setIfPR("true", "false")
+                FAILFAST=setIfLabel("ci/fail-fast", "true", "false")
                 CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
             }
 
@@ -94,18 +94,20 @@ pipeline {
             }
 
             steps {
-                parallel(
-                    "Runtime":{
-                        sh 'cd ${TESTDIR}; ginkgo --focus=" RuntimeValidated*" -v --failFast=${FAILFAST}'
-                    },
-                    "K8s-1.7":{
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.7 ginkgo --focus=" K8sValidated*" -v --failFast=${FAILFAST}'
-                    },
-                    "K8s-1.10":{
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.10 ginkgo --focus=" K8sValidated*" -v --failFast=${FAILFAST}'
-                    },
-                    failFast: true
-                )
+                script {
+                    parallel(
+                        "Runtime":{
+                            sh 'cd ${TESTDIR}; ginkgo --focus=" RuntimeValidated*" -v --failFast=${FAILFAST}'
+                        },
+                        "K8s-1.7":{
+                            sh 'cd ${TESTDIR}; K8S_VERSION=1.7 ginkgo --focus=" K8sValidated*" -v --failFast=${FAILFAST}'
+                        },
+                        "K8s-1.10":{
+                            sh 'cd ${TESTDIR}; K8S_VERSION=1.10 ginkgo --focus=" K8sValidated*" -v --failFast=${FAILFAST}'
+                        },
+                        failFast: "${FAILFAST}".toBoolean()
+                    )
+                }
             }
             post {
                 always {
