@@ -15,6 +15,8 @@
 package ipcache
 
 import (
+	"net"
+
 	"github.com/cilium/cilium/pkg/identity"
 )
 
@@ -33,9 +35,12 @@ const (
 // learning about IP to Identity mapping events.
 type IPIdentityMappingListener interface {
 	// OnIPIdentityCacheChange will be called whenever there the state of the
-	// IPCache has changed. If an existing IP->ID mapping is updated, then
-	// the old IPIdentityPair will be provided; otherwise it is nil.
-	OnIPIdentityCacheChange(modType CacheModification, oldIPIDPair *identity.IPIdentityPair, newIPIDPair identity.IPIdentityPair)
+	// IPCache has changed. If an existing CIDR->ID mapping is updated, then
+	// oldID is not nil; otherwise it is nil.
+	// hostIP is the IP address of the location of the cidr.
+	// hostIP is optional and may only be non-nil for an Upsert modification.
+	OnIPIdentityCacheChange(modType CacheModification, cidr net.IPNet, hostIP net.IP,
+		oldID *identity.NumericIdentity, newID identity.NumericIdentity)
 
 	// OnIPIdentityCacheGC will be called to sync other components which are
 	// reliant upon the IPIdentityCache with the IPIdentityCache.

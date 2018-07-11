@@ -278,22 +278,6 @@ func deleteIPNetsFromKVStore(prefixes []*net.IPNet) (err error) {
 	return
 }
 
-// findShadowedCIDR attempts to search for a CIDR with a full prefix (eg, /32
-// for IPv4) which matches the IP in the specified pair. Only performs the
-// search if the pair's IP represents a host IP.
-// Returns the identity and whether the IP was found.
-func findShadowedCIDR(pair *identity.IPIdentityPair) (Identity, bool) {
-	if !pair.IsHost() {
-		return Identity{ID: identity.InvalidIdentity}, false
-	}
-	bits := net.IPv6len * 8
-	if pair.IP.To4() != nil {
-		bits = net.IPv4len * 8
-	}
-	cidrStr := fmt.Sprintf("%s/%d", pair.PrefixString(), bits)
-	return IPIdentityCache.LookupByIP(cidrStr)
-}
-
 // IPIdentityWatcher is a watcher that will notify when IP<->identity mappings
 // change in the kvstore
 type IPIdentityWatcher struct {
@@ -317,7 +301,7 @@ func NewIPIdentityWatcher(backend kvstore.BackendOperations) *IPIdentityWatcher 
 // received from the kvstore, All IPIdentityMappingListener are notified. The
 // function returns when IPIdentityWatcher.Close() is called. The watcher will
 // automatically restart as required.
-func (iw *IPIdentityWatcher) Watch(listeners []IPIdentityMappingListener) {
+func (iw *IPIdentityWatcher) Watch() {
 restart:
 	watcher := iw.backend.ListAndWatch("endpointIPWatcher", IPIdentitiesPath, 512)
 
@@ -332,15 +316,7 @@ restart:
 			}
 
 			scopedLog := log.WithFields(logrus.Fields{"kvstore-event": event.Typ.String(), "key": event.Key})
-			scopedLog.Debug("received event")
-
-			var (
-				cacheChanged      bool
-				cacheModification CacheModification
-				ipIDPair          identity.IPIdentityPair
-				cachedIdentity    Identity
-				ipIsInCache       bool
-			)
+			scopedLog.Debug("Received event")
 
 			// Synchronize local caching of endpoint IP to ipIDPair mapping with
 			// operation key-value store has informed us about.
@@ -362,106 +338,39 @@ restart:
 			//   the deletion event.
 			switch event.Typ {
 			case kvstore.EventTypeListDone:
-				for _, listener := range listeners {
+				IPIdentityCache.Lock()
+				for _, listener := range IPIdentityCache.listeners {
 					listener.OnIPIdentityCacheGC()
 				}
+				IPIdentityCache.Unlock()
+
 			case kvstore.EventTypeCreate, kvstore.EventTypeModify:
+				var ipIDPair identity.IPIdentityPair
 				err := json.Unmarshal(event.Value, &ipIDPair)
 				if err != nil {
-					scopedLog.WithError(err).Errorf("not adding entry to ip cache; error unmarshaling data from key-value store")
+					scopedLog.WithError(err).Errorf("Not adding entry to ip cache; error unmarshaling data from key-value store")
 					continue
 				}
+				IPIdentityCache.Upsert(ipIDPair.PrefixString(), ipIDPair.HostIP, Identity{
+					ID:     ipIDPair.ID,
+					Source: FromKVStore,
+				})
 
-				ipStr := ipIDPair.PrefixString()
-				cachedIdentity, ipIsInCache = IPIdentityCache.LookupByIP(ipStr)
-
-				// Host IP identities take precedence over CIDR
-				// identities, so if this event is for a full
-				// CIDR prefix and there's an existing entry
-				// with a different ID, then break out.
-				if !ipIDPair.IsHost() {
-					ones, bits := ipIDPair.Mask.Size()
-					if ipIsInCache && ones == bits {
-						if cachedIdentity.ID != ipIDPair.ID {
-							IPIdentityCache.Upsert(ipStr, Identity{
-								ID:     ipIDPair.ID,
-								Source: FromKVStore,
-							})
-							scopedLog.WithField(logfields.IPAddr, ipIDPair.IP).
-								Infof("Received KVstore update for CIDR overlapping with endpoint IP.")
-						}
-						continue
-					}
-				}
-
-				// Insert or update the IP -> ID mapping.
-				if !ipIsInCache || cachedIdentity.ID != ipIDPair.ID {
-					IPIdentityCache.Upsert(ipStr, Identity{
-						ID:     ipIDPair.ID,
-						Source: FromKVStore,
-					})
-					cacheChanged = true
-					cacheModification = Upsert
-				}
 			case kvstore.EventTypeDelete:
 				// Value is not present in deletion event;
 				// need to convert kvstore key to IP.
 				ipnet, isHost, err := keyToIPNet(event.Key)
 				if err != nil {
-					scopedLog.Error("error parsing IP from key: %s", err)
+					scopedLog.WithError(err).Error("Error parsing IP from key")
 					continue
 				}
-
-				ipIDPair.IP = ipnet.IP
+				var ip string
 				if isHost {
-					ipIDPair.Mask = nil
+					ip = ipnet.IP.String()
 				} else {
-					ipIDPair.Mask = ipnet.Mask
+					ip = ipnet.String()
 				}
-				ipStr := ipIDPair.PrefixString()
-				cachedIdentity, ipIsInCache = IPIdentityCache.LookupByIP(ipStr)
-
-				if ipIsInCache {
-					cacheChanged = true
-					IPIdentityCache.Delete(ipStr)
-
-					// Set up the IPIDPair and cacheModification for listener callbacks
-					prefixIdentity, shadowedCIDR := findShadowedCIDR(&ipIDPair)
-					if shadowedCIDR {
-						scopedLog.WithField(logfields.IPAddr, ipIDPair.IP).
-							Infof("Received KVstore deletion for endpoint IP shadowing CIDR, restoring CIDR.")
-						ipIDPair.ID = prefixIdentity.ID
-						cacheModification = Upsert
-					} else {
-						ipIDPair.ID = cachedIdentity.ID
-						cacheModification = Delete
-					}
-				}
-			}
-
-			if cacheChanged {
-				log.WithFields(logrus.Fields{
-					logfields.IPAddr:       ipIDPair.IP,
-					logfields.IPMask:       ipIDPair.Mask,
-					logfields.OldIdentity:  cachedIdentity,
-					logfields.Identity:     ipIDPair.ID,
-					logfields.Modification: cacheModification,
-				}).Debugf("endpoint IP cache state change")
-
-				var oldIPIDPair *identity.IPIdentityPair
-				if ipIsInCache && cacheModification == Upsert {
-					// If an existing mapping is updated,
-					// provide the existing mapping to the
-					// listener so it can easily clean up
-					// the old mapping.
-					pair := ipIDPair
-					pair.ID = cachedIdentity.ID
-					oldIPIDPair = &pair
-				}
-				// Callback upon cache updates.
-				for _, listener := range listeners {
-					listener.OnIPIdentityCacheChange(cacheModification, oldIPIDPair, ipIDPair)
-				}
+				IPIdentityCache.Delete(ip)
 			}
 
 		case <-iw.stop:
@@ -481,11 +390,11 @@ func (iw *IPIdentityWatcher) Close() {
 
 // InitIPIdentityWatcher initializes the watcher for ip-identity mapping events
 // in the key-value store.
-func InitIPIdentityWatcher(listeners []IPIdentityMappingListener) {
+func InitIPIdentityWatcher() {
 	globalMap = newKVReferenceCounter(kvstoreImplementation{})
 	setupIPIdentityWatcher.Do(func() {
 		log.Info("Starting IP identity watcher")
 		watch := NewIPIdentityWatcher(kvstore.Client())
-		go watch.Watch(listeners)
+		go watch.Watch()
 	})
 }

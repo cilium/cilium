@@ -1543,22 +1543,12 @@ func (d *Daemon) updatePodHostIP(pod *v1.Pod) (bool, error) {
 		return true, fmt.Errorf("no/invalid PodIP: %s", pod.Status.PodIP)
 	}
 
-	selfOwned := ipcache.IPIdentityCache.Upsert(pod.Status.PodIP, ipcache.Identity{
+	selfOwned := ipcache.IPIdentityCache.Upsert(pod.Status.PodIP, hostIP, ipcache.Identity{
 		ID:     identity.ReservedIdentityCluster,
 		Source: ipcache.FromKubernetes,
 	})
 	if !selfOwned {
 		return true, fmt.Errorf("ipcache entry owned by kvstore or agent")
-	}
-
-	id := identity.IPIdentityPair{
-		IP:     podIP,
-		HostIP: hostIP,
-		ID:     identity.ReservedIdentityCluster,
-	}
-
-	for _, listener := range d.ipcacheListeners {
-		listener.OnIPIdentityCacheChange(ipcache.Upsert, nil, id)
 	}
 
 	return false, nil
@@ -1587,11 +1577,6 @@ func (d *Daemon) deletePodHostIP(pod *v1.Pod) (bool, error) {
 	}
 
 	ipcache.IPIdentityCache.Delete(pod.Status.PodIP)
-
-	idPair := identity.IPIdentityPair{IP: podIP}
-	for _, listener := range d.ipcacheListeners {
-		listener.OnIPIdentityCacheChange(ipcache.Delete, nil, idPair)
-	}
 
 	return false, nil
 }
@@ -1683,42 +1668,36 @@ func (d *Daemon) updateK8sNodeTunneling(k8sNodeOld, k8sNodeNew *v1.Node) error {
 		return nil
 	}
 
-	getIDs := func(node *node.Node, k8sNode *v1.Node) (*identity.IPIdentityPair, string, error) {
+	getIDs := func(node *node.Node, k8sNode *v1.Node) (string, net.IP, error) {
 		if node == nil {
-			return nil, "", nil
+			return "", nil, nil
 		}
 		hostIP := node.GetNodeIP(false)
 		if ip4 := hostIP.To4(); ip4 == nil {
-			return nil, "", fmt.Errorf("HostIP is not an IPv4 address %s", hostIP)
+			return "", nil, fmt.Errorf("HostIP is not an IPv4 address %s", hostIP)
 		}
 
 		ciliumIPStr := k8sNode.GetAnnotations()[annotation.CiliumHostIP]
 		ciliumIP := net.ParseIP(ciliumIPStr)
 		if ciliumIP == nil {
-			return nil, "", fmt.Errorf("no/invalid Cilium-Host IP: %s", ciliumIPStr)
+			return "", nil, fmt.Errorf("no/invalid Cilium-Host IP: %s", ciliumIPStr)
 		}
 
-		id := &identity.IPIdentityPair{
-			IP:     ciliumIP,
-			HostIP: hostIP,
-			ID:     identity.ReservedIdentityHost,
-		}
-		return id, ciliumIPStr, nil
+		return ciliumIPStr, ciliumIP, nil
 	}
 
-	identityPairNew, ciliumIPStrNew, err := getIDs(nodeNew, k8sNodeNew)
-	if err != nil || identityPairNew == nil {
+	ciliumIPStrNew, hostIPNew, err := getIDs(nodeNew, k8sNodeNew)
+	if err != nil || ciliumIPStrNew == "" || hostIPNew == nil {
 		return err
 	}
 
-	var identityPairOld *identity.IPIdentityPair
 	if k8sNodeOld != nil {
 		nodeOld := k8s.ParseNode(k8sNodeOld)
 		var (
 			err            error
 			ciliumIPStrOld string
 		)
-		identityPairOld, ciliumIPStrOld, err = getIDs(nodeOld, k8sNodeOld)
+		ciliumIPStrOld, _, err = getIDs(nodeOld, k8sNodeOld)
 		if err != nil {
 			return err
 		}
@@ -1731,16 +1710,12 @@ func (d *Daemon) updateK8sNodeTunneling(k8sNodeOld, k8sNodeNew *v1.Node) error {
 		}
 	}
 
-	selfOwned := ipcache.IPIdentityCache.Upsert(ciliumIPStrNew, ipcache.Identity{
+	selfOwned := ipcache.IPIdentityCache.Upsert(ciliumIPStrNew, hostIPNew, ipcache.Identity{
 		ID:     identity.ReservedIdentityHost,
 		Source: ipcache.FromKubernetes,
 	})
 	if !selfOwned {
 		return fmt.Errorf("ipcache entry owned by kvstore or agent")
-	}
-
-	for _, listener := range d.ipcacheListeners {
-		listener.OnIPIdentityCacheChange(ipcache.Upsert, identityPairOld, *identityPairNew)
 	}
 	return nil
 }
@@ -1785,9 +1760,5 @@ func (d *Daemon) deleteK8sNodeV1(k8sNode *v1.Node) {
 	if ciliumIP == nil {
 		logger.Warning("Unable to parse Cilium IP")
 		return
-	}
-
-	for _, listener := range d.ipcacheListeners {
-		listener.OnIPIdentityCacheChange(ipcache.Delete, nil, identity.IPIdentityPair{IP: ciliumIP})
 	}
 }

@@ -133,9 +133,6 @@ type Daemon struct {
 	// Used to synchronize generation of daemon's BPF programs and endpoint BPF
 	// programs.
 	compilationMutex *lock.RWMutex
-
-	// ipcacheListeners lists all parties interested in IP -> ID mappings.
-	ipcacheListeners []ipcache.IPIdentityMappingListener
 }
 
 // UpdateProxyRedirect updates the redirect rules in the proxy for a particular
@@ -832,7 +829,8 @@ func (d *Daemon) init() error {
 
 		// Set up the list of IPCache listeners in the daemon, to be
 		// used by syncLXCMap().
-		d.ipcacheListeners = []ipcache.IPIdentityMappingListener{&envoy.NetworkPolicyHostsCache, d}
+		ipcache.IPIdentityCache.SetListeners([]ipcache.IPIdentityMappingListener{
+			&envoy.NetworkPolicyHostsCache, d})
 
 		// Insert local host entries to bpf maps
 		if err := d.syncLXCMap(); err != nil {
@@ -1041,38 +1039,12 @@ func (d *Daemon) syncLXCMap() error {
 				log.WithField(logfields.IPAddr, ipIDPair.IP).Debugf("Added local ip to endpoint map")
 			}
 		}
-		prefix := ipIDPair.PrefixString()
-		cachedIdentity, exists := ipcache.IPIdentityCache.LookupByIP(prefix)
-		if !exists || cachedIdentity.ID != ipIDPair.ID {
-			// Upsert will not propagate (reserved:foo->ID) mappings across the cluster,
-			// and we specifically don't want to do so.
-			// Manually push it into each IPIdentityMappingListener.
-			log.WithFields(logrus.Fields{
-				logfields.IPAddr:       ipIDPair.IP,
-				logfields.IPMask:       ipIDPair.Mask,
-				logfields.OldIdentity:  cachedIdentity.ID,
-				logfields.Identity:     ipIDPair.ID,
-				logfields.Modification: ipcache.Upsert,
-			}).Debug("Adding special identity to ipcache")
-			ipcache.IPIdentityCache.Upsert(prefix, ipcache.Identity{
-				ID:     ipIDPair.ID,
-				Source: ipcache.FromAgentLocal,
-			})
-
-			var oldIPIDPair *identity.IPIdentityPair
-			if cachedIdentity.ID != ipIDPair.ID {
-				// If an existing mapping is updated,
-				// provide the existing mapping to the
-				// listener so it can easily clean up
-				// the old mapping.
-				pair := ipIDPair
-				pair.ID = cachedIdentity.ID
-				oldIPIDPair = &pair
-			}
-			for _, listener := range d.ipcacheListeners {
-				listener.OnIPIdentityCacheChange(ipcache.Upsert, oldIPIDPair, ipIDPair)
-			}
-		}
+		// Upsert will not propagate (reserved:foo->ID) mappings across the cluster,
+		// and we specifically don't want to do so.
+		ipcache.IPIdentityCache.Upsert(ipIDPair.PrefixString(), nil, ipcache.Identity{
+			ID:     ipIDPair.ID,
+			Source: ipcache.FromAgentLocal,
+		})
 	}
 	return nil
 }
@@ -1286,7 +1258,7 @@ func NewDaemon() (*Daemon, error) {
 	// Start watcher for endpoint IP --> identity mappings in key-value store.
 	// this needs to be done *after* init() for the daemon in that function,
 	// we populate the IPCache with the host's IP(s).
-	ipcache.InitIPIdentityWatcher(d.ipcacheListeners)
+	ipcache.InitIPIdentityWatcher()
 
 	// FIXME: Make the port range configurable.
 	d.l7Proxy = proxy.StartProxySupport(10000, 20000, option.Config.RunDir,
