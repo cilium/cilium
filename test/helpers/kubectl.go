@@ -194,6 +194,18 @@ func (kub *Kubectl) Get(namespace string, command string) *CmdRes {
 		"%s -n %s get %s -o json", KubectlCmd, namespace, command))
 }
 
+// GetJSONPath retrieves the provided Kubernetes objects from the specified
+// namespace with output formatted by given filter
+func (kub *Kubectl) GetJSONPath(namespace, object, filter string) (string, error) {
+	res := kub.Exec(fmt.Sprintf(
+		"%s -n %s get %s -o jsonpath='%s'", KubectlCmd, namespace, object, filter))
+	if res.WasSuccessful() {
+		return res.GetStdOut(), nil
+	} else {
+		return "", fmt.Errorf(res.CombineOutput().String())
+	}
+}
+
 // GetCNP retrieves the output of `kubectl get cnp` in the given namespace for
 // the given CNP and return a CNP struct. If the CNP does not exists or cannot
 // unmarshal the Json output will return nil.
@@ -1150,6 +1162,10 @@ func (kub *Kubectl) CiliumPreFlightCheck() error {
 		if err != nil {
 			return false
 		}
+		err = kub.CiliumServicePreFlightCheck()
+		if err != nil {
+			return false
+		}
 		return true
 	}
 	timeoutErr := WithTimeout(body, "PreflightCheck failed", &TimeoutConfig{Timeout: HelperTimeout})
@@ -1230,5 +1246,71 @@ func (kub *Kubectl) CiliumHealthPreFlightCheck() error {
 			}
 		}
 	}
+	return nil
+}
+
+// CiliumServicePreFlightCheck checks that k8s service is plumbed correctly
+func (kub *Kubectl) CiliumServicePreFlightCheck() error {
+	return kub.CheckServicePlumbing("kubernetes")
+}
+
+func (kub *Kubectl) CheckServicePlumbing(serviceName string) error {
+	k8sEpAddrFilter := "{.subsets[0].addresses[0].ip}:{.subsets[0].ports[0].port}"
+	k8sSvcAddrFilter := "{.spec.clusterIP}:{.spec.ports[0].port}"
+
+	ciliumSvcCmdTemplate := `cilium service list -o jsonpath='{range [?(@.status.realized.frontend-address.ip=="%s")]}{.spec.frontend-address.port}:{.spec.backend-addresses[0].ip}:{.spec.backend-addresses[0].port}{"\n"}'`
+
+	endpointAddress, err := kub.GetJSONPath("default", fmt.Sprintf("endpoints %s", serviceName), k8sEpAddrFilter)
+	if err != nil {
+		return err
+	}
+	split := strings.Split(endpointAddress, ":")
+	epIP := split[0]
+	epPort := split[1]
+
+	svcAddr, err := kub.GetJSONPath("default", fmt.Sprintf("service %s", serviceName), k8sSvcAddrFilter)
+	if err != nil {
+		return err
+	}
+
+	split = strings.Split(svcAddr, ":")
+	svcIP := split[0]
+	svcPort := split[1]
+
+	ciliumSvcCmd := fmt.Sprintf(ciliumSvcCmdTemplate, svcIP)
+
+	ciliumPods, err := kub.GetCiliumPods(KubeSystemNamespace)
+	if err != nil {
+		return err
+	}
+	for _, pod := range ciliumPods {
+		services := kub.CiliumExec(pod, ciliumSvcCmd)
+		if !services.WasSuccessful() {
+			return fmt.Errorf(
+				"Unable to retrieve Cilium services on %q: %s",
+				pod, services.OutputPrettyPrint())
+		}
+
+		serviceLines := services.ByLines()
+
+		found := false
+
+		for _, line := range serviceLines {
+			if len(line) == 0 {
+				continue
+			}
+			split = strings.Split(line, ":")
+			if len(split) != 3 {
+				return fmt.Errorf("Error while trying to compare cilium svc to kubernetes service, %s should be formatted as frontend-port:backend-ip:backend-port", line)
+			}
+			if split[0] == svcPort && split[1] == epIP && split[2] == epPort {
+				found = true
+			}
+		}
+		if !found {
+			return fmt.Errorf("Kubernetes service not plumbed correctly on %q", pod)
+		}
+	}
+
 	return nil
 }
