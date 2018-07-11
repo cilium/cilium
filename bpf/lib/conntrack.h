@@ -153,16 +153,16 @@ static inline bool __inline__ ct_entry_alive(const struct ct_entry *entry)
 static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 					 void *tuple, int action, int dir,
 					 struct ct_state *ct_state,
-					 bool is_tcp, union tcp_flags seen_flags)
+					 bool is_tcp, union tcp_flags seen_flags,
+					 bool *monitor)
 {
 	struct ct_entry *entry;
-	bool monitor;
 	int ret;
 
 	if ((entry = map_lookup_elem(map, tuple))) {
 		cilium_dbg(skb, DBG_CT_MATCH, entry->lifetime, entry->rev_nat_index);
 		if (ct_entry_alive(entry)) {
-			monitor = ct_update_timeout(entry, is_tcp, dir, seen_flags);
+			*monitor = ct_update_timeout(entry, is_tcp, dir, seen_flags);
 		}
 		if (ct_state) {
 			ct_state->rev_nat_index = entry->rev_nat_index;
@@ -190,10 +190,9 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 		switch (action) {
 		case ACTION_CREATE:
 			ret = entry->rx_closing + entry->tx_closing;
-			monitor = true;
 			if (unlikely(ret >= 1)) {
 				ct_reset_closing(entry);
-				ct_update_timeout(entry, is_tcp, dir, seen_flags);
+				*monitor = ct_update_timeout(entry, is_tcp, dir, seen_flags);
 			}
 			break;
 		case ACTION_CLOSE:
@@ -203,18 +202,17 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 			else
 				entry->tx_closing = 1;
 
-			monitor = true;
+			*monitor = true;
 			if (ct_entry_alive(entry))
 				break;
 			__ct_update_timeout(entry, CT_CLOSE_TIMEOUT, dir, seen_flags);
 			break;
 		}
 
-		/* XXX: handle monitor */
 		return CT_ESTABLISHED;
 	}
 
-	/* XXX: handle monitor */
+	*monitor = true;
 	return CT_NEW;
 }
 
@@ -243,7 +241,7 @@ static inline void __inline__ ipv6_ct_tuple_reverse(struct ipv6_ct_tuple *tuple)
 /* Offset must point to IPv6 */
 static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 					struct __sk_buff *skb, int l4_off, int dir,
-					struct ct_state *ct_state)
+					struct ct_state *ct_state, bool *monitor)
 {
 	int ret = CT_NEW, action = ACTION_UNSPEC;
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
@@ -340,7 +338,8 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 	cilium_dbg3(skb, DBG_CT_LOOKUP6_1, (__u32) tuple->saddr.p4, (__u32) tuple->daddr.p4,
 		      (bpf_ntohs(tuple->sport) << 16) | bpf_ntohs(tuple->dport));
 	cilium_dbg3(skb, DBG_CT_LOOKUP6_2, (tuple->nexthdr << 8) | tuple->flags, 0, 0);
-	ret = __ct_lookup(map, skb, tuple, action, dir, ct_state, is_tcp, tcp_flags);
+	ret = __ct_lookup(map, skb, tuple, action, dir, ct_state, is_tcp,
+			  tcp_flags, monitor);
 	if (ret != CT_NEW) {
 		if (likely(ret == CT_ESTABLISHED)) {
 			if (unlikely(tuple->flags & TUPLE_F_RELATED))
@@ -354,7 +353,8 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 	/* Lookup entry in forward direction */
 	if (dir != CT_SERVICE) {
 		ipv6_ct_tuple_reverse(tuple);
-		ret = __ct_lookup(map, skb, tuple, action, dir, ct_state, is_tcp, tcp_flags);
+		ret = __ct_lookup(map, skb, tuple, action, dir, ct_state,
+				  is_tcp, tcp_flags, monitor);
 	}
 
 #ifdef LXC_NAT46
@@ -395,7 +395,7 @@ static inline void ct4_cilium_dbg_tuple(struct __sk_buff *skb, __u8 type,
 /* Offset must point to IPv4 header */
 static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 					struct __sk_buff *skb, int off, int dir,
-					struct ct_state *ct_state)
+					struct ct_state *ct_state, bool *monitor)
 {
 	int ret = CT_NEW, action = ACTION_UNSPEC;
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
@@ -492,7 +492,8 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 		      (bpf_ntohs(tuple->sport) << 16) | bpf_ntohs(tuple->dport));
 	cilium_dbg3(skb, DBG_CT_LOOKUP4_2, (tuple->nexthdr << 8) | tuple->flags, 0, 0);
 #endif
-	ret = __ct_lookup(map, skb, tuple, action, dir, ct_state, is_tcp, tcp_flags);
+	ret = __ct_lookup(map, skb, tuple, action, dir, ct_state, is_tcp,
+			  tcp_flags, monitor);
 	if (ret != CT_NEW) {
 		if (likely(ret == CT_ESTABLISHED)) {
 			if (unlikely(tuple->flags & TUPLE_F_RELATED))
@@ -506,7 +507,8 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 	/* Lookup entry in forward direction */
 	if (dir != CT_SERVICE) {
 		ipv4_ct_tuple_reverse(tuple);
-		ret = __ct_lookup(map, skb, tuple, action, dir, ct_state, is_tcp, tcp_flags);
+		ret = __ct_lookup(map, skb, tuple, action, dir, ct_state,
+				  is_tcp, tcp_flags, monitor);
 	}
 out:
 	cilium_dbg(skb, DBG_CT_VERDICT, ret < 0 ? -ret : ret, ct_state->rev_nat_index);
@@ -698,14 +700,14 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 #else /* !CONNTRACK */
 static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 					struct __sk_buff *skb, int off, int dir,
-					struct ct_state *ct_state)
+					struct ct_state *ct_state, bool *monitor)
 {
 	return 0;
 }
 
 static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 					struct __sk_buff *skb, int off, int dir,
-					struct ct_state *ct_state)
+					struct ct_state *ct_state, bool *monitor)
 {
 	return 0;
 }
