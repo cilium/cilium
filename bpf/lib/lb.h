@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2016-2017 Authors of Cilium
+ *  Copyright (C) 2016-2018 Authors of Cilium
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -428,11 +428,12 @@ static inline int __inline__ lb6_local(void *map, struct __sk_buff *skb, int l3_
 				       struct ipv6_ct_tuple *tuple, struct lb6_service *svc,
 				       struct ct_state *state)
 {
+	bool monitor; // Deliberately ignored; regular CT will determine monitoring.
 	union v6addr *addr;
 	__u8 flags = tuple->flags;
 	int ret;
 
-	ret = ct_lookup6(map, tuple, skb, l4_off, CT_SERVICE, state);
+	ret = ct_lookup6(map, tuple, skb, l4_off, CT_SERVICE, state, &monitor);
 	switch(ret) {
 	case CT_NEW:
 		state->slave = lb6_select_slave(skb, key, svc->count, svc->weight);
@@ -702,11 +703,12 @@ static inline int __inline__ lb4_local(void *map, struct __sk_buff *skb,
 				       struct ipv4_ct_tuple *tuple, struct lb4_service *svc,
 				       struct ct_state *state, __be32 saddr)
 {
+	bool monitor; // Deliberately ignored; regular CT will determine monitoring.
 	__be32 new_saddr = 0, new_daddr;
 	__u8 flags = tuple->flags;
 	int ret;
 
-	ret = ct_lookup4(map, tuple, skb, l4_off, CT_SERVICE, state);
+	ret = ct_lookup4(map, tuple, skb, l4_off, CT_SERVICE, state, &monitor);
 	switch(ret) {
 	case CT_NEW:
 		state->slave = lb4_select_slave(skb, key, svc->count, svc->weight);
