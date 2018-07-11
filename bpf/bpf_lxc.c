@@ -340,7 +340,7 @@ to_host:
 			return ret;
 
 		send_trace_notify(skb, TRACE_TO_HOST, SECLABEL, HOST_ID, 0, HOST_IFINDEX,
-				  forwarding_reason);
+				  forwarding_reason, true);
 
 		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
 		return redirect(HOST_IFINDEX, 0);
@@ -357,7 +357,7 @@ pass_to_stack:
 		return DROP_WRITE_ERROR;
 
 	send_trace_notify(skb, TRACE_TO_STACK, SECLABEL, dstID, 0, 0,
-			  forwarding_reason);
+			  forwarding_reason, true);
 
 	cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, 0);
 	return TC_ACT_OK;
@@ -636,7 +636,7 @@ to_host:
 			return ret;
 
 		send_trace_notify(skb, TRACE_TO_HOST, SECLABEL, HOST_ID, 0, HOST_IFINDEX,
-				  forwarding_reason);
+				  forwarding_reason, true);
 
 		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
 		return redirect(HOST_IFINDEX, 0);
@@ -655,7 +655,7 @@ pass_to_stack:
 	 */
 
 	send_trace_notify(skb, TRACE_TO_STACK, SECLABEL, dstID, 0, 0,
-			  forwarding_reason);
+			  forwarding_reason, true);
 
 	cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, 0);
 	return TC_ACT_OK;
@@ -691,7 +691,7 @@ int handle_ingress(struct __sk_buff *skb)
 
 	bpf_clear_cb(skb);
 
-	send_trace_notify(skb, TRACE_FROM_LXC, SECLABEL, 0, 0, 0, 0);
+	send_trace_notify(skb, TRACE_FROM_LXC, SECLABEL, 0, 0, 0, 0, true);
 
 #ifdef DROP_ALL
 	if (skb->protocol == bpf_htons(ETH_P_ARP)) {
@@ -1005,7 +1005,7 @@ __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *sk
 
 	if (ifindex == skb->cb[CB_IFINDEX]) { // Not redirected to host / proxy.
 		send_trace_notify(skb, TRACE_TO_LXC, src_label, SECLABEL, LXC_ID, ifindex,
-				  forwarding_reason);
+				  forwarding_reason, true);
 	}
 
 	ifindex = skb->cb[CB_IFINDEX];

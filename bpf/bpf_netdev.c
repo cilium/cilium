@@ -446,10 +446,10 @@ int from_netdev(struct __sk_buff *skb)
 		from_proxy = handle_identity_from_host(skb, &identity);
 		if (from_proxy)
 			trace = TRACE_FROM_PROXY;
-		send_trace_notify(skb, trace, identity, 0, 0, skb->ingress_ifindex, 0);
+		send_trace_notify(skb, trace, identity, 0, 0, skb->ingress_ifindex, 0, true);
 	}
 #else
-	send_trace_notify(skb, TRACE_FROM_STACK, 0, 0, 0, skb->ingress_ifindex, 0);
+	send_trace_notify(skb, TRACE_FROM_STACK, 0, 0, 0, skb->ingress_ifindex, 0, true);
 #endif
 
 	switch (skb->protocol) {

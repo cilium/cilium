@@ -19,7 +19,7 @@
  * Packet forwarding notification via perf event ring buffer.
  *
  * API:
- * void send_trace_notify(skb, obs_point, src, dst, dst_id, ifindex)
+ * void send_trace_notify(skb, obs_point, src, dst, dst_id, ifindex, reason, monitor)
  *
  * If TRACE_NOTIFY is not defined, the API will be compiled in as a NOP.
  */
@@ -59,6 +59,7 @@ enum {
 enum {
 	TRACE_AGGREGATE_NONE = 0,      /* Trace every packet on rx & tx */
 	TRACE_AGGREGATE_RX = 1,        /* Hide trace on packet receive */
+	TRACE_AGGREGATE_ACTIVE_CT = 3, /* Ratelimit active connection traces */
 };
 
 #ifndef MONITOR_AGGREGATION
@@ -88,11 +89,13 @@ struct trace_notify {
  * @dst_id:	designated destination endpoint ID
  * @ifindex:	designated destination ifindex
  * @reason:	reason for forwarding the packet (TRACE_REASON_*)
+ * @monitor:	whether to send a notification (true) or only metrics (false)
  *
  * Generate a notification to indicate a packet was forwarded at an observation point.
  */
-static inline void send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst,
-				     __u16 dst_id, __u32 ifindex, __u8 reason)
+static inline void
+send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst,
+		  __u16 dst_id, __u32 ifindex, __u8 reason, bool monitor)
 {
 	switch (obs_point) {
 		case TRACE_TO_LXC:
@@ -125,6 +128,8 @@ static inline void send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u3
 			break;
 		}
 	}
+	if (MONITOR_AGGREGATION >= TRACE_AGGREGATE_ACTIVE_CT && !monitor)
+		return;
 
 	uint64_t skb_len = (uint64_t)skb->len, cap_len = min((uint64_t)TRACE_PAYLOAD_LEN, (uint64_t)skb_len);
 	uint32_t hash = get_hash_recalc(skb);
@@ -150,7 +155,7 @@ static inline void send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u3
 #else
 
 static inline void send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst,
-				     __u16 dst_id, __u32 ifindex, __u8 reason)
+				     __u16 dst_id, __u32 ifindex, __u8 reason, bool monitor)
 {
 	switch (obs_point) {
 		case TRACE_TO_LXC:

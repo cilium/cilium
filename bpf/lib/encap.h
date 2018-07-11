@@ -38,7 +38,7 @@ static inline int __inline__ encap_and_redirect_with_nodeid(struct __sk_buff *sk
 	if (unlikely(ret < 0))
 		return DROP_WRITE_ERROR;
 
-	send_trace_notify(skb, TRACE_TO_OVERLAY, seclabel, 0, 0, ENCAP_IFINDEX, 0);
+	send_trace_notify(skb, TRACE_TO_OVERLAY, seclabel, 0, 0, ENCAP_IFINDEX, 0, true);
 
 	return redirect(ENCAP_IFINDEX, 0);
 }
