@@ -2537,3 +2537,14 @@ func (e *Endpoint) syncPolicyMapController() {
 		},
 	)
 }
+
+// IsDisconnecting returns true if the endpoint is being disconnected or
+// already disconnected
+//
+// This function must be called after re-aquiring the endpoint mutex to verify
+// that the endpoint has not been removed in the meantime.
+//
+// endpoint.Mutex must be held
+func (e *Endpoint) IsDisconnecting() bool {
+	return e.state == StateDisconnected || e.state == StateDisconnecting
+}

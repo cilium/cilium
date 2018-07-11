@@ -642,6 +642,13 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 		return 0, compilationExecuted, fmt.Errorf("Error while configuring proxy redirects: %s", err)
 	}
 
+	e.Mutex.Lock()
+	defer e.Mutex.Unlock()
+
+	if e.IsDisconnecting() {
+		return 0, compilationExecuted, fmt.Errorf("endpoint was removed while waiting for proxy to be configured")
+	}
+
 	// Synchronously try to update PolicyMap for this endpoint. If any
 	// part of updating the PolicyMap fails, bail out and do not generate
 	// BPF. Unfortunately, this means that the map will be in an inconsistent
@@ -653,7 +660,6 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 	// policy map with the new proxy ports.
 	err = e.syncPolicyMap()
 	if err != nil {
-		e.Mutex.Unlock()
 		return 0, compilationExecuted, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %s", err)
 	}
 
