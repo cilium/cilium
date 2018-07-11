@@ -95,8 +95,8 @@ of all nodes in the cluster:
 Logs
 ~~~~
 
-To retrieve log files of a cilium pod, run (replace `cilium-1234` with a pod
-name returned by `kubectl -n kube-system get pods -l k8s-app=cilium`)
+To retrieve log files of a cilium pod, run (replace ``cilium-1234`` with a pod
+name returned by ``kubectl -n kube-system get pods -l k8s-app=cilium``)
 
 .. code:: bash
 
@@ -181,7 +181,7 @@ Sometimes you may experience broken connectivity, which may be due to a
 number of different causes. A main cause can be unwanted packet drops on
 the networking level. The tool
 ``cilium monitor`` allows you to quickly inspect and see if and where packet
-drops happen. Following is an example output (use `kubectl exec` as in previous
+drops happen. Following is an example output (use ``kubectl exec`` as in previous
 examples if running with Kubernetes):
 
 .. code:: bash
@@ -303,9 +303,9 @@ When running in :ref:`arch_overlay` mode:
 4. If nodes are being populated correctly, run ``tcpdump -n -i cilium_vxlan`` on
    each node to verify whether cross node traffic is being forwarded correctly
    between nodes.
-   
+
    If packets are being dropped,
-   
+
    * verify that the node IP listed in ``cilium bpf tunnel list`` can reach each
      other.
    * verify that the firewall on each node allows UDP port 4789.
@@ -420,7 +420,7 @@ the tool can retrieve debugging information from all of them. The tool works by
 archiving a collection of command output and files from several places. By
 default, it writes to the ``tmp`` directory.
 
-Note that the command needs to be run from inside the Cilium pod/container. 
+Note that the command needs to be run from inside the Cilium pod/container.
 
 .. code:: bash
 
