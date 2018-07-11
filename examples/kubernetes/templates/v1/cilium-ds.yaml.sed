@@ -112,6 +112,12 @@ spec:
                 key: tunnel
                 name: cilium-config
                 optional: true
+          - name: "MONITOR_AGGREGATION_LEVEL"
+            valueFrom:
+              configMapKeyRef:
+                key: monitor-aggregation-level
+                name: cilium-config
+                optional: true
         livenessProbe:
           exec:
             command:
