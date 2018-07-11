@@ -32,7 +32,6 @@ import (
 	gops "github.com/google/gops/agent"
 	"github.com/onsi/ginkgo"
 	ginkgoconfig "github.com/onsi/ginkgo/config"
-	"github.com/onsi/ginkgo/reporters"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
 )
@@ -96,7 +95,7 @@ func TestTest(t *testing.T) {
 	} else {
 		RegisterFailHandler(Fail)
 	}
-	junitReporter := reporters.NewJUnitReporter(fmt.Sprintf(
+	junitReporter := ginkgoext.NewJUnitReporter(fmt.Sprintf(
 		"%s.xml", helpers.GetScopeWithVersion()))
 	RunSpecsWithDefaultAndCustomReporters(
 		t, helpers.GetScopeWithVersion(), []ginkgo.Reporter{junitReporter})

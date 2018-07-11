@@ -6,6 +6,10 @@ JUnit XML Reporter for Ginkgo
 
 For usage instructions: http://onsi.github.io/ginkgo/#generating_junit_xml_output
 
+Reference file:
+https://github.com/onsi/ginkgo/blob/39febac9157b63aeba74d843d6b1c30990f3d7ed/reporters/junit_reporter.go
+Junit Reference:
+https://www.ibm.com/support/knowledgecenter/en/SSQ2R2_9.1.1/com.ibm.rsar.analysis.codereview.cobol.doc/topics/cac_useresults_junit.html
 */
 
 import (
@@ -19,6 +23,7 @@ import (
 	"github.com/onsi/ginkgo/types"
 )
 
+// JUnitTestSuite main struct to report all test in Junit Format
 type JUnitTestSuite struct {
 	XMLName   xml.Name        `xml:"testsuite"`
 	TestCases []JUnitTestCase `xml:"testcase"`
@@ -29,24 +34,29 @@ type JUnitTestSuite struct {
 	Time      float64         `xml:"time,attr"`
 }
 
+// JUnitTestCase test case struct to report in Junit Format.
 type JUnitTestCase struct {
 	Name           string               `xml:"name,attr"`
 	ClassName      string               `xml:"classname,attr"`
 	FailureMessage *JUnitFailureMessage `xml:"failure,omitempty"`
 	Skipped        *JUnitSkipped        `xml:"skipped,omitempty"`
 	Time           float64              `xml:"time,attr"`
+	SystemErr      string               `xml:"system-err,omitempty"`
 	SystemOut      string               `xml:"system-out,omitempty"`
 }
 
+// JUnitFailureMessage failure message struct
 type JUnitFailureMessage struct {
 	Type    string `xml:"type,attr"`
 	Message string `xml:",chardata"`
 }
 
+// JUnitSkipped skipped struct to report XML
 type JUnitSkipped struct {
 	XMLName xml.Name `xml:"skipped"`
 }
 
+// JUnitReporter struct that uses ginkgo to report
 type JUnitReporter struct {
 	suite         JUnitTestSuite
 	filename      string
@@ -60,6 +70,7 @@ func NewJUnitReporter(filename string) *JUnitReporter {
 	}
 }
 
+// SpecSuiteWillBegin create the main JUnitTestSuite based on Ginkgo parameters
 func (reporter *JUnitReporter) SpecSuiteWillBegin(config config.GinkgoConfigType, summary *types.SuiteSummary) {
 	reporter.suite = JUnitTestSuite{
 		Name:      summary.SuiteDescription,
@@ -68,13 +79,16 @@ func (reporter *JUnitReporter) SpecSuiteWillBegin(config config.GinkgoConfigType
 	reporter.testSuiteName = summary.SuiteDescription
 }
 
+// SpecWillRun needed by ginkgo. Not used.
 func (reporter *JUnitReporter) SpecWillRun(specSummary *types.SpecSummary) {
 }
 
+// BeforeSuiteDidRun Beforesuite report function
 func (reporter *JUnitReporter) BeforeSuiteDidRun(setupSummary *types.SetupSummary) {
 	reporter.handleSetupSummary("BeforeSuite", setupSummary)
 }
 
+// AfterSuiteDidRun ginkgo.Aftersuite report function
 func (reporter *JUnitReporter) AfterSuiteDidRun(setupSummary *types.SetupSummary) {
 	reporter.handleSetupSummary("AfterSuite", setupSummary)
 }
@@ -94,12 +108,13 @@ func (reporter *JUnitReporter) handleSetupSummary(name string, setupSummary *typ
 			Type:    reporter.failureTypeForState(setupSummary.State),
 			Message: failureMessage(setupSummary.Failure),
 		}
-		testCase.SystemOut = setupSummary.CapturedOutput
+		testCase.SystemErr = setupSummary.CapturedOutput
 		testCase.Time = setupSummary.RunTime.Seconds()
 		reporter.suite.TestCases = append(reporter.suite.TestCases, testCase)
 	}
 }
 
+// SpecDidComplete reports the test results in a JUTestCase struct
 func (reporter *JUnitReporter) SpecDidComplete(specSummary *types.SpecSummary) {
 	testCase := JUnitTestCase{
 		Name:      strings.Join(specSummary.ComponentTexts[1:], " "),
@@ -110,7 +125,9 @@ func (reporter *JUnitReporter) SpecDidComplete(specSummary *types.SpecSummary) {
 			Type:    reporter.failureTypeForState(specSummary.State),
 			Message: failureMessage(specSummary.Failure),
 		}
-		testCase.SystemOut = specSummary.CapturedOutput
+		checks, output := reportChecks(specSummary.CapturedOutput)
+		testCase.SystemErr = checks
+		testCase.SystemOut = output
 	}
 	if specSummary.State == types.SpecStateSkipped || specSummary.State == types.SpecStatePending {
 		testCase.Skipped = &JUnitSkipped{}
@@ -119,6 +136,7 @@ func (reporter *JUnitReporter) SpecDidComplete(specSummary *types.SpecSummary) {
 	reporter.suite.TestCases = append(reporter.suite.TestCases, testCase)
 }
 
+// SpecSuiteDidEnd summary information to Suite summary in the xml report
 func (reporter *JUnitReporter) SpecSuiteDidEnd(summary *types.SuiteSummary) {
 	reporter.suite.Tests = summary.NumberOfSpecsThatWillBeRun
 	reporter.suite.Time = math.Trunc(summary.RunTime.Seconds() * 1000 / 1000)
@@ -147,6 +165,36 @@ func (reporter *JUnitReporter) failureTypeForState(state types.SpecState) string
 	case types.SpecStatePanicked:
 		return "Panic"
 	default:
-		return ""
+		return "Unknown"
 	}
+}
+
+// reportChecks filters the given string from the stodout and substract the
+// information that is within the <Checks></Checks> labels. It'll return the
+// given output as first result, and the check output in the second string.
+func reportChecks(output string) (string, string) {
+	var checks string
+	var stdout string
+	var dest = "stdout"
+
+	for _, line := range strings.Split(output, "\n") {
+		if line == "<Checks>" {
+			dest = "checks"
+			continue
+		}
+
+		if line == "</Checks>" {
+			dest = "stdout"
+			continue
+		}
+		switch dest {
+		case "stdout":
+			stdout += line + "\n"
+			continue
+		case "checks":
+			checks += line + "\n"
+			continue
+		}
+	}
+	return stdout, checks
 }
