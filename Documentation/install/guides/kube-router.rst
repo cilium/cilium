@@ -109,17 +109,17 @@ In the above example, we see three categories of routes that have been
 installed:
 
 * *Local PodCIDR:* This route points to all pods running on the host and makes
-  these pods available to 
-  * `10.2.0.0/24 via 10.2.0.172 dev cilium_host src 10.2.0.172`
+  these pods available to
+  * ``10.2.0.0/24 via 10.2.0.172 dev cilium_host src 10.2.0.172``
 * *BGP route:* This type of route is installed if kube-router determines that
   the remote PodCIDR can be reached via a router known to the local host. It
   will instruct pod to pod traffic to be forwarded directly to that router
   without requiring any encapsulation.
-  * `10.2.1.0/24 via 172.0.51.175 dev eth0 proto 17`
+  * ``10.2.1.0/24 via 172.0.51.175 dev eth0 proto 17``
 * *IPIP tunnel route:*  If no direct routing path exists, kube-router will fall
   back to using an overlay and establish an IPIP tunnel between the nodes.
-  * `10.2.2.0/24 dev tun-172011760 proto 17 src 172.0.50.227`
-  * `10.2.3.0/24 dev tun-1720186231 proto 17 src 172.0.50.227`
+  * ``10.2.2.0/24 dev tun-172011760 proto 17 src 172.0.50.227``
+  * ``10.2.3.0/24 dev tun-1720186231 proto 17 src 172.0.50.227``
 
 You can test connectivity by deploying the following connectivity checker pods:
 
