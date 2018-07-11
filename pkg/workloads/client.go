@@ -52,12 +52,18 @@ func IsRunning(ep *endpoint.Endpoint) bool {
 
 // Status returns the status of the workload runtime
 func Status() *models.Status {
+	if Client() == nil {
+		return &models.Status{State: models.StatusStateDisabled}
+	}
 	return Client().Status()
 }
 
 // EnableEventListener watches for docker events. Performs the plumbing for the
 // containers started or dead.
 func EnableEventListener() (eventsCh chan<- *EventMessage, err error) {
+	if Client() == nil {
+		return nil, nil
+	}
 	return Client().EnableEventListener()
 }
 
@@ -65,5 +71,8 @@ func EnableEventListener() (eventsCh chan<- *EventMessage, err error) {
 // their IP address, then adds the containers to the list of ignored containers
 // and allocates the IPs they are using to prevent future collisions.
 func IgnoreRunningWorkloads() {
+	if Client() == nil {
+		return
+	}
 	Client().IgnoreRunningWorkloads()
 }
