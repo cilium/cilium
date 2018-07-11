@@ -30,7 +30,7 @@ func initClient(module backendModule) error {
 	}
 
 	defaultClient = c
-	deleteLegacyPrefixes()
+	go deleteLegacyPrefixes()
 
 	return nil
 }
