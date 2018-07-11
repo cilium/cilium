@@ -195,6 +195,12 @@ func (kub *Kubectl) Get(namespace string, command string) *CmdRes {
 		"%s -n %s get %s -o json", KubectlCmd, namespace, command))
 }
 
+// GetFromAllNS retrieves provided Kubernetes objects from all namespaces
+func (kub *Kubectl) GetFromAllNS(kind string) *CmdRes {
+	return kub.Exec(fmt.Sprintf(
+		"%s get %s --all-namespaces -o json", KubectlCmd, kind))
+}
+
 // GetCNP retrieves the output of `kubectl get cnp` in the given namespace for
 // the given CNP and return a CNP struct. If the CNP does not exists or cannot
 // unmarshal the Json output will return nil.
@@ -343,8 +349,7 @@ func (kub *Kubectl) MicroscopeStart() (error, func() error) {
 	var cb = func() error { return nil }
 	cmd := fmt.Sprintf("%[1]s -ti -n %[2]s exec %[3]s -- %[4]s",
 		KubectlCmd, KubeSystemNamespace, microscope, microscopeCmd)
-	microscopePath := ManifestGet(microscopeManifest)
-	_ = kub.Apply(microscopePath)
+	_ = kub.Apply(microscopeManifest)
 
 	err := kub.WaitforPods(
 		KubeSystemNamespace,
@@ -375,7 +380,7 @@ func (kub *Kubectl) MicroscopeStart() (error, func() error) {
 			log.WithError(err).Errorf("cannot create monitor log file")
 			return err
 		}
-		kub.Delete(microscopePath)
+		kub.Delete(microscopeManifest)
 		return nil
 	}
 
@@ -1292,6 +1297,10 @@ func (kub *Kubectl) CiliumPreFlightCheck() error {
 		if err != nil {
 			return false
 		}
+		err = kub.CiliumServicePreFlightCheck()
+		if err != nil {
+			return false
+		}
 		return true
 	}
 	timeoutErr := WithTimeout(body, "PreflightCheck failed", &TimeoutConfig{Timeout: HelperTimeout})
@@ -1373,4 +1382,121 @@ func (kub *Kubectl) CiliumHealthPreFlightCheck() error {
 		}
 	}
 	return nil
+}
+
+// CiliumServicePreFlightCheck checks that k8s service is plumbed correctly
+func (kub *Kubectl) CiliumServicePreFlightCheck() error {
+	svcRes := kub.GetFromAllNS("service")
+	err := svcRes.GetErr("Unable to get k8s services")
+	if err != nil {
+		return err
+	}
+	var k8sSvcs v1.ServiceList
+	err = svcRes.Unmarshal(&k8sSvcs)
+
+	if err != nil {
+		return fmt.Errorf("Unable to unmarshal K8s services: %s", err.Error())
+	}
+
+	epRes := kub.GetFromAllNS("endpoints")
+	err = epRes.GetErr("Unable to get k8s endpoints")
+	if err != nil {
+		return err
+	}
+	var k8sEps v1.EndpointsList
+	err = epRes.Unmarshal(&k8sEps)
+	if err != nil {
+		return fmt.Errorf("Unable to unmarshal K8s endpoints: %s", err.Error())
+	}
+
+	ciliumPods, err := kub.GetCiliumPods(KubeSystemNamespace)
+	if err != nil {
+		return err
+	}
+	ciliumSvcCmd := "cilium service list -o json"
+	for _, pod := range ciliumPods {
+		ciliumServicesRes := kub.CiliumExec(pod, ciliumSvcCmd)
+		err := ciliumServicesRes.GetErr(
+			fmt.Sprintf("Unable to retrieve Cilium services on %s", pod))
+		if err != nil {
+			return err
+		}
+
+		var ciliumSvcs []models.Service
+
+		err = ciliumServicesRes.Unmarshal(&ciliumSvcs)
+		if err != nil {
+			return fmt.Errorf("Unable to unmarshal Cilium services: %s", err.Error())
+		}
+
+		for _, cSvc := range ciliumSvcs {
+			err := validateCiliumSvc(cSvc, k8sSvcs.Items, k8sEps.Items, pod)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func validateCiliumSvc(cSvc models.Service, k8sSvcs []v1.Service, k8sEps []v1.Endpoints, pod string) error {
+	var k8sService *v1.Service
+	for _, k8sSvc := range k8sSvcs {
+		if k8sSvc.Spec.ClusterIP == cSvc.Status.Realized.FrontendAddress.IP {
+			k8sService = &k8sSvc
+			break
+		}
+	}
+	if k8sService == nil {
+		return fmt.Errorf("Could not find Cilium service with address %s:%d from pod %s in k8s", cSvc.Spec.FrontendAddress.IP, cSvc.Spec.FrontendAddress.Port, pod)
+	}
+
+	var k8sServicePort *v1.ServicePort
+	for _, k8sPort := range k8sService.Spec.Ports {
+		if k8sPort.Port == int32(cSvc.Status.Realized.FrontendAddress.Port) {
+			k8sServicePort = &k8sPort
+			break
+		}
+	}
+	if k8sServicePort == nil {
+		return fmt.Errorf("Could not find Cilium service with address %s:%d from pod %s in k8s", cSvc.Spec.FrontendAddress.IP, cSvc.Spec.FrontendAddress.Port, pod)
+	}
+
+	for _, backAddr := range cSvc.Status.Realized.BackendAddresses {
+		foundEp := false
+		for _, k8sEp := range k8sEps {
+			for _, epAddr := range getK8sEndpointAddresses(k8sEp) {
+				if addrsEqual(backAddr, epAddr) {
+					foundEp = true
+				}
+			}
+		}
+		if !foundEp {
+			return fmt.Errorf(
+				"Could not match cilium service backend address %s:%d with k8s endpoint",
+				*backAddr.IP, backAddr.Port)
+		}
+	}
+	return nil
+}
+
+func getK8sEndpointAddresses(ep v1.Endpoints) []*models.BackendAddress {
+	result := []*models.BackendAddress{}
+	for _, subset := range ep.Subsets {
+		for _, addr := range subset.Addresses {
+			ip := addr.IP
+			for _, port := range subset.Ports {
+				ba := &models.BackendAddress{
+					IP:   &ip,
+					Port: uint16(port.Port),
+				}
+				result = append(result, ba)
+			}
+		}
+	}
+	return result
+}
+
+func addrsEqual(addr1, addr2 *models.BackendAddress) bool {
+	return *addr1.IP == *addr2.IP && addr1.Port == addr2.Port
 }
