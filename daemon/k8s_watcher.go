@@ -1500,22 +1500,12 @@ func (d *Daemon) updatePodHostIP(pod *v1.Pod) (bool, error) {
 		return true, fmt.Errorf("no/invalid PodIP: %s", pod.Status.PodIP)
 	}
 
-	updated := ipcache.IPIdentityCache.Upsert(pod.Status.PodIP, ipcache.Identity{
+	updated := ipcache.IPIdentityCache.Upsert(pod.Status.PodIP, hostIP, ipcache.Identity{
 		ID:     identity.ReservedIdentityCluster,
 		Source: ipcache.FromKubernetes,
 	})
 	if !updated {
 		return true, fmt.Errorf("ipcache entry owned by kvstore or agent")
-	}
-
-	id := identity.IPIdentityPair{
-		IP:     podIP,
-		HostIP: hostIP,
-		ID:     identity.ReservedIdentityCluster,
-	}
-
-	for _, listener := range d.ipcacheListeners {
-		listener.OnIPIdentityCacheChange(ipcache.Upsert, nil, id)
 	}
 
 	return false, nil
@@ -1544,11 +1534,6 @@ func (d *Daemon) deletePodHostIP(pod *v1.Pod) (bool, error) {
 	}
 
 	ipcache.IPIdentityCache.Delete(pod.Status.PodIP)
-
-	idPair := identity.IPIdentityPair{IP: podIP}
-	for _, listener := range d.ipcacheListeners {
-		listener.OnIPIdentityCacheChange(ipcache.Delete, nil, idPair)
-	}
 
 	return false, nil
 }
