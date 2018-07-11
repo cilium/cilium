@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2016-2017 Authors of Cilium
+ *  Copyright (C) 2016-2018 Authors of Cilium
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -32,6 +32,7 @@
 #define CT_DEFAULT_LIFETIME_NONTCP	60	/* 60 seconds */
 #define CT_DEFAULT_SYN_TIMEOUT		60	/* 60 seconds */
 #define CT_DEFAULT_CLOSE_TIMEOUT	10	/* 10 seconds */
+#define CT_DEFAULT_REPORT_INTERVAL	5	/* 5 seconds */
 
 #ifndef CT_LIFETIME_TCP
 #define CT_LIFETIME_TCP CT_DEFAULT_LIFETIME_TCP
@@ -49,6 +50,14 @@
 #define CT_CLOSE_TIMEOUT CT_DEFAULT_CLOSE_TIMEOUT
 #endif
 
+/* CT_REPORT_INTERVAL, when MONITOR_AGGREGATION is >= TRACE_AGGREGATE_ACTIVE_CT
+ * determines how frequently monitor notifications should be sent for active
+ * connections. A notification is always triggered on a packet event.
+ */
+#ifndef CT_REPORT_INTERVAL
+#define CT_REPORT_INTERVAL CT_DEFAULT_REPORT_INTERVAL
+#endif
+
 #ifdef CONNTRACK
 
 #define TUPLE_F_OUT		0	/* Outgoing flow */
@@ -62,17 +71,61 @@ enum {
 	ACTION_CLOSE,
 };
 
-static inline void __inline__ __ct_update_timeout(struct ct_entry *entry,
-						  __u32 lifetime)
-{
-#ifdef NEEDS_TIMEOUT
-	entry->lifetime = bpf_ktime_get_sec() + lifetime;
+union tcp_flags {
+#if defined(__LITTLE_ENDIAN_BITFIELD)
+	__u16	res1:4, doff:4, fin:1, syn:1, rst:1, psh:1, ack:1, urg:1, ece:1, cwr:1;
+#elif defined(__BIG_ENDIAN_BITFIELD)
+	__u16	doff:4, res1:4, cwr:1, ece:1, urg:1, ack:1, psh:1, rst:1, syn:1, fin:1;
+#else
+#error	"Adjust your <asm/byteorder.h> defines"
 #endif
+	struct {
+		__u8 upper_bits;
+		__u8 lower_bits;
+	};
+};
+
+static inline bool __inline__ __ct_update_timeout(struct ct_entry *entry,
+						  __u32 lifetime, int dir,
+						  union tcp_flags flags)
+{
+	__u32 now = bpf_ktime_get_sec();
+	__u32 *last_report;
+	__u8 *accumulated_flags;
+	__u8 seen_flags = flags.lower_bits;
+
+#ifdef NEEDS_TIMEOUT
+	entry->lifetime = now + lifetime;
+#endif
+	if (dir == CT_INGRESS) {
+		last_report = &entry->last_rx_report;
+		accumulated_flags = &entry->rx_flags_seen;
+	} else {
+		last_report = &entry->last_tx_report;
+		accumulated_flags = &entry->tx_flags_seen;
+	}
+	seen_flags |= *accumulated_flags;
+	if (*last_report + CT_REPORT_INTERVAL < now ||
+	    *accumulated_flags != seen_flags) {
+		*last_report = now;
+		*accumulated_flags = seen_flags;
+		return true;
+	}
+	return false;
 }
 
-static inline void __inline__ ct_update_timeout(struct ct_entry *entry, bool syn, bool tcp)
+/**
+ * Update the CT timeouts for the specified entry.
+ *
+ * If CT_REPORT_INTERVAL has elapsed since the last update, updates the
+ * last_updated timestamp and returns true. Otherwise returns false.
+ */
+static inline bool __inline__ ct_update_timeout(struct ct_entry *entry,
+						bool tcp, int dir,
+						union tcp_flags seen_flags)
 {
 	__u32 lifetime = CT_LIFETIME_NONTCP;
+	bool syn = seen_flags.syn;
 
 	if (tcp) {
 		entry->seen_non_syn |= !syn;
@@ -83,7 +136,7 @@ static inline void __inline__ ct_update_timeout(struct ct_entry *entry, bool syn
 			lifetime = CT_SYN_TIMEOUT;
 	}
 
-	__ct_update_timeout(entry, lifetime);
+	return __ct_update_timeout(entry, lifetime, dir, seen_flags);
 }
 
 static inline void __inline__ ct_reset_closing(struct ct_entry *entry)
@@ -100,15 +153,16 @@ static inline bool __inline__ ct_entry_alive(const struct ct_entry *entry)
 static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 					 void *tuple, int action, int dir,
 					 struct ct_state *ct_state,
-					 bool pkt_is_syn, bool is_tcp)
+					 bool is_tcp, union tcp_flags seen_flags)
 {
 	struct ct_entry *entry;
+	bool monitor;
 	int ret;
 
 	if ((entry = map_lookup_elem(map, tuple))) {
 		cilium_dbg(skb, DBG_CT_MATCH, entry->lifetime, entry->rev_nat_index);
 		if (ct_entry_alive(entry)) {
-			ct_update_timeout(entry, pkt_is_syn, is_tcp);
+			monitor = ct_update_timeout(entry, is_tcp, dir, seen_flags);
 		}
 		if (ct_state) {
 			ct_state->rev_nat_index = entry->rev_nat_index;
@@ -136,9 +190,10 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 		switch (action) {
 		case ACTION_CREATE:
 			ret = entry->rx_closing + entry->tx_closing;
+			monitor = true;
 			if (unlikely(ret >= 1)) {
 				ct_reset_closing(entry);
-				ct_update_timeout(entry, pkt_is_syn, is_tcp);
+				ct_update_timeout(entry, is_tcp, dir, seen_flags);
 			}
 			break;
 		case ACTION_CLOSE:
@@ -148,27 +203,20 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 			else
 				entry->tx_closing = 1;
 
+			monitor = true;
 			if (ct_entry_alive(entry))
 				break;
-			__ct_update_timeout(entry, CT_CLOSE_TIMEOUT);
+			__ct_update_timeout(entry, CT_CLOSE_TIMEOUT, dir, seen_flags);
 			break;
 		}
 
+		/* XXX: handle monitor */
 		return CT_ESTABLISHED;
 	}
 
+	/* XXX: handle monitor */
 	return CT_NEW;
 }
-
-struct tcp_flags {
-#if defined(__LITTLE_ENDIAN_BITFIELD)
-	__u16	res1:4, doff:4, fin:1, syn:1, rst:1, psh:1, ack:1, urg:1, ece:1, cwr:1;
-#elif defined(__BIG_ENDIAN_BITFIELD)
-	__u16	doff:4, res1:4, cwr:1, ece:1, urg:1, ack:1, psh:1, rst:1, syn:1, fin:1;
-#else
-#error	"Adjust your <asm/byteorder.h> defines"
-#endif
-};
 
 static inline void __inline__ ipv6_ct_tuple_reverse(struct ipv6_ct_tuple *tuple)
 {
@@ -198,8 +246,8 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 					struct ct_state *ct_state)
 {
 	int ret = CT_NEW, action = ACTION_UNSPEC;
-	bool syn = false;
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
+	union tcp_flags tcp_flags = { 0 };
 
 	/* The tuple is created in reverse order initially to find a
 	 * potential reverse flow. This is required because the RELATED
@@ -257,17 +305,13 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 
 	case IPPROTO_TCP:
 		if (1) {
-			struct tcp_flags flags;
-
-			if (skb_load_bytes(skb, l4_off + 12, &flags, 2) < 0)
+			if (skb_load_bytes(skb, l4_off + 12, &tcp_flags, 2) < 0)
 				return DROP_CT_INVALID_HDR;
 
-			if (unlikely(flags.rst || flags.fin))
+			if (unlikely(tcp_flags.rst || tcp_flags.fin))
 				action = ACTION_CLOSE;
 			else
 				action = ACTION_CREATE;
-
-			syn = flags.syn;
 		}
 
 		/* load sport + dport into tuple */
@@ -296,7 +340,7 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 	cilium_dbg3(skb, DBG_CT_LOOKUP6_1, (__u32) tuple->saddr.p4, (__u32) tuple->daddr.p4,
 		      (bpf_ntohs(tuple->sport) << 16) | bpf_ntohs(tuple->dport));
 	cilium_dbg3(skb, DBG_CT_LOOKUP6_2, (tuple->nexthdr << 8) | tuple->flags, 0, 0);
-	ret = __ct_lookup(map, skb, tuple, action, dir, ct_state, syn, is_tcp);
+	ret = __ct_lookup(map, skb, tuple, action, dir, ct_state, is_tcp, tcp_flags);
 	if (ret != CT_NEW) {
 		if (likely(ret == CT_ESTABLISHED)) {
 			if (unlikely(tuple->flags & TUPLE_F_RELATED))
@@ -310,7 +354,7 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 	/* Lookup entry in forward direction */
 	if (dir != CT_SERVICE) {
 		ipv6_ct_tuple_reverse(tuple);
-		ret = __ct_lookup(map, skb, tuple, action, dir, ct_state, syn, is_tcp);
+		ret = __ct_lookup(map, skb, tuple, action, dir, ct_state, is_tcp, tcp_flags);
 	}
 
 #ifdef LXC_NAT46
@@ -354,8 +398,8 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 					struct ct_state *ct_state)
 {
 	int ret = CT_NEW, action = ACTION_UNSPEC;
-	bool syn = false;
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
+	union tcp_flags tcp_flags = { 0 };
 
 	/* The tuple is created in reverse order initially to find a
 	 * potential reverse flow. This is required because the RELATED
@@ -412,17 +456,13 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 
 	case IPPROTO_TCP:
 		if (1) {
-			struct tcp_flags flags;
-
-			if (skb_load_bytes(skb, off + 12, &flags, 2) < 0)
+			if (skb_load_bytes(skb, off + 12, &tcp_flags, 2) < 0)
 				return DROP_CT_INVALID_HDR;
 
-			if (unlikely(flags.rst || flags.fin))
+			if (unlikely(tcp_flags.rst || tcp_flags.fin))
 				action = ACTION_CLOSE;
 			else
 				action = ACTION_CREATE;
-
-			syn = flags.syn;
 		}
 
 		/* load sport + dport into tuple */
@@ -452,7 +492,7 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 		      (bpf_ntohs(tuple->sport) << 16) | bpf_ntohs(tuple->dport));
 	cilium_dbg3(skb, DBG_CT_LOOKUP4_2, (tuple->nexthdr << 8) | tuple->flags, 0, 0);
 #endif
-	ret = __ct_lookup(map, skb, tuple, action, dir, ct_state, syn, is_tcp);
+	ret = __ct_lookup(map, skb, tuple, action, dir, ct_state, is_tcp, tcp_flags);
 	if (ret != CT_NEW) {
 		if (likely(ret == CT_ESTABLISHED)) {
 			if (unlikely(tuple->flags & TUPLE_F_RELATED))
@@ -466,7 +506,7 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 	/* Lookup entry in forward direction */
 	if (dir != CT_SERVICE) {
 		ipv4_ct_tuple_reverse(tuple);
-		ret = __ct_lookup(map, skb, tuple, action, dir, ct_state, syn, is_tcp);
+		ret = __ct_lookup(map, skb, tuple, action, dir, ct_state, is_tcp, tcp_flags);
 	}
 out:
 	cilium_dbg(skb, DBG_CT_VERDICT, ret < 0 ? -ret : ret, ct_state->rev_nat_index);
@@ -504,11 +544,14 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 	/* Create entry in original direction */
 	struct ct_entry entry = { };
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
+	union tcp_flags seen_flags = { 0 };
 
 	entry.rev_nat_index = ct_state->rev_nat_index;
 	entry.lb_loopback = ct_state->loopback;
 	entry.slave = ct_state->slave;
-	ct_update_timeout(&entry, is_tcp, is_tcp);
+	if (is_tcp)
+		seen_flags.syn = 1;
+	ct_update_timeout(&entry, is_tcp, dir, seen_flags);
 
 	if (dir == CT_INGRESS) {
 		entry.rx_packets = 1;
@@ -577,11 +620,14 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 	/* Create entry in original direction */
 	struct ct_entry entry = { };
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
+	union tcp_flags seen_flags = { 0 };
 
 	entry.rev_nat_index = ct_state->rev_nat_index;
 	entry.lb_loopback = ct_state->loopback;
 	entry.slave = ct_state->slave;
-	ct_update_timeout(&entry, is_tcp, is_tcp);
+	if (is_tcp)
+		seen_flags.syn = 1;
+	ct_update_timeout(&entry, is_tcp, dir, seen_flags);
 
 	if (dir == CT_INGRESS) {
 		entry.rx_packets = 1;
