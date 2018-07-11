@@ -29,6 +29,11 @@ data:
   clean-cilium-state: "false"
   legacy-host-allows-world: "false"
 
+  # If you want cilium monitor to aggregate tracing for packets, set this level
+  # to "low", "medium", or "maximum". The higher the level, the less packets
+  # that will be seen in monitor output.
+  monitor-aggregation-level: "none"
+
   # Regular expression matching compatible Istio sidecar istio-proxy
   # container image names
   sidecar-istio-proxy-image: "cilium/istio_proxy"
