@@ -114,7 +114,11 @@
             {% endif %}
             {% if nav_version %}
               <div class="version">
+                {% if nav_version == 'stable' %}
+                {{ nav_version }} ({{ release }})
+                {% else %}
                 {{ nav_version }}
+                {% endif %}
               </div>
             {% endif %}
           {% endif %}
