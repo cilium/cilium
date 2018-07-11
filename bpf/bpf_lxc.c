@@ -96,6 +96,7 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	union v6addr *daddr, orig_dip;
 	uint32_t dstID = WORLD_ID;
 	__u32 tunnel_endpoint = 0;
+	bool monitor = false;
 
 	if (unlikely(!is_valid_lxc_src_mac(eth)))
 		return DROP_INVALID_SMAC;
@@ -155,7 +156,7 @@ skip_service_lookup:
 	 * POLICY_SKIP if the packet is a reply packet to an existing
 	 * incoming connection. */
 	ret = ct_lookup6(&CT_MAP6, tuple, skb, l4_off, CT_EGRESS,
-			 &ct_state);
+			 &ct_state, &monitor);
 	if (ret < 0)
 		return ret;
 
@@ -207,6 +208,7 @@ skip_service_lookup:
 		ret = ct_create6(&CT_MAP6, tuple, skb, CT_EGRESS, &ct_state_new);
 		if (IS_ERR(ret))
 			return ret;
+		monitor = true;
 		break;
 
 	case CT_ESTABLISHED:
@@ -240,8 +242,9 @@ skip_service_lookup:
 
 		ret = ipv6_redirect_to_host_port(skb, &csum_off, l4_off,
 						 verdict, tuple->dport,
-						 orig_dip, tuple, &host_ip, SECLABEL,
-						 forwarding_reason);
+						 orig_dip, tuple, &host_ip,
+						 SECLABEL, forwarding_reason,
+						 monitor);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -282,7 +285,8 @@ skip_service_lookup:
 	/* The packet goes to a peer not managed by this agent instance */
 #ifdef ENCAP_IFINDEX
 	if (tunnel_endpoint) {
-		return encap_and_redirect_with_nodeid(skb, tunnel_endpoint, SECLABEL);
+		return encap_and_redirect_with_nodeid(skb, tunnel_endpoint,
+						      SECLABEL, monitor);
 	} else {
 		/* FIXME GH-1391: Get rid of the initializer */
 		struct endpoint_key key = {};
@@ -300,7 +304,7 @@ skip_service_lookup:
 		key.ip6.p4 = 0;
 		key.family = ENDPOINT_KEY_IPV6;
 
-		ret = encap_and_redirect(skb, &key, SECLABEL);
+		ret = encap_and_redirect(skb, &key, SECLABEL, monitor);
 
 		/* Fall through if remote prefix was not found
 		 * (DROP_NO_TUNNEL_ENDPOINT) */
@@ -329,8 +333,8 @@ to_host:
 		if (ret != TC_ACT_OK)
 			return ret;
 
-		send_trace_notify(skb, TRACE_TO_HOST, SECLABEL, HOST_ID, 0, HOST_IFINDEX,
-				  forwarding_reason);
+		send_trace_notify(skb, TRACE_TO_HOST, SECLABEL, HOST_ID, 0,
+				  HOST_IFINDEX, forwarding_reason, monitor);
 
 		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
 		return redirect(HOST_IFINDEX, 0);
@@ -347,7 +351,7 @@ pass_to_stack:
 		return DROP_WRITE_ERROR;
 
 	send_trace_notify(skb, TRACE_TO_STACK, SECLABEL, dstID, 0, 0,
-			  forwarding_reason);
+			  forwarding_reason, monitor);
 
 	cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, 0);
 	return TC_ACT_OK;
@@ -412,6 +416,7 @@ static inline int handle_ipv4_from_lxc(struct __sk_buff *skb)
 	__be32 orig_dip;
 	uint32_t dstID = WORLD_ID;
 	__u32 tunnel_endpoint = 0;
+	bool monitor = false;
 
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -465,7 +470,7 @@ skip_service_lookup:
 	 * POLICY_SKIP if the packet is a reply packet to an existing
 	 * incoming connection. */
 	ret = ct_lookup4(&CT_MAP4, &tuple, skb, l4_off, CT_EGRESS,
-			 &ct_state);
+			 &ct_state, &monitor);
 	if (ret < 0)
 		return ret;
 
@@ -536,7 +541,8 @@ skip_service_lookup:
 
 		ret = ipv4_redirect_to_host_port(skb, &csum_off, l4_off,
 						 verdict, tuple.dport,
-						 orig_dip, &tuple, SECLABEL, forwarding_reason);
+						 orig_dip, &tuple, SECLABEL,
+						 forwarding_reason, monitor);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -580,7 +586,8 @@ skip_service_lookup:
 
 #ifdef ENCAP_IFINDEX
 	if (tunnel_endpoint) {
-		return encap_and_redirect_with_nodeid(skb, tunnel_endpoint, SECLABEL);
+		return encap_and_redirect_with_nodeid(skb, tunnel_endpoint,
+						      SECLABEL, monitor);
 	} else {
 		/* FIXME GH-1391: Get rid of the initializer */
 		struct endpoint_key key = {};
@@ -595,7 +602,7 @@ skip_service_lookup:
 		key.ip4 = orig_dip & IPV4_MASK;
 		key.family = ENDPOINT_KEY_IPV4;
 
-		ret = encap_and_redirect(skb, &key, SECLABEL);
+		ret = encap_and_redirect(skb, &key, SECLABEL, monitor);
 
 		/* Fall through if remote prefix was not found
 		 * (DROP_NO_TUNNEL_ENDPOINT) */
@@ -616,7 +623,7 @@ to_host:
 			return ret;
 
 		send_trace_notify(skb, TRACE_TO_HOST, SECLABEL, HOST_ID, 0, HOST_IFINDEX,
-				  forwarding_reason);
+				  forwarding_reason, monitor);
 
 		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
 		return redirect(HOST_IFINDEX, 0);
@@ -635,7 +642,7 @@ pass_to_stack:
 	 */
 
 	send_trace_notify(skb, TRACE_TO_STACK, SECLABEL, dstID, 0, 0,
-			  forwarding_reason);
+			  forwarding_reason, monitor);
 
 	cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, 0);
 	return TC_ACT_OK;
@@ -671,7 +678,7 @@ int handle_ingress(struct __sk_buff *skb)
 
 	bpf_clear_cb(skb);
 
-	send_trace_notify(skb, TRACE_FROM_LXC, SECLABEL, 0, 0, 0, 0);
+	send_trace_notify(skb, TRACE_FROM_LXC, SECLABEL, 0, 0, 0, 0, true);
 
 #ifdef DROP_ALL
 	if (skb->protocol == bpf_htons(ETH_P_ARP)) {
@@ -711,8 +718,8 @@ int handle_ingress(struct __sk_buff *skb)
 	return ret;
 }
 
-static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label,
-					 int *forwarding_reason)
+static inline int __inline__
+ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding_reason)
 {
 	struct ipv6_ct_tuple tuple = {};
 	void *data, *data_end;
@@ -721,7 +728,7 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	int ret, l4_off, verdict, hdrlen;
 	struct ct_state ct_state = {};
 	struct ct_state ct_state_new = {};
-	bool skip_proxy;
+	bool skip_proxy, monitor = false;
 	union v6addr orig_dip = {};
 
 	if (!revalidate_data(skb, &data, &data_end, &ip6))
@@ -765,7 +772,7 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	}
 
 	ret = ct_lookup6(&CT_MAP6, &tuple, skb, l4_off, CT_INGRESS,
-			 &ct_state);
+			 &ct_state, &monitor);
 	if (ret < 0)
 		return ret;
 
@@ -818,7 +825,7 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 		ret = ipv6_redirect_to_host_port(skb, &csum_off, l4_off,
 						 verdict, tuple.dport,
 						 orig_dip, &tuple, &host_ip, src_label,
-						 *forwarding_reason);
+						 *forwarding_reason, monitor);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -831,7 +838,7 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 		skb->cb[CB_IFINDEX] = HOST_IFINDEX;
 	} else { // Not redirected to host / proxy.
 		send_trace_notify(skb, TRACE_TO_LXC, src_label, SECLABEL,
-				  LXC_ID, ifindex, *forwarding_reason);
+				  LXC_ID, ifindex, *forwarding_reason, monitor);
 	}
 
 	ifindex = skb->cb[CB_IFINDEX];
@@ -855,8 +862,8 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_TO_LXC) int tail_ipv6_policy(s
 }
 
 #ifdef LXC_IPV4
-static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label,
-					 int *forwarding_reason)
+static inline int __inline__
+ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding_reason)
 {
 	struct ipv4_ct_tuple tuple = {};
 	void *data, *data_end;
@@ -865,7 +872,7 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	int ret, verdict, l4_off;
 	struct ct_state ct_state = {};
 	struct ct_state ct_state_new = {};
-	bool skip_proxy;
+	bool skip_proxy, monitor = false;
 	__be32 orig_dip, orig_sip;
 
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
@@ -886,7 +893,8 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
-	ret = ct_lookup4(&CT_MAP4, &tuple, skb, l4_off, CT_INGRESS, &ct_state);
+	ret = ct_lookup4(&CT_MAP4, &tuple, skb, l4_off, CT_INGRESS, &ct_state,
+			 &monitor);
 	if (ret < 0)
 		return ret;
 
@@ -944,7 +952,8 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 
 		ret = ipv4_redirect_to_host_port(skb, &csum_off, l4_off,
 						 verdict, tuple.dport,
-						 orig_dip, &tuple, src_label, *forwarding_reason);
+						 orig_dip, &tuple, src_label,
+						 *forwarding_reason, monitor);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -959,7 +968,7 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 		skb->cb[CB_IFINDEX] = HOST_IFINDEX;
 	} else { // Not redirected to host / proxy.
 		send_trace_notify(skb, TRACE_TO_LXC, src_label, SECLABEL,
-				  LXC_ID, ifindex, *forwarding_reason);
+				  LXC_ID, ifindex, *forwarding_reason, monitor);
 	}
 
 	ifindex = skb->cb[CB_IFINDEX];

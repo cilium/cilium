@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2016-2017 Authors of Cilium
+ *  Copyright (C) 2016-2018 Authors of Cilium
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -22,7 +22,9 @@
 #include "dbg.h"
 
 #ifdef ENCAP_IFINDEX
-static inline int __inline__ encap_and_redirect_with_nodeid(struct __sk_buff *skb, __u32 tunnel_endpoint, __u32 seclabel)
+static inline int __inline__
+encap_and_redirect_with_nodeid(struct __sk_buff *skb, __u32 tunnel_endpoint,
+			       __u32 seclabel, bool monitor)
 {
 	struct bpf_tunnel_key key = {};
 	__u32 node_id;
@@ -38,13 +40,15 @@ static inline int __inline__ encap_and_redirect_with_nodeid(struct __sk_buff *sk
 	if (unlikely(ret < 0))
 		return DROP_WRITE_ERROR;
 
-	send_trace_notify(skb, TRACE_TO_OVERLAY, seclabel, 0, 0, ENCAP_IFINDEX, 0);
+	send_trace_notify(skb, TRACE_TO_OVERLAY, seclabel, 0, 0, ENCAP_IFINDEX,
+			  0, monitor);
 
 	return redirect(ENCAP_IFINDEX, 0);
 }
 
-static inline int __inline__ encap_and_redirect(struct __sk_buff *skb, struct endpoint_key *k,
-						__u32 seclabel)
+static inline int __inline__
+encap_and_redirect(struct __sk_buff *skb, struct endpoint_key *k,
+		   __u32 seclabel, bool monitor)
 {
 	struct endpoint_key *tunnel;
 
@@ -52,7 +56,7 @@ static inline int __inline__ encap_and_redirect(struct __sk_buff *skb, struct en
 		return DROP_NO_TUNNEL_ENDPOINT;
 	}
 
-	return encap_and_redirect_with_nodeid(skb, tunnel->ip4, seclabel);
+	return encap_and_redirect_with_nodeid(skb, tunnel->ip4, seclabel, monitor);
 }
 #endif /* ENCAP_IFINDEX */
 #endif /* __LIB_ENCAP_H_ */

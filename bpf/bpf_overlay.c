@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2016-2017 Authors of Cilium
+ *  Copyright (C) 2016-2018 Authors of Cilium
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -155,7 +155,8 @@ int from_overlay(struct __sk_buff *skb)
 
 	bpf_clear_cb(skb);
 
-	send_trace_notify(skb, TRACE_FROM_OVERLAY, 0, 0, 0, skb->ingress_ifindex, 0);
+	send_trace_notify(skb, TRACE_FROM_OVERLAY, 0, 0, 0,
+			  skb->ingress_ifindex, 0, true);
 
 	switch (skb->protocol) {
 	case bpf_htons(ETH_P_IPV6):
