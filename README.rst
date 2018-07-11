@@ -144,7 +144,7 @@ Integrations
 .. _NetworkPolicy: https://kubernetes.io/docs/concepts/services-networking/network-policies/
 .. _Labels: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
 .. _fluentd: http://www.fluentd.org/
-.. _`Layer 7 Policy`: http://docs.cilium.io/en/latest/policy/#layer-7
+.. _`Layer 7 Policy`: http://docs.cilium.io/en/stable/policy/#layer-7
 
 .. end-functionality-overview
 
@@ -264,14 +264,14 @@ The cilium user space components are licensed under the
 `Apache License, Version 2.0 <LICENSE>`_. The BPF code templates are licensed
 under the `General Public License, Version 2.0 <bpf/COPYING>`_.
 
-.. _`Why Cilium?`: http://docs.cilium.io/en/latest/intro/#why-cilium
-.. _`Getting Started`: http://docs.cilium.io/en/latest/gettingstarted/
-.. _`Architecture and Concepts`: http://docs.cilium.io/en/latest/concepts/
-.. _`Installing Cilium`: http://docs.cilium.io/en/latest/install/guides/
+.. _`Why Cilium?`: http://docs.cilium.io/en/stable/intro/#why-cilium
+.. _`Getting Started`: http://docs.cilium.io/en/stable/gettingstarted/
+.. _`Architecture and Concepts`: http://docs.cilium.io/en/stable/concepts/
+.. _`Installing Cilium`: http://docs.cilium.io/en/stable/install/guides/
 .. _`Frequently Asked Questions`: https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=is%3Aissue+label%3Akind%2Fquestion+
-.. _Contributing: http://docs.cilium.io/en/latest/contributing
+.. _Contributing: http://docs.cilium.io/en/stable/contributing
 .. _Prerequisites: http://docs.cilium.io/en/doc-1.0/install/system_requirements
-.. _`BPF and XDP Reference Guide`: http://docs.cilium.io/en/latest/bpf/
+.. _`BPF and XDP Reference Guide`: http://docs.cilium.io/en/stable/bpf/
 
 .. |logo| image:: https://cdn.rawgit.com/cilium/cilium/master/Documentation/images/logo.svg
     :alt: Cilium Logo
