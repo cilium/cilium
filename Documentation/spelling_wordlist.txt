@@ -363,6 +363,8 @@ queueing
 rebase
 rebased
 recompiles
+refactor
+refactoring
 regenerations
 regex
 remediate
