@@ -292,7 +292,7 @@ under the `General Public License, Version 2.0 <bpf/COPYING>`_.
 
 .. |rtd| image:: https://readthedocs.org/projects/docs/badge/?version=latest
     :alt: Read the Docs
-    :target: http://cilium.readthedocs.io/en/latest/
+    :target: http://docs.cilium.io/
 
 .. |apache| image:: https://img.shields.io/badge/license-Apache-blue.svg
     :alt: Apache licensed
