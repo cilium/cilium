@@ -289,6 +289,14 @@ func (res *CmdRes) WaitUntilMatchRegexp(expr string) error {
 		&TimeoutConfig{Timeout: HelperTimeout})
 }
 
+// GetErr returns error created from program output if command is not successful
+func (res *CmdRes) GetErr(context string) error {
+	if res.WasSuccessful() {
+		return nil
+	}
+	return fmt.Errorf("command context:%s, output: %s", context, res.GetDebugMessage())
+}
+
 // BeSuccesfulMatcher a new Ginkgo matcher for CmdRes struct
 type BeSuccesfulMatcher struct{}
 
