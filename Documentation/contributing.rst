@@ -2,7 +2,7 @@
 
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
-      http://docs.cilium.io
+    http://docs.cilium.io
 
 .. _dev_guide:
 
@@ -31,7 +31,7 @@ contribute to Cilium:
 +==================================================================================+==========================+===============================================================================+
 | git                                                                              | latest                   | N/A (OS-specific)                                                             |
 +----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
-| `go <https://golang.org/dl/>`_                                                   | 1.10                      | N/A (OS-specific)                                                             |
+| `go <https://golang.org/dl/>`_                                                   | 1.10                      | N/A (OS-specific)                                                            |
 +----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
 | `dep <https://github.com/golang/dep/>`_                                          | >= v0.4.1                | ``curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh``  |
 +----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
@@ -1125,7 +1125,7 @@ Getting a pull request merged
 
 #. As you submit the pull request as described in the section :ref:`submit_pr`.
    One of the reviewers will start a CI run by replying with a comment
-   ``test-me-please`` as described in :ref:`trigger_phrases``. If you are a
+   ``test-me-please`` as described in :ref:`trigger_phrases`. If you are a
    core team member, you may trigger the CI run yourself.
 
    #. Hound: basic ``golang/lint`` static code analyzer. You need to make the
