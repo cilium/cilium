@@ -47,6 +47,17 @@ for more information.
     - --advertise-external-ip=true
     - --advertise-loadbalancer-ip=true
 
+The following arguments are **optional** and should be set if you want BGP peering
+with an external router. This is useful if you want externally routable Kubernetes
+Pod and Service IPs. Note the values used here should be changed to
+whatever IPs and ASNs are configured on your external router.
+
+.. code:: bash
+
+    - --cluster-asn=65001
+    - --peer-router-ips=10.0.0.1,10.0.2
+    - --peer-router-asns=65000,65000
+
 Apply the DaemonSet file to deploy kube-router and verify it has come up
 correctly:
 
