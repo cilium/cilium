@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"sync"
 	"time"
@@ -849,47 +850,49 @@ func (h *putEndpointIDLabels) Handle(params PatchEndpointIDLabelsParams) middlew
 // 'oldIPIDPair' is ignored here, because in the BPF maps an update for the
 // IP->ID mapping will replace any existing contents; knowledge of the old pair
 // is not required to upsert the new pair.
-func (d *Daemon) OnIPIdentityCacheChange(modType ipcache.CacheModification, oldIPIDPair *identity.IPIdentityPair, newIPIDPair identity.IPIdentityPair) {
+func (d *Daemon) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidr net.IPNet, hostIP net.IP,
+	oldID *identity.NumericIdentity, newID identity.NumericIdentity) {
+	scopedLog := log.WithFields(logrus.Fields{
+		logfields.IPAddr:       cidr,
+		logfields.Identity:     newID,
+		logfields.Modification: modType,
+	})
 
-	log.WithFields(logrus.Fields{logfields.Modification: modType,
-		logfields.IPAddr:   newIPIDPair.IP,
-		logfields.IPMask:   newIPIDPair.Mask,
-		"hostIP":           newIPIDPair.HostIP,
-		logfields.Identity: newIPIDPair.ID}).
-		Debug("daemon notified of IP-Identity cache state change")
+	scopedLog.Debug("Daemon notified of IP-Identity cache state change")
 
 	// TODO - see if we can factor this into an interface under something like
 	// pkg/datapath instead of in the daemon directly so that the code is more
 	// logically located.
 
 	// Update BPF Maps.
-	key := ipCacheBPF.NewKey(newIPIDPair.IP, newIPIDPair.Mask)
+
+	key := ipCacheBPF.NewKey(cidr.IP, cidr.Mask)
 
 	switch modType {
 	case ipcache.Upsert:
 		value := ipCacheBPF.RemoteEndpointInfo{
-			SecurityIdentity: uint32(newIPIDPair.ID),
+			SecurityIdentity: uint32(newID),
 		}
 
-		if newIPIDPair.HostIP != nil {
-			if ip4 := newIPIDPair.HostIP.To4(); ip4 != nil {
+		if hostIP != nil {
+			if ip4 := hostIP.To4(); ip4 != nil {
 				copy(value.TunnelEndpoint[:], ip4)
 			}
 		}
 		err := ipCacheBPF.IPCache.Update(&key, &value)
 		if err != nil {
-			log.WithError(err).WithFields(logrus.Fields{"key": key.String(),
+			scopedLog.WithError(err).WithFields(logrus.Fields{"key": key.String(),
 				"value": value.String()}).
 				Warning("unable to update bpf map")
 		}
 	case ipcache.Delete:
 		err := ipCacheBPF.Delete(&key)
 		if err != nil {
-			log.WithError(err).WithFields(logrus.Fields{"key": key.String()}).
+			scopedLog.WithError(err).WithFields(logrus.Fields{"key": key.String()}).
 				Warning("unable to delete from bpf map")
 		}
 	default:
-		log.WithField("modificationType", modType).Warning("cache modification type not supported")
+		scopedLog.Warning("cache modification type not supported")
 	}
 }
 

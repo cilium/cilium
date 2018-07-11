@@ -45,7 +45,7 @@ const (
 	FromKVStore Source = "kvstore"
 
 	// FromAgentLocal is the source used for identities derived during the
-	// agent bootup process. This includes identities for host IPs.
+	// agent bootup process. This includes identities for endpoint IPs.
 	FromAgentLocal Source = "agent-local"
 )
 
@@ -69,6 +69,8 @@ type IPCache struct {
 	// particular prefix lengths for the mask.
 	v4PrefixLengths map[int]int
 	v6PrefixLengths map[int]int
+
+	listeners []IPIdentityMappingListener
 }
 
 // Implementation represents a concrete datapath implementation of the IPCache
@@ -107,6 +109,13 @@ func (ipc *IPCache) RLock() {
 // RUnlock RUnlocks the IPCache's mutex.
 func (ipc *IPCache) RUnlock() {
 	ipc.mutex.RUnlock()
+}
+
+// SetListeners sets the listeners for this IPCache.
+func (ipc *IPCache) SetListeners(listeners []IPIdentityMappingListener) {
+	ipc.mutex.Lock()
+	ipc.listeners = listeners
+	ipc.mutex.Unlock()
 }
 
 func checkPrefixLengthsAgainstMap(impl Implementation, prefixes []*net.IPNet, existingPrefixes map[int]int) error {
@@ -184,46 +193,107 @@ func allowOverwrite(existing, new Source) bool {
 // Returns false if the entry is not owned by the self declared source, i.e.
 // returns false if the kubernetes layer is trying to upsert an entry now
 // managed by the kvstore layer. See allowOverwrite() for rules on ownership.
-func (ipc *IPCache) Upsert(IP string, identity Identity) bool {
+// hostIP is the location of the given IP. It is optional (may be nil) and is
+// propagated to the listeners.
+func (ipc *IPCache) Upsert(ip string, hostIP net.IP, newIdentity Identity) bool {
+	scopedLog := log.WithFields(logrus.Fields{
+		logfields.IPAddr:   ip,
+		logfields.Identity: newIdentity,
+	})
+
 	ipc.mutex.Lock()
 	defer ipc.mutex.Unlock()
 
-	if existingIdentity, found := ipc.ipToIdentityCache[IP]; found {
-		if !allowOverwrite(existingIdentity.Source, identity.Source) {
+	var cidr *net.IPNet
+	var oldIdentity *identity.NumericIdentity
+	callbackListeners := true
+
+	cachedIdentity, found := ipc.ipToIdentityCache[ip]
+	if found {
+		if !allowOverwrite(cachedIdentity.Source, newIdentity.Source) {
 			return false
 		}
 
 		// Skip update if IP is already mapped to the given identity
-		if existingIdentity == identity {
+		if cachedIdentity == newIdentity {
 			return true
 		}
+
+		oldIdentity = &cachedIdentity.ID
 	}
 
-	// An update is treated as a deletion and then an insert.
-	ipc.deleteLocked(IP)
-
-	log.WithFields(logrus.Fields{
-		logfields.IPAddr:   IP,
-		logfields.Identity: identity,
-	}).Debug("Upserting into ipcache layer")
-
-	// Update both maps.
-	ipc.ipToIdentityCache[IP] = identity
-
-	_, found := ipc.identityToIPCache[identity.ID]
-	if !found {
-		ipc.identityToIPCache[identity.ID] = map[string]struct{}{}
-	}
-	ipc.identityToIPCache[identity.ID][IP] = struct{}{}
-
-	// Add a reference for the prefix length if this is a CIDR.
-	if _, cidr, err := net.ParseCIDR(IP); err == nil {
+	// Endpoint IP identities take precedence over CIDR identities, so if the
+	// IP is a full CIDR prefix and there's an existing equivalent endpoint IP,
+	// don't notify the listeners.
+	var err error
+	if _, cidr, err = net.ParseCIDR(ip); err == nil {
+		// Add a reference for the prefix length if this is a CIDR.
 		pl, bits := cidr.Mask.Size()
 		switch bits {
 		case net.IPv6len * 8:
 			refPrefixLength(ipc.v6PrefixLengths, pl)
 		case net.IPv4len * 8:
 			refPrefixLength(ipc.v4PrefixLengths, pl)
+		}
+
+		ones, bits := cidr.Mask.Size()
+		if ones == bits {
+			if _, endpointIPFound := ipc.ipToIdentityCache[cidr.IP.String()]; endpointIPFound {
+				scopedLog.Debug("Ignoring CIDR to identity mapping as it would shadow an endpoint IP")
+				// Skip calling back the listeners, since the endpoint IP has
+				// precedence over the new CIDR.
+				callbackListeners = false
+			}
+		}
+	} else if endpointIP := net.ParseIP(ip); endpointIP != nil { // Endpoint IP.
+		// Convert the endpoint IP into an equivalent full CIDR.
+		bits := net.IPv6len * 8
+		if endpointIP.To4() != nil {
+			bits = net.IPv4len * 8
+		}
+		cidr = &net.IPNet{
+			IP:   endpointIP,
+			Mask: net.CIDRMask(bits, bits),
+		}
+
+		// Check whether the upserted endpoint IP will shadow that CIDR, and
+		// replace its mapping with the listeners if that was the case.
+		if !found {
+			if cidrIdentity, cidrFound := ipc.ipToIdentityCache[cidr.String()]; cidrFound {
+				if cidrIdentity.ID != newIdentity.ID {
+					scopedLog.Debug("New endpoint IP started shadowing existing CIDR to identity mapping")
+					oldIdentity = &cidrIdentity.ID
+				} else {
+					// The endpoint IP and the CIDR are associated with the
+					// same identity. Nothing changes for the listeners.
+					callbackListeners = false
+				}
+			}
+		}
+	} else {
+		scopedLog.Error("Attempt to upsert invalid IP into ipcache layer")
+		return false
+	}
+
+	scopedLog.Debug("Upserting IP into ipcache layer")
+
+	// Update both maps.
+	ipc.ipToIdentityCache[ip] = newIdentity
+	// Delete the old identity, if any.
+	if found {
+		delete(ipc.identityToIPCache[cachedIdentity.ID], ip)
+		if len(ipc.identityToIPCache[cachedIdentity.ID]) == 0 {
+			delete(ipc.identityToIPCache, cachedIdentity.ID)
+		}
+	}
+	if _, ok := ipc.identityToIPCache[newIdentity.ID]; !ok {
+		ipc.identityToIPCache[newIdentity.ID] = map[string]struct{}{}
+	}
+	ipc.identityToIPCache[newIdentity.ID][ip] = struct{}{}
+
+	if callbackListeners {
+		for _, listener := range ipc.listeners {
+			listener.OnIPIdentityCacheChange(Upsert, *cidr, hostIP, oldIdentity, newIdentity.ID)
 		}
 	}
 
@@ -232,28 +302,82 @@ func (ipc *IPCache) Upsert(IP string, identity Identity) bool {
 
 // deleteLocked removes removes the provided IP-to-security-identity mapping
 // from ipc with the assumption that the IPCache's mutex is held.
-func (ipc *IPCache) deleteLocked(IP string) {
-	log.WithFields(logrus.Fields{
-		logfields.IPAddr: IP,
-	}).Debug("Removing from ipcache layer")
+func (ipc *IPCache) deleteLocked(ip string) {
+	scopedLog := log.WithFields(logrus.Fields{
+		logfields.IPAddr: ip,
+	})
 
-	identity, found := ipc.ipToIdentityCache[IP]
-	if found {
-		delete(ipc.ipToIdentityCache, IP)
-		delete(ipc.identityToIPCache[identity.ID], IP)
-		if len(ipc.identityToIPCache[identity.ID]) == 0 {
-			delete(ipc.identityToIPCache, identity.ID)
+	cachedIdentity, found := ipc.ipToIdentityCache[ip]
+	if !found {
+		scopedLog.Debug("Attempt to remove non-existing IP from ipcache layer")
+		return
+	}
+
+	var cidr *net.IPNet
+	cacheModification := Delete
+	var oldIdentity *identity.NumericIdentity
+	newIdentity := cachedIdentity
+	callbackListeners := true
+
+	var err error
+	if _, cidr, err = net.ParseCIDR(ip); err == nil {
+		// Remove a reference for the prefix length if this is a CIDR.
+		pl, bits := cidr.Mask.Size()
+		switch bits {
+		case net.IPv6len * 8:
+			unrefPrefixLength(ipc.v6PrefixLengths, pl)
+		case net.IPv4len * 8:
+			unrefPrefixLength(ipc.v4PrefixLengths, pl)
 		}
 
-		// Remove a reference for the prefix length if this is a CIDR.
-		if _, cidr, err := net.ParseCIDR(IP); err == nil {
-			pl, bits := cidr.Mask.Size()
-			switch bits {
-			case net.IPv6len * 8:
-				unrefPrefixLength(ipc.v6PrefixLengths, pl)
-			case net.IPv4len * 8:
-				unrefPrefixLength(ipc.v4PrefixLengths, pl)
+		// Check whether the deleted CIDR was shadowed by an endpoint IP. In
+		// this case, skip calling back the listeners since they don't know
+		// about its mapping.
+		if _, endpointIPFound := ipc.ipToIdentityCache[cidr.IP.String()]; endpointIPFound {
+			scopedLog.Debug("Deleting CIDR shadowed by endpoint IP")
+			callbackListeners = false
+		}
+	} else if endpointIP := net.ParseIP(ip); endpointIP != nil { // Endpoint IP.
+		// Convert the endpoint IP into an equivalent full CIDR.
+		bits := net.IPv6len * 8
+		if endpointIP.To4() != nil {
+			bits = net.IPv4len * 8
+		}
+		cidr = &net.IPNet{
+			IP:   endpointIP,
+			Mask: net.CIDRMask(bits, bits),
+		}
+
+		// Check whether the deleted endpoint IP was shadowing that CIDR, and
+		// restore its mapping with the listeners if that was the case.
+		if cidrIdentity, cidrFound := ipc.ipToIdentityCache[cidr.String()]; cidrFound {
+			if cidrIdentity.ID != cachedIdentity.ID {
+				scopedLog.Debug("Removal of endpoint IP revives shadowed CIDR to identity mapping")
+				cacheModification = Upsert
+				oldIdentity = &cachedIdentity.ID
+				newIdentity = cidrIdentity
+			} else {
+				// The endpoint IP and the CIDR were associated with the same
+				// identity. Nothing changes for the listeners.
+				callbackListeners = false
 			}
+		}
+	} else {
+		scopedLog.Error("Attempt to delete invalid IP from ipcache layer")
+		return
+	}
+
+	scopedLog.Debug("Deleting IP from ipcache layer")
+
+	delete(ipc.ipToIdentityCache, ip)
+	delete(ipc.identityToIPCache[cachedIdentity.ID], ip)
+	if len(ipc.identityToIPCache[cachedIdentity.ID]) == 0 {
+		delete(ipc.identityToIPCache, cachedIdentity.ID)
+	}
+
+	if callbackListeners {
+		for _, listener := range ipc.listeners {
+			listener.OnIPIdentityCacheChange(cacheModification, *cidr, nil, oldIdentity, newIdentity.ID)
 		}
 	}
 }
