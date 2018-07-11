@@ -66,10 +66,14 @@ author = u'Cilium Authors'
 # The short X.Y version.
 release = open("../VERSION", "r").read().strip()
 
-# Fetch the docs version from an environment variable. Map latest -> master.
+# Fetch the docs version from an environment variable.
+# Map latest -> master.
+# Map stable -> current version number.
 branch = os.environ.get('READTHEDOCS_VERSION')
 if branch == None or branch == 'latest':
     branch = 'HEAD'
+elif branch == 'stable':
+    branch = release
 githubusercontent = 'https://raw.githubusercontent.com/cilium/cilium/'
 scm_web = githubusercontent + branch
 
