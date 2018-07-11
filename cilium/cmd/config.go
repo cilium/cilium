@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -107,10 +107,10 @@ func configDaemon(cmd *cobra.Command, opts []string) {
 			os.Exit(1)
 		}
 
-		if value {
-			dOpts[name] = "Enabled"
-		} else {
+		if value == option.OptionDisabled {
 			dOpts[name] = "Disabled"
+		} else {
+			dOpts[name] = "Enabled"
 		}
 	}
 

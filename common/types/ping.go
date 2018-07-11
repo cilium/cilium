@@ -19,6 +19,6 @@ import (
 )
 
 type PingResponse struct {
-	NodeAddress string              `json:"node-address"`
-	Opts        *option.BoolOptions `json:"options"`
+	NodeAddress string             `json:"node-address"`
+	Opts        *option.IntOptions `json:"options"`
 }

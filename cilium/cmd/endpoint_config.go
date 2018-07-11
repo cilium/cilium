@@ -84,12 +84,7 @@ func configEndpoint(cmd *cobra.Command, args []string) {
 		if err != nil {
 			Fatalf("Cannot parse option %s: %s", opts[k], err)
 		}
-
-		if value {
-			modifiedOptsCfg.Options[name] = "enabled"
-		} else {
-			modifiedOptsCfg.Options[name] = "disabled"
-		}
+		modifiedOptsCfg.Options[name] = fmt.Sprintf("%d", value)
 	}
 
 	err = client.EndpointConfigPatch(id, modifiedOptsCfg)

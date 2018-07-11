@@ -35,7 +35,7 @@ func (s *OptionSuite) TestGetFmtOpts(c *C) {
 		Description: "This is a test",
 	}
 
-	o := BoolOptions{
+	o := IntOptions{
 		Opts: OptionMap{
 			"test": true,
 			"BAR":  false,
@@ -53,7 +53,7 @@ func (s *OptionSuite) TestGetFmtOpts(c *C) {
 	// Both strings should be equal because the formatted options should be sorted.
 	c.Assert(fmtList, Equals, fmtList2)
 
-	o2 := BoolOptions{
+	o2 := IntOptions{
 		Opts: OptionMap{
 			"foo":  true,
 			"BAR":  false,
@@ -78,7 +78,7 @@ func (s *OptionSuite) TestGetFmtOpt(c *C) {
 		Description: "This is a test",
 	}
 
-	o := BoolOptions{
+	o := IntOptions{
 		Opts: OptionMap{
 			"test": true,
 			"BAR":  false,

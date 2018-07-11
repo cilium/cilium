@@ -137,7 +137,7 @@ type daemonConfig struct {
 	StateDir string
 
 	// Options changeable at runtime
-	Opts *BoolOptions
+	Opts *IntOptions
 
 	// Mutex for serializing configuration updates to the daemon.
 	ConfigPatchMutex lock.RWMutex
@@ -182,7 +182,7 @@ type daemonConfig struct {
 
 var (
 	Config = &daemonConfig{
-		Opts:                     NewBoolOptions(&daemonLibrary),
+		Opts:                     NewIntOptions(&daemonLibrary),
 		Monitor:                  &models.MonitorStatus{Cpus: int64(runtime.NumCPU()), Npages: 64, Pagesize: int64(os.Getpagesize()), Lost: 0, Unknown: 0},
 		IPv6ClusterAllocCIDR:     defaults.IPv6ClusterAllocCIDR,
 		IPv6ClusterAllocCIDRBase: defaults.IPv6ClusterAllocCIDRBase,

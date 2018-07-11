@@ -290,12 +290,15 @@ func dumpConfig(Opts map[string]string) {
 	sort.Strings(opts)
 
 	for _, k := range opts {
-		if enabled, err := option.NormalizeBool(Opts[k]); err != nil {
-			Fatalf("Invalid option answer %s: %s", Opts[k], err)
-		} else if enabled {
-			fmt.Printf("%-24s %s\n", k, color.Green("Enabled"))
-		} else {
+		// XXX: Reuse the format function from *option.Library
+		value = Opts[k]
+		if enabled, err := option.NormalizeBool(value); err != nil {
+			// If it cannot be parsed as a bool, just format the value.
+			fmt.Printf("%-24s %s\n", k, color.Green(value))
+		} else if enabled == option.OptionDisabled {
 			fmt.Printf("%-24s %s\n", k, color.Red("Disabled"))
+		} else {
+			fmt.Printf("%-24s %s\n", k, color.Green("Enabled"))
 		}
 	}
 }

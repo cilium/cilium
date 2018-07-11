@@ -82,7 +82,7 @@ var (
 		Define:      "ENABLE_NAT46",
 		Description: "Enable automatic NAT46 translation",
 		Requires:    []string{Conntrack},
-		Verify: func(key string, val bool) error {
+		Verify: func(key string, val string) error {
 			if IPv4Disabled {
 				return ErrNAT46ReqIPv4
 			}

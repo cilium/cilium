@@ -86,7 +86,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 
 	option.Config.DryMode = true
-	option.Config.Opts = option.NewBoolOptions(&option.DaemonMutableOptionLibrary)
+	option.Config.Opts = option.NewIntOptions(&option.DaemonMutableOptionLibrary)
 	option.Config.Device = "undefined"
 	option.Config.RunDir = tempRunDir
 	option.Config.StateDir = tempRunDir
