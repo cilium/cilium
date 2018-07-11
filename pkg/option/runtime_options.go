@@ -27,6 +27,7 @@ const (
 	DebugLB             = "DebugLB"
 	DropNotify          = "DropNotification"
 	TraceNotify         = "TraceNotification"
+	MonitorAggregation  = "MonitorAggregationLevel"
 	NAT46               = "NAT46"
 	IngressPolicy       = "IngressPolicy"
 	EgressPolicy        = "EgressPolicy"
@@ -76,6 +77,14 @@ var (
 	specTraceNotify = Option{
 		Define:      "TRACE_NOTIFY",
 		Description: "Enable trace notifications",
+	}
+
+	specMonitorAggregation = Option{
+		Define:      "MONITOR_AGGREGATION",
+		Description: "Set the level of aggregation for monitor events in the datapath",
+		Verify:      VerifyMonitorAggregationLevel,
+		Parse:       ParseMonitorAggregationLevel,
+		Format:      FormatMonitorAggregationLevel,
 	}
 
 	specNAT46 = Option{

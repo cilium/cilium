@@ -28,6 +28,14 @@ import (
 // option should not be applied
 type VerifyFunc func(key string, value string) error
 
+// ParseFunc parses the option value and may return an error if the option
+// cannot be parsed or applied.
+type ParseFunc func(value string) (int, error)
+
+// FormatFunc formats the specified value as a colored textual representation
+// of the option.
+type FormatFunc func(value int) string
+
 // Option is the structure used to specify the semantics of a configurable
 // boolean option
 type Option struct {
@@ -40,6 +48,13 @@ type Option struct {
 	// Requires is a list of required options, such options will be
 	// automatically enabled as required.
 	Requires []string
+	// Parse is called to parse the option. If not specified, defaults to
+	// NormalizeBool().
+	Parse ParseFunc
+	// FormatFunc is called to format the value for an option. If not
+	// specified, defaults to formatting 0 as "Disabled" and other values
+	// as "Enabled".
+	Format FormatFunc
 	// Verify is called prior to applying the option
 	Verify VerifyFunc
 }
@@ -140,10 +155,15 @@ func (io *IntOptions) GetMutableModel() *models.ConfigurationMap {
 	mutableCfg := make(models.ConfigurationMap)
 	io.optsMU.RLock()
 	for k, v := range io.Opts {
-		if v == OptionDisabled {
-			mutableCfg[k] = fmt.Sprintf("Disabled")
+		_, config := io.Library.Lookup(k)
+		if config.Format == nil {
+			if v == OptionDisabled {
+				mutableCfg[k] = fmt.Sprintf("Disabled")
+			} else {
+				mutableCfg[k] = fmt.Sprintf("Enabled")
+			}
 		} else {
-			mutableCfg[k] = fmt.Sprintf("Enabled")
+			mutableCfg[k] = config.Format(v)
 		}
 	}
 	io.optsMU.RUnlock()
@@ -250,7 +270,12 @@ func ParseKeyValue(lib *OptionLibrary, arg, value string, defaultValue int) (str
 		return "", OptionDisabled, fmt.Errorf("Unknown option %q", arg)
 	}
 
-	result, err := NormalizeBool(value)
+	var err error
+	if spec.Parse != nil {
+		result, err = spec.Parse(value)
+	} else {
+		result, err = NormalizeBool(value)
+	}
 	if err != nil {
 		return "", OptionDisabled, err
 	}
@@ -270,8 +295,9 @@ func (io *IntOptions) getFmtOpt(name string) string {
 		return ""
 	}
 
-	if io.GetValue(name) != OptionDisabled {
-		return "#define " + io.Library.Define(name)
+	value := io.GetValue(name)
+	if value != OptionDisabled {
+		return fmt.Sprintf("#define %s %d", io.Library.Define(name), value)
 	}
 	return "#undef " + io.Library.Define(name)
 }
@@ -311,10 +337,15 @@ func (io *IntOptions) Dump() {
 
 	for _, k := range opts {
 		var text string
-		if io.Opts[k] == OptionDisabled {
-			text = color.Red("Disabled")
+		_, option := io.Library.Lookup(k)
+		if option == nil || option.Format == nil {
+			if io.Opts[k] == OptionDisabled {
+				text = color.Red("Disabled")
+			} else {
+				text = color.Green("Enabled")
+			}
 		} else {
-			text = color.Green("Enabled")
+			text = option.Format(io.Opts[k])
 		}
 
 		fmt.Printf("%-24s %s\n", k, text)
