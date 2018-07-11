@@ -47,7 +47,7 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 	// Not expecting all of the commands to be available
 	commands = []string{
 		// Host and misc
-		"ps",
+		"ps auxfw",
 		"hostname",
 		"ip a",
 		"ip r",
