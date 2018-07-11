@@ -109,6 +109,10 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 		}
 	}
 
+	It("FailTest", func() {
+		Expect(true).To(BeFalse())
+	})
+
 	Context("Checks ClusterIP Connectivity", func() {
 
 		var (
