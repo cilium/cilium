@@ -194,6 +194,12 @@ func (kub *Kubectl) Get(namespace string, command string) *CmdRes {
 		"%s -n %s get %s -o json", KubectlCmd, namespace, command))
 }
 
+// GetFromAllNS retrieves provided Kubernetes objects from all namespaces
+func (kub *Kubectl) GetFromAllNS(kind string) *CmdRes {
+	return kub.Exec(fmt.Sprintf(
+		"%s --all-namespaces get %s -o json", KubectlCmd, kind))
+}
+
 // GetCNP retrieves the output of `kubectl get cnp` in the given namespace for
 // the given CNP and return a CNP struct. If the CNP does not exists or cannot
 // unmarshal the Json output will return nil.
@@ -1150,6 +1156,10 @@ func (kub *Kubectl) CiliumPreFlightCheck() error {
 		if err != nil {
 			return false
 		}
+		err = kub.CiliumServicePreFlightCheck()
+		if err != nil {
+			return false
+		}
 		return true
 	}
 	timeoutErr := WithTimeout(body, "PreflightCheck failed", &TimeoutConfig{Timeout: HelperTimeout})
@@ -1227,6 +1237,75 @@ func (kub *Kubectl) CiliumHealthPreFlightCheck() error {
 			if status != "" {
 				return fmt.Errorf("cilium-agent %q: connectivity to node %q is unhealthy: %q",
 					pod, node, status)
+			}
+		}
+	}
+	return nil
+}
+
+// CiliumServicePreFlightCheck checks that k8s service is plumbed correctly
+func (kub *Kubectl) CiliumServicePreFlightCheck() error {
+	svcRes := kub.GetFromAllNS("service")
+	err := svcRes.GetErr()
+	if err != nil {
+		return err
+	}
+	var k8sSvcs v1.ServiceList
+	err = json.Unmarshal([]byte(svcRes.GetStdOut()), k8sSvcs)
+
+	if err != nil {
+		return fmt.Errorf("Unable to unmarshal K8s services: %s", err.Error())
+	}
+
+	epRes := kub.GetFromAllNS("endpoint")
+	err = epRes.GetErr()
+	if err != nil {
+		return err
+	}
+	var k8sEps v1.EndpointsList
+	err = json.Unmarshal([]byte(epRes.GetStdOut()), k8sEps)
+	if err != nil {
+		return fmt.Errorf("Unable to unmarshal K8s endpoints: %s", err.Error())
+	}
+
+	ciliumPods, err := kub.GetCiliumPods(KubeSystemNamespace)
+	if err != nil {
+		return err
+	}
+	ciliumSvcCmd := "cilium service list -o json"
+	for _, pod := range ciliumPods {
+		ciliumServicesRes := kub.CiliumExec(pod, ciliumSvcCmd)
+		if !ciliumServicesRes.WasSuccessful() {
+			return fmt.Errorf(
+				"Unable to retrieve Cilium services on %q: %s",
+				pod, ciliumServicesRes.OutputPrettyPrint())
+		}
+
+		var ciliumSvcs []models.Service
+
+		err = json.Unmarshal([]byte(ciliumServicesRes.GetStdOut()), ciliumSvcs)
+		if err != nil {
+			return fmt.Errorf("Unable to unmarshal Cilium services: %s", err.Error())
+		}
+
+		if len(k8sSvcs.Items) != len(ciliumSvcs) {
+			return fmt.Errorf("cilium service count is not the same as k8s service count: %d != %d", len(k8sSvcs.Items), len(ciliumSvcs))
+		}
+
+		var found bool
+		for _, cSvc := range ciliumSvcs {
+			found = false
+			for _, k8sSvc := range k8sSvcs.Items {
+				if k8sSvc.Spec.ClusterIP == cSvc.Status.Realized.FrontendAddress.IP {
+					for _, k8sPort := range k8sSvc.Spec.Ports {
+						if k8sPort.Port == int32(cSvc.Status.Realized.FrontendAddress.Port) {
+							found = true
+						}
+					}
+				}
+			}
+			if !found {
+				return fmt.Errorf("Could not find Cilium service with address %s:%d in k8s", cSvc.Spec.FrontendAddress.IP, cSvc.Spec.FrontendAddress.Port)
 			}
 		}
 	}
