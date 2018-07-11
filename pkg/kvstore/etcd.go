@@ -68,6 +68,10 @@ var (
 	// statusCheckInterval is the interval in which the status is checked
 	statusCheckInterval = 5 * time.Second
 
+	// initialConnectionTimeout  is the timeout for the initial connection to
+	// the etcd server
+	initialConnectionTimeout = 3 * time.Minute
+
 	minRequiredVersion, _ = version.NewConstraint(">= 3.1.0")
 
 	// etcdDummyAddress can be overwritten from test invokers using ldflags
@@ -139,6 +143,10 @@ func init() {
 }
 
 type etcdClient struct {
+	// firstSession is a channel that will be closed once the first session
+	// is set up in the etcd Client.
+	firstSession chan struct{}
+
 	// protects all members of etcdClient from concurrent access
 	lock.RWMutex
 
@@ -159,6 +167,7 @@ func (e *etcdMutex) Unlock() error {
 }
 
 func (e *etcdClient) renewSession() error {
+	<-e.firstSession
 	<-e.session.Done()
 
 	newSession, err := concurrency.NewSession(e.client)
@@ -217,9 +226,10 @@ func newEtcdClient(config *client.Config, cfgPath string) (BackendOperations, er
 		}
 	}
 	if config != nil {
-		if config.DialTimeout == 0 {
-			config.DialTimeout = 10 * time.Second
-		}
+		// Set DialTimeout to 0, otherwise the creation of a new client will
+		// block until DialTimeout is reached or a connection to the server
+		// is made.
+		config.DialTimeout = 0
 		c, err = client.New(*config)
 	} else {
 		err = fmt.Errorf("empty configuration provided")
@@ -229,39 +239,59 @@ func newEtcdClient(config *client.Config, cfgPath string) (BackendOperations, er
 	}
 	log.Info("Waiting for etcd client to be ready")
 
-	var s *concurrency.Session
+	var s concurrency.Session
+	firstSession := make(chan struct{})
+	clientMutex := lock.RWMutex{}
 	sessionChan := make(chan *concurrency.Session)
 	errorChan := make(chan error)
+
+	// create session in parallel as this is a blocking operation
 	go func() {
 		session, err := concurrency.NewSession(c)
-		sessionChan <- session
 		errorChan <- err
+		sessionChan <- session
 		close(sessionChan)
 		close(errorChan)
 	}()
 
-	select {
-	case s = <-sessionChan:
-		err = <-errorChan
-	case <-time.After(config.DialTimeout):
-		err = fmt.Errorf("Timed out while waiting for etcd session. Ensure that etcd version is at least %s", minRequiredVersion.String())
-	}
-
-	if err != nil {
-		return nil, fmt.Errorf("Unable to contact etcd: %s", err)
-	}
-
 	ec := &etcdClient{
-		client:      c,
-		session:     s,
-		lockPaths:   map[string]*lock.Mutex{},
-		controllers: controller.NewManager(),
+		client:       c,
+		session:      &s,
+		firstSession: firstSession,
+		lockPaths:    map[string]*lock.Mutex{},
+		controllers:  controller.NewManager(),
+		RWMutex:      clientMutex,
 	}
 
-	if err := ec.renewLease(); err != nil {
-		c.Close()
-		return nil, fmt.Errorf("unable to create default lease: %s", err)
-	}
+	// wait for session to be created also in parallel
+	go func() {
+		var session concurrency.Session
+		select {
+		case err = <-errorChan:
+			if err == nil {
+				session = *<-sessionChan
+			}
+		case <-time.After(initialConnectionTimeout):
+			err = fmt.Errorf("timed out while waiting for etcd session. Ensure that etcd is running on %s", config.Endpoints)
+		}
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+
+		log.Debugf("Session received")
+		s = session
+		// Run renewLease once the firstSession is received
+		if err := ec.renewLease(); err != nil {
+			c.Close()
+			err = fmt.Errorf("unable to create default lease: %s", err)
+		}
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+		close(ec.firstSession)
+	}()
 
 	statusCheckerStarted.Do(func() {
 		go ec.statusChecker()
@@ -335,6 +365,7 @@ func (e *etcdClient) checkMinVersion() bool {
 }
 
 func (e *etcdClient) LockPath(path string) (kvLocker, error) {
+	<-e.firstSession
 	e.RLock()
 	mu := concurrency.NewMutex(e.session, path)
 	e.RUnlock()
@@ -779,6 +810,7 @@ func (e *etcdClient) createOpPut(key string, value []byte, lease bool) *client.O
 
 // Update creates or updates a key
 func (e *etcdClient) Update(key string, value []byte, lease bool) error {
+	<-e.firstSession
 	if lease {
 		_, err := e.client.Put(ctx.Background(), key, string(value), client.WithLease(e.lease.ID))
 		return err
@@ -857,6 +889,7 @@ func (e *etcdClient) ListPrefix(prefix string) (KeyValuePairs, error) {
 
 // Close closes the etcd session
 func (e *etcdClient) Close() {
+	<-e.firstSession
 	if e.controllers != nil {
 		e.controllers.RemoveAll()
 	}
