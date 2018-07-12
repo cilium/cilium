@@ -584,13 +584,24 @@ func (d *Daemon) installIptablesRules() error {
 	// special marker so that we can differentiate traffic sourced locally
 	// vs. traffic from the outside world that was masqueraded to appear
 	// like it's from the host.
+	//
+	// Originally we set this mark only for traffic destined to the
+	// cilium_host device, to ensure that any traffic directly reaching
+	// to a Cilium-managed IP could be classified as from the host.
+	//
+	// However, there's another case where a local process attempts to
+	// reach a service IP which is backed by a Cilium-managed pod. The
+	// service implementation is outside of Cilium's control, for example,
+	// handled by kube-proxy. We can tag even this traffic with a magic
+	// mark, then when the service implementation proxies it back into
+	// Cilium the BPF will see this mark and understand that the packet
+	// originated from the host.
 	matchFromProxy := fmt.Sprintf("%#08x/%#08x", proxy.MagicMarkIsProxy, proxy.MagicMarkProxyMask)
 	markAsFromHost := fmt.Sprintf("%#08x/%#08x", proxy.MagicMarkHost, proxy.MagicMarkHostMask)
 	if err := runProg("iptables", []string{
 		"-t", "filter",
 		"-A", ciliumOutputChain,
 		"-m", "mark", "!", "--mark", matchFromProxy, // Don't match proxy traffic
-		"-o", "cilium_host",
 		"-m", "comment", "--comment", "cilium: host->any mark as from host",
 		"-j", "MARK", "--set-xmark", markAsFromHost}, false); err != nil {
 		return err
