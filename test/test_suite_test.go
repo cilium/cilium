@@ -255,6 +255,10 @@ func getOrSetEnvVar(key, value string) {
 
 var _ = AfterEach(func() {
 
+	// Send the Checks output to Junit report to be render on Jenkins.
+	defer helpers.CheckLogs.Reset()
+	GinkgoPrint("<Checks>\n%s\n</Checks>\n", helpers.CheckLogs.Buffer.String())
+
 	defer config.TestLogWriterReset()
 	err := helpers.CreateLogFile(config.TestLogFileName, config.TestLogWriter.Bytes())
 	if err != nil {
