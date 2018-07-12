@@ -3,9 +3,12 @@
 # This script checks Jenkins master Jobs and validated that the failed jobs has
 # been already triaged and upstream issue has been created if it's needed.
 # To clean the list of Jenkins builds, build description needs to be updated with a comment.
-NOW=$(printf "%(%s)T" -1);
-YESTERDAY=$(printf "%(%s)T\n" $((NOW - 24*3600)))
-FROM=$(date -d @$YESTERDAY +%s%N  | cut -b1-13)
+
+# allow users to specify SINCE as seconds since epoch
+YESTERDAY=$(date -d -1day +%s)
+SINCE=${SINCE:-$YESTERDAY}
+# ensure SINCE is the correct length
+SINCE=$(date -d @$SINCE +%s%N  | cut -b1-13)
 
 TAB="   "
 BOLD=$(tput bold)
@@ -17,7 +20,7 @@ get_job_data () {
     local FILTER="?tree=builds[fullDisplayName,id,number,timestamp,result,description,result]"
     local TEST_RESULT="/testReport/junit/api/xml?xpath=//case[status%20=%20%22REGRESSION%22]/name&wrapper=true"
 
-    NO_TRIAGED_FAILURES=$(curl -s "${JOB}api/json${FILTER}" --globoff | jq -r '.builds[] | select ( .timestamp  > '$FROM' and .result == "FAILURE" and .description == null) | .id')
+    NO_TRIAGED_FAILURES=$(curl -s "${JOB}api/json${FILTER}" --globoff | jq -r '.builds[] | select ( .timestamp  > '$SINCE' and .result == "FAILURE" and .description == null) | .id')
     for build in $NO_TRIAGED_FAILURES;
     do
         echo "${BOLD}BUILD ID: ${build}${NORMAL}"
