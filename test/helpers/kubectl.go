@@ -33,7 +33,6 @@ import (
 
 	"github.com/asaskevich/govalidator"
 	"github.com/onsi/ginkgo"
-	"github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
 )
@@ -917,32 +916,22 @@ func (kub *Kubectl) CiliumReport(namespace string, commands ...string) {
 // `deadlocks` or `segmentation faults` messages. In case of any of these
 // messages, it'll mark the test as failed.
 func (kub *Kubectl) ValidateNoErrorsOnLogs(duration time.Duration) {
+	var logs string
 	cmd := fmt.Sprintf("%s -n %s logs --timestamps=true -l k8s-app=cilium --since=%vs",
 		KubectlCmd, KubeSystemNamespace, duration.Seconds())
 	res := kub.Exec(fmt.Sprintf("%s --previous", cmd), ExecOptions{SkipLog: true})
-	if !res.WasSuccessful() {
-		res = kub.Exec(cmd, ExecOptions{SkipLog: true})
+	if res.WasSuccessful() {
+		logs += res.Output().String()
 	}
-	logs := res.Output().String()
-	for _, message := range checkLogsMessages {
-		gomega.ExpectWithOffset(1, logs).ToNot(gomega.ContainSubstring(message),
-			"Found a %q in Cilium logs", message)
+	res = kub.Exec(cmd, ExecOptions{SkipLog: true})
+	if res.WasSuccessful() {
+		logs += res.Output().String()
 	}
-}
 
-// CheckLogsForDeadlock checks if the logs for Cilium log messages that signify
-// that a deadlock has occurred.
-func (kub *Kubectl) CheckLogsForDeadlock() {
-	deadlockCheckCmd := fmt.Sprintf("%s -n %s logs --timestamps=true -l k8s-app=cilium | grep -qi -B 5 -A 5 deadlock", KubectlCmd, KubeSystemNamespace)
-	res := kub.Exec(deadlockCheckCmd)
-	if res.WasSuccessful() {
-		log.Errorf("Deadlock during test run detected, check Cilium logs for context")
-	}
-	// Also check for previous container
-	deadlockCheckCmd = fmt.Sprintf("%s -n %s logs --timestamps=true --previous -l k8s-app=cilium | grep -qi -B 5 -A 5 deadlock", KubectlCmd, KubeSystemNamespace)
-	res = kub.Exec(deadlockCheckCmd)
-	if res.WasSuccessful() {
-		log.Errorf("Deadlock during test run detected, check Cilium logs for context")
+	for _, message := range checkLogsMessages {
+		if strings.Contains(logs, message) {
+			ginkgoext.Fail("Found a %q in Cilium Logs")
+		}
 	}
 }
 
