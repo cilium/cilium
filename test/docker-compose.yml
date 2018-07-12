@@ -27,3 +27,7 @@ services:
     extends:
       service: base_image
     command: "bash -c 'cd /go/src/github.com/cilium/cilium/; make precheck || exit 1'"
+  compile:
+    extends:
+      service: base_image
+    command: "bash -c 'cd /go/src/github.com/cilium/cilium/; make build LOCKDEBUG=1 PKG_BUILD=1'"

@@ -70,6 +70,7 @@ $(CILIUM_ENVOY_BIN) envoy-release: force
 	@$(ECHO_BAZEL)
 	-rm -f bazel-out/k8-opt/bin/_objs/envoy/external/envoy/source/common/common/version_linkstamp.o
 	$(BAZEL) $(BAZEL_OPTS) build $(BAZEL_BUILD_OPTS) -c opt //:envoy $(BAZEL_FILTER)
+	- cp $(CILIUM_ENVOY_BIN) cilium-envoy
 
 # Allow root build for release
 $(ISTIO_ENVOY_BIN) $(ISTIO_ENVOY_RELEASE_BIN): force
@@ -97,7 +98,7 @@ $(CHECK_FORMAT): force-non-root
 
 install: force-root
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
-	$(INSTALL) -m 0755 -T $(CILIUM_ENVOY_BIN) $(DESTDIR)$(BINDIR)/cilium-envoy
+	$(INSTALL) -m 0755 -T cilium-envoy $(DESTDIR)$(BINDIR)/cilium-envoy
 # Strip only non-debug builds
 ifeq "$(findstring -dbg,$(realpath bazel-bin))" ""
 	$(STRIP) $(DESTDIR)$(BINDIR)/cilium-envoy
