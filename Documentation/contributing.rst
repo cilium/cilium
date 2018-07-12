@@ -1482,27 +1482,71 @@ GitHub issues using the process below:
 Triage process
 ^^^^^^^^^^^^^^
 
-#. Investigate the failure
-#. Search `GitHub issues <https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=is%3Aissue+>`_
-   to see if bug is already filed. Make sure to also include closed issues in
-   your search as a CI issue can be considered solved and then re-appears.
-#. If no existing GitHub issues was found, file a new GitHub issue:
+#. Discover Jenkins failures via the jenkins-failures.sh script. It defaults to
+   the previous 24 hours but this can be modified by setting the SINCE
+   environment variable (it is a unix timestamp). The script checks the various
+   test pipelines that need triage.
+::
+
+    $ contrib/scripts/jenkins-failures.sh
+
+.. note::
+
+   You can quickly assign SINCE with statements like ``SINCE=`date -d -3days```
+
+#. Investigate the failure you are interested in and determine if it is a
+   CI-Bug, Flake, or a Regression.
+
+   #. Search `GitHub issues <https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=is%3Aissue+>`_
+      to see if bug is already filed. Make sure to also include closed issues in
+      your search as a CI issue can be considered solved and then re-appears.
+      Good search terms are:
+
+      - The test name, e.g.
+      ::
+
+          k8s-1.7.K8sValidatedKafkaPolicyTest Kafka Policy Tests KafkaPolicies (from (k8s-1.7.xml))
+
+      - The line on which the test failed, e.g.
+      ::
+
+          github.com/cilium/cilium/test/k8sT/KafkaPolicies.go:202
+
+      - The error message, e.g.
+      ::
+
+          Failed to produce from empire-hq on topic deathstar-plan
+
+#. If a corresponding GitHub issue exists, update it with:
+
+   #. A link to the failing Jenkins build (note that these will expire).
+   #. Attach the zipfile downloaded from Jenkins with logs from failing test
+   #. Check how much time has passed since the last reported occurrence and
+      move this issue to the correct column in the `CI flakes project
+      <https://github.com/cilium/cilium/projects/8>`_ board.
+
+#. If no existing GitHub issues was found, file a `new GitHub issue <https://github.com/cilium/cilium/issues/new>`_:
 
    #. Attach zipfile downloaded from Jenkins with logs from failing test
-   #. If failure is a real bug:
+   #. If the failure is a new Regression or a real bug:
 
       #. Title: ``<Short bug description>``
       #. Labels ``kind/bug`` and ``needs/triage``.
-   #. If failure is a CI test flake or if unsure:
+
+   #. If failure is a new CI-Bug, Flake or if you are unsure:
 
       #. Title ``CI: <testname>: <cause>``, e.g. ``CI: K8sValidatedPolicyTest Namespaces: cannot curl service``
       #. Labels ``kind/bug/CI`` and ``needs/triage``
+      #. Include a link to the failing Jenkins build (note that these will expire).
+      #. Attach zipfile downloaded from Jenkins with logs from failing test
+      #. Include the test name and whole Stacktrace section to help others find this issue.
       #. Add issue to `CI flakes project <https://github.com/cilium/cilium/projects/8>`_
 
-#. Edit the description of Jenkins build to mark it as triaged
+#. Edit the description of Jenkins build to mark it as triaged. This will
+   exclude it from future jenkins-failures.sh output.
 
    #. Login -> Click on build -> Edit Build Information
-   #. Use the table below as a template
+   #. Use the table below as a template, and include the GH issue number
 
 +----------------------+-----------------------------------------------------------------------------------+
 | Keyword              | Description                                                                       |
@@ -1522,7 +1566,7 @@ Triage process
    .. note:
 
       This step can only be performed with an account on Jenkins. If you are
-      interesting in CI failure reviews and do not have an account yet, ping us
+      interested in CI failure reviews and do not have an account yet, ping us
       on Slack.
 
 **Examples:**
