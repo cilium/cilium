@@ -179,6 +179,9 @@ const (
 	segmentationFault = "segmentation fault"        // from https://github.com/cilium/cilium/issues/3233
 	NACKreceived      = "NACK received for version" // from https://github.com/cilium/cilium/issues/4003
 
+	contextDeadlineExceeded = "context deadline exceeded"
+	ErrorLogs               = "level=error"
+	WarningLogs             = "level=warning"
 )
 
 // Re-definitions of stable constants in the API. The re-definition is on
@@ -192,6 +195,7 @@ const (
 var CiliumDSPath = "cilium_ds.jsonnet"
 
 var checkLogsMessages = []string{panicMessage, deadLockHeader, segmentationFault, NACKreceived}
+var countLogsMessages = []string{contextDeadlineExceeded, ErrorLogs, WarningLogs}
 
 var ciliumCLICommands = map[string]string{
 	"cilium endpoint list -o json":          "endpoint_list.txt",
