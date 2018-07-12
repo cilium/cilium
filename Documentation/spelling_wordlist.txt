@@ -218,6 +218,8 @@ ixgbevf
 Jakub
 Jenkinsfiles
 jeq
+jenkins
+Jenkins
 Jenkinsfiles
 Jesper
 jge
@@ -401,6 +403,8 @@ Sidious
 Sith
 skb
 Spectre
+Stacktrace
+stacktrace
 stap
 stapbpf
 Starovoitov
@@ -458,8 +462,11 @@ ui
 Uncomment
 underrepresents
 uninline
+unix
+Unix
 unmanaged
 unmounting
+untriaged
 untrusted
 uprobes
 upstreamed
