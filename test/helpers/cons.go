@@ -15,11 +15,13 @@
 package helpers
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"time"
 
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 )
 
 var (
@@ -29,6 +31,8 @@ var (
 	// BasePath is the path in the Vagrant VMs to which the test directory
 	// is mounted
 	BasePath = "/home/vagrant/go/src/github.com/cilium/cilium/test"
+
+	CheckLogs = ginkgoext.NewWriter(new(bytes.Buffer))
 )
 
 const (
