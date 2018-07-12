@@ -891,7 +891,7 @@ func (kub *Kubectl) CiliumReport(namespace string, commands ...string) {
 		ginkgoext.GinkgoPrint("Skipped gathering logs (-cilium.holdEnvironment=true)\n")
 		return
 	}
-
+	kub.CiliumCheckReport()
 	pods, err := kub.GetCiliumPods(namespace)
 	if err != nil {
 		kub.logger.WithError(err).Error("cannot retrieve cilium pods on ReportDump")
@@ -909,6 +909,55 @@ func (kub *Kubectl) CiliumReport(namespace string, commands ...string) {
 
 	kub.DumpCiliumCommandOutput(namespace)
 	kub.GatherLogs()
+}
+
+// CiliumCheckReport prints a few checks on the Junit output to provide more context to users.
+func (kub *Kubectl) CiliumCheckReport() {
+	pods, _ := kub.GetCiliumPods(KubeSystemNamespace)
+	fmt.Fprintf(CheckLogs, "Cilium pods: %v\n", pods)
+
+	var policiesFilter = `{range .items[*]}{.metadata.namespace}{"::"}{.metadata.name}{" "}{end}`
+	netpols := kub.Exec(fmt.Sprintf(
+		"%s get netpol -o jsonpath='%s' --all-namespaces",
+		KubectlCmd, policiesFilter))
+	fmt.Fprintf(CheckLogs, "Netpols loaded: %v\n", netpols.Output())
+
+	cnp := kub.Exec(fmt.Sprintf(
+		"%s get cnp -o jsonpath='%s' --all-namespaces",
+		KubectlCmd, policiesFilter))
+	fmt.Fprintf(CheckLogs, "CiliumNetworkPolicies loaded: %v\n", cnp.Output())
+
+	cepFilter := `{range .items[*]}{.metadata.name}{"="}{.status.status.policy.realized.policy-enabled}{"\n"}{end}`
+	cepStatus := kub.Exec(fmt.Sprintf(
+		"%s get cep -o jsonpath='%s' --all-namespaces",
+		KubectlCmd, cepFilter))
+
+	fmt.Fprintf(CheckLogs, "Cilium CEP status:\n")
+	for pod, policy := range cepStatus.KVOutput() {
+		fmt.Fprintf(CheckLogs, "\t%s=> %s\n", pod, policy)
+	}
+
+	var controllersFilter = `{range .controllers[*]}{.name}{"="}{.status.consecutive-failure-count}{"\n"}{end}`
+	for _, pod := range pods {
+		var prefix = ""
+		status := kub.CiliumExec(pod, "cilium status --all-controllers -o json")
+		result, _ := status.Filter(controllersFilter)
+		var total = 0
+		var failed = 0
+		for _, status := range result.KVOutput() {
+			total++
+			if status != "" {
+				failed++
+				prefix = "⚠️  "
+			}
+		}
+		statusFilter := `Status: {.cilium.state}  Health: {.cluster.ciliumHealth.state}` +
+			` Nodes "{.cluster.nodes[*].name}" ContinerRuntime: {.container-runtime.state}` +
+			` Kubernetes: {.kubernetes.state} KVstore: {.kvstore.state}`
+		data, _ := status.Filter(statusFilter)
+		fmt.Fprintf(CheckLogs, "%sCilium agent %q: %s Controllers: Total %d Failed %d\n",
+			prefix, pod, data, total, failed)
+	}
 }
 
 // ValidateNoErrorsOnLogs checks in cilium logs since the given duration (By
