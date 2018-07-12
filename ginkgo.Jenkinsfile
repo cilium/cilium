@@ -61,7 +61,14 @@ pipeline {
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/"
             }
             steps {
-                sh "cd ${TESTDIR}; make tests-ginkgo"
+                parallel(
+                    "Test": {
+                        sh "cd ${TESTDIR}; make tests-ginkgo"
+                    },
+                    "Compilation": {
+                        sh "docker-compose -f test/docker-compose.yml run --rm compile"
+                    }
+                )
             }
             post {
                 always {
