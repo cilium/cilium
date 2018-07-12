@@ -69,7 +69,7 @@ endif
 $(TARGET): $(TARGET).c
 	@$(ECHO_CC)
 	@# Due to gcc bug, -lelf needs to be at the end.
-	$(QUIET) ${HOSTCC} -Wall -O2 -I include/ $@.c -lelf -o $@
+	$(QUIET) ${HOSTCC} -Wall -O2 -Wno-format-truncation -I include/ $@.c -lelf -o $@
 
 install:
 	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
