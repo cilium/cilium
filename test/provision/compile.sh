@@ -28,7 +28,7 @@ then
     fi
 else
     echo "compiling cilium..."
-    sudo -u vagrant -H -E make LOCKDEBUG=1
+    docker-compose -f test/docker-compose.yml run compile
     echo "installing cilium..."
     make install
     mkdir -p /etc/sysconfig/
