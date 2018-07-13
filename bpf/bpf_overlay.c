@@ -136,7 +136,7 @@ to_host:
 #endif
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4) int tail_handle_ipv4(struct __sk_buff *skb)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC) int tail_handle_ipv4(struct __sk_buff *skb)
 {
 	int ret = handle_ipv4(skb);
 
@@ -165,7 +165,7 @@ int from_overlay(struct __sk_buff *skb)
 
 	case bpf_htons(ETH_P_IP):
 #ifdef ENABLE_IPV4
-		ep_tail_call(skb, CILIUM_CALL_IPV4);
+		ep_tail_call(skb, CILIUM_CALL_IPV4_FROM_LXC);
 		ret = DROP_MISSED_TAIL_CALL;
 #else
 		ret = DROP_UNKNOWN_L3;

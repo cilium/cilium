@@ -382,7 +382,7 @@ static inline int __inline__ handle_ipv6(struct __sk_buff *skb)
 	return ipv6_l3_from_lxc(skb, &tuple, ETH_HLEN, data, ip6);
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6) int tail_handle_ipv6(struct __sk_buff *skb)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_LXC) int tail_handle_ipv6(struct __sk_buff *skb)
 {
 	int ret = handle_ipv6(skb);
 
@@ -641,7 +641,7 @@ pass_to_stack:
 	return TC_ACT_OK;
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4) int tail_handle_ipv4(struct __sk_buff *skb)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC) int tail_handle_ipv4(struct __sk_buff *skb)
 {
 	int ret = handle_ipv4_from_lxc(skb);
 
@@ -683,12 +683,12 @@ int handle_ingress(struct __sk_buff *skb)
 #endif
 	switch (skb->protocol) {
 	case bpf_htons(ETH_P_IPV6):
-		ep_tail_call(skb, CILIUM_CALL_IPV6);
+		ep_tail_call(skb, CILIUM_CALL_IPV6_FROM_LXC);
 		ret = DROP_MISSED_TAIL_CALL;
 		break;
 
 	case bpf_htons(ETH_P_IP):
-		ep_tail_call(skb, CILIUM_CALL_IPV4);
+		ep_tail_call(skb, CILIUM_CALL_IPV4_FROM_LXC);
 		ret = DROP_MISSED_TAIL_CALL;
 		break;
 
@@ -1008,7 +1008,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT64) int tail_ipv6_to_ipv4(struct
 
 	skb->cb[CB_NAT46_STATE] = NAT64;
 
-	ep_tail_call(skb, CILIUM_CALL_IPV4);
+	ep_tail_call(skb, CILIUM_CALL_IPV4_FROM_LXC);
 	return DROP_MISSED_TAIL_CALL;
 }
 
