@@ -10,12 +10,16 @@ BIN_NAME=cilium-cni
 CNI_DIR=${CNI_DIR:-${HOST_PREFIX}/opt/cni}
 CILIUM_CNI_CONF=${CILIUM_CNI_CONF:-${HOST_PREFIX}/etc/cni/net.d/${CNI_CONF_NAME}}
 
-mkdir -p ${CNI_DIR}/bin
+if [ ! -d ${CNI_DIR}/bin ]; then
+	mkdir -p ${CNI_DIR}/bin
+fi
 
 # Install the CNI loopback driver if not installed already
 if [ ! -f ${CNI_DIR}/bin/loopback ]; then
 	echo "Installing loopback driver..."
-	cp /cni/loopback ${CNI_DIR}/bin/
+
+	# Don't fail hard if this fails as it is usually not required
+	cp /cni/loopback ${CNI_DIR}/bin/ || true
 fi
 
 echo "Installing ${BIN_NAME} to ${CNI_DIR}/bin/ ..."
@@ -23,7 +27,7 @@ echo "Installing ${BIN_NAME} to ${CNI_DIR}/bin/ ..."
 # Move an eventual old existing binary out of the way, we can't delete it
 # as it might be in use right now.
 if [ -f "${CNI_DIR}/bin/${BIN_NAME}" ]; then
-        rm -f ${CNI_DIR}/bin/${BIN_NAME}.old
+        rm -f ${CNI_DIR}/bin/${BIN_NAME}.old || true
         mv ${CNI_DIR}/bin/${BIN_NAME} ${CNI_DIR}/bin/${BIN_NAME}.old
 fi
 
@@ -39,7 +43,9 @@ else
     "type": "cilium-cni"
 }
 EOF
-	mkdir -p $(dirname $CILIUM_CNI_CONF)
+	if [ ! -d $(dirname $CILIUM_CNI_CONF) ]; then
+		mkdir -p $(dirname $CILIUM_CNI_CONF)
+	fi
 
 	mv ${CNI_CONF_NAME} ${CILIUM_CNI_CONF}
 fi
