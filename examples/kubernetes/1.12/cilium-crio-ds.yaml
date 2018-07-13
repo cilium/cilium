@@ -56,6 +56,7 @@ spec:
         command: [ "cilium-agent" ]
         args:
           - "--debug=$(CILIUM_DEBUG)"
+          - "-t=vxlan"
           - "--kvstore=etcd"
           - "--kvstore-opt=etcd.config=/var/lib/etcd-config/etcd.config"
           - "--disable-ipv4=$(DISABLE_IPV4)"
@@ -155,7 +156,7 @@ spec:
           # To read labels from CRI-O containers running in the host
         - name: crio-socket
           hostPath:
-            path: /var/run/crio/crio.sock
+            path: /var/run/crio.sock
           # To install cilium cni plugin in the host
         - name: cni-path
           hostPath:
