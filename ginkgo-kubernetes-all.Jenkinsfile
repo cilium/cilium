@@ -57,10 +57,9 @@ pipeline {
             steps {
                 sh 'cd ${TESTDIR}; K8S_VERSION=1.8 vagrant up --no-provision'
                 sh 'cd ${TESTDIR}; K8S_VERSION=1.9 vagrant up --no-provision'
-                sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant up --no-provision'
             }
         }
-        stage('BDD-Test-k8s') {
+        stage('BDD-Test-k8s-1.8-and-1.9') {
             environment {
                 FAILFAST=setIfPR("true", "false")
             }
@@ -75,9 +74,6 @@ pipeline {
                     "K8s-1.9":{
                         sh 'cd ${TESTDIR}; K8S_VERSION=1.9 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
                     },
-                        "K8s-1.10":{
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.10 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
-                        },
                 )
             }
             post {
@@ -95,10 +91,11 @@ pipeline {
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
             }
             steps {
+                sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant up --no-provision'
                 sh 'cd ${TESTDIR}; K8S_VERSION=1.12 vagrant up --no-provision'
             }
         }
-        stage('Non-release-k8s-versions') {
+        stage('BDD-Test-k8s-1.10-and-1.12') {
             environment {
                 FAILFAST=setIfPR("true", "false")
             }
@@ -107,8 +104,8 @@ pipeline {
             }
             steps {
                 parallel(
-                    "K8s-1.11":{
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.11 ginkgo --focus=" K8s*" --failFast=${FAILFAST}'
+                    "K8s-1.10":{
+                        sh 'cd ${TESTDIR}; K8S_VERSION=1.10 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
                     },
                     "K8s-1.12":{
                         sh 'cd ${TESTDIR}; K8S_VERSION=1.12 ginkgo --focus=" K8s*" --failFast=${FAILFAST}'
