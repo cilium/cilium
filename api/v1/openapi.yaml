@@ -623,30 +623,6 @@ paths:
           x-go-name: Failure
           schema:
             "$ref": "#/definitions/Error"
-  "/map":
-    get:
-      summary: List all open maps
-      tags:
-      - daemon
-      responses:
-        '200':
-          description: Success
-          schema:
-            "$ref": "#/definitions/BPFMapList"
-  "/map/{name}":
-    get:
-      summary: Retrieve contents of BPF map
-      tags:
-      - daemon
-      parameters:
-      - "$ref": "#/parameters/map-name"
-      responses:
-        '200':
-          description: Success
-          schema:
-            "$ref": "#/definitions/BPFMap"
-        '404':
-          description: Map not found
 
 parameters:
   endpoint-id:
@@ -747,12 +723,6 @@ parameters:
     enum:
     - ipv4
     - ipv6
-  map-name:
-    name: name
-    description: Name of map
-    required: true
-    in: path
-    type: string
 definitions:
   Endpoint:
     description: An endpoint is a namespaced network interface to which cilium applies policies
@@ -1698,46 +1668,5 @@ definitions:
           last-failure-msg:
             description: Error message of last failed run
             type: string
-  BPFMapList:
-    description: List of BPF Maps
-    type: object
-    properties:
-      maps:
-        description: Array of open BPF map lists
-        type: array
-        items:
-          "$ref": "#/definitions/BPFMap"
-  BPFMap:
-    description: BPF map definition and content
-    type: object
-    properties:
-      path:
-        description: Path to BPF map
-        type: string
-      cache:
-        description: Contents of cache
-        type: array
-        items:
-          "$ref": "#/definitions/BPFMapEntry"
-  BPFMapEntry:
-    description: BPF map cache entry"
-    type: object
-    properties:
-      key:
-        description: Key of map entry
-        type: string
-      value:
-        description: Value of map entry
-        type: string
-      desired-action:
-        description: Desired action to be performed
-        type: string
-        enum:
-        - ok
-        - insert
-        - delete
-      last-error:
-        description: Last error seen while performing desired action
-        type: string
   Error:
     type: string
