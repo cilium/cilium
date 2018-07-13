@@ -417,7 +417,7 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 
 #define CB_SRC_IDENTITY 0
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4) int tail_handle_ipv4(struct __sk_buff *skb)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC) int tail_handle_ipv4(struct __sk_buff *skb)
 {
 	__u32 proxy_identity = skb->cb[CB_SRC_IDENTITY];
 	int ret = handle_ipv4(skb, proxy_identity);
@@ -466,7 +466,7 @@ int from_netdev(struct __sk_buff *skb)
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
 		skb->cb[CB_SRC_IDENTITY] = identity;
-		ep_tail_call(skb, CILIUM_CALL_IPV4);
+		ep_tail_call(skb, CILIUM_CALL_IPV4_FROM_LXC);
 		/* We are not returning an error here to always allow traffic to
 		 * the stack in case maps have become unavailable.
 		 *
