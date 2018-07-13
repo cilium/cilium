@@ -15,6 +15,7 @@
 package api
 
 import (
+	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/labels"
 
 	. "gopkg.in/check.v1"
@@ -34,12 +35,55 @@ func (s *PolicyAPITestSuite) TestCIDRMatchesAll(c *C) {
 }
 
 func (s *PolicyAPITestSuite) TestGetAsEndpointSelectors(c *C) {
-
-	// Special case: the 0.0.0.0/0 CIDR should match reserved:world.
 	world := labels.ParseLabelArray("reserved:world")
+
+	labelWorld := labels.ParseSelectLabel("reserved:world")
+	esWorld := NewESFromLabels(labelWorld)
+
+	labelAllV4 := labels.IPStringToLabel("0.0.0.0/0")
+	v4World := NewESFromLabels(labelAllV4)
+
+	labelAllV6 := labels.IPStringToLabel("::/0")
+	v6World := NewESFromLabels(labelAllV6)
+
+	labelOtherCIDR := labels.IPStringToLabel("192.168.128.0/24")
+	esOtherCIDR := NewESFromLabels(labelOtherCIDR)
+
 	cidrs := CIDRSlice{
 		"0.0.0.0/0",
 	}
+
+	expectedSelectors := EndpointSelectorSlice{
+		esWorld,
+		v4World,
+	}
 	result := cidrs.GetAsEndpointSelectors()
-	c.Assert(result[0].Matches(world), Equals, true)
+	c.Assert(result.Matches(world), Equals, true)
+	c.Assert(result, comparator.DeepEquals, expectedSelectors)
+
+	cidrs = CIDRSlice{
+		"::/0",
+	}
+	expectedSelectors = EndpointSelectorSlice{
+		esWorld,
+		v6World,
+	}
+	result = cidrs.GetAsEndpointSelectors()
+	c.Assert(result.Matches(world), Equals, true)
+	c.Assert(result, comparator.DeepEquals, expectedSelectors)
+
+	cidrs = CIDRSlice{
+		"0.0.0.0/0",
+		"::/0",
+		"192.168.128.10/24",
+	}
+	expectedSelectors = EndpointSelectorSlice{
+		esWorld,
+		v4World,
+		v6World,
+		esOtherCIDR,
+	}
+	result = cidrs.GetAsEndpointSelectors()
+	c.Assert(result.Matches(world), Equals, true)
+	c.Assert(result, comparator.DeepEquals, expectedSelectors)
 }
