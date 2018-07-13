@@ -30,16 +30,12 @@ func registerMap(path string, m *Map) {
 	mutex.Lock()
 	mapRegister[path] = m
 	mutex.Unlock()
-
-	log.WithField("path", path).Debug("Registered BPF map")
 }
 
 func unregisterMap(path string, m *Map) {
 	mutex.Lock()
 	delete(mapRegister, path)
 	mutex.Unlock()
-
-	log.WithField("path", path).Debug("Unregistered BPF map")
 }
 
 // GetMap returns the registered map with the given name or absolute path
