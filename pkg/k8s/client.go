@@ -189,26 +189,21 @@ func AnnotateNode(c kubernetes.Interface, nodeName string, v4CIDR, v6CIDR *net.I
 
 		for n := 1; n <= maxUpdateRetries; n++ {
 			node, err = GetNode(c, nodeName)
-			switch {
-			case err == nil:
+			if err == nil {
 				_, err = updateNodeAnnotation(c, node, v4CIDR, v6CIDR, v4HealthIP, v6HealthIP)
-			case errors.IsNotFound(err):
-				err = ErrNilNode
+			} else {
+				if errors.IsNotFound(err) {
+					err = ErrNilNode
+				}
 			}
 
-			switch {
-			case err == nil:
-				return
-			case errors.IsConflict(err):
+			if err != nil {
 				scopedLog.WithFields(logrus.Fields{
 					fieldRetry:    n,
 					fieldMaxRetry: maxUpdateRetries,
-				}).WithError(err).Debugf("Unable to update node resource with annotation")
-			default:
-				scopedLog.WithFields(logrus.Fields{
-					fieldRetry:    n,
-					fieldMaxRetry: maxUpdateRetries,
-				}).WithError(err).Warn("Unable to update node resource with annotation")
+				}).WithError(err).Error("Unable to update node resource with annotation")
+			} else {
+				break
 			}
 
 			time.Sleep(time.Duration(n) * time.Second)
