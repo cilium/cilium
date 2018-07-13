@@ -31,7 +31,9 @@ var (
 	// BasePath is the path in the Vagrant VMs to which the test directory
 	// is mounted
 	BasePath = "/home/vagrant/go/src/github.com/cilium/cilium/test"
-
+	// CheckLogs newtes a new buffer where all the warnings and checks that
+	// happens during the test are saved. This buffer will be printed in the
+	// test output inside <checks> labels.
 	CheckLogs = ginkgoext.NewWriter(new(bytes.Buffer))
 )
 
@@ -40,7 +42,7 @@ const (
 	//CiliumPath is the path where cilium test code is located.
 	CiliumPath = "/src/github.com/cilium/cilium/test"
 
-	// ManifestBase tells ginkgo suite where to look for manifests
+	// K8sManifestBase tells ginkgo suite where to look for manifests
 	K8sManifestBase = "k8sT/manifests"
 
 	// VM / Test suite constants.

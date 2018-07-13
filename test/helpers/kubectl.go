@@ -180,7 +180,7 @@ func (kub *Kubectl) ExecPodCmd(namespace string, pod string, cmd string, options
 	return kub.Exec(command, options...)
 }
 
-// ExecPodCmd executes command cmd in background in the specified pod residing
+// ExecPodCmdContext executes command cmd in background in the specified pod residing
 // in the specified namespace. It returns a pointer to CmdRes with all the
 // output
 func (kub *Kubectl) ExecPodCmdContext(ctx context.Context, namespace string, pod string, cmd string) *CmdRes {
