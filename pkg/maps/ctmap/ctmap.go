@@ -90,9 +90,10 @@ type CtEntry struct {
 	lifetime   uint32
 	flags      uint16
 	// revnat is in network byte order
-	revnat     uint16
-	unused     uint16
-	src_sec_id uint32
+	revnat        uint16
+	tx_flags_seen uint8
+	rx_flags_seen uint8
+	src_sec_id    uint32
 }
 
 // GetValuePtr returns the unsafe.Pointer for s.
