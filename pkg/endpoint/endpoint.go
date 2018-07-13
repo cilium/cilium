@@ -2274,6 +2274,10 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 	if e.SecurityIdentity != nil &&
 		string(e.SecurityIdentity.Labels.SortedList()) == string(newLabels.SortedList()) {
 
+		// Sets endpoint state to ready if was waiting for identity
+		if e.GetStateLocked() == StateWaitingForIdentity {
+			e.SetStateLocked(StateReady, "Set identity for this endpoint")
+		}
 		e.Mutex.RUnlock()
 		elog.Debug("Endpoint labels unchanged, skipping resolution of identity")
 		return nil
