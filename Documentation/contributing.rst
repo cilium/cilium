@@ -2051,6 +2051,16 @@ update the repository root's Dockerfile so that it points to the new
 ``cilium-builder`` or ``cilium-runtime`` image recently created.
 
 
+Nightly Docker image
+~~~~~~~~~~~~~~~~~~~~
+
+After each successful Nightly build, a `cilium/nightly`_ image is pushed to dockerhub.
+
+To use latest nightly build, please use ``cilium/nightly:latest`` tag.
+Nightly images are stored on dockerhub tagged with following format: ``YYYYMMDD-<job number>``.
+Job number is added to tag for the unlikely event of two consecutive nightly builds being built on the same date.
+
+
 .. _dev_coo:
 
 Developer's Certificate of Origin
@@ -2116,4 +2126,5 @@ Use your real name (sorry, no pseudonyms or anonymous contributions.)
 
    commit-access
 
+.. _cilium/nightly: https://hub.docker.com/r/cilium/nightly/
 .. _Cilium-Nightly-Tests Job: https://jenkins.cilium.io/job/Cilium-Master-Nightly-Tests-All/
