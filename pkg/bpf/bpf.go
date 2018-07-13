@@ -22,7 +22,6 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"syscall"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/logging"
@@ -188,7 +187,8 @@ func LookupElement(fd int, key, value unsafe.Pointer) error {
 	return nil
 }
 
-func deleteElement(fd int, key unsafe.Pointer) (uintptr, syscall.Errno) {
+// DeleteElement deletes the map element with the given key.
+func DeleteElement(fd int, key unsafe.Pointer) error {
 	uba := bpfAttrMapOpElem{
 		mapFd: uint32(fd),
 		key:   uint64(uintptr(key)),
@@ -199,13 +199,6 @@ func deleteElement(fd int, key unsafe.Pointer) (uintptr, syscall.Errno) {
 		uintptr(unsafe.Pointer(&uba)),
 		unsafe.Sizeof(uba),
 	)
-
-	return ret, err
-}
-
-// DeleteElement deletes the map element with the given key.
-func DeleteElement(fd int, key unsafe.Pointer) error {
-	ret, err := deleteElement(fd, key)
 
 	if ret != 0 || err != 0 {
 		return fmt.Errorf("Unable to delete element from map with file descriptor %d: %s", fd, err)
