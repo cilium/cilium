@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2016-2017 Authors of Cilium
+ *  Copyright (C) 2016-2018 Authors of Cilium
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -389,6 +389,12 @@ struct ct_entry {
 	      reserve:11;
 	__u16 rev_nat_index;
 	__u16 slave;
+
+	/* *x_flags_seen represents the OR of all TCP flags seen for the
+	 * transmit/receive direction of this entry. */
+	__u8  tx_flags_seen;
+	__u8  rx_flags_seen;
+
 	__u32 src_sec_id;
 };
 
