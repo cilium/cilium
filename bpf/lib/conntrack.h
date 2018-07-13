@@ -32,6 +32,7 @@
 #define CT_DEFAULT_LIFETIME_NONTCP	60	/* 60 seconds */
 #define CT_DEFAULT_SYN_TIMEOUT		60	/* 60 seconds */
 #define CT_DEFAULT_CLOSE_TIMEOUT	10	/* 10 seconds */
+#define CT_DEFAULT_REPORT_INTERVAL	5	/* 5 seconds */
 
 #ifndef CT_LIFETIME_TCP
 #define CT_LIFETIME_TCP CT_DEFAULT_LIFETIME_TCP
@@ -47,6 +48,14 @@
 
 #ifndef CT_CLOSE_TIMEOUT
 #define CT_CLOSE_TIMEOUT CT_DEFAULT_CLOSE_TIMEOUT
+#endif
+
+/* CT_REPORT_INTERVAL, when MONITOR_AGGREGATION is >= TRACE_AGGREGATE_ACTIVE_CT
+ * determines how frequently monitor notifications should be sent for active
+ * connections. A notification is always triggered on a packet event.
+ */
+#ifndef CT_REPORT_INTERVAL
+#define CT_REPORT_INTERVAL CT_DEFAULT_REPORT_INTERVAL
 #endif
 
 #ifdef CONNTRACK
@@ -76,26 +85,33 @@ union tcp_flags {
 	};
 };
 
-static inline void __inline__ __ct_update_timeout(struct ct_entry *entry,
+static inline bool __inline__ __ct_update_timeout(struct ct_entry *entry,
 						  __u32 lifetime, int dir,
 						  union tcp_flags flags)
 {
 	__u32 now = bpf_ktime_get_sec();
 	__u8 *accumulated_flags;
 	__u8 seen_flags = flags.lower_bits;
+	__u32 *last_report;
 
 #ifdef NEEDS_TIMEOUT
 	entry->lifetime = now + lifetime;
 #endif
 	if (dir == CT_INGRESS) {
 		accumulated_flags = &entry->rx_flags_seen;
+		last_report = &entry->last_rx_report;
 	} else {
 		accumulated_flags = &entry->tx_flags_seen;
+		last_report = &entry->last_tx_report;
 	}
 	seen_flags |= *accumulated_flags;
-	if (*accumulated_flags != seen_flags) {
+	if (*last_report + CT_REPORT_INTERVAL < now ||
+	    *accumulated_flags != seen_flags) {
+		*last_report = now;
 		*accumulated_flags = seen_flags;
+		return true;
 	}
+	return false;
 }
 
 /**
@@ -104,7 +120,7 @@ static inline void __inline__ __ct_update_timeout(struct ct_entry *entry,
  * If CT_REPORT_INTERVAL has elapsed since the last update, updates the
  * last_updated timestamp and returns true. Otherwise returns false.
  */
-static inline void __inline__ ct_update_timeout(struct ct_entry *entry,
+static inline bool __inline__ ct_update_timeout(struct ct_entry *entry,
 						bool tcp, int dir,
 						union tcp_flags seen_flags)
 {
@@ -120,7 +136,7 @@ static inline void __inline__ ct_update_timeout(struct ct_entry *entry,
 			lifetime = CT_SYN_TIMEOUT;
 	}
 
-	__ct_update_timeout(entry, lifetime, dir, seen_flags);
+	return __ct_update_timeout(entry, lifetime, dir, seen_flags);
 }
 
 static inline void __inline__ ct_reset_closing(struct ct_entry *entry)
@@ -140,12 +156,13 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 					 bool is_tcp, union tcp_flags seen_flags)
 {
 	struct ct_entry *entry;
+	bool monitor;
 	int ret;
 
 	if ((entry = map_lookup_elem(map, tuple))) {
 		cilium_dbg(skb, DBG_CT_MATCH, entry->lifetime, entry->rev_nat_index);
 		if (ct_entry_alive(entry)) {
-			ct_update_timeout(entry, is_tcp, dir, seen_flags);
+			monitor = ct_update_timeout(entry, is_tcp, dir, seen_flags);
 		}
 		if (ct_state) {
 			ct_state->rev_nat_index = entry->rev_nat_index;
@@ -173,6 +190,7 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 		switch (action) {
 		case ACTION_CREATE:
 			ret = entry->rx_closing + entry->tx_closing;
+			monitor = true;
 			if (unlikely(ret >= 1)) {
 				ct_reset_closing(entry);
 				ct_update_timeout(entry, is_tcp, dir, seen_flags);
@@ -185,15 +203,18 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 			else
 				entry->tx_closing = 1;
 
+			monitor = true;
 			if (ct_entry_alive(entry))
 				break;
 			__ct_update_timeout(entry, CT_CLOSE_TIMEOUT, dir, seen_flags);
 			break;
 		}
 
+		/* XXX: handle monitor */
 		return CT_ESTABLISHED;
 	}
 
+	/* XXX: handle monitor */
 	return CT_NEW;
 }
 

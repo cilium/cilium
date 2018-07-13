@@ -396,6 +396,11 @@ struct ct_entry {
 	__u8  rx_flags_seen;
 
 	__u32 src_sec_id;
+
+	/* last_*x_report is a timestamp of the last time a monitor
+	 * notification was sent for the transmit/receive direction. */
+	__u32 last_tx_report;
+	__u32 last_rx_report;
 };
 
 struct lb6_key {
