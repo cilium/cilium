@@ -4,8 +4,8 @@ kind: Namespace
 metadata:
   name: prometheus
 
-# The prometheus service, deployment and config
 ---
+# The prometheus service, deployment and config
 apiVersion: v1
 kind: Service
 metadata:
@@ -46,29 +46,29 @@ spec:
     spec:
       serviceAccountName: prometheus-k8s
       containers:
-      - name: prometheus
-        image: docker.io/prom/prometheus:v1.7.0
-        args:
-          - '-storage.local.retention=12h'
-          - '-storage.local.memory-chunks=500000'
-          - '-config.file=/etc/prometheus/prometheus.yaml'
-        ports:
-        - name: webui
-          containerPort: 9090
-        resources:
-          requests:
-            cpu: 500m
-            memory: 500M
-          limits:
-            cpu: 500m
-            memory: 500M
-        volumeMounts:
-        - name: config-volume
-          mountPath: /etc/prometheus
+        - name: prometheus
+          image: docker.io/prom/prometheus:v1.7.0
+          args:
+            - '-storage.local.retention=12h'
+            - '-storage.local.memory-chunks=500000'
+            - '-config.file=/etc/prometheus/prometheus.yaml'
+          ports:
+            - name: webui
+              containerPort: 9090
+          resources:
+            requests:
+              cpu: 500m
+              memory: 500M
+            limits:
+              cpu: 500m
+              memory: 500M
+          volumeMounts:
+            - name: config-volume
+              mountPath: /etc/prometheus
       volumes:
-      - name: config-volume
-        configMap:
-          name: prometheus-core
+        - name: config-volume
+          configMap:
+            name: prometheus-core
 
 ---
 apiVersion: v1
@@ -116,8 +116,8 @@ data:
             action: keep
             regex: 9\d{3}
 
-# Authorization related objects
 ---
+# Authorization related objects
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
@@ -127,9 +127,9 @@ roleRef:
   kind: ClusterRole
   name: prometheus
 subjects:
-- kind: ServiceAccount
-  name: prometheus-k8s
-  namespace: prometheus
+  - kind: ServiceAccount
+    name: prometheus-k8s
+    namespace: prometheus
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
@@ -137,19 +137,19 @@ kind: ClusterRole
 metadata:
   name: prometheus
 rules:
-- apiGroups: [""]
-  resources:
-  - nodes
-  - services
-  - endpoints
-  - pods
-  verbs: ["get", "list", "watch"]
-- apiGroups: [""]
-  resources:
-  - configmaps
-  verbs: ["get"]
-- nonResourceURLs: ["/metrics"]
-  verbs: ["get"]
+  - apiGroups: [""]
+    resources:
+      - nodes
+      - services
+      - endpoints
+      - pods
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources:
+      - configmaps
+    verbs: ["get"]
+  - nonResourceURLs: ["/metrics"]
+    verbs: ["get"]
 
 ---
 apiVersion: v1
@@ -157,9 +157,10 @@ kind: ServiceAccount
 metadata:
   name: prometheus-k8s
   namespace: prometheus
+
 ---
-kind: ConfigMap
 apiVersion: v1
+kind: ConfigMap
 metadata:
   name: cilium-metrics-config
   namespace: kube-system
