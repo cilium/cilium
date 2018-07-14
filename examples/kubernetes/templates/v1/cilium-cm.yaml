@@ -1,3 +1,4 @@
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -9,7 +10,7 @@ data:
   etcd-config: |-
     ---
     endpoints:
-    - http://127.0.0.1:31079
+      - http://127.0.0.1:31079
     #
     # In case you want to use TLS in etcd, uncomment the 'ca-file' line
     # and create a kubernetes secret by following the tutorial in

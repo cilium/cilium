@@ -1,3 +1,4 @@
+---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -10,24 +11,25 @@ spec:
         name: probe
     spec:
       containers:
-      - name: probe-container
-        image: docker.io/cilium/json-mock
-        livenessProbe:
-          exec:
-            command:
-            - curl
-            - -sS
-            - -o
-            - /dev/null
-            - echo.default.svc.cluster.local
-        readinessProbe:
-          exec:
-            command:
-            - curl
-            - -sS
-            - -o
-            - /dev/null
-            - echo.default.svc.cluster.local
+        - name: probe-container
+          image: docker.io/cilium/json-mock
+          livenessProbe:
+            exec:
+              command:
+                - curl
+                - -sS
+                - -o
+                - /dev/null
+                - echo.default.svc.cluster.local
+          readinessProbe:
+            exec:
+              command:
+                - curl
+                - -sS
+                - -o
+                - /dev/null
+                - echo.default.svc.cluster.local
+
 ---
 apiVersion: v1
 kind: Service
@@ -36,9 +38,10 @@ metadata:
 spec:
   type: ClusterIP
   ports:
-  - port: 80
+    - port: 80
   selector:
     name: echo
+
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -52,21 +55,21 @@ spec:
         name: echo
     spec:
       containers:
-      - name: echo-container
-        image: docker.io/cilium/json-mock
-        livenessProbe:
-          exec:
-            command:
-            - curl
-            - -sS
-            - -o
-            - /dev/null
-            - localhost
-        readinessProbe:
-          exec:
-            command:
-            - curl
-            - -sS
-            - -o
-            - /dev/null
-            - localhost
+        - name: echo-container
+          image: docker.io/cilium/json-mock
+          livenessProbe:
+            exec:
+              command:
+                - curl
+                - -sS
+                - -o
+                - /dev/null
+                - localhost
+          readinessProbe:
+            exec:
+              command:
+                - curl
+                - -sS
+                - -o
+                - /dev/null
+                - localhost

@@ -11,7 +11,7 @@
 #   http://127.0.0.1:31079
 #
 ###############################################################################
-
+---
 apiVersion: v1
 kind: Service
 metadata:
@@ -21,15 +21,16 @@ metadata:
     service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
 spec:
   ports:
-  - port: 32379
-    name: client
-    nodePort: 31079
-  - port: 32380
-    name: peer
-    nodePort: 31080
+    - port: 32379
+      name: client
+      nodePort: 31079
+    - port: 32380
+      name: peer
+      nodePort: 31080
   type: NodePort
   selector:
     component: "cilium-etcd"
+
 ---
 apiVersion: apps/v1beta1
 kind: StatefulSet
@@ -54,29 +55,29 @@ spec:
                   - key: "component"
                     operator: In
                     values:
-                    - cilium-etcd
+                      - cilium-etcd
               topologyKey: "kubernetes.io/hostname"
       containers:
-      - name: "etcd"
-        image: "quay.io/coreos/etcd:v3.3.2"
-        env:
-        - name: HOSTNAME_IP
-          valueFrom:
-            fieldRef:
-              fieldPath: status.podIP
-        volumeMounts:
-        - name: local-vol
-          mountPath: /var/etcd
-        command:
-          - "/usr/local/bin/etcd"
-        args:
-          - --name=cilium-etcd-$(HOSTNAME_IP)
-          - --listen-client-urls=http://0.0.0.0:32379
-          - --listen-peer-urls=http://0.0.0.0:32380
-          - --advertise-client-urls=http://$(HOSTNAME_IP):32379
-          - --initial-cluster-token=cilium-etcd-cluster-1
-          - --initial-cluster-state=new
-          - --data-dir=/var/etcd/cilium-etcd/default.etcd
+        - name: "etcd"
+          image: "quay.io/coreos/etcd:v3.3.2"
+          env:
+            - name: HOSTNAME_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+          volumeMounts:
+            - name: local-vol
+              mountPath: /var/etcd
+          command:
+            - "/usr/local/bin/etcd"
+          args:
+            - --name=cilium-etcd-$(HOSTNAME_IP)
+            - --listen-client-urls=http://0.0.0.0:32379
+            - --listen-peer-urls=http://0.0.0.0:32380
+            - --advertise-client-urls=http://$(HOSTNAME_IP):32379
+            - --initial-cluster-token=cilium-etcd-cluster-1
+            - --initial-cluster-state=new
+            - --data-dir=/var/etcd/cilium-etcd/default.etcd
       volumes:
         - name: local-vol
           hostPath:
