@@ -12,7 +12,7 @@ define make_concat
 all: $(1)/$(2)
 $(1)/$(2):
 	@$(ECHO_GEN)$$@
-	-$(QUIET)for f in $$^ ; do cat "$$$${f}"; echo "---" ; done >$$@
+	-$(QUIET)for f in $$^ ; do cat "$$$${f}"; done >$$@
 endef
 
 # make_yaml creates a YAML specific for a K8s version.
