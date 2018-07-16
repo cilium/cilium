@@ -98,6 +98,18 @@ func (c *FakeCiliumEndpoints) Update(ciliumEndpoint *v2.CiliumEndpoint) (result 
 	return obj.(*v2.CiliumEndpoint), err
 }
 
+// UpdateStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+func (c *FakeCiliumEndpoints) UpdateStatus(ciliumEndpoint *v2.CiliumEndpoint) (*v2.CiliumEndpoint, error) {
+	obj, err := c.Fake.
+		Invokes(testing.NewUpdateSubresourceAction(ciliumendpointsResource, "status", c.ns, ciliumEndpoint), &v2.CiliumEndpoint{})
+
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*v2.CiliumEndpoint), err
+}
+
 // Delete takes name of the ciliumEndpoint and deletes it. Returns an error if one occurs.
 func (c *FakeCiliumEndpoints) Delete(name string, options *v1.DeleteOptions) error {
 	_, err := c.Fake.

@@ -184,7 +184,6 @@ type CiliumNetworkPolicyList struct {
 }
 
 // +genclient
-// +genclient:noStatus
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // CiliumEndpoint is the status of a Cilium policy rule
