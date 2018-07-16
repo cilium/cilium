@@ -161,7 +161,7 @@ const (
 	daemonSet   = "DaemonSet"
 
 	MonitorLogFileName = "monitor.log"
-	microscopeManifest = `https://raw.githubusercontent.com/cilium/microscope/master/ci/microscope.yaml`
+	microscopeManifest = "microscope.yaml"
 
 	// IPv4Host is an IP which is used in some datapath tests for simulating external IPv4 connectivity.
 	IPv4Host = "192.168.254.254"

@@ -342,7 +342,8 @@ func (kub *Kubectl) MicroscopeStart() (error, func() error) {
 	var cb = func() error { return nil }
 	cmd := fmt.Sprintf("%[1]s -ti -n %[2]s exec %[3]s -- %[4]s",
 		KubectlCmd, KubeSystemNamespace, microscope, microscopeCmd)
-	_ = kub.Apply(microscopeManifest)
+	microscopePath := ManifestGet(microscopeManifest)
+	_ = kub.Apply(microscopePath)
 
 	err := kub.WaitforPods(
 		KubeSystemNamespace,
@@ -373,7 +374,7 @@ func (kub *Kubectl) MicroscopeStart() (error, func() error) {
 			log.WithError(err).Errorf("cannot create monitor log file")
 			return err
 		}
-		kub.Delete(microscopeManifest)
+		kub.Delete(microscopePath)
 		return nil
 	}
 
