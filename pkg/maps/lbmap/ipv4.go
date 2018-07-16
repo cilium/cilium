@@ -39,7 +39,7 @@ var (
 			}
 
 			return svcKey.ToNetwork(), svcVal.ToNetwork(), nil
-		})
+		}).WithCache()
 	RevNat4Map = bpf.NewMap("cilium_lb4_reverse_nat",
 		bpf.MapTypeHash,
 		int(unsafe.Sizeof(RevNat4Key{})),
@@ -57,7 +57,7 @@ var (
 			revKey := NewRevNat4Key(ukey)
 
 			return revKey.ToNetwork(), revNat.ToNetwork(), nil
-		})
+		}).WithCache()
 	RRSeq4Map = bpf.NewMap("cilium_lb4_rr_seq",
 		bpf.MapTypeHash,
 		int(unsafe.Sizeof(Service4Key{})),
@@ -72,7 +72,7 @@ var (
 			}
 
 			return svcKey.ToNetwork(), &svcVal, nil
-		})
+		}).WithCache()
 )
 
 // Service4Key must match 'struct lb4_key' in "bpf/lib/common.h".
