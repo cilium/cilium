@@ -82,6 +82,12 @@ var (
 	// controller via getCiliumClient and the sync.Once is used to avoid race.
 	ciliumEndpointSyncControllerOnce      sync.Once
 	ciliumEndpointSyncControllerK8sClient clientset.Interface
+
+	// ciliumUpdateStatusVerConstr is the minimal version supported for
+	// to perform a CRD UpdateStatus.
+	ciliumUpdateStatusVerConstr, _ = go_version.NewConstraint(">= 1.11.0")
+
+	k8sServerVer *go_version.Version
 )
 
 // getCiliumClient builds and returns a k8s auto-generated client for cilium
@@ -482,20 +488,21 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 		endpointID     = e.ID
 		controllerName = fmt.Sprintf("sync-to-k8s-ciliumendpoint (%v)", endpointID)
 		scopedLog      = e.getLogger().WithField("controller", controllerName)
+		err            error
 	)
 
 	if !k8s.IsEnabled() {
 		scopedLog.Debug("Not starting controller because k8s is disabled")
 		return
 	}
-	sv, err := k8s.GetServerVersion()
+	k8sServerVer, err = k8s.GetServerVersion()
 	if err != nil {
 		scopedLog.WithError(err).Error("unable to retrieve kubernetes serverversion")
 		return
 	}
-	if !ciliumEPControllerLimit.Check(sv) {
+	if !ciliumEPControllerLimit.Check(k8sServerVer) {
 		scopedLog.WithFields(logrus.Fields{
-			"expected": sv,
+			"expected": k8sServerVer,
 			"found":    ciliumEPControllerLimit,
 		}).Warn("cannot run with this k8s version")
 		return
@@ -583,10 +590,16 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 				case err == nil:
 					// Update the copy of the cep
 					k8sMdl.DeepCopyInto(&cep.Status)
-
-					if _, err = ciliumClient.CiliumEndpoints(namespace).Update(cep); err != nil {
-						scopedLog.WithError(err).Error("Cannot update CEP")
-						return err
+					var err2 error
+					switch {
+					case ciliumUpdateStatusVerConstr.Check(k8sServerVer):
+						_, err2 = ciliumClient.CiliumEndpoints(namespace).UpdateStatus(cep)
+					default:
+						_, err2 = ciliumClient.CiliumEndpoints(namespace).Update(cep)
+					}
+					if err2 != nil {
+						scopedLog.WithError(err2).Error("Cannot update CEP")
+						return err2
 					}
 
 					lastMdl = mdl
