@@ -10,14 +10,16 @@ namespace Cilium {
 
 class SocketMarkOption : public Network::Socket::Option, public Logger::Loggable<Logger::Id::filter> {
 public:
-  SocketMarkOption(uint16_t identity, bool ingress) : identity_(identity), ingress_(ingress) {}
+  SocketMarkOption(uint32_t identity, bool ingress) : identity_(identity), ingress_(ingress) {}
 
   bool setOption(Network::Socket& socket, Network::Socket::SocketState state) const override {
     // Only set the option once per socket
     if (state != Network::Socket::SocketState::PreBind) {
       return true;
     }
-    uint32_t mark = ((ingress_) ? 0xFEA : 0xFEB) | (identity_ << 16);
+    uint32_t cluster_id = (identity_ >> 16) & 0xFF;
+    uint32_t identity_id = (identity_ & 0xFFFF) << 16;
+    uint32_t mark = ((ingress_) ? 0xA00 : 0xB00) | cluster_id | identity_id;
     int rc = setsockopt(socket.fd(), SOL_SOCKET, SO_MARK, &mark, sizeof(mark));
     if (rc < 0) {
       if (errno == EPERM) {
@@ -36,6 +38,7 @@ public:
   void hashKey(std::vector<uint8_t>& key) const override {
     // Add the source identity to the hash key. This will separate upstream connection pools
     // per security ID.
+    key.emplace_back(uint8_t(identity_ >> 16));
     key.emplace_back(uint8_t(identity_ >> 8));
     key.emplace_back(uint8_t(identity_));
   }

@@ -160,7 +160,7 @@ struct endpoint_key {
 /* Value of endpoint map */
 struct endpoint_info {
 	__u32		ifindex;
-	__u16		sec_label;
+	__u16		unused; /* used to be sec_label, no longer used */
 	__u16           lxc_id;
 	__u32		flags;
 	mac_t		mac;
@@ -169,8 +169,7 @@ struct endpoint_info {
 };
 
 struct remote_endpoint_info {
-	__u16		sec_label;
-	__u16		pad;
+	__u32		sec_label;
 	__u32		tunnel_endpoint;
 };
 
@@ -276,27 +275,25 @@ enum {
 
 /* Magic skb->mark markers which identify packets originating from the host
  *
- * The upper 16 bits contain the magic marker values which indicate whether
- * the packet is coming from an ingress or egress proxy, or a local process.
+ * The upper 16 bits contain
+ *  - the magic marker values which indicate whether the packet is coming from
+ *    an ingress or egress proxy, or a local process.
+ *  - the cluster id
  *
  * The lower 16 bits may contain the security identity of the original source
  * endpoint.
  */
-#define MARK_MAGIC_HOST_MASK		0xFFF
-#define MARK_MAGIC_PROXY_INGRESS	0xFEA
-#define MARK_MAGIC_PROXY_EGRESS		0xFEB
-#define MARK_MAGIC_HOST			0xFEC
-#define MARK_IDENTITY_MASK		(0xFFFF << 16)
-
-#define SOURCE_INGRESS_PROXY 1
-#define SOURCE_EGRESS_PROXY 2
+#define MARK_MAGIC_HOST_MASK		0xF00
+#define MARK_MAGIC_PROXY_INGRESS	0xA00
+#define MARK_MAGIC_PROXY_EGRESS		0xB00
+#define MARK_MAGIC_HOST			0xC00
 
 /**
  * get_identity_via_proxy - returns source identity as specified by the proxy
  */
 static inline int __inline__ get_identity_via_proxy(struct __sk_buff *skb)
 {
-	return skb->mark >> 16;
+	return ((skb->mark & 0xFF) << 16) | skb->mark >> 16;
 }
 
 /*
