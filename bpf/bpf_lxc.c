@@ -309,25 +309,15 @@ skip_service_lookup:
 	}
 #endif
 
-	if (dstID == CLUSTER_ID) {
-		/* Packet is going to peer inside the cluster prefix. This can
-		 * happen if encapsulation has been disabled and all remote
-		 * peer packets are routed or the destination is part of a
-		 * local prefix on another local network (e.g. local bridge).
-		 *
-		 * FIXME GH-1392: Differentiate between local / remote prefixes
-		 */
-		policy_mark_skip(skb);
-		goto pass_to_stack;
-	} else {
 #ifdef LXC_NAT46
+	if (dstID != CLUSTER_ID) {
 		if (unlikely(ipv6_addr_is_mapped(daddr))) {
 			ep_tail_call(skb, CILIUM_CALL_NAT64);
 			return DROP_MISSED_TAIL_CALL;
                 }
-#endif
-		goto pass_to_stack;
 	}
+#endif
+	goto pass_to_stack;
 
 to_host:
 	if (1) {
@@ -347,7 +337,7 @@ to_host:
 	}
 
 pass_to_stack:
-	cilium_dbg(skb, DBG_TO_STACK, is_policy_skip(skb), 0);
+	cilium_dbg(skb, DBG_TO_STACK, 0, 0);
 
 	ret = ipv6_l3(skb, l3_off, NULL, (__u8 *) &router_mac.addr, METRIC_EGRESS);
 	if (unlikely(ret != TC_ACT_OK))
@@ -613,16 +603,6 @@ skip_service_lookup:
 			return ret;
 	}
 #endif
-	if (dstID == CLUSTER_ID) {
-		/* Packet is going to peer inside the cluster prefix. This can
-		 * happen if encapsulation has been disabled and all remote
-		 * peer packets are routed or the destination is part of a
-		 * local prefix on another local network (e.g. local bridge).
-		 *
-		 * FIXME GH-1392: Differentiate between local / remote prefixes
-		 */
-		policy_mark_skip(skb);
-	}
 	goto pass_to_stack;
 
 to_host:
@@ -643,7 +623,7 @@ to_host:
 	}
 
 pass_to_stack:
-	cilium_dbg(skb, DBG_TO_STACK, is_policy_skip(skb), 0);
+	cilium_dbg(skb, DBG_TO_STACK, 0, 0);
 
 	ret = ipv4_l3(skb, l3_off, NULL, (__u8 *) &router_mac.addr, ip4);
 	if (unlikely(ret != TC_ACT_OK))
