@@ -868,7 +868,7 @@ func (d *Daemon) OnIPIdentityCacheChange(modType ipcache.CacheModification, oldI
 	switch modType {
 	case ipcache.Upsert:
 		value := ipCacheBPF.RemoteEndpointInfo{
-			SecurityIdentity: uint16(newIPIDPair.ID),
+			SecurityIdentity: uint32(newIPIDPair.ID),
 		}
 
 		if newIPIDPair.HostIP != nil {

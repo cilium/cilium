@@ -84,7 +84,7 @@ static inline int ipv6_local_delivery(struct __sk_buff *skb, int l3_off, int l4_
 	if (ret != TC_ACT_OK)
 		return ret;
 
-	cilium_dbg(skb, DBG_LXC_FOUND, ep->ifindex, ep->sec_label);
+	cilium_dbg(skb, DBG_LXC_FOUND, ep->ifindex, 0);
 	skb->cb[CB_SRC_LABEL] = seclabel;
 	skb->cb[CB_IFINDEX] = ep->ifindex;
 
@@ -115,7 +115,7 @@ static inline int __inline__ ipv4_local_delivery(struct __sk_buff *skb, int l3_o
 	if (ret != TC_ACT_OK)
 		return ret;
 
-	cilium_dbg(skb, DBG_LXC_FOUND, ep->ifindex, ep->sec_label);
+	cilium_dbg(skb, DBG_LXC_FOUND, ep->ifindex, 0);
 	skb->cb[CB_SRC_LABEL] = seclabel;
 	skb->cb[CB_IFINDEX] = ep->ifindex;
 

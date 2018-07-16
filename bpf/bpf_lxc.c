@@ -94,7 +94,7 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	struct ct_state ct_state = {};
 	void *data, *data_end;
 	union v6addr *daddr, orig_dip;
-	uint16_t dstID = WORLD_ID;
+	uint32_t dstID = WORLD_ID;
 	__u32 tunnel_endpoint = 0;
 
 	if (unlikely(!is_valid_lxc_src_mac(eth)))
@@ -420,7 +420,7 @@ static inline int handle_ipv4_from_lxc(struct __sk_buff *skb)
 	struct ct_state ct_state_new = {};
 	struct ct_state ct_state = {};
 	__be32 orig_dip;
-	uint16_t dstID = WORLD_ID;
+	uint32_t dstID = WORLD_ID;
 	__u32 tunnel_endpoint = 0;
 
 	if (!revalidate_data(skb, &data, &data_end, &ip4))

@@ -146,13 +146,13 @@ function setup_proxy_rules()
 	if [ -n "$(ip -4 rule list)" ]; then
 		ip -4 route flush table $PROXY_RT_TABLE
 		# Any packet from a proxy uses a separate routing table
-		ip -4 rule add fwmark 0xFEA/0xFFF pref 10 lookup $PROXY_RT_TABLE
+		ip -4 rule add fwmark 0xA00/0xF00 pref 10 lookup $PROXY_RT_TABLE
 	fi
 
 	if [ -n "$(ip -6 rule list)" ]; then
 		ip -6 route flush table $PROXY_RT_TABLE
 		# Any packet from a proxy uses a separate routing table
-		ip -6 rule add fwmark 0xFEA/0xFFF pref 10 lookup $PROXY_RT_TABLE
+		ip -6 rule add fwmark 0xA00/0xF00 pref 10 lookup $PROXY_RT_TABLE
 	fi
 
 	if [ -n "$IP4_HOST" ]; then
