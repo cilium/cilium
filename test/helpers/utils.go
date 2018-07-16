@@ -384,32 +384,3 @@ func ManifestGet(manifestFilename string) string {
 	}
 	return filepath.Join(BasePath, "k8sT", "manifests", manifestFilename)
 }
-
-// WriteOrAppendToFile writes data to a file named by filename.
-// If the file does not exist, WriteFile creates it with permissions perm;
-// otherwise WriteFile appends the data to the file
-func WriteOrAppendToFile(filename string, data []byte, perm os.FileMode) error {
-	f, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, perm)
-	if err != nil {
-		return err
-	}
-	n, err := f.Write(data)
-	if err == nil && n < len(data) {
-		err = io.ErrShortWrite
-	}
-	if err1 := f.Close(); err == nil {
-		err = err1
-	}
-	return err
-}
-
-// DNSDeployment returns the manifest to install dns engine on the server.
-func DNSDeployment() string {
-	var DNSEngine = "kubedns"
-	k8sVersion := GetCurrentK8SEnv()
-	switch k8sVersion {
-	case "1.11", "1.12":
-		DNSEngine = "coredns"
-	}
-	return GetFilePath("provision/manifest/" + DNSEngine + "_deployment.yaml")
-}

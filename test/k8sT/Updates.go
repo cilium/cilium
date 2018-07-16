@@ -19,8 +19,6 @@ var _ = Describe("K8sValidatedUpdates", func() {
 	var l3Policy, l7Policy string
 	var apps []string
 	var app1Service string = "app1-service.default.svc.cluster.local"
-	var microscopeErr error
-	var microscopeCancel func() error
 
 	BeforeAll(func() {
 		logger = log.WithFields(logrus.Fields{"testName": "K8sValidatedUpdates"})
@@ -28,12 +26,8 @@ var _ = Describe("K8sValidatedUpdates", func() {
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
-		_ = kubectl.Delete(helpers.DNSDeployment())
-
-		// Delete kube-dns because if not will be a restore the old endpoints
-		// from master instead of create the new ones.
 		_ = kubectl.DeleteResource(
-			"deploy", fmt.Sprintf("-n %s kube-dns", helpers.KubeSystemNamespace))
+			"ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
 
 		apps = []string{helpers.App1, helpers.App2, helpers.App3}
 
@@ -47,15 +41,6 @@ var _ = Describe("K8sValidatedUpdates", func() {
 			"%s delete --all pods,svc,cnp -n %s", helpers.KubectlCmd, helpers.DefaultNamespace))
 
 		ExpectAllPodsTerminated(kubectl)
-	})
-
-	JustBeforeEach(func() {
-		microscopeErr, microscopeCancel = kubectl.MicroscopeStart()
-		Expect(microscopeErr).To(BeNil(), "Microscope cannot be started")
-	})
-
-	AfterAll(func() {
-		_ = kubectl.Apply(helpers.DNSDeployment())
 	})
 
 	AfterFailed(func() {
@@ -85,9 +70,7 @@ var _ = Describe("K8sValidatedUpdates", func() {
 		kubectl.DeleteResource("ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
 		helpers.InstallExampleCilium(kubectl)
 
-		err := kubectl.CiliumEndpointWaitReady()
-		Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
-
+		ExpectKubeDNSReady(kubectl)
 	})
 
 	validatedImage := func(image string) {
@@ -104,16 +87,12 @@ var _ = Describe("K8sValidatedUpdates", func() {
 	}
 
 	It("Updating Cilium stable to master", func() {
-		By("Installing kube-dns")
-		kubectl.Apply(helpers.DNSDeployment()).ExpectSuccess("Kube-dns cannot be installed")
 
 		By("Creating some endpoints and L7 policy")
 		kubectl.Apply(demoPath).ExpectSuccess()
 
 		err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", timeout)
 		Expect(err).Should(BeNil())
-
-		ExpectKubeDNSReady(kubectl)
 
 		_, err = kubectl.CiliumPolicyAction(
 			helpers.KubeSystemNamespace, l7Policy, helpers.KubectlApply, timeout)
