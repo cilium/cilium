@@ -34,6 +34,8 @@ import (
 	ginkgoconfig "github.com/onsi/ginkgo/config"
 	"github.com/onsi/ginkgo/reporters"
 	. "github.com/onsi/gomega"
+
+	"github.com/onsi/gomega/format"
 	"github.com/sirupsen/logrus"
 )
 
@@ -62,6 +64,8 @@ func init() {
 	config.CiliumTestConfig.ParseFlags()
 
 	os.RemoveAll(helpers.TestResultsPath)
+
+	format.UseStringerRepresentation = true
 }
 
 func configLogsOutput() {
