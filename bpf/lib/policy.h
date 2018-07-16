@@ -196,7 +196,7 @@ policy_can_access_ingress(struct __sk_buff *skb, __u32 *src_label,
 #if defined POLICY_EGRESS && defined LXC_ID
 
 static inline int __inline__
-policy_can_egress(struct __sk_buff *skb, __u16 identity, __u16 dport, __u8 proto)
+policy_can_egress(struct __sk_buff *skb, __u32 identity, __u16 dport, __u8 proto)
 {
 #ifdef DROP_ALL
 	return DROP_POLICY;
@@ -216,7 +216,7 @@ policy_can_egress(struct __sk_buff *skb, __u16 identity, __u16 dport, __u8 proto
 
 static inline int policy_can_egress6(struct __sk_buff *skb,
 				     struct ipv6_ct_tuple *tuple,
-				     __u16 identity, union v6addr *daddr)
+				     __u32 identity, union v6addr *daddr)
 {
 #ifdef DROP_ALL
 	return DROP_POLICY;
@@ -227,7 +227,7 @@ static inline int policy_can_egress6(struct __sk_buff *skb,
 
 static inline int policy_can_egress4(struct __sk_buff *skb,
 				     struct ipv4_ct_tuple *tuple,
-				     __u16 identity, __be32 daddr)
+				     __u32 identity, __be32 daddr)
 {
 #ifdef DROP_ALL
 	return DROP_POLICY;
@@ -240,7 +240,7 @@ static inline int policy_can_egress4(struct __sk_buff *skb,
 
 static inline int
 policy_can_egress6(struct __sk_buff *skb, struct ipv6_ct_tuple *tuple,
-		   __u16 identity, union v6addr *daddr)
+		   __u32 identity, union v6addr *daddr)
 {
 #ifdef DROP_ALL
 	return DROP_POLICY;
@@ -251,7 +251,7 @@ policy_can_egress6(struct __sk_buff *skb, struct ipv6_ct_tuple *tuple,
 
 static inline int
 policy_can_egress4(struct __sk_buff *skb, struct ipv4_ct_tuple *tuple,
-		   __u16 identity, __be32 daddr)
+		   __u32 identity, __be32 daddr)
 {
 #ifdef DROP_ALL
 	return DROP_POLICY;
