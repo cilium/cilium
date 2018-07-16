@@ -54,7 +54,7 @@ var (
 			}
 
 			return &k, &v, nil
-		})
+		}).WithCache()
 )
 
 func init() {

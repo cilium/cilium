@@ -24,6 +24,7 @@ import (
 	"sync"
 	"unsafe"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/lock"
@@ -114,6 +115,42 @@ type MapInfo struct {
 	OwnerProgType ProgType
 }
 
+// DesiredAction is the action to be performed on the BPF map
+type DesiredAction int
+
+const (
+	// OK indicates that to further action is required and the entry is in
+	// sync
+	OK DesiredAction = iota
+
+	// Insert indicates that the entry needs to be created or updated
+	Insert
+
+	// Delete indicates that the entry needs to be deleted
+	Delete
+)
+
+func (d DesiredAction) String() string {
+	switch d {
+	case OK:
+		return "sync"
+	case Insert:
+		return "to-be-inserted"
+	case Delete:
+		return "to-be-deleted"
+	default:
+		return "unknown"
+	}
+}
+
+type cacheEntry struct {
+	Key   MapKey
+	Value MapValue
+
+	DesiredAction DesiredAction
+	LastError     error
+}
+
 type Map struct {
 	MapInfo
 	fd   int
@@ -131,6 +168,8 @@ type Map struct {
 
 	// DumpParser is a function for parsing keys and values from BPF maps
 	dumpParser DumpParser
+
+	cache map[string]*cacheEntry
 }
 
 // NewMap creates a new Map instance - object representing a BPF map
@@ -153,6 +192,14 @@ func NewMap(name string, mapType MapType, keySize int, valueSize int, maxEntries
 // WithNonPersistent turns the map non-persistent and returns the map
 func (m *Map) WithNonPersistent() *Map {
 	m.NonPersistent = true
+	return m
+}
+
+// WithCache enables use of a cache. This will store all entries inserted from
+// user space in a local cache (map) and will indicate the status of each
+// individual entry.
+func (m *Map) WithCache() *Map {
+	m.cache = map[string]*cacheEntry{}
 	return m
 }
 
@@ -233,12 +280,16 @@ func OpenMap(name string) (*Map, error) {
 		return nil, fmt.Errorf("Unable to determine map key size")
 	}
 
-	return &Map{
+	m := &Map{
 		MapInfo: *info,
 		fd:      fd,
 		name:    path.Base(name),
 		path:    name,
-	}, nil
+	}
+
+	registerMap(name, m)
+
+	return m, nil
 }
 
 func (m *Map) setPathIfUnset() error {
@@ -286,6 +337,8 @@ retry:
 		return false, err
 	}
 
+	registerMap(m.path, m)
+
 	m.fd = fd
 	return isNew, nil
 }
@@ -307,6 +360,8 @@ func (m *Map) Open() error {
 		return err
 	}
 
+	registerMap(m.path, m)
+
 	m.fd = fd
 	return nil
 }
@@ -319,6 +374,8 @@ func (m *Map) Close() error {
 		unix.Close(m.fd)
 		m.fd = 0
 	}
+
+	unregisterMap(m.path, m)
 
 	return nil
 }
@@ -439,25 +496,79 @@ func (m *Map) Lookup(key MapKey) (MapValue, error) {
 }
 
 func (m *Map) Update(key MapKey, value MapValue) error {
+	var err error
+
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	if err := m.Open(); err != nil {
+	defer func() {
+		if m.cache == nil {
+			return
+		}
+
+		desiredAction := OK
+		if err != nil {
+			desiredAction = Insert
+		}
+
+		m.cache[key.String()] = &cacheEntry{
+			Key:           key,
+			Value:         value,
+			DesiredAction: desiredAction,
+			LastError:     err,
+		}
+	}()
+
+	if err = m.Open(); err != nil {
 		return err
 	}
 
-	return UpdateElement(m.fd, key.GetKeyPtr(), value.GetValuePtr(), 0)
+	err = UpdateElement(m.fd, key.GetKeyPtr(), value.GetValuePtr(), 0)
+	return err
+}
+
+// deleteCacheEntry evaluates the specified error, if nil the map key is
+// removed from the cache to indicate successful deletion. If non-nil, the map
+// key entry in the cache is updated to indicate deletion failure with the
+// specified error.
+//
+// Caller must hold m.lock for writing
+func (m *Map) deleteCacheEntry(key MapKey, err error) {
+	if m.cache == nil {
+		return
+	}
+
+	k := key.String()
+	if err == nil {
+		delete(m.cache, k)
+	} else {
+		entry, ok := m.cache[k]
+		if !ok {
+			m.cache[k] = &cacheEntry{
+				Key: key,
+			}
+			entry = m.cache[k]
+		}
+
+		entry.DesiredAction = Delete
+		entry.LastError = err
+	}
 }
 
 func (m *Map) Delete(key MapKey) error {
+	var err error
+
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	if err := m.Open(); err != nil {
+	defer m.deleteCacheEntry(key, err)
+
+	if err = m.Open(); err != nil {
 		return err
 	}
 
-	return DeleteElement(m.fd, key.GetKeyPtr())
+	err = DeleteElement(m.fd, key.GetKeyPtr())
+	return err
 }
 
 // DeleteAll deletes all entries of a map by traversing the map and deleting individual
@@ -472,6 +583,15 @@ func (m *Map) DeleteAll() error {
 
 	key := make([]byte, m.KeySize)
 	nextKey := make([]byte, m.KeySize)
+
+	if m.cache != nil {
+		// Mark all entries for deletion, upon successful deletion,
+		// entries will be removed or the LastError will be updated
+		for _, entry := range m.cache {
+			entry.DesiredAction = Delete
+			entry.LastError = fmt.Errorf("deletion pending")
+		}
+	}
 
 	if err := m.Open(); err != nil {
 		return err
@@ -489,6 +609,14 @@ func (m *Map) DeleteAll() error {
 		}
 
 		err = DeleteElement(m.fd, unsafe.Pointer(&nextKey[0]))
+
+		k, _, err2 := m.dumpParser(nextKey, []byte{})
+		if err2 == nil {
+			m.deleteCacheEntry(k, err)
+		} else {
+			log.WithError(err2).Warning("Unable to correlate iteration key %v with cache entry. Inconsistent cache.", nextKey)
+		}
+
 		if err != nil {
 			return err
 		}
@@ -513,12 +641,16 @@ func ConvertKeyValue(bKey []byte, bValue []byte, key interface{}, value interfac
 	keyBuf := bytes.NewBuffer(bKey)
 	valueBuf := bytes.NewBuffer(bValue)
 
-	if err := binary.Read(keyBuf, byteorder.Native, key); err != nil {
-		return fmt.Errorf("Unable to convert key: %s", err)
+	if len(bKey) > 0 {
+		if err := binary.Read(keyBuf, byteorder.Native, key); err != nil {
+			return fmt.Errorf("Unable to convert key: %s", err)
+		}
 	}
 
-	if err := binary.Read(valueBuf, byteorder.Native, value); err != nil {
-		return fmt.Errorf("Unable to convert value: %s", err)
+	if len(bValue) > 0 {
+		if err := binary.Read(valueBuf, byteorder.Native, value); err != nil {
+			return fmt.Errorf("Unable to convert value: %s", err)
+		}
 	}
 
 	return nil
@@ -542,4 +674,37 @@ func (m *Map) MetadataDiff(other *Map) bool {
 	logging.MultiLine(log.Debug, comparator.Compare(m1, m2))
 
 	return m1.DeepEquals(&m2)
+}
+
+// GetModel returns a BPF map in the representation served via the API
+func (m *Map) GetModel() *models.BPFMap {
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+
+	mapModel := &models.BPFMap{
+		Path: m.path,
+	}
+
+	if m.cache != nil {
+		mapModel.Cache = make([]*models.BPFMapEntry, len(m.cache))
+		i := 0
+		for k, entry := range m.cache {
+			model := &models.BPFMapEntry{
+				Key:           k,
+				DesiredAction: entry.DesiredAction.String(),
+			}
+
+			if entry.LastError != nil {
+				model.LastError = entry.LastError.Error()
+			}
+
+			if entry.Value != nil {
+				model.Value = entry.Value.String()
+			}
+			mapModel.Cache[i] = model
+			i++
+		}
+	}
+
+	return mapModel
 }

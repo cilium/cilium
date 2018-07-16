@@ -906,6 +906,10 @@ func runDaemon() {
 	// /debuginfo
 	api.DaemonGetDebuginfoHandler = NewGetDebugInfoHandler(d)
 
+	// /map
+	api.DaemonGetMapHandler = NewGetMapHandler(d)
+	api.DaemonGetMapNameHandler = NewGetMapNameHandler(d)
+
 	server := server.NewServer(api)
 	server.EnabledListeners = []string{"unix"}
 	server.SocketPath = flags.Filename(socketPath)
