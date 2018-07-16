@@ -20,6 +20,7 @@ echo "Installing kubernetes"
 
 mkdir -p $HOME/go/src/github.com/kubernetes/
 cd $HOME/go/src/github.com/kubernetes/
+test -d kubernetes && rm -rfv kubernetes
 git clone https://github.com/kubernetes/kubernetes.git -b ${KUBERNETES_VERSION} --depth 1
 cd kubernetes
 make ginkgo
