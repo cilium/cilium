@@ -841,12 +841,11 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 	}
 
 	if status := kub.Action(action, filepath); !status.WasSuccessful() {
-		return "", fmt.Errorf("cannot perform %q on resource %q", action, filepath)
+		return "", fmt.Errorf("cannot perform %q on resource %q: %s", action, filepath, status.OutputPrettyPrint())
 	}
-
 	body := func() bool {
-		waitingRev := map[string]int{}
 
+		waitingRev := map[string]int{}
 		valid := true
 		for _, v := range pods {
 			revi, err := kub.CiliumPolicyRevision(v)
@@ -881,7 +880,26 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 		"cannot change state of resource correctly; command timed out",
 		&TimeoutConfig{Timeout: timeout})
 	if err != nil {
-		return "", err
+		callback := func() string {
+			result := new(bytes.Buffer)
+			fmt.Fprintln(result, "Policy version when cilium start")
+
+			for _, v := range pods {
+				revi, err := kub.CiliumPolicyRevision(v)
+				if err != nil {
+					fmt.Fprintf(result, "Cilium-agent %q is not responding\n", v)
+				}
+
+				fmt.Fprintf(result,
+					"Cilium-agent %q started with policy revision '%d' and finished with '%d' \n",
+					v, revisions[v], revi)
+				if revi <= revisions[v] {
+					fmt.Fprintf(result, "Cilium-agent %q restarted during policy import\n", v)
+				}
+			}
+			return result.String()
+		}
+		return "", NewSSHMetaError(err.Error(), callback)
 	}
 	return "", nil
 }
