@@ -313,7 +313,7 @@ func (e *Endpoint) computeDesiredL3PolicyMapEntries(owner Owner, identityCache *
 		egressCtx.To = labels
 
 		var ingressAccess api.Decision
-		if e.Opts.IsEnabled(option.IngressPolicy) {
+		if e.Options.IsEnabled(option.IngressPolicy) {
 			ingressAccess = repo.AllowsIngressLabelAccess(&ingressCtx)
 		} else {
 			// If policy enforcement is disabled, set the policy to an
@@ -332,7 +332,7 @@ func (e *Endpoint) computeDesiredL3PolicyMapEntries(owner Owner, identityCache *
 		}
 
 		var egressAccess api.Decision
-		if e.Opts.IsEnabled(option.EgressPolicy) {
+		if e.Options.IsEnabled(option.EgressPolicy) {
 			egressAccess = repo.AllowsEgressLabelAccess(&egressCtx)
 		} else {
 			// If policy enforcement is disabled, set the policy to an
@@ -381,8 +381,8 @@ func (e *Endpoint) regenerateL3Policy(repo *policy.Repository, revision uint64) 
 // enforcement mode or if the global policy enforcement is enabled.
 func (e *Endpoint) IngressOrEgressIsEnforced() bool {
 	return policy.GetPolicyEnabled() == option.AlwaysEnforce ||
-		e.Opts.IsEnabled(option.IngressPolicy) ||
-		e.Opts.IsEnabled(option.EgressPolicy)
+		e.Options.IsEnabled(option.IngressPolicy) ||
+		e.Options.IsEnabled(option.EgressPolicy)
 }
 
 func (e *Endpoint) updateNetworkPolicy(owner Owner, proxyWaitGroup *completion.WaitGroup) error {

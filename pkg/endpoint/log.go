@@ -53,7 +53,7 @@ func (e *Endpoint) updateLogger() {
 		e.logger.Data[logfields.IPv4] != e.IPv4.String() ||
 		e.logger.Data[logfields.IPv6] != e.IPv6.String() ||
 		e.logger.Data[logfields.K8sPodName] != podName ||
-		e.Opts.IsEnabled("Debug") != (e.logger.Level == logrus.DebugLevel)
+		e.Options.IsEnabled("Debug") != (e.logger.Level == logrus.DebugLevel)
 
 	// do nothing if we do not need an update
 	if !shouldUpdate {
@@ -65,7 +65,7 @@ func (e *Endpoint) updateLogger() {
 
 	// If this endpoint is set to debug ensure it will print debug by giving it
 	// an independent logger
-	if e.Opts != nil && e.Opts.IsEnabled("Debug") {
+	if e.Options != nil && e.Options.IsEnabled("Debug") {
 		baseLogger = logging.InitializeDefaultLogger()
 		baseLogger.SetLevel(logrus.DebugLevel)
 	}

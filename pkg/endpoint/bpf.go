@@ -148,7 +148,7 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	}
 	fmt.Fprintf(fw, "#define POLICY_MAP %s\n", path.Base(e.PolicyMapPathLocked()))
 	fmt.Fprintf(fw, "#define CALLS_MAP %s\n", path.Base(e.CallsMapPathLocked()))
-	if e.Opts.IsEnabled(option.ConntrackLocal) {
+	if e.Options.IsEnabled(option.ConntrackLocal) {
 		fmt.Fprintf(fw, "#define CT_MAP_SIZE %s\n", strconv.Itoa(ctmap.MapNumEntriesLocal))
 		fmt.Fprintf(fw, "#define CT_MAP6 %s\n", ctmap.MapName6+strconv.Itoa(int(e.ID)))
 		fmt.Fprintf(fw, "#define CT_MAP4 %s\n", ctmap.MapName4+strconv.Itoa(int(e.ID)))
@@ -163,7 +163,7 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	fw.WriteString("#define LB_L4\n")
 
 	// Endpoint options
-	fw.WriteString(e.Opts.GetFmtList())
+	fw.WriteString(e.Options.GetFmtList())
 
 	if e.DesiredL4Policy != nil {
 		fmt.Fprintf(fw, "#define HAVE_L4_POLICY\n")
