@@ -35,12 +35,12 @@ func (s *OptionSuite) TestGetFmtOpts(c *C) {
 		Description: "This is a test",
 	}
 
-	o := BoolOptions{
+	o := IntOptions{
 		Opts: OptionMap{
-			"test": true,
-			"BAR":  false,
-			"foo":  true,
-			"bar":  false,
+			"test": OptionEnabled,
+			"BAR":  OptionDisabled,
+			"foo":  OptionEnabled,
+			"bar":  OptionDisabled,
 		},
 		Library: &OptionLibrary{
 			"test": &OptionTest,
@@ -53,12 +53,12 @@ func (s *OptionSuite) TestGetFmtOpts(c *C) {
 	// Both strings should be equal because the formatted options should be sorted.
 	c.Assert(fmtList, Equals, fmtList2)
 
-	o2 := BoolOptions{
+	o2 := IntOptions{
 		Opts: OptionMap{
-			"foo":  true,
-			"BAR":  false,
-			"bar":  false,
-			"test": true,
+			"foo":  OptionEnabled,
+			"BAR":  OptionDisabled,
+			"bar":  OptionDisabled,
+			"test": OptionEnabled,
 		},
 		Library: &OptionLibrary{
 			"test": &OptionTest,
@@ -78,18 +78,21 @@ func (s *OptionSuite) TestGetFmtOpt(c *C) {
 		Description: "This is a test",
 	}
 
-	o := BoolOptions{
+	o := IntOptions{
 		Opts: OptionMap{
-			"test": true,
-			"BAR":  false,
+			"test":  OptionEnabled,
+			"BAR":   OptionDisabled,
+			"alice": 2,
 		},
 		Library: &OptionLibrary{
-			"test": &OptionTest,
+			"test":  &OptionTest,
+			"alice": &OptionTest,
 		},
 	}
 	o.optsMU.Lock()
-	c.Assert(o.getFmtOpt("test"), Equals, "#define TEST_DEFINE")
+	c.Assert(o.getFmtOpt("test"), Equals, "#define TEST_DEFINE 1")
 	c.Assert(o.getFmtOpt("BAR"), Equals, "#undef BAR")
 	c.Assert(o.getFmtOpt("BAZ"), Equals, "#undef BAZ")
+	c.Assert(o.getFmtOpt("alice"), Equals, "#define TEST_DEFINE 2")
 	o.optsMU.Unlock()
 }

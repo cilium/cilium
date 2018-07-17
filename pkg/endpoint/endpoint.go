@@ -368,8 +368,8 @@ type Endpoint struct {
 	// CIDRPolicy is the CIDR based policy configuration of the endpoint.
 	L3Policy *policy.CIDRPolicy `json:"-"`
 
-	// Options are configurable boolean options
-	Options *option.BoolOptions
+	// Options determine the datapath configuration of the endpoint.
+	Options *option.IntOptions
 
 	// Status are the last n state transitions this endpoint went through
 	Status *EndpointStatus
@@ -625,7 +625,7 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 func NewEndpointWithState(ID uint16, state string) *Endpoint {
 	return &Endpoint{
 		ID:      ID,
-		Options: option.NewBoolOptions(&EndpointMutableOptionLibrary),
+		Options: option.NewIntOptions(&EndpointMutableOptionLibrary),
 		Status:  NewEndpointStatus(),
 		state:   state,
 	}
@@ -1237,13 +1237,13 @@ func (e *Endpoint) String() string {
 
 // optionChanged is a callback used with pkg/option to apply the options to an
 // endpoint.  Not used for anything at the moment.
-func optionChanged(key string, value bool, data interface{}) {
+func optionChanged(key string, value int, data interface{}) {
 }
 
 // applyOptsLocked applies the given options to the endpoint's options and
 // returns true if there were any options changed.
 func (e *Endpoint) applyOptsLocked(opts map[string]string) bool {
-	return e.Options.Apply(opts, optionChanged, e) > 0
+	return e.Options.ApplyValidated(opts, optionChanged, e) > 0
 }
 
 // ForcePolicyCompute marks the endpoint for forced bpf regeneration.
@@ -1251,9 +1251,9 @@ func (e *Endpoint) ForcePolicyCompute() {
 	e.forcePolicyCompute = true
 }
 
-func (e *Endpoint) SetDefaultOpts(opts *option.BoolOptions) {
+func (e *Endpoint) SetDefaultOpts(opts *option.IntOptions) {
 	if e.Options == nil {
-		e.Options = option.NewBoolOptions(&EndpointMutableOptionLibrary)
+		e.Options = option.NewIntOptions(&EndpointMutableOptionLibrary)
 	}
 	if e.Options.Library == nil {
 		e.Options.Library = &EndpointMutableOptionLibrary
@@ -1262,7 +1262,7 @@ func (e *Endpoint) SetDefaultOpts(opts *option.BoolOptions) {
 	if opts != nil {
 		epOptLib := option.GetEndpointMutableOptionLibrary()
 		for k := range epOptLib {
-			e.Options.Set(k, opts.IsEnabled(k))
+			e.Options.SetValidated(k, opts.GetValue(k))
 		}
 	}
 }
