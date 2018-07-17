@@ -31,6 +31,7 @@ var (
 		DebugLB:             &specDebugLB,
 		DropNotify:          &specDropNotify,
 		TraceNotify:         &specTraceNotify,
+		MonitorAggregation:  &specMonitorAggregation,
 		NAT46:               &specNAT46,
 	}
 )

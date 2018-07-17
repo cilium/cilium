@@ -63,3 +63,4 @@
 #ifndef SKIP_DEBUG
 #define LB_DEBUG
 #endif
+#define MONITOR_AGGREGATION 5

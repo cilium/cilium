@@ -103,6 +103,7 @@ var (
 	logstashAddr          string
 	logstashProbeTimer    uint32
 	masquerade            bool
+	monitorAggregation    string
 	nat46prefix           string
 	prometheusServeAddr   string
 	socketPath            string
@@ -424,6 +425,9 @@ func init() {
 		"nat46-range", node.DefaultNAT46Prefix, "IPv6 prefix to map IPv4 addresses to")
 	flags.BoolVar(&masquerade,
 		"masquerade", true, "Masquerade packets from endpoints leaving the host")
+	flags.StringVar(&monitorAggregation, option.MonitorAggregationName,
+		fmt.Sprintf("None"), "Level of monitor aggregation for traces from the datapath")
+	viper.BindEnv(option.MonitorAggregationName, "MONITOR_AGGREGATION_LEVEL")
 	flags.IntVar(&option.Config.MTU,
 		option.MTUName, mtu.AutoDetect(), "Overwrite auto-detected MTU of underlying network")
 	flags.StringVar(&v6Address,
@@ -663,6 +667,13 @@ func initEnv(cmd *cobra.Command) {
 	option.Config.Opts.SetBool(option.Conntrack, !disableConntrack)
 	option.Config.Opts.SetBool(option.ConntrackAccounting, !disableConntrack)
 	option.Config.Opts.SetBool(option.ConntrackLocal, false)
+
+	monitorAggregationLevel, err := option.ParseMonitorAggregationLevel(monitorAggregation)
+	if err != nil {
+		log.WithError(err).Fatal("Failed to parse %s: %s",
+			option.MonitorAggregationName, err)
+	}
+	option.Config.Opts.SetValidated(option.MonitorAggregation, monitorAggregationLevel)
 
 	policy.SetPolicyEnabled(strings.ToLower(viper.GetString("enable-policy")))
 

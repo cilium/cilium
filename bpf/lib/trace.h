@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2016-2017 Authors of Cilium
+ *  Copyright (C) 2016-2018 Authors of Cilium
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -55,6 +55,16 @@ enum {
 	TRACE_REASON_CT_RELATED = CT_RELATED,
 };
 
+/* Trace aggregation levels. */
+enum {
+	TRACE_AGGREGATE_NONE = 0,      /* Trace every packet on rx & tx */
+	TRACE_AGGREGATE_RX = 1,        /* Hide trace on packet receive */
+};
+
+#ifndef MONITOR_AGGREGATION
+#define MONITOR_AGGREGATION TRACE_AGGREGATE_NONE
+#endif
+
 #ifdef TRACE_NOTIFY
 
 struct trace_notify {
@@ -84,23 +94,6 @@ struct trace_notify {
 static inline void send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst,
 				     __u16 dst_id, __u32 ifindex, __u8 reason)
 {
-	uint64_t skb_len = (uint64_t)skb->len, cap_len = min((uint64_t)TRACE_PAYLOAD_LEN, (uint64_t)skb_len);
-	uint32_t hash = get_hash_recalc(skb);
-	struct trace_notify msg = {
-		.type = CILIUM_NOTIFY_TRACE,
-		.subtype = obs_point,
-		.source = EVENT_SOURCE,
-		.hash = hash,
-		.len_orig = skb_len,
-		.len_cap = cap_len,
-		.src_label = src,
-		.dst_label = dst,
-		.dst_id = dst_id,
-		.reason = reason,
-		.pad = 0,
-		.ifindex = ifindex,
-	};
-
 	switch (obs_point) {
 		case TRACE_TO_LXC:
 			update_metrics(skb->len, METRIC_INGRESS, REASON_FORWARDED);
@@ -120,6 +113,35 @@ static inline void send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u3
 		case TRACE_TO_OVERLAY:
 			update_metrics(skb->len, METRIC_EGRESS, REASON_FORWARDED);
 	}
+	if (MONITOR_AGGREGATION >= TRACE_AGGREGATE_RX) {
+		switch (obs_point) {
+		case TRACE_FROM_LXC:
+		case TRACE_FROM_PROXY:
+		case TRACE_FROM_HOST:
+		case TRACE_FROM_STACK:
+		case TRACE_FROM_OVERLAY:
+			return;
+		default:
+			break;
+		}
+	}
+
+	uint64_t skb_len = (uint64_t)skb->len, cap_len = min((uint64_t)TRACE_PAYLOAD_LEN, (uint64_t)skb_len);
+	uint32_t hash = get_hash_recalc(skb);
+	struct trace_notify msg = {
+		.type = CILIUM_NOTIFY_TRACE,
+		.subtype = obs_point,
+		.source = EVENT_SOURCE,
+		.hash = hash,
+		.len_orig = skb_len,
+		.len_cap = cap_len,
+		.src_label = src,
+		.dst_label = dst,
+		.dst_id = dst_id,
+		.reason = reason,
+		.pad = 0,
+		.ifindex = ifindex,
+	};
 	skb_event_output(skb, &cilium_events,
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));
