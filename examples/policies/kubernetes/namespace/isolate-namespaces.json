@@ -1,0 +1,38 @@
+[
+   {
+      "ingress" : [
+         {
+            "fromEndpoints" : [
+               {
+                  "matchLabels" : {
+                     "k8s:io.kubernetes.pod.namespace" : "ns1"
+                  }
+               }
+            ]
+         }
+      ],
+      "endpointSelector" : {
+         "matchLabels" : {
+            "k8s:io.kubernetes.pod.namespace" : "ns1"
+         }
+      }
+   },
+   {
+      "endpointSelector" : {
+         "matchLabels" : {
+            "k8s:io.kubernetes.pod.namespace" : "ns2"
+         }
+      },
+      "ingress" : [
+         {
+            "fromEndpoints" : [
+               {
+                  "matchLabels" : {
+                     "k8s:io.kubernetes.pod.namespace" : "ns2"
+                  }
+               }
+            ]
+         }
+      ]
+   }
+]
