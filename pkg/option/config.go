@@ -77,6 +77,10 @@ const (
 	// a separate route for each cluster node CIDR. This option is not
 	// compatible with Tunnel=TunnelDisabled
 	SingleClusterRouteName = "single-cluster-route"
+
+	// MonitorAggregationName specifies the MonitorAggregationLevel on the
+	// comandline.
+	MonitorAggregationName = "monitor-aggregation"
 )
 
 // Available option for daemonConfig.Tunnel

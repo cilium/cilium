@@ -107,10 +107,14 @@ func configDaemon(cmd *cobra.Command, opts []string) {
 			os.Exit(1)
 		}
 
-		if value == option.OptionDisabled {
-			dOpts[name] = "Disabled"
+		if opt, ok := option.DaemonMutableOptionLibrary[name]; !ok || opt.Parse == nil {
+			if value == option.OptionDisabled {
+				dOpts[name] = "Disabled"
+			} else {
+				dOpts[name] = "Enabled"
+			}
 		} else {
-			dOpts[name] = "Enabled"
+			dOpts[name] = optionSplit[1]
 		}
 	}
 
