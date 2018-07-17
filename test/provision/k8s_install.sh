@@ -23,7 +23,6 @@ export KUBEADM_CRI_SOCKET="/var/run/dockershim.sock"
 export KUBEADM_SLAVE_OPTIONS=""
 export KUBEADM_OPTIONS=""
 export K8S_FULL_VERSION=""
-export INSTALL_KUBEDNS=1
 export DNS_DEPLOYMENT="${PROVISIONSRC}/manifest/dns_deployment.yaml"
 export KUBEDNS_DEPLOYMENT="${PROVISIONSRC}/manifest/kubedns_deployment.yaml"
 export COREDNS_DEPLOYMENT="${PROVISIONSRC}/manifest/coredns_deployment.yaml"
@@ -114,14 +113,14 @@ case $K8S_VERSION in
         K8S_FULL_VERSION="1.11.0"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri"
-        INSTALL_KUBEDNS=0
+        sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
         ;;
     "1.12")
         KUBERNETES_CNI_VERSION="v0.6.0"
         K8S_FULL_VERSION="1.12.0-alpha.0"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri"
-        INSTALL_KUBEDNS=0
+        sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
         ;;
 esac
 
@@ -135,7 +134,6 @@ case $K8S_VERSION in
             kubectl=${K8S_FULL_VERSION}*
         ;;
     "1.12")
-        sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
         install_k8s_using_binary "v${K8S_FULL_VERSION}" "${KUBERNETES_CNI_VERSION}"
         ;;
 esac
@@ -184,10 +182,10 @@ if [[ "${HOST}" == "k8s1" ]]; then
     kubectl taint nodes --all node-role.kubernetes.io/master-
 
     sudo systemctl start etcd
-    if [[ $INSTALL_KUBEDNS -eq 1 ]]; then
-        kubectl -n kube-system delete -f ${PROVISIONSRC}/manifest/dns_deployment.yaml || true
-        kubectl -n kube-system apply -f ${PROVISIONSRC}/manifest/dns_deployment.yaml
-    fi
+
+    # Install custom DNS deployment
+    kubectl -n kube-system delete -f ${PROVISIONSRC}/manifest/dns_deployment.yaml || true
+    kubectl -n kube-system apply -f ${PROVISIONSRC}/manifest/dns_deployment.yaml
 
     $PROVISIONSRC/compile.sh
 else
