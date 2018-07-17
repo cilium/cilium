@@ -67,6 +67,11 @@ func (cache *NPHDSCache) OnIPIdentityCacheChange(modType ipcache.CacheModificati
 	// An upsert where an existing pair exists should translate into a
 	// delete (for the old Identity) followed by an upsert (for the new).
 	if oldIPIDPair != nil && modType == ipcache.Upsert {
+		// Skip update if identity is identical
+		if oldIPIDPair.ID == newIPIDPair.ID {
+			return
+		}
+
 		cache.OnIPIdentityCacheChange(ipcache.Delete, nil, *oldIPIDPair)
 	}
 
