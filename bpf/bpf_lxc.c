@@ -829,9 +829,16 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 			return DROP_WRITE_ERROR;
 
 		skb->cb[CB_IFINDEX] = HOST_IFINDEX;
+	} else { // Not redirected to host / proxy.
+		send_trace_notify(skb, TRACE_TO_LXC, src_label, SECLABEL,
+				  LXC_ID, ifindex, *forwarding_reason);
 	}
 
-	return 0;
+	ifindex = skb->cb[CB_IFINDEX];
+	if (ifindex)
+		return redirect(ifindex, 0);
+
+	return TC_ACT_OK;
 }
 
 #ifdef LXC_IPV4
@@ -937,9 +944,16 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 			return DROP_WRITE_ERROR;
 
 		skb->cb[CB_IFINDEX] = HOST_IFINDEX;
+	} else { // Not redirected to host / proxy.
+		send_trace_notify(skb, TRACE_TO_LXC, src_label, SECLABEL,
+				  LXC_ID, ifindex, *forwarding_reason);
 	}
 
-	return 0;
+	ifindex = skb->cb[CB_IFINDEX];
+	if (ifindex)
+		return redirect(ifindex, 0);
+
+	return TC_ACT_OK;
 }
 #endif
 
@@ -983,17 +997,7 @@ __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *sk
 		return send_drop_notify(skb, src_label, SECLABEL, LXC_ID,
 					ifindex, ret, TC_ACT_SHOT, METRIC_INGRESS);
 
-	if (ifindex == skb->cb[CB_IFINDEX]) { // Not redirected to host / proxy.
-		send_trace_notify(skb, TRACE_TO_LXC, src_label, SECLABEL, LXC_ID, ifindex,
-				  forwarding_reason);
-	}
-
-	ifindex = skb->cb[CB_IFINDEX];
-
-	if (ifindex)
-		return redirect(ifindex, 0);
-	else
-		return TC_ACT_OK;
+	return ret;
 }
 
 #ifdef LXC_NAT46
