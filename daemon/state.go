@@ -113,8 +113,8 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 		} else {
 			ep.SetDefaultOpts(option.Config.Opts)
 			alwaysEnforce := policy.GetPolicyEnabled() == option.AlwaysEnforce
-			ep.Opts.Set(option.IngressPolicy, alwaysEnforce)
-			ep.Opts.Set(option.EgressPolicy, alwaysEnforce)
+			ep.Options.Set(option.IngressPolicy, alwaysEnforce)
+			ep.Options.Set(option.EgressPolicy, alwaysEnforce)
 		}
 
 		ep.Mutex.Unlock()

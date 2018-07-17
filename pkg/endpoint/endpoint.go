@@ -368,8 +368,8 @@ type Endpoint struct {
 	// CIDRPolicy is the CIDR based policy configuration of the endpoint.
 	L3Policy *policy.CIDRPolicy `json:"-"`
 
-	// Opts are configurable boolean options
-	Opts *option.BoolOptions
+	// Options are configurable boolean options
+	Options *option.BoolOptions
 
 	// Status are the last n state transitions this endpoint went through
 	Status *EndpointStatus
@@ -624,10 +624,10 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 // NewEndpointWithState creates a new endpoint useful for testing purposes
 func NewEndpointWithState(ID uint16, state string) *Endpoint {
 	return &Endpoint{
-		ID:     ID,
-		Opts:   option.NewBoolOptions(&EndpointMutableOptionLibrary),
-		Status: NewEndpointStatus(),
-		state:  state,
+		ID:      ID,
+		Options: option.NewBoolOptions(&EndpointMutableOptionLibrary),
+		Status:  NewEndpointStatus(),
+		state:   state,
 	}
 }
 
@@ -734,7 +734,7 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 
 	spec := &models.EndpointConfigurationSpec{
 		LabelConfiguration: lblSpec,
-		Options:            *e.Opts.GetMutableModel(),
+		Options:            *e.Options.GetMutableModel(),
 	}
 
 	mdl := &models.Endpoint{
@@ -914,8 +914,8 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 		}
 	}
 
-	policyIngressEnabled := e.Opts.IsEnabled(option.IngressPolicy)
-	policyEgressEnabled := e.Opts.IsEnabled(option.EgressPolicy)
+	policyIngressEnabled := e.Options.IsEnabled(option.IngressPolicy)
+	policyEgressEnabled := e.Options.IsEnabled(option.EgressPolicy)
 
 	policyEnabled := models.EndpointPolicyEnabledNone
 	switch {
@@ -1243,7 +1243,7 @@ func optionChanged(key string, value bool, data interface{}) {
 // applyOptsLocked applies the given options to the endpoint's options and
 // returns true if there were any options changed.
 func (e *Endpoint) applyOptsLocked(opts map[string]string) bool {
-	return e.Opts.Apply(opts, optionChanged, e) > 0
+	return e.Options.Apply(opts, optionChanged, e) > 0
 }
 
 // ForcePolicyCompute marks the endpoint for forced bpf regeneration.
@@ -1252,17 +1252,17 @@ func (e *Endpoint) ForcePolicyCompute() {
 }
 
 func (e *Endpoint) SetDefaultOpts(opts *option.BoolOptions) {
-	if e.Opts == nil {
-		e.Opts = option.NewBoolOptions(&EndpointMutableOptionLibrary)
+	if e.Options == nil {
+		e.Options = option.NewBoolOptions(&EndpointMutableOptionLibrary)
 	}
-	if e.Opts.Library == nil {
-		e.Opts.Library = &EndpointMutableOptionLibrary
+	if e.Options.Library == nil {
+		e.Options.Library = &EndpointMutableOptionLibrary
 	}
 
 	if opts != nil {
 		epOptLib := option.GetEndpointMutableOptionLibrary()
 		for k := range epOptLib {
-			e.Opts.Set(k, opts.IsEnabled(k))
+			e.Options.Set(k, opts.IsEnabled(k))
 		}
 	}
 }
@@ -1273,7 +1273,7 @@ func (e *Endpoint) ConntrackLocal() bool {
 	e.Mutex.RLock()
 	defer e.Mutex.RUnlock()
 
-	if e.SecurityIdentity == nil || !e.Opts.IsEnabled(option.ConntrackLocal) {
+	if e.SecurityIdentity == nil || !e.Options.IsEnabled(option.ConntrackLocal) {
 		return false
 	}
 
@@ -1561,7 +1561,7 @@ func (e *Endpoint) Update(owner Owner, cfg *models.EndpointConfigurationSpec) er
 	e.getLogger().WithField("configuration-options", cfg).Debug("updating endpoint configuration options")
 
 	e.Mutex.Lock()
-	if err := e.Opts.Validate(cfg.Options); err != nil {
+	if err := e.Options.Validate(cfg.Options); err != nil {
 		e.Mutex.Unlock()
 		return UpdateValidationError{err.Error()}
 	}

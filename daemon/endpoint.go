@@ -650,9 +650,9 @@ func (h *getEndpointIDConfig) Handle(params GetEndpointIDConfigParams) middlewar
 				LabelConfiguration: &models.LabelConfigurationSpec{
 					User: ep.OpLabels.Custom.GetModel(),
 				},
-				Options: *ep.Opts.GetMutableModel(),
+				Options: *ep.Options.GetMutableModel(),
 			},
-			Immutable: *ep.Opts.GetImmutableModel(),
+			Immutable: *ep.Options.GetImmutableModel(),
 		}
 
 		return NewGetEndpointIDConfigOK().WithPayload(cfgStatus)
