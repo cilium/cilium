@@ -86,7 +86,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 
 	option.Config.DryMode = true
-	option.Config.Opts = option.NewBoolOptions(&option.DaemonMutableOptionLibrary)
+	option.Config.Opts = option.NewIntOptions(&option.DaemonMutableOptionLibrary)
 	option.Config.Device = "undefined"
 	option.Config.RunDir = tempRunDir
 	option.Config.StateDir = tempRunDir
@@ -95,8 +95,8 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	// GetConfig the default labels prefix filter
 	err = labels.ParseLabelPrefixCfg(nil, "")
 	c.Assert(err, IsNil)
-	option.Config.Opts.Set(option.DropNotify, true)
-	option.Config.Opts.Set(option.TraceNotify, true)
+	option.Config.Opts.SetBool(option.DropNotify, true)
+	option.Config.Opts.SetBool(option.TraceNotify, true)
 
 	// Disable restore of host IPs for unit tests. There can be arbitrary
 	// state left on disk.

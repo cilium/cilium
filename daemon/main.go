@@ -655,14 +655,14 @@ func initEnv(cmd *cobra.Command) {
 	bpf.CheckOrMountFS(bpfRoot)
 
 	logging.DefaultLogLevel = defaults.DefaultLogLevel
-	option.Config.Opts.Set(option.Debug, viper.GetBool("debug"))
+	option.Config.Opts.SetBool(option.Debug, viper.GetBool("debug"))
 
-	option.Config.Opts.Set(option.DropNotify, true)
-	option.Config.Opts.Set(option.TraceNotify, true)
-	option.Config.Opts.Set(option.PolicyTracing, enableTracing)
-	option.Config.Opts.Set(option.Conntrack, !disableConntrack)
-	option.Config.Opts.Set(option.ConntrackAccounting, !disableConntrack)
-	option.Config.Opts.Set(option.ConntrackLocal, false)
+	option.Config.Opts.SetBool(option.DropNotify, true)
+	option.Config.Opts.SetBool(option.TraceNotify, true)
+	option.Config.Opts.SetBool(option.PolicyTracing, enableTracing)
+	option.Config.Opts.SetBool(option.Conntrack, !disableConntrack)
+	option.Config.Opts.SetBool(option.ConntrackAccounting, !disableConntrack)
+	option.Config.Opts.SetBool(option.ConntrackLocal, false)
 
 	policy.SetPolicyEnabled(strings.ToLower(viper.GetString("enable-policy")))
 

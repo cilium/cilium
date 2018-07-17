@@ -46,7 +46,7 @@ func (e *Endpoint) updateLogger() {
 	//   endpoint from the logger.
 	// - The debug option on the endpoint is true, and the logger is not debug,
 	//   or vice versa.
-	shouldUpdate := e.logger == nil ||
+	shouldUpdate := e.logger == nil || e.Options == nil ||
 		e.logger.Data[logfields.EndpointID] != e.ID ||
 		e.logger.Data[logfields.ContainerID] != containerID ||
 		e.logger.Data[logfields.PolicyRevision] != e.policyRevision ||

@@ -1426,7 +1426,7 @@ func mapValidateWalker(path string) error {
 	return nil
 }
 
-func changedOption(key string, value bool, data interface{}) {
+func changedOption(key string, value int, data interface{}) {
 	d := data.(*Daemon)
 	if key == option.Debug {
 		// Set the debug toggle (this can be a no-op)
@@ -1496,7 +1496,7 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 		log.Debug("finished configuring PolicyEnforcement for daemon")
 	}
 
-	changes += option.Config.Opts.Apply(cfgSpec.Options, changedOption, d)
+	changes += option.Config.Opts.ApplyValidated(cfgSpec.Options, changedOption, d)
 
 	log.WithField("count", changes).Debug("Applied changes to daemon's configuration")
 
