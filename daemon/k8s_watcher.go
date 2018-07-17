@@ -1543,11 +1543,11 @@ func (d *Daemon) updatePodHostIP(pod *v1.Pod) (bool, error) {
 		return true, fmt.Errorf("no/invalid PodIP: %s", pod.Status.PodIP)
 	}
 
-	updated := ipcache.IPIdentityCache.Upsert(pod.Status.PodIP, ipcache.Identity{
+	selfOwned := ipcache.IPIdentityCache.Upsert(pod.Status.PodIP, ipcache.Identity{
 		ID:     identity.ReservedIdentityCluster,
 		Source: ipcache.FromKubernetes,
 	})
-	if !updated {
+	if !selfOwned {
 		return true, fmt.Errorf("ipcache entry owned by kvstore or agent")
 	}
 

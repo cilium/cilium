@@ -180,6 +180,10 @@ func allowOverwrite(existing, new Source) bool {
 
 // Upsert adds / updates the provided IP (endpoint or CIDR prefix) and identity
 // into the IPCache.
+//
+// Returns false if the entry is not owned by the self declared source, i.e.
+// returns false if the kubernetes layer is trying to upsert an entry now
+// managed by the kvstore layer. See allowOverwrite() for rules on ownership.
 func (ipc *IPCache) Upsert(IP string, identity Identity) bool {
 	ipc.mutex.Lock()
 	defer ipc.mutex.Unlock()
@@ -191,7 +195,7 @@ func (ipc *IPCache) Upsert(IP string, identity Identity) bool {
 
 		// Skip update if IP is already mapped to the given identity
 		if existingIdentity == identity {
-			return false
+			return true
 		}
 	}
 
