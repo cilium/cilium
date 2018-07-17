@@ -39,7 +39,6 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 		demoDSPath = helpers.ManifestGet("demo_ds.yaml")
 
 		kubectl.Exec("kubectl -n kube-system delete ds cilium")
-		// Expect(res.Correct()).Should(BeTrue())
 
 		waitToDeleteCilium(kubectl, logger)
 	})
@@ -50,10 +49,7 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 	})
 
 	AfterEach(func() {
-		_ = kubectl.Delete(demoDSPath)
-	})
-
-	AfterAll(func() {
+		kubectl.Delete(demoDSPath)
 		ExpectAllPodsTerminated(kubectl)
 	})
 
