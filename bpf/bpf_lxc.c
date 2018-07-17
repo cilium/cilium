@@ -841,6 +841,19 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	return TC_ACT_OK;
 }
 
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_TO_LXC) int tail_ipv6_policy(struct __sk_buff *skb) {
+	int ret, ifindex = skb->cb[CB_IFINDEX];
+	__u32 src_label = skb->cb[CB_SRC_LABEL];
+	int forwarding_reason = 0;
+
+	ret = ipv6_policy(skb, ifindex, src_label, &forwarding_reason);
+	if (IS_ERR(ret))
+		return send_drop_notify(skb, src_label, SECLABEL, LXC_ID,
+					ifindex, ret, TC_ACT_SHOT, METRIC_INGRESS);
+
+	return ret;
+}
+
 #ifdef LXC_IPV4
 static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label,
 					 int *forwarding_reason)
@@ -955,6 +968,20 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 
 	return TC_ACT_OK;
 }
+
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_TO_LXC) int tail_ipv4_policy(struct __sk_buff *skb) {
+	int ret, ifindex = skb->cb[CB_IFINDEX];
+	__u32 src_label = skb->cb[CB_SRC_LABEL];
+	int forwarding_reason = 0;
+
+	ret = ipv4_policy(skb, ifindex, src_label, &forwarding_reason);
+	if (IS_ERR(ret))
+		return send_drop_notify(skb, src_label, SECLABEL, LXC_ID,
+					ifindex, ret, TC_ACT_SHOT, METRIC_INGRESS);
+
+	return ret;
+}
+
 #endif
 
 /* Handle policy decisions as the packet makes its way towards the endpoint.
@@ -968,7 +995,6 @@ __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *sk
 {
 	int ret, ifindex = skb->cb[CB_IFINDEX];
 	__u32 src_label = skb->cb[CB_SRC_LABEL];
-	int forwarding_reason = 0;
 
 #ifdef DROP_ALL
 	ret = DROP_POLICY;
@@ -976,12 +1002,14 @@ __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *sk
 #endif
 	switch (skb->protocol) {
 	case bpf_htons(ETH_P_IPV6):
-		ret = ipv6_policy(skb, ifindex, src_label, &forwarding_reason);
+		ep_tail_call(skb, CILIUM_CALL_IPV6_TO_LXC);
+		ret = DROP_MISSED_TAIL_CALL;
 		break;
 
 #ifdef LXC_IPV4
 	case bpf_htons(ETH_P_IP):
-		ret = ipv4_policy(skb, ifindex, src_label, &forwarding_reason);
+		ep_tail_call(skb, CILIUM_CALL_IPV4_TO_LXC);
+		ret = DROP_MISSED_TAIL_CALL;
 		break;
 #endif
 
@@ -1039,7 +1067,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT46) int tail_ipv4_to_ipv6(struct
 
 	cilium_dbg_capture(skb, DBG_CAPTURE_AFTER_V46, skb->ingress_ifindex);
 
-	tail_call(skb, &cilium_policy, LXC_ID);
+	ep_tail_call(skb, CILIUM_CALL_IPV6_TO_LXC);
 	return DROP_MISSED_TAIL_CALL;
 }
 #endif
