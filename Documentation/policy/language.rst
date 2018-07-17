@@ -776,6 +776,35 @@ namespaces are automatically being taken into account:
 	  ``endpointSelector`` always applies to pods of the namespace which is
 	  associated with the CiliumNetworkPolicy resource itself.
 
+Example: Enforce namespace boundaries
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This example demonstrates how to enforce Kubernetes namespace-based boundaries
+for the namespaces ``ns1`` and ``ns2`` by enabling default-deny on all pods of
+either namespace and then allowing communication from all pods within the same
+namespace.
+
+.. note:: The example locks down ingress of the pods in ``ns1`` and ``ns2``.
+	  This means that the pods can still communicate egress to anywhere
+	  unless the destination is in either ``ns1`` or ``ns2`` in which case
+	  both source and destination have to be in the same namespace. In
+	  order to enforce namespace boundaries at egress, the same example can
+	  be used by specifying the rules at egress in addition to ingress.
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../examples/policies/kubernetes/namespace/isolate-namespace.yaml
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../../examples/policies/kubernetes/namespace/isolate-namespace.json
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../examples/policies/kubernetes/namespace/isolate-namespace.json
+
 Example: Expose pods across namespaces
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
