@@ -57,9 +57,6 @@ type prober struct {
 	start   time.Time
 	results map[ipString]*models.PathStatus
 	nodes   nodeMap
-
-	// TODO: If nodes leave the cluster, we will never clear out their
-	//       entries in the 'results' map.
 }
 
 // copyResultRLocked makes a copy of the path status for the specified IP.
@@ -164,6 +161,32 @@ func resolveIP(n *healthNode, addr *ciliumModels.NodeAddressingElement, proto st
 	return node.Name, ra
 }
 
+// markIPsLocked marks all nodes in the prober for deletion.
+func (p *prober) markIPsLocked() {
+	for ip, node := range p.nodes {
+		node.deletionMark = true
+		p.nodes[ip] = node
+	}
+}
+
+// sweepIPsLocked iterates through nodes in the prober and removes nodes which
+// are marked for deletion.
+func (p *prober) sweepIPsLocked() {
+	for ip, node := range p.nodes {
+		if node.deletionMark {
+			// Remove deleted nodes from:
+			// * Results (accessed from ICMP pinger or TCP prober)
+			// * ICMP pinger
+			// * TCP prober
+			for elem := range node.Addresses() {
+				delete(p.results, ipString(elem.IP))
+				p.RemoveIP(elem.IP) // ICMP pinger
+			}
+			delete(p.nodes, ip) // TCP prober
+		}
+	}
+}
+
 // setNodes sets the list of nodes for the prober, and updates the pinger to
 // start sending pings to all of the nodes.
 // setNodes will steal references to nodes referenced from 'nodes', so the
@@ -171,6 +194,11 @@ func resolveIP(n *healthNode, addr *ciliumModels.NodeAddressingElement, proto st
 func (p *prober) setNodes(nodes nodeMap) {
 	p.Lock()
 	defer p.Unlock()
+
+	// Mark all nodes for deletion, insert nodes that should not be deleted
+	// then at the end of the function, sweep all nodes that remain as
+	// "to be deleted".
+	p.markIPsLocked()
 
 	for _, n := range nodes {
 		for elem, primary := range n.Addresses() {
@@ -194,6 +222,8 @@ func (p *prober) setNodes(nodes nodeMap) {
 			p.results[ip].Icmp = result
 		}
 	}
+
+	p.sweepIPsLocked()
 }
 
 func (p *prober) httpProbe(node string, ip string, port int) *models.ConnectivityStatus {
