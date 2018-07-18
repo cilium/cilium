@@ -112,7 +112,7 @@ spec:
                 key: tunnel
                 name: cilium-config
                 optional: true
-          - name: "MONITOR_AGGREGATION_LEVEL"
+          - name: "CILIUM_MONITOR_AGGREGATION_LEVEL"
             valueFrom:
               configMapKeyRef:
                 key: monitor-aggregation-level
