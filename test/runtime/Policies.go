@@ -866,6 +866,56 @@ var _ = Describe("RuntimePolicies", func() {
 
 	})
 
+	It("Enforces ToFQDNs policy", func() {
+		By("Importing policy with ToFQDN rules")
+		// notaname.cilium.io never returns IPs, and is there to test that the
+		// other name does get populated.
+		fqdnPolicy := `
+[
+  {
+    "endpointSelector": {
+      "matchLabels": {
+        "container:id.app1": ""
+      }
+    },
+    "egress": [
+      {
+        "toPorts": [{
+          "ports":[{"port": "53", "protocol": "ANY"}]
+        }]
+      },
+      {
+        "toFQDNs": [
+          {
+            "matchName": "cilium.io"
+          },
+          {
+            "matchName": "notaname.cilium.io"
+          }
+        ]
+      }
+    ]
+  }
+]`
+		_, err := vm.PolicyRenderAndImport(fqdnPolicy)
+		Expect(err).To(BeNil(), "Unable to import policy: %s", err)
+
+		By("Denying egress to IPs of non-ToFQDN DNS names that are looked up")
+		// www.cilium.io has a different IP than cilium.io (it is CNAMEd as well!),
+		// and so should be blocked.
+		// cilium.io.cilium.io doesn't exist.
+		// 1.1.1.1, amusingly, serves HTTP.
+		for _, blockedTarget := range []string{"www.cilium.io", "cilium.io.cilium.io", "1.1.1.1"} {
+			res := vm.ContainerExec(helpers.App1, helpers.CurlFail(blockedTarget))
+			res.ExpectFail("Curl succeeded against blocked DNS name " + blockedTarget)
+		}
+
+		By("Allowing egress to IPs of specified ToFQDN DNS names")
+		allowedTarget := "cilium.io"
+		res := vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode(allowedTarget))
+		res.ExpectContains("301", "Cannot access ", allowedTarget, res.OutputPrettyPrint())
+	})
+
 	It("Extended HTTP Methods tests", func() {
 		// This also tests L3-dependent L7.
 		httpMethods := []string{"GET", "POST"}
