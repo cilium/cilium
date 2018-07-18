@@ -883,7 +883,7 @@ func (d *Daemon) OnIPIdentityCacheChange(modType ipcache.CacheModification, oldI
 				Warning("unable to update bpf map")
 		}
 	case ipcache.Delete:
-		err := ipCacheBPF.IPCache.Delete(&key)
+		err := ipCacheBPF.Delete(&key)
 		if err != nil {
 			log.WithError(err).WithFields(logrus.Fields{"key": key.String()}).
 				Warning("unable to delete from bpf map")
@@ -943,7 +943,7 @@ func (d *Daemon) OnIPIdentityCacheGC() {
 				for _, k := range keysToRemove {
 					log.WithFields(logrus.Fields{logfields.BPFMapKey: k}).
 						Debug("deleting from ipcache BPF map")
-					if err := ipCacheBPF.IPCache.Delete(k); err != nil {
+					if err := ipCacheBPF.Delete(k); err != nil {
 						return fmt.Errorf("error deleting key %s from ipcache BPF map: %s", k, err)
 					}
 				}
