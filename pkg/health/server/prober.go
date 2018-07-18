@@ -84,23 +84,6 @@ func (p *prober) copyResultRLocked(ip string) *models.PathStatus {
 	return result
 }
 
-func getPrimaryIP(node *ciliumModels.NodeElement) string {
-	if node.PrimaryAddress.IPV4.Enabled {
-		return node.PrimaryAddress.IPV4.IP
-	}
-	return node.PrimaryAddress.IPV6.IP
-}
-
-func getHealthIP(node *ciliumModels.NodeElement) string {
-	if node.HealthEndpointAddress == nil {
-		return ""
-	}
-	if node.HealthEndpointAddress.IPV4.Enabled {
-		return node.HealthEndpointAddress.IPV4.IP
-	}
-	return node.HealthEndpointAddress.IPV6.IP
-}
-
 // getResults gathers a copy of all of the results for nodes currently in the
 // cluster.
 func (p *prober) getResults() *healthReport {
@@ -113,8 +96,8 @@ func (p *prober) getResults() *healthReport {
 		if resultMap[node.Name] != nil {
 			continue
 		}
-		primaryIP := getPrimaryIP(node)
-		healthIP := getHealthIP(node)
+		primaryIP := node.PrimaryIP()
+		healthIP := node.HealthIP()
 		status := &models.NodeStatus{
 			Name: node.Name,
 			Host: &models.HostStatus{
@@ -151,27 +134,11 @@ func skipAddress(elem *ciliumModels.NodeAddressingElement) bool {
 	return elem == nil || !elem.Enabled || elem.IP == "<nil>"
 }
 
-// getAddresses returns a map of the node's addresses -> "primary" bool
-func getNodeAddresses(node *ciliumModels.NodeElement) map[*ciliumModels.NodeAddressingElement]bool {
-	addresses := map[*ciliumModels.NodeAddressingElement]bool{}
-	if node.PrimaryAddress != nil {
-		addresses[node.PrimaryAddress.IPV4] = node.PrimaryAddress.IPV4.Enabled
-		addresses[node.PrimaryAddress.IPV6] = node.PrimaryAddress.IPV6.Enabled
-	}
-	if node.HealthEndpointAddress != nil {
-		addresses[node.HealthEndpointAddress.IPV4] = false
-		addresses[node.HealthEndpointAddress.IPV6] = false
-	}
-	for _, elem := range node.SecondaryAddresses {
-		addresses[elem] = false
-	}
-	return addresses
-}
-
 // resolveIP attempts to sanitize 'node' and 'ip', and if successful, returns
 // the name of the node and the IP address specified in the addressing element.
 // If validation fails or this IP should not be pinged, 'ip' is returned as nil.
-func resolveIP(node *ciliumModels.NodeElement, addr *ciliumModels.NodeAddressingElement, proto string, primary bool) (string, *net.IPAddr) {
+func resolveIP(n *healthNode, addr *ciliumModels.NodeAddressingElement, proto string, primary bool) (string, *net.IPAddr) {
+	node := n.NodeElement
 	network := "ip6:icmp"
 	if isIPv4(addr.IP) {
 		network = "ip4:icmp"
@@ -206,8 +173,8 @@ func (p *prober) setNodes(nodes nodeMap) {
 	defer p.Unlock()
 
 	for _, n := range nodes {
-		for elem, primary := range getNodeAddresses(n) {
-			_, addr := resolveIP(n, elem, "icmp", primary)
+		for elem, primary := range n.Addresses() {
+			_, addr := resolveIP(&n, elem, "icmp", primary)
 
 			ip := ipString(elem.IP)
 			result := &models.ConnectivityStatus{}
@@ -281,8 +248,8 @@ func (p *prober) runHTTPProbe() {
 			continue
 		}
 		nodes[node.Name] = []*net.IPAddr{}
-		for elem, primary := range getNodeAddresses(node) {
-			if _, addr := resolveIP(node, elem, "http", primary); addr != nil {
+		for elem, primary := range node.Addresses() {
+			if _, addr := resolveIP(&node, elem, "http", primary); addr != nil {
 				nodes[node.Name] = append(nodes[node.Name], addr)
 			}
 		}
@@ -379,14 +346,14 @@ func newProber(s *Server, nodes nodeMap) *prober {
 	prober.setNodes(nodes)
 	prober.OnRecv = func(addr *net.IPAddr, rtt time.Duration) {
 		prober.RLock()
-		node := prober.nodes[ipString(addr.String())]
+		node, exists := prober.nodes[ipString(addr.String())]
 		prober.RUnlock()
 
 		scopedLog := log.WithFields(logrus.Fields{
 			logfields.IPAddr: addr,
 			"rtt":            rtt,
 		})
-		if node == nil {
+		if !exists {
 			scopedLog.Debugf("Node disappeared, skip result")
 			return
 		}
