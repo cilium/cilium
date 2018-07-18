@@ -22,21 +22,30 @@
 #include "eps.h"
 #include "maps.h"
 
-/**
- * MinimalNumericIdentity describes the lowest possible identity
- * allocated to endpoints. Numbers lower than this indicated
- * reserved identities.
- */
-#define MINIMAL_NUMERIC_IDENTITY 256
-
 #if defined POLICY_INGRESS || defined POLICY_EGRESS
 #define REQUIRES_CAN_ACCESS
 #endif
 
 #ifdef REQUIRES_CAN_ACCESS
+/**
+ * identity_is_reserved is used to determine whether an identity is one of the
+ * reserved identities that are not handed out to endpoints.
+ *
+ * Specifically, it should return true if the identity is one of these:
+ * - IdentityUnknown		(0)
+ * - ReservedIdentityHost	(1)
+ * - ReservedIdentityWorld	(2)
+ * - ReservedIdentityCluster	(3)
+ *
+ * The following identities are given to endpoints so return false for these:
+ * - ReservedIdentityHealth	(4)
+ * - ReservedIdentityInit	(5)
+ *
+ * Identities 128 and higher are guaranteed to be generated based on user input.
+ */
 static inline bool identity_is_reserved(__u32 identity)
 {
-	return identity < MINIMAL_NUMERIC_IDENTITY;
+	return identity < HEALTH_ID;
 }
 
 static inline int __inline__
