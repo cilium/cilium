@@ -203,8 +203,11 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 	if (identity_is_reserved(src_identity)) {
 		union v6addr *src = (union v6addr *) &ip6->saddr;
 		info = ipcache_lookup6(&cilium_ipcache, src, V6_CACHE_KEY_LEN);
-		if (info != NULL && info->sec_label)
-			src_identity = info->sec_label;
+		if (info != NULL) {
+			__u32 sec_label = info->sec_label;
+			if (sec_label && sec_label != CLUSTER_ID)
+				src_identity = info->sec_label;
+		}
 		cilium_dbg(skb, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
 			   ((__u32 *) src)[3], src_identity);
 	}
@@ -370,8 +373,11 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 	/* Packets from the proxy will already have a real identity. */
 	if (identity_is_reserved(src_identity)) {
 		info = ipcache_lookup4(&cilium_ipcache, ip4->saddr, V4_CACHE_KEY_LEN);
-		if (info != NULL && info->sec_label)
-			src_identity = info->sec_label;
+		if (info != NULL) {
+			__u32 sec_label = info->sec_label;
+			if (sec_label && sec_label != CLUSTER_ID)
+				src_identity = info->sec_label;
+		}
 		cilium_dbg(skb, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
 			   ip4->saddr, src_identity);
 	}
