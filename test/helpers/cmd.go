@@ -243,7 +243,7 @@ func (res *CmdRes) SingleOut() string {
 // Unmarshal unmarshalls res's stdout into data. It assumes that the stdout of
 // res is in JSON format. Returns an error if the unmarshalling fails.
 func (res *CmdRes) Unmarshal(data interface{}) error {
-	err := json.Unmarshal(res.stdout.Bytes(), &data)
+	err := json.Unmarshal(res.stdout.Bytes(), data)
 	return err
 }
 
