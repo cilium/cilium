@@ -22,7 +22,6 @@ import (
 	healthModels "github.com/cilium/cilium/api/v1/health/models"
 	healthApi "github.com/cilium/cilium/api/v1/health/server"
 	"github.com/cilium/cilium/api/v1/health/server/restapi"
-	ciliumModels "github.com/cilium/cilium/api/v1/models"
 	ciliumPkg "github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/lock"
@@ -74,9 +73,9 @@ type Config struct {
 // ipString is an IP address used as a more descriptive type name in maps.
 type ipString string
 
-// nodeMap maps IP addresses to NodeElements for convenient access to node
-// information.
-type nodeMap map[ipString]*ciliumModels.NodeElement
+// nodeMap maps IP addresses to healthNode objectss for convenient access to
+// node information.
+type nodeMap map[ipString]healthNode
 
 // Server is the cilium-health daemon that is in charge of performing health
 // and connectivity checks periodically, and serving the cilium-health API.
@@ -131,21 +130,21 @@ func (s *Server) getNodes() (nodeMap, error) {
 	for _, n := range resp.Payload.Cluster.Nodes {
 		if n.PrimaryAddress != nil {
 			if n.PrimaryAddress.IPV4 != nil {
-				nodes[ipString(n.PrimaryAddress.IPV4.IP)] = n
+				nodes[ipString(n.PrimaryAddress.IPV4.IP)] = NewHealthNode(n)
 			}
 			if n.PrimaryAddress.IPV6 != nil {
-				nodes[ipString(n.PrimaryAddress.IPV6.IP)] = n
+				nodes[ipString(n.PrimaryAddress.IPV6.IP)] = NewHealthNode(n)
 			}
 		}
 		for _, addr := range n.SecondaryAddresses {
-			nodes[ipString(addr.IP)] = n
+			nodes[ipString(addr.IP)] = NewHealthNode(n)
 		}
 		if n.HealthEndpointAddress != nil {
 			if n.HealthEndpointAddress.IPV4 != nil {
-				nodes[ipString(n.HealthEndpointAddress.IPV4.IP)] = n
+				nodes[ipString(n.HealthEndpointAddress.IPV4.IP)] = NewHealthNode(n)
 			}
 			if n.HealthEndpointAddress.IPV6 != nil {
-				nodes[ipString(n.HealthEndpointAddress.IPV6.IP)] = n
+				nodes[ipString(n.HealthEndpointAddress.IPV6.IP)] = NewHealthNode(n)
 			}
 		}
 	}
