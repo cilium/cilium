@@ -103,7 +103,6 @@ var (
 	logstashAddr          string
 	logstashProbeTimer    uint32
 	masquerade            bool
-	monitorAggregation    string
 	nat46prefix           string
 	prometheusServeAddr   string
 	socketPath            string
@@ -425,8 +424,8 @@ func init() {
 		"nat46-range", node.DefaultNAT46Prefix, "IPv6 prefix to map IPv4 addresses to")
 	flags.BoolVar(&masquerade,
 		"masquerade", true, "Masquerade packets from endpoints leaving the host")
-	flags.StringVar(&monitorAggregation, option.MonitorAggregationName,
-		fmt.Sprintf("None"), "Level of monitor aggregation for traces from the datapath")
+	flags.String(option.MonitorAggregationName, "None",
+		"Level of monitor aggregation for traces from the datapath")
 	viper.BindEnv(option.MonitorAggregationName, "MONITOR_AGGREGATION_LEVEL")
 	flags.IntVar(&option.Config.MTU,
 		option.MTUName, mtu.AutoDetect(), "Overwrite auto-detected MTU of underlying network")
@@ -668,7 +667,7 @@ func initEnv(cmd *cobra.Command) {
 	option.Config.Opts.SetBool(option.ConntrackAccounting, !disableConntrack)
 	option.Config.Opts.SetBool(option.ConntrackLocal, false)
 
-	monitorAggregationLevel, err := option.ParseMonitorAggregationLevel(monitorAggregation)
+	monitorAggregationLevel, err := option.ParseMonitorAggregationLevel(viper.GetString(option.MonitorAggregationName))
 	if err != nil {
 		log.WithError(err).Fatal("Failed to parse %s: %s",
 			option.MonitorAggregationName, err)
