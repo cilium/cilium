@@ -23,11 +23,21 @@
 #include "maps.h"
 
 /**
- * MinimalNumericIdentity describes the lowest possible identity
- * allocated to endpoints. Numbers lower than this indicated
- * reserved identities.
+ * NUMERIC_IDENTITY_MASK is used to determine whether an identity is one of the
+ * reserved identities that are not handed out to endpoints.
+ *
+ * Specifically, if the (identity & mask == 0) then the identity is one of the
+ * below:
+ * - ID_UNKNOWN (0)
+ * - ID_HOST    (1)
+ * - ID_WORLD   (2)
+ * - ID_CLUSTER (3)
+ *
+ * It does not include:
+ * - ID_HEALTH (4)
+ * - ID_INIT   (5)
  */
-#define MINIMAL_NUMERIC_IDENTITY 256
+#define NUMERIC_IDENTITY_MASK 0xFFFFFFFC
 
 #if defined POLICY_INGRESS || defined POLICY_EGRESS
 #define REQUIRES_CAN_ACCESS
@@ -36,7 +46,7 @@
 #ifdef REQUIRES_CAN_ACCESS
 static inline bool identity_is_reserved(__u32 identity)
 {
-	return identity < MINIMAL_NUMERIC_IDENTITY;
+	return (identity & NUMERIC_IDENTITY_MASK) == 0;
 }
 
 static inline int __inline__
