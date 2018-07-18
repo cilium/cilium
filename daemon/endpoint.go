@@ -850,8 +850,8 @@ func (h *putEndpointIDLabels) Handle(params PatchEndpointIDLabelsParams) middlew
 // 'oldIPIDPair' is ignored here, because in the BPF maps an update for the
 // IP->ID mapping will replace any existing contents; knowledge of the old pair
 // is not required to upsert the new pair.
-func (d *Daemon) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidr net.IPNet, hostIP net.IP,
-	oldID *identity.NumericIdentity, newID identity.NumericIdentity) {
+func (d *Daemon) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidr net.IPNet,
+	oldHostIP, newHostIP net.IP, oldID *identity.NumericIdentity, newID identity.NumericIdentity) {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.IPAddr:       cidr,
 		logfields.Identity:     newID,
@@ -874,8 +874,8 @@ func (d *Daemon) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidr
 			SecurityIdentity: uint32(newID),
 		}
 
-		if hostIP != nil {
-			if ip4 := hostIP.To4(); ip4 != nil {
+		if newHostIP != nil {
+			if ip4 := newHostIP.To4(); ip4 != nil {
 				copy(value.TunnelEndpoint[:], ip4)
 			}
 		}

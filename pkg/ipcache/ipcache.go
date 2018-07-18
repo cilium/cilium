@@ -15,6 +15,7 @@
 package ipcache
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 
@@ -58,12 +59,15 @@ type Identity struct {
 	Source Source
 }
 
-// IPCache is a caching of endpoint IP to security identity (and vice-versa) for
-// all endpoints which are part of the same cluster.
+// IPCache is a collection of mappings:
+// - mapping of endpoint IP or CIDR to security identities of all endpoints
+//   which are part of the same cluster, and vice-versa
+// - mapping of endpoint IP or CIDR to host IP (maybe nil)
 type IPCache struct {
 	mutex             lock.RWMutex
 	ipToIdentityCache map[string]Identity
 	identityToIPCache map[identity.NumericIdentity]map[string]struct{}
+	ipToHostIPCache   map[string]net.IP
 
 	// prefixLengths reference-count the number of CIDRs that use
 	// particular prefix lengths for the mask.
@@ -86,6 +90,7 @@ func NewIPCache() *IPCache {
 	return &IPCache{
 		ipToIdentityCache: map[string]Identity{},
 		identityToIPCache: map[identity.NumericIdentity]map[string]struct{}{},
+		ipToHostIPCache:   map[string]net.IP{},
 		v4PrefixLengths:   map[int]int{},
 		v6PrefixLengths:   map[int]int{},
 	}
@@ -208,6 +213,8 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, newIdentity Identity) bool 
 	var oldIdentity *identity.NumericIdentity
 	callbackListeners := true
 
+	oldHostIP := ipc.ipToHostIPCache[ip]
+
 	cachedIdentity, found := ipc.ipToIdentityCache[ip]
 	if found {
 		if !allowOverwrite(cachedIdentity.Source, newIdentity.Source) {
@@ -215,7 +222,8 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, newIdentity Identity) bool 
 		}
 
 		// Skip update if IP is already mapped to the given identity
-		if cachedIdentity == newIdentity {
+		// and the host IP hasn't changed.
+		if cachedIdentity == newIdentity && bytes.Compare(oldHostIP, hostIP) == 0 {
 			return true
 		}
 
@@ -239,7 +247,7 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, newIdentity Identity) bool 
 		ones, bits := cidr.Mask.Size()
 		if ones == bits {
 			if _, endpointIPFound := ipc.ipToIdentityCache[cidr.IP.String()]; endpointIPFound {
-				scopedLog.Debug("Ignoring CIDR to identity mapping as it would shadow an endpoint IP")
+				scopedLog.Debug("Ignoring CIDR to identity mapping as it is shadowed by an endpoint IP")
 				// Skip calling back the listeners, since the endpoint IP has
 				// precedence over the new CIDR.
 				callbackListeners = false
@@ -259,13 +267,16 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, newIdentity Identity) bool 
 		// Check whether the upserted endpoint IP will shadow that CIDR, and
 		// replace its mapping with the listeners if that was the case.
 		if !found {
-			if cidrIdentity, cidrFound := ipc.ipToIdentityCache[cidr.String()]; cidrFound {
-				if cidrIdentity.ID != newIdentity.ID {
+			cidrStr := cidr.String()
+			if cidrIdentity, cidrFound := ipc.ipToIdentityCache[cidrStr]; cidrFound {
+				oldHostIP = ipc.ipToHostIPCache[cidrStr]
+				if cidrIdentity.ID != newIdentity.ID || bytes.Compare(oldHostIP, hostIP) != 0 {
 					scopedLog.Debug("New endpoint IP started shadowing existing CIDR to identity mapping")
 					oldIdentity = &cidrIdentity.ID
 				} else {
 					// The endpoint IP and the CIDR are associated with the
-					// same identity. Nothing changes for the listeners.
+					// same identity and host IP. Nothing changes for the
+					// listeners.
 					callbackListeners = false
 				}
 			}
@@ -291,9 +302,15 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, newIdentity Identity) bool 
 	}
 	ipc.identityToIPCache[newIdentity.ID][ip] = struct{}{}
 
+	if hostIP == nil {
+		delete(ipc.ipToHostIPCache, ip)
+	} else {
+		ipc.ipToHostIPCache[ip] = hostIP
+	}
+
 	if callbackListeners {
 		for _, listener := range ipc.listeners {
-			listener.OnIPIdentityCacheChange(Upsert, *cidr, hostIP, oldIdentity, newIdentity.ID)
+			listener.OnIPIdentityCacheChange(Upsert, *cidr, oldHostIP, hostIP, oldIdentity, newIdentity.ID)
 		}
 	}
 
@@ -315,6 +332,8 @@ func (ipc *IPCache) deleteLocked(ip string) {
 
 	var cidr *net.IPNet
 	cacheModification := Delete
+	oldHostIP := ipc.ipToHostIPCache[ip]
+	var newHostIP net.IP
 	var oldIdentity *identity.NumericIdentity
 	newIdentity := cachedIdentity
 	callbackListeners := true
@@ -350,15 +369,17 @@ func (ipc *IPCache) deleteLocked(ip string) {
 
 		// Check whether the deleted endpoint IP was shadowing that CIDR, and
 		// restore its mapping with the listeners if that was the case.
-		if cidrIdentity, cidrFound := ipc.ipToIdentityCache[cidr.String()]; cidrFound {
-			if cidrIdentity.ID != cachedIdentity.ID {
+		cidrStr := cidr.String()
+		if cidrIdentity, cidrFound := ipc.ipToIdentityCache[cidrStr]; cidrFound {
+			newHostIP = ipc.ipToHostIPCache[cidrStr]
+			if cidrIdentity.ID != cachedIdentity.ID || bytes.Compare(oldHostIP, newHostIP) != 0 {
 				scopedLog.Debug("Removal of endpoint IP revives shadowed CIDR to identity mapping")
 				cacheModification = Upsert
 				oldIdentity = &cachedIdentity.ID
 				newIdentity = cidrIdentity
 			} else {
 				// The endpoint IP and the CIDR were associated with the same
-				// identity. Nothing changes for the listeners.
+				// identity and host IP. Nothing changes for the listeners.
 				callbackListeners = false
 			}
 		}
@@ -374,10 +395,12 @@ func (ipc *IPCache) deleteLocked(ip string) {
 	if len(ipc.identityToIPCache[cachedIdentity.ID]) == 0 {
 		delete(ipc.identityToIPCache, cachedIdentity.ID)
 	}
+	delete(ipc.ipToHostIPCache, ip)
 
 	if callbackListeners {
 		for _, listener := range ipc.listeners {
-			listener.OnIPIdentityCacheChange(cacheModification, *cidr, nil, oldIdentity, newIdentity.ID)
+			listener.OnIPIdentityCacheChange(cacheModification, *cidr, oldHostIP, newHostIP,
+				oldIdentity, newIdentity.ID)
 		}
 	}
 }

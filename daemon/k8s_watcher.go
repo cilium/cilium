@@ -1674,16 +1674,16 @@ func (d *Daemon) updateK8sNodeTunneling(k8sNodeOld, k8sNodeNew *v1.Node) error {
 		}
 		hostIP := node.GetNodeIP(false)
 		if ip4 := hostIP.To4(); ip4 == nil {
-			return "", nil, fmt.Errorf("HostIP is not an IPv4 address %s", hostIP)
+			return "", nil, fmt.Errorf("HostIP is not an IPv4 address: %s", hostIP)
 		}
 
 		ciliumIPStr := k8sNode.GetAnnotations()[annotation.CiliumHostIP]
 		ciliumIP := net.ParseIP(ciliumIPStr)
 		if ciliumIP == nil {
-			return "", nil, fmt.Errorf("no/invalid Cilium-Host IP: %s", ciliumIPStr)
+			return "", nil, fmt.Errorf("no/invalid Cilium-Host IP for host %s: %s", hostIP, ciliumIPStr)
 		}
 
-		return ciliumIPStr, ciliumIP, nil
+		return ciliumIPStr, hostIP, nil
 	}
 
 	ciliumIPStrNew, hostIPNew, err := getIDs(nodeNew, k8sNodeNew)
