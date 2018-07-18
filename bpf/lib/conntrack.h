@@ -85,6 +85,21 @@ union tcp_flags {
 	};
 };
 
+/**
+ * Update the CT timeout and TCP flags for the specified entry.
+ *
+ * We track the OR'd accumulation of seen tcp flags in the entry, and the
+ * last time that a notification was sent. Multiple CPUs may enter this
+ * function with packets for the same connection, in which case it is possible
+ * for the CPUs to race to update the entry. In such a case, the critical
+ * update section may be entered in quick succession, leading to multiple
+ * updates of the entry and returning true for each CPU. The BPF architecture
+ * guarantees that entire 8-bit or 32-bit values will be set within the entry,
+ * so although the CPUs may race, the worst result is that multiple executions
+ * of this function return 'true' for the same connection within short
+ * succession, leading to multiple trace notifications being sent when one
+ * might otherwise expect such notifications to be aggregated.
+ */
 static inline bool __inline__ __ct_update_timeout(struct ct_entry *entry,
 						  __u32 lifetime, int dir,
 						  union tcp_flags flags)
@@ -105,6 +120,37 @@ static inline bool __inline__ __ct_update_timeout(struct ct_entry *entry,
 		last_report = &entry->last_tx_report;
 	}
 	seen_flags |= *accumulated_flags;
+
+	/* It's possible for multiple CPUs to execute the branch statement here
+	 * one after another, before the first CPU is able to execute the entry
+	 * modifications within this branch. This is somewhat unlikely because
+	 * packets for the same connection are typically steered towards the
+	 * same CPU, but is possible in theory.
+	 *
+	 * If the branch is taken by multiple CPUs because of '*last_report',
+	 * then this merely causes multiple notifications to be sent after
+	 * CT_REPORT_INTERVAL rather than a single notification. '*last_report'
+	 * will be updated by all CPUs and subsequent checks should not take
+	 * this branch until the next CT_REPORT_INTERVAL. As such, the trace
+	 * aggregation that uses the result of this function may reduce the
+	 * number of packets per interval to a small integer value (max N_CPUS)
+	 * rather than 1 notification per packet throughout the interval.
+	 *
+	 * Similar behaviour may happen with tcp_flags. The worst case race
+	 * here would be that two or more CPUs argue over which flags have been
+	 * seen and overwrite each other, with each CPU interleaving different
+	 * values for which flags were seen. In practice, realistic connections
+	 * are likely to progressively set SYN, ACK, then much later perhaps
+	 * FIN and/or RST. Furthermore, unless such a traffic pattern were
+	 * constantly received, this should self-correct as the stored
+	 * tcp_flags is an OR'd set of flags and each time the above code is
+	 * executed, it pulls the latest set of accumulated flags. Therefore
+	 * even in the worst case such a conflict is likely only to cause a
+	 * small number of additional notifications, which is still likely to
+	 * be significantly less under this MONITOR_AGGREGATION mode than would
+	 * otherwise be sent if the MONITOR_AGGREGATION level is set to none
+	 * (ie, sending a notification for every packet).
+	 */
 	if (*last_report + CT_REPORT_INTERVAL < now ||
 	    *accumulated_flags != seen_flags) {
 		*last_report = now;
