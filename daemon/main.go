@@ -426,7 +426,7 @@ func init() {
 		"masquerade", true, "Masquerade packets from endpoints leaving the host")
 	flags.String(option.MonitorAggregationName, "None",
 		"Level of monitor aggregation for traces from the datapath")
-	viper.BindEnv(option.MonitorAggregationName, "MONITOR_AGGREGATION_LEVEL")
+	viper.BindEnv(option.MonitorAggregationName, "CILIUM_MONITOR_AGGREGATION_LEVEL")
 	flags.IntVar(&option.Config.MTU,
 		option.MTUName, mtu.AutoDetect(), "Overwrite auto-detected MTU of underlying network")
 	flags.StringVar(&v6Address,
