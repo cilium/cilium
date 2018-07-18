@@ -172,7 +172,7 @@ skip_service_lookup:
 		struct remote_endpoint_info *info;
 
 		info = lookup_ip6_remote_endpoint(&orig_dip);
-		if (info != NULL) {
+		if (info != NULL && info->sec_label) {
 			dstID = info->sec_label;
 			tunnel_endpoint = info->tunnel_endpoint;
 		} else if (ipv6_match_prefix_64(daddr, &router_ip))
@@ -476,7 +476,7 @@ skip_service_lookup:
 		struct remote_endpoint_info *info;
 
 		info = lookup_ip4_remote_endpoint(orig_dip);
-		if (info != NULL) {
+		if (info != NULL && info->sec_label) {
 			dstID = info->sec_label;
 			tunnel_endpoint = info->tunnel_endpoint;
 		} else if ((orig_dip & IPV4_CLUSTER_MASK) == IPV4_CLUSTER_RANGE)
