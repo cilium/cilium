@@ -22,6 +22,8 @@ import (
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/logging"
+
+	"golang.org/x/sys/unix"
 )
 
 var log = logging.DefaultLogger
@@ -154,6 +156,18 @@ func NewMap() *Map {
 			},
 		).WithCache(),
 	}
+}
+
+// Delete removes a key from the ipcache BPF map
+func Delete(k bpf.MapKey) error {
+	// Older kernels do not support deletion of LPM map entries so zero out
+	// the entry instead of attempting a deletion
+	err, errno := IPCache.DeleteWithErrno(k)
+	if errno == unix.ENOSYS {
+		return IPCache.Update(k, &RemoteEndpointInfo{})
+	}
+
+	return err
 }
 
 // GetMaxPrefixLengths determines how many unique prefix lengths are supported

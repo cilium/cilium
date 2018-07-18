@@ -22,6 +22,7 @@ import (
 	"os"
 	"path"
 	"sync"
+	"syscall"
 	"time"
 	"unsafe"
 
@@ -624,8 +625,11 @@ func (m *Map) deleteCacheEntry(key MapKey, err error) {
 	}
 }
 
-func (m *Map) Delete(key MapKey) error {
-	var err error
+func (m *Map) DeleteWithErrno(key MapKey) (error, syscall.Errno) {
+	var (
+		err   error
+		errno syscall.Errno
+	)
 
 	m.lock.Lock()
 	defer m.lock.Unlock()
@@ -633,10 +637,20 @@ func (m *Map) Delete(key MapKey) error {
 	defer m.deleteCacheEntry(key, err)
 
 	if err = m.Open(); err != nil {
-		return err
+		return err, 0
 	}
 
-	err = DeleteElement(m.fd, key.GetKeyPtr())
+	_, errno = deleteElement(m.fd, key.GetKeyPtr())
+
+	if errno != 0 {
+		err = fmt.Errorf("Unable to delete element from map: %s", err)
+	}
+
+	return err, errno
+}
+
+func (m *Map) Delete(key MapKey) error {
+	err, _ := m.DeleteWithErrno(key)
 	return err
 }
 
