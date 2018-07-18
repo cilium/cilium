@@ -436,7 +436,7 @@ func (c *consulClient) Watch(w *Watcher) {
 
 		// timeout while watching for changes, re-schedule
 		if qo.WaitIndex != 0 && (q == nil || q.LastIndex == qo.WaitIndex) {
-			continue
+			goto wait
 		}
 
 		for _, newPair := range pairs {
@@ -487,6 +487,7 @@ func (c *consulClient) Watch(w *Watcher) {
 			w.Events <- KeyValueEvent{Typ: EventTypeListDone}
 		}
 
+	wait:
 		select {
 		case <-time.After(sleepTime):
 		case <-w.stopWatch:
