@@ -97,7 +97,7 @@ spec:
                 optional: true
                 key: clean-cilium-state
       containers:
-      - image: docker.io/cilium/cilium:v1.0.4
+      - image: docker.io/cilium/cilium:v1.0.5
         imagePullPolicy: IfNotPresent
         name: cilium-agent
         command: [ "cilium-agent" ]
@@ -223,7 +223,6 @@ spec:
           secret:
             secretName: cilium-etcd-secrets
       restartPolicy: Always
-      priorityClassName: system-node-critical
       tolerations:
       - effect: NoSchedule
         key: node-role.kubernetes.io/master
