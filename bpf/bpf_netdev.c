@@ -171,9 +171,7 @@ static inline int rewrite_dmac_to_host(struct __sk_buff *skb)
 
 static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 {
-#ifdef ENCAP_IFINDEX
 	struct remote_endpoint_info *info;
-#endif
 	union v6addr node_ip = { };
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -200,6 +198,16 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 			return ret;
 	}
 #endif
+
+	/* Packets from the proxy will already have a real identity. */
+	if (identity_is_reserved(src_identity)) {
+		union v6addr *src = (union v6addr *) &ip6->saddr;
+		info = ipcache_lookup6(&cilium_ipcache, src, V6_CACHE_KEY_LEN);
+		if (!info)
+			src_identity = info->sec_label;
+		cilium_dbg(skb, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
+			   ((__u32 *) src)[3], src_identity);
+	}
 
 	BPF_V6(node_ip, ROUTER_IP);
 	flowlabel = derive_sec_ctx(skb, &node_ip, ip6);
@@ -344,9 +352,7 @@ reverse_proxy(struct __sk_buff *skb, int l4_off, struct iphdr *ip4, __u8 nh)
 
 static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 {
-#ifdef ENCAP_IFINDEX
 	struct remote_endpoint_info *info;
-#endif
 	struct ipv4_ct_tuple tuple = {};
 	struct endpoint_info *ep;
 	void *data, *data_end;
@@ -360,6 +366,15 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 	secctx = derive_ipv4_sec_ctx(skb, ip4);
 	tuple.nexthdr = ip4->protocol;
+
+	/* Packets from the proxy will already have a real identity. */
+	if (identity_is_reserved(src_identity)) {
+		info = ipcache_lookup4(&cilium_ipcache, ip4->saddr, V4_CACHE_KEY_LEN);
+		if (!info)
+			src_identity = info->sec_label;
+		cilium_dbg(skb, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
+			   ip4->saddr, src_identity);
+	}
 
 #ifdef FROM_HOST
 	if (1) {
