@@ -1,12 +1,13 @@
 The following people, in alphabetical order, have either authored or signed
 off on commits in the Cilium repository:
 
+ackerman80                              arvind@covalent.io
 Alban Crequy                            alban@kinvolk.io
 Alexander Alemayhu                      alexander@alemayhu.com
 Alexei Starovoitov                      alexei.starovoitov@gmail.com
 Amey Bhide                              amey@covalent.io
 Amre Shakimov                           amre@covalent.io
-André Martins                           andre@cilium.io
+André Martins                          andre@cilium.io
 Arvind Soni                             arvindsoni@gmail.com
 Ashwin Paranjpe                         ashwin@covalent.io
 ChristopherBiscardi                     chris@christopherbiscardi.com
@@ -45,6 +46,7 @@ Madhu Challa                            madhu@cilium.io
 Manali Bhutiyani                        manali@covalent.io
 Marcin Skarbek                          git@skarbek.name
 Marius Gerling                          marius.gerling@uniberg.com
+Mark deVilliers                         markdevilliers@gmail.com
 Martin Charles                          martincharles07@gmail.com
 Matthew Gumport                         me@gum.pt
 Matt Layher                             mdlayher@gmail.com

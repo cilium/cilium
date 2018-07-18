@@ -2,6 +2,85 @@
 NEWS
 ******
 
+v1.1.1
+======
+
+::
+
+    André Martins (18):
+          Revert "k8s: Updated LastUpdated after waiting for endpoint status"
+          test: Use latest stable etcd and consul images
+          tests: Update cilium-builder in unit tests to 2018-06-21
+          pkg/endpoint: set policy revision if there is no datapath changes
+          Dockerfile: update go to 1.10.3
+          Dockerfile: update base build images to version 2018-06-21
+          test: add k8s 1.12 test framework
+          examples/kubernetes: add k8s 1.12 deployment files
+          examples/kubernetes: fix k8s 1.12 cilium image tag
+          daemon: change minimal worker thread to 2
+          pkg/k8s: stop logging conflicting errors as errors on update
+          examples/kubernetes: add "system-node-critical" priorityClass
+          test: remove policy enforcement in k8s tests
+          pkg/endpoint: check endpoint's state before modifying identity labels
+          examples/kubernetes: fix default crio mounting path
+          pkg/kvstore: set hard timeout for etcd lock path to 1 minute
+          pkg/workloads: check if Client() is nil to avoid nil pointer dereference
+          pkg/endpoint: set state ready if endpoint labels are the same
+    
+    Cynthia Thomas (1):
+          kops guide edits
+    
+    Eloy Coto (5):
+          CI: Delete bugtool files correctly
+          Test: MicroscopeStart return callback if error.
+          Test: Upgrade test, delete kube-dns pods before install.
+          Test: Update cilium stable image to v1.0.4
+          TEST: Update kube-dns manifest for 1.11 and bigger versions.
+    
+    Ian Vernon (6):
+          pkg/policy: take into account To / FromRequires when computing L4 policy
+          envoy: use local_resources parameter during bazel build
+          pkg/endpoint: lock endpoint Status indexMU in logStatusLocked
+          pkg/endpoint: use logStatusLocked in writeHeaderfile
+          Revert "Test: MicroscopeStart return callback if error."
+          pkg/policy/api: handle multiple CIDRs in CIDRSlice when adding reserved:world EndpointSelector
+    
+    Jarno Rajahalme (1):
+          envoy: Rebase to to build backports
+    
+    Joe Stringer (5):
+          daemon: Release ipcache entries on policy add failure
+          daemon: Release identities in failure condition
+          daemon: Refactor ipcache CIDR allocations to ipcache
+          docs: Map stable RTD version to VERSION
+          daemon: Mark all traffic from host with magic bits
+    
+    Maciej Kwiek (2):
+          Fix `go vet` issue
+          Adjust installation from source guide
+    
+    Nirmoy Das (1):
+          cilium-docker: fix gatewayIPv4 assignment
+    
+    Ray Bejjani (2):
+          backport: use the same url for all searches
+          backport: Only check merged PRs
+    
+    Romain Lenglet (2):
+          examples/kubernetes: Add sidecar-istio-proxy-image config map setting
+          daemon: Add sidecar-istio-proxy-image flag
+    
+    Shantanu Deshpande (1):
+          Fix nesting for Upgrade notes for 1.1
+    
+    Thomas Graf (5):
+          Documentation: Re-work the contributor guide
+          kvstore: Fix unintentional info message
+          Doc: Fix service account policy example
+          endpoint: Fix restored endpoints not showing up in ipcache
+          bpf: Fix ipcache lookup for kernels with HAVE_LPM_MAP_TYPE
+
+
 v1.1.0
 ======
 
