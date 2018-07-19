@@ -15,6 +15,7 @@
 package k8sTest
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strings"
@@ -35,7 +36,9 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 		logger           *logrus.Entry
 		serviceName      = "app1-service"
 		microscopeErr    error
-		microscopeCancel = func() error { return nil }
+		microscopeCancel                    = func() error { return nil }
+		backgroundCancel context.CancelFunc = func() { return }
+		backgroundError  error
 		ciliumPodK8s1    string
 	)
 
@@ -71,11 +74,14 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 	JustBeforeEach(func() {
 		microscopeErr, microscopeCancel = kubectl.MicroscopeStart()
 		Expect(microscopeErr).To(BeNil(), "Microscope cannot be started")
+		backgroundCancel, backgroundError = kubectl.BackgroundReport("uptime")
+		Expect(backgroundError).To(BeNil(), "Cannot start background report process")
 	})
 
 	JustAfterEach(func() {
 		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
 		Expect(microscopeCancel()).To(BeNil(), "cannot stop microscope")
+		backgroundCancel()
 	})
 
 	AfterEach(func() {
