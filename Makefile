@@ -210,7 +210,7 @@ gofmt:
 
 govet:
 	@$(ECHO_CHECK) vetting all GOFILES...
-	$(GO) tool vet $(SUBDIRS)
+	$(GO) tool vet api pkg $(SUBDIRS)
 
 precheck: govet
 	@$(ECHO_CHECK) contrib/scripts/check-fmt.sh

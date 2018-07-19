@@ -28,10 +28,8 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/byteorder"
-	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/sirupsen/logrus"
@@ -747,21 +745,14 @@ func ConvertKeyValue(bKey []byte, bValue []byte, key interface{}, value interfac
 // MetadataDiff compares the metadata of the BPF maps and returns false if the
 // metadata does not match
 func (m *Map) MetadataDiff(other *Map) bool {
-	if m == nil || other == nil {
+	switch {
+	case m == other:
+		return true
+	case m == nil || other == nil:
 		return false
+	default:
+		return m.DeepEquals(other)
 	}
-
-	// create copies
-	m1 := *m
-	m2 := *other
-
-	// ignore fd in diff
-	m1.fd = 0
-	m2.fd = 0
-
-	logging.MultiLine(log.Debug, comparator.Compare(m1, m2))
-
-	return m1.DeepEquals(&m2)
 }
 
 // GetModel returns a BPF map in the representation served via the API

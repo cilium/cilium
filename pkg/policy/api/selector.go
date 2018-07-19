@@ -36,7 +36,7 @@ type EndpointSelector struct {
 	// LabelSelector, which allows more efficient matching in Matches().
 	//
 	// Kept as a pointer to allow EndpointSelector to be used as a map key.
-	requirements *k8sLbls.Requirements `json:"-"`
+	requirements *k8sLbls.Requirements
 }
 
 // LabelSelectorString returns a user-friendly string representation of

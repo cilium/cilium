@@ -15,5 +15,5 @@
 package api
 
 type FQDNSelector struct {
-	MatchName string `json:"matchName",omitempty`
+	MatchName string `json:"matchName,omitempty"`
 }
