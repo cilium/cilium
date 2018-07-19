@@ -2,7 +2,7 @@ apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
 description: "Policy to test matchExpressions key"
 metadata:
-  name: "l7-match-expressions"
+  name: "cnp-matchexpressions"
 spec:
   endpointSelector:
     matchLabels:

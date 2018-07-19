@@ -29,7 +29,7 @@ apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
 description: "L7 policy for incoming http "
 metadata:
-  name: "netcatds"
+  name: "netcat-ds"
 spec:
   endpointSelector:
     matchLabels:

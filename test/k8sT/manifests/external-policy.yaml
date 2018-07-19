@@ -1,7 +1,7 @@
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
 metadata:
-  name: "rule-to-services"
+  name: "external-policy"
 spec:
   endpointSelector:
     matchLabels:

@@ -1,16 +1,21 @@
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
+description: "L7 policy for getting started using Kubernetes guide"
 metadata:
-  name: "k8s-svc-account"
+  name: "l7-policy"
 spec:
   endpointSelector:
     matchLabels:
-      io.cilium.k8s.policy.serviceaccount: app1-account
+      id: app1
   ingress:
   - fromEndpoints:
     - matchLabels:
-        io.cilium.k8s.policy.serviceaccount: app2-account
+        id: app2
     toPorts:
     - ports:
       - port: "80"
         protocol: TCP
+      rules:
+        http:
+        - method: "GET"
+          path: "/public"
