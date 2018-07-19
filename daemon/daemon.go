@@ -40,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -133,6 +134,10 @@ type Daemon struct {
 	// Used to synchronize generation of daemon's BPF programs and endpoint BPF
 	// programs.
 	compilationMutex *lock.RWMutex
+
+	// prefixLengths tracks a mapping from CIDR prefix length to the count
+	// of rules that refer to that prefix length.
+	prefixLengths *counter.PrefixLengthCounter
 }
 
 // UpdateProxyRedirect updates the redirect rules in the proxy for a particular
@@ -1051,6 +1056,37 @@ func (d *Daemon) syncLXCMap() error {
 	return nil
 }
 
+func createIPNet(ones, bits int) *net.IPNet {
+	return &net.IPNet{
+		Mask: net.CIDRMask(ones, bits),
+	}
+}
+
+// createPrefixLengthCounter wraps around the counter library, providing
+// references to prefix lengths that will always be present.
+func createPrefixLengthCounter() *counter.PrefixLengthCounter {
+	counter := counter.NewPrefixLengthCounter(ipcachemap.IPCache.GetMaxPrefixLengths())
+
+	// This is a bit ugly, but there's not a great way to define an IPNet
+	// without parsing strings, etc.
+	defaultPrefixes := []*net.IPNet{
+		// IPv4
+		createIPNet(0, net.IPv4len*8),                     // world
+		createIPNet(v4ClusterCidrMaskSize, net.IPv4len*8), // cluster
+		createIPNet(net.IPv4len*8, net.IPv4len*8),         // hosts
+
+		// IPv6
+		createIPNet(0, net.IPv6len*8), // world
+		createIPNet(node.DefaultIPv6ClusterPrefixLen, net.IPv6len*8),
+		createIPNet(net.IPv6len*8, net.IPv6len*8), // hosts
+	}
+	_, err := counter.Add(defaultPrefixes)
+	if err != nil {
+		log.WithError(err).Fatal("Failed to create default prefix lengths")
+	}
+	return counter
+}
+
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
 func NewDaemon() (*Daemon, error) {
 	// Validate the daemon specific global options
@@ -1065,10 +1101,11 @@ func NewDaemon() (*Daemon, error) {
 	lb := types.NewLoadBalancer()
 
 	d := Daemon{
-		loadBalancer: lb,
-		policy:       policy.NewPolicyRepository(),
-		uniqueID:     map[uint64]bool{},
-		nodeMonitor:  monitorLaunch.NewNodeMonitor(),
+		loadBalancer:  lb,
+		policy:        policy.NewPolicyRepository(),
+		uniqueID:      map[uint64]bool{},
+		nodeMonitor:   monitorLaunch.NewNodeMonitor(),
+		prefixLengths: createPrefixLengthCounter(),
 
 		// FIXME
 		// The channel size has to be set to the maximum number of
