@@ -298,6 +298,7 @@ func (d *Daemon) writeNetdevHeader(dir string) error {
 	fw.WriteString(option.Config.Opts.GetFmtList())
 	fw.WriteString(d.fmtPolicyEnforcementIngress())
 	fw.WriteString(d.fmtPolicyEnforcementEgress())
+	endpoint.WriteIPCachePrefixes(fw, d.prefixLengths.ToBPFData)
 
 	return fw.Flush()
 }
