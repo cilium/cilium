@@ -179,6 +179,12 @@ func (m *Map) GetMaxPrefixLengths() (count int) {
 	return maxPrefixLengths
 }
 
+// BackedByLPM returns true if the IPCache is backed by a proper LPM
+// implementation (provided by Linux kernels 4.11 or later), false otherwise.
+func BackedByLPM() bool {
+	return IPCache.MapType == bpf.BPF_MAP_TYPE_LPM_TRIE
+}
+
 var (
 	// IPCache is a mapping of all endpoint IPs in the cluster which this
 	// Cilium agent is a part of to their corresponding security identities.
