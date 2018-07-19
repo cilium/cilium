@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net"
 	"sync"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -189,7 +190,7 @@ type AddOptions struct {
 	Replace bool
 }
 
-func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, error) {
+func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions, prefixes []*net.IPNet) (uint64, error) {
 	d.policy.Mutex.Lock()
 	defer d.policy.Mutex.Unlock()
 
@@ -240,6 +241,25 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 	prefixes := policy.GetCIDRPrefixes(rules)
 	log.WithField("prefixes", prefixes).Debug("Policy imported via API, found CIDR prefixes...")
 
+	newPrefixLengths, err := d.prefixLengths.Add(prefixes)
+	if err != nil {
+		metrics.PolicyImportErrors.Inc()
+		log.WithError(err).WithField("prefixes", prefixes).Warn(
+			"Failed to reference-count prefix lengths in CIDR policy")
+		return 0, api.Error(PutPolicyFailureCode, err)
+	}
+	if newPrefixLengths && !bpfIPCache.BackedByLPM() {
+		// Only recompile if configuration has changed.
+		log.Debug("CIDR policy has changed; recompiling base programs")
+		if err := d.compileBase(); err != nil {
+			metrics.PolicyImportErrors.Inc()
+			err2 := fmt.Errorf("Unable to recompile base programs: %s", err)
+			log.WithError(err2).WithField("prefixes", prefixes).Warn(
+				"Failed to recompile base programs due to prefix length count change")
+			return 0, api.Error(PutPolicyFailureCode, err)
+		}
+	}
+
 	if err := ipcache.AllocateCIDRs(bpfIPCache.IPCache, prefixes); err != nil {
 		metrics.PolicyImportErrors.Inc()
 		log.WithError(err).WithField("prefixes", prefixes).Warn(
@@ -247,7 +267,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 		return d.policy.GetRevision(), err
 	}
 
-	rev, err := d.policyAdd(rules, opts)
+	rev, err := d.policyAdd(rules, opts, prefixes)
 	if err != nil {
 		// Don't leak identities allocated above.
 		if err2 := ipcache.ReleaseCIDRs(prefixes); err2 != nil {
@@ -312,6 +332,15 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
 	if err := ipcache.ReleaseCIDRs(prefixes); err != nil {
 		log.WithError(err).WithField("prefixes", prefixes).Warn(
 			"Failed to release CIDRs during policy delete")
+	}
+
+	prefixesChanged := d.prefixLengths.Delete(prefixes)
+	if !bpfIPCache.BackedByLPM() && prefixesChanged {
+		// Only recompile if configuration has changed.
+		log.Debug("CIDR policy has changed; recompiling base programs")
+		if err := d.compileBase(); err != nil {
+			log.WithError(err).Error("Unable to recompile base programs")
+		}
 	}
 
 	// Stop polling for ToFQDN DNS names for these rules
