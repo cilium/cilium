@@ -2,7 +2,7 @@ apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
 description: "L3-L4 policy"
 metadata:
-  name: "rule1"
+  name: "l3-l4-policy"
 spec:
   endpointSelector:
     matchLabels:

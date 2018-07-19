@@ -30,9 +30,9 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 	var (
 		kubectl              *helpers.Kubectl
 		demoPath             = helpers.ManifestGet("demo.yaml")
-		l3Policy             = helpers.ManifestGet("l3_l4_policy.yaml")
-		l7Policy             = helpers.ManifestGet("l7_policy.yaml")
-		serviceAccountPolicy = helpers.ManifestGet("service_account.yaml")
+		l3Policy             = helpers.ManifestGet("l3-l4-policy.yaml")
+		l7Policy             = helpers.ManifestGet("l7-policy.yaml")
+		serviceAccountPolicy = helpers.ManifestGet("service-account.yaml")
 		knpDenyIngress       = helpers.ManifestGet("knp-default-deny-ingress.yaml")
 		knpDenyEgress        = helpers.ManifestGet("knp-default-deny-egress.yaml")
 		knpDenyIngressEgress = helpers.ManifestGet("knp-default-deny-ingress-egress.yaml")
@@ -610,11 +610,11 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			deployment                = "guestbook_deployment.json"
 			groupLabel                = "zgroup=guestbook"
 			redisPolicy               = "guestbook-policy-redis.json"
-			redisPolicyName           = "guestbook-redis"
+			redisPolicyName           = "guestbook-policy-redis"
 			redisPolicyDeprecated     = "guestbook-policy-redis-deprecated.json"
 			redisPolicyDeprecatedName = "guestbook-redis-deprecated"
 			webPolicy                 = "guestbook-policy-web.yaml"
-			webPolicyName             = "guestbook-web"
+			webPolicyName             = "guestbook-policy-web"
 		)
 
 		var ciliumPod, ciliumPod2 string
@@ -768,7 +768,7 @@ EOF`, k, v)
 			secondNSclusterIP string
 
 			demoPath           = helpers.ManifestGet("demo.yaml")
-			l3L4Policy         = helpers.ManifestGet("l3_l4_policy.yaml")
+			l3L4Policy         = helpers.ManifestGet("l3-l4-policy.yaml")
 			cnpSecondNS        = helpers.ManifestGet("cnp-second-namespaces.yaml")
 			netpolNsSelector   = fmt.Sprintf("%s -n %s", helpers.ManifestGet("netpol-namespace-selector.yaml"), secondNS)
 			l3l4PolicySecondNS = fmt.Sprintf("%s -n %s", l3L4Policy, secondNS)

@@ -216,8 +216,8 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 
 			endpointPath      = helpers.ManifestGet("external_endpoint.yaml")
 			podPath           = helpers.ManifestGet("external_pod.yaml")
-			policyPath        = helpers.ManifestGet("external_policy.yaml")
-			policyLabeledPath = helpers.ManifestGet("external_policy_labeled.yaml")
+			policyPath        = helpers.ManifestGet("external-policy.yaml")
+			policyLabeledPath = helpers.ManifestGet("external-policy-labeled.yaml")
 			servicePath       = helpers.ManifestGet("external_service.yaml")
 		)
 
@@ -418,7 +418,7 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 			shouldConnect(productpagePodV1.String(), formatAPI(ratings, apiPort, health))
 			shouldConnect(productpagePodV1.String(), formatAPI(ratings, apiPort, ratingsPath))
 
-			policyCmd := "cilium policy get io.cilium.k8s.policy.name=multi-rules"
+			policyCmd := "cilium policy get io.cilium.k8s.policy.name=cnp-specs"
 
 			By("Importing policy")
 

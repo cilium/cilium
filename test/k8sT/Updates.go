@@ -41,8 +41,8 @@ var _ = Describe("K8sValidatedUpdates", func() {
 		apps = []string{helpers.App1, helpers.App2, helpers.App3}
 
 		demoPath = helpers.ManifestGet("demo.yaml")
-		l3Policy = helpers.ManifestGet("l3_l4_policy.yaml")
-		l7Policy = helpers.ManifestGet("l7_policy.yaml")
+		l3Policy = helpers.ManifestGet("l3-l4-policy.yaml")
+		l7Policy = helpers.ManifestGet("l7-policy.yaml")
 
 		// Sometimes PolicyGen has a lot of pods running around without delete
 		// it. Using this we are sure that we delete before this test start
