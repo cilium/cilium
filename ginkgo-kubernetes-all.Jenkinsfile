@@ -98,6 +98,7 @@ pipeline {
         stage('Non-release-k8s-versions') {
             environment {
                 FAILFAST=setIfPR("true", "false")
+            }
             options {
                 timeout(time: 120, unit: 'MINUTES')
             }
