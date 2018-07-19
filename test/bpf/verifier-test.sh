@@ -19,6 +19,7 @@ set -e
 DEV="cilium-probe"
 DIR=$(dirname $0)/../../bpf
 TC_PROGS="bpf_lb bpf_lxc bpf_netdev bpf_overlay"
+VERBOSE=false
 
 function clean_maps {
 	rm -rf /sys/fs/bpf/tc/globals/*
@@ -39,21 +40,40 @@ function load_prog {
 	prog=$3
 	for section in $(get_section ${prog}.c); do
 		echo "=> Loading ${prog}.c:${section}..."
-		${loader} dev ${DEV} ${mode} obj ${prog}.o sec $section 2>/dev/null \
-			|| ${loader} dev ${DEV} ${mode} obj ${prog}.o \
-			   sec $section verbose
+		if $VERBOSE; then
+			# Redirect stderr to stdout to assist caller parsing
+			${loader} dev ${DEV} ${mode} obj ${prog}.o \
+				  sec $section verbose 2>&1
+		else
+			# Only run verbose mode if loading fails.
+			${loader} dev ${DEV} ${mode} obj ${prog}.o sec $section 2>/dev/null \
+			|| ${loader} dev ${DEV} ${mode} obj ${prog}.o $section verbose
+		fi
 	done
 }
 
 if [ $(id -u) -ne 0 ]; then
-	echo "Must be run as root"
+	echo "Must be run as root" 1>&2
 	exit 1
 fi
 
 if ps cax | grep cilium-agent; then
-	echo "WARNING: This test will conflict with running cilium instances." 2>&1
-	echo "Shut down cilium before continuing."
+	echo "WARNING: This test will conflict with running cilium instances." 1>&2
+	echo "Shut down cilium before continuing." 1>&2
 	exit 1
+fi
+
+# If first argument is "-v", always set verbose
+if [ $# -gt 0 ]; then
+	case "$1" in
+	-v|--verbose)
+		VERBOSE=true
+		;;
+	*)
+		echo "Unrecognized argument '$1'" 1>&2
+		exit 1
+		;;
+	esac
 fi
 
 trap cleanup EXIT
@@ -69,5 +89,5 @@ if ip link set help 2>&1 | grep -q xdpgeneric; then
 	load_prog "ip link set" "xdpgeneric" ${DIR}/bpf_xdp
 else
 	echo "=> Skipping ${DIR}/bpf_xdp.c."
-	echo "Ensure you have linux >= 4.12 and recent iproute2 to test XDP."
+	echo "Ensure you have linux >= 4.12 and recent iproute2 to test XDP." 1>&2
 fi
