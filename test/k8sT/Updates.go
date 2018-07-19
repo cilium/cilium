@@ -87,6 +87,8 @@ var _ = Describe("K8sValidatedUpdates", func() {
 		// Making sure that we deleted the  cilium ds. No assert message
 		// because maybe is not present
 		kubectl.DeleteResource("ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
+		ExpectAllPodsTerminated(kubectl)
+
 		helpers.InstallExampleCilium(kubectl)
 
 		err := kubectl.CiliumEndpointWaitReady()
