@@ -174,7 +174,7 @@ func Delete(k bpf.MapKey) error {
 // simultaneously based on the underlying BPF map type in use.
 func (m *Map) GetMaxPrefixLengths() (count int) {
 	if IPCache.MapType == bpf.BPF_MAP_TYPE_LPM_TRIE {
-		return net.IPv6len * 8
+		return net.IPv6len*8 + 1
 	}
 	return maxPrefixLengths
 }
