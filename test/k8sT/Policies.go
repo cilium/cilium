@@ -15,6 +15,7 @@
 package k8sTest
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -43,9 +44,10 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 		logger               *logrus.Entry
 		app1Service          = "app1-service"
 		microscopeErr        error
-		microscopeCancel     = func() error { return nil }
-
-		apps = []string{helpers.App1, helpers.App2, helpers.App3}
+		microscopeCancel                        = func() error { return nil }
+		backgroundCancel     context.CancelFunc = func() { return }
+		backgroundError      error
+		apps                 = []string{helpers.App1, helpers.App2, helpers.App3}
 	)
 
 	BeforeAll(func() {
@@ -77,11 +79,15 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 	JustBeforeEach(func() {
 		microscopeErr, microscopeCancel = kubectl.MicroscopeStart()
 		Expect(microscopeErr).To(BeNil(), "Microscope cannot be started")
+
+		backgroundCancel, backgroundError = kubectl.BackgroundReport("uptime")
+		Expect(backgroundError).To(BeNil(), "Cannot start background report process")
 	})
 
 	JustAfterEach(func() {
 		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
 		Expect(microscopeCancel()).To(BeNil(), "cannot stop microscope")
+		backgroundCancel()
 	})
 
 	Context("Basic Test", func() {

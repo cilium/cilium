@@ -15,6 +15,7 @@
 package k8sTest
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 
@@ -44,6 +45,9 @@ var _ = Describe(demoTestName, func() {
 		microscopeErr    error
 		microscopeCancel = func() error { return nil }
 
+		backgroundCancel context.CancelFunc = func() { return }
+		backgroundError  error
+
 		deathStarYAMLLink = getStarWarsResourceLink("02-deathstar.yaml")
 		l4PolicyYAMLLink  = getStarWarsResourceLink("policy/l4_policy.yaml")
 		xwingYAMLLink     = getStarWarsResourceLink("03-xwing.yaml")
@@ -71,11 +75,15 @@ var _ = Describe(demoTestName, func() {
 	JustBeforeEach(func() {
 		microscopeErr, microscopeCancel = kubectl.MicroscopeStart()
 		Expect(microscopeErr).To(BeNil(), "Microscope cannot be started")
+
+		backgroundCancel, backgroundError = kubectl.BackgroundReport("uptime")
+		Expect(backgroundError).To(BeNil(), "Cannot start background report process")
 	})
 
 	JustAfterEach(func() {
 		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
 		Expect(microscopeCancel()).To(BeNil(), "cannot stop microscope")
+		backgroundCancel()
 	})
 
 	AfterEach(func() {

@@ -15,6 +15,7 @@
 package k8sTest
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -28,9 +29,12 @@ import (
 var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 
 	var (
-		kubectl             *helpers.Kubectl
-		microscopeErr       error
-		microscopeCancel    = func() error { return nil }
+		kubectl          *helpers.Kubectl
+		microscopeErr    error
+		microscopeCancel                    = func() error { return nil }
+		backgroundCancel context.CancelFunc = func() { return }
+		backgroundError  error
+
 		logger              = log.WithFields(logrus.Fields{"testName": "K8sValidatedKafkaPolicyTest"})
 		l7Policy            = helpers.ManifestGet("kafka-sw-security-policy.yaml")
 		demoPath            = helpers.ManifestGet("kafka-sw-app.yaml")
@@ -86,11 +90,15 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 		JustBeforeEach(func() {
 			microscopeErr, microscopeCancel = kubectl.MicroscopeStart()
 			Expect(microscopeErr).To(BeNil(), "Microscope cannot be started")
+
+			backgroundCancel, backgroundError = kubectl.BackgroundReport("uptime")
+			Expect(backgroundError).To(BeNil(), "Cannot start background report process")
 		})
 
 		JustAfterEach(func() {
 			kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
 			Expect(microscopeCancel()).To(BeNil(), "cannot stop microscope")
+			backgroundCancel()
 		})
 
 		AfterEach(func() {
