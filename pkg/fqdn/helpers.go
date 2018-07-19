@@ -33,6 +33,8 @@ import (
 // It is used by DNSPoller when no alternative LookupDNSNames is provided
 func DNSLookupDefaultResolver(dnsNames []string) (DNSIPs map[string][]net.IP, DNSErrors map[string]error) {
 	DNSIPs = make(map[string][]net.IP)
+	DNSErrors = make(map[string]error)
+
 	for _, dnsName := range dnsNames {
 		lookupIPs, err := net.LookupIP(dnsName)
 		if err != nil {
