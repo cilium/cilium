@@ -381,6 +381,36 @@ func (kub *Kubectl) MicroscopeStart() (error, func() error) {
 	return nil, cb
 }
 
+// BackgroundReport dumps the result of the given commands on cilium pods each
+// five seconds.
+func (kub *Kubectl) BackgroundReport(commands ...string) (context.CancelFunc, error) {
+	backgroundCtx, cancel := context.WithCancel(context.Background())
+	pods, err := kub.GetCiliumPods(KubeSystemNamespace)
+	if err != nil {
+		return cancel, fmt.Errorf("Cannot retrieve cilium pods: %s", err)
+	}
+	retrieveInfo := func() {
+		for _, pod := range pods {
+			for _, cmd := range commands {
+				kub.CiliumExec(pod, cmd)
+			}
+		}
+	}
+	go func(ctx context.Context) {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				retrieveInfo()
+			}
+		}
+	}(backgroundCtx)
+	return cancel, nil
+}
+
 // NodeCleanMetadata annotates each node in the Kubernetes cluster with the
 // annotation.V4CIDRName and annotation.V6CIDRName annotations. It returns an
 // error if the nodes cannot be retrieved via the Kubernetes API.
