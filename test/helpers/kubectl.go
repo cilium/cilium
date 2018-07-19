@@ -448,6 +448,15 @@ func (kub *Kubectl) NamespaceDelete(name string) *CmdRes {
 // the aforementioned desired state within timeout seconds. Returns false and
 // an error if the command failed or the timeout was exceeded.
 func (kub *Kubectl) WaitforPods(namespace string, filter string, timeout time.Duration) error {
+
+	data, err := kub.GetPods(namespace, filter).Filter("{.items[*].metadata.deletionTimestamp}")
+	if err != nil {
+		return fmt.Errorf("Cannot get pods with filter '%s': %s", filter, err)
+	}
+	if data.String() != "" {
+		return fmt.Errorf(
+			"There are some pods with filter %s that are marked to be deleted", filter)
+	}
 	body := func() bool {
 		var jsonPath = "{.items[*].status.containerStatuses[*].ready}"
 		data, err := kub.GetPods(namespace, filter).Filter(jsonPath)
@@ -474,7 +483,10 @@ func (kub *Kubectl) WaitforPods(namespace string, filter string, timeout time.Du
 		}).Info("WaitforPods: pods are not ready")
 		return false
 	}
-	return WithTimeout(body, "could not get Pods", &TimeoutConfig{Timeout: timeout})
+	return WithTimeout(
+		body,
+		fmt.Sprintf("timed out waiting for pods with filter %s to be ready", filter),
+		&TimeoutConfig{Timeout: timeout})
 }
 
 // WaitForServiceEndpoints waits up until timeout seconds have elapsed for all
