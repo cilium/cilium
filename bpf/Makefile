@@ -28,6 +28,7 @@ all: $(BPF) $(TARGET)
 
 check:
 	@$(ECHO_CHECK) bpf/*.c
+	$(QUIET) spatch --sp-file ../contrib/coccinelle/null.cocci --dir . --include-headers
 	$(QUIET) sparse -Wsparse-all ${FLAGS} *.c
 	$(QUIET) $(CLANG) ${CLANG_FLAGS} --analyze *.c
 
