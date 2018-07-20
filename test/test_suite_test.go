@@ -59,7 +59,6 @@ func init() {
 	for k, v := range DefaultSettings {
 		getOrSetEnvVar(k, v)
 	}
-
 	config.CiliumTestConfig.ParseFlags()
 
 	os.RemoveAll(helpers.TestResultsPath)
@@ -86,6 +85,11 @@ func ShowCommands() {
 }
 
 func TestTest(t *testing.T) {
+	if config.CiliumTestConfig.TestScope != "" {
+		helpers.UserDefinedScope = config.CiliumTestConfig.TestScope
+		fmt.Printf("User specified the scope:  %q", config.CiliumTestConfig.TestScope)
+	}
+
 	configLogsOutput()
 	ShowCommands()
 
@@ -171,8 +175,12 @@ var _ = BeforeAll(func() {
 		defer func() { progressChan <- err == nil }()
 	}
 	logger := log.WithFields(logrus.Fields{"testName": "BeforeSuite"})
+	scope, err := helpers.GetScope()
+	if err != nil {
+		Fail(fmt.Sprintf("Cannot get the scope for running test: %s", err))
+	}
 
-	switch helpers.GetScope() {
+	switch scope {
 	case helpers.Runtime:
 		err = helpers.CreateVM(helpers.Runtime)
 		if err != nil {
@@ -237,8 +245,8 @@ var _ = AfterAll(func() {
 		log.Infof("AfterSuite: not running on Jenkins; leaving VMs running for debugging")
 		return
 	}
-
-	scope := helpers.GetScope()
+	// Errors are not checked here because it should fail on BeforeAll
+	scope, _ := helpers.GetScope()
 	log.Infof("cleaning up VMs started for %s tests", scope)
 	switch scope {
 	case helpers.Runtime:
