@@ -19,7 +19,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
@@ -28,16 +27,11 @@ import (
 )
 
 var _ = Describe("RuntimePolicyValidationTests", func() {
-	var once sync.Once
 	var vm *helpers.SSHMeta
 
-	initialize := func() {
+	BeforeAll(func() {
 		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
 		ExpectCiliumReady(vm)
-	}
-
-	BeforeEach(func() {
-		once.Do(initialize)
 	})
 
 	JustAfterEach(func() {

@@ -16,7 +16,6 @@ package RuntimeTest
 
 import (
 	"context"
-	"sync"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
@@ -26,13 +25,13 @@ import (
 
 var _ = Describe("RuntimeKVStoreTest", func() {
 
-	var once sync.Once
 	var vm *helpers.SSHMeta
 
-	initialize := func() {
+	BeforeAll(func() {
 		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
 		ExpectCiliumReady(vm)
-	}
+	})
+
 	containers := func(option string) {
 		switch option {
 		case helpers.Create:
@@ -45,7 +44,6 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 	}
 
 	BeforeEach(func() {
-		once.Do(initialize)
 		vm.Exec("sudo systemctl stop cilium")
 	}, 150)
 

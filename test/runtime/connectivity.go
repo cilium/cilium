@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sync"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
@@ -15,22 +14,17 @@ import (
 
 var _ = Describe("RuntimeConnectivityTest", func() {
 	var (
-		once        sync.Once
 		vm          *helpers.SSHMeta
 		monitorStop = func() error { return nil }
 	)
 
-	initialize := func() {
+	BeforeAll(func() {
 		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
 		ExpectCiliumReady(vm)
-	}
+	})
 
 	JustBeforeEach(func() {
 		monitorStop = vm.MonitorStart()
-	})
-
-	BeforeEach(func() {
-		once.Do(initialize)
 	})
 
 	removeContainer := func(containerName string) {
@@ -298,7 +292,6 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 var _ = Describe("RuntimeConntrackTest", func() {
 	var (
 		vm          *helpers.SSHMeta
-		once        sync.Once
 		monitorStop = func() error { return nil }
 
 		curl1ContainerName             = "curl"
@@ -313,12 +306,12 @@ var _ = Describe("RuntimeConntrackTest", func() {
 		assert      func() types.GomegaMatcher
 	}
 
-	initialize := func() {
+	BeforeAll(func() {
 		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
 		ExpectCiliumReady(vm)
 
 		ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementAlways)
-	}
+	})
 
 	clientServerConnectivity := func() {
 		By("============= Starting Connectivity Test ============= ")
@@ -616,8 +609,6 @@ var _ = Describe("RuntimeConntrackTest", func() {
 	}
 
 	BeforeEach(func() {
-		once.Do(initialize)
-
 		// TODO: provide map[string]string instead of one string representing KV pair.
 		vm.ContainerCreate(helpers.Client, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
 		vm.ContainerCreate(helpers.Server, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.server")
