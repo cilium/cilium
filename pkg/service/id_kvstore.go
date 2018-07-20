@@ -20,8 +20,8 @@ import (
 	"strconv"
 
 	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -29,14 +29,14 @@ var (
 	serviceKvstorePrefix = common.OperationalPath + "/ServicesV2/"
 )
 
-func updateL3n4AddrIDRef(id types.ServiceID, l3n4AddrID types.L3n4AddrID) error {
+func updateL3n4AddrIDRef(id loadbalancer.ServiceID, l3n4AddrID loadbalancer.L3n4AddrID) error {
 	key := path.Join(common.ServiceIDKeyPath, strconv.FormatUint(uint64(id), 10))
 	return kvstore.Client().SetValue(key, l3n4AddrID)
 }
 
 // gasNewL3n4AddrID gets and sets a new L3n4Addr ID. If baseID is different than zero,
 // KVStore tries to assign that ID first.
-func gasNewL3n4AddrID(l3n4AddrID *types.L3n4AddrID, baseID uint32) error {
+func gasNewL3n4AddrID(l3n4AddrID *loadbalancer.L3n4AddrID, baseID uint32) error {
 	if baseID == 0 {
 		var err error
 		baseID, err = getGlobalMaxServiceID()
@@ -51,7 +51,7 @@ func gasNewL3n4AddrID(l3n4AddrID *types.L3n4AddrID, baseID uint32) error {
 // acquireGlobalID stores the given service in the kvstore and returns the L3n4AddrID
 // created for the given l3n4Addr. If baseID is different than 0, it tries to acquire that
 // ID to the l3n4Addr.
-func acquireGlobalID(l3n4Addr types.L3n4Addr, baseID uint32) (*types.L3n4AddrID, error) {
+func acquireGlobalID(l3n4Addr loadbalancer.L3n4Addr, baseID uint32) (*loadbalancer.L3n4AddrID, error) {
 	// Retrieve unique SHA256Sum for service
 	sha256Sum := l3n4Addr.SHA256Sum()
 	svcPath := path.Join(common.ServicesKeyPath, sha256Sum)
@@ -69,7 +69,7 @@ func acquireGlobalID(l3n4Addr types.L3n4Addr, baseID uint32) (*types.L3n4AddrID,
 		return nil, err
 	}
 
-	sl4KV := types.L3n4AddrID{}
+	sl4KV := loadbalancer.L3n4AddrID{}
 	if rmsg != nil {
 		if err := json.Unmarshal(rmsg, &sl4KV); err != nil {
 			return nil, err
@@ -86,7 +86,7 @@ func acquireGlobalID(l3n4Addr types.L3n4Addr, baseID uint32) (*types.L3n4AddrID,
 	return &sl4KV, err
 }
 
-func getL3n4AddrID(keyPath string) (*types.L3n4AddrID, error) {
+func getL3n4AddrID(keyPath string) (*loadbalancer.L3n4AddrID, error) {
 	rmsg, err := kvstore.Client().GetValue(keyPath)
 	if err != nil {
 		return nil, err
@@ -96,7 +96,7 @@ func getL3n4AddrID(keyPath string) (*types.L3n4AddrID, error) {
 		return nil, nil
 	}
 
-	var l3n4AddrID types.L3n4AddrID
+	var l3n4AddrID loadbalancer.L3n4AddrID
 	if err := json.Unmarshal(rmsg, &l3n4AddrID); err != nil || l3n4AddrID.ID == 0 {
 		return nil, err
 	}
@@ -104,7 +104,7 @@ func getL3n4AddrID(keyPath string) (*types.L3n4AddrID, error) {
 }
 
 // getGlobalID returns the L3n4AddrID that belongs to the given id.
-func getGlobalID(id uint32) (*types.L3n4AddrID, error) {
+func getGlobalID(id uint32) (*loadbalancer.L3n4AddrID, error) {
 	strID := strconv.FormatUint(uint64(id), 10)
 	log.WithField(logfields.L3n4AddrID, strID).Debug("getting L3n4AddrID for ID")
 
@@ -148,7 +148,7 @@ func deleteL3n4AddrIDBySHA256(sha256Sum string) error {
 		return nil
 	}
 
-	var l3n4AddrID types.L3n4AddrID
+	var l3n4AddrID loadbalancer.L3n4AddrID
 	if err := json.Unmarshal(rmsg, &l3n4AddrID); err != nil {
 		return err
 	}

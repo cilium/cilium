@@ -19,8 +19,8 @@ import (
 	"net"
 	"unsafe"
 
-	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
@@ -372,7 +372,7 @@ func AddSVC2BPFMap(fe ServiceKey, besValues []ServiceValue, addRevNAT bool, revN
 
 // L3n4Addr2ServiceKey converts the given l3n4Addr to a ServiceKey with the slave ID
 // set to 0.
-func L3n4Addr2ServiceKey(l3n4Addr types.L3n4AddrID) ServiceKey {
+func L3n4Addr2ServiceKey(l3n4Addr loadbalancer.L3n4AddrID) ServiceKey {
 	log.WithField(logfields.L3n4AddrID, l3n4Addr).Debug("converting L3n4Addr to ServiceKey")
 	if l3n4Addr.IsIPv6() {
 		return NewService6Key(l3n4Addr.IP, l3n4Addr.Port, 0)
@@ -381,7 +381,7 @@ func L3n4Addr2ServiceKey(l3n4Addr types.L3n4AddrID) ServiceKey {
 }
 
 // LBSVC2ServiceKeynValue transforms the SVC Cilium type into a bpf SVC type.
-func LBSVC2ServiceKeynValue(svc types.LBSVC) (ServiceKey, []ServiceValue, error) {
+func LBSVC2ServiceKeynValue(svc loadbalancer.LBSVC) (ServiceKey, []ServiceValue, error) {
 	log.WithFields(logrus.Fields{
 		"lbFrontend": svc.FE.String(),
 		"lbBackend":  svc.BES,
@@ -416,7 +416,7 @@ func LBSVC2ServiceKeynValue(svc types.LBSVC) (ServiceKey, []ServiceValue, error)
 }
 
 // L3n4Addr2RevNatKeynValue converts the given L3n4Addr to a RevNatKey and RevNatValue.
-func L3n4Addr2RevNatKeynValue(svcID types.ServiceID, feL3n4Addr types.L3n4Addr) (RevNatKey, RevNatValue) {
+func L3n4Addr2RevNatKeynValue(svcID loadbalancer.ServiceID, feL3n4Addr loadbalancer.L3n4Addr) (RevNatKey, RevNatValue) {
 	if feL3n4Addr.IsIPv6() {
 		return NewRevNat6Key(uint16(svcID)), NewRevNat6Value(feL3n4Addr.IP, feL3n4Addr.Port)
 	}
@@ -424,7 +424,7 @@ func L3n4Addr2RevNatKeynValue(svcID types.ServiceID, feL3n4Addr types.L3n4Addr) 
 }
 
 // ServiceKey2L3n4Addr converts the given svcKey to a L3n4Addr.
-func ServiceKey2L3n4Addr(svcKey ServiceKey) (*types.L3n4Addr, error) {
+func ServiceKey2L3n4Addr(svcKey ServiceKey) (*loadbalancer.L3n4Addr, error) {
 	log.WithField(logfields.ServiceID, svcKey).Debug("creating L3n4Addr for ServiceKey")
 	var (
 		feIP   net.IP
@@ -439,15 +439,15 @@ func ServiceKey2L3n4Addr(svcKey ServiceKey) (*types.L3n4Addr, error) {
 		feIP = svc4Key.Address.IP()
 		fePort = svc4Key.Port
 	}
-	return types.NewL3n4Addr(types.TCP, feIP, fePort)
+	return loadbalancer.NewL3n4Addr(loadbalancer.TCP, feIP, fePort)
 }
 
 // ServiceKeynValue2FEnBE converts the given svcKey and svcValue to a frontend in the
 // form of L3n4AddrID and backend in the form of L3n4Addr.
-func ServiceKeynValue2FEnBE(svcKey ServiceKey, svcValue ServiceValue) (*types.L3n4AddrID, *types.LBBackEnd, error) {
+func ServiceKeynValue2FEnBE(svcKey ServiceKey, svcValue ServiceValue) (*loadbalancer.L3n4AddrID, *loadbalancer.LBBackEnd, error) {
 	var (
 		beIP     net.IP
-		svcID    types.ServiceID
+		svcID    loadbalancer.ServiceID
 		bePort   uint16
 		beWeight uint16
 	)
@@ -459,13 +459,13 @@ func ServiceKeynValue2FEnBE(svcKey ServiceKey, svcValue ServiceValue) (*types.L3
 
 	if svcKey.IsIPv6() {
 		svc6Val := svcValue.(*Service6Value)
-		svcID = types.ServiceID(svc6Val.RevNat)
+		svcID = loadbalancer.ServiceID(svc6Val.RevNat)
 		beIP = svc6Val.Address.IP()
 		bePort = svc6Val.Port
 		beWeight = svc6Val.Weight
 	} else {
 		svc4Val := svcValue.(*Service4Value)
-		svcID = types.ServiceID(svc4Val.RevNat)
+		svcID = loadbalancer.ServiceID(svc4Val.RevNat)
 		beIP = svc4Val.Address.IP()
 		bePort = svc4Val.Port
 		beWeight = svc4Val.Weight
@@ -476,12 +476,12 @@ func ServiceKeynValue2FEnBE(svcKey ServiceKey, svcValue ServiceValue) (*types.L3
 		return nil, nil, fmt.Errorf("unable to create a new frontend for service key %s: %s", svcKey, err)
 	}
 
-	beLBBackEnd, err := types.NewLBBackEnd(types.TCP, beIP, bePort, beWeight)
+	beLBBackEnd, err := loadbalancer.NewLBBackEnd(loadbalancer.TCP, beIP, bePort, beWeight)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to create a new backend for %s:%d: %s", beIP, bePort, err)
 	}
 
-	feL3n4AddrID := &types.L3n4AddrID{
+	feL3n4AddrID := &loadbalancer.L3n4AddrID{
 		L3n4Addr: *feL3n4Addr,
 		ID:       svcID,
 	}
@@ -490,31 +490,31 @@ func ServiceKeynValue2FEnBE(svcKey ServiceKey, svcValue ServiceValue) (*types.L3
 }
 
 // RevNat6Value2L3n4Addr converts the given RevNat6Value to a L3n4Addr.
-func RevNat6Value2L3n4Addr(revNATV *RevNat6Value) (*types.L3n4Addr, error) {
-	return types.NewL3n4Addr(types.TCP, revNATV.Address.IP(), revNATV.Port)
+func RevNat6Value2L3n4Addr(revNATV *RevNat6Value) (*loadbalancer.L3n4Addr, error) {
+	return loadbalancer.NewL3n4Addr(loadbalancer.TCP, revNATV.Address.IP(), revNATV.Port)
 }
 
 // RevNat4Value2L3n4Addr converts the given RevNat4Value to a L3n4Addr.
-func RevNat4Value2L3n4Addr(revNATV *RevNat4Value) (*types.L3n4Addr, error) {
-	return types.NewL3n4Addr(types.TCP, revNATV.Address.IP(), revNATV.Port)
+func RevNat4Value2L3n4Addr(revNATV *RevNat4Value) (*loadbalancer.L3n4Addr, error) {
+	return loadbalancer.NewL3n4Addr(loadbalancer.TCP, revNATV.Address.IP(), revNATV.Port)
 }
 
 // RevNatValue2L3n4AddrID converts the given RevNatKey and RevNatValue to a L3n4AddrID.
-func RevNatValue2L3n4AddrID(revNATKey RevNatKey, revNATValue RevNatValue) (*types.L3n4AddrID, error) {
+func RevNatValue2L3n4AddrID(revNATKey RevNatKey, revNATValue RevNatValue) (*loadbalancer.L3n4AddrID, error) {
 	var (
-		svcID types.ServiceID
-		be    *types.L3n4Addr
+		svcID loadbalancer.ServiceID
+		be    *loadbalancer.L3n4Addr
 		err   error
 	)
 	if revNATKey.IsIPv6() {
 		revNat6Key := revNATKey.(*RevNat6Key)
-		svcID = types.ServiceID(revNat6Key.Key)
+		svcID = loadbalancer.ServiceID(revNat6Key.Key)
 
 		revNat6Value := revNATValue.(*RevNat6Value)
 		be, err = RevNat6Value2L3n4Addr(revNat6Value)
 	} else {
 		revNat4Key := revNATKey.(*RevNat4Key)
-		svcID = types.ServiceID(revNat4Key.Key)
+		svcID = loadbalancer.ServiceID(revNat4Key.Key)
 
 		revNat4Value := revNATValue.(*RevNat4Value)
 		be, err = RevNat4Value2L3n4Addr(revNat4Value)
@@ -523,12 +523,12 @@ func RevNatValue2L3n4AddrID(revNATKey RevNatKey, revNATValue RevNatValue) (*type
 		return nil, err
 	}
 
-	return &types.L3n4AddrID{L3n4Addr: *be, ID: svcID}, nil
+	return &loadbalancer.L3n4AddrID{L3n4Addr: *be, ID: svcID}, nil
 }
 
 // ServiceValue2LBBackEnd converts the svcValue to a LBBackEnd. The svcKey is necessary to
 // determine which IP version svcValue is.
-func ServiceValue2LBBackEnd(svcKey ServiceKey, svcValue ServiceValue) (*types.LBBackEnd, error) {
+func ServiceValue2LBBackEnd(svcKey ServiceKey, svcValue ServiceValue) (*loadbalancer.LBBackEnd, error) {
 	var (
 		feIP     net.IP
 		fePort   uint16
@@ -546,5 +546,5 @@ func ServiceValue2LBBackEnd(svcKey ServiceKey, svcValue ServiceValue) (*types.LB
 		feWeight = svc4Value.Weight
 	}
 
-	return types.NewLBBackEnd(types.TCP, feIP, fePort, feWeight)
+	return loadbalancer.NewLBBackEnd(loadbalancer.TCP, feIP, fePort, feWeight)
 }

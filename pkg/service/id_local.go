@@ -18,7 +18,7 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
@@ -27,7 +27,7 @@ var (
 	mutex lock.RWMutex
 
 	// servicesID is a map of all services indexed by service ID
-	servicesID = map[uint32]*types.L3n4AddrID{}
+	servicesID = map[uint32]*loadbalancer.L3n4AddrID{}
 
 	// services is a map of all services indexed by L3n4Addr.StringID()
 	services = map[string]uint32{}
@@ -39,14 +39,14 @@ var (
 	maxID = common.MaxSetOfServiceID
 )
 
-func newServiceID(svc types.L3n4Addr, id uint32) *types.L3n4AddrID {
-	return &types.L3n4AddrID{
+func newServiceID(svc loadbalancer.L3n4Addr, id uint32) *loadbalancer.L3n4AddrID {
+	return &loadbalancer.L3n4AddrID{
 		L3n4Addr: svc,
-		ID:       types.ServiceID(id),
+		ID:       loadbalancer.ServiceID(id),
 	}
 }
 
-func addServiceID(svc types.L3n4Addr, id uint32) *types.L3n4AddrID {
+func addServiceID(svc loadbalancer.L3n4Addr, id uint32) *loadbalancer.L3n4AddrID {
 	svcID := newServiceID(svc, id)
 	servicesID[id] = svcID
 	services[svc.StringID()] = id
@@ -54,7 +54,7 @@ func addServiceID(svc types.L3n4Addr, id uint32) *types.L3n4AddrID {
 	return svcID
 }
 
-func acquireLocalID(svc types.L3n4Addr, desiredID uint32) (*types.L3n4AddrID, error) {
+func acquireLocalID(svc loadbalancer.L3n4Addr, desiredID uint32) (*loadbalancer.L3n4AddrID, error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -92,7 +92,7 @@ func acquireLocalID(svc types.L3n4Addr, desiredID uint32) (*types.L3n4AddrID, er
 	return nil, fmt.Errorf("no service ID available")
 }
 
-func getLocalID(id uint32) (*types.L3n4AddrID, error) {
+func getLocalID(id uint32) (*loadbalancer.L3n4AddrID, error) {
 	mutex.RLock()
 	defer mutex.RUnlock()
 
@@ -132,7 +132,7 @@ func getLocalMaxServiceID() (uint32, error) {
 
 func resetLocalID() {
 	mutex.Lock()
-	servicesID = map[uint32]*types.L3n4AddrID{}
+	servicesID = map[uint32]*loadbalancer.L3n4AddrID{}
 	services = map[string]uint32{}
 	nextID = common.FirstFreeServiceID
 	maxID = common.MaxSetOfServiceID

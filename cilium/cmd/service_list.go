@@ -21,8 +21,8 @@ import (
 	"text/tabwriter"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/command"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 
 	"github.com/spf13/cobra"
 )
@@ -75,7 +75,7 @@ func printServiceList(w *tabwriter.Writer, list []*models.Service) {
 			continue
 		}
 
-		feA, err := types.NewL3n4AddrFromModel(svc.Status.Realized.FrontendAddress)
+		feA, err := loadbalancer.NewL3n4AddrFromModel(svc.Status.Realized.FrontendAddress)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error parsing frontend %+v", svc.Status.Realized.FrontendAddress)
 			continue
@@ -83,7 +83,7 @@ func printServiceList(w *tabwriter.Writer, list []*models.Service) {
 
 		var backendAddresses []string
 		for i, be := range svc.Status.Realized.BackendAddresses {
-			beA, err := types.NewL3n4AddrFromBackendModel(be)
+			beA, err := loadbalancer.NewL3n4AddrFromBackendModel(be)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "error parsing backend %+v", be)
 				continue

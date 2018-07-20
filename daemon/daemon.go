@@ -33,7 +33,6 @@ import (
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	health "github.com/cilium/cilium/cilium-health/launch"
 	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/common/types"
 	monitorLaunch "github.com/cilium/cilium/monitor/launch"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -52,6 +51,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -107,7 +107,7 @@ const (
 type Daemon struct {
 	buildEndpointChan chan *endpoint.Request
 	l7Proxy           *proxy.Proxy
-	loadBalancer      *types.LoadBalancer
+	loadBalancer      *loadbalancer.LoadBalancer
 	policy            *policy.Repository
 	preFilter         *policy.PreFilter
 	// Only used for CRI-O since it does not support events.
@@ -1102,7 +1102,7 @@ func NewDaemon() (*Daemon, error) {
 		return nil, fmt.Errorf("unable to setup workload: %s", err)
 	}
 
-	lb := types.NewLoadBalancer()
+	lb := loadbalancer.NewLoadBalancer()
 
 	d := Daemon{
 		loadBalancer:  lb,

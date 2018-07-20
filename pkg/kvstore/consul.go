@@ -25,9 +25,9 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	consulAPI "github.com/hashicorp/consul/api"
@@ -345,9 +345,9 @@ func (c *consulClient) setMaxL3n4AddrID(maxID uint32) error {
 }
 
 // FIXME: Obsolete, remove
-func (c *consulClient) GASNewL3n4AddrID(basePath string, baseID uint32, lAddrID *types.L3n4AddrID) error {
+func (c *consulClient) GASNewL3n4AddrID(basePath string, baseID uint32, lAddrID *loadbalancer.L3n4AddrID) error {
 	setIDtoL3n4Addr := func(id uint32) error {
-		lAddrID.ID = types.ServiceID(id)
+		lAddrID.ID = loadbalancer.ServiceID(id)
 		keyPath := path.Join(basePath, strconv.FormatUint(uint64(lAddrID.ID), 10))
 		if err := c.SetValue(keyPath, lAddrID); err != nil {
 			return err
@@ -378,7 +378,7 @@ func (c *consulClient) GASNewL3n4AddrID(basePath string, baseID uint32, lAddrID 
 			if svcKey == nil {
 				return false, setIDtoL3n4Addr(*incID)
 			}
-			var consulL3n4AddrID types.L3n4AddrID
+			var consulL3n4AddrID loadbalancer.L3n4AddrID
 			if err := json.Unmarshal(svcKey.Value, &consulL3n4AddrID); err != nil {
 				return false, err
 			}

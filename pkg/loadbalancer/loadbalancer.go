@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package types
+package loadbalancer
 
 import (
 	"crypto/sha512"
@@ -165,7 +165,7 @@ func NewLoadBalancer() *LoadBalancer {
 	}
 }
 
-// K8sServiceNamespace is an abstraction for the k8s service + namespace types.
+// K8sServiceNamespace is an abstraction for the k8s service + namespace loadbalancer.
 type K8sServiceNamespace struct {
 	ServiceName string `json:"serviceName,omitempty"`
 	Namespace   string `json:"namespace,omitempty"`
