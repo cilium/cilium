@@ -6,20 +6,14 @@ package core
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
+import google_protobuf3 "github.com/golang/protobuf/ptypes/duration"
 import _ "github.com/gogo/protobuf/gogoproto"
-import duration "github.com/golang/protobuf/ptypes/duration"
 import _ "github.com/lyft/protoc-gen-validate/validate"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
-
-// This is a compile-time assertion to ensure that this generated file
-// is compatible with the proto package it is being compiled against.
-// A compilation error at this line likely means your copy of the
-// proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 // Envoy external URI descriptor
 type HttpUri struct {
@@ -31,7 +25,7 @@ type HttpUri struct {
 	//
 	//    uri: https://www.googleapis.com/oauth2/v1/certs
 	//
-	Uri string `protobuf:"bytes,1,opt,name=uri,proto3" json:"uri,omitempty"`
+	Uri string `protobuf:"bytes,1,opt,name=uri" json:"uri,omitempty"`
 	// Specify how `uri` is to be fetched. Today, this requires an explicit
 	// cluster, but in the future we may support dynamic cluster creation or
 	// inline DNS resolution. See `issue
@@ -41,42 +35,20 @@ type HttpUri struct {
 	//	*HttpUri_Cluster
 	HttpUpstreamType isHttpUri_HttpUpstreamType `protobuf_oneof:"http_upstream_type"`
 	// Sets the maximum duration in milliseconds that a response can take to arrive upon request.
-	Timeout              *duration.Duration `protobuf:"bytes,3,opt,name=timeout,proto3" json:"timeout,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
-	XXX_unrecognized     []byte             `json:"-"`
-	XXX_sizecache        int32              `json:"-"`
+	Timeout *google_protobuf3.Duration `protobuf:"bytes,3,opt,name=timeout" json:"timeout,omitempty"`
 }
 
-func (m *HttpUri) Reset()         { *m = HttpUri{} }
-func (m *HttpUri) String() string { return proto.CompactTextString(m) }
-func (*HttpUri) ProtoMessage()    {}
-func (*HttpUri) Descriptor() ([]byte, []int) {
-	return fileDescriptor_http_uri_9db5dbee2e1c00da, []int{0}
-}
-func (m *HttpUri) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_HttpUri.Unmarshal(m, b)
-}
-func (m *HttpUri) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_HttpUri.Marshal(b, m, deterministic)
-}
-func (dst *HttpUri) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HttpUri.Merge(dst, src)
-}
-func (m *HttpUri) XXX_Size() int {
-	return xxx_messageInfo_HttpUri.Size(m)
-}
-func (m *HttpUri) XXX_DiscardUnknown() {
-	xxx_messageInfo_HttpUri.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_HttpUri proto.InternalMessageInfo
+func (m *HttpUri) Reset()                    { *m = HttpUri{} }
+func (m *HttpUri) String() string            { return proto.CompactTextString(m) }
+func (*HttpUri) ProtoMessage()               {}
+func (*HttpUri) Descriptor() ([]byte, []int) { return fileDescriptor5, []int{0} }
 
 type isHttpUri_HttpUpstreamType interface {
 	isHttpUri_HttpUpstreamType()
 }
 
 type HttpUri_Cluster struct {
-	Cluster string `protobuf:"bytes,2,opt,name=cluster,proto3,oneof"`
+	Cluster string `protobuf:"bytes,2,opt,name=cluster,oneof"`
 }
 
 func (*HttpUri_Cluster) isHttpUri_HttpUpstreamType() {}
@@ -102,7 +74,7 @@ func (m *HttpUri) GetCluster() string {
 	return ""
 }
 
-func (m *HttpUri) GetTimeout() *duration.Duration {
+func (m *HttpUri) GetTimeout() *google_protobuf3.Duration {
 	if m != nil {
 		return m.Timeout
 	}
@@ -150,7 +122,7 @@ func _HttpUri_OneofSizer(msg proto.Message) (n int) {
 	// http_upstream_type
 	switch x := m.HttpUpstreamType.(type) {
 	case *HttpUri_Cluster:
-		n += 1 // tag and wire
+		n += proto.SizeVarint(2<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(len(x.Cluster)))
 		n += len(x.Cluster)
 	case nil:
@@ -164,11 +136,9 @@ func init() {
 	proto.RegisterType((*HttpUri)(nil), "envoy.api.v2.core.HttpUri")
 }
 
-func init() {
-	proto.RegisterFile("envoy/api/v2/core/http_uri.proto", fileDescriptor_http_uri_9db5dbee2e1c00da)
-}
+func init() { proto.RegisterFile("envoy/api/v2/core/http_uri.proto", fileDescriptor5) }
 
-var fileDescriptor_http_uri_9db5dbee2e1c00da = []byte{
+var fileDescriptor5 = []byte{
 	// 261 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x5c, 0x90, 0x4f, 0x4a, 0x03, 0x31,
 	0x14, 0xc6, 0x9b, 0x19, 0xeb, 0xd8, 0xb8, 0x32, 0x08, 0x8e, 0x2d, 0xe8, 0x20, 0x08, 0x5d, 0x25,

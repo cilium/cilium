@@ -6,11 +6,11 @@ package cilium
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import v2 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
-import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import route "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/route"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import envoy_api_v2_core1 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+import envoy_api_v2 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
+import envoy_api_v2_route "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/route"
 import _ "google.golang.org/genproto/googleapis/api/annotations"
+import _ "github.com/lyft/protoc-gen-validate/validate"
 
 import (
 	context "golang.org/x/net/context"
@@ -22,62 +22,34 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
-// This is a compile-time assertion to ensure that this generated file
-// is compatible with the proto package it is being compiled against.
-// A compilation error at this line likely means your copy of the
-// proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
-
 // A network policy that is enforced by a filter on the network flows to/from
 // associated hosts.
 type NetworkPolicy struct {
 	// The unique identifier of the network policy.
 	// Required.
-	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
 	// The policy identifier associated with the network policy. Corresponds to
 	// remote_policies entries in PortNetworkPolicyRule.
 	// Required.
-	Policy uint64 `protobuf:"varint,2,opt,name=policy,proto3" json:"policy,omitempty"`
+	Policy uint64 `protobuf:"varint,2,opt,name=policy" json:"policy,omitempty"`
 	// The part of the policy to be enforced at ingress by the filter, as a set
 	// of per-port network policies, one per destination L4 port.
 	// Every PortNetworkPolicy element in this set has a unique port / protocol
 	// combination.
 	// Optional. If empty, all flows in this direction are denied.
-	IngressPerPortPolicies []*PortNetworkPolicy `protobuf:"bytes,3,rep,name=ingress_per_port_policies,json=ingressPerPortPolicies,proto3" json:"ingress_per_port_policies,omitempty"`
+	IngressPerPortPolicies []*PortNetworkPolicy `protobuf:"bytes,3,rep,name=ingress_per_port_policies,json=ingressPerPortPolicies" json:"ingress_per_port_policies,omitempty"`
 	// The part of the policy to be enforced at egress by the filter, as a set
 	// of per-port network policies, one per destination L4 port.
 	// Every PortNetworkPolicy element in this set has a unique port / protocol
 	// combination.
 	// Optional. If empty, all flows in this direction are denied.
-	EgressPerPortPolicies []*PortNetworkPolicy `protobuf:"bytes,4,rep,name=egress_per_port_policies,json=egressPerPortPolicies,proto3" json:"egress_per_port_policies,omitempty"`
-	XXX_NoUnkeyedLiteral  struct{}             `json:"-"`
-	XXX_unrecognized      []byte               `json:"-"`
-	XXX_sizecache         int32                `json:"-"`
+	EgressPerPortPolicies []*PortNetworkPolicy `protobuf:"bytes,4,rep,name=egress_per_port_policies,json=egressPerPortPolicies" json:"egress_per_port_policies,omitempty"`
 }
 
-func (m *NetworkPolicy) Reset()         { *m = NetworkPolicy{} }
-func (m *NetworkPolicy) String() string { return proto.CompactTextString(m) }
-func (*NetworkPolicy) ProtoMessage()    {}
-func (*NetworkPolicy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_npds_6101f97504eea13a, []int{0}
-}
-func (m *NetworkPolicy) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_NetworkPolicy.Unmarshal(m, b)
-}
-func (m *NetworkPolicy) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_NetworkPolicy.Marshal(b, m, deterministic)
-}
-func (dst *NetworkPolicy) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_NetworkPolicy.Merge(dst, src)
-}
-func (m *NetworkPolicy) XXX_Size() int {
-	return xxx_messageInfo_NetworkPolicy.Size(m)
-}
-func (m *NetworkPolicy) XXX_DiscardUnknown() {
-	xxx_messageInfo_NetworkPolicy.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_NetworkPolicy proto.InternalMessageInfo
+func (m *NetworkPolicy) Reset()                    { *m = NetworkPolicy{} }
+func (m *NetworkPolicy) String() string            { return proto.CompactTextString(m) }
+func (*NetworkPolicy) ProtoMessage()               {}
+func (*NetworkPolicy) Descriptor() ([]byte, []int) { return fileDescriptor3, []int{0} }
 
 func (m *NetworkPolicy) GetName() string {
 	if m != nil {
@@ -113,42 +85,20 @@ func (m *NetworkPolicy) GetEgressPerPortPolicies() []*PortNetworkPolicy {
 type PortNetworkPolicy struct {
 	// The flows' destination L4 port number, as an unsigned 16-bit integer.
 	// If 0, all destination L4 port numbers are matched by this predicate.
-	Port uint32 `protobuf:"varint,1,opt,name=port,proto3" json:"port,omitempty"`
+	Port uint32 `protobuf:"varint,1,opt,name=port" json:"port,omitempty"`
 	// The flows' L4 transport protocol.
 	// Required.
-	Protocol core.SocketAddress_Protocol `protobuf:"varint,2,opt,name=protocol,proto3,enum=envoy.api.v2.core.SocketAddress_Protocol" json:"protocol,omitempty"`
+	Protocol envoy_api_v2_core1.SocketAddress_Protocol `protobuf:"varint,2,opt,name=protocol,enum=envoy.api.v2.core.SocketAddress_Protocol" json:"protocol,omitempty"`
 	// The network policy rules to be enforced on the flows to the port.
 	// Optional. A flow is matched by this predicate if either the set of
 	// rules is empty or any of the rules matches it.
-	Rules                []*PortNetworkPolicyRule `protobuf:"bytes,3,rep,name=rules,proto3" json:"rules,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
-	XXX_unrecognized     []byte                   `json:"-"`
-	XXX_sizecache        int32                    `json:"-"`
+	Rules []*PortNetworkPolicyRule `protobuf:"bytes,3,rep,name=rules" json:"rules,omitempty"`
 }
 
-func (m *PortNetworkPolicy) Reset()         { *m = PortNetworkPolicy{} }
-func (m *PortNetworkPolicy) String() string { return proto.CompactTextString(m) }
-func (*PortNetworkPolicy) ProtoMessage()    {}
-func (*PortNetworkPolicy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_npds_6101f97504eea13a, []int{1}
-}
-func (m *PortNetworkPolicy) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_PortNetworkPolicy.Unmarshal(m, b)
-}
-func (m *PortNetworkPolicy) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_PortNetworkPolicy.Marshal(b, m, deterministic)
-}
-func (dst *PortNetworkPolicy) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_PortNetworkPolicy.Merge(dst, src)
-}
-func (m *PortNetworkPolicy) XXX_Size() int {
-	return xxx_messageInfo_PortNetworkPolicy.Size(m)
-}
-func (m *PortNetworkPolicy) XXX_DiscardUnknown() {
-	xxx_messageInfo_PortNetworkPolicy.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_PortNetworkPolicy proto.InternalMessageInfo
+func (m *PortNetworkPolicy) Reset()                    { *m = PortNetworkPolicy{} }
+func (m *PortNetworkPolicy) String() string            { return proto.CompactTextString(m) }
+func (*PortNetworkPolicy) ProtoMessage()               {}
+func (*PortNetworkPolicy) Descriptor() ([]byte, []int) { return fileDescriptor3, []int{1} }
 
 func (m *PortNetworkPolicy) GetPort() uint32 {
 	if m != nil {
@@ -157,11 +107,11 @@ func (m *PortNetworkPolicy) GetPort() uint32 {
 	return 0
 }
 
-func (m *PortNetworkPolicy) GetProtocol() core.SocketAddress_Protocol {
+func (m *PortNetworkPolicy) GetProtocol() envoy_api_v2_core1.SocketAddress_Protocol {
 	if m != nil {
 		return m.Protocol
 	}
-	return core.SocketAddress_TCP
+	return envoy_api_v2_core1.SocketAddress_TCP
 }
 
 func (m *PortNetworkPolicy) GetRules() []*PortNetworkPolicyRule {
@@ -179,51 +129,29 @@ type PortNetworkPolicyRule struct {
 	// A flow is matched by this predicate if the identifier of the policy
 	// applied on the flow's remote host is contained in this set.
 	// Optional. If not specified, any remote host is matched by this predicate.
-	RemotePolicies []uint64 `protobuf:"varint,1,rep,packed,name=remote_policies,json=remotePolicies,proto3" json:"remote_policies,omitempty"`
+	RemotePolicies []uint64 `protobuf:"varint,1,rep,packed,name=remote_policies,json=remotePolicies" json:"remote_policies,omitempty"`
 	// Optional. If not specified, any L7 request is matched by this predicate.
 	//
 	// Types that are valid to be assigned to L7Rules:
 	//	*PortNetworkPolicyRule_HttpRules
 	//	*PortNetworkPolicyRule_KafkaRules
-	L7Rules              isPortNetworkPolicyRule_L7Rules `protobuf_oneof:"l7_rules"`
-	XXX_NoUnkeyedLiteral struct{}                        `json:"-"`
-	XXX_unrecognized     []byte                          `json:"-"`
-	XXX_sizecache        int32                           `json:"-"`
+	L7Rules isPortNetworkPolicyRule_L7Rules `protobuf_oneof:"l7_rules"`
 }
 
-func (m *PortNetworkPolicyRule) Reset()         { *m = PortNetworkPolicyRule{} }
-func (m *PortNetworkPolicyRule) String() string { return proto.CompactTextString(m) }
-func (*PortNetworkPolicyRule) ProtoMessage()    {}
-func (*PortNetworkPolicyRule) Descriptor() ([]byte, []int) {
-	return fileDescriptor_npds_6101f97504eea13a, []int{2}
-}
-func (m *PortNetworkPolicyRule) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_PortNetworkPolicyRule.Unmarshal(m, b)
-}
-func (m *PortNetworkPolicyRule) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_PortNetworkPolicyRule.Marshal(b, m, deterministic)
-}
-func (dst *PortNetworkPolicyRule) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_PortNetworkPolicyRule.Merge(dst, src)
-}
-func (m *PortNetworkPolicyRule) XXX_Size() int {
-	return xxx_messageInfo_PortNetworkPolicyRule.Size(m)
-}
-func (m *PortNetworkPolicyRule) XXX_DiscardUnknown() {
-	xxx_messageInfo_PortNetworkPolicyRule.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_PortNetworkPolicyRule proto.InternalMessageInfo
+func (m *PortNetworkPolicyRule) Reset()                    { *m = PortNetworkPolicyRule{} }
+func (m *PortNetworkPolicyRule) String() string            { return proto.CompactTextString(m) }
+func (*PortNetworkPolicyRule) ProtoMessage()               {}
+func (*PortNetworkPolicyRule) Descriptor() ([]byte, []int) { return fileDescriptor3, []int{2} }
 
 type isPortNetworkPolicyRule_L7Rules interface {
 	isPortNetworkPolicyRule_L7Rules()
 }
 
 type PortNetworkPolicyRule_HttpRules struct {
-	HttpRules *HttpNetworkPolicyRules `protobuf:"bytes,100,opt,name=http_rules,json=httpRules,proto3,oneof"`
+	HttpRules *HttpNetworkPolicyRules `protobuf:"bytes,100,opt,name=http_rules,json=httpRules,oneof"`
 }
 type PortNetworkPolicyRule_KafkaRules struct {
-	KafkaRules *KafkaNetworkPolicyRules `protobuf:"bytes,101,opt,name=kafka_rules,json=kafkaRules,proto3,oneof"`
+	KafkaRules *KafkaNetworkPolicyRules `protobuf:"bytes,101,opt,name=kafka_rules,json=kafkaRules,oneof"`
 }
 
 func (*PortNetworkPolicyRule_HttpRules) isPortNetworkPolicyRule_L7Rules()  {}
@@ -316,12 +244,12 @@ func _PortNetworkPolicyRule_OneofSizer(msg proto.Message) (n int) {
 	switch x := m.L7Rules.(type) {
 	case *PortNetworkPolicyRule_HttpRules:
 		s := proto.Size(x.HttpRules)
-		n += 2 // tag and wire
+		n += proto.SizeVarint(100<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(s))
 		n += s
 	case *PortNetworkPolicyRule_KafkaRules:
 		s := proto.Size(x.KafkaRules)
-		n += 2 // tag and wire
+		n += proto.SizeVarint(101<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(s))
 		n += s
 	case nil:
@@ -336,35 +264,13 @@ type HttpNetworkPolicyRules struct {
 	// The set of HTTP network policy rules.
 	// An HTTP request is matched if any of its rules matches the request.
 	// Required and may not be empty.
-	HttpRules            []*HttpNetworkPolicyRule `protobuf:"bytes,1,rep,name=http_rules,json=httpRules,proto3" json:"http_rules,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
-	XXX_unrecognized     []byte                   `json:"-"`
-	XXX_sizecache        int32                    `json:"-"`
+	HttpRules []*HttpNetworkPolicyRule `protobuf:"bytes,1,rep,name=http_rules,json=httpRules" json:"http_rules,omitempty"`
 }
 
-func (m *HttpNetworkPolicyRules) Reset()         { *m = HttpNetworkPolicyRules{} }
-func (m *HttpNetworkPolicyRules) String() string { return proto.CompactTextString(m) }
-func (*HttpNetworkPolicyRules) ProtoMessage()    {}
-func (*HttpNetworkPolicyRules) Descriptor() ([]byte, []int) {
-	return fileDescriptor_npds_6101f97504eea13a, []int{3}
-}
-func (m *HttpNetworkPolicyRules) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_HttpNetworkPolicyRules.Unmarshal(m, b)
-}
-func (m *HttpNetworkPolicyRules) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_HttpNetworkPolicyRules.Marshal(b, m, deterministic)
-}
-func (dst *HttpNetworkPolicyRules) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HttpNetworkPolicyRules.Merge(dst, src)
-}
-func (m *HttpNetworkPolicyRules) XXX_Size() int {
-	return xxx_messageInfo_HttpNetworkPolicyRules.Size(m)
-}
-func (m *HttpNetworkPolicyRules) XXX_DiscardUnknown() {
-	xxx_messageInfo_HttpNetworkPolicyRules.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_HttpNetworkPolicyRules proto.InternalMessageInfo
+func (m *HttpNetworkPolicyRules) Reset()                    { *m = HttpNetworkPolicyRules{} }
+func (m *HttpNetworkPolicyRules) String() string            { return proto.CompactTextString(m) }
+func (*HttpNetworkPolicyRules) ProtoMessage()               {}
+func (*HttpNetworkPolicyRules) Descriptor() ([]byte, []int) { return fileDescriptor3, []int{3} }
 
 func (m *HttpNetworkPolicyRules) GetHttpRules() []*HttpNetworkPolicyRule {
 	if m != nil {
@@ -388,37 +294,15 @@ type HttpNetworkPolicyRule struct {
 	// * *:authority*: Also maps to the HTTP 1.1 *Host* header.
 	//
 	// Optional. If empty, matches any HTTP request.
-	Headers              []*route.HeaderMatcher `protobuf:"bytes,1,rep,name=headers,proto3" json:"headers,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}               `json:"-"`
-	XXX_unrecognized     []byte                 `json:"-"`
-	XXX_sizecache        int32                  `json:"-"`
+	Headers []*envoy_api_v2_route.HeaderMatcher `protobuf:"bytes,1,rep,name=headers" json:"headers,omitempty"`
 }
 
-func (m *HttpNetworkPolicyRule) Reset()         { *m = HttpNetworkPolicyRule{} }
-func (m *HttpNetworkPolicyRule) String() string { return proto.CompactTextString(m) }
-func (*HttpNetworkPolicyRule) ProtoMessage()    {}
-func (*HttpNetworkPolicyRule) Descriptor() ([]byte, []int) {
-	return fileDescriptor_npds_6101f97504eea13a, []int{4}
-}
-func (m *HttpNetworkPolicyRule) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_HttpNetworkPolicyRule.Unmarshal(m, b)
-}
-func (m *HttpNetworkPolicyRule) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_HttpNetworkPolicyRule.Marshal(b, m, deterministic)
-}
-func (dst *HttpNetworkPolicyRule) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HttpNetworkPolicyRule.Merge(dst, src)
-}
-func (m *HttpNetworkPolicyRule) XXX_Size() int {
-	return xxx_messageInfo_HttpNetworkPolicyRule.Size(m)
-}
-func (m *HttpNetworkPolicyRule) XXX_DiscardUnknown() {
-	xxx_messageInfo_HttpNetworkPolicyRule.DiscardUnknown(m)
-}
+func (m *HttpNetworkPolicyRule) Reset()                    { *m = HttpNetworkPolicyRule{} }
+func (m *HttpNetworkPolicyRule) String() string            { return proto.CompactTextString(m) }
+func (*HttpNetworkPolicyRule) ProtoMessage()               {}
+func (*HttpNetworkPolicyRule) Descriptor() ([]byte, []int) { return fileDescriptor3, []int{4} }
 
-var xxx_messageInfo_HttpNetworkPolicyRule proto.InternalMessageInfo
-
-func (m *HttpNetworkPolicyRule) GetHeaders() []*route.HeaderMatcher {
+func (m *HttpNetworkPolicyRule) GetHeaders() []*envoy_api_v2_route.HeaderMatcher {
 	if m != nil {
 		return m.Headers
 	}
@@ -430,35 +314,13 @@ type KafkaNetworkPolicyRules struct {
 	// The set of Kafka network policy rules.
 	// A Kafka request is matched if any of its rules matches the request.
 	// Required and may not be empty.
-	KafkaRules           []*KafkaNetworkPolicyRule `protobuf:"bytes,1,rep,name=kafka_rules,json=kafkaRules,proto3" json:"kafka_rules,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                  `json:"-"`
-	XXX_unrecognized     []byte                    `json:"-"`
-	XXX_sizecache        int32                     `json:"-"`
+	KafkaRules []*KafkaNetworkPolicyRule `protobuf:"bytes,1,rep,name=kafka_rules,json=kafkaRules" json:"kafka_rules,omitempty"`
 }
 
-func (m *KafkaNetworkPolicyRules) Reset()         { *m = KafkaNetworkPolicyRules{} }
-func (m *KafkaNetworkPolicyRules) String() string { return proto.CompactTextString(m) }
-func (*KafkaNetworkPolicyRules) ProtoMessage()    {}
-func (*KafkaNetworkPolicyRules) Descriptor() ([]byte, []int) {
-	return fileDescriptor_npds_6101f97504eea13a, []int{5}
-}
-func (m *KafkaNetworkPolicyRules) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_KafkaNetworkPolicyRules.Unmarshal(m, b)
-}
-func (m *KafkaNetworkPolicyRules) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_KafkaNetworkPolicyRules.Marshal(b, m, deterministic)
-}
-func (dst *KafkaNetworkPolicyRules) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_KafkaNetworkPolicyRules.Merge(dst, src)
-}
-func (m *KafkaNetworkPolicyRules) XXX_Size() int {
-	return xxx_messageInfo_KafkaNetworkPolicyRules.Size(m)
-}
-func (m *KafkaNetworkPolicyRules) XXX_DiscardUnknown() {
-	xxx_messageInfo_KafkaNetworkPolicyRules.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_KafkaNetworkPolicyRules proto.InternalMessageInfo
+func (m *KafkaNetworkPolicyRules) Reset()                    { *m = KafkaNetworkPolicyRules{} }
+func (m *KafkaNetworkPolicyRules) String() string            { return proto.CompactTextString(m) }
+func (*KafkaNetworkPolicyRules) ProtoMessage()               {}
+func (*KafkaNetworkPolicyRules) Descriptor() ([]byte, []int) { return fileDescriptor3, []int{5} }
 
 func (m *KafkaNetworkPolicyRules) GetKafkaRules() []*KafkaNetworkPolicyRule {
 	if m != nil {
@@ -473,48 +335,26 @@ func (m *KafkaNetworkPolicyRules) GetKafkaRules() []*KafkaNetworkPolicyRule {
 type KafkaNetworkPolicyRule struct {
 	// The Kafka request's API key.
 	// If <0, all Kafka requests are matched by this predicate.
-	ApiKey int32 `protobuf:"varint,1,opt,name=api_key,json=apiKey,proto3" json:"api_key,omitempty"`
+	ApiKey int32 `protobuf:"varint,1,opt,name=api_key,json=apiKey" json:"api_key,omitempty"`
 	// The Kafka request's API version.
 	// If <0, all Kafka requests are matched by this predicate.
-	ApiVersion int32 `protobuf:"varint,2,opt,name=api_version,json=apiVersion,proto3" json:"api_version,omitempty"`
+	ApiVersion int32 `protobuf:"varint,2,opt,name=api_version,json=apiVersion" json:"api_version,omitempty"`
 	// The Kafka request's topic.
 	// Optional. If not specified, all Kafka requests are matched by this predicate.
 	// If specified, this predicates only matches requests that contain this topic, and never
 	// matches requests that don't contain any topic.
-	Topic string `protobuf:"bytes,3,opt,name=topic,proto3" json:"topic,omitempty"`
+	Topic string `protobuf:"bytes,3,opt,name=topic" json:"topic,omitempty"`
 	// The Kafka request's client ID.
 	// Optional. If not specified, all Kafka requests are matched by this predicate.
 	// If specified, this predicates only matches requests that contain this client ID, and never
 	// matches requests that don't contain any client ID.
-	ClientId             string   `protobuf:"bytes,4,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	ClientId string `protobuf:"bytes,4,opt,name=client_id,json=clientId" json:"client_id,omitempty"`
 }
 
-func (m *KafkaNetworkPolicyRule) Reset()         { *m = KafkaNetworkPolicyRule{} }
-func (m *KafkaNetworkPolicyRule) String() string { return proto.CompactTextString(m) }
-func (*KafkaNetworkPolicyRule) ProtoMessage()    {}
-func (*KafkaNetworkPolicyRule) Descriptor() ([]byte, []int) {
-	return fileDescriptor_npds_6101f97504eea13a, []int{6}
-}
-func (m *KafkaNetworkPolicyRule) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_KafkaNetworkPolicyRule.Unmarshal(m, b)
-}
-func (m *KafkaNetworkPolicyRule) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_KafkaNetworkPolicyRule.Marshal(b, m, deterministic)
-}
-func (dst *KafkaNetworkPolicyRule) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_KafkaNetworkPolicyRule.Merge(dst, src)
-}
-func (m *KafkaNetworkPolicyRule) XXX_Size() int {
-	return xxx_messageInfo_KafkaNetworkPolicyRule.Size(m)
-}
-func (m *KafkaNetworkPolicyRule) XXX_DiscardUnknown() {
-	xxx_messageInfo_KafkaNetworkPolicyRule.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_KafkaNetworkPolicyRule proto.InternalMessageInfo
+func (m *KafkaNetworkPolicyRule) Reset()                    { *m = KafkaNetworkPolicyRule{} }
+func (m *KafkaNetworkPolicyRule) String() string            { return proto.CompactTextString(m) }
+func (*KafkaNetworkPolicyRule) ProtoMessage()               {}
+func (*KafkaNetworkPolicyRule) Descriptor() ([]byte, []int) { return fileDescriptor3, []int{6} }
 
 func (m *KafkaNetworkPolicyRule) GetApiKey() int32 {
 	if m != nil {
@@ -562,12 +402,11 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// NetworkPolicyDiscoveryServiceClient is the client API for NetworkPolicyDiscoveryService service.
-//
-// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
+// Client API for NetworkPolicyDiscoveryService service
+
 type NetworkPolicyDiscoveryServiceClient interface {
 	StreamNetworkPolicies(ctx context.Context, opts ...grpc.CallOption) (NetworkPolicyDiscoveryService_StreamNetworkPoliciesClient, error)
-	FetchNetworkPolicies(ctx context.Context, in *v2.DiscoveryRequest, opts ...grpc.CallOption) (*v2.DiscoveryResponse, error)
+	FetchNetworkPolicies(ctx context.Context, in *envoy_api_v2.DiscoveryRequest, opts ...grpc.CallOption) (*envoy_api_v2.DiscoveryResponse, error)
 }
 
 type networkPolicyDiscoveryServiceClient struct {
@@ -579,7 +418,7 @@ func NewNetworkPolicyDiscoveryServiceClient(cc *grpc.ClientConn) NetworkPolicyDi
 }
 
 func (c *networkPolicyDiscoveryServiceClient) StreamNetworkPolicies(ctx context.Context, opts ...grpc.CallOption) (NetworkPolicyDiscoveryService_StreamNetworkPoliciesClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_NetworkPolicyDiscoveryService_serviceDesc.Streams[0], "/cilium.NetworkPolicyDiscoveryService/StreamNetworkPolicies", opts...)
+	stream, err := grpc.NewClientStream(ctx, &_NetworkPolicyDiscoveryService_serviceDesc.Streams[0], c.cc, "/cilium.NetworkPolicyDiscoveryService/StreamNetworkPolicies", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -588,8 +427,8 @@ func (c *networkPolicyDiscoveryServiceClient) StreamNetworkPolicies(ctx context.
 }
 
 type NetworkPolicyDiscoveryService_StreamNetworkPoliciesClient interface {
-	Send(*v2.DiscoveryRequest) error
-	Recv() (*v2.DiscoveryResponse, error)
+	Send(*envoy_api_v2.DiscoveryRequest) error
+	Recv() (*envoy_api_v2.DiscoveryResponse, error)
 	grpc.ClientStream
 }
 
@@ -597,31 +436,32 @@ type networkPolicyDiscoveryServiceStreamNetworkPoliciesClient struct {
 	grpc.ClientStream
 }
 
-func (x *networkPolicyDiscoveryServiceStreamNetworkPoliciesClient) Send(m *v2.DiscoveryRequest) error {
+func (x *networkPolicyDiscoveryServiceStreamNetworkPoliciesClient) Send(m *envoy_api_v2.DiscoveryRequest) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *networkPolicyDiscoveryServiceStreamNetworkPoliciesClient) Recv() (*v2.DiscoveryResponse, error) {
-	m := new(v2.DiscoveryResponse)
+func (x *networkPolicyDiscoveryServiceStreamNetworkPoliciesClient) Recv() (*envoy_api_v2.DiscoveryResponse, error) {
+	m := new(envoy_api_v2.DiscoveryResponse)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
 	return m, nil
 }
 
-func (c *networkPolicyDiscoveryServiceClient) FetchNetworkPolicies(ctx context.Context, in *v2.DiscoveryRequest, opts ...grpc.CallOption) (*v2.DiscoveryResponse, error) {
-	out := new(v2.DiscoveryResponse)
-	err := c.cc.Invoke(ctx, "/cilium.NetworkPolicyDiscoveryService/FetchNetworkPolicies", in, out, opts...)
+func (c *networkPolicyDiscoveryServiceClient) FetchNetworkPolicies(ctx context.Context, in *envoy_api_v2.DiscoveryRequest, opts ...grpc.CallOption) (*envoy_api_v2.DiscoveryResponse, error) {
+	out := new(envoy_api_v2.DiscoveryResponse)
+	err := grpc.Invoke(ctx, "/cilium.NetworkPolicyDiscoveryService/FetchNetworkPolicies", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// NetworkPolicyDiscoveryServiceServer is the server API for NetworkPolicyDiscoveryService service.
+// Server API for NetworkPolicyDiscoveryService service
+
 type NetworkPolicyDiscoveryServiceServer interface {
 	StreamNetworkPolicies(NetworkPolicyDiscoveryService_StreamNetworkPoliciesServer) error
-	FetchNetworkPolicies(context.Context, *v2.DiscoveryRequest) (*v2.DiscoveryResponse, error)
+	FetchNetworkPolicies(context.Context, *envoy_api_v2.DiscoveryRequest) (*envoy_api_v2.DiscoveryResponse, error)
 }
 
 func RegisterNetworkPolicyDiscoveryServiceServer(s *grpc.Server, srv NetworkPolicyDiscoveryServiceServer) {
@@ -633,8 +473,8 @@ func _NetworkPolicyDiscoveryService_StreamNetworkPolicies_Handler(srv interface{
 }
 
 type NetworkPolicyDiscoveryService_StreamNetworkPoliciesServer interface {
-	Send(*v2.DiscoveryResponse) error
-	Recv() (*v2.DiscoveryRequest, error)
+	Send(*envoy_api_v2.DiscoveryResponse) error
+	Recv() (*envoy_api_v2.DiscoveryRequest, error)
 	grpc.ServerStream
 }
 
@@ -642,12 +482,12 @@ type networkPolicyDiscoveryServiceStreamNetworkPoliciesServer struct {
 	grpc.ServerStream
 }
 
-func (x *networkPolicyDiscoveryServiceStreamNetworkPoliciesServer) Send(m *v2.DiscoveryResponse) error {
+func (x *networkPolicyDiscoveryServiceStreamNetworkPoliciesServer) Send(m *envoy_api_v2.DiscoveryResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func (x *networkPolicyDiscoveryServiceStreamNetworkPoliciesServer) Recv() (*v2.DiscoveryRequest, error) {
-	m := new(v2.DiscoveryRequest)
+func (x *networkPolicyDiscoveryServiceStreamNetworkPoliciesServer) Recv() (*envoy_api_v2.DiscoveryRequest, error) {
+	m := new(envoy_api_v2.DiscoveryRequest)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -655,7 +495,7 @@ func (x *networkPolicyDiscoveryServiceStreamNetworkPoliciesServer) Recv() (*v2.D
 }
 
 func _NetworkPolicyDiscoveryService_FetchNetworkPolicies_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(v2.DiscoveryRequest)
+	in := new(envoy_api_v2.DiscoveryRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -667,7 +507,7 @@ func _NetworkPolicyDiscoveryService_FetchNetworkPolicies_Handler(srv interface{}
 		FullMethod: "/cilium.NetworkPolicyDiscoveryService/FetchNetworkPolicies",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NetworkPolicyDiscoveryServiceServer).FetchNetworkPolicies(ctx, req.(*v2.DiscoveryRequest))
+		return srv.(NetworkPolicyDiscoveryServiceServer).FetchNetworkPolicies(ctx, req.(*envoy_api_v2.DiscoveryRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -692,9 +532,9 @@ var _NetworkPolicyDiscoveryService_serviceDesc = grpc.ServiceDesc{
 	Metadata: "cilium/npds.proto",
 }
 
-func init() { proto.RegisterFile("cilium/npds.proto", fileDescriptor_npds_6101f97504eea13a) }
+func init() { proto.RegisterFile("cilium/npds.proto", fileDescriptor3) }
 
-var fileDescriptor_npds_6101f97504eea13a = []byte{
+var fileDescriptor3 = []byte{
 	// 713 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x54, 0xcd, 0x6e, 0xd3, 0x48,
 	0x1c, 0xef, 0xe4, 0xab, 0xe9, 0x44, 0xed, 0xaa, 0xb3, 0x9b, 0xd4, 0x8d, 0xb6, 0x49, 0xd6, 0xcb,

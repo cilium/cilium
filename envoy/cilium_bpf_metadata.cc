@@ -71,7 +71,8 @@ createHostMap(Server::Configuration::ListenerFactoryContext& context) {
     SINGLETON_MANAGER_REGISTERED_NAME(cilium_host_map), [&context] {
       auto map = std::make_shared<Cilium::PolicyHostMap>(
           context.localInfo().node(), context.clusterManager(),
-	  context.dispatcher(), context.scope(), context.threadLocal());
+	  context.dispatcher(), context.random(), context.scope(),
+	  context.threadLocal());
       map->startSubscription();
       return map;
     });

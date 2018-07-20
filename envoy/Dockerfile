@@ -36,6 +36,7 @@ RUN apt-get update \
 		libtool \
 		m4 \
 		make \
+		ninja-build \
 		pkg-config \
 		python \
 		realpath \
