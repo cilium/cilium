@@ -6,20 +6,14 @@ package core
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import _ "github.com/gogo/protobuf/gogoproto"
-import duration "github.com/golang/protobuf/ptypes/duration"
+import google_protobuf3 "github.com/golang/protobuf/ptypes/duration"
 import _ "github.com/lyft/protoc-gen-validate/validate"
+import _ "github.com/gogo/protobuf/gogoproto"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
-
-// This is a compile-time assertion to ensure that this generated file
-// is compatible with the proto package it is being compiled against.
-// A compilation error at this line likely means your copy of the
-// proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 // APIs may be fetched via either REST or gRPC.
 type ApiConfigSource_ApiType int32
@@ -49,15 +43,13 @@ var ApiConfigSource_ApiType_value = map[string]int32{
 func (x ApiConfigSource_ApiType) String() string {
 	return proto.EnumName(ApiConfigSource_ApiType_name, int32(x))
 }
-func (ApiConfigSource_ApiType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_config_source_68fd82b1c2258aa8, []int{0, 0}
-}
+func (ApiConfigSource_ApiType) EnumDescriptor() ([]byte, []int) { return fileDescriptor2, []int{0, 0} }
 
 // API configuration source. This identifies the API type and cluster that Envoy
 // will use to fetch an xDS API.
 type ApiConfigSource struct {
-	ApiType ApiConfigSource_ApiType `protobuf:"varint,1,opt,name=api_type,json=apiType,proto3,enum=envoy.api.v2.core.ApiConfigSource_ApiType" json:"api_type,omitempty"`
-	// Multiple cluster names may be provided for REST_LEGACY/REST. If > 1
+	ApiType ApiConfigSource_ApiType `protobuf:"varint,1,opt,name=api_type,json=apiType,enum=envoy.api.v2.core.ApiConfigSource_ApiType" json:"api_type,omitempty"`
+	// Cluster names should be used only with REST_LEGACY/REST. If > 1
 	// cluster is defined, clusters will be cycled through if any kind of failure
 	// occurs.
 	//
@@ -65,45 +57,18 @@ type ApiConfigSource struct {
 	//
 	//  The cluster with name ``cluster_name`` must be statically defined and its
 	//  type must not be ``EDS``.
-	ClusterNames []string `protobuf:"bytes,2,rep,name=cluster_names,json=clusterNames,proto3" json:"cluster_names,omitempty"`
+	ClusterNames []string `protobuf:"bytes,2,rep,name=cluster_names,json=clusterNames" json:"cluster_names,omitempty"`
 	// Multiple gRPC services be provided for GRPC. If > 1 cluster is defined,
 	// services will be cycled through if any kind of failure occurs.
-	//
-	// .. note::
-	//
-	//  If a gRPC service points to a ``cluster_name``, it must be statically
-	//  defined and its type must not be ``EDS``.
-	GrpcServices []*GrpcService `protobuf:"bytes,4,rep,name=grpc_services,json=grpcServices,proto3" json:"grpc_services,omitempty"`
+	GrpcServices []*GrpcService `protobuf:"bytes,4,rep,name=grpc_services,json=grpcServices" json:"grpc_services,omitempty"`
 	// For REST APIs, the delay between successive polls.
-	RefreshDelay         *duration.Duration `protobuf:"bytes,3,opt,name=refresh_delay,json=refreshDelay,proto3" json:"refresh_delay,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
-	XXX_unrecognized     []byte             `json:"-"`
-	XXX_sizecache        int32              `json:"-"`
+	RefreshDelay *google_protobuf3.Duration `protobuf:"bytes,3,opt,name=refresh_delay,json=refreshDelay" json:"refresh_delay,omitempty"`
 }
 
-func (m *ApiConfigSource) Reset()         { *m = ApiConfigSource{} }
-func (m *ApiConfigSource) String() string { return proto.CompactTextString(m) }
-func (*ApiConfigSource) ProtoMessage()    {}
-func (*ApiConfigSource) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_source_68fd82b1c2258aa8, []int{0}
-}
-func (m *ApiConfigSource) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_ApiConfigSource.Unmarshal(m, b)
-}
-func (m *ApiConfigSource) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_ApiConfigSource.Marshal(b, m, deterministic)
-}
-func (dst *ApiConfigSource) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ApiConfigSource.Merge(dst, src)
-}
-func (m *ApiConfigSource) XXX_Size() int {
-	return xxx_messageInfo_ApiConfigSource.Size(m)
-}
-func (m *ApiConfigSource) XXX_DiscardUnknown() {
-	xxx_messageInfo_ApiConfigSource.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_ApiConfigSource proto.InternalMessageInfo
+func (m *ApiConfigSource) Reset()                    { *m = ApiConfigSource{} }
+func (m *ApiConfigSource) String() string            { return proto.CompactTextString(m) }
+func (*ApiConfigSource) ProtoMessage()               {}
+func (*ApiConfigSource) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{0} }
 
 func (m *ApiConfigSource) GetApiType() ApiConfigSource_ApiType {
 	if m != nil {
@@ -126,7 +91,7 @@ func (m *ApiConfigSource) GetGrpcServices() []*GrpcService {
 	return nil
 }
 
-func (m *ApiConfigSource) GetRefreshDelay() *duration.Duration {
+func (m *ApiConfigSource) GetRefreshDelay() *google_protobuf3.Duration {
 	if m != nil {
 		return m.RefreshDelay
 	}
@@ -137,34 +102,12 @@ func (m *ApiConfigSource) GetRefreshDelay() *duration.Duration {
 // set in :ref:`ConfigSource <envoy_api_msg_core.ConfigSource>` can be used to
 // specify that ADS is to be used.
 type AggregatedConfigSource struct {
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *AggregatedConfigSource) Reset()         { *m = AggregatedConfigSource{} }
-func (m *AggregatedConfigSource) String() string { return proto.CompactTextString(m) }
-func (*AggregatedConfigSource) ProtoMessage()    {}
-func (*AggregatedConfigSource) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_source_68fd82b1c2258aa8, []int{1}
-}
-func (m *AggregatedConfigSource) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_AggregatedConfigSource.Unmarshal(m, b)
-}
-func (m *AggregatedConfigSource) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_AggregatedConfigSource.Marshal(b, m, deterministic)
-}
-func (dst *AggregatedConfigSource) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_AggregatedConfigSource.Merge(dst, src)
-}
-func (m *AggregatedConfigSource) XXX_Size() int {
-	return xxx_messageInfo_AggregatedConfigSource.Size(m)
-}
-func (m *AggregatedConfigSource) XXX_DiscardUnknown() {
-	xxx_messageInfo_AggregatedConfigSource.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_AggregatedConfigSource proto.InternalMessageInfo
+func (m *AggregatedConfigSource) Reset()                    { *m = AggregatedConfigSource{} }
+func (m *AggregatedConfigSource) String() string            { return proto.CompactTextString(m) }
+func (*AggregatedConfigSource) ProtoMessage()               {}
+func (*AggregatedConfigSource) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{1} }
 
 // Configuration for :ref:`listeners <config_listeners>`, :ref:`clusters
 // <config_cluster_manager_cluster>`, :ref:`routes
@@ -178,47 +121,25 @@ type ConfigSource struct {
 	//	*ConfigSource_ApiConfigSource
 	//	*ConfigSource_Ads
 	ConfigSourceSpecifier isConfigSource_ConfigSourceSpecifier `protobuf_oneof:"config_source_specifier"`
-	XXX_NoUnkeyedLiteral  struct{}                             `json:"-"`
-	XXX_unrecognized      []byte                               `json:"-"`
-	XXX_sizecache         int32                                `json:"-"`
 }
 
-func (m *ConfigSource) Reset()         { *m = ConfigSource{} }
-func (m *ConfigSource) String() string { return proto.CompactTextString(m) }
-func (*ConfigSource) ProtoMessage()    {}
-func (*ConfigSource) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_source_68fd82b1c2258aa8, []int{2}
-}
-func (m *ConfigSource) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_ConfigSource.Unmarshal(m, b)
-}
-func (m *ConfigSource) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_ConfigSource.Marshal(b, m, deterministic)
-}
-func (dst *ConfigSource) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ConfigSource.Merge(dst, src)
-}
-func (m *ConfigSource) XXX_Size() int {
-	return xxx_messageInfo_ConfigSource.Size(m)
-}
-func (m *ConfigSource) XXX_DiscardUnknown() {
-	xxx_messageInfo_ConfigSource.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_ConfigSource proto.InternalMessageInfo
+func (m *ConfigSource) Reset()                    { *m = ConfigSource{} }
+func (m *ConfigSource) String() string            { return proto.CompactTextString(m) }
+func (*ConfigSource) ProtoMessage()               {}
+func (*ConfigSource) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{2} }
 
 type isConfigSource_ConfigSourceSpecifier interface {
 	isConfigSource_ConfigSourceSpecifier()
 }
 
 type ConfigSource_Path struct {
-	Path string `protobuf:"bytes,1,opt,name=path,proto3,oneof"`
+	Path string `protobuf:"bytes,1,opt,name=path,oneof"`
 }
 type ConfigSource_ApiConfigSource struct {
-	ApiConfigSource *ApiConfigSource `protobuf:"bytes,2,opt,name=api_config_source,json=apiConfigSource,proto3,oneof"`
+	ApiConfigSource *ApiConfigSource `protobuf:"bytes,2,opt,name=api_config_source,json=apiConfigSource,oneof"`
 }
 type ConfigSource_Ads struct {
-	Ads *AggregatedConfigSource `protobuf:"bytes,3,opt,name=ads,proto3,oneof"`
+	Ads *AggregatedConfigSource `protobuf:"bytes,3,opt,name=ads,oneof"`
 }
 
 func (*ConfigSource_Path) isConfigSource_ConfigSourceSpecifier()            {}
@@ -322,17 +243,17 @@ func _ConfigSource_OneofSizer(msg proto.Message) (n int) {
 	// config_source_specifier
 	switch x := m.ConfigSourceSpecifier.(type) {
 	case *ConfigSource_Path:
-		n += 1 // tag and wire
+		n += proto.SizeVarint(1<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(len(x.Path)))
 		n += len(x.Path)
 	case *ConfigSource_ApiConfigSource:
 		s := proto.Size(x.ApiConfigSource)
-		n += 1 // tag and wire
+		n += proto.SizeVarint(2<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(s))
 		n += s
 	case *ConfigSource_Ads:
 		s := proto.Size(x.Ads)
-		n += 1 // tag and wire
+		n += proto.SizeVarint(3<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(s))
 		n += s
 	case nil:
@@ -349,11 +270,9 @@ func init() {
 	proto.RegisterEnum("envoy.api.v2.core.ApiConfigSource_ApiType", ApiConfigSource_ApiType_name, ApiConfigSource_ApiType_value)
 }
 
-func init() {
-	proto.RegisterFile("envoy/api/v2/core/config_source.proto", fileDescriptor_config_source_68fd82b1c2258aa8)
-}
+func init() { proto.RegisterFile("envoy/api/v2/core/config_source.proto", fileDescriptor2) }
 
-var fileDescriptor_config_source_68fd82b1c2258aa8 = []byte{
+var fileDescriptor2 = []byte{
 	// 459 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x92, 0xbf, 0x6e, 0xdb, 0x3c,
 	0x14, 0xc5, 0x4d, 0x49, 0xf9, 0x92, 0xd0, 0xf6, 0x67, 0x87, 0x08, 0x1a, 0x35, 0x83, 0x2b, 0xa8,
