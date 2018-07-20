@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/test/helpers"
 
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -41,7 +40,6 @@ var _ = Describe(demoTestName, func() {
 
 	var (
 		kubectl          *helpers.Kubectl
-		logger           *logrus.Entry
 		microscopeErr    error
 		microscopeCancel = func() error { return nil }
 
@@ -55,8 +53,6 @@ var _ = Describe(demoTestName, func() {
 	)
 
 	BeforeAll(func() {
-		logger = log.WithFields(logrus.Fields{"testName": demoTestName})
-		logger.Info("Starting")
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
 		err := kubectl.CiliumInstall(helpers.CiliumDSPath)

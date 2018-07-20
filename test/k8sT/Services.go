@@ -26,14 +26,12 @@ import (
 	"github.com/cilium/cilium/test/helpers"
 
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
 )
 
 var _ = Describe("K8sValidatedServicesTest", func() {
 	var (
 		kubectl          *helpers.Kubectl
-		logger           *logrus.Entry
 		serviceName      = "app1-service"
 		microscopeErr    error
 		microscopeCancel                    = func() error { return nil }
@@ -49,9 +47,6 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 
 	BeforeAll(func() {
 		var err error
-
-		logger = log.WithFields(logrus.Fields{"testName": "K8sServiceTest"})
-		logger.Info("Starting")
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		err = kubectl.CiliumInstall(helpers.CiliumDSPath)

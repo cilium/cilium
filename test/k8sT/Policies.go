@@ -41,7 +41,6 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 		knpAllowIngress      = helpers.ManifestGet("knp-default-allow-ingress.yaml")
 		knpAllowEgress       = helpers.ManifestGet("knp-default-allow-egress.yaml")
 		cnpMatchExpression   = helpers.ManifestGet("cnp-matchexpressions.yaml")
-		logger               *logrus.Entry
 		app1Service          = "app1-service"
 		microscopeErr        error
 		microscopeCancel                        = func() error { return nil }
@@ -51,8 +50,6 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 	)
 
 	BeforeAll(func() {
-		logger = log.WithFields(logrus.Fields{"testName": "K8sPolicyTest"})
-		logger.Info("Starting")
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
 		err := kubectl.CiliumInstall(helpers.CiliumDSPath)

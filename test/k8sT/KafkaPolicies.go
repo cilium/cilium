@@ -23,19 +23,16 @@ import (
 	"github.com/cilium/cilium/test/helpers"
 
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 )
 
 var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 
 	var (
-		kubectl          *helpers.Kubectl
-		microscopeErr    error
-		microscopeCancel                    = func() error { return nil }
-		backgroundCancel context.CancelFunc = func() { return }
-		backgroundError  error
-
-		logger              = log.WithFields(logrus.Fields{"testName": "K8sValidatedKafkaPolicyTest"})
+		kubectl             *helpers.Kubectl
+		microscopeErr       error
+		microscopeCancel                       = func() error { return nil }
+		backgroundCancel    context.CancelFunc = func() { return }
+		backgroundError     error
 		l7Policy            = helpers.ManifestGet("kafka-sw-security-policy.yaml")
 		demoPath            = helpers.ManifestGet("kafka-sw-app.yaml")
 		kafkaApp            = "kafka"
@@ -124,7 +121,6 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 		})
 
 		BeforeAll(func() {
-			logger = log.WithFields(logrus.Fields{"testName": "K8sValidatedKafkaPolicyTest"})
 			kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
 			err := kubectl.CiliumInstall(helpers.CiliumDSPath)

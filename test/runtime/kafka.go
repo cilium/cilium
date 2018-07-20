@@ -22,13 +22,11 @@ import (
 	"github.com/cilium/cilium/test/helpers"
 
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 )
 
 var _ = Describe("RuntimeValidatedKafka", func() {
 
 	var (
-		logger      *logrus.Entry
 		vm          *helpers.SSHMeta
 		monitorStop = func() error { return nil }
 
@@ -107,8 +105,6 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 	}
 
 	BeforeAll(func() {
-		logger = log.WithFields(logrus.Fields{"testName": "RuntimeValidatedKafka"})
-
 		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
 		ExpectCiliumReady(vm)
 

@@ -40,7 +40,6 @@ var (
 var _ = Describe("NightlyEpsMeasurement", func() {
 
 	var kubectl *helpers.Kubectl
-	var logger *logrus.Entry
 
 	endpointCount := 45
 	endpointsTimeout := endpointTimeout * time.Duration(endpointCount)
@@ -50,9 +49,6 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 	var err error
 
 	BeforeAll(func() {
-		logger = log.WithFields(logrus.Fields{"testName": "NightlyK8sEpsMeasurement"})
-		logger.Info("Starting")
-
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
 		err := kubectl.CiliumInstall(helpers.CiliumDSPath)
@@ -313,16 +309,12 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 var _ = Describe("NightlyExamples", func() {
 
 	var kubectl *helpers.Kubectl
-	var logger *logrus.Entry
 	var demoPath string
 	var l3Policy, l7Policy string
 	var appService = "app1-service"
 	var apps []string
 
 	BeforeAll(func() {
-		logger = log.WithFields(logrus.Fields{"testName": "NightlyK8sEpsMeasurement"})
-		logger.Info("Starting")
-
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
 		err := kubectl.CiliumInstall(helpers.CiliumDSPath)

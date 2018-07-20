@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/test/helpers"
 
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -43,12 +42,9 @@ const (
 
 var _ = Describe("RuntimeValidatedMonitorTest", func() {
 
-	var logger *logrus.Entry
 	var vm *helpers.SSHMeta
 
 	BeforeAll(func() {
-		logger = log.WithFields(logrus.Fields{"testName": "RuntimeMonitorTest"})
-		logger.Info("Starting")
 		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
 		ExpectCiliumReady(vm)
 
