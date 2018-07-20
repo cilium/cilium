@@ -683,14 +683,16 @@ framework in the ``test/`` directory and interact with ginkgo directly:
     $ ginkgo . -- --help | grep -A 1 cilium
       -cilium.SSHConfig string
             Specify a custom command to fetch SSH configuration (eg: 'vagrant ssh-config')
+      -cilium.dsManifest string
+            Cilium daemon set manifest to use for running the test (only Kubernetes)
       -cilium.holdEnvironment
             On failure, hold the environment in its current state
       -cilium.provision
             Provision Vagrant boxes and Cilium before running test (default true)
       -cilium.showCommands
             Output which commands are ran to stdout
-      -cilium.dsManifest
-            Cilium daemon set manifest to use for running the test (only Kubernetes)
+      -cilium.testScope string
+            Specifies scope of test to be ran (k8s, Nightly, runtime)
     $ ginkgo --focus "Policies*" -- --cilium.provision=false
 
 For more information about other built-in options to Ginkgo, consult the
