@@ -25,7 +25,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("RuntimeValidatedChaos", func() {
+var _ = Describe("RuntimeChaos", func() {
 
 	var vm *helpers.SSHMeta
 

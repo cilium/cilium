@@ -24,7 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("RuntimeValidatedKafka", func() {
+var _ = Describe("RuntimeKafka", func() {
 
 	var (
 		vm          *helpers.SSHMeta

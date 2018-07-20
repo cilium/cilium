@@ -25,7 +25,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("RuntimeValidatedCLI", func() {
+var _ = Describe("RuntimeCLI", func() {
 
 	var vm *helpers.SSHMeta
 

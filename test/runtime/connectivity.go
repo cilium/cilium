@@ -13,7 +13,7 @@ import (
 	"github.com/onsi/gomega/types"
 )
 
-var _ = Describe("RuntimeValidatedConnectivityTest", func() {
+var _ = Describe("RuntimeConnectivityTest", func() {
 	var (
 		once        sync.Once
 		vm          *helpers.SSHMeta
@@ -295,7 +295,7 @@ var _ = Describe("RuntimeValidatedConnectivityTest", func() {
 	})
 })
 
-var _ = Describe("RuntimeValidatedConntrackTest", func() {
+var _ = Describe("RuntimeConntrackTest", func() {
 	var (
 		vm          *helpers.SSHMeta
 		once        sync.Once

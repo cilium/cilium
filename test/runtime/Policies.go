@@ -51,7 +51,7 @@ const (
 	policiesReservedInitJSON        = "Policies-reserved-init.json"
 )
 
-var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
+var _ = Describe("RuntimePolicyEnforcement", func() {
 
 	var (
 		vm               *helpers.SSHMeta
@@ -238,7 +238,7 @@ var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 	})
 })
 
-var _ = Describe("RuntimeValidatedPolicies", func() {
+var _ = Describe("RuntimePolicies", func() {
 
 	var (
 		vm            *helpers.SSHMeta
@@ -1370,15 +1370,12 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 	})
 })
 
-var _ = Describe("RuntimeValidatedPolicyImportTests", func() {
+var _ = Describe("RuntimePolicyImportTests", func() {
 	var (
 		vm *helpers.SSHMeta
 	)
 
 	BeforeAll(func() {
-		logger = log.WithFields(logrus.Fields{"test": "RuntimeValidatedPolicyImportTests"})
-		logger.Info("Starting")
-
 		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
 		ExpectCiliumReady(vm)
 

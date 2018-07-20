@@ -10,7 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("K8sValidatedUpdates", func() {
+var _ = Describe("K8sUpdates", func() {
 	var (
 		kubectl            *helpers.Kubectl
 		demoPath           string

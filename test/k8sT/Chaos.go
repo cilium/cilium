@@ -23,7 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("K8sValidatedChaosTest", func() {
+var _ = Describe("K8sChaosTest", func() {
 
 	var (
 		kubectl       *helpers.Kubectl

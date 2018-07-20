@@ -40,7 +40,7 @@ const (
 	MonitorDebug = "Debug"
 )
 
-var _ = Describe("RuntimeValidatedMonitorTest", func() {
+var _ = Describe("RuntimeMonitorTest", func() {
 
 	var vm *helpers.SSHMeta
 

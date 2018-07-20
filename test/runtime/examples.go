@@ -27,7 +27,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("RuntimeValidatedPolicyValidationTests", func() {
+var _ = Describe("RuntimePolicyValidationTests", func() {
 	var once sync.Once
 	var vm *helpers.SSHMeta
 
