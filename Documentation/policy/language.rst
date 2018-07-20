@@ -34,6 +34,11 @@ can talk to each other. Layer 3 policies can be specified using the following me
   IP addresses or subnets into the policies. This construct should be used as a
   last resort as it requires stable IP or subnet assignments.
 
+* `DNS based`: Selects remote, non-cluster, peers using DNS names converted to
+  IPs via DNS lookups. It shares all limitations of the `CIDR based` rules
+  above. The current implementation simply polls the listed DNS targets without
+  regard for TTLs, and allows traffics from IPs listed in the DNS responses.
+
 .. _Labels based:
 
 Labels Based
@@ -413,6 +418,77 @@ but not CIDR prefix ``10.96.0.0/12``
 .. only:: epub or latex
 
         .. literalinclude:: ../../examples/policies/l3/cidr/cidr.json
+
+.. _DNS based:
+
+DNS based
+---------
+
+``toFQDNs`` simplifies specifying egress policy to IPs of remote, external,
+peers. The DNS lookup for each ``matchName`` is done periodically by
+``cilium-agent`` and the result is used to regenerate endpoint policy. This
+allows tracking changing IPs or sets of IPs that may not be known a priori.
+Despite the naming, the ``matchName`` field does not have to be a
+fully-qualified domain name. In cases where search domains are configured, the
+DNS lookups from ``cilium`` will not be qualified and will utilize the search
+list.
+
+The DNS lookups are repeated with an interval of 5 seconds, and are made for
+A(IPv4) and AAAA(IPv6) addresses. Should a lookup fail, the most recent IP data
+is used instead. An IP change will trigger a regeneration of the ``cilium``
+policy for each endpoint, and the updated IPs can be seen in the response from
+``cilium policy get``. Each update will also increment the per ``cilium-agent``
+policy repository revision.
+
+``toFQDNs`` rules cannot contain any other L3 rules, such as ``toEndpoints``
+(under `Labels Based`_) and ``toCIDRs`` (under `CIDR Based`_). They can contain
+L4/L7 rules, such as ``toPorts`` (see `Layer 4 Examples`_)  and, optionally,
+with ``HTTP`` and ``Kafka`` sections (see `Layer 7 Examples`_).
+
+.. note:: ``toFQDNs`` rules are marked on import with a
+          ``cilium-generated:ToFQDN-UUID`` label. This is for internal
+          bookkeeping and can be safely ignored.
+
+
+.. note:: The DNS resolver must be explicitly whitelisted to allow cilium-agent
+          to send the DNS polls. This is illustrated in the example below.
+
+Example
+~~~~~~~
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../examples/policies/l3/fqdn/fqdn.yaml
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../../examples/policies/l3/fqdn/fqdn.json
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../examples/policies/l3/fqdn/fqdn.json
+
+Limitations
+~~~~~~~~~~~
+
+The current ``toFQDNs`` implementation is very limited. It may not behave as expected.
+
+#. The DNS polling is done from the ``cilium-agent`` process. This may result
+   in different IPs being returned in the DNS response than those seen by an
+   endpoint or pod.
+
+#. The IP response is used as-is. For DNS responses that return a new IP on
+   every query this may result in a different IP being whitelisted than the one
+   used for current connections.
+
+#. The lookups from ``cilium`` follow the configuration of the environment it
+   is in via ``/etc/resolv.conf``. When running as a pod, the contents of
+   ``resolv.conf`` are controlled via the ``dnsPolicy`` field of a spec. When
+   running directly on a host, it will use the host's file.  Irrespective of
+   how the DNS lookups are configured, TTLs and caches on the resolver will
+   impact the IPs seen by the ``cilium-agent`` lookups.
 
 .. _l4_policy:
 
