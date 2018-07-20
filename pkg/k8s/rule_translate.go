@@ -18,8 +18,8 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -33,8 +33,8 @@ var _ policy.Translator = RuleTranslator{}
 // Translate populates/depopulates given rule with ToCIDR rules
 // Based on provided service/endpoint
 type RuleTranslator struct {
-	Service       types.K8sServiceNamespace
-	Endpoint      types.K8sServiceEndpoint
+	Service       loadbalancer.K8sServiceNamespace
+	Endpoint      loadbalancer.K8sServiceEndpoint
 	ServiceLabels map[string]string
 	Revert        bool
 	IPCache       ipcache.Implementation
@@ -112,7 +112,7 @@ func (k RuleTranslator) serviceMatches(service api.Service) bool {
 // ToCIDR rules based on provided endpoint object
 func generateToCidrFromEndpoint(
 	egress *api.EgressRule,
-	endpoint types.K8sServiceEndpoint,
+	endpoint loadbalancer.K8sServiceEndpoint,
 	impl ipcache.Implementation) error {
 
 	// Non-nil implementation here implies that this translation is
@@ -169,7 +169,7 @@ func generateToCidrFromEndpoint(
 // processing to proceed.
 func deleteToCidrFromEndpoint(
 	egress *api.EgressRule,
-	endpoint types.K8sServiceEndpoint,
+	endpoint loadbalancer.K8sServiceEndpoint,
 	impl ipcache.Implementation) error {
 
 	newToCIDR := make([]api.CIDRRule, 0, len(egress.ToCIDRSet))
@@ -214,8 +214,8 @@ func deleteToCidrFromEndpoint(
 // PreprocessRules translates rules that apply to headless services
 func PreprocessRules(
 	r api.Rules,
-	endpoints map[types.K8sServiceNamespace]*types.K8sServiceEndpoint,
-	services map[types.K8sServiceNamespace]*types.K8sServiceInfo) error {
+	endpoints map[loadbalancer.K8sServiceNamespace]*loadbalancer.K8sServiceEndpoint,
+	services map[loadbalancer.K8sServiceNamespace]*loadbalancer.K8sServiceInfo) error {
 
 	// Headless services are translated prior to policy import, so the
 	// policy will contain all of the CIDRs and can handle ipcache
@@ -239,8 +239,8 @@ func PreprocessRules(
 
 // NewK8sTranslator returns RuleTranslator
 func NewK8sTranslator(
-	serviceInfo types.K8sServiceNamespace,
-	endpoint types.K8sServiceEndpoint,
+	serviceInfo loadbalancer.K8sServiceNamespace,
+	endpoint loadbalancer.K8sServiceEndpoint,
 	revert bool,
 	labels map[string]string,
 	ipcache ipcache.Implementation) RuleTranslator {

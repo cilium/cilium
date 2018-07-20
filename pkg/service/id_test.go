@@ -18,40 +18,40 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 
 	. "gopkg.in/check.v1"
 )
 
 var (
-	l3n4Addr1 = types.L3n4Addr{
+	l3n4Addr1 = loadbalancer.L3n4Addr{
 		IP:     net.IPv6loopback,
-		L4Addr: types.L4Addr{Port: 0, Protocol: "UDP"},
+		L4Addr: loadbalancer.L4Addr{Port: 0, Protocol: "UDP"},
 	}
-	l3n4Addr2 = types.L3n4Addr{
+	l3n4Addr2 = loadbalancer.L3n4Addr{
 		IP:     net.IPv6loopback,
-		L4Addr: types.L4Addr{Port: 1, Protocol: "TCP"},
+		L4Addr: loadbalancer.L4Addr{Port: 1, Protocol: "TCP"},
 	}
-	l3n4Addr3 = types.L3n4Addr{
+	l3n4Addr3 = loadbalancer.L3n4Addr{
 		IP:     net.IPv6loopback,
-		L4Addr: types.L4Addr{Port: 1, Protocol: "UDP"},
+		L4Addr: loadbalancer.L4Addr{Port: 1, Protocol: "UDP"},
 	}
-	wantL3n4AddrID = &types.L3n4AddrID{
+	wantL3n4AddrID = &loadbalancer.L3n4AddrID{
 		ID:       123,
 		L3n4Addr: l3n4Addr2,
 	}
 )
 
 func (ds *ServiceTestSuite) TestServices(c *C) {
-	var nilL3n4AddrID *types.L3n4AddrID
+	var nilL3n4AddrID *loadbalancer.L3n4AddrID
 	// Set up last free ID with zero
 	id, err := getMaxServiceID()
 	c.Assert(err, Equals, nil)
 	c.Assert(id, Equals, common.FirstFreeServiceID)
 
-	ffsIDu16 := types.ServiceID(uint16(common.FirstFreeServiceID))
+	ffsIDu16 := loadbalancer.ServiceID(uint16(common.FirstFreeServiceID))
 
 	l3n4AddrID, err := AcquireID(l3n4Addr1, 0)
 	c.Assert(err, Equals, nil)
@@ -85,7 +85,7 @@ func (ds *ServiceTestSuite) TestServices(c *C) {
 
 	gotL3n4AddrID, err = GetID(common.FirstFreeServiceID + 1)
 	c.Assert(err, Equals, nil)
-	wantL3n4AddrID.ID = types.ServiceID(common.FirstFreeServiceID + 1)
+	wantL3n4AddrID.ID = loadbalancer.ServiceID(common.FirstFreeServiceID + 1)
 	wantL3n4AddrID.L3n4Addr = l3n4Addr2
 	c.Assert(gotL3n4AddrID, comparator.DeepEquals, wantL3n4AddrID)
 
@@ -103,7 +103,7 @@ func (ds *ServiceTestSuite) TestServices(c *C) {
 
 	gotL3n4AddrID, err = AcquireID(l3n4Addr2, 0)
 	c.Assert(err, Equals, nil)
-	c.Assert(gotL3n4AddrID.ID, Equals, types.ServiceID(common.FirstFreeServiceID+1))
+	c.Assert(gotL3n4AddrID.ID, Equals, loadbalancer.ServiceID(common.FirstFreeServiceID+1))
 
 	err = DeleteID(uint32(gotL3n4AddrID.ID))
 	c.Assert(err, Equals, nil)
@@ -118,18 +118,18 @@ func (ds *ServiceTestSuite) TestServices(c *C) {
 
 	gotL3n4AddrID, err = AcquireID(l3n4Addr1, 0)
 	c.Assert(err, Equals, nil)
-	c.Assert(gotL3n4AddrID.ID, Equals, types.ServiceID(common.FirstFreeServiceID+1))
+	c.Assert(gotL3n4AddrID.ID, Equals, loadbalancer.ServiceID(common.FirstFreeServiceID+1))
 
 	gotL3n4AddrID, err = AcquireID(l3n4Addr1, 99)
 	c.Assert(err, Equals, nil)
-	c.Assert(gotL3n4AddrID.ID, Equals, types.ServiceID(common.FirstFreeServiceID+1))
+	c.Assert(gotL3n4AddrID.ID, Equals, loadbalancer.ServiceID(common.FirstFreeServiceID+1))
 
 	err = DeleteID(uint32(common.FirstFreeServiceID + 1))
 	c.Assert(err, Equals, nil)
 
 	gotL3n4AddrID, err = AcquireID(l3n4Addr1, 99)
 	c.Assert(err, Equals, nil)
-	c.Assert(gotL3n4AddrID.ID, Equals, types.ServiceID(99))
+	c.Assert(gotL3n4AddrID.ID, Equals, loadbalancer.ServiceID(99))
 }
 
 func (ds *ServiceTestSuite) TestGetMaxServiceID(c *C) {
@@ -149,9 +149,9 @@ func (ds *ServiceTestSuite) TestGetMaxServiceID(c *C) {
 }
 
 func (ds *ServiceTestSuite) BenchmarkAllocation(c *C) {
-	addr := types.L3n4Addr{
+	addr := loadbalancer.L3n4Addr{
 		IP:     net.IPv6loopback,
-		L4Addr: types.L4Addr{Port: 0, Protocol: "UDP"},
+		L4Addr: loadbalancer.L4Addr{Port: 0, Protocol: "UDP"},
 	}
 
 	c.ResetTimer()

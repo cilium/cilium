@@ -19,8 +19,8 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/command"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 
 	"github.com/spf13/cobra"
 )
@@ -47,7 +47,7 @@ var serviceGetCmd = &cobra.Command{
 
 		slice := []string{}
 		for _, be := range svc.Status.Realized.BackendAddresses {
-			if bea, err := types.NewL3n4AddrFromBackendModel(be); err != nil {
+			if bea, err := loadbalancer.NewL3n4AddrFromBackendModel(be); err != nil {
 				slice = append(slice, fmt.Sprintf("invalid backend: %+v", be))
 			} else {
 				slice = append(slice, bea.String())
@@ -61,7 +61,7 @@ var serviceGetCmd = &cobra.Command{
 			return
 		}
 
-		if fea, err := types.NewL3n4AddrFromModel(svc.Status.Realized.FrontendAddress); err != nil {
+		if fea, err := loadbalancer.NewL3n4AddrFromModel(svc.Status.Realized.FrontendAddress); err != nil {
 			fmt.Fprintf(os.Stderr, "invalid frontend model: %s", err)
 		} else {
 			fmt.Printf("%s =>\n", fea.String())

@@ -23,7 +23,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/controller"
@@ -38,6 +37,7 @@ import (
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	informer "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	bpfIPCache "github.com/cilium/cilium/pkg/maps/ipcache"
@@ -740,7 +740,7 @@ func (d *Daemon) addK8sServiceV1(svc *v1.Service) {
 		return
 	}
 
-	svcns := types.K8sServiceNamespace{
+	svcns := loadbalancer.K8sServiceNamespace{
 		ServiceName: svc.ObjectMeta.Name,
 		Namespace:   svc.ObjectMeta.Namespace,
 	}
@@ -750,19 +750,19 @@ func (d *Daemon) addK8sServiceV1(svc *v1.Service) {
 	if strings.ToLower(svc.Spec.ClusterIP) == "none" {
 		headless = true
 	}
-	newSI := types.NewK8sServiceInfo(clusterIP, headless, svc.Labels, svc.Spec.Selector)
+	newSI := loadbalancer.NewK8sServiceInfo(clusterIP, headless, svc.Labels, svc.Spec.Selector)
 
 	// FIXME: Add support for
 	//  - NodePort
 
 	for _, port := range svc.Spec.Ports {
-		p, err := types.NewFEPort(types.L4Type(port.Protocol), uint16(port.Port))
+		p, err := loadbalancer.NewFEPort(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
 		if err != nil {
 			scopedLog.WithError(err).WithField("port", port).Error("Unable to add service port")
 			continue
 		}
-		if _, ok := newSI.Ports[types.FEPortName(port.Name)]; !ok {
-			newSI.Ports[types.FEPortName(port.Name)] = p
+		if _, ok := newSI.Ports[loadbalancer.FEPortName(port.Name)]; !ok {
+			newSI.Ports[loadbalancer.FEPortName(port.Name)] = p
 		}
 	}
 
@@ -795,7 +795,7 @@ func (d *Daemon) deleteK8sServiceV1(svc *v1.Service) {
 		logfields.K8sAPIVersion: svc.TypeMeta.APIVersion,
 	}).Debug("Deleting k8s service")
 
-	svcns := &types.K8sServiceNamespace{
+	svcns := &loadbalancer.K8sServiceNamespace{
 		ServiceName: svc.ObjectMeta.Name,
 		Namespace:   svc.ObjectMeta.Namespace,
 	}
@@ -812,24 +812,24 @@ func (d *Daemon) addK8sEndpointV1(ep *v1.Endpoints) {
 		logfields.K8sAPIVersion:   ep.TypeMeta.APIVersion,
 	})
 
-	svcns := types.K8sServiceNamespace{
+	svcns := loadbalancer.K8sServiceNamespace{
 		ServiceName: ep.ObjectMeta.Name,
 		Namespace:   ep.ObjectMeta.Namespace,
 	}
 
-	newSvcEP := types.NewK8sServiceEndpoint()
+	newSvcEP := loadbalancer.NewK8sServiceEndpoint()
 
 	for _, sub := range ep.Subsets {
 		for _, addr := range sub.Addresses {
 			newSvcEP.BEIPs[addr.IP] = true
 		}
 		for _, port := range sub.Ports {
-			lbPort, err := types.NewL4Addr(types.L4Type(port.Protocol), uint16(port.Port))
+			lbPort, err := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
 			if err != nil {
 				scopedLog.WithError(err).Error("Error while creating a new LB Port")
 				continue
 			}
-			newSvcEP.Ports[types.FEPortName(port.Name)] = lbPort
+			newSvcEP.Ports[loadbalancer.FEPortName(port.Name)] = lbPort
 		}
 	}
 
@@ -880,7 +880,7 @@ func (d *Daemon) deleteK8sEndpointV1(ep *v1.Endpoints) {
 		logfields.K8sAPIVersion:   ep.TypeMeta.APIVersion,
 	})
 
-	svcns := types.K8sServiceNamespace{
+	svcns := loadbalancer.K8sServiceNamespace{
 		ServiceName: ep.ObjectMeta.Name,
 		Namespace:   ep.ObjectMeta.Namespace,
 	}
@@ -910,7 +910,7 @@ func (d *Daemon) deleteK8sEndpointV1(ep *v1.Endpoints) {
 	}
 }
 
-func areIPsConsistent(ipv4Enabled, isSvcIPv4 bool, svc types.K8sServiceNamespace, se *types.K8sServiceEndpoint) error {
+func areIPsConsistent(ipv4Enabled, isSvcIPv4 bool, svc loadbalancer.K8sServiceNamespace, se *loadbalancer.K8sServiceEndpoint) error {
 	if isSvcIPv4 {
 		if !ipv4Enabled {
 			return fmt.Errorf("Received an IPv4 k8s service but IPv4 is "+
@@ -934,7 +934,7 @@ func areIPsConsistent(ipv4Enabled, isSvcIPv4 bool, svc types.K8sServiceNamespace
 	return nil
 }
 
-func getUniqPorts(svcPorts map[types.FEPortName]*types.FEPort) map[uint16]bool {
+func getUniqPorts(svcPorts map[loadbalancer.FEPortName]*loadbalancer.FEPort) map[uint16]bool {
 	// We are not discriminating the different L4 protocols on the same L4
 	// port so we create the number of unique sets of service IP + service
 	// port.
@@ -945,7 +945,7 @@ func getUniqPorts(svcPorts map[types.FEPortName]*types.FEPort) map[uint16]bool {
 	return uniqPorts
 }
 
-func (d *Daemon) delK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sServiceInfo, se *types.K8sServiceEndpoint) error {
+func (d *Daemon) delK8sSVCs(svc loadbalancer.K8sServiceNamespace, svcInfo *loadbalancer.K8sServiceInfo, se *loadbalancer.K8sServiceEndpoint) error {
 	// If east-west load balancing is disabled, we should not sync(add or delete)
 	// K8s service to a cilium service.
 	if lb := viper.GetBool("disable-k8s-services"); lb == true {
@@ -981,7 +981,7 @@ func (d *Daemon) delK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 			}
 		}
 
-		fe, err := types.NewL3n4Addr(svcPort.Protocol, svcInfo.FEIP, svcPort.Port)
+		fe, err := loadbalancer.NewL3n4Addr(svcPort.Protocol, svcInfo.FEIP, svcPort.Port)
 		if err != nil {
 			scopedLog.WithError(err).Error("Error while creating a New L3n4AddrID. Ignoring service")
 			continue
@@ -1004,7 +1004,7 @@ func (d *Daemon) delK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 	return nil
 }
 
-func (d *Daemon) addK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sServiceInfo, se *types.K8sServiceEndpoint) error {
+func (d *Daemon) addK8sSVCs(svc loadbalancer.K8sServiceNamespace, svcInfo *loadbalancer.K8sServiceInfo, se *loadbalancer.K8sServiceEndpoint) error {
 	// If east-west load balancing is disabled, we should not sync(add or delete)
 	// K8s service to a cilium service.
 	if lb := viper.GetBool("disable-k8s-services"); lb == true {
@@ -1037,7 +1037,7 @@ func (d *Daemon) addK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 		uniqPorts[fePort.Port] = false
 
 		if fePort.ID == 0 {
-			feAddr, err := types.NewL3n4Addr(fePort.Protocol, svcInfo.FEIP, fePort.Port)
+			feAddr, err := loadbalancer.NewL3n4Addr(fePort.Protocol, svcInfo.FEIP, fePort.Port)
 			if err != nil {
 				scopedLog.WithError(err).WithFields(logrus.Fields{
 					logfields.ServiceID: fePortName,
@@ -1065,19 +1065,19 @@ func (d *Daemon) addK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 			fePort.ID = feAddrID.ID
 		}
 
-		besValues := []types.LBBackEnd{}
+		besValues := []loadbalancer.LBBackEnd{}
 
 		if k8sBEPort != nil {
 			for epIP := range se.BEIPs {
-				bePort := types.LBBackEnd{
-					L3n4Addr: types.L3n4Addr{IP: net.ParseIP(epIP), L4Addr: *k8sBEPort},
+				bePort := loadbalancer.LBBackEnd{
+					L3n4Addr: loadbalancer.L3n4Addr{IP: net.ParseIP(epIP), L4Addr: *k8sBEPort},
 					Weight:   0,
 				}
 				besValues = append(besValues, bePort)
 			}
 		}
 
-		fe, err := types.NewL3n4AddrID(fePort.Protocol, svcInfo.FEIP, fePort.Port, fePort.ID)
+		fe, err := loadbalancer.NewL3n4AddrID(fePort.Protocol, svcInfo.FEIP, fePort.Port, fePort.ID)
 		if err != nil {
 			scopedLog.WithError(err).WithFields(logrus.Fields{
 				logfields.IPAddr: svcInfo.FEIP,
@@ -1092,8 +1092,8 @@ func (d *Daemon) addK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 	return nil
 }
 
-func (d *Daemon) syncLB(newSN, modSN, delSN *types.K8sServiceNamespace) {
-	deleteSN := func(delSN types.K8sServiceNamespace) {
+func (d *Daemon) syncLB(newSN, modSN, delSN *loadbalancer.K8sServiceNamespace) {
+	deleteSN := func(delSN loadbalancer.K8sServiceNamespace) {
 		svc, ok := d.loadBalancer.K8sServices[delSN]
 		if !ok {
 			delete(d.loadBalancer.K8sEndpoints, delSN)
@@ -1118,7 +1118,7 @@ func (d *Daemon) syncLB(newSN, modSN, delSN *types.K8sServiceNamespace) {
 		delete(d.loadBalancer.K8sEndpoints, delSN)
 	}
 
-	addSN := func(addSN types.K8sServiceNamespace) {
+	addSN := func(addSN loadbalancer.K8sServiceNamespace) {
 		svcInfo, ok := d.loadBalancer.K8sServices[addSN]
 		if !ok {
 			return
@@ -1164,13 +1164,13 @@ func (d *Daemon) addIngressV1beta1(ingress *v1beta1.Ingress) {
 		return
 	}
 
-	svcName := types.K8sServiceNamespace{
+	svcName := loadbalancer.K8sServiceNamespace{
 		ServiceName: ingress.Spec.Backend.ServiceName,
 		Namespace:   ingress.ObjectMeta.Namespace,
 	}
 
 	ingressPort := ingress.Spec.Backend.ServicePort.IntValue()
-	fePort, err := types.NewFEPort(types.TCP, uint16(ingressPort))
+	fePort, err := loadbalancer.NewFEPort(loadbalancer.TCP, uint16(ingressPort))
 	if err != nil {
 		return
 	}
@@ -1181,10 +1181,10 @@ func (d *Daemon) addIngressV1beta1(ingress *v1beta1.Ingress) {
 	} else {
 		host = option.Config.HostV4Addr
 	}
-	ingressSvcInfo := types.NewK8sServiceInfo(host, false, nil, nil)
-	ingressSvcInfo.Ports[types.FEPortName(ingress.Spec.Backend.ServicePort.StrVal)] = fePort
+	ingressSvcInfo := loadbalancer.NewK8sServiceInfo(host, false, nil, nil)
+	ingressSvcInfo.Ports[loadbalancer.FEPortName(ingress.Spec.Backend.ServicePort.StrVal)] = fePort
 
-	syncIngress := func(ingressSvcInfo *types.K8sServiceInfo) error {
+	syncIngress := func(ingressSvcInfo *loadbalancer.K8sServiceInfo) error {
 		d.loadBalancer.K8sIngress[svcName] = ingressSvcInfo
 
 		if err := d.syncExternalLB(&svcName, nil, nil); err != nil {
@@ -1239,12 +1239,12 @@ func (d *Daemon) updateIngressV1beta1(oldIngress, newIngress *v1beta1.Ingress) {
 	// ingress status with its address.
 	if !option.Config.IsLBEnabled() {
 		port := newIngress.Spec.Backend.ServicePort.IntValue()
-		for _, loadbalancer := range newIngress.Status.LoadBalancer.Ingress {
-			ingressIP := net.ParseIP(loadbalancer.IP)
+		for _, lb := range newIngress.Status.LoadBalancer.Ingress {
+			ingressIP := net.ParseIP(lb.IP)
 			if ingressIP == nil {
 				continue
 			}
-			feAddr, err := types.NewL3n4Addr(types.TCP, ingressIP, uint16(port))
+			feAddr, err := loadbalancer.NewL3n4Addr(loadbalancer.TCP, ingressIP, uint16(port))
 			if err != nil {
 				scopedLog.WithError(err).Error("Error while creating a new L3n4Addr. Ignoring ingress...")
 				continue
@@ -1291,7 +1291,7 @@ func (d *Daemon) deleteIngressV1beta1(ingress *v1beta1.Ingress) {
 		return
 	}
 
-	svcName := types.K8sServiceNamespace{
+	svcName := loadbalancer.K8sServiceNamespace{
 		ServiceName: ingress.Spec.Backend.ServiceName,
 		Namespace:   ingress.ObjectMeta.Namespace,
 	}
@@ -1299,12 +1299,12 @@ func (d *Daemon) deleteIngressV1beta1(ingress *v1beta1.Ingress) {
 	// Remove RevNAT from the BPF Map for non-LB nodes.
 	if !option.Config.IsLBEnabled() {
 		port := ingress.Spec.Backend.ServicePort.IntValue()
-		for _, loadbalancer := range ingress.Status.LoadBalancer.Ingress {
-			ingressIP := net.ParseIP(loadbalancer.IP)
+		for _, lb := range ingress.Status.LoadBalancer.Ingress {
+			ingressIP := net.ParseIP(lb.IP)
 			if ingressIP == nil {
 				continue
 			}
-			feAddr, err := types.NewL3n4Addr(types.TCP, ingressIP, uint16(port))
+			feAddr, err := loadbalancer.NewL3n4Addr(loadbalancer.TCP, ingressIP, uint16(port))
 			if err != nil {
 				scopedLog.WithError(err).Error("Error while creating a new L3n4Addr. Ignoring ingress...")
 				continue
@@ -1345,8 +1345,8 @@ func (d *Daemon) deleteIngressV1beta1(ingress *v1beta1.Ingress) {
 	delete(d.loadBalancer.K8sIngress, svcName)
 }
 
-func (d *Daemon) syncExternalLB(newSN, modSN, delSN *types.K8sServiceNamespace) error {
-	deleteSN := func(delSN types.K8sServiceNamespace) error {
+func (d *Daemon) syncExternalLB(newSN, modSN, delSN *loadbalancer.K8sServiceNamespace) error {
+	deleteSN := func(delSN loadbalancer.K8sServiceNamespace) error {
 		ingSvc, ok := d.loadBalancer.K8sIngress[delSN]
 		if !ok {
 			return nil
@@ -1365,7 +1365,7 @@ func (d *Daemon) syncExternalLB(newSN, modSN, delSN *types.K8sServiceNamespace) 
 		return nil
 	}
 
-	addSN := func(addSN types.K8sServiceNamespace) error {
+	addSN := func(addSN loadbalancer.K8sServiceNamespace) error {
 		ingressSvcInfo, ok := d.loadBalancer.K8sIngress[addSN]
 		if !ok {
 			return nil

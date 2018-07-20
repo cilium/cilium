@@ -17,7 +17,7 @@ package kvstore
 import (
 	"encoding/json"
 
-	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 )
 
 type backendOption struct {
@@ -100,7 +100,7 @@ type BackendOperations interface {
 	GetMaxID(key string, firstID uint32) (uint32, error) // Do not use anymore
 	SetMaxID(key string, firstID, maxID uint32) error    // Do not use anymore
 
-	GASNewL3n4AddrID(basePath string, baseID uint32, lAddrID *types.L3n4AddrID) error // Do not use anymore
+	GASNewL3n4AddrID(basePath string, baseID uint32, lAddrID *loadbalancer.L3n4AddrID) error // Do not use anymore
 	// END Obsolete API
 
 	// Status returns the status of he kvstore client including an

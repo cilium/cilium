@@ -15,8 +15,8 @@
 package k8s
 
 import (
-	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -27,20 +27,20 @@ func (s *K8sSuite) TestTranslatorDirect(c *C) {
 	repo := policy.NewPolicyRepository()
 
 	tag1 := labels.LabelArray{labels.ParseLabel("tag1")}
-	serviceInfo := types.K8sServiceNamespace{
+	serviceInfo := loadbalancer.K8sServiceNamespace{
 		ServiceName: "svc",
 		Namespace:   "default",
 	}
 
 	epIP := "10.1.1.1"
 
-	endpointInfo := types.K8sServiceEndpoint{
+	endpointInfo := loadbalancer.K8sServiceEndpoint{
 		BEIPs: map[string]bool{
 			epIP: true,
 		},
-		Ports: map[types.FEPortName]*types.L4Addr{
+		Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
 			"port": {
-				Protocol: types.TCP,
+				Protocol: loadbalancer.TCP,
 				Port:     80,
 			},
 		},
@@ -90,19 +90,19 @@ func (s *K8sSuite) TestServiceMatches(c *C) {
 		"app": "tested-service",
 	}
 
-	serviceInfo := types.K8sServiceNamespace{
+	serviceInfo := loadbalancer.K8sServiceNamespace{
 		ServiceName: "doesn't matter",
 		Namespace:   "default",
 	}
 
 	epIP := "10.1.1.1"
-	endpointInfo := types.K8sServiceEndpoint{
+	endpointInfo := loadbalancer.K8sServiceEndpoint{
 		BEIPs: map[string]bool{
 			epIP: true,
 		},
-		Ports: map[types.FEPortName]*types.L4Addr{
+		Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
 			"port": {
-				Protocol: types.TCP,
+				Protocol: loadbalancer.TCP,
 				Port:     80,
 			},
 		},
@@ -127,20 +127,20 @@ func (s *K8sSuite) TestTranslatorLabels(c *C) {
 	}
 
 	tag1 := labels.LabelArray{labels.ParseLabel("tag1")}
-	serviceInfo := types.K8sServiceNamespace{
+	serviceInfo := loadbalancer.K8sServiceNamespace{
 		ServiceName: "doesn't matter",
 		Namespace:   "default",
 	}
 
 	epIP := "10.1.1.1"
 
-	endpointInfo := types.K8sServiceEndpoint{
+	endpointInfo := loadbalancer.K8sServiceEndpoint{
 		BEIPs: map[string]bool{
 			epIP: true,
 		},
-		Ports: map[types.FEPortName]*types.L4Addr{
+		Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
 			"port": {
-				Protocol: types.TCP,
+				Protocol: loadbalancer.TCP,
 				Port:     80,
 			},
 		},
@@ -189,13 +189,13 @@ func (s *K8sSuite) TestGenerateToCIDRFromEndpoint(c *C) {
 
 	epIP := "10.1.1.1"
 
-	endpointInfo := types.K8sServiceEndpoint{
+	endpointInfo := loadbalancer.K8sServiceEndpoint{
 		BEIPs: map[string]bool{
 			epIP: true,
 		},
-		Ports: map[types.FEPortName]*types.L4Addr{
+		Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
 			"port": {
-				Protocol: types.TCP,
+				Protocol: loadbalancer.TCP,
 				Port:     80,
 			},
 		},
@@ -221,26 +221,26 @@ func (s *K8sSuite) TestGenerateToCIDRFromEndpoint(c *C) {
 
 func (s *K8sSuite) TestPreprocessRules(c *C) {
 	tag1 := labels.LabelArray{labels.ParseLabel("tag1")}
-	serviceInfo := types.K8sServiceNamespace{
+	serviceInfo := loadbalancer.K8sServiceNamespace{
 		ServiceName: "svc",
 		Namespace:   "default",
 	}
 
 	epIP := "10.1.1.1"
 
-	endpointInfo := types.K8sServiceEndpoint{
+	endpointInfo := loadbalancer.K8sServiceEndpoint{
 		BEIPs: map[string]bool{
 			epIP: true,
 		},
-		Ports: map[types.FEPortName]*types.L4Addr{
+		Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
 			"port": {
-				Protocol: types.TCP,
+				Protocol: loadbalancer.TCP,
 				Port:     80,
 			},
 		},
 	}
 
-	service := types.K8sServiceInfo{
+	service := loadbalancer.K8sServiceInfo{
 		IsHeadless: true,
 	}
 
@@ -259,11 +259,11 @@ func (s *K8sSuite) TestPreprocessRules(c *C) {
 		Labels: tag1,
 	}
 
-	endpoints := map[types.K8sServiceNamespace]*types.K8sServiceEndpoint{
+	endpoints := map[loadbalancer.K8sServiceNamespace]*loadbalancer.K8sServiceEndpoint{
 		serviceInfo: &endpointInfo,
 	}
 
-	services := map[types.K8sServiceNamespace]*types.K8sServiceInfo{
+	services := map[loadbalancer.K8sServiceNamespace]*loadbalancer.K8sServiceInfo{
 		serviceInfo: &service,
 	}
 
@@ -288,13 +288,13 @@ func (s *K8sSuite) TestDontDeleteUserRules(c *C) {
 
 	epIP := "10.1.1.1"
 
-	endpointInfo := types.K8sServiceEndpoint{
+	endpointInfo := loadbalancer.K8sServiceEndpoint{
 		BEIPs: map[string]bool{
 			epIP: true,
 		},
-		Ports: map[types.FEPortName]*types.L4Addr{
+		Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
 			"port": {
-				Protocol: types.TCP,
+				Protocol: loadbalancer.TCP,
 				Port:     80,
 			},
 		},
