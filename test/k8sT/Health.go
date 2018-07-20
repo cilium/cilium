@@ -23,9 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var testName = "K8sValidatedHealthTest"
-
-var _ = Describe(testName, func() {
+var _ = Describe("K8sHealthTest", func() {
 
 	var (
 		kubectl *helpers.Kubectl

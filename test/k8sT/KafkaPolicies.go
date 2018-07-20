@@ -25,7 +25,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
+var _ = Describe("K8sKafkaPolicyTest", func() {
 
 	var (
 		kubectl             *helpers.Kubectl

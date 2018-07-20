@@ -25,11 +25,10 @@ import (
 )
 
 const (
-	verifierTest = "RuntimeValidatedVerifier"
-	script       = "bpf/verifier-test.sh"
+	script = "bpf/verifier-test.sh"
 )
 
-var _ = Describe(verifierTest, func() {
+var _ = Describe("RuntimeVerifier", func() {
 	var vm *helpers.SSHMeta
 
 	BeforeAll(func() {

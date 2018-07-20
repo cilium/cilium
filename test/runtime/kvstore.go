@@ -24,7 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("RuntimeValidatedKVStoreTest", func() {
+var _ = Describe("RuntimeKVStoreTest", func() {
 
 	var once sync.Once
 	var vm *helpers.SSHMeta

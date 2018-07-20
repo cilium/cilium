@@ -26,7 +26,6 @@ import (
 )
 
 var (
-	demoTestName         = "K8sValidatedDemosTest"
 	starWarsDemoLinkRoot = "https://raw.githubusercontent.com/cilium/star-wars-demo/master/v1"
 )
 
@@ -36,7 +35,7 @@ func getStarWarsResourceLink(file string) string {
 	return fmt.Sprintf("%s/%s", starWarsDemoLinkRoot, file)
 }
 
-var _ = Describe(demoTestName, func() {
+var _ = Describe("K8sDemosTest", func() {
 
 	var (
 		kubectl          *helpers.Kubectl

@@ -97,13 +97,13 @@ pipeline {
                 script {
                     parallel(
                         "Runtime":{
-                            sh 'cd ${TESTDIR}; ginkgo --focus=" RuntimeValidated*" -v --failFast=${FAILFAST}'
+                            sh 'cd ${TESTDIR}; ginkgo --focus=" Runtime*" -v --failFast=${FAILFAST}'
                         },
                         "K8s-1.7":{
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.7 ginkgo --focus=" K8sValidated*" -v --failFast=${FAILFAST}'
+                            sh 'cd ${TESTDIR}; K8S_VERSION=1.7 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
                         },
                         "K8s-1.11":{
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.11 ginkgo --focus=" K8sValidated*" -v --failFast=${FAILFAST}'
+                            sh 'cd ${TESTDIR}; K8S_VERSION=1.11 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
                         },
                         failFast: "${FAILFAST}".toBoolean()
                     )

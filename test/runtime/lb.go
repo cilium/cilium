@@ -24,7 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("RuntimeValidatedLB", func() {
+var _ = Describe("RuntimeLB", func() {
 	var (
 		vm          *helpers.SSHMeta
 		monitorStop = func() error { return nil }
