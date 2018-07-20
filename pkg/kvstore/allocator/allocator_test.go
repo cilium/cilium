@@ -89,7 +89,7 @@ func (s *AllocatorSuite) TestSelectID(c *C) {
 		id, val := a.selectAvailableID()
 		c.Assert(id, Not(Equals), NoID)
 		c.Assert(val, Equals, id.String())
-		a.cache[id] = TestType(fmt.Sprintf("key-%d", i))
+		a.mainCache.cache[id] = TestType(fmt.Sprintf("key-%d", i))
 	}
 
 	// we should be out of IDs
