@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/cilium/test/helpers"
 
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 )
 
 var testName = "K8sValidatedHealthTest"
@@ -30,12 +29,9 @@ var _ = Describe(testName, func() {
 
 	var (
 		kubectl *helpers.Kubectl
-		logger  = log.WithFields(logrus.Fields{"testName": testName})
 	)
 
 	BeforeAll(func() {
-		logger.Info("Starting")
-
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
 		err := kubectl.CiliumInstall(helpers.CiliumDSPath)

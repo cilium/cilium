@@ -54,15 +54,11 @@ const (
 var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 
 	var (
-		logger           *logrus.Entry
 		vm               *helpers.SSHMeta
 		appContainerName = "app"
 	)
 
 	BeforeAll(func() {
-		logger = log.WithFields(logrus.Fields{"testName": "RuntimePolicyEnforcement"})
-		logger.Info("Starting")
-
 		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
 		ExpectCiliumReady(vm)
 
@@ -245,16 +241,12 @@ var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 var _ = Describe("RuntimeValidatedPolicies", func() {
 
 	var (
-		logger        *logrus.Entry
 		vm            *helpers.SSHMeta
 		monitorStop   = func() error { return nil }
 		initContainer string
 	)
 
 	BeforeAll(func() {
-		logger = log.WithFields(logrus.Fields{"test": "RunPolicies"})
-		logger.Info("Starting")
-
 		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
 		ExpectCiliumReady(vm)
 
@@ -1380,8 +1372,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 
 var _ = Describe("RuntimeValidatedPolicyImportTests", func() {
 	var (
-		logger *logrus.Entry
-		vm     *helpers.SSHMeta
+		vm *helpers.SSHMeta
 	)
 
 	BeforeAll(func() {

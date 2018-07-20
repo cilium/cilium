@@ -25,18 +25,13 @@ import (
 	"github.com/cilium/cilium/test/helpers"
 
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 )
 
 var _ = Describe("RuntimeValidatedPolicyValidationTests", func() {
 	var once sync.Once
-	var logger *logrus.Entry
 	var vm *helpers.SSHMeta
 
 	initialize := func() {
-		logger = log.WithFields(logrus.Fields{"test": "RuntimeValidatedPolicyValidationTests"})
-		logger.Info("Starting")
-
 		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
 		ExpectCiliumReady(vm)
 	}

@@ -8,13 +8,11 @@ import (
 	"github.com/cilium/cilium/test/helpers"
 
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 )
 
 var _ = Describe("K8sValidatedUpdates", func() {
 	var (
 		kubectl            *helpers.Kubectl
-		logger             *logrus.Entry
 		demoPath           string
 		l3Policy, l7Policy string
 		apps               []string
@@ -26,9 +24,6 @@ var _ = Describe("K8sValidatedUpdates", func() {
 	)
 
 	BeforeAll(func() {
-		logger = log.WithFields(logrus.Fields{"testName": "K8sValidatedUpdates"})
-		logger.Info("Starting")
-
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
 		_ = kubectl.Delete(helpers.DNSDeployment())

@@ -29,12 +29,8 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 
 	var kubectl *helpers.Kubectl
 	var demoDSPath string
-	var logger *logrus.Entry
 
 	BeforeAll(func() {
-		logger = log.WithFields(logrus.Fields{"testName": "K8sTunnelTest"})
-		logger.Info("Starting")
-
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		demoDSPath = helpers.ManifestGet("demo_ds.yaml")
 

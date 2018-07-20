@@ -22,18 +22,13 @@ import (
 	"github.com/cilium/cilium/test/helpers/policygen"
 
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 )
 
 var _ = Describe("NightlyPolicies", func() {
 
 	var kubectl *helpers.Kubectl
-	var logger *logrus.Entry
 
 	BeforeAll(func() {
-		logger = log.WithFields(logrus.Fields{"testName": "NightlyK8sPolicies"})
-		logger.Info("Starting")
-
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
 		err := kubectl.CiliumInstall(helpers.CiliumDSPath)

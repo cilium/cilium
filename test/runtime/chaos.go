@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/test/helpers"
 
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 )
 
 var _ = Describe("RuntimeValidatedChaos", func() {
@@ -31,9 +30,6 @@ var _ = Describe("RuntimeValidatedChaos", func() {
 	var vm *helpers.SSHMeta
 
 	BeforeAll(func() {
-		logger := log.WithFields(logrus.Fields{"testName": "RuntimeValidatedChaos"})
-		logger.Info("Starting")
-
 		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
 		ExpectCiliumReady(vm)
 

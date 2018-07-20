@@ -25,7 +25,6 @@ import (
 	"github.com/asaskevich/govalidator"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -52,8 +51,7 @@ func (c connTest) String() string {
 var _ = Describe("DisabledRuntimeValidatedConntrackTable", func() {
 
 	var (
-		logger *logrus.Entry
-		vm     *helpers.SSHMeta
+		vm *helpers.SSHMeta
 
 		HTTPPrivate   = "private"
 		HTTPPublic    = "public"
@@ -103,9 +101,6 @@ var _ = Describe("DisabledRuntimeValidatedConntrackTable", func() {
 	}
 
 	BeforeAll(func() {
-		logger = log.WithFields(logrus.Fields{"testName": "RuntimeConntrack"})
-		logger.Info("Starting")
-
 		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
 		ExpectCiliumReady(vm)
 

@@ -11,20 +11,16 @@ import (
 
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
-	"github.com/sirupsen/logrus"
 )
 
 var _ = Describe("RuntimeValidatedConnectivityTest", func() {
 	var (
 		once        sync.Once
-		logger      *logrus.Entry
 		vm          *helpers.SSHMeta
 		monitorStop = func() error { return nil }
 	)
 
 	initialize := func() {
-		logger = log.WithFields(logrus.Fields{"test": "RuntimeConnectivityTest"})
-		logger.Info("Starting")
 		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
 		ExpectCiliumReady(vm)
 	}
@@ -301,7 +297,6 @@ var _ = Describe("RuntimeValidatedConnectivityTest", func() {
 
 var _ = Describe("RuntimeValidatedConntrackTest", func() {
 	var (
-		logger      *logrus.Entry
 		vm          *helpers.SSHMeta
 		once        sync.Once
 		monitorStop = func() error { return nil }
@@ -319,8 +314,6 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 	}
 
 	initialize := func() {
-		logger = log.WithFields(logrus.Fields{"test": "RunConntrackTest"})
-		logger.Info("Starting")
 		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
 		ExpectCiliumReady(vm)
 
