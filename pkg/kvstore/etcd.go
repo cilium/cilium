@@ -241,7 +241,6 @@ func newEtcdClient(config *client.Config, cfgPath string) (BackendOperations, er
 
 	var s concurrency.Session
 	firstSession := make(chan struct{})
-	clientMutex := lock.RWMutex{}
 	sessionChan := make(chan *concurrency.Session)
 	errorChan := make(chan error)
 
@@ -260,7 +259,7 @@ func newEtcdClient(config *client.Config, cfgPath string) (BackendOperations, er
 		firstSession: firstSession,
 		lockPaths:    map[string]*lock.Mutex{},
 		controllers:  controller.NewManager(),
-		RWMutex:      clientMutex,
+		RWMutex:      lock.RWMutex{},
 	}
 
 	// wait for session to be created also in parallel
