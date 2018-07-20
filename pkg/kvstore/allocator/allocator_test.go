@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"path"
 	"testing"
+	"time"
 
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -89,7 +90,7 @@ func (s *AllocatorSuite) TestSelectID(c *C) {
 		id, val := a.selectAvailableID()
 		c.Assert(id, Not(Equals), NoID)
 		c.Assert(val, Equals, id.String())
-		a.cache[id] = TestType(fmt.Sprintf("key-%d", i))
+		a.mainCache.cache[id] = TestType(fmt.Sprintf("key-%d", i))
 	}
 
 	// we should be out of IDs
@@ -224,9 +225,66 @@ func (s *AllocatorSuite) TestKeyToID(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(a, Not(IsNil))
 
-	c.Assert(a.keyToID(path.Join(allocatorName, "invalid"), false), Equals, NoID)
-	c.Assert(a.keyToID(path.Join(a.idPrefix, "invalid"), false), Equals, NoID)
-	c.Assert(a.keyToID(path.Join(a.idPrefix, "10"), false), Equals, ID(10))
+	c.Assert(a.mainCache.keyToID(path.Join(allocatorName, "invalid"), false), Equals, NoID)
+	c.Assert(a.mainCache.keyToID(path.Join(a.idPrefix, "invalid"), false), Equals, NoID)
+	c.Assert(a.mainCache.keyToID(path.Join(a.idPrefix, "10"), false), Equals, ID(10))
+}
+
+func (s *AllocatorSuite) TestRemoteCache(c *C) {
+	testName := randomTestName()
+	allocator, err := NewAllocator(testName, TestType(""), WithMax(ID(256)), WithSuffix("a"))
+	c.Assert(err, IsNil)
+	c.Assert(allocator, Not(IsNil))
+
+	// remove any keys which might be leftover
+	allocator.DeleteAllKeys()
+
+	// allocate all available IDs
+	for i := ID(1); i <= ID(4); i++ {
+		key := TestType(fmt.Sprintf("key%04d", i))
+		_, _, err := allocator.Allocate(key)
+		c.Assert(err, IsNil)
+	}
+
+	// wait for main cache to be populated
+	c.Assert(testutils.WaitUntil(func() bool { return len(allocator.mainCache.cache) == 4 }, 5*time.Second), IsNil)
+
+	// count identical allocations returned
+	cache := map[ID]int{}
+	allocator.ForeachCache(func(id ID, val AllocatorKey) {
+		cache[id]++
+	})
+
+	// ForeachCache must have returned 4 allocations all unique
+	c.Assert(len(cache), Equals, 4)
+	for i := range cache {
+		c.Assert(cache[i], Equals, 1)
+	}
+
+	// watch the prefix in the same kvstore via a 2nd watcher
+	rc := allocator.WatchRemoteKVStore(kvstore.Client(), testName)
+	c.Assert(rc, Not(IsNil))
+
+	// wait for remote cache to be populated
+	c.Assert(testutils.WaitUntil(func() bool { return len(rc.cache.cache) == 4 }, 5*time.Second), IsNil)
+
+	// count the allocations in the main cache *AND* the remote cache
+	cache = map[ID]int{}
+	allocator.ForeachCache(func(id ID, val AllocatorKey) {
+		cache[id]++
+	})
+
+	// Foreach must have returned 4 allocations each duplicated, once in
+	// the main cache, once in the remote cache
+	c.Assert(len(cache), Equals, 4)
+	for i := range cache {
+		c.Assert(cache[i], Equals, 2)
+	}
+
+	rc.Close()
+
+	allocator.DeleteAllKeys()
+	allocator.Delete()
 }
 
 // The following tests are currently disabled as they are not 100% reliable in
