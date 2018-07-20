@@ -461,6 +461,16 @@ type Endpoint struct {
 	// Proxy port 0 indicates no proxy redirection.
 	// All fields within the PolicyKey and the proxy port must be in host byte-order.
 	desiredMapState PolicyMapState
+
+	///////////////////////
+	// DEPRECATED FIELDS //
+	///////////////////////
+
+	// DeprecatedOpts represents the mutable options for the endpoint, in
+	// the format understood by Cilium 1.1 or earlier.
+	//
+	// Deprecated: Use Options instead.
+	DeprecatedOpts deprecatedOptions `json:"Opts"`
 }
 
 // WaitForProxyCompletions blocks until all proxy changes have been completed.
@@ -1335,6 +1345,7 @@ func (e *Endpoint) base64() (string, error) {
 		err       error
 	)
 
+	transformEndpointForDowngrade(e)
 	jsonBytes, err = json.Marshal(e)
 	if err != nil {
 		return "", err
