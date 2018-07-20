@@ -35,7 +35,7 @@ CLANG_FORMAT ?= clang-format
 BUILDIFIER ?= buildifier
 STRIP ?= $(QUIET) strip
 
-ISTIO_VERSION = 0.8.0
+ISTIO_VERSION = 1.0.0
 
 ifdef CILIUM_DISABLE_ENVOY_BUILD
 all install clean:

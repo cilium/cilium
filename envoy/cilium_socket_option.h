@@ -1,5 +1,6 @@
 #pragma once
 
+#include "envoy/api/v2/core/base.pb.h"
 #include "envoy/network/listen_socket.h"
 #include "common/common/logger.h"
 
@@ -12,9 +13,9 @@ class SocketMarkOption : public Network::Socket::Option, public Logger::Loggable
 public:
   SocketMarkOption(uint32_t identity, bool ingress) : identity_(identity), ingress_(ingress) {}
 
-  bool setOption(Network::Socket& socket, Network::Socket::SocketState state) const override {
+  bool setOption(Network::Socket& socket, envoy::api::v2::core::SocketOption::SocketState state) const override {
     // Only set the option once per socket
-    if (state != Network::Socket::SocketState::PreBind) {
+    if (state != envoy::api::v2::core::SocketOption::STATE_PREBIND) {
       return true;
     }
     uint32_t cluster_id = (identity_ >> 16) & 0xFF;
