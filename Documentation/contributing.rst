@@ -1721,6 +1721,9 @@ This process applies to all releases other than minor releases, this includes:
 If you intent to release a new minor release, see the
 :ref:`minor_release_process` section instead.
 
+.. note:: The following commands have been validated when ran in the VM
+          used in the Cilium development process. See :ref:`dev_env` for
+          detailed instructions about setting up said VM.
 
 #. Ensure that the necessary backports have been completed and merged. See
    :ref:`backport_process`.
@@ -1738,7 +1741,7 @@ If you intent to release a new minor release, see the
 
 #. Update the ``VERSION`` file to represent ``X.Y.Z+1``
 #. If this is the first release after creating a new release branch. Adjust the
-   image pull policy all ``.sed`` files in ``examples/kubernetes`` from
+   image pull policy for all ``.sed`` files in ``examples/kubernetes`` from
    ``Always`` to ``IfNotPresent``.
 #. Update the image tag versions in the examples:
 
@@ -1755,7 +1758,16 @@ If you intent to release a new minor release, see the
 
        make update-authors
 
-#. Generate the ``NEWS.rst`` addition:
+
+   .. note:: 
+       
+       Check to see if the ``AUTHORS`` file has any formatting errors (for
+       instance, indentation mismatches) as well as duplicate contributor
+       names, and correct them accordingly.
+
+
+#. Generate the ``NEWS.rst`` addition based off of the prior release tag
+   (e.g., if you are generating the ``NEWS.rst`` for v1.0.3):
 
    ::
 
@@ -1775,26 +1787,40 @@ If you intent to release a new minor release, see the
             <<end of add-to-NEWS.rst>>
 
 #. Add all modified files using ``git add`` and create a pull request with the
-   title ``Prepare for release v1.0.3``. Add the label ``stable/backport`` to
-   the PR.
+   title ``Prepare for release v1.0.3``. Add the backport label to the PR which
+   corresponds to the branch for which the release is being performed, e.g.
+   ``backport/1.0``.
 
    .. note::
 
        Make sure to create the PR against the desired stable branch. In this
        case ``v1.0``
 
-#. Follow standard procedures to get the
+
+#. Follow standard procedures to get the aforementioned PR merged into the 
+   desired stable branch. See :ref:`submit_pr` for more information about this
+   process.
+
 #. Checkout out the stable branch and pull your merged changes:
 
    ::
 
        git checkout v1.0; git pull
 
-#. Create a release tag:
+#. Create release tags:
 
    ::
 
-       git tag -a v1.0.3 -m 'Release v1.0.3`
+       git tag -a v1.0.3 -m 'Release v1.0.3'
+       git tag -a 1.0.3 -m 'Release 1.0.3'
+
+   .. note::
+
+       There are two tags that correspond to the same release because GitHub
+       recommends using ``vx.y.z`` for release version formatting, and ReadTheDocs,
+       which hosts the Cilium documentation, requires the version to be in format
+       ``x.y.z`` For more information about how ReadTheDocs does versioning, you can
+       read their `Versions Documentation <https://docs.readthedocs.io/en/latest/versions.html>`_.
 
 #. Build the binaries and push it to the release bucket:
 
@@ -1811,7 +1837,7 @@ If you intent to release a new minor release, see the
        This step requires valid AWS credentials to be available via the
        environment variables ``AWS_ACCESS_KEY_ID`` and
        ``AWS_SECRET_ACCESS_KEY``. Ping in the ``#development`` channel on Slack
-       if you have no access.
+       if you have no access. It also requires the aws-cli tools to be installed.
 
 #. Build the container images and push them
 
@@ -1824,6 +1850,8 @@ If you intent to release a new minor release, see the
 
       This step requires you to login with ``docker login`` first and it will
       require your Docker hub ID to have access to the ``Cilium`` organization.
+      You can alternatively trigger a build on DockerHub directly if you have
+      credentials to do so.
 
 #. Push the git release tag
 
