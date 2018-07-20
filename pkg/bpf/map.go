@@ -32,6 +32,8 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
+	"github.com/cilium/cilium/pkg/comparator"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
@@ -751,6 +753,9 @@ func (m *Map) MetadataDiff(other *Map) bool {
 	case m == nil || other == nil:
 		return false
 	default:
+		if logging.CanLogAt(log, logrus.DebugLevel) {
+			logging.MultiLine(log.Debug, comparator.Compare(m, other))
+		}
 		return m.DeepEquals(other)
 	}
 }
