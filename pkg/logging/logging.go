@@ -28,6 +28,7 @@ import (
 	"github.com/evalphobia/logrus_fluent"
 	"github.com/sirupsen/logrus"
 	logrus_syslog "github.com/sirupsen/logrus/hooks/syslog"
+	"sync/atomic"
 )
 
 const (
@@ -335,4 +336,10 @@ func MultiLine(logFn func(args ...interface{}), output string) {
 	for scanner.Scan() {
 		logFn(scanner.Text())
 	}
+}
+
+// CanLogAt returns whether a log message at the given level would be
+// logged by the given logger.
+func CanLogAt(logger *logrus.Logger, level logrus.Level) bool {
+	return logrus.Level(atomic.LoadUint32((*uint32)(&logger.Level))) >= level
 }
