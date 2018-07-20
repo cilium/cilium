@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"strings"
 	"time"
 
 	"github.com/asaskevich/govalidator"
@@ -38,6 +37,8 @@ var _ = Describe("K8sServicesTest", func() {
 		backgroundCancel context.CancelFunc = func() { return }
 		backgroundError  error
 		ciliumPodK8s1    string
+		testDSClient     = "zgroup=testDSClient"
+		testDS           = "zgroup=testDS"
 	)
 
 	applyPolicy := func(path string) {
@@ -84,14 +85,14 @@ var _ = Describe("K8sServicesTest", func() {
 	})
 
 	testHTTPRequest := func(url string) {
-		output, err := kubectl.GetPods(helpers.DefaultNamespace, "-l zgroup=testDSClient").Filter("{.items[*].metadata.name}")
-		ExpectWithOffset(1, err).Should(BeNil())
-		pods := strings.Split(output.String(), " ")
+		pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, testDSClient)
+		ExpectWithOffset(1, err).Should(BeNil(), "cannot retrieve pod names by filter %q", testDSClient)
 		// A DS with client is running in each node. So we try from each node
 		// that can connect to the service.  To make sure that the cross-node
 		// service connectivity is correct we tried 10 times, so balance in the
 		// two nodes
 		for _, pod := range pods {
+			By("Making ten HTTP requests from %q to %q", pod, url)
 			for i := 1; i <= 10; i++ {
 				res := kubectl.ExecPodCmd(
 					helpers.DefaultNamespace, pod,
@@ -103,7 +104,7 @@ var _ = Describe("K8sServicesTest", func() {
 	}
 
 	waitPodsDs := func() {
-		groups := []string{"zgroup=testDS", "zgroup=testDSClient"}
+		groups := []string{testDS, testDSClient}
 		for _, pod := range groups {
 			err := kubectl.WaitforPods(helpers.DefaultNamespace, fmt.Sprintf("-l %s", pod), 300)
 			ExpectWithOffset(1, err).Should(BeNil())
