@@ -131,24 +131,19 @@ var _ = Describe("K8sServicesTest", func() {
 		It("Checks service on same node", func() {
 			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", 300)
 			Expect(err).Should(BeNil())
+			clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, serviceName)
+			Expect(err).Should(BeNil(), "Cannot get service %s", serviceName)
+			Expect(govalidator.IsIP(clusterIP)).Should(BeTrue(), "ClusterIP is not an IP")
 
-			res, err := kubectl.Get(
-				helpers.DefaultNamespace, fmt.Sprintf("service %s", serviceName)).Filter("{.spec.clusterIP}")
-			Expect(err).Should(BeNil())
-			Expect(govalidator.IsIP(res.String())).Should(BeTrue())
-
-			svcIP := res.String()
-
-			status := kubectl.Exec(fmt.Sprintf("curl http://%s/", svcIP))
-			status.ExpectSuccess()
-
-			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
-			Expect(err).Should(BeNil())
-
-			service := kubectl.CiliumExec(ciliumPod, "cilium service list")
-			Expect(service.Output()).Should(ContainSubstring(svcIP))
-			service.ExpectSuccess()
-
+			status := kubectl.Exec(helpers.CurlFail("http://%s/", clusterIP))
+			status.ExpectSuccess("cannot curl to service IP from host")
+			ciliumPods, err := kubectl.GetCiliumPods(helpers.KubeSystemNamespace)
+			Expect(err).To(BeNil(), "Cannot get cilium pods")
+			for _, pod := range ciliumPods {
+				service := kubectl.CiliumExec(pod, "cilium service list")
+				service.ExpectSuccess("Cannot retrieve services on cilium Pod")
+				service.ExpectContains(clusterIP, "ClusterIP is not present in the cilium service list")
+			}
 		}, 300)
 	})
 
@@ -171,14 +166,13 @@ var _ = Describe("K8sServicesTest", func() {
 
 		It("Checks ClusterIP Connectivity", func() {
 			waitPodsDs()
+			service := "testds-service"
 
-			svcIP, err := kubectl.Get(
-				helpers.DefaultNamespace, "service testds-service").Filter("{.spec.clusterIP}")
-			Expect(err).Should(BeNil())
-			log.Debugf("svcIP: %s", svcIP.String())
-			Expect(govalidator.IsIP(svcIP.String())).Should(BeTrue())
+			clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, service)
+			Expect(err).Should(BeNil(), "Cannot get service %s", service)
+			Expect(govalidator.IsIP(clusterIP)).Should(BeTrue(), "ClusterIP is not an IP")
 
-			url := fmt.Sprintf("http://%s/", svcIP)
+			url := fmt.Sprintf("http://%s/", clusterIP)
 			testHTTPRequest(url)
 		})
 
