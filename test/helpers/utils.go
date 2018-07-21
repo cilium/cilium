@@ -160,7 +160,7 @@ func WithTimeoutErr(ctx context.Context, f func() (bool, error), freq time.Durat
 
 // InstallExampleCilium uses Cilium Kubernetes example from the repo,
 // changes the etcd parameter and installs the stable tag from docker-hub
-func InstallExampleCilium(kubectl *Kubectl) {
+func InstallExampleCilium(kubectl *Kubectl, version string) {
 
 	var path = filepath.Join("..", "examples", "kubernetes", GetCurrentK8SEnv(), "cilium.yaml")
 	var result bytes.Buffer
@@ -186,7 +186,7 @@ func InstallExampleCilium(kubectl *Kubectl) {
 		value, _ = jsonObj.Path("kind").Data().(string)
 		if value == daemonSet {
 			container := jsonObj.Path("spec.template.spec.containers").Index(0)
-			container.Set(StableImage, "image")
+			container.Set(version, "image")
 		}
 		result.WriteString(jsonObj.String())
 	}
@@ -204,7 +204,7 @@ func InstallExampleCilium(kubectl *Kubectl) {
 		KubeSystemNamespace, "-l k8s-app=cilium", timeout)
 	ExpectWithOffset(1, err).Should(BeNil(), "Cilium is not ready after timeout")
 
-	ginkgoext.By(fmt.Sprintf("Checking that installed image is %q", StableImage))
+	ginkgoext.By(fmt.Sprintf("Checking that installed image is %q", version))
 
 	filter := `{.items[*].status.containerStatuses[0].image}`
 	data, err := kubectl.GetPods(
@@ -212,7 +212,7 @@ func InstallExampleCilium(kubectl *Kubectl) {
 	ExpectWithOffset(1, err).To(BeNil(), "Cannot get cilium pods")
 
 	for _, val := range strings.Split(data.String(), " ") {
-		ExpectWithOffset(1, val).To(Equal(StableImage), "Cilium image didn't update correctly")
+		ExpectWithOffset(1, val).To(Equal(version), "Cilium image didn't update correctly")
 	}
 }
 
