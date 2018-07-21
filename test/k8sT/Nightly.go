@@ -356,8 +356,8 @@ var _ = Describe("NightlyExamples", func() {
 			kubectl.Exec("sudo docker rmi cilium/cilium")
 			// Making sure that we deleted the  cilium ds. No assert message
 			// because maybe is not present
-			kubectl.DeleteResource("ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
-			helpers.InstallExampleCilium(kubectl)
+			_ = kubectl.DeleteResource("ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
+			helpers.InstallExampleCilium(kubectl, helpers.StableImage)
 		})
 
 		It("Check Kubernetes Example is working correctly", func() {
@@ -387,6 +387,39 @@ var _ = Describe("NightlyExamples", func() {
 
 		})
 
+	})
+	Context("Upgrade test", func() {
+		var cleanupCallback = func() { return }
+
+		BeforeAll(func() {
+			kubectl.Exec("sudo docker rmi cilium/cilium")
+		})
+
+		BeforeEach(func() {
+			// Making sure that we deleted the  cilium ds. No assert message
+			// because maybe is not present
+			_ = kubectl.DeleteResource("ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
+
+			// Delete kube-dns because if not will be a restore the old endpoints
+			// from master instead of create the new ones.
+			_ = kubectl.DeleteResource(
+				"deploy", fmt.Sprintf("-n %s kube-dns", helpers.KubeSystemNamespace))
+
+			ExpectAllPodsTerminated(kubectl)
+		})
+
+		AfterEach(func() {
+			cleanupCallback()
+		})
+
+		It("Update Cilium from 1.0 to master", func() {
+			helpers.InstallExampleCilium(kubectl, helpers.StableImagev1_0)
+
+			err := kubectl.CiliumEndpointWaitReady()
+			Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
+
+			cleanupCallback = ValidateCiliumUpgrades(kubectl)
+		})
 	})
 
 	Context("Getting started guides", func() {
