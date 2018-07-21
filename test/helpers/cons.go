@@ -163,8 +163,9 @@ const (
 	KubectlPolicyNameSpaceLabel = k8sConst.PolicyLabelNamespace
 
 	StableImage = "cilium/cilium:v1.1.1"
-	configMap   = "ConfigMap"
-	daemonSet   = "DaemonSet"
+
+	configMap = "ConfigMap"
+	daemonSet = "DaemonSet"
 
 	MonitorLogFileName = "monitor.log"
 	microscopeManifest = "microscope.yaml"
@@ -198,6 +199,9 @@ const (
 	// ReservedIdentityHealth is equivalent to pkg/identity.ReservedIdentityHealth
 	ReservedIdentityHealth = 4
 )
+
+// NightlyStableUpgradesFrom the cilium images to update from in Nightly test.
+var NightlyStableUpgradesFrom = []string{"cilium/cilium:v1.0.5"}
 
 // CiliumDSPath is the default Cilium DaemonSet path to use in all test.
 var CiliumDSPath = "cilium_ds.jsonnet"
