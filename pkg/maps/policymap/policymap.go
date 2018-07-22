@@ -21,7 +21,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -39,9 +38,8 @@ const (
 
 	// ProgArrayMaxEntries is the upper limit of entries in the program
 	// array for the tail calls to jump into the endpoint specific policy
-	// programs. This number *MUST* be identical to the maximum number of
-	// allowed identities.
-	ProgArrayMaxEntries = identity.MaxIdentity
+	// programs. This number *MUST* be identical to the maximum endponit ID.
+	ProgArrayMaxEntries = ^uint16(0)
 
 	// AllPorts is used to ignore the L4 ports in PolicyMap lookups; all ports
 	// are allowed. In the datapath, this is represented with the value 0 in the
