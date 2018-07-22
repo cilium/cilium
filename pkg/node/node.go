@@ -16,8 +16,10 @@ package node
 
 import (
 	"net"
+	"path"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/option"
 
 	"k8s.io/api/core/v1"
@@ -25,17 +27,23 @@ import (
 
 // Identity represents the node identity of a node.
 type Identity struct {
-	Name string
+	Name    string
+	Cluster string
 }
 
 // String returns the string representation on NodeIdentity.
 func (nn Identity) String() string {
-	return nn.Name
+	return path.Join(nn.Cluster, nn.Name)
 }
 
 // Node contains the nodes name, the list of addresses to this address
 type Node struct {
-	Name        string
+	// Name is the name of the node. This is typically the hostname of the node.
+	Name string
+
+	// Cluster is the name of the cluster the node is associated with
+	Cluster string
+
 	IPAddresses []Address
 
 	// IPv4AllocCIDR if set, is the IPv4 address pool out of which the node
@@ -59,6 +67,16 @@ type Node struct {
 
 	// cluster membership
 	cluster *clusterConfiguation
+}
+
+// Fullname returns the node's full name including the cluster name if a
+// cluster name value other than the default value has been specified
+func (n *Node) Fullname() string {
+	if n.Cluster != defaults.ClusterName {
+		return path.Join(n.Cluster, n.Name)
+	}
+
+	return n.Name
 }
 
 // Address is a node address which contains an IP and the address type.
@@ -173,10 +191,18 @@ func (n *Node) getHealthAddresses(ipv4 bool) *models.NodeAddressing {
 // GetModel returns the API model representation of a node.
 func (n *Node) GetModel(ipv4 bool) *models.NodeElement {
 	return &models.NodeElement{
-		Name:                  n.Name,
+		Name:                  n.Fullname(),
 		PrimaryAddress:        n.getPrimaryAddress(ipv4),
 		SecondaryAddresses:    n.getSecondaryAddresses(ipv4),
 		HealthEndpointAddress: n.getHealthAddresses(ipv4),
+	}
+}
+
+// Identity returns the identity of the node
+func (n *Node) Identity() Identity {
+	return Identity{
+		Name:    n.Name,
+		Cluster: n.Cluster,
 	}
 }
 
@@ -195,18 +221,18 @@ func (n *Node) OnUpdate() {
 	var ownAddr net.IP
 	if option.Config.AutoIPv6NodeRoutes && option.Config.Device != "undefined" {
 		// ignore own node
-		if n.Name != GetName() {
+		if n.Cluster != clusterConf.name && n.Name != GetName() {
 			ownAddr = GetIPv6()
 			routeTypes |= DirectRoute
 		}
 	}
 
-	UpdateNode(Identity{Name: n.Name}, n, routeTypes, ownAddr)
+	UpdateNode(n, routeTypes, ownAddr)
 }
 
 // OnDelete is called when a node has been deleted from the cluster
 func (n *Node) OnDelete() {
-	DeleteNode(Identity{Name: n.Name}, TunnelRoute|DirectRoute)
+	DeleteNode(n.Identity(), TunnelRoute|DirectRoute)
 }
 
 // IsLocal returns true if this is the node on which the agent itself is

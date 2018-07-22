@@ -1996,6 +1996,7 @@ func init() {
           "$ref": "#/definitions/NodeAddressing"
         },
         "name": {
+          "description": "Name of the node including the cluster association. This is typically\n\u003cclustername\u003e/\u003chostname\u003e.\n",
           "type": "string"
         },
         "primary-address": {

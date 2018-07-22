@@ -52,15 +52,7 @@ type clusterConfiguation struct {
 	auxPrefixes           []*net.IPNet
 }
 
-var clusterConf = newClusterConfiguration()
-
-func newClusterConfiguration() clusterConfiguation {
-	return clusterConfiguation{
-		name:        option.Config.ClusterName,
-		nodes:       map[Identity]*Node{},
-		auxPrefixes: []*net.IPNet{},
-	}
-}
+var clusterConf *clusterConfiguation
 
 func (cc *clusterConfiguation) getNode(ni Identity) *Node {
 	cc.RLock()
@@ -327,9 +319,11 @@ func updateTunnelMapping(n *Node, ip *net.IPNet) {
 // UpdateNode updates the new node in the nodes' map with the given identity.
 // When using DirectRoute RouteType the field ownAddr should contain the IPv6
 // address of the interface that can reach the other nodes.
-func UpdateNode(ni Identity, n *Node, routesTypes RouteType, ownAddr net.IP) {
+func UpdateNode(n *Node, routesTypes RouteType, ownAddr net.IP) {
 	clusterConf.Lock()
 	defer clusterConf.Unlock()
+
+	ni := n.Identity()
 
 	oldNode, oldNodeExists := clusterConf.nodes[ni]
 	if (routesTypes & TunnelRoute) != 0 {
