@@ -15,6 +15,10 @@
 package node
 
 import (
+	"net"
+
+	"github.com/cilium/cilium/pkg/option"
+
 	"k8s.io/api/core/v1"
 	"time"
 )
@@ -30,9 +34,16 @@ func GetLocalNode() *Node {
 // startup to configure the local node based on the configuration options
 // passed to the agent
 func ConfigureLocalNode() error {
+	clusterConf = &clusterConfiguation{
+		name:        option.Config.ClusterName,
+		nodes:       map[Identity]*Node{},
+		auxPrefixes: []*net.IPNet{},
+	}
+
 	localNode = Node{
 		Name:    nodeName,
-		cluster: &clusterConf,
+		Cluster: option.Config.ClusterName,
+		cluster: clusterConf,
 		IPAddresses: []Address{
 			{
 				AddressType: v1.NodeInternalIP,
@@ -45,7 +56,7 @@ func ConfigureLocalNode() error {
 		IPv6HealthIP:  GetIPv6HealthIP(),
 	}
 
-	UpdateNode(Identity{Name: localNode.Name}, &localNode, TunnelRoute, nil)
+	UpdateNode(&localNode, TunnelRoute, nil)
 
 	nodeRegistered := make(chan struct{})
 	go func() {
