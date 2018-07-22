@@ -87,8 +87,6 @@ var (
 			},
 		},
 	}
-
-	statusCheckerStarted sync.Once
 )
 
 func (e *etcdModule) createInstance() backendModule {
@@ -156,6 +154,17 @@ type etcdClient struct {
 	controllers *controller.Manager
 	lockPathsMU lock.Mutex
 	lockPaths   map[string]*lock.Mutex
+
+	// latestStatusSnapshot is a snapshot of the latest etcd cluster status
+	latestStatusSnapshot string
+
+	// latestErrorStatus is the latest error condition of the etcd connection
+	latestErrorStatus error
+
+	statusCheckerStarted sync.Once
+
+	// statusLock protects latestStatusSnapshot for read/write acess
+	statusLock lock.RWMutex
 }
 
 type etcdMutex struct {
@@ -255,12 +264,13 @@ func newEtcdClient(config *client.Config, cfgPath string) (BackendOperations, er
 	}()
 
 	ec := &etcdClient{
-		client:       c,
-		session:      &s,
-		firstSession: firstSession,
-		lockPaths:    map[string]*lock.Mutex{},
-		controllers:  controller.NewManager(),
-		RWMutex:      clientMutex,
+		client:               c,
+		session:              &s,
+		firstSession:         firstSession,
+		lockPaths:            map[string]*lock.Mutex{},
+		controllers:          controller.NewManager(),
+		RWMutex:              clientMutex,
+		latestStatusSnapshot: "No connection to etcd",
 	}
 
 	// wait for session to be created also in parallel
@@ -293,7 +303,7 @@ func newEtcdClient(config *client.Config, cfgPath string) (BackendOperations, er
 		close(ec.firstSession)
 	}()
 
-	statusCheckerStarted.Do(func() {
+	ec.statusCheckerStarted.Do(func() {
 		go ec.statusChecker()
 	})
 
@@ -690,17 +700,6 @@ reList:
 	}
 }
 
-var (
-	// latestStatusSnapshot is a snapshot of the latest etcd cluster status
-	latestStatusSnapshot = "No connection to etcd"
-
-	// latestErrorStatus is the latest error condition of the etcd connection
-	latestErrorStatus error
-
-	// statusLock protects latestStatusSnapshot for read/write acess
-	statusLock lock.RWMutex
-)
-
 func (e *etcdClient) determineEndpointStatus(endpointAddress string) (string, error) {
 	ctxTimeout, cancel := ctx.WithTimeout(ctx.Background(), statusCheckTimeout)
 	defer cancel()
@@ -737,27 +736,27 @@ func (e *etcdClient) statusChecker() error {
 			newStatus = append(newStatus, st)
 		}
 
-		statusLock.Lock()
-		latestStatusSnapshot = fmt.Sprintf("etcd: %d/%d connected: %s", ok, len(endpoints), strings.Join(newStatus, "; "))
+		e.statusLock.Lock()
+		e.latestStatusSnapshot = fmt.Sprintf("etcd: %d/%d connected: %s", ok, len(endpoints), strings.Join(newStatus, "; "))
 
 		// Only mark the etcd health as unstable if no etcd endpoints can be reached
 		if len(endpoints) > 0 && ok == 0 {
-			latestErrorStatus = fmt.Errorf("Not able to connect to any etcd endpoints")
+			e.latestErrorStatus = fmt.Errorf("Not able to connect to any etcd endpoints")
 		} else {
-			latestErrorStatus = nil
+			e.latestErrorStatus = nil
 		}
 
-		statusLock.Unlock()
+		e.statusLock.Unlock()
 
 		time.Sleep(statusCheckInterval)
 	}
 }
 
 func (e *etcdClient) Status() (string, error) {
-	statusLock.RLock()
-	defer statusLock.RUnlock()
+	e.statusLock.RLock()
+	defer e.statusLock.RUnlock()
 
-	return latestStatusSnapshot, latestErrorStatus
+	return e.latestStatusSnapshot, e.latestErrorStatus
 }
 
 // Get returns value of key
