@@ -25,6 +25,10 @@ const (
 	// an endpoint to represent the Kubernetes ServiceAccount name
 	PolicyLabelServiceAccount = "io.cilium.k8s.policy.serviceaccount"
 
+	// PolicyLabelCluster is the name of the cluster the endpoint is
+	// running in
+	PolicyLabelCluster = "io.cilium.k8s.policy.cluster"
+
 	// PolicyLabelIstioSidecarProxy is the label key added to the identity of
 	// any pod that has been injected by Istio with a Cilium-compatible sidecar
 	// proxy. The value of this label is expected to be a boolean, i.e. "true"
