@@ -27,11 +27,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const (
-	// MaxIdentity is the maximum identity value
-	MaxIdentity = ^uint16(0)
-)
-
 // globalIdentity is the structure used to store an identity in the kvstore
 type globalIdentity struct {
 	labels.Labels
