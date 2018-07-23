@@ -43,7 +43,7 @@ var (
 	client    *clientPkg.Client
 	cmdRefDir string
 	server    *serverPkg.Server
-	log       = logging.DefaultLogger
+	log       = logging.DefaultLogger.WithField(logfields.LogSubsys, targetName)
 )
 
 // rootCmd represents the base command when called without any subcommands

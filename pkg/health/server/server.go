@@ -27,10 +27,10 @@ import (
 	"github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/go-openapi/loads"
-	flags "github.com/jessevdk/go-flags"
-	"github.com/sirupsen/logrus"
+	"github.com/jessevdk/go-flags"
 )
 
 // AdminOption is an option for determining over which protocols the APIs are
@@ -46,7 +46,7 @@ const (
 )
 
 var (
-	log = logging.DefaultLogger
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "health-server")
 
 	// PortToPaths is a convenience map for access to the ports and their
 	// common string representations
@@ -105,7 +105,7 @@ func (s *Server) DumpUptime() string {
 // getNodes fetches the latest set of nodes in the cluster from the Cilium
 // daemon, and updates the Server's 'nodes' map.
 func (s *Server) getNodes() (nodeMap, error) {
-	scopedLog := logrus.NewEntry(log)
+	scopedLog := log
 	if s.CiliumURI != "" {
 		scopedLog = log.WithField("URI", s.CiliumURI)
 	}
