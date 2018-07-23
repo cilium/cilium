@@ -634,6 +634,7 @@ reList:
 			select {
 			case <-w.stopWatch:
 				close(w.Events)
+				w.stopWait.Done()
 				return
 
 			case r, ok := <-etcdWatch:

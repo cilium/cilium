@@ -494,6 +494,7 @@ func (c *consulClient) Watch(w *Watcher) {
 		case <-time.After(sleepTime):
 		case <-w.stopWatch:
 			close(w.Events)
+			w.stopWait.Done()
 			return
 		}
 	}
