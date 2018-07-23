@@ -47,9 +47,14 @@ const (
 	// in future.
 	MonitorAggregationLevelLow = 2
 
+	// MonitorAggregationLevelMedium represents aggregation of monitor
+	// events to only emit notifications periodically for each connection
+	// unless there is new information (eg, a TCP connection is closed).
+	MonitorAggregationLevelMedium = 3
+
 	// MonitorAggregationLevelMax is the maximum level of aggregation
 	// currently supported.
-	MonitorAggregationLevelMax = MonitorAggregationLevelLow
+	MonitorAggregationLevelMax = MonitorAggregationLevelMedium
 )
 
 // monitorAggregationOption maps a user-specified string to a monitor
@@ -60,6 +65,7 @@ var monitorAggregationOption = map[string]int{
 	"disabled": MonitorAggregationLevelNone,
 	"lowest":   MonitorAggregationLevelLowest,
 	"low":      MonitorAggregationLevelLow,
+	"medium":   MonitorAggregationLevelMedium,
 	"max":      MonitorAggregationLevelMax,
 	"maximum":  MonitorAggregationLevelMax,
 }
@@ -76,6 +82,7 @@ var monitorAggregationFormat = map[int]string{
 	MonitorAggregationLevelNone:   color.Red("None"),
 	MonitorAggregationLevelLowest: color.Green("Lowest"),
 	MonitorAggregationLevelLow:    color.Green("Low"),
+	MonitorAggregationLevelMedium: color.Green("Medium"),
 }
 
 // VerifyMonitorAggregationLevel validates the specified key/value for a
