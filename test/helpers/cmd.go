@@ -60,8 +60,16 @@ func (res *CmdRes) GetStdErr() string {
 	return res.stderr.String()
 }
 
-// SendToLog writes to `TestLogWriter` the debug message for the running command
-func (res *CmdRes) SendToLog() {
+// SendToLog writes to `TestLogWriter` the debug message for the running
+// command, if the quietMode argument is true will print only the command and
+// the exitcode.
+func (res *CmdRes) SendToLog(quietMode bool) {
+	if quietMode {
+		logformat := "cmd: %q exitCode: %d"
+		fmt.Fprintf(&config.TestLogWriter, logformat, res.cmd, res.GetExitCode())
+		return
+	}
+
 	logformat := "cmd: %q exitCode: %d stdout:\n%s\n"
 	log := fmt.Sprintf(logformat, res.cmd, res.GetExitCode(), res.stdout.String())
 	if res.stderr.Len() > 0 {

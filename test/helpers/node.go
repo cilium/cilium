@@ -184,9 +184,7 @@ func (s *SSHMeta) Exec(cmd string, options ...ExecOptions) *CmdRes {
 		}
 	}
 
-	if !ops.SkipLog {
-		res.SendToLog()
-	}
+	res.SendToLog(ops.SkipLog)
 	return &res
 }
 
@@ -247,9 +245,7 @@ func (s *SSHMeta) ExecContext(ctx context.Context, cmd string, options ...ExecOp
 		if err := s.sshClient.RunCommandContext(ctx, command); err != nil {
 			log.WithError(err).Error("Error running context")
 		}
-		if !ops.SkipLog {
-			res.SendToLog()
-		}
+		res.SendToLog(ops.SkipLog)
 	}()
 
 	return &res
