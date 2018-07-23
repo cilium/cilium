@@ -184,6 +184,7 @@ const (
 	contextDeadlineExceeded = "context deadline exceeded"
 	ErrorLogs               = "level=error"
 	WarningLogs             = "level=warning"
+	APIPanicked             = "Cilium API handler panicked"
 )
 
 // Re-definitions of stable constants in the API. The re-definition is on
@@ -197,7 +198,7 @@ const (
 var CiliumDSPath = "cilium_ds.jsonnet"
 
 var checkLogsMessages = []string{panicMessage, deadLockHeader, segmentationFault, NACKreceived}
-var countLogsMessages = []string{contextDeadlineExceeded, ErrorLogs, WarningLogs}
+var countLogsMessages = []string{contextDeadlineExceeded, ErrorLogs, WarningLogs, APIPanicked}
 
 var ciliumCLICommands = map[string]string{
 	"cilium endpoint list -o json":          "endpoint_list.txt",
