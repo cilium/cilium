@@ -24,9 +24,10 @@ import (
 	"syscall"
 
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-var log = logging.DefaultLogger
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "pidfile")
 
 // Write the pid of the process to the specified path, and attach a cleanup
 // handler to the exit of the program so it's removed afterwards.

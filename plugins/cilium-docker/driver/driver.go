@@ -40,7 +40,7 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-var log = logging.DefaultLogger
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "cilium-docker-driver")
 
 const (
 	// ContainerInterfacePrefix is the container's internal interface name prefix.

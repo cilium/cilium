@@ -25,6 +25,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 
 	"github.com/sirupsen/logrus"
@@ -62,7 +63,7 @@ func (r *dummyEndpointInfoRegistry) FillEndpointIdentityByIP(ip net.IP, info *ac
 }
 
 func (s *EnvoySuite) TestEnvoy(c *C) {
-	log.SetLevel(logrus.DebugLevel)
+	logging.DefaultLogger.SetLevel(logrus.DebugLevel)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 

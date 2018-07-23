@@ -29,7 +29,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var log = logging.DefaultLogger
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "loadbalancer")
 
 const (
 	NONE = L4Type("NONE")

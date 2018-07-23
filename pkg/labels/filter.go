@@ -24,10 +24,11 @@ import (
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 var (
-	log                  = logging.DefaultLogger
+	log                  = logging.DefaultLogger.WithField(logfields.LogSubsys, "labels-filter")
 	validLabelPrefixesMU lock.RWMutex
 	validLabelPrefixes   *labelPrefixCfg // Label prefixes used to filter from all labels
 )

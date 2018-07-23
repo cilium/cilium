@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -168,8 +169,8 @@ func (k *proxyTestSuite) TestKafkaRedirect(c *C) {
 	// this isn't thread safe but there is no function to get it
 	// SetLevel is atomic, however.
 	oldLevel := log.Level
-	defer log.SetLevel(oldLevel)
-	log.SetLevel(logrus.DebugLevel)
+	defer logging.DefaultLogger.SetLevel(oldLevel)
+	logging.DefaultLogger.SetLevel(logrus.DebugLevel)
 
 	server := NewServer()
 	server.Start()

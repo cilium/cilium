@@ -28,7 +28,7 @@ import (
 )
 
 var (
-	log        = logging.DefaultLogger
+	log        = logging.DefaultLogger.WithField(logfields.LogSubsys, "cilium-docker")
 	pluginPath string
 	driverSock string
 	debug      bool
@@ -79,9 +79,9 @@ func init() {
 
 func initConfig() {
 	if debug {
-		log.SetLevel(logrus.DebugLevel)
+		logging.DefaultLogger.SetLevel(logrus.DebugLevel)
 	} else {
-		log.SetLevel(logrus.InfoLevel)
+		logging.DefaultLogger.SetLevel(logrus.InfoLevel)
 	}
 
 	common.RequireRootPrivilege("cilium-docker")

@@ -19,8 +19,6 @@ import (
 	"runtime/debug"
 
 	"github.com/sirupsen/logrus"
-
-	"github.com/cilium/cilium/pkg/logging"
 )
 
 // APIPanicHandler recovers from API panics and logs encountered panics
@@ -39,8 +37,8 @@ func (h *APIPanicHandler) ServeHTTP(r http.ResponseWriter, req *http.Request) {
 				"method":        req.Method,
 				"client":        req.RemoteAddr,
 			}
-			logging.DefaultLogger.WithFields(fields).Warn("Cilium API handler panicked")
-			logging.DefaultLogger.Debugf("%s", debug.Stack())
+			log.WithFields(fields).Warn("Cilium API handler panicked")
+			log.Debugf("%s", debug.Stack())
 		}
 	}()
 	h.Next.ServeHTTP(r, req)

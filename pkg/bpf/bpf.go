@@ -32,7 +32,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-var log = logging.DefaultLogger
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "bpf")
 
 const (
 	// BPF map type constants. Must match enum bpf_map_type from linux/bpf.h

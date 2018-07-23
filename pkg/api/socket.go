@@ -28,7 +28,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var log = logging.DefaultLogger
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "api")
 
 // GetGroupIDByName returns the group ID for the given grpName.
 func GetGroupIDByName(grpName string) (int, error) {

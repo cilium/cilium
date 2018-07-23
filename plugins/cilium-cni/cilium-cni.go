@@ -46,7 +46,7 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "cilium-cni")
 )
 
 func init() {
