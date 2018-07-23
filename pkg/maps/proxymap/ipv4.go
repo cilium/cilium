@@ -24,10 +24,11 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 var (
-	log           = logging.DefaultLogger
+	log           = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-proxy")
 	Proxy4MapName = "cilium_proxy4"
 )
 

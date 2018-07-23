@@ -21,7 +21,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var log = logging.DefaultLogger
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "endpoint")
 
 // logger returns a logrus object with EndpointID, ContainerID and the Endpoint
 // revision fields.
@@ -61,7 +61,7 @@ func (e *Endpoint) updateLogger() {
 	}
 
 	// default to using the log var set above
-	baseLogger := log
+	baseLogger := log.Logger
 
 	// If this endpoint is set to debug ensure it will print debug by giving it
 	// an independent logger

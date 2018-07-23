@@ -47,7 +47,7 @@ const (
 	AllPorts = uint16(0)
 )
 
-var log = logging.DefaultLogger
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-policy")
 
 type PolicyMap struct {
 	path  string

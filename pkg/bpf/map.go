@@ -753,7 +753,7 @@ func (m *Map) MetadataDiff(other *Map) bool {
 	case m == nil || other == nil:
 		return false
 	default:
-		if logging.CanLogAt(log, logrus.DebugLevel) {
+		if logging.CanLogAt(log.Logger, logrus.DebugLevel) {
 			logging.MultiLine(log.Debug, comparator.Compare(m, other))
 		}
 		return m.DeepEquals(other)

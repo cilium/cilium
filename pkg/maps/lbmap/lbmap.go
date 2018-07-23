@@ -27,7 +27,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var log = logging.DefaultLogger
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-lb")
 
 const (
 	// Maximum number of entries in each hashtable

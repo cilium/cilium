@@ -25,5 +25,5 @@ const (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "tunnel-map")
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-tunnel")
 )

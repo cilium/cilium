@@ -34,7 +34,7 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-var log = logging.DefaultLogger
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "envoy-manager")
 
 var (
 	// envoyLevelMap maps logrus.Level values to Envoy (spdlog) log levels.
