@@ -448,7 +448,7 @@ var _ = Describe("NightlyExamples", func() {
 
 			By("Testing with L7 policy")
 			_, err = kubectl.CiliumPolicyAction(
-				helpers.DefaultNamespace, PolicyManifest,
+				helpers.KubeSystemNamespace, PolicyManifest,
 				helpers.KubectlApply, 300)
 			Expect(err).To(BeNil(), "Cannot import GPRC policy")
 
