@@ -185,7 +185,7 @@ if [[ "${HOST}" == "k8s1" ]]; then
 
     sudo systemctl start etcd
     if [[ $INSTALL_KUBEDNS -eq 1 ]]; then
-        kubectl -n kube-system delete svc,deployment,sa,cm -l k8s-app=kube-dns || true
+        kubectl -n kube-system delete -f ${PROVISIONSRC}/manifest/dns_deployment.yaml || true
         kubectl -n kube-system apply -f ${PROVISIONSRC}/manifest/dns_deployment.yaml
     fi
 
