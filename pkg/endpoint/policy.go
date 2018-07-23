@@ -689,9 +689,9 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	e.BuildMutex.Lock()
 	defer e.BuildMutex.Unlock()
 
-	e.Mutex.RLock()
+	e.Mutex.Lock()
 	e.getLogger().Debug("Regenerating endpoint...")
-	e.Mutex.RUnlock()
+	e.Mutex.Unlock()
 
 	origDir := filepath.Join(owner.GetStateDir(), e.StringID())
 
