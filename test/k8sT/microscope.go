@@ -23,7 +23,7 @@ import (
 )
 
 var (
-	microscopeTestName = "K8sValidatedMicroscope"
+	microscopeTestName = "K8sDisabledValidatedMicroscope"
 )
 
 var _ = Describe(microscopeTestName, func() {
