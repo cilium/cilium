@@ -36,11 +36,26 @@ import (
 // routes
 type RouteType int
 
+// Source is the description of the source of an identity
+type Source string
+
 const (
 	// TunnelRoute is the route type to set up the BPF tunnel maps
 	TunnelRoute RouteType = 1 << iota
 	// DirectRoute is the route type to set up the L3 route using iproute
 	DirectRoute
+
+	// FromKubernetes is the source used for identities derived from k8s
+	// resources (pods)
+	FromKubernetes Source = "k8s"
+
+	// FromKVStore is the source used for identities derived from the
+	// kvstore
+	FromKVStore Source = "kvstore"
+
+	// FromAgentLocal is the source used for identities derived during the
+	// agent bootup process. This includes identities for endpoint IPs.
+	FromAgentLocal Source = "agent-local"
 )
 
 type clusterConfiguation struct {
@@ -328,6 +343,18 @@ func UpdateNode(n *Node, routesTypes RouteType, ownAddr net.IP) {
 	ni := n.Identity()
 
 	oldNode, oldNodeExists := clusterConf.nodes[ni]
+	// Ignore kubernetes updates if the node already exists and its source
+	// was not from kubernetes. Also ignore any updates if the oldNode was
+	// updated by the local agent.
+	if oldNodeExists {
+		switch {
+		case oldNode.Source != FromKubernetes && n.Source == FromKubernetes:
+			return
+		case oldNode.Source == FromAgentLocal && n.Source != FromAgentLocal:
+			return
+		}
+	}
+
 	if (routesTypes & TunnelRoute) != 0 {
 		// FIXME if PodCIDR is empty retrieve the CIDR from the KVStore
 		log.WithFields(logrus.Fields{

@@ -70,7 +70,7 @@ func retrieveNodeInformation(nodeName string) (*node.Node, error) {
 
 	}
 
-	n := ParseNode(k8sNode)
+	n := ParseNode(k8sNode, node.FromAgentLocal)
 	log.WithField(logfields.NodeName, n.Name).Info("Retrieved node information from kubernetes")
 
 	if requireIPv4CIDR && n.IPv4AllocCIDR == nil {
