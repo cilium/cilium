@@ -460,11 +460,11 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 	buildStart := time.Now()
 
 	e.Mutex.Lock()
-
-	e.getLogger().WithField(logfields.StartTime, time.Now()).Info("Regenerating BPF program")
+	logger := e.getLogger()
+	logger.WithField(logfields.StartTime, time.Now()).Info("Regenerating BPF program")
 	defer func() {
 		e.Mutex.RLock()
-		e.getLogger().WithField(logfields.BuildDuration, time.Since(buildStart).String()).
+		logger.WithField(logfields.BuildDuration, time.Since(buildStart).String()).
 			Info("Regeneration of BPF program has completed")
 		e.Mutex.RUnlock()
 	}()
@@ -476,7 +476,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 	if e.GetStateLocked() != StateWaitingForIdentity &&
 		!e.BuilderSetStateLocked(StateRegenerating, "Regenerating Endpoint BPF: "+reason) {
 
-		e.getLogger().WithField(logfields.EndpointState, e.state).Debug("Skipping build due to invalid state")
+		logger.WithField(logfields.EndpointState, e.state).Debug("Skipping build due to invalid state")
 		e.Mutex.Unlock()
 		return 0, compilationExecuted, fmt.Errorf("Skipping build due to invalid state: %s", e.state)
 	}
@@ -515,7 +515,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 			e.Mutex.Lock()
 			epLogger := e.getLogger()
 			epLogger.WithError(err).Error("destroying BPF maps due to" +
-				"errors during regeneration")
+				" errors during regeneration")
 			if createdPolicyMap {
 				epLogger.Debug("removing endpoint PolicyMap")
 				os.RemoveAll(e.PolicyMapPathLocked())
@@ -532,7 +532,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 			return 0, compilationExecuted, err
 		}
 		// Clean up map contents
-		e.getLogger().Debug("flushing old PolicyMap")
+		logger.Debug("flushing old PolicyMap")
 		err = e.PolicyMap.Flush()
 		if err != nil {
 			e.Mutex.Unlock()
@@ -589,12 +589,12 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 	bpfHeaderfilesHash, err := hashEndpointHeaderfiles(epdir)
 	var bpfHeaderfilesChanged bool
 	if err != nil {
-		e.getLogger().WithError(err).Warn("Unable to hash header file")
+		logger.WithError(err).Warn("Unable to hash header file")
 		bpfHeaderfilesHash = ""
 		bpfHeaderfilesChanged = true
 	} else {
 		bpfHeaderfilesChanged = (bpfHeaderfilesHash != e.bpfHeaderfileHash)
-		e.getLogger().WithField(logfields.BPFHeaderfileHash, bpfHeaderfilesHash).
+		logger.WithField(logfields.BPFHeaderfileHash, bpfHeaderfilesHash).
 			Debugf("BPF header file hashed (was: %q)", e.bpfHeaderfileHash)
 	}
 
@@ -614,14 +614,18 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 	os.RemoveAll(e.IPv4IngressMapPathLocked())
 
 	e.Mutex.Unlock()
-
+	logger.WithField("bpfHeaderfilesChanged", bpfHeaderfilesChanged).Debug("Preparing to compile BPF")
 	libdir := owner.GetBpfDir()
 	rundir := owner.GetStateDir()
 	debug := strconv.FormatBool(owner.DebugEnabled())
 
 	if bpfHeaderfilesChanged {
+		start := time.Now()
 		// Compile and install BPF programs for this endpoint
 		err = e.runInit(libdir, rundir, epdir, epInfoCache.ifName, debug)
+		logger.WithError(err).
+			WithField(logfields.BPFCompilationTime, time.Since(start).String()).
+			Debugf("BPF compilation completed")
 		if err != nil {
 			return epInfoCache.revision, compilationExecuted, err
 		}
@@ -629,7 +633,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 		e.bpfHeaderfileHash = bpfHeaderfilesHash
 	} else {
 		e.Mutex.RLock()
-		e.getLogger().WithField(logfields.BPFHeaderfileHash, bpfHeaderfilesHash).
+		logger.WithField(logfields.BPFHeaderfileHash, bpfHeaderfilesHash).
 			Debug("BPF header file unchanged, skipping BPF compilation and installation")
 		e.Mutex.RUnlock()
 	}
