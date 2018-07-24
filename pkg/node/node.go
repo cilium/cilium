@@ -65,6 +65,9 @@ type Node struct {
 	// cilium-health endpoint located on the node.
 	IPv6HealthIP net.IP
 
+	// ClusterID is the unique identifier of the cluster
+	ClusterID int
+
 	// cluster membership
 	cluster *clusterConfiguation
 }

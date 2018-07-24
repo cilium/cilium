@@ -89,6 +89,10 @@ var (
 	}
 )
 
+func EtcdDummyAddress() string {
+	return etcdDummyAddress
+}
+
 func (e *etcdModule) createInstance() backendModule {
 	cpy := *etcdInstance
 	return &cpy
