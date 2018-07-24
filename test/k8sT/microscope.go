@@ -23,14 +23,16 @@ import (
 )
 
 var (
-	microscopeTestName = "K8sDisabledValidatedMicroscope"
+	microscopeTestName = "K8sValidatedMicroscope"
 )
 
 var _ = Describe(microscopeTestName, func() {
 
 	var (
-		kubectl *helpers.Kubectl
-		logger  *logrus.Entry
+		kubectl          *helpers.Kubectl
+		logger           *logrus.Entry
+		microscopeErr    error
+		microscopeCancel func() error
 	)
 
 	BeforeAll(func() {
@@ -45,8 +47,13 @@ var _ = Describe(microscopeTestName, func() {
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.KubeSystemNamespace,
-			"cilium endpoint list")
+		if microscopeCancel != nil {
+			err := microscopeCancel()
+
+			log.WithFields(logrus.Fields{"cancelError": err}).Error("Microscope test failed")
+		}
+		//kubectl.CiliumReport(helpers.KubeSystemNamespace,
+		//	"cilium endpoint list")
 	})
 
 	AfterAll(func() {
@@ -54,7 +61,7 @@ var _ = Describe(microscopeTestName, func() {
 	})
 
 	It("Runs microscope", func() {
-		microscopeErr, microscopeCancel := kubectl.MicroscopeStart()
+		microscopeErr, microscopeCancel = kubectl.MicroscopeStart()
 		Expect(microscopeErr).To(BeNil(), "Microscope cannot be started")
 
 		err := helpers.WithTimeout(func() bool {
