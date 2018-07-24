@@ -57,7 +57,7 @@ pipeline {
         }
         stage('Nightly-Docker-Image') {
             when {
-                branch 'origin/master'
+                environment name: 'GIT_BRANCH', value: 'origin/master'
             }
             steps {
                 withDockerRegistry([ credentialsId: "NIGHTLY_DOCKER_HUB_CRED", url: "" ]) {
