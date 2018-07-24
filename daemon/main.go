@@ -341,8 +341,12 @@ func init() {
 		option.AutoIPv6NodeRoutesName, false, "Automatically adds IPv6 L3 routes to reach other nodes for non-overlay mode (--device) (BETA)")
 	flags.StringVar(&bpfRoot,
 		"bpf-root", "", "Path to BPF filesystem")
+	flags.Int(option.ClusterIDName, 0, "Unique identifier of the cluster")
+	viper.BindEnv(option.ClusterIDName, option.ClusterIDEnv)
 	flags.String(option.ClusterName, defaults.ClusterName, "Name of the cluster")
 	viper.BindEnv(option.ClusterName, option.ClusterNameEnv)
+	flags.String(option.ClusterMeshConfigName, "", "Path to the ClusterMesh configuration directory")
+	viper.BindEnv(option.ClusterMeshConfigName, option.ClusterMeshConfigNameEnv)
 	flags.StringVar(&cfgFile,
 		"config", "", `Configuration file (default "$HOME/ciliumd.yaml")`)
 	flags.Uint("conntrack-garbage-collector-interval", 60, "Garbage collection interval for the connection tracking table (in seconds)")

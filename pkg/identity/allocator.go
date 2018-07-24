@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/allocator"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
 )
@@ -85,7 +86,8 @@ func InitIdentityAllocator(owner IdentityAllocatorOwner) {
 		a, err := allocator.NewAllocator(IdentitiesPath, globalIdentity{},
 			allocator.WithMax(maxID), allocator.WithMin(minID),
 			allocator.WithSuffix(owner.GetNodeSuffix()),
-			allocator.WithEvents(events))
+			allocator.WithEvents(events),
+			allocator.WithPrefixMask(allocator.ID(option.Config.ClusterID<<option.ClusterIDShift)))
 		if err != nil {
 			log.WithError(err).Fatal("Unable to initialize identity allocator")
 		}
@@ -175,4 +177,10 @@ func ReleaseSlice(identities []*Identity) error {
 		}
 	}
 	return err
+}
+
+// WatchRemoteIdentities starts watching for identities in another kvstore and
+// syncs all identities to the local identity cache.
+func WatchRemoteIdentities(backend kvstore.BackendOperations) *allocator.RemoteCache {
+	return identityAllocator.WatchRemoteKVStore(backend, IdentitiesPath)
 }
