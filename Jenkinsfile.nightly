@@ -57,7 +57,7 @@ pipeline {
         }
         stage('Nightly-Docker-Image') {
             when {
-                branch 'master'
+                branch 'origin/master'
             }
             steps {
                 withDockerRegistry([ credentialsId: "NIGHTLY_DOCKER_HUB_CRED", url: "" ]) {
