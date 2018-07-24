@@ -99,6 +99,25 @@ func (s *AllocatorSuite) TestSelectID(c *C) {
 	c.Assert(val, Equals, "")
 }
 
+func (s *AllocatorSuite) TestPrefixMask(c *C) {
+	allocatorName := randomTestName()
+	minID, maxID := ID(1), ID(5)
+	a, err := NewAllocator(allocatorName, TestType(""), WithMin(minID),
+		WithMax(maxID), WithSuffix("a"), WithPrefixMask(1<<16))
+	c.Assert(err, IsNil)
+	c.Assert(a, Not(IsNil))
+
+	// allocate all available IDs
+	for i := minID; i <= maxID; i++ {
+		id, val := a.selectAvailableID()
+		c.Assert(id, Not(Equals), NoID)
+		c.Assert(id>>16, Equals, ID(1))
+		c.Assert(val, Equals, id.String())
+	}
+
+	a.Delete()
+}
+
 func (s *AllocatorSuite) BenchmarkAllocate(c *C) {
 	allocatorName := randomTestName()
 	maxID := ID(256 + c.N)
