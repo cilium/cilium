@@ -87,6 +87,20 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 			return err
 		}
 
+		waitForDNSResolution := func(pod, service string) error {
+			body := func() bool {
+				dnsLookupCmd := fmt.Sprintf("nslookup %s", service)
+				res := kubectl.ExecPodCmd(helpers.DefaultNamespace, pod, dnsLookupCmd)
+
+				if !res.WasSuccessful() {
+					return false
+				}
+				return true
+			}
+			err := helpers.WithTimeout(body, fmt.Sprintf("unable to resolve DNS for service %s in pod %s", service, pod), &helpers.TimeoutConfig{Timeout: 30})
+			return err
+		}
+
 		JustBeforeEach(func() {
 			microscopeErr, microscopeCancel = kubectl.MicroscopeStart()
 			Expect(microscopeErr).To(BeNil(), "Microscope cannot be started")
@@ -142,6 +156,12 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 			By("Creating new kafka topic %s", topicDeathstarPlans)
 			err = createTopic(topicDeathstarPlans, appPods[empireHqApp])
 			Expect(err).Should(BeNil(), "Failed to create topic deathstar-plans")
+
+			By("Waiting for DNS to resolve within pods for kafka-service")
+			err = waitForDNSResolution(appPods[empireHqApp], "kafka-service")
+			Expect(err).Should(BeNil(), "Failed to resolve kafka-service DNS entry in pod %s", appPods[empireHqApp])
+			err = waitForDNSResolution(appPods[outpostApp], "kafka-service")
+			Expect(err).Should(BeNil(), "Failed to resolve kafka-service DNS entry in pod %s", appPods[outpostApp])
 
 			By("Testing basic Kafka Produce and Consume")
 			// We need to produce first, since consumer script waits for
