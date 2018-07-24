@@ -49,7 +49,7 @@ func ConfigureLocalNode() error {
 		ClusterID:     option.Config.ClusterID,
 	}
 
-	UpdateNode(&localNode, TunnelRoute, nil)
+	UpdateNode(&localNode, TunnelRoute, nil, FromAgentLocal)
 
 	nodeRegistered := make(chan struct{})
 	go func() {

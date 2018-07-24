@@ -230,7 +230,7 @@ func (n *Node) OnUpdate() {
 		}
 	}
 
-	UpdateNode(n, routeTypes, ownAddr)
+	UpdateNode(n, routeTypes, ownAddr, FromKVStore)
 }
 
 // OnDelete is called when a node has been deleted from the cluster
