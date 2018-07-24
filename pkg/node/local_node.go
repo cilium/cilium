@@ -47,6 +47,7 @@ func ConfigureLocalNode() error {
 		IPv4HealthIP:  GetIPv4HealthIP(),
 		IPv6HealthIP:  GetIPv6HealthIP(),
 		ClusterID:     option.Config.ClusterID,
+		Source:        FromAgentLocal,
 	}
 
 	UpdateNode(&localNode, TunnelRoute, nil)

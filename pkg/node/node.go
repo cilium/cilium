@@ -70,6 +70,9 @@ type Node struct {
 
 	// cluster membership
 	cluster *clusterConfiguation
+
+	// Source is the source where the node configuration was generated / created.
+	Source Source
 }
 
 // Fullname returns the node's full name including the cluster name if a
@@ -230,6 +233,9 @@ func (n *Node) OnUpdate() {
 		}
 	}
 
+	// As the OnUpdate() function is only called by the kv-store
+	// We can safely set its source to "kvstore"
+	n.Source = FromKVStore
 	UpdateNode(n, routeTypes, ownAddr)
 }
 

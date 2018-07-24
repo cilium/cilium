@@ -1857,7 +1857,7 @@ func (d *Daemon) updateK8sV1Namespace(oldNS, newNS *v1.Namespace) {
 }
 
 func (d *Daemon) updateK8sNodeTunneling(k8sNodeOld, k8sNodeNew *v1.Node) error {
-	nodeNew := k8s.ParseNode(k8sNodeNew)
+	nodeNew := k8s.ParseNode(k8sNodeNew, node.FromKubernetes)
 	// Ignore own node
 	if nodeNew.Name == node.GetName() {
 		return nil
@@ -1887,7 +1887,7 @@ func (d *Daemon) updateK8sNodeTunneling(k8sNodeOld, k8sNodeNew *v1.Node) error {
 	}
 
 	if k8sNodeOld != nil {
-		nodeOld := k8s.ParseNode(k8sNodeOld)
+		nodeOld := k8s.ParseNode(k8sNodeOld, node.FromKubernetes)
 		var (
 			err            error
 			ciliumIPStrOld string
@@ -1912,6 +1912,19 @@ func (d *Daemon) updateK8sNodeTunneling(k8sNodeOld, k8sNodeNew *v1.Node) error {
 	if !selfOwned {
 		return fmt.Errorf("ipcache entry owned by kvstore or agent")
 	}
+
+	routeTypes := node.TunnelRoute
+
+	// Add IPv6 routing only in non encap. With encap we do it with bpf tunnel
+	// FIXME create a function to know on which mode is the daemon running on
+	var ownAddr net.IP
+	if option.Config.AutoIPv6NodeRoutes && option.Config.Device != "undefined" {
+		ownAddr = node.GetIPv6()
+		routeTypes |= node.DirectRoute
+	}
+
+	node.UpdateNode(nodeNew, routeTypes, ownAddr)
+
 	return nil
 }
 
@@ -1934,6 +1947,10 @@ func (d *Daemon) deleteK8sNodeV1(k8sNode *v1.Node) {
 		"K8sNodeName":    k8sNode.ObjectMeta.Name,
 		logfields.IPAddr: ip,
 	})
+
+	ni := node.Identity{Name: k8sNode.ObjectMeta.Name}
+
+	node.DeleteNode(ni, node.TunnelRoute|node.DirectRoute)
 
 	id, exists := ipcache.IPIdentityCache.LookupByIP(ip)
 	if !exists {
