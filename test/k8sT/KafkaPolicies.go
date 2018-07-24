@@ -137,6 +137,9 @@ var _ = Describe("K8sKafkaPolicyTest", func() {
 			err = kubectl.WaitForKubeDNSEntry("zook." + helpers.DefaultNamespace)
 			Expect(err).To(BeNil(), "DNS entry of zook is not ready after timeout")
 
+			err = kubectl.CiliumEndpointWaitReady()
+			Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
+
 			appPods = helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "app")
 
 			By("Wait for Kafka broker to be up")
