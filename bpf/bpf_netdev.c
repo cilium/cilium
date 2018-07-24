@@ -375,8 +375,22 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 		info = ipcache_lookup4(&cilium_ipcache, ip4->saddr, V4_CACHE_KEY_LEN);
 		if (info != NULL) {
 			__u32 sec_label = info->sec_label;
-			if (sec_label && sec_label != CLUSTER_ID)
-				src_identity = info->sec_label;
+			if (sec_label) {
+				/* When SNAT is enabled on traffic ingressing
+				 * into Cilium, all traffic from the world will
+				 * have a source IP of the host. It will only
+				 * actually be from the host if "src_identity"
+				 * (passed into this function) reports the src
+				 * as the host. So we can ignore the ipcache
+				 * if it reports the source as HOST_ID.
+				 *
+				 * For compatibility with older versions of
+				 * Cilium, we also ignore CLUSTER_ID.
+				 */
+				if (sec_label != CLUSTER_ID &&
+				    sec_label != HOST_ID)
+					src_identity = sec_label;
+			}
 		}
 		cilium_dbg(skb, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
 			   ip4->saddr, src_identity);
