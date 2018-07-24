@@ -164,6 +164,10 @@ type Allocator struct {
 	// allocate an ID greater than this value.
 	max ID
 
+	// prefixMask if set, will be ORed to all selected IDs prior to
+	// allocation
+	prefixMask ID
+
 	// localKeys contains all keys including their reference count for keys
 	// which have been allocated and are in local use
 	localKeys *localKeys
@@ -300,6 +304,14 @@ func WithMax(id ID) AllocatorOption {
 	return func(a *Allocator) { a.max = id }
 }
 
+// WithPrefixMask sets the prefix used for all ID allocations. If set, the mask
+// will be ORed to all selected IDs prior to allocation. It is the
+// responsibility of the caller to ensure that the mask is not conflicting with
+// min..max.
+func WithPrefixMask(mask ID) AllocatorOption {
+	return func(a *Allocator) { a.prefixMask = mask }
+}
+
 // Delete deletes an allocator and stops the garbage collector
 func (a *Allocator) Delete() {
 	close(a.stopGC)
@@ -378,6 +390,7 @@ func (a *Allocator) selectAvailableID() (ID, string) {
 				// remove the previously tried IDs that are already in
 				// use from the list of IDs to attempt allocation
 				a.randomIDs = a.randomIDs[i+1:]
+				id |= a.prefixMask
 				return id, id.String()
 			}
 		}

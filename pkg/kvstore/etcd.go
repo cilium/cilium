@@ -39,10 +39,11 @@ import (
 )
 
 const (
-	etcdName = "etcd"
+	// EtcdBackendName is the backend name fo etcd
+	EtcdBackendName = "etcd"
 
-	addrOption = "etcd.address"
-	cfgOption  = "etcd.config"
+	addrOption       = "etcd.address"
+	EtcdOptionConfig = "etcd.config"
 )
 
 type etcdModule struct {
@@ -82,12 +83,16 @@ var (
 			addrOption: &backendOption{
 				description: "Addresses of etcd cluster",
 			},
-			cfgOption: &backendOption{
+			EtcdOptionConfig: &backendOption{
 				description: "Path to etcd configuration file",
 			},
 		},
 	}
 )
+
+func EtcdDummyAddress() string {
+	return etcdDummyAddress
+}
 
 func (e *etcdModule) createInstance() backendModule {
 	cpy := *etcdInstance
@@ -95,7 +100,7 @@ func (e *etcdModule) createInstance() backendModule {
 }
 
 func (e *etcdModule) getName() string {
-	return etcdName
+	return EtcdBackendName
 }
 
 func (e *etcdModule) setConfigDummy() {
@@ -113,12 +118,13 @@ func (e *etcdModule) getConfig() map[string]string {
 
 func (e *etcdModule) newClient() (BackendOperations, error) {
 	endpointsOpt, endpointsSet := e.opts[addrOption]
-	configPathOpt, configSet := e.opts[cfgOption]
+	configPathOpt, configSet := e.opts[EtcdOptionConfig]
 	configPath := ""
 
 	if e.config == nil {
 		if !endpointsSet && !configSet {
-			return nil, fmt.Errorf("invalid etcd configuration, %s or %s must be specified", cfgOption, addrOption)
+			return nil, fmt.Errorf("invalid etcd configuration, %s or %s must be specified",
+				EtcdOptionConfig, addrOption)
 		}
 
 		e.config = &client.Config{}
@@ -137,7 +143,7 @@ func (e *etcdModule) newClient() (BackendOperations, error) {
 
 func init() {
 	// register etcd module for use
-	registerBackend(etcdName, etcdInstance)
+	registerBackend(EtcdBackendName, etcdInstance)
 }
 
 type etcdClient struct {

@@ -168,6 +168,11 @@ func (id NumericIdentity) IsReservedIdentity() bool {
 	return isReservedIdentity
 }
 
+// ClusterID returns the cluster ID associated with the identity
+func (id NumericIdentity) ClusterID() int {
+	return int((uint32(id) >> 16) & 0xFF)
+}
+
 // GetAllReservedIdentities returns a list of all reserved numeric identities.
 func GetAllReservedIdentities() []NumericIdentity {
 	reservedIdentitiesMutex.RLock()
