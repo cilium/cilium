@@ -19,6 +19,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -1046,6 +1047,21 @@ func (kub *Kubectl) ValidateNoErrorsOnLogs(duration time.Duration) {
 	if res.WasSuccessful() {
 		logs += res.Output().String()
 	}
+	defer func() {
+		// Keep the cilium logs for the given test in a separate file.
+		testPath, err := CreateReportDirectory()
+		if err != nil {
+			kub.logger.WithError(err).Error("Cannot create report directory")
+			return
+		}
+		err = ioutil.WriteFile(
+			fmt.Sprintf("%s/cilium_test.log", testPath),
+			[]byte(logs), LogPerm)
+
+		if err != nil {
+			kub.logger.WithError(err).Error("Cannot create cilium_test.log")
+		}
+	}()
 
 	for _, message := range checkLogsMessages {
 		if strings.Contains(logs, message) {
@@ -1063,6 +1079,7 @@ func (kub *Kubectl) ValidateNoErrorsOnLogs(duration time.Duration) {
 		}
 		fmt.Fprintf(CheckLogs, "%sNumber of %q in logs: %d\n", prefix, message, result)
 	}
+
 }
 
 // GatherCiliumCoreDumps copies core dumps if are present in the /tmp folder
