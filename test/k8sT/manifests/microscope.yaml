@@ -70,5 +70,5 @@ spec:
     - sleep
     - "100000"
     image: docker.io/cilium/microscope:1.1.0-ci
-    imagePullPolicy: IfNotPresent
+    imagePullPolicy: Always
     name: microscope
