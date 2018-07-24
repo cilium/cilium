@@ -87,6 +87,9 @@ const (
 	// BuildDuration is the time elapsed to build a BPF program
 	BuildDuration = "buildDuration"
 
+	// BPFCompilationTime is the time elapsed to build a BPF endpoint program
+	BPFCompilationTime = "BPFCompilationTime"
+
 	// PolicyRegenerationTime is the time elapsed to generate a policy
 	PolicyRegenerationTime = "policyRegenerationTime"
 
