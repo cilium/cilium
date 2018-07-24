@@ -488,7 +488,6 @@ func (e *etcdClient) DeletePrefix(path string) error {
 
 // Watch starts watching for changes in a prefix
 func (e *etcdClient) Watch(w *Watcher) {
-	lastRev := int64(0)
 	localCache := watcherCache{}
 	listSignalSent := false
 
@@ -500,15 +499,13 @@ func (e *etcdClient) Watch(w *Watcher) {
 reList:
 	for {
 		res, err := e.client.Get(ctx.Background(), w.prefix, client.WithPrefix(),
-			client.WithRev(lastRev), client.WithSerializable())
+			client.WithSerializable())
 		if err != nil {
-			scopedLog.WithField(fieldRev, lastRev).WithError(err).Warn("Unable to list keys before starting watcher")
+			scopedLog.WithError(err).Warn("Unable to list keys before starting watcher")
 			continue
 		}
 
-		lastRev := res.Header.Revision
-
-		scopedLog = scopedLog.WithField(fieldRev, lastRev)
+		nextRev := res.Header.Revision + 1
 		scopedLog.Debugf("List response from etcd len=%d: %+v", res.Count, res)
 
 		if res.Count > 0 {
@@ -554,11 +551,9 @@ reList:
 		}
 
 	recreateWatcher:
-		lastRev++
-
-		scopedLog.WithField(fieldRev, lastRev).Debug("Starting to watch a prefix")
+		scopedLog.WithField(fieldRev, nextRev).Debug("Starting to watch a prefix")
 		etcdWatch := e.client.Watch(ctx.Background(), w.prefix,
-			client.WithPrefix(), client.WithRev(lastRev))
+			client.WithPrefix(), client.WithRev(nextRev))
 		for {
 			select {
 			case <-w.stopWatch:
@@ -567,6 +562,7 @@ reList:
 
 			case r, ok := <-etcdWatch:
 				if !ok {
+					time.Sleep(50 * time.Millisecond)
 					goto recreateWatcher
 				}
 
@@ -581,9 +577,6 @@ reList:
 						scopedLog.WithError(err).Debug("Tried watching on compacted revision")
 					}
 
-					// Retrieve latest revision
-					lastRev = 0
-
 					// mark all local keys in state for
 					// deletion unless the upcoming GET
 					// marks them alive
@@ -592,7 +585,7 @@ reList:
 					continue reList
 				}
 
-				lastRev = r.Header.Revision
+				nextRev = r.Header.Revision + 1
 				scopedLog.Debugf("Received event from etcd: %+v", r)
 
 				for _, ev := range r.Events {
