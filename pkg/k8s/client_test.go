@@ -72,7 +72,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 		},
 	}
 
-	node1Cilium := ParseNode(&node1)
+	node1Cilium := ParseNode(&node1, node.FromAgentLocal)
 
 	err := node.UseNodeCIDR(node1Cilium)
 	c.Assert(err, IsNil)
@@ -140,7 +140,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 		},
 	}
 
-	node2Cilium := ParseNode(&node2)
+	node2Cilium := ParseNode(&node2, node.FromAgentLocal)
 	err = node.UseNodeCIDR(node2Cilium)
 	c.Assert(err, IsNil)
 
