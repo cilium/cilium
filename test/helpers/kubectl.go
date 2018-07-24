@@ -375,7 +375,10 @@ func (kub *Kubectl) MicroscopeStart() (error, func() error) {
 			log.WithError(err).Errorf("cannot create monitor log file")
 			return err
 		}
-		kub.Delete(microscopePath)
+		res := kub.Exec(fmt.Sprintf("%s -n %s delete pod microscope", KubectlCmd, KubeSystemNamespace))
+		if !res.WasSuccessful() {
+			return fmt.Errorf("error deleting microscope pod: %s", res.GetStdErr())
+		}
 		return nil
 	}
 
