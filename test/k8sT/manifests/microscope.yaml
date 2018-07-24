@@ -72,3 +72,13 @@ spec:
     image: docker.io/cilium/microscope:1.1.0-ci
     imagePullPolicy: IfNotPresent
     name: microscope
+    readinessProbe:
+      exec:
+        command:
+        - microscope
+        - --send-command
+        - "'echo test'"
+        - --timeout-monitors
+        - "5"
+      initialDelaySeconds: 5
+      periodSeconds: 5

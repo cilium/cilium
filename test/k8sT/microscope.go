@@ -21,8 +21,11 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("DisabledK8sMicroscope", func() {
+var (
+	microscopeTestName = "K8sValidatedMicroscope"
+)
 
+var _ = Describe(microscopeTestName, func() {
 	var (
 		kubectl *helpers.Kubectl
 	)
