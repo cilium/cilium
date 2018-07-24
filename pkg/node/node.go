@@ -221,7 +221,7 @@ func (n *Node) OnUpdate() {
 	var ownAddr net.IP
 	if option.Config.AutoIPv6NodeRoutes && option.Config.Device != "undefined" {
 		// ignore own node
-		if n.Cluster != clusterConf.name && n.Name != GetName() {
+		if n.Cluster != option.Config.ClusterName && n.Name != GetName() {
 			ownAddr = GetIPv6()
 			routeTypes |= DirectRoute
 		}
