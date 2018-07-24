@@ -614,14 +614,17 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 	os.RemoveAll(e.IPv4IngressMapPathLocked())
 
 	e.Mutex.Unlock()
-
+	e.getLogger().WithField(
+		"bpfHeaderfilesChanged", bpfHeaderfilesChanged).Debug("Preparing to compile BPF")
 	libdir := owner.GetBpfDir()
 	rundir := owner.GetStateDir()
 	debug := strconv.FormatBool(owner.DebugEnabled())
 
 	if bpfHeaderfilesChanged {
+		start := time.Now()
 		// Compile and install BPF programs for this endpoint
 		err = e.runInit(libdir, rundir, epdir, epInfoCache.ifName, debug)
+		e.getLogger().Debugf("BPF compilation time: '%s'", time.Now().Sub(start))
 		if err != nil {
 			return epInfoCache.revision, compilationExecuted, err
 		}
