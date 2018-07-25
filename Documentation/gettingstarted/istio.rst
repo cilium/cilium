@@ -82,6 +82,9 @@ Create an Istio deployment spec:
           --set global.controlPlaneSecurityEnabled=false \
           --set global.mtls.enabled=false \
           --set global.proxy.image=proxy_debug \
+          --set ingress.enabled=false \
+          --set egressgateway.enabled=false \
+          --set global.tag=0.8.0 \
           > istio-cilium.yaml
 
 .. TODO: Set global.controlPlaneSecurityEnabled=true and
@@ -103,8 +106,6 @@ Check the progress of the deployment (every service should have an
     $ kubectl get deployments -n istio-system
     NAME                       DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
     istio-citadel              1         1         1            1           4m
-    istio-egressgateway        1         1         1            1           4m
-    istio-ingress              1         1         1            1           4m
     istio-ingressgateway       1         1         1            1           4m
     istio-pilot                1         1         1            1           4m
     istio-policy               1         1         1            1           4m
