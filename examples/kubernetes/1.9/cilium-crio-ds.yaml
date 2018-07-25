@@ -120,6 +120,20 @@ spec:
                   key: monitor-aggregation-level
                   name: cilium-config
                   optional: true
+            - name: CILIUM_CLUSTERMESH_CONFIG
+              value: "/var/lib/cilium/clustermesh/"
+            - name: CILIUM_CLUSTER_NAME
+              valueFrom:
+                configMapKeyRef:
+                  key: cluster-name
+                  name: cilium-config
+                  optional: true
+            - name: CILIUM_CLUSTER_ID
+              valueFrom:
+                configMapKeyRef:
+                  key: cluster-id
+                  name: cilium-config
+                  optional: true
           livenessProbe:
             exec:
               command:
@@ -155,6 +169,9 @@ spec:
               readOnly: true
             - name: etcd-secrets
               mountPath: /var/lib/etcd-secrets
+              readOnly: true
+            - name: clustermesh-secrets
+              mountPath: /var/lib/cilium/clustermesh
               readOnly: true
           securityContext:
             capabilities:
@@ -195,6 +212,12 @@ spec:
           secret:
             secretName: cilium-etcd-secrets
             optional: true
+        # To read the clustermesh configuration
+        - name: clustermesh-secrets
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: cilium-clustermesh
       restartPolicy: Always
       tolerations:
         - effect: NoSchedule
