@@ -19,12 +19,18 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
+	"time"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
 	. "github.com/onsi/gomega"
 )
+
+func init() {
+	// ensure that our random numbers are seeded differently on each run
+	rand.Seed(time.Now().UnixNano())
+}
 
 const (
 	// MonitorDropNotification represents the DropNotification configuration
