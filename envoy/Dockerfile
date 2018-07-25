@@ -4,7 +4,7 @@
 # it is possible that the image build needs more RAM than available by
 # default on non-Linux docker installs.
 #
-FROM ubuntu:17.10
+FROM ubuntu:18.04
 
 LABEL maintainer="maintainer@cilium.io"
 
@@ -22,6 +22,7 @@ ENV GO_VERSION 1.10.3
 # Build dependencies
 #
 RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y --no-install-recommends \
 	&& DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
 		apt-utils \
 		automake \
