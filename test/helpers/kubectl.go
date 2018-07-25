@@ -120,7 +120,9 @@ func (kub *Kubectl) WaitCEPReady() error {
 	}
 	body := func() bool {
 		// Created a map of .id and IPv4 because endpoint id can be the same in different nodes.
-		endpointFilter := `{range [*]}{@.id}{"_"}{@.status.networking.addressing[0].ipv4}{"="}{@.status.policy.spec.policy-revision}{"\n"}{end}`
+		// Note: endpointFilter ignores the health endpoint because we don't create
+		// CEPs for them (via `?(@.status.identity.id != 4)`).
+		endpointFilter := `{range [?(@.status.identity.id != 4)]}{@.id}{"_"}{@.status.networking.addressing[0].ipv4}{"="}{@.status.policy.spec.policy-revision}{"\n"}{end}`
 		cepFilter := `{range .items[*]}{@.status.id}{"_"}{@.status.status.networking.addressing[0].ipv4}{"="}{@.status.status.policy.spec.policy-revision}{"\n"}{end}`
 		endpoints := map[string]string{}
 		for _, ciliumPod := range pods {
