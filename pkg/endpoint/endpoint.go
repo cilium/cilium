@@ -253,10 +253,6 @@ const (
 	// PolicyGlobalMapName specifies the global tail call map for EP handle_policy() lookup.
 	PolicyGlobalMapName = "cilium_policy"
 
-	// ReservedCEPNamespace is the namespace to use for reserved endpoints that
-	// don't have a namespace (e.g. health)
-	ReservedCEPNamespace = meta_v1.NamespaceSystem
-
 	// HealthCEPPrefix is the prefix used to name the cilium health endpoints' CEP
 	HealthCEPPrefix = "cilium-health-"
 )
@@ -518,6 +514,12 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 		return
 	}
 
+	if isHealthEP := e.HasLabels(pkgLabels.LabelHealth); isHealthEP {
+		// the health endpoint doesn't really exist in k8s and updates to it caused
+		// arbitrary errors. We just avoid it outright.
+		scopedLog.Debug("Not creating a CEP for the cilium health endpoint")
+	}
+
 	ciliumClient, err := getCiliumClient()
 	if err != nil {
 		scopedLog.WithError(err).Error("Not starting controller because unable to get cilium k8s client")
@@ -534,29 +536,16 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 		controller.ControllerParams{
 			RunInterval: 10 * time.Second,
 			DoFunc: func() (err error) {
-				var (
-					podName    string
-					namespace  string
-					isHealthEP = e.HasLabels(pkgLabels.LabelHealth)
-				)
+				podName := e.GetK8sPodName()
+				if podName == "" {
+					scopedLog.Debug("Skipping CiliumEndpoint update because it has no k8s pod name")
+					return nil
+				}
 
-				switch isHealthEP {
-				case true:
-					podName = HealthCEPPrefix + node.GetName()
-					namespace = ReservedCEPNamespace
-
-				case false:
-					podName = e.GetK8sPodName()
-					if podName == "" {
-						scopedLog.Debug("Skipping CiliumEndpoint update because it has no k8s pod name")
-						return nil
-					}
-
-					namespace = e.GetK8sNamespace()
-					if namespace == "" {
-						scopedLog.Debug("Skipping CiliumEndpoint update because it has no k8s namespace")
-						return nil
-					}
+				namespace := e.GetK8sNamespace()
+				if namespace == "" {
+					scopedLog.Debug("Skipping CiliumEndpoint update because it has no k8s namespace")
+					return nil
 				}
 
 				mdl := e.GetModel()
