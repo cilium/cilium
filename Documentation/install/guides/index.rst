@@ -22,4 +22,5 @@ experiment, we highly recommend trying out the :ref:`gs_guide` instead.
    from_source
    advanced_options
    kops
+   clustermesh
    kube-router
