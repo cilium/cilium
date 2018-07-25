@@ -1,5 +1,5 @@
 {
-    "CN": "Cilium-ETCD CA",
+    "CN": "Cilium-etcd CA",
     "key": {
         "algo": "rsa",
         "size": 2048
