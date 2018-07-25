@@ -50,6 +50,9 @@ import (
 const (
 	// ExecTimeout is the execution timeout to use in join_ep.sh executions
 	ExecTimeout = 300 * time.Second
+
+	// EndpointGenerationTimeout specifies timeout for proxy completion context
+	EndpointGenerationTimeout = 55 * time.Second
 )
 
 type getBPFDataCallback func() (s6, s4 []int)
@@ -541,7 +544,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 	}
 
 	// Set up a context to wait for proxy completions.
-	completionCtx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	completionCtx, cancel := context.WithTimeout(context.Background(), EndpointGenerationTimeout)
 	proxyWaitGroup := completion.NewWaitGroup(completionCtx)
 	defer cancel()
 

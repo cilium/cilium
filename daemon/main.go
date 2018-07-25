@@ -79,6 +79,8 @@ const (
 	argDebugVerboseFlow    = "flow"
 	argDebugVerboseKvstore = "kvstore"
 	argDebugVerboseEnvoy   = "envoy"
+
+	apiTimeout = 60 * time.Second
 )
 
 var (
@@ -929,6 +931,8 @@ func runDaemon() {
 	server := server.NewServer(api)
 	server.EnabledListeners = []string{"unix"}
 	server.SocketPath = flags.Filename(socketPath)
+	server.ReadTimeout = apiTimeout
+	server.WriteTimeout = apiTimeout
 	defer server.Shutdown()
 
 	server.ConfigureAPI()
