@@ -44,7 +44,9 @@ Cilium network policy filters into each Istio sidecar proxy:
 ::
 
     $ sed -e 's,{{ .Values.global.hub }}/{{ .Values.image }},docker.io/cilium/istio_pilot,' \
-          -i istio-cilium-helm/charts/pilot/templates/deployment.yaml
+          < istio-cilium-helm/charts/pilot/templates/deployment.yaml \
+          > istio-cilium-helm/charts/pilot/templates/deployment.yaml.new && \
+          mv istio-cilium-helm/charts/pilot/templates/deployment.yaml.new istio-cilium-helm/charts/pilot/templates/deployment.yaml
 
 Configure the Istio's sidecar injection to setup the transparent proxy mode
 (TPROXY) as required by Cilium's proxy filters:
@@ -52,7 +54,9 @@ Configure the Istio's sidecar injection to setup the transparent proxy mode
 ::
 
     $ sed -e 's,#interceptionMode: .*,interceptionMode: TPROXY,' \
-          -i istio-cilium-helm/templates/configmap.yaml
+          < istio-cilium-helm/templates/configmap.yaml \
+          > istio-cilium-helm/templates/configmap.yaml.new && \
+          mv istio-cilium-helm/templates/configmap.yaml.new istio-cilium-helm/templates/configmap.yaml
 
 Modify the Istio sidecar injection template to uses Cilium's proxy Docker
 images and mount Cilium's API Unix domain sockets into each sidecar to allow
@@ -64,10 +68,10 @@ Cilium's Envoy filters to query the Cilium agent for policy configuration:
 
 ::
 
-    $ cat istio-cilium-helm/templates/sidecar-injector-configmap.yaml | \
-          awk -f cilium-kube-inject.awk \
-          > istio-cilium-helm/templates/sidecar-injector-configmap-cilium.yaml
-    $ mv istio-cilium-helm/templates/sidecar-injector-configmap-cilium.yaml istio-cilium-helm/templates/sidecar-injector-configmap.yaml
+    $ awk -f cilium-kube-inject.awk \
+          < istio-cilium-helm/templates/sidecar-injector-configmap.yaml \
+          > istio-cilium-helm/templates/sidecar-injector-configmap.yaml.new && \
+          mv istio-cilium-helm/templates/sidecar-injector-configmap.yaml.new istio-cilium-helm/templates/sidecar-injector-configmap.yaml
 
 Create an Istio deployment spec:
 
