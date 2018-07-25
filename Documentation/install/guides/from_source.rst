@@ -62,5 +62,7 @@ You can also add it in your ``~/.bashrc`` file:
 
     sudo cp contrib/systemd/*.service /lib/systemd/system
     sudo cp contrib/systemd/sys-fs-bpf.mount /lib/systemd/system
-    sudo mkdir -p /etc/sysconfig/cilium && cp contrib/systemd/cilium /etc/sysconfig/cilium
+    sudo mkdir -p /etc/sysconfig
+    sudo cp contrib/systemd/cilium /etc/sysconfig/cilium
+    sudo cp contrib/systemd/cilium-health /etc/sysconfig/cilium
     service cilium start
