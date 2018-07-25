@@ -12,7 +12,7 @@ BPF_SRCFILES=$(subst ../,,$(BPF_FILES))
 SWAGGER_VERSION = 0.12.0
 SWAGGER = $(QUIET)docker run --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) -e GOPATH=$(GOPATH) --entrypoint swagger quay.io/goswagger/swagger:$(SWAGGER_VERSION)
 
-GOTEST_OPTS = -test.v -check.v
+GOTEST_OPTS = -test.v -check.vv
 
 UTC_DATE=$(shell date -u "+%Y-%m-%d")
 
