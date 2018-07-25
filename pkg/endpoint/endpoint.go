@@ -353,7 +353,7 @@ type Endpoint struct {
 	hasSidecarProxy bool
 
 	// LabelsMap is the Set of all security labels used in the last policy computation
-	LabelsMap *identityPkg.IdentityCache
+	LabelsMap *identityPkg.IdentityCache `json:"-"`
 
 	// Iteration policy of the Endpoint
 	// TODO: update documentation; description is not clear, and needs to be
