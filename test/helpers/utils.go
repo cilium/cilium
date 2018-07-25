@@ -38,6 +38,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
+func init() {
+	// ensure that our random numbers are seeded differently on each run
+	rand.Seed(time.Now().UnixNano())
+}
+
 // IsRunningOnJenkins detects if the currently running Ginkgo application is
 // most likely running in a Jenkins environment. Returns true if certain
 // environment variables that are present in Jenkins jobs are set, false
