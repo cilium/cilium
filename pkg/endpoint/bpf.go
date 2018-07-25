@@ -541,7 +541,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 	}
 
 	// Set up a context to wait for proxy completions.
-	completionCtx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	completionCtx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	proxyWaitGroup := completion.NewWaitGroup(completionCtx)
 	defer cancel()
 
