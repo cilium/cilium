@@ -252,6 +252,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 		// Only recompile if configuration has changed.
 		log.Debug("CIDR policy has changed; recompiling base programs")
 		if err := d.compileBase(); err != nil {
+			_ = d.prefixLengths.Delete(prefixes)
 			metrics.PolicyImportErrors.Inc()
 			err2 := fmt.Errorf("Unable to recompile base programs: %s", err)
 			log.WithError(err2).WithField("prefixes", prefixes).Warn(
@@ -261,6 +262,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 	}
 
 	if err := ipcache.AllocateCIDRs(bpfIPCache.IPCache, prefixes); err != nil {
+		_ = d.prefixLengths.Delete(prefixes)
 		metrics.PolicyImportErrors.Inc()
 		log.WithError(err).WithField("prefixes", prefixes).Warn(
 			"Failed to allocate identities for CIDRs during policy add")
@@ -270,6 +272,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 	rev, err := d.policyAdd(rules, opts, prefixes)
 	if err != nil {
 		// Don't leak identities allocated above.
+		_ = d.prefixLengths.Delete(prefixes)
 		if err2 := ipcache.ReleaseCIDRs(prefixes); err2 != nil {
 			log.WithError(err2).WithField("prefixes", prefixes).Warn(
 				"Failed to release CIDRs during policy import failure")
