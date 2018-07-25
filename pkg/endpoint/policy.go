@@ -97,7 +97,7 @@ func (e *Endpoint) convertL4FilterToPolicyMapKeys(filter *policy.L4Filter, direc
 	proto := uint8(filter.U8Proto)
 
 	for _, sel := range filter.Endpoints {
-		for _, id := range getSecurityIdentities(*e.LabelsMap, &sel) {
+		for _, id := range getSecurityIdentities(*e.prevIdentityCache, &sel) {
 			srcID := id.Uint32()
 			keyToAdd := policymap.PolicyKey{
 				Identity: srcID,
@@ -243,8 +243,8 @@ func (e *Endpoint) resolveL4Policy(repo *policy.Repository) (policyChanged bool,
 func (e *Endpoint) computeDesiredPolicyMapState(owner Owner, labelsMap *identityPkg.IdentityCache,
 	repo *policy.Repository) {
 	desiredPolicyKeys := make(PolicyMapState)
-	if e.LabelsMap != labelsMap {
-		e.LabelsMap = labelsMap
+	if e.prevIdentityCache != labelsMap {
+		e.prevIdentityCache = labelsMap
 	}
 	e.computeDesiredL4PolicyMapEntries(desiredPolicyKeys)
 	e.determineAllowLocalhost(desiredPolicyKeys)
@@ -405,7 +405,7 @@ func (e *Endpoint) updateNetworkPolicy(owner Owner, proxyWaitGroup *completion.W
 		ctx.Trace = policy.TRACE_ENABLED
 	}
 	deniedIngressIdentities := make(map[identityPkg.NumericIdentity]bool)
-	for srcID, srcLabels := range *e.LabelsMap {
+	for srcID, srcLabels := range *e.prevIdentityCache {
 		ctx.From = srcLabels
 		e.getLogger().WithFields(logrus.Fields{
 			logfields.PolicyID: srcID,
@@ -424,7 +424,7 @@ func (e *Endpoint) updateNetworkPolicy(owner Owner, proxyWaitGroup *completion.W
 	}
 
 	deniedEgressIdentities := make(map[identityPkg.NumericIdentity]bool)
-	for dstID, dstLabels := range *e.LabelsMap {
+	for dstID, dstLabels := range *e.prevIdentityCache {
 		ctx.To = dstLabels
 		e.getLogger().WithFields(logrus.Fields{
 			logfields.PolicyID: dstID,
@@ -438,7 +438,7 @@ func (e *Endpoint) updateNetworkPolicy(owner Owner, proxyWaitGroup *completion.W
 	}
 
 	// Publish the updated policy to L7 proxies.
-	err := owner.UpdateNetworkPolicy(e, e.DesiredL4Policy, *e.LabelsMap, deniedIngressIdentities, deniedEgressIdentities, proxyWaitGroup)
+	err := owner.UpdateNetworkPolicy(e, e.DesiredL4Policy, *e.prevIdentityCache, deniedIngressIdentities, deniedEgressIdentities, proxyWaitGroup)
 	if err != nil {
 		return err
 	}
@@ -521,8 +521,8 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 
 	// Use the old labelsMap instance if the new one is still the same.
 	// Later we can compare the pointers to figure out if labels have changed or not.
-	if reflect.DeepEqual(e.LabelsMap, labelsMap) {
-		labelsMap = e.LabelsMap
+	if reflect.DeepEqual(e.prevIdentityCache, labelsMap) {
+		labelsMap = e.prevIdentityCache
 	}
 
 	repo := owner.GetPolicyRepository()
@@ -533,7 +533,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	// Recompute policy for this endpoint only if not already done for this revision.
 	// Must recompute if labels have changed or option changes are requested.
 	if !e.forcePolicyCompute && e.nextPolicyRevision >= revision &&
-		labelsMap == e.LabelsMap && opts == nil {
+		labelsMap == e.prevIdentityCache && opts == nil {
 
 		e.getLogger().WithFields(logrus.Fields{
 			"policyRevision.next": e.nextPolicyRevision,
