@@ -162,7 +162,9 @@ directly and manually install Cilium:
         $ sudo make install
         $ sudo mkdir -p /etc/sysconfig/
         $ sudo cp contrib/systemd/cilium.service /etc/systemd/system/
-        $ sudo cp contrib/systemd/cilium  /etc/sysconfig/cilium
+        $ sudo cp contrib/systemd/cilium-health.service /etc/systemd/system/
+        $ sudo cp contrib/systemd/cilium /etc/sysconfig/cilium
+        $ sudo cp contrib/systemd/cilium-health /etc/sysconfig/cilium
         $ sudo usermod -a -G cilium vagrant
         $ sudo systemctl enable cilium
         $ sudo systemctl restart cilium
