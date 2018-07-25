@@ -1614,15 +1614,11 @@ func (e *Endpoint) Update(owner Owner, cfg *models.EndpointConfigurationSpec) er
 
 		// TODO / FIXME: GH-3281: need ways to queue up regenerations per-endpoint.
 
-		// Default timeout for PATCH /endpoint/{id}/config is 30 seconds, so put
+		// Default timeout for PATCH /endpoint/{id}/config is 60 seconds, so put
 		// timeout in this function a bit below that timeout. If the timeout
 		// for clients in API is below this value, they will get a message containing
 		// "context deadline exceeded".
-		stateChangeTimeout := time.Duration(25 * time.Second)
-
-		// Check up until stateChangeTimeout seconds for endpoint state before
-		// trying to update configuration.
-		timeout := time.After(stateChangeTimeout)
+		timeout := time.After(EndpointGenerationTimeout)
 
 		// Check for endpoint state every second.
 		ticker := time.NewTicker(1 * time.Second)

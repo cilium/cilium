@@ -242,16 +242,12 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 		logger.Debugf("synchronously waiting for endpoint '%d' to be in '%s' state",
 			e.ID, endpoint.StateReady)
 
-		// Default timeout for PUT /endpoint/{id} is 30 seconds, so put timeout
+		// Default timeout for PUT /endpoint/{id} is 60 seconds, so put timeout
 		// in this function a bit below that timeout. If the timeout for clients
 		// in API is below this value, they will get a message containing
 		// "context deadline exceeded" if the operation takes longer than the
 		// client's configured timeout value.
-		stateChangeTimeout := time.Duration(25 * time.Second)
-
-		// Check up until stateChangeTimeout seconds for endpoint state before
-		// waiting for endpoint to be in ready state.
-		timeout := time.After(stateChangeTimeout)
+		timeout := time.After(endpoint.EndpointGenerationTimeout)
 
 		// Check for endpoint state every second.
 		ticker := time.NewTicker(1 * time.Second)
