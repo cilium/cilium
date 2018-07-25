@@ -1948,7 +1948,10 @@ func (d *Daemon) deleteK8sNodeV1(k8sNode *v1.Node) {
 		logfields.IPAddr: ip,
 	})
 
-	ni := node.Identity{Name: k8sNode.ObjectMeta.Name}
+	ni := node.Identity{
+		Name:    k8sNode.ObjectMeta.Name,
+		Cluster: option.Config.ClusterName,
+	}
 
 	node.DeleteNode(ni, node.TunnelRoute|node.DirectRoute)
 
