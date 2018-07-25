@@ -51,6 +51,9 @@ import (
 const (
 	// ExecTimeout is the execution timeout to use in join_ep.sh executions
 	ExecTimeout = 300 * time.Second
+
+	// EndpointGenerationTimeout specifies timeout for proxy completion context
+	EndpointGenerationTimeout = 55 * time.Second
 )
 
 // lookupRedirectPortBE returns the redirect L4 proxy port for the given L4
@@ -671,7 +674,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 
 		// Now that policy has been regenerated, set up a context to
 		// wait for proxy completions.
-		completionCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		completionCtx, cancel := context.WithTimeout(context.Background(), EndpointGenerationTimeout)
 		e.ProxyWaitGroup = completion.NewWaitGroup(completionCtx)
 		defer func() {
 			cancel()
@@ -779,7 +782,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 	// To avoid traffic loss, wait for the policy to be pushed into BPF before
 	// deleting obsolete redirects, to make sure no packets are redirected to
 	// those ports.
-	completionCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	completionCtx, cancel := context.WithTimeout(context.Background(), EndpointGenerationTimeout)
 	e.ProxyWaitGroup = completion.NewWaitGroup(completionCtx)
 	defer cancel()
 	e.Mutex.Lock()
