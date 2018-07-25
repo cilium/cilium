@@ -253,10 +253,6 @@ const (
 	// PolicyGlobalMapName specifies the global tail call map for EP handle_policy() lookup.
 	PolicyGlobalMapName = "cilium_policy"
 
-	// ReservedCEPNamespace is the namespace to use for reserved endpoints that
-	// don't have a namespace (e.g. health)
-	ReservedCEPNamespace = meta_v1.NamespaceSystem
-
 	// HealthCEPPrefix is the prefix used to name the cilium health endpoints' CEP
 	HealthCEPPrefix = "cilium-health-"
 )
@@ -494,6 +490,7 @@ func (e *Endpoint) WaitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 // RunK8sCiliumEndpointSync starts a controller that syncronizes the endpoint
 // to the corresponding k8s CiliumEndpoint CRD
 // CiliumEndpoint objects have the same name as the pod they represent
+// Endpoint.Mutex must be RLocked
 func (e *Endpoint) RunK8sCiliumEndpointSync() {
 	var (
 		endpointID     = e.ID
@@ -525,6 +522,15 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 		return
 	}
 
+	// The health endpoint doesn't really exist in k8s and updates to it caused
+	// arbitrary errors. Disable the controller for these endpoints.
+	if isHealthEP := e.HasLabelsRLocked(pkgLabels.LabelHealth); isHealthEP {
+		// use an error object so we can stop the controller. This is NOT an
+		// error
+		scopedLog.Debug("Not starting unnecessary CEP controller for cilium-health endpoint")
+		return
+	}
+
 	var (
 		lastMdl  *models.Endpoint
 		firstRun = true
@@ -535,29 +541,16 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 		controller.ControllerParams{
 			RunInterval: 10 * time.Second,
 			DoFunc: func() (err error) {
-				var (
-					podName    string
-					namespace  string
-					isHealthEP = e.HasLabels(pkgLabels.LabelHealth)
-				)
+				podName := e.GetK8sPodName()
+				if podName == "" {
+					scopedLog.Debug("Skipping CiliumEndpoint update because it has no k8s pod name")
+					return nil
+				}
 
-				switch isHealthEP {
-				case true:
-					podName = HealthCEPPrefix + node.GetName()
-					namespace = ReservedCEPNamespace
-
-				case false:
-					podName = e.GetK8sPodName()
-					if podName == "" {
-						scopedLog.Debug("Skipping CiliumEndpoint update because it has no k8s pod name")
-						return nil
-					}
-
-					namespace = e.GetK8sNamespace()
-					if namespace == "" {
-						scopedLog.Debug("Skipping CiliumEndpoint update because it has no k8s namespace")
-						return nil
-					}
+				namespace := e.GetK8sNamespace()
+				if namespace == "" {
+					scopedLog.Debug("Skipping CiliumEndpoint update because it has no k8s namespace")
+					return nil
 				}
 
 				mdl := e.GetModel()
