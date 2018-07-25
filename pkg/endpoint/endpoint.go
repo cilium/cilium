@@ -352,8 +352,9 @@ type Endpoint struct {
 	// TODO: Currently this applies only to HTTP L7 rules. Kafka L7 rules are still enforced by Cilium's node-wide Kafka proxy.
 	hasSidecarProxy bool
 
-	// LabelsMap is the Set of all security labels used in the last policy computation
-	LabelsMap *identityPkg.IdentityCache `json:"-"`
+	// prevIdentityCache is the set of all security identities used in the
+	// previous policy computation
+	prevIdentityCache *identityPkg.IdentityCache `json:"-"`
 
 	// Iteration policy of the Endpoint
 	// TODO: update documentation; description is not clear, and needs to be
