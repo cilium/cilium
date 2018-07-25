@@ -40,7 +40,7 @@ pipeline {
     }
 
     options {
-        timeout(time: 500, unit: 'MINUTES')
+        timeout(time: 700, unit: 'MINUTES')
         timestamps()
         ansiColor('xterm')
     }
@@ -77,10 +77,15 @@ pipeline {
                 CPU=4
                 FAILFAST=setIfLabel("ci/fail-fast", "true", "false")
             }
+
+            options {
+                timeout(time: 460, unit: 'MINUTES')
+            }
+
             steps {
                 parallel(
                     "Nightly":{
-                        sh 'cd ${TESTDIR}; ginkgo --focus="Nightly*" -v --timeout 390m --failFast=${FAILFAST}'
+                        sh 'cd ${TESTDIR}; ginkgo --focus="Nightly*" -v --timeout 450m --failFast=${FAILFAST}'
                     },
                 )
             }
