@@ -73,7 +73,7 @@ var (
 	FIt                                   = wrapItFunc(ginkgo.FIt, true)
 	PIt                                   = ginkgo.PIt
 	XIt                                   = ginkgo.XIt
-	Measure                               = ginkgo.Measure
+	Measure                               = wrapMeasureFunc(ginkgo.Measure, false)
 	JustBeforeEach                        = ginkgo.JustBeforeEach
 	BeforeSuite                           = ginkgo.BeforeSuite
 	AfterSuite                            = ginkgo.AfterSuite
@@ -354,6 +354,28 @@ func wrapNilContextFunc(fn func(string, func()) bool) func(string, func()) bool 
 		res := fn(text, body)
 		currentScope = oldScope
 		return res
+	}
+}
+
+// wrapMeasureFunc wraps Measure function to have the availability to use
+// BeforeAll/AfterAll functions.
+func wrapMeasureFunc(fn func(string, interface{}, int) bool, focused bool) func(text string, body interface{}, samples int) bool {
+	if !countersInitialized {
+		countersInitialized = true
+		BeforeSuite(func() {
+			calculateCounters(rootScope, false)
+		})
+	}
+	return func(text string, body interface{}, samples int) bool {
+		if currentScope == nil {
+			return fn(text, body, samples)
+		}
+		if focused || isTestFocussed(text) {
+			currentScope.focusedTests++
+		} else {
+			currentScope.normalTests++
+		}
+		return fn(text, wrapTest(body), samples)
 	}
 }
 
