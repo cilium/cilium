@@ -1887,6 +1887,11 @@ If you intent to release a new minor release, see the
 
 #. Announce the release in the ``#general`` channel on Slack
 
+#. Bump the version of Cilium used in the Cilium upgrade tests to use the new release
+
+   Please reach out on the ``#development`` channel on Slack for assistance with
+   this task.
+
 
 .. _minor_release_process:
 
