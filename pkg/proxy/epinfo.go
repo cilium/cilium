@@ -53,13 +53,18 @@ func (r *defaultEndpointInfoRegistry) FillEndpointIdentityByIP(ip net.IP, info *
 		return false
 	}
 
-	ep.Mutex.RLock()
-	defer ep.Mutex.RUnlock()
+	if lockerr := ep.RLockAlive(); lockerr != nil {
+		ep.LogDisconnectedMutexAction(lockerr, "before FillEndpointIdentityByIP")
+		return false
+	}
 
 	info.ID = uint64(ep.ID)
 	info.Identity = uint64(ep.GetIdentity())
 	info.Labels = ep.GetLabels()
 	info.LabelsSHA256 = ep.GetLabelsSHA()
 
+	if lockerr := ep.RUnlockAlive(); lockerr != nil {
+		ep.LogDisconnectedMutexAction(lockerr, "after FillEndpointIdentityByIP")
+	}
 	return true
 }
