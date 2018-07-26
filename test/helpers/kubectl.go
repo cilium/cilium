@@ -1008,18 +1008,21 @@ func (kub *Kubectl) CiliumCheckReport() {
 	}
 	table.Flush()
 
-	var controllersFilter = `{range .controllers[*]}{.name}{"="}{.status.consecutive-failure-count}{"\n"}{end}`
+	var controllersFilter = `{range .controllers[*]}{.name}{"="}{.status.consecutive-failure-count}::{.status.last-failure-msg}{"\n"}{end}`
+	var failedControllers string
 	for _, pod := range pods {
 		var prefix = ""
 		status := kub.CiliumExec(pod, "cilium status --all-controllers -o json")
 		result, _ := status.Filter(controllersFilter)
 		var total = 0
 		var failed = 0
-		for _, status := range result.KVOutput() {
+		for name, data := range result.KVOutput() {
 			total++
-			if status != "" {
+			status := strings.Split(data, "::")
+			if status[0] != "0" {
 				failed++
 				prefix = "⚠️  "
+				failedControllers += fmt.Sprintf("controller %s failure %q\n", name, status[1])
 			}
 		}
 		statusFilter := `Status: {.cilium.state}  Health: {.cluster.ciliumHealth.state}` +
@@ -1028,6 +1031,9 @@ func (kub *Kubectl) CiliumCheckReport() {
 		data, _ := status.Filter(statusFilter)
 		fmt.Fprintf(CheckLogs, "%sCilium agent %q: %s Controllers: Total %d Failed %d\n",
 			prefix, pod, data, total, failed)
+		if failedControllers != "" {
+			fmt.Fprintf(CheckLogs, "Failed controllers:\n %s", failedControllers)
+		}
 	}
 }
 
