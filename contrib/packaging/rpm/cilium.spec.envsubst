@@ -1,17 +1,72 @@
-%global commit0 ${COMMIT}
-%global shortcommit0 %(c=%{commit0}; echo ${c:0:7})
+# vim:set ft=spec et:
+
+%if 0%{?fedora} || 0%{?rhel} == 6
+# Not all devel deps exist in Fedora so you can't
+# install the devel rpm so we need to build without
+# devel or unit_test for now
+# Generate devel rpm
+%global with_devel 1
+# Build project from bundled dependencies
+%global with_bundled 1
+# Build with debug info rpm
+%global with_debug 0
+# Run tests in check section
+%global with_check 1
+# Generate unit-test rpm
+%global with_unit_test 0
+%else
+%global with_devel 1
+%global with_bundled 1
+%global with_debug 0
+%global with_check 0
+%global with_unit_test 0
+%endif
+
+# https://fedoraproject.org/wiki/PackagingDrafts/Go#Debuginfo
+# https://bugzilla.redhat.com/show_bug.cgi?id=995136#c12
+%if 0%{?with_debug}
+%global _dwz_low_mem_die_limit 0
+%else
+%global debug_package   %{nil}
+%endif
+
+%global provider        github
+%global provider_tld    com
+%global project         cilium
+%global repo            cilium
+# https://github.com/cilium/cilium
+%global provider_prefix %{provider}.%{provider_tld}/%{project}/%{repo}
+%global import_path     %{provider_prefix}
+%global commit0         ${COMMIT}
+%global shortcommit0    %(c=%{commit0}; echo ${c:0:7})
 
 Name:          cilium
 Version:       ${VERSION}
 Release:       0.git%{shortcommit0}%{?dist}
 Summary:       BPF & XDP for containers
 License:       Apache
-URL:           https://github/cilium/cilium
+URL:           https://%{provider_prefix}
+Source0:       https://%{provider_prefix}/archive/%{commit0}/%{repo}-%{shortcommit0}.tar.gz
+
 ExclusiveArch: x86_64
-Source0:       https://github.com/cilium/%{name}/archive/%{commit0}.tar.gz#/%{name}-%{shortcommit0}.tar.gz
-BuildRequires: golang, go-bindata, glibc-devel(x86-32), cmake, bazel, gcc-c++, elfutils-libelf-devel, libstdc++-static, libtool, wget
+
+Requires:      git
 Requires:      docker-engine >= 1.12, glibc-devel(x86-32), iproute >= 4.10, clang
 %{?fc25:Requires: clang >= 3.8, clang < 3.9}
+
+# If go_compiler is not set to 1, there is no virtual provide. Use golang instead.
+BuildRequires: %{?go_compiler:compiler(go-compiler)}%{!?go_compiler:golang}
+
+BuildRequires: golang
+BuildRequires: go-bindata
+BuildRequires: glibc-devel(x86-32)
+BuildRequires: cmake
+BuildRequires: bazel
+BuildRequires: gcc-c++
+BuildRequires: elfutils-libelf-devel
+BuildRequires: libstdc++-static
+BuildRequires: libtool
+BuildRequires: wget
 
 %description
 Cilium provides fast in-kernel networking and security policy enforcement
@@ -24,25 +79,45 @@ getent group cilium >/dev/null || groupadd -f -r cilium
 exit 0
 
 %prep
-mkdir -p %{name}-%{commit0}/src/github.com/cilium/%{name}
-tar zxf %{SOURCE0} --strip-components=1 -C %{name}-%{commit0}/src/github.com/cilium/%{name}
-echo "%{version}-0.git%{shortcommit0}" > %{name}-%{commit0}/src/github.com/cilium/%{name}/VERSION
+%setup -q -n %{name}-%{commit0}
 
 %build
-export GOPATH=$(pwd)/%{name}-%{commit0}
+mkdir -p src/github.com/cilium
+ln -s ../../../ src/%{import_path}
+
+mkdir -p vendor/src
+for v in vendor/*; do
+    test -z "$v" -o "$v" = "vendor/src" && continue
+    if test -d "$v"; then
+        mv -fv "$v" vendor/src/
+    fi
+done
+
+%if ! 0%{?with_bundled}
+rm -rf vendor/
+export GOPATH=$(pwd):%{gopath}
+%else
+export GOPATH=$(pwd):$(pwd)/vendor:%{gopath}
+%endif
+
+echo "%{version}-0.git%{shortcommit0}" > VERSION
+
 export PKG_BUILD=1
-cd %{name}-%{commit0}/src/github.com/cilium/%{name}
-%{__make} -C daemon apply-bindata
-%{__make} V=1 plugins bpf cilium daemon monitor cilium-health bugtool
-git submodule update --init
+
+make -C daemon apply-bindata
+make V=1 plugins bpf cilium daemon monitor cilium-health bugtool
+
+export CC="/usr/bin/gcc"
+export CXX="/usr/bin/g++"
+
 cd envoy
-bazel build //:envoy
+bazel clean
+bazel build //:envoy --action_env=PATH="$PATH"
 
 %install
-export GOPATH=$(pwd)/%{name}-%{commit0}
 export PKG_BUILD=1
-cd %{name}-%{commit0}/src/github.com/cilium/%{name}
-%make_install
+
+%{__make} DESTDIR=%{buildroot} install
 
 mkdir -p "%{buildroot}%{_prefix}/lib/systemd/system"
 mkdir -p "%{buildroot}%{_sysconfdir}/sysconfig"
