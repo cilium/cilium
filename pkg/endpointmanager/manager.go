@@ -271,14 +271,20 @@ func TriggerPolicyUpdates(owner endpoint.Owner, force bool) *sync.WaitGroup {
 
 	for _, ep := range eps {
 		go func(ep *endpoint.Endpoint, wg *sync.WaitGroup) {
-			ep.Mutex.Lock()
+			if lockerr := ep.LockAlive(); lockerr != nil {
+				log.WithError(lockerr).Warn("Error while handling policy updates for endpoint")
+				ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+lockerr.Error())
+			}
 			policyChanges, err := ep.TriggerPolicyUpdatesLocked(owner, nil)
 			regen := false
 			if err == nil && (policyChanges || force) {
 				// Regenerate only if state transition succeeds
 				regen = ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Triggering endpoint regeneration due to policy updates")
 			}
-			ep.Mutex.Unlock()
+			if lockerr := ep.UnlockAlive(); lockerr != nil {
+				log.WithError(lockerr).Warn("Error while handling policy updates for endpoint")
+				ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+lockerr.Error())
+			}
 
 			if err != nil {
 				log.WithError(err).Warn("Error while handling policy updates for endpoint")
@@ -331,7 +337,9 @@ func AddEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, reason string) err
 	}
 
 	// Regenerate immediately if ready or waiting for identity
-	ep.Mutex.Lock()
+	if lockerr := ep.LockAlive(); lockerr != nil {
+		return lockerr
+	}
 	build := false
 	state := ep.GetStateLocked()
 
@@ -341,7 +349,9 @@ func AddEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, reason string) err
 		ep.SetStateLocked(endpoint.StateWaitingToRegenerate, reason)
 		build = true
 	}
-	ep.Mutex.Unlock()
+	if lockerr := ep.UnlockAlive(); lockerr != nil {
+		return lockerr
+	}
 	if build {
 		if err := ep.RegenerateWait(owner, reason); err != nil {
 			ep.RemoveDirectory()
@@ -349,10 +359,14 @@ func AddEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, reason string) err
 		}
 	}
 
-	ep.Mutex.RLock()
+	if lockerr := ep.RLockAlive(); lockerr != nil {
+		return lockerr
+	}
 	Insert(ep)
 	ep.InsertEvent()
-	ep.Mutex.RUnlock()
+	if lockerr := ep.RUnlockAlive(); lockerr != nil {
+		return lockerr
+	}
 
 	return nil
 }
