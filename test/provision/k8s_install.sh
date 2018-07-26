@@ -88,6 +88,7 @@ case $K8S_VERSION in
         K8S_FULL_VERSION="1.11.0"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri"
+        INSTALL_KUBEDNS=0
         ;;
     "1.12")
         KUBERNETES_CNI_VERSION="v0.6.0"
