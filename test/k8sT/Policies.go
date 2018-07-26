@@ -168,7 +168,8 @@ var _ = Describe("K8sPolicyTest", func() {
 
 		AfterEach(func() {
 			cmd := fmt.Sprintf("%s delete --all cnp,netpol", helpers.KubectlCmd)
-			_ = kubectl.Exec(cmd)
+			res := kubectl.Exec(cmd)
+			res.ExpectSuccess("Cilium CNP / Network policy cannot be deleted")
 		})
 
 		It("checks all kind of Kubernetes policies", func() {
