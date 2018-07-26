@@ -1181,6 +1181,64 @@ The generated LLVM IR can also be dumped in human readable format through:
 
     $ clang -O2 -Wall -emit-llvm -S -c xdp-example.c -o -
 
+In addition, For conversion debugging information to BTF (BPF Type Format),
+more recent ``llc`` and ``pahole`` are needed and ``llc`` and ``pahole``
+can be probed for BTF support:
+
+::
+
+    $ llc -march=bpf -mattr=help |& grep dwarfris
+      dwarfris - Disable MCAsmInfo DwarfUsesRelocationsAcrossSections.
+      dwarfris - Disable MCAsmInfo DwarfUsesRelocationsAcrossSections.
+      dwarfris - Disable MCAsmInfo DwarfUsesRelocationsAcrossSections.
+    $ pahole --help | greo BTF
+    -J, --btf_encode           Encode as BTF
+
+Recent pahole version can be gotten from https://git.kernel.org/pub/scm/devel/pahole/pahole.git
+and note that the ``llvm-objcopy`` tool is required for ``pahole``, so probe it, too.
+
+``-mattr=dwarfris`` should be used with llc and enables ``pahole`` to dump structures correctly.
+(For ``pahole``, dwarf cross-section relation should be disabled through ``-mattr=dwarfris``,
+because BPF backend is not yet implemented in elfutils backend)
+
+Like the above two steps, generating a binary LLVM IR intermediate file
+``xdp-example.bc`` with debugging informantion by adding ``-g``, which
+can later on be passed to llc with ``-mattr=dwarfris``:
+
+::
+
+    $ clang -O2 -g -Wall -target bpf -emit-llvm -c xdp-example.c -o xdp-example.bc
+    $ llc xdp-example.bc -march=bpf -mattr=dwarfris -filetype=obj -o xdp-example.o
+
+And then ``pahole`` can properly dump structures of the BPF program:
+
+::
+
+    $ pahole xdp-example.o
+    struct xdp_md {
+            __u32                      data;                 /*     0     4 */
+            __u32                      data_end;             /*     4     4 */
+            __u32                      data_meta;            /*     8     4 */
+
+            /* size: 12, cachelines: 1, members: 3 */
+            /* last cacheline: 12 bytes */
+    };
+
+Through the option ``-J``, ``pahole`` can convert dwarf format to BTF:
+
+::
+
+    $ pahole -J xdp-example.o
+
+The ``.BTF`` section can be dumped through readelf:
+
+::
+
+    $ readelf -a xdp-example.o
+    [...]
+      [18] .BTF              PROGBITS         0000000000000000  00000671
+    [...]
+
 Note that LLVM's BPF back end currently does not support generating code
 that makes use of BPF's 32 bit subregisters. Inline assembly for BPF is
 currently unsupported, too.
