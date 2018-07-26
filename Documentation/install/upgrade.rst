@@ -155,11 +155,11 @@ new options while keeping the configuration that we wanted:
           selfLink: /api/v1/namespaces/kube-system/configmaps/cilium-config
 
 After adding the options, manually save the file with your changes and install
-the `ConfigMap` in your cluster.
+the `ConfigMap` in the ``kube-system`` namespace of your cluster.
 
 ::
 
-        $ kubectl apply -f ./cilium-cm-old.yaml
+        $ kubectl apply -n kube-system -f ./cilium-cm-old.yaml
 
 As the `ConfigMap` is successfully upgraded we can start upgrading Cilium
 ``DaemonSet`` and ``RBAC`` which will pick up the latest configuration from the
