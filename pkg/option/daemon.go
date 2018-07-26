@@ -31,6 +31,7 @@ var (
 		DebugLB:             &specDebugLB,
 		DropNotify:          &specDropNotify,
 		TraceNotify:         &specTraceNotify,
+		MonitorAggregation:  &specMonitorAggregation,
 		NAT46:               &specNAT46,
 	}
 )
@@ -42,6 +43,6 @@ func init() {
 }
 
 // ParseDaemonOption parses a string as daemon option
-func ParseDaemonOption(opt string) (string, bool, error) {
+func ParseDaemonOption(opt string) (string, int, error) {
 	return ParseOption(opt, &daemonLibrary)
 }

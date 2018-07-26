@@ -1,3 +1,9 @@
+.. only:: not (epub or latex or html)
+
+    WARNING: You are looking at unreleased Cilium documentation.
+    Please use the official rendered version released here:
+      http://docs.cilium.io
+
 .. _k8s_quick:
 
 ***********
@@ -59,15 +65,6 @@ chapter.
       $ vim cilium.yaml
       [adjust the etcd address]
 
-
-**Optional:** If you want to adjust the MTU of the pods, define the ``MTU`` environment
-variable in the ``env`` section:
-
-.. code:: bash
-
-    env:
-      - name: "MTU"
-        value: "8950"
 
 3. Deploy ``cilium`` with your local changes
 

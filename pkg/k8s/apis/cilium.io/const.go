@@ -14,10 +14,6 @@
 
 package ciliumio
 
-import (
-	"k8s.io/kubernetes/pkg/kubelet/types"
-)
-
 const (
 	// PolicyLabelName is the name of the policy label which refers to the
 	// k8s policy name.
@@ -28,6 +24,10 @@ const (
 	// PolicyLabelServiceAccount is the name of the label associated with
 	// an endpoint to represent the Kubernetes ServiceAccount name
 	PolicyLabelServiceAccount = "io.cilium.k8s.policy.serviceaccount"
+
+	// PolicyLabelCluster is the name of the cluster the endpoint is
+	// running in
+	PolicyLabelCluster = "io.cilium.k8s.policy.cluster"
 
 	// PolicyLabelIstioSidecarProxy is the label key added to the identity of
 	// any pod that has been injected by Istio with a Cilium-compatible sidecar
@@ -40,10 +40,18 @@ const (
 	PodNamespaceMetaLabels = "io.cilium.k8s.namespace.labels"
 	// PodNamespaceLabel is the label used in kubernetes containers to
 	// specify which namespace they belong to.
-	PodNamespaceLabel = types.KubernetesPodNamespaceLabel
+	PodNamespaceLabel = "io.kubernetes.pod.namespace"
 	// CtrlPrefixPolicyStatus is the prefix used for the controllers set up
 	// to sync the CNP with kube-apiserver.
 	CtrlPrefixPolicyStatus = "sync-cnp-policy-status"
+
+	// CiliumK8sAnnotationPrefix is the prefix key for the annotations used in kubernetes.
+	CiliumK8sAnnotationPrefix = "cilium.io/"
+
+	// CiliumIdentityAnnotation is the annotation key used to map to an endpoint's security identity.
+	CiliumIdentityAnnotation = CiliumK8sAnnotationPrefix + "identity"
+	// CiliumIdentityAnnotationDeprecated is the previous annotation key used to map to an endpoint's security identity.
+	CiliumIdentityAnnotationDeprecated = "cilium-identity"
 )
 
 const (

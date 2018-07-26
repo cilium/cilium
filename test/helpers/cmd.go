@@ -60,8 +60,16 @@ func (res *CmdRes) GetStdErr() string {
 	return res.stderr.String()
 }
 
-// SendToLog writes to `TestLogWriter` the debug message for the running command
-func (res *CmdRes) SendToLog() {
+// SendToLog writes to `TestLogWriter` the debug message for the running
+// command, if the quietMode argument is true will print only the command and
+// the exitcode.
+func (res *CmdRes) SendToLog(quietMode bool) {
+	if quietMode {
+		logformat := "cmd: %q exitCode: %d"
+		fmt.Fprintf(&config.TestLogWriter, logformat, res.cmd, res.GetExitCode())
+		return
+	}
+
 	logformat := "cmd: %q exitCode: %d stdout:\n%s\n"
 	log := fmt.Sprintf(logformat, res.cmd, res.GetExitCode(), res.stdout.String())
 	if res.stderr.Len() > 0 {
@@ -158,7 +166,7 @@ func (res *CmdRes) FindResults(filter string) ([]reflect.Value, error) {
 // Filter returns the contents of res's stdout filtered using the provided
 // JSONPath filter in a buffer. Returns an error if the unmarshalling of the
 // contents of res's stdout fails.
-func (res *CmdRes) Filter(filter string) (*bytes.Buffer, error) {
+func (res *CmdRes) Filter(filter string) (*FilterBuffer, error) {
 	var data interface{}
 	result := new(bytes.Buffer)
 
@@ -173,7 +181,7 @@ func (res *CmdRes) Filter(filter string) (*bytes.Buffer, error) {
 	if err != nil {
 		return nil, err
 	}
-	return result, nil
+	return &FilterBuffer{result}, nil
 }
 
 // ByLines returns res's stdout split by the newline character .
@@ -243,7 +251,7 @@ func (res *CmdRes) SingleOut() string {
 // Unmarshal unmarshalls res's stdout into data. It assumes that the stdout of
 // res is in JSON format. Returns an error if the unmarshalling fails.
 func (res *CmdRes) Unmarshal(data interface{}) error {
-	err := json.Unmarshal(res.stdout.Bytes(), &data)
+	err := json.Unmarshal(res.stdout.Bytes(), data)
 	return err
 }
 

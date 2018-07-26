@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -28,7 +29,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var log = logging.DefaultLogger
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "loadbalancer")
 
 const (
 	NONE = L4Type("NONE")
@@ -214,6 +215,19 @@ func NewK8sServiceEndpoint() *K8sServiceEndpoint {
 	}
 }
 
+// CIDRPrefixes returns the endpoint's backends as a slice of IPNets.
+func (e *K8sServiceEndpoint) CIDRPrefixes() ([]*net.IPNet, error) {
+	prefixes := make([]string, 0, len(e.BEIPs))
+	for backend := range e.BEIPs {
+		prefixes = append(prefixes, backend)
+	}
+	valid, invalid := ip.ParseCIDRs(prefixes)
+	if len(invalid) > 0 {
+		return nil, fmt.Errorf("invalid IPs specified as backends: %+v", invalid)
+	}
+	return valid, nil
+}
+
 // L4Addr is an abstraction for the backend port with a L4Type, usually tcp or udp, and
 // the Port number.
 type L4Addr struct {
@@ -384,6 +398,13 @@ func (a *L3n4Addr) String() string {
 		return fmt.Sprintf("[%s]:%d", a.IP.String(), a.Port)
 	}
 	return fmt.Sprintf("%s:%d", a.IP.String(), a.Port)
+}
+
+// StringID returns the L3n4Addr as string to be used for unique identification
+func (a *L3n4Addr) StringID() string {
+	// This does not include the protocol right now as the datapath does
+	// not include the protocol in the lookup of the service IP.
+	return a.String()
 }
 
 // DeepCopy returns a DeepCopy of the given L3n4Addr.

@@ -1,3 +1,9 @@
+.. only:: not (epub or latex or html)
+
+    WARNING: You are looking at unreleased Cilium documentation.
+    Please use the official rendered version released here:
+      http://docs.cilium.io
+
 .. _admin_install_daemonset:
 
 ******************
@@ -212,7 +218,7 @@ The CNI auto installation is performed as follows:
 1. The ``/etc/cni/net.d`` and ``/opt/cni/bin`` directories are mounted from the
    host filesystem into the pod where Cilium is running.
 
-2. The file ``/etc/cni/net.d/10-cilium.conf`` is written in case it does not
+2. The file ``/etc/cni/net.d/00-cilium.conf`` is written in case it does not
    exist yet.
 
 3. The binary ``cilium-cni`` is installed to ``/opt/cni/bin``. Any existing
@@ -242,37 +248,34 @@ environment variables can be specified in the `DaemonSet` file like this:
 .. code:: bash
 
     env:
-      - name: "MTU"
-        value: "8950"
+      - name: "CNI_CONF_NAME"
+        value: "00-cilium.conf"
 
 The following variables are supported:
 
 +---------------------+--------------------------------------+------------------------+
 | Option              | Description                          | Default                |
 +---------------------+--------------------------------------+------------------------+
-| MTU                 | Pod MTU to be configured             | 1450                   |
-+---------------------+--------------------------------------+------------------------+
 | HOST_PREFIX         | Path prefix of all host mounts       | /host                  |
 +---------------------+--------------------------------------+------------------------+
 | CNI_DIR             | Path to mounted CNI directory        | ${HOST_PREFIX}/opt/cni |
 +---------------------+--------------------------------------+------------------------+
-| CNI_CONF_NAME       | Name of configuration file           | 10-cilium.conf         |
+| CNI_CONF_NAME       | Name of configuration file           | 00-cilium.conf         |
 +---------------------+--------------------------------------+------------------------+
 
 If you want to further adjust the CNI configuration you may do so by creating
-the CNI configuration ``/etc/cni/net.d/10-cilium.conf`` manually:
+the CNI configuration ``/etc/cni/net.d/00-cilium.conf`` manually:
 
 .. code:: bash
 
     sudo mkdir -p /etc/cni/net.d
     sudo sh -c 'echo "{
         "name": "cilium",
-        "type": "cilium-cni",
-        "mtu": 1450
+        "type": "cilium-cni"
     }
-    " > /etc/cni/net.d/10-cilium.conf'
+    " > /etc/cni/net.d/00-cilium.conf'
 
-Cilium will use any existing ``/etc/cni/net.d/10-cilium.conf`` file if it
+Cilium will use any existing ``/etc/cni/net.d/00-cilium.conf`` file if it
 already exists on a worker node and only creates it if it does not exist yet.
 
 .. _ds_deploy:

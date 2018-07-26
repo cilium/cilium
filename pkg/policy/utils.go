@@ -14,9 +14,9 @@
 
 package policy
 
-import "github.com/cilium/cilium/common"
+import "github.com/cilium/cilium/pkg/labels"
 
 // JoinPath returns a joined path from a and b.
 func JoinPath(a, b string) string {
-	return a + common.PathDelimiter + b
+	return a + labels.PathDelimiter + b
 }

@@ -2,7 +2,7 @@ apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
 description: "Allow only permitted Kafka requests to empire Kafka broker"
 metadata:
-  name: "secure-empire-kafka"
+  name: "kafka-sw-security-policy"
 specs:
   - endpointSelector:
       matchLabels:

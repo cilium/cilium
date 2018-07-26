@@ -34,13 +34,12 @@ import (
 var (
 	endpointTimeout  = (60 * time.Second)
 	timeout          = time.Duration(300)
-	netcatDsManifest = "netcat_ds.yaml"
+	netcatDsManifest = "netcat-ds.yaml"
 )
 
 var _ = Describe("NightlyEpsMeasurement", func() {
 
 	var kubectl *helpers.Kubectl
-	var logger *logrus.Entry
 
 	endpointCount := 45
 	endpointsTimeout := endpointTimeout * time.Duration(endpointCount)
@@ -50,9 +49,6 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 	var err error
 
 	BeforeAll(func() {
-		logger = log.WithFields(logrus.Fields{"testName": "NightlyK8sEpsMeasurement"})
-		logger.Info("Starting")
-
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
 		err := kubectl.CiliumInstall(helpers.CiliumDSPath)
@@ -313,16 +309,12 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 var _ = Describe("NightlyExamples", func() {
 
 	var kubectl *helpers.Kubectl
-	var logger *logrus.Entry
 	var demoPath string
 	var l3Policy, l7Policy string
 	var appService = "app1-service"
 	var apps []string
 
 	BeforeAll(func() {
-		logger = log.WithFields(logrus.Fields{"testName": "NightlyK8sEpsMeasurement"})
-		logger.Info("Starting")
-
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
 		err := kubectl.CiliumInstall(helpers.CiliumDSPath)
@@ -331,8 +323,8 @@ var _ = Describe("NightlyExamples", func() {
 		apps = []string{helpers.App1, helpers.App2, helpers.App3}
 
 		demoPath = helpers.ManifestGet("demo.yaml")
-		l3Policy = helpers.ManifestGet("l3_l4_policy.yaml")
-		l7Policy = helpers.ManifestGet("l7_policy.yaml")
+		l3Policy = helpers.ManifestGet("l3-l4-policy.yaml")
+		l7Policy = helpers.ManifestGet("l7-policy.yaml")
 	})
 
 	AfterFailed(func() {

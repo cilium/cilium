@@ -77,12 +77,19 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 	for _, ep := range possibleEPs {
 		scopedLog := log.WithField(logfields.EndpointID, ep.ID)
 		skipRestore := false
-		if _, err := netlink.LinkByName(ep.IfName); err != nil {
-			scopedLog.Infof("Interface %s could not be found for endpoint being restored, ignoring", ep.IfName)
+
+		// On each restart, the health endpoint is supposed to be recreated.
+		// Hence we need to clean health endpoint state unconditionally.
+		if ep.HasLabels(labels.LabelHealth) {
 			skipRestore = true
-		} else if !workloads.IsRunning(ep) {
-			scopedLog.Info("No workload could be associated with endpoint being restored, ignoring")
-			skipRestore = true
+		} else {
+			if _, err := netlink.LinkByName(ep.IfName); err != nil {
+				scopedLog.Infof("Interface %s could not be found for endpoint being restored, ignoring", ep.IfName)
+				skipRestore = true
+			} else if !workloads.IsRunning(ep) {
+				scopedLog.Info("No workload could be associated with endpoint being restored, ignoring")
+				skipRestore = true
+			}
 		}
 
 		if clean && skipRestore {
@@ -106,8 +113,8 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 		} else {
 			ep.SetDefaultOpts(option.Config.Opts)
 			alwaysEnforce := policy.GetPolicyEnabled() == option.AlwaysEnforce
-			ep.Opts.Set(option.IngressPolicy, alwaysEnforce)
-			ep.Opts.Set(option.EgressPolicy, alwaysEnforce)
+			ep.Options.SetBool(option.IngressPolicy, alwaysEnforce)
+			ep.Options.SetBool(option.EgressPolicy, alwaysEnforce)
 		}
 
 		ep.Mutex.Unlock()
@@ -142,9 +149,18 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 		ep.Mutex.RUnlock()
 
 		go func(ep *endpoint.Endpoint, epRegenerated chan<- bool) {
-			ep.Mutex.Lock()
-
+			ep.Mutex.RLock()
 			scopedLog := log.WithField(logfields.EndpointID, ep.ID)
+			// Filter the restored labels with the new daemon's filter
+			l, _ := labels.FilterLabels(ep.OpLabels.IdentityLabels())
+			ep.Mutex.RUnlock()
+
+			identity, _, err := identityPkg.AllocateIdentity(l)
+			if err != nil {
+				scopedLog.WithError(err).Warn("Unable to restore endpoint")
+				epRegenerated <- false
+			}
+			ep.Mutex.Lock()
 
 			state := ep.GetStateLocked()
 			if state == endpoint.StateDisconnected || state == endpoint.StateDisconnecting {
@@ -154,12 +170,18 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 			}
 
 			ep.LogStatusOKLocked(endpoint.Other, "Synchronizing endpoint labels with KVStore")
-			if err := d.syncLabels(ep); err != nil {
-				scopedLog.WithError(err).Warn("Unable to restore endpoint")
-				ep.Mutex.Unlock()
-				epRegenerated <- false
-				return
+
+			if ep.SecurityIdentity != nil {
+				if oldSecID := ep.SecurityIdentity.ID; identity.ID != oldSecID {
+					log.WithFields(logrus.Fields{
+						logfields.EndpointID:              ep.ID,
+						logfields.IdentityLabels + ".old": oldSecID,
+						logfields.IdentityLabels + ".new": identity.ID,
+					}).Info("Security identity for endpoint is different from the security identity restored for the endpoint")
+				}
 			}
+			ep.SetIdentity(identity)
+
 			ready := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Triggering synchronous endpoint regeneration while syncing state to host")
 			ep.Mutex.Unlock()
 
@@ -285,29 +307,4 @@ func readEPsFromDirNames(basePath string, eptsDirNames []string) []*endpoint.End
 		possibleEPs = append(possibleEPs, ep)
 	}
 	return possibleEPs
-}
-
-// syncLabels syncs the labels from the labels' database for the given endpoint.
-// To be used with endpoint.Mutex locked.
-func (d *Daemon) syncLabels(ep *endpoint.Endpoint) error {
-	// Filter the restored labels with the new daemon's filter
-	l, _ := labels.FilterLabels(ep.OpLabels.IdentityLabels())
-	identity, _, err := identityPkg.AllocateIdentity(l)
-	if err != nil {
-		return err
-	}
-
-	if ep.SecurityIdentity != nil {
-		if oldSecID := ep.SecurityIdentity.ID; identity.ID != oldSecID {
-			log.WithFields(logrus.Fields{
-				logfields.EndpointID:              ep.ID,
-				logfields.IdentityLabels + ".old": oldSecID,
-				logfields.IdentityLabels + ".new": identity.ID,
-			}).Info("Security label ID for endpoint is different that the one stored, updating")
-		}
-	}
-
-	ep.SetIdentity(identity)
-
-	return nil
 }

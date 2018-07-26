@@ -23,16 +23,16 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 type MongoProxy struct {
 	// The human readable prefix to use when emitting :ref:`statistics
 	// <config_network_filters_mongo_proxy_stats>`.
-	StatPrefix string `protobuf:"bytes,1,opt,name=stat_prefix,json=statPrefix" json:"stat_prefix,omitempty"`
+	StatPrefix string `protobuf:"bytes,1,opt,name=stat_prefix,json=statPrefix,proto3" json:"stat_prefix,omitempty"`
 	// The optional path to use for writing Mongo access logs. If not access log
 	// path is specified no access logs will be written. Note that access log is
 	// also gated :ref:`runtime <config_network_filters_mongo_proxy_runtime>`.
-	AccessLog string `protobuf:"bytes,2,opt,name=access_log,json=accessLog" json:"access_log,omitempty"`
+	AccessLog string `protobuf:"bytes,2,opt,name=access_log,json=accessLog,proto3" json:"access_log,omitempty"`
 	// Inject a fixed delay before proxying a Mongo operation. Delays are
 	// applied to the following MongoDB operations: Query, Insert, GetMore,
 	// and KillCursors. Once an active delay is in progress, all incoming
 	// data up until the timer event fires will be a part of the delay.
-	Delay                *v2.FaultDelay `protobuf:"bytes,3,opt,name=delay" json:"delay,omitempty"`
+	Delay                *v2.FaultDelay `protobuf:"bytes,3,opt,name=delay,proto3" json:"delay,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
 	XXX_unrecognized     []byte         `json:"-"`
 	XXX_sizecache        int32          `json:"-"`

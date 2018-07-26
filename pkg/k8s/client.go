@@ -139,7 +139,7 @@ func isConnReady(c *kubernetes.Clientset) error {
 	return err
 }
 
-func updateNodeAnnotation(c kubernetes.Interface, node *v1.Node, v4CIDR, v6CIDR *net.IPNet, v4HealthIP, v6HealthIP net.IP) (*v1.Node, error) {
+func updateNodeAnnotation(c kubernetes.Interface, node *v1.Node, v4CIDR, v6CIDR *net.IPNet, v4HealthIP, v6HealthIP, v4CiliumHostIP net.IP) (*v1.Node, error) {
 	if node.Annotations == nil {
 		node.Annotations = map[string]string{}
 	}
@@ -158,6 +158,10 @@ func updateNodeAnnotation(c kubernetes.Interface, node *v1.Node, v4CIDR, v6CIDR 
 		node.Annotations[annotation.V6HealthName] = v6HealthIP.String()
 	}
 
+	if v4CiliumHostIP != nil {
+		node.Annotations[annotation.CiliumHostIP] = v4CiliumHostIP.String()
+	}
+
 	node, err := c.CoreV1().Nodes().Update(node)
 	if err != nil {
 		return nil, err
@@ -173,42 +177,48 @@ func updateNodeAnnotation(c kubernetes.Interface, node *v1.Node, v4CIDR, v6CIDR 
 // AnnotateNode writes v4 and v6 CIDRs and health IPs in the given k8s node name.
 // In case of failure while updating the node, this function while spawn a go
 // routine to retry the node update indefinitely.
-func AnnotateNode(c kubernetes.Interface, nodeName string, v4CIDR, v6CIDR *net.IPNet, v4HealthIP, v6HealthIP net.IP) error {
+func AnnotateNode(c kubernetes.Interface, nodeName string, v4CIDR, v6CIDR *net.IPNet, v4HealthIP, v6HealthIP, v4CiliumHostIP net.IP) error {
 	scopedLog := log.WithFields(logrus.Fields{
-		logfields.NodeName:   nodeName,
-		logfields.V4Prefix:   v4CIDR,
-		logfields.V6Prefix:   v6CIDR,
-		logfields.V4HealthIP: v4HealthIP,
-		logfields.V6HealthIP: v6HealthIP,
+		logfields.NodeName:       nodeName,
+		logfields.V4Prefix:       v4CIDR,
+		logfields.V6Prefix:       v6CIDR,
+		logfields.V4HealthIP:     v4HealthIP,
+		logfields.V6HealthIP:     v6HealthIP,
+		logfields.V4CiliumHostIP: v4CiliumHostIP,
 	})
 	scopedLog.Debug("Updating node annotations with node CIDRs")
 
-	go func(c kubernetes.Interface, nodeName string, v4CIDR, v6CIDR *net.IPNet, v4HealthIP, v6HealthIP net.IP) {
+	go func(c kubernetes.Interface, nodeName string, v4CIDR, v6CIDR *net.IPNet, v4HealthIP, v6HealthIP, v4CiliumHostIP net.IP) {
 		var node *v1.Node
 		var err error
 
 		for n := 1; n <= maxUpdateRetries; n++ {
 			node, err = GetNode(c, nodeName)
-			if err == nil {
-				_, err = updateNodeAnnotation(c, node, v4CIDR, v6CIDR, v4HealthIP, v6HealthIP)
-			} else {
-				if errors.IsNotFound(err) {
-					err = ErrNilNode
-				}
+			switch {
+			case err == nil:
+				_, err = updateNodeAnnotation(c, node, v4CIDR, v6CIDR, v4HealthIP, v6HealthIP, v4CiliumHostIP)
+			case errors.IsNotFound(err):
+				err = ErrNilNode
 			}
 
-			if err != nil {
+			switch {
+			case err == nil:
+				return
+			case errors.IsConflict(err):
 				scopedLog.WithFields(logrus.Fields{
 					fieldRetry:    n,
 					fieldMaxRetry: maxUpdateRetries,
-				}).WithError(err).Error("Unable to update node resource with annotation")
-			} else {
-				break
+				}).WithError(err).Debugf("Unable to update node resource with annotation")
+			default:
+				scopedLog.WithFields(logrus.Fields{
+					fieldRetry:    n,
+					fieldMaxRetry: maxUpdateRetries,
+				}).WithError(err).Warn("Unable to update node resource with annotation")
 			}
 
 			time.Sleep(time.Duration(n) * time.Second)
 		}
-	}(c, nodeName, v4CIDR, v6CIDR, v4HealthIP, v6HealthIP)
+	}(c, nodeName, v4CIDR, v6CIDR, v4HealthIP, v6HealthIP, v4CiliumHostIP)
 
 	return nil
 }

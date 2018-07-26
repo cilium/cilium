@@ -11,7 +11,7 @@ import (
 	graceful "github.com/tylerb/graceful"
 
 	"github.com/cilium/cilium/api/v1/server/restapi"
-	"github.com/cilium/cilium/pkg/apipanic"
+	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/metrics"
 )
 
@@ -68,7 +68,7 @@ func setupGlobalMiddleware(handler http.Handler) http.Handler {
 		TSGauge: metrics.EventTSAPI,
 	}
 
-	return &apipanic.APIPanicHandler{
+	return &api.APIPanicHandler{
 		Next: eventsHelper,
 	}
 }

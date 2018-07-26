@@ -35,6 +35,9 @@ const (
 	// EndpointState is the current endpoint state
 	EndpointState = "endpointState"
 
+	// EventUUID is an event unique identifier
+	EventUUID = "eventID"
+
 	// ContainerID is the container identifier
 	ContainerID = "containerID"
 
@@ -66,6 +69,9 @@ const (
 	// L4PolicyID is the identifier of a L4 Policy
 	L4PolicyID = "PolicyID.L4"
 
+	// DNSName is a FQDN or not fully qualified name intended for DNS lookups
+	DNSName = "dnsName"
+
 	// IPAddr is an IPV4 or IPv6 address
 	IPAddr = "ipAddr"
 
@@ -81,6 +87,15 @@ const (
 	// BuildDuration is the time elapsed to build a BPF program
 	BuildDuration = "buildDuration"
 
+	// BPFCompilationTime is the time elapsed to build a BPF endpoint program
+	BPFCompilationTime = "BPFCompilationTime"
+
+	// PolicyRegenerationTime is the time elapsed to generate a policy
+	PolicyRegenerationTime = "policyRegenerationTime"
+
+	// EndpointRegenerationTime is the time elapsed to generate an endpoint
+	EndpointRegenerationTime = "endpointRegenerationTime"
+
 	// StartTime is the start time of an event
 	StartTime = "startTime"
 
@@ -89,6 +104,9 @@ const (
 
 	// V6HealthIP is an address used to contact the cilium-health endpoint
 	V6HealthIP = "v6healthIP.IPv6"
+
+	// V4CiliumHostIP is an address used for the cilium_host interface.
+	V4CiliumHostIP = "v4CiliumHostIP.IPv4"
 
 	// L3n4Addr is a L3 (IP) + L4 (port and protocol) address object.
 	L3n4Addr = "l3n4Addr"
@@ -259,4 +277,7 @@ const (
 
 	// BPFMapFD is the file descriptor for a BPF map.
 	BPFMapFD = "bpfMapFileDescriptor"
+
+	// ThreadID is the Envoy thread ID.
+	ThreadID = "threadID"
 )

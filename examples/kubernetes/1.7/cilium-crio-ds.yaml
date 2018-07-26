@@ -56,7 +56,6 @@ spec:
         command: [ "cilium-agent" ]
         args:
           - "--debug=$(CILIUM_DEBUG)"
-          - "-t=vxlan"
           - "--kvstore=etcd"
           - "--kvstore-opt=etcd.config=/var/lib/etcd-config/etcd.config"
           - "--disable-ipv4=$(DISABLE_IPV4)"
@@ -102,6 +101,24 @@ spec:
                 name: cilium-config
                 optional: true
                 key: legacy-host-allows-world
+          - name: "CILIUM_SIDECAR_ISTIO_PROXY_IMAGE"
+            valueFrom:
+              configMapKeyRef:
+                name: cilium-config
+                key: sidecar-istio-proxy-image
+                optional: true
+          - name: CILIUM_TUNNEL
+            valueFrom:
+              configMapKeyRef:
+                key: tunnel
+                name: cilium-config
+                optional: true
+          - name: "CILIUM_MONITOR_AGGREGATION_LEVEL"
+            valueFrom:
+              configMapKeyRef:
+                key: monitor-aggregation-level
+                name: cilium-config
+                optional: true
         livenessProbe:
           exec:
             command:
@@ -156,7 +173,7 @@ spec:
           # To read labels from CRI-O containers running in the host
         - name: crio-socket
           hostPath:
-            path: /var/run/crio.sock
+            path: /var/run/crio/crio.sock
           # To install cilium cni plugin in the host
         - name: cni-path
           hostPath:

@@ -21,20 +21,17 @@ import (
 	"github.com/cilium/cilium/test/helpers"
 
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 )
 
-var _ = Describe("K8sValidatedChaosTest", func() {
+var _ = Describe("K8sChaosTest", func() {
 
 	var (
 		kubectl       *helpers.Kubectl
-		logger        = log.WithFields(logrus.Fields{"testName": "K8sChaosTest"})
 		demoDSPath    = helpers.ManifestGet("demo_ds.yaml")
 		testDSService = "testds-service.default.svc.cluster.local"
 	)
 
 	BeforeAll(func() {
-		logger.Info("Starting")
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
 		err := kubectl.CiliumInstall(helpers.CiliumDSPath)
@@ -113,7 +110,11 @@ var _ = Describe("K8sValidatedChaosTest", func() {
 			helpers.KubectlCmd, helpers.KubeSystemNamespace))
 		res.ExpectSuccess()
 
+		ExpectAllPodsTerminated(kubectl)
+
 		ExpectCiliumReady(kubectl)
+		err = kubectl.CiliumEndpointWaitReady()
+		Expect(err).To(BeNil(), "Endpoints are not ready after Cilium restarts")
 
 		PingService()
 

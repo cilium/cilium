@@ -25,6 +25,8 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
+
+	"github.com/spf13/viper"
 )
 
 const (
@@ -55,7 +57,54 @@ const (
 
 	// K8sRequireIPv6PodCIDRName is the name of the K8sRequireIPv6PodCIDR option
 	K8sRequireIPv6PodCIDRName = "k8s-require-ipv6-pod-cidr"
+
+	// AutoIPv6NodeRoutesName is the name of the AutoIPv6NodeRoutes option
+	AutoIPv6NodeRoutesName = "auto-ipv6-node-routes"
+
+	// MTUName is the name of the MTU option
+	MTUName = "mtu"
+
+	// TunnelName is the name of the Tunnel option
+	TunnelName = "tunnel"
+
+	// TunnelNameEnv is the name of the environment variable for option.TunnelName
+	TunnelNameEnv = "CILIUM_TUNNEL"
+
+	// SingleClusterRouteName is the name of the SingleClusterRoute option
+	//
+	// SingleClusterRoute enables use of a single route covering the entire
+	// cluster CIDR to point to the cilium_host interface instead of using
+	// a separate route for each cluster node CIDR. This option is not
+	// compatible with Tunnel=TunnelDisabled
+	SingleClusterRouteName = "single-cluster-route"
+
+	// MonitorAggregationName specifies the MonitorAggregationLevel on the
+	// comandline.
+	MonitorAggregationName = "monitor-aggregation"
+
+	// ClusterName is the name of the ClusterName option
+	ClusterName = "cluster-name"
+
+	// ClusterNameEnv is the name of the environment variable of the ClusterName option
+	ClusterNameEnv = "CILIUM_CLUSTER_NAME"
 )
+
+// Available option for daemonConfig.Tunnel
+const (
+	// TunnelVXLAN specifies VXLAN encapsulation
+	TunnelVXLAN = "vxlan"
+
+	// TunnelGeneve specifies Geneve encapsulation
+	TunnelGeneve = "geneve"
+
+	// TunnelDisabled specifies to disable encapsulation
+	TunnelDisabled = "disabled"
+)
+
+// GetTunnelModes returns the list of all tunnel modes
+func GetTunnelModes() string {
+	return fmt.Sprintf("%s, %s, %s", TunnelVXLAN, TunnelGeneve, TunnelDisabled)
+}
 
 // daemonConfig is the configuration used by Daemon.
 type daemonConfig struct {
@@ -98,7 +147,7 @@ type daemonConfig struct {
 	StateDir string
 
 	// Options changeable at runtime
-	Opts *BoolOptions
+	Opts *IntOptions
 
 	// Mutex for serializing configuration updates to the daemon.
 	ConfigPatchMutex lock.RWMutex
@@ -132,11 +181,21 @@ type daemonConfig struct {
 	// IPv6 PodCIDR. Cilium will block bootstrapping until the information
 	// is available.
 	K8sRequireIPv6PodCIDR bool
+
+	// AutoIPv6NodeRoutes enables automatic route injection of IPv6
+	// endpoint routes based on node discovery information
+	AutoIPv6NodeRoutes bool
+
+	// MTU is the maximum transmission unit of the underlying network
+	MTU int
+
+	// ClusterName is the name of the cluster
+	ClusterName string
 }
 
 var (
 	Config = &daemonConfig{
-		Opts:                     NewBoolOptions(&daemonLibrary),
+		Opts:                     NewIntOptions(&daemonLibrary),
 		Monitor:                  &models.MonitorStatus{Cpus: int64(runtime.NumCPU()), Npages: 64, Pagesize: int64(os.Getpagesize()), Lost: 0, Unknown: 0},
 		IPv6ClusterAllocCIDR:     defaults.IPv6ClusterAllocCIDR,
 		IPv6ClusterAllocCIDRBase: defaults.IPv6ClusterAllocCIDRBase,
@@ -202,6 +261,24 @@ func (c *daemonConfig) Validate() error {
 		return fmt.Errorf("unable to parse CIDR value '%s' of option --%s: %s",
 			c.IPv6ClusterAllocCIDR, IPv6ClusterAllocCIDRName, err)
 	}
+
+	if c.MTU <= 0 {
+		return fmt.Errorf("MTU '%d' cannot be 0 or negative", c.MTU)
+	}
+
+	c.Tunnel = viper.GetString(TunnelName)
+	switch c.Tunnel {
+	case TunnelVXLAN, TunnelGeneve:
+	case TunnelDisabled:
+		if viper.GetBool(SingleClusterRouteName) {
+			return fmt.Errorf("option --%s cannot be used in combination with --%s=%s",
+				SingleClusterRouteName, TunnelName, TunnelDisabled)
+		}
+	default:
+		return fmt.Errorf("invalid tunnel mode '%s', valid modes = {%s}", c.Tunnel, GetTunnelModes())
+	}
+
+	c.ClusterName = viper.GetString(ClusterName)
 
 	return nil
 }

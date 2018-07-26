@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
@@ -44,11 +45,13 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/monitor"
+	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/pprof"
+	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/version"
 	"github.com/cilium/cilium/pkg/workloads"
 
@@ -79,12 +82,12 @@ const (
 )
 
 var (
-	log = logging.DefaultLogger
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "daemon")
+
+	bootstrapTimestamp = time.Now()
 
 	// Arguments variables keep in alphabetical order
 
-	// autoIPv6NodeRoutes automatically adds L3 direct routing when using direct mode (-d)
-	autoIPv6NodeRoutes    bool
 	bpfRoot               string
 	cmdRefDir             string
 	debugVerboseFlags     []string
@@ -102,7 +105,6 @@ var (
 	masquerade            bool
 	nat46prefix           string
 	prometheusServeAddr   string
-	singleClusterRoute    bool
 	socketPath            string
 	tracePayloadLen       int
 	v4Address             string
@@ -116,8 +118,32 @@ var (
 )
 
 var (
-	logOpts               = make(map[string]string)
-	kvStoreOpts           = make(map[string]string)
+	logOpts                = make(map[string]string)
+	kvStoreOpts            = make(map[string]string)
+	fixedIdentity          = make(map[string]string)
+	fixedIdentityValidator = option.Validator(func(val string) (string, error) {
+		vals := strings.Split(val, "=")
+		if len(vals) != 2 {
+			return "", fmt.Errorf(`invalid fixed identity: expecting "<numeric-identity>=<identity-name>" got %q`, val)
+		}
+		ni, err := identity.ParseNumericIdentity(vals[0])
+		if err != nil {
+			return "", fmt.Errorf(`invalid numeric identity %q: %s`, val, err)
+		}
+		if !identity.IsUserReservedIdentity(ni) {
+			return "", fmt.Errorf(`invalid numeric identity %q: valid numeric identity is between %d and %d`,
+				val, identity.UserReservedNumericIdentity.Uint32(), identity.MinimalNumericIdentity.Uint32())
+		}
+		lblStr := vals[1]
+		lbl := labels.ParseLabel(lblStr)
+		switch {
+		case lbl == nil:
+			return "", fmt.Errorf(`unable to parse given label: %s`, lblStr)
+		case lbl.IsReservedSource():
+			return "", fmt.Errorf(`invalid source %q for label: %s`, labels.LabelSourceReserved, lblStr)
+		}
+		return val, nil
+	})
 	containerRuntimesOpts = make(map[string]string)
 	cfgFile               string
 
@@ -311,12 +337,15 @@ func init() {
 	viper.BindEnv("access-labels", "CILIUM_ACCESS_LABELS")
 	flags.StringVar(&option.Config.AllowLocalhost,
 		"allow-localhost", option.AllowLocalhostAuto, "Policy when to allow local stack to reach local endpoints { auto | always | policy } ")
-	flags.Bool(
-		"auto-ipv6-node-routes", false, "Automatically adds IPv6 L3 routes to reach other nodes for non-overlay mode (--device) (BETA)")
+	flags.BoolVar(&option.Config.AutoIPv6NodeRoutes,
+		option.AutoIPv6NodeRoutesName, false, "Automatically adds IPv6 L3 routes to reach other nodes for non-overlay mode (--device) (BETA)")
 	flags.StringVar(&bpfRoot,
 		"bpf-root", "", "Path to BPF filesystem")
+	flags.String(option.ClusterName, defaults.ClusterName, "Name of the cluster")
+	viper.BindEnv(option.ClusterName, option.ClusterNameEnv)
 	flags.StringVar(&cfgFile,
 		"config", "", `Configuration file (default "$HOME/ciliumd.yaml")`)
+	flags.Uint("conntrack-garbage-collector-interval", 60, "Garbage collection interval for the connection tracking table (in seconds)")
 	flags.StringSliceVar(&option.Config.Workloads,
 		"container-runtime", []string{"auto"}, `Sets the container runtime(s) used by Cilium { containerd | crio | docker | none | auto } ( "auto" uses the container runtime found in the order: "docker", "containerd", "crio" )`)
 	flags.Var(option.NewNamedMapOptions("container-runtime-endpoints", &containerRuntimesOpts, nil),
@@ -344,6 +373,8 @@ func init() {
 	flags.MarkHidden("disable-envoy-version-check")
 	// Disable version check if Envoy build is disabled
 	viper.BindEnv("disable-envoy-version-check", "CILIUM_DISABLE_ENVOY_BUILD")
+	flags.Var(option.NewNamedMapOptions("fixed-identity-mapping", &fixedIdentity, fixedIdentityValidator),
+		"fixed-identity-mapping", "Key-value for the fixed identity mapping which allows to use reserved label for fixed identities")
 	flags.IntVar(&v4ClusterCidrMaskSize,
 		"ipv4-cluster-cidr-mask-size", 8, "Mask size for the cluster wide CIDR")
 	flags.StringVar(&v4Prefix,
@@ -395,6 +426,11 @@ func init() {
 		"nat46-range", node.DefaultNAT46Prefix, "IPv6 prefix to map IPv4 addresses to")
 	flags.BoolVar(&masquerade,
 		"masquerade", true, "Masquerade packets from endpoints leaving the host")
+	flags.String(option.MonitorAggregationName, "None",
+		"Level of monitor aggregation for traces from the datapath")
+	viper.BindEnv(option.MonitorAggregationName, "CILIUM_MONITOR_AGGREGATION_LEVEL")
+	flags.IntVar(&option.Config.MTU,
+		option.MTUName, mtu.AutoDetect(), "Overwrite auto-detected MTU of underlying network")
 	flags.StringVar(&v6Address,
 		"ipv6-node", "auto", "IPv6 address of node")
 	flags.StringVar(&v4Address,
@@ -404,14 +440,17 @@ func init() {
 	flags.Bool("sidecar-http-proxy", false, "Disable host HTTP proxy, assuming proxies in sidecar containers")
 	flags.MarkHidden("sidecar-http-proxy")
 	viper.BindEnv("sidecar-http-proxy", "CILIUM_SIDECAR_HTTP_PROXY")
-	flags.BoolVar(&singleClusterRoute, "single-cluster-route", false,
+	flags.String("sidecar-istio-proxy-image", workloads.DefaultSidecarIstioProxyImageRegexp,
+		"Regular expression matching compatible Istio sidecar istio-proxy container image names")
+	viper.BindEnv("sidecar-istio-proxy-image", "CILIUM_SIDECAR_ISTIO_PROXY_IMAGE")
+	flags.Bool(option.SingleClusterRouteName, false,
 		"Use a single cluster route instead of per node routes")
 	flags.StringVar(&socketPath,
 		"socket-path", defaults.SockPath, "Sets daemon's socket path to listen for connections")
 	flags.StringVar(&option.Config.RunDir,
 		"state-dir", defaults.RuntimePath, "Directory path to store runtime state")
-	flags.StringVarP(&option.Config.Tunnel,
-		"tunnel", "t", "vxlan", `Tunnel mode "vxlan" or "geneve"`)
+	flags.StringP(option.TunnelName, "t", option.TunnelVXLAN, fmt.Sprintf("Tunnel mode {%s}", option.GetTunnelModes()))
+	viper.BindEnv(option.TunnelName, option.TunnelNameEnv)
 	flags.IntVar(&tracePayloadLen,
 		"trace-payloadlen", 128, "Length of payload to capture when tracing")
 	flags.Bool(
@@ -540,10 +579,18 @@ func initEnv(cmd *cobra.Command) {
 		pprof.Enable()
 	}
 
+	if configuredMTU := viper.GetInt(option.MTUName); configuredMTU != 0 {
+		mtu.UseMTU(configuredMTU)
+	}
+
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.Path + ".RunDir": option.Config.RunDir,
 		logfields.Path + ".LibDir": option.Config.LibDir,
 	})
+
+	if option.Config.LBInterface != "" {
+		service.EnableGlobalServiceID(true)
+	}
 
 	option.Config.BpfDir = filepath.Join(option.Config.LibDir, defaults.BpfDir)
 	scopedLog = scopedLog.WithField(logfields.Path+".BPFDir", defaults.BpfDir)
@@ -570,9 +617,6 @@ func initEnv(cmd *cobra.Command) {
 		}
 	}
 
-	if !(viper.GetString("tunnel") == "vxlan" || viper.GetString("tunnel") == "geneve") {
-		log.Fatalf("Invalid setting for -t, must be {vxlan, geneve}")
-	}
 	checkMinRequirements()
 
 	if err := pidfile.Write(defaults.PidFilePath); err != nil {
@@ -616,18 +660,27 @@ func initEnv(cmd *cobra.Command) {
 	bpf.CheckOrMountFS(bpfRoot)
 
 	logging.DefaultLogLevel = defaults.DefaultLogLevel
-	option.Config.Opts.Set(option.Debug, viper.GetBool("debug"))
+	option.Config.Opts.SetBool(option.Debug, viper.GetBool("debug"))
 
-	autoIPv6NodeRoutes = viper.GetBool("auto-ipv6-node-routes")
+	option.Config.Opts.SetBool(option.DropNotify, true)
+	option.Config.Opts.SetBool(option.TraceNotify, true)
+	option.Config.Opts.SetBool(option.PolicyTracing, enableTracing)
+	option.Config.Opts.SetBool(option.Conntrack, !disableConntrack)
+	option.Config.Opts.SetBool(option.ConntrackAccounting, !disableConntrack)
+	option.Config.Opts.SetBool(option.ConntrackLocal, false)
 
-	option.Config.Opts.Set(option.DropNotify, true)
-	option.Config.Opts.Set(option.TraceNotify, true)
-	option.Config.Opts.Set(option.PolicyTracing, enableTracing)
-	option.Config.Opts.Set(option.Conntrack, !disableConntrack)
-	option.Config.Opts.Set(option.ConntrackAccounting, !disableConntrack)
-	option.Config.Opts.Set(option.ConntrackLocal, false)
+	monitorAggregationLevel, err := option.ParseMonitorAggregationLevel(viper.GetString(option.MonitorAggregationName))
+	if err != nil {
+		log.WithError(err).Fatal("Failed to parse %s: %s",
+			option.MonitorAggregationName, err)
+	}
+	option.Config.Opts.SetValidated(option.MonitorAggregation, monitorAggregationLevel)
 
 	policy.SetPolicyEnabled(strings.ToLower(viper.GetString("enable-policy")))
+
+	if err := identity.AddUserDefinedNumericIdentitySet(fixedIdentity); err != nil {
+		log.Fatal("Invalid fixed identities provided: %s", err)
+	}
 
 	if err := kvstore.Setup(kvStore, kvStoreOpts); err != nil {
 		addrkey := fmt.Sprintf("%s.address", kvStore)
@@ -697,6 +750,12 @@ func initEnv(cmd *cobra.Command) {
 	if viper.GetBool("sidecar-http-proxy") {
 		log.Warn(`"sidecar-http-proxy" flag is deprecated and has no effect`)
 	}
+
+	workloads.SidecarIstioProxyImageRegexp, err = regexp.Compile(viper.GetString("sidecar-istio-proxy-image"))
+	if err != nil {
+		log.WithError(err).Fatal("Invalid sidecar-istio-proxy-image regular expression")
+		return
+	}
 }
 
 // runCiliumHealthEndpoint attempts to contact the cilium-health endpoint, and
@@ -735,7 +794,7 @@ func runDaemon() {
 	}
 
 	log.Info("Starting connection tracking garbage collector")
-	endpointmanager.EnableConntrackGC(!option.Config.IPv4Disabled, true)
+	endpointmanager.EnableConntrackGC(!option.Config.IPv4Disabled, true, viper.GetInt("conntrack-garbage-collector-interval"))
 
 	if enableLogstash {
 		log.Info("Enabling Logstash")
@@ -859,6 +918,10 @@ func runDaemon() {
 	// /debuginfo
 	api.DaemonGetDebuginfoHandler = NewGetDebugInfoHandler(d)
 
+	// /map
+	api.DaemonGetMapHandler = NewGetMapHandler(d)
+	api.DaemonGetMapNameHandler = NewGetMapNameHandler(d)
+
 	server := server.NewServer(api)
 	server.EnabledListeners = []string{"unix"}
 	server.SocketPath = flags.Filename(socketPath)
@@ -873,7 +936,8 @@ func runDaemon() {
 		d.SendNotification(monitor.AgentNotifyStart, repr)
 	}
 
-	log.Info("Daemon initialization completed")
+	log.WithField("bootstrapTime", time.Since(bootstrapTimestamp)).
+		Info("Daemon initialization completed")
 
 	if err := server.Serve(); err != nil {
 		log.WithError(err).Fatal("Error returned from non-returning Serve() call")

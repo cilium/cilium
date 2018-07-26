@@ -4,7 +4,7 @@ ifeq ($(CILIUM_VERSION),)
     CILIUM_VERSION = "v$(shell cat ../../VERSION)"
 endif
 
-K8S_VERSIONS = 1.7 1.8 1.9 1.10 1.11
+K8S_VERSIONS = 1.7 1.8 1.9 1.10 1.11 1.12
 
 # make_concat creates a concatenated YAML file specific for a K8s version.
 # $(1) is the K8s version. $(2) is the concatenated file.

@@ -17,7 +17,7 @@ include ../Makefile.quiet
 # Depends on Envoy dependencies, Envoy must be built first
 
 PROTOC ?= bazel-out/host/bin/external/com_google_protobuf/protoc
-ENVOY_API_PROTO_PATH = bazel-envoy/external/envoy_api
+ENVOY_API_PROTO_PATH = bazel-envoy/external/envoy/api
 CILIUM_PROTO_PATH = .
 PROTO_DEPS = \
 	-I bazel-envoy/external/com_google_protobuf/src \

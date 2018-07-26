@@ -60,7 +60,7 @@ func (c *FakeCiliumEndpoints) List(opts v1.ListOptions) (result *v2.CiliumEndpoi
 	if label == nil {
 		label = labels.Everything()
 	}
-	list := &v2.CiliumEndpointList{}
+	list := &v2.CiliumEndpointList{ListMeta: obj.(*v2.CiliumEndpointList).ListMeta}
 	for _, item := range obj.(*v2.CiliumEndpointList).Items {
 		if label.Matches(labels.Set(item.Labels)) {
 			list.Items = append(list.Items, item)
@@ -91,6 +91,18 @@ func (c *FakeCiliumEndpoints) Create(ciliumEndpoint *v2.CiliumEndpoint) (result 
 func (c *FakeCiliumEndpoints) Update(ciliumEndpoint *v2.CiliumEndpoint) (result *v2.CiliumEndpoint, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewUpdateAction(ciliumendpointsResource, c.ns, ciliumEndpoint), &v2.CiliumEndpoint{})
+
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*v2.CiliumEndpoint), err
+}
+
+// UpdateStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+func (c *FakeCiliumEndpoints) UpdateStatus(ciliumEndpoint *v2.CiliumEndpoint) (*v2.CiliumEndpoint, error) {
+	obj, err := c.Fake.
+		Invokes(testing.NewUpdateSubresourceAction(ciliumendpointsResource, "status", c.ns, ciliumEndpoint), &v2.CiliumEndpoint{})
 
 	if obj == nil {
 		return nil, err

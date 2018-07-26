@@ -25,21 +25,16 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var _ = Describe("K8sValidatedTunnelTest", func() {
+var _ = Describe("K8sTunnelTest", func() {
 
 	var kubectl *helpers.Kubectl
 	var demoDSPath string
-	var logger *logrus.Entry
 
 	BeforeAll(func() {
-		logger = log.WithFields(logrus.Fields{"testName": "K8sTunnelTest"})
-		logger.Info("Starting")
-
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		demoDSPath = helpers.ManifestGet("demo_ds.yaml")
 
 		kubectl.Exec("kubectl -n kube-system delete ds cilium")
-		// Expect(res.Correct()).Should(BeTrue())
 
 		waitToDeleteCilium(kubectl, logger)
 	})
@@ -50,10 +45,7 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 	})
 
 	AfterEach(func() {
-		_ = kubectl.Delete(demoDSPath)
-	})
-
-	AfterAll(func() {
+		kubectl.Delete(demoDSPath)
 		ExpectAllPodsTerminated(kubectl)
 	})
 

@@ -22,21 +22,17 @@ import (
 	"github.com/cilium/cilium/test/helpers"
 
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 )
 
-var _ = Describe("RuntimeValidatedLB", func() {
+var _ = Describe("RuntimeLB", func() {
 	var (
-		logger      *logrus.Entry
 		vm          *helpers.SSHMeta
 		monitorStop = func() error { return nil }
 	)
 
 	BeforeAll(func() {
-		logger = log.WithFields(logrus.Fields{"test": "RuntimeLB"})
-		logger.Info("Starting")
-		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
-		vm.PolicyDelAll().ExpectSuccess()
+		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
+		ExpectCiliumReady(vm)
 	})
 
 	AfterAll(func() {

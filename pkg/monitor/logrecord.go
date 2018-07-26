@@ -97,7 +97,7 @@ type LogRecordNotifyVerbose struct {
 	SrcIdentity      uint64                     `json:"srcIdentity"`
 	DstEpID          uint64                     `json:"dstEpID"`
 	DstEpLabels      []string                   `json:"dstEpLabels"`
-	DstIdentity      uint64                     `json:dstIdentity`
+	DstIdentity      uint64                     `json:"dstIdentity"`
 	Verdict          accesslog.FlowVerdict      `json:"verdict"`
 	HTTP             *accesslog.LogRecordHTTP   `json:"http,omitempty"`
 	Kafka            *accesslog.LogRecordKafka  `json:"kafka,omitempty"`

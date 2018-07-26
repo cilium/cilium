@@ -1,3 +1,9 @@
+.. only:: not (epub or latex or html)
+
+    WARNING: You are looking at unreleased Cilium documentation.
+    Please use the official rendered version released here:
+      http://docs.cilium.io
+
 ***************************
 Getting Started Using Istio
 ***************************
@@ -38,7 +44,9 @@ Cilium network policy filters into each Istio sidecar proxy:
 ::
 
     $ sed -e 's,{{ .Values.global.hub }}/{{ .Values.image }},docker.io/cilium/istio_pilot,' \
-          -i istio-cilium-helm/charts/pilot/templates/deployment.yaml
+          < istio-cilium-helm/charts/pilot/templates/deployment.yaml \
+          > istio-cilium-helm/charts/pilot/templates/deployment.yaml.new && \
+          mv istio-cilium-helm/charts/pilot/templates/deployment.yaml.new istio-cilium-helm/charts/pilot/templates/deployment.yaml
 
 Configure the Istio's sidecar injection to setup the transparent proxy mode
 (TPROXY) as required by Cilium's proxy filters:
@@ -46,7 +54,9 @@ Configure the Istio's sidecar injection to setup the transparent proxy mode
 ::
 
     $ sed -e 's,#interceptionMode: .*,interceptionMode: TPROXY,' \
-          -i istio-cilium-helm/templates/configmap.yaml
+          < istio-cilium-helm/templates/configmap.yaml \
+          > istio-cilium-helm/templates/configmap.yaml.new && \
+          mv istio-cilium-helm/templates/configmap.yaml.new istio-cilium-helm/templates/configmap.yaml
 
 Modify the Istio sidecar injection template to uses Cilium's proxy Docker
 images and mount Cilium's API Unix domain sockets into each sidecar to allow
@@ -58,10 +68,10 @@ Cilium's Envoy filters to query the Cilium agent for policy configuration:
 
 ::
 
-    $ cat istio-cilium-helm/templates/sidecar-injector-configmap.yaml | \
-          awk -f cilium-kube-inject.awk \
-          > istio-cilium-helm/templates/sidecar-injector-configmap-cilium.yaml
-    $ mv istio-cilium-helm/templates/sidecar-injector-configmap-cilium.yaml istio-cilium-helm/templates/sidecar-injector-configmap.yaml
+    $ awk -f cilium-kube-inject.awk \
+          < istio-cilium-helm/templates/sidecar-injector-configmap.yaml \
+          > istio-cilium-helm/templates/sidecar-injector-configmap.yaml.new && \
+          mv istio-cilium-helm/templates/sidecar-injector-configmap.yaml.new istio-cilium-helm/templates/sidecar-injector-configmap.yaml
 
 Create an Istio deployment spec:
 
@@ -72,6 +82,9 @@ Create an Istio deployment spec:
           --set global.controlPlaneSecurityEnabled=false \
           --set global.mtls.enabled=false \
           --set global.proxy.image=proxy_debug \
+          --set ingress.enabled=false \
+          --set egressgateway.enabled=false \
+          --set global.tag=0.8.0 \
           > istio-cilium.yaml
 
 .. TODO: Set global.controlPlaneSecurityEnabled=true and
@@ -93,8 +106,6 @@ Check the progress of the deployment (every service should have an
     $ kubectl get deployments -n istio-system
     NAME                       DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
     istio-citadel              1         1         1            1           4m
-    istio-egressgateway        1         1         1            1           4m
-    istio-ingress              1         1         1            1           4m
     istio-ingressgateway       1         1         1            1           4m
     istio-pilot                1         1         1            1           4m
     istio-policy               1         1         1            1           4m

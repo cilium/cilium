@@ -8,32 +8,36 @@ import (
 	"github.com/cilium/cilium/test/helpers"
 
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 )
 
-var _ = Describe("K8sValidatedUpdates", func() {
+var _ = Describe("K8sUpdates", func() {
+	var (
+		kubectl            *helpers.Kubectl
+		demoPath           string
+		l3Policy, l7Policy string
+		apps               []string
 
-	var kubectl *helpers.Kubectl
-	var logger *logrus.Entry
-	var demoPath string
-	var l3Policy, l7Policy string
-	var apps []string
-	var app1Service string = "app1-service.default.svc.cluster.local"
+		app1Service = "app1-service.default.svc.cluster.local"
+
+		microscopeErr    error
+		microscopeCancel = func() error { return nil }
+	)
 
 	BeforeAll(func() {
-		logger = log.WithFields(logrus.Fields{"testName": "K8sValidatedUpdates"})
-		logger.Info("Starting")
-
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
+		_ = kubectl.Delete(helpers.DNSDeployment())
+
+		// Delete kube-dns because if not will be a restore the old endpoints
+		// from master instead of create the new ones.
 		_ = kubectl.DeleteResource(
-			"ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
+			"deploy", fmt.Sprintf("-n %s kube-dns", helpers.KubeSystemNamespace))
 
 		apps = []string{helpers.App1, helpers.App2, helpers.App3}
 
 		demoPath = helpers.ManifestGet("demo.yaml")
-		l3Policy = helpers.ManifestGet("l3_l4_policy.yaml")
-		l7Policy = helpers.ManifestGet("l7_policy.yaml")
+		l3Policy = helpers.ManifestGet("l3-l4-policy.yaml")
+		l7Policy = helpers.ManifestGet("l7-policy.yaml")
 
 		// Sometimes PolicyGen has a lot of pods running around without delete
 		// it. Using this we are sure that we delete before this test start
@@ -43,12 +47,22 @@ var _ = Describe("K8sValidatedUpdates", func() {
 		ExpectAllPodsTerminated(kubectl)
 	})
 
+	JustBeforeEach(func() {
+		microscopeErr, microscopeCancel = kubectl.MicroscopeStart()
+		Expect(microscopeErr).To(BeNil(), "Microscope cannot be started")
+	})
+
+	AfterAll(func() {
+		_ = kubectl.Apply(helpers.DNSDeployment())
+	})
+
 	AfterFailed(func() {
 		kubectl.CiliumReport(helpers.KubeSystemNamespace, "cilium endpoint list")
 	})
 
 	JustAfterEach(func() {
 		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+		Expect(microscopeCancel()).To(BeNil(), "cannot stop microscope")
 	})
 
 	AfterEach(func() {
@@ -68,9 +82,13 @@ var _ = Describe("K8sValidatedUpdates", func() {
 		// Making sure that we deleted the  cilium ds. No assert message
 		// because maybe is not present
 		kubectl.DeleteResource("ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
+		ExpectAllPodsTerminated(kubectl)
+
 		helpers.InstallExampleCilium(kubectl)
 
-		ExpectKubeDNSReady(kubectl)
+		err := kubectl.CiliumEndpointWaitReady()
+		Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
+
 	})
 
 	validatedImage := func(image string) {
@@ -87,12 +105,16 @@ var _ = Describe("K8sValidatedUpdates", func() {
 	}
 
 	It("Updating Cilium stable to master", func() {
+		By("Installing kube-dns")
+		kubectl.Apply(helpers.DNSDeployment()).ExpectSuccess("Kube-dns cannot be installed")
 
 		By("Creating some endpoints and L7 policy")
 		kubectl.Apply(demoPath).ExpectSuccess()
 
 		err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", timeout)
 		Expect(err).Should(BeNil())
+
+		ExpectKubeDNSReady(kubectl)
 
 		_, err = kubectl.CiliumPolicyAction(
 			helpers.KubeSystemNamespace, l7Policy, helpers.KubectlApply, timeout)
@@ -153,19 +175,25 @@ var _ = Describe("K8sValidatedUpdates", func() {
 			&helpers.TimeoutConfig{Timeout: timeout})
 		Expect(err).To(BeNil(), "Pods are not updating")
 
+		Expect(microscopeCancel()).To(BeNil(), "cannot stop microscope")
+		Expect(kubectl.WaitCleanAllTerminatingPods()).To(BeNil(), "Pods didn't terminate correctly")
+
+		microscopeErr, microscopeCancel = kubectl.MicroscopeStart()
+		Expect(microscopeErr).To(BeNil(), "Microscope cannot be started")
+
 		err = kubectl.WaitforPods(
 			helpers.KubeSystemNamespace, "-l k8s-app=cilium", timeout)
 		Expect(err).Should(BeNil(), "Cilium is not ready after timeout")
 
 		validatedImage(localImage)
 
+		err = kubectl.CiliumEndpointWaitReady()
+		Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
+
 		ExpectKubeDNSReady(kubectl)
 
 		err = kubectl.WaitForKubeDNSEntry(app1Service)
 		Expect(err).To(BeNil(), "DNS entry is not ready after timeout")
-
-		err = kubectl.CiliumEndpointWaitReady()
-		Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
 
 		res = kubectl.ExecPodCmd(
 			helpers.DefaultNamespace, appPods[helpers.App2],

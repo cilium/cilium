@@ -402,7 +402,7 @@ func (s *SSHMeta) MonitorStart() func() error {
 		}
 
 		err = ioutil.WriteFile(
-			filepath.Join(testPath, monitorLogFileName),
+			filepath.Join(testPath, MonitorLogFileName),
 			res.CombineOutput().Bytes(),
 			LogPerm)
 		if err != nil {
@@ -619,12 +619,11 @@ func (s *SSHMeta) ReportFailed(commands ...string) {
 
 	// Log the following line to both the log file, and to console to delineate
 	// when log gathering begins.
-	ginkgoext.GinkgoPrint("===================== TEST FAILED =====================")
 	res := s.ExecCilium("endpoint list") // save the output in the logs
 	ginkgoext.GinkgoPrint(res.GetDebugMessage())
 
 	for _, cmd := range commands {
-		res = s.ExecWithSudo(fmt.Sprintf("%s", cmd))
+		res = s.ExecWithSudo(fmt.Sprintf("%s", cmd), ExecOptions{SkipLog: true})
 		ginkgoext.GinkgoPrint(res.GetDebugMessage())
 	}
 
@@ -632,9 +631,6 @@ func (s *SSHMeta) ReportFailed(commands ...string) {
 	s.GatherLogs()
 	s.GatherDockerLogs()
 	s.CheckLogsForDeadlock()
-	// Log the following line to both the log file, and to console to delineate
-	// when log gathering begins.
-	ginkgoext.GinkgoPrint("===================== EXITING REPORT GENERATION =====================")
 }
 
 // ValidateNoErrorsOnLogs checks in cilium logs since the given duration (By

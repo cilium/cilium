@@ -15,6 +15,7 @@
 package k8sTest
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -22,17 +23,16 @@ import (
 	"github.com/cilium/cilium/test/helpers"
 
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 )
 
-var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
+var _ = Describe("K8sKafkaPolicyTest", func() {
 
 	var (
 		kubectl             *helpers.Kubectl
-		ciliumPod           string
 		microscopeErr       error
-		microscopeCancel    = func() error { return nil }
-		logger              = log.WithFields(logrus.Fields{"testName": "K8sValidatedKafkaPolicyTest"})
+		microscopeCancel                       = func() error { return nil }
+		backgroundCancel    context.CancelFunc = func() { return }
+		backgroundError     error
 		l7Policy            = helpers.ManifestGet("kafka-sw-security-policy.yaml")
 		demoPath            = helpers.ManifestGet("kafka-sw-app.yaml")
 		kafkaApp            = "kafka"
@@ -84,14 +84,32 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 			return err
 		}
 
+		waitForDNSResolution := func(pod, service string) error {
+			body := func() bool {
+				dnsLookupCmd := fmt.Sprintf("nslookup %s", service)
+				res := kubectl.ExecPodCmd(helpers.DefaultNamespace, pod, dnsLookupCmd)
+
+				if !res.WasSuccessful() {
+					return false
+				}
+				return true
+			}
+			err := helpers.WithTimeout(body, fmt.Sprintf("unable to resolve DNS for service %s in pod %s", service, pod), &helpers.TimeoutConfig{Timeout: 30})
+			return err
+		}
+
 		JustBeforeEach(func() {
 			microscopeErr, microscopeCancel = kubectl.MicroscopeStart()
 			Expect(microscopeErr).To(BeNil(), "Microscope cannot be started")
+
+			backgroundCancel, backgroundError = kubectl.BackgroundReport("uptime")
+			Expect(backgroundError).To(BeNil(), "Cannot start background report process")
 		})
 
 		JustAfterEach(func() {
 			kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
 			Expect(microscopeCancel()).To(BeNil(), "cannot stop microscope")
+			backgroundCancel()
 		})
 
 		AfterEach(func() {
@@ -103,7 +121,6 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 		})
 
 		BeforeAll(func() {
-			logger = log.WithFields(logrus.Fields{"testName": "K8sValidatedKafkaPolicyTest"})
 			kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
 			err := kubectl.CiliumInstall(helpers.CiliumDSPath)
@@ -122,9 +139,6 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 
 			appPods = helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "app")
 
-			ciliumPod, err = kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s2)
-			Expect(err).To(BeNil(), "Cannot get cilium Pod")
-
 			By("Wait for Kafka broker to be up")
 			err = waitForKafkaBroker(appPods[empireHqApp], createTopicCmd(topicTest))
 			Expect(err).To(BeNil(), "Timeout: Kafka cluster failed to come up correctly")
@@ -138,6 +152,12 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 			By("Creating new kafka topic %s", topicDeathstarPlans)
 			err = createTopic(topicDeathstarPlans, appPods[empireHqApp])
 			Expect(err).Should(BeNil(), "Failed to create topic deathstar-plans")
+
+			By("Waiting for DNS to resolve within pods for kafka-service")
+			err = waitForDNSResolution(appPods[empireHqApp], "kafka-service")
+			Expect(err).Should(BeNil(), "Failed to resolve kafka-service DNS entry in pod %s", appPods[empireHqApp])
+			err = waitForDNSResolution(appPods[outpostApp], "kafka-service")
+			Expect(err).Should(BeNil(), "Failed to resolve kafka-service DNS entry in pod %s", appPods[outpostApp])
 
 			By("Testing basic Kafka Produce and Consume")
 			// We need to produce first, since consumer script waits for
@@ -191,25 +211,6 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 				Expect(cep).ToNot(BeNil(), "cannot get cep for app %q and pod %s", app, appPods[app])
 				Expect(cep.Status.Policy.Spec.PolicyEnabled).To(Equal(policy), "Policy for %q mismatch", app)
 			}
-
-			By("Validating Policy trace")
-			trace := kubectl.CiliumExec(ciliumPod, fmt.Sprintf(
-				"cilium policy trace --src-k8s-pod default:%s --dst-k8s-pod default:%s --dport 9092",
-				appPods[empireHqApp], appPods[kafkaApp]))
-			trace.ExpectSuccess("Cilium policy trace failed")
-			trace.ExpectContains("Final verdict: ALLOWED")
-
-			trace = kubectl.CiliumExec(ciliumPod, fmt.Sprintf(
-				"cilium policy trace --src-k8s-pod default:%s --dst-k8s-pod default:%s --dport 9092",
-				appPods[backupApp], appPods[kafkaApp]))
-			trace.ExpectSuccess("Cilium policy trace failed")
-			trace.ExpectContains("Final verdict: ALLOWED")
-
-			trace = kubectl.CiliumExec(ciliumPod, fmt.Sprintf(
-				"cilium policy trace --src-k8s-pod default:%s --dst-k8s-pod default:%s --dport 80",
-				appPods[empireHqApp], appPods[kafkaApp]))
-			trace.ExpectSuccess("Failed cilium policy trace")
-			trace.ExpectContains("Final verdict: DENIED")
 
 			By("Testing Kafka L7 policy enforcement status")
 			err = kubectl.ExecKafkaPodCmd(

@@ -18,14 +18,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net"
 	"sync"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
-	"github.com/cilium/cilium/pkg/apierror"
+	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -34,11 +35,10 @@ import (
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/policy/api"
+	policyAPI "github.com/cilium/cilium/pkg/policy/api"
 
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/op/go-logging"
-	"github.com/sirupsen/logrus"
 )
 
 // TriggerPolicyUpdates triggers policy updates for every daemon's endpoint.
@@ -139,7 +139,7 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 		if ctx.Verbose {
 			searchCtx.Trace = policy.TRACE_VERBOSE
 		}
-		verdict := api.Allowed.String()
+		verdict := policyAPI.Allowed.String()
 		searchCtx.PolicyTrace("Label verdict: %s\n", verdict)
 		msg := fmt.Sprintf("%s\n  %s\n%s", searchCtx.String(), policyEnforcementMsg, buffer.String())
 		return NewGetPolicyResolveOK().WithPayload(&models.PolicyTraceResult{
@@ -190,11 +190,11 @@ type AddOptions struct {
 	Replace bool
 }
 
-func (d *Daemon) policyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
+func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions, prefixes []*net.IPNet) (uint64, error) {
 	d.policy.Mutex.Lock()
 	defer d.policy.Mutex.Unlock()
 
-	oldRules := api.Rules{}
+	oldRules := policyAPI.Rules{}
 
 	if opts != nil && opts.Replace {
 		// Make copy of rules matching labels of new rules while
@@ -231,36 +231,58 @@ func (d *Daemon) policyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
 // k8s is not enabled. Otherwise, if k8s is enabled, policy is enabled on the
 // pods which are selected. Eventual changes in policy rules are propagated to
 // all locally managed endpoints.
-func (d *Daemon) PolicyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
+func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, error) {
 	log.WithField(logfields.CiliumNetworkPolicy, logfields.Repr(rules)).Debug("Policy Add Request")
+
+	// These must be marked before actually adding them to the repository since a
+	// copy may be made and we won't be able to add the ToFQDN tracking labels
+	fqdn.MarkToFQDNRules(rules)
 
 	prefixes := policy.GetCIDRPrefixes(rules)
 	log.WithField("prefixes", prefixes).Debug("Policy imported via API, found CIDR prefixes...")
 
-	prefixIdentities, err := identity.AllocateCIDRIdentities(prefixes)
+	newPrefixLengths, err := d.prefixLengths.Add(prefixes)
 	if err != nil {
 		metrics.PolicyImportErrors.Inc()
+		log.WithError(err).WithField("prefixes", prefixes).Warn(
+			"Failed to reference-count prefix lengths in CIDR policy")
+		return 0, api.Error(PutPolicyFailureCode, err)
+	}
+	if newPrefixLengths && !bpfIPCache.BackedByLPM() {
+		// Only recompile if configuration has changed.
+		log.Debug("CIDR policy has changed; recompiling base programs")
+		if err := d.compileBase(); err != nil {
+			_ = d.prefixLengths.Delete(prefixes)
+			metrics.PolicyImportErrors.Inc()
+			err2 := fmt.Errorf("Unable to recompile base programs: %s", err)
+			log.WithError(err2).WithField("prefixes", prefixes).Warn(
+				"Failed to recompile base programs due to prefix length count change")
+			return 0, api.Error(PutPolicyFailureCode, err)
+		}
+	}
+
+	if err := ipcache.AllocateCIDRs(bpfIPCache.IPCache, prefixes); err != nil {
+		_ = d.prefixLengths.Delete(prefixes)
+		metrics.PolicyImportErrors.Inc()
+		log.WithError(err).WithField("prefixes", prefixes).Warn(
+			"Failed to allocate identities for CIDRs during policy add")
 		return d.policy.GetRevision(), err
 	}
 
-	if err = ipcache.CheckPrefixes(bpfIPCache.IPCache, prefixes); err == nil {
-		err = ipcache.UpsertIPNetsToKVStore(prefixes, prefixIdentities)
-	}
-	if err != nil {
-		metrics.PolicyImportErrors.Inc()
-
-		// Failed to update Prefix->ID mappings; don't leak identities
-		identity.ReleaseSlice(prefixIdentities)
-		return d.policy.GetRevision(), err
-	}
-
-	rev, err := d.policyAdd(rules, opts)
+	rev, err := d.policyAdd(rules, opts, prefixes)
 	if err != nil {
 		// Don't leak identities allocated above.
-		identity.ReleaseSlice(prefixIdentities)
+		_ = d.prefixLengths.Delete(prefixes)
+		if err2 := ipcache.ReleaseCIDRs(prefixes); err2 != nil {
+			log.WithError(err2).WithField("prefixes", prefixes).Warn(
+				"Failed to release CIDRs during policy import failure")
+		}
 
-		return 0, apierror.Error(PutPolicyFailureCode, err)
+		return 0, api.Error(PutPolicyFailureCode, err)
 	}
+
+	// The rules are added, we can begin ToFQDN DNS polling for them
+	d.dnsPoller.StartPollForDNSName(rules)
 
 	log.WithField(logfields.PolicyRevision, rev).Info("Policy imported via API, recalculating...")
 
@@ -297,7 +319,7 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
 	if len(rules) == 0 && len(labels) != 0 {
 		rev := d.policy.GetRevision()
 		d.policy.Mutex.Unlock()
-		return rev, apierror.New(DeletePolicyNotFoundCode, "policy not found")
+		return rev, api.New(DeletePolicyNotFoundCode, "policy not found")
 	}
 	rev, deleted := d.policy.DeleteByLabelsLocked(labels)
 	d.policy.Mutex.Unlock()
@@ -310,25 +332,22 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
 	// not appropriately performing garbage collection.
 	prefixes := policy.GetCIDRPrefixes(rules)
 	log.WithField("prefixes", prefixes).Debug("Policy deleted via API, found prefixes...")
-
-	prefixIdentities, err := identity.LookupCIDRIdentities(prefixes)
-	if err == nil {
-		if err = identity.ReleaseSlice(prefixIdentities); err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
-				logfields.Labels: labels,
-			}).Debug("Cannot delete identities for CIDR prefixes by labels")
-		}
-
-		if err = ipcache.DeleteIPNetsFromKVStore(prefixes); err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
-				logfields.Labels: labels,
-			}).Debug("Could not delete prefix->Identity mappings during policy delete")
-		}
-	} else {
-		log.WithError(err).WithFields(logrus.Fields{
-			logfields.Labels: labels,
-		}).Debug("Cannot find identities for CIDR prefixes by labels")
+	if err := ipcache.ReleaseCIDRs(prefixes); err != nil {
+		log.WithError(err).WithField("prefixes", prefixes).Warn(
+			"Failed to release CIDRs during policy delete")
 	}
+
+	prefixesChanged := d.prefixLengths.Delete(prefixes)
+	if !bpfIPCache.BackedByLPM() && prefixesChanged {
+		// Only recompile if configuration has changed.
+		log.Debug("CIDR policy has changed; recompiling base programs")
+		if err := d.compileBase(); err != nil {
+			log.WithError(err).Error("Unable to recompile base programs")
+		}
+	}
+
+	// Stop polling for ToFQDN DNS names for these rules
+	d.dnsPoller.StopPollForDNSName(rules)
 
 	d.TriggerPolicyUpdates(false)
 
@@ -355,7 +374,7 @@ func (h *deletePolicy) Handle(params DeletePolicyParams) middleware.Responder {
 	lbls := labels.ParseSelectLabelArrayFromArray(params.Labels)
 	rev, err := d.PolicyDelete(lbls)
 	if err != nil {
-		return apierror.Error(DeletePolicyFailureCode, err)
+		return api.Error(DeletePolicyFailureCode, err)
 	}
 
 	ruleList := d.policy.SearchRLocked(labels.LabelArray{})
@@ -377,20 +396,20 @@ func newPutPolicyHandler(d *Daemon) PutPolicyHandler {
 func (h *putPolicy) Handle(params PutPolicyParams) middleware.Responder {
 	d := h.daemon
 
-	var rules api.Rules
+	var rules policyAPI.Rules
 	if err := json.Unmarshal([]byte(*params.Policy), &rules); err != nil {
 		return NewPutPolicyInvalidPolicy()
 	}
 
 	for _, r := range rules {
 		if err := r.Sanitize(); err != nil {
-			return apierror.Error(PutPolicyFailureCode, err)
+			return api.Error(PutPolicyFailureCode, err)
 		}
 	}
 
 	rev, err := d.PolicyAdd(rules, nil)
 	if err != nil {
-		return apierror.Error(PutPolicyFailureCode, err)
+		return api.Error(PutPolicyFailureCode, err)
 	}
 
 	policy := &models.Policy{

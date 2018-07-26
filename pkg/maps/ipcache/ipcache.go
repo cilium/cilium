@@ -22,9 +22,12 @@ import (
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+
+	"golang.org/x/sys/unix"
 )
 
-var log = logging.DefaultLogger
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-ipcache")
 
 const (
 	// MaxEntries is the maximum number of keys that can be present in the
@@ -118,8 +121,8 @@ func NewKey(ip net.IP, mask net.IPMask) Key {
 // RemoteEndpointInfo implements the bpf.MapValue interface. It contains the
 // security identity of a remote endpoint.
 type RemoteEndpointInfo struct {
-	SecurityIdentity uint16
-	Pad              [3]uint16
+	SecurityIdentity uint32
+	TunnelEndpoint   [4]byte
 }
 
 func (v *RemoteEndpointInfo) String() string {
@@ -152,17 +155,35 @@ func NewMap() *Map {
 				}
 				return &k, &v, nil
 			},
-		),
+		).WithCache(),
 	}
+}
+
+// Delete removes a key from the ipcache BPF map
+func Delete(k bpf.MapKey) error {
+	// Older kernels do not support deletion of LPM map entries so zero out
+	// the entry instead of attempting a deletion
+	err, errno := IPCache.DeleteWithErrno(k)
+	if errno == unix.ENOSYS {
+		return IPCache.Update(k, &RemoteEndpointInfo{})
+	}
+
+	return err
 }
 
 // GetMaxPrefixLengths determines how many unique prefix lengths are supported
 // simultaneously based on the underlying BPF map type in use.
 func (m *Map) GetMaxPrefixLengths() (count int) {
 	if IPCache.MapType == bpf.BPF_MAP_TYPE_LPM_TRIE {
-		return net.IPv6len * 8
+		return net.IPv6len*8 + 1
 	}
 	return maxPrefixLengths
+}
+
+// BackedByLPM returns true if the IPCache is backed by a proper LPM
+// implementation (provided by Linux kernels 4.11 or later), false otherwise.
+func BackedByLPM() bool {
+	return IPCache.MapType == bpf.BPF_MAP_TYPE_LPM_TRIE
 }
 
 var (

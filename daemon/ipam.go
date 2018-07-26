@@ -19,7 +19,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	ipamapi "github.com/cilium/cilium/api/v1/server/restapi/ipam"
-	"github.com/cilium/cilium/pkg/apierror"
+	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/ipam"
 
 	"github.com/go-openapi/runtime/middleware"
@@ -44,7 +44,7 @@ func (h *postIPAM) Handle(params ipamapi.PostIPAMParams) middleware.Responder {
 
 	ipv4, ipv6, err := ipam.AllocateNext(strings.ToLower(swag.StringValue(params.Family)))
 	if err != nil {
-		return apierror.Error(ipamapi.PostIPAMFailureCode, err)
+		return api.Error(ipamapi.PostIPAMFailureCode, err)
 	}
 
 	if ipv4 != nil {
@@ -68,7 +68,7 @@ func NewPostIPAMIPHandler(d *Daemon) ipamapi.PostIPAMIPHandler {
 // Handle incoming requests address allocation requests for the daemon.
 func (h *postIPAMIP) Handle(params ipamapi.PostIPAMIPParams) middleware.Responder {
 	if err := ipam.AllocateIPString(params.IP); err != nil {
-		return apierror.Error(ipamapi.PostIPAMIPFailureCode, err)
+		return api.Error(ipamapi.PostIPAMIPFailureCode, err)
 	}
 
 	return ipamapi.NewPostIPAMIPOK()
@@ -83,7 +83,7 @@ func NewDeleteIPAMIPHandler(d *Daemon) ipamapi.DeleteIPAMIPHandler {
 
 func (h *deleteIPAMIP) Handle(params ipamapi.DeleteIPAMIPParams) middleware.Responder {
 	if err := ipam.ReleaseIPString(params.IP); err != nil {
-		return apierror.Error(ipamapi.DeleteIPAMIPFailureCode, err)
+		return api.Error(ipamapi.DeleteIPAMIPFailureCode, err)
 	}
 
 	return ipamapi.NewDeleteIPAMIPOK()

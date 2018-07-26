@@ -12,7 +12,7 @@ BPF_SRCFILES=$(subst ../,,$(BPF_FILES))
 SWAGGER_VERSION = 0.12.0
 SWAGGER = $(QUIET)docker run --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) -e GOPATH=$(GOPATH) --entrypoint swagger quay.io/goswagger/swagger:$(SWAGGER_VERSION)
 
-GOTEST_OPTS = -test.v -check.v
+GOTEST_OPTS = -test.v -check.vv
 
 UTC_DATE=$(shell date -u "+%Y-%m-%d")
 
@@ -26,11 +26,7 @@ $(SUBDIRS): force
 
 
 jenkins-precheck:
-	docker-compose -f test/precheck.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER run --rm precheck
-
-clean-jenkins-precheck:
-	docker-compose -f test/precheck.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER down
-	docker-compose -f test/precheck.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER rm
+	docker-compose -f test/docker-compose.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER run --rm precheck
 
 # invoked from ginkgo Jenkinsfile
 tests-ginkgo: force
@@ -44,7 +40,7 @@ clean-ginkgo-tests:
 	docker-compose -f test/docker-compose.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER down
 	docker-compose -f test/docker-compose.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER rm
 
-TEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyAddress=consul:8500 -X github.com/cilium/cilium/pkg/kvstore.etcdDummyAddress=etcd:4002"
+TEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyAddress=consul:8500 -X github.com/cilium/cilium/pkg/kvstore.etcdDummyAddress=http://etcd:4002"
 
 # invoked from ginkgo compose file after starting kvstore backends
 tests-ginkgo-real:
@@ -67,7 +63,7 @@ start-kvstores:
 	-docker run -d \
 	    --name "cilium-etcd-test-container" \
 	    -p 4002:4001 \
-        quay.io/coreos/etcd:v3.1.0 \
+        quay.io/coreos/etcd:v3.2.17 \
         etcd -name etcd0 \
         -advertise-client-urls http://0.0.0.0:4001 \
         -listen-client-urls http://0.0.0.0:4001 \
@@ -79,7 +75,7 @@ start-kvstores:
            --name "cilium-consul-test-container" \
            -p 8501:8500 \
            -e 'CONSUL_LOCAL_CONFIG={"skip_leave_on_interrupt": true, "disable_update_check": true}' \
-           consul:0.8.3 \
+           consul:1.1.0 \
            agent -client=0.0.0.0 -server -bootstrap-expect 1
 
 tests: force
@@ -169,19 +165,19 @@ generate-health-api: api/v1/health/openapi.yaml
 		-t api/v1 -t api/v1/health/ -f api/v1/health/openapi.yaml
 
 generate-k8s-api:
-	cd "$(GOPATH)/src/k8s.io/code-generator" && \
+	cd "./vendor/k8s.io/code-generator" && \
 	./generate-groups.sh all \
 	    github.com/cilium/cilium/pkg/k8s/client \
 	    github.com/cilium/cilium/pkg/k8s/apis \
 	    "cilium.io:v2" \
 	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
-	cd "$(GOPATH)/src/k8s.io/code-generator" && \
+	cd "./vendor/k8s.io/code-generator" && \
 	./generate-groups.sh deepcopy \
 	    github.com/cilium/cilium/pkg/k8s/client \
 	    github.com/cilium/cilium/pkg \
 	    "policy:api" \
 	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
-	cd "$(GOPATH)/src/k8s.io/code-generator" && \
+	cd "./vendor/k8s.io/code-generator" && \
 	./generate-groups.sh deepcopy \
 	    github.com/cilium/cilium/pkg/k8s/client \
 	    github.com/cilium/cilium \
@@ -214,7 +210,7 @@ gofmt:
 
 govet:
 	@$(ECHO_CHECK) vetting all GOFILES...
-	$(GO) tool vet $(SUBDIRS)
+	$(GO) tool vet api pkg $(SUBDIRS)
 
 precheck: govet
 	@$(ECHO_CHECK) contrib/scripts/check-fmt.sh

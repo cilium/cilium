@@ -51,18 +51,17 @@ const (
 	policiesReservedInitJSON        = "Policies-reserved-init.json"
 )
 
-var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
+var _ = Describe("RuntimePolicyEnforcement", func() {
 
 	var (
-		logger           *logrus.Entry
 		vm               *helpers.SSHMeta
 		appContainerName = "app"
 	)
 
 	BeforeAll(func() {
-		logger = log.WithFields(logrus.Fields{"testName": "RuntimePolicyEnforcement"})
-		logger.Info("Starting")
-		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
+		ExpectCiliumReady(vm)
+
 		vm.ContainerCreate(appContainerName, helpers.HttpdImage, helpers.CiliumDockerNetwork, "-l id.app")
 		areEndpointsReady := vm.WaitEndpointsReady()
 		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
@@ -239,19 +238,17 @@ var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 	})
 })
 
-var _ = Describe("RuntimeValidatedPolicies", func() {
+var _ = Describe("RuntimePolicies", func() {
 
 	var (
-		logger        *logrus.Entry
 		vm            *helpers.SSHMeta
 		monitorStop   = func() error { return nil }
 		initContainer string
 	)
 
 	BeforeAll(func() {
-		logger = log.WithFields(logrus.Fields{"test": "RunPolicies"})
-		logger.Info("Starting")
-		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
+		ExpectCiliumReady(vm)
 
 		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
 		vm.PolicyDelAll()
@@ -1373,16 +1370,14 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 	})
 })
 
-var _ = Describe("RuntimeValidatedPolicyImportTests", func() {
+var _ = Describe("RuntimePolicyImportTests", func() {
 	var (
-		logger *logrus.Entry
-		vm     *helpers.SSHMeta
+		vm *helpers.SSHMeta
 	)
 
 	BeforeAll(func() {
-		logger = log.WithFields(logrus.Fields{"test": "RuntimeValidatedPolicyImportTests"})
-		logger.Info("Starting")
-		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
+		ExpectCiliumReady(vm)
 
 		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
 

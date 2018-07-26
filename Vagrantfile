@@ -125,8 +125,9 @@ Vagrant.configure(2) do |config|
         # Do not inherit DNS server from host, use proxy
         vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
         vb.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
-        config.vm.box = "cilium/ubuntu"
-        config.vm.box_version = "83"
+
+        config.vm.box = "cilium/ubuntu-dev"
+        config.vm.box_version = "97"
         vb.memory = ENV['VM_MEMORY'].to_i
         vb.cpus = ENV['VM_CPUS'].to_i
         if ENV["NFS"] then

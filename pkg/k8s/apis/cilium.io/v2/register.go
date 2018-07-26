@@ -41,7 +41,7 @@ const (
 
 	// CustomResourceDefinitionSchemaVersion is semver-conformant version of CRD schema
 	// Used to determine if CRD needs to be updated in cluster
-	CustomResourceDefinitionSchemaVersion = "1.8"
+	CustomResourceDefinitionSchemaVersion = "1.9"
 
 	// CustomResourceDefinitionSchemaVersionKey is key to label which holds the CRD schema version
 	CustomResourceDefinitionSchemaVersionKey = "io.cilium.k8s.crd.schema.version"
@@ -150,6 +150,9 @@ func createCNPCRD(clientset apiextensionsclient.Interface) error {
 				ShortNames: CustomResourceDefinitionShortNames,
 				Kind:       CustomResourceDefinitionKind,
 			},
+			Subresources: &apiextensionsv1beta1.CustomResourceSubresources{
+				Status: &apiextensionsv1beta1.CustomResourceSubresourceStatus{},
+			},
 			Scope:      apiextensionsv1beta1.NamespaceScoped,
 			Validation: &cnpCRV,
 		},
@@ -189,6 +192,9 @@ func createCEPCRD(clientset apiextensionsclient.Interface) error {
 				Singular:   CustomResourceDefinitionSingularName,
 				ShortNames: CustomResourceDefinitionShortNames,
 				Kind:       CustomResourceDefinitionKind,
+			},
+			Subresources: &apiextensionsv1beta1.CustomResourceSubresources{
+				Status: &apiextensionsv1beta1.CustomResourceSubresourceStatus{},
 			},
 			Scope:      apiextensionsv1beta1.NamespaceScoped,
 			Validation: &cepCRV,

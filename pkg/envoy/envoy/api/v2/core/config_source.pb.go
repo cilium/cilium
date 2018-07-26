@@ -56,7 +56,7 @@ func (ApiConfigSource_ApiType) EnumDescriptor() ([]byte, []int) {
 // API configuration source. This identifies the API type and cluster that Envoy
 // will use to fetch an xDS API.
 type ApiConfigSource struct {
-	ApiType ApiConfigSource_ApiType `protobuf:"varint,1,opt,name=api_type,json=apiType,enum=envoy.api.v2.core.ApiConfigSource_ApiType" json:"api_type,omitempty"`
+	ApiType ApiConfigSource_ApiType `protobuf:"varint,1,opt,name=api_type,json=apiType,proto3,enum=envoy.api.v2.core.ApiConfigSource_ApiType" json:"api_type,omitempty"`
 	// Multiple cluster names may be provided for REST_LEGACY/REST. If > 1
 	// cluster is defined, clusters will be cycled through if any kind of failure
 	// occurs.
@@ -65,7 +65,7 @@ type ApiConfigSource struct {
 	//
 	//  The cluster with name ``cluster_name`` must be statically defined and its
 	//  type must not be ``EDS``.
-	ClusterNames []string `protobuf:"bytes,2,rep,name=cluster_names,json=clusterNames" json:"cluster_names,omitempty"`
+	ClusterNames []string `protobuf:"bytes,2,rep,name=cluster_names,json=clusterNames,proto3" json:"cluster_names,omitempty"`
 	// Multiple gRPC services be provided for GRPC. If > 1 cluster is defined,
 	// services will be cycled through if any kind of failure occurs.
 	//
@@ -73,9 +73,9 @@ type ApiConfigSource struct {
 	//
 	//  If a gRPC service points to a ``cluster_name``, it must be statically
 	//  defined and its type must not be ``EDS``.
-	GrpcServices []*GrpcService `protobuf:"bytes,4,rep,name=grpc_services,json=grpcServices" json:"grpc_services,omitempty"`
+	GrpcServices []*GrpcService `protobuf:"bytes,4,rep,name=grpc_services,json=grpcServices,proto3" json:"grpc_services,omitempty"`
 	// For REST APIs, the delay between successive polls.
-	RefreshDelay         *duration.Duration `protobuf:"bytes,3,opt,name=refresh_delay,json=refreshDelay" json:"refresh_delay,omitempty"`
+	RefreshDelay         *duration.Duration `protobuf:"bytes,3,opt,name=refresh_delay,json=refreshDelay,proto3" json:"refresh_delay,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -212,13 +212,13 @@ type isConfigSource_ConfigSourceSpecifier interface {
 }
 
 type ConfigSource_Path struct {
-	Path string `protobuf:"bytes,1,opt,name=path,oneof"`
+	Path string `protobuf:"bytes,1,opt,name=path,proto3,oneof"`
 }
 type ConfigSource_ApiConfigSource struct {
-	ApiConfigSource *ApiConfigSource `protobuf:"bytes,2,opt,name=api_config_source,json=apiConfigSource,oneof"`
+	ApiConfigSource *ApiConfigSource `protobuf:"bytes,2,opt,name=api_config_source,json=apiConfigSource,proto3,oneof"`
 }
 type ConfigSource_Ads struct {
-	Ads *AggregatedConfigSource `protobuf:"bytes,3,opt,name=ads,oneof"`
+	Ads *AggregatedConfigSource `protobuf:"bytes,3,opt,name=ads,proto3,oneof"`
 }
 
 func (*ConfigSource_Path) isConfigSource_ConfigSourceSpecifier()            {}

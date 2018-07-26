@@ -15,6 +15,7 @@
 package k8sTest
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 
@@ -22,11 +23,9 @@ import (
 	"github.com/cilium/cilium/test/helpers"
 
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 )
 
 var (
-	demoTestName         = "K8sValidatedDemosTest"
 	starWarsDemoLinkRoot = "https://raw.githubusercontent.com/cilium/star-wars-demo/master/v1"
 )
 
@@ -36,13 +35,15 @@ func getStarWarsResourceLink(file string) string {
 	return fmt.Sprintf("%s/%s", starWarsDemoLinkRoot, file)
 }
 
-var _ = Describe(demoTestName, func() {
+var _ = Describe("K8sDemosTest", func() {
 
 	var (
 		kubectl          *helpers.Kubectl
-		logger           *logrus.Entry
 		microscopeErr    error
 		microscopeCancel = func() error { return nil }
+
+		backgroundCancel context.CancelFunc = func() { return }
+		backgroundError  error
 
 		deathStarYAMLLink = getStarWarsResourceLink("02-deathstar.yaml")
 		l4PolicyYAMLLink  = getStarWarsResourceLink("policy/l4_policy.yaml")
@@ -51,8 +52,6 @@ var _ = Describe(demoTestName, func() {
 	)
 
 	BeforeAll(func() {
-		logger = log.WithFields(logrus.Fields{"testName": demoTestName})
-		logger.Info("Starting")
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
 		err := kubectl.CiliumInstall(helpers.CiliumDSPath)
@@ -71,11 +70,15 @@ var _ = Describe(demoTestName, func() {
 	JustBeforeEach(func() {
 		microscopeErr, microscopeCancel = kubectl.MicroscopeStart()
 		Expect(microscopeErr).To(BeNil(), "Microscope cannot be started")
+
+		backgroundCancel, backgroundError = kubectl.BackgroundReport("uptime")
+		Expect(backgroundError).To(BeNil(), "Cannot start background report process")
 	})
 
 	JustAfterEach(func() {
 		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
 		Expect(microscopeCancel()).To(BeNil(), "cannot stop microscope")
+		backgroundCancel()
 	})
 
 	AfterEach(func() {
@@ -92,42 +95,26 @@ var _ = Describe(demoTestName, func() {
 	It("Tests Star Wars Demo", func() {
 
 		allianceLabel := "org=alliance"
-		empireLabel := "org=empire"
 		deathstarServiceName := "deathstar.default.svc.cluster.local"
 
 		exhaustPortPath := filepath.Join(deathstarServiceName, "/v1/exhaust-port")
 
-		// Taint the node instead of adding a nodeselector in the file so that we
-		// don't have to customize the YAML for this test.
-		By("Tainting %s so that all pods run on %s", helpers.K8s1, helpers.K8s2)
-		res := kubectl.Exec(fmt.Sprintf("kubectl taint nodes %s demo=false:NoSchedule", helpers.K8s1))
-		defer func() {
-			By("Removing taint from %s after test finished", helpers.K8s1)
-			res := kubectl.Exec(fmt.Sprintf("kubectl taint nodes %s demo:NoSchedule-", helpers.K8s1))
-			res.ExpectSuccess("Unable to remove taint from k8s1: %s", res.CombineOutput())
-		}()
-		res.ExpectSuccess("Unable to apply taint to %s: %s", helpers.K8s1, res.CombineOutput())
+		By("Applying deployments")
 
-		By("Applying deathstar deployment")
-		res = kubectl.Apply(deathStarYAMLLink)
+		res := kubectl.Apply(deathStarYAMLLink)
 		res.ExpectSuccess("unable to apply %s: %s", deathStarYAMLLink, res.CombineOutput())
 
-		By("Waiting for deathstar deployment pods to be ready")
-		err := kubectl.WaitforPods(helpers.DefaultNamespace, fmt.Sprintf("-l %s", empireLabel), 300)
-		Expect(err).Should(BeNil(), "Empire pods are not ready after timeout")
+		res = kubectl.Apply(xwingYAMLLink)
+		res.ExpectSuccess("unable to apply %s: %s", xwingYAMLLink, res.CombineOutput())
+
+		By("Waiting for pods to be ready")
+		err := kubectl.WaitforPods(helpers.DefaultNamespace, "", 300)
+		Expect(err).Should(BeNil(), "Pods are not ready after timeout")
 
 		By("Applying policy and waiting for policy revision to increase in Cilium pods")
 		_, err = kubectl.CiliumPolicyAction(
 			helpers.KubeSystemNamespace, l4PolicyYAMLLink, helpers.KubectlApply, 300)
 		Expect(err).Should(BeNil(), "Unable to apply %s", l4PolicyYAMLLink)
-
-		By("Applying alliance deployment")
-		res = kubectl.Apply(xwingYAMLLink)
-		res.ExpectSuccess("unable to apply %s: %s", xwingYAMLLink, res.CombineOutput())
-
-		By("Waiting for alliance pods to be ready")
-		err = kubectl.WaitforPods(helpers.DefaultNamespace, fmt.Sprintf("-l %s", allianceLabel), 300)
-		Expect(err).Should(BeNil(), "Alliance pods are not ready after timeout")
 
 		By("Getting xwing pod names")
 		xwingPods, err := kubectl.GetPodNames(helpers.DefaultNamespace, allianceLabel)
@@ -174,5 +161,4 @@ var _ = Describe(demoTestName, func() {
 		By("Expecting 503 to be returned when using force header to attack the deathstar")
 		res.ExpectContains("503", "unable to access %s when policy allows it; %s", exhaustPortPath, res.Output())
 	})
-
 })

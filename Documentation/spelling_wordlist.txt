@@ -45,6 +45,7 @@ breakpoint
 Brenden
 Brouer
 browsable
+bugfix
 bugfixes
 bugtool
 Bugtool
@@ -110,6 +111,7 @@ distros
 DMA
 dns
 Dockerfile
+dockerhub
 doesn
 DoorManager
 dports
@@ -216,6 +218,8 @@ ixgbevf
 Jakub
 Jenkinsfiles
 jeq
+jenkins
+Jenkins
 Jenkinsfiles
 Jesper
 jge
@@ -297,6 +301,7 @@ mlx
 Monnet
 mountd
 mov
+mtu
 mul
 Multi
 multi
@@ -358,8 +363,11 @@ qdisc
 qdiscs
 qede
 queueing
+rebase
 rebased
 recompiles
+refactor
+refactoring
 regenerations
 regex
 remediate
@@ -368,6 +376,7 @@ repo
 repos
 retpoline
 retransmission
+Reviewable
 roadmap
 rollout
 routable
@@ -394,6 +403,8 @@ Sidious
 Sith
 skb
 Spectre
+Stacktrace
+stacktrace
 stap
 stapbpf
 Starovoitov
@@ -442,15 +453,20 @@ tracepoint
 tracepoints
 Tracepoints
 transpiling
+triaged
 Tu
 Twilio
+ubuntu
 udp
 ui
 Uncomment
 underrepresents
 uninline
+unix
+Unix
 unmanaged
 unmounting
+untriaged
 untrusted
 uprobes
 upstreamed
@@ -461,6 +477,7 @@ Userspace
 Ubuntu
 vader
 Vader
+Vagrantcloud
 Vagrantfile
 validator
 vCPUs
@@ -468,6 +485,7 @@ ve
 verifier
 Verifier
 versioned
+versioning
 veth
 versa
 Viljoen
@@ -482,6 +500,7 @@ walkthrough
 webservice
 Wendlandt
 Wireshark
+wip
 whitelist
 whitelisted
 whitelisting

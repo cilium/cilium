@@ -22,14 +22,18 @@ import (
 	"os"
 	"path"
 	"sync"
+	"syscall"
+	"time"
 	"unsafe"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/byteorder"
-	"github.com/cilium/cilium/pkg/comparator"
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
+	"github.com/cilium/cilium/pkg/comparator"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
@@ -53,6 +57,24 @@ const (
 	MapTypeLPMTrie
 	MapTypeArrayOfMaps
 	MapTypeHashOfMaps
+
+	// maxSyncErrors is the maximum consecutive errors syncing before the
+	// controller bails out
+	maxSyncErrors = 512
+
+	// errorResolverSchedulerMinInterval is the minimum interval for the
+	// error resolver to be scheduled. This minimum interval ensures not to
+	// overschedule if a large number of updates fail in a row.
+	errorResolverSchedulerMinInterval = 5 * time.Second
+
+	// errorResolverSchedulerDelay is the delay to update the controller
+	// after determination that a run is needed. The delay allows to
+	// schedule the resolver after series of updates have failed.
+	errorResolverSchedulerDelay = 200 * time.Millisecond
+)
+
+var (
+	mapControllers = controller.NewManager()
 )
 
 func (t MapType) String() string {
@@ -114,6 +136,42 @@ type MapInfo struct {
 	OwnerProgType ProgType
 }
 
+// DesiredAction is the action to be performed on the BPF map
+type DesiredAction int
+
+const (
+	// OK indicates that to further action is required and the entry is in
+	// sync
+	OK DesiredAction = iota
+
+	// Insert indicates that the entry needs to be created or updated
+	Insert
+
+	// Delete indicates that the entry needs to be deleted
+	Delete
+)
+
+func (d DesiredAction) String() string {
+	switch d {
+	case OK:
+		return "sync"
+	case Insert:
+		return "to-be-inserted"
+	case Delete:
+		return "to-be-deleted"
+	default:
+		return "unknown"
+	}
+}
+
+type cacheEntry struct {
+	Key   MapKey
+	Value MapValue
+
+	DesiredAction DesiredAction
+	LastError     error
+}
+
 type Map struct {
 	MapInfo
 	fd   int
@@ -121,6 +179,9 @@ type Map struct {
 	path string
 	once sync.Once
 	lock lock.RWMutex
+
+	// enableSync is true when synchronization retries have been enabled.
+	enableSync bool
 
 	// openLock serializes calls to Map.Open()
 	openLock lock.Mutex
@@ -131,6 +192,16 @@ type Map struct {
 
 	// DumpParser is a function for parsing keys and values from BPF maps
 	dumpParser DumpParser
+
+	cache map[string]*cacheEntry
+
+	// errorResolverLastScheduled is the timestamp when the error resolver
+	// was last scheduled
+	errorResolverLastScheduled time.Time
+
+	// outstandingErrors is the number of outsanding errors syncing with
+	// the kernel
+	outstandingErrors int
 }
 
 // NewMap creates a new Map instance - object representing a BPF map
@@ -156,6 +227,42 @@ func (m *Map) WithNonPersistent() *Map {
 	return m
 }
 
+// scheduleErrorResolver schedules a periodic resolver controller that scans
+// all BPF map caches for unresolved errors and attempts to resolve them. On
+// error of resolution, the controller is-rescheduled in an expedited manner
+// with an exponential back-off.
+//
+// m.lock must be held for writing
+func (m *Map) scheduleErrorResolver() {
+	m.outstandingErrors++
+
+	if time.Since(m.errorResolverLastScheduled) <= errorResolverSchedulerMinInterval {
+		return
+	}
+
+	m.errorResolverLastScheduled = time.Now()
+
+	go func() {
+		time.Sleep(errorResolverSchedulerDelay)
+		mapControllers.UpdateController(m.controllerName(),
+			controller.ControllerParams{
+				DoFunc:      m.resolveErrors,
+				RunInterval: errorResolverSchedulerMinInterval,
+			},
+		)
+	}()
+
+}
+
+// WithCache enables use of a cache. This will store all entries inserted from
+// user space in a local cache (map) and will indicate the status of each
+// individual entry.
+func (m *Map) WithCache() *Map {
+	m.cache = map[string]*cacheEntry{}
+	m.enableSync = true
+	return m
+}
+
 func (m *Map) GetFd() int {
 	return m.fd
 }
@@ -167,6 +274,10 @@ func (m *Map) DeepEquals(other *Map) bool {
 		m.name == other.name &&
 		m.path == other.path &&
 		m.NonPersistent == other.NonPersistent
+}
+
+func (m *Map) controllerName() string {
+	return fmt.Sprintf("bpf-map-sync-%s", m.name)
 }
 
 func GetMapInfo(pid int, fd int) (*MapInfo, error) {
@@ -233,12 +344,16 @@ func OpenMap(name string) (*Map, error) {
 		return nil, fmt.Errorf("Unable to determine map key size")
 	}
 
-	return &Map{
+	m := &Map{
 		MapInfo: *info,
 		fd:      fd,
 		name:    path.Base(name),
 		path:    name,
-	}, nil
+	}
+
+	registerMap(name, m)
+
+	return m, nil
 }
 
 func (m *Map) setPathIfUnset() error {
@@ -286,6 +401,8 @@ retry:
 		return false, err
 	}
 
+	registerMap(m.path, m)
+
 	m.fd = fd
 	return isNew, nil
 }
@@ -307,6 +424,8 @@ func (m *Map) Open() error {
 		return err
 	}
 
+	registerMap(m.path, m)
+
 	m.fd = fd
 	return nil
 }
@@ -315,10 +434,16 @@ func (m *Map) Close() error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
+	if m.enableSync {
+		mapControllers.RemoveController(m.controllerName())
+	}
+
 	if m.fd != 0 {
 		unix.Close(m.fd)
 		m.fd = 0
 	}
+
+	unregisterMap(m.path, m)
 
 	return nil
 }
@@ -439,25 +564,99 @@ func (m *Map) Lookup(key MapKey) (MapValue, error) {
 }
 
 func (m *Map) Update(key MapKey, value MapValue) error {
+	var err error
+
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	if err := m.Open(); err != nil {
+	defer func() {
+		if m.cache == nil {
+			return
+		}
+
+		desiredAction := OK
+		if err != nil {
+			desiredAction = Insert
+			m.scheduleErrorResolver()
+		}
+
+		m.cache[key.String()] = &cacheEntry{
+			Key:           key,
+			Value:         value,
+			DesiredAction: desiredAction,
+			LastError:     err,
+		}
+	}()
+
+	if err = m.Open(); err != nil {
 		return err
 	}
 
-	return UpdateElement(m.fd, key.GetKeyPtr(), value.GetValuePtr(), 0)
+	err = UpdateElement(m.fd, key.GetKeyPtr(), value.GetValuePtr(), 0)
+	return err
+}
+
+// deleteCacheEntry evaluates the specified error, if nil the map key is
+// removed from the cache to indicate successful deletion. If non-nil, the map
+// key entry in the cache is updated to indicate deletion failure with the
+// specified error.
+//
+// Caller must hold m.lock for writing
+func (m *Map) deleteCacheEntry(key MapKey, err error) {
+	if m.cache == nil {
+		return
+	}
+
+	k := key.String()
+	if err == nil {
+		delete(m.cache, k)
+	} else {
+		entry, ok := m.cache[k]
+		if !ok {
+			m.cache[k] = &cacheEntry{
+				Key: key,
+			}
+			entry = m.cache[k]
+		}
+
+		entry.DesiredAction = Delete
+		entry.LastError = err
+		m.scheduleErrorResolver()
+	}
+}
+
+func (m *Map) DeleteWithErrno(key MapKey) (error, syscall.Errno) {
+	var (
+		err   error
+		errno syscall.Errno
+	)
+
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	defer m.deleteCacheEntry(key, err)
+
+	if err = m.Open(); err != nil {
+		return err, 0
+	}
+
+	_, errno = deleteElement(m.fd, key.GetKeyPtr())
+
+	if errno != 0 {
+		err = fmt.Errorf("Unable to delete element from map: %s", err)
+	}
+
+	return err, errno
 }
 
 func (m *Map) Delete(key MapKey) error {
-	m.lock.Lock()
-	defer m.lock.Unlock()
+	err, _ := m.DeleteWithErrno(key)
+	return err
+}
 
-	if err := m.Open(); err != nil {
-		return err
-	}
-
-	return DeleteElement(m.fd, key.GetKeyPtr())
+// scopedLogger returns a logger scoped for the map. m.lock must be held.
+func (m *Map) scopedLogger() *logrus.Entry {
+	return log.WithFields(logrus.Fields{logfields.Path: m.path, "name": m.name})
 }
 
 // DeleteAll deletes all entries of a map by traversing the map and deleting individual
@@ -467,11 +666,20 @@ func (m *Map) DeleteAll() error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	scopedLog := log.WithFields(logrus.Fields{logfields.Path: m.path, "name": m.name})
+	scopedLog := m.scopedLogger()
 	scopedLog.Debug("deleting all entries in map")
 
 	key := make([]byte, m.KeySize)
 	nextKey := make([]byte, m.KeySize)
+
+	if m.cache != nil {
+		// Mark all entries for deletion, upon successful deletion,
+		// entries will be removed or the LastError will be updated
+		for _, entry := range m.cache {
+			entry.DesiredAction = Delete
+			entry.LastError = fmt.Errorf("deletion pending")
+		}
+	}
 
 	if err := m.Open(); err != nil {
 		return err
@@ -489,6 +697,14 @@ func (m *Map) DeleteAll() error {
 		}
 
 		err = DeleteElement(m.fd, unsafe.Pointer(&nextKey[0]))
+
+		k, _, err2 := m.dumpParser(nextKey, []byte{})
+		if err2 == nil {
+			m.deleteCacheEntry(k, err)
+		} else {
+			log.WithError(err2).Warning("Unable to correlate iteration key %v with cache entry. Inconsistent cache.", nextKey)
+		}
+
 		if err != nil {
 			return err
 		}
@@ -513,12 +729,16 @@ func ConvertKeyValue(bKey []byte, bValue []byte, key interface{}, value interfac
 	keyBuf := bytes.NewBuffer(bKey)
 	valueBuf := bytes.NewBuffer(bValue)
 
-	if err := binary.Read(keyBuf, byteorder.Native, key); err != nil {
-		return fmt.Errorf("Unable to convert key: %s", err)
+	if len(bKey) > 0 {
+		if err := binary.Read(keyBuf, byteorder.Native, key); err != nil {
+			return fmt.Errorf("Unable to convert key: %s", err)
+		}
 	}
 
-	if err := binary.Read(valueBuf, byteorder.Native, value); err != nil {
-		return fmt.Errorf("Unable to convert value: %s", err)
+	if len(bValue) > 0 {
+		if err := binary.Read(valueBuf, byteorder.Native, value); err != nil {
+			return fmt.Errorf("Unable to convert value: %s", err)
+		}
 	}
 
 	return nil
@@ -527,19 +747,123 @@ func ConvertKeyValue(bKey []byte, bValue []byte, key interface{}, value interfac
 // MetadataDiff compares the metadata of the BPF maps and returns false if the
 // metadata does not match
 func (m *Map) MetadataDiff(other *Map) bool {
-	if m == nil || other == nil {
+	switch {
+	case m == other:
+		return true
+	case m == nil || other == nil:
 		return false
+	default:
+		if logging.CanLogAt(log.Logger, logrus.DebugLevel) {
+			logging.MultiLine(log.Debug, comparator.Compare(m, other))
+		}
+		return m.DeepEquals(other)
+	}
+}
+
+// GetModel returns a BPF map in the representation served via the API
+func (m *Map) GetModel() *models.BPFMap {
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+
+	mapModel := &models.BPFMap{
+		Path: m.path,
 	}
 
-	// create copies
-	m1 := *m
-	m2 := *other
+	if m.cache != nil {
+		mapModel.Cache = make([]*models.BPFMapEntry, len(m.cache))
+		i := 0
+		for k, entry := range m.cache {
+			model := &models.BPFMapEntry{
+				Key:           k,
+				DesiredAction: entry.DesiredAction.String(),
+			}
 
-	// ignore fd in diff
-	m1.fd = 0
-	m2.fd = 0
+			if entry.LastError != nil {
+				model.LastError = entry.LastError.Error()
+			}
 
-	logging.MultiLine(log.Debug, comparator.Compare(m1, m2))
+			if entry.Value != nil {
+				model.Value = entry.Value.String()
+			}
+			mapModel.Cache[i] = model
+			i++
+		}
+	}
 
-	return m1.DeepEquals(&m2)
+	return mapModel
+}
+
+// resolveErrors is schedule by scheduleErrorResolver() and runs periodically.
+// It resolves up to maxSyncErrors discrepancies between cache and BPF map in
+// the kernel.
+func (m *Map) resolveErrors() error {
+	started := time.Now()
+
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	if m.cache == nil {
+		return nil
+	}
+
+	if m.outstandingErrors == 0 {
+		return nil
+	}
+
+	scopedLogger := m.scopedLogger()
+	scopedLogger.WithField("remaining", m.outstandingErrors).
+		Debug("Starting periodic BPF map error resolver")
+
+	resolved := 0
+	scanned := 0
+	errors := 0
+	for k, e := range m.cache {
+		scanned++
+
+		switch e.DesiredAction {
+		case OK:
+		case Insert:
+			err := UpdateElement(m.fd, e.Key.GetKeyPtr(), e.Value.GetValuePtr(), 0)
+			if err == nil {
+				e.DesiredAction = OK
+				e.LastError = nil
+				resolved++
+				m.outstandingErrors--
+			} else {
+				e.LastError = err
+				errors++
+			}
+
+		case Delete:
+			_, err := deleteElement(m.fd, e.Key.GetKeyPtr())
+			if err == 0 || err == unix.ENOENT {
+				delete(m.cache, k)
+				resolved++
+				m.outstandingErrors--
+			} else {
+				e.LastError = err
+				errors++
+			}
+		}
+
+		m.cache[k] = e
+
+		// bail out if maximum errors are reached to relax the map lock
+		if errors > maxSyncErrors {
+			break
+		}
+	}
+
+	scopedLogger.WithFields(logrus.Fields{
+		"remaining": m.outstandingErrors,
+		"resolved":  resolved,
+		"scanned":   scanned,
+		"duration":  time.Since(started),
+	}).Debug("BPF map error resolver completed")
+
+	if m.outstandingErrors > 0 {
+		return fmt.Errorf("%d map sync errors", m.outstandingErrors)
+	}
+
+	return nil
 }

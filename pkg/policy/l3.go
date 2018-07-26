@@ -22,7 +22,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/maps/cidrmap"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
@@ -103,58 +102,15 @@ func (m *CIDRPolicyMap) Insert(cidr string, ruleLabels labels.LabelArray) int {
 	return 0
 }
 
-// ToBPFData converts map 'm' into int slices 's6' (IPv6) and 's4' (IPv4),
-// formatted for insertion into bpf program as prefix lengths.
-//
-// Note that this will always include the CIDR prefix lengths for host (eg /32
-// for host), cluster (typically /8 or /64), and world (/0).
-func (m *CIDRPolicyMap) ToBPFData() (s6, s4 []int) {
-	for p := range m.IPv6PrefixCount {
-		s6 = append(s6, p)
-	}
-	for p := range m.IPv4PrefixCount {
-		s4 = append(s4, p)
-	}
-	// The datapath expects longest-to-shortest prefixes so that it can
-	// clear progressively more bits with a single load of the address.
-	sort.Sort(sort.Reverse(sort.IntSlice(s6)))
-	sort.Sort(sort.Reverse(sort.IntSlice(s4)))
-	return
-}
-
-// PopulateBPF inserts the entries in m into cidrmap. Returns an error
-// if the insertion of an entry of cidrmap into m fails.
-func (m *CIDRPolicyMap) PopulateBPF(cidrmap *cidrmap.CIDRMap) error {
-	for _, cidrPolicyRule := range m.Map {
-		value := cidrPolicyRule.Prefix
-		if value.IP.To4() == nil {
-			if cidrmap.AddrSize != 16 {
-				continue
-			}
-		} else {
-			if cidrmap.AddrSize != 4 {
-				continue
-			}
-		}
-		err := cidrmap.InsertCIDR(value)
-		if err != nil {
-			log.WithError(err).WithField("CIDR", value).
-				Warningf("Failed to insert CIDR")
-			return err
-		}
-	}
-	return nil
-}
-
 // CIDRPolicy contains L3 (CIDR) policy maps for ingress.
+//
+// This is not used for map entry generation; It has two uses:
+// * On older kernels, generate the set of CIDR prefix lengths that
+//   are necessary to implement an LPM
+// * Reflect desired state of the CIDR policy in the API.
 type CIDRPolicy struct {
 	Ingress CIDRPolicyMap
-
-	// Egress is not used for map entry generation; It has two uses:
-	// * On older kernels, generate the set of CIDR prefix lengths that
-	//   are necessary to implement an LPM
-	// * Reflect desired state of the CIDR policy in the API.
-	Egress CIDRPolicyMap
+	Egress  CIDRPolicyMap
 }
 
 // NewCIDRPolicy creates a new CIDRPolicy.
@@ -176,10 +132,45 @@ func NewCIDRPolicy() (policy *CIDRPolicy) {
 	s6, s4 := GetDefaultPrefixLengths()
 	for _, i := range s6 {
 		policy.Egress.IPv6PrefixCount[i] = 0
+		policy.Ingress.IPv6PrefixCount[i] = 0
 	}
 	for _, i := range s4 {
 		policy.Egress.IPv4PrefixCount[i] = 0
+		policy.Ingress.IPv4PrefixCount[i] = 0
 	}
+	return
+}
+
+// ToBPFData converts the ingress and egress cidr map into int slices 's6'
+// (IPv6) and 's4' (IPv4), formatted for insertion into bpf program as prefix
+// lengths.
+//
+// Note that this will always include the CIDR prefix lengths for host (eg /32
+// for host), cluster (typically /8 or /64), and world (/0).
+//
+// FIXME: Move this function out of policy into a datapath specific package
+func (cp *CIDRPolicy) ToBPFData() (s6, s4 []int) {
+	s6duplicates, s4duplicates := map[int]bool{}, map[int]bool{}
+
+	for _, m := range []CIDRPolicyMap{cp.Ingress, cp.Egress} {
+		for p := range m.IPv6PrefixCount {
+			if _, ok := s6duplicates[p]; !ok {
+				s6 = append(s6, p)
+				s6duplicates[p] = true
+			}
+		}
+		for p := range m.IPv4PrefixCount {
+			if _, ok := s4duplicates[p]; !ok {
+				s4 = append(s4, p)
+				s4duplicates[p] = true
+			}
+		}
+	}
+
+	// The datapath expects longest-to-shortest prefixes so that it can
+	// clear progressively more bits with a single load of the address.
+	sort.Sort(sort.Reverse(sort.IntSlice(s6)))
+	sort.Sort(sort.Reverse(sort.IntSlice(s4)))
 	return
 }
 

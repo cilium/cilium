@@ -35,7 +35,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
@@ -83,6 +82,12 @@ var (
 	// controller via getCiliumClient and the sync.Once is used to avoid race.
 	ciliumEndpointSyncControllerOnce      sync.Once
 	ciliumEndpointSyncControllerK8sClient clientset.Interface
+
+	// ciliumUpdateStatusVerConstr is the minimal version supported for
+	// to perform a CRD UpdateStatus.
+	ciliumUpdateStatusVerConstr, _ = go_version.NewConstraint(">= 1.11.0")
+
+	k8sServerVer *go_version.Version
 )
 
 // getCiliumClient builds and returns a k8s auto-generated client for cilium
@@ -259,6 +264,18 @@ const (
 // compile time interface check
 var _ notifications.RegenNotificationInfo = &Endpoint{}
 
+// PolicyMapState is a state of a policy map.
+type PolicyMapState map[policymap.PolicyKey]PolicyMapStateEntry
+
+// PolicyMapStateEntry is the configuration associated with a PolicyKey in a
+// PolicyMapState. This is a minimized version of policymap.PolicyEntry.
+type PolicyMapStateEntry struct {
+	// The proxy port, in host byte order.
+	// If 0 (default), there is no proxy redirection for the corresponding
+	// PolicyKey.
+	ProxyPort uint16
+}
+
 // Endpoint represents a container or similar which can be individually
 // addresses on L3 with its own IP addresses. This structured is managed by the
 // endpoint manager in pkg/endpointmanager.
@@ -357,11 +374,8 @@ type Endpoint struct {
 	// CIDRPolicy is the CIDR based policy configuration of the endpoint.
 	L3Policy *policy.CIDRPolicy `json:"-"`
 
-	// L3Maps is the datapath representation of CIDRPolicy
-	L3Maps L3Maps `json:"-"`
-
-	// Opts are configurable boolean options
-	Opts *option.BoolOptions
+	// Options determine the datapath configuration of the endpoint.
+	Options *option.IntOptions
 
 	// Status are the last n state transitions this endpoint went through
 	Status *EndpointStatus
@@ -434,32 +448,41 @@ type Endpoint struct {
 	// You must hold Endpoint.Mutex to read or write it.
 	realizedRedirects map[string]uint16
 
-	// ProxyWaitGroup waits for pending proxy changes to complete.
-	// You must hold Endpoint.BuildMutex to read or write it.
-	ProxyWaitGroup *completion.WaitGroup `json:"-"`
+	// realizedMapState maps each PolicyKey which is presently
+	// inserted (realized) in the endpoint's BPF PolicyMap to a proxy port.
+	// Proxy port 0 indicates no proxy redirection.
+	// All fields within the PolicyKey and the proxy port must be in host byte-order.
+	realizedMapState PolicyMapState
 
-	// realizedMapState contains the current set of PolicyKeys which are presently
-	// inserted (realized) in the endpoint's BPF PolicyMap.
-	// All fields within the PolicyKey should be in host byte-order.
-	realizedMapState map[policymap.PolicyKey]struct{}
+	// desiredMapState maps each PolicyKeys which should be synched
+	// with, but may not yet be synched with, the endpoint's BPF PolicyMap, to
+	// a proxy port.
+	// This map is updated upon regeneration of policy for an endpoint.
+	// Proxy port 0 indicates no proxy redirection.
+	// All fields within the PolicyKey and the proxy port must be in host byte-order.
+	desiredMapState PolicyMapState
 
-	// desiredMapState contains the set of PolicyKeys which should be synched
-	// with, but may not yet be synched with, the endpoint's BPF PolicyMap.
-	// This set of keys is updated upon regeneration of policy for an endpoint.
-	// All fields within the PolicyKey should be in host byte-order.
-	desiredMapState map[policymap.PolicyKey]struct{}
+	///////////////////////
+	// DEPRECATED FIELDS //
+	///////////////////////
+
+	// DeprecatedOpts represents the mutable options for the endpoint, in
+	// the format understood by Cilium 1.1 or earlier.
+	//
+	// Deprecated: Use Options instead.
+	DeprecatedOpts deprecatedOptions `json:"Opts"`
 }
 
 // WaitForProxyCompletions blocks until all proxy changes have been completed.
 // Called with BuildMutex held.
-func (e *Endpoint) WaitForProxyCompletions() error {
-	if e.ProxyWaitGroup == nil {
+func (e *Endpoint) WaitForProxyCompletions(proxyWaitGroup *completion.WaitGroup) error {
+	if proxyWaitGroup == nil {
 		return nil
 	}
 
 	start := time.Now()
 	e.getLogger().Debug("Waiting for proxy updates to complete...")
-	err := e.ProxyWaitGroup.Wait()
+	err := proxyWaitGroup.Wait()
 	if err != nil {
 		return fmt.Errorf("proxy state changes failed: %s", err)
 	}
@@ -475,21 +498,21 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 		endpointID     = e.ID
 		controllerName = fmt.Sprintf("sync-to-k8s-ciliumendpoint (%v)", endpointID)
 		scopedLog      = e.getLogger().WithField("controller", controllerName)
-		healthLbls     = pkgLabels.Labels{pkgLabels.IDNameHealth: pkgLabels.NewLabel(pkgLabels.IDNameHealth, "", pkgLabels.LabelSourceReserved)}
+		err            error
 	)
 
 	if !k8s.IsEnabled() {
 		scopedLog.Debug("Not starting controller because k8s is disabled")
 		return
 	}
-	sv, err := k8s.GetServerVersion()
+	k8sServerVer, err = k8s.GetServerVersion()
 	if err != nil {
 		scopedLog.WithError(err).Error("unable to retrieve kubernetes serverversion")
 		return
 	}
-	if !ciliumEPControllerLimit.Check(sv) {
+	if !ciliumEPControllerLimit.Check(k8sServerVer) {
 		scopedLog.WithFields(logrus.Fields{
-			"expected": sv,
+			"expected": k8sServerVer,
 			"found":    ciliumEPControllerLimit,
 		}).Warn("cannot run with this k8s version")
 		return
@@ -514,7 +537,7 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 				var (
 					podName    string
 					namespace  string
-					isHealthEP = e.HasLabels(healthLbls)
+					isHealthEP = e.HasLabels(pkgLabels.LabelHealth)
 				)
 
 				switch isHealthEP {
@@ -577,10 +600,16 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 				case err == nil:
 					// Update the copy of the cep
 					k8sMdl.DeepCopyInto(&cep.Status)
-
-					if _, err = ciliumClient.CiliumEndpoints(namespace).Update(cep); err != nil {
-						scopedLog.WithError(err).Error("Cannot update CEP")
-						return err
+					var err2 error
+					switch {
+					case ciliumUpdateStatusVerConstr.Check(k8sServerVer):
+						_, err2 = ciliumClient.CiliumEndpoints(namespace).UpdateStatus(cep)
+					default:
+						_, err2 = ciliumClient.CiliumEndpoints(namespace).Update(cep)
+					}
+					if err2 != nil {
+						scopedLog.WithError(err2).Error("Cannot update CEP")
+						return err2
 					}
 
 					lastMdl = mdl
@@ -618,10 +647,10 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 // NewEndpointWithState creates a new endpoint useful for testing purposes
 func NewEndpointWithState(ID uint16, state string) *Endpoint {
 	return &Endpoint{
-		ID:     ID,
-		Opts:   option.NewBoolOptions(&EndpointMutableOptionLibrary),
-		Status: NewEndpointStatus(),
-		state:  state,
+		ID:      ID,
+		Options: option.NewIntOptions(&EndpointMutableOptionLibrary),
+		Status:  NewEndpointStatus(),
+		state:   state,
 	}
 }
 
@@ -645,10 +674,11 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, 
 			OrchestrationIdentity: pkgLabels.Labels{},
 			OrchestrationInfo:     pkgLabels.Labels{},
 		},
-		state:  string(base.State),
+		state:  "",
 		Status: NewEndpointStatus(),
 	}
 
+	ep.SetStateLocked(string(base.State), "Endpoint creation")
 	if base.Mac != "" {
 		m, err := mac.ParseMAC(base.Mac)
 		if err != nil {
@@ -727,7 +757,7 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 
 	spec := &models.EndpointConfigurationSpec{
 		LabelConfiguration: lblSpec,
-		Options:            *e.Opts.GetMutableModel(),
+		Options:            *e.Options.GetMutableModel(),
 	}
 
 	mdl := &models.Endpoint{
@@ -907,8 +937,8 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 		}
 	}
 
-	policyIngressEnabled := e.Opts.IsEnabled(option.IngressPolicy)
-	policyEgressEnabled := e.Opts.IsEnabled(option.EgressPolicy)
+	policyIngressEnabled := e.Options.IsEnabled(option.IngressPolicy)
+	policyEgressEnabled := e.Options.IsEnabled(option.EgressPolicy)
 
 	policyEnabled := models.EndpointPolicyEnabledNone
 	switch {
@@ -1230,13 +1260,13 @@ func (e *Endpoint) String() string {
 
 // optionChanged is a callback used with pkg/option to apply the options to an
 // endpoint.  Not used for anything at the moment.
-func optionChanged(key string, value bool, data interface{}) {
+func optionChanged(key string, value int, data interface{}) {
 }
 
 // applyOptsLocked applies the given options to the endpoint's options and
 // returns true if there were any options changed.
 func (e *Endpoint) applyOptsLocked(opts map[string]string) bool {
-	return e.Opts.Apply(opts, optionChanged, e) > 0
+	return e.Options.ApplyValidated(opts, optionChanged, e) > 0
 }
 
 // ForcePolicyCompute marks the endpoint for forced bpf regeneration.
@@ -1244,18 +1274,18 @@ func (e *Endpoint) ForcePolicyCompute() {
 	e.forcePolicyCompute = true
 }
 
-func (e *Endpoint) SetDefaultOpts(opts *option.BoolOptions) {
-	if e.Opts == nil {
-		e.Opts = option.NewBoolOptions(&EndpointMutableOptionLibrary)
+func (e *Endpoint) SetDefaultOpts(opts *option.IntOptions) {
+	if e.Options == nil {
+		e.Options = option.NewIntOptions(&EndpointMutableOptionLibrary)
 	}
-	if e.Opts.Library == nil {
-		e.Opts.Library = &EndpointMutableOptionLibrary
+	if e.Options.Library == nil {
+		e.Options.Library = &EndpointMutableOptionLibrary
 	}
 
 	if opts != nil {
 		epOptLib := option.GetEndpointMutableOptionLibrary()
 		for k := range epOptLib {
-			e.Opts.Set(k, opts.IsEnabled(k))
+			e.Options.SetValidated(k, opts.GetValue(k))
 		}
 	}
 }
@@ -1266,7 +1296,7 @@ func (e *Endpoint) ConntrackLocal() bool {
 	e.Mutex.RLock()
 	defer e.Mutex.RUnlock()
 
-	if e.SecurityIdentity == nil || !e.Opts.IsEnabled(option.ConntrackLocal) {
+	if e.SecurityIdentity == nil || !e.Options.IsEnabled(option.ConntrackLocal) {
 		return false
 	}
 
@@ -1315,6 +1345,7 @@ func (e *Endpoint) base64() (string, error) {
 		err       error
 	)
 
+	transformEndpointForDowngrade(e)
 	jsonBytes, err = json.Marshal(e)
 	if err != nil {
 		return "", err
@@ -1366,7 +1397,7 @@ func ParseEndpoint(strEp string) (*Endpoint, error) {
 		ep.Status = NewEndpointStatus()
 	}
 
-	ep.state = StateRestoring
+	ep.SetStateLocked(StateRestoring, "Endpoint restoring")
 
 	return &ep, nil
 }
@@ -1415,10 +1446,9 @@ func (e *Endpoint) GetBPFValue() (*lxcmap.EndpointInfo, error) {
 		// Store security identity in network byte order so it can be
 		// written into the packet without an additional byte order
 		// conversion.
-		SecLabelID: byteorder.HostToNetwork(uint16(e.GetIdentity())).(uint16),
-		LxcID:      e.ID,
-		MAC:        lxcmap.MAC(mac),
-		NodeMAC:    lxcmap.MAC(nodeMAC),
+		LxcID:   e.ID,
+		MAC:     lxcmap.MAC(mac),
+		NodeMAC: lxcmap.MAC(nodeMAC),
 	}
 
 	return info, nil
@@ -1491,8 +1521,6 @@ func (e *Endpoint) LogStatus(typ StatusType, code StatusCode, msg string) {
 	defer e.Mutex.Unlock()
 	// FIXME GH2323 instead of a mutex we could use a channel to send the status
 	// log message to a single writer?
-	e.Status.indexMU.Lock()
-	defer e.Status.indexMU.Unlock()
 	e.logStatusLocked(typ, code, msg)
 }
 
@@ -1504,12 +1532,12 @@ func (e *Endpoint) LogStatusOK(typ StatusType, msg string) {
 // given msg string.
 // must be called with endpoint.Mutex held
 func (e *Endpoint) LogStatusOKLocked(typ StatusType, msg string) {
-	e.Status.indexMU.Lock()
-	defer e.Status.indexMU.Unlock()
 	e.logStatusLocked(typ, OK, msg)
 }
 
 func (e *Endpoint) logStatusLocked(typ StatusType, code StatusCode, msg string) {
+	e.Status.indexMU.Lock()
+	defer e.Status.indexMU.Unlock()
 	sts := &statusLogMsg{
 		Status: Status{
 			Code:  code,
@@ -1557,7 +1585,7 @@ func (e *Endpoint) Update(owner Owner, cfg *models.EndpointConfigurationSpec) er
 	e.getLogger().WithField("configuration-options", cfg).Debug("updating endpoint configuration options")
 
 	e.Mutex.Lock()
-	if err := e.Opts.Validate(cfg.Options); err != nil {
+	if err := e.Options.Validate(cfg.Options); err != nil {
 		e.Mutex.Unlock()
 		return UpdateValidationError{err.Error()}
 	}
@@ -1653,8 +1681,12 @@ func (e *Endpoint) HasLabels(l pkgLabels.Labels) bool {
 }
 
 // replaceInformationLabels replaces the information labels of the endpoint.
+// Passing a nil set of labels will not perform any action.
 // Must be called with e.Mutex.Lock().
 func (e *Endpoint) replaceInformationLabels(l pkgLabels.Labels) {
+	if l == nil {
+		return
+	}
 	e.OpLabels.OrchestrationInfo.MarkAllForDeletion()
 
 	for _, v := range l {
@@ -1668,8 +1700,14 @@ func (e *Endpoint) replaceInformationLabels(l pkgLabels.Labels) {
 // replaceIdentityLabels replaces the identity labels of the endpoint. If a net
 // changed occurred, the identityRevision is bumped and returned, otherwise 0 is
 // returned.
+// Passing a nil set of labels will not perform any action and will return the
+// current endpoint's identityRevision.
 // Must be called with e.Mutex.Lock().
 func (e *Endpoint) replaceIdentityLabels(l pkgLabels.Labels) int {
+	if l == nil {
+		return e.identityRevision
+	}
+
 	changed := false
 
 	e.OpLabels.OrchestrationIdentity.MarkAllForDeletion()
@@ -1700,13 +1738,13 @@ func (e *Endpoint) replaceIdentityLabels(l pkgLabels.Labels) int {
 
 // LeaveLocked removes the endpoint's directory from the system. Must be called
 // with Endpoint's mutex AND BuildMutex locked.
-func (e *Endpoint) LeaveLocked(owner Owner) []error {
+func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup) []error {
 	errors := []error{}
 
 	owner.RemoveFromEndpointQueue(uint64(e.ID))
 	if e.SecurityIdentity != nil && e.RealizedL4Policy != nil {
 		// Passing a new map of nil will purge all redirects
-		e.removeOldRedirects(owner, nil)
+		e.removeOldRedirects(owner, nil, proxyWaitGroup)
 	}
 
 	if e.PolicyMap != nil {
@@ -1725,7 +1763,6 @@ func (e *Endpoint) LeaveLocked(owner Owner) []error {
 		e.SecurityIdentity = nil
 	}
 
-	e.L3Maps.Close()
 	e.removeDirectory()
 	e.removeFailedDirectory()
 	e.controllers.RemoveAll()
@@ -1808,7 +1845,7 @@ func (e *Endpoint) GetK8sPodName() string {
 // GetK8sNamespaceAndPodNameLocked returns the namespace and pod name.  This
 // function requires e.Mutex to be held.
 func (e *Endpoint) GetK8sNamespaceAndPodNameLocked() string {
-	return e.k8sNamespace + ":" + e.k8sPodName
+	return e.k8sNamespace + "/" + e.k8sPodName
 }
 
 // SetK8sPodName modifies the endpoint's pod name
@@ -1898,10 +1935,17 @@ func (e *Endpoint) GetState() string {
 func (e *Endpoint) SetStateLocked(toState, reason string) bool {
 	// Validate the state transition.
 	fromState := e.state
+
 	switch fromState { // From state
+	case "": // Special case for capturing initial state transitions like
+		// nil --> StateWaitingForIdentity, StateRestoring
+		switch toState {
+		case StateWaitingForIdentity, StateRestoring:
+			goto OKState
+		}
 	case StateCreating:
 		switch toState {
-		case StateDisconnecting, StateWaitingForIdentity:
+		case StateDisconnecting, StateWaitingForIdentity, StateRestoring:
 			goto OKState
 		}
 	case StateWaitingForIdentity:
@@ -1911,7 +1955,7 @@ func (e *Endpoint) SetStateLocked(toState, reason string) bool {
 		}
 	case StateReady:
 		switch toState {
-		case StateWaitingForIdentity, StateDisconnecting, StateWaitingToRegenerate:
+		case StateWaitingForIdentity, StateDisconnecting, StateWaitingToRegenerate, StateRestoring:
 			goto OKState
 		}
 	case StateDisconnecting:
@@ -1924,7 +1968,7 @@ func (e *Endpoint) SetStateLocked(toState, reason string) bool {
 	case StateWaitingToRegenerate:
 		switch toState {
 		// Note that transitions to waiting-to-regenerate state
-		case StateWaitingForIdentity, StateDisconnecting:
+		case StateWaitingForIdentity, StateDisconnecting, StateRestoring:
 			goto OKState
 		}
 	case StateRegenerating:
@@ -1934,12 +1978,12 @@ func (e *Endpoint) SetStateLocked(toState, reason string) bool {
 		// build. In this case the endpoint is transitioned
 		// from the regenerating state to
 		// waiting-for-identity or waiting-to-regenerate state.
-		case StateWaitingForIdentity, StateDisconnecting, StateWaitingToRegenerate:
+		case StateWaitingForIdentity, StateDisconnecting, StateWaitingToRegenerate, StateRestoring:
 			goto OKState
 		}
 	case StateRestoring:
 		switch toState {
-		case StateDisconnecting, StateWaitingToRegenerate:
+		case StateDisconnecting, StateWaitingToRegenerate, StateRestoring:
 			goto OKState
 		}
 	}
@@ -1958,6 +2002,23 @@ func (e *Endpoint) SetStateLocked(toState, reason string) bool {
 OKState:
 	e.state = toState
 	e.logStatusLocked(Other, OK, reason)
+
+	// Initial state transitions i.e nil --> waiting-for-identity
+	// need to be handled correctly while updating metrics.
+	// Note that if we are transitioning from some state to restoring
+	// state, we cannot decrement the old state counters as they will not
+	// be accounted for in the metrics.
+	if fromState != "" && toState != StateRestoring {
+		metrics.EndpointStateCount.
+			WithLabelValues(fromState).Dec()
+	}
+
+	// Since StateDisconnected is the final state, after which the
+	// endpoint is gone, we should not increment metrics for this state.
+	if toState != "" && toState != StateDisconnected {
+		metrics.EndpointStateCount.
+			WithLabelValues(toState).Inc()
+	}
 	return true
 }
 
@@ -2006,6 +2067,18 @@ func (e *Endpoint) BuilderSetStateLocked(toState, reason string) bool {
 OKState:
 	e.state = toState
 	e.logStatusLocked(Other, OK, reason)
+
+	if fromState != "" && toState != StateRestoring {
+		metrics.EndpointStateCount.
+			WithLabelValues(fromState).Dec()
+	}
+
+	// Since StateDisconnected is the final state, after which the
+	// endpoint is gone, we should not increment metrics for this state.
+	if toState != "" && toState != StateDisconnected {
+		metrics.EndpointStateCount.
+			WithLabelValues(toState).Inc()
+	}
 	return true
 }
 
@@ -2119,25 +2192,17 @@ func (e *Endpoint) getIDandLabels() string {
 	return fmt.Sprintf("%d (%s)", e.ID, labels)
 }
 
-// SetIdentityLabels resets the identity labels of an endpoint.
-// If a label change is performed, the endpoint will receive a new identity and will be regenerated.
-// Both of these operations will happen in the background.
-func (e *Endpoint) SetIdentityLabels(owner Owner, l pkgLabels.Labels) {
-	e.Mutex.Lock()
-	rev := e.replaceIdentityLabels(l)
-	e.Mutex.Unlock()
-
-	if rev != 0 {
-		e.runLabelsResolver(owner, rev)
-	}
-}
-
 // ModifyIdentityLabels changes the custom and orchestration identity labels of an endpoint.
 // Labels can be added or deleted. If a label change is performed, the
 // endpoint will receive a new identity and will be regenerated. Both of these
 // operations will happen in the background.
 func (e *Endpoint) ModifyIdentityLabels(owner Owner, addLabels, delLabels pkgLabels.Labels) error {
 	e.Mutex.Lock()
+
+	switch e.GetStateLocked() {
+	case StateDisconnected, StateDisconnecting:
+		return nil
+	}
 
 	newLabels := e.OpLabels.DeepCopy()
 
@@ -2282,6 +2347,10 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 	}
 
 	if e.SecurityIdentity != nil && e.SecurityIdentity.Labels.Equals(newLabels) {
+		// Sets endpoint state to ready if was waiting for identity
+		if e.GetStateLocked() == StateWaitingForIdentity {
+			e.SetStateLocked(StateReady, "Set identity for this endpoint")
+		}
 		e.Mutex.RUnlock()
 		elog.Debug("Endpoint labels unchanged, skipping resolution of identity")
 		return nil
@@ -2436,11 +2505,11 @@ func (e *Endpoint) InsertEvent() {
 func (e *Endpoint) syncPolicyMap() error {
 
 	if e.realizedMapState == nil {
-		e.realizedMapState = make(map[policymap.PolicyKey]struct{})
+		e.realizedMapState = make(PolicyMapState)
 	}
 
 	if e.desiredMapState == nil {
-		e.desiredMapState = make(map[policymap.PolicyKey]struct{})
+		e.desiredMapState = make(PolicyMapState)
 	}
 
 	if e.PolicyMap == nil {
@@ -2486,7 +2555,7 @@ func (e *Endpoint) syncPolicyMap() error {
 			// converted to network byte-order.
 			err := e.PolicyMap.DeleteKey(keyHostOrder)
 			if err != nil {
-				log.Errorf("failed to delete key %s: %s", entry.Key, err)
+				e.getLogger().WithError(err).Errorf("Failed to delete PolicyMap key %s", entry.Key)
 				errors = append(errors, err)
 			} else {
 				// Operation was successful, remove from realized state.
@@ -2495,15 +2564,15 @@ func (e *Endpoint) syncPolicyMap() error {
 		}
 	}
 
-	for keyToAdd := range e.desiredMapState {
-		if _, ok := e.realizedMapState[keyToAdd]; !ok {
-			err := e.PolicyMap.AllowKey(keyToAdd)
+	for keyToAdd, entry := range e.desiredMapState {
+		if oldEntry, ok := e.realizedMapState[keyToAdd]; !ok || oldEntry != entry {
+			err := e.PolicyMap.AllowKey(keyToAdd, entry.ProxyPort)
 			if err != nil {
-				log.Errorf("failed to add key %s: %s", keyToAdd, err)
+				e.getLogger().WithError(err).Errorf("Failed to add PolicyMap key %s %d", keyToAdd, entry.ProxyPort)
 				errors = append(errors, err)
 			} else {
 				// Operation was successful, add to realized state.
-				e.realizedMapState[keyToAdd] = struct{}{}
+				e.realizedMapState[keyToAdd] = entry
 			}
 		}
 	}
@@ -2527,4 +2596,15 @@ func (e *Endpoint) syncPolicyMapController() {
 			RunInterval: 1 * time.Minute,
 		},
 	)
+}
+
+// IsDisconnecting returns true if the endpoint is being disconnected or
+// already disconnected
+//
+// This function must be called after re-aquiring the endpoint mutex to verify
+// that the endpoint has not been removed in the meantime.
+//
+// endpoint.Mutex must be held
+func (e *Endpoint) IsDisconnecting() bool {
+	return e.state == StateDisconnected || e.state == StateDisconnecting
 }

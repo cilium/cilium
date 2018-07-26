@@ -68,16 +68,30 @@ type CIDRSlice []CIDR
 // GetAsEndpointSelectors returns the provided CIDR slice as a slice of
 // endpoint selectors
 func (s CIDRSlice) GetAsEndpointSelectors() EndpointSelectorSlice {
+	// If multiple CIDRs representing reserved:world are in this CIDRSlice,
+	// we only have to add the EndpointSelector representing reserved:world
+	// once.
+	var hasWorldBeenAdded bool
 	slice := EndpointSelectorSlice{}
-	if len(s) == 1 && s[0].MatchesAll() {
-		slice = append(slice, ReservedEndpointSelectors[labels.IDNameWorld])
-	}
 	for _, cidr := range s {
+		if cidr.MatchesAll() && !hasWorldBeenAdded {
+			hasWorldBeenAdded = true
+			slice = append(slice, ReservedEndpointSelectors[labels.IDNameWorld])
+		}
 		lbl := labels.IPStringToLabel(string(cidr))
 		slice = append(slice, NewESFromLabels(lbl))
 	}
 
 	return slice
+}
+
+// StringSlice returns the CIDR slice as a slice of strings.
+func (s CIDRSlice) StringSlice() []string {
+	result := make([]string, 0, len(s))
+	for _, c := range s {
+		result = append(result, string(c))
+	}
+	return result
 }
 
 // CIDRRuleSlice is a slice of CIDRRules. It allows receiver methods to be

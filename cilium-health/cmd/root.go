@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/pkg/apisocket"
+	"github.com/cilium/cilium/pkg/api"
 	clientPkg "github.com/cilium/cilium/pkg/health/client"
 	"github.com/cilium/cilium/pkg/health/defaults"
 	serverPkg "github.com/cilium/cilium/pkg/health/server"
@@ -43,7 +43,7 @@ var (
 	client    *clientPkg.Client
 	cmdRefDir string
 	server    *serverPkg.Server
-	log       = logging.DefaultLogger
+	log       = logging.DefaultLogger.WithField(logfields.LogSubsys, targetName)
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -80,7 +80,7 @@ func init() {
 	flags.StringP("pidfile", "", "", "Write the PID to the specified file")
 	flags.StringP("host", "H", "", "URI to cilium-health server API")
 	flags.StringP("cilium", "c", "", "URI to Cilium server API")
-	flags.IntP("interval", "i", 60, "Interval (in seconds) for periodic connectivity probes")
+	flags.UintP("interval", "i", 60, "Interval (in seconds) for periodic connectivity probes")
 	viper.BindPFlags(flags)
 
 	flags.StringVar(&cmdRefDir, "cmdref", "", "Path to cmdref output directory")
@@ -162,7 +162,7 @@ func runServer() {
 			scopedLog.WithError(err).Debugf("Cannot find socket")
 			time.Sleep(1 * time.Second)
 		}
-		if err := apisocket.SetDefaultPermissions(defaults.SockPath); err != nil {
+		if err := api.SetDefaultPermissions(defaults.SockPath); err != nil {
 			scopedLog.WithError(err).Fatal("Cannot set default permissions on socket")
 		}
 	}()

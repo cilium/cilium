@@ -21,7 +21,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var log = logging.DefaultLogger
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "endpoint")
 
 // logger returns a logrus object with EndpointID, ContainerID and the Endpoint
 // revision fields.
@@ -46,14 +46,14 @@ func (e *Endpoint) updateLogger() {
 	//   endpoint from the logger.
 	// - The debug option on the endpoint is true, and the logger is not debug,
 	//   or vice versa.
-	shouldUpdate := e.logger == nil ||
+	shouldUpdate := e.logger == nil || e.Options == nil ||
 		e.logger.Data[logfields.EndpointID] != e.ID ||
 		e.logger.Data[logfields.ContainerID] != containerID ||
 		e.logger.Data[logfields.PolicyRevision] != e.policyRevision ||
 		e.logger.Data[logfields.IPv4] != e.IPv4.String() ||
 		e.logger.Data[logfields.IPv6] != e.IPv6.String() ||
 		e.logger.Data[logfields.K8sPodName] != podName ||
-		e.Opts.IsEnabled("Debug") != (e.logger.Level == logrus.DebugLevel)
+		e.Options.IsEnabled("Debug") != (e.logger.Level == logrus.DebugLevel)
 
 	// do nothing if we do not need an update
 	if !shouldUpdate {
@@ -61,11 +61,11 @@ func (e *Endpoint) updateLogger() {
 	}
 
 	// default to using the log var set above
-	baseLogger := log
+	baseLogger := log.Logger
 
 	// If this endpoint is set to debug ensure it will print debug by giving it
 	// an independent logger
-	if e.Opts != nil && e.Opts.IsEnabled("Debug") {
+	if e.Options != nil && e.Options.IsEnabled("Debug") {
 		baseLogger = logging.InitializeDefaultLogger()
 		baseLogger.SetLevel(logrus.DebugLevel)
 	}

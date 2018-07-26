@@ -16,7 +16,6 @@ package kvstore
 
 import (
 	"encoding/json"
-	"time"
 
 	"github.com/cilium/cilium/common/types"
 )
@@ -58,6 +57,9 @@ type backendModule interface {
 	// newClient must initializes the backend and create a new kvstore
 	// client which implements the BackendOperations interface
 	newClient() (BackendOperations, error)
+
+	// createInstance creates a new instance of the module
+	createInstance() backendModule
 }
 
 var (
@@ -78,7 +80,7 @@ func registerBackend(name string, module backendModule) {
 // getBackend finds a registered backend by name
 func getBackend(name string) backendModule {
 	if backend, ok := registeredBackends[name]; ok {
-		return backend
+		return backend.createInstance()
 	}
 
 	return nil
@@ -139,18 +141,8 @@ type BackendOperations interface {
 	// keys first.
 	Watch(w *Watcher)
 
-	// CreateLease creates a lease with the specified ttl
-	CreateLease(ttl time.Duration) (interface{}, error)
-
-	// KeepAlive keeps a lease previously created with CreateLease alive
-	// for the duration specified at CreateLease time
-	KeepAlive(lease interface{}) error
-
-	// DeleteLease deletes a lease
-	DeleteLease(interface{}) error
-
-	// close closes the kvstore client
-	closeClient()
+	// Close closes the kvstore client
+	Close()
 
 	// GetCapabilities returns the capabilities of the backend
 	GetCapabilities() Capabilities
@@ -161,4 +153,12 @@ type BackendOperations interface {
 
 	// Decodes a key previously encoded back into the original binary slice
 	Decode(in string) ([]byte, error)
+
+	// ListAndWatch creates a new watcher which will watch the specified
+	// prefix for changes. Before doing this, it will list the current keys
+	// matching the prefix and report them as new keys. Name can be set to
+	// anything and is used for logging messages. The Events channel is
+	// created with the specified sizes. Upon every change observed, a
+	// KeyValueEvent will be sent to the Events channel
+	ListAndWatch(name, prefix string, chanSize int) *Watcher
 }

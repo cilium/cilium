@@ -24,9 +24,10 @@ import (
 	"syscall"
 
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-var log = logging.DefaultLogger
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "pidfile")
 
 // Write the pid of the process to the specified path, and attach a cleanup
 // handler to the exit of the program so it's removed afterwards.
@@ -73,7 +74,7 @@ func kill(buf []byte) error {
 		log.WithError(err).Debug("Ignoring process kill failure")
 	}
 	if err := oldProc.Release(); err != nil {
-		return fmt.Errorf("Couldn't release process: %s", pid, err)
+		return fmt.Errorf("Couldn't release process %d: %s", pid, err)
 	}
 	return nil
 }

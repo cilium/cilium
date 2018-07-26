@@ -58,7 +58,7 @@ func (Capability_Protocol) EnumDescriptor() ([]byte, []int) {
 // Defines supported protocols etc, so the management server can assign proper
 // endpoints to healthcheck.
 type Capability struct {
-	HealthCheckProtocol  []Capability_Protocol `protobuf:"varint,1,rep,packed,name=health_check_protocol,json=healthCheckProtocol,enum=envoy.service.discovery.v2.Capability_Protocol" json:"health_check_protocol,omitempty"`
+	HealthCheckProtocol  []Capability_Protocol `protobuf:"varint,1,rep,packed,name=health_check_protocol,json=healthCheckProtocol,proto3,enum=envoy.service.discovery.v2.Capability_Protocol" json:"health_check_protocol,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
 	XXX_unrecognized     []byte                `json:"-"`
 	XXX_sizecache        int32                 `json:"-"`
@@ -96,8 +96,8 @@ func (m *Capability) GetHealthCheckProtocol() []Capability_Protocol {
 }
 
 type HealthCheckRequest struct {
-	Node                 *core.Node  `protobuf:"bytes,1,opt,name=node" json:"node,omitempty"`
-	Capability           *Capability `protobuf:"bytes,2,opt,name=capability" json:"capability,omitempty"`
+	Node                 *core.Node  `protobuf:"bytes,1,opt,name=node,proto3" json:"node,omitempty"`
+	Capability           *Capability `protobuf:"bytes,2,opt,name=capability,proto3" json:"capability,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
 	XXX_unrecognized     []byte      `json:"-"`
 	XXX_sizecache        int32       `json:"-"`
@@ -142,8 +142,8 @@ func (m *HealthCheckRequest) GetCapability() *Capability {
 }
 
 type EndpointHealth struct {
-	Endpoint             *endpoint.Endpoint `protobuf:"bytes,1,opt,name=endpoint" json:"endpoint,omitempty"`
-	HealthStatus         core.HealthStatus  `protobuf:"varint,2,opt,name=health_status,json=healthStatus,enum=envoy.api.v2.core.HealthStatus" json:"health_status,omitempty"`
+	Endpoint             *endpoint.Endpoint `protobuf:"bytes,1,opt,name=endpoint,proto3" json:"endpoint,omitempty"`
+	HealthStatus         core.HealthStatus  `protobuf:"varint,2,opt,name=health_status,json=healthStatus,proto3,enum=envoy.api.v2.core.HealthStatus" json:"health_status,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -188,7 +188,7 @@ func (m *EndpointHealth) GetHealthStatus() core.HealthStatus {
 }
 
 type EndpointHealthResponse struct {
-	EndpointsHealth      []*EndpointHealth `protobuf:"bytes,1,rep,name=endpoints_health,json=endpointsHealth" json:"endpoints_health,omitempty"`
+	EndpointsHealth      []*EndpointHealth `protobuf:"bytes,1,rep,name=endpoints_health,json=endpointsHealth,proto3" json:"endpoints_health,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`
@@ -268,10 +268,10 @@ type isHealthCheckRequestOrEndpointHealthResponse_RequestType interface {
 }
 
 type HealthCheckRequestOrEndpointHealthResponse_HealthCheckRequest struct {
-	HealthCheckRequest *HealthCheckRequest `protobuf:"bytes,1,opt,name=health_check_request,json=healthCheckRequest,oneof"`
+	HealthCheckRequest *HealthCheckRequest `protobuf:"bytes,1,opt,name=health_check_request,json=healthCheckRequest,proto3,oneof"`
 }
 type HealthCheckRequestOrEndpointHealthResponse_EndpointHealthResponse struct {
-	EndpointHealthResponse *EndpointHealthResponse `protobuf:"bytes,2,opt,name=endpoint_health_response,json=endpointHealthResponse,oneof"`
+	EndpointHealthResponse *EndpointHealthResponse `protobuf:"bytes,2,opt,name=endpoint_health_response,json=endpointHealthResponse,proto3,oneof"`
 }
 
 func (*HealthCheckRequestOrEndpointHealthResponse_HealthCheckRequest) isHealthCheckRequestOrEndpointHealthResponse_RequestType() {
@@ -375,8 +375,8 @@ func _HealthCheckRequestOrEndpointHealthResponse_OneofSizer(msg proto.Message) (
 }
 
 type LocalityEndpoints struct {
-	Locality             *core.Locality       `protobuf:"bytes,1,opt,name=locality" json:"locality,omitempty"`
-	Endpoints            []*endpoint.Endpoint `protobuf:"bytes,2,rep,name=endpoints" json:"endpoints,omitempty"`
+	Locality             *core.Locality       `protobuf:"bytes,1,opt,name=locality,proto3" json:"locality,omitempty"`
+	Endpoints            []*endpoint.Endpoint `protobuf:"bytes,2,rep,name=endpoints,proto3" json:"endpoints,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
 	XXX_unrecognized     []byte               `json:"-"`
 	XXX_sizecache        int32                `json:"-"`
@@ -425,9 +425,9 @@ func (m *LocalityEndpoints) GetEndpoints() []*endpoint.Endpoint {
 // Envoy instance (outside of HDS). For maximum usefulness, it should match the
 // same cluster structure as that provided by EDS.
 type ClusterHealthCheck struct {
-	ClusterName          string               `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName" json:"cluster_name,omitempty"`
-	HealthChecks         []*core.HealthCheck  `protobuf:"bytes,2,rep,name=health_checks,json=healthChecks" json:"health_checks,omitempty"`
-	Endpoints            []*LocalityEndpoints `protobuf:"bytes,3,rep,name=endpoints" json:"endpoints,omitempty"`
+	ClusterName          string               `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName,proto3" json:"cluster_name,omitempty"`
+	HealthChecks         []*core.HealthCheck  `protobuf:"bytes,2,rep,name=health_checks,json=healthChecks,proto3" json:"health_checks,omitempty"`
+	Endpoints            []*LocalityEndpoints `protobuf:"bytes,3,rep,name=endpoints,proto3" json:"endpoints,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
 	XXX_unrecognized     []byte               `json:"-"`
 	XXX_sizecache        int32                `json:"-"`
@@ -479,9 +479,9 @@ func (m *ClusterHealthCheck) GetEndpoints() []*LocalityEndpoints {
 }
 
 type HealthCheckSpecifier struct {
-	HealthCheck []*ClusterHealthCheck `protobuf:"bytes,1,rep,name=health_check,json=healthCheck" json:"health_check,omitempty"`
+	HealthCheck []*ClusterHealthCheck `protobuf:"bytes,1,rep,name=health_check,json=healthCheck,proto3" json:"health_check,omitempty"`
 	// The default is 1 second.
-	Interval             *duration.Duration `protobuf:"bytes,2,opt,name=interval" json:"interval,omitempty"`
+	Interval             *duration.Duration `protobuf:"bytes,2,opt,name=interval,proto3" json:"interval,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`

@@ -47,7 +47,7 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 	// Not expecting all of the commands to be available
 	commands = []string{
 		// Host and misc
-		"ps",
+		"ps auxfw",
 		"hostname",
 		"ip a",
 		"ip r",
@@ -219,6 +219,7 @@ func copyCiliumInfoCommands(cmdDir string, k8sPods []string) []string {
 		"cilium bpf ct list global",
 		"cilium bpf proxy list",
 		"cilium bpf ipcache list",
+		"cilium map list --verbose",
 		"cilium status --verbose",
 		"cilium identity list",
 		"cilium-health status",

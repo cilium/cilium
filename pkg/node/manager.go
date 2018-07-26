@@ -22,16 +22,15 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/mtu"
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"github.com/vishvananda/netlink"
 )
-
-var log = logging.DefaultLogger
 
 // RouteType represents the route type to be configured when adding the node
 // routes
@@ -49,17 +48,12 @@ type clusterConfiguation struct {
 
 	nodes                 map[Identity]*Node
 	ciliumHostInitialized bool
-	usePerNodeRoutes      bool
 	auxPrefixes           []*net.IPNet
 }
 
-var clusterConf = newClusterConfiguration()
-
-func newClusterConfiguration() clusterConfiguation {
-	return clusterConfiguation{
-		nodes:       map[Identity]*Node{},
-		auxPrefixes: []*net.IPNet{},
-	}
+var clusterConf = &clusterConfiguation{
+	nodes:       map[Identity]*Node{},
+	auxPrefixes: []*net.IPNet{},
 }
 
 func (cc *clusterConfiguation) getNode(ni Identity) *Node {
@@ -195,8 +189,10 @@ func replaceNodeRoute(ip *net.IPNet) {
 	// If the route includes the local address, then the route is for
 	// local containers and we can use a high MTU for transmit. Otherwise,
 	// it needs to be able to fit within the MTU of tunnel devices.
-	if !ip.Contains(local) {
-		route.MTU = mtu.TunnelMTU
+	if ip.Contains(local) {
+		route.MTU = mtu.GetDeviceMTU()
+	} else {
+		route.MTU = mtu.GetRouteMTU()
 	}
 	scopedLog := log.WithField(logfields.Route, route)
 
@@ -204,6 +200,37 @@ func replaceNodeRoute(ip *net.IPNet) {
 		scopedLog.WithError(err).Error("Unable to add node route")
 	} else {
 		scopedLog.Info("Installed node route")
+	}
+}
+
+// deleteNodeRoute removes a node route of a particular CIDR
+func deleteNodeRoute(ip *net.IPNet) {
+	if ip == nil {
+		return
+	}
+
+	link, err := netlink.LinkByName(HostDevice)
+	if err != nil {
+		log.WithError(err).WithField(logfields.Interface, HostDevice).Error("Unable to lookup interface")
+		return
+	}
+
+	var via, local net.IP
+	if ip.IP.To4() != nil {
+		via = GetInternalIPv4()
+		local = GetInternalIPv4()
+	} else {
+		via = GetIPv6Router()
+		local = GetIPv6()
+	}
+
+	route := netlink.Route{LinkIndex: link.Attrs().Index, Dst: ip, Gw: via, Src: local}
+	scopedLog := log.WithField(logfields.Route, route)
+
+	if err := netlink.RouteDel(&route); err != nil {
+		scopedLog.WithError(err).Error("Unable to add node route")
+	} else {
+		scopedLog.Info("Removed node route")
 	}
 }
 
@@ -218,10 +245,21 @@ func (cc *clusterConfiguation) replaceHostRoutes() {
 	// allows to share a CIDR with legacy endpoints outside of the cluster
 	// but requires individual routes to be installed which creates an
 	// overhead with many nodes.
-	if cc.usePerNodeRoutes {
+	if !viper.GetBool(option.SingleClusterRouteName) {
 		for _, n := range cc.nodes {
-			replaceNodeRoute(n.IPv4AllocCIDR)
-			replaceNodeRoute(n.IPv6AllocCIDR)
+			// Insert node routes in the form of:
+			//   Node-CIDR via GetRouterIP() dev cilium_host
+			//
+			// This is always required for the local node.
+			// Otherwise it is only required when running in
+			// tunneling mode
+			if n.IsLocal() || option.Config.Tunnel != option.TunnelDisabled {
+				replaceNodeRoute(n.IPv4AllocCIDR)
+				replaceNodeRoute(n.IPv6AllocCIDR)
+			} else {
+				deleteNodeRoute(n.IPv4AllocCIDR)
+				deleteNodeRoute(n.IPv6AllocCIDR)
+			}
 		}
 	} else {
 		replaceNodeRoute(GetIPv4AllocRange())
@@ -258,14 +296,6 @@ func AddAuxPrefix(prefix *net.IPNet) {
 	clusterConf.addAuxPrefix(prefix)
 }
 
-// EnablePerNodeRoutes enables use of per node routes. This function must be called
-// at init time before any routes are installed.
-func EnablePerNodeRoutes() {
-	clusterConf.Lock()
-	clusterConf.usePerNodeRoutes = true
-	clusterConf.Unlock()
-}
-
 func tunnelCIDRDeletionRequired(oldCIDR, newCIDR *net.IPNet) bool {
 	// Deletion is required when CIDR is no longer announced
 	if newCIDR == nil && oldCIDR != nil {
@@ -291,9 +321,11 @@ func updateTunnelMapping(n *Node, ip *net.IPNet) {
 // UpdateNode updates the new node in the nodes' map with the given identity.
 // When using DirectRoute RouteType the field ownAddr should contain the IPv6
 // address of the interface that can reach the other nodes.
-func UpdateNode(ni Identity, n *Node, routesTypes RouteType, ownAddr net.IP) {
+func UpdateNode(n *Node, routesTypes RouteType, ownAddr net.IP) {
 	clusterConf.Lock()
 	defer clusterConf.Unlock()
+
+	ni := n.Identity()
 
 	oldNode, oldNodeExists := clusterConf.nodes[ni]
 	if (routesTypes & TunnelRoute) != 0 {

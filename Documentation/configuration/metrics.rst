@@ -1,3 +1,9 @@
+.. only:: not (epub or latex or html)
+
+    WARNING: You are looking at unreleased Cilium documentation.
+    Please use the official rendered version released here:
+      http://docs.cilium.io
+
 .. _metrics:
 
 ********************
@@ -26,13 +32,16 @@ Endpoint
 --------
 
 * ``endpoint_count``: Number of endpoints managed by this agent
-* ``endpoint_regenerating``: Number of endpoints currently regenerating
+* ``endpoint_regenerating``: Number of endpoints currently regenerating. Deprecated. Use endpoint_state with proper labels instead
 * ``endpoint_regenerations``: Count of all endpoint regenerations that have completed, tagged by outcome
+* ``endpoint_regeneration_seconds_total``: Total sum of successful endpoint regeneration times
+* ``endpoint_regeneration_square_seconds_total``: Total sum of squares of successful endpoint regeneration times
+* ``endpoint_state``: Count of all endpoints, tagged by different endpoint states
 
 Datapath
 --------
 
-* ``datapath_errors_total``: Total number of errors occurred in datapath management, labelled by area, name and address family.
+* ``datapath_errors_total``: Total number of errors occurred in datapath management, labeled by area, name and address family.
 
 Drops/Forwards (L3/L4)
 ----------------------
@@ -44,6 +53,9 @@ Policy Imports
 --------------
 
 * ``policy_count``: Number of policies currently loaded
+* ``policy_regeneration_total``: Total number of policies regenerated successfully
+* ``policy_regeneration_seconds_total``: Total sum of successful policy regeneration times
+* ``policy_regeneration_square_seconds_total``: Total sum of squares of successful policy regeneration times
 * ``policy_max_revision``: Highest policy revision number in the agent
 * ``policy_import_errors``: Number of times a policy import has failed
 

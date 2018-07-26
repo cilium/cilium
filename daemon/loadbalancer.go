@@ -19,11 +19,12 @@ import (
 
 	. "github.com/cilium/cilium/api/v1/server/restapi/service"
 	"github.com/cilium/cilium/common/types"
-	"github.com/cilium/cilium/pkg/apierror"
+	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/service"
 
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/sirupsen/logrus"
@@ -67,12 +68,12 @@ func (d *Daemon) SVCAdd(feL3n4Addr types.L3n4AddrID, be []types.LBBackEnd, addRe
 		return false, fmt.Errorf("invalid service ID 0")
 	}
 	// Check if the service is already registered with this ID.
-	feAddr, err := GetL3n4AddrID(uint32(feL3n4Addr.ID))
+	feAddr, err := service.GetID(uint32(feL3n4Addr.ID))
 	if err != nil {
 		return false, fmt.Errorf("unable to get service %d: %s", feL3n4Addr.ID, err)
 	}
 	if feAddr == nil {
-		feAddr, err = PutL3n4Addr(feL3n4Addr.L3n4Addr, uint32(feL3n4Addr.ID))
+		feAddr, err = service.AcquireID(feL3n4Addr.L3n4Addr, uint32(feL3n4Addr.ID))
 		if err != nil {
 			return false, fmt.Errorf("unable to store service %s in kvstore: %s", feL3n4Addr.String(), err)
 		}
@@ -148,7 +149,7 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 
 	f, err := types.NewL3n4AddrFromModel(params.Config.FrontendAddress)
 	if err != nil {
-		return apierror.Error(PutServiceIDInvalidFrontendCode, err)
+		return api.Error(PutServiceIDInvalidFrontendCode, err)
 	}
 
 	frontend := types.L3n4AddrID{
@@ -160,7 +161,7 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 	for _, v := range params.Config.BackendAddresses {
 		b, err := types.NewLBBackEndFromBackendModel(v)
 		if err != nil {
-			return apierror.Error(PutServiceIDInvalidBackendCode, err)
+			return api.Error(PutServiceIDInvalidBackendCode, err)
 		}
 		backends = append(backends, *b)
 	}
@@ -175,7 +176,7 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 	// global key value store
 
 	if created, err := h.d.SVCAdd(frontend, backends, revnat); err != nil {
-		return apierror.Error(PutServiceIDFailureCode, err)
+		return api.Error(PutServiceIDFailureCode, err)
 	} else if created {
 		return NewPutServiceIDCreated()
 	} else {
@@ -205,7 +206,7 @@ func (h *deleteServiceID) Handle(params DeleteServiceIDParams) middleware.Respon
 	}
 
 	// FIXME: How to handle error?
-	err := DeleteL3n4AddrIDByUUID(uint32(params.ID))
+	err := service.DeleteID(uint32(params.ID))
 
 	if err != nil {
 		log.WithError(err).Warn("error, DeleteL3n4AddrIDByUUID failed")
@@ -213,7 +214,7 @@ func (h *deleteServiceID) Handle(params DeleteServiceIDParams) middleware.Respon
 
 	if err := h.d.svcDelete(svc); err != nil {
 		log.WithError(err).WithField(logfields.Object, logfields.Repr(svc)).Warn("DELETE /service/{id}: error deleting service")
-		return apierror.Error(DeleteServiceIDFailureCode, err)
+		return api.Error(DeleteServiceIDFailureCode, err)
 	}
 
 	return NewDeleteServiceIDOK()
@@ -442,6 +443,11 @@ func (d *Daemon) RevNATDump() ([]types.L3n4AddrID, error) {
 // KVStore's ID, that entry will be updated on the bpf map accordingly with the new ID
 // retrieved from the KVStore.
 func (d *Daemon) SyncLBMap() error {
+	// Don't bother syncing if we are in dry mode.
+	if d.DryModeEnabled() {
+		return nil
+	}
+
 	log.Info("Syncing BPF LBMaps with daemon's LB maps...")
 	d.loadBalancer.BPFMapMU.Lock()
 	defer d.loadBalancer.BPFMapMU.Unlock()
@@ -567,9 +573,7 @@ func (d *Daemon) SyncLBMap() error {
 	// are modifying the BPF maps, and calling Dump on a Map RLocks the maps.
 	log.Debug("iterating over services read from BPF LB Map and seeing if they have the same ID set in the KV store")
 	for _, svc := range newSVCList {
-		// Check if the services read from the lbmap have the same ID set in the
-		// KVStore.
-		kvL3n4AddrID, err := PutL3n4Addr(svc.FE.L3n4Addr, 0)
+		kvL3n4AddrID, err := service.RestoreID(svc.FE.L3n4Addr, uint32(svc.FE.ID))
 		if err != nil {
 			log.WithError(err).WithFields(logrus.Fields{
 				logfields.L3n4Addr: logfields.Repr(svc.FE.L3n4Addr),

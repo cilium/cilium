@@ -552,7 +552,7 @@ static int migrate_state(const char *pathname, bpf_handle_state_t cb, int exit)
 int main(int argc, char **argv)
 {
 	const char *pathname = NULL;
-	bpf_handle_state_t fn;
+	bpf_handle_state_t fn = NULL;
 	int opt, exit = 0;
 
 	fs_base_init();
@@ -574,6 +574,9 @@ int main(int argc, char **argv)
 			return -1;
 		}
 	}
+
+	if (fn == NULL)
+		return -1;
 
 	exit = pathname ? migrate_state(pathname, fn, exit) : -1;
 	closelog();

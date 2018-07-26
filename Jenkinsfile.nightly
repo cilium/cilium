@@ -35,6 +35,8 @@ pipeline {
         PROJ_PATH = "src/github.com/cilium/cilium"
         GOPATH = "${WORKSPACE}"
         TESTDIR = "${WORKSPACE}/${PROJ_PATH}/test"
+        SERVER_BOX = "cilium/ubuntu"
+        NIGHTLY_TAG = "${new Date().format("yyyyMMdd")}-${BUILD_NUMBER}"
     }
 
     options {
@@ -53,13 +55,27 @@ pipeline {
                 checkout scm
             }
         }
+        stage('Nightly-Docker-Image') {
+            when {
+                environment name: 'GIT_BRANCH', value: 'origin/master'
+            }
+            steps {
+                withDockerRegistry([ credentialsId: "NIGHTLY_DOCKER_HUB_CRED", url: "" ]) {
+                    sh 'make docker-image'
+                    sh 'docker tag cilium/cilium:latest cilium/nightly:latest'
+                    sh 'docker tag cilium/nightly:latest cilium/nightly:${NIGHTLY_TAG}'
+                    sh 'docker push cilium/nightly:${NIGHTLY_TAG}'
+                    sh 'docker push cilium/nightly:latest'
+                }
+            }
+        }
         stage('Nightly-Tests') {
             environment {
                 K8S_NODES=4
-                K8S_VERSION=1.9
+                K8S_VERSION=1.11
                 MEMORY=4096
                 CPU=4
-                FAILFAST=setIfPR("true", "false")
+                FAILFAST=setIfLabel("ci/fail-fast", "true", "false")
             }
             steps {
                 parallel(
@@ -114,7 +130,7 @@ pipeline {
         always {
             sh "cd ${TESTDIR}; K8S_VERSION=1.8 vagrant destroy -f || true"
             sh "cd ${TESTDIR}; K8S_VERSION=1.7 vagrant destroy -f || true"
-            sh "cd ${TESTDIR}; K8S_VERSION=1.9 vagrant destroy -f || true"
+            sh "cd ${TESTDIR}; K8S_VERSION=1.11 vagrant destroy -f || true"
             sh "cd ${TESTDIR}; vagrant destroy -f || true"
             sh 'cd ${TEST_DIR}; ./post_build_agent.sh || true'
             cleanWs()

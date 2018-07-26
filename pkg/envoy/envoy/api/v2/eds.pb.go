@@ -40,11 +40,11 @@ type ClusterLoadAssignment struct {
 	// <envoy_api_field_Cluster.EdsClusterConfig.service_name>` value if specified
 	// in the cluster :ref:`EdsClusterConfig
 	// <envoy_api_msg_Cluster.EdsClusterConfig>`.
-	ClusterName string `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName" json:"cluster_name,omitempty"`
+	ClusterName string `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName,proto3" json:"cluster_name,omitempty"`
 	// List of endpoints to load balance to.
-	Endpoints []*endpoint.LocalityLbEndpoints `protobuf:"bytes,2,rep,name=endpoints" json:"endpoints,omitempty"`
+	Endpoints []*endpoint.LocalityLbEndpoints `protobuf:"bytes,2,rep,name=endpoints,proto3" json:"endpoints,omitempty"`
 	// Load balancing policy settings.
-	Policy               *ClusterLoadAssignment_Policy `protobuf:"bytes,4,opt,name=policy" json:"policy,omitempty"`
+	Policy               *ClusterLoadAssignment_Policy `protobuf:"bytes,4,opt,name=policy,proto3" json:"policy,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                      `json:"-"`
 	XXX_unrecognized     []byte                        `json:"-"`
 	XXX_sizecache        int32                         `json:"-"`
@@ -102,7 +102,7 @@ type ClusterLoadAssignment_Policy struct {
 	// recover from an outage or should they be unable to autoscale and hence
 	// overall incoming traffic volume need to be trimmed to protect them.
 	// [#v2-api-diff: This is known as maintenance mode in v1.]
-	DropOverload         float64  `protobuf:"fixed64,1,opt,name=drop_overload,json=dropOverload" json:"drop_overload,omitempty"`
+	DropOverload         float64  `protobuf:"fixed64,1,opt,name=drop_overload,json=dropOverload,proto3" json:"drop_overload,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`

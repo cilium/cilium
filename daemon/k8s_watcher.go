@@ -20,25 +20,33 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"reflect"
 	"strings"
 	"time"
 
 	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/annotation"
+	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	informer "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	bpfIPCache "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/serializer"
+	"github.com/cilium/cilium/pkg/service"
 
 	go_version "github.com/hashicorp/go-version"
 	"github.com/sirupsen/logrus"
@@ -58,8 +66,10 @@ const (
 
 	k8sAPIGroupCRD              = "CustomResourceDefinition"
 	k8sAPIGroupNodeV1Core       = "core/v1::Node"
+	k8sAPIGroupNamespaceV1Core  = "core/v1::Namespace"
 	k8sAPIGroupServiceV1Core    = "core/v1::Service"
 	k8sAPIGroupEndpointV1Core   = "core/v1::Endpoint"
+	k8sAPIGroupPodV1Core        = "core/v1::Pods"
 	k8sAPIGroupNetworkingV1Core = "networking.k8s.io/v1::NetworkPolicy"
 	k8sAPIGroupIngressV1Beta1   = "extensions/v1beta1::Ingress"
 	k8sAPIGroupCiliumV2         = "cilium/v2::CiliumNetworkPolicy"
@@ -68,14 +78,16 @@ const (
 var (
 	// k8sErrMsgMU guards additions and removals to k8sErrMsg, which stores a
 	// time after which a repeat error message can be printed
-	k8sErrMsgMU lock.Mutex
-	k8sErrMsg   = map[string]time.Time{}
+	k8sErrMsgMU  lock.Mutex
+	k8sErrMsg    = map[string]time.Time{}
+	k8sServerVer *go_version.Version
 
 	ciliumNPClient clientset.Interface
 
 	networkPolicyV1VerConstr, _ = go_version.NewConstraint(">= 1.7.0")
 
-	ciliumv2VerConstr, _ = go_version.NewConstraint(">= 1.7.0")
+	ciliumv2VerConstr, _           = go_version.NewConstraint(">= 1.7.0")
+	ciliumUpdateStatusVerConstr, _ = go_version.NewConstraint(">= 1.11.0")
 
 	k8sCM = controller.NewManager()
 )
@@ -207,13 +219,13 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		return fmt.Errorf("Unable to create rest configuration for k8s CRD: %s", err)
 	}
 
-	sv, err := k8s.GetServerVersion()
+	k8sServerVer, err = k8s.GetServerVersion()
 	if err != nil {
 		return fmt.Errorf("unable to retrieve kubernetes serverversion: %s", err)
 	}
 
 	switch {
-	case ciliumv2VerConstr.Check(sv):
+	case ciliumv2VerConstr.Check(k8sServerVer):
 		err = cilium_v2.CreateCustomResourceDefinitions(apiextensionsclientset)
 		if err != nil {
 			return fmt.Errorf("Unable to create custom resource definition: %s", err)
@@ -233,10 +245,12 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	serSvcs := serializer.NewFunctionQueue(20)
 	serEps := serializer.NewFunctionQueue(20)
 	serCNPs := serializer.NewFunctionQueue(20)
+	serPods := serializer.NewFunctionQueue(1024)
 	serNodes := serializer.NewFunctionQueue(20)
+	serNamespaces := serializer.NewFunctionQueue(20)
 
 	switch {
-	case networkPolicyV1VerConstr.Check(sv):
+	case networkPolicyV1VerConstr.Check(k8sServerVer):
 		_, policyController := cache.NewInformer(
 			cache.NewListWatchFromClient(k8s.Client().NetworkingV1().RESTClient(),
 				"networkpolicies", v1.NamespaceAll, fields.Everything()),
@@ -403,7 +417,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	si := informer.NewSharedInformerFactory(ciliumNPClient, reSyncPeriod)
 
 	switch {
-	case ciliumv2VerConstr.Check(sv):
+	case ciliumv2VerConstr.Check(k8sServerVer):
 		ciliumV2Controller := si.Cilium().V2().CiliumNetworkPolicies().Informer()
 		cnpStore := ciliumV2Controller.GetStore()
 		ciliumV2Controller.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -440,6 +454,47 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	}
 
 	si.Start(wait.NeverStop)
+
+	_, podsController := cache.NewInformer(
+		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
+			"pods", v1.NamespaceAll, fields.Everything()),
+		&v1.Pod{},
+		reSyncPeriod,
+		cache.ResourceEventHandlerFuncs{
+			AddFunc: func(newObj interface{}) {
+				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+				if newK8sPod := copyObjToV1Pod(newObj); newK8sPod != nil {
+					serPods.Enqueue(func() error {
+						d.addK8sPodV1(newK8sPod)
+						return nil
+					}, serializer.NoRetry)
+				}
+			},
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+				if oldK8sPod := copyObjToV1Pod(oldObj); oldK8sPod != nil {
+					if newK8sPod := copyObjToV1Pod(newObj); newK8sPod != nil {
+						serPods.Enqueue(func() error {
+							d.updateK8sPodV1(oldK8sPod, newK8sPod)
+							return nil
+						}, serializer.NoRetry)
+					}
+				}
+			},
+			DeleteFunc: func(oldObj interface{}) {
+				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+				if oldK8sPod := copyObjToV1Pod(oldObj); oldK8sPod != nil {
+					serPods.Enqueue(func() error {
+						d.deleteK8sPodV1(oldK8sPod)
+						return nil
+					}, serializer.NoRetry)
+				}
+			},
+		},
+	)
+
+	go podsController.Run(wait.NeverStop)
+	d.k8sAPIGroups.addAPI(k8sAPIGroupPodV1Core)
 
 	_, nodesController := cache.NewInformer(
 		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
@@ -478,8 +533,36 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 			},
 		},
 	)
+
 	go nodesController.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupNodeV1Core)
+
+	_, namespaceController := cache.NewInformer(
+		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
+			"namespaces", v1.NamespaceAll, fields.Everything()),
+		&v1.Pod{},
+		reSyncPeriod,
+		cache.ResourceEventHandlerFuncs{
+			// AddFunc does not matter since the endpoint will fetch
+			// namespace labels when the endpoint is created
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+				if oldns := copyObjToV1Namespace(oldObj); oldns != nil {
+					if newns := copyObjToV1Namespace(newObj); newns != nil {
+						serNamespaces.Enqueue(func() error {
+							d.updateK8sV1Namespace(oldns, newns)
+							return nil
+						}, serializer.NoRetry)
+					}
+				}
+			},
+			// DelFunc does not matter since, when a namespace is deleted, all
+			// pods belonging to that namespace are also deleted.
+		},
+	)
+
+	go namespaceController.Run(wait.NeverStop)
+	d.k8sAPIGroups.addAPI(k8sAPIGroupNamespaceV1Core)
 
 	endpoint.RunK8sCiliumEndpointSyncGC()
 
@@ -554,6 +637,26 @@ func copyObjToV1Node(obj interface{}) *v1.Node {
 		return nil
 	}
 	return node.DeepCopy()
+}
+
+func copyObjToV1Namespace(obj interface{}) *v1.Namespace {
+	ns, ok := obj.(*v1.Namespace)
+	if !ok {
+		log.WithField(logfields.Object, logfields.Repr(obj)).
+			Warn("Ignoring invalid k8s v1 Namespace")
+		return nil
+	}
+	return ns.DeepCopy()
+}
+
+func copyObjToV1Pod(obj interface{}) *v1.Pod {
+	pod, ok := obj.(*v1.Pod)
+	if !ok {
+		log.WithField(logfields.Object, logfields.Repr(obj)).
+			Warn("Ignoring invalid k8s v1 Pod")
+		return nil
+	}
+	return pod.DeepCopy()
 }
 
 func (d *Daemon) addK8sNetworkPolicyV1(k8sNP *networkingv1.NetworkPolicy) {
@@ -745,7 +848,7 @@ func (d *Daemon) addK8sEndpointV1(ep *v1.Endpoints) {
 
 	svc, ok := d.loadBalancer.K8sServices[svcns]
 	if ok && svc.IsExternal() {
-		translator := k8s.NewK8sTranslator(svcns, *newSvcEP, false, svc.Labels)
+		translator := k8s.NewK8sTranslator(svcns, *newSvcEP, false, svc.Labels, bpfIPCache.IPCache)
 		err := d.policy.TranslateRules(translator)
 		if err != nil {
 			log.Errorf("Unable to repopulate egress policies from ToService rules: %v", err)
@@ -787,7 +890,7 @@ func (d *Daemon) deleteK8sEndpointV1(ep *v1.Endpoints) {
 	if endpoint, ok := d.loadBalancer.K8sEndpoints[svcns]; ok {
 		svc, ok := d.loadBalancer.K8sServices[svcns]
 		if ok && svc.IsExternal() {
-			translator := k8s.NewK8sTranslator(svcns, *endpoint, true, svc.Labels)
+			translator := k8s.NewK8sTranslator(svcns, *endpoint, true, svc.Labels, bpfIPCache.IPCache)
 			err := d.policy.TranslateRules(translator)
 			if err != nil {
 				log.Errorf("Unable to depopulate egress policies from ToService rules: %v", err)
@@ -872,7 +975,7 @@ func (d *Daemon) delK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 		repPorts[svcPort.Port] = false
 
 		if svcPort.ID != 0 {
-			if err := DeleteL3n4AddrIDByUUID(uint32(svcPort.ID)); err != nil {
+			if err := service.DeleteID(uint32(svcPort.ID)); err != nil {
 				scopedLog.WithError(err).Warn("Error while cleaning service ID")
 			}
 		}
@@ -943,7 +1046,7 @@ func (d *Daemon) addK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 				}).Error("Error while creating a new L3n4Addr. Ignoring service...")
 				continue
 			}
-			feAddrID, err := PutL3n4Addr(*feAddr, 0)
+			feAddrID, err := service.AcquireID(*feAddr, 0)
 			if err != nil {
 				scopedLog.WithError(err).WithFields(logrus.Fields{
 					logfields.ServiceID: fePortName,
@@ -1145,7 +1248,7 @@ func (d *Daemon) updateIngressV1beta1(oldIngress, newIngress *v1beta1.Ingress) {
 				scopedLog.WithError(err).Error("Error while creating a new L3n4Addr. Ignoring ingress...")
 				continue
 			}
-			feAddrID, err := PutL3n4Addr(*feAddr, 0)
+			feAddrID, err := service.AcquireID(*feAddr, 0)
 			if err != nil {
 				scopedLog.WithError(err).Error("Error while getting a new service ID. Ignoring ingress...")
 				continue
@@ -1361,19 +1464,22 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumV2Store cache.Store, cnp *cilium
 					// the given policy.
 					Enforcing:   waitForEPsErr == nil,
 					Revision:    rev,
+					LastUpdated: cilium_v2.NewTimestamp(),
 					Annotations: cnp.Annotations,
 				}
 
 				// Most important is the error while adding the CNP
 				if err != nil {
 					cnpns = cilium_v2.CiliumNetworkPolicyNodeStatus{
-						Error: err.Error(),
-						OK:    false,
+						Error:       err.Error(),
+						OK:          false,
+						LastUpdated: cilium_v2.NewTimestamp(),
 					}
 				} else if err2 != nil {
 					cnpns = cilium_v2.CiliumNetworkPolicyNodeStatus{
-						Error: err2.Error(),
-						OK:    false,
+						Error:       err2.Error(),
+						OK:          false,
+						LastUpdated: cilium_v2.NewTimestamp(),
 					}
 				}
 
@@ -1381,10 +1487,12 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumV2Store cache.Store, cnp *cilium
 				serverRuleCpy.SetPolicyStatus(nodeName, cnpns)
 				ns := k8sUtils.ExtractNamespace(&serverRuleCpy.ObjectMeta)
 
-				// Update LastUpdated last to have an accurate timestamp
-				cnpns.LastUpdated = cilium_v2.NewTimestamp()
-
-				_, err2 = ciliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).Update(serverRuleCpy)
+				switch {
+				case ciliumUpdateStatusVerConstr.Check(k8sServerVer):
+					_, err2 = ciliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).UpdateStatus(serverRuleCpy)
+				default:
+					_, err2 = ciliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).Update(serverRuleCpy)
+				}
 				if err2 == nil {
 					scopedLog.WithField("status", serverRuleCpy.Status).Debug("successfully updated with status")
 				} else {
@@ -1462,71 +1570,276 @@ func (d *Daemon) updateCiliumNetworkPolicyV2(ciliumV2Store cache.Store,
 	d.addCiliumNetworkPolicyV2(ciliumV2Store, newRuleCpy)
 }
 
-func (d *Daemon) addK8sNodeV1(k8sNode *v1.Node) {
-	ni := node.Identity{Name: k8sNode.ObjectMeta.Name}
-	n := k8s.ParseNode(k8sNode)
-
-	routeTypes := node.TunnelRoute
-
-	// Add IPv6 routing only in non encap. With encap we do it with bpf tunnel
-	// FIXME create a function to know on which mode is the daemon running on
-	var ownAddr net.IP
-	if autoIPv6NodeRoutes && option.Config.Device != "undefined" {
-		// ignore own node
-		if n.Name != node.GetName() {
-			ownAddr = node.GetIPv6()
-			routeTypes |= node.DirectRoute
-		}
+func (d *Daemon) updatePodHostIP(pod *v1.Pod) (bool, error) {
+	if pod.Spec.HostNetwork {
+		return true, fmt.Errorf("pod is using host networking")
 	}
 
-	node.UpdateNode(ni, n, routeTypes, ownAddr)
+	hostIP := net.ParseIP(pod.Status.HostIP)
+	if hostIP == nil {
+		return true, fmt.Errorf("no/invalid HostIP: %s", pod.Status.HostIP)
+	}
 
-	log.WithFields(logrus.Fields{
-		logfields.K8sNodeID:     ni,
-		logfields.K8sAPIVersion: k8sNode.TypeMeta.APIVersion,
-		logfields.Node:          logfields.Repr(n),
-	}).Debug("Added node")
+	podIP := net.ParseIP(pod.Status.PodIP)
+	if podIP == nil {
+		return true, fmt.Errorf("no/invalid PodIP: %s", pod.Status.PodIP)
+	}
+
+	selfOwned := ipcache.IPIdentityCache.Upsert(pod.Status.PodIP, hostIP, ipcache.Identity{
+		ID:     identity.ReservedIdentityCluster,
+		Source: ipcache.FromKubernetes,
+	})
+	if !selfOwned {
+		return true, fmt.Errorf("ipcache entry owned by kvstore or agent")
+	}
+
+	return false, nil
 }
 
-func (d *Daemon) updateK8sNodeV1(_, k8sNode *v1.Node) {
-	newNode := k8s.ParseNode(k8sNode)
-	ni := node.Identity{Name: k8sNode.ObjectMeta.Name}
+func (d *Daemon) deletePodHostIP(pod *v1.Pod) (bool, error) {
+	if pod.Spec.HostNetwork {
+		return true, fmt.Errorf("pod is using host networking")
+	}
 
-	oldNode := node.GetNode(ni)
+	podIP := net.ParseIP(pod.Status.PodIP)
+	if podIP == nil {
+		return true, fmt.Errorf("no/invalid PodIP: %s", pod.Status.PodIP)
+	}
 
-	// If node is the same don't even change it on the map
-	// TODO: Run the DeepEqual only for the metadata that we care about?
-	if reflect.DeepEqual(oldNode, newNode) {
+	// a small race condition exists here as deletion could occur in
+	// parallel based on another event but it doesn't matter as the
+	// identity is going away
+	id, exists := ipcache.IPIdentityCache.LookupByIP(pod.Status.PodIP)
+	if !exists {
+		return true, fmt.Errorf("identity for IP does not exist in case")
+	}
+
+	if id.Source != ipcache.FromKubernetes {
+		return true, fmt.Errorf("ipcache entry not owned by kubernetes source")
+	}
+
+	ipcache.IPIdentityCache.Delete(pod.Status.PodIP)
+
+	return false, nil
+}
+
+func (d *Daemon) addK8sPodV1(pod *v1.Pod) {
+	logger := log.WithFields(logrus.Fields{
+		logfields.K8sPodName:   pod.ObjectMeta.Name,
+		logfields.K8sNamespace: pod.ObjectMeta.Namespace,
+		"podIP":                pod.Status.PodIP,
+		"hostIP":               pod.Status.HostIP,
+	})
+
+	skipped, err := d.updatePodHostIP(pod)
+	switch {
+	case skipped:
+		logger.WithError(err).Debug("Skipped ipcache map update on pod add")
+	case err != nil:
+		logger.WithError(err).Warning("Unable to update ipcache map entry on pod add ")
+	default:
+		logger.Debug("Updated ipcache map entry on pod add")
+	}
+}
+
+func (d *Daemon) updateK8sPodV1(oldK8sPod, newK8sPod *v1.Pod) {
+	if oldK8sPod == nil || newK8sPod == nil {
 		return
 	}
 
-	routeTypes := node.TunnelRoute
-	// Always re-add the routing tables as they might be accidentally removed
-	var ownAddr net.IP
-	if autoIPv6NodeRoutes && option.Config.Device != "undefined" {
-		// ignore own node
-		if newNode.Name != node.GetName() {
-			ownAddr = node.GetIPv6()
-			routeTypes |= node.DirectRoute
+	// The pod IP can never change, it can only switch from unassigned to
+	// assigned
+	d.addK8sPodV1(newK8sPod)
+
+	// We only care about label updates
+	oldPodLabels := oldK8sPod.GetLabels()
+	newPodLabels := newK8sPod.GetLabels()
+	if comparator.MapStringEquals(oldPodLabels, newPodLabels) {
+		return
+	}
+
+	podNSName := k8sUtils.GetObjNamespaceName(&newK8sPod.ObjectMeta)
+
+	podEP := endpointmanager.LookupPodName(podNSName)
+	if podEP == nil {
+		log.WithField("pod", podNSName).Debugf("Endpoint not found running for the given pod")
+		return
+	}
+
+	newLabels := labels.Map2Labels(newPodLabels, labels.LabelSourceK8s)
+	newIdtyLabels, _ := labels.FilterLabels(newLabels)
+	oldLabels := labels.Map2Labels(oldPodLabels, labels.LabelSourceK8s)
+	oldIdtyLabels, _ := labels.FilterLabels(oldLabels)
+
+	err := podEP.ModifyIdentityLabels(d, newIdtyLabels, oldIdtyLabels)
+	if err != nil {
+		log.WithError(err).Debugf("error while updating endpoint with new labels")
+		return
+	}
+
+	log.WithFields(logrus.Fields{
+		logfields.EndpointID: podEP.GetID(),
+		logfields.Labels:     logfields.Repr(newIdtyLabels),
+	}).Debug("Update endpoint with new labels")
+}
+
+func (d *Daemon) deleteK8sPodV1(pod *v1.Pod) {
+	logger := log.WithFields(logrus.Fields{
+		logfields.K8sPodName:   pod.ObjectMeta.Name,
+		logfields.K8sNamespace: pod.ObjectMeta.Namespace,
+		"podIP":                pod.Status.PodIP,
+		"hostIP":               pod.Status.HostIP,
+	})
+
+	skipped, err := d.deletePodHostIP(pod)
+	switch {
+	case skipped:
+		logger.WithError(err).Debug("Skipped ipcache map delete on pod delete")
+	case err != nil:
+		logger.WithError(err).Warning("Unable to delete ipcache map entry on pod delete")
+	default:
+		logger.Debug("Deleted ipcache map entry on pod delete")
+	}
+}
+
+func (d *Daemon) updateK8sV1Namespace(oldNS, newNS *v1.Namespace) {
+	if oldNS == nil || newNS == nil {
+		return
+	}
+
+	// We only care about label updates
+	if comparator.MapStringEquals(oldNS.GetLabels(), newNS.GetLabels()) {
+		return
+	}
+
+	oldNSLabels := map[string]string{}
+	newNSLabels := map[string]string{}
+
+	for k, v := range oldNS.GetLabels() {
+		oldNSLabels[policy.JoinPath(ciliumio.PodNamespaceMetaLabels, k)] = v
+	}
+	for k, v := range newNS.GetLabels() {
+		newNSLabels[policy.JoinPath(ciliumio.PodNamespaceMetaLabels, k)] = v
+	}
+
+	oldLabels := labels.Map2Labels(oldNSLabels, labels.LabelSourceK8s)
+	newLabels := labels.Map2Labels(newNSLabels, labels.LabelSourceK8s)
+
+	oldIdtyLabels, _ := labels.FilterLabels(oldLabels)
+	newIdtyLabels, _ := labels.FilterLabels(newLabels)
+
+	eps := endpointmanager.GetEndpoints()
+	for _, ep := range eps {
+		epNS := ep.GetK8sNamespace()
+		if oldNS.Name == epNS {
+			err := ep.ModifyIdentityLabels(d, newIdtyLabels, oldIdtyLabels)
+			if err != nil {
+				log.WithError(err).WithField(logfields.EndpointID, ep.ID).
+					Warningf("unable to update endpoint with new namespace labels")
+			}
+
+		}
+	}
+}
+
+func (d *Daemon) updateK8sNodeTunneling(k8sNodeOld, k8sNodeNew *v1.Node) error {
+	nodeNew := k8s.ParseNode(k8sNodeNew)
+	// Ignore own node
+	if nodeNew.Name == node.GetName() {
+		return nil
+	}
+
+	getIDs := func(node *node.Node, k8sNode *v1.Node) (string, net.IP, error) {
+		if node == nil {
+			return "", nil, nil
+		}
+		hostIP := node.GetNodeIP(false)
+		if ip4 := hostIP.To4(); ip4 == nil {
+			return "", nil, fmt.Errorf("HostIP is not an IPv4 address: %s", hostIP)
+		}
+
+		ciliumIPStr := k8sNode.GetAnnotations()[annotation.CiliumHostIP]
+		ciliumIP := net.ParseIP(ciliumIPStr)
+		if ciliumIP == nil {
+			return "", nil, fmt.Errorf("no/invalid Cilium-Host IP for host %s: %s", hostIP, ciliumIPStr)
+		}
+
+		return ciliumIPStr, hostIP, nil
+	}
+
+	ciliumIPStrNew, hostIPNew, err := getIDs(nodeNew, k8sNodeNew)
+	if err != nil || ciliumIPStrNew == "" || hostIPNew == nil {
+		return err
+	}
+
+	if k8sNodeOld != nil {
+		nodeOld := k8s.ParseNode(k8sNodeOld)
+		var (
+			err            error
+			ciliumIPStrOld string
+		)
+		ciliumIPStrOld, _, err = getIDs(nodeOld, k8sNodeOld)
+		if err != nil {
+			return err
+		}
+
+		// If the annotation of the node resource has changed, the old
+		// ipcache has to be removed manually as Upsert() only handes
+		// updates if the key itself is unchanged.
+		if ciliumIPStrNew != ciliumIPStrOld {
+			d.deleteK8sNodeV1(k8sNodeOld)
 		}
 	}
 
-	node.UpdateNode(ni, newNode, routeTypes, ownAddr)
+	selfOwned := ipcache.IPIdentityCache.Upsert(ciliumIPStrNew, hostIPNew, ipcache.Identity{
+		ID:     identity.ReservedIdentityHost,
+		Source: ipcache.FromKubernetes,
+	})
+	if !selfOwned {
+		return fmt.Errorf("ipcache entry owned by kvstore or agent")
+	}
+	return nil
+}
 
-	log.WithFields(logrus.Fields{
-		logfields.K8sNodeID:     ni,
-		logfields.K8sAPIVersion: k8sNode.TypeMeta.APIVersion,
-		logfields.Node:          logfields.Repr(newNode),
-	}).Debug("Updated node")
+func (d *Daemon) addK8sNodeV1(k8sNode *v1.Node) {
+	if err := d.updateK8sNodeTunneling(nil, k8sNode); err != nil {
+		log.WithError(err).Warning("Unable to add ipcache entry of Kubernetes node")
+	}
+}
+
+func (d *Daemon) updateK8sNodeV1(k8sNodeOld, k8sNodeNew *v1.Node) {
+	if err := d.updateK8sNodeTunneling(k8sNodeOld, k8sNodeNew); err != nil {
+		log.WithError(err).Warning("Unable to update ipcache entry of Kubernetes node")
+	}
 }
 
 func (d *Daemon) deleteK8sNodeV1(k8sNode *v1.Node) {
-	ni := node.Identity{Name: k8sNode.ObjectMeta.Name}
+	ip := k8sNode.GetAnnotations()[annotation.CiliumHostIP]
 
-	node.DeleteNode(ni, node.TunnelRoute|node.DirectRoute)
+	logger := log.WithFields(logrus.Fields{
+		"K8sNodeName":    k8sNode.ObjectMeta.Name,
+		logfields.IPAddr: ip,
+	})
 
-	log.WithFields(logrus.Fields{
-		logfields.K8sNodeID:     ni,
-		logfields.K8sAPIVersion: k8sNode.TypeMeta.APIVersion,
-	}).Debug("Removed node")
+	id, exists := ipcache.IPIdentityCache.LookupByIP(ip)
+	if !exists {
+		logger.Warning("identity for Cilium IP not found")
+		return
+	}
+
+	// The ipcache entry ownership may have been taken over by a kvstore
+	// based entry in which case we should ignore the delete event and wait
+	// for the kvstore delete event.
+	if id.Source != ipcache.FromKubernetes {
+		logger.Debug("ipcache entry for Cilium IP no longer owned by Kubernetes")
+		return
+	}
+
+	ipcache.IPIdentityCache.Delete(ip)
+
+	ciliumIP := net.ParseIP(ip)
+	if ciliumIP == nil {
+		logger.Warning("Unable to parse Cilium IP")
+		return
+	}
 }

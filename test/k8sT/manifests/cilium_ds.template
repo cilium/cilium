@@ -424,7 +424,9 @@
           ],
           "resources": [
             "ciliumnetworkpolicies",
-            "ciliumendpoints"
+            "ciliumnetworkpolicies/status",
+            "ciliumendpoints",
+            "ciliumendpoints/status"
           ],
           "verbs": [
             "*"

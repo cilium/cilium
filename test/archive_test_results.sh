@@ -3,7 +3,7 @@
 cd ${WORKSPACE}/test
 
 TEST_RESULTS="test_results"
-ARCHIVE_NAME="${TEST_RESULTS}_${JOB_BASE_NAME}_${BUILD_NUMBER}.zip"
+ARCHIVE_NAME="${TEST_RESULTS}_${JOB_BASE_NAME}_${BUILD_NUMBER}_${STAGE_NAME/ /}.zip"
 
 find $TEST_RESULTS/  -name "*.zip" | xargs -I '{}' mv '{}' ../
 

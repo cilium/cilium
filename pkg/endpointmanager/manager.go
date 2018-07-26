@@ -23,6 +23,7 @@ import (
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -31,7 +32,7 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "endpoint-manager")
 
 	// mutex protects endpoints and endpointsAux
 	mutex lock.RWMutex
@@ -129,6 +130,14 @@ func LookupDockerID(id string) *endpoint.Endpoint {
 func LookupIPv4(ipv4 string) *endpoint.Endpoint {
 	mutex.RLock()
 	ep := lookupIPv4(ipv4)
+	mutex.RUnlock()
+	return ep
+}
+
+// LookupPodName looks up endpoint by namespace + pod name
+func LookupPodName(name string) *endpoint.Endpoint {
+	mutex.RLock()
+	ep := lookupPodNameLocked(name)
 	mutex.RUnlock()
 	return ep
 }
@@ -293,10 +302,7 @@ func TriggerPolicyUpdates(owner endpoint.Owner, force bool) *sync.WaitGroup {
 func HasGlobalCT() bool {
 	eps := GetEndpoints()
 	for _, e := range eps {
-		e.RLock()
-		globalCT := !e.Opts.IsEnabled(option.ConntrackLocal)
-		e.RUnlock()
-		if globalCT {
+		if !e.Options.IsEnabled(option.ConntrackLocal) {
 			return true
 		}
 	}
@@ -317,8 +323,8 @@ func GetEndpoints() []*endpoint.Endpoint {
 // AddEndpoint takes the prepared endpoint object and starts managing it.
 func AddEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, reason string) error {
 	alwaysEnforce := policy.GetPolicyEnabled() == option.AlwaysEnforce
-	ep.Opts.Set(option.IngressPolicy, alwaysEnforce)
-	ep.Opts.Set(option.EgressPolicy, alwaysEnforce)
+	ep.Options.SetBool(option.IngressPolicy, alwaysEnforce)
+	ep.Options.SetBool(option.EgressPolicy, alwaysEnforce)
 
 	if err := ep.CreateDirectory(); err != nil {
 		return err

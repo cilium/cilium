@@ -651,6 +651,46 @@ func init() {
         }
       }
     },
+    "/map": {
+      "get": {
+        "tags": [
+          "daemon"
+        ],
+        "summary": "List all open maps",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/BPFMapList"
+            }
+          }
+        }
+      }
+    },
+    "/map/{name}": {
+      "get": {
+        "tags": [
+          "daemon"
+        ],
+        "summary": "Retrieve contents of BPF map",
+        "parameters": [
+          {
+            "$ref": "#/parameters/map-name"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/BPFMap"
+            }
+          },
+          "404": {
+            "description": "Map not found"
+          }
+        }
+      }
+    },
     "/policy": {
       "get": {
         "description": "Returns the entire policy tree with all children.\n",
@@ -969,6 +1009,63 @@ func init() {
         }
       }
     },
+    "BPFMap": {
+      "description": "BPF map definition and content",
+      "type": "object",
+      "properties": {
+        "cache": {
+          "description": "Contents of cache",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/BPFMapEntry"
+          }
+        },
+        "path": {
+          "description": "Path to BPF map",
+          "type": "string"
+        }
+      }
+    },
+    "BPFMapEntry": {
+      "description": "BPF map cache entry\"",
+      "type": "object",
+      "properties": {
+        "desired-action": {
+          "description": "Desired action to be performed",
+          "type": "string",
+          "enum": [
+            "ok",
+            "insert",
+            "delete"
+          ]
+        },
+        "key": {
+          "description": "Key of map entry",
+          "type": "string"
+        },
+        "last-error": {
+          "description": "Last error seen while performing desired action",
+          "type": "string"
+        },
+        "value": {
+          "description": "Value of map entry",
+          "type": "string"
+        }
+      }
+    },
+    "BPFMapList": {
+      "description": "List of BPF Maps",
+      "type": "object",
+      "properties": {
+        "maps": {
+          "description": "Array of open BPF map lists",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/BPFMap"
+          }
+        }
+      }
+    },
     "BackendAddress": {
       "description": "Service backend address",
       "type": "object",
@@ -1168,6 +1265,10 @@ func init() {
         "addressing": {
           "$ref": "#/definitions/NodeAddressing"
         },
+        "deviceMTU": {
+          "description": "MTU on workload facing devices",
+          "type": "integer"
+        },
         "immutable": {
           "description": "Immutable configuration (read-only)",
           "$ref": "#/definitions/ConfigurationMap"
@@ -1188,6 +1289,10 @@ func init() {
         "realized": {
           "description": "Currently applied configuration",
           "$ref": "#/definitions/DaemonConfigurationSpec"
+        },
+        "routeMTU": {
+          "description": "MTU for network facing routes",
+          "type": "integer"
         }
       }
     },
@@ -1891,6 +1996,7 @@ func init() {
           "$ref": "#/definitions/NodeAddressing"
         },
         "name": {
+          "description": "Name of the node including the cluster association. This is typically\n\u003cclustername\u003e/\u003chostname\u003e.\n",
           "type": "string"
         },
         "primary-address": {
@@ -2271,6 +2377,13 @@ func init() {
       "schema": {
         "$ref": "#/definitions/Labels"
       }
+    },
+    "map-name": {
+      "type": "string",
+      "description": "Name of map",
+      "name": "name",
+      "in": "path",
+      "required": true
     },
     "pod-name": {
       "type": "string",

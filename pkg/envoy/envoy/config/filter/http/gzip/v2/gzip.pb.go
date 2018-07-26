@@ -79,38 +79,38 @@ func (Gzip_CompressionLevel_Enum) EnumDescriptor() ([]byte, []int) {
 type Gzip struct {
 	// Value from 1 to 9 that controls the amount of internal memory used by zlib. Higher values
 	// use more memory, but are faster and produce better compression results. The default value is 5.
-	MemoryLevel *wrappers.UInt32Value `protobuf:"bytes,1,opt,name=memory_level,json=memoryLevel" json:"memory_level,omitempty"`
+	MemoryLevel *wrappers.UInt32Value `protobuf:"bytes,1,opt,name=memory_level,json=memoryLevel,proto3" json:"memory_level,omitempty"`
 	// Minimum response length, in bytes, which will trigger compression. The default value is 30.
-	ContentLength *wrappers.UInt32Value `protobuf:"bytes,2,opt,name=content_length,json=contentLength" json:"content_length,omitempty"`
+	ContentLength *wrappers.UInt32Value `protobuf:"bytes,2,opt,name=content_length,json=contentLength,proto3" json:"content_length,omitempty"`
 	// A value used for selecting the zlib compression level. This setting will affect speed and
 	// amount of compression applied to the content. "BEST" provides higher compression at the cost of
 	// higher latency, "SPEED" provides lower compression with minimum impact on response time.
 	// "DEFAULT" provides an optimal result between speed and compression. This field will be set to
 	// "DEFAULT" if not specified.
-	CompressionLevel Gzip_CompressionLevel_Enum `protobuf:"varint,3,opt,name=compression_level,json=compressionLevel,enum=envoy.config.filter.http.gzip.v2.Gzip_CompressionLevel_Enum" json:"compression_level,omitempty"`
+	CompressionLevel Gzip_CompressionLevel_Enum `protobuf:"varint,3,opt,name=compression_level,json=compressionLevel,proto3,enum=envoy.config.filter.http.gzip.v2.Gzip_CompressionLevel_Enum" json:"compression_level,omitempty"`
 	// A value used for selecting the zlib compression strategy which is directly related to the
 	// characteristics of the content. Most of the time "DEFAULT" will be the best choice, though
 	// there are situations which changing this parameter might produce better results. For example,
 	// run-length encoding (RLE) is typically used when the content is known for having sequences
 	// which same data occurs many consecutive times. For more information about each strategy, please
 	// refer to zlib manual.
-	CompressionStrategy Gzip_CompressionStrategy `protobuf:"varint,4,opt,name=compression_strategy,json=compressionStrategy,enum=envoy.config.filter.http.gzip.v2.Gzip_CompressionStrategy" json:"compression_strategy,omitempty"`
+	CompressionStrategy Gzip_CompressionStrategy `protobuf:"varint,4,opt,name=compression_strategy,json=compressionStrategy,proto3,enum=envoy.config.filter.http.gzip.v2.Gzip_CompressionStrategy" json:"compression_strategy,omitempty"`
 	// Set of strings that allows specifying which mime-types yield compression; e.g.,
 	// application/json, text/html, etc. When this field is not defined, compression will be applied
 	// to the following mime-types: "application/javascript", "application/json",
 	// "application/xhtml+xml", "image/svg+xml", "text/css", "text/html", "text/plain", "text/xml".
-	ContentType []string `protobuf:"bytes,6,rep,name=content_type,json=contentType" json:"content_type,omitempty"`
+	ContentType []string `protobuf:"bytes,6,rep,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
 	// If true, disables compression when the response contains an etag header. When it is false, the
 	// filter will preserve weak etags and remove the ones that require strong validation.
-	DisableOnEtagHeader bool `protobuf:"varint,7,opt,name=disable_on_etag_header,json=disableOnEtagHeader" json:"disable_on_etag_header,omitempty"`
+	DisableOnEtagHeader bool `protobuf:"varint,7,opt,name=disable_on_etag_header,json=disableOnEtagHeader,proto3" json:"disable_on_etag_header,omitempty"`
 	// If true, removes accept-encoding from the request headers before dispatching it to the upstream
 	// so that responses do not get compressed before reaching the filter.
-	RemoveAcceptEncodingHeader bool `protobuf:"varint,8,opt,name=remove_accept_encoding_header,json=removeAcceptEncodingHeader" json:"remove_accept_encoding_header,omitempty"`
+	RemoveAcceptEncodingHeader bool `protobuf:"varint,8,opt,name=remove_accept_encoding_header,json=removeAcceptEncodingHeader,proto3" json:"remove_accept_encoding_header,omitempty"`
 	// Value from 9 to 15 that represents the base two logarithmic of the compressor's window size.
 	// Larger window results in better compression at the expense of memory usage. The default is 12
 	// which will produce a 4096 bytes window. For more details about this parameter, please refer to
 	// zlib manual > deflateInit2.
-	WindowBits           *wrappers.UInt32Value `protobuf:"bytes,9,opt,name=window_bits,json=windowBits" json:"window_bits,omitempty"`
+	WindowBits           *wrappers.UInt32Value `protobuf:"bytes,9,opt,name=window_bits,json=windowBits,proto3" json:"window_bits,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
 	XXX_unrecognized     []byte                `json:"-"`
 	XXX_sizecache        int32                 `json:"-"`

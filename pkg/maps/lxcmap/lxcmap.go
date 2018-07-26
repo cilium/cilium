@@ -20,11 +20,11 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-var log = logging.DefaultLogger
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-lxc")
 
 const (
 	MapName = "cilium_lxc"
@@ -53,7 +53,7 @@ var (
 
 			return &k, &v, nil
 		},
-	)
+	).WithCache()
 )
 
 func init() {
@@ -106,13 +106,13 @@ type EndpointFrontend interface {
 //
 // Must be in sync with struct endpoint_info in <bpf/lib/common.h>
 type EndpointInfo struct {
-	IfIndex    uint32
-	SecLabelID uint16
-	LxcID      uint16
-	Flags      uint32
-	MAC        MAC
-	NodeMAC    MAC
-	Pad        [4]uint32
+	IfIndex uint32
+	Unused  uint16
+	LxcID   uint16
+	Flags   uint32
+	MAC     MAC
+	NodeMAC MAC
+	Pad     [4]uint32
 }
 
 // GetValuePtr returns the unsafe pointer to the BPF value
@@ -145,7 +145,7 @@ func (v *EndpointInfo) String() string {
 		v.IfIndex,
 		v.MAC,
 		v.NodeMAC,
-		byteorder.HostToNetwork(v.SecLabelID),
+		0,
 	)
 }
 

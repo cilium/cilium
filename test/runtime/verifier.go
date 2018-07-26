@@ -22,22 +22,18 @@ import (
 	"github.com/cilium/cilium/test/helpers"
 
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 )
 
 const (
-	verifierTest = "RuntimeValidatedVerifier"
-	script       = "bpf/verifier-test.sh"
+	script = "bpf/verifier-test.sh"
 )
 
-var _ = Describe(verifierTest, func() {
-	var logger *logrus.Entry
+var _ = Describe("RuntimeVerifier", func() {
 	var vm *helpers.SSHMeta
 
 	BeforeAll(func() {
-		logger = log.WithFields(logrus.Fields{"testName": verifierTest})
-		logger.Info("Starting")
-		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
+		ExpectCiliumReady(vm)
 
 		By("Stopping Cilium")
 		res := vm.ExecWithSudo("systemctl stop cilium")

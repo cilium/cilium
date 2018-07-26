@@ -24,11 +24,12 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 )
 
 var (
-	log = logging.DefaultLogger
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-ct")
 
 	// labelIPv6CTDumpInterrupts marks the count for conntrack dump resets (IPv6).
 	labelIPv6CTDumpInterrupts = map[string]string{
@@ -56,6 +57,7 @@ const (
 	TUPLE_F_OUT     = 0
 	TUPLE_F_IN      = 1
 	TUPLE_F_RELATED = 2
+	TUPLE_F_SERVICE = 4
 
 	// MaxTime specifies the last possible time for GCFilter.Time
 	MaxTime = math.MaxUint32
@@ -89,9 +91,12 @@ type CtEntry struct {
 	lifetime   uint32
 	flags      uint16
 	// revnat is in network byte order
-	revnat     uint16
-	unused     uint16
-	src_sec_id uint32
+	revnat         uint16
+	tx_flags_seen  uint8
+	rx_flags_seen  uint8
+	src_sec_id     uint32
+	last_tx_report uint32
+	last_rx_report uint32
 }
 
 // GetValuePtr returns the unsafe.Pointer for s.
