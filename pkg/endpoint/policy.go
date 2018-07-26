@@ -886,7 +886,7 @@ func (e *Endpoint) runIdentityToK8sPodSync() {
 
 				e.Mutex.RLock()
 				if e.SecurityIdentity != nil {
-					id = e.SecurityIdentity.ID.String()
+					id = e.SecurityIdentity.ID.StringID()
 				}
 				e.Mutex.RUnlock()
 
