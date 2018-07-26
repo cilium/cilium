@@ -665,6 +665,7 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	var revision uint64
 	var compilationExecuted bool
 	var err error
+	var lockerr error
 
 	metrics.EndpointCountRegenerating.Inc()
 	regenerateStart := time.Now()
@@ -689,9 +690,13 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	e.BuildMutex.Lock()
 	defer e.BuildMutex.Unlock()
 
-	e.Mutex.RLock()
+	if lockerr = e.RLock(); lockerr != nil {
+		return lockerr
+	}
 	e.getLogger().Debug("Regenerating endpoint...")
-	e.Mutex.RUnlock()
+	if lockerr = e.RUnlock(); lockerr != nil {
+		return lockerr
+	}
 
 	origDir := filepath.Join(owner.GetStateDir(), e.StringID())
 
@@ -706,13 +711,27 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	}
 
 	defer func() {
+		if lockerr := e.Lock(); lockerr != nil {
+			if retErr == nil {
+				retErr = lockerr
+			} else {
+				e.LogDisconnectedMutexAction(lockerr, "after regenerate")
+			}
+			return
+		}
 		// Set to Ready, but only if no other changes are pending.
 		// State will remain as waiting-to-regenerate if further
 		// changes are needed. There should be an another regenerate
 		// queued for taking care of it.
-		e.Mutex.Lock()
 		e.BuilderSetStateLocked(StateReady, "Completed endpoint regeneration with no pending regeneration requests")
-		e.Mutex.Unlock()
+		if lockerr := e.Unlock(); lockerr != nil {
+			if retErr == nil {
+				retErr = lockerr
+			} else {
+				e.LogDisconnectedMutexAction(lockerr, "after regenerate")
+			}
+			return
+		}
 	}()
 
 	revision, compilationExecuted, err = e.regenerateBPF(owner, tmpDir, reason)
@@ -766,13 +785,16 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	// Update desired policy for endpoint because policy has now been realized
 	// in the datapath. PolicyMap state is not updated here, because that is
 	// performed in endpoint.syncPolicyMap().
-	e.Mutex.Lock()
+	if lockerr = e.Lock(); lockerr != nil {
+		return lockerr
+	}
 	e.RealizedL4Policy = e.DesiredL4Policy
-	e.Mutex.Unlock()
-
 	// Mark the endpoint to be running the policy revision it was
 	// compiled for
-	e.bumpPolicyRevision(revision)
+	e.bumpPolicyRevisionLocked(revision)
+	if lockerr = e.Unlock(); lockerr != nil {
+		return lockerr
+	}
 
 	e.getLogger().Info("Endpoint policy recalculated")
 
@@ -793,10 +815,23 @@ func (e *Endpoint) Regenerate(owner Owner, reason string) <-chan bool {
 	go func(owner Owner, req *Request, e *Endpoint) {
 		buildSuccess := true
 
-		e.Mutex.Lock()
+		lockerr := e.Lock()
+		if lockerr != nil {
+			e.LogDisconnectedMutexAction(lockerr, "before regeneration")
+			req.ExternalDone <- false
+			close(req.ExternalDone)
+			return
+		}
 		// This must be accessed in a locked section, so we grab it here.
 		scopedLog := e.getLogger()
-		e.Mutex.Unlock()
+		lockerr = e.Unlock()
+		if lockerr != nil {
+			e.LogDisconnectedMutexAction(lockerr, "before regeneration")
+			scopedLog.WithError(lockerr).Error("Endpoint regeneration not queued due to endpoint being in disconnected state")
+			req.ExternalDone <- false
+			close(req.ExternalDone)
+			return
+		}
 
 		// We should only queue the request after we use all the endpoint's
 		// lock/unlock. Otherwise this can get a deadlock if the endpoint is
@@ -884,11 +919,15 @@ func (e *Endpoint) runIdentityToK8sPodSync() {
 			DoFunc: func() error {
 				id := ""
 
-				e.Mutex.RLock()
+				if lockerr := e.RLock(); lockerr != nil {
+					return lockerr
+				}
 				if e.SecurityIdentity != nil {
 					id = e.SecurityIdentity.ID.String()
 				}
-				e.Mutex.RUnlock()
+				if lockerr := e.RUnlock(); lockerr != nil {
+					return lockerr
+				}
 
 				if id != "" && e.GetK8sNamespace() != "" && e.GetK8sPodName() != "" {
 					return k8s.AnnotatePod(e, k8sConst.CiliumIdentityAnnotation, id)
@@ -923,17 +962,19 @@ func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
 		controller.ControllerParams{
 			DoFunc: func() error {
 
-				e.Mutex.RLock()
+				// NOTE: this Lock is Unconditional because this controller
+				// handles disconnecting endpoint state properly
+				e.UnconditionalLock()
 
 				if e.state == StateDisconnected || e.state == StateDisconnecting {
 					log.WithFields(logrus.Fields{logfields.EndpointState: e.state}).
 						Debugf("not synchronizing endpoint IP with kvstore due to endpoint state")
-					e.Mutex.RUnlock()
+					e.UnconditionalRLock()
 					return nil
 				}
 
 				if e.SecurityIdentity == nil {
-					e.Mutex.RUnlock()
+					e.UnconditionalRLock()
 					return nil
 				}
 
@@ -944,7 +985,7 @@ func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
 
 				// Release lock as we do not want to have long-lasting key-value
 				// store operations resulting in lock being held for a long time.
-				e.Mutex.RUnlock()
+				e.UnconditionalRLock()
 
 				if err := ipcache.UpsertIPToKVStore(IP, hostIP, ID, metadata); err != nil {
 					return fmt.Errorf("unable to add endpoint IP mapping '%s'->'%d': %s", IP.String(), ID, err)

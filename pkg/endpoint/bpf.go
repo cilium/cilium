@@ -267,9 +267,13 @@ func (e *Endpoint) runInit(libdir, rundir, epdir, ifName, debug string) error {
 	args := []string{libdir, rundir, epdir, ifName, debug, e.StringID()}
 	prog := filepath.Join(libdir, "join_ep.sh")
 
-	e.Mutex.RLock()
+	if err := e.RLock(); err != nil {
+		return err
+	}
 	scopedLog := e.getLogger() // must be called with e.Mutex held
-	e.Mutex.RUnlock()
+	if err := e.RUnlock(); err != nil {
+		return err
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), ExecTimeout)
 	defer cancel()
@@ -446,8 +450,9 @@ func (e *Endpoint) removeOldRedirects(owner Owner, desiredRedirects map[string]b
 // Must be called with endpoint.Mutex not held and endpoint.BuildMutex held.
 // Returns the policy revision number when the regeneration has called, a
 // boolean if the BPF compilation was executed and an error in case of an error.
-func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, bool, error) {
+func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint64, compiled bool, reterr error) {
 	var (
+		lockerr             error
 		err                 error
 		compilationExecuted bool
 	)
@@ -459,14 +464,15 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 
 	buildStart := time.Now()
 
-	e.Mutex.Lock()
+	if err = e.Lock(); err != nil {
+		return 0, compilationExecuted, err
+	}
+
 	logger := e.getLogger()
 	logger.WithField(logfields.StartTime, time.Now()).Info("Regenerating BPF program")
 	defer func() {
-		e.Mutex.RLock()
 		logger.WithField(logfields.BuildDuration, time.Since(buildStart).String()).
 			Info("Regeneration of BPF program has completed")
-		e.Mutex.RUnlock()
 	}()
 
 	// If endpoint was marked as disconnected then
@@ -477,13 +483,19 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 		!e.BuilderSetStateLocked(StateRegenerating, "Regenerating Endpoint BPF: "+reason) {
 
 		logger.WithField(logfields.EndpointState, e.state).Debug("Skipping build due to invalid state")
-		e.Mutex.Unlock()
+		err = e.Unlock()
+
 		return 0, compilationExecuted, fmt.Errorf("Skipping build due to invalid state: %s", e.state)
 	}
 
 	// If dry mode is enabled, no further changes to BPF maps are performed
 	if owner.DryModeEnabled() {
-		defer e.Mutex.Unlock()
+		defer func() {
+			err := e.Unlock()
+			if err != nil && reterr == nil {
+				reterr = err
+			}
+		}()
 
 		// Regenerate policy and apply any options resulting in the
 		// policy change.
@@ -511,8 +523,16 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 	createdPolicyMap := false
 
 	defer func() {
-		if err != nil {
-			e.Mutex.Lock()
+		if reterr != nil {
+			lockerr = e.Lock()
+			if lockerr != nil {
+				// holding the mutex to log the error
+				e.UnconditionalLock()
+				epLogger := e.getLogger()
+				epLogger.WithError(lockerr).Error("Failed to destroy BPF maps after policy regeneration error - endpoint disconnected")
+				e.UnconditionalUnlock()
+				return
+			}
 			epLogger := e.getLogger()
 			epLogger.WithError(err).Error("destroying BPF maps due to" +
 				" errors during regeneration")
@@ -521,21 +541,25 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 				os.RemoveAll(e.PolicyMapPathLocked())
 				e.PolicyMap = nil
 			}
-			e.Mutex.Unlock()
+			e.Unlock()
 		}
 	}()
 
 	if e.PolicyMap == nil {
 		e.PolicyMap, createdPolicyMap, err = policymap.OpenMap(e.PolicyMapPathLocked())
 		if err != nil {
-			e.Mutex.Unlock()
+			if lockerr = e.Unlock(); lockerr != nil {
+				e.LogDisconnectedMutexAction(lockerr, "after failing to open PolicyMap")
+			}
 			return 0, compilationExecuted, err
 		}
 		// Clean up map contents
 		logger.Debug("flushing old PolicyMap")
 		err = e.PolicyMap.Flush()
 		if err != nil {
-			e.Mutex.Unlock()
+			if lockerr = e.Unlock(); lockerr != nil {
+				e.LogDisconnectedMutexAction(lockerr, "after failing to flush PolicyMap")
+			}
 			return 0, compilationExecuted, err
 		}
 	}
@@ -554,7 +578,9 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 		// This also populates e.PolicyMap.
 		_, err = e.regeneratePolicy(owner, nil)
 		if err != nil {
-			e.Mutex.Unlock()
+			if lockerr = e.Unlock(); lockerr != nil {
+				e.LogDisconnectedMutexAction(lockerr, "after failing to regenerate policy")
+			}
 			return 0, compilationExecuted, fmt.Errorf("unable to regenerate policy for '%s': %s", e.PolicyMap.String(), err)
 		}
 
@@ -566,13 +592,17 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 		// with the old one.
 		err := e.syncPolicyMap()
 		if err != nil {
-			e.Mutex.Unlock()
+			if lockerr = e.Unlock(); lockerr != nil {
+				e.LogDisconnectedMutexAction(lockerr, "after failing to update PolicyMap")
+			}
 			return 0, compilationExecuted, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %s", err)
 		}
 
 		// Configure the new network policy with the proxies.
 		if err = e.updateNetworkPolicy(owner, proxyWaitGroup); err != nil {
-			e.Mutex.Unlock()
+			if lockerr = e.Unlock(); lockerr != nil {
+				e.LogDisconnectedMutexAction(lockerr, "after failing to configure network policy with proxies")
+			}
 			return 0, compilationExecuted, err
 		}
 	}
@@ -580,7 +610,9 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 	// Generate header file specific to this endpoint for use in compiling
 	// BPF programs for this endpoint.
 	if err = e.writeHeaderfile(epdir, owner); err != nil {
-		e.Mutex.Unlock()
+		if lockerr = e.Unlock(); lockerr != nil {
+			e.LogDisconnectedMutexAction(lockerr, "after failing to generate endpoint header file")
+		}
 		return 0, compilationExecuted, fmt.Errorf("unable to write header file: %s", err)
 	}
 
@@ -602,7 +634,9 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 	// TODO (ianvernon): why do we need to do this?
 	epInfoCache := e.createEpInfoCache()
 	if epInfoCache == nil {
-		e.Mutex.Unlock()
+		if lockerr = e.Unlock(); lockerr != nil {
+			e.LogDisconnectedMutexAction(lockerr, "after failing to cache endpoint information")
+		}
 		err = fmt.Errorf("Unable to cache endpoint information")
 		return 0, compilationExecuted, err
 	}
@@ -613,7 +647,9 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 	os.RemoveAll(e.IPv6IngressMapPathLocked())
 	os.RemoveAll(e.IPv4IngressMapPathLocked())
 
-	e.Mutex.Unlock()
+	if lockerr = e.Unlock(); lockerr != nil {
+		return 0, compilationExecuted, lockerr
+	}
 	logger.WithField("bpfHeaderfilesChanged", bpfHeaderfilesChanged).Debug("Preparing to compile BPF")
 	libdir := owner.GetBpfDir()
 	rundir := owner.GetStateDir()
@@ -632,20 +668,28 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 		compilationExecuted = true
 		e.bpfHeaderfileHash = bpfHeaderfilesHash
 	} else {
-		e.Mutex.RLock()
+		if lockerr = e.RLock(); lockerr != nil {
+			return 0, compilationExecuted, lockerr
+		}
 		logger.WithField(logfields.BPFHeaderfileHash, bpfHeaderfilesHash).
 			Debug("BPF header file unchanged, skipping BPF compilation and installation")
-		e.Mutex.RUnlock()
+		if lockerr = e.RUnlock(); lockerr != nil {
+			return 0, compilationExecuted, lockerr
+		}
 	}
 
-	e.Mutex.Lock()
+	if lockerr = e.Lock(); lockerr != nil {
+		return 0, compilationExecuted, lockerr
+	}
 	// Walk the L4Policy to add new redirects and update the desired policy map
 	// state to set the newly allocated proxy ports.
 	var desiredRedirects map[string]bool
 	if e.DesiredL4Policy != nil {
 		desiredRedirects, err = e.addNewRedirects(owner, e.DesiredL4Policy, proxyWaitGroup)
 		if err != nil {
-			e.Mutex.Unlock()
+			if lockerr = e.Unlock(); lockerr != nil {
+				e.LogDisconnectedMutexAction(lockerr, "after failing to cache endpoint information")
+			}
 			return 0, compilationExecuted, err
 		}
 	}
@@ -653,18 +697,27 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 	// now-obsolete redirects, since we synced the updated policy map above.
 	// It's now safe to remove the redirects from the proxy's configuration.
 	e.removeOldRedirects(owner, desiredRedirects, proxyWaitGroup)
-	e.Mutex.Unlock()
+	if lockerr = e.Unlock(); lockerr != nil {
+		return 0, compilationExecuted, lockerr
+	}
 	err = e.WaitForProxyCompletions(proxyWaitGroup)
 	if err != nil {
 		return 0, compilationExecuted, fmt.Errorf("Error while configuring proxy redirects: %s", err)
 	}
 
-	e.Mutex.Lock()
-	defer e.Mutex.Unlock()
-
-	if e.IsDisconnecting() {
-		return 0, compilationExecuted, fmt.Errorf("endpoint was removed while waiting for proxy to be configured")
+	if lockerr = e.Lock(); lockerr != nil {
+		return 0, compilationExecuted, lockerr
 	}
+	defer func() {
+		lockerr = e.Unlock()
+		if lockerr != nil {
+			if reterr == nil {
+				reterr = lockerr
+			} else {
+				e.LogDisconnectedMutexAction(lockerr, "after exiting regenerateBPF")
+			}
+		}
+	}()
 
 	// Synchronously try to update PolicyMap for this endpoint. If any
 	// part of updating the PolicyMap fails, bail out and do not generate
