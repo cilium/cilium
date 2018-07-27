@@ -11,5 +11,8 @@ deploy {
         "--disable-ipv4=$(DISABLE_IPV4)",
         "--debug-verbose=flow",
         "--k8s-require-ipv4-pod-cidr"
+    ],
+    ciliumHealthArgs: [
+        "-d"
     ]
 }

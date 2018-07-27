@@ -239,6 +239,59 @@
                   },
                   "privileged": true
                 }
+              },
+              {
+                "image": $.image,
+                "imagePullPolicy": "Always",
+                "name": "cilium-health",
+                "command": [
+                  "cilium-health
+                ],
+                "args": $.ciliumHealthArgs,
+                "ports": [
+                  {
+                    "name": "metrics",
+                    "containerPort": 9091
+                  }
+                ],
+                "env": [
+                  {
+                    "name": "CILIUM_HEALTH_PROMETHEUS_SERVE_ADDR",
+                    "valueFrom": {
+                      "configMapKeyRef": {
+                        "name": "cilium-health-metrics-config",
+                        "key": "prometheus-serve-addr"
+                      }
+                    }
+                  }
+                ],
+                "livenessProbe": {
+                  "exec": {
+                    "command": [
+                      "cilium-health",
+                      "status"
+                    ]
+                  },
+                  "initialDelaySeconds": 120,
+                  "failureThreshold": 10,
+                  "periodSeconds": 10
+                },
+                "readinessProbe": {
+                  "exec": {
+                    "command": [
+                      "cilium",
+                      "status"
+                    ]
+                  },
+                  "initialDelaySeconds": 5,
+                  "periodSeconds": 5
+                },
+                "volumeMounts": [
+                  {
+                    "name": "cilium-run",
+                    "mountPath": "/var/run/cilium"
+                  }
+                ]
               }
             ],
             "hostNetwork": true,
