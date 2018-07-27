@@ -280,4 +280,7 @@ const (
 
 	// ThreadID is the Envoy thread ID.
 	ThreadID = "threadID"
+
+	// PrometheusServeAddr is the address for Prometheus metrics server
+	PrometheusServeAddr = "prometheusServeAddr"
 )
