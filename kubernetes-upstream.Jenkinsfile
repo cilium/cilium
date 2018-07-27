@@ -68,8 +68,9 @@ pipeline {
         }
 
         stage('Netperf tests'){
+
             when {
-                branch 'master'
+                environment name: 'GIT_BRANCH', value: 'origin/master'
             }
 
             options {
