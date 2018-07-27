@@ -39,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	ipCacheBPF "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/uuid"
 	"github.com/cilium/cilium/pkg/workloads"
@@ -871,7 +872,12 @@ func (d *Daemon) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidr
 		}
 
 		if newHostIP != nil {
-			if ip4 := newHostIP.To4(); ip4 != nil {
+			// If the hostIP is specified and it doesn't point to
+			// the local host, then the ipcache should be populated
+			// with the hostIP so that this traffic can be guided
+			// to a tunnel endpoint destination.
+			externalIP := node.GetExternalIPv4()
+			if ip4 := newHostIP.To4(); ip4 != nil && !ip4.Equal(externalIP) {
 				copy(value.TunnelEndpoint[:], ip4)
 			}
 		}
