@@ -416,7 +416,9 @@ func (c *consulClient) Watch(w *Watcher) {
 	localState := map[string]consulAPI.KVPair{}
 	nextIndex := uint64(0)
 
-	qo := consulAPI.QueryOptions{}
+	qo := consulAPI.QueryOptions{
+		WaitTime: time.Second,
+	}
 
 	for {
 		// Initialize sleep time to a millisecond as we don't
