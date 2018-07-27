@@ -21,7 +21,7 @@ import (
 
 	identityApi "github.com/cilium/cilium/api/v1/client/policy"
 	"github.com/cilium/cilium/api/v1/models"
-	api "github.com/cilium/cilium/pkg/apisocket"
+	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/labels"
 
