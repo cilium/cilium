@@ -1459,7 +1459,6 @@ func (d *Daemon) updateCiliumNetworkPolicyV2(ciliumV2Store cache.Store,
 		logfields.K8sNamespace:                     newRuleCpy.ObjectMeta.Namespace,
 	}).Debug("Modified CiliumNetworkPolicy")
 
-	d.deleteCiliumNetworkPolicyV2(oldRuleCpy)
 	d.addCiliumNetworkPolicyV2(ciliumV2Store, newRuleCpy)
 }
 
