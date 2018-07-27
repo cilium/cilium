@@ -22,7 +22,7 @@ import (
 
 	endpointApi "github.com/cilium/cilium/api/v1/client/endpoint"
 	"github.com/cilium/cilium/api/v1/models"
-	api "github.com/cilium/cilium/pkg/apisocket"
+	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/command"
 
 	"github.com/spf13/cobra"

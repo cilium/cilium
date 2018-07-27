@@ -23,7 +23,7 @@ import (
 	. "github.com/cilium/cilium/api/v1/client/policy"
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
-	api "github.com/cilium/cilium/pkg/apisocket"
+	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/command"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/identity"

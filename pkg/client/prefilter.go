@@ -17,7 +17,7 @@ package client
 import (
 	"github.com/cilium/cilium/api/v1/client/prefilter"
 	"github.com/cilium/cilium/api/v1/models"
-	api "github.com/cilium/cilium/pkg/apisocket"
+	"github.com/cilium/cilium/pkg/api"
 )
 
 // GetPrefilter returns a list of all CIDR prefixes
