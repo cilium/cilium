@@ -2,6 +2,87 @@
 NEWS
 ******
 
+v1.0.5
+======
+
+André Martins (30):
+      examples/kubernetes: set correct image tag in kubernetes examples
+      daemon: return error if createEndpoint fails
+      docker/Dockerfile: update golang to 1.10.2
+      docker/Dockerfile: update base image to ubuntu 18.04
+      docker/Dockerfile: update iproute2 to 4.16
+      docker/Dockerfile: update loopback cni to 0.6.0
+      docker/Dockerfile: add gpg
+      Dockerfile: update cilium-runtime with 2018-06-04
+      examples/kubernetes: use POSIX regex for CILIUM_VERSION checker
+      docs: use Documentation context to avoid longer image builds
+      test: set default CRI socket
+      ginkgo.Jenkinsfile: increase timeout by 30 minutes
+      pkg/endpoint: set policy revision if there is no datapath changes
+      tests: Update cilium-builder in unit tests to 2018-06-21
+      test: Use latest stable etcd and consul images
+      examples/kubernetes: backport k8s 1.12 daemonset deployment files
+      test: add k8s 1.12 test framework
+      examples/kubernetes: add "system-node-critical" priorityClass
+      test: remove policy enforcement in k8s tests
+      pkg/kvstore: set hard timeout for etcd lock path to 1 minute
+      pkg/endpoint: set state ready if endpoint labels are the same
+      pkg/kvstore: fix high-cpu usage when Cilium loses Consul connectivity
+      ginkgo-kubernetes-all.Jenkinsfile: fix misplaced bracket
+      daemon: change minimal worker thread to 2
+      pkg/endpoint: fix endpoint.logger race condition
+      Revert "Revert "test: update k8s to 1.8.14, 1.10.4 and 1.11.0""
+      test: update k8s to 1.9.9 and 1.10.5
+      Revert "Revert "ginkgo-kubernetes-all.Jenkinsfile: move k8s 1.10 and 1.12 to same stage""
+      tests: disable k8s 1.12-alpha.0 tests
+      test/provision: do not install kubedns in 1.11
+
+Eloy Coto (4):
+      Test: Demo tests waiting to policies to be applied.
+      Backport: Fix Jenkinsfile artifacts
+      Contrib: Backport script to use different versions
+      Test: Skip Kube-dns if the Kubernetes version is 1.11
+
+Ian Vernon (4):
+      pkg/policy: take into account To / FromRequires when computing L4 policy
+      envoy: use local_resources parameter during bazel build
+      daemon: fix minimum number of work threads unit test
+      test/k8sT: wait for DNS to be ready in Kafka pods
+
+Mark deVilliers (1):
+      Check for nil before accessing Status
+
+Michal Rostecki (4):
+      pkg/mountinfo: Add utility for getting mountinfo
+      bpf: Allow to define BPF map root via env variable
+      pkg/envoy: Don't hardcode BPFFS mount path
+      pkg/bpf: Use the other directory when /sys/fs/bpf is not BPFFS
+
+Nirmoy Das (1):
+      cilium-docker: fix gatewayIPv4 assignment
+
+Ray Bejjani (2):
+      backport: use the same url for all searches
+      backport: Only check merged PRs
+
+Thomas Graf (16):
+      allocator: Use DefaultLogger
+      conntrack: Increase conntrack interval to 1 minute
+      allocator: Increase allocator list timeout to 2 minutes
+      tunnel: Make BPF tunnel map updates atomic
+      tunnel: Add debug messages on tunnel map manipulation
+      maps/tunnel: Use DefaultLogger
+      bpffs: Fix panic when root directory does not exist
+      kubernetes: Fix generation of DaemonSet files to include v image tag prefix
+      kubernetes: Add missing parenthesis to only fail on invalid version
+      test: Use latest stable etcd and consul images
+      allocator: benchmark: Reserve ID space for reserved identities
+      trigger: New trigger package
+      identity: Process identity events in batches
+      identity: Fix allocator init with more than pre-existing 1024 keys
+      allocator: Avoid scanning sequentual list when allocating
+      etcd: Fix and relax during recreate watcher loop
+
 v1.0.4
 ======
 
