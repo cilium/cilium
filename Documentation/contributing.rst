@@ -2025,9 +2025,13 @@ Cilium PRs that are marked with label ``stable/needs-backport`` need to be backp
     and clear the ``stable/needs-backport`` label.  Note that using
     the GitHub web interface it is better to add new labels first so
     that you can still find the PRs using either the new or old label!
+    You can also do this with
+    ``contrib/backporting/set-labels.py <original PR ID> pending <version(defaults to 1.0)>``.
 14. After the backport PR is merged, mark all backported PRs with
     ``stable/backport-done`` label and clear the
     ``stable/backport-pending`` label.
+    This can be achieved by
+    ``contrib/backporting/set-labels.py <original PR ID> done <version(defaults to 1.0)>``.
 
 Update cilium-builder and cilium-runtime images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
