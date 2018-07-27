@@ -1681,7 +1681,6 @@ func (d *Daemon) updateCiliumNetworkPolicyV2(ciliumV2Store cache.Store,
 		"annotations":                              newRuleCpy.ObjectMeta.Annotations,
 	}).Debug("Modified CiliumNetworkPolicy")
 
-	d.deleteCiliumNetworkPolicyV2(oldRuleCpy)
 	d.addCiliumNetworkPolicyV2(ciliumV2Store, newRuleCpy)
 }
 
