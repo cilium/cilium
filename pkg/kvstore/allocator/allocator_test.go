@@ -87,15 +87,17 @@ func (s *AllocatorSuite) TestSelectID(c *C) {
 
 	// allocate all available IDs
 	for i := minID; i <= maxID; i++ {
-		id, val := a.selectAvailableID()
+		id, val, unmaskedID := a.selectAvailableID()
 		c.Assert(id, Not(Equals), NoID)
 		c.Assert(val, Equals, id.String())
+		c.Assert(id, Equals, unmaskedID)
 		a.mainCache.cache[id] = TestType(fmt.Sprintf("key-%d", i))
 	}
 
 	// we should be out of IDs
-	id, val := a.selectAvailableID()
+	id, val, unmaskedID := a.selectAvailableID()
 	c.Assert(id, Equals, ID(0))
+	c.Assert(id, Equals, unmaskedID)
 	c.Assert(val, Equals, "")
 }
 
@@ -109,9 +111,10 @@ func (s *AllocatorSuite) TestPrefixMask(c *C) {
 
 	// allocate all available IDs
 	for i := minID; i <= maxID; i++ {
-		id, val := a.selectAvailableID()
+		id, val, unmaskedID := a.selectAvailableID()
 		c.Assert(id, Not(Equals), NoID)
 		c.Assert(id>>16, Equals, ID(1))
+		c.Assert(id, Not(Equals), unmaskedID)
 		c.Assert(val, Equals, id.String())
 	}
 
