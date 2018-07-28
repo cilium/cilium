@@ -17,7 +17,6 @@ package allocator
 import (
 	"errors"
 	"fmt"
-	"math/rand"
 	"path"
 	"strconv"
 	"strings"
@@ -197,8 +196,8 @@ type Allocator struct {
 	// stopGC is the channel used to stop the garbage collector
 	stopGC chan struct{}
 
-	// randomIDs is a slice of random IDs between a.min and a.max
-	randomIDs []int
+	// idPool maintains a pool of available ids for allocation.
+	idPool *idPool
 }
 
 func locklessCapability() bool {
@@ -267,6 +266,8 @@ func NewAllocator(basePath string, typ AllocatorKey, opts ...AllocatorOption) (*
 	if a.max <= a.min {
 		return nil, errors.New("Maximum ID must be greater than minimum ID")
 	}
+
+	a.idPool = newIDPool(a.min, a.max)
 
 	go func() {
 		if err := a.mainCache.startAndWait(a); err != nil {
@@ -356,51 +357,17 @@ func invalidKey(key, prefix string, deleteInvalid bool) {
 	}
 }
 
-var (
-	idRandomizer      = rand.New(rand.NewSource(time.Now().UnixNano()))
-	idRandomizerMutex lock.Mutex
-)
-
-func (a *Allocator) newRandomIDs() {
-	idRandomizerMutex.Lock()
-	a.randomIDs = idRandomizer.Perm(int(a.max - a.min + 1))
-	idRandomizerMutex.Unlock()
-}
-
-// Naive ID allocation mechanism.
-func (a *Allocator) selectAvailableID() (ID, string) {
-	a.mainCache.mutex.RLock()
-	defer a.mainCache.mutex.RUnlock()
-
-	// Perform two attempts to select an available ID:
-	// 1. The first attempt walks through the remaining IDs in the current
-	//    random sequence. This attempt represents the likely available IDs
-	//    but does not include IDs that may have been released again since
-	//    the sequence was generated
-	// 2. The second attempt tries again using a newly allocated random
-	//    sequence spanning the entire range of available IDs. This attempt
-	//    is guaranteed to try all available IDs, if this attempt fails, no
-	//    more IDs are avaiable. The 2nd attempt is always required for the
-	//    first ever allocation and in case the first attempt consumes the
-	//    last available ID in the sequence.
-	for attempt := 0; attempt < 2; attempt++ {
-		for i, r := range a.randomIDs {
-			id := ID(r) + a.min
-			if _, ok := a.mainCache.cache[id]; !ok && a.localKeys.lookupID(id) == "" {
-				// remove the previously tried IDs that are already in
-				// use from the list of IDs to attempt allocation
-				a.randomIDs = a.randomIDs[i+1:]
-				id |= a.prefixMask
-				return id, id.String()
-			}
-		}
-
-		if attempt == 0 {
-			a.newRandomIDs()
-		}
+// Selects an available ID.
+// Returns a triple of the selected ID ORed with prefixMask,
+// the ID string and the originally selected ID.
+func (a *Allocator) selectAvailableID() (ID, string, ID) {
+	if id := a.idPool.LeaseAvailableID(); id != NoID {
+		unmaskedID := id
+		id |= a.prefixMask
+		return id, id.String(), unmaskedID
 	}
 
-	return 0, ""
+	return 0, "", 0
 }
 
 func (a *Allocator) createValueNodeKey(key string, newID ID) error {
@@ -460,40 +427,46 @@ func (a *Allocator) lockedAllocate(key AllocatorKey) (ID, bool, error) {
 		return value, false, nil
 	}
 
-	id, strID := a.selectAvailableID()
+	id, strID, unmaskedID := a.selectAvailableID()
 	if id == 0 {
 		return 0, false, fmt.Errorf("no more available IDs in configured space")
 	}
 
 	kvstore.Trace("Selected available key", nil, logrus.Fields{fieldID: id})
 
+	releaseKeyAndID := func() {
+		a.localKeys.release(k)
+		a.idPool.Release(unmaskedID)
+	}
+
 	oldID, err := a.localKeys.allocate(k, id)
 	if err != nil {
+		a.idPool.Release(unmaskedID)
 		return 0, false, fmt.Errorf("unable to reserve local key '%s': %s", k, err)
 	}
 
 	// Another local writer beat us to allocating an ID for the same key,
 	// start over
 	if id != oldID {
-		a.localKeys.release(k)
+		releaseKeyAndID()
 		return 0, false, fmt.Errorf("another writer has allocated this key")
 	}
 
 	lock, err := a.lockPath(k)
 	if err != nil {
-		a.localKeys.release(k)
+		releaseKeyAndID()
 		return 0, false, fmt.Errorf("unable to lock key: %s", err)
 	}
 
 	value, err = a.GetNoCache(key)
 	if err != nil {
-		a.localKeys.release(k)
+		releaseKeyAndID()
 		lock.Unlock()
 		return 0, false, err
 	}
 
 	if value != 0 {
-		a.localKeys.release(k)
+		releaseKeyAndID()
 		lock.Unlock()
 		return 0, false, fmt.Errorf("master key already exists")
 	}
@@ -504,10 +477,13 @@ func (a *Allocator) lockedAllocate(key AllocatorKey) (ID, bool, error) {
 	if err != nil {
 		// Creation failed. Another agent most likely beat us to allocting this
 		// ID, retry.
-		a.localKeys.release(k)
+		releaseKeyAndID()
 		lock.Unlock()
 		return 0, false, fmt.Errorf("unable to create master key '%s': %s", keyPath, err)
 	}
+
+	// Notify pool that leased ID is now in-use.
+	a.idPool.Use(unmaskedID)
 
 	if err = a.createValueNodeKey(k, id); err != nil {
 		// We will leak the master key here as the key has already been
