@@ -131,6 +131,7 @@ func (c *cache) start(a *Allocator) waitChan {
 	c.nextCache = idMap{}
 	c.nextKeyCache = keyMap{}
 	c.mutex.Unlock()
+	a.idPool.StartRefresh()
 
 	c.stopWatchWg.Add(1)
 
@@ -149,6 +150,7 @@ func (c *cache) start(a *Allocator) waitChan {
 					c.cache = c.nextCache
 					c.keyCache = c.nextKeyCache
 					c.mutex.Unlock()
+					a.idPool.FinishRefresh()
 
 					// report that the list operation has
 					// been completed and the allocator is
@@ -180,6 +182,7 @@ func (c *cache) start(a *Allocator) waitChan {
 						if key != nil {
 							c.nextKeyCache[key.GetKey()] = id
 						}
+						a.idPool.Remove(id)
 
 					case kvstore.EventTypeModify:
 						kvstore.Trace("Modifying id in cache", nil, debugFields.Data)
@@ -200,6 +203,7 @@ func (c *cache) start(a *Allocator) waitChan {
 						}
 
 						delete(c.nextCache, id)
+						a.idPool.Insert(id)
 					}
 					c.mutex.Unlock()
 
