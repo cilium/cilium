@@ -181,22 +181,27 @@ spec:
         - name: cilium-run
           hostPath:
             path: /var/run/cilium
+            type: "DirectoryOrCreate"
         # To keep state between restarts / upgrades
         - name: bpf-maps
           hostPath:
             path: /sys/fs/bpf
+            type: "DirectoryOrCreate"
         # To read docker events from the node
         - name: docker-socket
           hostPath:
             path: /var/run/docker.sock
+            type: "Socket"
         # To install cilium cni plugin in the host
         - name: cni-path
           hostPath:
             path: /opt/cni/bin
+            type: "DirectoryOrCreate"
         # To install cilium cni configuration in the host
         - name: etc-cni-netd
           hostPath:
             path: /etc/cni/net.d
+            type: "DirectoryOrCreate"
         # To read the etcd config stored in config maps
         - name: etcd-config-path
           configMap:
