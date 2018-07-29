@@ -540,7 +540,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	_, namespaceController := cache.NewInformer(
 		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
 			"namespaces", v1.NamespaceAll, fields.Everything()),
-		&v1.Pod{},
+		&v1.Namespace{},
 		reSyncPeriod,
 		cache.ResourceEventHandlerFuncs{
 			// AddFunc does not matter since the endpoint will fetch
