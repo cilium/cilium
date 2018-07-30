@@ -36,6 +36,11 @@ spec:
           image: docker.io/library/busybox:1.28.4
           imagePullPolicy: IfNotPresent
           command: ['sh', '-c', 'if [ "${CLEAN_CILIUM_STATE}" = "true" ]; then rm -rf /var/run/cilium/state; rm -rf /sys/fs/bpf/tc/globals/cilium_*; fi']
+          securityContext:
+            capabilities:
+              add:
+                - "NET_ADMIN"
+            privileged: true
           volumeMounts:
             - name: bpf-maps
               mountPath: /sys/fs/bpf
