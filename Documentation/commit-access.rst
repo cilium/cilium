@@ -2,7 +2,7 @@
 
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
-      http://docs.cilium.io
+    http://docs.cilium.io
 
 ..       This has been bluntly copied from the excellent committer guidelines
          written for the Open vSwitch project and has then been adapted. It is
