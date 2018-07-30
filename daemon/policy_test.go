@@ -30,7 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	"github.com/gogo/protobuf/sortkeys"
-	"github.com/golang/protobuf/ptypes/wrappers"
 	. "gopkg.in/check.v1"
 )
 
@@ -227,14 +226,12 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 									{
 										Headers: []*envoy_api_v2_route.HeaderMatcher{
 											{
-												Name:  ":method",
-												Value: "GET",
-												Regex: &wrappers.BoolValue{Value: true},
+												Name:                 ":method",
+												HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: "GET"},
 											},
 											{
-												Name:  ":path",
-												Value: "/bar",
-												Regex: &wrappers.BoolValue{Value: true},
+												Name:                 ":path",
+												HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: "/bar"},
 											},
 										},
 									},
@@ -303,14 +300,12 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 									{
 										Headers: []*envoy_api_v2_route.HeaderMatcher{
 											{
-												Name:  ":method",
-												Value: "GET",
-												Regex: &wrappers.BoolValue{Value: true},
+												Name:                 ":method",
+												HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: "GET"},
 											},
 											{
-												Name:  ":path",
-												Value: "/bar",
-												Regex: &wrappers.BoolValue{Value: true},
+												Name:                 ":path",
+												HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: "/bar"},
 											},
 										},
 									},
