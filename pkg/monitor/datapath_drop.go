@@ -75,6 +75,7 @@ var errors = map[uint8]string{
 	160: "No tunnel/encapsulation endpoint (datapath BUG!)",
 	161: "Failed to insert into proxymap",
 	162: "Policy denied (CIDR)",
+	163: "Policy denied (Waiting for identity)",
 }
 
 // DropReason prints the drop reason in a human readable string

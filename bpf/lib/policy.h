@@ -54,7 +54,7 @@ __policy_can_access(void *map, struct __sk_buff *skb, __u32 identity,
 		    void *cidr_addr, int dir)
 {
 #ifdef DROP_ALL
-	return DROP_POLICY;
+	return DROP_POLICY_ALL;
 #else
 	struct policy_entry *policy;
 
@@ -142,7 +142,7 @@ policy_can_access_ingress(struct __sk_buff *skb, __u32 src_identity,
 			  void *cidr_addr)
 {
 #ifdef DROP_ALL
-	return DROP_POLICY;
+	return DROP_POLICY_ALL;
 #else
 	int ret;
 
@@ -170,7 +170,7 @@ policy_can_access_ingress(struct __sk_buff *skb, __u32 src_label,
 			  void *cidr_addr)
 {
 #ifdef DROP_ALL
-	return DROP_POLICY;
+	return DROP_POLICY_ALL;
 #else
 	return TC_ACT_OK;
 #endif
@@ -184,7 +184,7 @@ static inline int __inline__
 policy_can_egress(struct __sk_buff *skb, __u32 identity, __u16 dport, __u8 proto)
 {
 #ifdef DROP_ALL
-	return DROP_POLICY;
+	return DROP_POLICY_ALL;
 #else
 	int ret = __policy_can_access(&POLICY_MAP, skb, identity, dport, proto,
 				      0, NULL, CT_EGRESS);
@@ -204,7 +204,7 @@ static inline int policy_can_egress6(struct __sk_buff *skb,
 				     __u32 identity, union v6addr *daddr)
 {
 #ifdef DROP_ALL
-	return DROP_POLICY;
+	return DROP_POLICY_ALL;
 #else
 	return policy_can_egress(skb, identity, tuple->dport, tuple->nexthdr);
 #endif /* DROP_ALL */
@@ -215,7 +215,7 @@ static inline int policy_can_egress4(struct __sk_buff *skb,
 				     __u32 identity, __be32 daddr)
 {
 #ifdef DROP_ALL
-	return DROP_POLICY;
+	return DROP_POLICY_ALL;
 #else
 	return policy_can_egress(skb, identity, tuple->dport, tuple->nexthdr);
 #endif /* DROP_ALL */
@@ -228,7 +228,7 @@ policy_can_egress6(struct __sk_buff *skb, struct ipv6_ct_tuple *tuple,
 		   __u32 identity, union v6addr *daddr)
 {
 #ifdef DROP_ALL
-	return DROP_POLICY;
+	return DROP_POLICY_ALL;
 #else
 	return TC_ACT_OK;
 #endif
@@ -239,7 +239,7 @@ policy_can_egress4(struct __sk_buff *skb, struct ipv4_ct_tuple *tuple,
 		   __u32 identity, __be32 daddr)
 {
 #ifdef DROP_ALL
-	return DROP_POLICY;
+	return DROP_POLICY_ALL;
 #else
 	return TC_ACT_OK;
 #endif
