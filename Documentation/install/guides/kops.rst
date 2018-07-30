@@ -94,7 +94,7 @@ Creating a Cluster
 ====================
 
 * Note that you will need to specify the ``--master-zones`` and ``--zones`` for creating the master and worker nodes. The number of master zones should be odd (1, 3, ...) for HA. For simplicity, you can just use 1 region.
-* The cluster ``NAME`` variable should end with ``k8s.local`` to use the gossip protocol. If creating multiple clusters using the same kops user, then make cluster name unique by adding a prefix such as `com-company-emailid-`.
+* The cluster ``NAME`` variable should end with ``k8s.local`` to use the gossip protocol. If creating multiple clusters using the same kops user, then make cluster name unique by adding a prefix such as ``com-company-emailid-``.
 
 
 .. code:: bash
@@ -135,7 +135,7 @@ and append the following snippet for ``kupeAPIServer:`` to the ``spec:`` section
               CustomResourceValidation: "true"
 
 
-After successful editing, apply changes using `kops update cluster`.
+After successful editing, apply changes using ``kops update cluster``.
 
 .. code:: bash
 

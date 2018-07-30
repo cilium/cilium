@@ -19,7 +19,7 @@ Prerequisites
 
 * No encryption is performed by Cilium for the connectivity between nodes.
   The feature is on the roadmap (`details
-  <https://github.com/cilium/cilium/issues/504>`) but not implemented yet.  It
+  <https://github.com/cilium/cilium/issues/504>`_) but not implemented yet.  It
   is however possible to set up IPSec-based encryption between all nodes using
   a standard guide. It is also possible and common to establish VPNs between
   networks if clusters are connected across untrusted networks.

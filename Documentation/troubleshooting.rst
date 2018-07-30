@@ -441,7 +441,7 @@ If you'd prefer to browse the dump, there is a HTTP flag.
 If you want to capture the archive from a Kubernetes pod, then the process is a
 bit different
 
-.. code:: bash:
+.. code:: bash
 
     # First we need to get the Cilium pod
     $ kubectl get pods --namespace kube-system

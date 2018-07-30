@@ -45,7 +45,7 @@ cluster managed by Cilium. Label-based L3 policies are defined by using an
 received (on ingress), or sent (on egress). An empty `EndpointSelector` allows
 all traffic. The examples below demonstrate this in further detail.
 
-.. note:: **Kubernetes:** See section :ref:`k8s_namespace` for details on how
+.. note:: **Kubernetes:** See section :ref:`k8s_namespaces` for details on how
 	  the `EndpointSelector` applies in a Kubernetes environment with
 	  regard to namespaces.
 
