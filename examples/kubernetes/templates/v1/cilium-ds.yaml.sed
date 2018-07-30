@@ -28,7 +28,6 @@ spec:
         scheduler.alpha.kubernetes.io/tolerations: >-
           [{"key":"dedicated","operator":"Equal","value":"master","effect":"NoSchedule"}]
         prometheus.io/scrape: "true"
-        prometheus.io/port: "9090"
     spec:
       serviceAccountName: cilium
       initContainers:
@@ -198,6 +197,44 @@ spec:
               add:
                 - "NET_ADMIN"
             privileged: true
+        - image: docker.io/cilium/cilium:latest
+          imagePullPolicy: Always
+          name: cilium-health
+          command: [ "cilium-health" ]
+          args:
+            - "-d"
+          ports:
+            - name: metrics
+              containerPort: 9091
+              protocol: TCP
+          env:
+            - name: "CILIUM_HEALTH_PROMETHEUS_SERVE_ADDR"
+              valueFrom:
+                configMapKeyRef:
+                  name: cilium-health-metrics-config
+                  optional: true
+                  key: prometheus-serve-addr
+          livenessProbe:
+            exec:
+              command:
+              - cilium-health
+              - status
+            # The initial delay for the liveness probe is intentionally large to
+            # avoid an endless kill & restart cycle if in the event that the initial
+            # bootstrapping takes longer than expected.
+            initialDelaySeconds: 120
+            failureThreshold: 10
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command:
+              - cilium-health
+              - status
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          volumeMounts:
+            - name: cilium-run
+              mountPath: /var/run/cilium
       hostNetwork: true
       volumes:
         # To keep state between restarts / upgrades
