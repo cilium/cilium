@@ -2,7 +2,7 @@
 
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
-      http://docs.cilium.io
+    http://docs.cilium.io
 
 .. _troubleshooting_k8s:
 
