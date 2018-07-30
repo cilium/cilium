@@ -49,7 +49,13 @@ const (
 )
 
 var (
-	registry = prometheus.NewPedanticRegistry()
+	// AgentRegistry is a Prometheus registry which stores metrics for
+	// cilium-agent.
+	AgentRegistry = prometheus.NewPedanticRegistry()
+
+	// healthRegistry is a Prometheus registry which stores metrics for
+	// cilium-health daemon.
+	healthRegistry = prometheus.NewPedanticRegistry()
 
 	// Namespace is used to scope metrics from cilium. It is prepended to metric
 	// names and separated with a '_'
@@ -385,76 +391,93 @@ var (
 		Name:      "buildqueue_entries",
 		Help:      "The number of queued, waiting and running builds in the build queue",
 	}, []string{LabelBuildState, LabelBuildQueueName})
+
+	// Health statistics
+
+	// Latency is a histogram showing latency to nodes
+	Latency = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: Namespace,
+		Name:      "latency_seconds",
+		Help:      "Latency to nodes",
+	}, []string{"node", "ip", "type", "protocol"})
 )
 
 func init() {
-	MustRegister(prometheus.NewProcessCollector(os.Getpid(), Namespace))
+	AgentRegistry.MustRegister(prometheus.NewProcessCollector(os.Getpid(), Namespace))
 	// TODO: Figure out how to put this into a Namespace
 	//MustRegister(prometheus.NewGoCollector())
 
-	MustRegister(EndpointCountRegenerating)
-	MustRegister(EndpointRegenerationCount)
-	MustRegister(EndpointRegenerationTime)
-	MustRegister(EndpointRegenerationTimeSquare)
-	MustRegister(EndpointStateCount)
-	MustRegister(EndpointRegenerationTimeStats)
+	AgentRegistry.MustRegister(EndpointCountRegenerating)
+	AgentRegistry.MustRegister(EndpointRegenerationCount)
+	AgentRegistry.MustRegister(EndpointRegenerationTime)
+	AgentRegistry.MustRegister(EndpointRegenerationTimeSquare)
+	AgentRegistry.MustRegister(EndpointStateCount)
+	AgentRegistry.MustRegister(EndpointRegenerationTimeStats)
 
-	MustRegister(PolicyCount)
-	MustRegister(PolicyRegenerationCount)
-	MustRegister(PolicyRegenerationTime)
-	MustRegister(PolicyRegenerationTimeSquare)
-	MustRegister(PolicyRevision)
-	MustRegister(PolicyImportErrors)
+	AgentRegistry.MustRegister(PolicyCount)
+	AgentRegistry.MustRegister(PolicyRegenerationCount)
+	AgentRegistry.MustRegister(PolicyRegenerationTime)
+	AgentRegistry.MustRegister(PolicyRegenerationTimeSquare)
+	AgentRegistry.MustRegister(PolicyRevision)
+	AgentRegistry.MustRegister(PolicyImportErrors)
 
-	MustRegister(EventTSK8s)
-	MustRegister(EventTSContainerd)
-	MustRegister(EventTSAPI)
+	AgentRegistry.MustRegister(EventTSK8s)
+	AgentRegistry.MustRegister(EventTSContainerd)
+	AgentRegistry.MustRegister(EventTSAPI)
 
-	MustRegister(ProxyRedirects)
-	MustRegister(ProxyParseErrors)
-	MustRegister(ProxyForwarded)
-	MustRegister(ProxyDenied)
-	MustRegister(ProxyReceived)
+	AgentRegistry.MustRegister(ProxyRedirects)
+	AgentRegistry.MustRegister(ProxyParseErrors)
+	AgentRegistry.MustRegister(ProxyForwarded)
+	AgentRegistry.MustRegister(ProxyDenied)
+	AgentRegistry.MustRegister(ProxyReceived)
 
-	MustRegister(DropCount)
-	MustRegister(ForwardCount)
+	AgentRegistry.MustRegister(DropCount)
+	AgentRegistry.MustRegister(ForwardCount)
 
-	MustRegister(newStatusCollector())
+	AgentRegistry.MustRegister(newStatusCollector())
 
-	MustRegister(DatapathErrors)
-	MustRegister(ConntrackGCRuns)
-	MustRegister(ConntrackGCKeyFallbacks)
-	MustRegister(ConntrackGCSize)
-	MustRegister(ConntrackGCDuration)
+	AgentRegistry.MustRegister(DatapathErrors)
+	AgentRegistry.MustRegister(ConntrackGCRuns)
+	AgentRegistry.MustRegister(ConntrackGCKeyFallbacks)
+	AgentRegistry.MustRegister(ConntrackGCSize)
+	AgentRegistry.MustRegister(ConntrackGCDuration)
 
-	MustRegister(ServicesCount)
+	AgentRegistry.MustRegister(ServicesCount)
 
-	MustRegister(ErrorsWarnings)
+	AgentRegistry.MustRegister(ErrorsWarnings)
 
-	MustRegister(ControllerRuns)
-	MustRegister(ControllerRunsDuration)
+	AgentRegistry.MustRegister(ControllerRuns)
+	AgentRegistry.MustRegister(ControllerRunsDuration)
 
-	MustRegister(BuildQueueEntries)
+	AgentRegistry.MustRegister(BuildQueueEntries)
+
+	healthRegistry.MustRegister(Latency)
 }
 
-// MustRegister adds the collector to the registry, exposing this metric to
-// prometheus scrapes.
-// It will panic on error.
-func MustRegister(c prometheus.Collector) {
-	registry.MustRegister(c)
-}
-
-// Enable begins serving prometheus metrics on the address passed in. Addresses
+// enable begins serving prometheus metrics on the address passed in. Addresses
 // of the form ":8080" will bind the port on all interfaces.
-func Enable(addr string) error {
+func enable(registry *prometheus.Registry, addr string) error {
 	go func() {
 		// The Handler function provides a default handler to expose metrics
 		// via an HTTP server. "/metrics" is the usual endpoint for that.
-		http.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
-		log.WithError(http.ListenAndServe(addr, nil)).Warn("Cannot start metrics server on %s", addr)
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
+		log.WithError(http.ListenAndServe(addr, mux)).Warn("Cannot start metrics server on %s", addr)
 	}()
 
 	return nil
+}
+
+// EnableAgent begins serving prometheus metrics for cilium-agent on the address
+// passed in. Addresses of the form ":8080" will bind the port on all interfaces.
+func EnableAgent(addr string) error {
+	return enable(AgentRegistry, addr)
+}
+
+// EnableHealth begins serving prometheus metrics for cilium-health on the address
+// passed in. Addresses of the form ":8080" will bind the port on all interfaces.
+func EnableHealth(addr string) error {
+	return enable(healthRegistry, addr)
 }
 
 // GetCounterValue returns the current value
