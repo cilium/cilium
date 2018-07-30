@@ -30,4 +30,5 @@ The following sections describe the Kubernetes integration in detail:
    install
    policy
    ciliumendpoint
+   compatibility
    troubleshooting
