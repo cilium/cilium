@@ -685,7 +685,7 @@ int handle_ingress(struct __sk_buff *skb)
 		ep_tail_call(skb, CILIUM_CALL_ARP);
 		ret = DROP_MISSED_TAIL_CALL;
 	} else if (1) {
-		ret = DROP_POLICY;
+		ret = DROP_POLICY_ALL;
 	} else {
 #endif
 	switch (skb->protocol) {
@@ -1006,7 +1006,7 @@ __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *sk
 	__u32 src_label = skb->cb[CB_SRC_LABEL];
 
 #ifdef DROP_ALL
-	ret = DROP_POLICY;
+	ret = DROP_POLICY_ALL;
 	if (0) {
 #endif
 	switch (skb->protocol) {
