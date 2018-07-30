@@ -23,7 +23,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/envoy/cilium"
 	envoy_api_v2 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
-	envoy_service_discovery_v2 "github.com/cilium/cilium/pkg/envoy/envoy/service/discovery/v2"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 
 	net_context "golang.org/x/net/context"
@@ -50,7 +49,9 @@ func startXDSGRPCServer(listener net.Listener, ldsConfig, npdsConfig, nphdsConfi
 	}, resourceAccessTimeout)
 	dsServer := (*xdsGRPCServer)(xdsServer)
 
-	envoy_service_discovery_v2.RegisterAggregatedDiscoveryServiceServer(grpcServer, dsServer)
+	// TODO: https://github.com/cilium/cilium/issues/5051
+	// Implement IncrementalAggregatedResources to support Incremental xDS.
+	//envoy_service_discovery_v2.RegisterAggregatedDiscoveryServiceServer(grpcServer, dsServer)
 	envoy_api_v2.RegisterListenerDiscoveryServiceServer(grpcServer, dsServer)
 	cilium.RegisterNetworkPolicyDiscoveryServiceServer(grpcServer, dsServer)
 	cilium.RegisterNetworkPolicyHostsDiscoveryServiceServer(grpcServer, dsServer)
@@ -71,9 +72,11 @@ func startXDSGRPCServer(listener net.Listener, ldsConfig, npdsConfig, nphdsConfi
 // resource types supported by Cilium.
 type xdsGRPCServer xds.Server
 
-func (s *xdsGRPCServer) StreamAggregatedResources(stream envoy_service_discovery_v2.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
-	return (*xds.Server)(s).HandleRequestStream(stream.Context(), stream, xds.AnyTypeURL)
-}
+// TODO: https://github.com/cilium/cilium/issues/5051
+// Implement IncrementalAggregatedResources also to support Incremental xDS.
+//func (s *xdsGRPCServer) StreamAggregatedResources(stream envoy_service_discovery_v2.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
+//	return (*xds.Server)(s).HandleRequestStream(stream.Context(), stream, xds.AnyTypeURL)
+//}
 
 func (s *xdsGRPCServer) StreamListeners(stream envoy_api_v2.ListenerDiscoveryService_StreamListenersServer) error {
 	return (*xds.Server)(s).HandleRequestStream(stream.Context(), stream, ListenerTypeURL)
