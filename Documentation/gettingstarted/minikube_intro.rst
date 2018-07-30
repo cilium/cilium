@@ -2,7 +2,7 @@
 
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
-      http://docs.cilium.io
+    http://docs.cilium.io
 
 Step 0: Install kubectl & minikube
 ==================================
