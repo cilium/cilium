@@ -15,6 +15,7 @@
 package controller
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -32,11 +33,17 @@ type ControllerFunc func() error
 // ExitReason is a returnable type from DoFunc that causes the
 // controller to exit. This reason is recorded in the controller's status. The
 // controller is not removed from any manager.
-// Construct one with ExitReason{errors.New("a reason")}
+// Construct one with MakeExitReason("a reason")
 type ExitReason struct {
 	// This is constucted in this odd way because the type assertion in
 	// runController didn't work otherwise.
 	error
+}
+
+// MakeExitReason constructs an error object that, when returned by a DoFunc,
+// stops the controller from running further.
+func MakeExitReason(msg string) ExitReason {
+	return ExitReason{errors.New(msg)}
 }
 
 // ControllerParams contains all parameters of a controller

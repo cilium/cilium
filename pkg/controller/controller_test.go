@@ -15,7 +15,6 @@
 package controller
 
 import (
-	"errors"
 	"fmt"
 	"sync/atomic"
 	"testing"
@@ -72,7 +71,7 @@ func (b *ControllerSuite) TestSelfExit(c *C) {
 		RunInterval: 100 * time.Millisecond,
 		DoFunc: func() error {
 			atomic.AddUint32(&iterations, 1)
-			return ExitReason{errors.New("test exit")}
+			return MakeExitReason("test exit")
 		},
 		StopFunc: func() error {
 			close(waitChan)
