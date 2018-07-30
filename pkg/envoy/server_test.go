@@ -24,8 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 
-	"github.com/golang/protobuf/ptypes/wrappers"
-
 	. "gopkg.in/check.v1"
 )
 
@@ -56,52 +54,46 @@ var PortRuleHTTP3 = &api.PortRuleHTTP{
 
 var ExpectedHeaders1 = []*envoy_api_v2_route.HeaderMatcher{
 	{
-		Name:  ":authority",
-		Value: "foo.cilium.io",
-		Regex: &wrappers.BoolValue{Value: true},
+		Name:                 ":authority",
+		HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: "foo.cilium.io"},
 	},
 	{
-		Name:  ":method",
-		Value: "GET",
-		Regex: &wrappers.BoolValue{Value: true},
+		Name:                 ":method",
+		HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: "GET"},
 	},
 	{
-		Name:  ":path",
-		Value: "/foo",
-		Regex: &wrappers.BoolValue{Value: true},
+		Name:                 ":path",
+		HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: "/foo"},
 	},
 	{
-		Name: "header1",
+		Name:                 "header1",
+		HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_PresentMatch{PresentMatch: true},
 	},
 	{
-		Name:  "header2",
-		Value: "value",
+		Name:                 "header2",
+		HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_ExactMatch{ExactMatch: "value"},
 	},
 }
 
 var ExpectedHeaders2 = []*envoy_api_v2_route.HeaderMatcher{
 	{
-		Name:  ":method",
-		Value: "PUT",
-		Regex: &wrappers.BoolValue{Value: true},
+		Name:                 ":method",
+		HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: "PUT"},
 	},
 	{
-		Name:  ":path",
-		Value: "/bar",
-		Regex: &wrappers.BoolValue{Value: true},
+		Name:                 ":path",
+		HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: "/bar"},
 	},
 }
 
 var ExpectedHeaders3 = []*envoy_api_v2_route.HeaderMatcher{
 	{
-		Name:  ":method",
-		Value: "GET",
-		Regex: &wrappers.BoolValue{Value: true},
+		Name:                 ":method",
+		HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: "GET"},
 	},
 	{
-		Name:  ":path",
-		Value: "/bar",
-		Regex: &wrappers.BoolValue{Value: true},
+		Name:                 ":path",
+		HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: "/bar"},
 	},
 }
 
