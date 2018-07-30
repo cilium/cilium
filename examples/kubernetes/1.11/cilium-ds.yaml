@@ -202,6 +202,35 @@ spec:
               add:
                 - "NET_ADMIN"
             privileged: true
+        - image: docker.io/cilium/cilium:latest
+          imagePullPolicy: Always
+          name: cilium-health
+          command: [ "cilium-health" ]
+          args:
+            - "-d"
+          livenessProbe:
+            exec:
+              command:
+              - cilium-health
+              - status
+              - --succinct
+            # The initial delay for the liveness probe is intentionally large to
+            # avoid an endless kill & restart cycle if in the event that the initial
+            # bootstrapping takes longer than expected.
+            initialDelaySeconds: 120
+            failureThreshold: 10
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command:
+              - cilium-health
+              - status
+              - --succinct
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          volumeMounts:
+            - name: cilium-run
+              mountPath: /var/run/cilium
       dnsPolicy: ClusterFirstWithHostNet
       hostNetwork: true
       volumes:
