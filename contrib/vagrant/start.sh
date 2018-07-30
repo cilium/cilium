@@ -229,7 +229,8 @@ export ETCD_CLEAN="${ETCD_CLEAN}"
 
 # Stop cilium before until we install kubelet. This prevents cilium from
 # allocating its own podCIDR without using the kubernetes allocated podCIDR.
-sudo service cilium stop
+sudo systemctl stop cilium-health
+sudo systemctl stop cilium
 EOF
     cat <<EOF >> "${filename}"
 if [[ "\$(hostname)" == "${VM_BASENAME}1" ]]; then
@@ -355,7 +356,8 @@ if [ -n "\${K8S}" ]; then
     done
 fi
 
-service cilium restart
+systemctl restart cilium-health
+systemctl restart cilium
 
 cilium_started=false
 
