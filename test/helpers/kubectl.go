@@ -1019,7 +1019,7 @@ func (kub *Kubectl) CiliumCheckReport() {
 		for name, data := range result.KVOutput() {
 			total++
 			status := strings.Split(data, "::")
-			if status[0] != "0" {
+			if status[0] != "" {
 				failed++
 				prefix = "⚠️  "
 				failedControllers += fmt.Sprintf("controller %s failure %q\n", name, status[1])
