@@ -206,7 +206,7 @@ in the `packer-ci-build
 <https://jenkins.cilium.io/job/Vagrant-Master-Boxes-Packer-Build/>`_ GitHub
 repository.
 
-New versions of this box can be created via `Jenkins
+New versions of this box can be created via `Jenkins Packer Build
 <https://jenkins.cilium.io/job/Vagrant-Master-Boxes-Packer-Build/>`_, where
 new builds of the image will be pushed to  `Vagrant Cloud
 <https://app.vagrantup.com/cilium>`_ . The version of the image corresponds to
@@ -1503,13 +1503,14 @@ Triage process
    defaults to checking the previous 24 hours but this can be modified by
    setting the SINCE environment variable (it is a unix timestamp). The script
    checks the various test pipelines that need triage.
-::
 
-    $ contrib/scripts/jenkins-failures.sh
+   .. code-block:: bash
 
-.. note::
+       $ contrib/scripts/jenkins-failures.sh
 
-   You can quickly assign SINCE with statements like ``SINCE=`date -d -3days```
+  .. note::
+
+     You can quickly assign SINCE with statements like ``SINCE=`date -d -3days```
 
 #. Investigate the failure you are interested in and determine if it is a
    CI-Bug, Flake, or a Regression as defined in the table above.
@@ -1520,19 +1521,19 @@ Triage process
       Good search terms are:
 
       - The test name, e.g.
-      ::
+        ::
 
-          k8s-1.7.K8sValidatedKafkaPolicyTest Kafka Policy Tests KafkaPolicies (from (k8s-1.7.xml))
+            k8s-1.7.K8sValidatedKafkaPolicyTest Kafka Policy Tests KafkaPolicies (from (k8s-1.7.xml))
 
       - The line on which the test failed, e.g.
-      ::
+        ::
 
-          github.com/cilium/cilium/test/k8sT/KafkaPolicies.go:202
+            github.com/cilium/cilium/test/k8sT/KafkaPolicies.go:202
 
       - The error message, e.g.
-      ::
+        ::
 
-          Failed to produce from empire-hq on topic deathstar-plan
+            Failed to produce from empire-hq on topic deathstar-plan
 
 #. If a corresponding GitHub issue exists, update it with:
 
