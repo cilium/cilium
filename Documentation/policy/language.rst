@@ -796,14 +796,14 @@ namespace.
    .. tabs::
      .. group-tab:: k8s YAML
 
-        .. literalinclude:: ../../examples/policies/kubernetes/namespace/isolate-namespace.yaml
+        .. literalinclude:: ../../examples/policies/kubernetes/namespace/isolate-namespaces.yaml
      .. group-tab:: JSON
 
-        .. literalinclude:: ../../examples/policies/kubernetes/namespace/isolate-namespace.json
+        .. literalinclude:: ../../examples/policies/kubernetes/namespace/isolate-namespaces.json
 
 .. only:: epub or latex
 
-        .. literalinclude:: ../../examples/policies/kubernetes/namespace/isolate-namespace.json
+        .. literalinclude:: ../../examples/policies/kubernetes/namespace/isolate-namespaces.json
 
 Example: Expose pods across namespaces
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
