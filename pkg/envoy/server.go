@@ -43,7 +43,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/struct"
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/spf13/viper"
 )
 
@@ -273,14 +272,15 @@ func getHTTPRule(h *api.PortRuleHTTP) (headers []*envoy_api_v2_route.HeaderMatch
 		cnt++
 	}
 
-	isRegex := wrappers.BoolValue{Value: true}
 	headers = make([]*envoy_api_v2_route.HeaderMatcher, 0, cnt)
 	if h.Path != "" {
-		headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: ":path", Value: h.Path, Regex: &isRegex})
+		headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: ":path",
+			HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: h.Path}})
 		ruleRef = `PathRegexp("` + h.Path + `")`
 	}
 	if h.Method != "" {
-		headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: ":method", Value: h.Method, Regex: &isRegex})
+		headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: ":method",
+			HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: h.Method}})
 		if ruleRef != "" {
 			ruleRef += " && "
 		}
@@ -288,7 +288,8 @@ func getHTTPRule(h *api.PortRuleHTTP) (headers []*envoy_api_v2_route.HeaderMatch
 	}
 
 	if h.Host != "" {
-		headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: ":authority", Value: h.Host, Regex: &isRegex})
+		headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: ":authority",
+			HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: h.Host}})
 		if ruleRef != "" {
 			ruleRef += " && "
 		}
@@ -304,11 +305,13 @@ func getHTTPRule(h *api.PortRuleHTTP) (headers []*envoy_api_v2_route.HeaderMatch
 			// Remove ':' in "X-Key: true"
 			key := strings.TrimRight(strs[0], ":")
 			// Header presence and matching (literal) value needed.
-			headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: key, Value: strs[1]})
+			headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: key,
+				HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_ExactMatch{ExactMatch: strs[1]}})
 			ruleRef += key + `","` + strs[1]
 		} else {
 			// Only header presence needed
-			headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: strs[0]})
+			headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: strs[0],
+				HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_PresentMatch{PresentMatch: true}})
 			ruleRef += strs[0]
 		}
 		ruleRef += `")`
