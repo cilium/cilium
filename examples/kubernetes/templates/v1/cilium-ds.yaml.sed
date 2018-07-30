@@ -50,7 +50,7 @@ spec:
                   key: clean-cilium-state
       containers:
         - image: docker.io/cilium/cilium:__CILIUM_VERSION__
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           name: cilium-agent
           command: ["cilium-agent"]
           args:
