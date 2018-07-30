@@ -2,7 +2,7 @@
 
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
-      http://docs.cilium.io
+    http://docs.cilium.io
 
 If you haven't read the :ref:`intro` yet, we'd encourage you to do that first.
 
