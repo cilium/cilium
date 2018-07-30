@@ -1962,17 +1962,16 @@ For the final release
 Backporting process
 ~~~~~~~~~~~~~~~~~~~
 
-Cilium PRs that are marked with label ``stable/needs-backport`` need to be backported to the stable branch(es), listed below. Following steps summarize the process.
+Cilium PRs that are marked with the label ``needs-backport/X.Y`` need to be
+backported to the stable branch ``X.Y``. The following steps summarize
+the process for backporting these PRs.
 
 1. Make sure the Github labels are up-to-date, as this process will
-   deal with all commits from PRs that have the
-   ``stable/needs-backport`` set.  Especially, clear
-   ``stable/backport-triage``, ``stable/backport-pending`` and
-   ``stable/needs-backport`` labels from PRs that have already been
-   backported as indicated by ``stable/backport-done`` label.
-   Generally, if a PR has multiple ``backport`` labels set you will
-   need to figure out the status of that PR's backport to clean up the
-   labels before proceeding.
+   deal with all commits from PRs that have the ``needs-backport/X.Y`` label
+   set (for a stable release version X.Y). If any PRs contain labels such as
+   ``backport-pending/X.Y``, ensure that the backport for that PR have been
+   merged and if so, change the label to ``backport-done/X.Y``.
+
 2. The scripts referred to below need to be run in Linux, they do not
    work on OSX.  You can use the cilium dev VM for this, but you need
    to configure git to have your name and email address to be used in
@@ -1987,22 +1986,17 @@ Cilium PRs that are marked with label ``stable/needs-backport`` need to be backp
    available. For details, see `contrib/backporting/README.md
    <https://github.com/cilium/cilium/blob/master/contrib/backporting/README.md>`_
 4. Fetch the repo, e.g., ``git fetch``
-5. Check out the stable branch you are backporting to, e.g., ``git
-   checkout v1.0``
-6. Create a new branch for your backports, e.g., ``git branch
-   v1.0-backports-YY-MM-DD``
-7. Check out your backports branch, e.g., ``git checkout v1.0-backports-YY-MM-DD``
-8. Run the ``check-stable`` script, referring to your Github access
+5. Check a new branch for your backports based on the stable branch for that
+   version, e.g., ``git checkout -b pr/v1.0-backport-YY-MM-DD origin/v1.0``
+6. Run the ``check-stable`` script, referring to your Github access
    token, this will list the commits that need backporting, from the
    newest to oldest:
-9. ``check-stable`` has a optional argument that it's the target version to
-   backport.
 
 .. code-block:: bash
 
         $ GITHUB_TOKEN=xxx contrib/backporting/check-stable 1.0
 
-9. Cherry-pick the commits using the master git SHAs listed, starting
+7. Cherry-pick the commits using the master git SHAs listed, starting
    from the oldest (bottom), working your way up and fixing any merge
    conflicts as they appear. Note that for PRs that have multiple
    commits you will want to check that you are cherry-picking oldest
@@ -2014,24 +2008,33 @@ Cilium PRs that are marked with label ``stable/needs-backport`` need to be backp
         ...
         $ contrib/backporting/cherry-pick <newest-commit-sha>
 
-10. Push your backports branch to cilium repo, e.g., ``git push -u
-    origin v1.0-backports-YY-MM-DD``
-11. In Github, create a new PR from you branch towards the feature
-    branch you are backporting to. Note that by default Github creates
-    PRs against the master branch, so you will need to change it.
-12. Label the new backport PR as ``stable/backport`` so that it is
-    easy to find backport PRs later.
-13. Mark all PRs you backported with ``stable/backport-pending`` label
-    and clear the ``stable/needs-backport`` label.  Note that using
-    the GitHub web interface it is better to add new labels first so
-    that you can still find the PRs using either the new or old label!
-    You can also do this with
-    ``contrib/backporting/set-labels.py <original PR ID> pending <version(defaults to 1.0)>``.
-14. After the backport PR is merged, mark all backported PRs with
-    ``stable/backport-done`` label and clear the
-    ``stable/backport-pending`` label.
-    This can be achieved by
-    ``contrib/backporting/set-labels.py <original PR ID> done <version(defaults to 1.0)>``.
+8. Push your backports branch to cilium repo, e.g., ``git push -u origin pr/v1.0-backports-YY-MM-DD``
+9. In Github, create a new PR from your branch towards the feature
+   branch you are backporting to. Note that by default Github creates
+   PRs against the master branch, so you will need to change it.
+10. Label the new backport PR with the backport label for the stable branch
+    such as ``backport/X.Y`` so that it is easy to find backport PRs later.
+11. Mark all PRs you backported with the backport pending label ``backport-pending/X.Y``
+    and clear the ``needs-backport/vX.Y`` label. This can be via the GitHub
+    interface, or using the backport script ``contrib/backporting/set-labels.py``, e.g.:
+
+    .. code-block:: bash
+
+        # Set PR 1234's v1.0 backporting labels to pending
+        $ contrib/backporting/set-labels.py 1234 pending 1.0
+
+    .. note::
+
+        ``contrib/backporting/set-labels.py`` requires Python 3 and
+        `PyGithub <https://pypi.org/project/PyGithub/>`_ installed.
+
+12. After the backport PR is merged, mark all backported PRs with
+    ``backport-done/X.Y`` label and clear the ``backport-pending/X.Y`` label(s).
+
+    .. code-block:: bash
+
+        # Set PR 1234's v1.0 backporting labels to done
+        contrib/backporting/set-labels.py 1234 done 1.0.
 
 Update cilium-builder and cilium-runtime images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
