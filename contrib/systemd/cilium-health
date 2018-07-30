@@ -1,0 +1,22 @@
+### Configuration options for cilium-health
+
+## Path:                System/Management
+## Description:         Extra cli switches for cilium-health daemon
+## Type:                string
+## Default:             ""
+## ServiceRestart:      cilium-health
+
+# Run as a daemon:
+# --daemon
+#
+# Note: Check more cli options using cilium-health-h
+
+CILIUM_HEALTH_OPTS="--daemon"
+
+## Path:                System/Management
+## Description:         init system cilium-health is running on
+## Type:                string
+## Default:             ""
+## ServiceRestart:      cilium-health
+
+INITSYSTEM=SYSTEMD
