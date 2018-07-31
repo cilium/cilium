@@ -81,7 +81,8 @@ static inline bool redirect_to_proxy(int verdict)
 
 static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 				   struct ipv6_ct_tuple *tuple, int l3_off,
-				   struct ethhdr *eth, struct ipv6hdr *ip6)
+				   struct ethhdr *eth, struct ipv6hdr *ip6,
+				   __u32 *dstID)
 {
 	union macaddr router_mac = NODE_MAC;
 	union v6addr router_ip = {};
@@ -94,7 +95,6 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	struct ct_state ct_state = {};
 	void *data, *data_end;
 	union v6addr *daddr, orig_dip;
-	uint32_t dstID = WORLD_ID;
 	__u32 tunnel_endpoint = 0;
 	bool monitor = false;
 
@@ -176,19 +176,22 @@ skip_service_lookup:
 
 		info = lookup_ip6_remote_endpoint(&orig_dip);
 		if (info != NULL && info->sec_label) {
-			dstID = info->sec_label;
+			*dstID = info->sec_label;
 			tunnel_endpoint = info->tunnel_endpoint;
-		} else if (ipv6_match_prefix_64(daddr, &router_ip))
-			dstID = CLUSTER_ID;
+		} else if (ipv6_match_prefix_64(daddr, &router_ip)){
+			*dstID = CLUSTER_ID;
+		} else {
+			*dstID = WORLD_ID;
+		}
 
 		cilium_dbg(skb, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
-			   orig_dip.p4, dstID);
+			   orig_dip.p4, *dstID);
 	}
 
 	/* If the packet is in the establishing direction and it's destined
 	 * within the cluster, it must match policy or be dropped. If it's
 	 * bound for the host/outside, perform the CIDR policy check. */
-	verdict = policy_can_egress6(skb, tuple, dstID,
+	verdict = policy_can_egress6(skb, tuple, *dstID,
 				     ipv6_ct_tuple_get_daddr(tuple));
 	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
 		/* If the connection was previously known and packet is now
@@ -316,7 +319,7 @@ skip_service_lookup:
 #endif
 
 #ifdef LXC_NAT46
-	if (dstID != CLUSTER_ID) {
+	if (*dstID != CLUSTER_ID) {
 		if (unlikely(ipv6_addr_is_mapped(daddr))) {
 			ep_tail_call(skb, CILIUM_CALL_NAT64);
 			return DROP_MISSED_TAIL_CALL;
@@ -352,14 +355,14 @@ pass_to_stack:
 	if (ipv6_store_flowlabel(skb, l3_off, SECLABEL_NB) < 0)
 		return DROP_WRITE_ERROR;
 
-	send_trace_notify(skb, TRACE_TO_STACK, SECLABEL, dstID, 0, 0,
+	send_trace_notify(skb, TRACE_TO_STACK, SECLABEL, *dstID, 0, 0,
 			  forwarding_reason, monitor);
 
 	cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, 0);
 	return TC_ACT_OK;
 }
 
-static inline int __inline__ handle_ipv6(struct __sk_buff *skb)
+static inline int __inline__ handle_ipv6(struct __sk_buff *skb, __u32 *dstID)
 {
 	struct ipv6_ct_tuple tuple = {};
 	void *data, *data_end;
@@ -385,15 +388,16 @@ static inline int __inline__ handle_ipv6(struct __sk_buff *skb)
 
 	/* Perform L3 action on the frame */
 	tuple.nexthdr = ip6->nexthdr;
-	return ipv6_l3_from_lxc(skb, &tuple, ETH_HLEN, data, ip6);
+	return ipv6_l3_from_lxc(skb, &tuple, ETH_HLEN, data, ip6, dstID);
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_LXC) int tail_handle_ipv6(struct __sk_buff *skb)
 {
-	int ret = handle_ipv6(skb);
+	__u32 dstID = 0;
+	int ret = handle_ipv6(skb, &dstID);
 
 	if (IS_ERR(ret))
-		return send_drop_notify(skb, SECLABEL, 0, 0, 0, ret, TC_ACT_SHOT,
+		return send_drop_notify(skb, SECLABEL, dstID, 0, 0, ret, TC_ACT_SHOT,
 		                        METRIC_EGRESS);
 
 	return ret;
@@ -401,7 +405,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_LXC) int tail_handle_ipv6
 
 #ifdef LXC_IPV4
 
-static inline int handle_ipv4_from_lxc(struct __sk_buff *skb)
+static inline int handle_ipv4_from_lxc(struct __sk_buff *skb, __u32 *dstID)
 {
 	struct ipv4_ct_tuple tuple = {};
 	union macaddr router_mac = NODE_MAC;
@@ -416,7 +420,6 @@ static inline int handle_ipv4_from_lxc(struct __sk_buff *skb)
 	struct ct_state ct_state_new = {};
 	struct ct_state ct_state = {};
 	__be32 orig_dip;
-	uint32_t dstID = WORLD_ID;
 	__u32 tunnel_endpoint = 0;
 	bool monitor = false;
 
@@ -484,19 +487,22 @@ skip_service_lookup:
 
 		info = lookup_ip4_remote_endpoint(orig_dip);
 		if (info != NULL && info->sec_label) {
-			dstID = info->sec_label;
+			*dstID = info->sec_label;
 			tunnel_endpoint = info->tunnel_endpoint;
-		} else if ((orig_dip & IPV4_CLUSTER_MASK) == IPV4_CLUSTER_RANGE)
-			dstID = CLUSTER_ID;
+		} else if ((orig_dip & IPV4_CLUSTER_MASK) == IPV4_CLUSTER_RANGE) {
+			*dstID = CLUSTER_ID;
+		} else {
+			*dstID = WORLD_ID;
+		}
 
 		cilium_dbg(skb, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
-			   orig_dip, dstID);
+			   orig_dip, *dstID);
 	}
 
 	/* If the packet is in the establishing direction and it's destined
 	 * within the cluster, it must match policy or be dropped. If it's
 	 * bound for the host/outside, perform the CIDR policy check. */
-	verdict = policy_can_egress4(skb, &tuple, dstID, ipv4_ct_tuple_get_daddr(&tuple));
+	verdict = policy_can_egress4(skb, &tuple, *dstID, ipv4_ct_tuple_get_daddr(&tuple));
 	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
 		/* If the connection was previously known and packet is now
 		 * denied, remove the connection tracking entry */
@@ -643,7 +649,7 @@ pass_to_stack:
 	 * network.
 	 */
 
-	send_trace_notify(skb, TRACE_TO_STACK, SECLABEL, dstID, 0, 0,
+	send_trace_notify(skb, TRACE_TO_STACK, SECLABEL, *dstID, 0, 0,
 			  forwarding_reason, monitor);
 
 	cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, 0);
@@ -652,10 +658,11 @@ pass_to_stack:
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC) int tail_handle_ipv4(struct __sk_buff *skb)
 {
-	int ret = handle_ipv4_from_lxc(skb);
+	__u32 dstID = 0;
+	int ret = handle_ipv4_from_lxc(skb, &dstID);
 
 	if (IS_ERR(ret))
-		return send_drop_notify(skb, SECLABEL, 0, 0, 0, ret, TC_ACT_SHOT,
+		return send_drop_notify(skb, SECLABEL, dstID, 0, 0, ret, TC_ACT_SHOT,
 		                        METRIC_EGRESS);
 
 	return ret;
