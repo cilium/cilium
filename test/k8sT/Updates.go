@@ -71,6 +71,9 @@ var _ = Describe("K8sUpdates", func() {
 		kubectl.Delete(l3Policy)
 		kubectl.Delete(demoPath)
 
+		// make sure that Kubedns is deleted correctly
+		_ = kubectl.Delete(helpers.DNSDeployment())
+
 		_ = kubectl.DeleteResource(
 			"ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
 
