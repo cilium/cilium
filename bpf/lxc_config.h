@@ -25,7 +25,7 @@
 #define LXC_IPV4 0x10203040
 #define LXC_ID 0x1010
 #define LXC_ID_NB 0x1010
-#define LXC_NAT46
+#define ENABLE_NAT46
 #ifndef SECLABEL
 #define SECLABEL 0xfffff
 #define SECLABEL_NB 0xfffff
