@@ -32,6 +32,11 @@ check:
 	$(QUIET) sparse -Wsparse-all ${FLAGS} *.c
 	$(QUIET) $(CLANG) ${CLANG_FLAGS} --analyze *.c
 
+preprocess: $(LIB)
+	$(QUIET) $(foreach TARGET,$(shell find ./ -name 'bpf_*.c'), \
+		echo "  GEN   ${TARGET}.generated"; \
+		${CLANG} $(FLAGS) -E -target bpf -c ${TARGET} -o ${TARGET}.generated; )
+
 LB_OPTIONS = \
 	-DSKIP_DEBUG \
 	-DLB_L3 \
@@ -77,5 +82,5 @@ install:
 
 clean:
 	@$(ECHO_CLEAN) $(notdir $(shell pwd))
-	$(QUIET)rm -fr *.o
+	$(QUIET)rm -fr *.o *.ll *.generated
 	$(QUIET)rm -f $(TARGET)
