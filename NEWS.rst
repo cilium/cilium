@@ -2,6 +2,47 @@
 NEWS
 ******
 
+v1.1.2
+======
+
+::
+
+    André Martins (6):
+          pkg/kvstore: fix high-cpu usage when Cilium loses Consul connectivity
+          pkg/endpoint: fix endpoint.logger race condition
+          docs: explicitly set kube-system namespace when applying new ConfigMap
+          pkg/endpoint: annotate pod with numeric identity
+          daemon: always re-add CNP when receiving an update from Kubernetes
+          kubernetes: set maxUnavailable to pods to 2 on upgrade
+    
+    Eloy Coto (2):
+          Test: Upgrade test wait until pods are terminated.
+          Test: K8s/Tunnels wait until all pods terminate
+    
+    Ian Vernon (1):
+          daemon: fix minimum number of work threads unit test
+    
+    Maciej Kwiek (4):
+          Increase timeout on endpoint generations
+          Add client timeout for Cilium API
+          Add label script for backporting
+          Add label script docs to backporting process
+    
+    Ray Bejjani (1):
+          codeowners: Remove CODEOWNERS from v1.1
+    
+    Romain Lenglet (2):
+          doc: Support BSD sed in Istio GSG
+          doc: Disable unused Istio services in Istio GSG
+    
+    Thomas Graf (5):
+          etcd: Fix and relax during recreate watcher loop
+          ipcache: Allow providing kvstore client to watcher
+          store: Make kvstore backend configurable
+          consul: Add timeout to List() in Watch() to detect watcher stop
+          kvstore: Wait for kvstore watcher to exit
+
+
 v1.1.1
 ======
 
