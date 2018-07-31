@@ -32,6 +32,9 @@
 #endif
 #define POLICY_MAP cilium_policy_foo
 #define NODE_MAC { .addr = { 0xde, 0xad, 0xbe, 0xef, 0xc0, 0xde } }
+#ifndef SKIP_DEBUG
+#define DEBUG
+#endif
 #define DROP_NOTIFY
 #define TRACE_NOTIFY
 #define CT_MAP6 cilium_ct6_111
@@ -41,6 +44,7 @@
 #define LB_L3
 #define LB_L4
 #define CONNTRACK
+#define CONNTRACK_ACCOUNTING
 #define POLICY_INGRESS
 #define POLICY_EGRESS
 #define ENABLE_IPv4
