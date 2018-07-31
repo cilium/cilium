@@ -284,11 +284,11 @@ func (e *Endpoint) runInit(libdir, rundir, epdir, ifName, debug string) error {
 	cmd := fmt.Sprintf("%s %s", prog, strings.Join(args, " "))
 	scopedLog = scopedLog.WithField("cmd", cmd)
 	if ctx.Err() == context.DeadlineExceeded {
-		scopedLog.Error("Command execution failed: Timeout")
+		scopedLog.Error("RunInit: Command execution failed: Timeout")
 		return ctx.Err()
 	}
 	if err != nil {
-		scopedLog.WithError(err).Warn("Command execution failed")
+		scopedLog.WithError(err).Warn("RunInit: Command execution failed")
 		scanner := bufio.NewScanner(bytes.NewReader(out))
 		for scanner.Scan() {
 			log.Warn(scanner.Text())
