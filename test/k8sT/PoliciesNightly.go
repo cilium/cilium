@@ -55,10 +55,12 @@ var _ = Describe("NightlyPolicies", func() {
 	AfterAll(func() {
 		// Delete all pods created
 		kubectl.Exec(fmt.Sprintf(
-			"%s delete --all pods,svc,cnp -n %s", helpers.KubectlCmd, helpers.DefaultNamespace))
+			"%s delete pods,svc,cnp -n %s -l test=policygen",
+			helpers.KubectlCmd, helpers.DefaultNamespace))
 
 		ExpectAllPodsTerminated(kubectl)
 	})
+
 	Context("PolicyEnforcement default", func() {
 		createTests := func() {
 			testSpecs := policygen.GeneratedTestSpec()
