@@ -152,6 +152,7 @@ The default Cilium version deployed by ``kops`` is old. Upgrade the Cilium Daemo
 
 .. code:: bash
 
+        kubectl delete crd ciliumendpoints.cilium.io # this ensures older CEP objects do not persist
         kubectl apply -f https://raw.githubusercontent.com/cilium/cilium/HEAD/examples/kubernetes/1.10/cilium-rbac.yaml
         kubectl apply -f https://raw.githubusercontent.com/cilium/cilium/HEAD/examples/kubernetes/1.10/cilium-ds.yaml
         kubectl set image daemonset/cilium -n kube-system cilium-agent=docker.io/cilium/cilium:v1.0.3
