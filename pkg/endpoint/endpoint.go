@@ -1659,6 +1659,14 @@ func (e *Endpoint) Update(owner Owner, cfg *models.EndpointConfigurationSpec) er
 func (e *Endpoint) HasLabels(l pkgLabels.Labels) bool {
 	e.Mutex.RLock()
 	defer e.Mutex.RUnlock()
+
+	return e.HasLabelsRLocked(l)
+}
+
+// HasLabels returns whether endpoint e contains all labels l. Will return 'false'
+// if any label in l is not in the endpoint's labels.
+// e.Mutex must be RLocked
+func (e *Endpoint) HasLabelsRLocked(l pkgLabels.Labels) bool {
 	allEpLabels := e.OpLabels.AllLabels()
 
 	for _, v := range l {
