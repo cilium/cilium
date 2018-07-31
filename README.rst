@@ -106,6 +106,8 @@ external services. The loadbalancing is implemented using BPF using efficient
 hashtables allowing for almost unlimited scale and supports direct server
 return (DSR) if the loadbalancing operation is not performed on the source
 host.
+*Note: load balancing requires connection tracking to be enabled. This is the
+default.*
 
 Monitoring and Troubleshooting
 ------------------------------
