@@ -57,11 +57,20 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 		ExpectCiliumReady(kubectl)
 		ExpectKubeDNSReady(kubectl)
 	})
+	deleteAll := func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+		defer cancel()
+		kubectl.ExecContext(ctx, fmt.Sprintf(
+			"%s delete --all pods,svc,cnp -n %s --grace-period=0 --force",
+			helpers.KubectlCmd, helpers.DefaultNamespace))
 
+		select {
+		case <-ctx.Done():
+			logger.Error("DeleteAll: delete all pods,services failed after 300 seconds")
+		}
+	}
 	AfterAll(func() {
-		kubectl.Exec(fmt.Sprintf(
-			"%s delete --all pods,svc,cnp -n %s", helpers.KubectlCmd, helpers.DefaultNamespace))
-
+		deleteAll()
 		ExpectAllPodsTerminated(kubectl)
 	})
 
@@ -169,13 +178,14 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 	}, 1)
 
 	Context("Nightly Policies", func() {
+
 		numPods := 20
 		bunchPods := 5
 		podsCreated := 0
 
 		AfterEach(func() {
-			kubectl.Exec(fmt.Sprintf(
-				"%s delete --all pods,svc,cnp -n %s", helpers.KubectlCmd, helpers.DefaultNamespace))
+			deleteAll()
+			ExpectAllPodsTerminated(kubectl)
 		})
 
 		Measure(fmt.Sprintf("Applying policies to %d pods in a group of %d", numPods, bunchPods), func(b ginkgo.Benchmarker) {

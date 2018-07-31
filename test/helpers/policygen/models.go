@@ -230,7 +230,10 @@ func (t *Target) CreateApplyManifest(spec *TestSpec) error {
 		"apiVersion": "v1",
 		"kind": "Service",
 		"metadata": {
-			"name": "{{ .targetName }}"
+			"name": "{{ .targetName }}",
+			"labels": {
+				"test": "policygen"
+			}
 		},
 		"spec": {
 			"ports": [
@@ -255,7 +258,10 @@ func (t *Target) CreateApplyManifest(spec *TestSpec) error {
 		  "apiVersion": "v1",
 		  "kind": "Service",
 		  "metadata": {
-			"name": "{{ .targetName }}"
+			"name": "{{ .targetName }}",
+			"labels": {
+				"test": "policygen"
+			}
 		  },
 		  "spec": {
 			"type": "NodePort",
@@ -448,6 +454,7 @@ metadata:
   labels:
     id: "%[3]s"
     zgroup: "%[1]s"
+    test: "policygen"
 spec:
   containers:
   - name: web
@@ -529,7 +536,9 @@ func (t *TestSpec) CreateCiliumNetworkPolicy() (string, error) {
 	  "kind": "CiliumNetworkPolicy",
 	  "metadata": {
 		"name": "%[1]s",
-		"test": "%[3]s"
+		"labels": {
+			"test": "policygen"
+		}
 	  },
 	  "specs": %[2]s}`)
 
@@ -626,7 +635,7 @@ func (t *TestSpec) CreateCiliumNetworkPolicy() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf(string(metadata), t.Prefix, jsonOutput, t), nil
+	return fmt.Sprintf(string(metadata), t.Prefix, jsonOutput), nil
 }
 
 // NetworkPolicyName returns the name of the NetworkPolicy
