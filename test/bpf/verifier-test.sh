@@ -47,7 +47,7 @@ function load_prog {
 		else
 			# Only run verbose mode if loading fails.
 			${loader} dev ${DEV} ${mode} obj ${prog}.o sec $section 2>/dev/null \
-			|| ${loader} dev ${DEV} ${mode} obj ${prog}.o $section verbose
+			|| ${loader} dev ${DEV} ${mode} obj ${prog}.o sec $section verbose
 		fi
 	done
 }
