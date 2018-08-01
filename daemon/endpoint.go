@@ -240,7 +240,7 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 			return api.Error(PutEndpointIDFailedCode, fmt.Errorf("error retrieving endpoint to check if it is in %s state", endpoint.StateReady))
 		}
 
-		logger.Debugf("synchronously waiting for endpoint '%d' to be in '%s' state",
+		logger.Debugf("Synchronously waiting for endpoint '%d' to be in '%s' state",
 			e.ID, endpoint.StateReady)
 
 		// Default timeout for PUT /endpoint/{id} is 60 seconds, so put timeout
@@ -259,13 +259,22 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 			case <-ticker.C:
 				e.Mutex.RLock()
 				epState := e.GetStateLocked()
+				hasSidecarProxy := e.HasSidecarProxy()
 				e.Mutex.RUnlock()
+
 				if epState == endpoint.StateReady {
 					return NewPutEndpointIDCreated()
 				} else if epState == endpoint.StateDisconnected || epState == endpoint.StateDisconnecting {
 					// Short circuit in case a call to delete the endpoint is
 					// made while we are waiting for it to be in "ready" state.
 					return api.Error(PutEndpointIDFailedCode, fmt.Errorf("endpoint %d went into state %s while waiting for it to be %s", e.ID, epState, endpoint.StateReady))
+				} else if hasSidecarProxy {
+					// If the endpoint is determined to have a sidecar proxy,
+					// return immediately to let the sidecar container start,
+					// in case it is required to enforce L7 rules.
+					logger.Infof("Endpoint has sidecar proxy, returning from synchronous creation request before it is in '%s' state",
+						endpoint.StateReady)
+					return NewPutEndpointIDCreated()
 				}
 			case <-timeout:
 				// Delete endpoint because PUT operation fails if timeout is
