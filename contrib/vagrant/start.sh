@@ -581,5 +581,9 @@ elif [ -n "${PROVISION}" ]; then
     vagrant provision
 else
     vagrant up
+    if [ -n "${K8S}" ]; then
+		vagrant ssh k8s1 -- cat /home/vagrant/.kube/config | sed 's;server:.*:6443;server: https://k8s1:7443;g' > vagrant.kubeconfig
+		echo "Add '127.0.0.1 k8s1' to your /etc/hosts to use vagrant.kubeconfig file for kubectl"
+	fi
 fi
 
