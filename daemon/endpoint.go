@@ -259,8 +259,15 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 			case <-ticker.C:
 				e.Mutex.RLock()
 				epState := e.GetStateLocked()
+				hasSidecarProxy := e.HasSidecarProxy()
 				e.Mutex.RUnlock()
-				if epState == endpoint.StateReady {
+
+				if hasSidecarProxy {
+					// If the endpoint is determined to have a sidecar proxy,
+					// return immediately to let the sidecar container start,
+					// in case it is required to enforce L7 rules.
+					return NewPutEndpointIDCreated()
+				} else if epState == endpoint.StateReady {
 					return NewPutEndpointIDCreated()
 				} else if epState == endpoint.StateDisconnected || epState == endpoint.StateDisconnecting {
 					// Short circuit in case a call to delete the endpoint is
