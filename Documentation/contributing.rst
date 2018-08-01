@@ -136,6 +136,14 @@ kubernetes installed and plus a worker, run:
 
 	$ RUNTIME=containerd K8S=1 NWORKERS=1 contrib/vagrant/start.sh
 
+If you want to connect to the Kubernetes cluster running inside the developer VM via ``kubectl`` from your host machine, set ``KUBECONFIG`` environment variable to include new kubeconfig file:
+
+::
+
+$ export KUBECONFIG=$KUBECONFIG:$GOPATH/src/github.com/cilium/cilium/vagrant.kubeconfig
+
+and add ``127.0.0.1 k8s1`` to your hosts file.
+
 If you have any issue with the provided vagrant box
 ``cilium/ubuntu`` or need a different box format, you may
 build the box yourself using the `packer scripts <https://github.com/cilium/packer-ci-build>`_
