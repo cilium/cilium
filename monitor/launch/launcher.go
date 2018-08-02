@@ -26,6 +26,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/monitor/payload"
+	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/launcher"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -39,9 +40,6 @@ const (
 
 	// queueSize is the size of the message queue
 	queueSize = 524288
-
-	// restartInterval is the delay between attempts to restart node-monitor
-	restartInterval = time.Second
 )
 
 // NodeMonitor is used to wrap the node executable binary.
@@ -75,43 +73,65 @@ func (nm *NodeMonitor) GetPid() int {
 	return nm.GetProcess().Pid
 }
 
-// Run starts the node monitor.
+// run creates a FIFO at sockPath, launches the monitor as sub process and then
+// reads stdout from the monitor and updates nm.state accordingly. The function
+// returns with an error if the FIFO cannot be created, opened or if the an
+// error was encountered while reading stdout from the monitor. The FIFO is always
+// removed again when the function returns.
+func (nm *NodeMonitor) run(sockPath, bpfRoot string) error {
+	os.Remove(sockPath)
+	if err := syscall.Mkfifo(sockPath, 0600); err != nil {
+		return fmt.Errorf("Unable to create named pipe %s: %s", sockPath, err)
+	}
+
+	defer os.Remove(sockPath)
+
+	pipe, err := os.OpenFile(sockPath, os.O_RDWR, 0600)
+	if err != nil {
+		return fmt.Errorf("Unable to open named pipe for writing: %s", err)
+	}
+
+	defer pipe.Close()
+
+	nm.pipeLock.Lock()
+	nm.pipe = pipe
+	nm.pipeLock.Unlock()
+
+	nm.Launcher.SetArgs([]string{"--bpf-root", bpfRoot})
+	if err := nm.Launcher.Run(); err != nil {
+		return err
+	}
+
+	r := bufio.NewReader(nm.GetStdout())
+	for nm.GetProcess() != nil {
+		l, err := r.ReadBytes('\n') // this is a blocking read
+		if err != nil {
+			return fmt.Errorf("Unable to read stdout from monitor: %s", err)
+		}
+
+		var tmp *models.MonitorStatus
+		if err := json.Unmarshal(l, &tmp); err != nil {
+			return fmt.Errorf("Unable to unmarshal stdout from monitor: %s", err)
+		}
+
+		nm.setState(tmp)
+	}
+
+	return fmt.Errorf("Monitor process quit unexepctedly")
+}
+
+// Run starts the node monitor and keeps on restarting it. The function will
+// never return.
 func (nm *NodeMonitor) Run(sockPath, bpfRoot string) {
+	backoffConfig := backoff.Exponential{Min: time.Second, Max: 2 * time.Minute}
+
 	nm.SetTarget(targetName)
 	for {
-		os.Remove(sockPath)
-		if err := syscall.Mkfifo(sockPath, 0600); err != nil {
-			log.WithError(err).Fatalf("Unable to create named pipe %s", sockPath)
-			time.Sleep(time.Duration(5) * time.Second)
+		if err := nm.run(sockPath, bpfRoot); err != nil {
+			log.WithError(err).Warning("Error while running monitor")
 		}
 
-		pipe, err := os.OpenFile(sockPath, os.O_RDWR, 0600)
-		if err != nil {
-			log.WithError(err).Fatal("Unable to open named pipe for writing")
-			time.Sleep(time.Duration(5) * time.Second)
-		}
-
-		nm.Mutex.Lock()
-		nm.pipe = pipe
-		nm.Mutex.Unlock()
-
-		nm.Launcher.SetArgs([]string{"--bpf-root", bpfRoot})
-		nm.Launcher.Run()
-
-		r := bufio.NewReader(nm.GetStdout())
-		for nm.GetProcess() != nil {
-			l, _ := r.ReadBytes('\n') // this is a blocking read
-			var tmp *models.MonitorStatus
-			if err := json.Unmarshal(l, &tmp); err != nil {
-				continue
-			}
-			nm.setState(tmp)
-		}
-
-		pipe.Close()
-
-		// throttle breakage loops
-		time.Sleep(restartInterval)
+		backoffConfig.Wait()
 	}
 }
 
