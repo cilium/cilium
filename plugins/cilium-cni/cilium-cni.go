@@ -50,7 +50,7 @@ var (
 )
 
 func init() {
-	log.Level = logrus.DebugLevel
+	logging.SetLogLevel(logrus.DebugLevel)
 	runtime.LockOSThread()
 }
 
