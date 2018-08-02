@@ -29,9 +29,15 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// generatedLabelNameUUID is the label key for policy rules that contain a
-// ToFQDN section and need to be updated
-const generatedLabelNameUUID = "ToFQDN-UUID"
+const (
+	// generatedLabelNameUUID is the label key for policy rules that contain a
+	// ToFQDN section and need to be updated
+	generatedLabelNameUUID = "ToFQDN-UUID"
+
+	// DNSPollerInterval is the time between 2 complete DNS lookup runs of the
+	// DNSPoller controller
+	DNSPollerInterval = 5 * time.Second
+)
 
 // uuidLabelSearchKey is an *extended* label key. This is because .Has
 // expects the source:key delimiter to be the labels.PathDelimiter
@@ -44,7 +50,7 @@ var uuidLabelSearchKey = generateUUIDLabel(nil).GetExtendedKey()
 func StartDNSPoller(poller *DNSPoller) {
 	log.Debug("Starting DNS poller for ToFQDN rules")
 	controller.NewManager().UpdateController("dns-poller", controller.ControllerParams{
-		RunInterval: 5 * time.Second,
+		RunInterval: DNSPollerInterval,
 		DoFunc:      poller.LookupUpdateDNS,
 		StopFunc: func() error {
 			log.Debug("Stopping DNS poller for ToFQDN rules")
