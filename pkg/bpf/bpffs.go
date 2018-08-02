@@ -36,8 +36,10 @@ var (
 	mapPrefix = defaults.DefaultMapPrefix
 
 	// Set to true on first get request to detect misorder
-	lockedDown = false
-	once       sync.Once
+	lockedDown      = false
+	once            sync.Once
+	readMountInfo   sync.Once
+	mountInfoPrefix string
 )
 
 func lockDown() {
@@ -74,19 +76,23 @@ func MapPrefixPath() string {
 }
 
 func mapPathFromMountInfo(name string) string {
-	mountInfos, err := mountinfo.GetMountInfo()
-	if err != nil {
-		log.WithError(err).Fatal("Could not get mount info for map root lookup")
-	}
-
-	for _, mountInfo := range mountInfos {
-		if mountInfo.FilesystemType == mountinfo.FilesystemTypeBPFFS {
-			return filepath.Join(mountInfo.MountPoint, mapPrefix, name)
+	readMountInfo.Do(func() {
+		mountInfos, err := mountinfo.GetMountInfo()
+		if err != nil {
+			log.WithError(err).Fatal("Could not get mount info for map root lookup")
 		}
-	}
 
-	log.Fatal("Could not find BPF map root")
-	return ""
+		for _, mountInfo := range mountInfos {
+			if mountInfo.FilesystemType == mountinfo.FilesystemTypeBPFFS {
+				mountInfoPrefix = filepath.Join(mountInfo.MountPoint, mapPrefix)
+				return
+			}
+		}
+
+		log.Fatal("Could not find BPF map root")
+	})
+
+	return filepath.Join(mountInfoPrefix, name)
 }
 
 // MapPath returns a path for a BPF map with a given name.
