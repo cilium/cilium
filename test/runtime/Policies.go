@@ -20,8 +20,10 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/policy/api"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
@@ -897,8 +899,23 @@ var _ = Describe("RuntimePolicies", func() {
     ]
   }
 ]`
-		_, err := vm.PolicyRenderAndImport(fqdnPolicy)
+		startPolicyRevision, err := vm.PolicyGetRevision()
+		Expect(err).To(BeNil(), "Unable to get start policy revision before policy import", err)
+		_, err = vm.PolicyRenderAndImport(fqdnPolicy)
 		Expect(err).To(BeNil(), "Unable to import policy: %s", err)
+
+		// The DNS poll will update the policy and regenerate. Since this is the
+		// first ever update, we can simply check for the presence of toCIDRSet in
+		// the policy.
+		// Once we have an API to expose DNS->IP mappings we can also use that to
+		// ensure the lookup has completed more explicitly
+		timeout_s := 3 * fqdn.DNSPollerInterval / time.Second // convert to seconds
+		dnsWaitBody := func() bool {
+			return vm.PolicyWait(startPolicyRevision + 2).WasSuccessful()
+		}
+		err = helpers.WithTimeout(dnsWaitBody, "DNSPoller did not update IPs",
+			&helpers.TimeoutConfig{Ticker: 1, Timeout: timeout_s})
+		Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after ToFQDNs DNS poll triggered a regenerate")
 
 		By("Denying egress to IPs of DNS names not in ToFQDNs, and normal IPs")
 		// www.cilium.io has a different IP than cilium.io (it is CNAMEd as well!),
@@ -914,6 +931,8 @@ var _ = Describe("RuntimePolicies", func() {
 		allowedTarget := "cilium.io"
 		res := vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode(allowedTarget))
 		res.ExpectContains("301", "Cannot access %s %s", allowedTarget, res.OutputPrettyPrint())
+
+		vm.PolicyDelAll()
 	})
 
 	It("Extended HTTP Methods tests", func() {
