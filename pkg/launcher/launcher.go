@@ -37,7 +37,7 @@ type Launcher struct {
 }
 
 // Run starts the daemon.
-func (launcher *Launcher) Run() {
+func (launcher *Launcher) Run() error {
 	targetName := launcher.GetTarget()
 	cmd := exec.Command(targetName, launcher.GetArgs()...)
 	cmd.Stderr = os.Stderr
@@ -45,10 +45,13 @@ func (launcher *Launcher) Run() {
 	if err := cmd.Start(); err != nil {
 		cmdStr := fmt.Sprintf("%s %s", targetName, launcher.GetArgs())
 		log.WithError(err).WithField("cmd", cmdStr).Error("cmd.Start()")
+		return fmt.Errorf("unable to launch process %s: %s", cmdStr, err)
 	}
 
 	launcher.setProcess(cmd.Process)
 	launcher.setStdout(stdout)
+
+	return nil
 }
 
 // Restart stops the launcher which will trigger a rerun.
