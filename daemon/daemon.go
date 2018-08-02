@@ -141,6 +141,10 @@ type Daemon struct {
 	prefixLengths *counter.PrefixLengthCounter
 
 	clustermesh *clustermesh.ClusterMesh
+
+	delayedPolicyTriggerMutex lock.Mutex
+	delayedPolicyTrigger      bool
+	delayedPolicyTriggerForce bool
 }
 
 // UpdateProxyRedirect updates the redirect rules in the proxy for a particular
@@ -1569,7 +1573,7 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 			msg := fmt.Errorf("Unable to recompile base programs: %s", err)
 			return api.Error(PatchConfigFailureCode, msg)
 		}
-		d.TriggerPolicyUpdates(true)
+		d.TriggerPolicyUpdatesNoDelay(true)
 	}
 
 	return NewPatchConfigOK()

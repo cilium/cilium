@@ -15,7 +15,6 @@
 package identity
 
 import (
-	"sync"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -146,8 +145,7 @@ func (e *IdentityAllocatorConsulSuite) SetUpTest(c *C) {
 
 type dummyOwner struct{}
 
-func (d dummyOwner) TriggerPolicyUpdates(force bool) *sync.WaitGroup {
-	return nil
+func (d dummyOwner) TriggerPolicyUpdates(force bool) {
 }
 
 func (d dummyOwner) GetNodeSuffix() string {

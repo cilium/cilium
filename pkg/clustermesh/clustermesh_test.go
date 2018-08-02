@@ -20,7 +20,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"sync"
 	"testing"
 	"time"
 
@@ -87,8 +86,7 @@ var testNodeCreator = func() store.Key {
 
 type identityAllocatorOwnerMock struct{}
 
-func (i *identityAllocatorOwnerMock) TriggerPolicyUpdates(force bool) *sync.WaitGroup {
-	return nil
+func (i *identityAllocatorOwnerMock) TriggerPolicyUpdates(force bool) {
 }
 
 func (i *identityAllocatorOwnerMock) GetNodeSuffix() string {
