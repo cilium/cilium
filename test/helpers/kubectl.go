@@ -414,6 +414,60 @@ func (kub *Kubectl) BackgroundReport(commands ...string) (context.CancelFunc, er
 	return cancel, nil
 }
 
+// PprofReport runs pprof on cilium nodes each 5 minutes and saves the data
+// into the test folder saved with pprof suffix.
+func (kub *Kubectl) PprofReport() {
+	PProfCadence := 5 * time.Minute
+	ticker := time.NewTicker(PProfCadence)
+	log := kub.logger.WithField("subsys", "pprofReport")
+
+	retrievePProf := func(pod, testPath string) {
+		res := kub.ExecPodCmd(KubeSystemNamespace, pod, "gops pprof-cpu 1")
+		if !res.WasSuccessful() {
+			log.Errorf("cannot execute pprof: %s", res.OutputPrettyPrint())
+			return
+		}
+		files := kub.ExecPodCmd(KubeSystemNamespace, pod, `ls -1 /tmp/`)
+		for _, file := range files.ByLines() {
+			if !strings.Contains(file, "profile") {
+				continue
+			}
+
+			dest := filepath.Join(
+				BasePath, testPath,
+				fmt.Sprintf("%s-profile-%s.pprof", pod, file))
+			_ = kub.Exec(fmt.Sprintf("%[1]s cp %[2]s/%[3]s:/tmp/%[4]s %[5]s",
+				KubectlCmd, KubeSystemNamespace, pod, file, dest),
+				ExecOptions{SkipLog: true})
+
+			_ = kub.ExecPodCmd(KubeSystemNamespace, pod, fmt.Sprintf(
+				"rm %s", filepath.Join("/tmp/", file)))
+		}
+	}
+
+	for {
+		select {
+		case <-ticker.C:
+
+			testPath, err := CreateReportDirectory()
+			if err != nil {
+				log.WithError(err).Errorf("cannot create test result path '%s'", testPath)
+				return
+			}
+
+			pods, err := kub.GetCiliumPods(KubeSystemNamespace)
+			if err != nil {
+				log.Errorf("cannot get cilium pods")
+			}
+
+			for _, pod := range pods {
+				retrievePProf(pod, testPath)
+			}
+
+		}
+	}
+}
+
 // NodeCleanMetadata annotates each node in the Kubernetes cluster with the
 // annotation.V4CIDRName and annotation.V6CIDRName annotations. It returns an
 // error if the nodes cannot be retrieved via the Kubernetes API.
