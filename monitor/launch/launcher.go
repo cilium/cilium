@@ -75,42 +75,52 @@ func (nm *NodeMonitor) GetPid() int {
 	return nm.GetProcess().Pid
 }
 
+func (nm *NodeMonitor) run(sockPath, bpfRoot string) error {
+	os.Remove(sockPath)
+	if err := syscall.Mkfifo(sockPath, 0600); err != nil {
+		return fmt.Errorf("Unable to create named pipe %s: %s", sockPath, err)
+	}
+
+	pipe, err := os.OpenFile(sockPath, os.O_RDWR, 0600)
+	if err != nil {
+		return fmt.Errorf("Unable to open named pipe for writing: %s", err)
+	}
+
+	defer pipe.Close()
+
+	nm.Mutex.Lock()
+	nm.pipe = pipe
+	nm.Mutex.Unlock()
+
+	nm.Launcher.SetArgs([]string{"--bpf-root", bpfRoot})
+	nm.Launcher.Run()
+
+	r := bufio.NewReader(nm.GetStdout())
+	for nm.GetProcess() != nil {
+		l, err := r.ReadBytes('\n') // this is a blocking read
+		if err != nil {
+			return fmt.Errorf("Unable to read stdout from monitor: %s", err)
+		}
+
+		var tmp *models.MonitorStatus
+		if err := json.Unmarshal(l, &tmp); err != nil {
+			return fmt.Errorf("Unable to unmarshal stdout from monitor: %s", err)
+		}
+
+		nm.setState(tmp)
+	}
+
+	return nil
+}
+
 // Run starts the node monitor.
 func (nm *NodeMonitor) Run(sockPath, bpfRoot string) {
 	nm.SetTarget(targetName)
 	for {
-		os.Remove(sockPath)
-		if err := syscall.Mkfifo(sockPath, 0600); err != nil {
-			log.WithError(err).Fatalf("Unable to create named pipe %s", sockPath)
-			time.Sleep(time.Duration(5) * time.Second)
+		if err := nm.run(sockPath, bpfRoot); err != nil {
+			log.WithError(err).Warning("Error while running monitor")
 		}
 
-		pipe, err := os.OpenFile(sockPath, os.O_RDWR, 0600)
-		if err != nil {
-			log.WithError(err).Fatal("Unable to open named pipe for writing")
-			time.Sleep(time.Duration(5) * time.Second)
-		}
-
-		nm.Mutex.Lock()
-		nm.pipe = pipe
-		nm.Mutex.Unlock()
-
-		nm.Launcher.SetArgs([]string{"--bpf-root", bpfRoot})
-		nm.Launcher.Run()
-
-		r := bufio.NewReader(nm.GetStdout())
-		for nm.GetProcess() != nil {
-			l, _ := r.ReadBytes('\n') // this is a blocking read
-			var tmp *models.MonitorStatus
-			if err := json.Unmarshal(l, &tmp); err != nil {
-				continue
-			}
-			nm.setState(tmp)
-		}
-
-		pipe.Close()
-
-		// throttle breakage loops
 		time.Sleep(restartInterval)
 	}
 }
