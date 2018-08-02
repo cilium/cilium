@@ -620,7 +620,8 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 				// The CEP was not found, this is the first creation of the endpoint
 				cep = &cilium_v2.CiliumEndpoint{
 					ObjectMeta: meta_v1.ObjectMeta{
-						Name: podName,
+						Name:   podName,
+						Labels: k8sMdl.Status.Identity.Labels.GetMap(),
 					},
 					Status: *k8sMdl,
 				}
