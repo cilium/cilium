@@ -900,20 +900,20 @@ var _ = Describe("RuntimePolicies", func() {
 		_, err := vm.PolicyRenderAndImport(fqdnPolicy)
 		Expect(err).To(BeNil(), "Unable to import policy: %s", err)
 
-		By("Denying egress to IPs of non-ToFQDN DNS names that are looked up")
+		By("Denying egress to IPs of DNS names not in ToFQDNs, and normal IPs")
 		// www.cilium.io has a different IP than cilium.io (it is CNAMEd as well!),
 		// and so should be blocked.
 		// cilium.io.cilium.io doesn't exist.
 		// 1.1.1.1, amusingly, serves HTTP.
 		for _, blockedTarget := range []string{"www.cilium.io", "cilium.io.cilium.io", "1.1.1.1"} {
 			res := vm.ContainerExec(helpers.App1, helpers.CurlFail(blockedTarget))
-			res.ExpectFail("Curl succeeded against blocked DNS name " + blockedTarget)
+			res.ExpectFail("Curl succeeded against blocked DNS name %s" + blockedTarget)
 		}
 
 		By("Allowing egress to IPs of specified ToFQDN DNS names")
 		allowedTarget := "cilium.io"
 		res := vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode(allowedTarget))
-		res.ExpectContains("301", "Cannot access ", allowedTarget, res.OutputPrettyPrint())
+		res.ExpectContains("301", "Cannot access %s %s", allowedTarget, res.OutputPrettyPrint())
 	})
 
 	It("Extended HTTP Methods tests", func() {
