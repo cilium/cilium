@@ -19,8 +19,13 @@ v1.1.2
           Test: Upgrade test wait until pods are terminated.
           Test: K8s/Tunnels wait until all pods terminate
     
-    Ian Vernon (1):
+    Ian Vernon (3):
           daemon: fix minimum number of work threads unit test
+          Prepare for release v1.1.2
+          daemon: refactor updating of CNP Node Status
+    
+    Jarno Rajahalme (1):
+          envoy: Sanitize HTTP headers
     
     Maciej Kwiek (4):
           Increase timeout on endpoint generations
@@ -35,12 +40,14 @@ v1.1.2
           doc: Support BSD sed in Istio GSG
           doc: Disable unused Istio services in Istio GSG
     
-    Thomas Graf (5):
+    Thomas Graf (7):
           etcd: Fix and relax during recreate watcher loop
           ipcache: Allow providing kvstore client to watcher
           store: Make kvstore backend configurable
           consul: Add timeout to List() in Watch() to detect watcher stop
           kvstore: Wait for kvstore watcher to exit
+          monitor: Fix spin loop when reading stdout from monitor fails
+          bpffs: Cache mountinfo result
 
 
 v1.1.1
