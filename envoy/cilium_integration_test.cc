@@ -613,6 +613,11 @@ TEST_P(CiliumIntegrationTest, AllowedPathPrefix) {
   Accepted({{":method", "GET"}, {":path", "/allowed"}, {":authority", "host"}});
 }
 
+TEST_P(CiliumIntegrationTest, AllowedPathPrefixStrippedHeader) {
+  Accepted({{":method", "GET"}, {":path", "/allowed"}, {":authority", "host"},
+            {"x-envoy-original-dst-host", "1.1.1.1:9999"}});
+}
+
 TEST_P(CiliumIntegrationTest, AllowedPathRegex) {
   Accepted({{":method", "GET"}, {":path", "/maybe/public"}, {":authority", "host"}});
 }
