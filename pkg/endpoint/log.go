@@ -25,15 +25,20 @@ var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "endpoint")
 
 // logger returns a logrus object with EndpointID, ContainerID and the Endpoint
 // revision fields.
-// Note: You must hold Endpoint.Mutex
+// Note: You must hold Endpoint.Mutex for reading
 func (e *Endpoint) getLogger() *logrus.Entry {
 	e.updateLogger()
-	return e.logger
+
+	e.loggerMutex.RLock()
+	logger := e.logger
+	e.loggerMutex.RUnlock()
+
+	return logger
 }
 
 // updateLogger creates a logger instance specific to this endpoint. It will
 // create a custom Debug logger for this endpoint when the option on it is set.
-// Note: You must hold Endpoint.Mutex
+// Note: You must hold Endpoint.Mutex for reading
 func (e *Endpoint) updateLogger() {
 	containerID := e.getShortContainerID()
 
@@ -70,8 +75,8 @@ func (e *Endpoint) updateLogger() {
 		baseLogger.SetLevel(logrus.DebugLevel)
 	}
 
-	// update the logger object.
-	// Note: endpoint.Mutex protects the reference but not the logger objects. We
+	e.loggerMutex.Lock()
+	// Note: endpoint.loggerMutex protects the reference but not the logger objects. We
 	// cannot update the old object directly as that could be racey.
 	e.logger = baseLogger.WithFields(logrus.Fields{
 		logfields.EndpointID:     e.ID,
@@ -81,4 +86,5 @@ func (e *Endpoint) updateLogger() {
 		logfields.IPv6:           e.IPv6.String(),
 		logfields.K8sPodName:     podName,
 	})
+	e.loggerMutex.Unlock()
 }

@@ -292,7 +292,8 @@ type Endpoint struct {
 	// ID of the endpoint, unique in the scope of the node
 	ID uint16
 
-	// Mutex protects write operations to this endpoint structure
+	// Mutex protects write operations to this endpoint structure except
+	// for the logger field which has its own mutex
 	Mutex lock.RWMutex `json:"-"`
 
 	// ContainerName is the name given to the endpoint by the container runtime
@@ -439,6 +440,12 @@ type Endpoint struct {
 	// You must hold Endpoint.Mutex to read or write it (but not to log with it).
 	logger *logrus.Entry
 
+	// loggerMutex protects write operations to the logger field.
+	//
+	// NOTE: If both endpoint.Mutex and endpoint.loggerMutex must be held,
+	// then endpoint.Mutex must *always* be acquired first.
+	loggerMutex lock.RWMutex
+
 	// controllers is the list of async controllers syncing the endpoint to
 	// other resources
 	controllers controller.Manager
@@ -482,18 +489,28 @@ func (e *Endpoint) WaitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 	}
 
 	start := time.Now()
-	e.getLogger().Debug("Waiting for proxy updates to complete...")
+
+	e.Mutex.RLock()
+	logger := e.getLogger()
+	e.Mutex.RUnlock()
+
+	logger.Debug("Waiting for proxy updates to complete...")
+
 	err := proxyWaitGroup.Wait()
 	if err != nil {
 		return fmt.Errorf("proxy state changes failed: %s", err)
 	}
-	e.getLogger().Debug("Wait time for proxy updates: ", time.Since(start))
+	logger.Debug("Wait time for proxy updates: ", time.Since(start))
+
 	return nil
 }
 
 // RunK8sCiliumEndpointSync starts a controller that syncronizes the endpoint
 // to the corresponding k8s CiliumEndpoint CRD
 // CiliumEndpoint objects have the same name as the pod they represent
+//
+// Endpoint mutex must be held for now. This is guaranteed via
+// endpointmanager.Insert() but is really not ideal.
 func (e *Endpoint) RunK8sCiliumEndpointSync() {
 	var (
 		endpointID     = e.ID
@@ -1536,6 +1553,8 @@ func (e *Endpoint) LogStatusOKLocked(typ StatusType, msg string) {
 	e.logStatusLocked(typ, OK, msg)
 }
 
+// logStatusLocked logs a status message
+// must be called with endpoint.Mutex held
 func (e *Endpoint) logStatusLocked(typ StatusType, code StatusCode, msg string) {
 	e.Status.indexMU.Lock()
 	defer e.Status.indexMU.Unlock()
@@ -1583,9 +1602,9 @@ func (e UpdateStateChangeError) Error() string { return e.msg }
 // if there was an issue triggering policy updates for the given endpoint,
 // or if endpoint regeneration was unable to be triggered.
 func (e *Endpoint) Update(owner Owner, cfg *models.EndpointConfigurationSpec) error {
+	e.Mutex.Lock()
 	e.getLogger().WithField("configuration-options", cfg).Debug("updating endpoint configuration options")
 
-	e.Mutex.Lock()
 	if err := e.Options.Validate(cfg.Options); err != nil {
 		e.Mutex.Unlock()
 		return UpdateValidationError{err.Error()}
@@ -1686,9 +1705,11 @@ func (e *Endpoint) replaceInformationLabels(l pkgLabels.Labels) {
 	}
 	e.OpLabels.OrchestrationInfo.MarkAllForDeletion()
 
+	scopedLog := e.getLogger()
+
 	for _, v := range l {
 		if e.OpLabels.OrchestrationInfo.UpsertLabel(v) {
-			e.getLogger().WithField(logfields.Labels, logfields.Repr(v)).Debug("Assigning information label")
+			scopedLog.WithField(logfields.Labels, logfields.Repr(v)).Debug("Assigning information label")
 		}
 	}
 	e.OpLabels.OrchestrationInfo.DeleteMarked()
@@ -1710,12 +1731,14 @@ func (e *Endpoint) replaceIdentityLabels(l pkgLabels.Labels) int {
 	e.OpLabels.OrchestrationIdentity.MarkAllForDeletion()
 	e.OpLabels.Disabled.MarkAllForDeletion()
 
+	scopedLog := e.getLogger()
+
 	for k, v := range l {
 		// A disabled identity label stays disabled without value updates
 		if e.OpLabels.Disabled[k] != nil {
 			e.OpLabels.Disabled[k].ClearDeletionMark()
 		} else if e.OpLabels.OrchestrationIdentity.UpsertLabel(v) {
-			e.getLogger().WithField(logfields.Labels, logfields.Repr(v)).Debug("Assigning security relevant label")
+			scopedLog.WithField(logfields.Labels, logfields.Repr(v)).Debug("Assigning security relevant label")
 			changed = true
 		}
 	}
