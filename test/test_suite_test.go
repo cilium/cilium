@@ -199,6 +199,7 @@ var _ = BeforeAll(func() {
 			log.WithError(err).Error("Cilium was unable to be set up correctly")
 			reportCreateVMFailure(helpers.Runtime, err)
 		}
+		go vm.PprofReport()
 
 	case helpers.K8s:
 		//FIXME: This should be:

@@ -658,6 +658,42 @@ func (s *SSHMeta) CheckLogsForDeadlock() {
 	}
 }
 
+// PprofReport runs pprof each 5 minutes and saves the data into the test
+// folder saved with pprof suffix.
+func (s *SSHMeta) PprofReport() {
+	PProfCadence := 5 * time.Minute
+	ticker := time.NewTicker(PProfCadence)
+	log := s.logger.WithField("subsys", "pprofReport")
+
+	for {
+		select {
+		case <-ticker.C:
+
+			testPath, err := CreateReportDirectory()
+			if err != nil {
+				log.WithError(err).Errorf("cannot create test result path '%s'", testPath)
+				return
+			}
+
+			res := s.Exec("gops pprof-cpu 1")
+			if !res.WasSuccessful() {
+				return
+			}
+			files := s.Exec("ls -1 /tmp/")
+			for _, file := range files.ByLines() {
+				if !strings.Contains(file, "profile") {
+					continue
+				}
+
+				dest := filepath.Join(
+					BasePath, testPath,
+					fmt.Sprintf("%s.pprof", file))
+				_ = s.ExecWithSudo(fmt.Sprintf("mv /tmp/%s %s", file, dest))
+			}
+		}
+	}
+}
+
 // DumpCiliumCommandOutput runs a variety of Cilium CLI commands and dumps their
 // output to files. These files are gathered as part of each Jenkins job for
 // postmortem debugging of build failures.
