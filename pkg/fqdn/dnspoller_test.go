@@ -391,6 +391,71 @@ func (ds *FQDNTestSuite) TestDNSPollerCIDRGeneration(c *C) {
 	c.Assert(uuid2, Equals, uuid1, Commentf("UUID label has changed on rule since previous generation"))
 }
 
-// Add a rule, error on lookup. Generate no ToCIDRSet
-// Add a rule, success on lookup, fail on lookup. Generate ToCIDRSet using previous IPs
-func (ds *FQDNTestSuite) TestDNSPollerErrorHandling(c *C) {}
+// Test that all IPs are updated when one is
+func (ds *FQDNTestSuite) TestDNSPollerMultiIPUpdate(c *C) {
+	var (
+		pollCount      = 0
+		generatedRules = make([]*api.Rule, 0)
+
+		poller = NewDNSPoller(DNSPollerConfig{
+
+			LookupDNSNames: func(dnsNames []string) (DNSIPs map[string][]net.IP, errorDNSNames map[string]error) {
+				switch pollCount {
+				case 1:
+					return map[string][]net.IP{"cilium.io": {net.ParseIP("1.1.1.1")}}, nil
+				case 2:
+					return map[string][]net.IP{
+						"cilium.io":  {net.ParseIP("2.2.2.2")},
+						"github.com": {net.ParseIP("3.3.3.3")}}, nil
+				case 3:
+					return map[string][]net.IP{
+						"cilium.io":  {net.ParseIP("2.2.2.2")},
+						"github.com": {net.ParseIP("4.4.4.4")}}, nil
+				}
+				return nil, nil
+			},
+
+			AddGeneratedRules: func(rules []*api.Rule) error {
+				generatedRules = append(generatedRules, rules...)
+				return nil
+			},
+		})
+	)
+
+	// add rules
+	rulesToAdd := []*api.Rule{rule3.DeepCopy()}
+	MarkToFQDNRules(rulesToAdd)
+	poller.StartPollForDNSName(rulesToAdd)
+
+	// poll DNS once, check that we only generate 1 IP
+	generatedRules = nil
+	pollCount++
+	err := poller.LookupUpdateDNS()
+	c.Assert(err, IsNil, Commentf("Error generating IP CIDR rules"))
+	c.Assert(len(generatedRules), Equals, 1, Commentf("Incorrect number of generated rules for testCase with single ToFQDNs entry"))
+	c.Assert(len(generatedRules[0].Egress), Equals, 1, Commentf("Incorrect number of generated egress rules for testCase with single ToFQDNs entry"))
+	c.Assert(len(generatedRules[0].Egress[0].ToCIDRSet), Equals, 1, Commentf("Generated CIDR count is not the same as ToFQDNs"))
+	c.Assert(generatedRules[0].Egress[0].ToCIDRSet[0].Cidr, Equals, api.CIDR("1.1.1.1/32"), Commentf("Incorrect IP CIDR generated"))
+
+	// poll DNS once, check that we only generate 2 IPs, both correct
+	generatedRules = nil
+	pollCount++
+	err = poller.LookupUpdateDNS()
+	c.Assert(err, IsNil, Commentf("Error generating IP CIDR rules"))
+	c.Assert(len(generatedRules), Equals, 1, Commentf("More than 1 generated rule for testCase with single ToFQDNs entry"))
+	c.Assert(len(generatedRules[0].Egress), Equals, 1, Commentf("Incorrect number of generated egress rules for testCase with single ToFQDNs entry"))
+	c.Assert(len(generatedRules[0].Egress[0].ToFQDNs), Equals, len(generatedRules[0].Egress[0].ToCIDRSet), Commentf("Generated CIDR count is not the same as ToFQDNs"))
+	c.Assert(generatedRules[0].Egress[0].ToCIDRSet[0].Cidr, Equals, api.CIDR("2.2.2.2/32"), Commentf("Incorrect IP CIDR generated"))
+	c.Assert(generatedRules[0].Egress[0].ToCIDRSet[1].Cidr, Equals, api.CIDR("3.3.3.3/32"), Commentf("Incorrect IP CIDR generated"))
+
+	// poll DNS once, check that we only generate 2 IPs, both correct, both up-to-date
+	generatedRules = nil
+	pollCount++
+	err = poller.LookupUpdateDNS()
+	c.Assert(err, IsNil, Commentf("Error generating IP CIDR rules"))
+	c.Assert(len(generatedRules), Equals, 1, Commentf("More than 1 generated rule for testCase with single ToFQDNs entry"))
+	c.Assert(len(generatedRules[0].Egress), Equals, 1, Commentf("Incorrect number of generated egress rules for testCase with single ToFQDNs entry"))
+	c.Assert(len(generatedRules[0].Egress[0].ToFQDNs), Equals, len(generatedRules[0].Egress[0].ToCIDRSet), Commentf("Generated CIDR count is not the same as ToFQDNs"))
+	c.Assert(generatedRules[0].Egress[0].ToCIDRSet[0].Cidr, Equals, api.CIDR("2.2.2.2/32"), Commentf("Incorrect IP CIDR generated"))
+	c.Assert(generatedRules[0].Egress[0].ToCIDRSet[1].Cidr, Equals, api.CIDR("4.4.4.4/32"), Commentf("Incorrect IP CIDR generated"))
+}
