@@ -125,6 +125,7 @@ void Config::Log(AccessLog::Entry &entry, ::cilium::EntryType type) {
 void AccessFilter::onDestroy() {}
 
 Http::FilterHeadersStatus AccessFilter::decodeHeaders(Http::HeaderMap& headers, bool) {
+  headers.remove(Http::Headers::get().EnvoyOriginalDstHost);
   const auto& conn = callbacks_->connection();
   bool ingress = false;
   bool allowed = false;
