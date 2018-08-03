@@ -30,7 +30,6 @@ import (
 	"github.com/cilium/cilium/test/config"
 	"github.com/cilium/cilium/test/ginkgo-ext"
 
-	"github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
 )
 
@@ -630,7 +629,6 @@ func (s *SSHMeta) ReportFailed(commands ...string) {
 	s.DumpCiliumCommandOutput()
 	s.GatherLogs()
 	s.GatherDockerLogs()
-	s.CheckLogsForDeadlock()
 }
 
 // ValidateNoErrorsOnLogs checks in cilium logs since the given duration (By
@@ -642,19 +640,38 @@ func (s *SSHMeta) ValidateNoErrorsOnLogs(duration time.Duration) {
 		DaemonName, duration.Seconds())
 	logs := s.Exec(logsCmd, ExecOptions{SkipLog: true}).Output().String()
 
-	for _, message := range checkLogsMessages {
-		gomega.ExpectWithOffset(1, logs).ToNot(gomega.ContainSubstring(message),
-			"Found a %q in Cilium logs", message)
-	}
-}
+	defer func() {
+		// Keep the cilium logs for the given test in a separate file.
+		testPath, err := CreateReportDirectory()
+		if err != nil {
+			s.logger.WithError(err).Error("Cannot create report directory")
+			return
+		}
+		err = ioutil.WriteFile(
+			fmt.Sprintf("%s/cilium_test.log", testPath),
+			[]byte(logs), LogPerm)
 
-// CheckLogsForDeadlock checks if the logs for Cilium log messages that signify
-// that a deadlock has occurred.
-func (s *SSHMeta) CheckLogsForDeadlock() {
-	deadlockCheckCmd := fmt.Sprintf("sudo journalctl -au %s | grep -qi -B 5 -A 5 deadlock", DaemonName)
-	res := s.Exec(deadlockCheckCmd)
-	if res.WasSuccessful() {
-		log.Errorf("Deadlock during test run detected, check Cilium logs for context")
+		if err != nil {
+			s.logger.WithError(err).Error("Cannot create cilium_test.log")
+		}
+	}()
+
+	for _, message := range checkLogsMessages {
+		if strings.Contains(logs, message) {
+			fmt.Fprintf(CheckLogs, "⚠️  Found a %q in logs\n", message)
+			ginkgoext.Fail(fmt.Sprintf("Found a %q in Cilium Logs", message))
+		}
+	}
+
+	// Count part
+	for _, message := range countLogsMessages {
+		var prefix = ""
+		result := strings.Count(logs, message)
+		if result > 5 {
+			// Added a warning emoji just in case that are more than 5 warning in the logs.
+			prefix = "⚠️  "
+		}
+		fmt.Fprintf(CheckLogs, "%sNumber of %q in logs: %d\n", prefix, message, result)
 	}
 }
 
