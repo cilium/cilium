@@ -610,6 +610,7 @@ func (e *Endpoint) IngressOrEgressIsEnforced() bool {
 		e.Opts.IsEnabled(OptionEgressPolicy)
 }
 
+// must be called with endpoint.Mutex held for reading
 func (e *Endpoint) updateNetworkPolicy(owner Owner) error {
 	// Skip updating the NetworkPolicy if no policy has been calculated.
 	// This breaks a circular dependency between configuring NetworkPolicies in
@@ -900,9 +901,10 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	e.BuildMutex.Lock()
 	defer e.BuildMutex.Unlock()
 
-	e.Mutex.Lock()
-	e.getLogger().Debug("Regenerating endpoint...")
-	e.Mutex.Unlock()
+	e.Mutex.RLock()
+	scopedLog := e.getLogger()
+	e.Mutex.RUnlock()
+	scopedLog.Debug("Regenerating endpoint...")
 
 	origDir := filepath.Join(owner.GetStateDir(), e.StringID())
 
@@ -933,7 +935,7 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	failDir := e.failedDirectoryPath()
 	os.RemoveAll(failDir) // Most likely will not exist; ignore failure.
 	if err != nil {
-		e.getLogger().WithFields(logrus.Fields{
+		scopedLog.WithFields(logrus.Fields{
 			logfields.Path: failDir,
 		}).Warn("Generating BPF for endpoint failed, keeping stale directory.")
 		os.Rename(tmpDir, failDir)
@@ -952,7 +954,7 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 		os.RemoveAll(tmpDir)
 
 		if err2 := os.Rename(backupDir, origDir); err2 != nil {
-			e.getLogger().WithFields(logrus.Fields{
+			scopedLog.WithFields(logrus.Fields{
 				logfields.Path: backupDir,
 			}).Warn("Restoring directory for endpoint failed, endpoint " +
 				"is in inconsistent state. Keeping stale directory.")
@@ -968,7 +970,7 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	// compiled for
 	e.bumpPolicyRevision(revision)
 
-	e.getLogger().Info("Endpoint policy recalculated")
+	scopedLog.Info("Endpoint policy recalculated")
 
 	return nil
 }
@@ -987,10 +989,10 @@ func (e *Endpoint) Regenerate(owner Owner, reason string) <-chan bool {
 	go func(owner Owner, req *Request, e *Endpoint) {
 		buildSuccess := true
 
-		e.Mutex.Lock()
+		e.Mutex.RLock()
 		// This must be accessed in a locked section, so we grab it here.
 		scopedLog := e.getLogger()
-		e.Mutex.Unlock()
+		e.Mutex.RUnlock()
 
 		// We should only queue the request after we use all the endpoint's
 		// lock/unlock. Otherwise this can get a deadlock if the endpoint is
