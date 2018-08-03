@@ -675,6 +675,48 @@ func (s *SSHMeta) ValidateNoErrorsOnLogs(duration time.Duration) {
 	}
 }
 
+// PprofReport runs pprof each 5 minutes and saves the data into the test
+// folder saved with pprof suffix.
+func (s *SSHMeta) PprofReport() {
+	PProfCadence := 5 * time.Minute
+	ticker := time.NewTicker(PProfCadence)
+	log := s.logger.WithField("subsys", "pprofReport")
+
+	for {
+		select {
+		case <-ticker.C:
+
+			testPath, err := CreateReportDirectory()
+			if err != nil {
+				log.WithError(err).Errorf("cannot create test result path '%s'", testPath)
+				return
+			}
+			d := time.Now().Add(50 * time.Second)
+			ctx, cancel := context.WithDeadline(context.Background(), d)
+
+			res := s.ExecContext(ctx, `sudo gops pprof-cpu $(pgrep cilium-agent)`)
+
+			err = res.WaitUntilMatch("Profiling dump saved to")
+			if err != nil {
+				log.WithError(err).Error("Cannot get pprof report")
+			}
+
+			files := s.Exec("ls -1 /tmp/")
+			for _, file := range files.ByLines() {
+				if !strings.Contains(file, "profile") {
+					continue
+				}
+
+				dest := filepath.Join(
+					BasePath, testPath,
+					fmt.Sprintf("%s.pprof", file))
+				_ = s.ExecWithSudo(fmt.Sprintf("mv /tmp/%s %s", file, dest))
+			}
+			cancel()
+		}
+	}
+}
+
 // DumpCiliumCommandOutput runs a variety of Cilium CLI commands and dumps their
 // output to files. These files are gathered as part of each Jenkins job for
 // postmortem debugging of build failures.
@@ -849,7 +891,7 @@ func (s *SSHMeta) ServiceDelAll() *CmdRes {
 func (s *SSHMeta) SetUpCilium() error {
 	template := `
 PATH=/usr/lib/llvm-3.8/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
-CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug --debug-verbose flow
+CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug --debug-verbose flow --pprof=true
 INITSYSTEM=SYSTEMD`
 
 	err := RenderTemplateToFile("cilium", template, os.ModePerm)
