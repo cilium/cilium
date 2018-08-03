@@ -222,15 +222,14 @@ func (poller *DNSPoller) LookupUpdateDNS() error {
 	}
 
 	// Generate a new rule for each sourceRule that needs an update.
-	var generatedRules []*api.Rule
-	for _, sourceRule := range rulesToUpdate {
-		newRule, namesMissingIPs := generateRuleFromSource(sourceRule, updatedDNSNames)
-		if len(namesMissingIPs) != 0 {
-			log.WithField(logfields.DNSName, strings.Join(namesMissingIPs, ",")).
-				Warn("Missing IPs for ToFQDN rule")
-		}
-
-		generatedRules = append(generatedRules, newRule)
+	rulesToUpdateList := make([]*api.Rule, 0, len(rulesToUpdate))
+	for _, rule := range rulesToUpdate {
+		rulesToUpdateList = append(rulesToUpdateList, rule)
+	}
+	generatedRules, namesMissingIPs := poller.GenerateRulesFromSources(rulesToUpdateList)
+	if len(namesMissingIPs) != 0 {
+		log.WithField(logfields.DNSName, strings.Join(namesMissingIPs, ",")).
+			Warn("Missing IPs for ToFQDN rule")
 	}
 
 	// no rules to add, do not call AddGeneratedRules below
@@ -285,6 +284,31 @@ perDNSName:
 	}
 
 	return affectedRules, updatedNames
+}
+
+// GenerateRulesFromSources creates new api.Rule instances with all ToFQDN
+// targets resolved to IPs. The IPs are in generated CIDRSet rules in the
+// ToCIDRSet section. Pre-existing rules in ToCIDRSet are preserved
+// Note: GenerateRulesFromSources will make a copy each sourceRule
+func (poller *DNSPoller) GenerateRulesFromSources(sourceRules []*api.Rule) (generatedRules []*api.Rule, namesMissingIPs []string) {
+	poller.Lock()
+	defer poller.Unlock()
+
+	var namesMissingMap = make(map[string]struct{})
+
+	for _, sourceRule := range sourceRules {
+		newRule, namesMissingIPs := generateRuleFromSource(sourceRule, poller.IPs)
+		for _, missing := range namesMissingIPs {
+			namesMissingMap[missing] = struct{}{}
+		}
+
+		generatedRules = append(generatedRules, newRule)
+	}
+
+	for missing := range namesMissingMap {
+		namesMissingIPs = append(namesMissingIPs, missing)
+	}
+	return generatedRules, namesMissingIPs
 }
 
 // addRule places an api.Rule in the source list for a DNS name.
