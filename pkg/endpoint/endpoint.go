@@ -482,12 +482,19 @@ func (e *Endpoint) WaitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 	}
 
 	start := time.Now()
-	e.getLogger().Debug("Waiting for proxy updates to complete...")
+
+	e.Mutex.RLock()
+	logger := getLogger()
+	e.Mutex.RUnlock()
+
+	logger.Debug("Waiting for proxy updates to complete...")
+
 	err := proxyWaitGroup.Wait()
 	if err != nil {
 		return fmt.Errorf("proxy state changes failed: %s", err)
 	}
-	e.getLogger().Debug("Wait time for proxy updates: ", time.Since(start))
+	logger.Debug("Wait time for proxy updates: ", time.Since(start))
+
 	return nil
 }
 
