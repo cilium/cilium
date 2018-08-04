@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
@@ -798,7 +799,7 @@ func runCiliumHealthEndpoint(d *Daemon) error {
 
 func runDaemon() {
 	log.Info("Initializing daemon")
-	d, err := NewDaemon()
+	d, restoredEndpoints, err := NewDaemon()
 	if err != nil {
 		log.WithError(err).Fatal("Error while creating daemon")
 		return
@@ -814,6 +815,61 @@ func runDaemon() {
 
 	log.Info("Launching node monitor daemon")
 	go d.nodeMonitor.Run(path.Join(defaults.RuntimePath, defaults.EventsPipe), bpf.GetMapRoot())
+
+	if err := d.EnableK8sWatcher(5 * time.Minute); err != nil {
+		log.WithError(err).Fatal("Unable to establish connection to Kubernetes apiserver")
+	}
+
+	if option.Config.RestoreState {
+
+		d.regenerateRestoredEndpoints(restoredEndpoints)
+
+		go func() {
+			if err := d.SyncLBMap(); err != nil {
+				log.WithError(err).Warn("Error while recovering endpoints")
+			}
+		}()
+	} else {
+		log.Info("No previous state to restore. Cilium will not manage existing containers")
+		// We need to read all docker containers so we know we won't
+		// going to allocate the same IP addresses and we will ignore
+		// these containers from reading.
+		workloads.IgnoreRunningWorkloads()
+	}
+
+	d.collectStaleMapGarbage()
+
+	// The workload event listener *must* be enabled *after* restored endpoints
+	// are added into the endpoint manager; otherwise, updates to important
+	// endpoint metadata, such as Kubernetes pod name and namespace, will not
+	// be performed on the endpoint.
+	eventsCh, err := workloads.EnableEventListener()
+	if err != nil {
+		log.WithError(err).Fatal("Error while enabling workload event watcher")
+	} else {
+		d.workloadsEventsCh = eventsCh
+	}
+
+	// Allocate health endpoint IPs after restoring state
+	log.Info("Building health endpoint")
+	health4, health6, err := ipam.AllocateNext("")
+	if err != nil {
+		log.WithError(err).Fatal("Error while allocating cilium-health IP")
+	}
+
+	err = node.SetIPv4HealthIP(health4)
+	if err != nil {
+		log.WithError(err).Fatal("Error while set health IPv4 ip on the local node.")
+	}
+
+	err = node.SetIPv6HealthIP(health6)
+	if err != nil {
+		log.WithError(err).Fatal("Error while set health IPv6 ip on the local node.")
+	}
+
+	log.Debugf("IPv4 health endpoint address: %s", node.GetIPv4HealthIP())
+	log.Debugf("IPv6 health endpoint address: %s", node.GetIPv6HealthIP())
+	node.NotifyLocalNodeUpdated()
 
 	// Launch cilium-health in the same namespace as cilium.
 	log.Info("Launching Cilium health daemon")
@@ -834,17 +890,6 @@ func runDaemon() {
 			},
 			RunInterval: 30 * time.Second,
 		})
-
-	eventsCh, err := workloads.EnableEventListener()
-	if err != nil {
-		log.WithError(err).Fatal("Error while enabling docker event watcher")
-	} else {
-		d.workloadsEventsCh = eventsCh
-	}
-
-	if err := d.EnableK8sWatcher(5 * time.Minute); err != nil {
-		log.WithError(err).Fatal("Unable to establish connection to Kubernetes apiserver")
-	}
 
 	swaggerSpec, err := loads.Analyzed(server.SwaggerJSON, "")
 	if err != nil {

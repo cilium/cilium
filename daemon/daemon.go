@@ -27,6 +27,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -1094,14 +1095,14 @@ func createPrefixLengthCounter() *counter.PrefixLengthCounter {
 }
 
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
-func NewDaemon() (*Daemon, error) {
+func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 	// Validate the daemon specific global options
 	if err := option.Config.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid daemon configuration: %s", err)
+		return nil, nil, fmt.Errorf("invalid daemon configuration: %s", err)
 	}
 
 	if err := workloads.Setup(option.Config.Workloads, map[string]string{}); err != nil {
-		return nil, fmt.Errorf("unable to setup workload: %s", err)
+		return nil, nil, fmt.Errorf("unable to setup workload: %s", err)
 	}
 
 	lb := loadbalancer.NewLoadBalancer()
@@ -1283,7 +1284,7 @@ func NewDaemon() (*Daemon, error) {
 		// Allocate IPv4 service loopback IP
 		loopbackIPv4, _, err := ipam.AllocateNext("ipv4")
 		if err != nil {
-			return nil, fmt.Errorf("Unable to reserve IPv4 loopback address: %s", err)
+			return nil, restoredEndpoints, fmt.Errorf("Unable to reserve IPv4 loopback address: %s", err)
 		}
 		node.SetIPv4Loopback(loopbackIPv4)
 		log.Infof("  Loopback IPv4: %s", node.GetIPv4Loopback().String())
@@ -1317,7 +1318,7 @@ func NewDaemon() (*Daemon, error) {
 
 	if err = d.init(); err != nil {
 		log.WithError(err).Error("Error while initializing daemon")
-		return nil, err
+		return nil, restoredEndpoints, err
 	}
 
 	// Start watcher for endpoint IP --> identity mappings in key-value store.
@@ -1328,45 +1329,6 @@ func NewDaemon() (*Daemon, error) {
 	// FIXME: Make the port range configurable.
 	d.l7Proxy = proxy.StartProxySupport(10000, 20000, option.Config.RunDir,
 		option.Config.AccessLog, &d, option.Config.AgentLabels)
-
-	if option.Config.RestoreState {
-		d.regenerateRestoredEndpoints(restoredEndpoints)
-
-		go func() {
-			if err := d.SyncLBMap(); err != nil {
-				log.WithError(err).Warn("Error while recovering endpoints")
-			}
-		}()
-	} else {
-		log.Info("No previous state to restore. Cilium will not manage existing containers")
-		// We need to read all docker containers so we know we won't
-		// going to allocate the same IP addresses and we will ignore
-		// these containers from reading.
-		workloads.IgnoreRunningWorkloads()
-	}
-
-	d.collectStaleMapGarbage()
-
-	// Allocate health endpoint IPs after restoring state
-	log.Info("Building health endpoint")
-	health4, health6, err := ipam.AllocateNext("")
-	if err != nil {
-		log.WithError(err).Fatal("Error while allocating cilium-health IP")
-	}
-
-	err = node.SetIPv4HealthIP(health4)
-	if err != nil {
-		log.WithError(err).Fatal("Error while set health IPv4 ip on the local node.")
-	}
-
-	err = node.SetIPv6HealthIP(health6)
-	if err != nil {
-		log.WithError(err).Fatal("Error while set health IPv6 ip on the local node.")
-	}
-
-	log.Debugf("IPv4 health endpoint address: %s", node.GetIPv4HealthIP())
-	log.Debugf("IPv6 health endpoint address: %s", node.GetIPv6HealthIP())
-	node.NotifyLocalNodeUpdated()
 
 	d.startStatusCollector()
 	d.dnsPoller = fqdn.NewDNSPoller(fqdn.DNSPollerConfig{
@@ -1380,7 +1342,7 @@ func NewDaemon() (*Daemon, error) {
 		}})
 	fqdn.StartDNSPoller(d.dnsPoller)
 
-	return &d, nil
+	return &d, restoredEndpoints, nil
 }
 
 func (d *Daemon) validateExistingMaps() error {
