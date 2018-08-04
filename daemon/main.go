@@ -820,10 +820,26 @@ func runDaemon() {
 		log.WithError(err).Fatal("Unable to establish connection to Kubernetes apiserver")
 	}
 
+	cachesSynced := make(chan struct{})
+
+	go func() {
+		log.Info("Waiting until all pre-existing policies have been received")
+		d.k8sResourceSyncWaitGroup.Wait()
+		cachesSynced <- struct{}{}
+	}()
+
+	select {
+	case <-cachesSynced:
+		log.Info("All pre-existing policies have been received; continuing")
+	case <-time.After(cacheSyncTimeout):
+		log.Fatalf("Timed out waiting for pre-existing policies to be received; exiting")
+	}
+
 	if option.Config.RestoreState {
-
+		// When we regenerate restored endpoints, it is guaranteed tha we have
+		// received the full list of policies present at the time the daemon
+		// is bootstrapped.
 		d.regenerateRestoredEndpoints(restoredEndpoints)
-
 		go func() {
 			if err := d.SyncLBMap(); err != nil {
 				log.WithError(err).Warn("Error while recovering endpoints")
