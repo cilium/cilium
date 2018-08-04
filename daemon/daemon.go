@@ -142,6 +142,14 @@ type Daemon struct {
 	prefixLengths *counter.PrefixLengthCounter
 
 	clustermesh *clustermesh.ClusterMesh
+
+	// k8sResourceSyncWaitGroup is used to block the starting of the daemon,
+	// including regenerating restored endpoints (if specified) until all
+	// policies stored in Kubernetes are plumbed into the local Cilium
+	// repository.
+	// This prevents regeneration of endpoints before all policy rules in
+	// Kubernetes are consumed by Cilium. See GH-5038.
+	k8sResourceSyncWaitGroup sync.WaitGroup
 }
 
 // UpdateProxyRedirect updates the redirect rules in the proxy for a particular

@@ -815,8 +815,13 @@ func runDaemon() {
 		log.WithError(err).Fatal("Unable to establish connection to Kubernetes apiserver")
 	}
 
-	if option.Config.RestoreState {
+	log.Info("waiting to regenerate restored endpoints until all pre-existing policies have been received")
+	d.k8sResourceSyncWaitGroup.Wait()
+	log.Info("all pre-existing policies have been received; continuing")
 
+	if option.Config.RestoreState {
+		// Block on regenerating endpoints until we receive all policies from K8s
+		// if K8s is enabled.
 		d.regenerateRestoredEndpoints(restoredEndpoints)
 
 		go func() {
