@@ -823,7 +823,13 @@ func runDaemon() {
 	}
 
 	if option.Config.RestoreState {
-
+		// Block on regenerating endpoints until we receive all policies from K8s
+		// if K8s is enabled.
+		if k8s.IsEnabled() {
+			log.Info("waiting to regenerate restored endpoints until all policies have been synced from Kubernetes")
+			d.k8sResourceSyncWaitGroup.Wait()
+			log.Info("all policies have been synced from Kubernetes; regenerating restored endpoints")
+		}
 		d.regenerateRestoredEndpoints(restoredEndpoints)
 
 		go func() {

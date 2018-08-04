@@ -142,6 +142,8 @@ type Daemon struct {
 	prefixLengths *counter.PrefixLengthCounter
 
 	clustermesh *clustermesh.ClusterMesh
+
+	k8sResourceSyncWaitGroup sync.WaitGroup
 }
 
 // UpdateProxyRedirect updates the redirect rules in the proxy for a particular
