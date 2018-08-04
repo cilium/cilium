@@ -374,7 +374,7 @@ resource can be used.
 
     $ kubectl get cep 700e0976-6cb50b02 -o json
 
-    $ kubectl get cep -o jsonpath='{range .items[*]}{@.status.id}{"="}{@.status.status.policy.spec.policy-enabled}{"\n"}{end}'
+    $ kubectl get cep -o jsonpath='{range .items[*]}{@.status.id}{"="}{@.details.status.policy.spec.policy-enabled}{"\n"}{end}'
     30391=ingress
     5766=ingress
     51796=none

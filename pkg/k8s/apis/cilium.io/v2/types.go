@@ -217,7 +217,7 @@ type CiliumEndpoint struct {
 	// +k8s:openapi-gen=false
 	metav1.ObjectMeta `json:"metadata"`
 
-	Status CiliumEndpointDetail `json:"status"`
+	Details CiliumEndpointDetail `json:"details"`
 }
 
 // CiliumEndpointDetail is the status of a Cilium policy rule

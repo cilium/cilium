@@ -28,7 +28,7 @@ func (in *CiliumEndpoint) DeepCopyInto(out *CiliumEndpoint) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
-	in.Status.DeepCopyInto(&out.Status)
+	in.Details.DeepCopyInto(&out.Details)
 	return
 }
 

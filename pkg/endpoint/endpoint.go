@@ -207,7 +207,7 @@ func RunK8sCiliumEndpointSyncGC() {
 					if _, found := clusterPodSet[cepFullName]; !found {
 						// delete
 						scopedLog = scopedLog.WithFields(logrus.Fields{
-							logfields.EndpointID: cep.Status.ID,
+							logfields.EndpointID: cep.Details.ID,
 							logfields.K8sPodName: cepFullName,
 						})
 						scopedLog.Debug("Orphaned CiliumEndpoint is being garbage collected")
@@ -617,7 +617,7 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 				// do an update
 				case err == nil:
 					// Update the copy of the cep
-					k8sMdl.DeepCopyInto(&cep.Status)
+					k8sMdl.DeepCopyInto(&cep.Details)
 					var err2 error
 					switch {
 					case ciliumUpdateStatusVerConstr.Check(k8sServerVer):
@@ -639,7 +639,7 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 					ObjectMeta: meta_v1.ObjectMeta{
 						Name: podName,
 					},
-					Status: *k8sMdl,
+					Details: *k8sMdl,
 				}
 
 				_, err = ciliumClient.CiliumEndpoints(namespace).Create(cep)
