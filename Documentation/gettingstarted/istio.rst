@@ -85,8 +85,8 @@ of Pilot, and disables unused services:
     $ helm template istio-cilium-helm --name istio --namespace istio-system \
           --set pilot.image=docker.io/cilium/istio_pilot:1.0.0 \
           --set sidecarInjectorWebhook.enabled=true \
-          --set global.controlPlaneSecurityEnabled=false \
-          --set global.mtls.enabled=false \
+          --set global.controlPlaneSecurityEnabled=true \
+          --set global.mtls.enabled=true \
           --set global.proxy.image=proxy_debug \
           --set ingress.enabled=false \
           --set egressgateway.enabled=false \
@@ -293,7 +293,7 @@ running ``curl`` from within the pod:
 
     $ export POD_REVIEWS_V1=`kubectl get pods -n default -l app=reviews,version=v1 -o jsonpath='{.items[0].metadata.name}'`
     $ kubectl exec ${POD_REVIEWS_V1} -c istio-proxy -ti -- curl --connect-timeout 5 --fail http://ratings:9080/ratings/0
-    curl: (22) The requested URL returned error: 404 Not Found
+    curl: (22) The requested URL returned error: 503 Service Unavailable
     command terminated with exit code 22
 
 Update the Istio route rule to send 50% of ``reviews`` traffic to
@@ -395,6 +395,12 @@ whitelisted:
 
 Because ``productpage v2`` sends messages into Kafka, we must first
 deploy a Kafka broker:
+
+.. parsed-literal::
+
+    $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/kafka-v1-destrule.yaml | \\
+          istioctl create -f -
+    Created config destination-rule/default/kafka-disable-mtls at revision ...
 
 .. TODO: Re-enable sidecar injection after we support Kafka with mTLS.
     $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/kafka-v1.yaml | \\
