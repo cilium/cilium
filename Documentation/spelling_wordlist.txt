@@ -45,6 +45,7 @@ breakpoint
 Brenden
 Brouer
 browsable
+btf
 bugfix
 bugfixes
 bugtool
@@ -124,6 +125,7 @@ eBPF
 ec
 elasticsearch
 Elasticsearch
+elfutils
 endian
 endianness
 endpointSelector
@@ -334,6 +336,7 @@ opcodes
 orchestrator
 org
 osx
+pahole
 pc
 pem
 Pepelnjak
@@ -365,6 +368,7 @@ qdisc
 qdiscs
 qede
 queueing
+readelf
 rebase
 rebased
 recompiles
