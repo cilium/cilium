@@ -6,6 +6,8 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"strings"
+
 	strfmt "github.com/go-openapi/strfmt"
 
 	"github.com/go-openapi/errors"
@@ -24,4 +26,23 @@ func (m Labels) Validate(formats strfmt.Registry) error {
 		return errors.CompositeValidationError(res...)
 	}
 	return nil
+}
+
+// GetMap returns a map with the Labels in key-value format. If one label
+// cannot be in the key-value format will be skipped on the output.
+func (m Labels) GetMap() map[string]string {
+	var result = map[string]string{}
+
+	for _, label := range m {
+		lbl := strings.Split(label, ":")
+		if len(lbl) != 2 {
+			continue
+		}
+		values := strings.Split(lbl[1], "=")
+		if len(values) < 2 {
+			continue
+		}
+		result[values[0]] = strings.Join(values[1:], "=")
+	}
+	return result
 }
