@@ -195,7 +195,7 @@ func (c *cache) start(a *Allocator) waitChan {
 					case kvstore.EventTypeDelete:
 						kvstore.Trace("Removing id from cache", nil, debugFields.Data)
 
-						if k, ok := c.nextCache[id]; ok {
+						if k, ok := c.nextCache[id]; ok && k != nil {
 							delete(c.nextKeyCache, k.GetKey())
 						}
 
