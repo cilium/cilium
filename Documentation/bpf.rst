@@ -2002,6 +2002,32 @@ of all details, but enough for getting started.
 
     # ip link set dev em1 xdp obj prog.o sec foobar
 
+  Note that it is also possible to load the program out of the ``.text`` section.
+  Changing the minimal, stand-alone XDP drop program by removing the ``__section()``
+  annotation from the ``xdp_drop`` entry point would look like the following:
+
+  ::
+
+    #include <linux/bpf.h>
+
+    #ifndef __section
+    # define __section(NAME)                  \
+       __attribute__((section(NAME), used))
+    #endif
+
+    int xdp_drop(struct xdp_md *ctx)
+    {
+        return XDP_DROP;
+    }
+
+    char __license[] __section("license") = "GPL";
+
+  And can be loaded as follows:
+
+  ::
+
+    # ip link set dev em1 xdp obj prog.o sec .text
+
   By default, ``ip`` will throw an error in case a XDP program is already attached
   to the networking interface, to prevent it from being overridden by accident. In
   order to replace the currently running XDP program with a new one, the ``-force``
