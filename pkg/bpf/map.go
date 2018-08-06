@@ -643,7 +643,7 @@ func (m *Map) DeleteWithErrno(key MapKey) (error, syscall.Errno) {
 	_, errno = deleteElement(m.fd, key.GetKeyPtr())
 
 	if errno != 0 {
-		err = fmt.Errorf("Unable to delete element from map: %s", err)
+		err = fmt.Errorf("Unable to delete element from map %s: %s", m.name, errno.Error())
 	}
 
 	return err, errno
