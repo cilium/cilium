@@ -1518,6 +1518,7 @@ func (kub *Kubectl) CiliumServicePreFlightCheck() error {
 		return err
 	}
 	ciliumSvcCmd := "cilium service list -o json"
+	ciliumBpfLbCmd := "cilium bpf lb list -o json"
 	for _, pod := range ciliumPods {
 		ciliumServicesRes := kub.CiliumExec(pod, ciliumSvcCmd)
 		err := ciliumServicesRes.GetErr(
@@ -1545,15 +1546,38 @@ func (kub *Kubectl) CiliumServicePreFlightCheck() error {
 				return fmt.Errorf("Failed to find Cilium service corresponding to k8s service %s:%s on pod %s",
 					k8sSvc.service.Namespace, k8sSvc.service.Name, pod)
 			}
-			// set found to false for next pod
+			// set found to false for next checks
 			k8sSvc.found = false
+		}
+
+		ciliumLbRes := kub.CiliumExec(pod, ciliumBpfLbCmd)
+		err = ciliumLbRes.GetErr(
+			fmt.Sprintf("Unable to retrieve Cilium bpf lb list on %s", pod))
+		if err != nil {
+			return err
+		}
+
+		var bpfLbMap map[string][]string
+		err = ciliumLbRes.Unmarshal(&bpfLbMap)
+		if err != nil {
+			return fmt.Errorf("Unable to unmarshal Cilium bpf lb list: %s", err.Error())
+		}
+
+		for _, cSvc := range ciliumSvcs {
+			err := validateCiliumSvcLB(cSvc, bpfLbMap, pod)
+			if err != nil {
+				return err
+			}
+		}
+		if len(ciliumSvcs) != len(bpfLbMap) {
+			return fmt.Errorf("Length of Cilium services doesn't match length of bpf LB map on pod %s", pod)
 		}
 	}
 	return nil
 }
 
 // validateCiliumSvc checks if given Cilium service has corresponding k8s services and endpoints in given slices
-// It also marks k8sServices as found if they are matching
+// SIDE EFFECT: It marks k8sServices as found if they are matching
 func validateCiliumSvc(cSvc models.Service, k8sSvcs []*k8sServiceFound, k8sEps []v1.Endpoints, pod string) error {
 	var k8sService *k8sServiceFound
 	for _, k8sSvc := range k8sSvcs {
@@ -1570,7 +1594,6 @@ func validateCiliumSvc(cSvc models.Service, k8sSvcs []*k8sServiceFound, k8sEps [
 	for _, k8sPort := range k8sService.service.Spec.Ports {
 		if k8sPort.Port == int32(cSvc.Status.Realized.FrontendAddress.Port) {
 			k8sServicePort = &k8sPort
-			fmt.Printf("Setting %s as found\n", k8sService.service.Name)
 			k8sService.found = true
 			break
 		}
@@ -1593,6 +1616,26 @@ func validateCiliumSvc(cSvc models.Service, k8sSvcs []*k8sServiceFound, k8sEps [
 				"Could not match cilium service backend address %s:%d with k8s endpoint",
 				*backAddr.IP, backAddr.Port)
 		}
+	}
+	return nil
+}
+
+func validateCiliumSvcLB(cSvc models.Service, lbMap map[string][]string, pod string) error {
+	frontendAddress := cSvc.Status.Realized.FrontendAddress.IP + ":" + strconv.Itoa(int(cSvc.Status.Realized.FrontendAddress.Port))
+	bpfBackends, ok := lbMap[frontendAddress]
+	if !ok {
+		return fmt.Errorf("%s bpf lb map entry not found on pod %s", frontendAddress, pod)
+	}
+
+BACKENDS:
+	for _, addr := range cSvc.Status.Realized.BackendAddresses {
+		backend := *addr.IP + ":" + strconv.Itoa(int(addr.Port))
+		for _, bpfAddr := range bpfBackends {
+			if strings.Contains(bpfAddr, backend) {
+				continue BACKENDS
+			}
+		}
+		return fmt.Errorf("%s not found in bpf map on pod %s", backend, pod)
 	}
 	return nil
 }
