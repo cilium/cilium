@@ -648,11 +648,11 @@ func (s *SSHMeta) ValidateNoErrorsOnLogs(duration time.Duration) {
 			return
 		}
 		err = ioutil.WriteFile(
-			fmt.Sprintf("%s/cilium_test.log", testPath),
+			fmt.Sprintf("%s/%s", testPath, CiliumTestLog),
 			[]byte(logs), LogPerm)
 
 		if err != nil {
-			s.logger.WithError(err).Error("Cannot create cilium_test.log")
+			s.logger.WithError(err).Errorf("Cannot create %s", CiliumTestLog)
 		}
 	}()
 
