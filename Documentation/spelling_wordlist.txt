@@ -46,6 +46,7 @@ Brenden
 Brouer
 browsable
 btf
+BTF
 bugfix
 bugfixes
 bugtool
@@ -120,6 +121,8 @@ DoorManager
 dports
 dryRun
 DTrace
+DWARF
+dwarfris
 ebpf
 eBPF
 ec
@@ -264,6 +267,7 @@ Leia
 leia
 libbpf
 libc
+libdw
 libelf
 libnetwork
 libvirt
@@ -376,6 +380,7 @@ refactor
 refactoring
 regenerations
 regex
+relocations
 remediate
 reparsing
 repo
@@ -499,6 +504,7 @@ virtio
 virtualbox
 vlan
 VM
+vmlinux
 vX
 waker
 Wakeup

@@ -1181,10 +1181,26 @@ The generated LLVM IR can also be dumped in human readable format through:
 
     $ clang -O2 -Wall -emit-llvm -S -c xdp-example.c -o -
 
-To generate BTF (BPF Type Format) through debugging information,
-elfutils version (>= 0.173) is needed, if not, then ``-mattr=dwarfris`` is required with recent ``llc``:
-(note that if not having neither of them, it'd be easier to compile recent elfutils
-from http://sourceware.org/git/elfutils.git)
+LLVM is able to attach debug information such as the description of used data
+types in the program to the generated BPF object file. By default this is in
+DWARF format.
+
+A heavily simplified version used by BPF is called BTF (BPF Type Format). The
+resulting DWARF can be converted into BTF and is later on loaded into the
+kernel through BPF object loaders. The kernel will then verify the BTF data
+for correctness and keeps track of the data types the BTF data is containing.
+
+BPF maps can then be annotated with key and value types out of the BTF data
+such that a later dump of the map exports the map data along with the related
+type information. This allows for better introspection, debugging and value
+pretty printing. Note that BTF data is a generic debugging data format and
+as such any DWARF to BTF converted data can be loaded (e.g. kernel's vmlinux
+DWARF data could be converted to BTF and loaded). Latter is in particular
+useful for BPF tracing in the future.
+
+In order to generate BTF from DWARF debugging information, elfutils (>= 0.173)
+is needed. If that is not available, then adding the ``-mattr=dwarfris`` option
+to the ``llc`` command is required during compilation:
 
 ::
 
@@ -1192,40 +1208,56 @@ from http://sourceware.org/git/elfutils.git)
       dwarfris - Disable MCAsmInfo DwarfUsesRelocationsAcrossSections.
       [...]
 
-The reason using ``-mattr=dwarfris`` is because the flag ``dwarfris`` (dwarf relocation in section)
-disables dwarf cross-section relation for the case that BPF backend isn't implemented in elfutils ``pahole`` uses
-elfutils version (>= 0.173) implemented BPF backend so the flag ``dwarfris`` don't need.
+The reason using ``-mattr=dwarfris`` is because the flag ``dwarfris`` (``dwarf
+relocation in section``) disables DWARF cross-section relocations between DWARF
+and the ELF's symbol table since libdw does not have proper BPF relocation
+support, and therefore tools like ``pahole`` would otherwise not be able to
+properly dump structures from the object.
 
-Recent pahole versions are also needed and it can be retrieved from the following command:
+elfutils (>= 0.173) implements proper BPF relocation support and therefore
+the same can be achieved without the ``-mattr=dwarfris`` option. Dumping
+the structures from the object file could be done from either DWARF or BTF
+information. ``pahole`` uses the LLVM emitted DWARF information at this
+point, however, future ``pahole`` versions could rely on BTF if available.
+
+For converting DWARF into BTF, a recent pahole version (>= 1.12) is required.
+A recent pahole version can also be obtained from its official git repository
+if not available from one of the distribution packages:
 
 ::
 
     $ git clone https://git.kernel.org/pub/scm/devel/pahole/pahole.git
 
-``pahole`` can be probed for BTF support:
-(note that the ``llvm-objcopy`` tool is required for ``pahole``, so check it, too)
+``pahole`` comes with the option ``-J`` to convert DWARF into BTF from an
+object file. ``pahole`` can be probed for BTF support as follows (note that
+the ``llvm-objcopy`` tool is required for ``pahole`` as well, so check its
+presence, too):
 
 ::
 
     $ pahole --help | grep BTF
     -J, --btf_encode           Encode as BTF
 
-For BTF (BPF Type Format), first of all, generating debugging information by adding ``-g``,
-which can later on be passed to llc with ``-mattr=dwarfris``:
-(note that elfutils version (>= 0.173) don't need the ``dwarfris`` flag)
+Generating debugging information also requires the front end to generate
+source level debug information by passing ``-g`` to the ``clang`` command
+line. Note that ``-g`` is needed independently of whether ``llc``'s
+``dwarfris`` option is used. Full example for generating the object file:
 
 ::
 
     $ clang -O2 -g -Wall -target bpf -emit-llvm -c xdp-example.c -o xdp-example.bc
     $ llc xdp-example.bc -march=bpf -mattr=dwarfris -filetype=obj -o xdp-example.o
 
-Or, using clang only, build a BPF program with debugging information:
+Alternatively, by using clang only to build a BPF program with debugging
+information (again, the dwarfris flag can be omitted when having proper
+elfutils version):
 
 ::
 
     $ clang -target bpf -O2 -g -c -Xclang -target-feature -Xclang +dwarfris -c xdp-example.c -o xdp-example.o
 
-And then ``pahole`` can properly dump structures of the BPF program:
+After successful compilation ``pahole`` can be used to properly dump structures
+of the BPF program based on the DWARF information:
 
 ::
 
@@ -1239,14 +1271,16 @@ And then ``pahole`` can properly dump structures of the BPF program:
             /* last cacheline: 12 bytes */
     };
 
-Through the option ``-J``, ``pahole`` can eventually generate  BTF (BPF Type Format) through DWARF format:
-(note that DWARF is still retained even though generating BTF)
+Through the option ``-J`` ``pahole`` can eventually generate the BTF from
+DWARF. In the object file DWARF data will still be retained alongside the
+newly added BTF data. Full ``clang`` and ``pahole`` example combined:
 
 ::
 
+    $ clang -target bpf -O2 -Wall -g -c -Xclang -target-feature -Xclang +dwarfris -c xdp-example.c -o xdp-example.o
     $ pahole -J xdp-example.o
 
-The ``.BTF`` section can be dumped through readelf:
+The presence of a ``.BTF`` section can be seen through ``readelf`` tool:
 
 ::
 
@@ -1255,12 +1289,8 @@ The ``.BTF`` section can be dumped through readelf:
       [18] .BTF              PROGBITS         0000000000000000  00000671
     [...]
 
-Note that LLVM's BPF back end currently does not support generating code
-that makes use of BPF's 32 bit subregisters. Inline assembly for BPF is
-currently unsupported, too.
-
-Furthermore, compilation from BPF assembly (e.g. ``llvm-mc xdp-example.S -arch bpf -filetype=obj -o xdp-example.o``)
-is currently not supported either due to missing BPF assembly parser.
+BPF loaders such as iproute2 will detect and load the BTF section, so that
+BPF maps can be annotated with type information.
 
 LLVM by default uses the BPF base instruction set for generating code
 in order to make sure that the generated object file can also be loaded
@@ -1340,6 +1370,13 @@ The native target is mostly needed in tracing for the case of walking
 the kernel's ``struct pt_regs`` that maps CPU registers, or other kernel
 structures where CPU's register width matters. In all other cases such
 as networking, the use of ``clang -target bpf`` is the preferred choice.
+
+Note that LLVM's BPF back end currently does not support generating code
+that makes use of BPF's 32 bit subregisters. Inline assembly for BPF is
+currently unsupported, too.
+
+Furthermore, compilation from BPF assembly (e.g. ``llvm-mc xdp-example.S -arch bpf -filetype=obj -o xdp-example.o``)
+is currently not supported either due to missing BPF assembly parser.
 
 When writing C programs for BPF, there are a couple of pitfalls to be aware
 of, compared to usual application development with C. The following items
@@ -2694,7 +2731,10 @@ of debugging:
 
 Dumping an entire map is possible through the ``map dump`` subcommand
 which iterates through all present map elements and dumps the key /
-value pairs as hex:
+value pairs.
+
+If no BTF (BPF Type Format) data is available for a given map, then
+the key / value pairs are dumped as hex:
 
   ::
 
@@ -2719,9 +2759,11 @@ value pairs as hex:
      [...]
      Found 6 elements
 
-With BTF (BPF Type Format), the map also holds debugging information about
-the key / value structure. For example, BTF in combination with  BPF map
-with the BPF_ANNOTATE_KV_PAIR() macro, ``test_xdp_noinline.o`` from kernel selftests:
+However, with BTF, the map also holds debugging information about
+the key and value structures. For example, BTF in combination with
+BPF maps and the BPF_ANNOTATE_KV_PAIR() macro from iproute2 will
+result in the following dump (``test_xdp_noinline.o`` from kernel
+selftests):
 
   ::
 
@@ -2746,7 +2788,13 @@ with the BPF_ANNOTATE_KV_PAIR() macro, ``test_xdp_noinline.o`` from kernel selft
 
         [...]
 
-Compiling through LLVM and generating BTF through debugging information by ``pahole``:
+The BPF_ANNOTATE_KV_PAIR() macro forces a map-specific ELF section
+containing an empty key and value, this enables the iproute2 BPF loader
+to correlate BTF data with that section and thus allows to choose the
+corresponding types out of the BTF for loading the map.
+
+Compiling through LLVM and generating BTF through debugging information
+by ``pahole``:
 
   ::
 
