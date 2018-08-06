@@ -84,10 +84,10 @@ var (
 
 	ciliumNPClient clientset.Interface
 
-	networkPolicyV1VerConstr, _ = go_version.NewConstraint(">= 1.7.0")
+	networkPolicyV1VerConstr = versioncheck.MustCompile(">= 1.7.0")
 
-	ciliumv2VerConstr, _           = go_version.NewConstraint(">= 1.7.0")
-	ciliumUpdateStatusVerConstr, _ = go_version.NewConstraint(">= 1.11.0")
+	ciliumv2VerConstr           = versioncheck.MustCompile(">= 1.7.0")
+	ciliumUpdateStatusVerConstr = versioncheck.MustCompile(">= 1.11.0")
 
 	k8sCM = controller.NewManager()
 )

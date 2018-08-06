@@ -75,7 +75,7 @@ var (
 
 	// ciliumEPControllerLimit is the range of k8s versions with which we are
 	// willing to run the EndpointCRD controllers
-	ciliumEPControllerLimit, _ = go_version.NewConstraint("> 1.6")
+	ciliumEPControllerLimit = versioncheck.MustCompile("> 1.6")
 
 	// ciliumEndpointSyncControllerK8sClient is a k8s client shared by the
 	// RunK8sCiliumEndpointSync and RunK8sCiliumEndpointSyncGC. They obtain the
@@ -85,7 +85,7 @@ var (
 
 	// ciliumUpdateStatusVerConstr is the minimal version supported for
 	// to perform a CRD UpdateStatus.
-	ciliumUpdateStatusVerConstr, _ = go_version.NewConstraint(">= 1.11.0")
+	ciliumUpdateStatusVerConstr = versioncheck.MustCompile(">= 1.11.0")
 
 	k8sServerVer *go_version.Version
 )

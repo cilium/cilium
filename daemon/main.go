@@ -53,6 +53,7 @@ import (
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/version"
+	"github.com/cilium/cilium/pkg/versioncheck"
 	"github.com/cilium/cilium/pkg/workloads"
 
 	"github.com/go-openapi/loads"
@@ -66,11 +67,11 @@ import (
 )
 
 var (
-	minKernelVer, _ = go_version.NewConstraint(">= 4.8.0")
-	minClangVer, _  = go_version.NewConstraint(">= 3.8.0")
+	minKernelVer = versioncheck.MustCompile(">= 4.8.0")
+	minClangVer  = versioncheck.MustCompile(">= 3.8.0")
 
-	recKernelVer, _ = go_version.NewConstraint(">= 4.9.0")
-	recClangVer, _  = go_version.NewConstraint(">= 3.9.0")
+	recKernelVer = versioncheck.MustCompile(">= 4.9.0")
+	recClangVer  = versioncheck.MustCompile(">= 3.9.0")
 )
 
 const (
