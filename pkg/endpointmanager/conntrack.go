@@ -16,7 +16,6 @@ package endpointmanager
 
 import (
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -44,23 +43,14 @@ func RunGC(e *endpoint.Endpoint, isIPv6 bool, filter *ctmap.GCFilter) {
 	var file string
 	var mapType string
 
-	// Choose whether to garbage collect the local or global conntrack map
-	if e != nil {
-		if isIPv6 {
-			mapType = ctmap.MapName6
-		} else {
-			mapType = ctmap.MapName4
-		}
-		file = bpf.MapPath(mapType + strconv.Itoa(int(e.ID)))
+	// Even if the pointer points to nil, passing it directly to a function
+	// that receives an interface doesn't pass the nil through, so to avoid
+	// a segfault we check the pointer and directly pass nil here.
+	if e == nil {
+		file = ctmap.GetMapPath(nil, isIPv6)
 	} else {
-		if isIPv6 {
-			mapType = ctmap.MapName6Global
-		} else {
-			mapType = ctmap.MapName4Global
-		}
-		file = bpf.MapPath(mapType)
+		file = ctmap.GetMapPath(e, isIPv6)
 	}
-
 	m, err := bpf.OpenMap(file)
 	if err != nil {
 		log.WithError(err).WithField(logfields.Path, file).Warn("Unable to open map")
