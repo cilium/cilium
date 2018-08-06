@@ -1061,11 +1061,11 @@ func (kub *Kubectl) ValidateNoErrorsOnLogs(duration time.Duration) {
 			return
 		}
 		err = ioutil.WriteFile(
-			fmt.Sprintf("%s/cilium_test.log", testPath),
+			fmt.Sprintf("%s/%s", testPath, CiliumTestLog),
 			[]byte(logs), LogPerm)
 
 		if err != nil {
-			kub.logger.WithError(err).Error("Cannot create cilium_test.log")
+			kub.logger.WithError(err).Errorf("Cannot create %s", CiliumTestLog)
 		}
 	}()
 
