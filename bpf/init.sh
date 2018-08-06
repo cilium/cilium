@@ -179,7 +179,7 @@ function bpf_compile()
 	TYPE=$3
 	EXTRA_OPTS=$4
 
-	clang -O2 -target bpf -emit-llvm				\
+	clang -O2 -g -target bpf -emit-llvm				\
 	      -Wno-address-of-packed-member -Wno-unknown-warning-option	\
 	      -I. -I$DIR -I$LIB/include					\
 	      -D__NR_CPUS__=$(nproc)					\
@@ -187,7 +187,7 @@ function bpf_compile()
 	      -DHANDLE_NS						\
 	      $EXTRA_OPTS						\
 	      -c $LIB/$IN -o - |					\
-	llc -march=bpf -mcpu=probe -filetype=$TYPE -o $OUT
+	llc -march=bpf -mcpu=probe -mattr=dwarfris -filetype=$TYPE -o $OUT
 }
 
 function xdp_load()

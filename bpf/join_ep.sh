@@ -38,12 +38,12 @@ function bpf_compile()
 	TYPE=$3
 	EXTRA_CFLAGS=$4
 
-	clang -O2 -target bpf -emit-llvm $EXTRA_CFLAGS			\
+	clang -O2 -g -target bpf -emit-llvm $EXTRA_CFLAGS			\
 	      -Wno-address-of-packed-member -Wno-unknown-warning-option	\
 	      -I$RUNDIR/globals -I$EPDIR -I$LIB/include			\
 	      -D__NR_CPUS__=$(nproc)					\
 	      -c $LIB/$IN -o - |					\
-	llc -march=bpf -mcpu=probe -filetype=$TYPE -o $EPDIR/$OUT
+	llc -march=bpf -mcpu=probe -mattr=dwarfris -filetype=$TYPE -o $EPDIR/$OUT
 }
 
 echo "Join EP id=$EPDIR ifname=$IFNAME"
