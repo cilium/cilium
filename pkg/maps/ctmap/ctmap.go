@@ -66,6 +66,40 @@ const (
 	deleteEntry
 )
 
+// CtEndpoint represents an endpoint for the functions required to manage
+// conntrack maps for the endpoint.
+type CtEndpoint interface {
+	StringID() string
+}
+
+// GetMapPath returns the path for the CT map for the specified endpoint.
+// Returns the global map path if e is nil.
+func GetMapPath(e CtEndpoint, isIPv6 bool) string {
+	var (
+		file    string
+		mapType string
+	)
+
+	// Choose whether to garbage collect the local or global conntrack map
+	if e != nil {
+		if isIPv6 {
+			mapType = MapName6
+		} else {
+			mapType = MapName4
+		}
+		file = bpf.MapPath(mapType + e.StringID())
+	} else {
+		if isIPv6 {
+			mapType = MapName6Global
+		} else {
+			mapType = MapName4Global
+		}
+		file = bpf.MapPath(mapType)
+	}
+
+	return file
+}
+
 type CtType int
 
 // CtKey is the interface describing keys to the conntrack maps.
