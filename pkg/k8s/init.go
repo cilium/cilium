@@ -24,8 +24,8 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/versioncheck"
 
-	go_version "github.com/hashicorp/go-version"
 	"github.com/sirupsen/logrus"
 )
 
@@ -87,7 +87,7 @@ func retrieveNodeInformation(nodeName string) (*node.Node, error) {
 // Init initializes the Kubernetes package. It is required to call Configure()
 // beforehand.
 func Init() error {
-	compatibleVersions, err := go_version.NewConstraint(compatibleK8sVersions)
+	compatibleVersions, err := versioncheck.Compile(compatibleK8sVersions)
 	if err != nil {
 		return fmt.Errorf("unable to parse compatible k8s verions: %s", err)
 	}
