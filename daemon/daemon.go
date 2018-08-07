@@ -1353,8 +1353,14 @@ func NewDaemon() (*Daemon, error) {
 	}
 	node.SetIPv4HealthIP(health4)
 	node.SetIPv6HealthIP(health6)
-	log.Debugf("IPv4 health endpoint address: %s", node.GetIPv4HealthIP())
-	log.Debugf("IPv6 health endpoint address: %s", node.GetIPv6HealthIP())
+	localNode := node.GetLocalNode()
+	if localNode == nil {
+		log.Fatal("Error while trying to get local node")
+	}
+	localNode.UpdateHealthAddresses(node.GetIPv4HealthIP(), node.GetIPv6HealthIP())
+	localNode.OnUpdate()
+	log.Debugf("IPv4 health endpoint address: %s", localNode.IPv4HealthIP)
+	log.Debugf("IPv6 health endpoint address: %s", localNode.IPv6HealthIP)
 
 	d.startStatusCollector()
 	d.dnsPoller = fqdn.NewDNSPoller(fqdn.DNSPollerConfig{

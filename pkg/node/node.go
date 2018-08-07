@@ -194,6 +194,12 @@ func (n *Node) getHealthAddresses(ipv4 bool) *models.NodeAddressing {
 	}
 }
 
+// UpdateHealthAddresses updates the health endpoints IP in the node
+func (n *Node) UpdateHealthAddresses(ipv4 net.IP, ipv6 net.IP) {
+	n.IPv4HealthIP = ipv4
+	n.IPv6HealthIP = ipv6
+}
+
 // GetModel returns the API model representation of a node.
 func (n *Node) GetModel(ipv4 bool) *models.NodeElement {
 	return &models.NodeElement{
