@@ -100,6 +100,16 @@ func GetMapPath(e CtEndpoint, isIPv6 bool) string {
 	return file
 }
 
+// getMaps fetches all paths for conntrack maps associated with the specified
+// endpoint, and returns a map from these paths to the keySize used for that
+// map.
+func getMapPathsToKeySize(e CtEndpoint) map[string]uint32 {
+	return map[string]uint32{
+		GetMapPath(e, true):  uint32(unsafe.Sizeof(CtKey6{})),
+		GetMapPath(e, false): uint32(unsafe.Sizeof(CtKey4{})),
+	}
+}
+
 type CtType int
 
 // CtKey is the interface describing keys to the conntrack maps.
@@ -478,5 +488,60 @@ func Flush(m *bpf.Map, mapName string) int {
 		return doGC4(m, filter)
 	default:
 		return 0
+	}
+}
+
+// checkAndUpgrade determines whether the ctmap on the filesystem has different
+// map properties than this version of Cilium, and if so, removes the map from
+// the filesystem so that a subsequent BPF prog install will recreate it with
+// the correct map properties.
+//
+// Returns true if the map was upgraded.
+func checkAndUpgrade(m *bpf.Map, e CtEndpoint, keySize uint32) bool {
+	desiredMapInfo := &bpf.MapInfo{
+		MapType:   bpf.MapTypeHash,
+		KeySize:   keySize,
+		ValueSize: uint32(unsafe.Sizeof(CtEntry{})),
+	}
+
+	if e == nil {
+		desiredMapInfo.MaxEntries = MapNumEntriesGlobal
+	} else {
+		desiredMapInfo.MaxEntries = MapNumEntriesLocal
+	}
+
+	return m.CheckAndUpgrade(desiredMapInfo)
+}
+
+// DeleteIfUpgradeNeeded attempts to open the conntrack maps associated with
+// the specified endpoint, and delete the maps from the filesystem if any
+// properties do not match the properties defined in this package.
+//
+// The typical trigger for this is when, for example, the CT entry size changes
+// from one version of Cilium to the next. When Cilium restarts, it may opt
+// to restore endpoints from the prior life. Existing endpoints that use the
+// old map style are incompatible with the new version, so the CT map must be
+// destroyed and recreated during upgrade. By removing the old map location
+// from the filesystem, we ensure that the next time that the endpoint is
+// regenerated, it will recreate a new CT map with the new properties.
+//
+// Note that if an existing BPF program refers to the map at the canonical
+// paths (as fetched via the getMapPathsToKeySize() call below), then that BPF
+// program will continue to operate on the old map, even once the map is
+// removed from the filesystem. The old map will only be completely cleaned up
+// once all referenced to the map are cleared - that is, all BPF programs which
+// refer to the old map and removed/reloaded.
+func DeleteIfUpgradeNeeded(e CtEndpoint) {
+	for path, keySize := range getMapPathsToKeySize(e) {
+		scopedLog := log.WithField(logfields.Path, path)
+		oldMap, err := bpf.OpenMap(path)
+		if err != nil {
+			scopedLog.WithError(err).Debug("Couldn't open CT map for upgrade")
+			continue
+		}
+		if checkAndUpgrade(oldMap, e, keySize) {
+			scopedLog.Info("CT Map upgraded, expect brief disruption of ongoing connections")
+		}
+		oldMap.Close()
 	}
 }
