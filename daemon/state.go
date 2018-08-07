@@ -97,12 +97,18 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 			continue
 		}
 
-		ep.Mutex.Lock()
+		if lockerr := ep.LockAlive(); lockerr != nil {
+			scopedLog.WithError(lockerr).Error("Failed to lock endpoint. Not restoring endpoint.")
+			state.toClean = append(state.toClean, ep)
+			continue
+		}
 		scopedLog.Debug("Restoring endpoint")
 		ep.LogStatusOKLocked(endpoint.Other, "Restoring endpoint from previous cilium instance")
 
 		if err := d.allocateIPsLocked(ep); err != nil {
-			ep.Mutex.Unlock()
+			if lockerr := ep.UnlockAlive(); lockerr != nil {
+				ep.LogDisconnectedMutexAction(lockerr, "after failing to re-allocate IP of endpoint")
+			}
 			scopedLog.WithError(err).Error("Failed to re-allocate IP of endpoint. Not restoring endpoint.")
 			state.toClean = append(state.toClean, ep)
 			continue
@@ -117,7 +123,11 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 			ep.Options.SetBool(option.EgressPolicy, alwaysEnforce)
 		}
 
-		ep.Mutex.Unlock()
+		if lockerr := ep.UnlockAlive(); lockerr != nil {
+			scopedLog.WithError(lockerr).Error("Failed to unlock endpoint. Not restoring endpoint.")
+			state.toClean = append(state.toClean, ep)
+			continue
+		}
 
 		state.restored = append(state.restored, ep)
 	}
@@ -144,28 +154,39 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 		// not in a goroutine) because regenerateRestoredEndpoints must guarantee
 		// upon returning that endpoints are exposed to other subsystems via
 		// endpointmanager.
-		ep.Mutex.RLock()
+
+		if lockerr := ep.RLockAlive(); lockerr != nil {
+			ep.LogDisconnectedMutexAction(lockerr, "before insertion to ep manager")
+			continue
+		}
 		endpointmanager.Insert(ep)
-		ep.Mutex.RUnlock()
+		if lockerr := ep.RUnlockAlive(); lockerr != nil {
+			ep.LogDisconnectedMutexAction(lockerr, "after insertion to ep manager")
+			continue
+		}
 
 		go func(ep *endpoint.Endpoint, epRegenerated chan<- bool) {
-			ep.Mutex.RLock()
+			if lockerr := ep.RLockAlive(); lockerr != nil {
+				ep.LogDisconnectedMutexAction(lockerr, "before filtering labels during regenerating restored endpoint")
+				return
+			}
 			scopedLog := log.WithField(logfields.EndpointID, ep.ID)
 			// Filter the restored labels with the new daemon's filter
 			l, _ := labels.FilterLabels(ep.OpLabels.IdentityLabels())
-			ep.Mutex.RUnlock()
+			if lockerr := ep.RUnlockAlive(); lockerr != nil {
+				ep.LogDisconnectedMutexAction(lockerr, "after filtering labels during regenerating restored endpoint")
+				scopedLog.WithError(lockerr).Warn("Endpoint removed, unable to unlock it")
+				return
+			}
 
 			identity, _, err := identityPkg.AllocateIdentity(l)
 			if err != nil {
 				scopedLog.WithError(err).Warn("Unable to restore endpoint")
 				epRegenerated <- false
 			}
-			ep.Mutex.Lock()
 
-			state := ep.GetStateLocked()
-			if state == endpoint.StateDisconnected || state == endpoint.StateDisconnecting {
+			if lockerr := ep.LockAlive(); lockerr != nil {
 				scopedLog.Warn("Endpoint to restore has been deleted")
-				ep.Mutex.Unlock()
 				return
 			}
 
@@ -183,7 +204,9 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 			ep.SetIdentity(identity)
 
 			ready := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Triggering synchronous endpoint regeneration while syncing state to host")
-			ep.Mutex.Unlock()
+			if lockerr := ep.UnlockAlive(); lockerr != nil {
+				scopedLog.Warn("Endpoint to restore has been deleted")
+			}
 
 			if !ready {
 				scopedLog.WithField(logfields.EndpointState, ep.GetState()).Warn("Endpoint in inconsistent state")
@@ -196,9 +219,10 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 				return
 			}
 
-			ep.Mutex.RLock()
+			// NOTE: UnconditionalRLock is used here because it's used only for logging an already restored endpoint
+			ep.UnconditionalRLock()
 			scopedLog.WithField(logfields.IPAddr, []string{ep.IPv4.String(), ep.IPv6.String()}).Info("Restored endpoint")
-			ep.Mutex.RUnlock()
+			ep.UnconditionalRUnlock()
 			epRegenerated <- true
 		}(ep, epRegenerated)
 	}
