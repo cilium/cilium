@@ -867,3 +867,29 @@ func (m *Map) resolveErrors() error {
 
 	return nil
 }
+
+// KeySize determines the BPF map key size for the specified size, by rounding
+// up the size according to the rules used by the kernel.
+//
+// Usage: bpf.KeySize(unsafe.Sizeof(foo{}))
+func KeySize(size uintptr) uint32 {
+	rem := size % 8
+	return uint32(size + (8 - rem))
+}
+
+// CheckAndUpgrade checks the received map's properties (for the map currently
+// loaded into the kernel) against the desired properties, and if they do not
+// match, deletes the map.
+//
+// Returns true if the map was upgraded.
+func (m *Map) CheckAndUpgrade(desired *MapInfo) bool {
+	return objCheck(
+		m.fd,
+		m.path,
+		int(desired.MapType),
+		desired.KeySize,
+		desired.ValueSize,
+		desired.MaxEntries,
+		desired.Flags,
+	)
+}
