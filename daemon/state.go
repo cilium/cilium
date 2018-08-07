@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/workloads"
@@ -133,11 +134,20 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 	log.Infof("Regenerating %d restored endpoints", len(state.restored))
 
+	// Before regenerating, check whether the CT map has properties that
+	// match this Cilium userspace instance. If not, it must be removed
+	ctmap.DeleteIfUpgradeNeeded(nil)
+
 	// we need to signalize when the endpoints are regenerated, i.e., when
 	// they have finished to rebuild after being restored.
 	epRegenerated := make(chan bool, len(state.restored))
 
 	for _, ep := range state.restored {
+		// If the endpoint has local conntrack option enabled, then
+		// check whether the CT map needs upgrading (and do so).
+		if ep.Options.IsEnabled(option.ConntrackLocal) {
+			ctmap.DeleteIfUpgradeNeeded(ep)
+		}
 
 		// Insert into endpoint manager so it can be regenerated when calls to
 		// TriggerPolicyUpdates() are made. This must be done synchronously (i.e.,
