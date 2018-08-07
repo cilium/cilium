@@ -640,6 +640,9 @@ func (kub *Kubectl) WaitForKubeDNSEntry(name string) error {
 	// https://bugs.launchpad.net/ubuntu/+source/bind9/+bug/854705
 	digCMD := "dig +short %s @%s | grep -v -e '^;'"
 
+	// Also provide full dig output for debugging purposes.
+	digCmdLong := "dig %s @%s"
+
 	// If it fails we want to know if it's because of connection cannot be
 	// established or DNS does not exist.
 	digCMDFallback := "dig +tcp %s @%s"
@@ -652,6 +655,7 @@ func (kub *Kubectl) WaitForKubeDNSEntry(name string) error {
 
 	body := func() bool {
 		res := kub.Exec(fmt.Sprintf(digCMD, name, host))
+		_ = kub.Exec(fmt.Sprintf(digCmdLong, name, host))
 		if !res.WasSuccessful() {
 			_ = kub.Exec(fmt.Sprintf(digCMDFallback, name, host))
 		}
