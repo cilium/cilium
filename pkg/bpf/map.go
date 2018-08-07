@@ -543,3 +543,20 @@ func (m *Map) MetadataDiff(other *Map) bool {
 
 	return m1.DeepEquals(&m2)
 }
+
+// CheckAndUpgrade checks the received map's properties (for the map currently
+// loaded into the kernel) against the desired properties, and if they do not
+// match, deletes the map.
+//
+// Returns true if the map was upgraded.
+func (m *Map) CheckAndUpgrade(desired *MapInfo) bool {
+	return objCheck(
+		m.fd,
+		m.path,
+		int(desired.MapType),
+		desired.KeySize,
+		desired.ValueSize,
+		desired.MaxEntries,
+		desired.Flags,
+	)
+}
