@@ -77,15 +77,26 @@ var _ = Describe("K8sChaosTest", func() {
 
 		for _, pod := range pods {
 			for _, ip := range dsPods {
+				By("\tPinging test-ds service pod with IP %s from client pod %s", ip, pod)
 				res := kubectl.ExecPodCmd(
 					helpers.DefaultNamespace, pod, helpers.Ping(ip))
 				log.Debugf("Pod %s ping %v", pod, ip)
 				ExpectWithOffset(1, res).To(helpers.CMDSuccess(),
 					"Cannot ping from %q to %q", pod, ip)
 
+				By("\tWaiting for kube-dns entry for service testds-service")
 				err = kubectl.WaitForKubeDNSEntry(testDSService)
 				ExpectWithOffset(1, err).To(BeNil(), "DNS entry is not ready after timeout")
 
+				By("\tGetting ClusterIP For testds-service")
+				host, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, "testds-service")
+				ExpectWithOffset(1, err).To(BeNil(), "unable to get ClusterIP and port for service testds-service")
+
+				By("\tCurling testds-service via ClusterIP %s", host)
+				res = kubectl.ExecPodCmd(
+					helpers.DefaultNamespace, pod, helpers.CurlFail("http://%s:80/", host))
+
+				By("\tCurling testds-service via DNS hostname")
 				res = kubectl.ExecPodCmd(
 					helpers.DefaultNamespace, pod, helpers.CurlFail("http://%s:80/", testDSService))
 				ExpectWithOffset(1, res).To(helpers.CMDSuccess(),
@@ -95,6 +106,7 @@ var _ = Describe("K8sChaosTest", func() {
 	}
 
 	It("Endpoint can still connect while Cilium is not running", func() {
+		By("Waiting for deployed pods to be ready")
 		err := kubectl.WaitforPods(
 			helpers.DefaultNamespace,
 			fmt.Sprintf("-l zgroup=testDSClient"), 300)
@@ -103,6 +115,7 @@ var _ = Describe("K8sChaosTest", func() {
 		err = kubectl.CiliumEndpointWaitReady()
 		Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
 
+		By("Checking connectivity before restarting Cilium")
 		PingService()
 
 		By("Deleting cilium pods")
@@ -116,6 +129,7 @@ var _ = Describe("K8sChaosTest", func() {
 		err = kubectl.CiliumEndpointWaitReady()
 		Expect(err).To(BeNil(), "Endpoints are not ready after Cilium restarts")
 
+		By("Checking connectivity after restarting Cilium")
 		PingService()
 
 		By("Uninstall cilium pods")
@@ -126,6 +140,7 @@ var _ = Describe("K8sChaosTest", func() {
 
 		ExpectAllPodsTerminated(kubectl)
 
+		By("Checking connectivity after uninstalling Cilium")
 		PingService()
 
 		By("Install cilium pods")
@@ -138,6 +153,7 @@ var _ = Describe("K8sChaosTest", func() {
 		err = kubectl.CiliumEndpointWaitReady()
 		Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
 
+		By("Checking connectivity after reinstalling Cilium")
 		PingService()
 	})
 })
