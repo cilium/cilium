@@ -114,9 +114,9 @@ Loop:
 		case <-timeout.C:
 			break Loop
 		case <-tick.C:
-			ep.Mutex.RLock()
+			ep.RLockAlive()
 			secID = ep.SecurityIdentity
-			ep.Mutex.RUnlock()
+			ep.RUnlockAlive()
 			if secID != nil {
 				break Loop
 			}
