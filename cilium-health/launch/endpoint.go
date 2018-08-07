@@ -167,9 +167,13 @@ func CleanupEndpoint(owner endpoint.Owner) {
 // CleanupEndpoint() must be called before calling LaunchAsEndpoint() to ensure
 // cleanup of prior cilium-health endpoint instances.
 func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressing) error {
+	localNode := node.GetLocalNode()
+	if localNode == nil {
+		return fmt.Errorf("Cannot retrieve local node information")
+	}
 
-	ip4 := node.GetIPv4HealthIP()
-	ip6 := node.GetIPv6HealthIP()
+	ip4 := localNode.IPv4HealthIP
+	ip6 := localNode.IPv6HealthIP
 
 	// Prepare the endpoint change request
 	id := int64(addressing.CiliumIPv6(ip6).EndpointID())

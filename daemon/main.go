@@ -769,11 +769,14 @@ func initEnv(cmd *cobra.Command) {
 func runCiliumHealthEndpoint(d *Daemon) error {
 	// PingEndpoint will always fail the first time (initialization).
 	if err := health.PingEndpoint(); err != nil {
+		localNode := node.GetLocalNode()
+		if localNode == nil {
+			return fmt.Errorf("Cannot get the node configuration")
+		}
 		// Delete the process
 		health.CleanupEndpoint(d)
 		// Clean up agent resources
-		ip6 := node.GetIPv6HealthIP()
-		id := addressing.CiliumIPv6(ip6).EndpointID()
+		id := addressing.CiliumIPv6(localNode.IPv6HealthIP).EndpointID()
 		ep := endpointmanager.LookupCiliumID(id)
 		if ep == nil {
 			log.WithField(logfields.EndpointID, id).Debug("Didn't find existing cilium-health endpoint to delete")

@@ -1286,8 +1286,8 @@ func NewDaemon() (*Daemon, error) {
 		node.SetIPv4Loopback(loopbackIPv4)
 		log.Infof("  Loopback IPv4: %s", node.GetIPv4Loopback().String())
 	}
-
-	if err := node.ConfigureLocalNode(); err != nil {
+	localNode, err := node.ConfigureLocalNode()
+	if err != nil {
 		log.WithError(err).Fatal("Unable to initialize local node")
 	}
 
@@ -1351,10 +1351,10 @@ func NewDaemon() (*Daemon, error) {
 	if err != nil {
 		log.WithError(err).Fatal("Error while allocating cilium-health IP")
 	}
-	node.SetIPv4HealthIP(health4)
-	node.SetIPv6HealthIP(health6)
-	log.Debugf("IPv4 health endpoint address: %s", node.GetIPv4HealthIP())
-	log.Debugf("IPv6 health endpoint address: %s", node.GetIPv6HealthIP())
+
+	localNode.UpdateHealthAddresses(health4, health6)
+	log.Debugf("IPv4 health endpoint address: %s", localNode.IPv4HealthIP)
+	log.Debugf("IPv6 health endpoint address: %s", localNode.IPv6HealthIP)
 
 	d.startStatusCollector()
 	d.dnsPoller = fqdn.NewDNSPoller(fqdn.DNSPollerConfig{

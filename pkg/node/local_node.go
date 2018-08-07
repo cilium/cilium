@@ -17,8 +17,9 @@ package node
 import (
 	"github.com/cilium/cilium/pkg/option"
 
-	"k8s.io/api/core/v1"
 	"time"
+
+	"k8s.io/api/core/v1"
 )
 
 var localNode Node
@@ -30,8 +31,12 @@ func GetLocalNode() *Node {
 
 // ConfigureLocalNode configures the local node. This is called on agent
 // startup to configure the local node based on the configuration options
-// passed to the agent
-func ConfigureLocalNode() error {
+// passed to the agent.
+// It returns the current *Node struct and in case or a error in case that
+// cannot be created.
+// IPv4HealthIP and IPv6HealthIP needs to be updated after the health endpoint
+// is created
+func ConfigureLocalNode() (*Node, error) {
 	localNode = Node{
 		Name:    nodeName,
 		Cluster: option.Config.ClusterName,
@@ -44,8 +49,6 @@ func ConfigureLocalNode() error {
 		},
 		IPv4AllocCIDR: GetIPv4AllocRange(),
 		IPv6AllocCIDR: GetIPv6AllocRange(),
-		IPv4HealthIP:  GetIPv4HealthIP(),
-		IPv6HealthIP:  GetIPv6HealthIP(),
 		ClusterID:     option.Config.ClusterID,
 		Source:        FromAgentLocal,
 	}
@@ -66,5 +69,10 @@ func ConfigureLocalNode() error {
 			log.Fatalf("Unable to initialize local node due timeout")
 		}
 	}()
-	return nil
+	return &localNode, nil
+}
+
+// NotifyLocalNodeUpdated Update local node infomration in the key-value storage
+func NotifyLocalNodeUpdated() error {
+	return nodeStore.UpdateLocalKeySync(GetLocalNode())
 }
