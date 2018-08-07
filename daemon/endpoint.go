@@ -257,10 +257,14 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 		for {
 			select {
 			case <-ticker.C:
-				e.Mutex.RLock()
+				if lockerr := e.RLockAlive(); lockerr != nil {
+					return api.Error(PutEndpointIDFailedCode, fmt.Errorf("error locking endpoint: %s", lockerr.Error()))
+				}
 				epState := e.GetStateLocked()
 				hasSidecarProxy := e.HasSidecarProxy()
-				e.Mutex.RUnlock()
+				if lockerr := e.RUnlockAlive(); lockerr != nil {
+					return api.Error(PutEndpointIDFailedCode, fmt.Errorf("error unlocking endpoint: %s", lockerr.Error()))
+				}
 
 				if epState == endpoint.StateReady {
 					return NewPutEndpointIDCreated()
@@ -341,13 +345,7 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 	//
 	//  Support arbitrary changes? Support only if unset?
 
-	ep.Mutex.Lock()
-
-	// The endpoint may have just been deleted since the lookup, so return
-	// that it can't be found.
-	if ep.GetStateLocked() == endpoint.StateDisconnecting ||
-		ep.GetStateLocked() == endpoint.StateDisconnected {
-		ep.Mutex.Unlock()
+	if lockerr := ep.LockAlive(); lockerr != nil {
 		return NewPatchEndpointIDNotFound()
 	}
 
@@ -429,7 +427,11 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 			reason = "Waiting on endpoint initial program regeneration while handling API PATCH"
 		}
 	}
-	ep.Mutex.Unlock()
+
+	// If endpoint is disconnected, the request should fail
+	if lockerr := ep.LockAlive(); lockerr != nil {
+		return NewPatchEndpointIDNotFound()
+	}
 
 	if reason != "" {
 		if err := ep.RegenerateWait(h.d, reason); err != nil {
@@ -473,12 +475,12 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []er
 	ep.BuildMutex.Lock()
 
 	// Lock out any other writers to the endpoint
-	ep.Mutex.Lock()
+	ep.UnconditionalLock()
 
 	// In case multiple delete requests have been enqueued, have all of them
 	// except the first return here.
 	if ep.GetStateLocked() == endpoint.StateDisconnecting {
-		ep.Mutex.Unlock()
+		ep.UnconditionalUnlock()
 		ep.BuildMutex.Unlock()
 		return []error{}
 	}
@@ -535,7 +537,7 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []er
 	proxyWaitGroup := completion.NewWaitGroup(completionCtx)
 
 	errors = append(errors, ep.LeaveLocked(d, proxyWaitGroup)...)
-	ep.Mutex.Unlock()
+	ep.UnconditionalUnlock()
 
 	err := ep.WaitForProxyCompletions(proxyWaitGroup)
 	if err != nil {
@@ -603,9 +605,13 @@ func (d *Daemon) EndpointUpdate(id string, cfg *models.EndpointConfigurationSpec
 				return api.Error(PatchEndpointIDConfigFailedCode, err)
 			}
 		}
-		ep.Mutex.RLock()
+		if lockerr := ep.RLockAlive(); lockerr != nil {
+			return api.Error(PatchEndpointIDNotFoundCode, lockerr)
+		}
 		endpointmanager.UpdateReferences(ep)
-		ep.Mutex.RUnlock()
+		if lockerr := ep.RUnlockAlive(); lockerr != nil {
+			return api.Error(PatchEndpointIDNotFoundCode, lockerr)
+		}
 	} else {
 		return api.New(PatchEndpointIDConfigNotFoundCode, "endpoint %s not found", id)
 	}
@@ -685,7 +691,9 @@ func (h *getEndpointIDLabels) Handle(params GetEndpointIDLabelsParams) middlewar
 		return NewGetEndpointIDLabelsNotFound()
 	}
 
-	ep.Mutex.RLock()
+	if lockerr := ep.RLockAlive(); lockerr != nil {
+		return api.Error(GetEndpointIDInvalidCode, lockerr)
+	}
 	spec := &models.LabelConfigurationSpec{
 		User: ep.OpLabels.Custom.GetModel(),
 	}
@@ -699,7 +707,9 @@ func (h *getEndpointIDLabels) Handle(params GetEndpointIDLabelsParams) middlewar
 			Disabled:         ep.OpLabels.Disabled.GetModel(),
 		},
 	}
-	ep.Mutex.RUnlock()
+	if lockerr := ep.RUnlockAlive(); lockerr != nil {
+		return api.Error(GetEndpointIDInvalidCode, lockerr)
+	}
 
 	return NewGetEndpointIDLabelsOK().WithPayload(&cfg)
 }
@@ -817,9 +827,13 @@ func (h *putEndpointIDLabels) Handle(params PatchEndpointIDLabelsParams) middlew
 		return NewPatchEndpointIDLabelsNotFound()
 	}
 
-	ep.Mutex.RLock()
+	if lockerr := ep.RLockAlive(); lockerr != nil {
+		return api.Error(PutEndpointIDInvalidCode, lockerr)
+	}
 	currentLbls := ep.OpLabels.DeepCopy()
-	ep.Mutex.RUnlock()
+	if lockerr := ep.RUnlockAlive(); lockerr != nil {
+		return api.Error(PutEndpointIDInvalidCode, lockerr)
+	}
 
 	for _, lbl := range lbls {
 		if currentLbls.Custom[lbl.Key] == nil {
