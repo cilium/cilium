@@ -96,7 +96,7 @@ func (kub *Kubectl) CepGet(namespace string, pod string) *models.Endpoint {
 		"cep":       pod,
 		"namespace": namespace})
 
-	cmd := fmt.Sprintf("%s -n %s get cep %s -o json | jq '.status'", KubectlCmd, namespace, pod)
+	cmd := fmt.Sprintf("%s -n %s get cep %s -o json | jq '.details'", KubectlCmd, namespace, pod)
 	res := kub.Exec(cmd)
 	if !res.WasSuccessful() {
 		log.Debug("cep is not present")
@@ -121,7 +121,7 @@ func (kub *Kubectl) WaitCEPReady() error {
 	body := func() bool {
 		// Created a map of .id and IPv4 because endpoint id can be the same in different nodes.
 		endpointFilter := `{range [*]}{@.id}{"_"}{@.status.networking.addressing[0].ipv4}{"="}{@.status.policy.spec.policy-revision}{"\n"}{end}`
-		cepFilter := `{range .items[*]}{@.status.id}{"_"}{@.status.status.networking.addressing[0].ipv4}{"="}{@.status.status.policy.spec.policy-revision}{"\n"}{end}`
+		cepFilter := `{range .items[*]}{@.details.id}{"_"}{@.details.status.networking.addressing[0].ipv4}{"="}{@.details.status.policy.spec.policy-revision}{"\n"}{end}`
 		endpoints := map[string]string{}
 		for _, ciliumPod := range pods {
 			res := kub.ExecPodCmd(
@@ -994,7 +994,7 @@ func (kub *Kubectl) CiliumCheckReport() {
 		KubectlCmd, policiesFilter))
 	fmt.Fprintf(CheckLogs, "CiliumNetworkPolicies loaded: %v\n", cnp.Output())
 
-	cepFilter := `{range .items[*]}{.metadata.name}{"="}{.status.status.policy.realized.policy-enabled}{"\n"}{end}`
+	cepFilter := `{range .items[*]}{.metadata.name}{"="}{.details.status.policy.realized.policy-enabled}{"\n"}{end}`
 	cepStatus := kub.Exec(fmt.Sprintf(
 		"%s get cep -o jsonpath='%s' --all-namespaces",
 		KubectlCmd, cepFilter))

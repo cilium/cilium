@@ -237,7 +237,7 @@ var _ = Describe("K8sServicesTest", func() {
 					helpers.DefaultNamespace,
 					podName))
 				res.ExpectSuccess("cannot get Cilium Endpoint")
-				data, err := res.Filter(`{.status.status.policy.realized.cidr-policy.egress}`)
+				data, err := res.Filter(`{.details.status.policy.realized.cidr-policy.egress}`)
 				ExpectWithOffset(1, err).To(BeNil(), "unable to get endpoint %s metadata", podName)
 				return data.String()
 			}, 5*time.Minute, 10*time.Second).Should(ContainSubstring(expectedCIDR))
