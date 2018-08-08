@@ -2574,7 +2574,7 @@ func (e *Endpoint) syncPolicyMap() error {
 			// converted to network byte-order.
 			err := e.PolicyMap.DeleteKey(keyHostOrder)
 			if err != nil {
-				e.getLogger().WithError(err).Errorf("Failed to delete PolicyMap key %s", entry.Key)
+				e.getLogger().WithError(err).Errorf("Failed to delete PolicyMap key %v", entry.Key)
 				errors = append(errors, err)
 			} else {
 				// Operation was successful, remove from realized state.
