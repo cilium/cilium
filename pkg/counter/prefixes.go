@@ -30,26 +30,28 @@ type PrefixLengthCounter struct {
 	v4 IntCounter
 	v6 IntCounter
 
-	maxUniquePrefixes int
+	maxUniquePrefixes4 int
+	maxUniquePrefixes6 int
 }
 
 // NewPrefixLengthCounter returns a new PrefixLengthCounter which limits
 // insertions to the specified maximum number of unique prefix lengths.
-func NewPrefixLengthCounter(maxUniquePrefixes int) *PrefixLengthCounter {
+func NewPrefixLengthCounter(maxUniquePrefixes6, maxUniquePrefixes4 int) *PrefixLengthCounter {
 	return &PrefixLengthCounter{
-		v4:                make(IntCounter),
-		v6:                make(IntCounter),
-		maxUniquePrefixes: maxUniquePrefixes,
+		v4:                 make(IntCounter),
+		v6:                 make(IntCounter),
+		maxUniquePrefixes4: maxUniquePrefixes4,
+		maxUniquePrefixes6: maxUniquePrefixes6,
 	}
 }
 
 // checkLimits checks whether the specified new count of prefixes would exceed
 // the specified limit on the maximum number of unique keys, and returns an
 // error if it would exceed the limit.
-func (p *PrefixLengthCounter) checkLimits(current, newCount int) error {
-	if newCount > p.maxUniquePrefixes {
+func checkLimits(current, newCount, max int) error {
+	if newCount > max {
 		return fmt.Errorf("Adding specified prefixes would result in too many prefix lengths (current: %d, result: %d, max: %d)",
-			current, newCount, p.maxUniquePrefixes)
+			current, newCount, max)
 	}
 	return nil
 }
@@ -88,12 +90,12 @@ func (p *PrefixLengthCounter) Add(prefixes []*net.IPNet) (bool, error) {
 
 	// Check if they can be added given the limit in place
 	if newV4Prefixes {
-		if err := p.checkLimits(len(p.v4), len(newV4Counter)); err != nil {
+		if err := checkLimits(len(p.v4), len(newV4Counter), p.maxUniquePrefixes4); err != nil {
 			return false, err
 		}
 	}
 	if newV6Prefixes {
-		if err := p.checkLimits(len(p.v6), len(newV6Counter)); err != nil {
+		if err := checkLimits(len(p.v6), len(newV6Counter), p.maxUniquePrefixes6); err != nil {
 			return false, err
 		}
 	}
