@@ -28,7 +28,7 @@ var _ = Describe("K8sChaosTest", func() {
 	var (
 		kubectl       *helpers.Kubectl
 		demoDSPath    = helpers.ManifestGet("demo_ds.yaml")
-		testDSService = "testds-service.default.svc.cluster.local"
+		testDSService = "testds-service"
 	)
 
 	BeforeAll(func() {
@@ -85,7 +85,7 @@ var _ = Describe("K8sChaosTest", func() {
 					"Cannot ping from %q to %q", pod, ip)
 
 				By("Waiting for kube-dns entry for service testds-service")
-				err = kubectl.WaitForKubeDNSEntry(testDSService)
+				err = kubectl.WaitForKubeDNSEntry(testDSService, helpers.DefaultNamespace)
 				ExpectWithOffset(1, err).To(BeNil(), "DNS entry is not ready after timeout")
 
 				By("Getting ClusterIP For testds-service")
