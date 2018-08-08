@@ -43,7 +43,8 @@ const (
 	// are derived by building the bpf/ directory and running the script
 	// test/bpf/verifier-test.sh, then adjusting the number of unique
 	// prefix lengths until the script passes.
-	maxPrefixLengths = 4
+	maxPrefixLengths6 = 4
+	maxPrefixLengths4 = 18
 )
 
 // Key implements the bpf.MapKey interface.
@@ -172,11 +173,18 @@ func Delete(k bpf.MapKey) error {
 
 // GetMaxPrefixLengths determines how many unique prefix lengths are supported
 // simultaneously based on the underlying BPF map type in use.
-func (m *Map) GetMaxPrefixLengths() (count int) {
+func (m *Map) GetMaxPrefixLengths(ipv6 bool) (count int) {
 	if IPCache.MapType == bpf.BPF_MAP_TYPE_LPM_TRIE {
-		return net.IPv6len*8 + 1
+		if ipv6 {
+			return net.IPv6len*8 + 1
+		} else {
+			return net.IPv4len*8 + 1
+		}
 	}
-	return maxPrefixLengths
+	if ipv6 {
+		return maxPrefixLengths6
+	}
+	return maxPrefixLengths4
 }
 
 // BackedByLPM returns true if the IPCache is backed by a proper LPM
