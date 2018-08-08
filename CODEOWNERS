@@ -88,6 +88,7 @@ pkg/kafka/ @cilium/proxy
 pkg/kvstore/ @cilium/kvstore
 pkg/labels @cilium/policy
 pkg/launcher @pkg/agent
+pkg/loadbalancer @cilium/loadbalancer
 pkg/lock @pkg/agent
 pkg/logging/ @cilium/cli
 pkg/mac @cilium/bpf
