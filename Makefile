@@ -2,6 +2,7 @@ include Makefile.defs
 include daemon/bpf.sha
 
 SUBDIRS = proxylib envoy plugins bpf daemon cilium-health bugtool tools operator
+GOPACKAGES = ./pkg... ./plugins/... ./cilium/... ./daemon/... ./monitor/... ./cilium-health/... ./bugtool/... ./proxylib/...
 GOFILES ?= $(subst _$(ROOT_DIR)/,,$(shell $(GO) list ./... | grep -v -e /vendor/ -e /contrib/))
 TESTPKGS ?= $(subst _$(ROOT_DIR)/,,$(shell $(GO) list ./... | grep -v -e /api/v1 -e /vendor/ -e /contrib/ -e test))
 GOLANGVERSION = $(shell $(GO) version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
@@ -210,7 +211,7 @@ gofmt:
 
 govet:
 	@$(ECHO_CHECK) vetting all GOFILES...
-	$(QUIET)$(GO) tool vet api pkg test $(SUBDIRS)
+	$(QUIET)$(GO) vet api pkg test $(SUBDIRS)
 
 ineffassign:
 	@$(ECHO_CHECK) ineffassign
