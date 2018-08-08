@@ -398,6 +398,7 @@ var _ = Describe("NightlyExamples", func() {
 		})
 
 	})
+
 	Context("Upgrade test", func() {
 		var cleanupCallback = func() { return }
 
@@ -412,8 +413,7 @@ var _ = Describe("NightlyExamples", func() {
 
 			// Delete kube-dns because if not will be a restore the old endpoints
 			// from master instead of create the new ones.
-			_ = kubectl.DeleteResource(
-				"deploy", fmt.Sprintf("-n %s kube-dns", helpers.KubeSystemNamespace))
+			_ = kubectl.Delete(helpers.DNSDeployment())
 
 			ExpectAllPodsTerminated(kubectl)
 		})
@@ -422,9 +422,13 @@ var _ = Describe("NightlyExamples", func() {
 			cleanupCallback()
 		})
 
+		AfterAll(func() {
+			_ = kubectl.Apply(helpers.DNSDeployment())
+		})
+
 		for _, image := range helpers.NightlyStableUpgradesFrom {
 			func(image string) {
-				It(fmt.Sprintf("Update Cilium from %s to master"), func() {
+				It(fmt.Sprintf("Update Cilium from %s to master", image), func() {
 					helpers.InstallExampleCilium(kubectl, image)
 
 					err := kubectl.CiliumEndpointWaitReady()
@@ -455,9 +459,9 @@ var _ = Describe("NightlyExamples", func() {
 		})
 
 		AfterAll(func() {
-			ExpectAllPodsTerminated(kubectl)
 			kubectl.Delete(AppManifest)
 			kubectl.Delete(PolicyManifest)
+			ExpectAllPodsTerminated(kubectl)
 		})
 
 		It("GRPC example", func() {
