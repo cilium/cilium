@@ -76,11 +76,11 @@ func EnableLogstash(LogstashAddr string, refreshTime int) {
 				ep.UnconditionalRLock()
 				pes, err := ep.PolicyMap.DumpToSlice()
 				if err != nil {
-					ep.UnconditionalRUnlock()
+					ep.RUnlock()
 					continue
 				}
 				allPes[ep.ID] = pes
-				ep.UnconditionalRUnlock()
+				ep.RUnlock()
 			}
 			lss := processStats(allPes)
 			for _, ls := range lss {

@@ -262,9 +262,7 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 				}
 				epState := e.GetStateLocked()
 				hasSidecarProxy := e.HasSidecarProxy()
-				if lockerr := e.RUnlockAlive(); lockerr != nil {
-					return api.Error(PutEndpointIDFailedCode, fmt.Errorf("error unlocking endpoint: %s", lockerr.Error()))
-				}
+				e.RUnlock()
 
 				if epState == endpoint.StateReady {
 					return NewPutEndpointIDCreated()
@@ -480,7 +478,7 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []er
 	// In case multiple delete requests have been enqueued, have all of them
 	// except the first return here.
 	if ep.GetStateLocked() == endpoint.StateDisconnecting {
-		ep.UnconditionalUnlock()
+		ep.Unlock()
 		ep.BuildMutex.Unlock()
 		return []error{}
 	}
@@ -537,7 +535,7 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []er
 	proxyWaitGroup := completion.NewWaitGroup(completionCtx)
 
 	errors = append(errors, ep.LeaveLocked(d, proxyWaitGroup)...)
-	ep.UnconditionalUnlock()
+	ep.Unlock()
 
 	err := ep.WaitForProxyCompletions(proxyWaitGroup)
 	if err != nil {
@@ -609,9 +607,7 @@ func (d *Daemon) EndpointUpdate(id string, cfg *models.EndpointConfigurationSpec
 			return api.Error(PatchEndpointIDNotFoundCode, lockerr)
 		}
 		endpointmanager.UpdateReferences(ep)
-		if lockerr := ep.RUnlockAlive(); lockerr != nil {
-			return api.Error(PatchEndpointIDNotFoundCode, lockerr)
-		}
+		ep.RUnlock()
 	} else {
 		return api.New(PatchEndpointIDConfigNotFoundCode, "endpoint %s not found", id)
 	}
@@ -707,9 +703,7 @@ func (h *getEndpointIDLabels) Handle(params GetEndpointIDLabelsParams) middlewar
 			Disabled:         ep.OpLabels.Disabled.GetModel(),
 		},
 	}
-	if lockerr := ep.RUnlockAlive(); lockerr != nil {
-		return api.Error(GetEndpointIDInvalidCode, lockerr)
-	}
+	ep.RUnlock()
 
 	return NewGetEndpointIDLabelsOK().WithPayload(&cfg)
 }
@@ -831,9 +825,7 @@ func (h *putEndpointIDLabels) Handle(params PatchEndpointIDLabelsParams) middlew
 		return api.Error(PutEndpointIDInvalidCode, lockerr)
 	}
 	currentLbls := ep.OpLabels.DeepCopy()
-	if lockerr := ep.RUnlockAlive(); lockerr != nil {
-		return api.Error(PutEndpointIDInvalidCode, lockerr)
-	}
+	ep.RUnlock()
 
 	for _, lbl := range lbls {
 		if currentLbls.Custom[lbl.Key] == nil {

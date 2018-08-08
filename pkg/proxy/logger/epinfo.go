@@ -25,7 +25,7 @@ import (
 // The read lock must be held when calling any Get method.
 type EndpointInfoSource interface {
 	UnconditionalRLock()
-	UnconditionalRUnlock()
+	RUnlock()
 	GetID() uint64
 	GetIPv4Address() string
 	GetIPv6Address() string
@@ -39,7 +39,7 @@ type EndpointInfoSource interface {
 // The source's read lock must not be held.
 func getEndpointInfo(source EndpointInfoSource) *accesslog.EndpointInfo {
 	source.UnconditionalRLock()
-	defer source.UnconditionalRUnlock()
+	defer source.RUnlock()
 	return &accesslog.EndpointInfo{
 		ID:           source.GetID(),
 		IPv4:         source.GetIPv4Address(),

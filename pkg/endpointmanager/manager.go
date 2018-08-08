@@ -281,10 +281,7 @@ func TriggerPolicyUpdates(owner endpoint.Owner, force bool) *sync.WaitGroup {
 				// Regenerate only if state transition succeeds
 				regen = ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Triggering endpoint regeneration due to policy updates")
 			}
-			if lockerr := ep.UnlockAlive(); lockerr != nil {
-				log.WithError(lockerr).Warn("Error while handling policy updates for endpoint")
-				ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+lockerr.Error())
-			}
+			ep.Unlock()
 
 			if err != nil {
 				log.WithError(err).Warn("Error while handling policy updates for endpoint")
@@ -349,9 +346,8 @@ func AddEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, reason string) err
 		ep.SetStateLocked(endpoint.StateWaitingToRegenerate, reason)
 		build = true
 	}
-	if lockerr := ep.UnlockAlive(); lockerr != nil {
-		return lockerr
-	}
+	ep.Unlock()
+
 	if build {
 		if err := ep.RegenerateWait(owner, reason); err != nil {
 			ep.RemoveDirectory()
@@ -364,9 +360,7 @@ func AddEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, reason string) err
 	}
 	Insert(ep)
 	ep.InsertEvent()
-	if lockerr := ep.RUnlockAlive(); lockerr != nil {
-		return lockerr
-	}
+	ep.RUnlock()
 
 	return nil
 }

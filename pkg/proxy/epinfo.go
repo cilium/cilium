@@ -63,8 +63,6 @@ func (r *defaultEndpointInfoRegistry) FillEndpointIdentityByIP(ip net.IP, info *
 	info.Labels = ep.GetLabels()
 	info.LabelsSHA256 = ep.GetLabelsSHA()
 
-	if lockerr := ep.RUnlockAlive(); lockerr != nil {
-		ep.LogDisconnectedMutexAction(lockerr, "after FillEndpointIdentityByIP")
-	}
+	ep.RUnlock()
 	return true
 }
