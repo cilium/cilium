@@ -523,10 +523,10 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 			lockerr = e.LockAlive()
 			if lockerr != nil {
 				// holding the mutex to log the error
-				e.UnconditionalLock()
+				e.UnconditionalRLock()
 				epLogger := e.getLogger()
 				epLogger.WithError(lockerr).Error("Failed to destroy BPF maps after policy regeneration error - endpoint disconnected")
-				e.Unlock()
+				e.RUnlock()
 				return
 			}
 			epLogger := e.getLogger()
