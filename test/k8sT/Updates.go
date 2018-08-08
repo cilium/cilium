@@ -95,7 +95,7 @@ func ValidateCiliumUpgrades(kubectl *helpers.Kubectl) (cleanupCallback func()) {
 	demoPath := helpers.ManifestGet("demo.yaml")
 	l7Policy := helpers.ManifestGet("l7-policy.yaml")
 	apps := []string{helpers.App1, helpers.App2, helpers.App3}
-	app1Service := "app1-service.default.svc.cluster.local"
+	app1Service := "app1-service"
 
 	cleanupCallback = func() {
 		kubectl.Delete(l7Policy)
@@ -141,7 +141,7 @@ func ValidateCiliumUpgrades(kubectl *helpers.Kubectl) (cleanupCallback func()) {
 
 	appPods := helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "id")
 
-	err = kubectl.WaitForKubeDNSEntry(app1Service)
+	err = kubectl.WaitForKubeDNSEntry(app1Service, helpers.DefaultNamespace)
 	Expect(err).To(BeNil(), "DNS entry is not ready after timeout")
 
 	res := kubectl.ExecPodCmd(
@@ -202,7 +202,7 @@ func ValidateCiliumUpgrades(kubectl *helpers.Kubectl) (cleanupCallback func()) {
 
 	ExpectKubeDNSReady(kubectl)
 
-	err = kubectl.WaitForKubeDNSEntry(app1Service)
+	err = kubectl.WaitForKubeDNSEntry(app1Service, helpers.DefaultNamespace)
 	Expect(err).To(BeNil(), "DNS entry is not ready after timeout")
 
 	res = kubectl.ExecPodCmd(
