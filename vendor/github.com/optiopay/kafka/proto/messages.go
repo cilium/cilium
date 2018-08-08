@@ -226,9 +226,15 @@ func ComputeCrc(m *Message, compression Compression) uint32 {
 // writeMessageSet writes a Message Set into w.
 // It returns the number of bytes written and any error.
 func writeMessageSet(w io.Writer, messages []*Message, compression Compression) (int, error) {
+	// The RECORDS type is nullable.
+	if messages == nil {
+		return -1, nil
+	}
+
 	if len(messages) == 0 {
 		return 0, nil
 	}
+
 	// NOTE(caleb): it doesn't appear to be documented, but I observed that the
 	// Java client sets the offset of the synthesized message set for a group of
 	// compressed messages to be the offset of the last message in the set.
@@ -355,7 +361,12 @@ func (w *slicewriter) Slice() []byte {
 // malformed message from the set and returned earlier data.
 // The version refers to the kafka version used for the requests and responses.
 func readMessageSet(r io.Reader, size int32, version int16) ([]*Message, error) {
-	if size < 0 || size > maxParseBufSize {
+	// The RECORDS type is nullable.
+	if size < 0 { // null array
+		return nil, nil
+	}
+
+	if size > maxParseBufSize {
 		return nil, messageSizeError(int(size))
 	}
 
@@ -501,11 +512,15 @@ func ReadMetadataReq(r io.Reader) (*MetadataReq, error) {
 	req.Version = dec.DecodeInt16()
 	req.CorrelationID = dec.DecodeInt32()
 	req.ClientID = dec.DecodeString()
-	len, err := dec.DecodeArrayLen()
+	len, err := dec.DecodeArrayLen(true) // nullable
 	if err != nil {
 		return nil, err
 	}
-	req.Topics = make([]string, len)
+	if len < 0 { // null array
+		req.Topics = nil
+	} else {
+		req.Topics = make([]string, len)
+	}
 
 	for i := range req.Topics {
 		req.Topics[i] = dec.DecodeString()
@@ -532,7 +547,7 @@ func (r *MetadataReq) Bytes(version int16) ([]byte, error) {
 	enc.Encode(r.CorrelationID)
 	enc.Encode(r.ClientID)
 
-	enc.EncodeArrayLen(len(r.Topics))
+	enc.EncodeArrayLen(r.Topics)
 	for _, name := range r.Topics {
 		enc.Encode(name)
 	}
@@ -604,7 +619,7 @@ func (r *MetadataResp) Bytes(version int16) ([]byte, error) {
 		enc.Encode(r.ThrottleTime)
 	}
 
-	enc.EncodeArrayLen(len(r.Brokers))
+	enc.EncodeArrayLen(r.Brokers)
 	for _, broker := range r.Brokers {
 		enc.Encode(broker.NodeID)
 		enc.Encode(broker.Host)
@@ -623,7 +638,7 @@ func (r *MetadataResp) Bytes(version int16) ([]byte, error) {
 		enc.Encode(r.ControllerID)
 	}
 
-	enc.EncodeArrayLen(len(r.Topics))
+	enc.EncodeArrayLen(r.Topics)
 	for _, topic := range r.Topics {
 		enc.EncodeError(topic.Err)
 		enc.Encode(topic.Name)
@@ -632,7 +647,7 @@ func (r *MetadataResp) Bytes(version int16) ([]byte, error) {
 			enc.Encode(boolToInt8(topic.IsInternal))
 		}
 
-		enc.EncodeArrayLen(len(topic.Partitions))
+		enc.EncodeArrayLen(topic.Partitions)
 		for _, part := range topic.Partitions {
 			enc.EncodeError(part.Err)
 			enc.Encode(part.ID)
@@ -661,7 +676,7 @@ func ReadMetadataResp(r io.Reader) (*MetadataResp, error) {
 	_ = dec.DecodeInt32()
 	resp.CorrelationID = dec.DecodeInt32()
 
-	len, err := dec.DecodeArrayLen()
+	len, err := dec.DecodeArrayLen(false)
 	if err != nil {
 		return nil, err
 	}
@@ -674,7 +689,7 @@ func ReadMetadataResp(r io.Reader) (*MetadataResp, error) {
 		b.Port = dec.DecodeInt32()
 	}
 
-	len, err = dec.DecodeArrayLen()
+	len, err = dec.DecodeArrayLen(false)
 	if err != nil {
 		return nil, err
 	}
@@ -684,7 +699,7 @@ func ReadMetadataResp(r io.Reader) (*MetadataResp, error) {
 		var t = &resp.Topics[ti]
 		t.Err = errFromNo(dec.DecodeInt16())
 		t.Name = dec.DecodeString()
-		len, err = dec.DecodeArrayLen()
+		len, err = dec.DecodeArrayLen(false)
 		if err != nil {
 			return nil, err
 		}
@@ -696,7 +711,7 @@ func ReadMetadataResp(r io.Reader) (*MetadataResp, error) {
 			p.ID = dec.DecodeInt32()
 			p.Leader = dec.DecodeInt32()
 
-			len, err = dec.DecodeArrayLen()
+			len, err = dec.DecodeArrayLen(false)
 			if err != nil {
 				return nil, err
 			}
@@ -706,7 +721,7 @@ func ReadMetadataResp(r io.Reader) (*MetadataResp, error) {
 				p.Replicas[ri] = dec.DecodeInt32()
 			}
 
-			len, err = dec.DecodeArrayLen()
+			len, err = dec.DecodeArrayLen(false)
 			if err != nil {
 				return nil, err
 			}
@@ -773,7 +788,7 @@ func ReadFetchReq(r io.Reader) (*FetchReq, error) {
 		req.IsolationLevel = dec.DecodeInt8()
 	}
 
-	len, err := dec.DecodeArrayLen()
+	len, err := dec.DecodeArrayLen(false)
 	if err != nil {
 		return nil, err
 	}
@@ -783,7 +798,7 @@ func ReadFetchReq(r io.Reader) (*FetchReq, error) {
 		var topic = &req.Topics[ti]
 		topic.Name = dec.DecodeString()
 
-		len, err = dec.DecodeArrayLen()
+		len, err = dec.DecodeArrayLen(false)
 		if err != nil {
 			return nil, err
 		}
@@ -831,10 +846,10 @@ func (r *FetchReq) Bytes(version int16) ([]byte, error) {
 		enc.Encode(r.IsolationLevel)
 	}
 
-	enc.EncodeArrayLen(len(r.Topics))
+	enc.EncodeArrayLen(r.Topics)
 	for _, topic := range r.Topics {
 		enc.Encode(topic.Name)
-		enc.EncodeArrayLen(len(topic.Partitions))
+		enc.EncodeArrayLen(topic.Partitions)
 		for _, part := range topic.Partitions {
 			enc.Encode(part.ID)
 			enc.Encode(part.FetchOffset)
@@ -904,10 +919,10 @@ func (r *FetchResp) Bytes(version int16) ([]byte, error) {
 		enc.Encode(r.ThrottleTime)
 	}
 
-	enc.EncodeArrayLen(len(r.Topics))
+	enc.EncodeArrayLen(r.Topics)
 	for _, topic := range r.Topics {
 		enc.Encode(topic.Name)
-		enc.EncodeArrayLen(len(topic.Partitions))
+		enc.EncodeArrayLen(topic.Partitions)
 		for _, part := range topic.Partitions {
 			enc.Encode(part.ID)
 			enc.EncodeError(part.Err)
@@ -920,7 +935,7 @@ func (r *FetchResp) Bytes(version int16) ([]byte, error) {
 					enc.Encode(part.LogStartOffset)
 				}
 
-				enc.EncodeArrayLen(len(part.AbortedTransactions))
+				enc.EncodeArrayLen(part.AbortedTransactions)
 				for _, trans := range part.AbortedTransactions {
 					enc.Encode(trans.ProducerID)
 					enc.Encode(trans.FirstOffset)
@@ -957,7 +972,7 @@ func ReadFetchResp(r io.Reader) (*FetchResp, error) {
 	_ = dec.DecodeInt32()
 	resp.CorrelationID = dec.DecodeInt32()
 
-	len, err := dec.DecodeArrayLen()
+	len, err := dec.DecodeArrayLen(false)
 	if err != nil {
 		return nil, err
 	}
@@ -967,7 +982,7 @@ func ReadFetchResp(r io.Reader) (*FetchResp, error) {
 		var topic = &resp.Topics[ti]
 		topic.Name = dec.DecodeString()
 
-		len, err := dec.DecodeArrayLen()
+		len, err := dec.DecodeArrayLen(false)
 		if err != nil {
 			return nil, err
 		}
@@ -1177,7 +1192,7 @@ func ReadOffsetCommitReq(r io.Reader) (*OffsetCommitReq, error) {
 		req.RetentionTime = dec.DecodeInt64()
 	}
 
-	len, err := dec.DecodeArrayLen()
+	len, err := dec.DecodeArrayLen(false)
 	if err != nil {
 		return nil, err
 	}
@@ -1187,7 +1202,7 @@ func ReadOffsetCommitReq(r io.Reader) (*OffsetCommitReq, error) {
 		var topic = &req.Topics[ti]
 		topic.Name = dec.DecodeString()
 
-		len, err := dec.DecodeArrayLen()
+		len, err := dec.DecodeArrayLen(false)
 		if err != nil {
 			return nil, err
 		}
@@ -1234,10 +1249,10 @@ func (r *OffsetCommitReq) Bytes(version int16) ([]byte, error) {
 		enc.Encode(r.RetentionTime)
 	}
 
-	enc.EncodeArrayLen(len(r.Topics))
+	enc.EncodeArrayLen(r.Topics)
 	for _, topic := range r.Topics {
 		enc.Encode(topic.Name)
-		enc.EncodeArrayLen(len(topic.Partitions))
+		enc.EncodeArrayLen(topic.Partitions)
 		for _, part := range topic.Partitions {
 			enc.Encode(part.ID)
 			enc.Encode(part.Offset)
@@ -1295,7 +1310,7 @@ func ReadOffsetCommitResp(r io.Reader) (*OffsetCommitResp, error) {
 	_ = dec.DecodeInt32()
 	resp.CorrelationID = dec.DecodeInt32()
 
-	len, err := dec.DecodeArrayLen()
+	len, err := dec.DecodeArrayLen(false)
 	if err != nil {
 		return nil, err
 	}
@@ -1305,7 +1320,7 @@ func ReadOffsetCommitResp(r io.Reader) (*OffsetCommitResp, error) {
 		var t = &resp.Topics[ti]
 		t.Name = dec.DecodeString()
 
-		len, err := dec.DecodeArrayLen()
+		len, err := dec.DecodeArrayLen(false)
 		if err != nil {
 			return nil, err
 		}
@@ -1336,10 +1351,10 @@ func (r *OffsetCommitResp) Bytes(version int16) ([]byte, error) {
 		enc.Encode(r.ThrottleTime)
 	}
 
-	enc.EncodeArrayLen(len(r.Topics))
+	enc.EncodeArrayLen(r.Topics)
 	for _, t := range r.Topics {
 		enc.Encode(t.Name)
-		enc.EncodeArrayLen(len(t.Partitions))
+		enc.EncodeArrayLen(t.Partitions)
 		for _, p := range t.Partitions {
 			enc.Encode(p.ID)
 			enc.EncodeError(p.Err)
@@ -1384,16 +1399,20 @@ func ReadOffsetFetchReq(r io.Reader) (*OffsetFetchReq, error) {
 	req.ClientID = dec.DecodeString()
 	req.ConsumerGroup = dec.DecodeString()
 
-	len, err := dec.DecodeArrayLen()
+	len, err := dec.DecodeArrayLen(true) // nullable
 	if err != nil {
 		return nil, err
 	}
-	req.Topics = make([]OffsetFetchReqTopic, len)
+	if len < 0 { // null array
+		req.Topics = nil
+	} else {
+		req.Topics = make([]OffsetFetchReqTopic, len)
+	}
 
 	for ti := range req.Topics {
 		var topic = &req.Topics[ti]
 		topic.Name = dec.DecodeString()
-		len, err = dec.DecodeArrayLen()
+		len, err = dec.DecodeArrayLen(false)
 		if err != nil {
 			return nil, err
 		}
@@ -1422,10 +1441,10 @@ func (r *OffsetFetchReq) Bytes(version int16) ([]byte, error) {
 	enc.Encode(r.ClientID)
 
 	enc.Encode(r.ConsumerGroup)
-	enc.EncodeArrayLen(len(r.Topics))
+	enc.EncodeArrayLen(r.Topics)
 	for _, t := range r.Topics {
 		enc.Encode(t.Name)
-		enc.EncodeArrayLen(len(t.Partitions))
+		enc.EncodeArrayLen(t.Partitions)
 		for _, p := range t.Partitions {
 			enc.Encode(p)
 		}
@@ -1478,7 +1497,7 @@ func ReadOffsetFetchResp(r io.Reader) (*OffsetFetchResp, error) {
 	_ = dec.DecodeInt32()
 	resp.CorrelationID = dec.DecodeInt32()
 
-	len, err := dec.DecodeArrayLen()
+	len, err := dec.DecodeArrayLen(false)
 	if err != nil {
 		return nil, err
 	}
@@ -1488,7 +1507,7 @@ func ReadOffsetFetchResp(r io.Reader) (*OffsetFetchResp, error) {
 		var t = &resp.Topics[ti]
 		t.Name = dec.DecodeString()
 
-		len, err = dec.DecodeArrayLen()
+		len, err = dec.DecodeArrayLen(false)
 		if err != nil {
 			return nil, err
 		}
@@ -1521,10 +1540,10 @@ func (r *OffsetFetchResp) Bytes(version int16) ([]byte, error) {
 		enc.Encode(r.ThrottleTime)
 	}
 
-	enc.EncodeArrayLen(len(r.Topics))
+	enc.EncodeArrayLen(r.Topics)
 	for _, topic := range r.Topics {
 		enc.Encode(topic.Name)
-		enc.EncodeArrayLen(len(topic.Partitions))
+		enc.EncodeArrayLen(topic.Partitions)
 		for _, part := range topic.Partitions {
 			enc.Encode(part.ID)
 			enc.Encode(part.Offset)
@@ -1588,7 +1607,7 @@ func ReadProduceReq(r io.Reader) (*ProduceReq, error) {
 	req.RequiredAcks = dec.DecodeInt16()
 	req.Timeout = time.Duration(dec.DecodeInt32()) * time.Millisecond
 
-	len, err := dec.DecodeArrayLen()
+	len, err := dec.DecodeArrayLen(false)
 	if err != nil {
 		return nil, err
 	}
@@ -1598,7 +1617,7 @@ func ReadProduceReq(r io.Reader) (*ProduceReq, error) {
 		var topic = &req.Topics[ti]
 		topic.Name = dec.DecodeString()
 
-		len, err = dec.DecodeArrayLen()
+		len, err = dec.DecodeArrayLen(false)
 		if err != nil {
 			return nil, err
 		}
@@ -1643,10 +1662,10 @@ func (r *ProduceReq) Bytes(version int16) ([]byte, error) {
 
 	enc.EncodeInt16(r.RequiredAcks)
 	enc.EncodeInt32(int32(r.Timeout / time.Millisecond))
-	enc.EncodeArrayLen(len(r.Topics))
+	enc.EncodeArrayLen(r.Topics)
 	for _, t := range r.Topics {
 		enc.EncodeString(t.Name)
-		enc.EncodeArrayLen(len(t.Partitions))
+		enc.EncodeArrayLen(t.Partitions)
 		for _, p := range t.Partitions {
 			enc.EncodeInt32(p.ID)
 			i := len(buf)
@@ -1701,10 +1720,10 @@ func (r *ProduceResp) Bytes(version int16) ([]byte, error) {
 	// message size - for now just placeholder
 	enc.Encode(int32(0))
 	enc.Encode(r.CorrelationID)
-	enc.EncodeArrayLen(len(r.Topics))
+	enc.EncodeArrayLen(r.Topics)
 	for _, topic := range r.Topics {
 		enc.Encode(topic.Name)
-		enc.EncodeArrayLen(len(topic.Partitions))
+		enc.EncodeArrayLen(topic.Partitions)
 		for _, part := range topic.Partitions {
 			enc.Encode(part.ID)
 			enc.EncodeError(part.Err)
@@ -1738,7 +1757,7 @@ func ReadProduceResp(r io.Reader) (*ProduceResp, error) {
 	// total message size
 	_ = dec.DecodeInt32()
 	resp.CorrelationID = dec.DecodeInt32()
-	len, err := dec.DecodeArrayLen()
+	len, err := dec.DecodeArrayLen(false)
 	if err != nil {
 		return nil, err
 	}
@@ -1748,7 +1767,7 @@ func ReadProduceResp(r io.Reader) (*ProduceResp, error) {
 		var t = &resp.Topics[ti]
 		t.Name = dec.DecodeString()
 
-		len, err = dec.DecodeArrayLen()
+		len, err = dec.DecodeArrayLen(false)
 		if err != nil {
 			return nil, err
 		}
@@ -1805,7 +1824,7 @@ func ReadOffsetReq(r io.Reader) (*OffsetReq, error) {
 		req.IsolationLevel = dec.DecodeInt8()
 	}
 
-	len, err := dec.DecodeArrayLen()
+	len, err := dec.DecodeArrayLen(false)
 	if err != nil {
 		return nil, err
 	}
@@ -1815,7 +1834,7 @@ func ReadOffsetReq(r io.Reader) (*OffsetReq, error) {
 		var topic = &req.Topics[ti]
 		topic.Name = dec.DecodeString()
 
-		len, err = dec.DecodeArrayLen()
+		len, err = dec.DecodeArrayLen(false)
 		if err != nil {
 			return nil, err
 		}
@@ -1855,10 +1874,10 @@ func (r *OffsetReq) Bytes(version int16) ([]byte, error) {
 		enc.Encode(r.IsolationLevel)
 	}
 
-	enc.EncodeArrayLen(len(r.Topics))
+	enc.EncodeArrayLen(r.Topics)
 	for _, topic := range r.Topics {
 		enc.Encode(topic.Name)
-		enc.EncodeArrayLen(len(topic.Partitions))
+		enc.EncodeArrayLen(topic.Partitions)
 		for _, part := range topic.Partitions {
 			enc.Encode(part.ID)
 			enc.Encode(part.TimeMs)
@@ -1915,7 +1934,7 @@ func ReadOffsetResp(r io.Reader) (*OffsetResp, error) {
 	_ = dec.DecodeInt32()
 	resp.CorrelationID = dec.DecodeInt32()
 
-	len, err := dec.DecodeArrayLen()
+	len, err := dec.DecodeArrayLen(false)
 	if err != nil {
 		return nil, err
 	}
@@ -1925,7 +1944,7 @@ func ReadOffsetResp(r io.Reader) (*OffsetResp, error) {
 		var t = &resp.Topics[ti]
 		t.Name = dec.DecodeString()
 
-		len, err = dec.DecodeArrayLen()
+		len, err = dec.DecodeArrayLen(false)
 		if err != nil {
 			return nil, err
 		}
@@ -1935,7 +1954,7 @@ func ReadOffsetResp(r io.Reader) (*OffsetResp, error) {
 			var p = &t.Partitions[pi]
 			p.ID = dec.DecodeInt32()
 			p.Err = errFromNo(dec.DecodeInt16())
-			len, err = dec.DecodeArrayLen()
+			len, err = dec.DecodeArrayLen(false)
 			if err != nil {
 				return nil, err
 			}
@@ -1965,10 +1984,10 @@ func (r *OffsetResp) Bytes(version int16) ([]byte, error) {
 		enc.Encode(r.ThrottleTime)
 	}
 
-	enc.EncodeArrayLen(len(r.Topics))
+	enc.EncodeArrayLen(r.Topics)
 	for _, topic := range r.Topics {
 		enc.Encode(topic.Name)
-		enc.EncodeArrayLen(len(topic.Partitions))
+		enc.EncodeArrayLen(topic.Partitions)
 		for _, part := range topic.Partitions {
 			enc.Encode(part.ID)
 			enc.EncodeError(part.Err)
@@ -1977,7 +1996,7 @@ func (r *OffsetResp) Bytes(version int16) ([]byte, error) {
 				enc.Encode(part.TimeStamp.UnixNano() / int64(time.Millisecond))
 			}
 
-			enc.EncodeArrayLen(len(part.Offsets))
+			enc.EncodeArrayLen(part.Offsets)
 			for _, off := range part.Offsets {
 				enc.Encode(off)
 			}
