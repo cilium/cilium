@@ -154,9 +154,10 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 		os.RemoveAll("1_backup")
 	}()
 	e.SetIdentity(qaBarSecLblsCtx)
-	e.LockAlive()
+	lockerr := e.LockAlive()
+	c.Assert(lockerr, Not(IsNil))
 	ready := e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
-	e.UnlockAlive()
+	e.Unlock()
 	c.Assert(ready, Equals, true)
 	buildSuccess := <-e.Regenerate(ds.d, "test")
 	c.Assert(buildSuccess, Equals, true)
@@ -172,9 +173,10 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	e.LXCMAC = ProdHardAddr
 	e.NodeMAC = ProdHardAddr
 	e.SetIdentity(prodBarSecLblsCtx)
-	e.LockAlive()
+	lockerr = e.LockAlive()
+	c.Assert(lockerr, Not(IsNil))
 	ready = e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
-	e.UnlockAlive()
+	e.Unlock()
 	c.Assert(ready, Equals, true)
 	buildSuccess = <-e.Regenerate(ds.d, "test")
 	c.Assert(buildSuccess, Equals, true)
@@ -438,9 +440,10 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 		os.RemoveAll("1_backup")
 	}()
 	e.SetIdentity(qaBarSecLblsCtx)
-	e.LockAlive()
+	lockerr := e.LockAlive()
+	c.Assert(lockerr, Not(IsNil))
 	ready := e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
-	e.UnlockAlive()
+	e.Unlock()
 	c.Assert(ready, Equals, true)
 	buildSuccess := <-e.Regenerate(ds.d, "test")
 	c.Assert(buildSuccess, Equals, true)
@@ -453,9 +456,10 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 	c.Assert(qaBarNetworkPolicy, Not(IsNil))
 
 	// Delete the endpoint.
-	e.LockAlive()
+	lockerr = e.LockAlive()
+	c.Assert(lockerr, Not(IsNil))
 	e.LeaveLocked(ds.d, nil)
-	e.UnlockAlive()
+	e.Unlock()
 
 	// Check that the policy has been removed from the xDS cache.
 	networkPolicies = ds.getXDSNetworkPolicies(c, nil)

@@ -114,9 +114,10 @@ Loop:
 		case <-timeout.C:
 			break Loop
 		case <-tick.C:
-			ep.RLockAlive()
+			lockerr := ep.RLockAlive()
+			c.Assert(lockerr, Not(IsNil))
 			secID = ep.SecurityIdentity
-			ep.RUnlockAlive()
+			ep.RUnlock()
 			if secID != nil {
 				break Loop
 			}
