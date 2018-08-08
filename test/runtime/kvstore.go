@@ -49,7 +49,8 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 
 	AfterEach(func() {
 		containers(helpers.Delete)
-		vm.Exec("sudo systemctl start cilium")
+		err := vm.RestartCilium()
+		Expect(err).Should(BeNil())
 	})
 
 	JustAfterEach(func() {
