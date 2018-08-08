@@ -1351,10 +1351,20 @@ func NewDaemon() (*Daemon, error) {
 	if err != nil {
 		log.WithError(err).Fatal("Error while allocating cilium-health IP")
 	}
-	node.SetIPv4HealthIP(health4)
-	node.SetIPv6HealthIP(health6)
+
+	err = node.SetIPv4HealthIP(health4)
+	if err != nil {
+		log.WithError(err).Fatal("Error while set health IPv4 ip on the local node.")
+	}
+
+	err = node.SetIPv6HealthIP(health6)
+	if err != nil {
+		log.WithError(err).Fatal("Error while set health IPv6 ip on the local node.")
+	}
+
 	log.Debugf("IPv4 health endpoint address: %s", node.GetIPv4HealthIP())
 	log.Debugf("IPv6 health endpoint address: %s", node.GetIPv6HealthIP())
+	node.NotifyLocalNodeUpdated()
 
 	d.startStatusCollector()
 	d.dnsPoller = fqdn.NewDNSPoller(fqdn.DNSPollerConfig{
