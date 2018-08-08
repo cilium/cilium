@@ -1,6 +1,6 @@
 |logo|
 
-|build-status| |go-report| |go-doc| |rtd| |apache| |gpl| |slack|
+|build-status| |go-report| |go-doc| |rtd| |apache| |gpl| |slack| |hound|
 
 Cilium is open source software for providing and transparently securing network
 connectivity and loadbalancing between application workloads such as
@@ -307,3 +307,7 @@ under the `General Public License, Version 2.0 <bpf/COPYING>`_.
 .. |slack| image:: https://cilium.herokuapp.com/badge.svg
     :alt: Join the Cilium slack channel
     :target: https://cilium.herokuapp.com/
+
+.. |hound| image:: https://img.shields.io/badge/Reviewed_by-Hound-8E64B0.svg
+    :alt: Reviewed by Hound
+    :target: https://houndci.com
