@@ -59,7 +59,7 @@ var _ = Describe("RuntimeVerifier", func() {
 
 	AfterAll(func() {
 		err := vm.RestartCilium()
-		Expect(err).Should(BeNil())
+		Expect(err).Should(BeNil(), "restarting Cilium failed")
 	})
 
 	It("runs the kernel verifier against the tree copy of the BPF datapath", func() {

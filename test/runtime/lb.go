@@ -304,7 +304,7 @@ var _ = Describe("RuntimeLB", func() {
 			Expect(err).Should(BeNil())
 
 			err = vm.RestartCilium()
-			Expect(err).Should(BeNil())
+			Expect(err).Should(BeNil(), "restarting Cilium failed")
 
 			By("Checking that the service was restored correctly")
 
