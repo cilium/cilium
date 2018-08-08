@@ -695,9 +695,7 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 		return lockerr
 	}
 	scopedLog := e.getLogger()
-	if lockerr = e.RUnlockAlive(); lockerr != nil {
-		return lockerr
-	}
+	e.RUnlock()
 	scopedLog.Debug("Regenerating endpoint...")
 
 	origDir := filepath.Join(owner.GetStateDir(), e.StringID())
@@ -726,14 +724,7 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 		// changes are needed. There should be an another regenerate
 		// queued for taking care of it.
 		e.BuilderSetStateLocked(StateReady, "Completed endpoint regeneration with no pending regeneration requests")
-		if lockerr := e.UnlockAlive(); lockerr != nil {
-			if retErr == nil {
-				retErr = lockerr
-			} else {
-				e.LogDisconnectedMutexAction(lockerr, "after regenerate")
-			}
-			return
-		}
+		e.Unlock()
 	}()
 
 	revision, compilationExecuted, err = e.regenerateBPF(owner, tmpDir, reason)
@@ -794,9 +785,7 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	// Mark the endpoint to be running the policy revision it was
 	// compiled for
 	e.bumpPolicyRevisionLocked(revision)
-	if lockerr = e.UnlockAlive(); lockerr != nil {
-		return lockerr
-	}
+	e.Unlock()
 
 	scopedLog.Info("Endpoint policy recalculated")
 
@@ -826,14 +815,7 @@ func (e *Endpoint) Regenerate(owner Owner, reason string) <-chan bool {
 		}
 		// This must be accessed in a locked section, so we grab it here.
 		scopedLog := e.getLogger()
-		lockerr = e.RUnlockAlive()
-		if lockerr != nil {
-			e.LogDisconnectedMutexAction(lockerr, "before regeneration")
-			scopedLog.WithError(lockerr).Error("Endpoint regeneration not queued due to endpoint being in disconnected state")
-			req.ExternalDone <- false
-			close(req.ExternalDone)
-			return
-		}
+		e.RUnlock()
 
 		// We should only queue the request after we use all the endpoint's
 		// lock/unlock. Otherwise this can get a deadlock if the endpoint is
@@ -927,9 +909,7 @@ func (e *Endpoint) runIdentityToK8sPodSync() {
 				if e.SecurityIdentity != nil {
 					id = e.SecurityIdentity.ID.StringID()
 				}
-				if lockerr := e.RUnlockAlive(); lockerr != nil {
-					return lockerr
-				}
+				e.RUnlock()
 
 				if id != "" && e.GetK8sNamespace() != "" && e.GetK8sPodName() != "" {
 					return k8s.AnnotatePod(e, k8sConst.CiliumIdentityAnnotation, id)

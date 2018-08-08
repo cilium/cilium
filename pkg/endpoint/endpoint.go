@@ -491,9 +491,7 @@ func (e *Endpoint) WaitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 		return lockerr
 	}
 	logger := e.getLogger()
-	if lockerr := e.RUnlockAlive(); lockerr != nil {
-		return lockerr
-	}
+	e.RUnlock()
 
 	logger.Debug("Waiting for proxy updates to complete...")
 
@@ -1032,7 +1030,7 @@ func (e *Endpoint) GetLabelsSHA() string {
 // GetOpLabels returns the labels as slice
 func (e *Endpoint) GetOpLabels() []string {
 	e.UnconditionalRLock()
-	defer e.UnconditionalRUnlock()
+	defer e.RUnlock()
 	return e.OpLabels.IdentityLabels().GetModel()
 }
 
@@ -1231,7 +1229,7 @@ func (e *Endpoint) failedDirectoryPath() string {
 
 func (e *Endpoint) Allows(id identityPkg.NumericIdentity) bool {
 	e.UnconditionalRLock()
-	defer e.UnconditionalRUnlock()
+	defer e.RUnlock()
 
 	keyToLookup := policymap.PolicyKey{
 		Identity:         uint32(id),
@@ -1245,7 +1243,7 @@ func (e *Endpoint) Allows(id identityPkg.NumericIdentity) bool {
 // String returns endpoint on a JSON format.
 func (e *Endpoint) String() string {
 	e.UnconditionalRLock()
-	defer e.UnconditionalRUnlock()
+	defer e.RUnlock()
 	b, err := json.MarshalIndent(e, "", "  ")
 	if err != nil {
 		return err.Error()
@@ -1289,7 +1287,7 @@ func (e *Endpoint) SetDefaultOpts(opts *option.IntOptions) {
 // table to handle connection tracking (true), or the global table (false).
 func (e *Endpoint) ConntrackLocal() bool {
 	e.UnconditionalRLock()
-	defer e.UnconditionalRUnlock()
+	defer e.RUnlock()
 
 	if e.SecurityIdentity == nil || !e.Options.IsEnabled(option.ConntrackLocal) {
 		return false
@@ -1513,7 +1511,7 @@ func (e *Endpoint) Ct4MapPathLocked() string {
 
 func (e *Endpoint) LogStatus(typ StatusType, code StatusCode, msg string) {
 	e.UnconditionalLock()
-	defer e.UnconditionalUnlock()
+	defer e.Unlock()
 	// FIXME GH2323 instead of a mutex we could use a channel to send the status
 	// log message to a single writer?
 	e.logStatusLocked(typ, code, msg)
@@ -1587,9 +1585,7 @@ func (e *Endpoint) Update(owner Owner, cfg *models.EndpointConfigurationSpec) er
 	e.getLogger().WithField("configuration-options", cfg).Debug("updating endpoint configuration options")
 
 	if err := e.Options.Validate(cfg.Options); err != nil {
-		if lockerr = e.UnlockAlive(); lockerr != nil {
-			e.LogDisconnectedMutexAction(lockerr, "after failing to validate update")
-		}
+		e.Unlock()
 		return UpdateValidationError{err.Error()}
 	}
 
@@ -1597,9 +1593,7 @@ func (e *Endpoint) Update(owner Owner, cfg *models.EndpointConfigurationSpec) er
 	// Currently we return all-OK even in that case.
 	needToRegenerate, err := e.TriggerPolicyUpdatesLocked(owner, cfg.Options)
 	if err != nil {
-		if lockerr = e.UnlockAlive(); lockerr != nil {
-			e.LogDisconnectedMutexAction(lockerr, "after failing to trigger policy updates")
-		}
+		e.Unlock()
 		return UpdateCompilationError{err.Error()}
 	}
 
@@ -1628,9 +1622,7 @@ func (e *Endpoint) Update(owner Owner, cfg *models.EndpointConfigurationSpec) er
 		ticker := time.NewTicker(1 * time.Second)
 		defer ticker.Stop()
 
-		if lockerr = e.UnlockAlive(); lockerr != nil {
-			return lockerr
-		}
+		e.Unlock()
 		for {
 			select {
 			case <-ticker.C:
@@ -1642,38 +1634,32 @@ func (e *Endpoint) Update(owner Owner, cfg *models.EndpointConfigurationSpec) er
 				// specific states. See GH-3058.
 				stateTransitionSucceeded := e.SetStateLocked(StateWaitingToRegenerate, reason)
 				if stateTransitionSucceeded {
-					if lockerr = e.UnlockAlive(); lockerr != nil {
-						return lockerr
-					}
+					e.Unlock()
 					e.Regenerate(owner, reason)
 					return nil
 				}
-				if lockerr = e.UnlockAlive(); lockerr != nil {
-					return lockerr
-				}
+				e.Unlock()
 			case <-timeout:
 				if lockerr = e.LockAlive(); lockerr != nil {
 					return lockerr
 				}
 				e.getLogger().Warningf("timed out waiting for endpoint state to change")
-				if lockerr = e.UnlockAlive(); lockerr != nil {
-					return lockerr
-				}
+				e.Unlock()
 				return UpdateStateChangeError{fmt.Sprintf("unable to regenerate endpoint program because state transition to %s was unsuccessful; check `cilium endpoint log %d` for more information", StateWaitingToRegenerate, e.ID)}
 			}
 		}
 
 	}
 
-	lockerr = e.UnlockAlive()
-	return lockerr
+	e.Unlock()
+	return nil
 }
 
 // HasLabels returns whether endpoint e contains all labels l. Will return 'false'
 // if any label in l is not in the endpoint's labels.
 func (e *Endpoint) HasLabels(l pkgLabels.Labels) bool {
 	e.UnconditionalRLock()
-	defer e.UnconditionalRUnlock()
+	defer e.RUnlock()
 
 	return e.hasLabelsRLocked(l)
 }
@@ -1809,26 +1795,16 @@ func (e *Endpoint) removeFailedDirectory() {
 
 func (e *Endpoint) RemoveDirectory() {
 	e.UnconditionalLock()
-	defer e.UnconditionalUnlock()
+	defer e.Unlock()
 	e.removeDirectory()
 }
 
 // CreateDirectory creates endpoint directory
-func (e *Endpoint) CreateDirectory() (reterr error) {
+func (e *Endpoint) CreateDirectory() error {
 	if lockerr := e.LockAlive(); lockerr != nil {
 		return lockerr
 	}
-	defer func() {
-		lockerr := e.UnlockAlive()
-		if lockerr != nil {
-			if reterr == nil {
-				reterr = lockerr
-			} else {
-				e.LogDisconnectedMutexAction(lockerr, "after exiting from CreateDirectory")
-			}
-		}
-
-	}()
+	defer e.Unlock()
 	lxcDir := e.directoryPath()
 	if err := os.MkdirAll(lxcDir, 0777); err != nil {
 		return fmt.Errorf("unable to create endpoint directory: %s", err)
@@ -1851,14 +1827,14 @@ func (e *Endpoint) RegenerateWait(owner Owner, reason string) error {
 func (e *Endpoint) SetContainerName(name string) {
 	e.UnconditionalLock()
 	e.ContainerName = name
-	e.UnconditionalUnlock()
+	e.Unlock()
 }
 
 // GetK8sNamespace returns the name of the pod if the endpoint represents a
 // Kubernetes pod
 func (e *Endpoint) GetK8sNamespace() string {
 	e.UnconditionalRLock()
-	defer e.UnconditionalRUnlock()
+	defer e.RUnlock()
 
 	return e.k8sNamespace
 }
@@ -1867,14 +1843,14 @@ func (e *Endpoint) GetK8sNamespace() string {
 func (e *Endpoint) SetK8sNamespace(name string) {
 	e.UnconditionalLock()
 	e.k8sNamespace = name
-	e.UnconditionalUnlock()
+	e.Unlock()
 }
 
 // GetK8sPodName returns the name of the pod if the endpoint represents a
 // Kubernetes pod
 func (e *Endpoint) GetK8sPodName() string {
 	e.UnconditionalRLock()
-	defer e.UnconditionalRUnlock()
+	defer e.RUnlock()
 
 	return e.k8sPodName
 }
@@ -1889,20 +1865,20 @@ func (e *Endpoint) GetK8sNamespaceAndPodNameLocked() string {
 func (e *Endpoint) SetK8sPodName(name string) {
 	e.UnconditionalLock()
 	e.k8sPodName = name
-	e.UnconditionalUnlock()
+	e.Unlock()
 }
 
 // SetContainerID modifies the endpoint's container ID
 func (e *Endpoint) SetContainerID(id string) {
 	e.UnconditionalLock()
 	e.DockerID = id
-	e.UnconditionalUnlock()
+	e.Unlock()
 }
 
 // GetContainerID returns the endpoint's container ID
 func (e *Endpoint) GetContainerID() string {
 	e.UnconditionalRLock()
-	defer e.UnconditionalRUnlock()
+	defer e.RUnlock()
 
 	return e.DockerID
 }
@@ -1910,7 +1886,7 @@ func (e *Endpoint) GetContainerID() string {
 // GetShortContainerID returns the endpoint's shortened container ID
 func (e *Endpoint) GetShortContainerID() string {
 	e.UnconditionalRLock()
-	defer e.UnconditionalRUnlock()
+	defer e.RUnlock()
 
 	return e.getShortContainerID()
 }
@@ -1933,20 +1909,20 @@ func (e *Endpoint) getShortContainerID() string {
 func (e *Endpoint) SetDockerEndpointID(id string) {
 	e.UnconditionalLock()
 	e.DockerEndpointID = id
-	e.UnconditionalUnlock()
+	e.Unlock()
 }
 
 // SetDockerNetworkID modifies the endpoint's Docker Endpoint ID
 func (e *Endpoint) SetDockerNetworkID(id string) {
 	e.UnconditionalLock()
 	e.DockerNetworkID = id
-	e.UnconditionalUnlock()
+	e.Unlock()
 }
 
 // GetDockerNetworkID returns the endpoint's Docker Endpoint ID
 func (e *Endpoint) GetDockerNetworkID() string {
 	e.UnconditionalRLock()
-	defer e.UnconditionalRUnlock()
+	defer e.RUnlock()
 
 	return e.DockerNetworkID
 }
@@ -1961,7 +1937,7 @@ func (e *Endpoint) GetStateLocked() string {
 // endpoint.Mutex may only be.RLockAlive()ed
 func (e *Endpoint) GetState() string {
 	e.UnconditionalRLock()
-	defer e.UnconditionalRUnlock()
+	defer e.RUnlock()
 	return e.GetStateLocked()
 }
 
@@ -2135,7 +2111,7 @@ func (e *Endpoint) OnProxyPolicyUpdate(revision uint64) {
 	if revision > e.proxyPolicyRevision {
 		e.proxyPolicyRevision = revision
 	}
-	e.UnconditionalUnlock()
+	e.Unlock()
 }
 
 // getProxyStatisticsLocked gets the ProxyStatistics for the flows with the
@@ -2217,7 +2193,7 @@ func APICanModify(e *Endpoint) error {
 
 func (e *Endpoint) getIDandLabels() string {
 	e.UnconditionalRLock()
-	defer e.UnconditionalRUnlock()
+	defer e.RUnlock()
 
 	labels := ""
 	if e.SecurityIdentity != nil {
@@ -2250,9 +2226,7 @@ func (e *Endpoint) ModifyIdentityLabels(owner Owner, addLabels, delLabels pkgLab
 		// any of the lists. If the label is already disabled,
 		// we will simply ignore that change.
 		if newLabels.Custom[k] == nil && newLabels.OrchestrationIdentity[k] == nil && newLabels.Disabled[k] == nil {
-			if lockerr = e.UnlockAlive(); lockerr != nil {
-				e.LogDisconnectedMutexAction(lockerr, "after failing to find identity label")
-			}
+			e.Unlock()
 			return fmt.Errorf("label %s not found", k)
 		}
 
@@ -2287,9 +2261,7 @@ func (e *Endpoint) ModifyIdentityLabels(owner Owner, addLabels, delLabels pkgLab
 	e.identityRevision++
 	rev := e.identityRevision
 
-	if lockerr = e.UnlockAlive(); lockerr != nil {
-		return lockerr
-	}
+	e.Unlock()
 
 	e.runLabelsResolver(owner, rev)
 
@@ -2325,7 +2297,7 @@ func (e *Endpoint) UpdateLabels(owner Owner, identityLabels, infoLabels pkgLabel
 	e.replaceInformationLabels(infoLabels)
 	// replace identity labels and update the identity if labels have changed
 	rev := e.replaceIdentityLabels(identityLabels)
-	e.UnconditionalUnlock()
+	e.Unlock()
 	if rev != 0 {
 		e.runLabelsResolver(owner, rev)
 	}
@@ -2356,7 +2328,7 @@ func (e *Endpoint) runLabelsResolver(owner Owner, myChangeRev int) {
 
 	newLabels := e.OpLabels.IdentityLabels()
 	scopedLog := e.getLogger().WithField(logfields.IdentityLabels, newLabels)
-	e.UnconditionalUnlock()
+	e.Unlock()
 
 	// If we are certain we can resolve the identity without accessing the KV
 	// store, do it first synchronously right now. This can reduce the number
@@ -2393,9 +2365,7 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 	// Since we unlocked the endpoint and re-locked, the label update may already be obsolete
 	if e.identityResolutionIsObsolete(myChangeRev) {
 		defer elog.Debug("Endpoint identity has changed, aborting resolution routine in favour of new one")
-		if lockerr := e.RUnlockAlive(); lockerr != nil {
-			return lockerr
-		}
+		e.RUnlock()
 		return nil
 	}
 
@@ -2405,16 +2375,12 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 			e.SetStateLocked(StateReady, "Set identity for this endpoint")
 		}
 		defer elog.Debug("Endpoint labels unchanged, skipping resolution of identity")
-		if lockerr := e.RUnlockAlive(); lockerr != nil {
-			return lockerr
-		}
+		e.RUnlock()
 		return nil
 	}
 
 	// Unlock the endpoint mutex for the possibly long lasting kvstore operation
-	if lockerr := e.RUnlockAlive(); lockerr != nil {
-		return lockerr
-	}
+	e.RUnlock()
 	elog.Debug("Resolving identity for labels")
 
 	identity, _, err := identityPkg.AllocateIdentity(newLabels)
@@ -2430,9 +2396,7 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 
 	// Since we unlocked the endpoint and re-locked, the label update may already be obsolete
 	if e.identityResolutionIsObsolete(myChangeRev) {
-		if lockerr := e.UnlockAlive(); lockerr != nil {
-			return lockerr
-		}
+		e.Unlock()
 
 		err := identity.Release()
 		if err != nil {
@@ -2468,9 +2432,7 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 	// assigned.
 	e.ForcePolicyCompute()
 
-	if lockerr := e.UnlockAlive(); lockerr != nil {
-		return lockerr
-	}
+	e.Unlock()
 
 	if readyToRegenerate {
 		e.Regenerate(owner, "updated security labels")
@@ -2521,7 +2483,7 @@ type policySignal struct {
 func (e *Endpoint) WaitForPolicyRevision(ctx context.Context, rev uint64) <-chan struct{} {
 	// NOTE: UnconditionalLock is used here because this method handles endpoint in disconnected state on its own
 	e.UnconditionalLock()
-	defer e.UnconditionalUnlock()
+	defer e.Unlock()
 	ch := make(chan struct{})
 	if e.policyRevision >= rev || e.state == StateDisconnected {
 		close(ch)
@@ -2656,16 +2618,7 @@ func (e *Endpoint) syncPolicyMapController() {
 				if lockerr := e.LockAlive(); lockerr != nil {
 					return lockerr
 				}
-				defer func() {
-					lockerr := e.UnlockAlive()
-					if lockerr != nil {
-						if reterr == nil {
-							reterr = lockerr
-						} else {
-							e.LogDisconnectedMutexAction(lockerr, "after syncPolicyMapController")
-						}
-					}
-				}()
+				defer e.Unlock()
 				return e.syncPolicyMap()
 			},
 			RunInterval: 1 * time.Minute,
@@ -2694,14 +2647,9 @@ func (e *Endpoint) LockAlive() error {
 	return nil
 }
 
-// UnlockAlive unlocks endpoint mutex and returns error if endpoint was removed
-func (e *Endpoint) UnlockAlive() error {
-	if e.IsDisconnecting() {
-		e.mutex.Unlock()
-		return fmt.Errorf("endpoint was removed before unlock attempt")
-	}
+// Unlock unlocks endpoint mutex
+func (e *Endpoint) Unlock() {
 	e.mutex.Unlock()
-	return nil
 }
 
 // RLock returns error if endpoint was removed, read locks underlying mutex otherwise
@@ -2714,14 +2662,9 @@ func (e *Endpoint) RLockAlive() error {
 	return nil
 }
 
-// RUnlock read unlocks endpoint mutex and returns error if endpoint was removed
-func (e *Endpoint) RUnlockAlive() error {
-	if e.IsDisconnecting() {
-		e.mutex.RUnlock()
-		return fmt.Errorf("endpoint was removed before read unlock attempt")
-	}
+// RUnlock read unlocks endpoint mutex
+func (e *Endpoint) RUnlock() {
 	e.mutex.RUnlock()
-	return nil
 }
 
 // UnconditionalLock should be used only for locking endpoint for
@@ -2733,20 +2676,9 @@ func (e *Endpoint) UnconditionalLock() {
 	e.mutex.Lock()
 }
 
-// UnconditionalUnlock should be used only for unlocking endpoint for setting its state to StateDisconnected
-// Use Unlock in all other cases
-func (e *Endpoint) UnconditionalUnlock() {
-	e.mutex.Unlock()
-}
-
 // UnconditionalRLock should be used only for reporting endpoint state
 func (e *Endpoint) UnconditionalRLock() {
 	e.mutex.RLock()
-}
-
-// UnconditionalRUnlock should be used only for reporting endpoint state
-func (e *Endpoint) UnconditionalRUnlock() {
-	e.mutex.RUnlock()
 }
 
 // LogDisconnectedMutexAction gets the logger and logs given error with context
