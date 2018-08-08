@@ -636,7 +636,7 @@ func (kub *Kubectl) WaitForKubeDNSEntry(serviceName, serviceNamespace string) er
 
 	serviceNameWithNamespace := fmt.Sprintf("%s.%s", serviceName, serviceNamespace)
 	if !strings.HasSuffix(serviceNameWithNamespace, svcSuffix) {
-		serviceNameWithNamespace = fmt.Sprintf("%s.%s", svcSuffix, svcSuffix)
+		serviceNameWithNamespace = fmt.Sprintf("%s.%s", serviceNameWithNamespace, svcSuffix)
 	}
 	// https://bugs.launchpad.net/ubuntu/+source/bind9/+bug/854705
 	digCMD := "dig +short %s @%s | grep -v -e '^;'"
@@ -648,19 +648,50 @@ func (kub *Kubectl) WaitForKubeDNSEntry(serviceName, serviceNamespace string) er
 	// established or DNS does not exist.
 	digCMDFallback := "dig +tcp %s @%s"
 
-	host, _, err := kub.GetServiceHostPort(KubeSystemNamespace, "kube-dns")
+	dnsClusterIP, _, err := kub.GetServiceHostPort(KubeSystemNamespace, "kube-dns")
 	if err != nil {
 		logger.WithError(err).Error("cannot get kube-dns service IP")
 		return err
 	}
 
+	doServicesMatch := false
+
 	body := func() bool {
-		res := kub.Exec(fmt.Sprintf(digCMD, serviceNameWithNamespace, host))
-		_ = kub.Exec(fmt.Sprintf(digCmdLong, serviceNameWithNamespace, host))
-		if !res.WasSuccessful() {
-			_ = kub.Exec(fmt.Sprintf(digCMDFallback, serviceNameWithNamespace, host))
+		// Due to large TTL's for service names, check if the IP for the service
+		// stored in K8s matches the IP of the service cached in DNS. These
+		// can be different, because some tests use the same service names.
+		// Wait accordingly for services to match, and for resolving the service
+		// name to resolve via DNS.
+		if !doServicesMatch {
+
+			serviceIP, _, err := kub.GetServiceHostPort(serviceNamespace, serviceName)
+			if err != nil {
+				log.WithError(err).Errorf("cannot get service IP for service %s", serviceNameWithNamespace)
+				return false
+			}
+			res := kub.Exec(fmt.Sprintf(digCMD, serviceNameWithNamespace, dnsClusterIP))
+			serviceIPFromDNS := res.SingleOut()
+			isIP := govalidator.IsIP(serviceIPFromDNS)
+			if isIP {
+				if !strings.Contains(serviceIPFromDNS, serviceIP) {
+					logger.Debugf("service IP from DNS (%s) is not the IP for the service in Kubernetes (%s)\n", serviceIPFromDNS, serviceIP)
+					return false
+				} else {
+					logger.Debugf("service IP from DNS (%s)  is the IP for the service in Kubernetes (%s)\n", serviceIPFromDNS, serviceIP)
+					doServicesMatch = true
+					return true
+				}
+			}
+			logger.Debugf("%s is not an IP")
+			return false
+		} else {
+			res := kub.Exec(fmt.Sprintf(digCMD, serviceNameWithNamespace, dnsClusterIP))
+			_ = kub.Exec(fmt.Sprintf(digCmdLong, serviceNameWithNamespace, dnsClusterIP))
+			if !res.WasSuccessful() {
+				_ = kub.Exec(fmt.Sprintf(digCMDFallback, serviceNameWithNamespace, dnsClusterIP))
+			}
+			return res.WasSuccessful()
 		}
-		return res.WasSuccessful()
 	}
 
 	return WithTimeout(
