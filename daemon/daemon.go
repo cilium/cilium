@@ -1069,7 +1069,9 @@ func createIPNet(ones, bits int) *net.IPNet {
 // createPrefixLengthCounter wraps around the counter library, providing
 // references to prefix lengths that will always be present.
 func createPrefixLengthCounter() *counter.PrefixLengthCounter {
-	counter := counter.NewPrefixLengthCounter(ipcachemap.IPCache.GetMaxPrefixLengths())
+	prefixLengths4 := ipcachemap.IPCache.GetMaxPrefixLengths(false)
+	prefixLengths6 := ipcachemap.IPCache.GetMaxPrefixLengths(true)
+	counter := counter.NewPrefixLengthCounter(prefixLengths6, prefixLengths4)
 
 	// This is a bit ugly, but there's not a great way to define an IPNet
 	// without parsing strings, etc.

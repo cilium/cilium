@@ -81,7 +81,7 @@ type IPCache struct {
 // which may restrict the ability to apply IPCache mappings, depending on the
 // underlying details of that implementation.
 type Implementation interface {
-	GetMaxPrefixLengths() int
+	GetMaxPrefixLengths(ipv6 bool) int
 }
 
 // NewIPCache returns a new IPCache with the mappings of endpoint IP to security
@@ -123,7 +123,7 @@ func (ipc *IPCache) SetListeners(listeners []IPIdentityMappingListener) {
 	ipc.mutex.Unlock()
 }
 
-func checkPrefixLengthsAgainstMap(impl Implementation, prefixes []*net.IPNet, existingPrefixes map[int]int) error {
+func checkPrefixLengthsAgainstMap(impl Implementation, prefixes []*net.IPNet, existingPrefixes map[int]int, isIPv6 bool) error {
 	prefixLengths := make(map[int]struct{})
 
 	for i := range existingPrefixes {
@@ -131,13 +131,15 @@ func checkPrefixLengthsAgainstMap(impl Implementation, prefixes []*net.IPNet, ex
 	}
 
 	for _, prefix := range prefixes {
-		ones, _ := prefix.Mask.Size()
+		ones, bits := prefix.Mask.Size()
 		if _, ok := prefixLengths[ones]; !ok {
-			prefixLengths[ones] = struct{}{}
+			if bits == net.IPv6len*8 && isIPv6 || bits == net.IPv4len*8 && !isIPv6 {
+				prefixLengths[ones] = struct{}{}
+			}
 		}
 	}
 
-	maxPrefixLengths := impl.GetMaxPrefixLengths()
+	maxPrefixLengths := impl.GetMaxPrefixLengths(isIPv6)
 	if len(prefixLengths) > maxPrefixLengths {
 		existingPrefixLengths := len(existingPrefixes)
 		return fmt.Errorf("Adding specified CIDR prefixes would result in too many prefix lengths (current: %d, result: %d, max: %d)",
@@ -153,10 +155,10 @@ func checkPrefixes(impl Implementation, prefixes []*net.IPNet) (err error) {
 	IPIdentityCache.RLock()
 	defer IPIdentityCache.RUnlock()
 
-	if err = checkPrefixLengthsAgainstMap(impl, prefixes, IPIdentityCache.v4PrefixLengths); err != nil {
+	if err = checkPrefixLengthsAgainstMap(impl, prefixes, IPIdentityCache.v4PrefixLengths, false); err != nil {
 		return
 	}
-	return checkPrefixLengthsAgainstMap(impl, prefixes, IPIdentityCache.v6PrefixLengths)
+	return checkPrefixLengthsAgainstMap(impl, prefixes, IPIdentityCache.v6PrefixLengths, true)
 }
 
 // refPrefixLength adds one reference to the prefix length in the map.
