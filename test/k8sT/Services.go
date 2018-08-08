@@ -390,7 +390,7 @@ var _ = Describe("K8sServicesTest", func() {
 			}
 			By("Validating DNS without Policy")
 			for _, name := range dnsChecks {
-				err = kubectl.WaitForKubeDNSEntry(fmt.Sprintf("%s.%s", name, helpers.DefaultNamespace))
+				err = kubectl.WaitForKubeDNSEntry(name, helpers.DefaultNamespace)
 				Expect(err).To(BeNil(), "DNS entry is not ready after timeout")
 			}
 
@@ -421,7 +421,7 @@ var _ = Describe("K8sServicesTest", func() {
 
 			By("Validating DNS with Policy loaded")
 			for _, name := range dnsChecks {
-				err = kubectl.WaitForKubeDNSEntry(fmt.Sprintf("%s.%s", name, helpers.DefaultNamespace))
+				err = kubectl.WaitForKubeDNSEntry(name, helpers.DefaultNamespace)
 				Expect(err).To(BeNil(), "DNS entry is not ready after timeout")
 			}
 

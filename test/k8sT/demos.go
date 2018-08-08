@@ -95,7 +95,7 @@ var _ = Describe("K8sDemosTest", func() {
 	It("Tests Star Wars Demo", func() {
 
 		allianceLabel := "org=alliance"
-		deathstarServiceName := "deathstar.default.svc.cluster.local"
+		deathstarServiceName := "deathstar"
 
 		exhaustPortPath := filepath.Join(deathstarServiceName, "/v1/exhaust-port")
 
@@ -130,7 +130,7 @@ var _ = Describe("K8sDemosTest", func() {
 
 		By("Showing how alliance can execute REST API call to main API endpoint")
 
-		err = kubectl.WaitForKubeDNSEntry(deathstarServiceName)
+		err = kubectl.WaitForKubeDNSEntry(deathstarServiceName, helpers.DefaultNamespace)
 		Expect(err).To(BeNil(), "DNS entry is not ready after timeout")
 
 		res = kubectl.ExecPodCmd(helpers.DefaultNamespace, xwingPod,
