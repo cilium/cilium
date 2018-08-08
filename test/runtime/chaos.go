@@ -85,7 +85,7 @@ var _ = Describe("RuntimeChaos", func() {
 		originalEndpointList := vm.Exec(endpointListCmd)
 
 		err := vm.RestartCilium()
-		Expect(err).Should(BeNil())
+		Expect(err).Should(BeNil(), "restarting Cilium failed")
 
 		ips := vm.Exec(`
 		curl -s --unix-socket /var/run/cilium/cilium.sock \
@@ -108,7 +108,7 @@ var _ = Describe("RuntimeChaos", func() {
 		_ = vm.Exec("sudo ip link add lxc12345 type veth peer name tmp54321")
 
 		err = vm.RestartCilium()
-		Expect(err).Should(BeNil())
+		Expect(err).Should(BeNil(), "restarting Cilium failed")
 
 		status := vm.Exec("sudo ip link show lxc12345")
 		status.ExpectFail("leftover interface were not properly cleaned up")

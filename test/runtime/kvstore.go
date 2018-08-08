@@ -51,7 +51,7 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 	AfterEach(func() {
 		containers(helpers.Delete)
 		err := vm.RestartCilium()
-		Expect(err).Should(BeNil())
+		Expect(err).Should(BeNil(), "restarting Cilium failed")
 	})
 
 	JustAfterEach(func() {
