@@ -95,9 +95,10 @@ var _ = Describe("K8sDemosTest", func() {
 	It("Tests Star Wars Demo", func() {
 
 		allianceLabel := "org=alliance"
-		deathstarServiceName := "deathstar.default.svc.cluster.local"
+		deathstarServiceName := "deathstar"
+		deathstarFQDN := fmt.Sprintf("%s.%s.svc.cluster.local", deathstarServiceName, helpers.DefaultNamespace)
 
-		exhaustPortPath := filepath.Join(deathstarServiceName, "/v1/exhaust-port")
+		exhaustPortPath := filepath.Join(deathstarFQDN, "/v1/exhaust-port")
 
 		By("Applying deployments")
 
@@ -130,12 +131,12 @@ var _ = Describe("K8sDemosTest", func() {
 
 		By("Showing how alliance can execute REST API call to main API endpoint")
 
-		err = kubectl.WaitForKubeDNSEntry(deathstarServiceName)
+		err = kubectl.WaitForKubeDNSEntry(deathstarServiceName, helpers.DefaultNamespace)
 		Expect(err).To(BeNil(), "DNS entry is not ready after timeout")
 
 		res = kubectl.ExecPodCmd(helpers.DefaultNamespace, xwingPod,
-			helpers.CurlWithHTTPCode("http://%s/v1", deathstarServiceName))
-		res.ExpectContains("200", "unable to curl %s/v1: %s", deathstarServiceName, res.Output())
+			helpers.CurlWithHTTPCode("http://%s/v1", deathstarFQDN))
+		res.ExpectContains("200", "unable to curl %s/v1: %s", deathstarFQDN, res.Output())
 
 		By("Importing L7 Policy which restricts access to %q", exhaustPortPath)
 		_, err = kubectl.CiliumPolicyAction(
