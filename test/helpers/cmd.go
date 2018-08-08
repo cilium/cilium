@@ -22,6 +22,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/cilium/cilium/test/config"
 
@@ -38,6 +39,7 @@ type CmdRes struct {
 	stderr   *bytes.Buffer // Stderr from running cmd
 	success  bool          // Whether command successfully executed
 	exitcode int           // The exit code of cmd
+	duration time.Duration // Is the representation of the the time that command took to execute.
 }
 
 // GetCmd returns res's cmd.
@@ -65,13 +67,13 @@ func (res *CmdRes) GetStdErr() string {
 // the exitcode.
 func (res *CmdRes) SendToLog(quietMode bool) {
 	if quietMode {
-		logformat := "cmd: %q exitCode: %d"
-		fmt.Fprintf(&config.TestLogWriter, logformat, res.cmd, res.GetExitCode())
+		logformat := "cmd: %q exitCode: %d duration: %s\n"
+		fmt.Fprintf(&config.TestLogWriter, logformat, res.cmd, res.GetExitCode(), res.duration)
 		return
 	}
 
-	logformat := "cmd: %q exitCode: %d stdout:\n%s\n"
-	log := fmt.Sprintf(logformat, res.cmd, res.GetExitCode(), res.stdout.String())
+	logformat := "cmd: %q exitCode: %d duration: %s stdout:\n%s\n"
+	log := fmt.Sprintf(logformat, res.cmd, res.GetExitCode(), res.duration, res.stdout.String())
 	if res.stderr.Len() > 0 {
 		log = fmt.Sprintf("%sstderr:\n%s\n", log, res.stderr.String())
 	}
