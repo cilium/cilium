@@ -678,8 +678,8 @@ var _ = Describe("K8sPolicyTest", func() {
 
 			serviceIP, port, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, "redis-master")
 
-			serviceName := "redis-master.default.svc.cluster.local"
-			err = kubectl.WaitForKubeDNSEntry(serviceName)
+			serviceName := "redis-master"
+			err = kubectl.WaitForKubeDNSEntry(serviceName, helpers.DefaultNamespace)
 			Expect(err).To(BeNil(), "DNS entry is not ready after timeout")
 
 			for pod := range webPods {

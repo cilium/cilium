@@ -132,9 +132,9 @@ var _ = Describe("K8sKafkaPolicyTest", func() {
 			err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=kafkaTestApp", helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Kafka Pods are not ready after timeout")
 
-			err = kubectl.WaitForKubeDNSEntry("kafka-service." + helpers.DefaultNamespace)
+			err = kubectl.WaitForKubeDNSEntry("kafka-service", helpers.DefaultNamespace)
 			Expect(err).To(BeNil(), "DNS entry of kafka-service is not ready after timeout")
-			err = kubectl.WaitForKubeDNSEntry("zook." + helpers.DefaultNamespace)
+			err = kubectl.WaitForKubeDNSEntry("zook", helpers.DefaultNamespace)
 			Expect(err).To(BeNil(), "DNS entry of zook is not ready after timeout")
 
 			err = kubectl.CiliumEndpointWaitReady()
