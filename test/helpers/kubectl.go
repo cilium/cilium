@@ -163,15 +163,15 @@ func (kub *Kubectl) WaitCEPReady() error {
 // function needs to also take into account the stderr messages returned.
 func (kub *Kubectl) ExecKafkaPodCmd(namespace string, pod string, arg string) error {
 	command := fmt.Sprintf("%s exec -n %s %s sh -- %s", KubectlCmd, namespace, pod, arg)
-	stdout := new(bytes.Buffer)
-	stderr := new(bytes.Buffer)
-	err := kub.Execute(command, stdout, stderr)
-	if err != nil {
-		return fmt.Errorf("ExecKafkaPodCmd: command '%s' failed '%s' || '%s'", command, stdout.String(), stderr.String())
+	res := kub.Exec(command)
+	if !res.WasSuccessful() {
+		return fmt.Errorf("ExecKafkaPodCmd: command '%s' failed %s",
+			res.GetCmd(), res.OutputPrettyPrint())
 	}
 
-	if strings.Contains(stderr.String(), "ERROR") {
-		return fmt.Errorf("ExecKafkaPodCmd: command '%s' failed '%s' || '%s'", command, stdout.String(), stderr.String())
+	if strings.Contains(res.GetStdErr(), "ERROR") {
+		return fmt.Errorf("ExecKafkaPodCmd: command '%s' failed '%s'",
+			res.GetCmd(), res.OutputPrettyPrint())
 	}
 	return nil
 }
