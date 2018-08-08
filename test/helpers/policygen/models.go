@@ -369,6 +369,9 @@ func (t *TestSpec) RunTest(kub *helpers.Kubectl) {
 	err = t.NetworkPolicyApply()
 	gomega.Expect(err).To(gomega.BeNil(), "cannot apply network policy for %s", t.Prefix)
 
+	err = kub.CiliumEndpointWaitReady()
+	gomega.Expect(err).To(gomega.BeNil(), "Endpoints are not ready after timeout")
+
 	err = t.ExecTest()
 	gomega.Expect(err).To(gomega.BeNil(), "cannot execute test for %s", t.Prefix)
 }
