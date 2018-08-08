@@ -22,6 +22,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/cilium/cilium/test/config"
 	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
@@ -159,13 +160,15 @@ func (s *SSHMeta) Exec(cmd string, options ...ExecOptions) *CmdRes {
 	log.Debugf("running command: %s", cmd)
 	stdout := new(bytes.Buffer)
 	stderr := new(bytes.Buffer)
+	start := time.Now()
 	err := s.Execute(cmd, stdout, stderr)
 
 	res := CmdRes{
-		cmd:     cmd,
-		stdout:  stdout,
-		stderr:  stderr,
-		success: true, // this may be toggled when err != nil below
+		cmd:      cmd,
+		stdout:   stdout,
+		stderr:   stderr,
+		success:  true, // this may be toggled when err != nil below
+		duration: time.Since(start),
 	}
 
 	if err != nil {
@@ -242,9 +245,11 @@ func (s *SSHMeta) ExecContext(ctx context.Context, cmd string, options ...ExecOp
 	}
 
 	go func() {
+		start := time.Now()
 		if err := s.sshClient.RunCommandContext(ctx, command); err != nil {
 			log.WithError(err).Error("Error running context")
 		}
+		res.duration = time.Since(start)
 		res.SendToLog(ops.SkipLog)
 	}()
 
