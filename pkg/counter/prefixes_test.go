@@ -47,7 +47,7 @@ func (cs *CounterTestSuite) TestReferenceTracker(c *C) {
 		32: 1,
 	}
 
-	result := NewPrefixLengthCounter(128)
+	result := NewPrefixLengthCounter(128, 32)
 
 	// Expected output is the combination of defaults and the above prefixes.
 	expectedPrefixLengths := make(IntCounter, len(v4PrefixesLengths))
@@ -159,9 +159,11 @@ func (cs *CounterTestSuite) TestReferenceTracker(c *C) {
 }
 
 func (cs *CounterTestSuite) TestCheckLimits(c *C) {
-	result := NewPrefixLengthCounter(4)
-	c.Assert(result.checkLimits(0, 4), IsNil)
-	c.Assert(result.checkLimits(0, 5), NotNil)
+	result := NewPrefixLengthCounter(4, 4)
+	c.Assert(checkLimits(0, 4, result.maxUniquePrefixes4), IsNil)
+	c.Assert(checkLimits(0, 5, result.maxUniquePrefixes4), NotNil)
+	c.Assert(checkLimits(0, 4, result.maxUniquePrefixes6), IsNil)
+	c.Assert(checkLimits(0, 5, result.maxUniquePrefixes6), NotNil)
 
 	prefixes := []*net.IPNet{
 		{Mask: net.CIDRMask(0, 32)},
@@ -179,7 +181,7 @@ func (cs *CounterTestSuite) TestCheckLimits(c *C) {
 }
 
 func (cs *CounterTestSuite) TestToBPFData(c *C) {
-	result := NewPrefixLengthCounter(42)
+	result := NewPrefixLengthCounter(42, 32)
 
 	prefixes := []string{
 		"192.0.2.0/24",
