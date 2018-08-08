@@ -660,28 +660,35 @@ func (kub *Kubectl) WaitForKubeDNSEntry(serviceName, serviceNamespace string) er
 			log.WithError(err).Errorf("cannot get service IP for service %s", serviceNameWithNamespace)
 			return false
 		}
+
+		// ClusterIPNone denotes that this service is headless; there is no
+		// service IP for this service, and thus the IP returned by `dig` is
+		// an IP of the pod itself, not ClusterIPNone.
+		if serviceIP != v1.ClusterIPNone {
+			log.Debugf("service is not headless; checking whether IP retrieved from DNS matches the IP for the service stored in Kubernetes")
+			res := kub.Exec(fmt.Sprintf(digCMD, serviceNameWithNamespace, dnsClusterIP))
+			serviceIPFromDNS := res.SingleOut()
+			if !govalidator.IsIP(serviceIPFromDNS) {
+				logger.Debugf("output of dig (%s) did not return an IP")
+				return false
+			}
+
+			// Due to lag between new IPs for the same service being synced between
+			// kube-apiserver and DNS, check if the IP for the service that is
+			// stored in K8s matches the IP of the service cached in DNS. These
+			// can be different, because some tests use the same service names.
+			// Wait accordingly for services to match, and for resolving the service
+			// name to resolve via DNS.
+			if !strings.Contains(serviceIPFromDNS, serviceIP) {
+				logger.Debugf("service IP retrieved from DNS (%s) does not match the IP for the service stored in Kubernetes (%s)", serviceIPFromDNS, serviceIP)
+				_ = kub.Exec(fmt.Sprintf(digCmdLong, serviceNameWithNamespace, dnsClusterIP))
+				_ = kub.Exec(fmt.Sprintf(digCMDFallback, serviceNameWithNamespace, dnsClusterIP))
+				return false
+			}
+			logger.Debugf("service IP retrieved from DNS (%s) matches the IP for the service stored in Kubernetes (%s)", serviceIPFromDNS, serviceIP)
+		}
+
 		res := kub.Exec(fmt.Sprintf(digCMD, serviceNameWithNamespace, dnsClusterIP))
-		serviceIPFromDNS := res.SingleOut()
-		if !govalidator.IsIP(serviceIPFromDNS) {
-			logger.Debugf("output of dig (%s) did not return an IP")
-			return false
-		}
-
-		// Due to lag between new IPs for the same service being synced between
-		// kube-apiserver and DNS, check if the IP for the service that is
-		// stored in K8s matches the IP of the service cached in DNS. These
-		// can be different, because some tests use the same service names.
-		// Wait accordingly for services to match, and for resolving the service
-		// name to resolve via DNS.
-		if !strings.Contains(serviceIPFromDNS, serviceIP) {
-			logger.Debugf("service IP retrieved from DNS (%s) does not match the IP for the service stored in Kubernetes (%s)", serviceIPFromDNS, serviceIP)
-			_ = kub.Exec(fmt.Sprintf(digCmdLong, serviceNameWithNamespace, dnsClusterIP))
-			_ = kub.Exec(fmt.Sprintf(digCMDFallback, serviceNameWithNamespace, dnsClusterIP))
-			return false
-		}
-		logger.Debugf("service IP retrieved from DNS (%s) matches the IP for the service stored in Kubernetes (%s)", serviceIPFromDNS, serviceIP)
-
-		res = kub.Exec(fmt.Sprintf(digCMD, serviceNameWithNamespace, dnsClusterIP))
 		_ = kub.Exec(fmt.Sprintf(digCmdLong, serviceNameWithNamespace, dnsClusterIP))
 		if !res.WasSuccessful() {
 			_ = kub.Exec(fmt.Sprintf(digCMDFallback, serviceNameWithNamespace, dnsClusterIP))
