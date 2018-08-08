@@ -17,8 +17,9 @@ package node
 import (
 	"github.com/cilium/cilium/pkg/option"
 
-	"k8s.io/api/core/v1"
 	"time"
+
+	"k8s.io/api/core/v1"
 )
 
 var localNode Node
@@ -67,4 +68,10 @@ func ConfigureLocalNode() error {
 		}
 	}()
 	return nil
+}
+
+// NotifyLocalNodeUpdated Update local node information in the key-value
+// storage
+func NotifyLocalNodeUpdated() error {
+	return nodeStore.UpdateLocalKeySync(GetLocalNode())
 }

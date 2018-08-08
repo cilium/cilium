@@ -356,8 +356,15 @@ func GetIPv4HealthIP() net.IP {
 }
 
 // SetIPv4HealthIP sets the IPv4 address of the local cilium-health endpoint
-func SetIPv4HealthIP(ip net.IP) {
+func SetIPv4HealthIP(ip net.IP) error {
 	ipv4HealthAddress = ip
+
+	localNode := GetLocalNode()
+	if localNode == nil {
+		return fmt.Errorf("cannot get local node configuration")
+	}
+	localNode.IPv4HealthIP = ip
+	return nil
 }
 
 // GetIPv6HealthIP returns the IPv6 address of the local cilium-health endpoint
@@ -366,8 +373,15 @@ func GetIPv6HealthIP() net.IP {
 }
 
 // SetIPv6HealthIP sets the IPv6 address of the local cilium-health endpoint
-func SetIPv6HealthIP(ip net.IP) {
+func SetIPv6HealthIP(ip net.IP) error {
 	ipv6HealthAddress = ip
+
+	localNode := GetLocalNode()
+	if localNode == nil {
+		return fmt.Errorf("cannot get local node configuration")
+	}
+	localNode.IPv6HealthIP = ip
+	return nil
 }
 
 // GetIPv6NodeRoute returns a route pointing to the IPv6 node address
