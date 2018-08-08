@@ -75,6 +75,14 @@ var _ = Describe("K8sChaosTest", func() {
 		Expect(err).To(BeNil(), "Cannot get daemonset pods IPS")
 		Expect(len(pods)).To(BeNumerically(">", 0), "No pods available to test connectivity")
 
+		By("Waiting for kube-dns entry for service testds-service")
+		err = kubectl.WaitForKubeDNSEntry(testDSService, helpers.DefaultNamespace)
+		ExpectWithOffset(1, err).To(BeNil(), "DNS entry is not ready after timeout")
+
+		By("Getting ClusterIP For testds-service")
+		host, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, "testds-service")
+		ExpectWithOffset(1, err).To(BeNil(), "unable to get ClusterIP and port for service testds-service")
+
 		for _, pod := range pods {
 			for _, ip := range dsPods {
 				By("Pinging test-ds service pod with IP %q from client pod %q", ip, pod)
@@ -83,14 +91,6 @@ var _ = Describe("K8sChaosTest", func() {
 				log.Debugf("Pod %s ping %v", pod, ip)
 				ExpectWithOffset(1, res).To(helpers.CMDSuccess(),
 					"Cannot ping from %q to %q", pod, ip)
-
-				By("Waiting for kube-dns entry for service testds-service")
-				err = kubectl.WaitForKubeDNSEntry(testDSService, helpers.DefaultNamespace)
-				ExpectWithOffset(1, err).To(BeNil(), "DNS entry is not ready after timeout")
-
-				By("Getting ClusterIP For testds-service")
-				host, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, "testds-service")
-				ExpectWithOffset(1, err).To(BeNil(), "unable to get ClusterIP and port for service testds-service")
 
 				By("Curling testds-service via ClusterIP %q", host)
 				res = kubectl.ExecPodCmd(
