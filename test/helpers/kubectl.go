@@ -626,16 +626,17 @@ func (kub *Kubectl) WaitKubeDNS() error {
 	return kub.WaitforPods(KubeSystemNamespace, fmt.Sprintf("-l %s", kubeDNSLabel), DNSHelperTimeout)
 }
 
-// WaitForKubeDNSEntry waits until the given DNS entry is ready in kube-dns
-// pod. If the container is not ready after timeout it returns an error. The
+// WaitForKubeDNSEntry waits until the given DNS entry exists in the kube-dns
+// service. If the container is not ready after timeout it returns an error. The
 // name's format query should be `${name}.${namespace}`. If `svc.cluster.local`
-// is not present it appends to the given name and it checks  the full FQDN
-func (kub *Kubectl) WaitForKubeDNSEntry(name string) error {
+// is not present, it appends to the given name and it checks the service's FQDN.
+func (kub *Kubectl) WaitForKubeDNSEntry(serviceName, serviceNamespace string) error {
 	svcSuffix := "svc.cluster.local"
-	logger := kub.logger.WithField("dnsName", name)
+	logger := kub.logger.WithFields(logrus.Fields{"serviceName": serviceName, "serviceNamespace": serviceNamespace})
 
-	if !strings.HasSuffix(name, svcSuffix) {
-		name = fmt.Sprintf("%s.%s", name, svcSuffix)
+	serviceNameWithNamespace := fmt.Sprintf("%s.%s", serviceName, serviceNamespace)
+	if !strings.HasSuffix(serviceNameWithNamespace, svcSuffix) {
+		serviceNameWithNamespace = fmt.Sprintf("%s.%s", svcSuffix, svcSuffix)
 	}
 	// https://bugs.launchpad.net/ubuntu/+source/bind9/+bug/854705
 	digCMD := "dig +short %s @%s | grep -v -e '^;'"
@@ -651,16 +652,16 @@ func (kub *Kubectl) WaitForKubeDNSEntry(name string) error {
 	}
 
 	body := func() bool {
-		res := kub.Exec(fmt.Sprintf(digCMD, name, host))
+		res := kub.Exec(fmt.Sprintf(digCMD, serviceNameWithNamespace, host))
 		if !res.WasSuccessful() {
-			_ = kub.Exec(fmt.Sprintf(digCMDFallback, name, host))
+			_ = kub.Exec(fmt.Sprintf(digCMDFallback, serviceNameWithNamespace, host))
 		}
 		return res.WasSuccessful()
 	}
 
 	return WithTimeout(
 		body,
-		fmt.Sprintf("DNS %q is not ready after timeout", name),
+		fmt.Sprintf("DNS %q is not ready after timeout", serviceNameWithNamespace),
 		&TimeoutConfig{Timeout: DNSHelperTimeout})
 }
 
