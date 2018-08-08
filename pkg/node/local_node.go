@@ -15,14 +15,17 @@
 package node
 
 import (
-	"github.com/cilium/cilium/pkg/option"
-
 	"time"
+
+	"github.com/cilium/cilium/pkg/option"
 
 	"k8s.io/api/core/v1"
 )
 
-var localNode Node
+var (
+	localNode      Node
+	nodeRegistered = make(chan struct{})
+)
 
 // GetLocalNode returns the identity and node spec for the local node
 func GetLocalNode() *Node {
@@ -53,7 +56,6 @@ func ConfigureLocalNode() error {
 
 	UpdateNode(&localNode, TunnelRoute, nil)
 
-	nodeRegistered := make(chan struct{})
 	go func() {
 		if err := registerNode(); err != nil {
 			log.WithError(err).Fatal("Unable to initialize local node")
@@ -73,5 +75,12 @@ func ConfigureLocalNode() error {
 // NotifyLocalNodeUpdated Update local node information in the key-value
 // storage
 func NotifyLocalNodeUpdated() error {
-	return nodeStore.UpdateLocalKeySync(GetLocalNode())
+	go func() {
+		<-nodeRegistered
+		if err := nodeStore.UpdateLocalKeySync(GetLocalNode()); err != nil {
+			log.WithError(err).Error("Unable to propagate local node change to kvstore")
+		}
+	}()
+
+	return nil
 }
