@@ -44,12 +44,14 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 	}
 
 	BeforeEach(func() {
-		vm.Exec("sudo systemctl stop cilium")
+		res := vm.ExecWithSudo("systemctl stop cilium")
+		res.ExpectSuccess()
 	}, 150)
 
 	AfterEach(func() {
 		containers(helpers.Delete)
-		vm.Exec("sudo systemctl start cilium")
+		err := vm.RestartCilium()
+		Expect(err).Should(BeNil())
 	})
 
 	JustAfterEach(func() {
