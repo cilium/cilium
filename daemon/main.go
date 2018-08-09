@@ -845,6 +845,23 @@ func runDaemon() {
 		// is bootstrapped.
 		d.regenerateRestoredEndpoints(restoredEndpoints)
 		go func() {
+			if k8s.IsEnabled() {
+				// Start controller which removes any leftover Kubernetes
+				// services that may have been deleted while Cilium was not
+				// running. Once this controller succeeds, because it has no
+				// RunInterval specified, it will not run again unless updated
+				// elsewhere. This means that if, for instance, a user manually
+				// adds a service via the CLI into the BPF maps, that it will
+				// not be cleaned up by the daemon until it restarts.
+				controller.NewManager().UpdateController("sync-lb-maps-with-k8s-services",
+					controller.ControllerParams{
+						DoFunc: func() error {
+							return d.syncLBMapsWithK8s()
+						},
+					},
+				)
+				return
+			}
 			if err := d.SyncLBMap(); err != nil {
 				log.WithError(err).Warn("Error while recovering endpoints")
 			}
