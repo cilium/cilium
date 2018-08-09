@@ -116,9 +116,7 @@ func (m *HttpLogEntry) Validate() error {
 	for idx, item := range m.GetHeaders() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HttpLogEntryValidationError{
 					Field:  fmt.Sprintf("Headers[%v]", idx),

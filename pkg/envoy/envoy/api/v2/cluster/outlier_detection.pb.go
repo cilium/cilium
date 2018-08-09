@@ -6,52 +6,58 @@ package cluster
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import google_protobuf3 "github.com/golang/protobuf/ptypes/duration"
-import google_protobuf1 "github.com/golang/protobuf/ptypes/wrappers"
-import _ "github.com/lyft/protoc-gen-validate/validate"
 import _ "github.com/gogo/protobuf/gogoproto"
+import duration "github.com/golang/protobuf/ptypes/duration"
+import wrappers "github.com/golang/protobuf/ptypes/wrappers"
+import _ "github.com/lyft/protoc-gen-validate/validate"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+
 // See the :ref:`architecture overview <arch_overview_outlier_detection>` for
 // more information on outlier detection.
 type OutlierDetection struct {
 	// The number of consecutive 5xx responses before a consecutive 5xx ejection
 	// occurs. Defaults to 5.
-	Consecutive_5Xx *google_protobuf1.UInt32Value `protobuf:"bytes,1,opt,name=consecutive_5xx,json=consecutive5xx" json:"consecutive_5xx,omitempty"`
+	Consecutive_5Xx *wrappers.UInt32Value `protobuf:"bytes,1,opt,name=consecutive_5xx,json=consecutive5xx,proto3" json:"consecutive_5xx,omitempty"`
 	// The time interval between ejection analysis sweeps. This can result in
 	// both new ejections as well as hosts being returned to service. Defaults
 	// to 10000ms or 10s.
-	Interval *google_protobuf3.Duration `protobuf:"bytes,2,opt,name=interval" json:"interval,omitempty"`
+	Interval *duration.Duration `protobuf:"bytes,2,opt,name=interval,proto3" json:"interval,omitempty"`
 	// The base time that a host is ejected for. The real time is equal to the
 	// base time multiplied by the number of times the host has been ejected.
 	// Defaults to 30000ms or 30s.
-	BaseEjectionTime *google_protobuf3.Duration `protobuf:"bytes,3,opt,name=base_ejection_time,json=baseEjectionTime" json:"base_ejection_time,omitempty"`
+	BaseEjectionTime *duration.Duration `protobuf:"bytes,3,opt,name=base_ejection_time,json=baseEjectionTime,proto3" json:"base_ejection_time,omitempty"`
 	// The maximum % of an upstream cluster that can be ejected due to outlier
 	// detection. Defaults to 10% but will eject at least one host regardless of the value.
-	MaxEjectionPercent *google_protobuf1.UInt32Value `protobuf:"bytes,4,opt,name=max_ejection_percent,json=maxEjectionPercent" json:"max_ejection_percent,omitempty"`
+	MaxEjectionPercent *wrappers.UInt32Value `protobuf:"bytes,4,opt,name=max_ejection_percent,json=maxEjectionPercent,proto3" json:"max_ejection_percent,omitempty"`
 	// The % chance that a host will be actually ejected when an outlier status
 	// is detected through consecutive 5xx. This setting can be used to disable
 	// ejection or to ramp it up slowly. Defaults to 100.
-	EnforcingConsecutive_5Xx *google_protobuf1.UInt32Value `protobuf:"bytes,5,opt,name=enforcing_consecutive_5xx,json=enforcingConsecutive5xx" json:"enforcing_consecutive_5xx,omitempty"`
+	EnforcingConsecutive_5Xx *wrappers.UInt32Value `protobuf:"bytes,5,opt,name=enforcing_consecutive_5xx,json=enforcingConsecutive5xx,proto3" json:"enforcing_consecutive_5xx,omitempty"`
 	// The % chance that a host will be actually ejected when an outlier status
 	// is detected through success rate statistics. This setting can be used to
 	// disable ejection or to ramp it up slowly. Defaults to 100.
-	EnforcingSuccessRate *google_protobuf1.UInt32Value `protobuf:"bytes,6,opt,name=enforcing_success_rate,json=enforcingSuccessRate" json:"enforcing_success_rate,omitempty"`
+	EnforcingSuccessRate *wrappers.UInt32Value `protobuf:"bytes,6,opt,name=enforcing_success_rate,json=enforcingSuccessRate,proto3" json:"enforcing_success_rate,omitempty"`
 	// The number of hosts in a cluster that must have enough request volume to
 	// detect success rate outliers. If the number of hosts is less than this
 	// setting, outlier detection via success rate statistics is not performed
 	// for any host in the cluster. Defaults to 5.
-	SuccessRateMinimumHosts *google_protobuf1.UInt32Value `protobuf:"bytes,7,opt,name=success_rate_minimum_hosts,json=successRateMinimumHosts" json:"success_rate_minimum_hosts,omitempty"`
+	SuccessRateMinimumHosts *wrappers.UInt32Value `protobuf:"bytes,7,opt,name=success_rate_minimum_hosts,json=successRateMinimumHosts,proto3" json:"success_rate_minimum_hosts,omitempty"`
 	// The minimum number of total requests that must be collected in one
 	// interval (as defined by the interval duration above) to include this host
 	// in success rate based outlier detection. If the volume is lower than this
 	// setting, outlier detection via success rate statistics is not performed
 	// for that host. Defaults to 100.
-	SuccessRateRequestVolume *google_protobuf1.UInt32Value `protobuf:"bytes,8,opt,name=success_rate_request_volume,json=successRateRequestVolume" json:"success_rate_request_volume,omitempty"`
+	SuccessRateRequestVolume *wrappers.UInt32Value `protobuf:"bytes,8,opt,name=success_rate_request_volume,json=successRateRequestVolume,proto3" json:"success_rate_request_volume,omitempty"`
 	// This factor is used to determine the ejection threshold for success rate
 	// outlier ejection. The ejection threshold is the difference between the
 	// mean success rate, and the product of this factor and the standard
@@ -59,93 +65,115 @@ type OutlierDetection struct {
 	// success_rate_stdev_factor). This factor is divided by a thousand to get a
 	// double. That is, if the desired factor is 1.9, the runtime value should
 	// be 1900. Defaults to 1900.
-	SuccessRateStdevFactor *google_protobuf1.UInt32Value `protobuf:"bytes,9,opt,name=success_rate_stdev_factor,json=successRateStdevFactor" json:"success_rate_stdev_factor,omitempty"`
+	SuccessRateStdevFactor *wrappers.UInt32Value `protobuf:"bytes,9,opt,name=success_rate_stdev_factor,json=successRateStdevFactor,proto3" json:"success_rate_stdev_factor,omitempty"`
 	// The number of consecutive gateway failures (502, 503, 504 status or
 	// connection errors that are mapped to one of those status codes) before a
 	// consecutive gateway failure ejection occurs. Defaults to 5.
-	ConsecutiveGatewayFailure *google_protobuf1.UInt32Value `protobuf:"bytes,10,opt,name=consecutive_gateway_failure,json=consecutiveGatewayFailure" json:"consecutive_gateway_failure,omitempty"`
+	ConsecutiveGatewayFailure *wrappers.UInt32Value `protobuf:"bytes,10,opt,name=consecutive_gateway_failure,json=consecutiveGatewayFailure,proto3" json:"consecutive_gateway_failure,omitempty"`
 	// The % chance that a host will be actually ejected when an outlier status
 	// is detected through consecutive gateway failures. This setting can be
 	// used to disable ejection or to ramp it up slowly. Defaults to 0.
-	EnforcingConsecutiveGatewayFailure *google_protobuf1.UInt32Value `protobuf:"bytes,11,opt,name=enforcing_consecutive_gateway_failure,json=enforcingConsecutiveGatewayFailure" json:"enforcing_consecutive_gateway_failure,omitempty"`
+	EnforcingConsecutiveGatewayFailure *wrappers.UInt32Value `protobuf:"bytes,11,opt,name=enforcing_consecutive_gateway_failure,json=enforcingConsecutiveGatewayFailure,proto3" json:"enforcing_consecutive_gateway_failure,omitempty"`
+	XXX_NoUnkeyedLiteral               struct{}              `json:"-"`
+	XXX_unrecognized                   []byte                `json:"-"`
+	XXX_sizecache                      int32                 `json:"-"`
 }
 
-func (m *OutlierDetection) Reset()                    { *m = OutlierDetection{} }
-func (m *OutlierDetection) String() string            { return proto.CompactTextString(m) }
-func (*OutlierDetection) ProtoMessage()               {}
-func (*OutlierDetection) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{0} }
+func (m *OutlierDetection) Reset()         { *m = OutlierDetection{} }
+func (m *OutlierDetection) String() string { return proto.CompactTextString(m) }
+func (*OutlierDetection) ProtoMessage()    {}
+func (*OutlierDetection) Descriptor() ([]byte, []int) {
+	return fileDescriptor_outlier_detection_35470c6804ebd24d, []int{0}
+}
+func (m *OutlierDetection) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_OutlierDetection.Unmarshal(m, b)
+}
+func (m *OutlierDetection) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_OutlierDetection.Marshal(b, m, deterministic)
+}
+func (dst *OutlierDetection) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_OutlierDetection.Merge(dst, src)
+}
+func (m *OutlierDetection) XXX_Size() int {
+	return xxx_messageInfo_OutlierDetection.Size(m)
+}
+func (m *OutlierDetection) XXX_DiscardUnknown() {
+	xxx_messageInfo_OutlierDetection.DiscardUnknown(m)
+}
 
-func (m *OutlierDetection) GetConsecutive_5Xx() *google_protobuf1.UInt32Value {
+var xxx_messageInfo_OutlierDetection proto.InternalMessageInfo
+
+func (m *OutlierDetection) GetConsecutive_5Xx() *wrappers.UInt32Value {
 	if m != nil {
 		return m.Consecutive_5Xx
 	}
 	return nil
 }
 
-func (m *OutlierDetection) GetInterval() *google_protobuf3.Duration {
+func (m *OutlierDetection) GetInterval() *duration.Duration {
 	if m != nil {
 		return m.Interval
 	}
 	return nil
 }
 
-func (m *OutlierDetection) GetBaseEjectionTime() *google_protobuf3.Duration {
+func (m *OutlierDetection) GetBaseEjectionTime() *duration.Duration {
 	if m != nil {
 		return m.BaseEjectionTime
 	}
 	return nil
 }
 
-func (m *OutlierDetection) GetMaxEjectionPercent() *google_protobuf1.UInt32Value {
+func (m *OutlierDetection) GetMaxEjectionPercent() *wrappers.UInt32Value {
 	if m != nil {
 		return m.MaxEjectionPercent
 	}
 	return nil
 }
 
-func (m *OutlierDetection) GetEnforcingConsecutive_5Xx() *google_protobuf1.UInt32Value {
+func (m *OutlierDetection) GetEnforcingConsecutive_5Xx() *wrappers.UInt32Value {
 	if m != nil {
 		return m.EnforcingConsecutive_5Xx
 	}
 	return nil
 }
 
-func (m *OutlierDetection) GetEnforcingSuccessRate() *google_protobuf1.UInt32Value {
+func (m *OutlierDetection) GetEnforcingSuccessRate() *wrappers.UInt32Value {
 	if m != nil {
 		return m.EnforcingSuccessRate
 	}
 	return nil
 }
 
-func (m *OutlierDetection) GetSuccessRateMinimumHosts() *google_protobuf1.UInt32Value {
+func (m *OutlierDetection) GetSuccessRateMinimumHosts() *wrappers.UInt32Value {
 	if m != nil {
 		return m.SuccessRateMinimumHosts
 	}
 	return nil
 }
 
-func (m *OutlierDetection) GetSuccessRateRequestVolume() *google_protobuf1.UInt32Value {
+func (m *OutlierDetection) GetSuccessRateRequestVolume() *wrappers.UInt32Value {
 	if m != nil {
 		return m.SuccessRateRequestVolume
 	}
 	return nil
 }
 
-func (m *OutlierDetection) GetSuccessRateStdevFactor() *google_protobuf1.UInt32Value {
+func (m *OutlierDetection) GetSuccessRateStdevFactor() *wrappers.UInt32Value {
 	if m != nil {
 		return m.SuccessRateStdevFactor
 	}
 	return nil
 }
 
-func (m *OutlierDetection) GetConsecutiveGatewayFailure() *google_protobuf1.UInt32Value {
+func (m *OutlierDetection) GetConsecutiveGatewayFailure() *wrappers.UInt32Value {
 	if m != nil {
 		return m.ConsecutiveGatewayFailure
 	}
 	return nil
 }
 
-func (m *OutlierDetection) GetEnforcingConsecutiveGatewayFailure() *google_protobuf1.UInt32Value {
+func (m *OutlierDetection) GetEnforcingConsecutiveGatewayFailure() *wrappers.UInt32Value {
 	if m != nil {
 		return m.EnforcingConsecutiveGatewayFailure
 	}
@@ -156,9 +184,11 @@ func init() {
 	proto.RegisterType((*OutlierDetection)(nil), "envoy.api.v2.cluster.OutlierDetection")
 }
 
-func init() { proto.RegisterFile("envoy/api/v2/cluster/outlier_detection.proto", fileDescriptor1) }
+func init() {
+	proto.RegisterFile("envoy/api/v2/cluster/outlier_detection.proto", fileDescriptor_outlier_detection_35470c6804ebd24d)
+}
 
-var fileDescriptor1 = []byte{
+var fileDescriptor_outlier_detection_35470c6804ebd24d = []byte{
 	// 520 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x94, 0xdb, 0x6a, 0x13, 0x41,
 	0x18, 0xc7, 0x4d, 0x7a, 0x9e, 0x82, 0x96, 0x21, 0x24, 0x93, 0x56, 0x8b, 0x14, 0x04, 0x29, 0xb2,

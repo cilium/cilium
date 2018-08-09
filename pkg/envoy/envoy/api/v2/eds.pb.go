@@ -6,11 +6,11 @@ package v2
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import envoy_api_v2_endpoint "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/endpoint"
-import envoy_type "github.com/cilium/cilium/pkg/envoy/envoy/type"
-import _ "google.golang.org/genproto/googleapis/api/annotations"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import endpoint "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/endpoint"
+import _type "github.com/cilium/cilium/pkg/envoy/envoy/type"
 import _ "github.com/gogo/protobuf/gogoproto"
+import _ "github.com/lyft/protoc-gen-validate/validate"
+import _ "google.golang.org/genproto/googleapis/api/annotations"
 
 import (
 	context "golang.org/x/net/context"
@@ -21,6 +21,12 @@ import (
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 // Each route from RDS will map to a single cluster or traffic split across
 // clusters using weights expressed in the RDS WeightedCluster.
@@ -35,17 +41,39 @@ type ClusterLoadAssignment struct {
 	// <envoy_api_field_Cluster.EdsClusterConfig.service_name>` value if specified
 	// in the cluster :ref:`EdsClusterConfig
 	// <envoy_api_msg_Cluster.EdsClusterConfig>`.
-	ClusterName string `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName" json:"cluster_name,omitempty"`
+	ClusterName string `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName,proto3" json:"cluster_name,omitempty"`
 	// List of endpoints to load balance to.
-	Endpoints []*envoy_api_v2_endpoint.LocalityLbEndpoints `protobuf:"bytes,2,rep,name=endpoints" json:"endpoints,omitempty"`
+	Endpoints []*endpoint.LocalityLbEndpoints `protobuf:"bytes,2,rep,name=endpoints,proto3" json:"endpoints,omitempty"`
 	// Load balancing policy settings.
-	Policy *ClusterLoadAssignment_Policy `protobuf:"bytes,4,opt,name=policy" json:"policy,omitempty"`
+	Policy               *ClusterLoadAssignment_Policy `protobuf:"bytes,4,opt,name=policy,proto3" json:"policy,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                      `json:"-"`
+	XXX_unrecognized     []byte                        `json:"-"`
+	XXX_sizecache        int32                         `json:"-"`
 }
 
-func (m *ClusterLoadAssignment) Reset()                    { *m = ClusterLoadAssignment{} }
-func (m *ClusterLoadAssignment) String() string            { return proto.CompactTextString(m) }
-func (*ClusterLoadAssignment) ProtoMessage()               {}
-func (*ClusterLoadAssignment) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{0} }
+func (m *ClusterLoadAssignment) Reset()         { *m = ClusterLoadAssignment{} }
+func (m *ClusterLoadAssignment) String() string { return proto.CompactTextString(m) }
+func (*ClusterLoadAssignment) ProtoMessage()    {}
+func (*ClusterLoadAssignment) Descriptor() ([]byte, []int) {
+	return fileDescriptor_eds_e9ea46c47b0505d4, []int{0}
+}
+func (m *ClusterLoadAssignment) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ClusterLoadAssignment.Unmarshal(m, b)
+}
+func (m *ClusterLoadAssignment) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ClusterLoadAssignment.Marshal(b, m, deterministic)
+}
+func (dst *ClusterLoadAssignment) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ClusterLoadAssignment.Merge(dst, src)
+}
+func (m *ClusterLoadAssignment) XXX_Size() int {
+	return xxx_messageInfo_ClusterLoadAssignment.Size(m)
+}
+func (m *ClusterLoadAssignment) XXX_DiscardUnknown() {
+	xxx_messageInfo_ClusterLoadAssignment.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ClusterLoadAssignment proto.InternalMessageInfo
 
 func (m *ClusterLoadAssignment) GetClusterName() string {
 	if m != nil {
@@ -54,7 +82,7 @@ func (m *ClusterLoadAssignment) GetClusterName() string {
 	return ""
 }
 
-func (m *ClusterLoadAssignment) GetEndpoints() []*envoy_api_v2_endpoint.LocalityLbEndpoints {
+func (m *ClusterLoadAssignment) GetEndpoints() []*endpoint.LocalityLbEndpoints {
 	if m != nil {
 		return m.Endpoints
 	}
@@ -89,13 +117,35 @@ type ClusterLoadAssignment_Policy struct {
 	//    "throttle"_drop = 60%
 	//    "lb"_drop = 20%  // 50% of the remaining 'actual' load, which is 40%.
 	//    actual_outgoing_load = 20% // remaining after applying all categories.
-	DropOverloads []*ClusterLoadAssignment_Policy_DropOverload `protobuf:"bytes,2,rep,name=drop_overloads,json=dropOverloads" json:"drop_overloads,omitempty"`
+	DropOverloads        []*ClusterLoadAssignment_Policy_DropOverload `protobuf:"bytes,2,rep,name=drop_overloads,json=dropOverloads,proto3" json:"drop_overloads,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                                     `json:"-"`
+	XXX_unrecognized     []byte                                       `json:"-"`
+	XXX_sizecache        int32                                        `json:"-"`
 }
 
-func (m *ClusterLoadAssignment_Policy) Reset()                    { *m = ClusterLoadAssignment_Policy{} }
-func (m *ClusterLoadAssignment_Policy) String() string            { return proto.CompactTextString(m) }
-func (*ClusterLoadAssignment_Policy) ProtoMessage()               {}
-func (*ClusterLoadAssignment_Policy) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{0, 0} }
+func (m *ClusterLoadAssignment_Policy) Reset()         { *m = ClusterLoadAssignment_Policy{} }
+func (m *ClusterLoadAssignment_Policy) String() string { return proto.CompactTextString(m) }
+func (*ClusterLoadAssignment_Policy) ProtoMessage()    {}
+func (*ClusterLoadAssignment_Policy) Descriptor() ([]byte, []int) {
+	return fileDescriptor_eds_e9ea46c47b0505d4, []int{0, 0}
+}
+func (m *ClusterLoadAssignment_Policy) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ClusterLoadAssignment_Policy.Unmarshal(m, b)
+}
+func (m *ClusterLoadAssignment_Policy) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ClusterLoadAssignment_Policy.Marshal(b, m, deterministic)
+}
+func (dst *ClusterLoadAssignment_Policy) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ClusterLoadAssignment_Policy.Merge(dst, src)
+}
+func (m *ClusterLoadAssignment_Policy) XXX_Size() int {
+	return xxx_messageInfo_ClusterLoadAssignment_Policy.Size(m)
+}
+func (m *ClusterLoadAssignment_Policy) XXX_DiscardUnknown() {
+	xxx_messageInfo_ClusterLoadAssignment_Policy.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ClusterLoadAssignment_Policy proto.InternalMessageInfo
 
 func (m *ClusterLoadAssignment_Policy) GetDropOverloads() []*ClusterLoadAssignment_Policy_DropOverload {
 	if m != nil {
@@ -106,9 +156,12 @@ func (m *ClusterLoadAssignment_Policy) GetDropOverloads() []*ClusterLoadAssignme
 
 type ClusterLoadAssignment_Policy_DropOverload struct {
 	// Identifier for the policy specifying the drop.
-	Category string `protobuf:"bytes,1,opt,name=category" json:"category,omitempty"`
+	Category string `protobuf:"bytes,1,opt,name=category,proto3" json:"category,omitempty"`
 	// Percentage of traffic that should be dropped for the category.
-	DropPercentage *envoy_type.Percent `protobuf:"bytes,2,opt,name=drop_percentage,json=dropPercentage" json:"drop_percentage,omitempty"`
+	DropPercentage       *_type.Percent `protobuf:"bytes,2,opt,name=drop_percentage,json=dropPercentage,proto3" json:"drop_percentage,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
+	XXX_unrecognized     []byte         `json:"-"`
+	XXX_sizecache        int32          `json:"-"`
 }
 
 func (m *ClusterLoadAssignment_Policy_DropOverload) Reset() {
@@ -117,8 +170,25 @@ func (m *ClusterLoadAssignment_Policy_DropOverload) Reset() {
 func (m *ClusterLoadAssignment_Policy_DropOverload) String() string { return proto.CompactTextString(m) }
 func (*ClusterLoadAssignment_Policy_DropOverload) ProtoMessage()    {}
 func (*ClusterLoadAssignment_Policy_DropOverload) Descriptor() ([]byte, []int) {
-	return fileDescriptor2, []int{0, 0, 0}
+	return fileDescriptor_eds_e9ea46c47b0505d4, []int{0, 0, 0}
 }
+func (m *ClusterLoadAssignment_Policy_DropOverload) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ClusterLoadAssignment_Policy_DropOverload.Unmarshal(m, b)
+}
+func (m *ClusterLoadAssignment_Policy_DropOverload) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ClusterLoadAssignment_Policy_DropOverload.Marshal(b, m, deterministic)
+}
+func (dst *ClusterLoadAssignment_Policy_DropOverload) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ClusterLoadAssignment_Policy_DropOverload.Merge(dst, src)
+}
+func (m *ClusterLoadAssignment_Policy_DropOverload) XXX_Size() int {
+	return xxx_messageInfo_ClusterLoadAssignment_Policy_DropOverload.Size(m)
+}
+func (m *ClusterLoadAssignment_Policy_DropOverload) XXX_DiscardUnknown() {
+	xxx_messageInfo_ClusterLoadAssignment_Policy_DropOverload.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ClusterLoadAssignment_Policy_DropOverload proto.InternalMessageInfo
 
 func (m *ClusterLoadAssignment_Policy_DropOverload) GetCategory() string {
 	if m != nil {
@@ -127,7 +197,7 @@ func (m *ClusterLoadAssignment_Policy_DropOverload) GetCategory() string {
 	return ""
 }
 
-func (m *ClusterLoadAssignment_Policy_DropOverload) GetDropPercentage() *envoy_type.Percent {
+func (m *ClusterLoadAssignment_Policy_DropOverload) GetDropPercentage() *_type.Percent {
 	if m != nil {
 		return m.DropPercentage
 	}
@@ -148,8 +218,9 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// Client API for EndpointDiscoveryService service
-
+// EndpointDiscoveryServiceClient is the client API for EndpointDiscoveryService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type EndpointDiscoveryServiceClient interface {
 	// The resource_names field in DiscoveryRequest specifies a list of clusters
 	// to subscribe to updates for.
@@ -166,7 +237,7 @@ func NewEndpointDiscoveryServiceClient(cc *grpc.ClientConn) EndpointDiscoverySer
 }
 
 func (c *endpointDiscoveryServiceClient) StreamEndpoints(ctx context.Context, opts ...grpc.CallOption) (EndpointDiscoveryService_StreamEndpointsClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_EndpointDiscoveryService_serviceDesc.Streams[0], c.cc, "/envoy.api.v2.EndpointDiscoveryService/StreamEndpoints", opts...)
+	stream, err := c.cc.NewStream(ctx, &_EndpointDiscoveryService_serviceDesc.Streams[0], "/envoy.api.v2.EndpointDiscoveryService/StreamEndpoints", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -198,15 +269,14 @@ func (x *endpointDiscoveryServiceStreamEndpointsClient) Recv() (*DiscoveryRespon
 
 func (c *endpointDiscoveryServiceClient) FetchEndpoints(ctx context.Context, in *DiscoveryRequest, opts ...grpc.CallOption) (*DiscoveryResponse, error) {
 	out := new(DiscoveryResponse)
-	err := grpc.Invoke(ctx, "/envoy.api.v2.EndpointDiscoveryService/FetchEndpoints", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/envoy.api.v2.EndpointDiscoveryService/FetchEndpoints", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// Server API for EndpointDiscoveryService service
-
+// EndpointDiscoveryServiceServer is the server API for EndpointDiscoveryService service.
 type EndpointDiscoveryServiceServer interface {
 	// The resource_names field in DiscoveryRequest specifies a list of clusters
 	// to subscribe to updates for.
@@ -282,9 +352,9 @@ var _EndpointDiscoveryService_serviceDesc = grpc.ServiceDesc{
 	Metadata: "envoy/api/v2/eds.proto",
 }
 
-func init() { proto.RegisterFile("envoy/api/v2/eds.proto", fileDescriptor2) }
+func init() { proto.RegisterFile("envoy/api/v2/eds.proto", fileDescriptor_eds_e9ea46c47b0505d4) }
 
-var fileDescriptor2 = []byte{
+var fileDescriptor_eds_e9ea46c47b0505d4 = []byte{
 	// 474 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x53, 0x3d, 0x6f, 0x13, 0x41,
 	0x10, 0xcd, 0x9e, 0x2d, 0x13, 0x6f, 0x4c, 0x82, 0x96, 0x8f, 0x9c, 0x4e, 0x56, 0x62, 0x59, 0x20,
