@@ -284,12 +284,6 @@ Deploying the DaemonSet
 =======================
 
 .. tabs::
-  .. group-tab:: K8s 1.7
-
-    .. parsed-literal::
-
-      $ wget \ |SCM_WEB|\/examples/kubernetes/1.7/cilium.yaml
-
   .. group-tab:: K8s 1.8
 
     .. parsed-literal::

@@ -23,18 +23,6 @@ both the Cilium agent and the Cilium CNI plugin.
 To deploy Cilium, run:
 
 .. tabs::
-  .. group-tab:: K8s 1.7
-
-    .. parsed-literal::
-
-      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.7/cilium.yaml
-      configmap "cilium-config" created
-      secret "cilium-etcd-secrets" created
-      daemonset.extensions "cilium" created
-      clusterrolebinding.rbac.authorization.k8s.io "cilium" created
-      clusterrole.rbac.authorization.k8s.io "cilium" created
-      serviceaccount "cilium" created
-
   .. group-tab:: K8s 1.8
 
     .. parsed-literal::
