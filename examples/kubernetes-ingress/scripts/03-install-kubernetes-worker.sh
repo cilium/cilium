@@ -228,10 +228,9 @@ sudo cp ./cilium.kubeconfig /var/lib/kube-proxy/kube-proxy.kubeconfig
 
 sudo tee /etc/systemd/system/kube-proxy.service <<EOF
 [Unit]
-Description=Kubernetes kube-proxy
-Documentation=https://kubernetes.io/docs/home
-After=containerd.service
-Requires=containerd.service
+Description=Kubernetes Kube-Proxy Server
+Documentation=https://kubernetes.io/docs/concepts/overview/components/#kube-proxy https://kubernetes.io/docs/reference/generated/kube-proxy/
+After=network.target
 
 [Service]
 ExecStart=/usr/bin/kube-proxy \\
