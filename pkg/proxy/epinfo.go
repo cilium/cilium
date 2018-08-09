@@ -53,8 +53,8 @@ func (r *defaultEndpointInfoRegistry) FillEndpointIdentityByIP(ip net.IP, info *
 		return false
 	}
 
-	if lockerr := ep.RLockAlive(); lockerr != nil {
-		ep.LogDisconnectedMutexAction(lockerr, "before FillEndpointIdentityByIP")
+	if err := ep.RLockAlive(); err != nil {
+		ep.LogDisconnectedMutexAction(err, "before FillEndpointIdentityByIP")
 		return false
 	}
 

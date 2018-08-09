@@ -453,7 +453,6 @@ func (e *Endpoint) removeOldRedirects(owner Owner, desiredRedirects map[string]b
 // boolean if the BPF compilation was executed and an error in case of an error.
 func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint64, compiled bool, reterr error) {
 	var (
-		lockerr             error
 		err                 error
 		compilationExecuted bool
 	)
@@ -520,15 +519,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 
 	defer func() {
 		if reterr != nil {
-			lockerr = e.LockAlive()
-			if lockerr != nil {
-				// holding the mutex to log the error
-				e.UnconditionalRLock()
-				epLogger := e.getLogger()
-				epLogger.WithError(lockerr).Error("Failed to destroy BPF maps after policy regeneration error - endpoint disconnected")
-				e.RUnlock()
-				return
-			}
+			e.UnconditionalLock()
 			epLogger := e.getLogger()
 			epLogger.WithError(err).Error("destroying BPF maps due to" +
 				" errors during regeneration")
@@ -648,16 +639,14 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 		compilationExecuted = true
 		e.bpfHeaderfileHash = bpfHeaderfilesHash
 	} else {
-		if lockerr = e.RLockAlive(); lockerr != nil {
-			return 0, compilationExecuted, lockerr
-		}
+		e.UnconditionalRLock()
 		logger.WithField(logfields.BPFHeaderfileHash, bpfHeaderfilesHash).
 			Debug("BPF header file unchanged, skipping BPF compilation and installation")
 		e.RUnlock()
 	}
 
-	if lockerr = e.LockAlive(); lockerr != nil {
-		return 0, compilationExecuted, lockerr
+	if err = e.LockAlive(); err != nil {
+		return 0, compilationExecuted, err
 	}
 	// Walk the L4Policy to add new redirects and update the desired policy map
 	// state to set the newly allocated proxy ports.
@@ -680,8 +669,8 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 		return 0, compilationExecuted, fmt.Errorf("Error while configuring proxy redirects: %s", err)
 	}
 
-	if lockerr = e.LockAlive(); lockerr != nil {
-		return 0, compilationExecuted, lockerr
+	if err = e.LockAlive(); err != nil {
+		return 0, compilationExecuted, err
 	}
 	defer e.Unlock()
 

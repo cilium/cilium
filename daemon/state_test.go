@@ -141,9 +141,9 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 	epsNames := []string{}
 	for _, ep := range epsWanted {
 		os.MkdirAll(filepath.Join(baseDir, ep.StringID()), 777)
-		lockerr := ep.LockAlive()
-		if lockerr != nil {
-			return nil, lockerr
+		err := ep.LockAlive()
+		if err != nil {
+			return nil, err
 		}
 
 		ready := ep.SetStateLocked(e.StateWaitingToRegenerate, "test")

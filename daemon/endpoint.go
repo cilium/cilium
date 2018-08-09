@@ -257,8 +257,8 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 		for {
 			select {
 			case <-ticker.C:
-				if lockerr := e.RLockAlive(); lockerr != nil {
-					return api.Error(PutEndpointIDFailedCode, fmt.Errorf("error locking endpoint: %s", lockerr.Error()))
+				if err := e.RLockAlive(); err != nil {
+					return api.Error(PutEndpointIDFailedCode, fmt.Errorf("error locking endpoint: %s", err.Error()))
 				}
 				epState := e.GetStateLocked()
 				hasSidecarProxy := e.HasSidecarProxy()
@@ -343,7 +343,7 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 	//
 	//  Support arbitrary changes? Support only if unset?
 
-	if lockerr := ep.LockAlive(); lockerr != nil {
+	if err := ep.LockAlive(); err != nil {
 		return NewPatchEndpointIDNotFound()
 	}
 
@@ -426,10 +426,7 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 		}
 	}
 
-	// If endpoint is disconnected, the request should fail
-	if lockerr := ep.LockAlive(); lockerr != nil {
-		return NewPatchEndpointIDNotFound()
-	}
+	ep.Unlock()
 
 	if reason != "" {
 		if err := ep.RegenerateWait(h.d, reason); err != nil {
@@ -603,8 +600,8 @@ func (d *Daemon) EndpointUpdate(id string, cfg *models.EndpointConfigurationSpec
 				return api.Error(PatchEndpointIDConfigFailedCode, err)
 			}
 		}
-		if lockerr := ep.RLockAlive(); lockerr != nil {
-			return api.Error(PatchEndpointIDNotFoundCode, lockerr)
+		if err := ep.RLockAlive(); err != nil {
+			return api.Error(PatchEndpointIDNotFoundCode, err)
 		}
 		endpointmanager.UpdateReferences(ep)
 		ep.RUnlock()
@@ -687,8 +684,8 @@ func (h *getEndpointIDLabels) Handle(params GetEndpointIDLabelsParams) middlewar
 		return NewGetEndpointIDLabelsNotFound()
 	}
 
-	if lockerr := ep.RLockAlive(); lockerr != nil {
-		return api.Error(GetEndpointIDInvalidCode, lockerr)
+	if err := ep.RLockAlive(); err != nil {
+		return api.Error(GetEndpointIDInvalidCode, err)
 	}
 	spec := &models.LabelConfigurationSpec{
 		User: ep.OpLabels.Custom.GetModel(),
@@ -821,8 +818,8 @@ func (h *putEndpointIDLabels) Handle(params PatchEndpointIDLabelsParams) middlew
 		return NewPatchEndpointIDLabelsNotFound()
 	}
 
-	if lockerr := ep.RLockAlive(); lockerr != nil {
-		return api.Error(PutEndpointIDInvalidCode, lockerr)
+	if err := ep.RLockAlive(); err != nil {
+		return api.Error(PutEndpointIDInvalidCode, err)
 	}
 	currentLbls := ep.OpLabels.DeepCopy()
 	ep.RUnlock()

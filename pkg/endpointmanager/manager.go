@@ -271,9 +271,9 @@ func TriggerPolicyUpdates(owner endpoint.Owner, force bool) *sync.WaitGroup {
 
 	for _, ep := range eps {
 		go func(ep *endpoint.Endpoint, wg *sync.WaitGroup) {
-			if lockerr := ep.LockAlive(); lockerr != nil {
-				log.WithError(lockerr).Warn("Error while handling policy updates for endpoint")
-				ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+lockerr.Error())
+			if err := ep.LockAlive(); err != nil {
+				log.WithError(err).Warn("Error while handling policy updates for endpoint")
+				ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+err.Error())
 			}
 			policyChanges, err := ep.TriggerPolicyUpdatesLocked(owner, nil)
 			regen := false
@@ -334,8 +334,8 @@ func AddEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, reason string) err
 	}
 
 	// Regenerate immediately if ready or waiting for identity
-	if lockerr := ep.LockAlive(); lockerr != nil {
-		return lockerr
+	if err := ep.LockAlive(); err != nil {
+		return err
 	}
 	build := false
 	state := ep.GetStateLocked()
@@ -355,8 +355,8 @@ func AddEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, reason string) err
 		}
 	}
 
-	if lockerr := ep.RLockAlive(); lockerr != nil {
-		return lockerr
+	if err := ep.RLockAlive(); err != nil {
+		return err
 	}
 	Insert(ep)
 	ep.InsertEvent()

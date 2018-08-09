@@ -487,8 +487,8 @@ func (e *Endpoint) WaitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 
 	start := time.Now()
 
-	if lockerr := e.RLockAlive(); lockerr != nil {
-		return lockerr
+	if err := e.RLockAlive(); err != nil {
+		return err
 	}
 	logger := e.getLogger()
 	e.RUnlock()
@@ -876,7 +876,7 @@ func (e *Endpoint) getHealthModel() *models.EndpointHealth {
 
 // GetHealthModel returns the endpoint's health object.
 func (e *Endpoint) GetHealthModel() *models.EndpointHealth {
-	// NOTE: Using rlock on mutex directly because getHealthModel handles endpoint in disco state properly
+	// NOTE: Using rlock on mutex directly because getHealthModel handles removed endpoint properly
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
 	return e.getHealthModel()
@@ -887,7 +887,7 @@ func (e *Endpoint) GetModel() *models.Endpoint {
 	if e == nil {
 		return nil
 	}
-	// NOTE: Using rlock on mutex directly because GetModelRLocked handles endpoint in disco state properly
+	// NOTE: Using rlock on mutex directly because GetModelRLocked handles removed endpoint properly
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
 
@@ -1577,10 +1577,8 @@ func (e UpdateStateChangeError) Error() string { return e.msg }
 // if there was an issue triggering policy updates for the given endpoint,
 // or if endpoint regeneration was unable to be triggered.
 func (e *Endpoint) Update(owner Owner, cfg *models.EndpointConfigurationSpec) error {
-	var lockerr error
-
-	if lockerr = e.LockAlive(); lockerr != nil {
-		return lockerr
+	if err := e.LockAlive(); err != nil {
+		return err
 	}
 	e.getLogger().WithField("configuration-options", cfg).Debug("updating endpoint configuration options")
 
@@ -1626,8 +1624,8 @@ func (e *Endpoint) Update(owner Owner, cfg *models.EndpointConfigurationSpec) er
 		for {
 			select {
 			case <-ticker.C:
-				if lockerr = e.LockAlive(); lockerr != nil {
-					return lockerr
+				if err := e.LockAlive(); err != nil {
+					return err
 				}
 				// Check endpoint state before attempting configuration update because
 				// configuration updates can only be applied when the endpoint is in
@@ -1640,8 +1638,8 @@ func (e *Endpoint) Update(owner Owner, cfg *models.EndpointConfigurationSpec) er
 				}
 				e.Unlock()
 			case <-timeout:
-				if lockerr = e.LockAlive(); lockerr != nil {
-					return lockerr
+				if err = e.LockAlive(); err != nil {
+					return err
 				}
 				e.getLogger().Warningf("timed out waiting for endpoint state to change")
 				e.Unlock()
@@ -1801,8 +1799,8 @@ func (e *Endpoint) RemoveDirectory() {
 
 // CreateDirectory creates endpoint directory
 func (e *Endpoint) CreateDirectory() error {
-	if lockerr := e.LockAlive(); lockerr != nil {
-		return lockerr
+	if err := e.LockAlive(); err != nil {
+		return err
 	}
 	defer e.Unlock()
 	lxcDir := e.directoryPath()
@@ -2094,8 +2092,9 @@ OKState:
 	return true
 }
 
-// bumpPolicyRevision marks the endpoint to be running the next scheduled
-// policy revision as setup by e.regenerate(). endpoint.Mutex should held.
+// bumpPolicyRevisionLocked marks the endpoint to be running the next scheduled
+// policy revision as setup by e.regenerate()
+// endpoint.Mutex should held.
 func (e *Endpoint) bumpPolicyRevisionLocked(revision uint64) {
 	if revision > e.policyRevision {
 		e.setPolicyRevision(revision)
@@ -2208,10 +2207,8 @@ func (e *Endpoint) getIDandLabels() string {
 // endpoint will receive a new identity and will be regenerated. Both of these
 // operations will happen in the background.
 func (e *Endpoint) ModifyIdentityLabels(owner Owner, addLabels, delLabels pkgLabels.Labels) error {
-	var lockerr error
-
-	if lockerr = e.LockAlive(); lockerr != nil {
-		return lockerr
+	if err := e.LockAlive(); err != nil {
+		return err
 	}
 
 	switch e.GetStateLocked() {
@@ -2291,8 +2288,10 @@ func (e *Endpoint) UpdateLabels(owner Owner, identityLabels, infoLabels pkgLabel
 		logfields.InfoLabels:     infoLabels.String(),
 	}).Debug("Refreshing labels of endpoint")
 
-	// NOTE: not sure if this should be allowed, please take a look in review
-	e.UnconditionalLock()
+	if err := e.LockAlive(); err != nil {
+		e.LogDisconnectedMutexAction(err, "when trying to refresh endpint labels")
+		return
+	}
 
 	e.replaceInformationLabels(infoLabels)
 	// replace identity labels and update the identity if labels have changed
@@ -2321,9 +2320,7 @@ func (e *Endpoint) identityResolutionIsObsolete(myChangeRev int) bool {
 
 // Must be called with e.Mutex NOT held.
 func (e *Endpoint) runLabelsResolver(owner Owner, myChangeRev int) {
-	// NOTE: need to figure out if we need e.LockAlive() here
-	// The disco error will be reported by resolve-identity-e.ID controller
-	// which seems to be enough
+	// NOTE: UnconditionalLock is used here only for logging
 	e.UnconditionalLock()
 
 	newLabels := e.OpLabels.IdentityLabels()
@@ -2353,8 +2350,8 @@ func (e *Endpoint) runLabelsResolver(owner Owner, myChangeRev int) {
 }
 
 func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
-	if lockerr := e.RLockAlive(); lockerr != nil {
-		return lockerr
+	if err := e.RLockAlive(); err != nil {
+		return err
 	}
 	newLabels := e.OpLabels.IdentityLabels()
 	elog := e.getLogger().WithFields(logrus.Fields{
@@ -2364,8 +2361,8 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 
 	// Since we unlocked the endpoint and re-locked, the label update may already be obsolete
 	if e.identityResolutionIsObsolete(myChangeRev) {
-		defer elog.Debug("Endpoint identity has changed, aborting resolution routine in favour of new one")
 		e.RUnlock()
+		elog.Debug("Endpoint identity has changed, aborting resolution routine in favour of new one")
 		return nil
 	}
 
@@ -2374,8 +2371,8 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 		if e.GetStateLocked() == StateWaitingForIdentity {
 			e.SetStateLocked(StateReady, "Set identity for this endpoint")
 		}
-		defer elog.Debug("Endpoint labels unchanged, skipping resolution of identity")
 		e.RUnlock()
+		elog.Debug("Endpoint labels unchanged, skipping resolution of identity")
 		return nil
 	}
 
@@ -2390,8 +2387,8 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 		return err
 	}
 
-	if lockerr := e.LockAlive(); lockerr != nil {
-		return lockerr
+	if err := e.LockAlive(); err != nil {
+		return err
 	}
 
 	// Since we unlocked the endpoint and re-locked, the label update may already be obsolete
@@ -2615,8 +2612,9 @@ func (e *Endpoint) syncPolicyMapController() {
 	e.controllers.UpdateController(ctrlName,
 		controller.ControllerParams{
 			DoFunc: func() (reterr error) {
-				if lockerr := e.LockAlive(); lockerr != nil {
-					return lockerr
+				if err := e.LockAlive(); err != nil {
+					e.LogDisconnectedMutexAction(err, "before syncing policy maps in controller")
+					return nil
 				}
 				defer e.Unlock()
 				return e.syncPolicyMap()
@@ -2642,7 +2640,7 @@ func (e *Endpoint) LockAlive() error {
 	e.mutex.Lock()
 	if e.IsDisconnecting() {
 		e.mutex.Unlock()
-		return fmt.Errorf("endpoint was removed before lock attempt")
+		return fmt.Errorf("lock failed: endpoint is in the process of being removed")
 	}
 	return nil
 }
@@ -2652,12 +2650,12 @@ func (e *Endpoint) Unlock() {
 	e.mutex.Unlock()
 }
 
-// RLock returns error if endpoint was removed, read locks underlying mutex otherwise
+// RLockAlive returns error if endpoint was removed, read locks underlying mutex otherwise
 func (e *Endpoint) RLockAlive() error {
 	e.mutex.RLock()
 	if e.IsDisconnecting() {
 		e.mutex.RUnlock()
-		return fmt.Errorf("endpoint was removed before read lock attempt")
+		return fmt.Errorf("rlock failed: endpoint is in the process of being removed")
 	}
 	return nil
 }

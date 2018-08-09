@@ -97,11 +97,7 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 			continue
 		}
 
-		if lockerr := ep.LockAlive(); lockerr != nil {
-			scopedLog.WithError(lockerr).Error("Failed to lock endpoint. Not restoring endpoint.")
-			state.toClean = append(state.toClean, ep)
-			continue
-		}
+		ep.UnconditionalLock()
 		scopedLog.Debug("Restoring endpoint")
 		ep.LogStatusOKLocked(endpoint.Other, "Restoring endpoint from previous cilium instance")
 
@@ -149,16 +145,13 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 		// upon returning that endpoints are exposed to other subsystems via
 		// endpointmanager.
 
-		if lockerr := ep.RLockAlive(); lockerr != nil {
-			ep.LogDisconnectedMutexAction(lockerr, "before insertion to ep manager")
-			continue
-		}
+		ep.UnconditionalRLock()
 		endpointmanager.Insert(ep)
 		ep.RUnlock()
 
 		go func(ep *endpoint.Endpoint, epRegenerated chan<- bool) {
-			if lockerr := ep.RLockAlive(); lockerr != nil {
-				ep.LogDisconnectedMutexAction(lockerr, "before filtering labels during regenerating restored endpoint")
+			if err := ep.RLockAlive(); err != nil {
+				ep.LogDisconnectedMutexAction(err, "before filtering labels during regenerating restored endpoint")
 				return
 			}
 			scopedLog := log.WithField(logfields.EndpointID, ep.ID)
@@ -172,7 +165,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 				epRegenerated <- false
 			}
 
-			if lockerr := ep.LockAlive(); lockerr != nil {
+			if err := ep.LockAlive(); err != nil {
 				scopedLog.Warn("Endpoint to restore has been deleted")
 				return
 			}
