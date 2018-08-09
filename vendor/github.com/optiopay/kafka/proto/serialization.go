@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"reflect"
 	"time"
 )
 
@@ -152,10 +153,16 @@ func (d *decoder) DecodeString() string {
 	return string(b)
 }
 
-func (d *decoder) DecodeArrayLen() (int, error) {
+func (d *decoder) DecodeArrayLen(nullable bool) (int, error) {
 	len := int(d.DecodeInt32())
 
-	if len < 0 || len > maxParseBufSize {
+	if len < 0 {
+		if nullable { // null array.
+			return -1, nil
+		} else {
+			return 0, ErrInvalidArrayLen
+		}
+	} else if len > maxParseBufSize {
 		return 0, ErrInvalidArrayLen
 	}
 
@@ -255,7 +262,7 @@ func (e *encoder) Encode(value interface{}) {
 			e.err = writeAll(e.w, val)
 		}
 	case []int32:
-		e.EncodeArrayLen(len(val))
+		e.EncodeArrayLen(val)
 		for _, v := range val {
 			e.Encode(v)
 		}
@@ -373,8 +380,16 @@ func (e *encoder) EncodeError(err error) {
 	e.err = writeAll(e.w, b)
 }
 
-func (e *encoder) EncodeArrayLen(length int) {
-	e.EncodeInt32(int32(length))
+func (e *encoder) EncodeArrayLen(s interface{}) {
+	v := reflect.ValueOf(s)
+	if v.Type().Kind() != reflect.Slice {
+		panic(fmt.Sprintf("EncodeArraylen called with a non-slice argument: %v", s))
+	}
+	if v.IsNil() {
+		e.EncodeInt32(-1)
+	} else {
+		e.EncodeInt32(int32(v.Len()))
+	}
 }
 
 func (e *encoder) Err() error {
