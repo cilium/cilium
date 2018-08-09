@@ -400,6 +400,17 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		},
 	)
 	go svcController.Run(wait.NeverStop)
+	d.k8sResourceSyncWaitGroup.Add(1)
+	go func() {
+		completed := make(<-chan struct{})
+		log.Debug("waiting for cache to synchronize for services")
+		if ok := cache.WaitForCacheSync(completed, svcController.HasSynced); !ok {
+			// If sync fails, fatally exit.
+			log.Fatalf("failed to wait for cache to sync for Services")
+		}
+		log.Debug("cache synced for Services")
+		d.k8sResourceSyncWaitGroup.Done()
+	}()
 	d.k8sAPIGroups.addAPI(k8sAPIGroupServiceV1Core)
 
 	_, endpointController := cache.NewInformer(
@@ -480,6 +491,19 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 				},
 			},
 		)
+
+		d.k8sResourceSyncWaitGroup.Add(1)
+		go func() {
+			completed := make(<-chan struct{})
+			log.Debug("waiting for cache to synchronize for Kubernetes Ingresses")
+			if ok := cache.WaitForCacheSync(completed, ingressController.HasSynced); !ok {
+				// If we can't get Ingresses for K8s, fatally exit.
+				log.Fatalf("failed to wait for cache to sync for Kubernetes Ingresses")
+			}
+			log.Debug("caches synced for Kubernetes Ingresses")
+			d.k8sResourceSyncWaitGroup.Done()
+		}()
+
 		go ingressController.Run(wait.NeverStop)
 		d.k8sAPIGroups.addAPI(k8sAPIGroupIngressV1Beta1)
 	}

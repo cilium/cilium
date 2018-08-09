@@ -825,16 +825,16 @@ func runDaemon() {
 	cachesSynced := make(chan struct{})
 
 	go func() {
-		log.Info("Waiting until all pre-existing policies have been received")
+		log.Info("Waiting until all pre-existing Kubernetes resources related to policy have been received")
 		d.k8sResourceSyncWaitGroup.Wait()
 		cachesSynced <- struct{}{}
 	}()
 
 	select {
 	case <-cachesSynced:
-		log.Info("All pre-existing policies have been received; continuing")
+		log.Info("All pre-existing Kubernetes resources related to policy have been received; continuing")
 	case <-time.After(cacheSyncTimeout):
-		log.Fatalf("Timed out waiting for pre-existing policies to be received; exiting")
+		log.Fatalf("Timed out waiting for pre-existing resources related to policy to be received; exiting")
 	}
 
 	if option.Config.RestoreState {
@@ -843,6 +843,23 @@ func runDaemon() {
 		// is bootstrapped.
 		d.regenerateRestoredEndpoints(restoredEndpoints)
 		go func() {
+			if k8s.IsEnabled() {
+				// Start controller which removes any leftover Kubernetes
+				// services that may have been deleted while Cilium was not
+				// running. Once this controller succeeds, because it has no
+				// RunInterval specified, it will not run again unless updated
+				// elsewhere. This means that if, for instance, a user manually
+				// adds a service via the CLI into the BPF maps, that it will
+				// not be cleaned up by the daemon until it restarts.
+				controller.NewManager().UpdateController("sync-lb-maps-with-k8s-services",
+					controller.ControllerParams{
+						DoFunc: func() error {
+							return d.syncLBMapsWithK8s()
+						},
+					},
+				)
+				return
+			}
 			if err := d.SyncLBMap(); err != nil {
 				log.WithError(err).Warn("Error while recovering endpoints")
 			}
