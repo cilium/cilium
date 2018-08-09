@@ -7,10 +7,10 @@ specs:
   - endpointSelector:
       matchLabels:
         app: kafka
-    ingress:
+    egress:
     - fromEndpoints:
       - matchLabels:
-          app: kafka
+          app: zook
       toPorts:
       - ports:
         - port: "2181"
