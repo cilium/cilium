@@ -1044,7 +1044,7 @@
     "storage/v1alpha1",
     "storage/v1beta1"
   ]
-  revision = "kubernetes-1.11.0"
+  revision = "kubernetes-1.11.2"
 
 [[projects]]
   name = "k8s.io/apiextensions-apiserver"
@@ -1055,7 +1055,7 @@
     "pkg/client/clientset/clientset/scheme",
     "pkg/client/clientset/clientset/typed/apiextensions/v1beta1"
   ]
-  revision = "kubernetes-1.11.0"
+  revision = "kubernetes-1.11.2"
 
 [[projects]]
   name = "k8s.io/apimachinery"
@@ -1102,7 +1102,7 @@
     "third_party/forked/golang/json",
     "third_party/forked/golang/reflect"
   ]
-  revision = "kubernetes-1.11.0"
+  revision = "kubernetes-1.11.2"
 
 [[projects]]
   name = "k8s.io/client-go"
@@ -1168,7 +1168,7 @@
     "util/jsonpath",
     "util/retry"
   ]
-  revision = "kubernetes-1.11.0"
+  revision = "kubernetes-1.11.2"
 
 [[projects]]
   name = "k8s.io/code-generator"
@@ -1183,7 +1183,7 @@
     "cmd/client-gen/types",
     "pkg/util"
   ]
-  revision = "kubernetes-1.11.0"
+  revision = "kubernetes-1.11.2"
 
 [[projects]]
   name = "k8s.io/gengo"
@@ -1216,11 +1216,11 @@
     "pkg/registry/core/service/allocator",
     "pkg/registry/core/service/ipallocator"
   ]
-  revision = "v1.11.0"
+  revision = "v1.11.2"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "787623a4e3f906505165763a3c5382f340edc43fe2038c8a7691a80b32e32cf6"
+  inputs-digest = "ebef3cbfcc42a96b91e91f5aee711af61aba50e1a4de5e884a057fc903e9359d"
   solver-name = "gps-cdcl"
   solver-version = 1
