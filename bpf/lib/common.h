@@ -343,7 +343,7 @@ struct ipv6_ct_tuple {
 	__be16		sport;
 	__u8		nexthdr;
 	__u8		flags;
-};
+} __attribute__((packed));
 
 static inline union v6addr *
 ipv6_ct_tuple_get_daddr(struct ipv6_ct_tuple *tuple)
