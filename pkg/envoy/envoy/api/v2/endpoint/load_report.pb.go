@@ -6,15 +6,21 @@ package endpoint
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import envoy_api_v2_core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import google_protobuf3 "github.com/golang/protobuf/ptypes/duration"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
 import _ "github.com/gogo/protobuf/gogoproto"
+import duration "github.com/golang/protobuf/ptypes/duration"
+import _ "github.com/lyft/protoc-gen-validate/validate"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 // These are stats Envoy reports to GLB every so often. Report frequency is
 // defined by
@@ -24,7 +30,7 @@ var _ = math.Inf
 type UpstreamLocalityStats struct {
 	// Name of zone, region and optionally endpoint group these metrics were
 	// collected from. Zone and region names could be empty if unknown.
-	Locality *envoy_api_v2_core.Locality `protobuf:"bytes,1,opt,name=locality" json:"locality,omitempty"`
+	Locality *core.Locality `protobuf:"bytes,1,opt,name=locality,proto3" json:"locality,omitempty"`
 	// The total number of requests sent by this Envoy since the last report. A
 	// single HTTP or gRPC request or stream is counted as one request. A TCP
 	// connection is also treated as one request. There is no explicit
@@ -39,9 +45,9 @@ type UpstreamLocalityStats struct {
 	// locality. These include non-5xx responses for HTTP, where errors
 	// originate at the client and the endpoint responded successfully. For gRPC,
 	// the grpc-status values are those not covered by total_error_requests below.
-	TotalSuccessfulRequests uint64 `protobuf:"varint,2,opt,name=total_successful_requests,json=totalSuccessfulRequests" json:"total_successful_requests,omitempty"`
+	TotalSuccessfulRequests uint64 `protobuf:"varint,2,opt,name=total_successful_requests,json=totalSuccessfulRequests,proto3" json:"total_successful_requests,omitempty"`
 	// The total number of unfinished requests
-	TotalRequestsInProgress uint64 `protobuf:"varint,3,opt,name=total_requests_in_progress,json=totalRequestsInProgress" json:"total_requests_in_progress,omitempty"`
+	TotalRequestsInProgress uint64 `protobuf:"varint,3,opt,name=total_requests_in_progress,json=totalRequestsInProgress,proto3" json:"total_requests_in_progress,omitempty"`
 	// The total number of requests that failed due to errors at the endpoint.
 	// For HTTP these are responses with 5xx status codes and for gRPC the
 	// grpc-status values:
@@ -52,20 +58,42 @@ type UpstreamLocalityStats struct {
 	//   - Unavailable
 	//   - Unknown
 	//   - DataLoss
-	TotalErrorRequests uint64 `protobuf:"varint,4,opt,name=total_error_requests,json=totalErrorRequests" json:"total_error_requests,omitempty"`
+	TotalErrorRequests uint64 `protobuf:"varint,4,opt,name=total_error_requests,json=totalErrorRequests,proto3" json:"total_error_requests,omitempty"`
 	// Stats for multi-dimensional load balancing.
-	LoadMetricStats []*EndpointLoadMetricStats `protobuf:"bytes,5,rep,name=load_metric_stats,json=loadMetricStats" json:"load_metric_stats,omitempty"`
+	LoadMetricStats []*EndpointLoadMetricStats `protobuf:"bytes,5,rep,name=load_metric_stats,json=loadMetricStats,proto3" json:"load_metric_stats,omitempty"`
 	// [#not-implemented-hide:] The priority of the endpoint group these metrics
 	// were collected from.
-	Priority uint32 `protobuf:"varint,6,opt,name=priority" json:"priority,omitempty"`
+	Priority             uint32   `protobuf:"varint,6,opt,name=priority,proto3" json:"priority,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *UpstreamLocalityStats) Reset()                    { *m = UpstreamLocalityStats{} }
-func (m *UpstreamLocalityStats) String() string            { return proto.CompactTextString(m) }
-func (*UpstreamLocalityStats) ProtoMessage()               {}
-func (*UpstreamLocalityStats) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{0} }
+func (m *UpstreamLocalityStats) Reset()         { *m = UpstreamLocalityStats{} }
+func (m *UpstreamLocalityStats) String() string { return proto.CompactTextString(m) }
+func (*UpstreamLocalityStats) ProtoMessage()    {}
+func (*UpstreamLocalityStats) Descriptor() ([]byte, []int) {
+	return fileDescriptor_load_report_270597675435f766, []int{0}
+}
+func (m *UpstreamLocalityStats) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_UpstreamLocalityStats.Unmarshal(m, b)
+}
+func (m *UpstreamLocalityStats) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_UpstreamLocalityStats.Marshal(b, m, deterministic)
+}
+func (dst *UpstreamLocalityStats) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UpstreamLocalityStats.Merge(dst, src)
+}
+func (m *UpstreamLocalityStats) XXX_Size() int {
+	return xxx_messageInfo_UpstreamLocalityStats.Size(m)
+}
+func (m *UpstreamLocalityStats) XXX_DiscardUnknown() {
+	xxx_messageInfo_UpstreamLocalityStats.DiscardUnknown(m)
+}
 
-func (m *UpstreamLocalityStats) GetLocality() *envoy_api_v2_core.Locality {
+var xxx_messageInfo_UpstreamLocalityStats proto.InternalMessageInfo
+
+func (m *UpstreamLocalityStats) GetLocality() *core.Locality {
 	if m != nil {
 		return m.Locality
 	}
@@ -110,18 +138,40 @@ func (m *UpstreamLocalityStats) GetPriority() uint32 {
 // [#not-implemented-hide:] Not configuration. TBD how to doc proto APIs.
 type EndpointLoadMetricStats struct {
 	// Name of the metric; may be empty.
-	MetricName string `protobuf:"bytes,1,opt,name=metric_name,json=metricName" json:"metric_name,omitempty"`
+	MetricName string `protobuf:"bytes,1,opt,name=metric_name,json=metricName,proto3" json:"metric_name,omitempty"`
 	// Number of calls that finished and included this metric.
-	NumRequestsFinishedWithMetric uint64 `protobuf:"varint,2,opt,name=num_requests_finished_with_metric,json=numRequestsFinishedWithMetric" json:"num_requests_finished_with_metric,omitempty"`
+	NumRequestsFinishedWithMetric uint64 `protobuf:"varint,2,opt,name=num_requests_finished_with_metric,json=numRequestsFinishedWithMetric,proto3" json:"num_requests_finished_with_metric,omitempty"`
 	// Sum of metric values across all calls that finished with this metric for
 	// load_reporting_interval.
-	TotalMetricValue float64 `protobuf:"fixed64,3,opt,name=total_metric_value,json=totalMetricValue" json:"total_metric_value,omitempty"`
+	TotalMetricValue     float64  `protobuf:"fixed64,3,opt,name=total_metric_value,json=totalMetricValue,proto3" json:"total_metric_value,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *EndpointLoadMetricStats) Reset()                    { *m = EndpointLoadMetricStats{} }
-func (m *EndpointLoadMetricStats) String() string            { return proto.CompactTextString(m) }
-func (*EndpointLoadMetricStats) ProtoMessage()               {}
-func (*EndpointLoadMetricStats) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{1} }
+func (m *EndpointLoadMetricStats) Reset()         { *m = EndpointLoadMetricStats{} }
+func (m *EndpointLoadMetricStats) String() string { return proto.CompactTextString(m) }
+func (*EndpointLoadMetricStats) ProtoMessage()    {}
+func (*EndpointLoadMetricStats) Descriptor() ([]byte, []int) {
+	return fileDescriptor_load_report_270597675435f766, []int{1}
+}
+func (m *EndpointLoadMetricStats) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_EndpointLoadMetricStats.Unmarshal(m, b)
+}
+func (m *EndpointLoadMetricStats) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_EndpointLoadMetricStats.Marshal(b, m, deterministic)
+}
+func (dst *EndpointLoadMetricStats) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EndpointLoadMetricStats.Merge(dst, src)
+}
+func (m *EndpointLoadMetricStats) XXX_Size() int {
+	return xxx_messageInfo_EndpointLoadMetricStats.Size(m)
+}
+func (m *EndpointLoadMetricStats) XXX_DiscardUnknown() {
+	xxx_messageInfo_EndpointLoadMetricStats.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_EndpointLoadMetricStats proto.InternalMessageInfo
 
 func (m *EndpointLoadMetricStats) GetMetricName() string {
 	if m != nil {
@@ -149,9 +199,9 @@ func (m *EndpointLoadMetricStats) GetTotalMetricValue() float64 {
 // [#not-implemented-hide:] Not configuration. TBD how to doc proto APIs.
 type ClusterStats struct {
 	// The name of the cluster.
-	ClusterName string `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName" json:"cluster_name,omitempty"`
+	ClusterName string `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName,proto3" json:"cluster_name,omitempty"`
 	// Need at least one.
-	UpstreamLocalityStats []*UpstreamLocalityStats `protobuf:"bytes,2,rep,name=upstream_locality_stats,json=upstreamLocalityStats" json:"upstream_locality_stats,omitempty"`
+	UpstreamLocalityStats []*UpstreamLocalityStats `protobuf:"bytes,2,rep,name=upstream_locality_stats,json=upstreamLocalityStats,proto3" json:"upstream_locality_stats,omitempty"`
 	// Cluster-level stats such as total_successful_requests may be computed by
 	// summing upstream_locality_stats. In addition, below there are additional
 	// cluster-wide stats. The following total_requests equality holds at the
@@ -164,21 +214,43 @@ type ClusterStats struct {
 	//
 	// The total number of dropped requests. This covers requests
 	// deliberately dropped by the drop_overload policy and circuit breaking.
-	TotalDroppedRequests uint64 `protobuf:"varint,3,opt,name=total_dropped_requests,json=totalDroppedRequests" json:"total_dropped_requests,omitempty"`
+	TotalDroppedRequests uint64 `protobuf:"varint,3,opt,name=total_dropped_requests,json=totalDroppedRequests,proto3" json:"total_dropped_requests,omitempty"`
 	// Information about deliberately dropped requests for each category specified
 	// in the DropOverload policy.
-	DroppedRequests []*ClusterStats_DroppedRequests `protobuf:"bytes,5,rep,name=dropped_requests,json=droppedRequests" json:"dropped_requests,omitempty"`
+	DroppedRequests []*ClusterStats_DroppedRequests `protobuf:"bytes,5,rep,name=dropped_requests,json=droppedRequests,proto3" json:"dropped_requests,omitempty"`
 	// Period over which the actual load report occurred. This will be guaranteed to include every
 	// request reported. Due to system load and delays between the *LoadStatsRequest* sent from Envoy
 	// and the *LoadStatsResponse* message sent from the management server, this may be longer than
 	// the requested load reporting interval in the *LoadStatsResponse*.
-	LoadReportInterval *google_protobuf3.Duration `protobuf:"bytes,4,opt,name=load_report_interval,json=loadReportInterval" json:"load_report_interval,omitempty"`
+	LoadReportInterval   *duration.Duration `protobuf:"bytes,4,opt,name=load_report_interval,json=loadReportInterval,proto3" json:"load_report_interval,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
+	XXX_unrecognized     []byte             `json:"-"`
+	XXX_sizecache        int32              `json:"-"`
 }
 
-func (m *ClusterStats) Reset()                    { *m = ClusterStats{} }
-func (m *ClusterStats) String() string            { return proto.CompactTextString(m) }
-func (*ClusterStats) ProtoMessage()               {}
-func (*ClusterStats) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{2} }
+func (m *ClusterStats) Reset()         { *m = ClusterStats{} }
+func (m *ClusterStats) String() string { return proto.CompactTextString(m) }
+func (*ClusterStats) ProtoMessage()    {}
+func (*ClusterStats) Descriptor() ([]byte, []int) {
+	return fileDescriptor_load_report_270597675435f766, []int{2}
+}
+func (m *ClusterStats) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ClusterStats.Unmarshal(m, b)
+}
+func (m *ClusterStats) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ClusterStats.Marshal(b, m, deterministic)
+}
+func (dst *ClusterStats) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ClusterStats.Merge(dst, src)
+}
+func (m *ClusterStats) XXX_Size() int {
+	return xxx_messageInfo_ClusterStats.Size(m)
+}
+func (m *ClusterStats) XXX_DiscardUnknown() {
+	xxx_messageInfo_ClusterStats.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ClusterStats proto.InternalMessageInfo
 
 func (m *ClusterStats) GetClusterName() string {
 	if m != nil {
@@ -208,7 +280,7 @@ func (m *ClusterStats) GetDroppedRequests() []*ClusterStats_DroppedRequests {
 	return nil
 }
 
-func (m *ClusterStats) GetLoadReportInterval() *google_protobuf3.Duration {
+func (m *ClusterStats) GetLoadReportInterval() *duration.Duration {
 	if m != nil {
 		return m.LoadReportInterval
 	}
@@ -217,15 +289,37 @@ func (m *ClusterStats) GetLoadReportInterval() *google_protobuf3.Duration {
 
 type ClusterStats_DroppedRequests struct {
 	// Identifier for the policy specifying the drop.
-	Category string `protobuf:"bytes,1,opt,name=category" json:"category,omitempty"`
+	Category string `protobuf:"bytes,1,opt,name=category,proto3" json:"category,omitempty"`
 	// Total number of deliberately dropped requests for the category.
-	DroppedCount uint64 `protobuf:"varint,2,opt,name=dropped_count,json=droppedCount" json:"dropped_count,omitempty"`
+	DroppedCount         uint64   `protobuf:"varint,2,opt,name=dropped_count,json=droppedCount,proto3" json:"dropped_count,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *ClusterStats_DroppedRequests) Reset()                    { *m = ClusterStats_DroppedRequests{} }
-func (m *ClusterStats_DroppedRequests) String() string            { return proto.CompactTextString(m) }
-func (*ClusterStats_DroppedRequests) ProtoMessage()               {}
-func (*ClusterStats_DroppedRequests) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{2, 0} }
+func (m *ClusterStats_DroppedRequests) Reset()         { *m = ClusterStats_DroppedRequests{} }
+func (m *ClusterStats_DroppedRequests) String() string { return proto.CompactTextString(m) }
+func (*ClusterStats_DroppedRequests) ProtoMessage()    {}
+func (*ClusterStats_DroppedRequests) Descriptor() ([]byte, []int) {
+	return fileDescriptor_load_report_270597675435f766, []int{2, 0}
+}
+func (m *ClusterStats_DroppedRequests) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ClusterStats_DroppedRequests.Unmarshal(m, b)
+}
+func (m *ClusterStats_DroppedRequests) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ClusterStats_DroppedRequests.Marshal(b, m, deterministic)
+}
+func (dst *ClusterStats_DroppedRequests) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ClusterStats_DroppedRequests.Merge(dst, src)
+}
+func (m *ClusterStats_DroppedRequests) XXX_Size() int {
+	return xxx_messageInfo_ClusterStats_DroppedRequests.Size(m)
+}
+func (m *ClusterStats_DroppedRequests) XXX_DiscardUnknown() {
+	xxx_messageInfo_ClusterStats_DroppedRequests.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ClusterStats_DroppedRequests proto.InternalMessageInfo
 
 func (m *ClusterStats_DroppedRequests) GetCategory() string {
 	if m != nil {
@@ -248,9 +342,11 @@ func init() {
 	proto.RegisterType((*ClusterStats_DroppedRequests)(nil), "envoy.api.v2.endpoint.ClusterStats.DroppedRequests")
 }
 
-func init() { proto.RegisterFile("envoy/api/v2/endpoint/load_report.proto", fileDescriptor1) }
+func init() {
+	proto.RegisterFile("envoy/api/v2/endpoint/load_report.proto", fileDescriptor_load_report_270597675435f766)
+}
 
-var fileDescriptor1 = []byte{
+var fileDescriptor_load_report_270597675435f766 = []byte{
 	// 612 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x74, 0x54, 0xdd, 0x6e, 0xd3, 0x30,
 	0x18, 0x55, 0xda, 0x6d, 0xea, 0xdc, 0x4d, 0x1b, 0xd6, 0x46, 0xbb, 0xf2, 0x57, 0x86, 0x10, 0xbd,
