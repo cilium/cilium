@@ -204,7 +204,7 @@ var _ = Describe("K8sKafkaPolicyTest", func() {
 			desiredPolicyStatus := map[string]models.EndpointPolicyEnabled{
 				backupApp:   models.EndpointPolicyEnabledNone,
 				empireHqApp: models.EndpointPolicyEnabledNone,
-				kafkaApp:    models.EndpointPolicyEnabledIngress,
+				kafkaApp:    models.EndpointPolicyEnabledBoth,
 				outpostApp:  models.EndpointPolicyEnabledNone,
 				zookApp:     models.EndpointPolicyEnabledNone,
 			}
