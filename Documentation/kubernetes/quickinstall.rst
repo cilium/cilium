@@ -25,14 +25,6 @@ chapter.
 2. Download the `DaemonSet` template ``cilium.yaml`` and specify the etcd address:
 
 .. tabs::
-  .. group-tab:: K8s 1.7
-
-    .. parsed-literal::
-
-      $ wget \ |SCM_WEB|\/examples/kubernetes/1.7/cilium.yaml
-      $ vim cilium.yaml
-      [adjust the etcd address]
-
   .. group-tab:: K8s 1.8
 
     .. parsed-literal::
