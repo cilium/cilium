@@ -87,12 +87,18 @@ func GetMapPath(e CtEndpoint, isIPv6 bool) string {
 	return file
 }
 
+// roundToWordBoundary rounds the specified value up to the nearest 64-bit word
+// boundary.
+func roundToWordBoundary(size uintptr) uint32 {
+	return uint32(size + (8 - size%8))
+}
+
 // getMaps fetches all paths for conntrack maps associated with the specified
 // endpoint, and returns a map from these paths to the keySize used for that
 // map.
 func getMapPathsToKeySize(e CtEndpoint) map[string]uint32 {
 	return map[string]uint32{
-		GetMapPath(e, true):  uint32(unsafe.Sizeof(CtKey6{})),
+		GetMapPath(e, true):  roundToWordBoundary(unsafe.Sizeof(CtKey6{})),
 		GetMapPath(e, false): uint32(unsafe.Sizeof(CtKey4{})),
 	}
 }
