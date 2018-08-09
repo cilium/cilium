@@ -820,7 +820,7 @@ func (a *Allocator) startWatch() waitChan {
 					case kvstore.EventTypeDelete:
 						kvstore.Trace("Removing id from cache", nil, logrus.Fields{fieldID: id})
 
-						if k, ok := a.nextCache[id]; ok {
+						if k, ok := a.nextCache[id]; ok && k != nil {
 							delete(a.nextKeyCache, k.GetKey())
 						}
 
