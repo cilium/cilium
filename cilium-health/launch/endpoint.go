@@ -133,22 +133,28 @@ func PingEndpoint() error {
 	return err
 }
 
-// CleanupEndpoint attempts to kill any existing cilium-health endpoint and
-// clean up its devices and pidfiles. If any existing cilium-health endpoint
-// exists in Cilium, it is removed from the endpoint manager.
+// KillEndpoint attempts to kill any existing cilium-health endpoint if it
+// exists.
 //
 // This is intended to be invoked in multiple situations:
 // * The health endpoint has never been run before
 // * The health endpoint was run during a previous run of the Cilium agent
 // * The health endpoint crashed during the current run of the Cilium agent
 //   and needs to be cleaned up before it is restarted.
-func CleanupEndpoint(owner endpoint.Owner) {
+func KillEndpoint() {
 	path := filepath.Join(option.Config.StateDir, healthPidfile)
 	if err := pidfile.Kill(path); err != nil {
 		scopedLog := log.WithField(logfields.Path, path).WithError(err)
 		scopedLog.Info("Failed to kill previous cilium-health instance")
 	}
+}
 
+// CleanupEndpoint cleans up remaining resources associated with the health
+// endpoint.
+//
+// This is expected to be called after the process is killed and the endpoint
+// is removed from the endpointmanager.
+func CleanupEndpoint() {
 	scopedLog := log.WithField(logfields.Veth, vethName)
 	if link, err := netlink.LinkByName(vethName); err == nil {
 		err = netlink.LinkDel(link)

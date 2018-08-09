@@ -767,7 +767,7 @@ func initEnv(cmd *cobra.Command) {
 
 func cleanupHealthEndpoint(d *Daemon) {
 	// Delete the process
-	health.CleanupEndpoint(d)
+	health.KillEndpoint()
 	// Clean up agent resources
 	ip6 := node.GetIPv6HealthIP()
 	id := addressing.CiliumIPv6(ip6).EndpointID()
@@ -781,6 +781,7 @@ func cleanupHealthEndpoint(d *Daemon) {
 			log.WithError(err).Debug("Error occurred while deleting cilium-health endpoint")
 		}
 	}
+	health.CleanupEndpoint()
 }
 
 // runCiliumHealthEndpoint attempts to contact the cilium-health endpoint, and
