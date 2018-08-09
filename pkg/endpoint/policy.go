@@ -666,7 +666,6 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	var revision uint64
 	var compilationExecuted bool
 	var err error
-	var lockerr error
 
 	metrics.EndpointCountRegenerating.Inc()
 	regenerateStart := time.Now()
@@ -691,8 +690,8 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	e.BuildMutex.Lock()
 	defer e.BuildMutex.Unlock()
 
-	if lockerr = e.RLockAlive(); lockerr != nil {
-		return lockerr
+	if err = e.RLockAlive(); err != nil {
+		return err
 	}
 	scopedLog := e.getLogger()
 	e.RUnlock()
@@ -711,11 +710,11 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	}
 
 	defer func() {
-		if lockerr := e.LockAlive(); lockerr != nil {
+		if err := e.LockAlive(); err != nil {
 			if retErr == nil {
-				retErr = lockerr
+				retErr = err
 			} else {
-				e.LogDisconnectedMutexAction(lockerr, "after regenerate")
+				e.LogDisconnectedMutexAction(err, "after regenerate")
 			}
 			return
 		}
@@ -778,8 +777,8 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	// Update desired policy for endpoint because policy has now been realized
 	// in the datapath. PolicyMap state is not updated here, because that is
 	// performed in endpoint.syncPolicyMap().
-	if lockerr = e.LockAlive(); lockerr != nil {
-		return lockerr
+	if err = e.LockAlive(); err != nil {
+		return err
 	}
 	e.RealizedL4Policy = e.DesiredL4Policy
 	// Mark the endpoint to be running the policy revision it was
@@ -806,9 +805,9 @@ func (e *Endpoint) Regenerate(owner Owner, reason string) <-chan bool {
 	go func(owner Owner, req *Request, e *Endpoint) {
 		buildSuccess := true
 
-		lockerr := e.RLockAlive()
-		if lockerr != nil {
-			e.LogDisconnectedMutexAction(lockerr, "before regeneration")
+		err := e.RLockAlive()
+		if err != nil {
+			e.LogDisconnectedMutexAction(err, "before regeneration")
 			req.ExternalDone <- false
 			close(req.ExternalDone)
 			return
@@ -903,8 +902,8 @@ func (e *Endpoint) runIdentityToK8sPodSync() {
 			DoFunc: func() error {
 				id := ""
 
-				if lockerr := e.RLockAlive(); lockerr != nil {
-					return lockerr
+				if err := e.RLockAlive(); err != nil {
+					return err
 				}
 				if e.SecurityIdentity != nil {
 					id = e.SecurityIdentity.ID.StringID()
