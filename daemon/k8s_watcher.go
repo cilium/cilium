@@ -88,7 +88,7 @@ var (
 
 	networkPolicyV1VerConstr = versioncheck.MustCompile(">= 1.7.0")
 
-	ciliumv2VerConstr           = versioncheck.MustCompile(">= 1.7.0")
+	ciliumv2VerConstr           = versioncheck.MustCompile(">= 1.8.0")
 	ciliumUpdateStatusVerConstr = versioncheck.MustCompile(">= 1.11.0")
 
 	k8sCM = controller.NewManager()
@@ -282,7 +282,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		d.k8sAPIGroups.addAPI(k8sAPIGroupCRD)
 		d.k8sAPIGroups.addAPI(k8sAPIGroupCiliumV2)
 	default:
-		return fmt.Errorf("Unsupported k8s version. Minimal supported version is >= 1.7.0")
+		return fmt.Errorf("Unsupported k8s version. Minimal supported version is %s", ciliumv2VerConstr.String())
 	}
 
 	ciliumNPClient, err = clientset.NewForConfig(restConfig)
