@@ -7,6 +7,17 @@ specs:
   - endpointSelector:
       matchLabels:
         app: kafka
+    ingress:
+    - fromEndpoints:
+      - matchLabels:
+          "reserved:host": ""
+      toPorts:
+      - ports:
+        - port: "9092"
+          protocol: TCP
+  - endpointSelector:
+      matchLabels:
+        app: kafka
     egress:
     - fromEndpoints:
       - matchLabels:
