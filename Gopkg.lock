@@ -666,7 +666,7 @@
     ".",
     "proto"
   ]
-  revision = "c411825615d9959fd44c0b455b86f8684f9c58b0"
+  revision = "01ce283b732b96914f62b1ff1bf5d8b90f7db86c"
   source = "https://github.com/cilium/kafka"
 
 [[projects]]
