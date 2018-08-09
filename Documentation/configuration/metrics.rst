@@ -74,7 +74,7 @@ Events external to Cilium
 
 Cilium as a Kubernetes pod
 ==========================
-The Cilium `Prometheus reference configuration <https://github.com/cilium/cilium/blob/master/examples/kubernetes/prometheus.yaml>`_
+The Cilium `Prometheus reference configuration <https://github.com/cilium/cilium/blob/master/examples/kubernetes/addons/prometheus/prometheus.yaml>`_
 configures jobs that automatically collect pod metrics marked with the
 appropriate two labels.
 
@@ -85,7 +85,7 @@ Your Cilium spec will need these annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9090"
 
-The reference Cilium Kubernetes DaemonSet `Kubernetes spec <https://github.com/cilium/cilium/blob/master/examples/kubernetes/cilium.yaml>`_
+The reference Cilium Kubernetes DaemonSet `Kubernetes spec <https://github.com/cilium/cilium/blob/master/examples/kubernetes/1.8/cilium.yaml>`_
 is an example of how to configure ``cilium-agent`` and set the appropriate labels.
 
 *Note: the port can be configured per-pod to any value and the label set
@@ -98,7 +98,7 @@ and tag the resulting metrics series. In the Kubernetes case Prometheus will
 contact the Kubernetes API server for these lists and must have permissions to
 do so.
 
-An example `promethues configuration <https://github.com/cilium/cilium/blob/master/examples/kubernetes/prometheus.yaml>`_
+An example `promethues configuration <https://github.com/cilium/cilium/blob/master/examples/kubernetes/addons/prometheus/prometheus.yaml>`_
 can be found alongside the reference Cilium Kubernetes DaemonSet spec.
 
 The critical discovery section is:
