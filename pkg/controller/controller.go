@@ -179,7 +179,9 @@ func (c *Controller) runController() {
 		if runFunc {
 			interval = params.RunInterval
 
+			start := time.Now()
 			err = params.DoFunc()
+			c.getLogger().Debug("Controller func execution time: ", time.Since(start))
 
 			c.mutex.Lock()
 
