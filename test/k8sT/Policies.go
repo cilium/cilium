@@ -354,11 +354,6 @@ var _ = Describe("K8sPolicyTest", func() {
 		})
 
 		It("Denies traffic with k8s default-deny egress policy", func() {
-			if helpers.GetCurrentK8SEnv() == "1.7" {
-				log.Info("K8s 1.7 doesn't offer a default deny for egress")
-				return
-			}
-
 			By("Installing knp egress default-deny")
 
 			_, err := kubectl.CiliumPolicyAction(
@@ -398,11 +393,6 @@ var _ = Describe("K8sPolicyTest", func() {
 		})
 
 		It("Denies traffic with k8s default-deny ingress-egress policy", func() {
-			if helpers.GetCurrentK8SEnv() == "1.7" {
-				log.Info("K8s 1.7 doesn't offer a default deny for egress")
-				return
-			}
-
 			By("Installing knp ingress-egress default-deny")
 
 			_, err := kubectl.CiliumPolicyAction(
@@ -557,12 +547,6 @@ var _ = Describe("K8sPolicyTest", func() {
 		})
 
 		It("Allows traffic with k8s default-allow egress policy", func() {
-
-			if helpers.GetCurrentK8SEnv() == "1.7" {
-				log.Info("K8s 1.7 doesn't offer a default allow for egress")
-				return
-			}
-
 			By("Installing egress default-allow")
 			_, err := kubectl.CiliumPolicyAction(
 				helpers.KubeSystemNamespace, knpAllowEgress, helpers.KubectlApply, helpers.HelperTimeout)
