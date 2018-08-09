@@ -52,8 +52,6 @@ rules:
   - apiGroups:
       - extensions
     resources:
-      - networkpolicies  # FIXME remove this when we drop support for k8s NP-beta GH-1202
-      - thirdpartyresources
       - ingresses
     verbs:
       - create
