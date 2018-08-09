@@ -77,7 +77,7 @@ pipeline {
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
             }
             steps {
-                sh 'cd ${TESTDIR}; K8S_VERSION=1.7 vagrant up --no-provision'
+                sh 'cd ${TESTDIR}; K8S_VERSION=1.8 vagrant up --no-provision'
                 sh 'cd ${TESTDIR}; K8S_VERSION=1.11 vagrant up --no-provision'
             }
         }
@@ -99,8 +99,8 @@ pipeline {
                         "Runtime":{
                             sh 'cd ${TESTDIR}; ginkgo --focus=" Runtime*" -v --failFast=${FAILFAST}'
                         },
-                        "K8s-1.7":{
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.7 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
+                        "K8s-1.8":{
+                            sh 'cd ${TESTDIR}; K8S_VERSION=1.8 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
                         },
                         "K8s-1.11":{
                             sh 'cd ${TESTDIR}; K8S_VERSION=1.11 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
@@ -123,7 +123,7 @@ pipeline {
     }
     post {
         always {
-            sh 'cd ${TESTDIR}/test/; K8S_VERSION=1.7 vagrant destroy -f || true'
+            sh 'cd ${TESTDIR}/test/; K8S_VERSION=1.8 vagrant destroy -f || true'
             sh 'cd ${TESTDIR}/test/; K8S_VERSION=1.11 vagrant destroy -f || true'
             cleanWs()
         }
