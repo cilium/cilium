@@ -609,20 +609,27 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 				case err == nil:
 					// Update the copy of the cep
 					k8sMdl.DeepCopyInto(&cep.Status)
-					var err2 error
 					switch {
 					case ciliumUpdateStatusVerConstr.Check(k8sServerVer):
-						_, err2 = ciliumClient.CiliumEndpoints(namespace).UpdateStatus(cep)
+						_, err = ciliumClient.CiliumEndpoints(namespace).UpdateStatus(cep)
 					default:
-						_, err2 = ciliumClient.CiliumEndpoints(namespace).Update(cep)
-					}
-					if err2 != nil {
-						scopedLog.WithError(err2).Error("Cannot update CEP")
-						return err2
+						_, err = ciliumClient.CiliumEndpoints(namespace).Update(cep)
 					}
 
-					lastMdl = mdl
-					return nil
+					// successfully updated CEP. Return
+					if err == nil {
+						lastMdl = mdl
+						return nil
+					}
+
+					// something went wrong with the update. Delete and fall through to
+					// the create below.
+					scopedLog.WithError(err).Debug("Deleting CEP due to error on update")
+					err = ciliumClient.CiliumEndpoints(namespace).Delete(podName, &meta_v1.DeleteOptions{})
+					if err != nil {
+						scopedLog.WithError(err).Warn("Error deleting CEP")
+						return err
+					}
 				}
 
 				// The CEP was not found, this is the first creation of the endpoint
