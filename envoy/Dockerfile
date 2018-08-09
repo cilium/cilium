@@ -29,6 +29,7 @@ RUN apt-get update \
 		binutils \
 		ca-certificates \
 		cmake \
+		coreutils \
 		curl \
 		g++ \
 		gcc \
@@ -40,7 +41,6 @@ RUN apt-get update \
 		ninja-build \
 		pkg-config \
 		python \
-		realpath \
 		rsync \
 		unzip \
 		wget \
