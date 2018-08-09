@@ -774,7 +774,7 @@ func runDaemon() {
 			},
 			StopFunc: func() error {
 				err = health.PingEndpoint()
-				health.CleanupEndpoint(d)
+				cleanupHealthEndpoint(d)
 				return err
 			},
 			RunInterval: 30 * time.Second,
