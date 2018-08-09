@@ -88,10 +88,6 @@ fi
 # /var/run/dockershim.sock is not present (because base image has containerid)
 # so with that option Kubeadm fallbacks to /var/run/docker.sock
 case $K8S_VERSION in
-    "1.7")
-        KUBERNETES_CNI_VERSION="0.5.1-00"
-        K8S_FULL_VERSION="1.7.15"
-        ;;
     "1.8")
         KUBERNETES_CNI_VERSION="0.5.1-00"
         K8S_FULL_VERSION="1.8.14"
@@ -126,7 +122,7 @@ esac
 
 #Install kubernetes
 case $K8S_VERSION in
-    "1.7"|"1.8"|"1.9"|"1.10"|"1.11")
+    "1.8"|"1.9"|"1.10"|"1.11")
         install_k8s_using_packages \
             kubernetes-cni=${KUBERNETES_CNI_VERSION} \
             kubelet=${K8S_FULL_VERSION}* \
