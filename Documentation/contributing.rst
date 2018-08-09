@@ -652,7 +652,6 @@ contain any characters after it.
 
 The Kubernetes tests support the following Kubernetes versions:
 
-* 1.7
 * 1.8
 * 1.9
 * 1.10
@@ -1317,13 +1316,13 @@ are not yet declared stable by Kubernetes upstream:
 
 First stage (stable versions which Cilium still supports):
 
-    - 1.7
+    - 1.8
+    - 1.11
+
+Second stage (other versions)
+
+    - 1.9
     - 1.10
-
-Second stage (unstable versions)
-
-    - 1.11 beta
-    - 1.12 alpha
 
 Ginkgo-CI-Tests-Pipeline
 ^^^^^^^^^^^^^^^^^^^^^^^^

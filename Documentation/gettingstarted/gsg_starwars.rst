@@ -404,13 +404,6 @@ To try out the metrics exported by cilium, simply install the example prometheus
 
 
 .. tabs::
-  .. group-tab:: K8s 1.7
-
-    .. parsed-literal::
-
-      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/addons/prometheus/prometheus.yaml
-      $ kubectl replace --force -f \ |SCM_WEB|\/examples/kubernetes/1.7/cilium.yaml
-
   .. group-tab:: K8s 1.8
 
     .. parsed-literal::

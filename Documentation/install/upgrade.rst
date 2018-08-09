@@ -143,12 +143,6 @@ and the etcd is set up to have `client to server authentication <https://coreos.
 2. Download the `ConfigMap` with the changes for "\ |SCM_BRANCH|":
 
 .. tabs::
-  .. group-tab:: K8s 1.7
-
-    .. parsed-literal::
-
-      $ wget \ |SCM_WEB|\/examples/kubernetes/1.7/cilium-cm.yaml
-
   .. group-tab:: K8s 1.8
 
     .. parsed-literal::
@@ -176,7 +170,7 @@ and the etcd is set up to have `client to server authentication <https://coreos.
 
 Verify its contents:
 
-.. literalinclude:: ../../examples/kubernetes/1.7/cilium-cm.yaml
+.. literalinclude:: ../../examples/kubernetes/1.8/cilium-cm.yaml
 
 
 3. Add the new options manually to your old `ConfigMap`, and make the necessary
@@ -261,13 +255,6 @@ and the ``DaemonSet``.
 Both files are dedicated to "\ |SCM_BRANCH|" for each Kubernetes version.
 
 .. tabs::
-  .. group-tab:: K8s 1.7
-
-    .. parsed-literal::
-
-      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.7/cilium-rbac.yaml
-      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.7/cilium-ds.yaml
-
   .. group-tab:: K8s 1.8
 
     .. parsed-literal::
