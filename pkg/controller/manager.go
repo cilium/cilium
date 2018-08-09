@@ -16,6 +16,7 @@ package controller
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/lock"
@@ -54,6 +55,8 @@ func GetGlobalStatus() models.ControllerStatuses {
 // immediately regardless of any previous conditions. It will also cause any
 // statistics to be reset.
 func (m *Manager) UpdateController(name string, params ControllerParams) *Controller {
+	start := time.Now()
+
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
@@ -81,6 +84,8 @@ func (m *Manager) UpdateController(name string, params ControllerParams) *Contro
 		case ctrl.update <- struct{}{}:
 		default:
 		}
+
+		ctrl.getLogger().Debug("Controller update time: ", time.Since(start))
 	} else {
 		ctrl = &Controller{
 			name:   name,
