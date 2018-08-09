@@ -2364,8 +2364,8 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 
 	// Since we unlocked the endpoint and re-locked, the label update may already be obsolete
 	if e.identityResolutionIsObsolete(myChangeRev) {
-		defer elog.Debug("Endpoint identity has changed, aborting resolution routine in favour of new one")
 		e.RUnlock()
+		elog.Debug("Endpoint identity has changed, aborting resolution routine in favour of new one")
 		return nil
 	}
 
@@ -2374,8 +2374,8 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 		if e.GetStateLocked() == StateWaitingForIdentity {
 			e.SetStateLocked(StateReady, "Set identity for this endpoint")
 		}
-		defer elog.Debug("Endpoint labels unchanged, skipping resolution of identity")
 		e.RUnlock()
+		elog.Debug("Endpoint labels unchanged, skipping resolution of identity")
 		return nil
 	}
 
@@ -2616,7 +2616,8 @@ func (e *Endpoint) syncPolicyMapController() {
 		controller.ControllerParams{
 			DoFunc: func() (reterr error) {
 				if lockerr := e.LockAlive(); lockerr != nil {
-					return lockerr
+					e.LogDisconnectedMutexAction(lockerr, "before syncing policy maps in controller")
+					return nil
 				}
 				defer e.Unlock()
 				return e.syncPolicyMap()
@@ -2642,7 +2643,7 @@ func (e *Endpoint) LockAlive() error {
 	e.mutex.Lock()
 	if e.IsDisconnecting() {
 		e.mutex.Unlock()
-		return fmt.Errorf("endpoint was removed before lock attempt")
+		return fmt.Errorf("lock failed: endpoint is in the process of being removed")
 	}
 	return nil
 }
@@ -2652,12 +2653,12 @@ func (e *Endpoint) Unlock() {
 	e.mutex.Unlock()
 }
 
-// RLock returns error if endpoint was removed, read locks underlying mutex otherwise
+// RLockAlive returns error if endpoint was removed, read locks underlying mutex otherwise
 func (e *Endpoint) RLockAlive() error {
 	e.mutex.RLock()
 	if e.IsDisconnecting() {
 		e.mutex.RUnlock()
-		return fmt.Errorf("endpoint was removed before read lock attempt")
+		return fmt.Errorf("rlock failed: endpoint is in the process of being removed")
 	}
 	return nil
 }

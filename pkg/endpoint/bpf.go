@@ -520,15 +520,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 
 	defer func() {
 		if reterr != nil {
-			lockerr = e.LockAlive()
-			if lockerr != nil {
-				// holding the mutex to log the error
-				e.UnconditionalRLock()
-				epLogger := e.getLogger()
-				epLogger.WithError(lockerr).Error("Failed to destroy BPF maps after policy regeneration error - endpoint disconnected")
-				e.RUnlock()
-				return
-			}
+			e.UnconditionalLock()
 			epLogger := e.getLogger()
 			epLogger.WithError(err).Error("destroying BPF maps due to" +
 				" errors during regeneration")
@@ -648,9 +640,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 		compilationExecuted = true
 		e.bpfHeaderfileHash = bpfHeaderfilesHash
 	} else {
-		if lockerr = e.RLockAlive(); lockerr != nil {
-			return 0, compilationExecuted, lockerr
-		}
+		e.UnconditionalRLock()
 		logger.WithField(logfields.BPFHeaderfileHash, bpfHeaderfilesHash).
 			Debug("BPF header file unchanged, skipping BPF compilation and installation")
 		e.RUnlock()

@@ -426,10 +426,7 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 		}
 	}
 
-	// If endpoint is disconnected, the request should fail
-	if lockerr := ep.LockAlive(); lockerr != nil {
-		return NewPatchEndpointIDNotFound()
-	}
+	ep.Unlock()
 
 	if reason != "" {
 		if err := ep.RegenerateWait(h.d, reason); err != nil {
