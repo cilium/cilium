@@ -209,12 +209,15 @@ func replaceNodeRoute(ip *net.IPNet) {
 	} else {
 		route.MTU = mtu.GetRouteMTU()
 	}
-	scopedLog := log.WithField(logfields.Route, route)
 
-	if err := netlink.RouteReplace(&route); err != nil {
-		scopedLog.WithError(err).Error("Unable to add node route")
-	} else {
-		scopedLog.Info("Installed node route")
+	if findRoute(link, &route) == nil {
+		scopedLog := log.WithField(logfields.Route, route)
+
+		if err := netlink.RouteReplace(&route); err != nil {
+			scopedLog.WithError(err).Error("Unable to add node route")
+		} else {
+			scopedLog.Info("Installed node route")
+		}
 	}
 }
 
