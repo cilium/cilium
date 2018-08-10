@@ -324,18 +324,25 @@ To monitor the rollout and confirm it is complete, run:
 
     $ kubectl rollout status daemonset/cilium -n kube-system
 
-To undo the rollout via rollback, run:
-
-.. code-block:: shell-session
-
-    $ kubectl rollout undo daemonset/cilium -n kube-system
-
 During the upgrade roll-out, Cilium will typically continue to forward traffic
 at L3/L4, and all endpoints and their configuration will be preserved across
 the upgrade. However, because the L7 proxies implementing HTTP, gRPC, and
 Kafka-aware filtering currently reside in the same Pod as Cilium, they are
 removed and re-installed as part of the rollout. As a result, any proxied
 connections will be lost and clients must reconnect.
+
+Rolling back the upgrade (Typically unnecessary)
+""""""""""""""""""""""""""""""""""""""""""""""""
+
+Occasionally, it may be necessary to undo the rollout because a step was missed
+or something went wrong during upgrade. To undo the rollout via rollback, run:
+
+.. code-block:: shell-session
+
+    $ kubectl rollout undo daemonset/cilium -n kube-system
+
+This will revert the latest changes to the Cilium ``DaemonSet`` and return
+Cilium to the state it was in prior to the upgrade.
 
 .. _specific_upgrade:
 
