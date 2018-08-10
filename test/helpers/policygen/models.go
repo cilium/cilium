@@ -702,6 +702,9 @@ func (t *TestSpec) InvalidNetworkPolicyApply() (*cnpv2.CiliumNetworkPolicy, erro
 		if cnp != nil {
 			return true
 		}
+		if len(cnp.Status.Nodes) == 0 {
+			return false
+		}
 		return false
 	}
 	err = helpers.WithTimeout(
