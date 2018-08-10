@@ -28,8 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/workloads"
 
 	"github.com/go-openapi/runtime/middleware"
-	k8sTypes "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -45,33 +43,16 @@ func (d *Daemon) getK8sStatus() *models.K8sStatus {
 
 	}
 
-	var (
-		k8sStatus *models.K8sStatus
-		status    *k8sTypes.ComponentStatus
-		err       error
-	)
-	if status, err = k8s.Client().CoreV1().ComponentStatuses().Get("controller-manager", metav1.GetOptions{}); err != nil {
+	version, err := k8s.Client().Discovery().ServerVersion()
+	if err != nil {
 		return &models.K8sStatus{State: models.StatusStateFailure, Msg: err.Error()}
 	}
-	switch {
-	case len(status.Conditions) == 0:
-		k8sStatus = &models.K8sStatus{
-			State: models.StatusStateWarning,
-			Msg:   "Unable to retrieve controller-manager's kubernetes status",
-		}
-	case status.Conditions[0].Status == k8sTypes.ConditionTrue:
-		k8sStatus = &models.K8sStatus{
-			State: models.StatusStateOk,
-			Msg:   "OK",
-		}
-	default:
-		k8sStatus = &models.K8sStatus{
-			State: models.StatusStateFailure,
-			Msg:   status.Conditions[0].Message,
-		}
-	}
 
-	k8sStatus.K8sAPIVersions = d.k8sAPIGroups.getGroups()
+	k8sStatus := &models.K8sStatus{
+		State:          models.StatusStateOk,
+		Msg:            fmt.Sprintf("%s.%s (%s) [%s]", version.Major, version.Minor, version.GitVersion, version.Platform),
+		K8sAPIVersions: d.k8sAPIGroups.getGroups(),
+	}
 
 	return k8sStatus
 }
