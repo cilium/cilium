@@ -68,3 +68,189 @@ func (s *NodeSuite) TestGetNodeIP(c *C) {
 	c.Assert(ip.Equal(net.ParseIP("198.51.100.2")), Equals, true)
 
 }
+
+func (s *NodeSuite) TestPublicAttrEquals(c *C) {
+	type fields struct {
+		Name          string
+		Cluster       string
+		IPAddresses   []Address
+		IPv4AllocCIDR *net.IPNet
+		IPv6AllocCIDR *net.IPNet
+		dev           string
+		IPv4HealthIP  net.IP
+		IPv6HealthIP  net.IP
+		ClusterID     int
+		cluster       *clusterConfiguation
+		Source        Source
+	}
+	type args struct {
+		o *Node
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   bool
+	}{
+		{
+			name:   "test nil equalness",
+			fields: fields{},
+			args:   args{o: nil},
+			want:   false,
+		},
+		{
+			name: "test equalness",
+			fields: fields{
+				Name:          "foo",
+				Cluster:       "cluster-1",
+				IPv4HealthIP:  net.ParseIP("1.1.1.1"),
+				IPv6HealthIP:  net.ParseIP("fd00::1"),
+				ClusterID:     1,
+				Source:        FromKubernetes,
+				IPAddresses:   []Address{{IP: net.ParseIP("1.1.1.1"), AddressType: v1.NodeHostName}},
+				IPv4AllocCIDR: &net.IPNet{IP: net.ParseIP("1.1.1.1"), Mask: net.IPv4Mask(0xff, 0xff, 0xff, 0)},
+				IPv6AllocCIDR: &net.IPNet{IP: net.ParseIP("fd00::1"), Mask: net.CIDRMask(64, 128)},
+			},
+			args: args{
+				o: &Node{
+					Name:          "foo",
+					Cluster:       "cluster-1",
+					IPv4HealthIP:  net.ParseIP("1.1.1.1"),
+					IPv6HealthIP:  net.ParseIP("fd00::1"),
+					ClusterID:     1,
+					Source:        FromKubernetes,
+					IPAddresses:   []Address{{IP: net.ParseIP("1.1.1.1"), AddressType: v1.NodeHostName}},
+					IPv4AllocCIDR: &net.IPNet{IP: net.ParseIP("1.1.1.1"), Mask: net.IPv4Mask(0xff, 0xff, 0xff, 0)},
+					IPv6AllocCIDR: &net.IPNet{IP: net.ParseIP("fd00::1"), Mask: net.CIDRMask(64, 128)},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "test different IPAddresses length",
+			fields: fields{
+				Name:          "foo",
+				Cluster:       "cluster-1",
+				IPv4HealthIP:  net.ParseIP("1.1.1.1"),
+				IPv6HealthIP:  net.ParseIP("fd00::1"),
+				ClusterID:     1,
+				Source:        FromKubernetes,
+				IPAddresses:   []Address{{IP: net.ParseIP("1.1.1.1"), AddressType: v1.NodeHostName}},
+				IPv4AllocCIDR: &net.IPNet{IP: net.ParseIP("1.1.1.1"), Mask: net.IPv4Mask(0xff, 0xff, 0xff, 0)},
+				IPv6AllocCIDR: &net.IPNet{IP: net.ParseIP("fd00::1"), Mask: net.CIDRMask(64, 128)},
+			},
+			args: args{
+				o: &Node{
+					Name:          "foo",
+					Cluster:       "cluster-1",
+					IPv4HealthIP:  net.ParseIP("1.1.1.1"),
+					IPv6HealthIP:  net.ParseIP("fd00::1"),
+					ClusterID:     1,
+					Source:        FromKubernetes,
+					IPv4AllocCIDR: &net.IPNet{IP: net.ParseIP("1.1.1.1"), Mask: net.IPv4Mask(0xff, 0xff, 0xff, 0)},
+					IPv6AllocCIDR: &net.IPNet{IP: net.ParseIP("fd00::1"), Mask: net.CIDRMask(64, 128)},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "test different IPv4AllocCIDR",
+			fields: fields{
+				Name:          "foo",
+				Cluster:       "cluster-1",
+				IPv4HealthIP:  net.ParseIP("1.1.1.1"),
+				IPv6HealthIP:  net.ParseIP("fd00::1"),
+				ClusterID:     1,
+				Source:        FromKubernetes,
+				IPAddresses:   []Address{{IP: net.ParseIP("1.1.1.1"), AddressType: v1.NodeHostName}},
+				IPv4AllocCIDR: &net.IPNet{IP: net.ParseIP("1.1.1.1"), Mask: net.IPv4Mask(0xff, 0xff, 0xff, 0)},
+				IPv6AllocCIDR: &net.IPNet{IP: net.ParseIP("fd00::1"), Mask: net.CIDRMask(64, 128)},
+			},
+			args: args{
+				o: &Node{
+					Name:          "foo",
+					Cluster:       "cluster-1",
+					IPv4HealthIP:  net.ParseIP("1.1.1.1"),
+					IPv6HealthIP:  net.ParseIP("fd00::1"),
+					ClusterID:     1,
+					Source:        FromKubernetes,
+					IPAddresses:   []Address{{IP: net.ParseIP("1.1.1.0"), AddressType: v1.NodeHostName}},
+					IPv6AllocCIDR: &net.IPNet{IP: net.ParseIP("fd00::1"), Mask: net.CIDRMask(64, 128)},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "test different IPv6AllocCIDR",
+			fields: fields{
+				Name:          "foo",
+				Cluster:       "cluster-1",
+				IPv4HealthIP:  net.ParseIP("1.1.1.1"),
+				IPv6HealthIP:  net.ParseIP("fd00::1"),
+				ClusterID:     1,
+				Source:        FromKubernetes,
+				IPAddresses:   []Address{{IP: net.ParseIP("1.1.1.1"), AddressType: v1.NodeHostName}},
+				IPv4AllocCIDR: &net.IPNet{IP: net.ParseIP("1.1.1.1"), Mask: net.IPv4Mask(0xff, 0xff, 0xff, 0)},
+				IPv6AllocCIDR: &net.IPNet{IP: net.ParseIP("fd00::1"), Mask: net.CIDRMask(64, 128)},
+			},
+			args: args{
+				o: &Node{
+					Name:          "foo",
+					Cluster:       "cluster-1",
+					IPv4HealthIP:  net.ParseIP("1.1.1.1"),
+					IPv6HealthIP:  net.ParseIP("fd00::1"),
+					ClusterID:     1,
+					Source:        FromKubernetes,
+					IPAddresses:   []Address{{IP: net.ParseIP("1.1.1.0"), AddressType: v1.NodeHostName}},
+					IPv4AllocCIDR: &net.IPNet{IP: net.ParseIP("1.1.1.1"), Mask: net.IPv4Mask(0xff, 0xff, 0xff, 0)},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "test different name",
+			fields: fields{
+				Name:          "foo",
+				Cluster:       "cluster-1",
+				IPv4HealthIP:  net.ParseIP("1.1.1.1"),
+				IPv6HealthIP:  net.ParseIP("fd00::1"),
+				ClusterID:     1,
+				Source:        FromKubernetes,
+				IPAddresses:   []Address{{IP: net.ParseIP("1.1.1.1"), AddressType: v1.NodeHostName}},
+				IPv4AllocCIDR: &net.IPNet{IP: net.ParseIP("1.1.1.1"), Mask: net.IPv4Mask(0xff, 0xff, 0xff, 0)},
+				IPv6AllocCIDR: &net.IPNet{IP: net.ParseIP("fd00::1"), Mask: net.CIDRMask(64, 128)},
+			},
+			args: args{
+				o: &Node{
+					Cluster:       "cluster-1",
+					IPv4HealthIP:  net.ParseIP("1.1.1.1"),
+					IPv6HealthIP:  net.ParseIP("fd00::1"),
+					ClusterID:     1,
+					Source:        FromKubernetes,
+					IPAddresses:   []Address{{IP: net.ParseIP("1.1.1.0"), AddressType: v1.NodeHostName}},
+					IPv4AllocCIDR: &net.IPNet{IP: net.ParseIP("1.1.1.1"), Mask: net.IPv4Mask(0xff, 0xff, 0xff, 0)},
+					IPv6AllocCIDR: &net.IPNet{IP: net.ParseIP("fd00::1"), Mask: net.CIDRMask(64, 128)},
+				},
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		n := &Node{
+			Name:          tt.fields.Name,
+			Cluster:       tt.fields.Cluster,
+			IPAddresses:   tt.fields.IPAddresses,
+			IPv4AllocCIDR: tt.fields.IPv4AllocCIDR,
+			IPv6AllocCIDR: tt.fields.IPv6AllocCIDR,
+			dev:           tt.fields.dev,
+			IPv4HealthIP:  tt.fields.IPv4HealthIP,
+			IPv6HealthIP:  tt.fields.IPv6HealthIP,
+			ClusterID:     tt.fields.ClusterID,
+			cluster:       tt.fields.cluster,
+			Source:        tt.fields.Source,
+		}
+		c.Logf(tt.name)
+		got := n.PublicAttrEquals(tt.args.o)
+		c.Assert(got, Equals, tt.want)
+	}
+}
