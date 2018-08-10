@@ -33,3 +33,27 @@ Upgrading to Cilium 1.1.x from Cilium 1.0.y
 #.
 
   .. include:: upgrade-minor.rst
+
+Downgrading to Cilium 1.1.x from Cilium 1.2.y
+"""""""""""""""""""""""""""""""""""""""""""""
+
+When downgrading from Cilium 1.2, the target version **must** be Cilium 1.1.3
+or later.
+
+#. Check whether you have any DNS policy rules installed:
+
+   .. code-block:: shell-session
+
+     $ kubectl get cnp --all-namespaces -o yaml | grep "fqdn"
+
+   If any DNS rules exist, these must be removed prior to downgrade as these
+   rules are not supported by Cilium 1.1.
+
+#.
+
+  .. include:: upgrade-minor.rst
+
+Downgrading to Cilium 1.1.x from Cilium 1.1.y
+"""""""""""""""""""""""""""""""""""""""""""""
+
+.. include:: upgrade-micro.rst
