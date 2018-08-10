@@ -97,12 +97,12 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 			continue
 		}
 
-		ep.Mutex.Lock()
+		ep.UnconditionalLock()
 		scopedLog.Debug("Restoring endpoint")
 		ep.LogStatusOKLocked(endpoint.Other, "Restoring endpoint from previous cilium instance")
 
 		if err := d.allocateIPsLocked(ep); err != nil {
-			ep.Mutex.Unlock()
+			ep.Unlock()
 			scopedLog.WithError(err).Error("Failed to re-allocate IP of endpoint. Not restoring endpoint.")
 			state.toClean = append(state.toClean, ep)
 			continue
@@ -117,7 +117,7 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 			ep.Options.SetBool(option.EgressPolicy, alwaysEnforce)
 		}
 
-		ep.Mutex.Unlock()
+		ep.Unlock()
 
 		state.restored = append(state.restored, ep)
 	}
@@ -144,28 +144,29 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 		// not in a goroutine) because regenerateRestoredEndpoints must guarantee
 		// upon returning that endpoints are exposed to other subsystems via
 		// endpointmanager.
-		ep.Mutex.RLock()
+
+		ep.UnconditionalRLock()
 		endpointmanager.Insert(ep)
-		ep.Mutex.RUnlock()
+		ep.RUnlock()
 
 		go func(ep *endpoint.Endpoint, epRegenerated chan<- bool) {
-			ep.Mutex.RLock()
+			if err := ep.RLockAlive(); err != nil {
+				ep.LogDisconnectedMutexAction(err, "before filtering labels during regenerating restored endpoint")
+				return
+			}
 			scopedLog := log.WithField(logfields.EndpointID, ep.ID)
 			// Filter the restored labels with the new daemon's filter
 			l, _ := labels.FilterLabels(ep.OpLabels.IdentityLabels())
-			ep.Mutex.RUnlock()
+			ep.RUnlock()
 
 			identity, _, err := identityPkg.AllocateIdentity(l)
 			if err != nil {
 				scopedLog.WithError(err).Warn("Unable to restore endpoint")
 				epRegenerated <- false
 			}
-			ep.Mutex.Lock()
 
-			state := ep.GetStateLocked()
-			if state == endpoint.StateDisconnected || state == endpoint.StateDisconnecting {
+			if err := ep.LockAlive(); err != nil {
 				scopedLog.Warn("Endpoint to restore has been deleted")
-				ep.Mutex.Unlock()
 				return
 			}
 
@@ -183,7 +184,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 			ep.SetIdentity(identity)
 
 			ready := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Triggering synchronous endpoint regeneration while syncing state to host")
-			ep.Mutex.Unlock()
+			ep.Unlock()
 
 			if !ready {
 				scopedLog.WithField(logfields.EndpointState, ep.GetState()).Warn("Endpoint in inconsistent state")
@@ -196,9 +197,10 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 				return
 			}
 
-			ep.Mutex.RLock()
+			// NOTE: UnconditionalRLock is used here because it's used only for logging an already restored endpoint
+			ep.UnconditionalRLock()
 			scopedLog.WithField(logfields.IPAddr, []string{ep.IPv4.String(), ep.IPv6.String()}).Info("Restored endpoint")
-			ep.Mutex.RUnlock()
+			ep.RUnlock()
 			epRegenerated <- true
 		}(ep, epRegenerated)
 	}
