@@ -13,30 +13,86 @@ Upgrade Guide
 Kubernetes Cilium Upgrade
 =========================
 
-Cilium should be upgraded using Kubernetes rolling upgrade functionality in
-order to minimize network disruptions for running workloads.
+This Cilium Kubernetes upgrade guide is divided into two sections:
 
-If you have followed the installation guide from :ref:`ds_deploy`, you probably
-have deployed a single ``cilium.yaml`` file. That file contains all the
-necessary components to run Cilium in your Kubernetes cluster. Those components
-were a `ConfigMap`, a ``ServiceAccount``, a ``DaemonSet``, and the ``RBAC`` for
-Cilium to access the Kubernetes api-server.
+* **General Upgrade Workflow**: Provides a conceptual understanding of how
+  Cilium upgrade works in Kubernetes.
 
-Since Cilium might need more, or fewer permissions to access Kubernetes
-api-server between releases, the ``RBAC`` might change between versions as well.
+* **Specific Upgrade Instructions**: Details considerations and instructions
+  for specific upgrades between recent Cilium versions.
 
-The safest way to upgrade Cilium to version "\ |SCM_BRANCH|" is by updating the
-``RBAC`` rules and the ``DaemonSet`` files separately, which makes sure the
-`ConfigMap` initially set up by ``cilium.yaml`` and already stored in Kubernetes
-will not be affected by the upgrade.
+General Upgrade Workflow
+~~~~~~~~~~~~~~~~~~~~~~~~
 
-It is also recommended to upgrade the `ConfigMap`, but this is a process that
-should be done manually before upgrading the ``RBAC`` and the ``DaemonSet``.
-Upgrading the `ConfigMap` first will not affect current Cilium pods as the
-new `ConfigMap` configurations are only used when a pod is restarted.
+The configuration of a standard Cilium Kubernetes deployment consists of
+several Kubernetes resources:
 
-Upgrade ConfigMap
-~~~~~~~~~~~~~~~~~
+* A ``DaemonSet`` resource:  describes the Cilium pod that is deployed to each
+  Kubernetes node.  This pod runs the cilium-agent and associated daemons. The
+  configuration of this DaemonSet includes the image tag indicating the exact
+  version of the Cilium docker container (e.g., v1.0.0) and command-line
+  options passed to the cilium-agent.
+
+* A ``ConfigMap`` resource:  describes common configuration values that are
+  passed to the cilium-agent, such as the kvstore endpoint and credentials,
+  enabling/disabling debug mode, etc.
+
+* ``ServiceAccount``, ``ClusterRole``, and ``ClusterRoleBindings`` resources:
+  the identity and permissions used by cilium-agent to access the Kubernetes
+  API server when Kubernetes RBAC is enabled.
+
+* A ``Secret`` resource: describes the credentials use access the etcd kvstore,
+  if required.
+
+If you have followed the installation guide from :ref:`ds_deploy`, all of the
+above resources were installed via a single ``cilium.yaml`` file.
+
+All upgrades require at least updating the ``DaemonSet`` to point to the newer
+Cilium image tag. However, *safely* upgrading Cilium may also required changes
+additional changes to the ``DaemonSet``, ``ConfigMap`` or ``RBAC`` related
+resources. This depends on your current and target Cilium versions, so it is
+critical to read the specific instructions below referring to your target
+Cilium version.
+
+In general, the easiest way to ensure you are making all required updates to
+Cilium related resources is to download new versions of those resources, and
+apply them to your Kubernetes environment.  The recommended high-level workflow
+is:
+
+#. Download a new ``cilium-cm.yaml`` file associated with your target version
+   of Cilium, manually edit the file with any configuration options specific to
+   your environment, and then apply the file to your cluster using kubectl.
+
+#. Update the ``ServiceAccount``, ``ClusterRole``, and ``ClusterRoleBindings``
+   resources by using kubectl to apply a new ``cilium-rbac.yaml`` associated
+   with your target version of Cilium.
+
+#. Update the ``DaemonSet`` resource by applying the ``cilium-ds.yaml``
+   associated with your target version of Cilium.
+
+If there are no changes required to the resources between two Cilium versions
+(e.g., between two patch releases in the same minor version), then it is
+possible to upgrade Cilium simply by editing the cilium image tag in the
+DaemonSet. However, this short-cut should only be done if the specific upgrade
+instructions below confirm that it is safe.
+
+Below we will show examples of how Cilium should be upgraded using Kubernetes
+rolling upgrade functionality in order to preserve any existing Cilium
+configuration changes (e.g., etc configuration) and minimize network
+disruptions for running workloads. These instructions upgrade Cilium to version
+"\ |SCM_BRANCH|" by updating the ``ConfigMap``, ``RBAC`` rules and
+``DaemonSet`` files separately. Rather than installing all configuration in one
+``cilium.yaml`` file, which could override any custom ``ConfigMap``
+configuration, installing these files separately allows upgrade to be staged
+and for user configuration to not be affected by the upgrade.
+
+Upgrade ConfigMap (Recommended)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Upgrading the `ConfigMap` should be done manually before upgrading the ``RBAC``
+and the ``DaemonSet``. Upgrading the `ConfigMap` first will not affect current
+Cilium pods as the new `ConfigMap` configurations are only used when a pod is
+restarted.
 
 1. To update your current `ConfigMap` store it locally so you can modify it:
 
@@ -166,7 +222,7 @@ As the `ConfigMap` is successfully upgraded we can start upgrading Cilium
 `ConfigMap`.
 
 Upgrading Cilium DaemonSet and RBAC
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Simply pick your Kubernetes version and run ``kubectl apply`` for the ``RBAC``
 and the ``DaemonSet``.
