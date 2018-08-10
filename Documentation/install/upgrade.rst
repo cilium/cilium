@@ -224,6 +224,23 @@ As the `ConfigMap` is successfully upgraded we can start upgrading Cilium
 Upgrading Cilium DaemonSet and RBAC
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+There are two methods to upgrade the Cilium `DaemonSet`:
+
+* Full upgrade of the ``RBAC`` and ``DaemonSet`` resources: This is the safest
+  option, and typically should be used when upgrading to a new minor release,
+  for example from ``1.0.x`` to ``1.1.y``. This pulls in the latest
+  configuration options for the Cilium daemon.
+
+* Set the version in the existing ``DaemonSet``: A simpler upgrade procedure
+  which does not update the Daemon options. Typically only safe when upgrading
+  to a new micro release, for example from ``1.0.0`` to ``1.0.1``.
+
+The following sections describe how to upgrade using either of the above
+approaches, then how to monitor (and if necessary, roll back) the upgrade
+process.
+
+**Full RBAC and DaemonSet upgrade**
+
 Simply pick your Kubernetes version and run ``kubectl apply`` for the ``RBAC``
 and the ``DaemonSet``.
 
@@ -265,32 +282,37 @@ Both files are dedicated to "\ |SCM_BRANCH|" for each Kubernetes version.
       $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.11/cilium-rbac.yaml
       $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.11/cilium-ds.yaml
 
+**Direct version upgrade**
 
-You can also substitute the desired Cilium version number for vX.Y.Z in the
-command below, but be aware that copy of the spec file stored in Kubernetes
-might run out-of-sync with the CLI flags, or options, specified by each Cilium
-version.
+You can alternatively substitute the version ``vX.Y.Z`` for the desired Cilium
+version number in the command below, but be aware that copy of the spec file
+stored in Kubernetes might run out-of-sync with the CLI flags, or options,
+specified by each Cilium version.
 
-::
+.. code-block:: shell-session
 
-    kubectl set image daemonset/cilium -n kube-system cilium-agent=docker.io/cilium/cilium:vX.Y.Z
+    $ kubectl set image daemonset/cilium -n kube-system cilium-agent=docker.io/cilium/cilium:vX.Y.Z
+
+**Monitor the upgrade procedure**
 
 To monitor the rollout and confirm it is complete, run:
 
-::
+.. code-block:: shell-session
 
-    kubectl rollout status daemonset/cilium -n kube-system
+    $ kubectl rollout status daemonset/cilium -n kube-system
 
 To undo the rollout via rollback, run:
 
-::
+.. code-block:: shell-session
 
-    kubectl rollout undo daemonset/cilium -n kube-system
+    $ kubectl rollout undo daemonset/cilium -n kube-system
 
-Cilium will continue to forward traffic at L3/L4 during the roll-out, and all endpoints and their configuration will be preserved across
-the upgrade rollout.   However, because the L7 proxies implementing HTTP, gRPC, and Kafka-aware filtering currently reside in the
-same Pod as Cilium, they are removed and re-installed as part of the rollout.   As a result, any proxied connections will be lost and
-clients must reconnect.
+During the upgrade roll-out, Cilium will typically continue to forward traffic
+at L3/L4, and all endpoints and their configuration will be preserved across
+the upgrade. However, because the L7 proxies implementing HTTP, gRPC, and
+Kafka-aware filtering currently reside in the same Pod as Cilium, they are
+removed and re-installed as part of the rollout. As a result, any proxied
+connections will be lost and clients must reconnect.
 
 Downgrade
 =========
