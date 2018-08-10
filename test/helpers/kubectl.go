@@ -226,6 +226,19 @@ func (kub *Kubectl) GetPods(namespace string, filter string) *CmdRes {
 	return kub.Exec(fmt.Sprintf("%s -n %s get pods %s -o json", KubectlCmd, namespace, filter))
 }
 
+// GetPodsIdentities returns a map with pod name as a key and pod identity as value. It
+// only gets pods in the given namespace that match the provided filter. It
+// returns an error if pods cannot be retrieved correctly
+func (kub *Kubectl) GetPodsIdentities(namespace string, filter string) (map[string]string, error) {
+	jsonFilter := `{range .items[*]}{@.metadata.name}{"="}{@.metadata.annotations.cilium\.io/identity}{"\n"}{end}`
+	res := kub.Exec(fmt.Sprintf("%s -n %s get pods %s -o jsonpath='%s'",
+		KubectlCmd, namespace, filter, jsonFilter))
+	if !res.WasSuccessful() {
+		return nil, fmt.Errorf("cannot retrieve pods: %s", res.CombineOutput())
+	}
+	return res.KVOutput(), nil
+}
+
 // GetPodsNodes returns a map with pod name as a key and node name as value. It
 // only gets pods in the given namespace that match the provided filter. It
 // returns an error if pods cannot be retrieved correctly
