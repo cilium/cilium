@@ -1,10 +1,12 @@
 Upgrading to the Cilium 1.0 series
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+The latest version in the Cilium 1.0 series can be found `here <https://raw.githubusercontent.com/cilium/cilium/v1.0/VERSION>`__
+
 Upgrading to Cilium 1.0.x from Cilium 1.0.y
 """""""""""""""""""""""""""""""""""""""""""
 
-Set the version to the desired release per :ref:`upgrade_version`.
+.. include:: upgrade-micro.rst
 
 Upgrading to Cilium 1.0.x from older versions
 """""""""""""""""""""""""""""""""""""""""""""
