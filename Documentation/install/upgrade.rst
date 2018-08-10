@@ -403,7 +403,9 @@ also disable the usage of the feature.
 +==============================================+===================+==============================================+===========================================================+
 | CIDR policies matching on IPv6 prefix ranges | ``v1.0.2``        | Remove policies that contain IPv6 CIDR rules | `PR 4004 <https://github.com/cilium/cilium/pull/4004>`_   |
 +----------------------------------------------+-------------------+----------------------------------------------+-----------------------------------------------------------+
-+ CIDR policies matching on default prefix     | ``v1.1.0``        | Remove policies that match a ``/0`` prefix   | `PR 4458 <https://github.com/cilium/cilium/pull/4458>`_   |
+| CIDR policies matching on default prefix     | ``v1.1.0``        | Remove policies that match a ``/0`` prefix   | `PR 4458 <https://github.com/cilium/cilium/pull/4458>`_   |
++----------------------------------------------+-------------------+----------------------------------------------+-----------------------------------------------------------+
+| Monitor Aggregation                          | ``v1.2.0``        | Re-install ``DaemonSet`` from target version | `PR 5118 <https://github.com/cilium/cilium/pull/5118>`_   |
 +----------------------------------------------+-------------------+----------------------------------------------+-----------------------------------------------------------+
 
 .. _upgrade_notes:
