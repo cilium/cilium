@@ -21,6 +21,8 @@ This Cilium Kubernetes upgrade guide is divided into two sections:
 * **Specific Upgrade Instructions**: Details considerations and instructions
   for specific upgrades between recent Cilium versions.
 
+.. _upgrade_general:
+
 General Upgrade Workflow
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -51,7 +53,7 @@ All upgrades require at least updating the ``DaemonSet`` to point to the newer
 Cilium image tag. However, *safely* upgrading Cilium may also required changes
 additional changes to the ``DaemonSet``, ``ConfigMap`` or ``RBAC`` related
 resources. This depends on your current and target Cilium versions, so it is
-critical to read the specific instructions below referring to your target
+critical to read the :ref:`specific_upgrade` below referring to your target
 Cilium version.
 
 In general, the easiest way to ensure you are making all required updates to
@@ -73,8 +75,14 @@ is:
 If there are no changes required to the resources between two Cilium versions
 (e.g., between two patch releases in the same minor version), then it is
 possible to upgrade Cilium simply by editing the cilium image tag in the
-DaemonSet. However, this short-cut should only be done if the specific upgrade
-instructions below confirm that it is safe.
+DaemonSet. However, this short-cut should only be done if the
+:ref:`specific_upgrade` instructions below confirm that it is safe.
+
+When upgrading from one minor release to another minor release, for example
+1.x to 1.y, it is generally safer to upgrade first to the latest release in the
+1.x.z series, then subsequently upgrade to 1.y. This way, if there is any
+unexpected issue during the upgrade, it can be safely rolled back to the latest
+good version.
 
 Below we will show examples of how Cilium should be upgraded using Kubernetes
 rolling upgrade functionality in order to preserve any existing Cilium
@@ -85,6 +93,8 @@ disruptions for running workloads. These instructions upgrade Cilium to version
 ``cilium.yaml`` file, which could override any custom ``ConfigMap``
 configuration, installing these files separately allows upgrade to be staged
 and for user configuration to not be affected by the upgrade.
+
+.. _upgrade_cm:
 
 Upgrade ConfigMap (Recommended)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -221,25 +231,29 @@ As the `ConfigMap` is successfully upgraded we can start upgrading Cilium
 ``DaemonSet`` and ``RBAC`` which will pick up the latest configuration from the
 `ConfigMap`.
 
-Upgrading Cilium DaemonSet and RBAC
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Upgrade Cilium DaemonSet and RBAC
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 There are two methods to upgrade the Cilium `DaemonSet`:
 
 * Full upgrade of the ``RBAC`` and ``DaemonSet`` resources: This is the safest
-  option, and typically should be used when upgrading to a new minor release,
-  for example from ``1.0.x`` to ``1.1.y``. This pulls in the latest
-  configuration options for the Cilium daemon.
+  option, which pulls in the latest configuration options for the Cilium
+  daemon. If in doubt, use this approach.
 
 * Set the version in the existing ``DaemonSet``: A simpler upgrade procedure
-  which does not update the Daemon options. Typically only safe when upgrading
-  to a new micro release, for example from ``1.0.0`` to ``1.0.1``.
+  which does not update the Daemon options.
+
+Refer to the section :ref:`specific_upgrade` for more details on which approach
+is relevant for the target Cilium version.
 
 The following sections describe how to upgrade using either of the above
 approaches, then how to monitor (and if necessary, roll back) the upgrade
 process.
 
-**Full RBAC and DaemonSet upgrade**
+.. _upgrade_ds:
+
+Full Upgrade of RBAC and DaemonSet
+""""""""""""""""""""""""""""""""""
 
 Simply pick your Kubernetes version and run ``kubectl apply`` for the ``RBAC``
 and the ``DaemonSet``.
@@ -282,7 +296,15 @@ Both files are dedicated to "\ |SCM_BRANCH|" for each Kubernetes version.
       $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.11/cilium-rbac.yaml
       $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.11/cilium-ds.yaml
 
-**Direct version upgrade**
+.. _upgrade_version:
+
+Direct version upgrade
+""""""""""""""""""""""
+
+.. note::
+
+    Direct version upgrade is not recommended for major or minor version
+    upgrades. Upgrade using the :ref:`upgrade_ds` instructions instead.
 
 You can alternatively substitute the version ``vX.Y.Z`` for the desired Cilium
 version number in the command below, but be aware that copy of the spec file
@@ -293,7 +315,8 @@ specified by each Cilium version.
 
     $ kubectl set image daemonset/cilium -n kube-system cilium-agent=docker.io/cilium/cilium:vX.Y.Z
 
-**Monitor the upgrade procedure**
+Monitor the upgrade procedure
+"""""""""""""""""""""""""""""
 
 To monitor the rollout and confirm it is complete, run:
 
@@ -314,8 +337,54 @@ Kafka-aware filtering currently reside in the same Pod as Cilium, they are
 removed and re-installed as part of the rollout. As a result, any proxied
 connections will be lost and clients must reconnect.
 
+.. _specific_upgrade:
+
+Specific Upgrade Instructions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This section documents the specific steps required for upgrading from one
+version of Cilium to another version of Cilium. There are particular version
+transitions which are suggested by the Cilium developers to avoid known issues
+during upgrade, then subsequently there are sections for specific upgrade
+transitions, ordered by version.
+
+The table below lists suggested upgrade transitions, from a specified current
+version running in a cluster to a specified target version. If a specific
+combination is not listed in the table below, then it may not be safe. In that
+case, consider staging the upgrade, for example upgrading from ``1.1.x`` to the
+latest ``1.1.y`` release before subsequently upgrading to ``1.2.z``.
+
++-----------------------+-----------------------+-----------------------+-------------------------+---------------------------+
+| Current version       | Target version        | ``DaemonSet`` upgrade | L3 impact               | L7 impact                 |
++=======================+=======================+=======================+=========================+===========================+
+| ``1.0.x``             | ``1.0.y``             | Not required          | N/A                     | Clients must reconnect[1] |
++-----------------------+-----------------------+-----------------------+-------------------------+---------------------------+
+| ``1.0.x``             | ``1.1.y``             | Required              | N/A                     | Clients must reconnect[1] |
++-----------------------+-----------------------+-----------------------+-------------------------+---------------------------+
+| ``1.1.x``             | ``1.1.y``             | Not required          | N/A                     | Clients must reconnect[1] |
++-----------------------+-----------------------+-----------------------+-------------------------+---------------------------+
+| ``1.1.x``, ``x >= 3`` | ``1.2.y``             | Required              | Temporary disruption[2] | Clients must reconnect[1] |
++-----------------------+-----------------------+-----------------------+-------------------------+---------------------------+
+
+Annotations:
+
+#. **Clients must reconnect**: Any traffic flowing via a proxy (for example,
+   because an L7 policy is in place) will be disrupted during upgrade.
+   Endpoints communicating via the proxy must reconnect to re-establish
+   connections.
+
+#. **Temporary disruption**: All traffic may be temporarily disrupted during
+   upgrade. Connections should successfully re-establish without requiring
+   clients to reconnect.
+
+.. include:: upgrade-1.2.rst
+
+.. include:: upgrade-1.1.rst
+
+.. include:: upgrade-1.0.rst
+
 Downgrade
-=========
+~~~~~~~~~
 
 Occasionally, when encountering issues with a particular version of Cilium, it
 may be useful to alternatively downgrade an instance or deployment. The above
