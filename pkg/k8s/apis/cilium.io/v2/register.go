@@ -41,7 +41,7 @@ const (
 
 	// CustomResourceDefinitionSchemaVersion is semver-conformant version of CRD schema
 	// Used to determine if CRD needs to be updated in cluster
-	CustomResourceDefinitionSchemaVersion = "1.9"
+	CustomResourceDefinitionSchemaVersion = "1.10"
 
 	// CustomResourceDefinitionSchemaVersionKey is key to label which holds the CRD schema version
 	CustomResourceDefinitionSchemaVersionKey = "io.cilium.k8s.crd.schema.version"
@@ -192,6 +192,44 @@ func createCEPCRD(clientset apiextensionsclient.Interface) error {
 				Singular:   CustomResourceDefinitionSingularName,
 				ShortNames: CustomResourceDefinitionShortNames,
 				Kind:       CustomResourceDefinitionKind,
+			},
+			AdditionalPrinterColumns: []apiextensionsv1beta1.CustomResourceColumnDefinition{
+				{
+					Name:        "Endpoint ID",
+					Type:        "integer",
+					Description: "Cilium endpoint id",
+					JSONPath:    ".status.id",
+				},
+				{
+					Name:        "Identity ID",
+					Type:        "integer",
+					Description: "Cilium identity id",
+					JSONPath:    ".status.status.identity.id",
+				},
+				{
+					Name:        "Policy Enforcement",
+					Type:        "string",
+					Description: "Policy enforcement in the endpoint",
+					JSONPath:    ".status.status.policy.realized.policy-enabled",
+				},
+				{
+					Name:        "Endpoint State",
+					Type:        "string",
+					Description: "Endpoint current state",
+					JSONPath:    ".status.status.state",
+				},
+				{
+					Name:        "IPv4",
+					Type:        "string",
+					Description: "Endpoint IPv4 address",
+					JSONPath:    ".status.status.networking.addressing[0].ipv4",
+				},
+				{
+					Name:        "IPv6",
+					Type:        "string",
+					Description: "Endpoint IPv6 address",
+					JSONPath:    ".status.status.networking.addressing[0].ipv6",
+				},
 			},
 			Subresources: &apiextensionsv1beta1.CustomResourceSubresources{
 				Status: &apiextensionsv1beta1.CustomResourceSubresourceStatus{},
