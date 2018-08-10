@@ -24,7 +24,7 @@ import (
 // EndpointInfoSource returns information about an endpoint being proxied.
 // The read lock must be held when calling any Get method.
 type EndpointInfoSource interface {
-	RLock()
+	UnconditionalRLock()
 	RUnlock()
 	GetID() uint64
 	GetIPv4Address() string
@@ -38,7 +38,7 @@ type EndpointInfoSource interface {
 // getEndpointInfo returns a consistent snapshot of the given source.
 // The source's read lock must not be held.
 func getEndpointInfo(source EndpointInfoSource) *accesslog.EndpointInfo {
-	source.RLock()
+	source.UnconditionalRLock()
 	defer source.RUnlock()
 	return &accesslog.EndpointInfo{
 		ID:           source.GetID(),
