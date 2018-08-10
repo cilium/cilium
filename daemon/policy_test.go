@@ -154,8 +154,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 		os.RemoveAll("1_backup")
 	}()
 	e.SetIdentity(qaBarSecLblsCtx)
-	err = e.LockAlive()
-	c.Assert(err, Not(IsNil))
+	e.UnconditionalLock()
 	ready := e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
 	e.Unlock()
 	c.Assert(ready, Equals, true)
@@ -173,8 +172,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	e.LXCMAC = ProdHardAddr
 	e.NodeMAC = ProdHardAddr
 	e.SetIdentity(prodBarSecLblsCtx)
-	err = e.LockAlive()
-	c.Assert(err, Not(IsNil))
+	e.UnconditionalLock()
 	ready = e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
 	e.Unlock()
 	c.Assert(ready, Equals, true)
@@ -440,8 +438,7 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 		os.RemoveAll("1_backup")
 	}()
 	e.SetIdentity(qaBarSecLblsCtx)
-	err = e.LockAlive()
-	c.Assert(err, Not(IsNil))
+	e.UnconditionalLock()
 	ready := e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
 	e.Unlock()
 	c.Assert(ready, Equals, true)
@@ -456,8 +453,7 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 	c.Assert(qaBarNetworkPolicy, Not(IsNil))
 
 	// Delete the endpoint.
-	err = e.LockAlive()
-	c.Assert(err, Not(IsNil))
+	e.UnconditionalLock()
 	e.LeaveLocked(ds.d, nil)
 	e.Unlock()
 

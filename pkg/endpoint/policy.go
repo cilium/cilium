@@ -945,17 +945,17 @@ func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
 
 				// NOTE: this Lock is Unconditional because this controller
 				// handles disconnecting endpoint state properly
-				e.UnconditionalLock()
+				e.UnconditionalRLock()
 
 				if e.state == StateDisconnected || e.state == StateDisconnecting {
 					log.WithFields(logrus.Fields{logfields.EndpointState: e.state}).
 						Debugf("not synchronizing endpoint IP with kvstore due to endpoint state")
-					e.UnconditionalRLock()
+					e.RUnlock()
 					return nil
 				}
 
 				if e.SecurityIdentity == nil {
-					e.UnconditionalRLock()
+					e.RUnlock()
 					return nil
 				}
 
@@ -966,7 +966,7 @@ func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
 
 				// Release lock as we do not want to have long-lasting key-value
 				// store operations resulting in lock being held for a long time.
-				e.UnconditionalRLock()
+				e.RUnlock()
 
 				if err := ipcache.UpsertIPToKVStore(IP, hostIP, ID, metadata); err != nil {
 					return fmt.Errorf("unable to add endpoint IP mapping '%s'->'%d': %s", IP.String(), ID, err)

@@ -31,8 +31,8 @@ type proxyUpdaterMock struct {
 	hasSidecarProxy bool
 }
 
-func (m *proxyUpdaterMock) RLock()   { m.RWMutex.RLock() }
-func (m *proxyUpdaterMock) RUnlock() { m.RWMutex.RUnlock() }
+func (m *proxyUpdaterMock) UnconditionalRLock() { m.RWMutex.RLock() }
+func (m *proxyUpdaterMock) RUnlock()            { m.RWMutex.RUnlock() }
 
 func (m *proxyUpdaterMock) GetID() uint64                         { return m.id }
 func (m *proxyUpdaterMock) GetIPv4Address() string                { return m.ipv4 }
