@@ -1923,6 +1923,11 @@ func (d *Daemon) updateK8sNodeTunneling(k8sNodeOld, k8sNodeNew *v1.Node) error {
 			return err
 		}
 
+		if nodeNew.PublicAttrEquals(nodeOld) {
+			// Ignore updates for the same node.
+			return nil
+		}
+
 		// If the annotation of the node resource has changed, the old
 		// ipcache has to be removed manually as Upsert() only handes
 		// updates if the key itself is unchanged.
