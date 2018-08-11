@@ -89,6 +89,8 @@ unit-tests: start-kvstores
 	go test \
             -timeout 360s -coverprofile=coverage.out -covermode=count $(pkg) $(GOTEST_OPTS) || exit 1;\
             tail -n +2 coverage.out >> coverage-all.out;)
+	$(QUIET)$(foreach pkg,$(TESTPKGS),\
+	sudo go test -timeout 360s -tags=privileged_tests $(pkg) $(GOTEST_OPTS) || exit 1;)
 	$(GO) tool cover -html=coverage-all.out -o=coverage-all.html
 	$(QUIET) rm coverage-all.out
 	$(QUIET) rm coverage.out
