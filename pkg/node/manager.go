@@ -21,10 +21,10 @@ import (
 	"os/exec"
 	"strings"
 
+	routeUtils "github.com/cilium/cilium/pkg/datapath/route"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
-	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
@@ -102,123 +102,33 @@ func deleteTunnelMapping(ip *net.IPNet) {
 	}
 }
 
-func ipFamily(ip net.IP) int {
-	if ip.To4() == nil {
-		return netlink.FAMILY_V6
+func createNodeRoute(ip *net.IPNet) routeUtils.Route {
+	var local, nexthop net.IP
+	if ip.IP.To4() != nil {
+		nexthop = GetInternalIPv4()
+		local = GetInternalIPv4()
+	} else {
+		nexthop = GetIPv6Router()
+		local = GetIPv6()
 	}
 
-	return netlink.FAMILY_V4
+	return routeUtils.Route{
+		Nexthop: &nexthop,
+		Local:   local,
+		Device:  HostDevice,
+		Prefix:  *ip,
+	}
 }
 
-// findRoute finds a particular route as specified by the filter which points
-// to the specified device. The filter route can have the following fields set:
-//  - Dst
-//  - LinkIndex
-//  - Scope
-//  - Gw
-func findRoute(link netlink.Link, route *netlink.Route) *netlink.Route {
-	routes, err := netlink.RouteList(link, ipFamily(route.Dst.IP))
-	if err != nil {
-		return nil
-	}
-
-	for _, r := range routes {
-		if r.Dst != nil && route.Dst == nil {
-			continue
-		}
-
-		if route.Dst != nil && r.Dst == nil {
-			continue
-		}
-
-		aMaskLen, aMaskBits := r.Dst.Mask.Size()
-		bMaskLen, bMaskBits := route.Dst.Mask.Size()
-		if r.LinkIndex == route.LinkIndex && r.Scope == route.Scope &&
-			aMaskLen == bMaskLen && aMaskBits == bMaskBits &&
-			r.Dst.IP.Equal(route.Dst.IP) && r.Gw.Equal(route.Gw) {
-			return &r
-		}
-	}
-
-	return nil
-}
-
-// replaceNodeRoute verifies that the L2 route for the router IP which is used
-// as nexthop for all node routes is properly installed. If unavailable or
-// incorrect, it will be replaced with the proper L2 route.
-func replaceNexthopRoute(link netlink.Link, routerNet *net.IPNet) error {
-	// This is the L2 route which makes the Cilium router IP available behind
-	// the "cilium_host" interface. All other routes will use this router IP
-	// as nexthop.
-	route := &netlink.Route{
-		LinkIndex: link.Attrs().Index,
-		Dst:       routerNet,
-		Scope:     netlink.SCOPE_LINK,
-	}
-
-	if findRoute(link, route) == nil {
-		scopedLog := log.WithField(logfields.Route, route)
-
-		if err := netlink.RouteReplace(route); err != nil {
-			scopedLog.WithError(err).Error("Unable to add L2 nexthop route")
-			return fmt.Errorf("unable to add L2 nexthop route")
-		}
-
-		scopedLog.Info("Added L2 nexthop route")
-	}
-
-	return nil
-}
-
-// replaceNodeRoute verifies whether the specified node CIDR is properly
-// covered by a route installed in the host's routing table. If unavailable,
-// the route is installed on the host.
+// replaceNodeRoute verifies whether the node route is properly covered by a
+// route installed in the host's routing table. If unavailable, the route is
+// installed on the host.
 func replaceNodeRoute(ip *net.IPNet) {
 	if ip == nil {
 		return
 	}
 
-	link, err := netlink.LinkByName(HostDevice)
-	if err != nil {
-		log.WithError(err).WithField(logfields.Interface, HostDevice).Error("Unable to lookup interface")
-		return
-	}
-
-	var routerNet *net.IPNet
-	var via, local net.IP
-	if ip.IP.To4() != nil {
-		via = GetInternalIPv4()
-		routerNet = &net.IPNet{IP: via, Mask: net.CIDRMask(32, 32)}
-		local = GetInternalIPv4()
-	} else {
-		via = GetIPv6Router()
-		routerNet = &net.IPNet{IP: via, Mask: net.CIDRMask(128, 128)}
-		local = GetIPv6()
-	}
-
-	if err := replaceNexthopRoute(link, routerNet); err != nil {
-		log.WithError(err).Error("Unable to add nexthop route")
-	}
-
-	route := netlink.Route{LinkIndex: link.Attrs().Index, Dst: ip, Gw: via, Src: local}
-	// If the route includes the local address, then the route is for
-	// local containers and we can use a high MTU for transmit. Otherwise,
-	// it needs to be able to fit within the MTU of tunnel devices.
-	if ip.Contains(local) {
-		route.MTU = mtu.GetDeviceMTU()
-	} else {
-		route.MTU = mtu.GetRouteMTU()
-	}
-
-	if findRoute(link, &route) == nil {
-		scopedLog := log.WithField(logfields.Route, route)
-
-		if err := netlink.RouteReplace(&route); err != nil {
-			scopedLog.WithError(err).Error("Unable to add node route")
-		} else {
-			scopedLog.Info("Installed node route")
-		}
-	}
+	routeUtils.ReplaceRoute(createNodeRoute(ip))
 }
 
 // deleteNodeRoute removes a node route of a particular CIDR
@@ -227,29 +137,7 @@ func deleteNodeRoute(ip *net.IPNet) {
 		return
 	}
 
-	link, err := netlink.LinkByName(HostDevice)
-	if err != nil {
-		log.WithError(err).WithField(logfields.Interface, HostDevice).Error("Unable to lookup interface")
-		return
-	}
-
-	var via, local net.IP
-	if ip.IP.To4() != nil {
-		via = GetInternalIPv4()
-		local = GetInternalIPv4()
-	} else {
-		via = GetIPv6Router()
-		local = GetIPv6()
-	}
-
-	route := netlink.Route{LinkIndex: link.Attrs().Index, Dst: ip, Gw: via, Src: local}
-	scopedLog := log.WithField(logfields.Route, route)
-
-	if err := netlink.RouteDel(&route); err != nil {
-		scopedLog.WithError(err).Error("Unable to add node route")
-	} else {
-		scopedLog.Info("Removed node route")
-	}
+	routeUtils.DeleteRoute(createNodeRoute(ip))
 }
 
 func (cc *clusterConfiguation) replaceHostRoutes() {
