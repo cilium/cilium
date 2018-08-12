@@ -132,6 +132,8 @@ type EgressRule struct {
 	//
 	// +optional
 	ToFQDNs []FQDNSelector `json:"toFQDNs,omitempty"`
+
+	FromProcessContext []ProcessContextSelector `json:"fromProcessContext,omitempty"`
 }
 
 // GetDestinationEndpointSelectors returns a slice of endpoints selectors
