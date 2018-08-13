@@ -25,7 +25,7 @@ public:
 			       FactoryContext& context) override {
     auto config = std::make_shared<Filter::CiliumL3::Config>(MessageUtil::downcastAndValidate<const ::cilium::NetworkFilter&>(proto_config), context);
     return [config](Network::FilterManager &filter_manager) mutable -> void {
-      filter_manager.addReadFilter(std::make_shared<Filter::CiliumL3::Instance>(config));
+      filter_manager.addFilter(std::make_shared<Filter::CiliumL3::Instance>(config));
     };
   }
 
@@ -33,7 +33,7 @@ public:
   createFilterFactory(const Json::Object& json_config, FactoryContext& context) override {
     auto config = std::make_shared<Filter::CiliumL3::Config>(json_config, context);
     return [config](Network::FilterManager &filter_manager) mutable -> void {
-      filter_manager.addReadFilter(std::make_shared<Filter::CiliumL3::Instance>(config));
+      filter_manager.addFilter(std::make_shared<Filter::CiliumL3::Instance>(config));
     };
   }
   ProtobufTypes::MessagePtr createEmptyConfigProto() override {
@@ -95,6 +95,10 @@ Network::FilterStatus Instance::onNewConnection() {
 }
 
 Network::FilterStatus Instance::onData(Buffer::Instance&, bool) {
+  return Network::FilterStatus::Continue;
+}
+
+Network::FilterStatus Instance::onWrite(Buffer::Instance&, bool) {
   return Network::FilterStatus::Continue;
 }
 
