@@ -420,8 +420,98 @@ also disable the usage of the feature.
 Upgrade notes
 =============
 
-The below issues have been fixed in Cilium 1.1, but require user interaction to
-mitigate or remediate the issue for users upgrading from an earlier release.
+This section describes known issues and limitations with released versions of
+Cilium which may require user interaction to mitigate or remediate.
+
+.. _cidr_limitations:
+
+Restrictions on unique prefix lengths for CIDR policy rules
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Linux kernel applies limitations on the complexity of BPF code that is
+loaded into the kernel so that the code may be verified as safe to execute on
+packets. Over time, Linux releases become more intelligent about the
+verification of programs which allows more complex programs to be loaded.
+However, the complexity limitations affect some features in Cilium depending
+on the kernel version that is used with Cilium.
+
+One such limitation affects Cilium's configuration of CIDR policies. On Linux
+kernels 4.10 and earlier, this manifests as a restriction on the number of
+unique prefix lengths supported in CIDR policy rules.
+
+Unique prefix lengths are counted by looking at the prefix portion of CIDR
+rules and considering which prefix lengths are unique. For example, in the
+following policy example, the ``toCIDR`` section specifies a ``/32``, and the
+``toCIDRSet`` section specifies a ``/8`` with a ``/12`` removed from it. In
+addition, three prefix lengths are always counted: the host prefix length for
+the protocol (IPv4: ``/32``, IPv6: ``/128``), the default prefix length
+(``/0``), and the cluster prefix length (default IPv4: ``/8``, IPv6: ``/64``).
+All in all, the following example counts as seven unique prefix lengths in IPv4:
+
+* ``/32`` (from ``toCIDR``, also from host prefix)
+* ``/12`` (from ``toCIDRSet``)
+* ``/11`` (from ``toCIDRSet``)
+* ``/10`` (from ``toCIDRSet``)
+* ``/9`` (from ``toCIDRSet``)
+* ``/8`` (from cluster prefix)
+* ``/0`` (from default prefix)
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../examples/policies/l3/cidr/cidr.yaml
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../../examples/policies/l3/cidr/cidr.json
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../examples/policies/l3/cidr/cidr.json
+
+Affected versions
+^^^^^^^^^^^^^^^^^
+
+* Any version of Cilium running on Linux 4.10 or earlier
+
+When a CIDR policy with too many unique prefix lengths is imported, Cilium will
+reject the policy with a message like the following:
+
+.. tabs::
+  .. group-tab:: Cilium 1.0
+
+    .. code-block:: shell-session
+
+     $ cilium policy import too_many_cidrs.json
+     Error: Cannot import policy: [PUT /policy][500] putPolicyFailure  too many
+     egress CIDR prefix lengths (128/40)
+
+  .. group-tab:: Cilium 1.1 or later
+
+     .. code-block:: shell-session
+
+        $ cilium policy import too_many_cidrs.json
+        Error: Cannot import policy: [PUT /policy][500] putPolicyFailure  Adding
+        specified prefixes would result in too many prefix lengths (current: 3,
+        result: 32, max: 18)
+
+The supported count of unique prefix lengths may differ between Cilium minor
+releases, for example Cilium 1.1 supports 20 unique prefix lengths on Linux
+4.10 or older, while Cilium 1.2 only supports 18 (for IPv4) or 4 (for IPv6).
+
+Mitigation
+^^^^^^^^^^
+
+Users may construct CIDR policies that use fewer unique prefix lengths. This
+can be achieved by composing or decomposing adjacent prefixes.
+
+Solution
+^^^^^^^^
+
+Upgrade the host Linux version to 4.11 or later. This step is beyond the scope
+of the Cilium guide.
+
 
 .. _host_vs_world:
 

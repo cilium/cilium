@@ -11,6 +11,11 @@ Upgrading to Cilium 1.2.x from Cilium 1.2.y
 Upgrading to Cilium 1.2.x from Cilium 1.1.y or 1.0.z
 """"""""""""""""""""""""""""""""""""""""""""""""""""
 
+.. note::
+
+   Users running Linux 4.10 or earlier with Cilium CIDR policies may face
+   :ref:`cidr_limitations`.
+
 #. Upgrade to Cilium ``1.1.3`` or later using the instructions below.
 
 #. :ref:`upgrade_cm`.
