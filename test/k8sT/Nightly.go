@@ -433,8 +433,9 @@ var _ = Describe("NightlyExamples", func() {
 
 					err := kubectl.CiliumEndpointWaitReady()
 					Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
-
-					cleanupCallback = ValidateCiliumUpgrades(kubectl)
+					var assertUpgradeSuccessful func()
+					assertUpgradeSuccessful, cleanupCallback = ValidateCiliumUpgrades(kubectl)
+					assertUpgradeSuccessful()
 				})
 			}(image)
 		}
