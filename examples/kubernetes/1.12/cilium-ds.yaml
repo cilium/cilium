@@ -54,7 +54,7 @@ spec:
                   optional: true
                   key: clean-cilium-state
       containers:
-        - image: docker.io/cilium/cilium:v1.2.0-rc1
+        - image: docker.io/cilium/cilium:v1.2.0-rc3
           imagePullPolicy: IfNotPresent
           name: cilium-agent
           command: ["cilium-agent"]
@@ -220,8 +220,7 @@ spec:
             defaultMode: 420
             optional: true
             secretName: cilium-clustermesh
-      restartPolicy: Always
-      priorityClassName: system-node-critical
+      restartPolicy: Alwaysn      priorityClassName: system-node-critical
       tolerations:
         - effect: NoSchedule
           key: node-role.kubernetes.io/master
