@@ -140,7 +140,8 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 	// Since all owner's funcs are implemented we can regenerate every endpoint.
 	epsNames := []string{}
 	for _, ep := range epsWanted {
-		os.MkdirAll(filepath.Join(baseDir, ep.StringID()), 777)
+		fullDirName := filepath.Join(baseDir, ep.DirectoryPath())
+		os.MkdirAll(fullDirName, 777)
 		ep.UnconditionalLock()
 
 		ready := ep.SetStateLocked(e.StateWaitingToRegenerate, "test")
@@ -148,7 +149,34 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 		if ready {
 			<-ep.Regenerate(ds, "test")
 		}
-		epsNames = append(epsNames, ep.StringID())
+
+		switch ep.ID {
+		case 256, 257:
+			err := os.Rename(fullDirName, filepath.Join(baseDir, ep.FailedDirectoryPath()))
+			if err != nil {
+				return nil, err
+			}
+			epsNames = append(epsNames, ep.FailedDirectoryPath())
+
+			// create one failed and the other non failed directory for ep 256.
+			if ep.ID == 256 {
+				fullDirName := filepath.Join(baseDir, ep.DirectoryPath())
+				os.MkdirAll(fullDirName, 777)
+
+				ep.UnconditionalLock()
+				// Change endpoint a little bit so we know which endpoint is in
+				// "256_next_fail" and with one is in the "256" directory.
+				ep.NodeMAC = mac.MAC([]byte{0x02, 0xff, 0xf2, 0x12, 0xc1, 0xc1})
+				ready := ep.SetStateLocked(e.StateWaitingToRegenerate, "test")
+				ep.Unlock()
+				if ready {
+					<-ep.Regenerate(ds, "test")
+				}
+				epsNames = append(epsNames, ep.DirectoryPath())
+			}
+		default:
+			epsNames = append(epsNames, ep.DirectoryPath())
+		}
 	}
 	return epsNames, nil
 }
@@ -164,4 +192,11 @@ func (ds *DaemonSuite) TestReadEPsFromDirNames(c *C) {
 	c.Assert(err, IsNil)
 	eps := readEPsFromDirNames(tmpDir, epsNames)
 	c.Assert(len(eps), Equals, len(epsWanted))
+	for _, ep := range eps {
+		if ep.ID == 256 {
+			// Make sure the NodeMac equals to the one we set for the endpoint
+			// regeneration that should take priority. (The non-failed one)
+			c.Assert(ep.NodeMAC, DeepEquals, mac.MAC([]byte{0x02, 0xff, 0xf2, 0x12, 0xc1, 0xc1}))
+		}
+	}
 }

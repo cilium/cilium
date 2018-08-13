@@ -730,7 +730,7 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 
 	// If generation fails, keep the directory around. If it ever succeeds
 	// again, clean up the XXX_next_fail copy.
-	failDir := e.failedDirectoryPath()
+	failDir := e.FailedDirectoryPath()
 	os.RemoveAll(failDir) // Most likely will not exist; ignore failure.
 	if err != nil {
 		scopedLog.WithFields(logrus.Fields{
