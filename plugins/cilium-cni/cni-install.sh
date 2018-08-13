@@ -3,7 +3,7 @@
 set -eu
 
 HOST_PREFIX=${HOST_PREFIX:-/host}
-CNI_CONF_NAME=${CNI_CONF_NAME:-00-cilium.conf}
+CNI_CONF_NAME=${CNI_CONF_NAME:-05-cilium.conf}
 MTU=${MTU:-1500}
 
 BIN_NAME=cilium-cni

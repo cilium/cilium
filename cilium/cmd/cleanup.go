@@ -46,8 +46,9 @@ const (
 	ciliumLinkPrefix = "cilium_"
 	hostLinkPrefix   = "lxc"
 	hostLinkLen      = len(hostLinkPrefix + "XXXXX")
-	cniConfig        = "/etc/cni/net.d/10-cilium-cni.conf"
-	legacyCniConfig  = "/etc/cni/net.d/10-cilium-cni.conf"
+	cniConfigV1      = "/etc/cni/net.d/10-cilium-cni.conf"
+	cniConfigV2      = "/etc/cni/net.d/00-cilium-cni.conf"
+	cniConfigV3      = "/etc/cni/net.d/05-cilium-cni.conf"
 )
 
 func init() {
@@ -95,9 +96,9 @@ func showWhatWillBeRemoved(routes map[int]netlink.Route, links map[int]netlink.L
 		"- mounted bpffs at %s\n"+
 		"- library code in %s\n"+
 		"- endpoint state in %s\n"+
-		"- CNI configuration at %s\n",
+		"- CNI configuration at %s, %s, %s\n",
 		bpf.MapPrefixPath(), ciliumLinkPrefix, tunnel.MapName, bpf.GetMapRoot(),
-		defaults.LibraryPath, defaults.RuntimePath, cniConfig)
+		defaults.LibraryPath, defaults.RuntimePath, cniConfigV1, cniConfigV2, cniConfigV3)
 
 	if len(routes) > 0 {
 		fmt.Printf("- routes\n")
@@ -122,9 +123,10 @@ func confirmCleanup() bool {
 }
 
 func removeCNI() error {
-	os.Remove(legacyCniConfig)
+	os.Remove(cniConfigV1)
+	os.Remove(cniConfigV2)
 
-	err := os.Remove(cniConfig)
+	err := os.Remove(cniConfigV3)
 	if os.IsNotExist(err) {
 		return nil
 	}
