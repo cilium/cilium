@@ -558,6 +558,12 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 		controller.ControllerParams{
 			RunInterval: 10 * time.Second,
 			DoFunc: func() (err error) {
+				e.UnconditionalLock()
+				// Update logger as scopeLog might not have the podName when it
+				// was created.
+				scopedLog = e.getLogger().WithField("controller", controllerName)
+				e.Unlock()
+
 				podName := e.GetK8sPodName()
 				if podName == "" {
 					scopedLog.Debug("Skipping CiliumEndpoint update because it has no k8s pod name")
