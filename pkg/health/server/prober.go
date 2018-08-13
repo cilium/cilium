@@ -258,6 +258,11 @@ func (p *prober) runHTTPProbe() {
 
 	for name, ips := range nodes {
 		for _, ip := range ips {
+			scopedLog := log.WithFields(logrus.Fields{
+				logfields.NodeName: name,
+				logfields.IPAddr:   ip.String(),
+			})
+
 			status := &models.PathStatus{}
 			ports := map[int]**models.ConnectivityStatus{
 				defaults.HTTPPathPort: &status.HTTP,
@@ -265,16 +270,22 @@ func (p *prober) runHTTPProbe() {
 			for port, result := range ports {
 				*result = p.httpProbe(name, ip.String(), port)
 				if status.HTTP.Status != "" {
-					log.WithFields(logrus.Fields{
-						logfields.NodeName: name,
-						logfields.IPAddr:   ip.String(),
-						logfields.Port:     port,
+					scopedLog.WithFields(logrus.Fields{
+						logfields.Port: port,
 					}).Debugf("Failed to probe: %s", status.HTTP.Status)
 				}
 			}
 
+			peer := ipString(ip.String())
 			p.Lock()
-			p.results[ipString(ip.String())].HTTP = status.HTTP
+			if _, ok := p.results[peer]; ok {
+				p.results[peer].HTTP = status.HTTP
+			} else {
+				// While we weren't holding the lock, the
+				// pinger's OnIdle() callback fired and updated
+				// the set of nodes to remove this node.
+				scopedLog.Debug("Node disappeared before result written")
+			}
 			p.Unlock()
 		}
 	}
@@ -345,9 +356,9 @@ func newProber(s *Server, nodes nodeMap) *prober {
 
 	prober.setNodes(nodes)
 	prober.OnRecv = func(addr *net.IPAddr, rtt time.Duration) {
-		prober.RLock()
+		prober.Lock()
+		defer prober.Unlock()
 		node, exists := prober.nodes[ipString(addr.String())]
-		prober.RUnlock()
 
 		scopedLog := log.WithFields(logrus.Fields{
 			logfields.IPAddr: addr,
@@ -358,13 +369,10 @@ func newProber(s *Server, nodes nodeMap) *prober {
 			return
 		}
 
-		prober.Lock()
 		prober.results[ipString(addr.String())].Icmp = &models.ConnectivityStatus{
 			Latency: rtt.Nanoseconds(),
 			Status:  "",
 		}
-		prober.Unlock()
-
 		scopedLog.WithFields(logrus.Fields{
 			logfields.NodeName: node.Name,
 		}).Debugf("Probe successful")
