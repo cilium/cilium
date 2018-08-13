@@ -11,6 +11,12 @@ Upgrading to Cilium 1.1.x from Cilium 1.1.y
 Upgrading to Cilium 1.1.x from Cilium 1.0.y
 """""""""""""""""""""""""""""""""""""""""""
 
+.. note::
+
+   Users running Linux 4.10 or earlier with Cilium CIDR policies may face
+   :ref:`cidr_limitations`.
+
+
 #. Follow the guide in :ref:`err_low_mtu` to update the MTU of existing
    endpoints.
 
