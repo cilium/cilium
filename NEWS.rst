@@ -2,6 +2,119 @@
 NEWS
 ******
 
+1.2.0-rc3
+=========
+
+::
+
+    André Martins (3):
+          pkg/envoy: update generated files
+          pkg/node: add Public Equalness checker
+          daemon/k8s_watcher: ignore irrelevant node updates
+
+    Daniel Borkmann (1):
+          bpf, doc: rebase bpf doc from master into v1.2
+
+    Eloy Coto (1):
+          Test: Upgrade test update stable image to v1.1
+
+    Ian Vernon (6):
+          daemon: move restoring of endpoints to start after Kubernetes watcher starts
+          daemon: block until initial policy list
+          test/k8sT: add more logs to narrate progress of ChaosTest
+          test/helpers: change parameters for WaitForKubeDNSEntry
+          test: add additional WaitForKubeDNSEntry checks
+          test/k8sT: move DNS checks outside of loop
+
+    Joe Stringer (9):
+          bpf: Reduce the number of supported prefix lengths
+          bpf: Relax verifier in CT lookup drop case
+          ipcache: Split prefix length limits by protocol
+          bpf: Pack ipv6_ct_tuple to match Golang
+          ctmap: Add accessor method for path per endpoint
+          daemon: Upgrade CT map properties on startup
+          daemon: Refactor health endpoint cleanup code
+          daemon: Remove health-ep before deleting its devices
+          daemon: Remove health-ep on controller stop
+
+    Ray Bejjani (4):
+          daemon: fqdn.DNSPoller interval exposed as a const
+          policy: Add runtime tests for ToFQDN rules
+          Test: Fixup formatting in ToFQDNs test Expects
+          Test: Ensure ToFQDNs test waits for DNS poll
+
+    Romain Lenglet (5):
+          kafka: Properly set (non-)nullable arrays in synthesized responses
+          test/runtime/kvstore: Wait for Cilium to be ready after restarting
+          test: Add a description to every Cilium restart check
+          kafka: Update parser to pull "Fix de/serialization of null arrays"
+          controller: Log the DoFunc and update times
+
+    Thomas Graf (6):
+          node: Fix panic when node store is not initialized yet
+          bpf: Report dst identity in drop notifications
+          launcher: Wait for process to exit and release resources
+          k8s: Use server version instead of ComponentStatus to check health
+          agent: Do not replace node routes if they already exist
+          route: Fix route replacement logic for IPv6
+
+
+1.2.0-rc2
+=========
+
+::
+
+    Amey Bhide (1):
+          Run initContainer in privileged mode for cilium cleanup
+
+    André Martins (6):
+          kubernetes/addons: add Cilium development spec file to test etcd-operator
+          etcd-operator: add instructions how to install cfssl utilities
+          etcd-operator: add developer README to deploy etcd-operator
+          pkg/node: re-add k8s node watcher until kvstore is connected
+          etcd-operator/tls/certs: do some minor cleanups
+          pkg/k8s: set node cluster with the option.Config.ClusterName
+
+    Eloy Coto (2):
+          Test: Delete Kube-dns on upgrade test
+          Daemon: Update Health endpoints IP on localNode.
+
+    Jarno Rajahalme (1):
+          envoy: Sanitize HTTP headers
+
+    Joe Stringer (8):
+          daemon: Don't tunnel locally destined traffic
+          docs: Fix namespace isolation links
+          docs: Fix header indentation for out-of-date link
+          docs: Fix contributing guide sphinx warnings
+          docs: Fix toctree links
+          docs: Fix up broken links
+          docs: Fix duplicate links in upgrade page
+          client: Add API timeout to endpoint requests
+
+    Nirmoy Das (2):
+          allocator: nextCache can hold a nil value for a id/key
+          bpf: print map name and errno instead of nil
+
+    Ray Bejjani (4):
+          doc: Add toFQDNs documentation and example
+          daemon: Correct toFQDNs to update all IPs on change
+          pkg/endpoint: Factor out Endpoint.HasLabelsRLocked
+          kubernetes: No CEP CRD for cilium-health EP
+
+    Romain Lenglet (6):
+          Update to Istio 1.0.0
+          envoy: Disable unused ADS protocol support
+          envoy: Adapt Envoy route generation to updated HeaderMatcher API
+          docs: Update the Istio GSG to Istio 1.0.0
+          daemon: Exit synced endpoint creation if in sidecar proxy mode
+          docs: Enable mTLS in the Istio GSG
+
+    Thomas Graf (3):
+          monitor: Fix spin loop when reading stdout from monitor fails
+          bpffs: Cache mountinfo result
+          endpoint: Fix locking while calling endpoint.getLogger()
+
 v1.2.0-rc1
 ==========
 
