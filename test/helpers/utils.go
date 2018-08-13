@@ -26,6 +26,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -122,15 +123,35 @@ func WithTimeout(body func() bool, msg string, config *TimeoutConfig) error {
 	done := time.After(config.Timeout * time.Second)
 	ticker := time.NewTicker(config.Ticker * time.Second)
 	defer ticker.Stop()
-	if body() {
-		return nil
+	status := make(chan bool)
+
+	var mutex = &sync.Mutex{}
+	// If the function take more than the config.Ticker the function will be
+	// not executed.
+	bodyLock := false
+	setBodyLock := func(val bool) {
+		mutex.Lock()
+		bodyLock = val
+		mutex.Unlock()
 	}
+	WithLock := func(body func() bool) {
+		if bodyLock == true {
+			return
+		}
+		setBodyLock(true)
+		defer func() { setBodyLock(false) }()
+		status <- body()
+	}
+
+	go WithLock(body)
 	for {
 		select {
-		case <-ticker.C:
-			if body() {
+		case res := <-status:
+			if res {
 				return nil
 			}
+		case <-ticker.C:
+			go WithLock(body)
 		case <-done:
 			return fmt.Errorf("Timeout reached: %s", msg)
 		}
