@@ -22,10 +22,13 @@ Downgrading to Cilium 1.0.x from Cilium 1.1.y
 
    .. code-block:: shell-session
 
-     $ kubectl get cnp --all-namespaces -o yaml | grep "/0"
+     $ kubectl get cnp --all-namespaces -o yaml
 
-   If any CIDR rules match on the CIDR prefix ``/0``, these must be removed
-   prior to downgrade as these rules are not supported by Cilium 1.0.
+   * If any CIDR rules match on the CIDR prefix ``/0``, these must be removed
+     prior to downgrade as these rules are not supported by Cilium 1.0.
+
+   * If any CIDR rules also specify a ``toPorts`` section, these must be
+     removed prior to downgrade as these rules are not supported by Cilium 1.0.
 
 #.
 
