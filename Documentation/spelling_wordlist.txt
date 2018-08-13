@@ -45,6 +45,8 @@ breakpoint
 Brenden
 Brouer
 browsable
+btf
+BTF
 bugfix
 bugfixes
 bugtool
@@ -107,6 +109,7 @@ deserialization
 dev
 Devel
 Dinan
+diff
 disassembly
 distros
 DMA
@@ -118,11 +121,14 @@ DoorManager
 dports
 dryRun
 DTrace
+DWARF
+dwarfris
 ebpf
 eBPF
 ec
 elasticsearch
 Elasticsearch
+elfutils
 endian
 endianness
 endpointSelector
@@ -261,6 +267,7 @@ Leia
 leia
 libbpf
 libc
+libdw
 libelf
 libnetwork
 libvirt
@@ -333,6 +340,7 @@ opcodes
 orchestrator
 org
 osx
+pahole
 pc
 pem
 Pepelnjak
@@ -364,6 +372,7 @@ qdisc
 qdiscs
 qede
 queueing
+readelf
 rebase
 rebased
 recompiles
@@ -371,6 +380,7 @@ refactor
 refactoring
 regenerations
 regex
+relocations
 remediate
 reparsing
 repo
@@ -494,6 +504,7 @@ virtio
 virtualbox
 vlan
 VM
+vmlinux
 vX
 waker
 Wakeup

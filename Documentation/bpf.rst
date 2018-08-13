@@ -1181,12 +1181,116 @@ The generated LLVM IR can also be dumped in human readable format through:
 
     $ clang -O2 -Wall -emit-llvm -S -c xdp-example.c -o -
 
-Note that LLVM's BPF back end currently does not support generating code
-that makes use of BPF's 32 bit subregisters. Inline assembly for BPF is
-currently unsupported, too.
+LLVM is able to attach debug information such as the description of used data
+types in the program to the generated BPF object file. By default this is in
+DWARF format.
 
-Furthermore, compilation from BPF assembly (e.g. ``llvm-mc xdp-example.S -arch bpf -filetype=obj -o xdp-example.o``)
-is currently not supported either due to missing BPF assembly parser.
+A heavily simplified version used by BPF is called BTF (BPF Type Format). The
+resulting DWARF can be converted into BTF and is later on loaded into the
+kernel through BPF object loaders. The kernel will then verify the BTF data
+for correctness and keeps track of the data types the BTF data is containing.
+
+BPF maps can then be annotated with key and value types out of the BTF data
+such that a later dump of the map exports the map data along with the related
+type information. This allows for better introspection, debugging and value
+pretty printing. Note that BTF data is a generic debugging data format and
+as such any DWARF to BTF converted data can be loaded (e.g. kernel's vmlinux
+DWARF data could be converted to BTF and loaded). Latter is in particular
+useful for BPF tracing in the future.
+
+In order to generate BTF from DWARF debugging information, elfutils (>= 0.173)
+is needed. If that is not available, then adding the ``-mattr=dwarfris`` option
+to the ``llc`` command is required during compilation:
+
+::
+
+    $ llc -march=bpf -mattr=help |& grep dwarfris
+      dwarfris - Disable MCAsmInfo DwarfUsesRelocationsAcrossSections.
+      [...]
+
+The reason using ``-mattr=dwarfris`` is because the flag ``dwarfris`` (``dwarf
+relocation in section``) disables DWARF cross-section relocations between DWARF
+and the ELF's symbol table since libdw does not have proper BPF relocation
+support, and therefore tools like ``pahole`` would otherwise not be able to
+properly dump structures from the object.
+
+elfutils (>= 0.173) implements proper BPF relocation support and therefore
+the same can be achieved without the ``-mattr=dwarfris`` option. Dumping
+the structures from the object file could be done from either DWARF or BTF
+information. ``pahole`` uses the LLVM emitted DWARF information at this
+point, however, future ``pahole`` versions could rely on BTF if available.
+
+For converting DWARF into BTF, a recent pahole version (>= 1.12) is required.
+A recent pahole version can also be obtained from its official git repository
+if not available from one of the distribution packages:
+
+::
+
+    $ git clone https://git.kernel.org/pub/scm/devel/pahole/pahole.git
+
+``pahole`` comes with the option ``-J`` to convert DWARF into BTF from an
+object file. ``pahole`` can be probed for BTF support as follows (note that
+the ``llvm-objcopy`` tool is required for ``pahole`` as well, so check its
+presence, too):
+
+::
+
+    $ pahole --help | grep BTF
+    -J, --btf_encode           Encode as BTF
+
+Generating debugging information also requires the front end to generate
+source level debug information by passing ``-g`` to the ``clang`` command
+line. Note that ``-g`` is needed independently of whether ``llc``'s
+``dwarfris`` option is used. Full example for generating the object file:
+
+::
+
+    $ clang -O2 -g -Wall -target bpf -emit-llvm -c xdp-example.c -o xdp-example.bc
+    $ llc xdp-example.bc -march=bpf -mattr=dwarfris -filetype=obj -o xdp-example.o
+
+Alternatively, by using clang only to build a BPF program with debugging
+information (again, the dwarfris flag can be omitted when having proper
+elfutils version):
+
+::
+
+    $ clang -target bpf -O2 -g -c -Xclang -target-feature -Xclang +dwarfris -c xdp-example.c -o xdp-example.o
+
+After successful compilation ``pahole`` can be used to properly dump structures
+of the BPF program based on the DWARF information:
+
+::
+
+    $ pahole xdp-example.o
+    struct xdp_md {
+            __u32                      data;                 /*     0     4 */
+            __u32                      data_end;             /*     4     4 */
+            __u32                      data_meta;            /*     8     4 */
+
+            /* size: 12, cachelines: 1, members: 3 */
+            /* last cacheline: 12 bytes */
+    };
+
+Through the option ``-J`` ``pahole`` can eventually generate the BTF from
+DWARF. In the object file DWARF data will still be retained alongside the
+newly added BTF data. Full ``clang`` and ``pahole`` example combined:
+
+::
+
+    $ clang -target bpf -O2 -Wall -g -c -Xclang -target-feature -Xclang +dwarfris -c xdp-example.c -o xdp-example.o
+    $ pahole -J xdp-example.o
+
+The presence of a ``.BTF`` section can be seen through ``readelf`` tool:
+
+::
+
+    $ readelf -a xdp-example.o
+    [...]
+      [18] .BTF              PROGBITS         0000000000000000  00000671
+    [...]
+
+BPF loaders such as iproute2 will detect and load the BTF section, so that
+BPF maps can be annotated with type information.
 
 LLVM by default uses the BPF base instruction set for generating code
 in order to make sure that the generated object file can also be loaded
@@ -1266,6 +1370,13 @@ The native target is mostly needed in tracing for the case of walking
 the kernel's ``struct pt_regs`` that maps CPU registers, or other kernel
 structures where CPU's register width matters. In all other cases such
 as networking, the use of ``clang -target bpf`` is the preferred choice.
+
+Note that LLVM's BPF back end currently does not support generating code
+that makes use of BPF's 32 bit subregisters. Inline assembly for BPF is
+currently unsupported, too.
+
+Furthermore, compilation from BPF assembly (e.g. ``llvm-mc xdp-example.S -arch bpf -filetype=obj -o xdp-example.o``)
+is currently not supported either due to missing BPF assembly parser.
 
 When writing C programs for BPF, there are a couple of pitfalls to be aware
 of, compared to usual application development with C. The following items
@@ -1890,6 +2001,32 @@ of all details, but enough for getting started.
   ::
 
     # ip link set dev em1 xdp obj prog.o sec foobar
+
+  Note that it is also possible to load the program out of the ``.text`` section.
+  Changing the minimal, stand-alone XDP drop program by removing the ``__section()``
+  annotation from the ``xdp_drop`` entry point would look like the following:
+
+  ::
+
+    #include <linux/bpf.h>
+
+    #ifndef __section
+    # define __section(NAME)                  \
+       __attribute__((section(NAME), used))
+    #endif
+
+    int xdp_drop(struct xdp_md *ctx)
+    {
+        return XDP_DROP;
+    }
+
+    char __license[] __section("license") = "GPL";
+
+  And can be loaded as follows:
+
+  ::
+
+    # ip link set dev em1 xdp obj prog.o sec .text
 
   By default, ``ip`` will throw an error in case a XDP program is already attached
   to the networking interface, to prevent it from being overridden by accident. In
@@ -2620,11 +2757,10 @@ of debugging:
 
 Dumping an entire map is possible through the ``map dump`` subcommand
 which iterates through all present map elements and dumps the key /
-value pairs as hex.
+value pairs.
 
-With upcoming BTF (BPF Type Format), the map also holds debugging information
-about the key / value structure and bpftool will be able to 'pretty-print' the
-content besides a hex dump:
+If no BTF (BPF Type Format) data is available for a given map, then
+the key / value pairs are dumped as hex:
 
   ::
 
@@ -2648,6 +2784,88 @@ content besides a hex dump:
      00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
      [...]
      Found 6 elements
+
+However, with BTF, the map also holds debugging information about
+the key and value structures. For example, BTF in combination with
+BPF maps and the BPF_ANNOTATE_KV_PAIR() macro from iproute2 will
+result in the following dump (``test_xdp_noinline.o`` from kernel
+selftests):
+
+  ::
+
+     # cat tools/testing/selftests/bpf/test_xdp_noinline.c
+       [...]
+        struct ctl_value {
+              union {
+                      __u64 value;
+                      __u32 ifindex;
+                      __u8 mac[6];
+              };
+        };
+
+        struct bpf_map_def __attribute__ ((section("maps"), used)) ctl_array = {
+               .type		= BPF_MAP_TYPE_ARRAY,
+               .key_size	= sizeof(__u32),
+               .value_size	= sizeof(struct ctl_value),
+               .max_entries	= 16,
+               .map_flags	= 0,
+        };
+        BPF_ANNOTATE_KV_PAIR(ctl_array, __u32, struct ctl_value);
+
+        [...]
+
+The BPF_ANNOTATE_KV_PAIR() macro forces a map-specific ELF section
+containing an empty key and value, this enables the iproute2 BPF loader
+to correlate BTF data with that section and thus allows to choose the
+corresponding types out of the BTF for loading the map.
+
+Compiling through LLVM and generating BTF through debugging information
+by ``pahole``:
+
+  ::
+
+     # clang [...] -O2 -target bpf -g -emit-llvm -c test_xdp_noinline.c -o - |
+       llc -march=bpf -mcpu=probe -mattr=dwarfris -filetype=obj -o test_xdp_noinline.o
+     # pahole -J test_xdp_noinline.o
+
+Now loading into kernel and dumping the map via bpftool:
+
+  ::
+
+     # ip -force link set dev lo xdp obj test_xdp_noinline.o sec xdp-test
+     # ip a
+     1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 xdpgeneric/id:227 qdisc noqueue state UNKNOWN group default qlen 1000
+         link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+         inet 127.0.0.1/8 scope host lo
+            valid_lft forever preferred_lft forever
+         inet6 ::1/128 scope host
+            valid_lft forever preferred_lft forever
+     [...]
+     # bpftool prog show id 227
+     227: xdp  tag a85e060c275c5616  gpl
+         loaded_at 2018-07-17T14:41:29+0000  uid 0
+         xlated 8152B  not jited  memlock 12288B  map_ids 381,385,386,382,384,383
+     # bpftool map dump id 386
+      [{
+           "key": 0,
+           "value": {
+               "": {
+                   "value": 0,
+                   "ifindex": 0,
+                   "mac": []
+               }
+           }
+       },{
+           "key": 1,
+           "value": {
+               "": {
+                   "value": 0,
+                   "ifindex": 0,
+                   "mac": []
+               }
+           }
+       },{
+     [...]
 
 Lookup, update, delete, and 'get next key' operations on the map for specific
 keys can be performed through bpftool as well.
