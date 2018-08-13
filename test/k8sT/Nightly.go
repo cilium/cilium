@@ -420,6 +420,7 @@ var _ = Describe("NightlyExamples", func() {
 
 		AfterEach(func() {
 			cleanupCallback()
+			ExpectAllPodsTerminated(kubectl)
 		})
 
 		AfterAll(func() {
