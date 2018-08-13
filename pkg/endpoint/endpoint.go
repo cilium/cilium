@@ -1225,11 +1225,14 @@ func (e *Endpoint) GetIdentity() identityPkg.NumericIdentity {
 	return identityPkg.InvalidIdentity
 }
 
-func (e *Endpoint) directoryPath() string {
+// DirectoryPath returns the directory name for this endpoint bpf program.
+func (e *Endpoint) DirectoryPath() string {
 	return filepath.Join(".", fmt.Sprintf("%d", e.ID))
 }
 
-func (e *Endpoint) failedDirectoryPath() string {
+// FailedDirectoryPath returns the directory name for this endpoint bpf program
+// failed builds.
+func (e *Endpoint) FailedDirectoryPath() string {
 	return filepath.Join(".", fmt.Sprintf("%d%s", e.ID, "_next_fail"))
 }
 
@@ -1366,7 +1369,8 @@ func FilterEPDir(dirFiles []os.FileInfo) []string {
 	eptsID := []string{}
 	for _, file := range dirFiles {
 		if file.IsDir() {
-			if _, err := strconv.ParseUint(file.Name(), 10, 16); err == nil {
+			_, err := strconv.ParseUint(file.Name(), 10, 16)
+			if err == nil || strings.HasSuffix(file.Name(), "_next_fail") {
 				eptsID = append(eptsID, file.Name())
 			}
 		}
@@ -1790,11 +1794,11 @@ func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup
 }
 
 func (e *Endpoint) removeDirectory() {
-	os.RemoveAll(e.directoryPath())
+	os.RemoveAll(e.DirectoryPath())
 }
 
 func (e *Endpoint) removeFailedDirectory() {
-	os.RemoveAll(e.failedDirectoryPath())
+	os.RemoveAll(e.FailedDirectoryPath())
 }
 
 func (e *Endpoint) RemoveDirectory() {
@@ -1809,7 +1813,7 @@ func (e *Endpoint) CreateDirectory() error {
 		return err
 	}
 	defer e.Unlock()
-	lxcDir := e.directoryPath()
+	lxcDir := e.DirectoryPath()
 	if err := os.MkdirAll(lxcDir, 0777); err != nil {
 		return fmt.Errorf("unable to create endpoint directory: %s", err)
 	}
