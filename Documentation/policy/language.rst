@@ -370,6 +370,10 @@ will apply to traffic where one side of the connection is:
 * The host network namespace where the pod is running.
 * Within the cluster prefix but the IP's networking is not provided by Cilium.
 
+.. note::
+
+   When running Cilium on Linux 4.10 or earlier, there are :ref:`cidr_limitations`.
+
 Ingress
 ~~~~~~~
 
