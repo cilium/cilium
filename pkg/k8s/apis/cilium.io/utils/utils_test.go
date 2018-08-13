@@ -171,6 +171,67 @@ func Test_ParseToCiliumRule(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "set-any-source-for-namespace",
+			args: args{
+				namespace: metav1.NamespaceDefault,
+				rule: &api.Rule{
+					EndpointSelector: api.NewESFromMatchRequirements(
+						map[string]string{
+							role: "backend",
+						},
+						nil,
+					),
+					Ingress: []api.IngressRule{
+						{
+							FromEndpoints: []api.EndpointSelector{
+								{
+									LabelSelector: &metav1.LabelSelector{
+										MatchLabels: map[string]string{
+											podAnyPrefixLbl: "ns-2",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: &api.Rule{
+				EndpointSelector: api.NewESFromMatchRequirements(
+					map[string]string{
+						role:      "backend",
+						namespace: "default",
+					},
+					nil,
+				),
+				Ingress: []api.IngressRule{
+					{
+						FromEndpoints: []api.EndpointSelector{
+							api.NewESFromK8sLabelSelector(
+								labels.LabelSourceAnyKeyPrefix,
+								&metav1.LabelSelector{
+									MatchLabels: map[string]string{
+										k8sConst.PodNamespaceLabel: "ns-2",
+									},
+								}),
+						},
+					},
+				},
+				Labels: labels.LabelArray{
+					{
+						Key:    "io.cilium.k8s.policy.name",
+						Value:  "set-any-source-for-namespace",
+						Source: labels.LabelSourceK8s,
+					},
+					{
+						Key:    "io.cilium.k8s.policy.namespace",
+						Value:  "default",
+						Source: labels.LabelSourceK8s,
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
