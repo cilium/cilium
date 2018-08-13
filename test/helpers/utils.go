@@ -122,15 +122,33 @@ func WithTimeout(body func() bool, msg string, config *TimeoutConfig) error {
 	done := time.After(config.Timeout * time.Second)
 	ticker := time.NewTicker(config.Ticker * time.Second)
 	defer ticker.Stop()
-	if body() {
-		return nil
+	start := make(chan bool)
+	status := make(chan bool)
+
+	// Send the first execution of the body func
+	go func() { start <- true }()
+
+	// If the function take more than the config.Ticker the function will be
+	// not executed.
+	bodyLock := false
+	WithLock := func(body func() bool) {
+		if bodyLock == true {
+			return
+		}
+		bodyLock = true
+		defer func() { bodyLock = false }()
+		status <- body()
 	}
+
 	for {
 		select {
-		case <-ticker.C:
-			if body() {
+		case res := <-status:
+			if res {
 				return nil
 			}
+		case <-start:
+		case <-ticker.C:
+			go WithLock(body)
 		case <-done:
 			return fmt.Errorf("Timeout reached: %s", msg)
 		}
