@@ -119,6 +119,9 @@ const (
 	// LabelSourceAny is a label that matches any source
 	LabelSourceAny = "any"
 
+	// LabelSourceAnyKeyPrefix is prefix of a "any" label
+	LabelSourceAnyKeyPrefix = LabelSourceAny + "."
+
 	// LabelSourceK8s is a label imported from Kubernetes
 	LabelSourceK8s = "k8s"
 

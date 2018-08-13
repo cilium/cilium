@@ -32,6 +32,9 @@ const (
 	// podPrefixLbl is the value the prefix used in the label selector to
 	// represent pods on the default namespace.
 	podPrefixLbl = labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel
+	// podAnyPrefixLbl is the value the prefix used in the label selector to
+	// represent pods on the default namespace for any source type.
+	podAnyPrefixLbl = labels.LabelSourceAnyKeyPrefix + k8sConst.PodNamespaceLabel
 
 	// podInitLbl is the label used in a label selector to match on
 	// initializing pods.
@@ -84,7 +87,7 @@ func getEndpointSelector(namespace string, labelSelector *metav1.LabelSelector, 
 	// Those pods don't have any labels, so they don't have a namespace label either.
 	// Don't add a namespace label to those endpoint selectors, or we wouldn't be
 	// able to match on those pods.
-	if !matchesInit && !es.HasKey(podPrefixLbl) {
+	if !matchesInit && !es.HasKey(podPrefixLbl) && !es.HasKey(podAnyPrefixLbl) {
 		es.AddMatch(podPrefixLbl, namespace)
 	}
 
