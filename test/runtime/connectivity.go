@@ -229,7 +229,7 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 		}
 
 		It("Basic connectivity test", func() {
-			filename := "00-cilium-cni.conf"
+			filename := "05-cilium-cni.conf"
 			cniConf := `{"name": "cilium",
 				"type": "cilium-cni"}`
 			err := helpers.RenderTemplateToFile(filename, cniConf, os.ModePerm)
