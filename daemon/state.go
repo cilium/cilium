@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"strings"
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -265,15 +266,15 @@ func (d *Daemon) allocateIPsLocked(ep *endpoint.Endpoint) error {
 	return nil
 }
 
-// readEPsFromDirNames returns a list of endpoints from a list of directory
-// names that can possible contain an endpoint.
-func readEPsFromDirNames(basePath string, eptsDirNames []string) []*endpoint.Endpoint {
-	possibleEPs := []*endpoint.Endpoint{}
-	for _, epID := range eptsDirNames {
-		epDir := filepath.Join(basePath, epID)
+// readEPsFromDirNames returns a mapping of endpoint ID to endpoint of endpoints
+// from a list of directory names that can possible contain an endpoint.
+func readEPsFromDirNames(basePath string, eptsDirNames []string) map[uint16]*endpoint.Endpoint {
+	possibleEPs := map[uint16]*endpoint.Endpoint{}
+	for _, epDirName := range eptsDirNames {
+		epDir := filepath.Join(basePath, epDirName)
 		readDir := func() string {
 			scopedLog := log.WithFields(logrus.Fields{
-				logfields.EndpointID: epID,
+				logfields.EndpointID: epDirName,
 				logfields.Path:       filepath.Join(epDir, common.CHeaderFileName),
 			})
 			scopedLog.Debug("Reading directory")
@@ -295,7 +296,7 @@ func readEPsFromDirNames(basePath string, eptsDirNames []string) []*endpoint.End
 		}
 
 		scopedLog := log.WithFields(logrus.Fields{
-			logfields.EndpointID: epID,
+			logfields.EndpointID: epDirName,
 			logfields.Path:       cHeaderFile,
 		})
 
@@ -316,7 +317,15 @@ func readEPsFromDirNames(basePath string, eptsDirNames []string) []*endpoint.End
 			scopedLog.WithError(err).Warn("Unable to parse the C header file")
 			continue
 		}
-		possibleEPs = append(possibleEPs, ep)
+		if _, ok := possibleEPs[ep.ID]; ok {
+			// If the endpoint already exists then give priority to the directory
+			// that contains an endpoint that didn't fail to be build.
+			if strings.HasSuffix(ep.DirectoryPath(), epDirName) {
+				possibleEPs[ep.ID] = ep
+			}
+		} else {
+			possibleEPs[ep.ID] = ep
+		}
 	}
 	return possibleEPs
 }
