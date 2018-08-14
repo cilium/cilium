@@ -510,12 +510,12 @@ func (p *Repository) Add(r api.Rule) (uint64, error) {
 
 	newList := make([]*api.Rule, 1)
 	newList[0] = &r
-	return p.AddListLocked(newList)
+	return p.AddListLocked(newList), nil
 }
 
 // AddListLocked inserts a rule into the policy repository with the repository already locked
 // Expects that the entire rule list has already been sanitized.
-func (p *Repository) AddListLocked(rules api.Rules) (uint64, error) {
+func (p *Repository) AddListLocked(rules api.Rules) uint64 {
 	newList := make([]*rule, len(rules))
 	for i := range rules {
 		newList[i] = &rule{Rule: *rules[i]}
@@ -525,14 +525,11 @@ func (p *Repository) AddListLocked(rules api.Rules) (uint64, error) {
 	metrics.PolicyCount.Add(float64(len(newList)))
 	metrics.PolicyRevision.Inc()
 
-	return p.revision, nil
+	return p.revision
 }
 
 // AddList inserts a rule into the policy repository.
-// This is only used in unit tests.
-// TODO: this should be in a test_helpers.go file or something similar
-// so we can clearly delineate what helpers are for testing.
-func (p *Repository) AddList(rules api.Rules) (uint64, error) {
+func (p *Repository) AddList(rules api.Rules) uint64 {
 	p.Mutex.Lock()
 	defer p.Mutex.Unlock()
 	return p.AddListLocked(rules)
