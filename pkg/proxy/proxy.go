@@ -177,7 +177,11 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 		defer r.mutex.Unlock()
 
 		if r.parserType != l4.L7Parser {
-			return nil, fmt.Errorf("invalid type %q, must be of type %q", l4.L7Parser, r.parserType)
+			if err := p.removeRedirect(id, r, wg); err != nil {
+				return nil, fmt.Errorf("unable to remove old redirect: %s", err)
+			}
+
+			goto create
 		}
 
 		r.updateRules(l4)
@@ -195,6 +199,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 		return r, nil
 	}
 
+create:
 	redir := newRedirect(localEndpoint, id)
 	redir.endpointID = localEndpoint.GetID()
 	redir.ingress = l4.Ingress
@@ -254,6 +259,11 @@ func (p *Proxy) RemoveRedirect(id string, wg *completion.WaitGroup) error {
 		return fmt.Errorf("unable to find redirect %s", id)
 	}
 
+	return p.removeRedirect(id, r, wg)
+}
+
+// removeRedirect removes an existing redirect. p.mutex must be held
+func (p *Proxy) removeRedirect(id string, r *Redirect, wg *completion.WaitGroup) error {
 	log.WithField(fieldProxyRedirectID, id).
 		Debug("removing proxy redirect")
 	r.implementation.Close(wg)

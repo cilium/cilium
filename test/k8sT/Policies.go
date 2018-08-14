@@ -32,6 +32,7 @@ var _ = Describe("K8sPolicyTest", func() {
 		demoPath             = helpers.ManifestGet("demo.yaml")
 		l3Policy             = helpers.ManifestGet("l3-l4-policy.yaml")
 		l7Policy             = helpers.ManifestGet("l7-policy.yaml")
+		l7PolicyKafka        = helpers.ManifestGet("l7-policy-kafka.yaml")
 		serviceAccountPolicy = helpers.ManifestGet("service-account.yaml")
 		knpDenyIngress       = helpers.ManifestGet("knp-default-deny-ingress.yaml")
 		knpDenyEgress        = helpers.ManifestGet("knp-default-deny-egress.yaml")
@@ -241,6 +242,16 @@ var _ = Describe("K8sPolicyTest", func() {
 				helpers.CurlFail("http://%s/private", clusterIP))
 			res.ExpectFail("Unexpected connection from %q to 'http://%s/private'",
 				appPods[helpers.App3], clusterIP)
+
+			// Update existing policy on port 80 from http to kafka
+			// to test ability to change L7 parser type of a port.
+			// Traffic cannot flow but policy must be able to be
+			// imported and applied to the endpoints.
+			_, err = kubectl.CiliumPolicyAction(
+				helpers.KubeSystemNamespace, l7PolicyKafka, helpers.KubectlApply, 300)
+			Expect(err).Should(BeNil(), "Cannot update L7 policy (%q) from parser http to kafka", l7PolicyKafka)
+
+			validatePolicyStatus()
 
 			_, err = kubectl.CiliumPolicyAction(
 				helpers.KubeSystemNamespace, l7Policy,
