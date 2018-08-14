@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"net"
 	"sync"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -190,42 +189,6 @@ type AddOptions struct {
 	Replace bool
 }
 
-func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions, prefixes []*net.IPNet) (uint64, error) {
-	d.policy.Mutex.Lock()
-	defer d.policy.Mutex.Unlock()
-
-	oldRules := policyAPI.Rules{}
-
-	if opts != nil && opts.Replace {
-		// Make copy of rules matching labels of new rules while
-		// deleting them.
-		for _, r := range rules {
-			tmp := d.policy.SearchRLocked(r.Labels)
-			if len(tmp) > 0 {
-				d.policy.DeleteByLabelsLocked(r.Labels)
-				oldRules = append(oldRules, tmp...)
-			}
-		}
-	}
-
-	rev, err := d.policy.AddListLocked(rules)
-	if err != nil {
-		metrics.PolicyImportErrors.Inc()
-		// Restore old rules
-		if len(oldRules) > 0 {
-			if rev, err2 := d.policy.AddListLocked(oldRules); err2 != nil {
-				log.WithError(err2).Error("Error while restoring old rules after adding of new rules failed")
-				log.Error("--- INCONSISTENT STATE OF POLICY ---")
-				return rev, err
-			}
-		}
-
-		return rev, err
-	}
-
-	return rev, nil
-}
-
 // PolicyAdd adds a slice of rules to the policy repository owned by the
 // daemon.  Policy enforcement is automatically enabled if currently disabled if
 // k8s is not enabled. Otherwise, if k8s is enabled, policy is enabled on the
@@ -269,17 +232,17 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 		return d.policy.GetRevision(), err
 	}
 
-	rev, err := d.policyAdd(rules, opts, prefixes)
-	if err != nil {
-		// Don't leak identities allocated above.
-		_ = d.prefixLengths.Delete(prefixes)
-		if err2 := ipcache.ReleaseCIDRs(prefixes); err2 != nil {
-			log.WithError(err2).WithField("prefixes", prefixes).Warn(
-				"Failed to release CIDRs during policy import failure")
+	d.policy.Mutex.Lock()
+	if opts != nil && opts.Replace {
+		for _, r := range rules {
+			tmp := d.policy.SearchRLocked(r.Labels)
+			if len(tmp) > 0 {
+				d.policy.DeleteByLabelsLocked(r.Labels)
+			}
 		}
-
-		return 0, api.Error(PutPolicyFailureCode, err)
 	}
+	rev := d.policy.AddListLocked(rules)
+	d.policy.Mutex.Unlock()
 
 	// The rules are added, we can begin ToFQDN DNS polling for them
 	d.dnsPoller.StartPollForDNSName(rules)

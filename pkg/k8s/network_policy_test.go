@@ -379,8 +379,9 @@ func parseAndAddRules(c *C, p *networkingv1.NetworkPolicy) *policy.Repository {
 	repo := policy.NewPolicyRepository()
 	rules, err := ParseNetworkPolicy(p)
 	c.Assert(err, IsNil)
-	_, err = repo.AddList(rules)
-	c.Assert(err, IsNil)
+	rev := repo.GetRevision()
+	id := repo.AddList(rules)
+	c.Assert(id, Equals, rev+1)
 
 	return repo
 }
