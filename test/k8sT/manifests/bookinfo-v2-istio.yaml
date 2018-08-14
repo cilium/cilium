@@ -1,0 +1,306 @@
+# Copyright 2017 Istio Authors
+#
+#   Licensed under the Apache License, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+#   Unless required by applicable law or agreed to in writing, software
+#   distributed under the License is distributed on an "AS IS" BASIS,
+#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#   See the License for the specific language governing permissions and
+#   limitations under the License.
+
+##################################################################################################
+# Ratings service
+##################################################################################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: ratings
+  labels:
+    app: ratings
+spec:
+  ports:
+  - port: 9080
+    name: http
+  selector:
+    app: ratings
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  name: ratings-v1
+spec:
+  replicas: 1
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/status: '{"version":"7c483d21f2b4d2a2216a5946f7721f8938f54b2b92ac0deb5691f75d6a6eb71a","initContainers":["sleep","istio-init"],"containers":["istio-proxy"],"volumes":["cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
+      creationTimestamp: null
+      labels:
+        app: ratings
+        version: v1
+        zgroup: bookinfo
+    spec:
+      containers:
+      - image: docker.io/istio/examples-bookinfo-ratings-v1:1.6.0
+        imagePullPolicy: IfNotPresent
+        name: ratings
+        ports:
+        - containerPort: 9080
+        resources: {}
+      - args:
+        - proxy
+        - sidecar
+        - --configPath
+        - /etc/istio/proxy
+        - --binaryPath
+        - /usr/local/bin/envoy
+        - --serviceCluster
+        - ratings
+        - --drainDuration
+        - 45s
+        - --parentShutdownDuration
+        - 1m0s
+        - --discoveryAddress
+        - istio-pilot.istio-system:15005
+        - --discoveryRefreshDelay
+        - 1s
+        - --zipkinAddress
+        - zipkin.istio-system:9411
+        - --connectTimeout
+        - 10s
+        - --statsdUdpAddress
+        - istio-statsd-prom-bridge.istio-system:9125
+        - --proxyAdminPort
+        - "15000"
+        - --controlPlaneAuthPolicy
+        - MUTUAL_TLS
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: ISTIO_META_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: ISTIO_META_INTERCEPTION_MODE
+          value: TPROXY
+        image: docker.io/cilium/istio_proxy_debug:1.0.0
+        imagePullPolicy: IfNotPresent
+        name: istio-proxy
+        resources:
+          requests:
+            cpu: 10m
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsGroup: 1337
+        volumeMounts:
+        - mountPath: /var/run/cilium
+          name: cilium-unix-sock-dir
+        - mountPath: /etc/istio/proxy
+          name: istio-envoy
+        - mountPath: /etc/certs/
+          name: istio-certs
+          readOnly: true
+      initContainers:
+      - command:
+        - sh
+        - -c
+        - sleep 30
+        image: busybox
+        imagePullPolicy: IfNotPresent
+        name: sleep
+        resources: {}
+      - args:
+        - -p
+        - "15001"
+        - -u
+        - "1337"
+        - -m
+        - TPROXY
+        - -i
+        - '*'
+        - -x
+        - ""
+        - -b
+        - 9080,
+        - -d
+        - ""
+        image: docker.io/istio/proxy_init:1.0.0
+        imagePullPolicy: IfNotPresent
+        name: istio-init
+        resources: {}
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+          privileged: true
+      volumes:
+      - hostPath:
+          path: /var/run/cilium
+        name: cilium-unix-sock-dir
+      - emptyDir:
+          medium: Memory
+        name: istio-envoy
+      - name: istio-certs
+        secret:
+          optional: true
+          secretName: istio.default
+status: {}
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  name: reviews-v2
+spec:
+  replicas: 1
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/status: '{"version":"7c483d21f2b4d2a2216a5946f7721f8938f54b2b92ac0deb5691f75d6a6eb71a","initContainers":["sleep","istio-init"],"containers":["istio-proxy"],"volumes":["cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
+      creationTimestamp: null
+      labels:
+        app: reviews
+        version: v2
+        zgroup: bookinfo
+    spec:
+      containers:
+      - image: docker.io/istio/examples-bookinfo-reviews-v2:1.6.0
+        imagePullPolicy: IfNotPresent
+        name: reviews
+        ports:
+        - containerPort: 9080
+        resources: {}
+      - args:
+        - proxy
+        - sidecar
+        - --configPath
+        - /etc/istio/proxy
+        - --binaryPath
+        - /usr/local/bin/envoy
+        - --serviceCluster
+        - reviews
+        - --drainDuration
+        - 45s
+        - --parentShutdownDuration
+        - 1m0s
+        - --discoveryAddress
+        - istio-pilot.istio-system:15005
+        - --discoveryRefreshDelay
+        - 1s
+        - --zipkinAddress
+        - zipkin.istio-system:9411
+        - --connectTimeout
+        - 10s
+        - --statsdUdpAddress
+        - istio-statsd-prom-bridge.istio-system:9125
+        - --proxyAdminPort
+        - "15000"
+        - --controlPlaneAuthPolicy
+        - MUTUAL_TLS
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: ISTIO_META_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: ISTIO_META_INTERCEPTION_MODE
+          value: TPROXY
+        image: docker.io/cilium/istio_proxy_debug:1.0.0
+        imagePullPolicy: IfNotPresent
+        name: istio-proxy
+        resources:
+          requests:
+            cpu: 10m
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsGroup: 1337
+        volumeMounts:
+        - mountPath: /var/run/cilium
+          name: cilium-unix-sock-dir
+        - mountPath: /etc/istio/proxy
+          name: istio-envoy
+        - mountPath: /etc/certs/
+          name: istio-certs
+          readOnly: true
+      initContainers:
+      - command:
+        - sh
+        - -c
+        - sleep 30
+        image: busybox
+        imagePullPolicy: IfNotPresent
+        name: sleep
+        resources: {}
+      - args:
+        - -p
+        - "15001"
+        - -u
+        - "1337"
+        - -m
+        - TPROXY
+        - -i
+        - '*'
+        - -x
+        - ""
+        - -b
+        - 9080,
+        - -d
+        - ""
+        image: docker.io/istio/proxy_init:1.0.0
+        imagePullPolicy: IfNotPresent
+        name: istio-init
+        resources: {}
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+          privileged: true
+      volumes:
+      - hostPath:
+          path: /var/run/cilium
+        name: cilium-unix-sock-dir
+      - emptyDir:
+          medium: Memory
+        name: istio-envoy
+      - name: istio-certs
+        secret:
+          optional: true
+          secretName: istio.default
+status: {}
+---

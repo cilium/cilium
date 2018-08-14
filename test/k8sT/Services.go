@@ -126,7 +126,7 @@ var _ = Describe("K8sServicesTest", func() {
 
 		BeforeEach(func() {
 			res := kubectl.Apply(demoYAML)
-			res.ExpectSuccess("unable to apply %s: %s", demoYAML, res.CombineOutput())
+			res.ExpectSuccess("unable to apply %s", demoYAML)
 		})
 
 		AfterEach(func() {
@@ -162,7 +162,7 @@ var _ = Describe("K8sServicesTest", func() {
 
 		BeforeAll(func() {
 			res := kubectl.Apply(demoYAML)
-			res.ExpectSuccess("unable to apply %s: %s", demoYAML, res.CombineOutput())
+			res.ExpectSuccess("Unable to apply %s", demoYAML)
 		})
 
 		AfterAll(func() {
@@ -308,7 +308,7 @@ var _ = Describe("K8sServicesTest", func() {
 			for _, resourcePath := range resourceYAMLs {
 				By("Creating objects in file %q", resourcePath)
 				res := kubectl.Create(resourcePath)
-				res.ExpectSuccess("unable to create resource %q: %s", resourcePath, res.CombineOutput())
+				res.ExpectSuccess("unable to create resource %q", resourcePath)
 			}
 		})
 
@@ -350,7 +350,7 @@ var _ = Describe("K8sServicesTest", func() {
 				By("Checking that %q can connect to %q", srcPod, dst)
 				res := kubectl.ExecPodCmd(
 					helpers.DefaultNamespace, srcPod, fmt.Sprintf("%s %s", wgetCommand, dst))
-				res.ExpectSuccess("Unable to connect from %q to %q: %s", srcPod, dst, res.CombineOutput())
+				res.ExpectSuccess("Unable to connect from %q to %q", srcPod, dst)
 			}
 
 			// shouldNotConnect asserts that srcPod cannot connect to dst.
@@ -368,7 +368,7 @@ var _ = Describe("K8sServicesTest", func() {
 				if nextLabels == nil {
 					return baseString
 				} else if len(nextLabels)%2 != 0 {
-					panic("must provide even number of arguments for label key-value pairings")
+					Fail("must provide even number of arguments for label key-value pairings")
 				} else {
 					for i := 0; i < len(nextLabels); i += 2 {
 						baseString = fmt.Sprintf("%s,%s=%s", baseString, nextLabels[i], nextLabels[i+1])
