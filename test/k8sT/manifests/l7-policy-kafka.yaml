@@ -1,0 +1,21 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+description: "L7 policy to test HTTP -> Kafka type change"
+metadata:
+  name: "l7-policy"
+spec:
+  endpointSelector:
+    matchLabels:
+      id: app1
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        id: app2
+    toPorts:
+    - ports:
+      - port: "80"
+        protocol: TCP
+      rules:
+        kafka:
+        - apiKey: "apiversions"
+        - apiKey: "metadata"
