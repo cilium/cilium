@@ -41,6 +41,7 @@ CILIUM_PROTO_SOURCES := \
 	cilium/accesslog.proto \
 	cilium/cilium_bpf_metadata.proto \
 	cilium/cilium_l7policy.proto \
+	cilium/cilium_network_filter.proto \
 	cilium/npds.proto \
 	cilium/nphds.proto
 CILIUM_PROTO_DIRS := $(sort $(dir $(CILIUM_PROTO_SOURCES)))
