@@ -913,7 +913,7 @@ var _ = Describe("RuntimePolicies", func() {
 		// increment it by 1 again. We can wait for two policy revisions to happen.
 		// Once we have an API to expose DNS->IP mappings we can also use that to
 		// ensure the lookup has completed more explicitly
-		timeout_s := 3 * fqdn.DNSPollerInterval / time.Second // convert to seconds
+		timeout_s := int64(3 * fqdn.DNSPollerInterval / time.Second) // convert to seconds
 		dnsWaitBody := func() bool {
 			return vm.PolicyWait(preImportPolicyRevision + 2).WasSuccessful()
 		}
