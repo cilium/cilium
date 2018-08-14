@@ -322,12 +322,14 @@ func checkMinRequirements() {
 	if err := exec.Command(probeScript, option.Config.BpfDir, option.Config.StateDir).Run(); err != nil {
 		log.WithError(err).Fatal("BPF Verifier: NOT OK. Unable to run checker for bpf_features")
 	}
-	if _, err := os.Stat(filepath.Join(globalsDir, "bpf_features.h")); os.IsNotExist(err) {
+	featuresFilePath := filepath.Join(globalsDir, "bpf_features.h")
+	if _, err := os.Stat(featuresFilePath); os.IsNotExist(err) {
 		log.WithError(err).WithField(logfields.Path, globalsDir).Fatal("BPF Verifier: NOT OK. Unable to read bpf_features.h")
 	}
 
 	checkBPFLogs("bpf_requirements", true)
 	checkBPFLogs("bpf_features", false)
+	bpf.ReadFeatureProbes(featuresFilePath)
 }
 
 func init() {
