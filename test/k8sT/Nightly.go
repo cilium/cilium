@@ -32,9 +32,9 @@ import (
 )
 
 var (
-	endpointTimeout  = (60 * time.Second)
-	timeout          = time.Duration(300)
-	netcatDsManifest = "netcat_ds.yaml"
+	endpointTimeout  int64 = 60
+	timeout          int64 = 300
+	netcatDsManifest       = "netcat_ds.yaml"
 )
 
 var _ = Describe("NightlyEpsMeasurement", func() {
@@ -43,7 +43,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 	var logger *logrus.Entry
 
 	endpointCount := 45
-	endpointsTimeout := endpointTimeout * time.Duration(endpointCount)
+	endpointsTimeout := endpointTimeout * int64(endpointCount)
 	manifestPath := "tmp.yaml"
 	vagrantManifestPath := path.Join(helpers.BasePath, manifestPath)
 	var lastServer int
