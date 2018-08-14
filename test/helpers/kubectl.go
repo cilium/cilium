@@ -53,7 +53,7 @@ const (
 	// needed this time to recover from a connection problem to kube-apiserver.
 	// The kubedns resyncPeriod is defined at
 	// https://github.com/kubernetes/dns/blob/80fdd88276adba36a87c4f424b66fdf37cd7c9a8/pkg/dns/dns.go#L53
-	DNSHelperTimeout time.Duration = 420 // WithTimeout helper translates it to seconds
+	DNSHelperTimeout int64 = 420
 )
 
 // GetCurrentK8SEnv returns the value of K8S_VERSION from the OS environment.
@@ -516,7 +516,7 @@ func (kub *Kubectl) NamespaceDelete(name string) *CmdRes {
 // containterStatuses equal to "ready". Returns true if all pods achieve
 // the aforementioned desired state within timeout seconds. Returns false and
 // an error if the command failed or the timeout was exceeded.
-func (kub *Kubectl) WaitforPods(namespace string, filter string, timeout time.Duration) error {
+func (kub *Kubectl) WaitforPods(namespace string, filter string, timeout int64) error {
 
 	data, err := kub.GetPods(namespace, filter).Filter("{.items[*].metadata.deletionTimestamp}")
 	if err != nil {
@@ -563,7 +563,7 @@ func (kub *Kubectl) WaitforPods(namespace string, filter string, timeout time.Du
 // to have their port equal to the provided port. Returns true if all pods achieve
 // the aforementioned desired state within timeout seconds. Returns false and
 // an error if the command failed or the timeout was exceeded.
-func (kub *Kubectl) WaitForServiceEndpoints(namespace string, filter string, service string, port string, timeout time.Duration) error {
+func (kub *Kubectl) WaitForServiceEndpoints(namespace string, filter string, service string, port string, timeout int64) error {
 	body := func() bool {
 		var jsonPath = fmt.Sprintf("{.items[?(@.metadata.name =='%s')].subsets[0].ports[0].port}", service)
 		data, err := kub.GetEndpoints(namespace, filter).Filter(jsonPath)
@@ -736,7 +736,7 @@ func (kub *Kubectl) WaitCleanAllTerminatingPods() error {
 	err := WithTimeout(
 		body,
 		"Pods are still not deleted after a timeout",
-		&TimeoutConfig{Timeout: HelperTimeout * time.Second})
+		&TimeoutConfig{Timeout: HelperTimeout})
 	return err
 }
 
@@ -1061,7 +1061,7 @@ type ResourceLifeCycleAction string
 // to be applied in all Cilium endpoints. Returns an error if the policy is not
 // imported before the timeout is
 // exceeded.
-func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action ResourceLifeCycleAction, timeout time.Duration) (string, error) {
+func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action ResourceLifeCycleAction, timeout int64) (string, error) {
 	revisions := map[string]int{}
 
 	kub.logger.Infof("Performing %s action on resource '%s'", action, filepath)

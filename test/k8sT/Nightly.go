@@ -31,9 +31,9 @@ import (
 )
 
 var (
-	endpointTimeout  = (60 * time.Second)
-	timeout          = time.Duration(300)
-	netcatDsManifest = "netcat-ds.yaml"
+	endpointTimeout  int64 = 60
+	timeout          int64 = 300
+	netcatDsManifest       = "netcat-ds.yaml"
 )
 
 var _ = Describe("NightlyEpsMeasurement", func() {
@@ -41,7 +41,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 	var kubectl *helpers.Kubectl
 
 	endpointCount := 45
-	endpointsTimeout := endpointTimeout * time.Duration(endpointCount)
+	endpointsTimeout := endpointTimeout * int64(endpointCount)
 	manifestPath := "tmp.yaml"
 	vagrantManifestPath := path.Join(helpers.BasePath, manifestPath)
 	var lastServer int
