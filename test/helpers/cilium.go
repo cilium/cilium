@@ -518,7 +518,7 @@ func (s *SSHMeta) PolicyGetRevision() (int, error) {
 // PolicyImportAndWait validates and imports a new policy into Cilium and waits
 // until the policy revision number increments. Returns an error if the policy
 // is invalid or could not be imported.
-func (s *SSHMeta) PolicyImportAndWait(path string, timeout time.Duration) (int, error) {
+func (s *SSHMeta) PolicyImportAndWait(path string, timeout int64) (int, error) {
 	ginkgoext.By(fmt.Sprintf("Setting up policy: %s", path))
 
 	revision, err := s.PolicyGetRevision()
