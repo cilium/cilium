@@ -17,14 +17,13 @@ package helpers
 import (
 	"fmt"
 	"os"
-	"time"
 
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 )
 
 var (
-	// HelperTimeout is a predefined timeout value for commands.
-	HelperTimeout time.Duration = 300 // WithTimeout helper translates it to seconds
+	// HelperTimeout is a predefined timeout value for commands, in seconds.
+	HelperTimeout int64 = 300
 
 	// BasePath is the path in the Vagrant VMs to which the test directory
 	// is mounted

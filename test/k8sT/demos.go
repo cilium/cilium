@@ -43,9 +43,6 @@ var _ = Describe("K8sDemosTest", func() {
 		microscopeErr    error
 		microscopeCancel = func() error { return nil }
 
-		backgroundCancel context.CancelFunc = func() { return }
-		backgroundError  error
-
 		deathStarYAMLLink = getStarWarsResourceLink("01-deathstar.yaml")
 		xwingYAMLLink     = getStarWarsResourceLink("02-xwing.yaml")
 		l7PolicyYAMLLink  = getStarWarsResourceLink("policy/l7_policy.yaml")
