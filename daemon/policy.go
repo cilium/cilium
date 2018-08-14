@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"net"
 	"sync"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -184,54 +183,12 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 	return NewGetPolicyResolveOK().WithPayload(&result)
 }
 
-// AddOptions are options which can be passed to PolicyAdd
-type AddOptions struct {
-	// Replace if true indicates that existing rules with identical labels should be replaced
-	Replace bool
-}
-
-func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions, prefixes []*net.IPNet) (uint64, error) {
-	d.policy.Mutex.Lock()
-	defer d.policy.Mutex.Unlock()
-
-	oldRules := policyAPI.Rules{}
-
-	if opts != nil && opts.Replace {
-		// Make copy of rules matching labels of new rules while
-		// deleting them.
-		for _, r := range rules {
-			tmp := d.policy.SearchRLocked(r.Labels)
-			if len(tmp) > 0 {
-				d.policy.DeleteByLabelsLocked(r.Labels)
-				oldRules = append(oldRules, tmp...)
-			}
-		}
-	}
-
-	rev, err := d.policy.AddListLocked(rules)
-	if err != nil {
-		metrics.PolicyImportErrors.Inc()
-		// Restore old rules
-		if len(oldRules) > 0 {
-			if rev, err2 := d.policy.AddListLocked(oldRules); err2 != nil {
-				log.WithError(err2).Error("Error while restoring old rules after adding of new rules failed")
-				log.Error("--- INCONSISTENT STATE OF POLICY ---")
-				return rev, err
-			}
-		}
-
-		return rev, err
-	}
-
-	return rev, nil
-}
-
 // PolicyAdd adds a slice of rules to the policy repository owned by the
 // daemon.  Policy enforcement is automatically enabled if currently disabled if
 // k8s is not enabled. Otherwise, if k8s is enabled, policy is enabled on the
 // pods which are selected. Eventual changes in policy rules are propagated to
 // all locally managed endpoints.
-func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, error) {
+func (d *Daemon) PolicyAdd(rules policyAPI.Rules) (uint64, error) {
 	log.WithField(logfields.CiliumNetworkPolicy, logfields.Repr(rules)).Debug("Policy Add Request")
 
 	// These must be marked before actually adding them to the repository since a
@@ -269,17 +226,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 		return d.policy.GetRevision(), err
 	}
 
-	rev, err := d.policyAdd(rules, opts, prefixes)
-	if err != nil {
-		// Don't leak identities allocated above.
-		_ = d.prefixLengths.Delete(prefixes)
-		if err2 := ipcache.ReleaseCIDRs(prefixes); err2 != nil {
-			log.WithError(err2).WithField("prefixes", prefixes).Warn(
-				"Failed to release CIDRs during policy import failure")
-		}
-
-		return 0, api.Error(PutPolicyFailureCode, err)
-	}
+	rev := d.policy.AddList(rules)
 
 	// The rules are added, we can begin ToFQDN DNS polling for them
 	d.dnsPoller.StartPollForDNSName(rules)
@@ -407,7 +354,7 @@ func (h *putPolicy) Handle(params PutPolicyParams) middleware.Responder {
 		}
 	}
 
-	rev, err := d.PolicyAdd(rules, nil)
+	rev, err := d.PolicyAdd(rules)
 	if err != nil {
 		return api.Error(PutPolicyFailureCode, err)
 	}

@@ -115,7 +115,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 
 	ds.d.l7Proxy.RemoveAllNetworkPolicies()
 
-	_, err3 := ds.d.PolicyAdd(rules, nil)
+	_, err3 := ds.d.PolicyAdd(rules)
 	c.Assert(err3, Equals, nil)
 
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
@@ -338,12 +338,12 @@ func (ds *DaemonSuite) TestReplacePolicy(c *C) {
 		},
 	}
 
-	_, err := ds.d.PolicyAdd(rules, nil)
+	_, err := ds.d.PolicyAdd(rules)
 	c.Assert(err, IsNil)
 	ds.d.policy.Mutex.RLock()
 	c.Assert(len(ds.d.policy.SearchRLocked(lbls)), Equals, 2)
 	ds.d.policy.Mutex.RUnlock()
-	_, err = ds.d.PolicyAdd(rules, &AddOptions{Replace: true})
+	_, err = ds.d.PolicyAdd(rules)
 	c.Assert(err, IsNil)
 	ds.d.policy.Mutex.RLock()
 	c.Assert(len(ds.d.policy.SearchRLocked(lbls)), Equals, 2)
@@ -415,7 +415,7 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 
 	ds.d.l7Proxy.RemoveAllNetworkPolicies()
 
-	_, err3 := ds.d.PolicyAdd(rules, nil)
+	_, err3 := ds.d.PolicyAdd(rules)
 	c.Assert(err3, Equals, nil)
 
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
