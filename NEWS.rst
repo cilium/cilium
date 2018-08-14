@@ -2,6 +2,40 @@
 NEWS
 ******
 
+v1.1.3
+======
+
+::
+
+    André Martins (1):
+          move pkg/{apierror,apipanic,apisocket} -> pkg/api
+
+    Daniel Borkmann (1):
+          allocator: nextCache can hold a nil value for a id/key
+
+    Joe Stringer (9):
+          client: Add API timeout to endpoint requests
+          ctmap: Add accessor method for path per endpoint
+          daemon: Upgrade CT map properties on startup
+          daemon: Refactor health endpoint cleanup code
+          daemon: Remove health-ep before deleting its devices
+          daemon: Remove health-ep on controller stop
+          bpf: Pack ipv6_ct_tuple to match Golang
+          bpf: Read feature probes from filesystem
+          ctmap: Detect support for LRU before upgrading
+
+    Maciej Kwiek (1):
+          Add client timeout for Cilium API
+
+    Romain Lenglet (1):
+          controller: Fix controller update
+
+    Thomas Graf (4):
+          endpoint: Fix locking while calling endpoint.getLogger()
+          launcher: Wait for process to exit and release resources
+          k8s: Use server version instead of ComponentStatus to check health
+
+
 v1.1.2
 ======
 
