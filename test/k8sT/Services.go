@@ -357,7 +357,7 @@ var _ = Describe("K8sServicesTest", func() {
 				if nextLabels == nil {
 					return baseString
 				} else if len(nextLabels)%2 != 0 {
-					panic("must provide even number of arguments for label key-value pairings")
+					Fail("must provide even number of arguments for label key-value pairings")
 				} else {
 					for i := 0; i < len(nextLabels); i += 2 {
 						baseString = fmt.Sprintf("%s,%s=%s", baseString, nextLabels[i], nextLabels[i+1])
