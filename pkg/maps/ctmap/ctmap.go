@@ -499,7 +499,7 @@ func Flush(m *bpf.Map, mapName string) int {
 // Returns true if the map was upgraded.
 func checkAndUpgrade(m *bpf.Map, e CtEndpoint, keySize uint32) bool {
 	desiredMapInfo := &bpf.MapInfo{
-		MapType:   bpf.MapTypeHash,
+		MapType:   bpf.GetLRUMapType(),
 		KeySize:   keySize,
 		ValueSize: uint32(unsafe.Sizeof(CtEntry{})),
 	}
