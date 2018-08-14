@@ -1392,8 +1392,7 @@ func (ds *PolicyTestSuite) TestPolicyTrace(c *C) {
 	// Add rules to allow foo=>bar
 	l3rule := buildRule("foo", "bar", "")
 	rules := api.Rules{&l3rule}
-	_, err := repo.AddList(rules)
-	c.Assert(err, IsNil)
+	_ = repo.AddList(rules)
 
 	// foo=>bar is OK
 	expectedOut := `
@@ -1436,7 +1435,7 @@ L4 ingress verdict: undecided
 
 	// Now, add extra rules to allow specifically baz=>bar on port 80
 	l4rule := buildRule("baz", "bar", "80")
-	_, err = repo.Add(l4rule)
+	_, err := repo.Add(l4rule)
 	c.Assert(err, IsNil)
 
 	// baz=>bar:80 is OK
