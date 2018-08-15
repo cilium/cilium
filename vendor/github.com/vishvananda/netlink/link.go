@@ -3,6 +3,7 @@ package netlink
 import (
 	"fmt"
 	"net"
+	"os"
 )
 
 // Link represents a link device from netlink. Shared link attributes
@@ -38,6 +39,8 @@ type LinkAttrs struct {
 	Protinfo     *Protinfo
 	OperState    LinkOperState
 	NetNsID      int
+	NumTxQueues  int
+	NumRxQueues  int
 }
 
 // LinkOperState represents the values of the IFLA_OPERSTATE link
@@ -259,6 +262,9 @@ const (
 type Macvlan struct {
 	LinkAttrs
 	Mode MacvlanMode
+
+	// MACAddrs is only populated for Macvlan SOURCE links
+	MACAddrs []net.HardwareAddr
 }
 
 func (macvlan *Macvlan) Attrs() *LinkAttrs {
@@ -284,8 +290,10 @@ type TuntapFlag uint16
 // Tuntap links created via /dev/tun/tap, but can be destroyed via netlink
 type Tuntap struct {
 	LinkAttrs
-	Mode  TuntapMode
-	Flags TuntapFlag
+	Mode   TuntapMode
+	Flags  TuntapFlag
+	Queues int
+	Fds    []*os.File
 }
 
 func (tuntap *Tuntap) Attrs() *LinkAttrs {
@@ -327,26 +335,28 @@ func (generic *GenericLink) Type() string {
 
 type Vxlan struct {
 	LinkAttrs
-	VxlanId      int
-	VtepDevIndex int
-	SrcAddr      net.IP
-	Group        net.IP
-	TTL          int
-	TOS          int
-	Learning     bool
-	Proxy        bool
-	RSC          bool
-	L2miss       bool
-	L3miss       bool
-	UDPCSum      bool
-	NoAge        bool
-	GBP          bool
-	FlowBased    bool
-	Age          int
-	Limit        int
-	Port         int
-	PortLow      int
-	PortHigh     int
+	VxlanId        int
+	VtepDevIndex   int
+	SrcAddr        net.IP
+	Group          net.IP
+	TTL            int
+	TOS            int
+	Learning       bool
+	Proxy          bool
+	RSC            bool
+	L2miss         bool
+	L3miss         bool
+	UDPCSum        bool
+	UDP6ZeroCSumTx bool
+	UDP6ZeroCSumRx bool
+	NoAge          bool
+	GBP            bool
+	FlowBased      bool
+	Age            int
+	Limit          int
+	Port           int
+	PortLow        int
+	PortHigh       int
 }
 
 func (vxlan *Vxlan) Attrs() *LinkAttrs {
@@ -695,6 +705,9 @@ func (gretap *Gretap) Attrs() *LinkAttrs {
 }
 
 func (gretap *Gretap) Type() string {
+	if gretap.Local.To4() == nil {
+		return "ip6gretap"
+	}
 	return "gretap"
 }
 
@@ -783,6 +796,9 @@ func (gretun *Gretun) Attrs() *LinkAttrs {
 }
 
 func (gretun *Gretun) Type() string {
+	if gretun.Local.To4() == nil {
+		return "ip6gre"
+	}
 	return "gre"
 }
 

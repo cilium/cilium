@@ -56,7 +56,7 @@ func NewFw(attrs FilterAttrs, fattrs FilterFwAttrs) (*Fw, error) {
 	if police.Rate.Rate != 0 {
 		police.Rate.Mpu = fattrs.Mpu
 		police.Rate.Overhead = fattrs.Overhead
-		if CalcRtable(&police.Rate, rtab, rcellLog, fattrs.Mtu, linklayer) < 0 {
+		if CalcRtable(&police.Rate, rtab[:], rcellLog, fattrs.Mtu, linklayer) < 0 {
 			return nil, errors.New("TBF: failed to calculate rate table")
 		}
 		police.Burst = uint32(Xmittime(uint64(police.Rate.Rate), uint32(buffer)))
@@ -65,7 +65,7 @@ func NewFw(attrs FilterAttrs, fattrs FilterFwAttrs) (*Fw, error) {
 	if police.PeakRate.Rate != 0 {
 		police.PeakRate.Mpu = fattrs.Mpu
 		police.PeakRate.Overhead = fattrs.Overhead
-		if CalcRtable(&police.PeakRate, ptab, pcellLog, fattrs.Mtu, linklayer) < 0 {
+		if CalcRtable(&police.PeakRate, ptab[:], pcellLog, fattrs.Mtu, linklayer) < 0 {
 			return nil, errors.New("POLICE: failed to calculate peak rate table")
 		}
 	}
@@ -222,6 +222,14 @@ func (h *Handle) FilterAdd(filter Filter) error {
 			bpfFlags |= nl.TCA_BPF_FLAG_ACT_DIRECT
 		}
 		nl.NewRtAttrChild(options, nl.TCA_BPF_FLAGS, nl.Uint32Attr(bpfFlags))
+	case *MatchAll:
+		actionsAttr := nl.NewRtAttrChild(options, nl.TCA_MATCHALL_ACT, nil)
+		if err := EncodeActions(actionsAttr, filter.Actions); err != nil {
+			return err
+		}
+		if filter.ClassId != 0 {
+			nl.NewRtAttrChild(options, nl.TCA_MATCHALL_CLASSID, nl.Uint32Attr(filter.ClassId))
+		}
 	}
 
 	req.AddData(options)
@@ -288,6 +296,8 @@ func (h *Handle) FilterList(link Link, parent uint32) ([]Filter, error) {
 					filter = &Fw{}
 				case "bpf":
 					filter = &BpfFilter{}
+				case "matchall":
+					filter = &MatchAll{}
 				default:
 					filter = &GenericFilter{FilterType: filterType}
 				}
@@ -309,6 +319,11 @@ func (h *Handle) FilterList(link Link, parent uint32) ([]Filter, error) {
 					}
 				case "bpf":
 					detailed, err = parseBpfData(filter, data)
+					if err != nil {
+						return nil, err
+					}
+				case "matchall":
+					detailed, err = parseMatchAllData(filter, data)
 					if err != nil {
 						return nil, err
 					}
@@ -541,6 +556,28 @@ func parseBpfData(filter Filter, data []syscall.NetlinkRouteAttr) (bool, error) 
 	return detailed, nil
 }
 
+func parseMatchAllData(filter Filter, data []syscall.NetlinkRouteAttr) (bool, error) {
+	native = nl.NativeEndian()
+	matchall := filter.(*MatchAll)
+	detailed := true
+	for _, datum := range data {
+		switch datum.Attr.Type {
+		case nl.TCA_MATCHALL_CLASSID:
+			matchall.ClassId = native.Uint32(datum.Value[0:4])
+		case nl.TCA_MATCHALL_ACT:
+			tables, err := nl.ParseRouteAttr(datum.Value)
+			if err != nil {
+				return detailed, err
+			}
+			matchall.Actions, err = parseActions(tables)
+			if err != nil {
+				return detailed, err
+			}
+		}
+	}
+	return detailed, nil
+}
+
 func AlignToAtm(size uint) uint {
 	var linksize, cells int
 	cells = int(size / nl.ATM_CELL_PAYLOAD)
@@ -563,7 +600,7 @@ func AdjustSize(sz uint, mpu uint, linklayer int) uint {
 	}
 }
 
-func CalcRtable(rate *nl.TcRateSpec, rtab [256]uint32, cellLog int, mtu uint32, linklayer int) int {
+func CalcRtable(rate *nl.TcRateSpec, rtab []uint32, cellLog int, mtu uint32, linklayer int) int {
 	bps := rate.Rate
 	mpu := rate.Mpu
 	var sz uint
