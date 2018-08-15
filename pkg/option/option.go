@@ -188,7 +188,7 @@ func NewIntOptions(lib *OptionLibrary) *IntOptions {
 	}
 }
 
-func (o *IntOptions) GetValue(key string) int {
+func (o *IntOptions) getValue(key string) int {
 	value, exists := o.Opts[key]
 	if !exists {
 		return OptionDisabled
@@ -196,9 +196,14 @@ func (o *IntOptions) GetValue(key string) int {
 	return value
 }
 
-func (o *IntOptions) IsEnabled(key string) bool {
+func (o *IntOptions) GetValue(key string) int {
 	o.optsMU.RLock()
-	defer o.optsMU.RUnlock()
+	v := o.getValue(key)
+	o.optsMU.RUnlock()
+	return v
+}
+
+func (o *IntOptions) IsEnabled(key string) bool {
 	return o.GetValue(key) != OptionDisabled
 }
 
@@ -295,7 +300,7 @@ func (o *IntOptions) getFmtOpt(name string) string {
 		return ""
 	}
 
-	value := o.GetValue(name)
+	value := o.getValue(name)
 	if value != OptionDisabled {
 		return fmt.Sprintf("#define %s %d", o.Library.Define(name), value)
 	}
