@@ -1,6 +1,6 @@
 // +build lockdebug
 
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,5 +31,5 @@ type internalRWMutex struct {
 }
 
 type internalMutex struct {
-	deadlock.RWMutex
+	deadlock.Mutex
 }
