@@ -73,3 +73,17 @@ type L7Rules struct {
 	// +optional
 	Kafka []PortRuleKafka `json:"kafka,omitempty"`
 }
+
+// Len returns the total number of rules inside `L7Rules`.
+// Returns 0 if nil.
+func (rules *L7Rules) Len() int {
+	if rules == nil {
+		return 0
+	}
+	return len(rules.HTTP) + len(rules.Kafka)
+}
+
+// IsEmpty returns whether the `L7Rules` is nil or contains nil rules.
+func (rules *L7Rules) IsEmpty() bool {
+	return rules == nil || (rules.HTTP == nil && rules.Kafka == nil)
+}

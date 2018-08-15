@@ -19,11 +19,6 @@ import (
 	"strings"
 )
 
-// Len returns the total number of rules inside `L7Rules`.
-func (rules *L7Rules) Len() int {
-	return len(rules.HTTP) + len(rules.Kafka)
-}
-
 // Exists returns true if the HTTP rule already exists in the list of rules
 func (h *PortRuleHTTP) Exists(rules L7Rules) bool {
 	for _, existingRule := range rules.HTTP {
@@ -78,15 +73,6 @@ func (l4 L4Proto) Validate() error {
 	}
 
 	return nil
-}
-
-// NumRules returns the total number of L7Rules configured in this PortRule
-func (r *PortRule) NumRules() int {
-	if r.Rules == nil {
-		return 0
-	}
-
-	return r.Rules.Len()
 }
 
 // ParseL4Proto parses a string as layer 4 protocol

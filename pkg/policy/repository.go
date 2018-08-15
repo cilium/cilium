@@ -182,7 +182,7 @@ func (p *Repository) wildcardL3L4Rules(ctx *SearchContext, ingress bool, l4Polic
 				} else {
 					for _, toPort := range rule.ToPorts {
 						// L3/L4-only rule
-						if toPort.Rules == nil {
+						if toPort.Rules.IsEmpty() {
 							for _, p := range toPort.Ports {
 								// Already validated via PortRule.Validate().
 								port, _ := strconv.ParseUint(p.Port, 0, 16)
@@ -212,7 +212,7 @@ func (p *Repository) wildcardL3L4Rules(ctx *SearchContext, ingress bool, l4Polic
 				} else {
 					for _, toPort := range rule.ToPorts {
 						// L3/L4-only rule
-						if toPort.Rules == nil {
+						if toPort.Rules.IsEmpty() {
 							for _, p := range toPort.Ports {
 								// Already validated via PortRule.Validate().
 								port, _ := strconv.ParseUint(p.Port, 0, 16)
