@@ -87,21 +87,7 @@ func (m *HttpLogEntry) Validate() error {
 		return nil
 	}
 
-	// no validation rules for Timestamp
-
 	// no validation rules for HttpProtocol
-
-	// no validation rules for EntryType
-
-	// no validation rules for PolicyName
-
-	// no validation rules for CiliumRuleRef
-
-	// no validation rules for SourceSecurityId
-
-	// no validation rules for SourceAddress
-
-	// no validation rules for DestinationAddress
 
 	// no validation rules for Scheme
 
@@ -110,8 +96,6 @@ func (m *HttpLogEntry) Validate() error {
 	// no validation rules for Path
 
 	// no validation rules for Method
-
-	// no validation rules for Status
 
 	for idx, item := range m.GetHeaders() {
 		_, _ = idx, item
@@ -128,7 +112,7 @@ func (m *HttpLogEntry) Validate() error {
 
 	}
 
-	// no validation rules for IsIngress
+	// no validation rules for Status
 
 	return nil
 }
@@ -163,3 +147,105 @@ func (e HttpLogEntryValidationError) Error() string {
 }
 
 var _ error = HttpLogEntryValidationError{}
+
+// Validate checks the field values on LogEntry with the rules defined in the
+// proto definition for this message. If any rules are violated, an error is returned.
+func (m *LogEntry) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	// no validation rules for Timestamp
+
+	// no validation rules for IsIngress
+
+	// no validation rules for EntryType
+
+	// no validation rules for PolicyName
+
+	// no validation rules for CiliumRuleRef
+
+	// no validation rules for SourceSecurityId
+
+	// no validation rules for DestinationSecurityId
+
+	// no validation rules for SourceAddress
+
+	// no validation rules for DestinationAddress
+
+	// no validation rules for HttpProtocol
+
+	// no validation rules for Scheme
+
+	// no validation rules for Host
+
+	// no validation rules for Path
+
+	// no validation rules for Method
+
+	// no validation rules for Status
+
+	for idx, item := range m.GetHeaders() {
+		_, _ = idx, item
+
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return LogEntryValidationError{
+					Field:  fmt.Sprintf("Headers[%v]", idx),
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	}
+
+	switch m.L7.(type) {
+
+	case *LogEntry_Http:
+
+		if v, ok := interface{}(m.GetHttp()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return LogEntryValidationError{
+					Field:  "Http",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	}
+
+	return nil
+}
+
+// LogEntryValidationError is the validation error returned by
+// LogEntry.Validate if the designated constraints aren't met.
+type LogEntryValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e LogEntryValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sLogEntry.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = LogEntryValidationError{}

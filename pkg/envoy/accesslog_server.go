@@ -107,7 +107,7 @@ func (s *accessLogServer) accessLogger(conn *net.UnixConn) {
 			log.Warning("Envoy: Discarded truncated access log message")
 			continue
 		}
-		pblog := cilium.HttpLogEntry{} // TODO: Support Kafka.
+		pblog := cilium.LogEntry{} // TODO: Support Kafka.
 		err = proto.Unmarshal(buf[:n], &pblog)
 		if err != nil {
 			log.WithError(err).Warning("Envoy: Discarded invalid access log message")
@@ -129,7 +129,7 @@ func (s *accessLogServer) accessLogger(conn *net.UnixConn) {
 	}
 }
 
-func parseURL(pblog *cilium.HttpLogEntry) *url.URL {
+func parseURL(pblog *cilium.LogEntry) *url.URL {
 	path := strings.TrimPrefix(pblog.Path, "/")
 	u, err := url.Parse(fmt.Sprintf("%s://%s/%s", pblog.Scheme, pblog.Host, path))
 	if err != nil {
@@ -142,8 +142,28 @@ func parseURL(pblog *cilium.HttpLogEntry) *url.URL {
 	return u
 }
 
-func (s *accessLogServer) logRecord(localEndpoint logger.EndpointUpdater, pblog *cilium.HttpLogEntry) {
+func (s *accessLogServer) logRecord(localEndpoint logger.EndpointUpdater, pblog *cilium.LogEntry) {
 	// TODO: Support Kafka.
+
+	var l7tags logger.LogTag
+	if http := pblog.GetHttp(); http != nil {
+		l7tags = logger.LogTags.HTTP(&accesslog.LogRecordHTTP{
+			Method:   http.Method,
+			Code:     int(http.Status),
+			URL:      parseURL(http),
+			Protocol: http.GetProtocol(),
+			Headers:  http.GetNetHttpHeaders(),
+		})
+	} else {
+		// Default to the deprecated log format
+		l7tags = logger.LogTags.HTTP(&accesslog.LogRecordHTTP{
+			Method:   pblog.Method,
+			Code:     int(pblog.Status),
+			URL:      parseURL(pblog),
+			Protocol: pblog.GetProtocol(),
+			Headers:  pblog.GetNetHttpHeaders(),
+		})
+	}
 
 	r := logger.NewLogRecord(s.endpointInfoRegistry, localEndpoint, pblog.GetFlowType(), pblog.IsIngress,
 		logger.LogTags.Timestamp(time.Unix(int64(pblog.Timestamp/1000000000), int64(pblog.Timestamp%1000000000))),
@@ -152,14 +172,7 @@ func (s *accessLogServer) logRecord(localEndpoint logger.EndpointUpdater, pblog 
 			SrcIPPort:   pblog.SourceAddress,
 			DstIPPort:   pblog.DestinationAddress,
 			SrcIdentity: pblog.SourceSecurityId,
-		}),
-		logger.LogTags.HTTP(&accesslog.LogRecordHTTP{
-			Method:   pblog.Method,
-			Code:     int(pblog.Status),
-			URL:      parseURL(pblog),
-			Protocol: pblog.GetProtocol(),
-			Headers:  pblog.GetNetHttpHeaders(),
-		}))
+		}), l7tags)
 
 	r.Log()
 

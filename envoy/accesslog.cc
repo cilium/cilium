@@ -106,8 +106,8 @@ void AccessLog::Entry::InitFromRequest(
          void *entry_) -> Http::HeaderMap::Iterate {
         const Http::HeaderString &key = header.key();
         const char *value = header.value().c_str();
-        ::cilium::HttpLogEntry *entry =
-            static_cast<::cilium::HttpLogEntry *>(entry_);
+        ::cilium::LogEntry *entry =
+            static_cast<::cilium::LogEntry *>(entry_);
 
         if (key == ":path") {
           entry->set_path(value);
@@ -158,7 +158,7 @@ void AccessLog::Entry::UpdateFromResponse(
 
 void AccessLog::Log(AccessLog::Entry &entry_,
                     ::cilium::EntryType entry_type) {
-  ::cilium::HttpLogEntry &entry = entry_.entry;
+  ::cilium::LogEntry &entry = entry_.entry;
 
   entry.set_entry_type(entry_type);
 

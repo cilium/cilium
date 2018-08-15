@@ -20,11 +20,30 @@ enum EntryType {
 }
 
 message HttpLogEntry {
+  Protocol http_protocol = 1;
+
+  // Request info that is also retained for the response
+  string scheme = 2;      // Envoy "x-forwarded-proto", e.g., "http", "https"
+  string host = 3;        // Envoy ":authority" header
+  string path = 4;        // Envoy ":path" header
+  string method = 5;      // Envoy ":method" header
+
+  // Request headers not included above
+  repeated KeyValue headers = 6;
+
+  // Response info
+  uint32 status = 7;      // Envoy ":status" header, zero for request
+}
+
+// Deprecated old message format, to be removed in a future Cilium release
+message LogEntry {
   // The time that Cilium filter captured this log entry,
   // in, nanoseconds since 1/1/1970.
   uint64 timestamp = 1;
 
-  Protocol http_protocol = 2;
+  // 'true' if the request was received by an ingress listener,
+  // 'false' if received by an egress listener
+  bool is_ingress = 15;
 
   EntryType entry_type = 3;
 
@@ -34,13 +53,23 @@ message HttpLogEntry {
   // Cilium rule reference
   string cilium_rule_ref = 5;
   
-  // Cilium security ID of the source
+  // Cilium security ID of the source and destination
   uint32 source_security_id = 6;
+  uint32 destination_security_id = 16;
 
   // These fields record the original source and destination addresses,
   // stored in ipv4:port or [ipv6]:port format.
   string source_address = 7;
   string destination_address = 8;
+
+  oneof l7 {
+    HttpLogEntry http = 100;
+  }
+
+  //
+  // Deprecated HTTP fields
+  //
+  Protocol http_protocol = 2;
 
   // Request info that is also retained for the response
   string scheme = 9;      // Envoy "x-forwarded-proto", e.g., "http", "https"
@@ -48,13 +77,8 @@ message HttpLogEntry {
   string path = 11;       // Envoy ":path" header
   string method = 12;     // Envoy ":method" header
 
-  // Response info
   uint32 status = 13;     // Envoy ":status" header, zero for request
   
   // Request headers not included above
   repeated KeyValue headers = 14;
-
-  // 'true' if the request was received by an ingress listener,
-  // 'false' if received by an egress listener
-  bool is_ingress = 15;
 }
