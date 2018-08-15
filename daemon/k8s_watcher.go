@@ -93,50 +93,61 @@ var (
 
 	k8sCM = controller.NewManager()
 
-	ruleRevCache ruleRevisionCache
+	importMetadataCache = ruleImportMetadataCache{
+		ruleImportMetadataMap: make(map[string]policyImportMetadata),
+	}
 )
 
-// ruleRevisionCache maps the unique identifier of a CiliumNetworkPolicy
-// (namespace and name) to the policy revision number of the agent's policy
-// repository at the time said rule was imported.
-type ruleRevisionCache struct {
-	mutex               lock.RWMutex
-	ruleRevisionMapping map[string]uint64
+// ruleImportMetadataCache maps the unique identifier of a CiliumNetworkPolicy
+// (namespace and name) to metadata about the importing of the rule into the
+// agent's policy repository at the time said rule was imported (revision
+// number, and if any error occurred while importing).
+type ruleImportMetadataCache struct {
+	mutex                 lock.RWMutex
+	ruleImportMetadataMap map[string]policyImportMetadata
 }
 
-func initRuleRevCache() {
-	ruleRevCache.ruleRevisionMapping = make(map[string]uint64)
+type policyImportMetadata struct {
+	revision          uint64
+	policyImportError error
 }
 
-func (r *ruleRevisionCache) upsert(cnp *cilium_v2.CiliumNetworkPolicy, revision uint64) {
+func (r *ruleImportMetadataCache) upsert(cnp *cilium_v2.CiliumNetworkPolicy, revision uint64, importErr error) {
+	if cnp == nil {
+		return
+	}
+
+	meta := policyImportMetadata{
+		revision:          revision,
+		policyImportError: importErr,
+	}
+	podNSName := k8sUtils.GetObjNamespaceName(&cnp.ObjectMeta)
+
 	r.mutex.Lock()
-	defer r.mutex.Unlock()
+	r.ruleImportMetadataMap[podNSName] = meta
+	r.mutex.Unlock()
+}
+
+func (r *ruleImportMetadataCache) delete(cnp *cilium_v2.CiliumNetworkPolicy) {
 	if cnp == nil {
 		return
 	}
 	podNSName := k8sUtils.GetObjNamespaceName(&cnp.ObjectMeta)
-	r.ruleRevisionMapping[podNSName] = revision
+
+	r.mutex.Lock()
+	delete(r.ruleImportMetadataMap, podNSName)
+	r.mutex.Unlock()
 }
 
-func (r *ruleRevisionCache) delete(cnp *cilium_v2.CiliumNetworkPolicy) {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
+func (r *ruleImportMetadataCache) get(cnp *cilium_v2.CiliumNetworkPolicy) (policyImportMetadata, bool) {
 	if cnp == nil {
-		return
+		return policyImportMetadata{}, false
 	}
 	podNSName := k8sUtils.GetObjNamespaceName(&cnp.ObjectMeta)
-	delete(r.ruleRevisionMapping, podNSName)
-}
-
-func (r *ruleRevisionCache) get(cnp *cilium_v2.CiliumNetworkPolicy) (uint64, bool) {
 	r.mutex.RLock()
-	defer r.mutex.RUnlock()
-	if cnp == nil {
-		return 0, false
-	}
-	podNSName := k8sUtils.GetObjNamespaceName(&cnp.ObjectMeta)
-	revision, ok := r.ruleRevisionMapping[podNSName]
-	return revision, ok
+	policyImportMeta, ok := r.ruleImportMetadataMap[podNSName]
+	r.mutex.RUnlock()
+	return policyImportMeta, ok
 }
 
 // k8sAPIGroupsUsed is a lockable map to hold which k8s API Groups we have
@@ -177,8 +188,6 @@ func init() {
 	runtime.ErrorHandlers = []func(error){
 		k8sErrorHandler,
 	}
-
-	initRuleRevCache()
 }
 
 // k8sErrorUpdateCheckUnmuteTime returns a boolean indicating whether we should
@@ -1507,15 +1516,15 @@ func (d *Daemon) updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumV2Store cache.
 
 	ctrlName := cnp.GetControllerName()
 
-	// Revision will *always* be populated because ruleRevCache is guaranteed
+	// Revision will *always* be populated because importMetadataCache is guaranteed
 	// to be updated by addCiliumNetworkPolicyV2 before calls to
 	// updateCiliumNetworkPolicyV2 are invoked.
-	rev, _ := ruleRevCache.get(cnp)
+	meta, _ := importMetadataCache.get(cnp)
 
 	k8sCM.UpdateController(ctrlName,
 		controller.ControllerParams{
 			DoFunc: func() error {
-				return cnpNodeStatusController(ciliumV2Store, cnp, rev, scopedLog, nil)
+				return cnpNodeStatusController(ciliumV2Store, cnp, meta.revision, scopedLog, meta.policyImportError)
 			},
 		})
 
@@ -1551,7 +1560,7 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumV2Store cache.Store, cnp *cilium
 	// Upsert to rule revision cache outside of controller, because upsertion
 	// *must* be synchronous so that if we get an update for the CNP, the cache
 	// is populated by the time updateCiliumNetworkPolicyV2 is invoked.
-	ruleRevCache.upsert(cnp, rev)
+	importMetadataCache.upsert(cnp, rev, policyImportErr)
 
 	ctrlName := cnp.GetControllerName()
 	k8sCM.UpdateController(ctrlName,
@@ -1669,7 +1678,7 @@ func (d *Daemon) deleteCiliumNetworkPolicyV2(cnp *cilium_v2.CiliumNetworkPolicy)
 
 	scopedLog.Debug("Deleting CiliumNetworkPolicy")
 
-	ruleRevCache.delete(cnp)
+	importMetadataCache.delete(cnp)
 	ctrlName := cnp.GetControllerName()
 	err := k8sCM.RemoveController(ctrlName)
 	if err != nil {
