@@ -15,31 +15,72 @@
 package cilium
 
 import (
+	"fmt"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 )
 
-// GetNetHttpHeaders returns the Headers as net.http.Header
-func (m *HttpLogEntry) GetNetHttpHeaders() http.Header {
+// ParseURL returns the URL as *net.url.URL
+func (pblog *HttpLogEntry) ParseURL() *url.URL {
+	path := strings.TrimPrefix(pblog.Path, "/")
+	u, err := url.Parse(fmt.Sprintf("%s://%s/%s", pblog.Scheme, pblog.Host, path))
+	if err != nil {
+		u = &url.URL{
+			Scheme: pblog.Scheme,
+			Host:   pblog.Host,
+			Path:   pblog.Path,
+		}
+	}
+	return u
+}
+
+// ParseURL returns the URL as *net.url.URL. Deprecated.
+func (pblog *LogEntry) ParseURL() *url.URL {
+	path := strings.TrimPrefix(pblog.Path, "/")
+	u, err := url.Parse(fmt.Sprintf("%s://%s/%s", pblog.Scheme, pblog.Host, path))
+	if err != nil {
+		u = &url.URL{
+			Scheme: pblog.Scheme,
+			Host:   pblog.Host,
+			Path:   pblog.Path,
+		}
+	}
+	return u
+}
+
+// getNetHttpHeaders returns the Headers as net.http.Header
+func getNetHttpHeaders(httpHeaders []*KeyValue) http.Header {
 	headers := make(http.Header)
 
-	if m != nil {
-		for _, header := range m.Headers {
-			headers.Add(header.Key, header.Value)
-		}
+	for _, header := range httpHeaders {
+		headers.Add(header.Key, header.Value)
 	}
 
 	return headers
 }
 
-// GetProtocol returns the HTTP protocol in the format that Cilium understands
-func (m *HttpLogEntry) GetProtocol() string {
+// GetNetHttpHeaders returns the Headers as net.http.Header
+func (m *HttpLogEntry) GetNetHttpHeaders() http.Header {
 	if m == nil {
-		return ""
+		return make(http.Header)
 	}
+	return getNetHttpHeaders(m.Headers)
+}
 
-	switch m.HttpProtocol {
+// Deprecated
+func (m *LogEntry) GetNetHttpHeaders() http.Header {
+	if m == nil {
+		return make(http.Header)
+	}
+	return getNetHttpHeaders(m.Headers)
+}
+
+// getProtocol returns the HTTP protocol in the format that Cilium understands
+func getProtocol(httpProtocol Protocol) string {
+	switch httpProtocol {
 	case Protocol_HTTP10:
 		return "HTTP/1"
 	case Protocol_HTTP11:
@@ -51,8 +92,24 @@ func (m *HttpLogEntry) GetProtocol() string {
 	}
 }
 
+// GetProtocol returns the HTTP protocol in the format that Cilium understands
+func (m *HttpLogEntry) GetProtocol() string {
+	if m == nil {
+		return ""
+	}
+	return getProtocol(m.HttpProtocol)
+}
+
+// Deprecated
+func (m *LogEntry) GetProtocol() string {
+	if m == nil {
+		return ""
+	}
+	return getProtocol(m.HttpProtocol)
+}
+
 // GetFlowType returns the type of flow (request|response)
-func (m *HttpLogEntry) GetFlowType() accesslog.FlowType {
+func (m *LogEntry) GetFlowType() accesslog.FlowType {
 	// the fall back type is request
 	result := accesslog.TypeRequest
 
@@ -71,7 +128,7 @@ func (m *HttpLogEntry) GetFlowType() accesslog.FlowType {
 }
 
 // GetVerdict returns the verdict performed on the flow (forwarded|denied)
-func (m *HttpLogEntry) GetVerdict() accesslog.FlowVerdict {
+func (m *LogEntry) GetVerdict() accesslog.FlowVerdict {
 	// the default verdict is forwarded
 	result := accesslog.VerdictForwarded
 
