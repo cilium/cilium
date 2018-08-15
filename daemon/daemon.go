@@ -1092,7 +1092,7 @@ func createPrefixLengthCounter() *counter.PrefixLengthCounter {
 
 		// IPv6
 		createIPNet(0, net.IPv6len*8), // world
-		createIPNet(node.DefaultIPv6ClusterPrefixLen, net.IPv6len*8),
+		createIPNet(defaults.DefaultIPv6ClusterPrefixLen, net.IPv6len*8),
 		createIPNet(net.IPv6len*8, net.IPv6len*8), // hosts
 	}
 	_, err := counter.Add(defaultPrefixes)

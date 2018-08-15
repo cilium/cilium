@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	routeUtils "github.com/cilium/cilium/pkg/datapath/route"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
@@ -115,7 +116,7 @@ func createNodeRoute(ip *net.IPNet) routeUtils.Route {
 	return routeUtils.Route{
 		Nexthop: &nexthop,
 		Local:   local,
-		Device:  HostDevice,
+		Device:  defaults.HostDevice,
 		Prefix:  *ip,
 	}
 }

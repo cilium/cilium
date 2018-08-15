@@ -20,7 +20,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/datapath/route"
-	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/defaults"
 )
 
 // IPv6Gateway returns the IPv6 gateway address for endpoints.
@@ -45,11 +45,11 @@ func IPv6Routes(addr *models.NodeAddressing, linkMTU int) ([]route.Route, error)
 		{
 			Prefix: net.IPNet{
 				IP:   ip,
-				Mask: node.ContainerIPv6Mask,
+				Mask: defaults.ContainerIPv6Mask,
 			},
 		},
 		{
-			Prefix:  node.IPv6DefaultRoute,
+			Prefix:  defaults.IPv6DefaultRoute,
 			Nexthop: &ip,
 			MTU:     linkMTU,
 		},
@@ -66,11 +66,11 @@ func IPv4Routes(addr *models.NodeAddressing, linkMTU int) ([]route.Route, error)
 		{
 			Prefix: net.IPNet{
 				IP:   ip,
-				Mask: node.ContainerIPv4Mask,
+				Mask: defaults.ContainerIPv4Mask,
 			},
 		},
 		{
-			Prefix:  node.IPv4DefaultRoute,
+			Prefix:  defaults.IPv4DefaultRoute,
 			Nexthop: &ip,
 			MTU:     linkMTU,
 		},
