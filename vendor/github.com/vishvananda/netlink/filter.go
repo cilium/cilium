@@ -225,6 +225,21 @@ func (filter *U32) Type() string {
 	return "u32"
 }
 
+// MatchAll filters match all packets
+type MatchAll struct {
+	FilterAttrs
+	ClassId uint32
+	Actions []Action
+}
+
+func (filter *MatchAll) Attrs() *FilterAttrs {
+	return &filter.FilterAttrs
+}
+
+func (filter *MatchAll) Type() string {
+	return "matchall"
+}
+
 type FilterFwAttrs struct {
 	ClassId   uint32
 	InDev     string

@@ -251,7 +251,7 @@ required = [
 
 [[constraint]]
   name = "github.com/vishvananda/netlink"
-  revision = "63ca7e48f59f463578ae6b6e839bef6906f048e2"
+  revision = "v1.0.0"
 
 [[constraint]]
   name = "golang.org/x/crypto"
@@ -263,7 +263,7 @@ required = [
 
 [[constraint]]
   name = "golang.org/x/sys"
-  revision = "d8f5ea21b9295e315e612b4bcf4bedea93454d4d"
+  revision = "14742f9018cd6651ec7364dc6ee08af0baaa1031"
 
 [[constraint]]
   name = "google.golang.org/genproto"

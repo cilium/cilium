@@ -19,7 +19,7 @@ func (h *Handle) BridgeVlanList() (map[int32][]*nl.BridgeVlanInfo, error) {
 	req := h.newNetlinkRequest(unix.RTM_GETLINK, unix.NLM_F_DUMP)
 	msg := nl.NewIfInfomsg(unix.AF_BRIDGE)
 	req.AddData(msg)
-	req.AddData(nl.NewRtAttr(nl.IFLA_EXT_MASK, nl.Uint32Attr(uint32(nl.RTEXT_FILTER_BRVLAN))))
+	req.AddData(nl.NewRtAttr(unix.IFLA_EXT_MASK, nl.Uint32Attr(uint32(nl.RTEXT_FILTER_BRVLAN))))
 
 	msgs, err := req.Execute(unix.NETLINK_ROUTE, unix.RTM_NEWLINK)
 	if err != nil {
@@ -35,7 +35,7 @@ func (h *Handle) BridgeVlanList() (map[int32][]*nl.BridgeVlanInfo, error) {
 		}
 		for _, attr := range attrs {
 			switch attr.Attr.Type {
-			case nl.IFLA_AF_SPEC:
+			case unix.IFLA_AF_SPEC:
 				//nested attr
 				nestAttrs, err := nl.ParseRouteAttr(attr.Value)
 				if err != nil {
@@ -87,7 +87,7 @@ func (h *Handle) bridgeVlanModify(cmd int, link Link, vid uint16, pvid, untagged
 	msg.Index = int32(base.Index)
 	req.AddData(msg)
 
-	br := nl.NewRtAttr(nl.IFLA_AF_SPEC, nil)
+	br := nl.NewRtAttr(unix.IFLA_AF_SPEC, nil)
 	var flags uint16
 	if self {
 		flags |= nl.BRIDGE_FLAGS_SELF

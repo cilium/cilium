@@ -160,6 +160,16 @@ func neighHandle(neigh *Neigh, req *nl.NetlinkRequest) error {
 		req.AddData(hwData)
 	}
 
+	if neigh.Vlan != 0 {
+		vlanData := nl.NewRtAttr(NDA_VLAN, nl.Uint16Attr(uint16(neigh.Vlan)))
+		req.AddData(vlanData)
+	}
+
+	if neigh.VNI != 0 {
+		vniData := nl.NewRtAttr(NDA_VNI, nl.Uint32Attr(uint32(neigh.VNI)))
+		req.AddData(vniData)
+	}
+
 	_, err := req.Execute(unix.NETLINK_ROUTE, 0)
 	return err
 }
@@ -268,6 +278,10 @@ func NeighDeserialize(m []byte) (*Neigh, error) {
 			} else {
 				neigh.HardwareAddr = net.HardwareAddr(attr.Value)
 			}
+		case NDA_VLAN:
+			neigh.Vlan = int(native.Uint16(attr.Value[0:2]))
+		case NDA_VNI:
+			neigh.VNI = int(native.Uint32(attr.Value[0:4]))
 		}
 	}
 
