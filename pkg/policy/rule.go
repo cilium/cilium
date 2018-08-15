@@ -153,7 +153,7 @@ func mergeL4Ingress(ctx *SearchContext, rule api.IngressRule, ruleLabels labels.
 
 	for _, r := range rule.ToPorts {
 		ctx.PolicyTrace("    Allows %s port %v from endpoints %v\n", policymap.Ingress, r.Ports, fromEndpoints)
-		if r.Rules != nil {
+		if !r.Rules.IsEmpty() {
 			for _, l7 := range r.Rules.HTTP {
 				ctx.PolicyTrace("        %+v\n", l7)
 			}
@@ -422,7 +422,7 @@ func mergeL4Egress(ctx *SearchContext, rule api.EgressRule, ruleLabels labels.La
 	for _, r := range rule.ToPorts {
 		ctx.PolicyTrace("    Allows %s port %v to endpoints %v\n", policymap.Egress, r.Ports, toEndpoints)
 
-		if r.Rules != nil {
+		if !r.Rules.IsEmpty() {
 			for _, l7 := range r.Rules.HTTP {
 				ctx.PolicyTrace("        %+v\n", l7)
 			}
