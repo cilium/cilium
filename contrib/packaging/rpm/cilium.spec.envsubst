@@ -42,7 +42,7 @@
 
 Name:          cilium
 Version:       ${VERSION}
-Release:       0.git%{shortcommit0}%{?dist}
+Release:       ${RELEASE}.git%{shortcommit0}%{?dist}
 Summary:       BPF & XDP for containers
 License:       Apache
 URL:           https://%{provider_prefix}
@@ -62,6 +62,7 @@ BuildRequires: go-bindata
 BuildRequires: glibc-devel(x86-32)
 BuildRequires: cmake
 BuildRequires: bazel
+BuildRequires: ninja-build
 BuildRequires: gcc-c++
 BuildRequires: elfutils-libelf-devel
 BuildRequires: libstdc++-static
