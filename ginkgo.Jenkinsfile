@@ -10,6 +10,7 @@ pipeline {
         TESTDIR = "${WORKSPACE}/${PROJ_PATH}/"
         MEMORY = "3072"
         SERVER_BOX = "cilium/ubuntu"
+        CPU=4
     }
 
     options {
@@ -77,7 +78,6 @@ pipeline {
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
             }
             steps {
-                sh 'cd ${TESTDIR}; K8S_VERSION=1.7 vagrant up --no-provision'
                 sh 'cd ${TESTDIR}; K8S_VERSION=1.11 vagrant up --no-provision'
             }
         }
@@ -96,12 +96,6 @@ pipeline {
             steps {
                 script {
                     parallel(
-                        "Runtime":{
-                            sh 'cd ${TESTDIR}; ginkgo --focus=" Runtime*" -v --failFast=${FAILFAST}'
-                        },
-                        "K8s-1.7":{
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.7 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
-                        },
                         "K8s-1.11":{
                             sh 'cd ${TESTDIR}; K8S_VERSION=1.11 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
                         },
