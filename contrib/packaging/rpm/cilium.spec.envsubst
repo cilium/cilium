@@ -62,6 +62,7 @@ BuildRequires: go-bindata
 BuildRequires: glibc-devel(x86-32)
 BuildRequires: cmake
 BuildRequires: bazel
+BuildRequires: ninja-build
 BuildRequires: gcc-c++
 BuildRequires: elfutils-libelf-devel
 BuildRequires: libstdc++-static
