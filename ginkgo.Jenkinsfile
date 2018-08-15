@@ -9,16 +9,21 @@ pipeline {
         PROJ_PATH = "src/github.com/cilium/cilium"
         TESTDIR = "${WORKSPACE}/${PROJ_PATH}/"
         MEMORY = "3072"
+        SERVER_BOX = "cilium/ubuntu"
     }
 
     options {
-        timeout(time: 120, unit: 'MINUTES')
+        timeout(time: 210, unit: 'MINUTES')
         timestamps()
         ansiColor('xterm')
     }
 
     stages {
         stage('Checkout') {
+            options {
+                timeout(time: 10, unit: 'MINUTES')
+            }
+
             steps {
                 BuildIfLabel('area/k8s', 'Cilium-PR-Kubernetes-Upstream')
                 BuildIfLabel('area/k8s', 'Cilium-PR-Ginkgo-Tests-K8s')
@@ -29,7 +34,28 @@ pipeline {
                 checkout scm
             }
         }
+        stage('Precheck') {
+            options {
+                timeout(time: 20, unit: 'MINUTES')
+            }
+
+            environment {
+                TESTDIR="${WORKSPACE}/${PROJ_PATH}/"
+            }
+            steps {
+               sh "cd ${TESTDIR}; make jenkins-precheck"
+            }
+            post {
+               always {
+                   sh "cd ${TESTDIR}; make clean-ginkgo-tests || true"
+               }
+            }
+        }
         stage('UnitTesting') {
+            options {
+                timeout(time: 20, unit: 'MINUTES')
+            }
+
             environment {
                 GOPATH="${WORKSPACE}"
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/"
@@ -44,39 +70,44 @@ pipeline {
             }
         }
         stage('Boot VMs'){
+            options {
+                timeout(time: 30, unit: 'MINUTES')
+            }
             environment {
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
             }
             steps {
-                sh 'cd ${TESTDIR}; K8S_VERSION=1.7 vagrant up --no-provision'
-                sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant up --no-provision'
+                sh 'cd ${TESTDIR}; K8S_VERSION=1.8 vagrant up --no-provision'
+                sh 'cd ${TESTDIR}; K8S_VERSION=1.11 vagrant up --no-provision'
             }
         }
         stage('BDD-Test-PR') {
             environment {
                 GOPATH="${WORKSPACE}"
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
-                FAILFAST=setIfPR("true", "false")
+                FAILFAST=setIfLabel("ci/fail-fast", "true", "false")
                 CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
             }
 
             options {
-                timeout(time: 90, unit: 'MINUTES')
+                timeout(time: 120, unit: 'MINUTES')
             }
 
             steps {
-                parallel(
-                    "Runtime":{
-                        sh 'cd ${TESTDIR}; ginkgo --focus=" RuntimeValidated*" -v --failFast=${FAILFAST}'
-                    },
-                    "K8s-1.7":{
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.7 ginkgo --focus=" K8sValidated*" -v --failFast=${FAILFAST}'
-                    },
-                    "K8s-1.10":{
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.10 ginkgo --focus=" K8sValidated*" -v --failFast=${FAILFAST}'
-                    },
-                    failFast: true
-                )
+                script {
+                    parallel(
+                        "Runtime":{
+                            sh 'cd ${TESTDIR}; ginkgo --focus=" Runtime*" -v --failFast=${FAILFAST}'
+                        },
+                        "K8s-1.8":{
+                            sh 'cd ${TESTDIR}; K8S_VERSION=1.8 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
+                        },
+                        "K8s-1.11":{
+                            sh 'cd ${TESTDIR}; K8S_VERSION=1.11 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
+                        },
+                        failFast: "${FAILFAST}".toBoolean()
+                    )
+                }
             }
             post {
                 always {
@@ -92,8 +123,8 @@ pipeline {
     }
     post {
         always {
-            sh 'cd ${TESTDIR}/test/; K8S_VERSION=1.7 vagrant destroy -f || true'
-            sh 'cd ${TESTDIR}/test/; K8S_VERSION=1.10 vagrant destroy -f || true'
+            sh 'cd ${TESTDIR}/test/; K8S_VERSION=1.8 vagrant destroy -f || true'
+            sh 'cd ${TESTDIR}/test/; K8S_VERSION=1.11 vagrant destroy -f || true'
             cleanWs()
         }
     }

@@ -33,23 +33,23 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 type NetworkPolicy struct {
 	// The unique identifier of the network policy.
 	// Required.
-	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// The policy identifier associated with the network policy. Corresponds to
 	// remote_policies entries in PortNetworkPolicyRule.
 	// Required.
-	Policy uint64 `protobuf:"varint,2,opt,name=policy" json:"policy,omitempty"`
+	Policy uint64 `protobuf:"varint,2,opt,name=policy,proto3" json:"policy,omitempty"`
 	// The part of the policy to be enforced at ingress by the filter, as a set
 	// of per-port network policies, one per destination L4 port.
 	// Every PortNetworkPolicy element in this set has a unique port / protocol
 	// combination.
 	// Optional. If empty, all flows in this direction are denied.
-	IngressPerPortPolicies []*PortNetworkPolicy `protobuf:"bytes,3,rep,name=ingress_per_port_policies,json=ingressPerPortPolicies" json:"ingress_per_port_policies,omitempty"`
+	IngressPerPortPolicies []*PortNetworkPolicy `protobuf:"bytes,3,rep,name=ingress_per_port_policies,json=ingressPerPortPolicies,proto3" json:"ingress_per_port_policies,omitempty"`
 	// The part of the policy to be enforced at egress by the filter, as a set
 	// of per-port network policies, one per destination L4 port.
 	// Every PortNetworkPolicy element in this set has a unique port / protocol
 	// combination.
 	// Optional. If empty, all flows in this direction are denied.
-	EgressPerPortPolicies []*PortNetworkPolicy `protobuf:"bytes,4,rep,name=egress_per_port_policies,json=egressPerPortPolicies" json:"egress_per_port_policies,omitempty"`
+	EgressPerPortPolicies []*PortNetworkPolicy `protobuf:"bytes,4,rep,name=egress_per_port_policies,json=egressPerPortPolicies,proto3" json:"egress_per_port_policies,omitempty"`
 	XXX_NoUnkeyedLiteral  struct{}             `json:"-"`
 	XXX_unrecognized      []byte               `json:"-"`
 	XXX_sizecache         int32                `json:"-"`
@@ -59,7 +59,7 @@ func (m *NetworkPolicy) Reset()         { *m = NetworkPolicy{} }
 func (m *NetworkPolicy) String() string { return proto.CompactTextString(m) }
 func (*NetworkPolicy) ProtoMessage()    {}
 func (*NetworkPolicy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_npds_0beebc744b981368, []int{0}
+	return fileDescriptor_npds_a2dfe345e2d12e97, []int{0}
 }
 func (m *NetworkPolicy) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_NetworkPolicy.Unmarshal(m, b)
@@ -113,14 +113,14 @@ func (m *NetworkPolicy) GetEgressPerPortPolicies() []*PortNetworkPolicy {
 type PortNetworkPolicy struct {
 	// The flows' destination L4 port number, as an unsigned 16-bit integer.
 	// If 0, all destination L4 port numbers are matched by this predicate.
-	Port uint32 `protobuf:"varint,1,opt,name=port" json:"port,omitempty"`
+	Port uint32 `protobuf:"varint,1,opt,name=port,proto3" json:"port,omitempty"`
 	// The flows' L4 transport protocol.
 	// Required.
-	Protocol core.SocketAddress_Protocol `protobuf:"varint,2,opt,name=protocol,enum=envoy.api.v2.core.SocketAddress_Protocol" json:"protocol,omitempty"`
+	Protocol core.SocketAddress_Protocol `protobuf:"varint,2,opt,name=protocol,proto3,enum=envoy.api.v2.core.SocketAddress_Protocol" json:"protocol,omitempty"`
 	// The network policy rules to be enforced on the flows to the port.
 	// Optional. A flow is matched by this predicate if either the set of
 	// rules is empty or any of the rules matches it.
-	Rules                []*PortNetworkPolicyRule `protobuf:"bytes,3,rep,name=rules" json:"rules,omitempty"`
+	Rules                []*PortNetworkPolicyRule `protobuf:"bytes,3,rep,name=rules,proto3" json:"rules,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
 	XXX_unrecognized     []byte                   `json:"-"`
 	XXX_sizecache        int32                    `json:"-"`
@@ -130,7 +130,7 @@ func (m *PortNetworkPolicy) Reset()         { *m = PortNetworkPolicy{} }
 func (m *PortNetworkPolicy) String() string { return proto.CompactTextString(m) }
 func (*PortNetworkPolicy) ProtoMessage()    {}
 func (*PortNetworkPolicy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_npds_0beebc744b981368, []int{1}
+	return fileDescriptor_npds_a2dfe345e2d12e97, []int{1}
 }
 func (m *PortNetworkPolicy) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PortNetworkPolicy.Unmarshal(m, b)
@@ -179,11 +179,12 @@ type PortNetworkPolicyRule struct {
 	// A flow is matched by this predicate if the identifier of the policy
 	// applied on the flow's remote host is contained in this set.
 	// Optional. If not specified, any remote host is matched by this predicate.
-	RemotePolicies []uint64 `protobuf:"varint,1,rep,packed,name=remote_policies,json=remotePolicies" json:"remote_policies,omitempty"`
+	RemotePolicies []uint64 `protobuf:"varint,1,rep,packed,name=remote_policies,json=remotePolicies,proto3" json:"remote_policies,omitempty"`
 	// Optional. If not specified, any L7 request is matched by this predicate.
 	//
 	// Types that are valid to be assigned to L7Rules:
 	//	*PortNetworkPolicyRule_HttpRules
+	//	*PortNetworkPolicyRule_KafkaRules
 	L7Rules              isPortNetworkPolicyRule_L7Rules `protobuf_oneof:"l7_rules"`
 	XXX_NoUnkeyedLiteral struct{}                        `json:"-"`
 	XXX_unrecognized     []byte                          `json:"-"`
@@ -194,7 +195,7 @@ func (m *PortNetworkPolicyRule) Reset()         { *m = PortNetworkPolicyRule{} }
 func (m *PortNetworkPolicyRule) String() string { return proto.CompactTextString(m) }
 func (*PortNetworkPolicyRule) ProtoMessage()    {}
 func (*PortNetworkPolicyRule) Descriptor() ([]byte, []int) {
-	return fileDescriptor_npds_0beebc744b981368, []int{2}
+	return fileDescriptor_npds_a2dfe345e2d12e97, []int{2}
 }
 func (m *PortNetworkPolicyRule) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PortNetworkPolicyRule.Unmarshal(m, b)
@@ -214,26 +215,32 @@ func (m *PortNetworkPolicyRule) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_PortNetworkPolicyRule proto.InternalMessageInfo
 
+func (m *PortNetworkPolicyRule) GetRemotePolicies() []uint64 {
+	if m != nil {
+		return m.RemotePolicies
+	}
+	return nil
+}
+
 type isPortNetworkPolicyRule_L7Rules interface {
 	isPortNetworkPolicyRule_L7Rules()
 }
 
 type PortNetworkPolicyRule_HttpRules struct {
-	HttpRules *HttpNetworkPolicyRules `protobuf:"bytes,100,opt,name=http_rules,json=httpRules,oneof"`
+	HttpRules *HttpNetworkPolicyRules `protobuf:"bytes,100,opt,name=http_rules,json=httpRules,proto3,oneof"`
+}
+
+type PortNetworkPolicyRule_KafkaRules struct {
+	KafkaRules *KafkaNetworkPolicyRules `protobuf:"bytes,101,opt,name=kafka_rules,json=kafkaRules,proto3,oneof"`
 }
 
 func (*PortNetworkPolicyRule_HttpRules) isPortNetworkPolicyRule_L7Rules() {}
 
+func (*PortNetworkPolicyRule_KafkaRules) isPortNetworkPolicyRule_L7Rules() {}
+
 func (m *PortNetworkPolicyRule) GetL7Rules() isPortNetworkPolicyRule_L7Rules {
 	if m != nil {
 		return m.L7Rules
-	}
-	return nil
-}
-
-func (m *PortNetworkPolicyRule) GetRemotePolicies() []uint64 {
-	if m != nil {
-		return m.RemotePolicies
 	}
 	return nil
 }
@@ -245,10 +252,18 @@ func (m *PortNetworkPolicyRule) GetHttpRules() *HttpNetworkPolicyRules {
 	return nil
 }
 
+func (m *PortNetworkPolicyRule) GetKafkaRules() *KafkaNetworkPolicyRules {
+	if x, ok := m.GetL7Rules().(*PortNetworkPolicyRule_KafkaRules); ok {
+		return x.KafkaRules
+	}
+	return nil
+}
+
 // XXX_OneofFuncs is for the internal use of the proto package.
 func (*PortNetworkPolicyRule) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
 	return _PortNetworkPolicyRule_OneofMarshaler, _PortNetworkPolicyRule_OneofUnmarshaler, _PortNetworkPolicyRule_OneofSizer, []interface{}{
 		(*PortNetworkPolicyRule_HttpRules)(nil),
+		(*PortNetworkPolicyRule_KafkaRules)(nil),
 	}
 }
 
@@ -259,6 +274,11 @@ func _PortNetworkPolicyRule_OneofMarshaler(msg proto.Message, b *proto.Buffer) e
 	case *PortNetworkPolicyRule_HttpRules:
 		b.EncodeVarint(100<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.HttpRules); err != nil {
+			return err
+		}
+	case *PortNetworkPolicyRule_KafkaRules:
+		b.EncodeVarint(101<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.KafkaRules); err != nil {
 			return err
 		}
 	case nil:
@@ -279,6 +299,14 @@ func _PortNetworkPolicyRule_OneofUnmarshaler(msg proto.Message, tag, wire int, b
 		err := b.DecodeMessage(msg)
 		m.L7Rules = &PortNetworkPolicyRule_HttpRules{msg}
 		return true, err
+	case 101: // l7_rules.kafka_rules
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(KafkaNetworkPolicyRules)
+		err := b.DecodeMessage(msg)
+		m.L7Rules = &PortNetworkPolicyRule_KafkaRules{msg}
+		return true, err
 	default:
 		return false, nil
 	}
@@ -290,6 +318,11 @@ func _PortNetworkPolicyRule_OneofSizer(msg proto.Message) (n int) {
 	switch x := m.L7Rules.(type) {
 	case *PortNetworkPolicyRule_HttpRules:
 		s := proto.Size(x.HttpRules)
+		n += 2 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *PortNetworkPolicyRule_KafkaRules:
+		s := proto.Size(x.KafkaRules)
 		n += 2 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
@@ -305,7 +338,7 @@ type HttpNetworkPolicyRules struct {
 	// The set of HTTP network policy rules.
 	// An HTTP request is matched if any of its rules matches the request.
 	// Required and may not be empty.
-	HttpRules            []*HttpNetworkPolicyRule `protobuf:"bytes,1,rep,name=http_rules,json=httpRules" json:"http_rules,omitempty"`
+	HttpRules            []*HttpNetworkPolicyRule `protobuf:"bytes,1,rep,name=http_rules,json=httpRules,proto3" json:"http_rules,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
 	XXX_unrecognized     []byte                   `json:"-"`
 	XXX_sizecache        int32                    `json:"-"`
@@ -315,7 +348,7 @@ func (m *HttpNetworkPolicyRules) Reset()         { *m = HttpNetworkPolicyRules{}
 func (m *HttpNetworkPolicyRules) String() string { return proto.CompactTextString(m) }
 func (*HttpNetworkPolicyRules) ProtoMessage()    {}
 func (*HttpNetworkPolicyRules) Descriptor() ([]byte, []int) {
-	return fileDescriptor_npds_0beebc744b981368, []int{3}
+	return fileDescriptor_npds_a2dfe345e2d12e97, []int{3}
 }
 func (m *HttpNetworkPolicyRules) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HttpNetworkPolicyRules.Unmarshal(m, b)
@@ -357,7 +390,7 @@ type HttpNetworkPolicyRule struct {
 	// * *:authority*: Also maps to the HTTP 1.1 *Host* header.
 	//
 	// Optional. If empty, matches any HTTP request.
-	Headers              []*route.HeaderMatcher `protobuf:"bytes,1,rep,name=headers" json:"headers,omitempty"`
+	Headers              []*route.HeaderMatcher `protobuf:"bytes,1,rep,name=headers,proto3" json:"headers,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}               `json:"-"`
 	XXX_unrecognized     []byte                 `json:"-"`
 	XXX_sizecache        int32                  `json:"-"`
@@ -367,7 +400,7 @@ func (m *HttpNetworkPolicyRule) Reset()         { *m = HttpNetworkPolicyRule{} }
 func (m *HttpNetworkPolicyRule) String() string { return proto.CompactTextString(m) }
 func (*HttpNetworkPolicyRule) ProtoMessage()    {}
 func (*HttpNetworkPolicyRule) Descriptor() ([]byte, []int) {
-	return fileDescriptor_npds_0beebc744b981368, []int{4}
+	return fileDescriptor_npds_a2dfe345e2d12e97, []int{4}
 }
 func (m *HttpNetworkPolicyRule) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HttpNetworkPolicyRule.Unmarshal(m, b)
@@ -394,12 +427,133 @@ func (m *HttpNetworkPolicyRule) GetHeaders() []*route.HeaderMatcher {
 	return nil
 }
 
+// A set of network policy rules that match Kafka requests.
+type KafkaNetworkPolicyRules struct {
+	// The set of Kafka network policy rules.
+	// A Kafka request is matched if any of its rules matches the request.
+	// Required and may not be empty.
+	KafkaRules           []*KafkaNetworkPolicyRule `protobuf:"bytes,1,rep,name=kafka_rules,json=kafkaRules,proto3" json:"kafka_rules,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                  `json:"-"`
+	XXX_unrecognized     []byte                    `json:"-"`
+	XXX_sizecache        int32                     `json:"-"`
+}
+
+func (m *KafkaNetworkPolicyRules) Reset()         { *m = KafkaNetworkPolicyRules{} }
+func (m *KafkaNetworkPolicyRules) String() string { return proto.CompactTextString(m) }
+func (*KafkaNetworkPolicyRules) ProtoMessage()    {}
+func (*KafkaNetworkPolicyRules) Descriptor() ([]byte, []int) {
+	return fileDescriptor_npds_a2dfe345e2d12e97, []int{5}
+}
+func (m *KafkaNetworkPolicyRules) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_KafkaNetworkPolicyRules.Unmarshal(m, b)
+}
+func (m *KafkaNetworkPolicyRules) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_KafkaNetworkPolicyRules.Marshal(b, m, deterministic)
+}
+func (dst *KafkaNetworkPolicyRules) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_KafkaNetworkPolicyRules.Merge(dst, src)
+}
+func (m *KafkaNetworkPolicyRules) XXX_Size() int {
+	return xxx_messageInfo_KafkaNetworkPolicyRules.Size(m)
+}
+func (m *KafkaNetworkPolicyRules) XXX_DiscardUnknown() {
+	xxx_messageInfo_KafkaNetworkPolicyRules.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_KafkaNetworkPolicyRules proto.InternalMessageInfo
+
+func (m *KafkaNetworkPolicyRules) GetKafkaRules() []*KafkaNetworkPolicyRule {
+	if m != nil {
+		return m.KafkaRules
+	}
+	return nil
+}
+
+// A Kafka network policy rule, as a conjunction of predicates on Kafka requests.
+// If all the predicates of a rule match a Kafka request, the request is allowed. Otherwise, it is
+// denied.
+type KafkaNetworkPolicyRule struct {
+	// The Kafka request's API key.
+	// If <0, all Kafka requests are matched by this predicate.
+	ApiKey int32 `protobuf:"varint,1,opt,name=api_key,json=apiKey,proto3" json:"api_key,omitempty"`
+	// The Kafka request's API version.
+	// If <0, all Kafka requests are matched by this predicate.
+	ApiVersion int32 `protobuf:"varint,2,opt,name=api_version,json=apiVersion,proto3" json:"api_version,omitempty"`
+	// The Kafka request's topic.
+	// Optional. If not specified, all Kafka requests are matched by this predicate.
+	// If specified, this predicates only matches requests that contain this topic, and never
+	// matches requests that don't contain any topic.
+	Topic string `protobuf:"bytes,3,opt,name=topic,proto3" json:"topic,omitempty"`
+	// The Kafka request's client ID.
+	// Optional. If not specified, all Kafka requests are matched by this predicate.
+	// If specified, this predicates only matches requests that contain this client ID, and never
+	// matches requests that don't contain any client ID.
+	ClientId             string   `protobuf:"bytes,4,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *KafkaNetworkPolicyRule) Reset()         { *m = KafkaNetworkPolicyRule{} }
+func (m *KafkaNetworkPolicyRule) String() string { return proto.CompactTextString(m) }
+func (*KafkaNetworkPolicyRule) ProtoMessage()    {}
+func (*KafkaNetworkPolicyRule) Descriptor() ([]byte, []int) {
+	return fileDescriptor_npds_a2dfe345e2d12e97, []int{6}
+}
+func (m *KafkaNetworkPolicyRule) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_KafkaNetworkPolicyRule.Unmarshal(m, b)
+}
+func (m *KafkaNetworkPolicyRule) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_KafkaNetworkPolicyRule.Marshal(b, m, deterministic)
+}
+func (dst *KafkaNetworkPolicyRule) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_KafkaNetworkPolicyRule.Merge(dst, src)
+}
+func (m *KafkaNetworkPolicyRule) XXX_Size() int {
+	return xxx_messageInfo_KafkaNetworkPolicyRule.Size(m)
+}
+func (m *KafkaNetworkPolicyRule) XXX_DiscardUnknown() {
+	xxx_messageInfo_KafkaNetworkPolicyRule.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_KafkaNetworkPolicyRule proto.InternalMessageInfo
+
+func (m *KafkaNetworkPolicyRule) GetApiKey() int32 {
+	if m != nil {
+		return m.ApiKey
+	}
+	return 0
+}
+
+func (m *KafkaNetworkPolicyRule) GetApiVersion() int32 {
+	if m != nil {
+		return m.ApiVersion
+	}
+	return 0
+}
+
+func (m *KafkaNetworkPolicyRule) GetTopic() string {
+	if m != nil {
+		return m.Topic
+	}
+	return ""
+}
+
+func (m *KafkaNetworkPolicyRule) GetClientId() string {
+	if m != nil {
+		return m.ClientId
+	}
+	return ""
+}
+
 func init() {
 	proto.RegisterType((*NetworkPolicy)(nil), "cilium.NetworkPolicy")
 	proto.RegisterType((*PortNetworkPolicy)(nil), "cilium.PortNetworkPolicy")
 	proto.RegisterType((*PortNetworkPolicyRule)(nil), "cilium.PortNetworkPolicyRule")
 	proto.RegisterType((*HttpNetworkPolicyRules)(nil), "cilium.HttpNetworkPolicyRules")
 	proto.RegisterType((*HttpNetworkPolicyRule)(nil), "cilium.HttpNetworkPolicyRule")
+	proto.RegisterType((*KafkaNetworkPolicyRules)(nil), "cilium.KafkaNetworkPolicyRules")
+	proto.RegisterType((*KafkaNetworkPolicyRule)(nil), "cilium.KafkaNetworkPolicyRule")
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -540,44 +694,53 @@ var _NetworkPolicyDiscoveryService_serviceDesc = grpc.ServiceDesc{
 	Metadata: "cilium/npds.proto",
 }
 
-func init() { proto.RegisterFile("cilium/npds.proto", fileDescriptor_npds_0beebc744b981368) }
+func init() { proto.RegisterFile("cilium/npds.proto", fileDescriptor_npds_a2dfe345e2d12e97) }
 
-var fileDescriptor_npds_0beebc744b981368 = []byte{
-	// 565 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x54, 0xbf, 0x6e, 0xd3, 0x4e,
-	0x1c, 0xef, 0x25, 0x6e, 0x7e, 0xe9, 0xb7, 0x6a, 0x7f, 0xea, 0x89, 0x14, 0x37, 0xa2, 0x49, 0x30,
-	0x8b, 0xdb, 0xc1, 0x46, 0xce, 0x80, 0x54, 0x06, 0x44, 0x04, 0x28, 0x0b, 0x28, 0x72, 0x3a, 0x31,
-	0x10, 0xb9, 0xf6, 0x57, 0xc9, 0xa9, 0x8e, 0xcf, 0x9c, 0x2f, 0x46, 0x59, 0x2b, 0x9e, 0x00, 0x26,
-	0xde, 0x82, 0x99, 0x89, 0x77, 0xe0, 0x15, 0x60, 0xe0, 0x29, 0x8a, 0x7c, 0xb6, 0xd3, 0x5a, 0x4d,
-	0xc4, 0xc2, 0x62, 0xdd, 0xf9, 0xf3, 0xe7, 0xfb, 0xef, 0xee, 0xe0, 0xc0, 0x67, 0x21, 0x5b, 0xcc,
-	0xed, 0x28, 0x0e, 0x12, 0x2b, 0x16, 0x5c, 0x72, 0xda, 0xc8, 0x7f, 0xb5, 0xbb, 0x18, 0xa5, 0x7c,
-	0x69, 0x7b, 0x31, 0xb3, 0x53, 0xc7, 0xf6, 0xb9, 0x40, 0xdb, 0x0b, 0x02, 0x81, 0x49, 0x41, 0x6c,
-	0x3f, 0xa8, 0x10, 0x02, 0x96, 0xf8, 0x3c, 0x45, 0xb1, 0x2c, 0xd0, 0x4e, 0x05, 0x15, 0x7c, 0x21,
-	0x31, 0xff, 0x96, 0xea, 0x29, 0xe7, 0xd3, 0x10, 0x15, 0xc1, 0x8b, 0x22, 0x2e, 0x3d, 0xc9, 0x78,
-	0x54, 0x7a, 0xdf, 0x4f, 0xbd, 0x90, 0x05, 0x9e, 0x44, 0xbb, 0x5c, 0xe4, 0x80, 0xf1, 0x8b, 0xc0,
-	0xde, 0x1b, 0x94, 0x1f, 0xb8, 0xb8, 0x1c, 0xf1, 0x90, 0xf9, 0x4b, 0x4a, 0x41, 0x8b, 0xbc, 0x39,
-	0xea, 0xa4, 0x47, 0xcc, 0x1d, 0x57, 0xad, 0xe9, 0x21, 0x34, 0x62, 0x85, 0xea, 0xb5, 0x1e, 0x31,
-	0x35, 0xb7, 0xd8, 0xd1, 0x73, 0x38, 0x62, 0xd1, 0x34, 0xab, 0x61, 0x12, 0xa3, 0x98, 0xc4, 0x5c,
-	0xc8, 0x89, 0x82, 0x18, 0x26, 0x7a, 0xbd, 0x57, 0x37, 0x77, 0x9d, 0x23, 0x2b, 0xaf, 0xdf, 0x1a,
-	0x71, 0x21, 0x2b, 0x91, 0xdc, 0xc3, 0x42, 0x3b, 0x42, 0x91, 0x81, 0xa3, 0x42, 0x48, 0x5d, 0xd0,
-	0x71, 0x93, 0xa9, 0xf6, 0x37, 0xd3, 0x16, 0xae, 0xf3, 0x34, 0xbe, 0x12, 0x38, 0xb8, 0x43, 0xa6,
-	0x5d, 0xd0, 0x32, 0x7b, 0x55, 0xeb, 0xde, 0x60, 0xf7, 0xdb, 0xef, 0xef, 0xf5, 0xc6, 0xa9, 0xa6,
-	0x5f, 0x5f, 0xd7, 0x5d, 0x05, 0xd0, 0x97, 0xd0, 0x54, 0x7d, 0xf2, 0x79, 0xa8, 0x4a, 0xdf, 0x77,
-	0x4e, 0x2c, 0x35, 0x08, 0xcb, 0x8b, 0x99, 0x95, 0x3a, 0x56, 0x36, 0x47, 0x6b, 0xcc, 0xfd, 0x4b,
-	0x94, 0xcf, 0x8b, 0x69, 0x8e, 0x0a, 0x81, 0xbb, 0x92, 0xd2, 0x3e, 0x6c, 0x8b, 0x45, 0xb8, 0xea,
-	0xc9, 0xf1, 0xe6, 0xf4, 0x17, 0x21, 0xba, 0x39, 0xd7, 0xf8, 0x42, 0xa0, 0xb5, 0x96, 0x40, 0xfb,
-	0xf0, 0xbf, 0xc0, 0x39, 0x97, 0x78, 0xd3, 0x17, 0xd2, 0xab, 0x9b, 0xda, 0x00, 0xb2, 0x0a, 0xb6,
-	0x3f, 0x91, 0x9a, 0x4e, 0xdc, 0xfd, 0x9c, 0xb2, 0xea, 0xea, 0x33, 0x80, 0x99, 0x94, 0xf1, 0x24,
-	0x4f, 0x24, 0xe8, 0x11, 0x73, 0xd7, 0xe9, 0x94, 0x89, 0x0c, 0xa5, 0x8c, 0xef, 0xc4, 0x49, 0x86,
-	0x5b, 0xee, 0x4e, 0xa6, 0x51, 0x9b, 0x01, 0x40, 0x33, 0x7c, 0x92, 0xcb, 0x8d, 0x0b, 0x38, 0x5c,
-	0x2f, 0xa1, 0xc3, 0x4a, 0x18, 0x52, 0xad, 0x77, 0xad, 0xe6, 0x26, 0xeb, 0x26, 0xb9, 0x15, 0xcf,
-	0x38, 0x87, 0xd6, 0x5a, 0x3e, 0x7d, 0x0a, 0xff, 0xcd, 0xd0, 0x0b, 0x50, 0x94, 0xfe, 0x0f, 0xab,
-	0x33, 0xc9, 0xaf, 0xc5, 0x50, 0x51, 0x5e, 0x7b, 0xd2, 0x9f, 0xa1, 0x70, 0x4b, 0x85, 0xf3, 0xb1,
-	0x06, 0xc7, 0x15, 0xcb, 0x17, 0xe5, 0x45, 0x1b, 0xa3, 0x48, 0x99, 0x8f, 0xf4, 0x1d, 0xb4, 0xc6,
-	0x52, 0xa0, 0x37, 0xbf, 0x4d, 0xcb, 0x3a, 0xd8, 0xa9, 0x86, 0x59, 0x09, 0x5d, 0x7c, 0xbf, 0xc0,
-	0x44, 0xb6, 0xbb, 0x1b, 0xf1, 0x24, 0xe6, 0x51, 0x82, 0xc6, 0x96, 0x49, 0x1e, 0x13, 0x7a, 0x45,
-	0xe0, 0xde, 0x2b, 0x94, 0xfe, 0xec, 0x9f, 0xfb, 0x9f, 0x5c, 0xfd, 0xf8, 0xf9, 0xb9, 0xf6, 0xc8,
-	0xe8, 0x54, 0x1e, 0x90, 0xb3, 0x28, 0x8f, 0xb3, 0x3a, 0x2c, 0x67, 0xe4, 0x74, 0xd0, 0x7c, 0x5b,
-	0xbc, 0x4b, 0x17, 0x0d, 0x75, 0x4a, 0xfb, 0x7f, 0x02, 0x00, 0x00, 0xff, 0xff, 0xc7, 0x63, 0x2d,
-	0xf0, 0xbb, 0x04, 0x00, 0x00,
+var fileDescriptor_npds_a2dfe345e2d12e97 = []byte{
+	// 713 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x54, 0xcd, 0x6e, 0xd3, 0x48,
+	0x1c, 0xef, 0xe4, 0xab, 0xe9, 0x44, 0xed, 0xaa, 0xb3, 0x9b, 0xd4, 0x8d, 0xb6, 0x49, 0xd6, 0xcb,
+	0x21, 0xad, 0x14, 0xa7, 0x4a, 0x0f, 0x15, 0xe5, 0x80, 0x1a, 0x01, 0x0a, 0xaa, 0x40, 0x91, 0x5b,
+	0x71, 0x00, 0xd1, 0x68, 0x6a, 0xff, 0xdb, 0x8c, 0xe2, 0x78, 0xcc, 0x78, 0x12, 0x14, 0x8e, 0x15,
+	0x4f, 0x00, 0x2f, 0xc2, 0x99, 0x53, 0xdf, 0x81, 0x33, 0x37, 0x38, 0xf0, 0x14, 0x45, 0x1e, 0xdb,
+	0x69, 0xad, 0x3a, 0x70, 0xe1, 0x12, 0x65, 0xfc, 0xfb, 0xf8, 0x7f, 0xce, 0xe0, 0x75, 0x8b, 0x39,
+	0x6c, 0x32, 0x6e, 0xbb, 0x9e, 0xed, 0x1b, 0x9e, 0xe0, 0x92, 0x93, 0x42, 0xf8, 0xa9, 0x5a, 0x07,
+	0x77, 0xca, 0x67, 0x6d, 0xea, 0xb1, 0xf6, 0xb4, 0xd3, 0xb6, 0xb8, 0x80, 0x36, 0xb5, 0x6d, 0x01,
+	0x7e, 0x44, 0xac, 0xfe, 0x9b, 0x20, 0xd8, 0xcc, 0xb7, 0xf8, 0x14, 0xc4, 0x2c, 0x42, 0x6b, 0x09,
+	0x54, 0xf0, 0x89, 0x84, 0xf0, 0x37, 0x56, 0x5f, 0x70, 0x7e, 0xe1, 0x80, 0x22, 0x50, 0xd7, 0xe5,
+	0x92, 0x4a, 0xc6, 0xdd, 0xd8, 0x7b, 0x63, 0x4a, 0x1d, 0x66, 0x53, 0x09, 0xed, 0xf8, 0x4f, 0x08,
+	0xe8, 0xdf, 0x11, 0x5e, 0x7d, 0x0e, 0xf2, 0x2d, 0x17, 0xa3, 0x3e, 0x77, 0x98, 0x35, 0x23, 0x04,
+	0xe7, 0x5c, 0x3a, 0x06, 0x0d, 0x35, 0x50, 0x73, 0xc5, 0x54, 0xff, 0x49, 0x05, 0x17, 0x3c, 0x85,
+	0x6a, 0x99, 0x06, 0x6a, 0xe6, 0xcc, 0xe8, 0x44, 0x4e, 0xf0, 0x26, 0x73, 0x2f, 0x82, 0x1a, 0x06,
+	0x1e, 0x88, 0x81, 0xc7, 0x85, 0x1c, 0x28, 0x88, 0x81, 0xaf, 0x65, 0x1b, 0xd9, 0x66, 0xa9, 0xb3,
+	0x69, 0x84, 0xf5, 0x1b, 0x7d, 0x2e, 0x64, 0x22, 0x92, 0x59, 0x89, 0xb4, 0x7d, 0x10, 0x01, 0xd8,
+	0x8f, 0x84, 0xc4, 0xc4, 0x1a, 0x2c, 0x32, 0xcd, 0xfd, 0xce, 0xb4, 0x0c, 0x69, 0x9e, 0xfa, 0x27,
+	0x84, 0xd7, 0xef, 0x90, 0x49, 0x1d, 0xe7, 0x02, 0x7b, 0x55, 0xeb, 0x6a, 0xb7, 0xf4, 0xf9, 0xc7,
+	0x55, 0xb6, 0xb0, 0x93, 0xd3, 0xae, 0xaf, 0xb3, 0xa6, 0x02, 0xc8, 0x63, 0x5c, 0x54, 0x7d, 0xb2,
+	0xb8, 0xa3, 0x4a, 0x5f, 0xeb, 0x6c, 0x1b, 0x6a, 0x10, 0x06, 0xf5, 0x98, 0x31, 0xed, 0x18, 0xc1,
+	0x1c, 0x8d, 0x63, 0x6e, 0x8d, 0x40, 0x1e, 0x46, 0xd3, 0xec, 0x47, 0x02, 0x73, 0x2e, 0x25, 0x7b,
+	0x38, 0x2f, 0x26, 0xce, 0xbc, 0x27, 0x5b, 0x8b, 0xd3, 0x9f, 0x38, 0x60, 0x86, 0x5c, 0xfd, 0x2b,
+	0xc2, 0xe5, 0x54, 0x02, 0xd9, 0xc3, 0x7f, 0x09, 0x18, 0x73, 0x09, 0x37, 0x7d, 0x41, 0x8d, 0x6c,
+	0x33, 0xd7, 0xc5, 0x41, 0x05, 0xf9, 0x0f, 0x28, 0xa3, 0x21, 0x73, 0x2d, 0xa4, 0xcc, 0xbb, 0xfa,
+	0x10, 0xe3, 0xa1, 0x94, 0xde, 0x20, 0x4c, 0xc4, 0x6e, 0xa0, 0x66, 0xa9, 0x53, 0x8b, 0x13, 0xe9,
+	0x49, 0xe9, 0xdd, 0x89, 0xe3, 0xf7, 0x96, 0xcc, 0x95, 0x40, 0xa3, 0x0e, 0xa4, 0x8b, 0x4b, 0x23,
+	0x7a, 0x3e, 0xa2, 0x91, 0x03, 0x28, 0x87, 0x7a, 0xec, 0x70, 0x14, 0x40, 0xa9, 0x16, 0x58, 0xa9,
+	0xd4, 0xa9, 0x8b, 0x71, 0xd1, 0xd9, 0x0f, 0x0d, 0xf4, 0x33, 0x5c, 0x49, 0x0f, 0x4b, 0x7a, 0x89,
+	0x54, 0x51, 0xb2, 0x67, 0xa9, 0x9a, 0x9b, 0xca, 0x8b, 0xe8, 0x56, 0xce, 0xfa, 0x09, 0x2e, 0xa7,
+	0xf2, 0xc9, 0x03, 0xbc, 0x3c, 0x04, 0x6a, 0x83, 0x88, 0xfd, 0xff, 0x4b, 0xce, 0x35, 0xbc, 0x5a,
+	0x3d, 0x45, 0x79, 0x46, 0xa5, 0x35, 0x04, 0x61, 0xc6, 0x0a, 0xfd, 0x1c, 0x6f, 0x2c, 0x28, 0x97,
+	0x1c, 0x25, 0x9b, 0x14, 0x7a, 0xd7, 0x7e, 0xdd, 0xa4, 0x44, 0xf2, 0xb7, 0xba, 0xa5, 0x5f, 0x21,
+	0x5c, 0x49, 0x97, 0x90, 0x0d, 0xbc, 0x4c, 0x3d, 0x36, 0x18, 0xc1, 0x4c, 0x2d, 0x6f, 0xde, 0x2c,
+	0x50, 0x8f, 0x1d, 0x41, 0xb0, 0xd2, 0xa5, 0x00, 0x98, 0x82, 0xf0, 0x19, 0x77, 0xd5, 0xd2, 0xe6,
+	0x4d, 0x4c, 0x3d, 0xf6, 0x22, 0xfc, 0x12, 0xec, 0xa2, 0xe4, 0x1e, 0xb3, 0xb4, 0x6c, 0x70, 0xc1,
+	0xbb, 0x5b, 0x41, 0x6c, 0x4d, 0x54, 0xb4, 0x6b, 0xd4, 0x59, 0x3f, 0x7d, 0x45, 0x5b, 0xef, 0x0e,
+	0x5b, 0x2f, 0x77, 0x5b, 0xf7, 0x8d, 0x41, 0xeb, 0xf5, 0xce, 0x3d, 0x33, 0xe4, 0x92, 0x7d, 0xbc,
+	0x62, 0x39, 0x0c, 0x5c, 0x39, 0x60, 0xb6, 0x96, 0x53, 0xc2, 0x6a, 0x20, 0x2c, 0x8b, 0xbf, 0xd3,
+	0x54, 0xc5, 0x90, 0xfc, 0xd4, 0xee, 0xbc, 0xcf, 0xe0, 0xad, 0x44, 0xf6, 0x8f, 0xe2, 0x77, 0xed,
+	0x18, 0xc4, 0x94, 0x59, 0x40, 0x4e, 0x71, 0xf9, 0x58, 0x0a, 0xa0, 0xe3, 0xdb, 0xb4, 0x60, 0x61,
+	0x6b, 0xc9, 0x89, 0xcc, 0x85, 0x26, 0xbc, 0x99, 0x80, 0x2f, 0xab, 0xf5, 0x85, 0xb8, 0xef, 0x71,
+	0xd7, 0x07, 0x7d, 0xa9, 0x89, 0x76, 0x11, 0xb9, 0x44, 0xf8, 0x9f, 0x27, 0x20, 0xad, 0xe1, 0x1f,
+	0xf7, 0xdf, 0xbe, 0xfc, 0xf2, 0xed, 0x63, 0xe6, 0x7f, 0xbd, 0x96, 0x78, 0xaf, 0x0f, 0xdc, 0x30,
+	0xce, 0xfc, 0x6e, 0x1e, 0xa0, 0x9d, 0xb3, 0x82, 0x7a, 0x0a, 0xf6, 0x7e, 0x06, 0x00, 0x00, 0xff,
+	0xff, 0xb4, 0x6f, 0x74, 0x2e, 0x20, 0x06, 0x00, 0x00,
 }

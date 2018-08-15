@@ -26,12 +26,15 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common/addressing"
-	"github.com/cilium/cilium/common/plugins"
 	"github.com/cilium/cilium/pkg/client"
-	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/datapath/link"
+	"github.com/cilium/cilium/pkg/datapath/route"
+	"github.com/cilium/cilium/pkg/endpoint/connector"
+	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/uuid"
 
 	"github.com/containernetworking/cni/pkg/ns"
 	"github.com/containernetworking/cni/pkg/skel"
@@ -43,20 +46,20 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "cilium-cni")
 )
 
 func init() {
-	log.Level = logrus.DebugLevel
+	logging.SetLogLevel(logrus.DebugLevel)
 	runtime.LockOSThread()
 }
 
 type CmdState struct {
 	Endpoint  *models.EndpointChangeRequest
 	IP6       addressing.CiliumIPv6
-	IP6routes []plugins.Route
+	IP6routes []route.Route
 	IP4       addressing.CiliumIPv4
-	IP4routes []plugins.Route
+	IP4routes []route.Route
 	Client    *client.Client
 	HostAddr  *models.NodeAddressing
 }
@@ -138,15 +141,6 @@ func removeIfFromNSIfExists(netNs ns.NetNS, ifName string) error {
 	})
 }
 
-func renameLink(curName, newName string) error {
-	link, err := netlink.LinkByName(curName)
-	if err != nil {
-		return err
-	}
-
-	return netlink.LinkSetName(link, newName)
-}
-
 func releaseIP(client *client.Client, ip string) {
 	if ip != "" {
 		if err := client.IPAMReleaseIP(ip); err != nil {
@@ -160,7 +154,7 @@ func releaseIPs(client *client.Client, addr *models.AddressPair) {
 	releaseIP(client, addr.IPV4)
 }
 
-func addIPConfigToLink(ip addressing.CiliumIP, routes []plugins.Route, link netlink.Link, ifName string) error {
+func addIPConfigToLink(ip addressing.CiliumIP, routes []route.Route, link netlink.Link, ifName string) error {
 	log.WithFields(logrus.Fields{
 		logfields.IPAddr:    ip,
 		"netLink":           logfields.Repr(link),
@@ -174,7 +168,7 @@ func addIPConfigToLink(ip addressing.CiliumIP, routes []plugins.Route, link netl
 
 	// Sort provided routes to make sure we apply any more specific
 	// routes first which may be used as nexthops in wider routes
-	sort.Sort(plugins.ByMask(routes))
+	sort.Sort(route.ByMask(routes))
 
 	for _, r := range routes {
 		log.WithField("route", logfields.Repr(r)).Debug("Adding route")
@@ -231,7 +225,7 @@ func configureIface(ipam *models.IPAMResponse, ifName string, state *CmdState) (
 	return "", nil
 }
 
-func newCNIRoute(r plugins.Route) *cniTypes.Route {
+func newCNIRoute(r route.Route) *cniTypes.Route {
 	rt := &cniTypes.Route{
 		Dst: r.Prefix,
 	}
@@ -244,7 +238,7 @@ func newCNIRoute(r plugins.Route) *cniTypes.Route {
 
 func prepareIP(ipAddr string, isIPv6 bool, state *CmdState, mtu int) (*cniTypesVer.IPConfig, []*cniTypes.Route, error) {
 	var (
-		routes  []plugins.Route
+		routes  []route.Route
 		err     error
 		gw      string
 		version string
@@ -255,23 +249,23 @@ func prepareIP(ipAddr string, isIPv6 bool, state *CmdState, mtu int) (*cniTypesV
 		if state.IP6, err = addressing.NewCiliumIPv6(ipAddr); err != nil {
 			return nil, nil, err
 		}
-		if state.IP6routes, err = plugins.IPv6Routes(state.HostAddr, mtu); err != nil {
+		if state.IP6routes, err = connector.IPv6Routes(state.HostAddr, mtu); err != nil {
 			return nil, nil, err
 		}
 		routes = state.IP6routes
 		ip = state.IP6
-		gw = plugins.IPv6Gateway(state.HostAddr)
+		gw = connector.IPv6Gateway(state.HostAddr)
 		version = "6"
 	} else {
 		if state.IP4, err = addressing.NewCiliumIPv4(ipAddr); err != nil {
 			return nil, nil, err
 		}
-		if state.IP4routes, err = plugins.IPv4Routes(state.HostAddr, mtu); err != nil {
+		if state.IP4routes, err = connector.IPv4Routes(state.HostAddr, mtu); err != nil {
 			return nil, nil, err
 		}
 		routes = state.IP4routes
 		ip = state.IP4
-		gw = plugins.IPv4Gateway(state.HostAddr)
+		gw = connector.IPv4Gateway(state.HostAddr)
 		version = "4"
 	}
 
@@ -297,7 +291,8 @@ func prepareIP(ipAddr string, isIPv6 bool, state *CmdState, mtu int) (*cniTypesV
 }
 
 func cmdAdd(args *skel.CmdArgs) error {
-	log.WithField("args", args).Debug("Processing CNI ADD request")
+	logger := log.WithField("eventUUID", uuid.NewUUID())
+	logger.WithField("args", args).Debug("Processing CNI ADD request")
 
 	n, cniVersion, err := loadNetConf(args.StdinData)
 	if err != nil {
@@ -326,6 +321,17 @@ func cmdAdd(args *skel.CmdArgs) error {
 		addLabels = append(addLabels, fmt.Sprintf("%s:%s=%s", labels.LabelSourceMesos, label.Key, label.Value))
 	}
 
+	configResult, err := client.ConfigGet()
+	if err != nil {
+		return fmt.Errorf("unable to retrieve configuration from cilium-agent: %s", err)
+	}
+
+	if configResult == nil || configResult.Status == nil {
+		return fmt.Errorf("did not receive configuration from cilium-agent")
+	}
+
+	conf := *configResult.Status
+
 	ep := &models.EndpointChangeRequest{
 		ContainerID: args.ContainerID,
 		Labels:      addLabels,
@@ -333,14 +339,14 @@ func cmdAdd(args *skel.CmdArgs) error {
 		Addressing:  &models.AddressPair{},
 	}
 
-	veth, peer, tmpIfName, err := plugins.SetupVeth(ep.ContainerID, n.MTU, ep)
+	veth, peer, tmpIfName, err := connector.SetupVeth(ep.ContainerID, int(conf.DeviceMTU), ep)
 	if err != nil {
 		return err
 	}
 	defer func() {
 		if err != nil {
 			if err = netlink.LinkDel(veth); err != nil {
-				log.WithError(err).WithField(logfields.Veth, veth.Name).Warn("failed to clean up and delete veth")
+				logger.WithError(err).WithField(logfields.Veth, veth.Name).Warn("failed to clean up and delete veth")
 			}
 		}
 	}()
@@ -350,12 +356,15 @@ func cmdAdd(args *skel.CmdArgs) error {
 	}
 
 	err = netNs.Do(func(_ ns.NetNS) error {
-		err := renameLink(tmpIfName, args.IfName)
+		err := link.Rename(tmpIfName, args.IfName)
 		if err != nil {
 			return fmt.Errorf("failed to rename %q to %q: %s", tmpIfName, args.IfName, err)
 		}
 		return nil
 	})
+	if err != nil {
+		return err
+	}
 
 	ipam, err := client.IPAMAllocate("")
 	if err != nil {
@@ -376,7 +385,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 		}
 	}()
 
-	if err = plugins.SufficientAddressing(ipam.HostAddressing); err != nil {
+	if err = connector.SufficientAddressing(ipam.HostAddressing); err != nil {
 		return fmt.Errorf("%s", err)
 	}
 
@@ -389,7 +398,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 	res := &cniTypesVer.Result{}
 
 	if IPv6IsEnabled(ipam) {
-		ipConfig, routes, err := prepareIP(ep.Addressing.IPV6, true, &state, n.MTU)
+		ipConfig, routes, err := prepareIP(ep.Addressing.IPV6, true, &state, int(conf.RouteMTU))
 		if err != nil {
 			return err
 		}
@@ -401,7 +410,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 	}
 
 	if IPv4IsEnabled(ipam) {
-		ipConfig, routes, err := prepareIP(ep.Addressing.IPV4, false, &state, n.MTU)
+		ipConfig, routes, err := prepareIP(ep.Addressing.IPV4, false, &state, int(conf.RouteMTU))
 		if err != nil {
 			return err
 		}
@@ -410,12 +419,11 @@ func cmdAdd(args *skel.CmdArgs) error {
 	}
 
 	var macAddrStr string
-	// FIXME: use nsenter
 	if err = netNs.Do(func(_ ns.NetNS) error {
 		allInterfacesPath := filepath.Join("/proc", "sys", "net", "ipv6", "conf", "all", "disable_ipv6")
-		err = plugins.WriteSysConfig(allInterfacesPath, "0\n")
+		err = connector.WriteSysConfig(allInterfacesPath, "0\n")
 		if err != nil {
-			log.WithError(err).Warn("unable to disable ipv6 on all interfaces")
+			logger.WithError(err).Warn("unable to disable ipv6 on all interfaces")
 		}
 		macAddrStr, err = configureIface(ipam, args.IfName, &state)
 		return err
@@ -432,9 +440,15 @@ func cmdAdd(args *skel.CmdArgs) error {
 	// Specify that endpoint must be regenerated synchronously. See GH-4409.
 	ep.SyncBuildEndpoint = true
 	if err = client.EndpointCreate(ep); err != nil {
+		logger.WithError(err).WithFields(logrus.Fields{
+			logfields.EndpointID:  ep.ID,
+			logfields.ContainerID: ep.ContainerID}).Warn("Unable to create endpoint")
 		return fmt.Errorf("Unable to create endpoint: %s", err)
 	}
 
+	logger.WithFields(logrus.Fields{
+		logfields.EndpointID:  ep.ID,
+		logfields.ContainerID: ep.ContainerID}).Debug("Endpoint successfully created")
 	return cniTypes.PrintResult(res, cniVersion)
 }
 
@@ -446,7 +460,7 @@ func cmdDel(args *skel.CmdArgs) error {
 		return fmt.Errorf("unable to connect to Cilium daemon: %s", err)
 	}
 
-	id := endpoint.NewID(endpoint.ContainerIdPrefix, args.ContainerID)
+	id := endpointid.NewID(endpointid.ContainerIdPrefix, args.ContainerID)
 	if ep, err := client.EndpointGet(id); err != nil {
 		// Ignore endpoints not found
 		log.WithError(err).WithField(logfields.EndpointID, id).Debug("Agent is not aware of endpoint")
@@ -465,6 +479,6 @@ func cmdDel(args *skel.CmdArgs) error {
 	}
 
 	return ns.WithNetNSPath(args.Netns, func(_ ns.NetNS) error {
-		return plugins.DelLinkByName(args.IfName)
+		return link.DeleteByName(args.IfName)
 	})
 }

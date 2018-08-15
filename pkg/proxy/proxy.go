@@ -35,7 +35,7 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "proxy")
 )
 
 // field names used while logging

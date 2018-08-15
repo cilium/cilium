@@ -5,10 +5,15 @@ set -x
 
 source /opt/cilium/env
 
-envsubst < /opt/cilium/cilium.spec.envsubst > /opt/cilium/cilium.spec
-# Remove dash (in case of a version like 1.0.0-rc8)
+envsubst '${VERSION} ${COMMIT} ${SHORTCOMMIT}' < \
+	/opt/cilium/cilium.spec.envsubst > /opt/cilium/cilium.spec
+
+echo $(git describe --tags $(git rev-list --tags --max-count=1) | tr -d '-').$(git rev-parse --short HEAD)
 sed -i -re '/^Version/s/-//g' /opt/cilium/cilium.spec
 
-fedpkg --release f27 local
+# Install any lingering build requirements
+dnf builddep -y /opt/cilium/cilium.spec
+
+fedpkg --release f28 local
 
 find /opt/cilium -type f -name 'cilium*.rpm' -exec mv -f "{}" /output/ \;

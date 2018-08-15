@@ -34,13 +34,12 @@ import (
 var (
 	endpointTimeout  = (60 * time.Second)
 	timeout          = time.Duration(300)
-	netcatDsManifest = "netcat_ds.yaml"
+	netcatDsManifest = "netcat-ds.yaml"
 )
 
 var _ = Describe("NightlyEpsMeasurement", func() {
 
 	var kubectl *helpers.Kubectl
-	var logger *logrus.Entry
 
 	endpointCount := 45
 	endpointsTimeout := endpointTimeout * time.Duration(endpointCount)
@@ -50,9 +49,6 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 	var err error
 
 	BeforeAll(func() {
-		logger = log.WithFields(logrus.Fields{"testName": "NightlyK8sEpsMeasurement"})
-		logger.Info("Starting")
-
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
 		err := kubectl.CiliumInstall(helpers.CiliumDSPath)
@@ -61,11 +57,20 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 		ExpectCiliumReady(kubectl)
 		ExpectKubeDNSReady(kubectl)
 	})
+	deleteAll := func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+		defer cancel()
+		kubectl.ExecContext(ctx, fmt.Sprintf(
+			"%s delete --all pods,svc,cnp -n %s --grace-period=0 --force",
+			helpers.KubectlCmd, helpers.DefaultNamespace))
 
+		select {
+		case <-ctx.Done():
+			logger.Error("DeleteAll: delete all pods,services failed after 300 seconds")
+		}
+	}
 	AfterAll(func() {
-		kubectl.Exec(fmt.Sprintf(
-			"%s delete --all pods,svc,cnp -n %s", helpers.KubectlCmd, helpers.DefaultNamespace))
-
+		deleteAll()
 		ExpectAllPodsTerminated(kubectl)
 	})
 
@@ -173,13 +178,14 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 	}, 1)
 
 	Context("Nightly Policies", func() {
+
 		numPods := 20
 		bunchPods := 5
 		podsCreated := 0
 
 		AfterEach(func() {
-			kubectl.Exec(fmt.Sprintf(
-				"%s delete --all pods,svc,cnp -n %s", helpers.KubectlCmd, helpers.DefaultNamespace))
+			deleteAll()
+			ExpectAllPodsTerminated(kubectl)
 		})
 
 		Measure(fmt.Sprintf("Applying policies to %d pods in a group of %d", numPods, bunchPods), func(b ginkgo.Benchmarker) {
@@ -313,16 +319,12 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 var _ = Describe("NightlyExamples", func() {
 
 	var kubectl *helpers.Kubectl
-	var logger *logrus.Entry
 	var demoPath string
 	var l3Policy, l7Policy string
 	var appService = "app1-service"
 	var apps []string
 
 	BeforeAll(func() {
-		logger = log.WithFields(logrus.Fields{"testName": "NightlyK8sEpsMeasurement"})
-		logger.Info("Starting")
-
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
 		err := kubectl.CiliumInstall(helpers.CiliumDSPath)
@@ -331,8 +333,8 @@ var _ = Describe("NightlyExamples", func() {
 		apps = []string{helpers.App1, helpers.App2, helpers.App3}
 
 		demoPath = helpers.ManifestGet("demo.yaml")
-		l3Policy = helpers.ManifestGet("l3_l4_policy.yaml")
-		l7Policy = helpers.ManifestGet("l7_policy.yaml")
+		l3Policy = helpers.ManifestGet("l3-l4-policy.yaml")
+		l7Policy = helpers.ManifestGet("l7-policy.yaml")
 	})
 
 	AfterFailed(func() {
@@ -364,8 +366,8 @@ var _ = Describe("NightlyExamples", func() {
 			kubectl.Exec("sudo docker rmi cilium/cilium")
 			// Making sure that we deleted the  cilium ds. No assert message
 			// because maybe is not present
-			kubectl.DeleteResource("ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
-			helpers.InstallExampleCilium(kubectl)
+			_ = kubectl.DeleteResource("ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
+			helpers.InstallExampleCilium(kubectl, helpers.StableImage)
 		})
 
 		It("Check Kubernetes Example is working correctly", func() {
@@ -397,6 +399,47 @@ var _ = Describe("NightlyExamples", func() {
 
 	})
 
+	Context("Upgrade test", func() {
+		var cleanupCallback = func() { return }
+
+		BeforeAll(func() {
+			kubectl.Exec("sudo docker rmi cilium/cilium")
+		})
+
+		BeforeEach(func() {
+			// Making sure that we deleted the  cilium ds. No assert message
+			// because maybe is not present
+			_ = kubectl.DeleteResource("ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
+
+			// Delete kube-dns because if not will be a restore the old endpoints
+			// from master instead of create the new ones.
+			_ = kubectl.Delete(helpers.DNSDeployment())
+
+			ExpectAllPodsTerminated(kubectl)
+		})
+
+		AfterEach(func() {
+			cleanupCallback()
+		})
+
+		AfterAll(func() {
+			_ = kubectl.Apply(helpers.DNSDeployment())
+		})
+
+		for _, image := range helpers.NightlyStableUpgradesFrom {
+			func(image string) {
+				It(fmt.Sprintf("Update Cilium from %s to master", image), func() {
+					helpers.InstallExampleCilium(kubectl, image)
+
+					err := kubectl.CiliumEndpointWaitReady()
+					Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
+
+					cleanupCallback = ValidateCiliumUpgrades(kubectl)
+				})
+			}(image)
+		}
+	})
+
 	Context("Getting started guides", func() {
 
 		var (
@@ -416,9 +459,9 @@ var _ = Describe("NightlyExamples", func() {
 		})
 
 		AfterAll(func() {
-			ExpectAllPodsTerminated(kubectl)
 			kubectl.Delete(AppManifest)
 			kubectl.Delete(PolicyManifest)
+			ExpectAllPodsTerminated(kubectl)
 		})
 
 		It("GRPC example", func() {
@@ -448,7 +491,7 @@ var _ = Describe("NightlyExamples", func() {
 
 			By("Testing with L7 policy")
 			_, err = kubectl.CiliumPolicyAction(
-				helpers.DefaultNamespace, PolicyManifest,
+				helpers.KubeSystemNamespace, PolicyManifest,
 				helpers.KubectlApply, 300)
 			Expect(err).To(BeNil(), "Cannot import GPRC policy")
 

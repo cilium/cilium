@@ -23,7 +23,7 @@ type Redis struct {
 	// from Redis of 0 (does not exist) is considered a passing healthcheck. A return value other
 	// than 0 is considered a failure. This allows the user to mark a Redis instance for maintenance
 	// by setting the specified key to any value and waiting for traffic to drain.
-	Key                  string   `protobuf:"bytes,1,opt,name=key" json:"key,omitempty"`
+	Key                  string   `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -33,7 +33,7 @@ func (m *Redis) Reset()         { *m = Redis{} }
 func (m *Redis) String() string { return proto.CompactTextString(m) }
 func (*Redis) ProtoMessage()    {}
 func (*Redis) Descriptor() ([]byte, []int) {
-	return fileDescriptor_redis_1a46d07831805954, []int{0}
+	return fileDescriptor_redis_1991a5334131bb48, []int{0}
 }
 func (m *Redis) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Redis.Unmarshal(m, b)
@@ -65,10 +65,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("envoy/config/health_checker/redis/v2/redis.proto", fileDescriptor_redis_1a46d07831805954)
+	proto.RegisterFile("envoy/config/health_checker/redis/v2/redis.proto", fileDescriptor_redis_1991a5334131bb48)
 }
 
-var fileDescriptor_redis_1a46d07831805954 = []byte{
+var fileDescriptor_redis_1991a5334131bb48 = []byte{
 	// 119 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x32, 0x48, 0xcd, 0x2b, 0xcb,
 	0xaf, 0xd4, 0x4f, 0xce, 0xcf, 0x4b, 0xcb, 0x4c, 0xd7, 0xcf, 0x48, 0x4d, 0xcc, 0x29, 0xc9, 0x88,

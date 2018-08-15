@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 
 	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/pkg/completion"
 	e "github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
@@ -126,7 +127,7 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 	}
 
 	ds.OnUpdateNetworkPolicy = func(e *e.Endpoint, policy *policy.L4Policy,
-		labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool) error {
+		labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, proxyWaitGroup *completion.WaitGroup) error {
 		return nil
 	}
 
@@ -140,9 +141,10 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 	epsNames := []string{}
 	for _, ep := range epsWanted {
 		os.MkdirAll(filepath.Join(baseDir, ep.StringID()), 777)
-		ep.Mutex.Lock()
+		ep.UnconditionalLock()
+
 		ready := ep.SetStateLocked(e.StateWaitingToRegenerate, "test")
-		ep.Mutex.Unlock()
+		ep.Unlock()
 		if ready {
 			<-ep.Regenerate(ds, "test")
 		}
@@ -162,30 +164,4 @@ func (ds *DaemonSuite) TestReadEPsFromDirNames(c *C) {
 	c.Assert(err, IsNil)
 	eps := readEPsFromDirNames(tmpDir, epsNames)
 	c.Assert(len(eps), Equals, len(epsWanted))
-}
-
-func (ds *DaemonSuite) TestSyncLabels(c *C) {
-	epsWanted, _ := createEndpoints()
-
-	ep1 := epsWanted[0]
-	ep1.SecurityIdentity = nil
-	err := ds.d.syncLabels(ep1)
-	// Endpoint doesn't have a security label but it has some operational labels
-	// so endpoint will have a new identity assigned
-	c.Assert(err, IsNil)
-	c.Assert(ep1.SecurityIdentity, NotNil)
-
-	// Let's make sure we delete all labels from the kv store first
-	ep2 := epsWanted[1]
-	ep2.SecurityIdentity.Release()
-
-	err = ds.d.syncLabels(ep2)
-	c.Assert(err, IsNil)
-
-	// let's change the ep2 security identity and see if sync labels properly sets
-	// it with the one from kv store
-	ep2.SecurityIdentity.ID = identity.NumericIdentity(1)
-
-	err = ds.d.syncLabels(ep2)
-	c.Assert(err, IsNil)
 }

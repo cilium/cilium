@@ -31,6 +31,12 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// healthReport is a snapshot of the health of the cluster.
+type healthReport struct {
+	startTime time.Time
+	nodes     []*models.NodeStatus
+}
+
 type prober struct {
 	*fastping.Pinger
 	server *Server
@@ -46,11 +52,11 @@ type prober struct {
 	// and probes initiated via "GET /status/probe". It is also used to
 	// co-ordinate updates of the ICMP responses and the HTTP responses.
 	lock.RWMutex
+
+	// start is the start time for the current probe cycle.
+	start   time.Time
 	results map[ipString]*models.PathStatus
 	nodes   nodeMap
-
-	// TODO: If nodes leave the cluster, we will never clear out their
-	//       entries in the 'results' map.
 }
 
 // copyResultRLocked makes a copy of the path status for the specified IP.
@@ -75,26 +81,9 @@ func (p *prober) copyResultRLocked(ip string) *models.PathStatus {
 	return result
 }
 
-func getPrimaryIP(node *ciliumModels.NodeElement) string {
-	if node.PrimaryAddress.IPV4.Enabled {
-		return node.PrimaryAddress.IPV4.IP
-	}
-	return node.PrimaryAddress.IPV6.IP
-}
-
-func getHealthIP(node *ciliumModels.NodeElement) string {
-	if node.HealthEndpointAddress == nil {
-		return ""
-	}
-	if node.HealthEndpointAddress.IPV4.Enabled {
-		return node.HealthEndpointAddress.IPV4.IP
-	}
-	return node.HealthEndpointAddress.IPV6.IP
-}
-
 // getResults gathers a copy of all of the results for nodes currently in the
 // cluster.
-func (p *prober) getResults() []*models.NodeStatus {
+func (p *prober) getResults() *healthReport {
 	p.RLock()
 	defer p.RUnlock()
 
@@ -104,8 +93,8 @@ func (p *prober) getResults() []*models.NodeStatus {
 		if resultMap[node.Name] != nil {
 			continue
 		}
-		primaryIP := getPrimaryIP(node)
-		healthIP := getHealthIP(node)
+		primaryIP := node.PrimaryIP()
+		healthIP := node.HealthIP()
 		status := &models.NodeStatus{
 			Name: node.Name,
 			Host: &models.HostStatus{
@@ -126,9 +115,9 @@ func (p *prober) getResults() []*models.NodeStatus {
 		resultMap[node.Name] = status
 	}
 
-	result := []*models.NodeStatus{}
+	result := &healthReport{startTime: p.start}
 	for _, res := range resultMap {
-		result = append(result, res)
+		result.nodes = append(result.nodes, res)
 	}
 	return result
 }
@@ -142,27 +131,11 @@ func skipAddress(elem *ciliumModels.NodeAddressingElement) bool {
 	return elem == nil || !elem.Enabled || elem.IP == "<nil>"
 }
 
-// getAddresses returns a map of the node's addresses -> "primary" bool
-func getNodeAddresses(node *ciliumModels.NodeElement) map[*ciliumModels.NodeAddressingElement]bool {
-	addresses := map[*ciliumModels.NodeAddressingElement]bool{}
-	if node.PrimaryAddress != nil {
-		addresses[node.PrimaryAddress.IPV4] = node.PrimaryAddress.IPV4.Enabled
-		addresses[node.PrimaryAddress.IPV6] = node.PrimaryAddress.IPV6.Enabled
-	}
-	if node.HealthEndpointAddress != nil {
-		addresses[node.HealthEndpointAddress.IPV4] = false
-		addresses[node.HealthEndpointAddress.IPV6] = false
-	}
-	for _, elem := range node.SecondaryAddresses {
-		addresses[elem] = false
-	}
-	return addresses
-}
-
 // resolveIP attempts to sanitize 'node' and 'ip', and if successful, returns
 // the name of the node and the IP address specified in the addressing element.
 // If validation fails or this IP should not be pinged, 'ip' is returned as nil.
-func resolveIP(node *ciliumModels.NodeElement, addr *ciliumModels.NodeAddressingElement, proto string, primary bool) (string, *net.IPAddr) {
+func resolveIP(n *healthNode, addr *ciliumModels.NodeAddressingElement, proto string, primary bool) (string, *net.IPAddr) {
+	node := n.NodeElement
 	network := "ip6:icmp"
 	if isIPv4(addr.IP) {
 		network = "ip4:icmp"
@@ -188,6 +161,32 @@ func resolveIP(node *ciliumModels.NodeElement, addr *ciliumModels.NodeAddressing
 	return node.Name, ra
 }
 
+// markIPsLocked marks all nodes in the prober for deletion.
+func (p *prober) markIPsLocked() {
+	for ip, node := range p.nodes {
+		node.deletionMark = true
+		p.nodes[ip] = node
+	}
+}
+
+// sweepIPsLocked iterates through nodes in the prober and removes nodes which
+// are marked for deletion.
+func (p *prober) sweepIPsLocked() {
+	for ip, node := range p.nodes {
+		if node.deletionMark {
+			// Remove deleted nodes from:
+			// * Results (accessed from ICMP pinger or TCP prober)
+			// * ICMP pinger
+			// * TCP prober
+			for elem := range node.Addresses() {
+				delete(p.results, ipString(elem.IP))
+				p.RemoveIP(elem.IP) // ICMP pinger
+			}
+			delete(p.nodes, ip) // TCP prober
+		}
+	}
+}
+
 // setNodes sets the list of nodes for the prober, and updates the pinger to
 // start sending pings to all of the nodes.
 // setNodes will steal references to nodes referenced from 'nodes', so the
@@ -196,9 +195,14 @@ func (p *prober) setNodes(nodes nodeMap) {
 	p.Lock()
 	defer p.Unlock()
 
+	// Mark all nodes for deletion, insert nodes that should not be deleted
+	// then at the end of the function, sweep all nodes that remain as
+	// "to be deleted".
+	p.markIPsLocked()
+
 	for _, n := range nodes {
-		for elem, primary := range getNodeAddresses(n) {
-			_, addr := resolveIP(n, elem, "icmp", primary)
+		for elem, primary := range n.Addresses() {
+			_, addr := resolveIP(&n, elem, "icmp", primary)
 
 			ip := ipString(elem.IP)
 			result := &models.ConnectivityStatus{}
@@ -218,6 +222,8 @@ func (p *prober) setNodes(nodes nodeMap) {
 			p.results[ip].Icmp = result
 		}
 	}
+
+	p.sweepIPsLocked()
 }
 
 func (p *prober) httpProbe(node string, ip string, port int) *models.ConnectivityStatus {
@@ -254,13 +260,17 @@ func (p *prober) httpProbe(node string, ip string, port int) *models.Connectivit
 }
 
 func (p *prober) runHTTPProbe() {
-	nodes := make(map[string][]*net.IPAddr)
+	startTime := time.Now()
+	p.Lock()
+	p.start = startTime
+	p.Unlock()
 
 	// p.nodes is mapped from all known IPs -> nodes in N:M configuration,
 	// so multiple IPs could refer to the same node. To ensure we only
 	// ping each node once, deduplicate nodes into map of nodeName -> []IP.
 	// When probing below, we won't hold the lock on 'p.nodes' so take
 	// a copy of all of the IPs we need to reference.
+	nodes := make(map[string][]*net.IPAddr)
 	p.RLock()
 	for _, node := range p.nodes {
 		if nodes[node.Name] != nil {
@@ -268,8 +278,8 @@ func (p *prober) runHTTPProbe() {
 			continue
 		}
 		nodes[node.Name] = []*net.IPAddr{}
-		for elem, primary := range getNodeAddresses(node) {
-			if _, addr := resolveIP(node, elem, "http", primary); addr != nil {
+		for elem, primary := range node.Addresses() {
+			if _, addr := resolveIP(&node, elem, "http", primary); addr != nil {
 				nodes[node.Name] = append(nodes[node.Name], addr)
 			}
 		}
@@ -278,6 +288,11 @@ func (p *prober) runHTTPProbe() {
 
 	for name, ips := range nodes {
 		for _, ip := range ips {
+			scopedLog := log.WithFields(logrus.Fields{
+				logfields.NodeName: name,
+				logfields.IPAddr:   ip.String(),
+			})
+
 			status := &models.PathStatus{}
 			ports := map[int]**models.ConnectivityStatus{
 				defaults.HTTPPathPort: &status.HTTP,
@@ -285,16 +300,22 @@ func (p *prober) runHTTPProbe() {
 			for port, result := range ports {
 				*result = p.httpProbe(name, ip.String(), port)
 				if status.HTTP.Status != "" {
-					log.WithFields(logrus.Fields{
-						logfields.NodeName: name,
-						logfields.IPAddr:   ip.String(),
-						logfields.Port:     port,
+					scopedLog.WithFields(logrus.Fields{
+						logfields.Port: port,
 					}).Debugf("Failed to probe: %s", status.HTTP.Status)
 				}
 			}
 
+			peer := ipString(ip.String())
 			p.Lock()
-			p.results[ipString(ip.String())].HTTP = status.HTTP
+			if _, ok := p.results[peer]; ok {
+				p.results[peer].HTTP = status.HTTP
+			} else {
+				// While we weren't holding the lock, the
+				// pinger's OnIdle() callback fired and updated
+				// the set of nodes to remove this node.
+				scopedLog.Debug("Node disappeared before result written")
+			}
 			p.Unlock()
 		}
 	}
@@ -365,26 +386,23 @@ func newProber(s *Server, nodes nodeMap) *prober {
 
 	prober.setNodes(nodes)
 	prober.OnRecv = func(addr *net.IPAddr, rtt time.Duration) {
-		prober.RLock()
-		node := prober.nodes[ipString(addr.String())]
-		prober.RUnlock()
+		prober.Lock()
+		defer prober.Unlock()
+		node, exists := prober.nodes[ipString(addr.String())]
 
 		scopedLog := log.WithFields(logrus.Fields{
 			logfields.IPAddr: addr,
 			"rtt":            rtt,
 		})
-		if node == nil {
+		if !exists {
 			scopedLog.Debugf("Node disappeared, skip result")
 			return
 		}
 
-		prober.Lock()
 		prober.results[ipString(addr.String())].Icmp = &models.ConnectivityStatus{
 			Latency: rtt.Nanoseconds(),
 			Status:  "",
 		}
-		prober.Unlock()
-
 		scopedLog.WithFields(logrus.Fields{
 			logfields.NodeName: node.Name,
 		}).Debugf("Probe successful")

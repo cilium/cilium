@@ -19,7 +19,10 @@ import (
 
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type rule struct {
@@ -35,19 +38,24 @@ func (r *rule) String() string {
 // port and protocol with the contents of the provided PortRule. If the rule
 // being merged has conflicting L7 rules with those already in the provided
 // L4PolicyMap for the specified port-protocol tuple, it returns an error.
-func mergeL4IngressPort(ctx *SearchContext, endpoints []api.EndpointSelector, r api.PortRule, p api.PortProtocol,
+//
+// If any rules contain L7 rules that overlap with the endpointsWithL3Override,
+// then for the endpoints with L3 override, the L7 rules will be translated
+// into L7 wildcards (ie, traffic will be forwarded to the proxy for endpoints
+// matching those labels, but the proxy will allow all such traffic).
+func mergeL4IngressPort(ctx *SearchContext, endpoints []api.EndpointSelector, endpointsWithL3Override []api.EndpointSelector, r api.PortRule, p api.PortProtocol,
 	proto api.L4Proto, ruleLabels labels.LabelArray, resMap L4PolicyMap) (int, error) {
 
 	key := p.Port + "/" + string(proto)
 	existingFilter, ok := resMap[key]
 	if !ok {
-		resMap[key] = CreateL4IngressFilter(endpoints, r, p, proto, ruleLabels)
+		resMap[key] = CreateL4IngressFilter(endpoints, endpointsWithL3Override, r, p, proto, ruleLabels)
 		return 1, nil
 	}
 
 	// Create a new L4Filter based off of the arguments provided to this function
 	// for merging with the filter which is already in the policy map.
-	filterToMerge := CreateL4IngressFilter(endpoints, r, p, proto, ruleLabels)
+	filterToMerge := CreateL4IngressFilter(endpoints, endpointsWithL3Override, r, p, proto, ruleLabels)
 
 	// Handle cases where filter we are merging new rule with, new rule itself
 	// allows all traffic on L3, or both rules allow all traffic on L3.
@@ -130,6 +138,19 @@ func mergeL4Ingress(ctx *SearchContext, rule api.IngressRule, ruleLabels labels.
 
 	ctx.PolicyTrace("    Found all required labels")
 
+	// Daemon options may induce L3 allows for host/world. In this case, if
+	// we find any L7 rules matching host/world then we need to turn any L7
+	// restrictions on these endpoints into L7 allow-all so that the
+	// traffic is always allowed, but is also always redirected through the
+	// proxy
+	endpointsWithL3Override := []api.EndpointSelector{}
+	if option.Config.AlwaysAllowLocalhost() {
+		endpointsWithL3Override = append(endpointsWithL3Override, api.ReservedEndpointSelectors[labels.IDNameHost])
+		if option.Config.HostAllowsWorld {
+			endpointsWithL3Override = append(endpointsWithL3Override, api.ReservedEndpointSelectors[labels.IDNameWorld])
+		}
+	}
+
 	for _, r := range rule.ToPorts {
 		ctx.PolicyTrace("    Allows %s port %v from endpoints %v\n", policymap.Ingress, r.Ports, fromEndpoints)
 		if r.Rules != nil {
@@ -140,19 +161,19 @@ func mergeL4Ingress(ctx *SearchContext, rule api.IngressRule, ruleLabels labels.
 
 		for _, p := range r.Ports {
 			if p.Protocol != api.ProtoAny {
-				cnt, err := mergeL4IngressPort(ctx, fromEndpoints, r, p, p.Protocol, ruleLabels, resMap)
+				cnt, err := mergeL4IngressPort(ctx, fromEndpoints, endpointsWithL3Override, r, p, p.Protocol, ruleLabels, resMap)
 				if err != nil {
 					return found, err
 				}
 				found += cnt
 			} else {
-				cnt, err := mergeL4IngressPort(ctx, fromEndpoints, r, p, api.ProtoTCP, ruleLabels, resMap)
+				cnt, err := mergeL4IngressPort(ctx, fromEndpoints, endpointsWithL3Override, r, p, api.ProtoTCP, ruleLabels, resMap)
 				if err != nil {
 					return found, err
 				}
 				found += cnt
 
-				cnt, err = mergeL4IngressPort(ctx, fromEndpoints, r, p, api.ProtoUDP, ruleLabels, resMap)
+				cnt, err = mergeL4IngressPort(ctx, fromEndpoints, endpointsWithL3Override, r, p, api.ProtoUDP, ruleLabels, resMap)
 				if err != nil {
 					return found, err
 				}
@@ -174,7 +195,7 @@ func (state *traceState) unSelectRule(ctx *SearchContext, labels labels.LabelArr
 }
 
 // resolveL4IngressPolicy determines whether (TODO ianvernon)
-func (r *rule) resolveL4IngressPolicy(ctx *SearchContext, state *traceState, result *L4Policy) (*L4Policy, error) {
+func (r *rule) resolveL4IngressPolicy(ctx *SearchContext, state *traceState, result *L4Policy, requirements []v1.LabelSelectorRequirement) (*L4Policy, error) {
 	if !r.EndpointSelector.Matches(ctx.To) {
 		state.unSelectRule(ctx, ctx.To, r)
 		return nil, nil
@@ -187,7 +208,26 @@ func (r *rule) resolveL4IngressPolicy(ctx *SearchContext, state *traceState, res
 		ctx.PolicyTrace("    No L4 ingress rules\n")
 	}
 	for _, ingressRule := range r.Ingress {
-		cnt, err := mergeL4Ingress(ctx, ingressRule, r.Rule.Labels.DeepCopy(), result.Ingress)
+		ruleCopy := ingressRule
+
+		// For each FromEndpoints in each ingress rule, add requirements, which
+		// is a flattened list of all EndpointSelectors from all FromRequires
+		// from rules which select the labels in ctx.To. This ensures that
+		// FromRequires is taken into account even if it isn't part of the current
+		// rule over which we are iterating.
+		if len(requirements) > 0 {
+			// Create a deep copy of the rule, as we are going to modify FromEndpoints
+			// with requirementsSelector. We don't want to modify the rule itself
+			// in the policy repository.
+			ruleCopy = *ingressRule.DeepCopy()
+			// Update each EndpointSelector in FromEndpoints to contain requirements.
+			for idx := range ruleCopy.FromEndpoints {
+				ruleCopy.FromEndpoints[idx].MatchExpressions = append(ruleCopy.FromEndpoints[idx].MatchExpressions, requirements...)
+				ruleCopy.FromEndpoints[idx].SyncRequirementsWithLabelSelector()
+			}
+		}
+
+		cnt, err := mergeL4Ingress(ctx, ruleCopy, r.Rule.Labels.DeepCopy(), result.Ingress)
 		if err != nil {
 			return nil, err
 		}
@@ -496,7 +536,7 @@ func mergeL4EgressPort(ctx *SearchContext, endpoints []api.EndpointSelector, r a
 	return 1, nil
 }
 
-func (r *rule) resolveL4EgressPolicy(ctx *SearchContext, state *traceState, result *L4Policy) (*L4Policy, error) {
+func (r *rule) resolveL4EgressPolicy(ctx *SearchContext, state *traceState, result *L4Policy, requirements []v1.LabelSelectorRequirement) (*L4Policy, error) {
 
 	if !r.EndpointSelector.Matches(ctx.From) {
 		state.unSelectRule(ctx, ctx.From, r)
@@ -510,7 +550,25 @@ func (r *rule) resolveL4EgressPolicy(ctx *SearchContext, state *traceState, resu
 		ctx.PolicyTrace("    No L4 rules\n")
 	}
 	for _, egressRule := range r.Egress {
-		cnt, err := mergeL4Egress(ctx, egressRule, r.Rule.Labels.DeepCopy(), result.Egress)
+		ruleCopy := egressRule
+		// For each ToEndpoints in each egress rule, add the requirements, which
+		// is a flattened list of all EndpointSelectors from all ToRequires
+		// from rules which select the labels in ctx.From. This ensures that
+		// ToRequires is taken into account even if it isn't part of the current
+		// rule over which we are iterating.
+		if len(requirements) > 0 {
+			// Create a deep copy of the rule, as we are going to modify
+			// ToEndpoints with requirements; we don't want to modify the rule
+			// in the repository.
+			ruleCopy = *egressRule.DeepCopy()
+			for idx := range ruleCopy.ToEndpoints {
+				// Update each EndpointSelector in ToEndpoints to contain
+				// requirements.
+				ruleCopy.ToEndpoints[idx].MatchExpressions = append(ruleCopy.ToEndpoints[idx].MatchExpressions, requirements...)
+				ruleCopy.ToEndpoints[idx].SyncRequirementsWithLabelSelector()
+			}
+		}
+		cnt, err := mergeL4Egress(ctx, ruleCopy, r.Rule.Labels.DeepCopy(), result.Egress)
 		if err != nil {
 			return nil, err
 		}

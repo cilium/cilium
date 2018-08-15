@@ -23,13 +23,13 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 type RedisProxy struct {
 	// The prefix to use when emitting :ref:`statistics <config_network_filters_redis_proxy_stats>`.
-	StatPrefix string `protobuf:"bytes,1,opt,name=stat_prefix,json=statPrefix" json:"stat_prefix,omitempty"`
+	StatPrefix string `protobuf:"bytes,1,opt,name=stat_prefix,json=statPrefix,proto3" json:"stat_prefix,omitempty"`
 	// Name of cluster from cluster manager. See the :ref:`configuration section
 	// <arch_overview_redis_configuration>` of the architecture overview for recommendations on
 	// configuring the backing cluster.
-	Cluster string `protobuf:"bytes,2,opt,name=cluster" json:"cluster,omitempty"`
+	Cluster string `protobuf:"bytes,2,opt,name=cluster,proto3" json:"cluster,omitempty"`
 	// Network settings for the connection pool to the upstream cluster.
-	Settings             *RedisProxy_ConnPoolSettings `protobuf:"bytes,3,opt,name=settings" json:"settings,omitempty"`
+	Settings             *RedisProxy_ConnPoolSettings `protobuf:"bytes,3,opt,name=settings,proto3" json:"settings,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                     `json:"-"`
 	XXX_unrecognized     []byte                       `json:"-"`
 	XXX_sizecache        int32                        `json:"-"`
@@ -39,7 +39,7 @@ func (m *RedisProxy) Reset()         { *m = RedisProxy{} }
 func (m *RedisProxy) String() string { return proto.CompactTextString(m) }
 func (*RedisProxy) ProtoMessage()    {}
 func (*RedisProxy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_redis_proxy_0d71dbf684469d11, []int{0}
+	return fileDescriptor_redis_proxy_af67d9f0306fe2f9, []int{0}
 }
 func (m *RedisProxy) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RedisProxy.Unmarshal(m, b)
@@ -88,7 +88,7 @@ type RedisProxy_ConnPoolSettings struct {
 	// The only exception to this behavior is when a connection to a backend is not yet established.
 	// In that case, the connect timeout on the cluster will govern the timeout until the connection
 	// is ready.
-	OpTimeout            *duration.Duration `protobuf:"bytes,1,opt,name=op_timeout,json=opTimeout" json:"op_timeout,omitempty"`
+	OpTimeout            *duration.Duration `protobuf:"bytes,1,opt,name=op_timeout,json=opTimeout,proto3" json:"op_timeout,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -98,7 +98,7 @@ func (m *RedisProxy_ConnPoolSettings) Reset()         { *m = RedisProxy_ConnPool
 func (m *RedisProxy_ConnPoolSettings) String() string { return proto.CompactTextString(m) }
 func (*RedisProxy_ConnPoolSettings) ProtoMessage()    {}
 func (*RedisProxy_ConnPoolSettings) Descriptor() ([]byte, []int) {
-	return fileDescriptor_redis_proxy_0d71dbf684469d11, []int{0, 0}
+	return fileDescriptor_redis_proxy_af67d9f0306fe2f9, []int{0, 0}
 }
 func (m *RedisProxy_ConnPoolSettings) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RedisProxy_ConnPoolSettings.Unmarshal(m, b)
@@ -131,10 +131,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/network/redis_proxy/v2/redis_proxy.proto", fileDescriptor_redis_proxy_0d71dbf684469d11)
+	proto.RegisterFile("envoy/config/filter/network/redis_proxy/v2/redis_proxy.proto", fileDescriptor_redis_proxy_af67d9f0306fe2f9)
 }
 
-var fileDescriptor_redis_proxy_0d71dbf684469d11 = []byte{
+var fileDescriptor_redis_proxy_af67d9f0306fe2f9 = []byte{
 	// 324 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x90, 0x41, 0x4a, 0xc3, 0x40,
 	0x14, 0x86, 0x99, 0xb4, 0x6a, 0x3b, 0x05, 0x29, 0x41, 0xb0, 0x76, 0xa1, 0x45, 0x37, 0xa5, 0x8b,

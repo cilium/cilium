@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,11 +30,15 @@ import (
 	"github.com/cilium/cilium/api/v1/server/restapi"
 	health "github.com/cilium/cilium/cilium-health/launch"
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
+	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
@@ -42,12 +46,15 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/monitor"
+	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/pprof"
+	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/version"
+	"github.com/cilium/cilium/pkg/versioncheck"
 	"github.com/cilium/cilium/pkg/workloads"
 
 	"github.com/go-openapi/loads"
@@ -61,11 +68,11 @@ import (
 )
 
 var (
-	minKernelVer, _ = go_version.NewConstraint(">= 4.8.0")
-	minClangVer, _  = go_version.NewConstraint(">= 3.8.0")
+	minKernelVer = versioncheck.MustCompile(">= 4.8.0")
+	minClangVer  = versioncheck.MustCompile(">= 3.8.0")
 
-	recKernelVer, _ = go_version.NewConstraint(">= 4.9.0")
-	recClangVer, _  = go_version.NewConstraint(">= 3.9.0")
+	recKernelVer = versioncheck.MustCompile(">= 4.9.0")
+	recClangVer  = versioncheck.MustCompile(">= 3.9.0")
 )
 
 const (
@@ -74,15 +81,17 @@ const (
 	argDebugVerboseFlow    = "flow"
 	argDebugVerboseKvstore = "kvstore"
 	argDebugVerboseEnvoy   = "envoy"
+
+	apiTimeout = 60 * time.Second
 )
 
 var (
-	log = logging.DefaultLogger
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "daemon")
+
+	bootstrapTimestamp = time.Now()
 
 	// Arguments variables keep in alphabetical order
 
-	// autoIPv6NodeRoutes automatically adds L3 direct routing when using direct mode (-d)
-	autoIPv6NodeRoutes    bool
 	bpfRoot               string
 	cmdRefDir             string
 	debugVerboseFlags     []string
@@ -100,7 +109,6 @@ var (
 	masquerade            bool
 	nat46prefix           string
 	prometheusServeAddr   string
-	singleClusterRoute    bool
 	socketPath            string
 	tracePayloadLen       int
 	v4Address             string
@@ -114,8 +122,32 @@ var (
 )
 
 var (
-	logOpts               = make(map[string]string)
-	kvStoreOpts           = make(map[string]string)
+	logOpts                = make(map[string]string)
+	kvStoreOpts            = make(map[string]string)
+	fixedIdentity          = make(map[string]string)
+	fixedIdentityValidator = option.Validator(func(val string) (string, error) {
+		vals := strings.Split(val, "=")
+		if len(vals) != 2 {
+			return "", fmt.Errorf(`invalid fixed identity: expecting "<numeric-identity>=<identity-name>" got %q`, val)
+		}
+		ni, err := identity.ParseNumericIdentity(vals[0])
+		if err != nil {
+			return "", fmt.Errorf(`invalid numeric identity %q: %s`, val, err)
+		}
+		if !identity.IsUserReservedIdentity(ni) {
+			return "", fmt.Errorf(`invalid numeric identity %q: valid numeric identity is between %d and %d`,
+				val, identity.UserReservedNumericIdentity.Uint32(), identity.MinimalNumericIdentity.Uint32())
+		}
+		lblStr := vals[1]
+		lbl := labels.ParseLabel(lblStr)
+		switch {
+		case lbl == nil:
+			return "", fmt.Errorf(`unable to parse given label: %s`, lblStr)
+		case lbl.IsReservedSource():
+			return "", fmt.Errorf(`invalid source %q for label: %s`, labels.LabelSourceReserved, lblStr)
+		}
+		return val, nil
+	})
 	containerRuntimesOpts = make(map[string]string)
 	cfgFile               string
 
@@ -290,12 +322,14 @@ func checkMinRequirements() {
 	if err := exec.Command(probeScript, option.Config.BpfDir, option.Config.StateDir).Run(); err != nil {
 		log.WithError(err).Fatal("BPF Verifier: NOT OK. Unable to run checker for bpf_features")
 	}
-	if _, err := os.Stat(filepath.Join(globalsDir, "bpf_features.h")); os.IsNotExist(err) {
+	featuresFilePath := filepath.Join(globalsDir, "bpf_features.h")
+	if _, err := os.Stat(featuresFilePath); os.IsNotExist(err) {
 		log.WithError(err).WithField(logfields.Path, globalsDir).Fatal("BPF Verifier: NOT OK. Unable to read bpf_features.h")
 	}
 
 	checkBPFLogs("bpf_requirements", true)
 	checkBPFLogs("bpf_features", false)
+	bpf.ReadFeatureProbes(featuresFilePath)
 }
 
 func init() {
@@ -309,12 +343,19 @@ func init() {
 	viper.BindEnv("access-labels", "CILIUM_ACCESS_LABELS")
 	flags.StringVar(&option.Config.AllowLocalhost,
 		"allow-localhost", option.AllowLocalhostAuto, "Policy when to allow local stack to reach local endpoints { auto | always | policy } ")
-	flags.Bool(
-		"auto-ipv6-node-routes", false, "Automatically adds IPv6 L3 routes to reach other nodes for non-overlay mode (--device) (BETA)")
+	flags.BoolVar(&option.Config.AutoIPv6NodeRoutes,
+		option.AutoIPv6NodeRoutesName, false, "Automatically adds IPv6 L3 routes to reach other nodes for non-overlay mode (--device) (BETA)")
 	flags.StringVar(&bpfRoot,
 		"bpf-root", "", "Path to BPF filesystem")
+	flags.Int(option.ClusterIDName, 0, "Unique identifier of the cluster")
+	viper.BindEnv(option.ClusterIDName, option.ClusterIDEnv)
+	flags.String(option.ClusterName, defaults.ClusterName, "Name of the cluster")
+	viper.BindEnv(option.ClusterName, option.ClusterNameEnv)
+	flags.String(option.ClusterMeshConfigName, "", "Path to the ClusterMesh configuration directory")
+	viper.BindEnv(option.ClusterMeshConfigName, option.ClusterMeshConfigNameEnv)
 	flags.StringVar(&cfgFile,
 		"config", "", `Configuration file (default "$HOME/ciliumd.yaml")`)
+	flags.Uint("conntrack-garbage-collector-interval", 60, "Garbage collection interval for the connection tracking table (in seconds)")
 	flags.StringSliceVar(&option.Config.Workloads,
 		"container-runtime", []string{"auto"}, `Sets the container runtime(s) used by Cilium { containerd | crio | docker | none | auto } ( "auto" uses the container runtime found in the order: "docker", "containerd", "crio" )`)
 	flags.Var(option.NewNamedMapOptions("container-runtime-endpoints", &containerRuntimesOpts, nil),
@@ -342,6 +383,8 @@ func init() {
 	flags.MarkHidden("disable-envoy-version-check")
 	// Disable version check if Envoy build is disabled
 	viper.BindEnv("disable-envoy-version-check", "CILIUM_DISABLE_ENVOY_BUILD")
+	flags.Var(option.NewNamedMapOptions("fixed-identity-mapping", &fixedIdentity, fixedIdentityValidator),
+		"fixed-identity-mapping", "Key-value for the fixed identity mapping which allows to use reserved label for fixed identities")
 	flags.IntVar(&v4ClusterCidrMaskSize,
 		"ipv4-cluster-cidr-mask-size", 8, "Mask size for the cluster wide CIDR")
 	flags.StringVar(&v4Prefix,
@@ -359,6 +402,10 @@ func init() {
 	flags.StringVar(&k8sKubeConfigPath,
 		"k8s-kubeconfig-path", "", "Absolute path of the kubernetes kubeconfig file")
 	viper.BindEnv("k8s-legacy-host-allows-world", "CILIUM_LEGACY_HOST_ALLOWS_WORLD")
+	flags.BoolVar(&option.Config.K8sRequireIPv4PodCIDR,
+		option.K8sRequireIPv4PodCIDRName, false, "Require IPv4 PodCIDR to be specified in node resource")
+	flags.BoolVar(&option.Config.K8sRequireIPv6PodCIDR,
+		option.K8sRequireIPv6PodCIDRName, false, "Require IPv6 PodCIDR to be specified in node resource")
 	flags.BoolVar(&option.Config.KeepConfig,
 		"keep-config", false, "When restoring state, keeps containers' configuration in place")
 	flags.BoolVar(&option.Config.KeepTemplates,
@@ -389,6 +436,11 @@ func init() {
 		"nat46-range", node.DefaultNAT46Prefix, "IPv6 prefix to map IPv4 addresses to")
 	flags.BoolVar(&masquerade,
 		"masquerade", true, "Masquerade packets from endpoints leaving the host")
+	flags.String(option.MonitorAggregationName, "None",
+		"Level of monitor aggregation for traces from the datapath")
+	viper.BindEnv(option.MonitorAggregationName, "CILIUM_MONITOR_AGGREGATION_LEVEL")
+	flags.IntVar(&option.Config.MTU,
+		option.MTUName, mtu.AutoDetect(), "Overwrite auto-detected MTU of underlying network")
 	flags.StringVar(&v6Address,
 		"ipv6-node", "auto", "IPv6 address of node")
 	flags.StringVar(&v4Address,
@@ -398,14 +450,17 @@ func init() {
 	flags.Bool("sidecar-http-proxy", false, "Disable host HTTP proxy, assuming proxies in sidecar containers")
 	flags.MarkHidden("sidecar-http-proxy")
 	viper.BindEnv("sidecar-http-proxy", "CILIUM_SIDECAR_HTTP_PROXY")
-	flags.BoolVar(&singleClusterRoute, "single-cluster-route", false,
+	flags.String("sidecar-istio-proxy-image", workloads.DefaultSidecarIstioProxyImageRegexp,
+		"Regular expression matching compatible Istio sidecar istio-proxy container image names")
+	viper.BindEnv("sidecar-istio-proxy-image", "CILIUM_SIDECAR_ISTIO_PROXY_IMAGE")
+	flags.Bool(option.SingleClusterRouteName, false,
 		"Use a single cluster route instead of per node routes")
 	flags.StringVar(&socketPath,
 		"socket-path", defaults.SockPath, "Sets daemon's socket path to listen for connections")
 	flags.StringVar(&option.Config.RunDir,
 		"state-dir", defaults.RuntimePath, "Directory path to store runtime state")
-	flags.StringVarP(&option.Config.Tunnel,
-		"tunnel", "t", "vxlan", `Tunnel mode "vxlan" or "geneve"`)
+	flags.StringP(option.TunnelName, "t", option.TunnelVXLAN, fmt.Sprintf("Tunnel mode {%s}", option.GetTunnelModes()))
+	viper.BindEnv(option.TunnelName, option.TunnelNameEnv)
 	flags.IntVar(&tracePayloadLen,
 		"trace-payloadlen", 128, "Length of payload to capture when tracing")
 	flags.Bool(
@@ -534,10 +589,18 @@ func initEnv(cmd *cobra.Command) {
 		pprof.Enable()
 	}
 
+	if configuredMTU := viper.GetInt(option.MTUName); configuredMTU != 0 {
+		mtu.UseMTU(configuredMTU)
+	}
+
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.Path + ".RunDir": option.Config.RunDir,
 		logfields.Path + ".LibDir": option.Config.LibDir,
 	})
+
+	if option.Config.LBInterface != "" {
+		service.EnableGlobalServiceID(true)
+	}
 
 	option.Config.BpfDir = filepath.Join(option.Config.LibDir, defaults.BpfDir)
 	scopedLog = scopedLog.WithField(logfields.Path+".BPFDir", defaults.BpfDir)
@@ -564,9 +627,6 @@ func initEnv(cmd *cobra.Command) {
 		}
 	}
 
-	if !(viper.GetString("tunnel") == "vxlan" || viper.GetString("tunnel") == "geneve") {
-		log.Fatalf("Invalid setting for -t, must be {vxlan, geneve}")
-	}
 	checkMinRequirements()
 
 	if err := pidfile.Write(defaults.PidFilePath); err != nil {
@@ -607,25 +667,30 @@ func initEnv(cmd *cobra.Command) {
 	// the path to an already mounted filesystem instead. This is
 	// useful if the daemon is being round inside a namespace and the
 	// BPF filesystem is mapped into the slave namespace.
-	if bpfRoot != "" {
-		bpf.SetMapRoot(bpfRoot)
-	}
-
-	bpf.MountFS()
+	bpf.CheckOrMountFS(bpfRoot)
 
 	logging.DefaultLogLevel = defaults.DefaultLogLevel
-	option.Config.Opts.Set(option.Debug, viper.GetBool("debug"))
+	option.Config.Opts.SetBool(option.Debug, viper.GetBool("debug"))
 
-	autoIPv6NodeRoutes = viper.GetBool("auto-ipv6-node-routes")
+	option.Config.Opts.SetBool(option.DropNotify, true)
+	option.Config.Opts.SetBool(option.TraceNotify, true)
+	option.Config.Opts.SetBool(option.PolicyTracing, enableTracing)
+	option.Config.Opts.SetBool(option.Conntrack, !disableConntrack)
+	option.Config.Opts.SetBool(option.ConntrackAccounting, !disableConntrack)
+	option.Config.Opts.SetBool(option.ConntrackLocal, false)
 
-	option.Config.Opts.Set(option.DropNotify, true)
-	option.Config.Opts.Set(option.TraceNotify, true)
-	option.Config.Opts.Set(option.PolicyTracing, enableTracing)
-	option.Config.Opts.Set(option.Conntrack, !disableConntrack)
-	option.Config.Opts.Set(option.ConntrackAccounting, !disableConntrack)
-	option.Config.Opts.Set(option.ConntrackLocal, false)
+	monitorAggregationLevel, err := option.ParseMonitorAggregationLevel(viper.GetString(option.MonitorAggregationName))
+	if err != nil {
+		log.WithError(err).Fatal("Failed to parse %s: %s",
+			option.MonitorAggregationName, err)
+	}
+	option.Config.Opts.SetValidated(option.MonitorAggregation, monitorAggregationLevel)
 
 	policy.SetPolicyEnabled(strings.ToLower(viper.GetString("enable-policy")))
+
+	if err := identity.AddUserDefinedNumericIdentitySet(fixedIdentity); err != nil {
+		log.Fatal("Invalid fixed identities provided: %s", err)
+	}
 
 	if err := kvstore.Setup(kvStore, kvStoreOpts); err != nil {
 		addrkey := fmt.Sprintf("%s.address", kvStore)
@@ -691,17 +756,59 @@ func initEnv(cmd *cobra.Command) {
 	}
 
 	log.Infof("Container runtime options set: %s", workloads.GetRuntimeOptions())
+
+	if viper.GetBool("sidecar-http-proxy") {
+		log.Warn(`"sidecar-http-proxy" flag is deprecated and has no effect`)
+	}
+
+	workloads.SidecarIstioProxyImageRegexp, err = regexp.Compile(viper.GetString("sidecar-istio-proxy-image"))
+	if err != nil {
+		log.WithError(err).Fatal("Invalid sidecar-istio-proxy-image regular expression")
+		return
+	}
 }
+
+func cleanupHealthEndpoint(d *Daemon) {
+	// Delete the process
+	health.KillEndpoint()
+	// Clean up agent resources
+	ip6 := node.GetIPv6HealthIP()
+	id := addressing.CiliumIPv6(ip6).EndpointID()
+	ep := endpointmanager.LookupCiliumID(id)
+	if ep == nil {
+		log.WithField(logfields.EndpointID, id).Debug("Didn't find existing cilium-health endpoint to delete")
+	} else {
+		log.Debug("Removing existing cilium-health endpoint")
+		errs := d.deleteEndpointQuiet(ep, false)
+		for _, err := range errs {
+			log.WithError(err).Debug("Error occurred while deleting cilium-health endpoint")
+		}
+	}
+	health.CleanupEndpoint()
+}
+
+// runCiliumHealthEndpoint attempts to contact the cilium-health endpoint, and
+// if it cannot be reached, restarts it.
+func runCiliumHealthEndpoint(d *Daemon) error {
+	// PingEndpoint will always fail the first time (initialization).
+	if err := health.PingEndpoint(); err != nil {
+		cleanupHealthEndpoint(d)
+		addressing := d.getNodeAddressing()
+		return health.LaunchAsEndpoint(d, addressing)
+	}
+	return nil
+}
+
 func runDaemon() {
 	log.Info("Initializing daemon")
-	d, err := NewDaemon()
+	d, restoredEndpoints, err := NewDaemon()
 	if err != nil {
 		log.WithError(err).Fatal("Error while creating daemon")
 		return
 	}
 
 	log.Info("Starting connection tracking garbage collector")
-	endpointmanager.EnableConntrackGC(!option.Config.IPv4Disabled, true)
+	endpointmanager.EnableConntrackGC(!option.Config.IPv4Disabled, true, viper.GetInt("conntrack-garbage-collector-interval"))
 
 	if enableLogstash {
 		log.Info("Enabling Logstash")
@@ -711,6 +818,77 @@ func runDaemon() {
 	log.Info("Launching node monitor daemon")
 	go d.nodeMonitor.Run(path.Join(defaults.RuntimePath, defaults.EventsPipe), bpf.GetMapRoot())
 
+	if err := d.EnableK8sWatcher(5 * time.Minute); err != nil {
+		log.WithError(err).Fatal("Unable to establish connection to Kubernetes apiserver")
+	}
+
+	cachesSynced := make(chan struct{})
+
+	go func() {
+		log.Info("Waiting until all pre-existing policies have been received")
+		d.k8sResourceSyncWaitGroup.Wait()
+		cachesSynced <- struct{}{}
+	}()
+
+	select {
+	case <-cachesSynced:
+		log.Info("All pre-existing policies have been received; continuing")
+	case <-time.After(cacheSyncTimeout):
+		log.Fatalf("Timed out waiting for pre-existing policies to be received; exiting")
+	}
+
+	if option.Config.RestoreState {
+		// When we regenerate restored endpoints, it is guaranteed tha we have
+		// received the full list of policies present at the time the daemon
+		// is bootstrapped.
+		d.regenerateRestoredEndpoints(restoredEndpoints)
+		go func() {
+			if err := d.SyncLBMap(); err != nil {
+				log.WithError(err).Warn("Error while recovering endpoints")
+			}
+		}()
+	} else {
+		log.Info("No previous state to restore. Cilium will not manage existing containers")
+		// We need to read all docker containers so we know we won't
+		// going to allocate the same IP addresses and we will ignore
+		// these containers from reading.
+		workloads.IgnoreRunningWorkloads()
+	}
+
+	d.collectStaleMapGarbage()
+
+	// The workload event listener *must* be enabled *after* restored endpoints
+	// are added into the endpoint manager; otherwise, updates to important
+	// endpoint metadata, such as Kubernetes pod name and namespace, will not
+	// be performed on the endpoint.
+	eventsCh, err := workloads.EnableEventListener()
+	if err != nil {
+		log.WithError(err).Fatal("Error while enabling workload event watcher")
+	} else {
+		d.workloadsEventsCh = eventsCh
+	}
+
+	// Allocate health endpoint IPs after restoring state
+	log.Info("Building health endpoint")
+	health4, health6, err := ipam.AllocateNext("")
+	if err != nil {
+		log.WithError(err).Fatal("Error while allocating cilium-health IP")
+	}
+
+	err = node.SetIPv4HealthIP(health4)
+	if err != nil {
+		log.WithError(err).Fatal("Error while set health IPv4 ip on the local node.")
+	}
+
+	err = node.SetIPv6HealthIP(health6)
+	if err != nil {
+		log.WithError(err).Fatal("Error while set health IPv6 ip on the local node.")
+	}
+
+	log.Debugf("IPv4 health endpoint address: %s", node.GetIPv4HealthIP())
+	log.Debugf("IPv6 health endpoint address: %s", node.GetIPv6HealthIP())
+	node.NotifyLocalNodeUpdated()
+
 	// Launch cilium-health in the same namespace as cilium.
 	log.Info("Launching Cilium health daemon")
 	d.ciliumHealth = &health.CiliumHealth{}
@@ -718,26 +896,18 @@ func runDaemon() {
 
 	// Launch another cilium-health as an endpoint, managed by cilium.
 	log.Info("Launching Cilium health endpoint")
-	addressing := d.getNodeAddressing()
-	cancelHealth := health.LaunchAsEndpoint(d, addressing, option.Config.Opts)
-	defer cancelHealth()
-
-	eventsCh, err := workloads.EnableEventListener()
-	if err != nil {
-		log.WithError(err).Fatal("Error while enabling docker event watcher")
-	} else {
-		d.workloadsEventsCh = eventsCh
-	}
-
-	if err := d.EnableK8sWatcher(5 * time.Minute); err != nil {
-		log.WithError(err).Fatal("Unable to establish connection to Kubernetes apiserver")
-	}
-
-	// This block is deprecated and will be removed later (GH-3050)
-	logPath := filepath.Join(viper.GetString("state-dir"), "cilium-envoy.log")
-	if err := os.Remove(logPath); !os.IsNotExist(err) && err != nil {
-		log.WithError(err).Warn("Error deleting cilium-envoy.log")
-	}
+	controller.NewManager().UpdateController("cilium-health-ep",
+		controller.ControllerParams{
+			DoFunc: func() error {
+				return runCiliumHealthEndpoint(d)
+			},
+			StopFunc: func() error {
+				err = health.PingEndpoint()
+				cleanupHealthEndpoint(d)
+				return err
+			},
+			RunInterval: 30 * time.Second,
+		})
 
 	swaggerSpec, err := loads.Analyzed(server.SwaggerJSON, "")
 	if err != nil {
@@ -822,9 +992,15 @@ func runDaemon() {
 	// /debuginfo
 	api.DaemonGetDebuginfoHandler = NewGetDebugInfoHandler(d)
 
+	// /map
+	api.DaemonGetMapHandler = NewGetMapHandler(d)
+	api.DaemonGetMapNameHandler = NewGetMapNameHandler(d)
+
 	server := server.NewServer(api)
 	server.EnabledListeners = []string{"unix"}
 	server.SocketPath = flags.Filename(socketPath)
+	server.ReadTimeout = apiTimeout
+	server.WriteTimeout = apiTimeout
 	defer server.Shutdown()
 
 	server.ConfigureAPI()
@@ -836,7 +1012,8 @@ func runDaemon() {
 		d.SendNotification(monitor.AgentNotifyStart, repr)
 	}
 
-	log.Info("Daemon initialization completed")
+	log.WithField("bootstrapTime", time.Since(bootstrapTimestamp)).
+		Info("Daemon initialization completed")
 
 	if err := server.Serve(); err != nil {
 		log.WithError(err).Fatal("Error returned from non-returning Serve() call")

@@ -69,7 +69,7 @@ var errors = map[uint8]string{
 	154: "Error while correcting L4 checksum",
 	155: "CT: Map insertion failed",
 	156: "Invalid IPv6 extension header",
-	157: "IPv6 fragmentation not supported",
+	157: "IP fragmentation not supported",
 	158: "Service backend not found",
 	159: "Policy denied (L4)",
 	160: "No tunnel/encapsulation endpoint (datapath BUG!)",

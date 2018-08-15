@@ -19,6 +19,8 @@ import (
 	"net"
 	"strconv"
 	"strings"
+
+	"github.com/cilium/cilium/pkg/labels"
 )
 
 const (
@@ -33,6 +35,15 @@ type exists struct{}
 // capitalization of the protocol name are automatically fixed up. More
 // fundamental violations will cause an error to be returned.
 func (r Rule) Sanitize() error {
+
+	// reject cilium-generated labels on insert.
+	// This isn't a proper function because r.Labels is a labels.LabelArray and
+	// not a labels.Labels, where we could add a function similar to GetReserved
+	for _, lbl := range r.Labels {
+		if lbl.Source == labels.LabelSourceCiliumGenerated {
+			return fmt.Errorf("rule labels cannot have cilium-generated source")
+		}
+	}
 
 	if r.EndpointSelector.LabelSelector == nil {
 		return fmt.Errorf("rule cannot have nil EndpointSelector")
@@ -125,13 +136,15 @@ func (e *EgressRule) sanitize() error {
 		"ToEndpoints": len(e.ToEndpoints),
 		"ToEntities":  len(e.ToEntities),
 		"ToServices":  len(e.ToServices),
+		"ToFQDNs":     len(e.ToFQDNs),
 	}
 	l3DependentL4Support := map[interface{}]bool{
 		"ToCIDR":      true,
 		"ToCIDRSet":   true,
 		"ToEndpoints": true,
 		"ToEntities":  true,
-		"ToServices":  false,
+		"ToServices":  true,
+		"ToFQDNs":     true,
 	}
 	for m1 := range l3Members {
 		for m2 := range l3Members {
@@ -309,10 +322,11 @@ func (cidr CIDR) sanitize() (prefixLength int, err error) {
 
 	_, ipnet, err := net.ParseCIDR(strCIDR)
 	if err == nil {
-		// Returns the prefix length as zero if the mask is not continuous.
-		prefixLength, _ = ipnet.Mask.Size()
-		if prefixLength == 0 {
-			return 0, fmt.Errorf("Mask length can not be zero")
+		var bits int
+		prefixLength, bits = ipnet.Mask.Size()
+		if prefixLength == 0 && bits == 0 {
+			return 0, fmt.Errorf("CIDR cannot specify non-contiguous mask %s",
+				ipnet.Mask.String())
 		}
 	} else {
 		// Try to parse as a fully masked IP or an IP subnetwork
@@ -334,13 +348,14 @@ func (c *CIDRRule) sanitize() (prefixLength int, err error) {
 	// the logic in api.CIDR.Sanitize().
 	_, cidrNet, err := net.ParseCIDR(string(c.Cidr))
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("Unable to parse CIDRRule %q: %s", c.Cidr, err)
 	}
 
-	// Returns the prefix length as zero if the mask is not continuous.
-	prefixLength, _ = cidrNet.Mask.Size()
-	if prefixLength == 0 {
-		return 0, fmt.Errorf("Mask length can not be zero")
+	var bits int
+	prefixLength, bits = cidrNet.Mask.Size()
+	if prefixLength == 0 && bits == 0 {
+		return 0, fmt.Errorf("CIDR cannot specify non-contiguous mask %s",
+			cidrNet.Mask.String())
 	}
 
 	// Ensure that each provided exception CIDR prefix  is formatted correctly,

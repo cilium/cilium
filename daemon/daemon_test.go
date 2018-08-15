@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/completion"
 	e "github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
@@ -57,13 +58,12 @@ type DaemonSuite struct {
 	OnAlwaysAllowLocalhost            func() bool
 	OnGetCachedLabelList              func(id identity.NumericIdentity) (labels.LabelArray, error)
 	OnGetPolicyRepository             func() *policy.Repository
-	OnUpdateProxyRedirect             func(e *e.Endpoint, l4 *policy.L4Filter) (uint16, error)
-	OnRemoveProxyRedirect             func(e *e.Endpoint, id string) error
-	OnUpdateNetworkPolicy             func(e *e.Endpoint, policy *policy.L4Policy, labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool) error
+	OnUpdateProxyRedirect             func(e *e.Endpoint, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error)
+	OnRemoveProxyRedirect             func(e *e.Endpoint, id string, proxyWaitGroup *completion.WaitGroup) error
+	OnUpdateNetworkPolicy             func(e *e.Endpoint, policy *policy.L4Policy, labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, proxyWaitGroup *completion.WaitGroup) error
 	OnRemoveNetworkPolicy             func(e *e.Endpoint)
 	OnGetStateDir                     func() string
 	OnGetBpfDir                       func() string
-	OnGetTunnelMode                   func() string
 	OnQueueEndpointBuild              func(r *e.Request)
 	OnRemoveFromEndpointQueue         func(epID uint64)
 	OnDebugEnabled                    func() bool
@@ -86,7 +86,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 
 	option.Config.DryMode = true
-	option.Config.Opts = option.NewBoolOptions(&option.DaemonMutableOptionLibrary)
+	option.Config.Opts = option.NewIntOptions(&option.DaemonMutableOptionLibrary)
 	option.Config.Device = "undefined"
 	option.Config.RunDir = tempRunDir
 	option.Config.StateDir = tempRunDir
@@ -95,14 +95,14 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	// GetConfig the default labels prefix filter
 	err = labels.ParseLabelPrefixCfg(nil, "")
 	c.Assert(err, IsNil)
-	option.Config.Opts.Set(option.DropNotify, true)
-	option.Config.Opts.Set(option.TraceNotify, true)
+	option.Config.Opts.SetBool(option.DropNotify, true)
+	option.Config.Opts.SetBool(option.TraceNotify, true)
 
 	// Disable restore of host IPs for unit tests. There can be arbitrary
 	// state left on disk.
 	option.Config.EnableHostIPRestore = false
 
-	d, err := NewDaemon()
+	d, _, err := NewDaemon()
 	c.Assert(err, IsNil)
 	ds.d = d
 
@@ -124,7 +124,6 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	ds.OnRemoveNetworkPolicy = nil
 	ds.OnGetStateDir = nil
 	ds.OnGetBpfDir = nil
-	ds.OnGetTunnelMode = nil
 	ds.OnQueueEndpointBuild = nil
 	ds.OnRemoveFromEndpointQueue = nil
 	ds.OnDebugEnabled = nil
@@ -180,7 +179,7 @@ func (e *DaemonConsulSuite) TearDownTest(c *C) {
 }
 
 func (ds *DaemonSuite) TestMinimumWorkerThreadsIsSet(c *C) {
-	c.Assert(numWorkerThreads() >= 4, Equals, true)
+	c.Assert(numWorkerThreads() >= 2, Equals, true)
 	c.Assert(numWorkerThreads() >= runtime.NumCPU(), Equals, true)
 }
 
@@ -226,24 +225,24 @@ func (ds *DaemonSuite) GetPolicyRepository() *policy.Repository {
 	panic("GetPolicyRepository should not have been called")
 }
 
-func (ds *DaemonSuite) UpdateProxyRedirect(e *e.Endpoint, l4 *policy.L4Filter) (uint16, error) {
+func (ds *DaemonSuite) UpdateProxyRedirect(e *e.Endpoint, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error) {
 	if ds.OnUpdateProxyRedirect != nil {
-		return ds.OnUpdateProxyRedirect(e, l4)
+		return ds.OnUpdateProxyRedirect(e, l4, proxyWaitGroup)
 	}
 	panic("UpdateProxyRedirect should not have been called")
 }
 
-func (ds *DaemonSuite) RemoveProxyRedirect(e *e.Endpoint, id string) error {
+func (ds *DaemonSuite) RemoveProxyRedirect(e *e.Endpoint, id string, proxyWatiGroup *completion.WaitGroup) error {
 	if ds.OnRemoveProxyRedirect != nil {
-		return ds.OnRemoveProxyRedirect(e, id)
+		return ds.OnRemoveProxyRedirect(e, id, proxyWatiGroup)
 	}
 	panic("RemoveProxyRedirect should not have been called")
 }
 
 func (ds *DaemonSuite) UpdateNetworkPolicy(e *e.Endpoint, policy *policy.L4Policy,
-	labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool) error {
+	labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, proxyWaitGroup *completion.WaitGroup) error {
 	if ds.OnUpdateNetworkPolicy != nil {
-		return ds.OnUpdateNetworkPolicy(e, policy, labelsMap, deniedIngressIdentities, deniedEgressIdentities)
+		return ds.OnUpdateNetworkPolicy(e, policy, labelsMap, deniedIngressIdentities, deniedEgressIdentities, proxyWaitGroup)
 	}
 	panic("UpdateNetworkPolicy should not have been called")
 }
@@ -267,13 +266,6 @@ func (ds *DaemonSuite) GetBpfDir() string {
 		return ds.OnGetBpfDir()
 	}
 	panic("GetBpfDir should not have been called")
-}
-
-func (ds *DaemonSuite) GetTunnelMode() string {
-	if ds.OnGetTunnelMode != nil {
-		return ds.OnGetTunnelMode()
-	}
-	panic("GetTunnelMode should not have been called")
 }
 
 func (ds *DaemonSuite) QueueEndpointBuild(r *e.Request) {

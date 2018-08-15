@@ -23,7 +23,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 
 	"github.com/spf13/cobra"
 )
@@ -123,7 +123,7 @@ func updateService(cmd *cobra.Command, args []string) {
 			Fatalf("Cannot parse backend address \"%s\": %s", backend, err)
 		}
 
-		be, err := types.NewLBBackEnd(types.TCP, beAddr.IP, uint16(beAddr.Port), uint16(weight))
+		be, err := loadbalancer.NewLBBackEnd(loadbalancer.TCP, beAddr.IP, uint16(beAddr.Port), uint16(weight))
 		if err != nil {
 			Fatalf("Unable to create a new L3n4Addr for backend %s: %s", backend, err)
 		}

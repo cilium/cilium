@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2016-2017 Authors of Cilium
+ *  Copyright (C) 2016-2018 Authors of Cilium
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -64,8 +64,6 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 
 		l4_off = l3_off + hdrlen;
 		return ipv6_local_delivery(skb, l3_off, l4_off, key.tunnel_id, ip6, nexthdr, ep, METRIC_INGRESS);
-	} else {
-		return DROP_NON_LOCAL;
 	}
 
 to_host:
@@ -115,8 +113,6 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 			goto to_host;
 
 		return ipv4_local_delivery(skb, ETH_HLEN, l4_off, key.tunnel_id, ip4, ep, METRIC_INGRESS);
-	} else {
-		return DROP_NON_LOCAL;
 	}
 
 to_host:
@@ -140,7 +136,7 @@ to_host:
 #endif
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4) int tail_handle_ipv4(struct __sk_buff *skb)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC) int tail_handle_ipv4(struct __sk_buff *skb)
 {
 	int ret = handle_ipv4(skb);
 
@@ -159,7 +155,8 @@ int from_overlay(struct __sk_buff *skb)
 
 	bpf_clear_cb(skb);
 
-	send_trace_notify(skb, TRACE_FROM_OVERLAY, 0, 0, 0, skb->ingress_ifindex, 0);
+	send_trace_notify(skb, TRACE_FROM_OVERLAY, 0, 0, 0,
+			  skb->ingress_ifindex, 0, true);
 
 	switch (skb->protocol) {
 	case bpf_htons(ETH_P_IPV6):
@@ -169,7 +166,7 @@ int from_overlay(struct __sk_buff *skb)
 
 	case bpf_htons(ETH_P_IP):
 #ifdef ENABLE_IPV4
-		ep_tail_call(skb, CILIUM_CALL_IPV4);
+		ep_tail_call(skb, CILIUM_CALL_IPV4_FROM_LXC);
 		ret = DROP_MISSED_TAIL_CALL;
 #else
 		ret = DROP_UNKNOWN_L3;

@@ -1,3 +1,9 @@
+.. only:: not (epub or latex or html)
+
+    WARNING: You are looking at unreleased Cilium documentation.
+    Please use the official rendered version released here:
+    http://docs.cilium.io
+
 .. _gs_guide:
 
 Getting Started Guides
@@ -21,6 +27,13 @@ complete will help you to get started in your area of choice:
    elasticsearch
    mesos
    docker
+
+.. toctree::
+  :hidden:
+
+  cilium_install
+  cilium_install_crio
+  cilium_install_docker
 
 The best way to get help if you get stuck is to ask a question on the `Cilium
 Slack channel <https://cilium.herokuapp.com>`_.  With Cilium contributors

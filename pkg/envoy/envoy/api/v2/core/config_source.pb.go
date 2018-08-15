@@ -50,14 +50,14 @@ func (x ApiConfigSource_ApiType) String() string {
 	return proto.EnumName(ApiConfigSource_ApiType_name, int32(x))
 }
 func (ApiConfigSource_ApiType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_config_source_68fd82b1c2258aa8, []int{0, 0}
+	return fileDescriptor_config_source_86f287b481865861, []int{0, 0}
 }
 
 // API configuration source. This identifies the API type and cluster that Envoy
 // will use to fetch an xDS API.
 type ApiConfigSource struct {
-	ApiType ApiConfigSource_ApiType `protobuf:"varint,1,opt,name=api_type,json=apiType,enum=envoy.api.v2.core.ApiConfigSource_ApiType" json:"api_type,omitempty"`
-	// Multiple cluster names may be provided for REST_LEGACY/REST. If > 1
+	ApiType ApiConfigSource_ApiType `protobuf:"varint,1,opt,name=api_type,json=apiType,proto3,enum=envoy.api.v2.core.ApiConfigSource_ApiType" json:"api_type,omitempty"`
+	// Cluster names should be used only with REST_LEGACY/REST. If > 1
 	// cluster is defined, clusters will be cycled through if any kind of failure
 	// occurs.
 	//
@@ -65,17 +65,12 @@ type ApiConfigSource struct {
 	//
 	//  The cluster with name ``cluster_name`` must be statically defined and its
 	//  type must not be ``EDS``.
-	ClusterNames []string `protobuf:"bytes,2,rep,name=cluster_names,json=clusterNames" json:"cluster_names,omitempty"`
+	ClusterNames []string `protobuf:"bytes,2,rep,name=cluster_names,json=clusterNames,proto3" json:"cluster_names,omitempty"`
 	// Multiple gRPC services be provided for GRPC. If > 1 cluster is defined,
 	// services will be cycled through if any kind of failure occurs.
-	//
-	// .. note::
-	//
-	//  If a gRPC service points to a ``cluster_name``, it must be statically
-	//  defined and its type must not be ``EDS``.
-	GrpcServices []*GrpcService `protobuf:"bytes,4,rep,name=grpc_services,json=grpcServices" json:"grpc_services,omitempty"`
+	GrpcServices []*GrpcService `protobuf:"bytes,4,rep,name=grpc_services,json=grpcServices,proto3" json:"grpc_services,omitempty"`
 	// For REST APIs, the delay between successive polls.
-	RefreshDelay         *duration.Duration `protobuf:"bytes,3,opt,name=refresh_delay,json=refreshDelay" json:"refresh_delay,omitempty"`
+	RefreshDelay         *duration.Duration `protobuf:"bytes,3,opt,name=refresh_delay,json=refreshDelay,proto3" json:"refresh_delay,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -85,7 +80,7 @@ func (m *ApiConfigSource) Reset()         { *m = ApiConfigSource{} }
 func (m *ApiConfigSource) String() string { return proto.CompactTextString(m) }
 func (*ApiConfigSource) ProtoMessage()    {}
 func (*ApiConfigSource) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_source_68fd82b1c2258aa8, []int{0}
+	return fileDescriptor_config_source_86f287b481865861, []int{0}
 }
 func (m *ApiConfigSource) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ApiConfigSource.Unmarshal(m, b)
@@ -146,7 +141,7 @@ func (m *AggregatedConfigSource) Reset()         { *m = AggregatedConfigSource{}
 func (m *AggregatedConfigSource) String() string { return proto.CompactTextString(m) }
 func (*AggregatedConfigSource) ProtoMessage()    {}
 func (*AggregatedConfigSource) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_source_68fd82b1c2258aa8, []int{1}
+	return fileDescriptor_config_source_86f287b481865861, []int{1}
 }
 func (m *AggregatedConfigSource) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AggregatedConfigSource.Unmarshal(m, b)
@@ -187,7 +182,7 @@ func (m *ConfigSource) Reset()         { *m = ConfigSource{} }
 func (m *ConfigSource) String() string { return proto.CompactTextString(m) }
 func (*ConfigSource) ProtoMessage()    {}
 func (*ConfigSource) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_source_68fd82b1c2258aa8, []int{2}
+	return fileDescriptor_config_source_86f287b481865861, []int{2}
 }
 func (m *ConfigSource) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ConfigSource.Unmarshal(m, b)
@@ -212,18 +207,22 @@ type isConfigSource_ConfigSourceSpecifier interface {
 }
 
 type ConfigSource_Path struct {
-	Path string `protobuf:"bytes,1,opt,name=path,oneof"`
-}
-type ConfigSource_ApiConfigSource struct {
-	ApiConfigSource *ApiConfigSource `protobuf:"bytes,2,opt,name=api_config_source,json=apiConfigSource,oneof"`
-}
-type ConfigSource_Ads struct {
-	Ads *AggregatedConfigSource `protobuf:"bytes,3,opt,name=ads,oneof"`
+	Path string `protobuf:"bytes,1,opt,name=path,proto3,oneof"`
 }
 
-func (*ConfigSource_Path) isConfigSource_ConfigSourceSpecifier()            {}
+type ConfigSource_ApiConfigSource struct {
+	ApiConfigSource *ApiConfigSource `protobuf:"bytes,2,opt,name=api_config_source,json=apiConfigSource,proto3,oneof"`
+}
+
+type ConfigSource_Ads struct {
+	Ads *AggregatedConfigSource `protobuf:"bytes,3,opt,name=ads,proto3,oneof"`
+}
+
+func (*ConfigSource_Path) isConfigSource_ConfigSourceSpecifier() {}
+
 func (*ConfigSource_ApiConfigSource) isConfigSource_ConfigSourceSpecifier() {}
-func (*ConfigSource_Ads) isConfigSource_ConfigSourceSpecifier()             {}
+
+func (*ConfigSource_Ads) isConfigSource_ConfigSourceSpecifier() {}
 
 func (m *ConfigSource) GetConfigSourceSpecifier() isConfigSource_ConfigSourceSpecifier {
 	if m != nil {
@@ -350,10 +349,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("envoy/api/v2/core/config_source.proto", fileDescriptor_config_source_68fd82b1c2258aa8)
+	proto.RegisterFile("envoy/api/v2/core/config_source.proto", fileDescriptor_config_source_86f287b481865861)
 }
 
-var fileDescriptor_config_source_68fd82b1c2258aa8 = []byte{
+var fileDescriptor_config_source_86f287b481865861 = []byte{
 	// 459 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x92, 0xbf, 0x6e, 0xdb, 0x3c,
 	0x14, 0xc5, 0x4d, 0x49, 0xf9, 0x92, 0xd0, 0xf6, 0x67, 0x87, 0x08, 0x1a, 0x35, 0x83, 0x2b, 0xa8,

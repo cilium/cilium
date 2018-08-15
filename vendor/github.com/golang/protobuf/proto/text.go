@@ -169,11 +169,6 @@ func writeName(w *textWriter, props *Properties) error {
 	return nil
 }
 
-// raw is the interface satisfied by RawMessage.
-type raw interface {
-	Bytes() []byte
-}
-
 func requiresQuotes(u string) bool {
 	// When type URL contains any characters except [0-9A-Za-z./\-]*, it must be quoted.
 	for _, ch := range u {
@@ -439,12 +434,6 @@ func (tm *TextMarshaler) writeStruct(w *textWriter, sv reflect.Value) error {
 				return err
 			}
 		}
-		if b, ok := fv.Interface().(raw); ok {
-			if err := writeRaw(w, b.Bytes()); err != nil {
-				return err
-			}
-			continue
-		}
 
 		// Enums have a String method, so writeAny will work fine.
 		if err := tm.writeAny(w, fv, props); err != nil {
@@ -464,27 +453,6 @@ func (tm *TextMarshaler) writeStruct(w *textWriter, sv reflect.Value) error {
 		}
 	}
 
-	return nil
-}
-
-// writeRaw writes an uninterpreted raw message.
-func writeRaw(w *textWriter, b []byte) error {
-	if err := w.WriteByte('<'); err != nil {
-		return err
-	}
-	if !w.compact {
-		if err := w.WriteByte('\n'); err != nil {
-			return err
-		}
-	}
-	w.indent()
-	if err := writeUnknownStruct(w, b); err != nil {
-		return err
-	}
-	w.unindent()
-	if err := w.WriteByte('>'); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -564,7 +532,7 @@ func (tm *TextMarshaler) writeAny(w *textWriter, v reflect.Value, props *Propert
 				v = v.Elem()
 			}
 			if err := tm.writeStruct(w, v); err != nil {
-			return err
+				return err
 			}
 		}
 		w.unindent()

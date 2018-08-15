@@ -22,6 +22,7 @@ import (
 
 	endpointApi "github.com/cilium/cilium/api/v1/client/endpoint"
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/command"
 
 	"github.com/spf13/cobra"
@@ -43,7 +44,7 @@ var endpointGetCmd = &cobra.Command{
 		var endpointInst []*models.Endpoint
 
 		if len(lbls) > 0 {
-			params := endpointApi.NewGetEndpointParams().WithLabels(lbls)
+			params := endpointApi.NewGetEndpointParams().WithLabels(lbls).WithTimeout(api.ClientTimeout)
 			result, err := client.Endpoint.GetEndpoint(params)
 			if err != nil {
 				Fatalf("Cannot get endpoints for given list of labels %s: %s\n", lbls, err)

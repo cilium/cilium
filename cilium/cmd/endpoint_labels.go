@@ -19,9 +19,10 @@ import (
 	"os"
 	"text/tabwriter"
 
-	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/color"
+	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/labels/model"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/spf13/cobra"
@@ -38,7 +39,7 @@ var endpointLabelsCmd = &cobra.Command{
 	Short:  "Manage label configuration of endpoint",
 	PreRun: requireEndpointID,
 	Run: func(cmd *cobra.Command, args []string) {
-		_, id, _ := endpoint.ValidateID(args[0])
+		_, id, _ := endpointid.ValidateID(args[0])
 		addLabels := labels.NewLabelsFromModel(toAdd).GetModel()
 
 		deleteLabels := labels.NewLabelsFromModel(toDelete).GetModel()
@@ -56,7 +57,7 @@ var endpointLabelsCmd = &cobra.Command{
 		case lbls == nil || lbls.Status == nil:
 			Fatalf("Cannot get endpoint labels: empty response")
 		default:
-			printEndpointLabels(labels.NewOplabelsFromModel(lbls.Status))
+			printEndpointLabels(model.NewOplabelsFromModel(lbls.Status))
 		}
 	},
 }
@@ -73,12 +74,12 @@ func printEndpointLabels(lbls *labels.OpLabels) {
 	w := tabwriter.NewWriter(os.Stdout, 2, 0, 3, ' ', 0)
 
 	for _, v := range lbls.IdentityLabels() {
-		text := common.Green("Enabled")
+		text := color.Green("Enabled")
 		fmt.Fprintf(w, "%s\t%s\n", v, text)
 	}
 
 	for _, v := range lbls.Disabled {
-		text := common.Red("Disabled")
+		text := color.Red("Disabled")
 		fmt.Fprintf(w, "%s\t%s\n", v, text)
 	}
 	w.Flush()

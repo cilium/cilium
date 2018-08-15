@@ -21,19 +21,24 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var log = logging.DefaultLogger
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "endpoint")
 
 // logger returns a logrus object with EndpointID, ContainerID and the Endpoint
 // revision fields.
-// Note: You must hold Endpoint.Mutex
+// Note: You must hold Endpoint.Mutex for reading
 func (e *Endpoint) getLogger() *logrus.Entry {
 	e.updateLogger()
-	return e.logger
+
+	e.loggerMutex.RLock()
+	logger := e.logger
+	e.loggerMutex.RUnlock()
+
+	return logger
 }
 
 // updateLogger creates a logger instance specific to this endpoint. It will
 // create a custom Debug logger for this endpoint when the option on it is set.
-// Note: You must hold Endpoint.Mutex
+// Note: You must hold Endpoint.Mutex for reading
 func (e *Endpoint) updateLogger() {
 	containerID := e.getShortContainerID()
 
@@ -46,14 +51,14 @@ func (e *Endpoint) updateLogger() {
 	//   endpoint from the logger.
 	// - The debug option on the endpoint is true, and the logger is not debug,
 	//   or vice versa.
-	shouldUpdate := e.logger == nil ||
+	shouldUpdate := e.logger == nil || e.Options == nil ||
 		e.logger.Data[logfields.EndpointID] != e.ID ||
 		e.logger.Data[logfields.ContainerID] != containerID ||
 		e.logger.Data[logfields.PolicyRevision] != e.policyRevision ||
 		e.logger.Data[logfields.IPv4] != e.IPv4.String() ||
 		e.logger.Data[logfields.IPv6] != e.IPv6.String() ||
 		e.logger.Data[logfields.K8sPodName] != podName ||
-		e.Opts.IsEnabled("Debug") != (e.logger.Level == logrus.DebugLevel)
+		e.Options.IsEnabled("Debug") != (e.logger.Level == logrus.DebugLevel)
 
 	// do nothing if we do not need an update
 	if !shouldUpdate {
@@ -61,17 +66,17 @@ func (e *Endpoint) updateLogger() {
 	}
 
 	// default to using the log var set above
-	baseLogger := log
+	baseLogger := log.Logger
 
 	// If this endpoint is set to debug ensure it will print debug by giving it
 	// an independent logger
-	if e.Opts != nil && e.Opts.IsEnabled("Debug") {
+	if e.Options != nil && e.Options.IsEnabled("Debug") {
 		baseLogger = logging.InitializeDefaultLogger()
 		baseLogger.SetLevel(logrus.DebugLevel)
 	}
 
-	// update the logger object.
-	// Note: endpoint.Mutex protects the reference but not the logger objects. We
+	e.loggerMutex.Lock()
+	// Note: endpoint.loggerMutex protects the reference but not the logger objects. We
 	// cannot update the old object directly as that could be racey.
 	e.logger = baseLogger.WithFields(logrus.Fields{
 		logfields.EndpointID:     e.ID,
@@ -81,4 +86,5 @@ func (e *Endpoint) updateLogger() {
 		logfields.IPv6:           e.IPv6.String(),
 		logfields.K8sPodName:     podName,
 	})
+	e.loggerMutex.Unlock()
 }

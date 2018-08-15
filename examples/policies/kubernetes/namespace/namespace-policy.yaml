@@ -1,0 +1,14 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "k8s-expose-across-namespace"
+  namespace: ns1
+spec:
+  endpointSelector:
+    matchLabels:
+      name: leia
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: ns2
+        name: luke

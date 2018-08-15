@@ -1,3 +1,9 @@
+.. only:: not (epub or latex or html)
+
+    WARNING: You are looking at unreleased Cilium documentation.
+    Please use the official rendered version released here:
+    http://docs.cilium.io
+
 .. _policy_examples:
 
 Layer 3 Examples
@@ -28,6 +34,11 @@ can talk to each other. Layer 3 policies can be specified using the following me
   IP addresses or subnets into the policies. This construct should be used as a
   last resort as it requires stable IP or subnet assignments.
 
+* `DNS based`: Selects remote, non-cluster, peers using DNS names converted to
+  IPs via DNS lookups. It shares all limitations of the `CIDR based` rules
+  above. The current implementation simply polls the listed DNS targets without
+  regard for TTLs, and allows traffics from IPs listed in the DNS responses.
+
 .. _Labels based:
 
 Labels Based
@@ -39,14 +50,9 @@ cluster managed by Cilium. Label-based L3 policies are defined by using an
 received (on ingress), or sent (on egress). An empty `EndpointSelector` allows
 all traffic. The examples below demonstrate this in further detail.
 
-When Cilium is running with Kubernetes as an orchestrator, Cilium Network
-Policies are enforced by ``Namespace``. If an explicit namespace selector is
-not defined in the rule's `EndpointSelector`, then an implicit selector will be
-added to the rule which matches on the namespace where the policy is installed.
-A special case for this is that empty `EndpointSelector` only allows *endpoints
-managed by Cilium within the namespace where the policy is installed* to
-send/receive traffic, rather than allowing the endpoint to send/receive *all*
-traffic.
+.. note:: **Kubernetes:** See section :ref:`k8s_namespaces` for details on how
+	  the `EndpointSelector` applies in a Kubernetes environment with
+	  regard to namespaces.
 
 Ingress
 ~~~~~~~
@@ -364,6 +370,10 @@ will apply to traffic where one side of the connection is:
 * The host network namespace where the pod is running.
 * Within the cluster prefix but the IP's networking is not provided by Cilium.
 
+.. note::
+
+   When running Cilium on Linux 4.10 or earlier, there are :ref:`cidr_limitations`.
+
 Ingress
 ~~~~~~~
 
@@ -412,6 +422,77 @@ but not CIDR prefix ``10.96.0.0/12``
 .. only:: epub or latex
 
         .. literalinclude:: ../../examples/policies/l3/cidr/cidr.json
+
+.. _DNS based:
+
+DNS based
+---------
+
+``toFQDNs`` simplifies specifying egress policy to IPs of remote, external,
+peers. The DNS lookup for each ``matchName`` is done periodically by
+``cilium-agent`` and the result is used to regenerate endpoint policy. This
+allows tracking changing IPs or sets of IPs that may not be known a priori.
+Despite the naming, the ``matchName`` field does not have to be a
+fully-qualified domain name. In cases where search domains are configured, the
+DNS lookups from ``cilium`` will not be qualified and will utilize the search
+list.
+
+The DNS lookups are repeated with an interval of 5 seconds, and are made for
+A(IPv4) and AAAA(IPv6) addresses. Should a lookup fail, the most recent IP data
+is used instead. An IP change will trigger a regeneration of the ``cilium``
+policy for each endpoint, and the updated IPs can be seen in the response from
+``cilium policy get``. Each update will also increment the per ``cilium-agent``
+policy repository revision.
+
+``toFQDNs`` rules cannot contain any other L3 rules, such as ``toEndpoints``
+(under `Labels Based`_) and ``toCIDRs`` (under `CIDR Based`_). They can contain
+L4/L7 rules, such as ``toPorts`` (see `Layer 4 Examples`_)  and, optionally,
+with ``HTTP`` and ``Kafka`` sections (see `Layer 7 Examples`_).
+
+.. note:: ``toFQDNs`` rules are marked on import with a
+          ``cilium-generated:ToFQDN-UUID`` label. This is for internal
+          bookkeeping and can be safely ignored.
+
+
+.. note:: The DNS resolver must be explicitly whitelisted to allow cilium-agent
+          to send the DNS polls. This is illustrated in the example below.
+
+Example
+~~~~~~~
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../examples/policies/l3/fqdn/fqdn.yaml
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../../examples/policies/l3/fqdn/fqdn.json
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../examples/policies/l3/fqdn/fqdn.json
+
+Limitations
+~~~~~~~~~~~
+
+The current ``toFQDNs`` implementation is very limited. It may not behave as expected.
+
+#. The DNS polling is done from the ``cilium-agent`` process. This may result
+   in different IPs being returned in the DNS response than those seen by an
+   endpoint or pod.
+
+#. The IP response is used as-is. For DNS responses that return a new IP on
+   every query this may result in a different IP being whitelisted than the one
+   used for current connections.
+
+#. The lookups from ``cilium`` follow the configuration of the environment it
+   is in via ``/etc/resolv.conf``. When running as a pod, the contents of
+   ``resolv.conf`` are controlled via the ``dnsPolicy`` field of a spec. When
+   running directly on a host, it will use the host's file.  Irrespective of
+   how the DNS lookups are configured, TTLs and caches on the resolver will
+   impact the IPs seen by the ``cilium-agent`` lookups.
 
 .. _l4_policy:
 
@@ -742,4 +823,163 @@ Allow producing to topic empire-announce using apiKeys
 .. only:: epub or latex
 
         .. literalinclude:: ../../examples/policies/l7/kafka/kafka.json
+
+Kubernetes
+==========
+
+This section covers Kubernetes specific network policy aspects.
+
+.. _k8s_namespaces:
+
+Namespaces
+----------
+
+`Namespaces <https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/>`_
+are used to create virtual clusters within a Kubernetes cluster. All Kubernetes objects
+including NetworkPolicy and CiliumNetworkPolicy belong to a particular
+namespace. Depending on how a policy is being defined and created, Kubernetes
+namespaces are automatically being taken into account:
+
+* Network policies created and imported as `CiliumNetworkPolicy` CRD and
+  `NetworkPolicy` apply within the namespace, i.e. the policy only applies
+  to pods within that namespace. It is however possible to grant access to and
+  from pods in other namespaces as described below.
+
+* Network policies imported directly via the :ref:`api_ref` apply to all
+  namespaces unless a namespace selector is specified as described below.
+
+.. note:: While specification of the namespace via the label
+	  ``k8s:io.kubernetes.pod.namespace`` in the ``fromEndpoints`` and
+	  ``toEndpoints`` fields is deliberately supported. Specification of the
+	  namespace in the ``endpointSelector`` is prohibited as it would
+	  violate the namespace isolation principle of Kubernetes. The
+	  ``endpointSelector`` always applies to pods of the namespace which is
+	  associated with the CiliumNetworkPolicy resource itself.
+
+Example: Enforce namespace boundaries
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This example demonstrates how to enforce Kubernetes namespace-based boundaries
+for the namespaces ``ns1`` and ``ns2`` by enabling default-deny on all pods of
+either namespace and then allowing communication from all pods within the same
+namespace.
+
+.. note:: The example locks down ingress of the pods in ``ns1`` and ``ns2``.
+	  This means that the pods can still communicate egress to anywhere
+	  unless the destination is in either ``ns1`` or ``ns2`` in which case
+	  both source and destination have to be in the same namespace. In
+	  order to enforce namespace boundaries at egress, the same example can
+	  be used by specifying the rules at egress in addition to ingress.
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../examples/policies/kubernetes/namespace/isolate-namespaces.yaml
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../../examples/policies/kubernetes/namespace/isolate-namespaces.json
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../examples/policies/kubernetes/namespace/isolate-namespaces.json
+
+Example: Expose pods across namespaces
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The following example exposes all pods with the label ``name=leia`` in the
+namespace ``ns1`` to all pods with the label ``name=luke`` in the namespace
+``ns2``.
+
+Refer to the :git-tree:`example YAML files <examples/policies/kubernetes/namespace/demo-pods.yaml>`
+for a fully functional example including pods deployed to different namespaces.
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../examples/policies/kubernetes/namespace/namespace-policy.yaml
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../../examples/policies/kubernetes/namespace/namespace-policy.json
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../examples/policies/kubernetes/namespace/namespace-policy.json
+
+Example: Allow egress to kube-dns in kube-system namespace
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The following example allows all pods in the namespace in which the policy is
+created to communicate with kube-dns on port 53/UDP in the ``kube-system``
+namespace.
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../examples/policies/kubernetes/namespace/kubedns-policy.yaml
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../../examples/policies/kubernetes/namespace/kubedns-policy.json
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../examples/policies/kubernetes/namespace/kubedns-policy.json
+
+
+ServiceAccounts
+----------------
+
+Kubernetes `Service Accounts
+<https://kubernetes.io/docs/concepts/configuration/assign-pod-node/>`_ are used
+to associate an identity to a pod or process managed by Kubernetes and grant
+identities access to Kubernetes resources and secrets. Cilium supports the
+specification of network security policies based on the service account
+identity of a pod.
+
+The service account of a pod is either defined via the `service account
+admission controller
+<https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/#serviceaccount>`_
+or can be directly specified in the Pod, Deployment, ReplicationController
+resource like this:
+
+.. code:: bash
+
+        apiVersion: v1
+        kind: Pod
+        metadata:
+          name: my-pod
+        spec:
+          serviceAccountName: leia
+          ...
+
+Example
+~~~~~~~
+
+The following example grants any pod running under the service account of
+"luke" to issue a ``HTTP GET /public`` request on TCP port 80 to all pods
+running associated to the service account of "leia".
+
+Refer to the :git-tree:`example YAML files <examples/policies/kubernetes/serviceaccount/demo-pods.yaml>`
+for a fully functional example including deployment and service account
+resources.
+
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../examples/policies/kubernetes/serviceaccount/serviceaccount-policy.yaml
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../../examples/policies/kubernetes/serviceaccount/serviceaccount-policy.json
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../examples/policies/kubernetes/serviceaccount/serviceaccount-policy.json
 

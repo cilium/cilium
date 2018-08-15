@@ -39,7 +39,7 @@ func (x FaultDelay_FaultDelayType) String() string {
 	return proto.EnumName(FaultDelay_FaultDelayType_name, int32(x))
 }
 func (FaultDelay_FaultDelayType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_fault_baadf3ba35285408, []int{0, 0}
+	return fileDescriptor_fault_2b52d9bee2de8d9c, []int{0, 0}
 }
 
 // Delay specification is used to inject latency into the
@@ -47,10 +47,10 @@ func (FaultDelay_FaultDelayType) EnumDescriptor() ([]byte, []int) {
 type FaultDelay struct {
 	// Delay type to use (fixed|exponential|..). Currently, only fixed delay (step function) is
 	// supported.
-	Type FaultDelay_FaultDelayType `protobuf:"varint,1,opt,name=type,enum=envoy.config.filter.fault.v2.FaultDelay_FaultDelayType" json:"type,omitempty"`
+	Type FaultDelay_FaultDelayType `protobuf:"varint,1,opt,name=type,proto3,enum=envoy.config.filter.fault.v2.FaultDelay_FaultDelayType" json:"type,omitempty"`
 	// An integer between 0-100 indicating the percentage of operations/connection requests
 	// on which the delay will be injected.
-	Percent uint32 `protobuf:"varint,2,opt,name=percent" json:"percent,omitempty"`
+	Percent uint32 `protobuf:"varint,2,opt,name=percent,proto3" json:"percent,omitempty"`
 	// Types that are valid to be assigned to FaultDelaySecifier:
 	//	*FaultDelay_FixedDelay
 	FaultDelaySecifier   isFaultDelay_FaultDelaySecifier `protobuf_oneof:"fault_delay_secifier"`
@@ -63,7 +63,7 @@ func (m *FaultDelay) Reset()         { *m = FaultDelay{} }
 func (m *FaultDelay) String() string { return proto.CompactTextString(m) }
 func (*FaultDelay) ProtoMessage()    {}
 func (*FaultDelay) Descriptor() ([]byte, []int) {
-	return fileDescriptor_fault_baadf3ba35285408, []int{0}
+	return fileDescriptor_fault_2b52d9bee2de8d9c, []int{0}
 }
 func (m *FaultDelay) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FaultDelay.Unmarshal(m, b)
@@ -83,23 +83,6 @@ func (m *FaultDelay) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_FaultDelay proto.InternalMessageInfo
 
-type isFaultDelay_FaultDelaySecifier interface {
-	isFaultDelay_FaultDelaySecifier()
-}
-
-type FaultDelay_FixedDelay struct {
-	FixedDelay *duration.Duration `protobuf:"bytes,3,opt,name=fixed_delay,json=fixedDelay,oneof"`
-}
-
-func (*FaultDelay_FixedDelay) isFaultDelay_FaultDelaySecifier() {}
-
-func (m *FaultDelay) GetFaultDelaySecifier() isFaultDelay_FaultDelaySecifier {
-	if m != nil {
-		return m.FaultDelaySecifier
-	}
-	return nil
-}
-
 func (m *FaultDelay) GetType() FaultDelay_FaultDelayType {
 	if m != nil {
 		return m.Type
@@ -112,6 +95,23 @@ func (m *FaultDelay) GetPercent() uint32 {
 		return m.Percent
 	}
 	return 0
+}
+
+type isFaultDelay_FaultDelaySecifier interface {
+	isFaultDelay_FaultDelaySecifier()
+}
+
+type FaultDelay_FixedDelay struct {
+	FixedDelay *duration.Duration `protobuf:"bytes,3,opt,name=fixed_delay,json=fixedDelay,proto3,oneof"`
+}
+
+func (*FaultDelay_FixedDelay) isFaultDelay_FaultDelaySecifier() {}
+
+func (m *FaultDelay) GetFaultDelaySecifier() isFaultDelay_FaultDelaySecifier {
+	if m != nil {
+		return m.FaultDelaySecifier
+	}
+	return nil
 }
 
 func (m *FaultDelay) GetFixedDelay() *duration.Duration {
@@ -182,10 +182,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/fault/v2/fault.proto", fileDescriptor_fault_baadf3ba35285408)
+	proto.RegisterFile("envoy/config/filter/fault/v2/fault.proto", fileDescriptor_fault_2b52d9bee2de8d9c)
 }
 
-var fileDescriptor_fault_baadf3ba35285408 = []byte{
+var fileDescriptor_fault_2b52d9bee2de8d9c = []byte{
 	// 319 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x8f, 0x4d, 0x4b, 0xfb, 0x30,
 	0x1c, 0xc7, 0x97, 0x6c, 0xfb, 0xff, 0x59, 0x86, 0x63, 0x84, 0x81, 0x75, 0x3e, 0x8d, 0x79, 0x29,

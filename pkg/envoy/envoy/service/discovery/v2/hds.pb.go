@@ -52,13 +52,13 @@ func (x Capability_Protocol) String() string {
 	return proto.EnumName(Capability_Protocol_name, int32(x))
 }
 func (Capability_Protocol) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_hds_41519b306ca672c7, []int{0, 0}
+	return fileDescriptor_hds_070ff65e274fcf0d, []int{0, 0}
 }
 
 // Defines supported protocols etc, so the management server can assign proper
 // endpoints to healthcheck.
 type Capability struct {
-	HealthCheckProtocol  []Capability_Protocol `protobuf:"varint,1,rep,packed,name=health_check_protocol,json=healthCheckProtocol,enum=envoy.service.discovery.v2.Capability_Protocol" json:"health_check_protocol,omitempty"`
+	HealthCheckProtocol  []Capability_Protocol `protobuf:"varint,1,rep,packed,name=health_check_protocol,json=healthCheckProtocol,proto3,enum=envoy.service.discovery.v2.Capability_Protocol" json:"health_check_protocol,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
 	XXX_unrecognized     []byte                `json:"-"`
 	XXX_sizecache        int32                 `json:"-"`
@@ -68,7 +68,7 @@ func (m *Capability) Reset()         { *m = Capability{} }
 func (m *Capability) String() string { return proto.CompactTextString(m) }
 func (*Capability) ProtoMessage()    {}
 func (*Capability) Descriptor() ([]byte, []int) {
-	return fileDescriptor_hds_41519b306ca672c7, []int{0}
+	return fileDescriptor_hds_070ff65e274fcf0d, []int{0}
 }
 func (m *Capability) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Capability.Unmarshal(m, b)
@@ -96,8 +96,8 @@ func (m *Capability) GetHealthCheckProtocol() []Capability_Protocol {
 }
 
 type HealthCheckRequest struct {
-	Node                 *core.Node  `protobuf:"bytes,1,opt,name=node" json:"node,omitempty"`
-	Capability           *Capability `protobuf:"bytes,2,opt,name=capability" json:"capability,omitempty"`
+	Node                 *core.Node  `protobuf:"bytes,1,opt,name=node,proto3" json:"node,omitempty"`
+	Capability           *Capability `protobuf:"bytes,2,opt,name=capability,proto3" json:"capability,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
 	XXX_unrecognized     []byte      `json:"-"`
 	XXX_sizecache        int32       `json:"-"`
@@ -107,7 +107,7 @@ func (m *HealthCheckRequest) Reset()         { *m = HealthCheckRequest{} }
 func (m *HealthCheckRequest) String() string { return proto.CompactTextString(m) }
 func (*HealthCheckRequest) ProtoMessage()    {}
 func (*HealthCheckRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_hds_41519b306ca672c7, []int{1}
+	return fileDescriptor_hds_070ff65e274fcf0d, []int{1}
 }
 func (m *HealthCheckRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HealthCheckRequest.Unmarshal(m, b)
@@ -142,8 +142,8 @@ func (m *HealthCheckRequest) GetCapability() *Capability {
 }
 
 type EndpointHealth struct {
-	Endpoint             *endpoint.Endpoint `protobuf:"bytes,1,opt,name=endpoint" json:"endpoint,omitempty"`
-	HealthStatus         core.HealthStatus  `protobuf:"varint,2,opt,name=health_status,json=healthStatus,enum=envoy.api.v2.core.HealthStatus" json:"health_status,omitempty"`
+	Endpoint             *endpoint.Endpoint `protobuf:"bytes,1,opt,name=endpoint,proto3" json:"endpoint,omitempty"`
+	HealthStatus         core.HealthStatus  `protobuf:"varint,2,opt,name=health_status,json=healthStatus,proto3,enum=envoy.api.v2.core.HealthStatus" json:"health_status,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -153,7 +153,7 @@ func (m *EndpointHealth) Reset()         { *m = EndpointHealth{} }
 func (m *EndpointHealth) String() string { return proto.CompactTextString(m) }
 func (*EndpointHealth) ProtoMessage()    {}
 func (*EndpointHealth) Descriptor() ([]byte, []int) {
-	return fileDescriptor_hds_41519b306ca672c7, []int{2}
+	return fileDescriptor_hds_070ff65e274fcf0d, []int{2}
 }
 func (m *EndpointHealth) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_EndpointHealth.Unmarshal(m, b)
@@ -188,7 +188,7 @@ func (m *EndpointHealth) GetHealthStatus() core.HealthStatus {
 }
 
 type EndpointHealthResponse struct {
-	EndpointsHealth      []*EndpointHealth `protobuf:"bytes,1,rep,name=endpoints_health,json=endpointsHealth" json:"endpoints_health,omitempty"`
+	EndpointsHealth      []*EndpointHealth `protobuf:"bytes,1,rep,name=endpoints_health,json=endpointsHealth,proto3" json:"endpoints_health,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`
@@ -198,7 +198,7 @@ func (m *EndpointHealthResponse) Reset()         { *m = EndpointHealthResponse{}
 func (m *EndpointHealthResponse) String() string { return proto.CompactTextString(m) }
 func (*EndpointHealthResponse) ProtoMessage()    {}
 func (*EndpointHealthResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_hds_41519b306ca672c7, []int{3}
+	return fileDescriptor_hds_070ff65e274fcf0d, []int{3}
 }
 func (m *EndpointHealthResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_EndpointHealthResponse.Unmarshal(m, b)
@@ -243,7 +243,7 @@ func (m *HealthCheckRequestOrEndpointHealthResponse) String() string {
 }
 func (*HealthCheckRequestOrEndpointHealthResponse) ProtoMessage() {}
 func (*HealthCheckRequestOrEndpointHealthResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_hds_41519b306ca672c7, []int{4}
+	return fileDescriptor_hds_070ff65e274fcf0d, []int{4}
 }
 func (m *HealthCheckRequestOrEndpointHealthResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HealthCheckRequestOrEndpointHealthResponse.Unmarshal(m, b)
@@ -268,14 +268,16 @@ type isHealthCheckRequestOrEndpointHealthResponse_RequestType interface {
 }
 
 type HealthCheckRequestOrEndpointHealthResponse_HealthCheckRequest struct {
-	HealthCheckRequest *HealthCheckRequest `protobuf:"bytes,1,opt,name=health_check_request,json=healthCheckRequest,oneof"`
+	HealthCheckRequest *HealthCheckRequest `protobuf:"bytes,1,opt,name=health_check_request,json=healthCheckRequest,proto3,oneof"`
 }
+
 type HealthCheckRequestOrEndpointHealthResponse_EndpointHealthResponse struct {
-	EndpointHealthResponse *EndpointHealthResponse `protobuf:"bytes,2,opt,name=endpoint_health_response,json=endpointHealthResponse,oneof"`
+	EndpointHealthResponse *EndpointHealthResponse `protobuf:"bytes,2,opt,name=endpoint_health_response,json=endpointHealthResponse,proto3,oneof"`
 }
 
 func (*HealthCheckRequestOrEndpointHealthResponse_HealthCheckRequest) isHealthCheckRequestOrEndpointHealthResponse_RequestType() {
 }
+
 func (*HealthCheckRequestOrEndpointHealthResponse_EndpointHealthResponse) isHealthCheckRequestOrEndpointHealthResponse_RequestType() {
 }
 
@@ -375,8 +377,8 @@ func _HealthCheckRequestOrEndpointHealthResponse_OneofSizer(msg proto.Message) (
 }
 
 type LocalityEndpoints struct {
-	Locality             *core.Locality       `protobuf:"bytes,1,opt,name=locality" json:"locality,omitempty"`
-	Endpoints            []*endpoint.Endpoint `protobuf:"bytes,2,rep,name=endpoints" json:"endpoints,omitempty"`
+	Locality             *core.Locality       `protobuf:"bytes,1,opt,name=locality,proto3" json:"locality,omitempty"`
+	Endpoints            []*endpoint.Endpoint `protobuf:"bytes,2,rep,name=endpoints,proto3" json:"endpoints,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
 	XXX_unrecognized     []byte               `json:"-"`
 	XXX_sizecache        int32                `json:"-"`
@@ -386,7 +388,7 @@ func (m *LocalityEndpoints) Reset()         { *m = LocalityEndpoints{} }
 func (m *LocalityEndpoints) String() string { return proto.CompactTextString(m) }
 func (*LocalityEndpoints) ProtoMessage()    {}
 func (*LocalityEndpoints) Descriptor() ([]byte, []int) {
-	return fileDescriptor_hds_41519b306ca672c7, []int{5}
+	return fileDescriptor_hds_070ff65e274fcf0d, []int{5}
 }
 func (m *LocalityEndpoints) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LocalityEndpoints.Unmarshal(m, b)
@@ -425,9 +427,9 @@ func (m *LocalityEndpoints) GetEndpoints() []*endpoint.Endpoint {
 // Envoy instance (outside of HDS). For maximum usefulness, it should match the
 // same cluster structure as that provided by EDS.
 type ClusterHealthCheck struct {
-	ClusterName          string               `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName" json:"cluster_name,omitempty"`
-	HealthChecks         []*core.HealthCheck  `protobuf:"bytes,2,rep,name=health_checks,json=healthChecks" json:"health_checks,omitempty"`
-	Endpoints            []*LocalityEndpoints `protobuf:"bytes,3,rep,name=endpoints" json:"endpoints,omitempty"`
+	ClusterName          string               `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName,proto3" json:"cluster_name,omitempty"`
+	HealthChecks         []*core.HealthCheck  `protobuf:"bytes,2,rep,name=health_checks,json=healthChecks,proto3" json:"health_checks,omitempty"`
+	Endpoints            []*LocalityEndpoints `protobuf:"bytes,3,rep,name=endpoints,proto3" json:"endpoints,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
 	XXX_unrecognized     []byte               `json:"-"`
 	XXX_sizecache        int32                `json:"-"`
@@ -437,7 +439,7 @@ func (m *ClusterHealthCheck) Reset()         { *m = ClusterHealthCheck{} }
 func (m *ClusterHealthCheck) String() string { return proto.CompactTextString(m) }
 func (*ClusterHealthCheck) ProtoMessage()    {}
 func (*ClusterHealthCheck) Descriptor() ([]byte, []int) {
-	return fileDescriptor_hds_41519b306ca672c7, []int{6}
+	return fileDescriptor_hds_070ff65e274fcf0d, []int{6}
 }
 func (m *ClusterHealthCheck) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ClusterHealthCheck.Unmarshal(m, b)
@@ -479,9 +481,9 @@ func (m *ClusterHealthCheck) GetEndpoints() []*LocalityEndpoints {
 }
 
 type HealthCheckSpecifier struct {
-	HealthCheck []*ClusterHealthCheck `protobuf:"bytes,1,rep,name=health_check,json=healthCheck" json:"health_check,omitempty"`
+	HealthCheck []*ClusterHealthCheck `protobuf:"bytes,1,rep,name=health_check,json=healthCheck,proto3" json:"health_check,omitempty"`
 	// The default is 1 second.
-	Interval             *duration.Duration `protobuf:"bytes,2,opt,name=interval" json:"interval,omitempty"`
+	Interval             *duration.Duration `protobuf:"bytes,2,opt,name=interval,proto3" json:"interval,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -491,7 +493,7 @@ func (m *HealthCheckSpecifier) Reset()         { *m = HealthCheckSpecifier{} }
 func (m *HealthCheckSpecifier) String() string { return proto.CompactTextString(m) }
 func (*HealthCheckSpecifier) ProtoMessage()    {}
 func (*HealthCheckSpecifier) Descriptor() ([]byte, []int) {
-	return fileDescriptor_hds_41519b306ca672c7, []int{7}
+	return fileDescriptor_hds_070ff65e274fcf0d, []int{7}
 }
 func (m *HealthCheckSpecifier) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HealthCheckSpecifier.Unmarshal(m, b)
@@ -750,10 +752,10 @@ var _HealthDiscoveryService_serviceDesc = grpc.ServiceDesc{
 }
 
 func init() {
-	proto.RegisterFile("envoy/service/discovery/v2/hds.proto", fileDescriptor_hds_41519b306ca672c7)
+	proto.RegisterFile("envoy/service/discovery/v2/hds.proto", fileDescriptor_hds_070ff65e274fcf0d)
 }
 
-var fileDescriptor_hds_41519b306ca672c7 = []byte{
+var fileDescriptor_hds_070ff65e274fcf0d = []byte{
 	// 717 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x55, 0xc1, 0x6e, 0xd3, 0x4a,
 	0x14, 0xcd, 0x24, 0x7d, 0x8f, 0xf4, 0x26, 0x84, 0x74, 0x28, 0x25, 0x84, 0xaa, 0x2d, 0x56, 0x41,

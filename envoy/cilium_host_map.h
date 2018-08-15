@@ -51,7 +51,7 @@ class PolicyHostMap : public Singleton::Instance,
 public:
   PolicyHostMap(const envoy::api::v2::core::Node& node,
 		Upstream::ClusterManager& cm, Event::Dispatcher& dispatcher,
-		Stats::Scope &scope, ThreadLocal::SlotAllocator& tls);
+		Runtime::RandomGenerator& random, Stats::Scope &scope, ThreadLocal::SlotAllocator& tls);
   PolicyHostMap(std::unique_ptr<Envoy::Config::Subscription<cilium::NetworkPolicyHosts>>&& subscription,
 		ThreadLocal::SlotAllocator& tls);
   PolicyHostMap(ThreadLocal::SlotAllocator& tls);

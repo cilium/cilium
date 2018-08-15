@@ -38,6 +38,9 @@ if [[ ! $(command -v cilium) ]]; then
 	exit 1
 fi
 
+# Remove old legacy files
+rm $RUNDIR/encap.state 2> /dev/null || true
+
 # Enable JIT if compiled into kernel
 echo 1 > /proc/sys/net/core/bpf_jit_enable || true
 
@@ -143,13 +146,13 @@ function setup_proxy_rules()
 	if [ -n "$(ip -4 rule list)" ]; then
 		ip -4 route flush table $PROXY_RT_TABLE
 		# Any packet from a proxy uses a separate routing table
-		ip -4 rule add fwmark 0xFEA/0xFFF pref 10 lookup $PROXY_RT_TABLE
+		ip -4 rule add fwmark 0xA00/0xF00 pref 10 lookup $PROXY_RT_TABLE
 	fi
 
 	if [ -n "$(ip -6 rule list)" ]; then
 		ip -6 route flush table $PROXY_RT_TABLE
 		# Any packet from a proxy uses a separate routing table
-		ip -6 rule add fwmark 0xFEA/0xFFF pref 10 lookup $PROXY_RT_TABLE
+		ip -6 rule add fwmark 0xA00/0xF00 pref 10 lookup $PROXY_RT_TABLE
 	fi
 
 	if [ -n "$IP4_HOST" ]; then
@@ -176,7 +179,7 @@ function bpf_compile()
 	TYPE=$3
 	EXTRA_OPTS=$4
 
-	clang -O2 -target bpf -emit-llvm				\
+	clang -O2 -g -target bpf -emit-llvm				\
 	      -Wno-address-of-packed-member -Wno-unknown-warning-option	\
 	      -I. -I$DIR -I$LIB/include					\
 	      -D__NR_CPUS__=$(nproc)					\
@@ -184,7 +187,7 @@ function bpf_compile()
 	      -DHANDLE_NS						\
 	      $EXTRA_OPTS						\
 	      -c $LIB/$IN -o - |					\
-	llc -march=bpf -mcpu=probe -filetype=$TYPE -o $OUT
+	llc -march=bpf -mcpu=probe -mattr=dwarfris -filetype=$TYPE -o $OUT
 }
 
 function xdp_load()
@@ -200,7 +203,7 @@ function xdp_load()
 	bpf_compile $IN $OUT obj "$OPTS"
 
 	ip link set dev $DEV $MODE off
-	rm -f "/sys/fs/bpf/xdp/globals/$CIDR_MAP" 2> /dev/null || true
+	rm -f "$CILIUM_BPF_MNT/xdp/globals/$CIDR_MAP" 2> /dev/null || true
 	cilium-map-migrate -s $OUT
 	set +e
 	ip link set dev $DEV $MODE obj $OUT sec $SEC
@@ -320,15 +323,10 @@ if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
 	POLICY_MAP="cilium_policy_reserved_${ID_WORLD}"
 	OPTS="-DSECLABEL=${ID_WORLD} -DPOLICY_MAP=${POLICY_MAP}"
 	bpf_load $ENCAP_DEV "$OPTS" "ingress" bpf_overlay.c bpf_overlay.o from-overlay ${CALLS_MAP}
-	echo "$ENCAP_DEV" > $RUNDIR/encap.state
 else
-	FILE=$RUNDIR/encap.state
-	if [ -f $FILE ]; then
-		DEV=$(cat $FILE)
-		echo "Removed BPF program from device $DEV"
-		tc qdisc del dev $DEV clsact 2> /dev/null || true
-		rm $FILE
-	fi
+	# Remove eventual existing encapsulation device from previous run
+	ip link del cilium_vxlan 2> /dev/null || true
+	ip link del cilium_geneve 2> /dev/null || true
 fi
 
 if [ "$MODE" = "direct" ]; then

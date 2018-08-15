@@ -23,18 +23,16 @@ import (
 	"github.com/cilium/cilium/test/helpers"
 
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 )
 
-var _ = Describe("RuntimeValidatedCLI", func() {
+var _ = Describe("RuntimeCLI", func() {
 
-	var logger *logrus.Entry
 	var vm *helpers.SSHMeta
 
 	BeforeAll(func() {
-		logger = log.WithFields(logrus.Fields{"testName": "RuntimeCLI"})
-		logger.Info("Starting")
-		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
+		ExpectCiliumReady(vm)
+
 		areEndpointsReady := vm.WaitEndpointsReady()
 		Expect(areEndpointsReady).Should(BeTrue())
 	})

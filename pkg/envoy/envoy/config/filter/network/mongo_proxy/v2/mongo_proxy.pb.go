@@ -23,16 +23,16 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 type MongoProxy struct {
 	// The human readable prefix to use when emitting :ref:`statistics
 	// <config_network_filters_mongo_proxy_stats>`.
-	StatPrefix string `protobuf:"bytes,1,opt,name=stat_prefix,json=statPrefix" json:"stat_prefix,omitempty"`
+	StatPrefix string `protobuf:"bytes,1,opt,name=stat_prefix,json=statPrefix,proto3" json:"stat_prefix,omitempty"`
 	// The optional path to use for writing Mongo access logs. If not access log
 	// path is specified no access logs will be written. Note that access log is
 	// also gated :ref:`runtime <config_network_filters_mongo_proxy_runtime>`.
-	AccessLog string `protobuf:"bytes,2,opt,name=access_log,json=accessLog" json:"access_log,omitempty"`
+	AccessLog string `protobuf:"bytes,2,opt,name=access_log,json=accessLog,proto3" json:"access_log,omitempty"`
 	// Inject a fixed delay before proxying a Mongo operation. Delays are
 	// applied to the following MongoDB operations: Query, Insert, GetMore,
 	// and KillCursors. Once an active delay is in progress, all incoming
 	// data up until the timer event fires will be a part of the delay.
-	Delay                *v2.FaultDelay `protobuf:"bytes,3,opt,name=delay" json:"delay,omitempty"`
+	Delay                *v2.FaultDelay `protobuf:"bytes,3,opt,name=delay,proto3" json:"delay,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
 	XXX_unrecognized     []byte         `json:"-"`
 	XXX_sizecache        int32          `json:"-"`
@@ -42,7 +42,7 @@ func (m *MongoProxy) Reset()         { *m = MongoProxy{} }
 func (m *MongoProxy) String() string { return proto.CompactTextString(m) }
 func (*MongoProxy) ProtoMessage()    {}
 func (*MongoProxy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_mongo_proxy_a4fc3529d3146800, []int{0}
+	return fileDescriptor_mongo_proxy_cd28cb31ed2ca818, []int{0}
 }
 func (m *MongoProxy) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_MongoProxy.Unmarshal(m, b)
@@ -88,10 +88,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/network/mongo_proxy/v2/mongo_proxy.proto", fileDescriptor_mongo_proxy_a4fc3529d3146800)
+	proto.RegisterFile("envoy/config/filter/network/mongo_proxy/v2/mongo_proxy.proto", fileDescriptor_mongo_proxy_cd28cb31ed2ca818)
 }
 
-var fileDescriptor_mongo_proxy_a4fc3529d3146800 = []byte{
+var fileDescriptor_mongo_proxy_cd28cb31ed2ca818 = []byte{
 	// 245 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xb2, 0x49, 0xcd, 0x2b, 0xcb,
 	0xaf, 0xd4, 0x4f, 0xce, 0xcf, 0x4b, 0xcb, 0x4c, 0xd7, 0x4f, 0xcb, 0xcc, 0x29, 0x49, 0x2d, 0xd2,

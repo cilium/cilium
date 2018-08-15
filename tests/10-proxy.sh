@@ -78,6 +78,12 @@ function proxy_init {
   wait_for_docker_ipv6_addr server2
   wait_for_docker_ipv6_addr client
 
+  log "waiting for all 4 endpoints to get an identity"
+  while [ `cilium endpoint list -o jsonpath='{range [*]}{.status.identity.id}{"\n"}{end}' | grep '^[0-9]' | grep -v '^5$' | wc -l` -ne 4 ] ; do
+    log "waiting..."
+    sleep 1
+  done
+
   monitor_start
   log "finished proxy_init"
 }

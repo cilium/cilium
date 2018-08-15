@@ -39,6 +39,10 @@ var (
 	// names and separated with a '_'
 	Namespace = "cilium"
 
+	// Datapath is the subsystem to scope metrics related to management of
+	// the datapath. It is prepended to metric names and separated with a '_'.
+	Datapath = "datapath"
+
 	// Labels
 
 	// LabelValueOutcomeSuccess is used as a successful outcome of an operation
@@ -56,6 +60,16 @@ var (
 	// LabelEventSourceContainerd marks event-related metrics that come from docker
 	LabelEventSourceContainerd = "docker"
 
+	// LabelDatapathArea marks which area the metrics are related to (eg, which BPF map)
+	LabelDatapathArea = "area"
+
+	// LabelDatapathName marks a unique identifier for this metric.
+	// The name should be defined once for a given type of error.
+	LabelDatapathName = "name"
+
+	// LabelDatapathFamily marks which protocol family (IPv4, IPV6) the metric is related to.
+	LabelDatapathFamily = "family"
+
 	// Endpoint
 
 	// EndpointCount is a function used to collect this metric.
@@ -66,7 +80,7 @@ var (
 	EndpointCountRegenerating = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: Namespace,
 		Name:      "endpoint_regenerating",
-		Help:      "Number of endpoints currently regenerating",
+		Help:      "Number of endpoints currently regenerating. Deprecated. Use endpoint_state with proper labels instead",
 	})
 
 	// EndpointRegenerationCount is a count of the number of times any endpoint
@@ -78,6 +92,31 @@ var (
 	},
 		[]string{"outcome"})
 
+	// EndpointRegenerationTime is the total time taken to regenerate endpoint
+	EndpointRegenerationTime = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Name:      "endpoint_regeneration_seconds_total",
+		Help:      "Total sum of successful endpoint regeneration times",
+	})
+
+	// EndpointRegenerationTimeSquare is the sum of squares of total time taken
+	// to regenerate endpoint.
+	EndpointRegenerationTimeSquare = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Name:      "endpoint_regeneration_square_seconds_total",
+		Help:      "Total sum of squares of successful endpoint regeneration times",
+	})
+
+	// EndpointStateCount is the total count of the endpoints in various states.
+	EndpointStateCount = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: Namespace,
+			Name:      "endpoint_state",
+			Help:      "Count of all endpoints, tagged by different endpoint states",
+		},
+		[]string{"endpoint_state"},
+	)
+
 	// Policy
 
 	// PolicyCount is the number of policies loaded into the agent
@@ -85,6 +124,29 @@ var (
 		Namespace: Namespace,
 		Name:      "policy_count",
 		Help:      "Number of policies currently loaded",
+	})
+
+	// PolicyRegenerationCount is the total number of successful policy
+	// regenerations.
+	PolicyRegenerationCount = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Name:      "policy_regeneration_total",
+		Help:      "Total number of successful policy regenerations",
+	})
+
+	// PolicyRegenerationTime is the total time taken to generate policies
+	PolicyRegenerationTime = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Name:      "policy_regeneration_seconds_total",
+		Help:      "Total sum of successful policy regeneration times",
+	})
+
+	// PolicyRegenerationTimeSquare is the sum of squares of total time taken
+	// to generate policies
+	PolicyRegenerationTimeSquare = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Name:      "policy_regeneration_square_seconds_total",
+		Help:      "Total sum of squares of successful policy regeneration times",
 	})
 
 	// PolicyRevision is the current policy revision number for this agent
@@ -180,6 +242,18 @@ var (
 		Help:      "Total forwarded packets, tagged by ingress/egress direction",
 	},
 		[]string{"direction"})
+
+	// Datapath statistics
+
+	// DatapathErrors is the number of errors managing datapath components
+	// such as BPF maps.
+	DatapathErrors = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Subsystem: Datapath,
+		Name:      "errors_total",
+		Help:      "Number of errors that occurred in the datapath or datapath management",
+	},
+		[]string{LabelDatapathArea, LabelDatapathName, LabelDatapathFamily})
 )
 
 func init() {
@@ -189,8 +263,14 @@ func init() {
 
 	MustRegister(EndpointCountRegenerating)
 	MustRegister(EndpointRegenerationCount)
+	MustRegister(EndpointRegenerationTime)
+	MustRegister(EndpointRegenerationTimeSquare)
+	MustRegister(EndpointStateCount)
 
 	MustRegister(PolicyCount)
+	MustRegister(PolicyRegenerationCount)
+	MustRegister(PolicyRegenerationTime)
+	MustRegister(PolicyRegenerationTimeSquare)
 	MustRegister(PolicyRevision)
 	MustRegister(PolicyImportErrors)
 
@@ -205,6 +285,10 @@ func init() {
 
 	MustRegister(DropCount)
 	MustRegister(ForwardCount)
+
+	MustRegister(newStatusCollector())
+
+	MustRegister(DatapathErrors)
 }
 
 // MustRegister adds the collector to the registry, exposing this metric to

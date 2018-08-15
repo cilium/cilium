@@ -18,7 +18,7 @@ TARGET=cilium-node-monitor
 SOURCES := $(shell find ../monitor ../common ../pkg ../api . \( -name '*.go' ! -name '*_test.go' \))
 $(TARGET): $(SOURCES)
 	@$(ECHO_GO)
-	$(GO) build -i $(GOBUILD) -o $(TARGET)
+	$(GO) build $(GOBUILD) -o $(TARGET)
 
 all: $(TARGET)
 

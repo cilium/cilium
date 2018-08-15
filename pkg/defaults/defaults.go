@@ -49,9 +49,15 @@ const (
 	// SockPathEnv is the environment variable to overwrite SockPath
 	SockPathEnv = "CILIUM_SOCK"
 
-	// MonitorSockPath is the path to the UNIX domain socket used to distribute events
-	// between multiple monitors.
-	MonitorSockPath = RuntimePath + "/monitor.sock"
+	// MonitorSockPath1_0 is the path to the UNIX domain socket used to
+	// distribute BPF and agent events to listeners.
+	// This is the 1.0 protocol version.
+	MonitorSockPath1_0 = RuntimePath + "/monitor.sock"
+
+	// MonitorSockPath1_2 is the path to the UNIX domain socket used to
+	// distribute BPF and agent events to listeners.
+	// This is the 1.2 protocol version.
+	MonitorSockPath1_2 = RuntimePath + "/monitor1_2.sock"
 
 	// PidFilePath is the path to the pid file for the agent.
 	PidFilePath = RuntimePath + "/cilium.pid"
@@ -66,4 +72,14 @@ const (
 	// EnableHostIPRestore controls whether the host IP should be restored
 	// from previous state automatically
 	EnableHostIPRestore = true
+
+	// DefaultMapRoot is the default path where BPFFS should be mounted
+	DefaultMapRoot = "/sys/fs/bpf"
+
+	// DefaultMapRootFallback is the path which is used when /sys/fs/bpf has
+	// a mount, but with the other filesystem than BPFFS.
+	DefaultMapRootFallback = "/run/cilium/bpffs"
+
+	// DefaultMapPrefix is the default prefix for all BPF maps.
+	DefaultMapPrefix = "tc/globals"
 )

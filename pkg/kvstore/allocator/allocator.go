@@ -17,16 +17,15 @@ package allocator
 import (
 	"errors"
 	"fmt"
-	"math/rand"
 	"path"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/uuid"
 
@@ -34,7 +33,7 @@ import (
 )
 
 var (
-	log = logrus.WithField(logfields.LogSubsys, "allocator")
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "allocator")
 )
 
 const (
@@ -48,7 +47,7 @@ const (
 
 	// listTimeout is the time to wait for the initial list operation to
 	// succeed when creating a new allocator
-	listTimeout = 60 * time.Second
+	listTimeout = 3 * time.Minute
 
 	// gcInterval is the interval in which allocator identities are
 	// attempted to be expired from the kvstore
@@ -66,9 +65,6 @@ type ID uint64
 func (i ID) String() string {
 	return strconv.FormatUint(uint64(i), 10)
 }
-
-// IDMap provides mapping from ID to an AllocatorKey
-type IDMap map[ID]AllocatorKey
 
 // Allocator is a distributed ID allocator backed by a KVstore. It maps
 // arbitrary keys to identifiers. Multiple users on different cluster nodes can
@@ -134,28 +130,12 @@ type IDMap map[ID]AllocatorKey
 //  3. If the node goes down, all slave keys of that node are removed after
 //     the TTL expires (auto release).
 type Allocator struct {
-	// Events is a channel which will receive AllocatorEvent as IDs are
+	// events is a channel which will receive AllocatorEvent as IDs are
 	// added, modified or removed from the allocator
-	Events AllocatorEventChan
+	events AllocatorEventChan
 
 	// keyType is an instance of the type to be used as allocator key.
 	keyType AllocatorKey
-
-	// mute protects the id to key mapping cache
-	mutex lock.RWMutex
-
-	// cache is a local cache of all IDs allocated in the kvstore. It is
-	// being maintained by watching for kvstore events and can thus lag
-	// behind.
-	cache IDMap
-
-	// nextCache is the cache is constantly being filled by startWatch(),
-	// when startWatch has successfully performed the initial fill using
-	// ListPrefix, the cache above will be pointed to nextCache. If the
-	// startWatch() fails to perform the initial list, then the cache is
-	// never pointed to nextCache. This guarantees that a valid cache is
-	// kept at all times.
-	nextCache IDMap
 
 	// basePrefix is the prefix in the kvstore that all keys share which
 	// are being managed by this allocator. The basePrefix typically
@@ -183,6 +163,10 @@ type Allocator struct {
 	// allocate an ID greater than this value.
 	max ID
 
+	// prefixMask if set, will be ORed to all selected IDs prior to
+	// allocation
+	prefixMask ID
+
 	// localKeys contains all keys including their reference count for keys
 	// which have been allocated and are in local use
 	localKeys *localKeys
@@ -198,12 +182,22 @@ type Allocator struct {
 	// backoffTemplate is the backoff configuration while allocating
 	backoffTemplate backoff.Exponential
 
-	// idWatcherStop is the channel used to stop the kvstore watcher
-	idWatcherStop chan struct{}
-	idWatcherWg   sync.WaitGroup
+	// mainCache is the main cache, representing the allocator contents of
+	// the primary kvstore connection
+	mainCache cache
+
+	// remoteCachesMutex protects accesse to remoteCaches
+	remoteCachesMutex lock.RWMutex
+
+	// remoteCaches is the list of additional remote caches being watched
+	// in addition to the main cache
+	remoteCaches map[*RemoteCache]struct{}
 
 	// stopGC is the channel used to stop the garbage collector
 	stopGC chan struct{}
+
+	// idPool maintains a pool of available ids for allocation.
+	idPool *idPool
 }
 
 func locklessCapability() bool {
@@ -234,19 +228,18 @@ func NewAllocator(basePath string, typ AllocatorKey, opts ...AllocatorOption) (*
 	}
 
 	a := &Allocator{
-		keyType:     typ,
-		basePrefix:  basePath,
-		idPrefix:    path.Join(basePath, "id"),
-		valuePrefix: path.Join(basePath, "value"),
-		lockPrefix:  path.Join(basePath, "locks"),
-		min:         1,
-		max:         ID(^uint64(0)),
-		localKeys:   newLocalKeys(),
-		stopGC:      make(chan struct{}, 0),
-		suffix:      uuid.NewUUID().String()[:10],
-		cache:       IDMap{},
-		lockless:    locklessCapability(),
-		Events:      make(AllocatorEventChan, 1024),
+		keyType:      typ,
+		basePrefix:   basePath,
+		idPrefix:     path.Join(basePath, "id"),
+		valuePrefix:  path.Join(basePath, "value"),
+		lockPrefix:   path.Join(basePath, "locks"),
+		min:          1,
+		max:          ID(^uint64(0)),
+		localKeys:    newLocalKeys(),
+		stopGC:       make(chan struct{}, 0),
+		suffix:       uuid.NewUUID().String()[:10],
+		lockless:     locklessCapability(),
+		remoteCaches: map[*RemoteCache]struct{}{},
 		backoffTemplate: backoff.Exponential{
 			Min:    time.Duration(20) * time.Millisecond,
 			Factor: 2.0,
@@ -256,6 +249,11 @@ func NewAllocator(basePath string, typ AllocatorKey, opts ...AllocatorOption) (*
 	for _, fn := range opts {
 		fn(a)
 	}
+
+	a.mainCache = newCache(kvstore.Client(), a.idPrefix)
+
+	// invalid prefixes are only deleted from the main cache
+	a.mainCache.deleteInvalidPrefixes = true
 
 	if a.suffix == "<nil>" {
 		return nil, errors.New("Allocator suffix is <nil> and unlikely unique")
@@ -269,13 +267,27 @@ func NewAllocator(basePath string, typ AllocatorKey, opts ...AllocatorOption) (*
 		return nil, errors.New("Maximum ID must be greater than minimum ID")
 	}
 
-	if err := a.startWatchAndWait(); err != nil {
-		return nil, err
-	}
+	a.idPool = newIDPool(a.min, a.max)
 
-	a.startGC()
+	go func() {
+		if err := a.mainCache.startAndWait(a); err != nil {
+			log.WithError(err).Fatalf("Unable to watch allocation prefix")
+		}
+
+		a.startGC()
+	}()
 
 	return a, nil
+}
+
+// WithEvents enables receiving of events.
+//
+// CAUTION: When using this function. The provided channel must be continuously
+// read while NewAllocator() is being called to ensure that the channel does
+// not block indefinitely while NewAllocator() emits events on it while
+// populating the initial cache.
+func WithEvents(events AllocatorEventChan) AllocatorOption {
+	return func(a *Allocator) { a.events = events }
 }
 
 // WithSuffix sets the suffix of the allocator to the specified value
@@ -293,11 +305,22 @@ func WithMax(id ID) AllocatorOption {
 	return func(a *Allocator) { a.max = id }
 }
 
+// WithPrefixMask sets the prefix used for all ID allocations. If set, the mask
+// will be ORed to all selected IDs prior to allocation. It is the
+// responsibility of the caller to ensure that the mask is not conflicting with
+// min..max.
+func WithPrefixMask(mask ID) AllocatorOption {
+	return func(a *Allocator) { a.prefixMask = mask }
+}
+
 // Delete deletes an allocator and stops the garbage collector
 func (a *Allocator) Delete() {
 	close(a.stopGC)
-	a.stopWatch()
-	close(a.Events)
+	a.mainCache.stop()
+
+	if a.events != nil {
+		close(a.events)
+	}
 }
 
 // lockPath locks a key in the scope of an allocator
@@ -317,11 +340,13 @@ type RangeFunc func(ID, AllocatorKey)
 // ForeachCache iterates over the allocator cache and calls RangeFunc on each
 // cached entry
 func (a *Allocator) ForeachCache(cb RangeFunc) {
-	a.mutex.RLock()
-	for k, v := range a.cache {
-		cb(k, v)
+	a.mainCache.foreach(cb)
+
+	a.remoteCachesMutex.RLock()
+	for rc := range a.remoteCaches {
+		rc.cache.foreach(cb)
 	}
-	a.mutex.RUnlock()
+	a.remoteCachesMutex.RUnlock()
 }
 
 func invalidKey(key, prefix string, deleteInvalid bool) {
@@ -332,50 +357,17 @@ func invalidKey(key, prefix string, deleteInvalid bool) {
 	}
 }
 
-func (a *Allocator) keyToID(key string, deleteInvalid bool) ID {
-	if !strings.HasPrefix(key, a.idPrefix) {
-		invalidKey(key, a.idPrefix, deleteInvalid)
-		return NoID
+// Selects an available ID.
+// Returns a triple of the selected ID ORed with prefixMask,
+// the ID string and the originally selected ID.
+func (a *Allocator) selectAvailableID() (ID, string, ID) {
+	if id := a.idPool.LeaseAvailableID(); id != NoID {
+		unmaskedID := id
+		id |= a.prefixMask
+		return id, id.String(), unmaskedID
 	}
 
-	suffix := strings.TrimPrefix(key, a.idPrefix)
-	if suffix[0] == '/' {
-		suffix = suffix[1:]
-	}
-
-	id, err := strconv.ParseUint(suffix, 10, 64)
-	if err != nil {
-		invalidKey(key, a.idPrefix, deleteInvalid)
-		return NoID
-	}
-
-	return ID(id)
-}
-
-var (
-	idRandomizer      = rand.New(rand.NewSource(time.Now().UnixNano()))
-	idRandomizerMutex lock.Mutex
-)
-
-// Naive ID allocation mechanism.
-func (a *Allocator) selectAvailableID() (ID, string) {
-	idRandomizerMutex.Lock()
-	defer idRandomizerMutex.Unlock()
-
-	a.mutex.RLock()
-	defer a.mutex.RUnlock()
-
-	tried := 0
-
-	for _, r := range idRandomizer.Perm(int(a.max - a.min + 1)) {
-		id := ID(r) + a.min
-		tried++
-		if _, ok := a.cache[id]; !ok && a.localKeys.lookupID(id) == "" {
-			return id, id.String()
-		}
-	}
-
-	return 0, ""
+	return 0, "", 0
 }
 
 func (a *Allocator) createValueNodeKey(key string, newID ID) error {
@@ -435,40 +427,46 @@ func (a *Allocator) lockedAllocate(key AllocatorKey) (ID, bool, error) {
 		return value, false, nil
 	}
 
-	id, strID := a.selectAvailableID()
+	id, strID, unmaskedID := a.selectAvailableID()
 	if id == 0 {
 		return 0, false, fmt.Errorf("no more available IDs in configured space")
 	}
 
 	kvstore.Trace("Selected available key", nil, logrus.Fields{fieldID: id})
 
+	releaseKeyAndID := func() {
+		a.localKeys.release(k)
+		a.idPool.Release(unmaskedID)
+	}
+
 	oldID, err := a.localKeys.allocate(k, id)
 	if err != nil {
+		a.idPool.Release(unmaskedID)
 		return 0, false, fmt.Errorf("unable to reserve local key '%s': %s", k, err)
 	}
 
 	// Another local writer beat us to allocating an ID for the same key,
 	// start over
 	if id != oldID {
-		a.localKeys.release(k)
+		releaseKeyAndID()
 		return 0, false, fmt.Errorf("another writer has allocated this key")
 	}
 
 	lock, err := a.lockPath(k)
 	if err != nil {
-		a.localKeys.release(k)
+		releaseKeyAndID()
 		return 0, false, fmt.Errorf("unable to lock key: %s", err)
 	}
 
 	value, err = a.GetNoCache(key)
 	if err != nil {
-		a.localKeys.release(k)
+		releaseKeyAndID()
 		lock.Unlock()
 		return 0, false, err
 	}
 
 	if value != 0 {
-		a.localKeys.release(k)
+		releaseKeyAndID()
 		lock.Unlock()
 		return 0, false, fmt.Errorf("master key already exists")
 	}
@@ -479,10 +477,13 @@ func (a *Allocator) lockedAllocate(key AllocatorKey) (ID, bool, error) {
 	if err != nil {
 		// Creation failed. Another agent most likely beat us to allocting this
 		// ID, retry.
-		a.localKeys.release(k)
+		releaseKeyAndID()
 		lock.Unlock()
 		return 0, false, fmt.Errorf("unable to create master key '%s': %s", keyPath, err)
 	}
+
+	// Notify pool that leased ID is now in-use.
+	a.idPool.Use(unmaskedID)
 
 	if err = a.createValueNodeKey(k, id); err != nil {
 		// We will leak the master key here as the key has already been
@@ -520,9 +521,7 @@ func (a *Allocator) Allocate(key AllocatorKey) (ID, bool, error) {
 	// operation was performed for this allocation
 	if val := a.localKeys.use(k); val != NoID {
 		kvstore.Trace("Reusing local id", nil, logrus.Fields{fieldID: val, fieldKey: key})
-		a.mutex.Lock()
-		a.nextCache[val] = key
-		a.mutex.Unlock()
+		a.mainCache.insert(key, val)
 		return val, false, nil
 	}
 
@@ -536,9 +535,7 @@ func (a *Allocator) Allocate(key AllocatorKey) (ID, bool, error) {
 		// FIXME: Add non-locking variant
 		value, isNew, err = a.lockedAllocate(key)
 		if err == nil {
-			a.mutex.Lock()
-			a.nextCache[value] = key
-			a.mutex.Unlock()
+			a.mainCache.insert(key, value)
 			return value, isNew, nil
 		}
 
@@ -553,7 +550,7 @@ func (a *Allocator) Allocate(key AllocatorKey) (ID, bool, error) {
 		//
 		// To prevent the stale local ache
 		if attempt == allocAttemptsWatermark {
-			if err := a.cleanCache(); err != nil {
+			if err := a.mainCache.restart(a); err != nil {
 				log.WithError(err).Warning("Unable to clear and refill allocator cache")
 			}
 		}
@@ -567,14 +564,9 @@ func (a *Allocator) Allocate(key AllocatorKey) (ID, bool, error) {
 // Get returns the ID which is allocated to a key. Returns an ID of NoID if no ID
 // has been allocated to this key yet.
 func (a *Allocator) Get(key AllocatorKey) (ID, error) {
-	a.mutex.RLock()
-	for k, v := range a.cache {
-		if v.GetKey() == key.GetKey() {
-			a.mutex.RUnlock()
-			return k, nil
-		}
+	if id := a.mainCache.get(key.GetKey()); id != NoID {
+		return id, nil
 	}
-	a.mutex.RUnlock()
 
 	return a.GetNoCache(key)
 }
@@ -599,12 +591,9 @@ func (a *Allocator) GetNoCache(key AllocatorKey) (ID, error) {
 // GetByID returns the key associated with an ID. Returns nil if no key is
 // associated with the ID.
 func (a *Allocator) GetByID(id ID) (AllocatorKey, error) {
-	a.mutex.RLock()
-	if v, ok := a.cache[id]; ok {
-		a.mutex.RUnlock()
-		return v, nil
+	if key := a.mainCache.getByID(id); key != nil {
+		return key, nil
 	}
-	a.mutex.RUnlock()
 
 	v, err := kvstore.Get(path.Join(a.idPrefix, id.String()))
 	if err != nil {
@@ -713,114 +702,40 @@ type AllocatorEvent struct {
 	Key AllocatorKey
 }
 
-type waitChan chan bool
-
-func (a *Allocator) cleanCache() error {
-	// stop the watcher and wait for it to exit
-	a.stopWatch()
-
-	return a.startWatchAndWait()
+// RemoteCache represents the cache content of an additional kvstore managing
+// identities. The contents are not directly accessible but will be merged into
+// the ForeachCache() function.
+type RemoteCache struct {
+	cache     cache
+	allocator *Allocator
 }
 
-// startWatch requests a LIST operation from the kvstore and starts watching
-// the prefix in a go subroutine.
-func (a *Allocator) startWatch() waitChan {
-	successChan := make(waitChan)
-
-	a.mutex.Lock()
-	a.idWatcherStop = make(chan struct{}, 0)
-
-	// start with a fresh nextCache
-	a.nextCache = IDMap{}
-	a.mutex.Unlock()
-
-	a.idWatcherWg.Add(1)
-
-	go func(a *Allocator) {
-		watcher := kvstore.ListAndWatch(a.idPrefix, a.idPrefix, 512)
-
-		for {
-			select {
-			case event, ok := <-watcher.Events:
-				if !ok {
-					goto abort
-				}
-				if event.Typ == kvstore.EventTypeListDone {
-					a.mutex.Lock()
-					// nextCache is valid, point the live cache to it
-					a.cache = a.nextCache
-					a.mutex.Unlock()
-
-					// report that the list operation has
-					// been completed and the allocator is
-					// ready to use
-					successChan <- true
-					continue
-				}
-
-				id := a.keyToID(event.Key, true)
-				if id != 0 {
-					a.mutex.Lock()
-
-					var key AllocatorKey
-
-					if len(event.Value) > 0 {
-						var err error
-						key, err = a.keyType.PutKey(string(event.Value))
-						if err != nil {
-							log.WithError(err).WithFields(logrus.Fields{fieldKey: event.Value}).
-								Warning("Unable to unmarshal allocator key")
-						}
-					}
-
-					switch event.Typ {
-					case kvstore.EventTypeCreate, kvstore.EventTypeModify:
-						kvstore.Trace("Adding id to cache", nil, logrus.Fields{fieldKey: key, fieldID: id})
-						a.nextCache[id] = key
-					case kvstore.EventTypeDelete:
-						kvstore.Trace("Removing id from cache", nil, logrus.Fields{fieldID: id})
-						delete(a.nextCache, id)
-					}
-					a.mutex.Unlock()
-
-					a.Events <- AllocatorEvent{
-						Typ: event.Typ,
-						ID:  ID(id),
-						Key: key,
-					}
-				}
-
-			case <-a.idWatcherStop:
-				goto abort
-			}
-		}
-
-	abort:
-		watcher.Stop()
-		// Signal that watcher is done
-		a.idWatcherWg.Done()
-	}(a)
-
-	return successChan
-}
-
-func (a *Allocator) startWatchAndWait() error {
-	waitWatch := a.startWatch()
-
-	// Wait for watcher to be started and for list operation to succeed
-	select {
-	case <-waitWatch:
-	case <-time.After(listTimeout):
-		return fmt.Errorf("Time out while waiting for list operation to complete")
+// WatchRemoteKVStore starts watching an allocator base prefix the kvstore
+// represents by the provided backend. A local cache of all identities of that
+// kvstore will be maintained in the RemoteCache structure returned and will
+// start being reported in the identities returned by the ForeachCache()
+// function.
+func (a *Allocator) WatchRemoteKVStore(backend kvstore.BackendOperations, prefix string) *RemoteCache {
+	rc := &RemoteCache{
+		cache:     newCache(backend, path.Join(prefix, "id")),
+		allocator: a,
 	}
 
-	return nil
+	a.remoteCachesMutex.Lock()
+	a.remoteCaches[rc] = struct{}{}
+	a.remoteCachesMutex.Unlock()
+
+	rc.cache.start(a)
+
+	return rc
 }
 
-func (a *Allocator) stopWatch() {
-	close(a.idWatcherStop)
+// Close stops watching for identities in the kvstore associated with the
+// remote cache and will clear the local cache.
+func (rc *RemoteCache) Close() {
+	rc.allocator.remoteCachesMutex.Lock()
+	delete(rc.allocator.remoteCaches, rc)
+	rc.allocator.remoteCachesMutex.Unlock()
 
-	// wait for all watcher to stop
-	a.idWatcherWg.Wait()
-
+	rc.cache.stop()
 }

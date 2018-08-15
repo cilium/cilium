@@ -1,3 +1,9 @@
+.. only:: not (epub or latex or html)
+
+    WARNING: You are looking at unreleased Cilium documentation.
+    Please use the official rendered version released here:
+    http://docs.cilium.io
+
 .. _admin_install_daemonset:
 
 ******************
@@ -212,7 +218,7 @@ The CNI auto installation is performed as follows:
 1. The ``/etc/cni/net.d`` and ``/opt/cni/bin`` directories are mounted from the
    host filesystem into the pod where Cilium is running.
 
-2. The file ``/etc/cni/net.d/10-cilium.conf`` is written in case it does not
+2. The file ``/etc/cni/net.d/05-cilium.conf`` is written in case it does not
    exist yet.
 
 3. The binary ``cilium-cni`` is installed to ``/opt/cni/bin``. Any existing
@@ -242,37 +248,34 @@ environment variables can be specified in the `DaemonSet` file like this:
 .. code:: bash
 
     env:
-      - name: "MTU"
-        value: "8950"
+      - name: "CNI_CONF_NAME"
+        value: "05-cilium.conf"
 
 The following variables are supported:
 
 +---------------------+--------------------------------------+------------------------+
 | Option              | Description                          | Default                |
 +---------------------+--------------------------------------+------------------------+
-| MTU                 | Pod MTU to be configured             | 1450                   |
-+---------------------+--------------------------------------+------------------------+
 | HOST_PREFIX         | Path prefix of all host mounts       | /host                  |
 +---------------------+--------------------------------------+------------------------+
 | CNI_DIR             | Path to mounted CNI directory        | ${HOST_PREFIX}/opt/cni |
 +---------------------+--------------------------------------+------------------------+
-| CNI_CONF_NAME       | Name of configuration file           | 10-cilium.conf         |
+| CNI_CONF_NAME       | Name of configuration file           | 05-cilium.conf         |
 +---------------------+--------------------------------------+------------------------+
 
 If you want to further adjust the CNI configuration you may do so by creating
-the CNI configuration ``/etc/cni/net.d/10-cilium.conf`` manually:
+the CNI configuration ``/etc/cni/net.d/05-cilium.conf`` manually:
 
 .. code:: bash
 
     sudo mkdir -p /etc/cni/net.d
     sudo sh -c 'echo "{
         "name": "cilium",
-        "type": "cilium-cni",
-        "mtu": 1450
+        "type": "cilium-cni"
     }
-    " > /etc/cni/net.d/10-cilium.conf'
+    " > /etc/cni/net.d/05-cilium.conf'
 
-Cilium will use any existing ``/etc/cni/net.d/10-cilium.conf`` file if it
+Cilium will use any existing ``/etc/cni/net.d/05-cilium.conf`` file if it
 already exists on a worker node and only creates it if it does not exist yet.
 
 .. _ds_deploy:
@@ -281,49 +284,171 @@ Deploying the DaemonSet
 =======================
 
 .. tabs::
-  .. group-tab:: K8s 1.7
-
-    .. parsed-literal::
-
-      $ wget \ |SCM_WEB|\/examples/kubernetes/1.7/cilium.yaml
-      $ vim cilium.yaml
-      [adjust the etcd address]
-
   .. group-tab:: K8s 1.8
 
     .. parsed-literal::
 
       $ wget \ |SCM_WEB|\/examples/kubernetes/1.8/cilium.yaml
-      $ vim cilium.yaml
-      [adjust the etcd address]
 
   .. group-tab:: K8s 1.9
 
     .. parsed-literal::
 
       $ wget \ |SCM_WEB|\/examples/kubernetes/1.9/cilium.yaml
-      $ vim cilium.yaml
-      [adjust the etcd address]
 
   .. group-tab:: K8s 1.10
 
     .. parsed-literal::
 
       $ wget \ |SCM_WEB|\/examples/kubernetes/1.10/cilium.yaml
-      $ vim cilium.yaml
-      [adjust the etcd address]
 
   .. group-tab:: K8s 1.11
 
     .. parsed-literal::
 
       $ wget \ |SCM_WEB|\/examples/kubernetes/1.11/cilium.yaml
-      $ vim cilium.yaml
-      [adjust the etcd address]
+
+Adjusting the ConfigMap
+-----------------------
+
+After downloading the ``cilium.yaml`` file, open it with your text editor and
+change the `ConfigMap` based on the following instructions.
+
+Adjusting etcd-config
+~~~~~~~~~~~~~~~~~~~~~
+
+First, make sure the ``etcd-config`` endpoints have the correct addresses of
+your etcd nodes.
+
+If you are running more than one node simply specify the complete of endpoints.
+The list of endpoints can accept both domain names or IP addresses.
+Make sure you specify the correct port used in your etcd node.
+
+If etcd is running with `TLS <https://coreos.com/etcd/docs/latest/op-guide/security.html>`_,
+there are a couple of changes that you need to do.
+
+#. Make sure you have ``https`` in all endpoints;
+
+#. Uncomment the line ``#ca-file: '/var/lib/etcd-secrets/etcd-ca'`` so that the
+   certificate authority of the servers are known to Cilium;
+
+#. Create a kubernetes secret with certificate authority file in kubernetes;
+
+    #. Use certificate authority file, with the name ``ca.crt``, used to create in `etcd <https://coreos.com/etcd/docs/latest/op-guide/security.html#example-1-client-to-server-transport-security-with-https>`_;
+
+    #. Create the secret by executing:
+
+        .. code-block:: bash
+
+            $ kubectl create secret generic -n kube-system cilium-etcd-secrets \
+                --from-file=etcd-ca=ca.crt
 
 
-After configuring the ``cilium`` `ConfigMap` it is time to deploy it using
-``kubectl``:
+If etcd is running with
+`client to server authentication <https://coreos.com/etcd/docs/latest/op-guide/security.html#example-2-client-to-server-authentication-with-https-client-certificates>`_,
+you need make more changes to the `ConfigMap`:
+
+#. Uncomment both lines ``#key-file: '/var/lib/etcd-secrets/etcd-client-key'``
+   and ``#cert-file: '/var/lib/etcd-secrets/etcd-client-crt'``;
+
+#. Create a kubernetes secret with ``client.key`` and ``client.crt`` files in
+   kubernetes.
+
+    #. Use the file with the name ``client.key`` that contains the client key;
+
+    #. Use the file with the name ``client.crt`` that contains the client
+       certificate;
+
+    #. Create the secret by executing:
+
+        .. code-block:: bash
+
+            $ kubectl create secret generic -n kube-system cilium-etcd-secrets \
+                --from-file=etcd-ca=ca.crt \
+                --from-file=etcd-client-key=client.key \
+                --from-file=etcd-client-crt=client.crt
+
+
+.. note::
+
+    If you have set up the secret before you might see the error
+    ``Error from server (AlreadyExists): secrets "cilium-etcd-secrets" already exists``
+    you can simply delete it with
+    ``kubectl delete secret -n kube-system cilium-etcd-secrets``
+    and re-create it again.
+
+
+.. note::
+
+    When creating the kubernetes secrets just make sure you create it with
+    all necessary files, ``ca.crt``, ``client.key`` and ``client.crt`` in a
+    single ``kubectl create``.
+
+Regarding the etcd configuration that is all you need to change in the
+`ConfigMap`.
+
+Adjusting Cilium Options
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+In the `ConfigMap` there are a couple of options that can be changed
+accordingly with your changes.
+
+* ``debug`` - Sets to run Cilium in full debug mode, it can be changed at
+  runtime;
+
+* ``disable-ipv4`` - Disables IPv4 in Cilium and endpoints managed by Cilium;
+
+* ``clean-cilium-state`` - Removes any Cilium state, e.g. BPF policy maps,
+  before starting the Cilium agent;
+
+* ``legacy-host-allows-world`` - If true, the policy with the entity
+  ``reserved:host`` allows traffic from ``world``. If false, the policy needs
+  to explicitly have the entity ``reserved:world`` to allow traffic from
+  ``world``. It is recommended to set it to false. This option provides
+  compatibility with Cilium 1.0 which was not able to differentiate between
+  NodePort traffic and traffic from the host.
+
+Any changes that you perform in the Cilium `ConfigMap` and in
+``cilium-etcd-secrets`` ``Secret`` will require you to restart any existing
+Cilium pods in order for them to pick the latest configuration.
+
+The following `ConfigMap` is an example where the etcd cluster is running in 2
+nodes, ``node-1`` and ``node-2`` with TLS, and client to server authentication
+enabled.
+
+.. code:: yaml
+
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: cilium-config
+      namespace: kube-system
+    data:
+        endpoints:
+        - https://node-1:31079
+        - https://node-2:31079
+        #
+        # In case you want to use TLS in etcd, uncomment the 'ca-file' line
+        # and create a kubernetes secret by following the tutorial in
+        # https://cilium.link/etcd-config
+        ca-file: '/var/lib/etcd-secrets/etcd-ca'
+        #
+        # In case you want client to server authentication, uncomment the following
+        # lines and create a kubernetes secret by following the tutorial in
+        # https://cilium.link/etcd-config
+        key-file: '/var/lib/etcd-secrets/etcd-client-key'
+        cert-file: '/var/lib/etcd-secrets/etcd-client-crt'
+
+      # If you want to run cilium in debug mode change this value to true
+      debug: "false"
+      disable-ipv4: "false"
+      # If you want to clean cilium state; change this value to true
+      clean-cilium-state: "false"
+      legacy-host-allows-world: "false"
+
+
+After configuring the `ConfigMap` in ``cilium.yaml`` it is time to deploy it
+using ``kubectl``:
 
 .. code:: bash
 

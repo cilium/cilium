@@ -54,6 +54,11 @@ spellcheck: check-requirements
 		exit 1; \
 	fi
 
+# To use checklinks with `make render-docs`,
+# edit the line `%: Makefile check-requirements spellcheck checklinks`
+checklinks:
+	$(SPHINXBUILD) -b linkcheck -d "$(BUILDDIR)/doctrees" "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS)
+
 .PHONY: help Makefile ../Makefile.quiet check-requirements cmdref
 
 # Catch-all target: route all unknown targets to Sphinx using the new

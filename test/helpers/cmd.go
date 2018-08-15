@@ -22,6 +22,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/cilium/cilium/test/config"
 
@@ -38,6 +39,7 @@ type CmdRes struct {
 	stderr   *bytes.Buffer // Stderr from running cmd
 	success  bool          // Whether command successfully executed
 	exitcode int           // The exit code of cmd
+	duration time.Duration // Is the representation of the the time that command took to execute.
 }
 
 // GetCmd returns res's cmd.
@@ -60,10 +62,18 @@ func (res *CmdRes) GetStdErr() string {
 	return res.stderr.String()
 }
 
-// SendToLog writes to `TestLogWriter` the debug message for the running command
-func (res *CmdRes) SendToLog() {
-	logformat := "cmd: %q exitCode: %d stdout:\n%s\n"
-	log := fmt.Sprintf(logformat, res.cmd, res.GetExitCode(), res.stdout.String())
+// SendToLog writes to `TestLogWriter` the debug message for the running
+// command, if the quietMode argument is true will print only the command and
+// the exitcode.
+func (res *CmdRes) SendToLog(quietMode bool) {
+	if quietMode {
+		logformat := "cmd: %q exitCode: %d duration: %s\n"
+		fmt.Fprintf(&config.TestLogWriter, logformat, res.cmd, res.GetExitCode(), res.duration)
+		return
+	}
+
+	logformat := "cmd: %q exitCode: %d duration: %s stdout:\n%s\n"
+	log := fmt.Sprintf(logformat, res.cmd, res.GetExitCode(), res.duration, res.stdout.String())
 	if res.stderr.Len() > 0 {
 		log = fmt.Sprintf("%sstderr:\n%s\n", log, res.stderr.String())
 	}
@@ -158,7 +168,7 @@ func (res *CmdRes) FindResults(filter string) ([]reflect.Value, error) {
 // Filter returns the contents of res's stdout filtered using the provided
 // JSONPath filter in a buffer. Returns an error if the unmarshalling of the
 // contents of res's stdout fails.
-func (res *CmdRes) Filter(filter string) (*bytes.Buffer, error) {
+func (res *CmdRes) Filter(filter string) (*FilterBuffer, error) {
 	var data interface{}
 	result := new(bytes.Buffer)
 
@@ -173,7 +183,7 @@ func (res *CmdRes) Filter(filter string) (*bytes.Buffer, error) {
 	if err != nil {
 		return nil, err
 	}
-	return result, nil
+	return &FilterBuffer{result}, nil
 }
 
 // ByLines returns res's stdout split by the newline character .
@@ -243,7 +253,7 @@ func (res *CmdRes) SingleOut() string {
 // Unmarshal unmarshalls res's stdout into data. It assumes that the stdout of
 // res is in JSON format. Returns an error if the unmarshalling fails.
 func (res *CmdRes) Unmarshal(data interface{}) error {
-	err := json.Unmarshal(res.stdout.Bytes(), &data)
+	err := json.Unmarshal(res.stdout.Bytes(), data)
 	return err
 }
 

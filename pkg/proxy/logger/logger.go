@@ -33,7 +33,7 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "proxy-logger")
 
 	logMutex lock.Mutex
 	logger   *lumberjack.Logger

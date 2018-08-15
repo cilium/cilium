@@ -29,21 +29,14 @@ sed -e "s/127.0.0.1:/${dns_probes_ips[0]}:/" \
     -e "s/\$DNS_DOMAIN/cluster.local/" \
     "${controller_file}.sed" > "${controller_file}"
 
-kubectl delete -f "${controller_file}" 2>/dev/null || true
-
-kubectl delete -f "${svc_file}" 2>/dev/null || true
-
-kubectl delete -f "${sa_file}" 2>/dev/null || true
-
-kubectl delete -f "${cm_file}" 2>/dev/null || true
-
-kubectl create -f "${cm_file}" || true
-
-kubectl create -f "${sa_file}" || true
-
-kubectl create -f "${svc_file}" || true
-
-kubectl create -f "${controller_file}" || true
+nohup kubectl delete -f "${controller_file}" 2>/dev/null || true && \
+kubectl delete -f "${svc_file}" 2>/dev/null || true && \
+kubectl delete -f "${sa_file}" 2>/dev/null || true && \
+kubectl delete -f "${cm_file}" 2>/dev/null || true && \
+kubectl create -f "${cm_file}" || true && \
+kubectl create -f "${sa_file}" || true && \
+kubectl create -f "${svc_file}" || true && \
+kubectl create -f "${controller_file}" || true &
 
 kubectl --namespace=kube-system get svc
 kubectl --namespace=kube-system get pods

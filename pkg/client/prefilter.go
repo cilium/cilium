@@ -17,6 +17,7 @@ package client
 import (
 	"github.com/cilium/cilium/api/v1/client/prefilter"
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/api"
 )
 
 // GetPrefilter returns a list of all CIDR prefixes
@@ -30,7 +31,7 @@ func (c *Client) GetPrefilter() (*models.Prefilter, error) {
 
 // PatchPrefilter sets a list of CIDR prefixes
 func (c *Client) PatchPrefilter(spec *models.PrefilterSpec) (*models.Prefilter, error) {
-	params := prefilter.NewPatchPrefilterParams().WithPrefilterSpec(spec)
+	params := prefilter.NewPatchPrefilterParams().WithPrefilterSpec(spec).WithTimeout(api.ClientTimeout)
 	resp, err := c.Prefilter.PatchPrefilter(params)
 	if err != nil {
 		return nil, Hint(err)

@@ -1,3 +1,9 @@
+.. only:: not (epub or latex or html)
+
+    WARNING: You are looking at unreleased Cilium documentation.
+    Please use the official rendered version released here:
+    http://docs.cilium.io
+
 .. _arch_guide:
 
 ########
@@ -245,7 +251,7 @@ labels need to match.
 .. _endpoint:
 .. _endpoints:
 
-Endpoints
+Endpoint
 =========
 
 Cilium makes application containers available on the network by assigning them
@@ -556,7 +562,7 @@ for another local endpoint to the routing subsystem of the Linux kernel. This
 means that the packet will be routed as if a local process would have emitted
 the packet. As a result, the network connecting the cluster nodes must be aware
 that each of the node IP prefixes are reachable by using the node's primary IP
-address as an L3 next hop address. 
+address as an L3 next hop address.
 
 Cilium automatically enables IP forwarding in Linux when direct mode is
 configured, but it is up to the container cluster administrator to ensure that
@@ -674,7 +680,7 @@ Currently on the roadmap, to be added soon:
   feature.
 
 .. _arch_id_security:
-  
+
 Identity based Connectivity Access Control
 ==========================================
 
@@ -706,7 +712,7 @@ depending on the churn rate of deployed pods. Worse, the starting of new
 ``role=frontend`` pods must be delayed until all servers running
 ``role=backend`` pods have been updated with the new security rules as
 otherwise connection attempts from the new pod could be mistakenly dropped.
-This makes it difficult to scale efficiently. 
+This makes it difficult to scale efficiently.
 
 In order to avoid these complications which can limit scalability and
 flexibility, Cilium entirely separates security from network addressing.

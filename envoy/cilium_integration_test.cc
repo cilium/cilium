@@ -48,30 +48,30 @@ resources:
     - remote_policies: [ 1 ]
       http_rules:
         http_rules:
-        - headers: [ { name: ':path', value: '/allowed', regex: false } ]
-        - headers: [ { name: ':path', value: '.*public$', regex: true } ]
-        - headers: [ { name: ':authority', value: 'allowedHOST', regex: false } ]
-        - headers: [ { name: ':authority', value: '.*REGEX.*', regex: true } ]
-        - headers: [ { name: ':method', value: 'PUT', regex: false }, { name: ':path', value: '/public/opinions', regex: false } ]
+        - headers: [ { name: ':path', exact_match: '/allowed' } ]
+        - headers: [ { name: ':path', regex_match: '.*public$' } ]
+        - headers: [ { name: ':authority', exact_match: 'allowedHOST' } ]
+        - headers: [ { name: ':authority', regex_match: '.*REGEX.*' } ]
+        - headers: [ { name: ':method', exact_match: 'PUT' }, { name: ':path', exact_match: '/public/opinions' } ]
     - remote_policies: [ 2 ]
       http_rules:
         http_rules:
-        - headers: [ { name: ':path', value: '/only-2-allowed', regex: false } ]
+        - headers: [ { name: ':path', exact_match: '/only-2-allowed' } ]
   egress_per_port_policies:
   - port: 80
     rules:
     - remote_policies: [ 1 ]
       http_rules:
         http_rules:
-        - headers: [ { name: ':path', value: '/allowed', regex: false } ]
-        - headers: [ { name: ':path', value: '.*public$', regex: true } ]
-        - headers: [ { name: ':authority', value: 'allowedHOST', regex: false } ]
-        - headers: [ { name: ':authority', value: '.*REGEX.*', regex: true } ]
-        - headers: [ { name: ':method', value: 'PUT', regex: false }, { name: ':path', value: '/public/opinions', regex: false } ]
+        - headers: [ { name: ':path', exact_match: '/allowed' } ]
+        - headers: [ { name: ':path', regex_match: '.*public$' } ]
+        - headers: [ { name: ':authority', exact_match: 'allowedHOST' } ]
+        - headers: [ { name: ':authority', regex_match: '.*REGEX.*' } ]
+        - headers: [ { name: ':method', exact_match: 'PUT' }, { name: ':path', exact_match: '/public/opinions' } ]
     - remote_policies: [ 2 ]
       http_rules:
         http_rules:
-        - headers: [ { name: ':path', value: '/only-2-allowed', regex: false } ]
+        - headers: [ { name: ':path', exact_match: '/only-2-allowed' } ]
 )EOF";
   
 namespace Filter {
@@ -293,6 +293,9 @@ static_resources:
               routes:
               - route:
                   cluster: cluster1
+                  max_grpc_timeout:
+                    seconds: 0
+                    nanos: 0
                 match:
                   prefix: "/"
 )EOF";
@@ -608,6 +611,11 @@ TEST_P(CiliumIntegrationTest, DeniedPathPrefix) {
 
 TEST_P(CiliumIntegrationTest, AllowedPathPrefix) {
   Accepted({{":method", "GET"}, {":path", "/allowed"}, {":authority", "host"}});
+}
+
+TEST_P(CiliumIntegrationTest, AllowedPathPrefixStrippedHeader) {
+  Accepted({{":method", "GET"}, {":path", "/allowed"}, {":authority", "host"},
+            {"x-envoy-original-dst-host", "1.1.1.1:9999"}});
 }
 
 TEST_P(CiliumIntegrationTest, AllowedPathRegex) {

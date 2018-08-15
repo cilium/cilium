@@ -2,8 +2,8 @@ include Makefile.defs
 include daemon/bpf.sha
 
 SUBDIRS = envoy plugins bpf cilium daemon monitor cilium-health bugtool
-GOFILES ?= $(shell go list ./... | grep -v /vendor/ | grep -v /contrib/ | grep -v envoy/envoy)
-TESTPKGS ?= $(shell go list ./... | grep -v /vendor/ | grep -v /contrib/ | grep -v envoy/envoy | grep -v test)
+GOFILES ?= $(subst _$(ROOT_DIR)/,,$(shell go list ./... | grep -v /vendor/ | grep -v /contrib/ | grep -v envoy/envoy))
+TESTPKGS ?= $(subst _$(ROOT_DIR)/,,$(shell go list ./... | grep -v /vendor/ | grep -v /contrib/ | grep -v envoy/envoy | grep -v test))
 GOLANGVERSION = $(shell go version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
 GOLANG_SRCFILES=$(shell for pkg in $(subst github.com/cilium/cilium/,,$(GOFILES)); do find $$pkg -name *.go -print; done | grep -v vendor)
 BPF_FILES ?= $(shell git ls-files ../bpf/ | tr "\n" ' ')
@@ -12,7 +12,7 @@ BPF_SRCFILES=$(subst ../,,$(BPF_FILES))
 SWAGGER_VERSION = 0.12.0
 SWAGGER = $(QUIET)docker run --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) -e GOPATH=$(GOPATH) --entrypoint swagger quay.io/goswagger/swagger:$(SWAGGER_VERSION)
 
-GOTEST_OPTS = -test.v -check.v
+GOTEST_OPTS = -test.v -check.vv
 
 UTC_DATE=$(shell date -u "+%Y-%m-%d")
 
@@ -23,6 +23,10 @@ build: $(SUBDIRS)
 
 $(SUBDIRS): force
 	@ $(MAKE) -C $@ all
+
+
+jenkins-precheck:
+	docker-compose -f test/docker-compose.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER run --rm precheck
 
 # invoked from ginkgo Jenkinsfile
 tests-ginkgo: force
@@ -36,7 +40,7 @@ clean-ginkgo-tests:
 	docker-compose -f test/docker-compose.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER down
 	docker-compose -f test/docker-compose.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER rm
 
-TEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyAddress=consul:8500 -X github.com/cilium/cilium/pkg/kvstore.etcdDummyAddress=etcd:4002"
+TEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyAddress=consul:8500 -X github.com/cilium/cilium/pkg/kvstore.etcdDummyAddress=http://etcd:4002"
 
 # invoked from ginkgo compose file after starting kvstore backends
 tests-ginkgo-real:
@@ -59,7 +63,7 @@ start-kvstores:
 	-docker run -d \
 	    --name "cilium-etcd-test-container" \
 	    -p 4002:4001 \
-        quay.io/coreos/etcd:v3.1.0 \
+        quay.io/coreos/etcd:v3.2.17 \
         etcd -name etcd0 \
         -advertise-client-urls http://0.0.0.0:4001 \
         -listen-client-urls http://0.0.0.0:4001 \
@@ -71,7 +75,7 @@ start-kvstores:
            --name "cilium-consul-test-container" \
            -p 8501:8500 \
            -e 'CONSUL_LOCAL_CONFIG={"skip_leave_on_interrupt": true, "disable_update_check": true}' \
-           consul:0.8.3 \
+           consul:1.1.0 \
            agent -client=0.0.0.0 -server -bootstrap-expect 1
 
 tests: force
@@ -85,6 +89,8 @@ unit-tests: start-kvstores
 	go test \
             -timeout 360s -coverprofile=coverage.out -covermode=count $(pkg) $(GOTEST_OPTS) || exit 1;\
             tail -n +2 coverage.out >> coverage-all.out;)
+	$(QUIET)$(foreach pkg,$(TESTPKGS),\
+	sudo go test -timeout 360s -tags=privileged_tests $(pkg) $(GOTEST_OPTS) || exit 1;)
 	$(GO) tool cover -html=coverage-all.out -o=coverage-all.html
 	$(QUIET) rm coverage-all.out
 	$(QUIET) rm coverage.out
@@ -161,19 +167,19 @@ generate-health-api: api/v1/health/openapi.yaml
 		-t api/v1 -t api/v1/health/ -f api/v1/health/openapi.yaml
 
 generate-k8s-api:
-	cd "$(GOPATH)/src/k8s.io/code-generator" && \
+	cd "./vendor/k8s.io/code-generator" && \
 	./generate-groups.sh all \
 	    github.com/cilium/cilium/pkg/k8s/client \
 	    github.com/cilium/cilium/pkg/k8s/apis \
 	    "cilium.io:v2" \
 	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
-	cd "$(GOPATH)/src/k8s.io/code-generator" && \
+	cd "./vendor/k8s.io/code-generator" && \
 	./generate-groups.sh deepcopy \
 	    github.com/cilium/cilium/pkg/k8s/client \
 	    github.com/cilium/cilium/pkg \
 	    "policy:api" \
 	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
-	cd "$(GOPATH)/src/k8s.io/code-generator" && \
+	cd "./vendor/k8s.io/code-generator" && \
 	./generate-groups.sh deepcopy \
 	    github.com/cilium/cilium/pkg/k8s/client \
 	    github.com/cilium/cilium \
@@ -206,7 +212,7 @@ gofmt:
 
 govet:
 	@$(ECHO_CHECK) vetting all GOFILES...
-	$(GO) tool vet $(SUBDIRS)
+	$(GO) tool vet api pkg $(SUBDIRS)
 
 precheck: govet
 	@$(ECHO_CHECK) contrib/scripts/check-fmt.sh
@@ -249,7 +255,9 @@ update-authors:
 docs-container:
 	grep -v -E "(SOURCE|GIT)_VERSION" .gitignore >.dockerignore
 	echo ".*" >>.dockerignore # .git pruned out
-	docker image build -t cilium/docs-builder -f Documentation/Dockerfile .
+	cp -r ./api ./Documentation/_api
+	docker image build -t cilium/docs-builder -f Documentation/Dockerfile ./Documentation; \
+	  (ret=$$?; rm -r ./Documentation/_api && exit $$ret)
 
 
 render-docs: docs-container

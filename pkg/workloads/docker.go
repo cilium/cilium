@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/endpoint"
+	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -345,7 +346,7 @@ func (d *dockerClient) processEvent(m EventMessage) {
 		stopIgnoringContainer(m.WorkloadID)
 		d.handleCreateWorkload(m.WorkloadID, true)
 	case EventTypeDelete:
-		Owner().DeleteEndpoint(endpoint.NewID(endpoint.ContainerIdPrefix, m.WorkloadID))
+		Owner().DeleteEndpoint(endpointid.NewID(endpointid.ContainerIdPrefix, m.WorkloadID))
 	}
 }
 
@@ -495,7 +496,7 @@ func (d *dockerClient) retrieveDockerLabels(dockerID string) (*dTypes.ContainerJ
 	newLabels := labels.Labels{}
 	informationLabels := labels.Labels{}
 	if dockerCont.Config != nil {
-		newLabels, informationLabels = getFilteredLabels(dockerCont.Config.Labels)
+		newLabels, informationLabels = getFilteredLabels(dockerID, dockerCont.Config.Labels)
 	}
 
 	return &dockerCont, newLabels, informationLabels, nil

@@ -16,25 +16,34 @@ package node
 
 import (
 	"net"
+	"path"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/option"
 
 	"k8s.io/api/core/v1"
 )
 
 // Identity represents the node identity of a node.
 type Identity struct {
-	Name string
+	Name    string
+	Cluster string
 }
 
 // String returns the string representation on NodeIdentity.
 func (nn Identity) String() string {
-	return nn.Name
+	return path.Join(nn.Cluster, nn.Name)
 }
 
 // Node contains the nodes name, the list of addresses to this address
 type Node struct {
-	Name        string
+	// Name is the name of the node. This is typically the hostname of the node.
+	Name string
+
+	// Cluster is the name of the cluster the node is associated with
+	Cluster string
+
 	IPAddresses []Address
 
 	// IPv4AllocCIDR if set, is the IPv4 address pool out of which the node
@@ -55,6 +64,25 @@ type Node struct {
 	// IPv6HealthIP if not nil, this is the IPv6 address of the
 	// cilium-health endpoint located on the node.
 	IPv6HealthIP net.IP
+
+	// ClusterID is the unique identifier of the cluster
+	ClusterID int
+
+	// cluster membership
+	cluster *clusterConfiguation
+
+	// Source is the source where the node configuration was generated / created.
+	Source Source
+}
+
+// Fullname returns the node's full name including the cluster name if a
+// cluster name value other than the default value has been specified
+func (n *Node) Fullname() string {
+	if n.Cluster != defaults.ClusterName {
+		return path.Join(n.Cluster, n.Name)
+	}
+
+	return n.Name
 }
 
 // Address is a node address which contains an IP and the address type.
@@ -169,27 +197,100 @@ func (n *Node) getHealthAddresses(ipv4 bool) *models.NodeAddressing {
 // GetModel returns the API model representation of a node.
 func (n *Node) GetModel(ipv4 bool) *models.NodeElement {
 	return &models.NodeElement{
-		Name:                  n.Name,
+		Name:                  n.Fullname(),
 		PrimaryAddress:        n.getPrimaryAddress(ipv4),
 		SecondaryAddresses:    n.getSecondaryAddresses(ipv4),
 		HealthEndpointAddress: n.getHealthAddresses(ipv4),
 	}
 }
 
-// GetLocalNode returns the identity and node spec for the local node
-func GetLocalNode() (Identity, *Node) {
-	return Identity{Name: nodeName}, &Node{
-		Name: nodeName,
-		IPAddresses: []Address{
-			{
-				AddressType: v1.NodeInternalIP,
-				IP:          GetExternalIPv4(),
-			},
-		},
-		IPv4AllocCIDR: GetIPv4AllocRange(),
-		IPv6AllocCIDR: GetIPv6AllocRange(),
-		IPv4HealthIP:  GetIPv4HealthIP(),
-		IPv6HealthIP:  GetIPv6HealthIP(),
+// Identity returns the identity of the node
+func (n *Node) Identity() Identity {
+	return Identity{
+		Name:    n.Name,
+		Cluster: n.Cluster,
+	}
+}
+
+// OnUpdate is called each time the node information is updated
+//
+// Updates the new node in the nodes' map with the given identity. This also
+// updates the local routing tables and tunnel lookup maps according to the
+// node's preferred way of being reached.
+func (n *Node) OnUpdate() {
+	n.getLogger().Debug("Updated node information received")
+
+	routeTypes := TunnelRoute
+
+	// Add IPv6 routing only in non encap. With encap we do it with bpf tunnel
+	// FIXME create a function to know on which mode is the daemon running on
+	var ownAddr net.IP
+	if option.Config.AutoIPv6NodeRoutes && option.Config.Device != "undefined" {
+		// ignore own node
+		if n.Cluster != option.Config.ClusterName && n.Name != GetName() {
+			ownAddr = GetIPv6()
+			routeTypes |= DirectRoute
+		}
 	}
 
+	// As the OnUpdate() function is only called by the kv-store
+	// We can safely set its source to "kvstore"
+	n.Source = FromKVStore
+	UpdateNode(n, routeTypes, ownAddr)
+}
+
+// OnDelete is called when a node has been deleted from the cluster
+func (n *Node) OnDelete() {
+	DeleteNode(n.Identity(), TunnelRoute|DirectRoute)
+}
+
+// IsLocal returns true if this is the node on which the agent itself is
+// running on
+func (n *Node) IsLocal() bool {
+	return n != nil && n.Name == GetName()
+}
+
+// PublicAttrEquals returns true only if the public attributes of both nodes
+// are the same otherwise returns false.
+func (n *Node) PublicAttrEquals(o *Node) bool {
+	if (n == nil) != (o == nil) {
+		return false
+	}
+
+	if n.Name == o.Name &&
+		n.Cluster == o.Cluster &&
+		n.IPv4HealthIP.Equal(o.IPv4HealthIP) &&
+		n.IPv6HealthIP.Equal(o.IPv6HealthIP) &&
+		n.ClusterID == o.ClusterID &&
+		n.Source == o.Source {
+
+		if len(n.IPAddresses) != len(o.IPAddresses) {
+			return false
+		}
+
+		for i := range n.IPAddresses {
+			if (n.IPAddresses[i].AddressType != o.IPAddresses[i].AddressType) ||
+				!n.IPAddresses[i].IP.Equal(o.IPAddresses[i].IP) {
+				return false
+			}
+		}
+
+		if (n.IPv4AllocCIDR == nil) != (o.IPv4AllocCIDR == nil) {
+			return false
+		}
+		if n.IPv4AllocCIDR.String() != o.IPv4AllocCIDR.String() {
+			return false
+		}
+
+		if (n.IPv6AllocCIDR == nil) != (o.IPv6AllocCIDR == nil) {
+			return false
+		}
+		if n.IPv6AllocCIDR.String() != o.IPv6AllocCIDR.String() {
+			return false
+		}
+
+		return true
+	}
+
+	return false
 }

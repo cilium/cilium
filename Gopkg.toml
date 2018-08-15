@@ -24,10 +24,11 @@
 #   go-tests = true
 #   unused-packages = true
 
-[prune]
-  go-tests = true
-  unused-packages = true
-  non-go = true
+required = [
+            "k8s.io/code-generator/cmd/client-gen",
+            "k8s.io/gengo/examples/defaulter-gen/generators",
+            "k8s.io/gengo/examples/deepcopy-gen/generators"
+            ]
 
 [[constraint]]
   name = "github.com/c9s/goprocinfo"
@@ -46,10 +47,6 @@
   revision = "v0.4.0"
 
 [[constraint]]
-  name = "github.com/golang/glog"
-  revision = "23def4e6c14b4da8ac2ed8007337bc5eb5007998"
-
-[[constraint]]
   name = "github.com/kr/pretty"
   revision = "cfb55aafdaf3ec08f0db22699ab822c50091b1c4"
 
@@ -60,7 +57,7 @@
 [[constraint]]
   name = "github.com/optiopay/kafka"
   source = "https://github.com/cilium/kafka"
-  revision = "c411825615d9959fd44c0b455b86f8684f9c58b0"
+  revision = "01ce283b732b96914f62b1ff1bf5d8b90f7db86c"
 
 [[constraint]]
   name = "github.com/pmezard/go-difflib"
@@ -88,23 +85,32 @@
 
 [[constraint]]
   name = "k8s.io/api"
-  revision = "kubernetes-1.10.2"
+  revision = "kubernetes-1.11.2"
 
 [[constraint]]
   name = "k8s.io/apiextensions-apiserver"
-  revision = "kubernetes-1.10.2"
+  revision = "kubernetes-1.11.2"
 
 [[constraint]]
   name = "k8s.io/apimachinery"
-  revision = "kubernetes-1.10.2"
+  revision = "kubernetes-1.11.2"
 
 [[constraint]]
   name = "k8s.io/client-go"
-  revision = "kubernetes-1.10.2"
+  revision = "kubernetes-1.11.2"
+
+[[constraint]]
+  name = "k8s.io/code-generator"
+  revision = "kubernetes-1.11.2"
 
 [[constraint]]
   name = "k8s.io/kubernetes"
-  revision = "v1.10.2"
+  revision = "v1.11.2"
+
+# Hard dependency of kubernetes 1.11
+[[override]]
+  name = "github.com/json-iterator/go"
+  revision = "f2b4162afba35581b6d4a50d3b8f34e33c144682"
 
 [[constraint]]
   name = "github.com/Jeffail/gabs"
@@ -165,7 +171,7 @@
 
 [[constraint]]
   name = "github.com/golang/protobuf"
-  revision = "8cc9e46429bfb16289d40d30b2ee3f4923b47345"
+  revision = "5831880292e721c76b58a16ecc60adc27d8e6355"
 
 [[constraint]]
   name = "github.com/google/gopacket"
@@ -270,3 +276,13 @@
 [[constraint]]
   name = "github.com/containerd/containerd"
   revision = "v1.1.0"
+
+[prune]
+  non-go = true
+  go-tests = true
+  unused-packages = true
+
+  [[prune.project]]
+    name = "k8s.io/code-generator"
+    unused-packages = false
+    non-go = false

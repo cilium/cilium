@@ -35,6 +35,7 @@ type CiliumEndpointsGetter interface {
 type CiliumEndpointInterface interface {
 	Create(*v2.CiliumEndpoint) (*v2.CiliumEndpoint, error)
 	Update(*v2.CiliumEndpoint) (*v2.CiliumEndpoint, error)
+	UpdateStatus(*v2.CiliumEndpoint) (*v2.CiliumEndpoint, error)
 	Delete(name string, options *v1.DeleteOptions) error
 	DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error
 	Get(name string, options v1.GetOptions) (*v2.CiliumEndpoint, error)
@@ -112,6 +113,22 @@ func (c *ciliumEndpoints) Update(ciliumEndpoint *v2.CiliumEndpoint) (result *v2.
 		Namespace(c.ns).
 		Resource("ciliumendpoints").
 		Name(ciliumEndpoint.Name).
+		Body(ciliumEndpoint).
+		Do().
+		Into(result)
+	return
+}
+
+// UpdateStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+
+func (c *ciliumEndpoints) UpdateStatus(ciliumEndpoint *v2.CiliumEndpoint) (result *v2.CiliumEndpoint, err error) {
+	result = &v2.CiliumEndpoint{}
+	err = c.client.Put().
+		Namespace(c.ns).
+		Resource("ciliumendpoints").
+		Name(ciliumEndpoint.Name).
+		SubResource("status").
 		Body(ciliumEndpoint).
 		Do().
 		Into(result)

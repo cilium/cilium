@@ -214,17 +214,86 @@ func HeaderMatcherLess(m1, m2 *envoy_api_v2_route.HeaderMatcher) bool {
 		return false
 	}
 
+	// Compare the header_match_specifier oneof field, by comparing each
+	// possible field in the oneof individually:
+	// - exactMatch
+	// - regexMatch
+	// - rangeMatch
+	// - presentMatch
+	// - prefixMatch
+	// - suffixMatch
+	// Use the getters to access the fields and return zero values when they
+	// are not set.
+
+	s1 := m1.GetExactMatch()
+	s2 := m2.GetExactMatch()
 	switch {
-	case m1.Value < m2.Value:
+	case s1 < s2:
 		return true
-	case m1.Value > m2.Value:
+	case s1 > s2:
+		return false
+	}
+
+	s1 = m1.GetRegexMatch()
+	s2 = m2.GetRegexMatch()
+	switch {
+	case s1 < s2:
+		return true
+	case s1 > s2:
+		return false
+	}
+
+	rm1 := m1.GetRangeMatch()
+	rm2 := m2.GetRangeMatch()
+	switch {
+	case rm1 == nil && rm2 != nil:
+		return true
+	case rm1 != nil && rm2 == nil:
+		return false
+	case rm1 != nil && rm2 != nil:
+		switch {
+		case rm1.Start < rm2.Start:
+			return true
+		case rm1.Start > rm2.Start:
+			return false
+		}
+		switch {
+		case rm1.End < rm2.End:
+			return true
+		case rm1.End > rm2.End:
+			return false
+		}
+	}
+
+	switch {
+	case !m1.GetPresentMatch() && m2.GetPresentMatch():
+		return true
+	case m1.GetPresentMatch() && !m2.GetPresentMatch():
+		return false
+	}
+
+	s1 = m1.GetPrefixMatch()
+	s2 = m2.GetPrefixMatch()
+	switch {
+	case s1 < s2:
+		return true
+	case s1 > s2:
+		return false
+	}
+
+	s1 = m1.GetSuffixMatch()
+	s2 = m2.GetSuffixMatch()
+	switch {
+	case s1 < s2:
+		return true
+	case s1 > s2:
 		return false
 	}
 
 	switch {
-	case !m1.Regex.Value && m2.Regex.Value:
+	case !m1.InvertMatch && m2.InvertMatch:
 		return true
-	case m1.Regex.Value && !m2.Regex.Value:
+	case m1.InvertMatch && !m2.InvertMatch:
 		return false
 	}
 

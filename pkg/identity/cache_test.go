@@ -35,3 +35,62 @@ func (s *IdentityTestSuite) TestLookupReservedIdentity(c *C) {
 	c.Assert(identity, Not(IsNil))
 	c.Assert(identity.ID, Equals, worldID)
 }
+
+func (s *IdentityTestSuite) TestLookupReservedIdentityByLabels(c *C) {
+	ni, err := ParseNumericIdentity("129")
+	c.Assert(err, IsNil)
+	AddUserDefinedNumericIdentity(ni, "kvstore")
+	AddReservedIdentity(ni, "kvstore")
+
+	type args struct {
+		lbls labels.Labels
+	}
+	tests := []struct {
+		name string
+		args args
+		want *Identity
+	}{
+		{
+			name: "fixed-identity",
+			args: args{
+				lbls: labels.Labels{labels.LabelKeyFixedIdentity: labels.ParseLabel(labels.LabelKeyFixedIdentity + "=" + "kvstore")},
+			},
+			want: NewIdentity(ni, labels.Labels{"kvstore": labels.NewLabel("kvstore", "", labels.LabelSourceReserved)}),
+		},
+		{
+			name: "non-existing-fixed-identity",
+			args: args{
+				lbls: labels.Labels{labels.LabelKeyFixedIdentity: labels.ParseLabel(labels.LabelKeyFixedIdentity + "=" + "kube-dns")},
+			},
+			want: nil,
+		},
+		{
+			name: "reserved-identity",
+			args: args{
+				lbls: labels.Labels{labels.LabelSourceReserved: labels.NewLabel(labels.LabelSourceReservedKeyPrefix+"host", "", labels.LabelSourceReserved)},
+			},
+			want: NewIdentity(ReservedIdentityHost, labels.Labels{"host": labels.ParseLabel("reserved:host")}),
+		},
+		{
+			name: "reserved-identity+other-labels",
+			args: args{
+				lbls: labels.Labels{
+					labels.LabelSourceReserved: labels.ParseLabel("reserved:host"),
+					"id.foo":                   labels.ParseLabel("id.foo"),
+				},
+			},
+			want: nil,
+		},
+	}
+	for _, tt := range tests {
+		got := LookupReservedIdentityByLabels(tt.args.lbls)
+		switch {
+		case got == nil && tt.want == nil:
+		case got == nil && tt.want != nil ||
+			got != nil && tt.want == nil ||
+			got.ID != tt.want.ID:
+
+			c.Errorf("test %s: LookupReservedIdentityByLabels() = %v, want %v", tt.name, got, tt.want)
+		}
+	}
+}

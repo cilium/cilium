@@ -168,6 +168,13 @@ func (in *CiliumNetworkPolicyList) DeepCopyObject() runtime.Object {
 func (in *CiliumNetworkPolicyNodeStatus) DeepCopyInto(out *CiliumNetworkPolicyNodeStatus) {
 	*out = *in
 	in.LastUpdated.DeepCopyInto(&out.LastUpdated)
+	if in.Annotations != nil {
+		in, out := &in.Annotations, &out.Annotations
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	return
 }
 

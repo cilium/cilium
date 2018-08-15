@@ -19,15 +19,20 @@ CONTAINER_RUNTIME=$5
 export KUBEADM_ADDR='192.168.36.11'
 export KUBEADM_POD_NETWORK='10.10.0.0'
 export KUBEADM_POD_CIDR='16'
-export KUBEADM_CRI_SOCKET="unix:///var/run/docker.sock"
+export KUBEADM_CRI_SOCKET="/var/run/dockershim.sock"
 export KUBEADM_SLAVE_OPTIONS=""
 export KUBEADM_OPTIONS=""
 export K8S_FULL_VERSION=""
+export DNS_DEPLOYMENT="${PROVISIONSRC}/manifest/dns_deployment.yaml"
+export KUBEDNS_DEPLOYMENT="${PROVISIONSRC}/manifest/kubedns_deployment.yaml"
+export COREDNS_DEPLOYMENT="${PROVISIONSRC}/manifest/coredns_deployment.yaml"
 
 source ${PROVISIONSRC}/helpers.bash
 
-# TODO: Check if the k8s version is the same
+sudo bash -c "echo MaxSessions 200 >> /etc/ssh/sshd_config"
+sudo systemctl restart ssh
 
+# TODO: Check if the k8s version is the same
 if [[ -f  "/etc/provision_finished" ]]; then
     sudo dpkg -l | grep kubelet
     echo "provision is finished, recompiling"
@@ -35,6 +40,7 @@ if [[ -f  "/etc/provision_finished" ]]; then
     exit 0
 fi
 
+sudo ln -sf $KUBEDNS_DEPLOYMENT $DNS_DEPLOYMENT
 $PROVISIONSRC/dns.sh
 
 cat <<EOF > /etc/hosts
@@ -71,47 +77,59 @@ networking:
 EOF
 )
 
+# CRIO bridge disabled.
+if [[ -f  "/etc/cni/net.d/100-crio-bridge.conf" ]]; then
+    echo "Disabling crio CNI bridge"
+    sudo rm -rfv /etc/cni/net.d/100-crio-bridge.conf
+    sudo rm -rfv /etc/cni/net.d/200-loopback.conf || true
+fi
+
 # Around the `--ignore-preflight-errors=cri` is used because
 # /var/run/dockershim.sock is not present (because base image has containerid)
 # so with that option Kubeadm fallbacks to /var/run/docker.sock
 case $K8S_VERSION in
-    "1.7")
-        KUBERNETES_CNI_VERSION="0.5.1-00"
-        K8S_FULL_VERSION="1.7.15"
-        ;;
     "1.8")
         KUBERNETES_CNI_VERSION="0.5.1-00"
-        K8S_FULL_VERSION="1.8.13"
+        K8S_FULL_VERSION="1.8.14"
         ;;
     "1.9")
         KUBERNETES_CNI_VERSION="0.6.0-00"
-        K8S_FULL_VERSION="1.9.8"
+        K8S_FULL_VERSION="1.9.9"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
         ;;
     "1.10")
         KUBERNETES_CNI_VERSION="0.6.0-00"
-        K8S_FULL_VERSION="1.10.3"
+        K8S_FULL_VERSION="1.10.5"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri"
+        KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
         ;;
     "1.11")
-        KUBERNETES_CNI_VERSION="v0.6.0"
-        K8S_FULL_VERSION="1.11.0-beta.0"
+        KUBERNETES_CNI_VERSION="0.6.0-00"
+        K8S_FULL_VERSION="1.11.0"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri"
+        sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
+        ;;
+    "1.12")
+        KUBERNETES_CNI_VERSION="v0.6.0"
+        K8S_FULL_VERSION="1.12.0-alpha.0"
+        KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
+        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri"
+        sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
         ;;
 esac
 
 #Install kubernetes
 case $K8S_VERSION in
-    "1.7"|"1.8"|"1.9"|"1.10")
+    "1.8"|"1.9"|"1.10"|"1.11")
         install_k8s_using_packages \
             kubernetes-cni=${KUBERNETES_CNI_VERSION} \
             kubelet=${K8S_FULL_VERSION}* \
             kubeadm=${K8S_FULL_VERSION}* \
             kubectl=${K8S_FULL_VERSION}*
         ;;
-    "1.11")
+    "1.12")
         install_k8s_using_binary "v${K8S_FULL_VERSION}" "${KUBERNETES_CNI_VERSION}"
         ;;
 esac
@@ -161,7 +179,8 @@ if [[ "${HOST}" == "k8s1" ]]; then
 
     sudo systemctl start etcd
 
-    kubectl -n kube-system delete svc,deployment,sa,cm kube-dns || true
+    # Install custom DNS deployment
+    kubectl -n kube-system delete -f ${PROVISIONSRC}/manifest/dns_deployment.yaml || true
     kubectl -n kube-system apply -f ${PROVISIONSRC}/manifest/dns_deployment.yaml
 
     $PROVISIONSRC/compile.sh

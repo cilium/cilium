@@ -171,6 +171,7 @@ static inline int rewrite_dmac_to_host(struct __sk_buff *skb)
 
 static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 {
+	struct remote_endpoint_info *info;
 	union v6addr node_ip = { };
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -197,6 +198,19 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 			return ret;
 	}
 #endif
+
+	/* Packets from the proxy will already have a real identity. */
+	if (identity_is_reserved(src_identity)) {
+		union v6addr *src = (union v6addr *) &ip6->saddr;
+		info = ipcache_lookup6(&cilium_ipcache, src, V6_CACHE_KEY_LEN);
+		if (info != NULL) {
+			__u32 sec_label = info->sec_label;
+			if (sec_label && sec_label != CLUSTER_ID)
+				src_identity = info->sec_label;
+		}
+		cilium_dbg(skb, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
+			   ((__u32 *) src)[3], src_identity);
+	}
 
 	BPF_V6(node_ip, ROUTER_IP);
 	flowlabel = derive_sec_ctx(skb, &node_ip, ip6);
@@ -235,7 +249,11 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 
 #ifdef ENCAP_IFINDEX
 	dst = (union v6addr *) &ip6->daddr;
-	if (likely(ipv6_match_prefix_96(dst, &node_ip))) {
+	info = ipcache_lookup6(&cilium_ipcache, dst, V6_CACHE_KEY_LEN);
+	if (info != NULL && info->tunnel_endpoint != 0) {
+		return encap_and_redirect_with_nodeid(skb, info->tunnel_endpoint,
+						      flowlabel, true);
+	} else if (likely(ipv6_match_prefix_96(dst, &node_ip))) {
 		struct endpoint_key key = {};
 		int ret;
 
@@ -247,7 +265,7 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 		key.ip6.p4 = 0;
 		key.family = ENDPOINT_KEY_IPV6;
 
-		ret = encap_and_redirect(skb, &key, flowlabel);
+		ret = encap_and_redirect(skb, &key, flowlabel, true);
 		if (ret != DROP_NO_TUNNEL_ENDPOINT)
 			return ret;
 	}
@@ -338,6 +356,7 @@ reverse_proxy(struct __sk_buff *skb, int l4_off, struct iphdr *ip4, __u8 nh)
 
 static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 {
+	struct remote_endpoint_info *info;
 	struct ipv4_ct_tuple tuple = {};
 	struct endpoint_info *ep;
 	void *data, *data_end;
@@ -351,6 +370,32 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 	secctx = derive_ipv4_sec_ctx(skb, ip4);
 	tuple.nexthdr = ip4->protocol;
+
+	/* Packets from the proxy will already have a real identity. */
+	if (identity_is_reserved(src_identity)) {
+		info = ipcache_lookup4(&cilium_ipcache, ip4->saddr, V4_CACHE_KEY_LEN);
+		if (info != NULL) {
+			__u32 sec_label = info->sec_label;
+			if (sec_label) {
+				/* When SNAT is enabled on traffic ingressing
+				 * into Cilium, all traffic from the world will
+				 * have a source IP of the host. It will only
+				 * actually be from the host if "src_identity"
+				 * (passed into this function) reports the src
+				 * as the host. So we can ignore the ipcache
+				 * if it reports the source as HOST_ID.
+				 *
+				 * For compatibility with older versions of
+				 * Cilium, we also ignore CLUSTER_ID.
+				 */
+				if (sec_label != CLUSTER_ID &&
+				    sec_label != HOST_ID)
+					src_identity = sec_label;
+			}
+		}
+		cilium_dbg(skb, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
+			   ip4->saddr, src_identity);
+	}
 
 #ifdef FROM_HOST
 	if (1) {
@@ -385,8 +430,11 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 	}
 
 #ifdef ENCAP_IFINDEX
-	/* Check if destination is within our cluster prefix */
-	if ((ip4->daddr & IPV4_CLUSTER_MASK) == IPV4_CLUSTER_RANGE) {
+	info = ipcache_lookup4(&cilium_ipcache, ip4->daddr, V4_CACHE_KEY_LEN);
+	if (info != NULL && info->tunnel_endpoint != 0) {
+		return encap_and_redirect_with_nodeid(skb, info->tunnel_endpoint,
+						      secctx, true);
+	} else if ((ip4->daddr & IPV4_CLUSTER_MASK) == IPV4_CLUSTER_RANGE) {
 		/* IPv4 lookup key: daddr & IPV4_MASK */
 		struct endpoint_key key = {};
 		int ret;
@@ -395,7 +443,7 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 		key.family = ENDPOINT_KEY_IPV4;
 
 		cilium_dbg(skb, DBG_NETDEV_ENCAP4, key.ip4, secctx);
-		ret = encap_and_redirect(skb, &key, secctx);
+		ret = encap_and_redirect(skb, &key, secctx, true);
 		if (ret != DROP_NO_TUNNEL_ENDPOINT)
 			return ret;
 	}
@@ -406,7 +454,7 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 
 #define CB_SRC_IDENTITY 0
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4) int tail_handle_ipv4(struct __sk_buff *skb)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC) int tail_handle_ipv4(struct __sk_buff *skb)
 {
 	__u32 proxy_identity = skb->cb[CB_SRC_IDENTITY];
 	int ret = handle_ipv4(skb, proxy_identity);
@@ -435,10 +483,12 @@ int from_netdev(struct __sk_buff *skb)
 		from_proxy = handle_identity_from_host(skb, &identity);
 		if (from_proxy)
 			trace = TRACE_FROM_PROXY;
-		send_trace_notify(skb, trace, identity, 0, 0, skb->ingress_ifindex, 0);
+		send_trace_notify(skb, trace, identity, 0, 0,
+				  skb->ingress_ifindex, 0, true);
 	}
 #else
-	send_trace_notify(skb, TRACE_FROM_STACK, 0, 0, 0, skb->ingress_ifindex, 0);
+	send_trace_notify(skb, TRACE_FROM_STACK, 0, 0, 0, skb->ingress_ifindex,
+			  0, true);
 #endif
 
 	switch (skb->protocol) {
@@ -455,7 +505,7 @@ int from_netdev(struct __sk_buff *skb)
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
 		skb->cb[CB_SRC_IDENTITY] = identity;
-		ep_tail_call(skb, CILIUM_CALL_IPV4);
+		ep_tail_call(skb, CILIUM_CALL_IPV4_FROM_LXC);
 		/* We are not returning an error here to always allow traffic to
 		 * the stack in case maps have become unavailable.
 		 *

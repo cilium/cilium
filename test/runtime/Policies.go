@@ -20,8 +20,10 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/policy/api"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
@@ -51,18 +53,17 @@ const (
 	policiesReservedInitJSON        = "Policies-reserved-init.json"
 )
 
-var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
+var _ = Describe("RuntimePolicyEnforcement", func() {
 
 	var (
-		logger           *logrus.Entry
 		vm               *helpers.SSHMeta
 		appContainerName = "app"
 	)
 
 	BeforeAll(func() {
-		logger = log.WithFields(logrus.Fields{"testName": "RuntimePolicyEnforcement"})
-		logger.Info("Starting")
-		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
+		ExpectCiliumReady(vm)
+
 		vm.ContainerCreate(appContainerName, helpers.HttpdImage, helpers.CiliumDockerNetwork, "-l id.app")
 		areEndpointsReady := vm.WaitEndpointsReady()
 		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
@@ -239,19 +240,17 @@ var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 	})
 })
 
-var _ = Describe("RuntimeValidatedPolicies", func() {
+var _ = Describe("RuntimePolicies", func() {
 
 	var (
-		logger        *logrus.Entry
 		vm            *helpers.SSHMeta
-		monitorStop   func() error
+		monitorStop   = func() error { return nil }
 		initContainer string
 	)
 
 	BeforeAll(func() {
-		logger = log.WithFields(logrus.Fields{"test": "RunPolicies"})
-		logger.Info("Starting")
-		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
+		ExpectCiliumReady(vm)
 
 		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
 		vm.PolicyDelAll()
@@ -869,6 +868,75 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 
 	})
 
+	It("Enforces ToFQDNs policy", func() {
+		By("Importing policy with ToFQDN rules")
+		// notaname.cilium.io never returns IPs, and is there to test that the
+		// other name does get populated.
+		fqdnPolicy := `
+[
+  {
+    "labels": [{
+	  	"key": "toFQDNs-runtime-test-policy"
+	  }],
+    "endpointSelector": {
+      "matchLabels": {
+        "container:id.app1": ""
+      }
+    },
+    "egress": [
+      {
+        "toPorts": [{
+          "ports":[{"port": "53", "protocol": "ANY"}]
+        }]
+      },
+      {
+        "toFQDNs": [
+          {
+            "matchName": "cilium.io"
+          },
+          {
+            "matchName": "notaname.cilium.io"
+          }
+        ]
+      }
+    ]
+  }
+]`
+		preImportPolicyRevision, err := vm.PolicyGetRevision()
+		Expect(err).To(BeNil(), "Unable to get policy revision at start of test", err)
+		_, err = vm.PolicyRenderAndImport(fqdnPolicy)
+		Expect(err).To(BeNil(), "Unable to import policy: %s", err)
+		defer vm.PolicyDel("toFQDNs-runtime-test-policy=")
+
+		// The DNS poll will update the policy and regenerate. We know the initial
+		// import will increment the revision by 1, and the DNS update will
+		// increment it by 1 again. We can wait for two policy revisions to happen.
+		// Once we have an API to expose DNS->IP mappings we can also use that to
+		// ensure the lookup has completed more explicitly
+		timeout_s := 3 * fqdn.DNSPollerInterval / time.Second // convert to seconds
+		dnsWaitBody := func() bool {
+			return vm.PolicyWait(preImportPolicyRevision + 2).WasSuccessful()
+		}
+		err = helpers.WithTimeout(dnsWaitBody, "DNSPoller did not update IPs",
+			&helpers.TimeoutConfig{Ticker: 1, Timeout: timeout_s})
+		Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after ToFQDNs DNS poll triggered a regenerate")
+
+		By("Denying egress to IPs of DNS names not in ToFQDNs, and normal IPs")
+		// www.cilium.io has a different IP than cilium.io (it is CNAMEd as well!),
+		// and so should be blocked.
+		// cilium.io.cilium.io doesn't exist.
+		// 1.1.1.1, amusingly, serves HTTP.
+		for _, blockedTarget := range []string{"www.cilium.io", "cilium.io.cilium.io", "1.1.1.1"} {
+			res := vm.ContainerExec(helpers.App1, helpers.CurlFail(blockedTarget))
+			res.ExpectFail("Curl succeeded against blocked DNS name %s" + blockedTarget)
+		}
+
+		By("Allowing egress to IPs of specified ToFQDN DNS names")
+		allowedTarget := "cilium.io"
+		res := vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode(allowedTarget))
+		res.ExpectContains("301", "Cannot access %s %s", allowedTarget, res.OutputPrettyPrint())
+	})
+
 	It("Extended HTTP Methods tests", func() {
 		// This also tests L3-dependent L7.
 		httpMethods := []string{"GET", "POST"}
@@ -988,6 +1056,20 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 				]
 			}]
 		}]`, app1Label, api.EntityWorld)
+		setupPolicyAndTestEgressToWorld(policy)
+
+		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
+
+		By("testing basic egress to 0.0.0.0/0")
+		policy = fmt.Sprintf(`
+		[{
+			"endpointSelector": {"matchLabels":{"%s":""}},
+			"egress": [{
+				"toCIDR": [
+					"0.0.0.0/0"
+				]
+			}]
+		}]`, app1Label)
 		setupPolicyAndTestEgressToWorld(policy)
 
 		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
@@ -1170,6 +1252,10 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 
 		It("Tests egress with CIDR+L4 policy to external https service", func() {
 			cloudFlare := "1.1.1.1"
+
+			By("Checking connectivity to %q without policy", cloudFlare)
+			res := vm.ContainerExec(helpers.App1, helpers.Ping(cloudFlare))
+			res.ExpectSuccess("Expected to be able to connect to cloudflare (%q); external connectivity not available", cloudFlare)
 
 			By("Importing policy which allows egress to %q from %q", otherHostIP, helpers.App1)
 			policy := fmt.Sprintf(`
@@ -1359,16 +1445,14 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 	})
 })
 
-var _ = Describe("RuntimeValidatedPolicyImportTests", func() {
+var _ = Describe("RuntimePolicyImportTests", func() {
 	var (
-		logger *logrus.Entry
-		vm     *helpers.SSHMeta
+		vm *helpers.SSHMeta
 	)
 
 	BeforeAll(func() {
-		logger = log.WithFields(logrus.Fields{"test": "RuntimeValidatedPolicyImportTests"})
-		logger.Info("Starting")
-		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
+		ExpectCiliumReady(vm)
 
 		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
 

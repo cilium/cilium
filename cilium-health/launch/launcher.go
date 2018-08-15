@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/launcher"
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // CiliumHealth is used to wrap the node executable binary.
@@ -34,7 +35,7 @@ type CiliumHealth struct {
 }
 
 var (
-	log = logging.DefaultLogger
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "cilium-health-launcher")
 
 	connectRetryInterval = 1 * time.Second
 	statusProbeInterval  = 5 * time.Second

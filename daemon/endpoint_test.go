@@ -22,7 +22,7 @@ import (
 	apiEndpoint "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/comparator"
-	"github.com/cilium/cilium/pkg/endpoint"
+	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipam"
@@ -42,7 +42,7 @@ func getEPTemplate(c *C) *models.EndpointChangeRequest {
 	id := int64(addressing.CiliumIPv6(ip6).EndpointID())
 	return &models.EndpointChangeRequest{
 		ID:            id,
-		ContainerID:   endpoint.NewCiliumID(id),
+		ContainerID:   endpointid.NewCiliumID(id),
 		ContainerName: "foo",
 		State:         models.EndpointStateWaitingForIdentity,
 		Addressing: &models.AddressPair{
@@ -114,9 +114,9 @@ Loop:
 		case <-timeout.C:
 			break Loop
 		case <-tick.C:
-			ep.Mutex.RLock()
+			ep.UnconditionalRLock()
 			secID = ep.SecurityIdentity
-			ep.Mutex.RUnlock()
+			ep.RUnlock()
 			if secID != nil {
 				break Loop
 			}

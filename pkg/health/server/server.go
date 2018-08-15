@@ -22,15 +22,14 @@ import (
 	healthModels "github.com/cilium/cilium/api/v1/health/models"
 	healthApi "github.com/cilium/cilium/api/v1/health/server"
 	"github.com/cilium/cilium/api/v1/health/server/restapi"
-	ciliumModels "github.com/cilium/cilium/api/v1/models"
 	ciliumPkg "github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/go-openapi/loads"
-	flags "github.com/jessevdk/go-flags"
-	"github.com/sirupsen/logrus"
+	"github.com/jessevdk/go-flags"
 )
 
 // AdminOption is an option for determining over which protocols the APIs are
@@ -46,7 +45,7 @@ const (
 )
 
 var (
-	log = logging.DefaultLogger
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "health-server")
 
 	// PortToPaths is a convenience map for access to the ports and their
 	// common string representations
@@ -74,9 +73,9 @@ type Config struct {
 // ipString is an IP address used as a more descriptive type name in maps.
 type ipString string
 
-// nodeMap maps IP addresses to NodeElements for convenient access to node
-// information.
-type nodeMap map[ipString]*ciliumModels.NodeElement
+// nodeMap maps IP addresses to healthNode objectss for convenient access to
+// node information.
+type nodeMap map[ipString]healthNode
 
 // Server is the cilium-health daemon that is in charge of performing health
 // and connectivity checks periodically, and serving the cilium-health API.
@@ -93,8 +92,7 @@ type Server struct {
 	// the list of statuses as most recently seen, and the last time a
 	// probe was conducted.
 	lock.RWMutex
-	connectivity []*healthModels.NodeStatus
-	lastProbe    time.Time
+	connectivity *healthReport
 	localStatus  *healthModels.SelfStatus
 }
 
@@ -106,7 +104,7 @@ func (s *Server) DumpUptime() string {
 // getNodes fetches the latest set of nodes in the cluster from the Cilium
 // daemon, and updates the Server's 'nodes' map.
 func (s *Server) getNodes() (nodeMap, error) {
-	scopedLog := logrus.NewEntry(log)
+	scopedLog := log
 	if s.CiliumURI != "" {
 		scopedLog = log.WithField("URI", s.CiliumURI)
 	}
@@ -132,33 +130,38 @@ func (s *Server) getNodes() (nodeMap, error) {
 	for _, n := range resp.Payload.Cluster.Nodes {
 		if n.PrimaryAddress != nil {
 			if n.PrimaryAddress.IPV4 != nil {
-				nodes[ipString(n.PrimaryAddress.IPV4.IP)] = n
+				nodes[ipString(n.PrimaryAddress.IPV4.IP)] = NewHealthNode(n)
 			}
 			if n.PrimaryAddress.IPV6 != nil {
-				nodes[ipString(n.PrimaryAddress.IPV6.IP)] = n
+				nodes[ipString(n.PrimaryAddress.IPV6.IP)] = NewHealthNode(n)
 			}
 		}
 		for _, addr := range n.SecondaryAddresses {
-			nodes[ipString(addr.IP)] = n
+			nodes[ipString(addr.IP)] = NewHealthNode(n)
 		}
 		if n.HealthEndpointAddress != nil {
 			if n.HealthEndpointAddress.IPV4 != nil {
-				nodes[ipString(n.HealthEndpointAddress.IPV4.IP)] = n
+				nodes[ipString(n.HealthEndpointAddress.IPV4.IP)] = NewHealthNode(n)
 			}
 			if n.HealthEndpointAddress.IPV6 != nil {
-				nodes[ipString(n.HealthEndpointAddress.IPV6.IP)] = n
+				nodes[ipString(n.HealthEndpointAddress.IPV6.IP)] = NewHealthNode(n)
 			}
 		}
 	}
 	return nodes, nil
 }
 
-func (s *Server) updateCluster(connectivity []*healthModels.NodeStatus) {
+// updateCluster makes the specified health report visible to the API.
+//
+// It only updates the server's API-visible health report if the provided
+// report started after the current report.
+func (s *Server) updateCluster(report *healthReport) {
 	s.Lock()
 	defer s.Unlock()
 
-	s.lastProbe = time.Now()
-	s.connectivity = connectivity
+	if s.connectivity.startTime.Before(report.startTime) {
+		s.connectivity = report
+	}
 }
 
 // GetStatusResponse returns the most recent cluster connectivity status.
@@ -176,8 +179,8 @@ func (s *Server) GetStatusResponse() *healthModels.HealthStatusResponse {
 		Local: &healthModels.SelfStatus{
 			Name: name,
 		},
-		Nodes:     s.connectivity,
-		Timestamp: s.lastProbe.Format(time.RFC3339),
+		Nodes:     s.connectivity.nodes,
+		Timestamp: s.connectivity.startTime.Format(time.RFC3339),
 	}
 }
 
@@ -311,7 +314,7 @@ func NewServer(config Config) (*Server, error) {
 		startTime:    time.Now(),
 		Config:       config,
 		tcpServers:   []*healthApi.Server{},
-		connectivity: []*healthModels.NodeStatus{},
+		connectivity: &healthReport{},
 	}
 
 	swaggerSpec, err := loads.Analyzed(healthApi.SwaggerJSON, "")

@@ -48,6 +48,13 @@ func TestMain(m *testing.M) {
 		handler(w, r)
 	})
 
+	mux.HandleFunc("/v1/session/create", func(w http.ResponseWriter, r *http.Request) {
+		io.WriteString(w, "{ \"ID\": \"adf4238a-882b-9ddc-4a9d-5b6758e4159e\"}")
+	})
+
+	// /v1/session/renew/{uuid} does not need to be handled for the basic
+	// test to succeed
+
 	srv := &http.Server{
 		Addr:    ":8000",
 		Handler: mux,

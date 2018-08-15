@@ -18,13 +18,41 @@ import (
 	"encoding/binary"
 	"fmt"
 	"reflect"
-
-	"github.com/vishvananda/netlink/nl"
+	"unsafe"
 )
 
 // Native is set to the host ByteOrder type. This should normally be either
 // BigEndian or LittleEndian.
-var Native = nl.NativeEndian()
+var Native = getNativeEndian()
+var nativeEndian binary.ByteOrder
+
+func getNativeEndian() binary.ByteOrder {
+	if nativeEndian == nil {
+		var x uint32 = 0x01020304
+		if *(*byte)(unsafe.Pointer(&x)) == 0x01 {
+			nativeEndian = binary.BigEndian
+		} else {
+			nativeEndian = binary.LittleEndian
+		}
+	}
+	return nativeEndian
+}
+
+// Byte swap a 16 bit value if we aren't big endian
+func swap16(i uint16) uint16 {
+	if Native == binary.BigEndian {
+		return i
+	}
+	return (i&0xff00)>>8 | (i&0xff)<<8
+}
+
+// Byte swap a 32 bit value if aren't big endian
+func swap32(i uint32) uint32 {
+	if Native == binary.BigEndian {
+		return i
+	}
+	return (i&0xff000000)>>24 | (i&0xff0000)>>8 | (i&0xff00)<<8 | (i&0xff)<<24
+}
 
 // reverse returns a reversed slice of b.
 func reverse(b []byte) []byte {
@@ -42,9 +70,9 @@ func reverse(b []byte) []byte {
 func HostToNetwork(b interface{}) interface{} {
 	switch b.(type) {
 	case uint16:
-		return nl.Swap16(b.(uint16))
+		return swap16(b.(uint16))
 	case uint32:
-		return nl.Swap32(b.(uint32))
+		return swap32(b.(uint32))
 	default:
 		panic(unsupported(b))
 	}
@@ -54,9 +82,9 @@ func HostToNetwork(b interface{}) interface{} {
 func NetworkToHost(n interface{}) interface{} {
 	switch n.(type) {
 	case uint16:
-		return nl.Swap16(n.(uint16))
+		return swap16(n.(uint16))
 	case uint32:
-		return nl.Swap32(n.(uint32))
+		return swap32(n.(uint32))
 	default:
 		panic(unsupported(n))
 	}

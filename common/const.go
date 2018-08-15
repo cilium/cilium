@@ -20,14 +20,6 @@ const (
 	// OperationalPath is the base path to store the operational details in the kvstore.
 	OperationalPath = "cilium-net/operational"
 
-	// LastFreeLabelIDKeyPath is the path where the Last free UUID is stored in the kvstore.
-	LastFreeLabelIDKeyPath = OperationalPath + "/Labels/LastUUID"
-	// LabelsKeyPath is the base path where labels are stored in the kvstore.
-	LabelsKeyPath = OperationalPath + "/Labels/SHA256SUMLabels"
-	// LabelIDKeyPath is the base path where the IDs are stored in the kvstore.
-	LabelIDKeyPath = OperationalPath + "/Labels/IDs"
-	// MaxSetOfLabels is maximum number of set of labels that can be stored in the kvstore.
-	MaxSetOfLabels = uint32(0xFFFF)
 	// LastFreeServiceIDKeyPath is the path where the Last free UUID is stored in the kvstore.
 	LastFreeServiceIDKeyPath = OperationalPath + "/ServicesV2/LastUUID"
 	// ServicesKeyPath is the base path where services are stored in the kvstore.
@@ -43,9 +35,6 @@ const (
 
 	// Miscellaneous dedicated constants
 
-	// PathDelimiter is the delimiter used in the labels paths.
-	PathDelimiter = "."
-
 	// NodeConfigFile is the name of the C header which contains the node's
 	// network parameters.
 	NodeConfigFile = "node_config.h"
@@ -59,12 +48,4 @@ const (
 	// CiliumCHeaderPrefix is the prefix using when printing/writing an endpoint in a
 	// base64 form.
 	CiliumCHeaderPrefix = "CILIUM_BASE64_"
-
-	// CiliumK8sAnnotationPrefix is the prefix key for the annotations used in kubernetes.
-	CiliumK8sAnnotationPrefix = "cilium.io/"
-
-	// CiliumIdentityAnnotation is the annotation key used to map to an endpoint's security identity.
-	CiliumIdentityAnnotation = CiliumK8sAnnotationPrefix + "identity"
-	// CiliumIdentityAnnotationDeprecated is the previous annotation key used to map to an endpoint's security identity.
-	CiliumIdentityAnnotationDeprecated = "cilium-identity"
 )

@@ -22,9 +22,12 @@ import (
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+
+	"golang.org/x/sys/unix"
 )
 
-var log = logging.DefaultLogger
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-ipcache")
 
 const (
 	// MaxEntries is the maximum number of keys that can be present in the
@@ -36,12 +39,12 @@ const (
 	// BPF code generation to exceed the verifier instruction limit.
 	// It applies to Linux versions that lack support for LPM, ie < v4.11.
 	//
-	// This was manually determined by setting up an egress policy with a
-	// CIDRSet containing an exception. Reserved 'world' (/0) and 'cluster'
-	// (/8) will always be inserted, which is what the first parameter
-	// denotes. The CIDR for the CIDRSet is the second parameter, and the
-	// exception is the third parameter.
-	maxPrefixLengths = 2 - 8 + 26
+	// This is based upon the defines in bpf/lxc_config.h, which in turn
+	// are derived by building the bpf/ directory and running the script
+	// test/bpf/verifier-test.sh, then adjusting the number of unique
+	// prefix lengths until the script passes.
+	maxPrefixLengths6 = 4
+	maxPrefixLengths4 = 18
 )
 
 // Key implements the bpf.MapKey interface.
@@ -118,8 +121,8 @@ func NewKey(ip net.IP, mask net.IPMask) Key {
 // RemoteEndpointInfo implements the bpf.MapValue interface. It contains the
 // security identity of a remote endpoint.
 type RemoteEndpointInfo struct {
-	SecurityIdentity uint16
-	Pad              [3]uint16
+	SecurityIdentity uint32
+	TunnelEndpoint   [4]byte
 }
 
 func (v *RemoteEndpointInfo) String() string {
@@ -152,17 +155,42 @@ func NewMap() *Map {
 				}
 				return &k, &v, nil
 			},
-		),
+		).WithCache(),
 	}
+}
+
+// Delete removes a key from the ipcache BPF map
+func Delete(k bpf.MapKey) error {
+	// Older kernels do not support deletion of LPM map entries so zero out
+	// the entry instead of attempting a deletion
+	err, errno := IPCache.DeleteWithErrno(k)
+	if errno == unix.ENOSYS {
+		return IPCache.Update(k, &RemoteEndpointInfo{})
+	}
+
+	return err
 }
 
 // GetMaxPrefixLengths determines how many unique prefix lengths are supported
 // simultaneously based on the underlying BPF map type in use.
-func (m *Map) GetMaxPrefixLengths() (count int) {
+func (m *Map) GetMaxPrefixLengths(ipv6 bool) (count int) {
 	if IPCache.MapType == bpf.BPF_MAP_TYPE_LPM_TRIE {
-		return net.IPv6len * 8
+		if ipv6 {
+			return net.IPv6len*8 + 1
+		} else {
+			return net.IPv4len*8 + 1
+		}
 	}
-	return maxPrefixLengths
+	if ipv6 {
+		return maxPrefixLengths6
+	}
+	return maxPrefixLengths4
+}
+
+// BackedByLPM returns true if the IPCache is backed by a proper LPM
+// implementation (provided by Linux kernels 4.11 or later), false otherwise.
+func BackedByLPM() bool {
+	return IPCache.MapType == bpf.BPF_MAP_TYPE_LPM_TRIE
 }
 
 var (

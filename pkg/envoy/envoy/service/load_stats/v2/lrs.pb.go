@@ -31,9 +31,9 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 // [#not-implemented-hide:] Not configuration. TBD how to doc proto APIs.
 type LoadStatsRequest struct {
 	// Node identifier for Envoy instance.
-	Node *core.Node `protobuf:"bytes,1,opt,name=node" json:"node,omitempty"`
+	Node *core.Node `protobuf:"bytes,1,opt,name=node,proto3" json:"node,omitempty"`
 	// A list of load stats to report.
-	ClusterStats         []*endpoint.ClusterStats `protobuf:"bytes,2,rep,name=cluster_stats,json=clusterStats" json:"cluster_stats,omitempty"`
+	ClusterStats         []*endpoint.ClusterStats `protobuf:"bytes,2,rep,name=cluster_stats,json=clusterStats,proto3" json:"cluster_stats,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
 	XXX_unrecognized     []byte                   `json:"-"`
 	XXX_sizecache        int32                    `json:"-"`
@@ -43,7 +43,7 @@ func (m *LoadStatsRequest) Reset()         { *m = LoadStatsRequest{} }
 func (m *LoadStatsRequest) String() string { return proto.CompactTextString(m) }
 func (*LoadStatsRequest) ProtoMessage()    {}
 func (*LoadStatsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_lrs_d6589b0ff1381183, []int{0}
+	return fileDescriptor_lrs_34d443be72931312, []int{0}
 }
 func (m *LoadStatsRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LoadStatsRequest.Unmarshal(m, b)
@@ -82,9 +82,15 @@ func (m *LoadStatsRequest) GetClusterStats() []*endpoint.ClusterStats {
 // [#not-implemented-hide:] Not configuration. TBD how to doc proto APIs.
 type LoadStatsResponse struct {
 	// Clusters to report stats for.
-	Clusters []string `protobuf:"bytes,1,rep,name=clusters" json:"clusters,omitempty"`
-	// The interval of time to collect stats. The default is 10 seconds.
-	LoadReportingInterval *duration.Duration `protobuf:"bytes,2,opt,name=load_reporting_interval,json=loadReportingInterval" json:"load_reporting_interval,omitempty"`
+	Clusters []string `protobuf:"bytes,1,rep,name=clusters,proto3" json:"clusters,omitempty"`
+	// The minimum interval of time to collect stats over. This is only a minimum for two reasons:
+	// 1. There may be some delay from when the timer fires until stats sampling occurs.
+	// 2. For clusters that were already feature in the previous *LoadStatsResponse*, any traffic
+	//    that is observed in between the corresponding previous *LoadStatsRequest* and this
+	//    *LoadStatsResponse* will also be accumulated and billed to the cluster. This avoids a period
+	//    of inobservability that might otherwise exists between the messages. New clusters are not
+	//    subject to this consideration.
+	LoadReportingInterval *duration.Duration `protobuf:"bytes,2,opt,name=load_reporting_interval,json=loadReportingInterval,proto3" json:"load_reporting_interval,omitempty"`
 	XXX_NoUnkeyedLiteral  struct{}           `json:"-"`
 	XXX_unrecognized      []byte             `json:"-"`
 	XXX_sizecache         int32              `json:"-"`
@@ -94,7 +100,7 @@ func (m *LoadStatsResponse) Reset()         { *m = LoadStatsResponse{} }
 func (m *LoadStatsResponse) String() string { return proto.CompactTextString(m) }
 func (*LoadStatsResponse) ProtoMessage()    {}
 func (*LoadStatsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_lrs_d6589b0ff1381183, []int{1}
+	return fileDescriptor_lrs_34d443be72931312, []int{1}
 }
 func (m *LoadStatsResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LoadStatsResponse.Unmarshal(m, b)
@@ -294,10 +300,10 @@ var _LoadReportingService_serviceDesc = grpc.ServiceDesc{
 }
 
 func init() {
-	proto.RegisterFile("envoy/service/load_stats/v2/lrs.proto", fileDescriptor_lrs_d6589b0ff1381183)
+	proto.RegisterFile("envoy/service/load_stats/v2/lrs.proto", fileDescriptor_lrs_34d443be72931312)
 }
 
-var fileDescriptor_lrs_d6589b0ff1381183 = []byte{
+var fileDescriptor_lrs_34d443be72931312 = []byte{
 	// 375 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x91, 0x4d, 0x4e, 0xe3, 0x30,
 	0x1c, 0xc5, 0xc7, 0xe9, 0x7c, 0x74, 0xdc, 0x19, 0xcd, 0x4c, 0x34, 0xa3, 0x66, 0x0a, 0x42, 0x55,

@@ -23,13 +23,9 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/allocator"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
-)
-
-const (
-	// MaxIdentity is the maximum identity value
-	MaxIdentity = ^uint16(0)
 )
 
 // globalIdentity is the structure used to store an identity in the kvstore
@@ -77,18 +73,26 @@ type IdentityAllocatorOwner interface {
 func InitIdentityAllocator(owner IdentityAllocatorOwner) {
 	setupOnce.Do(func() {
 		log.Info("Initializing identity allocator")
+
 		minID := allocator.ID(MinimalNumericIdentity)
 		maxID := allocator.ID(^uint16(0))
+		events := make(allocator.AllocatorEventChan, 65536)
+
+		// It is important to start listening for events before calling
+		// NewAllocator() as it will emit events while filling the
+		// initial cache
+		go identityWatcher(owner, events)
+
 		a, err := allocator.NewAllocator(IdentitiesPath, globalIdentity{},
 			allocator.WithMax(maxID), allocator.WithMin(minID),
-			allocator.WithSuffix(owner.GetNodeSuffix()))
+			allocator.WithSuffix(owner.GetNodeSuffix()),
+			allocator.WithEvents(events),
+			allocator.WithPrefixMask(allocator.ID(option.Config.ClusterID<<option.ClusterIDShift)))
 		if err != nil {
 			log.WithError(err).Fatal("Unable to initialize identity allocator")
 		}
 
 		identityAllocator = a
-
-		go identityWatcher(owner)
 	})
 }
 
@@ -101,7 +105,7 @@ func InitIdentityAllocator(owner IdentityAllocatorOwner) {
 func IdentityAllocationIsLocal(lbls labels.Labels) bool {
 	// If there is only one label with the "reserved" source and a well-known
 	// key, the well-known identity for it can be allocated locally.
-	return LookupReservedIdentity(lbls) != nil
+	return LookupReservedIdentityByLabels(lbls) != nil
 }
 
 // AllocateIdentity allocates an identity described by the specified labels. If
@@ -115,7 +119,7 @@ func AllocateIdentity(lbls labels.Labels) (*Identity, bool, error) {
 
 	// If there is only one label with the "reserved" source and a well-known
 	// key, use the well-known identity for that key.
-	if reservedIdentity := LookupReservedIdentity(lbls); reservedIdentity != nil {
+	if reservedIdentity := LookupReservedIdentityByLabels(lbls); reservedIdentity != nil {
 		log.WithFields(logrus.Fields{
 			logfields.Identity:       reservedIdentity.ID,
 			logfields.IdentityLabels: lbls.String(),
@@ -147,7 +151,7 @@ func AllocateIdentity(lbls labels.Labels) (*Identity, bool, error) {
 // After the last user has released the ID, the returned lastUse value is true.
 func (id *Identity) Release() error {
 	// Ignore reserved identities.
-	if reservedIdentityCache[id.ID] != nil {
+	if LookupReservedIdentity(id.ID) != nil {
 		return nil
 	}
 
@@ -165,11 +169,18 @@ func (id *Identity) Release() error {
 func ReleaseSlice(identities []*Identity) error {
 	var err error
 	for _, id := range identities {
-		if err = id.Release(); err != nil {
-			log.WithFields(logrus.Fields{
+		if err2 := id.Release(); err2 != nil {
+			log.WithError(err2).WithFields(logrus.Fields{
 				logfields.Identity: id,
 			}).Error("Failed to release identity")
+			err = err2
 		}
 	}
 	return err
+}
+
+// WatchRemoteIdentities starts watching for identities in another kvstore and
+// syncs all identities to the local identity cache.
+func WatchRemoteIdentities(backend kvstore.BackendOperations) *allocator.RemoteCache {
+	return identityAllocator.WatchRemoteKVStore(backend, IdentitiesPath)
 }

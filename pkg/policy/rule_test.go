@@ -177,11 +177,11 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 
 	ingressState := traceState{}
 	egressState := traceState{}
-	res, err := rule1.resolveL4IngressPolicy(toBar, &ingressState, NewL4Policy())
+	res, err := rule1.resolveL4IngressPolicy(toBar, &ingressState, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 
-	res2, err := rule1.resolveL4EgressPolicy(fromBar, &egressState, NewL4Policy())
+	res2, err := rule1.resolveL4EgressPolicy(fromBar, &egressState, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res2, Not(IsNil))
 
@@ -198,9 +198,9 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	ingressState = traceState{}
 	egressState = traceState{}
 
-	res, err = rule1.resolveL4IngressPolicy(toFoo, &ingressState, NewL4Policy())
+	res, err = rule1.resolveL4IngressPolicy(toFoo, &ingressState, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
-	res2, err = rule1.resolveL4EgressPolicy(fromFoo, &ingressState, NewL4Policy())
+	res2, err = rule1.resolveL4EgressPolicy(fromFoo, &ingressState, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 
 	c.Assert(res, IsNil)
@@ -278,11 +278,11 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 
 	ingressState = traceState{}
 	egressState = traceState{}
-	res, err = rule2.resolveL4IngressPolicy(toBar, &ingressState, NewL4Policy())
+	res, err = rule2.resolveL4IngressPolicy(toBar, &ingressState, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 
-	res2, err = rule2.resolveL4EgressPolicy(fromBar, &egressState, NewL4Policy())
+	res2, err = rule2.resolveL4EgressPolicy(fromBar, &egressState, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res2, Not(IsNil))
 
@@ -299,11 +299,11 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	ingressState = traceState{}
 	egressState = traceState{}
 
-	res, err = rule2.resolveL4IngressPolicy(toFoo, &ingressState, NewL4Policy())
+	res, err = rule2.resolveL4IngressPolicy(toFoo, &ingressState, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 
-	res2, err = rule2.resolveL4EgressPolicy(fromFoo, &egressState, NewL4Policy())
+	res2, err = rule2.resolveL4EgressPolicy(fromFoo, &egressState, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 
@@ -353,7 +353,7 @@ func (ds *PolicyTestSuite) TestMergeL4PolicyIngress(c *C) {
 	}
 
 	state := traceState{}
-	res, err := rule1.resolveL4IngressPolicy(toBar, &state, NewL4Policy())
+	res, err := rule1.resolveL4IngressPolicy(toBar, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	c.Assert(*res, comparator.DeepEquals, *expected)
@@ -407,7 +407,7 @@ func (ds *PolicyTestSuite) TestMergeL4PolicyEgress(c *C) {
 	}
 
 	state := traceState{}
-	res, err := rule1.resolveL4EgressPolicy(fromBar, &state, NewL4Policy())
+	res, err := rule1.resolveL4EgressPolicy(fromBar, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	c.Assert(*res, comparator.DeepEquals, *expected)
@@ -484,7 +484,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 	}
 
 	state := traceState{}
-	res, err := rule1.resolveL4IngressPolicy(toBar, &state, NewL4Policy())
+	res, err := rule1.resolveL4IngressPolicy(toBar, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	c.Assert(*res, comparator.DeepEquals, *expected)
@@ -492,7 +492,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 	c.Assert(state.matchedRules, Equals, 0)
 
 	state = traceState{}
-	res, err = rule1.resolveL4IngressPolicy(toFoo, &state, NewL4Policy())
+	res, err = rule1.resolveL4IngressPolicy(toFoo, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
@@ -547,7 +547,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 	}
 
 	state = traceState{}
-	res, err = rule2.resolveL4IngressPolicy(toBar, &state, NewL4Policy())
+	res, err = rule2.resolveL4IngressPolicy(toBar, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	c.Assert(*res, comparator.DeepEquals, *expected)
@@ -555,19 +555,19 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 	c.Assert(state.matchedRules, Equals, 0)
 
 	state = traceState{}
-	res, err = rule2.resolveL4IngressPolicy(toFoo, &state, NewL4Policy())
+	res, err = rule2.resolveL4IngressPolicy(toFoo, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
 	c.Assert(state.matchedRules, Equals, 0)
 
 	// Resolve rule1's policy, then try to add rule2.
-	res, err = rule1.resolveL4IngressPolicy(toBar, &state, NewL4Policy())
+	res, err = rule1.resolveL4IngressPolicy(toBar, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 
 	state = traceState{}
-	_, err = rule2.resolveL4IngressPolicy(toBar, &state, res)
+	_, err = rule2.resolveL4IngressPolicy(toBar, &state, res, nil)
 
 	c.Assert(err, Not(IsNil))
 
@@ -629,7 +629,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 	}
 
 	state = traceState{}
-	res, err = rule3.resolveL4IngressPolicy(toBar, &state, NewL4Policy())
+	res, err = rule3.resolveL4IngressPolicy(toBar, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	c.Assert(*res, comparator.DeepEquals, *expected)
@@ -702,7 +702,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 	}
 
 	state := traceState{}
-	res, err := rule1.resolveL4EgressPolicy(fromBar, &state, NewL4Policy())
+	res, err := rule1.resolveL4EgressPolicy(fromBar, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	c.Assert(*res, comparator.DeepEquals, *expected)
@@ -710,7 +710,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 	c.Assert(state.matchedRules, Equals, 0)
 
 	state = traceState{}
-	res, err = rule1.resolveL4EgressPolicy(fromFoo, &state, NewL4Policy())
+	res, err = rule1.resolveL4EgressPolicy(fromFoo, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
@@ -773,7 +773,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 	}
 
 	state = traceState{}
-	res, err = rule2.resolveL4EgressPolicy(fromBar, &state, NewL4Policy())
+	res, err = rule2.resolveL4EgressPolicy(fromBar, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	c.Assert(*res, comparator.DeepEquals, *expected)
@@ -781,14 +781,14 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 	c.Assert(state.matchedRules, Equals, 0)
 
 	state = traceState{}
-	res, err = rule2.resolveL4EgressPolicy(fromFoo, &state, NewL4Policy())
+	res, err = rule2.resolveL4EgressPolicy(fromFoo, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
 	c.Assert(state.matchedRules, Equals, 0)
 
 	// Resolve rule1's policy, then try to add rule2.
-	res, err = rule1.resolveL4EgressPolicy(fromBar, &state, NewL4Policy())
+	res, err = rule1.resolveL4EgressPolicy(fromBar, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 
@@ -847,7 +847,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 	}
 
 	state = traceState{}
-	res, err = rule3.resolveL4EgressPolicy(fromBar, &state, NewL4Policy())
+	res, err = rule3.resolveL4EgressPolicy(fromBar, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	c.Assert(*res, comparator.DeepEquals, *expected)
@@ -997,11 +997,11 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 	}.Sanitize()
 	c.Assert(err, Not(IsNil))
 
-	// Must have a mask, make sure Validate fails when not.
+	// Must have a contiguous mask, make sure Validate fails when not.
 	err = api.Rule{
 		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 		Ingress: []api.IngressRule{{
-			FromCIDR: []api.CIDR{"10.0.1.0/0"},
+			FromCIDR: []api.CIDR{"10.0.1.0/128.0.0.128"},
 		}},
 	}.Sanitize()
 	c.Assert(err, Not(IsNil))
@@ -1018,18 +1018,8 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 }
 
 func (ds *PolicyTestSuite) TestL3PolicyRestrictions(c *C) {
-	// Check rejection of allow-all CIDRs
-	barSelector := api.NewESFromLabels(labels.ParseSelectLabel("bar"))
-	cidrs := []api.CIDR{"0.0.0.0/0"}
-	apiRule1 := api.Rule{
-		EndpointSelector: barSelector,
-		Ingress:          []api.IngressRule{{FromCIDR: cidrs}},
-	}
-	err := apiRule1.Sanitize()
-	c.Assert(err, Not(IsNil))
-
 	// Check rejection of too many prefix lengths
-	cidrs = []api.CIDR{}
+	cidrs := []api.CIDR{}
 	for i := 1; i < 42; i++ {
 		cidrs = append(cidrs, api.CIDR(fmt.Sprintf("%d::/%d", i, i)))
 	}
@@ -1037,7 +1027,7 @@ func (ds *PolicyTestSuite) TestL3PolicyRestrictions(c *C) {
 		EndpointSelector: barSelector,
 		Ingress:          []api.IngressRule{{FromCIDR: cidrs}},
 	}
-	err = apiRule2.Sanitize()
+	err := apiRule2.Sanitize()
 	c.Assert(err, Not(IsNil))
 	apiRule3 := api.Rule{
 		EndpointSelector: barSelector,
@@ -1424,8 +1414,8 @@ func (ds *PolicyTestSuite) TestL4RuleLabels(c *C) {
 
 			rule := &rule{Rule: apiRule}
 
-			rule.resolveL4IngressPolicy(toBar, &traceState{}, finalPolicy)
-			rule.resolveL4EgressPolicy(fromBar, &traceState{}, finalPolicy)
+			rule.resolveL4IngressPolicy(toBar, &traceState{}, finalPolicy, nil)
+			rule.resolveL4EgressPolicy(fromBar, &traceState{}, finalPolicy, nil)
 		}
 
 		c.Assert(len(finalPolicy.Ingress), Equals, len(test.expectedIngressLabels), Commentf(test.description))

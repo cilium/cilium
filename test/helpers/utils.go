@@ -38,6 +38,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
+func init() {
+	// ensure that our random numbers are seeded differently on each run
+	rand.Seed(time.Now().UnixNano())
+}
+
 // IsRunningOnJenkins detects if the currently running Ginkgo application is
 // most likely running in a Jenkins environment. Returns true if certain
 // environment variables that are present in Jenkins jobs are set, false
@@ -117,7 +122,9 @@ func WithTimeout(body func() bool, msg string, config *TimeoutConfig) error {
 	done := time.After(config.Timeout * time.Second)
 	ticker := time.NewTicker(config.Ticker * time.Second)
 	defer ticker.Stop()
-
+	if body() {
+		return nil
+	}
 	for {
 		select {
 		case <-ticker.C:
@@ -153,7 +160,7 @@ func WithTimeoutErr(ctx context.Context, f func() (bool, error), freq time.Durat
 
 // InstallExampleCilium uses Cilium Kubernetes example from the repo,
 // changes the etcd parameter and installs the stable tag from docker-hub
-func InstallExampleCilium(kubectl *Kubectl) {
+func InstallExampleCilium(kubectl *Kubectl, version string) {
 
 	var path = filepath.Join("..", "examples", "kubernetes", GetCurrentK8SEnv(), "cilium.yaml")
 	var result bytes.Buffer
@@ -179,7 +186,7 @@ func InstallExampleCilium(kubectl *Kubectl) {
 		value, _ = jsonObj.Path("kind").Data().(string)
 		if value == daemonSet {
 			container := jsonObj.Path("spec.template.spec.containers").Index(0)
-			container.Set(StableImage, "image")
+			container.Set(version, "image")
 		}
 		result.WriteString(jsonObj.String())
 	}
@@ -197,7 +204,7 @@ func InstallExampleCilium(kubectl *Kubectl) {
 		KubeSystemNamespace, "-l k8s-app=cilium", timeout)
 	ExpectWithOffset(1, err).Should(BeNil(), "Cilium is not ready after timeout")
 
-	ginkgoext.By(fmt.Sprintf("Checking that installed image is %q", StableImage))
+	ginkgoext.By(fmt.Sprintf("Checking that installed image is %q", version))
 
 	filter := `{.items[*].status.containerStatuses[0].image}`
 	data, err := kubectl.GetPods(
@@ -205,7 +212,7 @@ func InstallExampleCilium(kubectl *Kubectl) {
 	ExpectWithOffset(1, err).To(BeNil(), "Cannot get cilium pods")
 
 	for _, val := range strings.Split(data.String(), " ") {
-		ExpectWithOffset(1, val).To(Equal(StableImage), "Cilium image didn't update correctly")
+		ExpectWithOffset(1, val).To(Equal(version), "Cilium image didn't update correctly")
 	}
 }
 
@@ -222,52 +229,6 @@ func GetAppPods(apps []string, namespace string, kubectl *Kubectl, appFmt string
 		log.Infof("GetAppPods: pod=%q assigned to %q", res[0], v)
 	}
 	return appPods
-}
-
-// WaitCiliumEndpointReady gets cilium pod for a ginkgo node (k8s1/k8s2)
-// and waits for all the endpoints of that node to be ready.
-func (kubectl *Kubectl) WaitCiliumEndpointReady(podFilter string, k8sNode string) (string, EndpointMap) {
-	ciliumPod, err := kubectl.GetCiliumPodOnNode(KubeSystemNamespace, k8sNode)
-	Expect(err).Should(BeNil())
-
-	status := kubectl.CiliumExec(ciliumPod, fmt.Sprintf("cilium config %s=%s", PolicyEnforcement, PolicyEnforcementDefault))
-	status.ExpectSuccess()
-
-	err = kubectl.CiliumEndpointWaitReady()
-	Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
-
-	epsStatus := WithTimeout(func() bool {
-		endpoints, err := kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
-		if err != nil {
-			return false
-		}
-		return endpoints.AreReady()
-	}, "Could not get endpoints", &TimeoutConfig{Timeout: 100})
-	Expect(epsStatus).Should(BeNil())
-
-	endpoints, err := kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
-	Expect(err).Should(BeNil())
-
-	Expect(endpoints.AreReady()).Should(BeTrue())
-	return ciliumPod, endpoints
-}
-
-// WaitUntilEndpointUpdates checks the policy version and then iterates through
-// all endpoints waiting for the endpoints to have updated policies.
-func WaitUntilEndpointUpdates(pod string, eps map[string]int64, min int, kubectl *Kubectl) error {
-	body := func() bool {
-		updated := 0
-		newEps := kubectl.CiliumEndpointPolicyVersion(pod)
-		for k, v := range newEps {
-			if eps[k] < v {
-				log.Infof("Endpoint %s had version %d now %d updated : %d", k, eps[k], v, updated)
-				updated++
-			}
-		}
-		return updated >= min
-	}
-	err := WithTimeout(body, "No new version applied", &TimeoutConfig{Timeout: 100})
-	return err
 }
 
 // Fail is a Ginkgo failure handler which raises a SIGSTOP for the test process
@@ -383,4 +344,33 @@ func ManifestGet(manifestFilename string) string {
 		return filepath.Join(BasePath, fullPath)
 	}
 	return filepath.Join(BasePath, "k8sT", "manifests", manifestFilename)
+}
+
+// WriteOrAppendToFile writes data to a file named by filename.
+// If the file does not exist, WriteFile creates it with permissions perm;
+// otherwise WriteFile appends the data to the file
+func WriteOrAppendToFile(filename string, data []byte, perm os.FileMode) error {
+	f, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, perm)
+	if err != nil {
+		return err
+	}
+	n, err := f.Write(data)
+	if err == nil && n < len(data) {
+		err = io.ErrShortWrite
+	}
+	if err1 := f.Close(); err == nil {
+		err = err1
+	}
+	return err
+}
+
+// DNSDeployment returns the manifest to install dns engine on the server.
+func DNSDeployment() string {
+	var DNSEngine = "kubedns"
+	k8sVersion := GetCurrentK8SEnv()
+	switch k8sVersion {
+	case "1.11", "1.12":
+		DNSEngine = "coredns"
+	}
+	return GetFilePath("provision/manifest/" + DNSEngine + "_deployment.yaml")
 }

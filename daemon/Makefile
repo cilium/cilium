@@ -11,7 +11,7 @@ TARGET=cilium-agent
 SOURCES := $(shell find ../api ../common ../daemon ../pkg ../monitor . \( -name '*.go'  ! -name '*_test.go' \))
 $(TARGET): $(SOURCES) check-bindata
 	@$(ECHO_GO)
-	$(GO) build -i $(GOBUILD) -o $(TARGET)
+	$(GO) build $(GOBUILD) -o $(TARGET)
 
 GO_BINDATA := $(QUIET) go-bindata -prefix ../ -mode 0640 -modtime 1450269211 \
 	-ignore Makefile -ignore bpf_features.h -ignore lxc_config.h \

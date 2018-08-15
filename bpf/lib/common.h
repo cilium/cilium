@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2016-2017 Authors of Cilium
+ *  Copyright (C) 2016-2018 Authors of Cilium
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -40,17 +40,21 @@
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
+/* These are shared with test/bpf/check-complexity.sh, when modifying any of
+ * the below, that script should also be updated. */
 #define CILIUM_CALL_DROP_NOTIFY			1
 #define CILIUM_CALL_ERROR_NOTIFY		2
 #define CILIUM_CALL_SEND_ICMP6_ECHO_REPLY	3
 #define CILIUM_CALL_HANDLE_ICMP6_NS		4
 #define CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED	5
 #define CILIUM_CALL_ARP				6
-#define CILIUM_CALL_IPV4			7
+#define CILIUM_CALL_IPV4_FROM_LXC		7
 #define CILIUM_CALL_NAT64			8
 #define CILIUM_CALL_NAT46			9
-#define CILIUM_CALL_IPV6			10
-#define CILIUM_CALL_SIZE			11
+#define CILIUM_CALL_IPV6_FROM_LXC		10
+#define CILIUM_CALL_IPV4_TO_LXC			11
+#define CILIUM_CALL_IPV6_TO_LXC			12
+#define CILIUM_CALL_SIZE			13
 
 typedef __u64 mac_t;
 
@@ -160,7 +164,7 @@ struct endpoint_key {
 /* Value of endpoint map */
 struct endpoint_info {
 	__u32		ifindex;
-	__u16		sec_label;
+	__u16		unused; /* used to be sec_label, no longer used */
 	__u16           lxc_id;
 	__u32		flags;
 	mac_t		mac;
@@ -169,8 +173,8 @@ struct endpoint_info {
 };
 
 struct remote_endpoint_info {
-	__u16		sec_label;
-	__u16		pad[3];
+	__u32		sec_label;
+	__u32		tunnel_endpoint;
 };
 
 struct policy_key {
@@ -275,27 +279,25 @@ enum {
 
 /* Magic skb->mark markers which identify packets originating from the host
  *
- * The upper 16 bits contain the magic marker values which indicate whether
- * the packet is coming from an ingress or egress proxy, or a local process.
+ * The upper 16 bits contain
+ *  - the magic marker values which indicate whether the packet is coming from
+ *    an ingress or egress proxy, or a local process.
+ *  - the cluster id
  *
  * The lower 16 bits may contain the security identity of the original source
  * endpoint.
  */
-#define MARK_MAGIC_HOST_MASK		0xFFF
-#define MARK_MAGIC_PROXY_INGRESS	0xFEA
-#define MARK_MAGIC_PROXY_EGRESS		0xFEB
-#define MARK_MAGIC_HOST			0xFEC
-#define MARK_IDENTITY_MASK		(0xFFFF << 16)
-
-#define SOURCE_INGRESS_PROXY 1
-#define SOURCE_EGRESS_PROXY 2
+#define MARK_MAGIC_HOST_MASK		0xF00
+#define MARK_MAGIC_PROXY_INGRESS	0xA00
+#define MARK_MAGIC_PROXY_EGRESS		0xB00
+#define MARK_MAGIC_HOST			0xC00
 
 /**
  * get_identity_via_proxy - returns source identity as specified by the proxy
  */
 static inline int __inline__ get_identity_via_proxy(struct __sk_buff *skb)
 {
-	return skb->mark >> 16;
+	return ((skb->mark & 0xFF) << 16) | skb->mark >> 16;
 }
 
 /*
@@ -324,6 +326,7 @@ enum {
 
 #define CT_EGRESS 0
 #define CT_INGRESS 1
+#define CT_SERVICE 2
 
 enum {
 	CT_NEW,
@@ -340,7 +343,7 @@ struct ipv6_ct_tuple {
 	__be16		sport;
 	__u8		nexthdr;
 	__u8		flags;
-};
+} __attribute__((packed));
 
 static inline union v6addr *
 ipv6_ct_tuple_get_daddr(struct ipv6_ct_tuple *tuple)
@@ -387,8 +390,19 @@ struct ct_entry {
 	      seen_non_syn:1,
 	      reserve:11;
 	__u16 rev_nat_index;
-	__be16 unused;
+	__u16 slave;
+
+	/* *x_flags_seen represents the OR of all TCP flags seen for the
+	 * transmit/receive direction of this entry. */
+	__u8  tx_flags_seen;
+	__u8  rx_flags_seen;
+
 	__u32 src_sec_id;
+
+	/* last_*x_report is a timestamp of the last time a monitor
+	 * notification was sent for the transmit/receive direction. */
+	__u32 last_tx_report;
+	__u32 last_rx_report;
 };
 
 struct lb6_key {
@@ -443,6 +457,7 @@ struct ct_state {
 	__be32 addr;
 	__be32 svc_addr;
 	__u32 src_sec_id;
+	__u16 slave;
 };
 
 /* Lifetime of a proxy redirection entry. All proxies should be using TCP

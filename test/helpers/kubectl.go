@@ -17,33 +17,26 @@ package helpers
 import (
 	"bytes"
 	"context"
-	"errors"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"text/tabwriter"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/annotation"
 	cnpv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/test/config"
-	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
+	"github.com/cilium/cilium/test/ginkgo-ext"
 
 	"github.com/asaskevich/govalidator"
 	"github.com/onsi/ginkgo"
-	"github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/crypto/ssh"
 	"k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8sClient "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
 const (
@@ -69,47 +62,6 @@ func GetCurrentK8SEnv() string { return os.Getenv("K8S_VERSION") }
 // SSHMeta.
 type Kubectl struct {
 	*SSHMeta
-	k8sClient.Clientset
-}
-
-// logHTTPTransport is a wrapper of http.Transport to log all http requests
-type logHTTPTransport struct {
-	transport *http.Transport
-	logger    *logrus.Entry
-}
-
-func (l *logHTTPTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	var reqURL, reqMethod, reqStr, rspStr string
-
-	reqStr = "<empty>"
-	if req != nil {
-		reqURL = req.URL.String()
-		reqMethod = req.Method
-		if req.Body != nil {
-			newBody, err := req.GetBody()
-			if err == nil {
-				body, _ := ioutil.ReadAll(newBody)
-				reqStr = string(body)
-			}
-		}
-	}
-
-	resp, err := l.transport.RoundTrip(req)
-
-	if err != nil {
-		rspStr = "error: " + err.Error()
-	} else {
-		rspStr = resp.Status
-	}
-	reqLog := l.logger.WithFields(
-		logrus.Fields{
-			"to":     reqURL,
-			"method": reqMethod,
-			"data":   reqStr,
-			"result": rspStr,
-		})
-	reqLog.Debugf("HTTPRequest")
-	return resp, err
 }
 
 // CreateKubectl initializes a Kubectl helper with the provided vmName and log
@@ -132,48 +84,8 @@ func CreateKubectl(vmName string, log *logrus.Entry) *Kubectl {
 	}
 	node.logger = log
 
-	k8sConfig, err := clientcmd.BuildConfigFromKubeconfigGetter("", func() (*clientcmdapi.Config, error) {
-		res = node.Exec("cat ${HOME}/.kube/config")
-		if res.WasSuccessful() {
-			return clientcmd.Load(res.stdout.Bytes())
-		}
-		return nil, fmt.Errorf("unable to read kubeconfig file: %s", res.GetStdErr())
-	})
-	if err != nil {
-		ginkgo.Fail(fmt.Sprintf(
-			"Cannot set kubernetes configuration: %s", err), 1)
-		return nil
-	}
-
-	k8sConfig.WrapTransport = func(rt http.RoundTripper) http.RoundTripper {
-		httpTransport, ok := rt.(*http.Transport)
-		if !ok {
-			return rt
-		}
-		httpTransport.DialContext = func(_ context.Context, network, addr string) (net.Conn, error) {
-			// Create a connection to the kubeapiserver via the ssh tunnel
-			conn, err := ssh.Dial("tcp", node.sshClient.GetHostPort(), node.sshClient.Config)
-			if err != nil {
-				return nil, err
-			}
-			return conn.Dial(network, addr)
-		}
-		// Create a wrapper so we can log the requests
-		return &logHTTPTransport{
-			logger:    log,
-			transport: httpTransport,
-		}
-	}
-
-	c, err := k8sClient.NewForConfig(k8sConfig)
-	if err != nil {
-		ginkgo.Fail(fmt.Sprintf(
-			"Cannot create kubernetes client: %s", err), 1)
-		return nil
-	}
 	return &Kubectl{
-		SSHMeta:   node,
-		Clientset: *c,
+		SSHMeta: node,
 	}
 }
 
@@ -208,7 +120,9 @@ func (kub *Kubectl) WaitCEPReady() error {
 	}
 	body := func() bool {
 		// Created a map of .id and IPv4 because endpoint id can be the same in different nodes.
-		endpointFilter := `{range [*]}{@.id}{"_"}{@.status.networking.addressing[0].ipv4}{"="}{@.status.policy.spec.policy-revision}{"\n"}{end}`
+		// Note: endpointFilter ignores the health endpoint because we don't create
+		// CEPs for them (via `?(@.status.identity.id != 4)`).
+		endpointFilter := `{range [?(@.status.identity.id != 4)]}{@.id}{"_"}{@.status.networking.addressing[0].ipv4}{"="}{@.status.policy.spec.policy-revision}{"\n"}{end}`
 		cepFilter := `{range .items[*]}{@.status.id}{"_"}{@.status.status.networking.addressing[0].ipv4}{"="}{@.status.status.policy.spec.policy-revision}{"\n"}{end}`
 		endpoints := map[string]string{}
 		for _, ciliumPod := range pods {
@@ -249,27 +163,27 @@ func (kub *Kubectl) WaitCEPReady() error {
 // function needs to also take into account the stderr messages returned.
 func (kub *Kubectl) ExecKafkaPodCmd(namespace string, pod string, arg string) error {
 	command := fmt.Sprintf("%s exec -n %s %s sh -- %s", KubectlCmd, namespace, pod, arg)
-	stdout := new(bytes.Buffer)
-	stderr := new(bytes.Buffer)
-	err := kub.Execute(command, stdout, stderr)
-	if err != nil {
-		return fmt.Errorf("ExecKafkaPodCmd: command '%s' failed '%s' || '%s'", command, stdout.String(), stderr.String())
+	res := kub.Exec(command)
+	if !res.WasSuccessful() {
+		return fmt.Errorf("ExecKafkaPodCmd: command '%s' failed %s",
+			res.GetCmd(), res.OutputPrettyPrint())
 	}
 
-	if strings.Contains(stderr.String(), "ERROR") {
-		return fmt.Errorf("ExecKafkaPodCmd: command '%s' failed '%s' || '%s'", command, stdout.String(), stderr.String())
+	if strings.Contains(res.GetStdErr(), "ERROR") {
+		return fmt.Errorf("ExecKafkaPodCmd: command '%s' failed '%s'",
+			res.GetCmd(), res.OutputPrettyPrint())
 	}
 	return nil
 }
 
 // ExecPodCmd executes command cmd in the specified pod residing in the specified
 // namespace. It returns a pointer to CmdRes with all the output
-func (kub *Kubectl) ExecPodCmd(namespace string, pod string, cmd string) *CmdRes {
+func (kub *Kubectl) ExecPodCmd(namespace string, pod string, cmd string, options ...ExecOptions) *CmdRes {
 	command := fmt.Sprintf("%s exec -n %s %s -- %s", KubectlCmd, namespace, pod, cmd)
-	return kub.Exec(command)
+	return kub.Exec(command, options...)
 }
 
-// ExecPodCmd executes command cmd in background in the specified pod residing
+// ExecPodCmdContext executes command cmd in background in the specified pod residing
 // in the specified namespace. It returns a pointer to CmdRes with all the
 // output
 func (kub *Kubectl) ExecPodCmdContext(ctx context.Context, namespace string, pod string, cmd string) *CmdRes {
@@ -344,6 +258,36 @@ func (kub *Kubectl) GetEndpoints(namespace string, filter string) *CmdRes {
 	return kub.Exec(fmt.Sprintf("%s -n %s get endpoints %s -o json", KubectlCmd, namespace, filter))
 }
 
+// GetAllPods returns a slice of all pods present in Kubernetes cluster, along
+// with an error if the pods could not be retrieved via `kubectl`, or if the
+// pod objects are unable to be marshaled from JSON.
+func (kub *Kubectl) GetAllPods(options ...ExecOptions) ([]v1.Pod, error) {
+	var ops ExecOptions
+	if len(options) > 0 {
+		ops = options[0]
+	}
+
+	var podsList v1.List
+	err := kub.Exec(
+		fmt.Sprintf("%s get pods --all-namespaces -o json", KubectlCmd),
+		ExecOptions{SkipLog: ops.SkipLog}).Unmarshal(&podsList)
+	if err != nil {
+		return nil, err
+	}
+
+	pods := make([]v1.Pod, len(podsList.Items))
+	for _, item := range podsList.Items {
+		var pod v1.Pod
+		err = json.Unmarshal(item.Raw, &pod)
+		if err != nil {
+			return nil, err
+		}
+		pods = append(pods, pod)
+	}
+
+	return pods, nil
+}
+
 // GetPodNames returns the names of all of the pods that are labeled with label
 // in the specified namespace, along with an error if the pod names cannot be
 // retrieved.
@@ -351,9 +295,10 @@ func (kub *Kubectl) GetPodNames(namespace string, label string) ([]string, error
 	stdout := new(bytes.Buffer)
 	filter := "-o jsonpath='{.items[*].metadata.name}'"
 
+	cmd := fmt.Sprintf("%s -n %s get pods -l %s %s", KubectlCmd, namespace, label, filter)
+
 	err := kub.Execute(
-		fmt.Sprintf("%s -n %s get pods -l %s %s", KubectlCmd, namespace, label, filter),
-		stdout, nil)
+		cmd, stdout, nil)
 
 	if err != nil {
 		return nil, fmt.Errorf(
@@ -395,48 +340,135 @@ func (kub *Kubectl) Logs(namespace string, pod string) *CmdRes {
 // a timeout. Also it returns a callback function to stop the monitor and save
 // the output to `helpers.monitorLogFileName` file.
 func (kub *Kubectl) MicroscopeStart() (error, func() error) {
-	/*
-		TODO: re-enable microscope in CI. See GH-4011.
-		microscope := "microscope"
-		cmd := fmt.Sprintf("%[1]s -n %[2]s exec %[3]s -- %[3]s",
-			KubectlCmd, KubeSystemNamespace, microscope)
-		_ = kub.Apply(microscopeManifest)
+	microscope := "microscope"
+	var microscopeCmd = microscope + "| ts '[%Y-%m-%d %H:%M:%S]'"
+	var cb = func() error { return nil }
+	cmd := fmt.Sprintf("%[1]s -ti -n %[2]s exec %[3]s -- %[4]s",
+		KubectlCmd, KubeSystemNamespace, microscope, microscopeCmd)
+	microscopePath := ManifestGet(microscopeManifest)
+	_ = kub.Apply(microscopePath)
 
-		_, err := kub.WaitforPods(
-			KubeSystemNamespace,
-			fmt.Sprintf("-l k8s-app=%s", microscope),
-			300)
+	err := kub.WaitforPods(
+		KubeSystemNamespace,
+		fmt.Sprintf("-l k8s-app=%s", microscope),
+		300)
+	if err != nil {
+		return err, cb
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	res := kub.ExecContext(ctx, cmd, ExecOptions{SkipLog: true})
+
+	cb = func() error {
+		cancel()
+		<-ctx.Done()
+		testPath, err := CreateReportDirectory()
 		if err != nil {
-			return err, nil
+			kub.logger.WithError(err).Errorf(
+				"cannot create test results path '%s'", testPath)
+			return err
 		}
 
-		ctx, cancel := context.WithCancel(context.Background())
-		res := kub.ExecContext(ctx, cmd, ExecOptions{SkipLog: true})
-
-		cb := func() error {
-			cancel()
-			testPath, err := CreateReportDirectory()
-			if err != nil {
-				kub.logger.WithError(err).Errorf(
-					"cannot create test results path '%s'", testPath)
-				return err
-			}
-
-			err = ioutil.WriteFile(
-				filepath.Join(testPath, monitorLogFileName),
-				res.CombineOutput().Bytes(),
-				LogPerm)
-			if err != nil {
-				log.WithError(err).Errorf("cannot create monitor log file")
-			}
-			return nil
+		err = WriteOrAppendToFile(
+			filepath.Join(testPath, MonitorLogFileName),
+			res.CombineOutput().Bytes(),
+			LogPerm)
+		if err != nil {
+			log.WithError(err).Errorf("cannot create monitor log file")
+			return err
 		}
-	*/
-
-	cb := func() error {
+		res := kub.Exec(fmt.Sprintf("%s -n %s delete pod microscope", KubectlCmd, KubeSystemNamespace))
+		if !res.WasSuccessful() {
+			return fmt.Errorf("error deleting microscope pod: %s", res.OutputPrettyPrint())
+		}
 		return nil
 	}
+
 	return nil, cb
+}
+
+// BackgroundReport dumps the result of the given commands on cilium pods each
+// five seconds.
+func (kub *Kubectl) BackgroundReport(commands ...string) (context.CancelFunc, error) {
+	backgroundCtx, cancel := context.WithCancel(context.Background())
+	pods, err := kub.GetCiliumPods(KubeSystemNamespace)
+	if err != nil {
+		return cancel, fmt.Errorf("Cannot retrieve cilium pods: %s", err)
+	}
+	retrieveInfo := func() {
+		for _, pod := range pods {
+			for _, cmd := range commands {
+				kub.CiliumExec(pod, cmd)
+			}
+		}
+	}
+	go func(ctx context.Context) {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				retrieveInfo()
+			}
+		}
+	}(backgroundCtx)
+	return cancel, nil
+}
+
+// PprofReport runs pprof on cilium nodes each 5 minutes and saves the data
+// into the test folder saved with pprof suffix.
+func (kub *Kubectl) PprofReport() {
+	PProfCadence := 5 * time.Minute
+	ticker := time.NewTicker(PProfCadence)
+	log := kub.logger.WithField("subsys", "pprofReport")
+
+	retrievePProf := func(pod, testPath string) {
+		res := kub.ExecPodCmd(KubeSystemNamespace, pod, "gops pprof-cpu 1")
+		if !res.WasSuccessful() {
+			log.Errorf("cannot execute pprof: %s", res.OutputPrettyPrint())
+			return
+		}
+		files := kub.ExecPodCmd(KubeSystemNamespace, pod, `ls -1 /tmp/`)
+		for _, file := range files.ByLines() {
+			if !strings.Contains(file, "profile") {
+				continue
+			}
+
+			dest := filepath.Join(
+				BasePath, testPath,
+				fmt.Sprintf("%s-profile-%s.pprof", pod, file))
+			_ = kub.Exec(fmt.Sprintf("%[1]s cp %[2]s/%[3]s:/tmp/%[4]s %[5]s",
+				KubectlCmd, KubeSystemNamespace, pod, file, dest),
+				ExecOptions{SkipLog: true})
+
+			_ = kub.ExecPodCmd(KubeSystemNamespace, pod, fmt.Sprintf(
+				"rm %s", filepath.Join("/tmp/", file)))
+		}
+	}
+
+	for {
+		select {
+		case <-ticker.C:
+
+			testPath, err := CreateReportDirectory()
+			if err != nil {
+				log.WithError(err).Errorf("cannot create test result path '%s'", testPath)
+				return
+			}
+
+			pods, err := kub.GetCiliumPods(KubeSystemNamespace)
+			if err != nil {
+				log.Errorf("cannot get cilium pods")
+			}
+
+			for _, pod := range pods {
+				retrievePProf(pod, testPath)
+			}
+
+		}
+	}
 }
 
 // NodeCleanMetadata annotates each node in the Kubernetes cluster with the
@@ -476,6 +508,15 @@ func (kub *Kubectl) NamespaceDelete(name string) *CmdRes {
 // the aforementioned desired state within timeout seconds. Returns false and
 // an error if the command failed or the timeout was exceeded.
 func (kub *Kubectl) WaitforPods(namespace string, filter string, timeout time.Duration) error {
+
+	data, err := kub.GetPods(namespace, filter).Filter("{.items[*].metadata.deletionTimestamp}")
+	if err != nil {
+		return fmt.Errorf("Cannot get pods with filter '%s': %s", filter, err)
+	}
+	if data.String() != "" {
+		return fmt.Errorf(
+			"There are some pods with filter %s that are marked to be deleted", filter)
+	}
 	body := func() bool {
 		var jsonPath = "{.items[*].status.containerStatuses[*].ready}"
 		data, err := kub.GetPods(namespace, filter).Filter(jsonPath)
@@ -502,7 +543,10 @@ func (kub *Kubectl) WaitforPods(namespace string, filter string, timeout time.Du
 		}).Info("WaitforPods: pods are not ready")
 		return false
 	}
-	return WithTimeout(body, "could not get Pods", &TimeoutConfig{Timeout: timeout})
+	return WithTimeout(
+		body,
+		fmt.Sprintf("timed out waiting for pods with filter %s to be ready", filter),
+		&TimeoutConfig{Timeout: timeout})
 }
 
 // WaitForServiceEndpoints waits up until timeout seconds have elapsed for all
@@ -585,16 +629,17 @@ func (kub *Kubectl) WaitKubeDNS() error {
 	return kub.WaitforPods(KubeSystemNamespace, fmt.Sprintf("-l %s", kubeDNSLabel), DNSHelperTimeout)
 }
 
-// WaitForKubeDNSEntry waits until the given DNS entry is ready in kube-dns
-// pod. If the container is not ready after timeout it returns an error. The
+// WaitForKubeDNSEntry waits until the given DNS entry exists in the kube-dns
+// service. If the container is not ready after timeout it returns an error. The
 // name's format query should be `${name}.${namespace}`. If `svc.cluster.local`
-// is not present it appends to the given name and it checks  the full FQDN
-func (kub *Kubectl) WaitForKubeDNSEntry(name string) error {
+// is not present, it appends to the given name and it checks the service's FQDN.
+func (kub *Kubectl) WaitForKubeDNSEntry(serviceName, serviceNamespace string) error {
 	svcSuffix := "svc.cluster.local"
-	logger := kub.logger.WithField("dnsName", name)
+	logger := kub.logger.WithFields(logrus.Fields{"serviceName": serviceName, "serviceNamespace": serviceNamespace})
 
-	if !strings.HasSuffix(name, svcSuffix) {
-		name = fmt.Sprintf("%s.%s", name, svcSuffix)
+	serviceNameWithNamespace := fmt.Sprintf("%s.%s", serviceName, serviceNamespace)
+	if !strings.HasSuffix(serviceNameWithNamespace, svcSuffix) {
+		serviceNameWithNamespace = fmt.Sprintf("%s.%s", serviceNameWithNamespace, svcSuffix)
 	}
 	// https://bugs.launchpad.net/ubuntu/+source/bind9/+bug/854705
 	digCMD := "dig +short %s @%s | grep -v -e '^;'"
@@ -603,23 +648,54 @@ func (kub *Kubectl) WaitForKubeDNSEntry(name string) error {
 	// established or DNS does not exist.
 	digCMDFallback := "dig +tcp %s @%s"
 
-	host, _, err := kub.GetServiceHostPort(KubeSystemNamespace, "kube-dns")
+	dnsClusterIP, _, err := kub.GetServiceHostPort(KubeSystemNamespace, "kube-dns")
 	if err != nil {
 		logger.WithError(err).Error("cannot get kube-dns service IP")
 		return err
 	}
 
 	body := func() bool {
-		res := kub.Exec(fmt.Sprintf(digCMD, name, host))
-		if !res.WasSuccessful() {
-			_ = kub.Exec(fmt.Sprintf(digCMDFallback, name, host))
+		serviceIP, _, err := kub.GetServiceHostPort(serviceNamespace, serviceName)
+		if err != nil {
+			log.WithError(err).Errorf("cannot get service IP for service %s", serviceNameWithNamespace)
+			return false
 		}
-		return res.WasSuccessful()
+
+		// ClusterIPNone denotes that this service is headless; there is no
+		// service IP for this service, and thus the IP returned by `dig` is
+		// an IP of the pod itself, not ClusterIPNone, which is what Kubernetes
+		// shows as the IP for the service for headless services.
+		if serviceIP == v1.ClusterIPNone {
+			res := kub.Exec(fmt.Sprintf(digCMD, serviceNameWithNamespace, dnsClusterIP))
+			_ = kub.Exec(fmt.Sprintf(digCMDFallback, serviceNameWithNamespace, dnsClusterIP))
+			return res.WasSuccessful()
+		}
+		log.Debugf("service is not headless; checking whether IP retrieved from DNS matches the IP for the service stored in Kubernetes")
+		res := kub.Exec(fmt.Sprintf(digCMD, serviceNameWithNamespace, dnsClusterIP))
+		serviceIPFromDNS := res.SingleOut()
+		if !govalidator.IsIP(serviceIPFromDNS) {
+			logger.Debugf("output of dig (%s) did not return an IP")
+			return false
+		}
+
+		// Due to lag between new IPs for the same service being synced between
+		// kube-apiserver and DNS, check if the IP for the service that is
+		// stored in K8s matches the IP of the service cached in DNS. These
+		// can be different, because some tests use the same service names.
+		// Wait accordingly for services to match, and for resolving the service
+		// name to resolve via DNS.
+		if !strings.Contains(serviceIPFromDNS, serviceIP) {
+			logger.Debugf("service IP retrieved from DNS (%s) does not match the IP for the service stored in Kubernetes (%s)", serviceIPFromDNS, serviceIP)
+			_ = kub.Exec(fmt.Sprintf(digCMDFallback, serviceNameWithNamespace, dnsClusterIP))
+			return false
+		}
+		logger.Debugf("service IP retrieved from DNS (%s) matches the IP for the service stored in Kubernetes (%s)", serviceIPFromDNS, serviceIP)
+		return true
 	}
 
 	return WithTimeout(
 		body,
-		fmt.Sprintf("DNS %q is not ready after timeout", name),
+		fmt.Sprintf("DNS %q is not ready after timeout", serviceNameWithNamespace),
 		&TimeoutConfig{Timeout: DNSHelperTimeout})
 }
 
@@ -692,61 +768,12 @@ func (kub *Kubectl) CiliumEndpointsList(pod string) *CmdRes {
 	return kub.CiliumExec(pod, "cilium endpoint list -o json")
 }
 
-// CiliumEndpointGet returns the output of `cilium endpoint get` for the
-// provided endpoint ID.
-func (kub *Kubectl) CiliumEndpointGet(pod string, id string) *CmdRes {
-	return kub.CiliumExec(pod, fmt.Sprintf(
-		"cilium endpoint get %s -o json", id))
-}
-
-// CiliumEndpointsIDs returns a mapping  of a pod name to it is corresponding
-// endpoint's security identity
-func (kub *Kubectl) CiliumEndpointsIDs(pod string) map[string]string {
-	filter := `{range [*]}{@.status.external-identifiers.pod-name}{"="}{@.id}{"\n"}{end}`
-	return kub.CiliumExec(pod, fmt.Sprintf(
-		"cilium endpoint list -o jsonpath='%s'", filter)).KVOutput()
-}
-
 // CiliumEndpointsStatus returns a mapping  of a pod name to it is corresponding
 // endpoint's status
 func (kub *Kubectl) CiliumEndpointsStatus(pod string) map[string]string {
 	filter := `{range [*]}{@.status.external-identifiers.pod-name}{"="}{@.status.state}{"\n"}{end}`
 	return kub.CiliumExec(pod, fmt.Sprintf(
 		"cilium endpoint list -o jsonpath='%s'", filter)).KVOutput()
-}
-
-// CiliumEndpointsIdentityIDs returns a mapping with of a pod name to it is
-// corresponding endpoint's security identity
-func (kub *Kubectl) CiliumEndpointsIdentityIDs(pod string) map[string]string {
-	filter := `{range [*]}{@.status.external-identifiers.container-name}{"="}{@.status.identity.id}{"\n"}{end}`
-	return kub.CiliumExec(pod, fmt.Sprintf(
-		"cilium endpoint list -o jsonpath='%s'", filter)).KVOutput()
-}
-
-// CiliumEndpointsListByLabel returns all endpoints that are labeled with label
-// in the form of an EndpointMap, which maps an endpoint's container name to its
-// corresponding Cilium API endpoint model. It returns an error if the extraction
-// of the command to retrieve the endpoints via the Cilium API fails.
-func (kub *Kubectl) CiliumEndpointsListByLabel(pod, label string) (EndpointMap, error) {
-	result := make(EndpointMap)
-	var data []models.Endpoint
-	eps := kub.CiliumEndpointsList(pod)
-
-	err := eps.Unmarshal(&data)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, ep := range data {
-		for _, orchLabel := range ep.Status.Labels.SecurityRelevant {
-			if label == orchLabel {
-				result[ep.Status.ExternalIdentifiers.ContainerName] = ep
-				break
-			}
-		}
-
-	}
-	return result, nil
 }
 
 // CiliumEndpointWaitReady waits until all endpoints managed by all Cilium pod
@@ -804,22 +831,6 @@ func (kub *Kubectl) CiliumEndpointWaitReady() error {
 	return WithTimeout(body, "cannot retrieve endpoints", &TimeoutConfig{Timeout: HelperTimeout})
 }
 
-// CiliumEndpointPolicyVersion returns a mapping of each endpoint's ID to its
-// policy revision number for all endpoints in the specified Cilium pod.
-func (kub *Kubectl) CiliumEndpointPolicyVersion(pod string) map[string]int64 {
-	result := map[string]int64{}
-	filter := `{range [*]}{@.id}{"="}{@.status.policy.realized.policy-revision}{"\n"}{end}`
-
-	data := kub.CiliumExec(
-		pod,
-		fmt.Sprintf("cilium endpoint list -o jsonpath='%s'", filter))
-	for k, v := range data.KVOutput() {
-		val, _ := govalidator.ToInt(v)
-		result[k] = val
-	}
-	return result
-}
-
 // CiliumExec runs cmd in the specified Cilium pod.
 func (kub *Kubectl) CiliumExec(pod string, cmd string) *CmdRes {
 	limitTimes := 5
@@ -858,6 +869,25 @@ func (kub *Kubectl) CiliumExecUntilMatch(pod, cmd, substr string) error {
 		&TimeoutConfig{Timeout: HelperTimeout})
 }
 
+// CiliumExecAll runs cmd in all cilium instances
+func (kub *Kubectl) CiliumExecAll(cmd string) error {
+	pods, err := kub.GetCiliumPods(KubeSystemNamespace)
+	if err != nil {
+		return err
+	}
+	if len(pods) == 0 {
+		return fmt.Errorf("No cilium pods available")
+	}
+
+	for _, pod := range pods {
+		res := kub.CiliumExec(pod, cmd)
+		if !res.WasSuccessful() {
+			return fmt.Errorf("Command failed on %s: %s", pod, res.CombineOutput())
+		}
+	}
+	return nil
+}
+
 // CiliumNodesWait waits until all nodes in the Kubernetes cluster are annotated
 // with Cilium annotations. Its runtime is bounded by a maximum of `HelperTimeout`.
 // When a node is annotated with said annotations, it indicates
@@ -889,6 +919,13 @@ func (kub *Kubectl) CiliumNodesWait() (bool, error) {
 	return true, nil
 }
 
+// CiliumIsPolicyLoaded returns true if the policy is loaded in the given
+// cilium Pod. it returns false in case that the policy is not in place
+func (kub *Kubectl) CiliumIsPolicyLoaded(pod string, policyCmd string) bool {
+	res := kub.CiliumExec(pod, fmt.Sprintf("cilium policy get %s", policyCmd))
+	return res.WasSuccessful()
+}
+
 // CiliumPolicyRevision returns the policy revision in the specified Cilium pod.
 // Returns an error if the policy revision cannot be retrieved.
 func (kub *Kubectl) CiliumPolicyRevision(pod string) (int, error) {
@@ -908,13 +945,6 @@ func (kub *Kubectl) CiliumPolicyRevision(pod string) (int, error) {
 		return -1, err
 	}
 	return revi, nil
-}
-
-// CiliumIsPolicyLoaded returns true if the policy is loaded in the given
-// cilium Pod. it returns false in case that the policy is not in place
-func (kub *Kubectl) CiliumIsPolicyLoaded(pod string, policyCmd string) bool {
-	res := kub.CiliumExec(pod, fmt.Sprintf("cilium policy get %s", policyCmd))
-	return res.WasSuccessful()
 }
 
 // ResourceLifeCycleAction represents an action performed upon objects in
@@ -945,12 +975,11 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 	}
 
 	if status := kub.Action(action, filepath); !status.WasSuccessful() {
-		return "", fmt.Errorf("cannot perform %q on resource %q", action, filepath)
+		return "", fmt.Errorf("cannot perform %q on resource %q: %s", action, filepath, status.OutputPrettyPrint())
 	}
-
 	body := func() bool {
-		waitingRev := map[string]int{}
 
+		waitingRev := map[string]int{}
 		valid := true
 		for _, v := range pods {
 			revi, err := kub.CiliumPolicyRevision(v)
@@ -985,7 +1014,26 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 		"cannot change state of resource correctly; command timed out",
 		&TimeoutConfig{Timeout: timeout})
 	if err != nil {
-		return "", err
+		callback := func() string {
+			result := new(bytes.Buffer)
+			fmt.Fprintln(result, "Policy version when cilium start")
+
+			for _, v := range pods {
+				revi, err := kub.CiliumPolicyRevision(v)
+				if err != nil {
+					fmt.Fprintf(result, "Cilium-agent %q is not responding\n", v)
+				}
+
+				fmt.Fprintf(result,
+					"Cilium-agent %q started with policy revision '%d' and finished with '%d' \n",
+					v, revisions[v], revi)
+				if revi <= revisions[v] {
+					fmt.Fprintf(result, "Cilium-agent %q restarted during policy import\n", v)
+				}
+			}
+			return result.String()
+		}
+		return "", NewSSHMetaError(err.Error(), callback)
 	}
 	return "", nil
 }
@@ -997,28 +1045,87 @@ func (kub *Kubectl) CiliumReport(namespace string, commands ...string) {
 		ginkgoext.GinkgoPrint("Skipped gathering logs (-cilium.holdEnvironment=true)\n")
 		return
 	}
-
+	kub.CiliumCheckReport()
 	pods, err := kub.GetCiliumPods(namespace)
 	if err != nil {
 		kub.logger.WithError(err).Error("cannot retrieve cilium pods on ReportDump")
 		return
 	}
-	ginkgoext.GinkgoPrint("===================== TEST FAILED =====================")
-	// Dump a human readable view of pods in the test-output log
 	res := kub.Exec(fmt.Sprintf("%s get pods -o wide --all-namespaces", KubectlCmd))
 	ginkgoext.GinkgoPrint(res.GetDebugMessage())
 
 	for _, pod := range pods {
 		for _, cmd := range commands {
-			res = kub.ExecPodCmd(namespace, pod, cmd)
+			res = kub.ExecPodCmd(namespace, pod, cmd, ExecOptions{SkipLog: true})
 			ginkgoext.GinkgoPrint(res.GetDebugMessage())
 		}
 	}
 
 	kub.DumpCiliumCommandOutput(namespace)
 	kub.GatherLogs()
-	kub.CheckLogsForDeadlock()
-	ginkgoext.GinkgoPrint("===================== EXITING REPORT GENERATION =====================")
+}
+
+// CiliumCheckReport prints a few checks on the Junit output to provide more
+// context to users. The list of checks that prints are the following:
+// - Number of Kubernetes and Cilium policies installed.
+// - Policy enforcement status by endpoint.
+// - Controller, health, kvstore status.
+func (kub *Kubectl) CiliumCheckReport() {
+	pods, _ := kub.GetCiliumPods(KubeSystemNamespace)
+	fmt.Fprintf(CheckLogs, "Cilium pods: %v\n", pods)
+
+	var policiesFilter = `{range .items[*]}{.metadata.namespace}{"::"}{.metadata.name}{" "}{end}`
+	netpols := kub.Exec(fmt.Sprintf(
+		"%s get netpol -o jsonpath='%s' --all-namespaces",
+		KubectlCmd, policiesFilter))
+	fmt.Fprintf(CheckLogs, "Netpols loaded: %v\n", netpols.Output())
+
+	cnp := kub.Exec(fmt.Sprintf(
+		"%s get cnp -o jsonpath='%s' --all-namespaces",
+		KubectlCmd, policiesFilter))
+	fmt.Fprintf(CheckLogs, "CiliumNetworkPolicies loaded: %v\n", cnp.Output())
+
+	cepFilter := `{range .items[*]}{.metadata.name}{"="}{.status.status.policy.realized.policy-enabled}{"\n"}{end}`
+	cepStatus := kub.Exec(fmt.Sprintf(
+		"%s get cep -o jsonpath='%s' --all-namespaces",
+		KubectlCmd, cepFilter))
+
+	fmt.Fprintf(CheckLogs, "Endpoint Policy Enforcement:\n")
+
+	table := tabwriter.NewWriter(CheckLogs, 5, 0, 3, ' ', 0)
+	for pod, policy := range cepStatus.KVOutput() {
+		fmt.Println(pod, "=>", policy)
+		fmt.Fprintf(table, "\t%s\t=>\t%s\n", pod, policy)
+	}
+	table.Flush()
+
+	var controllersFilter = `{range .controllers[*]}{.name}{"="}{.status.consecutive-failure-count}::{.status.last-failure-msg}{"\n"}{end}`
+	var failedControllers string
+	for _, pod := range pods {
+		var prefix = ""
+		status := kub.CiliumExec(pod, "cilium status --all-controllers -o json")
+		result, _ := status.Filter(controllersFilter)
+		var total = 0
+		var failed = 0
+		for name, data := range result.KVOutput() {
+			total++
+			status := strings.Split(data, "::")
+			if status[0] != "" {
+				failed++
+				prefix = "⚠️  "
+				failedControllers += fmt.Sprintf("controller %s failure %q\n", name, status[1])
+			}
+		}
+		statusFilter := `Status: {.cilium.state}  Health: {.cluster.ciliumHealth.state}` +
+			` Nodes "{.cluster.nodes[*].name}" ContinerRuntime: {.container-runtime.state}` +
+			` Kubernetes: {.kubernetes.state} KVstore: {.kvstore.state}`
+		data, _ := status.Filter(statusFilter)
+		fmt.Fprintf(CheckLogs, "%sCilium agent %q: %s Controllers: Total %d Failed %d\n",
+			prefix, pod, data, total, failed)
+		if failedControllers != "" {
+			fmt.Fprintf(CheckLogs, "Failed controllers:\n %s", failedControllers)
+		}
+	}
 }
 
 // ValidateNoErrorsOnLogs checks in cilium logs since the given duration (By
@@ -1026,33 +1133,50 @@ func (kub *Kubectl) CiliumReport(namespace string, commands ...string) {
 // `deadlocks` or `segmentation faults` messages. In case of any of these
 // messages, it'll mark the test as failed.
 func (kub *Kubectl) ValidateNoErrorsOnLogs(duration time.Duration) {
+	var logs string
 	cmd := fmt.Sprintf("%s -n %s logs --timestamps=true -l k8s-app=cilium --since=%vs",
 		KubectlCmd, KubeSystemNamespace, duration.Seconds())
 	res := kub.Exec(fmt.Sprintf("%s --previous", cmd), ExecOptions{SkipLog: true})
-	if !res.WasSuccessful() {
-		res = kub.Exec(cmd)
+	if res.WasSuccessful() {
+		logs += res.Output().String()
 	}
-	logs := res.Output().String()
-	for _, message := range checkLogsMessages {
-		gomega.ExpectWithOffset(1, logs).ToNot(gomega.ContainSubstring(message),
-			"Found a %q in Cilium logs", message)
+	res = kub.Exec(cmd, ExecOptions{SkipLog: true})
+	if res.WasSuccessful() {
+		logs += res.Output().String()
 	}
-}
+	defer func() {
+		// Keep the cilium logs for the given test in a separate file.
+		testPath, err := CreateReportDirectory()
+		if err != nil {
+			kub.logger.WithError(err).Error("Cannot create report directory")
+			return
+		}
+		err = ioutil.WriteFile(
+			fmt.Sprintf("%s/%s", testPath, CiliumTestLog),
+			[]byte(logs), LogPerm)
 
-// CheckLogsForDeadlock checks if the logs for Cilium log messages that signify
-// that a deadlock has occurred.
-func (kub *Kubectl) CheckLogsForDeadlock() {
-	deadlockCheckCmd := fmt.Sprintf("%s -n %s logs --timestamps=true -l k8s-app=cilium | grep -qi -B 5 -A 5 deadlock", KubectlCmd, KubeSystemNamespace)
-	res := kub.Exec(deadlockCheckCmd)
-	if res.WasSuccessful() {
-		log.Errorf("Deadlock during test run detected, check Cilium logs for context")
+		if err != nil {
+			kub.logger.WithError(err).Errorf("Cannot create %s", CiliumTestLog)
+		}
+	}()
+
+	for _, message := range checkLogsMessages {
+		if strings.Contains(logs, message) {
+			fmt.Fprintf(CheckLogs, "⚠️  Found a %q in logs\n", message)
+			ginkgoext.Fail(fmt.Sprintf("Found a %q in Cilium Logs", message))
+		}
 	}
-	// Also check for previous container
-	deadlockCheckCmd = fmt.Sprintf("%s -n %s logs --timestamps=true --previous -l k8s-app=cilium | grep -qi -B 5 -A 5 deadlock", KubectlCmd, KubeSystemNamespace)
-	res = kub.Exec(deadlockCheckCmd)
-	if res.WasSuccessful() {
-		log.Errorf("Deadlock during test run detected, check Cilium logs for context")
+	// Count part
+	for _, message := range countLogsMessages {
+		var prefix = ""
+		result := strings.Count(logs, message)
+		if result > 5 {
+			// Added a warning emoji just in case that are more than 5 warning in the logs.
+			prefix = "⚠️  "
+		}
+		fmt.Fprintf(CheckLogs, "%sNumber of %q in logs: %d\n", prefix, message, result)
 	}
+
 }
 
 // GatherCiliumCoreDumps copies core dumps if are present in the /tmp folder
@@ -1112,33 +1236,44 @@ func (kub *Kubectl) DumpCiliumCommandOutput(namespace string) {
 		bugtoolCmd := fmt.Sprintf("%s exec -n %s %s -- %s",
 			KubectlCmd, namespace, pod, CiliumBugtool)
 		res := kub.Exec(bugtoolCmd, ExecOptions{SkipLog: true})
-		if res.WasSuccessful() {
-			// Default output directory is /tmp for bugtool.
-			res = kub.Exec(fmt.Sprintf("%s exec -n %s %s -- ls /tmp/", KubectlCmd, namespace, pod))
-			tmpList := res.ByLines()
-			for _, line := range tmpList {
-				// Only copy over bugtool output to directory.
-				if strings.Contains(line, CiliumBugtool) {
-					archiveName := fmt.Sprintf("%s-%s", pod, line)
-					res = kub.Exec(fmt.Sprintf("%[1]s cp %[2]s/%[3]s:/tmp/%[4]s /tmp/%[4]s",
-						KubectlCmd, namespace, pod, line),
-						ExecOptions{SkipLog: true})
-					if !res.WasSuccessful() {
-						logger.Errorf("'%s' failed: %s", res.GetCmd(), res.CombineOutput())
-					}
-					res = kub.Exec(fmt.Sprintf(
-						"cp %s %s",
-						filepath.Join("/tmp/", line),
-						filepath.Join(logsPath, archiveName)),
-						ExecOptions{SkipLog: true})
-
-					if !res.WasSuccessful() {
-						logger.Errorf("'%s' failed: %s", res.GetCmd(), res.CombineOutput())
-					}
-				}
-			}
-		} else {
+		if !res.WasSuccessful() {
 			logger.Errorf("%s failed: %s", bugtoolCmd, res.CombineOutput().String())
+			return
+		}
+		// Default output directory is /tmp for bugtool.
+		res = kub.Exec(fmt.Sprintf("%s exec -n %s %s -- ls /tmp/", KubectlCmd, namespace, pod))
+		tmpList := res.ByLines()
+		for _, line := range tmpList {
+			// Only copy over bugtool output to directory.
+			if !strings.Contains(line, CiliumBugtool) {
+				continue
+			}
+
+			res = kub.Exec(fmt.Sprintf("%[1]s cp %[2]s/%[3]s:/tmp/%[4]s /tmp/%[4]s",
+				KubectlCmd, namespace, pod, line),
+				ExecOptions{SkipLog: true})
+			if !res.WasSuccessful() {
+				logger.Errorf("'%s' failed: %s", res.GetCmd(), res.CombineOutput())
+				continue
+			}
+
+			archiveName := filepath.Join(logsPath, fmt.Sprintf("bugtool-%s", pod))
+			res = kub.Exec(fmt.Sprintf("mkdir -p %s", archiveName))
+			if !res.WasSuccessful() {
+				logger.WithField("cmd", res.GetCmd()).Errorf(
+					"cannot create bugtool archive folder: %s", res.CombineOutput())
+				continue
+			}
+
+			cmd := fmt.Sprintf("tar -xf /tmp/%s -C %s --strip-components=1", line, archiveName)
+			res = kub.Exec(cmd, ExecOptions{SkipLog: true})
+			if !res.WasSuccessful() {
+				logger.WithField("cmd", cmd).Errorf(
+					"Cannot untar bugtool output: %s", res.CombineOutput())
+				continue
+			}
+			//Remove bugtool artifact, so it'll be not used if any other fail test
+			_ = kub.ExecPodCmd(KubeSystemNamespace, pod, fmt.Sprintf("rm /tmp/%s", line))
 		}
 	}
 
@@ -1157,36 +1292,19 @@ func (kub *Kubectl) DumpCiliumCommandOutput(namespace string) {
 // directory
 func (kub *Kubectl) GatherLogs() {
 	reportCmds := map[string]string{
-		"kubectl get pods --all-namespaces -o json":                    "pods.txt",
-		"kubectl get services --all-namespaces -o json":                "svc.txt",
-		"kubectl get nodes -o json":                                    "nodes.txt",
-		"kubectl get ds --all-namespaces -o json":                      "ds.txt",
-		"kubectl get cnp --all-namespaces -o json":                     "cnp.txt",
-		"kubectl get cep --all-namespaces -o json":                     "cep.txt",
-		"kubectl get netpol --all-namespaces -o json":                  "netpol.txt",
-		"kubectl describe pods --all-namespaces":                       "pods_status.txt",
-		"kubectl get replicationcontroller --all-namespaces -o json":   "replicationcontroller.txt",
-		"kubectl get deployment --all-namespaces -o json":              "deployment.txt",
-		"kubectl -n kube-system logs -l k8s-app='kube-dns' -c kubedns": "kubedns.log",
-		"kubectl -n kube-system logs -l k8s-app='kube-dns' -c dnsmasq": "dnsmasq.log",
-		"kubectl -n kube-system logs -l k8s-app='kube-dns' -c sidecar": "kubedns-sidecar.log",
+		"kubectl get pods --all-namespaces -o json":                  "pods.txt",
+		"kubectl get services --all-namespaces -o json":              "svc.txt",
+		"kubectl get nodes -o json":                                  "nodes.txt",
+		"kubectl get ds --all-namespaces -o json":                    "ds.txt",
+		"kubectl get cnp --all-namespaces -o json":                   "cnp.txt",
+		"kubectl get cep --all-namespaces -o json":                   "cep.txt",
+		"kubectl get netpol --all-namespaces -o json":                "netpol.txt",
+		"kubectl describe pods --all-namespaces":                     "pods_status.txt",
+		"kubectl get replicationcontroller --all-namespaces -o json": "replicationcontroller.txt",
+		"kubectl get deployment --all-namespaces -o json":            "deployment.txt",
 	}
 
-	ciliumPods, err := kub.GetCiliumPods(KubeSystemNamespace)
-	if err != nil {
-		kub.logger.WithError(err).Error("Cannot get cilium pods")
-	}
-
-	for _, pod := range ciliumPods {
-		key := fmt.Sprintf("kubectl -n kube-system logs --timestamps %s", pod)
-		value := fmt.Sprintf("%s-logs.log", pod)
-		reportCmds[key] = value
-
-		prevKey := fmt.Sprintf("kubectl -n kube-system logs --timestamps --previous %s", pod)
-		prevValue := fmt.Sprintf("%s-logs-previous.log", pod)
-
-		reportCmds[prevKey] = prevValue
-	}
+	kub.GeneratePodLogGatheringCommands(reportCmds)
 
 	testPath, err := CreateReportDirectory()
 	if err != nil {
@@ -1195,6 +1313,43 @@ func (kub *Kubectl) GatherLogs() {
 		return
 	}
 	reportMap(testPath, reportCmds, kub.SSHMeta)
+
+	for _, node := range []string{K8s1VMName(), K8s2VMName()} {
+		vm := GetVagrantSSHMeta(node)
+		reportCmds := map[string]string{
+			"journalctl --no-pager -au kubelet": fmt.Sprintf("kubelet-%s.log", node),
+			"sudo top -n 1 -b":                  fmt.Sprintf("top-%s.log", node),
+			"sudo ps aux":                       fmt.Sprintf("ps-%s.log", node),
+		}
+		reportMap(testPath, reportCmds, vm)
+	}
+}
+
+// GeneratePodLogGatheringCommands generates the commands to gather logs for
+// all pods in the Kubernetes cluster, and maps the commands to the filename
+// in which they will be stored in reportCmds.
+func (kub *Kubectl) GeneratePodLogGatheringCommands(reportCmds map[string]string) {
+	if reportCmds == nil {
+		reportCmds = make(map[string]string)
+	}
+	pods, err := kub.GetAllPods(ExecOptions{SkipLog: true})
+	if err != nil {
+		kub.logger.WithError(err).Error("Unable to get pods from Kubernetes via kubectl")
+	}
+
+	for _, pod := range pods {
+		for _, containerStatus := range pod.Status.ContainerStatuses {
+			logCmd := fmt.Sprintf("%s -n %s logs --timestamps %s -c %s", KubectlCmd, pod.Namespace, pod.Name, containerStatus.Name)
+			logfileName := fmt.Sprintf("pod-%s-%s-%s.log", pod.Namespace, pod.Name, containerStatus.Name)
+			reportCmds[logCmd] = logfileName
+
+			if containerStatus.RestartCount > 0 {
+				previousLogCmd := fmt.Sprintf("%s -n %s logs --timestamps %s -c %s --previous", KubectlCmd, pod.Namespace, pod.Name, containerStatus.Name)
+				previousLogfileName := fmt.Sprintf("pod-%s-%s-%s-previous.log", pod.Namespace, pod.Name, containerStatus.Name)
+				reportCmds[previousLogCmd] = previousLogfileName
+			}
+		}
+	}
 }
 
 // GetCiliumPodOnNode returns the name of the Cilium pod that is running on / in
@@ -1212,125 +1367,101 @@ func (kub *Kubectl) GetCiliumPodOnNode(namespace string, node string) (string, e
 	return res.Output().String(), nil
 }
 
-// podHasExited returns true if the pod has finished up running.
-func (kub *Kubectl) podHasExited(ns, podName string) (bool, error) {
-	pod, err := kub.CoreV1().Pods(ns).Get(podName, metav1.GetOptions{})
-	if err != nil {
-		return false, err
-	}
-	switch pod.Status.Phase {
-	case v1.PodFailed, v1.PodSucceeded:
-		return true, nil
-	}
-	return false, nil
-}
-
-// WaitForPodExit waits for the given pod in the given namespace until the pod
-// is finished running or until the given context deadline is reached.
-func (kub *Kubectl) WaitForPodExit(ctx context.Context, ns, podName string) error {
-	return WithTimeoutErr(ctx, func() (bool, error) {
-		return kub.podHasExited(ns, podName)
-	}, time.Second)
-}
-
-// isPodReady returns true if the given pod in the given namespace is running
-// and in ready state.
-func (kub *Kubectl) isPodReady(ns, podName string) (bool, error) {
-	pod, err := kub.CoreV1().Pods(ns).Get(podName, metav1.GetOptions{})
-	if err != nil {
-		return false, err
-	}
-	switch pod.Status.Phase {
-	case v1.PodFailed, v1.PodSucceeded:
-		return false, errors.New("Pod is not running")
-	case v1.PodRunning:
-		// Consider an endpoint with reserved identity 5 / "init" (reserved:init) as not ready.
-		if pod.Annotations["cilium.io/identity"] == "init" {
-			return false, nil
+// CiliumPreFlightCheck specify that it checks that various subsystems within
+// Cilium are in a good state. If one of the multiple preflight fails it'll
+// return an error.
+func (kub *Kubectl) CiliumPreFlightCheck() error {
+	// Doing this withTimeout because the Status can be ready, but the other
+	// nodes cannot be show up yet, and the cilium-health can fail as a false positive.
+	var err error
+	body := func() bool {
+		err = kub.CiliumControllersPreFlightCheck()
+		if err != nil {
+			return false
 		}
-		for _, cond := range pod.Status.Conditions {
-			if cond.Type == v1.PodReady && cond.Status == v1.ConditionTrue {
-				return true, nil
+		err = kub.CiliumHealthPreFlightCheck()
+		if err != nil {
+			return false
+		}
+		return true
+	}
+	timeoutErr := WithTimeout(body, "PreflightCheck failed", &TimeoutConfig{Timeout: HelperTimeout})
+	if timeoutErr != nil {
+		return fmt.Errorf("CiliumPreFlightCheck error: %s: %s", timeoutErr, err)
+	}
+	return nil
+}
+
+// CiliumControllersPreFlightCheck validates that all controllers are not
+// failing. If any of the controllers fails will return an error.
+func (kub *Kubectl) CiliumControllersPreFlightCheck() error {
+	var controllersFilter = `{range .controllers[*]}{.name}{"="}{.status.consecutive-failure-count}{"\n"}{end}`
+	ciliumPods, err := kub.GetCiliumPods(KubeSystemNamespace)
+	if err != nil {
+		return err
+	}
+	for _, pod := range ciliumPods {
+		status := kub.CiliumExec(pod, fmt.Sprintf(
+			"cilium status --all-controllers -o jsonpath='%s'", controllersFilter))
+		if !status.WasSuccessful() {
+			return fmt.Errorf("cilium-agent %q: Cannot run cilium status: %s",
+				pod, status.OutputPrettyPrint())
+		}
+		for controller, status := range status.KVOutput() {
+			if status != "0" {
+				failmsg := kub.CiliumExec(pod, "cilium status --all-controllers")
+				return fmt.Errorf(
+					"cilium-agent %q: controller %s is failing: %s",
+					pod, controller, failmsg.OutputPrettyPrint())
 			}
 		}
 	}
-	return false, nil
+	return nil
 }
 
-// WaitForPodReady waits for the given pod in the given namespace until the pod
-// is running and in ready state or until the given context deadline is reached.
-func (kub *Kubectl) WaitForPodReady(ctx context.Context, ns, podName string) error {
-	return WithTimeoutErr(ctx, func() (bool, error) {
-		return kub.isPodReady(ns, podName)
-	}, time.Second)
-}
+// CiliumHealthPreFlightCheck checks that the health status is working
+// correctly and the number of nodes does not mistmatch with the running pods.
+// It return an error if health mark a node as failed.
+func (kub *Kubectl) CiliumHealthPreFlightCheck() error {
+	var nodesFilter = `{.nodes[*].name}`
+	var statusFilter = `{range .nodes[*]}{.name}{"="}{.host.primary-address.http.status}{"\n"}{end}`
 
-// podHasExitedSuccessfully returns true if the pod has finished up running. Error is returned
-// if an unsuccessful exit has occurred.
-func (kub *Kubectl) podHasExitedSuccessfully(ns, podName string) (bool, error) {
-	pod, err := kub.CoreV1().Pods(ns).Get(podName, metav1.GetOptions{})
+	ciliumPods, err := kub.GetCiliumPods(KubeSystemNamespace)
 	if err != nil {
-		return false, err
+		return err
 	}
-	if pod.Spec.RestartPolicy == v1.RestartPolicyAlways {
-		return true, fmt.Errorf("pod %q will never terminate with a succeeded state since its restart policy is Always", pod.Name)
-	}
-	switch pod.Status.Phase {
-	case v1.PodSucceeded:
-		return true, nil
-	case v1.PodFailed:
-		return true, fmt.Errorf("pod %q failed with status: %+v", pod.Name, pod.Status)
-	default:
-		return false, nil
-	}
-}
+	for _, pod := range ciliumPods {
+		status := kub.CiliumExec(pod, "cilium-health status -o json --probe")
+		if !status.WasSuccessful() {
+			return fmt.Errorf(
+				"Cluster connectivity is unhealthy on %q: %s",
+				pod, status.OutputPrettyPrint())
+		}
 
-// WaitForPodSuccess waits for the given pod in the given namespace until the
-// pod has successfully exited or until the given context deadline is reached.
-func (kub *Kubectl) WaitForPodSuccess(ctx context.Context, ns, podName string) (bool, error) {
-	err := WithTimeoutErr(ctx, func() (bool, error) {
-		return kub.podHasExitedSuccessfully(ns, podName)
-	}, time.Second)
+		// By Checking that the node list is the same
+		nodes, err := status.Filter(nodesFilter)
+		if err != nil {
+			return fmt.Errorf("Cannot unmarshal health status: %s", err)
+		}
 
-	if err != nil {
-		return false, err
-	}
-	return true, nil
-}
+		nodeCount := strings.Split(nodes.String(), " ")
+		if len(ciliumPods) != len(nodeCount) {
+			return fmt.Errorf(
+				"cilium-agent %q: Only %d/%d nodes appeared in cilium-health status. nodes = '%+v'",
+				pod, len(nodeCount), len(ciliumPods), nodeCount)
+		}
 
-// EndpointMap maps an endpoint's container name to its Cilium API endpoint model.
-type EndpointMap map[string]models.Endpoint
+		healthStatus, err := status.Filter(statusFilter)
+		if err != nil {
+			return fmt.Errorf("Cannot unmarshal health status: %s", err)
+		}
 
-// GetPolicyStatus returns a mapping of how many endpoints in epMap have policy
-// enforcement enabled and disabled.
-//
-// map can be index with the following keys:
-//	models.EndpointPolicyEnabledNone
-//	models.EndpointPolicyEnabledIngress
-//	models.EndpointPolicyEnabledEgress
-//	models.EndpointPolicyEnabledBoth
-func (epMap *EndpointMap) GetPolicyStatus() map[models.EndpointPolicyEnabled]int {
-	result := map[models.EndpointPolicyEnabled]int{
-		models.EndpointPolicyEnabledNone:    0,
-		models.EndpointPolicyEnabledIngress: 0,
-		models.EndpointPolicyEnabledEgress:  0,
-		models.EndpointPolicyEnabledBoth:    0,
-	}
-
-	for _, ep := range *epMap {
-		result[ep.Status.Policy.Realized.PolicyEnabled]++
-	}
-	return result
-}
-
-// AreReady returns true if all Cilium endpoints are in 'ready' state and have
-// an identity different from 'reserved:init'.
-func (epMap *EndpointMap) AreReady() bool {
-	for _, ep := range *epMap {
-		// Consider an endpoint with reserved identity 5 (reserved:init) as not ready.
-		if ep.Status.State != models.EndpointStateReady || ep.Status.Identity.ID == 5 {
-			return false
+		for node, status := range healthStatus.KVOutput() {
+			if status != "" {
+				return fmt.Errorf("cilium-agent %q: connectivity to node %q is unhealthy: %q",
+					pod, node, status)
+			}
 		}
 	}
-	return true
+	return nil
 }

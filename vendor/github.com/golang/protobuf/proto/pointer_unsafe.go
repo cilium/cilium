@@ -29,7 +29,7 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-// +build !appengine,!js
+// +build !purego,!appengine,!js
 
 // This file contains the implementation of the proto field accesses using package unsafe.
 
@@ -54,6 +54,9 @@ func toField(f *reflect.StructField) field {
 
 // invalidField is an invalid field identifier.
 const invalidField = ^field(0)
+
+// zeroField is a noop when calling pointer.offset.
+const zeroField = field(0)
 
 // IsValid reports whether the field identifier is valid.
 func (f field) IsValid() bool {
@@ -88,7 +91,7 @@ func toAddrPointer(i *interface{}, isptr bool) pointer {
 		// The interface is of pointer type, thus it is a direct interface.
 		// The data word is the pointer data itself. We take its address.
 		return pointer{p: unsafe.Pointer(uintptr(unsafe.Pointer(i)) + ptrSize)}
-}
+	}
 	// The interface is not of pointer type. The data word is the pointer
 	// to the data.
 	return pointer{p: (*[2]unsafe.Pointer)(unsafe.Pointer(i))[1]}
@@ -102,6 +105,13 @@ func valToPointer(v reflect.Value) pointer {
 // offset converts from a pointer to a structure to a pointer to
 // one of its fields.
 func (p pointer) offset(f field) pointer {
+	// For safety, we should panic if !f.IsValid, however calling panic causes
+	// this to no longer be inlineable, which is a serious performance cost.
+	/*
+		if !f.IsValid() {
+			panic("invalid field")
+		}
+	*/
 	return pointer{p: unsafe.Pointer(uintptr(p.p) + uintptr(f))}
 }
 
@@ -160,7 +170,7 @@ func (p pointer) appendInt32Slice(v int32) {
 
 func (p pointer) toUint64() *uint64 {
 	return (*uint64)(p.p)
-	}
+}
 func (p pointer) toUint64Ptr() **uint64 {
 	return (**uint64)(p.p)
 }
@@ -184,7 +194,7 @@ func (p pointer) toBoolPtr() **bool {
 }
 func (p pointer) toBoolSlice() *[]bool {
 	return (*[]bool)(p.p)
-	}
+}
 func (p pointer) toFloat64() *float64 {
 	return (*float64)(p.p)
 }

@@ -66,7 +66,8 @@ createPolicyMap(Server::Configuration::FactoryContext& context) {
     SINGLETON_MANAGER_REGISTERED_NAME(cilium_network_policy), [&context] {
       auto map = std::make_shared<Cilium::NetworkPolicyMap>(
 	  context.localInfo().node(), context.clusterManager(),
-	  context.dispatcher(), context.scope(), context.threadLocal());
+	  context.dispatcher(), context.random(), context.scope(),
+	  context.threadLocal());
       map->startSubscription();
       return map;
     });
@@ -124,6 +125,7 @@ void Config::Log(AccessLog::Entry &entry, ::cilium::EntryType type) {
 void AccessFilter::onDestroy() {}
 
 Http::FilterHeadersStatus AccessFilter::decodeHeaders(Http::HeaderMap& headers, bool) {
+  headers.remove(Http::Headers::get().EnvoyOriginalDstHost);
   const auto& conn = callbacks_->connection();
   bool ingress = false;
   bool allowed = false;

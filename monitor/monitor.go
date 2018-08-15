@@ -20,15 +20,16 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"os"
 	"syscall"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/monitor/listener"
 	"github.com/cilium/cilium/monitor/payload"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -57,7 +58,7 @@ func isCtxDone(ctx context.Context) bool {
 // generation calls its cleanup after the start of the new perf reader, we
 // might call the new, and incorrect, cancel function. We guard for this by
 // checking the number of listeners during the cleanup call. The perf reader
-// must have at least one listener (since it started) so no cancel is called.
+// must have at least one MonitorListener (since it started) so no cancel is called.
 // If it doesn't, the cancel is the correct behavior (the older generation
 // cancel must have been called for us to get this far anyway).
 type Monitor struct {
@@ -65,27 +66,9 @@ type Monitor struct {
 
 	ctx              context.Context
 	perfReaderCancel context.CancelFunc
-	listeners        map[*monitorListener]struct{}
+	listeners        map[listener.MonitorListener]struct{}
 	nPages           int
 	monitorEvents    *bpf.PerCpuEvents
-}
-
-type monitorListener struct {
-	conn      net.Conn
-	queue     chan []byte
-	cleanupFn func(*monitorListener)
-}
-
-func newMonitorListener(c net.Conn, cleanupFn func(*monitorListener)) *monitorListener {
-	ml := &monitorListener{
-		conn:      c,
-		queue:     make(chan []byte, queueSize),
-		cleanupFn: cleanupFn,
-	}
-
-	go ml.drainQueue()
-
-	return ml
 }
 
 // agentPipeReader reads agent events from the agentPipe and distributes to all listeners
@@ -93,9 +76,9 @@ func (m *Monitor) agentPipeReader(ctx context.Context, agentPipe io.Reader) {
 	log.Info("Beginning to read cilium agent events")
 	defer log.Info("Stopped reading cilium agent events")
 
-	meta, p := payload.Meta{}, payload.Payload{}
+	p := payload.Payload{}
 	for !isCtxDone(ctx) {
-		err := payload.ReadMetaPayload(agentPipe, &meta, &p)
+		err := p.ReadBinary(agentPipe)
 		switch {
 		// this captures the case where we are shutting down and main closes the
 		// pipe socket
@@ -117,16 +100,17 @@ func (m *Monitor) agentPipeReader(ctx context.Context, agentPipe io.Reader) {
 // handling.
 // Note that the perf buffer reader is started only when listeners are
 // connected.
-func NewMonitor(ctx context.Context, nPages int, agentPipe io.Reader, server net.Listener) (m *Monitor, err error) {
+func NewMonitor(ctx context.Context, nPages int, agentPipe io.Reader, server1_0, server1_2 net.Listener) (m *Monitor, err error) {
 	m = &Monitor{
 		ctx:              ctx,
-		listeners:        make(map[*monitorListener]struct{}),
+		listeners:        make(map[listener.MonitorListener]struct{}),
 		nPages:           nPages,
 		perfReaderCancel: func() {}, // no-op to avoid doing null checks everywhere
 	}
 
-	// start new listener handler
-	go m.connectionHandler(ctx, server)
+	// start new MonitorListener handler
+	go m.connectionHandler1_0(ctx, server1_0)
+	go m.connectionHandler1_2(ctx, server1_2)
 
 	// start agent event pipe reader
 	go m.agentPipeReader(ctx, agentPipe)
@@ -134,12 +118,12 @@ func NewMonitor(ctx context.Context, nPages int, agentPipe io.Reader, server net
 	return m, nil
 }
 
-// registerNewListener adds the new listener to the global list. It also spawns
+// registerNewListener adds the new MonitorListener to the global list. It also spawns
 // a singleton goroutine to read and distribute the events. It passes a
 // cancelable context to this goroutine and the cancelFunc is assigned to
 // perfReaderCancel. Note that cancelling parentCtx (e.g. on program shutdown)
 // will also cancel the derived context.
-func (m *Monitor) registerNewListener(parentCtx context.Context, conn net.Conn) {
+func (m *Monitor) registerNewListener(parentCtx context.Context, conn net.Conn, version listener.Version) {
 	m.Lock()
 	defer m.Unlock()
 
@@ -151,25 +135,42 @@ func (m *Monitor) registerNewListener(parentCtx context.Context, conn net.Conn) 
 		go m.perfEventReader(perfEventReaderCtx, m.nPages)
 	}
 
-	newListener := newMonitorListener(conn, m.removeListener)
-	m.listeners[newListener] = struct{}{}
+	switch version {
+	case listener.Version1_0:
+		newListener := newListenerv1_0(conn, queueSize, m.removeListener)
+		m.listeners[newListener] = struct{}{}
 
-	log.WithField("count.listener", len(m.listeners)).Info("New listener connected.")
+	case listener.Version1_2:
+		newListener := newListenerv1_2(conn, queueSize, m.removeListener)
+		m.listeners[newListener] = struct{}{}
+
+	default:
+		conn.Close()
+		log.WithField("version", version).Error("Closing new connection from unsupported monitor client version")
+	}
+
+	log.WithFields(logrus.Fields{
+		"count.listener": len(m.listeners),
+		"version":        version,
+	}).Info("New listener connected.")
 }
 
-// removeListener deletes the listener from the list, closes its queue, and
-// stops perfReader if this is the last listener
-func (m *Monitor) removeListener(ml *monitorListener) {
+// removeListener deletes the MonitorListener from the list, closes its queue, and
+// stops perfReader if this is the last MonitorListener
+func (m *Monitor) removeListener(ml listener.MonitorListener) {
 	m.Lock()
 	defer m.Unlock()
 
 	delete(m.listeners, ml)
-	log.WithField("count.listener", len(m.listeners)).Info("Removed listener")
+	log.WithFields(logrus.Fields{
+		"count.listener": len(m.listeners),
+		"version":        ml.Version(),
+	}).Info("Removed listener")
 
 	// If this was the final listener, shutdown the perf reader and unmap our
 	// ring buffer readers. This tells the kernel to not emit this data.
 	// Note: it is critical to hold the lock and check the number of listeners.
-	// This guards against an older generation MonitorListener calling the
+	// This guards against an older generation listener calling the
 	// current generation perfReaderCancel
 	if len(m.listeners) == 0 {
 		m.perfReaderCancel()
@@ -250,10 +251,10 @@ func (m *Monitor) dumpStat() {
 	fmt.Println(string(mp))
 }
 
-// connectionHandler handles all the incoming connections and sets up the
+// connectionHandler1_0 handles all the incoming connections and sets up the
 // listener objects. It will block on Accept, but expects the caller to close
 // server, inducing a return.
-func (m *Monitor) connectionHandler(parentCtx context.Context, server net.Listener) {
+func (m *Monitor) connectionHandler1_0(parentCtx context.Context, server net.Listener) {
 	for !isCtxDone(parentCtx) {
 		conn, err := server.Accept()
 		switch {
@@ -269,54 +270,39 @@ func (m *Monitor) connectionHandler(parentCtx context.Context, server net.Listen
 			continue
 		}
 
-		m.registerNewListener(parentCtx, conn)
+		m.registerNewListener(parentCtx, conn, listener.Version1_0)
 	}
 }
 
-// send writes the payload.Meta and the actual payload to the active
-// connections.
-func (m *Monitor) send(pl *payload.Payload) {
-	buf, err := pl.BuildMessage()
-	if err != nil {
-		log.WithError(err).Error("Unable to send notification to listeners")
-	}
+// connectionHandler1_2 handles all the incoming connections and sets up the
+// listener objects. It will block on Accept, but expects the caller to close
+// server, inducing a return.
+func (m *Monitor) connectionHandler1_2(parentCtx context.Context, server net.Listener) {
+	for !isCtxDone(parentCtx) {
+		conn, err := server.Accept()
+		switch {
+		case isCtxDone(parentCtx) && conn != nil:
+			conn.Close()
+			fallthrough
 
+		case isCtxDone(parentCtx) && conn == nil:
+			return
+
+		case err != nil:
+			log.WithError(err).Warn("error accepting connection")
+			continue
+		}
+
+		m.registerNewListener(parentCtx, conn, listener.Version1_2)
+	}
+}
+
+// send enqueues the payload to all listeners.
+func (m *Monitor) send(pl *payload.Payload) {
 	m.Lock()
 	defer m.Unlock()
 	for ml := range m.listeners {
-		ml.enqueue(buf)
-	}
-}
-
-func (ml *monitorListener) enqueue(msg []byte) {
-	select {
-	case ml.queue <- msg:
-	default:
-		log.Debugf("Per listener queue is full, dropping message")
-	}
-}
-
-func (ml *monitorListener) drainQueue() {
-	defer func() {
-		ml.conn.Close()
-		ml.cleanupFn(ml)
-	}()
-
-	for msgBuf := range ml.queue {
-		if _, err := ml.conn.Write(msgBuf); err != nil {
-			if op, ok := err.(*net.OpError); ok {
-				if syscerr, ok := op.Err.(*os.SyscallError); ok {
-					if errn, ok := syscerr.Err.(syscall.Errno); ok {
-						if errn == syscall.EPIPE {
-							log.Info("Listener disconnected")
-							return
-						}
-					}
-				}
-			}
-			log.WithError(err).Warn("Removing listener due to write failure")
-			return
-		}
+		ml.Enqueue(pl)
 	}
 }
 

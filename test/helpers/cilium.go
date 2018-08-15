@@ -28,10 +28,8 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/test/config"
-	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
+	"github.com/cilium/cilium/test/ginkgo-ext"
 
-	"github.com/onsi/ginkgo"
-	"github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
 )
 
@@ -403,7 +401,7 @@ func (s *SSHMeta) MonitorStart() func() error {
 		}
 
 		err = ioutil.WriteFile(
-			filepath.Join(testPath, monitorLogFileName),
+			filepath.Join(testPath, MonitorLogFileName),
 			res.CombineOutput().Bytes(),
 			LogPerm)
 		if err != nil {
@@ -521,7 +519,7 @@ func (s *SSHMeta) PolicyGetRevision() (int, error) {
 // until the policy revision number increments. Returns an error if the policy
 // is invalid or could not be imported.
 func (s *SSHMeta) PolicyImportAndWait(path string, timeout time.Duration) (int, error) {
-	ginkgo.By(fmt.Sprintf("Setting up policy: %s", path))
+	ginkgoext.By(fmt.Sprintf("Setting up policy: %s", path))
 
 	revision, err := s.PolicyGetRevision()
 	if err != nil {
@@ -620,22 +618,17 @@ func (s *SSHMeta) ReportFailed(commands ...string) {
 
 	// Log the following line to both the log file, and to console to delineate
 	// when log gathering begins.
-	ginkgoext.GinkgoPrint("===================== TEST FAILED =====================")
 	res := s.ExecCilium("endpoint list") // save the output in the logs
 	ginkgoext.GinkgoPrint(res.GetDebugMessage())
 
 	for _, cmd := range commands {
-		res = s.ExecWithSudo(fmt.Sprintf("%s", cmd))
+		res = s.ExecWithSudo(fmt.Sprintf("%s", cmd), ExecOptions{SkipLog: true})
 		ginkgoext.GinkgoPrint(res.GetDebugMessage())
 	}
 
 	s.DumpCiliumCommandOutput()
 	s.GatherLogs()
 	s.GatherDockerLogs()
-	s.CheckLogsForDeadlock()
-	// Log the following line to both the log file, and to console to delineate
-	// when log gathering begins.
-	ginkgoext.GinkgoPrint("===================== EXITING REPORT GENERATION =====================")
 }
 
 // ValidateNoErrorsOnLogs checks in cilium logs since the given duration (By
@@ -647,19 +640,80 @@ func (s *SSHMeta) ValidateNoErrorsOnLogs(duration time.Duration) {
 		DaemonName, duration.Seconds())
 	logs := s.Exec(logsCmd, ExecOptions{SkipLog: true}).Output().String()
 
+	defer func() {
+		// Keep the cilium logs for the given test in a separate file.
+		testPath, err := CreateReportDirectory()
+		if err != nil {
+			s.logger.WithError(err).Error("Cannot create report directory")
+			return
+		}
+		err = ioutil.WriteFile(
+			fmt.Sprintf("%s/%s", testPath, CiliumTestLog),
+			[]byte(logs), LogPerm)
+
+		if err != nil {
+			s.logger.WithError(err).Errorf("Cannot create %s", CiliumTestLog)
+		}
+	}()
+
 	for _, message := range checkLogsMessages {
-		gomega.ExpectWithOffset(1, logs).ToNot(gomega.ContainSubstring(message),
-			"Found a %q in Cilium logs", message)
+		if strings.Contains(logs, message) {
+			fmt.Fprintf(CheckLogs, "⚠️  Found a %q in logs\n", message)
+			ginkgoext.Fail(fmt.Sprintf("Found a %q in Cilium Logs", message))
+		}
+	}
+
+	// Count part
+	for _, message := range countLogsMessages {
+		var prefix = ""
+		result := strings.Count(logs, message)
+		if result > 5 {
+			// Added a warning emoji just in case that are more than 5 warning in the logs.
+			prefix = "⚠️  "
+		}
+		fmt.Fprintf(CheckLogs, "%sNumber of %q in logs: %d\n", prefix, message, result)
 	}
 }
 
-// CheckLogsForDeadlock checks if the logs for Cilium log messages that signify
-// that a deadlock has occurred.
-func (s *SSHMeta) CheckLogsForDeadlock() {
-	deadlockCheckCmd := fmt.Sprintf("sudo journalctl -au %s | grep -qi -B 5 -A 5 deadlock", DaemonName)
-	res := s.Exec(deadlockCheckCmd)
-	if res.WasSuccessful() {
-		log.Errorf("Deadlock during test run detected, check Cilium logs for context")
+// PprofReport runs pprof each 5 minutes and saves the data into the test
+// folder saved with pprof suffix.
+func (s *SSHMeta) PprofReport() {
+	PProfCadence := 5 * time.Minute
+	ticker := time.NewTicker(PProfCadence)
+	log := s.logger.WithField("subsys", "pprofReport")
+
+	for {
+		select {
+		case <-ticker.C:
+
+			testPath, err := CreateReportDirectory()
+			if err != nil {
+				log.WithError(err).Errorf("cannot create test result path '%s'", testPath)
+				return
+			}
+			d := time.Now().Add(50 * time.Second)
+			ctx, cancel := context.WithDeadline(context.Background(), d)
+
+			res := s.ExecContext(ctx, `sudo gops pprof-cpu $(pgrep cilium-agent)`)
+
+			err = res.WaitUntilMatch("Profiling dump saved to")
+			if err != nil {
+				log.WithError(err).Error("Cannot get pprof report")
+			}
+
+			files := s.Exec("ls -1 /tmp/")
+			for _, file := range files.ByLines() {
+				if !strings.Contains(file, "profile") {
+					continue
+				}
+
+				dest := filepath.Join(
+					BasePath, testPath,
+					fmt.Sprintf("%s.pprof", file))
+				_ = s.ExecWithSudo(fmt.Sprintf("mv /tmp/%s %s", file, dest))
+			}
+			cancel()
+		}
 	}
 }
 
@@ -837,7 +891,7 @@ func (s *SSHMeta) ServiceDelAll() *CmdRes {
 func (s *SSHMeta) SetUpCilium() error {
 	template := `
 PATH=/usr/lib/llvm-3.8/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
-CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug --debug-verbose flow
+CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug --debug-verbose flow --pprof=true
 INITSYSTEM=SYSTEMD`
 
 	err := RenderTemplateToFile("cilium", template, os.ModePerm)
@@ -874,7 +928,7 @@ func (s *SSHMeta) WaitUntilReady(timeout time.Duration) error {
 // RestartCilium reloads cilium on this host, then waits for it to become
 // ready again.
 func (s *SSHMeta) RestartCilium() error {
-	ginkgo.By("Restarting Cilium")
+	ginkgoext.By("Restarting Cilium")
 
 	res := s.ExecWithSudo("systemctl restart cilium")
 	if !res.WasSuccessful() {

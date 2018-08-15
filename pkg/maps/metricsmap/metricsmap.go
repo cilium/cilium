@@ -23,6 +23,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/monitor"
 
@@ -32,7 +33,7 @@ import (
 var (
 	// Metrics is the bpf metrics map
 	Metrics      *bpf.Map
-	log          = logging.DefaultLogger
+	log          = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-metrics")
 	possibleCpus int
 )
 
@@ -167,7 +168,7 @@ func updatePrometheusMetrics(key *Key, val *Value) {
 // aggregating it into drops (by drop reason and direction) and
 // forwards (by direction) with the prometheus server.
 func SyncMetricsMap() error {
-	var entry [possibleCPUsFileLength]Value
+	entry := make([]Value, possibleCpus)
 	file := bpf.MapPath(MapName)
 	metricsmap, err := bpf.OpenMap(file)
 
@@ -182,7 +183,7 @@ func SyncMetricsMap() error {
 		if err != nil {
 			break
 		}
-		err = bpf.LookupElement(metricsmap.GetFd(), unsafe.Pointer(&nextKey), unsafe.Pointer(&entry))
+		err = bpf.LookupElement(metricsmap.GetFd(), unsafe.Pointer(&nextKey), unsafe.Pointer(&entry[0]))
 		if err != nil {
 			return fmt.Errorf("unable to lookup metrics map: %s", err)
 		}

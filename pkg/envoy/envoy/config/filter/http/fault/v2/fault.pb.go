@@ -24,7 +24,7 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 type FaultAbort struct {
 	// An integer between 0-100 indicating the percentage of requests/operations/connections
 	// that will be aborted with the error code provided.
-	Percent uint32 `protobuf:"varint,1,opt,name=percent" json:"percent,omitempty"`
+	Percent uint32 `protobuf:"varint,1,opt,name=percent,proto3" json:"percent,omitempty"`
 	// Types that are valid to be assigned to ErrorType:
 	//	*FaultAbort_HttpStatus
 	ErrorType            isFaultAbort_ErrorType `protobuf_oneof:"error_type"`
@@ -37,7 +37,7 @@ func (m *FaultAbort) Reset()         { *m = FaultAbort{} }
 func (m *FaultAbort) String() string { return proto.CompactTextString(m) }
 func (*FaultAbort) ProtoMessage()    {}
 func (*FaultAbort) Descriptor() ([]byte, []int) {
-	return fileDescriptor_fault_f7967c49f0120450, []int{0}
+	return fileDescriptor_fault_9e7140529a0fbfdb, []int{0}
 }
 func (m *FaultAbort) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FaultAbort.Unmarshal(m, b)
@@ -57,12 +57,19 @@ func (m *FaultAbort) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_FaultAbort proto.InternalMessageInfo
 
+func (m *FaultAbort) GetPercent() uint32 {
+	if m != nil {
+		return m.Percent
+	}
+	return 0
+}
+
 type isFaultAbort_ErrorType interface {
 	isFaultAbort_ErrorType()
 }
 
 type FaultAbort_HttpStatus struct {
-	HttpStatus uint32 `protobuf:"varint,2,opt,name=http_status,json=httpStatus,oneof"`
+	HttpStatus uint32 `protobuf:"varint,2,opt,name=http_status,json=httpStatus,proto3,oneof"`
 }
 
 func (*FaultAbort_HttpStatus) isFaultAbort_ErrorType() {}
@@ -72,13 +79,6 @@ func (m *FaultAbort) GetErrorType() isFaultAbort_ErrorType {
 		return m.ErrorType
 	}
 	return nil
-}
-
-func (m *FaultAbort) GetPercent() uint32 {
-	if m != nil {
-		return m.Percent
-	}
-	return 0
 }
 
 func (m *FaultAbort) GetHttpStatus() uint32 {
@@ -141,14 +141,14 @@ func _FaultAbort_OneofSizer(msg proto.Message) (n int) {
 type HTTPFault struct {
 	// If specified, the filter will inject delays based on the values in the
 	// object. At least *abort* or *delay* must be specified.
-	Delay *v2.FaultDelay `protobuf:"bytes,1,opt,name=delay" json:"delay,omitempty"`
+	Delay *v2.FaultDelay `protobuf:"bytes,1,opt,name=delay,proto3" json:"delay,omitempty"`
 	// If specified, the filter will abort requests based on the values in
 	// the object. At least *abort* or *delay* must be specified.
-	Abort *FaultAbort `protobuf:"bytes,2,opt,name=abort" json:"abort,omitempty"`
+	Abort *FaultAbort `protobuf:"bytes,2,opt,name=abort,proto3" json:"abort,omitempty"`
 	// Specifies the name of the (destination) upstream cluster that the
 	// filter should match on. Fault injection will be restricted to requests
 	// bound to the specific upstream cluster.
-	UpstreamCluster string `protobuf:"bytes,3,opt,name=upstream_cluster,json=upstreamCluster" json:"upstream_cluster,omitempty"`
+	UpstreamCluster string `protobuf:"bytes,3,opt,name=upstream_cluster,json=upstreamCluster,proto3" json:"upstream_cluster,omitempty"`
 	// Specifies a set of headers that the filter should match on. The fault
 	// injection filter can be applied selectively to requests that match a set of
 	// headers specified in the fault filter config. The chances of actual fault
@@ -158,14 +158,14 @@ type HTTPFault struct {
 	// config. A match will happen if all the headers in the config are present in
 	// the request with the same values (or based on presence if the *value* field
 	// is not in the config).
-	Headers []*route.HeaderMatcher `protobuf:"bytes,4,rep,name=headers" json:"headers,omitempty"`
+	Headers []*route.HeaderMatcher `protobuf:"bytes,4,rep,name=headers,proto3" json:"headers,omitempty"`
 	// Faults are injected for the specified list of downstream hosts. If this
 	// setting is not set, faults are injected for all downstream nodes.
 	// Downstream node name is taken from :ref:`the HTTP
 	// x-envoy-downstream-service-node
 	// <config_http_conn_man_headers_downstream-service-node>` header and compared
 	// against downstream_nodes list.
-	DownstreamNodes      []string `protobuf:"bytes,5,rep,name=downstream_nodes,json=downstreamNodes" json:"downstream_nodes,omitempty"`
+	DownstreamNodes      []string `protobuf:"bytes,5,rep,name=downstream_nodes,json=downstreamNodes,proto3" json:"downstream_nodes,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -175,7 +175,7 @@ func (m *HTTPFault) Reset()         { *m = HTTPFault{} }
 func (m *HTTPFault) String() string { return proto.CompactTextString(m) }
 func (*HTTPFault) ProtoMessage()    {}
 func (*HTTPFault) Descriptor() ([]byte, []int) {
-	return fileDescriptor_fault_f7967c49f0120450, []int{1}
+	return fileDescriptor_fault_9e7140529a0fbfdb, []int{1}
 }
 func (m *HTTPFault) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HTTPFault.Unmarshal(m, b)
@@ -236,10 +236,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/http/fault/v2/fault.proto", fileDescriptor_fault_f7967c49f0120450)
+	proto.RegisterFile("envoy/config/filter/http/fault/v2/fault.proto", fileDescriptor_fault_9e7140529a0fbfdb)
 }
 
-var fileDescriptor_fault_f7967c49f0120450 = []byte{
+var fileDescriptor_fault_9e7140529a0fbfdb = []byte{
 	// 384 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x91, 0x4f, 0x6a, 0xdb, 0x40,
 	0x18, 0xc5, 0xab, 0x7f, 0x76, 0x3d, 0xc2, 0xd4, 0x4c, 0x17, 0x15, 0x5e, 0x14, 0xd9, 0xdd, 0xa8,

@@ -1,10 +1,10 @@
 include ../../Makefile.defs
 
 ifeq ($(CILIUM_VERSION),)
-    CILIUM_VERSION = "$(shell cat ../../VERSION)"
+    CILIUM_VERSION = "v$(shell cat ../../VERSION)"
 endif
 
-K8S_VERSIONS = 1.7 1.8 1.9 1.10 1.11
+K8S_VERSIONS = 1.8 1.9 1.10 1.11 1.12
 
 # make_concat creates a concatenated YAML file specific for a K8s version.
 # $(1) is the K8s version. $(2) is the concatenated file.
@@ -12,7 +12,7 @@ define make_concat
 all: $(1)/$(2)
 $(1)/$(2):
 	@$(ECHO_GEN)$$@
-	-$(QUIET)for f in $$^ ; do cat "$$$${f}"; echo "---" ; done >$$@
+	-$(QUIET)for f in $$^ ; do cat "$$$${f}"; done >$$@
 endef
 
 # make_yaml creates a YAML specific for a K8s version.
@@ -20,6 +20,8 @@ endef
 define make_yaml
 $(1)/$(patsubst templates/v1/%,%,$(patsubst %.yaml.sed,%.yaml,$(2))):
 	@$(ECHO_GEN)$$@
+	@echo "$(CILIUM_VERSION)" | egrep -Eq '(v[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+(-.+)?)|(latest)' || \
+	(echo "\"$(CILIUM_VERSION)\" is not a valid version. Must match regexp '(v[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+(-.+)?)|(latest)'. Please fix VERSION file" && false)
 	-$(QUIET)sed -f $(1)/transforms2sed.sed -e s+__CILIUM_VERSION__+$$(CILIUM_VERSION)+ <$$< >$$@
 endef
 

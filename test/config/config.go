@@ -23,6 +23,7 @@ type CiliumTestConfigType struct {
 	SSHConfig        string
 	ShowCommands     bool
 	CiliumDSManifest string
+	TestScope        string
 }
 
 // CiliumTestConfig holds the global configuration of commandline flags
@@ -41,5 +42,6 @@ func (c *CiliumTestConfigType) ParseFlags() {
 		"Output which commands are ran to stdout")
 	flag.StringVar(&c.CiliumDSManifest, "cilium.dsManifest", "",
 		"Cilium daemon set manifest to use for running the test (only Kubernetes)")
-
+	flag.StringVar(&c.TestScope, "cilium.testScope", "",
+		"Specifies scope of test to be ran (k8s, Nightly, runtime)")
 }

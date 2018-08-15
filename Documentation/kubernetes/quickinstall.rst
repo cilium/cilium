@@ -1,3 +1,9 @@
+.. only:: not (epub or latex or html)
+
+    WARNING: You are looking at unreleased Cilium documentation.
+    Please use the official rendered version released here:
+    http://docs.cilium.io
+
 .. _k8s_quick:
 
 ***********
@@ -19,14 +25,6 @@ chapter.
 2. Download the `DaemonSet` template ``cilium.yaml`` and specify the etcd address:
 
 .. tabs::
-  .. group-tab:: K8s 1.7
-
-    .. parsed-literal::
-
-      $ wget \ |SCM_WEB|\/examples/kubernetes/1.7/cilium.yaml
-      $ vim cilium.yaml
-      [adjust the etcd address]
-
   .. group-tab:: K8s 1.8
 
     .. parsed-literal::
@@ -59,15 +57,6 @@ chapter.
       $ vim cilium.yaml
       [adjust the etcd address]
 
-
-**Optional:** If you want to adjust the MTU of the pods, define the ``MTU`` environment
-variable in the ``env`` section:
-
-.. code:: bash
-
-    env:
-      - name: "MTU"
-        value: "8950"
 
 3. Deploy ``cilium`` with your local changes
 

@@ -21,21 +21,15 @@ import (
 	"github.com/cilium/cilium/test/helpers"
 
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 )
 
-var testName = "K8sValidatedHealthTest"
-
-var _ = Describe(testName, func() {
+var _ = Describe("K8sHealthTest", func() {
 
 	var (
 		kubectl *helpers.Kubectl
-		logger  = log.WithFields(logrus.Fields{"testName": testName})
 	)
 
 	BeforeAll(func() {
-		logger.Info("Starting")
-
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
 		err := kubectl.CiliumInstall(helpers.CiliumDSPath)
@@ -97,17 +91,19 @@ var _ = Describe(testName, func() {
 		apiPaths := []string{
 			"endpoint.icmp",
 			"endpoint.http",
-			"host.\"primary-address\".icmp",
-			"host.\"primary-address\".http",
+			"host.primary-address.icmp",
+			"host.primary-address.http",
 		}
 		for node := 0; node <= 1; node++ {
+			healthCmd := "cilium-health status -o json"
+			status := kubectl.CiliumExec(cilium1, healthCmd)
+			status.ExpectSuccess("Cannot retrieve health status")
 			for _, path := range apiPaths {
-				jqArg := fmt.Sprintf(".nodes[%d].%s.status", node, path)
-				By("checking API response for '%s'", jqArg)
-				healthCmd := fmt.Sprintf("cilium-health status -o json | jq '%s'", jqArg)
-				status := kubectl.CiliumExec(cilium1, healthCmd)
-				Expect(status.Output().String()).Should(ContainSubstring("null"))
-				status.ExpectSuccess()
+				filter := fmt.Sprintf("{.nodes[%d].%s.status}", node, path)
+				By("checking API response for %q", filter)
+				data, err := status.Filter(filter)
+				Expect(err).To(BeNil(), "cannot retrieve filter %q from health output", filter)
+				Expect(data.String()).Should(BeEmpty())
 			}
 		}
 	}, 30)

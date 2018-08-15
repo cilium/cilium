@@ -183,7 +183,7 @@ type DissectSummary struct {
 	TCP      string `json:"tcp,omitempty"`
 	UDP      string `json:"udp,omitempty"`
 	ICMPv4   string `json:"icmpv4,omitempty"`
-	ICMPv6   string `json:"icmpv4,omitempty"`
+	ICMPv6   string `json:"icmpv6,omitempty"`
 	L2       *Flow  `json:"l2,omitempty"`
 	L3       *Flow  `json:"l3,omitempty"`
 	L4       *Flow  `json:"l4,omitempty"`

@@ -2,7 +2,7 @@ apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
 description: "Allow only permitted Kafka requests to empire Kafka broker"
 metadata:
-  name: "secure-empire-kafka"
+  name: "kafka-sw-security-policy"
 specs:
   - endpointSelector:
       matchLabels:
@@ -10,11 +10,29 @@ specs:
     ingress:
     - fromEndpoints:
       - matchLabels:
-          app: kafka
+          "reserved:host": ""
+      toPorts:
+      - ports:
+        - port: "9092"
+          protocol: TCP
+  - endpointSelector:
+      matchLabels:
+        app: kafka
+    egress:
+    - toEndpoints:
+      - matchLabels:
+          app: zook
       toPorts:
       - ports:
         - port: "2181"
           protocol: TCP
+  - endpointSelector:
+      matchLabels:
+        app: kafka
+    egress:
+    - toEndpoints:
+      - matchLabels:
+          k8s-app: kube-dns
   - endpointSelector:
       matchLabels:
         app: kafka

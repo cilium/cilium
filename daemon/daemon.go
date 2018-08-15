@@ -27,31 +27,35 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	health "github.com/cilium/cilium/cilium-health/launch"
 	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/common/types"
 	monitorLaunch "github.com/cilium/cilium/monitor/launch"
-	"github.com/cilium/cilium/pkg/apierror"
+	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/clustermesh"
+	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
+	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/maps/cidrmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
@@ -65,6 +69,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	policyApi "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -103,7 +108,7 @@ const (
 type Daemon struct {
 	buildEndpointChan chan *endpoint.Request
 	l7Proxy           *proxy.Proxy
-	loadBalancer      *types.LoadBalancer
+	loadBalancer      *loadbalancer.LoadBalancer
 	policy            *policy.Repository
 	preFilter         *policy.PreFilter
 	// Only used for CRI-O since it does not support events.
@@ -119,6 +124,9 @@ type Daemon struct {
 	nodeMonitor  *monitorLaunch.NodeMonitor
 	ciliumHealth *health.CiliumHealth
 
+	// dnsPoller is used to implement ToFQDN rules
+	dnsPoller *fqdn.DNSPoller
+
 	// k8sAPIs is a set of k8s API in use. They are setup in EnableK8sWatcher,
 	// and may be disabled while the agent runs.
 	// This is on this object, instead of a global, because EnableK8sWatcher is
@@ -129,18 +137,29 @@ type Daemon struct {
 	// programs.
 	compilationMutex *lock.RWMutex
 
-	// ipcacheListeners lists all parties interested in IP -> ID mappings.
-	ipcacheListeners []ipcache.IPIdentityMappingListener
+	// prefixLengths tracks a mapping from CIDR prefix length to the count
+	// of rules that refer to that prefix length.
+	prefixLengths *counter.PrefixLengthCounter
+
+	clustermesh *clustermesh.ClusterMesh
+
+	// k8sResourceSyncWaitGroup is used to block the starting of the daemon,
+	// including regenerating restored endpoints (if specified) until all
+	// policies stored in Kubernetes are plumbed into the local Cilium
+	// repository.
+	// This prevents regeneration of endpoints before all policy rules in
+	// Kubernetes are consumed by Cilium. See GH-5038.
+	k8sResourceSyncWaitGroup sync.WaitGroup
 }
 
 // UpdateProxyRedirect updates the redirect rules in the proxy for a particular
 // endpoint using the provided L4 filter. Returns the allocated proxy port
-func (d *Daemon) UpdateProxyRedirect(e *endpoint.Endpoint, l4 *policy.L4Filter) (uint16, error) {
+func (d *Daemon) UpdateProxyRedirect(e *endpoint.Endpoint, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error) {
 	if d.l7Proxy == nil {
 		return 0, fmt.Errorf("can't redirect, proxy disabled")
 	}
 
-	r, err := d.l7Proxy.CreateOrUpdateRedirect(l4, e.ProxyID(l4), e, e.ProxyWaitGroup)
+	r, err := d.l7Proxy.CreateOrUpdateRedirect(l4, e.ProxyID(l4), e, proxyWaitGroup)
 	if err != nil {
 		return 0, err
 	}
@@ -150,7 +169,7 @@ func (d *Daemon) UpdateProxyRedirect(e *endpoint.Endpoint, l4 *policy.L4Filter) 
 
 // RemoveProxyRedirect removes a previously installed proxy redirect for an
 // endpoint
-func (d *Daemon) RemoveProxyRedirect(e *endpoint.Endpoint, id string) error {
+func (d *Daemon) RemoveProxyRedirect(e *endpoint.Endpoint, id string, proxyWaitGroup *completion.WaitGroup) error {
 	if d.l7Proxy == nil {
 		return nil
 	}
@@ -159,19 +178,18 @@ func (d *Daemon) RemoveProxyRedirect(e *endpoint.Endpoint, id string) error {
 		logfields.EndpointID: e.ID,
 		logfields.L4PolicyID: id,
 	}).Debug("Removing redirect to endpoint")
-	return d.l7Proxy.RemoveRedirect(id, e.ProxyWaitGroup)
+	return d.l7Proxy.RemoveRedirect(id, proxyWaitGroup)
 }
 
 // UpdateNetworkPolicy adds or updates a network policy in the set
 // published to L7 proxies.
 func (d *Daemon) UpdateNetworkPolicy(e *endpoint.Endpoint, policy *policy.L4Policy,
-	labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool) error {
+	labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, proxyWaitGroup *completion.WaitGroup) error {
 	if d.l7Proxy == nil {
 		return fmt.Errorf("can't update network policy, proxy disabled")
 	}
-	ingressPolicyEnforced, egressPolicyEnforced := d.EnableEndpointPolicyEnforcement(e)
-	return d.l7Proxy.UpdateNetworkPolicy(e, policy, ingressPolicyEnforced, egressPolicyEnforced,
-		labelsMap, deniedIngressIdentities, deniedEgressIdentities, e.ProxyWaitGroup)
+	return d.l7Proxy.UpdateNetworkPolicy(e, policy, e.Options.IsEnabled(option.IngressPolicy), e.Options.IsEnabled(option.EgressPolicy),
+		labelsMap, deniedIngressIdentities, deniedEgressIdentities, proxyWaitGroup)
 }
 
 // RemoveNetworkPolicy removes a network policy from the set published to
@@ -247,11 +265,6 @@ func (d *Daemon) StartEndpointBuilders(nRoutines int) {
 	}
 }
 
-// GetTunnelMode returns the path to the state directory
-func (d *Daemon) GetTunnelMode() string {
-	return option.Config.Tunnel
-}
-
 // GetStateDir returns the path to the state directory
 func (d *Daemon) GetStateDir() string {
 	return option.Config.StateDir
@@ -297,6 +310,7 @@ func (d *Daemon) writeNetdevHeader(dir string) error {
 	fw.WriteString(option.Config.Opts.GetFmtList())
 	fw.WriteString(d.fmtPolicyEnforcementIngress())
 	fw.WriteString(d.fmtPolicyEnforcementEgress())
+	endpoint.WriteIPCachePrefixes(fw, d.prefixLengths.ToBPFData)
 
 	return fw.Flush()
 }
@@ -590,38 +604,75 @@ func (d *Daemon) installIptablesRules() error {
 	// special marker so that we can differentiate traffic sourced locally
 	// vs. traffic from the outside world that was masqueraded to appear
 	// like it's from the host.
+	//
+	// Originally we set this mark only for traffic destined to the
+	// cilium_host device, to ensure that any traffic directly reaching
+	// to a Cilium-managed IP could be classified as from the host.
+	//
+	// However, there's another case where a local process attempts to
+	// reach a service IP which is backed by a Cilium-managed pod. The
+	// service implementation is outside of Cilium's control, for example,
+	// handled by kube-proxy. We can tag even this traffic with a magic
+	// mark, then when the service implementation proxies it back into
+	// Cilium the BPF will see this mark and understand that the packet
+	// originated from the host.
 	matchFromProxy := fmt.Sprintf("%#08x/%#08x", proxy.MagicMarkIsProxy, proxy.MagicMarkProxyMask)
 	markAsFromHost := fmt.Sprintf("%#08x/%#08x", proxy.MagicMarkHost, proxy.MagicMarkHostMask)
 	if err := runProg("iptables", []string{
 		"-t", "filter",
 		"-A", ciliumOutputChain,
 		"-m", "mark", "!", "--mark", matchFromProxy, // Don't match proxy traffic
-		"-o", "cilium_host",
 		"-m", "comment", "--comment", "cilium: host->any mark as from host",
 		"-j", "MARK", "--set-xmark", markAsFromHost}, false); err != nil {
 		return err
 	}
 
 	if masquerade {
-		// Masquerade all traffic from the host into the cilium_host interface
-		// if the source is not the internal IP
+		ingressSnatSrcAddrExclusion := node.GetHostMasqueradeIPv4().String()
+		if option.Config.Tunnel == option.TunnelDisabled {
+			ingressSnatSrcAddrExclusion = node.GetIPv4ClusterRange().String()
+		}
+
+		// Masquerade all traffic from the host into the cilium_host
+		// interface if the source is not the internal IP
+		//
+		// The following conditions must be met:
+		// * Must be targeted for the cilium_host interface
+		// * Tunnel mode:
+		//   * May not already be originating from the masquerade IP
+		// * Non-tunnel mode:
+		//   * May not orignate from any IP inside of the cluster range
 		if err := runProg("iptables", []string{
 			"-t", "nat",
 			"-A", ciliumPostNatChain,
-			"!", "-s", node.GetHostMasqueradeIPv4().String(),
+			"!", "-s", ingressSnatSrcAddrExclusion,
 			"-o", "cilium_host",
 			"-m", "comment", "--comment", "cilium host->cluster masquerade",
 			"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String()}, false); err != nil {
 			return err
 		}
 
-		// Masquerade all traffic from node prefix not going to node prefix
-		// which is not going over the tunnel device
+		egressSnatDstAddrExclusion := node.GetIPv4AllocRange().String()
+		if option.Config.Tunnel == option.TunnelDisabled {
+			egressSnatDstAddrExclusion = node.GetIPv4ClusterRange().String()
+		}
+
+		// Masquerade all egress traffic leaving the node
+		//
+		// The following conditions must be met:
+		// * May not leave on a cilium_ interface, this excludes all
+		//   tunnel traffic
+		// * Must originate from an IP in the local allocation range
+		// * Tunnel mode:
+		//   * May not be targeted to an IP in the local allocation
+		//     range
+		// * Non-tunnel mode:
+		//   * May not be targeted to an IP in the cluster range
 		if err := runProg("iptables", []string{
 			"-t", "nat",
 			"-A", "CILIUM_POST",
 			"-s", node.GetIPv4AllocRange().String(),
-			"!", "-d", node.GetIPv4AllocRange().String(),
+			"!", "-d", egressSnatDstAddrExclusion,
 			"!", "-o", "cilium_+",
 			"-m", "comment", "--comment", "cilium masquerade non-cluster",
 			"-j", "MASQUERADE"}, false); err != nil {
@@ -686,7 +737,7 @@ func (d *Daemon) compileBase() error {
 	args[initArgRundir] = option.Config.StateDir
 	args[initArgIPv4NodeIP] = node.GetInternalIPv4().String()
 	args[initArgIPv6NodeIP] = node.GetIPv6().String()
-	args[initArgMTU] = fmt.Sprintf("%d", mtu.StandardMTU)
+	args[initArgMTU] = fmt.Sprintf("%d", mtu.GetDeviceMTU())
 
 	if option.Config.Device != "undefined" {
 		_, err := netlink.LinkByName(option.Config.Device)
@@ -724,7 +775,9 @@ func (d *Daemon) compileBase() error {
 	prog := filepath.Join(option.Config.BpfDir, "init.sh")
 	ctx, cancel := context.WithTimeout(context.Background(), ExecTimeout)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, prog, args...).CombinedOutput()
+	cmd := exec.CommandContext(ctx, prog, args...)
+	cmd.Env = bpf.Environment()
+	out, err := cmd.CombinedOutput()
 	if ctx.Err() == context.DeadlineExceeded {
 		cmd := fmt.Sprintf("%s %s", prog, strings.Join(args, " "))
 		log.WithField("cmd", cmd).Error("Command execution failed: Timeout")
@@ -794,7 +847,8 @@ func (d *Daemon) init() error {
 
 		// Set up the list of IPCache listeners in the daemon, to be
 		// used by syncLXCMap().
-		d.ipcacheListeners = []ipcache.IPIdentityMappingListener{&envoy.NetworkPolicyHostsCache, d}
+		ipcache.IPIdentityCache.SetListeners([]ipcache.IPIdentityMappingListener{
+			&envoy.NetworkPolicyHostsCache, d})
 
 		// Insert local host entries to bpf maps
 		if err := d.syncLXCMap(); err != nil {
@@ -928,13 +982,14 @@ func createNodeConfigHeaderfile() error {
 	fmt.Fprintf(fw, "#define HOST_ID %d\n", identity.GetReservedID(labels.IDNameHost))
 	fmt.Fprintf(fw, "#define WORLD_ID %d\n", identity.GetReservedID(labels.IDNameWorld))
 	fmt.Fprintf(fw, "#define CLUSTER_ID %d\n", identity.GetReservedID(labels.IDNameCluster))
+	fmt.Fprintf(fw, "#define HEALTH_ID %d\n", identity.GetReservedID(labels.IDNameHealth))
+	fmt.Fprintf(fw, "#define INIT_ID %d\n", identity.GetReservedID(labels.IDNameInit))
 	fmt.Fprintf(fw, "#define LB_RR_MAX_SEQ %d\n", lbmap.MaxSeq)
 	fmt.Fprintf(fw, "#define CILIUM_LB_MAP_MAX_ENTRIES %d\n", lbmap.MaxEntries)
 	fmt.Fprintf(fw, "#define TUNNEL_ENDPOINT_MAP_SIZE %d\n", tunnel.MaxEntries)
 	fmt.Fprintf(fw, "#define PROXY_MAP_SIZE %d\n", proxymap.MaxEntries)
 	fmt.Fprintf(fw, "#define ENDPOINTS_MAP_SIZE %d\n", lxcmap.MaxEntries)
 	fmt.Fprintf(fw, "#define METRICS_MAP_SIZE %d\n", metricsmap.MaxEntries)
-	fmt.Fprintf(fw, "#define LPM_MAP_SIZE %d\n", cidrmap.MaxEntries)
 	fmt.Fprintf(fw, "#define POLICY_MAP_SIZE %d\n", policymap.MaxEntries)
 	fmt.Fprintf(fw, "#define IPCACHE_MAP_SIZE %d\n", ipcachemap.MaxEntries)
 	fmt.Fprintf(fw, "#define POLICY_PROG_MAP_SIZE %d\n", policymap.ProgArrayMaxEntries)
@@ -1004,57 +1059,68 @@ func (d *Daemon) syncLXCMap() error {
 				log.WithField(logfields.IPAddr, ipIDPair.IP).Debugf("Added local ip to endpoint map")
 			}
 		}
-		prefix := ipIDPair.PrefixString()
-		cachedIdentity, exists := ipcache.IPIdentityCache.LookupByIP(prefix)
-		if !exists || cachedIdentity != ipIDPair.ID {
-			// Upsert will not propagate (reserved:foo->ID) mappings across the cluster,
-			// and we specifically don't want to do so.
-			// Manually push it into each IPIdentityMappingListener.
-			log.WithFields(logrus.Fields{
-				logfields.IPAddr:       ipIDPair.IP,
-				logfields.IPMask:       ipIDPair.Mask,
-				logfields.OldIdentity:  cachedIdentity,
-				logfields.Identity:     ipIDPair.ID,
-				logfields.Modification: ipcache.Upsert,
-			}).Debug("Adding special identity to ipcache")
-			ipcache.IPIdentityCache.Upsert(prefix, ipIDPair.ID)
-
-			var oldIPIDPair *identity.IPIdentityPair
-			if cachedIdentity != ipIDPair.ID {
-				// If an existing mapping is updated,
-				// provide the existing mapping to the
-				// listener so it can easily clean up
-				// the old mapping.
-				pair := ipIDPair
-				pair.ID = cachedIdentity
-				oldIPIDPair = &pair
-			}
-			for _, listener := range d.ipcacheListeners {
-				listener.OnIPIdentityCacheChange(ipcache.Upsert, oldIPIDPair, ipIDPair)
-			}
-		}
+		// Upsert will not propagate (reserved:foo->ID) mappings across the cluster,
+		// and we specifically don't want to do so.
+		ipcache.IPIdentityCache.Upsert(ipIDPair.PrefixString(), nil, ipcache.Identity{
+			ID:     ipIDPair.ID,
+			Source: ipcache.FromAgentLocal,
+		})
 	}
 	return nil
 }
 
+func createIPNet(ones, bits int) *net.IPNet {
+	return &net.IPNet{
+		Mask: net.CIDRMask(ones, bits),
+	}
+}
+
+// createPrefixLengthCounter wraps around the counter library, providing
+// references to prefix lengths that will always be present.
+func createPrefixLengthCounter() *counter.PrefixLengthCounter {
+	prefixLengths4 := ipcachemap.IPCache.GetMaxPrefixLengths(false)
+	prefixLengths6 := ipcachemap.IPCache.GetMaxPrefixLengths(true)
+	counter := counter.NewPrefixLengthCounter(prefixLengths6, prefixLengths4)
+
+	// This is a bit ugly, but there's not a great way to define an IPNet
+	// without parsing strings, etc.
+	defaultPrefixes := []*net.IPNet{
+		// IPv4
+		createIPNet(0, net.IPv4len*8),                     // world
+		createIPNet(v4ClusterCidrMaskSize, net.IPv4len*8), // cluster
+		createIPNet(net.IPv4len*8, net.IPv4len*8),         // hosts
+
+		// IPv6
+		createIPNet(0, net.IPv6len*8), // world
+		createIPNet(node.DefaultIPv6ClusterPrefixLen, net.IPv6len*8),
+		createIPNet(net.IPv6len*8, net.IPv6len*8), // hosts
+	}
+	_, err := counter.Add(defaultPrefixes)
+	if err != nil {
+		log.WithError(err).Fatal("Failed to create default prefix lengths")
+	}
+	return counter
+}
+
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
-func NewDaemon() (*Daemon, error) {
+func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 	// Validate the daemon specific global options
 	if err := option.Config.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid daemon configuration: %s", err)
+		return nil, nil, fmt.Errorf("invalid daemon configuration: %s", err)
 	}
 
 	if err := workloads.Setup(option.Config.Workloads, map[string]string{}); err != nil {
-		return nil, fmt.Errorf("unable to setup workload: %s", err)
+		return nil, nil, fmt.Errorf("unable to setup workload: %s", err)
 	}
 
-	lb := types.NewLoadBalancer()
+	lb := loadbalancer.NewLoadBalancer()
 
 	d := Daemon{
-		loadBalancer: lb,
-		policy:       policy.NewPolicyRepository(),
-		uniqueID:     map[uint64]bool{},
-		nodeMonitor:  monitorLaunch.NewNodeMonitor(),
+		loadBalancer:  lb,
+		policy:        policy.NewPolicyRepository(),
+		uniqueID:      map[uint64]bool{},
+		nodeMonitor:   monitorLaunch.NewNodeMonitor(),
+		prefixLengths: createPrefixLengthCounter(),
 
 		// FIXME
 		// The channel size has to be set to the maximum number of
@@ -1099,10 +1165,6 @@ func NewDaemon() (*Daemon, error) {
 		if viper.GetString("k8s-legacy-host-allows-world") != "false" {
 			option.Config.HostAllowsWorld = true
 			log.Warn("k8s mode: Configuring ingress policy for host to also allow from world. For more information, see https://cilium.link/host-vs-world")
-		}
-
-		if !singleClusterRoute {
-			node.EnablePerNodeRoutes()
 		}
 	}
 
@@ -1167,7 +1229,7 @@ func NewDaemon() (*Daemon, error) {
 		log.Info("Annotating k8s node with CIDR ranges")
 		err := k8s.AnnotateNode(k8s.Client(), node.GetName(),
 			node.GetIPv4AllocRange(), node.GetIPv6NodeRange(),
-			nil, nil)
+			nil, nil, node.GetInternalIPv4())
 		if err != nil {
 			log.WithError(err).Warning("Cannot annotate k8s node with CIDR range")
 		}
@@ -1213,6 +1275,8 @@ func NewDaemon() (*Daemon, error) {
 		log.WithError(err).Fatal("postinit failed")
 	}
 	log.Info("Addressing information:")
+	log.Infof("  Cluster-Name: %s", option.Config.ClusterName)
+	log.Infof("  Cluster-ID: %d", option.Config.ClusterID)
 	log.Infof("  Local node-name: %s", node.GetName())
 	log.Infof("  Node-IPv6: %s", node.GetIPv6())
 	log.Infof("  External-Node IPv4: %s", node.GetExternalIPv4())
@@ -1228,16 +1292,33 @@ func NewDaemon() (*Daemon, error) {
 		// Allocate IPv4 service loopback IP
 		loopbackIPv4, _, err := ipam.AllocateNext("ipv4")
 		if err != nil {
-			return nil, fmt.Errorf("Unable to reserve IPv4 loopback address: %s", err)
+			return nil, restoredEndpoints, fmt.Errorf("Unable to reserve IPv4 loopback address: %s", err)
 		}
 		node.SetIPv4Loopback(loopbackIPv4)
 		log.Infof("  Loopback IPv4: %s", node.GetIPv4Loopback().String())
 	}
 
-	// Populate list of nodes with local node entry
-	log.Info("Adding local node to local cluster node list")
-	ni, n := node.GetLocalNode()
-	node.UpdateNode(ni, n, node.TunnelRoute, nil)
+	if err := node.ConfigureLocalNode(); err != nil {
+		log.WithError(err).Fatal("Unable to initialize local node")
+	}
+
+	if path := option.Config.ClusterMeshConfig; path != "" {
+		if option.Config.ClusterID == 0 {
+			log.Info("Cluster-ID is not specified, skipping ClusterMesh initialization")
+		} else {
+			log.WithField("path", path).Info("Initializing ClusterMesh routing")
+			clustermesh, err := clustermesh.NewClusterMesh(clustermesh.Configuration{
+				Name:            "clustermesh",
+				ConfigDirectory: path,
+				NodeKeyCreator:  node.KeyCreator,
+			})
+			if err != nil {
+				log.WithError(err).Fatal("Unable to initialize ClusterMesh")
+			}
+
+			d.clustermesh = clustermesh
+		}
+	}
 
 	// This needs to be done after the node addressing has been configured
 	// as the node address is required as sufix
@@ -1245,50 +1326,31 @@ func NewDaemon() (*Daemon, error) {
 
 	if err = d.init(); err != nil {
 		log.WithError(err).Error("Error while initializing daemon")
-		return nil, err
+		return nil, restoredEndpoints, err
 	}
 
 	// Start watcher for endpoint IP --> identity mappings in key-value store.
 	// this needs to be done *after* init() for the daemon in that function,
 	// we populate the IPCache with the host's IP(s).
-	ipcache.InitIPIdentityWatcher(d.ipcacheListeners)
+	ipcache.InitIPIdentityWatcher()
 
 	// FIXME: Make the port range configurable.
 	d.l7Proxy = proxy.StartProxySupport(10000, 20000, option.Config.RunDir,
 		option.Config.AccessLog, &d, option.Config.AgentLabels)
 
-	if option.Config.RestoreState {
-		d.regenerateRestoredEndpoints(restoredEndpoints)
-
-		go func() {
-			if err := d.SyncLBMap(); err != nil {
-				log.WithError(err).Warn("Error while recovering endpoints")
-			}
-		}()
-	} else {
-		log.Info("No previous state to restore. Cilium will not manage existing containers")
-		// We need to read all docker containers so we know we won't
-		// going to allocate the same IP addresses and we will ignore
-		// these containers from reading.
-		workloads.IgnoreRunningWorkloads()
-	}
-
-	d.collectStaleMapGarbage()
-
-	// Allocate health endpoint IPs after restoring state
-	log.Info("Building health endpoint")
-	health4, health6, err := ipam.AllocateNext("")
-	if err != nil {
-		log.WithError(err).Fatal("Error while allocating cilium-health IP")
-	}
-	node.SetIPv4HealthIP(health4)
-	node.SetIPv6HealthIP(health6)
-	log.Debugf("IPv4 health endpoint address: %s", node.GetIPv4HealthIP())
-	log.Debugf("IPv6 health endpoint address: %s", node.GetIPv6HealthIP())
-
 	d.startStatusCollector()
+	d.dnsPoller = fqdn.NewDNSPoller(fqdn.DNSPollerConfig{
+		LookupDNSNames: fqdn.DNSLookupDefaultResolver,
+		AddGeneratedRules: func(generatedRules []*policyApi.Rule) error {
+			// Insert the new rules into the policy repository. We need them to
+			// replace the previous set. This requires the labels to match (including
+			// the ToFQDN-UUID one).
+			_, err := d.PolicyAdd(generatedRules, &AddOptions{Replace: true})
+			return err
+		}})
+	fqdn.StartDNSPoller(d.dnsPoller)
 
-	return &d, nil
+	return &d, restoredEndpoints, nil
 }
 
 func (d *Daemon) validateExistingMaps() error {
@@ -1300,6 +1362,9 @@ func (d *Daemon) validateExistingMaps() error {
 }
 
 func (d *Daemon) collectStaleMapGarbage() {
+	if d.DryModeEnabled() {
+		return
+	}
 	walker := func(path string, _ os.FileInfo, _ error) error {
 		return d.staleMapWalker(path)
 	}
@@ -1393,7 +1458,7 @@ func mapValidateWalker(path string) error {
 	return nil
 }
 
-func changedOption(key string, value bool, data interface{}) {
+func changedOption(key string, value int, data interface{}) {
 	d := data.(*Daemon)
 	if key == option.Debug {
 		// Set the debug toggle (this can be a no-op)
@@ -1434,7 +1499,7 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 		delete(cfgSpec.Options, "MonitorNumPages")
 	}
 	if err := option.Config.Opts.Validate(cfgSpec.Options); err != nil {
-		return apierror.Error(PatchConfigBadRequestCode, err)
+		return api.Error(PatchConfigBadRequestCode, err)
 	}
 
 	// Track changes to daemon's configuration
@@ -1458,12 +1523,12 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 		default:
 			msg := fmt.Errorf("Invalid option for PolicyEnforcement %s", enforcement)
 			log.Warn(msg)
-			return apierror.Error(PatchConfigFailureCode, msg)
+			return api.Error(PatchConfigFailureCode, msg)
 		}
 		log.Debug("finished configuring PolicyEnforcement for daemon")
 	}
 
-	changes += option.Config.Opts.Apply(cfgSpec.Options, changedOption, d)
+	changes += option.Config.Opts.ApplyValidated(cfgSpec.Options, changedOption, d)
 
 	log.WithField("count", changes).Debug("Applied changes to daemon's configuration")
 
@@ -1472,7 +1537,7 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 		log.Debug("daemon configuration has changed; recompiling base programs")
 		if err := d.compileBase(); err != nil {
 			msg := fmt.Errorf("Unable to recompile base programs: %s", err)
-			return apierror.Error(PatchConfigFailureCode, msg)
+			return api.Error(PatchConfigFailureCode, msg)
 		}
 		d.TriggerPolicyUpdates(true)
 	}
@@ -1511,7 +1576,9 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 			Type:    kvStore,
 			Options: kvStoreOpts,
 		},
-		Realized: spec,
+		Realized:  spec,
+		DeviceMTU: int64(mtu.GetDeviceMTU()),
+		RouteMTU:  int64(mtu.GetRouteMTU()),
 	}
 
 	cfg := &models.DaemonConfiguration{
@@ -1572,7 +1639,7 @@ func (d *Daemon) clearCiliumVeths() error {
 // numWorkerThreads returns the number of worker threads with a minimum of 4.
 func numWorkerThreads() int {
 	ncpu := runtime.NumCPU()
-	minWorkerThreads := 4
+	minWorkerThreads := 2
 
 	if ncpu < minWorkerThreads {
 		return minWorkerThreads

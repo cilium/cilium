@@ -26,7 +26,7 @@ export PATH=/home/vagrant/go/bin:/usr/local/clang/bin:/usr/local/sbin:/usr/local
 
 echo "editing journald configuration"
 sudo bash -c "echo RateLimitIntervalSec=1s >> /etc/systemd/journald.conf"
-sudo bash -c "echo RateLimitBurst=1000 >> /etc/systemd/journald.conf"
+sudo bash -c "echo RateLimitBurst=10000 >> /etc/systemd/journald.conf"
 echo "restarting systemd-journald"
 sudo systemctl restart systemd-journald
 echo "getting status of systemd-journald"
@@ -125,8 +125,9 @@ Vagrant.configure(2) do |config|
         # Do not inherit DNS server from host, use proxy
         vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
         vb.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
-        config.vm.box = "cilium/ubuntu"
-        config.vm.box_version = "83"
+
+        config.vm.box = "cilium/ubuntu-dev"
+        config.vm.box_version = "106"
         vb.memory = ENV['VM_MEMORY'].to_i
         vb.cpus = ENV['VM_CPUS'].to_i
         if ENV["NFS"] then
@@ -175,6 +176,7 @@ Vagrant.configure(2) do |config|
     master_vm_name = "#{$vm_base_name}1#{$build_id_name}"
     config.vm.define master_vm_name, primary: true do |cm|
         node_ip = "#{$master_ip}"
+		cm.vm.network "forwarded_port", guest: 6443, host: 7443
         cm.vm.network "private_network", ip: "#{$master_ip}",
             virtualbox__intnet: "cilium-test-#{$build_id}",
             :libvirt__guest_ipv6 => "yes",

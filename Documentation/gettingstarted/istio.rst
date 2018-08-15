@@ -1,3 +1,9 @@
+.. only:: not (epub or latex or html)
+
+    WARNING: You are looking at unreleased Cilium documentation.
+    Please use the official rendered version released here:
+    http://docs.cilium.io
+
 ***************************
 Getting Started Using Istio
 ***************************
@@ -9,126 +15,19 @@ environment running on your machine.
 
 .. include:: gsg_intro.rst
 .. include:: minikube_intro.rst
-
-Step 1: Install Cilium
-======================
-
-The next step is to install Cilium into your Kubernetes cluster.
-Cilium installation leverages the `Kubernetes Daemon Set
-<https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/>`_
-abstraction, which will deploy one Cilium pod per cluster node.  This
-Cilium pod will run in the ``kube-system`` namespace along with all
-other system relevant daemons and services.  The Cilium pod will run
-both the Cilium agent and the Cilium CNI plugin.
-
-To deploy Cilium, run:
-
-.. tabs::
-  .. group-tab:: K8s 1.7
-
-    .. parsed-literal::
-
-      $ curl -s \ |SCM_WEB|\/examples/kubernetes/1.7/cilium.yaml | \\
-        sed -e 's/sidecar-http-proxy: "false"/sidecar-http-proxy: "true"/' | \\
-        kubectl create -f -
-
-      configmap "cilium-config" created
-      secret "cilium-etcd-secrets" created
-      daemonset.extensions "cilium" created
-      clusterrolebinding.rbac.authorization.k8s.io "cilium" created
-      clusterrole.rbac.authorization.k8s.io "cilium" created
-      serviceaccount "cilium" created
-
-  .. group-tab:: K8s 1.8
-
-    .. parsed-literal::
-
-      $ curl -s \ |SCM_WEB|\/examples/kubernetes/1.8/cilium.yaml | \\
-        sed -e 's/sidecar-http-proxy: "false"/sidecar-http-proxy: "true"/' | \\
-        kubectl create -f -
-
-      configmap "cilium-config" created
-      secret "cilium-etcd-secrets" created
-      daemonset.extensions "cilium" created
-      clusterrolebinding.rbac.authorization.k8s.io "cilium" created
-      clusterrole.rbac.authorization.k8s.io "cilium" created
-      serviceaccount "cilium" created
-
-  .. group-tab:: K8s 1.9
-
-    .. parsed-literal::
-
-      $ curl -s \ |SCM_WEB|\/examples/kubernetes/1.9/cilium.yaml | \\
-        sed -e 's/sidecar-http-proxy: "false"/sidecar-http-proxy: "true"/' | \\
-        kubectl create -f -
-
-      configmap "cilium-config" created
-      secret "cilium-etcd-secrets" created
-      daemonset.extensions "cilium" created
-      clusterrolebinding.rbac.authorization.k8s.io "cilium" created
-      clusterrole.rbac.authorization.k8s.io "cilium" created
-      serviceaccount "cilium" created
-
-  .. group-tab:: K8s 1.10
-
-    .. parsed-literal::
-
-      $ curl -s \ |SCM_WEB|\/examples/kubernetes/1.10/cilium.yaml | \\
-        sed -e 's/sidecar-http-proxy: "false"/sidecar-http-proxy: "true"/' | \\
-        kubectl create -f -
-
-      configmap "cilium-config" created
-      secret "cilium-etcd-secrets" created
-      daemonset.extensions "cilium" created
-      clusterrolebinding.rbac.authorization.k8s.io "cilium" created
-      clusterrole.rbac.authorization.k8s.io "cilium" created
-      serviceaccount "cilium" created
-
-  .. group-tab:: K8s 1.11
-
-    .. parsed-literal::
-
-      $ curl -s \ |SCM_WEB|\/examples/kubernetes/1.11/cilium.yaml | \\
-        sed -e 's/sidecar-http-proxy: "false"/sidecar-http-proxy: "true"/' | \\
-        kubectl create -f -
-
-      configmap "cilium-config" created
-      secret "cilium-etcd-secrets" created
-      daemonset.extensions "cilium" created
-      clusterrolebinding.rbac.authorization.k8s.io "cilium" created
-      clusterrole.rbac.authorization.k8s.io "cilium" created
-      serviceaccount "cilium" created
-
-Kubernetes is now deploying Cilium with its RBAC settings, ConfigMap
-and DaemonSet as a pod on minikube. This operation is performed in the
-background.
-
-Note that this Cilium configuration requires deploying Istio with
-sidecar proxies in order to filter HTTP traffic at Layer-7 for any
-pod.
-
-Run the following command to check the progress of the deployment:
-
-::
-
-    $ kubectl get daemonsets -n kube-system
-    NAME      DESIRED   CURRENT   READY     UP-TO-DATE   AVAILABLE   NODE-SELECTOR   AGE
-    cilium    1         1         0         1            0           <none>          6s
-
-Wait until the cilium Deployment shows a ``CURRENT`` count of ``1``
-like above (a ``READY`` value of ``0`` is OK for this tutorial).
+.. include:: cilium_install.rst
 
 Step 2: Install Istio
 =====================
 
 Install the `Helm client <https://docs.helm.sh/using_helm/#installing-helm>`_.
 
-Download `Istio version 0.8.0
-<https://github.com/istio/istio/releases/tag/0.8.0>`_:
+Download `Istio version 1.0.0
+<https://github.com/istio/istio/releases/tag/1.0.0>`_:
 
 ::
 
-   $ export ISTIO_VERSION=0.8.0
+   $ export ISTIO_VERSION=1.0.0
    $ curl -L https://git.io/getLatestIstio | sh -
    $ export ISTIO_HOME=`pwd`/istio-${ISTIO_VERSION}
    $ export PATH="$PATH:${ISTIO_HOME}/bin"
@@ -139,13 +38,19 @@ Create a copy of Istio's Helm charts in order to customize them:
 
     $ cp -r ${ISTIO_HOME}/install/kubernetes/helm/istio istio-cilium-helm
 
-Configure Istio to use a Cilium-specific variant of Pilot which injects the
+Configure the Cilium-specific variant of Pilot to inject the
 Cilium network policy filters into each Istio sidecar proxy:
+
+.. parsed-literal::
+
+    $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/cilium-pilot.awk > cilium-pilot.awk
 
 ::
 
-    $ sed -e 's,{{ .Values.global.hub }}/{{ .Values.image }},docker.io/cilium/istio_pilot,' \
-          -i istio-cilium-helm/charts/pilot/templates/deployment.yaml
+    $ awk -f cilium-pilot.awk \
+          < istio-cilium-helm/charts/pilot/templates/deployment.yaml \
+          > istio-cilium-helm/charts/pilot/templates/deployment.yaml.new && \
+          mv istio-cilium-helm/charts/pilot/templates/deployment.yaml.new istio-cilium-helm/charts/pilot/templates/deployment.yaml
 
 Configure the Istio's sidecar injection to setup the transparent proxy mode
 (TPROXY) as required by Cilium's proxy filters:
@@ -153,7 +58,9 @@ Configure the Istio's sidecar injection to setup the transparent proxy mode
 ::
 
     $ sed -e 's,#interceptionMode: .*,interceptionMode: TPROXY,' \
-          -i istio-cilium-helm/templates/configmap.yaml
+          < istio-cilium-helm/templates/configmap.yaml \
+          > istio-cilium-helm/templates/configmap.yaml.new && \
+          mv istio-cilium-helm/templates/configmap.yaml.new istio-cilium-helm/templates/configmap.yaml
 
 Modify the Istio sidecar injection template to uses Cilium's proxy Docker
 images and mount Cilium's API Unix domain sockets into each sidecar to allow
@@ -165,20 +72,24 @@ Cilium's Envoy filters to query the Cilium agent for policy configuration:
 
 ::
 
-    $ cat istio-cilium-helm/templates/sidecar-injector-configmap.yaml | \
-          awk -f cilium-kube-inject.awk \
-          > istio-cilium-helm/templates/sidecar-injector-configmap-cilium.yaml
-    $ mv istio-cilium-helm/templates/sidecar-injector-configmap-cilium.yaml istio-cilium-helm/templates/sidecar-injector-configmap.yaml
+    $ awk -f cilium-kube-inject.awk \
+          < istio-cilium-helm/templates/sidecar-injector-configmap.yaml \
+          > istio-cilium-helm/templates/sidecar-injector-configmap.yaml.new && \
+          mv istio-cilium-helm/templates/sidecar-injector-configmap.yaml.new istio-cilium-helm/templates/sidecar-injector-configmap.yaml
 
-Create an Istio deployment spec:
+Create an Istio deployment spec, which configures the Cilium-specific variant
+of Pilot, and disables unused services:
 
 ::
 
     $ helm template istio-cilium-helm --name istio --namespace istio-system \
-          --set sidecarInjectorWebhook.enabled=false \
-          --set global.controlPlaneSecurityEnabled=false \
-          --set global.mtls.enabled=false \
+          --set pilot.image=docker.io/cilium/istio_pilot:1.0.0 \
+          --set sidecarInjectorWebhook.enabled=true \
+          --set global.controlPlaneSecurityEnabled=true \
+          --set global.mtls.enabled=true \
           --set global.proxy.image=proxy_debug \
+          --set ingress.enabled=false \
+          --set egressgateway.enabled=false \
           > istio-cilium.yaml
 
 .. TODO: Set global.controlPlaneSecurityEnabled=true and
@@ -199,15 +110,16 @@ Check the progress of the deployment (every service should have an
 
     $ kubectl get deployments -n istio-system
     NAME                       DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
-    istio-citadel              1         1         1            1           4m
-    istio-egressgateway        1         1         1            1           4m
-    istio-ingress              1         1         1            1           4m
-    istio-ingressgateway       1         1         1            1           4m
-    istio-pilot                1         1         1            1           4m
-    istio-policy               1         1         1            1           4m
-    istio-statsd-prom-bridge   1         1         1            1           4m
-    istio-telemetry            1         1         1            1           4m
-    prometheus                 1         1         1            1           4m
+    istio-citadel              1         1         1            1           1m
+    istio-egressgateway        1         1         1            1           1m
+    istio-galley               1         1         1            1           1m
+    istio-ingressgateway       1         1         1            1           1m
+    istio-pilot                1         1         1            1           1m
+    istio-policy               1         1         1            1           1m
+    istio-sidecar-injector     1         1         1            1           1m
+    istio-statsd-prom-bridge   1         1         1            1           1m
+    istio-telemetry            1         1         1            1           1m
+    prometheus                 1         1         1            1           1m
 
 Once all Istio pods are ready, we are ready to install the demo
 application.
@@ -267,7 +179,7 @@ specifications, run:
     $ for service in productpage-service productpage-v1 details-v1 reviews-v1; do \\
           curl -s \ |SCM_WEB|\/examples/kubernetes-istio/bookinfo-${service}.yaml | \\
           istioctl kube-inject -f - | \\
-          kubectl create -f - ; done
+          kubectl create --validate=false -f - ; done
     service "productpage" created
     ciliumnetworkpolicy "productpage-v1" created
     deployment "productpage-v1" created
@@ -339,7 +251,7 @@ Deploy the ``ratings v1`` and ``reviews v2`` services:
     $ for service in ratings-v1 reviews-v2; do \\
           curl -s \ |SCM_WEB|\/examples/kubernetes-istio/bookinfo-${service}.yaml | \\
           istioctl kube-inject -f - | \\
-          kubectl create -f - ; done
+          kubectl create --validate=false -f - ; done
     service "ratings" created
     ciliumnetworkpolicy "ratings-v1" created
     deployment "ratings-v1" created
@@ -380,11 +292,9 @@ running ``curl`` from within the pod:
 ::
 
     $ export POD_REVIEWS_V1=`kubectl get pods -n default -l app=reviews,version=v1 -o jsonpath='{.items[0].metadata.name}'`
-    $ kubectl exec ${POD_REVIEWS_V1} -c istio-proxy -- curl --connect-timeout 5 http://ratings:9080/ratings/0
-      % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
-                                 Dload  Upload   Total   Spent    Left  Speed
-      0     0    0     0    0     0      0      0 --:--:--  0:00:05 --:--:--     0
-    upstream connect error or disconnect/reset before headers
+    $ kubectl exec ${POD_REVIEWS_V1} -c istio-proxy -ti -- curl --connect-timeout 5 --fail http://ratings:9080/ratings/0
+    curl: (22) The requested URL returned error: 503 Service Unavailable
+    command terminated with exit code 22
 
 Update the Istio route rule to send 50% of ``reviews`` traffic to
 ``v1`` and 50% to ``v2``:
@@ -486,10 +396,16 @@ whitelisted:
 Because ``productpage v2`` sends messages into Kafka, we must first
 deploy a Kafka broker:
 
+.. parsed-literal::
+
+    $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/kafka-v1-destrule.yaml | \\
+          istioctl create -f -
+    Created config destination-rule/default/kafka-disable-mtls at revision ...
+
 .. TODO: Re-enable sidecar injection after we support Kafka with mTLS.
     $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/kafka-v1.yaml | \\
           istioctl kube-inject -f - | \\
-          kubectl create -f -
+          kubectl create --validate=false -f -
 
 .. parsed-literal::
 
@@ -525,7 +441,7 @@ CiliumNetworkPolicy and delete ``productpage v1``:
 
     $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/bookinfo-productpage-v2.yaml | \\
           istioctl kube-inject -f - | \\
-          kubectl create -f -
+          kubectl create --validate=false -f -
     ciliumnetworkpolicy "productpage-v2" created
     deployment "productpage-v2" created
 
@@ -551,7 +467,7 @@ this service:
 
     $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/authaudit-logger-v1.yaml | \\
           istioctl kube-inject -f - | \\
-          kubectl apply -f -
+          kubectl apply --validate=false -f -
     deployment "authaudit-logger-v1" created
 
 Check the progress of the deployment (every service should have an

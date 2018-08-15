@@ -25,9 +25,9 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/color"
+	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
@@ -58,8 +58,8 @@ func requireEndpointID(cmd *cobra.Command, args []string) {
 		Usagef(cmd, "Missing endpoint id argument")
 	}
 
-	if id := identity.ReservedIdentities[args[0]]; id == identity.IdentityUnknown {
-		_, _, err := endpoint.ValidateID(args[0])
+	if id := identity.GetReservedID(args[0]); id == identity.IdentityUnknown {
+		_, _, err := endpointid.ValidateID(args[0])
 
 		if err != nil {
 			Fatalf("Cannot parse endpoint id \"%s\": %s", args[0], err)
@@ -269,7 +269,8 @@ func updatePolicyKey(cmd *cobra.Command, args []string, add bool) {
 		u8p := u8proto.U8proto(proto)
 		entry := fmt.Sprintf("%d %d/%s", label, port, u8p.String())
 		if add == true {
-			if err := policyMap.Allow(label, port, u8p, parsedTd); err != nil {
+			var proxyPort uint16
+			if err := policyMap.Allow(label, port, u8p, parsedTd, proxyPort); err != nil {
 				Fatalf("Cannot add policy key '%s': %s\n", entry, err)
 			}
 		} else {
@@ -289,12 +290,15 @@ func dumpConfig(Opts map[string]string) {
 	sort.Strings(opts)
 
 	for _, k := range opts {
-		if enabled, err := option.NormalizeBool(Opts[k]); err != nil {
-			Fatalf("Invalid option answer %s: %s", Opts[k], err)
-		} else if enabled {
-			fmt.Printf("%-24s %s\n", k, common.Green("Enabled"))
+		// XXX: Reuse the format function from *option.Library
+		value = Opts[k]
+		if enabled, err := option.NormalizeBool(value); err != nil {
+			// If it cannot be parsed as a bool, just format the value.
+			fmt.Printf("%-24s %s\n", k, color.Green(value))
+		} else if enabled == option.OptionDisabled {
+			fmt.Printf("%-24s %s\n", k, color.Red("Disabled"))
 		} else {
-			fmt.Printf("%-24s %s\n", k, common.Red("Disabled"))
+			fmt.Printf("%-24s %s\n", k, color.Green("Enabled"))
 		}
 	}
 }

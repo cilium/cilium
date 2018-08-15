@@ -37,7 +37,7 @@ func (m *SdsDummy) Reset()         { *m = SdsDummy{} }
 func (m *SdsDummy) String() string { return proto.CompactTextString(m) }
 func (*SdsDummy) ProtoMessage()    {}
 func (*SdsDummy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_sds_a53ae84e786144d4, []int{0}
+	return fileDescriptor_sds_34a38c9717e4cb85, []int{0}
 }
 func (m *SdsDummy) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SdsDummy.Unmarshal(m, b)
@@ -200,10 +200,10 @@ var _SecretDiscoveryService_serviceDesc = grpc.ServiceDesc{
 }
 
 func init() {
-	proto.RegisterFile("envoy/service/discovery/v2/sds.proto", fileDescriptor_sds_a53ae84e786144d4)
+	proto.RegisterFile("envoy/service/discovery/v2/sds.proto", fileDescriptor_sds_34a38c9717e4cb85)
 }
 
-var fileDescriptor_sds_a53ae84e786144d4 = []byte{
+var fileDescriptor_sds_34a38c9717e4cb85 = []byte{
 	// 226 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x52, 0x49, 0xcd, 0x2b, 0xcb,
 	0xaf, 0xd4, 0x2f, 0x4e, 0x2d, 0x2a, 0xcb, 0x4c, 0x4e, 0xd5, 0x4f, 0xc9, 0x2c, 0x4e, 0xce, 0x2f,

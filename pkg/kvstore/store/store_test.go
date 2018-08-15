@@ -103,6 +103,13 @@ func (s *StoreSuite) TestStoreCreation(c *C) {
 	c.Assert(store, Not(IsNil))
 	c.Assert(store.conf.SynchronizationInterval, Equals, synchronizationIntervalDefault)
 	store.Close()
+
+	// Test with kvstore client specified
+	store, err = JoinSharedStore(Configuration{Prefix: testutils.RandomRune(), KeyCreator: newTestType, Backend: kvstore.Client()})
+	c.Assert(err, IsNil)
+	c.Assert(store, Not(IsNil))
+	c.Assert(store.conf.SynchronizationInterval, Equals, synchronizationIntervalDefault)
+	store.Close()
 }
 
 func expect(check func() bool) error {

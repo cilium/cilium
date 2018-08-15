@@ -49,9 +49,7 @@ func (m *NetworkPolicy) Validate() error {
 	for idx, item := range m.GetIngressPerPortPolicies() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return NetworkPolicyValidationError{
 					Field:  fmt.Sprintf("IngressPerPortPolicies[%v]", idx),
@@ -66,9 +64,7 @@ func (m *NetworkPolicy) Validate() error {
 	for idx, item := range m.GetEgressPerPortPolicies() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return NetworkPolicyValidationError{
 					Field:  fmt.Sprintf("EgressPerPortPolicies[%v]", idx),
@@ -134,9 +130,7 @@ func (m *PortNetworkPolicy) Validate() error {
 	for idx, item := range m.GetRules() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return PortNetworkPolicyValidationError{
 					Field:  fmt.Sprintf("Rules[%v]", idx),
@@ -211,12 +205,22 @@ func (m *PortNetworkPolicyRule) Validate() error {
 
 	case *PortNetworkPolicyRule_HttpRules:
 
-		if v, ok := interface{}(m.GetHttpRules()).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(m.GetHttpRules()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return PortNetworkPolicyRuleValidationError{
 					Field:  "HttpRules",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	case *PortNetworkPolicyRule_KafkaRules:
+
+		if v, ok := interface{}(m.GetKafkaRules()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return PortNetworkPolicyRuleValidationError{
+					Field:  "KafkaRules",
 					Reason: "embedded message failed validation",
 					Cause:  err,
 				}
@@ -277,9 +281,7 @@ func (m *HttpNetworkPolicyRules) Validate() error {
 	for idx, item := range m.GetHttpRules() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HttpNetworkPolicyRulesValidationError{
 					Field:  fmt.Sprintf("HttpRules[%v]", idx),
@@ -336,9 +338,7 @@ func (m *HttpNetworkPolicyRule) Validate() error {
 	for idx, item := range m.GetHeaders() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HttpNetworkPolicyRuleValidationError{
 					Field:  fmt.Sprintf("Headers[%v]", idx),
@@ -383,3 +383,138 @@ func (e HttpNetworkPolicyRuleValidationError) Error() string {
 }
 
 var _ error = HttpNetworkPolicyRuleValidationError{}
+
+// Validate checks the field values on KafkaNetworkPolicyRules with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, an error is returned.
+func (m *KafkaNetworkPolicyRules) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	if len(m.GetKafkaRules()) < 1 {
+		return KafkaNetworkPolicyRulesValidationError{
+			Field:  "KafkaRules",
+			Reason: "value must contain at least 1 item(s)",
+		}
+	}
+
+	for idx, item := range m.GetKafkaRules() {
+		_, _ = idx, item
+
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return KafkaNetworkPolicyRulesValidationError{
+					Field:  fmt.Sprintf("KafkaRules[%v]", idx),
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	}
+
+	return nil
+}
+
+// KafkaNetworkPolicyRulesValidationError is the validation error returned by
+// KafkaNetworkPolicyRules.Validate if the designated constraints aren't met.
+type KafkaNetworkPolicyRulesValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e KafkaNetworkPolicyRulesValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sKafkaNetworkPolicyRules.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = KafkaNetworkPolicyRulesValidationError{}
+
+// Validate checks the field values on KafkaNetworkPolicyRule with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, an error is returned.
+func (m *KafkaNetworkPolicyRule) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	// no validation rules for ApiKey
+
+	// no validation rules for ApiVersion
+
+	if !_KafkaNetworkPolicyRule_Topic_Pattern.MatchString(m.GetTopic()) {
+		return KafkaNetworkPolicyRuleValidationError{
+			Field:  "Topic",
+			Reason: "value does not match regex pattern \"^[a-zA-Z0-9._-]*$\"",
+		}
+	}
+
+	if utf8.RuneCountInString(m.GetTopic()) > 255 {
+		return KafkaNetworkPolicyRuleValidationError{
+			Field:  "Topic",
+			Reason: "value length must be at most 255 runes",
+		}
+	}
+
+	if !_KafkaNetworkPolicyRule_ClientId_Pattern.MatchString(m.GetClientId()) {
+		return KafkaNetworkPolicyRuleValidationError{
+			Field:  "ClientId",
+			Reason: "value does not match regex pattern \"^[a-zA-Z0-9._-]*$\"",
+		}
+	}
+
+	return nil
+}
+
+// KafkaNetworkPolicyRuleValidationError is the validation error returned by
+// KafkaNetworkPolicyRule.Validate if the designated constraints aren't met.
+type KafkaNetworkPolicyRuleValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e KafkaNetworkPolicyRuleValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sKafkaNetworkPolicyRule.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = KafkaNetworkPolicyRuleValidationError{}
+
+var _KafkaNetworkPolicyRule_Topic_Pattern = regexp.MustCompile("^[a-zA-Z0-9._-]*$")
+
+var _KafkaNetworkPolicyRule_ClientId_Pattern = regexp.MustCompile("^[a-zA-Z0-9._-]*$")

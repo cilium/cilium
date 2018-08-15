@@ -1,3 +1,9 @@
+.. only:: not (epub or latex or html)
+
+    WARNING: You are looking at unreleased Cilium documentation.
+    Please use the official rendered version released here:
+    http://docs.cilium.io
+
 .. _metrics:
 
 ********************
@@ -26,8 +32,16 @@ Endpoint
 --------
 
 * ``endpoint_count``: Number of endpoints managed by this agent
-* ``endpoint_regenerating``: Number of endpoints currently regenerating
+* ``endpoint_regenerating``: Number of endpoints currently regenerating. Deprecated. Use endpoint_state with proper labels instead
 * ``endpoint_regenerations``: Count of all endpoint regenerations that have completed, tagged by outcome
+* ``endpoint_regeneration_seconds_total``: Total sum of successful endpoint regeneration times
+* ``endpoint_regeneration_square_seconds_total``: Total sum of squares of successful endpoint regeneration times
+* ``endpoint_state``: Count of all endpoints, tagged by different endpoint states
+
+Datapath
+--------
+
+* ``datapath_errors_total``: Total number of errors occurred in datapath management, labeled by area, name and address family.
 
 Drops/Forwards (L3/L4)
 ----------------------
@@ -39,6 +53,9 @@ Policy Imports
 --------------
 
 * ``policy_count``: Number of policies currently loaded
+* ``policy_regeneration_total``: Total number of policies regenerated successfully
+* ``policy_regeneration_seconds_total``: Total sum of successful policy regeneration times
+* ``policy_regeneration_square_seconds_total``: Total sum of squares of successful policy regeneration times
 * ``policy_max_revision``: Highest policy revision number in the agent
 * ``policy_import_errors``: Number of times a policy import has failed
 
@@ -57,7 +74,7 @@ Events external to Cilium
 
 Cilium as a Kubernetes pod
 ==========================
-The Cilium `Prometheus reference configuration <https://github.com/cilium/cilium/blob/master/examples/kubernetes/prometheus.yaml>`_
+The Cilium `Prometheus reference configuration <https://github.com/cilium/cilium/blob/master/examples/kubernetes/addons/prometheus/prometheus.yaml>`_
 configures jobs that automatically collect pod metrics marked with the
 appropriate two labels.
 
@@ -68,7 +85,7 @@ Your Cilium spec will need these annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9090"
 
-The reference Cilium Kubernetes DaemonSet `Kubernetes spec <https://github.com/cilium/cilium/blob/master/examples/kubernetes/cilium.yaml>`_
+The reference Cilium Kubernetes DaemonSet `Kubernetes spec <https://github.com/cilium/cilium/blob/master/examples/kubernetes/1.8/cilium.yaml>`_
 is an example of how to configure ``cilium-agent`` and set the appropriate labels.
 
 *Note: the port can be configured per-pod to any value and the label set
@@ -81,7 +98,7 @@ and tag the resulting metrics series. In the Kubernetes case Prometheus will
 contact the Kubernetes API server for these lists and must have permissions to
 do so.
 
-An example `promethues configuration <https://github.com/cilium/cilium/blob/master/examples/kubernetes/prometheus.yaml>`_
+An example `promethues configuration <https://github.com/cilium/cilium/blob/master/examples/kubernetes/addons/prometheus/prometheus.yaml>`_
 can be found alongside the reference Cilium Kubernetes DaemonSet spec.
 
 The critical discovery section is:

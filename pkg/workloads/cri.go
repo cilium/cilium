@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/endpoint"
+	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -166,7 +167,7 @@ func (c *criClient) processEvent(m EventMessage) {
 		stopIgnoringContainer(m.WorkloadID)
 		c.handleCreateWorkload(m.WorkloadID, true)
 	case EventTypeDelete:
-		Owner().DeleteEndpoint(endpoint.NewID(endpoint.ContainerIdPrefix, m.WorkloadID))
+		Owner().DeleteEndpoint(endpointid.NewID(endpointid.ContainerIdPrefix, m.WorkloadID))
 	}
 }
 
@@ -299,7 +300,7 @@ func (c *criClient) retrieveCRIPodLabels(podID string) (*criRuntime.PodSandboxSt
 		return nil, nil, nil, fmt.Errorf("unable to inspect container '%s': %s", podID, err)
 	}
 
-	newLabels, informationLabels := getFilteredLabels(cont.GetStatus().Labels)
+	newLabels, informationLabels := getFilteredLabels(podID, cont.GetStatus().Labels)
 
 	return cont.GetStatus(), newLabels, informationLabels, nil
 }

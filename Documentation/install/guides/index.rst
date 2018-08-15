@@ -1,3 +1,9 @@
+.. only:: not (epub or latex or html)
+
+    WARNING: You are looking at unreleased Cilium documentation.
+    Please use the official rendered version released here:
+    http://docs.cilium.io
+
 .. _install_guide:
 
 Installation Guides
@@ -13,7 +19,8 @@ experiment, we highly recommend trying out the :ref:`gs_guide` instead.
    :glob:
 
    kubernetes
-   coreos
    from_source
    advanced_options
    kops
+   clustermesh
+   kube-router

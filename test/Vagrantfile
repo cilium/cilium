@@ -4,17 +4,17 @@ Vagrant.require_version ">= 2.0.0"
 
 $BUILD_NUMBER = ENV['BUILD_NUMBER'] || "0"
 $JOB_NAME = ENV['JOB_BASE_NAME'] || "LOCAL"
-$K8S_VERSION = ENV['K8S_VERSION'] || "1.10"
+$K8S_VERSION = ENV['K8S_VERSION'] || "1.11"
 $K8S_NODES = (ENV['K8S_NODES'] || "2").to_i
 $NFS = ENV['NFS']=="1"? true : false
-$SERVER_BOX= "cilium/ubuntu"
-$SERVER_VERSION="83"
+$SERVER_BOX = (ENV['SERVER_BOX'] || "cilium/ubuntu-dev")
+$SERVER_VERSION="106"
 $IPv6=(ENV['IPv6'] || "0")
 $CONTAINER_RUNTIME=(ENV['CONTAINER_RUNTIME'] || "docker")
 
 # RAM and CPU settings
 $MEMORY = (ENV['MEMORY'] || "4096").to_i
-$CPU = (ENV['CPU'] || "2").to_i
+$CPU = (ENV['CPUS'] || "2").to_i
 
 ENV["VAGRANT_DEFAULT_PROVIDER"] = "virtualbox"
 Vagrant.configure("2") do |config|
@@ -29,6 +29,7 @@ Vagrant.configure("2") do |config|
 
         server.vm.box =  "#{$SERVER_BOX}"
         server.vm.box_version = $SERVER_VERSION
+        server.vm.boot_timeout = 600
         server.vm.hostname = "runtime"
 
         # This network is only used by NFS
@@ -58,6 +59,7 @@ Vagrant.configure("2") do |config|
             server.vm.box =  "#{$SERVER_BOX}"
             server.vm.box_version = $SERVER_VERSION
             server.vm.hostname = "k8s#{i}"
+            server.vm.boot_timeout = 600
             server.vm.network "private_network",
                 ip: "192.168.36.1#{i}",
                 virtualbox__intnet: "cilium-k8s#{$BUILD_NUMBER}-#{$JOB_NAME}-#{$K8S_VERSION}"

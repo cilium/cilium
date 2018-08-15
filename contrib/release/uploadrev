@@ -82,6 +82,7 @@ cp $CILIUM_SOURCE/bugtool/cilium-bugtool $TARGET_DIR/cilium-bugtool-$ARCH || tru
 cp $CILIUM_SOURCE/monitor/cilium-node-monitor $TARGET_DIR/cilium-node-monitor-$ARCH || true
 cp $CILIUM_SOURCE/cilium-health/cilium-health $TARGET_DIR/cilium-health-$ARCH || true
 cp $CILIUM_SOURCE/contrib/k8s/k8s-cilium-exec.sh $TARGET_DIR/tools/ || true
+cp $CILIUM_SOURCE/contrib/k8s/k8s-get-cilium-pod.sh $TARGET_DIR/tools/ || true
 cp $CILIUM_SOURCE/contrib/k8s/k8s-unmanaged.sh $TARGET_DIR/tools/ || true
 
 # Generate  SHA256 digest

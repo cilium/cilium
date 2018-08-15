@@ -1,4 +1,4 @@
-FROM istio/proxy_debug:@ISTIO_VERSION@
+FROM istio/proxytproxy_debug:@ISTIO_VERSION@
 
 # Replace Istio's Envoy binary with Cilium's.
 ADD istio-envoy /usr/local/bin/envoy

@@ -305,7 +305,7 @@ func unescape(s string) (ch string, tail string, err error) {
 		i, err := strconv.ParseUint(ss, 16, 64)
 		if err != nil {
 			return "", "", fmt.Errorf(`\%c%s contains non-hexadecimal digits`, r, ss)
-			}
+		}
 		if r == 'x' || r == 'X' {
 			return string([]byte{byte(i)}), s, nil
 		}
@@ -872,13 +872,9 @@ func (p *textParser) readAny(v reflect.Value, props *Properties) error {
 // UnmarshalText returns *RequiredNotSetError.
 func UnmarshalText(s string, pb Message) error {
 	if um, ok := pb.(encoding.TextUnmarshaler); ok {
-		err := um.UnmarshalText([]byte(s))
-		return err
+		return um.UnmarshalText([]byte(s))
 	}
 	pb.Reset()
 	v := reflect.ValueOf(pb)
-	if pe := newTextParser(s).readStruct(v.Elem(), ""); pe != nil {
-		return pe
-	}
-	return nil
+	return newTextParser(s).readStruct(v.Elem(), "")
 }

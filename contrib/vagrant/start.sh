@@ -53,6 +53,17 @@ export 'CILIUM_TEMP'="${dir}"
 # Required bazel version
 export 'BAZEL_VERSION'=$(<envoy/BAZEL_VERSION)
 
+# Sets the RELOAD env variable with 1 if there is any VM printed by
+# vagrant status.
+function set_reload_if_vm_exists(){
+    if [ -z "${RELOAD}" ]; then
+        if [[ $(vagrant status 2>/dev/null | wc -l) -gt 1 && \
+                ! $(vagrant status 2>/dev/null | grep "not created") ]]; then
+            RELOAD=1
+        fi
+    fi
+}
+
 # split_ipv4 splits an IPv4 address into a bash array and assigns it to ${1}.
 # Exits if ${2} is an invalid IPv4 address.
 function split_ipv4(){
@@ -321,6 +332,7 @@ function write_cilium_cfg() {
     fi
 
     cilium_options+=" --access-log=/var/log/cilium-access.log"
+    cilium_options+=" --fixed-identity-mapping=128=kv-store --fixed-identity-mapping=129=kube-dns"
 
 cat <<EOF >> "$filename"
 sleep 2s
@@ -552,6 +564,8 @@ ipv6_public_workers_addrs=()
 split_ipv4 ipv4_array "${MASTER_IPV4}"
 MASTER_IPV6="${IPV6_INTERNAL_CIDR}$(printf '%02X' ${ipv4_array[3]})"
 
+set_reload_if_vm_exists
+
 create_master
 create_workers
 set_vagrant_env
@@ -567,5 +581,9 @@ elif [ -n "${PROVISION}" ]; then
     vagrant provision
 else
     vagrant up
+    if [ -n "${K8S}" ]; then
+		vagrant ssh k8s1 -- cat /home/vagrant/.kube/config | sed 's;server:.*:6443;server: https://k8s1:7443;g' > vagrant.kubeconfig
+		echo "Add '127.0.0.1 k8s1' to your /etc/hosts to use vagrant.kubeconfig file for kubectl"
+	fi
 fi
 

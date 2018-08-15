@@ -50,17 +50,15 @@ func populateMap(m *CIDRPolicyMap) {
 func (ds *PolicyTestSuite) TestToBPFData(c *C) {
 	cidrPolicy := NewCIDRPolicy()
 
-	// FIXME GH-4129: On Ingress, we don't get cluster / world prefixes yet
-	m := &cidrPolicy.Ingress
-	populateMap(m)
-	_, s4 := m.ToBPFData()
-	exp := []int{32, 26, 24, 20, 16}
+	populateMap(&cidrPolicy.Ingress)
+	_, s4 := cidrPolicy.ToBPFData()
+	exp := []int{32, 26, 24, 20, 16, 8, 0}
 	c.Assert(s4, comparator.DeepEquals, exp)
 
-	// On Egress, we get the host/ cluster / world prefixes.
-	m = &cidrPolicy.Egress
-	populateMap(m)
-	_, s4 = m.ToBPFData()
+	cidrPolicy = NewCIDRPolicy()
+	// 8 and 0 represent the host/ cluster / world prefixes.
+	populateMap(&cidrPolicy.Egress)
+	_, s4 = cidrPolicy.ToBPFData()
 	exp = []int{32, 26, 24, 20, 16, 8, 0}
 	c.Assert(s4, comparator.DeepEquals, exp)
 }

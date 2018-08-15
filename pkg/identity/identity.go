@@ -47,6 +47,7 @@ type Identity struct {
 type IPIdentityPair struct {
 	IP       net.IP          `json:"IP"`
 	Mask     net.IPMask      `json:"Mask"`
+	HostIP   net.IP          `json:"HostIP"`
 	ID       NumericIdentity `json:"ID"`
 	Metadata string          `json:"Metadata"`
 }
@@ -103,6 +104,12 @@ func (id *Identity) GetModel() *models.Identity {
 	}
 	ret.LabelsSHA256 = id.GetLabelsSHA256()
 	return ret
+}
+
+// IsReserved returns whether the identity represents a reserved identity
+// (true), or not (false).
+func (id *Identity) IsReserved() bool {
+	return LookupReservedIdentity(id.ID) != nil
 }
 
 // NewIdentity creates a new identity

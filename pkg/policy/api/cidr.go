@@ -28,6 +28,16 @@ type CIDR string
 // CIDRMatchAll is a []CIDR that matches everything
 var CIDRMatchAll = []CIDR{CIDR("0.0.0.0/0"), CIDR("::/0")}
 
+// MatchesAll determines whether the CIDR matches all traffic.
+func (c *CIDR) MatchesAll() bool {
+	for _, wildcard := range CIDRMatchAll {
+		if *c == wildcard {
+			return true
+		}
+	}
+	return false
+}
+
 // CIDRRule is a rule that specifies a CIDR prefix to/from which outside
 // communication  is allowed, along with an optional list of subnets within that
 // CIDR prefix to/from which outside communication is not allowed.
@@ -58,13 +68,30 @@ type CIDRSlice []CIDR
 // GetAsEndpointSelectors returns the provided CIDR slice as a slice of
 // endpoint selectors
 func (s CIDRSlice) GetAsEndpointSelectors() EndpointSelectorSlice {
+	// If multiple CIDRs representing reserved:world are in this CIDRSlice,
+	// we only have to add the EndpointSelector representing reserved:world
+	// once.
+	var hasWorldBeenAdded bool
 	slice := EndpointSelectorSlice{}
 	for _, cidr := range s {
+		if cidr.MatchesAll() && !hasWorldBeenAdded {
+			hasWorldBeenAdded = true
+			slice = append(slice, ReservedEndpointSelectors[labels.IDNameWorld])
+		}
 		lbl := labels.IPStringToLabel(string(cidr))
 		slice = append(slice, NewESFromLabels(lbl))
 	}
 
 	return slice
+}
+
+// StringSlice returns the CIDR slice as a slice of strings.
+func (s CIDRSlice) StringSlice() []string {
+	result := make([]string, 0, len(s))
+	for _, c := range s {
+		result = append(result, string(c))
+	}
+	return result
 }
 
 // CIDRRuleSlice is a slice of CIDRRules. It allows receiver methods to be

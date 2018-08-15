@@ -15,11 +15,13 @@
 package helpers
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"time"
 
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 )
 
 var (
@@ -29,6 +31,10 @@ var (
 	// BasePath is the path in the Vagrant VMs to which the test directory
 	// is mounted
 	BasePath = "/home/vagrant/go/src/github.com/cilium/cilium/test"
+	// CheckLogs newtes a new buffer where all the warnings and checks that
+	// happens during the test are saved. This buffer will be printed in the
+	// test output inside <checks> labels.
+	CheckLogs = ginkgoext.NewWriter(new(bytes.Buffer))
 )
 
 const (
@@ -36,7 +42,7 @@ const (
 	//CiliumPath is the path where cilium test code is located.
 	CiliumPath = "/src/github.com/cilium/cilium/test"
 
-	// ManifestBase tells ginkgo suite where to look for manifests
+	// K8sManifestBase tells ginkgo suite where to look for manifests
 	K8sManifestBase = "k8sT/manifests"
 
 	// VM / Test suite constants.
@@ -131,7 +137,7 @@ const (
 	StateRunning     = "Running"
 
 	PingCount          = 5
-	CurlConnectTimeout = 5
+	CurlConnectTimeout = 3
 
 	DefaultNamespace    = "default"
 	KubeSystemNamespace = "kube-system"
@@ -156,12 +162,17 @@ const (
 	KubectlPolicyNameLabel      = k8sConst.PolicyLabelName
 	KubectlPolicyNameSpaceLabel = k8sConst.PolicyLabelNamespace
 
-	StableImage = "cilium/cilium:v1.0.0"
-	configMap   = "ConfigMap"
-	daemonSet   = "DaemonSet"
+	StableImage = "cilium/cilium:v1.1.1"
 
-	monitorLogFileName = "monitor.log"
-	microscopeManifest = `https://raw.githubusercontent.com/cilium/microscope/master/docs/microscope.yaml`
+	configMap = "ConfigMap"
+	daemonSet = "DaemonSet"
+
+	MonitorLogFileName = "monitor.log"
+	microscopeManifest = "microscope.yaml"
+
+	// CiliumTestLog is the filename where the cilium logs that happens during
+	// the test are saved.
+	CiliumTestLog = "cilium-test.log"
 
 	// IPv4Host is an IP which is used in some datapath tests for simulating external IPv4 connectivity.
 	IPv4Host = "192.168.254.254"
@@ -171,16 +182,32 @@ const (
 
 	// Logs messages that should not be in the cilium logs.
 	panicMessage      = "panic:"
-	deadLockHeader    = "POTENTIAL DEADLOCK:"       // from github.com/sasha-s/go-deadlock/deadlock.go:header
-	segmentationFault = "segmentation fault"        // from https://github.com/cilium/cilium/issues/3233
-	NACKreceived      = "NACK received for version" // from https://github.com/cilium/cilium/issues/4003
+	deadLockHeader    = "POTENTIAL DEADLOCK:"               // from github.com/sasha-s/go-deadlock/deadlock.go:header
+	segmentationFault = "segmentation fault"                // from https://github.com/cilium/cilium/issues/3233
+	NACKreceived      = "NACK received for version"         // from https://github.com/cilium/cilium/issues/4003
+	RunInitFailed     = "RunInit: Command execution failed" // from https://github.com/cilium/cilium/pull/5052
 
+	contextDeadlineExceeded = "context deadline exceeded"
+	ErrorLogs               = "level=error"
+	WarningLogs             = "level=warning"
+	APIPanicked             = "Cilium API handler panicked"
 )
+
+// Re-definitions of stable constants in the API. The re-definition is on
+// purpose to validate these values in the API. They may never change
+const (
+	// ReservedIdentityHealth is equivalent to pkg/identity.ReservedIdentityHealth
+	ReservedIdentityHealth = 4
+)
+
+// NightlyStableUpgradesFrom the cilium images to update from in Nightly test.
+var NightlyStableUpgradesFrom = []string{"cilium/cilium:v1.0.5"}
 
 // CiliumDSPath is the default Cilium DaemonSet path to use in all test.
 var CiliumDSPath = "cilium_ds.jsonnet"
 
-var checkLogsMessages = []string{panicMessage, deadLockHeader, segmentationFault, NACKreceived}
+var checkLogsMessages = []string{panicMessage, deadLockHeader, segmentationFault, NACKreceived, RunInitFailed}
+var countLogsMessages = []string{contextDeadlineExceeded, ErrorLogs, WarningLogs, APIPanicked}
 
 var ciliumCLICommands = map[string]string{
 	"cilium endpoint list -o json":          "endpoint_list.txt",

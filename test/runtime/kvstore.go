@@ -16,27 +16,22 @@ package RuntimeTest
 
 import (
 	"context"
-	"sync"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 )
 
-var _ = Describe("RuntimeValidatedKVStoreTest", func() {
+var _ = Describe("RuntimeKVStoreTest", func() {
 
-	var once sync.Once
-	var logger *logrus.Entry
 	var vm *helpers.SSHMeta
 
-	initialize := func() {
-		logger = log.WithFields(logrus.Fields{"testName": "RuntimeKVStoreTest"})
-		logger.Info("Starting")
-		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
-		logger.Info("done creating Cilium and Docker helpers")
-	}
+	BeforeAll(func() {
+		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
+		ExpectCiliumReady(vm)
+	})
+
 	containers := func(option string) {
 		switch option {
 		case helpers.Create:
@@ -49,13 +44,14 @@ var _ = Describe("RuntimeValidatedKVStoreTest", func() {
 	}
 
 	BeforeEach(func() {
-		once.Do(initialize)
-		vm.Exec("sudo systemctl stop cilium")
+		res := vm.ExecWithSudo("systemctl stop cilium")
+		res.ExpectSuccess()
 	}, 150)
 
 	AfterEach(func() {
 		containers(helpers.Delete)
-		vm.Exec("sudo systemctl start cilium")
+		err := vm.RestartCilium()
+		Expect(err).Should(BeNil(), "restarting Cilium failed")
 	})
 
 	JustAfterEach(func() {

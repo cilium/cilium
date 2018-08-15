@@ -22,7 +22,6 @@ var _ = math.Inf
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 // Envoy external URI descriptor
-// [#not-implemented-hide:]
 type HttpUri struct {
 	// The HTTP server URI. It should be a full FQDN with protocol, host and path.
 	//
@@ -32,7 +31,7 @@ type HttpUri struct {
 	//
 	//    uri: https://www.googleapis.com/oauth2/v1/certs
 	//
-	Uri string `protobuf:"bytes,1,opt,name=uri" json:"uri,omitempty"`
+	Uri string `protobuf:"bytes,1,opt,name=uri,proto3" json:"uri,omitempty"`
 	// Specify how `uri` is to be fetched. Today, this requires an explicit
 	// cluster, but in the future we may support dynamic cluster creation or
 	// inline DNS resolution. See `issue
@@ -42,7 +41,7 @@ type HttpUri struct {
 	//	*HttpUri_Cluster
 	HttpUpstreamType isHttpUri_HttpUpstreamType `protobuf_oneof:"http_upstream_type"`
 	// Sets the maximum duration in milliseconds that a response can take to arrive upon request.
-	Timeout              *duration.Duration `protobuf:"bytes,3,opt,name=timeout" json:"timeout,omitempty"`
+	Timeout              *duration.Duration `protobuf:"bytes,3,opt,name=timeout,proto3" json:"timeout,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -52,7 +51,7 @@ func (m *HttpUri) Reset()         { *m = HttpUri{} }
 func (m *HttpUri) String() string { return proto.CompactTextString(m) }
 func (*HttpUri) ProtoMessage()    {}
 func (*HttpUri) Descriptor() ([]byte, []int) {
-	return fileDescriptor_http_uri_4501e6d234fd0b0e, []int{0}
+	return fileDescriptor_http_uri_e3c3e5ccc53ae916, []int{0}
 }
 func (m *HttpUri) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HttpUri.Unmarshal(m, b)
@@ -72,12 +71,19 @@ func (m *HttpUri) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_HttpUri proto.InternalMessageInfo
 
+func (m *HttpUri) GetUri() string {
+	if m != nil {
+		return m.Uri
+	}
+	return ""
+}
+
 type isHttpUri_HttpUpstreamType interface {
 	isHttpUri_HttpUpstreamType()
 }
 
 type HttpUri_Cluster struct {
-	Cluster string `protobuf:"bytes,2,opt,name=cluster,oneof"`
+	Cluster string `protobuf:"bytes,2,opt,name=cluster,proto3,oneof"`
 }
 
 func (*HttpUri_Cluster) isHttpUri_HttpUpstreamType() {}
@@ -87,13 +93,6 @@ func (m *HttpUri) GetHttpUpstreamType() isHttpUri_HttpUpstreamType {
 		return m.HttpUpstreamType
 	}
 	return nil
-}
-
-func (m *HttpUri) GetUri() string {
-	if m != nil {
-		return m.Uri
-	}
-	return ""
 }
 
 func (m *HttpUri) GetCluster() string {
@@ -166,10 +165,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("envoy/api/v2/core/http_uri.proto", fileDescriptor_http_uri_4501e6d234fd0b0e)
+	proto.RegisterFile("envoy/api/v2/core/http_uri.proto", fileDescriptor_http_uri_e3c3e5ccc53ae916)
 }
 
-var fileDescriptor_http_uri_4501e6d234fd0b0e = []byte{
+var fileDescriptor_http_uri_e3c3e5ccc53ae916 = []byte{
 	// 261 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x5c, 0x90, 0x4f, 0x4a, 0x03, 0x31,
 	0x14, 0xc6, 0x9b, 0x19, 0xeb, 0xd8, 0xb8, 0x32, 0x08, 0x8e, 0x2d, 0xe8, 0x20, 0x08, 0x5d, 0x25,

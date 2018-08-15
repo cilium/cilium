@@ -15,9 +15,9 @@
 package k8sTest
 
 import (
+	"context"
 	"fmt"
 	"net"
-	"strings"
 	"time"
 
 	"github.com/asaskevich/govalidator"
@@ -25,18 +25,21 @@ import (
 	"github.com/cilium/cilium/test/helpers"
 
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
 )
 
-var _ = Describe("K8sValidatedServicesTest", func() {
-
-	var kubectl *helpers.Kubectl
-	var logger *logrus.Entry
-	var serviceName = "app1-service"
-	var microscopeErr error
-	var microscopeCancel func() error
-	var ciliumPodK8s1 string
+var _ = Describe("K8sServicesTest", func() {
+	var (
+		kubectl          *helpers.Kubectl
+		serviceName      = "app1-service"
+		microscopeErr    error
+		microscopeCancel                    = func() error { return nil }
+		backgroundCancel context.CancelFunc = func() { return }
+		backgroundError  error
+		ciliumPodK8s1    string
+		testDSClient     = "zgroup=testDSClient"
+		testDS           = "zgroup=testDS"
+	)
 
 	applyPolicy := func(path string) {
 		_, err := kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, path, helpers.KubectlApply, helpers.HelperTimeout)
@@ -45,9 +48,6 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 
 	BeforeAll(func() {
 		var err error
-
-		logger = log.WithFields(logrus.Fields{"testName": "K8sServiceTest"})
-		logger.Info("Starting")
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		err = kubectl.CiliumInstall(helpers.CiliumDSPath)
@@ -70,11 +70,14 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 	JustBeforeEach(func() {
 		microscopeErr, microscopeCancel = kubectl.MicroscopeStart()
 		Expect(microscopeErr).To(BeNil(), "Microscope cannot be started")
+		backgroundCancel, backgroundError = kubectl.BackgroundReport("uptime")
+		Expect(backgroundError).To(BeNil(), "Cannot start background report process")
 	})
 
 	JustAfterEach(func() {
 		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
 		Expect(microscopeCancel()).To(BeNil(), "cannot stop microscope")
+		backgroundCancel()
 	})
 
 	AfterEach(func() {
@@ -82,14 +85,14 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 	})
 
 	testHTTPRequest := func(url string) {
-		output, err := kubectl.GetPods(helpers.DefaultNamespace, "-l zgroup=testDSClient").Filter("{.items[*].metadata.name}")
-		ExpectWithOffset(1, err).Should(BeNil())
-		pods := strings.Split(output.String(), " ")
+		pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, testDSClient)
+		ExpectWithOffset(1, err).Should(BeNil(), "cannot retrieve pod names by filter %q", testDSClient)
 		// A DS with client is running in each node. So we try from each node
 		// that can connect to the service.  To make sure that the cross-node
 		// service connectivity is correct we tried 10 times, so balance in the
 		// two nodes
 		for _, pod := range pods {
+			By("Making ten HTTP requests from %q to %q", pod, url)
 			for i := 1; i <= 10; i++ {
 				res := kubectl.ExecPodCmd(
 					helpers.DefaultNamespace, pod,
@@ -101,7 +104,7 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 	}
 
 	waitPodsDs := func() {
-		groups := []string{"zgroup=testDS", "zgroup=testDSClient"}
+		groups := []string{testDS, testDSClient}
 		for _, pod := range groups {
 			err := kubectl.WaitforPods(helpers.DefaultNamespace, fmt.Sprintf("-l %s", pod), 300)
 			ExpectWithOffset(1, err).Should(BeNil())
@@ -128,24 +131,19 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 		It("Checks service on same node", func() {
 			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", 300)
 			Expect(err).Should(BeNil())
+			clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, serviceName)
+			Expect(err).Should(BeNil(), "Cannot get service %s", serviceName)
+			Expect(govalidator.IsIP(clusterIP)).Should(BeTrue(), "ClusterIP is not an IP")
 
-			res, err := kubectl.Get(
-				helpers.DefaultNamespace, fmt.Sprintf("service %s", serviceName)).Filter("{.spec.clusterIP}")
-			Expect(err).Should(BeNil())
-			Expect(govalidator.IsIP(res.String())).Should(BeTrue())
-
-			svcIP := res.String()
-
-			status := kubectl.Exec(fmt.Sprintf("curl http://%s/", svcIP))
-			status.ExpectSuccess()
-
-			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
-			Expect(err).Should(BeNil())
-
-			service := kubectl.CiliumExec(ciliumPod, "cilium service list")
-			Expect(service.Output()).Should(ContainSubstring(svcIP))
-			service.ExpectSuccess()
-
+			status := kubectl.Exec(helpers.CurlFail("http://%s/", clusterIP))
+			status.ExpectSuccess("cannot curl to service IP from host")
+			ciliumPods, err := kubectl.GetCiliumPods(helpers.KubeSystemNamespace)
+			Expect(err).To(BeNil(), "Cannot get cilium pods")
+			for _, pod := range ciliumPods {
+				service := kubectl.CiliumExec(pod, "cilium service list")
+				service.ExpectSuccess("Cannot retrieve services on cilium Pod")
+				service.ExpectContains(clusterIP, "ClusterIP is not present in the cilium service list")
+			}
 		}, 300)
 	})
 
@@ -168,14 +166,13 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 
 		It("Checks ClusterIP Connectivity", func() {
 			waitPodsDs()
+			service := "testds-service"
 
-			svcIP, err := kubectl.Get(
-				helpers.DefaultNamespace, "service testds-service").Filter("{.spec.clusterIP}")
-			Expect(err).Should(BeNil())
-			log.Debugf("svcIP: %s", svcIP.String())
-			Expect(govalidator.IsIP(svcIP.String())).Should(BeTrue())
+			clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, service)
+			Expect(err).Should(BeNil(), "Cannot get service %s", service)
+			Expect(govalidator.IsIP(clusterIP)).Should(BeTrue(), "ClusterIP is not an IP")
 
-			url := fmt.Sprintf("http://%s/", svcIP)
+			url := fmt.Sprintf("http://%s/", clusterIP)
 			testHTTPRequest(url)
 		})
 
@@ -204,81 +201,45 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 	Context("External services", func() {
 
 		var (
-			endpointPath      string
-			expectedCIDR      = "198.49.23.144/32"
-			podName           = "toservices"
-			podPath           string
-			policyPath        string
-			policyLabeledPath string
-			servicePath       string
+			expectedCIDR = "198.49.23.144/32"
+			podName      = "toservices"
+
+			endpointPath      = helpers.ManifestGet("external_endpoint.yaml")
+			podPath           = helpers.ManifestGet("external_pod.yaml")
+			policyPath        = helpers.ManifestGet("external-policy.yaml")
+			policyLabeledPath = helpers.ManifestGet("external-policy-labeled.yaml")
+			servicePath       = helpers.ManifestGet("external_service.yaml")
 		)
 
 		BeforeEach(func() {
-			servicePath = helpers.ManifestGet("external_service.yaml")
-			res := kubectl.Apply(servicePath)
-			res.ExpectSuccess(res.GetDebugMessage())
+			kubectl.Apply(servicePath).ExpectSuccess("cannot install external service")
+			kubectl.Apply(podPath).ExpectSuccess("cannot install pod path")
 
-			endpointPath = helpers.ManifestGet("external_endpoint.yaml")
-			podPath = helpers.ManifestGet("external_pod.yaml")
-			policyPath = helpers.ManifestGet("external_policy.yaml")
-			policyLabeledPath = helpers.ManifestGet("external_policy_labeled.yaml")
-
-			res = kubectl.Apply(podPath)
-			res.ExpectSuccess()
+			err := kubectl.WaitforPods(helpers.DefaultNamespace, "", 300)
+			Expect(err).To(BeNil(), "Pods are not ready after timeout")
 		})
 
 		AfterEach(func() {
 			_ = kubectl.Delete(policyPath)
+			_ = kubectl.Delete(endpointPath)
+			_ = kubectl.Delete(servicePath)
+			_ = kubectl.Delete(podPath)
 
-			res := kubectl.Delete(endpointPath)
-			res.ExpectSuccess()
-
-			res = kubectl.Delete(servicePath)
-			res.ExpectSuccess()
-
-			res = kubectl.Delete(podPath)
-			res.ExpectSuccess()
-
-			waitFinish := func() bool {
-				data, err := kubectl.GetPodNames(helpers.DefaultNamespace, "zgroup=external")
-				if err != nil {
-					return false
-				}
-				if len(data) == 0 {
-					return true
-				}
-				return false
-			}
-			err := helpers.WithTimeout(waitFinish, "cannot finish deleting containers",
-				&helpers.TimeoutConfig{Timeout: helpers.HelperTimeout})
-			Expect(err).To(BeNil())
-
+			kubectl.WaitCleanAllTerminatingPods()
 		})
 
 		validateEgress := func() {
-			kubectl.WaitforPods(helpers.DefaultNamespace, "", 300)
-
-			pods, err := kubectl.GetPodsNodes(helpers.DefaultNamespace, "")
-			ExpectWithOffset(1, err).To(BeNil(), "unable to retrieve pod-node mapping")
-
-			node := pods[podName]
-			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, node)
-			ExpectWithOffset(1, err).Should(BeNil(), "was not able to retrieve Cilium pod on node %s", node)
-
-			err = kubectl.CiliumEndpointWaitReady()
-			Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
-
-			endpointIDs := kubectl.CiliumEndpointsIDs(ciliumPod)
-			endpointID := endpointIDs[fmt.Sprintf("%s:%s", helpers.DefaultNamespace, podName)]
-			ExpectWithOffset(1, endpointID).NotTo(BeNil(), "unable to get endpoint ID for pod %s:%s", helpers.DefaultNamespace, podName)
-
+			ExpectWithOffset(1, kubectl.WaitCEPReady()).To(BeNil(), "Cep is not ready after timeout")
 			Eventually(func() string {
-				res := kubectl.CiliumEndpointGet(ciliumPod, endpointID)
-
-				data, err := res.Filter(`{[0].status.policy.realized.cidr-policy.egress}`)
-				ExpectWithOffset(1, err).To(BeNil(), "unable to get endpoint %d metadata from cilium pod %s", endpointID, ciliumPod)
+				res := kubectl.Exec(fmt.Sprintf(
+					"%s -n %s get cep %s -o json",
+					helpers.KubectlCmd,
+					helpers.DefaultNamespace,
+					podName))
+				res.ExpectSuccess("cannot get Cilium Endpoint")
+				data, err := res.Filter(`{.status.status.policy.realized.cidr-policy.egress}`)
+				ExpectWithOffset(1, err).To(BeNil(), "unable to get endpoint %s metadata", podName)
 				return data.String()
-
 			}, 5*time.Minute, 10*time.Second).Should(ContainSubstring(expectedCIDR))
 		}
 
@@ -429,7 +390,7 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 			}
 			By("Validating DNS without Policy")
 			for _, name := range dnsChecks {
-				err = kubectl.WaitForKubeDNSEntry(fmt.Sprintf("%s.%s", name, helpers.DefaultNamespace))
+				err = kubectl.WaitForKubeDNSEntry(name, helpers.DefaultNamespace)
 				Expect(err).To(BeNil(), "DNS entry is not ready after timeout")
 			}
 
@@ -447,7 +408,7 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 			shouldConnect(productpagePodV1.String(), formatAPI(ratings, apiPort, health))
 			shouldConnect(productpagePodV1.String(), formatAPI(ratings, apiPort, ratingsPath))
 
-			policyCmd := "cilium policy get io.cilium.k8s.policy.name=multi-rules"
+			policyCmd := "cilium policy get io.cilium.k8s.policy.name=cnp-specs"
 
 			By("Importing policy")
 
@@ -460,7 +421,7 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 
 			By("Validating DNS with Policy loaded")
 			for _, name := range dnsChecks {
-				err = kubectl.WaitForKubeDNSEntry(fmt.Sprintf("%s.%s", name, helpers.DefaultNamespace))
+				err = kubectl.WaitForKubeDNSEntry(name, helpers.DefaultNamespace)
 				Expect(err).To(BeNil(), "DNS entry is not ready after timeout")
 			}
 

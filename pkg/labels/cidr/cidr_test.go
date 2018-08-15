@@ -77,7 +77,19 @@ func (s *CIDRLabelsSuite) TestGetCIDRLabels(c *C) {
 	lblArray = lbls.LabelArray()
 	c.Assert(lblArray.Lacks(expected), comparator.DeepEquals, labels.LabelArray{})
 	// CIDRs that are covered by the prefix should not be in the labels
-	c.Assert(lblArray.Has("cidr:192.0.2.3/32"), Equals, false)
+	c.Assert(lblArray.Has("cidr.192.0.2.3/32"), Equals, false)
+
+	// Zero-length prefix / default route should become reserved:world.
+	_, cidr, err = net.ParseCIDR("0.0.0.0/0")
+	c.Assert(err, IsNil)
+	expected = labels.ParseLabelArray(
+		"reserved:world",
+	)
+
+	lbls = GetCIDRLabels(cidr)
+	lblArray = lbls.LabelArray()
+	c.Assert(lblArray.Lacks(expected), comparator.DeepEquals, labels.LabelArray{})
+	c.Assert(lblArray.Has("cidr.0.0.0.0/0"), Equals, false)
 
 	// Note that we convert the colons in IPv6 addresses into dashes when
 	// translating into labels, because endpointSelectors don't support
@@ -98,7 +110,7 @@ func (s *CIDRLabelsSuite) TestGetCIDRLabels(c *C) {
 	lblArray = lbls.LabelArray()
 	c.Assert(lblArray.Lacks(expected), comparator.DeepEquals, labels.LabelArray{})
 	// IPs should be masked as the labels are generated
-	c.Assert(lblArray.Has("cidr:2001-db8--1/24"), Equals, false)
+	c.Assert(lblArray.Has("cidr.2001-db8--1/24"), Equals, false)
 }
 
 // TestGetCIDRLabelsInCluster checks that the cluster label is properly added
