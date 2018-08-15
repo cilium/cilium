@@ -172,7 +172,7 @@ func CreateL4Filter(peerEndpoints api.EndpointSelectorSlice, rule api.PortRule, 
 		Ingress:          ingress,
 	}
 
-	if protocol == api.ProtoTCP && rule.Rules != nil {
+	if protocol == api.ProtoTCP && !rule.Rules.IsEmpty() {
 		switch {
 		case len(rule.Rules.HTTP) > 0:
 			l4.L7Parser = ParserTypeHTTP
@@ -199,7 +199,7 @@ func CreateL4IngressFilter(fromEndpoints api.EndpointSelectorSlice, endpointsWit
 
 	// If the filter would apply L7 rules for endpointsWithL3Override,
 	// then wildcard those specific endpoints at L7.
-	if rule.Rules != nil && rule.Rules.Len() > 0 {
+	if !rule.Rules.IsEmpty() {
 		for _, selector := range endpointsWithL3Override {
 			filter.L7RulesPerEp[selector] = api.L7Rules{}
 		}
