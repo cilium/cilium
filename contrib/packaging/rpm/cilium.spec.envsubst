@@ -42,7 +42,7 @@
 
 Name:          cilium
 Version:       ${VERSION}
-Release:       0.git%{shortcommit0}%{?dist}
+Release:       git%{shortcommit0}%{?dist}
 Summary:       BPF & XDP for containers
 License:       Apache
 URL:           https://%{provider_prefix}

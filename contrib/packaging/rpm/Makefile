@@ -1,5 +1,6 @@
 include ../../../Makefile.defs
 
+VERSION := $(shell git tag -l --sort=-v:refname | sed 's/v\([^-]*-g\)/r\1/;s/-/./g' | head -1)
 BUILDDIR := "$(CURDIR)/cilium-$(VERSION)"
 BASEDIR := "$(CURDIR)/../../../"
 BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
