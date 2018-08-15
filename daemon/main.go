@@ -433,7 +433,7 @@ func init() {
 	flags.Uint32Var(&logstashProbeTimer,
 		"logstash-probe-timer", 10, "Logstash probe timer (seconds)")
 	flags.StringVar(&nat46prefix,
-		"nat46-range", node.DefaultNAT46Prefix, "IPv6 prefix to map IPv4 addresses to")
+		"nat46-range", defaults.DefaultNAT46Prefix, "IPv6 prefix to map IPv4 addresses to")
 	flags.BoolVar(&masquerade,
 		"masquerade", true, "Masquerade packets from endpoints leaving the host")
 	flags.String(option.MonitorAggregationName, "None",

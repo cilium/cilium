@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -99,7 +100,7 @@ func ReserveLocalRoutes() {
 func Init() {
 	ipamSubnets := net.IPNet{
 		IP:   node.GetIPv6Router(),
-		Mask: node.StateIPv6Mask,
+		Mask: defaults.StateIPv6Mask,
 	}
 
 	ipamConf = &Config{
@@ -113,7 +114,7 @@ func Init() {
 					Dst: node.GetIPv6NodeRoute(),
 				},
 				{
-					Dst: node.IPv6DefaultRoute,
+					Dst: defaults.IPv6DefaultRoute,
 					GW:  node.GetIPv6Router(),
 				},
 			},
@@ -131,7 +132,7 @@ func Init() {
 			Dst: node.GetIPv4NodeRoute(),
 		},
 		cniTypes.Route{
-			Dst: node.IPv4DefaultRoute,
+			Dst: defaults.IPv4DefaultRoute,
 			GW:  node.GetInternalIPv4(),
 		})
 }

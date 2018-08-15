@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 
@@ -33,7 +34,7 @@ import (
 )
 
 var (
-	ipv4ClusterCidrMaskSize = DefaultIPv4ClusterPrefixLen
+	ipv4ClusterCidrMaskSize = defaults.DefaultIPv4ClusterPrefixLen
 
 	ipv4Loopback        net.IP
 	ipv4ExternalAddress net.IP
@@ -148,8 +149,8 @@ func InitDefaultPrefix(device string) {
 				ipv6AllocRange.IP[10],
 				ipv6AllocRange.IP[11])
 		}
-		v4range := fmt.Sprintf(DefaultIPv4Prefix+"/%d",
-			ip.To4()[3], DefaultIPv4PrefixLen)
+		v4range := fmt.Sprintf(defaults.DefaultIPv4Prefix+"/%d",
+			ip.To4()[3], defaults.DefaultIPv4PrefixLen)
 		_, ip4net, err := net.ParseCIDR(v4range)
 		if err != nil {
 			log.WithError(err).WithField(logfields.V4Prefix, v4range).Panic("BUG: Invalid default IPv4 prefix")
@@ -164,7 +165,7 @@ func InitDefaultPrefix(device string) {
 		ip = ipv4AllocRange.IP
 		v6range := fmt.Sprintf("%s%02x%02x:%02x%02x:0:0/%d",
 			option.Config.IPv6ClusterAllocCIDRBase, ip[0], ip[1], ip[2], ip[3],
-			IPv6NodePrefixLen)
+			defaults.IPv6NodePrefixLen)
 
 		_, ip6net, err := net.ParseCIDR(v6range)
 		if err != nil {
@@ -202,7 +203,7 @@ func GetIPv4AllocRange() *net.IPNet {
 
 // GetIPv6ClusterRange returns the IPv6 prefix of the clustr
 func GetIPv6ClusterRange() *net.IPNet {
-	mask := net.CIDRMask(DefaultIPv6ClusterPrefixLen, 128)
+	mask := net.CIDRMask(defaults.DefaultIPv6ClusterPrefixLen, 128)
 	return &net.IPNet{
 		IP:   ipv6AllocRange.IP.Mask(mask),
 		Mask: mask,
@@ -211,7 +212,7 @@ func GetIPv6ClusterRange() *net.IPNet {
 
 // GetIPv6AllocRange returns the IPv6 allocation prefix of this node
 func GetIPv6AllocRange() *net.IPNet {
-	mask := net.CIDRMask(IPv6NodeAllocPrefixLen, 128)
+	mask := net.CIDRMask(defaults.IPv6NodeAllocPrefixLen, 128)
 	return &net.IPNet{
 		IP:   ipv6AllocRange.IP.Mask(mask),
 		Mask: mask,
@@ -264,8 +265,8 @@ func Uninitialize() {
 
 // SetIPv6NodeRange sets the IPv6 address pool to be used on this node
 func SetIPv6NodeRange(net *net.IPNet) error {
-	if ones, _ := net.Mask.Size(); ones != IPv6NodePrefixLen {
-		return fmt.Errorf("prefix length must be /%d", IPv6NodePrefixLen)
+	if ones, _ := net.Mask.Size(); ones != defaults.IPv6NodePrefixLen {
+		return fmt.Errorf("prefix length must be /%d", defaults.IPv6NodePrefixLen)
 	}
 
 	copy := *net
@@ -537,5 +538,5 @@ func getCiliumHostIPs() (ipv4GW, ipv6Router net.IP) {
 	if ipv4GW != nil {
 		return ipv4GW, ipv6Router
 	}
-	return getCiliumHostIPsFromNetDev(HostDevice)
+	return getCiliumHostIPsFromNetDev(defaults.HostDevice)
 }
