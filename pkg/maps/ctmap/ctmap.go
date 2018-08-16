@@ -456,9 +456,9 @@ func (f *GCFilter) doFiltering(srcIP net.IP, dstIP net.IP, dstPort uint16, nextH
 	return noAction
 }
 
-// GC runs garbage collection for map m with name mapName with the given filter.
+// GC runs garbage collection for map m with name mapType with the given filter.
 // It returns how many items were deleted from m.
-func GC(m *bpf.Map, mapName string, filter *GCFilter) int {
+func GC(m *bpf.Map, mapType string, filter *GCFilter) int {
 	if filter.Type == GCFilterByTime {
 		// If LRUHashtable, no need to garbage collect as LRUHashtable cleans itself up.
 		// FIXME: GH-3239 LRU logic is not handling timeouts gracefully enough
@@ -470,30 +470,34 @@ func GC(m *bpf.Map, mapName string, filter *GCFilter) int {
 		filter.Time = uint32(tsec)
 	}
 
-	switch mapName {
+	switch mapType {
 	case MapName6, MapName6Global:
 		return doGC6(m, filter)
 	case MapName4, MapName4Global:
 		return doGC4(m, filter)
 	default:
-		return 0
+		log.Fatalf("Unsupported ct map type: %s", mapType)
 	}
+
+	return 0
 }
 
-// Flush runs garbage collection for map m with the name mapName, deleting all
+// Flush runs garbage collection for map m with the name mapType, deleting all
 // entries. The specified map must be already opened using bpf.OpenMap().
-func Flush(m *bpf.Map, mapName string) int {
+func Flush(m *bpf.Map, mapType string) int {
 	filter := NewGCFilterBy(GCFilterByTime)
 	filter.Time = MaxTime
 
-	switch mapName {
+	switch mapType {
 	case MapName6, MapName6Global:
 		return doGC6(m, filter)
 	case MapName4, MapName4Global:
 		return doGC4(m, filter)
 	default:
-		return 0
+		log.Fatalf("Unsupported ct map type: %s", mapType)
 	}
+
+	return 0
 }
 
 // checkAndUpgrade determines whether the ctmap on the filesystem has different
