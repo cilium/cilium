@@ -237,25 +237,41 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 		}
 
 		if e == nil {
-			return api.Error(PutEndpointIDFailedCode, fmt.Errorf("error retrieving endpoint to check if it is in %s state", endpoint.StateReady))
+			return api.Error(PutEndpointIDFailedCode, fmt.Errorf("error retrieving endpoint"))
 		}
 
-		logger.Debugf("Synchronously waiting for endpoint '%d' to be in '%s' state",
-			e.ID, endpoint.StateReady)
+		logger.Debug("Synchronously waiting for endpoint to regenerate")
 
 		// Default timeout for PUT /endpoint/{id} is 60 seconds, so put timeout
 		// in this function a bit below that timeout. If the timeout for clients
 		// in API is below this value, they will get a message containing
 		// "context deadline exceeded" if the operation takes longer than the
 		// client's configured timeout value.
-		timeout := time.After(endpoint.EndpointGenerationTimeout)
+		ctx, cancel := context.WithTimeout(params.HTTPRequest.Context(), endpoint.EndpointGenerationTimeout)
 
-		// Check for endpoint state every second.
+		// Check the endpoint's state and labels periodically.
 		ticker := time.NewTicker(1 * time.Second)
-		defer ticker.Stop()
+		defer func() {
+			cancel()
+			ticker.Stop()
+		}()
+
+		// Wait for any successful BPF regeneration, which is indicated by any
+		// positive policy revision (>0). As long as at least one BPF
+		// regeneration is successful, the endpoint has network connectivity
+		// so we can return from the creation API call.
+		revCh := e.WaitForPolicyRevision(ctx, 1)
 
 		for {
 			select {
+			case <-revCh:
+				if ctx.Err() == nil {
+					// At least one BPF regeneration has successfully completed.
+					return NewPutEndpointIDCreated()
+				}
+
+			case <-ctx.Done():
+
 			case <-ticker.C:
 				if err := e.RLockAlive(); err != nil {
 					return api.Error(PutEndpointIDFailedCode, fmt.Errorf("error locking endpoint: %s", err.Error()))
@@ -264,21 +280,20 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 				hasSidecarProxy := e.HasSidecarProxy()
 				e.RUnlock()
 
-				if epState == endpoint.StateReady {
-					return NewPutEndpointIDCreated()
-				} else if epState == endpoint.StateDisconnected || epState == endpoint.StateDisconnecting {
+				if epState == endpoint.StateDisconnected || epState == endpoint.StateDisconnecting {
 					// Short circuit in case a call to delete the endpoint is
-					// made while we are waiting for it to be in "ready" state.
-					return api.Error(PutEndpointIDFailedCode, fmt.Errorf("endpoint %d went into state %s while waiting for it to be %s", e.ID, epState, endpoint.StateReady))
+					// made while we are waiting.
+					return api.Error(PutEndpointIDFailedCode, fmt.Errorf("endpoint %d went into state %s while waiting for regeneration to succeed", e.ID, epState))
 				} else if hasSidecarProxy {
 					// If the endpoint is determined to have a sidecar proxy,
 					// return immediately to let the sidecar container start,
 					// in case it is required to enforce L7 rules.
-					logger.Infof("Endpoint has sidecar proxy, returning from synchronous creation request before it is in '%s' state",
-						endpoint.StateReady)
+					logger.Info("Endpoint has sidecar proxy, returning from synchronous creation request before regeneration has succeeded")
 					return NewPutEndpointIDCreated()
 				}
-			case <-timeout:
+			}
+
+			if ctx.Err() != nil {
 				// Delete endpoint because PUT operation fails if timeout is
 				// exceeded.
 				logger.Warning("Endpoint did not synchronously regenerate after timeout")
