@@ -42,6 +42,11 @@ func (t *CTMapTestSuite) TestInit(c *C) {
 			c.Assert(info.keySize, Equals, int(unsafe.Sizeof(CtKey4{})))
 			c.Assert(strings.Contains(info.bpfDefine, "4"), Equals, true)
 		}
+		if mapType.isTCP() {
+			c.Assert(strings.Contains(info.bpfDefine, "TCP"), Equals, true)
+		} else {
+			c.Assert(strings.Contains(info.bpfDefine, "ANY"), Equals, true)
+		}
 		if mapType.isLocal() {
 			c.Assert(info.maxEntries, Equals, MapNumEntriesLocal)
 		}
