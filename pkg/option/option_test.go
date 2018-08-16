@@ -200,7 +200,7 @@ func (s *OptionSuite) TestParseOption(c *C) {
 		k: &OptionTest,
 	}
 
-	_, res, err := ParseOption(k+":enabled", &l)
+	_, _, err := ParseOption(k+":enabled", &l)
 	c.Assert(err, NotNil)
 
 	_, res, err = ParseOption(arg, &l)
