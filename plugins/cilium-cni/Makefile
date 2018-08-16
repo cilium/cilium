@@ -13,7 +13,8 @@ SOURCES := $(shell find ../../api/v1/models ../../common ../../pkg/client ../../
 
 $(TARGET): $(SOURCES)
 	@$(ECHO_GO)
-	$(GO) build $(GOBUILD) -o $(TARGET) ./cilium-cni.go
+	# Compile without cgo to allow use of cilium-cni on non-glibc platforms - see GH-5055
+	CGO_ENABLED=0 $(GO) build $(GOBUILD) -o $(TARGET) ./cilium-cni.go
 
 install:
 	$(INSTALL) -m 0755 -d $(DESTDIR)/etc/cni/net.d
