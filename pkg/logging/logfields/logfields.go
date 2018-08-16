@@ -99,6 +99,9 @@ const (
 	// StartTime is the start time of an event
 	StartTime = "startTime"
 
+	// Duration is the duration of a measured operation
+	Duration = "duration"
+
 	// V4HealthIP is an address used to contact the cilium-health endpoint
 	V4HealthIP = "v4healthIP.IPv4"
 
