@@ -41,7 +41,7 @@ pipeline {
     }
 
     options {
-        timeout(time: 240, unit: 'MINUTES')
+        timeout(time: 300, unit: 'MINUTES')
         timestamps()
         ansiColor('xterm')
     }
@@ -74,7 +74,7 @@ pipeline {
                 CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
             }
             options {
-                timeout(time: 90, unit: 'MINUTES')
+                timeout(time: 120, unit: 'MINUTES')
             }
             steps {
                 script {
@@ -118,7 +118,7 @@ pipeline {
                 CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
             }
             options {
-                timeout(time: 90, unit: 'MINUTES')
+                timeout(time: 120, unit: 'MINUTES')
             }
             steps {
                 script {
