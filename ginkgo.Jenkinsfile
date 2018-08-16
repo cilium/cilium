@@ -8,12 +8,12 @@ pipeline {
     environment {
         PROJ_PATH = "src/github.com/cilium/cilium"
         TESTDIR = "${WORKSPACE}/${PROJ_PATH}/"
-        MEMORY = "3072"
+        MEMORY = "4096"
         SERVER_BOX = "cilium/ubuntu"
     }
 
     options {
-        timeout(time: 210, unit: 'MINUTES')
+        timeout(time: 300, unit: 'MINUTES')
         timestamps()
         ansiColor('xterm')
     }
