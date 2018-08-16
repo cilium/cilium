@@ -803,7 +803,7 @@ func (e *Endpoint) Regenerate(owner Owner, reason string) <-chan bool {
 	}
 
 	go func(owner Owner, req *Request, e *Endpoint) {
-		buildSuccess := true
+		var buildSuccess bool
 
 		err := e.RLockAlive()
 		if err != nil {
