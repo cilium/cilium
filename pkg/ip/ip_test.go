@@ -283,6 +283,7 @@ func (s *IPTestSuite) TestCoalesceCIDRs(c *C) {
 	expected = []*net.IPNet{createIPNet("192.0.129.0", 24, int(ipv4BitLen)),
 		createIPNet("192.0.130.0", 24, int(ipv4BitLen))}
 	mergedV4CIDRs, mergedV6CIDRs = CoalesceCIDRs(cidrs)
+	c.Assert(len(mergedV6CIDRs), Equals, 0)
 	s.testIPNetsEqual(mergedV4CIDRs, expected, c)
 
 	cidrs = []*net.IPNet{createIPNet("192.0.2.112", 30, int(ipv4BitLen)),
@@ -290,6 +291,7 @@ func (s *IPTestSuite) TestCoalesceCIDRs(c *C) {
 		createIPNet("192.0.2.118", 31, int(ipv4BitLen))}
 	expected = []*net.IPNet{createIPNet("192.0.2.112", 29, int(ipv4BitLen))}
 	mergedV4CIDRs, mergedV6CIDRs = CoalesceCIDRs(cidrs)
+	c.Assert(len(mergedV6CIDRs), Equals, 0)
 	s.testIPNetsEqual(mergedV4CIDRs, expected, c)
 
 	cidrs = []*net.IPNet{createIPNet("192.0.2.112", 30, int(ipv4BitLen)),
@@ -299,6 +301,7 @@ func (s *IPTestSuite) TestCoalesceCIDRs(c *C) {
 		createIPNet("192.0.2.116", 32, int(ipv4BitLen)),
 		createIPNet("192.0.2.118", 31, int(ipv4BitLen))}
 	mergedV4CIDRs, mergedV6CIDRs = CoalesceCIDRs(cidrs)
+	c.Assert(len(mergedV6CIDRs), Equals, 0)
 	s.testIPNetsEqual(mergedV4CIDRs, expected, c)
 
 	cidrs = []*net.IPNet{createIPNet("192.0.2.112", 31, int(ipv4BitLen)),
@@ -307,6 +310,7 @@ func (s *IPTestSuite) TestCoalesceCIDRs(c *C) {
 	expected = []*net.IPNet{createIPNet("192.0.2.112", 31, int(ipv4BitLen)),
 		createIPNet("192.0.2.116", 30, int(ipv4BitLen))}
 	mergedV4CIDRs, mergedV6CIDRs = CoalesceCIDRs(cidrs)
+	c.Assert(len(mergedV6CIDRs), Equals, 0)
 	s.testIPNetsEqual(mergedV4CIDRs, expected, c)
 
 	cidrs = []*net.IPNet{createIPNet("192.0.1.254", 31, int(ipv4BitLen)),
@@ -333,6 +337,7 @@ func (s *IPTestSuite) TestCoalesceCIDRs(c *C) {
 		createIPNet("192.0.2.0", 24, int(ipv4BitLen)),
 		createIPNet("192.0.3.0", 28, int(ipv4BitLen))}
 	mergedV4CIDRs, mergedV6CIDRs = CoalesceCIDRs(cidrs)
+	c.Assert(len(mergedV6CIDRs), Equals, 0)
 	s.testIPNetsEqual(mergedV4CIDRs, expected, c)
 
 	cidrs = []*net.IPNet{createIPNet("::", 0, int(ipv6BitLen)),
@@ -627,7 +632,7 @@ func (s *IPTestSuite) TestPartitionCIDR(c *C) {
 	targetCIDR = createIPNet("fd44:7089:ff32:712b:ff00::", 64, int(ipv6BitLen))
 	excludeCIDR = createIPNet("fd44:7089:ff32:712b::", 66, int(ipv6BitLen))
 
-	left, exclude, right = partitionCIDR(*targetCIDR, *excludeCIDR)
+	_, exclude, right = partitionCIDR(*targetCIDR, *excludeCIDR)
 
 	expectedCIDRs := []*net.IPNet{createIPNet("fd44:7089:ff32:712b:8000::", 65, int(ipv6BitLen)),
 		createIPNet("fd44:7089:ff32:712b:4000::", 66, int(ipv6BitLen))}
