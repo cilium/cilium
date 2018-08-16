@@ -648,6 +648,22 @@ paths:
         '404':
           description: Map not found
 
+  "/metrics/":
+    get:
+      summary: Retrieve cilium metrics
+      tags:
+      - metrics
+      parameters: []
+      responses:
+        '200':
+          description: Success
+          schema:
+            type: array
+            items:
+              "$ref": "#/definitions/Metric"
+        '500':
+          description: Metrics cannot be retrieved
+
 parameters:
   endpoint-id:
     name: id
@@ -986,7 +1002,7 @@ definitions:
       derived-from-rules:
         description: The policy rule labels identifying the policy rules this rule derives from
         type: array
-        items: 
+        items:
           type: array
           items:
             type: string
@@ -1331,7 +1347,7 @@ definitions:
         description: |
           Current daemon configuration related status.Contains the addressing
           information, k8s, node monitor and immutable and mutable
-          configuration settings. 
+          configuration settings.
         "$ref": "#/definitions/DaemonConfigurationStatus"
   DaemonConfigurationSpec:
     description: The controllable configuration of the daemon.
@@ -1742,5 +1758,20 @@ definitions:
       last-error:
         description: Last error seen while performing desired action
         type: string
+  Metric:
+    description: Metric information
+    type: object
+    properties:
+      name:
+        description: Name of the metric
+        type: string
+      value:
+        description: Value of the metric
+        type: number
+      labels:
+        description: Labels of the metric
+        type: object
+        additionalProperties:
+          type: string
   Error:
     type: string

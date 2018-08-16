@@ -26,6 +26,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
@@ -327,4 +328,51 @@ func GetCounterValue(m prometheus.Counter) float64 {
 		return *pm.Counter.Value
 	}
 	return 0
+}
+
+// DumpMetrics gets the current Cilium metrics and dumps all into a
+// models.Metrics structure.If metrics cannot be retrieved, returns an error
+func DumpMetrics() ([]*models.Metric, error) {
+	result := []*models.Metric{}
+	currentMetrics, err := registry.Gather()
+	if err != nil {
+		return result, err
+	}
+
+	for _, val := range currentMetrics {
+
+		metricName := val.GetName()
+		metricType := val.GetType()
+
+		for _, metricLabel := range val.Metric {
+			labels := map[string]string{}
+			for _, label := range metricLabel.GetLabel() {
+				labels[label.GetName()] = label.GetValue()
+			}
+
+			var value float64
+			switch metricType {
+			case dto.MetricType_COUNTER:
+				value = metricLabel.Counter.GetValue()
+			case dto.MetricType_GAUGE:
+				value = metricLabel.GetGauge().GetValue()
+			case dto.MetricType_UNTYPED:
+				value = metricLabel.GetUntyped().GetValue()
+			case dto.MetricType_SUMMARY:
+				value = metricLabel.GetSummary().GetSampleSum()
+			case dto.MetricType_HISTOGRAM:
+				value = metricLabel.GetHistogram().GetSampleSum()
+			default:
+				continue
+			}
+
+			metric := &models.Metric{
+				Name:   metricName,
+				Labels: labels,
+				Value:  value,
+			}
+			result = append(result, metric)
+		}
+	}
+	return result, nil
 }

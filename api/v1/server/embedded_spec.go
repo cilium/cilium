@@ -691,6 +691,28 @@ func init() {
         }
       }
     },
+    "/metrics/": {
+      "get": {
+        "tags": [
+          "metrics"
+        ],
+        "summary": "Retrieve cilium metrics",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Metric"
+              }
+            }
+          },
+          "500": {
+            "description": "Metrics cannot be retrieved"
+          }
+        }
+      }
+    },
     "/policy": {
       "get": {
         "description": "Returns the entire policy tree with all children.\n",
@@ -1234,7 +1256,7 @@ func init() {
           "$ref": "#/definitions/DaemonConfigurationSpec"
         },
         "status": {
-          "description": "Current daemon configuration related status.Contains the addressing\ninformation, k8s, node monitor and immutable and mutable\nconfiguration settings. \n",
+          "description": "Current daemon configuration related status.Contains the addressing\ninformation, k8s, node monitor and immutable and mutable\nconfiguration settings.\n",
           "$ref": "#/definitions/DaemonConfigurationStatus"
         }
       }
@@ -1926,6 +1948,27 @@ func init() {
         "received": {
           "description": "Number of messages received",
           "type": "integer"
+        }
+      }
+    },
+    "Metric": {
+      "description": "Metric information",
+      "type": "object",
+      "properties": {
+        "labels": {
+          "description": "Labels of the metric",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "name": {
+          "description": "Name of the metric",
+          "type": "string"
+        },
+        "value": {
+          "description": "Value of the metric",
+          "type": "number"
         }
       }
     },

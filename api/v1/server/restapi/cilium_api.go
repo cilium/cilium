@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/api/v1/server/restapi/ipam"
+	"github.com/cilium/cilium/api/v1/server/restapi/metrics"
 	"github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/api/v1/server/restapi/prefilter"
 	"github.com/cilium/cilium/api/v1/server/restapi/service"
@@ -92,6 +93,9 @@ func NewCiliumAPI(spec *loads.Document) *CiliumAPI {
 		}),
 		DaemonGetMapNameHandler: daemon.GetMapNameHandlerFunc(func(params daemon.GetMapNameParams) middleware.Responder {
 			return middleware.NotImplemented("operation DaemonGetMapName has not yet been implemented")
+		}),
+		MetricsGetMetricsHandler: metrics.GetMetricsHandlerFunc(func(params metrics.GetMetricsParams) middleware.Responder {
+			return middleware.NotImplemented("operation MetricsGetMetrics has not yet been implemented")
 		}),
 		PolicyGetPolicyHandler: policy.GetPolicyHandlerFunc(func(params policy.GetPolicyParams) middleware.Responder {
 			return middleware.NotImplemented("operation PolicyGetPolicy has not yet been implemented")
@@ -201,6 +205,8 @@ type CiliumAPI struct {
 	DaemonGetMapHandler daemon.GetMapHandler
 	// DaemonGetMapNameHandler sets the operation handler for the get map name operation
 	DaemonGetMapNameHandler daemon.GetMapNameHandler
+	// MetricsGetMetricsHandler sets the operation handler for the get metrics operation
+	MetricsGetMetricsHandler metrics.GetMetricsHandler
 	// PolicyGetPolicyHandler sets the operation handler for the get policy operation
 	PolicyGetPolicyHandler policy.GetPolicyHandler
 	// PolicyGetPolicyResolveHandler sets the operation handler for the get policy resolve operation
@@ -360,6 +366,10 @@ func (o *CiliumAPI) Validate() error {
 
 	if o.DaemonGetMapNameHandler == nil {
 		unregistered = append(unregistered, "daemon.GetMapNameHandler")
+	}
+
+	if o.MetricsGetMetricsHandler == nil {
+		unregistered = append(unregistered, "metrics.GetMetricsHandler")
 	}
 
 	if o.PolicyGetPolicyHandler == nil {
@@ -596,6 +606,11 @@ func (o *CiliumAPI) initHandlerCache() {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
 	o.handlers["GET"]["/map/{name}"] = daemon.NewGetMapName(o.context, o.DaemonGetMapNameHandler)
+
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/metrics"] = metrics.NewGetMetrics(o.context, o.MetricsGetMetricsHandler)
 
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)
