@@ -71,9 +71,9 @@ type CtEndpoint interface {
 	StringID() string
 }
 
-// GetMapPath returns the path for the CT map for the specified endpoint.
-// Returns the global map path if e is nil.
-func GetMapPath(e CtEndpoint, isIPv6 bool) string {
+// GetMapTypeAndPath returns the map type and path for the CT map for the
+// specified endpoint. Returns the global map path if e is nil.
+func GetMapTypeAndPath(e CtEndpoint, isIPv6 bool) (string, string) {
 	var (
 		file    string
 		mapType string
@@ -96,7 +96,12 @@ func GetMapPath(e CtEndpoint, isIPv6 bool) string {
 		file = bpf.MapPath(mapType)
 	}
 
-	return file
+	return mapType, file
+}
+
+func getMapPath(e CtEndpoint, isIPv6 bool) string {
+	_, path := GetMapTypeAndPath(e, isIPv6)
+	return path
 }
 
 // roundToWordBoundary rounds the specified value up to the nearest 64-bit word
@@ -110,8 +115,8 @@ func roundToWordBoundary(size uintptr) uint32 {
 // map.
 func getMapPathsToKeySize(e CtEndpoint) map[string]uint32 {
 	return map[string]uint32{
-		GetMapPath(e, true):  roundToWordBoundary(unsafe.Sizeof(CtKey6{})),
-		GetMapPath(e, false): uint32(unsafe.Sizeof(CtKey4{})),
+		getMapPath(e, true):  roundToWordBoundary(unsafe.Sizeof(CtKey6{})),
+		getMapPath(e, false): uint32(unsafe.Sizeof(CtKey4{})),
 	}
 }
 

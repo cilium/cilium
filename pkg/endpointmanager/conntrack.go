@@ -47,9 +47,9 @@ func RunGC(e *endpoint.Endpoint, isIPv6 bool, filter *ctmap.GCFilter) {
 	// that receives an interface doesn't pass the nil through, so to avoid
 	// a segfault we check the pointer and directly pass nil here.
 	if e == nil {
-		file = ctmap.GetMapPath(nil, isIPv6)
+		mapType, file = ctmap.GetMapTypeAndPath(nil, isIPv6)
 	} else {
-		file = ctmap.GetMapPath(e, isIPv6)
+		mapType, file = ctmap.GetMapTypeAndPath(e, isIPv6)
 	}
 	m, err := bpf.OpenMap(file)
 	if err != nil {
