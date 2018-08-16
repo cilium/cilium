@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,6 +31,10 @@ import (
 
 	runtime_client "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
+)
+
+const (
+	ipUnavailable = "Unavailable"
 )
 
 // Client is a client for cilium health
@@ -158,12 +162,30 @@ func PathIsHealthy(cp *models.PathStatus) bool {
 }
 
 func nodeIsHealthy(node *models.NodeStatus) bool {
-	return PathIsHealthy(node.Host.PrimaryAddress) &&
+	return PathIsHealthy(GetHostPrimaryAddress(node)) &&
 		(node.Endpoint == nil || PathIsHealthy(node.Endpoint))
 }
 
 func nodeIsLocalhost(node *models.NodeStatus, self *models.SelfStatus) bool {
 	return self != nil && node.Name == self.Name
+}
+
+func getPrimaryAddressIP(node *models.NodeStatus) string {
+	if node.Host == nil || node.Host.PrimaryAddress == nil {
+		return ipUnavailable
+	}
+
+	return node.Host.PrimaryAddress.IP
+}
+
+// GetHostPrimaryAddress returns the PrimaryAddress for the Host within node.
+// If node.Host is nil, returns nil.
+func GetHostPrimaryAddress(node *models.NodeStatus) *models.PathStatus {
+	if node.Host == nil {
+		return nil
+	}
+
+	return node.Host.PrimaryAddress
 }
 
 func formatNodeStatus(w io.Writer, node *models.NodeStatus, printAll, succinct, verbose, localhost bool) {
@@ -173,15 +195,16 @@ func formatNodeStatus(w io.Writer, node *models.NodeStatus, printAll, succinct, 
 	}
 	if succinct {
 		if printAll || !nodeIsHealthy(node) {
+
 			fmt.Fprintf(w, "  %s%s\t%s\t%t\t%t\n", node.Name,
-				localStr, node.Host.PrimaryAddress.IP,
-				PathIsHealthy(node.Host.PrimaryAddress),
+				localStr, getPrimaryAddressIP(node),
+				PathIsHealthy(GetHostPrimaryAddress(node)),
 				PathIsHealthy(node.Endpoint))
 		}
 	} else {
 		fmt.Fprintf(w, "  %s%s:\n", node.Name, localStr)
-		formatPathStatus(w, "Host", node.Host.PrimaryAddress, "    ", verbose)
-		if verbose && len(node.Host.SecondaryAddresses) > 0 {
+		formatPathStatus(w, "Host", GetHostPrimaryAddress(node), "    ", verbose)
+		if verbose && node.Host != nil {
 			for _, addr := range node.Host.SecondaryAddresses {
 				formatPathStatus(w, "Secondary", addr, "      ", verbose)
 			}
