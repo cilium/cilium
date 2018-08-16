@@ -535,8 +535,10 @@ skip_service_lookup:
 		if (ct_state.rev_nat_index) {
 			ret = lb4_rev_nat(skb, l3_off, l4_off, &csum_off,
 					  &ct_state, &tuple, 0);
-			if (IS_ERR(ret))
+			if (IS_ERR(ret)) {
+				relax_verifier();
 				return ret;
+			}
 		}
 		break;
 
