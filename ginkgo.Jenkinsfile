@@ -13,7 +13,7 @@ pipeline {
     }
 
     options {
-        timeout(time: 210, unit: 'MINUTES')
+        timeout(time: 240, unit: 'MINUTES')
         timestamps()
         ansiColor('xterm')
     }
@@ -90,7 +90,7 @@ pipeline {
             }
 
             options {
-                timeout(time: 120, unit: 'MINUTES')
+                timeout(time: 140, unit: 'MINUTES')
             }
 
             steps {
