@@ -276,15 +276,10 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 				if err := e.RLockAlive(); err != nil {
 					return api.Error(PutEndpointIDFailedCode, fmt.Errorf("error locking endpoint: %s", err.Error()))
 				}
-				epState := e.GetStateLocked()
 				hasSidecarProxy := e.HasSidecarProxy()
 				e.RUnlock()
 
-				if epState == endpoint.StateDisconnected || epState == endpoint.StateDisconnecting {
-					// Short circuit in case a call to delete the endpoint is
-					// made while we are waiting.
-					return api.Error(PutEndpointIDFailedCode, fmt.Errorf("endpoint %d went into state %s while waiting for regeneration to succeed", e.ID, epState))
-				} else if hasSidecarProxy {
+				if hasSidecarProxy {
 					// If the endpoint is determined to have a sidecar proxy,
 					// return immediately to let the sidecar container start,
 					// in case it is required to enforce L7 rules.
