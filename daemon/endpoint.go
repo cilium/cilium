@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"os"
 	"sync"
 	"time"
 
@@ -497,29 +496,8 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []er
 			errors = append(errors, errs...)
 		}
 
-		// Remove policy BPF map
-		if err := os.RemoveAll(ep.PolicyMapPathLocked()); err != nil {
-			errors = append(errors, fmt.Errorf("unable to remove policy map file %s: %s", ep.PolicyMapPathLocked(), err))
-		}
-
-		// Remove calls BPF map
-		if err := os.RemoveAll(ep.CallsMapPathLocked()); err != nil {
-			errors = append(errors, fmt.Errorf("unable to remove calls map file %s: %s", ep.CallsMapPathLocked(), err))
-		}
-
-		// Remove IPv6 connection tracking map
-		if err := os.RemoveAll(ep.Ct6MapPathLocked()); err != nil {
-			errors = append(errors, fmt.Errorf("unable to remove IPv6 CT map %s: %s", ep.Ct6MapPathLocked(), err))
-		}
-
-		// Remove IPv4 connection tracking map
-		if err := os.RemoveAll(ep.Ct4MapPathLocked()); err != nil {
-			errors = append(errors, fmt.Errorf("unable to remove IPv4 CT map %s: %s", ep.Ct4MapPathLocked(), err))
-		}
-
-		// Remove handle_policy() tail call entry for EP
-		if err := ep.RemoveFromGlobalPolicyMap(); err != nil {
-			errors = append(errors, fmt.Errorf("unable to remove endpoint from global policy map: %s", err))
+		if errs := ep.DeleteMapsLocked(); errs != nil {
+			errors = append(errors, errs...)
 		}
 	}
 
