@@ -624,3 +624,34 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string, regenContext *Regene
 
 	return epInfoCache.revision, compilationExecuted, err
 }
+
+func (e *Endpoint) DeleteMapsLocked() []error {
+	var errors []error
+
+	// Remove policy BPF map
+	if err := os.RemoveAll(e.PolicyMapPathLocked()); err != nil {
+		errors = append(errors, fmt.Errorf("unable to remove policy map file %s: %s", e.PolicyMapPathLocked(), err))
+	}
+
+	// Remove calls BPF map
+	if err := os.RemoveAll(e.CallsMapPathLocked()); err != nil {
+		errors = append(errors, fmt.Errorf("unable to remove calls map file %s: %s", e.CallsMapPathLocked(), err))
+	}
+
+	if e.ConntrackLocalLocked() {
+		// Remove local connection tracking maps
+		for _, m := range ctmap.LocalMaps(e, !option.Config.IPv4Disabled, true) {
+			ctPath := m.Path()
+			if err := os.RemoveAll(ctPath); err != nil {
+				errors = append(errors, fmt.Errorf("unable to remove CT map %s: %s", ctPath, err))
+			}
+		}
+	}
+
+	// Remove handle_policy() tail call entry for EP
+	if err := e.RemoveFromGlobalPolicyMap(); err != nil {
+		errors = append(errors, fmt.Errorf("unable to remove endpoint from global policy map: %s", err))
+	}
+
+	return errors
+}
