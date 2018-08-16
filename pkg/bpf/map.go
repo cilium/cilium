@@ -523,6 +523,91 @@ func (m *Map) DumpWithCallback(cb DumpCallback) error {
 	return nil
 }
 
+// DumpReliablyWithCallback is similar to DumpWithCallback, but performs
+// additional tracking of the current and recently seen keys, so that if an
+// element is removed from the underlying kernel map during the dump, the dump
+// can continue from a recently seen key rather than restarting from scratch.
+// In addition, it caps the maximum number of map entry iterations by the
+// maximum size of the map.
+//
+// The caller must provide a callback for handling each entry, and a stats
+// object initialized via a call to NewDumpStats().
+func (m *Map) DumpReliablyWithCallback(cb DumpCallback, stats *DumpStats) error {
+	var (
+		prevKey    = make([]byte, m.KeySize)
+		currentKey = make([]byte, m.KeySize)
+		nextKey    = make([]byte, m.KeySize)
+		value      = make([]byte, m.ValueSize)
+
+		prevKeyValid = false
+	)
+	stats.Start()
+	defer stats.Finish()
+
+	if err := m.Open(); err != nil {
+		return err
+	}
+
+	// prevKey is initially invalid, causing GetNextKey to return the first key in the map as currentKey.
+	err := GetNextKey(m.fd, unsafe.Pointer(&prevKey[0]), unsafe.Pointer(&currentKey[0]))
+	if err != nil {
+		// Map is empty, nothing to clean up.
+		stats.Lookup = 1
+		stats.Completed = true
+		return nil
+	}
+
+	for stats.Lookup = 1; stats.Lookup <= stats.MaxEntries; stats.Lookup++ {
+		// currentKey was returned by GetNextKey() so we know it existed in the map, but it may have been
+		// deleted by a concurrent map operation. If currentKey is no longer in the map, nextKey will be
+		// the first key in the map again. Use the nextKey only if we still find currentKey in the Lookup()
+		// after the GetNextKey() call, this way we know nextKey is NOT the first key in the map.
+		nextKeyValid := GetNextKey(m.fd, unsafe.Pointer(&currentKey[0]), unsafe.Pointer(&nextKey[0]))
+		err := LookupElement(m.fd, unsafe.Pointer(&currentKey[0]), unsafe.Pointer(&value[0]))
+		if err != nil {
+			stats.LookupFailed++
+
+			// Restarting from a invalid key starts the iteration again from the beginning.
+			// If we have a previously found key, try to restart from there instead
+			if prevKeyValid {
+				copy(currentKey, prevKey)
+				// Restart from a given previous key only once, otherwise if the prevKey is
+				// concurrently deleted we might loop forever trying to look it up.
+				prevKeyValid = false
+				stats.KeyFallback++
+			} else {
+				// Depending on exactly when currentKey was deleted from the map, nextKey may be the actual
+				// keyelement after the deleted one, or the first element in the map.
+				copy(currentKey, nextKey)
+				stats.Interrupted++
+			}
+			continue
+		}
+
+		k, v, err := m.dumpParser(nextKey, value)
+		if err != nil {
+			stats.Interrupted++
+			return err
+		}
+
+		if cb != nil {
+			cb(k, v)
+		}
+
+		if nextKeyValid != nil {
+			stats.Completed = true
+			break
+		}
+		// remember the last found key
+		copy(prevKey, currentKey)
+		prevKeyValid = true
+		// continue from the next key
+		copy(currentKey, nextKey)
+	}
+
+	return nil
+}
+
 // Dump returns the map (type map[string][]string) which contains all
 // data stored in BPF map.
 func (m *Map) Dump(hash map[string][]string) error {
