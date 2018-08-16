@@ -529,6 +529,12 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 		labelsMap = e.prevIdentityCache
 	}
 
+	// Containers without a security identity are not accessible
+	if e.SecurityIdentity == nil {
+		e.getLogger().Warn("Endpoint lacks identity, skipping policy calculation")
+		return false, nil
+	}
+
 	repo := owner.GetPolicyRepository()
 	repo.Mutex.RLock()
 	revision := repo.GetRevision()
@@ -546,12 +552,6 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 		}).Debug("skipping policy recalculation")
 		// This revision already computed, but may still need to be applied to BPF
 		return e.nextPolicyRevision > e.policyRevision, nil
-	}
-
-	// Containers without a security identity are not accessible
-	if e.SecurityIdentity == nil {
-		e.getLogger().Warn("Endpoint lacks identity, skipping policy calculation")
-		return false, nil
 	}
 
 	// Skip L4 policy recomputation if possible. However, the rest of the
