@@ -145,7 +145,7 @@ func (s *statusCollector) Collect(ch chan<- prometheus.Metric) {
 	)
 
 	for _, nodeStatus := range healthStatusResponse.Payload.Nodes {
-		if !healthClientPkg.PathIsHealthy(nodeStatus.Host.PrimaryAddress) {
+		if !healthClientPkg.PathIsHealthy(healthClientPkg.GetHostPrimaryAddress(nodeStatus)) {
 			unreachableNodes++
 		}
 		if nodeStatus.Endpoint != nil && !healthClientPkg.PathIsHealthy(nodeStatus.Endpoint) {
