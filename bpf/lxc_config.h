@@ -37,8 +37,10 @@
 #endif
 #define DROP_NOTIFY
 #define TRACE_NOTIFY
-#define CT_MAP6 cilium_ct6_111
-#define CT_MAP4 cilium_ct4_111
+#define CT_MAP_TCP6 cilium_ct_tcp6_111
+#define CT_MAP_ANY6 cilium_ct_any6_111
+#define CT_MAP_TCP4 cilium_ct_tcp4_111
+#define CT_MAP_ANY4 cilium_ct_any4_111
 #define CT_MAP_SIZE 4096
 #define CALLS_MAP cilium_calls_111
 #define LB_L3
@@ -57,6 +59,6 @@
  *  If you're from a future where all supported kernels include LPM map type,
  *  consider deprecating the hash-based CIDR lookup and removing the below.
  */
-#define IPCACHE4_PREFIXES 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, \
+#define IPCACHE4_PREFIXES 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, \
 4, 3, 2, 1
 #define IPCACHE6_PREFIXES 4, 3, 2, 1
