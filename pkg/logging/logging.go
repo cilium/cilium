@@ -341,5 +341,10 @@ func MultiLine(logFn func(args ...interface{}), output string) {
 // CanLogAt returns whether a log message at the given level would be
 // logged by the given logger.
 func CanLogAt(logger *logrus.Logger, level logrus.Level) bool {
-	return logrus.Level(atomic.LoadUint32((*uint32)(&logger.Level))) >= level
+	return GetLevel(logger) >= level
+}
+
+// GetLevel returns the log level of the given logger.
+func GetLevel(logger *logrus.Logger) logrus.Level {
+	return logrus.Level(atomic.LoadUint32((*uint32)(&logger.Level)))
 }

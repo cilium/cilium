@@ -180,7 +180,8 @@ func StartEnvoy(adminPort uint32, stateDir, logPath string, baseID uint64) *Envo
 		defer logWriter.Close()
 
 		for {
-			cmd := exec.Command("cilium-envoy", "-l", mapLogLevel(log.Level), "-c", bootstrapPath, "--base-id", strconv.FormatUint(baseID, 10), "--log-format", logFormat)
+			logLevel := logging.GetLevel(logging.DefaultLogger)
+			cmd := exec.Command("cilium-envoy", "-l", mapLogLevel(logLevel), "-c", bootstrapPath, "--base-id", strconv.FormatUint(baseID, 10), "--log-format", logFormat)
 			cmd.Stderr = logWriter
 			cmd.Stdout = logWriter
 
