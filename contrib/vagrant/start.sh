@@ -492,6 +492,7 @@ function vboxnet_addr_finder(){
     if [ -z "${IPV6_EXT}" ] && [ -z "${NFS}" ]; then
         return
     fi
+
     all_vbox_interfaces=$(VBoxManage list hostonlyifs | grep -E "^Name|IPV6Address|IPV6NetworkMaskPrefixLength" | awk -F" " '{print $2}')
     # all_vbox_interfaces format example:
     # vboxnet0
@@ -500,19 +501,22 @@ function vboxnet_addr_finder(){
     # vboxnet1
     # fd05:0000:0000:0000:0000:0000:0000:0001
     # 16
-    all_ipv6=$(echo "${all_vbox_interfaces}" | awk 'NR % 3 == 2')
-    line_ip=0
-    if [[ -n "${all_vbox_interfaces}" ]]; then
-        while read -r ip; do
-            line_ip=$(( $line_ip + 1 ))
-            if [ ! -z $(echo "${ip}" | grep -i "${IPV6_PUBLIC_CIDR/::/:}") ]; then
-                found=${line_ip}
-                net_mask=$(echo "${all_vbox_interfaces}" | awk "NR == 3 * ${line_ip}")
-                vboxnetname=$(echo "${all_vbox_interfaces}" | awk "NR == 3 * ${line_ip} - 2")
-                break
-            fi
-        done <<< "${all_ipv6}"
+    if [[ -z "${found}" ]]; then
+        all_ipv6=$(echo "${all_vbox_interfaces}" | awk 'NR % 3 == 2')
+        line_ip=0
+        if [[ -n "${all_vbox_interfaces}" ]]; then
+            while read -r ip; do
+                line_ip=$(( $line_ip + 1 ))
+                if [ ! -z $(echo "${ip}" | grep -i "${IPV6_PUBLIC_CIDR/::/:}") ]; then
+                    found=${line_ip}
+                    net_mask=$(echo "${all_vbox_interfaces}" | awk "NR == 3 * ${line_ip}")
+                    vboxnetname=$(echo "${all_vbox_interfaces}" | awk "NR == 3 * ${line_ip} - 2")
+                    break
+                fi
+            done <<< "${all_ipv6}"
+        fi
     fi
+
     if [[ -z "${found}" ]]; then
         echo "WARN: VirtualBox interface with \"${IPV6_PUBLIC_CIDR}\" not found"
         if [ ${YES_TO_ALL} -eq "0" ]; then
