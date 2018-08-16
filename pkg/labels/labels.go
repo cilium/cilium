@@ -90,6 +90,15 @@ func (o *OpLabels) IdentityLabels() Labels {
 	return enabled
 }
 
+// GetIdentityLabel returns the value of the given Key from all IdentityLabels.
+func (o *OpLabels) GetIdentityLabel(key string) *Label {
+	l := o.OrchestrationIdentity[key]
+	if l != nil {
+		return l
+	}
+	return o.Custom[key]
+}
+
 // AllLabels returns all Labels within the provided OpLabels.
 func (o *OpLabels) AllLabels() Labels {
 	all := make(Labels, len(o.Custom)+len(o.OrchestrationInfo)+len(o.OrchestrationIdentity)+len(o.Disabled))
