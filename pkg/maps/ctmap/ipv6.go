@@ -93,34 +93,7 @@ func (k CtKey6) Dump(buffer *bytes.Buffer) bool {
 
 //CtKey6Global represents the key for IPv6 entries in the global BPF conntrack map.
 type CtKey6Global struct {
-	daddr   types.IPv6
-	saddr   types.IPv6
-	sport   uint16
-	dport   uint16
-	nexthdr u8proto.U8proto
-	flags   uint8
-}
-
-// GetKeyPtr returns the unsafe.Pointer for k.
-func (k *CtKey6Global) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-
-//NewValue creates a new bpf.MapValue.
-func (k *CtKey6Global) NewValue() bpf.MapValue { return &CtEntry{} }
-
-// ToNetwork converts CtKey6Global ports to network byte order.
-func (k *CtKey6Global) ToNetwork() CtKey {
-	n := *k
-	n.sport = byteorder.HostToNetwork(n.sport).(uint16)
-	n.dport = byteorder.HostToNetwork(n.dport).(uint16)
-	return &n
-}
-
-// ToHost converts CtKey6Global ports to host byte order.
-func (k *CtKey6Global) ToHost() CtKey {
-	n := *k
-	n.sport = byteorder.NetworkToHost(n.sport).(uint16)
-	n.dport = byteorder.NetworkToHost(n.dport).(uint16)
-	return &n
+	CtKey6
 }
 
 func (k *CtKey6Global) String() string {
