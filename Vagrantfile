@@ -38,6 +38,7 @@ echo 'cd ~/go/src/github.com/cilium/cilium' >> /home/vagrant/.bashrc
 sudo -E /usr/local/go/bin/go get github.com/cilium/go-bindata/...
 sudo -E /usr/local/go/bin/go get -u github.com/google/gops
 sudo -E /usr/local/go/bin/go get -d github.com/lyft/protoc-gen-validate
+sudo -E /usr/local/go/bin/go get -u github.com/gordonklaus/ineffassign
 (cd ~/go/src/github.com/lyft/protoc-gen-validate ; sudo git checkout 930a67cf7ba41b9d9436ad7a1be70a5d5ff6e1fc ; make build)
 sudo chown -R vagrant:vagrant /home/vagrant
 curl -SsL https://github.com/cilium/bpf-map/releases/download/v1.0/bpf-map -o bpf-map
