@@ -104,7 +104,6 @@ func (ds *PolicyTestSuite) TestAddSearchDelete(c *C) {
 	rev, n = repo.DeleteByLabels(lbls2)
 	c.Assert(n, Equals, 1)
 	c.Assert(rev, Equals, nextRevision)
-	nextRevision++
 
 	// rule1 is gone
 	repo.Mutex.RLock()
