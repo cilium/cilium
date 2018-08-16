@@ -1538,24 +1538,6 @@ func (e *Endpoint) CallsMapPathLocked() string {
 	return CallsMapPath(int(e.ID))
 }
 
-// Ct6MapPath returns the path to IPv6 connection tracking map of endpoint.
-func Ct6MapPath(id int) string {
-	return bpf.MapPath(ctmap.MapName6 + strconv.Itoa(id))
-}
-
-func (e *Endpoint) Ct6MapPathLocked() string {
-	return Ct6MapPath(int(e.ID))
-}
-
-// Ct4MapPath returns the path to IPv4 connection tracking map of endpoint.
-func Ct4MapPath(id int) string {
-	return bpf.MapPath(ctmap.MapName4 + strconv.Itoa(id))
-}
-
-func (e *Endpoint) Ct4MapPathLocked() string {
-	return Ct4MapPath(int(e.ID))
-}
-
 func (e *Endpoint) LogStatus(typ StatusType, code StatusCode, msg string) {
 	e.UnconditionalLock()
 	defer e.Unlock()
