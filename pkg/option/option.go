@@ -261,14 +261,14 @@ func ParseOption(arg string, lib *OptionLibrary) (string, int, error) {
 			return "", OptionDisabled, fmt.Errorf("Invalid boolean format")
 		}
 
-		return ParseKeyValue(lib, arg, optionSplit[1], result)
+		return ParseKeyValue(lib, arg, optionSplit[1])
 	}
 
 	return "", OptionDisabled, fmt.Errorf("Invalid option format")
 }
 
-func ParseKeyValue(lib *OptionLibrary, arg, value string, defaultValue int) (string, int, error) {
-	result := defaultValue
+func ParseKeyValue(lib *OptionLibrary, arg, value string) (string, int, error) {
+	var result int
 
 	key, spec := lib.Lookup(arg)
 	if key == "" {
@@ -363,7 +363,7 @@ func (o *IntOptions) Validate(n models.ConfigurationMap) error {
 	o.optsMU.RLock()
 	defer o.optsMU.RUnlock()
 	for k, v := range n {
-		_, newVal, err := ParseKeyValue(o.Library, k, v, OptionDisabled)
+		_, newVal, err := ParseKeyValue(o.Library, k, v)
 		if err != nil {
 			return err
 		}
@@ -441,7 +441,7 @@ func (o *IntOptions) ApplyValidated(n models.ConfigurationMap, changed ChangedFu
 		val, ok := o.Opts[k]
 
 		// Ignore the error here because the option was already validated.
-		_, optVal, _ := ParseKeyValue(o.Library, k, v, OptionDisabled)
+		_, optVal, _ := ParseKeyValue(o.Library, k, v)
 		if optVal == OptionDisabled {
 			/* Only disable if enabled already */
 			if ok && val != OptionDisabled {
