@@ -501,6 +501,32 @@ function vboxnet_addr_finder(){
     # vboxnet1
     # fd05:0000:0000:0000:0000:0000:0000:0001
     # 16
+    if [[ -n "${RELOAD}" ]]; then
+        all_ifaces=$(echo "${all_vbox_interfaces}" | awk 'NR % 3 == 1')
+        if [[ -n "${all_ifaces}" ]]; then
+            while read -r iface; do
+                iface_addresses=$(ip addr show "$iface" | grep inet6 | sed 's/.*inet6 \([a-fA-F0-9:/]\+\).*/\1/g')
+                # iface_addresses format example:
+                # fd00::1/64
+                # fe80::800:27ff:fe00:2/64
+                if [[ -z "${iface_addresses}" ]]; then
+                    # No inet6 addresses
+                    continue
+                fi
+                while read -r ip; do
+                    if [ ! -z $(echo "${ip}" | grep -i "${IPV6_PUBLIC_CIDR/::/:}") ]; then
+                        found="1"
+                        net_mask=$(echo "${ip}" | sed 's/.*\///')
+                        vboxnetname="${iface}"
+                        break
+                    fi
+                done <<< "${iface_addresses}"
+                if [[ -n "${found}" ]]; then
+                    break
+                fi
+            done <<< "${all_ifaces}"
+        fi
+    fi
     if [[ -z "${found}" ]]; then
         all_ipv6=$(echo "${all_vbox_interfaces}" | awk 'NR % 3 == 2')
         line_ip=0
