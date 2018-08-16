@@ -31,6 +31,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unsafe"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common/addressing"
@@ -435,13 +436,7 @@ type Endpoint struct {
 
 	// logger is a logrus object with fields set to report an endpoints information.
 	// You must hold Endpoint.Mutex to read or write it (but not to log with it).
-	logger *logrus.Entry
-
-	// loggerMutex protects write operations to the logger field.
-	//
-	// NOTE: If both endpoint.Mutex and endpoint.loggerMutex must be held,
-	// then endpoint.Mutex must *always* be acquired first.
-	loggerMutex lock.RWMutex
+	logger unsafe.Pointer
 
 	// controllers is the list of async controllers syncing the endpoint to
 	// other resources
