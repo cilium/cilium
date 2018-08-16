@@ -996,6 +996,9 @@ func runDaemon() {
 	api.DaemonGetMapHandler = NewGetMapHandler(d)
 	api.DaemonGetMapNameHandler = NewGetMapNameHandler(d)
 
+	// metrics
+	api.MetricsGetMetricsHandler = NewGetMetricsHandler(d)
+
 	server := server.NewServer(api)
 	server.EnabledListeners = []string{"unix"}
 	server.SocketPath = flags.Filename(socketPath)
