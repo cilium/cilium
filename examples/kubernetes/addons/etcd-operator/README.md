@@ -24,9 +24,9 @@ or by checking the kube-dns deployment and grepping for 'domain'
 kubectl get Deployment --namespace kube-system kube-dns -o yaml | grep domain
 ```
 
-_Note: Make sure to remove the trailing dot from the from the domain set up in
+_Note: Make sure to remove the trailing dot from the domain set up in
 the options. For example, if the flag option is `cluster.local.` the cluster
-domain for the `gen-cert.sh` should be `cluster.local`_ 
+domain for the `gen-cert.sh` should be `cluster.local`_
 
 For reference, the cluster domain used in Kubernetes clusters by default is `'cluster.local'`
 
@@ -63,7 +63,7 @@ Please wait until the `etcd-operator` and `cilium-etcd-cluster.yaml` pods are in
 ready state.
 
 Wait a couple seconds and everything should be running fine. All pods, including
-Cilum can suffer from restarts until the system converge to a readiness state.
+Cilium can suffer from restarts until the system converge to a readiness state.
 This is expected for the first 3 to 5 minutes.
 
 ```
