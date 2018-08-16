@@ -2284,8 +2284,7 @@ func (e *Endpoint) ModifyIdentityLabels(owner Owner, addLabels, delLabels pkgLab
 // IsInit returns true if the endpoint still hasn't received identity labels,
 // i.e. has the special identity with label reserved:init.
 func (e *Endpoint) IsInit() bool {
-	lbls := e.OpLabels.IdentityLabels()
-	init := lbls[pkgLabels.IDNameInit]
+	init := e.OpLabels.GetIdentityLabel(pkgLabels.IDNameInit)
 	return init != nil && init.Source == pkgLabels.LabelSourceReserved
 }
 
