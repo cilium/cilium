@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,9 @@
 package endpoint
 
 import (
+	"sync/atomic"
+	"unsafe"
+
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
@@ -29,11 +32,9 @@ var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "endpoint")
 func (e *Endpoint) getLogger() *logrus.Entry {
 	e.updateLogger()
 
-	e.loggerMutex.RLock()
-	logger := e.logger
-	e.loggerMutex.RUnlock()
+	v := atomic.LoadPointer(&e.logger)
 
-	return logger
+	return (*logrus.Entry)(v)
 }
 
 // updateLogger creates a logger instance specific to this endpoint. It will
@@ -51,14 +52,16 @@ func (e *Endpoint) updateLogger() {
 	//   endpoint from the logger.
 	// - The debug option on the endpoint is true, and the logger is not debug,
 	//   or vice versa.
-	shouldUpdate := e.logger == nil || e.Options == nil ||
-		e.logger.Data[logfields.EndpointID] != e.ID ||
-		e.logger.Data[logfields.ContainerID] != containerID ||
-		e.logger.Data[logfields.PolicyRevision] != e.policyRevision ||
-		e.logger.Data[logfields.IPv4] != e.IPv4.String() ||
-		e.logger.Data[logfields.IPv6] != e.IPv6.String() ||
-		e.logger.Data[logfields.K8sPodName] != podName ||
-		e.Options.IsEnabled("Debug") != (e.logger.Level == logrus.DebugLevel)
+	v := atomic.LoadPointer(&e.logger)
+	epLogger := (*logrus.Entry)(v)
+	shouldUpdate := epLogger == nil || e.Options == nil ||
+		epLogger.Data[logfields.EndpointID] != e.ID ||
+		epLogger.Data[logfields.ContainerID] != containerID ||
+		epLogger.Data[logfields.PolicyRevision] != e.policyRevision ||
+		epLogger.Data[logfields.IPv4] != e.IPv4.String() ||
+		epLogger.Data[logfields.IPv6] != e.IPv6.String() ||
+		epLogger.Data[logfields.K8sPodName] != podName ||
+		e.Options.IsEnabled("Debug") != (epLogger.Level == logrus.DebugLevel)
 
 	// do nothing if we do not need an update
 	if !shouldUpdate {
@@ -75,10 +78,7 @@ func (e *Endpoint) updateLogger() {
 		baseLogger.SetLevel(logrus.DebugLevel)
 	}
 
-	e.loggerMutex.Lock()
-	// Note: endpoint.loggerMutex protects the reference but not the logger objects. We
-	// cannot update the old object directly as that could be racey.
-	e.logger = baseLogger.WithFields(logrus.Fields{
+	l := baseLogger.WithFields(logrus.Fields{
 		logfields.EndpointID:     e.ID,
 		logfields.ContainerID:    containerID,
 		logfields.PolicyRevision: e.policyRevision,
@@ -86,5 +86,6 @@ func (e *Endpoint) updateLogger() {
 		logfields.IPv6:           e.IPv6.String(),
 		logfields.K8sPodName:     podName,
 	})
-	e.loggerMutex.Unlock()
+
+	atomic.StorePointer(&e.logger, unsafe.Pointer(l))
 }
