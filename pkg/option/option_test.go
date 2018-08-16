@@ -155,7 +155,7 @@ func (s *OptionSuite) TestParseKeyValueWithDefaultParseFunc(c *C) {
 		},
 	}
 
-	_, res, err := ParseKeyValue(&l, k, "on", OptionDisabled)
+	_, res, err := ParseKeyValue(&l, k, "on")
 	c.Assert(err, IsNil)
 	c.Assert(res, Equals, OptionEnabled)
 }
@@ -176,14 +176,14 @@ func (s *OptionSuite) TestParseKeyValue(c *C) {
 		},
 	}
 
-	_, _, err := ParseKeyValue(&l, k, "true", OptionDisabled)
+	_, _, err := ParseKeyValue(&l, k, "true")
 	c.Assert(err, NotNil)
 
-	_, res, err := ParseKeyValue(&l, k, "yes", OptionDisabled)
+	_, res, err := ParseKeyValue(&l, k, "yes")
 	c.Assert(err, IsNil)
 	c.Assert(res, Equals, OptionEnabled)
 
-	_, _, err = ParseKeyValue(&l, "unknown", "yes", OptionDisabled)
+	_, _, err = ParseKeyValue(&l, "unknown", "yes")
 	c.Assert(err, NotNil)
 }
 
@@ -200,10 +200,10 @@ func (s *OptionSuite) TestParseOption(c *C) {
 		k: &OptionTest,
 	}
 
-	_, res, err := ParseOption(k+":enabled", &l)
+	_, _, err := ParseOption(k+":enabled", &l)
 	c.Assert(err, NotNil)
 
-	_, res, err = ParseOption(arg, &l)
+	_, res, err := ParseOption(arg, &l)
 	c.Assert(err, IsNil)
 	c.Assert(res, Equals, OptionEnabled)
 

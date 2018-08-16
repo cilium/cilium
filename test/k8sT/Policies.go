@@ -661,6 +661,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			Expect(err).To(BeNil(), "Cannot get web pods")
 
 			serviceIP, port, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, "redis-master")
+			Expect(err).To(BeNil(), "Cannot get hostPort of redis-master")
 
 			serviceName := "redis-master"
 			err = kubectl.WaitForKubeDNSEntry(serviceName, helpers.DefaultNamespace)

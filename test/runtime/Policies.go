@@ -919,6 +919,7 @@ var _ = Describe("RuntimePolicies", func() {
 		}
 		err = helpers.WithTimeout(dnsWaitBody, "DNSPoller did not update IPs",
 			&helpers.TimeoutConfig{Ticker: 1, Timeout: timeout_s})
+		Expect(err).To(BeNil(), "Unable to update IPs")
 		Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after ToFQDNs DNS poll triggered a regenerate")
 
 		By("Denying egress to IPs of DNS names not in ToFQDNs, and normal IPs")
@@ -1722,7 +1723,6 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 		Expect(httpd1EndpointModel.Status.Identity).To(Not(BeNil()), "Expected non-nil identity for endpoint %s", helpers.Httpd1)
 		Expect(httpd1EndpointModel.Status.Policy).To(Not(BeNil()), "Expected non-nil policy for endpoint %s", helpers.Httpd1)
 
-		httpd1SecurityIdentity = httpd1EndpointModel.Status.Identity.ID
 		httpd2SecurityIdentity = httpd2EndpointModel.Status.Identity.ID
 
 		By("Verifying allowed identities for ingress traffic to %q", helpers.Httpd1)
