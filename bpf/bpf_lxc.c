@@ -50,29 +50,61 @@
 
 #define POLICY_ID ((LXC_ID << 16) | SECLABEL)
 
-struct bpf_elf_map __section_maps CT_MAP6 = {
 #ifdef HAVE_LRU_MAP_TYPE
-	.type		= BPF_MAP_TYPE_LRU_HASH,
+#define CT_MAP_TYPE BPF_MAP_TYPE_LRU_HASH
 #else
-	.type		= BPF_MAP_TYPE_HASH,
+#define CT_MAP_TYPE BPF_MAP_TYPE_HASH
 #endif
+
+struct bpf_elf_map __section_maps CT_MAP_TCP6 = {
+	.type		= CT_MAP_TYPE,
 	.size_key	= sizeof(struct ipv6_ct_tuple),
 	.size_value	= sizeof(struct ct_entry),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= CT_MAP_SIZE,
 };
 
-struct bpf_elf_map __section_maps CT_MAP4 = {
-#ifdef HAVE_LRU_MAP_TYPE
-	.type		= BPF_MAP_TYPE_LRU_HASH,
-#else
-	.type		= BPF_MAP_TYPE_HASH,
-#endif
+struct bpf_elf_map __section_maps CT_MAP_ANY6 = {
+	.type		= CT_MAP_TYPE,
+	.size_key	= sizeof(struct ipv6_ct_tuple),
+	.size_value	= sizeof(struct ct_entry),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= CT_MAP_SIZE,
+};
+
+struct bpf_elf_map __section_maps CT_MAP_TCP4 = {
+	.type		= CT_MAP_TYPE,
 	.size_key	= sizeof(struct ipv4_ct_tuple),
 	.size_value	= sizeof(struct ct_entry),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= CT_MAP_SIZE,
 };
+
+struct bpf_elf_map __section_maps CT_MAP_ANY4 = {
+	.type		= CT_MAP_TYPE,
+	.size_key	= sizeof(struct ipv4_ct_tuple),
+	.size_value	= sizeof(struct ct_entry),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= CT_MAP_SIZE,
+};
+
+static inline struct bpf_elf_map *
+get_ct_map6(struct ipv6_ct_tuple *tuple)
+{
+	if (tuple->nexthdr == IPPROTO_TCP) {
+		return &CT_MAP_TCP6;
+	}
+	return &CT_MAP_ANY6;
+}
+
+static inline struct bpf_elf_map *
+get_ct_map4(struct ipv4_ct_tuple *tuple)
+{
+	if (tuple->nexthdr == IPPROTO_TCP) {
+		return &CT_MAP_TCP4;
+	}
+	return &CT_MAP_ANY4;
+}
 
 static inline bool redirect_to_proxy(int verdict)
 {
@@ -132,7 +164,7 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	 * address.
 	 */
 	if ((svc = lb6_lookup_service(skb, &key)) != NULL) {
-		ret = lb6_local(&CT_MAP6, skb, l3_off, l4_off,
+		ret = lb6_local(get_ct_map6(tuple), skb, l3_off, l4_off,
 				&csum_off, &key, tuple, svc, &ct_state_new);
 		if (IS_ERR(ret))
 			return ret;
@@ -155,7 +187,7 @@ skip_service_lookup:
 	 * entry to allow reverse packets and return set cb[CB_POLICY] to
 	 * POLICY_SKIP if the packet is a reply packet to an existing
 	 * incoming connection. */
-	ret = ct_lookup6(&CT_MAP6, tuple, skb, l4_off, CT_EGRESS,
+	ret = ct_lookup6(get_ct_map6(tuple), tuple, skb, l4_off, CT_EGRESS,
 			 &ct_state, &monitor);
 	if (ret < 0) {
 		relax_verifier();
@@ -197,7 +229,7 @@ skip_service_lookup:
 		/* If the connection was previously known and packet is now
 		 * denied, remove the connection tracking entry */
 		if (ret == CT_ESTABLISHED)
-			ct_delete6(&CT_MAP6, tuple, skb);
+			ct_delete6(get_ct_map6(tuple), tuple, skb);
 
 		return verdict;
 	}
@@ -210,7 +242,7 @@ skip_service_lookup:
 		 * reverse NAT.
 		 */
 		ct_state_new.src_sec_id = SECLABEL;
-		ret = ct_create6(&CT_MAP6, tuple, skb, CT_EGRESS, &ct_state_new);
+		ret = ct_create6(get_ct_map6(tuple), tuple, skb, CT_EGRESS, &ct_state_new);
 		if (IS_ERR(ret))
 			return ret;
 		monitor = TRACE_PAYLOAD_LEN;
@@ -452,7 +484,7 @@ static inline int handle_ipv4_from_lxc(struct __sk_buff *skb, __u32 *dstID)
 	ct_state_new.orig_dport = key.dport;
 #ifdef ENABLE_IPV4
 	if ((svc = lb4_lookup_service(skb, &key)) != NULL) {
-		ret = lb4_local(&CT_MAP4, skb, l3_off, l4_off, &csum_off,
+		ret = lb4_local(get_ct_map4(&tuple), skb, l3_off, l4_off, &csum_off,
 				&key, &tuple, svc, &ct_state_new, ip4->saddr);
 		if (IS_ERR(ret))
 			return ret;
@@ -474,7 +506,7 @@ skip_service_lookup:
 	 * entry to allow reverse packets and return set cb[CB_POLICY] to
 	 * POLICY_SKIP if the packet is a reply packet to an existing
 	 * incoming connection. */
-	ret = ct_lookup4(&CT_MAP4, &tuple, skb, l4_off, CT_EGRESS,
+	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, skb, l4_off, CT_EGRESS,
 			 &ct_state, &monitor);
 	if (ret < 0)
 		return ret;
@@ -507,7 +539,7 @@ skip_service_lookup:
 		/* If the connection was previously known and packet is now
 		 * denied, remove the connection tracking entry */
 		if (ret == CT_ESTABLISHED)
-			ct_delete4(&CT_MAP4, &tuple, skb);
+			ct_delete4(get_ct_map4(&tuple), &tuple, skb);
 
 		return verdict;
 	}
@@ -520,7 +552,8 @@ skip_service_lookup:
 		 * reverse NAT.
 		 */
 		ct_state_new.src_sec_id = SECLABEL;
-		ret = ct_create4(&CT_MAP4, &tuple, skb, CT_EGRESS, &ct_state_new);
+		ret = ct_create4(get_ct_map4(&tuple), &tuple, skb, CT_EGRESS,
+				 &ct_state_new);
 		if (IS_ERR(ret))
 			return ret;
 		break;
@@ -771,7 +804,7 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 		}
 	}
 
-	ret = ct_lookup6(&CT_MAP6, &tuple, skb, l4_off, CT_INGRESS,
+	ret = ct_lookup6(get_ct_map6(&tuple), &tuple, skb, l4_off, CT_INGRESS,
 			 &ct_state, &monitor);
 	if (ret < 0)
 		return ret;
@@ -797,7 +830,7 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 		/* If the connection was previously known and packet is now
 		 * denied, remove the connection tracking entry */
 		if (ret == CT_ESTABLISHED)
-			ct_delete6(&CT_MAP6, &tuple, skb);
+			ct_delete6(get_ct_map6(&tuple), &tuple, skb);
 
 		return DROP_POLICY;
 	}
@@ -808,7 +841,7 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 	if (ret == CT_NEW) {
 		ct_state_new.orig_dport = tuple.dport;
 		ct_state_new.src_sec_id = src_label;
-		ret = ct_create6(&CT_MAP6, &tuple, skb, CT_INGRESS, &ct_state_new);
+		ret = ct_create6(get_ct_map6(&tuple), &tuple, skb, CT_INGRESS, &ct_state_new);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -896,7 +929,7 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 	is_fragment = ipv4_is_fragment(ip4);
 
-	ret = ct_lookup4(&CT_MAP4, &tuple, skb, l4_off, CT_INGRESS, &ct_state,
+	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, skb, l4_off, CT_INGRESS, &ct_state,
 			 &monitor);
 	if (ret < 0)
 		return ret;
@@ -931,7 +964,7 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 		/* If the connection was previously known and packet is now
 		 * denied, remove the connection tracking entry */
 		if (ret == CT_ESTABLISHED)
-			ct_delete4(&CT_MAP4, &tuple, skb);
+			ct_delete4(get_ct_map4(&tuple), &tuple, skb);
 
 		return DROP_POLICY;
 	}
@@ -942,7 +975,7 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 	if (ret == CT_NEW) {
 		ct_state_new.orig_dport = tuple.dport;
 		ct_state_new.src_sec_id = src_label;
-		ret = ct_create4(&CT_MAP4, &tuple, skb, CT_INGRESS, &ct_state_new);
+		ret = ct_create4(get_ct_map4(&tuple), &tuple, skb, CT_INGRESS, &ct_state_new);
 		if (IS_ERR(ret))
 			return ret;
 

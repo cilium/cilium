@@ -37,8 +37,10 @@
 #endif
 #define DROP_NOTIFY
 #define TRACE_NOTIFY
-#define CT_MAP6 cilium_ct6_111
-#define CT_MAP4 cilium_ct4_111
+#define CT_MAP_TCP6 cilium_ct_tcp6_111
+#define CT_MAP_ANY6 cilium_ct_any6_111
+#define CT_MAP_TCP4 cilium_ct_tcp4_111
+#define CT_MAP_ANY4 cilium_ct_any4_111
 #define CT_MAP_SIZE 4096
 #define CALLS_MAP cilium_calls_111
 #define LB_L3
