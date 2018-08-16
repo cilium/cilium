@@ -212,6 +212,7 @@ func copyCiliumInfoCommands(cmdDir string, k8sPods []string) []string {
 	// these ones for skimming purposes
 	ciliumCommands := []string{
 		"cilium debuginfo",
+		"cilium metrics list",
 		"cilium config",
 		"cilium bpf tunnel list",
 		"cilium bpf lb list",
