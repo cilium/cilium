@@ -298,7 +298,10 @@ func newEtcdClient(config *client.Config, cfgPath string) (BackendOperations, er
 		// Run renewLease once the firstSession is received
 		if err := ec.renewLease(); err != nil {
 			c.Close()
-			err = fmt.Errorf("unable to create default lease: %s", err)
+			if err = fmt.Errorf("unable to create default lease: %s", err); err != nil {
+				log.Fatal(err)
+				return
+			}
 		}
 		if err != nil {
 			log.Fatal(err)
