@@ -45,48 +45,27 @@ var (
 		metrics.LabelDatapathFamily: "ipv4",
 	}
 
-	mapInfo = map[MapType]struct {
-		keySize    int
-		maxEntries int
-		parser     bpf.DumpParser
-		bpfDefine  string
-	}{
-		MapTypeIPv4Local: {
-			keySize:    int(unsafe.Sizeof(CtKey4{})),
-			maxEntries: MapNumEntriesLocal,
-			parser:     ct4DumpParser,
-			bpfDefine:  "CT_MAP4",
-		},
-		MapTypeIPv6Local: {
-			keySize:    int(unsafe.Sizeof(CtKey6{})),
-			maxEntries: MapNumEntriesLocal,
-			parser:     ct6DumpParser,
-			bpfDefine:  "CT_MAP6",
-		},
-		MapTypeIPv4Global: {
-			keySize:    int(unsafe.Sizeof(CtKey4{})),
-			maxEntries: MapNumEntriesGlobal,
-			parser:     ct4DumpParser,
-			bpfDefine:  "CT_MAP4",
-		},
-		MapTypeIPv6Global: {
-			keySize:    int(unsafe.Sizeof(CtKey6{})),
-			maxEntries: MapNumEntriesGlobal,
-			parser:     ct6DumpParser,
-			bpfDefine:  "CT_MAP6",
-		},
-	}
+	mapInfo = make(map[MapType]mapAttributes)
 )
 
 const (
 	// mapCount counts the maximum number of CT maps that one endpoint may
 	// access at once.
-	mapCount = 2
+	mapCount = 4
 
-	MapName6       = "cilium_ct6_"
-	MapName4       = "cilium_ct4_"
-	MapName6Global = MapName6 + "global"
-	MapName4Global = MapName4 + "global"
+	// Map names for TCP CT tables are retained from Cilium 1.0 naming
+	// scheme to minimize disruption of ongoing connections during upgrade.
+	MapNamePrefix     = "cilium_ct"
+	MapNameTCP6       = MapNamePrefix + "6_"
+	MapNameTCP4       = MapNamePrefix + "4_"
+	MapNameTCP6Global = MapNameTCP6 + "global"
+	MapNameTCP4Global = MapNameTCP4 + "global"
+
+	// Map names for "any" protocols indicate CT for non-TCP protocols.
+	MapNameAny6       = MapNamePrefix + "_any6_"
+	MapNameAny4       = MapNamePrefix + "_any4_"
+	MapNameAny6Global = MapNameAny6 + "global"
+	MapNameAny4Global = MapNameAny4 + "global"
 
 	MapNumEntriesLocal  = 64000
 	MapNumEntriesGlobal = 1000000
@@ -105,6 +84,41 @@ const (
 	metricsAlive   = "alive"
 	metricsDeleted = "deleted"
 )
+
+type mapAttributes struct {
+	keySize    int
+	maxEntries int
+	parser     bpf.DumpParser
+	bpfDefine  string
+}
+
+func setupMapInfo(mapType MapType, define string, keySize, maxEntries int, parser bpf.DumpParser) {
+	mapInfo[mapType] = mapAttributes{
+		bpfDefine:  define,
+		keySize:    keySize,
+		maxEntries: maxEntries,
+		parser:     parser,
+	}
+}
+
+func initMapInfo() {
+	mapType := MapTypeIPv4TCPLocal
+	for _, maxEntries := range []int{MapNumEntriesLocal, MapNumEntriesGlobal} {
+		// CT_MAP_ANY4, CT_MAP_ANY6, CT_MAP_TCP4, CT_MAP_TCP6
+		for _, proto := range []string{"TCP", "ANY"} {
+			setupMapInfo(MapType(mapType), fmt.Sprintf("CT_MAP_%s4", proto),
+				int(unsafe.Sizeof(CtKey4{})), maxEntries, ct4DumpParser)
+			mapType++
+			setupMapInfo(MapType(mapType), fmt.Sprintf("CT_MAP_%s6", proto),
+				int(unsafe.Sizeof(CtKey6{})), maxEntries, ct6DumpParser)
+			mapType++
+		}
+	}
+}
+
+func init() {
+	initMapInfo()
+}
 
 // CtEndpoint represents an endpoint for the functions required to manage
 // conntrack maps for the endpoint.
@@ -380,17 +394,21 @@ func maps(e CtEndpoint, ipv4, ipv6 bool) []*Map {
 	result := make([]*Map, 0, mapCount)
 	if e == nil {
 		if ipv4 {
-			result = append(result, NewMap(MapName4Global, MapTypeIPv4Global))
+			result = append(result, NewMap(MapNameTCP4Global, MapTypeIPv4TCPGlobal))
+			result = append(result, NewMap(MapNameAny4Global, MapTypeIPv4AnyGlobal))
 		}
 		if ipv6 {
-			result = append(result, NewMap(MapName6Global, MapTypeIPv6Global))
+			result = append(result, NewMap(MapNameTCP6Global, MapTypeIPv6TCPGlobal))
+			result = append(result, NewMap(MapNameAny6Global, MapTypeIPv6AnyGlobal))
 		}
 	} else {
 		if ipv4 {
-			result = append(result, NewMap(MapName4+e.StringID(), MapTypeIPv4Local))
+			result = append(result, NewMap(MapNameTCP4+e.StringID(), MapTypeIPv4TCPLocal))
+			result = append(result, NewMap(MapNameAny4+e.StringID(), MapTypeIPv4AnyLocal))
 		}
 		if ipv6 {
-			result = append(result, NewMap(MapName6+e.StringID(), MapTypeIPv6Local))
+			result = append(result, NewMap(MapNameTCP6+e.StringID(), MapTypeIPv6TCPLocal))
+			result = append(result, NewMap(MapNameAny6+e.StringID(), MapTypeIPv6AnyLocal))
 		}
 	}
 	return result
@@ -412,6 +430,16 @@ func LocalMaps(e CtEndpoint, ipv4, ipv6 bool) []*Map {
 // The returned maps are not yet opened.
 func GlobalMaps(ipv4, ipv6 bool) []*Map {
 	return maps(nil, ipv4, ipv6)
+}
+
+// NameIsGlobal returns true if the specified filename (basename) denotes a
+// global conntrack map.
+func NameIsGlobal(filename string) bool {
+	switch filename {
+	case MapNameTCP4Global, MapNameAny4Global, MapNameTCP6Global, MapNameAny6Global:
+		return true
+	}
+	return false
 }
 
 // WriteBPFMacros writes the map names for conntrack maps into the specified
