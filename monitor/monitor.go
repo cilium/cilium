@@ -76,9 +76,9 @@ func (m *Monitor) agentPipeReader(ctx context.Context, agentPipe io.Reader) {
 	log.Info("Beginning to read cilium agent events")
 	defer log.Info("Stopped reading cilium agent events")
 
-	p := payload.Payload{}
 	for !isCtxDone(ctx) {
-		err := p.ReadBinary(agentPipe)
+		meta, p := payload.Meta{}, payload.Payload{}
+		err := payload.ReadMetaPayload(agentPipe, &meta, &p)
 		switch {
 		// this captures the case where we are shutting down and main closes the
 		// pipe socket

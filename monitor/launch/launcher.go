@@ -202,8 +202,12 @@ func (nm *NodeMonitor) send(data []byte) error {
 	}
 
 	p := payload.Payload{Data: data, CPU: 0, Lost: nm.lostSinceLastTime(), Type: payload.EventSample}
+	buf, err := p.BuildMessage()
+	if err != nil {
+		return err
+	}
 
-	if err := p.WriteBinary(nm.pipe); err != nil {
+	if _, err := nm.pipe.Write(buf); err != nil {
 		nm.pipe.Close()
 		nm.pipe = nil
 		return fmt.Errorf("Unable to write message buffer to pipe: %s", err)
