@@ -65,12 +65,15 @@ type gcProtocol int
 
 const (
 	gcProtocolAny = iota
+	gcProtocolTCP
 )
 
 func (g gcProtocol) String() string {
 	switch g {
 	case gcProtocolAny:
-		return "any"
+		return "non-TCP"
+	case gcProtocolTCP:
+		return "TCP"
 	default:
 		return fmt.Sprintf("unknown (%d)", int(g))
 	}
@@ -85,7 +88,11 @@ func statStartGc(m *Map) gcStats {
 	} else {
 		result.family = gcFamilyIPv4
 	}
-	result.proto = gcProtocolAny
+	if m.mapType.isTCP() {
+		result.proto = gcProtocolTCP
+	} else {
+		result.proto = gcProtocolAny
+	}
 	return result
 }
 

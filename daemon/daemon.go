@@ -1351,9 +1351,7 @@ func (d *Daemon) checkStaleMap(path string, filename string, id string) {
 func (d *Daemon) checkStaleGlobalMap(path string, filename string) {
 	globalCTinUse := endpointmanager.HasGlobalCT()
 
-	if !globalCTinUse &&
-		(filename == ctmap.MapName6Global ||
-			filename == ctmap.MapName4Global) {
+	if !globalCTinUse && ctmap.NameIsGlobal(filename) {
 		d.removeStaleMap(path)
 	}
 }
@@ -1363,8 +1361,7 @@ func (d *Daemon) staleMapWalker(path string) error {
 
 	mapPrefix := []string{
 		policymap.MapName,
-		ctmap.MapName6,
-		ctmap.MapName4,
+		ctmap.MapNamePrefix,
 		endpoint.CallsMapName,
 	}
 
