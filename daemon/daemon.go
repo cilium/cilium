@@ -1464,7 +1464,7 @@ func changedOption(key string, value int, data interface{}) {
 		// Set the debug toggle (this can be a no-op)
 		logging.ToggleDebugLogs(d.DebugEnabled())
 		// Reflect log level change to proxies
-		proxy.ChangeLogLevel(log.Level)
+		proxy.ChangeLogLevel(logging.GetLevel(logging.DefaultLogger))
 	}
 	d.policy.BumpRevision() // force policy recalculation
 }
