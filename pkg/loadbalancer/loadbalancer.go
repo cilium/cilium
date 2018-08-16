@@ -391,13 +391,22 @@ func (b *LBBackEnd) GetBackendModel() *models.BackendAddress {
 	}
 }
 
-// String returns the L3n4Addr in the "IPv4:Port" format for IPv4 and "[IPv6]:Port" format
-// for IPv6.
+// String returns the L3n4Addr in the "IPv4:Port" format for IPv4 and
+// "[IPv6]:Port" format for IPv6.
 func (a *L3n4Addr) String() string {
 	if a.IsIPv6() {
 		return fmt.Sprintf("[%s]:%d", a.IP.String(), a.Port)
 	}
 	return fmt.Sprintf("%s:%d", a.IP.String(), a.Port)
+}
+
+// StringWithProtocol returns the L3n4Addr in the "IPv4:Port/Protocol" format
+// for IPv4 and "[IPv6]:Port/Protocol" format for IPv6.
+func (a *L3n4Addr) StringWithProtocol() string {
+	if a.IsIPv6() {
+		return fmt.Sprintf("[%s]:%d/%s", a.IP.String(), a.Port, a.Protocol)
+	}
+	return fmt.Sprintf("%s:%d/%s", a.IP.String(), a.Port, a.Protocol)
 }
 
 // StringID returns the L3n4Addr as string to be used for unique identification
