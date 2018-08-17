@@ -66,7 +66,8 @@ func CurlWithHTTPCode(endpoint string, optionalValues ...interface{}) string {
 		endpoint = fmt.Sprintf(endpoint, optionalValues...)
 	}
 
-	return fmt.Sprintf(`curl -s --output /dev/stderr -w '%%{http_code}' --connect-timeout %d %s`,
+	return fmt.Sprintf(
+		`curl -s --fail --output /dev/stderr -w '%%{http_code}' --connect-timeout %d %s`,
 		CurlConnectTimeout, endpoint)
 }
 

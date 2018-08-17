@@ -1172,8 +1172,8 @@ var _ = Describe("RuntimePolicies", func() {
 			// Docker container running with host networking is accessible via
 			// the host's IP address. See https://docs.docker.com/network/host/.
 			By("Accessing /public using Docker container using host networking from %q (should work)", helpers.App1)
-			successCurl := vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode("http://%s/public", hostIP))
-			successCurl.ExpectContains("200", "Expected to be able to access /public in host Docker container")
+			successCurl := vm.ContainerExec(helpers.App1, helpers.CurlFail("http://%s/public", hostIP))
+			successCurl.ExpectSuccess("Expected to be able to access /public in host Docker container")
 
 			By("Pinging %s from %s (shouldn't work)", helpers.App2, helpers.App1)
 			failPing := vm.ContainerExec(helpers.App1, helpers.Ping(helpers.App2))
@@ -1204,17 +1204,17 @@ var _ = Describe("RuntimePolicies", func() {
 			// Docker container running with host networking is accessible via
 			// the docker bridge's IP address. See https://docs.docker.com/network/host/.
 			By("Accessing index.html using Docker container using host networking from %q (should work)", helpers.App1)
-			res = vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode("%s://%s/index.html", proto, dstIP))
-			ExpectWithOffset(1, res.Output().String()).To(ContainSubstring("200"),
+			res = vm.ContainerExec(helpers.App1, helpers.CurlFail("%s://%s/index.html", proto, dstIP))
+			ExpectWithOffset(1, res).To(helpers.CMDSuccess(),
 				"Expected to be able to access /public in host Docker container")
 
 			By("Accessing %q on wrong port from %q should fail", dstIP, helpers.App1)
-			res = vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode("http://%s:8080/public", dstIP))
+			res = vm.ContainerExec(helpers.App1, helpers.CurlFail("http://%s:8080/public", dstIP))
 			ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
 				"unexpectedly able to access %q when access should only be allowed to CIDR", dstIP)
 
 			By("Accessing port 80 on wrong destination from %q should fail", helpers.App1)
-			res = vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode("%s://%s/public", proto, hostIP))
+			res = vm.ContainerExec(helpers.App1, helpers.CurlFail("%s://%s/public", proto, hostIP))
 			ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
 				"unexpectedly able to access %q when access should only be allowed to CIDR", hostIP)
 
@@ -1300,6 +1300,7 @@ var _ = Describe("RuntimePolicies", func() {
 
 			By("Accessing /private on %q from %q should fail", otherHostIP, helpers.App1)
 			res := vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode("http://%s/private", otherHostIP))
+			res.ExpectFail("unexpectedly able to access http://%q:80/private when access should only be allowed to /index.html", otherHostIP)
 			res.ExpectContains("403", "unexpectedly able to access http://%q:80/private when access should only be allowed to /index.html", otherHostIP)
 		})
 	})
