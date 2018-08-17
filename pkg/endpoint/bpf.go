@@ -464,6 +464,8 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 
 	buildStart := time.Now()
 
+	ctCleaned := make(chan struct{})
+
 	if err = e.LockAlive(); err != nil {
 		return 0, compilationExecuted, err
 	}
@@ -474,6 +476,18 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 		logger.WithField(logfields.BuildDuration, time.Since(buildStart).String()).
 			Info("Regeneration of BPF program has completed")
 	}()
+
+	// In the first ever regeneration of the endpoint, the conntrack table
+	// is cleaned from the new endpoint IPs as it is guaranteed that any
+	// pre-existing connections using that IP are now invalid.
+	if !e.ctCleaned {
+		go func() {
+			e.scrubIPsInConntrackTable()
+			close(ctCleaned)
+		}()
+	} else {
+		close(ctCleaned)
+	}
 
 	// If endpoint was marked as disconnected then
 	// it won't be regenerated.
@@ -669,10 +683,15 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 		return 0, compilationExecuted, fmt.Errorf("Error while configuring proxy redirects: %s", err)
 	}
 
+	// Wait for connection tracking cleaning to be complete
+	<-ctCleaned
+
 	if err = e.LockAlive(); err != nil {
 		return 0, compilationExecuted, err
 	}
 	defer e.Unlock()
+
+	e.ctCleaned = true
 
 	// Synchronously try to update PolicyMap for this endpoint. If any
 	// part of updating the PolicyMap fails, bail out and do not generate
