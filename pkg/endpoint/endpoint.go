@@ -297,10 +297,9 @@ type Endpoint struct {
 	// ContainerName is the name given to the endpoint by the container runtime
 	ContainerName string
 
-	// DockerID is the container ID that docker has assigned to the endpoint
-	//
-	// FIXME: Rename this field to ContainerID
-	DockerID string
+	// ContainerID is the container ID that docker has assigned to the endpoint
+	// Note: The JSON tag was kept for backward compatibility.
+	ContainerID string `json:"dockerID,omitempty"`
 
 	// DockerNetworkID is the network ID of the libnetwork network if the
 	// endpoint is a docker managed container which uses libnetwork
@@ -679,7 +678,7 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, 
 	ep := &Endpoint{
 		ID:               uint16(base.ID),
 		ContainerName:    base.ContainerName,
-		DockerID:         base.ContainerID,
+		ContainerID:      base.ContainerID,
 		DockerNetworkID:  base.DockerNetworkID,
 		DockerEndpointID: base.DockerEndpointID,
 		IfName:           base.InterfaceName,
@@ -796,7 +795,7 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 				HostMac:        e.NodeMAC.String(),
 			},
 			ExternalIdentifiers: &models.EndpointIdentifiers{
-				ContainerID:      e.DockerID,
+				ContainerID:      e.ContainerID,
 				ContainerName:    e.ContainerName,
 				DockerEndpointID: e.DockerEndpointID,
 				DockerNetworkID:  e.DockerNetworkID,
@@ -1880,7 +1879,7 @@ func (e *Endpoint) SetK8sPodName(name string) {
 // SetContainerID modifies the endpoint's container ID
 func (e *Endpoint) SetContainerID(id string) {
 	e.UnconditionalLock()
-	e.DockerID = id
+	e.ContainerID = id
 	e.Unlock()
 }
 
@@ -1889,7 +1888,7 @@ func (e *Endpoint) GetContainerID() string {
 	e.UnconditionalRLock()
 	defer e.RUnlock()
 
-	return e.DockerID
+	return e.ContainerID
 }
 
 // GetShortContainerID returns the endpoint's shortened container ID
@@ -1906,11 +1905,11 @@ func (e *Endpoint) getShortContainerID() string {
 	}
 
 	caplen := 10
-	if len(e.DockerID) <= caplen {
-		return e.DockerID
+	if len(e.ContainerID) <= caplen {
+		return e.ContainerID
 	}
 
-	return e.DockerID[:caplen]
+	return e.ContainerID[:caplen]
 
 }
 
