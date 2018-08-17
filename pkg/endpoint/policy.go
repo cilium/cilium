@@ -693,11 +693,13 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	e.BuildMutex.Lock()
 	defer e.BuildMutex.Unlock()
 
+	// Check if endpoints is still alive before doing any build
 	if err = e.RLockAlive(); err != nil {
 		return err
 	}
-	scopedLog := e.getLogger()
 	e.RUnlock()
+
+	scopedLog := e.getLogger()
 	scopedLog.Debug("Regenerating endpoint...")
 
 	origDir := filepath.Join(owner.GetStateDir(), e.StringID())
@@ -815,9 +817,8 @@ func (e *Endpoint) Regenerate(owner Owner, reason string) <-chan bool {
 			close(req.ExternalDone)
 			return
 		}
-		// This must be accessed in a locked section, so we grab it here.
-		scopedLog := e.getLogger()
 		e.RUnlock()
+		scopedLog := e.getLogger()
 
 		// We should only queue the request after we use all the endpoint's
 		// lock/unlock. Otherwise this can get a deadlock if the endpoint is
