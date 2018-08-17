@@ -72,8 +72,32 @@ func runGC(e *endpoint.Endpoint, isIPv6 bool, filter *ctmap.GCFilter) {
 	}
 }
 
+func createGCFilter(ipv6, initialScan bool, restoredEndpoints []*endpoint.Endpoint) *ctmap.GCFilter {
+	filter := ctmap.NewGCFilterBy(ctmap.GCFilterByTime)
+
+	// On the initial scan, scrub all IPs from the conntrack table which do
+	// not belong to IPs of any endpoint that has been restored. No new
+	// endpoints can appear yet so we can assume that any other entry not
+	// belonging to a restored endpoint has become stale.
+	if initialScan {
+		filter.ValidIPs = map[string]struct{}{}
+		for _, ep := range restoredEndpoints {
+			if ipv6 {
+				filter.ValidIPs[ep.IPv6.String()] = struct{}{}
+			} else {
+				filter.ValidIPs[ep.IPv4.String()] = struct{}{}
+			}
+		}
+	}
+
+	return filter
+}
+
 // EnableConntrackGC enables the connection tracking garbage collection.
-func EnableConntrackGC(ipv4, ipv6 bool, gcinterval int) {
+func EnableConntrackGC(ipv4, ipv6 bool, gcinterval int, restoredEndpoints []*endpoint.Endpoint) {
+	initialScan := true
+	initialScanComplete := make(chan struct{})
+
 	go func() {
 		if gcinterval < MinGcInterval {
 			gcinterval = MinGcInterval
@@ -82,12 +106,13 @@ func EnableConntrackGC(ipv4, ipv6 bool, gcinterval int) {
 		sleepTime := time.Duration(gcinterval) * time.Second
 		for {
 			eps := GetEndpoints()
-			if len(eps) > 0 {
+			if len(eps) > 0 || initialScan {
 				if ipv6 {
-					runGC(nil, true, ctmap.NewGCFilterBy(ctmap.GCFilterByTime))
+					runGC(nil, true, createGCFilter(true, initialScan, restoredEndpoints))
 				}
+
 				if ipv4 {
-					runGC(nil, false, ctmap.NewGCFilterBy(ctmap.GCFilterByTime))
+					runGC(nil, false, createGCFilter(false, initialScan, restoredEndpoints))
 				}
 			}
 			for _, e := range eps {
@@ -102,7 +127,20 @@ func EnableConntrackGC(ipv4, ipv6 bool, gcinterval int) {
 					runGC(e, false, ctmap.NewGCFilterBy(ctmap.GCFilterByTime))
 				}
 			}
+
+			if initialScan {
+				close(initialScanComplete)
+				initialScan = false
+			}
+
 			time.Sleep(sleepTime)
 		}
 	}()
+
+	select {
+	case <-initialScanComplete:
+		log.Info("Initial scan of connection tracking completed")
+	case <-time.After(30 * time.Second):
+		log.Fatal("Timeout while waiting for initial conntrack scan")
+	}
 }
