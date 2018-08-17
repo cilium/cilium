@@ -16,6 +16,7 @@ package k8s
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -1534,6 +1535,26 @@ func Test_parseNetworkPolicyPeer(t *testing.T) {
 							Key:      "k8s.io.cilium.k8s.namespace.labels.ns-foo-expression",
 							Operator: metav1.LabelSelectorOpExists,
 							Values:   []string{"bar", "baz"},
+						},
+					},
+				),
+			),
+		},
+		{
+			name: "peer-with-allow-all-ns-selector",
+			args: args{
+				namespace: "foo-namespace",
+				peer: &networkingv1.NetworkPolicyPeer{
+					NamespaceSelector: &metav1.LabelSelector{},
+				},
+			},
+			want: getSelectorPointer(
+				api.NewESFromMatchRequirements(
+					map[string]string{},
+					[]metav1.LabelSelectorRequirement{
+						{
+							Key:      fmt.Sprintf("%s.%s", labels.LabelSourceK8s, k8sConst.PodNamespaceLabel),
+							Operator: metav1.LabelSelectorOpExists,
 						},
 					},
 				),
