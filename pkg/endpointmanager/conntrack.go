@@ -31,7 +31,7 @@ const (
 	MinGcInterval int = 5
 )
 
-// RunGC run CT's garbage collector for the given endpoint. `isLocal` refers if
+// runGC run CT's garbage collector for the given endpoint. `isLocal` refers if
 // the CT map is set to local. If `isIPv6` is set specifies that is the IPv6
 // map. `filter` represents the filter type to be used while looping all CT
 // entries.
@@ -39,7 +39,7 @@ const (
 // The provided endpoint is optional; if it is provided, then its map will be
 // garbage collected and any failures will be logged to the endpoint log.
 // Otherwise it will garbage-collect the global map and use the global log.
-func RunGC(e *endpoint.Endpoint, isIPv6 bool, filter *ctmap.GCFilter) {
+func runGC(e *endpoint.Endpoint, isIPv6 bool, filter *ctmap.GCFilter) {
 	var file string
 	var mapType string
 
@@ -84,10 +84,10 @@ func EnableConntrackGC(ipv4, ipv6 bool, gcinterval int) {
 			eps := GetEndpoints()
 			if len(eps) > 0 {
 				if ipv6 {
-					RunGC(nil, true, ctmap.NewGCFilterBy(ctmap.GCFilterByTime))
+					runGC(nil, true, ctmap.NewGCFilterBy(ctmap.GCFilterByTime))
 				}
 				if ipv4 {
-					RunGC(nil, false, ctmap.NewGCFilterBy(ctmap.GCFilterByTime))
+					runGC(nil, false, ctmap.NewGCFilterBy(ctmap.GCFilterByTime))
 				}
 			}
 			for _, e := range eps {
@@ -96,10 +96,10 @@ func EnableConntrackGC(ipv4, ipv6 bool, gcinterval int) {
 					continue
 				}
 				if ipv6 {
-					RunGC(e, true, ctmap.NewGCFilterBy(ctmap.GCFilterByTime))
+					runGC(e, true, ctmap.NewGCFilterBy(ctmap.GCFilterByTime))
 				}
 				if ipv4 {
-					RunGC(e, false, ctmap.NewGCFilterBy(ctmap.GCFilterByTime))
+					runGC(e, false, ctmap.NewGCFilterBy(ctmap.GCFilterByTime))
 				}
 			}
 			time.Sleep(sleepTime)
