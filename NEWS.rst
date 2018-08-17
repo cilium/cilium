@@ -2,6 +2,23 @@
 NEWS
 ******
 
+v1.1.4
+======
+
+::
+
+    Ian Vernon (3):
+          daemon: always use same sync func for CNPNS
+          daemon: cache error on policy import for CNP
+          pkg/health: remove dereferences of members within pointers
+
+    Joe Stringer (4):
+          endpointmanager: Fix conntrack GC
+          docs: Expand the "v:" to "version:" in the nav bar
+          docs: Fix theme paths so RTD picks up in-tree theme
+          docs: Update sphinx theme to print version for stable
+
+
 v1.1.3
 ======
 
