@@ -347,8 +347,8 @@ func AddEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, reason string) err
 		return err
 	}
 	Insert(ep)
-	ep.InsertEvent()
 	ep.RUnlock()
+	ep.InsertEvent()
 
 	return nil
 }

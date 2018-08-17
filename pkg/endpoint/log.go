@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/sirupsen/logrus"
 )
 
@@ -28,40 +29,34 @@ var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "endpoint")
 
 // logger returns a logrus object with EndpointID, ContainerID and the Endpoint
 // revision fields.
-// Note: You must hold Endpoint.Mutex for reading
 func (e *Endpoint) getLogger() *logrus.Entry {
-	e.updateLogger()
-
 	v := atomic.LoadPointer(&e.logger)
-
 	return (*logrus.Entry)(v)
 }
 
-// updateLogger creates a logger instance specific to this endpoint. It will
+// UpdateLogger creates a logger instance specific to this endpoint. It will
 // create a custom Debug logger for this endpoint when the option on it is set.
-// Note: You must hold Endpoint.Mutex for reading
-func (e *Endpoint) updateLogger() {
-	containerID := e.getShortContainerID()
-
-	podName := e.GetK8sNamespaceAndPodNameLocked()
+// If fields is not nil only the those specific fields will be updated in the
+// endpoint's logger, otherwise a full update of those fields is executed.
+// Note: You must hold Endpoint.Mutex for reading.
+func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
+	v := atomic.LoadPointer(&e.logger)
+	epLogger := (*logrus.Entry)(v)
+	if fields != nil && epLogger != nil {
+		newLogger := epLogger.WithFields(fields)
+		atomic.StorePointer(&e.logger, unsafe.Pointer(newLogger))
+		return
+	}
 
 	// We need to update if
-	// - e.logger is nil (this happens on the first ever call to updateLogger via
+	// - e.logger is nil (this happens on the first ever call to UpdateLogger via
 	//   getLogger above). This clause has to come first to guard the others.
 	// - If any of EndpointID, ContainerID or policyRevision are different on the
 	//   endpoint from the logger.
 	// - The debug option on the endpoint is true, and the logger is not debug,
 	//   or vice versa.
-	v := atomic.LoadPointer(&e.logger)
-	epLogger := (*logrus.Entry)(v)
-	shouldUpdate := epLogger == nil || e.Options == nil ||
-		epLogger.Data[logfields.EndpointID] != e.ID ||
-		epLogger.Data[logfields.ContainerID] != containerID ||
-		epLogger.Data[logfields.PolicyRevision] != e.policyRevision ||
-		epLogger.Data[logfields.IPv4] != e.IPv4.String() ||
-		epLogger.Data[logfields.IPv6] != e.IPv6.String() ||
-		epLogger.Data[logfields.K8sPodName] != podName ||
-		e.Options.IsEnabled("Debug") != (epLogger.Level == logrus.DebugLevel)
+	shouldUpdate := epLogger == nil || (e.Options != nil &&
+		e.Options.IsEnabled(option.Debug) != (epLogger.Level == logrus.DebugLevel))
 
 	// do nothing if we do not need an update
 	if !shouldUpdate {
@@ -73,18 +68,20 @@ func (e *Endpoint) updateLogger() {
 
 	// If this endpoint is set to debug ensure it will print debug by giving it
 	// an independent logger
-	if e.Options != nil && e.Options.IsEnabled("Debug") {
+	if e.Options != nil && e.Options.IsEnabled(option.Debug) {
 		baseLogger = logging.InitializeDefaultLogger()
 		baseLogger.SetLevel(logrus.DebugLevel)
 	}
 
+	// When adding new fields, make sure they are abstracted by a setter
+	// and update the logger when the value is set.
 	l := baseLogger.WithFields(logrus.Fields{
 		logfields.EndpointID:     e.ID,
-		logfields.ContainerID:    containerID,
+		logfields.ContainerID:    e.getShortContainerID(),
 		logfields.PolicyRevision: e.policyRevision,
 		logfields.IPv4:           e.IPv4.String(),
 		logfields.IPv6:           e.IPv6.String(),
-		logfields.K8sPodName:     podName,
+		logfields.K8sPodName:     e.GetK8sNamespaceAndPodNameLocked(),
 	})
 
 	atomic.StorePointer(&e.logger, unsafe.Pointer(l))
