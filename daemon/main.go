@@ -808,7 +808,9 @@ func runDaemon() {
 	}
 
 	log.Info("Starting connection tracking garbage collector")
-	endpointmanager.EnableConntrackGC(!option.Config.IPv4Disabled, true, viper.GetInt("conntrack-garbage-collector-interval"))
+	endpointmanager.EnableConntrackGC(!option.Config.IPv4Disabled, true,
+		viper.GetInt("conntrack-garbage-collector-interval"),
+		restoredEndpoints.restored)
 
 	if enableLogstash {
 		log.Info("Enabling Logstash")

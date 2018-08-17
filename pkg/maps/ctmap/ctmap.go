@@ -191,6 +191,11 @@ type GCFilter struct {
 	Time       uint32
 	EndpointID uint16
 	EndpointIP net.IP
+
+	// ValidIPs is the list of valid IPs to scrub all entries for which the
+	// source or destination IP is *not* matching one of the valid IPs.
+	// The key is the IP in string form: net.IP.String()
+	ValidIPs map[string]struct{}
 }
 
 // NewGCFilterBy creates a new GCFilter of the given type.
@@ -551,6 +556,14 @@ func (f *GCFilter) doFiltering(srcIP net.IP, dstIP net.IP, dstPort uint16, nextH
 	// Delete all entries with a lifetime smaller than f timestamp.
 	if f.Type == GCFilterByTime && entry.lifetime < f.Time {
 		return deleteEntry
+	}
+
+	if f.ValidIPs != nil {
+		_, srcIPExists := f.ValidIPs[srcIP.String()]
+		_, dstIPExists := f.ValidIPs[dstIP.String()]
+		if !srcIPExists && !dstIPExists {
+			return deleteEntry
+		}
 	}
 
 	return noAction
