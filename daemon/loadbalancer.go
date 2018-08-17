@@ -374,14 +374,8 @@ func (d *Daemon) RevNATDelete(id loadbalancer.ServiceID) error {
 		return nil
 	}
 
-	var revNATK lbmap.RevNatKey
-	if !revNAT.IsIPv6() {
-		revNATK = lbmap.NewRevNat4Key(uint16(id))
-	} else {
-		revNATK = lbmap.NewRevNat6Key(uint16(id))
-	}
+	err := lbmap.DeleteRevNATBPF(id, revNAT.IsIPv6())
 
-	err := lbmap.DeleteRevNat(revNATK)
 	// TODO should we delete even if err is != nil?
 	if err == nil {
 		delete(d.loadBalancer.RevNATMap, id)

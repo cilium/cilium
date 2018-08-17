@@ -548,3 +548,16 @@ func ServiceValue2LBBackEnd(svcKey ServiceKey, svcValue ServiceValue) (*loadbala
 
 	return loadbalancer.NewLBBackEnd(loadbalancer.TCP, feIP, fePort, feWeight)
 }
+
+// DeleteRevNATBPF deletes the revNAT entry from its corresponding BPF map
+// (IPv4 or IPv6) with ID id. Returns an error if the deletion operation failed.
+func DeleteRevNATBPF(id loadbalancer.ServiceID, isIPv6 bool) error {
+	var revNATK RevNatKey
+	if isIPv6 {
+		revNATK = NewRevNat6Key(uint16(id))
+	} else {
+		revNATK = NewRevNat4Key(uint16(id))
+	}
+	err := DeleteRevNat(revNATK)
+	return err
+}
