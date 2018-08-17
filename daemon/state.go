@@ -151,7 +151,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 		}
 
 		// Insert into endpoint manager so it can be regenerated when calls to
-		// TriggerPolicyUpdates() are made. This must be done synchronously (i.e.,
+		// RegenerateAllEndpoints() are made. This must be done synchronously (i.e.,
 		// not in a goroutine) because regenerateRestoredEndpoints must guarantee
 		// upon returning that endpoints are exposed to other subsystems via
 		// endpointmanager.
