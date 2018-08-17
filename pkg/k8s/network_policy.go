@@ -24,8 +24,15 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
-
 	networkingv1 "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+var (
+	allowAllNamespacesRequirement = v1.LabelSelectorRequirement{
+		Key:      k8sConst.PodNamespaceLabel,
+		Operator: v1.LabelSelectorOpExists,
+	}
 )
 
 // GetPolicyLabelsv1 extracts the name of np. It uses the name  from the Cilium
@@ -72,6 +79,12 @@ func parseNetworkPolicyPeer(namespace string, peer *networkingv1.NetworkPolicyPe
 		for i, lsr := range peer.NamespaceSelector.MatchExpressions {
 			lsr.Key = policy.JoinPath(k8sConst.PodNamespaceMetaLabels, lsr.Key)
 			peer.NamespaceSelector.MatchExpressions[i] = lsr
+		}
+
+		// Empty namespace selector selects all namespaces (i.e., a namespace
+		// label exists).
+		if len(peer.NamespaceSelector.MatchLabels) == 0 && len(peer.NamespaceSelector.MatchExpressions) == 0 {
+			peer.NamespaceSelector.MatchExpressions = []v1.LabelSelectorRequirement{allowAllNamespacesRequirement}
 		}
 
 		selector := api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, labelSelector, peer.PodSelector)
