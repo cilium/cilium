@@ -56,7 +56,8 @@ RUN curl -sfL https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz | tar 
 	&& go get -u github.com/cilium/go-bindata/... \
 	&& go get -u github.com/golang/protobuf/protoc-gen-go \
 	&& go get -d github.com/lyft/protoc-gen-validate \
-	&& (cd /go/src/github.com/lyft/protoc-gen-validate ; git checkout 930a67cf7ba41b9d9436ad7a1be70a5d5ff6e1fc ; make build)
+	&& (cd /go/src/github.com/lyft/protoc-gen-validate ; git checkout 930a67cf7ba41b9d9436ad7a1be70a5d5ff6e1fc ; make build) \
+	&& go get -u github.com/gordonklaus/ineffassign
 
 #
 # Extract the needed Bazel version from the repo
