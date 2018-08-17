@@ -51,7 +51,7 @@ func (d *Daemon) TriggerPolicyUpdates(force bool) *sync.WaitGroup {
 	} else {
 		log.Debugf("Full policy recalculation triggered")
 	}
-	return endpointmanager.TriggerPolicyUpdates(d, force)
+	return endpointmanager.TriggerPolicyUpdates(d)
 }
 
 // UpdateEndpointPolicyEnforcement returns whether policy enforcement needs to be

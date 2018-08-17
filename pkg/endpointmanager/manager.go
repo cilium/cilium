@@ -263,7 +263,7 @@ func updateReferences(ep *endpoint.Endpoint) {
 // and cannot be modified.
 // Returns a waiting group that can be used to know when all the endpoints are
 // regenerated.
-func TriggerPolicyUpdates(owner endpoint.Owner, force bool) *sync.WaitGroup {
+func TriggerPolicyUpdates(owner endpoint.Owner) *sync.WaitGroup {
 	var wg sync.WaitGroup
 
 	eps := GetEndpoints()
@@ -275,24 +275,12 @@ func TriggerPolicyUpdates(owner endpoint.Owner, force bool) *sync.WaitGroup {
 				log.WithError(err).Warn("Error while handling policy updates for endpoint")
 				ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+err.Error())
 			}
-			policyChanges, err := ep.TriggerPolicyUpdatesLocked(owner, nil)
 			regen := false
-			if err == nil && (policyChanges || force) {
-				// Regenerate only if state transition succeeds
-				regen = ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Triggering endpoint regeneration due to policy updates")
-			}
+			regen = ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Triggering endpoint regeneration due to policy updates")
 			ep.Unlock()
-
-			if err != nil {
-				log.WithError(err).Warn("Error while handling policy updates for endpoint")
-				ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+err.Error())
-			} else {
-				if !policyChanges && !force {
-					ep.LogStatusOK(endpoint.Policy, "Endpoint policy update skipped because no changes were needed")
-				} else if regen {
-					// Regenerate logs status according to the build success/failure
-					<-ep.Regenerate(owner, "endpoint policy updated & changes were needed")
-				} // else policy changed, but can't regenerate => do not change status
+			if regen {
+				// Regenerate logs status according to the build success/failure
+				ep.Regenerate(owner, "endpoint policy updated & changes were needed")
 			}
 			wg.Done()
 		}(ep, &wg)
