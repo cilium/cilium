@@ -467,6 +467,10 @@ type Endpoint struct {
 	// All fields within the PolicyKey and the proxy port must be in host byte-order.
 	desiredMapState PolicyMapState
 
+	// ctCleaned indicates whether the conntrack table has already been
+	// cleaned when this endpoint was first created
+	ctCleaned bool
+
 	///////////////////////
 	// DEPRECATED FIELDS //
 	///////////////////////
@@ -1786,12 +1790,7 @@ func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup
 	e.controllers.RemoveAll()
 	e.cleanPolicySignals()
 
-	e.GarbageCollectConntrack(&ctmap.GCFilter{
-		MatchIPs: map[string]struct{}{
-			e.IPv4.String(): {},
-			e.IPv6.String(): {},
-		},
-	})
+	e.scrubIPsInConntrackTableLocked()
 
 	e.SetStateLocked(StateDisconnected, "Endpoint removed")
 
@@ -2704,9 +2703,9 @@ func (e *Endpoint) LogDisconnectedMutexAction(err error, context string) {
 	e.mutex.Unlock()
 }
 
-// garbageCollectConntrack is usd by GarbageCollectConntrack and should not be
+// doGarbageCollectConntrack is usd by garbageCollectConntrack and should not be
 // called directly.
-func (e *Endpoint) garbageCollectConntrack(isIPv6 bool, filter *ctmap.GCFilter) {
+func (e *Endpoint) doGarbageCollectConntrack(isIPv6 bool, filter *ctmap.GCFilter) {
 	var file, mapType string
 
 	if e.Options != nil && e.Options.IsEnabled(option.ConntrackLocal) {
@@ -2725,14 +2724,29 @@ func (e *Endpoint) garbageCollectConntrack(isIPv6 bool, filter *ctmap.GCFilter) 
 	ctmap.GC(m, mapType, filter)
 }
 
-// GarbageCollectConntrack will run the ctmap.GC() on either the endpoint's
+// garbageCollectConntrack will run the ctmap.GC() on either the endpoint's
 // local conntrack table or the global conntrack table.
 //
 // The endponit lock must be held
-func (e *Endpoint) GarbageCollectConntrack(filter *ctmap.GCFilter) {
+func (e *Endpoint) garbageCollectConntrack(filter *ctmap.GCFilter) {
 	if !option.Config.IPv4Disabled {
-		e.garbageCollectConntrack(false, filter)
+		e.doGarbageCollectConntrack(false, filter)
 	}
 
-	e.garbageCollectConntrack(true, filter)
+	e.doGarbageCollectConntrack(true, filter)
+}
+
+func (e *Endpoint) scrubIPsInConntrackTableLocked() {
+	e.garbageCollectConntrack(&ctmap.GCFilter{
+		MatchIPs: map[string]struct{}{
+			e.IPv4.String(): {},
+			e.IPv6.String(): {},
+		},
+	})
+}
+
+func (e *Endpoint) scrubIPsInConntrackTable() {
+	e.UnconditionalLock()
+	e.scrubIPsInConntrackTableLocked()
+	e.Unlock()
 }
