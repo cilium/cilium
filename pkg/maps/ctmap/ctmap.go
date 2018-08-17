@@ -189,6 +189,9 @@ type GCFilter struct {
 	// source or destination IP is *not* matching one of the valid IPs.
 	// The key is the IP in string form: net.IP.String()
 	ValidIPs map[string]struct{}
+
+	// MatchIPs is the list of IPs to remove from the conntrack table
+	MatchIPs map[string]struct{}
 }
 
 // ToString iterates through Map m and writes the values of the ct entries in m
@@ -535,6 +538,14 @@ func (f *GCFilter) doFiltering(srcIP net.IP, dstIP net.IP, dstPort uint16, nextH
 		_, srcIPExists := f.ValidIPs[srcIP.String()]
 		_, dstIPExists := f.ValidIPs[dstIP.String()]
 		if !srcIPExists && !dstIPExists {
+			return deleteEntry
+		}
+	}
+
+	if f.MatchIPs != nil {
+		_, srcIPExists := f.MatchIPs[srcIP.String()]
+		_, dstIPExists := f.MatchIPs[dstIP.String()]
+		if srcIPExists || dstIPExists {
 			return deleteEntry
 		}
 	}
