@@ -1427,3 +1427,52 @@ func (s *K8sSuite) TestCIDRPolicyExamples(c *C) {
 	c.Assert(len(rules[0].Egress), Equals, 1)
 
 }
+
+func getSelectorPointer(sel api.EndpointSelector) *api.EndpointSelector {
+	return &sel
+}
+
+func Test_parseNetworkPolicyPeer(t *testing.T) {
+	type args struct {
+		namespace string
+		peer      *networkingv1.NetworkPolicyPeer
+	}
+	tests := []struct {
+		name string
+		args args
+		want *api.EndpointSelector
+	}{
+		{
+			name: "peer-with-allow-all-ns-selector",
+			args: args{
+				namespace: "foo-namespace",
+				peer: &networkingv1.NetworkPolicyPeer{
+					NamespaceSelector: &metav1.LabelSelector{},
+				},
+			},
+			want: getSelectorPointer(
+				api.EndpointSelector{
+					LabelSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{},
+						MatchExpressions: []metav1.LabelSelectorRequirement{
+							{
+								Key:      fmt.Sprintf("%s.%s", labels.LabelSourceK8s, k8sConst.PodNamespaceLabel),
+								Operator: metav1.LabelSelectorOpExists,
+							},
+						},
+					},
+				},
+			),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := parseNetworkPolicyPeer(tt.args.namespace, tt.args.peer)
+			args := []interface{}{got, tt.want}
+			names := []string{"obtained", "expected"}
+			if equal, err := comparator.DeepEquals.Check(args, names); !equal {
+				t.Errorf("Failed to parseNetworkPolicyPeer():\n%s", err)
+			}
+		})
+	}
+}
