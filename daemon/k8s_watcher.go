@@ -21,6 +21,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/pkg/annotation"
@@ -257,6 +258,24 @@ func k8sErrorHandler(e error) {
 	}
 }
 
+// blockWaitGroupToSyncResources ensures that anything which waits on waitGroup
+// waits until all objects of the specified resource stored in Kubernetes are
+// received by informer. Fatally exits if syncing these initial objects fails.
+func blockWaitGroupToSyncResources(waitGroup *sync.WaitGroup, informer cache.Controller, resourceName string) {
+	waitGroup.Add(1)
+	go func() {
+		completed := make(<-chan struct{})
+		scopedLog := log.WithField("kubernetesResource", resourceName)
+		scopedLog.Debug("waiting for cache to synchronize")
+		if ok := cache.WaitForCacheSync(completed, informer.HasSynced); !ok {
+			// Fatally exit it resource fails to sync
+			scopedLog.Fatalf("failed to wait for cache to sync")
+		}
+		scopedLog.Debug("cache synced")
+		waitGroup.Done()
+	}()
+}
+
 // EnableK8sWatcher watches for policy, services and endpoint changes on the Kubernetes
 // api server defined in the receiver's daemon k8sClient. Re-syncs all state from the
 // Kubernetes api server at the given reSyncPeriod duration.
@@ -346,18 +365,8 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 				},
 			},
 		)
-		d.k8sResourceSyncWaitGroup.Add(1)
+		blockWaitGroupToSyncResources(&d.k8sResourceSyncWaitGroup, policyController, "NetworkPolicy")
 		go policyController.Run(wait.NeverStop)
-		go func() {
-			completed := make(<-chan struct{})
-			log.Debug("waiting for cache to synchronize for NetworkPolicies")
-			if ok := cache.WaitForCacheSync(completed, policyController.HasSynced); !ok {
-				// If we can't get NetworkPolicies for K8s, fatally exit.
-				log.Fatalf("failed to wait for cache to sync for NetworkPolicies")
-			}
-			log.Debug("caches synced for NetworkPolicies")
-			d.k8sResourceSyncWaitGroup.Done()
-		}()
 
 		d.k8sAPIGroups.addAPI(k8sAPIGroupNetworkingV1Core)
 	}
@@ -399,6 +408,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 			},
 		},
 	)
+	blockWaitGroupToSyncResources(&d.k8sResourceSyncWaitGroup, svcController, "Service")
 	go svcController.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupServiceV1Core)
 
@@ -439,6 +449,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 			},
 		},
 	)
+	blockWaitGroupToSyncResources(&d.k8sResourceSyncWaitGroup, endpointController, "Endpoint")
 	go endpointController.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupEndpointV1Core)
 
@@ -480,6 +491,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 				},
 			},
 		)
+		blockWaitGroupToSyncResources(&d.k8sResourceSyncWaitGroup, ingressController, "Ingress")
 		go ingressController.Run(wait.NeverStop)
 		d.k8sAPIGroups.addAPI(k8sAPIGroupIngressV1Beta1)
 	}
@@ -521,18 +533,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 				}
 			},
 		})
-
-		d.k8sResourceSyncWaitGroup.Add(1)
-		go func() {
-			completed := make(<-chan struct{})
-			log.Debug("waiting for cache to synchronize for CiliumNetworkPolicies")
-			if ok := cache.WaitForCacheSync(completed, ciliumV2Controller.HasSynced); !ok {
-				// If we can't get CiliumNetworkPolicies for K8s, fatally exit.
-				log.Fatalf("failed to wait for cache to sync for CiliumNetworkPolicies")
-			}
-			log.Debug("caches synced for CiliumNetworkPolicies")
-			d.k8sResourceSyncWaitGroup.Done()
-		}()
+		blockWaitGroupToSyncResources(&d.k8sResourceSyncWaitGroup, ciliumV2Controller, "CiliumNetworkPolicy")
 	}
 
 	si.Start(wait.NeverStop)
