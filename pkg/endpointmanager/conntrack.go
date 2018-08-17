@@ -65,15 +65,16 @@ func runGC(e *endpoint.Endpoint, isIPv6 bool, filter *ctmap.GCFilter) {
 
 	if deleted > 0 {
 		log.WithFields(logrus.Fields{
-			logfields.Path:  file,
-			"ctFilter.type": filter.TypeString(),
-			"count":         deleted,
+			logfields.Path: file,
+			"count":        deleted,
 		}).Debug("Deleted filtered entries from map")
 	}
 }
 
 func createGCFilter(ipv6, initialScan bool, restoredEndpoints []*endpoint.Endpoint) *ctmap.GCFilter {
-	filter := ctmap.NewGCFilterBy(ctmap.GCFilterByTime)
+	filter := &ctmap.GCFilter{
+		RemoveExpired: true,
+	}
 
 	// On the initial scan, scrub all IPs from the conntrack table which do
 	// not belong to IPs of any endpoint that has been restored. No new
@@ -121,10 +122,10 @@ func EnableConntrackGC(ipv4, ipv6 bool, gcinterval int, restoredEndpoints []*end
 					continue
 				}
 				if ipv6 {
-					runGC(e, true, ctmap.NewGCFilterBy(ctmap.GCFilterByTime))
+					runGC(e, true, &ctmap.GCFilter{RemoveExpired: true})
 				}
 				if ipv4 {
-					runGC(e, false, ctmap.NewGCFilterBy(ctmap.GCFilterByTime))
+					runGC(e, false, &ctmap.GCFilter{RemoveExpired: true})
 				}
 			}
 

@@ -173,48 +173,22 @@ type CtEntryDump struct {
 	Value CtEntry
 }
 
-const (
-	// GCFilterNone doesn't filter the CT entries
-	GCFilterNone = iota
-	// GCFilterByTime filters CT entries by time
-	GCFilterByTime
-)
-
-// GCFilterType is the type of a filter.
-type GCFilterType uint
-
 // GCFilter contains the necessary fields to filter the CT maps.
 // Filtering by endpoint requires both EndpointID to be > 0 and
 // EndpointIP to be not nil.
 type GCFilter struct {
-	Type       GCFilterType
-	Time       uint32
-	EndpointID uint16
-	EndpointIP net.IP
+	// RemoveExpired enables removal of all entries that have expired
+	RemoveExpired bool
+
+	// Time is the reference timestamp to reomove expired entries. If
+	// RemoveExpired is true and lifetime is lesser than Time, the entry is
+	// removed
+	Time uint32
 
 	// ValidIPs is the list of valid IPs to scrub all entries for which the
 	// source or destination IP is *not* matching one of the valid IPs.
 	// The key is the IP in string form: net.IP.String()
 	ValidIPs map[string]struct{}
-}
-
-// NewGCFilterBy creates a new GCFilter of the given type.
-func NewGCFilterBy(filterType GCFilterType) *GCFilter {
-	return &GCFilter{
-		Type: filterType,
-	}
-}
-
-// TypeString returns the filter type in human readable way.
-func (f *GCFilter) TypeString() string {
-	switch f.Type {
-	case GCFilterNone:
-		return "none"
-	case GCFilterByTime:
-		return "timeout"
-	default:
-		return "(unknown)"
-	}
 }
 
 // ToString iterates through Map m and writes the values of the ct entries in m
@@ -553,8 +527,7 @@ func doGC4(m *bpf.Map, filter *GCFilter) gcStats {
 }
 
 func (f *GCFilter) doFiltering(srcIP net.IP, dstIP net.IP, dstPort uint16, nextHdr, flags uint8, entry *CtEntry) (action int) {
-	// Delete all entries with a lifetime smaller than f timestamp.
-	if f.Type == GCFilterByTime && entry.lifetime < f.Time {
+	if f.RemoveExpired && entry.lifetime < f.Time {
 		return deleteEntry
 	}
 
@@ -585,7 +558,7 @@ func doGC(m *bpf.Map, mapType string, filter *GCFilter) int {
 // GC runs garbage collection for map m with name mapType with the given filter.
 // It returns how many items were deleted from m.
 func GC(m *bpf.Map, mapType string, filter *GCFilter) int {
-	if filter.Type == GCFilterByTime {
+	if filter.RemoveExpired {
 		// If LRUHashtable, no need to garbage collect as LRUHashtable cleans itself up.
 		// FIXME: GH-3239 LRU logic is not handling timeouts gracefully enough
 		// if m.MapInfo.MapType == bpf.MapTypeLRUHash {
@@ -602,10 +575,10 @@ func GC(m *bpf.Map, mapType string, filter *GCFilter) int {
 // Flush runs garbage collection for map m with the name mapType, deleting all
 // entries. The specified map must be already opened using bpf.OpenMap().
 func Flush(m *bpf.Map, mapType string) int {
-	filter := NewGCFilterBy(GCFilterByTime)
-	filter.Time = MaxTime
-
-	return doGC(m, mapType, filter)
+	return doGC(m, mapType, &GCFilter{
+		RemoveExpired: true,
+		Time:          MaxTime,
+	})
 }
 
 // checkAndUpgrade determines whether the ctmap on the filesystem has different
