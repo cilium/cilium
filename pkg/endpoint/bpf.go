@@ -109,11 +109,11 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 		e.logStatusLocked(BPF, Warning, fmt.Sprintf("Unable to create a base64: %s", err))
 	}
 
-	if e.DockerID == "" {
+	if e.ContainerID == "" {
 		fmt.Fprintf(fw, " * Docker Network ID: %s\n", e.DockerNetworkID)
 		fmt.Fprintf(fw, " * Docker Endpoint ID: %s\n", e.DockerEndpointID)
 	} else {
-		fmt.Fprintf(fw, " * Docker Container ID: %s\n", e.DockerID)
+		fmt.Fprintf(fw, " * Container ID: %s\n", e.ContainerID)
 	}
 
 	fmt.Fprintf(fw, ""+

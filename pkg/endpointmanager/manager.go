@@ -158,8 +158,8 @@ func Remove(ep *endpoint.Endpoint) {
 	defer mutex.Unlock()
 	delete(endpoints, ep.ID)
 
-	if ep.DockerID != "" {
-		delete(endpointsAux, endpointid.NewID(endpointid.ContainerIdPrefix, ep.DockerID))
+	if ep.ContainerID != "" {
+		delete(endpointsAux, endpointid.NewID(endpointid.ContainerIdPrefix, ep.ContainerID))
 	}
 
 	if ep.DockerEndpointID != "" {
@@ -231,13 +231,13 @@ func lookupDockerID(id string) *endpoint.Endpoint {
 }
 
 func linkContainerID(ep *endpoint.Endpoint) {
-	endpointsAux[endpointid.NewID(endpointid.ContainerIdPrefix, ep.DockerID)] = ep
+	endpointsAux[endpointid.NewID(endpointid.ContainerIdPrefix, ep.ContainerID)] = ep
 }
 
 // UpdateReferences updates the mappings of various values to their corresponding
-// endpoints, such as DockerID, Docker Container Name, Pod Name, etc.
+// endpoints, such as ContainerID, Docker Container Name, Pod Name, etc.
 func updateReferences(ep *endpoint.Endpoint) {
-	if ep.DockerID != "" {
+	if ep.ContainerID != "" {
 		linkContainerID(ep)
 	}
 
