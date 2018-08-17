@@ -32,7 +32,7 @@ func (ds *PolicyTestSuite) TestAddSearchDelete(c *C) {
 	// cannot add empty rule
 	rev, err := repo.Add(api.Rule{})
 	c.Assert(err, Not(IsNil))
-	c.Assert(rev, Equals, uint64(0))
+	c.Assert(rev, Equals, uint64(1))
 
 	lbls1 := labels.LabelArray{
 		labels.ParseLabel("tag1"),
@@ -52,7 +52,7 @@ func (ds *PolicyTestSuite) TestAddSearchDelete(c *C) {
 		Labels:           lbls2,
 	}
 
-	nextRevision := uint64(0)
+	nextRevision := uint64(1)
 
 	c.Assert(repo.GetRevision(), Equals, nextRevision)
 	nextRevision++
