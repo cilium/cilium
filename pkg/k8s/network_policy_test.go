@@ -1566,6 +1566,26 @@ func Test_parseNetworkPolicyPeer(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "peer-with-allow-all-ns-selector",
+			args: args{
+				namespace: "foo-namespace",
+				peer: &networkingv1.NetworkPolicyPeer{
+					NamespaceSelector: &metav1.LabelSelector{},
+				},
+			},
+			want: &api.EndpointSelector{
+				LabelSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{},
+					MatchExpressions: []metav1.LabelSelectorRequirement{
+						{
+							Key:      fmt.Sprintf("%s.%s", labels.LabelSourceK8s, k8sConst.PodNamespaceLabel),
+							Operator: metav1.LabelSelectorOpExists,
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
