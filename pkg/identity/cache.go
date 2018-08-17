@@ -22,12 +22,10 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/allocator"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/trigger"
 )
 
 var (
-	mutex                 lock.RWMutex
 	reservedIdentityCache = map[NumericIdentity]*Identity{}
 )
 
@@ -151,8 +149,6 @@ func LookupReservedIdentityByLabels(lbls labels.Labels) *Identity {
 // LookupReservedIdentity looks up a reserved identity by its NumericIdentity
 // and returns it if found. Returns nil if not found.
 func LookupReservedIdentity(ni NumericIdentity) *Identity {
-	mutex.RLock()
-	defer mutex.RUnlock()
 	return reservedIdentityCache[ni]
 }
 
@@ -191,25 +187,22 @@ func AddReservedIdentity(ni NumericIdentity, lbl string) {
 	identity := NewIdentity(ni, labels.Labels{lbl: labels.NewLabel(lbl, "", labels.LabelSourceReserved)})
 	// Pre-calculate the SHA256 hash.
 	identity.GetLabelsSHA256()
-	mutex.Lock()
 	reservedIdentityCache[ni] = identity
-	mutex.Unlock()
 }
 
 func init() {
-	mutex.Lock()
 	IterateReservedIdentities(func(lbl string, ni NumericIdentity) {
 		identity := NewIdentity(ni, labels.Labels{lbl: labels.NewLabel(lbl, "", labels.LabelSourceReserved)})
 		// Pre-calculate the SHA256 hash.
 		identity.GetLabelsSHA256()
 		reservedIdentityCache[ni] = identity
 	})
-	mutex.Unlock()
 }
 
 // AddUserDefinedNumericIdentitySet adds all key-value pairs from the given map
 // to the map of user defined numeric identities and reserved identities.
 // The key-value pairs should map a numeric identity to a valid label.
+// Is not safe for concurrent use.
 func AddUserDefinedNumericIdentitySet(m map[string]string) error {
 	// Validate first
 	for k := range m {
