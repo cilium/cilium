@@ -270,11 +270,7 @@ func (e *Endpoint) runInit(libdir, rundir, epdir, ifName, debug string) error {
 	args := []string{libdir, rundir, epdir, ifName, debug, e.StringID()}
 	prog := filepath.Join(libdir, "join_ep.sh")
 
-	if err := e.RLockAlive(); err != nil {
-		return err
-	}
-	scopedLog := e.getLogger() // must be called with e.Mutex held
-	e.RUnlock()
+	scopedLog := e.getLogger()
 
 	ctx, cancel := context.WithTimeout(context.Background(), ExecTimeout)
 	defer cancel()
@@ -533,16 +529,16 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 
 	defer func() {
 		if reterr != nil {
-			e.UnconditionalLock()
 			epLogger := e.getLogger()
 			epLogger.WithError(err).Error("destroying BPF maps due to" +
 				" errors during regeneration")
 			if createdPolicyMap {
+				e.UnconditionalLock()
 				epLogger.Debug("removing endpoint PolicyMap")
 				os.RemoveAll(e.PolicyMapPathLocked())
 				e.PolicyMap = nil
+				e.Unlock()
 			}
-			e.Unlock()
 		}
 	}()
 

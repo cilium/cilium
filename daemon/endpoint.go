@@ -436,6 +436,7 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 		}
 	}
 
+	ep.UpdateLogger(nil)
 	ep.Unlock()
 
 	if reason != "" {
