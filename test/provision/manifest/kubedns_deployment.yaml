@@ -105,6 +105,9 @@ spec:
         - containerPort: 10055
           name: metrics
           protocol: TCP
+        resources:
+          limits:
+            cpu: 500m
         readinessProbe:
           failureThreshold: 3
           httpGet:
@@ -152,6 +155,9 @@ spec:
         - containerPort: 53
           name: dns-tcp
           protocol: TCP
+        resources:
+          limits:
+            cpu: 500m
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
         volumeMounts:
@@ -179,6 +185,9 @@ spec:
         - containerPort: 10054
           name: metrics
           protocol: TCP
+        resources:
+          limits:
+            cpu: 200m
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
       dnsPolicy: Default
