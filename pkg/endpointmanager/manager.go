@@ -375,6 +375,9 @@ func WaitForEndpointsAtPolicyRev(ctx context.Context, rev uint64) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-eps[i].WaitForPolicyRevision(ctx, rev):
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
 		}
 	}
 	return nil
