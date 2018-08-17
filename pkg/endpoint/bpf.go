@@ -541,6 +541,8 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 
 	buildStart := time.Now()
 
+	ctCleaned := make(chan struct{})
+
 	e.Mutex.Lock()
 
 	e.getLogger().WithField(logfields.StartTime, time.Now()).Info("Regenerating BPF program")
@@ -550,6 +552,18 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 			Info("Regeneration of BPF program has completed")
 		e.Mutex.RUnlock()
 	}()
+
+	// In the first ever regeneration of the endpoint, the conntrack table
+	// is cleaned from the new endpoint IPs as it is guaranteed that any
+	// pre-existing connections using that IP are now invalid.
+	if !e.ctCleaned {
+		go func() {
+			e.scrubIPsInConntrackTable()
+			close(ctCleaned)
+		}()
+	} else {
+		close(ctCleaned)
+	}
 
 	// If endpoint was marked as disconnected then
 	// it won't be regenerated.
@@ -792,6 +806,10 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 	if err != nil {
 		return 0, compilationExecuted, fmt.Errorf("Error while deleting obsolete proxy redirects: %s", err)
 	}
+
+	// Wait for connection tracking cleaning to be complete
+	<-ctCleaned
+	e.ctCleaned = true
 
 	// The last operation hooks the endpoint into the endpoint table and exposes it
 	err = lxcmap.WriteEndpoint(epInfoCache)
