@@ -489,19 +489,13 @@ func (e *Endpoint) WaitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 
 	start := time.Now()
 
-	if err := e.RLockAlive(); err != nil {
-		return err
-	}
-	logger := e.getLogger()
-	e.RUnlock()
-
-	logger.Debug("Waiting for proxy updates to complete...")
+	e.getLogger().Debug("Waiting for proxy updates to complete...")
 
 	err = proxyWaitGroup.Wait()
 	if err != nil {
 		return fmt.Errorf("proxy state changes failed: %s", err)
 	}
-	logger.Debug("Wait time for proxy updates: ", time.Since(start))
+	e.getLogger().Debug("Wait time for proxy updates: ", time.Since(start))
 
 	return nil
 }
@@ -560,11 +554,9 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 		controller.ControllerParams{
 			RunInterval: 10 * time.Second,
 			DoFunc: func() (err error) {
-				e.UnconditionalLock()
 				// Update logger as scopeLog might not have the podName when it
 				// was created.
 				scopedLog = e.getLogger().WithField("controller", controllerName)
-				e.Unlock()
 
 				podName := e.GetK8sPodName()
 				if podName == "" {
@@ -665,12 +657,14 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 
 // NewEndpointWithState creates a new endpoint useful for testing purposes
 func NewEndpointWithState(ID uint16, state string) *Endpoint {
-	return &Endpoint{
+	ep := &Endpoint{
 		ID:      ID,
 		Options: option.NewIntOptions(&EndpointMutableOptionLibrary),
 		Status:  NewEndpointStatus(),
 		state:   state,
 	}
+	ep.UpdateLogger(nil)
+	return ep
 }
 
 // NewEndpointFromChangeModel creates a new endpoint from a request
@@ -696,6 +690,7 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, 
 		state:  "",
 		Status: NewEndpointStatus(),
 	}
+	ep.UpdateLogger(nil)
 
 	ep.SetStateLocked(string(base.State), "Endpoint creation")
 	if base.Mac != "" {
@@ -1270,7 +1265,12 @@ func optionChanged(key string, value int, data interface{}) {
 // applyOptsLocked applies the given options to the endpoint's options and
 // returns true if there were any options changed.
 func (e *Endpoint) applyOptsLocked(opts map[string]string) bool {
-	return e.Options.ApplyValidated(opts, optionChanged, e) > 0
+	changed := e.Options.ApplyValidated(opts, optionChanged, e) > 0
+	_, exists := opts[option.Debug]
+	if exists && changed {
+		e.UpdateLogger(nil)
+	}
+	return changed
 }
 
 // ForcePolicyCompute marks the endpoint for forced bpf regeneration.
@@ -1292,6 +1292,7 @@ func (e *Endpoint) SetDefaultOpts(opts *option.IntOptions) {
 			e.Options.SetValidated(k, opts.GetValue(k))
 		}
 	}
+	e.UpdateLogger(nil)
 }
 
 // ConntrackLocal determines whether this endpoint is currently using a local
@@ -1401,6 +1402,8 @@ func ParseEndpoint(strEp string) (*Endpoint, error) {
 	if ep.Status == nil || ep.Status.CurrentStatuses == nil || ep.Status.Log == nil {
 		ep.Status = NewEndpointStatus()
 	}
+
+	ep.UpdateLogger(nil)
 
 	ep.SetStateLocked(StateRestoring, "Endpoint restoring")
 
@@ -1650,11 +1653,7 @@ func (e *Endpoint) Update(owner Owner, cfg *models.EndpointConfigurationSpec) er
 				}
 				e.Unlock()
 			case <-timeout:
-				if err = e.LockAlive(); err != nil {
-					return err
-				}
 				e.getLogger().Warningf("timed out waiting for endpoint state to change")
-				e.Unlock()
 				return UpdateStateChangeError{fmt.Sprintf("unable to regenerate endpoint program because state transition to %s was unsuccessful; check `cilium endpoint log %d` for more information", StateWaitingToRegenerate, e.ID)}
 			}
 		}
@@ -1846,15 +1845,18 @@ func (e *Endpoint) SetContainerName(name string) {
 // Kubernetes pod
 func (e *Endpoint) GetK8sNamespace() string {
 	e.UnconditionalRLock()
-	defer e.RUnlock()
-
-	return e.k8sNamespace
+	ns := e.k8sNamespace
+	e.RUnlock()
+	return ns
 }
 
 // SetK8sNamespace modifies the endpoint's pod name
 func (e *Endpoint) SetK8sNamespace(name string) {
 	e.UnconditionalLock()
 	e.k8sNamespace = name
+	e.UpdateLogger(map[string]interface{}{
+		logfields.K8sPodName: e.GetK8sNamespaceAndPodNameLocked(),
+	})
 	e.Unlock()
 }
 
@@ -1862,9 +1864,10 @@ func (e *Endpoint) SetK8sNamespace(name string) {
 // Kubernetes pod
 func (e *Endpoint) GetK8sPodName() string {
 	e.UnconditionalRLock()
-	defer e.RUnlock()
+	k8sPodName := e.k8sPodName
+	e.RUnlock()
 
-	return e.k8sPodName
+	return k8sPodName
 }
 
 // GetK8sNamespaceAndPodNameLocked returns the namespace and pod name.  This
@@ -1877,6 +1880,9 @@ func (e *Endpoint) GetK8sNamespaceAndPodNameLocked() string {
 func (e *Endpoint) SetK8sPodName(name string) {
 	e.UnconditionalLock()
 	e.k8sPodName = name
+	e.UpdateLogger(map[string]interface{}{
+		logfields.K8sPodName: e.GetK8sNamespaceAndPodNameLocked(),
+	})
 	e.Unlock()
 }
 
@@ -1884,15 +1890,18 @@ func (e *Endpoint) SetK8sPodName(name string) {
 func (e *Endpoint) SetContainerID(id string) {
 	e.UnconditionalLock()
 	e.ContainerID = id
+	e.UpdateLogger(map[string]interface{}{
+		logfields.ContainerID: e.getShortContainerID(),
+	})
 	e.Unlock()
 }
 
 // GetContainerID returns the endpoint's container ID
 func (e *Endpoint) GetContainerID() string {
 	e.UnconditionalRLock()
-	defer e.RUnlock()
-
-	return e.ContainerID
+	cID := e.ContainerID
+	e.RUnlock()
+	return cID
 }
 
 // GetShortContainerID returns the endpoint's shortened container ID
@@ -2455,6 +2464,9 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 // setPolicyRevision sets the policy wantedRev with the given revision.
 func (e *Endpoint) setPolicyRevision(rev uint64) {
 	e.policyRevision = rev
+	e.UpdateLogger(map[string]interface{}{
+		logfields.PolicyRevision: e.policyRevision,
+	})
 	for ps := range e.policyRevisionSignals {
 		select {
 		case <-ps.ctx.Done():
@@ -2525,7 +2537,7 @@ func (e *Endpoint) IPs() []net.IP {
 }
 
 // InsertEvent is called when the endpoint is inserted into the endpoint
-// manager. The endpoint must be read locked.
+// manager.
 func (e *Endpoint) InsertEvent() {
 	e.getLogger().Info("New endpoint")
 }
