@@ -537,12 +537,12 @@ var _ = Describe("K8sPolicyTest", func() {
 			By("Testing connectivity with ingress default-allow policy loaded")
 			res := kubectl.ExecPodCmd(
 				helpers.DefaultNamespace, appPods[helpers.App2],
-				helpers.CurlWithHTTPCode("http://%s/public", clusterIP))
+				helpers.CurlFail("http://%s/public", clusterIP))
 			res.ExpectSuccess("Ingress connectivity should be allowed by policy")
 
 			res = kubectl.ExecPodCmd(
 				helpers.DefaultNamespace, appPods[helpers.App3],
-				helpers.CurlWithHTTPCode("http://%s/public", clusterIP))
+				helpers.CurlFail("http://%s/public", clusterIP))
 			res.ExpectSuccess("Ingress connectivity should be allowed by policy")
 		})
 
@@ -570,7 +570,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			for _, pod := range []string{appPods[helpers.App2], appPods[helpers.App3]} {
 				res := kubectl.ExecPodCmd(
 					helpers.DefaultNamespace, pod,
-					helpers.CurlWithHTTPCode("http://www.google.com/"))
+					helpers.CurlFail("http://www.google.com/"))
 				res.ExpectSuccess("Egress connectivity should be allowed for pod %q", pod)
 
 				res = kubectl.ExecPodCmd(

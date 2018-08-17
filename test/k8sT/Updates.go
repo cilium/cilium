@@ -155,8 +155,8 @@ func ValidateCiliumUpgrades(kubectl *helpers.Kubectl) (func(), func()) {
 
 		res = kubectl.ExecPodCmd(
 			helpers.DefaultNamespace, appPods[helpers.App2],
-			helpers.CurlWithHTTPCode("http://%s/private", app1Service))
-		res.ExpectContains("403", "Expect 403 in the result")
+			helpers.CurlFail("http://%s/private", app1Service))
+		res.ExpectFail("Expect a 403 from app1-service")
 
 		By("Updating cilium to master image")
 
@@ -216,8 +216,9 @@ func ValidateCiliumUpgrades(kubectl *helpers.Kubectl) (func(), func()) {
 
 		res = kubectl.ExecPodCmd(
 			helpers.DefaultNamespace, appPods[helpers.App2],
-			helpers.CurlWithHTTPCode("http://%s/private", app1Service))
-		res.ExpectContains("403", "Expect 403 in the result")
+			helpers.CurlFail("http://%s/private", app1Service))
+		res.ExpectFail("Expect a 403 from app1-service")
+
 	}
 	return testfunc, cleanupCallback
 }
