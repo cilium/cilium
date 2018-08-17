@@ -827,16 +827,16 @@ func runDaemon() {
 	cachesSynced := make(chan struct{})
 
 	go func() {
-		log.Info("Waiting until all pre-existing policies have been received")
+		log.Info("Waiting until all pre-existing resources related to policy have been received")
 		d.k8sResourceSyncWaitGroup.Wait()
 		cachesSynced <- struct{}{}
 	}()
 
 	select {
 	case <-cachesSynced:
-		log.Info("All pre-existing policies have been received; continuing")
+		log.Info("All pre-existing resources related to policy have been received; continuing")
 	case <-time.After(cacheSyncTimeout):
-		log.Fatalf("Timed out waiting for pre-existing policies to be received; exiting")
+		log.Fatalf("Timed out waiting for pre-existing resources related to policy to be received; exiting")
 	}
 
 	if option.Config.RestoreState {
