@@ -745,14 +745,16 @@ func runCiliumHealthEndpoint(d *Daemon) error {
 
 func runDaemon() {
 	log.Info("Initializing daemon")
-	d, _, err := NewDaemon()
+	d, restoredEndpoints, err := NewDaemon()
 	if err != nil {
 		log.WithError(err).Fatal("Error while creating daemon")
 		return
 	}
 
 	log.Info("Starting connection tracking garbage collector")
-	endpointmanager.EnableConntrackGC(!option.Config.IPv4Disabled, true)
+	endpointmanager.EnableConntrackGC(!option.Config.IPv4Disabled, true,
+		endpointmanager.GcInterval,
+		restoredEndpoints.restored)
 
 	if enableLogstash {
 		log.Info("Enabling Logstash")
