@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"time"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -26,6 +27,8 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -291,24 +294,122 @@ func dumpToSlice(m *bpf.Map, mapType string) ([]CtEntryDump, error) {
 	return entries, nil
 }
 
+type gcStats struct {
+	// started is the timestamp when the gc run was started
+	started time.Time
+
+	// finishedis the timestamp when the gc run completed
+	finished time.Time
+
+	// lookup is the number of key lookups performed
+	lookup uint32
+
+	// lookupFailed is the number of key lookups that failed
+	lookupFailed uint32
+
+	// prevKeyUnavailable is the number of times the previous key was not
+	// available
+	prevKeyUnavailable uint32
+
+	// deleted is the number of keys deleted
+	deleted uint32
+
+	// keyFallback is the number of times the current key became invalid
+	// while traversing and we had to fall back to the previous key
+	keyFallback uint32
+
+	// count is number of lookups performed on the map
+	count uint32
+
+	// maxEntries is the maximum number of entries in the gc table
+	maxEntries uint32
+
+	// family is the address family
+	family gcFamily
+
+	// completed is true when the gc run has been completed
+	completed bool
+
+	// interrupted is the number of times the gc run was interrupted and
+	// had to start from scratch
+	interrupted uint32
+
+	// aliveEntries is the number of scanned entries that are still alive
+	aliveEntries uint32
+}
+
+type gcFamily int
+
+const (
+	gcFamilyIPv4 = iota
+	gcFamilyIPv6
+)
+
+func (g gcFamily) String() string {
+	switch g {
+	case gcFamilyIPv4:
+		return "ipv4"
+	case gcFamilyIPv6:
+		return "ipv6"
+	default:
+		return "unknown"
+	}
+}
+
+func statStartGc(m *bpf.Map, family gcFamily) gcStats {
+	return gcStats{
+		started:    time.Now(),
+		count:      1,
+		maxEntries: m.MapInfo.MaxEntries,
+		family:     family,
+	}
+}
+
+func (s *gcStats) finish() {
+	s.finished = time.Now()
+
+	switch s.family {
+	case gcFamilyIPv6:
+		metrics.DatapathErrors.With(labelIPv6CTDumpInterrupts).Add(float64(s.interrupted))
+	case gcFamilyIPv4:
+		metrics.DatapathErrors.With(labelIPv4CTDumpInterrupts).Add(float64(s.interrupted))
+	}
+
+	if !s.completed {
+		log.WithField("interrupted", s.interrupted).Warningf(
+			"Garbage collection on IPv6 CT map failed to finish")
+	}
+
+	log.WithFields(logrus.Fields{
+		logfields.StartTime: s.started,
+		logfields.Duration:  s.finished.Sub(s.started),
+		"numDeleted":        s.deleted,
+		"numLookups":        s.count,
+		"numLookupsFailed":  s.lookupFailed,
+		"numKeyFallbacks":   s.keyFallback,
+		"completed":         s.completed,
+		"maxEntries":        s.maxEntries,
+	}).Infof("%s Conntrack garbage collection statistics", s.family)
+}
+
 // doGC6 iterates through a CTv6 map and drops entries based on the given
 // filter.
-func doGC6(m *bpf.Map, filter *GCFilter) int {
-	var (
-		action, deleted, interrupted int
-		prevKey, currentKey, nextKey CtKey6Global
-	)
+func doGC6(m *bpf.Map, filter *GCFilter) gcStats {
+	var prevKey, currentKey, nextKey CtKey6Global
+
+	stats := statStartGc(m, gcFamilyIPv6)
+	defer stats.finish()
 
 	// prevKey is initially invalid, causing GetNextKey to return the first key in the map as currentKey.
 	prevKeyValid := false
 	err := m.GetNextKey(&prevKey, &currentKey)
 	if err != nil {
 		// Map is empty, nothing to clean up.
-		return 0
+		stats.completed = true
+		return stats
 	}
 
-	var count uint32
-	for count = 1; count <= m.MapInfo.MaxEntries; count++ {
+	for stats.count = 1; stats.count <= m.MapInfo.MaxEntries; stats.count++ {
 		// currentKey was returned by GetNextKey() so we know it existed in the map, but it may have been
 		// deleted by a concurrent map operation. If currentKey is no longer in the map, nextKey will be
 		// the first key in the map again. Use the nextKey only if we still find currentKey in the Lookup()
@@ -316,6 +417,8 @@ func doGC6(m *bpf.Map, filter *GCFilter) int {
 		nextKeyValid := m.GetNextKey(&currentKey, &nextKey)
 		entryMap, err := m.Lookup(&currentKey)
 		if err != nil {
+			stats.lookupFailed++
+
 			// Restarting from a invalid key starts the iteration again from the beginning.
 			// If we have a previously found key, try to restart from there instead
 			if prevKeyValid {
@@ -323,11 +426,12 @@ func doGC6(m *bpf.Map, filter *GCFilter) int {
 				// Restart from a given previous key only once, otherwise if the prevKey is
 				// concurrently deleted we might loop forever trying to look it up.
 				prevKeyValid = false
+				stats.keyFallback++
 			} else {
 				// Depending on exactly when currentKey was deleted from the map, nextKey may be the actual
 				// keyelement after the deleted one, or the first element in the map.
 				currentKey = nextKey
-				interrupted++
+				stats.interrupted++
 			}
 			continue
 		}
@@ -337,7 +441,7 @@ func doGC6(m *bpf.Map, filter *GCFilter) int {
 		// In CT entries, the source address of the conntrack entry (`saddr`) is
 		// the destination of the packet received, therefore it's the packet's
 		// destination IP
-		action = filter.doFiltering(currentKey.daddr.IP(), currentKey.saddr.IP(), currentKey.sport,
+		action := filter.doFiltering(currentKey.daddr.IP(), currentKey.saddr.IP(), currentKey.sport,
 			uint8(currentKey.nexthdr), currentKey.flags, entry)
 
 		switch action {
@@ -346,8 +450,10 @@ func doGC6(m *bpf.Map, filter *GCFilter) int {
 			if err != nil {
 				log.WithError(err).Errorf("Unable to delete CT entry %s", currentKey.String())
 			} else {
-				deleted++
+				stats.deleted++
 			}
+		default:
+			stats.aliveEntries++
 		}
 
 		if nextKeyValid != nil {
@@ -360,33 +466,27 @@ func doGC6(m *bpf.Map, filter *GCFilter) int {
 		currentKey = nextKey
 	}
 
-	metrics.DatapathErrors.With(labelIPv6CTDumpInterrupts).Add(float64(interrupted))
-	if count > m.MapInfo.MaxEntries {
-		log.WithError(err).WithField("interrupted", interrupted).Warning(
-			"Garbage collection on IPv6 CT map failed to finish")
-	}
-
-	return deleted
+	return stats
 }
 
 // doGC4 iterates through a CTv4 map and drops entries based on the given
 // filter.
-func doGC4(m *bpf.Map, filter *GCFilter) int {
-	var (
-		action, deleted, interrupted int
-		prevKey, currentKey, nextKey CtKey4Global
-	)
+func doGC4(m *bpf.Map, filter *GCFilter) gcStats {
+	var prevKey, currentKey, nextKey CtKey4Global
+
+	stats := statStartGc(m, gcFamilyIPv4)
+	defer stats.finish()
 
 	// prevKey is initially invalid, causing GetNextKey to return the first key in the map as currentKey.
 	prevKeyValid := false
 	err := m.GetNextKey(&prevKey, &currentKey)
 	if err != nil {
 		// Map is empty, nothing to clean up.
-		return 0
+		stats.completed = true
+		return stats
 	}
 
-	var count uint32
-	for count = 1; count <= m.MapInfo.MaxEntries; count++ {
+	for stats.count = 1; stats.count <= m.MapInfo.MaxEntries; stats.count++ {
 		// currentKey was returned by GetNextKey() so we know it existed in the map, but it may have been
 		// deleted by a concurrent map operation. If currentKey is no longer in the map, nextKey will be
 		// the first key in the map again. Use the nextKey only if we still find currentKey in the Lookup()
@@ -394,6 +494,8 @@ func doGC4(m *bpf.Map, filter *GCFilter) int {
 		nextKeyValid := m.GetNextKey(&currentKey, &nextKey)
 		entryMap, err := m.Lookup(&currentKey)
 		if err != nil {
+			stats.lookupFailed++
+
 			// Restarting from a invalid key starts the iteration again from the beginning.
 			// If we have a previously found key, try to restart from there instead
 			if prevKeyValid {
@@ -401,11 +503,12 @@ func doGC4(m *bpf.Map, filter *GCFilter) int {
 				// Restart from a given previous key only once, otherwise if the prevKey is
 				// concurrently deleted we might loop forever trying to look it up.
 				prevKeyValid = false
+				stats.keyFallback++
 			} else {
 				// Depending on exactly when currentKey was deleted from the map, nextKey may be the actual
 				// keyelement after the deleted one, or the first element in the map.
 				currentKey = nextKey
-				interrupted++
+				stats.interrupted++
 			}
 			continue
 		}
@@ -415,7 +518,7 @@ func doGC4(m *bpf.Map, filter *GCFilter) int {
 		// In CT entries, the source address of the conntrack entry (`saddr`) is
 		// the destination of the packet received, therefore it's the packet's
 		// destination IP
-		action = filter.doFiltering(currentKey.daddr.IP(), currentKey.saddr.IP(), currentKey.sport,
+		action := filter.doFiltering(currentKey.daddr.IP(), currentKey.saddr.IP(), currentKey.sport,
 			uint8(currentKey.nexthdr), currentKey.flags, entry)
 
 		switch action {
@@ -424,11 +527,14 @@ func doGC4(m *bpf.Map, filter *GCFilter) int {
 			if err != nil {
 				log.WithError(err).Errorf("Unable to delete CT entry %s", currentKey.String())
 			} else {
-				deleted++
+				stats.deleted++
 			}
+		default:
+			stats.aliveEntries++
 		}
 
 		if nextKeyValid != nil {
+			stats.completed = true
 			break
 		}
 		// remember the last found key
@@ -438,13 +544,7 @@ func doGC4(m *bpf.Map, filter *GCFilter) int {
 		currentKey = nextKey
 	}
 
-	metrics.DatapathErrors.With(labelIPv4CTDumpInterrupts).Add(float64(interrupted))
-	if count > m.MapInfo.MaxEntries {
-		log.WithError(err).WithField("interrupted", interrupted).Warning(
-			"Garbage collection on IPv4 CT map failed to finish")
-	}
-
-	return deleted
+	return stats
 }
 
 func (f *GCFilter) doFiltering(srcIP net.IP, dstIP net.IP, dstPort uint16, nextHdr, flags uint8, entry *CtEntry) (action int) {
@@ -454,6 +554,19 @@ func (f *GCFilter) doFiltering(srcIP net.IP, dstIP net.IP, dstPort uint16, nextH
 	}
 
 	return noAction
+}
+
+func doGC(m *bpf.Map, mapType string, filter *GCFilter) int {
+	switch mapType {
+	case MapName6, MapName6Global:
+		return int(doGC6(m, filter).deleted)
+	case MapName4, MapName4Global:
+		return int(doGC4(m, filter).deleted)
+	default:
+		log.Fatalf("Unsupported ct map type: %s", mapType)
+	}
+
+	return 0
 }
 
 // GC runs garbage collection for map m with name mapType with the given filter.
@@ -470,16 +583,7 @@ func GC(m *bpf.Map, mapType string, filter *GCFilter) int {
 		filter.Time = uint32(tsec)
 	}
 
-	switch mapType {
-	case MapName6, MapName6Global:
-		return doGC6(m, filter)
-	case MapName4, MapName4Global:
-		return doGC4(m, filter)
-	default:
-		log.Fatalf("Unsupported ct map type: %s", mapType)
-	}
-
-	return 0
+	return doGC(m, mapType, filter)
 }
 
 // Flush runs garbage collection for map m with the name mapType, deleting all
@@ -488,16 +592,7 @@ func Flush(m *bpf.Map, mapType string) int {
 	filter := NewGCFilterBy(GCFilterByTime)
 	filter.Time = MaxTime
 
-	switch mapType {
-	case MapName6, MapName6Global:
-		return doGC6(m, filter)
-	case MapName4, MapName4Global:
-		return doGC4(m, filter)
-	default:
-		log.Fatalf("Unsupported ct map type: %s", mapType)
-	}
-
-	return 0
+	return doGC(m, mapType, filter)
 }
 
 // checkAndUpgrade determines whether the ctmap on the filesystem has different
