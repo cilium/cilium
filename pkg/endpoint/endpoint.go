@@ -1748,6 +1748,13 @@ func (e *Endpoint) LeaveLocked(owner Owner) []error {
 	e.controllers.RemoveAll()
 	e.cleanPolicySignals()
 
+	e.GarbageCollectConntrack(&ctmap.GCFilter{
+		MatchIPs: map[string]struct{}{
+			e.IPv4.String(): {},
+			e.IPv6.String(): {},
+		},
+	})
+
 	e.SetStateLocked(StateDisconnected, "Endpoint removed")
 
 	e.getLogger().Info("Removed endpoint")
@@ -2553,4 +2560,37 @@ func (e *Endpoint) syncPolicyMapController() {
 			RunInterval: 1 * time.Minute,
 		},
 	)
+}
+
+// garbageCollectConntrack is usd by GarbageCollectConntrack and should not be
+// called directly.
+func (e *Endpoint) garbageCollectConntrack(isIPv6 bool, filter *ctmap.GCFilter) {
+	var file, mapType string
+
+	if e.Opts != nil && e.Opts.IsEnabled(option.ConntrackLocal) {
+		mapType, file = ctmap.GetMapTypeAndPath(e, isIPv6)
+	} else {
+		mapType, file = ctmap.GetMapTypeAndPath(nil, isIPv6)
+	}
+
+	m, err := bpf.OpenMap(file)
+	if err != nil {
+		log.WithError(err).WithField(logfields.Path, file).Warn("Unable to open map")
+		return
+	}
+	defer m.Close()
+
+	ctmap.GC(m, mapType, filter)
+}
+
+// GarbageCollectConntrack will run the ctmap.GC() on either the endpoint's
+// local conntrack table or the global conntrack table.
+//
+// The endponit lock must be held
+func (e *Endpoint) GarbageCollectConntrack(filter *ctmap.GCFilter) {
+	if !option.Config.IPv4Disabled {
+		e.garbageCollectConntrack(false, filter)
+	}
+
+	e.garbageCollectConntrack(true, filter)
 }
