@@ -442,9 +442,9 @@ func ServiceKey2L3n4Addr(svcKey ServiceKey) (*loadbalancer.L3n4Addr, error) {
 	return loadbalancer.NewL3n4Addr(loadbalancer.TCP, feIP, fePort)
 }
 
-// ServiceKeynValue2FEnBE converts the given svcKey and svcValue to a frontend in the
+// serviceKeynValue2FEnBE converts the given svcKey and svcValue to a frontend in the
 // form of L3n4AddrID and backend in the form of L3n4Addr.
-func ServiceKeynValue2FEnBE(svcKey ServiceKey, svcValue ServiceValue) (*loadbalancer.L3n4AddrID, *loadbalancer.LBBackEnd, error) {
+func serviceKeynValue2FEnBE(svcKey ServiceKey, svcValue ServiceValue) (*loadbalancer.L3n4AddrID, *loadbalancer.LBBackEnd, error) {
 	var (
 		beIP     net.IP
 		svcID    loadbalancer.ServiceID
@@ -499,8 +499,8 @@ func RevNat4Value2L3n4Addr(revNATV *RevNat4Value) (*loadbalancer.L3n4Addr, error
 	return loadbalancer.NewL3n4Addr(loadbalancer.TCP, revNATV.Address.IP(), revNATV.Port)
 }
 
-// RevNatValue2L3n4AddrID converts the given RevNatKey and RevNatValue to a L3n4AddrID.
-func RevNatValue2L3n4AddrID(revNATKey RevNatKey, revNATValue RevNatValue) (*loadbalancer.L3n4AddrID, error) {
+// revNatValue2L3n4AddrID converts the given RevNatKey and RevNatValue to a L3n4AddrID.
+func revNatValue2L3n4AddrID(revNATKey RevNatKey, revNATValue RevNatValue) (*loadbalancer.L3n4AddrID, error) {
 	var (
 		svcID loadbalancer.ServiceID
 		be    *loadbalancer.L3n4Addr
@@ -560,4 +560,99 @@ func DeleteRevNATBPF(id loadbalancer.ServiceID, isIPv6 bool) error {
 	}
 	err := DeleteRevNat(revNATK)
 	return err
+}
+
+// DumpServiceMapsToUserspace dumps the contents of both the IPv6 and IPv4
+// service / loadbalancer BPF maps, and converts them to a SVCMap and slice of
+// LBSVC. IPv4 maps may not be dumped depending on if skipIPv4 is enabled. If
+// includeMasterBackend is true, the returned values will also include services
+// which correspond to "master" backend values in the BPF maps. Returns the
+// errors that occurred while dumping the maps.
+func DumpServiceMapsToUserspace(includeMasterBackend, skipIPv4 bool) (loadbalancer.SVCMap, []*loadbalancer.LBSVC, []error) {
+
+	newSVCMap := loadbalancer.SVCMap{}
+	newSVCList := []*loadbalancer.LBSVC{}
+	errors := []error{}
+
+	parseSVCEntries := func(key bpf.MapKey, value bpf.MapValue) {
+		svcKey := key.(ServiceKey)
+		//It's the frontend service so we don't add this one
+		if svcKey.GetBackend() == 0 && !includeMasterBackend {
+			return
+		}
+		svcValue := value.(ServiceValue)
+
+		scopedLog := log.WithFields(logrus.Fields{
+			logfields.BPFMapKey:   svcKey,
+			logfields.BPFMapValue: svcValue,
+		})
+
+		scopedLog.Debug("parsing service mapping")
+		fe, be, err := serviceKeynValue2FEnBE(svcKey, svcValue)
+		if err != nil {
+			scopedLog.WithError(err).Error("error converting service key to userspace representation")
+			errors = append(errors, err)
+			return
+		}
+
+		svc := newSVCMap.AddFEnBE(fe, be, svcKey.GetBackend())
+		newSVCList = append(newSVCList, svc)
+	}
+
+	if !skipIPv4 {
+		err := Service4Map.DumpWithCallback(parseSVCEntries)
+		if err != nil {
+			errors = append(errors, err)
+		}
+	}
+
+	err := Service6Map.DumpWithCallback(parseSVCEntries)
+	if err != nil {
+		errors = append(errors, err)
+	}
+
+	return newSVCMap, newSVCList, errors
+}
+
+// DumpRevNATMapsToUserspace dumps the contents of both the IPv6 and IPv4 revNAT
+// BPF maps, and stores the contents of said dumps in a RevNATMap. IPv4 maps may
+// not be dumped depending on if skipIPv4 is enabled. Returns the errors that
+// occurred while dumping the maps.
+func DumpRevNATMapsToUserspace(skipIPv4 bool) (loadbalancer.RevNATMap, []error) {
+
+	newRevNATMap := loadbalancer.RevNATMap{}
+	errors := []error{}
+
+	parseRevNATEntries := func(key bpf.MapKey, value bpf.MapValue) {
+		revNatK := key.(RevNatKey)
+		revNatV := value.(RevNatValue)
+		scopedLog := log.WithFields(logrus.Fields{
+			logfields.BPFMapKey:   revNatK,
+			logfields.BPFMapValue: revNatV,
+		})
+
+		scopedLog.Debug("parsing BPF revNAT mapping")
+		fe, err := revNatValue2L3n4AddrID(revNatK, revNatV)
+		if err != nil {
+			scopedLog.WithError(err).Error("error converting revNAT key to userspace representation")
+			errors = append(errors, err)
+			return
+		}
+		newRevNATMap[fe.ID] = fe.L3n4Addr
+	}
+
+	if !skipIPv4 {
+		if err := RevNat4Map.DumpWithCallback(parseRevNATEntries); err != nil {
+			err = fmt.Errorf("error dumping RevNat4Map: %s", err)
+			errors = append(errors, err)
+		}
+	}
+
+	if err := RevNat6Map.DumpWithCallback(parseRevNATEntries); err != nil {
+		err = fmt.Errorf("error dumping RevNat6Map: %s", err)
+		errors = append(errors, err)
+	}
+
+	return newRevNATMap, errors
+
 }

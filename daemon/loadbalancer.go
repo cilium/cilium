@@ -19,7 +19,6 @@ import (
 
 	. "github.com/cilium/cilium/api/v1/server/restapi/service"
 	"github.com/cilium/cilium/pkg/api"
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
@@ -446,8 +445,6 @@ func (d *Daemon) SyncLBMap() error {
 	d.loadBalancer.BPFMapMU.Lock()
 	defer d.loadBalancer.BPFMapMU.Unlock()
 
-	newSVCMap := loadbalancer.SVCMap{}
-	newSVCList := []*loadbalancer.LBSVC{}
 	newSVCMapID := loadbalancer.SVCMapID{}
 	newRevNATMap := loadbalancer.RevNATMap{}
 	failedSyncSVC := []loadbalancer.LBSVC{}
@@ -502,65 +499,13 @@ func (d *Daemon) SyncLBMap() error {
 		return nil
 	}
 
-	parseSVCEntries := func(key bpf.MapKey, value bpf.MapValue) {
-		svcKey := key.(lbmap.ServiceKey)
-		//It's the frontend service so we don't add this one
-		if svcKey.GetBackend() == 0 {
-			return
-		}
-		svcValue := value.(lbmap.ServiceValue)
-
-		scopedLog := log.WithFields(logrus.Fields{
-			logfields.BPFMapKey:   svcKey,
-			logfields.BPFMapValue: svcValue,
-		})
-
-		scopedLog.Debug("parsing service mapping")
-		fe, be, err := lbmap.ServiceKeynValue2FEnBE(svcKey, svcValue)
-		if err != nil {
-			scopedLog.WithError(err).Error("SyncLBMap.parseSVCEntries")
-			return
-		}
-
-		svc := newSVCMap.AddFEnBE(fe, be, svcKey.GetBackend())
-		newSVCList = append(newSVCList, svc)
+	newSVCMap, newSVCList, lbmapDumpErrors := lbmap.DumpServiceMapsToUserspace(false, option.Config.IPv4Disabled)
+	for _, err := range lbmapDumpErrors {
+		log.WithError(err).Warn("error dumping BPF map into userspace")
 	}
-
-	parseRevNATEntries := func(key bpf.MapKey, value bpf.MapValue) {
-		revNatK := key.(lbmap.RevNatKey)
-		revNatV := value.(lbmap.RevNatValue)
-		scopedLog := log.WithFields(logrus.Fields{
-			logfields.BPFMapKey:   revNatK,
-			logfields.BPFMapValue: revNatV,
-		})
-
-		scopedLog.Debug("parsing BPF revNAT mapping")
-		fe, err := lbmap.RevNatValue2L3n4AddrID(revNatK, revNatV)
-		if err != nil {
-			scopedLog.WithError(err).Error("SyncLBMap.parseRevNATEntries")
-			return
-		}
-		newRevNATMap[fe.ID] = fe.L3n4Addr
-	}
-
-	if !option.Config.IPv4Disabled {
-		// lbmap.RRSeq4Map is updated as part of Service4Map and does
-		// not need separate dump.
-		if err := lbmap.Service4Map.DumpWithCallback(parseSVCEntries); err != nil {
-			log.WithError(err).Warn("error dumping Service4Map")
-		}
-		if err := lbmap.RevNat4Map.DumpWithCallback(parseRevNATEntries); err != nil {
-			log.WithError(err).Warn("error dumping RevNat4Map")
-		}
-	}
-
-	// lbmap.RRSeq6Map is updated as part of Service6Map and does not need
-	// separate dump.
-	if err := lbmap.Service6Map.DumpWithCallback(parseSVCEntries); err != nil {
-		log.WithError(err).Warn("error dumping Service6Map")
-	}
-	if err := lbmap.RevNat6Map.DumpWithCallback(parseRevNATEntries); err != nil {
-		log.WithError(err).Warn("error dumping RevNat6Map")
+	newRevNATMap, revNATMapDumpErrors := lbmap.DumpRevNATMapsToUserspace(option.Config.IPv4Disabled)
+	for _, err := range revNATMapDumpErrors {
+		log.WithError(err).Warn("error dumping BPF map into userspace")
 	}
 
 	// Need to do this outside of parseSVCEntries to avoid deadlock, because we
