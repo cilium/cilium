@@ -27,8 +27,7 @@ import (
 )
 
 var (
-	demoTestName         = "K8sValidatedDemosTest"
-	starWarsDemoLinkRoot = "https://raw.githubusercontent.com/cilium/star-wars-demo/master/v1"
+	starWarsDemoLinkRoot = "https://raw.githubusercontent.com/cilium/star-wars-demo/b1d18870758af7cec713a4b5e4c3f013afe8c4bf/v1"
 )
 
 func getStarWarsResourceLink(file string) string {
@@ -37,7 +36,7 @@ func getStarWarsResourceLink(file string) string {
 	return fmt.Sprintf("%s/%s", starWarsDemoLinkRoot, file)
 }
 
-var _ = Describe(demoTestName, func() {
+var _ = Describe("K8sDemosTest", func() {
 
 	var (
 		demoPath   string
@@ -53,7 +52,6 @@ var _ = Describe(demoTestName, func() {
 	)
 
 	initialize := func() {
-		logger = log.WithFields(logrus.Fields{"testName": demoTestName})
 		logger.Info("Starting")
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
