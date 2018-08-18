@@ -27,7 +27,7 @@ import (
 
 var (
 	demoTestName         = "K8sValidatedDemosTest"
-	starWarsDemoLinkRoot = "https://raw.githubusercontent.com/cilium/star-wars-demo/master/v1"
+	starWarsDemoLinkRoot = "https://raw.githubusercontent.com/cilium/star-wars-demo/b1d18870758af7cec713a4b5e4c3f013afe8c4bf/v1"
 )
 
 func getStarWarsResourceLink(file string) string {
