@@ -97,6 +97,11 @@ linked, either choice is valid.
         CONFIG_CRYPTO_SHA1=y
         CONFIG_CRYPTO_USER_API_HASH=y
 
+.. note::
+
+   Users running Linux 4.10 or earlier with Cilium CIDR policies may face
+   :ref:`cidr_limitations`.
+
 .. _req_kvstore:
 
 Key-Value store
