@@ -27,6 +27,7 @@ The following sections describe the Kubernetes integration in detail:
 
    quickinstall
    intro
+   concepts
    install
    policy
    ciliumendpoint
