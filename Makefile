@@ -262,8 +262,8 @@ docs-container:
 
 render-docs: docs-container
 	-docker container rm -f docs-cilium >/dev/null
-	docker container run -ti -u $$(id -u):$$(id -g $(USER)) -v $$(pwd):/srv/ cilium/docs-builder /bin/bash -c 'make html' && \
-	docker container run -dit --name docs-cilium -p 8080:80 -v $$(pwd)/Documentation/_build/html/:/usr/local/apache2/htdocs/ httpd:2.4
+	docker container run --rm -ti -u $$(id -u):$$(id -g $(USER)) -v $$(pwd):/srv/ cilium/docs-builder /bin/bash -c 'make html' && \
+	docker container run --rm -dit --name docs-cilium -p 8080:80 -v $$(pwd)/Documentation/_build/html/:/usr/local/apache2/htdocs/ httpd:2.4
 	@echo "$$(tput setaf 2)Running at http://localhost:8080$$(tput sgr0)"
 
 test-docs: docs-container
