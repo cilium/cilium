@@ -77,7 +77,7 @@ func (res *CmdRes) SendToLog(quietMode bool) {
 	if res.stderr.Len() > 0 {
 		log = fmt.Sprintf("%sstderr:\n%s\n", log, res.stderr.String())
 	}
-	fmt.Fprintf(&config.TestLogWriter, log)
+	fmt.Fprint(&config.TestLogWriter, log)
 }
 
 // WasSuccessful returns true if cmd completed successfully.
