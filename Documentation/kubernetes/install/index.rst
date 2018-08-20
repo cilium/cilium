@@ -17,5 +17,6 @@ Installation
    standard
    kops
    kubespray
+   eks
    kube-router
    clustermesh
