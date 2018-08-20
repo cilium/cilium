@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"text/tabwriter"
 	"time"
 
@@ -984,37 +985,53 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 	if status := kub.Action(action, filepath); !status.WasSuccessful() {
 		return "", fmt.Errorf("cannot perform %q on resource %q: %s", action, filepath, status.OutputPrettyPrint())
 	}
-	body := func() bool {
 
-		waitingRev := map[string]int{}
-		valid := true
-		for _, v := range pods {
-			revi, err := kub.CiliumPolicyRevision(v)
+	body := func() bool {
+		var wg sync.WaitGroup
+		queue := make(chan bool, len(pods))
+		ciliumPolicyValidation := func(pod string) {
+			status := false
+			defer func() {
+				queue <- status
+				wg.Done()
+
+			}()
+			revi, err := kub.CiliumPolicyRevision(pod)
 			if err != nil {
-				kub.logger.Errorf("CiliumPolicyAction: error on get revision %s", err)
+				kub.logger.Errorf("CiliumPolicyAction: error on get revision on pod %s: %s",
+					pod, err)
+				return
+			}
+
+			if revi <= revisions[pod] {
+				kub.logger.Infof(
+					"CiliumPolicyAction: pod '%s' still on old revision '%v', need '%v'",
+					pod, revi, revisions[pod])
+				return
+			}
+			kub.logger.Infof("CiliumPolicyAction: Wait for endpoints to sync on pod '%s'", pod)
+			res := kub.CiliumExec(pod, fmt.Sprintf("cilium policy wait %d", revi))
+			if !res.WasSuccessful() {
+				kub.logger.Infof("CiliumPolicyAction: Policy wait failed on pod '%s': %s",
+					pod, res.GetStdOut())
+				return
+			}
+			status = true
+			return
+		}
+		wg.Add(len(pods))
+		for _, v := range pods {
+			go ciliumPolicyValidation(v)
+		}
+		wg.Wait()
+		close(queue)
+
+		for status := range queue {
+			if status == false {
 				return false
 			}
-			if revi <= revisions[v] {
-				kub.logger.Infof("CiliumPolicyAction: pod '%s' still on old revision '%v', need '%v'", v, revi, revisions[v])
-				valid = false
-			} else {
-				waitingRev[v] = revi
-			}
 		}
-
-		if valid == true {
-			// Wait until all the pods are synced
-			for pod, rev := range waitingRev {
-				kub.logger.Infof("CiliumPolicyAction: Wait for endpoints to sync on pod '%s'", pod)
-				res := kub.CiliumExec(pod, fmt.Sprintf("cilium policy wait %d", rev))
-				if !res.WasSuccessful() {
-					return false
-				}
-				kub.logger.Infof("CiliumPolicyAction: revision %d in pod '%s' is ready", rev, pod)
-			}
-			return true
-		}
-		return false
+		return true
 	}
 	err = WithTimeout(
 		body,
