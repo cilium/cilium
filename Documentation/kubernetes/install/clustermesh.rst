@@ -1,3 +1,5 @@
+.. _clustermesh:
+
 ****************************
 Setting up the Cluster Mesh
 ****************************
