@@ -233,7 +233,7 @@ type daemonConfig struct {
 
 var (
 	Config = &daemonConfig{
-		Opts:                     NewIntOptions(&daemonLibrary),
+		Opts:                     NewIntOptions(&DaemonOptionLibrary),
 		Monitor:                  &models.MonitorStatus{Cpus: int64(runtime.NumCPU()), Npages: 64, Pagesize: int64(os.Getpagesize()), Lost: 0, Unknown: 0},
 		IPv6ClusterAllocCIDR:     defaults.IPv6ClusterAllocCIDR,
 		IPv6ClusterAllocCIDRBase: defaults.IPv6ClusterAllocCIDRBase,

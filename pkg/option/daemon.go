@@ -19,7 +19,9 @@ var (
 		Description: "Enable tracing when resolving policy (Debug)",
 	}
 
-	daemonLibrary = OptionLibrary{
+	// DaemonOptionLibrary is the daemon's option library that should be
+	// used for read-only.
+	DaemonOptionLibrary = OptionLibrary{
 		PolicyTracing: &specPolicyTracing,
 	}
 
@@ -38,11 +40,11 @@ var (
 
 func init() {
 	for k, v := range DaemonMutableOptionLibrary {
-		daemonLibrary[k] = v
+		DaemonOptionLibrary[k] = v
 	}
 }
 
 // ParseDaemonOption parses a string as daemon option
 func ParseDaemonOption(opt string) (string, OptionSetting, error) {
-	return ParseOption(opt, &daemonLibrary)
+	return ParseOption(opt, &DaemonOptionLibrary)
 }
