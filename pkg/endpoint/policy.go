@@ -24,7 +24,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/completion"
@@ -45,13 +44,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	"github.com/sirupsen/logrus"
-)
-
-// optionEnabled  and optionDisabled are used
-// to fill the models.ConfigurationMap opt state
-const (
-	optionEnabled  = "enabled"
-	optionDisabled = "disabled"
 )
 
 var (
@@ -473,7 +465,7 @@ func (e *Endpoint) updateNetworkPolicy(owner Owner, proxyWaitGroup *completion.W
 //  - changed: true if the policy was changed for this endpoint;
 //  - err: error in case of an error.
 // Must be called with endpoint mutex held.
-func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (isPolicyComp bool, err error) {
+func (e *Endpoint) regeneratePolicy(owner Owner, opts option.OptionMap) (isPolicyComp bool, err error) {
 	var labelsMap *identityPkg.IdentityCache
 	// Dry mode does not regenerate policy via bpf regeneration, so we let it pass
 	// through. Some bpf/redirect updates are skipped in that case.
@@ -624,36 +616,36 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 // to the endpoint, as well as the daemon's policy enforcement, may override
 // configuration changes which were made via the API that were provided in opts.
 // Must be called with endpoint mutex held.
-func (e *Endpoint) updateAndOverrideEndpointOptions(owner Owner, opts models.ConfigurationMap) (optsChanged bool) {
+func (e *Endpoint) updateAndOverrideEndpointOptions(owner Owner, opts option.OptionMap) (optsChanged bool) {
 	if opts == nil {
-		opts = make(models.ConfigurationMap)
+		opts = make(option.OptionMap)
 	}
 	// Apply possible option changes before regenerating maps, as map regeneration
 	// depends on the conntrack options
 	if e.DesiredL4Policy != nil {
 		if e.DesiredL4Policy.RequiresConntrack() {
-			opts[option.Conntrack] = optionEnabled
+			opts[option.Conntrack] = option.OptionEnabled
 		}
 	}
 
 	ingress, egress := owner.EnableEndpointPolicyEnforcement(e)
 
-	opts[option.IngressPolicy] = optionDisabled
-	opts[option.EgressPolicy] = optionDisabled
+	opts[option.IngressPolicy] = option.OptionDisabled
+	opts[option.EgressPolicy] = option.OptionDisabled
 
 	if !ingress && !egress {
 		e.getLogger().Debug("ingress and egress policy enforcement not enabled")
 	} else {
 		if ingress && egress {
 			e.getLogger().Debug("policy enforcement for ingress and egress enabled")
-			opts[option.IngressPolicy] = optionEnabled
-			opts[option.EgressPolicy] = optionEnabled
+			opts[option.IngressPolicy] = option.OptionEnabled
+			opts[option.EgressPolicy] = option.OptionDisabled
 		} else if ingress {
 			e.getLogger().Debug("policy enforcement for ingress enabled")
-			opts[option.IngressPolicy] = optionEnabled
+			opts[option.IngressPolicy] = option.OptionEnabled
 		} else {
 			e.getLogger().Debug("policy enforcement for egress enabled")
-			opts[option.EgressPolicy] = optionEnabled
+			opts[option.EgressPolicy] = option.OptionEnabled
 		}
 	}
 
@@ -868,7 +860,7 @@ func (e *Endpoint) Regenerate(owner Owner, reason string) <-chan bool {
 // state to reflect new policy.
 //
 // Returns true if policy was changed and the endpoint needs to be rebuilt
-func (e *Endpoint) TriggerPolicyUpdatesLocked(owner Owner, opts models.ConfigurationMap) (bool, error) {
+func (e *Endpoint) TriggerPolicyUpdatesLocked(owner Owner, opts option.OptionMap) (bool, error) {
 
 	if e.SecurityIdentity == nil {
 		return false, nil
