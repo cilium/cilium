@@ -1306,7 +1306,7 @@ func (e *Endpoint) String() string {
 
 // optionChanged is a callback used with pkg/option to apply the options to an
 // endpoint.  Not used for anything at the moment.
-func optionChanged(key string, value int, data interface{}) {
+func optionChanged(key string, value option.OptionSetting, data interface{}) {
 }
 
 // applyOptsLocked applies the given options to the endpoint's options and
