@@ -32,3 +32,36 @@ several Kubernetes resources:
 
 * A ``Secret`` resource: describes the credentials use access the etcd kvstore,
   if required.
+
+Networking For Existing Pods
+============================
+
+In case pods were already running before the Cilium `DaemonSet` was deployed,
+these pods will still be connected using the previous networking plugin
+according to the CNI configuration. A typical example for this is the
+``kube-dns`` service which runs in the ``kube-system`` namespace by default.
+
+A simple way to change networking for such existing pods is to rely on the fact
+that Kubernetes automatically restarts pods in a Deployment if they are
+deleted, so we can simply delete the original kube-dns pod and the replacement
+pod started immediately after will have networking managed by Cilium.  In a
+production deployment, this step could be performed as a rolling update of
+kube-dns pods to avoid downtime of the DNS service.
+
+::
+
+        $ kubectl --namespace kube-system delete pods -l k8s-app=kube-dns
+        pod "kube-dns-268032401-t57r2" deleted
+
+Running ``kubectl get pods`` will show you that Kubernetes started a new set of
+``kube-dns`` pods while at the same time terminating the old pods:
+
+::
+
+        $ kubectl --namespace kube-system get pods
+        NAME                          READY     STATUS        RESTARTS   AGE
+        cilium-5074s                  1/1       Running       0          58m
+        kube-addon-manager-minikube   1/1       Running       0          59m
+        kube-dns-268032401-j0vml      3/3       Running       0          9s
+        kube-dns-268032401-t57r2      3/3       Terminating   0          57m
+

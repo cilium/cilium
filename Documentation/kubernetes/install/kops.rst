@@ -5,10 +5,11 @@
     http://docs.cilium.io
 
 .. _kops_guide:
+.. _k8s_install_kops:
 
-**********************************
-Kubernetes Kops Installation Guide
-**********************************
+***********************
+Installation using Kops
+***********************
 
 As of ``kops`` 1.9 release, Cilium can be plugged into ``kops``-deployed clusters as the CNI plugin. This guide provides steps to create a Kubernetes cluster on AWS using ``kops`` and Cilium as the CNI plugin. Note, the ``kops`` deployment will automate several deployment features in AWS by default, including AutoScaling, Volumes, VPCs, etc.
 
