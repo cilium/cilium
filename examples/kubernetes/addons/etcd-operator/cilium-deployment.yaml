@@ -1,7 +1,3 @@
-######################################################################
-# WARNING: This file is ONLY intended for development, do NOT use it
-#          on any production / testing cluster. Thank you.
-######################################################################
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -102,7 +98,7 @@ spec:
                   optional: true
                   key: clean-cilium-state
       containers:
-        - image: docker.io/cilium/cilium:latest
+        - image: docker.io/cilium/cilium:v1.2.0
           imagePullPolicy: Always
           name: cilium-agent
           command: ["cilium-agent"]
@@ -312,8 +308,6 @@ rules:
   - apiGroups:
       - extensions
     resources:
-      - networkpolicies  # FIXME remove this when we drop support for k8s NP-beta GH-1202
-      - thirdpartyresources
       - ingresses
     verbs:
       - create
