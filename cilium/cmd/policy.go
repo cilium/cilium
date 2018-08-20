@@ -68,7 +68,7 @@ func getContext(content []byte, offset int64) (int, string, int) {
 	}
 
 	end := strings.IndexByte(string(content[start:]), '\n')
-	l := ""
+	var l string
 	if end == -1 {
 		l = string(content[start:])
 	} else {

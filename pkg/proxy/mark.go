@@ -74,7 +74,7 @@ const (
 // The mark is different depending on whether the proxy is injected at ingress
 // or egress.
 func getMagicMark(isIngress bool, identity int) int {
-	mark := 0
+	var mark int
 
 	if isIngress {
 		mark = MagicMarkIngress
