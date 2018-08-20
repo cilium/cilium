@@ -1311,7 +1311,7 @@ func optionChanged(key string, value option.OptionSetting, data interface{}) {
 
 // applyOptsLocked applies the given options to the endpoint's options and
 // returns true if there were any options changed.
-func (e *Endpoint) applyOptsLocked(opts map[string]string) bool {
+func (e *Endpoint) applyOptsLocked(opts option.OptionMap) bool {
 	changed := e.Options.ApplyValidated(opts, optionChanged, e) > 0
 	_, exists := opts[option.Debug]
 	if exists && changed {
@@ -1639,19 +1639,19 @@ func (e UpdateStateChangeError) Error() string { return e.msg }
 // if there was an issue triggering policy updates for the given endpoint,
 // or if endpoint regeneration was unable to be triggered.
 func (e *Endpoint) Update(owner Owner, cfg *models.EndpointConfigurationSpec) error {
+	om, err := EndpointMutableOptionLibrary.ValidateConfigurationMap(cfg.Options)
+	if err != nil {
+		return UpdateValidationError{err.Error()}
+	}
+
 	if err := e.LockAlive(); err != nil {
 		return err
 	}
 	e.getLogger().WithField("configuration-options", cfg).Debug("updating endpoint configuration options")
 
-	if err := e.Options.Validate(cfg.Options); err != nil {
-		e.Unlock()
-		return UpdateValidationError{err.Error()}
-	}
-
 	// Option changes may be overridden by the policy configuration.
 	// Currently we return all-OK even in that case.
-	needToRegenerate, err := e.TriggerPolicyUpdatesLocked(owner, cfg.Options)
+	needToRegenerate, err := e.TriggerPolicyUpdatesLocked(owner, om)
 	if err != nil {
 		e.Unlock()
 		return UpdateCompilationError{err.Error()}

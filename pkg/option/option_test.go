@@ -446,7 +446,9 @@ func (s *OptionSuite) TestApplyValidated(c *C) {
 		actualChanges[key] = value
 	}
 
-	c.Assert(o.ApplyValidated(cfg, changed, &cfg), Equals, len(expectedChanges))
+	om, err := o.Library.ValidateConfigurationMap(cfg)
+	c.Assert(err, IsNil)
+	c.Assert(o.ApplyValidated(om, changed, &cfg), Equals, len(expectedChanges))
 	c.Assert(actualChanges, DeepEquals, expectedChanges)
 
 	expectedOpts := OptionMap{
