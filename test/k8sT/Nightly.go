@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package k8sTest
 
 import (
@@ -357,6 +356,11 @@ var _ = Describe("NightlyExamples", func() {
 
 	Context("Cilium DaemonSet from example", func() {
 		AfterEach(func() {
+
+			_ = kubectl.Delete(demoPath)
+			_ = kubectl.Delete(l3Policy)
+			_ = kubectl.Delete(l7Policy)
+
 			res := kubectl.DeleteResource(
 				"ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
 			res.ExpectSuccess("Cilium DS cannot be deleted")
