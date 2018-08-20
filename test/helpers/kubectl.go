@@ -795,12 +795,19 @@ func (kub *Kubectl) CiliumEndpointWaitReady() error {
 	}
 
 	body := func() bool {
-		for _, pod := range ciliumPods {
+		var wg sync.WaitGroup
+		queue := make(chan bool, len(ciliumPods))
+		endpoinstsReady := func(pod string) {
+			valid := false
+			defer func() {
+				queue <- valid
+				wg.Done()
+			}()
 			logCtx := kub.logger.WithField("pod", pod)
 			status, err := kub.CiliumEndpointsList(pod).Filter(`{range [*]}{.status.state}{"="}{.status.identity.id}{"\n"}{end}`)
 			if err != nil {
 				logCtx.WithError(err).Errorf("cannot get endpoints states on Cilium pod")
-				return false
+				return
 			}
 			total := 0
 			invalid := 0
@@ -815,7 +822,7 @@ func (kub *Kubectl) CiliumEndpointWaitReady() error {
 				vals := strings.Split(line, "=")
 				if len(vals) != 2 {
 					logCtx.Errorf("Endpoint list does not have a correct output '%s'", line)
-					return false
+					return
 				}
 				if vals[0] != "ready" {
 					invalid++
@@ -831,6 +838,21 @@ func (kub *Kubectl) CiliumEndpointWaitReady() error {
 			}).Info("Waiting for cilium endpoints to be ready")
 
 			if invalid != 0 {
+				return
+			}
+			valid = true
+			return
+		}
+		wg.Add(len(ciliumPods))
+		for _, pod := range ciliumPods {
+			go endpoinstsReady(pod)
+		}
+
+		wg.Wait()
+		close(queue)
+
+		for status := range queue {
+			if status == false {
 				return false
 			}
 		}
