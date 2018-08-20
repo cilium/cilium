@@ -250,6 +250,8 @@ kprobes
 kretprobes
 ksonnet
 kube
+kubespray
+Kubespray
 kubecfg
 kubeconfig
 Kubeconfig
