@@ -2650,58 +2650,6 @@ func (e *Endpoint) IsDisconnecting() bool {
 	return e.state == StateDisconnected || e.state == StateDisconnecting
 }
 
-// LockAlive returns error if endpoint was removed, locks underlying mutex otherwise
-func (e *Endpoint) LockAlive() error {
-	e.mutex.Lock()
-	if e.IsDisconnecting() {
-		e.mutex.Unlock()
-		return fmt.Errorf("lock failed: endpoint is in the process of being removed")
-	}
-	return nil
-}
-
-// Unlock unlocks endpoint mutex
-func (e *Endpoint) Unlock() {
-	e.mutex.Unlock()
-}
-
-// RLockAlive returns error if endpoint was removed, read locks underlying mutex otherwise
-func (e *Endpoint) RLockAlive() error {
-	e.mutex.RLock()
-	if e.IsDisconnecting() {
-		e.mutex.RUnlock()
-		return fmt.Errorf("rlock failed: endpoint is in the process of being removed")
-	}
-	return nil
-}
-
-// RUnlock read unlocks endpoint mutex
-func (e *Endpoint) RUnlock() {
-	e.mutex.RUnlock()
-}
-
-// UnconditionalLock should be used only for locking endpoint for
-// - setting its state to StateDisconnected
-// - handling regular Lock errors
-// - reporting endpoint status (like in LogStatus method)
-// Use Lock in all other cases
-func (e *Endpoint) UnconditionalLock() {
-	e.mutex.Lock()
-}
-
-// UnconditionalRLock should be used only for reporting endpoint state
-func (e *Endpoint) UnconditionalRLock() {
-	e.mutex.RLock()
-}
-
-// LogDisconnectedMutexAction gets the logger and logs given error with context
-func (e *Endpoint) LogDisconnectedMutexAction(err error, context string) {
-	e.mutex.Lock()
-	logger := e.getLogger()
-	logger.WithError(err).Error(context)
-	e.mutex.Unlock()
-}
-
 // doGarbageCollectConntrack is usd by garbageCollectConntrack and should not be
 // called directly.
 func (e *Endpoint) doGarbageCollectConntrack(isIPv6 bool, filter *ctmap.GCFilter) {
