@@ -4,6 +4,8 @@
     Please use the official rendered version released here:
     http://docs.cilium.io
 
+.. _gsg_docker:
+
 ***************************************
 Getting Started Using `Docker Compose`_
 ***************************************
