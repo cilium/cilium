@@ -30,11 +30,11 @@ type VerifyFunc func(key string, value string) error
 
 // ParseFunc parses the option value and may return an error if the option
 // cannot be parsed or applied.
-type ParseFunc func(value string) (int, error)
+type ParseFunc func(value string) (OptionSetting, error)
 
 // FormatFunc formats the specified value as a colored textual representation
 // of the option.
-type FormatFunc func(value int) string
+type FormatFunc func(value OptionSetting) string
 
 // Option is the structure used to specify the semantics of a configurable
 // boolean option
@@ -59,8 +59,11 @@ type Option struct {
 	Verify VerifyFunc
 }
 
+// OptionSetting specifies an option used by the OptionMap.
+type OptionSetting int
+
 const (
-	OptionDisabled = iota
+	OptionDisabled OptionSetting = iota
 	OptionEnabled
 )
 
@@ -97,7 +100,7 @@ func (l OptionLibrary) Define(name string) string {
 	return name
 }
 
-func NormalizeBool(value string) (int, error) {
+func NormalizeBool(value string) (OptionSetting, error) {
 	switch strings.ToLower(value) {
 	case "true", "on", "enable", "enabled", "1":
 		return OptionEnabled, nil
@@ -125,7 +128,7 @@ func (l OptionLibrary) Validate(name string, value string) error {
 	return nil
 }
 
-type OptionMap map[string]int
+type OptionMap map[string]OptionSetting
 
 func (om OptionMap) DeepCopy() OptionMap {
 	cpy := make(OptionMap, len(om))
@@ -188,7 +191,7 @@ func NewIntOptions(lib *OptionLibrary) *IntOptions {
 	}
 }
 
-func (o *IntOptions) getValue(key string) int {
+func (o *IntOptions) getValue(key string) OptionSetting {
 	value, exists := o.Opts[key]
 	if !exists {
 		return OptionDisabled
@@ -196,7 +199,7 @@ func (o *IntOptions) getValue(key string) int {
 	return value
 }
 
-func (o *IntOptions) GetValue(key string) int {
+func (o *IntOptions) GetValue(key string) OptionSetting {
 	o.optsMU.RLock()
 	v := o.getValue(key)
 	o.optsMU.RUnlock()
@@ -209,7 +212,7 @@ func (o *IntOptions) IsEnabled(key string) bool {
 
 // SetValidated sets the option `key` to the specified value. The caller is
 // expected to have validated the input to this function.
-func (o *IntOptions) SetValidated(key string, value int) {
+func (o *IntOptions) SetValidated(key string, value OptionSetting) {
 	o.optsMU.Lock()
 	o.Opts[key] = value
 	o.optsMU.Unlock()
@@ -232,7 +235,7 @@ func (o *IntOptions) Delete(key string) {
 	o.optsMU.Unlock()
 }
 
-func (o *IntOptions) SetIfUnset(key string, value int) {
+func (o *IntOptions) SetIfUnset(key string, value OptionSetting) {
 	o.optsMU.Lock()
 	if _, exists := o.Opts[key]; !exists {
 		o.Opts[key] = value
@@ -246,7 +249,7 @@ func (o *IntOptions) InheritDefault(parent *IntOptions, key string) {
 	o.optsMU.RUnlock()
 }
 
-func ParseOption(arg string, lib *OptionLibrary) (string, int, error) {
+func ParseOption(arg string, lib *OptionLibrary) (string, OptionSetting, error) {
 	result := OptionEnabled
 
 	if arg[0] == '!' {
@@ -267,8 +270,8 @@ func ParseOption(arg string, lib *OptionLibrary) (string, int, error) {
 	return "", OptionDisabled, fmt.Errorf("Invalid option format")
 }
 
-func ParseKeyValue(lib *OptionLibrary, arg, value string) (string, int, error) {
-	var result int
+func ParseKeyValue(lib *OptionLibrary, arg, value string) (string, OptionSetting, error) {
+	var result OptionSetting
 
 	key, spec := lib.Lookup(arg)
 	if key == "" {
@@ -382,7 +385,7 @@ func (o *IntOptions) Validate(n models.ConfigurationMap) error {
 }
 
 // ChangedFunc is called by `Apply()` for each option changed
-type ChangedFunc func(key string, value int, data interface{})
+type ChangedFunc func(key string, value OptionSetting, data interface{})
 
 // enable enables the option `name` with all its dependencies
 func (o *IntOptions) enable(name string) {
@@ -399,7 +402,7 @@ func (o *IntOptions) enable(name string) {
 
 // set enables the option `name` with all its dependencies, and sets the
 // integer level of the option to `value`.
-func (o *IntOptions) set(name string, value int) {
+func (o *IntOptions) set(name string, value OptionSetting) {
 	o.enable(name)
 	o.Opts[name] = value
 }
@@ -423,7 +426,7 @@ func (o *IntOptions) disable(name string) {
 
 type changedOptions struct {
 	key   string
-	value int
+	value OptionSetting
 }
 
 // ApplyValidated takes a configuration map and applies the changes. For an

@@ -30,27 +30,27 @@ import (
 // The MonitorAggregationLevel does not affect the Debug option in the daemon
 // or endpoint, so debug notifications will continue uninhibited by this
 // setting.
-type MonitorAggregationLevel int
+type MonitorAggregationLevel OptionSetting
 
 const (
 	// MonitorAggregationLevelNone represents no aggregation in the
 	// datapath; all packets will be monitored.
-	MonitorAggregationLevelNone = 0
+	MonitorAggregationLevelNone OptionSetting = 0
 
 	// MonitorAggregationLevelLow represents aggregation of monitor events
 	// to emit a maximum of one trace event per packet. Trace events when
 	// packets are received are disabled.
-	MonitorAggregationLevelLowest = 1
+	MonitorAggregationLevelLowest OptionSetting = 1
 
 	// MonitorAggregationLevelLow is the same as
 	// MonitorAggregationLevelLowest, but may aggregate additional traffic
 	// in future.
-	MonitorAggregationLevelLow = 2
+	MonitorAggregationLevelLow OptionSetting = 2
 
 	// MonitorAggregationLevelMedium represents aggregation of monitor
 	// events to only emit notifications periodically for each connection
 	// unless there is new information (eg, a TCP connection is closed).
-	MonitorAggregationLevelMedium = 3
+	MonitorAggregationLevelMedium OptionSetting = 3
 
 	// MonitorAggregationLevelMax is the maximum level of aggregation
 	// currently supported.
@@ -59,7 +59,7 @@ const (
 
 // monitorAggregationOption maps a user-specified string to a monitor
 // aggregation level.
-var monitorAggregationOption = map[string]int{
+var monitorAggregationOption = map[string]OptionSetting{
 	"":         MonitorAggregationLevelNone,
 	"none":     MonitorAggregationLevelNone,
 	"disabled": MonitorAggregationLevelNone,
@@ -72,13 +72,13 @@ var monitorAggregationOption = map[string]int{
 
 func init() {
 	for i := MonitorAggregationLevelNone; i <= MonitorAggregationLevelMax; i++ {
-		number := strconv.Itoa(i)
-		monitorAggregationOption[number] = i
+		number := strconv.Itoa(int(i))
+		monitorAggregationOption[number] = OptionSetting(i)
 	}
 }
 
 // monitorAggregationFormat maps an aggregation level to a formatted string.
-var monitorAggregationFormat = map[int]string{
+var monitorAggregationFormat = map[OptionSetting]string{
 	MonitorAggregationLevelNone:   color.Red("None"),
 	MonitorAggregationLevelLowest: color.Green("Lowest"),
 	MonitorAggregationLevelLow:    color.Green("Low"),
@@ -95,18 +95,19 @@ func VerifyMonitorAggregationLevel(key, value string) error {
 // ParseMonitorAggregationLevel turns a string into a monitor aggregation
 // level. The string may contain an integer value or a string representation of
 // a particular monitor aggregation level.
-func ParseMonitorAggregationLevel(value string) (int, error) {
+func ParseMonitorAggregationLevel(value string) (OptionSetting, error) {
 	// First, attempt the string representation.
 	if level, ok := monitorAggregationOption[strings.ToLower(value)]; ok {
 		return level, nil
 	}
 
 	// If it's not a valid string option, attempt to parse an integer.
-	parsed, err := strconv.Atoi(value)
+	valueParsed, err := strconv.Atoi(value)
 	if err != nil {
 		err = fmt.Errorf("Invalid monitor aggregation level %q", value)
 		return MonitorAggregationLevelNone, err
 	}
+	parsed := OptionSetting(valueParsed)
 	if parsed < MonitorAggregationLevelNone || parsed > MonitorAggregationLevelMax {
 		err = fmt.Errorf("Monitor aggregation level must be between %d and %d",
 			MonitorAggregationLevelNone, MonitorAggregationLevelMax)
@@ -116,6 +117,6 @@ func ParseMonitorAggregationLevel(value string) (int, error) {
 }
 
 // FormatMonitorAggregationLevel maps a MonitorAggregationLevel to a string.
-func FormatMonitorAggregationLevel(level int) string {
+func FormatMonitorAggregationLevel(level OptionSetting) string {
 	return monitorAggregationFormat[level]
 }
