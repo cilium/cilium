@@ -1051,14 +1051,14 @@ func (d *Daemon) syncLXCMap() error {
 }
 
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
-func NewDaemon() (*Daemon, error) {
+func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 	// Validate the daemon specific global options
 	if err := option.Config.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid daemon configuration: %s", err)
+		return nil, nil, fmt.Errorf("invalid daemon configuration: %s", err)
 	}
 
 	if err := workloads.Setup(option.Config.Workloads, map[string]string{}); err != nil {
-		return nil, fmt.Errorf("unable to setup workload: %s", err)
+		return nil, nil, fmt.Errorf("unable to setup workload: %s", err)
 	}
 
 	lb := types.NewLoadBalancer()
@@ -1241,7 +1241,7 @@ func NewDaemon() (*Daemon, error) {
 		// Allocate IPv4 service loopback IP
 		loopbackIPv4, _, err := ipam.AllocateNext("ipv4")
 		if err != nil {
-			return nil, fmt.Errorf("Unable to reserve IPv4 loopback address: %s", err)
+			return nil, nil, fmt.Errorf("Unable to reserve IPv4 loopback address: %s", err)
 		}
 		node.SetIPv4Loopback(loopbackIPv4)
 		log.Infof("  Loopback IPv4: %s", node.GetIPv4Loopback().String())
@@ -1258,7 +1258,7 @@ func NewDaemon() (*Daemon, error) {
 
 	if err = d.init(); err != nil {
 		log.WithError(err).Error("Error while initializing daemon")
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Start watcher for endpoint IP --> identity mappings in key-value store.
@@ -1301,7 +1301,7 @@ func NewDaemon() (*Daemon, error) {
 
 	d.startStatusCollector()
 
-	return &d, nil
+	return &d, restoredEndpoints, nil
 }
 
 func (d *Daemon) validateExistingMaps() error {

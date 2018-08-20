@@ -745,7 +745,7 @@ func runCiliumHealthEndpoint(d *Daemon) error {
 
 func runDaemon() {
 	log.Info("Initializing daemon")
-	d, err := NewDaemon()
+	d, _, err := NewDaemon()
 	if err != nil {
 		log.WithError(err).Fatal("Error while creating daemon")
 		return
