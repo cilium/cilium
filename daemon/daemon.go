@@ -1458,7 +1458,7 @@ func mapValidateWalker(path string) error {
 	return nil
 }
 
-func changedOption(key string, value int, data interface{}) {
+func changedOption(key string, value option.OptionSetting, data interface{}) {
 	d := data.(*Daemon)
 	if key == option.Debug {
 		// Set the debug toggle (this can be a no-op)

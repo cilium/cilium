@@ -33,7 +33,7 @@ var _ = Suite(&OptionSuite{})
 
 func (s *OptionSuite) TestGetValue(c *C) {
 	k1, k2 := "foo", "bar"
-	v1 := 7
+	v1 := OptionSetting(7)
 
 	o := IntOptions{
 		Opts: OptionMap{
@@ -167,7 +167,7 @@ func (s *OptionSuite) TestParseKeyValue(c *C) {
 		k: &Option{
 			Define:      "TEST_DEFINE",
 			Description: "This is a test",
-			Parse: func(value string) (int, error) {
+			Parse: func(value string) (OptionSetting, error) {
 				if value == "yes" {
 					return OptionEnabled, nil
 				}
@@ -316,7 +316,7 @@ func (s *OptionSuite) TestGetMutableModel(c *C) {
 	OptionCustomFormat := Option{
 		Define:      "TEST_DEFINE",
 		Description: "This is a test",
-		Format: func(value int) string {
+		Format: func(value OptionSetting) string {
 			return "ok"
 		},
 	}
@@ -435,13 +435,13 @@ func (s *OptionSuite) TestApplyValidated(c *C) {
 	}
 	c.Assert(o.Validate(cfg), IsNil)
 
-	expectedChanges := map[string]int{
+	expectedChanges := OptionMap{
 		k1: OptionDisabled,
 		k3: OptionEnabled,
 		k6: OptionEnabled,
 	}
-	actualChanges := map[string]int{}
-	var changed ChangedFunc = func(key string, value int, data interface{}) {
+	actualChanges := OptionMap{}
+	var changed ChangedFunc = func(key string, value OptionSetting, data interface{}) {
 		c.Assert(data, Equals, &cfg)
 		actualChanges[key] = value
 	}
@@ -449,7 +449,7 @@ func (s *OptionSuite) TestApplyValidated(c *C) {
 	c.Assert(o.ApplyValidated(cfg, changed, &cfg), Equals, len(expectedChanges))
 	c.Assert(actualChanges, DeepEquals, expectedChanges)
 
-	expectedOpts := map[string]int{
+	expectedOpts := OptionMap{
 		k1: OptionDisabled,
 		k2: OptionDisabled,
 		k3: OptionEnabled,
