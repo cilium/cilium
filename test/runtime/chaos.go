@@ -19,19 +19,22 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cilium/cilium/pkg/identity"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
 	. "github.com/onsi/gomega"
+	"github.com/sirupsen/logrus"
 )
 
-var _ = Describe("RuntimeChaos", func() {
+var _ = Describe("RuntimeValidatedChaos", func() {
 
 	var vm *helpers.SSHMeta
 
 	BeforeAll(func() {
-		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
-		ExpectCiliumReady(vm)
+		logger := log.WithFields(logrus.Fields{"testName": "RuntimeValidatedChaos"})
+		logger.Info("Starting")
+		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
 
 		vm.ContainerCreate(helpers.Client, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
 		vm.ContainerCreate(helpers.Server, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.server")
@@ -68,7 +71,7 @@ var _ = Describe("RuntimeChaos", func() {
 		// We don't use -o jsonpath... here due to GH-2395.
 		//
 		// jq 'map(select(.status.identity.id != 4), del(.status.controllers, ..., (.status.identity.labels | sort)))'
-		filterHealthEP := fmt.Sprintf("select(.status.identity.id != %d)", helpers.ReservedIdentityHealth)
+		filterHealthEP := fmt.Sprintf("select(.status.identity.id != %d)", identity.GetReservedID("health"))
 		nonPersistentEndpointFields := strings.Join([]string{
 			".status.controllers",     // Timestamps, UUIDs
 			".status.labels",          // Slice ordering
@@ -85,7 +88,7 @@ var _ = Describe("RuntimeChaos", func() {
 		originalEndpointList := vm.Exec(endpointListCmd)
 
 		err := vm.RestartCilium()
-		Expect(err).Should(BeNil(), "restarting Cilium failed")
+		Expect(err).Should(BeNil())
 
 		ips := vm.Exec(`
 		curl -s --unix-socket /var/run/cilium/cilium.sock \
@@ -108,7 +111,7 @@ var _ = Describe("RuntimeChaos", func() {
 		_ = vm.Exec("sudo ip link add lxc12345 type veth peer name tmp54321")
 
 		err = vm.RestartCilium()
-		Expect(err).Should(BeNil(), "restarting Cilium failed")
+		Expect(err).Should(BeNil())
 
 		status := vm.Exec("sudo ip link show lxc12345")
 		status.ExpectFail("leftover interface were not properly cleaned up")

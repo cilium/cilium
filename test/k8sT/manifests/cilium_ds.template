@@ -13,6 +13,7 @@
         "debug": "true",
         "disable-ipv4": "false",
         "legacy-host-allows-world": "false",
+        "sidecar-http-proxy": "false",
         "clean-cilium-state": "false"
       }
     },
@@ -153,6 +154,16 @@
                       "configMapKeyRef": {
                         "name": "cilium-config",
                         "key": "disable-ipv4"
+                      }
+                    }
+                  },
+                  {
+                    "name": "CILIUM_SIDECAR_HTTP_PROXY",
+                    "valueFrom": {
+                      "configMapKeyRef": {
+                        "name": "cilium-config",
+                        "key": "sidecar-http-proxy",
+                        "optional": true
                       }
                     }
                   },
@@ -424,9 +435,7 @@
           ],
           "resources": [
             "ciliumnetworkpolicies",
-            "ciliumnetworkpolicies/status",
-            "ciliumendpoints",
-            "ciliumendpoints/status"
+            "ciliumendpoints"
           ],
           "verbs": [
             "*"

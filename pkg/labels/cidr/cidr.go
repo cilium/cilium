@@ -34,15 +34,9 @@ func GetCIDRLabels(cidr *net.IPNet) labels.Labels {
 	ones, bits := cidr.Mask.Size()
 	result := []string{}
 
-	// If ones is zero, then it's the default CIDR prefix /0 which should
-	// just be regarded as reserved:world. In all other cases, we need
-	// to generate the set of prefixes starting from the /0 up to the
-	// specified prefix length.
-	if ones > 0 {
-		for i := 0; i <= ones; i++ {
-			label := labels.MaskedIPNetToLabelString(cidr, i, bits)
-			result = append(result, label)
-		}
+	for i := 0; i <= ones; i++ {
+		label := labels.MaskedIPNetToLabelString(cidr, i, bits)
+		result = append(result, label)
 	}
 
 	var cluster *net.IPNet

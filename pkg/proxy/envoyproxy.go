@@ -29,8 +29,8 @@ var envoyProxy *envoy.Envoy
 
 // envoyRedirect implements the Redirect interface for an l7 proxy.
 type envoyRedirect struct {
-	listenerName string
-	xdsServer    *envoy.XDSServer
+	redirectID string
+	xdsServer  *envoy.XDSServer
 }
 
 var envoyOnce sync.Once
@@ -44,9 +44,10 @@ func createEnvoyRedirect(r *Redirect, stateDir string, xdsServer *envoy.XDSServe
 	})
 
 	if envoyProxy != nil {
+		redirectID := r.id
 		redir := &envoyRedirect{
-			listenerName: fmt.Sprintf("%s:%d", r.id, r.ProxyPort),
-			xdsServer:    xdsServer,
+			redirectID: redirectID,
+			xdsServer:  xdsServer,
 		}
 
 		ip := r.localEndpoint.GetIPv4Address()
@@ -56,7 +57,7 @@ func createEnvoyRedirect(r *Redirect, stateDir string, xdsServer *envoy.XDSServe
 		if ip == "" {
 			return nil, fmt.Errorf("%s: Cannot create redirect, proxy local endpoint has no IP address", r.id)
 		}
-		xdsServer.AddListener(redir.listenerName, ip, r.ProxyPort, r.ingress, wg)
+		xdsServer.AddListener(redirectID, ip, r.ProxyPort, r.ingress, wg)
 
 		return redir, nil
 	}
@@ -72,6 +73,6 @@ func (r *envoyRedirect) UpdateRules(wg *completion.WaitGroup) error {
 // Close the redirect.
 func (r *envoyRedirect) Close(wg *completion.WaitGroup) {
 	if envoyProxy != nil {
-		r.xdsServer.RemoveListener(r.listenerName, wg)
+		r.xdsServer.RemoveListener(r.redirectID, wg)
 	}
 }

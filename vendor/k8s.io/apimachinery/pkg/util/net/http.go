@@ -19,7 +19,6 @@ package net
 import (
 	"bufio"
 	"bytes"
-	"context"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -62,9 +61,6 @@ func JoinPreservingTrailingSlash(elem ...string) string {
 // differentiate probable errors in connection behavior between normal "this is
 // disconnected" should use the method.
 func IsProbableEOF(err error) bool {
-	if err == nil {
-		return false
-	}
 	if uerr, ok := err.(*url.Error); ok {
 		err = uerr.Err
 	}
@@ -91,8 +87,8 @@ func SetOldTransportDefaults(t *http.Transport) *http.Transport {
 		// ProxierWithNoProxyCIDR allows CIDR rules in NO_PROXY
 		t.Proxy = NewProxierWithNoProxyCIDR(http.ProxyFromEnvironment)
 	}
-	if t.DialContext == nil {
-		t.DialContext = defaultTransport.DialContext
+	if t.Dial == nil {
+		t.Dial = defaultTransport.Dial
 	}
 	if t.TLSHandshakeTimeout == 0 {
 		t.TLSHandshakeTimeout = defaultTransport.TLSHandshakeTimeout
@@ -120,7 +116,7 @@ type RoundTripperWrapper interface {
 	WrappedRoundTripper() http.RoundTripper
 }
 
-type DialFunc func(ctx context.Context, net, addr string) (net.Conn, error)
+type DialFunc func(net, addr string) (net.Conn, error)
 
 func DialerFor(transport http.RoundTripper) (DialFunc, error) {
 	if transport == nil {
@@ -129,7 +125,7 @@ func DialerFor(transport http.RoundTripper) (DialFunc, error) {
 
 	switch transport := transport.(type) {
 	case *http.Transport:
-		return transport.DialContext, nil
+		return transport.Dial, nil
 	case RoundTripperWrapper:
 		return DialerFor(transport.WrappedRoundTripper())
 	default:

@@ -1,6 +1,7 @@
 syntax = "proto3";
 
 package cilium;
+option go_package = "cilium";
 
 import "google/protobuf/wrappers.proto";
 

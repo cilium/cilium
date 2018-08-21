@@ -14,10 +14,6 @@
 
 package kvstore
 
-import (
-	"sync"
-)
-
 // EventType defines the type of watch event that occurred
 type EventType int
 
@@ -79,24 +75,7 @@ type Watcher struct {
 	prefix    string
 	stopWatch stopChan
 
-	// stopOnce guarantees that Stop() is only called once
-	stopOnce sync.Once
-
-	// stopWait is the wait group to wait for watchers to exit gracefully
-	stopWait sync.WaitGroup
-}
-
-func newWatcher(name, prefix string, chanSize int) *Watcher {
-	w := &Watcher{
-		name:      name,
-		prefix:    prefix,
-		Events:    make(EventChan, chanSize),
-		stopWatch: make(stopChan, 0),
-	}
-
-	w.stopWait.Add(1)
-
-	return w
+	stopped bool
 }
 
 // String returns the name of the wather
@@ -114,14 +93,27 @@ func (w *Watcher) String() string {
 // Returns a watcher structure plus a channel that is closed when the initial
 // list operation has been completed
 func ListAndWatch(name, prefix string, chanSize int) *Watcher {
-	return Client().ListAndWatch(name, prefix, chanSize)
+	w := &Watcher{
+		name:      name,
+		prefix:    prefix,
+		Events:    make(EventChan, chanSize),
+		stopWatch: make(stopChan, 0),
+	}
+
+	log.WithField(fieldWatcher, w).Debug("Starting watcher...")
+
+	go Client().Watch(w)
+
+	return w
 }
 
 // Stop stops a watcher previously created and started with Watch()
 func (w *Watcher) Stop() {
-	w.stopOnce.Do(func() {
-		close(w.stopWatch)
-		log.WithField(fieldWatcher, w).Debug("Stopped watcher")
-		w.stopWait.Wait()
-	})
+	if w.stopped {
+		return
+	}
+
+	close(w.stopWatch)
+	log.WithField(fieldWatcher, w).Debug("Stopped watcher...")
+	w.stopped = true
 }

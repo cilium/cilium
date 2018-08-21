@@ -17,20 +17,9 @@ package workloads
 import (
 	"reflect"
 	"testing"
-
-	. "gopkg.in/check.v1"
 )
 
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-type WorkloadsTestSuite struct{}
-
-var _ = Suite(&WorkloadsTestSuite{})
-
-func (s *WorkloadsTestSuite) TestParseConfigEndpoint(c *C) {
+func TestParseConfigEndpoint(t *testing.T) {
 	// backup registered workload since None will unregister them all
 	bakRegisteredWorkloads := map[workloadRuntimeType]workloadModule{}
 	for k, v := range registeredWorkloads {
@@ -69,16 +58,18 @@ func (s *WorkloadsTestSuite) TestParseConfigEndpoint(c *C) {
 		},
 	}
 	for _, tt := range tests {
-		if err := ParseConfigEndpoint(tt.args.containerRuntimes, tt.args.containerRuntimesEPOpts); (err != nil) != tt.wantErr {
-			c.Errorf("ParseConfigEndpoint() for %s error = %v, wantErr %v", tt.name, err, tt.wantErr)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			if err := ParseConfigEndpoint(tt.args.containerRuntimes, tt.args.containerRuntimesEPOpts); (err != nil) != tt.wantErr {
+				t.Errorf("ParseConfigEndpoint() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
 	}
 
 	if !reflect.DeepEqual(getWorkload(ContainerD).getConfig(), containerDOpts) {
-		c.Errorf("ParseConfigEndpoint() = %v, want %v", getWorkload(ContainerD).getConfig(), containerDOpts)
+		t.Errorf("ParseConfigEndpoint() = %v, want %v", getWorkload(ContainerD).getConfig(), containerDOpts)
 	}
 	if !reflect.DeepEqual(getWorkload(Docker).getConfig(), dockerOpts) {
-		c.Errorf("ParseConfigEndpoint() = %v, want %v", getWorkload(Docker).getConfig(), dockerOpts)
+		t.Errorf("ParseConfigEndpoint() = %v, want %v", getWorkload(Docker).getConfig(), dockerOpts)
 	}
 
 	// Since None will unregister the backends we need to execute it on a
@@ -107,13 +98,15 @@ func (s *WorkloadsTestSuite) TestParseConfigEndpoint(c *C) {
 		},
 	}
 	for _, tt := range tests {
-		if err := ParseConfigEndpoint(tt.args.containerRuntimes, tt.args.containerRuntimesEPOpts); (err != nil) != tt.wantErr {
-			c.Errorf("ParseConfigEndpoint() for %s error = %v, wantErr %v", tt.name, err, tt.wantErr)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			if err := ParseConfigEndpoint(tt.args.containerRuntimes, tt.args.containerRuntimesEPOpts); (err != nil) != tt.wantErr {
+				t.Errorf("ParseConfigEndpoint() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
 	}
 }
 
-func (s *WorkloadsTestSuite) Test_parseRuntimeType(c *C) {
+func Test_parseRuntimeType(t *testing.T) {
 	type args struct {
 		str string
 	}
@@ -173,18 +166,20 @@ func (s *WorkloadsTestSuite) Test_parseRuntimeType(c *C) {
 		},
 	}
 	for _, tt := range tests {
-		got, err := parseRuntimeType(tt.args.str)
-		if (err != nil) != tt.wantErr {
-			c.Errorf("parseRuntimeType() for %s error = %v, wantErr %v", tt.name, err, tt.wantErr)
-			return
-		}
-		if got != tt.want {
-			c.Errorf("parseRuntimeType() for %s = %v, want %v", tt.name, got, tt.want)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseRuntimeType(tt.args.str)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parseRuntimeType() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("parseRuntimeType() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 
-func (s *WorkloadsTestSuite) Test_unregisterWorkloads(c *C) {
+func Test_unregisterWorkloads(t *testing.T) {
 	// backup registered workloads since they will unregistered
 	bakRegisteredWorkloads := map[workloadRuntimeType]workloadModule{}
 	for k, v := range registeredWorkloads {
@@ -194,16 +189,28 @@ func (s *WorkloadsTestSuite) Test_unregisterWorkloads(c *C) {
 		registeredWorkloads = bakRegisteredWorkloads
 	}()
 
-	if len(registeredWorkloads) == 0 {
-		c.Errorf("number of registeredWorkloads should not be 0")
+	tests := []struct {
+		name string
+	}{
+		{
+			name: "unregister backends",
+		},
 	}
-	unregisterWorkloads()
+
+	if len(registeredWorkloads) == 0 {
+		t.Errorf("number of registeredWorkloads should not be 0")
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			unregisterWorkloads()
+		})
+	}
 	if len(registeredWorkloads) != 0 {
-		c.Errorf("number of registeredWorkloads should be 0")
+		t.Errorf("number of registeredWorkloads should be 0")
 	}
 }
 
-func (s *WorkloadsTestSuite) Test_getWorkload(c *C) {
+func Test_getWorkload(t *testing.T) {
 	type args struct {
 		name workloadRuntimeType
 	}
@@ -221,13 +228,15 @@ func (s *WorkloadsTestSuite) Test_getWorkload(c *C) {
 		},
 	}
 	for _, tt := range tests {
-		if got := getWorkload(tt.args.name); !reflect.DeepEqual(got, tt.want) {
-			c.Errorf("getWorkload() fot %s = %v, want %v", tt.name, got, tt.want)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getWorkload(tt.args.name); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("getWorkload() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 
-func (s *WorkloadsTestSuite) TestGetRuntimeDefaultOpt(c *C) {
+func TestGetRuntimeDefaultOpt(t *testing.T) {
 	type args struct {
 		crt workloadRuntimeType
 		opt string
@@ -253,13 +262,15 @@ func (s *WorkloadsTestSuite) TestGetRuntimeDefaultOpt(c *C) {
 		},
 	}
 	for _, tt := range tests {
-		if got := GetRuntimeDefaultOpt(tt.args.crt, tt.args.opt); got != tt.want {
-			c.Errorf("GetRuntimeDefaultOpt() for %s = %v, want %v", tt.name, got, tt.want)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			if got := GetRuntimeDefaultOpt(tt.args.crt, tt.args.opt); got != tt.want {
+				t.Errorf("GetRuntimeDefaultOpt() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 
-func (s *WorkloadsTestSuite) TestGetRuntimeOptions(c *C) {
+func TestGetRuntimeOptions(t *testing.T) {
 	tests := []struct {
 		name string
 		want string
@@ -272,13 +283,15 @@ func (s *WorkloadsTestSuite) TestGetRuntimeOptions(c *C) {
 		},
 	}
 	for _, tt := range tests {
-		if got := GetRuntimeOptions(); got != tt.want {
-			c.Errorf("GetRuntimeOptions() for %s = %v, want %v", tt.name, got, tt.want)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			if got := GetRuntimeOptions(); got != tt.want {
+				t.Errorf("GetRuntimeOptions() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 
-func (s *WorkloadsTestSuite) TestGetDefaultEPOptsStringWithPrefix(c *C) {
+func TestGetDefaultEPOptsStringWithPrefix(t *testing.T) {
 	type args struct {
 		prefix string
 	}
@@ -298,8 +311,10 @@ func (s *WorkloadsTestSuite) TestGetDefaultEPOptsStringWithPrefix(c *C) {
 		},
 	}
 	for _, tt := range tests {
-		if got := GetDefaultEPOptsStringWithPrefix(tt.args.prefix); got != tt.want {
-			c.Errorf("GetDefaultEPOptsStringWithPrefix() for %s = %v, want %v", tt.name, got, tt.want)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			if got := GetDefaultEPOptsStringWithPrefix(tt.args.prefix); got != tt.want {
+				t.Errorf("GetDefaultEPOptsStringWithPrefix() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

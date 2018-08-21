@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2016-2018 Authors of Cilium
+ *  Copyright (C) 2016-2017 Authors of Cilium
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -22,15 +22,19 @@
 #include "dbg.h"
 
 #ifdef ENCAP_IFINDEX
-static inline int __inline__
-encap_and_redirect_with_nodeid(struct __sk_buff *skb, __u32 tunnel_endpoint,
-			       __u32 seclabel, bool monitor)
+static inline int __inline__ encap_and_redirect(struct __sk_buff *skb, struct endpoint_key *k,
+						__u32 seclabel)
 {
+	struct endpoint_key *tunnel;
 	struct bpf_tunnel_key key = {};
 	__u32 node_id;
 	int ret;
 
-	node_id = bpf_htonl(tunnel_endpoint);
+	if ((tunnel = map_lookup_elem(&cilium_tunnel_map, k)) == NULL) {
+		return DROP_NO_TUNNEL_ENDPOINT;
+	}
+
+	node_id = bpf_htonl(tunnel->ip4);
 	key.tunnel_id = seclabel;
 	key.remote_ipv4 = node_id;
 
@@ -40,23 +44,10 @@ encap_and_redirect_with_nodeid(struct __sk_buff *skb, __u32 tunnel_endpoint,
 	if (unlikely(ret < 0))
 		return DROP_WRITE_ERROR;
 
-	send_trace_notify(skb, TRACE_TO_OVERLAY, seclabel, 0, 0, ENCAP_IFINDEX,
-			  0, monitor);
+	send_trace_notify(skb, TRACE_TO_OVERLAY, seclabel, 0, 0, ENCAP_IFINDEX, 0);
 
 	return redirect(ENCAP_IFINDEX, 0);
 }
 
-static inline int __inline__
-encap_and_redirect(struct __sk_buff *skb, struct endpoint_key *k,
-		   __u32 seclabel, bool monitor)
-{
-	struct endpoint_key *tunnel;
-
-	if ((tunnel = map_lookup_elem(&cilium_tunnel_map, k)) == NULL) {
-		return DROP_NO_TUNNEL_ENDPOINT;
-	}
-
-	return encap_and_redirect_with_nodeid(skb, tunnel->ip4, seclabel, monitor);
-}
 #endif /* ENCAP_IFINDEX */
 #endif /* __LIB_ENCAP_H_ */

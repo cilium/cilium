@@ -26,7 +26,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-cidr")
+var log = logging.DefaultLogger
 
 const (
 	MapName    = "cilium_cidr_"

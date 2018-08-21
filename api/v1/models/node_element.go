@@ -22,9 +22,7 @@ type NodeElement struct {
 	// Address used for probing cluster connectivity
 	HealthEndpointAddress *NodeAddressing `json:"health-endpoint-address,omitempty"`
 
-	// Name of the node including the cluster association. This is typically
-	// <clustername>/<hostname>.
-	//
+	// name
 	Name string `json:"name,omitempty"`
 
 	// Primary address used for intra-cluster communication

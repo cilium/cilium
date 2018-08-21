@@ -22,13 +22,18 @@ import (
 	"github.com/cilium/cilium/test/helpers/policygen"
 
 	. "github.com/onsi/gomega"
+	"github.com/sirupsen/logrus"
 )
 
 var _ = Describe("NightlyPolicies", func() {
 
 	var kubectl *helpers.Kubectl
+	var logger *logrus.Entry
 
 	BeforeAll(func() {
+		logger = log.WithFields(logrus.Fields{"testName": "NightlyK8sPolicies"})
+		logger.Info("Starting")
+
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
 		err := kubectl.CiliumInstall(helpers.CiliumDSPath)
@@ -55,12 +60,10 @@ var _ = Describe("NightlyPolicies", func() {
 	AfterAll(func() {
 		// Delete all pods created
 		kubectl.Exec(fmt.Sprintf(
-			"%s delete pods,svc,cnp -n %s -l test=policygen",
-			helpers.KubectlCmd, helpers.DefaultNamespace))
+			"%s delete --all pods,svc,cnp -n %s", helpers.KubectlCmd, helpers.DefaultNamespace))
 
 		ExpectAllPodsTerminated(kubectl)
 	})
-
 	Context("PolicyEnforcement default", func() {
 		createTests := func() {
 			testSpecs := policygen.GeneratedTestSpec()

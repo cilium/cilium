@@ -17,7 +17,6 @@ package controller
 import (
 	"errors"
 	"fmt"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -64,36 +63,30 @@ func (b *ControllerSuite) TestStopFunc(c *C) {
 }
 
 func (b *ControllerSuite) TestSelfExit(c *C) {
-	var iterations uint32
+	stopFuncRan := false
+	iterations := 0
 	waitChan := make(chan bool)
 
 	mngr := Manager{}
 	mngr.UpdateController("test", ControllerParams{
 		RunInterval: 100 * time.Millisecond,
 		DoFunc: func() error {
-			atomic.AddUint32(&iterations, 1)
+			iterations++
 			return ExitReason{errors.New("test exit")}
 		},
 		StopFunc: func() error {
+			stopFuncRan = true
 			close(waitChan)
 			return nil
 		},
 	})
 	select {
 	case <-waitChan:
-		c.Error("Controller exited")
-	case <-time.After(time.Second):
-	}
-	c.Assert(atomic.LoadUint32(&iterations), Equals, uint32(1))
-
-	// The controller is inactive, and waiting for the next update or stop.
-	// A controller will only stop when explicitly removed and stopped.
-	mngr.RemoveController("test")
-	select {
-	case <-waitChan:
 	case <-time.After(time.Second):
 		c.Error("Controller did not exit")
 	}
+	c.Assert(iterations, Equals, 1)
+	c.Assert(stopFuncRan, Equals, true)
 }
 
 func (b *ControllerSuite) TestRemoveAll(c *C) {

@@ -2,13 +2,12 @@ package jsoniter
 
 import (
 	"encoding/json"
+	"github.com/modern-go/concurrent"
+	"github.com/modern-go/reflect2"
 	"io"
 	"reflect"
 	"sync"
 	"unsafe"
-
-	"github.com/modern-go/concurrent"
-	"github.com/modern-go/reflect2"
 )
 
 // Config customize how the API should behave.
@@ -24,7 +23,6 @@ type Config struct {
 	OnlyTaggedField               bool
 	ValidateJsonRawMessage        bool
 	ObjectFieldMustBeSimpleString bool
-	CaseSensitive                 bool
 }
 
 // API the public interface of this package.
@@ -77,7 +75,6 @@ type frozenConfig struct {
 	extensions                    []Extension
 	streamPool                    *sync.Pool
 	iteratorPool                  *sync.Pool
-	caseSensitive                 bool
 }
 
 func (cfg *frozenConfig) initCache() {
@@ -131,7 +128,6 @@ func (cfg Config) Froze() API {
 		objectFieldMustBeSimpleString: cfg.ObjectFieldMustBeSimpleString,
 		onlyTaggedField:               cfg.OnlyTaggedField,
 		disallowUnknownFields:         cfg.DisallowUnknownFields,
-		caseSensitive:                 cfg.CaseSensitive,
 	}
 	api.streamPool = &sync.Pool{
 		New: func() interface{} {

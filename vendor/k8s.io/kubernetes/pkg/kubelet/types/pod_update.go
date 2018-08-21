@@ -22,7 +22,7 @@ import (
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeapi "k8s.io/kubernetes/pkg/apis/core"
-	"k8s.io/kubernetes/pkg/apis/scheduling"
+	schedulerapi "k8s.io/kubernetes/pkg/scheduler/api"
 )
 
 const (
@@ -144,7 +144,7 @@ func (sp SyncPodType) String() string {
 // or equal to SystemCriticalPriority. Both the rescheduler(deprecated in 1.10) and the kubelet use this function
 // to make admission and scheduling decisions.
 func IsCriticalPod(pod *v1.Pod) bool {
-	return IsCritical(pod.Namespace, pod.Annotations) || (pod.Spec.Priority != nil && IsCriticalPodBasedOnPriority(*pod.Spec.Priority))
+	return IsCritical(pod.Namespace, pod.Annotations) || (pod.Spec.Priority != nil && IsCriticalPodBasedOnPriority(pod.Namespace, *pod.Spec.Priority))
 }
 
 // IsCritical returns true if parameters bear the critical pod annotation
@@ -163,8 +163,12 @@ func IsCritical(ns string, annotations map[string]string) bool {
 }
 
 // IsCriticalPodBasedOnPriority checks if the given pod is a critical pod based on priority resolved from pod Spec.
-func IsCriticalPodBasedOnPriority(priority int32) bool {
-	if priority >= scheduling.SystemCriticalPriority {
+func IsCriticalPodBasedOnPriority(ns string, priority int32) bool {
+	// Critical pods are restricted to "kube-system" namespace as of now.
+	if ns != kubeapi.NamespaceSystem {
+		return false
+	}
+	if priority >= schedulerapi.SystemCriticalPriority {
 		return true
 	}
 	return false

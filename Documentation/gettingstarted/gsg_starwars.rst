@@ -1,9 +1,3 @@
-.. only:: not (epub or latex or html)
-
-    WARNING: You are looking at unreleased Cilium documentation.
-    Please use the official rendered version released here:
-    http://docs.cilium.io
-
 
 
 Step 2: Deploy the Demo Application
@@ -33,7 +27,7 @@ It also includes a deathstar-service, which load-balances traffic to all pods wi
 
 
 Kubernetes will deploy the pods and service in the background.  Running
-``kubectl get pods,svc`` will inform you about the progress of the operation.
+``kubectl get svc,pods`` will inform you about the progress of the operation.
 Each pod will go through several states until it reaches ``Running`` at which
 point the pod is ready.
 
@@ -59,23 +53,21 @@ Each pod will be represented in Cilium as an :ref:`endpoint`. We can invoke the
     NAME           READY     STATUS    RESTARTS   AGE
     cilium-1c2cz   1/1       Running   0          26m
 
-    $ kubectl -n kube-system exec cilium-1c2cz -- cilium endpoint list
+    $ kubectl -n kube-system exec cilium-1c2cz cilium endpoint list
     ENDPOINT   POLICY (ingress)   POLICY (egress)   IDENTITY   LABELS (source:key[=value])                   IPv6                 IPv4            STATUS
                ENFORCEMENT        ENFORCEMENT
-    7624       Disabled            Disabled          9919      k8s:class=deathstar                           f00d::a0f:0:0:1dc8   10.15.185.9     ready
+    7624       Disabled            Disabled          9919       k8s:class=deathstar                           f00d::a0f:0:0:1dc8   10.15.185.9     ready
                                                                k8s:io.kubernetes.pod.namespace=default
                                                                k8s:org=empire
     10900      Disabled           Disabled          32353      k8s:class=xwing                               f00d::a0f:0:0:2a94   10.15.92.254    ready
                                                                k8s:io.kubernetes.pod.namespace=default
                                                                k8s:org=alliance
-    11010      Disabled            Disabled          9919      k8s:class=deathstar                           f00d::a0f:0:0:2b02   10.15.197.34    ready
+    11010      Disabled            Disabled          9919       k8s:class=deathstar                           f00d::a0f:0:0:2b02   10.15.197.34    ready
                                                                k8s:io.kubernetes.pod.namespace=default
                                                                k8s:org=empire
     50240      Disabled           Disabled          12904      k8s:class=tiefighter                          f00d::a0f:0:0:c440   10.15.28.62     ready
                                                                k8s:io.kubernetes.pod.namespace=default
                                                                k8s:org=empire
-    52921      Disabled           Disabled          4          reserved:health                               f00d::a0f:0:0:ceb9   10.15.126.89    ready
-
 
 Both ingress and egress policy enforcement is still disabled on all of these pods because no network
 policy has been imported yet which select any of the pods.
@@ -145,7 +137,7 @@ If we run ``cilium endpoint list`` again we will see that the pods with the labe
 
 ::
 
-    $ kubectl -n kube-system exec cilium-1c2cz -- cilium endpoint list
+    $ kubectl -n kube-system exec cilium-1c2cz cilium endpoint list
     ENDPOINT   POLICY (ingress)   POLICY (egress)   IDENTITY   LABELS (source:key[=value])                   IPv6                 IPv4            STATUS
                ENFORCEMENT        ENFORCEMENT
     7624       Enabled            Disabled          9919       k8s:class=deathstar                           f00d::a0f:0:0:1dc8   10.15.185.9     ready
@@ -160,7 +152,6 @@ If we run ``cilium endpoint list`` again we will see that the pods with the labe
     50240      Disabled           Disabled          12904      k8s:class=tiefighter                          f00d::a0f:0:0:c440   10.15.28.62     ready
                                                                k8s:io.kubernetes.pod.namespace=default
                                                                k8s:org=empire
-    52921      Disabled           Disabled          4          reserved:health                               f00d::a0f:0:0:ceb9   10.15.126.89    ready
 
 You can also inspect the policy details via ``kubectl``
 
@@ -404,6 +395,13 @@ To try out the metrics exported by cilium, simply install the example prometheus
 
 
 .. tabs::
+  .. group-tab:: K8s 1.7
+
+    .. parsed-literal::
+
+      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/addons/prometheus/prometheus.yaml
+      $ kubectl replace --force -f \ |SCM_WEB|\/examples/kubernetes/1.7/cilium.yaml
+
   .. group-tab:: K8s 1.8
 
     .. parsed-literal::
@@ -439,4 +437,5 @@ prometheus configuration. Navigate to the web ui with:
 
 ::
 
-   $ minikube service prometheus -n monitoring 
+   $ minikube service prometheus -n prometheus
+

@@ -17,7 +17,6 @@ package cmd
 import (
 	identityApi "github.com/cilium/cilium/api/v1/client/policy"
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/api"
 	pkg "github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/identity"
@@ -43,13 +42,13 @@ func init() {
 
 func listIdentities(args []string) {
 	reserved := []*models.Identity{}
-	identity.IterateReservedIdentities(func(k string, v identity.NumericIdentity) {
+	for k, v := range identity.ReservedIdentities {
 		reserved = append(reserved, identity.NewIdentity(v, labels.NewLabelsFromModel([]string{"reserved:" + k})).GetModel())
-	})
+	}
 
-	params := identityApi.NewGetIdentityParams().WithTimeout(api.ClientTimeout)
+	var params *identityApi.GetIdentityParams
 	if len(args) != 0 {
-		params = params.WithLabels(args)
+		params = identityApi.NewGetIdentityParams().WithLabels(args)
 	}
 
 	identities, err := client.Policy.GetIdentity(params)

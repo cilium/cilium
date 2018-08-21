@@ -75,8 +75,6 @@ func AddConversionFuncs(scheme *runtime.Scheme) error {
 		Convert_unversioned_LabelSelector_to_map,
 
 		Convert_Slice_string_To_Slice_int32,
-
-		Convert_Slice_string_To_v1_DeletionPropagation,
 	)
 }
 
@@ -303,16 +301,6 @@ func Convert_Slice_string_To_Slice_int32(in *[]string, out *[]int32, s conversio
 			}
 			*out = append(*out, int32(x))
 		}
-	}
-	return nil
-}
-
-// Convert_Slice_string_To_v1_DeletionPropagation allows converting a URL query parameter propagationPolicy
-func Convert_Slice_string_To_v1_DeletionPropagation(input *[]string, out *DeletionPropagation, s conversion.Scope) error {
-	if len(*input) > 0 {
-		*out = DeletionPropagation((*input)[0])
-	} else {
-		*out = ""
 	}
 	return nil
 }

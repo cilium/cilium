@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2016-2018 Authors of Cilium
+ *  Copyright (C) 2016-2017 Authors of Cilium
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -96,8 +96,7 @@ static inline void __inline__ proxy4_update_timeout(struct proxy4_tbl_value *val
 static inline int __inline__
 ipv4_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 			  int l4_off, __be16 new_port, __be16 old_port, __be32 old_ip,
-			  struct ipv4_ct_tuple *tuple, __u32 identity,
-			  int forwarding_reason, bool monitor)
+			  struct ipv4_ct_tuple *tuple, __u32 identity, int forwarding_reason)
 {
 	__be32 host_ip = IPV4_GATEWAY;
 	struct proxy4_tbl_key key = {
@@ -115,7 +114,7 @@ ipv4_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 
 	// Trace the packet before its destination address and port are rewritten.
 	send_trace_notify(skb, TRACE_TO_PROXY, SECLABEL, 0, 0, HOST_IFINDEX,
-			  forwarding_reason, monitor);
+			  forwarding_reason);
 
 	if (l4_modify_port(skb, l4_off, TCP_DPORT_OFF, csum,
 			   new_port, old_port) < 0)
@@ -150,7 +149,7 @@ static inline int __inline__
 ipv6_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 			  int l4_off, __be16 new_port, __be16 old_port,
 			  union v6addr old_ip, struct ipv6_ct_tuple *tuple, union v6addr *host_ip,
-			  __u32 identity, int forwarding_reason, bool monitor)
+			  __u32 identity, int forwarding_reason)
 {
 	struct proxy6_tbl_key key = {
 		.saddr = tuple->daddr,
@@ -167,7 +166,7 @@ ipv6_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 
 	// Trace the packet before its destination address and port are rewritten.
 	send_trace_notify(skb, TRACE_TO_PROXY, SECLABEL, 0, 0, HOST_IFINDEX,
-			  forwarding_reason, monitor);
+			  forwarding_reason);
 
 	if (l4_modify_port(skb, l4_off, TCP_DPORT_OFF, csum, new_port, old_port) < 0)
 		return DROP_WRITE_ERROR;

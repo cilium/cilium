@@ -18,9 +18,6 @@ metadata:
   name: reviews
 spec:
   host: reviews
-  trafficPolicy:
-    tls:
-      mode: ISTIO_MUTUAL
   subsets:
   - name: v1
     labels:

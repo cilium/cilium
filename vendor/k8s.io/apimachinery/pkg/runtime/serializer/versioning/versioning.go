@@ -19,7 +19,6 @@ package versioning
 import (
 	"io"
 
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -167,27 +166,9 @@ func (c *codec) Decode(data []byte, defaultGVK *schema.GroupVersionKind, into ru
 // Encode ensures the provided object is output in the appropriate group and version, invoking
 // conversion if necessary. Unversioned objects (according to the ObjectTyper) are output as is.
 func (c *codec) Encode(obj runtime.Object, w io.Writer) error {
-	switch obj := obj.(type) {
-	case *runtime.Unknown:
+	switch obj.(type) {
+	case *runtime.Unknown, runtime.Unstructured:
 		return c.encoder.Encode(obj, w)
-	case runtime.Unstructured:
-		// An unstructured list can contain objects of multiple group version kinds. don't short-circuit just
-		// because the top-level type matches our desired destination type. actually send the object to the converter
-		// to give it a chance to convert the list items if needed.
-		if _, ok := obj.(*unstructured.UnstructuredList); !ok {
-			// avoid conversion roundtrip if GVK is the right one already or is empty (yes, this is a hack, but the old behaviour we rely on in kubectl)
-			objGVK := obj.GetObjectKind().GroupVersionKind()
-			if len(objGVK.Version) == 0 {
-				return c.encoder.Encode(obj, w)
-			}
-			targetGVK, ok := c.encodeVersion.KindForGroupVersionKinds([]schema.GroupVersionKind{objGVK})
-			if !ok {
-				return runtime.NewNotRegisteredGVKErrForTarget(objGVK, c.encodeVersion)
-			}
-			if targetGVK == objGVK {
-				return c.encoder.Encode(obj, w)
-			}
-		}
 	}
 
 	gvks, isUnversioned, err := c.typer.ObjectKinds(obj)

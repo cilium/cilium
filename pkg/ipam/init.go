@@ -31,7 +31,7 @@ import (
 )
 
 var (
-	log      = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipam")
+	log      = logging.DefaultLogger
 	ipamConf *Config
 )
 

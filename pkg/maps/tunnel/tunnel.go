@@ -17,11 +17,9 @@ package tunnel
 import (
 	"net"
 	"os"
-	"path/filepath"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/defaults"
 
 	"github.com/sirupsen/logrus"
 )
@@ -54,7 +52,7 @@ var (
 			}
 
 			return &k, &v, nil
-		}).WithCache()
+		})
 )
 
 func init() {
@@ -62,10 +60,7 @@ func init() {
 	bpf.OpenAfterMount(TunnelMap)
 
 	// Remove old map and ignore errors; this is the "normal" case.
-	// BPFFS map root in older versions of Cilium wasn't dynamic, so the
-	// path of this old map will be always
-	// /sys/fs/bpf/tc/globals/tunnel_endpoint_map
-	os.Remove(filepath.Join(defaults.DefaultMapRoot, defaults.DefaultMapPrefix, oldMapName))
+	_ = os.Remove(bpf.MapPath(oldMapName))
 }
 
 type tunnelEndpoint struct {

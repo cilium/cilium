@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2017 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,21 +20,13 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/color"
+	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
 // VerifyFunc validates option key with value and may return an error if the
 // option should not be applied
-type VerifyFunc func(key string, value string) error
-
-// ParseFunc parses the option value and may return an error if the option
-// cannot be parsed or applied.
-type ParseFunc func(value string) (int, error)
-
-// FormatFunc formats the specified value as a colored textual representation
-// of the option.
-type FormatFunc func(value int) string
+type VerifyFunc func(key string, value bool) error
 
 // Option is the structure used to specify the semantics of a configurable
 // boolean option
@@ -48,21 +40,9 @@ type Option struct {
 	// Requires is a list of required options, such options will be
 	// automatically enabled as required.
 	Requires []string
-	// Parse is called to parse the option. If not specified, defaults to
-	// NormalizeBool().
-	Parse ParseFunc
-	// FormatFunc is called to format the value for an option. If not
-	// specified, defaults to formatting 0 as "Disabled" and other values
-	// as "Enabled".
-	Format FormatFunc
 	// Verify is called prior to applying the option
 	Verify VerifyFunc
 }
-
-const (
-	OptionDisabled = iota
-	OptionEnabled
-)
 
 // RequiresOption returns true if the option requires the specified option `name`.
 func (o Option) RequiresOption(name string) bool {
@@ -97,18 +77,18 @@ func (l OptionLibrary) Define(name string) string {
 	return name
 }
 
-func NormalizeBool(value string) (int, error) {
+func NormalizeBool(value string) (bool, error) {
 	switch strings.ToLower(value) {
-	case "true", "on", "enable", "enabled", "1":
-		return OptionEnabled, nil
-	case "false", "off", "disable", "disabled", "0":
-		return OptionDisabled, nil
+	case "true", "on", "enable", "enabled":
+		return true, nil
+	case "false", "off", "disable", "disabled":
+		return false, nil
 	default:
-		return OptionDisabled, fmt.Errorf("Invalid option value %s", value)
+		return false, fmt.Errorf("Invalid option value %s", value)
 	}
 }
 
-func (l OptionLibrary) Validate(name string, value string) error {
+func (l OptionLibrary) Validate(name string, value bool) error {
 	key, spec := l.Lookup(name)
 	if key == "" {
 		return fmt.Errorf("Unknown option %s", name)
@@ -125,7 +105,7 @@ func (l OptionLibrary) Validate(name string, value string) error {
 	return nil
 }
 
-type OptionMap map[string]int
+type OptionMap map[string]bool
 
 func (om OptionMap) DeepCopy() OptionMap {
 	cpy := make(OptionMap, len(om))
@@ -135,240 +115,200 @@ func (om OptionMap) DeepCopy() OptionMap {
 	return cpy
 }
 
-// IntOptions member functions with external access do not require
+// BoolOptions member functions with external access do not require
 // locking by the caller, while functions with internal access presume
 // the caller to have taken care of any locking needed.
-type IntOptions struct {
+type BoolOptions struct {
 	optsMU  lock.RWMutex   // Protects all variables from this structure below this line
 	Opts    OptionMap      `json:"map"`
 	Library *OptionLibrary `json:"-"`
 }
 
 // GetImmutableModel returns the set of immutable options as a ConfigurationMap API model.
-func (o *IntOptions) GetImmutableModel() *models.ConfigurationMap {
+func (bo *BoolOptions) GetImmutableModel() *models.ConfigurationMap {
 	immutableCfg := make(models.ConfigurationMap)
 	return &immutableCfg
 }
 
 // GetMutableModel returns the set of mutable options as a ConfigurationMap API model.
-func (o *IntOptions) GetMutableModel() *models.ConfigurationMap {
+func (bo *BoolOptions) GetMutableModel() *models.ConfigurationMap {
 	mutableCfg := make(models.ConfigurationMap)
-	o.optsMU.RLock()
-	for k, v := range o.Opts {
-		_, config := o.Library.Lookup(k)
-		if config.Format == nil {
-			if v == OptionDisabled {
-				mutableCfg[k] = fmt.Sprintf("Disabled")
-			} else {
-				mutableCfg[k] = fmt.Sprintf("Enabled")
-			}
+	bo.optsMU.RLock()
+	for k, v := range bo.Opts {
+		if v {
+			mutableCfg[k] = "Enabled"
 		} else {
-			mutableCfg[k] = config.Format(v)
+			mutableCfg[k] = "Disabled"
 		}
 	}
-	o.optsMU.RUnlock()
+	bo.optsMU.RUnlock()
 
 	return &mutableCfg
 }
 
-func (o *IntOptions) DeepCopy() *IntOptions {
-	o.optsMU.RLock()
-	cpy := &IntOptions{
-		Opts:    o.Opts.DeepCopy(),
-		Library: o.Library,
+func (bo *BoolOptions) DeepCopy() *BoolOptions {
+	bo.optsMU.RLock()
+	cpy := &BoolOptions{
+		Opts:    bo.Opts.DeepCopy(),
+		Library: bo.Library,
 	}
-	o.optsMU.RUnlock()
+	bo.optsMU.RUnlock()
 	return cpy
 }
 
-func NewIntOptions(lib *OptionLibrary) *IntOptions {
-	return &IntOptions{
+func NewBoolOptions(lib *OptionLibrary) *BoolOptions {
+	return &BoolOptions{
 		Opts:    OptionMap{},
 		Library: lib,
 	}
 }
 
-func (o *IntOptions) GetValue(key string) int {
-	value, exists := o.Opts[key]
-	if !exists {
-		return OptionDisabled
+func (bo *BoolOptions) isEnabled(key string) bool {
+	set, exists := bo.Opts[key]
+	return exists && set
+}
+
+func (bo *BoolOptions) IsEnabled(key string) bool {
+	bo.optsMU.RLock()
+	defer bo.optsMU.RUnlock()
+	return bo.isEnabled(key)
+}
+
+func (bo *BoolOptions) Set(key string, value bool) {
+	bo.optsMU.Lock()
+	bo.Opts[key] = value
+	bo.optsMU.Unlock()
+}
+
+func (bo *BoolOptions) Delete(key string) {
+	bo.optsMU.Lock()
+	delete(bo.Opts, key)
+	bo.optsMU.Unlock()
+}
+
+func (bo *BoolOptions) SetIfUnset(key string, value bool) {
+	bo.optsMU.Lock()
+	if _, exists := bo.Opts[key]; !exists {
+		bo.Opts[key] = value
 	}
-	return value
+	bo.optsMU.Unlock()
 }
 
-func (o *IntOptions) IsEnabled(key string) bool {
-	o.optsMU.RLock()
-	defer o.optsMU.RUnlock()
-	return o.GetValue(key) != OptionDisabled
+func (bo *BoolOptions) InheritDefault(parent *BoolOptions, key string) {
+	bo.optsMU.RLock()
+	bo.Opts[key] = parent.isEnabled(key)
+	bo.optsMU.RUnlock()
 }
 
-// SetValidated sets the option `key` to the specified value. The caller is
-// expected to have validated the input to this function.
-func (o *IntOptions) SetValidated(key string, value int) {
-	o.optsMU.Lock()
-	o.Opts[key] = value
-	o.optsMU.Unlock()
-}
-
-// SetBool sets the specified option to Enabled.
-func (o *IntOptions) SetBool(key string, value bool) {
-	intValue := OptionDisabled
-	if value {
-		intValue = OptionEnabled
-	}
-	o.optsMU.Lock()
-	o.Opts[key] = intValue
-	o.optsMU.Unlock()
-}
-
-func (o *IntOptions) Delete(key string) {
-	o.optsMU.Lock()
-	delete(o.Opts, key)
-	o.optsMU.Unlock()
-}
-
-func (o *IntOptions) SetIfUnset(key string, value int) {
-	o.optsMU.Lock()
-	if _, exists := o.Opts[key]; !exists {
-		o.Opts[key] = value
-	}
-	o.optsMU.Unlock()
-}
-
-func (o *IntOptions) InheritDefault(parent *IntOptions, key string) {
-	o.optsMU.RLock()
-	o.Opts[key] = parent.GetValue(key)
-	o.optsMU.RUnlock()
-}
-
-func ParseOption(arg string, lib *OptionLibrary) (string, int, error) {
-	result := OptionEnabled
+func ParseOption(arg string, lib *OptionLibrary) (string, bool, error) {
+	enabled := true
 
 	if arg[0] == '!' {
-		result = OptionDisabled
+		enabled = false
 		arg = arg[1:]
 	}
 
 	optionSplit := strings.SplitN(arg, "=", 2)
 	arg = optionSplit[0]
 	if len(optionSplit) > 1 {
-		if result == OptionDisabled {
-			return "", OptionDisabled, fmt.Errorf("Invalid boolean format")
+		if !enabled {
+			return "", false, fmt.Errorf("Invalid boolean format")
 		}
 
-		return ParseKeyValue(lib, arg, optionSplit[1], result)
+		var err error
+		enabled, err = NormalizeBool(optionSplit[1])
+		if err != nil {
+			return "", false, err
+		}
 	}
-
-	return "", OptionDisabled, fmt.Errorf("Invalid option format")
-}
-
-func ParseKeyValue(lib *OptionLibrary, arg, value string, defaultValue int) (string, int, error) {
-	result := defaultValue
 
 	key, spec := lib.Lookup(arg)
 	if key == "" {
-		return "", OptionDisabled, fmt.Errorf("Unknown option %q", arg)
-	}
-
-	var err error
-	if spec.Parse != nil {
-		result, err = spec.Parse(value)
-	} else {
-		result, err = NormalizeBool(value)
-	}
-	if err != nil {
-		return "", OptionDisabled, err
+		return "", false, fmt.Errorf("Unknown option %q", arg)
 	}
 
 	if spec.Immutable {
-		return "", OptionDisabled, fmt.Errorf("Specified option is immutable (read-only)")
+		return "", false, fmt.Errorf("Specified option is immutable (read-only)")
 	}
 
-	return key, result, nil
+	return key, enabled, nil
 }
 
 // getFmtOpt returns #define name if option exists and is set to true in endpoint's Opts
 // map or #undef name if option does not exist or exists but is set to false
-func (o *IntOptions) getFmtOpt(name string) string {
-	define := o.Library.Define(name)
+func (bo *BoolOptions) getFmtOpt(name string) string {
+	define := bo.Library.Define(name)
 	if define == "" {
 		return ""
 	}
 
-	value := o.GetValue(name)
-	if value != OptionDisabled {
-		return fmt.Sprintf("#define %s %d", o.Library.Define(name), value)
+	if bo.isEnabled(name) {
+		return "#define " + bo.Library.Define(name)
 	}
-	return "#undef " + o.Library.Define(name)
+	return "#undef " + bo.Library.Define(name)
 }
 
-func (o *IntOptions) GetFmtList() string {
+func (bo *BoolOptions) GetFmtList() string {
 	txt := ""
 
-	o.optsMU.RLock()
+	bo.optsMU.RLock()
 	opts := []string{}
-	for k := range o.Opts {
+	for k := range bo.Opts {
 		opts = append(opts, k)
 	}
 	sort.Strings(opts)
 
 	for _, k := range opts {
-		def := o.getFmtOpt(k)
+		def := bo.getFmtOpt(k)
 		if def != "" {
 			txt += def + "\n"
 		}
 	}
-	o.optsMU.RUnlock()
+	bo.optsMU.RUnlock()
 
 	return txt
 }
 
-func (o *IntOptions) Dump() {
-	if o == nil {
+func (bo *BoolOptions) Dump() {
+	if bo == nil {
 		return
 	}
 
-	o.optsMU.RLock()
+	bo.optsMU.RLock()
 	opts := []string{}
-	for k := range o.Opts {
+	for k := range bo.Opts {
 		opts = append(opts, k)
 	}
 	sort.Strings(opts)
 
 	for _, k := range opts {
-		var text string
-		_, option := o.Library.Lookup(k)
-		if option == nil || option.Format == nil {
-			if o.Opts[k] == OptionDisabled {
-				text = color.Red("Disabled")
-			} else {
-				text = color.Green("Enabled")
-			}
-		} else {
-			text = option.Format(o.Opts[k])
+		text := common.Green("Enabled")
+
+		if !bo.Opts[k] {
+			text = common.Red("Disabled")
 		}
 
 		fmt.Printf("%-24s %s\n", k, text)
 	}
-	o.optsMU.RUnlock()
+	bo.optsMU.RUnlock()
 }
 
 // Validate validates a given configuration map based on the option library
-func (o *IntOptions) Validate(n models.ConfigurationMap) error {
-	o.optsMU.RLock()
-	defer o.optsMU.RUnlock()
+func (bo *BoolOptions) Validate(n models.ConfigurationMap) error {
+	bo.optsMU.RLock()
+	defer bo.optsMU.RUnlock()
 	for k, v := range n {
-		_, newVal, err := ParseKeyValue(o.Library, k, v, OptionDisabled)
+		newVal, err := NormalizeBool(v)
 		if err != nil {
 			return err
 		}
 
 		// Ignore validation if value is identical
-		if oldVal, ok := o.Opts[k]; ok && oldVal == newVal {
+		if oldVal, ok := bo.Opts[k]; ok && oldVal == newVal {
 			continue
 		}
 
-		if err := o.Library.Validate(k, v); err != nil {
+		if err := bo.Library.Validate(k, newVal); err != nil {
 			return err
 		}
 	}
@@ -377,40 +317,33 @@ func (o *IntOptions) Validate(n models.ConfigurationMap) error {
 }
 
 // ChangedFunc is called by `Apply()` for each option changed
-type ChangedFunc func(key string, value int, data interface{})
+type ChangedFunc func(key string, value bool, data interface{})
 
 // enable enables the option `name` with all its dependencies
-func (o *IntOptions) enable(name string) {
-	if o.Library != nil {
-		if _, opt := o.Library.Lookup(name); opt != nil {
+func (bo *BoolOptions) enable(name string) {
+	if bo.Library != nil {
+		if _, opt := bo.Library.Lookup(name); opt != nil {
 			for _, dependency := range opt.Requires {
-				o.enable(dependency)
+				bo.enable(dependency)
 			}
 		}
 	}
 
-	o.Opts[name] = OptionEnabled
-}
-
-// set enables the option `name` with all its dependencies, and sets the
-// integer level of the option to `value`.
-func (o *IntOptions) set(name string, value int) {
-	o.enable(name)
-	o.Opts[name] = value
+	bo.Opts[name] = true
 }
 
 // disable disables the option `name`. All options which depend on the option
 // to be disabled will be disabled. Options which have previously been enabled
 // as a dependency will not be automatically disabled.
-func (o *IntOptions) disable(name string) {
-	o.Opts[name] = OptionDisabled
+func (bo *BoolOptions) disable(name string) {
+	bo.Opts[name] = false
 
-	if o.Library != nil {
+	if bo.Library != nil {
 		// Disable all options which have a dependency on the option
 		// that was just disabled
-		for key, opt := range *o.Library {
-			if opt.RequiresOption(name) && o.Opts[key] != OptionDisabled {
-				o.disable(key)
+		for key, opt := range *bo.Library {
+			if opt.RequiresOption(name) && bo.Opts[key] {
+				bo.disable(key)
 			}
 		}
 	}
@@ -418,40 +351,34 @@ func (o *IntOptions) disable(name string) {
 
 type changedOptions struct {
 	key   string
-	value int
+	value bool
 }
 
-// ApplyValidated takes a configuration map and applies the changes. For an
-// option which is changed, the `ChangedFunc` function is called with the
-// `data` argument passed in as well. Returns the number of options changed if
-// any.
-//
-// The caller is expected to have validated the configuration options prior to
-// calling this function.
-func (o *IntOptions) ApplyValidated(n models.ConfigurationMap, changed ChangedFunc, data interface{}) int {
+// Apply takes a configuration map and applies the changes. For an option
+// which is changed, the `ChangedFunc` function is called with the `data`
+// argument passed in as well. Returns the number of options changed if any.
+func (bo *BoolOptions) Apply(n models.ConfigurationMap, changed ChangedFunc, data interface{}) int {
 	changes := []changedOptions{}
 
-	o.optsMU.Lock()
+	bo.optsMU.Lock()
 	for k, v := range n {
-		val, ok := o.Opts[k]
+		val, ok := bo.Opts[k]
 
-		// Ignore the error here because the option was already validated.
-		_, optVal, _ := ParseKeyValue(o.Library, k, v, OptionDisabled)
-		if optVal == OptionDisabled {
-			/* Only disable if enabled already */
-			if ok && val != OptionDisabled {
-				o.disable(k)
-				changes = append(changes, changedOptions{key: k, value: optVal})
+		if boolVal, _ := NormalizeBool(v); boolVal {
+			/* Only enable if not enabled already */
+			if !ok || !val {
+				bo.enable(k)
+				changes = append(changes, changedOptions{key: k, value: true})
 			}
 		} else {
-			/* Only enable if not enabled already */
-			if !ok || val == OptionDisabled {
-				o.set(k, optVal)
-				changes = append(changes, changedOptions{key: k, value: optVal})
+			/* Only disable if enabled already */
+			if ok && val {
+				bo.disable(k)
+				changes = append(changes, changedOptions{key: k, value: false})
 			}
 		}
 	}
-	o.optsMU.Unlock()
+	bo.optsMU.Unlock()
 
 	for _, change := range changes {
 		changed(change.key, change.value, data)

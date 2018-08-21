@@ -1,7 +1,7 @@
 apiVersion: extensions/v1beta1
 kind: NetworkPolicy
 metadata:
-  name: "netpol-namespace-selector"
+  name: second
 spec:
   ingress:
   - from:

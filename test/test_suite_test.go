@@ -32,16 +32,15 @@ import (
 	gops "github.com/google/gops/agent"
 	"github.com/onsi/ginkgo"
 	ginkgoconfig "github.com/onsi/ginkgo/config"
+	"github.com/onsi/ginkgo/reporters"
 	. "github.com/onsi/gomega"
-
-	"github.com/onsi/gomega/format"
 	"github.com/sirupsen/logrus"
 )
 
 var (
 	log             = logging.DefaultLogger
 	DefaultSettings = map[string]string{
-		"K8S_VERSION": "1.11",
+		"K8S_VERSION": "1.10",
 	}
 	k8sNodesEnv         = "K8S_NODES"
 	commandsLogFileName = "cmds.log"
@@ -59,11 +58,10 @@ func init() {
 	for k, v := range DefaultSettings {
 		getOrSetEnvVar(k, v)
 	}
+
 	config.CiliumTestConfig.ParseFlags()
 
 	os.RemoveAll(helpers.TestResultsPath)
-
-	format.UseStringerRepresentation = true
 }
 
 func configLogsOutput() {
@@ -85,11 +83,6 @@ func ShowCommands() {
 }
 
 func TestTest(t *testing.T) {
-	if config.CiliumTestConfig.TestScope != "" {
-		helpers.UserDefinedScope = config.CiliumTestConfig.TestScope
-		fmt.Printf("User specified the scope:  %q", config.CiliumTestConfig.TestScope)
-	}
-
 	configLogsOutput()
 	ShowCommands()
 
@@ -103,7 +96,7 @@ func TestTest(t *testing.T) {
 	} else {
 		RegisterFailHandler(Fail)
 	}
-	junitReporter := ginkgoext.NewJUnitReporter(fmt.Sprintf(
+	junitReporter := reporters.NewJUnitReporter(fmt.Sprintf(
 		"%s.xml", helpers.GetScopeWithVersion()))
 	RunSpecsWithDefaultAndCustomReporters(
 		t, helpers.GetScopeWithVersion(), []ginkgo.Reporter{junitReporter})
@@ -174,13 +167,8 @@ var _ = BeforeAll(func() {
 	if progressChan := goReportVagrantStatus(); progressChan != nil {
 		defer func() { progressChan <- err == nil }()
 	}
-	logger := log.WithFields(logrus.Fields{"testName": "BeforeSuite"})
-	scope, err := helpers.GetScope()
-	if err != nil {
-		Fail(fmt.Sprintf("Cannot get the scope for running test: %s", err))
-	}
 
-	switch scope {
+	switch helpers.GetScope() {
 	case helpers.Runtime:
 		err = helpers.CreateVM(helpers.Runtime)
 		if err != nil {
@@ -188,7 +176,8 @@ var _ = BeforeAll(func() {
 			reportCreateVMFailure(helpers.Runtime, err)
 		}
 
-		vm := helpers.InitRuntimeHelper(helpers.Runtime, logger)
+		vm := helpers.InitRuntimeHelper(helpers.Runtime, log.WithFields(
+			logrus.Fields{"testName": "BeforeSuite"}))
 		err = vm.SetUpCilium()
 
 		if err != nil {
@@ -199,7 +188,6 @@ var _ = BeforeAll(func() {
 			log.WithError(err).Error("Cilium was unable to be set up correctly")
 			reportCreateVMFailure(helpers.Runtime, err)
 		}
-		go vm.PprofReport()
 
 	case helpers.K8s:
 		//FIXME: This should be:
@@ -235,9 +223,6 @@ var _ = BeforeAll(func() {
 				}
 			}
 		}
-		kubectl := helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-		kubectl.Apply(helpers.GetFilePath("../examples/kubernetes/addons/prometheus/prometheus.yaml"))
-		go kubectl.PprofReport()
 	}
 	return
 })
@@ -247,8 +232,8 @@ var _ = AfterAll(func() {
 		log.Infof("AfterSuite: not running on Jenkins; leaving VMs running for debugging")
 		return
 	}
-	// Errors are not checked here because it should fail on BeforeAll
-	scope, _ := helpers.GetScope()
+
+	scope := helpers.GetScope()
 	log.Infof("cleaning up VMs started for %s tests", scope)
 	switch scope {
 	case helpers.Runtime:
@@ -268,10 +253,6 @@ func getOrSetEnvVar(key, value string) {
 }
 
 var _ = AfterEach(func() {
-
-	// Send the Checks output to Junit report to be render on Jenkins.
-	defer helpers.CheckLogs.Reset()
-	GinkgoPrint("<Checks>\n%s\n</Checks>\n", helpers.CheckLogs.Buffer.String())
 
 	defer config.TestLogWriterReset()
 	err := helpers.CreateLogFile(config.TestLogFileName, config.TestLogWriter.Bytes())
@@ -302,16 +283,5 @@ var _ = AfterEach(func() {
 		}
 
 		ginkgoext.GinkgoPrint("[[ATTACHMENT|%s]]", zipFileName)
-	}
-
-	if !ginkgo.CurrentGinkgoTestDescription().Failed && helpers.IsRunningOnJenkins() {
-		// If the test success delete the monitor.log filename to not store all
-		// the data in Jenkins
-		testPath, err := helpers.CreateReportDirectory()
-		if err != nil {
-			log.WithError(err).Error("cannot retrieve test result path")
-			return
-		}
-		_ = os.Remove(filepath.Join(testPath, helpers.MonitorLogFileName))
 	}
 })

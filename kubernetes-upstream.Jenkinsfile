@@ -33,14 +33,13 @@ pipeline {
 
     environment {
         PROJ_PATH = "src/github.com/cilium/cilium"
-        TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
+        TESTDIR = "${WORKSPACE}/${PROJ_PATH}/"
         MEMORY = "4096"
-        K8S_VERSION="1.11"
-        SERVER_BOX = "cilium/ubuntu"
+        K8S_VERSION="1.10"
     }
 
     options {
-        timeout(time: 180, unit: 'MINUTES')
+        timeout(time: 60, unit: 'MINUTES')
         timestamps()
         ansiColor('xterm')
     }
@@ -60,40 +59,20 @@ pipeline {
                 timeout(time: 30, unit: 'MINUTES')
             }
 
+            environment {
+                TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
+            }
+
             steps {
                 sh 'cd ${TESTDIR}; vagrant up k8s1-${K8S_VERSION}'
                 sh 'cd ${TESTDIR}; vagrant up k8s2-${K8S_VERSION}'
                 sh 'cd ${TESTDIR}; vagrant ssh k8s1-${K8S_VERSION} -c "cd /home/vagrant/go/${PROJ_PATH}/test; ./kubernetes-test.sh"'
             }
         }
-
-        stage('Netperf tests'){
-
-            when {
-                environment name: 'GIT_BRANCH', value: 'origin/master'
-            }
-
-            options {
-                timeout(time: 120, unit: 'MINUTES')
-            }
-
-            environment {
-                PROMETHEUS_URL="https://metrics.cilium.io/metrics/job/upstream_job"
-                PROMETHEUS=credentials("metrics")
-            }
-
-            steps {
-                sh '''
-                    cd ${TESTDIR}; vagrant ssh k8s1-${K8S_VERSION} -c "
-                        cd /home/vagrant/go/${PROJ_PATH}/test;
-                        ./kubernetes-netperftest.sh '$PROMETHEUS_URL' '$PROMETHEUS_USR' '$PROMETHEUS_PSW'"
-                '''
-            }
-        }
     }
     post {
         always {
-            sh 'cd ${TESTDIR}; K8S_VERSION=${K8S_VERSION} vagrant destroy -f || true'
+            sh 'cd ${TESTDIR}/test/; K8S_VERSION=${K8S_VERSION} vagrant destroy -f || true'
             cleanWs()
         }
         success {

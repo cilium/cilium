@@ -17,8 +17,6 @@ limitations under the License.
 package transport
 
 import (
-	"context"
-	"crypto/tls"
 	"net"
 	"net/http"
 )
@@ -55,7 +53,7 @@ type Config struct {
 	WrapTransport func(rt http.RoundTripper) http.RoundTripper
 
 	// Dial specifies the dial function for creating unencrypted TCP connections.
-	Dial func(ctx context.Context, network, address string) (net.Conn, error)
+	Dial func(network, addr string) (net.Conn, error)
 }
 
 // ImpersonationConfig has all the available impersonation options
@@ -85,12 +83,7 @@ func (c *Config) HasTokenAuth() bool {
 
 // HasCertAuth returns whether the configuration has certificate authentication or not.
 func (c *Config) HasCertAuth() bool {
-	return (len(c.TLS.CertData) != 0 || len(c.TLS.CertFile) != 0) && (len(c.TLS.KeyData) != 0 || len(c.TLS.KeyFile) != 0)
-}
-
-// HasCertCallbacks returns whether the configuration has certificate callback or not.
-func (c *Config) HasCertCallback() bool {
-	return c.TLS.GetCert != nil
+	return len(c.TLS.CertData) != 0 || len(c.TLS.CertFile) != 0
 }
 
 // TLSConfig holds the information needed to set up a TLS transport.
@@ -105,6 +98,4 @@ type TLSConfig struct {
 	CAData   []byte // Bytes of the PEM-encoded server trusted root certificates. Supercedes CAFile.
 	CertData []byte // Bytes of the PEM-encoded client certificate. Supercedes CertFile.
 	KeyData  []byte // Bytes of the PEM-encoded client key. Supercedes KeyFile.
-
-	GetCert func() (*tls.Certificate, error) // Callback that returns a TLS client certificate. CertData, CertFile, KeyData and KeyFile supercede this field.
 }

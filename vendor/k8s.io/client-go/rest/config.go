@@ -17,7 +17,6 @@ limitations under the License.
 package rest
 
 import (
-	"context"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -30,6 +29,7 @@ import (
 
 	"github.com/golang/glog"
 
+	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -111,7 +111,7 @@ type Config struct {
 	Timeout time.Duration
 
 	// Dial specifies the dial function for creating unencrypted TCP connections.
-	Dial func(ctx context.Context, network, address string) (net.Conn, error)
+	Dial func(network, addr string) (net.Conn, error)
 
 	// Version forces a specific version to be used (if registered)
 	// Do we need this?
@@ -316,12 +316,12 @@ func InClusterConfig() (*Config, error) {
 		return nil, fmt.Errorf("unable to load in-cluster configuration, KUBERNETES_SERVICE_HOST and KUBERNETES_SERVICE_PORT must be defined")
 	}
 
-	token, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/token")
+	token, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/" + v1.ServiceAccountTokenKey)
 	if err != nil {
 		return nil, err
 	}
 	tlsClientConfig := TLSClientConfig{}
-	rootCAFile := "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+	rootCAFile := "/var/run/secrets/kubernetes.io/serviceaccount/" + v1.ServiceAccountRootCAKey
 	if _, err := certutil.NewPool(rootCAFile); err != nil {
 		glog.Errorf("Expected to load root CA config from %s, but got err: %v", rootCAFile, err)
 	} else {

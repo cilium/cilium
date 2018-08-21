@@ -4,27 +4,35 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	"github.com/sirupsen/logrus"
 )
 
-var _ = Describe("RuntimeConnectivityTest", func() {
-	var (
-		vm          *helpers.SSHMeta
-		monitorStop = func() error { return nil }
-	)
+var _ = Describe("RuntimeValidatedConnectivityTest", func() {
 
-	BeforeAll(func() {
-		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
-		ExpectCiliumReady(vm)
-	})
+	var once sync.Once
+	var logger *logrus.Entry
+	var vm *helpers.SSHMeta
+	var monitorStop func() error
+
+	initialize := func() {
+		logger = log.WithFields(logrus.Fields{"test": "RuntimeConnectivityTest"})
+		logger.Info("Starting")
+		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+	}
 
 	JustBeforeEach(func() {
 		monitorStop = vm.MonitorStart()
+	})
+
+	BeforeEach(func() {
+		once.Do(initialize)
 	})
 
 	removeContainer := func(containerName string) {
@@ -180,23 +188,8 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 			dockerImage = "busybox:latest"
 			cniServer   = "cni-server"
 			cniClient   = "cni-client"
-			netDPath    = "/etc/cni/net.d/"
-			tmpDir      *helpers.CmdRes
 		)
-
-		BeforeAll(func() {
-			// Remove any CNI plugin installed in the provision server. This
-			// helps to avoid issues on installing the new CNI
-			_ = vm.ExecWithSudo(fmt.Sprintf("rm -rf %[1]s/*.conf", netDPath)).ExpectSuccess(
-				"CNI config cannot be deleted")
-
-			tmpDir = vm.Exec("mktemp -d")
-			tmpDir.ExpectSuccess("TMP folder cannot be created %s", tmpDir.Output())
-		})
-
-		AfterAll(func() {
-			vm.Exec(fmt.Sprintf("rm -rf %s", tmpDir.Output()))
-		})
+		var tmpDir *helpers.CmdRes
 
 		BeforeEach(func() {
 			vm.PolicyDelAll().ExpectSuccess("Policies cannot be deleted")
@@ -229,16 +222,23 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 		}
 
 		It("Basic connectivity test", func() {
-			filename := "05-cilium-cni.conf"
+			filename := "10-cilium-cni.conf"
+			tmpDir = vm.Exec("mktemp -d")
+			tmpDir.ExpectSuccess("TMP folder cannot be created %s", tmpDir.Output())
+			defer vm.Exec(fmt.Sprintf("rm -rf %s", tmpDir.Output()))
+			netDPath := filepath.Join(tmpDir.SingleOut(), "net.d")
+			vm.Exec(fmt.Sprintf("mkdir -p %s", netDPath)).ExpectSuccess()
+
 			cniConf := `{"name": "cilium",
-				"type": "cilium-cni"}`
+				"type": "cilium-cni",
+				"mtu": 1450}`
+
 			err := helpers.RenderTemplateToFile(filename, cniConf, os.ModePerm)
 			Expect(err).To(BeNil())
 
-			cmd := vm.ExecWithSudo(fmt.Sprintf("mv %s %s",
-				helpers.GetFilePath(filename),
-				filepath.Join(netDPath, filename)))
-			cmd.ExpectSuccess("cannot install cilium cni plugin conf")
+			cmd := vm.Exec(fmt.Sprintf("cat %s > %s/%s",
+				helpers.GetFilePath(filename), netDPath, filename))
+			cmd.ExpectSuccess()
 			script := fmt.Sprintf(`
 				cd %s && \
 				git clone https://github.com/containernetworking/cni -b v0.5.2 --single-branch && \
@@ -289,15 +289,15 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 	})
 })
 
-var _ = Describe("RuntimeConntrackTest", func() {
-	var (
-		vm          *helpers.SSHMeta
-		monitorStop = func() error { return nil }
+var _ = Describe("RuntimeValidatedConntrackTest", func() {
+	var logger *logrus.Entry
+	var vm *helpers.SSHMeta
+	var once sync.Once
+	var monitorStop func() error
 
-		curl1ContainerName             = "curl"
-		curl2ContainerName             = "curl2"
-		CTPolicyConntrackLocalDisabled = "ct-test-policy-conntrack-local-disabled.json"
-	)
+	var curl1ContainerName = "curl"
+	var curl2ContainerName = "curl2"
+	var CTPolicyConntrackLocalDisabled = "ct-test-policy-conntrack-local-disabled.json"
 
 	type conntestCases struct {
 		from        string
@@ -306,12 +306,13 @@ var _ = Describe("RuntimeConntrackTest", func() {
 		assert      func() types.GomegaMatcher
 	}
 
-	BeforeAll(func() {
-		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
-		ExpectCiliumReady(vm)
+	initialize := func() {
+		logger = log.WithFields(logrus.Fields{"test": "RunConntrackTest"})
+		logger.Info("Starting")
+		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
 
 		ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementAlways)
-	})
+	}
 
 	clientServerConnectivity := func() {
 		By("============= Starting Connectivity Test ============= ")
@@ -609,6 +610,8 @@ var _ = Describe("RuntimeConntrackTest", func() {
 	}
 
 	BeforeEach(func() {
+		once.Do(initialize)
+
 		// TODO: provide map[string]string instead of one string representing KV pair.
 		vm.ContainerCreate(helpers.Client, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
 		vm.ContainerCreate(helpers.Server, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.server")

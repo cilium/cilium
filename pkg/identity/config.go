@@ -14,11 +14,8 @@
 
 package identity
 
-import (
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
-)
+import "github.com/cilium/cilium/pkg/logging"
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "identity")
+	log = logging.DefaultLogger
 )

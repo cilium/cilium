@@ -21,7 +21,7 @@ import (
 	graceful "github.com/tylerb/graceful"
 
 	"github.com/cilium/cilium/api/v1/server/restapi"
-	"github.com/cilium/cilium/pkg/api"
+	"github.com/cilium/cilium/pkg/apisocket"
 )
 
 const (
@@ -171,7 +171,7 @@ func (s *Server) Serve() (err error) {
 		configureServer(domainSocket, "unix", string(s.SocketPath))
 
 		if os.Getuid() == 0 {
-			err := api.SetDefaultPermissions(string(s.SocketPath))
+			err := apisocket.SetDefaultPermissions(string(s.SocketPath))
 			if err != nil {
 				return err
 			}

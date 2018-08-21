@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
@@ -29,7 +28,7 @@ import (
 )
 
 // ParseNode parses a kubernetes node to a cilium node
-func ParseNode(k8sNode *v1.Node, source node.Source) *node.Node {
+func ParseNode(k8sNode *v1.Node) *node.Node {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.NodeName:  k8sNode.Name,
 		logfields.K8sNodeID: k8sNode.UID,
@@ -60,9 +59,7 @@ func ParseNode(k8sNode *v1.Node, source node.Source) *node.Node {
 
 	node := &node.Node{
 		Name:        k8sNode.Name,
-		Cluster:     option.Config.ClusterName,
 		IPAddresses: addrs,
-		Source:      source,
 	}
 
 	if len(k8sNode.Spec.PodCIDR) != 0 {

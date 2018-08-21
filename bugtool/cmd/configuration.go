@@ -47,7 +47,7 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 	// Not expecting all of the commands to be available
 	commands = []string{
 		// Host and misc
-		"ps auxfw",
+		"ps",
 		"hostname",
 		"ip a",
 		"ip r",
@@ -59,7 +59,7 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		"arp",
 		"top -b -n 1",
 		"uptime",
-		"dmesg --time-format=iso",
+		"dmesg",
 		"bpftool map show",
 		"bpftool prog show",
 		// Versions
@@ -219,7 +219,6 @@ func copyCiliumInfoCommands(cmdDir string, k8sPods []string) []string {
 		"cilium bpf ct list global",
 		"cilium bpf proxy list",
 		"cilium bpf ipcache list",
-		"cilium map list --verbose",
 		"cilium status --verbose",
 		"cilium identity list",
 		"cilium-health status",

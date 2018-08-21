@@ -47,7 +47,9 @@ func (m *L7Policy) Validate() error {
 
 	// no validation rules for Denied_403Body
 
-	if v, ok := interface{}(m.GetIsIngress()).(interface{ Validate() error }); ok {
+	if v, ok := interface{}(m.GetIsIngress()).(interface {
+		Validate() error
+	}); ok {
 		if err := v.Validate(); err != nil {
 			return L7PolicyValidationError{
 				Field:  "IsIngress",

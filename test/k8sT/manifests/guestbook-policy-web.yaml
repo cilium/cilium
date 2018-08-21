@@ -1,7 +1,7 @@
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
 metadata:
-  name: "guestbook-policy-web"
+  name: "guestbook-web"
 spec:
   endpointSelector:
     matchLabels:

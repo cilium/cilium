@@ -204,7 +204,11 @@ func (m *Broadcaster) Shutdown() {
 func (m *Broadcaster) loop() {
 	// Deliberately not catching crashes here. Yes, bring down the process if there's a
 	// bug in watch.Broadcaster.
-	for event := range m.incoming {
+	for {
+		event, ok := <-m.incoming
+		if !ok {
+			break
+		}
 		if event.Type == internalRunFunctionMarker {
 			event.Object.(functionFakeRuntimeObject)()
 			continue

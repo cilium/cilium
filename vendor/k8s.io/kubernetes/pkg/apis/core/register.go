@@ -60,6 +60,7 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&ServiceProxyOptions{},
 		&NodeList{},
 		&Node{},
+		&NodeConfigSource{},
 		&NodeProxyOptions{},
 		&Endpoints{},
 		&EndpointsList{},

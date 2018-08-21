@@ -26,11 +26,17 @@ import (
 type Clock interface {
 	Now() time.Time
 	Since(time.Time) time.Duration
-	After(time.Duration) <-chan time.Time
-	NewTimer(time.Duration) Timer
-	Sleep(time.Duration)
-	NewTicker(time.Duration) Ticker
+	After(d time.Duration) <-chan time.Time
+	NewTimer(d time.Duration) Timer
+	Sleep(d time.Duration)
+	Tick(d time.Duration) <-chan time.Time
 }
+
+var (
+	_ = Clock(RealClock{})
+	_ = Clock(&FakeClock{})
+	_ = Clock(&IntervalClock{})
+)
 
 // RealClock really calls time.Now()
 type RealClock struct{}
@@ -56,10 +62,8 @@ func (RealClock) NewTimer(d time.Duration) Timer {
 	}
 }
 
-func (RealClock) NewTicker(d time.Duration) Ticker {
-	return &realTicker{
-		ticker: time.NewTicker(d),
-	}
+func (RealClock) Tick(d time.Duration) <-chan time.Time {
+	return time.Tick(d)
 }
 
 func (RealClock) Sleep(d time.Duration) {
@@ -133,7 +137,7 @@ func (f *FakeClock) NewTimer(d time.Duration) Timer {
 	return timer
 }
 
-func (f *FakeClock) NewTicker(d time.Duration) Ticker {
+func (f *FakeClock) Tick(d time.Duration) <-chan time.Time {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 	tickTime := f.time.Add(d)
@@ -145,9 +149,7 @@ func (f *FakeClock) NewTicker(d time.Duration) Ticker {
 		destChan:      ch,
 	})
 
-	return &fakeTicker{
-		c: ch,
-	}
+	return ch
 }
 
 // Move clock by Duration, notify anyone that's called After, Tick, or NewTimer
@@ -240,8 +242,8 @@ func (*IntervalClock) NewTimer(d time.Duration) Timer {
 
 // Unimplemented, will panic.
 // TODO: make interval clock use FakeClock so this can be implemented.
-func (*IntervalClock) NewTicker(d time.Duration) Ticker {
-	panic("IntervalClock doesn't implement NewTicker")
+func (*IntervalClock) Tick(d time.Duration) <-chan time.Time {
+	panic("IntervalClock doesn't implement Tick")
 }
 
 func (*IntervalClock) Sleep(d time.Duration) {
@@ -255,6 +257,11 @@ type Timer interface {
 	Stop() bool
 	Reset(d time.Duration) bool
 }
+
+var (
+	_ = Timer(&realTimer{})
+	_ = Timer(&fakeTimer{})
+)
 
 // realTimer is backed by an actual time.Timer.
 type realTimer struct {
@@ -317,32 +324,4 @@ func (f *fakeTimer) Reset(d time.Duration) bool {
 	f.waiter.targetTime = f.fakeClock.time.Add(d)
 
 	return active
-}
-
-type Ticker interface {
-	C() <-chan time.Time
-	Stop()
-}
-
-type realTicker struct {
-	ticker *time.Ticker
-}
-
-func (t *realTicker) C() <-chan time.Time {
-	return t.ticker.C
-}
-
-func (t *realTicker) Stop() {
-	t.ticker.Stop()
-}
-
-type fakeTicker struct {
-	c <-chan time.Time
-}
-
-func (t *fakeTicker) C() <-chan time.Time {
-	return t.c
-}
-
-func (t *fakeTicker) Stop() {
 }

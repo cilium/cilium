@@ -18,7 +18,7 @@ TARGET=cilium-bugtool
 SOURCES := $(shell find ../common . -name '*.go')
 $(TARGET): $(SOURCES)
 	@$(ECHO_GO)
-	$(GO) build $(GOBUILD) -o $(TARGET)
+	$(GO) build -i $(GOBUILD) -o $(TARGET)
 
 all: $(TARGET)
 

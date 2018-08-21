@@ -17,8 +17,6 @@ package kvstore
 import (
 	"strings"
 
-	"github.com/cilium/cilium/pkg/logging"
-
 	"github.com/sirupsen/logrus"
 )
 
@@ -44,7 +42,7 @@ func Trace(format string, err error, fields logrus.Fields, a ...interface{}) {
 
 func init() {
 	if strings.ToLower(Debug) == "true" {
-		logging.DefaultLogger.SetLevel(logrus.DebugLevel)
+		log.SetLevel(logrus.DebugLevel)
 		traceEnabled = true
 	}
 }

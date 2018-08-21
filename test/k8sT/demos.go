@@ -15,7 +15,6 @@
 package k8sTest
 
 import (
-	"context"
 	"fmt"
 	"path/filepath"
 
@@ -23,9 +22,11 @@ import (
 	"github.com/cilium/cilium/test/helpers"
 
 	. "github.com/onsi/gomega"
+	"github.com/sirupsen/logrus"
 )
 
 var (
+	demoTestName         = "K8sValidatedDemosTest"
 	starWarsDemoLinkRoot = "https://raw.githubusercontent.com/cilium/star-wars-demo/master/v1"
 )
 
@@ -35,15 +36,13 @@ func getStarWarsResourceLink(file string) string {
 	return fmt.Sprintf("%s/%s", starWarsDemoLinkRoot, file)
 }
 
-var _ = Describe("K8sDemosTest", func() {
+var _ = Describe(demoTestName, func() {
 
 	var (
 		kubectl          *helpers.Kubectl
+		logger           *logrus.Entry
 		microscopeErr    error
-		microscopeCancel = func() error { return nil }
-
-		backgroundCancel context.CancelFunc = func() { return }
-		backgroundError  error
+		microscopeCancel func() error
 
 		deathStarYAMLLink = getStarWarsResourceLink("02-deathstar.yaml")
 		l4PolicyYAMLLink  = getStarWarsResourceLink("policy/l4_policy.yaml")
@@ -52,6 +51,8 @@ var _ = Describe("K8sDemosTest", func() {
 	)
 
 	BeforeAll(func() {
+		logger = log.WithFields(logrus.Fields{"testName": demoTestName})
+		logger.Info("Starting")
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
 		err := kubectl.CiliumInstall(helpers.CiliumDSPath)
@@ -70,15 +71,11 @@ var _ = Describe("K8sDemosTest", func() {
 	JustBeforeEach(func() {
 		microscopeErr, microscopeCancel = kubectl.MicroscopeStart()
 		Expect(microscopeErr).To(BeNil(), "Microscope cannot be started")
-
-		backgroundCancel, backgroundError = kubectl.BackgroundReport("uptime")
-		Expect(backgroundError).To(BeNil(), "Cannot start background report process")
 	})
 
 	JustAfterEach(func() {
 		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
 		Expect(microscopeCancel()).To(BeNil(), "cannot stop microscope")
-		backgroundCancel()
 	})
 
 	AfterEach(func() {
@@ -95,27 +92,41 @@ var _ = Describe("K8sDemosTest", func() {
 	It("Tests Star Wars Demo", func() {
 
 		allianceLabel := "org=alliance"
-		deathstarServiceName := "deathstar"
-		deathstarFQDN := fmt.Sprintf("%s.%s.svc.cluster.local", deathstarServiceName, helpers.DefaultNamespace)
+		empireLabel := "org=empire"
+		deathstarServiceName := "deathstar.default.svc.cluster.local"
 
-		exhaustPortPath := filepath.Join(deathstarFQDN, "/v1/exhaust-port")
+		exhaustPortPath := filepath.Join(deathstarServiceName, "/v1/exhaust-port")
 
-		By("Applying deployments")
+		// Taint the node instead of adding a nodeselector in the file so that we
+		// don't have to customize the YAML for this test.
+		By("Tainting %s so that all pods run on %s", helpers.K8s1, helpers.K8s2)
+		res := kubectl.Exec(fmt.Sprintf("kubectl taint nodes %s demo=false:NoSchedule", helpers.K8s1))
+		defer func() {
+			By("Removing taint from %s after test finished", helpers.K8s1)
+			res := kubectl.Exec(fmt.Sprintf("kubectl taint nodes %s demo:NoSchedule-", helpers.K8s1))
+			res.ExpectSuccess("Unable to remove taint from k8s1: %s", res.CombineOutput())
+		}()
+		res.ExpectSuccess("Unable to apply taint to %s: %s", helpers.K8s1, res.CombineOutput())
 
-		res := kubectl.Apply(deathStarYAMLLink)
+		By("Applying deathstar deployment")
+		res = kubectl.Apply(deathStarYAMLLink)
 		res.ExpectSuccess("unable to apply %s: %s", deathStarYAMLLink, res.CombineOutput())
 
+		By("Waiting for deathstar deployment pods to be ready")
+		err := kubectl.WaitforPods(helpers.DefaultNamespace, fmt.Sprintf("-l %s", empireLabel), 300)
+		Expect(err).Should(BeNil(), "Empire pods are not ready after timeout")
+
+		By("Applying policy and waiting for policy revision to increase in Cilium pods")
+		res = kubectl.Apply(l4PolicyYAMLLink)
+		res.ExpectSuccess("unable to apply %s: %s", l4PolicyYAMLLink, res.CombineOutput())
+
+		By("Applying alliance deployment")
 		res = kubectl.Apply(xwingYAMLLink)
 		res.ExpectSuccess("unable to apply %s: %s", xwingYAMLLink, res.CombineOutput())
 
-		By("Waiting for pods to be ready")
-		err := kubectl.WaitforPods(helpers.DefaultNamespace, "", 300)
-		Expect(err).Should(BeNil(), "Pods are not ready after timeout")
-
-		By("Applying policy and waiting for policy revision to increase in Cilium pods")
-		_, err = kubectl.CiliumPolicyAction(
-			helpers.KubeSystemNamespace, l4PolicyYAMLLink, helpers.KubectlApply, 300)
-		Expect(err).Should(BeNil(), "Unable to apply %s", l4PolicyYAMLLink)
+		By("Waiting for alliance pods to be ready")
+		err = kubectl.WaitforPods(helpers.DefaultNamespace, fmt.Sprintf("-l %s", allianceLabel), 300)
+		Expect(err).Should(BeNil(), "Alliance pods are not ready after timeout")
 
 		By("Getting xwing pod names")
 		xwingPods, err := kubectl.GetPodNames(helpers.DefaultNamespace, allianceLabel)
@@ -131,21 +142,17 @@ var _ = Describe("K8sDemosTest", func() {
 
 		By("Showing how alliance can execute REST API call to main API endpoint")
 
-		err = kubectl.WaitForKubeDNSEntry(deathstarServiceName, helpers.DefaultNamespace)
+		err = kubectl.WaitForKubeDNSEntry(deathstarServiceName)
 		Expect(err).To(BeNil(), "DNS entry is not ready after timeout")
 
 		res = kubectl.ExecPodCmd(helpers.DefaultNamespace, xwingPod,
-			helpers.CurlWithHTTPCode("http://%s/v1", deathstarFQDN))
-		res.ExpectContains("200", "unable to curl %s/v1: %s", deathstarFQDN, res.Output())
+			helpers.CurlWithHTTPCode("http://%s/v1", deathstarServiceName))
+		res.ExpectContains("200", "unable to curl %s/v1: %s", deathstarServiceName, res.Output())
 
 		By("Importing L7 Policy which restricts access to %q", exhaustPortPath)
-		_, err = kubectl.CiliumPolicyAction(
-			helpers.KubeSystemNamespace, l4PolicyYAMLLink, helpers.KubectlDelete, 300)
-		Expect(err).Should(BeNil(), "Unable to delete %s", l4PolicyYAMLLink)
-
-		_, err = kubectl.CiliumPolicyAction(
-			helpers.KubeSystemNamespace, l7PolicyYAMLLink, helpers.KubectlApply, 300)
-		Expect(err).Should(BeNil(), "Unable to apply %s", l7PolicyYAMLLink)
+		kubectl.Delete(l4PolicyYAMLLink)
+		res = kubectl.Apply(l7PolicyYAMLLink)
+		res.ExpectSuccess("unable to apply %s: %s", l7PolicyYAMLLink, res.CombineOutput())
 
 		By("Waiting for endpoints to be ready after importing policy")
 		err = kubectl.CiliumEndpointWaitReady()
@@ -162,4 +169,5 @@ var _ = Describe("K8sDemosTest", func() {
 		By("Expecting 503 to be returned when using force header to attack the deathstar")
 		res.ExpectContains("503", "unable to access %s when policy allows it; %s", exhaustPortPath, res.Output())
 	})
+
 })

@@ -230,10 +230,7 @@ func (t *Target) CreateApplyManifest(spec *TestSpec) error {
 		"apiVersion": "v1",
 		"kind": "Service",
 		"metadata": {
-			"name": "{{ .targetName }}",
-			"labels": {
-				"test": "policygen"
-			}
+			"name": "{{ .targetName }}"
 		},
 		"spec": {
 			"ports": [
@@ -258,10 +255,7 @@ func (t *Target) CreateApplyManifest(spec *TestSpec) error {
 		  "apiVersion": "v1",
 		  "kind": "Service",
 		  "metadata": {
-			"name": "{{ .targetName }}",
-			"labels": {
-				"test": "policygen"
-			}
+			"name": "{{ .targetName }}"
 		  },
 		  "spec": {
 			"type": "NodePort",
@@ -369,9 +363,6 @@ func (t *TestSpec) RunTest(kub *helpers.Kubectl) {
 	err = t.NetworkPolicyApply()
 	gomega.Expect(err).To(gomega.BeNil(), "cannot apply network policy for %s", t.Prefix)
 
-	err = kub.CiliumEndpointWaitReady()
-	gomega.Expect(err).To(gomega.BeNil(), "Endpoints are not ready after timeout")
-
 	err = t.ExecTest()
 	gomega.Expect(err).To(gomega.BeNil(), "cannot execute test for %s", t.Prefix)
 }
@@ -457,7 +448,6 @@ metadata:
   labels:
     id: "%[3]s"
     zgroup: "%[1]s"
-    test: "policygen"
 spec:
   containers:
   - name: web
@@ -539,9 +529,7 @@ func (t *TestSpec) CreateCiliumNetworkPolicy() (string, error) {
 	  "kind": "CiliumNetworkPolicy",
 	  "metadata": {
 		"name": "%[1]s",
-		"labels": {
-			"test": "policygen"
-		}
+		"test": "%[3]s"
 	  },
 	  "specs": %[2]s}`)
 
@@ -638,7 +626,7 @@ func (t *TestSpec) CreateCiliumNetworkPolicy() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf(string(metadata), t.Prefix, jsonOutput), nil
+	return fmt.Sprintf(string(metadata), t.Prefix, jsonOutput, t), nil
 }
 
 // NetworkPolicyName returns the name of the NetworkPolicy

@@ -14,11 +14,8 @@
 
 package ipcache
 
-import (
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
-)
+import "github.com/cilium/cilium/pkg/logging"
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipcache")
+	log = logging.DefaultLogger
 )

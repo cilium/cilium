@@ -139,7 +139,7 @@ type Properties struct {
 	Repeated bool
 	Packed   bool   // relevant for repeated primitives only
 	Enum     string // set for enum types only
-	proto3   bool   // whether this is known to be a proto3 field
+	proto3   bool   // whether this is known to be a proto3 field; set for []byte only
 	oneof    bool   // whether this is a oneof field
 
 	Default    string // default value
@@ -156,7 +156,7 @@ type Properties struct {
 // String formats the properties in the protobuf struct field tag style.
 func (p *Properties) String() string {
 	s := p.Wire
-	s += ","
+	s = ","
 	s += strconv.Itoa(p.Tag)
 	if p.Required {
 		s += ",req"
@@ -224,7 +224,6 @@ func (p *Properties) Parse(s string) {
 		return
 	}
 
-outer:
 	for i := 2; i < len(fields); i++ {
 		f := fields[i]
 		switch {
@@ -252,7 +251,7 @@ outer:
 			if i+1 < len(fields) {
 				// Commas aren't escaped, and def is always last.
 				p.Default += "," + strings.Join(fields[i+1:], ",")
-				break outer
+				break
 			}
 		}
 	}

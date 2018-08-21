@@ -16,7 +16,6 @@ package endpoint
 
 import (
 	"fmt"
-	"math"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -27,14 +26,10 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
-	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
-	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
-	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -97,7 +92,7 @@ func (e *Endpoint) convertL4FilterToPolicyMapKeys(filter *policy.L4Filter, direc
 	proto := uint8(filter.U8Proto)
 
 	for _, sel := range filter.Endpoints {
-		for _, id := range getSecurityIdentities(*e.prevIdentityCache, &sel) {
+		for _, id := range getSecurityIdentities(*e.LabelsMap, &sel) {
 			srcID := id.Uint32()
 			keyToAdd := policymap.PolicyKey{
 				Identity: srcID,
@@ -112,21 +107,9 @@ func (e *Endpoint) convertL4FilterToPolicyMapKeys(filter *policy.L4Filter, direc
 	return keysToAdd
 }
 
-// lookupRedirectPort returns the redirect L4 proxy port for the given L4
-// policy map key, in host byte order. Returns 0 if not found or the
-// filter doesn't require a redirect.
-// Must be called with Endpoint.Mutex held.
-func (e *Endpoint) lookupRedirectPort(l4Filter *policy.L4Filter) uint16 {
-	if !l4Filter.IsRedirect() {
-		return 0
-	}
-	proxyID := e.ProxyID(l4Filter)
-	return e.realizedRedirects[proxyID]
-}
-
-func (e *Endpoint) computeDesiredL4PolicyMapEntries(keysToAdd PolicyMapState) {
+func (e *Endpoint) computeDesiredL4PolicyMapEntries(keysToAdd map[policymap.PolicyKey]struct{}) {
 	if keysToAdd == nil {
-		keysToAdd = PolicyMapState{}
+		keysToAdd = map[policymap.PolicyKey]struct{}{}
 	}
 
 	if e.DesiredL4Policy == nil {
@@ -136,40 +119,14 @@ func (e *Endpoint) computeDesiredL4PolicyMapEntries(keysToAdd PolicyMapState) {
 	for _, filter := range e.DesiredL4Policy.Ingress {
 		keysFromFilter := e.convertL4FilterToPolicyMapKeys(&filter, policymap.Ingress)
 		for _, keyFromFilter := range keysFromFilter {
-			var proxyPort uint16
-			// Preserve the already-allocated proxy ports for redirects that
-			// already exist.
-			if filter.IsRedirect() {
-				proxyPort = e.lookupRedirectPort(&filter)
-				// If the currently allocated proxy port is 0, this is a new
-				// redirect, for which no port has been allocated yet. Ignore
-				// it for now. This will be configured by
-				// e.addNewRedirectsFromMap once the port has been allocated.
-				if proxyPort == 0 {
-					continue
-				}
-			}
-			keysToAdd[keyFromFilter] = PolicyMapStateEntry{ProxyPort: proxyPort}
+			keysToAdd[keyFromFilter] = struct{}{}
 		}
 	}
 
 	for _, filter := range e.DesiredL4Policy.Egress {
 		keysFromFilter := e.convertL4FilterToPolicyMapKeys(&filter, policymap.Egress)
 		for _, keyFromFilter := range keysFromFilter {
-			var proxyPort uint16
-			// Preserve the already-allocated proxy ports for redirects that
-			// already exist.
-			if filter.IsRedirect() {
-				proxyPort = e.lookupRedirectPort(&filter)
-				// If the currently allocated proxy port is 0, this is a new
-				// redirect, for which no port has been allocated yet. Ignore
-				// it for now. This will be configured by
-				// e.addNewRedirectsFromMap once the port has been allocated.
-				if proxyPort == 0 {
-					continue
-				}
-			}
-			keysToAdd[keyFromFilter] = PolicyMapStateEntry{ProxyPort: proxyPort}
+			keysToAdd[keyFromFilter] = struct{}{}
 		}
 	}
 	return
@@ -242,9 +199,9 @@ func (e *Endpoint) resolveL4Policy(repo *policy.Repository) (policyChanged bool,
 
 func (e *Endpoint) computeDesiredPolicyMapState(owner Owner, labelsMap *identityPkg.IdentityCache,
 	repo *policy.Repository) {
-	desiredPolicyKeys := make(PolicyMapState)
-	if e.prevIdentityCache != labelsMap {
-		e.prevIdentityCache = labelsMap
+	desiredPolicyKeys := make(map[policymap.PolicyKey]struct{})
+	if e.LabelsMap != labelsMap {
+		e.LabelsMap = labelsMap
 	}
 	e.computeDesiredL4PolicyMapEntries(desiredPolicyKeys)
 	e.determineAllowLocalhost(desiredPolicyKeys)
@@ -257,14 +214,22 @@ func (e *Endpoint) computeDesiredPolicyMapState(owner Owner, labelsMap *identity
 // communicate with the localhost. It inserts the PolicyKey corresponding to
 // the localhost in the desiredPolicyKeys if the endpoint is allowed to
 // communicate with the localhost.
-func (e *Endpoint) determineAllowLocalhost(desiredPolicyKeys PolicyMapState) {
+func (e *Endpoint) determineAllowLocalhost(desiredPolicyKeys map[policymap.PolicyKey]struct{}) {
 
 	if desiredPolicyKeys == nil {
-		desiredPolicyKeys = PolicyMapState{}
+		desiredPolicyKeys = map[policymap.PolicyKey]struct{}{}
 	}
 
 	if option.Config.AlwaysAllowLocalhost() || (e.DesiredL4Policy != nil && e.DesiredL4Policy.HasRedirect()) {
-		desiredPolicyKeys[localHostKey] = PolicyMapStateEntry{}
+		// Remove eventual existing ingress L4 localhost restrictions
+		for key := range desiredPolicyKeys {
+			if key.Identity == identityPkg.ReservedIdentityHost.Uint32() &&
+				key.TrafficDirection == policymap.Ingress.Uint8() {
+				delete(desiredPolicyKeys, key)
+			}
+		}
+
+		desiredPolicyKeys[localHostKey] = struct{}{}
 	}
 }
 
@@ -276,22 +241,30 @@ func (e *Endpoint) determineAllowLocalhost(desiredPolicyKeys PolicyMapState) {
 // This must be run after determineAllowLocalhost().
 //
 // For more information, see https://cilium.link/host-vs-world
-func (e *Endpoint) determineAllowFromWorld(desiredPolicyKeys PolicyMapState) {
+func (e *Endpoint) determineAllowFromWorld(desiredPolicyKeys map[policymap.PolicyKey]struct{}) {
 
 	if desiredPolicyKeys == nil {
-		desiredPolicyKeys = PolicyMapState{}
+		desiredPolicyKeys = map[policymap.PolicyKey]struct{}{}
 	}
 
 	_, localHostAllowed := desiredPolicyKeys[localHostKey]
 	if option.Config.HostAllowsWorld && localHostAllowed {
-		desiredPolicyKeys[worldKey] = PolicyMapStateEntry{}
+		// Remove eventual existing ingress L4 world restrictions
+		for key := range desiredPolicyKeys {
+			if key.Identity == identityPkg.ReservedIdentityWorld.Uint32() &&
+				key.TrafficDirection == policymap.Ingress.Uint8() {
+				delete(desiredPolicyKeys, key)
+			}
+		}
+
+		desiredPolicyKeys[worldKey] = struct{}{}
 	}
 }
 
-func (e *Endpoint) computeDesiredL3PolicyMapEntries(owner Owner, identityCache *identityPkg.IdentityCache, repo *policy.Repository, desiredPolicyKeys PolicyMapState) {
+func (e *Endpoint) computeDesiredL3PolicyMapEntries(owner Owner, identityCache *identityPkg.IdentityCache, repo *policy.Repository, desiredPolicyKeys map[policymap.PolicyKey]struct{}) {
 
 	if desiredPolicyKeys == nil {
-		desiredPolicyKeys = PolicyMapState{}
+		desiredPolicyKeys = map[policymap.PolicyKey]struct{}{}
 	}
 
 	ingressCtx := policy.SearchContext{
@@ -306,6 +279,8 @@ func (e *Endpoint) computeDesiredL3PolicyMapEntries(owner Owner, identityCache *
 		egressCtx.Trace = policy.TRACE_ENABLED
 	}
 
+	enableIngressEnforcement, enableEgressEnforcement := owner.EnableEndpointPolicyEnforcement(e)
+
 	// Only L3 (label-based) policy apply.
 	// Complexity increases linearly by the number of identities in the map.
 	for identity, labels := range *identityCache {
@@ -313,7 +288,7 @@ func (e *Endpoint) computeDesiredL3PolicyMapEntries(owner Owner, identityCache *
 		egressCtx.To = labels
 
 		var ingressAccess api.Decision
-		if e.Options.IsEnabled(option.IngressPolicy) {
+		if enableIngressEnforcement {
 			ingressAccess = repo.AllowsIngressLabelAccess(&ingressCtx)
 		} else {
 			// If policy enforcement is disabled, set the policy to an
@@ -328,11 +303,11 @@ func (e *Endpoint) computeDesiredL3PolicyMapEntries(owner Owner, identityCache *
 				Identity:         identity.Uint32(),
 				TrafficDirection: policymap.Ingress.Uint8(),
 			}
-			desiredPolicyKeys[keyToAdd] = PolicyMapStateEntry{}
+			desiredPolicyKeys[keyToAdd] = struct{}{}
 		}
 
 		var egressAccess api.Decision
-		if e.Options.IsEnabled(option.EgressPolicy) {
+		if enableEgressEnforcement {
 			egressAccess = repo.AllowsEgressLabelAccess(&egressCtx)
 		} else {
 			// If policy enforcement is disabled, set the policy to an
@@ -347,7 +322,7 @@ func (e *Endpoint) computeDesiredL3PolicyMapEntries(owner Owner, identityCache *
 				Identity:         identity.Uint32(),
 				TrafficDirection: policymap.Egress.Uint8(),
 			}
-			desiredPolicyKeys[keyToAdd] = PolicyMapStateEntry{}
+			desiredPolicyKeys[keyToAdd] = struct{}{}
 		}
 	}
 }
@@ -381,12 +356,11 @@ func (e *Endpoint) regenerateL3Policy(repo *policy.Repository, revision uint64) 
 // enforcement mode or if the global policy enforcement is enabled.
 func (e *Endpoint) IngressOrEgressIsEnforced() bool {
 	return policy.GetPolicyEnabled() == option.AlwaysEnforce ||
-		e.Options.IsEnabled(option.IngressPolicy) ||
-		e.Options.IsEnabled(option.EgressPolicy)
+		e.Opts.IsEnabled(option.IngressPolicy) ||
+		e.Opts.IsEnabled(option.EgressPolicy)
 }
 
-// must be called with endpoint.Mutex held for reading
-func (e *Endpoint) updateNetworkPolicy(owner Owner, proxyWaitGroup *completion.WaitGroup) error {
+func (e *Endpoint) updateNetworkPolicy(owner Owner) error {
 	// Skip updating the NetworkPolicy if no policy has been calculated.
 	// This breaks a circular dependency between configuring NetworkPolicies in
 	// sidecar Envoy proxies and those proxies needing network connectivity
@@ -406,7 +380,7 @@ func (e *Endpoint) updateNetworkPolicy(owner Owner, proxyWaitGroup *completion.W
 		ctx.Trace = policy.TRACE_ENABLED
 	}
 	deniedIngressIdentities := make(map[identityPkg.NumericIdentity]bool)
-	for srcID, srcLabels := range *e.prevIdentityCache {
+	for srcID, srcLabels := range *e.LabelsMap {
 		ctx.From = srcLabels
 		e.getLogger().WithFields(logrus.Fields{
 			logfields.PolicyID: srcID,
@@ -425,7 +399,7 @@ func (e *Endpoint) updateNetworkPolicy(owner Owner, proxyWaitGroup *completion.W
 	}
 
 	deniedEgressIdentities := make(map[identityPkg.NumericIdentity]bool)
-	for dstID, dstLabels := range *e.prevIdentityCache {
+	for dstID, dstLabels := range *e.LabelsMap {
 		ctx.To = dstLabels
 		e.getLogger().WithFields(logrus.Fields{
 			logfields.PolicyID: dstID,
@@ -439,7 +413,7 @@ func (e *Endpoint) updateNetworkPolicy(owner Owner, proxyWaitGroup *completion.W
 	}
 
 	// Publish the updated policy to L7 proxies.
-	err := owner.UpdateNetworkPolicy(e, e.DesiredL4Policy, *e.prevIdentityCache, deniedIngressIdentities, deniedEgressIdentities, proxyWaitGroup)
+	err := owner.UpdateNetworkPolicy(e, e.DesiredL4Policy, *e.LabelsMap, deniedIngressIdentities, deniedEgressIdentities)
 	if err != nil {
 		return err
 	}
@@ -473,8 +447,7 @@ func (e *Endpoint) updateNetworkPolicy(owner Owner, proxyWaitGroup *completion.W
 //  - changed: true if the policy was changed for this endpoint;
 //  - err: error in case of an error.
 // Must be called with endpoint mutex held.
-func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (isPolicyComp bool, err error) {
-	var labelsMap *identityPkg.IdentityCache
+func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (bool, error) {
 	// Dry mode does not regenerate policy via bpf regeneration, so we let it pass
 	// through. Some bpf/redirect updates are skipped in that case.
 	//
@@ -500,30 +473,15 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	// GH-1128 should allow optimizing this away, but currently we can't
 	// reliably know if the KV-store has changed or not, so we must scan
 	// through it each time.
-	labelsMap, err = getLabelsMap()
+	labelsMap, err := getLabelsMap()
 	if err != nil {
 		e.getLogger().WithError(err).Debug("Received error while evaluating policy")
 		return false, err
 	}
-
-	regenerateStart := time.Now()
-	// Capture successful regeneration time
-	defer func() {
-		if err == nil && isPolicyComp {
-			regenerateTimeNs := time.Since(regenerateStart)
-			regenerateTimeSec := float64(regenerateTimeNs) / float64(time.Second)
-			e.getLogger().WithField(logfields.PolicyRegenerationTime, time.Since(regenerateStart).String()).
-				Info("Regeneration of policy has completed")
-			metrics.PolicyRegenerationCount.Inc()
-			metrics.PolicyRegenerationTime.Add(regenerateTimeSec)
-			metrics.PolicyRegenerationTimeSquare.Add(math.Pow(regenerateTimeSec, 2))
-		}
-	}()
-
 	// Use the old labelsMap instance if the new one is still the same.
 	// Later we can compare the pointers to figure out if labels have changed or not.
-	if reflect.DeepEqual(e.prevIdentityCache, labelsMap) {
-		labelsMap = e.prevIdentityCache
+	if reflect.DeepEqual(e.LabelsMap, labelsMap) {
+		labelsMap = e.LabelsMap
 	}
 
 	repo := owner.GetPolicyRepository()
@@ -534,7 +492,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	// Recompute policy for this endpoint only if not already done for this revision.
 	// Must recompute if labels have changed or option changes are requested.
 	if !e.forcePolicyCompute && e.nextPolicyRevision >= revision &&
-		labelsMap == e.prevIdentityCache && opts == nil {
+		labelsMap == e.LabelsMap && opts == nil {
 
 		e.getLogger().WithFields(logrus.Fields{
 			"policyRevision.next": e.nextPolicyRevision,
@@ -543,6 +501,10 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 		}).Debug("skipping policy recalculation")
 		// This revision already computed, but may still need to be applied to BPF
 		return e.nextPolicyRevision > e.policyRevision, nil
+	}
+
+	if opts == nil {
+		opts = make(models.ConfigurationMap)
 	}
 
 	// Containers without a security identity are not accessible
@@ -576,58 +538,6 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 
 	// no failures after this point
 
-	optsChanged := e.updateAndOverrideEndpointOptions(owner, opts)
-
-	e.computeDesiredPolicyMapState(owner, labelsMap, repo)
-
-	// If we are in this function, then policy has been calculated.
-	if !e.PolicyCalculated {
-		e.getLogger().Debug("setting PolicyCalculated to true for endpoint")
-		e.PolicyCalculated = true
-		// Always trigger a regenerate after the first policy
-		// calculation has been performed
-		optsChanged = true
-	}
-
-	if e.forcePolicyCompute {
-		optsChanged = true           // Options were changed by the caller.
-		e.forcePolicyCompute = false // Policies just computed
-		e.getLogger().Debug("Forced policy recalculation")
-	}
-
-	e.nextPolicyRevision = revision
-
-	if !owner.DryModeEnabled() {
-		e.syncPolicyMapController()
-	}
-
-	// If no policy or options change occurred for this endpoint then the endpoint is
-	// already running the latest revision, otherwise we have to wait for
-	// the regeneration of the endpoint to complete.
-	policyChanged := l3PolicyChanged || l4PolicyChanged
-
-	e.getLogger().WithFields(logrus.Fields{
-		"policyChanged":       policyChanged,
-		"optsChanged":         optsChanged,
-		"policyRevision.next": e.nextPolicyRevision,
-	}).Debug("Done calculating policy")
-
-	needToRegenerateBPF := optsChanged || policyChanged || e.nextPolicyRevision > e.policyRevision
-
-	return needToRegenerateBPF, nil
-}
-
-// updateAndOverrideEndpointOptions updates the boolean configuration options for the endpoint
-// based off of policy configuration, daemon policy enforcement mode, and any
-// configuration options provided in opts. Returns whether the options changed
-// from prior endpoint configuration. Note that the policy which applies
-// to the endpoint, as well as the daemon's policy enforcement, may override
-// configuration changes which were made via the API that were provided in opts.
-// Must be called with endpoint mutex held.
-func (e *Endpoint) updateAndOverrideEndpointOptions(owner Owner, opts models.ConfigurationMap) (optsChanged bool) {
-	if opts == nil {
-		opts = make(models.ConfigurationMap)
-	}
 	// Apply possible option changes before regenerating maps, as map regeneration
 	// depends on the conntrack options
 	if e.DesiredL4Policy != nil {
@@ -657,30 +567,58 @@ func (e *Endpoint) updateAndOverrideEndpointOptions(owner Owner, opts models.Con
 		}
 	}
 
-	optsChanged = e.applyOptsLocked(opts)
-	return
+	optsChanged := e.applyOptsLocked(opts)
+
+	e.computeDesiredPolicyMapState(owner, labelsMap, repo)
+
+	// If we are in this function, then policy has been calculated.
+	if !e.PolicyCalculated {
+		e.getLogger().Debug("setting PolicyCalculated to true for endpoint")
+		e.PolicyCalculated = true
+		// Always trigger a regenerate after the first policy
+		// calculation has been performed
+		optsChanged = true
+	}
+
+	if e.forcePolicyCompute {
+		optsChanged = true           // Options were changed by the caller.
+		e.forcePolicyCompute = false // Policies just computed
+		e.getLogger().Debug("Forced policy recalculation")
+	}
+
+	e.nextPolicyRevision = revision
+
+	if !owner.DryModeEnabled() {
+		e.syncPolicyMapController()
+	}
+
+	// If no policy or options change occurred for this endpoint then the endpoint is
+	// already running the latest revision, otherwise we have to wait for
+	// the regeneration of the endpoint to complete.
+	policyChanged := l3PolicyChanged || l4PolicyChanged
+	if !policyChanged && !optsChanged {
+		e.setPolicyRevision(revision)
+	}
+
+	e.getLogger().WithFields(logrus.Fields{
+		"policyChanged":       policyChanged,
+		"optsChanged":         optsChanged,
+		"policyRevision.next": e.nextPolicyRevision,
+	}).Debug("Done regenerating")
+
+	needToRegenerateBPF := optsChanged || policyChanged || e.nextPolicyRevision > e.policyRevision
+
+	return needToRegenerateBPF, nil
 }
 
 // Called with e.Mutex UNlocked
 func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
-	var revision uint64
-	var compilationExecuted bool
-	var err error
-
 	metrics.EndpointCountRegenerating.Inc()
-	regenerateStart := time.Now()
 	defer func() {
 		metrics.EndpointCountRegenerating.Dec()
-		if retErr == nil && compilationExecuted {
+		if retErr == nil {
 			metrics.EndpointRegenerationCount.
 				WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
-
-			// Capture successful endpoint generation time
-			regenerateTimeNs := time.Since(regenerateStart)
-			regenerateTimeSec := float64(regenerateTimeNs) / float64(time.Second)
-			e.getLogger().WithField(logfields.EndpointRegenerationTime, time.Since(regenerateStart).String()).Info("Regeneration of endpoint has completed")
-			metrics.EndpointRegenerationTime.Add(regenerateTimeSec)
-			metrics.EndpointRegenerationTimeSquare.Add(math.Pow(regenerateTimeSec, 2))
 		} else {
 			metrics.EndpointRegenerationCount.
 				WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
@@ -690,12 +628,9 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	e.BuildMutex.Lock()
 	defer e.BuildMutex.Unlock()
 
-	if err = e.RLockAlive(); err != nil {
-		return err
-	}
-	scopedLog := e.getLogger()
-	e.RUnlock()
-	scopedLog.Debug("Regenerating endpoint...")
+	e.Mutex.RLock()
+	e.getLogger().Debug("Regenerating endpoint...")
+	e.Mutex.RUnlock()
 
 	origDir := filepath.Join(owner.GetStateDir(), e.StringID())
 
@@ -710,30 +645,23 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	}
 
 	defer func() {
-		if err := e.LockAlive(); err != nil {
-			if retErr == nil {
-				retErr = err
-			} else {
-				e.LogDisconnectedMutexAction(err, "after regenerate")
-			}
-			return
-		}
 		// Set to Ready, but only if no other changes are pending.
 		// State will remain as waiting-to-regenerate if further
 		// changes are needed. There should be an another regenerate
 		// queued for taking care of it.
+		e.Mutex.Lock()
 		e.BuilderSetStateLocked(StateReady, "Completed endpoint regeneration with no pending regeneration requests")
-		e.Unlock()
+		e.Mutex.Unlock()
 	}()
 
-	revision, compilationExecuted, err = e.regenerateBPF(owner, tmpDir, reason)
+	revision, compilationExecuted, err := e.regenerateBPF(owner, tmpDir, reason)
 
 	// If generation fails, keep the directory around. If it ever succeeds
 	// again, clean up the XXX_next_fail copy.
 	failDir := e.failedDirectoryPath()
 	os.RemoveAll(failDir) // Most likely will not exist; ignore failure.
 	if err != nil {
-		scopedLog.WithFields(logrus.Fields{
+		e.getLogger().WithFields(logrus.Fields{
 			logfields.Path: failDir,
 		}).Warn("Generating BPF for endpoint failed, keeping stale directory.")
 		os.Rename(tmpDir, failDir)
@@ -752,7 +680,7 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 		os.RemoveAll(tmpDir)
 
 		if err2 := os.Rename(backupDir, origDir); err2 != nil {
-			scopedLog.WithFields(logrus.Fields{
+			e.getLogger().WithFields(logrus.Fields{
 				logfields.Path: backupDir,
 			}).Warn("Restoring directory for endpoint failed, endpoint " +
 				"is in inconsistent state. Keeping stale directory.")
@@ -777,16 +705,17 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	// Update desired policy for endpoint because policy has now been realized
 	// in the datapath. PolicyMap state is not updated here, because that is
 	// performed in endpoint.syncPolicyMap().
-	if err = e.LockAlive(); err != nil {
-		return err
+	if err == nil {
+		e.Mutex.Lock()
+		e.RealizedL4Policy = e.DesiredL4Policy
+		e.Mutex.Unlock()
 	}
-	e.RealizedL4Policy = e.DesiredL4Policy
+
 	// Mark the endpoint to be running the policy revision it was
 	// compiled for
-	e.bumpPolicyRevisionLocked(revision)
-	e.Unlock()
+	e.bumpPolicyRevision(revision)
 
-	scopedLog.Info("Endpoint policy recalculated")
+	e.getLogger().Info("Endpoint policy recalculated")
 
 	return nil
 }
@@ -805,16 +734,10 @@ func (e *Endpoint) Regenerate(owner Owner, reason string) <-chan bool {
 	go func(owner Owner, req *Request, e *Endpoint) {
 		buildSuccess := true
 
-		err := e.RLockAlive()
-		if err != nil {
-			e.LogDisconnectedMutexAction(err, "before regeneration")
-			req.ExternalDone <- false
-			close(req.ExternalDone)
-			return
-		}
+		e.Mutex.Lock()
 		// This must be accessed in a locked section, so we grab it here.
 		scopedLog := e.getLogger()
-		e.RUnlock()
+		e.Mutex.Unlock()
 
 		// We should only queue the request after we use all the endpoint's
 		// lock/unlock. Otherwise this can get a deadlock if the endpoint is
@@ -878,11 +801,6 @@ func (e *Endpoint) TriggerPolicyUpdatesLocked(owner Owner, opts models.Configura
 	if err != nil {
 		return false, fmt.Errorf("%s: %s", e.StringID(), err)
 	}
-	// If it does not need datapath regeneration then we should set the policy
-	// revision with nextPolicyRevision.
-	if !needToRegenerateBPF {
-		e.setPolicyRevision(e.nextPolicyRevision)
-	}
 
 	// CurrentStatus will be not OK when we have an uncleared error in BPF,
 	// policy or Other. We should keep trying to regenerate in the hopes of
@@ -902,16 +820,14 @@ func (e *Endpoint) runIdentityToK8sPodSync() {
 			DoFunc: func() error {
 				id := ""
 
-				if err := e.RLockAlive(); err != nil {
-					return err
-				}
+				e.Mutex.RLock()
 				if e.SecurityIdentity != nil {
-					id = e.SecurityIdentity.ID.StringID()
+					id = e.SecurityIdentity.ID.String()
 				}
-				e.RUnlock()
+				e.Mutex.RUnlock()
 
 				if id != "" && e.GetK8sNamespace() != "" && e.GetK8sPodName() != "" {
-					return k8s.AnnotatePod(e, k8sConst.CiliumIdentityAnnotation, id)
+					return k8s.AnnotatePod(e, common.CiliumIdentityAnnotation, id)
 				}
 
 				return nil
@@ -924,8 +840,8 @@ func (e *Endpoint) runIdentityToK8sPodSync() {
 // FormatGlobalEndpointID returns the global ID of endpoint in the format
 // / <global ID Prefix>:<cluster name>:<node name>:<endpoint ID> as a string.
 func (e *Endpoint) FormatGlobalEndpointID() string {
-	n := node.GetLocalNode()
-	metadata := []string{endpointid.CiliumGlobalIdPrefix, ipcache.AddressSpace, n.Name, strconv.Itoa(int(e.ID))}
+	nodeIdentity, _ := node.GetLocalNode()
+	metadata := []string{CiliumGlobalIdPrefix, ipcache.AddressSpace, nodeIdentity.Name, strconv.Itoa(int(e.ID))}
 	return strings.Join(metadata, ":")
 }
 
@@ -943,32 +859,29 @@ func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
 		controller.ControllerParams{
 			DoFunc: func() error {
 
-				// NOTE: this Lock is Unconditional because this controller
-				// handles disconnecting endpoint state properly
-				e.UnconditionalRLock()
+				e.Mutex.RLock()
 
 				if e.state == StateDisconnected || e.state == StateDisconnecting {
 					log.WithFields(logrus.Fields{logfields.EndpointState: e.state}).
 						Debugf("not synchronizing endpoint IP with kvstore due to endpoint state")
-					e.RUnlock()
+					e.Mutex.RUnlock()
 					return nil
 				}
 
 				if e.SecurityIdentity == nil {
-					e.RUnlock()
+					e.Mutex.RUnlock()
 					return nil
 				}
 
 				IP := endpointIP.IP()
 				ID := e.SecurityIdentity.ID
-				hostIP := node.GetExternalIPv4()
 				metadata := e.FormatGlobalEndpointID()
 
 				// Release lock as we do not want to have long-lasting key-value
 				// store operations resulting in lock being held for a long time.
-				e.RUnlock()
+				e.Mutex.RUnlock()
 
-				if err := ipcache.UpsertIPToKVStore(IP, hostIP, ID, metadata); err != nil {
+				if err := ipcache.UpsertIPToKVStore(IP, ID, metadata); err != nil {
 					return fmt.Errorf("unable to add endpoint IP mapping '%s'->'%d': %s", IP.String(), ID, err)
 				}
 				return nil
@@ -990,12 +903,12 @@ func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
 // Called with e.Mutex Locked
 func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) {
 
-	// Set a boolean flag to indicate whether the endpoint has been injected by
-	// Istio with a Cilium-compatible sidecar proxy.
-	istioSidecarProxyLabel := identity.Labels[k8sConst.PolicyLabelIstioSidecarProxy]
-	e.hasSidecarProxy = istioSidecarProxyLabel != nil &&
-		istioSidecarProxyLabel.Source == labels.LabelSourceK8s &&
-		strings.ToLower(istioSidecarProxyLabel.Value) == "true"
+	if e.SecurityIdentity != nil && identity.ID == e.SecurityIdentity.ID {
+		// Even if the numeric identity is the same, the order in which the
+		// labels are represented may change.
+		e.SecurityIdentity = identity
+		return
+	}
 
 	oldIdentity := "no identity"
 	if e.SecurityIdentity != nil {

@@ -18,13 +18,11 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/cilium/cilium/pkg/ipcache"
-	"github.com/cilium/cilium/pkg/loadbalancer"
+	"k8s.io/apimachinery/pkg/labels"
+
+	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
-
-	"github.com/sirupsen/logrus"
-	"k8s.io/apimachinery/pkg/labels"
 )
 
 var _ policy.Translator = RuleTranslator{}
@@ -33,11 +31,10 @@ var _ policy.Translator = RuleTranslator{}
 // Translate populates/depopulates given rule with ToCIDR rules
 // Based on provided service/endpoint
 type RuleTranslator struct {
-	Service       loadbalancer.K8sServiceNamespace
-	Endpoint      loadbalancer.K8sServiceEndpoint
+	Service       types.K8sServiceNamespace
+	Endpoint      types.K8sServiceEndpoint
 	ServiceLabels map[string]string
 	Revert        bool
-	IPCache       ipcache.Implementation
 }
 
 // Translate calls TranslateEgress on all r.Egress rules
@@ -70,7 +67,7 @@ func (k RuleTranslator) TranslateEgress(r *api.EgressRule) error {
 func (k RuleTranslator) populateEgress(r *api.EgressRule) error {
 	for _, service := range r.ToServices {
 		if k.serviceMatches(service) {
-			if err := generateToCidrFromEndpoint(r, k.Endpoint, k.IPCache); err != nil {
+			if err := generateToCidrFromEndpoint(r, k.Endpoint); err != nil {
 				return err
 			}
 			// TODO: generateToPortsFromEndpoint when ToPorts and ToCIDR are compatible
@@ -82,7 +79,7 @@ func (k RuleTranslator) populateEgress(r *api.EgressRule) error {
 func (k RuleTranslator) depopulateEgress(r *api.EgressRule) error {
 	for _, service := range r.ToServices {
 		if k.serviceMatches(service) {
-			if err := deleteToCidrFromEndpoint(r, k.Endpoint, k.IPCache); err != nil {
+			if err := deleteToCidrFromEndpoint(r, k.Endpoint); err != nil {
 				return err
 			}
 			// TODO: generateToPortsFromEndpoint when ToPorts and ToCIDR are compatible
@@ -94,9 +91,7 @@ func (k RuleTranslator) depopulateEgress(r *api.EgressRule) error {
 func (k RuleTranslator) serviceMatches(service api.Service) bool {
 	if service.K8sServiceSelector != nil {
 		es := api.EndpointSelector(service.K8sServiceSelector.Selector)
-		es.SyncRequirementsWithLabelSelector()
-		esMatches := es.Matches(labels.Set(k.ServiceLabels))
-		return esMatches &&
+		return es.Matches(labels.Set(k.ServiceLabels)) &&
 			(service.K8sServiceSelector.Namespace == k.Service.Namespace || service.K8sServiceSelector.Namespace == "")
 	}
 
@@ -111,23 +106,7 @@ func (k RuleTranslator) serviceMatches(service api.Service) bool {
 // generateToCidrFromEndpoint takes an egress rule and populates it with
 // ToCIDR rules based on provided endpoint object
 func generateToCidrFromEndpoint(
-	egress *api.EgressRule,
-	endpoint loadbalancer.K8sServiceEndpoint,
-	impl ipcache.Implementation) error {
-
-	// Non-nil implementation here implies that this translation is
-	// occurring after policy import. This means that the CIDRs were not
-	// known at that time, so the IPCache hasn't been informed about them.
-	// In this case, it's the job of this Translator to notify the IPCache.
-	if impl != nil {
-		prefixes, err := endpoint.CIDRPrefixes()
-		if err != nil {
-			return err
-		}
-		if err := ipcache.AllocateCIDRs(impl, prefixes); err != nil {
-			return err
-		}
-	}
+	egress *api.EgressRule, endpoint types.K8sServiceEndpoint) error {
 
 	// This will generate one-address CIDRs consisting of endpoint backend ip
 	mask := net.CIDRMask(128, 128)
@@ -159,21 +138,12 @@ func generateToCidrFromEndpoint(
 	return nil
 }
 
-// deleteToCidrFromEndpoint takes an egress rule and removes ToCIDR rules
-// matching endpoint. Returns an error if any of the backends are malformed.
-//
-// If all backends are valid, attempts to remove any ipcache CIDR mappings (and
-// CIDR Identities) from the kvstore for backends in 'endpoint' that are being
-// removed from the policy. On failure to release such kvstore mappings, errors
-// will be logged but this function will return nil to allow subsequent
-// processing to proceed.
+// deleteToCidrFromEndpoint takes an egress rule and removes
+// ToCIDR rules matching endpoint
 func deleteToCidrFromEndpoint(
-	egress *api.EgressRule,
-	endpoint loadbalancer.K8sServiceEndpoint,
-	impl ipcache.Implementation) error {
+	egress *api.EgressRule, endpoint types.K8sServiceEndpoint) error {
 
 	newToCIDR := make([]api.CIDRRule, 0, len(egress.ToCIDRSet))
-	deleted := make([]api.CIDRRule, 0, len(egress.ToCIDRSet))
 
 	for ip := range endpoint.BEIPs {
 		epIP := net.ParseIP(ip)
@@ -190,23 +160,11 @@ func deleteToCidrFromEndpoint(
 			// generated it's ok to retain it
 			if !cidr.Contains(epIP) || !c.Generated {
 				newToCIDR = append(newToCIDR, c)
-			} else {
-				deleted = append(deleted, c)
 			}
 		}
 	}
 
 	egress.ToCIDRSet = newToCIDR
-	if impl != nil {
-		prefixes := policy.GetPrefixesFromCIDRSet(deleted)
-		if err := ipcache.ReleaseCIDRs(prefixes); err != nil {
-			// Don't pass this up to the caller, as it would prevent the
-			// deletion of other services or the setup of new ones!
-			log.WithError(err).WithFields(logrus.Fields{
-				"prefixes": prefixes,
-			}).Debugf("Failed to release prefixes while deleting k8s backend")
-		}
-	}
 
 	return nil
 }
@@ -214,19 +172,14 @@ func deleteToCidrFromEndpoint(
 // PreprocessRules translates rules that apply to headless services
 func PreprocessRules(
 	r api.Rules,
-	endpoints map[loadbalancer.K8sServiceNamespace]*loadbalancer.K8sServiceEndpoint,
-	services map[loadbalancer.K8sServiceNamespace]*loadbalancer.K8sServiceInfo) error {
+	endpoints map[types.K8sServiceNamespace]*types.K8sServiceEndpoint,
+	services map[types.K8sServiceNamespace]*types.K8sServiceInfo) error {
 
-	// Headless services are translated prior to policy import, so the
-	// policy will contain all of the CIDRs and can handle ipcache
-	// interactions when the policy is imported. Ignore the IPCache
-	// interaction here and just set the implementation to nil.
-	ipcache := ipcache.Implementation(nil)
 	for _, rule := range r {
 		for ns, ep := range endpoints {
 			svc, ok := services[ns]
 			if ok && svc.IsHeadless {
-				t := NewK8sTranslator(ns, *ep, false, svc.Labels, ipcache)
+				t := NewK8sTranslator(ns, *ep, false, svc.Labels)
 				err := t.Translate(rule)
 				if err != nil {
 					return err
@@ -239,11 +192,10 @@ func PreprocessRules(
 
 // NewK8sTranslator returns RuleTranslator
 func NewK8sTranslator(
-	serviceInfo loadbalancer.K8sServiceNamespace,
-	endpoint loadbalancer.K8sServiceEndpoint,
+	serviceInfo types.K8sServiceNamespace,
+	endpoint types.K8sServiceEndpoint,
 	revert bool,
-	labels map[string]string,
-	ipcache ipcache.Implementation) RuleTranslator {
+	labels map[string]string) RuleTranslator {
 
-	return RuleTranslator{serviceInfo, endpoint, labels, revert, ipcache}
+	return RuleTranslator{serviceInfo, endpoint, labels, revert}
 }

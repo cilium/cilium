@@ -1,12 +1,3 @@
-kind: ServiceAccount
-apiVersion: v1
-metadata:
-  name: app1-account
----
-kind: ServiceAccount
-apiVersion: v1
-metadata:
-  name: app2-account
 ---
 apiVersion: v1
 kind: Service
@@ -30,7 +21,6 @@ spec:
         id: app1
         zgroup: testapp
     spec:
-      serviceAccountName: app1-account
       containers:
       - name: web
         image: docker.io/cilium/demo-httpd
@@ -50,9 +40,7 @@ spec:
       labels:
         id: app2
         zgroup: testapp
-        appSecond: "true"
     spec:
-      serviceAccountName: app2-account
       containers:
       - name: app-frontend
         image: docker.io/cilium/demo-client

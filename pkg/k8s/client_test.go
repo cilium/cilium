@@ -16,7 +16,6 @@ package k8s
 
 import (
 	"fmt"
-	"net"
 	"time"
 
 	"github.com/cilium/cilium/pkg/annotation"
@@ -35,8 +34,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "node1",
 			Annotations: map[string]string{
-				annotation.V4CIDRName:   "10.254.0.0/16",
-				annotation.CiliumHostIP: "10.254.0.1",
+				annotation.V4CIDRName: "10.254.0.0/16",
 			},
 		},
 		Spec: v1.NodeSpec{
@@ -72,7 +70,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 		},
 	}
 
-	node1Cilium := ParseNode(&node1, node.FromAgentLocal)
+	node1Cilium := ParseNode(&node1)
 
 	err := node.UseNodeCIDR(node1Cilium)
 	c.Assert(err, IsNil)
@@ -83,8 +81,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 		node.GetIPv4AllocRange(),
 		node.GetIPv6NodeRange(),
 		nil,
-		nil,
-		net.ParseIP("10.254.0.1"))
+		nil)
 
 	c.Assert(err, IsNil)
 
@@ -100,8 +97,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "node2",
 			Annotations: map[string]string{
-				annotation.V4CIDRName:   "10.254.0.0/16",
-				annotation.CiliumHostIP: "10.254.0.1",
+				annotation.V4CIDRName: "10.254.0.0/16",
 			},
 		},
 		Spec: v1.NodeSpec{
@@ -140,7 +136,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 		},
 	}
 
-	node2Cilium := ParseNode(&node2, node.FromAgentLocal)
+	node2Cilium := ParseNode(&node2)
 	err = node.UseNodeCIDR(node2Cilium)
 	c.Assert(err, IsNil)
 
@@ -153,8 +149,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 		node.GetIPv4AllocRange(),
 		node.GetIPv6NodeRange(),
 		nil,
-		nil,
-		net.ParseIP("10.254.0.1"))
+		nil)
 
 	c.Assert(err, IsNil)
 

@@ -27,7 +27,6 @@ const (
 	DebugLB             = "DebugLB"
 	DropNotify          = "DropNotification"
 	TraceNotify         = "TraceNotification"
-	MonitorAggregation  = "MonitorAggregationLevel"
 	NAT46               = "NAT46"
 	IngressPolicy       = "IngressPolicy"
 	EgressPolicy        = "EgressPolicy"
@@ -79,19 +78,11 @@ var (
 		Description: "Enable trace notifications",
 	}
 
-	specMonitorAggregation = Option{
-		Define:      "MONITOR_AGGREGATION",
-		Description: "Set the level of aggregation for monitor events in the datapath",
-		Verify:      VerifyMonitorAggregationLevel,
-		Parse:       ParseMonitorAggregationLevel,
-		Format:      FormatMonitorAggregationLevel,
-	}
-
 	specNAT46 = Option{
 		Define:      "ENABLE_NAT46",
 		Description: "Enable automatic NAT46 translation",
 		Requires:    []string{Conntrack},
-		Verify: func(key string, val string) error {
+		Verify: func(key string, val bool) error {
 			if IPv4Disabled {
 				return ErrNAT46ReqIPv4
 			}

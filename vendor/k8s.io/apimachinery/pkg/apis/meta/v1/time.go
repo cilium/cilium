@@ -106,10 +106,7 @@ func (t *Time) UnmarshalJSON(b []byte) error {
 	}
 
 	var str string
-	err := json.Unmarshal(b, &str)
-	if err != nil {
-		return err
-	}
+	json.Unmarshal(b, &str)
 
 	pt, err := time.Parse(time.RFC3339, str)
 	if err != nil {

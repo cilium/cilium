@@ -131,9 +131,8 @@ func createFetchResponse(req *proto.FetchReq, err error) (*ResponseMessage, erro
 
 		for k2, partition := range topic.Partitions {
 			resp.Topics[k].Partitions[k2] = proto.FetchRespPartition{
-				ID:                  partition.ID,
-				Err:                 err,
-				AbortedTransactions: nil, // nullable
+				ID:  partition.ID,
+				Err: err,
 			}
 		}
 	}
@@ -167,9 +166,8 @@ func createOffsetResponse(req *proto.OffsetReq, err error) (*ResponseMessage, er
 
 		for k2, partition := range topic.Partitions {
 			resp.Topics[k].Partitions[k2] = proto.OffsetRespPartition{
-				ID:      partition.ID,
-				Err:     err,
-				Offsets: make([]int64, 0), // Not nullable, so must never be nil.
+				ID:  partition.ID,
+				Err: err,
 			}
 		}
 	}
@@ -190,21 +188,15 @@ func createMetadataResponse(req *proto.MetadataReq, err error) (*ResponseMessage
 		return nil, fmt.Errorf("request is nil")
 	}
 
-	var topics []proto.MetadataRespTopic
-	if req.Topics != nil {
-		topics = make([]proto.MetadataRespTopic, len(req.Topics))
-	}
 	resp := &proto.MetadataResp{
 		CorrelationID: req.CorrelationID,
-		Brokers:       make([]proto.MetadataRespBroker, 0), // Not nullable, so must never be nil.
-		Topics:        topics,
+		Topics:        make([]proto.MetadataRespTopic, len(req.Topics)),
 	}
 
 	for k, topic := range req.Topics {
 		resp.Topics[k] = proto.MetadataRespTopic{
-			Name:       topic,
-			Err:        err,
-			Partitions: make([]proto.MetadataRespPartition, 0), // Not nullable, so must never be nil.
+			Name: topic,
+			Err:  err,
 		}
 	}
 
@@ -280,13 +272,9 @@ func createOffsetFetchResponse(req *proto.OffsetFetchReq, err error) (*ResponseM
 		return nil, fmt.Errorf("request is nil")
 	}
 
-	var topics []proto.OffsetFetchRespTopic
-	if req.Topics != nil {
-		topics = make([]proto.OffsetFetchRespTopic, len(req.Topics))
-	}
 	resp := &proto.OffsetFetchResp{
 		CorrelationID: req.CorrelationID,
-		Topics:        topics,
+		Topics:        make([]proto.OffsetFetchRespTopic, len(req.Topics)),
 	}
 
 	for k, topic := range req.Topics {

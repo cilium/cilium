@@ -24,8 +24,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
-
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/diff"
 )
@@ -45,7 +43,6 @@ func NewCacheMutationDetector(name string) CacheMutationDetector {
 	if !mutationDetectionEnabled {
 		return dummyMutationDetector{}
 	}
-	glog.Warningln("Mutation detector is enabled, this will result in memory leakage.")
 	return &defaultCacheMutationDetector{name: name, period: 1 * time.Second}
 }
 

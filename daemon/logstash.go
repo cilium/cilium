@@ -71,16 +71,14 @@ func EnableLogstash(LogstashAddr string, refreshTime int) {
 			allPes := map[uint16][]policymap.PolicyEntryDump{}
 			eps := endpointmanager.GetEndpoints()
 			for _, ep := range eps {
-				// NOTE: UnconditionalRLock is used here because endpoint state doesn't matter here
-				// all endpoint info is continuosly dumped anyway
-				ep.UnconditionalRLock()
+				ep.Mutex.RLock()
 				pes, err := ep.PolicyMap.DumpToSlice()
 				if err != nil {
-					ep.RUnlock()
+					ep.Mutex.RUnlock()
 					continue
 				}
 				allPes[ep.ID] = pes
-				ep.RUnlock()
+				ep.Mutex.RUnlock()
 			}
 			lss := processStats(allPes)
 			for _, ls := range lss {

@@ -95,7 +95,10 @@ func (ms *messageSet) find(pb Message) *_MessageSet_Item {
 }
 
 func (ms *messageSet) Has(pb Message) bool {
-	return ms.find(pb) != nil
+	if ms.find(pb) != nil {
+		return true
+	}
+	return false
 }
 
 func (ms *messageSet) Unmarshal(pb Message) error {
@@ -164,7 +167,7 @@ func marshalMessageSet(exts interface{}, deterministic bool) ([]byte, error) {
 		// This is an old-style extension map.
 		// Wrap it in a new-style XXX_InternalExtensions.
 		ie := XXX_InternalExtensions{
-			p: &struct {
+			p: &struct{
 				mu           sync.Mutex
 				extensionMap map[int32]Extension
 			}{

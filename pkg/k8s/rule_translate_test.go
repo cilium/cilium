@@ -15,8 +15,10 @@
 package k8s
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -27,20 +29,20 @@ func (s *K8sSuite) TestTranslatorDirect(c *C) {
 	repo := policy.NewPolicyRepository()
 
 	tag1 := labels.LabelArray{labels.ParseLabel("tag1")}
-	serviceInfo := loadbalancer.K8sServiceNamespace{
+	serviceInfo := types.K8sServiceNamespace{
 		ServiceName: "svc",
 		Namespace:   "default",
 	}
 
 	epIP := "10.1.1.1"
 
-	endpointInfo := loadbalancer.K8sServiceEndpoint{
+	endpointInfo := types.K8sServiceEndpoint{
 		BEIPs: map[string]bool{
 			epIP: true,
 		},
-		Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
+		Ports: map[types.FEPortName]*types.L4Addr{
 			"port": {
-				Protocol: loadbalancer.TCP,
+				Protocol: types.TCP,
 				Port:     80,
 			},
 		},
@@ -63,7 +65,7 @@ func (s *K8sSuite) TestTranslatorDirect(c *C) {
 		Labels: tag1,
 	}
 
-	translator := NewK8sTranslator(serviceInfo, endpointInfo, false, map[string]string{}, nil)
+	translator := NewK8sTranslator(serviceInfo, endpointInfo, false, map[string]string{})
 
 	_, err := repo.Add(rule1)
 	c.Assert(err, IsNil)
@@ -76,48 +78,13 @@ func (s *K8sSuite) TestTranslatorDirect(c *C) {
 	c.Assert(len(rule.ToCIDRSet), Equals, 1)
 	c.Assert(string(rule.ToCIDRSet[0].Cidr), Equals, epIP+"/32")
 
-	translator = NewK8sTranslator(serviceInfo, endpointInfo, true, map[string]string{}, nil)
+	translator = NewK8sTranslator(serviceInfo, endpointInfo, true, map[string]string{})
 	err = repo.TranslateRules(translator)
 
 	rule = repo.SearchRLocked(tag1)[0].Egress[0]
 
 	c.Assert(err, IsNil)
 	c.Assert(len(rule.ToCIDRSet), Equals, 0)
-}
-
-func (s *K8sSuite) TestServiceMatches(c *C) {
-	svcLabels := map[string]string{
-		"app": "tested-service",
-	}
-
-	serviceInfo := loadbalancer.K8sServiceNamespace{
-		ServiceName: "doesn't matter",
-		Namespace:   "default",
-	}
-
-	epIP := "10.1.1.1"
-	endpointInfo := loadbalancer.K8sServiceEndpoint{
-		BEIPs: map[string]bool{
-			epIP: true,
-		},
-		Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
-			"port": {
-				Protocol: loadbalancer.TCP,
-				Port:     80,
-			},
-		},
-	}
-
-	selector := api.ServiceSelector(api.NewESFromMatchRequirements(svcLabels, nil))
-	service := api.Service{
-		K8sServiceSelector: &api.K8sServiceSelectorNamespace{
-			Selector:  selector,
-			Namespace: "",
-		},
-	}
-
-	translator := NewK8sTranslator(serviceInfo, endpointInfo, false, svcLabels, nil)
-	c.Assert(translator.serviceMatches(service), Equals, true)
 }
 
 func (s *K8sSuite) TestTranslatorLabels(c *C) {
@@ -127,26 +94,31 @@ func (s *K8sSuite) TestTranslatorLabels(c *C) {
 	}
 
 	tag1 := labels.LabelArray{labels.ParseLabel("tag1")}
-	serviceInfo := loadbalancer.K8sServiceNamespace{
+	serviceInfo := types.K8sServiceNamespace{
 		ServiceName: "doesn't matter",
 		Namespace:   "default",
 	}
 
 	epIP := "10.1.1.1"
 
-	endpointInfo := loadbalancer.K8sServiceEndpoint{
+	endpointInfo := types.K8sServiceEndpoint{
 		BEIPs: map[string]bool{
 			epIP: true,
 		},
-		Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
+		Ports: map[types.FEPortName]*types.L4Addr{
 			"port": {
-				Protocol: loadbalancer.TCP,
+				Protocol: types.TCP,
 				Port:     80,
 			},
 		},
 	}
 
-	selector := api.ServiceSelector(api.NewESFromMatchRequirements(svcLabels, nil))
+	selector := api.ServiceSelector{
+		LabelSelector: &metav1.LabelSelector{
+			MatchLabels: svcLabels,
+		},
+	}
+
 	rule1 := api.Rule{
 		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 		Egress: []api.EgressRule{{
@@ -162,7 +134,7 @@ func (s *K8sSuite) TestTranslatorLabels(c *C) {
 		Labels: tag1,
 	}
 
-	translator := NewK8sTranslator(serviceInfo, endpointInfo, false, svcLabels, nil)
+	translator := NewK8sTranslator(serviceInfo, endpointInfo, false, svcLabels)
 
 	_, err := repo.Add(rule1)
 	c.Assert(err, IsNil)
@@ -175,7 +147,7 @@ func (s *K8sSuite) TestTranslatorLabels(c *C) {
 	c.Assert(len(rule.ToCIDRSet), Equals, 1)
 	c.Assert(string(rule.ToCIDRSet[0].Cidr), Equals, epIP+"/32")
 
-	translator = NewK8sTranslator(serviceInfo, endpointInfo, true, svcLabels, nil)
+	translator = NewK8sTranslator(serviceInfo, endpointInfo, true, svcLabels)
 	err = repo.TranslateRules(translator)
 
 	rule = repo.SearchRLocked(tag1)[0].Egress[0]
@@ -189,58 +161,58 @@ func (s *K8sSuite) TestGenerateToCIDRFromEndpoint(c *C) {
 
 	epIP := "10.1.1.1"
 
-	endpointInfo := loadbalancer.K8sServiceEndpoint{
+	endpointInfo := types.K8sServiceEndpoint{
 		BEIPs: map[string]bool{
 			epIP: true,
 		},
-		Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
+		Ports: map[types.FEPortName]*types.L4Addr{
 			"port": {
-				Protocol: loadbalancer.TCP,
+				Protocol: types.TCP,
 				Port:     80,
 			},
 		},
 	}
 
-	err := generateToCidrFromEndpoint(rule, endpointInfo, nil)
+	err := generateToCidrFromEndpoint(rule, endpointInfo)
 	c.Assert(err, IsNil)
 
 	c.Assert(len(rule.ToCIDRSet), Equals, 1)
 	c.Assert(string(rule.ToCIDRSet[0].Cidr), Equals, epIP+"/32")
 
 	// second run, to make sure there are no duplicates added
-	err = generateToCidrFromEndpoint(rule, endpointInfo, nil)
+	err = generateToCidrFromEndpoint(rule, endpointInfo)
 	c.Assert(err, IsNil)
 
 	c.Assert(len(rule.ToCIDRSet), Equals, 1)
 	c.Assert(string(rule.ToCIDRSet[0].Cidr), Equals, epIP+"/32")
 
-	err = deleteToCidrFromEndpoint(rule, endpointInfo, nil)
+	err = deleteToCidrFromEndpoint(rule, endpointInfo)
 	c.Assert(err, IsNil)
 	c.Assert(len(rule.ToCIDRSet), Equals, 0)
 }
 
 func (s *K8sSuite) TestPreprocessRules(c *C) {
 	tag1 := labels.LabelArray{labels.ParseLabel("tag1")}
-	serviceInfo := loadbalancer.K8sServiceNamespace{
+	serviceInfo := types.K8sServiceNamespace{
 		ServiceName: "svc",
 		Namespace:   "default",
 	}
 
 	epIP := "10.1.1.1"
 
-	endpointInfo := loadbalancer.K8sServiceEndpoint{
+	endpointInfo := types.K8sServiceEndpoint{
 		BEIPs: map[string]bool{
 			epIP: true,
 		},
-		Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
+		Ports: map[types.FEPortName]*types.L4Addr{
 			"port": {
-				Protocol: loadbalancer.TCP,
+				Protocol: types.TCP,
 				Port:     80,
 			},
 		},
 	}
 
-	service := loadbalancer.K8sServiceInfo{
+	service := types.K8sServiceInfo{
 		IsHeadless: true,
 	}
 
@@ -259,11 +231,11 @@ func (s *K8sSuite) TestPreprocessRules(c *C) {
 		Labels: tag1,
 	}
 
-	endpoints := map[loadbalancer.K8sServiceNamespace]*loadbalancer.K8sServiceEndpoint{
+	endpoints := map[types.K8sServiceNamespace]*types.K8sServiceEndpoint{
 		serviceInfo: &endpointInfo,
 	}
 
-	services := map[loadbalancer.K8sServiceNamespace]*loadbalancer.K8sServiceInfo{
+	services := map[types.K8sServiceNamespace]*types.K8sServiceInfo{
 		serviceInfo: &service,
 	}
 
@@ -288,32 +260,32 @@ func (s *K8sSuite) TestDontDeleteUserRules(c *C) {
 
 	epIP := "10.1.1.1"
 
-	endpointInfo := loadbalancer.K8sServiceEndpoint{
+	endpointInfo := types.K8sServiceEndpoint{
 		BEIPs: map[string]bool{
 			epIP: true,
 		},
-		Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
+		Ports: map[types.FEPortName]*types.L4Addr{
 			"port": {
-				Protocol: loadbalancer.TCP,
+				Protocol: types.TCP,
 				Port:     80,
 			},
 		},
 	}
 
-	err := generateToCidrFromEndpoint(rule, endpointInfo, nil)
+	err := generateToCidrFromEndpoint(rule, endpointInfo)
 	c.Assert(err, IsNil)
 
 	c.Assert(len(rule.ToCIDRSet), Equals, 2)
 	c.Assert(string(rule.ToCIDRSet[1].Cidr), Equals, epIP+"/32")
 
 	// second run, to make sure there are no duplicates added
-	err = generateToCidrFromEndpoint(rule, endpointInfo, nil)
+	err = generateToCidrFromEndpoint(rule, endpointInfo)
 	c.Assert(err, IsNil)
 
 	c.Assert(len(rule.ToCIDRSet), Equals, 2)
 	c.Assert(string(rule.ToCIDRSet[1].Cidr), Equals, epIP+"/32")
 
-	err = deleteToCidrFromEndpoint(rule, endpointInfo, nil)
+	err = deleteToCidrFromEndpoint(rule, endpointInfo)
 	c.Assert(err, IsNil)
 	c.Assert(len(rule.ToCIDRSet), Equals, 1)
 	c.Assert(string(rule.ToCIDRSet[0].Cidr), Equals, string(userCIDR))

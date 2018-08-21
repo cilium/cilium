@@ -17,22 +17,40 @@ package policy
 import (
 	"net"
 
-	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
 // getPrefixesFromCIDR fetches all CIDRs referred to by the specified slice
 // and returns them as regular golang CIDR objects.
 func getPrefixesFromCIDR(cidrs api.CIDRSlice) []*net.IPNet {
-	result, _ := ip.ParseCIDRs(cidrs.StringSlice())
-	return result
+	res := make([]*net.IPNet, 0, len(cidrs))
+	for _, cidr := range cidrs {
+		_, prefix, err := net.ParseCIDR(string(cidr))
+		if err != nil {
+			// Likely the CIDR is specified in host format.
+			ip := net.ParseIP(string(cidr))
+			if ip != nil {
+				bits := net.IPv6len * 8
+				if ip.To4() != nil {
+					ip = ip.To4()
+					bits = net.IPv4len * 8
+				}
+				prefix = &net.IPNet{
+					IP:   ip,
+					Mask: net.CIDRMask(bits, bits),
+				}
+			}
+		}
+		if prefix != nil {
+			res = append(res, prefix)
+		}
+	}
+	return res
 }
 
-// GetPrefixesFromCIDRSet fetches all CIDRs referred to by the specified slice
+// getPrefixesFromCIDRSet fetches all CIDRs referred to by the specified slice
 // and returns them as regular golang CIDR objects.
-//
-// Assumes that validation already occurred on 'rules'.
-func GetPrefixesFromCIDRSet(rules api.CIDRRuleSlice) []*net.IPNet {
+func getPrefixesFromCIDRSet(rules api.CIDRRuleSlice) []*net.IPNet {
 	cidrs := api.ComputeResultantCIDRSet(rules)
 	return getPrefixesFromCIDR(cidrs)
 }
@@ -54,7 +72,7 @@ func GetCIDRPrefixes(rules api.Rules) []*net.IPNet {
 				res = append(res, getPrefixesFromCIDR(ir.FromCIDR)...)
 			}
 			if len(ir.FromCIDRSet) > 0 {
-				res = append(res, GetPrefixesFromCIDRSet(ir.FromCIDRSet)...)
+				res = append(res, getPrefixesFromCIDRSet(ir.FromCIDRSet)...)
 			}
 		}
 		for _, er := range r.Egress {
@@ -62,7 +80,7 @@ func GetCIDRPrefixes(rules api.Rules) []*net.IPNet {
 				res = append(res, getPrefixesFromCIDR(er.ToCIDR)...)
 			}
 			if len(er.ToCIDRSet) > 0 {
-				res = append(res, GetPrefixesFromCIDRSet(er.ToCIDRSet)...)
+				res = append(res, getPrefixesFromCIDRSet(er.ToCIDRSet)...)
 			}
 		}
 	}

@@ -33,8 +33,4 @@ const (
 	// V6HealthName is the annotation name used to store the IPv6
 	// address of the cilium-health endpoint in the node's annotations.
 	V6HealthName = "io.cilium.network.ipv6-health-ip"
-
-	// CiliumHostIP is the annotation name used to store the IPv4 address
-	// of the cilium host interface in the node's annotations.
-	CiliumHostIP = "io.cilium.network.ipv4-cilium-host"
 )

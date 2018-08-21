@@ -43,39 +43,25 @@ func (s *IPCacheTestSuite) TestIPCache(c *C) {
 	c.Assert(len(IPIdentityCache.identityToIPCache), Equals, 0)
 
 	// Deletion of key that doesn't exist doesn't cause panic.
-	IPIdentityCache.Delete(endpointIP)
+	IPIdentityCache.delete(endpointIP)
 
-	IPIdentityCache.Upsert(endpointIP, nil, Identity{
-		ID:     identity,
-		Source: FromKVStore,
-	})
+	IPIdentityCache.Upsert(endpointIP, identity)
 
 	// Assure both caches are updated..
 	c.Assert(len(IPIdentityCache.ipToIdentityCache), Equals, 1)
 	c.Assert(len(IPIdentityCache.identityToIPCache), Equals, 1)
 
 	cachedIdentity, exists := IPIdentityCache.LookupByIP(endpointIP)
+	c.Assert(cachedIdentity, Equals, identity)
 	c.Assert(exists, Equals, true)
-	c.Assert(cachedIdentity.ID, Equals, identity)
-	c.Assert(cachedIdentity.Source, Equals, FromKVStore)
 
-	// kubernetes source cannot update kvstore source
-	updated := IPIdentityCache.Upsert(endpointIP, nil, Identity{
-		ID:     identity,
-		Source: FromKubernetes,
-	})
-	c.Assert(updated, Equals, false)
-
-	IPIdentityCache.Upsert(endpointIP, nil, Identity{
-		ID:     identity,
-		Source: FromKVStore,
-	})
+	IPIdentityCache.Upsert(endpointIP, identity)
 
 	// No duplicates.
 	c.Assert(len(IPIdentityCache.ipToIdentityCache), Equals, 1)
 	c.Assert(len(IPIdentityCache.identityToIPCache), Equals, 1)
 
-	IPIdentityCache.Delete(endpointIP)
+	IPIdentityCache.delete(endpointIP)
 
 	// Assure deletion occurs across both mappings.
 	c.Assert(len(IPIdentityCache.ipToIdentityCache), Equals, 0)
@@ -85,16 +71,10 @@ func (s *IPCacheTestSuite) TestIPCache(c *C) {
 
 	c.Assert(exists, Equals, false)
 
-	IPIdentityCache.Upsert(endpointIP, nil, Identity{
-		ID:     identity,
-		Source: FromKVStore,
-	})
+	IPIdentityCache.Upsert(endpointIP, identity)
 
 	newIdentity := identityPkg.NumericIdentity(69)
-	IPIdentityCache.Upsert(endpointIP, nil, Identity{
-		ID:     newIdentity,
-		Source: FromKVStore,
-	})
+	IPIdentityCache.Upsert(endpointIP, newIdentity)
 
 	// Ensure that update of cache with new identity doesn't keep old identity-to-ip
 	// mapping around.
@@ -107,7 +87,7 @@ func (s *IPCacheTestSuite) TestIPCache(c *C) {
 		c.Assert(cachedIP, Equals, endpointIP)
 	}
 
-	IPIdentityCache.Delete(endpointIP)
+	IPIdentityCache.delete(endpointIP)
 
 	// Assure deletion occurs across both mappings.
 	c.Assert(len(IPIdentityCache.ipToIdentityCache), Equals, 0)
@@ -118,12 +98,9 @@ func (s *IPCacheTestSuite) TestIPCache(c *C) {
 	identities := []identityPkg.NumericIdentity{5, 67, 29, 29, 29}
 
 	for index := range endpointIPs {
-		IPIdentityCache.Upsert(endpointIPs[index], nil, Identity{
-			ID:     identities[index],
-			Source: FromKVStore,
-		})
+		IPIdentityCache.Upsert(endpointIPs[index], identities[index])
 		cachedIdentity, _ := IPIdentityCache.LookupByIP(endpointIPs[index])
-		c.Assert(cachedIdentity.ID, Equals, identities[index])
+		c.Assert(cachedIdentity, Equals, identities[index])
 	}
 
 	expectedIPList := map[string]struct{}{
@@ -134,7 +111,7 @@ func (s *IPCacheTestSuite) TestIPCache(c *C) {
 	cachedEndpointIPs, _ := IPIdentityCache.LookupByIdentity(29)
 	c.Assert(reflect.DeepEqual(cachedEndpointIPs, expectedIPList), Equals, true)
 
-	IPIdentityCache.Delete("27.2.2.2")
+	IPIdentityCache.delete("27.2.2.2")
 
 	expectedIPList = map[string]struct{}{
 		"127.0.0.1": {},
@@ -144,12 +121,12 @@ func (s *IPCacheTestSuite) TestIPCache(c *C) {
 	c.Assert(reflect.DeepEqual(cachedEndpointIPs, expectedIPList), Equals, true)
 
 	cachedIdentity, exists = IPIdentityCache.LookupByIP("127.0.0.1")
-	c.Assert(cachedIdentity.ID, Equals, identityPkg.NumericIdentity(29))
+	c.Assert(cachedIdentity, Equals, identityPkg.NumericIdentity(29))
 
 	cachedIdentity, exists = IPIdentityCache.LookupByPrefix("127.0.0.1/32")
-	c.Assert(cachedIdentity.ID, Equals, identityPkg.NumericIdentity(29))
+	c.Assert(cachedIdentity, Equals, identityPkg.NumericIdentity(29))
 
-	IPIdentityCache.Delete("127.0.0.1")
+	IPIdentityCache.delete("127.0.0.1")
 
 	_, exists = IPIdentityCache.LookupByIdentity(29)
 	c.Assert(exists, Equals, false)
@@ -159,7 +136,7 @@ func (s *IPCacheTestSuite) TestIPCache(c *C) {
 
 	// Clean up.
 	for index := range endpointIPs {
-		IPIdentityCache.Delete(endpointIPs[index])
+		IPIdentityCache.delete(endpointIPs[index])
 		_, exists = IPIdentityCache.LookupByIP(endpointIPs[index])
 		c.Assert(exists, Equals, false)
 
@@ -237,16 +214,4 @@ func (s *IPCacheTestSuite) TestKeyToIPNet(c *C) {
 	c.Assert(nilIP, IsNil)
 	c.Assert(err, Not(IsNil))
 	c.Assert(isHost, Equals, false)
-}
-
-func (s *IPCacheTestSuite) TestAllowOverwrite(c *C) {
-	c.Assert(allowOverwrite(FromKubernetes, FromKubernetes), Equals, true)
-	c.Assert(allowOverwrite(FromKubernetes, FromKVStore), Equals, true)
-	c.Assert(allowOverwrite(FromKubernetes, FromAgentLocal), Equals, true)
-	c.Assert(allowOverwrite(FromKVStore, FromKubernetes), Equals, false)
-	c.Assert(allowOverwrite(FromKVStore, FromKVStore), Equals, true)
-	c.Assert(allowOverwrite(FromKVStore, FromAgentLocal), Equals, true)
-	c.Assert(allowOverwrite(FromAgentLocal, FromKubernetes), Equals, false)
-	c.Assert(allowOverwrite(FromAgentLocal, FromKVStore), Equals, false)
-	c.Assert(allowOverwrite(FromAgentLocal, FromAgentLocal), Equals, true)
 }

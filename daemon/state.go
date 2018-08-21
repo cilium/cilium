@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/workloads"
@@ -78,19 +77,12 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 	for _, ep := range possibleEPs {
 		scopedLog := log.WithField(logfields.EndpointID, ep.ID)
 		skipRestore := false
-
-		// On each restart, the health endpoint is supposed to be recreated.
-		// Hence we need to clean health endpoint state unconditionally.
-		if ep.HasLabels(labels.LabelHealth) {
+		if _, err := netlink.LinkByName(ep.IfName); err != nil {
+			scopedLog.Infof("Interface %s could not be found for endpoint being restored, ignoring", ep.IfName)
 			skipRestore = true
-		} else {
-			if _, err := netlink.LinkByName(ep.IfName); err != nil {
-				scopedLog.Infof("Interface %s could not be found for endpoint being restored, ignoring", ep.IfName)
-				skipRestore = true
-			} else if !workloads.IsRunning(ep) {
-				scopedLog.Info("No workload could be associated with endpoint being restored, ignoring")
-				skipRestore = true
-			}
+		} else if !workloads.IsRunning(ep) {
+			scopedLog.Info("No workload could be associated with endpoint being restored, ignoring")
+			skipRestore = true
 		}
 
 		if clean && skipRestore {
@@ -98,12 +90,12 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 			continue
 		}
 
-		ep.UnconditionalLock()
+		ep.Mutex.Lock()
 		scopedLog.Debug("Restoring endpoint")
 		ep.LogStatusOKLocked(endpoint.Other, "Restoring endpoint from previous cilium instance")
 
 		if err := d.allocateIPsLocked(ep); err != nil {
-			ep.Unlock()
+			ep.Mutex.Unlock()
 			scopedLog.WithError(err).Error("Failed to re-allocate IP of endpoint. Not restoring endpoint.")
 			state.toClean = append(state.toClean, ep)
 			continue
@@ -114,11 +106,11 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 		} else {
 			ep.SetDefaultOpts(option.Config.Opts)
 			alwaysEnforce := policy.GetPolicyEnabled() == option.AlwaysEnforce
-			ep.Options.SetBool(option.IngressPolicy, alwaysEnforce)
-			ep.Options.SetBool(option.EgressPolicy, alwaysEnforce)
+			ep.Opts.Set(option.IngressPolicy, alwaysEnforce)
+			ep.Opts.Set(option.EgressPolicy, alwaysEnforce)
 		}
 
-		ep.Unlock()
+		ep.Mutex.Unlock()
 
 		state.restored = append(state.restored, ep)
 	}
@@ -134,67 +126,29 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 	log.Infof("Regenerating %d restored endpoints", len(state.restored))
 
-	// Before regenerating, check whether the CT map has properties that
-	// match this Cilium userspace instance. If not, it must be removed
-	ctmap.DeleteIfUpgradeNeeded(nil)
-
 	// we need to signalize when the endpoints are regenerated, i.e., when
 	// they have finished to rebuild after being restored.
 	epRegenerated := make(chan bool, len(state.restored))
 
 	for _, ep := range state.restored {
-		// If the endpoint has local conntrack option enabled, then
-		// check whether the CT map needs upgrading (and do so).
-		if ep.Options.IsEnabled(option.ConntrackLocal) {
-			ctmap.DeleteIfUpgradeNeeded(ep)
-		}
-
-		// Insert into endpoint manager so it can be regenerated when calls to
-		// TriggerPolicyUpdates() are made. This must be done synchronously (i.e.,
-		// not in a goroutine) because regenerateRestoredEndpoints must guarantee
-		// upon returning that endpoints are exposed to other subsystems via
-		// endpointmanager.
-
-		ep.UnconditionalRLock()
-		endpointmanager.Insert(ep)
-		ep.RUnlock()
-
 		go func(ep *endpoint.Endpoint, epRegenerated chan<- bool) {
-			if err := ep.RLockAlive(); err != nil {
-				ep.LogDisconnectedMutexAction(err, "before filtering labels during regenerating restored endpoint")
-				return
-			}
+			ep.Mutex.Lock()
+
+			// Insert into endpoint manager so it can be regenerated when calls to
+			// TriggerPolicyUpdates() are made.
+			endpointmanager.Insert(ep)
+
 			scopedLog := log.WithField(logfields.EndpointID, ep.ID)
-			// Filter the restored labels with the new daemon's filter
-			l, _ := labels.FilterLabels(ep.OpLabels.IdentityLabels())
-			ep.RUnlock()
-
-			identity, _, err := identityPkg.AllocateIdentity(l)
-			if err != nil {
-				scopedLog.WithError(err).Warn("Unable to restore endpoint")
-				epRegenerated <- false
-			}
-
-			if err := ep.LockAlive(); err != nil {
-				scopedLog.Warn("Endpoint to restore has been deleted")
-				return
-			}
 
 			ep.LogStatusOKLocked(endpoint.Other, "Synchronizing endpoint labels with KVStore")
-
-			if ep.SecurityIdentity != nil {
-				if oldSecID := ep.SecurityIdentity.ID; identity.ID != oldSecID {
-					log.WithFields(logrus.Fields{
-						logfields.EndpointID:              ep.ID,
-						logfields.IdentityLabels + ".old": oldSecID,
-						logfields.IdentityLabels + ".new": identity.ID,
-					}).Info("Security identity for endpoint is different from the security identity restored for the endpoint")
-				}
+			if err := d.syncLabels(ep); err != nil {
+				scopedLog.WithError(err).Warn("Unable to restore endpoint")
+				ep.Mutex.Unlock()
+				epRegenerated <- false
+				return
 			}
-			ep.SetIdentity(identity)
-
 			ready := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Triggering synchronous endpoint regeneration while syncing state to host")
-			ep.Unlock()
+			ep.Mutex.Unlock()
 
 			if !ready {
 				scopedLog.WithField(logfields.EndpointState, ep.GetState()).Warn("Endpoint in inconsistent state")
@@ -207,16 +161,15 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 				return
 			}
 
-			// NOTE: UnconditionalRLock is used here because it's used only for logging an already restored endpoint
-			ep.UnconditionalRLock()
+			ep.Mutex.RLock()
 			scopedLog.WithField(logfields.IPAddr, []string{ep.IPv4.String(), ep.IPv6.String()}).Info("Restored endpoint")
-			ep.RUnlock()
+			ep.Mutex.RUnlock()
 			epRegenerated <- true
 		}(ep, epRegenerated)
 	}
 
 	for _, ep := range state.toClean {
-		go d.deleteEndpointQuiet(ep, true)
+		go d.deleteEndpointQuiet(ep)
 	}
 
 	go func() {
@@ -319,4 +272,29 @@ func readEPsFromDirNames(basePath string, eptsDirNames []string) []*endpoint.End
 		possibleEPs = append(possibleEPs, ep)
 	}
 	return possibleEPs
+}
+
+// syncLabels syncs the labels from the labels' database for the given endpoint.
+// To be used with endpoint.Mutex locked.
+func (d *Daemon) syncLabels(ep *endpoint.Endpoint) error {
+	// Filter the restored labels with the new daemon's filter
+	l, _ := labels.FilterLabels(ep.OpLabels.IdentityLabels())
+	identity, _, err := identityPkg.AllocateIdentity(l)
+	if err != nil {
+		return err
+	}
+
+	if ep.SecurityIdentity != nil {
+		if oldSecID := ep.SecurityIdentity.ID; identity.ID != oldSecID {
+			log.WithFields(logrus.Fields{
+				logfields.EndpointID:              ep.ID,
+				logfields.IdentityLabels + ".old": oldSecID,
+				logfields.IdentityLabels + ".new": identity.ID,
+			}).Info("Security label ID for endpoint is different that the one stored, updating")
+		}
+	}
+
+	ep.SetIdentity(identity)
+
+	return nil
 }

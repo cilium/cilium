@@ -19,6 +19,8 @@ import (
 	envoy_api_v2_core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
 	envoy_api_v2_route "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/route"
 
+	"github.com/golang/protobuf/ptypes/wrappers"
+
 	. "gopkg.in/check.v1"
 )
 
@@ -27,23 +29,27 @@ type SortSuite struct{}
 var _ = Suite(&SortSuite{})
 
 var HeaderMatcher1 = &envoy_api_v2_route.HeaderMatcher{
-	Name:                 "aaa",
-	HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: "aaa"},
+	Name:  "aaa",
+	Value: "aaa",
+	Regex: &wrappers.BoolValue{Value: false},
 }
 
 var HeaderMatcher2 = &envoy_api_v2_route.HeaderMatcher{
-	Name:                 "bbb",
-	HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: "aaa"},
+	Name:  "bbb",
+	Value: "aaa",
+	Regex: &wrappers.BoolValue{Value: false},
 }
 
 var HeaderMatcher3 = &envoy_api_v2_route.HeaderMatcher{
-	Name:                 "bbb",
-	HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: "bbb"},
+	Name:  "bbb",
+	Value: "bbb",
+	Regex: &wrappers.BoolValue{Value: false},
 }
 
 var HeaderMatcher4 = &envoy_api_v2_route.HeaderMatcher{
-	Name:                 "bbb",
-	HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: "bbb"},
+	Name:  "bbb",
+	Value: "bbb",
+	Regex: &wrappers.BoolValue{Value: true},
 }
 
 func (s *SortSuite) TestSortHeaderMatchers(c *C) {

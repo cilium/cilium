@@ -1,9 +1,3 @@
-.. only:: not (epub or latex or html)
-
-    WARNING: You are looking at unreleased Cilium documentation.
-    Please use the official rendered version released here:
-    http://docs.cilium.io
-
 .. _admin_install_source:
 
 *************************
@@ -50,10 +44,10 @@ You can also add it in your ``~/.bashrc`` file:
 
 .. code:: bash
 
-   $ git checkout v1.1.0
+   $ git checkout v0.11
    $ # We are pointing to $GOPATH/bin as well since it's where go-bindata is
    $ # installed
-   $ make build
+   $ make
    $ sudo make install
 
 3. Optional: Install systemd init files:

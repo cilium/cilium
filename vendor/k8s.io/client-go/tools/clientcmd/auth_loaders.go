@@ -23,8 +23,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	"golang.org/x/crypto/ssh/terminal"
-
+	"github.com/howeyc/gopass"
 	clientauth "k8s.io/client-go/tools/auth"
 )
 
@@ -90,12 +89,8 @@ func promptForString(field string, r io.Reader, show bool) (result string, err e
 		_, err = fmt.Fscan(r, &result)
 	} else {
 		var data []byte
-		if terminal.IsTerminal(int(os.Stdin.Fd())) {
-			data, err = terminal.ReadPassword(int(os.Stdin.Fd()))
-			result = string(data)
-		} else {
-			return "", fmt.Errorf("error reading input for %s", field)
-		}
+		data, err = gopass.GetPasswdMasked()
+		result = string(data)
 	}
 	return result, err
 }

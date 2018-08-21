@@ -14,10 +14,6 @@
 
 package RuntimeTest
 
-import (
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/sirupsen/logrus"
-)
+import "github.com/cilium/cilium/pkg/logging"
 
 var log = logging.DefaultLogger
-var logger = logrus.NewEntry(log)

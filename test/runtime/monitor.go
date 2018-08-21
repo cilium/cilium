@@ -19,18 +19,13 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
-	"time"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
 	. "github.com/onsi/gomega"
+	"github.com/sirupsen/logrus"
 )
-
-func init() {
-	// ensure that our random numbers are seeded differently on each run
-	rand.Seed(time.Now().UnixNano())
-}
 
 const (
 	// MonitorDropNotification represents the DropNotification configuration
@@ -46,14 +41,15 @@ const (
 	MonitorDebug = "Debug"
 )
 
-var _ = Describe("RuntimeMonitorTest", func() {
+var _ = Describe("RuntimeValidatedMonitorTest", func() {
 
+	var logger *logrus.Entry
 	var vm *helpers.SSHMeta
 
 	BeforeAll(func() {
-		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
-		ExpectCiliumReady(vm)
-
+		logger = log.WithFields(logrus.Fields{"testName": "RuntimeMonitorTest"})
+		logger.Info("Starting")
+		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
 		areEndpointsReady := vm.WaitEndpointsReady()
 		Expect(areEndpointsReady).Should(BeTrue())
 	})

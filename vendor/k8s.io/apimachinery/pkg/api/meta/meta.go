@@ -38,6 +38,7 @@ var errNotCommon = fmt.Errorf("object does not implement the common interface fo
 
 // CommonAccessor returns a Common interface for the provided object or an error if the object does
 // not provide List.
+// TODO: return bool instead of error
 func CommonAccessor(obj interface{}) (metav1.Common, error) {
 	switch t := obj.(type) {
 	case List:
@@ -70,6 +71,7 @@ func CommonAccessor(obj interface{}) (metav1.Common, error) {
 // not provide List.
 // IMPORTANT: Objects are NOT a superset of lists. Do not use this check to determine whether an
 // object *is* a List.
+// TODO: return bool instead of error
 func ListAccessor(obj interface{}) (List, error) {
 	switch t := obj.(type) {
 	case List:
@@ -99,6 +101,7 @@ var errNotObject = fmt.Errorf("object does not implement the Object interfaces")
 // obj must be a pointer to an API type. An error is returned if the minimum
 // required fields are missing. Fields that are not required return the default
 // value and are a no-op if set.
+// TODO: return bool instead of error
 func Accessor(obj interface{}) (metav1.Object, error) {
 	switch t := obj.(type) {
 	case metav1.Object:

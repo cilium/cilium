@@ -119,5 +119,14 @@ func Decode(in string) ([]byte, error) {
 
 // Close closes the kvstore client
 func Close() {
-	defaultClient.Close()
+	kvstoreControllers.RemoveAll()
+
+	leaseMutex.Lock()
+	if leaseInstance != nil {
+		defaultClient.DeleteLease(leaseInstance)
+	}
+	leaseInstance = nil
+	leaseMutex.Unlock()
+
+	defaultClient.closeClient()
 }

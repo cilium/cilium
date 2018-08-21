@@ -18,19 +18,17 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"net"
 	"os"
 	"sync"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
-	"github.com/cilium/cilium/pkg/api"
+	"github.com/cilium/cilium/pkg/apierror"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
-	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipam"
@@ -39,9 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	ipCacheBPF "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/uuid"
 	"github.com/cilium/cilium/pkg/workloads"
 
 	"github.com/go-openapi/runtime/middleware"
@@ -124,7 +120,7 @@ func (h *getEndpointID) Handle(params GetEndpointIDParams) middleware.Responder 
 	ep, err := endpointmanager.Lookup(params.ID)
 
 	if err != nil {
-		return api.Error(GetEndpointIDInvalidCode, err)
+		return apierror.Error(GetEndpointIDInvalidCode, err)
 	} else if ep == nil {
 		return NewGetEndpointIDNotFound()
 	} else {
@@ -179,7 +175,7 @@ func (d *Daemon) createEndpoint(epTemplate *models.EndpointChangeRequest, id str
 		}
 	}
 
-	ep.UpdateLabels(d, addLabels, nil)
+	ep.SetIdentityLabels(d, addLabels)
 
 	if err := endpointmanager.AddEndpoint(d, ep, "Create endpoint from API PUT"); err != nil {
 		log.WithError(err).Warn("Aborting endpoint join")
@@ -199,28 +195,21 @@ func (d *Daemon) createEndpoint(epTemplate *models.EndpointChangeRequest, id str
 
 func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PUT /endpoint/{id} request")
+
 	epTemplate := params.Endpoint
-
-	logger := log.WithFields(logrus.Fields{
-		logfields.EndpointID:  epTemplate.ID,
-		logfields.ContainerID: epTemplate.ContainerID,
-		logfields.EventUUID:   uuid.NewUUID(),
-	})
-
-	if n, err := endpointid.ParseCiliumID(params.ID); err != nil {
-		return api.Error(PutEndpointIDInvalidCode, err)
+	if n, err := endpoint.ParseCiliumID(params.ID); err != nil {
+		return apierror.Error(PutEndpointIDInvalidCode, err)
 	} else if n != epTemplate.ID {
-		return api.New(PutEndpointIDInvalidCode,
+		return apierror.New(PutEndpointIDInvalidCode,
 			"ID parameter does not match ID in endpoint parameter")
 	} else if epTemplate.ID == 0 {
-		return api.New(PutEndpointIDInvalidCode,
+		return apierror.New(PutEndpointIDInvalidCode,
 			"endpoint ID cannot be 0")
 	}
 
 	code, err := h.d.createEndpoint(epTemplate, params.ID, params.Endpoint.Labels)
 	if err != nil {
-		logger.WithError(err).Error("Endpoint cannot be created")
-		return api.Error(code, err)
+		apierror.Error(code, err)
 	}
 
 	// Wait for endpoint to be in "ready" state if specified in API call.
@@ -233,22 +222,25 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 			if e != nil {
 				h.d.deleteEndpoint(e)
 			}
-			return api.Error(PutEndpointIDFailedCode, err)
+			return apierror.Error(PutEndpointIDFailedCode, err)
 		}
 
 		if e == nil {
-			return api.Error(PutEndpointIDFailedCode, fmt.Errorf("error retrieving endpoint to check if it is in %s state", endpoint.StateReady))
+			return apierror.Error(PutEndpointIDFailedCode, fmt.Errorf("error retrieving endpoint to check if it is in %s state", endpoint.StateReady))
 		}
 
-		logger.Debugf("Synchronously waiting for endpoint '%d' to be in '%s' state",
-			e.ID, endpoint.StateReady)
+		log.Debug("synchronously waiting for endpoint %d to be in %s state", e.ID, endpoint.StateReady)
 
-		// Default timeout for PUT /endpoint/{id} is 60 seconds, so put timeout
+		// Default timeout for PUT /endpoint/{id} is 30 seconds, so put timeout
 		// in this function a bit below that timeout. If the timeout for clients
 		// in API is below this value, they will get a message containing
 		// "context deadline exceeded" if the operation takes longer than the
 		// client's configured timeout value.
-		timeout := time.After(endpoint.EndpointGenerationTimeout)
+		stateChangeTimeout := time.Duration(25 * time.Second)
+
+		// Check up until stateChangeTimeout seconds for endpoint state before
+		// waiting for endpoint to be in ready state.
+		timeout := time.After(stateChangeTimeout)
 
 		// Check for endpoint state every second.
 		ticker := time.NewTicker(1 * time.Second)
@@ -257,33 +249,21 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 		for {
 			select {
 			case <-ticker.C:
-				if err := e.RLockAlive(); err != nil {
-					return api.Error(PutEndpointIDFailedCode, fmt.Errorf("error locking endpoint: %s", err.Error()))
-				}
+				e.Mutex.Lock()
 				epState := e.GetStateLocked()
-				hasSidecarProxy := e.HasSidecarProxy()
-				e.RUnlock()
-
+				e.Mutex.Unlock()
 				if epState == endpoint.StateReady {
-					return NewPutEndpointIDCreated()
+					return nil
 				} else if epState == endpoint.StateDisconnected || epState == endpoint.StateDisconnecting {
 					// Short circuit in case a call to delete the endpoint is
 					// made while we are waiting for it to be in "ready" state.
-					return api.Error(PutEndpointIDFailedCode, fmt.Errorf("endpoint %d went into state %s while waiting for it to be %s", e.ID, epState, endpoint.StateReady))
-				} else if hasSidecarProxy {
-					// If the endpoint is determined to have a sidecar proxy,
-					// return immediately to let the sidecar container start,
-					// in case it is required to enforce L7 rules.
-					logger.Infof("Endpoint has sidecar proxy, returning from synchronous creation request before it is in '%s' state",
-						endpoint.StateReady)
-					return NewPutEndpointIDCreated()
+					return apierror.Error(PutEndpointIDFailedCode, fmt.Errorf("endpoint %d went into state %s while waiting for it to be %s", e.ID, epState, endpoint.StateReady))
 				}
 			case <-timeout:
 				// Delete endpoint because PUT operation fails if timeout is
 				// exceeded.
-				logger.Warning("Endpoint did not synchronously regenerate after timeout")
 				h.d.deleteEndpoint(e)
-				return api.Error(PutEndpointIDFailedCode, fmt.Errorf("endpoint %d did not synchronously regenerate after timeout", e.ID))
+				return apierror.Error(PutEndpointIDFailedCode, fmt.Errorf("endpoint %d did not synchronously regenerate after timeout", e.ID))
 			}
 		}
 	}
@@ -316,7 +296,7 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 	// Note: newEp's labels are ignored.
 	newEp, err2 := endpoint.NewEndpointFromChangeModel(epTemplate)
 	if err2 != nil {
-		return api.Error(PutEndpointIDInvalidCode, err2)
+		return apierror.Error(PutEndpointIDInvalidCode, err2)
 	}
 
 	// Log invalid state transitions, but do not error out for backwards
@@ -327,13 +307,13 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 
 	ep, err := endpointmanager.Lookup(params.ID)
 	if err != nil {
-		return api.Error(GetEndpointIDInvalidCode, err)
+		return apierror.Error(GetEndpointIDInvalidCode, err)
 	}
 	if ep == nil {
 		return NewPatchEndpointIDNotFound()
 	}
 	if err = endpoint.APICanModify(ep); err != nil {
-		return api.Error(PatchEndpointIDInvalidCode, err)
+		return apierror.Error(PatchEndpointIDInvalidCode, err)
 	}
 
 	// FIXME: Support changing these?
@@ -343,7 +323,13 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 	//
 	//  Support arbitrary changes? Support only if unset?
 
-	if err := ep.LockAlive(); err != nil {
+	ep.Mutex.Lock()
+
+	// The endpoint may have just been deleted since the lookup, so return
+	// that it can't be found.
+	if ep.GetStateLocked() == endpoint.StateDisconnecting ||
+		ep.GetStateLocked() == endpoint.StateDisconnected {
+		ep.Mutex.Unlock()
 		return NewPatchEndpointIDNotFound()
 	}
 
@@ -425,12 +411,11 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 			reason = "Waiting on endpoint initial program regeneration while handling API PATCH"
 		}
 	}
-
-	ep.Unlock()
+	ep.Mutex.Unlock()
 
 	if reason != "" {
 		if err := ep.RegenerateWait(h.d, reason); err != nil {
-			return api.Error(PatchEndpointIDFailedCode, err)
+			return apierror.Error(PatchEndpointIDFailedCode, err)
 		}
 		// FIXME: Special return code to indicate regeneration happened?
 	}
@@ -440,21 +425,14 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 
 func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 	scopedLog := log.WithField(logfields.EndpointID, ep.ID)
-	errors := d.deleteEndpointQuiet(ep, true)
+	errors := d.deleteEndpointQuiet(ep)
 	for _, err := range errors {
 		scopedLog.WithError(err).Warn("Ignoring error while deleting endpoint")
 	}
 	return len(errors)
 }
 
-// deleteEndpointQuiet sets the endpoint into disconnecting state and removes
-// it from Cilium, releasing all resources associated with it such as its
-// visibility in the endpointmanager, its BPF programs and maps, (optional) IP,
-// L7 policy configuration, directories and controllers.
-//
-// Specific users such as the cilium-health EP may choose not to release the IP
-// when deleting the endpoint. Most users should pass true for releaseIP.
-func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []error {
+func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint) []error {
 
 	// Only used for CRI-O since it does not support events.
 	if d.workloadsEventsCh != nil && ep.GetContainerID() != "" {
@@ -470,12 +448,12 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []er
 	ep.BuildMutex.Lock()
 
 	// Lock out any other writers to the endpoint
-	ep.UnconditionalLock()
+	ep.Mutex.Lock()
 
 	// In case multiple delete requests have been enqueued, have all of them
 	// except the first return here.
 	if ep.GetStateLocked() == endpoint.StateDisconnecting {
-		ep.Unlock()
+		ep.Mutex.Unlock()
 		ep.BuildMutex.Unlock()
 		return []error{}
 	}
@@ -488,7 +466,7 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []er
 	// If dry mode is enabled, no changes to BPF maps are performed
 	if !d.DryModeEnabled() {
 		if err := lxcmap.DeleteElement(ep); err != nil {
-			errors = append(errors, fmt.Errorf("unable to delete element %d from map %s: %v", ep.ID, ep.PolicyMapPathLocked(), err))
+			errors = append(errors, fmt.Errorf("unable to delete element %d from map %s: %s", ep.ID, ep.PolicyMapPathLocked(), err))
 		}
 
 		// Remove policy BPF map
@@ -517,28 +495,28 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []er
 		}
 	}
 
-	if releaseIP {
-		if !option.Config.IPv4Disabled {
-			if err := ipam.ReleaseIP(ep.IPv4.IP()); err != nil {
-				errors = append(errors, fmt.Errorf("unable to release ipv4 address: %s", err))
-			}
-		}
-		if err := ipam.ReleaseIP(ep.IPv6.IP()); err != nil {
-			errors = append(errors, fmt.Errorf("unable to release ipv6 address: %s", err))
+	if !option.Config.IPv4Disabled {
+		if err := ipam.ReleaseIP(ep.IPv4.IP()); err != nil {
+			errors = append(errors, fmt.Errorf("unable to release ipv4 address: %s", err))
 		}
 	}
 
+	if err := ipam.ReleaseIP(ep.IPv6.IP()); err != nil {
+		errors = append(errors, fmt.Errorf("unable to release ipv6 address: %s", err))
+	}
+
 	completionCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	proxyWaitGroup := completion.NewWaitGroup(completionCtx)
+	ep.ProxyWaitGroup = completion.NewWaitGroup(completionCtx)
 
-	errors = append(errors, ep.LeaveLocked(d, proxyWaitGroup)...)
-	ep.Unlock()
+	errors = append(errors, ep.LeaveLocked(d)...)
+	ep.Mutex.Unlock()
 
-	err := ep.WaitForProxyCompletions(proxyWaitGroup)
+	err := ep.WaitForProxyCompletions()
 	if err != nil {
 		errors = append(errors, fmt.Errorf("unable to remove proxy redirects: %s", err))
 	}
 	cancel()
+	ep.ProxyWaitGroup = nil
 
 	ep.BuildMutex.Unlock()
 
@@ -547,11 +525,11 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []er
 
 func (d *Daemon) DeleteEndpoint(id string) (int, error) {
 	if ep, err := endpointmanager.Lookup(id); err != nil {
-		return 0, api.Error(DeleteEndpointIDInvalidCode, err)
+		return 0, apierror.Error(DeleteEndpointIDInvalidCode, err)
 	} else if ep == nil {
-		return 0, api.New(DeleteEndpointIDNotFoundCode, "endpoint not found")
+		return 0, apierror.New(DeleteEndpointIDNotFoundCode, "endpoint not found")
 	} else if err = endpoint.APICanModify(ep); err != nil {
-		return 0, api.Error(DeleteEndpointIDInvalidCode, err)
+		return 0, apierror.Error(DeleteEndpointIDInvalidCode, err)
 	} else {
 		return d.deleteEndpoint(ep), nil
 	}
@@ -570,10 +548,10 @@ func (h *deleteEndpointID) Handle(params DeleteEndpointIDParams) middleware.Resp
 
 	d := h.daemon
 	if nerr, err := d.DeleteEndpoint(params.ID); err != nil {
-		if apierr, ok := err.(*api.APIError); ok {
+		if apierr, ok := err.(*apierror.APIError); ok {
 			return apierr
 		}
-		return api.Error(DeleteEndpointIDErrorsCode, err)
+		return apierror.Error(DeleteEndpointIDErrorsCode, err)
 	} else if nerr > 0 {
 		return NewDeleteEndpointIDErrors().WithPayload(int64(nerr))
 	} else {
@@ -585,28 +563,26 @@ func (h *deleteEndpointID) Handle(params DeleteEndpointIDParams) middleware.Resp
 func (d *Daemon) EndpointUpdate(id string, cfg *models.EndpointConfigurationSpec) error {
 	ep, err := endpointmanager.Lookup(id)
 	if err != nil {
-		return api.Error(PatchEndpointIDInvalidCode, err)
+		return apierror.Error(PatchEndpointIDInvalidCode, err)
 	}
 	if err = endpoint.APICanModify(ep); err != nil {
-		return api.Error(PatchEndpointIDInvalidCode, err)
+		return apierror.Error(PatchEndpointIDInvalidCode, err)
 	}
 
 	if ep != nil {
 		if err := ep.Update(d, cfg); err != nil {
 			switch err.(type) {
 			case endpoint.UpdateValidationError:
-				return api.Error(PatchEndpointIDConfigInvalidCode, err)
+				return apierror.Error(PatchEndpointIDConfigInvalidCode, err)
 			default:
-				return api.Error(PatchEndpointIDConfigFailedCode, err)
+				return apierror.Error(PatchEndpointIDConfigFailedCode, err)
 			}
 		}
-		if err := ep.RLockAlive(); err != nil {
-			return api.Error(PatchEndpointIDNotFoundCode, err)
-		}
+		ep.Mutex.RLock()
 		endpointmanager.UpdateReferences(ep)
-		ep.RUnlock()
+		ep.Mutex.RUnlock()
 	} else {
-		return api.New(PatchEndpointIDConfigNotFoundCode, "endpoint %s not found", id)
+		return apierror.New(PatchEndpointIDConfigNotFoundCode, "endpoint %s not found", id)
 	}
 
 	return nil
@@ -625,10 +601,10 @@ func (h *patchEndpointIDConfig) Handle(params PatchEndpointIDConfigParams) middl
 
 	d := h.daemon
 	if err := d.EndpointUpdate(params.ID, params.EndpointConfiguration); err != nil {
-		if apierr, ok := err.(*api.APIError); ok {
+		if apierr, ok := err.(*apierror.APIError); ok {
 			return apierr
 		}
-		return api.Error(PatchEndpointIDFailedCode, err)
+		return apierror.Error(PatchEndpointIDFailedCode, err)
 	}
 
 	return NewPatchEndpointIDConfigOK()
@@ -647,7 +623,7 @@ func (h *getEndpointIDConfig) Handle(params GetEndpointIDConfigParams) middlewar
 
 	ep, err := endpointmanager.Lookup(params.ID)
 	if err != nil {
-		return api.Error(GetEndpointIDInvalidCode, err)
+		return apierror.Error(GetEndpointIDInvalidCode, err)
 	} else if ep == nil {
 		return NewGetEndpointIDConfigNotFound()
 	} else {
@@ -656,9 +632,9 @@ func (h *getEndpointIDConfig) Handle(params GetEndpointIDConfigParams) middlewar
 				LabelConfiguration: &models.LabelConfigurationSpec{
 					User: ep.OpLabels.Custom.GetModel(),
 				},
-				Options: *ep.Options.GetMutableModel(),
+				Options: *ep.Opts.GetMutableModel(),
 			},
-			Immutable: *ep.Options.GetImmutableModel(),
+			Immutable: *ep.Opts.GetImmutableModel(),
 		}
 
 		return NewGetEndpointIDConfigOK().WithPayload(cfgStatus)
@@ -678,15 +654,13 @@ func (h *getEndpointIDLabels) Handle(params GetEndpointIDLabelsParams) middlewar
 
 	ep, err := endpointmanager.Lookup(params.ID)
 	if err != nil {
-		return api.Error(GetEndpointIDInvalidCode, err)
+		return apierror.Error(GetEndpointIDInvalidCode, err)
 	}
 	if ep == nil {
 		return NewGetEndpointIDLabelsNotFound()
 	}
 
-	if err := ep.RLockAlive(); err != nil {
-		return api.Error(GetEndpointIDInvalidCode, err)
-	}
+	ep.Mutex.RLock()
 	spec := &models.LabelConfigurationSpec{
 		User: ep.OpLabels.Custom.GetModel(),
 	}
@@ -700,7 +674,7 @@ func (h *getEndpointIDLabels) Handle(params GetEndpointIDLabelsParams) middlewar
 			Disabled:         ep.OpLabels.Disabled.GetModel(),
 		},
 	}
-	ep.RUnlock()
+	ep.Mutex.RUnlock()
 
 	return NewGetEndpointIDLabelsOK().WithPayload(&cfg)
 }
@@ -719,7 +693,7 @@ func (h *getEndpointIDLog) Handle(params GetEndpointIDLogParams) middleware.Resp
 	ep, err := endpointmanager.Lookup(params.ID)
 
 	if err != nil {
-		return api.Error(GetEndpointIDLogInvalidCode, err)
+		return apierror.Error(GetEndpointIDLogInvalidCode, err)
 	} else if ep == nil {
 		return NewGetEndpointIDLogNotFound()
 	} else {
@@ -741,7 +715,7 @@ func (h *getEndpointIDHealthz) Handle(params GetEndpointIDHealthzParams) middlew
 	ep, err := endpointmanager.Lookup(params.ID)
 
 	if err != nil {
-		return api.Error(GetEndpointIDHealthzInvalidCode, err)
+		return apierror.Error(GetEndpointIDHealthzInvalidCode, err)
 	} else if ep == nil {
 		return NewGetEndpointIDHealthzNotFound()
 	} else {
@@ -818,11 +792,9 @@ func (h *putEndpointIDLabels) Handle(params PatchEndpointIDLabelsParams) middlew
 		return NewPatchEndpointIDLabelsNotFound()
 	}
 
-	if err := ep.RLockAlive(); err != nil {
-		return api.Error(PutEndpointIDInvalidCode, err)
-	}
+	ep.Mutex.RLock()
 	currentLbls := ep.OpLabels.DeepCopy()
-	ep.RUnlock()
+	ep.Mutex.RUnlock()
 
 	for _, lbl := range lbls {
 		if currentLbls.Custom[lbl.Key] == nil {
@@ -847,7 +819,7 @@ func (h *putEndpointIDLabels) Handle(params PatchEndpointIDLabelsParams) middlew
 
 	code, err := d.modifyEndpointIdentityLabelsFromAPI(params.ID, add, del)
 	if err != nil {
-		return api.Error(code, err)
+		return apierror.Error(code, err)
 	}
 	return NewPatchEndpointIDLabelsOK()
 }
@@ -859,54 +831,38 @@ func (h *putEndpointIDLabels) Handle(params PatchEndpointIDLabelsParams) middlew
 // 'oldIPIDPair' is ignored here, because in the BPF maps an update for the
 // IP->ID mapping will replace any existing contents; knowledge of the old pair
 // is not required to upsert the new pair.
-func (d *Daemon) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidr net.IPNet,
-	oldHostIP, newHostIP net.IP, oldID *identity.NumericIdentity, newID identity.NumericIdentity) {
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.IPAddr:       cidr,
-		logfields.Identity:     newID,
-		logfields.Modification: modType,
-	})
+func (d *Daemon) OnIPIdentityCacheChange(modType ipcache.CacheModification, oldIPIDPair *identity.IPIdentityPair, newIPIDPair identity.IPIdentityPair) {
 
-	scopedLog.Debug("Daemon notified of IP-Identity cache state change")
+	log.WithFields(logrus.Fields{logfields.Modification: modType,
+		logfields.IPAddr:   newIPIDPair.IP,
+		logfields.IPMask:   newIPIDPair.Mask,
+		logfields.Identity: newIPIDPair.ID}).
+		Debug("daemon notified of IP-Identity cache state change")
 
 	// TODO - see if we can factor this into an interface under something like
 	// pkg/datapath instead of in the daemon directly so that the code is more
 	// logically located.
 
 	// Update BPF Maps.
-
-	key := ipCacheBPF.NewKey(cidr.IP, cidr.Mask)
+	key := ipCacheBPF.NewKey(newIPIDPair.IP, newIPIDPair.Mask)
 
 	switch modType {
 	case ipcache.Upsert:
-		value := ipCacheBPF.RemoteEndpointInfo{
-			SecurityIdentity: uint32(newID),
-		}
-
-		if newHostIP != nil {
-			// If the hostIP is specified and it doesn't point to
-			// the local host, then the ipcache should be populated
-			// with the hostIP so that this traffic can be guided
-			// to a tunnel endpoint destination.
-			externalIP := node.GetExternalIPv4()
-			if ip4 := newHostIP.To4(); ip4 != nil && !ip4.Equal(externalIP) {
-				copy(value.TunnelEndpoint[:], ip4)
-			}
-		}
+		value := ipCacheBPF.RemoteEndpointInfo{SecurityIdentity: uint16(newIPIDPair.ID)}
 		err := ipCacheBPF.IPCache.Update(&key, &value)
 		if err != nil {
-			scopedLog.WithError(err).WithFields(logrus.Fields{"key": key.String(),
+			log.WithError(err).WithFields(logrus.Fields{"key": key.String(),
 				"value": value.String()}).
 				Warning("unable to update bpf map")
 		}
 	case ipcache.Delete:
-		err := ipCacheBPF.Delete(&key)
+		err := ipCacheBPF.IPCache.Delete(&key)
 		if err != nil {
-			scopedLog.WithError(err).WithFields(logrus.Fields{"key": key.String()}).
+			log.WithError(err).WithFields(logrus.Fields{"key": key.String()}).
 				Warning("unable to delete from bpf map")
 		}
 	default:
-		scopedLog.Warning("cache modification type not supported")
+		log.WithField("modificationType", modType).Warning("cache modification type not supported")
 	}
 }
 
@@ -941,13 +897,10 @@ func (d *Daemon) OnIPIdentityCacheGC() {
 					keyToIP := k.String()
 
 					// Don't RLock as part of the same goroutine.
-					if i, exists := ipcache.IPIdentityCache.LookupByPrefixRLocked(keyToIP); !exists {
-						switch i.Source {
-						case ipcache.FromKVStore, ipcache.FromAgentLocal:
-							// Cannot delete from map during callback because DumpWithCallback
-							// RLocks the map.
-							keysToRemove[keyToIP] = k
-						}
+					if _, exists := ipcache.IPIdentityCache.LookupByPrefixRLocked(keyToIP); !exists {
+						// Cannot delete from map during callback because DumpWithCallback
+						// RLocks the map.
+						keysToRemove[keyToIP] = k
 					}
 				}
 
@@ -960,7 +913,7 @@ func (d *Daemon) OnIPIdentityCacheGC() {
 				for _, k := range keysToRemove {
 					log.WithFields(logrus.Fields{logfields.BPFMapKey: k}).
 						Debug("deleting from ipcache BPF map")
-					if err := ipCacheBPF.Delete(k); err != nil {
+					if err := ipCacheBPF.IPCache.Delete(k); err != nil {
 						return fmt.Errorf("error deleting key %s from ipcache BPF map: %s", k, err)
 					}
 				}

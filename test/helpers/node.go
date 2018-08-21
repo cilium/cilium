@@ -22,7 +22,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/cilium/cilium/test/config"
 	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
@@ -160,23 +159,17 @@ func (s *SSHMeta) Exec(cmd string, options ...ExecOptions) *CmdRes {
 	log.Debugf("running command: %s", cmd)
 	stdout := new(bytes.Buffer)
 	stderr := new(bytes.Buffer)
-	start := time.Now()
 	err := s.Execute(cmd, stdout, stderr)
 
 	res := CmdRes{
-		cmd:      cmd,
-		stdout:   stdout,
-		stderr:   stderr,
-		success:  true, // this may be toggled when err != nil below
-		duration: time.Since(start),
+		cmd:     cmd,
+		stdout:  stdout,
+		stderr:  stderr,
+		success: true, // this may be toggled when err != nil below
 	}
 
 	if err != nil {
 		res.success = false
-		// Set error code to 1 in case that it's another error to see that the
-		// command failed. If the default value (0) indicates that command
-		// works but it was not executed at all.
-		res.exitcode = 1
 		exiterr, isExitError := err.(*ssh.ExitError)
 		if isExitError {
 			// Set res's exitcode if the error is an ExitError
@@ -187,7 +180,9 @@ func (s *SSHMeta) Exec(cmd string, options ...ExecOptions) *CmdRes {
 		}
 	}
 
-	res.SendToLog(ops.SkipLog)
+	if !ops.SkipLog {
+		res.SendToLog()
+	}
 	return &res
 }
 
@@ -245,12 +240,10 @@ func (s *SSHMeta) ExecContext(ctx context.Context, cmd string, options ...ExecOp
 	}
 
 	go func() {
-		start := time.Now()
-		if err := s.sshClient.RunCommandContext(ctx, command); err != nil {
-			log.WithError(err).Error("Error running context")
+		s.sshClient.RunCommandContext(ctx, command)
+		if !ops.SkipLog {
+			res.SendToLog()
 		}
-		res.duration = time.Since(start)
-		res.SendToLog(ops.SkipLog)
 	}()
 
 	return &res

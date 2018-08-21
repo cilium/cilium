@@ -1,0 +1,6 @@
+apiVersion: extensions/v1beta1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+spec:
+  podSelector: {}

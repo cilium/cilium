@@ -32,7 +32,7 @@ import (
 const (
 	// listTimeoutDefault is the default timeout to wait while performing
 	// the initial list operation of objects from the kvstore
-	listTimeoutDefault = 3 * time.Minute
+	listTimeoutDefault = 30 * time.Second
 
 	// synchronizationIntervalDefault is the default interval to
 	// synchronize keys with the kvstore
@@ -69,10 +69,6 @@ type Configuration struct {
 	// KeyCreator is called to allocate a Key instance when a new shared
 	// key is discovered. This parameter is required.
 	KeyCreator KeyCreator
-
-	// Backend is the kvstore to use as a backend. If no backend is
-	// specified, kvstore.Client() is being used.
-	Backend kvstore.BackendOperations
 }
 
 // validate is invoked by JoinSharedStore to validate and complete the
@@ -88,10 +84,6 @@ func (c *Configuration) validate() error {
 
 	if c.SynchronizationInterval == 0 {
 		c.SynchronizationInterval = synchronizationIntervalDefault
-	}
-
-	if c.Backend == nil {
-		c.Backend = kvstore.Client()
 	}
 
 	return nil
@@ -112,9 +104,6 @@ type SharedStore struct {
 	// controllerName is the name of the controller used to synchronize
 	// with the kvstore. It is derived from the name.
 	controllerName string
-
-	// backend is the backend as configured via Configuration
-	backend kvstore.BackendOperations
 
 	// mutex protects mutations to localKeys and sharedKeys
 	mutex lock.RWMutex
@@ -181,7 +170,6 @@ func JoinSharedStore(c Configuration) (*SharedStore, error) {
 		conf:       c,
 		localKeys:  map[string]LocalKey{},
 		sharedKeys: map[string]Key{},
-		backend:    c.Backend,
 	}
 
 	s.name = "store-" + s.conf.Prefix
@@ -218,7 +206,7 @@ func (s *SharedStore) Close() {
 	controllers.RemoveController(s.controllerName)
 
 	for name, key := range s.localKeys {
-		if err := s.backend.Delete(s.keyPath(key)); err != nil {
+		if err := kvstore.Delete(s.keyPath(key)); err != nil {
 			s.getLogger().WithError(err).Warning("Unable to delete key in kvstore")
 		}
 
@@ -243,7 +231,7 @@ func (s *SharedStore) syncLocalKey(key LocalKey) error {
 
 	// Update key in kvstore, overwrite an eventual existing key, attach
 	// lease to expire entry when agent dies and never comes back up.
-	if err := s.backend.Update(s.keyPath(key), jsonValue, true); err != nil {
+	if err := kvstore.Update(s.keyPath(key), jsonValue, true); err != nil {
 		return err
 	}
 
@@ -293,7 +281,7 @@ func (s *SharedStore) UpdateLocalKeySync(key LocalKey) error {
 
 // DeleteLocalKey removes a key from being synchronized with the kvstore
 func (s *SharedStore) DeleteLocalKey(key LocalKey) {
-	err := s.backend.Delete(s.keyPath(key))
+	err := kvstore.Delete(s.keyPath(key))
 	name := key.GetKeyName()
 
 	s.mutex.Lock()
@@ -400,7 +388,7 @@ func (s *SharedStore) listAndStartWatcher() error {
 }
 
 func (s *SharedStore) watcher(listDone chan bool) {
-	s.kvstoreWatcher = s.backend.ListAndWatch(s.name+"-watcher", s.conf.Prefix, watcherChanSize)
+	s.kvstoreWatcher = kvstore.ListAndWatch(s.name+"-watcher", s.conf.Prefix, watcherChanSize)
 
 	for {
 		select {
@@ -420,7 +408,7 @@ func (s *SharedStore) watcher(listDone chan bool) {
 				"eventType": event.Typ,
 			})
 
-			logger.Debugf("Received key update via kvstore [value %s]", string(event.Value))
+			logger.Infof("Received key update via kvstore [value %s]", string(event.Value))
 
 			keyName := strings.TrimPrefix(event.Key, s.conf.Prefix)
 			if keyName[0] == '/' {

@@ -24,9 +24,7 @@ ENVOY_BINS = \
 	./bazel-bin/cilium_integration_test
 CHECK_FORMAT ?= ./bazel-bin/check_format.py.runfiles/envoy/tools/check_format.py
 
-SHELL=/bin/bash -o pipefail
 BAZEL ?= $(QUIET) bazel
-BAZEL_FILTER ?= 2>&1 | grep -v -e "bazel-out/.*/genfiles/external/.*: warning: directory does not exist."
 BAZEL_TEST_OPTS ?= --jobs=1
 BAZEL_CACHE ?= ~/.cache/bazel
 BAZEL_ARCHIVE ?= ~/bazel-cache.tar.bz2
@@ -35,7 +33,7 @@ CLANG_FORMAT ?= clang-format
 BUILDIFIER ?= buildifier
 STRIP ?= $(QUIET) strip
 
-ISTIO_VERSION = 1.0.0
+ISTIO_VERSION = 0.8.0
 
 ifdef CILIUM_DISABLE_ENVOY_BUILD
 all install clean:
@@ -45,11 +43,11 @@ else
 # Dockerfile builds require special options
 ifdef PKG_BUILD
 BAZEL_OPTS ?= --batch
-BAZEL_BUILD_OPTS = --spawn_strategy=standalone --genrule_strategy=standalone --local_resources 2048,2.0,1.0
+BAZEL_BUILD_OPTS = --spawn_strategy=standalone --genrule_strategy=standalone
 all: clean-bins release
 else
 BAZEL_OPTS ?=
-BAZEL_BUILD_OPTS = --experimental_strict_action_env --local_resources 2048,2.0,1.0
+BAZEL_BUILD_OPTS = --experimental_strict_action_env
 all: clean-bins envoy-default api
 endif
 
@@ -63,19 +61,19 @@ api: force-non-root Makefile.api
 envoy-default: force-non-root
 	@$(ECHO_BAZEL)
 	-rm -f bazel-out/k8-fastbuild/bin/_objs/envoy/external/envoy/source/common/common/version_linkstamp.o
-	$(BAZEL) $(BAZEL_OPTS) build $(BAZEL_BUILD_OPTS) //:envoy $(BAZEL_FILTER)
+	$(BAZEL) $(BAZEL_OPTS) build $(BAZEL_BUILD_OPTS) //:envoy
 
 # Allow root build for release
 $(CILIUM_ENVOY_BIN) envoy-release: force
 	@$(ECHO_BAZEL)
 	-rm -f bazel-out/k8-opt/bin/_objs/envoy/external/envoy/source/common/common/version_linkstamp.o
-	$(BAZEL) $(BAZEL_OPTS) build $(BAZEL_BUILD_OPTS) -c opt //:envoy $(BAZEL_FILTER)
+	$(BAZEL) $(BAZEL_OPTS) build $(BAZEL_BUILD_OPTS) -c opt //:envoy
 
 # Allow root build for release
 $(ISTIO_ENVOY_BIN) $(ISTIO_ENVOY_RELEASE_BIN): force
 	@$(ECHO_BAZEL)
 	-rm -f bazel-out/k8-opt/bin/_objs/istio-envoy/external/envoy/source/common/common/version_linkstamp.o
-	$(BAZEL) $(BAZEL_OPTS) build $(BAZEL_BUILD_OPTS) -c opt //:istio-envoy $(BAZEL_FILTER)
+	$(BAZEL) $(BAZEL_OPTS) build $(BAZEL_BUILD_OPTS) -c opt //:istio-envoy
 	$(STRIP) -o $(ISTIO_ENVOY_RELEASE_BIN) $(ISTIO_ENVOY_BIN)
 
 Dockerfile.%: Dockerfile.%.in
@@ -90,7 +88,7 @@ docker-istio-proxy-debug: Dockerfile.istio_proxy_debug $(ISTIO_ENVOY_RELEASE_BIN
 envoy-debug: force-non-root
 	@$(ECHO_BAZEL)
 	-rm -f bazel-out/k8-dbg/bin/_objs/envoy/external/envoy/source/common/common/version_linkstamp.o
-	$(BAZEL) $(BAZEL_OPTS) build $(BAZEL_BUILD_OPTS) -c dbg //:envoy $(BAZEL_FILTER)
+	$(BAZEL) $(BAZEL_OPTS) build $(BAZEL_BUILD_OPTS) -c dbg //:envoy
 
 $(CHECK_FORMAT): force-non-root
 	$(BAZEL) $(BAZEL_OPTS) build $(BAZEL_BUILD_OPTS) //:check_format.py
@@ -139,12 +137,12 @@ fix: $(CHECK_FORMAT) force-non-root
 
 # Run tests using the fastbuild by default.
 tests: force-non-root
-	$(BAZEL) $(BAZEL_OPTS) test $(BAZEL_BUILD_OPTS) -c fastbuild $(BAZEL_TEST_OPTS) //:envoy_binary_test $(BAZEL_FILTER)
-	$(BAZEL) $(BAZEL_OPTS) test $(BAZEL_BUILD_OPTS) -c fastbuild $(BAZEL_TEST_OPTS) //:cilium_integration_test $(BAZEL_FILTER)
+	$(BAZEL) $(BAZEL_OPTS) test $(BAZEL_BUILD_OPTS) -c fastbuild $(BAZEL_TEST_OPTS) //:envoy_binary_test
+	$(BAZEL) $(BAZEL_OPTS) test $(BAZEL_BUILD_OPTS) -c fastbuild $(BAZEL_TEST_OPTS) //:cilium_integration_test
 
 debug-tests: force-non-root
-	$(BAZEL) $(BAZEL_OPTS) test $(BAZEL_BUILD_OPTS) -c debug $(BAZEL_TEST_OPTS) //:envoy_binary_test $(BAZEL_FILTER)
-	$(BAZEL) $(BAZEL_OPTS) test $(BAZEL_BUILD_OPTS) -c debug $(BAZEL_TEST_OPTS) //:cilium_integration_test $(BAZEL_FILTER)
+	$(BAZEL) $(BAZEL_OPTS) test $(BAZEL_BUILD_OPTS) -c debug $(BAZEL_TEST_OPTS) //:envoy_binary_test
+	$(BAZEL) $(BAZEL_OPTS) test $(BAZEL_BUILD_OPTS) -c debug $(BAZEL_TEST_OPTS) //:cilium_integration_test
 
 .PHONY: \
 	bazel-restore \

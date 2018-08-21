@@ -1,6 +1,7 @@
 syntax = "proto3";
 
 package cilium;
+option go_package = "cilium";
 
 message BpfMetadata {
   // File system root for bpf. Defaults to "/sys/fs/bpf" if left empty.

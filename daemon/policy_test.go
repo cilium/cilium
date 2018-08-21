@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	"github.com/gogo/protobuf/sortkeys"
+	"github.com/golang/protobuf/ptypes/wrappers"
 	. "gopkg.in/check.v1"
 )
 
@@ -154,9 +155,9 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 		os.RemoveAll("1_backup")
 	}()
 	e.SetIdentity(qaBarSecLblsCtx)
-	e.UnconditionalLock()
+	e.Mutex.Lock()
 	ready := e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
-	e.Unlock()
+	e.Mutex.Unlock()
 	c.Assert(ready, Equals, true)
 	buildSuccess := <-e.Regenerate(ds.d, "test")
 	c.Assert(buildSuccess, Equals, true)
@@ -172,9 +173,9 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	e.LXCMAC = ProdHardAddr
 	e.NodeMAC = ProdHardAddr
 	e.SetIdentity(prodBarSecLblsCtx)
-	e.UnconditionalLock()
+	e.Mutex.Lock()
 	ready = e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
-	e.Unlock()
+	e.Mutex.Unlock()
 	c.Assert(ready, Equals, true)
 	buildSuccess = <-e.Regenerate(ds.d, "test")
 	c.Assert(buildSuccess, Equals, true)
@@ -226,12 +227,14 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 									{
 										Headers: []*envoy_api_v2_route.HeaderMatcher{
 											{
-												Name:                 ":method",
-												HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: "GET"},
+												Name:  ":method",
+												Value: "GET",
+												Regex: &wrappers.BoolValue{Value: true},
 											},
 											{
-												Name:                 ":path",
-												HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: "/bar"},
+												Name:  ":path",
+												Value: "/bar",
+												Regex: &wrappers.BoolValue{Value: true},
 											},
 										},
 									},
@@ -300,12 +303,14 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 									{
 										Headers: []*envoy_api_v2_route.HeaderMatcher{
 											{
-												Name:                 ":method",
-												HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: "GET"},
+												Name:  ":method",
+												Value: "GET",
+												Regex: &wrappers.BoolValue{Value: true},
 											},
 											{
-												Name:                 ":path",
-												HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: "/bar"},
+												Name:  ":path",
+												Value: "/bar",
+												Regex: &wrappers.BoolValue{Value: true},
 											},
 										},
 									},
@@ -438,9 +443,9 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 		os.RemoveAll("1_backup")
 	}()
 	e.SetIdentity(qaBarSecLblsCtx)
-	e.UnconditionalLock()
+	e.Mutex.Lock()
 	ready := e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
-	e.Unlock()
+	e.Mutex.Unlock()
 	c.Assert(ready, Equals, true)
 	buildSuccess := <-e.Regenerate(ds.d, "test")
 	c.Assert(buildSuccess, Equals, true)
@@ -453,9 +458,9 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 	c.Assert(qaBarNetworkPolicy, Not(IsNil))
 
 	// Delete the endpoint.
-	e.UnconditionalLock()
-	e.LeaveLocked(ds.d, nil)
-	e.Unlock()
+	e.Mutex.Lock()
+	e.LeaveLocked(ds.d)
+	e.Mutex.Unlock()
 
 	// Check that the policy has been removed from the xDS cache.
 	networkPolicies = ds.getXDSNetworkPolicies(c, nil)

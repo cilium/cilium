@@ -185,9 +185,9 @@ func (s *EndpointSuite) TestEndpointUpdateLabels(c *C) {
 			OrchestrationInfo:     pkgLabels.Labels{},
 		},
 	}
-	e.UnconditionalLock()
+	e.Mutex.Lock()
 	e.SetDefaultOpts(nil)
-	e.Unlock()
+	e.Mutex.Unlock()
 
 	// Test that inserting identity labels works
 	rev := e.replaceIdentityLabels(pkgLabels.Map2Labels(map[string]string{"foo": "bar", "zip": "zop"}, "cilium"))
@@ -217,9 +217,9 @@ func (s *EndpointSuite) TestEndpointState(c *C) {
 		IPv4:   IPv4Addr,
 		Status: NewEndpointStatus(),
 	}
-	e.UnconditionalLock()
+	e.Mutex.Lock()
 	e.SetDefaultOpts(nil)
-	defer e.Unlock()
+	defer e.Mutex.Unlock()
 
 	e.state = StateCreating
 	c.Assert(e.SetStateLocked(StateCreating, "test"), Equals, false)

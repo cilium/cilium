@@ -24,7 +24,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy/cilium"
 	envoy_api_v2 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
@@ -43,6 +42,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/struct"
+	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/spf13/viper"
 )
 
@@ -181,8 +181,7 @@ func StartXDSServer(stateDir string) *XDSServer {
 											"prefix": {Kind: &structpb.Value_StringValue{StringValue: "/"}},
 										}}}},
 										"route": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
-											"cluster":          {Kind: &structpb.Value_StringValue{StringValue: "cluster1"}},
-											"max_grpc_timeout": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{}}}},
+											"cluster": {Kind: &structpb.Value_StringValue{StringValue: "cluster1"}},
 										}}}},
 									}}}},
 								}}}},
@@ -196,7 +195,7 @@ func StartXDSServer(stateDir string) *XDSServer {
 			Name: "cilium.bpf_metadata",
 			Config: &structpb.Struct{Fields: map[string]*structpb.Value{
 				"is_ingress": {Kind: &structpb.Value_BoolValue{BoolValue: false}},
-				"bpf_root":   {Kind: &structpb.Value_StringValue{StringValue: bpf.GetMapRoot()}},
+				"bpf_root":   {Kind: &structpb.Value_StringValue{StringValue: "/sys/fs/bpf"}},
 			}},
 		}},
 	}
@@ -272,15 +271,14 @@ func getHTTPRule(h *api.PortRuleHTTP) (headers []*envoy_api_v2_route.HeaderMatch
 		cnt++
 	}
 
+	isRegex := wrappers.BoolValue{Value: true}
 	headers = make([]*envoy_api_v2_route.HeaderMatcher, 0, cnt)
 	if h.Path != "" {
-		headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: ":path",
-			HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: h.Path}})
+		headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: ":path", Value: h.Path, Regex: &isRegex})
 		ruleRef = `PathRegexp("` + h.Path + `")`
 	}
 	if h.Method != "" {
-		headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: ":method",
-			HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: h.Method}})
+		headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: ":method", Value: h.Method, Regex: &isRegex})
 		if ruleRef != "" {
 			ruleRef += " && "
 		}
@@ -288,8 +286,7 @@ func getHTTPRule(h *api.PortRuleHTTP) (headers []*envoy_api_v2_route.HeaderMatch
 	}
 
 	if h.Host != "" {
-		headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: ":authority",
-			HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: h.Host}})
+		headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: ":authority", Value: h.Host, Regex: &isRegex})
 		if ruleRef != "" {
 			ruleRef += " && "
 		}
@@ -305,13 +302,11 @@ func getHTTPRule(h *api.PortRuleHTTP) (headers []*envoy_api_v2_route.HeaderMatch
 			// Remove ':' in "X-Key: true"
 			key := strings.TrimRight(strs[0], ":")
 			// Header presence and matching (literal) value needed.
-			headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: key,
-				HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_ExactMatch{ExactMatch: strs[1]}})
+			headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: key, Value: strs[1]})
 			ruleRef += key + `","` + strs[1]
 		} else {
 			// Only header presence needed
-			headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: strs[0],
-				HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_PresentMatch{PresentMatch: true}})
+			headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: strs[0]})
 			ruleRef += strs[0]
 		}
 		ruleRef += `")`
@@ -557,7 +552,7 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 		policies = append(policies, networkPolicy)
 	}
 
-	if ep.HasSidecarProxy() { // Use sidecar proxy.
+	if viper.GetBool("sidecar-http-proxy") { // Sidecar proxy.
 		// If there are no L7 rules, we expect Envoy to NOT be configured with
 		// an L7 filter, in which case we'd never receive an ACK for the policy,
 		// and we'd wait forever.
@@ -586,7 +581,7 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 		if !hasL7Rules {
 			wg = nil
 		}
-	} else { // Use node proxy.
+	} else { // Node proxy.
 		// If there are no listeners configured, the local node's Envoy proxy won't
 		// query for network policies and therefore will never ACK them, and we'd
 		// wait forever.
@@ -611,7 +606,7 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 			c = wg.AddCompletionWithCallback(callback)
 		}
 		nodeIDs := make([]string, 0, 1)
-		if ep.HasSidecarProxy() {
+		if viper.GetBool("sidecar-http-proxy") {
 			if ep.GetIPv4Address() == "" {
 				log.Fatal("Envoy: Sidecar proxy has no IPv4 address")
 			}

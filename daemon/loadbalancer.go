@@ -18,13 +18,12 @@ import (
 	"fmt"
 
 	. "github.com/cilium/cilium/api/v1/server/restapi/service"
-	"github.com/cilium/cilium/pkg/api"
+	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/apierror"
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/service"
 
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/sirupsen/logrus"
@@ -32,7 +31,7 @@ import (
 
 // addSVC2BPFMap adds the given bpf service to the bpf maps. If addRevNAT is set, adds the
 // RevNAT value (feCilium.L3n4Addr) to the lb's RevNAT map for the given feCilium.ID.
-func (d *Daemon) addSVC2BPFMap(feCilium loadbalancer.L3n4AddrID, feBPF lbmap.ServiceKey,
+func (d *Daemon) addSVC2BPFMap(feCilium types.L3n4AddrID, feBPF lbmap.ServiceKey,
 	besBPF []lbmap.ServiceValue, addRevNAT bool) error {
 	log.WithField(logfields.ServiceName, feCilium.String()).Debug("adding service to BPF maps")
 
@@ -62,18 +61,18 @@ func (d *Daemon) addSVC2BPFMap(feCilium loadbalancer.L3n4AddrID, feBPF lbmap.Ser
 // returned to the caller.
 //
 // Returns true if service was created.
-func (d *Daemon) SVCAdd(feL3n4Addr loadbalancer.L3n4AddrID, be []loadbalancer.LBBackEnd, addRevNAT bool) (bool, error) {
+func (d *Daemon) SVCAdd(feL3n4Addr types.L3n4AddrID, be []types.LBBackEnd, addRevNAT bool) (bool, error) {
 	log.WithField(logfields.ServiceID, feL3n4Addr.String()).Debug("adding service")
 	if feL3n4Addr.ID == 0 {
 		return false, fmt.Errorf("invalid service ID 0")
 	}
 	// Check if the service is already registered with this ID.
-	feAddr, err := service.GetID(uint32(feL3n4Addr.ID))
+	feAddr, err := GetL3n4AddrID(uint32(feL3n4Addr.ID))
 	if err != nil {
 		return false, fmt.Errorf("unable to get service %d: %s", feL3n4Addr.ID, err)
 	}
 	if feAddr == nil {
-		feAddr, err = service.AcquireID(feL3n4Addr.L3n4Addr, uint32(feL3n4Addr.ID))
+		feAddr, err = PutL3n4Addr(feL3n4Addr.L3n4Addr, uint32(feL3n4Addr.ID))
 		if err != nil {
 			return false, fmt.Errorf("unable to store service %s in kvstore: %s", feL3n4Addr.String(), err)
 		}
@@ -100,7 +99,7 @@ func (d *Daemon) SVCAdd(feL3n4Addr loadbalancer.L3n4AddrID, be []loadbalancer.LB
 // entry fails while updating the LB map, the frontend won't be inserted in the LB map
 // therefore there won't be any traffic going to the given backends.
 // All of the backends added will be DeepCopied to the internal load balancer map.
-func (d *Daemon) svcAdd(feL3n4Addr loadbalancer.L3n4AddrID, bes []loadbalancer.LBBackEnd, addRevNAT bool) (bool, error) {
+func (d *Daemon) svcAdd(feL3n4Addr types.L3n4AddrID, bes []types.LBBackEnd, addRevNAT bool) (bool, error) {
 	log.WithFields(logrus.Fields{
 		logfields.ServiceID: feL3n4Addr.String(),
 		logfields.Object:    logfields.Repr(bes),
@@ -108,12 +107,12 @@ func (d *Daemon) svcAdd(feL3n4Addr loadbalancer.L3n4AddrID, bes []loadbalancer.L
 
 	// Move the slice to the loadbalancer map which has a mutex. If we don't
 	// copy the slice we might risk changing memory that should be locked.
-	beCpy := []loadbalancer.LBBackEnd{}
+	beCpy := []types.LBBackEnd{}
 	for _, v := range bes {
 		beCpy = append(beCpy, v)
 	}
 
-	svc := loadbalancer.LBSVC{
+	svc := types.LBSVC{
 		FE:     feL3n4Addr,
 		BES:    beCpy,
 		Sha256: feL3n4Addr.L3n4Addr.SHA256Sum(),
@@ -147,21 +146,21 @@ func NewPutServiceIDHandler(d *Daemon) PutServiceIDHandler {
 func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PUT /service/{id} request")
 
-	f, err := loadbalancer.NewL3n4AddrFromModel(params.Config.FrontendAddress)
+	f, err := types.NewL3n4AddrFromModel(params.Config.FrontendAddress)
 	if err != nil {
-		return api.Error(PutServiceIDInvalidFrontendCode, err)
+		return apierror.Error(PutServiceIDInvalidFrontendCode, err)
 	}
 
-	frontend := loadbalancer.L3n4AddrID{
+	frontend := types.L3n4AddrID{
 		L3n4Addr: *f,
-		ID:       loadbalancer.ServiceID(params.Config.ID),
+		ID:       types.ServiceID(params.Config.ID),
 	}
 
-	backends := []loadbalancer.LBBackEnd{}
+	backends := []types.LBBackEnd{}
 	for _, v := range params.Config.BackendAddresses {
-		b, err := loadbalancer.NewLBBackEndFromBackendModel(v)
+		b, err := types.NewLBBackEndFromBackendModel(v)
 		if err != nil {
-			return api.Error(PutServiceIDInvalidBackendCode, err)
+			return apierror.Error(PutServiceIDInvalidBackendCode, err)
 		}
 		backends = append(backends, *b)
 	}
@@ -176,7 +175,7 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 	// global key value store
 
 	if created, err := h.d.SVCAdd(frontend, backends, revnat); err != nil {
-		return api.Error(PutServiceIDFailureCode, err)
+		return apierror.Error(PutServiceIDFailureCode, err)
 	} else if created {
 		return NewPutServiceIDCreated()
 	} else {
@@ -199,14 +198,14 @@ func (h *deleteServiceID) Handle(params DeleteServiceIDParams) middleware.Respon
 	d.loadBalancer.BPFMapMU.Lock()
 	defer d.loadBalancer.BPFMapMU.Unlock()
 
-	svc, ok := d.loadBalancer.SVCMapID[loadbalancer.ServiceID(params.ID)]
+	svc, ok := d.loadBalancer.SVCMapID[types.ServiceID(params.ID)]
 
 	if !ok {
 		return NewDeleteServiceIDNotFound()
 	}
 
 	// FIXME: How to handle error?
-	err := service.DeleteID(uint32(params.ID))
+	err := DeleteL3n4AddrIDByUUID(uint32(params.ID))
 
 	if err != nil {
 		log.WithError(err).Warn("error, DeleteL3n4AddrIDByUUID failed")
@@ -214,13 +213,13 @@ func (h *deleteServiceID) Handle(params DeleteServiceIDParams) middleware.Respon
 
 	if err := h.d.svcDelete(svc); err != nil {
 		log.WithError(err).WithField(logfields.Object, logfields.Repr(svc)).Warn("DELETE /service/{id}: error deleting service")
-		return api.Error(DeleteServiceIDFailureCode, err)
+		return apierror.Error(DeleteServiceIDFailureCode, err)
 	}
 
 	return NewDeleteServiceIDOK()
 }
 
-func (d *Daemon) svcDeleteByFrontendLocked(frontend *loadbalancer.L3n4Addr) error {
+func (d *Daemon) svcDeleteByFrontendLocked(frontend *types.L3n4Addr) error {
 	svc, ok := d.loadBalancer.SVCMap[frontend.SHA256Sum()]
 	if !ok {
 		return fmt.Errorf("Service frontend not found %+v", frontend)
@@ -229,14 +228,14 @@ func (d *Daemon) svcDeleteByFrontendLocked(frontend *loadbalancer.L3n4Addr) erro
 }
 
 // Deletes a service by the frontend address
-func (d *Daemon) svcDeleteByFrontend(frontend *loadbalancer.L3n4Addr) error {
+func (d *Daemon) svcDeleteByFrontend(frontend *types.L3n4Addr) error {
 	d.loadBalancer.BPFMapMU.Lock()
 	defer d.loadBalancer.BPFMapMU.Unlock()
 
 	return d.svcDeleteByFrontendLocked(frontend)
 }
 
-func (d *Daemon) svcDelete(svc *loadbalancer.LBSVC) error {
+func (d *Daemon) svcDelete(svc *types.LBSVC) error {
 	if err := d.svcDeleteBPF(svc); err != nil {
 		return err
 	}
@@ -244,7 +243,7 @@ func (d *Daemon) svcDelete(svc *loadbalancer.LBSVC) error {
 	return nil
 }
 
-func (d *Daemon) svcDeleteBPF(svc *loadbalancer.LBSVC) error {
+func (d *Daemon) svcDeleteBPF(svc *types.LBSVC) error {
 	log.WithField(logfields.ServiceName, svc.FE.String()).Debug("deleting service from BPF maps")
 	var svcKey lbmap.ServiceKey
 	if !svc.FE.IsIPv6() {
@@ -306,14 +305,14 @@ func (h *getServiceID) Handle(params GetServiceIDParams) middleware.Responder {
 	d.loadBalancer.BPFMapMU.RLock()
 	defer d.loadBalancer.BPFMapMU.RUnlock()
 
-	if svc, ok := d.loadBalancer.SVCMapID[loadbalancer.ServiceID(params.ID)]; ok {
+	if svc, ok := d.loadBalancer.SVCMapID[types.ServiceID(params.ID)]; ok {
 		return NewGetServiceIDOK().WithPayload(svc.GetModel())
 	}
 	return NewGetServiceIDNotFound()
 }
 
 // SVCGetBySHA256Sum returns a DeepCopied frontend with its backends.
-func (d *Daemon) svcGetBySHA256Sum(feL3n4SHA256Sum string) *loadbalancer.LBSVC {
+func (d *Daemon) svcGetBySHA256Sum(feL3n4SHA256Sum string) *types.LBSVC {
 	d.loadBalancer.BPFMapMU.RLock()
 	defer d.loadBalancer.BPFMapMU.RUnlock()
 
@@ -324,11 +323,11 @@ func (d *Daemon) svcGetBySHA256Sum(feL3n4SHA256Sum string) *loadbalancer.LBSVC {
 	// We will move the slice from the loadbalancer map which has a mutex. If
 	// we don't copy the slice we might risk changing memory that should be
 	// locked.
-	beCpy := []loadbalancer.LBBackEnd{}
+	beCpy := []types.LBBackEnd{}
 	for _, v := range v.BES {
 		beCpy = append(beCpy, v)
 	}
-	return &loadbalancer.LBSVC{
+	return &types.LBSVC{
 		FE:  *v.FE.DeepCopy(),
 		BES: beCpy,
 	}
@@ -349,7 +348,7 @@ func (h *getService) Handle(params GetServiceParams) middleware.Responder {
 }
 
 // RevNATAdd deep copies the given revNAT address to the cilium lbmap with the given id.
-func (d *Daemon) RevNATAdd(id loadbalancer.ServiceID, revNAT loadbalancer.L3n4Addr) error {
+func (d *Daemon) RevNATAdd(id types.ServiceID, revNAT types.L3n4Addr) error {
 	revNATK, revNATV := lbmap.L3n4Addr2RevNatKeynValue(id, revNAT)
 
 	d.loadBalancer.BPFMapMU.Lock()
@@ -365,7 +364,7 @@ func (d *Daemon) RevNATAdd(id loadbalancer.ServiceID, revNAT loadbalancer.L3n4Ad
 }
 
 // RevNATDelete deletes the revNatKey from the local bpf map.
-func (d *Daemon) RevNATDelete(id loadbalancer.ServiceID) error {
+func (d *Daemon) RevNATDelete(id types.ServiceID) error {
 	d.loadBalancer.BPFMapMU.Lock()
 	defer d.loadBalancer.BPFMapMU.Unlock()
 
@@ -405,12 +404,12 @@ func (d *Daemon) RevNATDeleteAll() error {
 	}
 	// TODO should we delete even if err is != nil?
 
-	d.loadBalancer.RevNATMap = map[loadbalancer.ServiceID]loadbalancer.L3n4Addr{}
+	d.loadBalancer.RevNATMap = map[types.ServiceID]types.L3n4Addr{}
 	return nil
 }
 
 // RevNATGet returns a DeepCopy of the revNAT found with the given ID or nil if not found.
-func (d *Daemon) RevNATGet(id loadbalancer.ServiceID) (*loadbalancer.L3n4Addr, error) {
+func (d *Daemon) RevNATGet(id types.ServiceID) (*types.L3n4Addr, error) {
 	d.loadBalancer.BPFMapMU.RLock()
 	defer d.loadBalancer.BPFMapMU.RUnlock()
 
@@ -422,14 +421,14 @@ func (d *Daemon) RevNATGet(id loadbalancer.ServiceID) (*loadbalancer.L3n4Addr, e
 }
 
 // RevNATDump dumps a DeepCopy of the cilium's loadbalancer.
-func (d *Daemon) RevNATDump() ([]loadbalancer.L3n4AddrID, error) {
-	dump := []loadbalancer.L3n4AddrID{}
+func (d *Daemon) RevNATDump() ([]types.L3n4AddrID, error) {
+	dump := []types.L3n4AddrID{}
 
 	d.loadBalancer.BPFMapMU.RLock()
 	defer d.loadBalancer.BPFMapMU.RUnlock()
 
 	for k, v := range d.loadBalancer.RevNATMap {
-		dump = append(dump, loadbalancer.L3n4AddrID{
+		dump = append(dump, types.L3n4AddrID{
 			ID:       k,
 			L3n4Addr: *v.DeepCopy(),
 		})
@@ -443,23 +442,18 @@ func (d *Daemon) RevNATDump() ([]loadbalancer.L3n4AddrID, error) {
 // KVStore's ID, that entry will be updated on the bpf map accordingly with the new ID
 // retrieved from the KVStore.
 func (d *Daemon) SyncLBMap() error {
-	// Don't bother syncing if we are in dry mode.
-	if d.DryModeEnabled() {
-		return nil
-	}
-
 	log.Info("Syncing BPF LBMaps with daemon's LB maps...")
 	d.loadBalancer.BPFMapMU.Lock()
 	defer d.loadBalancer.BPFMapMU.Unlock()
 
-	newSVCMap := loadbalancer.SVCMap{}
-	newSVCList := []*loadbalancer.LBSVC{}
-	newSVCMapID := loadbalancer.SVCMapID{}
-	newRevNATMap := loadbalancer.RevNATMap{}
-	failedSyncSVC := []loadbalancer.LBSVC{}
-	failedSyncRevNAT := map[loadbalancer.ServiceID]loadbalancer.L3n4Addr{}
+	newSVCMap := types.SVCMap{}
+	newSVCList := []*types.LBSVC{}
+	newSVCMapID := types.SVCMapID{}
+	newRevNATMap := types.RevNATMap{}
+	failedSyncSVC := []types.LBSVC{}
+	failedSyncRevNAT := map[types.ServiceID]types.L3n4Addr{}
 
-	addSVC2BPFMap := func(oldID loadbalancer.ServiceID, svc loadbalancer.LBSVC) error {
+	addSVC2BPFMap := func(oldID types.ServiceID, svc types.LBSVC) error {
 		scopedLog := log.WithFields(logrus.Fields{
 			logfields.ServiceID: oldID,
 			logfields.SHA:       svc.FE.SHA256Sum(),
@@ -573,7 +567,9 @@ func (d *Daemon) SyncLBMap() error {
 	// are modifying the BPF maps, and calling Dump on a Map RLocks the maps.
 	log.Debug("iterating over services read from BPF LB Map and seeing if they have the same ID set in the KV store")
 	for _, svc := range newSVCList {
-		kvL3n4AddrID, err := service.RestoreID(svc.FE.L3n4Addr, uint32(svc.FE.ID))
+		// Check if the services read from the lbmap have the same ID set in the
+		// KVStore.
+		kvL3n4AddrID, err := PutL3n4Addr(svc.FE.L3n4Addr, 0)
 		if err != nil {
 			log.WithError(err).WithFields(logrus.Fields{
 				logfields.L3n4Addr: logfields.Repr(svc.FE.L3n4Addr),

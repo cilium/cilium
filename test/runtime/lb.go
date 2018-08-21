@@ -22,17 +22,20 @@ import (
 	"github.com/cilium/cilium/test/helpers"
 
 	. "github.com/onsi/gomega"
+	"github.com/sirupsen/logrus"
 )
 
-var _ = Describe("RuntimeLB", func() {
-	var (
-		vm          *helpers.SSHMeta
-		monitorStop = func() error { return nil }
-	)
+var _ = Describe("RuntimeValidatedLB", func() {
+
+	var logger *logrus.Entry
+	var vm *helpers.SSHMeta
+	var monitorStop func() error
 
 	BeforeAll(func() {
-		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
-		ExpectCiliumReady(vm)
+		logger = log.WithFields(logrus.Fields{"test": "RuntimeLB"})
+		logger.Info("Starting")
+		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+		vm.PolicyDelAll().ExpectSuccess()
 	})
 
 	AfterAll(func() {
@@ -304,7 +307,7 @@ var _ = Describe("RuntimeLB", func() {
 			Expect(err).Should(BeNil())
 
 			err = vm.RestartCilium()
-			Expect(err).Should(BeNil(), "restarting Cilium failed")
+			Expect(err).Should(BeNil())
 
 			By("Checking that the service was restored correctly")
 

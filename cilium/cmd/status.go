@@ -87,11 +87,9 @@ func statusDaemon() {
 		pkg.FormatStatusResponse(w, sr, allAddresses, allControllers, allNodes, allRedirects)
 		w.Flush()
 
-		if sr.Cilium != nil {
-			state := sr.Cilium.State
-			if state != models.StatusStateOk && state != models.StatusStateDisabled {
-				os.Exit(1)
-			}
+		state := sr.Cilium.State
+		if sr.Cilium != nil && state != models.StatusStateOk && state != models.StatusStateDisabled {
+			os.Exit(1)
 		}
 
 		healthPkg.GetAndFormatHealthStatus(w, true, allHealth, healthLines)

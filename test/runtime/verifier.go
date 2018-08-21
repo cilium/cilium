@@ -22,18 +22,22 @@ import (
 	"github.com/cilium/cilium/test/helpers"
 
 	. "github.com/onsi/gomega"
+	"github.com/sirupsen/logrus"
 )
 
 const (
-	script = "bpf/verifier-test.sh"
+	verifierTest = "RuntimeValidatedVerifier"
+	script       = "bpf/verifier-test.sh"
 )
 
-var _ = Describe("RuntimeVerifier", func() {
+var _ = Describe(verifierTest, func() {
+	var logger *logrus.Entry
 	var vm *helpers.SSHMeta
 
 	BeforeAll(func() {
-		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
-		ExpectCiliumReady(vm)
+		logger = log.WithFields(logrus.Fields{"testName": verifierTest})
+		logger.Info("Starting")
+		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
 
 		By("Stopping Cilium")
 		res := vm.ExecWithSudo("systemctl stop cilium")
@@ -59,7 +63,7 @@ var _ = Describe("RuntimeVerifier", func() {
 
 	AfterAll(func() {
 		err := vm.RestartCilium()
-		Expect(err).Should(BeNil(), "restarting Cilium failed")
+		Expect(err).Should(BeNil())
 	})
 
 	It("runs the kernel verifier against the tree copy of the BPF datapath", func() {

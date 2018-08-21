@@ -16,8 +16,6 @@ limitations under the License.
 
 package v1beta1
 
-import "k8s.io/apimachinery/pkg/runtime"
-
 func (in *TableRow) DeepCopy() *TableRow {
 	if in == nil {
 		return nil
@@ -28,7 +26,7 @@ func (in *TableRow) DeepCopy() *TableRow {
 	if in.Cells != nil {
 		out.Cells = make([]interface{}, len(in.Cells))
 		for i := range in.Cells {
-			out.Cells[i] = runtime.DeepCopyJSONValue(in.Cells[i])
+			out.Cells[i] = deepCopyJSON(in.Cells[i])
 		}
 	}
 
@@ -41,4 +39,23 @@ func (in *TableRow) DeepCopy() *TableRow {
 
 	in.Object.DeepCopyInto(&out.Object)
 	return out
+}
+
+func deepCopyJSON(x interface{}) interface{} {
+	switch x := x.(type) {
+	case map[string]interface{}:
+		clone := make(map[string]interface{}, len(x))
+		for k, v := range x {
+			clone[k] = deepCopyJSON(v)
+		}
+		return clone
+	case []interface{}:
+		clone := make([]interface{}, len(x))
+		for i := range x {
+			clone[i] = deepCopyJSON(x[i])
+		}
+		return clone
+	default:
+		return x
+	}
 }

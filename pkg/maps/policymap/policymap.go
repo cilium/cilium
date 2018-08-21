@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -38,8 +39,9 @@ const (
 
 	// ProgArrayMaxEntries is the upper limit of entries in the program
 	// array for the tail calls to jump into the endpoint specific policy
-	// programs. This number *MUST* be identical to the maximum endponit ID.
-	ProgArrayMaxEntries = ^uint16(0)
+	// programs. This number *MUST* be identical to the maximum number of
+	// allowed identities.
+	ProgArrayMaxEntries = identity.MaxIdentity
 
 	// AllPorts is used to ignore the L4 ports in PolicyMap lookups; all ports
 	// are allowed. In the datapath, this is represented with the value 0 in the
@@ -47,7 +49,7 @@ const (
 	AllPorts = uint16(0)
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-policy")
+var log = logging.DefaultLogger
 
 type PolicyMap struct {
 	path  string
@@ -145,16 +147,16 @@ func (key *PolicyKey) ToNetwork() PolicyKey {
 
 // AllowKey pushes an entry into the PolicyMap for the given PolicyKey k.
 // Returns an error if the update of the PolicyMap fails.
-func (pm *PolicyMap) AllowKey(k PolicyKey, proxyPort uint16) error {
-	return pm.Allow(k.Identity, k.DestPort, u8proto.U8proto(k.Nexthdr), TrafficDirection(k.TrafficDirection), proxyPort)
+func (pm *PolicyMap) AllowKey(k PolicyKey) error {
+	return pm.Allow(k.Identity, k.DestPort, u8proto.U8proto(k.Nexthdr), TrafficDirection(k.TrafficDirection))
 }
 
 // Allow pushes an entry into the PolicyMap to allow traffic in the given
 // `trafficDirection` for identity `id` with destination port `dport` over
-// protocol `proto`. It is assumed that `dport` and `proxyPort` are in host byte-order.
-func (pm *PolicyMap) Allow(id uint32, dport uint16, proto u8proto.U8proto, trafficDirection TrafficDirection, proxyPort uint16) error {
+// protocol `proto`. It is assumed that `dport` is in host byte-order.
+func (pm *PolicyMap) Allow(id uint32, dport uint16, proto u8proto.U8proto, trafficDirection TrafficDirection) error {
 	key := PolicyKey{Identity: id, DestPort: byteorder.HostToNetwork(dport).(uint16), Nexthdr: uint8(proto), TrafficDirection: trafficDirection.Uint8()}
-	entry := PolicyEntry{ProxyPort: byteorder.HostToNetwork(proxyPort).(uint16)}
+	entry := PolicyEntry{}
 	return bpf.UpdateElement(pm.Fd, unsafe.Pointer(&key), unsafe.Pointer(&entry), 0)
 }
 

@@ -15,7 +15,6 @@
 package envoy
 
 import (
-	"net"
 	"sort"
 
 	envoyAPI "github.com/cilium/cilium/pkg/envoy/cilium"
@@ -62,29 +61,22 @@ func (cache *NPHDSCache) OnIPIdentityCacheGC() {
 
 // OnIPIdentityCacheChange pushes modifications to the IP<->Identity mapping
 // into the Network Policy Host Discovery Service (NPHDS).
-func (cache *NPHDSCache) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidr net.IPNet,
-	oldHostIP, newHostIP net.IP, oldID *identity.NumericIdentity, newID identity.NumericIdentity) {
+func (cache *NPHDSCache) OnIPIdentityCacheChange(modType ipcache.CacheModification,
+	oldIPIDPair *identity.IPIdentityPair, newIPIDPair identity.IPIdentityPair) {
+
 	// An upsert where an existing pair exists should translate into a
 	// delete (for the old Identity) followed by an upsert (for the new).
-	if oldID != nil && modType == ipcache.Upsert {
-		// Skip update if identity is identical
-		if *oldID == newID {
-			return
-		}
-
-		cache.OnIPIdentityCacheChange(ipcache.Delete, cidr, nil, nil, nil, *oldID)
+	if oldIPIDPair != nil && modType == ipcache.Upsert {
+		cache.OnIPIdentityCacheChange(ipcache.Delete, nil, *oldIPIDPair)
 	}
 
-	cidrStr := cidr.String()
-
 	scopedLog := log.WithFields(logrus.Fields{
-		logfields.IPAddr:       cidrStr,
-		logfields.Identity:     newID,
+		logfields.IPAddr:       newIPIDPair.IP,
+		logfields.Identity:     newIPIDPair.ID,
 		logfields.Modification: modType,
 	})
-
 	// Look up the current resources for the specified Identity.
-	resourceName := newID.StringID()
+	resourceName := newIPIDPair.ID.StringID()
 	msg, err := cache.Lookup(NetworkPolicyHostsTypeURL, resourceName)
 	if err != nil {
 		scopedLog.WithError(err).Warning("Can't lookup NPHDS cache")
@@ -103,11 +95,11 @@ func (cache *NPHDSCache) OnIPIdentityCacheChange(modType ipcache.CacheModificati
 			hostAddresses = make([]string, 0, len(npHost.HostAddresses)+1)
 			hostAddresses = append(hostAddresses, npHost.HostAddresses...)
 		}
-		hostAddresses = append(hostAddresses, cidrStr)
+		hostAddresses = append(hostAddresses, newIPIDPair.PrefixString())
 		sort.Strings(hostAddresses)
 
 		newNpHost := envoyAPI.NetworkPolicyHosts{
-			Policy:        uint64(newID),
+			Policy:        uint64(newIPIDPair.ID),
 			HostAddresses: hostAddresses,
 		}
 		if err := newNpHost.Validate(); err != nil {
@@ -122,7 +114,7 @@ func (cache *NPHDSCache) OnIPIdentityCacheChange(modType ipcache.CacheModificati
 			// Doesn't exist; already deleted.
 			return
 		}
-		cache.handleIPDelete(msg.(*envoyAPI.NetworkPolicyHosts), resourceName, cidrStr)
+		cache.handleIPDelete(msg.(*envoyAPI.NetworkPolicyHosts), resourceName, newIPIDPair.PrefixString())
 	}
 }
 
@@ -142,7 +134,7 @@ func (cache *NPHDSCache) handleIPDelete(npHost *envoyAPI.NetworkPolicyHosts, pee
 		}
 	}
 	if targetIndex < 0 {
-		scopedLog.Warning("Can't find IP in NPHDS cache")
+		scopedLog.Fatal("Can't find IP in NPHDS cache")
 		return
 	}
 

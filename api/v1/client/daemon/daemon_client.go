@@ -117,62 +117,6 @@ func (a *Client) GetHealthz(params *GetHealthzParams) (*GetHealthzOK, error) {
 }
 
 /*
-GetMap lists all open maps
-*/
-func (a *Client) GetMap(params *GetMapParams) (*GetMapOK, error) {
-	// TODO: Validate the params before sending
-	if params == nil {
-		params = NewGetMapParams()
-	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
-		ID:                 "GetMap",
-		Method:             "GET",
-		PathPattern:        "/map",
-		ProducesMediaTypes: []string{"application/json"},
-		ConsumesMediaTypes: []string{"application/json"},
-		Schemes:            []string{"http"},
-		Params:             params,
-		Reader:             &GetMapReader{formats: a.formats},
-		Context:            params.Context,
-		Client:             params.HTTPClient,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return result.(*GetMapOK), nil
-
-}
-
-/*
-GetMapName retrieves contents of b p f map
-*/
-func (a *Client) GetMapName(params *GetMapNameParams) (*GetMapNameOK, error) {
-	// TODO: Validate the params before sending
-	if params == nil {
-		params = NewGetMapNameParams()
-	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
-		ID:                 "GetMapName",
-		Method:             "GET",
-		PathPattern:        "/map/{name}",
-		ProducesMediaTypes: []string{"application/json"},
-		ConsumesMediaTypes: []string{"application/json"},
-		Schemes:            []string{"http"},
-		Params:             params,
-		Reader:             &GetMapNameReader{formats: a.formats},
-		Context:            params.Context,
-		Client:             params.HTTPClient,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return result.(*GetMapNameOK), nil
-
-}
-
-/*
 PatchConfig modifies daemon configuration
 
 Updates the daemon configuration by applying the provided

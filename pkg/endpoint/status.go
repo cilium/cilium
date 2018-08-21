@@ -17,7 +17,7 @@ package endpoint
 import (
 	"fmt"
 
-	"github.com/cilium/cilium/pkg/color"
+	"github.com/cilium/cilium/common"
 )
 
 type StatusCode int
@@ -50,13 +50,13 @@ func (sc StatusCode) ColorString() string {
 	var text string
 	switch sc {
 	case OK:
-		text = color.Green("OK")
+		text = common.Green("OK")
 	case Warning:
-		text = color.Yellow("Warning")
+		text = common.Yellow("Warning")
 	case Failure:
-		text = color.Red("Failure")
+		text = common.Red("Failure")
 	case Disabled:
-		text = color.Yellow("Disabled")
+		text = common.Yellow("Disabled")
 	default:
 		text = "Unknown code"
 	}

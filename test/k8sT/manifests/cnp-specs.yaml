@@ -2,7 +2,7 @@ apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
 description: "Policy to test multiple rules in a single file"
 metadata:
-  name: "cnp-specs"
+  name: "multi-rules"
 specs:
   - endpointSelector:
       matchLabels:
