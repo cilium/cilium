@@ -121,7 +121,7 @@ func ValidateCiliumUpgrades(kubectl *helpers.Kubectl) (func(), func()) {
 			ExpectWithOffset(1, err).To(BeNil(), "Cannot get cilium pods")
 
 			for _, val := range strings.Split(data.String(), " ") {
-				ExpectWithOffset(1, val).To(Equal(image), "Cilium image didn't update correctly")
+				ExpectWithOffset(1, image).To(ContainSubstring(val), "Cilium image didn't update correctly")
 			}
 		}
 

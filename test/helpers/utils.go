@@ -212,7 +212,7 @@ func InstallExampleCilium(kubectl *Kubectl, version string) {
 	ExpectWithOffset(1, err).To(BeNil(), "Cannot get cilium pods")
 
 	for _, val := range strings.Split(data.String(), " ") {
-		ExpectWithOffset(1, val).To(Equal(version), "Cilium image didn't update correctly")
+		ExpectWithOffset(1, version).To(ContainSubstring(val), "Cilium image didn't update correctly")
 	}
 }
 
