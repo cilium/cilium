@@ -346,6 +346,18 @@ func ManifestGet(manifestFilename string) string {
 	return filepath.Join(BasePath, "k8sT", "manifests", manifestFilename)
 }
 
+// ManifestGet returns the full path of the given manifest corresponding to the
+// Kubernetes version being tested, if such a manifest exists, if not it
+// returns the global manifest file.
+func GetK8sDescriptor(descriptorFilename string) string {
+	fullPath := filepath.Join(descriptorsPath, GetCurrentK8SEnv(), descriptorFilename)
+	_, err := os.Stat(fullPath)
+	if err == nil {
+		return filepath.Join(BasePath, "..", fullPath)
+	}
+	return ""
+}
+
 // WriteOrAppendToFile writes data to a file named by filename.
 // If the file does not exist, WriteFile creates it with permissions perm;
 // otherwise WriteFile appends the data to the file
