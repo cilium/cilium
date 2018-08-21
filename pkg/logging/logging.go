@@ -25,6 +25,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
+
 	"github.com/evalphobia/logrus_fluent"
 	"github.com/sirupsen/logrus"
 	logrus_syslog "github.com/sirupsen/logrus/hooks/syslog"
@@ -50,7 +53,7 @@ const (
 var (
 	// DefaultLogger is the base logrus logger. It is different from the logrus
 	// default to avoid external dependencies from writing out unexpectedly
-	DefaultLogger = InitializeDefaultLogger()
+	DefaultLogger = NewLogger()
 
 	// DefaultLogLevel is the alternative we provide to Debug
 	DefaultLogLevel = logrus.InfoLevel
@@ -85,6 +88,132 @@ var (
 	}
 )
 
+// Entry is a wrapper for the Logrus Entry. It exposes its public methods, but
+// also adds a functionality of storing errors and warnings as Prometheus
+// metrics. For detauls ebout Entry in Logrus see:
+// https://godoc.org/github.com/sirupsen/logrus#Entry
+type Entry struct {
+	*logrus.Entry
+	Logger    *Logger
+	subsystem string
+}
+
+// WithError adds an error as single field (using the key defined in ErrorKey)
+// to the Entry.
+func (e *Entry) WithError(err error) *Entry {
+	wrappedEntry := e.Entry.WithError(err)
+	return &Entry{
+		Entry:  wrappedEntry,
+		Logger: e.Logger,
+	}
+}
+
+// WithField adds a single field to the Entry.
+func (e *Entry) WithField(key string, value interface{}) *Entry {
+	wrappedEntry := e.Entry.WithField(key, value)
+	return &Entry{
+		Entry:  wrappedEntry,
+		Logger: e.Logger,
+	}
+}
+
+// WithFields adds a map of fields to the Entry.
+func (e *Entry) WithFields(fields logrus.Fields) *Entry {
+	wrappedEntry := e.Entry.WithFields(fields)
+	return &Entry{
+		Entry:  wrappedEntry,
+		Logger: e.Logger,
+	}
+}
+
+// Warn logs a message at level Warn on the standard logger.
+func (e *Entry) Warn(args ...interface{}) {
+	e.Entry.Warn(args...)
+	metrics.IncWarningsMetric(e.Logger.subsystem)
+}
+
+// Warning logs a message at level Warn on the standard logger.
+func (e *Entry) Warning(args ...interface{}) {
+	e.Entry.Warning(args...)
+	metrics.IncWarningsMetric(e.Logger.subsystem)
+}
+
+// Error logs a message at level Error on the standard logger.
+func (e *Entry) Error(args ...interface{}) {
+	e.Entry.Error(args...)
+	metrics.IncErrorsMetric(e.Logger.subsystem)
+}
+
+// Warnf logs a message at level Warn on the standard logger.
+func (e *Entry) Warnf(format string, args ...interface{}) {
+	e.Entry.Warnf(format, args...)
+	metrics.IncWarningsMetric(e.subsystem)
+}
+
+// Warningf logs a message at level Warn on the standard logger.
+func (e *Entry) Warningf(format string, args ...interface{}) {
+	e.Entry.Warningf(format, args)
+	metrics.IncWarningsMetric(e.subsystem)
+}
+
+// Errorf logs a message at level Error on the standard logger.
+func (e *Entry) Errorf(format string, args ...interface{}) {
+	e.Entry.Errorf(format, args...)
+	metrics.IncErrorsMetric(e.subsystem)
+}
+
+// NewEntry returns a new instance of Entry.
+func NewEntry(logger *Logger) *Entry {
+	wrappedEntry := logrus.NewEntry(logger.Logger)
+	return &Entry{
+		Entry:  wrappedEntry,
+		Logger: logger,
+	}
+}
+
+// Logger is a wrapper for the Logrus Logger. It exposes its public methods, but
+// also adds a functionality of storing errors and warnings as Prometheus
+// metrics. For details about Logger in Logrus see:
+// https://godoc.org/github.com/sirupsen/logrus#Logger
+type Logger struct {
+	*logrus.Logger
+	subsystem string
+}
+
+// WithField adds a single field to the log entry.
+func (l *Logger) WithField(key string, value interface{}) *Entry {
+	wrappedEntry := l.Logger.WithField(key, value)
+	return &Entry{
+		Entry:  wrappedEntry,
+		Logger: l,
+	}
+}
+
+// WithFields adds a map of fields to the log entry.
+func (l *Logger) WithFields(fields logrus.Fields) *Entry {
+	wrappedEntry := l.Logger.WithFields(fields)
+	return &Entry{
+		Entry:  wrappedEntry,
+		Logger: l,
+	}
+}
+
+// WithSubsystem adds an information about subsystem to the log entry.
+func (l *Logger) WithSubsystem(subsystem string) *Entry {
+	entry := l.WithField(logfields.LogSubsys, subsystem)
+	entry.subsystem = subsystem
+	return entry
+}
+
+// NewLogger returns a new instance of Logger with default attributes.
+func NewLogger() *Logger {
+	wrappedLogger := logrus.New()
+	wrappedLogger.Formatter = setupFormatter()
+	return &Logger{
+		Logger: wrappedLogger,
+	}
+}
+
 // setFireLevels returns a slice of logrus.Level values higher in priority
 // and including level, excluding any levels lower in priority.
 func setFireLevels(level logrus.Level) []logrus.Level {
@@ -105,13 +234,6 @@ func setFireLevels(level logrus.Level) []logrus.Level {
 		logrus.Infof("logrus level %v is not supported at this time; defaulting to info level", level)
 		return []logrus.Level{logrus.PanicLevel, logrus.FatalLevel, logrus.ErrorLevel, logrus.WarnLevel, logrus.InfoLevel}
 	}
-}
-
-// InitializeDefaultLogger returns a logrus Logger with a custom text formatter.
-func InitializeDefaultLogger() *logrus.Logger {
-	logger := logrus.New()
-	logger.Formatter = setupFormatter()
-	return logger
 }
 
 // SetupLogging sets up each logging service provided in loggers and configures
@@ -340,11 +462,11 @@ func MultiLine(logFn func(args ...interface{}), output string) {
 
 // CanLogAt returns whether a log message at the given level would be
 // logged by the given logger.
-func CanLogAt(logger *logrus.Logger, level logrus.Level) bool {
+func CanLogAt(logger *Logger, level logrus.Level) bool {
 	return GetLevel(logger) >= level
 }
 
 // GetLevel returns the log level of the given logger.
-func GetLevel(logger *logrus.Logger) logrus.Level {
+func GetLevel(logger *Logger) logrus.Level {
 	return logrus.Level(atomic.LoadUint32((*uint32)(&logger.Level)))
 }

@@ -667,7 +667,7 @@ func (m *Map) Delete(key MapKey) error {
 }
 
 // scopedLogger returns a logger scoped for the map. m.lock must be held.
-func (m *Map) scopedLogger() *logrus.Entry {
+func (m *Map) scopedLogger() *logging.Entry {
 	return log.WithFields(logrus.Fields{logfields.Path: m.path, "name": m.name})
 }
 

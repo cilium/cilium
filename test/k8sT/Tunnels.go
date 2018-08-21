@@ -18,11 +18,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cilium/cilium/pkg/logging"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 )
 
 var _ = Describe("K8sTunnelTest", func() {
@@ -169,7 +169,7 @@ func isNodeNetworkingWorking(kubectl *helpers.Kubectl, filter string) bool {
 	return res.WasSuccessful()
 }
 
-func waitToDeleteCilium(kubectl *helpers.Kubectl, logger *logrus.Entry) {
+func waitToDeleteCilium(kubectl *helpers.Kubectl, logger *logging.Entry) {
 	status := 1
 	for status > 0 {
 		pods, err := kubectl.GetCiliumPods(helpers.KubeSystemNamespace)

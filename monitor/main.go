@@ -34,7 +34,7 @@ import (
 )
 
 var (
-	log              = logging.DefaultLogger.WithField(logfields.LogSubsys, targetName)
+	log              = logging.DefaultLogger.WithSubsystem(targetName)
 	monitorSingleton *Monitor
 )
 

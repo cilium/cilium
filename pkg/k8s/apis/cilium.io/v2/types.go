@@ -23,7 +23,6 @@ import (
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,7 +35,7 @@ const (
 
 var (
 	// log is the k8s package logger object.
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsysK8s)
+	log = logging.DefaultLogger.WithSubsystem(subsysK8s)
 )
 
 // +genclient

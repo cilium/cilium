@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/go-openapi/loads"
 	"github.com/jessevdk/go-flags"
@@ -45,7 +44,7 @@ const (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "health-server")
+	log = logging.DefaultLogger.WithSubsystem("health-server")
 
 	// PortToPaths is a convenience map for access to the ports and their
 	// common string representations

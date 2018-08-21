@@ -33,7 +33,7 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "allocator")
+	log = logging.DefaultLogger.WithSubsystem("allocator")
 )
 
 const (

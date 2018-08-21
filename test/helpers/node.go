@@ -23,10 +23,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/test/config"
 	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 
-	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -41,7 +41,7 @@ type SSHMeta struct {
 	env       []string
 	rawConfig []byte
 	nodeName  string
-	logger    *logrus.Entry
+	logger    *logging.Entry
 }
 
 // CreateSSHMeta returns an SSHMeta with the specified host, port, and user, as

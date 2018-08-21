@@ -19,12 +19,11 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/vishvananda/netlink"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "mtu")
+var log = logging.DefaultLogger.WithSubsystem("mtu")
 
 const (
 	externalProbe = "1.1.1.1"

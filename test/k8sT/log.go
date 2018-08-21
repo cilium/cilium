@@ -16,8 +16,7 @@ package k8sTest
 
 import (
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/sirupsen/logrus"
 )
 
 var log = logging.DefaultLogger
-var logger = logrus.NewEntry(log)
+var logger = logging.NewEntry(log)

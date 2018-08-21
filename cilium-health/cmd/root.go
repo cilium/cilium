@@ -44,7 +44,7 @@ var (
 	client    *clientPkg.Client
 	cmdRefDir string
 	server    *serverPkg.Server
-	log       = logging.DefaultLogger.WithField(logfields.LogSubsys, targetName)
+	log       = logging.DefaultLogger.WithSubsystem(targetName)
 	logOpts   = make(map[string]string)
 )
 

@@ -23,6 +23,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 
 	"github.com/sirupsen/logrus"
 )
@@ -82,7 +83,7 @@ func newCache(backend kvstore.BackendOperations, prefix string) cache {
 
 type waitChan chan bool
 
-func (c *cache) getLogger() *logrus.Entry {
+func (c *cache) getLogger() *logging.Entry {
 	status, err := c.backend.Status()
 
 	return log.WithFields(logrus.Fields{

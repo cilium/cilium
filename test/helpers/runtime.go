@@ -17,15 +17,16 @@ package helpers
 import (
 	"fmt"
 
+	"github.com/cilium/cilium/pkg/logging"
+
 	"github.com/onsi/ginkgo"
-	"github.com/sirupsen/logrus"
 )
 
 // InitRuntimeHelper returns SSHMeta helper for running the runtime tests
 // on the provided VM target and using logger 'log'. It marks the test as Fail
 // if it cannot get the ssh meta information or cannot execute a `ls` on the
 // virtual machine.
-func InitRuntimeHelper(target string, log *logrus.Entry) *SSHMeta {
+func InitRuntimeHelper(target string, log *logging.Entry) *SSHMeta {
 	node := GetVagrantSSHMeta(target)
 	if node == nil {
 		ginkgo.Fail(fmt.Sprintf("Cannot connect to target '%s'", target), 1)

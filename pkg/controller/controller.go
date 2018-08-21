@@ -20,6 +20,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 
 	"github.com/go-openapi/strfmt"
 	"github.com/sirupsen/logrus"
@@ -270,7 +271,7 @@ func (c *Controller) stopController() {
 }
 
 // logger returns a logrus object with controllerName and UUID fields.
-func (c *Controller) getLogger() *logrus.Entry {
+func (c *Controller) getLogger() *logging.Entry {
 	return log.WithFields(logrus.Fields{
 		fieldControllerName: c.name,
 		fieldUUID:           c.uuid,

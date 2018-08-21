@@ -22,11 +22,10 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labels/cidr"
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "identity-cidr")
+	log = logging.DefaultLogger.WithSubsystem("identity-cidr")
 )
 
 // AllocateCIDRIdentities allocates identities for each of the specified CIDR

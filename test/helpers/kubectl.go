@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/annotation"
 	cnpv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/test/config"
 	"github.com/cilium/cilium/test/ginkgo-ext"
 
@@ -70,7 +71,7 @@ type Kubectl struct {
 // CreateKubectl initializes a Kubectl helper with the provided vmName and log
 // It marks the test as Fail if cannot get the ssh meta information or cannot
 // execute a `ls` on the virtual machine.
-func CreateKubectl(vmName string, log *logrus.Entry) *Kubectl {
+func CreateKubectl(vmName string, log *logging.Entry) *Kubectl {
 	node := GetVagrantSSHMeta(vmName)
 	if node == nil {
 		ginkgo.Fail(fmt.Sprintf("Cannot connect to vmName  '%s'", vmName), 1)

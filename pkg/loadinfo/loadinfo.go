@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/shirou/gopsutil/load"
 	"github.com/shirou/gopsutil/mem"
@@ -36,7 +35,7 @@ const (
 	cpuWatermark = 1.0
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "loadinfo")
+var log = logging.DefaultLogger.WithSubsystem("loadinfo")
 
 // LogFunc is the function to used to log the system load
 type LogFunc func(format string, args ...interface{})

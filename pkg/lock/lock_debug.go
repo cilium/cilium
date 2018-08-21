@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/sasha-s/go-deadlock"
 	"github.com/sirupsen/logrus"
@@ -42,7 +41,7 @@ const (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "lock-lib")
+	log = logging.DefaultLogger.WithSubsystem("lock-lib")
 
 	// selfishThresholdMsg is the message that will be printed when a lock was
 	// held for more than selfishThresholdSec.

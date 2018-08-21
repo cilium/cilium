@@ -30,10 +30,9 @@ import (
 	"github.com/cilium/cilium/pkg/launcher"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "monitor-launcher")
+var log = logging.DefaultLogger.WithSubsystem("monitor-launcher")
 
 const (
 	targetName = "cilium-node-monitor"

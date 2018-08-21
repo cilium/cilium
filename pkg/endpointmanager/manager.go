@@ -23,7 +23,6 @@ import (
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -32,7 +31,7 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "endpoint-manager")
+	log = logging.DefaultLogger.WithSubsystem("endpoint-manager")
 
 	// mutex protects endpoints and endpointsAux
 	mutex lock.RWMutex

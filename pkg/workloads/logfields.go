@@ -16,7 +16,6 @@ package workloads
 
 import (
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // logging field definitions
@@ -32,5 +31,5 @@ const (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, fieldSubsys)
+	log = logging.DefaultLogger.WithSubsystem(fieldSubsys)
 )
