@@ -1,0 +1,16 @@
+---
+spec:
+  template:
+    spec:
+      containers:
+      - image: k8s1:5000/cilium/cilium-dev:latest
+        imagePullPolicy: IfNotPresent
+        name: cilium-agent
+        args:
+        - "--debug=$(CILIUM_DEBUG)"
+        - "--tunnel=disabled"
+        - "--auto-routing"
+        - "--kvstore=etcd"
+        - "--kvstore-opt=etcd.config=/var/lib/etcd-config/etcd.config"
+        - "--disable-ipv4=$(DISABLE_IPV4)"
+        - "--debug-verbose=flow"

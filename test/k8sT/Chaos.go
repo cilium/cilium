@@ -34,7 +34,7 @@ var _ = Describe("K8sChaosTest", func() {
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
-		err := kubectl.CiliumInstall(helpers.CiliumDSPath)
+		err := kubectl.CiliumInstall(helpers.CiliumDefaultDSPatch, helpers.CiliumConfigMapPatch)
 		Expect(err).To(BeNil(), "Cilium cannot be installed")
 
 		ExpectCiliumReady(kubectl)
@@ -147,7 +147,7 @@ var _ = Describe("K8sChaosTest", func() {
 
 		By("Install cilium pods")
 
-		err = kubectl.CiliumInstall(helpers.CiliumDSPath)
+		err = kubectl.CiliumInstall(helpers.CiliumDefaultDSPatch, helpers.CiliumConfigMapPatch)
 		Expect(err).To(BeNil(), "Cilium cannot be installed")
 
 		ExpectCiliumReady(kubectl)
