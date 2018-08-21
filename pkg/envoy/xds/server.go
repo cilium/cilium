@@ -24,6 +24,7 @@ import (
 	"time"
 
 	envoy_api_v2 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/golang/protobuf/proto"
@@ -181,7 +182,7 @@ type perTypeStreamState struct {
 }
 
 // processRequestStream processes the requests in an xDS stream from a channel.
-func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Entry, stream Stream,
+func (s *Server) processRequestStream(ctx context.Context, streamLog *logging.Entry, stream Stream,
 	reqCh <-chan *envoy_api_v2.DiscoveryRequest, defaultTypeURL string) error {
 	// The request state for every type URL.
 	typeStates := make([]perTypeStreamState, len(s.watchers))

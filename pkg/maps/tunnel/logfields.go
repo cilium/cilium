@@ -16,7 +16,6 @@ package tunnel
 
 import (
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
@@ -25,5 +24,5 @@ const (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-tunnel")
+	log = logging.DefaultLogger.WithSubsystem("map-tunnel")
 )

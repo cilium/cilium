@@ -16,10 +16,9 @@ package kafka
 
 import (
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "kafka")
+var log = logging.DefaultLogger.WithSubsystem("kafka")
 
 const (
 	fieldRequest = "request.kafka"

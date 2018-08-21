@@ -16,7 +16,6 @@ package xds
 
 import (
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "xds")
+var log = logging.DefaultLogger.WithSubsystem("xds")

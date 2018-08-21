@@ -88,7 +88,7 @@ const (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "daemon")
+	log = logging.DefaultLogger.WithSubsystem("daemon")
 
 	bootstrapTimestamp = time.Now()
 

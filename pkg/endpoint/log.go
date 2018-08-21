@@ -25,13 +25,17 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "endpoint")
+const (
+	subsystem = "endpoint"
+)
+
+var log = logging.DefaultLogger.WithSubsystem(subsystem)
 
 // logger returns a logrus object with EndpointID, ContainerID and the Endpoint
 // revision fields.
-func (e *Endpoint) getLogger() *logrus.Entry {
+func (e *Endpoint) getLogger() *logging.Entry {
 	v := atomic.LoadPointer(&e.logger)
-	return (*logrus.Entry)(v)
+	return (*logging.Entry)(v)
 }
 
 // UpdateLogger creates a logger instance specific to this endpoint. It will
@@ -41,7 +45,7 @@ func (e *Endpoint) getLogger() *logrus.Entry {
 // Note: You must hold Endpoint.Mutex for reading.
 func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
 	v := atomic.LoadPointer(&e.logger)
-	epLogger := (*logrus.Entry)(v)
+	epLogger := (*logging.Entry)(v)
 	if fields != nil && epLogger != nil {
 		newLogger := epLogger.WithFields(fields)
 		atomic.StorePointer(&e.logger, unsafe.Pointer(newLogger))
@@ -69,13 +73,13 @@ func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
 	// If this endpoint is set to debug ensure it will print debug by giving it
 	// an independent logger
 	if e.Options != nil && e.Options.IsEnabled(option.Debug) {
-		baseLogger = logging.InitializeDefaultLogger()
+		baseLogger = logging.NewLogger()
 		baseLogger.SetLevel(logrus.DebugLevel)
 	}
 
 	// When adding new fields, make sure they are abstracted by a setter
 	// and update the logger when the value is set.
-	l := baseLogger.WithFields(logrus.Fields{
+	l := baseLogger.WithSubsystem(subsystem).WithFields(logrus.Fields{
 		logfields.EndpointID:             e.ID,
 		logfields.ContainerID:            e.getShortContainerID(),
 		logfields.DatapathPolicyRevision: e.policyRevision,

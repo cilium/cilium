@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mtu"
 
@@ -34,7 +35,7 @@ type Route struct {
 	Scope   netlink.Scope
 }
 
-func (r *Route) getLogger() *logrus.Entry {
+func (r *Route) getLogger() *logging.Entry {
 	return log.WithFields(logrus.Fields{
 		"prefix":            r.Prefix,
 		"nexthop":           r.Nexthop,

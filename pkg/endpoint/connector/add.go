@@ -26,7 +26,7 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "endpoint-connector")
+var log = logging.DefaultLogger.WithSubsystem("endpoint-connector")
 
 const (
 	// hostInterfacePrefix is the Host interface prefix.

@@ -16,9 +16,8 @@ package ipcache
 
 import (
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipcache")
+	log = logging.DefaultLogger.WithSubsystem("ipcache")
 )

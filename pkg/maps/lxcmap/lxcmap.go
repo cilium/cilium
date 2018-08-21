@@ -21,10 +21,9 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-lxc")
+var log = logging.DefaultLogger.WithSubsystem("map-lxc")
 
 const (
 	MapName = "cilium_lxc"

@@ -20,10 +20,9 @@ import (
 	_ "net/http/pprof"
 
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "pprof")
+var log = logging.DefaultLogger.WithSubsystem("pprof")
 
 const apiAddress = "localhost:6060"
 

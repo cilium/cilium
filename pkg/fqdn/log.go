@@ -16,7 +16,6 @@ package fqdn
 
 import (
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "fqdn")
+var log = logging.DefaultLogger.WithSubsystem("fqdn")
