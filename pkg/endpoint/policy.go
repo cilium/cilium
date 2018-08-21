@@ -252,16 +252,12 @@ func (e *Endpoint) resolveL4Policy(repo *policy.Repository) (policyChanged bool,
 	return
 }
 
-func (e *Endpoint) computeDesiredPolicyMapState(owner Owner, labelsMap *identityPkg.IdentityCache,
-	repo *policy.Repository) {
+func (e *Endpoint) computeDesiredPolicyMapState(repo *policy.Repository) {
 	desiredPolicyKeys := make(PolicyMapState)
-	if e.prevIdentityCache != labelsMap {
-		e.prevIdentityCache = labelsMap
-	}
 	e.computeDesiredL4PolicyMapEntries(desiredPolicyKeys)
 	e.determineAllowLocalhost(desiredPolicyKeys)
 	e.determineAllowFromWorld(desiredPolicyKeys)
-	e.computeDesiredL3PolicyMapEntries(owner, labelsMap, repo, desiredPolicyKeys)
+	e.computeDesiredL3PolicyMapEntries(repo, desiredPolicyKeys)
 	e.desiredMapState = desiredPolicyKeys
 }
 
@@ -300,7 +296,7 @@ func (e *Endpoint) determineAllowFromWorld(desiredPolicyKeys PolicyMapState) {
 	}
 }
 
-func (e *Endpoint) computeDesiredL3PolicyMapEntries(owner Owner, identityCache *identityPkg.IdentityCache, repo *policy.Repository, desiredPolicyKeys PolicyMapState) {
+func (e *Endpoint) computeDesiredL3PolicyMapEntries(repo *policy.Repository, desiredPolicyKeys PolicyMapState) {
 
 	if desiredPolicyKeys == nil {
 		desiredPolicyKeys = PolicyMapState{}
@@ -323,7 +319,7 @@ func (e *Endpoint) computeDesiredL3PolicyMapEntries(owner Owner, identityCache *
 
 	// Only L3 (label-based) policy apply.
 	// Complexity increases linearly by the number of identities in the map.
-	for identity, labels := range *identityCache {
+	for identity, labels := range *e.prevIdentityCache {
 		ingressCtx.From = labels
 		egressCtx.To = labels
 
@@ -480,8 +476,9 @@ func (e *Endpoint) updateNetworkPolicy(owner Owner, proxyWaitGroup *completion.W
 //  - changed: true if the policy was changed for this endpoint;
 //  - err: error in case of an error.
 // Must be called with endpoint mutex held.
-func (e *Endpoint) regeneratePolicy(owner Owner, opts option.OptionMap) (isPolicyComp bool, err error) {
+func (e *Endpoint) regeneratePolicy(owner Owner) (isPolicyComp bool, err error) {
 	var labelsMap *identityPkg.IdentityCache
+	var forceRegeneration bool
 
 	e.getLogger().Debug("Starting regenerate...")
 
@@ -529,7 +526,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts option.OptionMap) (isPolic
 	// Recompute policy for this endpoint only if not already done for this revision.
 	// Must recompute if labels have changed or option changes are requested.
 	if !e.forcePolicyCompute && e.nextPolicyRevision >= revision &&
-		labelsMap == e.prevIdentityCache && opts == nil {
+		labelsMap == e.prevIdentityCache {
 
 		e.getLogger().WithFields(logrus.Fields{
 			"policyRevision.next": e.nextPolicyRevision,
@@ -539,6 +536,14 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts option.OptionMap) (isPolic
 		// This revision already computed, but may still need to be applied to BPF
 		return e.nextPolicyRevision > e.policyRevision, nil
 	}
+
+	e.prevIdentityCache = labelsMap
+
+	// First step when calculating policy is to check whether ingress or egress
+	// policy applies (i.e., if rules select this endpoint). We can use this
+	// information to short-circuit policy generation if enforcement is
+	// disabled for ingress and / or egress.
+	e.ingressPolicyEnabled, e.egressPolicyEnabled = owner.EnableEndpointPolicyEnforcement(e)
 
 	// Skip L4 policy recomputation if possible. However, the rest of the
 	// policy computation still needs to be done for each endpoint separately.
@@ -563,26 +568,25 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts option.OptionMap) (isPolic
 		e.getLogger().Debug("regeneration of L3 (CIDR) policy caused policy change")
 	}
 
-	// no failures after this point
+	e.computeDesiredPolicyMapState(repo)
 
-	optsChanged := e.updateAndOverrideEndpointOptions(owner, opts)
-
-	e.computeDesiredPolicyMapState(owner, labelsMap, repo)
 	// If we are in this function, then policy has been calculated.
 	if !e.policyCalculated {
 		e.getLogger().Debug("setting PolicyCalculated to true for endpoint")
 		e.policyCalculated = true
 		// Always trigger a regenerate after the first policy
 		// calculation has been performed
-		optsChanged = true
+		forceRegeneration = true
 	}
 
 	if e.forcePolicyCompute {
-		optsChanged = true           // Options were changed by the caller.
+		forceRegeneration = true     // Options were changed by the caller.
 		e.forcePolicyCompute = false // Policies just computed
 		e.getLogger().Debug("Forced policy recalculation")
 	}
 
+	// Set the revision of this endpoint to the current revision of the policy
+	// repository.
 	e.nextPolicyRevision = revision
 
 	// If no policy or options change occurred for this endpoint then the endpoint is
@@ -592,13 +596,19 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts option.OptionMap) (isPolic
 
 	e.getLogger().WithFields(logrus.Fields{
 		"policyChanged":       policyChanged,
-		"optsChanged":         optsChanged,
 		"policyRevision.next": e.nextPolicyRevision,
+		"forcedRegeneration":  forceRegeneration,
 	}).Debug("Done calculating policy")
 
-	needToRegenerateBPF := optsChanged || policyChanged || e.nextPolicyRevision > e.policyRevision
+	// If the policy changed, or the revision of the policy repository has changed
+	// we return true. It is possible that the endpoint's next policy revision
+	// is the same as the endpoint's current policy revision; this indicates
+	// that no new rules have been added in the policy repository; if policy
+	// hasn't changed, and no new rules were added, and we haven't forced
+	// regeneration for the endpoint, then return false.
+	policyChanged = policyChanged || e.nextPolicyRevision > e.policyRevision || forceRegeneration
 
-	return needToRegenerateBPF, nil
+	return policyChanged, nil
 }
 
 // updateAndOverrideEndpointOptions updates the boolean configuration options for the endpoint
@@ -619,8 +629,6 @@ func (e *Endpoint) updateAndOverrideEndpointOptions(owner Owner, opts option.Opt
 			opts[option.Conntrack] = option.OptionEnabled
 		}
 	}
-
-	e.ingressPolicyEnabled, e.egressPolicyEnabled = owner.EnableEndpointPolicyEnforcement(e)
 
 	optsChanged = e.applyOptsLocked(opts)
 	return
@@ -808,10 +816,14 @@ func (e *Endpoint) TriggerPolicyUpdatesLocked(owner Owner, opts option.OptionMap
 		return false, nil
 	}
 
-	needToRegenerateBPF, err := e.regeneratePolicy(owner, opts)
+	policyChanged, err := e.regeneratePolicy(owner)
 	if err != nil {
 		return false, fmt.Errorf("%s: %s", e.StringID(), err)
 	}
+
+	optionsChanged := e.updateAndOverrideEndpointOptions(owner, opts)
+	needToRegenerateBPF := optionsChanged || policyChanged
+
 	// If it does not need datapath regeneration then we should set the policy
 	// revision with nextPolicyRevision.
 	if !needToRegenerateBPF {
