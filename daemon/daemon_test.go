@@ -73,6 +73,7 @@ type DaemonSuite struct {
 }
 
 func (ds *DaemonSuite) SetUpTest(c *C) {
+	//logging.ToggleDebugLogs(true)
 	ds.oldPolicyEnabled = policy.GetPolicyEnabled()
 	policy.SetPolicyEnabled(option.DefaultEnforcement)
 

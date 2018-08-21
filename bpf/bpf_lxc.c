@@ -874,11 +874,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_TO_LXC) int tail_ipv6_policy(s
  * Returns true if the packet should pass, false if it should be dropped. */
 static bool check_ip4_fragments(struct iphdr *ip4)
 {
-#ifdef POLICY_INGRESS
 	return !ipv4_is_fragment(ip4);
-#else
-	return true;
-#endif
 }
 
 #ifdef LXC_IPV4
