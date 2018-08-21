@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -163,6 +164,10 @@ var (
 		},
 	}
 )
+
+func init() {
+	logging.DefaultLogger.Hooks.Add(metrics.NewLoggingHook(components.CiliumAgentName))
+}
 
 func main() {
 

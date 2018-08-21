@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import (
 	"os"
 
 	"github.com/cilium/cilium/api/v1/models"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
@@ -307,6 +308,15 @@ var (
 		Help: "Duration in seconds of the garbage collector process " +
 			"labeled by datapath family and completion status",
 	}, []string{LabelDatapathFamily, LabelStatus})
+
+	// Errors and warnings
+
+	// ErrorsWarnings is the number of errors and warnings in cilium-agent instances
+	ErrorsWarnings = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Name:      "errors_warnings_total",
+		Help:      "Number of total errors in cilium-agent instances",
+	}, []string{"level", "subsystem"})
 )
 
 func init() {
@@ -347,6 +357,8 @@ func init() {
 	MustRegister(ConntrackGCKeyFallbacks)
 	MustRegister(ConntrackGCSize)
 	MustRegister(ConntrackGCDuration)
+
+	MustRegister(ErrorsWarnings)
 }
 
 // MustRegister adds the collector to the registry, exposing this metric to
