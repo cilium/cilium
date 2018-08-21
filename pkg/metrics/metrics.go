@@ -27,6 +27,8 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/metrics/status"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
@@ -255,6 +257,22 @@ var (
 		Help:      "Number of errors that occurred in the datapath or datapath management",
 	},
 		[]string{LabelDatapathArea, LabelDatapathName, LabelDatapathFamily})
+
+	// Errors and warnings
+
+	// Errors is the number of errors in cilium-agent instances
+	Errors = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Name:      "errors_total",
+		Help:      "Number of total errors in cilium-agent instances",
+	})
+
+	// Warnings is the number of warnings in cilium-agent instances
+	Warnings = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Name:      "warnings_total",
+		Help:      "Number of total warnings in cilium-agent instances",
+	})
 )
 
 func init() {
@@ -287,9 +305,12 @@ func init() {
 	MustRegister(DropCount)
 	MustRegister(ForwardCount)
 
-	MustRegister(newStatusCollector())
+	MustRegister(status.NewStatusCollector())
 
 	MustRegister(DatapathErrors)
+
+	MustRegister(Errors)
+	MustRegister(Warnings)
 }
 
 // MustRegister adds the collector to the registry, exposing this metric to
@@ -375,4 +396,26 @@ func DumpMetrics() ([]*models.Metric, error) {
 		}
 	}
 	return result, nil
+}
+
+// NOTE(mrostecki): For now errors and warning metrics exist only for Cilium
+// daemon, but support of Prometheus metrics in some other components (i.e.
+// cilium-health) is planned.
+
+// IncErrorsMetric increases the errors counter for the appropriate Cilium
+// component.
+func IncErrorsMetric() {
+	switch {
+	case components.IsCiliumAgent():
+		Errors.Inc()
+	}
+}
+
+// IncWarningsMetric increases the warnings counter for the appropriate Cilium
+// component.
+func IncWarningsMetric() {
+	switch {
+	case components.IsCiliumAgent():
+		Warnings.Inc()
+	}
 }
