@@ -482,24 +482,6 @@ func (e *Endpoint) updateNetworkPolicy(owner Owner, proxyWaitGroup *completion.W
 // Must be called with endpoint mutex held.
 func (e *Endpoint) regeneratePolicy(owner Owner, opts option.OptionMap) (isPolicyComp bool, err error) {
 	var labelsMap *identityPkg.IdentityCache
-	// Dry mode does not regenerate policy via bpf regeneration, so we let it pass
-	// through. Some bpf/redirect updates are skipped in that case.
-	//
-	// This can be cleaned up once we shift all bpf updates to regenerateBPF().
-	if e.PolicyMap == nil && !owner.DryModeEnabled() {
-		// First run always results in bpf generation
-		// L4 policy generation assumes e.PolicyMap to exist, but it is only created
-		// when bpf is generated for the first time. Until then we can't really compute
-		// the policy. Bpf generation calls us again after PolicyMap is created.
-		// In dry mode we are called with a nil PolicyMap.
-
-		// We still need to apply any options if given.
-		if opts != nil {
-			e.applyOptsLocked(opts)
-		}
-		e.getLogger().Debug("marking policy as changed to trigger bpf generation as part of first build")
-		return true, nil
-	}
 
 	e.getLogger().Debug("Starting regenerate...")
 
