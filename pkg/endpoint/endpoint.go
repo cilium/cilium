@@ -471,6 +471,10 @@ type Endpoint struct {
 	// cleaned when this endpoint was first created
 	ctCleaned bool
 
+	ingressPolicy bool
+
+	egressPolicy bool
+
 	///////////////////////
 	// DEPRECATED FIELDS //
 	///////////////////////
@@ -960,8 +964,8 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 		}
 	}
 
-	policyIngressEnabled := e.Options.IsEnabled(option.IngressPolicy)
-	policyEgressEnabled := e.Options.IsEnabled(option.EgressPolicy)
+	policyIngressEnabled := e.ingressPolicy
+	policyEgressEnabled := e.egressPolicy
 
 	policyEnabled := models.EndpointPolicyEnabledNone
 	switch {

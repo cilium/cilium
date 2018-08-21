@@ -639,26 +639,7 @@ func (e *Endpoint) updateAndOverrideEndpointOptions(owner Owner, opts models.Con
 		}
 	}
 
-	ingress, egress := owner.EnableEndpointPolicyEnforcement(e)
-
-	opts[option.IngressPolicy] = optionDisabled
-	opts[option.EgressPolicy] = optionDisabled
-
-	if !ingress && !egress {
-		e.getLogger().Debug("ingress and egress policy enforcement not enabled")
-	} else {
-		if ingress && egress {
-			e.getLogger().Debug("policy enforcement for ingress and egress enabled")
-			opts[option.IngressPolicy] = optionEnabled
-			opts[option.EgressPolicy] = optionEnabled
-		} else if ingress {
-			e.getLogger().Debug("policy enforcement for ingress enabled")
-			opts[option.IngressPolicy] = optionEnabled
-		} else {
-			e.getLogger().Debug("policy enforcement for egress enabled")
-			opts[option.EgressPolicy] = optionEnabled
-		}
-	}
+	e.ingressPolicy, e.egressPolicy = owner.EnableEndpointPolicyEnforcement(e)
 
 	optsChanged = e.applyOptsLocked(opts)
 	return
