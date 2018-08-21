@@ -199,7 +199,7 @@ func DeleteElement(f EndpointFrontend) []error {
 	errors := []error{}
 	for _, k := range f.GetBPFKeys() {
 		if err := LXCMap.Delete(k); err != nil {
-			errors = append(errors, fmt.Errorf("Unable to delete key %v in endpoint BPF map: %s", k, err))
+			errors = append(errors, fmt.Errorf("Unable to delete key %v from %s: %s", k, bpf.MapPath(MapName), err))
 		}
 	}
 
