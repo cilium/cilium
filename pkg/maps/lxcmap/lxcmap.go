@@ -196,7 +196,7 @@ func DeleteEntry(ip net.IP) error {
 // DeleteElement deletes the endpoint using all keys which represent the
 // endpoint. It returns the number of errors encountered during deletion.
 func DeleteElement(f EndpointFrontend) []error {
-	errors := []error{}
+	var errors []error
 	for _, k := range f.GetBPFKeys() {
 		if err := LXCMap.Delete(k); err != nil {
 			errors = append(errors, fmt.Errorf("Unable to delete key %v from %s: %s", k, bpf.MapPath(MapName), err))
