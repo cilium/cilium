@@ -64,6 +64,7 @@ const (
 	k8sAPIGroupNetworkingV1Core = "networking.k8s.io/v1::NetworkPolicy"
 	k8sAPIGroupIngressV1Beta1   = "extensions/v1beta1::Ingress"
 	k8sAPIGroupCiliumV2         = "cilium/v2::CiliumNetworkPolicy"
+	cacheSyncTimeout            = time.Duration(3 * time.Minute)
 )
 
 var (
