@@ -23,7 +23,7 @@ import (
 )
 
 func init() {
-	deadlock.Opts.DeadlockTimeout = time.Second * 310
+	deadlock.Opts.DeadlockTimeout = time.Second * 5
 }
 
 type internalRWMutex struct {
