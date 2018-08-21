@@ -271,17 +271,20 @@ func TriggerPolicyUpdates(owner endpoint.Owner, force bool) *sync.WaitGroup {
 
 	for _, ep := range eps {
 		go func(ep *endpoint.Endpoint, wg *sync.WaitGroup) {
-			if err := ep.LockAlive(); err != nil {
+			var err error
+			var regen, policyChanges bool
+			if err = ep.LockAlive(); err != nil {
 				log.WithError(err).Warn("Error while handling policy updates for endpoint")
 				ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+err.Error())
+			} else {
+				policyChanges, err = ep.TriggerPolicyUpdatesLocked(owner, nil)
+				regen = false
+				if err == nil && (policyChanges || force) {
+					// Regenerate only if state transition succeeds
+					regen = ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Triggering endpoint regeneration due to policy updates")
+				}
+				ep.Unlock()
 			}
-			policyChanges, err := ep.TriggerPolicyUpdatesLocked(owner, nil)
-			regen := false
-			if err == nil && (policyChanges || force) {
-				// Regenerate only if state transition succeeds
-				regen = ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Triggering endpoint regeneration due to policy updates")
-			}
-			ep.Unlock()
 
 			if err != nil {
 				log.WithError(err).Warn("Error while handling policy updates for endpoint")
