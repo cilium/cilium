@@ -603,10 +603,6 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts option.OptionMap) (isPolic
 
 	e.nextPolicyRevision = revision
 
-	if !owner.DryModeEnabled() {
-		e.syncPolicyMapController()
-	}
-
 	// If no policy or options change occurred for this endpoint then the endpoint is
 	// already running the latest revision, otherwise we have to wait for
 	// the regeneration of the endpoint to complete.
@@ -730,6 +726,11 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 	// performed in endpoint.syncPolicyMap().
 	if err = e.LockAlive(); err != nil {
 		return err
+	}
+
+	// Keep PolicyMap for this endpoint in sync with desired / realized state.
+	if !owner.DryModeEnabled() {
+		e.syncPolicyMapController()
 	}
 
 	e.RealizedL4Policy = e.DesiredL4Policy
