@@ -17,6 +17,7 @@ package k8sTest
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
@@ -90,6 +91,9 @@ var _ = Describe("K8sKafkaPolicyTest", func() {
 				res := kubectl.ExecPodCmd(helpers.DefaultNamespace, pod, dnsLookupCmd)
 
 				if !res.WasSuccessful() {
+					return false
+				}
+				if strings.Contains(res.GetStdErr(), "can't resolve") {
 					return false
 				}
 				return true
