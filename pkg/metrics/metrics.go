@@ -27,6 +27,8 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/components"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
@@ -255,6 +257,24 @@ var (
 		Help:      "Number of errors that occurred in the datapath or datapath management",
 	},
 		[]string{LabelDatapathArea, LabelDatapathName, LabelDatapathFamily})
+
+	// Errors and warnings
+
+	// Errors is the number of errors in cilium-agent instances
+	Errors = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Name:      "errors_total",
+		Help:      "Number of total errors in cilium-agent instances",
+	},
+		[]string{"subsystem"})
+
+	// Warnings is the number of warnings in cilium-agent instances
+	Warnings = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Name:      "warnings_total",
+		Help:      "Number of total warnings in cilium-agent instances",
+	},
+		[]string{"subsystem"})
 )
 
 func init() {
@@ -290,6 +310,9 @@ func init() {
 	MustRegister(newStatusCollector())
 
 	MustRegister(DatapathErrors)
+
+	MustRegister(Errors)
+	MustRegister(Warnings)
 }
 
 // MustRegister adds the collector to the registry, exposing this metric to
@@ -375,4 +398,26 @@ func DumpMetrics() ([]*models.Metric, error) {
 		}
 	}
 	return result, nil
+}
+
+// NOTE(mrostecki): For now errors and warning metrics exist only for Cilium
+// daemon, but support of Prometheus metrics in some other components (i.e.
+// cilium-health - GH-4268) is planned.
+
+// IncErrorsMetric increases the errors counter for the appropriate Cilium
+// component.
+func IncErrorsMetric(subsystem string) {
+	switch {
+	case components.IsCiliumAgent():
+		Errors.WithLabelValues(subsystem).Inc()
+	}
+}
+
+// IncWarningsMetric increases the warnings counter for the appropriate Cilium
+// component.
+func IncWarningsMetric(subsystem string) {
+	switch {
+	case components.IsCiliumAgent():
+		Warnings.WithLabelValues(subsystem).Inc()
+	}
 }
