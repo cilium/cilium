@@ -3,9 +3,9 @@
 
 Vagrant.require_version ">= 2.0.0"
 
-cilium_version = (ENV['CILIUM_VERSION'] || "v1.0.0-rc9")
+cilium_version = (ENV['CILIUM_VERSION'] || "v1.2.0")
 cilium_opts = (ENV['CILIUM_OPTS'] || "--kvstore consul --kvstore-opt consul.address 192.168.33.11:8500 -t vxlan")
-cilium_tag = (ENV['CILIUM_TAG'] || "v1.0.0-rc9")
+cilium_tag = (ENV['CILIUM_TAG'] || "v1.2.0")
 
 # This runs only once when vagrant box is provisioned for the first time
 $bootstrap = <<SCRIPT
