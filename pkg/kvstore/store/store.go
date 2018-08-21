@@ -340,7 +340,7 @@ func (s *SharedStore) getSharedKeys() []Key {
 	return keys
 }
 
-func (s *SharedStore) getLogger() *logrus.Entry {
+func (s *SharedStore) getLogger() *logging.Entry {
 	return log.WithFields(logrus.Fields{
 		"storeName": s.name,
 	})

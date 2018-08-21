@@ -23,7 +23,7 @@ import (
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "node")
 
-func (n *Node) getLogger() *logrus.Entry {
+func (n *Node) getLogger() *logging.Entry {
 	return log.WithFields(logrus.Fields{
 		logfields.NodeName: n.Fullname(),
 	})

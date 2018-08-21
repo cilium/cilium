@@ -23,6 +23,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 
 	"github.com/sirupsen/logrus"
 )
@@ -82,7 +83,7 @@ func newCache(backend kvstore.BackendOperations, prefix string) cache {
 
 type waitChan chan bool
 
-func (c *cache) getLogger() *logrus.Entry {
+func (c *cache) getLogger() *logging.Entry {
 	status, err := c.backend.Status()
 
 	return log.WithFields(logrus.Fields{
@@ -177,7 +178,7 @@ func (c *cache) start(a *Allocator) waitChan {
 
 					switch event.Typ {
 					case kvstore.EventTypeCreate:
-						kvstore.Trace("Adding id to cache", nil, debugFields.Data)
+						kvstore.Trace("Adding id to cache", nil, debugFields.Data())
 						c.nextCache[id] = key
 						if key != nil {
 							c.nextKeyCache[key.GetKey()] = id
@@ -185,7 +186,7 @@ func (c *cache) start(a *Allocator) waitChan {
 						a.idPool.Remove(id)
 
 					case kvstore.EventTypeModify:
-						kvstore.Trace("Modifying id in cache", nil, debugFields.Data)
+						kvstore.Trace("Modifying id in cache", nil, debugFields.Data())
 						if k, ok := c.nextCache[id]; ok {
 							delete(c.nextKeyCache, k.GetKey())
 						}
@@ -196,7 +197,7 @@ func (c *cache) start(a *Allocator) waitChan {
 						}
 
 					case kvstore.EventTypeDelete:
-						kvstore.Trace("Removing id from cache", nil, debugFields.Data)
+						kvstore.Trace("Removing id from cache", nil, debugFields.Data())
 
 						if k, ok := c.nextCache[id]; ok && k != nil {
 							delete(c.nextKeyCache, k.GetKey())

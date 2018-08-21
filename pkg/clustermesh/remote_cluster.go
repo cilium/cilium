@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/allocator"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/node"
 
 	"github.com/sirupsen/logrus"
@@ -81,7 +82,7 @@ var (
 	skipKvstoreConnection bool
 )
 
-func (rc *remoteCluster) getLogger() *logrus.Entry {
+func (rc *remoteCluster) getLogger() *logging.Entry {
 	var (
 		status string
 		err    error

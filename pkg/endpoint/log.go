@@ -26,7 +26,7 @@ var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "endpoint")
 // logger returns a logrus object with EndpointID, ContainerID and the Endpoint
 // revision fields.
 // Note: You must hold Endpoint.Mutex for reading
-func (e *Endpoint) getLogger() *logrus.Entry {
+func (e *Endpoint) getLogger() *logging.Entry {
 	e.updateLogger()
 
 	e.loggerMutex.RLock()
@@ -51,14 +51,15 @@ func (e *Endpoint) updateLogger() {
 	//   endpoint from the logger.
 	// - The debug option on the endpoint is true, and the logger is not debug,
 	//   or vice versa.
+	loggerData := e.logger.Data()
 	shouldUpdate := e.logger == nil || e.Options == nil ||
-		e.logger.Data[logfields.EndpointID] != e.ID ||
-		e.logger.Data[logfields.ContainerID] != containerID ||
-		e.logger.Data[logfields.PolicyRevision] != e.policyRevision ||
-		e.logger.Data[logfields.IPv4] != e.IPv4.String() ||
-		e.logger.Data[logfields.IPv6] != e.IPv6.String() ||
-		e.logger.Data[logfields.K8sPodName] != podName ||
-		e.Options.IsEnabled("Debug") != (e.logger.Level == logrus.DebugLevel)
+		loggerData[logfields.EndpointID] != e.ID ||
+		loggerData[logfields.ContainerID] != containerID ||
+		loggerData[logfields.PolicyRevision] != e.policyRevision ||
+		loggerData[logfields.IPv4] != e.IPv4.String() ||
+		loggerData[logfields.IPv6] != e.IPv6.String() ||
+		loggerData[logfields.K8sPodName] != podName ||
+		e.Options.IsEnabled("Debug") != (e.logger.Level() == logrus.DebugLevel)
 
 	// do nothing if we do not need an update
 	if !shouldUpdate {
@@ -71,7 +72,7 @@ func (e *Endpoint) updateLogger() {
 	// If this endpoint is set to debug ensure it will print debug by giving it
 	// an independent logger
 	if e.Options != nil && e.Options.IsEnabled("Debug") {
-		baseLogger = logging.InitializeDefaultLogger()
+		baseLogger = logging.NewLogger()
 		baseLogger.SetLevel(logrus.DebugLevel)
 	}
 
