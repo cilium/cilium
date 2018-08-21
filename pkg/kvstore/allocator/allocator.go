@@ -196,6 +196,10 @@ type Allocator struct {
 	// stopGC is the channel used to stop the garbage collector
 	stopGC chan struct{}
 
+	// initialListDone is a channel that is closed when the initial
+	// synchronization has completed
+	initialListDone waitChan
+
 	// idPool maintains a pool of available ids for allocation.
 	idPool *idPool
 }
@@ -269,11 +273,13 @@ func NewAllocator(basePath string, typ AllocatorKey, opts ...AllocatorOption) (*
 
 	a.idPool = newIDPool(a.min, a.max)
 
+	a.initialListDone = a.mainCache.start(a)
 	go func() {
-		if err := a.mainCache.startAndWait(a); err != nil {
-			log.WithError(err).Fatalf("Unable to watch allocation prefix")
+		select {
+		case <-a.initialListDone:
+		case <-time.After(listTimeout):
+			log.Fatalf("Timeout while waiting for initial allocator state")
 		}
-
 		a.startGC()
 	}()
 
@@ -321,6 +327,11 @@ func (a *Allocator) Delete() {
 	if a.events != nil {
 		close(a.events)
 	}
+}
+
+// WaitForInitialSync waits until the initial sync is complete
+func (a *Allocator) WaitForInitialSync() {
+	<-a.initialListDone
 }
 
 // lockPath locks a key in the scope of an allocator
