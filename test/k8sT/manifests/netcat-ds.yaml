@@ -12,7 +12,8 @@ spec:
     spec:
       containers:
       - name: netcat
-        image: docker.io/cilium/demo-client
+        image: docker.io/cilium/demo-client:latest
+        imagePullPolicy: IfNotPresent
         command: [ "sleep" ]
         args:
           - "1000h"

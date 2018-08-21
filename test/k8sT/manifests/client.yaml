@@ -9,6 +9,7 @@ spec:
   containers:
   - name: app-frontend
     image: docker.io/cilium/connectivity-container:v1.0
+    imagePullPolicy: IfNotPresent
     command: [ "sleep" ]
     args:
       - "1000h"

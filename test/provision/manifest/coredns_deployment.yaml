@@ -33,7 +33,7 @@ spec:
       - args:
         - -conf
         - /etc/coredns/Corefile
-        image: coredns/coredns:1.0.6
+        image: docker.io/coredns/coredns:1.0.6
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 5

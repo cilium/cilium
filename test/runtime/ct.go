@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	serverImage = "httpd"
+	serverImage = "docker.io/library/httpd:2.4.34"
 	ctCleanUpNC = "ct-clean-up-nc.py"
 
 	// Change to "<=" if the pkg/endpointmanager/conntrack.go:GcInterval is 10

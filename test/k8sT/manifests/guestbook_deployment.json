@@ -25,7 +25,8 @@
             "spec":{
                 "containers":[{
                     "name":"redis-master",
-                    "image":"redis",
+                    "image":"docker.io/library/redis:4.0.11",
+                    "imagePullPolicy": "IfNotPresent",
                     "ports":[{
                         "name":"redis-server",
                         "containerPort":6379
@@ -88,6 +89,7 @@
                 "containers":[{
                     "name":"redis-slave",
                     "image":"gcr.io/google_samples/gb-redisslave:v1",
+                    "imagePullPolicy": "IfNotPresent",
                     "ports":[{
                         "name":"redis-server",
                         "containerPort":6379
@@ -145,7 +147,8 @@
             "spec":{
                 "containers":[{
                     "name":"guestbook",
-                    "image":"kubernetes/guestbook:v2",
+                    "image":"docker.io/kubernetes/guestbook:v2",
+                    "imagePullPolicy": "IfNotPresent",
                     "ports":[{
                         "name":"http-server",
                         "containerPort":3000

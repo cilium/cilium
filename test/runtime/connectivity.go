@@ -177,7 +177,7 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 	Context("With CNI", func() {
 		var (
 			cniPlugin   = "/opt/cni/bin/cilium-cni"
-			dockerImage = "busybox:latest"
+			dockerImage = "docker.io/library/busybox:1.28.0"
 			cniServer   = "cni-server"
 			cniClient   = "cni-client"
 			netDPath    = "/etc/cni/net.d/"
@@ -205,7 +205,7 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 		AfterEach(func() {
 			vm.ContainerRm(cniServer)
 			vm.ContainerRm(cniClient)
-			vm.Exec("docker rm -f $(docker ps --filter ancestor=busybox:latest --format '{{.ID}}')")
+			vm.Exec("docker rm -f $(docker ps --filter ancestor=docker.io/library/busybox:1.28.0 --format '{{.ID}}')")
 		})
 
 		runCNIContainer := func(name string, label string) {
