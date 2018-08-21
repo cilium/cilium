@@ -479,6 +479,10 @@ type Endpoint struct {
 	// cleaned when this endpoint was first created
 	ctCleaned bool
 
+	ingressPolicy bool
+
+	egressPolicy bool
+
 	///////////////////////
 	// DEPRECATED FIELDS //
 	///////////////////////
@@ -488,6 +492,49 @@ type Endpoint struct {
 	//
 	// Deprecated: Use Options instead.
 	DeprecatedOpts deprecatedOptions `json:"Opts"`
+}
+
+func (e *Endpoint) IngressEnforced() bool {
+	e.UnconditionalRLock()
+	ingress := e.ingressPolicy
+	e.RUnlock()
+	return ingress
+}
+
+func (e *Endpoint) IngressEnforcedUnlocked() bool {
+	return e.ingressPolicy
+}
+
+func (e *Endpoint) EgressEnforcedUnlocked() bool {
+	return e.egressPolicy
+}
+
+func (e *Endpoint) EgressEnforced() bool {
+	e.UnconditionalRLock()
+	egress := e.egressPolicy
+	e.RUnlock()
+	return egress
+}
+
+func (e *Endpoint) SetIngressPolicy(ingress bool) {
+	e.UnconditionalLock()
+	e.ingressPolicy = ingress
+	e.Unlock()
+
+}
+
+func (e *Endpoint) SetEgressPolicy(egress bool) {
+	e.UnconditionalLock()
+	e.egressPolicy = egress
+	e.Unlock()
+}
+
+func (e *Endpoint) SetIngressPolicyLocked(egress bool) {
+	e.ingressPolicy = egress
+}
+
+func (e *Endpoint) SetEgressPolicyLocked(egress bool) {
+	e.egressPolicy = egress
 }
 
 // WaitForProxyCompletions blocks until all proxy changes have been completed.
@@ -968,8 +1015,8 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 		}
 	}
 
-	policyIngressEnabled := e.Options.IsEnabled(option.IngressPolicy)
-	policyEgressEnabled := e.Options.IsEnabled(option.EgressPolicy)
+	policyIngressEnabled := e.ingressPolicy
+	policyEgressEnabled := e.egressPolicy
 
 	policyEnabled := models.EndpointPolicyEnabledNone
 	switch {

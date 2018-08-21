@@ -303,8 +303,8 @@ func (e *Endpoint) computeDesiredL3PolicyMapEntries(repo *policy.Repository, des
 		egressCtx.Trace = policy.TRACE_ENABLED
 	}
 
-	ingressPolicyEnabled := e.Options.IsEnabled(option.IngressPolicy)
-	egressPolicyEnabled := e.Options.IsEnabled(option.EgressPolicy)
+	ingressPolicyEnabled := e.ingressPolicy
+	egressPolicyEnabled := e.egressPolicy
 
 	if !ingressPolicyEnabled {
 		e.getLogger().Debug("ingress policy is disabled, which equates to allow-all; allowing all identities")
@@ -384,14 +384,6 @@ func (e *Endpoint) regenerateL3Policy(repo *policy.Repository, revision uint64) 
 	}
 
 	return valid, err
-}
-
-// IngressOrEgressIsEnforced returns true if either ingress or egress is in
-// enforcement mode or if the global policy enforcement is enabled.
-func (e *Endpoint) IngressOrEgressIsEnforced() bool {
-	return policy.GetPolicyEnabled() == option.AlwaysEnforce ||
-		e.Options.IsEnabled(option.IngressPolicy) ||
-		e.Options.IsEnabled(option.EgressPolicy)
 }
 
 // must be called with endpoint.Mutex held for reading
@@ -545,6 +537,10 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (isPolicyComp bool, err error) 
 
 	e.prevIdentityCache = labelsMap
 
+	// Ideally we should be able to short circuit the other functions which
+	// iterate over the rules here to just allow-all?
+	e.ingressPolicy, e.egressPolicy = owner.EnableEndpointPolicyEnforcement(e)
+
 	// Skip L4 policy recomputation if possible. However, the rest of the
 	// policy computation still needs to be done for each endpoint separately.
 	l4PolicyChanged := false
@@ -568,6 +564,8 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (isPolicyComp bool, err error) 
 		e.getLogger().Debug("regeneration of L3 (CIDR) policy caused policy change")
 	}
 
+	// no failures after this point
+	// Note - endpoint policy enforcement must be determined BEFORE this function!
 	e.computeDesiredPolicyMapState(repo)
 
 	// If we are in this function, then policy has been calculated.
@@ -617,7 +615,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (isPolicyComp bool, err error) 
 // to the endpoint, as well as the daemon's policy enforcement, may override
 // configuration changes which were made via the API that were provided in opts.
 // Must be called with endpoint mutex held.
-func (e *Endpoint) updateAndOverrideEndpointOptions(owner Owner, opts models.ConfigurationMap) (optsChanged bool) {
+func (e *Endpoint) updateAndOverrideEndpointOptions(opts models.ConfigurationMap) (optsChanged bool) {
 	if opts == nil {
 		opts = make(models.ConfigurationMap)
 	}
@@ -626,27 +624,6 @@ func (e *Endpoint) updateAndOverrideEndpointOptions(owner Owner, opts models.Con
 	if e.DesiredL4Policy != nil {
 		if e.DesiredL4Policy.RequiresConntrack() {
 			opts[option.Conntrack] = optionEnabled
-		}
-	}
-
-	ingress, egress := owner.EnableEndpointPolicyEnforcement(e)
-
-	opts[option.IngressPolicy] = optionDisabled
-	opts[option.EgressPolicy] = optionDisabled
-
-	if !ingress && !egress {
-		e.getLogger().Debug("ingress and egress policy enforcement not enabled")
-	} else {
-		if ingress && egress {
-			e.getLogger().Debug("policy enforcement for ingress and egress enabled")
-			opts[option.IngressPolicy] = optionEnabled
-			opts[option.EgressPolicy] = optionEnabled
-		} else if ingress {
-			e.getLogger().Debug("policy enforcement for ingress enabled")
-			opts[option.IngressPolicy] = optionEnabled
-		} else {
-			e.getLogger().Debug("policy enforcement for egress enabled")
-			opts[option.EgressPolicy] = optionEnabled
 		}
 	}
 
@@ -877,7 +854,9 @@ func (e *Endpoint) TriggerPolicyUpdatesLocked(owner Owner, opts models.Configura
 		return false, fmt.Errorf("%s: %s", e.StringID(), err)
 	}
 
-	optionsChanged := e.updateAndOverrideEndpointOptions(owner, opts)
+	// Note that this *must* be called after regeneratePolicy because options
+	// can be changed based on the endpoint's desired state for policy.
+	optionsChanged := e.updateAndOverrideEndpointOptions(opts)
 	log.Debugf("options changed for endpoint: %v", optionsChanged)
 	needToRegenerateBPF := optionsChanged || policyChanged
 	log.Debugf("needToRegenerateBPF: %v", needToRegenerateBPF)
