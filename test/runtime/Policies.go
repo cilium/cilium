@@ -158,7 +158,7 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 			ExpectEndpointSummary(vm, helpers.Disabled, 0)
 
 			By("Create a new container")
-			vm.ContainerCreate("new", "cilium/demo-httpd", helpers.CiliumDockerNetwork, "-l id.new")
+			vm.ContainerCreate("new", "docker.io/cilium/demo-httpd:latest", helpers.CiliumDockerNetwork, "-l id.new")
 			ExpectEndpointSummary(vm, helpers.Enabled, 2)
 			ExpectEndpointSummary(vm, helpers.Disabled, 0)
 			vm.ContainerRm("new")
@@ -202,7 +202,7 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 			ExpectEndpointSummary(vm, helpers.Enabled, 0)
 			ExpectEndpointSummary(vm, helpers.Disabled, 1)
 
-			vm.ContainerCreate("new", "cilium/demo-httpd", helpers.CiliumDockerNetwork, "-l id.new")
+			vm.ContainerCreate("new", "docker.io/cilium/demo-httpd:latest", helpers.CiliumDockerNetwork, "-l id.new")
 			vm.WaitEndpointsReady()
 
 			ExpectEndpointSummary(vm, helpers.Enabled, 0)

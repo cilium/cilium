@@ -33,7 +33,8 @@ spec:
       serviceAccountName: app1-account
       containers:
       - name: web
-        image: docker.io/cilium/demo-httpd
+        image: docker.io/cilium/demo-httpd:latest
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
       nodeSelector:
@@ -55,7 +56,8 @@ spec:
       serviceAccountName: app2-account
       containers:
       - name: app-frontend
-        image: docker.io/cilium/demo-client
+        image: docker.io/cilium/demo-client:latest
+        imagePullPolicy: IfNotPresent
         command: [ "sleep" ]
         args:
           - "1000h"
@@ -76,7 +78,8 @@ spec:
     spec:
       containers:
       - name: app-frontend
-        image: docker.io/cilium/demo-client
+        image: docker.io/cilium/demo-client:latest
+        imagePullPolicy: IfNotPresent
         command: [ "sleep" ]
         args:
           - "1000h"

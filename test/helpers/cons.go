@@ -87,10 +87,10 @@ const (
 	HostDockerNetwork = "host"
 
 	// NetperfImage is the Docker image used for performance testing
-	NetperfImage = "tgraf/netperf"
+	NetperfImage = "docker.io/tgraf/netperf:latest"
 
 	// HttpdImage is the image used for starting an HTTP server.
-	HttpdImage = "cilium/demo-httpd"
+	HttpdImage = "docker.io/cilium/demo-httpd:latest"
 
 	// Names of commonly used containers in tests.
 	Httpd1 = "httpd1"
@@ -162,7 +162,7 @@ const (
 	KubectlPolicyNameLabel      = k8sConst.PolicyLabelName
 	KubectlPolicyNameSpaceLabel = k8sConst.PolicyLabelNamespace
 
-	StableImage = "cilium/cilium:v1.1.1"
+	StableImage = "docker.io/cilium/cilium:v1.1.1"
 
 	configMap = "ConfigMap"
 	daemonSet = "DaemonSet"
@@ -201,7 +201,7 @@ const (
 )
 
 // NightlyStableUpgradesFrom the cilium images to update from in Nightly test.
-var NightlyStableUpgradesFrom = []string{"cilium/cilium:v1.0.5"}
+var NightlyStableUpgradesFrom = []string{"docker.io/cilium/cilium:v1.0.5"}
 
 // CiliumDSPath is the default Cilium DaemonSet path to use in all test.
 var CiliumDSPath = "cilium_ds.jsonnet"

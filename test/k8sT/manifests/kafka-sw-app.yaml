@@ -13,6 +13,7 @@ spec:
       containers:
       - name: kafka
         image: docker.io/wurstmeister/kafka:1.1.0
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9092
         env:
@@ -52,7 +53,8 @@ spec:
     spec:
       containers:
       - name: zookeeper
-        image: docker.io/digitalwonderland/zookeeper
+        image: docker.io/digitalwonderland/zookeeper:latest
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 2181
 ---
@@ -101,7 +103,8 @@ spec:
     spec:
       containers:
       - name: empire-hq
-        image: docker.io/cilium/kafkaclient
+        image: docker.io/cilium/kafkaclient:latest
+        imagePullPolicy: IfNotPresent
       nodeSelector:
         "kubernetes.io/hostname": k8s1
 ---
@@ -120,7 +123,8 @@ spec:
     spec:
       containers:
       - name: empire-outpost-8888
-        image: docker.io/cilium/kafkaclient
+        image: docker.io/cilium/kafkaclient:latest
+        imagePullPolicy: IfNotPresent
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -137,7 +141,8 @@ spec:
     spec:
       containers:
       - name: empire-outpost-9999
-        image: docker.io/cilium/kafkaclient
+        image: docker.io/cilium/kafkaclient:latest
+        imagePullPolicy: IfNotPresent
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -153,4 +158,5 @@ spec:
     spec:
       containers:
       - name: empire-backup
-        image: docker.io/cilium/kafkaclient
+        image: docker.io/cilium/kafkaclient:latest
+        imagePullPolicy: IfNotPresent

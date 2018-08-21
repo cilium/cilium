@@ -21,6 +21,7 @@ spec:
   containers:
   - name: web
     image: docker.io/cilium/connectivity-container:v1.0
+    imagePullPolicy: IfNotPresent
     ports:
     - containerPort: 80
     volumeMounts:

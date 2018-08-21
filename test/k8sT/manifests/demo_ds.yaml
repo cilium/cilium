@@ -12,7 +12,8 @@ spec:
     spec:
       containers:
       - name: web
-        image: docker.io/cilium/demo-httpd
+        image: docker.io/cilium/demo-httpd:latest
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
       tolerations:
@@ -35,7 +36,8 @@ spec:
     spec:
       containers:
       - name: web
-        image: docker.io/cilium/demo-client
+        image: docker.io/cilium/demo-client:latest
+        imagePullPolicy: IfNotPresent
         command: [ "sleep" ]
         args:
           - "1000h"
