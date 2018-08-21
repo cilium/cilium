@@ -33,7 +33,7 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "proxy-logger")
+	log = logging.DefaultLogger.WithSubsystem("proxy-logger")
 
 	logMutex lock.Mutex
 	logger   *lumberjack.Logger
@@ -289,7 +289,7 @@ func (lr *LogRecord) ApplyTags(tags ...LogTag) {
 	}
 }
 
-func (lr *LogRecord) getLogFields() *logrus.Entry {
+func (lr *LogRecord) getLogFields() *logging.Entry {
 	fields := log.WithFields(logrus.Fields{
 		FieldType:    lr.Type,
 		FieldVerdict: lr.Verdict,

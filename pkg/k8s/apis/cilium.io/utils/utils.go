@@ -44,7 +44,7 @@ const (
 
 var (
 	// log is the k8s package logger object.
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsysK8s)
+	log = logging.DefaultLogger.WithSubsystem(subsysK8s)
 )
 
 // ExtractNamespace extracts the namespace of ObjectMeta.

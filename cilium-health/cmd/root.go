@@ -44,7 +44,7 @@ var (
 	client    *clientPkg.Client
 	cmdRefDir string
 	server    *serverPkg.Server
-	log       = logging.DefaultLogger.WithField(logfields.LogSubsys, targetName)
+	log       = logging.DefaultLogger.WithSubsystem(targetName)
 	logOpts   = make(map[string]string)
 )
 
@@ -112,9 +112,9 @@ func initConfig() {
 	viper.AddConfigPath("$HOME")          // adding home directory as first search path
 
 	if viper.GetBool("debug") {
-		log.Level = logrus.DebugLevel
+		log.SetLevel(logrus.DebugLevel)
 	} else {
-		log.Level = logrus.InfoLevel
+		log.SetLevel(logrus.InfoLevel)
 	}
 
 	if viper.GetBool("daemon") {

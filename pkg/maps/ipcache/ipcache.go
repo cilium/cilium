@@ -23,12 +23,11 @@ import (
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"golang.org/x/sys/unix"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-ipcache")
+var log = logging.DefaultLogger.WithSubsystem("map-ipcache")
 
 const (
 	// MaxEntries is the maximum number of keys that can be present in the

@@ -27,7 +27,7 @@ import (
 	k8sLbls "k8s.io/apimachinery/pkg/labels"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "policy-api")
+var log = logging.DefaultLogger.WithSubsystem("policy-api")
 
 // EndpointSelector is a wrapper for k8s LabelSelector.
 type EndpointSelector struct {

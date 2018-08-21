@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "bpf")
+var log = logging.DefaultLogger.WithSubsystem("bpf")
 
 const (
 	// BPF map type constants. Must match enum bpf_map_type from linux/bpf.h

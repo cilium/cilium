@@ -21,9 +21,9 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "node")
+var log = logging.DefaultLogger.WithSubsystem("node")
 
-func (n *Node) getLogger() *logrus.Entry {
+func (n *Node) getLogger() *logging.Entry {
 	return log.WithFields(logrus.Fields{
 		logfields.NodeName: n.Fullname(),
 	})

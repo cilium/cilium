@@ -23,7 +23,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/monitor"
 
@@ -33,7 +32,7 @@ import (
 var (
 	// Metrics is the bpf metrics map
 	Metrics      *bpf.Map
-	log          = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-metrics")
+	log          = logging.DefaultLogger.WithSubsystem("map-metrics")
 	possibleCpus int
 )
 

@@ -19,13 +19,12 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/uuid"
 
 	"github.com/sirupsen/logrus"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "backoff")
+var log = logging.DefaultLogger.WithSubsystem("backoff")
 
 // Exponential implements an exponential backoff
 type Exponential struct {

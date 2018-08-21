@@ -28,7 +28,7 @@ import (
 )
 
 var (
-	log        = logging.DefaultLogger.WithField(logfields.LogSubsys, "cilium-docker")
+	log        = logging.DefaultLogger.WithSubsystem("cilium-docker")
 	pluginPath string
 	driverSock string
 	debug      bool

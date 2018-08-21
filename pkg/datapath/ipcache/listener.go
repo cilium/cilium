@@ -33,7 +33,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "datapath-ipcache")
+var log = logging.DefaultLogger.WithSubsystem("datapath-ipcache")
 
 // datapath is an interface to the datapath implementation, used to apply
 // changes that are made within this module.

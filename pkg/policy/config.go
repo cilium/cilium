@@ -17,11 +17,10 @@ package policy
 import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 var (
-	log          = logging.DefaultLogger.WithField(logfields.LogSubsys, "policy")
+	log          = logging.DefaultLogger.WithSubsystem("policy")
 	mutex        lock.RWMutex // Protects enablePolicy
 	enablePolicy string       // Whether policy enforcement is enabled.
 )

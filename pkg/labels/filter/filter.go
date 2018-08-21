@@ -25,11 +25,10 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 var (
-	log                  = logging.DefaultLogger.WithField(logfields.LogSubsys, "labels-filter")
+	log                  = logging.DefaultLogger.WithSubsystem("labels-filter")
 	validLabelPrefixesMU lock.RWMutex
 	validLabelPrefixes   *labelPrefixCfg // Label prefixes used to filter from all labels
 )

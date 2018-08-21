@@ -42,7 +42,7 @@ const (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "lock-lib")
+	log = logging.DefaultLogger.WithSubsystem("lock-lib")
 
 	// selfishThresholdMsg is the message that will be printed when a lock was
 	// held for more than selfishThresholdSec.

@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/sirupsen/logrus"
 )
@@ -45,7 +44,7 @@ const (
 var (
 	controllers controller.Manager
 
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "shared-store")
+	log = logging.DefaultLogger.WithSubsystem("shared-store")
 )
 
 // KeyCreator is the function to create a new empty Key instances. Store
@@ -340,7 +339,7 @@ func (s *SharedStore) getSharedKeys() []Key {
 	return keys
 }
 
-func (s *SharedStore) getLogger() *logrus.Entry {
+func (s *SharedStore) getLogger() *logging.Entry {
 	return log.WithFields(logrus.Fields{
 		"storeName": s.name,
 	})
