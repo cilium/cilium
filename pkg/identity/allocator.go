@@ -96,6 +96,12 @@ func InitIdentityAllocator(owner IdentityAllocatorOwner) {
 	})
 }
 
+// WaitForInitialIdentities waits for the initial set of security identities to
+// have been received and populated into the allocator cache
+func WaitForInitialIdentities() {
+	identityAllocator.WaitForInitialSync()
+}
+
 // IdentityAllocationIsLocal returns true if a call to AllocateIdentity with
 // the given labels would not require accessing the KV store to allocate the
 // identity.
