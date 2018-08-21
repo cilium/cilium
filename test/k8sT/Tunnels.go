@@ -76,7 +76,7 @@ var _ = Describe("K8sTunnelTest", func() {
 
 		It("Check VXLAN mode", func() {
 
-			err := kubectl.CiliumInstall(helpers.CiliumDSPath)
+			err := kubectl.CiliumInstall(helpers.CiliumDefaultDSPatch, helpers.CiliumConfigMapPatch)
 			Expect(err).To(BeNil(), "Cilium cannot be installed")
 
 			ExpectCiliumReady(kubectl)
@@ -120,7 +120,7 @@ var _ = Describe("K8sTunnelTest", func() {
 
 		It("Check Geneve mode", func() {
 
-			err := kubectl.CiliumInstall("cilium_ds_geneve.jsonnet")
+			err := kubectl.CiliumInstall("cilium-ds-patch-geneve.yaml", helpers.CiliumConfigMapPatch)
 			Expect(err).To(BeNil(), "Cilium cannot be installed")
 
 			ExpectCiliumReady(kubectl)

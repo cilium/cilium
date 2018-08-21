@@ -42,9 +42,10 @@ import (
 
 const (
 	// KubectlCmd Kubernetes controller command
-	KubectlCmd    = "kubectl"
-	manifestsPath = "k8sT/manifests/"
-	kubeDNSLabel  = "k8s-app=kube-dns"
+	KubectlCmd      = "kubectl"
+	manifestsPath   = "k8sT/manifests/"
+	descriptorsPath = "../examples/kubernetes"
+	kubeDNSLabel    = "k8s-app=kube-dns"
 
 	// DNSHelperTimeout is a predefined timeout value for K8s DNS commands. It
 	// must be larger than 5 minutes because kubedns has a hardcoded resync
@@ -739,27 +740,89 @@ func (kub *Kubectl) WaitCleanAllTerminatingPods() error {
 	return err
 }
 
-// CiliumInstall receives a manifestName which needs to be in jsonnet format
-// and will be used in `kubecfg show` and applied to Kubernetes. It will return
-// a error if any action fails.
-func (kub *Kubectl) CiliumInstall(manifestName string) error {
-	ciliumDSManifest := ManifestGet(manifestName)
-	// debugYaml only dumps the full created yaml file to the test output if
-	// the cilium manifest can not be created correctly.
-	debugYaml := func() {
-		_ = kub.Exec(fmt.Sprintf("kubecfg show %s", ciliumDSManifest))
+// CiliumInstall installs all Cilium descriptors into kubernetes.
+// dsPatchName corresponds to the DaemonSet patch that will be applied to the
+// original Cilium DaemonSet descriptor.
+// dsPatchName corresponds to the ConfigMap patch that will be applied to the
+// original Cilium ConfigMap descriptor.
+// Returns an error if any patch or if any original descriptors files were not
+// found.
+func (kub *Kubectl) CiliumInstall(dsPatchName, cmPatchName string) error {
+	cmPathname := GetK8sDescriptor("cilium-cm.yaml")
+	if cmPathname == "" {
+		return fmt.Errorf("Cilium ConfigMap descriptor not found")
+	}
+	dsPathname := GetK8sDescriptor("cilium-ds.yaml")
+	if dsPathname == "" {
+		return fmt.Errorf("Cilium DaemonSet descriptor not found")
+	}
+	rbacPathname := GetK8sDescriptor("cilium-rbac.yaml")
+	if rbacPathname == "" {
+		return fmt.Errorf("Cilium RBAC descriptor not found")
+	}
+	saPathname := GetK8sDescriptor("cilium-sa.yaml")
+	if saPathname == "" {
+		return fmt.Errorf("Cilium ServiceAccount descriptor not found")
 	}
 
-	res := kub.Exec(fmt.Sprintf("kubecfg validate %s", ciliumDSManifest))
-	if !res.WasSuccessful() {
-		debugYaml()
-		return fmt.Errorf(res.GetDebugMessage())
+	deployPatch := func(original, patch string) error {
+		// debugYaml only dumps the full created yaml file to the test output if
+		// the cilium manifest can not be created correctly.
+		debugYaml := func(original, patch string) {
+			_ = kub.Exec(fmt.Sprintf("kubectl patch --filename='%s' --patch \"$(cat '%s')\" --local --dry-run -o yaml", original, patch))
+		}
+
+		// validation 1st
+		res := kub.Exec(fmt.Sprintf("kubectl patch --filename='%s' --patch \"$(cat '%s')\" --local --dry-run", original, patch))
+		if !res.WasSuccessful() {
+			debugYaml(original, patch)
+			return fmt.Errorf(res.GetDebugMessage())
+		}
+
+		res = kub.Exec(fmt.Sprintf("kubectl patch --filename='%s' --patch \"$(cat '%s')\" --local -o yaml | kubectl apply -f -", original, patch))
+		if !res.WasSuccessful() {
+			debugYaml(original, patch)
+			return fmt.Errorf(res.GetDebugMessage())
+		}
+		return nil
 	}
 
-	res = kub.Exec(fmt.Sprintf("kubecfg update %s", ciliumDSManifest))
-	if !res.WasSuccessful() {
-		debugYaml()
-		return fmt.Errorf(res.GetDebugMessage())
+	deployOriginal := func(original string) error {
+		// debugYaml only dumps the full created yaml file to the test output if
+		// the cilium manifest can not be created correctly.
+		debugYaml := func(original string) {
+			_ = kub.Exec(fmt.Sprintf("kubectl apply --filename='%s' --dry-run -o yaml", original))
+		}
+
+		// validation 1st
+		res := kub.Exec(fmt.Sprintf("kubectl apply --filename='%s' --dry-run", original))
+		if !res.WasSuccessful() {
+			debugYaml(original)
+			return fmt.Errorf(res.GetDebugMessage())
+		}
+
+		res = kub.Exec(fmt.Sprintf("kubectl apply --filename='%s'", original))
+		if !res.WasSuccessful() {
+			debugYaml(original)
+			return fmt.Errorf(res.GetDebugMessage())
+		}
+		return nil
+	}
+
+	if err := deployOriginal(saPathname); err != nil {
+		return err
+	}
+
+	if err := deployOriginal(rbacPathname); err != nil {
+		return err
+	}
+
+	if err := deployPatch(cmPathname, ManifestGet(cmPatchName)); err != nil {
+		return err
+	}
+
+	if err := deployPatch(dsPathname, ManifestGet(dsPatchName)); err != nil {
+		return err
 	}
 	return nil
 }

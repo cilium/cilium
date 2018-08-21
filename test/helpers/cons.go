@@ -204,8 +204,11 @@ const (
 // NightlyStableUpgradesFrom the cilium images to update from in Nightly test.
 var NightlyStableUpgradesFrom = []string{"docker.io/cilium/cilium:v1.0.5"}
 
-// CiliumDSPath is the default Cilium DaemonSet path to use in all test.
-var CiliumDSPath = "cilium_ds.jsonnet"
+// CiliumDefaultDSPatch is the default Cilium DaemonSet patch to be used in all tests.
+const CiliumDefaultDSPatch = "cilium-ds-patch.yaml"
+
+// CiliumConfigMapPatch is the default Cilium ConfigMap patch to be used in all tests.
+const CiliumConfigMapPatch = "cilium-cm-patch.yaml"
 
 var checkLogsMessages = []string{panicMessage, deadLockHeader, segmentationFault, NACKreceived, RunInitFailed}
 var countLogsMessages = []string{contextDeadlineExceeded, ErrorLogs, WarningLogs, APIPanicked, selfishThresholdMsg}
