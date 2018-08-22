@@ -1462,6 +1462,24 @@ func mapValidateWalker(path string) error {
 	return nil
 }
 
+// TriggerRegeneration recompiles all base programs and all endpoint BPF
+// programs.
+//
+// If an error is returned, then no regeneration was successful. If no error
+// is returned, then the base programs were successfully regenerated, but
+// endpoints may or may not have successfully regenerated.
+//
+// The returned WaitGroup allows the caller to wait until all endpoints have
+// finished regenerating.
+func (d *Daemon) TriggerRegeneration(context string) (*sync.WaitGroup, error) {
+	log.Debugf("%s has changed; recompiling base programs", context)
+	if err := d.compileBase(); err != nil {
+		msg := fmt.Errorf("Unable to recompile base programs from %s: %s", context, err)
+		return nil, api.Error(PatchConfigFailureCode, msg)
+	}
+	return d.TriggerPolicyUpdates(true), nil
+}
+
 func changedOption(key string, value int, data interface{}) {
 	d := data.(*Daemon)
 	if key == option.Debug {
@@ -1536,14 +1554,9 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 
 	log.WithField("count", changes).Debug("Applied changes to daemon's configuration")
 
+	// Only recompile if configuration has changed.
 	if changes > 0 {
-		// Only recompile if configuration has changed.
-		log.Debug("daemon configuration has changed; recompiling base programs")
-		if err := d.compileBase(); err != nil {
-			msg := fmt.Errorf("Unable to recompile base programs: %s", err)
-			return api.Error(PatchConfigFailureCode, msg)
-		}
-		d.TriggerPolicyUpdates(true)
+		d.TriggerRegeneration("daemon configuration")
 	}
 
 	return NewPatchConfigOK()
