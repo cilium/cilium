@@ -2689,12 +2689,13 @@ func (e *Endpoint) garbageCollectConntrack(filter *ctmap.GCFilter) int {
 	return deletedIpv4 + deletedIpv6
 }
 
-// RunConntrackGC runs the conntrack garbace collector for the endpoint and the
+// RunConntrackGC runs the conntrack garbage collector for the endpoint and the
 // given filter.
 func (e *Endpoint) RunConntrackGC(filter *ctmap.GCFilter) {
 	e.UnconditionalLock()
-	e.garbageCollectConntrack(filter)
+	result := e.garbageCollectConntrack(filter)
 	e.Unlock()
+	metrics.ConntrackGC.WithLabelValues(e.StringID()).Set(float64(result))
 }
 
 func (e *Endpoint) scrubIPsInConntrackTableLocked() {

@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
@@ -117,6 +118,14 @@ var (
 		},
 		[]string{"endpoint_state"},
 	)
+
+	// ConntrackGC is the number of deleted entries on the conntrack table by
+	// the garbage collector process.
+	ConntrackGC = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: Namespace,
+		Name:      "conntrack_gc",
+		Help:      "Number of deleted entries in the conntrack table by the garbage collector process",
+	}, []string{logfields.EndpointID})
 
 	// Policy
 
@@ -267,6 +276,8 @@ func init() {
 	MustRegister(EndpointRegenerationTime)
 	MustRegister(EndpointRegenerationTimeSquare)
 	MustRegister(EndpointStateCount)
+
+	MustRegister(ConntrackGC)
 
 	MustRegister(PolicyCount)
 	MustRegister(PolicyRegenerationCount)

@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/metrics"
 
 	"github.com/sirupsen/logrus"
 )
@@ -42,7 +43,7 @@ const (
 func runGC(e *endpoint.Endpoint, isIPv6 bool, filter *ctmap.GCFilter) {
 	var file string
 	var mapType string
-
+	var metricLabel = "global"
 	// Even if the pointer points to nil, passing it directly to a function
 	// that receives an interface doesn't pass the nil through, so to avoid
 	// a segfault we check the pointer and directly pass nil here.
@@ -50,6 +51,7 @@ func runGC(e *endpoint.Endpoint, isIPv6 bool, filter *ctmap.GCFilter) {
 		mapType, file = ctmap.GetMapTypeAndPath(nil, isIPv6)
 	} else {
 		mapType, file = ctmap.GetMapTypeAndPath(e, isIPv6)
+		metricLabel = e.StringID()
 	}
 	m, err := bpf.OpenMap(file)
 	if err != nil {
@@ -69,6 +71,8 @@ func runGC(e *endpoint.Endpoint, isIPv6 bool, filter *ctmap.GCFilter) {
 			"count":        deleted,
 		}).Debug("Deleted filtered entries from map")
 	}
+
+	metrics.ConntrackGC.WithLabelValues(metricLabel).Set(float64(deleted))
 }
 
 // scrubAllNonRestoredIPs runs only when the cilium-agent starts, this function
