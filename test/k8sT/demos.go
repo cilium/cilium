@@ -26,7 +26,7 @@ import (
 )
 
 var (
-	starWarsDemoLinkRoot = "https://raw.githubusercontent.com/cilium/star-wars-demo/master/v1"
+	starWarsDemoLinkRoot = "https://raw.githubusercontent.com/cilium/star-wars-demo/v1.0"
 )
 
 func getStarWarsResourceLink(file string) string {
@@ -45,9 +45,8 @@ var _ = Describe("K8sDemosTest", func() {
 		backgroundCancel context.CancelFunc = func() { return }
 		backgroundError  error
 
-		deathStarYAMLLink = getStarWarsResourceLink("02-deathstar.yaml")
-		l4PolicyYAMLLink  = getStarWarsResourceLink("policy/l4_policy.yaml")
-		xwingYAMLLink     = getStarWarsResourceLink("03-xwing.yaml")
+		deathStarYAMLLink = getStarWarsResourceLink("01-deathstar.yaml")
+		xwingYAMLLink     = getStarWarsResourceLink("02-xwing.yaml")
 		l7PolicyYAMLLink  = getStarWarsResourceLink("policy/l7_policy.yaml")
 	)
 
@@ -84,7 +83,6 @@ var _ = Describe("K8sDemosTest", func() {
 	AfterEach(func() {
 		By("Deleting all resources created during test")
 		kubectl.Delete(l7PolicyYAMLLink)
-		kubectl.Delete(l4PolicyYAMLLink)
 		kubectl.Delete(deathStarYAMLLink)
 		kubectl.Delete(xwingYAMLLink)
 
@@ -112,11 +110,6 @@ var _ = Describe("K8sDemosTest", func() {
 		err := kubectl.WaitforPods(helpers.DefaultNamespace, "", 300)
 		Expect(err).Should(BeNil(), "Pods are not ready after timeout")
 
-		By("Applying policy and waiting for policy revision to increase in Cilium pods")
-		_, err = kubectl.CiliumPolicyAction(
-			helpers.KubeSystemNamespace, l4PolicyYAMLLink, helpers.KubectlApply, 300)
-		Expect(err).Should(BeNil(), "Unable to apply %s", l4PolicyYAMLLink)
-
 		By("Getting xwing pod names")
 		xwingPods, err := kubectl.GetPodNames(helpers.DefaultNamespace, allianceLabel)
 		Expect(err).Should(BeNil())
@@ -139,10 +132,6 @@ var _ = Describe("K8sDemosTest", func() {
 		res.ExpectSuccess("unable to curl %s/v1: %s", deathstarFQDN, res.Output())
 
 		By("Importing L7 Policy which restricts access to %q", exhaustPortPath)
-		_, err = kubectl.CiliumPolicyAction(
-			helpers.KubeSystemNamespace, l4PolicyYAMLLink, helpers.KubectlDelete, 300)
-		Expect(err).Should(BeNil(), "Unable to delete %s", l4PolicyYAMLLink)
-
 		_, err = kubectl.CiliumPolicyAction(
 			helpers.KubeSystemNamespace, l7PolicyYAMLLink, helpers.KubectlApply, 300)
 		Expect(err).Should(BeNil(), "Unable to apply %s", l7PolicyYAMLLink)
