@@ -273,6 +273,14 @@ type PolicyMapStateEntry struct {
 	ProxyPort uint16
 }
 
+func (p PolicyMapState) String() string {
+	str := ""
+	for policyKey, policyMapStateEntry := range p {
+		str = fmt.Sprintf("%skey: {%s} --> proxyport : {%d}\n", str, policyKey.String(), policyMapStateEntry.ProxyPort)
+	}
+	return str
+}
+
 // Endpoint represents a container or similar which can be individually
 // addresses on L3 with its own IP addresses. This structured is managed by the
 // endpoint manager in pkg/endpointmanager.
@@ -1244,6 +1252,7 @@ func (e *Endpoint) Allows(id identityPkg.NumericIdentity) bool {
 	e.UnconditionalRLock()
 	defer e.RUnlock()
 
+	e.getLogger().Debugf("checking whether endpoint allows ID: %d", id)
 	keyToLookup := policymap.PolicyKey{
 		Identity:         uint32(id),
 		TrafficDirection: policymap.Ingress.Uint8(),
@@ -1251,6 +1260,10 @@ func (e *Endpoint) Allows(id identityPkg.NumericIdentity) bool {
 
 	_, ok := e.desiredMapState[keyToLookup]
 	return ok
+}
+
+func (e *Endpoint) GetDesiredMapState() PolicyMapState {
+	return e.desiredMapState
 }
 
 // String returns endpoint on a JSON format.

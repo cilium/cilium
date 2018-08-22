@@ -15,6 +15,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -160,6 +161,8 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	c.Assert(ready, Equals, true)
 	buildSuccess := <-e.Regenerate(ds.d, "test")
 	c.Assert(buildSuccess, Equals, true)
+
+	fmt.Printf("endpoint desiredMapState: %s\n", e.GetDesiredMapState())
 	c.Assert(e.Allows(qaBarSecLblsCtx.ID), Equals, false)
 	c.Assert(e.Allows(prodBarSecLblsCtx.ID), Equals, false)
 	c.Assert(e.Allows(qaFooSecLblsCtx.ID), Equals, true)

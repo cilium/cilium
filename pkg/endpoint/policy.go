@@ -240,17 +240,14 @@ func (e *Endpoint) resolveL4Policy(repo *policy.Repository) (policyChanged bool,
 	return
 }
 
-func (e *Endpoint) computeDesiredPolicyMapState(owner Owner, labelsMap *identityPkg.IdentityCache,
-	repo *policy.Repository) {
+func (e *Endpoint) computeDesiredPolicyMapState(repo *policy.Repository) {
 	desiredPolicyKeys := make(PolicyMapState)
-	if e.prevIdentityCache != labelsMap {
-		e.prevIdentityCache = labelsMap
-	}
 	e.computeDesiredL4PolicyMapEntries(desiredPolicyKeys)
 	e.determineAllowLocalhost(desiredPolicyKeys)
 	e.determineAllowFromWorld(desiredPolicyKeys)
-	e.computeDesiredL3PolicyMapEntries(owner, labelsMap, repo, desiredPolicyKeys)
+	e.computeDesiredL3PolicyMapEntries(repo, desiredPolicyKeys)
 	e.desiredMapState = desiredPolicyKeys
+	e.getLogger().Debugf("desiredMapState: %s", e.desiredMapState)
 }
 
 // determineAllowLocalhost determines whether endpoint should be allowed to
@@ -288,7 +285,7 @@ func (e *Endpoint) determineAllowFromWorld(desiredPolicyKeys PolicyMapState) {
 	}
 }
 
-func (e *Endpoint) computeDesiredL3PolicyMapEntries(owner Owner, identityCache *identityPkg.IdentityCache, repo *policy.Repository, desiredPolicyKeys PolicyMapState) {
+func (e *Endpoint) computeDesiredL3PolicyMapEntries(repo *policy.Repository, desiredPolicyKeys PolicyMapState) {
 
 	if desiredPolicyKeys == nil {
 		desiredPolicyKeys = PolicyMapState{}
@@ -309,9 +306,18 @@ func (e *Endpoint) computeDesiredL3PolicyMapEntries(owner Owner, identityCache *
 	ingressPolicyEnabled := e.Options.IsEnabled(option.IngressPolicy)
 	egressPolicyEnabled := e.Options.IsEnabled(option.EgressPolicy)
 
+	if !ingressPolicyEnabled {
+		e.getLogger().Debug("ingress policy is disabled, which equates to allow-all; allowing all identities")
+	}
+
+	if !egressPolicyEnabled {
+		e.getLogger().Debug("egress policy is disabled, which equates to allow-all; allowing all identities")
+	}
+
 	// Only L3 (label-based) policy apply.
 	// Complexity increases linearly by the number of identities in the map.
-	for identity, labels := range *identityCache {
+	for identity, labels := range *e.prevIdentityCache {
+		e.getLogger().Debug("iterating over identity: %d", identity)
 		ingressCtx.From = labels
 		egressCtx.To = labels
 
@@ -537,6 +543,8 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (isPolicyComp bool, err error) 
 		return e.nextPolicyRevision > e.policyRevision, nil
 	}
 
+	e.prevIdentityCache = labelsMap
+
 	// Skip L4 policy recomputation if possible. However, the rest of the
 	// policy computation still needs to be done for each endpoint separately.
 	l4PolicyChanged := false
@@ -560,7 +568,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (isPolicyComp bool, err error) 
 		e.getLogger().Debug("regeneration of L3 (CIDR) policy caused policy change")
 	}
 
-	e.computeDesiredPolicyMapState(owner, labelsMap, repo)
+	e.computeDesiredPolicyMapState(repo)
 
 	// If we are in this function, then policy has been calculated.
 	if !e.PolicyCalculated {
@@ -597,7 +605,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (isPolicyComp bool, err error) 
 	// is the same as the endpoint's current policy revision; this indicates
 	// that no new rules have been added in the policy repository; if policy
 	// hasn't changed, and no new rules were added, then
-	policyChanged = policyChanged || e.nextPolicyRevision > e.policyRevision
+	policyChanged = policyChanged || e.nextPolicyRevision > e.policyRevision || forceRegeneration
 
 	return policyChanged, nil
 }
@@ -870,7 +878,9 @@ func (e *Endpoint) TriggerPolicyUpdatesLocked(owner Owner, opts models.Configura
 	}
 
 	optionsChanged := e.updateAndOverrideEndpointOptions(owner, opts)
+	log.Debugf("options changed for endpoint: %v", optionsChanged)
 	needToRegenerateBPF := optionsChanged || policyChanged
+	log.Debugf("needToRegenerateBPF: %v", needToRegenerateBPF)
 
 	// If it does not need datapath regeneration then we should set the policy
 	// revision with nextPolicyRevision.

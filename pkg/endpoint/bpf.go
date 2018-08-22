@@ -480,7 +480,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 	// In the first ever regeneration of the endpoint, the conntrack table
 	// is cleaned from the new endpoint IPs as it is guaranteed that any
 	// pre-existing connections using that IP are now invalid.
-	if !e.ctCleaned {
+	if !e.ctCleaned && !owner.DryModeEnabled() {
 		go func() {
 			e.scrubIPsInConntrackTable()
 			close(ctCleaned)
@@ -506,9 +506,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 	if owner.DryModeEnabled() {
 		defer e.Unlock()
 
-		// Regenerate policy and apply any options resulting in the
-		// policy change.
-		// Note that PolicyMap is not initialized!
+		// Compute policy for this endpoint.
 		if _, err = e.regeneratePolicy(owner); err != nil {
 			return 0, compilationExecuted, fmt.Errorf("Unable to regenerate policy: %s", err)
 		}
