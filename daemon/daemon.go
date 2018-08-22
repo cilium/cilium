@@ -42,6 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/counter"
+	bpfIPCache "github.com/cilium/cilium/pkg/datapath/ipcache"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -849,7 +850,9 @@ func (d *Daemon) init() error {
 		// Set up the list of IPCache listeners in the daemon, to be
 		// used by syncLXCMap().
 		ipcache.IPIdentityCache.SetListeners([]ipcache.IPIdentityMappingListener{
-			&envoy.NetworkPolicyHostsCache, d})
+			&envoy.NetworkPolicyHostsCache,
+			bpfIPCache.NewListener(),
+		})
 
 		// Insert local host entries to bpf maps
 		if err := d.syncLXCMap(); err != nil {
