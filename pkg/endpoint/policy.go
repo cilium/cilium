@@ -317,6 +317,14 @@ func (e *Endpoint) computeDesiredL3PolicyMapEntries(repo *policy.Repository, des
 	ingressPolicyEnabled := e.ingressPolicyEnabled
 	egressPolicyEnabled := e.egressPolicyEnabled
 
+	if !ingressPolicyEnabled {
+		e.getLogger().Debug("ingress policy is disabled, which equates to allow-all; allowing all identities")
+	}
+
+	if !egressPolicyEnabled {
+		e.getLogger().Debug("egress policy is disabled, which equates to allow-all; allowing all identities")
+	}
+
 	// Only L3 (label-based) policy apply.
 	// Complexity increases linearly by the number of identities in the map.
 	for identity, labels := range *e.prevIdentityCache {
