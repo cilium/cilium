@@ -688,8 +688,6 @@ framework in the ``test/`` directory and interact with ginkgo directly:
     $ ginkgo . -- --help | grep -A 1 cilium
       -cilium.SSHConfig string
             Specify a custom command to fetch SSH configuration (eg: 'vagrant ssh-config')
-      -cilium.dsManifest string
-            Cilium daemon set manifest to use for running the test (only Kubernetes)
       -cilium.holdEnvironment
             On failure, hold the environment in its current state
       -cilium.provision
