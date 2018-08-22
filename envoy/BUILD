@@ -175,6 +175,25 @@ envoy_cc_library(
 )
 
 envoy_cc_library(
+    name = "cilium_go_filter_lib",
+    srcs = [
+        "cilium_go_filter.cc",
+    ],
+    hdrs = [
+        "cilium_go_filter.h",
+        "go_filter.h",
+    ],
+    repository = "@envoy",
+    deps = [
+        "@envoy//include/envoy/network:connection_interface",
+        "@envoy//include/envoy/singleton:manager_interface",
+        "@envoy//source/common/common:assert_lib",
+        "@envoy//source/common/buffer:buffer_lib",
+        "@envoy//source/common/common:logger_lib",
+    ],
+)
+
+envoy_cc_library(
     name = "cilium_network_filter_lib",
     srcs = [
         "cilium_network_filter.cc",
@@ -193,8 +212,9 @@ envoy_cc_library(
         "@envoy//source/common/common:logger_lib",
         "@envoy//source/common/network:address_lib",
         ":proxymap_lib",
-        ":cilium_socket_option_lib",
+        ":cilium_go_filter_lib",
         ":cilium_network_filter_cc",
+        ":cilium_socket_option_lib",
     ],
 )
 
@@ -235,6 +255,7 @@ envoy_cc_test(
     srcs = ["cilium_integration_test.cc"],
     data = [
         "cilium_proxy_test.json",
+        "go_filter.so",
     ],
     repository = "@envoy",
     deps = [

@@ -1,13 +1,17 @@
-#include "cilium_network_filter.h"
-#include "cilium/cilium_network_filter.pb.validate.h"
+#include <dlfcn.h>
 
-#include "common/common/assert.h"
-#include "common/common/fmt.h"
 #include "envoy/network/listen_socket.h"
 #include "envoy/registry/registry.h"
 #include "envoy/server/filter_config.h"
 
+#include "common/buffer/buffer_impl.h"
+#include "common/common/assert.h"
+#include "common/common/fmt.h"
+
 #include "cilium_socket_option.h"
+#include "cilium_network_filter.h"
+#include "cilium/cilium_network_filter.pb.validate.h"
+
 
 namespace Envoy {
 namespace Server {
@@ -55,11 +59,11 @@ static Registry::RegisterFactory<CiliumNetworkConfigFactory, NamedNetworkFilterC
 namespace Filter {
 namespace CiliumL3 {
 
-Config::Config(const ::cilium::NetworkFilter&, Server::Configuration::FactoryContext&) {
-}
-
-Config::Config(const Json::Object&, Server::Configuration::FactoryContext&) {
-}
+Config::Config(const ::cilium::NetworkFilter& config, Server::Configuration::FactoryContext&)
+  : go_proto_(config.go_proto()), go_filter_(config.go_module()) {}
+  
+Config::Config(const Json::Object&, Server::Configuration::FactoryContext&)
+  : go_proto_(""), go_filter_("") {}
 
 Network::FilterStatus Instance::onNewConnection() {
   ENVOY_LOG(debug, "Cilium Network: onNewConnection");
@@ -82,6 +86,14 @@ Network::FilterStatus Instance::onNewConnection() {
 	} else {
 	  ENVOY_CONN_LOG(debug, "Cilium Network: No proxymap", conn);
 	}
+
+	go_parser_ = config_->go_filter_.NewInstance(conn, config_->go_proto_, option->ingress_, option->identity_,
+                                                     option->destination_identity_, conn.remoteAddress()->asString(),
+                                                     conn.localAddress()->asString());
+	if (go_parser_.get() == nullptr && config_->go_proto_.length() > 0) {
+	  ENVOY_CONN_LOG(warn, "Cilium Network: Go parser \"{}\" not found", conn, config_->go_proto_);
+	  return Network::FilterStatus::StopIteration;
+	}
       }
     }
     if (!option) {
@@ -94,11 +106,53 @@ Network::FilterStatus Instance::onNewConnection() {
   return Network::FilterStatus::Continue;
 }
 
-Network::FilterStatus Instance::onData(Buffer::Instance&, bool) {
+Network::FilterStatus Instance::onData(Buffer::Instance& data, bool end_stream) {
+  if (go_parser_) {
+    auto& conn = callbacks_->connection();
+    FilterResult res = go_parser_->OnIO(false, data, end_stream); // 'false' marks original direction data
+    ENVOY_CONN_LOG(trace, "Cilium Network::onData: \'GoFilter::OnIO\' returned {}", conn, res);
+
+    if (res != FILTER_OK) {
+      // Drop the connection due to an error
+      go_parser_->Close();
+      return Network::FilterStatus::StopIteration;
+    }
+
+    if (go_parser_->WantReplyInject()) {
+      ENVOY_CONN_LOG(trace, "Cilium Network::onData: calling write() on an empty buffer", conn);
+
+      // We have no idea when, if ever new data will be received on the
+      // reverse direction. Connection write on an empty buffer will cause
+      // write filter chain to be called, and gives our write path the
+      // opportunity to inject data.
+      Buffer::OwnedImpl empty;
+      conn.write(empty, false);  
+    }
+
+    go_parser_->SetOrigEndStream(end_stream);
+  }
+
   return Network::FilterStatus::Continue;
 }
 
-Network::FilterStatus Instance::onWrite(Buffer::Instance&, bool) {
+Network::FilterStatus Instance::onWrite(Buffer::Instance& data, bool end_stream) {
+  if (go_parser_) {
+    auto& conn = callbacks_->connection();
+    FilterResult res = go_parser_->OnIO(true, data, end_stream); // 'true' marks reverse direction data
+    ENVOY_CONN_LOG(trace, "Cilium Network::OnWrite: \'GoFilter::OnIO\' returned {}", conn, res);
+  
+    if (res != FILTER_OK) {
+      // Drop the connection due to an error
+      go_parser_->Close();
+      return Network::FilterStatus::StopIteration;
+    }
+
+    // XXX: Unfortunately continueReading() continues from the next filter, and there seems to be no way
+    // to trigger the whole filter chain to be called.
+
+    go_parser_->SetReplyEndStream(end_stream);
+  }
+
   return Network::FilterStatus::Continue;
 }
 

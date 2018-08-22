@@ -3,4 +3,6 @@ syntax = "proto3";
 package cilium;
 
 message NetworkFilter {
+  string go_module = 1;
+  string go_proto = 2;
 }

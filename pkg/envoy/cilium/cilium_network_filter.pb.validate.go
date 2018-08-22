@@ -42,6 +42,10 @@ func (m *NetworkFilter) Validate() error {
 		return nil
 	}
 
+	// no validation rules for GoModule
+
+	// no validation rules for GoProto
+
 	return nil
 }
 
