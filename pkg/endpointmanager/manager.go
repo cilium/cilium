@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -261,9 +261,12 @@ func updateReferences(ep *endpoint.Endpoint) {
 // RegenerateAllEndpoints calls a SetStateLocked for each endpoint and
 // regenerates if state transaction is valid. During this process, the endpoint
 // list is locked and cannot be modified.
+//
+// forceReload, if true, ensures that the datapath is reloaded.
+//
 // Returns a waiting group that can be used to know when all the endpoints are
 // regenerated.
-func RegenerateAllEndpoints(owner endpoint.Owner) *sync.WaitGroup {
+func RegenerateAllEndpoints(owner endpoint.Owner, forceReload bool) *sync.WaitGroup {
 	var wg sync.WaitGroup
 
 	eps := GetEndpoints()
@@ -279,7 +282,7 @@ func RegenerateAllEndpoints(owner endpoint.Owner) *sync.WaitGroup {
 				ep.Unlock()
 				if regen {
 					// Regenerate logs status according to the build success/failure
-					<-ep.Regenerate(owner, "endpoint policy updated & changes were needed")
+					<-ep.Regenerate(owner, "endpoint policy updated & changes were needed", forceReload)
 				}
 			}
 			wg.Done()

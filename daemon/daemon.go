@@ -1462,6 +1462,23 @@ func mapValidateWalker(path string) error {
 	return nil
 }
 
+// TriggerReload reloads the BPF datapath for the base programs and all
+// endpoints without recalculating policy.
+//
+// If an error is returned, then no regeneration was successful. If no error
+// is returned, then the base programs were successfully regenerated, but
+// endpoints may or may not have successfully regenerated.
+//
+// The returned WaitGroup allows the caller to wait until all endpoints have
+// finished regenerating.
+func (d *Daemon) TriggerReload(context string) (*sync.WaitGroup, error) {
+	log.Debugf("%s has changed; recompiling base programs", context)
+	if err := d.compileBase(); err != nil {
+		return nil, fmt.Errorf("Unable to recompile base programs from %s: %s", context, err)
+	}
+	return d.triggerPolicyUpdates(false, true), nil
+}
+
 func changedOption(key string, value int, data interface{}) {
 	d := data.(*Daemon)
 	if key == option.Debug {

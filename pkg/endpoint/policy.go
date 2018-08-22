@@ -665,7 +665,7 @@ func (e *Endpoint) updateAndOverrideEndpointOptions(owner Owner, opts models.Con
 }
 
 // Called with e.Mutex UNlocked
-func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
+func (e *Endpoint) regenerate(owner Owner, reason string, forceReload bool) (retErr error) {
 	var revision uint64
 	var compilationExecuted bool
 	var err error
@@ -729,7 +729,7 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 		e.Unlock()
 	}()
 
-	revision, compilationExecuted, err = e.regenerateBPF(owner, tmpDir, reason)
+	revision, compilationExecuted, err = e.regenerateBPF(owner, tmpDir, reason, forceReload)
 
 	// If generation fails, keep the directory around. If it ever succeeds
 	// again, clean up the XXX_next_fail copy.
@@ -797,7 +797,7 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 // Regenerate forces the regeneration of endpoint programs & policy
 // Should only be called with e.state == StateWaitingToRegenerate or with
 // e.state == StateWaitingForIdentity
-func (e *Endpoint) Regenerate(owner Owner, reason string) <-chan bool {
+func (e *Endpoint) Regenerate(owner Owner, reason string, forceReload bool) <-chan bool {
 	newReq := &Request{
 		ID:           uint64(e.ID),
 		MyTurn:       make(chan bool),
@@ -828,7 +828,7 @@ func (e *Endpoint) Regenerate(owner Owner, reason string) <-chan bool {
 		if isMyTurnChanOK && isMyTurn {
 			scopedLog.Debug("Dequeued endpoint from build queue")
 
-			err := e.regenerate(owner, reason)
+			err := e.regenerate(owner, reason, forceReload)
 			repr, reprerr := monitor.EndpointRegenRepr(e, err)
 			if reprerr != nil {
 				scopedLog.WithError(reprerr).Warn("Notifying monitor about endpoint regeneration failed")
