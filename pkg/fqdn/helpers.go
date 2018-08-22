@@ -107,6 +107,16 @@ func generateRuleFromSource(sourceRule *api.Rule, updatedDNSNames map[string][]n
 	return outputRule, namesMissingIPs
 }
 
+// stripeToCIDRSet ensures no ToCIDRSet is nil when ToFQDNs is non-nil
+func stripToCIDRSet(rule *api.Rule) {
+	for i := range rule.Egress {
+		egressRule := &rule.Egress[i]
+		if len(egressRule.ToFQDNs) > 0 {
+			egressRule.ToCIDRSet = nil
+		}
+	}
+}
+
 // ipsToRules generates CIDRRules for the IPs passed in.
 func ipsToRules(ips []net.IP) (cidrRules []api.CIDRRule) {
 	for _, ip := range ips {

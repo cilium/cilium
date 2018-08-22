@@ -29,6 +29,13 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// Notes
+// Hack 1: We strip ToCIDRSet rules. These are already dissallowed by our
+// validation. We do this to simplify handling our own generated rules.
+// StartPollForDNSName is called by daemon when we inject the generated rules. By
+// stripping ToCIDRSet we make the rule equivalent to what it was before. This is
+// inefficient.
+
 const (
 	// generatedLabelNameUUID is the label key for policy rules that contain a
 	// ToFQDN section and need to be updated
@@ -148,6 +155,11 @@ perRule:
 	for _, sourceRule := range sourceRules {
 		// make a copy to avoid breaking the input rules in any way
 		sourceRuleCopy := sourceRule.DeepCopy()
+
+		// Strip out toCIDRSet
+		// Note: See Hack 1 above. When we generate rules, we add them and this
+		// function is called. This avoids accumulating generated toCIDRSet entries.
+		stripToCIDRSet(sourceRuleCopy)
 
 		if !sourceRule.Labels.Has(uuidLabelSearchKey) {
 			continue perRule
