@@ -17,6 +17,8 @@ package ipcache
 import (
 	"fmt"
 	"net"
+	"os"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -33,10 +35,39 @@ import (
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "datapath-ipcache")
 
-type IPCacheListenerBPF struct{}
+type IPCacheListenerBPF struct {
+	// regenerator allows this listener to trigger BPF program regeneration.
+	regenerator regenerator
 
-func NewListener() *IPCacheListenerBPF {
-	return &IPCacheListenerBPF{}
+	// bpfMap is the BPF map that this listener will update when events are
+	// received from the IPCache.
+	bpfMap *ipcacheMap.Map
+
+	// deleteNotifier will be closed after a delete operation is triggered.
+	deleteNotifier chan bool
+
+	// detectDeleteSupportOnce protects initialization of 'deleteSupported'.
+	detectDeleteSupportOnce sync.Once
+
+	// deleteSupported determines whether the kernel supports deleting
+	// elements from the IPCache.
+	deleteSupported bool
+}
+
+type regenerator interface {
+	TriggerRegeneration(string) (*sync.WaitGroup, error)
+}
+
+func newListener(m *ipcacheMap.Map, r regenerator) *IPCacheListenerBPF {
+	return &IPCacheListenerBPF{
+		bpfMap:         m,
+		regenerator:    r,
+		deleteNotifier: make(chan bool),
+	}
+}
+
+func NewListener(r regenerator) *IPCacheListenerBPF {
+	return newListener(ipcacheMap.IPCache, r)
 }
 
 // OnIPIdentityCacheChange is called whenever there is a change of state in the
@@ -88,7 +119,11 @@ func (l *IPCacheListenerBPF) OnIPIdentityCacheChange(modType ipcache.CacheModifi
 		}
 	case ipcache.Delete:
 		err := ipcacheMap.Delete(&key)
-		if err != nil {
+		if err == nil {
+			if _, open := <-l.deleteNotifier; open {
+				close(l.deleteNotifier)
+			}
+		} else {
 			scopedLog.WithError(err).WithFields(logrus.Fields{"key": key.String()}).
 				Warning("unable to delete from bpf map")
 		}
@@ -119,25 +154,106 @@ func updateStaleEntriesFunction(keysToRemove map[string]*ipcacheMap.Key) bpf.Dum
 	}
 }
 
+// gcByDelete determines whether garbage collection should be implemented by
+// creating a brand new map, populating it with all of the IPCache entries,
+// deleting the old map, and regenerating all BPF programs.
+//
+// Returns true if running on Linux versions that support LPM map type but do
+// not support deleting elements from the map (typically 4.11 <= x <= 4.14).
+func (l *IPCacheListenerBPF) gcByDelete() bool {
+	l.detectDeleteSupportOnce.Do(func() {
+		// XXX: If both channels are closed, but the "UnsupportedDeleteNotifier"
+		//      channel is closed first, does it guarantee that path will be
+		//      executed rather than the other path?
+		switch {
+		case <-ipcacheMap.UnsupportedDeleteNotifier():
+			log.Debug("Sweeping IPCache via map delete due to missing LPM delete support in kernel")
+			l.deleteSupported = false
+		case <-l.deleteNotifier:
+			log.Debug("Observed successful LPM delete operation, garbage-collecting via sweep")
+			l.deleteSupported = true
+		}
+	})
+
+	return !l.deleteSupported
+}
+
+func handleMapShuffleFailure(oldPath, standardPath string) {
+	if err := os.Rename(oldPath, standardPath); err != nil {
+		log.WithError(err).WithFields(logrus.Fields{
+			logfields.BPFMapPath: standardPath,
+		}).Warningf("Unable to recover during error renaming map paths")
+	}
+}
+
+// shuffleMaps attempts to move 'realizedPath' to 'oldPath' and 'newPath' to
+// 'realizedPath'. If an error occurs, attempts to return the maps back to
+// their original paths.
+func shuffleMaps(realizedPath, oldPath, pendingPath string) error {
+	if err := os.Rename(realizedPath, oldPath); err != nil {
+		return fmt.Errorf("Unable to rename %s to %s: %s", realizedPath, oldPath, err)
+	}
+
+	if err := os.Rename(pendingPath, realizedPath); err != nil {
+		handleMapShuffleFailure(oldPath, realizedPath)
+		return fmt.Errorf("Unable to rename %s to %s: %s", pendingPath, realizedPath, err)
+	}
+
+	return nil
+}
+
 func (l *IPCacheListenerBPF) garbageCollect() error {
+	deleteMap := l.gcByDelete()
+
 	// Since controllers run asynchronously, need to make sure
 	// IPIdentityCache is not being updated concurrently while we do
 	// GC;
 	ipcache.IPIdentityCache.RLock()
 	defer ipcache.IPIdentityCache.RUnlock()
 
-	keysToRemove := map[string]*ipcacheMap.Key{}
-	if err := ipcacheMap.IPCache.DumpWithCallback(updateStaleEntriesFunction(keysToRemove)); err != nil {
-		return fmt.Errorf("error dumping ipcache BPF map: %s", err)
-	}
+	if deleteMap {
+		// Populate the map at the new path
+		pendingMapName := fmt.Sprintf("%s_pending", ipcacheMap.Name)
+		pendingMap := ipcacheMap.NewMap(pendingMapName)
+		pendingListener := newListener(pendingMap, l.regenerator)
+		ipcache.IPIdentityCache.DumpToListenerLocked(pendingListener)
 
-	// Remove all keys which are not in in-memory cache from BPF map
-	// for consistency.
-	for _, k := range keysToRemove {
-		log.WithFields(logrus.Fields{logfields.BPFMapKey: k}).
-			Debug("deleting from ipcache BPF map")
-		if err := ipcacheMap.Delete(k); err != nil {
-			return fmt.Errorf("error deleting key %s from ipcache BPF map: %s", k, err)
+		// Move the maps around on the filesystem so that BPF reload
+		// will pick up the new paths without requiring recompilation.
+		standardMapPath := bpf.MapPath(ipcacheMap.Name)
+		oldMapPath := bpf.MapPath(fmt.Sprintf("%s_old", ipcacheMap.Name))
+		pendingMapPath := bpf.MapPath(pendingMapName)
+		if err := shuffleMaps(standardMapPath, oldMapPath, pendingMapPath); err != nil {
+			return err
+		}
+
+		wg, err := l.regenerator.TriggerRegeneration("datapath ipcache")
+		if err != nil {
+			handleMapShuffleFailure(oldMapPath, standardMapPath)
+			return err
+		}
+		wg.Wait()
+
+		if err := ipcacheMap.Reopen(); err != nil {
+			log.WithError(err).Warning("Failed to reopen BPF ipcache map")
+			return err
+		}
+		l.bpfMap = ipcacheMap.IPCache
+		_ = os.RemoveAll(oldMapPath)
+	} else {
+		keysToRemove := map[string]*ipcacheMap.Key{}
+		if err := ipcacheMap.IPCache.DumpWithCallback(updateStaleEntriesFunction(keysToRemove)); err != nil {
+			return fmt.Errorf("error dumping ipcache BPF map: %s", err)
+		}
+
+		// Remove all keys which are not in in-memory cache from BPF map
+		// for consistency.
+		for _, k := range keysToRemove {
+			log.WithFields(logrus.Fields{logfields.BPFMapKey: k}).
+				Debug("deleting from ipcache BPF map")
+			if err := ipcacheMap.Delete(k); err != nil {
+				return fmt.Errorf("error deleting key %s from ipcache BPF map: %s", k, err)
+			}
 		}
 	}
 	return nil

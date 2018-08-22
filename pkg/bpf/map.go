@@ -454,6 +454,11 @@ func (m *Map) Close() error {
 	return nil
 }
 
+func (m *Map) Reopen() error {
+	m.Close()
+	return m.Open()
+}
+
 type DumpParser func(key []byte, value []byte) (MapKey, MapValue, error)
 type DumpCallback func(key MapKey, value MapValue)
 type MapValidator func(path string) (bool, error)

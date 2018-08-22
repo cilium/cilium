@@ -34,6 +34,9 @@ const (
 	// RemoteEndpointMap.
 	MaxEntries = 512000
 
+	// Name is the canonical name for the IPCache map on the filesystem.
+	Name = "cilium_ipcache"
+
 	// maxPrefixLengths is an approximation of how many different CIDR
 	// prefix lengths may be supported by the BPF datapath without causing
 	// BPF code generation to exceed the verifier instruction limit.
@@ -135,13 +138,17 @@ func (v *RemoteEndpointInfo) GetValuePtr() unsafe.Pointer { return unsafe.Pointe
 // Map represents an IPCache BPF map.
 type Map struct {
 	bpf.Map
+
+	// notifyDeleteUnsupported channel will be closed if a call to Delete()
+	// results in "Function not implemented" (ENOSYS).
+	notifyDeleteUnsupported chan bool
 }
 
 // NewMap instantiates a Map.
-func NewMap() *Map {
+func NewMap(name string) *Map {
 	return &Map{
 		Map: *bpf.NewMap(
-			"cilium_ipcache",
+			name,
 			bpf.BPF_MAP_TYPE_LPM_TRIE,
 			int(unsafe.Sizeof(Key{})),
 			int(unsafe.Sizeof(RemoteEndpointInfo{})),
@@ -156,6 +163,7 @@ func NewMap() *Map {
 				return &k, &v, nil
 			},
 		).WithCache(),
+		notifyDeleteUnsupported: make(chan bool),
 	}
 }
 
@@ -165,6 +173,9 @@ func Delete(k bpf.MapKey) error {
 	// the entry instead of attempting a deletion
 	err, errno := IPCache.DeleteWithErrno(k)
 	if errno == unix.ENOSYS {
+		if _, open := <-IPCache.notifyDeleteUnsupported; open {
+			close(IPCache.notifyDeleteUnsupported)
+		}
 		return IPCache.Update(k, &RemoteEndpointInfo{})
 	}
 
@@ -197,7 +208,7 @@ var (
 	// IPCache is a mapping of all endpoint IPs in the cluster which this
 	// Cilium agent is a part of to their corresponding security identities.
 	// It is a singleton; there is only one such map per agent.
-	IPCache = NewMap()
+	IPCache = NewMap(Name)
 )
 
 func init() {
@@ -205,4 +216,17 @@ func init() {
 	if err != nil {
 		log.WithError(err).Error("unable to open map")
 	}
+}
+
+// Reopen attempts to close and re-open the IPCache map at the standard path
+// on the filesystem.
+func Reopen() error {
+	return IPCache.Map.Reopen()
+}
+
+// UnsupportedDeleteNotifier returns a channel that will be closed when the
+// IPCache attempts to delete an element and it is unsuccessful due to the
+// lack of support for the Delete operation in the underlying kernel map type.
+func UnsupportedDeleteNotifier() chan bool {
+	return IPCache.notifyDeleteUnsupported
 }
