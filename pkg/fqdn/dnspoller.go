@@ -35,6 +35,9 @@ import (
 // StartPollForDNSName is called by daemon when we inject the generated rules. By
 // stripping ToCIDRSet we make the rule equivalent to what it was before. This is
 // inefficient.
+// We also rely on this in addRule, where we now keep the newest instance of a
+// rule to allow handling policy updates for rules we don't look at, but need to
+// retain while generating.
 
 const (
 	// generatedLabelNameUUID is the label key for policy rules that contain a
@@ -86,12 +89,17 @@ type DNSPoller struct {
 	// not be reshuffled.
 	IPs map[string][]net.IP
 
-	// sourceRule maps dnsNames to a map of rule UUID to rules that depend on
+	// sourceRule maps dnsNames to a set of rule UUIDs that depend on
 	// that dnsName. It is the desired state for DNS -> IP data, and drives IPs
 	// above, which drives CIDR rule generation.
-	// The data here is map[dnsName][rule uuid]*api.Rule where the inner map acts
+	// The data here is map[dnsName][rule uuid]struct{} where the inner map acts
 	// as a refcount of rules that depend on this dnsName.
-	sourceRules map[string]map[string]*api.Rule
+	// The UUID -> rule mapping is allRules below.
+	sourceRules map[string]map[string]struct{}
+
+	// allRules is the global source of truth for rules we are managing. It maps
+	// UUID to the rule copy.
+	allRules map[string]*api.Rule
 }
 
 // DNSPollerConfig is a simple configuration structure to set how DNSPoller
@@ -117,7 +125,8 @@ func NewDNSPoller(config DNSPollerConfig) *DNSPoller {
 	return &DNSPoller{
 		config:      config,
 		IPs:         make(map[string][]net.IP),
-		sourceRules: make(map[string]map[string]*api.Rule),
+		sourceRules: make(map[string]map[string]struct{}),
+		allRules:    make(map[string]*api.Rule),
 	}
 }
 
@@ -230,21 +239,22 @@ func (poller *DNSPoller) LookupUpdateDNS() error {
 	}
 
 	// Update IPs in poller
-	rulesToUpdate, updatedDNSNames := poller.UpdateDNSIPs(updatedDNSIPs)
+	uuidsToUpdate, updatedDNSNames := poller.UpdateDNSIPs(updatedDNSIPs)
 	for dnsName, IPs := range updatedDNSNames {
 		log.WithFields(logrus.Fields{
 			"matchName":     dnsName,
 			"IPs":           IPs,
-			"rulesToUpdate": rulesToUpdate,
+			"uuidsToUpdate": uuidsToUpdate,
 		}).Debug("Updated FQDN with new IPs")
 	}
 
 	// Generate a new rule for each sourceRule that needs an update.
-	rulesToUpdateList := make([]*api.Rule, 0, len(rulesToUpdate))
-	for _, rule := range rulesToUpdate {
-		rulesToUpdateList = append(rulesToUpdateList, rule)
+	rulesToUpdate, notFoundUUIDs := poller.GetRulesByUUID(uuidsToUpdate)
+	if len(notFoundUUIDs) != 0 {
+		log.WithField("uuid", strings.Join(notFoundUUIDs, ",")).
+			Debug("Did not find all rules during update")
 	}
-	generatedRules, namesMissingIPs := poller.GenerateRulesFromSources(rulesToUpdateList)
+	generatedRules, namesMissingIPs := poller.GenerateRulesFromSources(rulesToUpdate)
 	if len(namesMissingIPs) != 0 {
 		log.WithField(logfields.DNSName, strings.Join(namesMissingIPs, ",")).
 			Warn("Missing IPs for ToFQDN rule")
@@ -273,11 +283,12 @@ func (poller *DNSPoller) GetDNSNames() (dnsNames []string) {
 
 // UpdateDNSIPs updates the IPs for each DNS name in updatedDNSIPs.
 // It returns:
-// affectedRules: a set of *api.Rule that were affected by the new IPs (uniqued by UUID as the map key)
+// affectedRules: a list of rule UUIDs that were affected by the new IPs (lookup in .allRules)
 // updatedNames: a map of DNS names to the IPs they were updated with. This is always a subset of updatedDNSIPs.
-func (poller *DNSPoller) UpdateDNSIPs(updatedDNSIPs map[string][]net.IP) (affectedRules map[string]*api.Rule, updatedNames map[string][]net.IP) {
+func (poller *DNSPoller) UpdateDNSIPs(updatedDNSIPs map[string][]net.IP) (affectedRules []string, updatedNames map[string][]net.IP) {
 	updatedNames = make(map[string][]net.IP, len(updatedDNSIPs))
-	affectedRules = make(map[string]*api.Rule, len(updatedDNSIPs))
+	affectedRulesSet := make(map[string]struct{}, len(updatedDNSIPs))
+
 	poller.Lock()
 	defer poller.Unlock()
 
@@ -295,13 +306,42 @@ perDNSName:
 
 		// accumulate the rules affected by new IPs, that we need to update with
 		// CIDR rules
-		for _, rule := range poller.sourceRules[dnsName] {
-			uuid := getUUIDFromRuleLabels(rule)
-			affectedRules[uuid] = rule
+		for uuid := range poller.sourceRules[dnsName] {
+			affectedRulesSet[uuid] = struct{}{}
 		}
 	}
 
+	// Convert the set to a list
+	for uuid := range affectedRulesSet {
+		affectedRules = append(affectedRules, uuid)
+	}
+
 	return affectedRules, updatedNames
+}
+
+// GetRulesByUUID returns the sourceRule copies of inserted rules. These are
+// the source of truth when generating rules with update IPs.
+// sourceRules is the list of *api.Rule objects that were found (i.e. currently
+// in the poller and not deleted)
+// notFoundUUIDs is the set of UUIDs not found. This can occur when a delete
+// races with other operations. It is benign in the sense that if a rule UUID is
+// not found, no action is supposed to be taken on it by the poller.
+func (poller *DNSPoller) GetRulesByUUID(uuids []string) (sourceRules []*api.Rule, notFoundUUIDs []string) {
+	poller.Lock()
+	defer poller.Unlock()
+
+	for _, uuid := range uuids {
+		rule, ok := poller.allRules[uuid]
+		// This may happen if a rule was deleted during the DNS lookups
+		if !ok {
+			notFoundUUIDs = append(notFoundUUIDs, uuid)
+			continue
+		}
+
+		sourceRules = append(sourceRules, rule)
+	}
+
+	return sourceRules, notFoundUUIDs
 }
 
 // GenerateRulesFromSources creates new api.Rule instances with all ToFQDN
@@ -336,17 +376,46 @@ func (poller *DNSPoller) GenerateRulesFromSources(sourceRules []*api.Rule) (gene
 // If newDNSNames and oldDNSNames are both empty, the rule was not added to the
 // poll list.
 func (poller *DNSPoller) addRule(uuid string, sourceRule *api.Rule) (newDNSNames, oldDNSNames []string) {
+	// if we are updating a rule, track which old dnsNames are removed. We store
+	// possible names to stop polling for in namesToStopPolling. As we add names
+	// from the new rule below, these are cleared.
+	namesToStopPolling := make(map[string]struct{})
+	if oldRule, exists := poller.allRules[uuid]; exists {
+		for _, egressRule := range oldRule.Egress {
+			for _, ToFQDN := range egressRule.ToFQDNs {
+				namesToStopPolling[ToFQDN.MatchName] = struct{}{}
+			}
+		}
+	}
+
+	// Always add to allRules
+	poller.allRules[uuid] = sourceRule
+
+	// Add a dnsname -> rule reference
 	for _, egressRule := range sourceRule.Egress {
 		for _, ToFQDN := range egressRule.ToFQDNs {
 			dnsName := ToFQDN.MatchName
+
+			delete(namesToStopPolling, ToFQDN.MatchName)
+
 			dnsNameAlreadyExists := poller.ensureExists(dnsName)
 			if dnsNameAlreadyExists {
 				oldDNSNames = append(oldDNSNames, dnsName)
 			} else {
 				newDNSNames = append(newDNSNames, dnsName)
 				// Add this egress rule as a dependent on dnsName.
-				poller.sourceRules[dnsName][uuid] = sourceRule
+				poller.sourceRules[dnsName][uuid] = struct{}{}
 			}
+		}
+	}
+
+	// Stop polling names that were not re-added by deleting them from the IP map
+	// Remove references to the uuid that were present in the old rule but not
+	// re-added by the new one. This may result in removing the dnsName from
+	// polling, if no other rules depend on this dnsName
+	for dnsName := range namesToStopPolling {
+		if shouldStopPolling := poller.removeFromDNSName(dnsName, uuid); shouldStopPolling {
+			delete(poller.IPs, dnsName)
 		}
 	}
 
@@ -355,38 +424,47 @@ func (poller *DNSPoller) addRule(uuid string, sourceRule *api.Rule) (newDNSNames
 
 // removeRule removes an api.Rule from the source rule set for each DNS name,
 // and from the IPs if no rules depend on that DNS name. This also stops polling for that DNS name.
-// ruleKey must be a unique identifier for the sourceRule
-// isEmpty indicates no more rules rely on this DNS target
-func (poller *DNSPoller) removeRule(ruleKey string, sourceRule *api.Rule) (noLongerPolled []string) {
+// uuid must be a unique identifier for the sourceRule
+// noLongerPolled indicates that no more rules rely on this DNS target
+func (poller *DNSPoller) removeRule(uuid string, sourceRule *api.Rule) (noLongerPolled []string) {
+	// Always delete from allRules
+	delete(poller.allRules, uuid)
+
+	// Delete dnsname -> rule references
 	for _, egressRule := range sourceRule.Egress {
 		for _, ToFQDN := range egressRule.ToFQDNs {
 			dnsName := ToFQDN.MatchName
-			_, exists := poller.IPs[dnsName]
-			if !exists {
-				// no-op if nothing is there
-				return
-			}
 
-			// remove the rule from the set of rules that rely on dnsName.
-			// Note: this isn't removing dnsName from poller.sourceRules, that is just
-			// below.
-			uuid := getUUIDFromRuleLabels(sourceRule)
-			delete(poller.sourceRules[dnsName], uuid)
-
-			// Check if there remain any rules that rely on this dnsName by checking
-			// if the inner map[rule uuid]*api.Rule map is empty (it is acting as a
-			// set of *api.Rule). If none do we can delete it so we no longer poll
-			// it.
-			isEmpty := len(poller.sourceRules[dnsName]) == 0
-			if isEmpty {
-				noLongerPolled = append(noLongerPolled, dnsName)
-				delete(poller.sourceRules, dnsName)
+			if shouldStopPolling := poller.removeFromDNSName(dnsName, uuid); shouldStopPolling {
 				delete(poller.IPs, dnsName) // also delete from the IP map, stopping polling
+				noLongerPolled = append(noLongerPolled, dnsName)
 			}
 		}
 	}
 
 	return noLongerPolled
+}
+
+// removeFromDNSName removes the uuid from the list attached to a dns name. It
+// will clean up poller.sourceRules if needed.
+// shouldStopPolling indicates that no more rules rely on this DNS target
+// Note: This does not touch the IP list, and does not change polling
+func (poller *DNSPoller) removeFromDNSName(dnsName, uuid string) (shouldStopPolling bool) {
+	// remove the rule from the set of rules that rely on dnsName.
+	// Note: this isn't removing dnsName from poller.sourceRules, that is just
+	// below.
+	delete(poller.sourceRules[dnsName], uuid)
+
+	// Check if any rules remain that rely on this dnsName by checking
+	// if the inner map[rule uuid]struct{} set is empty. If none do we
+	// can delete it so we no longer poll it.
+	isEmpty := len(poller.sourceRules[dnsName]) == 0
+	if isEmpty {
+		shouldStopPolling = true
+		delete(poller.sourceRules, dnsName)
+	}
+
+	return shouldStopPolling
 }
 
 // ensureExists ensures that we have allocated objects for dnsName, and creates
@@ -395,7 +473,7 @@ func (poller *DNSPoller) ensureExists(dnsName string) (exists bool) {
 	_, exists = poller.IPs[dnsName]
 	if !exists {
 		poller.IPs[dnsName] = make([]net.IP, 0)
-		poller.sourceRules[dnsName] = make(map[string]*api.Rule)
+		poller.sourceRules[dnsName] = make(map[string]struct{})
 	}
 
 	return exists
