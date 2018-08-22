@@ -18,11 +18,38 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"strings"
 
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	. "gopkg.in/check.v1"
 )
+
+func makeRule(key string, dnsNames ...string) *api.Rule {
+	matchNames := []string{}
+	for _, name := range dnsNames {
+		matchNames = append(matchNames,
+			fmt.Sprintf(`{"matchName": "%s"}`, name))
+	}
+
+	rule := fmt.Sprintf(`{
+	"labels": [{ "key": "%s" }],
+  "endpointSelector": {
+    "matchLabels": {
+      "class": "xwing"
+    }
+  },
+  "egress": [
+    {
+      "toFQDNs": [
+      %s
+      ]
+    }
+  ]
+}`, key, strings.Join(matchNames, ",\n"))
+	//fmt.Print(rule)
+	return mustParseRule(rule)
+}
 
 func parseRule(rule string) (parsedRule *api.Rule, err error) {
 	if err := json.Unmarshal([]byte(rule), &parsedRule); err != nil {
@@ -46,90 +73,16 @@ func mustParseRule(rule string) (parsedRule *api.Rule) {
 
 var (
 	// cilium.io dns target
-	rule1 = mustParseRule(`
-{
-	"labels": [{ "key": "rule1" }],
-  "endpointSelector": {
-    "matchLabels": {
-      "class": "xwing"
-    }
-  },
-  "egress": [
-    {
-      "toFQDNs": [
-        {
-          "matchName": "cilium.io"
-        }
-      ]
-    }
-  ]
-}
-`)
+	rule1 = makeRule("rule1", "cilium.io")
 
 	// cilium.io dns target
-	rule2 = mustParseRule(`
-{
-	"labels": [{ "key": "rule2" }],
-  "endpointSelector": {
-    "matchLabels": {
-      "class": "xwing"
-    }
-  },
-  "egress": [
-    {
-      "toFQDNs": [
-        {
-          "matchName": "cilium.io"
-        }
-      ]
-    }
-  ]
-}
-`)
+	rule2 = makeRule("rule2", "cilium.io")
 
 	// cilium.io, github.com dns targets
-	rule3 = mustParseRule(`
-{
-	"labels": [{ "key": "rule3" }],
-  "endpointSelector": {
-    "matchLabels": {
-      "class": "xwing"
-    }
-  },
-  "egress": [
-    {
-      "toFQDNs": [
-        {
-          "matchName": "cilium.io"
-				},{
-					"matchName": "github.com"
-					}
-			]
-    }
-  ]
-}
-`)
+	rule3 = makeRule("rule3", "cilium.io", "github.com")
 
 	// github.com dns target
-	rule4 = mustParseRule(`
-{
-	"labels": [{ "key": "rule4" }],
-  "endpointSelector": {
-    "matchLabels": {
-      "class": "xwing"
-    }
-  },
-  "egress": [
-    {
-      "toFQDNs": [
-        {
-          "matchName": "github.com"
-        }
-      ]
-    }
-  ]
-}
-`)
+	rule4 = makeRule("rule4", "github.com")
 
 	ipLookups = map[string][]net.IP{
 		"cilium.io": {
@@ -147,12 +100,11 @@ var (
 // of times a name is looked up in lookups, and uses ipData as a source for the
 // "response"
 func lookupDNSNames(ipData map[string][]net.IP, lookups map[string]int, dnsNames []string) (DNSIPs map[string][]net.IP, errorDNSNames map[string]error) {
+	DNSIPs = make(map[string][]net.IP)
 	for _, dnsName := range dnsNames {
 		lookups[dnsName] += 1
-		DNSIPs = make(map[string][]net.IP)
 		DNSIPs[dnsName] = ipData[dnsName]
 	}
-
 	return DNSIPs, errorDNSNames
 }
 
@@ -297,8 +249,8 @@ func (ds *FQDNTestSuite) TestDNSPollerRuleHandling(c *C) {
 		}
 
 		// add rules and run basic checks
-		MarkToFQDNRules(rulesToAdd)
-		MarkToFQDNRules(rulesToDelete)
+		poller.MarkToFQDNRules(rulesToAdd)
+		poller.MarkToFQDNRules(rulesToDelete)
 		for _, rule := range rulesToAdd {
 			c.Assert(len(getUUIDFromRuleLabels(rule)), Not(Equals), 0, Commentf("Added a FQDN label to each marked rule"))
 		}
@@ -352,7 +304,7 @@ func (ds *FQDNTestSuite) TestDNSPollerCIDRGeneration(c *C) {
 
 	// add rules
 	rulesToAdd := []*api.Rule{rule1.DeepCopy()}
-	MarkToFQDNRules(rulesToAdd)
+	poller.MarkToFQDNRules(rulesToAdd)
 	poller.StartPollForDNSName(rulesToAdd)
 
 	// store original UUID
@@ -424,7 +376,7 @@ func (ds *FQDNTestSuite) TestDNSPollerMultiIPUpdate(c *C) {
 
 	// add rules
 	rulesToAdd := []*api.Rule{rule3.DeepCopy()}
-	MarkToFQDNRules(rulesToAdd)
+	poller.MarkToFQDNRules(rulesToAdd)
 	poller.StartPollForDNSName(rulesToAdd)
 
 	// poll DNS once, check that we only generate 1 IP
@@ -458,4 +410,88 @@ func (ds *FQDNTestSuite) TestDNSPollerMultiIPUpdate(c *C) {
 	c.Assert(len(generatedRules[0].Egress[0].ToFQDNs), Equals, len(generatedRules[0].Egress[0].ToCIDRSet), Commentf("Generated CIDR count is not the same as ToFQDNs"))
 	c.Assert(generatedRules[0].Egress[0].ToCIDRSet[0].Cidr, Equals, api.CIDR("2.2.2.2/32"), Commentf("Incorrect IP CIDR generated"))
 	c.Assert(generatedRules[0].Egress[0].ToCIDRSet[1].Cidr, Equals, api.CIDR("4.4.4.4/32"), Commentf("Incorrect IP CIDR generated"))
+}
+
+// TestDNSPollerUpdatesOnReplace tests updates without deletion:
+// add 1 matchname, poll. re-add it. See the correct output on MarkToFQDNRules
+// add 2 matchnames with the different names, replace one, then back. See the correct output on MarkToFQDNRules
+// re-add the original rule with only 1 matchname. It is not cached because that name was deleted
+func (ds *FQDNTestSuite) TestDNSPollerUpdatesOnReplace(c *C) {
+
+	var (
+		dnsIPs = map[string][]net.IP{
+			"cilium.io":         {net.ParseIP("1.1.1.1")},
+			"github.com":        {net.ParseIP("2.2.2.2")},
+			"anotherdomain.com": {net.ParseIP("3.3.3.3")},
+		}
+
+		poller = NewDNSPoller(DNSPollerConfig{
+
+			LookupDNSNames: func(dnsNames []string) (DNSIPs map[string][]net.IP, errorDNSNames map[string]error) {
+				lookups := make(map[string]int) // dummy
+				return lookupDNSNames(dnsIPs, lookups, dnsNames)
+			},
+
+			AddGeneratedRules: func(rules []*api.Rule) error {
+				return nil
+			},
+		})
+	)
+
+	// Add 1 rules and poll
+	rules := []*api.Rule{makeRule("testRule", "cilium.io")}
+	// MarkToFQDNRules adds nothing on the first try
+	poller.MarkToFQDNRules(rules)
+	c.Assert(len(rules[0].Egress), Equals, 1, Commentf("Incorrect number of generated egress rules for testCase with single ToFQDNs entry"))
+	c.Assert(len(rules[0].Egress[0].ToCIDRSet), Equals, 0, Commentf("Generated CIDR count is 0 when no CIDRs should have been added"))
+
+	poller.StartPollForDNSName(rules)
+	poller.LookupUpdateDNS()
+
+	// re-add. We should see IPs in-place BEFORE StartPollForDNSName.
+	// MarkToFQDNRules adds the IP from the cache
+	rules = []*api.Rule{makeRule("testRule", "cilium.io")}
+	poller.MarkToFQDNRules(rules)
+	c.Assert(len(rules[0].Egress), Equals, 1, Commentf("Incorrect number of generated egress rules for testCase with single ToFQDNs entry"))
+	c.Assert(len(rules[0].Egress[0].ToCIDRSet), Equals, 1, Commentf("Generated CIDR count is not the same as ToFQDNs"))
+	c.Assert(rules[0].Egress[0].ToCIDRSet[0].Cidr, Equals, api.CIDR("1.1.1.1/32"), Commentf("Incorrect IP CIDR generated"))
+
+	poller.StartPollForDNSName(rules)
+	poller.LookupUpdateDNS()
+
+	// Add 2 rules and poll
+	rules = []*api.Rule{makeRule("testRule", "cilium.io", "github.com")}
+	poller.MarkToFQDNRules(rules)
+	poller.StartPollForDNSName(rules)
+	poller.LookupUpdateDNS()
+
+	// Add a 2 matchnames without deleting, only one overlaps
+	// MarkToFQDNRules should add only 1 entry
+	rules = []*api.Rule{makeRule("testRule", "cilium.io", "anotherdomain.com")}
+	poller.MarkToFQDNRules(rules)
+	c.Assert(len(rules[0].Egress), Equals, 1, Commentf("Incorrect number of generated egress rules for testCase with single cached ToFQDNs DNS entry"))
+	c.Assert(len(rules[0].Egress[0].ToCIDRSet), Equals, 1, Commentf("Generated CIDR count is not the same as ToFQDNs DNS entries in cache"))
+	c.Assert(rules[0].Egress[0].ToCIDRSet[0].Cidr, Equals, api.CIDR("1.1.1.1/32"), Commentf("Incorrect IP CIDR generated"))
+
+	poller.StartPollForDNSName(rules)
+	poller.LookupUpdateDNS()
+
+	fmt.Printf("%#v\n", poller.IPs)
+	// Add the original 2 matchnames without deleting
+	// MarkToFQDNRules should add only 1 entry
+	rules = []*api.Rule{makeRule("testRule", "cilium.io", "github.com")}
+	poller.MarkToFQDNRules(rules)
+	c.Assert(len(rules[0].Egress), Equals, 1, Commentf("Incorrect number of generated egress rules for testCase with single cached ToFQDNs DNS entry"))
+	c.Assert(len(rules[0].Egress[0].ToCIDRSet), Equals, 1, Commentf("Generated CIDR count is not the same as ToFQDNs DNS entries in cache"))
+	c.Assert(rules[0].Egress[0].ToCIDRSet[0].Cidr, Equals, api.CIDR("1.1.1.1/32"), Commentf("Incorrect first IP CIDR generated from cache"))
+
+	poller.StartPollForDNSName(rules)
+	poller.LookupUpdateDNS()
+
+	// Replace with 1 old matchname without deleting
+	// MarkToFQDNRules should not add an entry
+	rules = []*api.Rule{makeRule("testRule", "anotherdomain.com")}
+	poller.MarkToFQDNRules(rules)
+	c.Assert(len(rules[0].Egress), Equals, 1, Commentf("Incorrect number of generated egress rules for testCase with single cached ToFQDNs DNS entry"))
+	c.Assert(len(rules[0].Egress[0].ToCIDRSet), Equals, 0, Commentf("Generated CIDR count is not the same as ToFQDNs DNS entries in cache"))
 }
