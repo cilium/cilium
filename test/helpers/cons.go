@@ -87,7 +87,7 @@ const (
 	HostDockerNetwork = "host"
 
 	// NetperfImage is the Docker image used for performance testing
-	NetperfImage = "docker.io/tgraf/netperf:latest"
+	NetperfImage = "docker.io/tgraf/netperf:v1.0"
 
 	// HttpdImage is the image used for starting an HTTP server.
 	HttpdImage = "docker.io/cilium/demo-httpd:latest"
