@@ -71,27 +71,26 @@ func runGC(e *endpoint.Endpoint, isIPv6 bool, filter *ctmap.GCFilter) {
 	}
 }
 
-func createGCFilter(ipv6, initialScan bool, restoredEndpoints []*endpoint.Endpoint) *ctmap.GCFilter {
+// scrubAllNonRestoredIPs runs only when the cilium-agent starts, this function
+// scrub all IPs from the conntrack table which do not belong to IPs of any
+// endpoint that has been restored. No new endpoints can appear yet so we can
+// assume that any other entry not belonging to a restored endpoint has become
+// stale.
+func scrubAllNonRestoredIPs(ipv6 bool, restoredEndpoints []*endpoint.Endpoint) {
 	filter := &ctmap.GCFilter{
 		RemoveExpired: true,
 	}
 
-	// On the initial scan, scrub all IPs from the conntrack table which do
-	// not belong to IPs of any endpoint that has been restored. No new
-	// endpoints can appear yet so we can assume that any other entry not
-	// belonging to a restored endpoint has become stale.
-	if initialScan {
-		filter.ValidIPs = map[string]struct{}{}
-		for _, ep := range restoredEndpoints {
-			if ipv6 {
-				filter.ValidIPs[ep.IPv6.String()] = struct{}{}
-			} else {
-				filter.ValidIPs[ep.IPv4.String()] = struct{}{}
-			}
+	filter.ValidIPs = map[string]struct{}{}
+	for _, ep := range restoredEndpoints {
+		if ipv6 {
+			filter.ValidIPs[ep.IPv6.String()] = struct{}{}
+		} else {
+			filter.ValidIPs[ep.IPv4.String()] = struct{}{}
 		}
 	}
 
-	return filter
+	runGC(nil, ipv6, filter)
 }
 
 // EnableConntrackGC enables the connection tracking garbage collection.
@@ -99,21 +98,22 @@ func EnableConntrackGC(ipv4, ipv6 bool, gcinterval int, restoredEndpoints []*end
 	initialScan := true
 	initialScanComplete := make(chan struct{})
 
-	go func() {
-		if gcinterval < MinGcInterval {
-			gcinterval = MinGcInterval
-			log.Warnf("Setting conntrack garbage collector interval to its minimum value(%d seconds)", gcinterval)
-		}
-		sleepTime := time.Duration(gcinterval) * time.Second
+	if gcinterval < MinGcInterval {
+		gcinterval = MinGcInterval
+		log.Warnf("Setting conntrack garbage collector interval to its minimum value(%d seconds)", gcinterval)
+	}
+	sleepTime := time.Duration(gcinterval) * time.Second
+
+	go func(interval time.Duration) {
 		for {
 			eps := GetEndpoints()
 			if len(eps) > 0 || initialScan {
 				if ipv6 {
-					runGC(nil, true, createGCFilter(true, initialScan, restoredEndpoints))
+					scrubAllNonRestoredIPs(true, restoredEndpoints)
 				}
 
 				if ipv4 {
-					runGC(nil, false, createGCFilter(false, initialScan, restoredEndpoints))
+					scrubAllNonRestoredIPs(false, restoredEndpoints)
 				}
 			}
 			for _, e := range eps {
@@ -121,22 +121,16 @@ func EnableConntrackGC(ipv4, ipv6 bool, gcinterval int, restoredEndpoints []*end
 					// Skip because GC was handled above.
 					continue
 				}
-				if ipv6 {
-					runGC(e, true, &ctmap.GCFilter{RemoveExpired: true})
-				}
-				if ipv4 {
-					runGC(e, false, &ctmap.GCFilter{RemoveExpired: true})
-				}
+				e.RunConntrackGC(&ctmap.GCFilter{RemoveExpired: true})
 			}
 
 			if initialScan {
 				close(initialScanComplete)
 				initialScan = false
 			}
-
 			time.Sleep(sleepTime)
 		}
-	}()
+	}(sleepTime)
 
 	select {
 	case <-initialScanComplete:

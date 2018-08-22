@@ -2652,7 +2652,7 @@ func (e *Endpoint) IsDisconnecting() bool {
 
 // doGarbageCollectConntrack is usd by garbageCollectConntrack and should not be
 // called directly.
-func (e *Endpoint) doGarbageCollectConntrack(isIPv6 bool, filter *ctmap.GCFilter) {
+func (e *Endpoint) doGarbageCollectConntrack(isIPv6 bool, filter *ctmap.GCFilter) int {
 	var file, mapType string
 
 	if e.Options != nil && e.Options.IsEnabled(option.ConntrackLocal) {
@@ -2664,23 +2664,37 @@ func (e *Endpoint) doGarbageCollectConntrack(isIPv6 bool, filter *ctmap.GCFilter
 	m, err := bpf.OpenMap(file)
 	if err != nil {
 		log.WithError(err).WithField(logfields.Path, file).Warn("Unable to open map")
-		return
+		return 0
 	}
 	defer m.Close()
 
-	ctmap.GC(m, mapType, filter)
+	return ctmap.GC(m, mapType, filter)
 }
 
 // garbageCollectConntrack will run the ctmap.GC() on either the endpoint's
 // local conntrack table or the global conntrack table.
 //
-// The endponit lock must be held
-func (e *Endpoint) garbageCollectConntrack(filter *ctmap.GCFilter) {
-	if !option.Config.IPv4Disabled {
-		e.doGarbageCollectConntrack(false, filter)
+// The endpoint lock must be held
+func (e *Endpoint) garbageCollectConntrack(filter *ctmap.GCFilter) int {
+	var deletedIpv6, deletedIpv4 int
+	deletedIpv6 = e.doGarbageCollectConntrack(true, filter)
+	logFields := logrus.Fields{
+		"Ipv6DeletedConnections": deletedIpv6,
 	}
+	if !option.Config.IPv4Disabled {
+		deletedIpv4 = e.doGarbageCollectConntrack(false, filter)
+		logFields["Ipv4DeletedConnections"] = deletedIpv4
+	}
+	e.getLogger().WithFields(logFields).Debug("Deleted connections from Conntrack table")
+	return deletedIpv4 + deletedIpv6
+}
 
-	e.doGarbageCollectConntrack(true, filter)
+// RunConntrackGC runs the conntrack garbace collector for the endpoint and the
+// given filter.
+func (e *Endpoint) RunConntrackGC(filter *ctmap.GCFilter) {
+	e.UnconditionalLock()
+	e.garbageCollectConntrack(filter)
+	e.Unlock()
 }
 
 func (e *Endpoint) scrubIPsInConntrackTableLocked() {
