@@ -74,6 +74,7 @@ pkg/components/ @cilium/agent
 pkg/controller @cilium/agent
 pkg/counter @cilium/bpf
 pkg/datapath @cilium/bpf
+pkg/datapath/ipcache/ @cilium/ipcache
 pkg/debugdetection @cilium/agent
 pkg/defaults @cilium/agent
 pkg/endpoint/ @cilium/endpoint
