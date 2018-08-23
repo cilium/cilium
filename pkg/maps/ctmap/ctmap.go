@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"strconv"
 	"time"
 	"unsafe"
 
@@ -349,7 +350,8 @@ func statStartGc(m *bpf.Map, family gcFamily) gcStats {
 
 func (s *gcStats) finish() {
 	s.finished = time.Now()
-
+	duration := s.finished.Sub(s.started)
+	family := s.family.String()
 	switch s.family {
 	case gcFamilyIPv6:
 		metrics.DatapathErrors.With(labelIPv6CTDumpInterrupts).Add(float64(s.interrupted))
@@ -357,14 +359,19 @@ func (s *gcStats) finish() {
 		metrics.DatapathErrors.With(labelIPv4CTDumpInterrupts).Add(float64(s.interrupted))
 	}
 
+	metrics.ConntrackGCRuns.WithLabelValues(family, strconv.FormatBool(s.completed)).Inc()
+
 	if !s.completed {
 		log.WithField("interrupted", s.interrupted).Warningf(
 			"Garbage collection on IPv6 CT map failed to finish")
 	}
 
+	metrics.ConntrackGCDuration.WithLabelValues(family).Observe(float64(duration / time.Second))
+	metrics.ConntrackGCKeyFallbacks.WithLabelValues(family).Add(float64(s.keyFallback))
+
 	log.WithFields(logrus.Fields{
 		logfields.StartTime: s.started,
-		logfields.Duration:  s.finished.Sub(s.started),
+		logfields.Duration:  duration,
 		"numDeleted":        s.deleted,
 		"numLookups":        s.count,
 		"numLookupsFailed":  s.lookupFailed,
