@@ -17,6 +17,7 @@ package ipcache
 import (
 	"fmt"
 	"net"
+	"sync"
 	"unsafe"
 
 	"github.com/cilium/cilium/common/types"
@@ -138,6 +139,15 @@ func (v *RemoteEndpointInfo) GetValuePtr() unsafe.Pointer { return unsafe.Pointe
 // Map represents an IPCache BPF map.
 type Map struct {
 	bpf.Map
+
+	// detectDeleteSupport is used to initialize 'supportsDelete' the first
+	// time that a delete is issued from the datapath.
+	detectDeleteSupport sync.Once
+
+	// deleteSupport is set to 'true' initially, then is updated to set
+	// whether the underlying kernel supports delete operations on the map
+	// the first time that supportsDelete() is called.
+	deleteSupport bool
 }
 
 // NewMap instantiates a Map.
@@ -159,18 +169,33 @@ func NewMap(name string) *Map {
 				return &k, &v, nil
 			},
 		).WithCache(),
+		deleteSupport: true,
 	}
 }
 
-// Delete removes a key from the ipcache BPF map
-func (m *Map) Delete(k bpf.MapKey) error {
+// delete removes a key from the ipcache BPF map, and returns whether the
+// kernel supports the delete operation (true) or not (false), and any error
+// that may have occurred while attempting to delete the entry.
+//
+// If "overwrite" is true, then if delete is not supported the entry's value
+// will be overwritten with zeroes to signify that it's an invalid entry.
+func (m *Map) delete(k bpf.MapKey, overwrite bool) (bool, error) {
 	// Older kernels do not support deletion of LPM map entries so zero out
 	// the entry instead of attempting a deletion
 	err, errno := m.DeleteWithErrno(k)
 	if errno == unix.ENOSYS {
-		return m.Update(k, &RemoteEndpointInfo{})
+		if overwrite {
+			return false, m.Update(k, &RemoteEndpointInfo{})
+		}
+		return false, nil
 	}
 
+	return true, err
+}
+
+// Delete removes a key from the ipcache BPF map
+func (m *Map) Delete(k bpf.MapKey) error {
+	_, err := m.delete(k, true)
 	return err
 }
 
@@ -188,6 +213,25 @@ func (m *Map) GetMaxPrefixLengths(ipv6 bool) (count int) {
 		return maxPrefixLengths6
 	}
 	return maxPrefixLengths4
+}
+
+func (m *Map) supportsDelete() bool {
+	m.detectDeleteSupport.Do(func() {
+		// Entry is invalid because IPCache needs a family specified.
+		invalidEntry := &Key{}
+		m.deleteSupport, _ = m.delete(invalidEntry, false)
+		log.Debugf("Detected IPCache delete operation support: %t", m.deleteSupport)
+		if !m.deleteSupport {
+			log.Infof("Periodic IPCache map swap will occur due to lack of kernel support for LPM delete operation. Upgrade to Linux 4.15 or higher to avoid this.")
+		}
+	})
+	return m.deleteSupport
+}
+
+// SupportsDelete determines whether the underlying kernel map type supports
+// the delete operation.
+func SupportsDelete() bool {
+	return IPCache.supportsDelete()
 }
 
 // BackedByLPM returns true if the IPCache is backed by a proper LPM
