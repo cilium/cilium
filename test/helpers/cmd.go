@@ -32,12 +32,12 @@ import (
 
 // CmdRes contains a variety of data which results from running a command.
 type CmdRes struct {
-	cmd      string        // Command to run
-	params   []string      // Parameters to provide to command
-	stdout   *bytes.Buffer // Stdout from running cmd
-	stderr   *bytes.Buffer // Stderr from running cmd
-	success  bool          // Whether command successfully executed
-	exitcode int           // The exit code of cmd
+	cmd      string   // Command to run
+	params   []string // Parameters to provide to command
+	stdout   *Buffer  // Stdout from running cmd
+	stderr   *Buffer  // Stderr from running cmd
+	success  bool     // Whether command successfully executed
+	exitcode int      // The exit code of cmd
 }
 
 // GetCmd returns res's cmd.
@@ -207,7 +207,7 @@ func (res *CmdRes) KVOutput() map[string]string {
 }
 
 // Output returns res's stdout.
-func (res *CmdRes) Output() *bytes.Buffer {
+func (res *CmdRes) Output() *Buffer {
 	return res.stdout
 }
 
