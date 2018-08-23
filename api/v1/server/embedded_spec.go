@@ -452,6 +452,83 @@ func init() {
         }
       }
     },
+    "/fqdn/cache": {
+      "get": {
+        "description": "Retrieves the list of DNS lookups intercepted from endpoints, optionally filtered by endpoint id, dns name, or CIDR IP range.\n",
+        "tags": [
+          "policy"
+        ],
+        "summary": "Retrieves the list of DNS lookups intercepted from all endpoints.",
+        "parameters": [
+          {
+            "$ref": "#/parameters/matchpattern"
+          },
+          {
+            "$ref": "#/parameters/cidr"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/DNSLookup"
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request (error parsing parameters)",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "404": {
+            "description": "No DNS data with provided parameters found"
+          }
+        }
+      }
+    },
+    "/fqdn/cache/{id}": {
+      "get": {
+        "description": "Retrieves the list of DNS lookups intercepted from endpoints, optionally filtered by endpoint id, dns name, or CIDR IP range.\n",
+        "tags": [
+          "policy"
+        ],
+        "summary": "Retrieves the list of DNS lookups intercepted from an endpoint.",
+        "parameters": [
+          {
+            "$ref": "#/parameters/endpoint-id"
+          },
+          {
+            "$ref": "#/parameters/matchpattern"
+          },
+          {
+            "$ref": "#/parameters/cidr"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/DNSLookup"
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request (error parsing parameters)",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "404": {
+            "description": "No DNS data with provided parameters found"
+          }
+        }
+      }
+    },
     "/healthz": {
       "get": {
         "description": "Returns health and status information of the Cilium daemon and related\ncomponents such as the local container runtime, connected datastore,\nKubernetes integration.\n",
@@ -1245,6 +1322,41 @@ func init() {
       "type": "array",
       "items": {
         "$ref": "#/definitions/ControllerStatus"
+      }
+    },
+    "DNSLookup": {
+      "description": "An IP -\u003e DNS mapping, with metadata",
+      "type": "object",
+      "properties": {
+        "endpoint-id": {
+          "description": "The endpoint that made this lookup, or 0 for the agent itself.",
+          "type": "integer"
+        },
+        "expiration-time": {
+          "description": "The absolute time when this data will expire in this cache",
+          "type": "string",
+          "format": "date-time"
+        },
+        "fqdn": {
+          "description": "DNS name",
+          "type": "string"
+        },
+        "ips": {
+          "description": "IP addresses returned in this lookup",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "lookup-time": {
+          "description": "The absolute time when this data was recieved",
+          "type": "string",
+          "format": "date-time"
+        },
+        "ttl": {
+          "description": "The TTL in the DNS response",
+          "type": "integer"
+        }
       }
     },
     "DaemonConfiguration": {
@@ -2433,6 +2545,12 @@ func init() {
     }
   },
   "parameters": {
+    "cidr": {
+      "type": "string",
+      "description": "A CIDR range of IPs",
+      "name": "cidr",
+      "in": "query"
+    },
     "endpoint-change-request": {
       "name": "endpoint",
       "in": "body",
@@ -2486,6 +2604,12 @@ func init() {
       "name": "name",
       "in": "path",
       "required": true
+    },
+    "matchpattern": {
+      "type": "string",
+      "description": "A toFQDNs compatible matchPattern expression",
+      "name": "matchpattern",
+      "in": "query"
     },
     "pod-name": {
       "type": "string",
