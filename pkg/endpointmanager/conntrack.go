@@ -69,6 +69,7 @@ func runGC(e *endpoint.Endpoint, isIPv6 bool, filter *ctmap.GCFilter) {
 			"count":        deleted,
 		}).Debug("Deleted filtered entries from map")
 	}
+	return
 }
 
 func createGCFilter(ipv6, initialScan bool, restoredEndpoints []*endpoint.Endpoint) *ctmap.GCFilter {
