@@ -148,18 +148,20 @@ func (l *BPFListener) garbageCollect() error {
 	ipcache.IPIdentityCache.RLock()
 	defer ipcache.IPIdentityCache.RUnlock()
 
-	keysToRemove := map[string]*ipcacheMap.Key{}
-	if err := l.bpfMap.DumpWithCallback(updateStaleEntriesFunction(keysToRemove)); err != nil {
-		return fmt.Errorf("error dumping ipcache BPF map: %s", err)
-	}
+	if true {
+		keysToRemove := map[string]*ipcacheMap.Key{}
+		if err := l.bpfMap.DumpWithCallback(updateStaleEntriesFunction(keysToRemove)); err != nil {
+			return fmt.Errorf("error dumping ipcache BPF map: %s", err)
+		}
 
-	// Remove all keys which are not in in-memory cache from BPF map
-	// for consistency.
-	for _, k := range keysToRemove {
-		log.WithFields(logrus.Fields{logfields.BPFMapKey: k}).
-			Debug("deleting from ipcache BPF map")
-		if err := l.bpfMap.Delete(k); err != nil {
-			return fmt.Errorf("error deleting key %s from ipcache BPF map: %s", k, err)
+		// Remove all keys which are not in in-memory cache from BPF map
+		// for consistency.
+		for _, k := range keysToRemove {
+			log.WithFields(logrus.Fields{logfields.BPFMapKey: k}).
+				Debug("deleting from ipcache BPF map")
+			if err := l.bpfMap.Delete(k); err != nil {
+				return fmt.Errorf("error deleting key %s from ipcache BPF map: %s", k, err)
+			}
 		}
 	}
 	return nil
