@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/metrics"
 
 	"github.com/sirupsen/logrus"
 )
@@ -29,6 +30,16 @@ import (
 const (
 	// MinGcInterval is the minimum garbage collection interval.
 	MinGcInterval int = 5
+
+	// Global string for refering in metrics
+	Global string = "global"
+
+	// Expires string to refering on metrics
+	expires string = "expires"
+
+	// CleanOnStart string to refering that the CT was clean because it was
+	// cleaning the restored endpoints CT.
+	CleanOnStart string = "cleanOnStart"
 )
 
 // runGC run CT's garbage collector for the given endpoint. `isLocal` refers if
@@ -39,7 +50,7 @@ const (
 // The provided endpoint is optional; if it is provided, then its map will be
 // garbage collected and any failures will be logged to the endpoint log.
 // Otherwise it will garbage-collect the global map and use the global log.
-func runGC(e *endpoint.Endpoint, isIPv6 bool, filter *ctmap.GCFilter) {
+func runGC(e *endpoint.Endpoint, isIPv6 bool, filter *ctmap.GCFilter) int {
 	var file string
 	var mapType string
 
@@ -57,7 +68,7 @@ func runGC(e *endpoint.Endpoint, isIPv6 bool, filter *ctmap.GCFilter) {
 		if e != nil {
 			e.LogStatus(endpoint.BPF, endpoint.Warning, fmt.Sprintf("Unable to open CT map %s: %s", file, err))
 		}
-		return
+		return 0
 	}
 	defer m.Close()
 
@@ -69,6 +80,7 @@ func runGC(e *endpoint.Endpoint, isIPv6 bool, filter *ctmap.GCFilter) {
 			"count":        deleted,
 		}).Debug("Deleted filtered entries from map")
 	}
+	return deleted
 }
 
 func createGCFilter(ipv6, initialScan bool, restoredEndpoints []*endpoint.Endpoint) *ctmap.GCFilter {
@@ -106,14 +118,27 @@ func EnableConntrackGC(ipv4, ipv6 bool, gcinterval int, restoredEndpoints []*end
 		}
 		sleepTime := time.Duration(gcinterval) * time.Second
 		for {
+			label := expires
 			eps := GetEndpoints()
 			if len(eps) > 0 || initialScan {
+				if initialScan {
+					label = CleanOnStart
+				}
+
 				if ipv6 {
-					runGC(nil, true, createGCFilter(true, initialScan, restoredEndpoints))
+					deleted := runGC(nil, true, createGCFilter(true, initialScan, restoredEndpoints))
+					metrics.ConntrackGCDeleted.With(map[string]string{
+						metrics.LabelDatapathFamily: logfields.IPv6,
+						metrics.LabelScope:          label,
+					}).Add(float64(deleted))
 				}
 
 				if ipv4 {
-					runGC(nil, false, createGCFilter(false, initialScan, restoredEndpoints))
+					deleted := runGC(nil, false, createGCFilter(false, initialScan, restoredEndpoints))
+					metrics.ConntrackGCDeleted.With(map[string]string{
+						metrics.LabelDatapathFamily: logfields.IPv4,
+						metrics.LabelScope:          label,
+					}).Add(float64(deleted))
 				}
 			}
 			for _, e := range eps {
@@ -122,10 +147,18 @@ func EnableConntrackGC(ipv4, ipv6 bool, gcinterval int, restoredEndpoints []*end
 					continue
 				}
 				if ipv6 {
-					runGC(e, true, &ctmap.GCFilter{RemoveExpired: true})
+					deleted := runGC(e, true, &ctmap.GCFilter{RemoveExpired: true})
+					metrics.ConntrackGCDeleted.With(map[string]string{
+						metrics.LabelDatapathFamily: logfields.IPv6,
+						metrics.LabelScope:          expires,
+					}).Add(float64(deleted))
 				}
 				if ipv4 {
-					runGC(e, false, &ctmap.GCFilter{RemoveExpired: true})
+					deleted := runGC(e, false, &ctmap.GCFilter{RemoveExpired: true})
+					metrics.ConntrackGCDeleted.With(map[string]string{
+						metrics.LabelDatapathFamily: logfields.IPv4,
+						metrics.LabelScope:          expires,
+					}).Add(float64(deleted))
 				}
 			}
 
