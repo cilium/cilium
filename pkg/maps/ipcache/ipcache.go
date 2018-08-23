@@ -209,3 +209,9 @@ func init() {
 		log.WithError(err).Error("unable to open map")
 	}
 }
+
+// Reopen attempts to close and re-open the IPCache map at the standard path
+// on the filesystem.
+func Reopen() error {
+	return IPCache.Map.Reopen()
+}
