@@ -478,7 +478,7 @@ func cmdDel(args *skel.CmdArgs) error {
 		log.WithError(err).Warn("Deletion of endpoint failed")
 	}
 
-	return ns.WithNetNSPath(args.Netns, func(_ ns.NetNS) error {
-		return link.DeleteByName(args.IfName)
+	return ns.WithNetNSPath(args.Netns, func(netNs ns.NetNS) error {
+		return removeIfFromNSIfExists(netNs, args.IfName)
 	})
 }
