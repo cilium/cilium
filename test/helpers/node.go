@@ -15,7 +15,6 @@
 package helpers
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -33,7 +32,7 @@ import (
 
 var (
 	//SSHMetaLogs is a buffer where all commands sent over ssh are saved.
-	SSHMetaLogs = ginkgoext.NewWriter(new(bytes.Buffer))
+	SSHMetaLogs = ginkgoext.NewWriter(new(Buffer))
 )
 
 // SSHMeta contains metadata to SSH into a remote location to run tests
@@ -158,8 +157,8 @@ func (s *SSHMeta) Exec(cmd string, options ...ExecOptions) *CmdRes {
 	}
 
 	log.Debugf("running command: %s", cmd)
-	stdout := new(bytes.Buffer)
-	stderr := new(bytes.Buffer)
+	stdout := new(Buffer)
+	stderr := new(Buffer)
 	start := time.Now()
 	err := s.Execute(cmd, stdout, stderr)
 
@@ -227,8 +226,8 @@ func (s *SSHMeta) ExecContext(ctx context.Context, cmd string, options ...ExecOp
 	}
 
 	fmt.Fprintln(SSHMetaLogs, cmd)
-	stdout := new(bytes.Buffer)
-	stderr := new(bytes.Buffer)
+	stdout := new(Buffer)
+	stderr := new(Buffer)
 
 	command := &SSHCommand{
 		Path:   cmd,
@@ -237,21 +236,21 @@ func (s *SSHMeta) ExecContext(ctx context.Context, cmd string, options ...ExecOp
 		Stderr: stderr,
 	}
 
-	res := CmdRes{
+	res := &CmdRes{
 		cmd:     cmd,
 		stdout:  stdout,
 		stderr:  stderr,
 		success: false,
 	}
 
-	go func() {
+	go func(res *CmdRes) {
 		start := time.Now()
 		if err := s.sshClient.RunCommandContext(ctx, command); err != nil {
 			log.WithError(err).Error("Error running context")
 		}
 		res.duration = time.Since(start)
 		res.SendToLog(ops.SkipLog)
-	}()
+	}(res)
 
-	return &res
+	return res
 }
