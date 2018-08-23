@@ -29,6 +29,16 @@ import (
 const (
 	// MinGcInterval is the minimum garbage collection interval.
 	MinGcInterval int = 5
+
+	// Global string for refering in metrics
+	Global string = "global"
+
+	// Expires string to refering on metrics
+	expires string = "expires"
+
+	// CleanOnStart string to refering that the CT was clean because it was
+	// cleaning the restored endpoints CT.
+	CleanOnStart string = "cleanOnStart"
 )
 
 // runGC run CT's garbage collector for the given endpoint. `isLocal` refers if
@@ -39,6 +49,7 @@ const (
 // The provided endpoint is optional; if it is provided, then its map will be
 // garbage collected and any failures will be logged to the endpoint log.
 // Otherwise it will garbage-collect the global map and use the global log.
+//
 func runGC(e *endpoint.Endpoint, isIPv6 bool, filter *ctmap.GCFilter) {
 	var file string
 	var mapType string
@@ -69,6 +80,7 @@ func runGC(e *endpoint.Endpoint, isIPv6 bool, filter *ctmap.GCFilter) {
 			"count":        deleted,
 		}).Debug("Deleted filtered entries from map")
 	}
+	return
 }
 
 func createGCFilter(ipv6, initialScan bool, restoredEndpoints []*endpoint.Endpoint) *ctmap.GCFilter {
