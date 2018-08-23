@@ -17,7 +17,7 @@ package client
 import (
 	"github.com/cilium/cilium/api/v1/client/endpoint"
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/api"
+	"github.com/cilium/cilium/pkg/defaults"
 	pkgEndpointID "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/labels"
 )
@@ -33,7 +33,7 @@ func (c *Client) EndpointList() ([]*models.Endpoint, error) {
 
 // EndpointGet returns endpoint by ID
 func (c *Client) EndpointGet(id string) (*models.Endpoint, error) {
-	params := endpoint.NewGetEndpointIDParams().WithID(id).WithTimeout(api.ClientTimeout)
+	params := endpoint.NewGetEndpointIDParams().WithID(id).WithTimeout(defaults.ClientTimeout)
 	resp, err := c.Endpoint.GetEndpointID(params)
 	if err != nil {
 		/* Since plugins rely on checking the error type, we don't wrap this
@@ -47,28 +47,28 @@ func (c *Client) EndpointGet(id string) (*models.Endpoint, error) {
 // EndpointCreate creates a new endpoint
 func (c *Client) EndpointCreate(ep *models.EndpointChangeRequest) error {
 	id := pkgEndpointID.NewCiliumID(ep.ID)
-	params := endpoint.NewPutEndpointIDParams().WithID(id).WithEndpoint(ep).WithTimeout(api.ClientTimeout)
+	params := endpoint.NewPutEndpointIDParams().WithID(id).WithEndpoint(ep).WithTimeout(defaults.ClientTimeout)
 	_, err := c.Endpoint.PutEndpointID(params)
 	return Hint(err)
 }
 
 // EndpointPatch modifies the endpoint
 func (c *Client) EndpointPatch(id string, ep *models.EndpointChangeRequest) error {
-	params := endpoint.NewPatchEndpointIDParams().WithID(id).WithEndpoint(ep).WithTimeout(api.ClientTimeout)
+	params := endpoint.NewPatchEndpointIDParams().WithID(id).WithEndpoint(ep).WithTimeout(defaults.ClientTimeout)
 	_, err := c.Endpoint.PatchEndpointID(params)
 	return Hint(err)
 }
 
 // EndpointDelete deletes endpoint
 func (c *Client) EndpointDelete(id string) error {
-	params := endpoint.NewDeleteEndpointIDParams().WithID(id).WithTimeout(api.ClientTimeout)
+	params := endpoint.NewDeleteEndpointIDParams().WithID(id).WithTimeout(defaults.ClientTimeout)
 	_, _, err := c.Endpoint.DeleteEndpointID(params)
 	return Hint(err)
 }
 
 // EndpointLogGet returns endpoint log
 func (c *Client) EndpointLogGet(id string) (models.EndpointStatusLog, error) {
-	params := endpoint.NewGetEndpointIDLogParams().WithID(id).WithTimeout(api.ClientTimeout)
+	params := endpoint.NewGetEndpointIDLogParams().WithID(id).WithTimeout(defaults.ClientTimeout)
 	resp, err := c.Endpoint.GetEndpointIDLog(params)
 	if err != nil {
 		return nil, Hint(err)
@@ -78,7 +78,7 @@ func (c *Client) EndpointLogGet(id string) (models.EndpointStatusLog, error) {
 
 // EndpointHealthGet returns endpoint healthz
 func (c *Client) EndpointHealthGet(id string) (*models.EndpointHealth, error) {
-	params := endpoint.NewGetEndpointIDHealthzParams().WithID(id).WithTimeout(api.ClientTimeout)
+	params := endpoint.NewGetEndpointIDHealthzParams().WithID(id).WithTimeout(defaults.ClientTimeout)
 	resp, err := c.Endpoint.GetEndpointIDHealthz(params)
 	if err != nil {
 		return nil, Hint(err)
@@ -88,7 +88,7 @@ func (c *Client) EndpointHealthGet(id string) (*models.EndpointHealth, error) {
 
 // EndpointConfigGet returns endpoint configuration
 func (c *Client) EndpointConfigGet(id string) (*models.EndpointConfigurationStatus, error) {
-	params := endpoint.NewGetEndpointIDConfigParams().WithID(id).WithTimeout(api.ClientTimeout)
+	params := endpoint.NewGetEndpointIDConfigParams().WithID(id).WithTimeout(defaults.ClientTimeout)
 	resp, err := c.Endpoint.GetEndpointIDConfig(params)
 	if err != nil {
 		return nil, Hint(err)
@@ -98,7 +98,7 @@ func (c *Client) EndpointConfigGet(id string) (*models.EndpointConfigurationStat
 
 // EndpointConfigPatch modifies endpoint configuration
 func (c *Client) EndpointConfigPatch(id string, cfg *models.EndpointConfigurationSpec) error {
-	params := endpoint.NewPatchEndpointIDConfigParams().WithID(id).WithTimeout(api.ClientTimeout)
+	params := endpoint.NewPatchEndpointIDConfigParams().WithID(id).WithTimeout(defaults.ClientTimeout)
 	if cfg != nil {
 		params.SetEndpointConfiguration(cfg)
 	}
@@ -109,7 +109,7 @@ func (c *Client) EndpointConfigPatch(id string, cfg *models.EndpointConfiguratio
 
 // EndpointLabelsGet returns endpoint label configuration
 func (c *Client) EndpointLabelsGet(id string) (*models.LabelConfiguration, error) {
-	params := endpoint.NewGetEndpointIDLabelsParams().WithID(id).WithTimeout(api.ClientTimeout)
+	params := endpoint.NewGetEndpointIDLabelsParams().WithID(id).WithTimeout(defaults.ClientTimeout)
 	resp, err := c.Endpoint.GetEndpointIDLabels(params)
 	if err != nil {
 		return nil, Hint(err)
@@ -149,7 +149,7 @@ func (c *Client) EndpointLabelsPatch(id string, toAdd, toDelete models.Labels) e
 	}
 	currentCfg.Spec.User = userLbl.GetModel()
 
-	params := endpoint.NewPatchEndpointIDLabelsParams().WithID(id).WithTimeout(api.ClientTimeout)
+	params := endpoint.NewPatchEndpointIDLabelsParams().WithID(id).WithTimeout(defaults.ClientTimeout)
 	_, err = c.Endpoint.PatchEndpointIDLabels(params.WithConfiguration(currentCfg.Spec))
 	return Hint(err)
 }
