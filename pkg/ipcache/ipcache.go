@@ -194,6 +194,18 @@ func allowOverwrite(existing, new Source) bool {
 	return true
 }
 
+// endpointIPToCIDR converts the endpoint IP into an equivalent full CIDR.
+func endpointIPToCIDR(ip net.IP) *net.IPNet {
+	bits := net.IPv6len * 8
+	if ip.To4() != nil {
+		bits = net.IPv4len * 8
+	}
+	return &net.IPNet{
+		IP:   ip,
+		Mask: net.CIDRMask(bits, bits),
+	}
+}
+
 // Upsert adds / updates the provided IP (endpoint or CIDR prefix) and identity
 // into the IPCache.
 //
@@ -256,15 +268,7 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, newIdentity Identity) bool 
 			}
 		}
 	} else if endpointIP := net.ParseIP(ip); endpointIP != nil { // Endpoint IP.
-		// Convert the endpoint IP into an equivalent full CIDR.
-		bits := net.IPv6len * 8
-		if endpointIP.To4() != nil {
-			bits = net.IPv4len * 8
-		}
-		cidr = &net.IPNet{
-			IP:   endpointIP,
-			Mask: net.CIDRMask(bits, bits),
-		}
+		cidr = endpointIPToCIDR(endpointIP)
 
 		// Check whether the upserted endpoint IP will shadow that CIDR, and
 		// replace its mapping with the listeners if that was the case.
@@ -317,6 +321,20 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, newIdentity Identity) bool 
 	}
 
 	return true
+}
+
+// DumpToListenerLocked dumps the entire contents of the IPCache by triggering
+// the listener's "OnIPIdentityCacheChange" method for each entry in the cache.
+func (ipc *IPCache) DumpToListenerLocked(listener IPIdentityMappingListener) {
+	for ip, identity := range ipc.ipToIdentityCache {
+		hostIP := ipc.ipToHostIPCache[ip]
+		_, cidr, err := net.ParseCIDR(ip)
+		if err != nil {
+			endpointIP := net.ParseIP(ip)
+			cidr = endpointIPToCIDR(endpointIP)
+		}
+		listener.OnIPIdentityCacheChange(Upsert, *cidr, nil, hostIP, nil, identity.ID)
+	}
 }
 
 // deleteLocked removes removes the provided IP-to-security-identity mapping
