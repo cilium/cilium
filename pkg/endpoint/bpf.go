@@ -198,8 +198,10 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	// Endpoint options
 	fw.WriteString(e.Options.GetFmtList())
 
-	if e.DesiredL4Policy != nil {
-		fmt.Fprintf(fw, "#define HAVE_L4_POLICY\n")
+	if e.DesiredL4Policy == nil {
+		fmt.Fprintf(fw, "#define HAVE_L4_POLICY 0\n")
+	} else {
+		fmt.Fprintf(fw, "#define HAVE_L4_POLICY 1\n")
 	}
 
 	if e.L3Policy == nil {
