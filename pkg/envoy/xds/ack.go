@@ -102,13 +102,9 @@ func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName strin
 	m.locker.Lock()
 	defer m.locker.Unlock()
 
-	if completion.Context().Err() != nil {
-		// The context was canceled before we even started.
-		log.WithFields(logrus.Fields{
-			logfields.XDSTypeURL: typeURL,
-		}).Warnf("context cancelled: %s", completion.Context().Err())
-		return
-	}
+	// Always upsert the resource, even if the completion's context was
+	// canceled before we even started, since we have no way to signal whether
+	// the resource is actually upserted.
 
 	version, _ := m.mutator.Upsert(typeURL, resourceName, resource, true)
 
@@ -131,13 +127,9 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 	m.locker.Lock()
 	defer m.locker.Unlock()
 
-	if completion.Context().Err() != nil {
-		// The context was canceled before we even started.
-		log.WithFields(logrus.Fields{
-			logfields.XDSTypeURL: typeURL,
-		}).Warnf("context cancelled: %s", completion.Context().Err())
-		return
-	}
+	// Always delete the resource, even if the completion's context was
+	// canceled before we even started, since we have no way to signal whether
+	// the resource is actually deleted.
 
 	// There is no explicit ACK for resource deletion in the xDS protocol.
 	// As a best effort, just wait for any ACK for the version and type URL,
@@ -200,7 +192,7 @@ func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(version uint64, 
 				}
 				if len(comp.remainingNodesResources) == 0 {
 					// Completed. Notify and remove from pending list.
-					ackLog.Debug("completing ACK: %v", comp)
+					ackLog.Debugf("completing ACK: %v", comp)
 					comp.completion.Complete()
 					continue
 				}
