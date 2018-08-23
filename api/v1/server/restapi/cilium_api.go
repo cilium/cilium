@@ -112,6 +112,12 @@ func NewCiliumAPI(spec *loads.Document) *CiliumAPI {
 		ServiceGetServiceIDHandler: service.GetServiceIDHandlerFunc(func(params service.GetServiceIDParams) middleware.Responder {
 			return middleware.NotImplemented("operation ServiceGetServiceID has not yet been implemented")
 		}),
+		PolicyGetTofqdnsHandler: policy.GetTofqdnsHandlerFunc(func(params policy.GetTofqdnsParams) middleware.Responder {
+			return middleware.NotImplemented("operation PolicyGetTofqdns has not yet been implemented")
+		}),
+		PolicyGetTofqdnsIDHandler: policy.GetTofqdnsIDHandlerFunc(func(params policy.GetTofqdnsIDParams) middleware.Responder {
+			return middleware.NotImplemented("operation PolicyGetTofqdnsID has not yet been implemented")
+		}),
 		DaemonPatchConfigHandler: daemon.PatchConfigHandlerFunc(func(params daemon.PatchConfigParams) middleware.Responder {
 			return middleware.NotImplemented("operation DaemonPatchConfig has not yet been implemented")
 		}),
@@ -217,6 +223,10 @@ type CiliumAPI struct {
 	ServiceGetServiceHandler service.GetServiceHandler
 	// ServiceGetServiceIDHandler sets the operation handler for the get service ID operation
 	ServiceGetServiceIDHandler service.GetServiceIDHandler
+	// PolicyGetTofqdnsHandler sets the operation handler for the get tofqdns operation
+	PolicyGetTofqdnsHandler policy.GetTofqdnsHandler
+	// PolicyGetTofqdnsIDHandler sets the operation handler for the get tofqdns ID operation
+	PolicyGetTofqdnsIDHandler policy.GetTofqdnsIDHandler
 	// DaemonPatchConfigHandler sets the operation handler for the patch config operation
 	DaemonPatchConfigHandler daemon.PatchConfigHandler
 	// EndpointPatchEndpointIDHandler sets the operation handler for the patch endpoint ID operation
@@ -390,6 +400,14 @@ func (o *CiliumAPI) Validate() error {
 
 	if o.ServiceGetServiceIDHandler == nil {
 		unregistered = append(unregistered, "service.GetServiceIDHandler")
+	}
+
+	if o.PolicyGetTofqdnsHandler == nil {
+		unregistered = append(unregistered, "policy.GetTofqdnsHandler")
+	}
+
+	if o.PolicyGetTofqdnsIDHandler == nil {
+		unregistered = append(unregistered, "policy.GetTofqdnsIDHandler")
 	}
 
 	if o.DaemonPatchConfigHandler == nil {
@@ -636,6 +654,16 @@ func (o *CiliumAPI) initHandlerCache() {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
 	o.handlers["GET"]["/service/{id}"] = service.NewGetServiceID(o.context, o.ServiceGetServiceIDHandler)
+
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/tofqdns"] = policy.NewGetTofqdns(o.context, o.PolicyGetTofqdnsHandler)
+
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/tofqdns/{id}"] = policy.NewGetTofqdnsID(o.context, o.PolicyGetTofqdnsIDHandler)
 
 	if o.handlers["PATCH"] == nil {
 		o.handlers["PATCH"] = make(map[string]http.Handler)

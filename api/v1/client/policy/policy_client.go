@@ -171,6 +171,68 @@ func (a *Client) GetPolicyResolve(params *GetPolicyResolveParams) (*GetPolicyRes
 }
 
 /*
+GetTofqdns retrieves the list of DNS lookups intercepted from all endpoints
+
+Retrieves the list of DNS lookups intercepted from endpoints, optionally filtered by endpoint id, dns name, or CIDR IP range.
+
+*/
+func (a *Client) GetTofqdns(params *GetTofqdnsParams) (*GetTofqdnsOK, error) {
+	// TODO: Validate the params before sending
+	if params == nil {
+		params = NewGetTofqdnsParams()
+	}
+
+	result, err := a.transport.Submit(&runtime.ClientOperation{
+		ID:                 "GetTofqdns",
+		Method:             "GET",
+		PathPattern:        "/tofqdns",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http"},
+		Params:             params,
+		Reader:             &GetTofqdnsReader{formats: a.formats},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.(*GetTofqdnsOK), nil
+
+}
+
+/*
+GetTofqdnsID retrieves the list of DNS lookups intercepted from an endpoint
+
+Retrieves the list of DNS lookups intercepted from endpoints, optionally filtered by endpoint id, dns name, or CIDR IP range.
+
+*/
+func (a *Client) GetTofqdnsID(params *GetTofqdnsIDParams) (*GetTofqdnsIDOK, error) {
+	// TODO: Validate the params before sending
+	if params == nil {
+		params = NewGetTofqdnsIDParams()
+	}
+
+	result, err := a.transport.Submit(&runtime.ClientOperation{
+		ID:                 "GetTofqdnsID",
+		Method:             "GET",
+		PathPattern:        "/tofqdns/{id}",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http"},
+		Params:             params,
+		Reader:             &GetTofqdnsIDReader{formats: a.formats},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.(*GetTofqdnsIDOK), nil
+
+}
+
+/*
 PutPolicy creates or update a policy sub tree
 */
 func (a *Client) PutPolicy(params *PutPolicyParams) (*PutPolicyOK, error) {
