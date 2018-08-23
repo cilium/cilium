@@ -246,7 +246,24 @@ var _ = Describe("RuntimePolicies", func() {
 		vm            *helpers.SSHMeta
 		monitorStop   = func() error { return nil }
 		initContainer string
+		tcpDumpStop   = func() error { return nil }
 	)
+
+	TcpDumpStart := func() func() error {
+		vm.Exec("sudo rm -rfv /tmp/policies.pcap")
+		cmd := "sudo tcpdump -i any -s0 -w /tmp/policies.pcap"
+		ctx, cancel := context.WithCancel(context.Background())
+		vm.ExecContext(ctx, cmd)
+
+		cb := func() error {
+			cancel()
+			fmt.Println("STOPEED THE TCPDUMP!")
+			testPath, _ := helpers.CreateReportDirectory()
+			vm.Exec(fmt.Sprintf("cp /tmp/policies.pcap /vagrant/%s", testPath))
+			return nil
+		}
+		return cb
+	}
 
 	BeforeAll(func() {
 		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
@@ -271,11 +288,13 @@ var _ = Describe("RuntimePolicies", func() {
 
 	JustBeforeEach(func() {
 		monitorStop = vm.MonitorStart()
+		tcpDumpStop = TcpDumpStart()
 	})
 
 	JustAfterEach(func() {
 		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
 		Expect(monitorStop()).To(BeNil(), "cannot stop monitor command")
+		tcpDumpStop()
 	})
 
 	AfterFailed(func() {
