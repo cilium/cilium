@@ -674,7 +674,7 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	regenerateStart := time.Now()
 	defer func() {
 		metrics.EndpointCountRegenerating.Dec()
-		if retErr == nil && compilationExecuted {
+		if retErr == nil {
 			metrics.EndpointRegenerationCount.
 				WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
 
