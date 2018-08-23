@@ -35,8 +35,8 @@ import (
 type CmdRes struct {
 	cmd      string        // Command to run
 	params   []string      // Parameters to provide to command
-	stdout   *bytes.Buffer // Stdout from running cmd
-	stderr   *bytes.Buffer // Stderr from running cmd
+	stdout   *Buffer       // Stdout from running cmd
+	stderr   *Buffer       // Stderr from running cmd
 	success  bool          // Whether command successfully executed
 	exitcode int           // The exit code of cmd
 	duration time.Duration // Is the representation of the the time that command took to execute.
@@ -209,7 +209,7 @@ func (res *CmdRes) KVOutput() map[string]string {
 }
 
 // Output returns res's stdout.
-func (res *CmdRes) Output() *bytes.Buffer {
+func (res *CmdRes) Output() *Buffer {
 	return res.stdout
 }
 
