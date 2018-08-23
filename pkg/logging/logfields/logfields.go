@@ -60,6 +60,10 @@ const (
 	// the object in question
 	PolicyRevision = "policyRevision"
 
+	// DatapathPolicyRevision is the policy revision currently running in
+	// the datapath
+	DatapathPolicyRevision = "datapathPolicyRevision"
+
 	// PolicyID is the identifier of a L3, L4 or L7 Policy. Ideally the .NumericIdentity
 	PolicyID = "policyID"
 

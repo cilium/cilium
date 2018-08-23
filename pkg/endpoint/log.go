@@ -76,12 +76,12 @@ func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
 	// When adding new fields, make sure they are abstracted by a setter
 	// and update the logger when the value is set.
 	l := baseLogger.WithFields(logrus.Fields{
-		logfields.EndpointID:     e.ID,
-		logfields.ContainerID:    e.getShortContainerID(),
-		logfields.PolicyRevision: e.policyRevision,
-		logfields.IPv4:           e.IPv4.String(),
-		logfields.IPv6:           e.IPv6.String(),
-		logfields.K8sPodName:     e.GetK8sNamespaceAndPodNameLocked(),
+		logfields.EndpointID:             e.ID,
+		logfields.ContainerID:            e.getShortContainerID(),
+		logfields.DatapathPolicyRevision: e.policyRevision,
+		logfields.IPv4:                   e.IPv4.String(),
+		logfields.IPv6:                   e.IPv6.String(),
+		logfields.K8sPodName:             e.GetK8sNamespaceAndPodNameLocked(),
 	})
 
 	atomic.StorePointer(&e.logger, unsafe.Pointer(l))
