@@ -22,8 +22,8 @@ import (
 
 	. "github.com/cilium/cilium/api/v1/client/policy"
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/command"
+	"github.com/cilium/cilium/pkg/defaults"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -170,7 +170,7 @@ If multiple sources and / or destinations are provided, each source is tested wh
 					Verbose: verbose,
 				}
 
-				params := NewGetPolicyResolveParams().WithTraceSelector(&search).WithTimeout(api.ClientTimeout)
+				params := NewGetPolicyResolveParams().WithTraceSelector(&search).WithTimeout(defaults.ClientTimeout)
 				if scr, err := client.Policy.GetPolicyResolve(params); err != nil {
 					Fatalf("Error while retrieving policy assessment result: %s\n", err)
 				} else if command.OutputJSON() {

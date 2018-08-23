@@ -21,8 +21,8 @@ import (
 
 	identityApi "github.com/cilium/cilium/api/v1/client/policy"
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/command"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/labels"
 
 	"github.com/spf13/cobra"
@@ -64,7 +64,7 @@ var identityGetCmd = &cobra.Command{
 	Short: "Retrieve information about an identity",
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(lookupLabels) > 0 {
-			params := identityApi.NewGetIdentityParams().WithLabels(lookupLabels).WithTimeout(api.ClientTimeout)
+			params := identityApi.NewGetIdentityParams().WithLabels(lookupLabels).WithTimeout(defaults.ClientTimeout)
 			if id, err := client.Policy.GetIdentity(params); err != nil {
 				Fatalf("Cannot get identity for labels %s: %s\n", lookupLabels, err)
 			} else {
@@ -75,7 +75,7 @@ var identityGetCmd = &cobra.Command{
 				Usagef(cmd, "Invalid identity ID")
 			}
 
-			params := identityApi.NewGetIdentityIDParams().WithID(args[0]).WithTimeout(api.ClientTimeout)
+			params := identityApi.NewGetIdentityIDParams().WithID(args[0]).WithTimeout(defaults.ClientTimeout)
 			if id, err := client.Policy.GetIdentityID(params); err != nil {
 				Fatalf("Cannot get identity for given ID %s: %s\n", id, err)
 			} else {

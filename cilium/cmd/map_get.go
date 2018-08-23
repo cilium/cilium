@@ -21,8 +21,8 @@ import (
 
 	daemonAPI "github.com/cilium/cilium/api/v1/client/daemon"
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/command"
+	"github.com/cilium/cilium/pkg/defaults"
 
 	"github.com/spf13/cobra"
 )
@@ -37,7 +37,7 @@ var mapGetCmd = &cobra.Command{
 			Fatalf("map name must be specified")
 		}
 
-		params := daemonAPI.NewGetMapNameParams().WithName(args[0]).WithTimeout(api.ClientTimeout)
+		params := daemonAPI.NewGetMapNameParams().WithName(args[0]).WithTimeout(defaults.ClientTimeout)
 
 		resp, err := client.Daemon.GetMapName(params)
 		if err != nil {

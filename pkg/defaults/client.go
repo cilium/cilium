@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Authors of Cilium
+// Copyright 2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,17 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package api
+package defaults
 
 import (
-	"os"
+	"time"
 )
 
 const (
-	// GroupFilePath is the unix group file path.
-	GroupFilePath = "/etc/group"
-	// CiliumGroupName is the cilium's unix group name.
-	CiliumGroupName = "cilium"
-	// SocketFileMode is the default file mode for the sockets.
-	SocketFileMode os.FileMode = 0660
+	// ClientTimeout specifies timeout to be used by clients
+	ClientTimeout = 90 * time.Second
 )
