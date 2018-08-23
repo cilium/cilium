@@ -17,7 +17,7 @@ package client
 import (
 	"github.com/cilium/cilium/api/v1/client/daemon"
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/api"
+	"github.com/cilium/cilium/pkg/defaults"
 )
 
 // ConfigGet returns a daemon configuration.
@@ -43,7 +43,7 @@ func (c *Client) ConfigPatch(cfg models.DaemonConfigurationSpec) error {
 		fullCfg.Spec.PolicyEnforcement = cfg.PolicyEnforcement
 	}
 
-	params := daemon.NewPatchConfigParams().WithConfiguration(fullCfg.Spec).WithTimeout(api.ClientTimeout)
+	params := daemon.NewPatchConfigParams().WithConfiguration(fullCfg.Spec).WithTimeout(defaults.ClientTimeout)
 	_, err = c.Daemon.PatchConfig(params)
 	return Hint(err)
 }
