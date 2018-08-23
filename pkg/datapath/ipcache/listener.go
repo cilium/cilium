@@ -17,6 +17,8 @@ package ipcache
 import (
 	"fmt"
 	"net"
+	"os"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -33,23 +35,37 @@ import (
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "datapath-ipcache")
 
+// datapath is an interface to the datapath implementation, used to apply
+// changes that are made within this module.
+type datapath interface {
+	TriggerReloadWithoutCompile(reason string) (*sync.WaitGroup, error)
+}
+
 // BPFListener implements the ipcache.IPIdentityMappingBPFListener
 // interface with an IPCache store that is backed by BPF maps.
+//
+// One listener is shared between callers of OnIPIdentityCacheChange() and the
+// controller launched from OnIPIdentityCacheGC(). However, The listener is not
+// updated after initialization so no locking is provided for access.
 type BPFListener struct {
 	// bpfMap is the BPF map that this listener will update when events are
 	// received from the IPCache.
 	bpfMap *ipcacheMap.Map
+
+	// datapath allows this listener to trigger BPF program regeneration.
+	datapath datapath
 }
 
-func newListener(m *ipcacheMap.Map) *BPFListener {
+func newListener(m *ipcacheMap.Map, d datapath) *BPFListener {
 	return &BPFListener{
-		bpfMap: m,
+		bpfMap:   m,
+		datapath: d,
 	}
 }
 
 // NewListener returns a new listener to push IPCache entries into BPF maps.
-func NewListener() *BPFListener {
-	return newListener(ipcacheMap.IPCache)
+func NewListener(d datapath) *BPFListener {
+	return newListener(ipcacheMap.IPCache, d)
 }
 
 // OnIPIdentityCacheChange is called whenever there is a change of state in the
@@ -132,11 +148,49 @@ func updateStaleEntriesFunction(keysToRemove map[string]*ipcacheMap.Key) bpf.Dum
 	}
 }
 
-// garbageCollect implements GC of the ipcache map.
+// handleMapShuffleFailure attempts to move the map with name 'backup' back to
+// 'realized', and logs a warning message if this can't be achieved.
+func handleMapShuffleFailure(src, dst string) {
+	backupPath := bpf.MapPath(src)
+	realizedPath := bpf.MapPath(dst)
+
+	if err := os.Rename(backupPath, realizedPath); err != nil {
+		log.WithError(err).WithFields(logrus.Fields{
+			logfields.BPFMapPath: realizedPath,
+		}).Warningf("Unable to recover during error renaming map paths")
+	}
+}
+
+// shuffleMaps attempts to move the map with name 'realized' to 'backup' and
+// 'pending' to 'realized'. If an error occurs, attempts to return the maps
+// back to their original paths.
+func shuffleMaps(realized, backup, pending string) error {
+	realizedPath := bpf.MapPath(realized)
+	backupPath := bpf.MapPath(backup)
+	pendingPath := bpf.MapPath(pending)
+
+	if err := os.Rename(realizedPath, backupPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("Unable to back up existing ipcache: %s", err)
+	}
+
+	if err := os.Rename(pendingPath, realizedPath); err != nil {
+		handleMapShuffleFailure(backup, realized)
+		return fmt.Errorf("Unable to shift ipcache into new location: %s", err)
+	}
+
+	return nil
+}
+
+// garbageCollect implements GC of the ipcache map in one of two ways:
 //
+// On Linux 4.9, 4.10 or 4.15 and later:
 //   Periodically sweep through every element in the BPF map and check it
 //   against the in-memory copy of the map. If it doesn't exist in memory,
 //   delete the entry.
+// On Linux 4.11 to 4.14:
+//   Create a brand new map, populate it with all of the IPCache entries from
+//   the in-memory cache, delete the old map, and trigger regeneration of all
+//   BPF programs so that they pick up the new map.
 //
 // Returns an error if garbage collection failed to occur.
 func (l *BPFListener) garbageCollect() error {
@@ -148,7 +202,7 @@ func (l *BPFListener) garbageCollect() error {
 	ipcache.IPIdentityCache.RLock()
 	defer ipcache.IPIdentityCache.RUnlock()
 
-	if true {
+	if ipcacheMap.SupportsDelete() {
 		keysToRemove := map[string]*ipcacheMap.Key{}
 		if err := l.bpfMap.DumpWithCallback(updateStaleEntriesFunction(keysToRemove)); err != nil {
 			return fmt.Errorf("error dumping ipcache BPF map: %s", err)
@@ -163,6 +217,39 @@ func (l *BPFListener) garbageCollect() error {
 				return fmt.Errorf("error deleting key %s from ipcache BPF map: %s", k, err)
 			}
 		}
+	} else {
+		// Populate the map at the new path
+		pendingMapName := fmt.Sprintf("%s_pending", ipcacheMap.Name)
+		pendingMap := ipcacheMap.NewMap(pendingMapName)
+		if _, err := pendingMap.OpenOrCreate(); err != nil {
+			return fmt.Errorf("Unable to create %s map: %s", pendingMapName, err)
+		}
+		pendingListener := newListener(pendingMap, l.datapath)
+		ipcache.IPIdentityCache.DumpToListenerLocked(pendingListener)
+
+		// Move the maps around on the filesystem so that BPF reload
+		// will pick up the new paths without requiring recompilation.
+		backupMapName := fmt.Sprintf("%s_old", ipcacheMap.Name)
+		if err := shuffleMaps(ipcacheMap.Name, backupMapName, pendingMapName); err != nil {
+			return err
+		}
+
+		wg, err := l.datapath.TriggerReloadWithoutCompile("datapath ipcache")
+		if err != nil {
+			handleMapShuffleFailure(backupMapName, ipcacheMap.Name)
+			return err
+		}
+
+		// If the base programs successfully compiled, then the maps
+		// should be OK so let's update all references to the IPCache
+		// so that they point to the new version.
+		_ = os.RemoveAll(bpf.MapPath(backupMapName))
+		if err := ipcacheMap.Reopen(); err != nil {
+			// Very unlikely; base program compilation succeeded.
+			log.WithError(err).Warning("Failed to reopen BPF ipcache map")
+			return err
+		}
+		wg.Wait()
 	}
 	return nil
 }

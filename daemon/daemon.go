@@ -851,7 +851,7 @@ func (d *Daemon) init() error {
 		// used by syncLXCMap().
 		ipcache.IPIdentityCache.SetListeners([]ipcache.IPIdentityMappingListener{
 			&envoy.NetworkPolicyHostsCache,
-			bpfIPCache.NewListener(),
+			bpfIPCache.NewListener(d),
 		})
 
 		// Insert local host entries to bpf maps
@@ -1462,16 +1462,17 @@ func mapValidateWalker(path string) error {
 	return nil
 }
 
-// ReloadBPF triggers whatever datapath synchronization logic is necessary to
-// reload BPF programs and maps. It first attempts to recompile the base
-// programs, and if this fails will return an error. Otherwise, it subsequently
-// triggers regeneration of all endpoints and returns a waitgroup that may be
-// used by the caller to wait for all endpoint regeneration to complete.
+// TriggerReloadWithoutCompile causes all BPF programs and maps to be reloaded,
+// without recompiling the datapath logic for each endpoint. It first attempts
+// to recompile the base programs, and if this fails returns an error. If base
+// program load is successful, it subsequently triggers regeneration of all
+// endpoints and returns a waitgroup that may be used by the caller to wait for
+// all endpoint regeneration to complete.
 //
 // If an error is returned, then no regeneration was successful. If no error
 // is returned, then the base programs were successfully regenerated, but
 // endpoints may or may not have successfully regenerated.
-func (d *Daemon) ReloadBPF(reason string) (*sync.WaitGroup, error) {
+func (d *Daemon) TriggerReloadWithoutCompile(reason string) (*sync.WaitGroup, error) {
 	log.Debugf("BPF reload triggered from %s", reason)
 	if err := d.compileBase(); err != nil {
 		return nil, fmt.Errorf("Unable to recompile base programs from %s: %s", reason, err)
