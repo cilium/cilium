@@ -53,7 +53,7 @@ func CurlFail(endpoint string, optionalValues ...interface{}) string {
 		endpoint = fmt.Sprintf(endpoint, optionalValues...)
 	}
 	return fmt.Sprintf(
-		`curl -s -D /dev/stderr  --trace /dev/stderr --fail --connect-timeout %[1]d --max-time %[1]d %[2]s -w "%[3]s"`,
+		`curl -s -D /dev/stderr --fail --connect-timeout %[1]d --max-time %[1]d %[2]s -w "%[3]s"`,
 		CurlConnectTimeout, endpoint, statsInfo)
 }
 
@@ -67,7 +67,7 @@ func CurlWithHTTPCode(endpoint string, optionalValues ...interface{}) string {
 	}
 
 	return fmt.Sprintf(
-		`curl -s --fail --output /dev/stderr --trace /dev/stderr -w '%%{http_code}' --connect-timeout %d %s`,
+		`curl -s --fail --output /dev/stderr -w '%%{http_code}' --connect-timeout %d %s`,
 		CurlConnectTimeout, endpoint)
 }
 

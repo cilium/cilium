@@ -97,7 +97,7 @@ pipeline {
                 script {
                     parallel(
                         "Runtime":{
-                            sh 'cd ${TESTDIR}; ginkgo --focus=" Runtime*" --seed=1534775667 -v --failFast=${FAILFAST}'
+                            sh 'cd ${TESTDIR}; ginkgo --focus=" Runtime*" -v --failFast=${FAILFAST}'
                         },
                         "K8s-1.8":{
                             sh 'cd ${TESTDIR}; K8S_VERSION=1.8 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
