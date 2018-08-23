@@ -48,10 +48,14 @@ static inline bool identity_is_reserved(__u32 identity)
 	return identity < HEALTH_ID;
 }
 
+#ifndef HAVE_L4_POLICY
+#define HAVE_L4_POLICY 0
+#endif /* HAVE_L4_POLICY */
+
 static inline int __inline__
 __policy_can_access(void *map, struct __sk_buff *skb, __u32 identity,
 		    __u16 dport, __u8 proto, size_t cidr_addr_size,
-		    void *cidr_addr, int dir)
+		    void *cidr_addr, int dir, bool is_fragment)
 {
 #ifdef DROP_ALL
 	return DROP_POLICY;
@@ -66,18 +70,18 @@ __policy_can_access(void *map, struct __sk_buff *skb, __u32 identity,
 		.pad = 0,
 	};
 
-#ifdef HAVE_L4_POLICY
-	policy = map_lookup_elem(map, &key);
-	if (likely(policy)) {
-		cilium_dbg3(skb, DBG_L4_CREATE, identity, SECLABEL,
-			    dport << 16 | proto);
+	if (HAVE_L4_POLICY && !is_fragment) {
+		policy = map_lookup_elem(map, &key);
+		if (likely(policy)) {
+			cilium_dbg3(skb, DBG_L4_CREATE, identity, SECLABEL,
+				    dport << 16 | proto);
 
-		/* FIXME: Use per cpu counters */
-		__sync_fetch_and_add(&policy->packets, 1);
-		__sync_fetch_and_add(&policy->bytes, skb->len);
-		goto get_proxy_port;
+			/* FIXME: Use per cpu counters */
+			__sync_fetch_and_add(&policy->packets, 1);
+			__sync_fetch_and_add(&policy->bytes, skb->len);
+			goto get_proxy_port;
+		}
 	}
-#endif /* HAVE_L4_POLICY */
 
 	/* If L4 policy check misses, fall back to L3. */
 	key.dport = 0;
@@ -90,22 +94,24 @@ __policy_can_access(void *map, struct __sk_buff *skb, __u32 identity,
 		return TC_ACT_OK;
 	}
 
-#ifdef HAVE_L4_POLICY
-	key.sec_label = 0;
-	key.dport = dport;
-	key.protocol = proto;
-	policy = map_lookup_elem(map, &key);
-	if (likely(policy)) {
-		/* FIXME: Use per cpu counters */
-		__sync_fetch_and_add(&policy->packets, 1);
-		__sync_fetch_and_add(&policy->bytes, skb->len);
-		goto get_proxy_port;
+	if (HAVE_L4_POLICY && !is_fragment) {
+		key.sec_label = 0;
+		key.dport = dport;
+		key.protocol = proto;
+		policy = map_lookup_elem(map, &key);
+		if (likely(policy)) {
+			/* FIXME: Use per cpu counters */
+			__sync_fetch_and_add(&policy->packets, 1);
+			__sync_fetch_and_add(&policy->bytes, skb->len);
+			goto get_proxy_port;
+		}
 	}
-#endif /* HAVE_L4_POLICY */
 
 	if (skb->cb[CB_POLICY])
 		goto allow;
 
+	if (is_fragment)
+		return DROP_FRAG_NOSUPPORT;
 	return DROP_POLICY;
 #ifdef HAVE_L4_POLICY
 get_proxy_port:
@@ -139,7 +145,7 @@ allow:
 static inline int __inline__
 policy_can_access_ingress(struct __sk_buff *skb, __u32 src_identity,
 			  __u16 dport, __u8 proto, size_t cidr_addr_size,
-			  void *cidr_addr)
+			  void *cidr_addr, bool is_fragment)
 {
 #ifdef DROP_ALL
 	return DROP_POLICY;
@@ -148,7 +154,7 @@ policy_can_access_ingress(struct __sk_buff *skb, __u32 src_identity,
 
 	ret = __policy_can_access(&POLICY_MAP, skb, src_identity, dport,
 				      proto, cidr_addr_size, cidr_addr,
-				      CT_INGRESS);
+				      CT_INGRESS, is_fragment);
 	if (ret >= TC_ACT_OK)
 		return ret;
 
@@ -167,7 +173,7 @@ policy_can_access_ingress(struct __sk_buff *skb, __u32 src_identity,
 static inline int
 policy_can_access_ingress(struct __sk_buff *skb, __u32 src_label,
 			  __u16 dport, __u8 proto, size_t cidr_addr_size,
-			  void *cidr_addr)
+			  void *cidr_addr, bool is_fragment)
 {
 #ifdef DROP_ALL
 	return DROP_POLICY;
@@ -187,7 +193,7 @@ policy_can_egress(struct __sk_buff *skb, __u32 identity, __u16 dport, __u8 proto
 	return DROP_POLICY;
 #else
 	int ret = __policy_can_access(&POLICY_MAP, skb, identity, dport, proto,
-				      0, NULL, CT_EGRESS);
+				      0, NULL, CT_EGRESS, false);
 	if (ret >= 0)
 		return ret;
 
