@@ -46,6 +46,14 @@ var (
 		metrics.LabelDatapathName:   "dump_interrupts",
 		metrics.LabelDatapathFamily: "ipv4",
 	}
+
+	labelIPv6 = map[string]string{
+		metrics.LabelDatapathFamily: logfields.IPv6,
+	}
+
+	labelIPv4 = map[string]string{
+		metrics.LabelDatapathFamily: logfields.IPv4,
+	}
 )
 
 const (
@@ -349,22 +357,34 @@ func statStartGc(m *bpf.Map, family gcFamily) gcStats {
 
 func (s *gcStats) finish() {
 	s.finished = time.Now()
+	duration := s.finished.Sub(s.started)
 
+	var labels map[string]string
 	switch s.family {
 	case gcFamilyIPv6:
+		labels = labelIPv6
 		metrics.DatapathErrors.With(labelIPv6CTDumpInterrupts).Add(float64(s.interrupted))
 	case gcFamilyIPv4:
+		labels = labelIPv4
 		metrics.DatapathErrors.With(labelIPv4CTDumpInterrupts).Add(float64(s.interrupted))
 	}
 
-	if !s.completed {
+	metrics.ConntrackGCRunsTotal.With(labels).Inc()
+
+	if s.completed {
+		metrics.ConntrackGCSize.With(labels).Add(float64(s.count))
+	} else {
 		log.WithField("interrupted", s.interrupted).Warningf(
 			"Garbage collection on IPv6 CT map failed to finish")
+		metrics.ConntrackGCIncompleteRunsTotal.With(labels).Inc()
 	}
+
+	metrics.ConntrackGCDuration.With(labels).Observe(float64(duration / time.Millisecond))
+	metrics.ConntrackGCKeyFallbacks.With(labels).Add(float64(s.keyFallback))
 
 	log.WithFields(logrus.Fields{
 		logfields.StartTime: s.started,
-		logfields.Duration:  s.finished.Sub(s.started),
+		logfields.Duration:  duration,
 		"numDeleted":        s.deleted,
 		"numLookups":        s.count,
 		"numLookupsFailed":  s.lookupFailed,

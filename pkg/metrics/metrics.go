@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
@@ -253,8 +254,57 @@ var (
 		Subsystem: Datapath,
 		Name:      "errors_total",
 		Help:      "Number of errors that occurred in the datapath or datapath management",
-	},
-		[]string{LabelDatapathArea, LabelDatapathName, LabelDatapathFamily})
+	}, []string{LabelDatapathArea, LabelDatapathName, LabelDatapathFamily})
+
+	// ConntrackGCExpiredTotal is the number of deleted entries in the
+	// conntrack table that has expired.
+	ConntrackGCExpiredTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Subsystem: Datapath,
+		Name:      "conntrack_gc_expired_total",
+		Help:      "Number of deleted entries in the conntrack table by the garbage collector process",
+	}, []string{LabelDatapathFamily, logfields.EndpointID})
+
+	// ConntrackGCRunsTotal is the number of times that the conntrack GC
+	// process was run.
+	ConntrackGCRunsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Subsystem: Datapath,
+		Name:      "conntrack_gc_runs_total",
+		Help:      "Number of times that the conntract garbage collector process was run",
+	}, []string{LabelDatapathFamily})
+	// ConntrackGCIncompleteRunsTotal Number of times that the conntrack GC
+	// process failed
+	ConntrackGCIncompleteRunsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Subsystem: Datapath,
+		Name:      "conntrack_gc_incomplete_runs_total",
+		Help:      "Number of times that the conntrack garbage collector failed",
+	}, []string{LabelDatapathFamily})
+
+	// ConntrackGCKeyFallbacks number of times that the conntrack key fallback was invalid.
+	ConntrackGCKeyFallbacks = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Subsystem: Datapath,
+		Name:      "conntrack_gc_key_fallbacks",
+		Help:      "Number of times that the Key fallback was invalid.",
+	}, []string{LabelDatapathFamily})
+
+	// ConntrackGCSize the number of entries in the conntrack table
+	ConntrackGCSize = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: Namespace,
+		Subsystem: Datapath,
+		Name:      "conntrack_gc_size",
+		Help:      "The size of the conntrack table when the garbage collector ran",
+	}, []string{LabelDatapathFamily})
+
+	// ConntrackGCDuration the duration of the conntrack GC process in milliseconds.
+	ConntrackGCDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: Namespace,
+		Subsystem: Datapath,
+		Name:      "conntrack_gc_duration",
+		Help:      "Duration in milliseconds of the garbage collector process",
+	}, []string{LabelDatapathFamily})
 )
 
 func init() {
@@ -290,6 +340,12 @@ func init() {
 	MustRegister(newStatusCollector())
 
 	MustRegister(DatapathErrors)
+	MustRegister(ConntrackGCExpiredTotal)
+	MustRegister(ConntrackGCRunsTotal)
+	MustRegister(ConntrackGCIncompleteRunsTotal)
+	MustRegister(ConntrackGCKeyFallbacks)
+	MustRegister(ConntrackGCSize)
+	MustRegister(ConntrackGCDuration)
 }
 
 // MustRegister adds the collector to the registry, exposing this metric to

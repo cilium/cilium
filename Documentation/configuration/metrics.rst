@@ -42,6 +42,12 @@ Datapath
 --------
 
 * ``datapath_errors_total``: Total number of errors occurred in datapath management, labeled by area, name and address family.
+* ``datapath_conntrack_gc_expired_total``: Number of deleted entries in the conntrack table by the garbage collector process
+* ``datapath_conntrack_gc_runs_total``: Number of times that the conntract garbage collector process was run
+* ``datapath_conntrack_gc_incomplete_runs_total``: Number of times that the conntrack garbage collector failed
+* ``datapath_conntrack_gc_key_fallbacks``: Number of times that the Key fallback was invalid.
+* ``datapath_conntrack_gc_size``: The size of the conntrack table when the garbage collector ran
+* ``datapath_conntrack_gc_duration``: Duration in milliseconds of the garbage collector process
 
 Drops/Forwards (L3/L4)
 ----------------------
