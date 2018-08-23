@@ -769,14 +769,26 @@ func (kub *Kubectl) CiliumInstall(dsPatchName, cmPatchName string) error {
 		// debugYaml only dumps the full created yaml file to the test output if
 		// the cilium manifest can not be created correctly.
 		debugYaml := func(original, patch string) {
-			_ = kub.Exec(fmt.Sprintf("kubectl patch --filename='%s' --patch \"$(cat '%s')\" --local --dry-run -o yaml", original, patch))
+			// dry-run is only available since k8s 1.11
+			switch GetCurrentK8SEnv() {
+			case "1.8", "1.9", "1.10":
+				_ = kub.Exec(fmt.Sprintf("kubectl patch --filename='%s' --patch \"$(cat '%s')\" --local -o yaml", original, patch))
+			default:
+				_ = kub.Exec(fmt.Sprintf("kubectl patch --filename='%s' --patch \"$(cat '%s')\" --local --dry-run -o yaml", original, patch))
+			}
 		}
 
+		var res *CmdRes
 		// validation 1st
-		res := kub.Exec(fmt.Sprintf("kubectl patch --filename='%s' --patch \"$(cat '%s')\" --local --dry-run", original, patch))
-		if !res.WasSuccessful() {
-			debugYaml(original, patch)
-			return fmt.Errorf(res.GetDebugMessage())
+		// dry-run is only available since k8s 1.11
+		switch GetCurrentK8SEnv() {
+		case "1.8", "1.9", "1.10":
+		default:
+			res = kub.Exec(fmt.Sprintf("kubectl patch --filename='%s' --patch \"$(cat '%s')\" --local --dry-run", original, patch))
+			if !res.WasSuccessful() {
+				debugYaml(original, patch)
+				return fmt.Errorf(res.GetDebugMessage())
+			}
 		}
 
 		res = kub.Exec(fmt.Sprintf("kubectl patch --filename='%s' --patch \"$(cat '%s')\" --local -o yaml | kubectl apply -f -", original, patch))
