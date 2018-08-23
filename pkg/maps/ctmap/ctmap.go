@@ -439,6 +439,7 @@ func doGC6(m *bpf.Map, filter *GCFilter) gcStats {
 		}
 
 		if nextKeyValid != nil {
+			stats.completed = true
 			break
 		}
 		// remember the last found key
