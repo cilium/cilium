@@ -53,6 +53,68 @@ func (a *Client) DeletePolicy(params *DeletePolicyParams) (*DeletePolicyOK, erro
 }
 
 /*
+GetFqdnCache retrieves the list of DNS lookups intercepted from all endpoints
+
+Retrieves the list of DNS lookups intercepted from endpoints, optionally filtered by endpoint id, dns name, or CIDR IP range.
+
+*/
+func (a *Client) GetFqdnCache(params *GetFqdnCacheParams) (*GetFqdnCacheOK, error) {
+	// TODO: Validate the params before sending
+	if params == nil {
+		params = NewGetFqdnCacheParams()
+	}
+
+	result, err := a.transport.Submit(&runtime.ClientOperation{
+		ID:                 "GetFqdnCache",
+		Method:             "GET",
+		PathPattern:        "/fqdn/cache",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http"},
+		Params:             params,
+		Reader:             &GetFqdnCacheReader{formats: a.formats},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.(*GetFqdnCacheOK), nil
+
+}
+
+/*
+GetFqdnCacheID retrieves the list of DNS lookups intercepted from an endpoint
+
+Retrieves the list of DNS lookups intercepted from endpoints, optionally filtered by endpoint id, dns name, or CIDR IP range.
+
+*/
+func (a *Client) GetFqdnCacheID(params *GetFqdnCacheIDParams) (*GetFqdnCacheIDOK, error) {
+	// TODO: Validate the params before sending
+	if params == nil {
+		params = NewGetFqdnCacheIDParams()
+	}
+
+	result, err := a.transport.Submit(&runtime.ClientOperation{
+		ID:                 "GetFqdnCacheID",
+		Method:             "GET",
+		PathPattern:        "/fqdn/cache/{id}",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http"},
+		Params:             params,
+		Reader:             &GetFqdnCacheIDReader{formats: a.formats},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.(*GetFqdnCacheIDOK), nil
+
+}
+
+/*
 GetIdentity retrieves a list of identities that have metadata matching the provided parameters
 
 Retrieves a list of identities that have metadata matching the provided parameters, or all identities if no parameters are provided.

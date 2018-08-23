@@ -664,6 +664,55 @@ paths:
         '500':
           description: Metrics cannot be retrieved
 
+  "/fqdn/cache":
+    get:
+      summary: Retrieves the list of DNS lookups intercepted from all endpoints.
+      description: |
+        Retrieves the list of DNS lookups intercepted from endpoints, optionally filtered by endpoint id, dns name, or CIDR IP range.
+      tags:
+      - policy
+      parameters:
+      - "$ref": "#/parameters/matchpattern"
+      - "$ref": "#/parameters/cidr"
+      responses:
+        '200':
+          description: Success
+          schema:
+            type: array
+            items:
+              "$ref": "#/definitions/DNSLookup"
+        '400':
+          description: Invalid request (error parsing parameters)
+          schema:
+            "$ref": "#/definitions/Error"
+        '404':
+          description: No DNS data with provided parameters found
+
+  "/fqdn/cache/{id}":
+    get:
+      summary: Retrieves the list of DNS lookups intercepted from an endpoint.
+      description: |
+        Retrieves the list of DNS lookups intercepted from endpoints, optionally filtered by endpoint id, dns name, or CIDR IP range.
+      tags:
+      - policy
+      parameters:
+      - "$ref": "#/parameters/endpoint-id"
+      - "$ref": "#/parameters/matchpattern"
+      - "$ref": "#/parameters/cidr"
+      responses:
+        '200':
+          description: Success
+          schema:
+            type: array
+            items:
+              "$ref": "#/definitions/DNSLookup"
+        '400':
+          description: Invalid request (error parsing parameters)
+          schema:
+            "$ref": "#/definitions/Error"
+        '404':
+          description: No DNS data with provided parameters found
+
 parameters:
   endpoint-id:
     name: id
@@ -769,6 +818,20 @@ parameters:
     required: true
     in: path
     type: string
+  matchpattern:
+    name: matchpattern
+    description: A toFQDNs compatible matchPattern expression
+    required: false
+    in: query
+    type: string
+  cidr:
+    name: cidr
+    description: A CIDR range of IPs
+    required: false
+    in: query
+    type: string
+
+
 definitions:
   Endpoint:
     description: An endpoint is a namespaced network interface to which cilium applies policies
@@ -1818,3 +1881,29 @@ definitions:
           type: string
   Error:
     type: string
+  DNSLookup:
+    description: An IP -> DNS mapping, with metadata
+    type: object
+    properties:
+      ips:
+        description: IP addresses returned in this lookup
+        type: array
+        items:
+          type: string
+      fqdn:
+        description: DNS name
+        type: string
+      ttl:
+        description: The TTL in the DNS response
+        type: integer
+      lookup-time:
+        description: The absolute time when this data was recieved
+        type: string
+        format: date-time
+      expiration-time:
+        description: The absolute time when this data will expire in this cache
+        type: string
+        format: date-time
+      endpoint-id:
+        description: The endpoint that made this lookup, or 0 for the agent itself.
+        type: integer

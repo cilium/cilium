@@ -79,6 +79,12 @@ func NewCiliumAPI(spec *loads.Document) *CiliumAPI {
 		EndpointGetEndpointIDLogHandler: endpoint.GetEndpointIDLogHandlerFunc(func(params endpoint.GetEndpointIDLogParams) middleware.Responder {
 			return middleware.NotImplemented("operation EndpointGetEndpointIDLog has not yet been implemented")
 		}),
+		PolicyGetFqdnCacheHandler: policy.GetFqdnCacheHandlerFunc(func(params policy.GetFqdnCacheParams) middleware.Responder {
+			return middleware.NotImplemented("operation PolicyGetFqdnCache has not yet been implemented")
+		}),
+		PolicyGetFqdnCacheIDHandler: policy.GetFqdnCacheIDHandlerFunc(func(params policy.GetFqdnCacheIDParams) middleware.Responder {
+			return middleware.NotImplemented("operation PolicyGetFqdnCacheID has not yet been implemented")
+		}),
 		DaemonGetHealthzHandler: daemon.GetHealthzHandlerFunc(func(params daemon.GetHealthzParams) middleware.Responder {
 			return middleware.NotImplemented("operation DaemonGetHealthz has not yet been implemented")
 		}),
@@ -195,6 +201,10 @@ type CiliumAPI struct {
 	EndpointGetEndpointIDLabelsHandler endpoint.GetEndpointIDLabelsHandler
 	// EndpointGetEndpointIDLogHandler sets the operation handler for the get endpoint ID log operation
 	EndpointGetEndpointIDLogHandler endpoint.GetEndpointIDLogHandler
+	// PolicyGetFqdnCacheHandler sets the operation handler for the get fqdn cache operation
+	PolicyGetFqdnCacheHandler policy.GetFqdnCacheHandler
+	// PolicyGetFqdnCacheIDHandler sets the operation handler for the get fqdn cache ID operation
+	PolicyGetFqdnCacheIDHandler policy.GetFqdnCacheIDHandler
 	// DaemonGetHealthzHandler sets the operation handler for the get healthz operation
 	DaemonGetHealthzHandler daemon.GetHealthzHandler
 	// PolicyGetIdentityHandler sets the operation handler for the get identity operation
@@ -346,6 +356,14 @@ func (o *CiliumAPI) Validate() error {
 
 	if o.EndpointGetEndpointIDLogHandler == nil {
 		unregistered = append(unregistered, "endpoint.GetEndpointIDLogHandler")
+	}
+
+	if o.PolicyGetFqdnCacheHandler == nil {
+		unregistered = append(unregistered, "policy.GetFqdnCacheHandler")
+	}
+
+	if o.PolicyGetFqdnCacheIDHandler == nil {
+		unregistered = append(unregistered, "policy.GetFqdnCacheIDHandler")
 	}
 
 	if o.DaemonGetHealthzHandler == nil {
@@ -581,6 +599,16 @@ func (o *CiliumAPI) initHandlerCache() {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
 	o.handlers["GET"]["/endpoint/{id}/log"] = endpoint.NewGetEndpointIDLog(o.context, o.EndpointGetEndpointIDLogHandler)
+
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/fqdn/cache"] = policy.NewGetFqdnCache(o.context, o.PolicyGetFqdnCacheHandler)
+
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/fqdn/cache/{id}"] = policy.NewGetFqdnCacheID(o.context, o.PolicyGetFqdnCacheIDHandler)
 
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)
