@@ -35,11 +35,21 @@ var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "datapath-ipcache
 
 // BPFListener implements the ipcache.IPIdentityMappingBPFListener
 // interface with an IPCache store that is backed by BPF maps.
-type BPFListener struct{}
+type BPFListener struct {
+	// bpfMap is the BPF map that this listener will update when events are
+	// received from the IPCache.
+	bpfMap *ipcacheMap.Map
+}
+
+func newListener(m *ipcacheMap.Map) *BPFListener {
+	return &BPFListener{
+		bpfMap: m,
+	}
+}
 
 // NewListener returns a new listener to push IPCache entries into BPF maps.
 func NewListener() *BPFListener {
-	return &BPFListener{}
+	return newListener(ipcacheMap.IPCache)
 }
 
 // OnIPIdentityCacheChange is called whenever there is a change of state in the
@@ -83,14 +93,14 @@ func (l *BPFListener) OnIPIdentityCacheChange(modType ipcache.CacheModification,
 				copy(value.TunnelEndpoint[:], ip4)
 			}
 		}
-		err := ipcacheMap.IPCache.Update(&key, &value)
+		err := l.bpfMap.Update(&key, &value)
 		if err != nil {
 			scopedLog.WithError(err).WithFields(logrus.Fields{"key": key.String(),
 				"value": value.String()}).
 				Warning("unable to update bpf map")
 		}
 	case ipcache.Delete:
-		err := ipcacheMap.Delete(&key)
+		err := l.bpfMap.Delete(&key)
 		if err != nil {
 			scopedLog.WithError(err).WithFields(logrus.Fields{"key": key.String()}).
 				Warning("unable to delete from bpf map")
@@ -139,7 +149,7 @@ func (l *BPFListener) garbageCollect() error {
 	defer ipcache.IPIdentityCache.RUnlock()
 
 	keysToRemove := map[string]*ipcacheMap.Key{}
-	if err := ipcacheMap.IPCache.DumpWithCallback(updateStaleEntriesFunction(keysToRemove)); err != nil {
+	if err := l.bpfMap.DumpWithCallback(updateStaleEntriesFunction(keysToRemove)); err != nil {
 		return fmt.Errorf("error dumping ipcache BPF map: %s", err)
 	}
 
@@ -148,7 +158,7 @@ func (l *BPFListener) garbageCollect() error {
 	for _, k := range keysToRemove {
 		log.WithFields(logrus.Fields{logfields.BPFMapKey: k}).
 			Debug("deleting from ipcache BPF map")
-		if err := ipcacheMap.Delete(k); err != nil {
+		if err := l.bpfMap.Delete(k); err != nil {
 			return fmt.Errorf("error deleting key %s from ipcache BPF map: %s", k, err)
 		}
 	}
