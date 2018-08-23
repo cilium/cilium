@@ -160,12 +160,12 @@ func NewMap() *Map {
 }
 
 // Delete removes a key from the ipcache BPF map
-func Delete(k bpf.MapKey) error {
+func (m *Map) Delete(k bpf.MapKey) error {
 	// Older kernels do not support deletion of LPM map entries so zero out
 	// the entry instead of attempting a deletion
-	err, errno := IPCache.DeleteWithErrno(k)
+	err, errno := m.DeleteWithErrno(k)
 	if errno == unix.ENOSYS {
-		return IPCache.Update(k, &RemoteEndpointInfo{})
+		return m.Update(k, &RemoteEndpointInfo{})
 	}
 
 	return err
