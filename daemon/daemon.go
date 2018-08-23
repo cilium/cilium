@@ -851,7 +851,7 @@ func (d *Daemon) init() error {
 		// used by syncLXCMap().
 		ipcache.IPIdentityCache.SetListeners([]ipcache.IPIdentityMappingListener{
 			&envoy.NetworkPolicyHostsCache,
-			bpfIPCache.NewListener(),
+			bpfIPCache.NewListener(d),
 		})
 
 		// Insert local host entries to bpf maps
