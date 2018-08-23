@@ -445,8 +445,7 @@ metadata:
 spec:
   containers:
   - name: app-frontend
-    image: docker.io/byrnedo/alpine-curl:0.1.7
-    imagePullPolicy: IfNotPresent
+    image: byrnedo/alpine-curl
     command: [ "sleep" ]
     args:
       - "1000h"
@@ -462,8 +461,7 @@ metadata:
 spec:
   containers:
   - name: web
-    image: docker.io/cilium/demo-httpd:latest
-    imagePullPolicy: IfNotPresent
+    image: cilium/demo-httpd
     ports:
       - containerPort: 80`
 

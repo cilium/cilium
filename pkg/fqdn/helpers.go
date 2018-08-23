@@ -75,21 +75,23 @@ func generateUUIDLabel(lbls labels.LabelArray) (id *labels.Label) {
 	}
 }
 
-// injectToCIDRSetRules adds a ToCIDRSets section to the rule with all ToFQDN
-// targets resolved to IPs from dnsNames.
-// Pre-existing rules in ToCIDRSet are preserved.
-func injectToCIDRSetRules(rule *api.Rule, dnsNames map[string][]net.IP) (namesMissingIPs []string) {
+// generateRuleFromSource creates a new api.Rule with all ToFQDN targets
+// resolved to IPs. The IPs are in generated CIDRSet rules in the ToCIDRSet
+// section. Pre-existing rules in ToCIDRSet are preserved
+// Note: generateRuleFromSource will make a copy of sourceRule
+func generateRuleFromSource(sourceRule *api.Rule, updatedDNSNames map[string][]net.IP) (outputRule *api.Rule, namesMissingIPs []string) {
+	outputRule = sourceRule.DeepCopy()
 	missing := make(map[string]struct{}) // a set to dedup missing dnsNames
 
 	// Add CIDR rules
 	// we need to edit Egress[*] in-place
-	for egressIdx := range rule.Egress {
-		egressRule := &rule.Egress[egressIdx]
+	for egressIdx := range outputRule.Egress {
+		egressRule := &outputRule.Egress[egressIdx]
 
 		// Generate CIDR rules for each FQDN
 		for _, ToFQDN := range egressRule.ToFQDNs {
 			dnsName := ToFQDN.MatchName
-			IPs, present := dnsNames[dnsName]
+			IPs, present := updatedDNSNames[dnsName]
 			if !present {
 				missing[dnsName] = struct{}{}
 			}
@@ -102,17 +104,7 @@ func injectToCIDRSetRules(rule *api.Rule, dnsNames map[string][]net.IP) (namesMi
 		namesMissingIPs = append(namesMissingIPs, dnsName)
 	}
 
-	return namesMissingIPs
-}
-
-// stripeToCIDRSet ensures no ToCIDRSet is nil when ToFQDNs is non-nil
-func stripToCIDRSet(rule *api.Rule) {
-	for i := range rule.Egress {
-		egressRule := &rule.Egress[i]
-		if len(egressRule.ToFQDNs) > 0 {
-			egressRule.ToCIDRSet = nil
-		}
-	}
+	return outputRule, namesMissingIPs
 }
 
 // ipsToRules generates CIDRRules for the IPs passed in.

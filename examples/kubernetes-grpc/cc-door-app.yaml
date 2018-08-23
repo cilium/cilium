@@ -18,8 +18,7 @@ spec:
     spec:
       containers:
       - name: cc-door-mgr
-        image: docker.io/cilium/cc-grpc-demo:v2.0
-        imagePullPolicy: IfNotPresent
+        image: docker.io/cilium/cc-grpc-demo
         command: ["python3"]
         args: ["/cloudcity/cc_door_server.py"]
         ports:
@@ -64,7 +63,6 @@ metadata:
 spec:
   containers:
   - name: cc-door-client
-    image: docker.io/cilium/cc-grpc-demo:v2.0
-    imagePullPolicy: IfNotPresent
+    image: docker.io/cilium/cc-grpc-demo
     command: ["sleep"]
     args: ["300000"]
