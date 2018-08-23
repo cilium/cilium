@@ -132,13 +132,9 @@ func NewDNSPoller(config DNSPollerConfig) *DNSPoller {
 
 // MarkToFQDNRules adds a tracking label to the rule, if it contains ToFQDN
 // rules. The label is used to ensure that the ToFQDN rules are replaced
-// correctly when they are regenerated with IPs. It will also include the
-// generated ToCIDRSet section for IPs that are in the cache.
+// correctly when they are regenerated with IPs.
 // NOTE: It edits the rules in-place
-func (poller *DNSPoller) MarkToFQDNRules(sourceRules []*api.Rule) {
-	poller.Lock()
-	defer poller.Unlock()
-
+func MarkToFQDNRules(sourceRules []*api.Rule) {
 perRule:
 	for _, sourceRule := range sourceRules {
 		// This rule has already been seen, and has a UUID label OR it has no
@@ -154,13 +150,6 @@ perRule:
 		// add a unique ID that we can use later to replace this rule.
 		uuidLabel := generateUUIDLabel(sourceRule.Labels)
 		sourceRule.Labels = append(sourceRule.Labels, uuidLabel)
-
-		// Strip out toCIDRSet
-		// Note: See Hack 1 above. When we generate rules, we add them and this
-		// function is called. This avoids accumulating generated toCIDRSet entries.
-		stripToCIDRSet(sourceRule)
-		// update IPs in this rule, best effort from the cache
-		injectToCIDRSetRules(sourceRule, poller.IPs)
 	}
 }
 
@@ -173,14 +162,17 @@ func (poller *DNSPoller) StartPollForDNSName(sourceRules []*api.Rule) {
 
 perRule:
 	for _, sourceRule := range sourceRules {
-		// Note: we rely on this reject to enforce calling stripToCIDRSet
-		// in MarkToFQDNRules
+		// make a copy to avoid breaking the input rules in any way
+		sourceRuleCopy := sourceRule.DeepCopy()
+
+		// Strip out toCIDRSet
+		// Note: See Hack 1 above. When we generate rules, we add them and this
+		// function is called. This avoids accumulating generated toCIDRSet entries.
+		stripToCIDRSet(sourceRuleCopy)
+
 		if !sourceRule.Labels.Has(uuidLabelSearchKey) {
 			continue perRule
 		}
-
-		// make a copy to avoid breaking the input rules in any way
-		sourceRuleCopy := sourceRule.DeepCopy()
 
 		uuid := getUUIDFromRuleLabels(sourceRule)
 		newDNSNames, alreadyExistsDNSNames := poller.addRule(uuid, sourceRuleCopy)
@@ -363,8 +355,7 @@ func (poller *DNSPoller) GenerateRulesFromSources(sourceRules []*api.Rule) (gene
 	var namesMissingMap = make(map[string]struct{})
 
 	for _, sourceRule := range sourceRules {
-		newRule := sourceRule.DeepCopy()
-		namesMissingIPs := injectToCIDRSetRules(newRule, poller.IPs)
+		newRule, namesMissingIPs := generateRuleFromSource(sourceRule, poller.IPs)
 		for _, missing := range namesMissingIPs {
 			namesMissingMap[missing] = struct{}{}
 		}
