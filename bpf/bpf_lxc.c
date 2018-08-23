@@ -798,7 +798,7 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 
 	verdict = policy_can_access_ingress(skb, src_label, tuple.dport,
 					    tuple.nexthdr, sizeof(tuple.saddr),
-					    &tuple.saddr);
+					    &tuple.saddr, false);
 
 	/* Reply packets and related packets are allowed, all others must be
 	 * permitted by policy */
@@ -870,17 +870,6 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_TO_LXC) int tail_ipv6_policy(s
 	return ret;
 }
 
-/* Check whether the packet should be allowed despite unhandled IP fragments.
- * Returns true if the packet should pass, false if it should be dropped. */
-static bool check_ip4_fragments(struct iphdr *ip4)
-{
-#ifdef POLICY_INGRESS
-	return !ipv4_is_fragment(ip4);
-#else
-	return true;
-#endif
-}
-
 #ifdef LXC_IPV4
 static inline int __inline__
 ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding_reason)
@@ -894,12 +883,10 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 	struct ct_state ct_state_new = {};
 	bool skip_proxy, monitor = false;
 	__be32 orig_dip, orig_sip;
+	bool is_fragment = false;
 
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
-
-	if (!check_ip4_fragments(ip4))
-		return DROP_FRAG_NOSUPPORT;
 
 	policy_clear_mark(skb);
 	tuple.nexthdr = ip4->protocol;
@@ -915,6 +902,7 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
+	is_fragment = ipv4_is_fragment(ip4);
 
 	ret = ct_lookup4(&CT_MAP4, &tuple, skb, l4_off, CT_INGRESS, &ct_state,
 			 &monitor);
@@ -943,7 +931,7 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 
 	verdict = policy_can_access_ingress(skb, src_label, tuple.dport,
 					    tuple.nexthdr, sizeof(orig_sip),
-					    &orig_sip);
+					    &orig_sip, is_fragment);
 
 	/* Reply packets and related packets are allowed, all others must be
 	 * permitted by policy */
