@@ -258,12 +258,12 @@ func updateReferences(ep *endpoint.Endpoint) {
 	}
 }
 
-// RegenerateAllEndpoints calls a SetStateLocked for each endpoint and
-// regenerates if state transaction is valid. During this process, the endpoint
-// list is locked and cannot be modified.
+// TriggerPolicyUpdates calls TriggerPolicyUpdatesLocked for each endpoint and
+// regenerates as required. During this process, the endpoint list is locked
+// and cannot be modified.
 // Returns a waiting group that can be used to know when all the endpoints are
 // regenerated.
-func RegenerateAllEndpoints(owner endpoint.Owner) *sync.WaitGroup {
+func TriggerPolicyUpdates(owner endpoint.Owner, force bool) *sync.WaitGroup {
 	var wg sync.WaitGroup
 
 	eps := GetEndpoints()
@@ -271,16 +271,31 @@ func RegenerateAllEndpoints(owner endpoint.Owner) *sync.WaitGroup {
 
 	for _, ep := range eps {
 		go func(ep *endpoint.Endpoint, wg *sync.WaitGroup) {
-			if err := ep.LockAlive(); err != nil {
+			var err error
+			var regen, policyChanges bool
+			if err = ep.LockAlive(); err != nil {
 				log.WithError(err).Warn("Error while handling policy updates for endpoint")
 				ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+err.Error())
 			} else {
-				regen := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Triggering endpoint regeneration due to policy updates")
+				policyChanges, err = ep.TriggerPolicyUpdatesLocked(owner, nil)
+				regen = false
+				if err == nil && (policyChanges || force) {
+					// Regenerate only if state transition succeeds
+					regen = ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Triggering endpoint regeneration due to policy updates")
+				}
 				ep.Unlock()
-				if regen {
+			}
+
+			if err != nil {
+				log.WithError(err).Warn("Error while handling policy updates for endpoint")
+				ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+err.Error())
+			} else {
+				if !policyChanges && !force {
+					ep.LogStatusOK(endpoint.Policy, "Endpoint policy update skipped because no changes were needed")
+				} else if regen {
 					// Regenerate logs status according to the build success/failure
 					<-ep.Regenerate(owner, "endpoint policy updated & changes were needed")
-				}
+				} // else policy changed, but can't regenerate => do not change status
 			}
 			wg.Done()
 		}(ep, &wg)

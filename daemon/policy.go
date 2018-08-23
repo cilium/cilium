@@ -40,7 +40,7 @@ import (
 	"github.com/op/go-logging"
 )
 
-// RegenerateAllEndpoints triggers policy updates for every daemon's endpoint.
+// TriggerPolicyUpdates triggers policy updates for every daemon's endpoint.
 // This is called after policy changes, but also after some changes in daemon
 // configuration and endpoint labels.
 // Returns a waiting group which signalizes when all endpoints are regenerated.
@@ -51,7 +51,7 @@ func (d *Daemon) TriggerPolicyUpdates(force bool) *sync.WaitGroup {
 	} else {
 		log.Debugf("Full policy recalculation triggered")
 	}
-	return endpointmanager.RegenerateAllEndpoints(d)
+	return endpointmanager.TriggerPolicyUpdates(d, force)
 }
 
 // UpdateEndpointPolicyEnforcement returns whether policy enforcement needs to be
