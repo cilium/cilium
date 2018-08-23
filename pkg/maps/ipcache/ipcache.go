@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/channel"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
@@ -138,6 +139,13 @@ func (v *RemoteEndpointInfo) GetValuePtr() unsafe.Pointer { return unsafe.Pointe
 // Map represents an IPCache BPF map.
 type Map struct {
 	bpf.Map
+
+	// deleteFailedNotifier is closed if a call to Delete() results in
+	// "Function not implemented" (ENOSYS).
+	deleteFailedNotifier chan bool
+
+	// deleteExecutedNotifier is closed when returning from Delete().
+	deleteExecutedNotifier chan bool
 }
 
 // NewMap instantiates a Map.
@@ -159,15 +167,20 @@ func NewMap(name string) *Map {
 				return &k, &v, nil
 			},
 		).WithCache(),
+		deleteExecutedNotifier: make(chan bool),
+		deleteFailedNotifier:   make(chan bool),
 	}
 }
 
 // Delete removes a key from the ipcache BPF map
 func (m *Map) Delete(k bpf.MapKey) error {
+	defer channel.CloseB(m.deleteExecutedNotifier)
+
 	// Older kernels do not support deletion of LPM map entries so zero out
 	// the entry instead of attempting a deletion
 	err, errno := m.DeleteWithErrno(k)
 	if errno == unix.ENOSYS {
+		channel.CloseB(m.deleteFailedNotifier)
 		return m.Update(k, &RemoteEndpointInfo{})
 	}
 
@@ -188,6 +201,24 @@ func (m *Map) GetMaxPrefixLengths(ipv6 bool) (count int) {
 		return maxPrefixLengths6
 	}
 	return maxPrefixLengths4
+}
+
+func (m *Map) supportsDelete() bool {
+	// Wait until we see a delete confirmation
+	select {
+	case <-m.deleteExecutedNotifier:
+		break
+	}
+
+	return channel.IsOpenB(m.deleteFailedNotifier)
+}
+
+// SupportsDelete blocks until the first delete occurs in the IPCache, then
+// monitors to determine whether the delete is successful. If the underlying
+// kernel map type doesn't support the delete operation, this function returns
+// false. Otherwise, returns true.
+func SupportsDelete() bool {
+	return IPCache.supportsDelete()
 }
 
 // BackedByLPM returns true if the IPCache is backed by a proper LPM
