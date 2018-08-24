@@ -231,14 +231,28 @@ func (e *Endpoint) resolveL4Policy(repo *policy.Repository) (policyChanged bool,
 		egressCtx.Trace = policy.TRACE_ENABLED
 	}
 
-	newL4IngressPolicy, err = repo.ResolveL4IngressPolicy(&ingressCtx)
-	if err != nil {
-		return
+	// ingressPolicy encodes whether any rules select this endpoint at all on
+	// ingress. If no rules select it, no need to iterate over policy repository
+	// to check if policy applies.
+	if !e.ingressPolicyEnabled {
+		newL4IngressPolicy = &policy.L4PolicyMap{}
+	} else {
+		newL4IngressPolicy, err = repo.ResolveL4IngressPolicy(&ingressCtx)
+		if err != nil {
+			return
+		}
 	}
 
-	newL4EgressPolicy, err = repo.ResolveL4EgressPolicy(&egressCtx)
-	if err != nil {
-		return
+	// egressPolicy encodes whether any rules select this endpoint at all on
+	// egress. If no rules select it, no need to iterate over policy repository
+	// to check if policy applies.
+	if !e.egressPolicyEnabled {
+		newL4EgressPolicy = &policy.L4PolicyMap{}
+	} else {
+		newL4EgressPolicy, err = repo.ResolveL4EgressPolicy(&egressCtx)
+		if err != nil {
+			return
+		}
 	}
 
 	newL4Policy := &policy.L4Policy{Ingress: *newL4IngressPolicy,
@@ -521,7 +535,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (isPolicyComp bool, err error) 
 	defer repo.Mutex.RUnlock()
 
 	// Recompute policy for this endpoint only if not already done for this revision.
-	// Must recompute if labels have changed or option changes are requested.
+	// Must recompute if labels have changed.
 	if !e.forcePolicyCompute && e.nextPolicyRevision >= revision &&
 		labelsMap == e.prevIdentityCache {
 
@@ -534,6 +548,8 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (isPolicyComp bool, err error) 
 		return e.nextPolicyRevision > e.policyRevision, nil
 	}
 
+	// Update fields within endpoint based off known identities, and whether
+	// policy needs to be enforced for either ingress or egress.
 	e.prevIdentityCache = labelsMap
 
 	// First step when calculating policy is to check whether ingress or egress
