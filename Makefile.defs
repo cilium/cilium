@@ -6,7 +6,9 @@ BINDIR?=$(PREFIX)/bin
 RUNDIR?=/var/run
 CONFDIR?=/etc
 
-GO = $(QUIET)go
+# GO_NOQUIET should not have any Makefile directives.
+GO_NOQUIET = go
+GO = $(QUIET)$(GO_NOQUIET)
 INSTALL = $(QUIET)install
 
 VERSION = $(shell cat $(dir $(lastword $(MAKEFILE_LIST)))/VERSION)
