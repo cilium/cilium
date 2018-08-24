@@ -22,11 +22,6 @@
 #include "eps.h"
 #include "maps.h"
 
-#if defined POLICY_INGRESS || defined POLICY_EGRESS
-#define REQUIRES_CAN_ACCESS
-#endif
-
-#ifdef REQUIRES_CAN_ACCESS
 /**
  * identity_is_reserved is used to determine whether an identity is one of the
  * reserved identities that are not handed out to endpoints.
@@ -118,10 +113,6 @@ allow:
 #endif /* DROP_ALL */
 }
 
-#endif /* REQUIRES_CAN_ACCESS */
-
-#ifdef POLICY_INGRESS
-
 /**
  * Determine whether the policy allows this traffic on ingress.
  * @arg skb		Packet to allow or deny
@@ -162,23 +153,7 @@ policy_can_access_ingress(struct __sk_buff *skb, __u32 src_identity,
 #endif /* DROP_ALL */
 }
 
-#else /* POLICY_INGRESS */
-
-static inline int
-policy_can_access_ingress(struct __sk_buff *skb, __u32 src_label,
-			  __u16 dport, __u8 proto, size_t cidr_addr_size,
-			  void *cidr_addr, bool is_fragment)
-{
-#ifdef DROP_ALL
-	return DROP_POLICY;
-#else
-	return TC_ACT_OK;
-#endif
-}
-
-#endif /* POLICY_INGRESS */
-
-#if defined POLICY_EGRESS && defined LXC_ID
+#if defined LXC_ID
 
 static inline int __inline__
 policy_can_egress(struct __sk_buff *skb, __u32 identity, __u16 dport, __u8 proto)
@@ -221,7 +196,7 @@ static inline int policy_can_egress4(struct __sk_buff *skb,
 #endif /* DROP_ALL */
 }
 
-#else /* POLICY_EGRESS && LXC_ID */
+#else /* LXC_ID */
 
 static inline int
 policy_can_egress6(struct __sk_buff *skb, struct ipv6_ct_tuple *tuple,
@@ -244,9 +219,9 @@ policy_can_egress4(struct __sk_buff *skb, struct ipv4_ct_tuple *tuple,
 	return TC_ACT_OK;
 #endif
 }
-#endif /* POLICY_EGRESS && LXC_ID */
+#endif /* LXC_ID */
 
-#if !defined DROP_ALL && (defined POLICY_INGRESS || defined POLICY_EGRESS)
+#if !defined DROP_ALL
 
 /**
  * Mark skb to skip policy enforcement
@@ -270,7 +245,7 @@ static inline int is_policy_skip(struct __sk_buff *skb)
 	return skb->cb[CB_POLICY];
 }
 
-#else /* POLICY_INGRESS || POLICY_EGRESS */
+#else
 
 
 static inline void policy_mark_skip(struct __sk_buff *skb)
@@ -289,6 +264,6 @@ static inline int is_policy_skip(struct __sk_buff *skb)
 	return 1;
 #endif
 }
-#endif /* POLICY_INGRESS || POLICY_EGRESS */
+#endif /* !defined DROP_ALL */
 
 #endif

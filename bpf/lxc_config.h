@@ -45,8 +45,6 @@
 #define LB_L4
 #define CONNTRACK
 #define CONNTRACK_ACCOUNTING
-#define POLICY_INGRESS
-#define POLICY_EGRESS
 #define ENABLE_IPv4
 
 /* It appears that we can support around the below number of prefixes in an

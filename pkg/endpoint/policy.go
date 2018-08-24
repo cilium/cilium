@@ -305,8 +305,8 @@ func (e *Endpoint) computeDesiredL3PolicyMapEntries(owner Owner, identityCache *
 		egressCtx.Trace = policy.TRACE_ENABLED
 	}
 
-	ingressPolicyEnabled := e.Options.IsEnabled(option.IngressPolicy)
-	egressPolicyEnabled := e.Options.IsEnabled(option.EgressPolicy)
+	ingressPolicyEnabled := e.ingressPolicyEnabled
+	egressPolicyEnabled := e.egressPolicyEnabled
 
 	// Only L3 (label-based) policy apply.
 	// Complexity increases linearly by the number of identities in the map.
@@ -377,14 +377,6 @@ func (e *Endpoint) regenerateL3Policy(repo *policy.Repository, revision uint64) 
 	}
 
 	return valid, err
-}
-
-// IngressOrEgressIsEnforced returns true if either ingress or egress is in
-// enforcement mode or if the global policy enforcement is enabled.
-func (e *Endpoint) IngressOrEgressIsEnforced() bool {
-	return policy.GetPolicyEnabled() == option.AlwaysEnforce ||
-		e.Options.IsEnabled(option.IngressPolicy) ||
-		e.Options.IsEnabled(option.EgressPolicy)
 }
 
 // must be called with endpoint.Mutex held for reading
@@ -581,7 +573,6 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	optsChanged := e.updateAndOverrideEndpointOptions(owner, opts)
 
 	e.computeDesiredPolicyMapState(owner, labelsMap, repo)
-
 	// If we are in this function, then policy has been calculated.
 	if !e.PolicyCalculated {
 		e.getLogger().Debug("setting PolicyCalculated to true for endpoint")
@@ -638,26 +629,7 @@ func (e *Endpoint) updateAndOverrideEndpointOptions(owner Owner, opts models.Con
 		}
 	}
 
-	ingress, egress := owner.EnableEndpointPolicyEnforcement(e)
-
-	opts[option.IngressPolicy] = optionDisabled
-	opts[option.EgressPolicy] = optionDisabled
-
-	if !ingress && !egress {
-		e.getLogger().Debug("ingress and egress policy enforcement not enabled")
-	} else {
-		if ingress && egress {
-			e.getLogger().Debug("policy enforcement for ingress and egress enabled")
-			opts[option.IngressPolicy] = optionEnabled
-			opts[option.EgressPolicy] = optionEnabled
-		} else if ingress {
-			e.getLogger().Debug("policy enforcement for ingress enabled")
-			opts[option.IngressPolicy] = optionEnabled
-		} else {
-			e.getLogger().Debug("policy enforcement for egress enabled")
-			opts[option.EgressPolicy] = optionEnabled
-		}
-	}
+	e.ingressPolicyEnabled, e.egressPolicyEnabled = owner.EnableEndpointPolicyEnforcement(e)
 
 	optsChanged = e.applyOptsLocked(opts)
 	return
