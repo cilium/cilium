@@ -28,11 +28,14 @@ typedef enum {
   FILTER_PARSER_ERROR,       // Connection needs to be dropped due to parser error
   FILTER_UNKNOWN_PARSER,     // Connection needs to be dropped due to unknown parser
   FILTER_UNKNOWN_CONNECTION, // Connection needs to be dropped due to it being unknown
+  FILTER_INVALID_ADDRESS,    // Destination address in invalid format
 } FilterResult;
 */
 import "C"
 
 import (
+	"net"
+	"strconv"
 	"time"
 
 	"github.com/cilium/cilium/pkg/envoy/cilium"
@@ -102,6 +105,7 @@ const (
 	FILTER_PARSER_ERROR       FilterResult = C.FILTER_PARSER_ERROR
 	FILTER_UNKNOWN_PARSER     FilterResult = C.FILTER_UNKNOWN_PARSER
 	FILTER_UNKNOWN_CONNECTION FilterResult = C.FILTER_UNKNOWN_CONNECTION
+	FILTER_INVALID_ADDRESS    FilterResult = C.FILTER_INVALID_ADDRESS
 )
 
 func (r FilterResult) String() string {
@@ -116,6 +120,8 @@ func (r FilterResult) String() string {
 		return "UNKNOWN_PARSER"
 	case FILTER_UNKNOWN_CONNECTION:
 		return "UNKNOWN_CONNECTION"
+	case FILTER_INVALID_ADDRESS:
+		return "FILTER_INVALID_ADDRESS"
 	}
 	return "UNKNOWN_ERROR"
 }
@@ -293,6 +299,14 @@ func OnNewConnection(proto string, connectionId uint64, ingress bool, srcId, dst
 	parserFactory := parserFactories[proto]
 	if parserFactory == nil {
 		return FILTER_UNKNOWN_PARSER
+	}
+	_, port, err := net.SplitHostPort(dstAddr)
+	if err != nil {
+		return FILTER_INVALID_ADDRESS
+	}
+	dstPort, err := strconv.ParseUint(port, 10, 32)
+	if err != nil || dstPort == 0 {
+		return FILTER_INVALID_ADDRESS
 	}
 	connection := &Connection{
 		Id:         connectionId,

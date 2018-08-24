@@ -46,6 +46,7 @@ typedef enum {
   FILTER_PARSER_ERROR,       // Connection needs to be dropped due to parser error
   FILTER_UNKNOWN_PARSER,     // Connection needs to be dropped due to unknown parser
   FILTER_UNKNOWN_CONNECTION, // Connection needs to be dropped due to it being unknown
+  FILTER_INVALID_ADDRESS,    // Destination address in invalid format
 } FilterResult;
 
 #line 1 "cgo-generated-wrapper"

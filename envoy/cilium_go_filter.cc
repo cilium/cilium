@@ -246,6 +246,10 @@ FilterResult GoFilter::Instance::OnIO(bool reply, Buffer::Instance& data, bool e
 	ENVOY_CONN_LOG(warn, "Cilium Network::OnIO: FILTER_UNKNOWN_CONNECTION", conn_);
 	break;
 
+      case FILTER_INVALID_ADDRESS:
+	ENVOY_CONN_LOG(warn, "Cilium Network::OnIO: FILTER_INVALID_ADDRESS", conn_);
+	break;
+
       case FILTER_OK:
 	break;
       }
