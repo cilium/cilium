@@ -486,19 +486,6 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 		close(ctCleaned)
 	}
 
-	// If endpoint was marked as disconnected then
-	// it won't be regenerated.
-	// When building the initial drop policy in waiting-for-identity state
-	// the state remains unchanged
-	if e.GetStateLocked() != StateWaitingForIdentity &&
-		!e.BuilderSetStateLocked(StateRegenerating, "Regenerating Endpoint BPF: "+reason) {
-
-		e.getLogger().WithField(logfields.EndpointState, e.state).Debug("Skipping build due to invalid state")
-		e.Unlock()
-
-		return 0, compilationExecuted, fmt.Errorf("Skipping build due to invalid state: %s", e.state)
-	}
-
 	// If dry mode is enabled, no further changes to BPF maps are performed
 	if owner.DryModeEnabled() {
 		defer e.Unlock()
