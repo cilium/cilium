@@ -12,10 +12,7 @@ import (
 
 var _ = Describe("K8sUpdates", func() {
 	var (
-		kubectl            *helpers.Kubectl
-		demoPath           string
-		l3Policy, l7Policy string
-		apps               []string
+		kubectl *helpers.Kubectl
 
 		microscopeErr    error
 		microscopeCancel = func() error { return nil }
@@ -32,16 +29,12 @@ var _ = Describe("K8sUpdates", func() {
 		_ = kubectl.DeleteResource(
 			"deploy", fmt.Sprintf("-n %s kube-dns", helpers.KubeSystemNamespace))
 
-		apps = []string{helpers.App1, helpers.App2, helpers.App3}
-
-		demoPath = helpers.ManifestGet("demo.yaml")
-		l3Policy = helpers.ManifestGet("l3-l4-policy.yaml")
-		l7Policy = helpers.ManifestGet("l7-policy.yaml")
-
 		// Sometimes PolicyGen has a lot of pods running around without delete
 		// it. Using this we are sure that we delete before this test start
 		kubectl.Exec(fmt.Sprintf(
 			"%s delete --all pods,svc,cnp -n %s", helpers.KubectlCmd, helpers.DefaultNamespace))
+
+		kubectl.DeleteETCDOperator()
 
 		ExpectAllPodsTerminated(kubectl)
 	})
@@ -107,11 +100,47 @@ func ValidateCiliumUpgrades(kubectl *helpers.Kubectl) (func(), func()) {
 		// make sure that Kubedns is deleted correctly
 		_ = kubectl.Delete(helpers.DNSDeployment())
 
+		kubectl.DeleteETCDOperator()
+
+		// make sure we clean everything up before doing any other test
+		err := kubectl.CiliumInstall(
+			helpers.CiliumDSPath,
+		)
+		ExpectWithOffset(1, err).To(BeNil(), "Cilium was not able to be deployed")
+		err = kubectl.WaitForCiliumInitContainerToFinish()
+		ExpectWithOffset(1, err).To(BeNil(), "Cilium was not able to be clean up environment")
+
 		_ = kubectl.DeleteResource(
 			"ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
 	}
 
 	testfunc := func() {
+		// Making sure that we deleted the  cilium ds. No assert message
+		// because maybe is not present
+		_ = kubectl.DeleteResource("ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
+
+		// Delete kube-dns because if not will be a restore the old endpoints
+		// from master instead of create the new ones.
+		_ = kubectl.Delete(helpers.DNSDeployment())
+
+		ExpectAllPodsTerminated(kubectl)
+
+		By("Installing kube-dns")
+		_ = kubectl.Apply(helpers.DNSDeployment())
+
+		// Deploy the etcd operator
+		err := kubectl.DeployETCDOperator()
+		Expect(err).To(BeNil(), "Unable to deploy etcd operator")
+
+		ExpectCiliumReady(kubectl)
+
+		By("Cilium is installed and running")
+
+		By("Installing Microscope")
+		microscopeErr, microscopeCancel := kubectl.MicroscopeStart()
+		ExpectWithOffset(1, microscopeErr).To(BeNil(), "Microscope cannot be started")
+		defer microscopeCancel()
+
 		validatedImage := func(image string) {
 			By("Checking that installed image is %q", image)
 
@@ -128,10 +157,40 @@ func ValidateCiliumUpgrades(kubectl *helpers.Kubectl) (func(), func()) {
 		By("Installing kube-dns")
 		kubectl.Apply(helpers.DNSDeployment()).ExpectSuccess("Kube-dns cannot be installed")
 
-		By("Creating some endpoints and L7 policy")
-		kubectl.Apply(demoPath).ExpectSuccess()
+		validateEndpointsConnection := func() {
+			err := kubectl.CiliumEndpointWaitReady()
+			ExpectWithOffset(1, err).To(BeNil(), "Endpoints are not ready after timeout")
 
-		err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", timeout)
+			ExpectKubeDNSReady(kubectl)
+
+			err = kubectl.WaitForKubeDNSEntry(app1Service, helpers.DefaultNamespace)
+			ExpectWithOffset(1, err).To(BeNil(), "DNS entry is not ready after timeout")
+
+			err = kubectl.CiliumEndpointWaitReady()
+			ExpectWithOffset(1, err).To(BeNil(), "Endpoints are not ready after timeout")
+
+			appPods := helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "id")
+
+			err = kubectl.WaitForKubeDNSEntry(app1Service, helpers.DefaultNamespace)
+			ExpectWithOffset(1, err).To(BeNil(), "DNS entry is not ready after timeout")
+
+			By("Making L7 requests between endpoints")
+			res := kubectl.ExecPodCmd(
+				helpers.DefaultNamespace, appPods[helpers.App2],
+				helpers.CurlFail("http://%s/public", app1Service))
+			ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "Cannot curl app1-service")
+
+			res = kubectl.ExecPodCmd(
+				helpers.DefaultNamespace, appPods[helpers.App2],
+				helpers.CurlFail("http://%s/private", app1Service))
+			ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(), "Expect a 403 from app1-service")
+		}
+
+		By("Creating some endpoints and L7 policy")
+		res := kubectl.Apply(demoPath)
+		ExpectWithOffset(1, res).To(helpers.CMDSuccess(), "cannot apply dempo application")
+
+		err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", timeout)
 		Expect(err).Should(BeNil(), "Test pods are not ready after timeout")
 
 		ExpectKubeDNSReady(kubectl)
@@ -140,23 +199,7 @@ func ValidateCiliumUpgrades(kubectl *helpers.Kubectl) (func(), func()) {
 			helpers.KubeSystemNamespace, l7Policy, helpers.KubectlApply, timeout)
 		Expect(err).Should(BeNil(), "cannot import l7 policy: %v", l7Policy)
 
-		err = kubectl.CiliumEndpointWaitReady()
-		Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
-
-		appPods := helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "id")
-
-		err = kubectl.WaitForKubeDNSEntry(app1Service, helpers.DefaultNamespace)
-		Expect(err).To(BeNil(), "DNS entry is not ready after timeout")
-
-		res := kubectl.ExecPodCmd(
-			helpers.DefaultNamespace, appPods[helpers.App2],
-			helpers.CurlFail("http://%s/public", app1Service))
-		res.ExpectSuccess("Cannot curl app1-service")
-
-		res = kubectl.ExecPodCmd(
-			helpers.DefaultNamespace, appPods[helpers.App2],
-			helpers.CurlWithHTTPCode("http://%s/private", app1Service))
-		res.ExpectContains("403", "Expect 403 in the result")
+		validateEndpointsConnection()
 
 		By("Updating cilium to master image")
 
@@ -201,23 +244,7 @@ func ValidateCiliumUpgrades(kubectl *helpers.Kubectl) (func(), func()) {
 
 		validatedImage(localImage)
 
-		err = kubectl.CiliumEndpointWaitReady()
-		Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
-
-		ExpectKubeDNSReady(kubectl)
-
-		err = kubectl.WaitForKubeDNSEntry(app1Service, helpers.DefaultNamespace)
-		Expect(err).To(BeNil(), "DNS entry is not ready after timeout")
-
-		res = kubectl.ExecPodCmd(
-			helpers.DefaultNamespace, appPods[helpers.App2],
-			helpers.CurlFail("http://%s/public", app1Service))
-		res.ExpectSuccess("Cannot curl app1-service")
-
-		res = kubectl.ExecPodCmd(
-			helpers.DefaultNamespace, appPods[helpers.App2],
-			helpers.CurlWithHTTPCode("http://%s/private", app1Service))
-		res.ExpectContains("403", "Expect 403 in the result")
+		validateEndpointsConnection()
 	}
 	return testfunc, cleanupCallback
 }

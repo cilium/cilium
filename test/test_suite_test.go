@@ -95,7 +95,7 @@ func TestTest(t *testing.T) {
 
 	if config.CiliumTestConfig.CiliumDSManifest != "" {
 		helpers.CiliumDSPath = config.CiliumTestConfig.CiliumDSManifest
-		log.Info("Using new Cilium daemonset manifest '%s'", helpers.CiliumDSPath)
+		log.Infof("Using new Cilium daemonset manifest '%s'", helpers.CiliumDSPath)
 	}
 
 	if config.CiliumTestConfig.HoldEnvironment {
@@ -235,7 +235,10 @@ var _ = BeforeAll(func() {
 			}
 		}
 		kubectl := helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-		kubectl.Apply(helpers.GetFilePath("../examples/kubernetes/prometheus.yaml"))
+		kubectl.Apply(helpers.GetFilePath("../examples/kubernetes/addons/prometheus/prometheus.yaml"))
+
+		// deploy Cilium etcd operator
+		kubectl.DeployETCDOperator()
 	}
 	return
 })

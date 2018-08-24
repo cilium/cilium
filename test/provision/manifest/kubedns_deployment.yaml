@@ -11,6 +11,7 @@ metadata:
     k8s-app: kube-dns
     kubernetes.io/cluster-service: "true"
     kubernetes.io/name: "KubeDNS"
+    io.cilium.fixed-identity: kube-dns
 spec:
   selector:
     k8s-app: kube-dns
@@ -31,6 +32,7 @@ metadata:
   labels:
     kubernetes.io/cluster-service: "true"
     addonmanager.kubernetes.io/mode: Reconcile
+    io.cilium.fixed-identity: kube-dns
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -46,6 +48,7 @@ metadata:
   generation: 1
   labels:
     k8s-app: kube-dns
+    io.cilium.fixed-identity: kube-dns
   name: kube-dns
   namespace: kube-system
 spec:
@@ -53,6 +56,7 @@ spec:
   selector:
     matchLabels:
       k8s-app: kube-dns
+      io.cilium.fixed-identity: kube-dns
   strategy:
     rollingUpdate:
       maxSurge: 10%
@@ -63,6 +67,7 @@ spec:
       creationTimestamp: null
       labels:
         k8s-app: kube-dns
+        io.cilium.fixed-identity: kube-dns
     spec:
       affinity:
         nodeAffinity:
