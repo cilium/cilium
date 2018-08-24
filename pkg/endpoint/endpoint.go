@@ -39,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
@@ -1751,10 +1752,70 @@ func (e *Endpoint) replaceIdentityLabels(l pkgLabels.Labels) int {
 	return rev
 }
 
-// LeaveLocked removes the endpoint's directory from the system. Must be called
-// with Endpoint's mutex
-func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup) []error {
+// Delete deletes the endpoint and all associated resources
+func (e *Endpoint) Delete(owner Owner, releaseIP bool) []error {
 	errors := []error{}
+
+	e.WaitForRegenerationsToComplete()
+
+	e.UnconditionalLock()
+	defer e.Unlock()
+
+	// This should really not be needed as the endpoint liveness must
+	// always be checked when acquiring the endpoint lock. If the below
+	// condition fails, an endpoint user has changed the endpoint state
+	// without locking or without checking the liveness of the endpoint
+	// after locking.
+	if e.GetStateLocked() != StateDisconnecting {
+		log.Errorf("Endpoint %d was revived after it was marked for deletion, marking again", e.ID)
+		e.SetStateLocked(StateDisconnecting, "Deleting endpoint")
+	}
+
+	// If dry mode is enabled, no changes to BPF maps are performed
+	if !owner.DryModeEnabled() {
+		if errs := lxcmap.DeleteElement(e); errs != nil {
+			errors = append(errors, errs...)
+		}
+
+		// Remove policy BPF map
+		if err := os.RemoveAll(e.PolicyMapPathLocked()); err != nil {
+			errors = append(errors, fmt.Errorf("unable to remove policy map file %s: %s", e.PolicyMapPathLocked(), err))
+		}
+
+		// Remove calls BPF map
+		if err := os.RemoveAll(e.CallsMapPathLocked()); err != nil {
+			errors = append(errors, fmt.Errorf("unable to remove calls map file %s: %s", e.CallsMapPathLocked(), err))
+		}
+
+		// Remove IPv6 connection tracking map
+		if err := os.RemoveAll(e.Ct6MapPathLocked()); err != nil {
+			errors = append(errors, fmt.Errorf("unable to remove IPv6 CT map %s: %s", e.Ct6MapPathLocked(), err))
+		}
+
+		// Remove IPv4 connection tracking map
+		if err := os.RemoveAll(e.Ct4MapPathLocked()); err != nil {
+			errors = append(errors, fmt.Errorf("unable to remove IPv4 CT map %s: %s", e.Ct4MapPathLocked(), err))
+		}
+
+		// Remove handle_policy() tail call entry for EP
+		if err := e.RemoveFromGlobalPolicyMap(); err != nil {
+			errors = append(errors, fmt.Errorf("unable to remove endpoint from global policy map: %s", err))
+		}
+	}
+
+	if releaseIP {
+		if !option.Config.IPv4Disabled {
+			if err := ipam.ReleaseIP(e.IPv4.IP()); err != nil {
+				errors = append(errors, fmt.Errorf("unable to release ipv4 address: %s", err))
+			}
+		}
+		if err := ipam.ReleaseIP(e.IPv6.IP()); err != nil {
+			errors = append(errors, fmt.Errorf("unable to release ipv6 address: %s", err))
+		}
+	}
+
+	completionCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	proxyWaitGroup := completion.NewWaitGroup(completionCtx)
 
 	owner.RemoveFromEndpointQueue(uint64(e.ID))
 	if e.SecurityIdentity != nil && e.RealizedL4Policy != nil {
@@ -1786,6 +1847,12 @@ func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup
 	e.scrubIPsInConntrackTableLocked()
 
 	e.SetStateLocked(StateDisconnected, "Endpoint removed")
+
+	err := e.WaitForProxyCompletions(proxyWaitGroup)
+	if err != nil {
+		errors = append(errors, fmt.Errorf("unable to remove proxy redirects: %s", err))
+	}
+	cancel()
 
 	e.getLogger().Info("Removed endpoint")
 
