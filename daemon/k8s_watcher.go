@@ -949,7 +949,7 @@ func (d *Daemon) addK8sEndpointV1(ep *v1.Endpoints) {
 		if err != nil {
 			log.Errorf("Unable to repopulate egress policies from ToService rules: %v", err)
 		} else {
-			d.TriggerPolicyUpdates(true)
+			d.TriggerPolicyUpdates(true, "Kubernetes service endpoint added")
 		}
 	}
 }
@@ -991,7 +991,7 @@ func (d *Daemon) deleteK8sEndpointV1(ep *v1.Endpoints) {
 			if err != nil {
 				log.Errorf("Unable to depopulate egress policies from ToService rules: %v", err)
 			} else {
-				d.TriggerPolicyUpdates(true)
+				d.TriggerPolicyUpdates(true, "Kubernetes service endpoint deleted")
 			}
 		}
 	}
