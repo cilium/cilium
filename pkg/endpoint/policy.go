@@ -679,10 +679,10 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 
 			// Capture successful endpoint generation time
 			regenerateTimeNs := time.Since(regenerateStart)
-			regenerateTimeSec := float64(regenerateTimeNs) / float64(time.Second)
-			e.getLogger().WithField(logfields.EndpointRegenerationTime, time.Since(regenerateStart).String()).Info("Regeneration of endpoint has completed")
-			metrics.EndpointRegenerationTime.Add(regenerateTimeSec)
-			metrics.EndpointRegenerationTimeSquare.Add(math.Pow(regenerateTimeSec, 2))
+			e.getLogger().WithField(
+				logfields.EndpointRegenerationTime, regenerateTimeNs.String()).Info(
+				"Regeneration of endpoint has completed")
+			metricsEndpointRegenerationTotal(regenerateTimeNs)
 		} else {
 			metrics.EndpointRegenerationCount.
 				WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
@@ -781,7 +781,6 @@ func (e *Endpoint) Regenerate(owner Owner, reason string) <-chan bool {
 		}
 		e.RUnlock()
 		scopedLog := e.getLogger()
-
 		// We should only queue the request after we use all the endpoint's
 		// lock/unlock. Otherwise this can get a deadlock if the endpoint is
 		// being deleted at the same time. More info PR-1777.

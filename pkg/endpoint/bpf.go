@@ -588,10 +588,12 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 		}
 
 		// Configure the new network policy with the proxies.
+		proxyPolicyUpdateStartTime := time.Now()
 		if err = e.updateNetworkPolicy(owner, proxyWaitGroup); err != nil {
 			e.Unlock()
 			return 0, compilationExecuted, err
 		}
+		metricsEndpointRegenerationProxyConfiguration(time.Since(proxyPolicyUpdateStartTime))
 	}
 
 	// Walk the L4Policy to add new redirects and update the desired policy map
@@ -659,18 +661,16 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 		// Compile and install BPF programs for this endpoint
 		err = e.runInit(libdir, rundir, epdir, epInfoCache.ifName, debug)
 		close(closeChan)
-
 		compilationTime := time.Since(start)
-
 		e.getLogger().WithError(err).
 			WithField(logfields.BPFCompilationTime, compilationTime.String()).
 			Info("Recompiled endpoint BPF program")
-
 		if err != nil {
 			return epInfoCache.revision, compilationExecuted, err
 		}
 		compilationExecuted = true
 		e.bpfHeaderfileHash = bpfHeaderfilesHash
+		metricsEndpointRegenerationBPF(compilationTime)
 	} else {
 		e.UnconditionalRLock()
 		e.getLogger().WithField(logfields.BPFHeaderfileHash, bpfHeaderfilesHash).

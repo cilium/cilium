@@ -71,6 +71,10 @@ var (
 	// LabelDatapathFamily marks which protocol family (IPv4, IPV6) the metric is related to.
 	LabelDatapathFamily = "family"
 
+	// LabelScope is the label used to defined multiples scopes in the same
+	// metric
+	LabelScope = "scope"
+
 	// Endpoint
 
 	// EndpointCount is a function used to collect this metric.
@@ -94,11 +98,11 @@ var (
 		[]string{"outcome"})
 
 	// EndpointRegenerationTime is the total time taken to regenerate endpoint
-	EndpointRegenerationTime = prometheus.NewCounter(prometheus.CounterOpts{
+	EndpointRegenerationTime = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: Namespace,
-		Name:      "endpoint_regeneration_seconds_total",
+		Name:      "endpoint_regeneration_seconds",
 		Help:      "Total sum of successful endpoint regeneration times",
-	})
+	}, []string{LabelScope})
 
 	// EndpointRegenerationTimeSquare is the sum of squares of total time taken
 	// to regenerate endpoint.
