@@ -452,10 +452,7 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 	qaBarNetworkPolicy := networkPolicies[QAIPv4Addr.String()]
 	c.Assert(qaBarNetworkPolicy, Not(IsNil))
 
-	// Delete the endpoint.
-	e.UnconditionalLock()
-	e.LeaveLocked(ds.d, nil)
-	e.Unlock()
+	e.Delete(ds.d, false)
 
 	// Check that the policy has been removed from the xDS cache.
 	networkPolicies = ds.getXDSNetworkPolicies(c, nil)

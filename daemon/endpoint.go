@@ -18,21 +18,17 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"os"
 	"sync"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/pkg/api"
-	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/uuid"
 	"github.com/cilium/cilium/pkg/workloads"
@@ -468,8 +464,6 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []er
 		}
 	}
 
-	errors := []error{}
-
 	// Wait for existing builds to complete and prevent further builds
 	ep.BuildMutex.Lock()
 
@@ -488,65 +482,10 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []er
 	// Remove the endpoint before we clean up. This ensures it is no longer
 	// listed or queued for rebuilds.
 	endpointmanager.Remove(ep)
-
-	// If dry mode is enabled, no changes to BPF maps are performed
-	if !d.DryModeEnabled() {
-		if errs := lxcmap.DeleteElement(ep); errs != nil {
-			errors = append(errors, errs...)
-		}
-
-		// Remove policy BPF map
-		if err := os.RemoveAll(ep.PolicyMapPathLocked()); err != nil {
-			errors = append(errors, fmt.Errorf("unable to remove policy map file %s: %s", ep.PolicyMapPathLocked(), err))
-		}
-
-		// Remove calls BPF map
-		if err := os.RemoveAll(ep.CallsMapPathLocked()); err != nil {
-			errors = append(errors, fmt.Errorf("unable to remove calls map file %s: %s", ep.CallsMapPathLocked(), err))
-		}
-
-		// Remove IPv6 connection tracking map
-		if err := os.RemoveAll(ep.Ct6MapPathLocked()); err != nil {
-			errors = append(errors, fmt.Errorf("unable to remove IPv6 CT map %s: %s", ep.Ct6MapPathLocked(), err))
-		}
-
-		// Remove IPv4 connection tracking map
-		if err := os.RemoveAll(ep.Ct4MapPathLocked()); err != nil {
-			errors = append(errors, fmt.Errorf("unable to remove IPv4 CT map %s: %s", ep.Ct4MapPathLocked(), err))
-		}
-
-		// Remove handle_policy() tail call entry for EP
-		if err := ep.RemoveFromGlobalPolicyMap(); err != nil {
-			errors = append(errors, fmt.Errorf("unable to remove endpoint from global policy map: %s", err))
-		}
-	}
-
-	if releaseIP {
-		if !option.Config.IPv4Disabled {
-			if err := ipam.ReleaseIP(ep.IPv4.IP()); err != nil {
-				errors = append(errors, fmt.Errorf("unable to release ipv4 address: %s", err))
-			}
-		}
-		if err := ipam.ReleaseIP(ep.IPv6.IP()); err != nil {
-			errors = append(errors, fmt.Errorf("unable to release ipv6 address: %s", err))
-		}
-	}
-
-	completionCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	proxyWaitGroup := completion.NewWaitGroup(completionCtx)
-
-	errors = append(errors, ep.LeaveLocked(d, proxyWaitGroup)...)
 	ep.Unlock()
-
-	err := ep.WaitForProxyCompletions(proxyWaitGroup)
-	if err != nil {
-		errors = append(errors, fmt.Errorf("unable to remove proxy redirects: %s", err))
-	}
-	cancel()
-
 	ep.BuildMutex.Unlock()
 
-	return errors
+	return ep.Delete(d, releaseIP)
 }
 
 func (d *Daemon) DeleteEndpoint(id string) (int, error) {
