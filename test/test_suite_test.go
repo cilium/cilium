@@ -151,6 +151,24 @@ func reportCreateVMFailure(vm string, err error) {
 	Fail(failmsg)
 }
 
+func deployETCDOperator(kubectl *helpers.Kubectl) {
+	const etcdOperatorPath = "../examples/kubernetes/addons/etcd-operator/"
+	deployFile := func(filename string) {
+		cmdRes := kubectl.Apply(helpers.GetFilePath(etcdOperatorPath + filename))
+		cmdRes.ExpectSuccess("Unable to deploy ")
+	}
+
+	kubectl.Exec(fmt.Sprintf("%s %q", helpers.GetFilePath(etcdOperatorPath+"tls/certs/gen-cert.sh"), "cluster.local"))
+	kubectl.Exec(helpers.GetFilePath(etcdOperatorPath + "tls/deploy-certs.sh"))
+
+	deployFile("00-crd-etcd.yaml")
+	deployFile("cilium-etcd-cluster.yaml")
+	deployFile("cilium-etcd-sa.yaml")
+	deployFile("cluster-role-binding-template.yaml")
+	deployFile("cluster-role-template.yaml")
+	deployFile("deployment.yaml")
+}
+
 var _ = BeforeAll(func() {
 	var err error
 
@@ -232,6 +250,10 @@ var _ = BeforeAll(func() {
 		}
 		kubectl := helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		kubectl.Apply(helpers.GetFilePath("../examples/kubernetes/addons/prometheus/prometheus.yaml"))
+
+		// deploy Cilium etcd operator
+		deployETCDOperator(kubectl)
+
 		go kubectl.PprofReport()
 	}
 	return
