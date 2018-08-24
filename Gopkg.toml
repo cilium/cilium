@@ -277,6 +277,10 @@ required = [
   name = "github.com/containerd/containerd"
   revision = "v1.1.0"
 
+[[constraint]]
+  name = "github.com/shirou/gopsutil"
+  revision = "v2.18.07"
+
 [prune]
   non-go = true
   go-tests = true
