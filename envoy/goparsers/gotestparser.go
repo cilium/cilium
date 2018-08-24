@@ -27,10 +27,10 @@ func (p *PasserParserFactory) Create(connection *Connection) Parser {
 //
 // This simply passes all data in either direction.
 //
-func (p *PasserParser) OnData(reply, endStream bool, data []string, offset uint) (FilterOpType, uint) {
-	n_bytes := uint(0)
+func (p *PasserParser) OnData(reply, endStream bool, data []string, offset uint32) (FilterOpType, uint32) {
+	n_bytes := uint32(0)
 	for _, s := range data {
-		n_bytes += uint(len(s)) - offset
+		n_bytes += uint32(len(s)) - offset
 		offset = 0
 	}
 	if n_bytes == 0 {
@@ -67,14 +67,14 @@ func (p *LineParserFactory) Create(connection *Connection) Parser {
 	return &LineParser{connection: connection}
 }
 
-func getLine(data []string, offset uint) (string, bool) {
+func getLine(data []string, offset uint32) (string, bool) {
 	var line string
 	for _, s := range data {
 		index := strings.IndexByte(s[offset:], '\n')
 		if index < 0 {
 			line += s[offset:]
 		} else {
-			line += s[offset : offset+uint(index)+1]
+			line += s[offset : offset+uint32(index)+1]
 			return line, true
 		}
 		offset = 0
@@ -89,9 +89,9 @@ func getLine(data []string, offset uint) (string, bool) {
 // "INJECT" the line is injected in reverse direction
 // "INSERT" the line is injected in current direction
 //
-func (p *LineParser) OnData(reply, endStream bool, data []string, offset uint) (FilterOpType, uint) {
+func (p *LineParser) OnData(reply, endStream bool, data []string, offset uint32) (FilterOpType, uint32) {
 	line, ok := getLine(data, offset)
-	line_len := uint(len(line))
+	line_len := uint32(len(line))
 
 	if p.inserted {
 		p.inserted = false
@@ -134,7 +134,7 @@ func (p *LineParser) OnData(reply, endStream bool, data []string, offset uint) (
 		return FILTEROP_INJECT, line_len
 	}
 
-	return FILTEROP_ERROR, uint(FILTEROP_ERROR_INVALID_FRAME_TYPE)
+	return FILTEROP_ERROR, uint32(FILTEROP_ERROR_INVALID_FRAME_TYPE)
 }
 
 //
@@ -160,12 +160,12 @@ func (p *BlockParserFactory) Create(connection *Connection) Parser {
 	return &BlockParser{connection: connection}
 }
 
-func getBlock(data []string, offset uint) (string, uint, uint, error) {
+func getBlock(data []string, offset uint32) (string, uint32, uint32, error) {
 	var block string
 
-	block_len := uint(0)
+	block_len := uint32(0)
 	have_length := false
-	missing := uint(0)
+	missing := uint32(0)
 
 	for _, s := range data {
 		if !have_length {
@@ -176,8 +176,8 @@ func getBlock(data []string, offset uint) (string, uint, uint, error) {
 					missing = 1 // require at least one more if something was received
 				}
 			} else {
-				block += s[offset : offset+uint(index)]
-				offset += uint(index)
+				block += s[offset : offset+uint32(index)]
+				offset += uint32(index)
 
 				// Now 'block' contains everything before the ':', parse it as a decimal number
 				// indicating the length of the frame AFTER the ':'
@@ -185,16 +185,16 @@ func getBlock(data []string, offset uint) (string, uint, uint, error) {
 				if err != nil {
 					return block, 0, 0, err
 				}
-				block_len = uint(len64)
-				if block_len <= uint(len(block)) {
+				block_len = uint32(len64)
+				if block_len <= uint32(len(block)) {
 					return block, 0, 0, fmt.Errorf("Block length too short")
 				}
 				have_length = true
-				missing = block_len - uint(len(block))
+				missing = block_len - uint32(len(block))
 			}
 		}
 		if have_length {
-			s_len := uint(len(s)) - offset
+			s_len := uint32(len(s)) - offset
 
 			if missing <= s_len {
 				block += s[offset : offset+missing]
@@ -217,11 +217,11 @@ func getBlock(data []string, offset uint) (string, uint, uint, error) {
 // "INJECT" the block is injected in reverse direction
 // "INSERT" the block is injected in current direction
 //
-func (p *BlockParser) OnData(reply, endStream bool, data []string, offset uint) (FilterOpType, uint) {
+func (p *BlockParser) OnData(reply, endStream bool, data []string, offset uint32) (FilterOpType, uint32) {
 	block, block_len, missing, err := getBlock(data, offset)
 	if err != nil {
 		log.WithError(err).Warnf("BlockParser: Invalid frame length")
-		return FILTEROP_ERROR, uint(FILTEROP_ERROR_INVALID_FRAME_LENGTH)
+		return FILTEROP_ERROR, uint32(FILTEROP_ERROR_INVALID_FRAME_LENGTH)
 	}
 
 	if p.inserted {
@@ -270,5 +270,5 @@ func (p *BlockParser) OnData(reply, endStream bool, data []string, offset uint) 
 		return FILTEROP_INJECT, block_len
 	}
 
-	return FILTEROP_ERROR, uint(FILTEROP_ERROR_INVALID_FRAME_TYPE)
+	return FILTEROP_ERROR, uint32(FILTEROP_ERROR_INVALID_FRAME_TYPE)
 }

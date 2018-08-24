@@ -19,32 +19,34 @@ typedef struct { const char *p; ptrdiff_t n; } _GoString_;
 
 #line 3 "/home/vagrant/go/src/github.com/cilium/cilium/envoy/goparsers/go_filter.go"
 
- typedef enum {
-   FILTEROP_MORE,   // Need more data
-   FILTEROP_PASS,   // Pass N bytes
-   FILTEROP_DROP,   // Drop N bytes
-   FILTEROP_INJECT, // Inject N>0 bytes
-   FILTEROP_ERROR,  // Protocol parsing error
- } FilterOpType;
+#include <stdint.h>
 
- typedef enum {
-   FILTEROP_ERROR_INVALID_OP_LENGTH = 1,   // Parser returned invalid operation length
-   FILTEROP_ERROR_INVALID_FRAME_TYPE,
-   FILTEROP_ERROR_INVALID_FRAME_LENGTH,
- } FilterOpError;
+typedef enum {
+  FILTEROP_MORE,   // Need more data
+  FILTEROP_PASS,   // Pass N bytes
+  FILTEROP_DROP,   // Drop N bytes
+  FILTEROP_INJECT, // Inject N>0 bytes
+  FILTEROP_ERROR,  // Protocol parsing error
+} FilterOpType;
 
- typedef struct {
-   FilterOpType op;
-   unsigned int n_bytes; // >0
- } FilterOp;
+typedef enum {
+  FILTEROP_ERROR_INVALID_OP_LENGTH = 1,   // Parser returned invalid operation length
+  FILTEROP_ERROR_INVALID_FRAME_TYPE,
+  FILTEROP_ERROR_INVALID_FRAME_LENGTH,
+} FilterOpError;
 
- typedef enum {
-   FILTER_OK,                 // Operation was successful
-   FILTER_POLICY_DROP,        // Connection needs to be dropped due to (L3/L4) policy
-   FILTER_PARSER_ERROR,       // Connection needs to be dropped due to parser error
-   FILTER_UNKNOWN_PARSER,     // Connection needs to be dropped due to unknown parser
-   FILTER_UNKNOWN_CONNECTION, // Connection needs to be dropped due to it being unknown
- } FilterResult;
+typedef struct {
+  uint32_t op;      // FilterOpType
+  uint32_t n_bytes; // >0
+} FilterOp;
+
+typedef enum {
+  FILTER_OK,                 // Operation was successful
+  FILTER_POLICY_DROP,        // Connection needs to be dropped due to (L3/L4) policy
+  FILTER_PARSER_ERROR,       // Connection needs to be dropped due to parser error
+  FILTER_UNKNOWN_PARSER,     // Connection needs to be dropped due to unknown parser
+  FILTER_UNKNOWN_CONNECTION, // Connection needs to be dropped due to it being unknown
+} FilterResult;
 
 #line 1 "cgo-generated-wrapper"
 
@@ -95,12 +97,12 @@ extern "C" {
 #endif
 
 
-extern FilterResult OnNewConnection(GoString p0, GoUint64 p1, GoUint8 p2, GoUint32 p3, GoUint32 p4, GoString p5, GoString p6, GoString p7, GoSlice* p8, GoSlice* p9);
+extern GoInt OnNewConnection(GoString p0, GoUint64 p1, GoUint8 p2, GoUint32 p3, GoUint32 p4, GoString p5, GoString p6, GoString p7, GoSlice* p8, GoSlice* p9);
 
 // Each connection is assumed to be called from a single thread, so accessing connection metadata
 // does not need protection.
 
-extern FilterResult OnData(GoUint64 p0, GoUint8 p1, GoUint8 p2, GoSlice* p3, GoSlice* p4);
+extern GoInt OnData(GoUint64 p0, GoUint8 p1, GoUint8 p2, GoSlice* p3, GoSlice* p4);
 
 // Make this more general connection event callback
 

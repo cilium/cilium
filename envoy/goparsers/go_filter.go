@@ -1,32 +1,35 @@
 package main
 
-//
-// typedef enum {
-//   FILTEROP_MORE,   // Need more data
-//   FILTEROP_PASS,   // Pass N bytes
-//   FILTEROP_DROP,   // Drop N bytes
-//   FILTEROP_INJECT, // Inject N>0 bytes
-//   FILTEROP_ERROR,  // Protocol parsing error
-// } FilterOpType;
-//
-// typedef enum {
-//   FILTEROP_ERROR_INVALID_OP_LENGTH = 1,   // Parser returned invalid operation length
-//   FILTEROP_ERROR_INVALID_FRAME_TYPE,
-//   FILTEROP_ERROR_INVALID_FRAME_LENGTH,
-// } FilterOpError;
-//
-// typedef struct {
-//   FilterOpType op;
-//   unsigned int n_bytes; // >0
-// } FilterOp;
-//
-// typedef enum {
-//   FILTER_OK,                 // Operation was successful
-//   FILTER_POLICY_DROP,        // Connection needs to be dropped due to (L3/L4) policy
-//   FILTER_PARSER_ERROR,       // Connection needs to be dropped due to parser error
-//   FILTER_UNKNOWN_PARSER,     // Connection needs to be dropped due to unknown parser
-//   FILTER_UNKNOWN_CONNECTION, // Connection needs to be dropped due to it being unknown
-// } FilterResult;
+/*
+#include <stdint.h>
+
+typedef enum {
+  FILTEROP_MORE,   // Need more data
+  FILTEROP_PASS,   // Pass N bytes
+  FILTEROP_DROP,   // Drop N bytes
+  FILTEROP_INJECT, // Inject N>0 bytes
+  FILTEROP_ERROR,  // Protocol parsing error
+} FilterOpType;
+
+typedef enum {
+  FILTEROP_ERROR_INVALID_OP_LENGTH = 1,   // Parser returned invalid operation length
+  FILTEROP_ERROR_INVALID_FRAME_TYPE,
+  FILTEROP_ERROR_INVALID_FRAME_LENGTH,
+} FilterOpError;
+
+typedef struct {
+  uint32_t op;      // FilterOpType
+  uint32_t n_bytes; // >0
+} FilterOp;
+
+typedef enum {
+  FILTER_OK,                 // Operation was successful
+  FILTER_POLICY_DROP,        // Connection needs to be dropped due to (L3/L4) policy
+  FILTER_PARSER_ERROR,       // Connection needs to be dropped due to parser error
+  FILTER_UNKNOWN_PARSER,     // Connection needs to be dropped due to unknown parser
+  FILTER_UNKNOWN_CONNECTION, // Connection needs to be dropped due to it being unknown
+} FilterResult;
+*/
 import "C"
 
 import (
@@ -38,8 +41,14 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type FilterOpType int
-type FilterOpError uint
+// Mirror C types to be able to use them in other Go files and tests.
+
+type FilterOpType uint32
+type FilterOpError uint32
+type FilterOp struct {
+	op      uint32
+	n_bytes uint32
+}
 
 const (
 	FILTEROP_MORE   FilterOpType = C.FILTEROP_MORE
@@ -48,12 +57,68 @@ const (
 	FILTEROP_INJECT FilterOpType = C.FILTEROP_INJECT
 	FILTEROP_ERROR  FilterOpType = C.FILTEROP_ERROR
 	// Internal types not exposed to Caller
-	FILTEROP_NOP FilterOpType = -1
+	FILTEROP_NOP FilterOpType = 256
 
 	FILTEROP_ERROR_INVALID_OP_LENGTH    FilterOpError = C.FILTEROP_ERROR_INVALID_OP_LENGTH
 	FILTEROP_ERROR_INVALID_FRAME_TYPE   FilterOpError = C.FILTEROP_ERROR_INVALID_FRAME_TYPE
 	FILTEROP_ERROR_INVALID_FRAME_LENGTH FilterOpError = C.FILTEROP_ERROR_INVALID_FRAME_LENGTH
 )
+
+func (op FilterOpType) String() string {
+	switch op {
+	case FILTEROP_MORE:
+		return "MORE"
+	case FILTEROP_PASS:
+		return "PASS"
+	case FILTEROP_DROP:
+		return "DROP"
+	case FILTEROP_INJECT:
+		return "INJECT"
+	case FILTEROP_ERROR:
+		return "ERROR"
+	case FILTEROP_NOP:
+		return "NOP"
+	}
+	return "UNKNOWN_OP"
+}
+
+func (opErr FilterOpError) String() string {
+	switch opErr {
+	case FILTEROP_ERROR_INVALID_OP_LENGTH:
+		return "ERROR_INVALID_OP_LENGTH"
+	case FILTEROP_ERROR_INVALID_FRAME_TYPE:
+		return "ERROR_INVALID_FRAME_TYPE"
+	case FILTEROP_ERROR_INVALID_FRAME_LENGTH:
+		return "ERROR_INVALID_FRAME_LENGTH"
+	}
+	return "UNKNOWN_OP_ERROR"
+}
+
+type FilterResult int
+
+const (
+	FILTER_OK                 FilterResult = C.FILTER_OK
+	FILTER_POLICY_DROP        FilterResult = C.FILTER_POLICY_DROP
+	FILTER_PARSER_ERROR       FilterResult = C.FILTER_PARSER_ERROR
+	FILTER_UNKNOWN_PARSER     FilterResult = C.FILTER_UNKNOWN_PARSER
+	FILTER_UNKNOWN_CONNECTION FilterResult = C.FILTER_UNKNOWN_CONNECTION
+)
+
+func (r FilterResult) String() string {
+	switch r {
+	case FILTER_OK:
+		return "OK"
+	case FILTER_POLICY_DROP:
+		return "POLICY_DROP"
+	case FILTER_PARSER_ERROR:
+		return "PARSER_ERROR"
+	case FILTER_UNKNOWN_PARSER:
+		return "UNKNOWN_PARSER"
+	case FILTER_UNKNOWN_CONNECTION:
+		return "UNKNOWN_CONNECTION"
+	}
+	return "UNKNOWN_ERROR"
+}
 
 // Filter sees data from the underlying stream in both directions
 // (original, connection open direction and the opposite, the reply
@@ -86,7 +151,7 @@ var connections map[uint64]*Connection
 
 // A parser instance is used for each connection. OnData will be called from a single thread only.
 type Parser interface {
-	OnData(reply, endStream bool, data []string, offset uint) (FilterOpType, uint)
+	OnData(reply, endStream bool, data []string, offset uint32) (FilterOpType, uint32)
 }
 
 type ParserFactory interface {
@@ -156,9 +221,9 @@ func (connection *Connection) isInjectBufFull(reply bool) bool {
 // Since we get the data on one direction at a time, any frames to be injected in the reverse direction
 // are placed in the reverse direction buffer, from where the datapath injects the data before calling
 // us again for the reverse direction input.
-func (connection *Connection) onData(reply, endStream bool, data *[]string, filterOps *[]C.FilterOp) C.FilterResult {
+func (connection *Connection) onData(reply, endStream bool, data *[]string, filterOps *[]FilterOp) FilterResult {
 	unit := 0
-	offset := uint(0)
+	offset := uint32(0)
 
 	// Loop until `filterOps` becomes full, or parser is done with the data.
 	for len(*filterOps) < cap(*filterOps) {
@@ -167,9 +232,9 @@ func (connection *Connection) onData(reply, endStream bool, data *[]string, filt
 			break // No operations after NOP
 		}
 		if bytes == 0 {
-			return C.FILTER_PARSER_ERROR
+			return FILTER_PARSER_ERROR
 		}
-		*filterOps = append(*filterOps, C.FilterOp{C.FilterOpType(op), C.uint(bytes)})
+		*filterOps = append(*filterOps, FilterOp{uint32(op), bytes})
 
 		if op == FILTEROP_MORE {
 			// Need more data before can parse ahead.
@@ -181,8 +246,8 @@ func (connection *Connection) onData(reply, endStream bool, data *[]string, filt
 		if op == FILTEROP_PASS || op == FILTEROP_DROP {
 			// Skip bytes in input, or exhaust the input.
 			for bytes > 0 && unit < len(*data) {
-				rem := uint(len((*data)[unit])) - offset // this much data left in unit
-				if bytes < rem {                         // more than 'bytes' bytes in unit
+				rem := uint32(len((*data)[unit])) - offset // this much data left in unit
+				if bytes < rem {                           // more than 'bytes' bytes in unit
 					offset += bytes
 					bytes = 0
 				} else { // go to the beginning of the next unit
@@ -204,7 +269,7 @@ func (connection *Connection) onData(reply, endStream bool, data *[]string, filt
 			break
 		}
 	}
-	return C.FILTER_OK
+	return FILTER_OK
 }
 
 func (conn *Connection) Log(entryType cilium.EntryType, l7 interface{}) {
@@ -223,11 +288,11 @@ func (conn *Connection) Log(entryType cilium.EntryType, l7 interface{}) {
 }
 
 //export OnNewConnection
-func OnNewConnection(proto string, connectionId uint64, ingress bool, srcId, dstId uint32, srcAddr, dstAddr, policyName string, origBuf, replyBuf *[]byte) C.FilterResult {
+func OnNewConnection(proto string, connectionId uint64, ingress bool, srcId, dstId uint32, srcAddr, dstAddr, policyName string, origBuf, replyBuf *[]byte) FilterResult {
 	// Find the parser for the proto
 	parserFactory := parserFactories[proto]
 	if parserFactory == nil {
-		return C.FILTER_UNKNOWN_PARSER
+		return FILTER_UNKNOWN_PARSER
 	}
 	connection := &Connection{
 		Id:         connectionId,
@@ -243,26 +308,26 @@ func OnNewConnection(proto string, connectionId uint64, ingress bool, srcId, dst
 	connection.parser = parserFactory.Create(connection)
 	if connection.parser == nil {
 		// Parser rejected the new connection based on the connection metadata
-		return C.FILTER_POLICY_DROP
+		return FILTER_POLICY_DROP
 	}
 
 	mutex.Lock()
 	connections[connectionId] = connection
 	mutex.Unlock()
 
-	return C.FILTER_OK
+	return FILTER_OK
 }
 
 // Each connection is assumed to be called from a single thread, so accessing connection metadata
 // does not need protection.
 //export OnData
-func OnData(connectionId uint64, reply, endStream bool, data *[]string, filterOps *[]C.FilterOp) C.FilterResult {
+func OnData(connectionId uint64, reply, endStream bool, data *[]string, filterOps *[]FilterOp) FilterResult {
 	// Find the connection
 	mutex.Lock()
 	connection, ok := connections[connectionId]
 	mutex.Unlock()
 	if !ok {
-		return C.FILTER_UNKNOWN_CONNECTION
+		return FILTER_UNKNOWN_CONNECTION
 	}
 	return connection.onData(reply, endStream, data, filterOps)
 }
