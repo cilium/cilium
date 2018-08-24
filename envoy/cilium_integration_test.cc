@@ -36,120 +36,6 @@
 
 namespace Envoy {
 
-class AccessLogServer : Logger::Loggable<Logger::Id::router> {
-public:
-  AccessLogServer(const char*path) : path_(path), fd2_(-1) {
-    ENVOY_LOG(critical, "Creating access log server: {}", path);
-    ::unlink(path);
-    fd_ = ::socket(AF_UNIX, SOCK_SEQPACKET, 0);
-    if (fd_ == -1) {
-      ENVOY_LOG(error, "Can't create socket: {}", strerror(errno));
-      return;
-    }
-
-    struct sockaddr_un addr = {.sun_family = AF_UNIX, .sun_path = {}};
-    strncpy(addr.sun_path, path, sizeof(addr.sun_path) - 1);
-    if (::bind(fd_, reinterpret_cast<struct sockaddr *>(&addr),
-	       sizeof(addr)) == -1) {
-      ENVOY_LOG(warn, "Bind to {} failed: {}", path, strerror(errno));
-      Close();
-      return;
-    }
-
-    if (::listen(fd_, 5) == -1) {
-      ENVOY_LOG(warn, "Listen on {} failed: {}", path, strerror(errno));
-      Close();
-      return;
-    }
-
-    ENVOY_LOG(critical, "Starting access log server thread fd: {}", fd_);
-
-    thread_.reset(new Thread::Thread([this]() -> void { threadRoutine(); }));
-  }
-
-  ~AccessLogServer() {
-    if (fd_ >= 0) {
-      Close();
-      ENVOY_LOG(warn, "Waiting on access log to close: {}", strerror(errno));
-      thread_->join();
-      thread_.reset();
-    }
-  }
-private:
-  void Close() {
-    ::shutdown(fd_, SHUT_RD);
-    ::shutdown(fd2_, SHUT_RD);
-    ::close(fd_);
-    fd_ = -1;
-    ::unlink(path_);
-  }
-
-  void threadRoutine() {
-    while (fd_ >= 0) {
-      ENVOY_LOG(critical, "Access Log thread started on fd: {}", fd_);
-      // Accept a new connection
-      struct sockaddr_un addr;
-      socklen_t addr_len;
-      ENVOY_LOG(warn, "Access log blocking accept on fd: {}", fd_);
-      fd2_ = ::accept(fd_, reinterpret_cast<sockaddr*>(&addr), &addr_len);
-      if (fd2_ < 0) {
-	ENVOY_LOG(critical, "Access log accept failed: {}", strerror(errno));
-      } else {
-	char buf[8192];
-	while (true) {
-	  ENVOY_LOG(warn, "Access log blocking recv on fd: {}", fd2_);
-	  ssize_t received = ::recv(fd2_, buf, sizeof(buf), 0);
-	  if (received < 0) {
-	    ENVOY_LOG(warn, "Access log recv failed: {}", strerror(errno));
-	    break;
-	  } else if (received == 0) {
-	    ENVOY_LOG(warn, "Access log recv got no data!");
-	    break;
-	  } else {
-	    std::string data(buf, received);
-	    ::cilium::LogEntry entry;
-	    if (!entry.ParseFromString(data)) {
-	      ENVOY_LOG(warn, "Access log parse failed!");
-	    } else {
-	      if (entry.method().length() > 0) {
-		ENVOY_LOG(warn, "Access log deprecated format detected");
-		// Deprecated format detected, map to the new one
-		auto http = entry.mutable_http();
-		http->set_http_protocol(entry.http_protocol());
-		entry.clear_http_protocol();
-		http->set_scheme(entry.scheme());
-		entry.clear_scheme();
-		http->set_host(entry.host());
-		entry.clear_host();
-		http->set_path(entry.path());
-		entry.clear_path();
-		http->set_method(entry.method());
-		entry.clear_method();
-		for (const auto& dep_hdr: entry.headers()) {
-		  auto hdr = http->add_headers();
-		  hdr->set_key(dep_hdr.key());
-		  hdr->set_value(dep_hdr.value());
-		}
-		entry.clear_headers();
-		http->set_status(entry.status());
-		entry.clear_status();
-	      }
-	      ENVOY_LOG(info, "Access log entry: {}", entry.DebugString());
-	    }
-	  }
-	}
-	::close(fd2_);
-	fd2_ = -1;
-      }
-    };
-  }
-
-  const char* path_;
-  std::atomic<int> fd_;
-  std::atomic<int> fd2_;
-  Thread::ThreadPtr thread_;
-};
-
 std::string host_map_config;
 std::shared_ptr<const Cilium::PolicyHostMap> hostmap{nullptr};
 
@@ -425,21 +311,20 @@ static_resources:
                   prefix: "/"
 )EOF";
 
-class CiliumIntegrationTestBase
+class CiliumHttpIntegrationTest
   : public HttpIntegrationTest,
     public testing::TestWithParam<Network::Address::IpVersion> {
 
 public:
-  CiliumIntegrationTestBase(const std::string& config)
-    : HttpIntegrationTest(Http::CodecClient::Type::HTTP1, GetParam(), config),
-      accessLogServer_("access_log.sock") {
+  CiliumHttpIntegrationTest(const std::string& config)
+    : HttpIntegrationTest(Http::CodecClient::Type::HTTP1, GetParam(), config) {
     // Undo legacy compat rename done by HttpIntegrationTest constructor.
     // config_helper_.renameListener("cilium");
     for (Logger::Logger& logger : Logger::Registry::loggers()) {
       logger.setLevel(spdlog::level::trace);
     }
   }
-  ~CiliumIntegrationTestBase() {
+  ~CiliumHttpIntegrationTest() {
     npmap.reset();
   }  
   /**
@@ -455,7 +340,7 @@ public:
     }
   }
 
-  void Denied(Http::TestHeaderMapImpl headers) {
+  void Denied(Http::TestHeaderMapImpl&& headers) {
     policy_config = BASIC_POLICY;
     initialize();
     codec_client_ = makeHttpConnection(lookupPort("http"));
@@ -465,7 +350,7 @@ public:
     EXPECT_STREQ("403", response->headers().Status()->value().c_str());
   }
 
-  void Accepted(Http::TestHeaderMapImpl headers) {
+  void Accepted(Http::TestHeaderMapImpl&& headers) {
     policy_config = BASIC_POLICY;
     initialize();
     codec_client_ = makeHttpConnection(lookupPort("http"));
@@ -486,14 +371,12 @@ public:
     EXPECT_THROW_WITH_MESSAGE(hmap.onConfigUpdate(typed_resources, "1"), EnvoyException, exmsg);
     tls.shutdownGlobalThreading();
   }
-
-  AccessLogServer accessLogServer_;;
 };
 
-class CiliumIntegrationTest : public CiliumIntegrationTestBase {
+class CiliumIntegrationTest : public CiliumHttpIntegrationTest {
 public:
   CiliumIntegrationTest()
-    : CiliumIntegrationTestBase(fmt::format(cilium_proxy_config_fmt, "true")) {}
+    : CiliumHttpIntegrationTest(fmt::format(TestEnvironment::substitute(cilium_proxy_config_fmt, GetParam()), "true")) {}
 };
 
 INSTANTIATE_TEST_CASE_P(
@@ -794,10 +677,10 @@ TEST_P(CiliumIntegrationTest, DuplicatePort) {
   EXPECT_STREQ("403", response->headers().Status()->value().c_str());
 }
 
-class CiliumIntegrationEgressTest : public CiliumIntegrationTestBase {
+class CiliumIntegrationEgressTest : public CiliumHttpIntegrationTest {
 public:
   CiliumIntegrationEgressTest()
-    : CiliumIntegrationTestBase(fmt::format(cilium_proxy_config_fmt, "false")) {
+    : CiliumHttpIntegrationTest(fmt::format(TestEnvironment::substitute(cilium_proxy_config_fmt, GetParam()), "false")) {
     host_map_config = R"EOF(version_info: "0"
 resources:
 - "@type": type.googleapis.com/cilium.NetworkPolicyHosts
@@ -906,10 +789,11 @@ static_resources:
           cluster: cluster1
 )EOF";
 
-class CiliumTcpProxyIntegrationTest : public BaseIntegrationTest,
-                                      public testing::TestWithParam<Network::Address::IpVersion> {
+class CiliumTcpIntegrationTest : public BaseIntegrationTest,
+                                 public testing::TestWithParam<Network::Address::IpVersion> {
 public:
-  CiliumTcpProxyIntegrationTest() : BaseIntegrationTest(GetParam(), fmt::format(cilium_tcp_proxy_config_fmt, "true")) {
+  CiliumTcpIntegrationTest(const std::string& config)
+    : BaseIntegrationTest(GetParam(), config) {
     enable_half_close_ = true;
   }
 
@@ -929,6 +813,11 @@ public:
     fake_upstreams_.clear();
     npmap.reset();
   }
+};
+
+class CiliumTcpProxyIntegrationTest : public CiliumTcpIntegrationTest {
+public:
+  CiliumTcpProxyIntegrationTest() : CiliumTcpIntegrationTest(fmt::format(TestEnvironment::substitute(cilium_tcp_proxy_config_fmt, GetParam()), "true")) {}
 };
 
 INSTANTIATE_TEST_CASE_P(IpVersions, CiliumTcpProxyIntegrationTest,
@@ -1182,29 +1071,9 @@ static_resources:
           cluster: cluster1
 )EOF";
 
-class CiliumGoLinetesterIntegrationTest : public BaseIntegrationTest,
-                                          public testing::TestWithParam<Network::Address::IpVersion> {
+class CiliumGoLinetesterIntegrationTest : public CiliumTcpIntegrationTest {
 public:
-  CiliumGoLinetesterIntegrationTest() : BaseIntegrationTest(GetParam(), fmt::format(cilium_go_linetester_config_fmt, "true")) {
-    enable_half_close_ = true;
-  }
-
-  void initialize() override {
-    config_helper_.renameListener("tcp_proxy");
-    BaseIntegrationTest::initialize();
-    // Pass the fake upstream address to the cilium bpf filter that will set it as an "original destination address".
-    if (GetParam() == Network::Address::IpVersion::v4) {
-      original_dst_address = std::make_shared<Network::Address::Ipv4Instance>(Network::Test::getLoopbackAddressString(GetParam()), fake_upstreams_.back()->localAddress()->ip()->port());
-    } else {
-      original_dst_address = std::make_shared<Network::Address::Ipv6Instance>(Network::Test::getLoopbackAddressString(GetParam()), fake_upstreams_.back()->localAddress()->ip()->port());
-    }
-  }
-
-  void TearDown() override {
-    test_server_.reset();
-    fake_upstreams_.clear();
-    npmap.reset();
-  }
+  CiliumGoLinetesterIntegrationTest() : CiliumTcpIntegrationTest(fmt::format(TestEnvironment::substitute(cilium_go_linetester_config_fmt, GetParam()), "true")) {}
 };
 
 INSTANTIATE_TEST_CASE_P(IpVersions, CiliumGoLinetesterIntegrationTest,
@@ -1397,29 +1266,9 @@ static_resources:
           cluster: cluster1
 )EOF";
 
-class CiliumGoBlocktesterIntegrationTest : public BaseIntegrationTest,
-                                          public testing::TestWithParam<Network::Address::IpVersion> {
+class CiliumGoBlocktesterIntegrationTest : public CiliumTcpIntegrationTest {
 public:
-  CiliumGoBlocktesterIntegrationTest() : BaseIntegrationTest(GetParam(), fmt::format(cilium_go_blocktester_config_fmt, "true")) {
-    enable_half_close_ = true;
-  }
-
-  void initialize() override {
-    config_helper_.renameListener("tcp_proxy");
-    BaseIntegrationTest::initialize();
-    // Pass the fake upstream address to the cilium bpf filter that will set it as an "original destination address".
-    if (GetParam() == Network::Address::IpVersion::v4) {
-      original_dst_address = std::make_shared<Network::Address::Ipv4Instance>(Network::Test::getLoopbackAddressString(GetParam()), fake_upstreams_.back()->localAddress()->ip()->port());
-    } else {
-      original_dst_address = std::make_shared<Network::Address::Ipv6Instance>(Network::Test::getLoopbackAddressString(GetParam()), fake_upstreams_.back()->localAddress()->ip()->port());
-    }
-  }
-
-  void TearDown() override {
-    test_server_.reset();
-    fake_upstreams_.clear();
-    npmap.reset();
-  }
+  CiliumGoBlocktesterIntegrationTest() : CiliumTcpIntegrationTest(fmt::format(TestEnvironment::substitute(cilium_go_blocktester_config_fmt, GetParam()), "true")) {}
 };
 
 INSTANTIATE_TEST_CASE_P(IpVersions, CiliumGoBlocktesterIntegrationTest,
