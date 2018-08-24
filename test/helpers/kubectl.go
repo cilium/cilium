@@ -331,7 +331,7 @@ func (kub *Kubectl) GetServiceHostPort(namespace string, service string) (string
 		return "", 0, err
 	}
 	if len(data.Spec.Ports) == 0 {
-		return "", 0, fmt.Errorf("Service %q does not have ports defined", service)
+		return "", 0, fmt.Errorf("Service '%s' does not have ports defined", service)
 	}
 	return data.Spec.ClusterIP, int(data.Spec.Ports[0].Port), nil
 }
@@ -714,7 +714,7 @@ func (kub *Kubectl) WaitForKubeDNSEntry(serviceName, serviceNamespace string) er
 
 	return WithTimeout(
 		body,
-		fmt.Sprintf("DNS %q is not ready after timeout", serviceNameWithNamespace),
+		fmt.Sprintf("DNS '%s' is not ready after timeout", serviceNameWithNamespace),
 		&TimeoutConfig{Timeout: DNSHelperTimeout})
 }
 
@@ -1046,6 +1046,46 @@ func (kub *Kubectl) CiliumExecAll(cmd string) error {
 	return nil
 }
 
+// WaitForCiliumInitContainerToFinish waits for all Cilium init containers to
+// finish
+func (kub *Kubectl) WaitForCiliumInitContainerToFinish() error {
+	body := func() bool {
+		reasonJsonPath := `{range .items[*]}{@.metadata.name}{"="}{@.status.initContainerStatuses[0].state.terminated.reason}{"\n"}{end}`
+		fb, err := kub.GetPods("kube-system", "k8s-app=cilium").Filter(reasonJsonPath)
+		if err != nil {
+			return false
+		}
+		reasonMap := fb.KVOutput()
+		for k, v := range reasonMap {
+			if v != "Completed" {
+				kub.logger.Infof("Cilium Init container from pod '%s' with not completed. Current state: %s", k, v)
+				return false
+			}
+		}
+
+		exitCodeJsonPath := `{range .items[*]}{@.metadata.name}{"="}{@.status.initContainerStatuses[0].state.terminated.exitCode}{"\n"}{end}`
+		fb, err = kub.GetPods("kube-system", "k8s-app=cilium").Filter(exitCodeJsonPath)
+		if err != nil {
+			return false
+		}
+		exitCodeMap := fb.KVOutput()
+		for k, v := range exitCodeMap {
+			if v != "0" {
+				kub.logger.Infof("Cilium Init container from pod '%s' with bad exitCode %s", k, v)
+				return false
+			}
+		}
+
+		return true
+	}
+
+	err := WithTimeout(body, "Cilium Init Container was not able to initialize or had a successful run", &TimeoutConfig{Timeout: HelperTimeout})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // CiliumNodesWait waits until all nodes in the Kubernetes cluster are annotated
 // with Cilium annotations. Its runtime is bounded by a maximum of `HelperTimeout`.
 // When a node is annotated with said annotations, it indicates
@@ -1133,7 +1173,7 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 	}
 
 	if status := kub.Action(action, filepath); !status.WasSuccessful() {
-		return "", fmt.Errorf("cannot perform %q on resource %q: %s", action, filepath, status.OutputPrettyPrint())
+		return "", fmt.Errorf("cannot perform '%s' on resource '%s': %s", action, filepath, status.OutputPrettyPrint())
 	}
 
 	body := func() bool {
@@ -1195,14 +1235,14 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 			for _, v := range pods {
 				revi, err := kub.CiliumPolicyRevision(v)
 				if err != nil {
-					fmt.Fprintf(result, "Cilium-agent %q is not responding\n", v)
+					fmt.Fprintf(result, "Cilium-agent '%s' is not responding\n", v)
 				}
 
 				fmt.Fprintf(result,
-					"Cilium-agent %q started with policy revision '%d' and finished with '%d' \n",
+					"Cilium-agent '%s' started with policy revision '%d' and finished with '%d' \n",
 					v, revisions[v], revi)
 				if revi <= revisions[v] {
-					fmt.Fprintf(result, "Cilium-agent %q restarted during policy import\n", v)
+					fmt.Fprintf(result, "Cilium-agent '%s' restarted during policy import\n", v)
 				}
 			}
 			return result.String()
@@ -1287,14 +1327,14 @@ func (kub *Kubectl) CiliumCheckReport() {
 			if status[0] != "" {
 				failed++
 				prefix = "⚠️  "
-				failedControllers += fmt.Sprintf("controller %s failure %q\n", name, status[1])
+				failedControllers += fmt.Sprintf("controller %s failure '%s'\n", name, status[1])
 			}
 		}
 		statusFilter := `Status: {.cilium.state}  Health: {.cluster.ciliumHealth.state}` +
 			` Nodes "{.cluster.nodes[*].name}" ContinerRuntime: {.container-runtime.state}` +
 			` Kubernetes: {.kubernetes.state} KVstore: {.kvstore.state}`
 		data, _ := status.Filter(statusFilter)
-		fmt.Fprintf(CheckLogs, "%sCilium agent %q: %s Controllers: Total %d Failed %d\n",
+		fmt.Fprintf(CheckLogs, "%sCilium agent '%s': %s Controllers: Total %d Failed %d\n",
 			prefix, pod, data, total, failed)
 		if failedControllers != "" {
 			fmt.Fprintf(CheckLogs, "Failed controllers:\n %s", failedControllers)
@@ -1336,8 +1376,8 @@ func (kub *Kubectl) ValidateNoErrorsOnLogs(duration time.Duration) {
 
 	for _, message := range checkLogsMessages {
 		if strings.Contains(logs, message) {
-			fmt.Fprintf(CheckLogs, "⚠️  Found a %q in logs\n", message)
-			ginkgoext.Fail(fmt.Sprintf("Found a %q in Cilium Logs", message))
+			fmt.Fprintf(CheckLogs, "⚠️  Found a '%s' in logs\n", message)
+			ginkgoext.Fail(fmt.Sprintf("Found a '%s' in Cilium Logs", message))
 		}
 	}
 	// Count part
@@ -1348,7 +1388,7 @@ func (kub *Kubectl) ValidateNoErrorsOnLogs(duration time.Duration) {
 			// Added a warning emoji just in case that are more than 5 warning in the logs.
 			prefix = "⚠️  "
 		}
-		fmt.Fprintf(CheckLogs, "%sNumber of %q in logs: %d\n", prefix, message, result)
+		fmt.Fprintf(CheckLogs, "%sNumber of '%s' in logs: %d\n", prefix, message, result)
 	}
 
 }
@@ -1590,14 +1630,14 @@ func (kub *Kubectl) CiliumControllersPreFlightCheck() error {
 		status := kub.CiliumExec(pod, fmt.Sprintf(
 			"cilium status --all-controllers -o jsonpath='%s'", controllersFilter))
 		if !status.WasSuccessful() {
-			return fmt.Errorf("cilium-agent %q: Cannot run cilium status: %s",
+			return fmt.Errorf("cilium-agent '%s': Cannot run cilium status: %s",
 				pod, status.OutputPrettyPrint())
 		}
 		for controller, status := range status.KVOutput() {
 			if status != "0" {
 				failmsg := kub.CiliumExec(pod, "cilium status --all-controllers")
 				return fmt.Errorf(
-					"cilium-agent %q: controller %s is failing: %s",
+					"cilium-agent '%s': controller %s is failing: %s",
 					pod, controller, failmsg.OutputPrettyPrint())
 			}
 		}
@@ -1620,7 +1660,7 @@ func (kub *Kubectl) CiliumHealthPreFlightCheck() error {
 		status := kub.CiliumExec(pod, "cilium-health status -o json --probe")
 		if !status.WasSuccessful() {
 			return fmt.Errorf(
-				"Cluster connectivity is unhealthy on %q: %s",
+				"Cluster connectivity is unhealthy on '%s': %s",
 				pod, status.OutputPrettyPrint())
 		}
 
@@ -1633,7 +1673,7 @@ func (kub *Kubectl) CiliumHealthPreFlightCheck() error {
 		nodeCount := strings.Split(nodes.String(), " ")
 		if len(ciliumPods) != len(nodeCount) {
 			return fmt.Errorf(
-				"cilium-agent %q: Only %d/%d nodes appeared in cilium-health status. nodes = '%+v'",
+				"cilium-agent '%s': Only %d/%d nodes appeared in cilium-health status. nodes = '%+v'",
 				pod, len(nodeCount), len(ciliumPods), nodeCount)
 		}
 
@@ -1644,7 +1684,7 @@ func (kub *Kubectl) CiliumHealthPreFlightCheck() error {
 
 		for node, status := range healthStatus.KVOutput() {
 			if status != "" {
-				return fmt.Errorf("cilium-agent %q: connectivity to node %q is unhealthy: %q",
+				return fmt.Errorf("cilium-agent '%s': connectivity to node '%s' is unhealthy: '%s'",
 					pod, node, status)
 			}
 		}
@@ -1831,6 +1871,78 @@ func (kub *Kubectl) CiliumServicePreFlightCheck() error {
 		}
 	}
 	return nil
+}
+
+func (kub *Kubectl) DeployETCDOperator() error {
+	const etcdOperatorPath = "../examples/kubernetes/addons/etcd-operator/"
+	deployFile := func(filename string) error {
+		cmdRes := kub.Apply(GetFilePath(etcdOperatorPath + filename))
+		if !cmdRes.WasSuccessful() {
+			return fmt.Errorf("Unable to deploy descriptor of etcd-operator %s: %s", filename, cmdRes.CombineOutput().String())
+		}
+		return nil
+	}
+
+	kub.Exec(fmt.Sprintf("%s '%s'", GetFilePath(etcdOperatorPath+"tls/certs/gen-cert.sh"), "cluster.local"))
+	kub.Exec(GetFilePath(etcdOperatorPath + "tls/deploy-certs.sh"))
+
+	err := deployFile("00-crd-etcd.yaml")
+	if err != nil {
+		return err
+	}
+	err = deployFile("cilium-etcd-cluster.yaml")
+	if err != nil {
+		return err
+	}
+	err = deployFile("cilium-etcd-sa.yaml")
+	if err != nil {
+		return err
+	}
+	err = deployFile("cluster-role-binding-template.yaml")
+	if err != nil {
+		return err
+	}
+	err = deployFile("cluster-role-template.yaml")
+	if err != nil {
+		return err
+	}
+	return deployFile("deployment.yaml")
+}
+
+func (kub *Kubectl) DeleteETCDOperator() error {
+	const etcdOperatorPath = "../examples/kubernetes/addons/etcd-operator/"
+	deleteFile := func(filename string) error {
+		cmdRes := kub.Delete(GetFilePath(etcdOperatorPath + filename))
+		if !cmdRes.WasSuccessful() {
+			return fmt.Errorf("Unable to deploy descriptor of etcd-operator %s: %s", filename, cmdRes.CombineOutput().String())
+		}
+		return nil
+	}
+
+	kub.Exec(fmt.Sprintf("%s '%s'", GetFilePath(etcdOperatorPath+"tls/certs/gen-cert.sh"), "cluster.local"))
+	kub.Exec(GetFilePath(etcdOperatorPath + "tls/deploy-certs.sh"))
+
+	err := deleteFile("deployment.yaml")
+	if err != nil {
+		return err
+	}
+	err = deleteFile("cluster-role-template.yaml")
+	if err != nil {
+		return err
+	}
+	err = deleteFile("cluster-role-binding-template.yaml")
+	if err != nil {
+		return err
+	}
+	err = deleteFile("cilium-etcd-sa.yaml")
+	if err != nil {
+		return err
+	}
+	err = deleteFile("cilium-etcd-cluster.yaml")
+	if err != nil {
+		return err
+	}
+	return deleteFile("00-crd-etcd.yaml")
 }
 
 func serviceKey(s v1.Service) string {

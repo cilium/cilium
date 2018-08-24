@@ -75,8 +75,13 @@ var _ = Describe("K8sTunnelTest", func() {
 		})
 
 		It("Check VXLAN mode", func() {
+			_ = kubectl.Apply(helpers.DNSDeployment())
 
-			err := kubectl.CiliumInstall(helpers.CiliumDefaultDSPatch, helpers.CiliumConfigMapPatch)
+			// Deploy the etcd operator
+			err := kubectl.DeployETCDOperator()
+			Expect(err).To(BeNil(), "Unable to deploy etcd operator")
+
+			err = kubectl.CiliumInstall(helpers.CiliumDefaultDSPatch, helpers.CiliumConfigMapPatch)
 			Expect(err).To(BeNil(), "Cilium cannot be installed")
 
 			ExpectCiliumReady(kubectl)
@@ -119,8 +124,13 @@ var _ = Describe("K8sTunnelTest", func() {
 		})
 
 		It("Check Geneve mode", func() {
+			_ = kubectl.Apply(helpers.DNSDeployment())
 
-			err := kubectl.CiliumInstall("cilium-ds-patch-geneve.yaml", helpers.CiliumConfigMapPatch)
+			// Deploy the etcd operator
+			err := kubectl.DeployETCDOperator()
+			Expect(err).To(BeNil(), "Unable to deploy etcd operator")
+
+			err = kubectl.CiliumInstall("cilium-ds-patch-geneve.yaml", helpers.CiliumConfigMapPatch)
 			Expect(err).To(BeNil(), "Cilium cannot be installed")
 
 			ExpectCiliumReady(kubectl)
