@@ -74,9 +74,9 @@ Events external to Cilium
 
 Cilium as a Kubernetes pod
 ==========================
-The Cilium `Prometheus reference configuration <https://github.com/cilium/cilium/blob/master/examples/kubernetes/addons/prometheus/prometheus.yaml>`_
-configures jobs that automatically collect pod metrics marked with the
-appropriate two labels.
+The Cilium Prometheus reference configuration configures jobs that automatically
+collect pod metrics marked with the appropriate two labels can be found
+in :git-tree:`examples/kubernetes/addons/prometheus/prometheus.yaml`
 
 Your Cilium spec will need these annotations:
 
@@ -85,7 +85,7 @@ Your Cilium spec will need these annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9090"
 
-The reference Cilium Kubernetes DaemonSet `Kubernetes spec <https://github.com/cilium/cilium/blob/master/examples/kubernetes/1.8/cilium.yaml>`_
+The reference Cilium Kubernetes DaemonSet Kubernetes descriptor :git-tree:`examples/kubernetes/1.8/cilium.yaml`
 is an example of how to configure ``cilium-agent`` and set the appropriate labels.
 
 *Note: the port can be configured per-pod to any value and the label set
@@ -98,8 +98,8 @@ and tag the resulting metrics series. In the Kubernetes case Prometheus will
 contact the Kubernetes API server for these lists and must have permissions to
 do so.
 
-An example `promethues configuration <https://github.com/cilium/cilium/blob/master/examples/kubernetes/addons/prometheus/prometheus.yaml>`_
-can be found alongside the reference Cilium Kubernetes DaemonSet spec.
+An example of a Prometheus configuration can be found alongside the reference
+Cilium Kubernetes DaemonSet spec in :git-tree:`examples/kubernetes/addons/prometheus/prometheus.yaml`
 
 The critical discovery section is:
 
