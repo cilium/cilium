@@ -15,3 +15,4 @@ spec:
         - "--debug-verbose=flow"
         - "--k8s-require-ipv4-pod-cidr"
         - "--pprof=true"
+        - "--log-system-load"
