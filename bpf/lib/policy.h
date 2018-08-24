@@ -48,10 +48,6 @@ static inline bool identity_is_reserved(__u32 identity)
 	return identity < HEALTH_ID;
 }
 
-#ifndef HAVE_L4_POLICY
-#define HAVE_L4_POLICY 0
-#endif /* HAVE_L4_POLICY */
-
 static inline int __inline__
 __policy_can_access(void *map, struct __sk_buff *skb, __u32 identity,
 		    __u16 dport, __u8 proto, size_t cidr_addr_size,
@@ -70,7 +66,7 @@ __policy_can_access(void *map, struct __sk_buff *skb, __u32 identity,
 		.pad = 0,
 	};
 
-	if (HAVE_L4_POLICY && !is_fragment) {
+	if (!is_fragment) {
 		policy = map_lookup_elem(map, &key);
 		if (likely(policy)) {
 			cilium_dbg3(skb, DBG_L4_CREATE, identity, SECLABEL,
@@ -94,7 +90,7 @@ __policy_can_access(void *map, struct __sk_buff *skb, __u32 identity,
 		return TC_ACT_OK;
 	}
 
-	if (HAVE_L4_POLICY && !is_fragment) {
+	if (!is_fragment) {
 		key.sec_label = 0;
 		key.dport = dport;
 		key.protocol = proto;
@@ -113,12 +109,10 @@ __policy_can_access(void *map, struct __sk_buff *skb, __u32 identity,
 	if (is_fragment)
 		return DROP_FRAG_NOSUPPORT;
 	return DROP_POLICY;
-#ifdef HAVE_L4_POLICY
 get_proxy_port:
 	if (likely(policy)) {
 		return policy->proxy_port;
 	}
-#endif /* HAVE_L4_POLICY */
 allow:
 	return TC_ACT_OK;
 #endif /* DROP_ALL */
