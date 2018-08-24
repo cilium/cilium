@@ -112,6 +112,9 @@ const (
 	// ClusterMeshConfigNameEnv is the name of the environment variable of
 	// the ClusterMeshConfig option
 	ClusterMeshConfigNameEnv = "CILIUM_CLUSTERMESH_CONFIG"
+
+	// BPFCompileDebugName is the name of the option to enable BPF compiliation debugging
+	BPFCompileDebugName = "bpf-compile-debug"
 )
 
 // Available option for daemonConfig.Tunnel
