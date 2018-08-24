@@ -740,27 +740,29 @@ func (kub *Kubectl) WaitCleanAllTerminatingPods() error {
 	return err
 }
 
-// CiliumInstall installs all Cilium descriptors into kubernetes.
-// dsPatchName corresponds to the DaemonSet patch that will be applied to the
-// original Cilium DaemonSet descriptor.
-// dsPatchName corresponds to the ConfigMap patch that will be applied to the
-// original Cilium ConfigMap descriptor.
+// ciliumInstall installs all Cilium descriptors into kubernetes.
+// dsPatchName corresponds to the DaemonSet patch, found by
+// getK8sDescriptorPatch, that will be applied to the original Cilium DaemonSet
+// descriptor, found by getK8sDescriptor.
+// cmPatchName corresponds to the ConfigMap patch, found by
+// getK8sDescriptorPatch, that will be applied to the original Cilium ConfigMap
+// descriptor, found by getK8sDescriptor.
 // Returns an error if any patch or if any original descriptors files were not
 // found.
-func (kub *Kubectl) CiliumInstall(dsPatchName, cmPatchName string) error {
-	cmPathname := GetK8sDescriptor("cilium-cm.yaml")
+func (kub *Kubectl) ciliumInstall(dsPatchName, cmPatchName string, getK8sDescriptor, getK8sDescriptorPatch func(filename string) string) error {
+	cmPathname := getK8sDescriptor("cilium-cm.yaml")
 	if cmPathname == "" {
 		return fmt.Errorf("Cilium ConfigMap descriptor not found")
 	}
-	dsPathname := GetK8sDescriptor("cilium-ds.yaml")
+	dsPathname := getK8sDescriptor("cilium-ds.yaml")
 	if dsPathname == "" {
 		return fmt.Errorf("Cilium DaemonSet descriptor not found")
 	}
-	rbacPathname := GetK8sDescriptor("cilium-rbac.yaml")
+	rbacPathname := getK8sDescriptor("cilium-rbac.yaml")
 	if rbacPathname == "" {
 		return fmt.Errorf("Cilium RBAC descriptor not found")
 	}
-	saPathname := GetK8sDescriptor("cilium-sa.yaml")
+	saPathname := getK8sDescriptor("cilium-sa.yaml")
 	if saPathname == "" {
 		return fmt.Errorf("Cilium ServiceAccount descriptor not found")
 	}
@@ -829,14 +831,48 @@ func (kub *Kubectl) CiliumInstall(dsPatchName, cmPatchName string) error {
 		return err
 	}
 
-	if err := deployPatch(cmPathname, ManifestGet(cmPatchName)); err != nil {
+	if err := deployPatch(cmPathname, getK8sDescriptorPatch(cmPatchName)); err != nil {
 		return err
 	}
 
-	if err := deployPatch(dsPathname, ManifestGet(dsPatchName)); err != nil {
+	if err := deployPatch(dsPathname, getK8sDescriptorPatch(dsPatchName)); err != nil {
 		return err
 	}
 	return nil
+}
+
+// CiliumInstall installs all Cilium descriptors into kubernetes.
+// dsPatchName corresponds to the DaemonSet patch that will be applied to the
+// original Cilium DaemonSet descriptor.
+// cmPatchName corresponds to the ConfigMap patch that will be applied to the
+// original Cilium ConfigMap descriptor.
+// Returns an error if any patch or if any original descriptors files were not
+// found.
+func (kub *Kubectl) CiliumInstall(dsPatchName, cmPatchName string) error {
+	return kub.ciliumInstall(dsPatchName, cmPatchName, GetK8sDescriptor, ManifestGet)
+}
+
+// CiliumInstallVersion installs all Cilium descriptors into kubernetes for
+// a given Cilium Version tag.
+// dsPatchName corresponds to the DaemonSet patch that will be applied to the
+// original Cilium DaemonSet descriptor of that given Cilium Version tag.
+// cmPatchName corresponds to the ConfigMap patch that will be applied to the
+// original Cilium ConfigMap descriptor of that given Cilium Version tag.
+// Returns an error if any patch or if any original descriptors files were not
+// found.
+func (kub *Kubectl) CiliumInstallVersion(dsPatchName, cmPatchName, versionTag string) error {
+	getK8sDescriptorPatch := func(filename string) string {
+		ginkgoVersionedPath := filepath.Join(manifestsPath, GetCurrentK8SEnv(), versionTag, filename)
+		_, err := os.Stat(ginkgoVersionedPath)
+		if err == nil {
+			return filepath.Join(BasePath, ginkgoVersionedPath)
+		}
+		return filepath.Join(BasePath, "k8sT", "manifests", filename)
+	}
+	getK8sDescriptor := func(filename string) string {
+		return fmt.Sprintf("https://raw.githubusercontent.com/cilium/cilium/%s/examples/kubernetes/%s/%s", versionTag, GetCurrentK8SEnv(), filename)
+	}
+	return kub.ciliumInstall(dsPatchName, cmPatchName, getK8sDescriptor, getK8sDescriptorPatch)
 }
 
 // GetCiliumPods returns a list of all Cilium pods in the specified namespace,
