@@ -315,8 +315,8 @@ func GetEndpoints() []*endpoint.Endpoint {
 // AddEndpoint takes the prepared endpoint object and starts managing it.
 func AddEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, reason string) error {
 	alwaysEnforce := policy.GetPolicyEnabled() == option.AlwaysEnforce
-	ep.Options.SetBool(option.IngressPolicy, alwaysEnforce)
-	ep.Options.SetBool(option.EgressPolicy, alwaysEnforce)
+	ep.SetIngressPolicyEnabled(alwaysEnforce)
+	ep.SetEgressPolicyEnabled(alwaysEnforce)
 
 	if err := ep.CreateDirectory(); err != nil {
 		return err

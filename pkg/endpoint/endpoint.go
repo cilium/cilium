@@ -465,6 +465,14 @@ type Endpoint struct {
 	// cleaned when this endpoint was first created
 	ctCleaned bool
 
+	// ingressPolicyEnabled specifies whether policy enforcement on ingress
+	// is enabled for this endpoint.
+	ingressPolicyEnabled bool
+
+	// egressPolicyEnabled specifies whether policy enforcement on egress
+	// is enabled for this endpoint.
+	egressPolicyEnabled bool
+
 	///////////////////////
 	// DEPRECATED FIELDS //
 	///////////////////////
@@ -474,6 +482,47 @@ type Endpoint struct {
 	//
 	// Deprecated: Use Options instead.
 	DeprecatedOpts deprecatedOptions `json:"Opts"`
+}
+
+// GetIngressPolicyEnabledLocked returns whether ingress policy enforcement is
+// enabled for endpoint or not. The endpoint's mutex must be held.
+func (e *Endpoint) GetIngressPolicyEnabledLocked() bool {
+	return e.ingressPolicyEnabled
+}
+
+// GetEgressPolicyEnabledLocked returns whether egress policy enforcement is
+// enabled for endpoint or not. The endpoint's mutex must be held.
+func (e *Endpoint) GetEgressPolicyEnabledLocked() bool {
+	return e.egressPolicyEnabled
+}
+
+// SetIngressPolicyEnabled sets Endpoint's ingress policy enforcement
+// configuration to the specified value. The endpoint's mutex must not be held.
+func (e *Endpoint) SetIngressPolicyEnabled(ingress bool) {
+	e.UnconditionalLock()
+	e.ingressPolicyEnabled = ingress
+	e.Unlock()
+
+}
+
+// SetEgressPolicyEnabled sets Endpoint's egress policy enforcement
+// configuration to the specified value. The endpoint's mutex must not be held.
+func (e *Endpoint) SetEgressPolicyEnabled(egress bool) {
+	e.UnconditionalLock()
+	e.egressPolicyEnabled = egress
+	e.Unlock()
+}
+
+// SetIngressPolicyEnabledLocked sets Endpoint's ingress policy enforcement
+// configuration to the specified value. The endpoint's mutex must be held.
+func (e *Endpoint) SetIngressPolicyEnabledLocked(ingress bool) {
+	e.ingressPolicyEnabled = ingress
+}
+
+// SetEgressPolicyEnabledLocked sets Endpoint's egress policy enforcement
+// configuration to the specified value. The endpoint's mutex must be held.
+func (e *Endpoint) SetEgressPolicyEnabledLocked(egress bool) {
+	e.egressPolicyEnabled = egress
 }
 
 // WaitForProxyCompletions blocks until all proxy changes have been completed.
@@ -953,8 +1002,8 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 		}
 	}
 
-	policyIngressEnabled := e.Options.IsEnabled(option.IngressPolicy)
-	policyEgressEnabled := e.Options.IsEnabled(option.EgressPolicy)
+	policyIngressEnabled := e.ingressPolicyEnabled
+	policyEgressEnabled := e.egressPolicyEnabled
 
 	policyEnabled := models.EndpointPolicyEnabledNone
 	switch {
