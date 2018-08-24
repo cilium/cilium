@@ -682,7 +682,10 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 			regenerateTimeNs := time.Since(regenerateStart)
 			regenerateTimeSec := float64(regenerateTimeNs) / float64(time.Second)
 			e.getLogger().WithField(logfields.EndpointRegenerationTime, time.Since(regenerateStart).String()).Info("Regeneration of endpoint has completed")
-			metrics.EndpointRegenerationTime.Add(regenerateTimeSec)
+			metrics.EndpointRegenerationTime.With(map[string]string{
+				logfields.LogSubsys:  metrics.LabelEndpointRegenerationTotal,
+				logfields.EndpointID: e.StringID(),
+			}).Add(regenerateTimeSec)
 			metrics.EndpointRegenerationTimeSquare.Add(math.Pow(regenerateTimeSec, 2))
 		} else {
 			metrics.EndpointRegenerationCount.

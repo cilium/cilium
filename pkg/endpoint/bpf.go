@@ -42,6 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/version"
@@ -638,9 +639,14 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 		start := time.Now()
 		// Compile and install BPF programs for this endpoint
 		err = e.runInit(libdir, rundir, epdir, epInfoCache.ifName, debug)
+		duration := time.Since(start)
 		e.getLogger().WithError(err).
-			WithField(logfields.BPFCompilationTime, time.Since(start).String()).
+			WithField(logfields.BPFCompilationTime, duration.String()).
 			Debugf("BPF compilation completed")
+		metrics.EndpointRegenerationTime.With(map[string]string{
+			logfields.LogSubsys:  metrics.LabelEndpointRegenerationBPFCompilation,
+			logfields.EndpointID: e.StringID(),
+		}).Add(float64(duration / time.Second))
 		if err != nil {
 			return epInfoCache.revision, compilationExecuted, err
 		}

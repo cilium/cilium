@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
@@ -71,6 +72,14 @@ var (
 	// LabelDatapathFamily marks which protocol family (IPv4, IPV6) the metric is related to.
 	LabelDatapathFamily = "family"
 
+	// LabelEndpointRegenerationTotal label for use when the
+	// EndpointRegeneration metric mark the total time.
+	LabelEndpointRegenerationTotal = "total"
+
+	// LabelEndpointRegenerationBPFCompilation label for use when the
+	// EndpointRegeneration metrics want to report BPF compilation time.
+	LabelEndpointRegenerationBPFCompilation = "bpf"
+
 	// Endpoint
 
 	// EndpointCount is a function used to collect this metric.
@@ -94,11 +103,11 @@ var (
 		[]string{"outcome"})
 
 	// EndpointRegenerationTime is the total time taken to regenerate endpoint
-	EndpointRegenerationTime = prometheus.NewCounter(prometheus.CounterOpts{
+	EndpointRegenerationTime = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: Namespace,
 		Name:      "endpoint_regeneration_seconds_total",
 		Help:      "Total sum of successful endpoint regeneration times",
-	})
+	}, []string{logfields.LogSubsys, logfields.EndpointID})
 
 	// EndpointRegenerationTimeSquare is the sum of squares of total time taken
 	// to regenerate endpoint.
