@@ -178,14 +178,20 @@ func (o *IntOptions) GetMutableModel() *models.ConfigurationMap {
 	o.optsMU.RLock()
 	for k, v := range o.Opts {
 		_, config := o.Library.Lookup(k)
-		if config.Format == nil {
-			if v == OptionDisabled {
-				mutableCfg[k] = fmt.Sprintf("Disabled")
+
+		// It's possible that an option has since been removed and thus has
+		// no corresponding configuration; need to check if configuration is
+		// nil accordingly.
+		if config != nil {
+			if config.Format == nil {
+				if v == OptionDisabled {
+					mutableCfg[k] = fmt.Sprintf("Disabled")
+				} else {
+					mutableCfg[k] = fmt.Sprintf("Enabled")
+				}
 			} else {
-				mutableCfg[k] = fmt.Sprintf("Enabled")
+				mutableCfg[k] = config.Format(v)
 			}
-		} else {
-			mutableCfg[k] = config.Format(v)
 		}
 	}
 	o.optsMU.RUnlock()
