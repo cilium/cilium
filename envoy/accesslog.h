@@ -28,7 +28,7 @@ public:
                          const Http::HeaderMap &, const RequestInfo::RequestInfo &);
     void UpdateFromResponse(const Http::HeaderMap &, const RequestInfo::RequestInfo &);
 
-    ::cilium::HttpLogEntry entry{};
+    ::cilium::LogEntry entry{};
   };
   void Log(Entry &entry, ::cilium::EntryType);
 

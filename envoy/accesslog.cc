@@ -64,17 +64,17 @@ void AccessLog::Entry::InitFromRequest(
                           time.time_since_epoch())
                           .count());
 
-  ::cilium::Protocol proto;
+  ::cilium::HttpProtocol proto;
   switch (info.protocol() ? info.protocol().value() : Http::Protocol::Http11) {
   case Http::Protocol::Http10:
-    proto = ::cilium::Protocol::HTTP10;
+    proto = ::cilium::HttpProtocol::HTTP10;
     break;
   case Http::Protocol::Http11:
   default: // Just to make compiler happy
-    proto = ::cilium::Protocol::HTTP11;
+    proto = ::cilium::HttpProtocol::HTTP11;
     break;
   case Http::Protocol::Http2:
-    proto = ::cilium::Protocol::HTTP2;
+    proto = ::cilium::HttpProtocol::HTTP2;
     break;
   }
   entry.set_http_protocol(proto);
@@ -106,8 +106,8 @@ void AccessLog::Entry::InitFromRequest(
          void *entry_) -> Http::HeaderMap::Iterate {
         const Http::HeaderString &key = header.key();
         const char *value = header.value().c_str();
-        ::cilium::HttpLogEntry *entry =
-            static_cast<::cilium::HttpLogEntry *>(entry_);
+        ::cilium::LogEntry *entry =
+            static_cast<::cilium::LogEntry *>(entry_);
 
         if (key == ":path") {
           entry->set_path(value);
@@ -158,7 +158,7 @@ void AccessLog::Entry::UpdateFromResponse(
 
 void AccessLog::Log(AccessLog::Entry &entry_,
                     ::cilium::EntryType entry_type) {
-  ::cilium::HttpLogEntry &entry = entry_.entry;
+  ::cilium::LogEntry &entry = entry_.entry;
 
   entry.set_entry_type(entry_type);
 
