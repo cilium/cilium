@@ -817,45 +817,6 @@ func (e *Endpoint) Regenerate(owner Owner, context *RegenerationContext) <-chan 
 	return newReq.ExternalDone
 }
 
-// TriggerPolicyUpdatesLocked indicates that a policy change is likely to
-// affect this endpoint. Will update all required endpoint configuration and
-// state to reflect new policy.
-//
-// Returns true if policy was changed and the endpoint needs to be rebuilt
-func (e *Endpoint) TriggerPolicyUpdatesLocked(owner Owner, opts option.OptionMap) (bool, error) {
-
-	if e.SecurityIdentity == nil {
-		return false, nil
-	}
-
-	policyChanged, err := e.regeneratePolicy(owner)
-	if err != nil {
-		return false, fmt.Errorf("%s: %s", e.StringID(), err)
-	}
-
-	// Note that this *must* be called after regeneratePolicy because options
-	// can be changed based on the endpoint's desired state for policy.
-	optionsChanged := e.updateAndOverrideEndpointOptions(opts)
-	needToRegenerateBPF := optionsChanged || policyChanged
-
-	// If it does not need datapath regeneration then we should set the policy
-	// revision with nextPolicyRevision.
-	if !needToRegenerateBPF {
-		e.setPolicyRevision(e.nextPolicyRevision)
-	}
-
-	// CurrentStatus will be not OK when we have an uncleared error in BPF,
-	// policy or Other. We should keep trying to regenerate in the hopes of
-	// suceeding.
-	// Note: This "retry" behaviour is better suited to a controller, and can be
-	// moved there once we have an endpoint regeneration controller.
-	needToRegenerateBPF = needToRegenerateBPF || (e.Status.CurrentStatus() != OK)
-
-	e.getLogger().Debugf("TriggerPolicyUpdatesLocked: changed: %t", needToRegenerateBPF)
-
-	return needToRegenerateBPF, nil
-}
-
 func (e *Endpoint) runIdentityToK8sPodSync() {
 	e.controllers.UpdateController(fmt.Sprintf("sync-identity-to-k8s-pod (%d)", e.ID),
 		controller.ControllerParams{

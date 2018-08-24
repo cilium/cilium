@@ -1637,7 +1637,8 @@ func (e UpdateStateChangeError) Error() string { return e.msg }
 // Update modifies the endpoint options and *always* tries to regenerate the
 // endpoint's program. Returns an error if the provided options are not valid,
 // if there was an issue triggering policy updates for the given endpoint,
-// or if endpoint regeneration was unable to be triggered.
+// or if endpoint regeneration was unable to be triggered. Note that the
+// LabelConfiguration in the EndpointConfigurationSpec is *not* consumed here.
 func (e *Endpoint) Update(owner Owner, cfg *models.EndpointConfigurationSpec) error {
 	om, err := EndpointMutableOptionLibrary.ValidateConfigurationMap(cfg.Options)
 	if err != nil {
@@ -1647,26 +1648,26 @@ func (e *Endpoint) Update(owner Owner, cfg *models.EndpointConfigurationSpec) er
 	if err := e.LockAlive(); err != nil {
 		return err
 	}
+
 	e.getLogger().WithField("configuration-options", cfg).Debug("updating endpoint configuration options")
 
-	// Option changes may be overridden by the policy configuration.
-	// Currently we return all-OK even in that case.
-	needToRegenerate, err := e.TriggerPolicyUpdatesLocked(owner, om)
-	if err != nil {
-		e.Unlock()
-		return UpdateCompilationError{err.Error()}
-	}
+	// CurrentStatus will be not OK when we have an uncleared error in BPF,
+	// policy or Other. We should keep trying to regenerate in the hopes of
+	// suceeding.
+	// Note: This "retry" behaviour is better suited to a controller, and can be
+	// moved there once we have an endpoint regeneration controller.
+	needToRegenerateBPF := e.updateAndOverrideEndpointOptions(om) || (e.Status.CurrentStatus() != OK)
 
 	reason := "endpoint was updated via API"
 
 	// If configuration options are provided, we only regenerate if necessary.
 	// Otherwise always regenerate.
 	if cfg.Options == nil {
-		needToRegenerate = true
+		needToRegenerateBPF = true
 		reason = "endpoint was manually regenerated via API"
 	}
 
-	if needToRegenerate {
+	if needToRegenerateBPF {
 		e.getLogger().Debug("need to regenerate endpoint; checking state before" +
 			" attempting to regenerate")
 
