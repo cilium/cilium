@@ -14,3 +14,4 @@ spec:
         - "--disable-ipv4=$(DISABLE_IPV4)"
         - "--k8s-require-ipv4-pod-cidr"
         - "--pprof=true"
+        - "--log-system-load"
