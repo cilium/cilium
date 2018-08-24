@@ -87,7 +87,7 @@ var testNodeCreator = func() store.Key {
 
 type identityAllocatorOwnerMock struct{}
 
-func (i *identityAllocatorOwnerMock) TriggerPolicyUpdates(force bool) *sync.WaitGroup {
+func (i *identityAllocatorOwnerMock) TriggerPolicyUpdates(force bool, reason string) *sync.WaitGroup {
 	return nil
 }
 

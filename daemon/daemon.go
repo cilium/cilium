@@ -1540,7 +1540,7 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 			msg := fmt.Errorf("Unable to recompile base programs: %s", err)
 			return api.Error(PatchConfigFailureCode, msg)
 		}
-		d.TriggerPolicyUpdates(true)
+		d.TriggerPolicyUpdates(true, "agent configuration update")
 	}
 
 	return NewPatchConfigOK()

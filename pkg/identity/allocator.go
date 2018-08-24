@@ -62,7 +62,7 @@ var (
 type IdentityAllocatorOwner interface {
 	// TriggerPolicyUpdates will be called whenever a policy recalculation
 	// must be triggered
-	TriggerPolicyUpdates(force bool) *sync.WaitGroup
+	TriggerPolicyUpdates(force bool, reason string) *sync.WaitGroup
 
 	// GetSuffix must return the node specific suffix to use
 	GetNodeSuffix() string
