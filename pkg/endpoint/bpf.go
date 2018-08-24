@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/ipcache"
@@ -46,6 +47,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/version"
 
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
@@ -464,6 +466,8 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 		return 0, compilationExecuted, err
 	}
 
+	epID := e.StringID()
+
 	e.getLogger().WithField(logfields.StartTime, time.Now()).Info("Regenerating BPF program")
 	defer func() {
 		e.getLogger().WithField(logfields.BuildDuration, time.Since(buildStart).String()).
@@ -649,12 +653,19 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 	debug := strconv.FormatBool(viper.GetBool(option.BPFCompileDebugName))
 
 	if bpfHeaderfilesChanged {
+		closeChan := loadinfo.LogPeriodicSystemLoad(log.WithFields(logrus.Fields{logfields.EndpointID: epID}).Debugf, time.Second)
+
 		start := time.Now()
 		// Compile and install BPF programs for this endpoint
 		err = e.runInit(libdir, rundir, epdir, epInfoCache.ifName, debug)
+		close(closeChan)
+
+		compilationTime := time.Since(start)
+
 		e.getLogger().WithError(err).
-			WithField(logfields.BPFCompilationTime, time.Since(start).String()).
-			Debugf("BPF compilation completed")
+			WithField(logfields.BPFCompilationTime, compilationTime.String()).
+			Info("Recompiled endpoint BPF program")
+
 		if err != nil {
 			return epInfoCache.revision, compilationExecuted, err
 		}
