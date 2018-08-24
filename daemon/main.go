@@ -93,6 +93,7 @@ var (
 	// Arguments variables keep in alphabetical order
 
 	bpfRoot               string
+	cgroupRoot            string
 	cmdRefDir             string
 	debugVerboseFlags     []string
 	disableConntrack      bool
@@ -347,6 +348,8 @@ func init() {
 		option.AutoIPv6NodeRoutesName, false, "Automatically adds IPv6 L3 routes to reach other nodes for non-overlay mode (--device) (BETA)")
 	flags.StringVar(&bpfRoot,
 		"bpf-root", "", "Path to BPF filesystem")
+	flags.StringVar(&cgroupRoot,
+		"cgroup-root", "", "Path to Cgroup2 filesystem")
 	flags.Int(option.ClusterIDName, 0, "Unique identifier of the cluster")
 	viper.BindEnv(option.ClusterIDName, option.ClusterIDEnv)
 	flags.String(option.ClusterName, defaults.ClusterName, "Name of the cluster")
@@ -668,6 +671,7 @@ func initEnv(cmd *cobra.Command) {
 	// useful if the daemon is being round inside a namespace and the
 	// BPF filesystem is mapped into the slave namespace.
 	bpf.CheckOrMountFS(bpfRoot)
+	bpf.CheckOrMountCgrpFS(cgroupRoot)
 
 	logging.DefaultLogLevel = defaults.DefaultLogLevel
 	option.Config.Opts.SetBool(option.Debug, viper.GetBool("debug"))
