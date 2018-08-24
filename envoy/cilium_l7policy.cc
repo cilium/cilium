@@ -65,7 +65,7 @@ createPolicyMap(Server::Configuration::FactoryContext& context) {
   return context.singletonManager().getTyped<const Cilium::NetworkPolicyMap>(
     SINGLETON_MANAGER_REGISTERED_NAME(cilium_network_policy), [&context] {
       auto map = std::make_shared<Cilium::NetworkPolicyMap>(
-	  context.localInfo().node(), context.clusterManager(),
+	  context.localInfo(), context.clusterManager(),
 	  context.dispatcher(), context.random(), context.scope(),
 	  context.threadLocal());
       map->startSubscription();
