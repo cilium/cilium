@@ -15,6 +15,7 @@
 package loadinfo
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/cilium/cilium/pkg/logging"
@@ -57,13 +58,13 @@ func LogCurrentSystemLoad(logFunc LogFunc) {
 	}
 
 	memInfo, err := mem.VirtualMemory()
-	if err == nil {
+	if err == nil && memInfo != nil {
 		logFunc("Memory: Total: %d Used: %d (%.2f%%) Free: %d Buffers: %d Cached: %d",
 			toMB(memInfo.Total), toMB(memInfo.Used), memInfo.UsedPercent, toMB(memInfo.Free), toMB(memInfo.Buffers), toMB(memInfo.Cached))
 	}
 
 	swapInfo, err := mem.SwapMemory()
-	if err == nil {
+	if err == nil && swapInfo != nil {
 		logFunc("Swap: Total: %d Used: %d (%.2f%%) Free: %d",
 			toMB(swapInfo.Total), toMB(swapInfo.Used), swapInfo.UsedPercent, toMB(swapInfo.Free))
 	}
@@ -76,12 +77,16 @@ func LogCurrentSystemLoad(logFunc LogFunc) {
 				name, _ := p.Name()
 				status, _ := p.Status()
 				memPercent, _ := p.MemoryPercent()
-				memInfo, _ := p.MemoryInfo()
 
-				logFunc("NAME %s STATUS %s PID %d CPU: %.2f%% MEM: %.2f%% RSS: %d VMS: %d Data: %d Stack: %d Locked: %d Swap: %d",
-					name, status, p.Pid, cpuPercent, memPercent,
-					toMB(memInfo.RSS), toMB(memInfo.VMS), toMB(memInfo.Data),
-					toMB(memInfo.Stack), toMB(memInfo.Locked), toMB(memInfo.Swap))
+				memExt := ""
+				if memInfo, err := p.MemoryInfo(); memInfo != nil && err == nil {
+					memExt = fmt.Sprintf("RSS: %d VMS: %d Data: %d Stack: %d Locked: %d Swap: %d",
+						toMB(memInfo.RSS), toMB(memInfo.VMS), toMB(memInfo.Data),
+						toMB(memInfo.Stack), toMB(memInfo.Locked), toMB(memInfo.Swap))
+				}
+
+				logFunc("NAME %s STATUS %s PID %d CPU: %.2f%% MEM: %.2f%% %s",
+					name, status, p.Pid, cpuPercent, memPercent, memExt)
 			}
 		}
 	}
