@@ -146,8 +146,11 @@ fix: $(CHECK_FORMAT) force-non-root
 go_filter.so go_filter.h: goparsers/*.go
 	go build -o go_filter.so -buildmode=c-shared $^
 
+gotests:
+	cd goparsers; go test
+
 # Run tests using the fastbuild by default.
-tests: force-non-root go_filter.so go_filter.h
+tests: force-non-root go_filter.so go_filter.h gotests
 	$(BAZEL) $(BAZEL_OPTS) test $(BAZEL_BUILD_OPTS) -c fastbuild $(BAZEL_TEST_OPTS) //:envoy_binary_test $(BAZEL_FILTER)
 	$(BAZEL) $(BAZEL_OPTS) test $(BAZEL_BUILD_OPTS) -c fastbuild $(BAZEL_TEST_OPTS) //:cilium_integration_test $(BAZEL_FILTER)
 

@@ -146,6 +146,7 @@ type Connection struct {
 	SrcAddr    string
 	DstAddr    string
 	PolicyName string
+	Port       uint32
 
 	parser Parser
 	orig   Direction
@@ -181,6 +182,13 @@ func RegisterParserFactory(name string, parserFactory ParserFactory) {
 	parserFactories[name] = parserFactory
 }
 
+var policyMap PolicyMap
+
+func (connection *Connection) Matches(l7 interface{}) bool {
+	log.Infof("Matching policy on connection %v", connection)
+	return policyMap.Matches(connection.PolicyName, connection.Ingress, connection.Port, connection.SrcId, l7)
+}
+
 // getInjectBuf return the pointer to the inject buffer slice header for the indicated direction
 func (connection *Connection) getInjectBuf(reply bool) *[]byte {
 	if reply {
@@ -197,10 +205,11 @@ func (connection *Connection) Inject(reply bool, data []byte) int {
 	n := copy((*buf)[offset:cap(*buf)], data)
 	*buf = (*buf)[:offset+n] // update the buffer length
 
-	log.Infof("Connection.Inject(): Injected: %s,%v", data, buf)
+	log.Infof("Connection.Inject(): Injected: %d bytes: %v (given: %s)", n, string((*buf)[offset:offset+n]), data)
 
 	// return the number of bytes injected. This may be less than the length of `data` is
 	// the buffer becomes full.
+	// Parser may opt dropping the connection via parser error in this case!
 	return n
 }
 
@@ -315,6 +324,7 @@ func OnNewConnection(proto string, connectionId uint64, ingress bool, srcId, dst
 		DstId:      dstId,
 		SrcAddr:    srcAddr,
 		DstAddr:    dstAddr,
+		Port:       uint32(dstPort),
 		PolicyName: policyName,
 		orig:       Direction{injectBuf: origBuf},
 		reply:      Direction{injectBuf: replyBuf},
@@ -357,6 +367,7 @@ func Close(connectionId uint64) {
 // called before any other APIs
 //export InitModule
 func InitModule(accessLogPath string) bool {
+	policyMap = NewPolicyMap()
 	return startAccessLogClient(accessLogPath)
 }
 

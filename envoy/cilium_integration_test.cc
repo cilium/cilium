@@ -1529,4 +1529,92 @@ TEST_P(CiliumGoBlocktesterIntegrationTest, CiliumGoBlockParserInjectPartialMulti
   ASSERT_TRUE(fake_upstream_connection->waitForDisconnect());
 }
 
+//
+// Cilium Go test parser "headertester" with TCP proxy
+//
+
+// params: is_ingress ("true", "false")
+const std::string cilium_go_headertester_config_fmt = R"EOF(
+admin:
+  access_log_path: /dev/null
+  address:
+    socket_address:
+      address: 127.0.0.1
+      port_value: 0
+static_resources:
+  clusters:
+  - name: cluster1
+    type: ORIGINAL_DST
+    lb_policy: ORIGINAL_DST_LB
+    connect_timeout:
+      seconds: 1
+    hosts:
+    - socket_address:
+        address: 127.0.0.1
+        port_value: 0
+  - name: xds-grpc-cilium
+    connect_timeout:
+      seconds: 5
+    type: STATIC
+    lb_policy: ROUND_ROBIN
+    http2_protocol_options:
+    hosts:
+    - pipe:
+        path: /var/run/cilium/xds.sock
+  listeners:
+    name: listener_0
+    address:
+      socket_address:
+        address: 127.0.0.1
+        port_value: 0
+    listener_filters:
+      name: test_bpf_metadata
+      config:
+        is_ingress: {0}
+    filter_chains:
+      filters:
+      filters:
+      - name: cilium.network
+        config:
+          go_module: "./go_filter.so"
+          go_proto: "headertester"
+          access_log_path: "{{ test_udsdir }}/access_log.sock"
+          policy_name: "FooBar"
+      - name: envoy.tcp_proxy
+        config:
+          stat_prefix: tcp_stats
+          cluster: cluster1
+)EOF";
+
+class CiliumGoHeadertesterIntegrationTest : public CiliumTcpIntegrationTest {
+public:
+  CiliumGoHeadertesterIntegrationTest() : CiliumTcpIntegrationTest(fmt::format(TestEnvironment::substitute(cilium_go_headertester_config_fmt, GetParam()), "true")) {}
+};
+
+INSTANTIATE_TEST_CASE_P(IpVersions, CiliumGoHeadertesterIntegrationTest,
+                        testing::ValuesIn(TestEnvironment::getIpVersionsForTest()),
+                        TestUtility::ipTestParamsToString);
+
+// Without policy in place averyting is droppedinthe original direction,
+// while everything is passed in the reply direction
+// A real protocol would pass only actual replies in the reply direcrtion!) 
+TEST_P(CiliumGoHeadertesterIntegrationTest, CiliumGoHeaderParserUpstreamWritesFirst) {
+  initialize();
+  IntegrationTcpClientPtr tcp_client = makeTcpConnection(lookupPort("tcp_proxy"));
+  FakeRawConnectionPtr fake_upstream_connection;
+  ASSERT_TRUE(fake_upstreams_[0]->waitForRawConnection(fake_upstream_connection));
+
+  ASSERT_TRUE(fake_upstream_connection->write("Everything passes in reply direction\n"));
+  ASSERT_TRUE(fake_upstream_connection->write("More data\n"));
+  tcp_client->write("from=someone\n");
+  tcp_client->waitForData("Everything passes in reply direction\nMore data\n", false);
+  tcp_client->waitForData("from=someone\n", false);
+
+  ASSERT_TRUE(fake_upstream_connection->write("", true));
+  tcp_client->waitForHalfClose();
+  tcp_client->write("", true);
+  ASSERT_TRUE(fake_upstream_connection->waitForHalfClose());
+  ASSERT_TRUE(fake_upstream_connection->waitForDisconnect());
+}
+
 } // namespace Envoy

@@ -20,6 +20,11 @@ func init() {
 type PasserParser struct{}
 
 func (p *PasserParserFactory) Create(connection *Connection) Parser {
+	// Reject invalid policy name for testing purposes
+	if connection.PolicyName == "invalid-policy" {
+		return nil
+	}
+
 	log.Infof("PasserParserFactory: Create: %v", connection)
 	return &PasserParser{}
 }
@@ -271,4 +276,110 @@ func (p *BlockParser) OnData(reply, endStream bool, data []string, offset uint32
 	}
 
 	return FILTEROP_ERROR, uint32(FILTEROP_ERROR_INVALID_FRAME_TYPE)
+}
+
+//
+// Header parser used for testing
+//
+
+type HeaderRule struct {
+	name  string
+	value string
+}
+
+func (rule *HeaderRule) Matches(data interface{}) bool {
+	// Cast 'data' to the type we give to 'Matches()'
+	items := strings.SplitN(data.(string), "=", 2)
+	matches := len(items) == 2 && items[0] == rule.name && strings.HasPrefix(items[1], rule.value)
+
+	if matches {
+		log.Infof("HeaderRule: Rule matches %v", rule)
+	} else {
+		log.Infof("HeaderRule: Rule does not match %v", rule)
+	}
+
+	return matches
+}
+
+// L7HeaderRuleParser parses protobuf L7 rules to enforcement objects
+// May panic
+func L7HeaderRuleParser(rule *cilium.PortNetworkPolicyRule) []L7NetworkPolicyRule {
+	httpRules := rule.GetHttpRules()
+	if httpRules == nil {
+		panic(fmt.Errorf("Can't get HTTP rules."))
+	}
+	var rules []L7NetworkPolicyRule
+	for _, httpRule := range httpRules.HttpRules {
+		for _, header := range httpRule.GetHeaders() {
+			headerRule := HeaderRule{
+				name:  header.Name,
+				value: header.GetExactMatch(),
+			}
+			if headerRule.value == "" {
+				panic(fmt.Errorf("Empty header value"))
+			}
+			rules = append(rules, &headerRule)
+		}
+	}
+	log.Infof("Parsed HeaderRules: %v", rules)
+	return rules
+}
+
+type HeaderParserFactory struct{}
+
+var headerParserFactory *HeaderParserFactory
+
+func init() {
+	log.Info("init(): Registering headerParserFactory")
+	RegisterParserFactory("headertester", headerParserFactory)
+	RegisterL7RuleParser("PortNetworkPolicyRule_HttpRules", L7HeaderRuleParser)
+}
+
+type HeaderParser struct {
+	connection *Connection
+}
+
+func (p *HeaderParserFactory) Create(connection *Connection) Parser {
+	log.Infof("HeaderParserFactory: Create: %v", connection)
+	return &HeaderParser{connection: connection}
+}
+
+//
+// Parses individual lines that must start with one of:
+// "PASS" the line is passed
+// "DROP" the line is dropped
+// "INJECT" the line is injected in reverse direction
+// "INSERT" the line is injected in current direction
+//
+func (p *HeaderParser) OnData(reply, endStream bool, data []string, offset uint32) (FilterOpType, uint32) {
+	line, ok := getLine(data, offset)
+	line_len := uint32(len(line))
+
+	if !reply {
+		log.Infof("HeaderParser: Request: %s", line)
+	} else {
+		log.Infof("HeaderParser: Response: %s", line)
+	}
+
+	if !ok {
+		if line_len > 0 {
+			// Partial line received, but no newline, ask for more
+			return FILTEROP_MORE, 1
+		} else {
+			// Nothing received, don't know if more will be coming; do nothing
+			return FILTEROP_NOP, 0
+		}
+	}
+
+	// Replies pass unconditionally
+	if reply || p.connection.Matches(line) {
+		p.connection.Log(cilium.EntryType_Request, &cilium.LogEntry_Http{&cilium.HttpLogEntry{Status: 200}})
+		return FILTEROP_PASS, line_len
+	}
+
+	// Inject Error response to the reverse direction
+	p.connection.Inject(!reply, []byte(fmt.Sprintf("Line dropped: %s", line)))
+	// Drop the line in the current direction
+	p.connection.Log(cilium.EntryType_Denied, &cilium.LogEntry_Http{&cilium.HttpLogEntry{Status: 403}})
+	return FILTEROP_DROP, line_len
 }
