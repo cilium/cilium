@@ -366,11 +366,19 @@ var _ = Describe("NightlyExamples", func() {
 		})
 
 		BeforeEach(func() {
-			kubectl.Exec("sudo docker rmi cilium/cilium")
-			// Making sure that we deleted the  cilium ds. No assert message
+			// Making sure that we deleted the cilium ds. No assert message
 			// because maybe is not present
 			_ = kubectl.DeleteResource("ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
-			helpers.InstallExampleCilium(kubectl, helpers.StableImage)
+
+			err := kubectl.CiliumInstallVersion(
+				helpers.CiliumDefaultDSPatch,
+				"cilium-cm-patch-clean-cilium-state.yaml",
+				helpers.CiliumStableVersion,
+			)
+			Expect(err).Should(BeNil(), "Cilium version %s could not be installed", helpers.CiliumStableVersion)
+
+			By("Installing kube-dns")
+			kubectl.Apply(helpers.DNSDeployment()).ExpectSuccess("Kube-dns cannot be installed")
 		})
 
 		It("Check Kubernetes Example is working correctly", func() {
@@ -405,11 +413,7 @@ var _ = Describe("NightlyExamples", func() {
 	Context("Upgrade test", func() {
 		var cleanupCallback = func() { return }
 
-		BeforeAll(func() {
-			kubectl.Exec("sudo docker rmi cilium/cilium")
-		})
-
-		BeforeEach(func() {
+		cleanupPreTest := func(version string) {
 			// Making sure that we deleted the  cilium ds. No assert message
 			// because maybe is not present
 			_ = kubectl.DeleteResource("ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
@@ -419,7 +423,15 @@ var _ = Describe("NightlyExamples", func() {
 			_ = kubectl.Delete(helpers.DNSDeployment())
 
 			ExpectAllPodsTerminated(kubectl)
-		})
+
+			err := kubectl.CiliumInstallVersion(
+				helpers.CiliumDefaultDSPatch,
+				"cilium-cm-patch-clean-cilium-state.yaml",
+				version,
+			)
+			Expect(err).To(BeNil(), "Cilium %s was not able to be deployed", version)
+			ExpectCiliumReady(kubectl)
+		}
 
 		AfterEach(func() {
 			cleanupCallback()
@@ -432,12 +444,11 @@ var _ = Describe("NightlyExamples", func() {
 		for _, image := range helpers.NightlyStableUpgradesFrom {
 			func(image string) {
 				It(fmt.Sprintf("Update Cilium from %s to master", image), func() {
-					helpers.InstallExampleCilium(kubectl, image)
+					By("Cleaning up everything before testing an upgrade from %s", image)
+					cleanupPreTest(image)
 
-					err := kubectl.CiliumEndpointWaitReady()
-					Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
 					var assertUpgradeSuccessful func()
-					assertUpgradeSuccessful, cleanupCallback = ValidateCiliumUpgrades(kubectl)
+					assertUpgradeSuccessful, cleanupCallback = ValidateCiliumUpgrades(kubectl, image, helpers.CiliumDeveloperImage)
 					assertUpgradeSuccessful()
 				})
 			}(image)
