@@ -64,7 +64,7 @@ sudo rm /var/lib/apt/lists/lock || true
 retry_function "wget https://packages.cloud.google.com/apt/doc/apt-key.gpg"
 apt-key add apt-key.gpg
 
-KUBEADM_CONFIG=$(cat <<-EOF
+KUBEADM_CONFIG_ALPHA1=$(cat <<-EOF
 apiVersion: kubeadm.k8s.io/v1alpha1
 kind: MasterConfiguration
 api:
@@ -74,6 +74,26 @@ kubernetesVersion: "v{{ .K8S_FULL_VERSION }}"
 token: "{{ .TOKEN }}"
 networking:
   podSubnet: "{{ .KUBEADM_POD_NETWORK }}/{{ .KUBEADM_POD_CIDR}}"
+EOF
+)
+
+KUBEADM_CONFIG_ALPHA2=$(cat <<-EOF
+apiVersion: kubeadm.k8s.io/v1alpha2
+kind: MasterConfiguration
+api:
+  advertiseAddress: {{ .KUBEADM_ADDR }}
+  bindPort: 6443
+bootstrapTokens:
+- groups:
+  - system:bootstrappers:kubeadm:default-node-token
+  token: "{{ .TOKEN }}"
+kubernetesVersion: "v{{ .K8S_FULL_VERSION }}"
+networking:
+  dnsDomain: cluster.local
+  podSubnet: "{{ .KUBEADM_POD_NETWORK }}/{{ .KUBEADM_POD_CIDR}}"
+  serviceSubnet: 10.96.0.0/12
+nodeRegistration:
+  criSocket: "{{ .KUBEADM_CRI_SOCKET }}"
 EOF
 )
 
@@ -162,8 +182,15 @@ sudo iptables --policy FORWARD ACCEPT
 
 #check hostname to know if is kubernetes or runtime test
 if [[ "${HOST}" == "k8s1" ]]; then
+    case $K8S_VERSION in
+        "1.8"|"1.9"|"1.10"|"1.11")
+            echo "${KUBEADM_CONFIG_ALPHA1}" | envtpl > /tmp/config.yaml
+            ;;
+        "1.12")
+            echo "${KUBEADM_CONFIG_ALPHA2}" | envtpl > /tmp/config.yaml
+            ;;
+    esac
 
-    echo "${KUBEADM_CONFIG}" | envtpl > /tmp/config.yaml
     sudo kubeadm init  --config /tmp/config.yaml $KUBEADM_OPTIONS
 
     mkdir -p /root/.kube
