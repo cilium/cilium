@@ -476,9 +476,11 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []er
 	// Lock out any other writers to the endpoint
 	ep.UnconditionalLock()
 
-	// In case multiple delete requests have been enqueued, have all of them
-	// except the first return here.
-	if ep.GetStateLocked() == endpoint.StateDisconnecting {
+	// In case multiple delete requests have been enqueued, have all of
+	// them except the first return here. Ignore the request if the
+	// endpoint is already disconnected.
+	switch ep.GetStateLocked() {
+	case endpoint.StateDisconnecting, endpoint.StateDisconnected:
 		ep.Unlock()
 		ep.BuildMutex.Unlock()
 		return []error{}
