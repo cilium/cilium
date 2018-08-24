@@ -149,21 +149,29 @@ type ExecOptions struct {
 	SkipLog bool
 }
 
-// Exec returns the results of executing the provided cmd via SSH.
-func (s *SSHMeta) Exec(cmd string, options ...ExecOptions) *CmdRes {
+// ExecWithParams returns the results of executing the provided cmd with the
+// given cmd parameters via SSH.
+func (s *SSHMeta) ExecWithParams(cmd string, cmdParams []string, options ...ExecOptions) *CmdRes {
 	var ops ExecOptions
 	if len(options) > 0 {
 		ops = options[0]
 	}
+	cmdStr := cmd
+	if len(cmdParams) > 0 {
+		for _, param := range cmdParams {
+			cmdStr += fmt.Sprintf("%q ", param)
+		}
+	}
 
-	log.Debugf("running command: %s", cmd)
+	log.Debugf("running command: %s", cmdStr)
 	stdout := new(Buffer)
 	stderr := new(Buffer)
 	start := time.Now()
-	err := s.Execute(cmd, stdout, stderr)
+	err := s.Execute(cmdStr, stdout, stderr)
 
 	res := CmdRes{
-		cmd:      cmd,
+		cmd:      cmdStr,
+		params:   cmdParams,
 		stdout:   stdout,
 		stderr:   stderr,
 		success:  true, // this may be toggled when err != nil below
@@ -188,6 +196,11 @@ func (s *SSHMeta) Exec(cmd string, options ...ExecOptions) *CmdRes {
 
 	res.SendToLog(ops.SkipLog)
 	return &res
+}
+
+// Exec returns the results of executing the provided cmd via SSH.
+func (s *SSHMeta) Exec(cmd string, options ...ExecOptions) *CmdRes {
+	return s.ExecWithParams(cmd, nil, options...)
 }
 
 // GetCopy returns a copy of SSHMeta, useful for parallel requests
