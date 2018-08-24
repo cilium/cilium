@@ -126,7 +126,9 @@ GIT_VERSION: .git
 envoy/SOURCE_VERSION: .git
 	git rev-parse HEAD >envoy/SOURCE_VERSION
 
-docker-image: clean GIT_VERSION envoy/SOURCE_VERSION
+docker-image: clean docker-image-dev
+
+docker-image-dev: GIT_VERSION envoy/SOURCE_VERSION
 	grep -v -E "(SOURCE|GIT)_VERSION" .gitignore >.dockerignore
 	echo ".*" >>.dockerignore # .git pruned out
 	echo "Documentation" >>.dockerignore # Not needed
