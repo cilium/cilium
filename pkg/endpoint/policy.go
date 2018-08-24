@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
@@ -707,7 +706,7 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	// This is the temporary directory to store the generated headers,
 	// the original existing directory is not overwritten until the
 	// entire generation process has succeeded.
-	tmpDir := origDir + "_next"
+	tmpDir := getTempEndpointDirectory(origDir)
 
 	// Create temporary endpoint directory if it does not exist yet
 	if err := os.MkdirAll(tmpDir, 0777); err != nil {
@@ -733,51 +732,13 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 
 	revision, compilationExecuted, err = e.regenerateBPF(owner, tmpDir, reason)
 
-	// If generation fails, keep the directory around. If it ever succeeds
-	// again, clean up the XXX_next_fail copy.
-	failDir := e.FailedDirectoryPath()
-	os.RemoveAll(failDir) // Most likely will not exist; ignore failure.
+	// Depending upon result of BPF regeneration (compilation executed, or
+	// error occurred), shift endpoint directories to match said BPF regeneration
+	// results.
+	err = e.synchronizeDirectories(origDir, compilationExecuted, err)
 	if err != nil {
-		scopedLog.WithFields(logrus.Fields{
-			logfields.Path: failDir,
-		}).Warn("Generating BPF for endpoint failed, keeping stale directory.")
-		os.Rename(tmpDir, failDir)
-		return err
+		return fmt.Errorf("error synchronizing endpoint BPF program directories: %s", err)
 	}
-
-	// Move the current endpoint directory to a backup location
-	backupDir := origDir + "_stale"
-	if err := os.Rename(origDir, backupDir); err != nil {
-		os.RemoveAll(tmpDir)
-		return fmt.Errorf("Unable to rename current endpoint directory: %s", err)
-	}
-
-	// Make temporary directory the new endpoint directory
-	if err := os.Rename(tmpDir, origDir); err != nil {
-		os.RemoveAll(tmpDir)
-
-		if err2 := os.Rename(backupDir, origDir); err2 != nil {
-			scopedLog.WithFields(logrus.Fields{
-				logfields.Path: backupDir,
-			}).Warn("Restoring directory for endpoint failed, endpoint " +
-				"is in inconsistent state. Keeping stale directory.")
-			return err2
-		}
-
-		return fmt.Errorf("Restored original endpoint directory, atomic replace failed: %s", err)
-	}
-
-	// If the compilation was skipped then we need to copy the old bpf objects
-	// into the new directory
-	if !compilationExecuted {
-		err := common.MoveNewFilesTo(backupDir, origDir)
-		if err != nil {
-			log.WithError(err).Debugf("Unable to copy old bpf object "+
-				"files from %s into the new directory %s.", backupDir, origDir)
-		}
-	}
-
-	os.RemoveAll(backupDir)
 
 	// Update desired policy for endpoint because policy has now been realized
 	// in the datapath. PolicyMap state is not updated here, because that is
@@ -785,6 +746,7 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	if err = e.LockAlive(); err != nil {
 		return err
 	}
+
 	e.RealizedL4Policy = e.DesiredL4Policy
 	// Mark the endpoint to be running the policy revision it was
 	// compiled for
