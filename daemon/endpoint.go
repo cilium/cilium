@@ -470,9 +470,6 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []er
 
 	errors := []error{}
 
-	// Wait for existing builds to complete and prevent further builds
-	ep.BuildMutex.Lock()
-
 	// Lock out any other writers to the endpoint
 	ep.UnconditionalLock()
 
@@ -482,7 +479,6 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []er
 	switch ep.GetStateLocked() {
 	case endpoint.StateDisconnecting, endpoint.StateDisconnected:
 		ep.Unlock()
-		ep.BuildMutex.Unlock()
 		return []error{}
 	}
 	ep.SetStateLocked(endpoint.StateDisconnecting, "Deleting endpoint")
@@ -490,6 +486,21 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []er
 	// Remove the endpoint before we clean up. This ensures it is no longer
 	// listed or queued for rebuilds.
 	endpointmanager.Remove(ep)
+	ep.Unlock()
+
+	ep.WaitForRegenerationsToComplete()
+
+	ep.UnconditionalLock()
+
+	// This should really not be needed as the endpoint liveness must
+	// always be checked when acquiring the endpoint lock. If the below
+	// condition fails, an endpoint user has changed the endpoint state
+	// without locking or without checking the liveness of the endpoint
+	// after locking.
+	if ep.GetStateLocked() != endpoint.StateDisconnecting {
+		log.Errorf("Endpoint %d was revived after it was marked for deletion, marking again", ep.ID)
+		ep.SetStateLocked(endpoint.StateDisconnecting, "Deleting endpoint")
+	}
 
 	// If dry mode is enabled, no changes to BPF maps are performed
 	if !d.DryModeEnabled() {
@@ -545,8 +556,6 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []er
 		errors = append(errors, fmt.Errorf("unable to remove proxy redirects: %s", err))
 	}
 	cancel()
-
-	ep.BuildMutex.Unlock()
 
 	return errors
 }

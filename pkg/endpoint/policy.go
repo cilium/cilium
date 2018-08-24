@@ -663,6 +663,12 @@ func (e *Endpoint) updateAndOverrideEndpointOptions(owner Owner, opts models.Con
 	return
 }
 
+// WaitForRegenerationsToComplete waits until all regenerations of this
+// endpoint are complete. The endpoint must NOT be locked.
+func (e *Endpoint) WaitForRegenerationsToComplete() {
+	e.ongoingRegeneration.Wait()
+}
+
 // Called with e.Mutex UNlocked
 func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	var revision uint64
@@ -689,8 +695,8 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 		}
 	}()
 
-	e.BuildMutex.Lock()
-	defer e.BuildMutex.Unlock()
+	e.ongoingRegeneration.Add(1)
+	defer e.ongoingRegeneration.Done()
 
 	// Check if endpoints is still alive before doing any build
 	if err = e.LockAlive(); err != nil {
