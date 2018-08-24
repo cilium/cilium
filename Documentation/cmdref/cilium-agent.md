@@ -62,6 +62,7 @@ cilium-agent
       --lib-dir string                              Directory path to store runtime build environment (default "/var/lib/cilium")
       --log-driver stringSlice                      Logging endpoints to use for example syslog, fluentd
       --log-opt map                                 Log driver options for cilium (default map[])
+      --log-system-load                             Enable periodic logging of system load
       --logstash                                    Enable logstash integration
       --logstash-agent string                       Logstash agent address (default "127.0.0.1:8080")
       --logstash-probe-timer uint32                 Logstash probe timer (seconds) (default 10)

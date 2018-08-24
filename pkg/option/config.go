@@ -115,6 +115,10 @@ const (
 
 	// BPFCompileDebugName is the name of the option to enable BPF compiliation debugging
 	BPFCompileDebugName = "bpf-compile-debug"
+
+	// LogSystemLoadConfigName is the name of the option to enable system
+	// load loggging
+	LogSystemLoadConfigName = "log-system-load"
 )
 
 // Available option for daemonConfig.Tunnel
