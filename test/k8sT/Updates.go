@@ -11,6 +11,21 @@ import (
 )
 
 var _ = Describe("K8sUpdates", func() {
+
+	// This test runs 8 steps as following:
+	// 1 - delete all pods. Clean cilium, this can be, and should be achieved by
+	// `clean-cilium-state: "true"` option that we have in configmap
+	// 2 - install cilium `cilium:v1.1.4`
+	// 3 - make endpoints talk with each other with policy
+	// 4 - upgrade cilium to `k8s1:5000/cilium/cilium-dev:latest`
+	// 5 - make endpoints talk with each other with policy
+	// 6 - downgrade cilium to `cilium:v1.1.4`
+	// 7 - make endpoints talk with each other with policy
+	// 8 - delete all pods. Clean cilium, this can be, and should be achieved by
+	// `clean-cilium-state: "true"` option that we have in configmap.
+	// This makes sure the upgrade tests won't affect any other test
+	// 9 - re install cilium:latest image for remaining tests.
+
 	var (
 		kubectl *helpers.Kubectl
 
@@ -44,6 +59,13 @@ var _ = Describe("K8sUpdates", func() {
 
 	AfterAll(func() {
 		_ = kubectl.Apply(helpers.DNSDeployment())
+
+		// Re-install the cilium developer image after tests are completed
+		err := kubectl.CiliumInstall(helpers.CiliumDefaultDSPatch, helpers.CiliumConfigMapPatch)
+		Expect(err).To(BeNil(), "Cilium cannot be installed")
+
+		ExpectCiliumReady(kubectl)
+		ExpectCiliumReady(kubectl)
 	})
 
 	AfterFailed(func() {
@@ -61,31 +83,38 @@ var _ = Describe("K8sUpdates", func() {
 	})
 
 	BeforeEach(func() {
-		kubectl.Exec("sudo docker rmi cilium/cilium")
 		// Making sure that we deleted the  cilium ds. No assert message
 		// because maybe is not present
-		kubectl.DeleteResource("ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
+		_ = kubectl.DeleteResource("ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
+
+		// Delete kube-dns because if not will be a restore the old endpoints
+		// from master instead of create the new ones.
+		_ = kubectl.Delete(helpers.DNSDeployment())
+
 		ExpectAllPodsTerminated(kubectl)
 
-		helpers.InstallExampleCilium(kubectl, helpers.StableImage)
-
-		err := kubectl.CiliumEndpointWaitReady()
-		Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
-
+		err := kubectl.CiliumInstallVersion(
+			helpers.CiliumDefaultDSPatch,
+			"cilium-cm-patch-clean-cilium-state.yaml",
+			helpers.CiliumStableVersion,
+		)
+		Expect(err).To(BeNil(), fmt.Sprintf("Cilium %s was not able to be deployed", helpers.CiliumStableVersion))
+		ExpectCiliumReady(kubectl)
 	})
 
-	It("Updating Cilium stable to master", func() {
+	It("Tests upgrade and downgrade from a Cilium stable image to master", func() {
 		var assertUpgradeSuccessful func()
-		assertUpgradeSuccessful, cleanupCallback = ValidateCiliumUpgrades(kubectl)
+		assertUpgradeSuccessful, cleanupCallback =
+			ValidateCiliumUpgrades(kubectl, helpers.CiliumStableVersion, helpers.CiliumDeveloperImage)
 		assertUpgradeSuccessful()
 	})
 })
 
-// ValidateCiliumUpgrades it test that the given cilium master is installed
-// correctly and the policies are correctly. It returns two callbacks, the
-// first one is the assertfunction that need to run, and the second one are the
-// cleanup actions
-func ValidateCiliumUpgrades(kubectl *helpers.Kubectl) (func(), func()) {
+// ValidateCiliumUpgrades tests if the oldVersion can be upgrade to the newVersion
+// and if the newVersion can be downgraded to the oldVersion.
+// It returns two callbacks, the first one is the assertfunction that need to
+// run, and the second one are the cleanup actions
+func ValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newVersion string) (func(), func()) {
 	demoPath := helpers.ManifestGet("demo.yaml")
 	l7Policy := helpers.ManifestGet("l7-policy.yaml")
 	apps := []string{helpers.App1, helpers.App2, helpers.App3}
@@ -97,6 +126,14 @@ func ValidateCiliumUpgrades(kubectl *helpers.Kubectl) (func(), func()) {
 
 		// make sure that Kubedns is deleted correctly
 		_ = kubectl.Delete(helpers.DNSDeployment())
+
+		// make sure we clean everything up before doing any other test
+		err := kubectl.CiliumInstall(
+			helpers.CiliumDefaultDSPatch,
+			"cilium-cm-patch-clean-cilium-state.yaml",
+		)
+		Expect(err).To(BeNil(), fmt.Sprintf("Cilium %s was not able to be deployed", newVersion))
+		ExpectCiliumReady(kubectl)
 
 		_ = kubectl.DeleteResource(
 			"ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
@@ -116,6 +153,35 @@ func ValidateCiliumUpgrades(kubectl *helpers.Kubectl) (func(), func()) {
 			}
 		}
 
+		validateEndpointsConnection := func() {
+			err := kubectl.CiliumEndpointWaitReady()
+			ExpectWithOffset(1, err).To(BeNil(), "Endpoints are not ready after timeout")
+
+			ExpectKubeDNSReady(kubectl)
+
+			err = kubectl.WaitForKubeDNSEntry(app1Service, helpers.DefaultNamespace)
+			ExpectWithOffset(1, err).To(BeNil(), "DNS entry is not ready after timeout")
+
+			err = kubectl.CiliumEndpointWaitReady()
+			ExpectWithOffset(1, err).To(BeNil(), "Endpoints are not ready after timeout")
+
+			appPods := helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "id")
+
+			err = kubectl.WaitForKubeDNSEntry(app1Service, helpers.DefaultNamespace)
+			ExpectWithOffset(1, err).To(BeNil(), "DNS entry is not ready after timeout")
+
+			By("Making L7 requests between endpoints")
+			res := kubectl.ExecPodCmd(
+				helpers.DefaultNamespace, appPods[helpers.App2],
+				helpers.CurlFail("http://%s/public", app1Service))
+			ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "Cannot curl app1-service")
+
+			res = kubectl.ExecPodCmd(
+				helpers.DefaultNamespace, appPods[helpers.App2],
+				helpers.CurlFail("http://%s/private", app1Service))
+			ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(), "Expect a 403 from app1-service")
+		}
+
 		By("Installing kube-dns")
 		kubectl.Apply(helpers.DNSDeployment()).ExpectSuccess("Kube-dns cannot be installed")
 
@@ -131,57 +197,38 @@ func ValidateCiliumUpgrades(kubectl *helpers.Kubectl) (func(), func()) {
 			helpers.KubeSystemNamespace, l7Policy, helpers.KubectlApply, timeout)
 		Expect(err).Should(BeNil(), "cannot import l7 policy: %v", l7Policy)
 
-		err = kubectl.CiliumEndpointWaitReady()
-		Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
-
-		appPods := helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "id")
-
-		err = kubectl.WaitForKubeDNSEntry(app1Service, helpers.DefaultNamespace)
-		Expect(err).To(BeNil(), "DNS entry is not ready after timeout")
-
-		res := kubectl.ExecPodCmd(
-			helpers.DefaultNamespace, appPods[helpers.App2],
-			helpers.CurlFail("http://%s/public", app1Service))
-		res.ExpectSuccess("Cannot curl app1-service")
-
-		res = kubectl.ExecPodCmd(
-			helpers.DefaultNamespace, appPods[helpers.App2],
-			helpers.CurlFail("http://%s/private", app1Service))
-		res.ExpectFail("Expect a 403 from app1-service")
+		validateEndpointsConnection()
 
 		By("Updating cilium to master image")
 
-		localImage := "k8s1:5000/cilium/cilium-dev:latest"
-		resource := "daemonset/cilium"
+		waitForUpdateImage := func(image string) func() bool {
+			return func() bool {
+				pods, err := kubectl.GetCiliumPods(helpers.KubeSystemNamespace)
+				if err != nil {
+					return false
+				}
 
-		kubectl.Exec(fmt.Sprintf("%s -n %s set image %s cilium-agent=%s",
-			helpers.KubectlCmd, helpers.KubeSystemNamespace,
-			resource, localImage)).ExpectSuccess(
-			"Cannot update image")
-
-		waitForUpdateImage := func() bool {
-			pods, err := kubectl.GetCiliumPods(helpers.KubeSystemNamespace)
-			if err != nil {
+				filter := `{.items[*].status.containerStatuses[0].image}`
+				data, err := kubectl.GetPods(
+					helpers.KubeSystemNamespace, "-l k8s-app=cilium").Filter(filter)
+				if err != nil {
+					return false
+				}
+				number := strings.Count(data.String(), image)
+				if number == len(pods) {
+					return true
+				}
+				log.Infof("Only '%v' of '%v' cilium pods updated to the new image",
+					number, len(pods))
 				return false
 			}
-
-			filter := `{.items[*].status.containerStatuses[0].image}`
-			data, err := kubectl.GetPods(
-				helpers.KubeSystemNamespace, "-l k8s-app=cilium").Filter(filter)
-			if err != nil {
-				return false
-			}
-			number := strings.Count(data.String(), localImage)
-			if number == len(pods) {
-				return true
-			}
-			log.Infof("Only '%v' of '%v' cilium pods updated to the new image",
-				number, len(pods))
-			return false
 		}
 
+		err = kubectl.CiliumInstall(helpers.CiliumDefaultDSPatch, helpers.CiliumConfigMapPatch)
+		Expect(err).To(BeNil(), fmt.Sprintf("Cilium %s was not able to be deployed", newVersion))
+
 		err = helpers.WithTimeout(
-			waitForUpdateImage,
+			waitForUpdateImage(newVersion),
 			"Cilium Pods are not updating correctly",
 			&helpers.TimeoutConfig{Timeout: timeout})
 		Expect(err).To(BeNil(), "Pods are not updating")
@@ -190,25 +237,32 @@ func ValidateCiliumUpgrades(kubectl *helpers.Kubectl) (func(), func()) {
 			helpers.KubeSystemNamespace, "-l k8s-app=cilium", timeout)
 		Expect(err).Should(BeNil(), "Cilium is not ready after timeout")
 
-		validatedImage(localImage)
+		validatedImage(newVersion)
 
-		err = kubectl.CiliumEndpointWaitReady()
-		Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
+		validateEndpointsConnection()
 
-		ExpectKubeDNSReady(kubectl)
+		By("Downgrading cilium to %s image", oldVersion)
 
-		err = kubectl.WaitForKubeDNSEntry(app1Service, helpers.DefaultNamespace)
-		Expect(err).To(BeNil(), "DNS entry is not ready after timeout")
+		err = kubectl.CiliumInstallVersion(
+			helpers.CiliumDefaultDSPatch,
+			helpers.CiliumConfigMapPatch,
+			helpers.CiliumStableVersion,
+		)
+		Expect(err).To(BeNil(), fmt.Sprintf("Cilium %s was not able to be deployed", helpers.CiliumStableVersion))
 
-		res = kubectl.ExecPodCmd(
-			helpers.DefaultNamespace, appPods[helpers.App2],
-			helpers.CurlFail("http://%s/public", app1Service))
-		res.ExpectSuccess("Cannot curl app1-service")
+		err = helpers.WithTimeout(
+			waitForUpdateImage(helpers.CiliumStableVersion),
+			"Cilium Pods are not updating correctly",
+			&helpers.TimeoutConfig{Timeout: timeout})
+		Expect(err).To(BeNil(), "Pods are not updating")
 
-		res = kubectl.ExecPodCmd(
-			helpers.DefaultNamespace, appPods[helpers.App2],
-			helpers.CurlFail("http://%s/private", app1Service))
-		res.ExpectFail("Expect a 403 from app1-service")
+		err = kubectl.WaitforPods(
+			helpers.KubeSystemNamespace, "-l k8s-app=cilium", timeout)
+		Expect(err).Should(BeNil(), "Cilium is not ready after timeout")
+
+		validatedImage(helpers.CiliumStableImageVersion)
+
+		validateEndpointsConnection()
 
 	}
 	return testfunc, cleanupCallback

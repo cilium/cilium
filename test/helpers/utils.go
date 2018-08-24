@@ -17,7 +17,6 @@ package helpers
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
@@ -30,12 +29,10 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/test/config"
-	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
+	"github.com/cilium/cilium/test/ginkgo-ext"
 
-	"github.com/Jeffail/gabs"
 	"github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
 func init() {
@@ -158,64 +155,6 @@ func WithTimeoutErr(ctx context.Context, f func() (bool, error), freq time.Durat
 	}
 }
 
-// InstallExampleCilium uses Cilium Kubernetes example from the repo,
-// changes the etcd parameter and installs the stable tag from docker-hub
-func InstallExampleCilium(kubectl *Kubectl, version string) {
-
-	var path = filepath.Join("..", "examples", "kubernetes", GetCurrentK8SEnv(), "cilium.yaml")
-	var result bytes.Buffer
-	var timeout int64 = 800
-
-	newCiliumDSName := fmt.Sprintf("cilium_ds_%s.json", MakeUID())
-
-	objects, err := DecodeYAMLOrJSON(path)
-	Expect(err).To(BeNil())
-
-	for _, object := range objects {
-		data, err := json.Marshal(object)
-		Expect(err).To(BeNil())
-
-		jsonObj, err := gabs.ParseJSON(data)
-		Expect(err).To(BeNil())
-
-		value, _ := jsonObj.Path("kind").Data().(string)
-		if value == configMap {
-			jsonObj.SetP("---\nendpoints:\n- http://k8s1:9732\n", "data.etcd-config")
-			jsonObj.SetP("true", "data.debug")
-		}
-		value, _ = jsonObj.Path("kind").Data().(string)
-		if value == daemonSet {
-			container := jsonObj.Path("spec.template.spec.containers").Index(0)
-			container.Set(version, "image")
-		}
-		result.WriteString(jsonObj.String())
-	}
-
-	fp, err := os.Create(newCiliumDSName)
-	defer fp.Close()
-	Expect(err).To(BeNil())
-
-	fmt.Fprint(fp, result.String())
-
-	kubectl.Apply(GetFilePath(newCiliumDSName)).ExpectSuccess(
-		"cannot apply cilium example daemonset")
-
-	err = kubectl.WaitforPods(
-		KubeSystemNamespace, "-l k8s-app=cilium", timeout)
-	ExpectWithOffset(1, err).Should(BeNil(), "Cilium is not ready after timeout")
-
-	ginkgoext.By(fmt.Sprintf("Checking that installed image is %q", version))
-
-	filter := `{.items[*].status.containerStatuses[0].image}`
-	data, err := kubectl.GetPods(
-		KubeSystemNamespace, "-l k8s-app=cilium").Filter(filter)
-	ExpectWithOffset(1, err).To(BeNil(), "Cannot get cilium pods")
-
-	for _, val := range strings.Split(data.String(), " ") {
-		ExpectWithOffset(1, version).To(ContainSubstring(val), "Cilium image didn't update correctly")
-	}
-}
-
 // GetAppPods fetches app pod names for a namespace.
 // For Http based tests, we identify pods with format id=<pod_name>, while
 // for Kafka based tests, we identify pods with the format app=<pod_name>.
@@ -309,29 +248,6 @@ func reportMap(path string, reportCmds map[string]string, node *SSHMeta) {
 			log.WithError(err).Errorf("cannot create test results for command '%s'", cmd)
 		}
 	}
-}
-
-// DecodeYAMLOrJSON reads a json or yaml file and exports all documents as an
-// array of interfaces. In case of an invalid path or invalid format it returns
-// an error.
-func DecodeYAMLOrJSON(path string) ([]interface{}, error) {
-	var result []interface{}
-	content, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	d := yaml.NewYAMLOrJSONDecoder(bytes.NewReader(content), 4096)
-	for {
-		var ext interface{}
-		if err := d.Decode(&ext); err != nil {
-			if err == io.EOF {
-				break
-			}
-			return nil, fmt.Errorf("cannot decode the content: %s", err)
-		}
-		result = append(result, ext)
-	}
-	return result, nil
 }
 
 // ManifestGet returns the full path of the given manifest corresponding to the
