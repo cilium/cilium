@@ -49,7 +49,13 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
-		err := kubectl.CiliumInstall(helpers.CiliumDefaultDSPatch, helpers.CiliumConfigMapPatch)
+		_ = kubectl.Apply(helpers.DNSDeployment())
+
+		// Deploy the etcd operator
+		err := kubectl.DeployETCDOperator()
+		Expect(err).To(BeNil(), "Unable to deploy etcd operator")
+
+		err = kubectl.CiliumInstall(helpers.CiliumDefaultDSPatch, helpers.CiliumConfigMapPatch)
 		Expect(err).To(BeNil(), "Cilium cannot be installed")
 
 		ExpectCiliumReady(kubectl)
@@ -325,7 +331,13 @@ var _ = Describe("NightlyExamples", func() {
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
-		err := kubectl.CiliumInstall(helpers.CiliumDefaultDSPatch, helpers.CiliumConfigMapPatch)
+		_ = kubectl.Apply(helpers.DNSDeployment())
+
+		// Deploy the etcd operator
+		err := kubectl.DeployETCDOperator()
+		Expect(err).To(BeNil(), "Unable to deploy etcd operator")
+
+		err = kubectl.CiliumInstall(helpers.CiliumDefaultDSPatch, helpers.CiliumConfigMapPatch)
 		Expect(err).To(BeNil(), "Cilium cannot be installed")
 
 		apps = []string{helpers.App1, helpers.App2, helpers.App3}
@@ -448,7 +460,13 @@ var _ = Describe("NightlyExamples", func() {
 		)
 
 		BeforeAll(func() {
-			err := kubectl.CiliumInstall(helpers.CiliumDefaultDSPatch, helpers.CiliumConfigMapPatch)
+			_ = kubectl.Apply(helpers.DNSDeployment())
+
+			// Deploy the etcd operator
+			err := kubectl.DeployETCDOperator()
+			Expect(err).To(BeNil(), "Unable to deploy etcd operator")
+
+			err = kubectl.CiliumInstall(helpers.CiliumDefaultDSPatch, helpers.CiliumConfigMapPatch)
 			Expect(err).To(BeNil(), "Cilium cannot be installed")
 
 			ExpectCiliumReady(kubectl)

@@ -17,3 +17,10 @@ spec:
         - "--k8s-require-ipv4-pod-cidr"
         - "--pprof=true"
         - "--log-system-load"
+        - "--fixed-identity-mapping=128=kv-store"
+        - "--fixed-identity-mapping=129=kube-dns"
+      volumes:
+      - name: etcd-secrets
+        secret:
+          secretName: cilium-etcd-client-tls
+      dnsPolicy: ClusterFirstWithHostNet
