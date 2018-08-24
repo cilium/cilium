@@ -4,6 +4,8 @@ Alemayhu
 allocators
 ami
 analytics
+ansible
+Ansible
 api
 apiKeys
 apiserver
@@ -455,6 +457,7 @@ tcpdump
 tcplife
 tcptop
 tcptracer
+Terraform
 testsuite
 thunderx
 tiefighter
