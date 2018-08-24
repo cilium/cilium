@@ -483,11 +483,15 @@ func (e *Endpoint) WaitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 		return nil
 	}
 
+	err := proxyWaitGroup.Context().Err()
+	if err != nil {
+		return fmt.Errorf("context cancelled before waiting for proxy updates: %s", err)
+	}
+
 	start := time.Now()
 
 	e.getLogger().Debug("Waiting for proxy updates to complete...")
-
-	err := proxyWaitGroup.Wait()
+	err = proxyWaitGroup.Wait()
 	if err != nil {
 		return fmt.Errorf("proxy state changes failed: %s", err)
 	}
