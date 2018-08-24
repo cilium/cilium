@@ -347,6 +347,7 @@ func init() {
 		option.AutoIPv6NodeRoutesName, false, "Automatically adds IPv6 L3 routes to reach other nodes for non-overlay mode (--device) (BETA)")
 	flags.StringVar(&bpfRoot,
 		"bpf-root", "", "Path to BPF filesystem")
+	flags.Bool(option.BPFCompileDebugName, false, "Enable debugging of the BPF compilation process")
 	flags.Int(option.ClusterIDName, 0, "Unique identifier of the cluster")
 	viper.BindEnv(option.ClusterIDName, option.ClusterIDEnv)
 	flags.String(option.ClusterName, defaults.ClusterName, "Name of the cluster")

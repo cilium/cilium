@@ -65,9 +65,6 @@ type Owner interface {
 	// RemoveFromEndpointQueue removes all requests from the working queue
 	RemoveFromEndpointQueue(epID uint64)
 
-	// Returns true if debugging has been enabled
-	DebugEnabled() bool
-
 	// GetCompilationLock returns the mutex responsible for synchronizing compilation
 	// of BPF programs.
 	GetCompilationLock() *lock.RWMutex

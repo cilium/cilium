@@ -45,6 +45,8 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/version"
+
+	"github.com/spf13/viper"
 )
 
 const (
@@ -632,7 +634,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 	e.getLogger().WithField("bpfHeaderfilesChanged", bpfHeaderfilesChanged).Debug("Preparing to compile BPF")
 	libdir := owner.GetBpfDir()
 	rundir := owner.GetStateDir()
-	debug := strconv.FormatBool(owner.DebugEnabled())
+	debug := strconv.FormatBool(viper.GetBool(option.BPFCompileDebugName))
 
 	if bpfHeaderfilesChanged {
 		start := time.Now()
