@@ -100,6 +100,10 @@ var _ = Describe("K8sUpdates", func() {
 		)
 		Expect(err).To(BeNil(), fmt.Sprintf("Cilium %s was not able to be deployed", helpers.CiliumStableVersion))
 		ExpectCiliumReady(kubectl)
+
+		// Deploy the etcd operator as it was removed by the delete --all
+		err = kubectl.DeployETCDOperator()
+		Expect(err).To(BeNil(), "Unable to deploy etcd operator")
 	})
 
 	It("Tests upgrade and downgrade from a Cilium stable image to master", func() {

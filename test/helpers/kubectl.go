@@ -1826,6 +1826,39 @@ func (kub *Kubectl) CiliumServicePreFlightCheck() error {
 	return nil
 }
 
+func (kub *Kubectl) DeployETCDOperator() error {
+	const etcdOperatorPath = "../examples/kubernetes/addons/etcd-operator/"
+	deployFile := func(filename string) error {
+		cmdRes := kub.Apply(GetFilePath(etcdOperatorPath + filename))
+		if !cmdRes.WasSuccessful() {
+			return fmt.Errorf("Unable to deploy descriptor of etcd-operator %s: %s", filename, cmdRes.CombineOutput().String())
+		}
+		return nil
+	}
+
+	kub.Exec(fmt.Sprintf("%s %q", GetFilePath(etcdOperatorPath+"tls/certs/gen-cert.sh"), "cluster.local"))
+	kub.Exec(GetFilePath(etcdOperatorPath + "tls/deploy-certs.sh"))
+
+	err := deployFile("00-crd-etcd.yaml")
+	if err != nil {
+		return err
+	}
+	err = deployFile("cilium-etcd-cluster.yaml")
+	if err != nil {
+		return err
+	}
+	err = deployFile("cilium-etcd-sa.yaml")
+	if err != nil {
+		return err
+	}
+	err = deployFile("cluster-role-binding-template.yaml")
+	if err != nil {
+		return err
+	}
+	err = deployFile("cluster-role-template.yaml")
+	return deployFile("deployment.yaml")
+}
+
 func serviceKey(s v1.Service) string {
 	return s.Namespace + "/" + s.Name
 }
