@@ -263,23 +263,24 @@ func updateReferences(ep *endpoint.Endpoint) {
 // list is locked and cannot be modified.
 // Returns a waiting group that can be used to know when all the endpoints are
 // regenerated.
-func RegenerateAllEndpoints(owner endpoint.Owner) *sync.WaitGroup {
+func RegenerateAllEndpoints(owner endpoint.Owner, reason string) *sync.WaitGroup {
 	var wg sync.WaitGroup
 
 	eps := GetEndpoints()
 	wg.Add(len(eps))
 
+	log.Infof("regenerating all endpoints due to %s", reason)
 	for _, ep := range eps {
 		go func(ep *endpoint.Endpoint, wg *sync.WaitGroup) {
 			if err := ep.LockAlive(); err != nil {
-				log.WithError(err).Warn("Error while handling policy updates for endpoint")
+				log.WithError(err).Warn("Error regenerating endpoint for event %s", reason)
 				ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+err.Error())
 			} else {
-				regen := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Triggering endpoint regeneration due to policy updates")
+				regen := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", reason))
 				ep.Unlock()
 				if regen {
 					// Regenerate logs status according to the build success/failure
-					<-ep.Regenerate(owner, "endpoint policy updated & changes were needed")
+					<-ep.Regenerate(owner, reason)
 				}
 			}
 			wg.Done()

@@ -75,7 +75,7 @@ func identityWatcher(owner IdentityAllocatorOwner, events allocator.AllocatorEve
 	policyTrigger := trigger.NewTrigger(trigger.Parameters{
 		MinInterval: time.Second,
 		TriggerFunc: func() {
-			owner.TriggerPolicyUpdates(true)
+			owner.TriggerPolicyUpdates(true, "one or more identities created or deleted")
 		},
 	})
 

@@ -43,14 +43,14 @@ import (
 // This is called after policy changes, but also after some changes in daemon
 // configuration and endpoint labels.
 // Returns a waiting group which signalizes when all endpoints are regenerated.
-func (d *Daemon) TriggerPolicyUpdates(force bool) *sync.WaitGroup {
+func (d *Daemon) TriggerPolicyUpdates(force bool, reason string) *sync.WaitGroup {
 	if force {
 		d.policy.BumpRevision() // force policy recalculation
 		log.Debugf("Forced policy recalculation triggered")
 	} else {
 		log.Debugf("Full policy recalculation triggered")
 	}
-	return endpointmanager.RegenerateAllEndpoints(d)
+	return endpointmanager.RegenerateAllEndpoints(d, reason)
 }
 
 // UpdateEndpointPolicyEnforcement returns whether policy enforcement needs to be
@@ -248,7 +248,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 
 	log.WithField(logfields.PolicyRevision, rev).Info("Policy imported via API, recalculating...")
 
-	d.TriggerPolicyUpdates(false)
+	d.TriggerPolicyUpdates(false, "policy rules added")
 
 	repr, err := monitor.PolicyUpdateRepr(rules, rev)
 	if err != nil {
@@ -311,7 +311,7 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
 	// Stop polling for ToFQDN DNS names for these rules
 	d.dnsPoller.StopPollForDNSName(rules)
 
-	d.TriggerPolicyUpdates(false)
+	d.TriggerPolicyUpdates(false, "policy rules deleted")
 
 	repr, err := monitor.PolicyDeleteRepr(deleted, labels.GetModel(), rev)
 	if err != nil {
