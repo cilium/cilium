@@ -590,6 +590,21 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 		}
 	}
 
+	// Walk the L4Policy to add new redirects and update the desired policy map
+	// state to set the newly allocated proxy ports.
+	var desiredRedirects map[string]bool
+	if e.DesiredL4Policy != nil {
+		desiredRedirects, err = e.addNewRedirects(owner, e.DesiredL4Policy, proxyWaitGroup)
+		if err != nil {
+			e.Unlock()
+			return 0, compilationExecuted, err
+		}
+	}
+	// At this point, traffic is no longer redirected to the proxy for
+	// now-obsolete redirects, since we synced the updated policy map above.
+	// It's now safe to remove the redirects from the proxy's configuration.
+	e.removeOldRedirects(owner, desiredRedirects, proxyWaitGroup)
+
 	// Generate header file specific to this endpoint for use in compiling
 	// BPF programs for this endpoint.
 	if err = e.writeHeaderfile(epdir, owner); err != nil {
@@ -627,6 +642,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 	os.RemoveAll(e.IPv4IngressMapPathLocked())
 
 	e.Unlock()
+
 	e.getLogger().WithField("bpfHeaderfilesChanged", bpfHeaderfilesChanged).Debug("Preparing to compile BPF")
 	libdir := owner.GetBpfDir()
 	rundir := owner.GetStateDir()
@@ -650,25 +666,6 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 			Debug("BPF header file unchanged, skipping BPF compilation and installation")
 		e.RUnlock()
 	}
-
-	if err = e.LockAlive(); err != nil {
-		return 0, compilationExecuted, err
-	}
-	// Walk the L4Policy to add new redirects and update the desired policy map
-	// state to set the newly allocated proxy ports.
-	var desiredRedirects map[string]bool
-	if e.DesiredL4Policy != nil {
-		desiredRedirects, err = e.addNewRedirects(owner, e.DesiredL4Policy, proxyWaitGroup)
-		if err != nil {
-			e.Unlock()
-			return 0, compilationExecuted, err
-		}
-	}
-	// At this point, traffic is no longer redirected to the proxy for
-	// now-obsolete redirects, since we synced the updated policy map above.
-	// It's now safe to remove the redirects from the proxy's configuration.
-	e.removeOldRedirects(owner, desiredRedirects, proxyWaitGroup)
-	e.Unlock()
 
 	err = e.WaitForProxyCompletions(proxyWaitGroup)
 	if err != nil {
