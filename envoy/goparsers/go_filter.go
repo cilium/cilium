@@ -30,6 +30,9 @@ package main
 import "C"
 
 import (
+	"time"
+
+	"github.com/cilium/cilium/pkg/envoy/cilium"
 	"github.com/cilium/cilium/pkg/lock"
 
 	log "github.com/sirupsen/logrus"
@@ -65,12 +68,13 @@ type Direction struct {
 }
 
 type Connection struct {
-	Id      uint64
-	Ingress bool
-	SrcId   uint32
-	DstId   uint32
-	SrcAddr string
-	DstAddr string
+	Id         uint64
+	Ingress    bool
+	SrcId      uint32
+	DstId      uint32
+	SrcAddr    string
+	DstAddr    string
+	PolicyName string
 
 	parser Parser
 	orig   Direction
@@ -203,22 +207,38 @@ func (connection *Connection) onData(reply, endStream bool, data *[]string, filt
 	return C.FILTER_OK
 }
 
+func (conn *Connection) Log(entryType cilium.EntryType, l7 interface{}) {
+	pblog := &cilium.LogEntry{
+		Timestamp:             uint64(time.Now().UnixNano()),
+		IsIngress:             conn.Ingress,
+		EntryType:             entryType,
+		PolicyName:            conn.PolicyName,
+		SourceSecurityId:      conn.SrcId,
+		DestinationSecurityId: conn.DstId,
+		SourceAddress:         conn.SrcAddr,
+		DestinationAddress:    conn.DstAddr,
+		L7:                    cilium.IsL7(l7),
+	}
+	accessLogClient.Log(pblog)
+}
+
 //export OnNewConnection
-func OnNewConnection(proto string, connectionId uint64, ingress bool, srcId, dstId uint32, srcAddr, dstAddr string, origBuf, replyBuf *[]byte) C.FilterResult {
+func OnNewConnection(proto string, connectionId uint64, ingress bool, srcId, dstId uint32, srcAddr, dstAddr, policyName string, origBuf, replyBuf *[]byte) C.FilterResult {
 	// Find the parser for the proto
 	parserFactory := parserFactories[proto]
 	if parserFactory == nil {
 		return C.FILTER_UNKNOWN_PARSER
 	}
 	connection := &Connection{
-		Id:      connectionId,
-		Ingress: ingress,
-		SrcId:   srcId,
-		DstId:   dstId,
-		SrcAddr: srcAddr,
-		DstAddr: dstAddr,
-		orig:    Direction{injectBuf: origBuf},
-		reply:   Direction{injectBuf: replyBuf},
+		Id:         connectionId,
+		Ingress:    ingress,
+		SrcId:      srcId,
+		DstId:      dstId,
+		SrcAddr:    srcAddr,
+		DstAddr:    dstAddr,
+		PolicyName: policyName,
+		orig:       Direction{injectBuf: origBuf},
+		reply:      Direction{injectBuf: replyBuf},
 	}
 	connection.parser = parserFactory.Create(connection)
 	if connection.parser == nil {
@@ -253,6 +273,12 @@ func Close(connectionId uint64) {
 	mutex.Lock()
 	delete(connections, connectionId)
 	mutex.Unlock()
+}
+
+// called before any other APIs
+//export InitModule
+func InitModule(accessLogPath string) bool {
+	return startAccessLogClient(accessLogPath)
 }
 
 // Must have empty main

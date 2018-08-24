@@ -36,6 +36,123 @@
 
 namespace Envoy {
 
+class AccessLogServer : Logger::Loggable<Logger::Id::router> {
+public:
+  AccessLogServer(const std::string path) : path_(path), fd2_(-1) {
+    ENVOY_LOG(critical, "Creating access log server: {}", path_);
+    ::unlink(path_.c_str());
+    fd_ = ::socket(AF_UNIX, SOCK_SEQPACKET, 0);
+    if (fd_ == -1) {
+      ENVOY_LOG(error, "Can't create socket: {}", strerror(errno));
+      return;
+    }
+
+    ENVOY_LOG(critical, "Binding to {}", path_);
+    struct sockaddr_un addr = {.sun_family = AF_UNIX, .sun_path = {}};
+    strncpy(addr.sun_path, path_.c_str(), sizeof(addr.sun_path) - 1);
+    if (::bind(fd_, reinterpret_cast<struct sockaddr *>(&addr),
+	       sizeof(addr)) == -1) {
+      ENVOY_LOG(warn, "Bind to {} failed: {}", path_, strerror(errno));
+      Close();
+      return;
+    }
+
+    ENVOY_LOG(critical, "Listening on {}", path_);
+    if (::listen(fd_, 5) == -1) {
+      ENVOY_LOG(warn, "Listen on {} failed: {}", path_, strerror(errno));
+      Close();
+      return;
+    }
+
+    ENVOY_LOG(critical, "Starting access log server thread fd: {}", fd_);
+
+    thread_.reset(new Thread::Thread([this]() -> void { threadRoutine(); }));
+  }
+
+  ~AccessLogServer() {
+    if (fd_ >= 0) {
+      Close();
+      ENVOY_LOG(warn, "Waiting on access log to close: {}", strerror(errno));
+      thread_->join();
+      thread_.reset();
+    }
+  }
+private:
+  void Close() {
+    ::shutdown(fd_, SHUT_RD);
+    ::shutdown(fd2_, SHUT_RD);
+    errno = 0;
+    ::close(fd_);
+    fd_ = -1;
+    ::unlink(path_.c_str());
+  }
+
+  void threadRoutine() {
+    while (fd_ >= 0) {
+      ENVOY_LOG(critical, "Access Log thread started on fd: {}", fd_);
+      // Accept a new connection
+      struct sockaddr_un addr;
+      socklen_t addr_len;
+      ENVOY_LOG(warn, "Access log blocking accept on fd: {}", fd_);
+      fd2_ = ::accept(fd_, reinterpret_cast<sockaddr*>(&addr), &addr_len);
+      if (fd2_ < 0) {
+	ENVOY_LOG(critical, "Access log accept failed: {}", strerror(errno));
+      } else {
+	char buf[8192];
+	while (true) {
+	  ENVOY_LOG(warn, "Access log blocking recv on fd: {}", fd2_);
+	  ssize_t received = ::recv(fd2_, buf, sizeof(buf), 0);
+	  if (received < 0) {
+	    ENVOY_LOG(warn, "Access log recv failed: {}", strerror(errno));
+	    break;
+	  } else if (received == 0) {
+	    ENVOY_LOG(warn, "Access log recv got no data!");
+	    break;
+	  } else {
+	    std::string data(buf, received);
+	    ::cilium::LogEntry entry;
+	    if (!entry.ParseFromString(data)) {
+	      ENVOY_LOG(warn, "Access log parse failed!");
+	    } else {
+	      if (entry.method().length() > 0) {
+		ENVOY_LOG(warn, "Access log deprecated format detected");
+		// Deprecated format detected, map to the new one
+		auto http = entry.mutable_http();
+		http->set_http_protocol(entry.http_protocol());
+		entry.clear_http_protocol();
+		http->set_scheme(entry.scheme());
+		entry.clear_scheme();
+		http->set_host(entry.host());
+		entry.clear_host();
+		http->set_path(entry.path());
+		entry.clear_path();
+		http->set_method(entry.method());
+		entry.clear_method();
+		for (const auto& dep_hdr: entry.headers()) {
+		  auto hdr = http->add_headers();
+		  hdr->set_key(dep_hdr.key());
+		  hdr->set_value(dep_hdr.value());
+		}
+		entry.clear_headers();
+		http->set_status(entry.status());
+		entry.clear_status();
+	      }
+	      ENVOY_LOG(info, "Access log entry: {}", entry.DebugString());
+	    }
+	  }
+	}
+	::close(fd2_);
+	fd2_ = -1;
+      }
+    };
+  }
+
+  const std::string path_;
+  std::atomic<int> fd_;
+  std::atomic<int> fd2_;
+  Thread::ThreadPtr thread_;
+};
+
 std::string host_map_config;
 std::shared_ptr<const Cilium::PolicyHostMap> hostmap{nullptr};
 
@@ -286,6 +403,7 @@ static_resources:
         config:
           go_module: "./go_filter.so"
           go_proto: "passer"
+          access_log_path: ""
       - name: envoy.http_connection_manager
         config:
           stat_prefix: config_test
@@ -293,7 +411,7 @@ static_resources:
           http_filters:
           - name: test_l7policy
             config:
-              access_log_path: "access_log.sock"
+              access_log_path: "{{ test_udsdir }}/access_log.sock"
               policy_name: "173"
           - name: envoy.router
           route_config:
@@ -317,7 +435,8 @@ class CiliumHttpIntegrationTest
 
 public:
   CiliumHttpIntegrationTest(const std::string& config)
-    : HttpIntegrationTest(Http::CodecClient::Type::HTTP1, GetParam(), config) {
+    : HttpIntegrationTest(Http::CodecClient::Type::HTTP1, GetParam(), config),
+      accessLogServer_(TestEnvironment::unixDomainSocketPath("access_log.sock")) {
     // Undo legacy compat rename done by HttpIntegrationTest constructor.
     // config_helper_.renameListener("cilium");
     for (Logger::Logger& logger : Logger::Registry::loggers()) {
@@ -371,6 +490,8 @@ public:
     EXPECT_THROW_WITH_MESSAGE(hmap.onConfigUpdate(typed_resources, "1"), EnvoyException, exmsg);
     tls.shutdownGlobalThreading();
   }
+
+  AccessLogServer accessLogServer_;
 };
 
 class CiliumIntegrationTest : public CiliumHttpIntegrationTest {
@@ -783,6 +904,7 @@ static_resources:
         config:
           go_module: "./go_filter.so"
           go_proto: "passer"
+          access_log_path: ""
       - name: envoy.tcp_proxy
         config:
           stat_prefix: tcp_stats
@@ -793,7 +915,8 @@ class CiliumTcpIntegrationTest : public BaseIntegrationTest,
                                  public testing::TestWithParam<Network::Address::IpVersion> {
 public:
   CiliumTcpIntegrationTest(const std::string& config)
-    : BaseIntegrationTest(GetParam(), config) {
+    : BaseIntegrationTest(GetParam(), config),
+      accessLogServer_(TestEnvironment::unixDomainSocketPath("access_log.sock")) {
     enable_half_close_ = true;
   }
 
@@ -813,6 +936,8 @@ public:
     fake_upstreams_.clear();
     npmap.reset();
   }
+
+  AccessLogServer accessLogServer_;
 };
 
 class CiliumTcpProxyIntegrationTest : public CiliumTcpIntegrationTest {
@@ -1065,6 +1190,7 @@ static_resources:
         config:
           go_module: "./go_filter.so"
           go_proto: "linetester"
+          access_log_path: ""
       - name: envoy.tcp_proxy
         config:
           stat_prefix: tcp_stats
@@ -1260,6 +1386,8 @@ static_resources:
         config:
           go_module: "./go_filter.so"
           go_proto: "blocktester"
+          access_log_path: "{{ test_udsdir }}/access_log.sock"
+          policy_name: "FooBar"
       - name: envoy.tcp_proxy
         config:
           stat_prefix: tcp_stats

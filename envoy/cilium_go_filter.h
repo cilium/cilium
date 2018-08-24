@@ -65,13 +65,14 @@ struct GoDataSlice : GoSlice<const GoString> {
 typedef GoSlice<uint8_t> GoBufferSlice;
 typedef GoSlice<FilterOp> GoFilterOpSlice;
  
-typedef FilterResult (*GoOnNewConnectionCB)(GoString, uint64_t, bool, uint32_t, uint32_t, GoString, GoString, GoBufferSlice*, GoBufferSlice*);
+typedef bool (*GoInitCB)(GoString);
+typedef FilterResult (*GoOnNewConnectionCB)(GoString, uint64_t, bool, uint32_t, uint32_t, GoString, GoString, GoString, GoBufferSlice*, GoBufferSlice*);
 typedef FilterResult (*GoOnDataCB)(uint64_t, bool, bool, GoDataSlice*, GoFilterOpSlice*);
 typedef void (*GoCloseCB)(uint64_t);
 
 class GoFilter : public Singleton::Instance, public Logger::Loggable<Logger::Id::filter> {
 public:
-  GoFilter(const std::string& go_module);
+  GoFilter(const std::string& go_module, const std::string& access_log_path);
   ~GoFilter();
 
   class Instance : public Logger::Loggable<Logger::Id::filter>{
@@ -117,7 +118,7 @@ public:
 
   InstancePtr NewInstance(Network::Connection& conn, const std::string& go_proto, bool ingress,
 			  uint32_t src_id, uint32_t dst_id,
-			  const std::string& src_addr, const std::string& dst_addr);
+			  const std::string& src_addr, const std::string& dst_addr, const std::string& policy_name);
 
 private:
   void *go_module_handle_{nullptr};

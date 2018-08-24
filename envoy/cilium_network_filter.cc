@@ -60,10 +60,11 @@ namespace Filter {
 namespace CiliumL3 {
 
 Config::Config(const ::cilium::NetworkFilter& config, Server::Configuration::FactoryContext&)
-  : go_proto_(config.go_proto()), go_filter_(config.go_module()) {}
+  : go_proto_(config.go_proto()), go_filter_(config.go_module(), config.access_log_path()),
+    policy_name_(config.policy_name()) {}
   
 Config::Config(const Json::Object&, Server::Configuration::FactoryContext&)
-  : go_proto_(""), go_filter_("") {}
+  : go_proto_(""), go_filter_("", ""), policy_name_("") {} // Dummy, not used.
 
 Network::FilterStatus Instance::onNewConnection() {
   ENVOY_LOG(debug, "Cilium Network: onNewConnection");
@@ -89,7 +90,7 @@ Network::FilterStatus Instance::onNewConnection() {
 
 	go_parser_ = config_->go_filter_.NewInstance(conn, config_->go_proto_, option->ingress_, option->identity_,
                                                      option->destination_identity_, conn.remoteAddress()->asString(),
-                                                     conn.localAddress()->asString());
+                                                     conn.localAddress()->asString(), config_->policy_name_);
 	if (go_parser_.get() == nullptr && config_->go_proto_.length() > 0) {
 	  ENVOY_CONN_LOG(warn, "Cilium Network: Go parser \"{}\" not found", conn, config_->go_proto_);
 	  return Network::FilterStatus::StopIteration;

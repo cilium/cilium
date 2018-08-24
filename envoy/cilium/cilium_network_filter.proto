@@ -5,4 +5,10 @@ package cilium;
 message NetworkFilter {
   string go_module = 1;
   string go_proto = 2;
+
+  // Path to the unix domain socket for the cilium access log.
+  string access_log_path = 3;
+
+  // Name of the policy to be enforced
+  string policy_name = 4;
 }

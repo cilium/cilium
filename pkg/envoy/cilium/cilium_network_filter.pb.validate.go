@@ -46,6 +46,10 @@ func (m *NetworkFilter) Validate() error {
 
 	// no validation rules for GoProto
 
+	// no validation rules for AccessLogPath
+
+	// no validation rules for PolicyName
+
 	return nil
 }
 

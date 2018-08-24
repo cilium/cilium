@@ -11,7 +11,7 @@
 namespace Envoy {
 namespace Cilium {
 
-GoFilter::GoFilter(const std::string& go_module) {
+GoFilter::GoFilter(const std::string& go_module, const std::string& access_log_path) {
   if (go_module.length() > 0) {
     ::dlerror();
     go_module_handle_ = ::dlopen(go_module.c_str(), RTLD_NOW);
@@ -19,6 +19,19 @@ GoFilter::GoFilter(const std::string& go_module) {
       throw EnvoyException(fmt::format("cilium.network: Cannot load go module \'{}\': {}",
 				       go_module, dlerror()));
     }
+
+    GoInitCB go_init_module = GoInitCB(::dlsym(go_module_handle_, "InitModule"));
+    if (!go_init_module) {
+      throw EnvoyException(fmt::format("cilium.network: Cannot find symbol \'InitModule\' from module \'{}\': {}",
+				       go_module, dlerror()));
+    } else {
+      bool ok = go_init_module(access_log_path);
+      if (!ok) {
+	throw EnvoyException(fmt::format("cilium.network: \'InitModule({})\' from module \'{}\' failed",
+					 access_log_path, go_module));
+      }
+    }
+
     go_on_new_connection_ = GoOnNewConnectionCB(::dlsym(go_module_handle_, "OnNewConnection"));
     if (!go_on_new_connection_) {
       throw EnvoyException(fmt::format("cilium.network: Cannot find symbol \'OnNewConnection\' from module \'{}\': {}",
@@ -47,12 +60,14 @@ GoFilter::~GoFilter() {
 
 GoFilter::InstancePtr GoFilter::NewInstance(Network::Connection& conn, const std::string& go_proto, bool ingress,
 					    uint32_t src_id, uint32_t dst_id,
-					    const std::string& src_addr, const std::string& dst_addr) {
+					    const std::string& src_addr, const std::string& dst_addr,
+					    const std::string& policy_name) {
   InstancePtr parser{nullptr};
   if (go_module_handle_) {
     parser = std::make_unique<Instance>(*this, conn);
     ENVOY_CONN_LOG(trace, "GoFilter: Calling go module", conn);
     if (FILTER_OK != (*go_on_new_connection_)(go_proto, conn.id(), ingress, src_id, dst_id, src_addr, dst_addr,
+					      policy_name,
 					      &parser->orig_.inject_slice_, &parser->reply_.inject_slice_)) {
       parser.reset(nullptr);
     } else {

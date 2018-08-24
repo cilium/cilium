@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cilium/cilium/pkg/envoy/cilium"
+
 	log "github.com/sirupsen/logrus"
 )
 
@@ -241,9 +243,11 @@ func (p *BlockParser) OnData(reply, endStream bool, data []string, offset uint) 
 	log.Infof("BlockParser: missing: %d", missing)
 
 	if strings.Contains(block, "PASS") {
+		p.connection.Log(cilium.EntryType_Request, &cilium.LogEntry_Http{&cilium.HttpLogEntry{Status: 200}})
 		return FILTEROP_PASS, block_len
 	}
 	if strings.Contains(block, "DROP") {
+		p.connection.Log(cilium.EntryType_Denied, &cilium.LogEntry_Http{&cilium.HttpLogEntry{Status: 201}})
 		return FILTEROP_DROP, block_len
 	}
 

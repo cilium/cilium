@@ -95,7 +95,7 @@ extern "C" {
 #endif
 
 
-extern FilterResult OnNewConnection(GoString p0, GoUint64 p1, GoUint8 p2, GoUint32 p3, GoUint32 p4, GoString p5, GoString p6, GoSlice* p7, GoSlice* p8);
+extern FilterResult OnNewConnection(GoString p0, GoUint64 p1, GoUint8 p2, GoUint32 p3, GoUint32 p4, GoString p5, GoString p6, GoString p7, GoSlice* p8, GoSlice* p9);
 
 // Each connection is assumed to be called from a single thread, so accessing connection metadata
 // does not need protection.
@@ -105,6 +105,10 @@ extern FilterResult OnData(GoUint64 p0, GoUint8 p1, GoUint8 p2, GoSlice* p3, GoS
 // Make this more general connection event callback
 
 extern void Close(GoUint64 p0);
+
+// called before any other APIs
+
+extern GoUint8 InitModule(GoString p0);
 
 #ifdef __cplusplus
 }

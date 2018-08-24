@@ -31,6 +31,7 @@ public:
 
   std::string go_proto_;
   Cilium::GoFilter go_filter_;
+  std::string policy_name_;
 };
 
 typedef std::shared_ptr<Config> ConfigSharedPtr;
