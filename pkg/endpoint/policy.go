@@ -676,20 +676,32 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	var err error
 
 	metrics.EndpointCountRegenerating.Inc()
+
 	regenerateStart := time.Now()
+	e.getLogger().WithFields(logrus.Fields{
+		logfields.StartTime: regenerateStart,
+		logfields.Reason:    reason,
+	}).Info("Regenerating endpoint")
+
 	defer func() {
 		metrics.EndpointCountRegenerating.Dec()
 		if retErr == nil {
+			e.getLogger().WithField(logfields.BuildDuration, time.Since(regenerateStart).String()).
+				Info("Completed endpoint regeneration")
+			e.LogStatusOK(BPF, "Successfully regenerated endpoint program due to "+reason)
+
 			metrics.EndpointRegenerationCount.
 				WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
 
 			// Capture successful endpoint generation time
 			regenerateTimeNs := time.Since(regenerateStart)
 			regenerateTimeSec := float64(regenerateTimeNs) / float64(time.Second)
-			e.getLogger().WithField(logfields.EndpointRegenerationTime, time.Since(regenerateStart).String()).Info("Regeneration of endpoint has completed")
 			metrics.EndpointRegenerationTime.Add(regenerateTimeSec)
 			metrics.EndpointRegenerationTimeSquare.Add(math.Pow(regenerateTimeSec, 2))
 		} else {
+			e.getLogger().WithError(retErr).Warn("Regeneration of endpoint failed")
+			e.LogStatus(BPF, Failure, "Error regenerating endpoint: "+err.Error())
+
 			metrics.EndpointRegenerationCount.
 				WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
 		}
@@ -716,9 +728,6 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	}
 
 	e.Unlock()
-
-	scopedLog := e.getLogger()
-	scopedLog.Debug("Regenerating endpoint...")
 
 	origDir := filepath.Join(owner.GetStateDir(), e.StringID())
 
@@ -760,8 +769,6 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	}
 
 	e.Unlock()
-
-	scopedLog.Info("Endpoint policy recalculated")
 
 	return nil
 }
@@ -807,14 +814,11 @@ func (e *Endpoint) Regenerate(owner Owner, reason string) <-chan bool {
 
 			if err != nil {
 				buildSuccess = false
-				scopedLog.WithError(err).Warn("Regeneration of endpoint program failed")
-				e.LogStatus(BPF, Failure, "Error regenerating endpoint: "+err.Error())
 				if reprerr == nil {
 					owner.SendNotification(monitor.AgentNotifyEndpointRegenerateFail, repr)
 				}
 			} else {
 				buildSuccess = true
-				e.LogStatusOK(BPF, "Successfully regenerated endpoint program due to "+reason)
 				if reprerr == nil {
 					owner.SendNotification(monitor.AgentNotifyEndpointRegenerateSuccess, repr)
 				}

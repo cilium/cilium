@@ -287,4 +287,8 @@ const (
 
 	// ThreadID is the Envoy thread ID.
 	ThreadID = "threadID"
+
+	// Reason is a human readable string describing why an operation was
+	// performed
+	Reason = "reason"
 )
