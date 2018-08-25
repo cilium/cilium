@@ -677,35 +677,51 @@ func (e *Endpoint) WaitForRegenerationsToComplete() {
 
 // Called with e.Mutex UNlocked
 func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
-	var revision uint64
-	var compilationExecuted bool
-	var err error
+	var (
+		revision            uint64
+		compilationExecuted bool
+		err                 error
+		stats               regenerationStatistics
+	)
 
 	metrics.EndpointCountRegenerating.Inc()
-
-	regenerateStart := time.Now()
+	stats.totalTime.Start()
 	e.getLogger().WithFields(logrus.Fields{
-		logfields.StartTime: regenerateStart,
+		logfields.StartTime: time.Now(),
 		logfields.Reason:    reason,
 	}).Info("Regenerating endpoint")
 
 	defer func() {
+		stats.totalTime.End()
 		metrics.EndpointCountRegenerating.Dec()
+
+		scopedLog := e.getLogger().WithFields(logrus.Fields{
+			"waitingForLock":         stats.waitingForLock.Total(),
+			"waitingForCTClean":      stats.waitingForCTClean.Total(),
+			"policyCalculation":      stats.policyCalculation.Total(),
+			"proxyConfiguration":     stats.proxyConfiguration.Total(),
+			"proxyPolicyCalculation": stats.proxyPolicyCalculation.Total(),
+			"proxyWaitForAck":        stats.proxyWaitForAck.Total(),
+			"bpfCompilation":         stats.bpfCompilation.Total(),
+			"mapSync":                stats.mapSync.Total(),
+			"prepareBuild":           stats.prepareBuild.Total(),
+			logfields.BuildDuration:  stats.totalTime.Total(),
+			logfields.Reason:         reason,
+		})
+
 		if retErr == nil {
-			e.getLogger().WithField(logfields.BuildDuration, time.Since(regenerateStart).String()).
-				Info("Completed endpoint regeneration")
+			scopedLog.Info("Completed endpoint regeneration")
 			e.LogStatusOK(BPF, "Successfully regenerated endpoint program due to "+reason)
 
 			metrics.EndpointRegenerationCount.
 				WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
 
 			// Capture successful endpoint generation time
-			regenerateTimeNs := time.Since(regenerateStart)
-			regenerateTimeSec := float64(regenerateTimeNs) / float64(time.Second)
+			regenerateTimeSec := float64(stats.totalTime.Total()) / float64(time.Second)
 			metrics.EndpointRegenerationTime.Add(regenerateTimeSec)
 			metrics.EndpointRegenerationTimeSquare.Add(math.Pow(regenerateTimeSec, 2))
 		} else {
-			e.getLogger().WithError(retErr).Warn("Regeneration of endpoint failed")
+			scopedLog.WithError(retErr).Warn("Regeneration of endpoint failed")
 			e.LogStatus(BPF, Failure, "Error regenerating endpoint: "+err.Error())
 
 			metrics.EndpointRegenerationCount.
@@ -716,10 +732,12 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	e.ongoingRegeneration.Add(1)
 	defer e.ongoingRegeneration.Done()
 
+	stats.waitingForLock.Start()
 	// Check if endpoints is still alive before doing any build
 	if err = e.LockAlive(); err != nil {
 		return err
 	}
+	stats.waitingForLock.End()
 
 	// When building the initial drop policy in waiting-for-identity state
 	// the state remains unchanged
@@ -735,6 +753,7 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 
 	e.Unlock()
 
+	stats.prepareBuild.Start()
 	origDir := filepath.Join(owner.GetStateDir(), e.StringID())
 
 	// This is the temporary directory to store the generated headers,
@@ -746,8 +765,9 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	if err := os.MkdirAll(tmpDir, 0777); err != nil {
 		return fmt.Errorf("Failed to create endpoint directory: %s", err)
 	}
+	stats.prepareBuild.End()
 
-	revision, compilationExecuted, err = e.regeneratePolicyAndBPF(owner, tmpDir, reason)
+	revision, compilationExecuted, err = e.regeneratePolicyAndBPF(owner, tmpDir, reason, &stats)
 
 	// Depending upon result of BPF regeneration (compilation executed, or
 	// error occurred), shift endpoint directories to match said BPF regeneration
@@ -760,9 +780,11 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	// Update desired policy for endpoint because policy has now been realized
 	// in the datapath. PolicyMap state is not updated here, because that is
 	// performed in endpoint.syncPolicyMap().
+	stats.waitingForLock.Start()
 	if err = e.LockAlive(); err != nil {
 		return err
 	}
+	stats.waitingForLock.End()
 
 	e.RealizedL4Policy = e.DesiredL4Policy
 	// Mark the endpoint to be running the policy revision it was
