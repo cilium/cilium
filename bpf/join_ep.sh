@@ -37,13 +37,14 @@ function bpf_compile()
 	OUT=$2
 	TYPE=$3
 	EXTRA_CFLAGS=$4
+	LLC_FLAGS=$5
 
-	clang -O2 -g -target bpf -emit-llvm $EXTRA_CFLAGS			\
+	clang -O2 -target bpf -emit-llvm $EXTRA_CFLAGS			\
 	      -Wno-address-of-packed-member -Wno-unknown-warning-option	\
 	      -I$RUNDIR/globals -I$EPDIR -I$LIB/include			\
 	      -D__NR_CPUS__=$(nproc)					\
 	      -c $LIB/$IN -o - |					\
-	llc -march=bpf -mcpu=probe -mattr=dwarfris -filetype=$TYPE -o $EPDIR/$OUT
+	llc -march=bpf -mcpu=probe $LLC_FLAGS -filetype=$TYPE -o $EPDIR/$OUT
 }
 
 echo "Join EP id=$EPDIR ifname=$IFNAME"
@@ -52,7 +53,8 @@ echo "Join EP id=$EPDIR ifname=$IFNAME"
 if [[ "${DEBUG}" == "true" ]]; then
   echo "kernel version: " `uname -a`
   echo "clang version: " `clang --version`
-  bpf_compile bpf_lxc.c bpf_lxc.asm asm -g
+  bpf_compile bpf_lxc.c bpf_lxc.dbg.o obj "-g" "-mattr=dwarfris"
+  bpf_compile bpf_lxc.c bpf_lxc.asm asm "-g"
   bpf_preprocess bpf_lxc.c
 fi
 
