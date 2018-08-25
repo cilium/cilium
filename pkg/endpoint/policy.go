@@ -480,7 +480,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	// Dry mode does not regenerate policy via bpf regeneration, so we let it pass
 	// through. Some bpf/redirect updates are skipped in that case.
 	//
-	// This can be cleaned up once we shift all bpf updates to regenerateBPF().
+	// This can be cleaned up once we shift all bpf updates to regeneratePolicyAndBPF
 	if e.PolicyMap == nil && !owner.DryModeEnabled() {
 		// First run always results in bpf generation
 		// L4 policy generation assumes e.PolicyMap to exist, but it is only created
@@ -726,7 +726,7 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 		return fmt.Errorf("Failed to create endpoint directory: %s", err)
 	}
 
-	revision, compilationExecuted, err = e.regenerateBPF(owner, tmpDir, reason)
+	revision, compilationExecuted, err = e.regeneratePolicyAndBPF(owner, tmpDir, reason)
 
 	// Depending upon result of BPF regeneration (compilation executed, or
 	// error occurred), shift endpoint directories to match said BPF regeneration

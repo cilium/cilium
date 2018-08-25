@@ -442,12 +442,12 @@ func (e *Endpoint) removeOldRedirects(owner Owner, desiredRedirects map[string]b
 	}
 }
 
-// regenerateBPF rewrites all headers and updates all BPF maps to reflect the
-// specified endpoint.
-// Must be called with endpoint.Mutex not held and endpoint.BuildMutex held.
-// Returns the policy revision number when the regeneration has called, a
-// boolean if the BPF compilation was executed and an error in case of an error.
-func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint64, compiled bool, reterr error) {
+// regeneratePolicyAndBPF calculates policy, updates all BPF maps and
+// recompiles the BPF program if needed.  Returns the implemented policy
+// revision and a boolean indicating whether a BPF compilation was required.
+//
+// Must be called with endpoint.Mutex NOT held
+func (e *Endpoint) regeneratePolicyAndBPF(owner Owner, epdir, reason string) (revnum uint64, compiled bool, reterr error) {
 	var (
 		err                 error
 		compilationExecuted bool
