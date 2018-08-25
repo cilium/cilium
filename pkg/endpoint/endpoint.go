@@ -2464,7 +2464,7 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 func (e *Endpoint) setPolicyRevision(rev uint64) {
 	e.policyRevision = rev
 	e.UpdateLogger(map[string]interface{}{
-		logfields.PolicyRevision: e.policyRevision,
+		logfields.DatapathPolicyRevision: e.policyRevision,
 	})
 	for ps := range e.policyRevisionSignals {
 		select {
