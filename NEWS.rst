@@ -2,6 +2,47 @@
 NEWS
 ******
 
+1.2.1
+=====
+
+::
+
+    Daniel Borkmann (3):
+          docker, bpf: add iproute2 version which works around missing af_alg
+          docker, bpf: add bpftool for debugging and introspection
+          Dockerfile: update base build images to version 2018-08-06
+
+    Ian Vernon (2):
+          test/k8sT: use specific commit for cilium/star-wars-demo YAMLs
+          pkg/k8s: properly handle empty NamespaceSelector
+
+    Joe Stringer (4):
+          lxcmap: Improve error messages in DeleteElement()
+          lxcmap: Fix always returning an error on delete
+          ctmap: Mark IPv6 CT GC as completed on success
+          endpoint: Fix endpoint regeneration failure metric
+
+    Maciej Kwiek (2):
+          Block locked code in TriggerPolicyUpdates
+          Ignore non-existing link error in cni del
+
+    Ray Bejjani (3):
+          fqdn: Strip toCIDRSet rules to be more resilient
+          fqdn: Use UUIDs to manage rules
+          fqdn: Inject IPs on initial rule insert
+
+    Romain Lenglet (3):
+          xds: Ignore completion timeouts on resource upsert and delete
+          endpoint: Log when BPF regeneration times out not because of Envoy
+          endpoint: In BPF regeneration, create/remove listeners early
+
+    Thomas Graf (5):
+          doc: Restructure and simplify upgrade guide
+          doc: Restructure installation guides
+          doc: AWS EKS installation guide
+          identity: Wait for initial set of security identities before restoring endpoints
+          Prepare for 1.2.1 release
+
 1.2.0
 =====
 
