@@ -64,6 +64,11 @@ const (
 	// the datapath
 	DatapathPolicyRevision = "datapathPolicyRevision"
 
+	// DesiredPolicyRevision is the latest policy revision as evaluated for
+	// an endpoint. It is the desired policy revision to be implemented
+	// into the datapath.
+	DesiredPolicyRevision = "desiredPolicyRevision"
+
 	// PolicyID is the identifier of a L3, L4 or L7 Policy. Ideally the .NumericIdentity
 	PolicyID = "policyID"
 
@@ -287,4 +292,8 @@ const (
 
 	// ThreadID is the Envoy thread ID.
 	ThreadID = "threadID"
+
+	// Reason is a human readable string describing why an operation was
+	// performed
+	Reason = "reason"
 )

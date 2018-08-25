@@ -458,8 +458,6 @@ func (e *Endpoint) regeneratePolicyAndBPF(owner Owner, epdir, reason string) (re
 	owner.GetCompilationLock().RLock()
 	defer owner.GetCompilationLock().RUnlock()
 
-	buildStart := time.Now()
-
 	ctCleaned := make(chan struct{})
 
 	if err = e.LockAlive(); err != nil {
@@ -467,12 +465,6 @@ func (e *Endpoint) regeneratePolicyAndBPF(owner Owner, epdir, reason string) (re
 	}
 
 	epID := e.StringID()
-
-	e.getLogger().WithField(logfields.StartTime, time.Now()).Info("Regenerating BPF program")
-	defer func() {
-		e.getLogger().WithField(logfields.BuildDuration, time.Since(buildStart).String()).
-			Info("Regeneration of BPF program has completed")
-	}()
 
 	// In the first ever regeneration of the endpoint, the conntrack table
 	// is cleaned from the new endpoint IPs as it is guaranteed that any

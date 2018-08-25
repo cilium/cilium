@@ -449,6 +449,15 @@ func (e *Endpoint) updateNetworkPolicy(owner Owner, proxyWaitGroup *completion.W
 	return nil
 }
 
+// setNextPolicyRevision updates the desired policy revision field
+// Must be called with the endpoint lock held for at least reading
+func (e *Endpoint) setNextPolicyRevision(revision uint64) {
+	e.nextPolicyRevision = revision
+	e.UpdateLogger(map[string]interface{}{
+		logfields.DesiredPolicyRevision: e.nextPolicyRevision,
+	})
+}
+
 // regeneratePolicy regenerates endpoint's policy if needed and returns
 // whether the BPF for the given endpoint should be regenerated.
 //
@@ -509,18 +518,6 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	}
 
 	regenerateStart := time.Now()
-	// Capture successful regeneration time
-	defer func() {
-		if err == nil && isPolicyComp {
-			regenerateTimeNs := time.Since(regenerateStart)
-			regenerateTimeSec := float64(regenerateTimeNs) / float64(time.Second)
-			e.getLogger().WithField(logfields.PolicyRegenerationTime, time.Since(regenerateStart).String()).
-				Info("Regeneration of policy has completed")
-			metrics.PolicyRegenerationCount.Inc()
-			metrics.PolicyRegenerationTime.Add(regenerateTimeSec)
-			metrics.PolicyRegenerationTimeSquare.Add(math.Pow(regenerateTimeSec, 2))
-		}
-	}()
 
 	// Use the old labelsMap instance if the new one is still the same.
 	// Later we can compare the pointers to figure out if labels have changed or not.
@@ -548,10 +545,13 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 			"policyRevision.next": e.nextPolicyRevision,
 			"policyRevision.repo": revision,
 			"policyChanged":       e.nextPolicyRevision > e.policyRevision,
-		}).Debug("skipping policy recalculation")
+		}).Debug("Skipping unnecessary endpoing policy recalculation")
+
 		// This revision already computed, but may still need to be applied to BPF
 		return e.nextPolicyRevision > e.policyRevision, nil
 	}
+
+	e.getLogger().Info("Recalculating policy of endpoint")
 
 	// Skip L4 policy recomputation if possible. However, the rest of the
 	// policy computation still needs to be done for each endpoint separately.
@@ -597,7 +597,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 		e.getLogger().Debug("Forced policy recalculation")
 	}
 
-	e.nextPolicyRevision = revision
+	e.setNextPolicyRevision(revision)
 
 	if !owner.DryModeEnabled() {
 		e.syncPolicyMapController()
@@ -607,14 +607,20 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	// already running the latest revision, otherwise we have to wait for
 	// the regeneration of the endpoint to complete.
 	policyChanged := l3PolicyChanged || l4PolicyChanged
+	needToRegenerateBPF := optsChanged || policyChanged || e.nextPolicyRevision > e.policyRevision
 
 	e.getLogger().WithFields(logrus.Fields{
-		"policyChanged":       policyChanged,
-		"optsChanged":         optsChanged,
-		"policyRevision.next": e.nextPolicyRevision,
-	}).Debug("Done calculating policy")
+		logfields.PolicyRegenerationTime: time.Since(regenerateStart).String(),
+		"policyChanged":                  policyChanged,
+		"optionsChanged":                 optsChanged,
+		"bpfCompilationRequired":         needToRegenerateBPF,
+	}).Info("Completed endpoint policy recalculation")
 
-	needToRegenerateBPF := optsChanged || policyChanged || e.nextPolicyRevision > e.policyRevision
+	regenerateTimeNs := time.Since(regenerateStart)
+	regenerateTimeSec := float64(regenerateTimeNs) / float64(time.Second)
+	metrics.PolicyRegenerationCount.Inc()
+	metrics.PolicyRegenerationTime.Add(regenerateTimeSec)
+	metrics.PolicyRegenerationTimeSquare.Add(math.Pow(regenerateTimeSec, 2))
 
 	return needToRegenerateBPF, nil
 }
@@ -670,20 +676,32 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	var err error
 
 	metrics.EndpointCountRegenerating.Inc()
+
 	regenerateStart := time.Now()
+	e.getLogger().WithFields(logrus.Fields{
+		logfields.StartTime: regenerateStart,
+		logfields.Reason:    reason,
+	}).Info("Regenerating endpoint")
+
 	defer func() {
 		metrics.EndpointCountRegenerating.Dec()
 		if retErr == nil {
+			e.getLogger().WithField(logfields.BuildDuration, time.Since(regenerateStart).String()).
+				Info("Completed endpoint regeneration")
+			e.LogStatusOK(BPF, "Successfully regenerated endpoint program due to "+reason)
+
 			metrics.EndpointRegenerationCount.
 				WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
 
 			// Capture successful endpoint generation time
 			regenerateTimeNs := time.Since(regenerateStart)
 			regenerateTimeSec := float64(regenerateTimeNs) / float64(time.Second)
-			e.getLogger().WithField(logfields.EndpointRegenerationTime, time.Since(regenerateStart).String()).Info("Regeneration of endpoint has completed")
 			metrics.EndpointRegenerationTime.Add(regenerateTimeSec)
 			metrics.EndpointRegenerationTimeSquare.Add(math.Pow(regenerateTimeSec, 2))
 		} else {
+			e.getLogger().WithError(retErr).Warn("Regeneration of endpoint failed")
+			e.LogStatus(BPF, Failure, "Error regenerating endpoint: "+err.Error())
+
 			metrics.EndpointRegenerationCount.
 				WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
 		}
@@ -710,9 +728,6 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	}
 
 	e.Unlock()
-
-	scopedLog := e.getLogger()
-	scopedLog.Debug("Regenerating endpoint...")
 
 	origDir := filepath.Join(owner.GetStateDir(), e.StringID())
 
@@ -754,8 +769,6 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	}
 
 	e.Unlock()
-
-	scopedLog.Info("Endpoint policy recalculated")
 
 	return nil
 }
@@ -801,14 +814,11 @@ func (e *Endpoint) Regenerate(owner Owner, reason string) <-chan bool {
 
 			if err != nil {
 				buildSuccess = false
-				scopedLog.WithError(err).Warn("Regeneration of endpoint program failed")
-				e.LogStatus(BPF, Failure, "Error regenerating endpoint: "+err.Error())
 				if reprerr == nil {
 					owner.SendNotification(monitor.AgentNotifyEndpointRegenerateFail, repr)
 				}
 			} else {
 				buildSuccess = true
-				e.LogStatusOK(BPF, "Successfully regenerated endpoint program due to "+reason)
 				if reprerr == nil {
 					owner.SendNotification(monitor.AgentNotifyEndpointRegenerateSuccess, repr)
 				}
