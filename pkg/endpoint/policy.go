@@ -726,23 +726,6 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 		return fmt.Errorf("Failed to create endpoint directory: %s", err)
 	}
 
-	defer func() {
-		if err := e.LockAlive(); err != nil {
-			if retErr == nil {
-				retErr = err
-			} else {
-				e.LogDisconnectedMutexAction(err, "after regenerate")
-			}
-			return
-		}
-		// Set to Ready, but only if no other changes are pending.
-		// State will remain as waiting-to-regenerate if further
-		// changes are needed. There should be an another regenerate
-		// queued for taking care of it.
-		e.BuilderSetStateLocked(StateReady, "Completed endpoint regeneration with no pending regeneration requests")
-		e.Unlock()
-	}()
-
 	revision, compilationExecuted, err = e.regenerateBPF(owner, tmpDir, reason)
 
 	// Depending upon result of BPF regeneration (compilation executed, or
@@ -764,6 +747,12 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	// Mark the endpoint to be running the policy revision it was
 	// compiled for
 	e.bumpPolicyRevisionLocked(revision)
+
+	// Set to Ready if the endpoint has not already transitioned further
+	if e.GetStateLocked() == StateRegenerating {
+		e.BuilderSetStateLocked(StateReady, "Completed endpoint regeneration with no pending regeneration requests")
+	}
+
 	e.Unlock()
 
 	scopedLog.Info("Endpoint policy recalculated")
