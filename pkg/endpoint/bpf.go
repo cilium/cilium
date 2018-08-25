@@ -467,6 +467,8 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 	e.getLogger().WithField(logfields.StartTime, time.Now()).Info("Regenerating BPF program")
 	defer func() {
 		e.getLogger().WithField(logfields.BuildDuration, time.Since(buildStart).String()).
+			WithField("nextPolicyRevision", e.nextPolicyRevision).
+			WithField("policyRevision", e.policyRevision).
 			Info("Regeneration of BPF program has completed")
 	}()
 

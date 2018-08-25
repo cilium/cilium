@@ -2127,7 +2127,7 @@ func (e *Endpoint) OnProxyPolicyUpdate(revision uint64) {
 	// NOTE: UnconditionalLock is used here because this callback has no way of reporting an error
 	e.UnconditionalLock()
 	if revision > e.proxyPolicyRevision {
-		e.proxyPolicyRevision = revision
+		e.setProxyPolicyRevision(revision)
 	}
 	e.Unlock()
 }
@@ -2468,12 +2468,45 @@ func (e *Endpoint) setPolicyRevision(rev uint64) {
 			close(ps.ch)
 			delete(e.policyRevisionSignals, ps)
 		default:
-			if rev >= ps.wantedRev {
+			// We only close the channel when e.policyRevision >= ps.wantedRev
+			// and, if the endpoint has (or had) a proxy set up, when the
+			// e.proxyPolicyRevision >= ps.wantedRev.
+			if e.policyRevision >= ps.wantedRev &&
+				(!e.HasProxy() || e.proxyPolicyRevision >= ps.wantedRev) {
+
 				close(ps.ch)
 				delete(e.policyRevisionSignals, ps)
 			}
 		}
 	}
+}
+
+// setProxyPolicyRevision sets the policy wantedRev with the given revision.
+func (e *Endpoint) setProxyPolicyRevision(rev uint64) {
+	e.proxyPolicyRevision = rev
+	for ps := range e.policyRevisionSignals {
+		select {
+		case <-ps.ctx.Done():
+			close(ps.ch)
+			delete(e.policyRevisionSignals, ps)
+		default:
+			// We only close the channel when e.policyRevision >= ps.wantedRev
+			// and, if the endpoint has (or had) a proxy set up, when the
+			// e.proxyPolicyRevision >= ps.wantedRev.
+			if e.policyRevision >= ps.wantedRev &&
+				(!e.HasProxy() || e.proxyPolicyRevision >= ps.wantedRev) {
+
+				close(ps.ch)
+				delete(e.policyRevisionSignals, ps)
+			}
+		}
+	}
+}
+
+// HasProxy returns true if the given endpoint has a proxy redirect configured.
+// Must be called with e.RLock held
+func (e *Endpoint) HasProxy() bool {
+	return e.DesiredL4Policy.HasRedirect() || e.RealizedL4Policy.HasRedirect()
 }
 
 // cleanPolicySignals closes and removes all policy revision signals.
