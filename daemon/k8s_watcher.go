@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -97,6 +98,11 @@ var (
 	importMetadataCache = ruleImportMetadataCache{
 		ruleImportMetadataMap: make(map[string]policyImportMetadata),
 	}
+
+	// local cache of Kubernetes Endpoints which relate to external services.
+	endpointMetadataCache = endpointImportMetadataCache{
+		endpointImportMetadataMap: make(map[string]endpointImportMetadata),
+	}
 )
 
 // ruleImportMetadataCache maps the unique identifier of a CiliumNetworkPolicy
@@ -149,6 +155,57 @@ func (r *ruleImportMetadataCache) get(cnp *cilium_v2.CiliumNetworkPolicy) (polic
 	policyImportMeta, ok := r.ruleImportMetadataMap[podNSName]
 	r.mutex.RUnlock()
 	return policyImportMeta, ok
+}
+
+// endpointImportMetadataCache maps the unique identifier of a Kubernetes
+// Endpoint (namespace and name) to metadata about whether translation of the
+// rules involving services that the endpoint corresponds to into the
+// agent's policy repository at the time said rule was imported (if any error
+// occurred while importing).
+type endpointImportMetadataCache struct {
+	mutex                     lock.RWMutex
+	endpointImportMetadataMap map[string]endpointImportMetadata
+}
+
+type endpointImportMetadata struct {
+	ruleTranslationError error
+}
+
+func (r *endpointImportMetadataCache) upsert(ep *v1.Endpoints, ruleTranslationErr error) {
+	if ep == nil {
+		return
+	}
+
+	meta := endpointImportMetadata{
+		ruleTranslationError: ruleTranslationErr,
+	}
+	epNSName := k8sUtils.GetObjNamespaceName(&ep.ObjectMeta)
+
+	r.mutex.Lock()
+	r.endpointImportMetadataMap[epNSName] = meta
+	r.mutex.Unlock()
+}
+
+func (r *endpointImportMetadataCache) delete(ep *v1.Endpoints) {
+	if ep == nil {
+		return
+	}
+	epNSName := k8sUtils.GetObjNamespaceName(&ep.ObjectMeta)
+
+	r.mutex.Lock()
+	delete(r.endpointImportMetadataMap, epNSName)
+	r.mutex.Unlock()
+}
+
+func (r *endpointImportMetadataCache) get(cnp *v1.Endpoints) (endpointImportMetadata, bool) {
+	if cnp == nil {
+		return endpointImportMetadata{}, false
+	}
+	epNSName := k8sUtils.GetObjNamespaceName(&cnp.ObjectMeta)
+	r.mutex.RLock()
+	endpointImportMeta, ok := r.endpointImportMetadataMap[epNSName]
+	r.mutex.RUnlock()
+	return endpointImportMeta, ok
 }
 
 // k8sAPIGroupsUsed is a lockable map to hold which k8s API Groups we have
@@ -918,8 +975,16 @@ func (d *Daemon) addK8sEndpointV1(ep *v1.Endpoints) {
 	d.loadBalancer.K8sMU.Lock()
 	defer d.loadBalancer.K8sMU.Unlock()
 
+	// Check whether any service corresponding to this endpoint already exists
+	// before it gets inserted. If it does exist, this means that we may not have
+	// to plumb the Kubernetes Endpoint into any toService rules if nothing
+	// about the Endpoint has changed.
+	storedK8sEndpoint, storedK8sEndpointOK := d.loadBalancer.K8sEndpoints[svcns]
+	endpointsEqual := storedK8sEndpointOK && reflect.DeepEqual(storedK8sEndpoint, newSvcEP)
+
 	d.loadBalancer.K8sEndpoints[svcns] = newSvcEP
 
+	// Note: this does nothing if the service is headless.
 	d.syncLB(&svcns, nil, nil)
 
 	if option.Config.IsLBEnabled() {
@@ -930,13 +995,39 @@ func (d *Daemon) addK8sEndpointV1(ep *v1.Endpoints) {
 	}
 
 	svc, ok := d.loadBalancer.K8sServices[svcns]
+
 	if ok && svc.IsExternal() {
-		translator := k8s.NewK8sTranslator(svcns, *newSvcEP, false, svc.Labels, bpfIPCache.IPCache)
-		err := d.policy.TranslateRules(translator)
-		if err != nil {
-			log.Errorf("Unable to repopulate egress policies from ToService rules: %v", err)
-		} else {
-			d.TriggerPolicyUpdates(true, "Kubernetes service endpoint added")
+		serviceImportMeta, cacheOK := endpointMetadataCache.get(ep)
+
+		// If this is the first time adding this Endpoint, or there was an error
+		// adding it last time, then try to add translate it and its
+		// corresponding external service for any toServices rules which
+		// select said service.
+		if !cacheOK || (cacheOK && serviceImportMeta.ruleTranslationError != nil) {
+			translator := k8s.NewK8sTranslator(svcns, *newSvcEP, false, svc.Labels, bpfIPCache.IPCache)
+			err := d.policy.TranslateRules(translator)
+			endpointMetadataCache.upsert(ep, err)
+			if err != nil {
+				log.Errorf("Unable to repopulate egress policies from ToService rules: %v", err)
+			} else {
+				scopedLog.Info("Kubernetes service endpoint added")
+				d.TriggerPolicyUpdates(true, "Kubernetes service endpoint added")
+			}
+		} else if serviceImportMeta.ruleTranslationError == nil {
+			// Given that we provide a non-zero value for the resyncPeriod for
+			// the Kubernetes informer, we will receive updates for all
+			// Endpoints from Kubernetes even if no meaningful content of the
+			// Endpoints has changed. Do not trigger policy updates if no
+			// meaningful content of the rule has changed, but only if the prior
+			// addition of the service endpoints into the policy repository
+			// succeeded.
+			if endpointsEqual {
+				scopedLog.Debugf("no changes to Kubernetes endpoint; not triggering policy updates")
+				return
+			}
+			// Endpoint has changed, but already exists.
+			scopedLog.Info("Kubernetes endpoint updated")
+			d.TriggerPolicyUpdates(true, "Kubernetes service endpoint updated")
 		}
 	}
 }
@@ -990,6 +1081,7 @@ func (d *Daemon) deleteK8sEndpointV1(ep *v1.Endpoints) {
 			return
 		}
 	}
+	endpointMetadataCache.delete(ep)
 }
 
 func areIPsConsistent(ipv4Enabled, isSvcIPv4 bool, svc loadbalancer.K8sServiceNamespace, se *loadbalancer.K8sServiceEndpoint) error {
