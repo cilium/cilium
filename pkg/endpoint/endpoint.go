@@ -2638,8 +2638,10 @@ func (e *Endpoint) syncPolicyMapController() {
 	e.controllers.UpdateController(ctrlName,
 		controller.ControllerParams{
 			DoFunc: func() (reterr error) {
+				// Failure to lock is not an error, it means
+				// that the endpoint was disconnected and we
+				// should exit gracefully.
 				if err := e.LockAlive(); err != nil {
-					e.LogDisconnectedMutexAction(err, "before syncing policy maps in controller")
 					return nil
 				}
 				defer e.Unlock()
