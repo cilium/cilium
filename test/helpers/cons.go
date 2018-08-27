@@ -161,7 +161,7 @@ const (
 	KubectlPolicyNameLabel      = k8sConst.PolicyLabelName
 	KubectlPolicyNameSpaceLabel = k8sConst.PolicyLabelNamespace
 
-	StableImage = "docker.io/cilium/cilium:v1.1.1"
+	StableImage = "docker.io/cilium/cilium:v1.1.4"
 
 	configMap = "ConfigMap"
 	daemonSet = "DaemonSet"
