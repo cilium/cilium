@@ -689,14 +689,6 @@ int handle_ingress(struct __sk_buff *skb)
 
 	send_trace_notify(skb, TRACE_FROM_LXC, SECLABEL, 0, 0, 0, 0, true);
 
-#ifdef DROP_ALL
-	if (skb->protocol == bpf_htons(ETH_P_ARP)) {
-		ep_tail_call(skb, CILIUM_CALL_ARP);
-		ret = DROP_MISSED_TAIL_CALL;
-	} else if (1) {
-		ret = DROP_POLICY;
-	} else {
-#endif
 	switch (skb->protocol) {
 	case bpf_htons(ETH_P_IPV6):
 		ep_tail_call(skb, CILIUM_CALL_IPV6_FROM_LXC);
@@ -716,10 +708,6 @@ int handle_ingress(struct __sk_buff *skb)
 	default:
 		ret = DROP_UNKNOWN_L3;
 	}
-
-#ifdef DROP_ALL
-	}
-#endif
 
 	if (IS_ERR(ret))
 		return send_drop_notify(skb, SECLABEL, 0, 0, 0, ret, TC_ACT_SHOT,
@@ -1016,10 +1004,6 @@ __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *sk
 	int ret, ifindex = skb->cb[CB_IFINDEX];
 	__u32 src_label = skb->cb[CB_SRC_LABEL];
 
-#ifdef DROP_ALL
-	ret = DROP_POLICY;
-	if (0) {
-#endif
 	switch (skb->protocol) {
 	case bpf_htons(ETH_P_IPV6):
 		ep_tail_call(skb, CILIUM_CALL_IPV6_TO_LXC);
@@ -1037,9 +1021,6 @@ __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *sk
 		ret = DROP_UNKNOWN_L3;
 		break;
 	}
-#ifdef DROP_ALL
-	}
-#endif
 
 	if (IS_ERR(ret))
 		return send_drop_notify(skb, src_label, SECLABEL, LXC_ID,

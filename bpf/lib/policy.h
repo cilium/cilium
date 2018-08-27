@@ -48,9 +48,6 @@ __policy_can_access(void *map, struct __sk_buff *skb, __u32 identity,
 		    __u16 dport, __u8 proto, size_t cidr_addr_size,
 		    void *cidr_addr, int dir, bool is_fragment)
 {
-#ifdef DROP_ALL
-	return DROP_POLICY;
-#else
 	struct policy_entry *policy;
 
 	struct policy_key key = {
@@ -110,7 +107,6 @@ get_proxy_port:
 	}
 allow:
 	return TC_ACT_OK;
-#endif /* DROP_ALL */
 }
 
 /**
@@ -132,9 +128,6 @@ policy_can_access_ingress(struct __sk_buff *skb, __u32 src_identity,
 			  __u16 dport, __u8 proto, size_t cidr_addr_size,
 			  void *cidr_addr, bool is_fragment)
 {
-#ifdef DROP_ALL
-	return DROP_POLICY;
-#else
 	int ret;
 
 	ret = __policy_can_access(&POLICY_MAP, skb, src_identity, dport,
@@ -150,7 +143,6 @@ policy_can_access_ingress(struct __sk_buff *skb, __u32 src_identity,
 #else
 	return TC_ACT_OK;
 #endif
-#endif /* DROP_ALL */
 }
 
 #if defined LXC_ID
@@ -158,9 +150,6 @@ policy_can_access_ingress(struct __sk_buff *skb, __u32 src_identity,
 static inline int __inline__
 policy_can_egress(struct __sk_buff *skb, __u32 identity, __u16 dport, __u8 proto)
 {
-#ifdef DROP_ALL
-	return DROP_POLICY;
-#else
 	int ret = __policy_can_access(&POLICY_MAP, skb, identity, dport, proto,
 				      0, NULL, CT_EGRESS, false);
 	if (ret >= 0)
@@ -171,29 +160,20 @@ policy_can_egress(struct __sk_buff *skb, __u32 identity, __u16 dport, __u8 proto
 	return DROP_POLICY;
 #endif
 	return TC_ACT_OK;
-#endif /* DROP_ALL */
 }
 
 static inline int policy_can_egress6(struct __sk_buff *skb,
 				     struct ipv6_ct_tuple *tuple,
 				     __u32 identity, union v6addr *daddr)
 {
-#ifdef DROP_ALL
-	return DROP_POLICY;
-#else
 	return policy_can_egress(skb, identity, tuple->dport, tuple->nexthdr);
-#endif /* DROP_ALL */
 }
 
 static inline int policy_can_egress4(struct __sk_buff *skb,
 				     struct ipv4_ct_tuple *tuple,
 				     __u32 identity, __be32 daddr)
 {
-#ifdef DROP_ALL
-	return DROP_POLICY;
-#else
 	return policy_can_egress(skb, identity, tuple->dport, tuple->nexthdr);
-#endif /* DROP_ALL */
 }
 
 #else /* LXC_ID */
@@ -202,26 +182,16 @@ static inline int
 policy_can_egress6(struct __sk_buff *skb, struct ipv6_ct_tuple *tuple,
 		   __u32 identity, union v6addr *daddr)
 {
-#ifdef DROP_ALL
-	return DROP_POLICY;
-#else
 	return TC_ACT_OK;
-#endif
 }
 
 static inline int
 policy_can_egress4(struct __sk_buff *skb, struct ipv4_ct_tuple *tuple,
 		   __u32 identity, __be32 daddr)
 {
-#ifdef DROP_ALL
-	return DROP_POLICY;
-#else
 	return TC_ACT_OK;
-#endif
 }
 #endif /* LXC_ID */
-
-#if !defined DROP_ALL
 
 /**
  * Mark skb to skip policy enforcement
@@ -258,12 +228,7 @@ static inline void policy_clear_mark(struct __sk_buff *skb)
 
 static inline int is_policy_skip(struct __sk_buff *skb)
 {
-#ifdef DROP_ALL
-	return 0;
-#else
 	return 1;
-#endif
 }
-#endif /* !defined DROP_ALL */
 
 #endif
