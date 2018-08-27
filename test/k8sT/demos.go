@@ -143,14 +143,12 @@ var _ = Describe("K8sDemosTest", func() {
 		By("Showing how alliance cannot access %q without force header in API request after importing L7 Policy", exhaustPortPath)
 		res = kubectl.ExecPodCmd(helpers.DefaultNamespace, xwingPod,
 			helpers.CurlWithHTTPCode("-X PUT http://%s", exhaustPortPath))
-		res.ExpectFail("Able to access %q when policy disallows it", exhaustPortPath)
 		res.ExpectContains("403", "able to access %s when policy disallows it; %s", exhaustPortPath, res.Output())
 
 		By("Showing how alliance can access %q with force header in API request to attack the deathstar", exhaustPortPath)
 		res = kubectl.ExecPodCmd(helpers.DefaultNamespace, xwingPod,
 			helpers.CurlWithHTTPCode("-X PUT -H 'X-Has-Force: True' http://%s", exhaustPortPath))
 		By("Expecting 503 to be returned when using force header to attack the deathstar")
-		res.ExpectFail("unable to access %s when policy allows it", exhaustPortPath)
 		res.ExpectContains("503", "unable to access %s when policy allows it; %s", exhaustPortPath, res.Output())
 	})
 })
