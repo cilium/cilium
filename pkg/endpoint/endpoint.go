@@ -1233,6 +1233,12 @@ func (e *Endpoint) FailedDirectoryPath() string {
 	return filepath.Join(".", fmt.Sprintf("%d%s", e.ID, "_next_fail"))
 }
 
+// NextDirectoryPath returns the directory name for this endpoint bpf program
+// next bpf builds.
+func (e *Endpoint) NextDirectoryPath() string {
+	return filepath.Join(".", fmt.Sprintf("%d%s", e.ID, "_next"))
+}
+
 func (e *Endpoint) Allows(id identityPkg.NumericIdentity) bool {
 	e.UnconditionalRLock()
 	defer e.RUnlock()
@@ -2025,8 +2031,8 @@ func (e *Endpoint) SetStateLocked(toState, reason string) bool {
 		e.getLogger().WithFields(logrus.Fields{
 			logfields.EndpointState + ".from": fromState,
 			logfields.EndpointState + ".to":   toState,
-			"file": fileName,
-			"line": fileLine,
+			"file":                            fileName,
+			"line":                            fileLine,
 		}).Info("Invalid state transition skipped")
 	}
 	e.logStatusLocked(Other, Warning, fmt.Sprintf("Skipped invalid state transition to %s due to: %s", toState, reason))
