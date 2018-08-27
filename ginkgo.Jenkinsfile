@@ -77,8 +77,8 @@ pipeline {
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
             }
             steps {
-                sh 'cd ${TESTDIR}; K8S_VERSION=1.8 vagrant up --no-provision'
-                sh 'cd ${TESTDIR}; K8S_VERSION=1.11 vagrant up --no-provision'
+                //sh 'cd ${TESTDIR}; K8S_VERSION=1.8 vagrant up --no-provision'
+                sh 'cd ${TESTDIR}; vagrant up runtime --no-provision'
             }
         }
         stage('BDD-Test-PR') {
@@ -99,12 +99,12 @@ pipeline {
                         "Runtime":{
                             sh 'cd ${TESTDIR}; ginkgo --focus=" Runtime*" -v --failFast=${FAILFAST}'
                         },
-                        "K8s-1.8":{
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.8 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
-                        },
-                        "K8s-1.11":{
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.11 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
-                        },
+                        //"K8s-1.8":{
+                        //    sh 'cd ${TESTDIR}; K8S_VERSION=1.8 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
+                        //},
+                        //"K8s-1.11":{
+                        //    sh 'cd ${TESTDIR}; K8S_VERSION=1.11 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
+                        //},
                         failFast: "${FAILFAST}".toBoolean()
                     )
                 }
