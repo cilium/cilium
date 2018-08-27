@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package labels
+package filter
 
 import (
 	"github.com/cilium/cilium/pkg/comparator"
+	"github.com/cilium/cilium/pkg/labels"
 
 	. "gopkg.in/check.v1"
 )
@@ -25,11 +26,11 @@ type LabelsPrefCfgSuite struct{}
 
 var _ = Suite(&LabelsPrefCfgSuite{})
 
-func (s *LabelsPrefCfgSuite) TestFilterLabels(c *C) {
-	wanted := Labels{
-		"id.lizards":                  NewLabel("id.lizards", "web", LabelSourceContainer),
-		"id.lizards.k8s":              NewLabel("id.lizards.k8s", "web", LabelSourceK8s),
-		"io.kubernetes.pod.namespace": NewLabel("io.kubernetes.pod.namespace", "default", LabelSourceContainer),
+func (s *LabelsPrefCfgSuite) TestLabels(c *C) {
+	wanted := labels.Labels{
+		"id.lizards":                  labels.NewLabel("id.lizards", "web", labels.LabelSourceContainer),
+		"id.lizards.k8s":              labels.NewLabel("id.lizards.k8s", "web", labels.LabelSourceK8s),
+		"io.kubernetes.pod.namespace": labels.NewLabel("io.kubernetes.pod.namespace", "default", labels.LabelSourceContainer),
 	}
 
 	dlpcfg := defaultLabelPrefixCfg()
@@ -56,11 +57,11 @@ func (s *LabelsPrefCfgSuite) TestFilterLabels(c *C) {
 		"annotation.kubernetes.io/config.seen": "2017-05-30T14:22:17.691491034Z",
 		"controller-revision-hash":             "123456",
 	}
-	allLabels := Map2Labels(allNormalLabels, LabelSourceContainer)
+	allLabels := labels.Map2Labels(allNormalLabels, labels.LabelSourceContainer)
 	filtered, _ := dlpcfg.filterLabels(allLabels)
 	c.Assert(len(filtered), Equals, 1)
-	allLabels["id.lizards"] = NewLabel("id.lizards", "web", LabelSourceContainer)
-	allLabels["id.lizards.k8s"] = NewLabel("id.lizards.k8s", "web", LabelSourceK8s)
+	allLabels["id.lizards"] = labels.NewLabel("id.lizards", "web", labels.LabelSourceContainer)
+	allLabels["id.lizards.k8s"] = labels.NewLabel("id.lizards.k8s", "web", labels.LabelSourceK8s)
 	filtered, _ = dlpcfg.filterLabels(allLabels)
 	c.Assert(len(filtered), Equals, 3)
 	c.Assert(filtered, comparator.DeepEquals, wanted)

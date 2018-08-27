@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/labels/filter"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/option"
@@ -88,7 +89,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	option.Config.AccessLog = filepath.Join(tempRunDir, "cilium-access.log")
 
 	// GetConfig the default labels prefix filter
-	err = labels.ParseLabelPrefixCfg(nil, "")
+	err = filter.ParseLabelPrefixCfg(nil, "")
 	c.Assert(err, IsNil)
 	option.Config.Opts.SetBool(option.DropNotify, true)
 	option.Config.Opts.SetBool(option.TraceNotify, true)

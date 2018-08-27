@@ -39,6 +39,7 @@ import (
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	informer "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/labels/filter"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -1946,9 +1947,9 @@ func (d *Daemon) updateK8sPodV1(oldK8sPod, newK8sPod *v1.Pod) {
 	}
 
 	newLabels := labels.Map2Labels(newPodLabels, labels.LabelSourceK8s)
-	newIdtyLabels, _ := labels.FilterLabels(newLabels)
+	newIdtyLabels, _ := filter.Labels(newLabels)
 	oldLabels := labels.Map2Labels(oldPodLabels, labels.LabelSourceK8s)
-	oldIdtyLabels, _ := labels.FilterLabels(oldLabels)
+	oldIdtyLabels, _ := filter.Labels(oldLabels)
 
 	err := podEP.ModifyIdentityLabels(d, newIdtyLabels, oldIdtyLabels)
 	if err != nil {
@@ -2004,8 +2005,8 @@ func (d *Daemon) updateK8sV1Namespace(oldNS, newNS *v1.Namespace) {
 	oldLabels := labels.Map2Labels(oldNSLabels, labels.LabelSourceK8s)
 	newLabels := labels.Map2Labels(newNSLabels, labels.LabelSourceK8s)
 
-	oldIdtyLabels, _ := labels.FilterLabels(oldLabels)
-	newIdtyLabels, _ := labels.FilterLabels(newLabels)
+	oldIdtyLabels, _ := filter.Labels(oldLabels)
+	newIdtyLabels, _ := filter.Labels(newLabels)
 
 	eps := endpointmanager.GetEndpoints()
 	for _, ep := range eps {

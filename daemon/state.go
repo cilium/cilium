@@ -26,6 +26,7 @@ import (
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/labels/filter"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/option"
@@ -167,7 +168,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 			}
 			scopedLog := log.WithField(logfields.EndpointID, ep.ID)
 			// Filter the restored labels with the new daemon's filter
-			l, _ := labels.FilterLabels(ep.OpLabels.IdentityLabels())
+			l, _ := filter.Labels(ep.OpLabels.IdentityLabels())
 			ep.RUnlock()
 
 			identity, _, err := identityPkg.AllocateIdentity(l)
