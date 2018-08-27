@@ -386,7 +386,7 @@ func (e *Endpoint) updateNetworkPolicy(owner Owner, proxyWaitGroup *completion.W
 	// sidecar Envoy proxies and those proxies needing network connectivity
 	// to get their initial configuration, which is required for them to ACK
 	// the NetworkPolicies.
-	if !e.PolicyCalculated || e.SecurityIdentity == nil {
+	if !e.policyCalculated || e.SecurityIdentity == nil {
 		return nil
 	}
 
@@ -574,9 +574,9 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 
 	e.computeDesiredPolicyMapState(owner, labelsMap, repo)
 	// If we are in this function, then policy has been calculated.
-	if !e.PolicyCalculated {
+	if !e.policyCalculated {
 		e.getLogger().Debug("setting PolicyCalculated to true for endpoint")
-		e.PolicyCalculated = true
+		e.policyCalculated = true
 		// Always trigger a regenerate after the first policy
 		// calculation has been performed
 		optsChanged = true
