@@ -23,7 +23,6 @@ import (
 	"math/rand"
 	"net"
 	"os"
-	"path/filepath"
 	"reflect"
 	"runtime"
 	"sort"
@@ -1263,17 +1262,6 @@ func (e *Endpoint) GetIdentity() identityPkg.NumericIdentity {
 	}
 
 	return identityPkg.InvalidIdentity
-}
-
-// DirectoryPath returns the directory name for this endpoint bpf program.
-func (e *Endpoint) DirectoryPath() string {
-	return filepath.Join(".", fmt.Sprintf("%d", e.ID))
-}
-
-// FailedDirectoryPath returns the directory name for this endpoint bpf program
-// failed builds.
-func (e *Endpoint) FailedDirectoryPath() string {
-	return filepath.Join(".", fmt.Sprintf("%d%s", e.ID, "_next_fail"))
 }
 
 func (e *Endpoint) Allows(id identityPkg.NumericIdentity) bool {

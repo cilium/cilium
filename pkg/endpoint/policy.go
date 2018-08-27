@@ -754,7 +754,7 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 	// This is the temporary directory to store the generated headers,
 	// the original existing directory is not overwritten until the
 	// entire generation process has succeeded.
-	tmpDir := getTempEndpointDirectory(origDir)
+	tmpDir := e.NextDirectoryPath()
 
 	// Create temporary endpoint directory if it does not exist yet
 	if err := os.MkdirAll(tmpDir, 0777); err != nil {
@@ -780,11 +780,19 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 	}()
 
 	revision, compilationExecuted, err = e.regenerateBPF(owner, tmpDir, context)
+	if err != nil {
+		failDir := e.FailedDirectoryPath()
+		e.getLogger().WithFields(logrus.Fields{
+			logfields.Path: failDir,
+		}).Warn("generating BPF for endpoint failed, keeping stale directory.")
+		os.Rename(tmpDir, failDir)
+		return err
+	}
 
-	// Depending upon result of BPF regeneration (compilation executed, or
-	// error occurred), shift endpoint directories to match said BPF regeneration
+	// Depending upon result of BPF regeneration (compilation executed),
+	// shift endpoint directories to match said BPF regeneration
 	// results.
-	err = e.synchronizeDirectories(origDir, compilationExecuted, err)
+	err = e.synchronizeDirectories(origDir, compilationExecuted)
 	if err != nil {
 		return fmt.Errorf("error synchronizing endpoint BPF program directories: %s", err)
 	}
