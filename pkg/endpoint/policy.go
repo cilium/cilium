@@ -74,6 +74,10 @@ type RegenerationContext struct {
 	// Reason provides context to source for the regeneration, which is
 	// used to generate useful log messages.
 	Reason string
+
+	// ReloadDatapath forces the datapath programs to be reloaded. It does
+	// not guarantee recompilation of the programs.
+	ReloadDatapath bool
 }
 
 // NewRegenerationContext returns a new context for regeneration that does not

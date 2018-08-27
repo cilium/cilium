@@ -640,7 +640,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string, regenContext *Regene
 	rundir := owner.GetStateDir()
 	debug := strconv.FormatBool(viper.GetBool(option.BPFCompileDebugName))
 
-	if bpfHeaderfilesChanged {
+	if bpfHeaderfilesChanged || regenContext.ReloadDatapath {
 		closeChan := loadinfo.LogPeriodicSystemLoad(log.WithFields(logrus.Fields{logfields.EndpointID: epID}).Debugf, time.Second)
 
 		start := time.Now()
