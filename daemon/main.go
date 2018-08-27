@@ -836,7 +836,6 @@ func runDaemon() {
 	go func() {
 		log.Info("Waiting until all pre-existing resources related to policy have been received")
 		d.k8sResourceSyncWaitGroup.Wait()
-		identity.WaitForInitialIdentities()
 		cachesSynced <- struct{}{}
 	}()
 

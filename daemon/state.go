@@ -175,6 +175,12 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 				scopedLog.WithError(err).Warn("Unable to restore endpoint")
 				epRegenerated <- false
 			}
+			// Wait for initial identities from the kvstore before
+			// doing any policy calculation for endpoints that don't have
+			// a fixed identity.
+			if !identity.IsFixed() {
+				identityPkg.WaitForInitialIdentities()
+			}
 
 			if err := ep.LockAlive(); err != nil {
 				scopedLog.Warn("Endpoint to restore has been deleted")
