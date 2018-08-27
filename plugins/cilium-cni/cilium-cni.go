@@ -33,6 +33,7 @@ import (
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
+	logginghelpers "github.com/cilium/cilium/pkg/logging/helpers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/uuid"
 
@@ -157,7 +158,7 @@ func releaseIPs(client *client.Client, addr *models.AddressPair) {
 func addIPConfigToLink(ip addressing.CiliumIP, routes []route.Route, link netlink.Link, ifName string) error {
 	log.WithFields(logrus.Fields{
 		logfields.IPAddr:    ip,
-		"netLink":           logfields.Repr(link),
+		"netLink":           logginghelpers.Repr(link),
 		logfields.Interface: ifName,
 	}).Debug("Configuring link")
 
@@ -171,7 +172,7 @@ func addIPConfigToLink(ip addressing.CiliumIP, routes []route.Route, link netlin
 	sort.Sort(route.ByMask(routes))
 
 	for _, r := range routes {
-		log.WithField("route", logfields.Repr(r)).Debug("Adding route")
+		log.WithField("route", logginghelpers.Repr(r)).Debug("Adding route")
 		rt := &netlink.Route{
 			LinkIndex: link.Attrs().Index,
 			Scope:     netlink.SCOPE_UNIVERSE,

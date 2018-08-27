@@ -23,6 +23,7 @@ import (
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labels/model"
+	logginghelpers "github.com/cilium/cilium/pkg/logging/helpers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/spf13/cobra"
@@ -70,7 +71,7 @@ func init() {
 
 // printEndpointLabels pretty prints labels with tabs
 func printEndpointLabels(lbls *labels.OpLabels) {
-	log.WithField(logfields.Labels, logfields.Repr(*lbls)).Debug("All Labels")
+	log.WithField(logfields.Labels, logginghelpers.Repr(*lbls)).Debug("All Labels")
 	w := tabwriter.NewWriter(os.Stdout, 2, 0, 3, ' ', 0)
 
 	for _, v := range lbls.IdentityLabels() {

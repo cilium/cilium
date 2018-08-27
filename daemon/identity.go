@@ -19,6 +19,7 @@ import (
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
+	logginghelpers "github.com/cilium/cilium/pkg/logging/helpers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/go-openapi/runtime/middleware"
@@ -29,7 +30,7 @@ type getIdentity struct{}
 func newGetIdentityHandler(d *Daemon) GetIdentityHandler { return &getIdentity{} }
 
 func (h *getIdentity) Handle(params GetIdentityParams) middleware.Responder {
-	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /identity request")
+	log.WithField(logfields.Params, logginghelpers.Repr(params)).Debug("GET /identity request")
 
 	identities := []*models.Identity{}
 	if params.Labels == nil {

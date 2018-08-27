@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
+	logginghelpers "github.com/cilium/cilium/pkg/logging/helpers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/proxymap"
 	"github.com/cilium/cilium/pkg/node"
@@ -193,7 +194,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 
 		r.lastUpdated = time.Now()
 
-		scopedLog.WithField(logfields.Object, logfields.Repr(r)).
+		scopedLog.WithField(logfields.Object, logginghelpers.Repr(r)).
 			Debug("updated existing ", l4.L7Parser, " proxy instance")
 
 		return r, nil
@@ -228,7 +229,7 @@ retryCreatePort:
 
 		switch {
 		case err == nil:
-			scopedLog.WithField(logfields.Object, logfields.Repr(redir)).
+			scopedLog.WithField(logfields.Object, logginghelpers.Repr(redir)).
 				Debug("Created new ", l4.L7Parser, " proxy instance")
 
 			p.allocatedPorts[to] = struct{}{}

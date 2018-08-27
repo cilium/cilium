@@ -42,6 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels/filter"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
+	logginghelpers "github.com/cilium/cilium/pkg/logging/helpers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	bpfIPCache "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -713,7 +714,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 func copyObjToV1NetworkPolicy(obj interface{}) *networkingv1.NetworkPolicy {
 	k8sNP, ok := obj.(*networkingv1.NetworkPolicy)
 	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
+		log.WithField(logfields.Object, logginghelpers.Repr(obj)).
 			Warn("Ignoring invalid k8s v1 NetworkPolicy")
 		return nil
 	}
@@ -723,7 +724,7 @@ func copyObjToV1NetworkPolicy(obj interface{}) *networkingv1.NetworkPolicy {
 func copyObjToV1beta1NetworkPolicy(obj interface{}) *v1beta1.NetworkPolicy {
 	k8sNP, ok := obj.(*v1beta1.NetworkPolicy)
 	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
+		log.WithField(logfields.Object, logginghelpers.Repr(obj)).
 			Warn("Ignoring invalid k8s v1beta1 NetworkPolicy")
 		return nil
 	}
@@ -733,7 +734,7 @@ func copyObjToV1beta1NetworkPolicy(obj interface{}) *v1beta1.NetworkPolicy {
 func copyObjToV1Services(obj interface{}) *v1.Service {
 	svc, ok := obj.(*v1.Service)
 	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
+		log.WithField(logfields.Object, logginghelpers.Repr(obj)).
 			Warn("Ignoring invalid k8s v1 Service")
 		return nil
 	}
@@ -743,7 +744,7 @@ func copyObjToV1Services(obj interface{}) *v1.Service {
 func copyObjToV1Endpoints(obj interface{}) *v1.Endpoints {
 	ep, ok := obj.(*v1.Endpoints)
 	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
+		log.WithField(logfields.Object, logginghelpers.Repr(obj)).
 			Warn("Ignoring invalid k8s v1 Endpoints")
 		return nil
 	}
@@ -753,7 +754,7 @@ func copyObjToV1Endpoints(obj interface{}) *v1.Endpoints {
 func copyObjToV1beta1Ingress(obj interface{}) *v1beta1.Ingress {
 	ing, ok := obj.(*v1beta1.Ingress)
 	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
+		log.WithField(logfields.Object, logginghelpers.Repr(obj)).
 			Warn("Ignoring invalid k8s v1beta1 Ingress")
 		return nil
 	}
@@ -763,7 +764,7 @@ func copyObjToV1beta1Ingress(obj interface{}) *v1beta1.Ingress {
 func copyObjToV2CNP(obj interface{}) *cilium_v2.CiliumNetworkPolicy {
 	cnp, ok := obj.(*cilium_v2.CiliumNetworkPolicy)
 	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
+		log.WithField(logfields.Object, logginghelpers.Repr(obj)).
 			Warn("Ignoring invalid k8s v2 CiliumNetworkPolicy")
 		return nil
 	}
@@ -773,7 +774,7 @@ func copyObjToV2CNP(obj interface{}) *cilium_v2.CiliumNetworkPolicy {
 func copyObjToV1Node(obj interface{}) *v1.Node {
 	node, ok := obj.(*v1.Node)
 	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
+		log.WithField(logfields.Object, logginghelpers.Repr(obj)).
 			Warn("Ignoring invalid k8s v1 Node")
 		return nil
 	}
@@ -783,7 +784,7 @@ func copyObjToV1Node(obj interface{}) *v1.Node {
 func copyObjToV1Namespace(obj interface{}) *v1.Namespace {
 	ns, ok := obj.(*v1.Namespace)
 	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
+		log.WithField(logfields.Object, logginghelpers.Repr(obj)).
 			Warn("Ignoring invalid k8s v1 Namespace")
 		return nil
 	}
@@ -793,7 +794,7 @@ func copyObjToV1Namespace(obj interface{}) *v1.Namespace {
 func copyObjToV1Pod(obj interface{}) *v1.Pod {
 	pod, ok := obj.(*v1.Pod)
 	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
+		log.WithField(logfields.Object, logginghelpers.Repr(obj)).
 			Warn("Ignoring invalid k8s v1 Pod")
 		return nil
 	}
@@ -805,7 +806,7 @@ func (d *Daemon) addK8sNetworkPolicyV1(k8sNP *networkingv1.NetworkPolicy) {
 	rules, err := k8s.ParseNetworkPolicy(k8sNP)
 	if err != nil {
 		scopedLog.WithError(err).WithFields(logrus.Fields{
-			logfields.CiliumNetworkPolicy: logfields.Repr(k8sNP),
+			logfields.CiliumNetworkPolicy: logginghelpers.Repr(k8sNP),
 		}).Error("Error while parsing k8s kubernetes NetworkPolicy")
 		return
 	}
@@ -814,7 +815,7 @@ func (d *Daemon) addK8sNetworkPolicyV1(k8sNP *networkingv1.NetworkPolicy) {
 	opts := AddOptions{Replace: true}
 	if _, err := d.PolicyAdd(rules, &opts); err != nil {
 		scopedLog.WithError(err).WithFields(logrus.Fields{
-			logfields.CiliumNetworkPolicy: logfields.Repr(rules),
+			logfields.CiliumNetworkPolicy: logginghelpers.Repr(rules),
 		}).Error("Unable to add NetworkPolicy rules to policy repository")
 		return
 	}
@@ -845,7 +846,7 @@ func (d *Daemon) deleteK8sNetworkPolicyV1(k8sNP *networkingv1.NetworkPolicy) {
 		logfields.K8sNetworkPolicyName: k8sNP.ObjectMeta.Name,
 		logfields.K8sNamespace:         k8sNP.ObjectMeta.Namespace,
 		logfields.K8sAPIVersion:        k8sNP.TypeMeta.APIVersion,
-		logfields.Labels:               logfields.Repr(labels),
+		logfields.Labels:               logginghelpers.Repr(labels),
 	})
 	if _, err := d.PolicyDelete(labels); err != nil {
 		scopedLog.WithError(err).Error("Error while deleting k8s NetworkPolicy")
@@ -1163,7 +1164,7 @@ func (d *Daemon) delK8sSVCs(svc loadbalancer.K8sServiceNamespace, svcInfo *loadb
 		}
 
 		if err := d.svcDeleteByFrontend(fe); err != nil {
-			scopedLog.WithError(err).WithField(logfields.Object, logfields.Repr(fe)).
+			scopedLog.WithError(err).WithField(logfields.Object, logginghelpers.Repr(fe)).
 				Warn("Error deleting service by frontend")
 
 		} else {
@@ -1235,7 +1236,7 @@ func (d *Daemon) addK8sSVCs(svc loadbalancer.K8sServiceNamespace, svcInfo *loadb
 			scopedLog.WithFields(logrus.Fields{
 				logfields.ServiceName: fePortName,
 				logfields.ServiceID:   feAddrID.ID,
-				logfields.Object:      logfields.Repr(svc),
+				logfields.Object:      logginghelpers.Repr(svc),
 			}).Debug("Got feAddr ID for service")
 			fePort.ID = feAddrID.ID
 		}
@@ -1686,7 +1687,7 @@ func cnpNodeStatusController(ciliumV2Store cache.Store, cnp *cilium_v2.CiliumNet
 	if ruleCopyParseErr != nil {
 		// If we can't parse the rule then we should signalize
 		// it in the status
-		log.WithError(ruleCopyParseErr).WithField(logfields.Object, logfields.Repr(serverRuleCpy)).
+		log.WithError(ruleCopyParseErr).WithField(logfields.Object, logginghelpers.Repr(serverRuleCpy)).
 			Warn("Error parsing new CiliumNetworkPolicy rule")
 	}
 
@@ -1802,13 +1803,13 @@ func (d *Daemon) updateCiliumNetworkPolicyV2(ciliumV2Store cache.Store,
 
 	_, err := oldRuleCpy.Parse()
 	if err != nil {
-		log.WithError(err).WithField(logfields.Object, logfields.Repr(oldRuleCpy)).
+		log.WithError(err).WithField(logfields.Object, logginghelpers.Repr(oldRuleCpy)).
 			Warn("Error parsing old CiliumNetworkPolicy rule")
 		return
 	}
 	_, err = newRuleCpy.Parse()
 	if err != nil {
-		log.WithError(err).WithField(logfields.Object, logfields.Repr(newRuleCpy)).
+		log.WithError(err).WithField(logfields.Object, logginghelpers.Repr(newRuleCpy)).
 			Warn("Error parsing new CiliumNetworkPolicy rule")
 		return
 	}
@@ -1959,7 +1960,7 @@ func (d *Daemon) updateK8sPodV1(oldK8sPod, newK8sPod *v1.Pod) {
 
 	log.WithFields(logrus.Fields{
 		logfields.EndpointID: podEP.GetID(),
-		logfields.Labels:     logfields.Repr(newIdtyLabels),
+		logfields.Labels:     logginghelpers.Repr(newIdtyLabels),
 	}).Debug("Update endpoint with new labels")
 }
 
