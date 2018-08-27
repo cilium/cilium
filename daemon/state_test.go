@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -147,7 +147,7 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 		ready := ep.SetStateLocked(e.StateWaitingToRegenerate, "test")
 		ep.Unlock()
 		if ready {
-			<-ep.Regenerate(ds, "test")
+			<-ep.Regenerate(ds, regenContext)
 		}
 
 		switch ep.ID {
@@ -170,7 +170,7 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 				ready := ep.SetStateLocked(e.StateWaitingToRegenerate, "test")
 				ep.Unlock()
 				if ready {
-					<-ep.Regenerate(ds, "test")
+					<-ep.Regenerate(ds, regenContext)
 				}
 				epsNames = append(epsNames, ep.DirectoryPath())
 			}

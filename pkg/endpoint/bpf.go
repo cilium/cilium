@@ -435,7 +435,7 @@ func (e *Endpoint) removeOldRedirects(owner Owner, desiredRedirects map[string]b
 // Must be called with endpoint.Mutex not held and endpoint.BuildMutex held.
 // Returns the policy revision number when the regeneration has called, a
 // boolean if the BPF compilation was executed and an error in case of an error.
-func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint64, compiled bool, reterr error) {
+func (e *Endpoint) regenerateBPF(owner Owner, epdir string, regenContext *RegenerationContext) (revnum uint64, compiled bool, reterr error) {
 	var (
 		err                 error
 		compilationExecuted bool
@@ -479,7 +479,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 	// When building the initial drop policy in waiting-for-identity state
 	// the state remains unchanged
 	if e.GetStateLocked() != StateWaitingForIdentity &&
-		!e.BuilderSetStateLocked(StateRegenerating, "Regenerating Endpoint BPF: "+reason) {
+		!e.BuilderSetStateLocked(StateRegenerating, "Regenerating Endpoint BPF: "+regenContext.Reason) {
 
 		e.getLogger().WithField(logfields.EndpointState, e.state).Debug("Skipping build due to invalid state")
 		e.Unlock()

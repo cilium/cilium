@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -263,24 +263,24 @@ func updateReferences(ep *endpoint.Endpoint) {
 // list is locked and cannot be modified.
 // Returns a waiting group that can be used to know when all the endpoints are
 // regenerated.
-func RegenerateAllEndpoints(owner endpoint.Owner, reason string) *sync.WaitGroup {
+func RegenerateAllEndpoints(owner endpoint.Owner, regenContext *endpoint.RegenerationContext) *sync.WaitGroup {
 	var wg sync.WaitGroup
 
 	eps := GetEndpoints()
 	wg.Add(len(eps))
 
-	log.Infof("regenerating all endpoints due to %s", reason)
+	log.Infof("regenerating all endpoints due to %s", regenContext.Reason)
 	for _, ep := range eps {
 		go func(ep *endpoint.Endpoint, wg *sync.WaitGroup) {
 			if err := ep.LockAlive(); err != nil {
-				log.WithError(err).Warn("Error regenerating endpoint for event %s", reason)
+				log.WithError(err).Warn("Error regenerating endpoint for event %s", regenContext.Reason)
 				ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+err.Error())
 			} else {
-				regen := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", reason))
+				regen := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenContext.Reason))
 				ep.Unlock()
 				if regen {
 					// Regenerate logs status according to the build success/failure
-					<-ep.Regenerate(owner, reason)
+					<-ep.Regenerate(owner, regenContext)
 				}
 			}
 			wg.Done()
