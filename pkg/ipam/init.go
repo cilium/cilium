@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/logging"
+	logginghelpers "github.com/cilium/cilium/pkg/logging/helpers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 
@@ -75,7 +76,7 @@ func reserveLocalRoutes(ipam *Config) {
 			continue
 		}
 
-		log.WithField("route", logfields.Repr(r)).Debug("Considering route")
+		log.WithField("route", logginghelpers.Repr(r)).Debug("Considering route")
 
 		if allocRange.Contains(r.Dst.IP) {
 			log.WithFields(logrus.Fields{

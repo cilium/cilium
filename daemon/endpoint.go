@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labels/filter"
+	logginghelpers "github.com/cilium/cilium/pkg/logging/helpers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/option"
@@ -51,7 +52,7 @@ func NewGetEndpointHandler(d *Daemon) GetEndpointHandler {
 }
 
 func (h *getEndpoint) Handle(params GetEndpointParams) middleware.Responder {
-	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /endpoint request")
+	log.WithField(logfields.Params, logginghelpers.Repr(params)).Debug("GET /endpoint request")
 	resEPs := getEndpointList(params)
 
 	if params.Labels != nil && len(resEPs) == 0 {
@@ -192,7 +193,7 @@ func (d *Daemon) createEndpoint(epTemplate *models.EndpointChangeRequest, id str
 }
 
 func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder {
-	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PUT /endpoint/{id} request")
+	log.WithField(logfields.Params, logginghelpers.Repr(params)).Debug("PUT /endpoint/{id} request")
 	epTemplate := params.Endpoint
 
 	logger := log.WithFields(logrus.Fields{
@@ -311,7 +312,7 @@ func validPatchTransitionState(state models.EndpointState) bool {
 }
 
 func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Responder {
-	scopedLog := log.WithField(logfields.Params, logfields.Repr(params))
+	scopedLog := log.WithField(logfields.Params, logginghelpers.Repr(params))
 	scopedLog.Debug("PATCH /endpoint/{id} request")
 
 	epTemplate := params.Endpoint
@@ -573,7 +574,7 @@ func NewDeleteEndpointIDHandler(d *Daemon) DeleteEndpointIDHandler {
 }
 
 func (h *deleteEndpointID) Handle(params DeleteEndpointIDParams) middleware.Responder {
-	log.WithField(logfields.Params, logfields.Repr(params)).Debug("DELETE /endpoint/{id} request")
+	log.WithField(logfields.Params, logginghelpers.Repr(params)).Debug("DELETE /endpoint/{id} request")
 
 	d := h.daemon
 	if nerr, err := d.DeleteEndpoint(params.ID); err != nil {
@@ -628,7 +629,7 @@ func NewPatchEndpointIDConfigHandler(d *Daemon) PatchEndpointIDConfigHandler {
 }
 
 func (h *patchEndpointIDConfig) Handle(params PatchEndpointIDConfigParams) middleware.Responder {
-	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PATCH /endpoint/{id}/config request")
+	log.WithField(logfields.Params, logginghelpers.Repr(params)).Debug("PATCH /endpoint/{id}/config request")
 
 	d := h.daemon
 	if err := d.EndpointUpdate(params.ID, params.EndpointConfiguration); err != nil {
@@ -650,7 +651,7 @@ func NewGetEndpointIDConfigHandler(d *Daemon) GetEndpointIDConfigHandler {
 }
 
 func (h *getEndpointIDConfig) Handle(params GetEndpointIDConfigParams) middleware.Responder {
-	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /endpoint/{id}/config")
+	log.WithField(logfields.Params, logginghelpers.Repr(params)).Debug("GET /endpoint/{id}/config")
 
 	ep, err := endpointmanager.Lookup(params.ID)
 	if err != nil {
@@ -681,7 +682,7 @@ func NewGetEndpointIDLabelsHandler(d *Daemon) GetEndpointIDLabelsHandler {
 }
 
 func (h *getEndpointIDLabels) Handle(params GetEndpointIDLabelsParams) middleware.Responder {
-	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /endpoint/{id}/labels")
+	log.WithField(logfields.Params, logginghelpers.Repr(params)).Debug("GET /endpoint/{id}/labels")
 
 	ep, err := endpointmanager.Lookup(params.ID)
 	if err != nil {
@@ -811,7 +812,7 @@ func NewPatchEndpointIDLabelsHandler(d *Daemon) PatchEndpointIDLabelsHandler {
 }
 
 func (h *putEndpointIDLabels) Handle(params PatchEndpointIDLabelsParams) middleware.Responder {
-	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PATCH /endpoint/{id}/labels request")
+	log.WithField(logfields.Params, logginghelpers.Repr(params)).Debug("PATCH /endpoint/{id}/labels request")
 
 	d := h.daemon
 	mod := params.Configuration

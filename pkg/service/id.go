@@ -16,12 +16,13 @@ package service
 
 import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	logginghelpers "github.com/cilium/cilium/pkg/logging/helpers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // AcquireID acquires a service ID
 func AcquireID(l3n4Addr loadbalancer.L3n4Addr, baseID uint32) (*loadbalancer.L3n4AddrID, error) {
-	log.WithField(logfields.L3n4Addr, logfields.Repr(l3n4Addr)).Debug("Resolving service")
+	log.WithField(logfields.L3n4Addr, logginghelpers.Repr(l3n4Addr)).Debug("Resolving service")
 
 	if enableGlobalServiceIDs {
 		return acquireGlobalID(l3n4Addr, baseID)
@@ -32,7 +33,7 @@ func AcquireID(l3n4Addr loadbalancer.L3n4Addr, baseID uint32) (*loadbalancer.L3n
 
 // RestoreID restores  previously used service ID
 func RestoreID(l3n4Addr loadbalancer.L3n4Addr, baseID uint32) (*loadbalancer.L3n4AddrID, error) {
-	log.WithField(logfields.L3n4Addr, logfields.Repr(l3n4Addr)).Debug("Restoring service")
+	log.WithField(logfields.L3n4Addr, logginghelpers.Repr(l3n4Addr)).Debug("Restoring service")
 
 	if enableGlobalServiceIDs {
 		// global service IDs do not require to pass in the existing
