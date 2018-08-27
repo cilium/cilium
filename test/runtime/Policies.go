@@ -1300,7 +1300,6 @@ var _ = Describe("RuntimePolicies", func() {
 
 			By("Accessing /private on %q from %q should fail", otherHostIP, helpers.App1)
 			res := vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode("http://%s/private", otherHostIP))
-			res.ExpectFail("unexpectedly able to access http://%q:80/private when access should only be allowed to /index.html", otherHostIP)
 			res.ExpectContains("403", "unexpectedly able to access http://%q:80/private when access should only be allowed to /index.html", otherHostIP)
 		})
 	})
