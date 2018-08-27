@@ -20,7 +20,7 @@ import (
 	"os"
 
 	"github.com/cilium/cilium/pkg/command"
-	"github.com/cilium/cilium/pkg/logging/logfields"
+	logginghelpers "github.com/cilium/cilium/pkg/logging/helpers"
 	"github.com/spf13/cobra"
 )
 
@@ -38,7 +38,7 @@ var policyImportCmd = &cobra.Command{
 		if ruleList, err := loadPolicy(path); err != nil {
 			Fatalf("Cannot parse policy %s: %s\n", path, err)
 		} else {
-			log.WithField("rule", logfields.Repr(ruleList)).Debug("Constructed policy object for import")
+			log.WithField("rule", logginghelpers.Repr(ruleList)).Debug("Constructed policy object for import")
 
 			// Ignore request if no policies have been found
 			if len(ruleList) == 0 {

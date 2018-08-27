@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
+	logginghelpers "github.com/cilium/cilium/pkg/logging/helpers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	bpfIPCache "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -64,7 +65,7 @@ func NewGetPolicyResolveHandler(d *Daemon) GetPolicyResolveHandler {
 }
 
 func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Responder {
-	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /policy/resolve request")
+	log.WithField(logfields.Params, logginghelpers.Repr(params)).Debug("GET /policy/resolve request")
 
 	d := h.daemon
 
@@ -165,7 +166,7 @@ type AddOptions struct {
 // pods which are selected. Eventual changes in policy rules are propagated to
 // all locally managed endpoints.
 func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, error) {
-	log.WithField(logfields.CiliumNetworkPolicy, logfields.Repr(rules)).Debug("Policy Add Request")
+	log.WithField(logfields.CiliumNetworkPolicy, logginghelpers.Repr(rules)).Debug("Policy Add Request")
 
 	// These must be marked before actually adding them to the repository since a
 	// copy may be made and we won't be able to add the ToFQDN tracking labels
@@ -238,7 +239,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 // Returns the revision number and an error in case it was not possible to
 // delete the policy.
 func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
-	log.WithField(logfields.IdentityLabels, logfields.Repr(labels)).Debug("Policy Delete Request")
+	log.WithField(logfields.IdentityLabels, logginghelpers.Repr(labels)).Debug("Policy Delete Request")
 
 	d.policy.Mutex.Lock()
 

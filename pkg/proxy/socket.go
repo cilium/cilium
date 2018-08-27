@@ -25,6 +25,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/lock"
+	logginghelpers "github.com/cilium/cilium/pkg/logging/helpers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/proxymap"
 
@@ -443,7 +444,7 @@ func lookupNewDest(remoteAddr string, dport uint16) (uint32, string, error) {
 		return 0, "", err
 	}
 
-	flowdebug.Log(log.WithField(logfields.Object, logfields.Repr(val)), "Found proxy entry")
+	flowdebug.Log(log.WithField(logfields.Object, logginghelpers.Repr(val)), "Found proxy entry")
 
 	return val.GetSourceIdentity(), val.HostPort(), nil
 }

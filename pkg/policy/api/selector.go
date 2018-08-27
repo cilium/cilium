@@ -20,6 +20,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
+	logginghelpers "github.com/cilium/cilium/pkg/logging/helpers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/mitchellh/hashstructure"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -163,7 +164,7 @@ func labelSelectorToRequirements(labelSelector *metav1.LabelSelector) *k8sLbls.R
 	selector, err := metav1.LabelSelectorAsSelector(labelSelector)
 	if err != nil {
 		log.WithError(err).WithField(logfields.EndpointLabelSelector,
-			logfields.Repr(labelSelector)).Error("unable to construct selector in label selector")
+			logginghelpers.Repr(labelSelector)).Error("unable to construct selector in label selector")
 		return nil
 	}
 
