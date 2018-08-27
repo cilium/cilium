@@ -249,6 +249,39 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 
 	log.WithField(logfields.PolicyRevision, rev).Info("Policy imported via API, recalculating...")
 
+	/*d.loadBalancer.K8sMU.Lock()
+	// Need to figure out whether policy contains toServices rules.
+	var hasServices bool
+	var servicesList []policyAPI.Service
+	if k8s.IsEnabled() {
+		for _, rule := range rules {
+			for _, egressRule := range rule.Egress {
+				for _, service := range egressRule.ToServices {
+					svcns := loadbalancer.K8sServiceNamespace{
+						ServiceName: service.K8sService.ServiceName,
+						Namespace: service.K8sService.Namespace,
+					}
+					newSvcEp, svcEpOk := d.loadBalancer.K8sEndpoints[svcns]
+					svc, svcOk := d.loadBalancer.K8sServices[svcns]
+					if svcEpOk && svcOk {
+						translator := k8s.NewK8sTranslator(svcns, *newSvcEp, false, svc.Labels, bpfIPCache.IPCache)
+						// Translate rules *before they are inserted into the policy repository?
+						err := d.policy.TranslateRules(translator)
+						if err != nil {
+							//
+						}
+						//translator := k8s.NewK8sTranslator(svcns, *newSvcEP, false, svc.Labels, bpfIPCache.IPCache)
+						//rulesChanged, err := d.policy.TranslateRules(translator)
+					}
+				}
+			}
+		}
+		if hasServices {
+
+		}
+	}
+	d.loadBalancer.K8sMU.Unlock()*/
+
 	d.TriggerPolicyUpdates(false, "policy rules added")
 
 	repr, err := monitor.PolicyUpdateRepr(rules, rev)

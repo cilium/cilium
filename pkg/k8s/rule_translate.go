@@ -225,7 +225,8 @@ func PreprocessRules(
 	for _, rule := range r {
 		for ns, ep := range endpoints {
 			svc, ok := services[ns]
-			if ok && svc.IsHeadless {
+			if ok && svc.IsExternal() {
+				log.Infof("PreprocessRules: svc %s is headless; translating", svc)
 				t := NewK8sTranslator(ns, *ep, false, svc.Labels, ipcache)
 				err := t.Translate(rule)
 				if err != nil {

@@ -887,7 +887,10 @@ func (d *Daemon) addK8sServiceV1(svc *v1.Service) {
 	clusterIP := net.ParseIP(svc.Spec.ClusterIP)
 	headless := false
 	if strings.ToLower(svc.Spec.ClusterIP) == "none" {
+		scopedLog.Info("addK8sServiceV1: is headless!! ClusterIP=%s", svc.Spec.ClusterIP)
 		headless = true
+	} else {
+		scopedLog.Info("addK8sServiceV1: is not headless!! ClusterIP=%s", svc.Spec.ClusterIP)
 	}
 	newSI := loadbalancer.NewK8sServiceInfo(clusterIP, headless, svc.Labels, svc.Spec.Selector)
 
@@ -995,6 +998,8 @@ func (d *Daemon) addK8sEndpointV1(ep *v1.Endpoints) {
 			return
 		}
 	}
+
+	//policyImportErr = k8s.PreprocessRules(rules, d.loadBalancer.K8sEndpoints, d.loadBalancer.K8sServices)
 
 	svc, ok := d.loadBalancer.K8sServices[svcns]
 
@@ -1639,7 +1644,15 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumV2Store cache.Store, cnp *cilium
 	rules, policyImportErr := cnp.Parse()
 	if policyImportErr == nil && len(rules) > 0 {
 		d.loadBalancer.K8sMU.Lock()
+		log.Infof("addCiliumNetworkPolicyV2: d.loadbalancer.K8sEndpoints: %s", d.loadBalancer.K8sEndpoints)
+		log.Infof("addCiliumNetworkPolicyV2: d.loadbalancer.K8sServices: %s", d.loadBalancer.K8sServices)
+		for _, rule := range rules {
+			log.Infof("addCiliumNetworkPolicyV2: rules before: %s", rule)
+		}
 		policyImportErr = k8s.PreprocessRules(rules, d.loadBalancer.K8sEndpoints, d.loadBalancer.K8sServices)
+		for _, rule := range rules {
+			log.Infof("addCiliumNetworkPolicyV2: rules after: %s", rule)
+		}
 		d.loadBalancer.K8sMU.Unlock()
 		if policyImportErr == nil {
 			rev, policyImportErr = d.PolicyAdd(rules, &AddOptions{Replace: true})
