@@ -42,6 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/labels/filter"
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -708,7 +709,7 @@ func initEnv(cmd *cobra.Command) {
 		}).Fatal("Unable to setup kvstore")
 	}
 
-	if err := labels.ParseLabelPrefixCfg(validLabels, labelPrefixFile); err != nil {
+	if err := filter.ParseLabelPrefixCfg(validLabels, labelPrefixFile); err != nil {
 		log.WithError(err).Fatal("Unable to parse Label prefix configuration")
 	}
 
