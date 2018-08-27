@@ -382,11 +382,9 @@ type Endpoint struct {
 	// state is the state the endpoint is in. See SetStateLocked()
 	state string
 
-	// PolicyCalculated is true as soon as the policy has been calculated
-	// for the first time. As long as this value is false, all packets sent
-	// by the endpoint will be dropped to ensure that the endpoint cannot
-	// bypass policy while it is still being resolved.
-	PolicyCalculated bool `json:"-"`
+	// policyCalculated is true as soon as the policy has been calculated
+	// for the first time.
+	policyCalculated bool
 
 	// bpfHeaderfileHash is the hash of the last BPF headerfile that has been
 	// compiled and installed.
