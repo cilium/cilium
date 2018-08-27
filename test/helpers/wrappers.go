@@ -46,7 +46,7 @@ func Ping6(endpoint string) string {
 // variadic optinalValues argument. This is passed on to fmt.Sprintf() and uses
 // into the curl message
 func CurlFail(endpoint string, optionalValues ...interface{}) string {
-	statsInfo := `time-> DNS: '%{time_namelookup}', Connect: '%{time_connect}',` +
+	statsInfo := `time-> DNS: '%{time_namelookup}(%{remote_ip})', Connect: '%{time_connect}',` +
 		`Transfer '%{time_starttransfer}', total '%{time_total}'`
 
 	if len(optionalValues) > 0 {
