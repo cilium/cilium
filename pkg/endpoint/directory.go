@@ -23,31 +23,20 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func getTempEndpointDirectory(origDir string) string {
-	return origDir + "_next"
-}
-
 // synchronizeDirectories moves the files related to endpoint BPF program
-// compilation to their according directories based on whether an error occurred
-// during regeneration, or if compilation of BPF was necessary for the endpoint.
+// compilation to their according directories if compilation of BPF was
+// necessary for the endpoint.
 // Returns the original regenerationError if regenerationError was non-nil,
 // or if any updates to directories for the endpoint's directories fails.
 // Must be called with endpoint.Mutex held.
-func (e *Endpoint) synchronizeDirectories(origDir string, compilationExecuted bool, regenerationError error) error {
+func (e *Endpoint) synchronizeDirectories(origDir string, compilationExecuted bool) error {
 	scopedLog := e.getLogger()
 
-	tmpDir := getTempEndpointDirectory(origDir)
+	tmpDir := e.NextDirectoryPath()
 	// If generation failed, keep the directory around. If it ever succeeds
 	// again, clean up the XXX_next_fail copy.
 	failDir := e.FailedDirectoryPath()
 	os.RemoveAll(failDir) // Most likely will not exist; ignore failure.
-	if regenerationError != nil {
-		scopedLog.WithFields(logrus.Fields{
-			logfields.Path: failDir,
-		}).Warn("generating BPF for endpoint failed, keeping stale directory.")
-		os.Rename(tmpDir, failDir)
-		return regenerationError
-	}
 
 	// Move the current endpoint directory to a backup location
 	backupDir := origDir + "_stale"
