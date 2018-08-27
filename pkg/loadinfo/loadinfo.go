@@ -77,6 +77,7 @@ func LogCurrentSystemLoad(logFunc LogFunc) {
 				name, _ := p.Name()
 				status, _ := p.Status()
 				memPercent, _ := p.MemoryPercent()
+				cmdline, _ := p.Cmdline()
 
 				memExt := ""
 				if memInfo, err := p.MemoryInfo(); memInfo != nil && err == nil {
@@ -85,8 +86,8 @@ func LogCurrentSystemLoad(logFunc LogFunc) {
 						toMB(memInfo.Stack), toMB(memInfo.Locked), toMB(memInfo.Swap))
 				}
 
-				logFunc("NAME %s STATUS %s PID %d CPU: %.2f%% MEM: %.2f%% %s",
-					name, status, p.Pid, cpuPercent, memPercent, memExt)
+				logFunc("NAME %s STATUS %s PID %d CPU: %.2f%% MEM: %.2f%% CMDLINE: %s MEM-EXT: %s",
+					name, status, p.Pid, cpuPercent, memPercent, cmdline, memExt)
 			}
 		}
 	}
