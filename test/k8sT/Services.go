@@ -20,10 +20,10 @@ import (
 	"net"
 	"time"
 
-	"github.com/asaskevich/govalidator"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
+	"github.com/asaskevich/govalidator"
 	. "github.com/onsi/gomega"
 	"k8s.io/api/core/v1"
 )
@@ -42,6 +42,7 @@ var _ = Describe("K8sServicesTest", func() {
 	)
 
 	applyPolicy := func(path string) {
+		By(fmt.Sprintf("Applying policy %s", path))
 		_, err := kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, path, helpers.KubectlApply, helpers.HelperTimeout)
 		Expect(err).Should(BeNil(), fmt.Sprintf("Error creating resource %s: %s", path, err))
 	}
@@ -220,6 +221,7 @@ var _ = Describe("K8sServicesTest", func() {
 		})
 
 		AfterEach(func() {
+			_ = kubectl.Delete(policyLabeledPath)
 			_ = kubectl.Delete(policyPath)
 			_ = kubectl.Delete(endpointPath)
 			_ = kubectl.Delete(servicePath)
@@ -229,6 +231,7 @@ var _ = Describe("K8sServicesTest", func() {
 		})
 
 		validateEgress := func() {
+			By("Checking that toServices CIDR is plumbed into CEP")
 			ExpectWithOffset(1, kubectl.WaitCEPReady()).To(BeNil(), "Cep is not ready after timeout")
 			Eventually(func() string {
 				res := kubectl.Exec(fmt.Sprintf(
@@ -240,7 +243,7 @@ var _ = Describe("K8sServicesTest", func() {
 				data, err := res.Filter(`{.status.status.policy.realized.cidr-policy.egress}`)
 				ExpectWithOffset(1, err).To(BeNil(), "unable to get endpoint %s metadata", podName)
 				return data.String()
-			}, 5*time.Minute, 10*time.Second).Should(ContainSubstring(expectedCIDR))
+			}, 2*time.Minute, 5*time.Second).Should(ContainSubstring(expectedCIDR))
 		}
 
 		It("To Services first endpoint creation", func() {
@@ -260,6 +263,7 @@ var _ = Describe("K8sServicesTest", func() {
 		})
 
 		It("To Services first endpoint creation match service by labels", func() {
+			By("Creating Kubernetes Endpoint")
 			res := kubectl.Apply(endpointPath)
 			res.ExpectSuccess()
 
@@ -271,6 +275,7 @@ var _ = Describe("K8sServicesTest", func() {
 		It("To Services first policy, match service by labels", func() {
 			applyPolicy(policyLabeledPath)
 
+			By("Creating Kubernetes Endpoint")
 			res := kubectl.Apply(endpointPath)
 			res.ExpectSuccess()
 
