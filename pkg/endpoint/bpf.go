@@ -153,18 +153,6 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	}
 	fw.WriteString(" */\n\n")
 
-	// If policy has not been derived or calculated yet, all packets must
-	// be dropped until the policy of the endpoint has been determined,
-	// except when it is known that the current policy will not drop anything,
-	// which is true when:
-	// - policy enforcement mode is "never"
-	// - policy enforcement mode is "default" and no policies are loaded
-	if !e.PolicyCalculated &&
-		!(owner.PolicyEnforcement() == option.NeverEnforce) &&
-		!(owner.PolicyEnforcement() == option.DefaultEnforcement && owner.GetPolicyRepository().Empty()) {
-		fw.WriteString("#define DROP_ALL\n")
-	}
-
 	fw.WriteString(common.FmtDefineAddress("LXC_MAC", e.LXCMAC))
 	fw.WriteString(common.FmtDefineComma("LXC_IP", e.IPv6))
 	if e.IPv4 != nil {
