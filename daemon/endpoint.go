@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/labels/filter"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/option"
@@ -756,8 +757,8 @@ func (h *getEndpointIDHealthz) Handle(params GetEndpointIDHealthzParams) middlew
 }
 
 func checkLabels(add, del labels.Labels) (addLabels, delLabels labels.Labels, ok bool) {
-	addLabels, _ = labels.FilterLabels(add)
-	delLabels, _ = labels.FilterLabels(del)
+	addLabels, _ = filter.Labels(add)
+	delLabels, _ = filter.Labels(del)
 
 	if len(addLabels) == 0 && len(delLabels) == 0 {
 		return nil, nil, false

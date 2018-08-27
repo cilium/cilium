@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/labels/filter"
 )
 
 const (
@@ -50,5 +51,5 @@ func getFilteredLabels(containerID string, allLabels map[string]string) (identit
 		combinedLabels.MergeLabels(k8sLbls)
 	}
 
-	return labels.FilterLabels(combinedLabels)
+	return filter.Labels(combinedLabels)
 }
