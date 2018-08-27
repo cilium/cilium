@@ -17,11 +17,29 @@ package endpoint
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/sirupsen/logrus"
 )
+
+// DirectoryPath returns the directory name for this endpoint bpf program.
+func (e *Endpoint) DirectoryPath() string {
+	return filepath.Join(".", fmt.Sprintf("%d", e.ID))
+}
+
+// FailedDirectoryPath returns the directory name for this endpoint bpf program
+// failed builds.
+func (e *Endpoint) FailedDirectoryPath() string {
+	return filepath.Join(".", fmt.Sprintf("%d%s", e.ID, "_next_fail"))
+}
+
+// NextDirectoryPath returns the directory name for this endpoint bpf program
+// next bpf builds.
+func (e *Endpoint) NextDirectoryPath() string {
+	return filepath.Join(".", fmt.Sprintf("%d%s", e.ID, "_next"))
+}
 
 // synchronizeDirectories moves the files related to endpoint BPF program
 // compilation to their according directories if compilation of BPF was
