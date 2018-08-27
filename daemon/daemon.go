@@ -56,6 +56,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
+	logginghelpers "github.com/cilium/cilium/pkg/logging/helpers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
@@ -455,7 +456,7 @@ func removeCiliumRules(table string) {
 	scanner := bufio.NewScanner(bytes.NewReader(out))
 	for scanner.Scan() {
 		rule := scanner.Text()
-		log.WithField(logfields.Object, logfields.Repr(rule)).Debug("Considering removing iptables rule")
+		log.WithField(logfields.Object, logginghelpers.Repr(rule)).Debug("Considering removing iptables rule")
 
 		if strings.Contains(strings.ToLower(rule), "cilium") &&
 			(strings.HasPrefix(rule, "-A") || strings.HasPrefix(rule, "-I")) {
@@ -468,7 +469,7 @@ func removeCiliumRules(table string) {
 			}
 
 			deleteRule := append([]string{"-t", table}, ruleAsArgs...)
-			log.WithField(logfields.Object, logfields.Repr(deleteRule)).Debug("Removing iptables rule")
+			log.WithField(logfields.Object, logginghelpers.Repr(deleteRule)).Debug("Removing iptables rule")
 			err = runProg("iptables", deleteRule, true)
 			if err != nil {
 				log.WithError(err).WithField(logfields.Object, rule).Warn("Unable to delete Cilium iptables rule")
@@ -1491,7 +1492,7 @@ func NewPatchConfigHandler(d *Daemon) PatchConfigHandler {
 }
 
 func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
-	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PATCH /config request")
+	log.WithField(logfields.Params, logginghelpers.Repr(params)).Debug("PATCH /config request")
 
 	d := h.daemon
 
@@ -1575,7 +1576,7 @@ func NewGetConfigHandler(d *Daemon) GetConfigHandler {
 }
 
 func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
-	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /config request")
+	log.WithField(logfields.Params, logginghelpers.Repr(params)).Debug("GET /config request")
 
 	d := h.daemon
 

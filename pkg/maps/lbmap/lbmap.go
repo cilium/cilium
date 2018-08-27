@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
+	logginghelpers "github.com/cilium/cilium/pkg/logging/helpers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/sirupsen/logrus"
@@ -410,7 +411,7 @@ func LBSVC2ServiceKeynValue(svc loadbalancer.LBSVC) (ServiceKey, []ServiceValue,
 		"lbFrontend":        svc.FE.String(),
 		"lbBackend":         svc.BES,
 		logfields.ServiceID: fe,
-		logfields.Object:    logfields.Repr(besValues),
+		logfields.Object:    logginghelpers.Repr(besValues),
 	}).Debug("converted LBSVC (frontend -> backend(s)), to Service Key and Value")
 	return fe, besValues, nil
 }
@@ -454,7 +455,7 @@ func serviceKeynValue2FEnBE(svcKey ServiceKey, svcValue ServiceValue) (*loadbala
 
 	log.WithFields(logrus.Fields{
 		logfields.ServiceID: svcKey,
-		logfields.Object:    logfields.Repr(svcValue),
+		logfields.Object:    logginghelpers.Repr(svcValue),
 	}).Debug("converting ServiceKey and ServiceValue to frontend and backend")
 
 	if svcKey.IsIPv6() {

@@ -20,6 +20,7 @@ import (
 	. "github.com/cilium/cilium/api/v1/server/restapi/service"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	logginghelpers "github.com/cilium/cilium/pkg/logging/helpers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/option"
@@ -102,7 +103,7 @@ func (d *Daemon) SVCAdd(feL3n4Addr loadbalancer.L3n4AddrID, be []loadbalancer.LB
 func (d *Daemon) svcAdd(feL3n4Addr loadbalancer.L3n4AddrID, bes []loadbalancer.LBBackEnd, addRevNAT bool) (bool, error) {
 	log.WithFields(logrus.Fields{
 		logfields.ServiceID: feL3n4Addr.String(),
-		logfields.Object:    logfields.Repr(bes),
+		logfields.Object:    logginghelpers.Repr(bes),
 	}).Debug("adding service")
 
 	// Move the slice to the loadbalancer map which has a mutex. If we don't
@@ -144,7 +145,7 @@ func NewPutServiceIDHandler(d *Daemon) PutServiceIDHandler {
 }
 
 func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
-	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PUT /service/{id} request")
+	log.WithField(logfields.Params, logginghelpers.Repr(params)).Debug("PUT /service/{id} request")
 
 	f, err := loadbalancer.NewL3n4AddrFromModel(params.Config.FrontendAddress)
 	if err != nil {
@@ -192,7 +193,7 @@ func NewDeleteServiceIDHandler(d *Daemon) DeleteServiceIDHandler {
 }
 
 func (h *deleteServiceID) Handle(params DeleteServiceIDParams) middleware.Responder {
-	log.WithField(logfields.Params, logfields.Repr(params)).Debug("DELETE /service/{id} request")
+	log.WithField(logfields.Params, logginghelpers.Repr(params)).Debug("DELETE /service/{id} request")
 
 	d := h.d
 	d.loadBalancer.BPFMapMU.Lock()
@@ -212,7 +213,7 @@ func (h *deleteServiceID) Handle(params DeleteServiceIDParams) middleware.Respon
 	}
 
 	if err := h.d.svcDelete(svc); err != nil {
-		log.WithError(err).WithField(logfields.Object, logfields.Repr(svc)).Warn("DELETE /service/{id}: error deleting service")
+		log.WithError(err).WithField(logfields.Object, logginghelpers.Repr(svc)).Warn("DELETE /service/{id}: error deleting service")
 		return api.Error(DeleteServiceIDFailureCode, err)
 	}
 
@@ -298,7 +299,7 @@ func NewGetServiceIDHandler(d *Daemon) GetServiceIDHandler {
 }
 
 func (h *getServiceID) Handle(params GetServiceIDParams) middleware.Responder {
-	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /service/{id} request")
+	log.WithField(logfields.Params, logginghelpers.Repr(params)).Debug("GET /service/{id} request")
 
 	d := h.daemon
 
@@ -342,7 +343,7 @@ func NewGetServiceHandler(d *Daemon) GetServiceHandler {
 }
 
 func (h *getService) Handle(params GetServiceParams) middleware.Responder {
-	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /service request")
+	log.WithField(logfields.Params, logginghelpers.Repr(params)).Debug("GET /service request")
 	list := h.d.GetServiceList()
 	return NewGetServiceOK().WithPayload(list)
 }
@@ -515,7 +516,7 @@ func (d *Daemon) SyncLBMap() error {
 		kvL3n4AddrID, err := service.RestoreID(svc.FE.L3n4Addr, uint32(svc.FE.ID))
 		if err != nil {
 			log.WithError(err).WithFields(logrus.Fields{
-				logfields.L3n4Addr: logfields.Repr(svc.FE.L3n4Addr),
+				logfields.L3n4Addr: logginghelpers.Repr(svc.FE.L3n4Addr),
 			}).Error("Unable to retrieve service ID from KVStore. This entry will be removed from the bpf's LB map.")
 			failedSyncSVC = append(failedSyncSVC, *svc)
 			delete(newSVCMap, svc.Sha256)
@@ -539,7 +540,7 @@ func (d *Daemon) SyncLBMap() error {
 				log.WithError(err).WithFields(logrus.Fields{
 					logfields.ServiceID + ".old": oldID,
 					logfields.ServiceID + ".new": svc.FE.ID,
-					logfields.Object:             logfields.Repr(svc),
+					logfields.Object:             logginghelpers.Repr(svc),
 				}).Error("SyncLBMap")
 
 				failedSyncSVC = append(failedSyncSVC, *svc)
@@ -562,9 +563,9 @@ func (d *Daemon) SyncLBMap() error {
 
 	// Clean services and rev nats from BPF maps that failed to be restored.
 	for _, svc := range failedSyncSVC {
-		log.WithField(logfields.Object, logfields.Repr(svc.FE)).Debug("Unable to restore, so removing service")
+		log.WithField(logfields.Object, logginghelpers.Repr(svc.FE)).Debug("Unable to restore, so removing service")
 		if err := d.svcDeleteBPF(&svc); err != nil {
-			log.WithError(err).WithField(logfields.Object, logfields.Repr(svc.FE)).Warn("Unable to clean service from BPF map")
+			log.WithError(err).WithField(logfields.Object, logginghelpers.Repr(svc.FE)).Warn("Unable to clean service from BPF map")
 		}
 	}
 
@@ -661,7 +662,7 @@ func (d *Daemon) syncLBMapsWithK8s() error {
 	for _, svc := range newSVCList {
 		scopedLog := log.WithFields(logrus.Fields{
 			logfields.ServiceID: svc.FE.ID,
-			logfields.L3n4Addr:  logfields.Repr(svc.FE.L3n4Addr)})
+			logfields.L3n4Addr:  logginghelpers.Repr(svc.FE.L3n4Addr)})
 		frontendAddress := svc.FE.L3n4Addr.StringWithProtocol()
 		if _, ok := k8sServicesFrontendAddresses[frontendAddress]; !ok {
 			scopedLog.Debug("service in BPF maps is not managed by K8s; will delete it from BPF maps")
@@ -675,7 +676,7 @@ func (d *Daemon) syncLBMapsWithK8s() error {
 		if _, ok := d.loadBalancer.RevNATMap[serviceID]; !ok {
 			log.WithFields(logrus.Fields{
 				logfields.ServiceID: serviceID,
-				logfields.L3n4Addr:  logfields.Repr(serviceInfo)}).Debug("revNAT ID read from BPF maps is not managed by K8s; will delete it from BPF maps")
+				logfields.L3n4Addr:  logginghelpers.Repr(serviceInfo)}).Debug("revNAT ID read from BPF maps is not managed by K8s; will delete it from BPF maps")
 			// Map service ID to whether service is IPv4 or IPv6.
 			if serviceInfo.IP.To4() == nil {
 				k8sDeletedRevNATS[serviceID] = true
@@ -690,7 +691,7 @@ func (d *Daemon) syncLBMapsWithK8s() error {
 	// Delete map entries from BPF which don't exist in list of Kubernetes
 	// services.
 	for _, svc := range k8sDeletedServices {
-		svcLogger := log.WithField(logfields.Object, logfields.Repr(svc.FE))
+		svcLogger := log.WithField(logfields.Object, logginghelpers.Repr(svc.FE))
 		svcLogger.Debug("removing service because it was not synced from Kubernetes")
 		if err := d.svcDeleteBPF(&svc); err != nil {
 			bpfDeleteErrors = append(bpfDeleteErrors, err)

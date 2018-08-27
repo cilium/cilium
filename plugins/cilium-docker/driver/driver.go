@@ -31,6 +31,7 @@ import (
 	endpointIDPkg "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
+	logginghelpers "github.com/cilium/cilium/pkg/logging/helpers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/docker/libnetwork/drivers/remote/api"
@@ -194,7 +195,7 @@ func (driver *driver) Listen(socket string) error {
 }
 
 func notFound(w http.ResponseWriter, r *http.Request) {
-	log.WithField(logfields.Object, logfields.Repr(r)).Warn("plugin Not found")
+	log.WithField(logfields.Object, logginghelpers.Repr(r)).Warn("plugin Not found")
 	http.NotFound(w, r)
 }
 
@@ -252,7 +253,7 @@ func (driver *driver) createNetwork(w http.ResponseWriter, r *http.Request) {
 		sendError(w, "Unable to decode JSON payload: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	log.WithField(logfields.Request, logfields.Repr(&create)).Debug("Network Create Called")
+	log.WithField(logfields.Request, logginghelpers.Repr(&create)).Debug("Network Create Called")
 	emptyResponse(w)
 }
 
@@ -262,7 +263,7 @@ func (driver *driver) deleteNetwork(w http.ResponseWriter, r *http.Request) {
 		sendError(w, "Unable to decode JSON payload: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	log.WithField(logfields.Request, logfields.Repr(&delete)).Debug("Delete network request")
+	log.WithField(logfields.Request, logginghelpers.Repr(&delete)).Debug("Delete network request")
 	emptyResponse(w)
 }
 
@@ -281,7 +282,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		sendError(w, "Unable to decode JSON payload: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	log.WithField(logfields.Request, logfields.Repr(&create)).Debug("Create endpoint request")
+	log.WithField(logfields.Request, logginghelpers.Repr(&create)).Debug("Create endpoint request")
 
 	if create.Interface.Address == "" {
 		log.Warn("No IPv4 address provided in CreateEndpoint request")
@@ -355,7 +356,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 	resp := &api.CreateEndpointResponse{
 		Interface: respIface,
 	}
-	log.WithField(logfields.Response, logfields.Repr(resp)).Debug("Create endpoint response")
+	log.WithField(logfields.Response, logginghelpers.Repr(resp)).Debug("Create endpoint response")
 	objectResponse(w, resp)
 }
 
@@ -365,7 +366,7 @@ func (driver *driver) deleteEndpoint(w http.ResponseWriter, r *http.Request) {
 		sendError(w, "Could not decode JSON encode payload", http.StatusBadRequest)
 		return
 	}
-	log.WithField(logfields.Request, logfields.Repr(&del)).Debug("Delete endpoint request")
+	log.WithField(logfields.Request, logginghelpers.Repr(&del)).Debug("Delete endpoint request")
 
 	if err := link.DeleteByName(connector.Endpoint2IfName(del.EndpointID)); err != nil {
 		log.WithError(err).Warn("Error while deleting link")
@@ -380,7 +381,7 @@ func (driver *driver) infoEndpoint(w http.ResponseWriter, r *http.Request) {
 		sendError(w, "Could not decode JSON encode payload", http.StatusBadRequest)
 		return
 	}
-	log.WithField(logfields.Request, logfields.Repr(&info)).Debug("Endpoint info request")
+	log.WithField(logfields.Request, logginghelpers.Repr(&info)).Debug("Endpoint info request")
 	objectResponse(w, &api.EndpointInfoResponse{Value: map[string]interface{}{}})
 	log.WithField(logfields.Response, info.EndpointID).Debug("Endpoint info")
 }
@@ -398,7 +399,7 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 		sendError(w, "Could not decode JSON encode payload", http.StatusBadRequest)
 		return
 	}
-	log.WithField(logfields.Request, logfields.Repr(&j)).Debug("Join request")
+	log.WithField(logfields.Request, logginghelpers.Repr(&j)).Debug("Join request")
 
 	old, err := driver.client.EndpointGet(endpointID(j.EndpointID))
 	if err != nil {
@@ -427,7 +428,7 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 	// If empty, it works as expected without docker runtime errors
 	// res.Gateway = connector.IPv4Gateway(addr)
 
-	log.WithField(logfields.Response, logfields.Repr(res)).Debug("Join response")
+	log.WithField(logfields.Response, logginghelpers.Repr(res)).Debug("Join response")
 	objectResponse(w, res)
 }
 
@@ -437,7 +438,7 @@ func (driver *driver) leaveEndpoint(w http.ResponseWriter, r *http.Request) {
 		sendError(w, "Could not decode JSON encode payload", http.StatusBadRequest)
 		return
 	}
-	log.WithField(logfields.Request, logfields.Repr(&l)).Debug("Leave request")
+	log.WithField(logfields.Request, logginghelpers.Repr(&l)).Debug("Leave request")
 
 	if err := driver.client.EndpointDelete(endpointID(l.EndpointID)); err != nil {
 		log.WithError(err).Warn("Leaving the endpoint failed")

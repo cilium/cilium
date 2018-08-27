@@ -20,6 +20,7 @@ import (
 	"net/http"
 
 	"github.com/cilium/cilium/pkg/client"
+	logginghelpers "github.com/cilium/cilium/pkg/logging/helpers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/docker/libnetwork/ipams/remote/api"
@@ -48,7 +49,7 @@ func (driver *driver) getDefaultAddressSpaces(w http.ResponseWriter, r *http.Req
 		GlobalDefaultAddressSpace: "CiliumGlobal",
 	}
 
-	log.WithField(logfields.Response, logfields.Repr(resp)).Debug("Get Default Address Spaces response")
+	log.WithField(logfields.Response, logginghelpers.Repr(resp)).Debug("Get Default Address Spaces response")
 	objectResponse(w, resp)
 }
 
@@ -81,9 +82,9 @@ func (driver *driver) requestPool(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.WithField(logfields.Request, logfields.Repr(&req)).Debug("Request Pool request")
+	log.WithField(logfields.Request, logginghelpers.Repr(&req)).Debug("Request Pool request")
 	resp := driver.getPoolResponse(&req)
-	log.WithField(logfields.Response, logfields.Repr(resp)).Debug("Request Pool response")
+	log.WithField(logfields.Response, logginghelpers.Repr(resp)).Debug("Request Pool response")
 	objectResponse(w, resp)
 }
 
@@ -94,7 +95,7 @@ func (driver *driver) releasePool(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.WithField(logfields.Request, logfields.Repr(&release)).Debug("Release Pool request")
+	log.WithField(logfields.Request, logginghelpers.Repr(&release)).Debug("Release Pool request")
 
 	emptyResponse(w)
 }
@@ -106,7 +107,7 @@ func (driver *driver) requestAddress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.WithField(logfields.Request, logfields.Repr(&request)).Debug("Request Address request")
+	log.WithField(logfields.Request, logginghelpers.Repr(&request)).Debug("Request Address request")
 
 	family := client.AddressFamilyIPv6 // Default
 	switch request.PoolID {
@@ -144,7 +145,7 @@ func (driver *driver) requestAddress(w http.ResponseWriter, r *http.Request) {
 		resp.Address = addr.IPV4 + "/32"
 	}
 
-	log.WithField(logfields.Response, logfields.Repr(resp)).Debug("Request Address response")
+	log.WithField(logfields.Response, logginghelpers.Repr(resp)).Debug("Request Address response")
 	objectResponse(w, resp)
 }
 
@@ -155,7 +156,7 @@ func (driver *driver) releaseAddress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.WithField(logfields.Request, logfields.Repr(&release)).Debug("Release Address request")
+	log.WithField(logfields.Request, logginghelpers.Repr(&release)).Debug("Release Address request")
 	if err := driver.client.IPAMReleaseIP(release.Address); err != nil {
 		sendError(w, fmt.Sprintf("Could not release IP address: %s", err), http.StatusBadRequest)
 		return

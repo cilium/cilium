@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/identity"
+	logginghelpers "github.com/cilium/cilium/pkg/logging/helpers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -231,7 +232,7 @@ func (k *proxyTestSuite) TestKafkaRedirect(c *C) {
 	// Start handling allowedTopic produce requests
 	server.Handle(ProduceRequest, func(request Serializable) Serializable {
 		req := request.(*proto.ProduceReq)
-		log.WithField(logfields.Request, logfields.Repr(req)).Debug("Handling req")
+		log.WithField(logfields.Request, logginghelpers.Repr(req)).Debug("Handling req")
 		return &proto.ProduceResp{
 			CorrelationID: req.CorrelationID,
 			Topics: []proto.ProduceRespTopic{
