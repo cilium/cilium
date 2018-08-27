@@ -67,6 +67,23 @@ var (
 	}
 )
 
+// RegenerationContext provides context to regenerate() calls to determine
+// the caller, and which specific aspects to regeneration are necessary to
+// update the datapath to implement the new behavior.
+type RegenerationContext struct {
+	// Reason provides context to source for the regeneration, which is
+	// used to generate useful log messages.
+	Reason string
+}
+
+// NewRegenerationContext returns a new context for regeneration that does not
+// force any recalculation, rebuild or reload of policy.
+func NewRegenerationContext(reason string) *RegenerationContext {
+	return &RegenerationContext{
+		Reason: reason,
+	}
+}
+
 // ProxyID returns a unique string to identify a proxy mapping.
 func (e *Endpoint) ProxyID(l4 *policy.L4Filter) string {
 	return policy.ProxyID(e.ID, l4.Ingress, string(l4.Protocol), uint16(l4.Port))
@@ -636,7 +653,7 @@ func (e *Endpoint) updateAndOverrideEndpointOptions(owner Owner, opts models.Con
 }
 
 // Called with e.Mutex UNlocked
-func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
+func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr error) {
 	var revision uint64
 	var compilationExecuted bool
 	var err error
@@ -702,7 +719,7 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 		e.Unlock()
 	}()
 
-	revision, compilationExecuted, err = e.regenerateBPF(owner, tmpDir, reason)
+	revision, compilationExecuted, err = e.regenerateBPF(owner, tmpDir, context)
 
 	// Depending upon result of BPF regeneration (compilation executed, or
 	// error occurred), shift endpoint directories to match said BPF regeneration
@@ -733,7 +750,7 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 // Regenerate forces the regeneration of endpoint programs & policy
 // Should only be called with e.state == StateWaitingToRegenerate or with
 // e.state == StateWaitingForIdentity
-func (e *Endpoint) Regenerate(owner Owner, reason string) <-chan bool {
+func (e *Endpoint) Regenerate(owner Owner, context *RegenerationContext) <-chan bool {
 	newReq := &Request{
 		ID:           uint64(e.ID),
 		MyTurn:       make(chan bool),
@@ -763,7 +780,7 @@ func (e *Endpoint) Regenerate(owner Owner, reason string) <-chan bool {
 		if isMyTurnChanOK && isMyTurn {
 			scopedLog.Debug("Dequeued endpoint from build queue")
 
-			err := e.regenerate(owner, reason)
+			err := e.regenerate(owner, context)
 			repr, reprerr := monitor.EndpointRegenRepr(e, err)
 			if reprerr != nil {
 				scopedLog.WithError(reprerr).Warn("Notifying monitor about endpoint regeneration failed")
@@ -778,7 +795,7 @@ func (e *Endpoint) Regenerate(owner Owner, reason string) <-chan bool {
 				}
 			} else {
 				buildSuccess = true
-				e.LogStatusOK(BPF, "Successfully regenerated endpoint program due to "+reason)
+				e.LogStatusOK(BPF, "Successfully regenerated endpoint program due to "+context.Reason)
 				if reprerr == nil && !owner.DryModeEnabled() {
 					owner.SendNotification(monitor.AgentNotifyEndpointRegenerateSuccess, repr)
 				}

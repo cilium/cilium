@@ -202,7 +202,9 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 				epRegenerated <- false
 				return
 			}
-			if buildSuccess := <-ep.Regenerate(d, "syncing state to host"); !buildSuccess {
+			regenContext := endpoint.NewRegenerationContext(
+				"syncing state to host")
+			if buildSuccess := <-ep.Regenerate(d, regenContext); !buildSuccess {
 				scopedLog.Warn("Failed while regenerating endpoint")
 				epRegenerated <- false
 				return

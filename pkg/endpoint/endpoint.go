@@ -1695,7 +1695,7 @@ func (e *Endpoint) Update(owner Owner, cfg *models.EndpointConfigurationSpec) er
 				stateTransitionSucceeded := e.SetStateLocked(StateWaitingToRegenerate, reason)
 				if stateTransitionSucceeded {
 					e.Unlock()
-					e.Regenerate(owner, reason)
+					e.Regenerate(owner, NewRegenerationContext(reason))
 					return nil
 				}
 				e.Unlock()
@@ -1874,7 +1874,7 @@ func (e *Endpoint) CreateDirectory() error {
 // RegenerateWait should only be called when endpoint's state has successfully
 // been changed to "waiting-to-regenerate"
 func (e *Endpoint) RegenerateWait(owner Owner, reason string) error {
-	if !<-e.Regenerate(owner, reason) {
+	if !<-e.Regenerate(owner, NewRegenerationContext(reason)) {
 		return fmt.Errorf("error while regenerating endpoint."+
 			" For more info run: 'cilium endpoint get %d'", e.ID)
 	}
@@ -2501,7 +2501,7 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 	e.Unlock()
 
 	if readyToRegenerate {
-		e.Regenerate(owner, "updated security labels")
+		e.Regenerate(owner, NewRegenerationContext("updated security labels"))
 	}
 
 	return nil
