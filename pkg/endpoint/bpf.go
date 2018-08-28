@@ -660,10 +660,8 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string, regenContext *Regene
 		compilationExecuted = true
 		e.bpfHeaderfileHash = bpfHeaderfilesHash
 	} else {
-		e.UnconditionalRLock()
 		e.getLogger().WithField(logfields.BPFHeaderfileHash, bpfHeaderfilesHash).
 			Debug("BPF header file unchanged, skipping BPF compilation and installation")
-		e.RUnlock()
 	}
 
 	err = e.WaitForProxyCompletions(proxyWaitGroup)
