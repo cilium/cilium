@@ -16,7 +16,6 @@ package endpoint
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"crypto/md5"
 	"encoding/hex"
@@ -24,18 +23,17 @@ import (
 	"hash"
 	"io"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
 	"reflect"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -48,7 +46,6 @@ import (
 	"github.com/cilium/cilium/pkg/version"
 
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 )
 
 const (
@@ -254,59 +251,65 @@ func hashHeaderfile(hashWriter hash.Hash, filepath string) (hash.Hash, error) {
 	return hashWriter, nil
 }
 
-func (e *Endpoint) runInit(libdir, rundir, epdir, ifName, debug string) error {
-	args := []string{libdir, rundir, epdir, ifName, debug, e.StringID()}
-	prog := filepath.Join(libdir, "join_ep.sh")
-
-	scopedLog := e.Logger()
-
-	ctx, cancel := context.WithTimeout(context.Background(), ExecTimeout)
-	defer cancel()
-
-	joinEpCmd := exec.CommandContext(ctx, prog, args...)
-	joinEpCmd.Env = bpf.Environment()
-	out, err := joinEpCmd.CombinedOutput()
-
-	cmd := fmt.Sprintf("%s %s", prog, strings.Join(args, " "))
-	scopedLog = scopedLog.WithField("cmd", cmd)
-	if ctx.Err() == context.DeadlineExceeded {
-		scopedLog.Error("RunInit: Command execution failed: Timeout")
-		return ctx.Err()
-	}
-	if err != nil {
-		scopedLog.WithError(err).Warn("RunInit: Command execution failed")
-		scanner := bufio.NewScanner(bytes.NewReader(out))
-		for scanner.Scan() {
-			log.Warn(scanner.Text())
-		}
-		return fmt.Errorf("error: %q command output: %q", err, out)
-	}
-
-	return nil
-}
-
 // epInfoCache describes the set of lxcmap entries necessary to describe an Endpoint
 // in the BPF maps. It is generated while holding the Endpoint lock, then used
 // after releasing that lock to push the entries into the datapath.
 // Functions below implement the EndpointFrontend interface with this cached information.
 type epInfoCache struct {
-	keys     []*lxcmap.EndpointKey
-	value    *lxcmap.EndpointInfo
-	ifName   string
+	// revision is used by the endpoint regeneration code to determine
+	// whether this cache is out-of-date wrt the underlying endpoint.
 	revision uint64
+
+	// For lxcmap.EndpointFrontend
+	keys  []*lxcmap.EndpointKey
+	value *lxcmap.EndpointInfo
+
+	// For datapath.loader.endpoint
+	epdir    string
+	id       string
+	ifName   string
+	endpoint *Endpoint // Used to get the endpoint's logger.
 }
 
 // Must be called when endpoint is still locked.
-func (e *Endpoint) createEpInfoCache() *epInfoCache {
-	ep := &epInfoCache{ifName: e.IfName, revision: e.nextPolicyRevision}
+func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
+	ep := &epInfoCache{
+		revision: e.nextPolicyRevision,
+		endpoint: e,
+		epdir:    epdir,
+		id:       e.StringID(),
+		ifName:   e.IfName,
+		keys:     e.GetBPFKeys(),
+	}
+
 	var err error
-	ep.keys = e.GetBPFKeys()
 	ep.value, err = e.GetBPFValue()
 	if err != nil {
 		log.WithField(logfields.EndpointID, e.ID).WithError(err).Error("getBPFValue failed")
 		return nil
 	}
 	return ep
+}
+
+// InterfaceName returns the name of the link-layer interface used for
+// communicating with the endpoint.
+func (ep *epInfoCache) InterfaceName() string {
+	return ep.ifName
+}
+
+// StringID returns the endpoint's ID in a string.
+func (ep *epInfoCache) StringID() string {
+	return ep.id
+}
+
+// Logger returns the logger for the endpoint that is being cached.
+func (ep *epInfoCache) Logger() *logrus.Entry {
+	return ep.endpoint.Logger()
+}
+
+// StateDir returns the directory for the endpoint's (next) state.
+func (ep *epInfoCache) StateDir() string {
+	return ep.epdir
 }
 
 // GetBPFKeys returns all keys which should represent this endpoint in the BPF
@@ -612,7 +615,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string, regenContext *Regene
 
 	// Cache endpoint information
 	// TODO (ianvernon): why do we need to do this?
-	epInfoCache := e.createEpInfoCache()
+	epInfoCache := e.createEpInfoCache(epdir)
 	if epInfoCache == nil {
 		e.Unlock()
 		err = fmt.Errorf("Unable to cache endpoint information")
@@ -628,18 +631,17 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string, regenContext *Regene
 	e.Unlock()
 
 	e.Logger().WithField("bpfHeaderfilesChanged", bpfHeaderfilesChanged).Debug("Preparing to compile BPF")
-	libdir := option.Config.BpfDir
-	rundir := option.Config.StateDir
-	debug := strconv.FormatBool(viper.GetBool(option.BPFCompileDebugName))
 
 	stats.prepareBuild.End()
 	if bpfHeaderfilesChanged || regenContext.ReloadDatapath {
 		closeChan := loadinfo.LogPeriodicSystemLoad(log.WithFields(logrus.Fields{logfields.EndpointID: epID}).Debugf, time.Second)
 
-		stats.bpfCompilation.Start()
 		// Compile and install BPF programs for this endpoint
-		err = e.runInit(libdir, rundir, epdir, epInfoCache.ifName, debug)
+		stats.bpfCompilation.Start()
+		ctx, cancel := context.WithTimeout(context.Background(), ExecTimeout)
+		err = loader.CompileAndLoad(ctx, epInfoCache)
 		stats.bpfCompilation.End()
+		cancel()
 		close(closeChan)
 
 		e.Logger().WithError(err).
