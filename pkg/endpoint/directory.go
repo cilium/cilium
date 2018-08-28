@@ -34,7 +34,7 @@ func getTempEndpointDirectory(origDir string) string {
 // or if any updates to directories for the endpoint's directories fails.
 // Must be called with endpoint.Mutex held.
 func (e *Endpoint) synchronizeDirectories(origDir string, compilationExecuted bool, regenerationError error) error {
-	scopedLog := e.getLogger()
+	scopedLog := e.Logger()
 
 	tmpDir := getTempEndpointDirectory(origDir)
 	// If generation failed, keep the directory around. If it ever succeeds
