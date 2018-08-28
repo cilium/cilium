@@ -15,28 +15,22 @@
 package loader
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"fmt"
-	"os/exec"
-	"path/filepath"
-	"strings"
-	"time"
 
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 )
 
 // TODO: Rebase against https://github.com/cilium/cilium/pull/5286.
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "datapath-loader")
 
 const (
-	// ExecTimeout is the execution timeout to use in join_ep.sh executions
-	ExecTimeout = 300 * time.Second
+	symbolFromEndpoint = "from-container"
 )
 
 // config represents an object that provides access to global configuration.
@@ -54,34 +48,42 @@ type endpoint interface {
 	StringID() string
 }
 
-// joinEP shells out to bpf/join_ep.sh to compile/load the BPF datapath for the
-// specified endpoint, and handles timeouts if the loading takes too long.
-func joinEP(ep endpoint, libdir, rundir, epdir string) error {
-	args := []string{libdir, rundir, epdir, ep.InterfaceName(), ep.StringID()}
-	prog := filepath.Join(libdir, "join_ep.sh")
-
-	scopedLog := ep.Logger()
+// compileDatpath invokes the compiler and linker to create all state files for
+// the BPF datapath, with the primary target being the BPF ELF binary.
+//
+// If debug is enabled, create also the following output files:
+// * Preprocessed C
+// * Assembly
+// * Object compiled with debug symbols
+func compileDatapath(ep endpoint, dirs *directoryInfo, debug bool) error {
+	// TODO: Consider logging kernel/clang versions here too
+	epLog := ep.Logger()
 
 	ctx, cancel := context.WithTimeout(context.Background(), ExecTimeout)
 	defer cancel()
 
-	joinEpCmd := exec.CommandContext(ctx, prog, args...)
-	joinEpCmd.Env = bpf.Environment()
-	out, err := joinEpCmd.CombinedOutput()
-
-	cmd := fmt.Sprintf("%s %s", prog, strings.Join(args, " "))
-	scopedLog = scopedLog.WithField("cmd", cmd)
-	if ctx.Err() == context.DeadlineExceeded {
-		scopedLog.Error("JoinEP: Command execution failed: Timeout")
-		return ctx.Err()
-	}
-	if err != nil {
-		scopedLog.WithError(err).Warn("JoinEP: Command execution failed")
-		scanner := bufio.NewScanner(bytes.NewReader(out))
-		for scanner.Scan() {
-			log.Warn(scanner.Text())
+	// Write out assembly and preprocessing files for debugging purposes
+	if debug {
+		for _, p := range debugProgs {
+			if err := compile(ctx, p, dirs, debug); err != nil {
+				scopedLog := epLog.WithFields(logrus.Fields{
+					logfields.Params: logfields.Repr(p),
+					logfields.Debug:  debug,
+				})
+				scopedLog.WithError(err).Debug("JoinEP: Failed to compile")
+				return err
+			}
 		}
-		return fmt.Errorf("error: %q command output: %q", err, out)
+	}
+
+	// Compile the new program
+	if err := compile(ctx, datapathProg, dirs, debug); err != nil {
+		scopedLog := epLog.WithFields(logrus.Fields{
+			logfields.Params: logfields.Repr(datapathProg),
+			logfields.Debug:  false,
+		})
+		scopedLog.WithError(err).Warn("JoinEP: Failed to compile")
+		return err
 	}
 
 	return nil
@@ -99,5 +101,22 @@ func CompileAndLoad(ep endpoint, cfg config) error {
 	libdir := cfg.GetBpfDir()
 	rundir := cfg.GetStateDir()
 	epdir := ep.StateDir()
-	return joinEP(ep, libdir, rundir, epdir)
+	dirs := &directoryInfo{Library: libdir, Runtime: rundir, Output: epdir}
+	debug := viper.GetBool(option.BPFCompileDebugName)
+	if err := compileDatapath(ep, dirs, debug); err != nil {
+		return err
+	}
+
+	// Replace the current program
+	objPath := fmt.Sprintf("%s/%s", dirs.Output, endpointObj)
+	if err := replaceDatapath(ep.InterfaceName(), objPath, symbolFromEndpoint); err != nil {
+		scopedLog := ep.Logger().WithFields(logrus.Fields{
+			logfields.Path: objPath,
+			logfields.Veth: ep.InterfaceName(),
+		})
+		scopedLog.WithError(err).Warn("JoinEP: Failed to load program")
+		return err
+	}
+
+	return nil
 }
