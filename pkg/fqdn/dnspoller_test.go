@@ -343,6 +343,43 @@ func (ds *FQDNTestSuite) TestDNSPollerCIDRGeneration(c *C) {
 	c.Assert(uuid2, Equals, uuid1, Commentf("UUID label has changed on rule since previous generation"))
 }
 
+// TestDNSPollerDropCIDROnReinsert tests that we correctly guard against
+// pre-existing toCIDRSet sections:
+// - when we initially insert
+// - when we re-insert a generated rule
+func (ds *FQDNTestSuite) TestDNSPollerDropCIDROnReinsert(c *C) {
+	var (
+		generatedRules = make([]*api.Rule, 0)
+
+		poller = NewDNSPoller(DNSPollerConfig{
+
+			LookupDNSNames: func(dnsNames []string) (DNSIPs map[string][]net.IP, errorDNSNames map[string]error) {
+				return map[string][]net.IP{"cilium.io": {net.ParseIP("1.1.1.1")}}, nil
+			},
+
+			AddGeneratedRules: func(rules []*api.Rule) error {
+				generatedRules = append(generatedRules, rules...)
+				return nil
+			},
+		})
+	)
+
+	// ensure we strip on MarkToFQDNRules
+	rulesToAdd := []*api.Rule{rule1.DeepCopy()}
+	rulesToAdd[0].Egress[0].ToCIDRSet = append(rulesToAdd[0].Egress[0].ToCIDRSet, api.CIDRRule{Cidr: api.CIDR("2.2.2.2/32")})
+	poller.MarkToFQDNRules(rulesToAdd)
+	c.Assert(len(rulesToAdd[0].Egress[0].ToCIDRSet), Equals, 0, Commentf("existing toCIDRSet section not stripped by MarkToFQDNRules"))
+
+	// Add a fake "generated" CIDR entry, it should not come back later when generated
+	rulesToAdd[0].Egress[0].ToCIDRSet = append(rulesToAdd[0].Egress[0].ToCIDRSet, api.CIDRRule{Cidr: api.CIDR("2.2.2.2/32")})
+	poller.StartPollForDNSName(rulesToAdd)
+	err := poller.LookupUpdateDNS()
+	c.Assert(err, IsNil, Commentf("Error generating IP CIDR rules"))
+	c.Assert(len(generatedRules), Equals, 1, Commentf("Generated an unexpected number of rules"))
+	c.Assert(len(rulesToAdd[0].Egress[0].ToCIDRSet), Equals, 1, Commentf("existing toCIDRSet section not stripped by GenerateRules"))
+	c.Assert(generatedRules[0].Egress[0].ToCIDRSet[0].Cidr, Equals, api.CIDR("1.1.1.1/32"), Commentf("Incorrect IP CIDR generated"))
+}
+
 // Test that all IPs are updated when one is
 func (ds *FQDNTestSuite) TestDNSPollerMultiIPUpdate(c *C) {
 	var (
