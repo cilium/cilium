@@ -383,7 +383,7 @@ func (e *Endpoint) regenerateL3Policy(repo *policy.Repository, revision uint64) 
 
 	if valid {
 		if reflect.DeepEqual(e.L3Policy, newL3policy) {
-			e.getLogger().Debug("No change in CIDR policy")
+			e.Logger().Debug("No change in CIDR policy")
 			return false, nil
 		}
 		e.L3Policy = newL3policy
@@ -415,7 +415,7 @@ func (e *Endpoint) updateNetworkPolicy(owner Owner, proxyWaitGroup *completion.W
 	deniedIngressIdentities := make(map[identityPkg.NumericIdentity]bool)
 	for srcID, srcLabels := range *e.prevIdentityCache {
 		ctx.From = srcLabels
-		e.getLogger().WithFields(logrus.Fields{
+		e.Logger().WithFields(logrus.Fields{
 			logfields.PolicyID: srcID,
 			"ctx":              ctx,
 		}).Debug("Evaluating context for source PolicyID")
@@ -434,7 +434,7 @@ func (e *Endpoint) updateNetworkPolicy(owner Owner, proxyWaitGroup *completion.W
 	deniedEgressIdentities := make(map[identityPkg.NumericIdentity]bool)
 	for dstID, dstLabels := range *e.prevIdentityCache {
 		ctx.To = dstLabels
-		e.getLogger().WithFields(logrus.Fields{
+		e.Logger().WithFields(logrus.Fields{
 			logfields.PolicyID: dstID,
 			"ctx":              ctx,
 		}).Debug("Evaluating context for destination PolicyID")
@@ -497,11 +497,11 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts option.OptionMap) (isPolic
 		if opts != nil {
 			e.applyOptsLocked(opts)
 		}
-		e.getLogger().Debug("marking policy as changed to trigger bpf generation as part of first build")
+		e.Logger().Debug("marking policy as changed to trigger bpf generation as part of first build")
 		return true, nil
 	}
 
-	e.getLogger().Debug("Starting regenerate...")
+	e.Logger().Debug("Starting regenerate...")
 
 	// Collect label arrays before policy computation, as this can fail.
 	// GH-1128 should allow optimizing this away, but currently we can't
@@ -509,7 +509,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts option.OptionMap) (isPolic
 	// through it each time.
 	labelsMap, err = getLabelsMap()
 	if err != nil {
-		e.getLogger().WithError(err).Debug("Received error while evaluating policy")
+		e.Logger().WithError(err).Debug("Received error while evaluating policy")
 		return false, err
 	}
 
@@ -519,7 +519,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts option.OptionMap) (isPolic
 		if err == nil && isPolicyComp {
 			regenerateTimeNs := time.Since(regenerateStart)
 			regenerateTimeSec := float64(regenerateTimeNs) / float64(time.Second)
-			e.getLogger().WithField(logfields.PolicyRegenerationTime, time.Since(regenerateStart).String()).
+			e.Logger().WithField(logfields.PolicyRegenerationTime, time.Since(regenerateStart).String()).
 				Info("Regeneration of policy has completed")
 			metrics.PolicyRegenerationCount.Inc()
 			metrics.PolicyRegenerationTime.Add(regenerateTimeSec)
@@ -535,7 +535,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts option.OptionMap) (isPolic
 
 	// Containers without a security identity are not accessible
 	if e.SecurityIdentity == nil {
-		e.getLogger().Warn("Endpoint lacks identity, skipping policy calculation")
+		e.Logger().Warn("Endpoint lacks identity, skipping policy calculation")
 		return false, nil
 	}
 
@@ -549,7 +549,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts option.OptionMap) (isPolic
 	if !e.forcePolicyCompute && e.nextPolicyRevision >= revision &&
 		labelsMap == e.prevIdentityCache && opts == nil {
 
-		e.getLogger().WithFields(logrus.Fields{
+		e.Logger().WithFields(logrus.Fields{
 			"policyRevision.next": e.nextPolicyRevision,
 			"policyRevision.repo": revision,
 			"policyChanged":       e.nextPolicyRevision > e.policyRevision,
@@ -569,7 +569,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts option.OptionMap) (isPolic
 		// Result is valid until cache iteration advances
 		e.Iteration = revision
 	} else {
-		e.getLogger().WithField(logfields.Identity, e.SecurityIdentity.ID).Debug("Reusing cached L4 policy")
+		e.Logger().WithField(logfields.Identity, e.SecurityIdentity.ID).Debug("Reusing cached L4 policy")
 	}
 
 	// Calculate L3 (CIDR) policy.
@@ -578,7 +578,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts option.OptionMap) (isPolic
 		return false, err
 	}
 	if l3PolicyChanged {
-		e.getLogger().Debug("regeneration of L3 (CIDR) policy caused policy change")
+		e.Logger().Debug("regeneration of L3 (CIDR) policy caused policy change")
 	}
 
 	// no failures after this point
@@ -588,7 +588,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts option.OptionMap) (isPolic
 	e.computeDesiredPolicyMapState(owner, labelsMap, repo)
 	// If we are in this function, then policy has been calculated.
 	if !e.policyCalculated {
-		e.getLogger().Debug("setting PolicyCalculated to true for endpoint")
+		e.Logger().Debug("setting PolicyCalculated to true for endpoint")
 		e.policyCalculated = true
 		// Always trigger a regenerate after the first policy
 		// calculation has been performed
@@ -598,7 +598,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts option.OptionMap) (isPolic
 	if e.forcePolicyCompute {
 		optsChanged = true           // Options were changed by the caller.
 		e.forcePolicyCompute = false // Policies just computed
-		e.getLogger().Debug("Forced policy recalculation")
+		e.Logger().Debug("Forced policy recalculation")
 	}
 
 	e.nextPolicyRevision = revision
@@ -612,7 +612,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts option.OptionMap) (isPolic
 	// the regeneration of the endpoint to complete.
 	policyChanged := l3PolicyChanged || l4PolicyChanged
 
-	e.getLogger().WithFields(logrus.Fields{
+	e.Logger().WithFields(logrus.Fields{
 		"policyChanged":       policyChanged,
 		"optsChanged":         optsChanged,
 		"policyRevision.next": e.nextPolicyRevision,
@@ -665,7 +665,7 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 			// Capture successful endpoint generation time
 			regenerateTimeNs := time.Since(regenerateStart)
 			regenerateTimeSec := float64(regenerateTimeNs) / float64(time.Second)
-			e.getLogger().WithField(logfields.EndpointRegenerationTime, time.Since(regenerateStart).String()).Info("Regeneration of endpoint has completed")
+			e.Logger().WithField(logfields.EndpointRegenerationTime, time.Since(regenerateStart).String()).Info("Regeneration of endpoint has completed")
 			metrics.EndpointRegenerationTime.Add(regenerateTimeSec)
 			metrics.EndpointRegenerationTimeSquare.Add(math.Pow(regenerateTimeSec, 2))
 		} else {
@@ -683,7 +683,7 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 	}
 	e.RUnlock()
 
-	scopedLog := e.getLogger()
+	scopedLog := e.Logger()
 	scopedLog.Debug("Regenerating endpoint...")
 
 	origDir := filepath.Join(owner.GetStateDir(), e.StringID())
@@ -765,7 +765,7 @@ func (e *Endpoint) Regenerate(owner Owner, context *RegenerationContext) <-chan 
 			return
 		}
 		e.RUnlock()
-		scopedLog := e.getLogger()
+		scopedLog := e.Logger()
 
 		// We should only queue the request after we use all the endpoint's
 		// lock/unlock. Otherwise this can get a deadlock if the endpoint is
@@ -842,7 +842,7 @@ func (e *Endpoint) TriggerPolicyUpdatesLocked(owner Owner, opts option.OptionMap
 	// moved there once we have an endpoint regeneration controller.
 	needToRegenerateBPF = needToRegenerateBPF || (e.Status.CurrentStatus() != OK)
 
-	e.getLogger().Debugf("TriggerPolicyUpdatesLocked: changed: %t", needToRegenerateBPF)
+	e.Logger().Debugf("TriggerPolicyUpdatesLocked: changed: %t", needToRegenerateBPF)
 
 	return needToRegenerateBPF, nil
 }
@@ -967,7 +967,7 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) {
 	e.runIPIdentitySync(e.IPv4)
 	e.runIPIdentitySync(e.IPv6)
 
-	e.getLogger().WithFields(logrus.Fields{
+	e.Logger().WithFields(logrus.Fields{
 		logfields.Identity:       identity.StringID(),
 		logfields.OldIdentity:    oldIdentity,
 		logfields.IdentityLabels: identity.Labels.String(),
