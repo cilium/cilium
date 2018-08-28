@@ -87,6 +87,7 @@ func InitIdentityAllocator(owner IdentityAllocatorOwner) {
 			allocator.WithMax(maxID), allocator.WithMin(minID),
 			allocator.WithSuffix(owner.GetNodeSuffix()),
 			allocator.WithEvents(events),
+			allocator.WithMasterKeyProtection(),
 			allocator.WithPrefixMask(allocator.ID(option.Config.ClusterID<<option.ClusterIDShift)))
 		if err != nil {
 			log.WithError(err).Fatal("Unable to initialize identity allocator")
