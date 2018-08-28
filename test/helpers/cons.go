@@ -135,8 +135,18 @@ const (
 	StateTerminating = "Terminating"
 	StateRunning     = "Running"
 
-	PingCount          = 5
+	PingCount = 5
+
+	// CurlConnectTimeout is the timeout for the connect() call that curl
+	// invokes
 	CurlConnectTimeout = 3
+
+	// CurlMaxTimeout is the hard timeout. It starts when curl is invoked
+	// and interrupts curl regardless of whether curl is currently
+	// connecting or transferring data. CurlMaxTimeout should be at least 5
+	// seconds longer than CurlConnectTimeout to provide some time to
+	// actually transfer data.
+	CurlMaxTimeout = 8
 
 	DefaultNamespace    = "default"
 	KubeSystemNamespace = "kube-system"
