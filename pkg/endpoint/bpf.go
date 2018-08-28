@@ -496,7 +496,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string, regenContext *Regene
 			return 0, compilationExecuted, fmt.Errorf("Unable to regenerate policy: %s", err)
 		}
 
-		_ = e.updateAndOverrideEndpointOptions(owner, nil)
+		_ = e.updateAndOverrideEndpointOptions(nil)
 
 		// Dry mode needs Network Policy Updates, but the proxy wait group must
 		// not be initialized, as there is no proxy ACKing the changes.
@@ -559,7 +559,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string, regenContext *Regene
 			return 0, compilationExecuted, fmt.Errorf("unable to regenerate policy for '%s': %s", e.PolicyMap.String(), err)
 		}
 
-		_ = e.updateAndOverrideEndpointOptions(owner, nil)
+		_ = e.updateAndOverrideEndpointOptions(nil)
 
 		// Synchronously try to update PolicyMap for this endpoint. If any
 		// part of updating the PolicyMap fails, bail out and do not generate
