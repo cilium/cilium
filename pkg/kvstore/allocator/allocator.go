@@ -53,6 +53,10 @@ const (
 	// attempted to be expired from the kvstore
 	gcInterval = time.Duration(10) * time.Minute
 
+	// localKeySyncInterval is the interval in which local keys are being
+	// synced to the kvstore in case master keys get lost
+	localKeySyncInterval = 1 * time.Minute
+
 	// NoID is a special ID that represents "no ID available"
 	NoID ID = 0
 )
@@ -202,6 +206,10 @@ type Allocator struct {
 
 	// idPool maintains a pool of available ids for allocation.
 	idPool *idPool
+
+	// enableMasterKeyProtection if true, causes master keys that are still in
+	// local use to be automatically re-created
+	enableMasterKeyProtection bool
 }
 
 func locklessCapability() bool {
@@ -317,6 +325,12 @@ func WithMax(id ID) AllocatorOption {
 // min..max.
 func WithPrefixMask(mask ID) AllocatorOption {
 	return func(a *Allocator) { a.prefixMask = mask }
+}
+
+// WithMasterKeyProtection will watch for delete events on master keys and
+// re-created them if local usage suggests that the key is still in use
+func WithMasterKeyProtection() AllocatorOption {
+	return func(a *Allocator) { a.enableMasterKeyProtection = true }
 }
 
 // Delete deletes an allocator and stops the garbage collector
@@ -689,6 +703,34 @@ func (a *Allocator) runGC() error {
 	return nil
 }
 
+func (a *Allocator) recreateMasterKey(id ID, value string) {
+	keyPath := path.Join(a.idPrefix, id.String())
+
+	// Use of CreateOnly() ensures that any existing potentially
+	// conflicting key is never overwritten.
+	if err := kvstore.CreateOnly(keyPath, []byte(value), false); err == nil {
+		log.WithField(fieldKey, keyPath).Warning("Re-created missing master key")
+	}
+}
+
+// syncLocalKeys checks the kvstore and verifies that a master key exists for
+// all locally used allocations. This will restore master keys if deleted for
+// some reason.
+func (a *Allocator) syncLocalKeys() error {
+	// Create a local copy of all local allocations to not require to hold
+	// any locks while performing kvstore operations. Local use can
+	// disappear while we perform the sync but that is fine as worst case,
+	// a master key is created for a slave key that no longer exists. The
+	// garbage collector will remove it again.
+	ids := a.localKeys.getIDs()
+
+	for id, value := range ids {
+		a.recreateMasterKey(id, value)
+	}
+
+	return nil
+}
+
 func (a *Allocator) startGC() {
 	go func(a *Allocator) {
 		for {
@@ -705,6 +747,23 @@ func (a *Allocator) startGC() {
 			case <-time.After(gcInterval):
 			}
 
+		}
+	}(a)
+
+	go func(a *Allocator) {
+		for {
+			if err := a.syncLocalKeys(); err != nil {
+				log.WithError(err).WithFields(logrus.Fields{fieldPrefix: a.idPrefix}).
+					Warning("Unable to run local key sync routine")
+			}
+
+			select {
+			case <-a.stopGC:
+				log.WithFields(logrus.Fields{fieldPrefix: a.idPrefix}).
+					Debug("Stopped master key sync routine")
+				return
+			case <-time.After(localKeySyncInterval):
+			}
 		}
 	}(a)
 }
