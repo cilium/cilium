@@ -2389,12 +2389,16 @@ func (e *Endpoint) identityResolutionIsObsolete(myChangeRev int) bool {
 
 // Must be called with e.Mutex NOT held.
 func (e *Endpoint) runLabelsResolver(owner Owner, myChangeRev int) {
-	// NOTE: UnconditionalLock is used here only for logging
-	e.UnconditionalLock()
-
+	if err := e.RLockAlive(); err != nil {
+		// If a labels update and an endpoint delete API request arrive
+		// in quick succession, this could occur; in that case, there's
+		// no point updating the controller.
+		e.getLogger().WithError(err).Info("Cannot run labels resolver")
+		return
+	}
 	newLabels := e.OpLabels.IdentityLabels()
+	e.RUnlock()
 	scopedLog := e.getLogger().WithField(logfields.IdentityLabels, newLabels)
-	e.Unlock()
 
 	// If we are certain we can resolve the identity without accessing the KV
 	// store, do it first synchronously right now. This can reduce the number
