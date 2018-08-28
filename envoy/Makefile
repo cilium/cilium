@@ -37,14 +37,6 @@ STRIP ?= $(QUIET) strip
 
 ISTIO_VERSION = 1.0.0
 
-
-ifdef KEEP_BAZEL_RUNNING
-shutdown-bazel:
-else
-shutdown-bazel:
-	bazel shutdown
-endif
-
 ifdef CILIUM_DISABLE_ENVOY_BUILD
 all install clean:
 	echo "Envoy build is disabled by environment variable CILIUM_DISABLE_ENVOY_BUILD"
@@ -59,6 +51,13 @@ else
 BAZEL_OPTS ?=
 BAZEL_BUILD_OPTS = --experimental_strict_action_env --local_resources 2048,2.0,1.0
 all: clean-bins envoy-default api shutdown-bazel
+endif
+
+ifdef KEEP_BAZEL_RUNNING
+shutdown-bazel:
+else
+shutdown-bazel:
+	$(BAZEL) shutdown
 endif
 
 debug: envoy-debug api
