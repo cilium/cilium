@@ -653,10 +653,23 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 	defer e.BuildMutex.Unlock()
 
 	// Check if endpoints is still alive before doing any build
-	if err = e.RLockAlive(); err != nil {
+	if err = e.LockAlive(); err != nil {
 		return err
 	}
-	e.RUnlock()
+
+	// When building the initial drop policy in waiting-for-identity state
+	// the state remains unchanged
+	//
+	// GH-5350: Remove this special case to require checking for StateWaitingForIdentity
+	if e.GetStateLocked() != StateWaitingForIdentity &&
+		!e.BuilderSetStateLocked(StateRegenerating, "Regenerating endpoint: "+context.Reason) {
+		e.getLogger().WithField(logfields.EndpointState, e.state).Debug("Skipping build due to invalid state")
+		e.Unlock()
+
+		return fmt.Errorf("Skipping build due to invalid state: %s", e.state)
+	}
+
+	e.Unlock()
 
 	scopedLog := e.getLogger()
 	scopedLog.Debug("Regenerating endpoint...")
