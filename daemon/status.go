@@ -71,9 +71,6 @@ func checkLocks(d *Daemon) {
 
 	option.Config.ConfigPatchMutex.Lock()
 	option.Config.ConfigPatchMutex.Unlock()
-
-	d.GetCompilationLock().Lock()
-	d.GetCompilationLock().Unlock()
 }
 
 func (d *Daemon) getNodeStatus() *models.ClusterStatus {
