@@ -182,7 +182,12 @@ func StartXDSServer(stateDir string) *XDSServer {
 											"prefix": {Kind: &structpb.Value_StringValue{StringValue: "/"}},
 										}}}},
 										"route": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
-											"cluster": {Kind: &structpb.Value_StringValue{StringValue: "cluster1"}},
+											"cluster":          {Kind: &structpb.Value_StringValue{StringValue: "cluster1"}},
+											"max_grpc_timeout": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{}}}},
+											"retry_policy": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+												"retry_on":    {Kind: &structpb.Value_StringValue{StringValue: "5xx"}},
+												"num_retries": {Kind: &structpb.Value_NumberValue{NumberValue: 3}},
+											}}}},
 										}}}},
 									}}}},
 								}}}},
