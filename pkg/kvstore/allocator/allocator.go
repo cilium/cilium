@@ -657,19 +657,30 @@ func (a *Allocator) runGC() error {
 
 		lock, err := a.lockPath(key)
 		if err != nil {
+			log.WithError(err).WithField(fieldKey, key).Warning("allocator garbage collector was unable to lock key")
 			continue
 		}
 
 		// fetch list of all /value/<key> keys
-		uses, err := kvstore.ListPrefix(path.Join(a.valuePrefix, string(v)))
+		valueKeyPrefix := path.Join(a.valuePrefix, string(v))
+		uses, err := kvstore.ListPrefix(valueKeyPrefix)
 		if err != nil {
+			log.WithError(err).WithField(fieldPrefix, valueKeyPrefix).Warning("allocator garbage collector was unable to list keys")
 			lock.Unlock()
 			continue
 		}
 
 		// if ID has no user, delete it
 		if len(uses) == 0 {
-			kvstore.Delete(key)
+			scopedLog := log.WithFields(logrus.Fields{
+				fieldKey: key,
+				fieldID:  path.Base(key),
+			})
+			if err := kvstore.Delete(key); err != nil {
+				scopedLog.WithError(err).Warning("Unable to delete unused allocator master key")
+			} else {
+				scopedLog.Info("Deleted unused allocator master key")
+			}
 		}
 
 		lock.Unlock()
@@ -683,7 +694,7 @@ func (a *Allocator) startGC() {
 		for {
 			if err := a.runGC(); err != nil {
 				log.WithError(err).WithFields(logrus.Fields{fieldPrefix: a.idPrefix}).
-					Debug("Unable to run garbage collector")
+					Warning("Unable to run allocator garbage collector")
 			}
 
 			select {
