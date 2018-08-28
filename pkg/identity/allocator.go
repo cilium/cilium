@@ -90,7 +90,8 @@ func InitIdentityAllocator(owner IdentityAllocatorOwner) {
 		a, err := allocator.NewAllocator(IdentitiesPath, globalIdentity{},
 			allocator.WithMax(maxID), allocator.WithMin(minID),
 			allocator.WithSuffix(owner.GetNodeSuffix()),
-			allocator.WithEvents(events))
+			allocator.WithEvents(events),
+			allocator.WithMasterKeyProtection())
 		if err != nil {
 			log.WithError(err).Fatal("Unable to initialize identity allocator")
 		}
