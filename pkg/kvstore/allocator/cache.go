@@ -198,6 +198,13 @@ func (c *cache) start(a *Allocator) waitChan {
 					case kvstore.EventTypeDelete:
 						kvstore.Trace("Removing id from cache", nil, debugFields.Data)
 
+						if a.enableMasterKeyProtection {
+							if value := a.localKeys.lookupID(id); value != "" {
+								a.recreateMasterKey(id, value)
+								break
+							}
+						}
+
 						if k, ok := c.nextCache[id]; ok && k != nil {
 							delete(c.nextKeyCache, k.GetKey())
 						}
