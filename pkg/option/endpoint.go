@@ -25,8 +25,6 @@ var (
 		TraceNotify:         &specTraceNotify,
 		MonitorAggregation:  &specMonitorAggregation,
 		NAT46:               &specNAT46,
-		IngressPolicy:       &IngressSpecPolicy,
-		EgressPolicy:        &EgressSpecPolicy,
 	}
 )
 
