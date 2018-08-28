@@ -450,31 +450,20 @@ func (e *Endpoint) updateNetworkPolicy(owner Owner, proxyWaitGroup *completion.W
 	return nil
 }
 
-// regeneratePolicy regenerates endpoint's policy if needed and returns
-// whether the BPF for the given endpoint should be regenerated.
+// regeneratePolicy regenerates endpoint's policy if needed and returns whether
+// the policy for the endpoint changed.
 //
-// In a typical workflow this is first called to regenerate the policy
-// (if needed), and second time when the BPF program is
-// regenerated. The second step is usually unnecessary and may be
-// optimized away by the revision checks.  However, if there has been
-// a further policy update between the first and second calls, the
-// second call will update the policy just before regenerating the BPF
-// programs to avoid needing to regenerate BPF programs again right
-// after.
-//
-// Policy changes are tracked so that only endpoints affected by the
-// policy change need to have their BPF programs regenerated.
-//
-// Policy generation may fail, and in that case we exit before
-// actually changing the policy in any way, so that the last policy
-// remains fully in effect if the new policy can not be
-// implemented. This is done on a per endpoint-basis, however, and it is
-// possible that policy update succeeds for some endpoints, while it
-// fails for other endpoints.
+// Policy generation may fail, and in that case we exit before actually changing
+// the policy in any way, so that the last policy remains fully in effect if the
+// new policy can not be implemented. This is done on a per endpoint-basis,
+// however, and it is possible that policy update succeeds for some endpoints,
+// while it fails for other endpoints.
 //
 // Returns:
-//  - changed: true if the policy was changed for this endpoint;
-//  - err: error in case of an error.
+//  - isPolicyComp: true if the policy was changed for this endpoint;
+//  - err: any error in obtaining information for computing policy, or if
+// policy could not be generated given the current set of rules in the
+// repository.
 // Must be called with endpoint mutex held.
 func (e *Endpoint) regeneratePolicy(owner Owner) (isPolicyComp bool, err error) {
 	var labelsMap *identityPkg.IdentityCache

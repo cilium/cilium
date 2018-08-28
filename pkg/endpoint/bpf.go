@@ -553,10 +553,6 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string, regenContext *Regene
 	// Only generate & populate policy map if a security identity is set up for
 	// this endpoint.
 	if e.SecurityIdentity != nil {
-
-		// Regenerate policy and apply any options resulting in the
-		// policy change.
-		// This also populates e.PolicyMap.
 		_, err = e.regeneratePolicy(owner)
 		if err != nil {
 			e.Unlock()
