@@ -336,11 +336,11 @@ func (e *Endpoint) computeDesiredL3PolicyMapEntries(repo *policy.Repository, des
 	egressPolicyEnabled := e.egressPolicyEnabled
 
 	if !ingressPolicyEnabled {
-		e.getLogger().Debug("ingress policy is disabled, which equates to allow-all; allowing all identities")
+		e.Logger().Debug("ingress policy is disabled, which equates to allow-all; allowing all identities")
 	}
 
 	if !egressPolicyEnabled {
-		e.getLogger().Debug("egress policy is disabled, which equates to allow-all; allowing all identities")
+		e.Logger().Debug("egress policy is disabled, which equates to allow-all; allowing all identities")
 	}
 
 	// Only L3 (label-based) policy apply.
@@ -407,7 +407,7 @@ func (e *Endpoint) regenerateL3Policy(repo *policy.Repository) (bool, error) {
 
 	if valid {
 		if reflect.DeepEqual(e.L3Policy, newL3policy) {
-			e.getLogger().Debug("No change in CIDR policy")
+			e.Logger().Debug("No change in CIDR policy")
 			return false, nil
 		}
 		e.L3Policy = newL3policy
@@ -441,7 +441,7 @@ func (e *Endpoint) updateNetworkPolicy(owner Owner, proxyWaitGroup *completion.W
 	deniedIngressIdentities := make(map[identityPkg.NumericIdentity]bool)
 	for srcID, srcLabels := range *e.prevIdentityCache {
 		ctx.From = srcLabels
-		e.getLogger().WithFields(logrus.Fields{
+		e.Logger().WithFields(logrus.Fields{
 			logfields.PolicyID: srcID,
 			"ctx":              ctx,
 		}).Debug("Evaluating context for source PolicyID")
@@ -460,7 +460,7 @@ func (e *Endpoint) updateNetworkPolicy(owner Owner, proxyWaitGroup *completion.W
 	deniedEgressIdentities := make(map[identityPkg.NumericIdentity]bool)
 	for dstID, dstLabels := range *e.prevIdentityCache {
 		ctx.To = dstLabels
-		e.getLogger().WithFields(logrus.Fields{
+		e.Logger().WithFields(logrus.Fields{
 			logfields.PolicyID: dstID,
 			"ctx":              ctx,
 		}).Debug("Evaluating context for destination PolicyID")
@@ -508,11 +508,11 @@ func (e *Endpoint) regeneratePolicy(owner Owner) error {
 
 	// No point in calculating policy if endpoint does not have an identity yet.
 	if e.SecurityIdentity == nil {
-		e.getLogger().Warn("Endpoint lacks identity, skipping policy calculation")
+		e.Logger().Warn("Endpoint lacks identity, skipping policy calculation")
 		return nil
 	}
 
-	e.getLogger().Debug("Starting policy recalculation...")
+	e.Logger().Debug("Starting policy recalculation...")
 
 	// Collect label arrays before policy computation, as this can fail.
 	// GH-1128 should allow optimizing this away, but currently we can't
@@ -520,7 +520,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) error {
 	// through it each time.
 	labelsMap, err := getLabelsMap()
 	if err != nil {
-		e.getLogger().WithError(err).Debug("Received error while evaluating policy")
+		e.Logger().WithError(err).Debug("Received error while evaluating policy")
 		return err
 	}
 
@@ -542,7 +542,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) error {
 	if !e.forcePolicyCompute && e.nextPolicyRevision >= revision &&
 		labelsMap == e.prevIdentityCache {
 
-		e.getLogger().WithFields(logrus.Fields{
+		e.Logger().WithFields(logrus.Fields{
 			"policyRevision.next": e.nextPolicyRevision,
 			"policyRevision.repo": revision,
 			"policyChanged":       e.nextPolicyRevision > e.policyRevision,
@@ -570,7 +570,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) error {
 			return err
 		}
 	} else {
-		e.getLogger().WithField(logfields.Identity, e.SecurityIdentity.ID).Debug("Reusing cached L4 policy")
+		e.Logger().WithField(logfields.Identity, e.SecurityIdentity.ID).Debug("Reusing cached L4 policy")
 	}
 
 	// Calculate L3 (CIDR) policy.
@@ -579,7 +579,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) error {
 		return err
 	}
 	if l3PolicyChanged {
-		e.getLogger().Debug("regeneration of L3 (CIDR) policy caused policy change")
+		e.Logger().Debug("regeneration of L3 (CIDR) policy caused policy change")
 	}
 
 	// no failures after this point
@@ -589,7 +589,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) error {
 	if e.forcePolicyCompute {
 		forceRegeneration = true     // Options were changed by the caller.
 		e.forcePolicyCompute = false // Policies just computed
-		e.getLogger().Debug("Forced policy recalculation")
+		e.Logger().Debug("Forced policy recalculation")
 	}
 
 	// Set the revision of this endpoint to the current revision of the policy
@@ -601,7 +601,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) error {
 	// the regeneration of the endpoint to complete.
 	policyChanged := l3PolicyChanged || l4PolicyChanged
 
-	e.getLogger().WithFields(logrus.Fields{
+	e.Logger().WithFields(logrus.Fields{
 		"policyChanged":                  policyChanged,
 		"forcedRegeneration":             forceRegeneration,
 		logfields.PolicyRegenerationTime: time.Since(regenerateStart).String(),
@@ -679,7 +679,7 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 
 	metrics.EndpointCountRegenerating.Inc()
 	stats.totalTime.Start()
-	e.getLogger().WithFields(logrus.Fields{
+	e.Logger().WithFields(logrus.Fields{
 		logfields.StartTime: time.Now(),
 		logfields.Reason:    context.Reason,
 	}).Info("Regenerating endpoint")
@@ -689,7 +689,7 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 		stats.success = retErr == nil
 		stats.SendMetrics()
 
-		scopedLog := e.getLogger().WithFields(logrus.Fields{
+		scopedLog := e.Logger().WithFields(logrus.Fields{
 			"waitingForLock":         stats.waitingForLock.Total(),
 			"waitingForCTClean":      stats.waitingForCTClean.Total(),
 			"policyCalculation":      stats.policyCalculation.Total(),
@@ -729,7 +729,7 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 	// GH-5350: Remove this special case to require checking for StateWaitingForIdentity
 	if e.GetStateLocked() != StateWaitingForIdentity &&
 		!e.BuilderSetStateLocked(StateRegenerating, "Regenerating endpoint: "+context.Reason) {
-		e.getLogger().WithField(logfields.EndpointState, e.state).Debug("Skipping build due to invalid state")
+		e.Logger().WithField(logfields.EndpointState, e.state).Debug("Skipping build due to invalid state")
 		e.Unlock()
 
 		return fmt.Errorf("Skipping build due to invalid state: %s", e.state)
@@ -771,7 +771,7 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 	revision, compilationExecuted, err = e.regenerateBPF(owner, tmpDir, context)
 	if err != nil {
 		failDir := e.FailedDirectoryPath()
-		e.getLogger().WithFields(logrus.Fields{
+		e.Logger().WithFields(logrus.Fields{
 			logfields.Path: failDir,
 		}).Warn("generating BPF for endpoint failed, keeping stale directory.")
 		os.Rename(tmpDir, failDir)
@@ -831,7 +831,7 @@ func (e *Endpoint) Regenerate(owner Owner, context *RegenerationContext) <-chan 
 			return
 		}
 		e.RUnlock()
-		scopedLog := e.getLogger()
+		scopedLog := e.Logger()
 
 		// We should only queue the request after we use all the endpoint's
 		// lock/unlock. Otherwise this can get a deadlock if the endpoint is
@@ -997,7 +997,7 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) {
 	e.runIPIdentitySync(e.IPv4)
 	e.runIPIdentitySync(e.IPv6)
 
-	e.getLogger().WithFields(logrus.Fields{
+	e.Logger().WithFields(logrus.Fields{
 		logfields.Identity:       identity.StringID(),
 		logfields.OldIdentity:    oldIdentity,
 		logfields.IdentityLabels: identity.Labels.String(),
