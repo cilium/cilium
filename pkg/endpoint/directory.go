@@ -48,7 +48,7 @@ func (e *Endpoint) NextDirectoryPath() string {
 // or if any updates to directories for the endpoint's directories fails.
 // Must be called with endpoint.Mutex held.
 func (e *Endpoint) synchronizeDirectories(origDir string, compilationExecuted bool) error {
-	scopedLog := e.getLogger()
+	scopedLog := e.Logger()
 
 	tmpDir := e.NextDirectoryPath()
 	// If generation failed, keep the directory around. If it ever succeeds
