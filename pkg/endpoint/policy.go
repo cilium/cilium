@@ -565,6 +565,8 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (isPolicyComp bool, err error) 
 		e.getLogger().Debug("regeneration of L3 (CIDR) policy caused policy change")
 	}
 
+	// no failures after this point
+	// Note - endpoint policy enforcement must be determined BEFORE this function!
 	e.computeDesiredPolicyMapState(repo)
 
 	// If we are in this function, then policy has been calculated.
@@ -615,7 +617,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (isPolicyComp bool, err error) 
 // to the endpoint, as well as the daemon's policy enforcement, may override
 // configuration changes which were made via the API that were provided in opts.
 // Must be called with endpoint mutex held.
-func (e *Endpoint) updateAndOverrideEndpointOptions(owner Owner, opts option.OptionMap) (optsChanged bool) {
+func (e *Endpoint) updateAndOverrideEndpointOptions(opts option.OptionMap) (optsChanged bool) {
 	if opts == nil {
 		opts = make(option.OptionMap)
 	}
@@ -831,7 +833,9 @@ func (e *Endpoint) TriggerPolicyUpdatesLocked(owner Owner, opts option.OptionMap
 		return false, fmt.Errorf("%s: %s", e.StringID(), err)
 	}
 
-	optionsChanged := e.updateAndOverrideEndpointOptions(owner, opts)
+	// Note that this *must* be called after regeneratePolicy because options
+	// can be changed based on the endpoint's desired state for policy.
+	optionsChanged := e.updateAndOverrideEndpointOptions(opts)
 	needToRegenerateBPF := optionsChanged || policyChanged
 
 	// If it does not need datapath regeneration then we should set the policy
