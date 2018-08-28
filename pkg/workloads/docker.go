@@ -428,6 +428,8 @@ func (d *dockerClient) handleCreateWorkload(id string, retry bool) {
 			if ciliumID != 0 {
 				ep = endpointmanager.LookupCiliumID(ciliumID)
 			}
+		} else {
+			ciliumID = ep.ID
 		}
 
 		retryLog.WithFields(logrus.Fields{
