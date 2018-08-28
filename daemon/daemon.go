@@ -285,11 +285,6 @@ func (d *Daemon) DryModeEnabled() bool {
 	return option.Config.DryMode
 }
 
-// PolicyEnforcement returns the type of policy enforcement for the daemon.
-func (d *Daemon) PolicyEnforcement() string {
-	return policy.GetPolicyEnabled()
-}
-
 // DebugEnabled returns if debug mode is enabled.
 func (d *Daemon) DebugEnabled() bool {
 	return option.Config.Opts.IsEnabled(option.Debug)

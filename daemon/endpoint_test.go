@@ -87,17 +87,17 @@ func (ds *DaemonSuite) TestEndpointAddNoLabels(c *C) {
 	// endpoints with the reserved:init label. If no policy rules match
 	// reserved:init, this drops all ingress and egress traffic.
 	policy.SetPolicyEnabled(option.DefaultEnforcement)
-	ingress, egress := ds.d.EnableEndpointPolicyEnforcement(ep)
+	ingress, egress := ep.ComputePolicyEnforcement(ds.d.GetPolicyRepository())
 	c.Assert(ingress, Equals, true)
 	c.Assert(egress, Equals, true)
 
 	// Check that the "always" and "never" modes are not affected.
 	policy.SetPolicyEnabled(option.AlwaysEnforce)
-	ingress, egress = ds.d.EnableEndpointPolicyEnforcement(ep)
+	ingress, egress = ep.ComputePolicyEnforcement(ds.d.GetPolicyRepository())
 	c.Assert(ingress, Equals, true)
 	c.Assert(egress, Equals, true)
 	policy.SetPolicyEnabled(option.NeverEnforce)
-	ingress, egress = ds.d.EnableEndpointPolicyEnforcement(ep)
+	ingress, egress = ep.ComputePolicyEnforcement(ds.d.GetPolicyRepository())
 	c.Assert(ingress, Equals, false)
 	c.Assert(egress, Equals, false)
 
