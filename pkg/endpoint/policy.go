@@ -560,7 +560,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (isPolicyComp bool, err error) 
 	// policy applies (i.e., if rules select this endpoint). We can use this
 	// information to short-circuit policy generation if enforcement is
 	// disabled for ingress and / or egress.
-	e.ingressPolicyEnabled, e.egressPolicyEnabled = owner.EnableEndpointPolicyEnforcement(e)
+	e.ingressPolicyEnabled, e.egressPolicyEnabled = e.ComputePolicyEnforcement(repo)
 
 	// Skip L4 policy recomputation if possible. However, the rest of the
 	// policy computation still needs to be done for each endpoint separately.
@@ -657,6 +657,36 @@ func (e *Endpoint) updateAndOverrideEndpointOptions(opts option.OptionMap) (opts
 
 	optsChanged = e.applyOptsLocked(opts)
 	return
+}
+
+// ComputePolicyEnforcement returns whether policy enforcement needs to be
+// enabled for the specified endpoint based off of the global configuration of
+// policy enforcement.
+//
+// Must be called with endpoint and repo mutexes held for reading.
+func (e *Endpoint) ComputePolicyEnforcement(repo *policy.Repository) (ingress bool, egress bool) {
+	// Check if policy enforcement should be enabled at the daemon level.
+	switch policy.GetPolicyEnabled() {
+	case option.AlwaysEnforce:
+		// If policy enforcement is enabled for the daemon, then it has to be
+		// enabled for the endpoint.
+		return true, true
+	case option.DefaultEnforcement:
+		// If the endpoint has the reserved:init label, i.e. if it has not yet
+		// received any labels, always enforce policy (default deny).
+		if e.IsInit() {
+			return true, true
+		}
+
+		// Default mode means that if rules contain labels that match this endpoint,
+		// then enable policy enforcement for this endpoint.
+		// GH-1676: Could check e.Consumable instead? Would be much cheaper.
+		return repo.GetRulesMatching(e.SecurityIdentity.LabelArray)
+	default:
+		// If policy enforcement isn't enabled, we do not enable policy
+		// enforcement for the endpoint.
+		return false, false
+	}
 }
 
 // Called with e.Mutex UNlocked

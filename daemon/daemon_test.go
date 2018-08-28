@@ -51,22 +51,20 @@ type DaemonSuite struct {
 	kvstoreInit bool
 
 	// Owners interface mock
-	OnTracingEnabled                  func() bool
-	OnEnableEndpointPolicyEnforcement func(e *e.Endpoint) (bool, bool)
-	OnPolicyEnforcement               func() string
-	OnAlwaysAllowLocalhost            func() bool
-	OnGetCachedLabelList              func(id identity.NumericIdentity) (labels.LabelArray, error)
-	OnGetPolicyRepository             func() *policy.Repository
-	OnUpdateProxyRedirect             func(e *e.Endpoint, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error)
-	OnRemoveProxyRedirect             func(e *e.Endpoint, id string, proxyWaitGroup *completion.WaitGroup) error
-	OnUpdateNetworkPolicy             func(e *e.Endpoint, policy *policy.L4Policy, labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, proxyWaitGroup *completion.WaitGroup) error
-	OnRemoveNetworkPolicy             func(e *e.Endpoint)
-	OnQueueEndpointBuild              func(r *e.Request)
-	OnRemoveFromEndpointQueue         func(epID uint64)
-	OnDebugEnabled                    func() bool
-	OnGetCompilationLock              func() *lock.RWMutex
-	OnSendNotification                func(typ monitor.AgentNotification, text string) error
-	OnNewProxyLogRecord               func(l *accesslog.LogRecord) error
+	OnTracingEnabled          func() bool
+	OnAlwaysAllowLocalhost    func() bool
+	OnGetCachedLabelList      func(id identity.NumericIdentity) (labels.LabelArray, error)
+	OnGetPolicyRepository     func() *policy.Repository
+	OnUpdateProxyRedirect     func(e *e.Endpoint, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error)
+	OnRemoveProxyRedirect     func(e *e.Endpoint, id string, proxyWaitGroup *completion.WaitGroup) error
+	OnUpdateNetworkPolicy     func(e *e.Endpoint, policy *policy.L4Policy, labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, proxyWaitGroup *completion.WaitGroup) error
+	OnRemoveNetworkPolicy     func(e *e.Endpoint)
+	OnQueueEndpointBuild      func(r *e.Request)
+	OnRemoveFromEndpointQueue func(epID uint64)
+	OnDebugEnabled            func() bool
+	OnGetCompilationLock      func() *lock.RWMutex
+	OnSendNotification        func(typ monitor.AgentNotification, text string) error
+	OnNewProxyLogRecord       func(l *accesslog.LogRecord) error
 }
 
 func (ds *DaemonSuite) SetUpTest(c *C) {
@@ -109,8 +107,6 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	identity.InitIdentityAllocator(d)
 
 	ds.OnTracingEnabled = nil
-	ds.OnEnableEndpointPolicyEnforcement = nil
-	ds.OnPolicyEnforcement = nil
 	ds.OnAlwaysAllowLocalhost = nil
 	ds.OnGetCachedLabelList = nil
 	ds.OnGetPolicyRepository = nil
@@ -175,20 +171,6 @@ func (e *DaemonConsulSuite) TearDownTest(c *C) {
 func (ds *DaemonSuite) TestMinimumWorkerThreadsIsSet(c *C) {
 	c.Assert(numWorkerThreads() >= 2, Equals, true)
 	c.Assert(numWorkerThreads() >= runtime.NumCPU(), Equals, true)
-}
-
-func (ds *DaemonSuite) EnableEndpointPolicyEnforcement(e *e.Endpoint) (bool, bool) {
-	if ds.OnEnableEndpointPolicyEnforcement != nil {
-		return ds.OnEnableEndpointPolicyEnforcement(e)
-	}
-	panic("UpdateEndpointPolicyEnforcement should not have been called")
-}
-
-func (ds *DaemonSuite) PolicyEnforcement() string {
-	if ds.OnPolicyEnforcement != nil {
-		return ds.OnPolicyEnforcement()
-	}
-	panic("PolicyEnforcement should not have been called")
 }
 
 func (ds *DaemonSuite) AlwaysAllowLocalhost() bool {

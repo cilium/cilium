@@ -25,13 +25,6 @@ import (
 // Owner is the interface defines the requirements for anybody owning policies.
 type Owner interface {
 
-	// EnableEndpointPolicyEnforcement returns whether policy enforcement
-	// should be enabled for the specified endpoint.
-	EnableEndpointPolicyEnforcement(e *Endpoint) (bool, bool)
-
-	// GetPolicyEnforcementType returns the type of policy enforcement for the Owner.
-	PolicyEnforcement() string
-
 	// Must return the policy repository
 	GetPolicyRepository() *policy.Repository
 

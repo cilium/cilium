@@ -272,11 +272,6 @@ func (d *Daemon) GetPolicyRepository() *policy.Repository {
 	return d.policy
 }
 
-// PolicyEnforcement returns the type of policy enforcement for the daemon.
-func (d *Daemon) PolicyEnforcement() string {
-	return policy.GetPolicyEnabled()
-}
-
 // DebugEnabled returns if debug mode is enabled.
 func (d *Daemon) DebugEnabled() bool {
 	return option.Config.Opts.IsEnabled(option.Debug)
