@@ -10,7 +10,7 @@
         {"port": "80", "protocol": "TCP"}
       ],
       "rules": {
-        "HTTP": [
+        "http": [
           {
             "method": "GET",
             "path": "/public"
@@ -28,7 +28,7 @@
         { "port": "80", "protocol": "TCP"}
       ],
       "rules": {
-        "HTTP": [
+        "http": [
           {
             "method": "POST",
             "host": "^external-service.org$"

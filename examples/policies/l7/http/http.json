@@ -7,7 +7,7 @@
                 {"port": "80", "protocol": "TCP"}
             ],
             "rules": {
-                "HTTP": [
+                "http": [
                     {
                         "method": "GET",
                         "path": "/path1$"
