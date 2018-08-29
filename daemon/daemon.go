@@ -267,10 +267,6 @@ func (d *Daemon) StartEndpointBuilders(nRoutines int) {
 	}
 }
 
-func (d *Daemon) GetBpfDir() string {
-	return option.Config.BpfDir
-}
-
 // GetPolicyRepository returns the policy repository of the daemon
 func (d *Daemon) GetPolicyRepository() *policy.Repository {
 	return d.policy

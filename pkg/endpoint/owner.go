@@ -50,9 +50,6 @@ type Owner interface {
 	// L7 proxies.
 	RemoveNetworkPolicy(e *Endpoint)
 
-	// Must return path to BPF template files directory
-	GetBpfDir() string
-
 	// QueueEndpointBuild puts the given request in the processing queue
 	QueueEndpointBuild(*Request)
 
