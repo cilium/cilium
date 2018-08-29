@@ -70,6 +70,10 @@ type RegenerationContext struct {
 	// ReloadDatapath forces the datapath programs to be reloaded. It does
 	// not guarantee recompilation of the programs.
 	ReloadDatapath bool
+
+	// Stats are collected during the endpoint regeneration and provided
+	// back to the caller
+	Stats regenerationStatistics
 }
 
 // NewRegenerationContext returns a new context for regeneration that does not
@@ -513,18 +517,6 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (isPolicyComp bool, err error) 
 	}
 
 	regenerateStart := time.Now()
-	// Capture successful regeneration time
-	defer func() {
-		if err == nil && isPolicyComp {
-			regenerateTimeNs := time.Since(regenerateStart)
-			regenerateTimeSec := float64(regenerateTimeNs) / float64(time.Second)
-			e.getLogger().WithField(logfields.PolicyRegenerationTime, time.Since(regenerateStart).String()).
-				Info("Regeneration of policy has completed")
-			metrics.PolicyRegenerationCount.Inc()
-			metrics.PolicyRegenerationTime.Add(regenerateTimeSec)
-			metrics.PolicyRegenerationTimeSquare.Add(math.Pow(regenerateTimeSec, 2))
-		}
-	}()
 
 	// Use the old labelsMap instance if the new one is still the same.
 	// Later we can compare the pointers to figure out if labels have changed or not.
@@ -552,7 +544,8 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (isPolicyComp bool, err error) 
 			"policyRevision.next": e.nextPolicyRevision,
 			"policyRevision.repo": revision,
 			"policyChanged":       e.nextPolicyRevision > e.policyRevision,
-		}).Debug("skipping policy recalculation")
+		}).Debug("Skipping unnecessary endpoint policy recalculation")
+
 		// This revision already computed, but may still need to be applied to BPF
 		return e.nextPolicyRevision > e.policyRevision, nil
 	}
@@ -618,20 +611,27 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (isPolicyComp bool, err error) 
 	// the regeneration of the endpoint to complete.
 	policyChanged := l3PolicyChanged || l4PolicyChanged
 
-	e.getLogger().WithFields(logrus.Fields{
-		"policyChanged":      policyChanged,
-		"forcedRegeneration": forceRegeneration,
-	}).Debug("Done calculating policy")
-
 	// If the policy changed, or the revision of the policy repository has changed
 	// we return true. It is possible that the endpoint's next policy revision
 	// is the same as the endpoint's current policy revision; this indicates
 	// that no new rules have been added in the policy repository; if policy
 	// hasn't changed, and no new rules were added, and we haven't forced
 	// regeneration for the endpoint, then return false.
-	policyChanged = policyChanged || e.nextPolicyRevision > e.policyRevision || forceRegeneration
+	bpfCompilationRequired := policyChanged || e.nextPolicyRevision > e.policyRevision || forceRegeneration
 
-	return policyChanged, nil
+	e.getLogger().WithFields(logrus.Fields{
+		"policyChanged":                  policyChanged,
+		"forcedRegeneration":             forceRegeneration,
+		logfields.PolicyRegenerationTime: time.Since(regenerateStart).String(),
+		"bpfCompilationRequired":         bpfCompilationRequired,
+	}).Info("Completed endpoint policy recalculation")
+
+	regenerateTimeSec := float64(time.Since(regenerateStart)) / float64(time.Second)
+	metrics.PolicyRegenerationCount.Inc()
+	metrics.PolicyRegenerationTime.Add(regenerateTimeSec)
+	metrics.PolicyRegenerationTimeSquare.Add(math.Pow(regenerateTimeSec, 2))
+
+	return bpfCompilationRequired, nil
 }
 
 // updateAndOverrideEndpointOptions updates the boolean configuration options for the endpoint
@@ -663,21 +663,49 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 	var compilationExecuted bool
 	var err error
 
+	context.Stats = regenerationStatistics{}
+	stats := &context.Stats
+
 	metrics.EndpointCountRegenerating.Inc()
-	regenerateStart := time.Now()
+	stats.totalTime.Start()
+	e.getLogger().WithFields(logrus.Fields{
+		logfields.StartTime: time.Now(),
+		logfields.Reason:    context.Reason,
+	}).Info("Regenerating endpoint")
+
 	defer func() {
+		stats.totalTime.End()
 		metrics.EndpointCountRegenerating.Dec()
+
+		scopedLog := e.getLogger().WithFields(logrus.Fields{
+			"waitingForLock":         stats.waitingForLock.Total(),
+			"waitingForCTClean":      stats.waitingForCTClean.Total(),
+			"policyCalculation":      stats.policyCalculation.Total(),
+			"proxyConfiguration":     stats.proxyConfiguration.Total(),
+			"proxyPolicyCalculation": stats.proxyPolicyCalculation.Total(),
+			"proxyWaitForAck":        stats.proxyWaitForAck.Total(),
+			"bpfCompilation":         stats.bpfCompilation.Total(),
+			"mapSync":                stats.mapSync.Total(),
+			"prepareBuild":           stats.prepareBuild.Total(),
+			logfields.BuildDuration:  stats.totalTime.Total(),
+			logfields.Reason:         context.Reason,
+		})
+
 		if retErr == nil {
+			scopedLog.Info("Completed endpoint regeneration")
+			e.LogStatusOK(BPF, "Successfully regenerated endpoint program (Reason: "+context.Reason+")")
+
 			metrics.EndpointRegenerationCount.
 				WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
 
 			// Capture successful endpoint generation time
-			regenerateTimeNs := time.Since(regenerateStart)
-			regenerateTimeSec := float64(regenerateTimeNs) / float64(time.Second)
-			e.getLogger().WithField(logfields.EndpointRegenerationTime, time.Since(regenerateStart).String()).Info("Regeneration of endpoint has completed")
+			regenerateTimeSec := float64(stats.totalTime.Total()) / float64(time.Second)
 			metrics.EndpointRegenerationTime.Add(regenerateTimeSec)
 			metrics.EndpointRegenerationTimeSquare.Add(math.Pow(regenerateTimeSec, 2))
 		} else {
+			scopedLog.WithError(retErr).Warn("Regeneration of endpoint failed")
+			e.LogStatus(BPF, Failure, "Error regenerating endpoint: "+retErr.Error())
+
 			metrics.EndpointRegenerationCount.
 				WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
 		}
@@ -686,10 +714,12 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 	e.BuildMutex.Lock()
 	defer e.BuildMutex.Unlock()
 
+	stats.waitingForLock.Start()
 	// Check if endpoints is still alive before doing any build
 	if err = e.LockAlive(); err != nil {
 		return err
 	}
+	stats.waitingForLock.End()
 
 	// When building the initial drop policy in waiting-for-identity state
 	// the state remains unchanged
@@ -705,9 +735,7 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 
 	e.Unlock()
 
-	scopedLog := e.getLogger()
-	scopedLog.Debug("Regenerating endpoint...")
-
+	stats.prepareBuild.Start()
 	origDir := filepath.Join(owner.GetStateDir(), e.StringID())
 
 	// This is the temporary directory to store the generated headers,
@@ -719,6 +747,7 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 	if err := os.MkdirAll(tmpDir, 0777); err != nil {
 		return fmt.Errorf("Failed to create endpoint directory: %s", err)
 	}
+	stats.prepareBuild.End()
 
 	defer func() {
 		if err := e.LockAlive(); err != nil {
@@ -750,9 +779,11 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 	// Update desired policy for endpoint because policy has now been realized
 	// in the datapath. PolicyMap state is not updated here, because that is
 	// performed in endpoint.syncPolicyMap().
+	stats.waitingForLock.Start()
 	if err = e.LockAlive(); err != nil {
 		return err
 	}
+	stats.waitingForLock.End()
 
 	// Keep PolicyMap for this endpoint in sync with desired / realized state.
 	if !owner.DryModeEnabled() {
@@ -764,8 +795,6 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 	// compiled for
 	e.bumpPolicyRevisionLocked(revision)
 	e.Unlock()
-
-	scopedLog.Info("Endpoint policy recalculated")
 
 	return nil
 }
@@ -811,14 +840,11 @@ func (e *Endpoint) Regenerate(owner Owner, context *RegenerationContext) <-chan 
 
 			if err != nil {
 				buildSuccess = false
-				scopedLog.WithError(err).Warn("Regeneration of endpoint program failed")
-				e.LogStatus(BPF, Failure, "Error regenerating endpoint: "+err.Error())
 				if reprerr == nil && !owner.DryModeEnabled() {
 					owner.SendNotification(monitor.AgentNotifyEndpointRegenerateFail, repr)
 				}
 			} else {
 				buildSuccess = true
-				e.LogStatusOK(BPF, "Successfully regenerated endpoint program due to "+context.Reason)
 				if reprerr == nil && !owner.DryModeEnabled() {
 					owner.SendNotification(monitor.AgentNotifyEndpointRegenerateSuccess, repr)
 				}

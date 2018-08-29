@@ -45,6 +45,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/spanstat"
 	"github.com/cilium/cilium/pkg/version"
 
 	"github.com/sirupsen/logrus"
@@ -430,6 +431,19 @@ func (e *Endpoint) removeOldRedirects(owner Owner, desiredRedirects map[string]b
 	}
 }
 
+type regenerationStatistics struct {
+	totalTime              spanstat.SpanStat
+	waitingForLock         spanstat.SpanStat
+	waitingForCTClean      spanstat.SpanStat
+	policyCalculation      spanstat.SpanStat
+	proxyConfiguration     spanstat.SpanStat
+	proxyPolicyCalculation spanstat.SpanStat
+	proxyWaitForAck        spanstat.SpanStat
+	bpfCompilation         spanstat.SpanStat
+	mapSync                spanstat.SpanStat
+	prepareBuild           spanstat.SpanStat
+}
+
 // regenerateBPF rewrites all headers and updates all BPF maps to reflect the
 // specified endpoint.
 // Must be called with endpoint.Mutex not held and endpoint.BuildMutex held.
@@ -441,26 +455,22 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string, regenContext *Regene
 		compilationExecuted bool
 	)
 
+	stats := &regenContext.Stats
+	stats.waitingForLock.Start()
+
 	// Make sure that owner is not compiling base programs while we are
 	// regenerating an endpoint.
 	owner.GetCompilationLock().RLock()
 	defer owner.GetCompilationLock().RUnlock()
-
-	buildStart := time.Now()
 
 	ctCleaned := make(chan struct{})
 
 	if err = e.LockAlive(); err != nil {
 		return 0, compilationExecuted, err
 	}
+	stats.waitingForLock.End()
 
 	epID := e.StringID()
-
-	e.getLogger().WithField(logfields.StartTime, time.Now()).Info("Regenerating BPF program")
-	defer func() {
-		e.getLogger().WithField(logfields.BuildDuration, time.Since(buildStart).String()).
-			Info("Regeneration of BPF program has completed")
-	}()
 
 	// In the first ever regeneration of the endpoint, the conntrack table
 	// is cleaned from the new endpoint IPs as it is guaranteed that any
@@ -540,11 +550,13 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string, regenContext *Regene
 	// Only generate & populate policy map if a security identity is set up for
 	// this endpoint.
 	if e.SecurityIdentity != nil {
+		stats.policyCalculation.Start()
 		_, err = e.regeneratePolicy(owner)
 		if err != nil {
 			e.Unlock()
 			return 0, compilationExecuted, fmt.Errorf("unable to regenerate policy for '%s': %s", e.PolicyMap.String(), err)
 		}
+		stats.policyCalculation.End()
 
 		_ = e.updateAndOverrideEndpointOptions(nil)
 
@@ -554,18 +566,24 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string, regenContext *Regene
 		// state with the current program (if it exists) for this endpoint.
 		// GH-3897 would fix this by creating a new map to do an atomic swap
 		// with the old one.
+		stats.mapSync.Start()
 		err := e.syncPolicyMap()
 		if err != nil {
 			e.Unlock()
 			return 0, compilationExecuted, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %s", err)
 		}
+		stats.mapSync.End()
 
 		// Configure the new network policy with the proxies.
+		stats.proxyPolicyCalculation.Start()
 		if err = e.updateNetworkPolicy(owner, proxyWaitGroup); err != nil {
 			e.Unlock()
 			return 0, compilationExecuted, err
 		}
+		stats.proxyPolicyCalculation.End()
 	}
+
+	stats.proxyConfiguration.Start()
 
 	// Walk the L4Policy to add new redirects and update the desired policy map
 	// state to set the newly allocated proxy ports.
@@ -581,6 +599,9 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string, regenContext *Regene
 	// now-obsolete redirects, since we synced the updated policy map above.
 	// It's now safe to remove the redirects from the proxy's configuration.
 	e.removeOldRedirects(owner, desiredRedirects, proxyWaitGroup)
+	stats.proxyConfiguration.End()
+
+	stats.prepareBuild.Start()
 
 	// Generate header file specific to this endpoint for use in compiling
 	// BPF programs for this endpoint.
@@ -625,18 +646,18 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string, regenContext *Regene
 	rundir := owner.GetStateDir()
 	debug := strconv.FormatBool(viper.GetBool(option.BPFCompileDebugName))
 
+	stats.prepareBuild.End()
 	if bpfHeaderfilesChanged || regenContext.ReloadDatapath {
 		closeChan := loadinfo.LogPeriodicSystemLoad(log.WithFields(logrus.Fields{logfields.EndpointID: epID}).Debugf, time.Second)
 
-		start := time.Now()
+		stats.bpfCompilation.Start()
 		// Compile and install BPF programs for this endpoint
 		err = e.runInit(libdir, rundir, epdir, epInfoCache.ifName, debug)
+		stats.bpfCompilation.End()
 		close(closeChan)
 
-		compilationTime := time.Since(start)
-
 		e.getLogger().WithError(err).
-			WithField(logfields.BPFCompilationTime, compilationTime.String()).
+			WithField(logfields.BPFCompilationTime, stats.bpfCompilation.Total().String()).
 			Info("Recompiled endpoint BPF program")
 
 		if err != nil {
@@ -649,17 +670,23 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string, regenContext *Regene
 			Debug("BPF header file unchanged, skipping BPF compilation and installation")
 	}
 
+	stats.proxyWaitForAck.Start()
 	err = e.WaitForProxyCompletions(proxyWaitGroup)
 	if err != nil {
 		return 0, compilationExecuted, fmt.Errorf("Error while configuring proxy redirects: %s", err)
 	}
+	stats.proxyWaitForAck.End()
 
 	// Wait for connection tracking cleaning to be complete
+	stats.waitingForCTClean.Start()
 	<-ctCleaned
+	stats.waitingForCTClean.End()
 
+	stats.waitingForLock.Start()
 	if err = e.LockAlive(); err != nil {
 		return 0, compilationExecuted, err
 	}
+	stats.waitingForLock.End()
 	defer e.Unlock()
 
 	e.ctCleaned = true
@@ -673,6 +700,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string, regenContext *Regene
 	//
 	// This must be done after allocating the new redirects, to update the
 	// policy map with the new proxy ports.
+	stats.mapSync.Start()
 	err = e.syncPolicyMap()
 	if err != nil {
 		return 0, compilationExecuted, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %s", err)
@@ -683,6 +711,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string, regenContext *Regene
 	if err != nil {
 		log.WithField(logfields.EndpointID, e.ID).WithError(err).Error("Exposing new bpf failed")
 	}
+	stats.mapSync.End()
 
 	return epInfoCache.revision, compilationExecuted, err
 }
