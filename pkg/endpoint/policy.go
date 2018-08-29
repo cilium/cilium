@@ -738,7 +738,7 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 	e.Unlock()
 
 	stats.prepareBuild.Start()
-	origDir := filepath.Join(owner.GetStateDir(), e.StringID())
+	origDir := filepath.Join(option.Config.StateDir, e.StringID())
 
 	// This is the temporary directory to store the generated headers,
 	// the original existing directory is not overwritten until the

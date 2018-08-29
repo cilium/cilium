@@ -50,9 +50,6 @@ type Owner interface {
 	// L7 proxies.
 	RemoveNetworkPolicy(e *Endpoint)
 
-	// GetStateDir must return path to the state directory
-	GetStateDir() string
-
 	// Must return path to BPF template files directory
 	GetBpfDir() string
 

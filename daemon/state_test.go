@@ -93,9 +93,6 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 
 	ds.d.compilationMutex = new(lock.RWMutex)
 
-	ds.OnGetStateDir = func() string {
-		return baseDir
-	}
 	ds.OnQueueEndpointBuild = func(r *e.Request) {
 		go func(*e.Request) {
 			r.MyTurn <- true
@@ -183,6 +180,12 @@ func (ds *DaemonSuite) TestReadEPsFromDirNames(c *C) {
 	tmpDir, err := ioutil.TempDir("", "cilium-tests")
 	defer func() {
 		os.RemoveAll(tmpDir)
+	}()
+
+	oldStateDir := option.Config.StateDir
+	option.Config.StateDir = tmpDir
+	defer func() {
+		option.Config.StateDir = oldStateDir
 	}()
 	c.Assert(err, IsNil)
 	epsNames, err := ds.generateEPs(tmpDir, epsWanted, epsMap)
