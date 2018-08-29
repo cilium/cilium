@@ -437,7 +437,7 @@ func (d *Daemon) RevNATDump() ([]loadbalancer.L3n4AddrID, error) {
 // retrieved from the KVStore.
 func (d *Daemon) SyncLBMap() error {
 	// Don't bother syncing if we are in dry mode.
-	if d.DryModeEnabled() {
+	if option.Config.DryMode {
 		return nil
 	}
 

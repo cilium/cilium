@@ -114,9 +114,6 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 	ds.OnEnableEndpointPolicyEnforcement = func(e *e.Endpoint) (bool, bool) {
 		return true, true
 	}
-	ds.OnDryModeEnabled = func() bool {
-		return true
-	}
 
 	ds.OnGetCompilationLock = func() *lock.RWMutex {
 		return ds.d.compilationMutex

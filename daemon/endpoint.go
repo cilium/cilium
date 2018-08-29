@@ -492,7 +492,7 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []er
 	endpointmanager.Remove(ep)
 
 	// If dry mode is enabled, no changes to BPF maps are performed
-	if !d.DryModeEnabled() {
+	if !option.Config.DryMode {
 		if errs := lxcmap.DeleteElement(ep); errs != nil {
 			errors = append(errors, errs...)
 		}

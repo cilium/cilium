@@ -25,9 +25,6 @@ import (
 // Owner is the interface defines the requirements for anybody owning policies.
 type Owner interface {
 
-	// Must return true if dry mode is enabled
-	DryModeEnabled() bool
-
 	// EnableEndpointPolicyEnforcement returns whether policy enforcement
 	// should be enabled for the specified endpoint.
 	EnableEndpointPolicyEnforcement(e *Endpoint) (bool, bool)
