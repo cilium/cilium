@@ -267,11 +267,6 @@ func (d *Daemon) StartEndpointBuilders(nRoutines int) {
 	}
 }
 
-// GetStateDir returns the path to the state directory
-func (d *Daemon) GetStateDir() string {
-	return option.Config.StateDir
-}
-
 func (d *Daemon) GetBpfDir() string {
 	return option.Config.BpfDir
 }
