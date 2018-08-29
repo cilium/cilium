@@ -472,6 +472,15 @@ func (e *Endpoint) updateNetworkPolicy(owner Owner, proxyWaitGroup *completion.W
 	return nil
 }
 
+// setNextPolicyRevision updates the desired policy revision field
+// Must be called with the endpoint lock held for at least reading
+func (e *Endpoint) setNextPolicyRevision(revision uint64) {
+	e.nextPolicyRevision = revision
+	e.UpdateLogger(map[string]interface{}{
+		logfields.DesiredPolicyRevision: e.nextPolicyRevision,
+	})
+}
+
 // regeneratePolicy regenerates endpoint's policy if needed and returns whether
 // the policy for the endpoint changed.
 //
@@ -602,7 +611,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (isPolicyComp bool, err error) 
 
 	// Set the revision of this endpoint to the current revision of the policy
 	// repository.
-	e.nextPolicyRevision = revision
+	e.setNextPolicyRevision(revision)
 
 	// If no policy or options change occurred for this endpoint then the endpoint is
 	// already running the latest revision, otherwise we have to wait for
@@ -610,9 +619,8 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (isPolicyComp bool, err error) 
 	policyChanged := l3PolicyChanged || l4PolicyChanged
 
 	e.getLogger().WithFields(logrus.Fields{
-		"policyChanged":       policyChanged,
-		"policyRevision.next": e.nextPolicyRevision,
-		"forcedRegeneration":  forceRegeneration,
+		"policyChanged":      policyChanged,
+		"forcedRegeneration": forceRegeneration,
 	}).Debug("Done calculating policy")
 
 	// If the policy changed, or the revision of the policy repository has changed
