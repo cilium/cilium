@@ -197,6 +197,11 @@ static int BPF_FUNC(skb_set_tunnel_opt, struct __sk_buff *skb,
 static int BPF_FUNC2(skb_event_output, struct __sk_buff *skb, void *map, uint64_t index,
 		     const void *data, uint32_t size) = (void *)BPF_FUNC_perf_event_output;
 
+/* Sockops and SK_MSG helpers */
+static int BPF_FUNC(sock_map_update, struct bpf_sock_ops *skops, void *map, uint32_t key,  uint64_t flags);
+static int BPF_FUNC(sock_hash_update, struct bpf_sock_ops *skops, void *map, void *key,  uint64_t flags);
+static int BPF_FUNC(msg_redirect_hash, struct sk_msg_md *md, void *map, void *key, uint64_t flags);
+
 /** LLVM built-ins, mem*() routines work for constant size */
 
 #ifndef lock_xadd
