@@ -389,11 +389,13 @@ func (e *Endpoint) computeDesiredL3PolicyMapEntries(repo *policy.Repository, des
 	}
 }
 
-// Must be called with global repo.Mutrex, e.Mutex, and c.Mutex held
-func (e *Endpoint) regenerateL3Policy(repo *policy.Repository, revision uint64) (bool, error) {
+// regenerateL3Policy calculates the CIDR-based L3 policy for the given endpoint
+// from the set of rules in the repository.
+// Must be called with repo Mutex held for reading, e.Mutex held for writing.
+func (e *Endpoint) regenerateL3Policy(repo *policy.Repository) (bool, error) {
 
 	ctx := policy.SearchContext{
-		To: e.SecurityIdentity.LabelArray, // keep c.Mutex taken to protect this.
+		To: e.SecurityIdentity.LabelArray,
 	}
 	if option.Config.TracingEnabled() {
 		ctx.Trace = policy.TRACE_ENABLED
@@ -576,7 +578,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (isPolicyComp bool, err error) 
 
 	// Calculate L3 (CIDR) policy.
 	var l3PolicyChanged bool
-	if l3PolicyChanged, err = e.regenerateL3Policy(repo, revision); err != nil {
+	if l3PolicyChanged, err = e.regenerateL3Policy(repo); err != nil {
 		return false, err
 	}
 	if l3PolicyChanged {
