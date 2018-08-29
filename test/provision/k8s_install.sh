@@ -210,6 +210,8 @@ if [[ "${HOST}" == "k8s1" ]]; then
     kubectl -n kube-system apply -f ${PROVISIONSRC}/manifest/dns_deployment.yaml
 
     $PROVISIONSRC/compile.sh
+
+    install_cfssl
 else
     kubeadm join --token=$TOKEN ${KUBEADM_ADDR}:6443 \
         ${KUBEADM_SLAVE_OPTIONS}
