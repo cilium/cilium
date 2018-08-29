@@ -180,42 +180,13 @@ func hasMultipleMounts() (bool, error) {
 	return num > 1, nil
 }
 
-// isBPFFS returns two boolean values:checks whether the current mapRoot:
-// - whether the current mapRoot has any mount
-// - whether that mount's filesystem is BPFFS
-func isBPFFS() (bool, bool, error) {
-	var mapRootMountInfo *mountinfo.MountInfo
-
-	mountInfos, err := mountinfo.GetMountInfo()
-	if err != nil {
-		return false, false, err
-	}
-
-	for _, mountInfo := range mountInfos {
-		if mountInfo.MountPoint == mapRoot {
-			mapRootMountInfo = mountInfo
-			break
-		}
-	}
-
-	if mapRootMountInfo == nil {
-		return false, false, nil
-	}
-
-	// Check whether the mount filesystem is BPFFS
-	if mapRootMountInfo.FilesystemType == mountinfo.FilesystemTypeBPFFS {
-		return true, true, nil
-	}
-	return true, false, nil
-}
-
 // checkOrMountCustomLocation tries to check or mount the BPF filesystem in the
 // given path.
 func checkOrMountCustomLocation(bpfRoot string) error {
 	SetMapRoot(bpfRoot)
 
 	// Check whether the custom location has a BPFFS mount.
-	mounted, bpffsInstance, err := isBPFFS()
+	mounted, bpffsInstance, err := mountinfo.IsMountFS(mountinfo.FilesystemTypeBPFFS, bpfRoot)
 	if err != nil {
 		return err
 	}
@@ -251,7 +222,7 @@ func checkOrMountCustomLocation(bpfRoot string) error {
 //    the empty directory. In that case, mount BPFFS under /run/cilium/bpffs.
 func checkOrMountDefaultLocations() error {
 	// Check whether /sys/fs/bpf has a BPFFS mount.
-	mounted, bpffsInstance, err := isBPFFS()
+	mounted, bpffsInstance, err := mountinfo.IsMountFS(mountinfo.FilesystemTypeBPFFS, mapRoot)
 	if err != nil {
 		return err
 	}
@@ -280,7 +251,7 @@ func checkOrMountDefaultLocations() error {
 		)
 		SetMapRoot(defaults.DefaultMapRootFallback)
 
-		cMounted, cBpffsInstance, err := isBPFFS()
+		cMounted, cBpffsInstance, err := mountinfo.IsMountFS(mountinfo.FilesystemTypeBPFFS, mapRoot)
 		if err != nil {
 			return err
 		}
