@@ -19,6 +19,10 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
+const (
+	subsystem = "identity"
+)
+
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "identity")
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsystem)
 )

@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 
 	"github.com/sirupsen/logrus"
 )
@@ -317,6 +318,11 @@ restart:
 
 			scopedLog := log.WithFields(logrus.Fields{"kvstore-event": event.Typ.String(), "key": event.Key})
 			scopedLog.Debug("Received event")
+
+			metrics.KVStoreOperationsTotal.With(map[string]string{
+				metrics.LabelScope: subsystem,
+				metrics.LabelType:  event.Typ.String(),
+			}).Inc()
 
 			// Synchronize local caching of endpoint IP to ipIDPair mapping with
 			// operation key-value store has informed us about.

@@ -38,6 +38,12 @@ Endpoint
 * ``endpoint_regeneration_square_seconds_total``: Total sum of squares of successful endpoint regeneration times
 * ``endpoint_state``: Count of all endpoints, tagged by different endpoint states
 
+KVStore
+-------
+
+* ``kvstore_operations_total``: Number of interactions with the Key-Value Store,
+  labeled by subsystem and event type
+
 Datapath
 --------
 

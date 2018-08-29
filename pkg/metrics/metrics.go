@@ -74,6 +74,9 @@ var (
 	// LabelStatus the label from completed task
 	LabelStatus = "status"
 
+	// LabelType marks the type label for various metrics.
+	LabelType = "type"
+
 	// Endpoint
 
 	// EndpointCount is a function used to collect this metric.
@@ -197,6 +200,16 @@ var (
 		ConstLabels: prometheus.Labels{"source": LabelEventSourceAPI},
 	})
 
+	LabelScope = "scope" // @TODO to delete when PR-5296 is merged.
+
+	// Key Value Store statistics
+
+	// KVStoreOperationsTotal are the number of iteractions in kvstore per subsystem and type
+	KVStoreOperationsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "kvstore_operations_total",
+		Help: "Number of interactions with the Key-Value Store, labeled by subsystem and event type",
+	}, []string{LabelScope, LabelType})
+
 	// L7 statistics
 
 	// ProxyParseErrors is a count of failed parse errors on proxy
@@ -316,6 +329,8 @@ func init() {
 	MustRegister(EventTSK8s)
 	MustRegister(EventTSContainerd)
 	MustRegister(EventTSAPI)
+
+	MustRegister(KVStoreOperationsTotal)
 
 	MustRegister(ProxyParseErrors)
 	MustRegister(ProxyForwarded)

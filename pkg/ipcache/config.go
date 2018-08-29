@@ -19,6 +19,10 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
+const (
+	subsystem = "ipcache"
+)
+
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipcache")
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsystem)
 )
