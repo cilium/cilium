@@ -62,7 +62,6 @@ type DaemonSuite struct {
 	OnRemoveProxyRedirect             func(e *e.Endpoint, id string, proxyWaitGroup *completion.WaitGroup) error
 	OnUpdateNetworkPolicy             func(e *e.Endpoint, policy *policy.L4Policy, labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, proxyWaitGroup *completion.WaitGroup) error
 	OnRemoveNetworkPolicy             func(e *e.Endpoint)
-	OnGetBpfDir                       func() string
 	OnQueueEndpointBuild              func(r *e.Request)
 	OnRemoveFromEndpointQueue         func(epID uint64)
 	OnDebugEnabled                    func() bool
@@ -121,7 +120,6 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	ds.OnRemoveProxyRedirect = nil
 	ds.OnUpdateNetworkPolicy = nil
 	ds.OnRemoveNetworkPolicy = nil
-	ds.OnGetBpfDir = nil
 	ds.OnQueueEndpointBuild = nil
 	ds.OnRemoveFromEndpointQueue = nil
 	ds.OnDebugEnabled = nil
@@ -250,13 +248,6 @@ func (ds *DaemonSuite) RemoveNetworkPolicy(e *e.Endpoint) {
 		ds.OnRemoveNetworkPolicy(e)
 	}
 	panic("RemoveNetworkPolicy should not have been called")
-}
-
-func (ds *DaemonSuite) GetBpfDir() string {
-	if ds.OnGetBpfDir != nil {
-		return ds.OnGetBpfDir()
-	}
-	panic("GetBpfDir should not have been called")
 }
 
 func (ds *DaemonSuite) QueueEndpointBuild(r *e.Request) {

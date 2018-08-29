@@ -198,7 +198,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 	healthArgs := fmt.Sprintf("-d --admin=unix --passive --pidfile %s", pidfile)
 	args := []string{info.ContainerName, info.InterfaceName, vethPeerName,
 		ip6.String(), ip4.String(), "cilium-health", healthArgs}
-	prog := filepath.Join(owner.GetBpfDir(), "spawn_netns.sh")
+	prog := filepath.Join(option.Config.BpfDir, "spawn_netns.sh")
 
 	cmd := exec.CommandContext(context.Background(), prog, args...)
 	if err := logFromCommand(cmd, info.ContainerName); err != nil {

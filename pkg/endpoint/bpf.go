@@ -642,7 +642,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string, regenContext *Regene
 	e.Unlock()
 
 	e.getLogger().WithField("bpfHeaderfilesChanged", bpfHeaderfilesChanged).Debug("Preparing to compile BPF")
-	libdir := owner.GetBpfDir()
+	libdir := option.Config.BpfDir
 	rundir := option.Config.StateDir
 	debug := strconv.FormatBool(viper.GetBool(option.BPFCompileDebugName))
 
