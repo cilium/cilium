@@ -1,6 +1,8 @@
 include ../Makefile.defs
 
 FLAGS := -Iinclude -I. -D__NR_CPUS__=$(shell nproc) -O2 -g
+SUBDIRS = sockops
+.PHONY: subdirs $(SUBDIRS)
 
 CLANG_FLAGS :=  ${FLAGS} -target bpf -emit-llvm
 # eBPF verifier enforces unaligned access checks where necessary, so don't
@@ -19,7 +21,7 @@ LLC    ?= llc
 HOSTCC ?= gcc
 
 ifeq ("$(PKG_BUILD)","")
-all: $(BPF) $(TARGET)
+all: $(BPF) $(TARGET) $(SUBDIRS)
 
 %.o: %.c $(LIB)
 	@$(ECHO_CC)
@@ -67,6 +69,10 @@ bpf_lxc.o: bpf_lxc.c $(LIB)
 	@$(ECHO_CC)
 	$(QUIET) ${CLANG} ${CLANG_FLAGS} -c $< -o $(patsubst %.o,%.ll,$@)
 	$(QUIET) ${LLC} ${LLC_FLAGS} -o $@ $(patsubst %.o,%.ll,$@)
+
+subdirs: $(SUBDIRS)
+$(SUBDIRS):
+	$(MAKE) -C $@
 else
 all: $(TARGET)
 endif
