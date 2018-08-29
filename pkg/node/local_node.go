@@ -18,6 +18,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 
 	"k8s.io/api/core/v1"
@@ -27,6 +29,8 @@ var (
 	localNode      Node
 	nodeRegistered = make(chan struct{})
 	registerOnce   sync.Once
+
+	metricsScope = "node"
 )
 
 // GetLocalNode returns the identity and node spec for the local node
@@ -86,5 +90,9 @@ func NotifyLocalNodeUpdated() {
 		if err := nodeStore.UpdateLocalKeySync(GetLocalNode()); err != nil {
 			log.WithError(err).Error("Unable to propagate local node change to kvstore")
 		}
+		metrics.KVStoreOperationsTotal.With(map[string]string{
+			metrics.LabelScope: metricsScope,
+			metrics.LabelType:  kvstore.EventTypeCreate.String(),
+		}).Inc()
 	}()
 }

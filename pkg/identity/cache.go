@@ -22,7 +22,12 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/allocator"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/trigger"
+)
+
+const (
+	metricsSubsystem = "identity"
 )
 
 var (
@@ -87,6 +92,10 @@ func identityWatcher(owner IdentityAllocatorOwner, events allocator.AllocatorEve
 		case kvstore.EventTypeModify:
 			// Ignore modify events
 		}
+		metrics.KVStoreOperationsTotal.With(map[string]string{
+			metrics.LabelScope: metricsSubsystem,
+			metrics.LabelType:  event.Typ.String(),
+		}).Inc()
 	}
 }
 
