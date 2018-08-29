@@ -87,6 +87,7 @@ func identityWatcher(owner IdentityAllocatorOwner, events allocator.AllocatorEve
 		case kvstore.EventTypeModify:
 			// Ignore modify events
 		}
+		metricsKvStoreIncrementEvent(event.Typ)
 	}
 }
 
