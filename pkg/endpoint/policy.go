@@ -788,7 +788,7 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 	stats.waitingForLock.End()
 
 	// Keep PolicyMap for this endpoint in sync with desired / realized state.
-	if !owner.DryModeEnabled() {
+	if !option.Config.DryMode {
 		e.syncPolicyMapController()
 	}
 
@@ -842,12 +842,12 @@ func (e *Endpoint) Regenerate(owner Owner, context *RegenerationContext) <-chan 
 
 			if err != nil {
 				buildSuccess = false
-				if reprerr == nil && !owner.DryModeEnabled() {
+				if reprerr == nil && !option.Config.DryMode {
 					owner.SendNotification(monitor.AgentNotifyEndpointRegenerateFail, repr)
 				}
 			} else {
 				buildSuccess = true
-				if reprerr == nil && !owner.DryModeEnabled() {
+				if reprerr == nil && !option.Config.DryMode {
 					owner.SendNotification(monitor.AgentNotifyEndpointRegenerateSuccess, repr)
 				}
 			}

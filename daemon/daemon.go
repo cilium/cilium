@@ -281,10 +281,6 @@ func (d *Daemon) GetPolicyRepository() *policy.Repository {
 	return d.policy
 }
 
-func (d *Daemon) DryModeEnabled() bool {
-	return option.Config.DryMode
-}
-
 // PolicyEnforcement returns the type of policy enforcement for the daemon.
 func (d *Daemon) PolicyEnforcement() string {
 	return policy.GetPolicyEnabled()
@@ -831,7 +827,7 @@ func (d *Daemon) init() error {
 		return nil
 	}
 
-	if !d.DryModeEnabled() {
+	if !option.Config.DryMode {
 		// Validate existing map paths before attempting BPF compile.
 		if err = d.validateExistingMaps(); err != nil {
 			log.WithError(err).Error("Error while validating maps")
@@ -1366,7 +1362,7 @@ func (d *Daemon) validateExistingMaps() error {
 }
 
 func (d *Daemon) collectStaleMapGarbage() {
-	if d.DryModeEnabled() {
+	if option.Config.DryMode {
 		return
 	}
 	walker := func(path string, _ os.FileInfo, _ error) error {

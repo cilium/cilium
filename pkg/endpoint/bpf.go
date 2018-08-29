@@ -328,7 +328,7 @@ func (ep *epInfoCache) GetBPFValue() (*lxcmap.EndpointInfo, error) {
 // problem that occurred while adding an l7 redirect for the specified policy.
 // Must be called with endpoint.Mutex held.
 func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, desiredRedirects map[string]bool, proxyWaitGroup *completion.WaitGroup) error {
-	if owner.DryModeEnabled() {
+	if option.Config.DryMode {
 		return nil
 	}
 
@@ -395,7 +395,7 @@ func (e *Endpoint) addNewRedirects(owner Owner, m *policy.L4Policy, proxyWaitGro
 
 // Must be called with endpoint.Mutex held.
 func (e *Endpoint) removeOldRedirects(owner Owner, desiredRedirects map[string]bool, proxyWaitGroup *completion.WaitGroup) {
-	if owner.DryModeEnabled() {
+	if option.Config.DryMode {
 		return
 	}
 
@@ -485,7 +485,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string, regenContext *Regene
 	}
 
 	// If dry mode is enabled, no further changes to BPF maps are performed
-	if owner.DryModeEnabled() {
+	if option.Config.DryMode {
 		defer e.Unlock()
 
 		// Compute policy for this endpoint.

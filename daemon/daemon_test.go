@@ -52,7 +52,6 @@ type DaemonSuite struct {
 
 	// Owners interface mock
 	OnTracingEnabled                  func() bool
-	OnDryModeEnabled                  func() bool
 	OnEnableEndpointPolicyEnforcement func(e *e.Endpoint) (bool, bool)
 	OnPolicyEnforcement               func() string
 	OnAlwaysAllowLocalhost            func() bool
@@ -112,7 +111,6 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	identity.InitIdentityAllocator(d)
 
 	ds.OnTracingEnabled = nil
-	ds.OnDryModeEnabled = nil
 	ds.OnEnableEndpointPolicyEnforcement = nil
 	ds.OnPolicyEnforcement = nil
 	ds.OnAlwaysAllowLocalhost = nil
@@ -181,13 +179,6 @@ func (e *DaemonConsulSuite) TearDownTest(c *C) {
 func (ds *DaemonSuite) TestMinimumWorkerThreadsIsSet(c *C) {
 	c.Assert(numWorkerThreads() >= 2, Equals, true)
 	c.Assert(numWorkerThreads() >= runtime.NumCPU(), Equals, true)
-}
-
-func (ds *DaemonSuite) DryModeEnabled() bool {
-	if ds.OnDryModeEnabled != nil {
-		return ds.OnDryModeEnabled()
-	}
-	panic("DryModeEnabled should not have been called")
 }
 
 func (ds *DaemonSuite) EnableEndpointPolicyEnforcement(e *e.Endpoint) (bool, bool) {
