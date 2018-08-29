@@ -317,7 +317,7 @@ restart:
 
 			scopedLog := log.WithFields(logrus.Fields{"kvstore-event": event.Typ.String(), "key": event.Key})
 			scopedLog.Debug("Received event")
-
+			metricsKvStoreIncrementEvent(event)
 			// Synchronize local caching of endpoint IP to ipIDPair mapping with
 			// operation key-value store has informed us about.
 			//

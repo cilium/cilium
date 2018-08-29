@@ -71,6 +71,9 @@ var (
 	// LabelDatapathFamily marks which protocol family (IPv4, IPV6) the metric is related to.
 	LabelDatapathFamily = "family"
 
+	// LabelType marks the type label for various metrics.
+	LabelType = "type"
+
 	// Endpoint
 
 	// EndpointCount is a function used to collect this metric.
@@ -194,6 +197,14 @@ var (
 		ConstLabels: prometheus.Labels{"source": LabelEventSourceAPI},
 	})
 
+	LabelScope = "scope" // @TODO to delete when PR-5296 is merged.
+
+	// KVStore statistics
+	KVStoreUsageTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "kvstore_usage_total",
+		Help: "Number of iteractions in kvstore per subsystem and type",
+	}, []string{LabelScope, LabelType})
+
 	// L7 statistics
 
 	// ProxyParseErrors is a count of failed parse errors on proxy
@@ -278,6 +289,8 @@ func init() {
 	MustRegister(EventTSK8s)
 	MustRegister(EventTSContainerd)
 	MustRegister(EventTSAPI)
+
+	MustRegister(KVStoreUsageTotal)
 
 	MustRegister(ProxyParseErrors)
 	MustRegister(ProxyForwarded)
