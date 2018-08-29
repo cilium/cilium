@@ -79,6 +79,7 @@ func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
 		logfields.EndpointID:             e.ID,
 		logfields.ContainerID:            e.getShortContainerID(),
 		logfields.DatapathPolicyRevision: e.policyRevision,
+		logfields.DesiredPolicyRevision:  e.nextPolicyRevision,
 		logfields.IPv4:                   e.IPv4.String(),
 		logfields.IPv6:                   e.IPv6.String(),
 		logfields.K8sPodName:             e.GetK8sNamespaceAndPodNameLocked(),
