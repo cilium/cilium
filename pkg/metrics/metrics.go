@@ -71,6 +71,12 @@ var (
 	// LabelDatapathFamily marks which protocol family (IPv4, IPV6) the metric is related to.
 	LabelDatapathFamily = "family"
 
+	// LabelScope is the label used to defined multiples scopes in the same
+	// metric. For example, one counter may measure a metric over the scope of
+	// the entire event (scope=global), or just part of an event
+	// (scope=slow_path)
+	LabelScope = "scope"
+
 	// Endpoint
 
 	// EndpointCount is a function used to collect this metric.
@@ -93,11 +99,12 @@ var (
 	},
 		[]string{"outcome"})
 
+	// Deprecated: this metric will be removed on Cilium 1.4
 	// EndpointRegenerationTime is the total time taken to regenerate endpoint
 	EndpointRegenerationTime = prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: Namespace,
 		Name:      "endpoint_regeneration_seconds_total",
-		Help:      "Total sum of successful endpoint regeneration times",
+		Help:      "Total sum of successful endpoint regeneration times (Deprecated)",
 	})
 
 	// EndpointRegenerationTimeSquare is the sum of squares of total time taken
@@ -117,6 +124,13 @@ var (
 		},
 		[]string{"endpoint_state"},
 	)
+
+	// EndpointRegenerationTimeStats is the total time taken to regenerate endpoint
+	EndpointRegenerationTimeStats = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: Namespace,
+		Name:      "endpoint_regeneration_time_stats_seconds",
+		Help:      "Endpoint regeneration time stats labeled by the scope",
+	}, []string{LabelScope})
 
 	// Policy
 
@@ -267,6 +281,7 @@ func init() {
 	MustRegister(EndpointRegenerationTime)
 	MustRegister(EndpointRegenerationTimeSquare)
 	MustRegister(EndpointStateCount)
+	MustRegister(EndpointRegenerationTimeStats)
 
 	MustRegister(PolicyCount)
 	MustRegister(PolicyRegenerationCount)
