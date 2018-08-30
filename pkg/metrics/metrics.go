@@ -255,6 +255,22 @@ var (
 		Help:      "Number of errors that occurred in the datapath or datapath management",
 	},
 		[]string{LabelDatapathArea, LabelDatapathName, LabelDatapathFamily})
+
+	LabelStatus = "status" // @TODO to delete when 5296 is merged.
+
+	// ControllerRuns is the number of times that a controller process runs.
+	ControllerRuns = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Name:      "controllers_runs_total",
+		Help:      "Number of times that a controller process was run labeled by completion status",
+	}, []string{LabelStatus})
+
+	// ControllerRunsDuration the duration of the controller process in seconds
+	ControllerRunsDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: Namespace,
+		Name:      "controllers_runs_duration_seconds",
+		Help:      "Duration in seconds of the controller process labeled by completion status",
+	}, []string{LabelStatus})
 )
 
 func init() {
@@ -290,6 +306,9 @@ func init() {
 	MustRegister(newStatusCollector())
 
 	MustRegister(DatapathErrors)
+
+	MustRegister(ControllerRuns)
+	MustRegister(ControllerRunsDuration)
 }
 
 // MustRegister adds the collector to the registry, exposing this metric to
