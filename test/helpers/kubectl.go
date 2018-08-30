@@ -1752,6 +1752,11 @@ func (kub *Kubectl) CiliumServicePreFlightCheck() error {
 		notFoundServices := make([]string, 0, len(kub.serviceCache.services.Items))
 		for _, k8sSvc := range kub.serviceCache.services.Items {
 			key := serviceKey(k8sSvc)
+			// ignore headless services
+			if k8sSvc.Spec.Type == v1.ServiceTypeClusterIP &&
+				k8sSvc.Spec.ClusterIP == v1.ClusterIPNone {
+				continue
+			}
 			if _, ok := k8sServicesFound[key]; !ok {
 				notFoundServices = append(notFoundServices, key)
 			}
