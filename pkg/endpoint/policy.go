@@ -416,14 +416,16 @@ func (e *Endpoint) regenerateL3Policy(repo *policy.Repository) (bool, error) {
 	return valid, err
 }
 
+// Note that this function assumes that endpoint policy has already been generated!
 // must be called with endpoint.Mutex held for reading
 func (e *Endpoint) updateNetworkPolicy(owner Owner, proxyWaitGroup *completion.WaitGroup) error {
-	// Skip updating the NetworkPolicy if no policy has been calculated.
+	// Skip updating the NetworkPolicy if no identity has been computed for this
+	// endpoint.
 	// This breaks a circular dependency between configuring NetworkPolicies in
 	// sidecar Envoy proxies and those proxies needing network connectivity
 	// to get their initial configuration, which is required for them to ACK
 	// the NetworkPolicies.
-	if !e.policyCalculated || e.SecurityIdentity == nil {
+	if e.SecurityIdentity == nil {
 		return nil
 	}
 
@@ -588,15 +590,6 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (isPolicyComp bool, err error) 
 	// no failures after this point
 	// Note - endpoint policy enforcement must be determined BEFORE this function!
 	e.computeDesiredPolicyMapState(repo)
-
-	// If we are in this function, then policy has been calculated.
-	if !e.policyCalculated {
-		e.getLogger().Debug("setting PolicyCalculated to true for endpoint")
-		e.policyCalculated = true
-		// Always trigger a regenerate after the first policy
-		// calculation has been performed
-		forceRegeneration = true
-	}
 
 	if e.forcePolicyCompute {
 		forceRegeneration = true     // Options were changed by the caller.

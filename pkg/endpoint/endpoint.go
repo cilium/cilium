@@ -382,10 +382,6 @@ type Endpoint struct {
 	// state is the state the endpoint is in. See SetStateLocked()
 	state string
 
-	// policyCalculated is true as soon as the policy has been calculated
-	// for the first time.
-	policyCalculated bool
-
 	// bpfHeaderfileHash is the hash of the last BPF headerfile that has been
 	// compiled and installed.
 	bpfHeaderfileHash string
