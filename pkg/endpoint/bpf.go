@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/ipcache"
@@ -45,6 +46,9 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/version"
+
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 )
 
 const (
@@ -109,11 +113,11 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 		e.logStatusLocked(BPF, Warning, fmt.Sprintf("Unable to create a base64: %s", err))
 	}
 
-	if e.DockerID == "" {
+	if e.ContainerID == "" {
 		fmt.Fprintf(fw, " * Docker Network ID: %s\n", e.DockerNetworkID)
 		fmt.Fprintf(fw, " * Docker Endpoint ID: %s\n", e.DockerEndpointID)
 	} else {
-		fmt.Fprintf(fw, " * Docker Container ID: %s\n", e.DockerID)
+		fmt.Fprintf(fw, " * Container ID: %s\n", e.ContainerID)
 	}
 
 	fmt.Fprintf(fw, ""+
@@ -270,11 +274,7 @@ func (e *Endpoint) runInit(libdir, rundir, epdir, ifName, debug string) error {
 	args := []string{libdir, rundir, epdir, ifName, debug, e.StringID()}
 	prog := filepath.Join(libdir, "join_ep.sh")
 
-	if err := e.RLockAlive(); err != nil {
-		return err
-	}
-	scopedLog := e.getLogger() // must be called with e.Mutex held
-	e.RUnlock()
+	scopedLog := e.getLogger()
 
 	ctx, cancel := context.WithTimeout(context.Background(), ExecTimeout)
 	defer cancel()
@@ -470,10 +470,11 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 		return 0, compilationExecuted, err
 	}
 
-	logger := e.getLogger()
-	logger.WithField(logfields.StartTime, time.Now()).Info("Regenerating BPF program")
+	epID := e.StringID()
+
+	e.getLogger().WithField(logfields.StartTime, time.Now()).Info("Regenerating BPF program")
 	defer func() {
-		logger.WithField(logfields.BuildDuration, time.Since(buildStart).String()).
+		e.getLogger().WithField(logfields.BuildDuration, time.Since(buildStart).String()).
 			Info("Regeneration of BPF program has completed")
 	}()
 
@@ -496,7 +497,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 	if e.GetStateLocked() != StateWaitingForIdentity &&
 		!e.BuilderSetStateLocked(StateRegenerating, "Regenerating Endpoint BPF: "+reason) {
 
-		logger.WithField(logfields.EndpointState, e.state).Debug("Skipping build due to invalid state")
+		e.getLogger().WithField(logfields.EndpointState, e.state).Debug("Skipping build due to invalid state")
 		e.Unlock()
 
 		return 0, compilationExecuted, fmt.Errorf("Skipping build due to invalid state: %s", e.state)
@@ -533,16 +534,15 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 
 	defer func() {
 		if reterr != nil {
-			e.UnconditionalLock()
-			epLogger := e.getLogger()
-			epLogger.WithError(err).Error("destroying BPF maps due to" +
+			e.getLogger().WithError(err).Error("destroying BPF maps due to" +
 				" errors during regeneration")
 			if createdPolicyMap {
-				epLogger.Debug("removing endpoint PolicyMap")
+				e.UnconditionalLock()
+				e.getLogger().Debug("removing endpoint PolicyMap")
 				os.RemoveAll(e.PolicyMapPathLocked())
 				e.PolicyMap = nil
+				e.Unlock()
 			}
-			e.Unlock()
 		}
 	}()
 
@@ -553,7 +553,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 			return 0, compilationExecuted, err
 		}
 		// Clean up map contents
-		logger.Debug("flushing old PolicyMap")
+		e.getLogger().Debug("flushing old PolicyMap")
 		err = e.PolicyMap.Flush()
 		if err != nil {
 			e.Unlock()
@@ -625,12 +625,12 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 	bpfHeaderfilesHash, err := hashEndpointHeaderfiles(epdir)
 	var bpfHeaderfilesChanged bool
 	if err != nil {
-		logger.WithError(err).Warn("Unable to hash header file")
+		e.getLogger().WithError(err).Warn("Unable to hash header file")
 		bpfHeaderfilesHash = ""
 		bpfHeaderfilesChanged = true
 	} else {
 		bpfHeaderfilesChanged = (bpfHeaderfilesHash != e.bpfHeaderfileHash)
-		logger.WithField(logfields.BPFHeaderfileHash, bpfHeaderfilesHash).
+		e.getLogger().WithField(logfields.BPFHeaderfileHash, bpfHeaderfilesHash).
 			Debugf("BPF header file hashed (was: %q)", e.bpfHeaderfileHash)
 	}
 
@@ -650,18 +650,25 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 	os.RemoveAll(e.IPv4IngressMapPathLocked())
 
 	e.Unlock()
-	logger.WithField("bpfHeaderfilesChanged", bpfHeaderfilesChanged).Debug("Preparing to compile BPF")
+	e.getLogger().WithField("bpfHeaderfilesChanged", bpfHeaderfilesChanged).Debug("Preparing to compile BPF")
 	libdir := owner.GetBpfDir()
 	rundir := owner.GetStateDir()
-	debug := strconv.FormatBool(owner.DebugEnabled())
+	debug := strconv.FormatBool(viper.GetBool(option.BPFCompileDebugName))
 
 	if bpfHeaderfilesChanged {
+		closeChan := loadinfo.LogPeriodicSystemLoad(log.WithFields(logrus.Fields{logfields.EndpointID: epID}).Debugf, time.Second)
+
 		start := time.Now()
 		// Compile and install BPF programs for this endpoint
 		err = e.runInit(libdir, rundir, epdir, epInfoCache.ifName, debug)
-		logger.WithError(err).
-			WithField(logfields.BPFCompilationTime, time.Since(start).String()).
-			Debugf("BPF compilation completed")
+		close(closeChan)
+
+		compilationTime := time.Since(start)
+
+		e.getLogger().WithError(err).
+			WithField(logfields.BPFCompilationTime, compilationTime.String()).
+			Info("Recompiled endpoint BPF program")
+
 		if err != nil {
 			return epInfoCache.revision, compilationExecuted, err
 		}
@@ -669,7 +676,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 		e.bpfHeaderfileHash = bpfHeaderfilesHash
 	} else {
 		e.UnconditionalRLock()
-		logger.WithField(logfields.BPFHeaderfileHash, bpfHeaderfilesHash).
+		e.getLogger().WithField(logfields.BPFHeaderfileHash, bpfHeaderfilesHash).
 			Debug("BPF header file unchanged, skipping BPF compilation and installation")
 		e.RUnlock()
 	}

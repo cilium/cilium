@@ -519,7 +519,7 @@ func (s *SSHMeta) PolicyGetRevision() (int, error) {
 // PolicyImportAndWait validates and imports a new policy into Cilium and waits
 // until the policy revision number increments. Returns an error if the policy
 // is invalid or could not be imported.
-func (s *SSHMeta) PolicyImportAndWait(path string, timeout time.Duration) (int, error) {
+func (s *SSHMeta) PolicyImportAndWait(path string, timeout int64) (int, error) {
 	ginkgoext.By(fmt.Sprintf("Setting up policy: %s", path))
 
 	revision, err := s.PolicyGetRevision()
@@ -832,7 +832,7 @@ func (s *SSHMeta) ServiceDelAll() *CmdRes {
 func (s *SSHMeta) SetUpCilium() error {
 	template := `
 PATH=/usr/lib/llvm-3.8/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
-CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug --debug-verbose flow
+CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug --debug-verbose flow --pprof=true --log-system-load
 INITSYSTEM=SYSTEMD`
 
 	err := RenderTemplateToFile("cilium", template, os.ModePerm)
@@ -855,7 +855,7 @@ INITSYSTEM=SYSTEMD`
 // WaitUntilReady waits until the output of `cilium status` returns with code
 // zero. Returns an error if the output of `cilium status` returns a nonzero
 // return code after the specified timeout duration has elapsed.
-func (s *SSHMeta) WaitUntilReady(timeout time.Duration) error {
+func (s *SSHMeta) WaitUntilReady(timeout int64) error {
 
 	body := func() bool {
 		res := s.ExecCilium("status")

@@ -42,6 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -346,6 +347,7 @@ func init() {
 		option.AutoIPv6NodeRoutesName, false, "Automatically adds IPv6 L3 routes to reach other nodes for non-overlay mode (--device) (BETA)")
 	flags.StringVar(&bpfRoot,
 		"bpf-root", "", "Path to BPF filesystem")
+	flags.Bool(option.BPFCompileDebugName, false, "Enable debugging of the BPF compilation process")
 	flags.Int(option.ClusterIDName, 0, "Unique identifier of the cluster")
 	viper.BindEnv(option.ClusterIDName, option.ClusterIDEnv)
 	flags.String(option.ClusterName, defaults.ClusterName, "Name of the cluster")
@@ -431,6 +433,7 @@ func init() {
 		"logstash-agent", "127.0.0.1:8080", "Logstash agent address")
 	flags.Uint32Var(&logstashProbeTimer,
 		"logstash-probe-timer", 10, "Logstash probe timer (seconds)")
+	flags.Bool(option.LogSystemLoadConfigName, false, "Enable periodic logging of system load")
 	flags.StringVar(&nat46prefix,
 		"nat46-range", node.DefaultNAT46Prefix, "IPv6 prefix to map IPv4 addresses to")
 	flags.BoolVar(&masquerade,
@@ -567,6 +570,10 @@ func initEnv(cmd *cobra.Command) {
 	log.Info("|  _| | | | | |     |")
 	log.Info("|___|_|_|_|___|_|_|_|")
 	log.Infof("Cilium %s", version.Version)
+
+	if viper.GetBool(option.LogSystemLoadConfigName) {
+		loadinfo.StartBackgroundLogger()
+	}
 
 	if viper.GetBool("disable-envoy-version-check") {
 		log.Info("Envoy version check disabled")
@@ -828,7 +835,6 @@ func runDaemon() {
 	go func() {
 		log.Info("Waiting until all pre-existing policies have been received")
 		d.k8sResourceSyncWaitGroup.Wait()
-		identity.WaitForInitialIdentities()
 		cachesSynced <- struct{}{}
 	}()
 
