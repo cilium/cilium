@@ -15,11 +15,8 @@
 package loader
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/command/exec"
@@ -90,23 +87,10 @@ func replaceDatapath(ctx context.Context, ifName string, objPath string, progSec
 		"prio", "1", "handle", "1", "bpf", "da", "obj", objPath,
 		"sec", progSec,
 	}
-	var out []byte
-	cmd = exec.CommandContext(ctx, "tc", args...)
-	cmd.Env = bpf.Environment()
-	out, err = cmd.CombinedOutput(log, true)
+	cmd = exec.CommandContext(ctx, "tc", args...).WithFilters(libbpfFixupMsg)
+	_, err = cmd.CombinedOutput(log, true)
 	if err != nil {
-		filteredOutput := bytes.NewBuffer(make([]byte, 0, len(out)))
-		scanner := bufio.NewScanner(bytes.NewReader(out))
-		for scanner.Scan() {
-			text := scanner.Text()
-			if !strings.Contains(text, libbpfFixupMsg) {
-				_, err2 := filteredOutput.WriteString(text)
-				if err2 != nil {
-					log.WithError(err2).Debugf("Cannot buffer tc failure output: %s: %q", err2, text)
-				}
-			}
-		}
-		return fmt.Errorf("Failed to load tc filter: %s: %q", err, filteredOutput)
+		return fmt.Errorf("Failed to load tc filter: %s", err)
 	}
 
 	return nil
