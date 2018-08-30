@@ -20,18 +20,15 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
 )
 
-// CombinedOutput runs the command 'cmd' which was initialized with reference
-// to 'ctx', and logs an error to 'scopedLog', with more verbosity if 'verbose'
-// is set to true.
-//
-// Returns any error (including timeout) that may have occurred during
-// execution of 'cmd'.
-func CombinedOutput(ctx context.Context, cmd *exec.Cmd, scopedLog *logrus.Entry, verbose bool) ([]byte, error) {
+// combinedOutput is the core implementation of catching deadline exceeded
+// options and logging errors, with an optional set of filtered outputs.
+func combinedOutput(ctx context.Context, cmd *exec.Cmd, filters []string, scopedLog *logrus.Entry, verbose bool) ([]byte, error) {
 	out, err := cmd.CombinedOutput()
 	if ctx.Err() == context.DeadlineExceeded {
 		scopedLog.WithField("cmd", cmd.Args).Error("Command execution failed: Timeout")
@@ -42,12 +39,29 @@ func CombinedOutput(ctx context.Context, cmd *exec.Cmd, scopedLog *logrus.Entry,
 			scopedLog.WithError(err).WithField("cmd", cmd.Args).Error("Command execution failed")
 
 			scanner := bufio.NewScanner(bytes.NewReader(out))
+		scan:
 			for scanner.Scan() {
-				scopedLog.Warn(scanner.Text())
+				text := scanner.Text()
+				for _, filter := range filters {
+					if strings.Contains(text, filter) {
+						continue scan
+					}
+				}
+				scopedLog.Warn(text)
 			}
 		}
 	}
 	return out, err
+}
+
+// CombinedOutput runs the command 'cmd' which was initialized with reference
+// to 'ctx', and logs an error to 'scopedLog', with more verbosity if 'verbose'
+// is set to true.
+//
+// Returns any error (including timeout) that may have occurred during
+// execution of 'cmd'.
+func CombinedOutput(ctx context.Context, cmd *exec.Cmd, scopedLog *logrus.Entry, verbose bool) ([]byte, error) {
+	return combinedOutput(ctx, cmd, nil, scopedLog, verbose)
 }
 
 // Cmd wraps exec.Cmd with a context to provide convenient execution of a
@@ -58,6 +72,9 @@ type Cmd struct {
 	*exec.Cmd
 	ctx      context.Context
 	cancelFn func()
+
+	// filters is a slice of strings that should be omitted from logging.
+	filters []string
 }
 
 // CommandContext wraps exec.CommandContext to allow this package to be used as
@@ -78,13 +95,21 @@ func WithTimeout(timeout time.Duration, prog string, args ...string) *Cmd {
 	return cmd
 }
 
+// WithFilters modifies the specified command to filter any output lines from
+// logs if they contain any of the substrings specified as arguments to this
+// function.
+func (c *Cmd) WithFilters(filters ...string) *Cmd {
+	c.filters = append(c.filters, filters...)
+	return c
+}
+
 // CombinedOutput runs the command and returns its combined standard output and
 // standard error. Unlike the standard library, if the context is exceeded, it
 // will return an error indicating so.
 //
 // Logs any errors that occur to the specified logger.
 func (c *Cmd) CombinedOutput(scopedLog *logrus.Entry, verbose bool) ([]byte, error) {
-	out, err := CombinedOutput(c.ctx, c.Cmd, scopedLog, verbose)
+	out, err := combinedOutput(c.ctx, c.Cmd, c.filters, scopedLog, verbose)
 	if c.cancelFn != nil {
 		c.cancelFn()
 	}
