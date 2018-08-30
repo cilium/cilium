@@ -84,6 +84,14 @@ Events external to Cilium
 * ``event_ts``: Last timestamp when we received an event. Further labeled by
   source: ``api``, ``containerd``, ``k8s``.
 
+Controllers
+-----------
+
+* ``controllers_runs_total``: Number of times that a controller process was run
+  labeled by completion status
+* ``controllers_runs_duration_seconds``: Duration in seconds of the controller
+  process labeled by completion status
+
 Cilium as a Kubernetes pod
 ==========================
 The Cilium Prometheus reference configuration configures jobs that automatically

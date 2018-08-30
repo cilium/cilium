@@ -20,9 +20,15 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/metrics"
 
 	"github.com/go-openapi/strfmt"
 	"github.com/sirupsen/logrus"
+)
+
+const (
+	success = "success"
+	failure = "failure"
 )
 
 // ControllerFunc is a function that the controller runs. This type is used for
@@ -128,6 +134,7 @@ type Controller struct {
 	consecutiveErrors int
 	lastError         error
 	lastErrorStamp    time.Time
+	lastDuration      time.Duration
 	uuid              string
 	stop              chan struct{}
 	update            chan struct{}
@@ -181,9 +188,11 @@ func (c *Controller) runController() {
 
 			start := time.Now()
 			err = params.DoFunc()
-			c.getLogger().Debug("Controller func execution time: ", time.Since(start))
+			duration := time.Since(start)
 
 			c.mutex.Lock()
+			c.lastDuration = duration
+			c.getLogger().Debug("Controller func execution time: ", c.lastDuration)
 
 			if err != nil {
 				switch err := err.(type) {
@@ -314,6 +323,8 @@ func (c *Controller) recordError(err error) {
 	c.lastErrorStamp = time.Now()
 	c.failureCount++
 	c.consecutiveErrors++
+	metrics.ControllerRuns.WithLabelValues(failure).Inc()
+	metrics.ControllerRunsDuration.WithLabelValues(failure).Observe(c.lastDuration.Seconds())
 }
 
 // recordSuccess updates all statistic collection variables on success
@@ -323,4 +334,7 @@ func (c *Controller) recordSuccess() {
 	c.lastSuccessStamp = time.Now()
 	c.successCount++
 	c.consecutiveErrors = 0
+
+	metrics.ControllerRuns.WithLabelValues(success).Inc()
+	metrics.ControllerRunsDuration.WithLabelValues(success).Observe(c.lastDuration.Seconds())
 }
