@@ -79,12 +79,7 @@ func compileDatapath(ctx context.Context, ep endpoint, dirs *directoryInfo, debu
 	return nil
 }
 
-func compileAndLoad(ctx context.Context, ep endpoint, dirs *directoryInfo) error {
-	debug := viper.GetBool(option.BPFCompileDebugName)
-	if err := compileDatapath(ctx, ep, dirs, debug); err != nil {
-		return err
-	}
-
+func reloadDatapath(ctx context.Context, ep endpoint, dirs *directoryInfo) error {
 	// Replace the current program
 	objPath := path.Join(dirs.Output, endpointObj)
 	if err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint); err != nil {
@@ -97,6 +92,15 @@ func compileAndLoad(ctx context.Context, ep endpoint, dirs *directoryInfo) error
 	}
 
 	return nil
+}
+
+func compileAndLoad(ctx context.Context, ep endpoint, dirs *directoryInfo) error {
+	debug := viper.GetBool(option.BPFCompileDebugName)
+	if err := compileDatapath(ctx, ep, dirs, debug); err != nil {
+		return err
+	}
+
+	return reloadDatapath(ctx, ep, dirs)
 }
 
 // CompileAndLoad compiles the BPF datapath programs for the specified endpoint
@@ -114,4 +118,13 @@ func CompileAndLoad(ctx context.Context, ep endpoint) error {
 		Output:  ep.StateDir(),
 	}
 	return compileAndLoad(ctx, ep, &dirs)
+}
+
+func ReloadDatapath(ctx context.Context, ep endpoint) error {
+	dirs := directoryInfo{
+		Library: option.Config.BpfDir,
+		Runtime: option.Config.StateDir,
+		Output:  ep.StateDir(),
+	}
+	return reloadDatapath(ctx, ep, &dirs)
 }
