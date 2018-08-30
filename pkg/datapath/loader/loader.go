@@ -15,16 +15,9 @@
 package loader
 
 import (
-	"bufio"
-	"bytes"
 	"context"
-	"fmt"
-	"os/exec"
-	"path/filepath"
-	"strconv"
-	"strings"
+	"path"
 
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -36,40 +29,71 @@ import (
 // TODO: Rebase against https://github.com/cilium/cilium/pull/5286.
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "datapath-loader")
 
+const (
+	symbolFromEndpoint = "from-container"
+)
+
 // endpoint provides access to endpoint information that is necessary to
 // compile and load the datapath.
 type endpoint interface {
 	InterfaceName() string
 	Logger() *logrus.Entry
 	StateDir() string
-	StringID() string
 }
 
-// joinEP shells out to bpf/join_ep.sh to compile/load the BPF datapath for the
-// specified endpoint, and handles timeouts if the loading takes too long.
-func joinEP(ctx context.Context, ep endpoint, libdir, rundir, epdir, debug string) error {
-	args := []string{libdir, rundir, epdir, debug, ep.InterfaceName(), ep.StringID()}
-	prog := filepath.Join(libdir, "join_ep.sh")
+// compileDatapath invokes the compiler and linker to create all state files for
+// the BPF datapath, with the primary target being the BPF ELF binary.
+//
+// If debug is enabled, create also the following output files:
+// * Preprocessed C
+// * Assembly
+// * Object compiled with debug symbols
+func compileDatapath(ctx context.Context, ep endpoint, dirs *directoryInfo, debug bool) error {
+	// TODO: Consider logging kernel/clang versions here too
+	epLog := ep.Logger()
 
-	scopedLog := ep.Logger()
-
-	joinEpCmd := exec.CommandContext(ctx, prog, args...)
-	joinEpCmd.Env = bpf.Environment()
-	out, err := joinEpCmd.CombinedOutput()
-
-	cmd := fmt.Sprintf("%s %s", prog, strings.Join(args, " "))
-	scopedLog = scopedLog.WithField("cmd", cmd)
-	if ctx.Err() == context.DeadlineExceeded {
-		scopedLog.Error("JoinEP: Command execution failed: Timeout")
-		return ctx.Err()
-	}
-	if err != nil {
-		scopedLog.WithError(err).Warn("JoinEP: Command execution failed")
-		scanner := bufio.NewScanner(bytes.NewReader(out))
-		for scanner.Scan() {
-			log.Warn(scanner.Text())
+	// Write out assembly and preprocessing files for debugging purposes
+	if debug {
+		for _, p := range debugProgs {
+			if err := compile(ctx, p, dirs, debug); err != nil {
+				scopedLog := epLog.WithFields(logrus.Fields{
+					logfields.Params: logfields.Repr(p),
+					logfields.Debug:  debug,
+				})
+				scopedLog.WithError(err).Debug("JoinEP: Failed to compile")
+				return err
+			}
 		}
-		return fmt.Errorf("error: %q command output: %q", err, out)
+	}
+
+	// Compile the new program
+	if err := compile(ctx, datapathProg, dirs, debug); err != nil {
+		scopedLog := epLog.WithFields(logrus.Fields{
+			logfields.Params: logfields.Repr(datapathProg),
+			logfields.Debug:  false,
+		})
+		scopedLog.WithError(err).Warn("JoinEP: Failed to compile")
+		return err
+	}
+
+	return nil
+}
+
+func compileAndLoad(ctx context.Context, ep endpoint, dirs *directoryInfo) error {
+	debug := viper.GetBool(option.BPFCompileDebugName)
+	if err := compileDatapath(ctx, ep, dirs, debug); err != nil {
+		return err
+	}
+
+	// Replace the current program
+	objPath := path.Join(dirs.Output, endpointObj)
+	if err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint); err != nil {
+		scopedLog := ep.Logger().WithFields(logrus.Fields{
+			logfields.Path: objPath,
+			logfields.Veth: ep.InterfaceName(),
+		})
+		scopedLog.WithError(err).Warn("JoinEP: Failed to load program")
+		return err
 	}
 
 	return nil
@@ -84,9 +108,10 @@ func CompileAndLoad(ctx context.Context, ep endpoint) error {
 		log.Fatalf("LoadBPF() doesn't support non-endpoint load")
 	}
 
-	libdir := option.Config.BpfDir
-	rundir := option.Config.StateDir
-	epdir := ep.StateDir()
-	debug := strconv.FormatBool(viper.GetBool(option.BPFCompileDebugName))
-	return joinEP(ctx, ep, libdir, rundir, epdir, debug)
+	dirs := directoryInfo{
+		Library: option.Config.BpfDir,
+		Runtime: option.Config.StateDir,
+		Output:  ep.StateDir(),
+	}
+	return compileAndLoad(ctx, ep, &dirs)
 }
