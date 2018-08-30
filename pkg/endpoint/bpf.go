@@ -45,7 +45,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/spanstat"
 	"github.com/cilium/cilium/pkg/version"
 
 	"github.com/sirupsen/logrus"
@@ -429,19 +428,6 @@ func (e *Endpoint) removeOldRedirects(owner Owner, desiredRedirects map[string]b
 			e.proxyStatisticsMutex.Unlock()
 		}
 	}
-}
-
-type regenerationStatistics struct {
-	totalTime              spanstat.SpanStat
-	waitingForLock         spanstat.SpanStat
-	waitingForCTClean      spanstat.SpanStat
-	policyCalculation      spanstat.SpanStat
-	proxyConfiguration     spanstat.SpanStat
-	proxyPolicyCalculation spanstat.SpanStat
-	proxyWaitForAck        spanstat.SpanStat
-	bpfCompilation         spanstat.SpanStat
-	mapSync                spanstat.SpanStat
-	prepareBuild           spanstat.SpanStat
 }
 
 // regenerateBPF rewrites all headers and updates all BPF maps to reflect the

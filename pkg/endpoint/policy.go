@@ -686,7 +686,8 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 
 	defer func() {
 		stats.totalTime.End()
-		metrics.EndpointCountRegenerating.Dec()
+		stats.success = retErr == nil
+		stats.SendMetrics()
 
 		scopedLog := e.getLogger().WithFields(logrus.Fields{
 			"waitingForLock":         stats.waitingForLock.Total(),
@@ -702,24 +703,14 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 			logfields.Reason:         context.Reason,
 		})
 
-		if retErr == nil {
-			scopedLog.Info("Completed endpoint regeneration")
-			e.LogStatusOK(BPF, "Successfully regenerated endpoint program (Reason: "+context.Reason+")")
-
-			metrics.EndpointRegenerationCount.
-				WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
-
-			// Capture successful endpoint generation time
-			regenerateTimeSec := float64(stats.totalTime.Total()) / float64(time.Second)
-			metrics.EndpointRegenerationTime.Add(regenerateTimeSec)
-			metrics.EndpointRegenerationTimeSquare.Add(math.Pow(regenerateTimeSec, 2))
-		} else {
+		if retErr != nil {
 			scopedLog.WithError(retErr).Warn("Regeneration of endpoint failed")
 			e.LogStatus(BPF, Failure, "Error regenerating endpoint: "+retErr.Error())
-
-			metrics.EndpointRegenerationCount.
-				WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
+			return
 		}
+
+		scopedLog.Info("Completed endpoint regeneration")
+		e.LogStatusOK(BPF, "Successfully regenerated endpoint program (Reason: "+context.Reason+")")
 	}()
 
 	e.BuildMutex.Lock()
