@@ -549,16 +549,20 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string, regenContext *Regene
 		closeChan := loadinfo.LogPeriodicSystemLoad(log.WithFields(logrus.Fields{logfields.EndpointID: epID}).Debugf, time.Second)
 
 		// Compile and install BPF programs for this endpoint
-		stats.bpfCompilation.Start()
 		ctx, cancel := context.WithTimeout(context.Background(), ExecTimeout)
-		err = loader.CompileAndLoad(ctx, epInfoCache)
-		stats.bpfCompilation.End()
+		if bpfHeaderfilesChanged {
+			stats.bpfCompilation.Start()
+			err = loader.CompileAndLoad(ctx, epInfoCache)
+			stats.bpfCompilation.End()
+			e.Logger().WithError(err).
+				WithField(logfields.BPFCompilationTime, stats.bpfCompilation.Total().String()).
+				Info("Recompiled endpoint BPF program")
+		} else {
+			err = loader.ReloadDatapath(ctx, epInfoCache)
+			e.Logger().WithError(err).Info("Reloaded endpoint BPF program")
+		}
 		cancel()
 		close(closeChan)
-
-		e.Logger().WithError(err).
-			WithField(logfields.BPFCompilationTime, stats.bpfCompilation.Total().String()).
-			Info("Recompiled endpoint BPF program")
 
 		if err != nil {
 			return epInfoCache.revision, compilationExecuted, err
