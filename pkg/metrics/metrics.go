@@ -330,6 +330,20 @@ var (
 		Name:      "errors_warnings_total",
 		Help:      "Number of total errors in cilium-agent instances",
 	}, []string{"level", "subsystem"})
+
+	// ControllerRuns is the number of times that a controller process runs.
+	ControllerRuns = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Name:      "controllers_runs_total",
+		Help:      "Number of times that a controller process was run labeled by completion status",
+	}, []string{LabelStatus})
+
+	// ControllerRunsDuration the duration of the controller process in seconds
+	ControllerRunsDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: Namespace,
+		Name:      "controllers_runs_duration_seconds",
+		Help:      "Duration in seconds of the controller process labeled by completion status",
+	}, []string{LabelStatus})
 )
 
 func init() {
@@ -373,6 +387,9 @@ func init() {
 	MustRegister(ConntrackGCDuration)
 
 	MustRegister(ErrorsWarnings)
+
+	MustRegister(ControllerRuns)
+	MustRegister(ControllerRunsDuration)
 }
 
 // MustRegister adds the collector to the registry, exposing this metric to
