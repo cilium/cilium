@@ -410,11 +410,6 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 
 	reason := ""
 	if changed {
-		// Force policy regeneration as endpoint's configuration was changed.
-		// Other endpoints need not be regenerated as no labels were changed.
-		// Note that we still need to (eventually) regenerate the endpoint for
-		// the changes to take effect.
-		ep.ForcePolicyCompute()
 
 		// Transition to waiting-to-regenerate if ready.
 		if ep.GetStateLocked() == endpoint.StateReady {

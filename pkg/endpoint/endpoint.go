@@ -419,11 +419,6 @@ type Endpoint struct {
 	// updated to and that will become effective with the next regenerate
 	nextPolicyRevision uint64
 
-	// forcePolicyCompute full endpoint policy recomputation
-	// Set when endpoint options have been changed. Cleared right before releasing the
-	// endpoint mutex after policy recalculation.
-	forcePolicyCompute bool
-
 	// BuildMutex synchronizes builds of individual endpoints and locks out
 	// deletion during builds
 	//
@@ -1318,11 +1313,6 @@ func (e *Endpoint) applyOptsLocked(opts option.OptionMap) bool {
 		e.UpdateLogger(nil)
 	}
 	return changed
-}
-
-// ForcePolicyCompute marks the endpoint for forced bpf regeneration.
-func (e *Endpoint) ForcePolicyCompute() {
-	e.forcePolicyCompute = true
 }
 
 func (e *Endpoint) SetDefaultOpts(opts *option.IntOptions) {
@@ -2498,10 +2488,6 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 	e.SetIdentity(identity)
 
 	readyToRegenerate := e.SetStateLocked(StateWaitingToRegenerate, "Triggering regeneration due to new identity")
-
-	// Unconditionally force policy recomputation after a new identity has been
-	// assigned.
-	e.ForcePolicyCompute()
 
 	e.Unlock()
 
