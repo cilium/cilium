@@ -489,8 +489,8 @@ func (e *Endpoint) setNextPolicyRevision(revision uint64) {
 	})
 }
 
-// regeneratePolicy regenerates endpoint's policy if needed and returns whether
-// the policy for the endpoint changed.
+// regeneratePolicy computes the policy for the given endpoint based off of the
+// rules in Owner's policy repository.
 //
 // Policy generation may fail, and in that case we exit before actually changing
 // the policy in any way, so that the last policy remains fully in effect if the
@@ -499,19 +499,17 @@ func (e *Endpoint) setNextPolicyRevision(revision uint64) {
 // while it fails for other endpoints.
 //
 // Returns:
-//  - isPolicyComp: true if the policy was changed for this endpoint;
 //  - err: any error in obtaining information for computing policy, or if
 // policy could not be generated given the current set of rules in the
 // repository.
 // Must be called with endpoint mutex held.
-func (e *Endpoint) regeneratePolicy(owner Owner) (isPolicyComp bool, err error) {
-	var labelsMap *identityPkg.IdentityCache
+func (e *Endpoint) regeneratePolicy(owner Owner) error {
 	var forceRegeneration bool
 
 	// No point in calculating policy if endpoint does not have an identity yet.
 	if e.SecurityIdentity == nil {
 		e.getLogger().Warn("Endpoint lacks identity, skipping policy calculation")
-		return false, nil
+		return nil
 	}
 
 	e.getLogger().Debug("Starting policy recalculation...")
@@ -520,10 +518,10 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (isPolicyComp bool, err error) 
 	// GH-1128 should allow optimizing this away, but currently we can't
 	// reliably know if the KV-store has changed or not, so we must scan
 	// through it each time.
-	labelsMap, err = getLabelsMap()
+	labelsMap, err := getLabelsMap()
 	if err != nil {
 		e.getLogger().WithError(err).Debug("Received error while evaluating policy")
-		return false, err
+		return err
 	}
 
 	regenerateStart := time.Now()
@@ -550,8 +548,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (isPolicyComp bool, err error) 
 			"policyChanged":       e.nextPolicyRevision > e.policyRevision,
 		}).Debug("Skipping unnecessary endpoint policy recalculation")
 
-		// This revision already computed, but may still need to be applied to BPF
-		return e.nextPolicyRevision > e.policyRevision, nil
+		return nil
 	}
 
 	// Update fields within endpoint based off known identities, and whether
@@ -570,7 +567,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (isPolicyComp bool, err error) 
 	if e.Iteration != revision {
 		l4PolicyChanged, err = e.resolveL4Policy(repo)
 		if err != nil {
-			return false, err
+			return err
 		}
 		// Result is valid until cache iteration advances
 		e.Iteration = revision
@@ -581,7 +578,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (isPolicyComp bool, err error) 
 	// Calculate L3 (CIDR) policy.
 	var l3PolicyChanged bool
 	if l3PolicyChanged, err = e.regenerateL3Policy(repo); err != nil {
-		return false, err
+		return err
 	}
 	if l3PolicyChanged {
 		e.getLogger().Debug("regeneration of L3 (CIDR) policy caused policy change")
@@ -606,19 +603,10 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (isPolicyComp bool, err error) 
 	// the regeneration of the endpoint to complete.
 	policyChanged := l3PolicyChanged || l4PolicyChanged
 
-	// If the policy changed, or the revision of the policy repository has changed
-	// we return true. It is possible that the endpoint's next policy revision
-	// is the same as the endpoint's current policy revision; this indicates
-	// that no new rules have been added in the policy repository; if policy
-	// hasn't changed, and no new rules were added, and we haven't forced
-	// regeneration for the endpoint, then return false.
-	bpfCompilationRequired := policyChanged || e.nextPolicyRevision > e.policyRevision || forceRegeneration
-
 	e.getLogger().WithFields(logrus.Fields{
 		"policyChanged":                  policyChanged,
 		"forcedRegeneration":             forceRegeneration,
 		logfields.PolicyRegenerationTime: time.Since(regenerateStart).String(),
-		"bpfCompilationRequired":         bpfCompilationRequired,
 	}).Info("Completed endpoint policy recalculation")
 
 	regenerateTimeSec := float64(time.Since(regenerateStart)) / float64(time.Second)
@@ -626,7 +614,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (isPolicyComp bool, err error) 
 	metrics.PolicyRegenerationTime.Add(regenerateTimeSec)
 	metrics.PolicyRegenerationTimeSquare.Add(math.Pow(regenerateTimeSec, 2))
 
-	return bpfCompilationRequired, nil
+	return nil
 }
 
 // updateAndOverrideEndpointOptions updates the boolean configuration options for the endpoint

@@ -489,7 +489,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string, regenContext *Regene
 		defer e.Unlock()
 
 		// Compute policy for this endpoint.
-		if _, err = e.regeneratePolicy(owner); err != nil {
+		if err = e.regeneratePolicy(owner); err != nil {
 			return 0, compilationExecuted, fmt.Errorf("Unable to regenerate policy: %s", err)
 		}
 
@@ -551,7 +551,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string, regenContext *Regene
 	// this endpoint.
 	if e.SecurityIdentity != nil {
 		stats.policyCalculation.Start()
-		_, err = e.regeneratePolicy(owner)
+		err = e.regeneratePolicy(owner)
 		if err != nil {
 			e.Unlock()
 			return 0, compilationExecuted, fmt.Errorf("unable to regenerate policy for '%s': %s", e.PolicyMap.String(), err)
