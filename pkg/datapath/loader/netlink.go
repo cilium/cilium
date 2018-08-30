@@ -19,10 +19,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"os/exec"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/command/exec"
 
 	"github.com/vishvananda/netlink"
 )
@@ -71,14 +71,7 @@ func replaceDatapath(ctx context.Context, ifName string, objPath string, progSec
 	// FIXME: Replace cilium-map-migrate with Golang map migration
 	cmd := exec.CommandContext(ctx, "cilium-map-migrate", "-s", objPath)
 	cmd.Env = bpf.Environment()
-	out, err := cmd.CombinedOutput()
-	if ctx.Err() == context.DeadlineExceeded {
-		err = fmt.Errorf("Command execution failed: Timeout")
-	}
-	if err != nil {
-		scanner := bufio.NewScanner(bytes.NewReader(out))
-		return fmt.Errorf("Failed to migrate endpoint maps: %s: %q", err, scanner.Text())
-	}
+	_, err = cmd.CombinedOutput(log, true)
 	defer func() {
 		var retCode string
 		if err == nil {
@@ -86,16 +79,10 @@ func replaceDatapath(ctx context.Context, ifName string, objPath string, progSec
 		} else {
 			retCode = "1"
 		}
-		cmd := exec.CommandContext(ctx, "cilium-map-migrate", "-e", objPath, "-r", retCode)
+		args := []string{"-e", objPath, "-r", retCode}
+		cmd := exec.CommandContext(ctx, "cilium-map-migrate", args...)
 		cmd.Env = bpf.Environment()
-		out2, err2 := cmd.CombinedOutput()
-		if ctx.Err() == context.DeadlineExceeded {
-			err = fmt.Errorf("Command execution failed: Timeout")
-		}
-		if err2 != nil {
-			scanner := bufio.NewScanner(bytes.NewReader(out2))
-			log.Infof("Failed to migrate maps back after unsuccessful prog replace: %s: %q", err2, scanner.Text())
-		}
+		_, _ = cmd.CombinedOutput(log, true) // ignore errors
 	}()
 
 	// FIXME: replace exec with native call
@@ -103,12 +90,10 @@ func replaceDatapath(ctx context.Context, ifName string, objPath string, progSec
 		"prio", "1", "handle", "1", "bpf", "da", "obj", objPath,
 		"sec", progSec,
 	}
+	var out []byte
 	cmd = exec.CommandContext(ctx, "tc", args...)
 	cmd.Env = bpf.Environment()
-	out, err = cmd.CombinedOutput()
-	if ctx.Err() == context.DeadlineExceeded {
-		err = fmt.Errorf("Command execution failed: Timeout")
-	}
+	out, err = cmd.CombinedOutput(log, true)
 	if err != nil {
 		filteredOutput := bytes.NewBuffer(make([]byte, 0, len(out)))
 		scanner := bufio.NewScanner(bytes.NewReader(out))
