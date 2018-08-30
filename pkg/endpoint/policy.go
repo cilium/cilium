@@ -508,7 +508,13 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (isPolicyComp bool, err error) 
 	var labelsMap *identityPkg.IdentityCache
 	var forceRegeneration bool
 
-	e.getLogger().Debug("Starting regenerate...")
+	// No point in calculating policy if endpoint does not have an identity yet.
+	if e.SecurityIdentity == nil {
+		e.getLogger().Warn("Endpoint lacks identity, skipping policy calculation")
+		return false, nil
+	}
+
+	e.getLogger().Debug("Starting policy recalculation...")
 
 	// Collect label arrays before policy computation, as this can fail.
 	// GH-1128 should allow optimizing this away, but currently we can't
@@ -526,12 +532,6 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (isPolicyComp bool, err error) 
 	// Later we can compare the pointers to figure out if labels have changed or not.
 	if reflect.DeepEqual(e.prevIdentityCache, labelsMap) {
 		labelsMap = e.prevIdentityCache
-	}
-
-	// Containers without a security identity are not accessible
-	if e.SecurityIdentity == nil {
-		e.getLogger().Warn("Endpoint lacks identity, skipping policy calculation")
-		return false, nil
 	}
 
 	repo := owner.GetPolicyRepository()
