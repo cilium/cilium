@@ -564,13 +564,11 @@ func (e *Endpoint) regeneratePolicy(owner Owner) error {
 	// Skip L4 policy recomputation if possible. However, the rest of the
 	// policy computation still needs to be done for each endpoint separately.
 	l4PolicyChanged := false
-	if e.Iteration != revision {
+	if e.policyRevision != revision {
 		l4PolicyChanged, err = e.resolveL4Policy(repo)
 		if err != nil {
 			return err
 		}
-		// Result is valid until cache iteration advances
-		e.Iteration = revision
 	} else {
 		e.getLogger().WithField(logfields.Identity, e.SecurityIdentity.ID).Debug("Reusing cached L4 policy")
 	}

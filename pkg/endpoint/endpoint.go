@@ -353,11 +353,6 @@ type Endpoint struct {
 	// previous policy computation
 	prevIdentityCache *identityPkg.IdentityCache
 
-	// Iteration policy of the Endpoint
-	// TODO: update documentation; description is not clear, and needs to be
-	// more specific.
-	Iteration uint64 `json:"-"`
-
 	// RealizedL4Policy is the L4Policy in effect for the endpoint.
 	RealizedL4Policy *policy.L4Policy `json:"-"`
 
@@ -1019,8 +1014,9 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 	sortProxyStats(proxyStats)
 
 	mdl := &models.EndpointPolicy{
-		ID:                       int64(e.SecurityIdentity.ID),
-		Build:                    int64(e.Iteration),
+		ID: int64(e.SecurityIdentity.ID),
+		// This field should be removed.
+		Build:                    int64(e.policyRevision),
 		PolicyRevision:           int64(e.policyRevision),
 		AllowedIngressIdentities: realizedIngressIdentities,
 		AllowedEgressIdentities:  realizedEgressIdentities,
@@ -1030,8 +1026,9 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 	}
 
 	desiredMdl := &models.EndpointPolicy{
-		ID:                       int64(e.SecurityIdentity.ID),
-		Build:                    int64(e.Iteration),
+		ID: int64(e.SecurityIdentity.ID),
+		// This field should be removed.
+		Build:                    int64(e.nextPolicyRevision),
 		PolicyRevision:           int64(e.nextPolicyRevision),
 		AllowedIngressIdentities: desiredIngressIdentities,
 		AllowedEgressIdentities:  desiredEgressIdentities,
