@@ -43,11 +43,9 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	bpfIPCache "github.com/cilium/cilium/pkg/maps/ipcache"
-	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/serializer"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/versioncheck"
 
@@ -58,7 +56,6 @@ import (
 	"k8s.io/api/extensions/v1beta1"
 	networkingv1 "k8s.io/api/networking/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -375,52 +372,33 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		return fmt.Errorf("Unable to create cilium network policy client: %s", err)
 	}
 
-	serKNPs := serializer.NewFunctionQueue(20)
-	serSvcs := serializer.NewFunctionQueue(20)
-	serEps := serializer.NewFunctionQueue(20)
-	serCNPs := serializer.NewFunctionQueue(20)
-	serPods := serializer.NewFunctionQueue(1024)
-	serNodes := serializer.NewFunctionQueue(20)
-	serNamespaces := serializer.NewFunctionQueue(20)
-
 	switch {
 	case networkPolicyV1VerConstr.Check(k8sServerVer):
-		_, policyController := cache.NewInformer(
-			cache.NewListWatchFromClient(k8s.Client().NetworkingV1().RESTClient(),
-				"networkpolicies", v1.NamespaceAll, fields.Everything()),
+		policyController := k8s.ControllerFactory(
+			k8s.Client().NetworkingV1().RESTClient(),
 			&networkingv1.NetworkPolicy{},
 			reSyncPeriod,
-			cache.ResourceEventHandlerFuncs{
-				AddFunc: func(obj interface{}) {
-					metrics.SetTSValue(metrics.EventTSK8s, time.Now())
-					if k8sNP := copyObjToV1NetworkPolicy(obj); k8sNP != nil {
-						serKNPs.Enqueue(func() error {
-							d.addK8sNetworkPolicyV1(k8sNP)
-							return nil
-						}, serializer.NoRetry)
+			k8s.ResourceEventHandlerFactory(
+				func(i interface{}) func() error {
+					return func() error {
+						d.addK8sNetworkPolicyV1(i.(*networkingv1.NetworkPolicy))
+						return nil
 					}
 				},
-				UpdateFunc: func(oldObj, newObj interface{}) {
-					metrics.SetTSValue(metrics.EventTSK8s, time.Now())
-					if oldK8sNP := copyObjToV1NetworkPolicy(oldObj); oldK8sNP != nil {
-						if newK8sNP := copyObjToV1NetworkPolicy(newObj); newK8sNP != nil {
-							serKNPs.Enqueue(func() error {
-								d.updateK8sNetworkPolicyV1(oldK8sNP, newK8sNP)
-								return nil
-							}, serializer.NoRetry)
-						}
+				func(i interface{}) func() error {
+					return func() error {
+						d.deleteK8sNetworkPolicyV1(i.(*networkingv1.NetworkPolicy))
+						return nil
 					}
 				},
-				DeleteFunc: func(obj interface{}) {
-					metrics.SetTSValue(metrics.EventTSK8s, time.Now())
-					if k8sNP := copyObjToV1NetworkPolicy(obj); k8sNP != nil {
-						serKNPs.Enqueue(func() error {
-							d.deleteK8sNetworkPolicyV1(k8sNP)
-							return nil
-						}, serializer.NoRetry)
+				func(old, new interface{}) func() error {
+					return func() error {
+						d.updateK8sNetworkPolicyV1(old.(*networkingv1.NetworkPolicy), new.(*networkingv1.NetworkPolicy))
+						return nil
 					}
 				},
-			},
+				&networkingv1.NetworkPolicy{},
+			),
 		)
 		blockWaitGroupToSyncResources(&d.k8sResourceSyncWaitGroup, policyController, "NetworkPolicy")
 		go policyController.Run(wait.NeverStop)
@@ -428,126 +406,96 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		d.k8sAPIGroups.addAPI(k8sAPIGroupNetworkingV1Core)
 	}
 
-	_, svcController := cache.NewInformer(
-		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
-			"services", v1.NamespaceAll, fields.Everything()),
+	svcController := k8s.ControllerFactory(
+		k8s.Client().CoreV1().RESTClient(),
 		&v1.Service{},
 		reSyncPeriod,
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
-				if svc := copyObjToV1Services(obj); svc != nil {
-					serSvcs.Enqueue(func() error {
-						d.addK8sServiceV1(svc)
-						return nil
-					}, serializer.NoRetry)
+		k8s.ResourceEventHandlerFactory(
+			func(i interface{}) func() error {
+				return func() error {
+					d.addK8sServiceV1(i.(*v1.Service))
+					return nil
 				}
 			},
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
-				if oldK8sSvc := copyObjToV1Services(oldObj); oldK8sSvc != nil {
-					if newK8sSvc := copyObjToV1Services(newObj); newK8sSvc != nil {
-						serSvcs.Enqueue(func() error {
-							d.updateK8sServiceV1(oldK8sSvc, newK8sSvc)
-							return nil
-						}, serializer.NoRetry)
-					}
+			func(i interface{}) func() error {
+				return func() error {
+					d.deleteK8sServiceV1(i.(*v1.Service))
+					return nil
 				}
 			},
-			DeleteFunc: func(obj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
-				if svc := copyObjToV1Services(obj); svc != nil {
-					serSvcs.Enqueue(func() error {
-						d.deleteK8sServiceV1(svc)
-						return nil
-					}, serializer.NoRetry)
+			func(old, new interface{}) func() error {
+				return func() error {
+					d.updateK8sServiceV1(old.(*v1.Service), new.(*v1.Service))
+					return nil
 				}
 			},
-		},
+			&v1.Service{},
+		),
 	)
+
 	blockWaitGroupToSyncResources(&d.k8sResourceSyncWaitGroup, svcController, "Service")
 	go svcController.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupServiceV1Core)
 
-	_, endpointController := cache.NewInformer(
-		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
-			"endpoints", v1.NamespaceAll, fields.Everything()),
+	endpointController := k8s.ControllerFactory(
+		k8s.Client().CoreV1().RESTClient(),
 		&v1.Endpoints{},
 		reSyncPeriod,
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
-				if k8sEP := copyObjToV1Endpoints(obj); k8sEP != nil {
-					serEps.Enqueue(func() error {
-						d.addK8sEndpointV1(k8sEP)
-						return nil
-					}, serializer.NoRetry)
+		k8s.ResourceEventHandlerFactory(
+			func(i interface{}) func() error {
+				return func() error {
+					d.addK8sEndpointV1(i.(*v1.Endpoints))
+					return nil
 				}
 			},
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
-				if oldK8sEP := copyObjToV1Endpoints(oldObj); oldK8sEP != nil {
-					if newK8sEP := copyObjToV1Endpoints(newObj); newK8sEP != nil {
-						serEps.Enqueue(func() error {
-							d.updateK8sEndpointV1(oldK8sEP, newK8sEP)
-							return nil
-						}, serializer.NoRetry)
-					}
+			func(i interface{}) func() error {
+				return func() error {
+					d.deleteK8sEndpointV1(i.(*v1.Endpoints))
+					return nil
 				}
 			},
-			DeleteFunc: func(obj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
-				if k8sEP := copyObjToV1Endpoints(obj); k8sEP != nil {
-					serEps.Enqueue(func() error {
-						d.deleteK8sEndpointV1(k8sEP)
-						return nil
-					}, serializer.NoRetry)
+			func(old, new interface{}) func() error {
+				return func() error {
+					d.updateK8sEndpointV1(old.(*v1.Endpoints), new.(*v1.Endpoints))
+					return nil
 				}
 			},
-		},
+			&v1.Endpoints{},
+		),
 	)
+
 	blockWaitGroupToSyncResources(&d.k8sResourceSyncWaitGroup, endpointController, "Endpoint")
 	go endpointController.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupEndpointV1Core)
 
 	if option.Config.IsLBEnabled() {
-		_, ingressController := cache.NewInformer(
-			cache.NewListWatchFromClient(k8s.Client().ExtensionsV1beta1().RESTClient(),
-				"ingresses", v1.NamespaceAll, fields.Everything()),
+		ingressController := k8s.ControllerFactory(
+			k8s.Client().CoreV1().RESTClient(),
 			&v1beta1.Ingress{},
 			reSyncPeriod,
-			cache.ResourceEventHandlerFuncs{
-				AddFunc: func(obj interface{}) {
-					metrics.SetTSValue(metrics.EventTSK8s, time.Now())
-					if ing := copyObjToV1beta1Ingress(obj); ing != nil {
-						serEps.Enqueue(func() error {
-							d.addIngressV1beta1(ing)
-							return nil
-						}, serializer.NoRetry)
+			k8s.ResourceEventHandlerFactory(
+				func(i interface{}) func() error {
+					return func() error {
+						d.addIngressV1beta1(i.(*v1beta1.Ingress))
+						return nil
 					}
 				},
-				UpdateFunc: func(oldObj, newObj interface{}) {
-					metrics.SetTSValue(metrics.EventTSK8s, time.Now())
-					if oldIng := copyObjToV1beta1Ingress(oldObj); oldIng != nil {
-						if newIng := copyObjToV1beta1Ingress(newObj); newIng != nil {
-							serEps.Enqueue(func() error {
-								d.updateIngressV1beta1(oldIng, newIng)
-								return nil
-							}, serializer.NoRetry)
-						}
+				func(i interface{}) func() error {
+					return func() error {
+						d.deleteIngressV1beta1(i.(*v1beta1.Ingress))
+						return nil
 					}
 				},
-				DeleteFunc: func(obj interface{}) {
-					metrics.SetTSValue(metrics.EventTSK8s, time.Now())
-					if ing := copyObjToV1beta1Ingress(obj); ing != nil {
-						serEps.Enqueue(func() error {
-							d.deleteIngressV1beta1(ing)
-							return nil
-						}, serializer.NoRetry)
+				func(old, new interface{}) func() error {
+					return func() error {
+						d.updateIngressV1beta1(old.(*v1beta1.Ingress), new.(*v1beta1.Ingress))
+						return nil
 					}
 				},
-			},
+				&v1beta1.Ingress{},
+			),
 		)
+
 		blockWaitGroupToSyncResources(&d.k8sResourceSyncWaitGroup, ingressController, "Ingress")
 		go ingressController.Run(wait.NeverStop)
 		d.k8sAPIGroups.addAPI(k8sAPIGroupIngressV1Beta1)
@@ -559,146 +507,118 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	case ciliumv2VerConstr.Check(k8sServerVer):
 		ciliumV2Controller := si.Cilium().V2().CiliumNetworkPolicies().Informer()
 		cnpStore := ciliumV2Controller.GetStore()
-		ciliumV2Controller.AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
-				if cnp := copyObjToV2CNP(obj); cnp != nil {
-					serCNPs.Enqueue(func() error {
-						d.addCiliumNetworkPolicyV2(cnpStore, cnp)
-						return nil
-					}, serializer.NoRetry)
+
+		rehf := k8s.ResourceEventHandlerFactory(
+			func(i interface{}) func() error {
+				return func() error {
+					d.addCiliumNetworkPolicyV2(cnpStore, i.(*cilium_v2.CiliumNetworkPolicy))
+					return nil
 				}
 			},
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
-				if oldCNP := copyObjToV2CNP(oldObj); oldCNP != nil {
-					if newCNP := copyObjToV2CNP(newObj); newCNP != nil {
-						serCNPs.Enqueue(func() error {
-							d.updateCiliumNetworkPolicyV2(cnpStore, oldCNP, newCNP)
-							return nil
-						}, serializer.NoRetry)
-					}
+			func(i interface{}) func() error {
+				return func() error {
+					d.deleteCiliumNetworkPolicyV2(i.(*cilium_v2.CiliumNetworkPolicy))
+					return nil
 				}
 			},
-			DeleteFunc: func(obj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
-				if cnp := copyObjToV2CNP(obj); cnp != nil {
-					serCNPs.Enqueue(func() error {
-						d.deleteCiliumNetworkPolicyV2(cnp)
-						return nil
-					}, serializer.NoRetry)
+			func(old, new interface{}) func() error {
+				return func() error {
+					d.updateCiliumNetworkPolicyV2(
+						cnpStore,
+						old.(*cilium_v2.CiliumNetworkPolicy),
+						new.(*cilium_v2.CiliumNetworkPolicy),
+					)
+					return nil
 				}
 			},
-		})
+			&cilium_v2.CiliumNetworkPolicy{},
+		)
+
+		ciliumV2Controller.AddEventHandler(rehf)
 		blockWaitGroupToSyncResources(&d.k8sResourceSyncWaitGroup, ciliumV2Controller, "CiliumNetworkPolicy")
 	}
 
 	si.Start(wait.NeverStop)
 
-	_, podsController := cache.NewInformer(
-		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
-			"pods", v1.NamespaceAll, fields.Everything()),
+	podsController := k8s.ControllerFactory(
+		k8s.Client().CoreV1().RESTClient(),
 		&v1.Pod{},
 		reSyncPeriod,
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(newObj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
-				if newK8sPod := copyObjToV1Pod(newObj); newK8sPod != nil {
-					serPods.Enqueue(func() error {
-						d.addK8sPodV1(newK8sPod)
-						return nil
-					}, serializer.NoRetry)
+		k8s.ResourceEventHandlerFactory(
+			func(i interface{}) func() error {
+				return func() error {
+					d.addK8sPodV1(i.(*v1.Pod))
+					return nil
 				}
 			},
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
-				if oldK8sPod := copyObjToV1Pod(oldObj); oldK8sPod != nil {
-					if newK8sPod := copyObjToV1Pod(newObj); newK8sPod != nil {
-						serPods.Enqueue(func() error {
-							d.updateK8sPodV1(oldK8sPod, newK8sPod)
-							return nil
-						}, serializer.NoRetry)
-					}
+			func(i interface{}) func() error {
+				return func() error {
+					d.deleteK8sPodV1(i.(*v1.Pod))
+					return nil
 				}
 			},
-			DeleteFunc: func(oldObj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
-				if oldK8sPod := copyObjToV1Pod(oldObj); oldK8sPod != nil {
-					serPods.Enqueue(func() error {
-						d.deleteK8sPodV1(oldK8sPod)
-						return nil
-					}, serializer.NoRetry)
+			func(old, new interface{}) func() error {
+				return func() error {
+					d.updateK8sPodV1(old.(*v1.Pod), new.(*v1.Pod))
+					return nil
 				}
 			},
-		},
+			&v1.Pod{},
+		),
 	)
 
 	go podsController.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupPodV1Core)
 
-	_, nodesController := cache.NewInformer(
-		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
-			"nodes", v1.NamespaceAll, fields.Everything()),
+	nodesController := k8s.ControllerFactory(
+		k8s.Client().CoreV1().RESTClient(),
 		&v1.Node{},
 		reSyncPeriod,
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
-				if k8sNode := copyObjToV1Node(obj); k8sNode != nil {
-					serNodes.Enqueue(func() error {
-						d.addK8sNodeV1(k8sNode)
-						return nil
-					}, serializer.NoRetry)
+		k8s.ResourceEventHandlerFactory(
+			func(i interface{}) func() error {
+				return func() error {
+					d.addK8sNodeV1(i.(*v1.Node))
+					return nil
 				}
 			},
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
-				if oldK8sNode := copyObjToV1Node(oldObj); oldK8sNode != nil {
-					if newK8sNode := copyObjToV1Node(newObj); newK8sNode != nil {
-						serNodes.Enqueue(func() error {
-							d.updateK8sNodeV1(oldK8sNode, newK8sNode)
-							return nil
-						}, serializer.NoRetry)
-					}
+			func(i interface{}) func() error {
+				return func() error {
+					d.deleteK8sNodeV1(i.(*v1.Node))
+					return nil
 				}
 			},
-			DeleteFunc: func(obj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
-				if k8sNode := copyObjToV1Node(obj); k8sNode != nil {
-					serNodes.Enqueue(func() error {
-						d.deleteK8sNodeV1(k8sNode)
-						return nil
-					}, serializer.NoRetry)
+			func(old, new interface{}) func() error {
+				return func() error {
+					d.updateK8sNodeV1(old.(*v1.Node), new.(*v1.Node))
+					return nil
 				}
 			},
-		},
+			&v1.Node{},
+		),
 	)
 
 	go nodesController.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupNodeV1Core)
 
-	_, namespaceController := cache.NewInformer(
-		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
-			"namespaces", v1.NamespaceAll, fields.Everything()),
-		&v1.Namespace{},
+	namespaceController := k8s.ControllerFactory(
+		k8s.Client().CoreV1().RESTClient(),
+		&v1.Node{},
 		reSyncPeriod,
-		cache.ResourceEventHandlerFuncs{
+		k8s.ResourceEventHandlerFactory(
 			// AddFunc does not matter since the endpoint will fetch
 			// namespace labels when the endpoint is created
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
-				if oldns := copyObjToV1Namespace(oldObj); oldns != nil {
-					if newns := copyObjToV1Namespace(newObj); newns != nil {
-						serNamespaces.Enqueue(func() error {
-							d.updateK8sV1Namespace(oldns, newns)
-							return nil
-						}, serializer.NoRetry)
-					}
-				}
-			},
+			nil,
 			// DelFunc does not matter since, when a namespace is deleted, all
 			// pods belonging to that namespace are also deleted.
-		},
+			nil,
+			func(old, new interface{}) func() error {
+				return func() error {
+					d.updateK8sV1Namespace(old.(*v1.Namespace), new.(*v1.Namespace))
+					return nil
+				}
+			},
+			&v1.Namespace{},
+		),
 	)
 
 	go namespaceController.Run(wait.NeverStop)
@@ -707,96 +627,6 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	endpoint.RunK8sCiliumEndpointSyncGC()
 
 	return nil
-}
-
-func copyObjToV1NetworkPolicy(obj interface{}) *networkingv1.NetworkPolicy {
-	k8sNP, ok := obj.(*networkingv1.NetworkPolicy)
-	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
-			Warn("Ignoring invalid k8s v1 NetworkPolicy")
-		return nil
-	}
-	return k8sNP.DeepCopy()
-}
-
-func copyObjToV1beta1NetworkPolicy(obj interface{}) *v1beta1.NetworkPolicy {
-	k8sNP, ok := obj.(*v1beta1.NetworkPolicy)
-	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
-			Warn("Ignoring invalid k8s v1beta1 NetworkPolicy")
-		return nil
-	}
-	return k8sNP.DeepCopy()
-}
-
-func copyObjToV1Services(obj interface{}) *v1.Service {
-	svc, ok := obj.(*v1.Service)
-	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
-			Warn("Ignoring invalid k8s v1 Service")
-		return nil
-	}
-	return svc.DeepCopy()
-}
-
-func copyObjToV1Endpoints(obj interface{}) *v1.Endpoints {
-	ep, ok := obj.(*v1.Endpoints)
-	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
-			Warn("Ignoring invalid k8s v1 Endpoints")
-		return nil
-	}
-	return ep.DeepCopy()
-}
-
-func copyObjToV1beta1Ingress(obj interface{}) *v1beta1.Ingress {
-	ing, ok := obj.(*v1beta1.Ingress)
-	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
-			Warn("Ignoring invalid k8s v1beta1 Ingress")
-		return nil
-	}
-	return ing.DeepCopy()
-}
-
-func copyObjToV2CNP(obj interface{}) *cilium_v2.CiliumNetworkPolicy {
-	cnp, ok := obj.(*cilium_v2.CiliumNetworkPolicy)
-	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
-			Warn("Ignoring invalid k8s v2 CiliumNetworkPolicy")
-		return nil
-	}
-	return cnp.DeepCopy()
-}
-
-func copyObjToV1Node(obj interface{}) *v1.Node {
-	node, ok := obj.(*v1.Node)
-	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
-			Warn("Ignoring invalid k8s v1 Node")
-		return nil
-	}
-	return node.DeepCopy()
-}
-
-func copyObjToV1Namespace(obj interface{}) *v1.Namespace {
-	ns, ok := obj.(*v1.Namespace)
-	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
-			Warn("Ignoring invalid k8s v1 Namespace")
-		return nil
-	}
-	return ns.DeepCopy()
-}
-
-func copyObjToV1Pod(obj interface{}) *v1.Pod {
-	pod, ok := obj.(*v1.Pod)
-	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
-			Warn("Ignoring invalid k8s v1 Pod")
-		return nil
-	}
-	return pod.DeepCopy()
 }
 
 func (d *Daemon) addK8sNetworkPolicyV1(k8sNP *networkingv1.NetworkPolicy) {
