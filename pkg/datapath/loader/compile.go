@@ -19,7 +19,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"os"
+	"io"
+	"io/ioutil"
 	"os/exec"
 	"path"
 	"runtime"
@@ -94,26 +95,40 @@ var (
 	}
 )
 
-// irPath determines a temporary path on the filesystem to store the compiled
-// intermediate representation object for the program.
-//
-// TODO: Remove this and just pipe the 'clang' and 'llc' programs together.
-func irPath(prog *progInfo, dir *directoryInfo) string {
-	return fmt.Sprintf("%s/%s.bc", dir.Output, prog.Output)
-}
-
 // progLDFlags determines the loader flags for the specified prog and paths.
 func progLDFlags(prog *progInfo, dir *directoryInfo) []string {
 	return []string{
 		fmt.Sprintf("-filetype=%s", prog.OutputType),
-		irPath(prog, dir),
 		"-o", path.Join(dir.Output, prog.Output),
 	}
 }
 
-// linkProg links the specified program from the specified path to the
+// prepareCmdPipes attaches pipes to the stdout and stderr of the specified
+// command, and returns the stdout, stderr, and any error that may have
+// occurred while creating the pipes.
+func prepareCmdPipes(cmd *exec.Cmd) (io.ReadCloser, io.ReadCloser, error) {
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return nil, nil, fmt.Errorf("Failed to get stdout pipe: %s", err)
+	}
+
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		stdout.Close()
+		return nil, nil, fmt.Errorf("Failed to get stderr pipe: %s", err)
+	}
+
+	return stdout, stderr, nil
+}
+
+// compileAndLink links the specified program from the specified path to the
 // intermediate representation, to the output specified in the prog's info.
-func linkProg(ctx context.Context, prog *progInfo, dir *directoryInfo, debug bool) error {
+func compileAndLink(ctx context.Context, prog *progInfo, dir *directoryInfo, compileCmd *exec.Cmd, debug bool) error {
+	compilerStdout, compilerStderr, err := prepareCmdPipes(compileCmd)
+	if err != nil {
+		return err
+	}
+
 	args := make([]string, 0, 8)
 	if debug {
 		args = append(args, "-mattr=dwarfris")
@@ -121,16 +136,40 @@ func linkProg(ctx context.Context, prog *progInfo, dir *directoryInfo, debug boo
 	args = append(args, standardLDFlags...)
 	args = append(args, progLDFlags(prog, dir)...)
 
-	out, err := exec.CommandContext(ctx, linker, args...).CombinedOutput()
-	if ctx.Err() == context.DeadlineExceeded {
-		err = fmt.Errorf("Command execution failed: Timeout")
-	}
-	if err != nil {
-		scanner := bufio.NewScanner(bytes.NewReader(out))
-		return fmt.Errorf("Failed to link %s: %s: %q", prog.Output, err, scanner.Text())
+	linkCmd := exec.CommandContext(ctx, linker, args...)
+	linkCmd.Stdin = compilerStdout
+	if err := compileCmd.Start(); err != nil {
+		return fmt.Errorf("Failed to start command: %s", err)
 	}
 
-	return nil
+	linkOut, linkErr := linkCmd.CombinedOutput()
+	compileOut, compileErr := ioutil.ReadAll(compilerStderr)
+	err = compileCmd.Wait()
+	if err != nil || compileErr != nil || linkErr != nil {
+		if err == nil {
+			err = compileErr
+		}
+		if err == nil {
+			err = linkErr
+		}
+		err = fmt.Errorf("Failed to compile %s: %s", prog.Output, err)
+
+		log.Error(err)
+		scopedLog := log.Warn
+		if debug {
+			scopedLog = log.Debug
+		}
+		scanner := bufio.NewScanner(bytes.NewReader(compileOut))
+		for scanner.Scan() {
+			scopedLog(scanner.Text())
+		}
+		scanner = bufio.NewScanner(bytes.NewReader(linkOut))
+		for scanner.Scan() {
+			scopedLog(scanner.Text())
+		}
+	}
+
+	return err
 }
 
 // progLDFlags determines the compiler flags for the specified prog and paths.
@@ -140,7 +179,7 @@ func progCFlags(prog *progInfo, dir *directoryInfo) []string {
 	if prog.OutputType == outputSource {
 		output = path.Join(dir.Output, prog.Output)
 	} else {
-		output = irPath(prog, dir)
+		output = "-" // stdout
 	}
 
 	return []string{
@@ -153,7 +192,7 @@ func progCFlags(prog *progInfo, dir *directoryInfo) []string {
 }
 
 // compile and link a program.
-func compile(ctx context.Context, prog *progInfo, dir *directoryInfo, debug bool) error {
+func compile(ctx context.Context, prog *progInfo, dir *directoryInfo, debug bool) (err error) {
 	args := make([]string, 0, 16)
 	if prog.OutputType == outputSource {
 		args = append(args, "-E") // Preprocessor
@@ -171,25 +210,33 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo, debug bool
 	log.WithFields(logrus.Fields{
 		"target": compiler,
 		"args":   args,
-	}).Debug("Launching CommandContext")
-	out, err := exec.CommandContext(ctx, compiler, args...).CombinedOutput()
+	}).Debug("Launching compiler")
+	compileCmd := exec.CommandContext(ctx, compiler, args...)
+
+	if prog.OutputType == outputSource {
+		var out []byte
+		out, err = compileCmd.CombinedOutput()
+		if err != nil {
+			err = fmt.Errorf("Failed to compile %s: %s", prog.Output, err)
+			log.WithField("cmd", compileCmd.Args).Debug(err)
+			scanner := bufio.NewScanner(bytes.NewReader(out))
+			for scanner.Scan() {
+				log.Debug(scanner.Text())
+			}
+		}
+	} else {
+		switch prog.OutputType {
+		case outputObject:
+			err = compileAndLink(ctx, prog, dir, compileCmd, debug)
+		case outputAssembly:
+			err = compileAndLink(ctx, prog, dir, compileCmd, false)
+		default:
+			log.Fatalf("Unhandled progInfo.OutputType %s", prog.OutputType)
+		}
+	}
 	if ctx.Err() == context.DeadlineExceeded {
 		err = fmt.Errorf("Command execution failed: Timeout")
 	}
-	if err != nil {
-		scanner := bufio.NewScanner(bytes.NewReader(out))
-		return fmt.Errorf("Failed to compile %s: %s: %q", prog.Output, err, scanner.Text())
-	}
-	defer os.Remove(irPath(prog, dir))
 
-	switch prog.OutputType {
-	case outputObject:
-		return linkProg(ctx, prog, dir, debug)
-	case outputAssembly:
-		return linkProg(ctx, prog, dir, false)
-	default:
-		break
-	}
-
-	return nil
+	return err
 }
