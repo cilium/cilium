@@ -30,15 +30,15 @@ type queuedFunction struct {
 	waitFunc WaitFunc
 }
 
-type functionQueue struct {
+type FunctionQueue struct {
 	queue  chan queuedFunction
 	stopCh chan struct{}
 }
 
-// NewFunctionQueue returns a functionQueue that will be used to execute
+// NewFunctionQueue returns a FunctionQueue that will be used to execute
 // functions in the same order they are enqueued.
-func NewFunctionQueue(queueSize uint) *functionQueue {
-	fq := &functionQueue{
+func NewFunctionQueue(queueSize uint) *FunctionQueue {
+	fq := &FunctionQueue{
 		queue:  make(chan queuedFunction, queueSize),
 		stopCh: make(chan struct{}),
 	}
@@ -46,9 +46,9 @@ func NewFunctionQueue(queueSize uint) *functionQueue {
 	return fq
 }
 
-// run starts the functionQueue internal worker. It will be stopped once
+// run starts the FunctionQueue internal worker. It will be stopped once
 // `stopCh` is closed or receives a value.
-func (fq *functionQueue) run() {
+func (fq *FunctionQueue) run() {
 	for {
 		select {
 		case <-fq.stopCh:
@@ -77,7 +77,7 @@ func (fq *functionQueue) run() {
 // Stop stops the function queue from processing the functions on the queue.
 // If there are functions in the queue waiting for them to be processed, they
 // won't be executed.
-func (fq *functionQueue) Stop() {
+func (fq *FunctionQueue) Stop() {
 	close(fq.stopCh)
 }
 
@@ -89,6 +89,6 @@ func (fq *functionQueue) Stop() {
 // return value of `waitFunc`, `f` will be executed again or not.
 // The return value of `f` will not be logged and it's up to the caller to log
 // it properly.
-func (fq *functionQueue) Enqueue(f func() error, waitFunc WaitFunc) {
+func (fq *FunctionQueue) Enqueue(f func() error, waitFunc WaitFunc) {
 	fq.queue <- queuedFunction{f: f, waitFunc: waitFunc}
 }
