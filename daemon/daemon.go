@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -39,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/clustermesh"
+	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/counter"
@@ -375,26 +375,7 @@ func (d *Daemon) setHostAddresses() error {
 }
 
 func runProg(prog string, args []string, quiet bool) error {
-	ctx, cancel := context.WithTimeout(context.Background(), ExecTimeout)
-	defer cancel()
-	out, err := exec.CommandContext(ctx, prog, args...).CombinedOutput()
-	if ctx.Err() == context.DeadlineExceeded {
-		cmd := fmt.Sprintf("%s %s", prog, strings.Join(args, " "))
-		log.WithField("cmd", cmd).Error("Command execution failed: Timeout")
-		return fmt.Errorf("Command execution failed: Timeout for %s %s", prog, args)
-	}
-	if err != nil {
-		if !quiet {
-			cmd := fmt.Sprintf("%s %s", prog, strings.Join(args, " "))
-			log.WithError(err).WithField("cmd", cmd).Error("Command execution failed")
-
-			scanner := bufio.NewScanner(bytes.NewReader(out))
-			for scanner.Scan() {
-				log.Warn(scanner.Text())
-			}
-		}
-	}
-
+	_, err := exec.WithTimeout(ExecTimeout, prog, args...).CombinedOutput(log, !quiet)
 	return err
 }
 
@@ -433,17 +414,8 @@ func removeCiliumRules(table string) {
 	prog := "iptables"
 	args := []string{"-t", table, "-S"}
 
-	ctx, cancel := context.WithTimeout(context.Background(), ExecTimeout)
-	defer cancel()
-	out, err := exec.CommandContext(ctx, prog, args...).CombinedOutput()
-	if ctx.Err() == context.DeadlineExceeded {
-		cmd := fmt.Sprintf("%s %s", prog, strings.Join(args, " "))
-		log.WithField("cmd", cmd).Error("Command execution failed: Timeout")
-		return
-	}
+	out, err := exec.WithTimeout(ExecTimeout, prog, args...).CombinedOutput(log, true)
 	if err != nil {
-		cmd := fmt.Sprintf("%s %s", prog, strings.Join(args, " "))
-		log.WithError(err).WithField("cmd", cmd).Warn("Command execution failed")
 		return
 	}
 
@@ -761,20 +733,7 @@ func (d *Daemon) compileBase() error {
 	defer cancel()
 	cmd := exec.CommandContext(ctx, prog, args...)
 	cmd.Env = bpf.Environment()
-	out, err := cmd.CombinedOutput()
-	if ctx.Err() == context.DeadlineExceeded {
-		cmd := fmt.Sprintf("%s %s", prog, strings.Join(args, " "))
-		log.WithField("cmd", cmd).Error("Command execution failed: Timeout")
-		return fmt.Errorf("Command execution failed: Timeout for %s %s", prog, args)
-	}
-	if err != nil {
-		cmd := fmt.Sprintf("%s %s", prog, strings.Join(args, " "))
-		log.WithField("cmd", cmd).Error("Command execution failed")
-
-		scanner := bufio.NewScanner(bytes.NewReader(out))
-		for scanner.Scan() {
-			log.Warn(scanner.Text())
-		}
+	if _, err := cmd.CombinedOutput(log, true); err != nil {
 		return err
 	}
 

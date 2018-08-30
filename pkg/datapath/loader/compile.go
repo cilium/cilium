@@ -21,9 +21,10 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"os/exec"
 	"path"
 	"runtime"
+
+	"github.com/cilium/cilium/pkg/command/exec"
 
 	"github.com/sirupsen/logrus"
 )
@@ -142,7 +143,7 @@ func compileAndLink(ctx context.Context, prog *progInfo, dir *directoryInfo, com
 		return fmt.Errorf("Failed to start command: %s", err)
 	}
 
-	linkOut, linkErr := linkCmd.CombinedOutput()
+	_, linkErr := linkCmd.CombinedOutput(log, true)
 	compileOut, compileErr := ioutil.ReadAll(compilerStderr)
 	err = compileCmd.Wait()
 	if err != nil || compileErr != nil || linkErr != nil {
@@ -160,10 +161,6 @@ func compileAndLink(ctx context.Context, prog *progInfo, dir *directoryInfo, com
 			scopedLog = log.Debug
 		}
 		scanner := bufio.NewScanner(bytes.NewReader(compileOut))
-		for scanner.Scan() {
-			scopedLog(scanner.Text())
-		}
-		scanner = bufio.NewScanner(bytes.NewReader(linkOut))
 		for scanner.Scan() {
 			scopedLog(scanner.Text())
 		}
@@ -214,16 +211,7 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo, debug bool
 	compileCmd := exec.CommandContext(ctx, compiler, args...)
 
 	if prog.OutputType == outputSource {
-		var out []byte
-		out, err = compileCmd.CombinedOutput()
-		if err != nil {
-			err = fmt.Errorf("Failed to compile %s: %s", prog.Output, err)
-			log.WithField("cmd", compileCmd.Args).Debug(err)
-			scanner := bufio.NewScanner(bytes.NewReader(out))
-			for scanner.Scan() {
-				log.Debug(scanner.Text())
-			}
-		}
+		_, err = compileCmd.CombinedOutput(log, debug)
 	} else {
 		switch prog.OutputType {
 		case outputObject:
@@ -233,9 +221,6 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo, debug bool
 		default:
 			log.Fatalf("Unhandled progInfo.OutputType %s", prog.OutputType)
 		}
-	}
-	if ctx.Err() == context.DeadlineExceeded {
-		err = fmt.Errorf("Command execution failed: Timeout")
 	}
 
 	return err
