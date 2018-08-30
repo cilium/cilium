@@ -539,8 +539,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (isPolicyComp bool, err error) 
 
 	// Recompute policy for this endpoint only if not already done for this revision.
 	// Must recompute if labels have changed.
-	if !e.forcePolicyCompute && e.nextPolicyRevision >= revision &&
-		labelsMap == e.prevIdentityCache {
+	if e.hasBeenRegenerated() && e.nextPolicyRevision >= revision && labelsMap == e.prevIdentityCache {
 
 		e.getLogger().WithFields(logrus.Fields{
 			"policyRevision.next": e.nextPolicyRevision,
@@ -596,12 +595,6 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (isPolicyComp bool, err error) 
 		// Always trigger a regenerate after the first policy
 		// calculation has been performed
 		forceRegeneration = true
-	}
-
-	if e.forcePolicyCompute {
-		forceRegeneration = true     // Options were changed by the caller.
-		e.forcePolicyCompute = false // Policies just computed
-		e.getLogger().Debug("Forced policy recalculation")
 	}
 
 	// Set the revision of this endpoint to the current revision of the policy
@@ -1024,4 +1017,16 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) {
 		logfields.OldIdentity:    oldIdentity,
 		logfields.IdentityLabels: identity.Labels.String(),
 	}).Info("Identity of endpoint changed")
+}
+
+// The endpoint's policy revision can be used to detect whether an endpoint has
+// been regenerated for the first time. Given that the policy repository is
+// initialized with a revision number of 1, and the endpoint's revision is
+// initialized at 0, when the endpoint's policy revision has been updated, which
+// is done after it is regenerated for the first time, we are guaranteed that a
+// nonzero value for the revision number indicates that it has been regenerated
+// at least once.
+// must be held with endpoint mutex held for reading.
+func (e *Endpoint) hasBeenRegenerated() bool {
+	return e.policyRevision > 0
 }
