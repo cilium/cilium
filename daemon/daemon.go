@@ -1211,16 +1211,6 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 		node.AddAuxPrefix(ipnet)
 	}
 
-	if k8s.IsEnabled() {
-		log.Info("Annotating k8s node with CIDR ranges")
-		err := k8s.AnnotateNode(k8s.Client(), node.GetName(),
-			node.GetIPv4AllocRange(), node.GetIPv6NodeRange(),
-			nil, nil, node.GetInternalIPv4())
-		if err != nil {
-			log.WithError(err).Warning("Cannot annotate k8s node with CIDR range")
-		}
-	}
-
 	// Set up ipam conf after init() because we might be running d.conf.KVStoreIPv4Registration
 	log.Info("Initializing IPAM")
 	ipam.Init()
@@ -1260,6 +1250,17 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 	if err := node.ValidatePostInit(); err != nil {
 		log.WithError(err).Fatal("postinit failed")
 	}
+
+	if k8s.IsEnabled() {
+		log.Info("Annotating k8s node with CIDR ranges")
+		err := k8s.AnnotateNode(k8s.Client(), node.GetName(),
+			node.GetIPv4AllocRange(), node.GetIPv6NodeRange(),
+			nil, nil, node.GetInternalIPv4())
+		if err != nil {
+			log.WithError(err).Warning("Cannot annotate k8s node with CIDR range")
+		}
+	}
+
 	log.Info("Addressing information:")
 	log.Infof("  Cluster-Name: %s", option.Config.ClusterName)
 	log.Infof("  Cluster-ID: %d", option.Config.ClusterID)
