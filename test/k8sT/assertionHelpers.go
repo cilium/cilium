@@ -25,6 +25,9 @@ import (
 func ExpectKubeDNSReady(vm *helpers.Kubectl) {
 	err := vm.WaitKubeDNS()
 	ExpectWithOffset(1, err).Should(BeNil(), "kube-dns was not able to get into ready state")
+
+	err = vm.KubeDNSPreFlightCheck()
+	ExpectWithOffset(1, err).Should(BeNil(), "kube-dns service not ready")
 }
 
 // ExpectCiliumReady is a wrapper around helpers/WaitForPods. It asserts that
