@@ -1831,7 +1831,9 @@ func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup
 	e.controllers.RemoveAll()
 	e.cleanPolicySignals()
 
-	e.scrubIPsInConntrackTableLocked()
+	if !e.ConntrackLocalLocked() {
+		e.scrubIPsInConntrackTableLocked()
+	}
 
 	e.SetStateLocked(StateDisconnected, "Endpoint removed")
 
