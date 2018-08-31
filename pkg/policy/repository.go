@@ -504,6 +504,24 @@ func (p *Repository) SearchRLocked(labels labels.LabelArray) api.Rules {
 	return result
 }
 
+// ContainsAllRLocked returns true if repository contains all the labels in
+// needed. If needed contains no labels, ContainsAllRLocked() will always return
+// true.
+func (p *Repository) ContainsAllRLocked(needed labels.LabelArrayList) bool {
+nextLabel:
+	for _, neededLabel := range needed {
+		for _, l := range p.rules {
+			if len(l.Labels) > 0 && neededLabel.Contains(l.Labels) {
+				continue nextLabel
+			}
+		}
+
+		return false
+	}
+
+	return true
+}
+
 // Add inserts a rule into the policy repository
 // This is just a helper function for unit testing.
 // TODO: this should be in a test_helpers.go file or something similar

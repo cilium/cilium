@@ -16,7 +16,6 @@ package policy
 
 import (
 	"bytes"
-
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/labels"
@@ -110,6 +109,85 @@ func (ds *PolicyTestSuite) TestAddSearchDelete(c *C) {
 	repo.Mutex.RLock()
 	c.Assert(repo.SearchRLocked(lbls2), checker.DeepEquals, api.Rules{})
 	repo.Mutex.RUnlock()
+}
+
+func (ds *PolicyTestSuite) TestContainsAllRLocked(c *C) {
+	a := []labels.LabelArray{
+		{
+			labels.NewLabel("1", "1", "1"),
+			labels.NewLabel("2", "2", "1"),
+			labels.NewLabel("3", "3", "1"),
+		},
+		{
+			labels.NewLabel("4", "4", "1"),
+			labels.NewLabel("5", "5", "1"),
+			labels.NewLabel("6", "6", "1"),
+		},
+		{
+			labels.NewLabel("7", "7", "1"),
+			labels.NewLabel("8", "8", "1"),
+			labels.NewLabel("9", "9", "1"),
+		},
+	}
+	rule1 := api.Rule{
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("foo")),
+		Labels:           a[0],
+	}
+	rule2 := api.Rule{
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+		Labels:           a[1],
+	}
+	rule3 := api.Rule{
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+		Labels:           a[2],
+	}
+	repoA := NewPolicyRepository()
+	_, err := repoA.Add(rule1)
+	c.Assert(err, IsNil)
+	_, err = repoA.Add(rule2)
+	c.Assert(err, IsNil)
+	_, err = repoA.Add(rule3)
+	c.Assert(err, IsNil)
+
+	b := []labels.LabelArray{
+		{
+			labels.NewLabel("1", "1", "1"),
+			labels.NewLabel("2", "2", "1"),
+			labels.NewLabel("3", "3", "1"),
+		},
+		{
+			labels.NewLabel("4", "4", "1"),
+			labels.NewLabel("5", "5", "1"),
+			labels.NewLabel("6", "6", "1"),
+		},
+	}
+	rule4 := api.Rule{
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("foo")),
+		Labels:           b[0],
+	}
+	rule5 := api.Rule{
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+		Labels:           b[1],
+	}
+	repoB := NewPolicyRepository()
+	_, err = repoB.Add(rule4)
+	c.Assert(err, IsNil)
+	_, err = repoB.Add(rule5)
+	c.Assert(err, IsNil)
+
+	var empty []labels.LabelArray
+	rule6 := api.Rule{
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+	}
+	repoEmpty := NewPolicyRepository()
+	_, err = repoEmpty.Add(rule6)
+	c.Assert(err, IsNil)
+
+	c.Assert(repoA.ContainsAllRLocked(b), Equals, true)         // b is in a
+	c.Assert(repoB.ContainsAllRLocked(a), Equals, false)        // a is NOT in b
+	c.Assert(repoA.ContainsAllRLocked(empty), Equals, true)     // empty is in a
+	c.Assert(repoEmpty.ContainsAllRLocked(empty), Equals, true) // empty is in b
+	c.Assert(repoEmpty.ContainsAllRLocked(a), Equals, false)    // a is NOT in empty
 }
 
 func (ds *PolicyTestSuite) TestCanReachIngress(c *C) {
