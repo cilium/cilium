@@ -33,6 +33,9 @@ type gcStats struct {
 
 	// family is the address family
 	family gcFamily
+
+	// dumpError records any error that occurred during the dump.
+	dumpError error
 }
 
 type gcFamily int
@@ -55,13 +58,12 @@ func (g gcFamily) String() string {
 
 func statStartGc(m *bpf.Map, family gcFamily) gcStats {
 	return gcStats{
-		DumpStats: bpf.NewDumpStats(m).Start(),
+		DumpStats: bpf.NewDumpStats(m),
 		family:    family,
 	}
 }
 
 func (s *gcStats) finish() {
-	s.DumpStats.Finish()
 	duration := s.Duration()
 	family := s.family.String()
 	switch s.family {
@@ -78,8 +80,11 @@ func (s *gcStats) finish() {
 		metrics.ConntrackGCSize.WithLabelValues(family, metricsDeleted).Set(float64(s.deleted))
 	} else {
 		status = "uncompleted"
-		log.WithField("interrupted", s.Interrupted).Warningf(
-			"Garbage collection on IPv6 CT map failed to finish")
+		scopedLog := log.WithField("interrupted", s.Interrupted)
+		if s.dumpError != nil {
+			scopedLog = scopedLog.WithError(s.dumpError)
+		}
+		scopedLog.Warningf("Garbage collection on IPv6 CT map failed to finish")
 	}
 
 	metrics.ConntrackGCRuns.WithLabelValues(family, status).Inc()

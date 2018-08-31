@@ -240,48 +240,12 @@ func NewMap(mapName string, mapType MapType) *Map {
 // doGC6 iterates through a CTv6 map and drops entries based on the given
 // filter.
 func doGC6(m *bpf.Map, filter *GCFilter) gcStats {
-	var prevKey, currentKey, nextKey CtKey6Global
-
 	stats := statStartGc(m, gcFamilyIPv6)
 	defer stats.finish()
 
-	// prevKey is initially invalid, causing GetNextKey to return the first key in the map as currentKey.
-	prevKeyValid := false
-	err := m.GetNextKey(&prevKey, &currentKey)
-	if err != nil {
-		// Map is empty, nothing to clean up.
-		stats.Completed = true
-		return stats
-	}
-
-	for stats.Lookup = 1; stats.Lookup <= stats.MaxEntries; stats.Lookup++ {
-		// currentKey was returned by GetNextKey() so we know it existed in the map, but it may have been
-		// deleted by a concurrent map operation. If currentKey is no longer in the map, nextKey will be
-		// the first key in the map again. Use the nextKey only if we still find currentKey in the Lookup()
-		// after the GetNextKey() call, this way we know nextKey is NOT the first key in the map.
-		nextKeyValid := m.GetNextKey(&currentKey, &nextKey)
-		entryMap, err := m.Lookup(&currentKey)
-		if err != nil {
-			stats.LookupFailed++
-
-			// Restarting from a invalid key starts the iteration again from the beginning.
-			// If we have a previously found key, try to restart from there instead
-			if prevKeyValid {
-				currentKey = prevKey
-				// Restart from a given previous key only once, otherwise if the prevKey is
-				// concurrently deleted we might loop forever trying to look it up.
-				prevKeyValid = false
-				stats.KeyFallback++
-			} else {
-				// Depending on exactly when currentKey was deleted from the map, nextKey may be the actual
-				// keyelement after the deleted one, or the first element in the map.
-				currentKey = nextKey
-				stats.Interrupted++
-			}
-			continue
-		}
-
-		entry := entryMap.(*CtEntry)
+	filterCallback := func(key bpf.MapKey, value bpf.MapValue) {
+		currentKey := key.(*CtKey6Global)
+		entry := value.(*CtEntry)
 
 		// In CT entries, the source address of the conntrack entry (`SourceAddr`) is
 		// the destination of the packet received, therefore it's the packet's
@@ -291,7 +255,7 @@ func doGC6(m *bpf.Map, filter *GCFilter) gcStats {
 
 		switch action {
 		case deleteEntry:
-			err := m.Delete(&currentKey)
+			err := m.Delete(currentKey)
 			if err != nil {
 				log.WithError(err).Errorf("Unable to delete CT entry %s", currentKey.String())
 			} else {
@@ -300,17 +264,8 @@ func doGC6(m *bpf.Map, filter *GCFilter) gcStats {
 		default:
 			stats.aliveEntries++
 		}
-
-		if nextKeyValid != nil {
-			stats.Completed = true
-			break
-		}
-		// remember the last found key
-		prevKey = currentKey
-		prevKeyValid = true
-		// continue from the next key
-		currentKey = nextKey
 	}
+	stats.dumpError = m.DumpReliablyWithCallback(filterCallback, stats.DumpStats)
 
 	return stats
 }
@@ -318,48 +273,12 @@ func doGC6(m *bpf.Map, filter *GCFilter) gcStats {
 // doGC4 iterates through a CTv4 map and drops entries based on the given
 // filter.
 func doGC4(m *bpf.Map, filter *GCFilter) gcStats {
-	var prevKey, currentKey, nextKey CtKey4Global
-
 	stats := statStartGc(m, gcFamilyIPv4)
 	defer stats.finish()
 
-	// prevKey is initially invalid, causing GetNextKey to return the first key in the map as currentKey.
-	prevKeyValid := false
-	err := m.GetNextKey(&prevKey, &currentKey)
-	if err != nil {
-		// Map is empty, nothing to clean up.
-		stats.Completed = true
-		return stats
-	}
-
-	for stats.Lookup = 1; stats.Lookup <= stats.MaxEntries; stats.Lookup++ {
-		// currentKey was returned by GetNextKey() so we know it existed in the map, but it may have been
-		// deleted by a concurrent map operation. If currentKey is no longer in the map, nextKey will be
-		// the first key in the map again. Use the nextKey only if we still find currentKey in the Lookup()
-		// after the GetNextKey() call, this way we know nextKey is NOT the first key in the map.
-		nextKeyValid := m.GetNextKey(&currentKey, &nextKey)
-		entryMap, err := m.Lookup(&currentKey)
-		if err != nil {
-			stats.LookupFailed++
-
-			// Restarting from a invalid key starts the iteration again from the beginning.
-			// If we have a previously found key, try to restart from there instead
-			if prevKeyValid {
-				currentKey = prevKey
-				// Restart from a given previous key only once, otherwise if the prevKey is
-				// concurrently deleted we might loop forever trying to look it up.
-				prevKeyValid = false
-				stats.KeyFallback++
-			} else {
-				// Depending on exactly when currentKey was deleted from the map, nextKey may be the actual
-				// keyelement after the deleted one, or the first element in the map.
-				currentKey = nextKey
-				stats.Interrupted++
-			}
-			continue
-		}
-
-		entry := entryMap.(*CtEntry)
+	filterCallback := func(key bpf.MapKey, value bpf.MapValue) {
+		currentKey := key.(*CtKey4Global)
+		entry := value.(*CtEntry)
 
 		// In CT entries, the source address of the conntrack entry (`SourceAddr`) is
 		// the destination of the packet received, therefore it's the packet's
@@ -369,7 +288,7 @@ func doGC4(m *bpf.Map, filter *GCFilter) gcStats {
 
 		switch action {
 		case deleteEntry:
-			err := m.Delete(&currentKey)
+			err := m.Delete(currentKey)
 			if err != nil {
 				log.WithError(err).Errorf("Unable to delete CT entry %s", currentKey.String())
 			} else {
@@ -378,17 +297,8 @@ func doGC4(m *bpf.Map, filter *GCFilter) gcStats {
 		default:
 			stats.aliveEntries++
 		}
-
-		if nextKeyValid != nil {
-			stats.Completed = true
-			break
-		}
-		// remember the last found key
-		prevKey = currentKey
-		prevKeyValid = true
-		// continue from the next key
-		currentKey = nextKey
 	}
+	stats.dumpError = m.DumpReliablyWithCallback(filterCallback, stats.DumpStats)
 
 	return stats
 }

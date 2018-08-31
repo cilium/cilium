@@ -54,21 +54,17 @@ type DumpStats struct {
 // NewDumpStats returns a new stats structure for collecting dump statistics.
 func NewDumpStats(m *Map) *DumpStats {
 	return &DumpStats{
-		Lookup:     1,
 		MaxEntries: m.MapInfo.MaxEntries,
 	}
 }
 
-// Start starts the dump.
-//
-// For convenience, it returns a pointer to itself.
-func (d *DumpStats) Start() *DumpStats {
+// start starts the dump.
+func (d *DumpStats) start() {
 	d.Started = time.Now()
-	return d
 }
 
-// Finish finishes the dump.
-func (d *DumpStats) Finish() {
+// finish finishes the dump.
+func (d *DumpStats) finish() {
 	d.Finished = time.Now()
 }
 
