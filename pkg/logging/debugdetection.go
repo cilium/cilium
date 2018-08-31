@@ -12,19 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package debugdetection
+package logging
 
 import (
 	"io/ioutil"
 	"os"
 
-	"github.com/cilium/cilium/pkg/logging"
-
 	"github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
 )
-
-var log = logging.DefaultLogger
 
 func init() {
 	flags := flag.NewFlagSet("init-debug", flag.ContinueOnError)
@@ -35,6 +31,6 @@ func init() {
 	flags.Parse(os.Args)
 
 	if *debug {
-		log.SetLevel(logrus.DebugLevel)
+		DefaultLogger.SetLevel(logrus.DebugLevel)
 	}
 }
