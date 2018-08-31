@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"math"
 	"net"
-	"time"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -280,47 +279,16 @@ func dumpToSlice(m *bpf.Map, mapType string) ([]CtEntryDump, error) {
 }
 
 type gcStats struct {
-	// started is the timestamp when the gc run was started
-	started time.Time
+	*bpf.DumpStats
 
-	// finishedis the timestamp when the gc run completed
-	finished time.Time
-
-	// lookup is the number of key lookups performed
-	lookup uint32
-
-	// lookupFailed is the number of key lookups that failed
-	lookupFailed uint32
-
-	// prevKeyUnavailable is the number of times the previous key was not
-	// available
-	prevKeyUnavailable uint32
+	// aliveEntries is the number of scanned entries that are still alive.
+	aliveEntries uint32
 
 	// deleted is the number of keys deleted
 	deleted uint32
 
-	// keyFallback is the number of times the current key became invalid
-	// while traversing and we had to fall back to the previous key
-	keyFallback uint32
-
-	// count is number of lookups performed on the map
-	count uint32
-
-	// maxEntries is the maximum number of entries in the gc table
-	maxEntries uint32
-
 	// family is the address family
 	family gcFamily
-
-	// completed is true when the gc run has been completed
-	completed bool
-
-	// interrupted is the number of times the gc run was interrupted and
-	// had to start from scratch
-	interrupted uint32
-
-	// aliveEntries is the number of scanned entries that are still alive
-	aliveEntries uint32
 }
 
 type gcFamily int
@@ -343,48 +311,46 @@ func (g gcFamily) String() string {
 
 func statStartGc(m *bpf.Map, family gcFamily) gcStats {
 	return gcStats{
-		started:    time.Now(),
-		count:      1,
-		maxEntries: m.MapInfo.MaxEntries,
-		family:     family,
+		DumpStats: bpf.NewDumpStats(m).Start(),
+		family:    family,
 	}
 }
 
-func (s *gcStats) finish() {
-	s.finished = time.Now()
-	duration := s.finished.Sub(s.started)
+func (s *gcStats) Finish() {
+	s.DumpStats.Finish()
+	duration := s.Duration()
 	family := s.family.String()
 	switch s.family {
 	case gcFamilyIPv6:
-		metrics.DatapathErrors.With(labelIPv6CTDumpInterrupts).Add(float64(s.interrupted))
+		metrics.DatapathErrors.With(labelIPv6CTDumpInterrupts).Add(float64(s.Interrupted))
 	case gcFamilyIPv4:
-		metrics.DatapathErrors.With(labelIPv4CTDumpInterrupts).Add(float64(s.interrupted))
+		metrics.DatapathErrors.With(labelIPv4CTDumpInterrupts).Add(float64(s.Interrupted))
 	}
 
 	var status string
-	if s.completed {
+	if s.Completed {
 		status = "completed"
 		metrics.ConntrackGCSize.WithLabelValues(family, metricsAlive).Set(float64(s.aliveEntries))
 		metrics.ConntrackGCSize.WithLabelValues(family, metricsDeleted).Set(float64(s.deleted))
 	} else {
 		status = "uncompleted"
-		log.WithField("interrupted", s.interrupted).Warningf(
+		log.WithField("interrupted", s.Interrupted).Warningf(
 			"Garbage collection on IPv6 CT map failed to finish")
 	}
 
 	metrics.ConntrackGCRuns.WithLabelValues(family, status).Inc()
 	metrics.ConntrackGCDuration.WithLabelValues(family, status).Observe(duration.Seconds())
-	metrics.ConntrackGCKeyFallbacks.WithLabelValues(family).Add(float64(s.keyFallback))
+	metrics.ConntrackGCKeyFallbacks.WithLabelValues(family).Add(float64(s.KeyFallback))
 
 	log.WithFields(logrus.Fields{
-		logfields.StartTime: s.started,
+		logfields.StartTime: s.Started,
 		logfields.Duration:  duration,
 		"numDeleted":        s.deleted,
-		"numLookups":        s.count,
-		"numLookupsFailed":  s.lookupFailed,
-		"numKeyFallbacks":   s.keyFallback,
-		"completed":         s.completed,
-		"maxEntries":        s.maxEntries,
+		"numLookups":        s.Lookup,
+		"numLookupsFailed":  s.LookupFailed,
+		"numKeyFallbacks":   s.KeyFallback,
+		"completed":         s.Completed,
+		"maxEntries":        s.MaxEntries,
 	}).Infof("%s Conntrack garbage collection statistics", s.family)
 }
 
@@ -394,18 +360,18 @@ func doGC6(m *bpf.Map, filter *GCFilter) gcStats {
 	var prevKey, currentKey, nextKey CtKey6Global
 
 	stats := statStartGc(m, gcFamilyIPv6)
-	defer stats.finish()
+	defer stats.Finish()
 
 	// prevKey is initially invalid, causing GetNextKey to return the first key in the map as currentKey.
 	prevKeyValid := false
 	err := m.GetNextKey(&prevKey, &currentKey)
 	if err != nil {
 		// Map is empty, nothing to clean up.
-		stats.completed = true
+		stats.Completed = true
 		return stats
 	}
 
-	for stats.count = 1; stats.count <= m.MapInfo.MaxEntries; stats.count++ {
+	for stats.Lookup = 1; stats.Lookup <= stats.MaxEntries; stats.Lookup++ {
 		// currentKey was returned by GetNextKey() so we know it existed in the map, but it may have been
 		// deleted by a concurrent map operation. If currentKey is no longer in the map, nextKey will be
 		// the first key in the map again. Use the nextKey only if we still find currentKey in the Lookup()
@@ -413,7 +379,7 @@ func doGC6(m *bpf.Map, filter *GCFilter) gcStats {
 		nextKeyValid := m.GetNextKey(&currentKey, &nextKey)
 		entryMap, err := m.Lookup(&currentKey)
 		if err != nil {
-			stats.lookupFailed++
+			stats.LookupFailed++
 
 			// Restarting from a invalid key starts the iteration again from the beginning.
 			// If we have a previously found key, try to restart from there instead
@@ -422,12 +388,12 @@ func doGC6(m *bpf.Map, filter *GCFilter) gcStats {
 				// Restart from a given previous key only once, otherwise if the prevKey is
 				// concurrently deleted we might loop forever trying to look it up.
 				prevKeyValid = false
-				stats.keyFallback++
+				stats.KeyFallback++
 			} else {
 				// Depending on exactly when currentKey was deleted from the map, nextKey may be the actual
 				// keyelement after the deleted one, or the first element in the map.
 				currentKey = nextKey
-				stats.interrupted++
+				stats.Interrupted++
 			}
 			continue
 		}
@@ -453,7 +419,7 @@ func doGC6(m *bpf.Map, filter *GCFilter) gcStats {
 		}
 
 		if nextKeyValid != nil {
-			stats.completed = true
+			stats.Completed = true
 			break
 		}
 		// remember the last found key
@@ -472,18 +438,18 @@ func doGC4(m *bpf.Map, filter *GCFilter) gcStats {
 	var prevKey, currentKey, nextKey CtKey4Global
 
 	stats := statStartGc(m, gcFamilyIPv4)
-	defer stats.finish()
+	defer stats.Finish()
 
 	// prevKey is initially invalid, causing GetNextKey to return the first key in the map as currentKey.
 	prevKeyValid := false
 	err := m.GetNextKey(&prevKey, &currentKey)
 	if err != nil {
 		// Map is empty, nothing to clean up.
-		stats.completed = true
+		stats.Completed = true
 		return stats
 	}
 
-	for stats.count = 1; stats.count <= m.MapInfo.MaxEntries; stats.count++ {
+	for stats.Lookup = 1; stats.Lookup <= stats.MaxEntries; stats.Lookup++ {
 		// currentKey was returned by GetNextKey() so we know it existed in the map, but it may have been
 		// deleted by a concurrent map operation. If currentKey is no longer in the map, nextKey will be
 		// the first key in the map again. Use the nextKey only if we still find currentKey in the Lookup()
@@ -491,7 +457,7 @@ func doGC4(m *bpf.Map, filter *GCFilter) gcStats {
 		nextKeyValid := m.GetNextKey(&currentKey, &nextKey)
 		entryMap, err := m.Lookup(&currentKey)
 		if err != nil {
-			stats.lookupFailed++
+			stats.LookupFailed++
 
 			// Restarting from a invalid key starts the iteration again from the beginning.
 			// If we have a previously found key, try to restart from there instead
@@ -500,12 +466,12 @@ func doGC4(m *bpf.Map, filter *GCFilter) gcStats {
 				// Restart from a given previous key only once, otherwise if the prevKey is
 				// concurrently deleted we might loop forever trying to look it up.
 				prevKeyValid = false
-				stats.keyFallback++
+				stats.KeyFallback++
 			} else {
 				// Depending on exactly when currentKey was deleted from the map, nextKey may be the actual
 				// keyelement after the deleted one, or the first element in the map.
 				currentKey = nextKey
-				stats.interrupted++
+				stats.Interrupted++
 			}
 			continue
 		}
@@ -531,7 +497,7 @@ func doGC4(m *bpf.Map, filter *GCFilter) gcStats {
 		}
 
 		if nextKeyValid != nil {
-			stats.completed = true
+			stats.Completed = true
 			break
 		}
 		// remember the last found key
