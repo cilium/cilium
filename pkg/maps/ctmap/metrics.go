@@ -15,8 +15,6 @@
 package ctmap
 
 import (
-	"time"
-
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -25,47 +23,16 @@ import (
 )
 
 type gcStats struct {
-	// started is the timestamp when the gc run was started
-	started time.Time
+	*bpf.DumpStats
 
-	// finishedis the timestamp when the gc run completed
-	finished time.Time
-
-	// lookup is the number of key lookups performed
-	lookup uint32
-
-	// lookupFailed is the number of key lookups that failed
-	lookupFailed uint32
-
-	// prevKeyUnavailable is the number of times the previous key was not
-	// available
-	prevKeyUnavailable uint32
+	// aliveEntries is the number of scanned entries that are still alive.
+	aliveEntries uint32
 
 	// deleted is the number of keys deleted
 	deleted uint32
 
-	// keyFallback is the number of times the current key became invalid
-	// while traversing and we had to fall back to the previous key
-	keyFallback uint32
-
-	// count is number of lookups performed on the map
-	count uint32
-
-	// maxEntries is the maximum number of entries in the gc table
-	maxEntries uint32
-
 	// family is the address family
 	family gcFamily
-
-	// completed is true when the gc run has been completed
-	completed bool
-
-	// interrupted is the number of times the gc run was interrupted and
-	// had to start from scratch
-	interrupted uint32
-
-	// aliveEntries is the number of scanned entries that are still alive
-	aliveEntries uint32
 }
 
 type gcFamily int
@@ -88,47 +55,45 @@ func (g gcFamily) String() string {
 
 func statStartGc(m *bpf.Map, family gcFamily) gcStats {
 	return gcStats{
-		started:    time.Now(),
-		count:      1,
-		maxEntries: m.MapInfo.MaxEntries,
-		family:     family,
+		DumpStats: bpf.NewDumpStats(m).Start(),
+		family:    family,
 	}
 }
 
 func (s *gcStats) finish() {
-	s.finished = time.Now()
-	duration := s.finished.Sub(s.started)
+	s.DumpStats.Finish()
+	duration := s.Duration()
 	family := s.family.String()
 	switch s.family {
 	case gcFamilyIPv6:
-		metrics.DatapathErrors.With(labelIPv6CTDumpInterrupts).Add(float64(s.interrupted))
+		metrics.DatapathErrors.With(labelIPv6CTDumpInterrupts).Add(float64(s.Interrupted))
 	case gcFamilyIPv4:
-		metrics.DatapathErrors.With(labelIPv4CTDumpInterrupts).Add(float64(s.interrupted))
+		metrics.DatapathErrors.With(labelIPv4CTDumpInterrupts).Add(float64(s.Interrupted))
 	}
 
 	var status string
-	if s.completed {
+	if s.Completed {
 		status = "completed"
 		metrics.ConntrackGCSize.WithLabelValues(family, metricsAlive).Set(float64(s.aliveEntries))
 		metrics.ConntrackGCSize.WithLabelValues(family, metricsDeleted).Set(float64(s.deleted))
 	} else {
 		status = "uncompleted"
-		log.WithField("interrupted", s.interrupted).Warningf(
+		log.WithField("interrupted", s.Interrupted).Warningf(
 			"Garbage collection on IPv6 CT map failed to finish")
 	}
 
 	metrics.ConntrackGCRuns.WithLabelValues(family, status).Inc()
 	metrics.ConntrackGCDuration.WithLabelValues(family, status).Observe(duration.Seconds())
-	metrics.ConntrackGCKeyFallbacks.WithLabelValues(family).Add(float64(s.keyFallback))
+	metrics.ConntrackGCKeyFallbacks.WithLabelValues(family).Add(float64(s.KeyFallback))
 
 	log.WithFields(logrus.Fields{
-		logfields.StartTime: s.started,
+		logfields.StartTime: s.Started,
 		logfields.Duration:  duration,
 		"numDeleted":        s.deleted,
-		"numLookups":        s.count,
-		"numLookupsFailed":  s.lookupFailed,
-		"numKeyFallbacks":   s.keyFallback,
-		"completed":         s.completed,
-		"maxEntries":        s.maxEntries,
+		"numLookups":        s.Lookup,
+		"numLookupsFailed":  s.LookupFailed,
+		"numKeyFallbacks":   s.KeyFallback,
+		"completed":         s.Completed,
+		"maxEntries":        s.MaxEntries,
 	}).Infof("%s Conntrack garbage collection statistics", s.family)
 }

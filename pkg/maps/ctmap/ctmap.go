@@ -250,11 +250,11 @@ func doGC6(m *bpf.Map, filter *GCFilter) gcStats {
 	err := m.GetNextKey(&prevKey, &currentKey)
 	if err != nil {
 		// Map is empty, nothing to clean up.
-		stats.completed = true
+		stats.Completed = true
 		return stats
 	}
 
-	for stats.count = 1; stats.count <= m.MapInfo.MaxEntries; stats.count++ {
+	for stats.Lookup = 1; stats.Lookup <= stats.MaxEntries; stats.Lookup++ {
 		// currentKey was returned by GetNextKey() so we know it existed in the map, but it may have been
 		// deleted by a concurrent map operation. If currentKey is no longer in the map, nextKey will be
 		// the first key in the map again. Use the nextKey only if we still find currentKey in the Lookup()
@@ -262,7 +262,7 @@ func doGC6(m *bpf.Map, filter *GCFilter) gcStats {
 		nextKeyValid := m.GetNextKey(&currentKey, &nextKey)
 		entryMap, err := m.Lookup(&currentKey)
 		if err != nil {
-			stats.lookupFailed++
+			stats.LookupFailed++
 
 			// Restarting from a invalid key starts the iteration again from the beginning.
 			// If we have a previously found key, try to restart from there instead
@@ -271,12 +271,12 @@ func doGC6(m *bpf.Map, filter *GCFilter) gcStats {
 				// Restart from a given previous key only once, otherwise if the prevKey is
 				// concurrently deleted we might loop forever trying to look it up.
 				prevKeyValid = false
-				stats.keyFallback++
+				stats.KeyFallback++
 			} else {
 				// Depending on exactly when currentKey was deleted from the map, nextKey may be the actual
 				// keyelement after the deleted one, or the first element in the map.
 				currentKey = nextKey
-				stats.interrupted++
+				stats.Interrupted++
 			}
 			continue
 		}
@@ -302,7 +302,7 @@ func doGC6(m *bpf.Map, filter *GCFilter) gcStats {
 		}
 
 		if nextKeyValid != nil {
-			stats.completed = true
+			stats.Completed = true
 			break
 		}
 		// remember the last found key
@@ -328,11 +328,11 @@ func doGC4(m *bpf.Map, filter *GCFilter) gcStats {
 	err := m.GetNextKey(&prevKey, &currentKey)
 	if err != nil {
 		// Map is empty, nothing to clean up.
-		stats.completed = true
+		stats.Completed = true
 		return stats
 	}
 
-	for stats.count = 1; stats.count <= m.MapInfo.MaxEntries; stats.count++ {
+	for stats.Lookup = 1; stats.Lookup <= stats.MaxEntries; stats.Lookup++ {
 		// currentKey was returned by GetNextKey() so we know it existed in the map, but it may have been
 		// deleted by a concurrent map operation. If currentKey is no longer in the map, nextKey will be
 		// the first key in the map again. Use the nextKey only if we still find currentKey in the Lookup()
@@ -340,7 +340,7 @@ func doGC4(m *bpf.Map, filter *GCFilter) gcStats {
 		nextKeyValid := m.GetNextKey(&currentKey, &nextKey)
 		entryMap, err := m.Lookup(&currentKey)
 		if err != nil {
-			stats.lookupFailed++
+			stats.LookupFailed++
 
 			// Restarting from a invalid key starts the iteration again from the beginning.
 			// If we have a previously found key, try to restart from there instead
@@ -349,12 +349,12 @@ func doGC4(m *bpf.Map, filter *GCFilter) gcStats {
 				// Restart from a given previous key only once, otherwise if the prevKey is
 				// concurrently deleted we might loop forever trying to look it up.
 				prevKeyValid = false
-				stats.keyFallback++
+				stats.KeyFallback++
 			} else {
 				// Depending on exactly when currentKey was deleted from the map, nextKey may be the actual
 				// keyelement after the deleted one, or the first element in the map.
 				currentKey = nextKey
-				stats.interrupted++
+				stats.Interrupted++
 			}
 			continue
 		}
@@ -380,7 +380,7 @@ func doGC4(m *bpf.Map, filter *GCFilter) gcStats {
 		}
 
 		if nextKeyValid != nil {
-			stats.completed = true
+			stats.Completed = true
 			break
 		}
 		// remember the last found key
