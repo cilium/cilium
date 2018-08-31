@@ -512,17 +512,17 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []er
 		}
 	}
 
-	completionCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	completionCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	proxyWaitGroup := completion.NewWaitGroup(completionCtx)
 
 	errors = append(errors, ep.LeaveLocked(d, proxyWaitGroup)...)
 	ep.Unlock()
 
-	err := ep.WaitForProxyCompletions(proxyWaitGroup)
+	err := ep.WaitForProxyCompletions(proxyWaitGroup, cancel)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("unable to remove proxy redirects: %s", err))
 	}
-	cancel()
 
 	ep.BuildMutex.Unlock()
 

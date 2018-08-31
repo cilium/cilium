@@ -439,7 +439,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 	}
 
 	// Set up a context to wait for proxy completions.
-	completionCtx, cancel := context.WithTimeout(context.Background(), EndpointGenerationTimeout)
+	completionCtx, cancel := context.WithCancel(context.Background())
 	proxyWaitGroup := completion.NewWaitGroup(completionCtx)
 	defer cancel()
 
@@ -575,7 +575,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 	}
 
 	stats.proxyWaitForAck.Start()
-	err = e.WaitForProxyCompletions(proxyWaitGroup)
+	err = e.WaitForProxyCompletions(proxyWaitGroup, cancel)
 	if err != nil {
 		return 0, compilationExecuted, fmt.Errorf("Error while configuring proxy redirects: %s", err)
 	}

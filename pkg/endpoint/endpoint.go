@@ -516,24 +516,31 @@ func (e *Endpoint) SetEgressPolicyEnabledLocked(egress bool) {
 
 // WaitForProxyCompletions blocks until all proxy changes have been completed.
 // Called with BuildMutex held.
-func (e *Endpoint) WaitForProxyCompletions(proxyWaitGroup *completion.WaitGroup) error {
+func (e *Endpoint) WaitForProxyCompletions(proxyWaitGroup *completion.WaitGroup,
+	cancelFunc context.CancelFunc) error {
 	if proxyWaitGroup == nil {
 		return nil
 	}
 
+	// This must not happen, since the context is canceled only below or when
+	// regeneration has completed. If this happened already, it's a bug.
 	err := proxyWaitGroup.Context().Err()
 	if err != nil {
-		return fmt.Errorf("context cancelled before waiting for proxy updates: %s", err)
+		e.Logger().WithError(err).Fatal("Context cancelled before waiting for proxy updates")
 	}
 
-	start := time.Now()
+	// Start the proxy wait timer now, so only the wait for Envoy's ACK is
+	// accounted in the timeout.
+	timer := time.AfterFunc(EndpointGenerationTimeout, cancelFunc)
+	defer timer.Stop()
 
+	start := time.Now()
 	e.Logger().Debug("Waiting for proxy updates to complete...")
 	err = proxyWaitGroup.Wait()
+	e.Logger().Debugf("Wait time for proxy updates: %v", time.Since(start))
 	if err != nil {
 		return fmt.Errorf("proxy state changes failed: %s", err)
 	}
-	e.Logger().Debug("Wait time for proxy updates: ", time.Since(start))
 
 	return nil
 }
