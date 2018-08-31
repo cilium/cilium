@@ -471,7 +471,9 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 
 	_, endpointController := cache.NewInformer(
 		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
-			"endpoints", v1.NamespaceAll, fields.Everything()),
+			"endpoints", v1.NamespaceAll,
+			// Don't get any events from kubernetes endpoints.
+			fields.ParseSelectorOrDie("metadata.name!=kube-scheduler,metadata.name!=kube-controller-manager")),
 		&v1.Endpoints{},
 		reSyncPeriod,
 		cache.ResourceEventHandlerFuncs{
