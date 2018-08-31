@@ -16,6 +16,7 @@ package v2
 
 import (
 	"fmt"
+	"github.com/cilium/cilium/pkg/labels"
 	"reflect"
 	"time"
 
@@ -192,6 +193,24 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 func (r *CiliumNetworkPolicy) GetControllerName() string {
 	name := k8sUtils.GetObjNamespaceName(&r.ObjectMeta)
 	return fmt.Sprintf("%s (v2 %s)", k8sConst.CtrlPrefixPolicyStatus, name)
+}
+
+// GetRuleLabels returns all rule labels in the CiliumNetworkPolicy.
+func (r *CiliumNetworkPolicy) GetRuleLabels() []labels.LabelArray {
+	namespace := k8sUtils.ExtractNamespace(&r.ObjectMeta)
+	name := r.ObjectMeta.Name
+
+	var retRules []labels.LabelArray
+
+	if r.Spec != nil {
+		retRules = append(retRules, k8sUtils.ParseToCiliumLabels(namespace, name, r.Spec.Labels))
+	}
+	if r.Specs != nil {
+		for _, rule := range r.Specs {
+			retRules = append(retRules, k8sUtils.ParseToCiliumLabels(namespace, name, rule.Labels))
+		}
+	}
+	return retRules
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

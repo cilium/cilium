@@ -48,17 +48,22 @@ var (
 )
 
 // ExtractNamespace extracts the namespace of ObjectMeta.
-func ExtractNamespace(np *metav1.ObjectMeta) string {
-	if np.Namespace == "" {
+func ExtractNamespace(np metav1.Object) string {
+	if ns := np.GetNamespace(); ns == "" {
 		return v1.NamespaceDefault
+	} else {
+		return ns
 	}
-
-	return np.Namespace
 }
 
 // GetObjNamespaceName returns the object's namespace and name.
-func GetObjNamespaceName(obj *metav1.ObjectMeta) string {
+func GetObjNamespaceName(obj metav1.Object) string {
 	return ExtractNamespace(obj) + "/" + obj.GetName()
+}
+
+// GetObjUID returns the object's namespace and name.
+func GetObjUID(obj metav1.Object) string {
+	return GetObjNamespaceName(obj) + "/" + string(obj.GetUID())
 }
 
 // GetPolicyLabels returns a LabelArray for the given namespace and name.
@@ -229,14 +234,14 @@ func ParseToCiliumRule(namespace, name string, r *api.Rule) *api.Rule {
 	parseToCiliumIngressRule(namespace, r, retRule)
 	parseToCiliumEgressRule(namespace, r, retRule)
 
-	policyLbls := GetPolicyLabels(namespace, name)
-	if retRule.Labels == nil {
-		retRule.Labels = make(labels.LabelArray, 0, len(policyLbls)+len(r.Labels))
-	}
-	retRule.Labels = append(retRule.Labels, policyLbls...)
-	retRule.Labels = append(retRule.Labels, r.Labels...)
+	retRule.Labels = ParseToCiliumLabels(namespace, name, r.Labels)
 
 	retRule.Description = r.Description
 
 	return retRule
+}
+
+func ParseToCiliumLabels(namespace, name string, ruleLbs labels.LabelArray) labels.LabelArray {
+	policyLbls := GetPolicyLabels(namespace, name)
+	return append(policyLbls, ruleLbs...)
 }

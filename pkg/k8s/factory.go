@@ -15,10 +15,15 @@
 package k8s
 
 import (
+	"fmt"
 	"reflect"
 	"time"
 
+	ccache "github.com/cilium/cilium/pkg/cache"
+	"github.com/cilium/cilium/pkg/controller"
+	k8sUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/serializer"
@@ -29,7 +34,12 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+)
+
+var (
+	k8sSyncCM = controller.NewManager()
 )
 
 // ControllerFactory returns a kubernetes controller.
@@ -47,21 +57,26 @@ func ControllerFactory(
 	resourceObj runtime.Object,
 	resyncPeriod time.Duration,
 	rehf cache.ResourceEventHandlerFuncs,
+	selector fields.Selector,
 ) cache.Controller {
 
-	_, controller := cache.NewInformer(
+	if selector == nil {
+		selector = fields.Everything()
+	}
+
+	_, c := cache.NewInformer(
 		cache.NewListWatchFromClient(
 			k8sGetter,
 			resourceNameOf(resourceObj),
 			v1.NamespaceAll,
-			fields.Everything(),
+			selector,
 		),
 		resourceObj,
 		resyncPeriod,
 		rehf,
 	)
 
-	return controller
+	return c
 }
 
 // ResourceEventHandlerFactory returns a kubernetes ResourceEventHandlerFuncs,
@@ -78,17 +93,79 @@ func ControllerFactory(
 func ResourceEventHandlerFactory(
 	addFunc, delFunc func(i interface{}) func() error,
 	updateFunc func(old, new interface{}) func() error,
+	missingFunc func(ccache.VersionMap) ccache.VersionMap,
 	resourceObj runtime.Object,
+	listerClient interface{},
 ) cache.ResourceEventHandlerFuncs {
 
 	fqueue := serializer.NewFunctionQueue(1024)
 	castToDeepCopy := castFuncFactory(resourceObj)
+	im := ccache.NewInterfaceMap()
+	lister := listerFactory(listerClient, resourceObj)
+
+	if addFunc != nil && delFunc != nil {
+		var newMap ccache.VersionMap
+		a := func() error {
+			var err error
+			newMap = ccache.VersionMap{}
+			newMap, err = lister()
+			return err
+		}
+		replace := func(oldMap ccache.VersionMap) ccache.VersionMap {
+			added := ccache.VersionMap{}
+			deleted := ccache.VersionMap{}
+			for k, oldVS := range oldMap {
+				newVS, ok := newMap.Get(k)
+				if ok {
+					if newMap.Add(k, oldVS) {
+						added.Add(k, newVS)
+					}
+				} else {
+					deleted.Add(k, oldVS)
+				}
+			}
+
+			if missingFunc != nil {
+				missing := missingFunc(newMap)
+				for k, newVS := range missing {
+					added.Add(k, newVS)
+				}
+			}
+
+			for k, newVS := range newMap {
+				_, ok := oldMap.Get(k)
+				if !ok {
+					added.Add(k, newVS)
+				}
+			}
+
+			for _, v := range added {
+				fqueue.Enqueue(addFunc(v.Data), serializer.NoRetry)
+			}
+			for _, v := range deleted {
+				fqueue.Enqueue(delFunc(v.Data), serializer.NoRetry)
+			}
+
+			return newMap
+		}
+		k8sSyncCM.UpdateController(fmt.Sprintf("k8s-sync-%s", resourceNameOf(resourceObj)),
+			controller.ControllerParams{
+				DoFunc: func() error {
+					im.DoLocked(a, nil, replace)
+					return nil
+				},
+				RunInterval: 1 * time.Minute,
+			})
+	}
 
 	rehf := cache.ResourceEventHandlerFuncs{}
 	if addFunc != nil {
 		rehf.AddFunc = func(obj interface{}) {
 			metrics.SetTSValue(metrics.EventTSK8s, time.Now())
 			if metaObj := castToDeepCopy(obj); metaObj != nil {
+				if !im.Add(getVerStructFrom(metaObj)) {
+					return
+				}
 				fqueue.Enqueue(addFunc(metaObj), serializer.NoRetry)
 			}
 		}
@@ -98,6 +175,9 @@ func ResourceEventHandlerFactory(
 			metrics.SetTSValue(metrics.EventTSK8s, time.Now())
 			if oldMetaObj := castToDeepCopy(oldObj); oldMetaObj != nil {
 				if newMetaObj := castToDeepCopy(newObj); newMetaObj != nil {
+					if !im.Add(getVerStructFrom(newMetaObj)) {
+						return
+					}
 					fqueue.Enqueue(updateFunc(oldMetaObj, newMetaObj), serializer.NoRetry)
 				}
 			}
@@ -108,12 +188,39 @@ func ResourceEventHandlerFactory(
 		rehf.DeleteFunc = func(obj interface{}) {
 			metrics.SetTSValue(metrics.EventTSK8s, time.Now())
 			if metaObj := castToDeepCopy(obj); metaObj != nil {
+				if ok := im.Delete(ccache.UUID(k8sUtils.GetObjUID(metaObj))); !ok {
+					return
+				}
 				fqueue.Enqueue(delFunc(metaObj), serializer.NoRetry)
 			}
 		}
 	}
 
 	return rehf
+}
+
+func listerFactory(client, obj interface{}) func() (ccache.VersionMap, error) {
+	switch obj.(type) {
+	case *networkingv1.NetworkPolicy:
+		return listV1NetworkPolicies(client.(kubernetes.Interface))
+	case *v1.Service:
+		return listV1Services(client.(kubernetes.Interface))
+	case *v1.Endpoints:
+		return listV1Endpoints(client.(kubernetes.Interface))
+	case *v1beta1.Ingress:
+		return listV1beta1Ingress(client.(kubernetes.Interface))
+	case *cilium_v2.CiliumNetworkPolicy:
+		return listV2CNP(client.(versioned.Interface))
+	case *v1.Pod:
+		return listV1Pod(client.(kubernetes.Interface))
+	case *v1.Node:
+		return listV1Node(client.(kubernetes.Interface))
+	case *v1.Namespace:
+		return listV1Namespace(client.(kubernetes.Interface))
+	default:
+		log.Panicf("Invalid resource type %s", reflect.TypeOf(client))
+		return nil
+	}
 }
 
 func resourceNameOf(i interface{}) string {
@@ -242,4 +349,126 @@ func copyObjToV1Namespace(obj interface{}) meta_v1.Object {
 		return nil
 	}
 	return ns.DeepCopy()
+}
+
+func getVerStructFrom(objMeta meta_v1.Object) (ccache.UUID, ccache.VersionedStructure) {
+	uuid := ccache.UUID(k8sUtils.GetObjUID(objMeta))
+	v := ccache.ParseVersion(objMeta.GetResourceVersion())
+	vs := ccache.VersionedStructure{
+		Data:    objMeta,
+		Version: v,
+	}
+	return uuid, vs
+}
+
+func listV1NetworkPolicies(k8sClient kubernetes.Interface) func() (ccache.VersionMap, error) {
+	return func() (ccache.VersionMap, error) {
+		list, err := k8sClient.NetworkingV1().NetworkPolicies("").List(meta_v1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+		vm := ccache.VersionMap{}
+		for _, v := range list.Items {
+			vm.Add(getVerStructFrom(&v))
+		}
+		return vm, nil
+	}
+}
+
+func listV1Services(k8sClient kubernetes.Interface) func() (ccache.VersionMap, error) {
+	return func() (ccache.VersionMap, error) {
+		list, err := k8sClient.CoreV1().Services("").List(meta_v1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+		vm := ccache.VersionMap{}
+		for _, v := range list.Items {
+			vm.Add(getVerStructFrom(&v))
+		}
+		return vm, nil
+	}
+}
+
+func listV1Endpoints(k8sClient kubernetes.Interface) func() (ccache.VersionMap, error) {
+	return func() (ccache.VersionMap, error) {
+		list, err := k8sClient.CoreV1().Endpoints("").List(meta_v1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+		vm := ccache.VersionMap{}
+		for _, v := range list.Items {
+			vm.Add(getVerStructFrom(&v))
+		}
+		return vm, nil
+	}
+}
+
+func listV1beta1Ingress(k8sClient kubernetes.Interface) func() (ccache.VersionMap, error) {
+	return func() (ccache.VersionMap, error) {
+		list, err := k8sClient.ExtensionsV1beta1().Ingresses("").List(meta_v1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+		vm := ccache.VersionMap{}
+		for _, v := range list.Items {
+			vm.Add(getVerStructFrom(&v))
+		}
+		return vm, nil
+	}
+}
+
+func listV2CNP(k8sClient versioned.Interface) func() (ccache.VersionMap, error) {
+	return func() (ccache.VersionMap, error) {
+		list, err := k8sClient.CiliumV2().CiliumNetworkPolicies("").List(meta_v1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+		vm := ccache.VersionMap{}
+		for _, v := range list.Items {
+			vm.Add(getVerStructFrom(&v))
+		}
+		return vm, nil
+	}
+}
+
+func listV1Pod(k8sClient kubernetes.Interface) func() (ccache.VersionMap, error) {
+	return func() (ccache.VersionMap, error) {
+		list, err := k8sClient.CoreV1().Pods("").List(meta_v1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+		vm := ccache.VersionMap{}
+		for _, v := range list.Items {
+			vm.Add(getVerStructFrom(&v))
+		}
+		return vm, nil
+	}
+}
+
+func listV1Node(k8sClient kubernetes.Interface) func() (ccache.VersionMap, error) {
+	return func() (ccache.VersionMap, error) {
+		list, err := k8sClient.CoreV1().Nodes().List(meta_v1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+		vm := ccache.VersionMap{}
+		for _, v := range list.Items {
+			vm.Add(getVerStructFrom(&v))
+		}
+		return vm, nil
+	}
+}
+
+func listV1Namespace(k8sClient kubernetes.Interface) func() (ccache.VersionMap, error) {
+	return func() (ccache.VersionMap, error) {
+		list, err := k8sClient.CoreV1().Namespaces().List(meta_v1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+		vm := ccache.VersionMap{}
+		for _, v := range list.Items {
+			vm.Add(getVerStructFrom(&v))
+		}
+		return vm, nil
+	}
 }
