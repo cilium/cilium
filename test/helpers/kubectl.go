@@ -1345,10 +1345,6 @@ func (kub *Kubectl) CiliumPreFlightCheck() error {
 		if err != nil {
 			return false
 		}
-		err = kub.ServicePreFlightCheck("kube-dns", "kube-system")
-		if err != nil {
-			return false
-		}
 		return true
 	}
 	timeoutErr := WithTimeout(body, "PreflightCheck failed", &TimeoutConfig{Timeout: HelperTimeout})
@@ -1509,6 +1505,15 @@ func (kub *Kubectl) fillServiceCache() error {
 	}
 	kub.serviceCache = &cache
 	return nil
+}
+
+// KubeDNSPreFlightCheck makes sure that kube-dns is plumbed into Cilium.
+func (kub *Kubectl) KubeDNSPreFlightCheck() error {
+	err := kub.fillServiceCache()
+	if err != nil {
+		return err
+	}
+	return kub.ServicePreFlightCheck("kube-dns", "kube-system")
 }
 
 //ServicePreFlightCheck makes sure that k8s service with given name and namespace is properly plumbed in Cilium
