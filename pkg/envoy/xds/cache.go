@@ -76,7 +76,7 @@ func NewCache() *Cache {
 // increases the cache's version number atomically if the cache is actually
 // changed.
 // The version after updating the set is returned.
-func (c *Cache) tx(typeURL string, upsertedResources map[string]proto.Message, deletedNames []string, force bool) (version uint64, updated bool) {
+func (c *Cache) tx(typeURL string, upsertedResources map[string]proto.Message, deletedNames []string, force bool) (version uint64, updated bool, revert ResourceMutatorRevertFunc) {
 	c.locker.Lock()
 	defer c.locker.Unlock()
 
@@ -90,6 +90,10 @@ func (c *Cache) tx(typeURL string, upsertedResources map[string]proto.Message, d
 
 	cacheLog.Debugf("preparing new cache transaction: upserting %d entries, deleting %d entries",
 		len(upsertedResources), len(deletedNames))
+
+	// The parameters to pass to tx in revertFunc.
+	var revertUpsertedResources map[string]proto.Message
+	var revertDeletedNames []string
 
 	k := cacheKey{
 		typeURL: typeURL,
@@ -107,26 +111,48 @@ func (c *Cache) tx(typeURL string, upsertedResources map[string]proto.Message, d
 		// responses in GetResources.
 		// Calling proto.Message.String is not very cheap, but we assume that
 		// the reduced churn between the clients and the server is worth it.
-		if force || !found || oldV.resource.String() != value.String() {
+		if !found || oldV.resource.String() != value.String() {
 			if found {
 				cacheLog.WithField(logfields.XDSResourceName, name).Debug("updating resource in cache")
+
+				if revertUpsertedResources == nil {
+					revertUpsertedResources = make(map[string]proto.Message, len(upsertedResources)+len(deletedNames))
+				}
+				revertUpsertedResources[name] = oldV.resource
 			} else {
 				cacheLog.WithField(logfields.XDSResourceName, name).Debug("inserting resource into cache")
+
+				if revertDeletedNames == nil {
+					revertDeletedNames = make([]string, 0, len(upsertedResources))
+				}
+				revertDeletedNames = append(revertDeletedNames, name)
 			}
 			cacheIsUpdated = true
 			v.resource = value
 			c.resources[k] = v
 		}
+		if force {
+			cacheIsUpdated = true
+		}
 	}
 
 	for _, name := range deletedNames {
 		k.resourceName = name
-		_, found := c.resources[k]
-		if force || found {
+		oldV, found := c.resources[k]
+		if found {
 			cacheLog.WithField(logfields.XDSResourceName, name).
 				Debug("deleting resource from cache")
+
+			if revertUpsertedResources == nil {
+				revertUpsertedResources = make(map[string]proto.Message, len(upsertedResources)+len(deletedNames))
+			}
+			revertUpsertedResources[name] = oldV.resource
+
 			cacheIsUpdated = true
 			delete(c.resources, k)
+		}
+		if force {
+			cacheIsUpdated = true
 		}
 	}
 
@@ -138,14 +164,19 @@ func (c *Cache) tx(typeURL string, upsertedResources map[string]proto.Message, d
 		cacheLog.Debug("cache unmodified by transaction; aborting")
 	}
 
-	return c.version, cacheIsUpdated
+	revertFunc := func(force bool) (version uint64, updated bool) {
+		version, updated, _ = c.tx(typeURL, revertUpsertedResources, revertDeletedNames, force)
+		return
+	}
+
+	return c.version, cacheIsUpdated, revertFunc
 }
 
-func (c *Cache) Upsert(typeURL string, resourceName string, resource proto.Message, force bool) (version uint64, updated bool) {
+func (c *Cache) Upsert(typeURL string, resourceName string, resource proto.Message, force bool) (version uint64, updated bool, revert ResourceMutatorRevertFunc) {
 	return c.tx(typeURL, map[string]proto.Message{resourceName: resource}, nil, force)
 }
 
-func (c *Cache) Delete(typeURL string, resourceName string, force bool) (version uint64, updated bool) {
+func (c *Cache) Delete(typeURL string, resourceName string, force bool) (version uint64, updated bool, revert ResourceMutatorRevertFunc) {
 	return c.tx(typeURL, nil, []string{resourceName}, force)
 }
 
