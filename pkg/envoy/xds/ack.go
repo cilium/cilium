@@ -34,6 +34,12 @@ type ResourceVersionAckObserver interface {
 	HandleResourceVersionAck(version uint64, node *envoy_api_v2_core.Node, resourceNames []string, typeURL string)
 }
 
+// AckingResourceMutatorRevertFunc is a function which reverts the effects of
+// an update on a AckingResourceMutator.
+// The completion is called back when the new resource update is
+// ACKed by the Envoy nodes.
+type AckingResourceMutatorRevertFunc func(completion *completion.Completion)
+
 // AckingResourceMutator is a variant of ResourceMutator which calls back a
 // Completion when a resource update is ACKed by a set of Envoy nodes.
 type AckingResourceMutator interface {
@@ -42,13 +48,17 @@ type AckingResourceMutator interface {
 	// or updated.
 	// The completion is called back when the new upserted resources' version is
 	// ACKed by the Envoy nodes which IDs are given in nodeIDs.
-	Upsert(typeURL string, resourceName string, resource proto.Message, nodeIDs []string, completion *completion.Completion)
+	// A call to the returned revert function reverts the effects of this
+	// method call.
+	Upsert(typeURL string, resourceName string, resource proto.Message, nodeIDs []string, completion *completion.Completion) AckingResourceMutatorRevertFunc
 
 	// Delete deletes a resource from this set by name and increases the cache's
 	// version number atomically if the resource is actually deleted.
 	// The completion is called back when the new deleted resources' version is
 	// ACKed by the Envoy nodes which IDs are given in nodeIDs.
-	Delete(typeURL string, resourceName string, nodeIDs []string, completion *completion.Completion)
+	// A call to the returned revert function reverts the effects of this
+	// method call.
+	Delete(typeURL string, resourceName string, nodeIDs []string, completion *completion.Completion) AckingResourceMutatorRevertFunc
 }
 
 // AckingResourceMutatorWrapper is an AckingResourceMutator which wraps a
@@ -98,45 +108,7 @@ func NewAckingResourceMutatorWrapper(mutator ResourceMutator, nodeToID NodeToIDF
 	}
 }
 
-func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName string, resource proto.Message, nodeIDs []string, completion *completion.Completion) {
-	m.locker.Lock()
-	defer m.locker.Unlock()
-
-	// Always upsert the resource, even if the completion's context was
-	// canceled before we even started, since we have no way to signal whether
-	// the resource is actually upserted.
-
-	version, _ := m.mutator.Upsert(typeURL, resourceName, resource, true)
-
-	comp := &pendingCompletion{
-		completion:              completion,
-		version:                 version,
-		typeURL:                 typeURL,
-		remainingNodesResources: make(map[string]map[string]struct{}, len(nodeIDs)),
-	}
-
-	for _, nodeID := range nodeIDs {
-		comp.remainingNodesResources[nodeID] = make(map[string]struct{}, 1)
-		comp.remainingNodesResources[nodeID][resourceName] = struct{}{}
-	}
-
-	m.pendingCompletions = append(m.pendingCompletions, comp)
-}
-
-func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName string, nodeIDs []string, completion *completion.Completion) {
-	m.locker.Lock()
-	defer m.locker.Unlock()
-
-	// Always delete the resource, even if the completion's context was
-	// canceled before we even started, since we have no way to signal whether
-	// the resource is actually deleted.
-
-	// There is no explicit ACK for resource deletion in the xDS protocol.
-	// As a best effort, just wait for any ACK for the version and type URL,
-	// and ignore the ACKed resource names.
-
-	version, _ := m.mutator.Delete(typeURL, resourceName, true)
-
+func (m *AckingResourceMutatorWrapper) addDeleteCompletion(typeURL string, version uint64, nodeIDs []string, completion *completion.Completion) {
 	comp := &pendingCompletion{
 		completion:              completion,
 		version:                 version,
@@ -149,6 +121,66 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 	}
 
 	m.pendingCompletions = append(m.pendingCompletions, comp)
+}
+
+func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName string, resource proto.Message, nodeIDs []string, c *completion.Completion) AckingResourceMutatorRevertFunc {
+	m.locker.Lock()
+	defer m.locker.Unlock()
+
+	// Always upsert the resource, even if the completion's context was
+	// canceled before we even started, since we have no way to signal whether
+	// the resource is actually upserted.
+
+	version, _, revert := m.mutator.Upsert(typeURL, resourceName, resource, true)
+
+	comp := &pendingCompletion{
+		completion:              c,
+		version:                 version,
+		typeURL:                 typeURL,
+		remainingNodesResources: make(map[string]map[string]struct{}, len(nodeIDs)),
+	}
+
+	for _, nodeID := range nodeIDs {
+		comp.remainingNodesResources[nodeID] = make(map[string]struct{}, 1)
+		comp.remainingNodesResources[nodeID][resourceName] = struct{}{}
+	}
+
+	m.pendingCompletions = append(m.pendingCompletions, comp)
+
+	return func(completion *completion.Completion) {
+		version, _ := revert(true)
+
+		// We don't know whether the revert did an Upsert or a Delete, so as a
+		// best effort, just wait for any ACK for the version and type URL,
+		// and ignore the ACKed resource names, like for a Delete.
+		m.addDeleteCompletion(typeURL, version, nodeIDs, completion)
+	}
+}
+
+func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName string, nodeIDs []string, c *completion.Completion) AckingResourceMutatorRevertFunc {
+	m.locker.Lock()
+	defer m.locker.Unlock()
+
+	// Always delete the resource, even if the completion's context was
+	// canceled before we even started, since we have no way to signal whether
+	// the resource is actually deleted.
+
+	// There is no explicit ACK for resource deletion in the xDS protocol.
+	// As a best effort, just wait for any ACK for the version and type URL,
+	// and ignore the ACKed resource names.
+
+	version, _, revert := m.mutator.Delete(typeURL, resourceName, true)
+
+	m.addDeleteCompletion(typeURL, version, nodeIDs, c)
+
+	return func(completion *completion.Completion) {
+		version, _ := revert(true)
+
+		// We don't know whether the revert had any effect at all, so as a
+		// best effort, just wait for any ACK for the version and type URL,
+		// and ignore the ACKed resource names, like for a Delete.
+		m.addDeleteCompletion(typeURL, version, nodeIDs, completion)
+	}
 }
 
 func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(version uint64, node *envoy_api_v2_core.Node, resourceNames []string, typeURL string) {
