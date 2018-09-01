@@ -518,17 +518,27 @@ func (kub *Kubectl) NamespaceDelete(name string) *CmdRes {
 // an error if the command failed or the timeout was exceeded.
 func (kub *Kubectl) WaitforPods(namespace string, filter string, timeout int64) error {
 
-	data, err := kub.GetPods(namespace, filter).Filter("{.items[*].metadata.deletionTimestamp}")
-	if err != nil {
-		return fmt.Errorf("Cannot get pods with filter '%s': %s", filter, err)
-	}
-	if data.String() != "" {
-		return fmt.Errorf(
-			"There are some pods with filter %s that are marked to be deleted", filter)
-	}
 	body := func() bool {
+		data, err := kub.GetPods(namespace, filter).Filter("{.items[*].metadata.deletionTimestamp}")
+		if err != nil {
+			kub.logger.WithFields(logrus.Fields{
+				"namespace": namespace,
+				"filter":    filter,
+				"data":      data,
+			}).Info("Cannot get pods with filter '%s': %s")
+			return false
+		}
+		if data.String() != "" {
+			kub.logger.WithFields(logrus.Fields{
+				"namespace": namespace,
+				"filter":    filter,
+				"data":      data,
+			}).Info("There are some pods with filter %s that are marked to be deleted")
+			return false
+		}
+
 		var jsonPath = "{.items[*].status.containerStatuses[*].ready}"
-		data, err := kub.GetPods(namespace, filter).Filter(jsonPath)
+		data, err = kub.GetPods(namespace, filter).Filter(jsonPath)
 		if err != nil {
 			kub.logger.Errorf("could not get pods: %s", err)
 			return false
