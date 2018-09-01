@@ -255,3 +255,148 @@ func (s *AckSuite) TestDeleteMultipleNodes(c *C) {
 	// The resource name is ignored. For delete, we only consider the version.
 	c.Assert(comp, IsCompleted)
 }
+
+func (s *AckSuite) TestRevertInsert(c *C) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	typeURL := "type.googleapis.com/envoy.api.v2.DummyConfiguration"
+	wg := completion.NewWaitGroup(ctx)
+
+	cache := NewCache()
+	acker := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
+
+	// Create version 1 with resource 0.
+	// Insert.
+	comp := wg.AddCompletion()
+	defer comp.Complete(nil)
+	revert := acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp)
+
+	// Insert another resource.
+	comp = wg.AddCompletion()
+	defer comp.Complete(nil)
+	_ = acker.Upsert(typeURL, resources[2].Name, resources[2], []string{node0}, comp)
+
+	res, err := cache.Lookup(typeURL, resources[0].Name)
+	c.Assert(err, IsNil)
+	c.Assert(res, Equals, resources[0])
+
+	res, err = cache.Lookup(typeURL, resources[2].Name)
+	c.Assert(err, IsNil)
+	c.Assert(res, Equals, resources[2])
+
+	comp = wg.AddCompletion()
+	defer comp.Complete(nil)
+	revert(comp)
+
+	res, err = cache.Lookup(typeURL, resources[0].Name)
+	c.Assert(err, IsNil)
+	c.Assert(res, IsNil)
+
+	res, err = cache.Lookup(typeURL, resources[2].Name)
+	c.Assert(err, IsNil)
+	c.Assert(res, Equals, resources[2])
+}
+
+func (s *AckSuite) TestRevertUpdate(c *C) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	typeURL := "type.googleapis.com/envoy.api.v2.DummyConfiguration"
+	wg := completion.NewWaitGroup(ctx)
+
+	cache := NewCache()
+	acker := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
+
+	// Create version 1 with resource 0.
+	// Insert.
+	comp := wg.AddCompletion()
+	defer comp.Complete(nil)
+	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp)
+
+	// Insert another resource.
+	comp = wg.AddCompletion()
+	defer comp.Complete(nil)
+	_ = acker.Upsert(typeURL, resources[2].Name, resources[2], []string{node0}, comp)
+
+	res, err := cache.Lookup(typeURL, resources[0].Name)
+	c.Assert(err, IsNil)
+	c.Assert(res, Equals, resources[0])
+
+	res, err = cache.Lookup(typeURL, resources[2].Name)
+	c.Assert(err, IsNil)
+	c.Assert(res, Equals, resources[2])
+
+	// Update.
+	comp = wg.AddCompletion()
+	defer comp.Complete(nil)
+	revert := acker.Upsert(typeURL, resources[0].Name, resources[1], []string{node0}, comp)
+
+	res, err = cache.Lookup(typeURL, resources[0].Name)
+	c.Assert(err, IsNil)
+	c.Assert(res, Equals, resources[1])
+
+	comp = wg.AddCompletion()
+	defer comp.Complete(nil)
+	revert(comp)
+
+	res, err = cache.Lookup(typeURL, resources[0].Name)
+	c.Assert(err, IsNil)
+	c.Assert(res, Equals, resources[0])
+
+	res, err = cache.Lookup(typeURL, resources[2].Name)
+	c.Assert(err, IsNil)
+	c.Assert(res, Equals, resources[2])
+}
+
+func (s *AckSuite) TestRevertDelete(c *C) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	typeURL := "type.googleapis.com/envoy.api.v2.DummyConfiguration"
+	wg := completion.NewWaitGroup(ctx)
+
+	cache := NewCache()
+	acker := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
+
+	// Create version 1 with resource 0.
+	// Insert.
+	comp := wg.AddCompletion()
+	defer comp.Complete(nil)
+	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp)
+
+	// Insert another resource.
+	comp = wg.AddCompletion()
+	defer comp.Complete(nil)
+	_ = acker.Upsert(typeURL, resources[2].Name, resources[2], []string{node0}, comp)
+
+	res, err := cache.Lookup(typeURL, resources[0].Name)
+	c.Assert(err, IsNil)
+	c.Assert(res, Equals, resources[0])
+
+	res, err = cache.Lookup(typeURL, resources[2].Name)
+	c.Assert(err, IsNil)
+	c.Assert(res, Equals, resources[2])
+
+	// Delete.
+	comp = wg.AddCompletion()
+	defer comp.Complete(nil)
+	revert := acker.Delete(typeURL, resources[0].Name, []string{node0}, comp)
+
+	res, err = cache.Lookup(typeURL, resources[0].Name)
+	c.Assert(err, IsNil)
+	c.Assert(res, IsNil)
+
+	res, err = cache.Lookup(typeURL, resources[2].Name)
+	c.Assert(err, IsNil)
+	c.Assert(res, Equals, resources[2])
+
+	comp = wg.AddCompletion()
+	defer comp.Complete(nil)
+	revert(comp)
+
+	res, err = cache.Lookup(typeURL, resources[0].Name)
+	c.Assert(err, IsNil)
+	c.Assert(res, Equals, resources[0])
+
+	res, err = cache.Lookup(typeURL, resources[2].Name)
+	c.Assert(err, IsNil)
+	c.Assert(res, Equals, resources[2])
+}
