@@ -20,6 +20,7 @@ then
         make LOCKDEBUG=1 docker-image
         echo "pushing container image to k8s1:5000/cilium/cilium-dev..."
         docker tag cilium/cilium k8s1:5000/cilium/cilium-dev
+        docker rmi cilium/cilium:latest
         docker push k8s1:5000/cilium/cilium-dev
         echo "Executing: $KUBECTL delete pods -n $KUBE_SYSTEM_NAMESPACE -l $CILIUM_DS_TAG"
         $KUBECTL delete pods -n $KUBE_SYSTEM_NAMESPACE -l $CILIUM_DS_TAG
