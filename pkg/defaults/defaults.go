@@ -82,4 +82,7 @@ const (
 
 	// DefaultMapPrefix is the default prefix for all BPF maps.
 	DefaultMapPrefix = "tc/globals"
+
+	// ToFQDNsMinTTL is the default lower bound for TTLs used with ToFQDNs rules.
+	ToFQDNsMinTTL = 365 * 86400 // 1 year in seconds
 )

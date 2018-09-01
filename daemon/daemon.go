@@ -1327,6 +1327,7 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 
 	d.startStatusCollector()
 	d.dnsPoller = fqdn.NewDNSPoller(fqdn.DNSPollerConfig{
+		MinTTL:         toFQDNsMinTTL,
 		LookupDNSNames: fqdn.DNSLookupDefaultResolver,
 		AddGeneratedRules: func(generatedRules []*policyApi.Rule) error {
 			// Insert the new rules into the policy repository. We need them to

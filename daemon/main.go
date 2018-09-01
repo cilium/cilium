@@ -120,6 +120,7 @@ var (
 	v6Prefix              string
 	v6ServicePrefix       string
 	validLabels           []string
+	toFQDNsMinTTL         int
 )
 
 var (
@@ -487,6 +488,9 @@ func init() {
 	flags.StringVar(&cmdRefDir,
 		"cmdref", "", "Path to cmdref output directory")
 	flags.MarkHidden("cmdref")
+
+	flags.IntVar(&toFQDNsMinTTL,
+		"tofqdns-min-ttl", defaults.ToFQDNsMinTTL, "The minimum time, in seconds, to use DNS data for toFQDNs policies.")
 
 	viper.BindPFlags(flags)
 }
