@@ -327,7 +327,7 @@ func GetEndpoints() []*endpoint.Endpoint {
 }
 
 // AddEndpoint takes the prepared endpoint object and starts managing it.
-func AddEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, reason string) error {
+func AddEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, reason string) (err error) {
 	alwaysEnforce := policy.GetPolicyEnabled() == option.AlwaysEnforce
 	ep.Options.SetBool(option.IngressPolicy, alwaysEnforce)
 	ep.Options.SetBool(option.EgressPolicy, alwaysEnforce)
@@ -335,6 +335,11 @@ func AddEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, reason string) err
 	if err := ep.CreateDirectory(); err != nil {
 		return err
 	}
+	defer func() {
+		if err != nil {
+			ep.RemoveDirectory()
+		}
+	}()
 
 	// Regenerate immediately if ready or waiting for identity
 	if err := ep.LockAlive(); err != nil {
@@ -353,7 +358,6 @@ func AddEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, reason string) err
 
 	if build {
 		if err := ep.RegenerateWait(owner, reason); err != nil {
-			ep.RemoveDirectory()
 			return err
 		}
 	}
