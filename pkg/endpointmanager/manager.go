@@ -59,14 +59,19 @@ func init() {
 }
 
 // Insert inserts the endpoint into the global maps.
-// Must be called with ep.Mutex.RLock held.
 func Insert(ep *endpoint.Endpoint) {
+	// No need to check liveness as an endpoint can only be deleted via the
+	// API after it has been inserted into the manager.
+	ep.UnconditionalRLock()
 	mutex.Lock()
-	defer mutex.Unlock()
 
 	endpoints[ep.ID] = ep
 	updateReferences(ep)
-	ep.RunK8sCiliumEndpointSync() // start the k8s update controller
+
+	mutex.Unlock()
+	ep.RUnlock()
+
+	ep.RunK8sCiliumEndpointSync()
 }
 
 // Lookup looks up the endpoint by prefix id
@@ -344,11 +349,7 @@ func AddEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, reason string) err
 		}
 	}
 
-	if err := ep.RLockAlive(); err != nil {
-		return err
-	}
 	Insert(ep)
-	ep.RUnlock()
 	ep.InsertEvent()
 
 	return nil

@@ -540,9 +540,6 @@ func (e *Endpoint) WaitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 // RunK8sCiliumEndpointSync starts a controller that syncronizes the endpoint
 // to the corresponding k8s CiliumEndpoint CRD
 // CiliumEndpoint objects have the same name as the pod they represent
-//
-// Endpoint.Mutex must be RLocked. This is guaranteed via
-// endpointmanager.Insert() but is really not ideal.
 func (e *Endpoint) RunK8sCiliumEndpointSync() {
 	var (
 		endpointID     = e.ID
@@ -576,7 +573,7 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 
 	// The health endpoint doesn't really exist in k8s and updates to it caused
 	// arbitrary errors. Disable the controller for these endpoints.
-	if isHealthEP := e.hasLabelsRLocked(pkgLabels.LabelHealth); isHealthEP {
+	if isHealthEP := e.HasLabels(pkgLabels.LabelHealth); isHealthEP {
 		scopedLog.Debug("Not starting unnecessary CEP controller for cilium-health endpoint")
 		return
 	}
