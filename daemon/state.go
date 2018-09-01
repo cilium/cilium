@@ -156,9 +156,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 		// upon returning that endpoints are exposed to other subsystems via
 		// endpointmanager.
 
-		ep.UnconditionalRLock()
 		endpointmanager.Insert(ep)
-		ep.RUnlock()
 
 		go func(ep *endpoint.Endpoint, epRegenerated chan<- bool) {
 			if err := ep.RLockAlive(); err != nil {
