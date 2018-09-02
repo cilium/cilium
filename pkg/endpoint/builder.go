@@ -119,3 +119,10 @@ func (b *endpointBuild) Build() error {
 
 	return err
 }
+
+// DrainALlBuilds waits until any ongoing current build has completed and
+// removes all scheduled builds from the build queue.  The endpoint must NOT be
+// locked.
+func (e *Endpoint) DrainAllBuilds() {
+	BuildQueue.Drain(e)
+}

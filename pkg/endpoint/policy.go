@@ -712,9 +712,6 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 		e.LogStatusOK(BPF, "Successfully regenerated endpoint program (Reason: "+context.Reason+")")
 	}()
 
-	e.BuildMutex.Lock()
-	defer e.BuildMutex.Unlock()
-
 	stats.waitingForLock.Start()
 	// Check if endpoints is still alive before doing any build
 	if err = e.LockAlive(); err != nil {
