@@ -671,7 +671,7 @@ func (e *Endpoint) ComputePolicyEnforcement(repo *policy.Repository) (ingress bo
 // completed and removes all scheduled builds from the build queue.  The
 // endpoint must NOT be locked.
 func (e *Endpoint) WaitForRegenerationsToComplete() {
-	buildQueue.Drain(e)
+	BuildQueue.Drain(e)
 }
 
 // Called with e.Mutex UNlocked
@@ -797,7 +797,7 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 // either StateWaitingForIdentity if the security identity is still unknown or
 // to StateReady.
 func (e *Endpoint) Regenerate(owner Owner, context *RegenerationContext) <-chan bool {
-	return buildQueue.Enqueue(e.newEndpointBuild(owner, context))
+	return BuildQueue.Enqueue(e.newEndpointBuild(owner, context))
 }
 
 func (e *Endpoint) runIdentityToK8sPodSync() {
