@@ -17,7 +17,6 @@ package endpoint
 import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/policy"
 )
@@ -42,10 +41,6 @@ type Owner interface {
 	// RemoveNetworkPolicy removes a network policy from the set published to
 	// L7 proxies.
 	RemoveNetworkPolicy(e *Endpoint)
-
-	// GetCompilationLock returns the mutex responsible for synchronizing compilation
-	// of BPF programs.
-	GetCompilationLock() *lock.RWMutex
 
 	// SendNotification is called to emit an agent notification
 	SendNotification(typ monitor.AgentNotification, text string) error

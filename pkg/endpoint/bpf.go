@@ -373,11 +373,6 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string, regenContext *Regene
 	stats := &regenContext.Stats
 	stats.waitingForLock.Start()
 
-	// Make sure that owner is not compiling base programs while we are
-	// regenerating an endpoint.
-	owner.GetCompilationLock().RLock()
-	defer owner.GetCompilationLock().RUnlock()
-
 	ctCleaned := make(chan struct{})
 
 	if err = e.LockAlive(); err != nil {
