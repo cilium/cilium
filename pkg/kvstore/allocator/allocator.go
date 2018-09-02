@@ -722,7 +722,7 @@ func (a *Allocator) syncLocalKeys() error {
 	// disappear while we perform the sync but that is fine as worst case,
 	// a master key is created for a slave key that no longer exists. The
 	// garbage collector will remove it again.
-	ids := a.localKeys.getIDs()
+	ids := a.localKeys.getVerifiedIDs()
 
 	for id, value := range ids {
 		a.recreateMasterKey(id, value)
