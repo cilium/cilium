@@ -44,8 +44,9 @@ func (s *AllocatorSuite) TestLocalKeys(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(v, Equals, val2)
 
-	ids := k.getIDs()
-	c.Assert(len(ids), Equals, 2)
+	// only one of the two keys is verified yet
+	ids := k.getVerifiedIDs()
+	c.Assert(len(ids), Equals, 1)
 
 	// allocate with different value must fail
 	_, err = k.allocate(key2, val)
