@@ -1289,6 +1289,10 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 		log.WithError(err).Fatal("Unable to initialize local node")
 	}
 
+	// This needs to be done after the node addressing has been configured
+	// as the node address is required as sufix
+	identity.InitIdentityAllocator(&d)
+
 	if path := option.Config.ClusterMeshConfig; path != "" {
 		if option.Config.ClusterID == 0 {
 			log.Info("Cluster-ID is not specified, skipping ClusterMesh initialization")
@@ -1306,10 +1310,6 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 			d.clustermesh = clustermesh
 		}
 	}
-
-	// This needs to be done after the node addressing has been configured
-	// as the node address is required as sufix
-	identity.InitIdentityAllocator(&d)
 
 	if err = d.init(); err != nil {
 		log.WithError(err).Error("Error while initializing daemon")
