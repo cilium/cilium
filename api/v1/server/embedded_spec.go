@@ -1645,12 +1645,14 @@ func init() {
       "type": "string",
       "enum": [
         "creating",
+        "init",
         "waiting-for-identity",
         "not-ready",
         "waiting-to-regenerate",
         "regenerating",
         "restoring",
         "ready",
+        "outdated",
         "disconnecting",
         "disconnected"
       ]

@@ -324,6 +324,47 @@ example is a Kubernetes cluster which uses containerd as the container runtime.
 Endpoints will derive Kubernetes pod labels (prefixed with the ``k8s:`` source
 prefix) and containerd labels (prefixed with ``container:`` source prefix).
 
+Endpoint States
+---------------
+
+An endpoint can be in the following state to describe its current status:
+
+* **Creating:** The endpoint has been created via the API and has not been
+  successfully built yet. The endpoint is *not* connected.
+
+* **Restoring:** The endpoint has been restored from previous state and has not
+  been successfully built yet. The endpoint is *not* connected.
+
+* **Regenerating:** The endpoint is currently being regenerated to implemented
+  the desired state. The endpoint may or may not be currently connected. After
+  the build has been completed, the endpoint will transition into a state
+  that represents the connectivity state.
+
+* **Init:** The endpoint has been successfully regenerated once but has not been
+  able to resolve its identity yet. The endpoint is connected and is using
+  the init policy.
+
+* **WaitingForIdentity:** The endpoint had its identity metadata changed and is
+  currently resolving its new identity. After sucessfull identity resolution,
+  the endpoint will be regenerated as needed. The endpoint is connected using
+  the old identity.
+
+* **Outdated:** The endpoint has been regenerated successfully in the past and is
+  connected but cannot be regenerated to include the latest requested changes,
+  mark it as outdated. This indicates that the last regeneration attempt has
+  failed. The endpoint is connected but is implementing an outdated desired
+  state.
+
+* **WaitingToRegenerate:** The latest changes have been integrated but there are
+  changes outstanding to be incorporated. The endpoint is queued to be built.
+  The endpoint is connected but is implementing an outdated desired state.
+
+* **Ready:** The endpoint is stable and healthy without outstanding changes
+
+* **Disconnecting:** The endpoint is being removed
+
+* **Disconnected:** The endpoint has been removed.
+
 .. _identity:
 
 Identity

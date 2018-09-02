@@ -107,20 +107,16 @@ const (
 // Daemon is the cilium daemon that is in charge of perform all necessary plumbing,
 // monitoring when a LXC starts.
 type Daemon struct {
-	buildEndpointChan chan *endpoint.Request
-	l7Proxy           *proxy.Proxy
-	loadBalancer      *loadbalancer.LoadBalancer
-	policy            *policy.Repository
-	preFilter         *policy.PreFilter
+	l7Proxy      *proxy.Proxy
+	loadBalancer *loadbalancer.LoadBalancer
+	policy       *policy.Repository
+	preFilter    *policy.PreFilter
 	// Only used for CRI-O since it does not support events.
 	workloadsEventsCh chan<- *workloads.EventMessage
 
 	statusCollectMutex      lock.RWMutex
 	statusResponse          models.StatusResponse
 	statusResponseTimestamp time.Time
-
-	uniqueIDMU lock.Mutex
-	uniqueID   map[uint64]bool
 
 	nodeMonitor  *monitorLaunch.NodeMonitor
 	ciliumHealth *health.CiliumHealth
@@ -201,70 +197,6 @@ func (d *Daemon) RemoveNetworkPolicy(e *endpoint.Endpoint) {
 		return
 	}
 	d.l7Proxy.RemoveNetworkPolicy(e)
-}
-
-// QueueEndpointBuild puts the given request in the endpoints queue for
-// processing. The given request will receive 'true' in the MyTurn channel
-// whenever it's its turn or false if the request was denied/canceled.
-func (d *Daemon) QueueEndpointBuild(req *endpoint.Request) {
-	go func(req *endpoint.Request) {
-		d.uniqueIDMU.Lock()
-		// We are skipping new requests, but only if the endpoint has not
-		// started its build process, since the endpoint is already in queue.
-		if isBuilding, exists := d.uniqueID[req.ID]; !isBuilding && exists {
-			req.MyTurn <- false
-		} else {
-			// We mark the request "not building" state and send it to
-			// the building queue.
-			d.uniqueID[req.ID] = false
-			d.buildEndpointChan <- req
-		}
-		d.uniqueIDMU.Unlock()
-	}(req)
-}
-
-// RemoveFromEndpointQueue removes the endpoint from the queue.
-func (d *Daemon) RemoveFromEndpointQueue(epID uint64) {
-	d.uniqueIDMU.Lock()
-	delete(d.uniqueID, epID)
-	d.uniqueIDMU.Unlock()
-}
-
-// StartEndpointBuilders creates `nRoutines` go routines that listen on the
-// `d.buildEndpointChan` for new endpoints.
-func (d *Daemon) StartEndpointBuilders(nRoutines int) {
-	log.WithField("count", nRoutines).Debug("Creating worker threads")
-	for w := 0; w < nRoutines; w++ {
-		go func() {
-			for e := range d.buildEndpointChan {
-				d.uniqueIDMU.Lock()
-				if _, ok := d.uniqueID[e.ID]; !ok {
-					// If the request is not present in the uniqueID,
-					// it means the request was deleted from the queue
-					// so we deny the request's turn.
-					e.MyTurn <- false
-					d.uniqueIDMU.Unlock()
-					continue
-				}
-				// Set the endpoint to "building" state
-				d.uniqueID[e.ID] = true
-				e.MyTurn <- true
-				d.uniqueIDMU.Unlock()
-				// Wait for the endpoint to build
-				<-e.Done
-				d.uniqueIDMU.Lock()
-				// In a case where the same endpoint enters the
-				// building queue, while it was still being build,
-				// it will be marked as `false`/"not building",
-				// thus, we only delete the endpoint from the
-				// queue only if it is marked as isBuilding.
-				if isBuilding := d.uniqueID[e.ID]; isBuilding {
-					delete(d.uniqueID, e.ID)
-				}
-				d.uniqueIDMU.Unlock()
-			}
-		}()
-	}
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
@@ -1102,18 +1034,11 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 	lb := loadbalancer.NewLoadBalancer()
 
 	d := Daemon{
-		loadBalancer:  lb,
-		policy:        policy.NewPolicyRepository(),
-		uniqueID:      map[uint64]bool{},
-		nodeMonitor:   monitorLaunch.NewNodeMonitor(),
-		prefixLengths: createPrefixLengthCounter(),
-
-		// FIXME
-		// The channel size has to be set to the maximum number of
-		// possible endpoints to guarantee that enqueueing into the
-		// build queue never blocks.
-		buildEndpointChan: make(chan *endpoint.Request, lxcmap.MaxEntries),
-		compilationMutex:  new(lock.RWMutex),
+		loadBalancer:     lb,
+		policy:           policy.NewPolicyRepository(),
+		nodeMonitor:      monitorLaunch.NewNodeMonitor(),
+		prefixLengths:    createPrefixLengthCounter(),
+		compilationMutex: new(lock.RWMutex),
 	}
 
 	workloads.Init(&d)
@@ -1124,11 +1049,6 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 	if err != nil {
 		log.WithError(err).Debug("Unable to clean leftover veths")
 	}
-
-	// Create at least 4 worker threads or the same amount as there are
-	// CPUs.
-	log.Info("Launching endpoint builder workers")
-	d.StartEndpointBuilders(numWorkerThreads())
 
 	if k8s.IsEnabled() {
 		if err := k8s.Init(); err != nil {
