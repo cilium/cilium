@@ -361,7 +361,7 @@ func (e *Endpoint) removeOldRedirects(owner Owner, desiredRedirects map[string]b
 
 // regenerateBPF rewrites all headers and updates all BPF maps to reflect the
 // specified endpoint.
-// Must be called with endpoint.Mutex not held and endpoint.BuildMutex held.
+// Must be called with endpoint.Mutex not held
 // Returns the policy revision number when the regeneration has called, a
 // boolean if the BPF compilation was executed and an error in case of an error.
 func (e *Endpoint) regenerateBPF(owner Owner, epdir string, regenContext *RegenerationContext) (revnum uint64, compiled bool, reterr error) {

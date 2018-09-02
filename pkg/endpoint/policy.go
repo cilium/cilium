@@ -667,6 +667,13 @@ func (e *Endpoint) ComputePolicyEnforcement(repo *policy.Repository) (ingress bo
 	}
 }
 
+// WaitForRegenerationsToComplete waits until any ongoing current build has
+// completed and removes all scheduled builds from the build queue.  The
+// endpoint must NOT be locked.
+func (e *Endpoint) WaitForRegenerationsToComplete() {
+	buildQueue.Drain(e)
+}
+
 // Called with e.Mutex UNlocked
 func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr error) {
 	var revision uint64
@@ -715,9 +722,6 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 		scopedLog.Info("Completed endpoint regeneration")
 		e.LogStatusOK(BPF, "Successfully regenerated endpoint program (Reason: "+context.Reason+")")
 	}()
-
-	e.BuildMutex.Lock()
-	defer e.BuildMutex.Unlock()
 
 	stats.waitingForLock.Start()
 	// Check if endpoints is still alive before doing any build
