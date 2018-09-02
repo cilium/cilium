@@ -1798,7 +1798,7 @@ func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup
 	errors := []error{}
 
 	// Remove any eventual build queued
-	buildQueue.Remove(e)
+	BuildQueue.Remove(e)
 
 	if e.SecurityIdentity != nil && e.RealizedL4Policy != nil {
 		// Passing a new map of nil will purge all redirects

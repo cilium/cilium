@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -60,7 +59,6 @@ type DaemonSuite struct {
 	OnUpdateNetworkPolicy  func(e *e.Endpoint, policy *policy.L4Policy, labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, proxyWaitGroup *completion.WaitGroup) error
 	OnRemoveNetworkPolicy  func(e *e.Endpoint)
 	OnDebugEnabled         func() bool
-	OnGetCompilationLock   func() *lock.RWMutex
 	OnSendNotification     func(typ monitor.AgentNotification, text string) error
 	OnNewProxyLogRecord    func(l *accesslog.LogRecord) error
 }
@@ -113,7 +111,6 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	ds.OnUpdateNetworkPolicy = nil
 	ds.OnRemoveNetworkPolicy = nil
 	ds.OnDebugEnabled = nil
-	ds.OnGetCompilationLock = nil
 	ds.OnSendNotification = nil
 	ds.OnNewProxyLogRecord = nil
 }
@@ -224,13 +221,6 @@ func (ds *DaemonSuite) DebugEnabled() bool {
 		return ds.OnDebugEnabled()
 	}
 	panic("DebugEnabled should not have been called")
-}
-
-func (ds *DaemonSuite) GetCompilationLock() *lock.RWMutex {
-	if ds.OnGetCompilationLock != nil {
-		return ds.OnGetCompilationLock()
-	}
-	panic("GetCompilationLock should not have been called")
 }
 
 func (ds *DaemonSuite) SendNotification(typ monitor.AgentNotification, text string) error {
