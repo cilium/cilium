@@ -57,6 +57,11 @@ const (
 	MapTypeLPMTrie
 	MapTypeArrayOfMaps
 	MapTypeHashOfMaps
+	MapTypeDevMap
+	MapTypeSockMap
+	MapTypeCPUMap
+	MapTypeXSKMap
+	MapTypeSockHash
 	// MapTypeMaximum is the maximum supported known map type.
 	MapTypeMaximum
 
@@ -111,6 +116,14 @@ func (t MapType) String() string {
 		return "Array of maps"
 	case MapTypeHashOfMaps:
 		return "Hash of maps"
+	case MapTypeDevMap:
+		return "Device Map"
+	case MapTypeSockMap:
+		return "Socket Map"
+	case MapTypeCPUMap:
+		return "CPU Redirect Map"
+	case MapTypeSockHash:
+		return "Socket Hash"
 	}
 
 	return "Unknown"
