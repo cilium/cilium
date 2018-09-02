@@ -263,11 +263,8 @@ func updateReferences(ep *endpoint.Endpoint) {
 	}
 }
 
-// RegenerateAllEndpoints calls a SetStateLocked for each endpoint and
-// regenerates if state transaction is valid. During this process, the endpoint
-// list is locked and cannot be modified.
-// Returns a waiting group that can be used to know when all the endpoints are
-// regenerated.
+// RegenerateAllEndpoints regenerates all endpoints.  Returns a waiting group
+// that can be used to know when all the endpoints are regenerated.
 func RegenerateAllEndpoints(owner endpoint.Owner, regenContext *endpoint.RegenerationContext) *sync.WaitGroup {
 	var wg sync.WaitGroup
 
@@ -277,16 +274,9 @@ func RegenerateAllEndpoints(owner endpoint.Owner, regenContext *endpoint.Regener
 	log.Infof("regenerating all endpoints due to %s", regenContext.Reason)
 	for _, ep := range eps {
 		go func(ep *endpoint.Endpoint, wg *sync.WaitGroup) {
-			if err := ep.LockAlive(); err != nil {
-				log.WithError(err).Warn("Error regenerating endpoint for event %s", regenContext.Reason)
-				ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+err.Error())
-			} else {
-				regen := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenContext.Reason))
+			if err := ep.LockAlive(); err == nil {
 				ep.Unlock()
-				if regen {
-					// Regenerate logs status according to the build success/failure
-					<-ep.Regenerate(owner, regenContext)
-				}
+				<-ep.Regenerate(owner, regenContext)
 			}
 			wg.Done()
 		}(ep, &wg)
@@ -327,26 +317,9 @@ func AddEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, reason string) err
 		return err
 	}
 
-	// Regenerate immediately if ready or waiting for identity
-	if err := ep.LockAlive(); err != nil {
-		return err
-	}
-	build := false
-	state := ep.GetStateLocked()
-
-	// We can only trigger regeneration of endpoints if the endpoint is in a
-	// state where it can regenerate. See endpoint.SetStateLocked().
-	if state == endpoint.StateReady {
-		ep.SetStateLocked(endpoint.StateWaitingToRegenerate, reason)
-		build = true
-	}
-	ep.Unlock()
-
-	if build {
-		if err := ep.RegenerateWait(owner, reason); err != nil {
-			ep.RemoveDirectory()
-			return err
-		}
+	if !<-ep.Regenerate(owner, endpoint.NewRegenerationContext(reason)) {
+		ep.RemoveDirectory()
+		return fmt.Errorf("unable to regenerate endpoint")
 	}
 
 	Insert(ep)

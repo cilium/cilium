@@ -36,7 +36,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -703,6 +702,10 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 			logfields.Reason:         context.Reason,
 		})
 
+		e.UnconditionalLock()
+		e.building = false
+		e.Unlock()
+
 		if retErr != nil {
 			scopedLog.WithError(retErr).Warn("Regeneration of endpoint failed")
 			e.LogStatus(BPF, Failure, "Error regenerating endpoint: "+retErr.Error())
@@ -723,18 +726,7 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 	}
 	stats.waitingForLock.End()
 
-	// When building the initial drop policy in waiting-for-identity state
-	// the state remains unchanged
-	//
-	// GH-5350: Remove this special case to require checking for StateWaitingForIdentity
-	if e.GetStateLocked() != StateWaitingForIdentity &&
-		!e.BuilderSetStateLocked(StateRegenerating, "Regenerating endpoint: "+context.Reason) {
-		e.Logger().WithField(logfields.EndpointState, e.state).Debug("Skipping build due to invalid state")
-		e.Unlock()
-
-		return fmt.Errorf("Skipping build due to invalid state: %s", e.state)
-	}
-
+	e.building = true
 	e.Unlock()
 
 	stats.prepareBuild.Start()
@@ -750,23 +742,6 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 		return fmt.Errorf("Failed to create endpoint directory: %s", err)
 	}
 	stats.prepareBuild.End()
-
-	defer func() {
-		if err := e.LockAlive(); err != nil {
-			if retErr == nil {
-				retErr = err
-			} else {
-				e.LogDisconnectedMutexAction(err, "after regenerate")
-			}
-			return
-		}
-		// Set to Ready, but only if no other changes are pending.
-		// State will remain as waiting-to-regenerate if further
-		// changes are needed. There should be an another regenerate
-		// queued for taking care of it.
-		e.BuilderSetStateLocked(StateReady, "Completed endpoint regeneration with no pending regeneration requests")
-		e.Unlock()
-	}()
 
 	revision, compilationExecuted, err = e.regenerateBPF(owner, tmpDir, context)
 	if err != nil {
@@ -809,72 +784,16 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 	return nil
 }
 
-// Regenerate forces the regeneration of endpoint programs & policy
-// Should only be called with e.state == StateWaitingToRegenerate or with
-// e.state == StateWaitingForIdentity
+// Regenerate schedules a regeneration of the endpoint. The function will
+// return before the regeneration is executed but returns a channel which will
+// block until the regeneration has completed successfully or unsucessfully.
+// The endpoint will be transitioned to StateWaitingToRegenerate when the
+// endpoint enters the build queue and then to StateRegenerating while the
+// endpoint is building. After regeneration, the state will be changed to
+// either StateWaitingForIdentity if the security identity is still unknown or
+// to StateReady.
 func (e *Endpoint) Regenerate(owner Owner, context *RegenerationContext) <-chan bool {
-	newReq := &Request{
-		ID:           uint64(e.ID),
-		MyTurn:       make(chan bool),
-		Done:         make(chan bool),
-		ExternalDone: make(chan bool),
-	}
-
-	go func(owner Owner, req *Request, e *Endpoint) {
-		var buildSuccess bool
-
-		err := e.RLockAlive()
-		if err != nil {
-			e.LogDisconnectedMutexAction(err, "before regeneration")
-			req.ExternalDone <- false
-			close(req.ExternalDone)
-			return
-		}
-		e.RUnlock()
-		scopedLog := e.Logger()
-
-		// We should only queue the request after we use all the endpoint's
-		// lock/unlock. Otherwise this can get a deadlock if the endpoint is
-		// being deleted at the same time. More info PR-1777.
-		owner.QueueEndpointBuild(req)
-
-		isMyTurn, isMyTurnChanOK := <-req.MyTurn
-		if isMyTurnChanOK && isMyTurn {
-			scopedLog.Debug("Dequeued endpoint from build queue")
-
-			err := e.regenerate(owner, context)
-			repr, reprerr := monitor.EndpointRegenRepr(e, err)
-			if reprerr != nil {
-				scopedLog.WithError(reprerr).Warn("Notifying monitor about endpoint regeneration failed")
-			}
-
-			if err != nil {
-				buildSuccess = false
-				if reprerr == nil && !option.Config.DryMode {
-					owner.SendNotification(monitor.AgentNotifyEndpointRegenerateFail, repr)
-				}
-			} else {
-				buildSuccess = true
-				if reprerr == nil && !option.Config.DryMode {
-					owner.SendNotification(monitor.AgentNotifyEndpointRegenerateSuccess, repr)
-				}
-			}
-
-			req.Done <- buildSuccess
-		} else {
-			buildSuccess = false
-
-			scopedLog.Debug("My request was cancelled because I'm already in line")
-		}
-		// The external listener can ignore the channel so we need to
-		// make sure we don't block
-		select {
-		case req.ExternalDone <- buildSuccess:
-		default:
-		}
-		close(req.ExternalDone)
-	}(owner, newReq, e)
-	return newReq.ExternalDone
+	return buildQueue.Enqueue(e.newEndpointBuild(owner, context))
 }
 
 func (e *Endpoint) runIdentityToK8sPodSync() {
@@ -984,11 +903,6 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) {
 	}
 
 	e.SecurityIdentity = identity
-
-	// Sets endpoint state to ready if was waiting for identity
-	if e.GetStateLocked() == StateWaitingForIdentity {
-		e.SetStateLocked(StateReady, "Set identity for this endpoint")
-	}
 
 	e.runIdentityToK8sPodSync()
 
