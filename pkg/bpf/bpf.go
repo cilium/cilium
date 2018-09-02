@@ -53,6 +53,7 @@ const (
 	BPF_MAP_TYPE_DEVMAP           = 14
 	BPF_MAP_TYPE_SOCKMAP          = 15
 	BPF_MAP_TYPE_CPUMAP           = 16
+	BPF_MAP_TYPE_SOCKHASH         = 17
 
 	// BPF syscall command constants. Must match enum bpf_cmd from linux/bpf.h
 	BPF_MAP_CREATE          = 0
