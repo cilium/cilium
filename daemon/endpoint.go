@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -301,14 +302,6 @@ func NewPatchEndpointIDHandler(d *Daemon) PatchEndpointIDHandler {
 	return &patchEndpointID{d: d}
 }
 
-func validPatchTransitionState(state models.EndpointState) bool {
-	switch string(state) {
-	case "", endpoint.StateWaitingForIdentity, endpoint.StateReady:
-		return true
-	}
-	return false
-}
-
 func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Responder {
 	scopedLog := log.WithField(logfields.Params, logfields.Repr(params))
 	scopedLog.Debug("PATCH /endpoint/{id} request")
@@ -320,12 +313,6 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 	newEp, err2 := endpoint.NewEndpointFromChangeModel(epTemplate)
 	if err2 != nil {
 		return api.Error(PutEndpointIDInvalidCode, err2)
-	}
-
-	// Log invalid state transitions, but do not error out for backwards
-	// compatibility.
-	if !validPatchTransitionState(epTemplate.State) {
-		scopedLog.Debugf("PATCH /endpoint/{id} to invalid state '%s'", epTemplate.State)
 	}
 
 	ep, err := endpointmanager.Lookup(params.ID)
@@ -350,90 +337,58 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 		return NewPatchEndpointIDNotFound()
 	}
 
-	changed := false
+	changes := []string{}
 
 	if epTemplate.InterfaceIndex != 0 && ep.IfIndex != newEp.IfIndex {
 		ep.IfIndex = newEp.IfIndex
-		changed = true
+		changes = append(changes, "ifindex")
 	}
 
 	if epTemplate.InterfaceName != "" && ep.IfName != newEp.IfName {
 		ep.IfName = newEp.IfName
-		changed = true
-	}
-
-	// Only support transition to waiting-for-identity state, also
-	// if the request is for ready state, as we will check the
-	// existence of the security label below. Other transitions
-	// are always internally managed, but we do not error out for
-	// backwards compatibility.
-	if epTemplate.State != "" &&
-		validPatchTransitionState(epTemplate.State) &&
-		ep.GetStateLocked() != endpoint.StateWaitingForIdentity {
-		// Will not change state if the current state does not allow the transition.
-		if ep.SetStateLocked(endpoint.StateWaitingForIdentity, "Update endpoint from API PATCH") {
-			changed = true
-		}
+		changes = append(changes, "interface name")
 	}
 
 	if epTemplate.Mac != "" && bytes.Compare(ep.LXCMAC, newEp.LXCMAC) != 0 {
 		ep.LXCMAC = newEp.LXCMAC
-		changed = true
+		changes = append(changes, "mac")
 	}
 
 	if epTemplate.HostMac != "" && bytes.Compare(ep.NodeMAC, newEp.NodeMAC) != 0 {
 		ep.NodeMAC = newEp.NodeMAC
-		changed = true
+		changes = append(changes, "node mac")
 	}
 
 	if epTemplate.Addressing != nil {
 		if ip := epTemplate.Addressing.IPV6; ip != "" && bytes.Compare(ep.IPv6, newEp.IPv6) != 0 {
 			ep.IPv6 = newEp.IPv6
-			changed = true
+			changes = append(changes, "ipv6-address")
 		}
 
 		if ip := epTemplate.Addressing.IPV4; ip != "" && bytes.Compare(ep.IPv4, newEp.IPv4) != 0 {
 			ep.IPv4 = newEp.IPv4
-			changed = true
+			changes = append(changes, "ipv4-address")
 		}
 	}
 
 	// TODO: Do something with the labels?
 	// addLabels := labels.NewLabelsFromModel(params.Endpoint.Labels)
 
-	// If desired state is waiting-for-identity but identity is already
-	// known, bump it to ready state immediately to force re-generation
-	if ep.GetStateLocked() == endpoint.StateWaitingForIdentity && ep.SecurityIdentity != nil {
-		ep.SetStateLocked(endpoint.StateReady, "Preparing to force endpoint regeneration because identity is known while handling API PATCH")
-		changed = true
-	}
-
-	reason := ""
-	if changed {
+	if len(changes) > 0 {
 		// Force policy regeneration as endpoint's configuration was changed.
 		// Other endpoints need not be regenerated as no labels were changed.
 		// Note that we still need to (eventually) regenerate the endpoint for
 		// the changes to take effect.
 		ep.ForcePolicyCompute()
-
-		// Transition to waiting-to-regenerate if ready.
-		if ep.GetStateLocked() == endpoint.StateReady {
-			ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Forcing endpoint regeneration because identity is known while handling API PATCH")
-		}
-
-		switch ep.GetStateLocked() {
-		case endpoint.StateWaitingToRegenerate:
-			reason = "Waiting on endpoint regeneration because identity is known while handling API PATCH"
-		case endpoint.StateWaitingForIdentity:
-			reason = "Waiting on endpoint initial program regeneration while handling API PATCH"
-		}
 	}
 
 	ep.UpdateLogger(nil)
 	ep.Unlock()
 
-	if reason != "" {
-		if err := ep.RegenerateWait(h.d, reason); err != nil {
+	if len(changes) > 0 {
+		reason := fmt.Sprintf("endpoint changed (%s)", strings.Join(changes, ","))
+		if !<-ep.Regenerate(h.d, endpoint.NewRegenerationContext(reason)) {
+			err := fmt.Errorf("unable to regenerate endpoint")
 			return api.Error(PatchEndpointIDFailedCode, err)
 		}
 		// FIXME: Special return code to indicate regeneration happened?
@@ -485,7 +440,8 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []er
 		ep.BuildMutex.Unlock()
 		return []error{}
 	}
-	ep.SetStateLocked(endpoint.StateDisconnecting, "Deleting endpoint")
+
+	ep.StartDisconnecting()
 
 	// Remove the endpoint before we clean up. This ensures it is no longer
 	// listed or queued for rebuilds.

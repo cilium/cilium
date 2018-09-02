@@ -161,10 +161,6 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 		os.RemoveAll("1_backup")
 	}()
 	e.SetIdentity(qaBarSecLblsCtx)
-	e.UnconditionalLock()
-	ready := e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
-	e.Unlock()
-	c.Assert(ready, Equals, true)
 	buildSuccess := <-e.Regenerate(ds.d, regenContext)
 	c.Assert(buildSuccess, Equals, true)
 	c.Assert(e.Allows(qaBarSecLblsCtx.ID), Equals, false)
@@ -179,10 +175,6 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	e.LXCMAC = ProdHardAddr
 	e.NodeMAC = ProdHardAddr
 	e.SetIdentity(prodBarSecLblsCtx)
-	e.UnconditionalLock()
-	ready = e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
-	e.Unlock()
-	c.Assert(ready, Equals, true)
 	buildSuccess = <-e.Regenerate(ds.d, regenContext)
 	c.Assert(buildSuccess, Equals, true)
 	c.Assert(e.Allows(0), Equals, false)
@@ -446,10 +438,6 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 		os.RemoveAll("1_backup")
 	}()
 	e.SetIdentity(qaBarSecLblsCtx)
-	e.UnconditionalLock()
-	ready := e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
-	e.Unlock()
-	c.Assert(ready, Equals, true)
 	buildSuccess := <-e.Regenerate(ds.d, regenContext)
 	c.Assert(buildSuccess, Equals, true)
 
