@@ -33,6 +33,18 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const (
+	// BuildQueueWaiting is the number of entries waiting in the build queue
+	BuildQueueWaiting = "waiting"
+
+	// BuildQueueBlocked is the number of entries scheduled for building
+	// but blocked due to build conditions
+	BuildQueueBlocked = "blocked"
+
+	// BuildQueueRunning is the number of currently running builds
+	BuildQueueRunning = "running"
+)
+
 var (
 	registry = prometheus.NewPedanticRegistry()
 
@@ -79,6 +91,12 @@ var (
 	// the entire event (scope=global), or just part of an event
 	// (scope=slow_path)
 	LabelScope = "scope"
+
+	// LabelBuildQueueState is the state a build queue entry is in
+	LabelBuildQueueState = "state"
+
+	// LabelBuildQueueName is the name of the build queue
+	LabelBuildQueueName = "name"
 
 	// Endpoint
 
@@ -308,6 +326,14 @@ var (
 		Help: "Duration in seconds of the garbage collector process " +
 			"labeled by datapath family and completion status",
 	}, []string{LabelDatapathFamily, LabelStatus})
+
+	// BuildQueueEntries is the number of queued, waiting and running
+	// builds in the build queue
+	BuildQueueEntries = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: Namespace,
+		Name:      "buildqueue_entries",
+		Help:      "The number of queued, waiting and running builds in the build queue",
+	}, []string{LabelBuildQueueState, LabelBuildQueueName})
 )
 
 func init() {
@@ -348,6 +374,8 @@ func init() {
 	MustRegister(ConntrackGCKeyFallbacks)
 	MustRegister(ConntrackGCSize)
 	MustRegister(ConntrackGCDuration)
+
+	MustRegister(BuildQueueEntries)
 }
 
 // MustRegister adds the collector to the registry, exposing this metric to
