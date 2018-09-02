@@ -434,13 +434,6 @@ type Endpoint struct {
 	// endpoint mutex after policy recalculation.
 	forcePolicyCompute bool
 
-	// BuildMutex synchronizes builds of individual endpoints and locks out
-	// deletion during builds
-	//
-	// FIXME: Mark private once endpoint deletion can be moved into
-	// `pkg/endpoint`
-	BuildMutex lock.Mutex `json:"-"`
-
 	// logger is a logrus object with fields set to report an endpoints information.
 	// You must hold Endpoint.Mutex to read or write it (but not to log with it).
 	logger unsafe.Pointer
@@ -555,7 +548,6 @@ func (e *Endpoint) SetEgressPolicyEnabledLocked(egress bool) {
 }
 
 // WaitForProxyCompletions blocks until all proxy changes have been completed.
-// Called with BuildMutex held.
 func (e *Endpoint) WaitForProxyCompletions(proxyWaitGroup *completion.WaitGroup) error {
 	if proxyWaitGroup == nil {
 		return nil
@@ -1801,7 +1793,7 @@ func (e *Endpoint) replaceIdentityLabels(l pkgLabels.Labels) int {
 }
 
 // LeaveLocked removes the endpoint's directory from the system. Must be called
-// with Endpoint's mutex AND BuildMutex locked.
+// with Endpoint's mutex
 func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup) []error {
 	errors := []error{}
 
