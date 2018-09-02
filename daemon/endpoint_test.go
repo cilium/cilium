@@ -44,7 +44,6 @@ func getEPTemplate(c *C) *models.EndpointChangeRequest {
 		ID:            id,
 		ContainerID:   endpointid.NewCiliumID(id),
 		ContainerName: "foo",
-		State:         models.EndpointStateWaitingForIdentity,
 		Addressing: &models.AddressPair{
 			IPV6: ip6.String(),
 			IPV4: ip4.String(),

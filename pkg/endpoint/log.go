@@ -83,6 +83,7 @@ func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
 		logfields.IPv4:                   e.IPv4.String(),
 		logfields.IPv6:                   e.IPv6.String(),
 		logfields.K8sPodName:             e.GetK8sNamespaceAndPodNameLocked(),
+		logfields.UUID:                   e.UUID,
 	})
 
 	atomic.StorePointer(&e.logger, unsafe.Pointer(l))

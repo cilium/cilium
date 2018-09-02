@@ -299,4 +299,7 @@ const (
 
 	// Debug is a boolean value for whether debug is set or not.
 	Debug = "debug"
+
+	// UUID is a unique identifier from the pkg/uuid package
+	UUID = "uuid"
 )

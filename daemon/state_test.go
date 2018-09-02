@@ -93,12 +93,6 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 
 	ds.d.compilationMutex = new(lock.RWMutex)
 
-	ds.OnQueueEndpointBuild = func(r *e.Request) {
-		go func(*e.Request) {
-			r.MyTurn <- true
-			<-r.Done
-		}(r)
-	}
 	ds.OnTracingEnabled = func() bool {
 		return false
 	}
@@ -129,13 +123,7 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 	for _, ep := range epsWanted {
 		fullDirName := filepath.Join(baseDir, ep.DirectoryPath())
 		os.MkdirAll(fullDirName, 777)
-		ep.UnconditionalLock()
-
-		ready := ep.SetStateLocked(e.StateWaitingToRegenerate, "test")
-		ep.Unlock()
-		if ready {
-			<-ep.Regenerate(ds, regenContext)
-		}
+		<-ep.Regenerate(ds, regenContext)
 
 		switch ep.ID {
 		case 256, 257:
@@ -154,11 +142,8 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 				// Change endpoint a little bit so we know which endpoint is in
 				// "256_next_fail" and with one is in the "256" directory.
 				ep.NodeMAC = mac.MAC([]byte{0x02, 0xff, 0xf2, 0x12, 0xc1, 0xc1})
-				ready := ep.SetStateLocked(e.StateWaitingToRegenerate, "test")
 				ep.Unlock()
-				if ready {
-					<-ep.Regenerate(ds, regenContext)
-				}
+				<-ep.Regenerate(ds, regenContext)
 				epsNames = append(epsNames, ep.DirectoryPath())
 			}
 		default:

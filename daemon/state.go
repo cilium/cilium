@@ -197,17 +197,9 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 				}
 			}
 			ep.SetIdentity(identity)
-
-			ready := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Triggering synchronous endpoint regeneration while syncing state to host")
 			ep.Unlock()
 
-			if !ready {
-				scopedLog.WithField(logfields.EndpointState, ep.GetState()).Warn("Endpoint in inconsistent state")
-				epRegenerated <- false
-				return
-			}
-			regenContext := endpoint.NewRegenerationContext(
-				"syncing state to host")
+			regenContext := endpoint.NewRegenerationContext("restoring endpoint")
 			if buildSuccess := <-ep.Regenerate(d, regenContext); !buildSuccess {
 				scopedLog.Warn("Failed while regenerating endpoint")
 				epRegenerated <- false
@@ -318,7 +310,7 @@ func readEPsFromDirNames(basePath string, eptsDirNames []string) map[uint16]*end
 			scopedLog.WithError(err).Warn("Unable to read the C header file")
 			continue
 		}
-		ep, err := endpoint.ParseEndpoint(strEp)
+		ep, err := endpoint.Restore(strEp)
 		if err != nil {
 			scopedLog.WithError(err).Warn("Unable to parse the C header file")
 			continue

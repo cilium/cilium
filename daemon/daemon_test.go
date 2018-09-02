@@ -51,20 +51,18 @@ type DaemonSuite struct {
 	kvstoreInit bool
 
 	// Owners interface mock
-	OnTracingEnabled          func() bool
-	OnAlwaysAllowLocalhost    func() bool
-	OnGetCachedLabelList      func(id identity.NumericIdentity) (labels.LabelArray, error)
-	OnGetPolicyRepository     func() *policy.Repository
-	OnUpdateProxyRedirect     func(e *e.Endpoint, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error)
-	OnRemoveProxyRedirect     func(e *e.Endpoint, id string, proxyWaitGroup *completion.WaitGroup) error
-	OnUpdateNetworkPolicy     func(e *e.Endpoint, policy *policy.L4Policy, labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, proxyWaitGroup *completion.WaitGroup) error
-	OnRemoveNetworkPolicy     func(e *e.Endpoint)
-	OnQueueEndpointBuild      func(r *e.Request)
-	OnRemoveFromEndpointQueue func(epID uint64)
-	OnDebugEnabled            func() bool
-	OnGetCompilationLock      func() *lock.RWMutex
-	OnSendNotification        func(typ monitor.AgentNotification, text string) error
-	OnNewProxyLogRecord       func(l *accesslog.LogRecord) error
+	OnTracingEnabled       func() bool
+	OnAlwaysAllowLocalhost func() bool
+	OnGetCachedLabelList   func(id identity.NumericIdentity) (labels.LabelArray, error)
+	OnGetPolicyRepository  func() *policy.Repository
+	OnUpdateProxyRedirect  func(e *e.Endpoint, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error)
+	OnRemoveProxyRedirect  func(e *e.Endpoint, id string, proxyWaitGroup *completion.WaitGroup) error
+	OnUpdateNetworkPolicy  func(e *e.Endpoint, policy *policy.L4Policy, labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, proxyWaitGroup *completion.WaitGroup) error
+	OnRemoveNetworkPolicy  func(e *e.Endpoint)
+	OnDebugEnabled         func() bool
+	OnGetCompilationLock   func() *lock.RWMutex
+	OnSendNotification     func(typ monitor.AgentNotification, text string) error
+	OnNewProxyLogRecord    func(l *accesslog.LogRecord) error
 }
 
 func (ds *DaemonSuite) SetUpTest(c *C) {
@@ -114,8 +112,6 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	ds.OnRemoveProxyRedirect = nil
 	ds.OnUpdateNetworkPolicy = nil
 	ds.OnRemoveNetworkPolicy = nil
-	ds.OnQueueEndpointBuild = nil
-	ds.OnRemoveFromEndpointQueue = nil
 	ds.OnDebugEnabled = nil
 	ds.OnGetCompilationLock = nil
 	ds.OnSendNotification = nil
@@ -221,22 +217,6 @@ func (ds *DaemonSuite) RemoveNetworkPolicy(e *e.Endpoint) {
 		ds.OnRemoveNetworkPolicy(e)
 	}
 	panic("RemoveNetworkPolicy should not have been called")
-}
-
-func (ds *DaemonSuite) QueueEndpointBuild(r *e.Request) {
-	if ds.OnQueueEndpointBuild != nil {
-		ds.OnQueueEndpointBuild(r)
-		return
-	}
-	panic("QueueEndpointBuild should not have been called")
-}
-
-func (ds *DaemonSuite) RemoveFromEndpointQueue(epID uint64) {
-	if ds.OnRemoveFromEndpointQueue != nil {
-		ds.OnRemoveFromEndpointQueue(epID)
-		return
-	}
-	panic("RemoveFromEndpointQueue should not have been called")
 }
 
 func (ds *DaemonSuite) DebugEnabled() bool {
