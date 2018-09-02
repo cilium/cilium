@@ -27,7 +27,6 @@ import (
 	e "github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/option"
@@ -91,8 +90,6 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 		}
 	}()
 
-	ds.d.compilationMutex = new(lock.RWMutex)
-
 	ds.OnTracingEnabled = func() bool {
 		return false
 	}
@@ -101,10 +98,6 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 	}
 	ds.OnAlwaysAllowLocalhost = func() bool {
 		return false
-	}
-
-	ds.OnGetCompilationLock = func() *lock.RWMutex {
-		return ds.d.compilationMutex
 	}
 
 	ds.OnSendNotification = func(typ monitor.AgentNotification, text string) error {

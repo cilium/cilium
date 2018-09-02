@@ -74,6 +74,7 @@ import (
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/u8proto"
+	"github.com/cilium/cilium/pkg/uuid"
 	"github.com/cilium/cilium/pkg/workloads"
 
 	"github.com/go-openapi/runtime/middleware"
@@ -129,10 +130,6 @@ type Daemon struct {
 	// This is on this object, instead of a global, because EnableK8sWatcher is
 	// on Daemon.
 	k8sAPIGroups k8sAPIGroupsUsed
-
-	// Used to synchronize generation of daemon's BPF programs and endpoint BPF
-	// programs.
-	compilationMutex *lock.RWMutex
 
 	// prefixLengths tracks a mapping from CIDR prefix length to the count
 	// of rules that refer to that prefix length.
@@ -605,22 +602,45 @@ func (d *Daemon) installIptablesRules() error {
 	return nil
 }
 
-// GetCompilationLock returns the mutex responsible for synchronizing compilation
-// of BPF programs.
-func (d *Daemon) GetCompilationLock() *lock.RWMutex {
-	return d.compilationMutex
+func (d *Daemon) compileBase() error {
+	builder := &baseBuilder{daemon: d}
+
+	// Push base program building to the front of the queue and request
+	// exclusive access
+	<-endpoint.BuildQueue.PreemptExclusive(builder)
+
+	return builder.err
 }
 
-func (d *Daemon) compileBase() error {
+// baseBuilder is the buildqueue.Builder to build base programs
+type baseBuilder struct {
+	daemon *Daemon
+	err    error
+}
+
+var baseBuilderUUID = uuid.NewUUID().String()
+
+// GetUUID returns a static UUID to represent the base program builder
+func (b *baseBuilder) GetUUID() string {
+	return baseBuilderUUID
+}
+
+func (b *baseBuilder) BuildQueued() {}
+
+func (b *baseBuilder) BuildsDequeued(nbuilds int, cancelled bool) {}
+
+// Build builds the base program
+func (b *baseBuilder) Build() error {
+	b.err = b.daemon.buildBaseProgram()
+	return b.err
+}
+
+func (d *Daemon) buildBaseProgram() error {
 	var args []string
 	var mode string
 	var ret error
 
 	args = make([]string, initArgMax)
-
-	// Lock so that endpoints cannot be built while we are compile base programs.
-	d.compilationMutex.Lock()
-	defer d.compilationMutex.Unlock()
 
 	if err := d.writeNetdevHeader("./"); err != nil {
 		log.WithError(err).Warn("Unable to write netdev header")
@@ -1034,11 +1054,10 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 	lb := loadbalancer.NewLoadBalancer()
 
 	d := Daemon{
-		loadBalancer:     lb,
-		policy:           policy.NewPolicyRepository(),
-		nodeMonitor:      monitorLaunch.NewNodeMonitor(),
-		prefixLengths:    createPrefixLengthCounter(),
-		compilationMutex: new(lock.RWMutex),
+		loadBalancer:  lb,
+		policy:        policy.NewPolicyRepository(),
+		nodeMonitor:   monitorLaunch.NewNodeMonitor(),
+		prefixLengths: createPrefixLengthCounter(),
 	}
 
 	workloads.Init(&d)
