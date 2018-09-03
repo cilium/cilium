@@ -10,11 +10,18 @@ specs:
     ingress:
     - fromEndpoints:
       - matchLabels:
-          app: kafka
+          "reserved:host": ""
       toPorts:
       - ports:
-        - port: "2181"
+        - port: "9092"
           protocol: TCP
+  - endpointSelector:
+      matchLabels:
+        app: kafka
+    egress:
+    - toEndpoints:
+      - matchLabels:
+          k8s-app: kube-dns
   - endpointSelector:
       matchLabels:
         app: kafka
@@ -87,3 +94,4 @@ specs:
           - apiKey: "offsetcommit"
           - apiKey: "offsetfetch"
           - apiKey: "heartbeat"
+
