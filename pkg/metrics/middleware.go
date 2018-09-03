@@ -16,7 +16,6 @@ package metrics
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -32,6 +31,6 @@ type APIEventTSHelper struct {
 // ServeHTTP implements the http.Handler interface. It records the timestamp
 // this API call began at, then chains to the next handler.
 func (m *APIEventTSHelper) ServeHTTP(r http.ResponseWriter, req *http.Request) {
-	SetTSValue(m.TSGauge, time.Now())
+	m.TSGauge.SetToCurrentTime()
 	m.Next.ServeHTTP(r, req)
 }
