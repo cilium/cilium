@@ -302,6 +302,15 @@ func (pr *L7Rules) sanitize() error {
 		}
 	}
 
+	if pr.DNS != nil {
+		nTypes++
+		for i := range pr.DNS {
+			if err := pr.DNS[i].Sanitize(); err != nil {
+				return err
+			}
+		}
+	}
+
 	if pr.L7 != nil && pr.L7Proto == "" {
 		return fmt.Errorf("'l7' may only be specified when a 'l7proto' is also specified")
 	}
@@ -328,8 +337,13 @@ func (pr *PortRule) sanitize() error {
 		if err := pr.Ports[i].sanitize(); err != nil {
 			return err
 		}
-		if !pr.Rules.IsEmpty() && pr.Ports[i].Protocol != ProtoTCP {
-			return fmt.Errorf("L7 rules can only apply exclusively to TCP, not %s", pr.Ports[i].Protocol)
+
+		// DNS L7 rules can be TCP, UDP or ANY, all others are TCP only.
+		switch {
+		case pr.Rules.IsEmpty(), pr.Rules != nil && len(pr.Rules.DNS) > 0:
+			// nothing to do if no rules OR they are DNS rules (note the comma above)
+		case pr.Ports[i].Protocol != ProtoTCP:
+			return fmt.Errorf("L7 rules can only apply to TCP (not %s) except for DNS rules", pr.Ports[i].Protocol)
 		}
 	}
 

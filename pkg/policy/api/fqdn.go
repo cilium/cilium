@@ -24,6 +24,22 @@ type FQDNSelector struct {
 // when using MatchName the basic requirement is that is a valid regexp. We
 // test that it can compile here.
 func (s *FQDNSelector) sanitize() error {
+	// All L3 toFQDNs matchNames can be regexes (although we will treat some as
+	// plain strings in the DNS Poller)
 	_, err := regexp.Compile(s.MatchName)
 	return err
+}
+
+// PortRuleDNS is a list of allowed DNS lookups.
+type PortRuleDNS FQDNSelector
+
+// Sanitize checks that the matchName in the portRule can be compiled as a
+// regex. It does not check that a DNS name is a valid DNS name.
+func (kr *PortRuleDNS) Sanitize() error {
+	// All L7 toFQDNs matchNames are regexes
+	_, err := regexp.Compile(kr.MatchName)
+	if err != nil {
+		return err
+	}
+	return nil
 }
