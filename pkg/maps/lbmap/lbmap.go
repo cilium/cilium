@@ -145,6 +145,10 @@ func DeleteService(key ServiceKey) error {
 	mutex.Lock()
 	defer mutex.Unlock()
 
+	return deleteServiceLocked(key)
+}
+
+func deleteServiceLocked(key ServiceKey) error {
 	err := key.Map().Delete(key.ToNetwork())
 	if err != nil {
 		return err
@@ -152,7 +156,7 @@ func DeleteService(key ServiceKey) error {
 	return lookupAndDeleteServiceWeights(key)
 }
 
-func LookupService(key ServiceKey) (ServiceValue, error) {
+func lookupService(key ServiceKey) (ServiceValue, error) {
 	var svc ServiceValue
 
 	val, err := key.Map().Lookup(key.ToNetwork())
@@ -324,27 +328,57 @@ func updateWrrSeq(fe ServiceKey, weights []uint16) error {
 	return updateServiceWeights(fe, svcRRSeq)
 }
 
-// AddSVC2BPFMap adds the given bpf service to the bpf maps.
-func AddSVC2BPFMap(fe ServiceKey, besValues []ServiceValue, addRevNAT bool, revNATID int) error {
-	var err error
-	var weights []uint16
-	// Put all the backend services first
-	nSvcs := 1
-	nNonZeroWeights := 0
+func updateMasterService(fe ServiceKey, nbackends int, nonZeroWeights uint16) error {
+	fe.SetBackend(0)
+	zeroValue := fe.NewValue().(ServiceValue)
+	zeroValue.SetCount(nbackends)
+	zeroValue.SetWeight(nonZeroWeights)
 
-	mutex.Lock()
-	defer mutex.Unlock()
+	return updateService(fe, zeroValue)
+}
+
+// UpdateService adds or updates the given service in the bpf maps
+func UpdateService(fe ServiceKey, besValues []ServiceValue, addRevNAT bool, revNATID int) error {
+	var (
+		weights         []uint16
+		nNonZeroWeights uint16
+		existingCount   int
+	)
 
 	for _, be := range besValues {
-		fe.SetBackend(nSvcs)
 		weights = append(weights, be.GetWeight())
 		if be.GetWeight() != 0 {
 			nNonZeroWeights++
 		}
-		if err = updateService(fe, be); err != nil {
+	}
+
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	// Check if the service already exists, it is not failure scenario if
+	// the services doesn't exist. That's simply a new service. Even if the
+	// service cannot be looked up for an existing service, it is still
+	// better to proceed and update the service, at the cost of a slightly
+	// less atomic update.
+	svcValue, err := lookupService(fe)
+	if err == nil {
+		existingCount = svcValue.GetCount()
+		if existingCount > len(besValues) {
+			// The number of backends are being decreased, first
+			// decrement the count in the master entry to make it
+			// less likely that a lookup will see a count that will
+			// then no longer be available.
+			if err := updateMasterService(fe, len(besValues), nNonZeroWeights); err != nil {
+				return fmt.Errorf("unable to update master service %+v: %s", fe, err)
+			}
+		}
+	}
+
+	for nsvc, be := range besValues {
+		fe.SetBackend(nsvc + 1) // service count starts with 1
+		if err := updateService(fe, be); err != nil {
 			return fmt.Errorf("unable to update service %+v with the value %+v: %s", fe, be, err)
 		}
-		nSvcs++
 	}
 
 	if addRevNAT {
@@ -363,19 +397,22 @@ func AddSVC2BPFMap(fe ServiceKey, besValues []ServiceValue, addRevNAT bool, revN
 		}()
 	}
 
-	fe.SetBackend(0)
-	zeroValue := fe.NewValue().(ServiceValue)
-	zeroValue.SetCount(nSvcs - 1)
-	zeroValue.SetWeight(uint16(nNonZeroWeights))
-
-	err = updateService(fe, zeroValue)
+	err = updateMasterService(fe, len(besValues), nNonZeroWeights)
 	if err != nil {
-		return fmt.Errorf("unable to update service %+v with the value %+v: %s", fe, zeroValue, err)
+		return fmt.Errorf("unable to update service %+v: %s", fe, err)
 	}
 
 	err = updateWrrSeq(fe, weights)
 	if err != nil {
 		return fmt.Errorf("unable to update service weights for %s with value %+v: %s", fe.String(), weights, err)
+	}
+
+	// Remove old backends that are no longer needed
+	for i := len(besValues) + 1; i <= existingCount; i++ {
+		fe.SetBackend(i)
+		if err := deleteServiceLocked(fe); err != nil {
+			return fmt.Errorf("unable to delete service %+v: %s", fe, err)
+		}
 	}
 
 	return nil
