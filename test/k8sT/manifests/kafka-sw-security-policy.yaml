@@ -21,17 +21,6 @@ specs:
     egress:
     - toEndpoints:
       - matchLabels:
-          app: zook
-      toPorts:
-      - ports:
-        - port: "2181"
-          protocol: TCP
-  - endpointSelector:
-      matchLabels:
-        app: kafka
-    egress:
-    - toEndpoints:
-      - matchLabels:
           k8s-app: kube-dns
   - endpointSelector:
       matchLabels:
