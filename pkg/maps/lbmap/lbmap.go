@@ -118,7 +118,7 @@ func (s *RRSeqValue) String() string {
 	return fmt.Sprintf("count=%d idx=%v", s.Count, s.Idx)
 }
 
-func UpdateService(key ServiceKey, value ServiceValue) error {
+func updateService(key ServiceKey, value ServiceValue) error {
 	log.WithFields(logrus.Fields{
 		"frontend": key,
 		"backend":  value,
@@ -139,7 +139,7 @@ func DeleteService(key ServiceKey) error {
 	if err != nil {
 		return err
 	}
-	return LookupAndDeleteServiceWeights(key)
+	return lookupAndDeleteServiceWeights(key)
 }
 
 func LookupService(key ServiceKey) (ServiceValue, error) {
@@ -159,8 +159,8 @@ func LookupService(key ServiceKey) (ServiceValue, error) {
 	return svc.ToNetwork(), nil
 }
 
-// UpdateServiceWeights updates cilium_lb6_rr_seq or cilium_lb4_rr_seq bpf maps.
-func UpdateServiceWeights(key ServiceKey, value *RRSeqValue) error {
+// updateServiceWeights updates cilium_lb6_rr_seq or cilium_lb4_rr_seq bpf maps.
+func updateServiceWeights(key ServiceKey, value *RRSeqValue) error {
 	if _, err := key.RRMap().OpenOrCreate(); err != nil {
 		return err
 	}
@@ -168,8 +168,8 @@ func UpdateServiceWeights(key ServiceKey, value *RRSeqValue) error {
 	return key.RRMap().Update(key.ToNetwork(), value)
 }
 
-// LookupAndDeleteServiceWeights deletes entry from cilium_lb6_rr_seq or cilium_lb4_rr_seq
-func LookupAndDeleteServiceWeights(key ServiceKey) error {
+// lookupAndDeleteServiceWeights deletes entry from cilium_lb6_rr_seq or cilium_lb4_rr_seq
+func lookupAndDeleteServiceWeights(key ServiceKey) error {
 	_, err := key.RRMap().Lookup(key.ToNetwork())
 	if err != nil {
 		// Ignore if entry is not found.
@@ -220,24 +220,6 @@ func UpdateRevNat(key RevNatKey, value RevNatValue) error {
 func DeleteRevNat(key RevNatKey) error {
 	log.WithField(logfields.BPFMapKey, key).Debug("deleting RevNatKey")
 	return key.Map().Delete(key.ToNetwork())
-}
-
-func LookupRevNat(key RevNatKey) (RevNatValue, error) {
-	var revnat RevNatValue
-	log.WithField(logfields.BPFMapKey, key).Debug("lookup RevNatKey")
-
-	val, err := key.Map().Lookup(key.ToNetwork())
-	if err != nil {
-		return nil, err
-	}
-
-	if key.IsIPv6() {
-		revnat = val.(*RevNat6Value)
-	} else {
-		revnat = val.(*RevNat4Value)
-	}
-
-	return revnat.ToNetwork(), nil
 }
 
 // gcd computes the gcd of two numbers.
@@ -300,8 +282,8 @@ func generateWrrSeq(weights []uint16) (*RRSeqValue, error) {
 	return &svcRRSeq, nil
 }
 
-// UpdateWrrSeq updates bpf map with the generated wrr sequence.
-func UpdateWrrSeq(fe ServiceKey, weights []uint16) error {
+// updateWrrSeq updates bpf map with the generated wrr sequence.
+func updateWrrSeq(fe ServiceKey, weights []uint16) error {
 	sum := uint16(0)
 	for _, v := range weights {
 		sum += v
@@ -313,7 +295,7 @@ func UpdateWrrSeq(fe ServiceKey, weights []uint16) error {
 	if err != nil {
 		return fmt.Errorf("unable to generate weighted round robin seq for %s with value %+v: %s", fe.String(), weights, err)
 	}
-	return UpdateServiceWeights(fe, svcRRSeq)
+	return updateServiceWeights(fe, svcRRSeq)
 }
 
 // AddSVC2BPFMap adds the given bpf service to the bpf maps.
@@ -330,7 +312,7 @@ func AddSVC2BPFMap(fe ServiceKey, besValues []ServiceValue, addRevNAT bool, revN
 		if be.GetWeight() != 0 {
 			nNonZeroWeights++
 		}
-		if err = UpdateService(fe, be); err != nil {
+		if err = updateService(fe, be); err != nil {
 			return fmt.Errorf("unable to update service %+v with the value %+v: %s", fe, be, err)
 		}
 		nSvcs++
@@ -357,12 +339,12 @@ func AddSVC2BPFMap(fe ServiceKey, besValues []ServiceValue, addRevNAT bool, revN
 	zeroValue.SetCount(nSvcs - 1)
 	zeroValue.SetWeight(uint16(nNonZeroWeights))
 
-	err = UpdateService(fe, zeroValue)
+	err = updateService(fe, zeroValue)
 	if err != nil {
 		return fmt.Errorf("unable to update service %+v with the value %+v: %s", fe, zeroValue, err)
 	}
 
-	err = UpdateWrrSeq(fe, weights)
+	err = updateWrrSeq(fe, weights)
 	if err != nil {
 		return fmt.Errorf("unable to update service weights for %s with value %+v: %s", fe.String(), weights, err)
 	}
@@ -370,9 +352,9 @@ func AddSVC2BPFMap(fe ServiceKey, besValues []ServiceValue, addRevNAT bool, revN
 	return nil
 }
 
-// L3n4Addr2ServiceKey converts the given l3n4Addr to a ServiceKey with the slave ID
+// l3n4Addr2ServiceKey converts the given l3n4Addr to a ServiceKey with the slave ID
 // set to 0.
-func L3n4Addr2ServiceKey(l3n4Addr loadbalancer.L3n4AddrID) ServiceKey {
+func l3n4Addr2ServiceKey(l3n4Addr loadbalancer.L3n4AddrID) ServiceKey {
 	log.WithField(logfields.L3n4AddrID, l3n4Addr).Debug("converting L3n4Addr to ServiceKey")
 	if l3n4Addr.IsIPv6() {
 		return NewService6Key(l3n4Addr.IP, l3n4Addr.Port, 0)
@@ -386,7 +368,7 @@ func LBSVC2ServiceKeynValue(svc loadbalancer.LBSVC) (ServiceKey, []ServiceValue,
 		"lbFrontend": svc.FE.String(),
 		"lbBackend":  svc.BES,
 	}).Debug("converting Cilium load-balancer service (frontend -> backend(s)) into BPF service")
-	fe := L3n4Addr2ServiceKey(svc.FE)
+	fe := l3n4Addr2ServiceKey(svc.FE)
 
 	// Create a list of ServiceValues so we know everything is safe to put in the lb
 	// map
@@ -423,8 +405,8 @@ func L3n4Addr2RevNatKeynValue(svcID loadbalancer.ServiceID, feL3n4Addr loadbalan
 	return NewRevNat4Key(uint16(svcID)), NewRevNat4Value(feL3n4Addr.IP, feL3n4Addr.Port)
 }
 
-// ServiceKey2L3n4Addr converts the given svcKey to a L3n4Addr.
-func ServiceKey2L3n4Addr(svcKey ServiceKey) (*loadbalancer.L3n4Addr, error) {
+// serviceKey2L3n4Addr converts the given svcKey to a L3n4Addr.
+func serviceKey2L3n4Addr(svcKey ServiceKey) (*loadbalancer.L3n4Addr, error) {
 	log.WithField(logfields.ServiceID, svcKey).Debug("creating L3n4Addr for ServiceKey")
 	var (
 		feIP   net.IP
@@ -471,7 +453,7 @@ func serviceKeynValue2FEnBE(svcKey ServiceKey, svcValue ServiceValue) (*loadbala
 		beWeight = svc4Val.Weight
 	}
 
-	feL3n4Addr, err := ServiceKey2L3n4Addr(svcKey)
+	feL3n4Addr, err := serviceKey2L3n4Addr(svcKey)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to create a new frontend for service key %s: %s", svcKey, err)
 	}
@@ -490,12 +472,12 @@ func serviceKeynValue2FEnBE(svcKey ServiceKey, svcValue ServiceValue) (*loadbala
 }
 
 // RevNat6Value2L3n4Addr converts the given RevNat6Value to a L3n4Addr.
-func RevNat6Value2L3n4Addr(revNATV *RevNat6Value) (*loadbalancer.L3n4Addr, error) {
+func revNat6Value2L3n4Addr(revNATV *RevNat6Value) (*loadbalancer.L3n4Addr, error) {
 	return loadbalancer.NewL3n4Addr(loadbalancer.TCP, revNATV.Address.IP(), revNATV.Port)
 }
 
-// RevNat4Value2L3n4Addr converts the given RevNat4Value to a L3n4Addr.
-func RevNat4Value2L3n4Addr(revNATV *RevNat4Value) (*loadbalancer.L3n4Addr, error) {
+// revNat4Value2L3n4Addr converts the given RevNat4Value to a L3n4Addr.
+func revNat4Value2L3n4Addr(revNATV *RevNat4Value) (*loadbalancer.L3n4Addr, error) {
 	return loadbalancer.NewL3n4Addr(loadbalancer.TCP, revNATV.Address.IP(), revNATV.Port)
 }
 
@@ -511,42 +493,19 @@ func revNatValue2L3n4AddrID(revNATKey RevNatKey, revNATValue RevNatValue) (*load
 		svcID = loadbalancer.ServiceID(revNat6Key.Key)
 
 		revNat6Value := revNATValue.(*RevNat6Value)
-		be, err = RevNat6Value2L3n4Addr(revNat6Value)
+		be, err = revNat6Value2L3n4Addr(revNat6Value)
 	} else {
 		revNat4Key := revNATKey.(*RevNat4Key)
 		svcID = loadbalancer.ServiceID(revNat4Key.Key)
 
 		revNat4Value := revNATValue.(*RevNat4Value)
-		be, err = RevNat4Value2L3n4Addr(revNat4Value)
+		be, err = revNat4Value2L3n4Addr(revNat4Value)
 	}
 	if err != nil {
 		return nil, err
 	}
 
 	return &loadbalancer.L3n4AddrID{L3n4Addr: *be, ID: svcID}, nil
-}
-
-// ServiceValue2LBBackEnd converts the svcValue to a LBBackEnd. The svcKey is necessary to
-// determine which IP version svcValue is.
-func ServiceValue2LBBackEnd(svcKey ServiceKey, svcValue ServiceValue) (*loadbalancer.LBBackEnd, error) {
-	var (
-		feIP     net.IP
-		fePort   uint16
-		feWeight uint16
-	)
-	if svcKey.IsIPv6() {
-		svc6Value := svcValue.(*Service6Value)
-		feIP = svc6Value.Address.IP()
-		fePort = svc6Value.Port
-		feWeight = svc6Value.Weight
-	} else {
-		svc4Value := svcValue.(*Service4Value)
-		feIP = svc4Value.Address.IP()
-		fePort = svc4Value.Port
-		feWeight = svc4Value.Weight
-	}
-
-	return loadbalancer.NewLBBackEnd(loadbalancer.TCP, feIP, fePort, feWeight)
 }
 
 // DeleteRevNATBPF deletes the revNAT entry from its corresponding BPF map
