@@ -48,6 +48,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/fqdn"
+	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -1333,6 +1334,14 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 		}})
 	fqdn.StartDNSPoller(d.dnsPoller)
 
+	// If we stop returning errors from StartDNSProxy this should live in
+	// StartProxySupport
+	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", uint16(proxy.DNSProxyPort), func(lookupTime time.Time, name string, ips []net.IP, ttl int) error {
+		return d.dnsPoller.UpdateGenerateDNS(lookupTime, map[string]*fqdn.DNSIPRecords{name: {IPs: ips, TTL: ttl}})
+	})
+	if err != nil {
+		return nil, restoredEndpoints, err
+	}
 	return &d, restoredEndpoints, nil
 }
 

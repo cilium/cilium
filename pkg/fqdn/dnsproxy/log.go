@@ -12,23 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package api
+package dnsproxy
 
-import "regexp"
+import (
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+)
 
-type FQDNSelector struct {
-	MatchName string `json:"matchName,omitempty"`
-}
-
-// PortRuleDNS is a list of allowed DNS lookups.
-type PortRuleDNS FQDNSelector
-
-func (kr *PortRuleDNS) Sanitize() error {
-	// All matchNames can be regeexes (although we will treat some as plain
-	// strings if they pass IsSimpleFQDN)
-	_, err := regexp.Compile(kr.MatchName)
-	if err != nil {
-		return err
-	}
-	return nil
-}
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "fqdn/dnsproxy")
