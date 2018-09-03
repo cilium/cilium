@@ -525,6 +525,9 @@ func getPortNetworkPolicyRule(sel api.EndpointSelector, l7Parser policy.L7Parser
 	case policy.ParserTypeKafka:
 		// TODO: Support Kafka. For now, just ignore any Kafka L7 rule.
 
+	case policy.ParserTypeDNS:
+		// TODO: Support DNS. For now, just ignore any DNS L7 rule.
+
 	default:
 		// Assume unknown parser types use a Key-Value Pair policy
 		if len(l7Rules.L7) > 0 {
