@@ -36,23 +36,27 @@ var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "bpf")
 
 const (
 	// BPF map type constants. Must match enum bpf_map_type from linux/bpf.h
-	BPF_MAP_TYPE_UNSPEC           = 0
-	BPF_MAP_TYPE_HASH             = 1
-	BPF_MAP_TYPE_ARRAY            = 2
-	BPF_MAP_TYPE_PROG_ARRAY       = 3
-	BPF_MAP_TYPE_PERF_EVENT_ARRAY = 4
-	BPF_MAP_TYPE_PERCPU_HASH      = 5
-	BPF_MAP_TYPE_PERCPU_ARRAY     = 6
-	BPF_MAP_TYPE_STACK_TRACE      = 7
-	BPF_MAP_TYPE_CGROUP_ARRAY     = 8
-	BPF_MAP_TYPE_LRU_HASH         = 9
-	BPF_MAP_TYPE_LRU_PERCPU_HASH  = 10
-	BPF_MAP_TYPE_LPM_TRIE         = 11
-	BPF_MAP_TYPE_ARRAY_OF_MAPS    = 12
-	BPF_MAP_TYPE_HASH_OF_MAPS     = 13
-	BPF_MAP_TYPE_DEVMAP           = 14
-	BPF_MAP_TYPE_SOCKMAP          = 15
-	BPF_MAP_TYPE_CPUMAP           = 16
+	BPF_MAP_TYPE_UNSPEC              = 0
+	BPF_MAP_TYPE_HASH                = 1
+	BPF_MAP_TYPE_ARRAY               = 2
+	BPF_MAP_TYPE_PROG_ARRAY          = 3
+	BPF_MAP_TYPE_PERF_EVENT_ARRAY    = 4
+	BPF_MAP_TYPE_PERCPU_HASH         = 5
+	BPF_MAP_TYPE_PERCPU_ARRAY        = 6
+	BPF_MAP_TYPE_STACK_TRACE         = 7
+	BPF_MAP_TYPE_CGROUP_ARRAY        = 8
+	BPF_MAP_TYPE_LRU_HASH            = 9
+	BPF_MAP_TYPE_LRU_PERCPU_HASH     = 10
+	BPF_MAP_TYPE_LPM_TRIE            = 11
+	BPF_MAP_TYPE_ARRAY_OF_MAPS       = 12
+	BPF_MAP_TYPE_HASH_OF_MAPS        = 13
+	BPF_MAP_TYPE_DEVMAP              = 14
+	BPF_MAP_TYPE_SOCKMAP             = 15
+	BPF_MAP_TYPE_CPUMAP              = 16
+	BPF_MAP_TYPE_XSKMAP              = 17
+	BPF_MAP_TYPE_SOCKHASH            = 18
+	BPF_MAP_TYPE_CGROUP_STORAGE      = 19
+	BPF_MAP_TYPE_REUSEPORT_SOCKARRAY = 20
 
 	// BPF syscall command constants. Must match enum bpf_cmd from linux/bpf.h
 	BPF_MAP_CREATE          = 0
@@ -73,6 +77,9 @@ const (
 	BPF_OBJ_GET_INFO_BY_FD  = 15
 	BPF_PROG_QUERY          = 16
 	BPF_RAW_TRACEPOINT_OPEN = 17
+	BPF_BTF_LOAD            = 18
+	BPF_BTF_GET_FD_BY_ID    = 19
+	BPF_TASK_FD_QUERY       = 20
 
 	// Flags for BPF_MAP_UPDATE_ELEM. Must match values from linux/bpf.h
 	BPF_ANY     = 0

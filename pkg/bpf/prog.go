@@ -45,6 +45,9 @@ const (
 	ProgTypeSkMsg
 	ProgTypeRawTracepoint
 	ProgTypeCgroupSockAddr
+	ProgTypeLwtSeg6Local
+	ProgTypeLircMode2
+	ProgTypeSkReusePort
 )
 
 func (t ProgType) String() string {
@@ -85,13 +88,19 @@ func (t ProgType) String() string {
 		return "Raw tracepoint"
 	case ProgTypeCgroupSockAddr:
 		return "Cgroup sockaddr"
+	case ProgTypeLwtSeg6Local:
+		return "LWT seg6local"
+	case ProgTypeLircMode2:
+		return "LIRC"
+	case ProgTypeSkReusePort:
+		return "Socket SO_REUSEPORT"
 	}
 
 	return "Unknown"
 }
 
 // attrProg holds values from the upstream struct union for BPF_*_GET_*_ID.
-// From: https://github.com/torvalds/linux/blob/v4.16/include/uapi/linux/bpf.h#L299
+// From: https://github.com/torvalds/linux/blob/v4.19-rc2/include/uapi/linux/bpf.h#L358
 type attrProg struct {
 	progID    uint32 // union: start_id, prog_id, or map_id
 	nextID    uint32
@@ -99,7 +108,7 @@ type attrProg struct {
 }
 
 // ProgInfo holds values from the upstream struct bpf_prog_info.
-// From: https://github.com/torvalds/linux/blob/v4.16/include/uapi/linux/bpf.h#924
+// From: https://github.com/torvalds/linux/blob/v4.19-rc2/include/uapi/linux/bpf.h#L2427
 type ProgInfo struct {
 	ProgType        uint32
 	ID              uint32
@@ -116,10 +125,14 @@ type ProgInfo struct {
 	IfIndex         uint32
 	NetnsDev        uint64
 	NetnsIno        uint64
+	NrJitedKsyms    uint32
+	NrJitedFuncLens uint32
+	JitedKsyms      uint64
+	JitedFuncLens   uint64
 }
 
 // attrObjInfo holds values from the upstream struct union for BPF_OBJ_GET_INFO_BY_FD.
-// From: https://github.com/torvalds/linux/blob/v4.16/include/uapi/linux/bpf.h#L309
+// From: https://github.com/torvalds/linux/blob/v4.19-rc2/include/uapi/linux/bpf.h#L369
 type attrObjInfo struct {
 	bpfFD   uint32
 	infoLen uint32
