@@ -35,14 +35,7 @@ func (d *Daemon) addSVC2BPFMap(feCilium loadbalancer.L3n4AddrID, feBPF lbmap.Ser
 	besBPF []lbmap.ServiceValue, addRevNAT bool) error {
 	log.WithField(logfields.ServiceName, feCilium.String()).Debug("adding service to BPF maps")
 
-	// Try to delete service before adding it and ignore errors as it might not exist.
-	err := d.svcDeleteByFrontendLocked(&feCilium.L3n4Addr)
-	if err != nil {
-		log.WithError(err).WithField(logfields.ServiceName, feCilium.L3n4Addr.String()).Debug("error deleting service before adding it")
-	}
-
-	err = lbmap.AddSVC2BPFMap(feBPF, besBPF, addRevNAT, int(feCilium.ID))
-	if err != nil {
+	if err := lbmap.UpdateService(feBPF, besBPF, addRevNAT, int(feCilium.ID)); err != nil {
 		if addRevNAT {
 			delete(d.loadBalancer.RevNATMap, feCilium.ID)
 		}
