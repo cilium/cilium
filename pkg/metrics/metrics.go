@@ -80,6 +80,9 @@ var (
 	// (scope=slow_path)
 	LabelScope = "scope"
 
+	// LabelProtocol is the label used when working with protocols.
+	LabelProtocol = "protocol"
+
 	// Endpoint
 
 	// EndpointCount is a function used to collect this metric.
@@ -214,6 +217,13 @@ var (
 
 	// L7 statistics
 
+	// ProxyRedirects is the number of redirects labelled by protocol
+	ProxyRedirects = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: Namespace,
+		Name:      "proxy_redirects_total",
+		Help:      "Number of proxy redirects by application protocol",
+	}, []string{LabelProtocol})
+
 	// ProxyParseErrors is a count of failed parse errors on proxy
 	ProxyParseErrors = prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: Namespace,
@@ -332,7 +342,7 @@ func init() {
 	MustRegister(EventTSK8s)
 	MustRegister(EventTSContainerd)
 	MustRegister(EventTSAPI)
-
+	MustRegister(ProxyRedirects)
 	MustRegister(ProxyParseErrors)
 	MustRegister(ProxyForwarded)
 	MustRegister(ProxyDenied)

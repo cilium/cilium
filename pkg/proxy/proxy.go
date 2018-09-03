@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/proxymap"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/logger"
@@ -168,7 +169,10 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 	})
 
 	p.mutex.Lock()
-	defer p.mutex.Unlock()
+	defer func() {
+		p.UpdateRedirectMetrics()
+		p.mutex.Unlock()
+	}()
 
 	scopedLog := log.WithField(fieldProxyRedirectID, id)
 
@@ -253,7 +257,11 @@ retryCreatePort:
 // RemoveRedirect removes an existing redirect.
 func (p *Proxy) RemoveRedirect(id string, wg *completion.WaitGroup) error {
 	p.mutex.Lock()
-	defer p.mutex.Unlock()
+	defer func() {
+		p.UpdateRedirectMetrics()
+		p.mutex.Unlock()
+	}()
+
 	r, ok := p.redirects[id]
 	if !ok {
 		return fmt.Errorf("unable to find redirect %s", id)
@@ -305,5 +313,17 @@ func (p *Proxy) GetStatusModel() *models.ProxyStatus {
 	return &models.ProxyStatus{
 		IP:        node.GetInternalIPv4().String(),
 		PortRange: fmt.Sprintf("%d-%d", p.rangeMin, p.rangeMax),
+	}
+}
+
+// UpdateRedirectMetrics it updates the redirect metrics per application
+// protocols in Prometheus. Lock need to be held to call this function.
+func (p *Proxy) UpdateRedirectMetrics() {
+	result := map[string]int{}
+	for _, redirect := range p.redirects {
+		result[string(redirect.parserType)]++
+	}
+	for proto, count := range result {
+		metrics.ProxyRedirects.WithLabelValues(proto).Set(float64(count))
 	}
 }

@@ -73,6 +73,7 @@ Policy Imports
 Policy L7 (HTTP/Kafka)
 ----------------------
 
+* ``proxy_redirects_total``: Number of proxy redirects by application protocol
 * ``policy_l7_parse_errors_total``: Number of total L7 parse errors
 * ``policy_l7_forwarded_total``: Number of total L7 forwarded requests/responses
 * ``policy_l7_denied_total``: Number of total L7 denied requests/responses due to policy
