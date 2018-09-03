@@ -73,6 +73,8 @@ rules:
   - cilium.io
   resources:
   - ciliumnetworkpolicies
+  - ciliumnetworkpolicies/status
   - ciliumendpoints
+  - ciliumendpoints/status
   verbs:
   - "*"
