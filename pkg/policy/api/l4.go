@@ -73,6 +73,11 @@ type L7Rules struct {
 	// +optional
 	Kafka []PortRuleKafka `json:"kafka,omitempty"`
 
+	// DNS-specific rules.
+	//
+	// +optional
+	DNS []PortRuleDNS `json:"dns,omitempty"`
+
 	// Name of the L7 protocol for which the Key-value pair rules apply
 	//
 	// +optional
@@ -90,10 +95,10 @@ func (rules *L7Rules) Len() int {
 	if rules == nil {
 		return 0
 	}
-	return len(rules.HTTP) + len(rules.Kafka) + len(rules.L7)
+	return len(rules.HTTP) + len(rules.Kafka) + len(rules.DNS) + len(rules.L7)
 }
 
 // IsEmpty returns whether the `L7Rules` is nil or contains nil rules.
 func (rules *L7Rules) IsEmpty() bool {
-	return rules == nil || (rules.HTTP == nil && rules.Kafka == nil && rules.L7 == nil)
+	return rules == nil || (rules.HTTP == nil && rules.Kafka == nil && rules.DNS == nil && rules.L7 == nil)
 }
