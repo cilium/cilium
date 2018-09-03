@@ -25,7 +25,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("DisabledK8sKafkaPolicyTest", func() {
+var _ = Describe("K8sKafkaPolicyTest", func() {
 
 	var (
 		kubectl             *helpers.Kubectl
@@ -36,11 +36,10 @@ var _ = Describe("DisabledK8sKafkaPolicyTest", func() {
 		l7Policy            = helpers.ManifestGet("kafka-sw-security-policy.yaml")
 		demoPath            = helpers.ManifestGet("kafka-sw-app.yaml")
 		kafkaApp            = "kafka"
-		zookApp             = "zook"
 		backupApp           = "empire-backup"
 		empireHqApp         = "empire-hq"
 		outpostApp          = "empire-outpost"
-		apps                = []string{kafkaApp, zookApp, backupApp, empireHqApp, outpostApp}
+		apps                = []string{kafkaApp, backupApp, empireHqApp, outpostApp}
 		appPods             = map[string]string{}
 		topicEmpireAnnounce = "empire-announce"
 		topicDeathstarPlans = "deathstar-plans"
@@ -62,8 +61,9 @@ var _ = Describe("DisabledK8sKafkaPolicyTest", func() {
 
 	Context("Kafka Policy Tests", func() {
 		createTopicCmd := func(topic string) string {
-			return fmt.Sprintf("/opt/kafka/bin/kafka-topics.sh --create --zookeeper zook:2181 "+
-				"--replication-factor 1 --partitions 1 --topic %s", topic)
+			return fmt.Sprintf("/opt/kafka_2.11-0.10.1.0/bin/kafka-topics.sh --create "+
+				"--zookeeper localhost:2181 --replication-factor 1 "+
+				"--partitions 1 --topic %s", topic)
 		}
 
 		createTopic := func(topic string, pod string) error {
@@ -134,8 +134,6 @@ var _ = Describe("DisabledK8sKafkaPolicyTest", func() {
 
 			err = kubectl.WaitForKubeDNSEntry("kafka-service", helpers.DefaultNamespace)
 			Expect(err).To(BeNil(), "DNS entry of kafka-service is not ready after timeout")
-			err = kubectl.WaitForKubeDNSEntry("zook", helpers.DefaultNamespace)
-			Expect(err).To(BeNil(), "DNS entry of zook is not ready after timeout")
 
 			err = kubectl.CiliumEndpointWaitReady()
 			Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
@@ -143,17 +141,17 @@ var _ = Describe("DisabledK8sKafkaPolicyTest", func() {
 			appPods = helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "app")
 
 			By("Wait for Kafka broker to be up")
-			err = waitForKafkaBroker(appPods[empireHqApp], createTopicCmd(topicTest))
+			err = waitForKafkaBroker(appPods[kafkaApp], createTopicCmd(topicTest))
 			Expect(err).To(BeNil(), "Timeout: Kafka cluster failed to come up correctly")
 		})
 
 		It("KafkaPolicies", func() {
 			By("Creating new kafka topic %s", topicEmpireAnnounce)
-			err := createTopic(topicEmpireAnnounce, appPods[empireHqApp])
+			err := createTopic(topicEmpireAnnounce, appPods[kafkaApp])
 			Expect(err).Should(BeNil(), "Failed to create topic empire-announce")
 
 			By("Creating new kafka topic %s", topicDeathstarPlans)
-			err = createTopic(topicDeathstarPlans, appPods[empireHqApp])
+			err = createTopic(topicDeathstarPlans, appPods[kafkaApp])
 			Expect(err).Should(BeNil(), "Failed to create topic deathstar-plans")
 
 			By("Waiting for DNS to resolve within pods for kafka-service")
@@ -206,7 +204,6 @@ var _ = Describe("DisabledK8sKafkaPolicyTest", func() {
 				empireHqApp: models.EndpointPolicyEnabledNone,
 				kafkaApp:    models.EndpointPolicyEnabledBoth,
 				outpostApp:  models.EndpointPolicyEnabledNone,
-				zookApp:     models.EndpointPolicyEnabledNone,
 			}
 
 			for app, policy := range desiredPolicyStatus {
