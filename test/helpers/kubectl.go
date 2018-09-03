@@ -876,6 +876,8 @@ func (kub *Kubectl) CiliumInstallVersion(dsPatchName, cmPatchName, versionTag st
 		_, err := os.Stat(versionedPath)
 		if err == nil {
 			return versionedPath
+		} else {
+			kub.logger.Debugf("error while getting the filename %s: %s", versionedPath, err)
 		}
 		return filepath.Join(BasePath, manifestsPath, filename)
 	}
