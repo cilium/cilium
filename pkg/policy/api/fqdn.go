@@ -17,3 +17,11 @@ package api
 type FQDNSelector struct {
 	MatchName string `json:"matchName,omitempty"`
 }
+
+// PortRuleDNS is a list of allowed DNS lookups.
+type PortRuleDNS FQDNSelector
+
+func (kr *PortRuleDNS) Sanitize() error {
+	// TODO: Actually sanitize!
+	return nil
+}

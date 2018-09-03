@@ -85,7 +85,7 @@ func mergeL4IngressPort(ctx *SearchContext, endpoints []api.EndpointSelector, en
 		if ep, ok := existingFilter.L7RulesPerEp[hash]; ok {
 			switch {
 			case len(newL7Rules.HTTP) > 0:
-				if len(ep.Kafka) > 0 || len(ep.L7) > 0 {
+				if len(ep.Kafka) > 0 || len(ep.L7) > 0 || len(ep.DNS) > 0 {
 					ctx.PolicyTrace("   Merge conflict: mismatching L7 rule types.\n")
 					return 0, fmt.Errorf("Cannot merge conflicting L7 rule types")
 				}
@@ -96,7 +96,7 @@ func mergeL4IngressPort(ctx *SearchContext, endpoints []api.EndpointSelector, en
 					}
 				}
 			case len(newL7Rules.Kafka) > 0:
-				if len(ep.HTTP) > 0 || len(ep.L7) > 0 {
+				if len(ep.HTTP) > 0 || len(ep.L7) > 0 || len(ep.DNS) > 0 {
 					ctx.PolicyTrace("   Merge conflict: mismatching L7 rule types.\n")
 					return 0, fmt.Errorf("Cannot merge conflicting L7 rule types")
 				}
@@ -107,7 +107,7 @@ func mergeL4IngressPort(ctx *SearchContext, endpoints []api.EndpointSelector, en
 					}
 				}
 			case len(newL7Rules.L7) > 0:
-				if len(ep.Kafka) > 0 || len(ep.HTTP) > 0 || (ep.L7Proto != "" && ep.L7Proto != newL7Rules.L7Proto) {
+				if len(ep.Kafka) > 0 || len(ep.HTTP) > 0 || len(ep.DNS) > 0 || (ep.L7Proto != "" && ep.L7Proto != newL7Rules.L7Proto) {
 					ctx.PolicyTrace("   Merge conflict: mismatching L7 rule types.\n")
 					return 0, fmt.Errorf("Cannot merge conflicting L7 rule types")
 				}
@@ -120,6 +120,18 @@ func mergeL4IngressPort(ctx *SearchContext, endpoints []api.EndpointSelector, en
 						ep.L7 = append(ep.L7, newRule)
 					}
 				}
+			case len(newL7Rules.DNS) > 0:
+				if len(ep.HTTP) > 0 || len(ep.Kafka) > 0 || len(ep.L7) > 0 {
+					ctx.PolicyTrace("   Merge conflict: mismatching L7 rule types.\n")
+					return 0, fmt.Errorf("Cannot merge conflicting L7 rule types")
+				}
+
+				for _, newRule := range newL7Rules.DNS {
+					if !newRule.Exists(ep) {
+						ep.DNS = append(ep.DNS, newRule)
+					}
+				}
+
 			default:
 				ctx.PolicyTrace("   No L7 rules to merge.\n")
 			}
@@ -515,7 +527,7 @@ func mergeL4EgressPort(ctx *SearchContext, endpoints []api.EndpointSelector, r a
 		if ep, ok := existingFilter.L7RulesPerEp[hash]; ok {
 			switch {
 			case len(newL7Rules.HTTP) > 0:
-				if len(ep.Kafka) > 0 {
+				if len(newL7Rules.HTTP) != newL7Rules.Len() {
 					ctx.PolicyTrace("   Merge conflict: mismatching L7 rule types.\n")
 					return 0, fmt.Errorf("Cannot merge conflicting L7 rule types")
 				}
@@ -526,7 +538,7 @@ func mergeL4EgressPort(ctx *SearchContext, endpoints []api.EndpointSelector, r a
 					}
 				}
 			case len(newL7Rules.Kafka) > 0:
-				if len(ep.HTTP) > 0 {
+				if len(newL7Rules.Kafka) != newL7Rules.Len() {
 					ctx.PolicyTrace("   Merge conflict: mismatching L7 rule types.\n")
 					return 0, fmt.Errorf("Cannot merge conflicting L7 rule types")
 				}
@@ -534,6 +546,17 @@ func mergeL4EgressPort(ctx *SearchContext, endpoints []api.EndpointSelector, r a
 				for _, newRule := range newL7Rules.Kafka {
 					if !newRule.Exists(ep) {
 						ep.Kafka = append(ep.Kafka, newRule)
+					}
+				}
+			case len(newL7Rules.DNS) > 0:
+				if len(newL7Rules.DNS) != newL7Rules.Len() {
+					ctx.PolicyTrace("   Merge conflict: mismatching L7 rule types.\n")
+					return 0, fmt.Errorf("Cannot merge conflicting L7 rule types")
+				}
+
+				for _, newRule := range newL7Rules.DNS {
+					if !newRule.Exists(ep) {
+						ep.DNS = append(ep.DNS, newRule)
 					}
 				}
 			default:

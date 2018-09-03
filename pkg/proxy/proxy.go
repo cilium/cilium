@@ -216,6 +216,9 @@ retryCreatePort:
 		redir.ProxyPort = to
 
 		switch l4.L7Parser {
+		case policy.ParserTypeDNS:
+			redir.implementation, err = createDNSRedirect(redir, dnsConfiguration{}, DefaultEndpointInfoRegistry)
+
 		case policy.ParserTypeKafka:
 			redir.implementation, err = createKafkaRedirect(redir, kafkaConfiguration{}, DefaultEndpointInfoRegistry)
 
