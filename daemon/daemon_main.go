@@ -55,6 +55,7 @@ import (
 	"github.com/cilium/cilium/pkg/pidfile"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/pprof"
+	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/sockops"
 	"github.com/cilium/cilium/pkg/version"
@@ -512,6 +513,8 @@ func init() {
 
 	flags.IntVar(&toFQDNsMinTTL,
 		"tofqdns-min-ttl", defaults.ToFQDNsMinTTL, "The minimum time, in seconds, to use DNS data for toFQDNs policies.")
+	flags.IntVar(&proxy.DNSProxyPort,
+		"tofqdns-proxy-port", 0, "Global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.")
 
 	viper.BindPFlags(flags)
 }

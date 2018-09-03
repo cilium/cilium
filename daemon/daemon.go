@@ -48,6 +48,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/fqdn"
+	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipam"
@@ -1059,6 +1060,25 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 	d.dnsPoller = fqdn.NewDNSPoller(cfg, d.dnsRuleGen)
 	fqdn.StartDNSPoller(d.dnsPoller)
 
+	// If we stop returning errors from StartDNSProxy this should live in
+	// StartProxySupport
+	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", uint16(proxy.DNSProxyPort),
+		// LookupEPByIP
+		func(endpointIP net.IP) (endpointID string, err error) {
+			e := endpointmanager.LookupIPv4(endpointIP.String())
+			if e == nil {
+				return "", fmt.Errorf("Cannot find endpoint with IP %s", endpointIP.String())
+			}
+
+			return e.StringID(), nil
+		},
+		// NotifyOnDNSResponse
+		func(lookupTime time.Time, name string, ips []net.IP, ttl int) error {
+			return d.dnsRuleGen.UpdateGenerateDNS(lookupTime, map[string]*fqdn.DNSIPRecords{name: {IPs: ips, TTL: ttl}})
+		})
+	if err != nil {
+		return nil, restoredEndpoints, err
+	}
 	return &d, restoredEndpoints, nil
 }
 

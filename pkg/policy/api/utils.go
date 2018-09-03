@@ -58,6 +58,17 @@ func (k *PortRuleKafka) Exists(rules L7Rules) bool {
 	return false
 }
 
+// Exists returns true if the DNS rule already exists in the list of rules
+func (d *PortRuleDNS) Exists(rules L7Rules) bool {
+	for _, existingRule := range rules.DNS {
+		if d.Equal(existingRule) {
+			return true
+		}
+	}
+
+	return false
+}
+
 // Equal returns true if both rules are equal
 func (k *PortRuleKafka) Equal(o PortRuleKafka) bool {
 	return k.APIVersion == o.APIVersion && k.APIKey == o.APIKey &&
@@ -73,6 +84,11 @@ func (h *PortRuleL7) Exists(rules L7Rules) bool {
 	}
 
 	return false
+}
+
+// Equal returns true if both rules are equal
+func (d *PortRuleDNS) Equal(o PortRuleDNS) bool {
+	return d != nil && d.MatchName == o.MatchName
 }
 
 // Equal returns true if both L7 rules are equal
