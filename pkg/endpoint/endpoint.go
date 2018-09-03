@@ -2633,7 +2633,7 @@ func (e *Endpoint) syncPolicyMap() error {
 			// converted to network byte-order.
 			err := e.PolicyMap.DeleteKey(keyHostOrder)
 			if err != nil {
-				e.Logger().WithError(err).Errorf("Failed to delete PolicyMap key %s", entry.Key)
+				e.Logger().WithError(err).Errorf("Failed to delete PolicyMap key %s", entry.Key.String())
 				errors = append(errors, err)
 			} else {
 				// Operation was successful, remove from realized state.
@@ -2646,7 +2646,7 @@ func (e *Endpoint) syncPolicyMap() error {
 		if oldEntry, ok := e.realizedMapState[keyToAdd]; !ok || oldEntry != entry {
 			err := e.PolicyMap.AllowKey(keyToAdd, entry.ProxyPort)
 			if err != nil {
-				e.Logger().WithError(err).Errorf("Failed to add PolicyMap key %s %d", keyToAdd, entry.ProxyPort)
+				e.Logger().WithError(err).Errorf("Failed to add PolicyMap key %s %d", keyToAdd.String(), entry.ProxyPort)
 				errors = append(errors, err)
 			} else {
 				// Operation was successful, add to realized state.
