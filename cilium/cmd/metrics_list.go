@@ -17,7 +17,7 @@ var MetricsListCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		res, err := client.Metrics.GetMetrics(nil)
 		if err != nil {
-			Fatalf("Cannot get metrics list", err)
+			Fatalf("Cannot get metrics list: %s", err)
 		}
 
 		if command.OutputJSON() {
