@@ -872,10 +872,10 @@ func (kub *Kubectl) CiliumInstall(dsPatchName, cmPatchName string) error {
 // found.
 func (kub *Kubectl) CiliumInstallVersion(dsPatchName, cmPatchName, versionTag string) error {
 	getK8sDescriptorPatch := func(filename string) string {
-		fullPath := filepath.Join(manifestsPath, GetCurrentK8SEnv(), versionTag, filename)
-		_, err := os.Stat(fullPath)
+		versionedPath := filepath.Join(BasePath, manifestsPath, GetCurrentK8SEnv(), versionTag, filename)
+		_, err := os.Stat(versionedPath)
 		if err == nil {
-			return filepath.Join(BasePath, fullPath)
+			return versionedPath
 		}
 		return filepath.Join(BasePath, manifestsPath, filename)
 	}
