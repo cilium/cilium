@@ -24,7 +24,6 @@ package metrics
 import (
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/prometheus/client_golang/prometheus"
@@ -368,13 +367,6 @@ func Enable(addr string) error {
 	}()
 
 	return nil
-}
-
-// SetTSValue sets the gauge to the time value provided
-func SetTSValue(c prometheus.Gauge, ts time.Time) {
-	// Build time in seconds since the epoch. Prometheus only takes floating
-	// point values, however, and urges times to be in seconds
-	c.Set(float64(ts.UnixNano()) / float64(1000000000))
 }
 
 // GetCounterValue returns the current value
