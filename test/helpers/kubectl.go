@@ -877,7 +877,7 @@ func (kub *Kubectl) CiliumInstallVersion(dsPatchName, cmPatchName, versionTag st
 		if err == nil {
 			return filepath.Join(BasePath, ginkgoVersionedPath)
 		}
-		return filepath.Join(BasePath, "k8sT", "manifests", filename)
+		return filepath.Join(BasePath, manifestsPath, filename)
 	}
 	getK8sDescriptor := func(filename string) string {
 		return fmt.Sprintf("https://raw.githubusercontent.com/cilium/cilium/%s/examples/kubernetes/%s/%s", versionTag, GetCurrentK8SEnv(), filename)
