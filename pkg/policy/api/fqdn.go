@@ -27,3 +27,18 @@ func (s *FQDNSelector) sanitize() error {
 	_, err := regexp.Compile(s.MatchName)
 	return err
 }
+
+// PortRuleDNS is a list of allowed DNS lookups.
+type PortRuleDNS FQDNSelector
+
+// Sanitize checks that the matchName in the portRule can be compiled as a
+// regex. It does not check that a DNS name is a valid DNS name.
+func (kr *PortRuleDNS) Sanitize() error {
+	// All matchNames can be regeexes (although we will treat some as plain
+	// strings if they pass IsSimpleFQDN)
+	_, err := regexp.Compile(kr.MatchName)
+	if err != nil {
+		return err
+	}
+	return nil
+}
