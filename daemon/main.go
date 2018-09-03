@@ -688,7 +688,7 @@ func initEnv(cmd *cobra.Command) {
 
 	monitorAggregationLevel, err := option.ParseMonitorAggregationLevel(viper.GetString(option.MonitorAggregationName))
 	if err != nil {
-		log.WithError(err).Fatal("Failed to parse %s: %s",
+		log.WithError(err).Fatalf("Failed to parse %s: %s",
 			option.MonitorAggregationName, err)
 	}
 	option.Config.Opts.SetValidated(option.MonitorAggregation, monitorAggregationLevel)
@@ -696,7 +696,7 @@ func initEnv(cmd *cobra.Command) {
 	policy.SetPolicyEnabled(strings.ToLower(viper.GetString("enable-policy")))
 
 	if err := identity.AddUserDefinedNumericIdentitySet(fixedIdentity); err != nil {
-		log.Fatal("Invalid fixed identities provided: %s", err)
+		log.Fatalf("Invalid fixed identities provided: %s", err)
 	}
 
 	if err := kvstore.Setup(kvStore, kvStoreOpts); err != nil {
