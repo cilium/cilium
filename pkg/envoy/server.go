@@ -329,7 +329,7 @@ func getHTTPRule(h *api.PortRuleHTTP) (headers []*envoy_api_v2_route.HeaderMatch
 	return
 }
 
-func createBootstrap(filePath string, name, cluster, version string, xdsSock, envoyClusterName string, adminPort uint32) {
+func createBootstrap(filePath string, name, cluster, version string, xdsSock, envoyClusterName string, adminPath string) {
 	bs := &envoy_config_bootstrap_v2.Bootstrap{
 		Node: &envoy_api_v2_core.Node{Id: name, Cluster: cluster, Metadata: nil, Locality: nil, BuildVersion: version},
 		StaticResources: &envoy_config_bootstrap_v2.Bootstrap_StaticResources{
@@ -378,12 +378,8 @@ func createBootstrap(filePath string, name, cluster, version string, xdsSock, en
 		Admin: &envoy_config_bootstrap_v2.Admin{
 			AccessLogPath: "/dev/null",
 			Address: &envoy_api_v2_core.Address{
-				Address: &envoy_api_v2_core.Address_SocketAddress{
-					SocketAddress: &envoy_api_v2_core.SocketAddress{
-						Protocol:      envoy_api_v2_core.SocketAddress_TCP,
-						Address:       "127.0.0.1",
-						PortSpecifier: &envoy_api_v2_core.SocketAddress_PortValue{PortValue: adminPort},
-					},
+				Address: &envoy_api_v2_core.Address_Pipe{
+					Pipe: &envoy_api_v2_core.Pipe{Path: adminPath},
 				},
 			},
 		},
