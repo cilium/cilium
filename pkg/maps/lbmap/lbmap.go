@@ -21,13 +21,20 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/sirupsen/logrus"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-lb")
+var (
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-lb")
+
+	// mutex protects access to the BPF map to guarantee atomicity if a
+	// transaction must be split across multiple map access operations.
+	mutex lock.RWMutex
+)
 
 const (
 	// Maximum number of entries in each hashtable
@@ -135,6 +142,9 @@ func updateService(key ServiceKey, value ServiceValue) error {
 
 // DeleteService deletes a service from the lbmap. key should be the master (i.e., with backend set to zero).
 func DeleteService(key ServiceKey) error {
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	err := key.Map().Delete(key.ToNetwork())
 	if err != nil {
 		return err
@@ -202,11 +212,12 @@ type RevNatValue interface {
 	ToNetwork() RevNatValue
 }
 
-func UpdateRevNat(key RevNatKey, value RevNatValue) error {
+func updateRevNatLocked(key RevNatKey, value RevNatValue) error {
 	log.WithFields(logrus.Fields{
 		logfields.BPFMapKey:   key,
 		logfields.BPFMapValue: value,
 	}).Debug("adding revNat to lbmap")
+
 	if key.GetKey() == 0 {
 		return fmt.Errorf("invalid RevNat ID (0)")
 	}
@@ -217,9 +228,24 @@ func UpdateRevNat(key RevNatKey, value RevNatValue) error {
 	return key.Map().Update(key.ToNetwork(), value.ToNetwork())
 }
 
-func DeleteRevNat(key RevNatKey) error {
+func UpdateRevNat(key RevNatKey, value RevNatValue) error {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	return updateRevNatLocked(key, value)
+}
+
+func deleteRevNatLocked(key RevNatKey) error {
 	log.WithField(logfields.BPFMapKey, key).Debug("deleting RevNatKey")
+
 	return key.Map().Delete(key.ToNetwork())
+}
+
+func DeleteRevNat(key RevNatKey) error {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	return deleteRevNatLocked(key)
 }
 
 // gcd computes the gcd of two numbers.
@@ -306,6 +332,9 @@ func AddSVC2BPFMap(fe ServiceKey, besValues []ServiceValue, addRevNAT bool, revN
 	nSvcs := 1
 	nNonZeroWeights := 0
 
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	for _, be := range besValues {
 		fe.SetBackend(nSvcs)
 		weights = append(weights, be.GetWeight())
@@ -324,12 +353,12 @@ func AddSVC2BPFMap(fe ServiceKey, besValues []ServiceValue, addRevNAT bool, revN
 		revNATKey := zeroValue.RevNatKey()
 		revNATValue := fe.RevNatValue()
 
-		if err := UpdateRevNat(revNATKey, revNATValue); err != nil {
+		if err := updateRevNatLocked(revNATKey, revNATValue); err != nil {
 			return fmt.Errorf("unable to update reverse NAT %+v with value %+v, %s", revNATKey, revNATValue, err)
 		}
 		defer func() {
 			if err != nil {
-				DeleteRevNat(revNATKey)
+				deleteRevNatLocked(revNATKey)
 			}
 		}()
 	}
@@ -558,6 +587,9 @@ func DumpServiceMapsToUserspace(includeMasterBackend, skipIPv4 bool) (loadbalanc
 		newSVCList = append(newSVCList, svc)
 	}
 
+	mutex.RLock()
+	defer mutex.RUnlock()
+
 	if !skipIPv4 {
 		err := Service4Map.DumpWithCallback(parseSVCEntries)
 		if err != nil {
@@ -599,6 +631,9 @@ func DumpRevNATMapsToUserspace(skipIPv4 bool) (loadbalancer.RevNATMap, []error) 
 		}
 		newRevNATMap[fe.ID] = fe.L3n4Addr
 	}
+
+	mutex.RLock()
+	defer mutex.RUnlock()
 
 	if !skipIPv4 {
 		if err := RevNat4Map.DumpWithCallback(parseRevNATEntries); err != nil {
