@@ -910,6 +910,12 @@ func (d *Daemon) addK8sServiceV1(svc *v1.Service) {
 	d.loadBalancer.K8sMU.Lock()
 	defer d.loadBalancer.K8sMU.Unlock()
 
+	if oldSI, ok := d.loadBalancer.K8sServices[svcns]; ok {
+		if oldSI.Equals(newSI) {
+			return
+		}
+	}
+
 	d.loadBalancer.K8sServices[svcns] = newSI
 
 	d.syncLB(&svcns, nil, nil)
