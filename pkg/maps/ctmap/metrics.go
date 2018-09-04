@@ -56,11 +56,16 @@ func (g gcFamily) String() string {
 	}
 }
 
-func statStartGc(m *bpf.Map, family gcFamily) gcStats {
-	return gcStats{
-		DumpStats: bpf.NewDumpStats(m),
-		family:    family,
+func statStartGc(m *Map) gcStats {
+	result := gcStats{
+		DumpStats: bpf.NewDumpStats(&m.Map),
 	}
+	if m.mapType.isIPv6() {
+		result.family = gcFamilyIPv6
+	} else {
+		result.family = gcFamilyIPv4
+	}
+	return result
 }
 
 func (s *gcStats) finish() {
