@@ -122,34 +122,6 @@ type CtEndpoint interface {
 	StringID() string
 }
 
-// GetMapTypeAndPath returns the map type and path for the CT map for the
-// specified endpoint. Returns the global map path if e is nil.
-func GetMapTypeAndPath(e CtEndpoint, isIPv6 bool) (string, string) {
-	var (
-		file    string
-		mapType string
-	)
-
-	// Choose whether to garbage collect the local or global conntrack map
-	if e != nil {
-		if isIPv6 {
-			mapType = MapName6
-		} else {
-			mapType = MapName4
-		}
-		file = bpf.MapPath(mapType + e.StringID())
-	} else {
-		if isIPv6 {
-			mapType = MapName6Global
-		} else {
-			mapType = MapName4Global
-		}
-		file = bpf.MapPath(mapType)
-	}
-
-	return mapType, file
-}
-
 // MapType is a type of connection tracking map.
 type MapType int
 
@@ -510,14 +482,14 @@ func (f *GCFilter) doFiltering(srcIP net.IP, dstIP net.IP, dstPort uint16, nextH
 	return noAction
 }
 
-func doGC(m *bpf.Map, mapType string, filter *GCFilter) int {
-	switch mapType {
-	case MapName6, MapName6Global:
-		return int(doGC6(m, filter).deleted)
-	case MapName4, MapName4Global:
-		return int(doGC4(m, filter).deleted)
+func doGC(m *Map, filter *GCFilter) int {
+	switch m.mapType {
+	case MapTypeIPv6Local, MapTypeIPv6Global:
+		return int(doGC6(&m.Map, filter).deleted)
+	case MapTypeIPv4Local, MapTypeIPv4Global:
+		return int(doGC4(&m.Map, filter).deleted)
 	default:
-		log.Fatalf("Unsupported ct map type: %s", mapType)
+		log.Fatalf("Unsupported ct map type: %s", m.mapType.String())
 	}
 
 	return 0
@@ -525,7 +497,7 @@ func doGC(m *bpf.Map, mapType string, filter *GCFilter) int {
 
 // GC runs garbage collection for map m with name mapType with the given filter.
 // It returns how many items were deleted from m.
-func GC(m *bpf.Map, mapType string, filter *GCFilter) int {
+func GC(m *Map, filter *GCFilter) int {
 	if filter.RemoveExpired {
 		// If LRUHashtable, no need to garbage collect as LRUHashtable cleans itself up.
 		// FIXME: GH-3239 LRU logic is not handling timeouts gracefully enough
@@ -537,13 +509,13 @@ func GC(m *bpf.Map, mapType string, filter *GCFilter) int {
 		filter.Time = uint32(tsec)
 	}
 
-	return doGC(m, mapType, filter)
+	return doGC(m, filter)
 }
 
 // Flush runs garbage collection for map m with the name mapType, deleting all
 // entries. The specified map must be already opened using bpf.OpenMap().
-func Flush(m *bpf.Map, mapType string) int {
-	return doGC(m, mapType, &GCFilter{
+func (m *Map) Flush() int {
+	return doGC(m, &GCFilter{
 		RemoveExpired: true,
 		Time:          MaxTime,
 	})

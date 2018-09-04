@@ -2699,37 +2699,32 @@ func (e *Endpoint) IsDisconnecting() bool {
 	return e.state == StateDisconnected || e.state == StateDisconnecting
 }
 
-// doGarbageCollectConntrack is usd by garbageCollectConntrack and should not be
-// called directly.
-func (e *Endpoint) doGarbageCollectConntrack(isIPv6 bool, filter *ctmap.GCFilter) {
-	var file, mapType string
-
-	if e.ConntrackLocalLocked() {
-		mapType, file = ctmap.GetMapTypeAndPath(e, isIPv6)
-	} else {
-		mapType, file = ctmap.GetMapTypeAndPath(nil, isIPv6)
-	}
-
-	m, err := bpf.OpenMap(file)
-	if err != nil {
-		log.WithError(err).WithField(logfields.Path, file).Warn("Unable to open map")
-		return
-	}
-	defer m.Close()
-
-	ctmap.GC(m, mapType, filter)
-}
-
 // garbageCollectConntrack will run the ctmap.GC() on either the endpoint's
 // local conntrack table or the global conntrack table.
 //
-// The endponit lock must be held
+// The endpoint lock must be held
 func (e *Endpoint) garbageCollectConntrack(filter *ctmap.GCFilter) {
-	if !option.Config.IPv4Disabled {
-		e.doGarbageCollectConntrack(false, filter)
-	}
+	var maps []*ctmap.Map
 
-	e.doGarbageCollectConntrack(true, filter)
+	ipv4 := !option.Config.IPv4Disabled
+	if e.ConntrackLocalLocked() {
+		maps = ctmap.LocalMaps(e, ipv4, true)
+	} else {
+		maps = ctmap.GlobalMaps(ipv4, true)
+	}
+	for _, m := range maps {
+		if err := m.Open(); err != nil {
+			filepath, err2 := m.Path()
+			if err2 != nil {
+				log.WithError(err2).Warn("Unable to get CT map path")
+			}
+			log.WithError(err).WithField(logfields.Path, filepath).Warn("Unable to open map")
+			continue
+		}
+		defer m.Close()
+
+		ctmap.GC(m, filter)
+	}
 }
 
 func (e *Endpoint) scrubIPsInConntrackTableLocked() {
