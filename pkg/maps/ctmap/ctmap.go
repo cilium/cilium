@@ -79,15 +79,6 @@ var (
 )
 
 const (
-	// MapTypeIPv4Local and friends are MapTypes which correspond to a
-	// combination of the following attributes:
-	// * IPv4 or IPv6;
-	// * Local (endpoint-specific) or global (endpoint-oblivious).
-	MapTypeIPv4Local = iota
-	MapTypeIPv6Local
-	MapTypeIPv4Global
-	MapTypeIPv6Global
-
 	// mapCount counts the maximum number of CT maps that one endpoint may
 	// access at once.
 	mapCount = 2
@@ -119,24 +110,6 @@ const (
 // conntrack maps for the endpoint.
 type CtEndpoint interface {
 	StringID() string
-}
-
-// MapType is a type of connection tracking map.
-type MapType int
-
-// String renders the map type into a user-readable string.
-func (m MapType) String() string {
-	switch m {
-	case MapTypeIPv4Local:
-		return "Local IPv4 CT map"
-	case MapTypeIPv6Local:
-		return "Local IPv6 CT map"
-	case MapTypeIPv4Global:
-		return "Global IPv4 CT map"
-	case MapTypeIPv6Global:
-		return "Global IPv6 CT map"
-	}
-	return fmt.Sprintf("Unknown (%d)", int(m))
 }
 
 // Map represents an instance of a BPF connection tracking map.
@@ -239,8 +212,8 @@ func NewMap(mapName string, mapType MapType) *Map {
 
 // doGC6 iterates through a CTv6 map and drops entries based on the given
 // filter.
-func doGC6(m *bpf.Map, filter *GCFilter) gcStats {
-	stats := statStartGc(m, gcFamilyIPv6)
+func doGC6(m *Map, filter *GCFilter) gcStats {
+	stats := statStartGc(m)
 	defer stats.finish()
 
 	filterCallback := func(key bpf.MapKey, value bpf.MapValue) {
@@ -272,8 +245,8 @@ func doGC6(m *bpf.Map, filter *GCFilter) gcStats {
 
 // doGC4 iterates through a CTv4 map and drops entries based on the given
 // filter.
-func doGC4(m *bpf.Map, filter *GCFilter) gcStats {
-	stats := statStartGc(m, gcFamilyIPv4)
+func doGC4(m *Map, filter *GCFilter) gcStats {
+	stats := statStartGc(m)
 	defer stats.finish()
 
 	filterCallback := func(key bpf.MapKey, value bpf.MapValue) {
@@ -328,15 +301,12 @@ func (f *GCFilter) doFiltering(srcIP net.IP, dstIP net.IP, dstPort uint16, nextH
 }
 
 func doGC(m *Map, filter *GCFilter) int {
-	switch m.mapType {
-	case MapTypeIPv6Local, MapTypeIPv6Global:
-		return int(doGC6(&m.Map, filter).deleted)
-	case MapTypeIPv4Local, MapTypeIPv4Global:
-		return int(doGC4(&m.Map, filter).deleted)
-	default:
-		log.Fatalf("Unsupported ct map type: %s", m.mapType.String())
+	if m.mapType.isIPv6() {
+		return int(doGC6(m, filter).deleted)
+	} else if m.mapType.isIPv4() {
+		return int(doGC4(m, filter).deleted)
 	}
-
+	log.Fatalf("Unsupported ct map type: %s", m.mapType.String())
 	return 0
 }
 
