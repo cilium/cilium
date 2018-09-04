@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	"github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -46,20 +45,6 @@ var (
 	// log is the k8s package logger object.
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsysK8s)
 )
-
-// ExtractNamespace extracts the namespace of ObjectMeta.
-func ExtractNamespace(np *metav1.ObjectMeta) string {
-	if np.Namespace == "" {
-		return v1.NamespaceDefault
-	}
-
-	return np.Namespace
-}
-
-// GetObjNamespaceName returns the object's namespace and name.
-func GetObjNamespaceName(obj *metav1.ObjectMeta) string {
-	return ExtractNamespace(obj) + "/" + obj.GetName()
-}
 
 // GetPolicyLabels returns a LabelArray for the given namespace and name.
 func GetPolicyLabels(ns, name string) labels.LabelArray {
