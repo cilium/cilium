@@ -32,7 +32,10 @@ func (s *SpanStat) Start() {
 
 // End ends the current span and adds the measured duration to the total
 func (s *SpanStat) End() {
-	s.totalDuration += time.Since(s.spanStart)
+	if !s.spanStart.IsZero() {
+		s.totalDuration += time.Since(s.spanStart)
+	}
+	s.spanStart = time.Time{}
 }
 
 // Total returns the total duration of all spans measured
