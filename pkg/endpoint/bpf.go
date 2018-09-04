@@ -712,20 +712,6 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 		}
 	}
 
-	// Walk the L4Policy to add new redirects and update the desired policy map
-	// state to set the newly allocated proxy ports.
-	if e.DesiredL4Policy != nil {
-		desiredRedirects, err = e.addNewRedirects(owner, e.DesiredL4Policy)
-		if err != nil {
-			e.Unlock()
-			return 0, compilationExecuted, err
-		}
-	}
-	// At this point, traffic is no longer redirected to the proxy for
-	// now-obsolete redirects, since we synced the updated policy map above.
-	// It's now safe to remove the redirects from the proxy's configuration.
-	e.removeOldRedirects(owner, desiredRedirects)
-
 	// Generate header file specific to this endpoint for use in compiling
 	// BPF programs for this endpoint.
 	if err = e.writeHeaderfile(epdir, owner); err != nil {
@@ -780,7 +766,6 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 
 	e.Mutex.Unlock()
 
-	e.getLogger().WithField("bpfHeaderfilesChanged", bpfHeaderfilesChanged).Debug("Preparing to compile BPF")
 	libdir := owner.GetBpfDir()
 	rundir := owner.GetStateDir()
 	debug := strconv.FormatBool(owner.DebugEnabled())
@@ -808,6 +793,15 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 		e.Mutex.RUnlock()
 	}
 
+	// To avoid traffic loss, wait for the policy to be pushed into BPF before
+	// deleting obsolete redirects, to make sure no packets are redirected to
+	// those ports.
+	completionCtx, cancel := context.WithTimeout(context.Background(), EndpointGenerationTimeout)
+	e.ProxyWaitGroup = completion.NewWaitGroup(completionCtx)
+	defer cancel()
+	e.Mutex.Lock()
+	e.removeOldRedirects(owner, desiredRedirects)
+	e.Mutex.Unlock()
 	err = e.WaitForProxyCompletions()
 	if err != nil {
 		return 0, compilationExecuted, fmt.Errorf("Error while deleting obsolete proxy redirects: %s", err)
