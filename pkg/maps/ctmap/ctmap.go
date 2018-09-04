@@ -43,9 +43,49 @@ var (
 		metrics.LabelDatapathName:   "dump_interrupts",
 		metrics.LabelDatapathFamily: "ipv4",
 	}
+
+	mapInfo = map[MapType]struct {
+		keySize    int
+		maxEntries int
+		parser     bpf.DumpParser
+	}{
+		MapTypeIPv4Local: {
+			keySize:    int(unsafe.Sizeof(CtKey4{})),
+			maxEntries: MapNumEntriesLocal,
+			parser:     ct4DumpParser,
+		},
+		MapTypeIPv6Local: {
+			keySize:    int(unsafe.Sizeof(CtKey6{})),
+			maxEntries: MapNumEntriesLocal,
+			parser:     ct6DumpParser,
+		},
+		MapTypeIPv4Global: {
+			keySize:    int(unsafe.Sizeof(CtKey4{})),
+			maxEntries: MapNumEntriesGlobal,
+			parser:     ct4DumpParser,
+		},
+		MapTypeIPv6Global: {
+			keySize:    int(unsafe.Sizeof(CtKey6{})),
+			maxEntries: MapNumEntriesGlobal,
+			parser:     ct6DumpParser,
+		},
+	}
 )
 
 const (
+	// MapTypeIPv4Local and friends are MapTypes which correspond to a
+	// combination of the following attributes:
+	// * IPv4 or IPv6;
+	// * Local (endpoint-specific) or global (endpoint-oblivious).
+	MapTypeIPv4Local = iota
+	MapTypeIPv6Local
+	MapTypeIPv4Global
+	MapTypeIPv6Global
+
+	// mapCount counts the maximum number of CT maps that one endpoint may
+	// access at once.
+	mapCount = 2
+
 	MapName6       = "cilium_ct6_"
 	MapName4       = "cilium_ct4_"
 	MapName6Global = MapName6 + "global"
@@ -103,22 +143,30 @@ func GetMapTypeAndPath(e CtEndpoint, isIPv6 bool) (string, string) {
 	return mapType, file
 }
 
-func getMapPath(e CtEndpoint, isIPv6 bool) string {
-	_, path := GetMapTypeAndPath(e, isIPv6)
-	return path
-}
+// MapType is a type of connection tracking map.
+type MapType int
 
-// getMaps fetches all paths for conntrack maps associated with the specified
-// endpoint, and returns a map from these paths to the keySize used for that
-// map.
-func getMapPathsToKeySize(e CtEndpoint) map[string]uint32 {
-	return map[string]uint32{
-		getMapPath(e, true):  uint32(unsafe.Sizeof(CtKey6{})),
-		getMapPath(e, false): uint32(unsafe.Sizeof(CtKey4{})),
+// String renders the map type into a user-readable string.
+func (m MapType) String() string {
+	switch m {
+	case MapTypeIPv4Local:
+		return "Local IPv4 CT map"
+	case MapTypeIPv6Local:
+		return "Local IPv6 CT map"
+	case MapTypeIPv4Global:
+		return "Global IPv4 CT map"
+	case MapTypeIPv6Global:
+		return "Global IPv6 CT map"
 	}
+	return fmt.Sprintf("Unknown (%d)", int(m))
 }
 
-type CtType int
+// Map represents an instance of a BPF connection tracking map.
+type Map struct {
+	bpf.Map
+
+	mapType MapType
+}
 
 // CtKey is the interface describing keys to the conntrack maps.
 type CtKey interface {
@@ -235,6 +283,40 @@ func dumpToSlice(m *bpf.Map, mapType string) ([]CtEntryDump, error) {
 		}
 	}
 	return entries, nil
+}
+
+func ct4DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
+	k, v := CtKey4Global{}, CtEntry{}
+
+	if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
+		return nil, nil, err
+	}
+	return &k, &v, nil
+}
+
+func ct6DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
+	k, v := CtKey6Global{}, CtEntry{}
+
+	if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
+		return nil, nil, err
+	}
+	return &k, &v, nil
+}
+
+// NewMap creates a new CT map of the specified type with the specified name.
+func NewMap(mapName string, mapType MapType) *Map {
+	result := &Map{
+		Map: *bpf.NewMap(mapName,
+			bpf.GetLRUMapType(),
+			mapInfo[mapType].keySize,
+			int(unsafe.Sizeof(CtEntry{})),
+			mapInfo[mapType].maxEntries,
+			0,
+			mapInfo[mapType].parser,
+		),
+		mapType: mapType,
+	}
+	return result
 }
 
 // doGC6 iterates through a CTv6 map and drops entries based on the given
@@ -456,28 +538,6 @@ func Flush(m *bpf.Map, mapType string) int {
 	})
 }
 
-// checkAndUpgrade determines whether the ctmap on the filesystem has different
-// map properties than this version of Cilium, and if so, removes the map from
-// the filesystem so that a subsequent BPF prog install will recreate it with
-// the correct map properties.
-//
-// Returns true if the map was upgraded.
-func checkAndUpgrade(m *bpf.Map, e CtEndpoint, keySize uint32) bool {
-	desiredMapInfo := &bpf.MapInfo{
-		MapType:   bpf.GetLRUMapType(),
-		KeySize:   keySize,
-		ValueSize: uint32(unsafe.Sizeof(CtEntry{})),
-	}
-
-	if e == nil {
-		desiredMapInfo.MaxEntries = MapNumEntriesGlobal
-	} else {
-		desiredMapInfo.MaxEntries = MapNumEntriesLocal
-	}
-
-	return m.CheckAndUpgrade(desiredMapInfo)
-}
-
 // DeleteIfUpgradeNeeded attempts to open the conntrack maps associated with
 // the specified endpoint, and delete the maps from the filesystem if any
 // properties do not match the properties defined in this package.
@@ -497,16 +557,61 @@ func checkAndUpgrade(m *bpf.Map, e CtEndpoint, keySize uint32) bool {
 // once all referenced to the map are cleared - that is, all BPF programs which
 // refer to the old map and removed/reloaded.
 func DeleteIfUpgradeNeeded(e CtEndpoint) {
-	for path, keySize := range getMapPathsToKeySize(e) {
+	for _, newMap := range maps(e, true, true) {
+		path, err := newMap.Path()
+		if err != nil {
+			log.WithError(err).Warning("Failed to get path for CT map")
+			continue
+		}
 		scopedLog := log.WithField(logfields.Path, path)
 		oldMap, err := bpf.OpenMap(path)
 		if err != nil {
 			scopedLog.WithError(err).Debug("Couldn't open CT map for upgrade")
 			continue
 		}
-		if checkAndUpgrade(oldMap, e, keySize) {
+		if oldMap.CheckAndUpgrade(&newMap.Map.MapInfo) {
 			scopedLog.Info("CT Map upgraded, expect brief disruption of ongoing connections")
 		}
 		oldMap.Close()
 	}
+}
+
+// maps returns all connecting tracking maps associated with endpoint 'e' (or
+// the global maps if 'e' is nil).
+func maps(e CtEndpoint, ipv4, ipv6 bool) []*Map {
+	result := make([]*Map, 0, mapCount)
+	if e == nil {
+		if ipv4 {
+			result = append(result, NewMap(MapName4Global, MapTypeIPv4Global))
+		}
+		if ipv6 {
+			result = append(result, NewMap(MapName6Global, MapTypeIPv6Global))
+		}
+	} else {
+		if ipv4 {
+			result = append(result, NewMap(MapName4+e.StringID(), MapTypeIPv4Local))
+		}
+		if ipv6 {
+			result = append(result, NewMap(MapName6+e.StringID(), MapTypeIPv6Local))
+		}
+	}
+	return result
+}
+
+// LocalMaps returns a slice of CT maps for the endpoint, which are local to
+// the endpoint and not shared with other endpoints. If ipv4 or ipv6 are false,
+// the maps for that protocol will not be returned.
+//
+// The returned maps are not yet opened.
+func LocalMaps(e CtEndpoint, ipv4, ipv6 bool) []*Map {
+	return maps(e, ipv4, ipv6)
+}
+
+// GlobalMaps returns a slice of CT maps that are used globally by all
+// endpoints that are not otherwise configured to use their own local maps.
+// If ipv6 or ipv6 are false, the maps for that protocol will not be returned.
+//
+// The returned maps are not yet opened.
+func GlobalMaps(ipv4, ipv6 bool) []*Map {
+	return maps(nil, ipv4, ipv6)
 }
