@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -39,39 +38,40 @@ const (
 // The provided endpoint is optional; if it is provided, then its map will be
 // garbage collected and any failures will be logged to the endpoint log.
 // Otherwise it will garbage-collect the global map and use the global log.
-func runGC(e *endpoint.Endpoint, isIPv6 bool, filter *ctmap.GCFilter) {
-	var file string
-	var mapType string
+func runGC(e *endpoint.Endpoint, ipv4, ipv6 bool, filter *ctmap.GCFilter) {
+	var maps []*ctmap.Map
 
-	// Even if the pointer points to nil, passing it directly to a function
-	// that receives an interface doesn't pass the nil through, so to avoid
-	// a segfault we check the pointer and directly pass nil here.
 	if e == nil {
-		mapType, file = ctmap.GetMapTypeAndPath(nil, isIPv6)
+		maps = ctmap.GlobalMaps(ipv4, ipv6)
 	} else {
-		mapType, file = ctmap.GetMapTypeAndPath(e, isIPv6)
+		maps = ctmap.LocalMaps(e, ipv4, ipv6)
 	}
-	m, err := bpf.OpenMap(file)
-	if err != nil {
-		log.WithError(err).WithField(logfields.Path, file).Warn("Unable to open map")
-		if e != nil {
-			e.LogStatus(endpoint.BPF, endpoint.Warning, fmt.Sprintf("Unable to open CT map %s: %s", file, err))
+	for _, m := range maps {
+		path, err := m.Path()
+		if err == nil {
+			err = m.Open()
 		}
-		return
-	}
-	defer m.Close()
+		if err != nil {
+			log.WithError(err).WithField(logfields.Path, path).Warn("Unable to open map")
+			if e != nil {
+				e.LogStatus(endpoint.BPF, endpoint.Warning, fmt.Sprintf("Unable to open CT map %s: %s", path, err))
+			}
+			continue
+		}
+		defer m.Close()
 
-	deleted := ctmap.GC(m, mapType, filter)
+		deleted := ctmap.GC(m, filter)
 
-	if deleted > 0 {
-		log.WithFields(logrus.Fields{
-			logfields.Path: file,
-			"count":        deleted,
-		}).Debug("Deleted filtered entries from map")
+		if deleted > 0 {
+			log.WithFields(logrus.Fields{
+				logfields.Path: path,
+				"count":        deleted,
+			}).Debug("Deleted filtered entries from map")
+		}
 	}
 }
 
-func createGCFilter(ipv6, initialScan bool, restoredEndpoints []*endpoint.Endpoint) *ctmap.GCFilter {
+func createGCFilter(initialScan bool, restoredEndpoints []*endpoint.Endpoint) *ctmap.GCFilter {
 	filter := &ctmap.GCFilter{
 		RemoveExpired: true,
 	}
@@ -83,11 +83,8 @@ func createGCFilter(ipv6, initialScan bool, restoredEndpoints []*endpoint.Endpoi
 	if initialScan {
 		filter.ValidIPs = map[string]struct{}{}
 		for _, ep := range restoredEndpoints {
-			if ipv6 {
-				filter.ValidIPs[ep.IPv6.String()] = struct{}{}
-			} else {
-				filter.ValidIPs[ep.IPv4.String()] = struct{}{}
-			}
+			filter.ValidIPs[ep.IPv6.String()] = struct{}{}
+			filter.ValidIPs[ep.IPv4.String()] = struct{}{}
 		}
 	}
 
@@ -108,25 +105,14 @@ func EnableConntrackGC(ipv4, ipv6 bool, gcinterval int, restoredEndpoints []*end
 		for {
 			eps := GetEndpoints()
 			if len(eps) > 0 || initialScan {
-				if ipv6 {
-					runGC(nil, true, createGCFilter(true, initialScan, restoredEndpoints))
-				}
-
-				if ipv4 {
-					runGC(nil, false, createGCFilter(false, initialScan, restoredEndpoints))
-				}
+				runGC(nil, ipv4, ipv6, createGCFilter(initialScan, restoredEndpoints))
 			}
 			for _, e := range eps {
 				if !e.ConntrackLocal() {
 					// Skip because GC was handled above.
 					continue
 				}
-				if ipv6 {
-					runGC(e, true, &ctmap.GCFilter{RemoveExpired: true})
-				}
-				if ipv4 {
-					runGC(e, false, &ctmap.GCFilter{RemoveExpired: true})
-				}
+				runGC(e, ipv4, ipv6, &ctmap.GCFilter{RemoveExpired: true})
 			}
 
 			if initialScan {
