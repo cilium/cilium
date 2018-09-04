@@ -17,8 +17,10 @@ package ctmap
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"math"
 	"net"
+	"path"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -48,26 +50,31 @@ var (
 		keySize    int
 		maxEntries int
 		parser     bpf.DumpParser
+		bpfDefine  string
 	}{
 		MapTypeIPv4Local: {
 			keySize:    int(unsafe.Sizeof(CtKey4{})),
 			maxEntries: MapNumEntriesLocal,
 			parser:     ct4DumpParser,
+			bpfDefine:  "CT_MAP4",
 		},
 		MapTypeIPv6Local: {
 			keySize:    int(unsafe.Sizeof(CtKey6{})),
 			maxEntries: MapNumEntriesLocal,
 			parser:     ct6DumpParser,
+			bpfDefine:  "CT_MAP6",
 		},
 		MapTypeIPv4Global: {
 			keySize:    int(unsafe.Sizeof(CtKey4{})),
 			maxEntries: MapNumEntriesGlobal,
 			parser:     ct4DumpParser,
+			bpfDefine:  "CT_MAP4",
 		},
 		MapTypeIPv6Global: {
 			keySize:    int(unsafe.Sizeof(CtKey6{})),
 			maxEntries: MapNumEntriesGlobal,
 			parser:     ct6DumpParser,
+			bpfDefine:  "CT_MAP6",
 		},
 	}
 )
@@ -166,6 +173,9 @@ type Map struct {
 	bpf.Map
 
 	mapType MapType
+	// define maps to the macro used in the datapath portion for the map
+	// name, for example 'CT_MAP4'.
+	define string
 }
 
 // CtKey is the interface describing keys to the conntrack maps.
@@ -315,6 +325,7 @@ func NewMap(mapName string, mapType MapType) *Map {
 			mapInfo[mapType].parser,
 		),
 		mapType: mapType,
+		define:  mapInfo[mapType].bpfDefine,
 	}
 	return result
 }
@@ -614,4 +625,23 @@ func LocalMaps(e CtEndpoint, ipv4, ipv6 bool) []*Map {
 // The returned maps are not yet opened.
 func GlobalMaps(ipv4, ipv6 bool) []*Map {
 	return maps(nil, ipv4, ipv6)
+}
+
+// WriteBPFMacros writes the map names for conntrack maps into the specified
+// writer, defining usage of the global map or local maps depending on whether
+// the specified CtEndpoint is nil.
+func WriteBPFMacros(fw io.Writer, e CtEndpoint) {
+	if e == nil {
+		fmt.Fprintf(fw, "#define CT_MAP_SIZE %d\n", MapNumEntriesGlobal)
+	} else {
+		fmt.Fprintf(fw, "#define CT_MAP_SIZE %d\n", MapNumEntriesLocal)
+	}
+	for _, m := range maps(e, true, true) {
+		filepath, err := m.Path()
+		if err != nil {
+			log.WithError(err).Warningf("Cannot define BPF macro for %s", m.define)
+			continue
+		}
+		fmt.Fprintf(fw, "#define %s %s\n", m.define, path.Base(filepath))
+	}
 }
