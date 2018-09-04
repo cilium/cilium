@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ import (
 	"os"
 
 	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 
@@ -34,13 +33,7 @@ var bpfCtListCmd = &cobra.Command{
 	PreRun:  requireEndpointIDorGlobal,
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf ct list")
-		if args[0] == "global" {
-			dumpCtProto(ctmap.MapName6Global, "")
-			dumpCtProto(ctmap.MapName4Global, "")
-		} else {
-			dumpCtProto(ctmap.MapName6, args[0])
-			dumpCtProto(ctmap.MapName4, args[0])
-		}
+		dumpCt(args[0])
 	},
 }
 
@@ -49,27 +42,37 @@ func init() {
 	command.AddJSONOutput(bpfCtListCmd)
 }
 
-func dumpCtProto(mapType, eID string) {
-
-	file := bpf.MapPath(mapType + eID)
-	m, err := bpf.OpenMap(file)
-	if err != nil {
-		if err == os.ErrNotExist {
-			Fatalf("Unable to open %s: %s: please try using \"cilium bpf ct list global\"", file, err)
-		} else {
-			Fatalf("Unable to open %s: %s", file, err)
-		}
-	}
-	defer m.Close()
-	if command.OutputJSON() {
-		if err := command.PrintOutput(m); err != nil {
-			os.Exit(1)
-		}
+func dumpCt(eID string) {
+	var maps []*ctmap.Map
+	if eID == "global" {
+		maps = ctmap.GlobalMaps(true, true)
 	} else {
-		out, err := ctmap.ToString(m, mapType)
-		if err != nil {
-			Fatalf("Error while dumping BPF Map: %s", err)
+		maps = ctmap.LocalMaps(&dummyEndpoint{ID: eID}, true, true)
+	}
+
+	for _, m := range maps {
+		path, err := m.Path()
+		if err == nil {
+			err = m.Open()
 		}
-		fmt.Println(out)
+		if err != nil {
+			if err == os.ErrNotExist {
+				Fatalf("Unable to open %s: %s: please try using \"cilium bpf ct list global\"", path, err)
+			} else {
+				Fatalf("Unable to open %s: %s", path, err)
+			}
+		}
+		defer m.Close()
+		if command.OutputJSON() {
+			if err := command.PrintOutput(m); err != nil {
+				os.Exit(1)
+			}
+		} else {
+			out, err := m.DumpEntries()
+			if err != nil {
+				Fatalf("Error while dumping BPF Map: %s", err)
+			}
+			fmt.Println(out)
+		}
 	}
 }
