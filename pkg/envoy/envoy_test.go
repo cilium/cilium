@@ -17,6 +17,7 @@ package envoy
 import (
 	"context"
 	"errors"
+	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -24,6 +25,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 
@@ -72,7 +74,11 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 		c.Skip("skipping envoy unit test; CILIUM_ENABLE_ENVOY_UNIT_TEST not set")
 	}
 
-	stateLogDir := c.MkDir()
+	flowdebug.Enable()
+
+	stateLogDir, err := ioutil.TempDir("", "envoy_go_test")
+	c.Assert(err, IsNil)
+
 	log.Debugf("state log directory: %s", stateLogDir)
 
 	xdsServer := StartXDSServer(stateLogDir)
@@ -93,7 +99,7 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 	log.Debug("adding listener3")
 	xdsServer.AddListener("listener3", "1.2.3.4", 8083, false, s.waitGroup)
 
-	err := s.waitForProxyCompletion()
+	err = s.waitForProxyCompletion()
 	c.Assert(err, IsNil)
 	log.Debug("completed adding listener1, listener2, listener3")
 	s.waitGroup = completion.NewWaitGroup(ctx)
