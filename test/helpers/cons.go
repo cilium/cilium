@@ -19,8 +19,10 @@ import (
 	"fmt"
 	"os"
 
-	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	"github.com/cilium/cilium/pkg/versioncheck"
 	"github.com/cilium/cilium/test/ginkgo-ext"
+
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 )
 
 var (
@@ -211,6 +213,12 @@ const (
 
 // NightlyStableUpgradesFrom the cilium images to update from in Nightly test.
 var NightlyStableUpgradesFrom = []string{"docker.io/cilium/cilium:v1.0"}
+
+var (
+	CiliumV1_0 = versioncheck.MustCompile(">=v1.0,<v1.1")
+	CiliumV1_1 = versioncheck.MustCompile(">=v1.1,<v1.2")
+	CiliumV1_2 = versioncheck.MustCompile(">=v1.2,<v1.3")
+)
 
 // CiliumDefaultDSPatch is the default Cilium DaemonSet patch to be used in all tests.
 const CiliumDefaultDSPatch = "cilium-ds-patch.yaml"

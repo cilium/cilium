@@ -115,6 +115,13 @@ var _ = Describe("K8sUpdates", func() {
 // It returns two callbacks, the first one is the assertfunction that need to
 // run, and the second one are the cleanup actions
 func ValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newVersion string) (func(), func()) {
+	canRun, err := helpers.CanRunK8sVersion(oldVersion, helpers.GetCurrentK8SEnv())
+	Expect(err).To(BeNil(), "Unable to get k8s constraints for %s", oldVersion)
+	if !canRun {
+		log.Info("Cilium %s is not supported in K8s %s. Skipping upgrade/downgrade tests.")
+		return func() {}, func() {}
+	}
+
 	demoPath := helpers.ManifestGet("demo.yaml")
 	l7Policy := helpers.ManifestGet("l7-policy.yaml")
 	apps := []string{helpers.App1, helpers.App2, helpers.App3}
