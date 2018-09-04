@@ -1326,7 +1326,12 @@ func (e *Endpoint) ConntrackLocal() bool {
 	e.UnconditionalRLock()
 	defer e.RUnlock()
 
-	if e.SecurityIdentity == nil || !e.Options.IsEnabled(option.ConntrackLocal) {
+	return e.ConntrackLocalLocked()
+}
+
+func (e *Endpoint) ConntrackLocalLocked() bool {
+	if e.SecurityIdentity == nil || e.Options == nil ||
+		!e.Options.IsEnabled(option.ConntrackLocal) {
 		return false
 	}
 
@@ -2697,7 +2702,7 @@ func (e *Endpoint) IsDisconnecting() bool {
 func (e *Endpoint) doGarbageCollectConntrack(isIPv6 bool, filter *ctmap.GCFilter) {
 	var file, mapType string
 
-	if e.Options != nil && e.Options.IsEnabled(option.ConntrackLocal) {
+	if e.ConntrackLocalLocked() {
 		mapType, file = ctmap.GetMapTypeAndPath(e, isIPv6)
 	} else {
 		mapType, file = ctmap.GetMapTypeAndPath(nil, isIPv6)
