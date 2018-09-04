@@ -15,6 +15,7 @@
 package loadbalancer
 
 import (
+	"net"
 	"testing"
 
 	"gopkg.in/check.v1"
@@ -36,4 +37,491 @@ func (s *TypesSuite) TestIsK8ServiceExternal(c *check.C) {
 
 	si.Selector = map[string]string{"l": "v"}
 	c.Assert(si.IsExternal(), check.Equals, false)
+}
+
+func TestL4Addr_Equals(t *testing.T) {
+	type args struct {
+		o *L4Addr
+	}
+	tests := []struct {
+		name   string
+		fields *L4Addr
+		args   args
+		want   bool
+	}{
+		{
+			name: "both equal",
+			fields: &L4Addr{
+				Protocol: NONE,
+				Port:     1,
+			},
+			args: args{
+				o: &L4Addr{
+					Protocol: NONE,
+					Port:     1,
+				},
+			},
+			want: true,
+		},
+		{
+			name: "both different",
+			fields: &L4Addr{
+				Protocol: NONE,
+				Port:     0,
+			},
+			args: args{
+				o: &L4Addr{
+					Protocol: NONE,
+					Port:     1,
+				},
+			},
+			want: false,
+		},
+		{
+			name: "both nil",
+			args: args{},
+			want: true,
+		},
+		{
+			name: "other nil",
+			fields: &L4Addr{
+				Protocol: NONE,
+				Port:     1,
+			},
+			args: args{},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := tt.fields
+			if got := l.Equals(tt.args.o); got != tt.want {
+				t.Errorf("L4Addr.Equals() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFEPort_EqualsIgnoreID(t *testing.T) {
+	type args struct {
+		o *FEPort
+	}
+	tests := []struct {
+		name   string
+		fields *FEPort
+		args   args
+		want   bool
+	}{
+		{
+			name: "both equal",
+			fields: &FEPort{
+				L4Addr: &L4Addr{
+					Protocol: NONE,
+					Port:     1,
+				},
+				ID: 1,
+			},
+			args: args{
+				o: &FEPort{
+					L4Addr: &L4Addr{
+						Protocol: NONE,
+						Port:     1,
+					},
+					ID: 1,
+				},
+			},
+			want: true,
+		},
+		{
+			name: "IDs different are considered equal",
+			fields: &FEPort{
+				L4Addr: &L4Addr{
+					Protocol: NONE,
+					Port:     1,
+				},
+				ID: 1,
+			},
+			args: args{
+				o: &FEPort{
+					L4Addr: &L4Addr{
+						Protocol: NONE,
+						Port:     1,
+					},
+					ID: 1001,
+				},
+			},
+			want: true,
+		},
+		{
+			name: "both nil",
+			args: args{},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := tt.fields
+			if got := f.EqualsIgnoreID(tt.args.o); got != tt.want {
+				t.Errorf("FEPort.EqualsIgnoreID() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFEPort_Equals(t *testing.T) {
+	type args struct {
+		o *FEPort
+	}
+	tests := []struct {
+		name   string
+		fields *FEPort
+		args   args
+		want   bool
+	}{
+		{
+			name: "both equal",
+			fields: &FEPort{
+				L4Addr: &L4Addr{
+					Protocol: NONE,
+					Port:     1,
+				},
+				ID: 1,
+			},
+			args: args{
+				o: &FEPort{
+					L4Addr: &L4Addr{
+						Protocol: NONE,
+						Port:     1,
+					},
+					ID: 1,
+				},
+			},
+			want: true,
+		},
+		{
+			name: "IDs different are considered different",
+			fields: &FEPort{
+				L4Addr: &L4Addr{
+					Protocol: NONE,
+					Port:     1,
+				},
+				ID: 1,
+			},
+			args: args{
+				o: &FEPort{
+					L4Addr: &L4Addr{
+						Protocol: NONE,
+						Port:     1,
+					},
+					ID: 1001,
+				},
+			},
+			want: false,
+		},
+		{
+			name: "both nil",
+			args: args{},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := tt.fields
+			if got := f.Equals(tt.args.o); got != tt.want {
+				t.Errorf("FEPort.Equals() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestK8sServiceInfo_Equals(t *testing.T) {
+	type args struct {
+		o *K8sServiceInfo
+	}
+	tests := []struct {
+		name   string
+		fields *K8sServiceInfo
+		args   args
+		want   bool
+	}{
+		{
+			name: "both equal",
+			fields: &K8sServiceInfo{
+				FEIP:       net.ParseIP("1.1.1.1"),
+				IsHeadless: true,
+				Ports: map[FEPortName]*FEPort{
+					FEPortName("foo"): {
+						L4Addr: &L4Addr{
+							Protocol: NONE,
+							Port:     1,
+						},
+						ID: 1,
+					},
+				},
+				Labels: map[string]string{
+					"foo": "bar",
+				},
+				Selector: map[string]string{
+					"baz": "foz",
+				},
+			},
+			args: args{
+				o: &K8sServiceInfo{
+					FEIP:       net.ParseIP("1.1.1.1"),
+					IsHeadless: true,
+					Ports: map[FEPortName]*FEPort{
+						FEPortName("foo"): {
+							L4Addr: &L4Addr{
+								Protocol: NONE,
+								Port:     1,
+							},
+							ID: 1,
+						},
+					},
+					Labels: map[string]string{
+						"foo": "bar",
+					},
+					Selector: map[string]string{
+						"baz": "foz",
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "different labels",
+			fields: &K8sServiceInfo{
+				FEIP:       net.ParseIP("1.1.1.1"),
+				IsHeadless: true,
+				Ports: map[FEPortName]*FEPort{
+					FEPortName("foo"): {
+						L4Addr: &L4Addr{
+							Protocol: NONE,
+							Port:     1,
+						},
+						ID: 1,
+					},
+				},
+				Labels: map[string]string{},
+				Selector: map[string]string{
+					"baz": "foz",
+				},
+			},
+			args: args{
+				o: &K8sServiceInfo{
+					FEIP:       net.ParseIP("1.1.1.1"),
+					IsHeadless: true,
+					Ports: map[FEPortName]*FEPort{
+						FEPortName("foo"): {
+							L4Addr: &L4Addr{
+								Protocol: NONE,
+								Port:     1,
+							},
+							ID: 1,
+						},
+					},
+					Labels: map[string]string{
+						"foo": "bar",
+					},
+					Selector: map[string]string{
+						"baz": "foz",
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "different selector",
+			fields: &K8sServiceInfo{
+				FEIP:       net.ParseIP("1.1.1.1"),
+				IsHeadless: true,
+				Ports: map[FEPortName]*FEPort{
+					FEPortName("foo"): {
+						L4Addr: &L4Addr{
+							Protocol: NONE,
+							Port:     1,
+						},
+						ID: 1,
+					},
+				},
+				Labels:   map[string]string{},
+				Selector: map[string]string{},
+			},
+			args: args{
+				o: &K8sServiceInfo{
+					FEIP:       net.ParseIP("1.1.1.1"),
+					IsHeadless: true,
+					Ports: map[FEPortName]*FEPort{
+						FEPortName("foo"): {
+							L4Addr: &L4Addr{
+								Protocol: NONE,
+								Port:     1,
+							},
+							ID: 1,
+						},
+					},
+					Labels: map[string]string{},
+					Selector: map[string]string{
+						"baz": "foz",
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "ports different name",
+			fields: &K8sServiceInfo{
+				FEIP:       net.ParseIP("1.1.1.1"),
+				IsHeadless: true,
+				Ports: map[FEPortName]*FEPort{
+					FEPortName("foz"): {
+						L4Addr: &L4Addr{
+							Protocol: NONE,
+							Port:     1,
+						},
+						ID: 1,
+					},
+				},
+				Labels:   map[string]string{},
+				Selector: map[string]string{},
+			},
+			args: args{
+				o: &K8sServiceInfo{
+					FEIP:       net.ParseIP("1.1.1.1"),
+					IsHeadless: true,
+					Ports: map[FEPortName]*FEPort{
+						FEPortName("foo"): {
+							L4Addr: &L4Addr{
+								Protocol: NONE,
+								Port:     1,
+							},
+							ID: 1,
+						},
+					},
+					Labels:   map[string]string{},
+					Selector: map[string]string{},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "ports different content",
+			fields: &K8sServiceInfo{
+				FEIP:       net.ParseIP("1.1.1.1"),
+				IsHeadless: true,
+				Ports: map[FEPortName]*FEPort{
+					FEPortName("foo"): {
+						L4Addr: &L4Addr{
+							Protocol: NONE,
+							Port:     1,
+						},
+						ID: 1,
+					},
+				},
+				Labels:   map[string]string{},
+				Selector: map[string]string{},
+			},
+			args: args{
+				o: &K8sServiceInfo{
+					FEIP:       net.ParseIP("1.1.1.1"),
+					IsHeadless: true,
+					Ports: map[FEPortName]*FEPort{
+						FEPortName("foo"): {
+							L4Addr: &L4Addr{
+								Protocol: NONE,
+								Port:     2,
+							},
+							ID: 1,
+						},
+					},
+					Labels:   map[string]string{},
+					Selector: map[string]string{},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "ports different one is bigger",
+			fields: &K8sServiceInfo{
+				FEIP:       net.ParseIP("1.1.1.1"),
+				IsHeadless: true,
+				Ports: map[FEPortName]*FEPort{
+					FEPortName("foo"): {
+						L4Addr: &L4Addr{
+							Protocol: NONE,
+							Port:     1,
+						},
+						ID: 1,
+					},
+				},
+				Labels:   map[string]string{},
+				Selector: map[string]string{},
+			},
+			args: args{
+				o: &K8sServiceInfo{
+					FEIP:       net.ParseIP("1.1.1.1"),
+					IsHeadless: true,
+					Ports: map[FEPortName]*FEPort{
+						FEPortName("foo"): {
+							L4Addr: &L4Addr{
+								Protocol: NONE,
+								Port:     1,
+							},
+							ID: 1,
+						},
+						FEPortName("baz"): {
+							L4Addr: &L4Addr{
+								Protocol: NONE,
+								Port:     2,
+							},
+							ID: 2,
+						},
+					},
+					Labels:   map[string]string{},
+					Selector: map[string]string{},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "ports different one is nil",
+			fields: &K8sServiceInfo{
+				FEIP:       net.ParseIP("1.1.1.1"),
+				IsHeadless: true,
+				Labels:     map[string]string{},
+				Selector:   map[string]string{},
+			},
+			args: args{
+				o: &K8sServiceInfo{
+					FEIP:       net.ParseIP("1.1.1.1"),
+					IsHeadless: true,
+					Ports: map[FEPortName]*FEPort{
+						FEPortName("foo"): {
+							L4Addr: &L4Addr{
+								Protocol: NONE,
+								Port:     1,
+							},
+							ID: 1,
+						},
+					},
+					Labels:   map[string]string{},
+					Selector: map[string]string{},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "both nil",
+			args: args{},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			si := tt.fields
+			if got := si.Equals(tt.args.o); got != tt.want {
+				t.Errorf("K8sServiceInfo.Equals() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

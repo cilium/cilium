@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -186,6 +187,40 @@ func (si K8sServiceInfo) IsExternal() bool {
 	return len(si.Selector) == 0
 }
 
+// Equals returns true if K8sServiceInfo is considered equal to the given
+// k8sServiceInfo.
+// Parameters:
+//  * o K8sServiceInfo to be compared with.
+func (si *K8sServiceInfo) Equals(o *K8sServiceInfo) bool {
+	switch {
+	case (si == nil) != (o == nil):
+		return false
+	case (si == nil) && (o == nil):
+		return true
+	}
+	if si.IsHeadless == o.IsHeadless &&
+		si.FEIP.Equal(o.FEIP) &&
+		comparator.MapStringEquals(si.Labels, o.Labels) &&
+		comparator.MapStringEquals(si.Selector, o.Selector) {
+
+		if ((si.Ports == nil) != (o.Ports == nil)) ||
+			len(si.Ports) != len(o.Ports) {
+			return false
+		}
+		for portName, port := range si.Ports {
+			oPort, ok := o.Ports[portName]
+			if !ok {
+				return false
+			}
+			if !port.EqualsIgnoreID(oPort) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
 // NewK8sServiceInfo creates a new K8sServiceInfo with the Ports map initialized.
 func NewK8sServiceInfo(ip net.IP, headless bool, labels map[string]string, selector map[string]string) *K8sServiceInfo {
 	return &K8sServiceInfo{
@@ -245,6 +280,17 @@ func NewL4Addr(protocol L4Type, number uint16) (*L4Addr, error) {
 	return &L4Addr{Protocol: protocol, Port: number}, nil
 }
 
+// Equals returns true if both L4Addr are considered equal.
+func (l *L4Addr) Equals(o *L4Addr) bool {
+	switch {
+	case (l == nil) != (o == nil):
+		return false
+	case (l == nil) && (o == nil):
+		return true
+	}
+	return l.Port == o.Port && l.Protocol == o.Protocol
+}
+
 // DeepCopy returns a DeepCopy of the given L4Addr.
 func (l *L4Addr) DeepCopy() *L4Addr {
 	return &L4Addr{
@@ -263,6 +309,29 @@ type FEPort struct {
 func NewFEPort(protocol L4Type, portNumber uint16) (*FEPort, error) {
 	lbport, err := NewL4Addr(protocol, portNumber)
 	return &FEPort{L4Addr: lbport}, err
+}
+
+// EqualsIgnoreID returns true if both L4Addr are considered equal without
+// comparing its ID.
+func (f *FEPort) EqualsIgnoreID(o *FEPort) bool {
+	switch {
+	case (f == nil) != (o == nil):
+		return false
+	case (f == nil) && (o == nil):
+		return true
+	}
+	return f.L4Addr.Equals(o.L4Addr)
+}
+
+// Equals returns true if both L4Addr are considered equal.
+func (f *FEPort) Equals(o *FEPort) bool {
+	switch {
+	case (f == nil) != (o == nil):
+		return false
+	case (f == nil) && (o == nil):
+		return true
+	}
+	return f.EqualsIgnoreID(o) && f.ID == o.ID
 }
 
 // L3n4Addr is used to store, as an unique L3+L4 address in the KVStore.
