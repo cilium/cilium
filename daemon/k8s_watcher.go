@@ -50,6 +50,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/versioncheck"
+	"github.com/cilium/cilium/pkg/versioned"
 
 	go_version "github.com/hashicorp/go-version"
 	"github.com/sirupsen/logrus"
@@ -382,7 +383,6 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		policyController := k8sUtils.ControllerFactory(
 			k8s.Client().NetworkingV1().RESTClient(),
 			&networkingv1.NetworkPolicy{},
-			reSyncPeriod,
 			k8sUtils.ResourceEventHandlerFactory(
 				func(i interface{}) func() error {
 					return func() error {
@@ -402,7 +402,12 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 						return nil
 					}
 				},
+				func(m versioned.Map) versioned.Map {
+					return m
+				},
 				&networkingv1.NetworkPolicy{},
+				k8s.Client(),
+				reSyncPeriod,
 				metrics.EventTSK8s,
 			),
 			fields.Everything(),
@@ -416,7 +421,6 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	svcController := k8sUtils.ControllerFactory(
 		k8s.Client().CoreV1().RESTClient(),
 		&v1.Service{},
-		reSyncPeriod,
 		k8sUtils.ResourceEventHandlerFactory(
 			func(i interface{}) func() error {
 				return func() error {
@@ -436,7 +440,12 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 					return nil
 				}
 			},
+			func(m versioned.Map) versioned.Map {
+				return m
+			},
 			&v1.Service{},
+			k8s.Client(),
+			reSyncPeriod,
 			metrics.EventTSK8s,
 		),
 		fields.Everything(),
@@ -448,7 +457,6 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	endpointController := k8sUtils.ControllerFactory(
 		k8s.Client().CoreV1().RESTClient(),
 		&v1.Endpoints{},
-		reSyncPeriod,
 		k8sUtils.ResourceEventHandlerFactory(
 			func(i interface{}) func() error {
 				return func() error {
@@ -468,7 +476,12 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 					return nil
 				}
 			},
+			func(m versioned.Map) versioned.Map {
+				return m
+			},
 			&v1.Endpoints{},
+			k8s.Client(),
+			reSyncPeriod,
 			metrics.EventTSK8s,
 		),
 		// Don't get any events from kubernetes endpoints.
@@ -482,7 +495,6 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		ingressController := k8sUtils.ControllerFactory(
 			k8s.Client().ExtensionsV1beta1().RESTClient(),
 			&v1beta1.Ingress{},
-			reSyncPeriod,
 			k8sUtils.ResourceEventHandlerFactory(
 				func(i interface{}) func() error {
 					return func() error {
@@ -502,7 +514,12 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 						return nil
 					}
 				},
+				func(m versioned.Map) versioned.Map {
+					return m
+				},
 				&v1beta1.Ingress{},
+				k8s.Client(),
+				reSyncPeriod,
 				metrics.EventTSK8s,
 			),
 			fields.Everything(),
@@ -542,7 +559,12 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 					return nil
 				}
 			},
+			func(m versioned.Map) versioned.Map {
+				return m
+			},
 			&cilium_v2.CiliumNetworkPolicy{},
+			ciliumNPClient,
+			reSyncPeriod,
 			metrics.EventTSK8s,
 		)
 		blockWaitGroupToSyncResources(&d.k8sResourceSyncWaitGroup, ciliumV2Controller, "CiliumNetworkPolicy")
@@ -555,7 +577,6 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	podsController := k8sUtils.ControllerFactory(
 		k8s.Client().CoreV1().RESTClient(),
 		&v1.Pod{},
-		reSyncPeriod,
 		k8sUtils.ResourceEventHandlerFactory(
 			func(i interface{}) func() error {
 				return func() error {
@@ -575,7 +596,12 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 					return nil
 				}
 			},
+			func(m versioned.Map) versioned.Map {
+				return m
+			},
 			&v1.Pod{},
+			k8s.Client(),
+			reSyncPeriod,
 			metrics.EventTSK8s,
 		),
 		fields.Everything(),
@@ -587,7 +613,6 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	nodesController := k8sUtils.ControllerFactory(
 		k8s.Client().CoreV1().RESTClient(),
 		&v1.Node{},
-		reSyncPeriod,
 		k8sUtils.ResourceEventHandlerFactory(
 			func(i interface{}) func() error {
 				return func() error {
@@ -607,7 +632,12 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 					return nil
 				}
 			},
+			func(m versioned.Map) versioned.Map {
+				return m
+			},
 			&v1.Node{},
+			k8s.Client(),
+			reSyncPeriod,
 			metrics.EventTSK8s,
 		),
 		fields.Everything(),
@@ -619,7 +649,6 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	namespaceController := k8sUtils.ControllerFactory(
 		k8s.Client().CoreV1().RESTClient(),
 		&v1.Namespace{},
-		reSyncPeriod,
 		k8sUtils.ResourceEventHandlerFactory(
 			// AddFunc does not matter since the endpoint will fetch
 			// namespace labels when the endpoint is created
@@ -633,7 +662,12 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 					return nil
 				}
 			},
+			func(m versioned.Map) versioned.Map {
+				return m
+			},
 			&v1.Namespace{},
+			k8s.Client(),
+			reSyncPeriod,
 			metrics.EventTSK8s,
 		),
 		fields.Everything(),

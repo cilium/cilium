@@ -15,6 +15,8 @@
 package utils
 
 import (
+	"github.com/cilium/cilium/pkg/versioned"
+
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -31,4 +33,20 @@ func ExtractNamespace(np metav1.Object) string {
 // GetObjNamespaceName returns the object's namespace and name.
 func GetObjNamespaceName(obj metav1.Object) string {
 	return ExtractNamespace(obj) + "/" + obj.GetName()
+}
+
+// GetObjUID returns the object's namespace and name.
+func GetObjUID(obj metav1.Object) string {
+	return GetObjNamespaceName(obj) + "/" + string(obj.GetUID())
+}
+
+// GetVerStructFrom returns a versionedObject of the given objMeta.
+func GetVerStructFrom(objMeta metav1.Object) (versioned.UUID, versioned.Object) {
+	uuid := versioned.UUID(GetObjUID(objMeta))
+	v := versioned.ParseVersion(objMeta.GetResourceVersion())
+	vs := versioned.Object{
+		Data:    objMeta,
+		Version: v,
+	}
+	return uuid, vs
 }
