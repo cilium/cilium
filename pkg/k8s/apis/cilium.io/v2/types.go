@@ -21,7 +21,8 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
-	k8sUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
+	k8sCiliumUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
+	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -171,7 +172,7 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 			return nil, fmt.Errorf("Invalid CiliumNetworkPolicy spec: %s", err)
 
 		}
-		cr := k8sUtils.ParseToCiliumRule(namespace, name, r.Spec)
+		cr := k8sCiliumUtils.ParseToCiliumRule(namespace, name, r.Spec)
 		retRules = append(retRules, cr)
 	}
 	if r.Specs != nil {
@@ -180,7 +181,7 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 				return nil, fmt.Errorf("Invalid CiliumNetworkPolicy specs: %s", err)
 
 			}
-			cr := k8sUtils.ParseToCiliumRule(namespace, name, rule)
+			cr := k8sCiliumUtils.ParseToCiliumRule(namespace, name, rule)
 			retRules = append(retRules, cr)
 		}
 	}
