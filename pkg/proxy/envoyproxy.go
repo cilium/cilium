@@ -40,7 +40,7 @@ var envoyOnce sync.Once
 func createEnvoyRedirect(r *Redirect, stateDir string, xdsServer *envoy.XDSServer, wg *completion.WaitGroup) (RedirectImplementation, error) {
 	envoyOnce.Do(func() {
 		// Start Envoy on first invocation
-		envoyProxy = envoy.StartEnvoy(9901, stateDir, viper.GetString("envoy-log"), 0)
+		envoyProxy = envoy.StartEnvoy(stateDir, viper.GetString("envoy-log"), 0)
 	})
 
 	if envoyProxy != nil {
