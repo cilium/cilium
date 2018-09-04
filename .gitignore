@@ -29,6 +29,7 @@ _testmain.go
 *.swn
 *.swp
 .vagrant
+vagrant.kubeconfig
 coverage.out
 coverage-all.out
 coverage-all.html
