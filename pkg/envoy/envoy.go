@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os/exec"
 	"path/filepath"
@@ -51,6 +52,10 @@ var (
 	tracing = false
 )
 
+const (
+	adminSock = "envoy-admin.sock"
+)
+
 // EnableTracing changes Envoy log level to "trace", producing the most logs.
 func EnableTracing() {
 	tracing = true
@@ -70,11 +75,19 @@ func mapLogLevel(level logrus.Level) string {
 
 type admin struct {
 	adminURL string
+	unixPath string
 	level    string
 }
 
 func (a *admin) transact(query string) error {
-	resp, err := http.Post(a.adminURL+query, "", nil)
+	// Use a custom dialer to use a Unix domain socket for a HTTP connection.
+	client := &http.Client{
+		Transport: &http.Transport{
+			Dial: func(_, _ string) (net.Conn, error) { return net.Dial("unix", a.unixPath) },
+		},
+	}
+
+	resp, err := client.Post(a.adminURL+query, "", nil)
 	if err != nil {
 		return err
 	}
@@ -127,15 +140,25 @@ func GetEnvoyVersion() string {
 }
 
 // StartEnvoy starts an Envoy proxy instance.
-func StartEnvoy(adminPort uint32, stateDir, logPath string, baseID uint64) *Envoy {
+func StartEnvoy(stateDir, logPath string, baseID uint64) *Envoy {
 	bootstrapPath := filepath.Join(stateDir, "bootstrap.pb")
-	adminAddress := "127.0.0.1:" + strconv.FormatUint(uint64(adminPort), 10)
 	xdsPath := getXDSPath(stateDir)
+
+	// Have to use a fake IP address:port even when we Dial to a Unix domain socket.
+	// The address:port will be visible to Envoy as ':authority', but its value is
+	// not meaningful.
+	// Not using the normal localhost address to make it obvious that we are not
+	// connecting to Envoy's admin interface via the IP stack.
+	adminAddress := "192.0.2.34:56"
+	adminPath := filepath.Join(stateDir, adminSock)
 
 	e := &Envoy{
 		stopCh: make(chan struct{}),
 		errCh:  make(chan error, 1),
-		admin:  &admin{adminURL: "http://" + adminAddress + "/"},
+		admin: &admin{
+			adminURL: "http://" + adminAddress + "/",
+			unixPath: adminPath,
+		},
 	}
 
 	// Use the same structure as Istio's pilot-agent for the node ID:
@@ -144,7 +167,7 @@ func StartEnvoy(adminPort uint32, stateDir, logPath string, baseID uint64) *Envo
 
 	// Create static configuration
 	createBootstrap(bootstrapPath, nodeId, "cluster1", "version1",
-		xdsPath, "cluster1", adminPort)
+		xdsPath, "cluster1", adminPath)
 
 	log.Debugf("Envoy: Starting: %v", *e)
 
