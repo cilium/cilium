@@ -7,7 +7,7 @@ message KeyValue {
   string value = 2;
 }
 
-enum Protocol {
+enum HttpProtocol {
   HTTP10 = 0;
   HTTP11 = 1;
   HTTP2 = 2;
@@ -20,11 +20,29 @@ enum EntryType {
 }
 
 message HttpLogEntry {
+  HttpProtocol http_protocol = 1;
+
+  // Request info that is also retained for the response
+  string scheme = 2;      // Envoy "x-forwarded-proto", e.g., "http", "https"
+  string host = 3;        // Envoy ":authority" header
+  string path = 4;        // Envoy ":path" header
+  string method = 5;      // Envoy ":method" header
+
+  // Request headers not included above
+  repeated KeyValue headers = 6;
+
+  // Response info
+  uint32 status = 7;      // Envoy ":status" header, zero for request
+}
+
+message LogEntry {
   // The time that Cilium filter captured this log entry,
   // in, nanoseconds since 1/1/1970.
   uint64 timestamp = 1;
 
-  Protocol http_protocol = 2;
+  // 'true' if the request was received by an ingress listener,
+  // 'false' if received by an egress listener
+  bool is_ingress = 15;
 
   EntryType entry_type = 3;
 
@@ -34,27 +52,32 @@ message HttpLogEntry {
   // Cilium rule reference
   string cilium_rule_ref = 5;
   
-  // Cilium security ID of the source
+  // Cilium security ID of the source and destination
   uint32 source_security_id = 6;
+  uint32 destination_security_id = 16;
 
   // These fields record the original source and destination addresses,
   // stored in ipv4:port or [ipv6]:port format.
   string source_address = 7;
   string destination_address = 8;
 
-  // Request info that is also retained for the response
-  string scheme = 9;      // Envoy "x-forwarded-proto", e.g., "http", "https"
-  string host = 10;       // Envoy ":authority" header
-  string path = 11;       // Envoy ":path" header
-  string method = 12;     // Envoy ":method" header
+  oneof l7 {
+    HttpLogEntry http = 100;
+  }
 
-  // Response info
-  uint32 status = 13;     // Envoy ":status" header, zero for request
+  //
+  // Deprecated HTTP fields. Use the http field above instead.
+  //
+  HttpProtocol http_protocol = 2 [deprecated=true];
+
+  // Request info that is also retained for the response
+  string scheme = 9 [deprecated=true];      // Envoy "x-forwarded-proto", e.g., "http", "https"
+  string host = 10 [deprecated=true];       // Envoy ":authority" header
+  string path = 11 [deprecated=true];       // Envoy ":path" header
+  string method = 12 [deprecated=true];     // Envoy ":method" header
+
+  uint32 status = 13 [deprecated=true];     // Envoy ":status" header, zero for request
   
   // Request headers not included above
-  repeated KeyValue headers = 14;
-
-  // 'true' if the request was received by an ingress listener,
-  // 'false' if received by an egress listener
-  bool is_ingress = 15;
+  repeated KeyValue headers = 14 [deprecated=true];
 }

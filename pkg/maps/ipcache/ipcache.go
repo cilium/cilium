@@ -17,6 +17,7 @@ package ipcache
 import (
 	"fmt"
 	"net"
+	"sync"
 	"unsafe"
 
 	"github.com/cilium/cilium/common/types"
@@ -33,6 +34,9 @@ const (
 	// MaxEntries is the maximum number of keys that can be present in the
 	// RemoteEndpointMap.
 	MaxEntries = 512000
+
+	// Name is the canonical name for the IPCache map on the filesystem.
+	Name = "cilium_ipcache"
 
 	// maxPrefixLengths is an approximation of how many different CIDR
 	// prefix lengths may be supported by the BPF datapath without causing
@@ -135,13 +139,22 @@ func (v *RemoteEndpointInfo) GetValuePtr() unsafe.Pointer { return unsafe.Pointe
 // Map represents an IPCache BPF map.
 type Map struct {
 	bpf.Map
+
+	// detectDeleteSupport is used to initialize 'supportsDelete' the first
+	// time that a delete is issued from the datapath.
+	detectDeleteSupport sync.Once
+
+	// deleteSupport is set to 'true' initially, then is updated to set
+	// whether the underlying kernel supports delete operations on the map
+	// the first time that supportsDelete() is called.
+	deleteSupport bool
 }
 
 // NewMap instantiates a Map.
-func NewMap() *Map {
+func NewMap(name string) *Map {
 	return &Map{
 		Map: *bpf.NewMap(
-			"cilium_ipcache",
+			name,
 			bpf.BPF_MAP_TYPE_LPM_TRIE,
 			int(unsafe.Sizeof(Key{})),
 			int(unsafe.Sizeof(RemoteEndpointInfo{})),
@@ -156,18 +169,33 @@ func NewMap() *Map {
 				return &k, &v, nil
 			},
 		).WithCache(),
+		deleteSupport: true,
 	}
 }
 
-// Delete removes a key from the ipcache BPF map
-func Delete(k bpf.MapKey) error {
+// delete removes a key from the ipcache BPF map, and returns whether the
+// kernel supports the delete operation (true) or not (false), and any error
+// that may have occurred while attempting to delete the entry.
+//
+// If "overwrite" is true, then if delete is not supported the entry's value
+// will be overwritten with zeroes to signify that it's an invalid entry.
+func (m *Map) delete(k bpf.MapKey, overwrite bool) (bool, error) {
 	// Older kernels do not support deletion of LPM map entries so zero out
 	// the entry instead of attempting a deletion
-	err, errno := IPCache.DeleteWithErrno(k)
+	err, errno := m.DeleteWithErrno(k)
 	if errno == unix.ENOSYS {
-		return IPCache.Update(k, &RemoteEndpointInfo{})
+		if overwrite {
+			return false, m.Update(k, &RemoteEndpointInfo{})
+		}
+		return false, nil
 	}
 
+	return true, err
+}
+
+// Delete removes a key from the ipcache BPF map
+func (m *Map) Delete(k bpf.MapKey) error {
+	_, err := m.delete(k, true)
 	return err
 }
 
@@ -187,6 +215,25 @@ func (m *Map) GetMaxPrefixLengths(ipv6 bool) (count int) {
 	return maxPrefixLengths4
 }
 
+func (m *Map) supportsDelete() bool {
+	m.detectDeleteSupport.Do(func() {
+		// Entry is invalid because IPCache needs a family specified.
+		invalidEntry := &Key{}
+		m.deleteSupport, _ = m.delete(invalidEntry, false)
+		log.Debugf("Detected IPCache delete operation support: %t", m.deleteSupport)
+		if !m.deleteSupport {
+			log.Infof("Periodic IPCache map swap will occur due to lack of kernel support for LPM delete operation. Upgrade to Linux 4.15 or higher to avoid this.")
+		}
+	})
+	return m.deleteSupport
+}
+
+// SupportsDelete determines whether the underlying kernel map type supports
+// the delete operation.
+func SupportsDelete() bool {
+	return IPCache.supportsDelete()
+}
+
 // BackedByLPM returns true if the IPCache is backed by a proper LPM
 // implementation (provided by Linux kernels 4.11 or later), false otherwise.
 func BackedByLPM() bool {
@@ -197,7 +244,7 @@ var (
 	// IPCache is a mapping of all endpoint IPs in the cluster which this
 	// Cilium agent is a part of to their corresponding security identities.
 	// It is a singleton; there is only one such map per agent.
-	IPCache = NewMap()
+	IPCache = NewMap(Name)
 )
 
 func init() {
@@ -205,4 +252,10 @@ func init() {
 	if err != nil {
 		log.WithError(err).Error("unable to open map")
 	}
+}
+
+// Reopen attempts to close and re-open the IPCache map at the standard path
+// on the filesystem.
+func Reopen() error {
+	return IPCache.Map.Reopen()
 }

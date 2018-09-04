@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -59,14 +59,19 @@ func init() {
 }
 
 // Insert inserts the endpoint into the global maps.
-// Must be called with ep.Mutex.RLock held.
 func Insert(ep *endpoint.Endpoint) {
+	// No need to check liveness as an endpoint can only be deleted via the
+	// API after it has been inserted into the manager.
+	ep.UnconditionalRLock()
 	mutex.Lock()
-	defer mutex.Unlock()
 
 	endpoints[ep.ID] = ep
 	updateReferences(ep)
-	ep.RunK8sCiliumEndpointSync() // start the k8s update controller
+
+	mutex.Unlock()
+	ep.RUnlock()
+
+	ep.RunK8sCiliumEndpointSync()
 }
 
 // Lookup looks up the endpoint by prefix id
@@ -263,23 +268,24 @@ func updateReferences(ep *endpoint.Endpoint) {
 // list is locked and cannot be modified.
 // Returns a waiting group that can be used to know when all the endpoints are
 // regenerated.
-func RegenerateAllEndpoints(owner endpoint.Owner) *sync.WaitGroup {
+func RegenerateAllEndpoints(owner endpoint.Owner, regenContext *endpoint.RegenerationContext) *sync.WaitGroup {
 	var wg sync.WaitGroup
 
 	eps := GetEndpoints()
 	wg.Add(len(eps))
 
+	log.Infof("regenerating all endpoints due to %s", regenContext.Reason)
 	for _, ep := range eps {
 		go func(ep *endpoint.Endpoint, wg *sync.WaitGroup) {
 			if err := ep.LockAlive(); err != nil {
-				log.WithError(err).Warn("Error while handling policy updates for endpoint")
+				log.WithError(err).Warn("Error regenerating endpoint for event %s", regenContext.Reason)
 				ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+err.Error())
 			} else {
-				regen := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Triggering endpoint regeneration due to policy updates")
+				regen := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenContext.Reason))
 				ep.Unlock()
 				if regen {
 					// Regenerate logs status according to the build success/failure
-					<-ep.Regenerate(owner, "endpoint policy updated & changes were needed")
+					<-ep.Regenerate(owner, regenContext)
 				}
 			}
 			wg.Done()
@@ -312,14 +318,19 @@ func GetEndpoints() []*endpoint.Endpoint {
 }
 
 // AddEndpoint takes the prepared endpoint object and starts managing it.
-func AddEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, reason string) error {
+func AddEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, reason string) (err error) {
 	alwaysEnforce := policy.GetPolicyEnabled() == option.AlwaysEnforce
-	ep.Options.SetBool(option.IngressPolicy, alwaysEnforce)
-	ep.Options.SetBool(option.EgressPolicy, alwaysEnforce)
+	ep.SetIngressPolicyEnabled(alwaysEnforce)
+	ep.SetEgressPolicyEnabled(alwaysEnforce)
 
 	if err := ep.CreateDirectory(); err != nil {
 		return err
 	}
+	defer func() {
+		if err != nil {
+			ep.RemoveDirectory()
+		}
+	}()
 
 	// Regenerate immediately if ready or waiting for identity
 	if err := ep.LockAlive(); err != nil {
@@ -338,16 +349,11 @@ func AddEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, reason string) err
 
 	if build {
 		if err := ep.RegenerateWait(owner, reason); err != nil {
-			ep.RemoveDirectory()
 			return err
 		}
 	}
 
-	if err := ep.RLockAlive(); err != nil {
-		return err
-	}
 	Insert(ep)
-	ep.RUnlock()
 	ep.InsertEvent()
 
 	return nil

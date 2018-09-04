@@ -913,7 +913,7 @@ var _ = Describe("RuntimePolicies", func() {
 		// increment it by 1 again. We can wait for two policy revisions to happen.
 		// Once we have an API to expose DNS->IP mappings we can also use that to
 		// ensure the lookup has completed more explicitly
-		timeout_s := 3 * fqdn.DNSPollerInterval / time.Second // convert to seconds
+		timeout_s := int64(3 * fqdn.DNSPollerInterval / time.Second) // convert to seconds
 		dnsWaitBody := func() bool {
 			return vm.PolicyWait(preImportPolicyRevision + 2).WasSuccessful()
 		}
@@ -1300,7 +1300,6 @@ var _ = Describe("RuntimePolicies", func() {
 
 			By("Accessing /private on %q from %q should fail", otherHostIP, helpers.App1)
 			res := vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode("http://%s/private", otherHostIP))
-			res.ExpectFail("unexpectedly able to access http://%q:80/private when access should only be allowed to /index.html", otherHostIP)
 			res.ExpectContains("403", "unexpectedly able to access http://%q:80/private when access should only be allowed to /index.html", otherHostIP)
 		})
 	})

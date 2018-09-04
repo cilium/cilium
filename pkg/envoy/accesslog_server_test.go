@@ -32,7 +32,7 @@ func (k *AccessLogServerSuite) TestParseURL(c *C) {
 	}
 
 	for _, l := range logs {
-		u := parseURL(&l)
+		u := l.ParseURL()
 		c.Assert(u.Scheme, Equals, "http")
 		c.Assert(u.Host, Equals, "foo")
 		c.Assert(u.Path, Equals, "/foo")

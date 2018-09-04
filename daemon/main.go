@@ -42,6 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -347,6 +348,7 @@ func init() {
 		option.AutoIPv6NodeRoutesName, false, "Automatically adds IPv6 L3 routes to reach other nodes for non-overlay mode (--device) (BETA)")
 	flags.StringVar(&bpfRoot,
 		"bpf-root", "", "Path to BPF filesystem")
+	flags.Bool(option.BPFCompileDebugName, false, "Enable debugging of the BPF compilation process")
 	flags.Int(option.ClusterIDName, 0, "Unique identifier of the cluster")
 	viper.BindEnv(option.ClusterIDName, option.ClusterIDEnv)
 	flags.String(option.ClusterName, defaults.ClusterName, "Name of the cluster")
@@ -432,6 +434,7 @@ func init() {
 		"logstash-agent", "127.0.0.1:8080", "Logstash agent address")
 	flags.Uint32Var(&logstashProbeTimer,
 		"logstash-probe-timer", 10, "Logstash probe timer (seconds)")
+	flags.Bool(option.LogSystemLoadConfigName, false, "Enable periodic logging of system load")
 	flags.StringVar(&nat46prefix,
 		"nat46-range", defaults.DefaultNAT46Prefix, "IPv6 prefix to map IPv4 addresses to")
 	flags.BoolVar(&masquerade,
@@ -569,6 +572,10 @@ func initEnv(cmd *cobra.Command) {
 	log.Info("|___|_|_|_|___|_|_|_|")
 	log.Infof("Cilium %s", version.Version)
 
+	if viper.GetBool(option.LogSystemLoadConfigName) {
+		loadinfo.StartBackgroundLogger()
+	}
+
 	if viper.GetBool("disable-envoy-version-check") {
 		log.Info("Envoy version check disabled")
 	} else {
@@ -681,7 +688,7 @@ func initEnv(cmd *cobra.Command) {
 
 	monitorAggregationLevel, err := option.ParseMonitorAggregationLevel(viper.GetString(option.MonitorAggregationName))
 	if err != nil {
-		log.WithError(err).Fatal("Failed to parse %s: %s",
+		log.WithError(err).Fatalf("Failed to parse %s: %s",
 			option.MonitorAggregationName, err)
 	}
 	option.Config.Opts.SetValidated(option.MonitorAggregation, monitorAggregationLevel)
@@ -689,7 +696,7 @@ func initEnv(cmd *cobra.Command) {
 	policy.SetPolicyEnabled(strings.ToLower(viper.GetString("enable-policy")))
 
 	if err := identity.AddUserDefinedNumericIdentitySet(fixedIdentity); err != nil {
-		log.Fatal("Invalid fixed identities provided: %s", err)
+		log.Fatalf("Invalid fixed identities provided: %s", err)
 	}
 
 	if err := kvstore.Setup(kvStore, kvStoreOpts); err != nil {
@@ -829,7 +836,6 @@ func runDaemon() {
 	go func() {
 		log.Info("Waiting until all pre-existing resources related to policy have been received")
 		d.k8sResourceSyncWaitGroup.Wait()
-		identity.WaitForInitialIdentities()
 		cachesSynced <- struct{}{}
 	}()
 

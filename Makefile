@@ -9,8 +9,10 @@ GOLANG_SRCFILES=$(shell for pkg in $(subst github.com/cilium/cilium/,,$(GOFILES)
 BPF_FILES ?= $(shell git ls-files ../bpf/ | tr "\n" ' ')
 BPF_SRCFILES=$(subst ../,,$(BPF_FILES))
 
+DOCKER=$(QUIET)docker
+
 SWAGGER_VERSION = 0.12.0
-SWAGGER = $(QUIET)docker run --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) -e GOPATH=$(GOPATH) --entrypoint swagger quay.io/goswagger/swagger:$(SWAGGER_VERSION)
+SWAGGER = $(DOCKER) run --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) -e GOPATH=$(GOPATH) --entrypoint swagger quay.io/goswagger/swagger:$(SWAGGER_VERSION)
 
 GOTEST_OPTS = -test.v -check.vv
 
@@ -59,8 +61,9 @@ tests-envoy:
 	@ $(MAKE) -C envoy tests
 
 start-kvstores:
-	@docker rm -f "cilium-etcd-test-container" 2> /dev/null || true
-	-docker run -d \
+	@echo Starting key-value store containers...
+	-$(DOCKER) rm -f "cilium-etcd-test-container" 2> /dev/null
+	$(DOCKER) run -d \
 	    --name "cilium-etcd-test-container" \
 	    -p 4002:4001 \
         quay.io/coreos/etcd:v3.2.17 \
@@ -70,8 +73,8 @@ start-kvstores:
         -listen-peer-urls http://0.0.0.0:2380 \
         -initial-cluster-token etcd-cluster-1 \
         -initial-cluster-state new
-	@docker rm -f "cilium-consul-test-container" 2> /dev/null || true
-	-docker run -d \
+	-$(DOCKER) rm -f "cilium-consul-test-container" 2> /dev/null
+	$(DOCKER) run -d \
            --name "cilium-consul-test-container" \
            -p 8501:8500 \
            -e 'CONSUL_LOCAL_CONFIG={"skip_leave_on_interrupt": true, "disable_update_check": true}' \
@@ -95,8 +98,8 @@ unit-tests: start-kvstores
 	$(QUIET) rm coverage-all.out
 	$(QUIET) rm coverage.out
 	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
-	$(QUIET) docker rm -f "cilium-etcd-test-container"
-	$(QUIET) docker rm -f "cilium-consul-test-container"
+	$(DOCKER) rm -f "cilium-etcd-test-container"
+	$(DOCKER) rm -f "cilium-consul-test-container"
 
 clean-tags:
 	@$(ECHO_CLEAN) tags
@@ -127,12 +130,13 @@ envoy/SOURCE_VERSION: .git
 	git rev-parse HEAD >envoy/SOURCE_VERSION
 
 docker-image: clean GIT_VERSION envoy/SOURCE_VERSION
-	grep -v -E "(SOURCE|GIT)_VERSION" .gitignore >.dockerignore
-	echo ".*" >>.dockerignore # .git pruned out
-	echo "Documentation" >>.dockerignore # Not needed
-	docker build --build-arg LOCKDEBUG=${LOCKDEBUG} -t "cilium/cilium:$(DOCKER_IMAGE_TAG)" .
-	@echo "Push like this when ready:"
-	@echo "docker push cilium/cilium:$(DOCKER_IMAGE_TAG)"
+	$(QUIET)grep -v -E "(SOURCE|GIT)_VERSION" .gitignore >.dockerignore
+	$(QUIET)echo ".*" >>.dockerignore # .git pruned out
+	$(QUIET)echo "Documentation" >>.dockerignore # Not needed
+	@$(ECHO_GEN) docker-image
+	$(DOCKER) build --build-arg LOCKDEBUG=${LOCKDEBUG} --build-arg V=${V} -t "cilium/cilium:$(DOCKER_IMAGE_TAG)" .
+	$(QUIET)echo "Push like this when ready:"
+	$(QUIET)echo "docker push cilium/cilium:$(DOCKER_IMAGE_TAG)"
 
 docker-image-runtime:
 	cd contrib/packaging/docker && docker build -t "cilium/cilium-runtime:$(UTC_DATE)" -f Dockerfile.runtime .
@@ -257,22 +261,22 @@ update-authors:
 	@cat .authors.aux >> AUTHORS
 
 docs-container:
-	grep -v -E "(SOURCE|GIT)_VERSION" .gitignore >.dockerignore
-	echo ".*" >>.dockerignore # .git pruned out
-	cp -r ./api ./Documentation/_api
-	docker image build -t cilium/docs-builder -f Documentation/Dockerfile ./Documentation; \
+	$(QUIET)grep -v -E "(SOURCE|GIT)_VERSION" .gitignore >.dockerignore
+	$(QUIET)echo ".*" >>.dockerignore # .git pruned out
+	$(QUIET)cp -r ./api ./Documentation/_api
+	$(DOCKER) image build -t cilium/docs-builder -f Documentation/Dockerfile ./Documentation; \
 	  (ret=$$?; rm -r ./Documentation/_api && exit $$ret)
 
 
 render-docs: docs-container
-	-docker container rm -f docs-cilium >/dev/null
-	docker container run --rm -ti -u $$(id -u):$$(id -g $(USER)) -v $$(pwd):/srv/ cilium/docs-builder /bin/bash -c 'make html' && \
-	docker container run --rm -dit --name docs-cilium -p 8080:80 -v $$(pwd)/Documentation/_build/html/:/usr/local/apache2/htdocs/ httpd:2.4
+	-$(DOCKER) container rm -f docs-cilium >/dev/null
+	$(DOCKER) container run --rm -ti -u $$(id -u):$$(id -g $(USER)) -v $$(pwd):/srv/ cilium/docs-builder /bin/bash -c 'make html'
+	$(DOCKER) container run --rm -dit --name docs-cilium -p 8080:80 -v $$(pwd)/Documentation/_build/html/:/usr/local/apache2/htdocs/ httpd:2.4
 	@echo "$$(tput setaf 2)Running at http://localhost:8080$$(tput sgr0)"
 
 test-docs: docs-container
-	-docker container rm -f docs-cilium >/dev/null
-	docker container run --rm -v $$(pwd):/srv/ cilium/docs-builder /bin/bash -c 'make html'
+	-$(DOCKER) container rm -f docs-cilium >/dev/null
+	$(DOCKER) container run --rm -v $$(pwd):/srv/ cilium/docs-builder /bin/bash -c 'make html'
 
 manpages:
 	-rm -r man

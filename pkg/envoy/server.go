@@ -168,6 +168,7 @@ func StartXDSServer(stateDir string) *XDSServer {
 							"config": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{}}}},
 						}}}},
 					}}}},
+					"stream_idle_timeout": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{}}}},
 					"route_config": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
 						"virtual_hosts": {Kind: &structpb.Value_ListValue{ListValue: &structpb.ListValue{Values: []*structpb.Value{
 							{Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
@@ -183,6 +184,10 @@ func StartXDSServer(stateDir string) *XDSServer {
 										"route": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
 											"cluster":          {Kind: &structpb.Value_StringValue{StringValue: "cluster1"}},
 											"max_grpc_timeout": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{}}}},
+											"retry_policy": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+												"retry_on":    {Kind: &structpb.Value_StringValue{StringValue: "5xx"}},
+												"num_retries": {Kind: &structpb.Value_NumberValue{NumberValue: 3}},
+											}}}},
 										}}}},
 									}}}},
 								}}}},

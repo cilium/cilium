@@ -62,7 +62,7 @@ var (
 type IdentityAllocatorOwner interface {
 	// TriggerPolicyUpdates will be called whenever a policy recalculation
 	// must be triggered
-	TriggerPolicyUpdates(force bool) *sync.WaitGroup
+	TriggerPolicyUpdates(force bool, reason string) *sync.WaitGroup
 
 	// GetSuffix must return the node specific suffix to use
 	GetNodeSuffix() string
@@ -87,6 +87,7 @@ func InitIdentityAllocator(owner IdentityAllocatorOwner) {
 			allocator.WithMax(maxID), allocator.WithMin(minID),
 			allocator.WithSuffix(owner.GetNodeSuffix()),
 			allocator.WithEvents(events),
+			allocator.WithMasterKeyProtection(),
 			allocator.WithPrefixMask(allocator.ID(option.Config.ClusterID<<option.ClusterIDShift)))
 		if err != nil {
 			log.WithError(err).Fatal("Unable to initialize identity allocator")

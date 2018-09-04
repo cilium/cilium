@@ -146,7 +146,7 @@ func (e *IdentityAllocatorConsulSuite) SetUpTest(c *C) {
 
 type dummyOwner struct{}
 
-func (d dummyOwner) TriggerPolicyUpdates(force bool) *sync.WaitGroup {
+func (d dummyOwner) TriggerPolicyUpdates(force bool, reason string) *sync.WaitGroup {
 	return nil
 }
 

@@ -25,16 +25,6 @@ import (
 // Owner is the interface defines the requirements for anybody owning policies.
 type Owner interface {
 
-	// Must return true if dry mode is enabled
-	DryModeEnabled() bool
-
-	// EnableEndpointPolicyEnforcement returns whether policy enforcement
-	// should be enabled for the specified endpoint.
-	EnableEndpointPolicyEnforcement(e *Endpoint) (bool, bool)
-
-	// GetPolicyEnforcementType returns the type of policy enforcement for the Owner.
-	PolicyEnforcement() string
-
 	// Must return the policy repository
 	GetPolicyRepository() *policy.Repository
 
@@ -53,20 +43,11 @@ type Owner interface {
 	// L7 proxies.
 	RemoveNetworkPolicy(e *Endpoint)
 
-	// GetStateDir must return path to the state directory
-	GetStateDir() string
-
-	// Must return path to BPF template files directory
-	GetBpfDir() string
-
 	// QueueEndpointBuild puts the given request in the processing queue
 	QueueEndpointBuild(*Request)
 
 	// RemoveFromEndpointQueue removes all requests from the working queue
 	RemoveFromEndpointQueue(epID uint64)
-
-	// Returns true if debugging has been enabled
-	DebugEnabled() bool
 
 	// GetCompilationLock returns the mutex responsible for synchronizing compilation
 	// of BPF programs.

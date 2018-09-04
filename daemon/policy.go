@@ -39,49 +39,20 @@ import (
 	"github.com/op/go-logging"
 )
 
-// RegenerateAllEndpoints triggers policy updates for every daemon's endpoint.
-// This is called after policy changes, but also after some changes in daemon
-// configuration and endpoint labels.
-// Returns a waiting group which signalizes when all endpoints are regenerated.
-func (d *Daemon) TriggerPolicyUpdates(force bool) *sync.WaitGroup {
+// TriggerPolicyUpdates triggers policy updates for every daemon's endpoint.
+// This may be called in a variety of situations: after policy changes, changes
+// in agent configuration, changes in endpoint labels, and change of security
+// identities.
+// Returns a waiting group which signals when all endpoints are regenerated.
+func (d *Daemon) TriggerPolicyUpdates(force bool, reason string) *sync.WaitGroup {
 	if force {
 		d.policy.BumpRevision() // force policy recalculation
 		log.Debugf("Forced policy recalculation triggered")
 	} else {
 		log.Debugf("Full policy recalculation triggered")
 	}
-	return endpointmanager.RegenerateAllEndpoints(d)
-}
-
-// UpdateEndpointPolicyEnforcement returns whether policy enforcement needs to be
-// enabled for the specified endpoint.
-//
-// Must be called with e.Consumable.Mutex and d.GetPolicyRepository().Mutex held.
-func (d *Daemon) EnableEndpointPolicyEnforcement(e *endpoint.Endpoint) (ingress bool, egress bool) {
-	// Check if policy enforcement should be enabled at the daemon level.
-	switch policy.GetPolicyEnabled() {
-	case option.AlwaysEnforce:
-		// If policy enforcement is enabled for the daemon, then it has to be
-		// enabled for the endpoint.
-		return true, true
-	case option.DefaultEnforcement:
-		// If the endpoint has the reserved:init label, i.e. if it has not yet
-		// received any labels, always enforce policy (default deny).
-		if e.IsInit() {
-			return true, true
-		}
-
-		// Default mode means that if rules contain labels that match this endpoint,
-		// then enable policy enforcement for this endpoint.
-		// GH-1676: Could check e.Consumable instead? Would be much cheaper.
-		return d.GetPolicyRepository().GetRulesMatching(e.SecurityIdentity.LabelArray)
-	default:
-		// If policy enforcement isn't enabled for the daemon we do not enable
-		// policy enforcement for the endpoint.
-		// This means that daemon policy enforcement mode is 'never', so no policy
-		// enforcement should be applied to the specified endpoint.
-		return false, false
-	}
+	regenContext := endpoint.NewRegenerationContext(reason)
+	return endpointmanager.RegenerateAllEndpoints(d, regenContext)
 }
 
 type getPolicyResolve struct {
@@ -248,7 +219,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 
 	log.WithField(logfields.PolicyRevision, rev).Info("Policy imported via API, recalculating...")
 
-	d.TriggerPolicyUpdates(false)
+	d.TriggerPolicyUpdates(false, "policy rules added")
 
 	repr, err := monitor.PolicyUpdateRepr(rules, rev)
 	if err != nil {
@@ -311,7 +282,7 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
 	// Stop polling for ToFQDN DNS names for these rules
 	d.dnsPoller.StopPollForDNSName(rules)
 
-	d.TriggerPolicyUpdates(false)
+	d.TriggerPolicyUpdates(false, "policy rules deleted")
 
 	repr, err := monitor.PolicyDeleteRepr(deleted, labels.GetModel(), rev)
 	if err != nil {

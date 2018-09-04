@@ -42,6 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/counter"
+	bpfIPCache "github.com/cilium/cilium/pkg/datapath/ipcache"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -189,7 +190,7 @@ func (d *Daemon) UpdateNetworkPolicy(e *endpoint.Endpoint, policy *policy.L4Poli
 	if d.l7Proxy == nil {
 		return fmt.Errorf("can't update network policy, proxy disabled")
 	}
-	return d.l7Proxy.UpdateNetworkPolicy(e, policy, e.Options.IsEnabled(option.IngressPolicy), e.Options.IsEnabled(option.EgressPolicy),
+	return d.l7Proxy.UpdateNetworkPolicy(e, policy, e.GetIngressPolicyEnabledLocked(), e.GetEgressPolicyEnabledLocked(),
 		labelsMap, deniedIngressIdentities, deniedEgressIdentities, proxyWaitGroup)
 }
 
@@ -266,27 +267,9 @@ func (d *Daemon) StartEndpointBuilders(nRoutines int) {
 	}
 }
 
-// GetStateDir returns the path to the state directory
-func (d *Daemon) GetStateDir() string {
-	return option.Config.StateDir
-}
-
-func (d *Daemon) GetBpfDir() string {
-	return option.Config.BpfDir
-}
-
 // GetPolicyRepository returns the policy repository of the daemon
 func (d *Daemon) GetPolicyRepository() *policy.Repository {
 	return d.policy
-}
-
-func (d *Daemon) DryModeEnabled() bool {
-	return option.Config.DryMode
-}
-
-// PolicyEnforcement returns the type of policy enforcement for the daemon.
-func (d *Daemon) PolicyEnforcement() string {
-	return policy.GetPolicyEnabled()
 }
 
 // DebugEnabled returns if debug mode is enabled.
@@ -830,7 +813,7 @@ func (d *Daemon) init() error {
 		return nil
 	}
 
-	if !d.DryModeEnabled() {
+	if !option.Config.DryMode {
 		// Validate existing map paths before attempting BPF compile.
 		if err = d.validateExistingMaps(); err != nil {
 			log.WithError(err).Error("Error while validating maps")
@@ -849,7 +832,9 @@ func (d *Daemon) init() error {
 		// Set up the list of IPCache listeners in the daemon, to be
 		// used by syncLXCMap().
 		ipcache.IPIdentityCache.SetListeners([]ipcache.IPIdentityMappingListener{
-			&envoy.NetworkPolicyHostsCache, d})
+			&envoy.NetworkPolicyHostsCache,
+			bpfIPCache.NewListener(d),
+		})
 
 		// Insert local host entries to bpf maps
 		if err := d.syncLXCMap(); err != nil {
@@ -1226,16 +1211,6 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 		node.AddAuxPrefix(ipnet)
 	}
 
-	if k8s.IsEnabled() {
-		log.Info("Annotating k8s node with CIDR ranges")
-		err := k8s.AnnotateNode(k8s.Client(), node.GetName(),
-			node.GetIPv4AllocRange(), node.GetIPv6NodeRange(),
-			nil, nil, node.GetInternalIPv4())
-		if err != nil {
-			log.WithError(err).Warning("Cannot annotate k8s node with CIDR range")
-		}
-	}
-
 	// Set up ipam conf after init() because we might be running d.conf.KVStoreIPv4Registration
 	log.Info("Initializing IPAM")
 	ipam.Init()
@@ -1275,6 +1250,17 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 	if err := node.ValidatePostInit(); err != nil {
 		log.WithError(err).Fatal("postinit failed")
 	}
+
+	if k8s.IsEnabled() {
+		log.Info("Annotating k8s node with CIDR ranges")
+		err := k8s.AnnotateNode(k8s.Client(), node.GetName(),
+			node.GetIPv4AllocRange(), node.GetIPv6NodeRange(),
+			nil, nil, node.GetInternalIPv4())
+		if err != nil {
+			log.WithError(err).Warning("Cannot annotate k8s node with CIDR range")
+		}
+	}
+
 	log.Info("Addressing information:")
 	log.Infof("  Cluster-Name: %s", option.Config.ClusterName)
 	log.Infof("  Cluster-ID: %d", option.Config.ClusterID)
@@ -1303,6 +1289,10 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 		log.WithError(err).Fatal("Unable to initialize local node")
 	}
 
+	// This needs to be done after the node addressing has been configured
+	// as the node address is required as sufix
+	identity.InitIdentityAllocator(&d)
+
 	if path := option.Config.ClusterMeshConfig; path != "" {
 		if option.Config.ClusterID == 0 {
 			log.Info("Cluster-ID is not specified, skipping ClusterMesh initialization")
@@ -1320,10 +1310,6 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 			d.clustermesh = clustermesh
 		}
 	}
-
-	// This needs to be done after the node addressing has been configured
-	// as the node address is required as sufix
-	identity.InitIdentityAllocator(&d)
 
 	if err = d.init(); err != nil {
 		log.WithError(err).Error("Error while initializing daemon")
@@ -1363,7 +1349,7 @@ func (d *Daemon) validateExistingMaps() error {
 }
 
 func (d *Daemon) collectStaleMapGarbage() {
-	if d.DryModeEnabled() {
+	if option.Config.DryMode {
 		return
 	}
 	walker := func(path string, _ os.FileInfo, _ error) error {
@@ -1459,7 +1445,29 @@ func mapValidateWalker(path string) error {
 	return nil
 }
 
-func changedOption(key string, value int, data interface{}) {
+// TriggerReloadWithoutCompile causes all BPF programs and maps to be reloaded,
+// without recompiling the datapath logic for each endpoint. It first attempts
+// to recompile the base programs, and if this fails returns an error. If base
+// program load is successful, it subsequently triggers regeneration of all
+// endpoints and returns a waitgroup that may be used by the caller to wait for
+// all endpoint regeneration to complete.
+//
+// If an error is returned, then no regeneration was successful. If no error
+// is returned, then the base programs were successfully regenerated, but
+// endpoints may or may not have successfully regenerated.
+func (d *Daemon) TriggerReloadWithoutCompile(reason string) (*sync.WaitGroup, error) {
+	log.Debugf("BPF reload triggered from %s", reason)
+	if err := d.compileBase(); err != nil {
+		return nil, fmt.Errorf("Unable to recompile base programs from %s: %s", reason, err)
+	}
+	regenContext := &endpoint.RegenerationContext{
+		Reason:         reason,
+		ReloadDatapath: true,
+	}
+	return endpointmanager.RegenerateAllEndpoints(d, regenContext), nil
+}
+
+func changedOption(key string, value option.OptionSetting, data interface{}) {
 	d := data.(*Daemon)
 	if key == option.Debug {
 		// Set the debug toggle (this can be a no-op)
@@ -1483,11 +1491,18 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 
 	d := h.daemon
 
+	cfgSpec := params.Configuration
+
+	om, err := option.Config.Opts.Library.ValidateConfigurationMap(cfgSpec.Options)
+	if err != nil {
+		msg := fmt.Errorf("Invalid configuration option %s", err)
+		return api.Error(PatchConfigBadRequestCode, msg)
+	}
+
 	// Serialize configuration updates to the daemon.
 	option.Config.ConfigPatchMutex.Lock()
 	defer option.Config.ConfigPatchMutex.Unlock()
 
-	cfgSpec := params.Configuration
 	nmArgs := d.nodeMonitor.GetArgs()
 	if numPagesEntry, ok := cfgSpec.Options["MonitorNumPages"]; ok && nmArgs[0] != numPagesEntry {
 		if len(nmArgs) == 0 || nmArgs[0] != numPagesEntry {
@@ -1498,9 +1513,6 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 			return NewPatchConfigOK()
 		}
 		delete(cfgSpec.Options, "MonitorNumPages")
-	}
-	if err := option.Config.Opts.Validate(cfgSpec.Options); err != nil {
-		return api.Error(PatchConfigBadRequestCode, err)
 	}
 
 	// Track changes to daemon's configuration
@@ -1529,7 +1541,7 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 		log.Debug("finished configuring PolicyEnforcement for daemon")
 	}
 
-	changes += option.Config.Opts.ApplyValidated(cfgSpec.Options, changedOption, d)
+	changes += option.Config.Opts.ApplyValidated(om, changedOption, d)
 
 	log.WithField("count", changes).Debug("Applied changes to daemon's configuration")
 
@@ -1540,7 +1552,7 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 			msg := fmt.Errorf("Unable to recompile base programs: %s", err)
 			return api.Error(PatchConfigFailureCode, msg)
 		}
-		d.TriggerPolicyUpdates(true)
+		d.TriggerPolicyUpdates(true, "agent configuration update")
 	}
 
 	return NewPatchConfigOK()

@@ -1,6 +1,16 @@
 #!/bin/bash
 
-kubecfg show /vagrant/k8sT/manifests/cilium_ds.jsonnet | /usr/bin/kubectl apply -f -
+k8sVersionJson=$(kubectl version -o json)
+
+KUBERNETES_MAJOR_MINOR_VER="$(echo "${k8sVersionJson}" | jq -r '.serverVersion | .major').$(echo "${k8sVersionJson}" | jq -r '.serverVersion | .minor')"
+
+k8sDescriptorsPath="./examples/kubernetes/${KUBERNETES_MAJOR_MINOR_VER}"
+k8sManifestsPath="./test/k8sT/manifests"
+
+kubectl apply --filename="${k8sDescriptorsPath}/cilium-sa.yaml"
+kubectl apply --filename="${k8sDescriptorsPath}/cilium-rbac.yaml"
+kubectl patch --filename="${k8sDescriptorsPath}/cilium-cm.yaml" --patch "$(cat ${k8sManifestsPath}/cilium-cm-patch.yaml)" --local -o yaml | kubectl apply -f -
+kubectl patch --filename="${k8sDescriptorsPath}/cilium-ds.yaml" --patch "$(cat ${k8sManifestsPath}/cilium-ds-patch.yaml)" --local -o yaml | kubectl apply -f -
 
 while true; do
     result=$(kubectl -n kube-system get pods -l k8s-app=cilium | grep "Running" -c)
@@ -13,10 +23,10 @@ while true; do
     sleep 1
 done
 
-KUBERNETES_VERSION=$(kubectl version -o json | jq -r '.serverVersion | .gitVersion')
-
 set -e
 echo "Installing kubernetes"
+
+KUBERNETES_VERSION=$(kubectl version -o json | jq -r '.serverVersion | .gitVersion')
 
 mkdir -p $HOME/go/src/github.com/kubernetes/
 cd $HOME/go/src/github.com/kubernetes/

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -eux
+set -eu
 
 TOPDIR=$(git rev-parse --show-toplevel)
 

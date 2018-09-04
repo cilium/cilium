@@ -398,7 +398,7 @@ Microscope can be installed an run as a pod, the basic usage is the following:
 ::
 
     $ kubectl apply -f
-    https://github.com/cilium/microscope/blob/master/docs/microscope.yaml
+    https://raw.githubusercontent.com/cilium/microscope/1.1.0/docs/microscope.yaml
     $ kubectl exec -n kube-system microscope -- microscope -h
 
 

@@ -179,8 +179,10 @@ perRule:
 			continue perRule
 		}
 
-		// make a copy to avoid breaking the input rules in any way
+		// Make a copy to avoid breaking the input rules. Strip ToCIDRSet to avoid
+		// accumulating anything we included during MarkToFQDNRules
 		sourceRuleCopy := sourceRule.DeepCopy()
+		stripToCIDRSet(sourceRuleCopy)
 
 		uuid := getUUIDFromRuleLabels(sourceRule)
 		newDNSNames, alreadyExistsDNSNames := poller.addRule(uuid, sourceRuleCopy)

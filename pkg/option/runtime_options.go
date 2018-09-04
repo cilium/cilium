@@ -29,8 +29,6 @@ const (
 	TraceNotify         = "TraceNotification"
 	MonitorAggregation  = "MonitorAggregationLevel"
 	NAT46               = "NAT46"
-	IngressPolicy       = "IngressPolicy"
-	EgressPolicy        = "EgressPolicy"
 	AlwaysEnforce       = "always"
 	NeverEnforce        = "never"
 	DefaultEnforcement  = "default"

@@ -115,8 +115,8 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 		} else {
 			ep.SetDefaultOpts(option.Config.Opts)
 			alwaysEnforce := policy.GetPolicyEnabled() == option.AlwaysEnforce
-			ep.Options.SetBool(option.IngressPolicy, alwaysEnforce)
-			ep.Options.SetBool(option.EgressPolicy, alwaysEnforce)
+			ep.SetIngressPolicyEnabledLocked(alwaysEnforce)
+			ep.SetEgressPolicyEnabledLocked(alwaysEnforce)
 		}
 
 		ep.Unlock()
@@ -156,9 +156,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 		// upon returning that endpoints are exposed to other subsystems via
 		// endpointmanager.
 
-		ep.UnconditionalRLock()
 		endpointmanager.Insert(ep)
-		ep.RUnlock()
 
 		go func(ep *endpoint.Endpoint, epRegenerated chan<- bool) {
 			if err := ep.RLockAlive(); err != nil {
@@ -174,6 +172,12 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 			if err != nil {
 				scopedLog.WithError(err).Warn("Unable to restore endpoint")
 				epRegenerated <- false
+			}
+			// Wait for initial identities from the kvstore before
+			// doing any policy calculation for endpoints that don't have
+			// a fixed identity.
+			if !identity.IsFixed() {
+				identityPkg.WaitForInitialIdentities()
 			}
 
 			if err := ep.LockAlive(); err != nil {
@@ -202,7 +206,9 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 				epRegenerated <- false
 				return
 			}
-			if buildSuccess := <-ep.Regenerate(d, "syncing state to host"); !buildSuccess {
+			regenContext := endpoint.NewRegenerationContext(
+				"syncing state to host")
+			if buildSuccess := <-ep.Regenerate(d, regenContext); !buildSuccess {
 				scopedLog.Warn("Failed while regenerating endpoint")
 				epRegenerated <- false
 				return

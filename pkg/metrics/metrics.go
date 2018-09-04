@@ -24,7 +24,6 @@ package metrics
 import (
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/prometheus/client_golang/prometheus"
@@ -71,6 +70,15 @@ var (
 	// LabelDatapathFamily marks which protocol family (IPv4, IPV6) the metric is related to.
 	LabelDatapathFamily = "family"
 
+	// LabelStatus the label from completed task
+	LabelStatus = "status"
+
+	// LabelScope is the label used to defined multiples scopes in the same
+	// metric. For example, one counter may measure a metric over the scope of
+	// the entire event (scope=global), or just part of an event
+	// (scope=slow_path)
+	LabelScope = "scope"
+
 	// Endpoint
 
 	// EndpointCount is a function used to collect this metric.
@@ -93,19 +101,21 @@ var (
 	},
 		[]string{"outcome"})
 
+	// Deprecated: this metric will be removed in Cilium 1.4
 	// EndpointRegenerationTime is the total time taken to regenerate endpoint
 	EndpointRegenerationTime = prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: Namespace,
 		Name:      "endpoint_regeneration_seconds_total",
-		Help:      "Total sum of successful endpoint regeneration times",
+		Help:      "Total sum of successful endpoint regeneration times (Deprecated)",
 	})
 
+	// Deprecated: this metric will be removed in Cilium 1.4
 	// EndpointRegenerationTimeSquare is the sum of squares of total time taken
 	// to regenerate endpoint.
 	EndpointRegenerationTimeSquare = prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: Namespace,
 		Name:      "endpoint_regeneration_square_seconds_total",
-		Help:      "Total sum of squares of successful endpoint regeneration times",
+		Help:      "Total sum of squares of successful endpoint regeneration times (Deprecated)",
 	})
 
 	// EndpointStateCount is the total count of the endpoints in various states.
@@ -117,6 +127,13 @@ var (
 		},
 		[]string{"endpoint_state"},
 	)
+
+	// EndpointRegenerationTimeStats is the total time taken to regenerate endpoint
+	EndpointRegenerationTimeStats = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: Namespace,
+		Name:      "endpoint_regeneration_time_stats_seconds",
+		Help:      "Endpoint regeneration time stats labeled by the scope",
+	}, []string{LabelScope})
 
 	// Policy
 
@@ -253,8 +270,43 @@ var (
 		Subsystem: Datapath,
 		Name:      "errors_total",
 		Help:      "Number of errors that occurred in the datapath or datapath management",
-	},
-		[]string{LabelDatapathArea, LabelDatapathName, LabelDatapathFamily})
+	}, []string{LabelDatapathArea, LabelDatapathName, LabelDatapathFamily})
+
+	// ConntrackGCRuns is the number of times that the conntrack GC
+	// process was run.
+	ConntrackGCRuns = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Subsystem: Datapath,
+		Name:      "conntrack_gc_runs_total",
+		Help: "Number of times that the conntrack garbage collector process was run " +
+			"labeled by completion status",
+	}, []string{LabelDatapathFamily, LabelStatus})
+
+	// ConntrackGCKeyFallbacks number of times that the conntrack key fallback was invalid.
+	ConntrackGCKeyFallbacks = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Subsystem: Datapath,
+		Name:      "conntrack_gc_key_fallbacks_total",
+		Help:      "Number of times a key fallback was needed when iterating over the BPF map",
+	}, []string{LabelDatapathFamily})
+
+	// ConntrackGCSize the number of entries in the conntrack table
+	ConntrackGCSize = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: Namespace,
+		Subsystem: Datapath,
+		Name:      "conntrack_gc_entries",
+		Help: "The number of alive and deleted conntrack entries at the end " +
+			"of a garbage collector run labeled by datapath family.",
+	}, []string{LabelDatapathFamily, LabelStatus})
+
+	// ConntrackGCDuration the duration of the conntrack GC process in milliseconds.
+	ConntrackGCDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: Namespace,
+		Subsystem: Datapath,
+		Name:      "conntrack_gc_duration_seconds",
+		Help: "Duration in seconds of the garbage collector process " +
+			"labeled by datapath family and completion status",
+	}, []string{LabelDatapathFamily, LabelStatus})
 )
 
 func init() {
@@ -267,6 +319,7 @@ func init() {
 	MustRegister(EndpointRegenerationTime)
 	MustRegister(EndpointRegenerationTimeSquare)
 	MustRegister(EndpointStateCount)
+	MustRegister(EndpointRegenerationTimeStats)
 
 	MustRegister(PolicyCount)
 	MustRegister(PolicyRegenerationCount)
@@ -290,6 +343,10 @@ func init() {
 	MustRegister(newStatusCollector())
 
 	MustRegister(DatapathErrors)
+	MustRegister(ConntrackGCRuns)
+	MustRegister(ConntrackGCKeyFallbacks)
+	MustRegister(ConntrackGCSize)
+	MustRegister(ConntrackGCDuration)
 }
 
 // MustRegister adds the collector to the registry, exposing this metric to
@@ -310,13 +367,6 @@ func Enable(addr string) error {
 	}()
 
 	return nil
-}
-
-// SetTSValue sets the gauge to the time value provided
-func SetTSValue(c prometheus.Gauge, ts time.Time) {
-	// Build time in seconds since the epoch. Prometheus only takes floating
-	// point values, however, and urges times to be in seconds
-	c.Set(float64(ts.UnixNano()) / float64(1000000000))
 }
 
 // GetCounterValue returns the current value

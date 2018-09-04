@@ -228,6 +228,8 @@ spec:
       restartPolicy: Always
       tolerations:
         - effect: NoSchedule
+          key: node.kubernetes.io/not-ready
+        - effect: NoSchedule
           key: node-role.kubernetes.io/master
         - effect: NoSchedule
           key: node.cloudprovider.kubernetes.io/uninitialized

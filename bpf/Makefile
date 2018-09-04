@@ -55,7 +55,6 @@ bpf_lb.o: bpf_lb.c $(LIB)
 
 LXC_OPTIONS = \
 	 -DSKIP_DEBUG \
-	 -DDROP_ALL \
 	 -DHAVE_LPM_MAP_TYPE \
 	 -DHAVE_LRU_MAP_TYPE
 

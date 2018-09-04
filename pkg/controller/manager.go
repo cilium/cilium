@@ -57,9 +57,6 @@ func GetGlobalStatus() models.ControllerStatuses {
 func (m *Manager) UpdateController(name string, params ControllerParams) *Controller {
 	start := time.Now()
 
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
 	// ensure the callbacks are valid
 	if params.DoFunc == nil {
 		params.DoFunc = func() error { return undefinedDoFunc(name) }
@@ -68,12 +65,16 @@ func (m *Manager) UpdateController(name string, params ControllerParams) *Contro
 		params.StopFunc = NoopFunc
 	}
 
+	m.mutex.Lock()
+
 	if m.controllers == nil {
 		m.controllers = controllerMap{}
 	}
 
 	ctrl, exists := m.controllers[name]
 	if exists {
+		m.mutex.Unlock()
+
 		ctrl.getLogger().Debug("Updating existing controller")
 		ctrl.mutex.Lock()
 		ctrl.params = params
@@ -97,6 +98,7 @@ func (m *Manager) UpdateController(name string, params ControllerParams) *Contro
 		ctrl.getLogger().Debug("Starting new controller")
 
 		m.controllers[ctrl.name] = ctrl
+		m.mutex.Unlock()
 
 		globalStatus.mutex.Lock()
 		globalStatus.controllers[ctrl.uuid] = ctrl
@@ -155,12 +157,19 @@ func (m *Manager) RemoveAll() {
 
 // GetStatusModel returns the status of all controllers as models.ControllerStatuses
 func (m *Manager) GetStatusModel() models.ControllerStatuses {
+	// Create a copy of pointers to current controller so we can unlock the
+	// manager mutex quickly again
+	controllers := controllerMap{}
 	m.mutex.RLock()
-	statuses := models.ControllerStatuses{}
-	for _, c := range m.controllers {
-		statuses = append(statuses, c.GetStatusModel())
+	for key, c := range m.controllers {
+		controllers[key] = c
 	}
 	m.mutex.RUnlock()
+
+	statuses := models.ControllerStatuses{}
+	for _, c := range controllers {
+		statuses = append(statuses, c.GetStatusModel())
+	}
 
 	return statuses
 }

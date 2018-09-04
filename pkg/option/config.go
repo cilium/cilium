@@ -112,6 +112,13 @@ const (
 	// ClusterMeshConfigNameEnv is the name of the environment variable of
 	// the ClusterMeshConfig option
 	ClusterMeshConfigNameEnv = "CILIUM_CLUSTERMESH_CONFIG"
+
+	// BPFCompileDebugName is the name of the option to enable BPF compiliation debugging
+	BPFCompileDebugName = "bpf-compile-debug"
+
+	// LogSystemLoadConfigName is the name of the option to enable system
+	// load loggging
+	LogSystemLoadConfigName = "log-system-load"
 )
 
 // Available option for daemonConfig.Tunnel
@@ -226,7 +233,7 @@ type daemonConfig struct {
 
 var (
 	Config = &daemonConfig{
-		Opts:                     NewIntOptions(&daemonLibrary),
+		Opts:                     NewIntOptions(&DaemonOptionLibrary),
 		Monitor:                  &models.MonitorStatus{Cpus: int64(runtime.NumCPU()), Npages: 64, Pagesize: int64(os.Getpagesize()), Lost: 0, Unknown: 0},
 		IPv6ClusterAllocCIDR:     defaults.IPv6ClusterAllocCIDR,
 		IPv6ClusterAllocCIDRBase: defaults.IPv6ClusterAllocCIDRBase,

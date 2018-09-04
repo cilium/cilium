@@ -18,15 +18,14 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"time"
 
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
-	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
+	"github.com/cilium/cilium/test/ginkgo-ext"
 )
 
 var (
-	// HelperTimeout is a predefined timeout value for commands.
-	HelperTimeout time.Duration = 300 // WithTimeout helper translates it to seconds
+	// HelperTimeout is a predefined timeout value for commands, in seconds.
+	HelperTimeout int64 = 300
 
 	// BasePath is the path in the Vagrant VMs to which the test directory
 	// is mounted
@@ -136,8 +135,18 @@ const (
 	StateTerminating = "Terminating"
 	StateRunning     = "Running"
 
-	PingCount          = 5
+	PingCount = 5
+
+	// CurlConnectTimeout is the timeout for the connect() call that curl
+	// invokes
 	CurlConnectTimeout = 3
+
+	// CurlMaxTimeout is the hard timeout. It starts when curl is invoked
+	// and interrupts curl regardless of whether curl is currently
+	// connecting or transferring data. CurlMaxTimeout should be at least 5
+	// seconds longer than CurlConnectTimeout to provide some time to
+	// actually transfer data.
+	CurlMaxTimeout = 8
 
 	DefaultNamespace    = "default"
 	KubeSystemNamespace = "kube-system"
@@ -162,7 +171,7 @@ const (
 	KubectlPolicyNameLabel      = k8sConst.PolicyLabelName
 	KubectlPolicyNameSpaceLabel = k8sConst.PolicyLabelNamespace
 
-	StableImage = "docker.io/cilium/cilium:v1.1.1"
+	StableImage = "docker.io/cilium/cilium:v1.1.4"
 
 	configMap = "ConfigMap"
 	daemonSet = "DaemonSet"
@@ -185,7 +194,7 @@ const (
 	deadLockHeader      = "POTENTIAL DEADLOCK:"               // from github.com/sasha-s/go-deadlock/deadlock.go:header
 	segmentationFault   = "segmentation fault"                // from https://github.com/cilium/cilium/issues/3233
 	NACKreceived        = "NACK received for version"         // from https://github.com/cilium/cilium/issues/4003
-	RunInitFailed       = "RunInit: Command execution failed" // from https://github.com/cilium/cilium/pull/5052
+	RunInitFailed       = "JoinEP: "                          // from https://github.com/cilium/cilium/pull/5052
 	selfishThresholdMsg = "Goroutine took lock for more than" // from https://github.com/cilium/cilium/pull/5268
 
 	contextDeadlineExceeded = "context deadline exceeded"
@@ -204,8 +213,11 @@ const (
 // NightlyStableUpgradesFrom the cilium images to update from in Nightly test.
 var NightlyStableUpgradesFrom = []string{"docker.io/cilium/cilium:v1.0.5"}
 
-// CiliumDSPath is the default Cilium DaemonSet path to use in all test.
-var CiliumDSPath = "cilium_ds.jsonnet"
+// CiliumDefaultDSPatch is the default Cilium DaemonSet patch to be used in all tests.
+const CiliumDefaultDSPatch = "cilium-ds-patch.yaml"
+
+// CiliumConfigMapPatch is the default Cilium ConfigMap patch to be used in all tests.
+const CiliumConfigMapPatch = "cilium-cm-patch.yaml"
 
 var checkLogsMessages = []string{panicMessage, deadLockHeader, segmentationFault, NACKreceived, RunInitFailed}
 var countLogsMessages = []string{contextDeadlineExceeded, ErrorLogs, WarningLogs, APIPanicked, selfishThresholdMsg}

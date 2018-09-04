@@ -23,7 +23,6 @@ import (
 	"math/rand"
 	"net"
 	"os"
-	"path/filepath"
 	"reflect"
 	"runtime"
 	"sort"
@@ -354,11 +353,6 @@ type Endpoint struct {
 	// previous policy computation
 	prevIdentityCache *identityPkg.IdentityCache
 
-	// Iteration policy of the Endpoint
-	// TODO: update documentation; description is not clear, and needs to be
-	// more specific.
-	Iteration uint64 `json:"-"`
-
 	// RealizedL4Policy is the L4Policy in effect for the endpoint.
 	RealizedL4Policy *policy.L4Policy `json:"-"`
 
@@ -381,12 +375,6 @@ type Endpoint struct {
 
 	// state is the state the endpoint is in. See SetStateLocked()
 	state string
-
-	// PolicyCalculated is true as soon as the policy has been calculated
-	// for the first time. As long as this value is false, all packets sent
-	// by the endpoint will be dropped to ensure that the endpoint cannot
-	// bypass policy while it is still being resolved.
-	PolicyCalculated bool `json:"-"`
 
 	// bpfHeaderfileHash is the hash of the last BPF headerfile that has been
 	// compiled and installed.
@@ -465,6 +453,14 @@ type Endpoint struct {
 	// cleaned when this endpoint was first created
 	ctCleaned bool
 
+	// ingressPolicyEnabled specifies whether policy enforcement on ingress
+	// is enabled for this endpoint.
+	ingressPolicyEnabled bool
+
+	// egressPolicyEnabled specifies whether policy enforcement on egress
+	// is enabled for this endpoint.
+	egressPolicyEnabled bool
+
 	///////////////////////
 	// DEPRECATED FIELDS //
 	///////////////////////
@@ -476,6 +472,47 @@ type Endpoint struct {
 	DeprecatedOpts deprecatedOptions `json:"Opts"`
 }
 
+// GetIngressPolicyEnabledLocked returns whether ingress policy enforcement is
+// enabled for endpoint or not. The endpoint's mutex must be held.
+func (e *Endpoint) GetIngressPolicyEnabledLocked() bool {
+	return e.ingressPolicyEnabled
+}
+
+// GetEgressPolicyEnabledLocked returns whether egress policy enforcement is
+// enabled for endpoint or not. The endpoint's mutex must be held.
+func (e *Endpoint) GetEgressPolicyEnabledLocked() bool {
+	return e.egressPolicyEnabled
+}
+
+// SetIngressPolicyEnabled sets Endpoint's ingress policy enforcement
+// configuration to the specified value. The endpoint's mutex must not be held.
+func (e *Endpoint) SetIngressPolicyEnabled(ingress bool) {
+	e.UnconditionalLock()
+	e.ingressPolicyEnabled = ingress
+	e.Unlock()
+
+}
+
+// SetEgressPolicyEnabled sets Endpoint's egress policy enforcement
+// configuration to the specified value. The endpoint's mutex must not be held.
+func (e *Endpoint) SetEgressPolicyEnabled(egress bool) {
+	e.UnconditionalLock()
+	e.egressPolicyEnabled = egress
+	e.Unlock()
+}
+
+// SetIngressPolicyEnabledLocked sets Endpoint's ingress policy enforcement
+// configuration to the specified value. The endpoint's mutex must be held.
+func (e *Endpoint) SetIngressPolicyEnabledLocked(ingress bool) {
+	e.ingressPolicyEnabled = ingress
+}
+
+// SetEgressPolicyEnabledLocked sets Endpoint's egress policy enforcement
+// configuration to the specified value. The endpoint's mutex must be held.
+func (e *Endpoint) SetEgressPolicyEnabledLocked(egress bool) {
+	e.egressPolicyEnabled = egress
+}
+
 // WaitForProxyCompletions blocks until all proxy changes have been completed.
 // Called with BuildMutex held.
 func (e *Endpoint) WaitForProxyCompletions(proxyWaitGroup *completion.WaitGroup) error {
@@ -483,15 +520,19 @@ func (e *Endpoint) WaitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 		return nil
 	}
 
+	err := proxyWaitGroup.Context().Err()
+	if err != nil {
+		return fmt.Errorf("context cancelled before waiting for proxy updates: %s", err)
+	}
+
 	start := time.Now()
 
-	e.getLogger().Debug("Waiting for proxy updates to complete...")
-
-	err := proxyWaitGroup.Wait()
+	e.Logger().Debug("Waiting for proxy updates to complete...")
+	err = proxyWaitGroup.Wait()
 	if err != nil {
 		return fmt.Errorf("proxy state changes failed: %s", err)
 	}
-	e.getLogger().Debug("Wait time for proxy updates: ", time.Since(start))
+	e.Logger().Debug("Wait time for proxy updates: ", time.Since(start))
 
 	return nil
 }
@@ -499,14 +540,11 @@ func (e *Endpoint) WaitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 // RunK8sCiliumEndpointSync starts a controller that syncronizes the endpoint
 // to the corresponding k8s CiliumEndpoint CRD
 // CiliumEndpoint objects have the same name as the pod they represent
-//
-// Endpoint.Mutex must be RLocked. This is guaranteed via
-// endpointmanager.Insert() but is really not ideal.
 func (e *Endpoint) RunK8sCiliumEndpointSync() {
 	var (
 		endpointID     = e.ID
 		controllerName = fmt.Sprintf("sync-to-k8s-ciliumendpoint (%v)", endpointID)
-		scopedLog      = e.getLogger().WithField("controller", controllerName)
+		scopedLog      = e.Logger().WithField("controller", controllerName)
 		err            error
 	)
 
@@ -535,7 +573,7 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 
 	// The health endpoint doesn't really exist in k8s and updates to it caused
 	// arbitrary errors. Disable the controller for these endpoints.
-	if isHealthEP := e.hasLabelsRLocked(pkgLabels.LabelHealth); isHealthEP {
+	if isHealthEP := e.HasLabels(pkgLabels.LabelHealth); isHealthEP {
 		scopedLog.Debug("Not starting unnecessary CEP controller for cilium-health endpoint")
 		return
 	}
@@ -552,7 +590,7 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 			DoFunc: func() (err error) {
 				// Update logger as scopeLog might not have the podName when it
 				// was created.
-				scopedLog = e.getLogger().WithField("controller", controllerName)
+				scopedLog = e.Logger().WithField("controller", controllerName)
 
 				podName := e.GetK8sPodName()
 				if podName == "" {
@@ -949,8 +987,8 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 		}
 	}
 
-	policyIngressEnabled := e.Options.IsEnabled(option.IngressPolicy)
-	policyEgressEnabled := e.Options.IsEnabled(option.EgressPolicy)
+	policyIngressEnabled := e.ingressPolicyEnabled
+	policyEgressEnabled := e.egressPolicyEnabled
 
 	policyEnabled := models.EndpointPolicyEnabledNone
 	switch {
@@ -973,8 +1011,9 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 	sortProxyStats(proxyStats)
 
 	mdl := &models.EndpointPolicy{
-		ID:                       int64(e.SecurityIdentity.ID),
-		Build:                    int64(e.Iteration),
+		ID: int64(e.SecurityIdentity.ID),
+		// This field should be removed.
+		Build:                    int64(e.policyRevision),
 		PolicyRevision:           int64(e.policyRevision),
 		AllowedIngressIdentities: realizedIngressIdentities,
 		AllowedEgressIdentities:  realizedEgressIdentities,
@@ -984,8 +1023,9 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 	}
 
 	desiredMdl := &models.EndpointPolicy{
-		ID:                       int64(e.SecurityIdentity.ID),
-		Build:                    int64(e.Iteration),
+		ID: int64(e.SecurityIdentity.ID),
+		// This field should be removed.
+		Build:                    int64(e.nextPolicyRevision),
 		PolicyRevision:           int64(e.nextPolicyRevision),
 		AllowedIngressIdentities: desiredIngressIdentities,
 		AllowedEgressIdentities:  desiredEgressIdentities,
@@ -1218,17 +1258,6 @@ func (e *Endpoint) GetIdentity() identityPkg.NumericIdentity {
 	return identityPkg.InvalidIdentity
 }
 
-// DirectoryPath returns the directory name for this endpoint bpf program.
-func (e *Endpoint) DirectoryPath() string {
-	return filepath.Join(".", fmt.Sprintf("%d", e.ID))
-}
-
-// FailedDirectoryPath returns the directory name for this endpoint bpf program
-// failed builds.
-func (e *Endpoint) FailedDirectoryPath() string {
-	return filepath.Join(".", fmt.Sprintf("%d%s", e.ID, "_next_fail"))
-}
-
 func (e *Endpoint) Allows(id identityPkg.NumericIdentity) bool {
 	e.UnconditionalRLock()
 	defer e.RUnlock()
@@ -1255,12 +1284,12 @@ func (e *Endpoint) String() string {
 
 // optionChanged is a callback used with pkg/option to apply the options to an
 // endpoint.  Not used for anything at the moment.
-func optionChanged(key string, value int, data interface{}) {
+func optionChanged(key string, value option.OptionSetting, data interface{}) {
 }
 
 // applyOptsLocked applies the given options to the endpoint's options and
 // returns true if there were any options changed.
-func (e *Endpoint) applyOptsLocked(opts map[string]string) bool {
+func (e *Endpoint) applyOptsLocked(opts option.OptionMap) bool {
 	changed := e.Options.ApplyValidated(opts, optionChanged, e) > 0
 	_, exists := opts[option.Debug]
 	if exists && changed {
@@ -1554,7 +1583,7 @@ func (e *Endpoint) logStatusLocked(typ StatusType, code StatusCode, msg string) 
 		Timestamp: time.Now().UTC(),
 	}
 	e.Status.addStatusLog(sts)
-	e.getLogger().WithFields(logrus.Fields{
+	e.Logger().WithFields(logrus.Fields{
 		"code":                   sts.Status.Code,
 		"type":                   sts.Status.Type,
 		logfields.EndpointState:  sts.Status.State,
@@ -1586,37 +1615,38 @@ func (e UpdateStateChangeError) Error() string { return e.msg }
 // Update modifies the endpoint options and *always* tries to regenerate the
 // endpoint's program. Returns an error if the provided options are not valid,
 // if there was an issue triggering policy updates for the given endpoint,
-// or if endpoint regeneration was unable to be triggered.
+// or if endpoint regeneration was unable to be triggered. Note that the
+// LabelConfiguration in the EndpointConfigurationSpec is *not* consumed here.
 func (e *Endpoint) Update(owner Owner, cfg *models.EndpointConfigurationSpec) error {
-	if err := e.LockAlive(); err != nil {
-		return err
-	}
-	e.getLogger().WithField("configuration-options", cfg).Debug("updating endpoint configuration options")
-
-	if err := e.Options.Validate(cfg.Options); err != nil {
-		e.Unlock()
+	om, err := EndpointMutableOptionLibrary.ValidateConfigurationMap(cfg.Options)
+	if err != nil {
 		return UpdateValidationError{err.Error()}
 	}
 
-	// Option changes may be overridden by the policy configuration.
-	// Currently we return all-OK even in that case.
-	needToRegenerate, err := e.TriggerPolicyUpdatesLocked(owner, cfg.Options)
-	if err != nil {
-		e.Unlock()
-		return UpdateCompilationError{err.Error()}
+	if err := e.LockAlive(); err != nil {
+		return err
 	}
+
+	e.Logger().WithField("configuration-options", cfg).Debug("updating endpoint configuration options")
+
+	// CurrentStatus will be not OK when we have an uncleared error in BPF,
+	// policy or Other. We should keep trying to regenerate in the hopes of
+	// suceeding.
+	// Note: This "retry" behaviour is better suited to a controller, and can be
+	// moved there once we have an endpoint regeneration controller.
+	needToRegenerateBPF := e.updateAndOverrideEndpointOptions(om) || (e.Status.CurrentStatus() != OK)
 
 	reason := "endpoint was updated via API"
 
 	// If configuration options are provided, we only regenerate if necessary.
 	// Otherwise always regenerate.
 	if cfg.Options == nil {
-		needToRegenerate = true
+		needToRegenerateBPF = true
 		reason = "endpoint was manually regenerated via API"
 	}
 
-	if needToRegenerate {
-		e.getLogger().Debug("need to regenerate endpoint; checking state before" +
+	if needToRegenerateBPF {
+		e.Logger().Debug("need to regenerate endpoint; checking state before" +
 			" attempting to regenerate")
 
 		// TODO / FIXME: GH-3281: need ways to queue up regenerations per-endpoint.
@@ -1644,12 +1674,12 @@ func (e *Endpoint) Update(owner Owner, cfg *models.EndpointConfigurationSpec) er
 				stateTransitionSucceeded := e.SetStateLocked(StateWaitingToRegenerate, reason)
 				if stateTransitionSucceeded {
 					e.Unlock()
-					e.Regenerate(owner, reason)
+					e.Regenerate(owner, NewRegenerationContext(reason))
 					return nil
 				}
 				e.Unlock()
 			case <-timeout:
-				e.getLogger().Warningf("timed out waiting for endpoint state to change")
+				e.Logger().Warningf("timed out waiting for endpoint state to change")
 				return UpdateStateChangeError{fmt.Sprintf("unable to regenerate endpoint program because state transition to %s was unsuccessful; check `cilium endpoint log %d` for more information", StateWaitingToRegenerate, e.ID)}
 			}
 		}
@@ -1700,7 +1730,7 @@ func (e *Endpoint) replaceInformationLabels(l pkgLabels.Labels) {
 	}
 	e.OpLabels.OrchestrationInfo.MarkAllForDeletion()
 
-	scopedLog := e.getLogger()
+	scopedLog := e.Logger()
 
 	for _, v := range l {
 		if e.OpLabels.OrchestrationInfo.UpsertLabel(v) {
@@ -1726,7 +1756,7 @@ func (e *Endpoint) replaceIdentityLabels(l pkgLabels.Labels) int {
 	e.OpLabels.OrchestrationIdentity.MarkAllForDeletion()
 	e.OpLabels.Disabled.MarkAllForDeletion()
 
-	scopedLog := e.getLogger()
+	scopedLog := e.Logger()
 
 	for k, v := range l {
 		// A disabled identity label stays disabled without value updates
@@ -1787,7 +1817,7 @@ func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup
 
 	e.SetStateLocked(StateDisconnected, "Endpoint removed")
 
-	e.getLogger().Info("Removed endpoint")
+	e.Logger().Info("Removed endpoint")
 
 	return errors
 }
@@ -1823,7 +1853,7 @@ func (e *Endpoint) CreateDirectory() error {
 // RegenerateWait should only be called when endpoint's state has successfully
 // been changed to "waiting-to-regenerate"
 func (e *Endpoint) RegenerateWait(owner Owner, reason string) error {
-	if !<-e.Regenerate(owner, reason) {
+	if !<-e.Regenerate(owner, NewRegenerationContext(reason)) {
 		return fmt.Errorf("error while regenerating endpoint."+
 			" For more info run: 'cilium endpoint get %d'", e.ID)
 	}
@@ -2018,7 +2048,7 @@ func (e *Endpoint) SetStateLocked(toState, reason string) bool {
 	}
 	if toState != fromState {
 		_, fileName, fileLine, _ := runtime.Caller(1)
-		e.getLogger().WithFields(logrus.Fields{
+		e.Logger().WithFields(logrus.Fields{
 			logfields.EndpointState + ".from": fromState,
 			logfields.EndpointState + ".to":   toState,
 			"file": fileName,
@@ -2338,12 +2368,16 @@ func (e *Endpoint) identityResolutionIsObsolete(myChangeRev int) bool {
 
 // Must be called with e.Mutex NOT held.
 func (e *Endpoint) runLabelsResolver(owner Owner, myChangeRev int) {
-	// NOTE: UnconditionalLock is used here only for logging
-	e.UnconditionalLock()
-
+	if err := e.RLockAlive(); err != nil {
+		// If a labels update and an endpoint delete API request arrive
+		// in quick succession, this could occur; in that case, there's
+		// no point updating the controller.
+		e.Logger().WithError(err).Info("Cannot run labels resolver")
+		return
+	}
 	newLabels := e.OpLabels.IdentityLabels()
-	scopedLog := e.getLogger().WithField(logfields.IdentityLabels, newLabels)
-	e.Unlock()
+	e.RUnlock()
+	scopedLog := e.Logger().WithField(logfields.IdentityLabels, newLabels)
 
 	// If we are certain we can resolve the identity without accessing the KV
 	// store, do it first synchronously right now. This can reduce the number
@@ -2372,7 +2406,7 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 		return err
 	}
 	newLabels := e.OpLabels.IdentityLabels()
-	elog := e.getLogger().WithFields(logrus.Fields{
+	elog := e.Logger().WithFields(logrus.Fields{
 		logfields.EndpointID:     e.ID,
 		logfields.IdentityLabels: newLabels,
 	})
@@ -2450,7 +2484,7 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 	e.Unlock()
 
 	if readyToRegenerate {
-		e.Regenerate(owner, "updated security labels")
+		e.Regenerate(owner, NewRegenerationContext("updated security labels"))
 	}
 
 	return nil
@@ -2460,7 +2494,7 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 func (e *Endpoint) setPolicyRevision(rev uint64) {
 	e.policyRevision = rev
 	e.UpdateLogger(map[string]interface{}{
-		logfields.PolicyRevision: e.policyRevision,
+		logfields.DatapathPolicyRevision: e.policyRevision,
 	})
 	for ps := range e.policyRevisionSignals {
 		select {
@@ -2534,7 +2568,7 @@ func (e *Endpoint) IPs() []net.IP {
 // InsertEvent is called when the endpoint is inserted into the endpoint
 // manager.
 func (e *Endpoint) InsertEvent() {
-	e.getLogger().Info("New endpoint")
+	e.Logger().Info("New endpoint")
 }
 
 // syncPolicyMap attempts to synchronize the PolicyMap for this endpoint to
@@ -2565,14 +2599,14 @@ func (e *Endpoint) syncPolicyMap() error {
 	// If map is unable to be dumped, attempt to close map and open it again.
 	// See GH-4229.
 	if err != nil {
-		e.getLogger().WithError(err).Error("unable to dump PolicyMap when trying to sync desired and realized PolicyMap state")
+		e.Logger().WithError(err).Error("unable to dump PolicyMap when trying to sync desired and realized PolicyMap state")
 
 		// Close to avoid leaking of file descriptors, but still continue in case
 		// Close() does not succeed, because otherwise the map will never be
 		// opened again unless the agent is restarted.
 		err := e.PolicyMap.Close()
 		if err != nil {
-			e.getLogger().WithError(err).Error("unable to close PolicyMap which was not able to be dumped")
+			e.Logger().WithError(err).Error("unable to close PolicyMap which was not able to be dumped")
 		}
 
 		e.PolicyMap, _, err = policymap.OpenMap(e.PolicyMapPathLocked())
@@ -2599,7 +2633,7 @@ func (e *Endpoint) syncPolicyMap() error {
 			// converted to network byte-order.
 			err := e.PolicyMap.DeleteKey(keyHostOrder)
 			if err != nil {
-				e.getLogger().WithError(err).Errorf("Failed to delete PolicyMap key %s", entry.Key)
+				e.Logger().WithError(err).Errorf("Failed to delete PolicyMap key %s", entry.Key.String())
 				errors = append(errors, err)
 			} else {
 				// Operation was successful, remove from realized state.
@@ -2612,7 +2646,7 @@ func (e *Endpoint) syncPolicyMap() error {
 		if oldEntry, ok := e.realizedMapState[keyToAdd]; !ok || oldEntry != entry {
 			err := e.PolicyMap.AllowKey(keyToAdd, entry.ProxyPort)
 			if err != nil {
-				e.getLogger().WithError(err).Errorf("Failed to add PolicyMap key %s %d", keyToAdd, entry.ProxyPort)
+				e.Logger().WithError(err).Errorf("Failed to add PolicyMap key %s %d", keyToAdd.String(), entry.ProxyPort)
 				errors = append(errors, err)
 			} else {
 				// Operation was successful, add to realized state.
@@ -2633,8 +2667,10 @@ func (e *Endpoint) syncPolicyMapController() {
 	e.controllers.UpdateController(ctrlName,
 		controller.ControllerParams{
 			DoFunc: func() (reterr error) {
+				// Failure to lock is not an error, it means
+				// that the endpoint was disconnected and we
+				// should exit gracefully.
 				if err := e.LockAlive(); err != nil {
-					e.LogDisconnectedMutexAction(err, "before syncing policy maps in controller")
 					return nil
 				}
 				defer e.Unlock()

@@ -45,10 +45,7 @@
 #define LB_L4
 #define CONNTRACK
 #define CONNTRACK_ACCOUNTING
-#define POLICY_INGRESS
-#define POLICY_EGRESS
 #define ENABLE_IPv4
-#define HAVE_L4_POLICY
 
 /* It appears that we can support around the below number of prefixes in an
  * unrolled loop for LPM CIDR handling in older kernels along with the rest of

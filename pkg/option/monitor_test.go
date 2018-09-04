@@ -38,7 +38,7 @@ func (s *OptionSuite) TestParseMonitorAggregationLevel(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(level, Equals, MonitorAggregationLevelLow)
 
-	_, err = ParseMonitorAggregationLevel(strconv.Itoa(MonitorAggregationLevelMax + 1))
+	_, err = ParseMonitorAggregationLevel(strconv.Itoa(int(MonitorAggregationLevelMax) + 1))
 	c.Assert(err, NotNil)
 
 	_, err = ParseMonitorAggregationLevel("-1")

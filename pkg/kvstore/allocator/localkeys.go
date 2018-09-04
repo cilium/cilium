@@ -134,3 +134,16 @@ func (lk *localKeys) release(key string) (lastUse bool, err error) {
 
 	return false, fmt.Errorf("unable to find key in local cache")
 }
+
+func (lk *localKeys) getVerifiedIDs() map[ID]string {
+	ids := map[ID]string{}
+	lk.RLock()
+	for id, localKey := range lk.ids {
+		if localKey.verified {
+			ids[id] = localKey.key
+		}
+	}
+	lk.RUnlock()
+
+	return ids
+}

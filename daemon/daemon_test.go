@@ -51,25 +51,20 @@ type DaemonSuite struct {
 	kvstoreInit bool
 
 	// Owners interface mock
-	OnTracingEnabled                  func() bool
-	OnDryModeEnabled                  func() bool
-	OnEnableEndpointPolicyEnforcement func(e *e.Endpoint) (bool, bool)
-	OnPolicyEnforcement               func() string
-	OnAlwaysAllowLocalhost            func() bool
-	OnGetCachedLabelList              func(id identity.NumericIdentity) (labels.LabelArray, error)
-	OnGetPolicyRepository             func() *policy.Repository
-	OnUpdateProxyRedirect             func(e *e.Endpoint, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error)
-	OnRemoveProxyRedirect             func(e *e.Endpoint, id string, proxyWaitGroup *completion.WaitGroup) error
-	OnUpdateNetworkPolicy             func(e *e.Endpoint, policy *policy.L4Policy, labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, proxyWaitGroup *completion.WaitGroup) error
-	OnRemoveNetworkPolicy             func(e *e.Endpoint)
-	OnGetStateDir                     func() string
-	OnGetBpfDir                       func() string
-	OnQueueEndpointBuild              func(r *e.Request)
-	OnRemoveFromEndpointQueue         func(epID uint64)
-	OnDebugEnabled                    func() bool
-	OnGetCompilationLock              func() *lock.RWMutex
-	OnSendNotification                func(typ monitor.AgentNotification, text string) error
-	OnNewProxyLogRecord               func(l *accesslog.LogRecord) error
+	OnTracingEnabled          func() bool
+	OnAlwaysAllowLocalhost    func() bool
+	OnGetCachedLabelList      func(id identity.NumericIdentity) (labels.LabelArray, error)
+	OnGetPolicyRepository     func() *policy.Repository
+	OnUpdateProxyRedirect     func(e *e.Endpoint, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error)
+	OnRemoveProxyRedirect     func(e *e.Endpoint, id string, proxyWaitGroup *completion.WaitGroup) error
+	OnUpdateNetworkPolicy     func(e *e.Endpoint, policy *policy.L4Policy, labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, proxyWaitGroup *completion.WaitGroup) error
+	OnRemoveNetworkPolicy     func(e *e.Endpoint)
+	OnQueueEndpointBuild      func(r *e.Request)
+	OnRemoveFromEndpointQueue func(epID uint64)
+	OnDebugEnabled            func() bool
+	OnGetCompilationLock      func() *lock.RWMutex
+	OnSendNotification        func(typ monitor.AgentNotification, text string) error
+	OnNewProxyLogRecord       func(l *accesslog.LogRecord) error
 }
 
 func (ds *DaemonSuite) SetUpTest(c *C) {
@@ -112,9 +107,6 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	identity.InitIdentityAllocator(d)
 
 	ds.OnTracingEnabled = nil
-	ds.OnDryModeEnabled = nil
-	ds.OnEnableEndpointPolicyEnforcement = nil
-	ds.OnPolicyEnforcement = nil
 	ds.OnAlwaysAllowLocalhost = nil
 	ds.OnGetCachedLabelList = nil
 	ds.OnGetPolicyRepository = nil
@@ -122,8 +114,6 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	ds.OnRemoveProxyRedirect = nil
 	ds.OnUpdateNetworkPolicy = nil
 	ds.OnRemoveNetworkPolicy = nil
-	ds.OnGetStateDir = nil
-	ds.OnGetBpfDir = nil
 	ds.OnQueueEndpointBuild = nil
 	ds.OnRemoveFromEndpointQueue = nil
 	ds.OnDebugEnabled = nil
@@ -183,27 +173,6 @@ func (ds *DaemonSuite) TestMinimumWorkerThreadsIsSet(c *C) {
 	c.Assert(numWorkerThreads() >= runtime.NumCPU(), Equals, true)
 }
 
-func (ds *DaemonSuite) DryModeEnabled() bool {
-	if ds.OnDryModeEnabled != nil {
-		return ds.OnDryModeEnabled()
-	}
-	panic("DryModeEnabled should not have been called")
-}
-
-func (ds *DaemonSuite) EnableEndpointPolicyEnforcement(e *e.Endpoint) (bool, bool) {
-	if ds.OnEnableEndpointPolicyEnforcement != nil {
-		return ds.OnEnableEndpointPolicyEnforcement(e)
-	}
-	panic("UpdateEndpointPolicyEnforcement should not have been called")
-}
-
-func (ds *DaemonSuite) PolicyEnforcement() string {
-	if ds.OnPolicyEnforcement != nil {
-		return ds.OnPolicyEnforcement()
-	}
-	panic("PolicyEnforcement should not have been called")
-}
-
 func (ds *DaemonSuite) AlwaysAllowLocalhost() bool {
 	if ds.OnAlwaysAllowLocalhost != nil {
 		return ds.OnAlwaysAllowLocalhost()
@@ -252,20 +221,6 @@ func (ds *DaemonSuite) RemoveNetworkPolicy(e *e.Endpoint) {
 		ds.OnRemoveNetworkPolicy(e)
 	}
 	panic("RemoveNetworkPolicy should not have been called")
-}
-
-func (ds *DaemonSuite) GetStateDir() string {
-	if ds.OnGetStateDir != nil {
-		return ds.OnGetStateDir()
-	}
-	panic("GetStateDir should not have been called")
-}
-
-func (ds *DaemonSuite) GetBpfDir() string {
-	if ds.OnGetBpfDir != nil {
-		return ds.OnGetBpfDir()
-	}
-	panic("GetBpfDir should not have been called")
 }
 
 func (ds *DaemonSuite) QueueEndpointBuild(r *e.Request) {

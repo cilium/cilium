@@ -107,8 +107,8 @@ func RenderTemplateToFile(filename string, tmplt string, perm os.FileMode) error
 
 // TimeoutConfig represents the configuration for the timeout of a command.
 type TimeoutConfig struct {
-	Ticker  time.Duration // Check interval in duration.
-	Timeout time.Duration // Timeout definition
+	Ticker  int64 // Check interval in duration, in seconds.
+	Timeout int64 // Timeout definition, in seconds.
 }
 
 // WithTimeout executes body using the time interval specified in config until
@@ -119,8 +119,8 @@ func WithTimeout(body func() bool, msg string, config *TimeoutConfig) error {
 		config.Ticker = 5
 	}
 
-	done := time.After(config.Timeout * time.Second)
-	ticker := time.NewTicker(config.Ticker * time.Second)
+	done := time.After(time.Duration(config.Timeout) * time.Second)
+	ticker := time.NewTicker(time.Duration(config.Ticker) * time.Second)
 	defer ticker.Stop()
 	if body() {
 		return nil
@@ -164,7 +164,7 @@ func InstallExampleCilium(kubectl *Kubectl, version string) {
 
 	var path = filepath.Join("..", "examples", "kubernetes", GetCurrentK8SEnv(), "cilium.yaml")
 	var result bytes.Buffer
-	timeout := time.Duration(800)
+	var timeout int64 = 800
 
 	newCiliumDSName := fmt.Sprintf("cilium_ds_%s.json", MakeUID())
 
@@ -344,6 +344,17 @@ func ManifestGet(manifestFilename string) string {
 		return filepath.Join(BasePath, fullPath)
 	}
 	return filepath.Join(BasePath, "k8sT", "manifests", manifestFilename)
+}
+
+// GetK8sDescriptor returns the full path of the given descriptorFilename that
+// exists in the descriptorsPath. If not found, the returned path will be empty.
+func GetK8sDescriptor(descriptorFilename string) string {
+	fullPath := filepath.Join(descriptorsPath, GetCurrentK8SEnv(), descriptorFilename)
+	_, err := os.Stat(fullPath)
+	if err == nil {
+		return filepath.Join(BasePath, fullPath)
+	}
+	return ""
 }
 
 // WriteOrAppendToFile writes data to a file named by filename.

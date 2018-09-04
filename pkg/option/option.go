@@ -30,11 +30,11 @@ type VerifyFunc func(key string, value string) error
 
 // ParseFunc parses the option value and may return an error if the option
 // cannot be parsed or applied.
-type ParseFunc func(value string) (int, error)
+type ParseFunc func(value string) (OptionSetting, error)
 
 // FormatFunc formats the specified value as a colored textual representation
 // of the option.
-type FormatFunc func(value int) string
+type FormatFunc func(value OptionSetting) string
 
 // Option is the structure used to specify the semantics of a configurable
 // boolean option
@@ -59,8 +59,11 @@ type Option struct {
 	Verify VerifyFunc
 }
 
+// OptionSetting specifies the different choices each Option has.
+type OptionSetting int
+
 const (
-	OptionDisabled = iota
+	OptionDisabled OptionSetting = iota
 	OptionEnabled
 )
 
@@ -97,7 +100,7 @@ func (l OptionLibrary) Define(name string) string {
 	return name
 }
 
-func NormalizeBool(value string) (int, error) {
+func NormalizeBool(value string) (OptionSetting, error) {
 	switch strings.ToLower(value) {
 	case "true", "on", "enable", "enabled", "1":
 		return OptionEnabled, nil
@@ -106,6 +109,25 @@ func NormalizeBool(value string) (int, error) {
 	default:
 		return OptionDisabled, fmt.Errorf("Invalid option value %s", value)
 	}
+}
+
+// ValidateConfigurationMap validates a given configuration map based on the
+// option library
+func (l *OptionLibrary) ValidateConfigurationMap(n models.ConfigurationMap) (OptionMap, error) {
+	o := make(OptionMap)
+	for k, v := range n {
+		_, newVal, err := ParseKeyValue(l, k, v)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := l.Validate(k, v); err != nil {
+			return nil, err
+		}
+		o[k] = newVal
+	}
+
+	return o, nil
 }
 
 func (l OptionLibrary) Validate(name string, value string) error {
@@ -125,7 +147,7 @@ func (l OptionLibrary) Validate(name string, value string) error {
 	return nil
 }
 
-type OptionMap map[string]int
+type OptionMap map[string]OptionSetting
 
 func (om OptionMap) DeepCopy() OptionMap {
 	cpy := make(OptionMap, len(om))
@@ -156,14 +178,20 @@ func (o *IntOptions) GetMutableModel() *models.ConfigurationMap {
 	o.optsMU.RLock()
 	for k, v := range o.Opts {
 		_, config := o.Library.Lookup(k)
-		if config.Format == nil {
-			if v == OptionDisabled {
-				mutableCfg[k] = fmt.Sprintf("Disabled")
+
+		// It's possible that an option has since been removed and thus has
+		// no corresponding configuration; need to check if configuration is
+		// nil accordingly.
+		if config != nil {
+			if config.Format == nil {
+				if v == OptionDisabled {
+					mutableCfg[k] = fmt.Sprintf("Disabled")
+				} else {
+					mutableCfg[k] = fmt.Sprintf("Enabled")
+				}
 			} else {
-				mutableCfg[k] = fmt.Sprintf("Enabled")
+				mutableCfg[k] = config.Format(v)
 			}
-		} else {
-			mutableCfg[k] = config.Format(v)
 		}
 	}
 	o.optsMU.RUnlock()
@@ -188,7 +216,7 @@ func NewIntOptions(lib *OptionLibrary) *IntOptions {
 	}
 }
 
-func (o *IntOptions) getValue(key string) int {
+func (o *IntOptions) getValue(key string) OptionSetting {
 	value, exists := o.Opts[key]
 	if !exists {
 		return OptionDisabled
@@ -196,7 +224,7 @@ func (o *IntOptions) getValue(key string) int {
 	return value
 }
 
-func (o *IntOptions) GetValue(key string) int {
+func (o *IntOptions) GetValue(key string) OptionSetting {
 	o.optsMU.RLock()
 	v := o.getValue(key)
 	o.optsMU.RUnlock()
@@ -209,7 +237,7 @@ func (o *IntOptions) IsEnabled(key string) bool {
 
 // SetValidated sets the option `key` to the specified value. The caller is
 // expected to have validated the input to this function.
-func (o *IntOptions) SetValidated(key string, value int) {
+func (o *IntOptions) SetValidated(key string, value OptionSetting) {
 	o.optsMU.Lock()
 	o.Opts[key] = value
 	o.optsMU.Unlock()
@@ -232,7 +260,7 @@ func (o *IntOptions) Delete(key string) {
 	o.optsMU.Unlock()
 }
 
-func (o *IntOptions) SetIfUnset(key string, value int) {
+func (o *IntOptions) SetIfUnset(key string, value OptionSetting) {
 	o.optsMU.Lock()
 	if _, exists := o.Opts[key]; !exists {
 		o.Opts[key] = value
@@ -246,7 +274,7 @@ func (o *IntOptions) InheritDefault(parent *IntOptions, key string) {
 	o.optsMU.RUnlock()
 }
 
-func ParseOption(arg string, lib *OptionLibrary) (string, int, error) {
+func ParseOption(arg string, lib *OptionLibrary) (string, OptionSetting, error) {
 	result := OptionEnabled
 
 	if arg[0] == '!' {
@@ -267,8 +295,8 @@ func ParseOption(arg string, lib *OptionLibrary) (string, int, error) {
 	return "", OptionDisabled, fmt.Errorf("Invalid option format")
 }
 
-func ParseKeyValue(lib *OptionLibrary, arg, value string) (string, int, error) {
-	var result int
+func ParseKeyValue(lib *OptionLibrary, arg, value string) (string, OptionSetting, error) {
+	var result OptionSetting
 
 	key, spec := lib.Lookup(arg)
 	if key == "" {
@@ -382,7 +410,7 @@ func (o *IntOptions) Validate(n models.ConfigurationMap) error {
 }
 
 // ChangedFunc is called by `Apply()` for each option changed
-type ChangedFunc func(key string, value int, data interface{})
+type ChangedFunc func(key string, value OptionSetting, data interface{})
 
 // enable enables the option `name` with all its dependencies
 func (o *IntOptions) enable(name string) {
@@ -399,7 +427,7 @@ func (o *IntOptions) enable(name string) {
 
 // set enables the option `name` with all its dependencies, and sets the
 // integer level of the option to `value`.
-func (o *IntOptions) set(name string, value int) {
+func (o *IntOptions) set(name string, value OptionSetting) {
 	o.enable(name)
 	o.Opts[name] = value
 }
@@ -423,7 +451,7 @@ func (o *IntOptions) disable(name string) {
 
 type changedOptions struct {
 	key   string
-	value int
+	value OptionSetting
 }
 
 // ApplyValidated takes a configuration map and applies the changes. For an
@@ -433,15 +461,13 @@ type changedOptions struct {
 //
 // The caller is expected to have validated the configuration options prior to
 // calling this function.
-func (o *IntOptions) ApplyValidated(n models.ConfigurationMap, changed ChangedFunc, data interface{}) int {
-	changes := []changedOptions{}
+func (o *IntOptions) ApplyValidated(n OptionMap, changed ChangedFunc, data interface{}) int {
+	changes := make([]changedOptions, 0, len(n))
 
 	o.optsMU.Lock()
-	for k, v := range n {
+	for k, optVal := range n {
 		val, ok := o.Opts[k]
 
-		// Ignore the error here because the option was already validated.
-		_, optVal, _ := ParseKeyValue(o.Library, k, v)
 		if optVal == OptionDisabled {
 			/* Only disable if enabled already */
 			if ok && val != OptionDisabled {

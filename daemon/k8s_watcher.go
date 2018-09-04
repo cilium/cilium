@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -97,6 +98,11 @@ var (
 	importMetadataCache = ruleImportMetadataCache{
 		ruleImportMetadataMap: make(map[string]policyImportMetadata),
 	}
+
+	// local cache of Kubernetes Endpoints which relate to external services.
+	endpointMetadataCache = endpointImportMetadataCache{
+		endpointImportMetadataMap: make(map[string]endpointImportMetadata),
+	}
 )
 
 // ruleImportMetadataCache maps the unique identifier of a CiliumNetworkPolicy
@@ -149,6 +155,57 @@ func (r *ruleImportMetadataCache) get(cnp *cilium_v2.CiliumNetworkPolicy) (polic
 	policyImportMeta, ok := r.ruleImportMetadataMap[podNSName]
 	r.mutex.RUnlock()
 	return policyImportMeta, ok
+}
+
+// endpointImportMetadataCache maps the unique identifier of a Kubernetes
+// Endpoint (namespace and name) to metadata about whether translation of the
+// rules involving services that the endpoint corresponds to into the
+// agent's policy repository at the time said rule was imported (if any error
+// occurred while importing).
+type endpointImportMetadataCache struct {
+	mutex                     lock.RWMutex
+	endpointImportMetadataMap map[string]endpointImportMetadata
+}
+
+type endpointImportMetadata struct {
+	ruleTranslationError error
+}
+
+func (r *endpointImportMetadataCache) upsert(ep *v1.Endpoints, ruleTranslationErr error) {
+	if ep == nil {
+		return
+	}
+
+	meta := endpointImportMetadata{
+		ruleTranslationError: ruleTranslationErr,
+	}
+	epNSName := k8sUtils.GetObjNamespaceName(&ep.ObjectMeta)
+
+	r.mutex.Lock()
+	r.endpointImportMetadataMap[epNSName] = meta
+	r.mutex.Unlock()
+}
+
+func (r *endpointImportMetadataCache) delete(ep *v1.Endpoints) {
+	if ep == nil {
+		return
+	}
+	epNSName := k8sUtils.GetObjNamespaceName(&ep.ObjectMeta)
+
+	r.mutex.Lock()
+	delete(r.endpointImportMetadataMap, epNSName)
+	r.mutex.Unlock()
+}
+
+func (r *endpointImportMetadataCache) get(cnp *v1.Endpoints) (endpointImportMetadata, bool) {
+	if cnp == nil {
+		return endpointImportMetadata{}, false
+	}
+	epNSName := k8sUtils.GetObjNamespaceName(&cnp.ObjectMeta)
+	r.mutex.RLock()
+	endpointImportMeta, ok := r.endpointImportMetadataMap[epNSName]
+	r.mutex.RUnlock()
+	return endpointImportMeta, ok
 }
 
 // k8sAPIGroupsUsed is a lockable map to hold which k8s API Groups we have
@@ -335,7 +392,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 			reSyncPeriod,
 			cache.ResourceEventHandlerFuncs{
 				AddFunc: func(obj interface{}) {
-					metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+					metrics.EventTSK8s.SetToCurrentTime()
 					if k8sNP := copyObjToV1NetworkPolicy(obj); k8sNP != nil {
 						serKNPs.Enqueue(func() error {
 							d.addK8sNetworkPolicyV1(k8sNP)
@@ -344,7 +401,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 					}
 				},
 				UpdateFunc: func(oldObj, newObj interface{}) {
-					metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+					metrics.EventTSK8s.SetToCurrentTime()
 					if oldK8sNP := copyObjToV1NetworkPolicy(oldObj); oldK8sNP != nil {
 						if newK8sNP := copyObjToV1NetworkPolicy(newObj); newK8sNP != nil {
 							serKNPs.Enqueue(func() error {
@@ -355,7 +412,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 					}
 				},
 				DeleteFunc: func(obj interface{}) {
-					metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+					metrics.EventTSK8s.SetToCurrentTime()
 					if k8sNP := copyObjToV1NetworkPolicy(obj); k8sNP != nil {
 						serKNPs.Enqueue(func() error {
 							d.deleteK8sNetworkPolicyV1(k8sNP)
@@ -378,7 +435,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		reSyncPeriod,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+				metrics.EventTSK8s.SetToCurrentTime()
 				if svc := copyObjToV1Services(obj); svc != nil {
 					serSvcs.Enqueue(func() error {
 						d.addK8sServiceV1(svc)
@@ -387,7 +444,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+				metrics.EventTSK8s.SetToCurrentTime()
 				if oldK8sSvc := copyObjToV1Services(oldObj); oldK8sSvc != nil {
 					if newK8sSvc := copyObjToV1Services(newObj); newK8sSvc != nil {
 						serSvcs.Enqueue(func() error {
@@ -398,7 +455,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+				metrics.EventTSK8s.SetToCurrentTime()
 				if svc := copyObjToV1Services(obj); svc != nil {
 					serSvcs.Enqueue(func() error {
 						d.deleteK8sServiceV1(svc)
@@ -414,12 +471,14 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 
 	_, endpointController := cache.NewInformer(
 		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
-			"endpoints", v1.NamespaceAll, fields.Everything()),
+			"endpoints", v1.NamespaceAll,
+			// Don't get any events from kubernetes endpoints.
+			fields.ParseSelectorOrDie("metadata.name!=kube-scheduler,metadata.name!=kube-controller-manager")),
 		&v1.Endpoints{},
 		reSyncPeriod,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+				metrics.EventTSK8s.SetToCurrentTime()
 				if k8sEP := copyObjToV1Endpoints(obj); k8sEP != nil {
 					serEps.Enqueue(func() error {
 						d.addK8sEndpointV1(k8sEP)
@@ -428,7 +487,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+				metrics.EventTSK8s.SetToCurrentTime()
 				if oldK8sEP := copyObjToV1Endpoints(oldObj); oldK8sEP != nil {
 					if newK8sEP := copyObjToV1Endpoints(newObj); newK8sEP != nil {
 						serEps.Enqueue(func() error {
@@ -439,7 +498,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+				metrics.EventTSK8s.SetToCurrentTime()
 				if k8sEP := copyObjToV1Endpoints(obj); k8sEP != nil {
 					serEps.Enqueue(func() error {
 						d.deleteK8sEndpointV1(k8sEP)
@@ -461,7 +520,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 			reSyncPeriod,
 			cache.ResourceEventHandlerFuncs{
 				AddFunc: func(obj interface{}) {
-					metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+					metrics.EventTSK8s.SetToCurrentTime()
 					if ing := copyObjToV1beta1Ingress(obj); ing != nil {
 						serEps.Enqueue(func() error {
 							d.addIngressV1beta1(ing)
@@ -470,7 +529,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 					}
 				},
 				UpdateFunc: func(oldObj, newObj interface{}) {
-					metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+					metrics.EventTSK8s.SetToCurrentTime()
 					if oldIng := copyObjToV1beta1Ingress(oldObj); oldIng != nil {
 						if newIng := copyObjToV1beta1Ingress(newObj); newIng != nil {
 							serEps.Enqueue(func() error {
@@ -481,7 +540,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 					}
 				},
 				DeleteFunc: func(obj interface{}) {
-					metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+					metrics.EventTSK8s.SetToCurrentTime()
 					if ing := copyObjToV1beta1Ingress(obj); ing != nil {
 						serEps.Enqueue(func() error {
 							d.deleteIngressV1beta1(ing)
@@ -504,7 +563,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		cnpStore := ciliumV2Controller.GetStore()
 		ciliumV2Controller.AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+				metrics.EventTSK8s.SetToCurrentTime()
 				if cnp := copyObjToV2CNP(obj); cnp != nil {
 					serCNPs.Enqueue(func() error {
 						d.addCiliumNetworkPolicyV2(cnpStore, cnp)
@@ -513,7 +572,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+				metrics.EventTSK8s.SetToCurrentTime()
 				if oldCNP := copyObjToV2CNP(oldObj); oldCNP != nil {
 					if newCNP := copyObjToV2CNP(newObj); newCNP != nil {
 						serCNPs.Enqueue(func() error {
@@ -524,7 +583,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+				metrics.EventTSK8s.SetToCurrentTime()
 				if cnp := copyObjToV2CNP(obj); cnp != nil {
 					serCNPs.Enqueue(func() error {
 						d.deleteCiliumNetworkPolicyV2(cnp)
@@ -545,7 +604,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		reSyncPeriod,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(newObj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+				metrics.EventTSK8s.SetToCurrentTime()
 				if newK8sPod := copyObjToV1Pod(newObj); newK8sPod != nil {
 					serPods.Enqueue(func() error {
 						d.addK8sPodV1(newK8sPod)
@@ -554,7 +613,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+				metrics.EventTSK8s.SetToCurrentTime()
 				if oldK8sPod := copyObjToV1Pod(oldObj); oldK8sPod != nil {
 					if newK8sPod := copyObjToV1Pod(newObj); newK8sPod != nil {
 						serPods.Enqueue(func() error {
@@ -565,7 +624,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 				}
 			},
 			DeleteFunc: func(oldObj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+				metrics.EventTSK8s.SetToCurrentTime()
 				if oldK8sPod := copyObjToV1Pod(oldObj); oldK8sPod != nil {
 					serPods.Enqueue(func() error {
 						d.deleteK8sPodV1(oldK8sPod)
@@ -586,7 +645,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		reSyncPeriod,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+				metrics.EventTSK8s.SetToCurrentTime()
 				if k8sNode := copyObjToV1Node(obj); k8sNode != nil {
 					serNodes.Enqueue(func() error {
 						d.addK8sNodeV1(k8sNode)
@@ -595,7 +654,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+				metrics.EventTSK8s.SetToCurrentTime()
 				if oldK8sNode := copyObjToV1Node(oldObj); oldK8sNode != nil {
 					if newK8sNode := copyObjToV1Node(newObj); newK8sNode != nil {
 						serNodes.Enqueue(func() error {
@@ -606,7 +665,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+				metrics.EventTSK8s.SetToCurrentTime()
 				if k8sNode := copyObjToV1Node(obj); k8sNode != nil {
 					serNodes.Enqueue(func() error {
 						d.deleteK8sNodeV1(k8sNode)
@@ -629,7 +688,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 			// AddFunc does not matter since the endpoint will fetch
 			// namespace labels when the endpoint is created
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+				metrics.EventTSK8s.SetToCurrentTime()
 				if oldns := copyObjToV1Namespace(oldObj); oldns != nil {
 					if newns := copyObjToV1Namespace(newObj); newns != nil {
 						serNamespaces.Enqueue(func() error {
@@ -918,8 +977,16 @@ func (d *Daemon) addK8sEndpointV1(ep *v1.Endpoints) {
 	d.loadBalancer.K8sMU.Lock()
 	defer d.loadBalancer.K8sMU.Unlock()
 
+	// Check whether any service corresponding to this endpoint already exists
+	// before it gets inserted. If it does exist, this means that we may not have
+	// to plumb the Kubernetes Endpoint into any toService rules if nothing
+	// about the Endpoint has changed.
+	storedK8sEndpoint, storedK8sEndpointOK := d.loadBalancer.K8sEndpoints[svcns]
+	endpointsEqual := storedK8sEndpointOK && reflect.DeepEqual(storedK8sEndpoint, newSvcEP)
+
 	d.loadBalancer.K8sEndpoints[svcns] = newSvcEP
 
+	// Note: this does nothing if the service is headless.
 	d.syncLB(&svcns, nil, nil)
 
 	if option.Config.IsLBEnabled() {
@@ -930,13 +997,39 @@ func (d *Daemon) addK8sEndpointV1(ep *v1.Endpoints) {
 	}
 
 	svc, ok := d.loadBalancer.K8sServices[svcns]
+
 	if ok && svc.IsExternal() {
-		translator := k8s.NewK8sTranslator(svcns, *newSvcEP, false, svc.Labels, bpfIPCache.IPCache)
-		err := d.policy.TranslateRules(translator)
-		if err != nil {
-			log.Errorf("Unable to repopulate egress policies from ToService rules: %v", err)
-		} else {
-			d.TriggerPolicyUpdates(true)
+		serviceImportMeta, cacheOK := endpointMetadataCache.get(ep)
+
+		// If this is the first time adding this Endpoint, or there was an error
+		// adding it last time, then try to add translate it and its
+		// corresponding external service for any toServices rules which
+		// select said service.
+		if !cacheOK || (cacheOK && serviceImportMeta.ruleTranslationError != nil) {
+			translator := k8s.NewK8sTranslator(svcns, *newSvcEP, false, svc.Labels, bpfIPCache.IPCache)
+			err := d.policy.TranslateRules(translator)
+			endpointMetadataCache.upsert(ep, err)
+			if err != nil {
+				log.Errorf("Unable to repopulate egress policies from ToService rules: %v", err)
+			} else {
+				scopedLog.Info("Kubernetes service endpoint added")
+				d.TriggerPolicyUpdates(true, "Kubernetes service endpoint added")
+			}
+		} else if serviceImportMeta.ruleTranslationError == nil {
+			// Given that we provide a non-zero value for the resyncPeriod for
+			// the Kubernetes informer, we will receive updates for all
+			// Endpoints from Kubernetes even if no meaningful content of the
+			// Endpoints has changed. Do not trigger policy updates if no
+			// meaningful content of the rule has changed, but only if the prior
+			// addition of the service endpoints into the policy repository
+			// succeeded.
+			if endpointsEqual {
+				scopedLog.Debugf("no changes to Kubernetes endpoint; not triggering policy updates")
+				return
+			}
+			// Endpoint has changed, but already exists.
+			scopedLog.Info("Kubernetes endpoint updated")
+			d.TriggerPolicyUpdates(true, "Kubernetes service endpoint updated")
 		}
 	}
 }
@@ -978,7 +1071,7 @@ func (d *Daemon) deleteK8sEndpointV1(ep *v1.Endpoints) {
 			if err != nil {
 				log.Errorf("Unable to depopulate egress policies from ToService rules: %v", err)
 			} else {
-				d.TriggerPolicyUpdates(true)
+				d.TriggerPolicyUpdates(true, "Kubernetes service endpoint deleted")
 			}
 		}
 	}
@@ -990,6 +1083,7 @@ func (d *Daemon) deleteK8sEndpointV1(ep *v1.Endpoints) {
 			return
 		}
 	}
+	endpointMetadataCache.delete(ep)
 }
 
 func areIPsConsistent(ipv4Enabled, isSvcIPv4 bool, svc loadbalancer.K8sServiceNamespace, se *loadbalancer.K8sServiceEndpoint) error {

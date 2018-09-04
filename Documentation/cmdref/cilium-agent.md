@@ -20,6 +20,7 @@ cilium-agent
       --agent-labels stringSlice                    Additional labels to identify this agent
       --allow-localhost string                      Policy when to allow local stack to reach local endpoints { auto | always | policy }  (default "auto")
       --auto-ipv6-node-routes                       Automatically adds IPv6 L3 routes to reach other nodes for non-overlay mode (--device) (BETA)
+      --bpf-compile-debug                           Enable debugging of the BPF compilation process
       --bpf-root string                             Path to BPF filesystem
       --cluster-id int                              Unique identifier of the cluster
       --cluster-name string                         Name of the cluster (default "default")
@@ -61,6 +62,7 @@ cilium-agent
       --lib-dir string                              Directory path to store runtime build environment (default "/var/lib/cilium")
       --log-driver stringSlice                      Logging endpoints to use for example syslog, fluentd
       --log-opt map                                 Log driver options for cilium (default map[])
+      --log-system-load                             Enable periodic logging of system load
       --logstash                                    Enable logstash integration
       --logstash-agent string                       Logstash agent address (default "127.0.0.1:8080")
       --logstash-probe-timer uint32                 Logstash probe timer (seconds) (default 10)

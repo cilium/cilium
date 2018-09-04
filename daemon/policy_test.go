@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -40,6 +40,8 @@ var (
 	ProdHardAddr    = mac.MAC{0x01, 0x07, 0x08, 0x09, 0x0a, 0x0b}
 	ProdIPv6Addr, _ = addressing.NewCiliumIPv6("cafe:cafe:cafe:cafe:aaaa:aaaa:1111:1112")
 	ProdIPv4Addr, _ = addressing.NewCiliumIPv4("10.11.12.14")
+
+	regenContext = endpoint.NewRegenerationContext("test")
 )
 
 // getXDSNetworkPolicies returns the representation of the xDS network policies
@@ -121,22 +123,27 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
 	qaBarSecLblsCtx, _, err := identity.AllocateIdentity(qaBarLbls)
 	c.Assert(err, Equals, nil)
+	defer qaBarSecLblsCtx.Release()
 
 	prodBarLbls := labels.Labels{lblBar.Key: lblBar, lblProd.Key: lblProd}
 	prodBarSecLblsCtx, _, err := identity.AllocateIdentity(prodBarLbls)
 	c.Assert(err, Equals, nil)
+	defer prodBarSecLblsCtx.Release()
 
 	qaFooLbls := labels.Labels{lblFoo.Key: lblFoo, lblQA.Key: lblQA}
 	qaFooSecLblsCtx, _, err := identity.AllocateIdentity(qaFooLbls)
 	c.Assert(err, Equals, nil)
+	defer qaFooSecLblsCtx.Release()
 
 	prodFooLbls := labels.Labels{lblFoo.Key: lblFoo, lblProd.Key: lblProd}
 	prodFooSecLblsCtx, _, err := identity.AllocateIdentity(prodFooLbls)
 	c.Assert(err, Equals, nil)
+	defer prodFooSecLblsCtx.Release()
 
 	prodFooJoeLbls := labels.Labels{lblFoo.Key: lblFoo, lblProd.Key: lblProd, lblJoe.Key: lblJoe}
 	prodFooJoeSecLblsCtx, _, err := identity.AllocateIdentity(prodFooJoeLbls)
 	c.Assert(err, Equals, nil)
+	defer prodFooJoeSecLblsCtx.Release()
 
 	e := endpoint.NewEndpointWithState(1, endpoint.StateWaitingForIdentity)
 	e.IfName = "dummy1"
@@ -158,7 +165,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	ready := e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
 	e.Unlock()
 	c.Assert(ready, Equals, true)
-	buildSuccess := <-e.Regenerate(ds.d, "test")
+	buildSuccess := <-e.Regenerate(ds.d, regenContext)
 	c.Assert(buildSuccess, Equals, true)
 	c.Assert(e.Allows(qaBarSecLblsCtx.ID), Equals, false)
 	c.Assert(e.Allows(prodBarSecLblsCtx.ID), Equals, false)
@@ -176,7 +183,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	ready = e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
 	e.Unlock()
 	c.Assert(ready, Equals, true)
-	buildSuccess = <-e.Regenerate(ds.d, "test")
+	buildSuccess = <-e.Regenerate(ds.d, regenContext)
 	c.Assert(buildSuccess, Equals, true)
 	c.Assert(e.Allows(0), Equals, false)
 	c.Assert(e.Allows(qaBarSecLblsCtx.ID), Equals, false)
@@ -421,6 +428,7 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
 	qaBarSecLblsCtx, _, err := identity.AllocateIdentity(qaBarLbls)
 	c.Assert(err, Equals, nil)
+	defer qaBarSecLblsCtx.Release()
 
 	// Create the endpoint and generate its policy.
 	e := endpoint.NewEndpointWithState(1, endpoint.StateWaitingForIdentity)
@@ -442,7 +450,7 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 	ready := e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
 	e.Unlock()
 	c.Assert(ready, Equals, true)
-	buildSuccess := <-e.Regenerate(ds.d, "test")
+	buildSuccess := <-e.Regenerate(ds.d, regenContext)
 	c.Assert(buildSuccess, Equals, true)
 
 	// Check that the policy has been updated in the xDS cache for the L7

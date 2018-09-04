@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -59,6 +59,15 @@ const (
 	// PolicyRevision is the revision of the policy in the repository or of
 	// the object in question
 	PolicyRevision = "policyRevision"
+
+	// DatapathPolicyRevision is the policy revision currently running in
+	// the datapath
+	DatapathPolicyRevision = "datapathPolicyRevision"
+
+	// DesiredPolicyRevision is the latest policy revision as evaluated for
+	// an endpoint. It is the desired policy revision to be implemented
+	// into the datapath.
+	DesiredPolicyRevision = "desiredPolicyRevision"
 
 	// PolicyID is the identifier of a L3, L4 or L7 Policy. Ideally the .NumericIdentity
 	PolicyID = "policyID"
@@ -283,4 +292,11 @@ const (
 
 	// ThreadID is the Envoy thread ID.
 	ThreadID = "threadID"
+
+	// Reason is a human readable string describing why an operation was
+	// performed
+	Reason = "reason"
+
+	// Debug is a boolean value for whether debug is set or not.
+	Debug = "debug"
 )

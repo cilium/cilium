@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -93,9 +93,6 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 
 	ds.d.compilationMutex = new(lock.RWMutex)
 
-	ds.OnGetStateDir = func() string {
-		return baseDir
-	}
 	ds.OnQueueEndpointBuild = func(r *e.Request) {
 		go func(*e.Request) {
 			r.MyTurn <- true
@@ -110,12 +107,6 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 	}
 	ds.OnAlwaysAllowLocalhost = func() bool {
 		return false
-	}
-	ds.OnEnableEndpointPolicyEnforcement = func(e *e.Endpoint) (bool, bool) {
-		return true, true
-	}
-	ds.OnDryModeEnabled = func() bool {
-		return true
 	}
 
 	ds.OnGetCompilationLock = func() *lock.RWMutex {
@@ -133,10 +124,6 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 
 	ds.OnRemoveNetworkPolicy = func(e *e.Endpoint) {}
 
-	ds.OnPolicyEnforcement = func() string {
-		return option.DefaultEnforcement
-	}
-
 	// Since all owner's funcs are implemented we can regenerate every endpoint.
 	epsNames := []string{}
 	for _, ep := range epsWanted {
@@ -147,7 +134,7 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 		ready := ep.SetStateLocked(e.StateWaitingToRegenerate, "test")
 		ep.Unlock()
 		if ready {
-			<-ep.Regenerate(ds, "test")
+			<-ep.Regenerate(ds, regenContext)
 		}
 
 		switch ep.ID {
@@ -170,7 +157,7 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 				ready := ep.SetStateLocked(e.StateWaitingToRegenerate, "test")
 				ep.Unlock()
 				if ready {
-					<-ep.Regenerate(ds, "test")
+					<-ep.Regenerate(ds, regenContext)
 				}
 				epsNames = append(epsNames, ep.DirectoryPath())
 			}
@@ -186,6 +173,12 @@ func (ds *DaemonSuite) TestReadEPsFromDirNames(c *C) {
 	tmpDir, err := ioutil.TempDir("", "cilium-tests")
 	defer func() {
 		os.RemoveAll(tmpDir)
+	}()
+
+	oldStateDir := option.Config.StateDir
+	option.Config.StateDir = tmpDir
+	defer func() {
+		option.Config.StateDir = oldStateDir
 	}()
 	c.Assert(err, IsNil)
 	epsNames, err := ds.generateEPs(tmpDir, epsWanted, epsMap)

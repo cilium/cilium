@@ -42,9 +42,10 @@ import (
 
 const (
 	// KubectlCmd Kubernetes controller command
-	KubectlCmd    = "kubectl"
-	manifestsPath = "k8sT/manifests/"
-	kubeDNSLabel  = "k8s-app=kube-dns"
+	KubectlCmd      = "kubectl"
+	manifestsPath   = "k8sT/manifests/"
+	descriptorsPath = "../examples/kubernetes"
+	kubeDNSLabel    = "k8s-app=kube-dns"
 
 	// DNSHelperTimeout is a predefined timeout value for K8s DNS commands. It
 	// must be larger than 5 minutes because kubedns has a hardcoded resync
@@ -52,7 +53,7 @@ const (
 	// needed this time to recover from a connection problem to kube-apiserver.
 	// The kubedns resyncPeriod is defined at
 	// https://github.com/kubernetes/dns/blob/80fdd88276adba36a87c4f424b66fdf37cd7c9a8/pkg/dns/dns.go#L53
-	DNSHelperTimeout time.Duration = 420 // WithTimeout helper translates it to seconds
+	DNSHelperTimeout int64 = 420
 )
 
 // GetCurrentK8SEnv returns the value of K8S_VERSION from the OS environment.
@@ -515,7 +516,7 @@ func (kub *Kubectl) NamespaceDelete(name string) *CmdRes {
 // containterStatuses equal to "ready". Returns true if all pods achieve
 // the aforementioned desired state within timeout seconds. Returns false and
 // an error if the command failed or the timeout was exceeded.
-func (kub *Kubectl) WaitforPods(namespace string, filter string, timeout time.Duration) error {
+func (kub *Kubectl) WaitforPods(namespace string, filter string, timeout int64) error {
 
 	data, err := kub.GetPods(namespace, filter).Filter("{.items[*].metadata.deletionTimestamp}")
 	if err != nil {
@@ -562,7 +563,7 @@ func (kub *Kubectl) WaitforPods(namespace string, filter string, timeout time.Du
 // to have their port equal to the provided port. Returns true if all pods achieve
 // the aforementioned desired state within timeout seconds. Returns false and
 // an error if the command failed or the timeout was exceeded.
-func (kub *Kubectl) WaitForServiceEndpoints(namespace string, filter string, service string, port string, timeout time.Duration) error {
+func (kub *Kubectl) WaitForServiceEndpoints(namespace string, filter string, service string, port string, timeout int64) error {
 	body := func() bool {
 		var jsonPath = fmt.Sprintf("{.items[?(@.metadata.name =='%s')].subsets[0].ports[0].port}", service)
 		data, err := kub.GetEndpoints(namespace, filter).Filter(jsonPath)
@@ -735,31 +736,105 @@ func (kub *Kubectl) WaitCleanAllTerminatingPods() error {
 	err := WithTimeout(
 		body,
 		"Pods are still not deleted after a timeout",
-		&TimeoutConfig{Timeout: HelperTimeout * time.Second})
+		&TimeoutConfig{Timeout: HelperTimeout})
 	return err
 }
 
-// CiliumInstall receives a manifestName which needs to be in jsonnet format
-// and will be used in `kubecfg show` and applied to Kubernetes. It will return
-// a error if any action fails.
-func (kub *Kubectl) CiliumInstall(manifestName string) error {
-	ciliumDSManifest := ManifestGet(manifestName)
-	// debugYaml only dumps the full created yaml file to the test output if
-	// the cilium manifest can not be created correctly.
-	debugYaml := func() {
-		_ = kub.Exec(fmt.Sprintf("kubecfg show %s", ciliumDSManifest))
+// CiliumInstall installs all Cilium descriptors into kubernetes.
+// dsPatchName corresponds to the DaemonSet patch that will be applied to the
+// original Cilium DaemonSet descriptor.
+// dsPatchName corresponds to the ConfigMap patch that will be applied to the
+// original Cilium ConfigMap descriptor.
+// Returns an error if any patch or if any original descriptors files were not
+// found.
+func (kub *Kubectl) CiliumInstall(dsPatchName, cmPatchName string) error {
+	cmPathname := GetK8sDescriptor("cilium-cm.yaml")
+	if cmPathname == "" {
+		return fmt.Errorf("Cilium ConfigMap descriptor not found")
+	}
+	dsPathname := GetK8sDescriptor("cilium-ds.yaml")
+	if dsPathname == "" {
+		return fmt.Errorf("Cilium DaemonSet descriptor not found")
+	}
+	rbacPathname := GetK8sDescriptor("cilium-rbac.yaml")
+	if rbacPathname == "" {
+		return fmt.Errorf("Cilium RBAC descriptor not found")
+	}
+	saPathname := GetK8sDescriptor("cilium-sa.yaml")
+	if saPathname == "" {
+		return fmt.Errorf("Cilium ServiceAccount descriptor not found")
 	}
 
-	res := kub.Exec(fmt.Sprintf("kubecfg validate %s", ciliumDSManifest))
-	if !res.WasSuccessful() {
-		debugYaml()
-		return fmt.Errorf(res.GetDebugMessage())
+	deployPatch := func(original, patch string) error {
+		// debugYaml only dumps the full created yaml file to the test output if
+		// the cilium manifest can not be created correctly.
+		debugYaml := func(original, patch string) {
+			// dry-run is only available since k8s 1.11
+			switch GetCurrentK8SEnv() {
+			case "1.8", "1.9", "1.10":
+				_ = kub.Exec(fmt.Sprintf("kubectl patch --filename='%s' --patch \"$(cat '%s')\" --local -o yaml", original, patch))
+			default:
+				_ = kub.Exec(fmt.Sprintf("kubectl patch --filename='%s' --patch \"$(cat '%s')\" --local --dry-run -o yaml", original, patch))
+			}
+		}
+
+		var res *CmdRes
+		// validation 1st
+		// dry-run is only available since k8s 1.11
+		switch GetCurrentK8SEnv() {
+		case "1.8", "1.9", "1.10":
+		default:
+			res = kub.Exec(fmt.Sprintf("kubectl patch --filename='%s' --patch \"$(cat '%s')\" --local --dry-run", original, patch))
+			if !res.WasSuccessful() {
+				debugYaml(original, patch)
+				return fmt.Errorf(res.GetDebugMessage())
+			}
+		}
+
+		res = kub.Exec(fmt.Sprintf("kubectl patch --filename='%s' --patch \"$(cat '%s')\" --local -o yaml | kubectl apply -f -", original, patch))
+		if !res.WasSuccessful() {
+			debugYaml(original, patch)
+			return fmt.Errorf(res.GetDebugMessage())
+		}
+		return nil
 	}
 
-	res = kub.Exec(fmt.Sprintf("kubecfg update %s", ciliumDSManifest))
-	if !res.WasSuccessful() {
-		debugYaml()
-		return fmt.Errorf(res.GetDebugMessage())
+	deployOriginal := func(original string) error {
+		// debugYaml only dumps the full created yaml file to the test output if
+		// the cilium manifest can not be created correctly.
+		debugYaml := func(original string) {
+			_ = kub.Exec(fmt.Sprintf("kubectl apply --filename='%s' --dry-run -o yaml", original))
+		}
+
+		// validation 1st
+		res := kub.Exec(fmt.Sprintf("kubectl apply --filename='%s' --dry-run", original))
+		if !res.WasSuccessful() {
+			debugYaml(original)
+			return fmt.Errorf(res.GetDebugMessage())
+		}
+
+		res = kub.Exec(fmt.Sprintf("kubectl apply --filename='%s'", original))
+		if !res.WasSuccessful() {
+			debugYaml(original)
+			return fmt.Errorf(res.GetDebugMessage())
+		}
+		return nil
+	}
+
+	if err := deployOriginal(saPathname); err != nil {
+		return err
+	}
+
+	if err := deployOriginal(rbacPathname); err != nil {
+		return err
+	}
+
+	if err := deployPatch(cmPathname, ManifestGet(cmPatchName)); err != nil {
+		return err
+	}
+
+	if err := deployPatch(dsPathname, ManifestGet(dsPatchName)); err != nil {
+		return err
 	}
 	return nil
 }
@@ -986,7 +1061,7 @@ type ResourceLifeCycleAction string
 // to be applied in all Cilium endpoints. Returns an error if the policy is not
 // imported before the timeout is
 // exceeded.
-func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action ResourceLifeCycleAction, timeout time.Duration) (string, error) {
+func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action ResourceLifeCycleAction, timeout int64) (string, error) {
 	revisions := map[string]int{}
 
 	kub.logger.Infof("Performing %s action on resource '%s'", action, filepath)
@@ -1441,10 +1516,6 @@ func (kub *Kubectl) CiliumPreFlightCheck() error {
 		if err != nil {
 			return false
 		}
-		err = kub.ServicePreFlightCheck("kube-dns", "kube-system")
-		if err != nil {
-			return false
-		}
 		return true
 	}
 	timeoutErr := WithTimeout(body, "PreflightCheck failed", &TimeoutConfig{Timeout: HelperTimeout})
@@ -1607,6 +1678,15 @@ func (kub *Kubectl) fillServiceCache() error {
 	return nil
 }
 
+// KubeDNSPreFlightCheck makes sure that kube-dns is plumbed into Cilium.
+func (kub *Kubectl) KubeDNSPreFlightCheck() error {
+	err := kub.fillServiceCache()
+	if err != nil {
+		return err
+	}
+	return kub.ServicePreFlightCheck("kube-dns", "kube-system")
+}
+
 //ServicePreFlightCheck makes sure that k8s service with given name and namespace is properly plumbed in Cilium
 func (kub *Kubectl) ServicePreFlightCheck(serviceName, serviceNamespace string) error {
 	var service *v1.Service
@@ -1672,6 +1752,11 @@ func (kub *Kubectl) CiliumServicePreFlightCheck() error {
 		notFoundServices := make([]string, 0, len(kub.serviceCache.services.Items))
 		for _, k8sSvc := range kub.serviceCache.services.Items {
 			key := serviceKey(k8sSvc)
+			// ignore headless services
+			if k8sSvc.Spec.Type == v1.ServiceTypeClusterIP &&
+				k8sSvc.Spec.ClusterIP == v1.ClusterIPNone {
+				continue
+			}
 			if _, ok := k8sServicesFound[key]; !ok {
 				notFoundServices = append(notFoundServices, key)
 			}

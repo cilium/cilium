@@ -31,9 +31,9 @@ import (
 )
 
 var (
-	endpointTimeout  = (60 * time.Second)
-	timeout          = time.Duration(300)
-	netcatDsManifest = "netcat-ds.yaml"
+	endpointTimeout  int64 = 60
+	timeout          int64 = 300
+	netcatDsManifest       = "netcat-ds.yaml"
 )
 
 var _ = Describe("NightlyEpsMeasurement", func() {
@@ -41,16 +41,15 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 	var kubectl *helpers.Kubectl
 
 	endpointCount := 45
-	endpointsTimeout := endpointTimeout * time.Duration(endpointCount)
+	endpointsTimeout := endpointTimeout * int64(endpointCount)
 	manifestPath := "tmp.yaml"
 	vagrantManifestPath := path.Join(helpers.BasePath, manifestPath)
-	var lastServer int
 	var err error
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
-		err := kubectl.CiliumInstall(helpers.CiliumDSPath)
+		err := kubectl.CiliumInstall(helpers.CiliumDefaultDSPatch, helpers.CiliumConfigMapPatch)
 		Expect(err).To(BeNil(), "Cilium cannot be installed")
 
 		ExpectCiliumReady(kubectl)
@@ -91,7 +90,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 	})
 
 	deployEndpoints := func() {
-		_, lastServer, err = helpers.GenerateManifestForEndpoints(endpointCount, manifestPath)
+		_, _, err = helpers.GenerateManifestForEndpoints(endpointCount, manifestPath)
 		ExpectWithOffset(1, err).Should(BeNil(), "Manifest cannot be created correctly")
 		res := kubectl.Apply(vagrantManifestPath)
 		res.ExpectSuccess("cannot apply eps manifest :%s", res.GetDebugMessage())
@@ -326,7 +325,7 @@ var _ = Describe("NightlyExamples", func() {
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
-		err := kubectl.CiliumInstall(helpers.CiliumDSPath)
+		err := kubectl.CiliumInstall(helpers.CiliumDefaultDSPatch, helpers.CiliumConfigMapPatch)
 		Expect(err).To(BeNil(), "Cilium cannot be installed")
 
 		apps = []string{helpers.App1, helpers.App2, helpers.App3}
@@ -456,7 +455,7 @@ var _ = Describe("NightlyExamples", func() {
 		)
 
 		BeforeAll(func() {
-			err := kubectl.CiliumInstall(helpers.CiliumDSPath)
+			err := kubectl.CiliumInstall(helpers.CiliumDefaultDSPatch, helpers.CiliumConfigMapPatch)
 			Expect(err).To(BeNil(), "Cilium cannot be installed")
 
 			ExpectCiliumReady(kubectl)

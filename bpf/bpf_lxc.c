@@ -689,14 +689,6 @@ int handle_ingress(struct __sk_buff *skb)
 
 	send_trace_notify(skb, TRACE_FROM_LXC, SECLABEL, 0, 0, 0, 0, true);
 
-#ifdef DROP_ALL
-	if (skb->protocol == bpf_htons(ETH_P_ARP)) {
-		ep_tail_call(skb, CILIUM_CALL_ARP);
-		ret = DROP_MISSED_TAIL_CALL;
-	} else if (1) {
-		ret = DROP_POLICY;
-	} else {
-#endif
 	switch (skb->protocol) {
 	case bpf_htons(ETH_P_IPV6):
 		ep_tail_call(skb, CILIUM_CALL_IPV6_FROM_LXC);
@@ -716,10 +708,6 @@ int handle_ingress(struct __sk_buff *skb)
 	default:
 		ret = DROP_UNKNOWN_L3;
 	}
-
-#ifdef DROP_ALL
-	}
-#endif
 
 	if (IS_ERR(ret))
 		return send_drop_notify(skb, SECLABEL, 0, 0, 0, ret, TC_ACT_SHOT,
@@ -798,7 +786,7 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 
 	verdict = policy_can_access_ingress(skb, src_label, tuple.dport,
 					    tuple.nexthdr, sizeof(tuple.saddr),
-					    &tuple.saddr);
+					    &tuple.saddr, false);
 
 	/* Reply packets and related packets are allowed, all others must be
 	 * permitted by policy */
@@ -870,17 +858,6 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_TO_LXC) int tail_ipv6_policy(s
 	return ret;
 }
 
-/* Check whether the packet should be allowed despite unhandled IP fragments.
- * Returns true if the packet should pass, false if it should be dropped. */
-static bool check_ip4_fragments(struct iphdr *ip4)
-{
-#ifdef POLICY_INGRESS
-	return !ipv4_is_fragment(ip4);
-#else
-	return true;
-#endif
-}
-
 #ifdef LXC_IPV4
 static inline int __inline__
 ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding_reason)
@@ -894,12 +871,10 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 	struct ct_state ct_state_new = {};
 	bool skip_proxy, monitor = false;
 	__be32 orig_dip, orig_sip;
+	bool is_fragment = false;
 
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
-
-	if (!check_ip4_fragments(ip4))
-		return DROP_FRAG_NOSUPPORT;
 
 	policy_clear_mark(skb);
 	tuple.nexthdr = ip4->protocol;
@@ -915,6 +890,7 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
+	is_fragment = ipv4_is_fragment(ip4);
 
 	ret = ct_lookup4(&CT_MAP4, &tuple, skb, l4_off, CT_INGRESS, &ct_state,
 			 &monitor);
@@ -943,7 +919,7 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 
 	verdict = policy_can_access_ingress(skb, src_label, tuple.dport,
 					    tuple.nexthdr, sizeof(orig_sip),
-					    &orig_sip);
+					    &orig_sip, is_fragment);
 
 	/* Reply packets and related packets are allowed, all others must be
 	 * permitted by policy */
@@ -1028,10 +1004,6 @@ __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *sk
 	int ret, ifindex = skb->cb[CB_IFINDEX];
 	__u32 src_label = skb->cb[CB_SRC_LABEL];
 
-#ifdef DROP_ALL
-	ret = DROP_POLICY;
-	if (0) {
-#endif
 	switch (skb->protocol) {
 	case bpf_htons(ETH_P_IPV6):
 		ep_tail_call(skb, CILIUM_CALL_IPV6_TO_LXC);
@@ -1049,9 +1021,6 @@ __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *sk
 		ret = DROP_UNKNOWN_L3;
 		break;
 	}
-#ifdef DROP_ALL
-	}
-#endif
 
 	if (IS_ERR(ret))
 		return send_drop_notify(skb, src_label, SECLABEL, LXC_ID,

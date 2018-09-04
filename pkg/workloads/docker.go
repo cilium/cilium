@@ -298,7 +298,7 @@ func (d *dockerClient) EnableEventListener() (eventsCh chan<- *EventMessage, err
 func (d *dockerClient) listenForDockerEvents(ws *watcherState, reader io.ReadCloser) {
 	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
-		metrics.SetTSValue(metrics.EventTSContainerd, time.Now())
+		metrics.EventTSContainerd.SetToCurrentTime()
 
 		var e dTypesEvents.Message
 		if err := json.Unmarshal(scanner.Bytes(), &e); err != nil {
@@ -428,6 +428,8 @@ func (d *dockerClient) handleCreateWorkload(id string, retry bool) {
 			if ciliumID != 0 {
 				ep = endpointmanager.LookupCiliumID(ciliumID)
 			}
+		} else {
+			ciliumID = ep.ID
 		}
 
 		retryLog.WithFields(logrus.Fields{

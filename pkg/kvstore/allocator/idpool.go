@@ -83,10 +83,11 @@ func newIDPool(minID ID, maxID ID) *idPool {
 // StartRefresh creates a new cache backing the pool.
 // This cache becomes live when FinishRefresh() is called.
 func (p *idPool) StartRefresh() {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
+	c := newIDCache(p.minID, p.maxID)
 
-	p.nextIDCache = newIDCache(p.minID, p.maxID)
+	p.mutex.Lock()
+	p.nextIDCache = c
+	p.mutex.Unlock()
 }
 
 // FinishRefresh makes the most recent cache created by the pool live.
@@ -151,7 +152,6 @@ func (p *idPool) Remove(id ID) bool {
 }
 
 type idCache struct {
-
 	// ids is a slice of IDs available in this idCache.
 	ids []ID
 

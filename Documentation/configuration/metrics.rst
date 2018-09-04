@@ -34,14 +34,25 @@ Endpoint
 * ``endpoint_count``: Number of endpoints managed by this agent
 * ``endpoint_regenerating``: Number of endpoints currently regenerating. Deprecated. Use endpoint_state with proper labels instead
 * ``endpoint_regenerations``: Count of all endpoint regenerations that have completed, tagged by outcome
-* ``endpoint_regeneration_seconds_total``: Total sum of successful endpoint regeneration times
-* ``endpoint_regeneration_square_seconds_total``: Total sum of squares of successful endpoint regeneration times
+* ``endpoint_regeneration_seconds_total``: Total sum of successful endpoint regeneration times (Deprecated)
+* ``endpoint_regeneration_square_seconds_total``: Total sum of squares of successful endpoint regeneration times (Deprecated)
+* ``endpoint_regeneration_time_stats_seconds``: Endpoint regeneration time stats labeled by scope.
 * ``endpoint_state``: Count of all endpoints, tagged by different endpoint states
 
 Datapath
 --------
 
-* ``datapath_errors_total``: Total number of errors occurred in datapath management, labeled by area, name and address family.
+* ``datapath_errors_total``: Total number of errors occurred in datapath
+  management, labeled by area, name and address family.
+* ``datapath_conntrack_gc_runs_total``: Number of times that the conntrack
+  garbage collector process was run. It contains a label status that describes
+  if it was successful or not.
+* ``datapath_conntrack_gc_key_fallbacks_total``: Number of times that the Key fallback
+  was invalid.
+* ``datapath_conntrack_gc_entries``: The number of alive and deleted conntrack
+  entries at the end of a garbage collector run labeled by datapath family.
+* ``datapath_conntrack_gc_duration_seconds``: Duration in seconds of the garbage
+  collector process labeled by datapath and completation status.
 
 Drops/Forwards (L3/L4)
 ----------------------
@@ -74,9 +85,9 @@ Events external to Cilium
 
 Cilium as a Kubernetes pod
 ==========================
-The Cilium `Prometheus reference configuration <https://github.com/cilium/cilium/blob/master/examples/kubernetes/addons/prometheus/prometheus.yaml>`_
-configures jobs that automatically collect pod metrics marked with the
-appropriate two labels.
+The Cilium Prometheus reference configuration configures jobs that automatically
+collect pod metrics marked with the appropriate two labels can be found
+in :git-tree:`examples/kubernetes/addons/prometheus/prometheus.yaml`
 
 Your Cilium spec will need these annotations:
 
@@ -85,7 +96,7 @@ Your Cilium spec will need these annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9090"
 
-The reference Cilium Kubernetes DaemonSet `Kubernetes spec <https://github.com/cilium/cilium/blob/master/examples/kubernetes/1.8/cilium.yaml>`_
+The reference Cilium Kubernetes DaemonSet Kubernetes descriptor :git-tree:`examples/kubernetes/1.8/cilium.yaml`
 is an example of how to configure ``cilium-agent`` and set the appropriate labels.
 
 *Note: the port can be configured per-pod to any value and the label set
@@ -98,8 +109,8 @@ and tag the resulting metrics series. In the Kubernetes case Prometheus will
 contact the Kubernetes API server for these lists and must have permissions to
 do so.
 
-An example `promethues configuration <https://github.com/cilium/cilium/blob/master/examples/kubernetes/addons/prometheus/prometheus.yaml>`_
-can be found alongside the reference Cilium Kubernetes DaemonSet spec.
+An example of a Prometheus configuration can be found alongside the reference
+Cilium Kubernetes DaemonSet spec in :git-tree:`examples/kubernetes/addons/prometheus/prometheus.yaml`
 
 The critical discovery section is:
 
