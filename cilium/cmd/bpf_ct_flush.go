@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ import (
 	"os"
 
 	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 
 	"github.com/spf13/cobra"
@@ -32,13 +31,7 @@ var bpfCtFlushCmd = &cobra.Command{
 	PreRun: requireEndpointIDorGlobal,
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf ct flush")
-		if args[0] == "global" {
-			flushCtProto(ctmap.MapName6Global, "")
-			flushCtProto(ctmap.MapName4Global, "")
-		} else {
-			flushCtProto(ctmap.MapName6, args[0])
-			flushCtProto(ctmap.MapName4, args[0])
-		}
+		flushCt(args[0])
 	},
 }
 
@@ -46,17 +39,36 @@ func init() {
 	bpfCtCmd.AddCommand(bpfCtFlushCmd)
 }
 
-func flushCtProto(mapType, eID string) {
-	file := bpf.MapPath(mapType + eID)
-	m, err := bpf.OpenMap(file)
-	if err != nil {
-		if err == os.ErrNotExist {
-			Fatalf("Unable to open %s: %s: please try using \"cilium bpf ct flush global\"", file, err)
-		} else {
-			Fatalf("Unable to open %s: %s", file, err)
-		}
+type dummyEndpoint struct {
+	ID string
+}
+
+func (d dummyEndpoint) StringID() string {
+	return d.ID
+}
+
+func flushCt(eID string) {
+	var maps []*ctmap.Map
+	if eID == "global" {
+		maps = ctmap.GlobalMaps(true, true)
+	} else {
+		maps = ctmap.LocalMaps(&dummyEndpoint{ID: eID}, true, true)
 	}
-	defer m.Close()
-	entries := ctmap.Flush(m, mapType)
-	fmt.Println("Flushed", entries, "entries from", mapType)
+	for _, m := range maps {
+		path, err := m.Path()
+		if err == nil {
+			err = m.Open()
+		}
+		if err != nil {
+			if err == os.ErrNotExist {
+				Fatalf("Unable to open %s: %s: please try using \"cilium bpf ct flush global\"", path, err)
+			} else {
+				Fatalf("Unable to open %s: %s", path, err)
+			}
+			continue
+		}
+		defer m.Close()
+		entries := m.Flush()
+		fmt.Printf("Flushed %d entries from %s\n", entries, path)
+	}
 }
