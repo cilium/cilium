@@ -22,7 +22,6 @@ import (
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
-
 	. "gopkg.in/check.v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -262,5 +261,59 @@ func Test_ParseToCiliumRule(t *testing.T) {
 				t.Errorf("Failed to ParseToCiliumRule():\n%s", err)
 			}
 		})
+	}
+}
+
+func (s *CiliumUtilsSuite) TestParseToCiliumLabels(c *C) {
+	type args struct {
+		namespace string
+		name      string
+		ruleLbs   labels.LabelArray
+	}
+	tests := []struct {
+		name string
+		args args
+		want labels.LabelArray
+	}{
+		{
+			name: "parse labels",
+			args: args{
+				name:      "foo",
+				namespace: "bar",
+				ruleLbs: labels.LabelArray{
+					{
+						Key:    "hello",
+						Value:  "world",
+						Source: labels.LabelSourceK8s,
+					},
+				},
+			},
+			want: labels.LabelArray{
+				{
+					Key:    "io.cilium.k8s.policy.name",
+					Value:  "foo",
+					Source: labels.LabelSourceK8s,
+				},
+				{
+					Key:    "io.cilium.k8s.policy.namespace",
+					Value:  "bar",
+					Source: labels.LabelSourceK8s,
+				},
+				{
+					Key:    "io.cilium.k8s.policy.derived-from",
+					Value:  "CiliumNetworkPolicy",
+					Source: labels.LabelSourceK8s,
+				},
+				{
+					Key:    "hello",
+					Value:  "world",
+					Source: labels.LabelSourceK8s,
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		got := ParseToCiliumLabels(tt.args.namespace, tt.args.name, tt.args.ruleLbs)
+		c.Assert(got, DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
 	}
 }
