@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
@@ -793,6 +794,21 @@ func runDaemon() {
 
 	if err := d.EnableK8sWatcher(5 * time.Minute); err != nil {
 		log.WithError(err).Fatal("Unable to establish connection to Kubernetes apiserver")
+	}
+
+	cachesSynced := make(chan struct{})
+
+	go func() {
+		log.Info("Waiting until all pre-existing policies have been received")
+		identity.WaitForInitialIdentities()
+		cachesSynced <- struct{}{}
+	}()
+
+	select {
+	case <-cachesSynced:
+		log.Info("All pre-existing policies have been received; continuing")
+	case <-time.After(cacheSyncTimeout):
+		log.Fatalf("Timed out waiting for pre-existing policies to be received; exiting")
 	}
 
 	// This block is deprecated and will be removed later (GH-3050)

@@ -26,8 +26,7 @@ import (
 )
 
 var (
-	demoTestName         = "K8sValidatedDemosTest"
-	starWarsDemoLinkRoot = "https://raw.githubusercontent.com/cilium/star-wars-demo/b1d18870758af7cec713a4b5e4c3f013afe8c4bf/v1"
+	starWarsDemoLinkRoot = "https://raw.githubusercontent.com/cilium/star-wars-demo/v1.0"
 )
 
 func getStarWarsResourceLink(file string) string {
@@ -36,7 +35,7 @@ func getStarWarsResourceLink(file string) string {
 	return fmt.Sprintf("%s/%s", starWarsDemoLinkRoot, file)
 }
 
-var _ = Describe(demoTestName, func() {
+var _ = Describe("K8sDemosTest", func() {
 
 	var (
 		kubectl          *helpers.Kubectl
@@ -44,14 +43,12 @@ var _ = Describe(demoTestName, func() {
 		microscopeErr    error
 		microscopeCancel = func() error { return nil }
 
-		deathStarYAMLLink = getStarWarsResourceLink("02-deathstar.yaml")
-		l4PolicyYAMLLink  = getStarWarsResourceLink("policy/l4_policy.yaml")
-		xwingYAMLLink     = getStarWarsResourceLink("03-xwing.yaml")
+		deathStarYAMLLink = getStarWarsResourceLink("01-deathstar.yaml")
+		xwingYAMLLink     = getStarWarsResourceLink("02-xwing.yaml")
 		l7PolicyYAMLLink  = getStarWarsResourceLink("policy/l7_policy.yaml")
 	)
 
 	BeforeAll(func() {
-		logger = log.WithFields(logrus.Fields{"testName": demoTestName})
 		logger.Info("Starting")
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
@@ -81,7 +78,6 @@ var _ = Describe(demoTestName, func() {
 	AfterEach(func() {
 		By("Deleting all resources created during test")
 		kubectl.Delete(l7PolicyYAMLLink)
-		kubectl.Delete(l4PolicyYAMLLink)
 		kubectl.Delete(deathStarYAMLLink)
 		kubectl.Delete(xwingYAMLLink)
 
@@ -116,19 +112,6 @@ var _ = Describe(demoTestName, func() {
 		err := kubectl.WaitforPods(helpers.DefaultNamespace, fmt.Sprintf("-l %s", empireLabel), 300)
 		Expect(err).Should(BeNil(), "Empire pods are not ready after timeout")
 
-		By("Applying policy and waiting for policy revision to increase in Cilium pods")
-		_, err = kubectl.CiliumPolicyAction(
-			helpers.KubeSystemNamespace, l4PolicyYAMLLink, helpers.KubectlApply, 300)
-		Expect(err).Should(BeNil(), "Unable to apply %s", l4PolicyYAMLLink)
-
-		By("Applying alliance deployment")
-		res = kubectl.Apply(xwingYAMLLink)
-		res.ExpectSuccess("unable to apply %s: %s", xwingYAMLLink, res.CombineOutput())
-
-		By("Waiting for alliance pods to be ready")
-		err = kubectl.WaitforPods(helpers.DefaultNamespace, fmt.Sprintf("-l %s", allianceLabel), 300)
-		Expect(err).Should(BeNil(), "Alliance pods are not ready after timeout")
-
 		By("Getting xwing pod names")
 		xwingPods, err := kubectl.GetPodNames(helpers.DefaultNamespace, allianceLabel)
 		Expect(err).Should(BeNil())
@@ -151,10 +134,6 @@ var _ = Describe(demoTestName, func() {
 		res.ExpectContains("200", "unable to curl %s/v1: %s", deathstarServiceName, res.Output())
 
 		By("Importing L7 Policy which restricts access to %q", exhaustPortPath)
-		_, err = kubectl.CiliumPolicyAction(
-			helpers.KubeSystemNamespace, l4PolicyYAMLLink, helpers.KubectlDelete, 300)
-		Expect(err).Should(BeNil(), "Unable to delete %s", l4PolicyYAMLLink)
-
 		_, err = kubectl.CiliumPolicyAction(
 			helpers.KubeSystemNamespace, l7PolicyYAMLLink, helpers.KubectlApply, 300)
 		Expect(err).Should(BeNil(), "Unable to apply %s", l7PolicyYAMLLink)
