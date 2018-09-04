@@ -49,6 +49,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/versioncheck"
+	"github.com/cilium/cilium/pkg/versioned"
 
 	go_version "github.com/hashicorp/go-version"
 	"github.com/sirupsen/logrus"
@@ -379,7 +380,6 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		policyController := k8sUtils.ControllerFactory(
 			k8s.Client().NetworkingV1().RESTClient(),
 			&networkingv1.NetworkPolicy{},
-			reSyncPeriod,
 			k8sUtils.ResourceEventHandlerFactory(
 				func(i interface{}) func() error {
 					return func() error {
@@ -399,7 +399,22 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 						return nil
 					}
 				},
+				func(m versioned.Map) versioned.Map {
+					missing := versioned.Map{}
+					d.policy.Mutex.RLock()
+					for k, v := range m {
+						v1NP := v.Data.(*networkingv1.NetworkPolicy)
+						ruleLabels := k8s.GetPolicyLabelsv1(v1NP)
+						if !d.policy.ContainsAllRLocked(labels.LabelArrayList{ruleLabels}) {
+							missing.Add(k, v)
+						}
+					}
+					d.policy.Mutex.RUnlock()
+					return missing
+				},
 				&networkingv1.NetworkPolicy{},
+				k8s.Client(),
+				reSyncPeriod,
 				metrics.EventTSK8s,
 			),
 			fields.Everything(),
@@ -413,7 +428,6 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	svcController := k8sUtils.ControllerFactory(
 		k8s.Client().CoreV1().RESTClient(),
 		&v1.Service{},
-		reSyncPeriod,
 		k8sUtils.ResourceEventHandlerFactory(
 			func(i interface{}) func() error {
 				return func() error {
@@ -433,7 +447,26 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 					return nil
 				}
 			},
+			func(m versioned.Map) versioned.Map {
+				missing := versioned.Map{}
+				d.loadBalancer.K8sMU.RLock()
+				for k, v := range m {
+					svc := v.Data.(*v1.Service)
+					svcns := loadbalancer.K8sServiceNamespace{
+						ServiceName: svc.ObjectMeta.Name,
+						Namespace:   svc.ObjectMeta.Namespace,
+					}
+					_, exists := d.loadBalancer.K8sServices[svcns]
+					if !exists {
+						missing.Add(k, v)
+					}
+				}
+				d.loadBalancer.K8sMU.RUnlock()
+				return missing
+			},
 			&v1.Service{},
+			k8s.Client(),
+			reSyncPeriod,
 			metrics.EventTSK8s,
 		),
 		fields.Everything(),
@@ -446,7 +479,6 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	endpointController := k8sUtils.ControllerFactory(
 		k8s.Client().CoreV1().RESTClient(),
 		&v1.Endpoints{},
-		reSyncPeriod,
 		k8sUtils.ResourceEventHandlerFactory(
 			func(i interface{}) func() error {
 				return func() error {
@@ -466,7 +498,26 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 					return nil
 				}
 			},
+			func(m versioned.Map) versioned.Map {
+				missing := versioned.Map{}
+				d.loadBalancer.K8sMU.RLock()
+				for k, v := range m {
+					svc := v.Data.(*v1.Endpoints)
+					svcns := loadbalancer.K8sServiceNamespace{
+						ServiceName: svc.ObjectMeta.Name,
+						Namespace:   svc.ObjectMeta.Namespace,
+					}
+					_, exists := d.loadBalancer.K8sEndpoints[svcns]
+					if !exists {
+						missing.Add(k, v)
+					}
+				}
+				d.loadBalancer.K8sMU.RUnlock()
+				return missing
+			},
 			&v1.Endpoints{},
+			k8s.Client(),
+			reSyncPeriod,
 			metrics.EventTSK8s,
 		),
 		// Don't get any events from kubernetes endpoints.
@@ -481,7 +532,6 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		ingressController := k8sUtils.ControllerFactory(
 			k8s.Client().ExtensionsV1beta1().RESTClient(),
 			&v1beta1.Ingress{},
-			reSyncPeriod,
 			k8sUtils.ResourceEventHandlerFactory(
 				func(i interface{}) func() error {
 					return func() error {
@@ -501,7 +551,26 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 						return nil
 					}
 				},
+				func(m versioned.Map) versioned.Map {
+					missing := versioned.Map{}
+					d.loadBalancer.K8sMU.RLock()
+					for k, v := range m {
+						ing := v.Data.(*v1beta1.Ingress)
+						svcns := loadbalancer.K8sServiceNamespace{
+							ServiceName: ing.ObjectMeta.Name,
+							Namespace:   ing.ObjectMeta.Namespace,
+						}
+						_, exists := d.loadBalancer.K8sIngress[svcns]
+						if !exists {
+							missing.Add(k, v)
+						}
+					}
+					d.loadBalancer.K8sMU.RUnlock()
+					return missing
+				},
 				&v1beta1.Ingress{},
+				k8s.Client(),
+				reSyncPeriod,
 				metrics.EventTSK8s,
 			),
 			fields.Everything(),
@@ -542,7 +611,22 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 					return nil
 				}
 			},
+			func(m versioned.Map) versioned.Map {
+				missing := versioned.Map{}
+				d.policy.Mutex.RLock()
+				for k, v := range m {
+					cnp := v.Data.(*cilium_v2.CiliumNetworkPolicy)
+					ruleLabels := cnp.GetRuleLabels()
+					if !d.policy.ContainsAllRLocked(ruleLabels) {
+						missing.Add(k, v)
+					}
+				}
+				d.policy.Mutex.RUnlock()
+				return missing
+			},
 			&cilium_v2.CiliumNetworkPolicy{},
+			ciliumNPClient,
+			reSyncPeriod,
 			metrics.EventTSK8s,
 		)
 
@@ -555,7 +639,6 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	podsController := k8sUtils.ControllerFactory(
 		k8s.Client().CoreV1().RESTClient(),
 		&v1.Pod{},
-		reSyncPeriod,
 		k8sUtils.ResourceEventHandlerFactory(
 			func(i interface{}) func() error {
 				return func() error {
@@ -575,7 +658,26 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 					return nil
 				}
 			},
+			func(m versioned.Map) versioned.Map {
+				missing := versioned.Map{}
+				ipcache.IPIdentityCache.RLock()
+				for k, v := range m {
+					pod := v.Data.(*v1.Pod)
+					podIP := net.ParseIP(pod.Status.PodIP)
+					if podIP == nil {
+						continue
+					}
+					_, exists := ipcache.IPIdentityCache.LookupByIPRLocked(pod.Status.PodIP)
+					if !exists {
+						missing.Add(k, v)
+					}
+				}
+				ipcache.IPIdentityCache.RUnlock()
+				return missing
+			},
 			&v1.Pod{},
+			k8s.Client(),
+			reSyncPeriod,
 			metrics.EventTSK8s,
 		),
 		fields.Everything(),
@@ -587,7 +689,6 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	nodesController := k8sUtils.ControllerFactory(
 		k8s.Client().CoreV1().RESTClient(),
 		&v1.Node{},
-		reSyncPeriod,
 		k8sUtils.ResourceEventHandlerFactory(
 			func(i interface{}) func() error {
 				return func() error {
@@ -607,7 +708,27 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 					return nil
 				}
 			},
+			func(m versioned.Map) versioned.Map {
+				missing := versioned.Map{}
+				ipcache.IPIdentityCache.RLock()
+				for k, v := range m {
+					n := v.Data.(*v1.Node)
+					nodeIPStr := n.GetAnnotations()[annotation.CiliumHostIP]
+					nodeIP := net.ParseIP(nodeIPStr)
+					if nodeIP == nil {
+						continue
+					}
+					_, exists := ipcache.IPIdentityCache.LookupByIPRLocked(nodeIPStr)
+					if !exists {
+						missing.Add(k, v)
+					}
+				}
+				ipcache.IPIdentityCache.RUnlock()
+				return missing
+			},
 			&v1.Node{},
+			k8s.Client(),
+			reSyncPeriod,
 			metrics.EventTSK8s,
 		),
 		fields.Everything(),
@@ -619,7 +740,6 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	namespaceController := k8sUtils.ControllerFactory(
 		k8s.Client().CoreV1().RESTClient(),
 		&v1.Namespace{},
-		reSyncPeriod,
 		k8sUtils.ResourceEventHandlerFactory(
 			// AddFunc does not matter since the endpoint will fetch
 			// namespace labels when the endpoint is created
@@ -633,7 +753,33 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 					return nil
 				}
 			},
+			func(m versioned.Map) versioned.Map {
+				missing := versioned.Map{}
+				eps := endpointmanager.GetEndpoints()
+				for k, v := range m {
+					ns := v.Data.(*v1.Namespace)
+					nsLabels := map[string]string{}
+
+					for k, v := range ns.GetLabels() {
+						nsLabels[policy.JoinPath(ciliumio.PodNamespaceMetaLabels, k)] = v
+					}
+					nsK8sSourcedLabels := labels.Map2Labels(nsLabels, labels.LabelSourceK8s)
+					nsIdtyLabels, _ := labels.FilterLabels(nsK8sSourcedLabels)
+
+					for _, ep := range eps {
+						epNS := ep.GetK8sNamespace()
+						if ns.Name == epNS && ep.SecurityIdentity != nil {
+							if !ep.SecurityIdentity.LabelArray.Contains(nsIdtyLabels.LabelArray()) {
+								missing.Add(k, v)
+							}
+						}
+					}
+				}
+				return missing
+			},
 			&v1.Namespace{},
+			k8s.Client(),
+			reSyncPeriod,
 			metrics.EventTSK8s,
 		),
 		fields.Everything(),

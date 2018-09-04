@@ -19,6 +19,9 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/serializer"
 	"github.com/cilium/cilium/pkg/versioned"
 
@@ -31,10 +34,19 @@ import (
 )
 
 var (
+	// log is the k8s package logger object.
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "k8s")
+
+	// k8sSyncCM has all controllers that are in charge of syncing up the
+	// watched objects with Kubernetes API-server.
+	k8sSyncCM = controller.NewManager()
+
 	// listers maps an interface to a lister.
 	listers = map[interface{}]lister{}
 	// casts maps an interface to a castToDeepCopy function.
 	casts = map[interface{}]castToDeepCopy{}
+	// equals maps an interface to an equal function.
+	equals = map[interface{}]equal{}
 	// resourcers maps an interface to a resource name (string).
 	resourcers = map[interface{}]string{}
 )
@@ -45,6 +57,9 @@ type castToDeepCopy func(i interface{}) meta_v1.Object
 // lister returns a function that, when called, returns a versioned.Map
 // of all objects the lister function can retrieve.
 type lister func(client interface{}) func() (versioned.Map, error)
+
+// equal returns either if both interfaces are considered equal or not.
+type equal func(o1, o2 interface{}) bool
 
 // RegisterObject registers the given resourceObj with the given resourceName,
 // castToDeepCopy, lister and equal Functions.
@@ -62,6 +77,7 @@ func RegisterObject(
 	resourceName string,
 	castFunc castToDeepCopy,
 	listerFunc lister,
+	equalFunc equal,
 ) {
 	typeOfObj := reflect.TypeOf(resourceObj)
 
@@ -79,6 +95,11 @@ func RegisterObject(
 		panic(fmt.Sprintf("Object '%s' already registered for the type '%s'", typeOfObj, reflect.TypeOf(v)))
 	}
 	casts[typeOfObj] = castFunc
+
+	if v, ok := equals[typeOfObj]; ok {
+		panic(fmt.Sprintf("Object '%s' already registered for the type '%s'", typeOfObj, reflect.TypeOf(v)))
+	}
+	equals[typeOfObj] = equalFunc
 }
 
 // ControllerFactory returns a kubernetes controller.
@@ -94,7 +115,6 @@ func RegisterObject(
 func ControllerFactory(
 	k8sGetter cache.Getter,
 	resourceObj runtime.Object,
-	reSyncPeriod time.Duration,
 	rehf cache.ResourceEventHandlerFuncs,
 	selector fields.Selector,
 ) cache.Controller {
@@ -111,7 +131,7 @@ func ControllerFactory(
 			selector,
 		),
 		resourceObj,
-		reSyncPeriod,
+		0,
 		rehf,
 	)
 
@@ -132,18 +152,38 @@ func ControllerFactory(
 func ResourceEventHandlerFactory(
 	addFunc, delFunc func(i interface{}) func() error,
 	updateFunc func(old, new interface{}) func() error,
+	missingFunc func(versioned.Map) versioned.Map,
 	resourceObj runtime.Object,
+	listerClient interface{},
+	reSyncPeriod time.Duration,
 	gauge prometheus.Gauge,
 ) cache.ResourceEventHandlerFuncs {
 
 	fqueue := serializer.NewFunctionQueue(1024)
 	castToDeepCopy := castFuncFactory(resourceObj)
+	im := versioned.NewSyncMap(equalFuncFactory(resourceObj))
+
+	if addFunc != nil && delFunc != nil {
+		replaceFunc := replaceFuncFactory(listerClient, resourceObj, addFunc, delFunc, missingFunc, fqueue)
+		k8sSyncCM.UpdateController(fmt.Sprintf("k8s-sync-%s", resourceNameOf(resourceObj)),
+			controller.ControllerParams{
+				DoFunc: func() error {
+					return im.DoLocked(nil, replaceFunc)
+				},
+				RunInterval: reSyncPeriod,
+			})
+	}
 
 	rehf := cache.ResourceEventHandlerFuncs{}
 	if addFunc != nil {
 		rehf.AddFunc = func(obj interface{}) {
 			gauge.SetToCurrentTime()
 			if metaObj := castToDeepCopy(obj); metaObj != nil {
+				log.Debugf("A1 Type Of: %s", reflect.TypeOf(metaObj))
+				if im.AddEqual(getVerStructFrom(metaObj)) {
+					return
+				}
+				log.Debugf("It passed")
 				fqueue.Enqueue(addFunc(metaObj), serializer.NoRetry)
 			}
 		}
@@ -153,6 +193,12 @@ func ResourceEventHandlerFactory(
 			gauge.SetToCurrentTime()
 			if oldMetaObj := castToDeepCopy(oldObj); oldMetaObj != nil {
 				if newMetaObj := castToDeepCopy(newObj); newMetaObj != nil {
+					log.Debugf("U1 Type Of: %s", reflect.TypeOf(oldMetaObj))
+					log.Debugf("U1 Type Of: %s", reflect.TypeOf(newMetaObj))
+					if im.AddEqual(getVerStructFrom(newMetaObj)) {
+						return
+					}
+					log.Debugf("It passed")
 					fqueue.Enqueue(updateFunc(oldMetaObj, newMetaObj), serializer.NoRetry)
 				}
 			}
@@ -163,12 +209,35 @@ func ResourceEventHandlerFactory(
 		rehf.DeleteFunc = func(obj interface{}) {
 			gauge.SetToCurrentTime()
 			if metaObj := castToDeepCopy(obj); metaObj != nil {
+				log.Debugf("D1 Type Of: %s", reflect.TypeOf(metaObj))
+				if ok := im.Delete(versioned.UUID(GetObjUID(metaObj))); !ok {
+					return
+				}
+				log.Debugf("It passed")
 				fqueue.Enqueue(delFunc(metaObj), serializer.NoRetry)
 			}
 		}
 	}
 
 	return rehf
+}
+
+func getVerStructFrom(objMeta meta_v1.Object) (versioned.UUID, versioned.Object) {
+	uuid := versioned.UUID(GetObjUID(objMeta))
+	v := versioned.ParseVersion(objMeta.GetResourceVersion())
+	vs := versioned.Object{
+		Data:    objMeta,
+		Version: v,
+	}
+	return uuid, vs
+}
+
+func listerFactory(client, i interface{}) func() (versioned.Map, error) {
+	lister, ok := listers[reflect.TypeOf(i)]
+	if !ok {
+		panic(fmt.Sprintf("Object type '%s' not registered", reflect.TypeOf(i)))
+	}
+	return lister(client)
 }
 
 func resourceNameOf(i interface{}) string {
@@ -185,4 +254,75 @@ func castFuncFactory(i interface{}) func(i interface{}) meta_v1.Object {
 		panic(fmt.Sprintf("Object type '%s' not registered", reflect.TypeOf(i)))
 	}
 	return castFunc
+}
+
+func equalFuncFactory(i interface{}) func(o1, o2 interface{}) bool {
+	equalFunc, ok := equals[reflect.TypeOf(i)]
+	if !ok {
+		panic(fmt.Sprintf("Object type '%s' not registered", reflect.TypeOf(i)))
+	}
+	return equalFunc
+}
+
+func replaceFuncFactory(
+	listerClient interface{},
+	resourceObj runtime.Object,
+	addFunc, delFunc func(i interface{}) func() error,
+	missingFunc func(versioned.Map) versioned.Map,
+	fqueue *serializer.FunctionQueue,
+) func(oldMap *versioned.EqualsMap) (*versioned.EqualsMap, error) {
+
+	lister := listerFactory(listerClient, resourceObj)
+
+	return func(oldMap *versioned.EqualsMap) (*versioned.EqualsMap, error) {
+		newMap, err := lister()
+		if err != nil {
+			return nil, err
+		}
+		var (
+			added       = versioned.Map{}
+			deleted     = versioned.Map{}
+			newEqualMap = &versioned.EqualsMap{
+				Map: newMap,
+				E:   oldMap.E,
+			}
+		)
+		for k, oldVS := range oldMap.Map {
+			newVS, ok := newMap.Get(k)
+			if ok {
+				if !newEqualMap.AddEqual(k, oldVS) {
+					added.Add(k, newVS)
+				}
+			} else {
+				deleted.Add(k, oldVS)
+			}
+		}
+
+		if missingFunc != nil {
+			missing := missingFunc(newMap)
+			for k, newVS := range missing {
+				added.Add(k, newVS)
+			}
+		}
+
+		for k, newVS := range newMap {
+			_, ok := oldMap.Get(k)
+			if !ok {
+				added.Add(k, newVS)
+			}
+		}
+
+		for _, v := range added {
+			log.Debugf("A11 Type Of: %s", reflect.TypeOf(v.Data))
+			fqueue.Enqueue(addFunc(v.Data), serializer.NoRetry)
+			log.Debugf("It passed")
+		}
+		for _, v := range deleted {
+			log.Debugf("D11 Type Of: %s", reflect.TypeOf(v.Data))
+			fqueue.Enqueue(delFunc(v.Data), serializer.NoRetry)
+			log.Debugf("It passed")
+		}
+
+		return newEqualMap, nil
+	}
 }

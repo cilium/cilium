@@ -107,7 +107,7 @@ type LoadBalancer struct {
 	SVCMapID  SVCMapID
 	RevNATMap RevNATMap
 
-	K8sMU        lock.Mutex
+	K8sMU        lock.RWMutex
 	K8sServices  map[K8sServiceNamespace]*K8sServiceInfo
 	K8sEndpoints map[K8sServiceNamespace]*K8sServiceEndpoint
 	K8sIngress   map[K8sServiceNamespace]*K8sServiceInfo

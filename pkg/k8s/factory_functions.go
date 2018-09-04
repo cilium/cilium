@@ -37,6 +37,7 @@ func init() {
 		"networkpolicies",
 		copyObjToV1NetworkPolicy,
 		listV1NetworkPolicies,
+		equalV1NetworkPolicy,
 	)
 
 	utils.RegisterObject(
@@ -44,6 +45,7 @@ func init() {
 		"services",
 		copyObjToV1Services,
 		listV1Services,
+		equalV1Services,
 	)
 
 	utils.RegisterObject(
@@ -51,6 +53,7 @@ func init() {
 		"endpoints",
 		copyObjToV1Endpoints,
 		listV1Endpoints,
+		equalV1Endpoints,
 	)
 
 	utils.RegisterObject(
@@ -58,6 +61,7 @@ func init() {
 		"ingresses",
 		copyObjToV1beta1Ingress,
 		listV1beta1Ingress,
+		equalV1beta1Ingress,
 	)
 
 	utils.RegisterObject(
@@ -65,6 +69,7 @@ func init() {
 		"ciliumnetworkpolicies",
 		copyObjToV2CNP,
 		listV2CNP,
+		equalV2CNP,
 	)
 
 	utils.RegisterObject(
@@ -72,6 +77,7 @@ func init() {
 		"pods",
 		copyObjToV1Pod,
 		listV1Pod,
+		equalV1Pod,
 	)
 
 	utils.RegisterObject(
@@ -79,6 +85,7 @@ func init() {
 		"nodes",
 		copyObjToV1Node,
 		listV1Node,
+		equalV1Node,
 	)
 
 	utils.RegisterObject(
@@ -86,6 +93,7 @@ func init() {
 		"namespaces",
 		copyObjToV1Namespace,
 		listV1Namespace,
+		equalV1Namespace,
 	)
 }
 
@@ -377,4 +385,124 @@ func listV1Namespace(client interface{}) func() (versioned.Map, error) {
 		}
 		return vm, nil
 	}
+}
+
+func equalV1NetworkPolicy(o1, o2 interface{}) bool {
+	np1, ok := o1.(*networkingv1.NetworkPolicy)
+	if !ok {
+		log.Panicf("Invalid resource type %q, expecting *networkingv1.NetworkPolicy", reflect.TypeOf(o1))
+		return false
+	}
+	np2, ok := o1.(*networkingv1.NetworkPolicy)
+	if !ok {
+		log.Panicf("Invalid resource type %q, expecting *networkingv1.NetworkPolicy", reflect.TypeOf(o2))
+		return false
+	}
+	// FIXME write dedicated deep equal function
+	return reflect.DeepEqual(np1.Spec, np2.Spec)
+}
+
+func equalV1Services(o1, o2 interface{}) bool {
+	svc1, ok := o1.(*v1.Service)
+	if !ok {
+		log.Panicf("Invalid resource type %q, expecting *v1.Service", reflect.TypeOf(o1))
+		return false
+	}
+	svc2, ok := o1.(*v1.Service)
+	if !ok {
+		log.Panicf("Invalid resource type %q, expecting *v1.Service", reflect.TypeOf(o2))
+		return false
+	}
+	// FIXME write dedicated deep equal function
+	return reflect.DeepEqual(svc1.Spec, svc2.Spec)
+}
+
+func equalV1Endpoints(o1, o2 interface{}) bool {
+	ep1, ok := o1.(*v1.Endpoints)
+	if !ok {
+		log.Panicf("Invalid resource type %q, expecting *v1.Endpoints", reflect.TypeOf(o1))
+		return false
+	}
+	ep2, ok := o1.(*v1.Endpoints)
+	if !ok {
+		log.Panicf("Invalid resource type %q, expecting *v1.Endpoints", reflect.TypeOf(o2))
+		return false
+	}
+	// FIXME write dedicated deep equal function
+	return reflect.DeepEqual(ep1.Subsets, ep2.Subsets)
+}
+
+func equalV1beta1Ingress(o1, o2 interface{}) bool {
+	ing1, ok := o1.(*v1beta1.Ingress)
+	if !ok {
+		log.Panicf("Invalid resource type %q, expecting *v1beta1.Ingress", reflect.TypeOf(o1))
+		return false
+	}
+	ing2, ok := o1.(*v1beta1.Ingress)
+	if !ok {
+		log.Panicf("Invalid resource type %q, expecting *v1beta1.Ingress", reflect.TypeOf(o2))
+		return false
+	}
+	// FIXME write dedicated deep equal function
+	return reflect.DeepEqual(ing1.Spec, ing2.Spec)
+}
+
+func equalV2CNP(o1, o2 interface{}) bool {
+	cnp1, ok := o1.(*cilium_v2.CiliumNetworkPolicy)
+	if !ok {
+		log.Panicf("Invalid resource type %q, expecting *cilium_v2.CiliumNetworkPolicy", reflect.TypeOf(o1))
+		return false
+	}
+	cnp2, ok := o1.(*cilium_v2.CiliumNetworkPolicy)
+	if !ok {
+		log.Panicf("Invalid resource type %q, expecting *cilium_v2.CiliumNetworkPolicy", reflect.TypeOf(o2))
+		return false
+	}
+	// FIXME write dedicated deep equal function
+	return reflect.DeepEqual(cnp1.Spec, cnp2.Spec)
+}
+
+func equalV1Pod(o1, o2 interface{}) bool {
+	pod1, ok := o1.(*v1.Pod)
+	if !ok {
+		log.Panicf("Invalid resource type %q, expecting *v1.Pod", reflect.TypeOf(o1))
+		return false
+	}
+	pod2, ok := o1.(*v1.Pod)
+	if !ok {
+		log.Panicf("Invalid resource type %q, expecting *v1.Pod", reflect.TypeOf(o2))
+		return false
+	}
+	// FIXME write dedicated deep equal function
+	return reflect.DeepEqual(pod1.Spec, pod2.Spec)
+}
+
+func equalV1Node(o1, o2 interface{}) bool {
+	node1, ok := o1.(*v1.Node)
+	if !ok {
+		log.Panicf("Invalid resource type %q, expecting *v1.Node", reflect.TypeOf(o1))
+		return false
+	}
+	node2, ok := o1.(*v1.Node)
+	if !ok {
+		log.Panicf("Invalid resource type %q, expecting *v1.Node", reflect.TypeOf(o2))
+		return false
+	}
+	// FIXME write dedicated deep equal function
+	return reflect.DeepEqual(node1.Spec, node2.Spec)
+}
+
+func equalV1Namespace(o1, o2 interface{}) bool {
+	ns1, ok := o1.(*v1.Namespace)
+	if !ok {
+		log.Panicf("Invalid resource type %q, expecting *v1.Namespace", reflect.TypeOf(o1))
+		return false
+	}
+	ns2, ok := o1.(*v1.Namespace)
+	if !ok {
+		log.Panicf("Invalid resource type %q, expecting *v1.Namespace", reflect.TypeOf(o2))
+		return false
+	}
+	// FIXME write dedicated deep equal function
+	return reflect.DeepEqual(ns1.Spec, ns2.Spec)
 }
