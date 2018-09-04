@@ -167,7 +167,7 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	}
 	fmt.Fprintf(fw, "#define POLICY_MAP %s\n", path.Base(e.PolicyMapPathLocked()))
 	fmt.Fprintf(fw, "#define CALLS_MAP %s\n", path.Base(e.CallsMapPathLocked()))
-	if e.Options.IsEnabled(option.ConntrackLocal) {
+	if e.ConntrackLocalLocked() {
 		ctmap.WriteBPFMacros(fw, e)
 	} else {
 		ctmap.WriteBPFMacros(fw, nil)
