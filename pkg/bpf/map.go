@@ -273,6 +273,11 @@ func (m *Map) GetFd() int {
 	return m.fd
 }
 
+// Path returns the path to this map on the filesystem.
+func (m *Map) Path() string {
+	return m.path
+}
+
 // DeepEquals compares the current map against another map to see that the
 // attributes of the two maps are the same.
 func (m *Map) DeepEquals(other *Map) bool {
