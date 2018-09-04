@@ -20,7 +20,10 @@ import (
 	"os"
 
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	"github.com/cilium/cilium/pkg/versioncheck"
 	"github.com/cilium/cilium/test/ginkgo-ext"
+
+	go_version "github.com/hashicorp/go-version"
 )
 
 var (
@@ -212,6 +215,12 @@ const (
 // NightlyStableUpgradesFrom the cilium images to update from in Nightly test.
 var NightlyStableUpgradesFrom = []string{"docker.io/cilium/cilium:v1.0"}
 
+var (
+	Cilium_v1_0 = versioncheck.MustCompile(">=v1.0,<v1.1")
+	Cilium_v1_1 = versioncheck.MustCompile(">=v1.1,<v1.2")
+	Cilium_v1_2 = versioncheck.MustCompile(">=v1.2,<v1.3")
+)
+
 // CiliumDefaultDSPatch is the default Cilium DaemonSet patch to be used in all tests.
 const CiliumDefaultDSPatch = "cilium-ds-patch.yaml"
 
@@ -260,4 +269,37 @@ func K8s1VMName() string {
 // K8s2VMName is the name of the Kubernetes worker node when running K8s tests.
 func K8s2VMName() string {
 	return fmt.Sprintf("k8s2-%s", GetCurrentK8SEnv())
+}
+
+// getK8sSupportedConstraints returns the Kubernetes versions supported by
+// a specific Cilium version.
+func getK8sSupportedConstraints(ciliumVersion string) (go_version.Constraints, error) {
+	cst, err := go_version.NewVersion(ciliumVersion)
+	if err != nil {
+		return nil, err
+	}
+	switch {
+	case Cilium_v1_0.Check(cst):
+		return versioncheck.MustCompile(">= 1.8, <1.13"), nil
+	case Cilium_v1_1.Check(cst):
+		return versioncheck.MustCompile(">= 1.8, <1.13"), nil
+	case Cilium_v1_2.Check(cst):
+		return versioncheck.MustCompile(">= 1.8, <1.13"), nil
+	default:
+		return nil, fmt.Errorf("unrecognized version '%s'", ciliumVersion)
+	}
+}
+
+// CanRunK8sVersion returns true if the givel ciliumVersion can run in the given
+// Kubernetes version. If any version is unparsable, an error is returned.
+func CanRunK8sVersion(ciliumVersion, k8sVersionStr string) (bool, error) {
+	k8sVersion, err := go_version.NewVersion(k8sVersionStr)
+	if err != nil {
+		return false, err
+	}
+	constraint, err := getK8sSupportedConstraints(ciliumVersion)
+	if err != nil {
+		return false, err
+	}
+	return constraint.Check(k8sVersion), nil
 }
