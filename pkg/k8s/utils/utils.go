@@ -32,3 +32,8 @@ func ExtractNamespace(np metav1.Object) string {
 func GetObjNamespaceName(obj metav1.Object) string {
 	return ExtractNamespace(obj) + "/" + obj.GetName()
 }
+
+// GetObjUID returns the object's namespace and name.
+func GetObjUID(obj metav1.Object) string {
+	return GetObjNamespaceName(obj) + "/" + string(obj.GetUID())
+}
