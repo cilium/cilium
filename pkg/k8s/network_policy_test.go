@@ -1479,7 +1479,6 @@ func Test_parseNetworkPolicyPeer(t *testing.T) {
 							{
 								Key:      "ns-foo-expression",
 								Operator: metav1.LabelSelectorOpExists,
-								Values:   []string{"bar", "baz"},
 							},
 						},
 					},
@@ -1495,7 +1494,6 @@ func Test_parseNetworkPolicyPeer(t *testing.T) {
 						{
 							Key:      "k8s.io.cilium.k8s.namespace.labels.ns-foo-expression",
 							Operator: metav1.LabelSelectorOpExists,
-							Values:   []string{"bar", "baz"},
 						},
 						{
 							Key:      "k8s.foo",
@@ -1519,7 +1517,6 @@ func Test_parseNetworkPolicyPeer(t *testing.T) {
 							{
 								Key:      "ns-foo-expression",
 								Operator: metav1.LabelSelectorOpExists,
-								Values:   []string{"bar", "baz"},
 							},
 						},
 					},
@@ -1534,7 +1531,6 @@ func Test_parseNetworkPolicyPeer(t *testing.T) {
 						{
 							Key:      "k8s.io.cilium.k8s.namespace.labels.ns-foo-expression",
 							Operator: metav1.LabelSelectorOpExists,
-							Values:   []string{"bar", "baz"},
 						},
 					},
 				),
