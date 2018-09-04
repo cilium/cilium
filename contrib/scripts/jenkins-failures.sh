@@ -5,10 +5,10 @@
 # To clean the list of Jenkins builds, build description needs to be updated with a comment.
 
 # allow users to specify SINCE as seconds since epoch
-YESTERDAY=$(date -d -1day +%s)
+YESTERDAY=$(date -d -1day)
 SINCE=${SINCE:-$YESTERDAY}
 # ensure SINCE is the correct length
-SINCE=$(date -d @$SINCE +%s%N  | cut -b1-13)
+SINCE=$(date -d "$SINCE" +%s%N  | cut -b1-13)
 
 TAB="   "
 BOLD=$(tput bold)
