@@ -26,7 +26,9 @@ import (
 	. "gopkg.in/check.v1"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/testing"
 )
 
 func (s *K8sSuite) TestUseNodeCIDR(c *C) {
@@ -47,31 +49,22 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 	// set buffer to 2 to prevent blocking when calling UseNodeCIDR
 	// and we need to wait for the response of the channel.
 	updateChan := make(chan bool, 2)
-	k8sClient := &Clientset{
-		OnCoreV1: func() corev1.CoreV1Interface {
-			return &CoreV1Client{
-				OnNodes: func() corev1.NodeInterface {
-					return &NodeInterfaceClient{
-						OnGet: func(name string, options metav1.GetOptions) (*v1.Node, error) {
-							c.Assert(name, Equals, "node1")
-							c.Assert(options, comparator.DeepEquals, metav1.GetOptions{})
-							n1copy := v1.Node(node1)
-							return &n1copy, nil
-						},
-						OnUpdate: func(n *v1.Node) (*v1.Node, error) {
-							updateChan <- true
-							n1copy := v1.Node(node1)
-							n1copy.Annotations[annotation.V4CIDRName] = "10.2.0.0/16"
-							n1copy.Annotations[annotation.V6CIDRName] = "beef:beef:beef:beef:aaaa:aaaa:1111:0/96"
-							c.Assert(n, comparator.DeepEquals, &n1copy)
-							return &n1copy, nil
-						},
-					}
-				},
-			}
-		},
-	}
-
+	k8sClient := &fake.Clientset{}
+	k8sClient.AddReactor("get", "nodes",
+		func(action testing.Action) (bool, runtime.Object, error) {
+			name := action.(testing.GetAction).GetName()
+			c.Assert(name, Equals, "node1")
+			return true, node1.DeepCopy(), nil
+		})
+	k8sClient.AddReactor("update", "nodes",
+		func(action testing.Action) (bool, runtime.Object, error) {
+			n := action.(testing.UpdateAction).GetObject().(*v1.Node)
+			n1copy := node1.DeepCopy()
+			n1copy.Annotations[annotation.V4CIDRName] = "10.2.0.0/16"
+			c.Assert(n, comparator.DeepEquals, n1copy)
+			updateChan <- true
+			return true, n1copy, nil
+		})
 	node1Cilium := ParseNode(&node1, node.FromAgentLocal)
 
 	err := node.UseNodeCIDR(node1Cilium)
@@ -90,7 +83,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 
 	select {
 	case <-updateChan:
-	case <-time.Tick(5 * time.Second):
+	case <-time.Tick(10 * time.Second):
 		c.Errorf("d.k8sClient.CoreV1().Nodes().Update() was not called")
 		c.FailNow()
 	}
@@ -110,35 +103,27 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 	}
 
 	failAttempts := 0
-	k8sClient = &Clientset{
-		OnCoreV1: func() corev1.CoreV1Interface {
-			return &CoreV1Client{
-				OnNodes: func() corev1.NodeInterface {
-					return &NodeInterfaceClient{
-						OnGet: func(name string, options metav1.GetOptions) (*v1.Node, error) {
-							c.Assert(name, Equals, "node2")
-							c.Assert(options, comparator.DeepEquals, metav1.GetOptions{})
-							n1copy := v1.Node(node2)
-							return &n1copy, nil
-						},
-						OnUpdate: func(n *v1.Node) (*v1.Node, error) {
-							// also test retrying in case of error
-							if failAttempts == 0 {
-								failAttempts++
-								return nil, fmt.Errorf("failing on purpose")
-							}
-							updateChan <- true
-							n1copy := v1.Node(node2)
-							n1copy.Annotations[annotation.V4CIDRName] = "10.2.0.0/16"
-							n1copy.Annotations[annotation.V6CIDRName] = "aaaa:aaaa:aaaa:aaaa:beef:beef::/96"
-							c.Assert(n, comparator.DeepEquals, &n1copy)
-							return &n1copy, nil
-						},
-					}
-				},
+	k8sClient = &fake.Clientset{}
+	k8sClient.AddReactor("get", "nodes",
+		func(action testing.Action) (bool, runtime.Object, error) {
+			name := action.(testing.GetAction).GetName()
+			c.Assert(name, Equals, "node2")
+			return true, node2.DeepCopy(), nil
+		})
+	k8sClient.AddReactor("update", "nodes",
+		func(action testing.Action) (bool, runtime.Object, error) {
+			n := action.(testing.UpdateAction).GetObject().(*v1.Node)
+			if failAttempts == 0 {
+				failAttempts++
+				return true, nil, fmt.Errorf("failing on purpose")
 			}
-		},
-	}
+			n2Copy := node2.DeepCopy()
+			n2Copy.Annotations[annotation.V4CIDRName] = "10.254.0.0/16"
+			n2Copy.Annotations[annotation.V6CIDRName] = "aaaa:aaaa:aaaa:aaaa:beef:beef::/96"
+			c.Assert(n, comparator.DeepEquals, n2Copy)
+			updateChan <- true
+			return true, n2Copy, nil
+		})
 
 	node2Cilium := ParseNode(&node2, node.FromAgentLocal)
 	err = node.UseNodeCIDR(node2Cilium)
@@ -160,7 +145,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 
 	select {
 	case <-updateChan:
-	case <-time.Tick(5 * time.Second):
+	case <-time.Tick(10 * time.Second):
 		c.Errorf("d.k8sClient.CoreV1().Nodes().Update() was not called")
 		c.FailNow()
 	}
