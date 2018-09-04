@@ -15,14 +15,19 @@
 package k8s
 
 import (
+	"reflect"
+
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	versionedClient "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/versioned"
 
 	"k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	networkingv1 "k8s.io/api/networking/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 func init() {
@@ -30,48 +35,64 @@ func init() {
 		&networkingv1.NetworkPolicy{},
 		"networkpolicies",
 		copyObjToV1NetworkPolicy,
+		listV1NetworkPolicies,
+		equalV1NetworkPolicy,
 	)
 
 	utils.RegisterObject(
 		&v1.Service{},
 		"services",
 		copyObjToV1Services,
+		listV1Services,
+		equalV1Services,
 	)
 
 	utils.RegisterObject(
 		&v1.Endpoints{},
 		"endpoints",
 		copyObjToV1Endpoints,
+		listV1Endpoints,
+		equalV1Endpoints,
 	)
 
 	utils.RegisterObject(
 		&v1beta1.Ingress{},
 		"ingresses",
 		copyObjToV1beta1Ingress,
+		listV1beta1Ingress,
+		equalV1beta1Ingress,
 	)
 
 	utils.RegisterObject(
 		&cilium_v2.CiliumNetworkPolicy{},
 		"ciliumnetworkpolicies",
 		copyObjToV2CNP,
+		listV2CNP,
+		equalV2CNP,
 	)
 
 	utils.RegisterObject(
 		&v1.Pod{},
 		"pods",
 		copyObjToV1Pod,
+		listV1Pod,
+		equalV1Pod,
 	)
 
 	utils.RegisterObject(
 		&v1.Node{},
 		"nodes",
 		copyObjToV1Node,
+		listV1Node,
+		equalV1Node,
 	)
 
 	utils.RegisterObject(
 		&v1.Namespace{},
 		"namespaces",
 		copyObjToV1Namespace,
+		listV1Namespace,
+		equalV1Namespace,
 	)
 }
 
@@ -153,4 +174,332 @@ func copyObjToV1Namespace(obj interface{}) meta_v1.Object {
 		return nil
 	}
 	return ns.DeepCopy()
+}
+
+func listV1NetworkPolicies(client interface{}) func() (versioned.Map, error) {
+	k8sClient, ok := client.(kubernetes.Interface)
+	if !ok {
+		log.Panicf("Invalid resource type %s: expecting 'kubernetes.Interface'", reflect.TypeOf(client))
+	}
+	return func() (versioned.Map, error) {
+		m := versioned.NewMap()
+		// Limit the number of elements to avoid network congestion every N minutes
+		lo := meta_v1.ListOptions{Limit: 50}
+		for {
+			list, err := k8sClient.NetworkingV1().NetworkPolicies("").List(lo)
+			if err != nil {
+				return nil, err
+			}
+			lo.Continue = list.Continue
+			for i := range list.Items {
+				m.Add(utils.GetVerStructFrom(&list.Items[i]))
+			}
+			if lo.Continue == "" {
+				break
+			}
+		}
+		return m, nil
+	}
+}
+
+func listV1Services(client interface{}) func() (versioned.Map, error) {
+	k8sClient, ok := client.(kubernetes.Interface)
+	if !ok {
+		log.Panicf("Invalid resource type %s: expecting 'kubernetes.Interface'", reflect.TypeOf(client))
+	}
+	return func() (versioned.Map, error) {
+		m := versioned.NewMap()
+		// Limit the number of elements to avoid network congestion every N minutes
+		lo := meta_v1.ListOptions{Limit: 50}
+		for {
+			list, err := k8sClient.CoreV1().Services("").List(lo)
+			if err != nil {
+				return nil, err
+			}
+			lo.Continue = list.Continue
+			for i := range list.Items {
+				m.Add(utils.GetVerStructFrom(&list.Items[i]))
+			}
+			if lo.Continue == "" {
+				break
+			}
+		}
+		return m, nil
+	}
+}
+
+func listV1Endpoints(client interface{}) func() (versioned.Map, error) {
+	k8sClient, ok := client.(kubernetes.Interface)
+	if !ok {
+		log.Panicf("Invalid resource type %s: expecting 'kubernetes.Interface'", reflect.TypeOf(client))
+	}
+	return func() (versioned.Map, error) {
+		m := versioned.NewMap()
+		// Limit the number of elements to avoid network congestion every N minutes
+		lo := meta_v1.ListOptions{Limit: 50}
+		for {
+			list, err := k8sClient.CoreV1().Endpoints("").List(lo)
+			if err != nil {
+				return nil, err
+			}
+			lo.Continue = list.Continue
+			for i := range list.Items {
+				m.Add(utils.GetVerStructFrom(&list.Items[i]))
+			}
+			if lo.Continue == "" {
+				break
+			}
+		}
+		return m, nil
+	}
+}
+
+func listV1beta1Ingress(client interface{}) func() (versioned.Map, error) {
+	k8sClient, ok := client.(kubernetes.Interface)
+	if !ok {
+		log.Panicf("Invalid resource type %s: expecting 'kubernetes.Interface'", reflect.TypeOf(client))
+	}
+	return func() (versioned.Map, error) {
+		m := versioned.NewMap()
+		// Limit the number of elements to avoid network congestion every N minutes
+		lo := meta_v1.ListOptions{Limit: 50}
+		for {
+			list, err := k8sClient.ExtensionsV1beta1().Ingresses("").List(lo)
+			if err != nil {
+				return nil, err
+			}
+			lo.Continue = list.Continue
+			for i := range list.Items {
+				m.Add(utils.GetVerStructFrom(&list.Items[i]))
+			}
+			if lo.Continue == "" {
+				break
+			}
+		}
+		return m, nil
+	}
+}
+
+func listV2CNP(client interface{}) func() (versioned.Map, error) {
+	k8sClient, ok := client.(versionedClient.Interface)
+	if !ok {
+		log.Panicf("Invalid resource type %s: expecting 'versionedClient.Interface'", reflect.TypeOf(client))
+	}
+	return func() (versioned.Map, error) {
+		m := versioned.NewMap()
+		// Limit the number of elements to avoid network congestion every N minutes
+		lo := meta_v1.ListOptions{Limit: 50}
+		for {
+			list, err := k8sClient.CiliumV2().CiliumNetworkPolicies("").List(lo)
+			if err != nil {
+				return nil, err
+			}
+			lo.Continue = list.Continue
+			for i := range list.Items {
+				m.Add(utils.GetVerStructFrom(&list.Items[i]))
+			}
+			if lo.Continue == "" {
+				break
+			}
+		}
+		return m, nil
+	}
+}
+
+func listV1Pod(client interface{}) func() (versioned.Map, error) {
+	k8sClient, ok := client.(kubernetes.Interface)
+	if !ok {
+		log.Panicf("Invalid resource type %s: expecting 'kubernetes.Interface'", reflect.TypeOf(client))
+	}
+	return func() (versioned.Map, error) {
+		m := versioned.NewMap()
+		// Limit the number of elements to avoid network congestion every N minutes
+		lo := meta_v1.ListOptions{Limit: 50}
+		for {
+			list, err := k8sClient.CoreV1().Pods("").List(lo)
+			if err != nil {
+				return nil, err
+			}
+			lo.Continue = list.Continue
+			for i := range list.Items {
+				m.Add(utils.GetVerStructFrom(&list.Items[i]))
+			}
+			if lo.Continue == "" {
+				break
+			}
+		}
+		return m, nil
+	}
+}
+
+func listV1Node(client interface{}) func() (versioned.Map, error) {
+	k8sClient, ok := client.(kubernetes.Interface)
+	if !ok {
+		log.Panicf("Invalid resource type %s: expecting 'kubernetes.Interface'", reflect.TypeOf(client))
+	}
+	return func() (versioned.Map, error) {
+		m := versioned.NewMap()
+		// Limit the number of elements to avoid network congestion every N minutes
+		lo := meta_v1.ListOptions{Limit: 50}
+		for {
+			list, err := k8sClient.CoreV1().Nodes().List(lo)
+			if err != nil {
+				return nil, err
+			}
+			lo.Continue = list.Continue
+			for i := range list.Items {
+				m.Add(utils.GetVerStructFrom(&list.Items[i]))
+			}
+			if lo.Continue == "" {
+				break
+			}
+		}
+		return m, nil
+	}
+}
+
+func listV1Namespace(client interface{}) func() (versioned.Map, error) {
+	k8sClient, ok := client.(kubernetes.Interface)
+	if !ok {
+		log.Panicf("Invalid resource type %s: expecting 'kubernetes.Interface'", reflect.TypeOf(client))
+	}
+	return func() (versioned.Map, error) {
+		m := versioned.NewMap()
+		// Limit the number of elements to avoid network congestion every N minutes
+		lo := meta_v1.ListOptions{Limit: 50}
+		for {
+			list, err := k8sClient.CoreV1().Namespaces().List(lo)
+			if err != nil {
+				return nil, err
+			}
+			lo.Continue = list.Continue
+			for i := range list.Items {
+				m.Add(utils.GetVerStructFrom(&list.Items[i]))
+			}
+			if lo.Continue == "" {
+				break
+			}
+		}
+		return m, nil
+	}
+}
+
+func equalV1NetworkPolicy(o1, o2 interface{}) bool {
+	_, ok := o1.(*networkingv1.NetworkPolicy)
+	if !ok {
+		log.Panicf("Invalid resource type %q, expecting *networkingv1.NetworkPolicy", reflect.TypeOf(o1))
+		return false
+	}
+	_, ok = o1.(*networkingv1.NetworkPolicy)
+	if !ok {
+		log.Panicf("Invalid resource type %q, expecting *networkingv1.NetworkPolicy", reflect.TypeOf(o2))
+		return false
+	}
+	// FIXME write dedicated deep equal function
+	return false
+}
+
+func equalV1Services(o1, o2 interface{}) bool {
+	_, ok := o1.(*v1.Service)
+	if !ok {
+		log.Panicf("Invalid resource type %q, expecting *v1.Service", reflect.TypeOf(o1))
+		return false
+	}
+	_, ok = o1.(*v1.Service)
+	if !ok {
+		log.Panicf("Invalid resource type %q, expecting *v1.Service", reflect.TypeOf(o2))
+		return false
+	}
+	// FIXME write dedicated deep equal function
+	return false
+}
+
+func equalV1Endpoints(o1, o2 interface{}) bool {
+	_, ok := o1.(*v1.Endpoints)
+	if !ok {
+		log.Panicf("Invalid resource type %q, expecting *v1.Endpoints", reflect.TypeOf(o1))
+		return false
+	}
+	_, ok = o1.(*v1.Endpoints)
+	if !ok {
+		log.Panicf("Invalid resource type %q, expecting *v1.Endpoints", reflect.TypeOf(o2))
+		return false
+	}
+	// FIXME write dedicated deep equal function
+	return false
+}
+
+func equalV1beta1Ingress(o1, o2 interface{}) bool {
+	_, ok := o1.(*v1beta1.Ingress)
+	if !ok {
+		log.Panicf("Invalid resource type %q, expecting *v1beta1.Ingress", reflect.TypeOf(o1))
+		return false
+	}
+	_, ok = o1.(*v1beta1.Ingress)
+	if !ok {
+		log.Panicf("Invalid resource type %q, expecting *v1beta1.Ingress", reflect.TypeOf(o2))
+		return false
+	}
+	// FIXME write dedicated deep equal function
+	return false
+}
+
+func equalV2CNP(o1, o2 interface{}) bool {
+	_, ok := o1.(*cilium_v2.CiliumNetworkPolicy)
+	if !ok {
+		log.Panicf("Invalid resource type %q, expecting *cilium_v2.CiliumNetworkPolicy", reflect.TypeOf(o1))
+		return false
+	}
+	_, ok = o1.(*cilium_v2.CiliumNetworkPolicy)
+	if !ok {
+		log.Panicf("Invalid resource type %q, expecting *cilium_v2.CiliumNetworkPolicy", reflect.TypeOf(o2))
+		return false
+	}
+	// FIXME write dedicated deep equal function
+	return false
+}
+
+func equalV1Pod(o1, o2 interface{}) bool {
+	_, ok := o1.(*v1.Pod)
+	if !ok {
+		log.Panicf("Invalid resource type %q, expecting *v1.Pod", reflect.TypeOf(o1))
+		return false
+	}
+	_, ok = o1.(*v1.Pod)
+	if !ok {
+		log.Panicf("Invalid resource type %q, expecting *v1.Pod", reflect.TypeOf(o2))
+		return false
+	}
+	// FIXME write dedicated deep equal function
+	return false
+}
+
+func equalV1Node(o1, o2 interface{}) bool {
+	_, ok := o1.(*v1.Node)
+	if !ok {
+		log.Panicf("Invalid resource type %q, expecting *v1.Node", reflect.TypeOf(o1))
+		return false
+	}
+	_, ok = o1.(*v1.Node)
+	if !ok {
+		log.Panicf("Invalid resource type %q, expecting *v1.Node", reflect.TypeOf(o2))
+		return false
+	}
+	// FIXME write dedicated deep equal function
+	return false
+}
+
+func equalV1Namespace(o1, o2 interface{}) bool {
+	_, ok := o1.(*v1.Namespace)
+	if !ok {
+		log.Panicf("Invalid resource type %q, expecting *v1.Namespace", reflect.TypeOf(o1))
+		return false
+	}
+	_, ok = o1.(*v1.Namespace)
+	if !ok {
+		log.Panicf("Invalid resource type %q, expecting *v1.Namespace", reflect.TypeOf(o2))
+		return false
+	}
+	// FIXME write dedicated deep equal function
+	return false
 }
