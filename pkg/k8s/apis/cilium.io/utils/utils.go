@@ -214,14 +214,14 @@ func ParseToCiliumRule(namespace, name string, r *api.Rule) *api.Rule {
 	parseToCiliumIngressRule(namespace, r, retRule)
 	parseToCiliumEgressRule(namespace, r, retRule)
 
-	policyLbls := GetPolicyLabels(namespace, name)
-	if retRule.Labels == nil {
-		retRule.Labels = make(labels.LabelArray, 0, len(policyLbls)+len(r.Labels))
-	}
-	retRule.Labels = append(retRule.Labels, policyLbls...)
-	retRule.Labels = append(retRule.Labels, r.Labels...)
+	retRule.Labels = ParseToCiliumLabels(namespace, name, r.Labels)
 
 	retRule.Description = r.Description
 
 	return retRule
+}
+
+func ParseToCiliumLabels(namespace, name string, ruleLbs labels.LabelArray) labels.LabelArray {
+	policyLbls := GetPolicyLabels(namespace, name)
+	return append(policyLbls, ruleLbs...)
 }
