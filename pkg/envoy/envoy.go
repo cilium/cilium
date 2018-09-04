@@ -74,7 +74,7 @@ type admin struct {
 }
 
 func (a *admin) transact(query string) error {
-	resp, err := http.Get(a.adminURL + query)
+	resp, err := http.Post(a.adminURL+query, "", nil)
 	if err != nil {
 		return err
 	}
