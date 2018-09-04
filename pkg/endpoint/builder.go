@@ -55,6 +55,8 @@ type buildStatus struct {
 }
 
 func (e *Endpoint) newEndpointBuild(owner Owner, context *RegenerationContext) *endpointBuild {
+	context.Stats.totalTime.Start()
+	context.Stats.queueWait.Start()
 	return &endpointBuild{
 		endpoint: e,
 		owner:    owner,
@@ -84,6 +86,8 @@ func (b *endpointBuild) BuildsDequeued(nbuilds int, cancelled bool) {
 
 func (b *endpointBuild) Build() error {
 	e := b.endpoint
+
+	b.context.Stats.queueWait.End()
 
 	err := e.regenerate(b.owner, b.context)
 

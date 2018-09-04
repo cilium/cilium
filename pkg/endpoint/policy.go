@@ -673,17 +673,17 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 	var compilationExecuted bool
 	var err error
 
-	context.Stats = regenerationStatistics{}
 	stats := &context.Stats
 
 	metrics.EndpointCountRegenerating.Inc()
-	stats.totalTime.Start()
+	stats.regenerateTime.Start()
 	e.Logger().WithFields(logrus.Fields{
 		logfields.StartTime: time.Now(),
 		logfields.Reason:    context.Reason,
 	}).Info("Regenerating endpoint")
 
 	defer func() {
+		stats.regenerateTime.End()
 		stats.totalTime.End()
 		stats.success = retErr == nil
 		stats.SendMetrics()
@@ -698,7 +698,9 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 			"bpfCompilation":         stats.bpfCompilation.Total(),
 			"mapSync":                stats.mapSync.Total(),
 			"prepareBuild":           stats.prepareBuild.Total(),
-			logfields.BuildDuration:  stats.totalTime.Total(),
+			"queueWait":              stats.queueWait.Total(),
+			"totalTime":              stats.totalTime.Total(),
+			logfields.BuildDuration:  stats.regenerateTime.Total(),
 			logfields.Reason:         context.Reason,
 		})
 
@@ -786,6 +788,7 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 // either StateWaitingForIdentity if the security identity is still unknown or
 // to StateReady.
 func (e *Endpoint) Regenerate(owner Owner, context *RegenerationContext) <-chan bool {
+	context.Stats = regenerationStatistics{}
 	return BuildQueue.Enqueue(e.newEndpointBuild(owner, context))
 }
 

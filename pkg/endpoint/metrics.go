@@ -35,6 +35,8 @@ type regenerationStatistics struct {
 	bpfCompilation         spanstat.SpanStat
 	mapSync                spanstat.SpanStat
 	prepareBuild           spanstat.SpanStat
+	queueWait              spanstat.SpanStat
+	regenerateTime         spanstat.SpanStat
 }
 
 // SendMetrics sends the regeneration statistics for this endpoint to
@@ -71,6 +73,8 @@ func (s *regenerationStatistics) GetMap() map[string]time.Duration {
 		"bpfCompilation":         s.bpfCompilation.Total(),
 		"mapSync":                s.mapSync.Total(),
 		"prepareBuild":           s.prepareBuild.Total(),
+		"queueWait":              s.queueWait.Total(),
+		"regenerateTime":         s.regenerateTime.Total(),
 		logfields.BuildDuration:  s.totalTime.Total(),
 	}
 }
