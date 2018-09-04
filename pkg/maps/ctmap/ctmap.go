@@ -187,18 +187,15 @@ type GCFilter struct {
 
 // ToString iterates through Map m and writes the values of the ct entries in m
 // to a string.
-func ToString(m *bpf.Map, mapName string) (string, error) {
+func (m *Map) DumpEntries() (string, error) {
 	var buffer bytes.Buffer
-	entries, err := dumpToSlice(m, mapName)
-	if err != nil {
-		return "", err
-	}
-	for _, entry := range entries {
-		if !entry.Key.ToHost().Dump(&buffer) {
-			continue
-		}
 
-		value := entry.Value
+	cb := func(k bpf.MapKey, v bpf.MapValue) {
+		key := k.(CtKey)
+		if !key.ToHost().Dump(&buffer) {
+			return
+		}
+		value := v.(*CtEntry)
 		buffer.WriteString(
 			fmt.Sprintf(" expires=%d rx_packets=%d rx_bytes=%d tx_packets=%d tx_bytes=%d flags=%x revnat=%d src_sec_id=%d\n",
 				value.Lifetime,
@@ -211,60 +208,10 @@ func ToString(m *bpf.Map, mapName string) (string, error) {
 				value.SourceSecurityID,
 			),
 		)
-
 	}
-	return buffer.String(), nil
-}
-
-// DumpToSlice iterates through map m and returns a slice mapping each key to
-// its value in m.
-func dumpToSlice(m *bpf.Map, mapType string) ([]CtEntryDump, error) {
-	entries := []CtEntryDump{}
-
-	switch mapType {
-	case MapName6, MapName6Global:
-		var key, nextKey CtKey6Global
-		for {
-			err := m.GetNextKey(&key, &nextKey)
-			if err != nil {
-				break
-			}
-
-			entry, err := m.Lookup(&nextKey)
-			if err != nil {
-				return nil, err
-			}
-			ctEntry := entry.(*CtEntry)
-
-			nK := nextKey
-			eDump := CtEntryDump{Key: &nK, Value: *ctEntry}
-			entries = append(entries, eDump)
-
-			key = nextKey
-		}
-
-	case MapName4, MapName4Global:
-		var key, nextKey CtKey4Global
-		for {
-			err := m.GetNextKey(&key, &nextKey)
-			if err != nil {
-				break
-			}
-
-			entry, err := m.Lookup(&nextKey)
-			if err != nil {
-				return nil, err
-			}
-			ctEntry := entry.(*CtEntry)
-
-			nK := nextKey
-			eDump := CtEntryDump{Key: &nK, Value: *ctEntry}
-			entries = append(entries, eDump)
-
-			key = nextKey
-		}
-	}
-	return entries, nil
+	// DumpWithCallback() must be called before buffer.String().
+	err := m.DumpWithCallback(cb)
+	return buffer.String(), err
 }
 
 func ct4DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
