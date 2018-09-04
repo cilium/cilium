@@ -134,45 +134,6 @@ type CtKey interface {
 	Dump(buffer *bytes.Buffer) bool
 }
 
-// CtEntry represents an entry in the connection tracking table.
-type CtEntry struct {
-	rx_packets uint64
-	rx_bytes   uint64
-	tx_packets uint64
-	tx_bytes   uint64
-	lifetime   uint32
-	flags      uint16
-	// revnat is in network byte order
-	revnat         uint16
-	tx_flags_seen  uint8
-	rx_flags_seen  uint8
-	src_sec_id     uint32
-	last_tx_report uint32
-	last_rx_report uint32
-}
-
-// GetValuePtr returns the unsafe.Pointer for s.
-func (c *CtEntry) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(c) }
-
-// String returns the readable format
-func (c *CtEntry) String() string {
-	return fmt.Sprintf("expires=%d rx_packets=%d rx_bytes=%d tx_packets=%d tx_bytes=%d flags=%x revnat=%d src_sec_id=%d\n",
-		c.lifetime,
-		c.rx_packets,
-		c.rx_bytes,
-		c.tx_packets,
-		c.tx_bytes,
-		c.flags,
-		byteorder.NetworkToHost(c.revnat),
-		c.src_sec_id)
-}
-
-// CtEntryDump represents the key and value contained in the conntrack map.
-type CtEntryDump struct {
-	Key   CtKey
-	Value CtEntry
-}
-
 // GCFilter contains the necessary fields to filter the CT maps.
 // Filtering by endpoint requires both EndpointID to be > 0 and
 // EndpointIP to be not nil.
