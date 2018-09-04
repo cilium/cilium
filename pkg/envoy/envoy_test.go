@@ -86,7 +86,7 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 	StartAccessLogServer(stateLogDir, xdsServer, &dummyEndpointInfoRegistry{})
 
 	// launch debug variant of the Envoy proxy
-	envoyProxy := StartEnvoy(9942, stateLogDir, filepath.Join(stateLogDir, "cilium-envoy.log"), 42)
+	envoyProxy := StartEnvoy(stateLogDir, filepath.Join(stateLogDir, "cilium-envoy.log"), 42)
 	c.Assert(envoyProxy, NotNil)
 	log.Debug("started Envoy")
 
