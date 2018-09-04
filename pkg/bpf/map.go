@@ -212,6 +212,11 @@ type Map struct {
 
 // NewMap creates a new Map instance - object representing a BPF map
 func NewMap(name string, mapType MapType, keySize int, valueSize int, maxEntries int, flags uint32, dumpParser DumpParser) *Map {
+	// Expand path if needed
+	if !path.IsAbs(name) {
+		name = MapPath(name)
+	}
+
 	m := &Map{
 		MapInfo: MapInfo{
 			MapType:       mapType,
@@ -222,6 +227,7 @@ func NewMap(name string, mapType MapType, keySize int, valueSize int, maxEntries
 			OwnerProgType: ProgTypeUnspec,
 		},
 		name:       path.Base(name),
+		path:       name,
 		dumpParser: dumpParser,
 	}
 	return m
@@ -367,28 +373,12 @@ func OpenMap(name string) (*Map, error) {
 	return m, nil
 }
 
-func (m *Map) setPathIfUnset() error {
-	if m.path == "" {
-		if m.name == "" {
-			return fmt.Errorf("either path or name must be set")
-		}
-
-		m.path = MapPath(m.name)
-	}
-
-	return nil
-}
-
 func (m *Map) OpenOrCreate() (bool, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
 	if m.fd != 0 {
 		return false, nil
-	}
-
-	if err := m.setPathIfUnset(); err != nil {
-		return false, err
 	}
 
 	// If the map represents non-persistent data, always remove the map
@@ -424,10 +414,6 @@ func (m *Map) Open() error {
 
 	if m.fd != 0 {
 		return nil
-	}
-
-	if err := m.setPathIfUnset(); err != nil {
-		return err
 	}
 
 	fd, err := ObjGet(m.path)
