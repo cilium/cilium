@@ -28,6 +28,7 @@ package alignchecker
 #include "node_config.h"
 #include "lib/conntrack.h"
 #include "lib/maps.h"
+#include "sockops/bpf_sockops.h"
 */
 import "C"
 
@@ -43,6 +44,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/cilium/cilium/pkg/maps/proxymap"
+	"github.com/cilium/cilium/pkg/maps/sockmap"
 )
 
 func compareStructs(cStruct reflect.Type, vtc valueToCheck) error {
@@ -140,6 +142,10 @@ var cToGO = map[reflect.Type]valueToCheck{
 	reflect.TypeOf(C.struct_proxy6_tbl_value{}): {
 		sizeOfC:  C.sizeof_struct_proxy6_tbl_value,
 		goStruct: reflect.TypeOf(proxymap.Proxy6Value{}),
+	},
+	reflect.TypeOf(C.struct_sock_key{}): {
+		sizeOfC:  C.sizeof_struct_sock_key,
+		goStruct: reflect.TypeOf(sockmap.SockmapKey{}),
 	},
 }
 
