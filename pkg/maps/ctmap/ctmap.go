@@ -24,7 +24,6 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -196,18 +195,7 @@ func (m *Map) DumpEntries() (string, error) {
 			return
 		}
 		value := v.(*CtEntry)
-		buffer.WriteString(
-			fmt.Sprintf(" expires=%d rx_packets=%d rx_bytes=%d tx_packets=%d tx_bytes=%d flags=%x revnat=%d src_sec_id=%d\n",
-				value.Lifetime,
-				value.RxPackets,
-				value.RxBytes,
-				value.TxPackets,
-				value.TxBytes,
-				value.Flags,
-				byteorder.NetworkToHost(value.RevNAT),
-				value.SourceSecurityID,
-			),
-		)
+		buffer.WriteString(value.String())
 	}
 	// DumpWithCallback() must be called before buffer.String().
 	err := m.DumpWithCallback(cb)
