@@ -31,6 +31,10 @@ ifneq ($(LOCKDEBUG),)
     GOBUILD += -tags lockdebug
 endif
 
+ifneq ($(DEBUG),)
+    GOBUILD += -tags debug
+endif
+
 # Set DOCKER_IMAGE_TAG with "latest" by default
 ifeq ($(DOCKER_IMAGE_TAG),)
     DOCKER_IMAGE_TAG="latest"
