@@ -4,7 +4,7 @@ CLANG_FLAGS :=  ${FLAGS} -target bpf -emit-llvm
 CLANG_FLAGS += -Wall -Werror -Wno-address-of-packed-member -Wno-unknown-warning-option
 LLC_FLAGS   := -march=bpf -mcpu=probe -mattr=dwarfris -filetype=obj
 
-BPF = bpf_sockops.o
+BPF = bpf_sockops.o bpf_ipc.o
 LIB := $(shell find ../ -name '*.h')
 
 CLANG  ?= clang
@@ -14,6 +14,11 @@ HOSTCC ?= gcc
 all: $(BPF)
 
 bpf_sockops.o: bpf_sockops.c $(LIB)
+	@$(ECHO_CC)
+	$(QUIET) ${CLANG} ${CLANG_FLAGS} -c $< -o $(patsubst %.o,%.ll,$@)
+	$(QUIET) ${LLC} ${LLC_FLAGS} -o $@ $(patsubst %.o,%.ll,$@)
+
+bpf_ipc.o: bpf_ipc.c $(LIB)
 	@$(ECHO_CC)
 	$(QUIET) ${CLANG} ${CLANG_FLAGS} -c $< -o $(patsubst %.o,%.ll,$@)
 	$(QUIET) ${LLC} ${LLC_FLAGS} -o $@ $(patsubst %.o,%.ll,$@)
