@@ -10,7 +10,7 @@ SOCKOPS_OPTIONS = \
 	 -DHAVE_LPM_MAP_TYPE \
 	 -DHAVE_LRU_MAP_TYPE
 
-BPF = bpf_sockops.o
+BPF = bpf_sockops.o bpf_redir.o
 LIB := $(shell find ../ -name '*.h')
 
 CLANG  ?= clang
@@ -20,6 +20,11 @@ HOSTCC ?= gcc
 all: $(BPF)
 
 bpf_sockops.o: bpf_sockops.c $(LIB)
+	@$(ECHO_CC)
+	$(QUIET) ${CLANG} ${CLANG_FLAGS} ${SOCKOPS_OPTIONS} -c $< -o $(patsubst %.o,%.ll,$@)
+	$(QUIET) ${LLC} ${LLC_FLAGS} -o $@ $(patsubst %.o,%.ll,$@)
+
+bpf_redir.o: bpf_redir.c $(LIB)
 	@$(ECHO_CC)
 	$(QUIET) ${CLANG} ${CLANG_FLAGS} ${SOCKOPS_OPTIONS} -c $< -o $(patsubst %.o,%.ll,$@)
 	$(QUIET) ${LLC} ${LLC_FLAGS} -o $@ $(patsubst %.o,%.ll,$@)
