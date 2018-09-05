@@ -219,8 +219,8 @@ govet:
 	$(GO) tool vet api pkg $(SUBDIRS)
 
 ineffassign:
-	@$(ECHO_CHECK) contrib/scripts/check-ineffassign.sh
-	$(QUIET) contrib/scripts/check-ineffassign.sh
+	@$(ECHO_CHECK) ineffassign
+	$(QUIET) ineffassign .
 
 precheck: govet ineffassign
 	@$(ECHO_CHECK) contrib/scripts/check-fmt.sh
