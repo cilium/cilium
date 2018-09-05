@@ -23,19 +23,19 @@ import (
 
 // CtEntry represents an entry in the connection tracking table.
 type CtEntry struct {
-	rx_packets uint64
-	rx_bytes   uint64
-	tx_packets uint64
-	tx_bytes   uint64
-	lifetime   uint32
-	flags      uint16
-	// revnat is in network byte order
-	revnat         uint16
-	tx_flags_seen  uint8
-	rx_flags_seen  uint8
-	src_sec_id     uint32
-	last_tx_report uint32
-	last_rx_report uint32
+	RxPackets uint64
+	RxBytes   uint64
+	TxPackets uint64
+	TxBytes   uint64
+	Lifetime  uint32
+	Flags     uint16
+	// RevNAT is in network byte order
+	RevNAT           uint16
+	TxFlagsSeen      uint8
+	RxFlagsSeen      uint8
+	SourceSecurityID uint32
+	LastTxReport     uint32
+	LastRxReport     uint32
 }
 
 // GetValuePtr returns the unsafe.Pointer for s.
@@ -43,15 +43,15 @@ func (c *CtEntry) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(c) }
 
 // String returns the readable format
 func (c *CtEntry) String() string {
-	return fmt.Sprintf("expires=%d rx_packets=%d rx_bytes=%d tx_packets=%d tx_bytes=%d flags=%x revnat=%d src_sec_id=%d\n",
-		c.lifetime,
-		c.rx_packets,
-		c.rx_bytes,
-		c.tx_packets,
-		c.tx_bytes,
-		c.flags,
-		byteorder.NetworkToHost(c.revnat),
-		c.src_sec_id)
+	return fmt.Sprintf("expires=%d RxPackets=%d RxBytes=%d TxPackets=%d TxBytes=%d Flags=%x RevNAT=%d SourceSecurityID=%d\n",
+		c.Lifetime,
+		c.RxPackets,
+		c.RxBytes,
+		c.TxPackets,
+		c.TxBytes,
+		c.Flags,
+		byteorder.NetworkToHost(c.RevNAT),
+		c.SourceSecurityID)
 }
 
 // CtEntryDump represents the key and value contained in the conntrack map.

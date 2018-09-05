@@ -171,14 +171,14 @@ func ToString(m *bpf.Map, mapName string) (string, error) {
 		value := entry.Value
 		buffer.WriteString(
 			fmt.Sprintf(" expires=%d rx_packets=%d rx_bytes=%d tx_packets=%d tx_bytes=%d flags=%x revnat=%d src_sec_id=%d\n",
-				value.lifetime,
-				value.rx_packets,
-				value.rx_bytes,
-				value.tx_packets,
-				value.tx_bytes,
-				value.flags,
-				byteorder.NetworkToHost(value.revnat),
-				value.src_sec_id,
+				value.Lifetime,
+				value.RxPackets,
+				value.RxBytes,
+				value.TxPackets,
+				value.TxBytes,
+				value.Flags,
+				byteorder.NetworkToHost(value.RevNAT),
+				value.SourceSecurityID,
 			),
 		)
 
@@ -283,11 +283,11 @@ func doGC6(m *bpf.Map, filter *GCFilter) gcStats {
 
 		entry := entryMap.(*CtEntry)
 
-		// In CT entries, the source address of the conntrack entry (`saddr`) is
+		// In CT entries, the source address of the conntrack entry (`SourceAddr`) is
 		// the destination of the packet received, therefore it's the packet's
 		// destination IP
-		action := filter.doFiltering(currentKey.daddr.IP(), currentKey.saddr.IP(), currentKey.sport,
-			uint8(currentKey.nexthdr), currentKey.flags, entry)
+		action := filter.doFiltering(currentKey.DestAddr.IP(), currentKey.SourceAddr.IP(), currentKey.SourcePort,
+			uint8(currentKey.NextHeader), currentKey.Flags, entry)
 
 		switch action {
 		case deleteEntry:
@@ -361,11 +361,11 @@ func doGC4(m *bpf.Map, filter *GCFilter) gcStats {
 
 		entry := entryMap.(*CtEntry)
 
-		// In CT entries, the source address of the conntrack entry (`saddr`) is
+		// In CT entries, the source address of the conntrack entry (`SourceAddr`) is
 		// the destination of the packet received, therefore it's the packet's
 		// destination IP
-		action := filter.doFiltering(currentKey.daddr.IP(), currentKey.saddr.IP(), currentKey.sport,
-			uint8(currentKey.nexthdr), currentKey.flags, entry)
+		action := filter.doFiltering(currentKey.DestAddr.IP(), currentKey.SourceAddr.IP(), currentKey.SourcePort,
+			uint8(currentKey.NextHeader), currentKey.Flags, entry)
 
 		switch action {
 		case deleteEntry:
@@ -394,7 +394,7 @@ func doGC4(m *bpf.Map, filter *GCFilter) gcStats {
 }
 
 func (f *GCFilter) doFiltering(srcIP net.IP, dstIP net.IP, dstPort uint16, nextHdr, flags uint8, entry *CtEntry) (action int) {
-	if f.RemoveExpired && entry.lifetime < f.Time {
+	if f.RemoveExpired && entry.Lifetime < f.Time {
 		return deleteEntry
 	}
 
