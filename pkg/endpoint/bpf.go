@@ -608,7 +608,6 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 
 	// Anything below this point must be reverted upon failure as we are
 	// changing live BPF maps
-	createdPolicyMap := false
 	createdIPv6IngressMap := false
 	createdIPv6EgressMap := false
 	createdIPv4IngressMap := false
@@ -620,11 +619,6 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 			epLogger := e.getLogger()
 			epLogger.WithError(err).Error("destroying BPF maps due to" +
 				"errors during regeneration")
-			if createdPolicyMap {
-				epLogger.Debug("removing endpoint PolicyMap")
-				os.RemoveAll(e.PolicyMapPathLocked())
-				e.PolicyMap = nil
-			}
 
 			if createdIPv6IngressMap {
 				epLogger.WithField(logfields.BPFMapName, e.IPv6IngressMapPathLocked()).Debug("removing endpoint CIDR map")
@@ -647,7 +641,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 	}()
 
 	if e.PolicyMap == nil {
-		e.PolicyMap, createdPolicyMap, err = policymap.OpenMap(e.PolicyMapPathLocked())
+		e.PolicyMap, _, err = policymap.OpenMap(e.PolicyMapPathLocked())
 		if err != nil {
 			e.Mutex.Unlock()
 			return 0, compilationExecuted, err
@@ -659,6 +653,10 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 			e.Mutex.Unlock()
 			return 0, compilationExecuted, err
 		}
+
+		// Also reset the in-memory state of the realized state as the
+		// BPF map content is guaranteed to be empty right now.
+		e.realizedMapState = make(map[policymap.PolicyKey]struct{})
 	}
 
 	// Only generate & populate policy map if a security identity is set up for
