@@ -528,26 +528,8 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 		return e.nextPolicyRevision, compilationExecuted, nil
 	}
 
-	// Anything below this point must be reverted upon failure as we are
-	// changing live BPF maps
-	createdPolicyMap := false
-
-	defer func() {
-		if reterr != nil {
-			e.getLogger().WithError(err).Error("destroying BPF maps due to" +
-				" errors during regeneration")
-			if createdPolicyMap {
-				e.UnconditionalLock()
-				e.getLogger().Debug("removing endpoint PolicyMap")
-				os.RemoveAll(e.PolicyMapPathLocked())
-				e.PolicyMap = nil
-				e.Unlock()
-			}
-		}
-	}()
-
 	if e.PolicyMap == nil {
-		e.PolicyMap, createdPolicyMap, err = policymap.OpenMap(e.PolicyMapPathLocked())
+		e.PolicyMap, _, err = policymap.OpenMap(e.PolicyMapPathLocked())
 		if err != nil {
 			e.Unlock()
 			return 0, compilationExecuted, err
@@ -559,6 +541,10 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 			e.Unlock()
 			return 0, compilationExecuted, err
 		}
+
+		// Also reset the in-memory state of the realized state as the
+		// BPF map content is guaranteed to be empty right now.
+		e.realizedMapState = make(PolicyMapState)
 	}
 
 	// Set up a context to wait for proxy completions.
