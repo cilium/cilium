@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,12 +27,12 @@ import (
 
 //CtKey6 represents the key for IPv6 entries in the local BPF conntrack map.
 type CtKey6 struct {
-	daddr   types.IPv6
-	saddr   types.IPv6
-	sport   uint16
-	dport   uint16
-	nexthdr u8proto.U8proto
-	flags   uint8
+	DestAddr   types.IPv6
+	SourceAddr types.IPv6
+	SourcePort uint16
+	DestPort   uint16
+	NextHeader u8proto.U8proto
+	Flags      uint8
 }
 
 // GetKeyPtr returns the unsafe.Pointer for k.
@@ -44,47 +44,47 @@ func (k *CtKey6) NewValue() bpf.MapValue { return &CtEntry{} }
 // ToNetwork converts CtKey6 ports to network byte order.
 func (k *CtKey6) ToNetwork() CtKey {
 	n := *k
-	n.sport = byteorder.HostToNetwork(n.sport).(uint16)
-	n.dport = byteorder.HostToNetwork(n.dport).(uint16)
+	n.SourcePort = byteorder.HostToNetwork(n.SourcePort).(uint16)
+	n.DestPort = byteorder.HostToNetwork(n.DestPort).(uint16)
 	return &n
 }
 
 // ToHost converts CtKey6 ports to network byte order.
 func (k *CtKey6) ToHost() CtKey {
 	n := *k
-	n.sport = byteorder.NetworkToHost(n.sport).(uint16)
-	n.dport = byteorder.NetworkToHost(n.dport).(uint16)
+	n.SourcePort = byteorder.NetworkToHost(n.SourcePort).(uint16)
+	n.DestPort = byteorder.NetworkToHost(n.DestPort).(uint16)
 	return &n
 }
 
 func (k *CtKey6) String() string {
-	return fmt.Sprintf("[%s]:%d, %d, %d, %d", k.daddr, k.sport, k.dport, k.nexthdr, k.flags)
+	return fmt.Sprintf("[%s]:%d, %d, %d, %d", k.DestAddr, k.SourcePort, k.DestPort, k.NextHeader, k.Flags)
 }
 
 // Dump writes the contents of key to buffer and returns true if the value for
 // next header in the key is nonzero.
 func (k CtKey6) Dump(buffer *bytes.Buffer) bool {
-	if k.nexthdr == 0 {
+	if k.NextHeader == 0 {
 		return false
 	}
 
-	if k.flags&TUPLE_F_IN != 0 {
+	if k.Flags&TUPLE_F_IN != 0 {
 		buffer.WriteString(fmt.Sprintf("%s IN %s %d:%d ",
-			k.nexthdr.String(),
-			k.daddr.IP().String(),
-			k.sport, k.dport),
+			k.NextHeader.String(),
+			k.DestAddr.IP().String(),
+			k.SourcePort, k.DestPort),
 		)
 
 	} else {
 		buffer.WriteString(fmt.Sprintf("%s OUT %s %d:%d ",
-			k.nexthdr.String(),
-			k.daddr.IP().String(),
-			k.dport,
-			k.sport),
+			k.NextHeader.String(),
+			k.DestAddr.IP().String(),
+			k.DestPort,
+			k.SourcePort),
 		)
 	}
 
-	if k.flags&TUPLE_F_RELATED != 0 {
+	if k.Flags&TUPLE_F_RELATED != 0 {
 		buffer.WriteString("related ")
 	}
 
@@ -97,32 +97,32 @@ type CtKey6Global struct {
 }
 
 func (k *CtKey6Global) String() string {
-	return fmt.Sprintf("[%s]:%d --> [%s]:%d, %d, %d", k.saddr, k.sport, k.daddr, k.dport, k.nexthdr, k.flags)
+	return fmt.Sprintf("[%s]:%d --> [%s]:%d, %d, %d", k.SourceAddr, k.SourcePort, k.DestAddr, k.DestPort, k.NextHeader, k.Flags)
 }
 
 // Dump writes the contents of key to buffer and returns true if the value for
 // next header in the key is nonzero.
 func (k CtKey6Global) Dump(buffer *bytes.Buffer) bool {
-	if k.nexthdr == 0 {
+	if k.NextHeader == 0 {
 		return false
 	}
 
-	if k.flags&TUPLE_F_IN != 0 {
+	if k.Flags&TUPLE_F_IN != 0 {
 		buffer.WriteString(fmt.Sprintf("%s IN [%s]:%d -> [%s]:%d ",
-			k.nexthdr.String(),
-			k.saddr.IP().String(), k.sport,
-			k.daddr.IP().String(), k.dport),
+			k.NextHeader.String(),
+			k.SourceAddr.IP().String(), k.SourcePort,
+			k.DestAddr.IP().String(), k.DestPort),
 		)
 
 	} else {
 		buffer.WriteString(fmt.Sprintf("%s OUT [%s]:%d -> [%s]:%d ",
-			k.nexthdr.String(),
-			k.saddr.IP().String(), k.sport,
-			k.daddr.IP().String(), k.dport),
+			k.NextHeader.String(),
+			k.SourceAddr.IP().String(), k.SourcePort,
+			k.DestAddr.IP().String(), k.DestPort),
 		)
 	}
 
-	if k.flags&TUPLE_F_RELATED != 0 {
+	if k.Flags&TUPLE_F_RELATED != 0 {
 		buffer.WriteString("related ")
 	}
 
