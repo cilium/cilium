@@ -49,7 +49,7 @@ class PolicyHostMap : public Singleton::Instance,
                       public std::enable_shared_from_this<PolicyHostMap>,
                       public Logger::Loggable<Logger::Id::config> {
 public:
-  PolicyHostMap(const envoy::api::v2::core::Node& node,
+  PolicyHostMap(const LocalInfo::LocalInfo& local_info,
 		Upstream::ClusterManager& cm, Event::Dispatcher& dispatcher,
 		Runtime::RandomGenerator& random, Stats::Scope &scope, ThreadLocal::SlotAllocator& tls);
   PolicyHostMap(std::unique_ptr<Envoy::Config::Subscription<cilium::NetworkPolicyHosts>>&& subscription,
