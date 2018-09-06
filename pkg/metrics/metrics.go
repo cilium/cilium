@@ -71,6 +71,9 @@ var (
 	// LabelDatapathFamily marks which protocol family (IPv4, IPV6) the metric is related to.
 	LabelDatapathFamily = "family"
 
+	// LabelProtocol marks the L4 protocol (TCP, ANY) for the metric.
+	LabelProtocol = "protocol"
+
 	// LabelStatus the label from completed task
 	LabelStatus = "status"
 
@@ -291,7 +294,7 @@ var (
 		Name:      "conntrack_gc_runs_total",
 		Help: "Number of times that the conntrack garbage collector process was run " +
 			"labeled by completion status",
-	}, []string{LabelDatapathFamily, LabelStatus})
+	}, []string{LabelDatapathFamily, LabelProtocol, LabelStatus})
 
 	// ConntrackGCKeyFallbacks number of times that the conntrack key fallback was invalid.
 	ConntrackGCKeyFallbacks = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -299,7 +302,7 @@ var (
 		Subsystem: Datapath,
 		Name:      "conntrack_gc_key_fallbacks_total",
 		Help:      "Number of times a key fallback was needed when iterating over the BPF map",
-	}, []string{LabelDatapathFamily})
+	}, []string{LabelDatapathFamily, LabelProtocol})
 
 	// ConntrackGCSize the number of entries in the conntrack table
 	ConntrackGCSize = prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -308,7 +311,7 @@ var (
 		Name:      "conntrack_gc_entries",
 		Help: "The number of alive and deleted conntrack entries at the end " +
 			"of a garbage collector run labeled by datapath family.",
-	}, []string{LabelDatapathFamily, LabelStatus})
+	}, []string{LabelDatapathFamily, LabelProtocol, LabelStatus})
 
 	// ConntrackGCDuration the duration of the conntrack GC process in milliseconds.
 	ConntrackGCDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
@@ -317,7 +320,7 @@ var (
 		Name:      "conntrack_gc_duration_seconds",
 		Help: "Duration in seconds of the garbage collector process " +
 			"labeled by datapath family and completion status",
-	}, []string{LabelDatapathFamily, LabelStatus})
+	}, []string{LabelDatapathFamily, LabelProtocol, LabelStatus})
 
 	// Errors and warnings
 
