@@ -129,6 +129,9 @@ const (
 	// Port is a L4 port
 	Port = "port"
 
+	// Family is the L3 protocol family
+	Family = "family"
+
 	// Protocol is the L4 protocol
 	Protocol = "protocol"
 

@@ -15,6 +15,8 @@
 package ctmap
 
 import (
+	"fmt"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -33,6 +35,9 @@ type gcStats struct {
 
 	// family is the address family
 	family gcFamily
+
+	// proto is the L4 protocol
+	proto gcProtocol
 
 	// dumpError records any error that occurred during the dump.
 	dumpError error
@@ -56,6 +61,21 @@ func (g gcFamily) String() string {
 	}
 }
 
+type gcProtocol int
+
+const (
+	gcProtocolAny = iota
+)
+
+func (g gcProtocol) String() string {
+	switch g {
+	case gcProtocolAny:
+		return "any"
+	default:
+		return fmt.Sprintf("unknown (%d)", int(g))
+	}
+}
+
 func statStartGc(m *Map) gcStats {
 	result := gcStats{
 		DumpStats: bpf.NewDumpStats(&m.Map),
@@ -65,6 +85,7 @@ func statStartGc(m *Map) gcStats {
 	} else {
 		result.family = gcFamilyIPv4
 	}
+	result.proto = gcProtocolAny
 	return result
 }
 
@@ -77,33 +98,36 @@ func (s *gcStats) finish() {
 	case gcFamilyIPv4:
 		metrics.DatapathErrors.With(labelIPv4CTDumpInterrupts).Add(float64(s.Interrupted))
 	}
+	proto := s.proto.String()
 
 	var status string
 	if s.Completed {
 		status = "completed"
-		metrics.ConntrackGCSize.WithLabelValues(family, metricsAlive).Set(float64(s.aliveEntries))
-		metrics.ConntrackGCSize.WithLabelValues(family, metricsDeleted).Set(float64(s.deleted))
+		metrics.ConntrackGCSize.WithLabelValues(family, proto, metricsAlive).Set(float64(s.aliveEntries))
+		metrics.ConntrackGCSize.WithLabelValues(family, proto, metricsDeleted).Set(float64(s.deleted))
 	} else {
 		status = "uncompleted"
 		scopedLog := log.WithField("interrupted", s.Interrupted)
 		if s.dumpError != nil {
 			scopedLog = scopedLog.WithError(s.dumpError)
 		}
-		scopedLog.Warningf("Garbage collection on IPv6 CT map failed to finish")
+		scopedLog.Warningf("Garbage collection on %s %s CT map failed to finish", family, proto)
 	}
 
-	metrics.ConntrackGCRuns.WithLabelValues(family, status).Inc()
-	metrics.ConntrackGCDuration.WithLabelValues(family, status).Observe(duration.Seconds())
-	metrics.ConntrackGCKeyFallbacks.WithLabelValues(family).Add(float64(s.KeyFallback))
+	metrics.ConntrackGCRuns.WithLabelValues(family, proto, status).Inc()
+	metrics.ConntrackGCDuration.WithLabelValues(family, proto, status).Observe(duration.Seconds())
+	metrics.ConntrackGCKeyFallbacks.WithLabelValues(family, proto).Add(float64(s.KeyFallback))
 
 	log.WithFields(logrus.Fields{
 		logfields.StartTime: s.Started,
 		logfields.Duration:  duration,
+		logfields.Protocol:  proto,
+		logfields.Family:    s.family,
 		"numDeleted":        s.deleted,
 		"numLookups":        s.Lookup,
 		"numLookupsFailed":  s.LookupFailed,
 		"numKeyFallbacks":   s.KeyFallback,
 		"completed":         s.Completed,
 		"maxEntries":        s.MaxEntries,
-	}).Infof("%s Conntrack garbage collection statistics", s.family)
+	}).Infof("Conntrack garbage collection statistics")
 }
