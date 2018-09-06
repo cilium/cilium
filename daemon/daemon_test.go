@@ -55,8 +55,8 @@ type DaemonSuite struct {
 	OnAlwaysAllowLocalhost    func() bool
 	OnGetCachedLabelList      func(id identity.NumericIdentity) (labels.LabelArray, error)
 	OnGetPolicyRepository     func() *policy.Repository
-	OnUpdateProxyRedirect     func(e *e.Endpoint, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error)
-	OnRemoveProxyRedirect     func(e *e.Endpoint, id string, proxyWaitGroup *completion.WaitGroup) error
+	OnUpdateProxyRedirect     func(e *e.Endpoint, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error, e.FinalizeFunc, e.RevertFunc)
+	OnRemoveProxyRedirect     func(e *e.Endpoint, id string, proxyWaitGroup *completion.WaitGroup) (error, e.FinalizeFunc, e.RevertFunc)
 	OnUpdateNetworkPolicy     func(e *e.Endpoint, policy *policy.L4Policy, labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, proxyWaitGroup *completion.WaitGroup) (error, e.RevertFunc)
 	OnRemoveNetworkPolicy     func(e *e.Endpoint)
 	OnQueueEndpointBuild      func(r *e.Request)
@@ -194,16 +194,16 @@ func (ds *DaemonSuite) GetPolicyRepository() *policy.Repository {
 	panic("GetPolicyRepository should not have been called")
 }
 
-func (ds *DaemonSuite) UpdateProxyRedirect(e *e.Endpoint, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error) {
+func (ds *DaemonSuite) UpdateProxyRedirect(e *e.Endpoint, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error, e.FinalizeFunc, e.RevertFunc) {
 	if ds.OnUpdateProxyRedirect != nil {
 		return ds.OnUpdateProxyRedirect(e, l4, proxyWaitGroup)
 	}
 	panic("UpdateProxyRedirect should not have been called")
 }
 
-func (ds *DaemonSuite) RemoveProxyRedirect(e *e.Endpoint, id string, proxyWatiGroup *completion.WaitGroup) error {
+func (ds *DaemonSuite) RemoveProxyRedirect(e *e.Endpoint, id string, proxyWaitGroup *completion.WaitGroup) (error, e.FinalizeFunc, e.RevertFunc) {
 	if ds.OnRemoveProxyRedirect != nil {
-		return ds.OnRemoveProxyRedirect(e, id, proxyWatiGroup)
+		return ds.OnRemoveProxyRedirect(e, id, proxyWaitGroup)
 	}
 	panic("RemoveProxyRedirect should not have been called")
 }

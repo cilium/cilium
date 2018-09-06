@@ -439,14 +439,9 @@ func (k *kafkaRedirect) handleResponseConnection(pair *connectionPair, correlati
 		}, remoteAddr, remoteIdentity, origDstAddr)
 }
 
-// UpdateRules replaces old l7 rules of a redirect with new ones.
-func (k *kafkaRedirect) UpdateRules(wg *completion.WaitGroup) error {
-	return nil
-}
-
 // Close the redirect.
-func (k *kafkaRedirect) Close(wg *completion.WaitGroup) {
-	k.socket.Close()
+func (k *kafkaRedirect) Close(wg *completion.WaitGroup) (FinalizeFunc, RevertFunc) {
+	return k.socket.Close, nil
 }
 
 func init() {
