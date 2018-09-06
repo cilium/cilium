@@ -552,6 +552,18 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 	proxyWaitGroup := completion.NewWaitGroup(completionCtx)
 	defer cancel()
 
+	// Keep track of the side-effects of the regeneration that need to be
+	// reverted in case of failure.
+	var revertStack RevertStack
+	defer func() {
+		if reterr != nil {
+			e.getLogger().Error("Restoring endpoint state after BPF regeneration failed")
+			if err := e.Revert(&revertStack); err != nil {
+				e.getLogger().WithError(err).Error("Restoring endpoint state failed")
+			}
+		}
+	}()
+
 	// Only generate & populate policy map if a security identity is set up for
 	// this endpoint.
 	if e.SecurityIdentity != nil {
