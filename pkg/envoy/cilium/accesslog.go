@@ -23,6 +23,15 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 )
 
+// IsL7 is helper that maps an interface to the (private) type that can be assigned to LogEntry.L7,
+// or nil if 'l7' is not valid LogEntry.L7 type.
+func IsL7(l7 interface{}) isLogEntry_L7 {
+	if L7, ok := l7.(isLogEntry_L7); ok {
+		return L7
+	}
+	return nil
+}
+
 // ParseURL returns the URL as *net.url.URL
 func (pblog *HttpLogEntry) ParseURL() *url.URL {
 	path := strings.TrimPrefix(pblog.Path, "/")
