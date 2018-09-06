@@ -74,6 +74,7 @@ import (
 	policyApi "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/proxy/logger"
+	"github.com/cilium/cilium/pkg/sockops"
 	"github.com/cilium/cilium/pkg/u8proto"
 	"github.com/cilium/cilium/pkg/workloads"
 
@@ -783,6 +784,13 @@ func (d *Daemon) init() error {
 		if err := d.compileBase(); err != nil {
 			return err
 		}
+
+		// Remove any old sockops and re-enable with _new_ programs
+		// TBD we don't have a "live" update option here
+		sockops.SockmapDisable()
+		sockops.SkmsgDisable()
+		sockops.SockmapEnable()
+		sockops.SkmsgEnable()
 
 		// Clean all endpoint entries
 		if err := lxcmap.LXCMap.DeleteAll(); err != nil {
