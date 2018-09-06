@@ -119,6 +119,9 @@ const (
 	// LogSystemLoadConfigName is the name of the option to enable system
 	// load loggging
 	LogSystemLoadConfigName = "log-system-load"
+
+	// SockopsEnableName is the name of the option to enable sockops
+	SockopsEnableName = "sockops-enable"
 )
 
 // Available option for daemonConfig.Tunnel

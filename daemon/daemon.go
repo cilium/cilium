@@ -826,12 +826,15 @@ func (d *Daemon) init() error {
 			return err
 		}
 
-		// Remove any old sockops and re-enable with _new_ programs
-		// TBD we don't have a "live" update option here
+		// Remove any old sockops and re-enable with _new_ programs when Sockops enabled.
+		// Always try to disable in case user toggles from enabled to disabled.
 		sockops.SockmapDisable()
 		sockops.SkmsgDisable()
-		sockops.SockmapEnable()
-		sockops.SkmsgEnable()
+
+		if viper.GetBool(option.SockopsEnableName) == true {
+			sockops.SockmapEnable()
+			sockops.SkmsgEnable()
+		}
 
 		// Clean all endpoint entries
 		if err := lxcmap.LXCMap.DeleteAll(); err != nil {
