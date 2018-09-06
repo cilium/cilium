@@ -37,7 +37,7 @@ type Owner interface {
 	// UpdateNetworkPolicy adds or updates a network policy in the set
 	// published to L7 proxies.
 	UpdateNetworkPolicy(e *Endpoint, policy *policy.L4Policy,
-		labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, proxyWaitGroup *completion.WaitGroup) error
+		labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, proxyWaitGroup *completion.WaitGroup) (error, RevertFunc)
 
 	// RemoveNetworkPolicy removes a network policy from the set published to
 	// L7 proxies.

@@ -599,7 +599,7 @@ func getNetworkPolicy(name string, id identity.NumericIdentity, policy *policy.L
 // a subsequent call to the endpoint's OnProxyPolicyAcknowledge() function.
 func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *policy.L4Policy,
 	ingressPolicyEnforced, egressPolicyEnforced bool, labelsMap identity.IdentityCache,
-	deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, wg *completion.WaitGroup) error {
+	deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, wg *completion.WaitGroup) (error, func() error) {
 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -618,7 +618,7 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 			labelsMap, deniedIngressIdentities, deniedEgressIdentities)
 		err := networkPolicy.Validate()
 		if err != nil {
-			return fmt.Errorf("error validating generated NetworkPolicy for %s: %s", ip, err)
+			return fmt.Errorf("error validating generated NetworkPolicy for %s: %s", ip, err), nil
 		}
 		policies = append(policies, networkPolicy)
 	}
@@ -662,6 +662,8 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 	}
 
 	// When successful, push them into the cache.
+	revertFuncs := make([]xds.AckingResourceMutatorRevertFunc, 0, len(policies))
+	revertUpdatedNetworkPolicyEndpoints := make(map[string]logger.EndpointUpdater, len(policies))
 	for _, p := range policies {
 		var callback func()
 		if policy != nil {
@@ -685,11 +687,31 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 		} else {
 			nodeIDs = append(nodeIDs, "127.0.0.1")
 		}
-		s.NetworkPolicyMutator.Upsert(NetworkPolicyTypeURL, p.Name, p, nodeIDs, c)
+		revertFuncs = append(revertFuncs, s.NetworkPolicyMutator.Upsert(NetworkPolicyTypeURL, p.Name, p, nodeIDs, c))
+		revertUpdatedNetworkPolicyEndpoints[p.Name] = s.networkPolicyEndpoints[p.Name]
 		s.networkPolicyEndpoints[p.Name] = ep
 	}
 
-	return nil
+	return nil, func() error {
+		s.mutex.Lock()
+		defer s.mutex.Unlock()
+
+		for name, ep := range revertUpdatedNetworkPolicyEndpoints {
+			if ep == nil {
+				delete(s.networkPolicyEndpoints, name)
+			} else {
+				s.networkPolicyEndpoints[name] = ep
+			}
+		}
+
+		// Don't wait for an ACK for the reverted xDS updates.
+		// This is best-effort.
+		for _, revertFunc := range revertFuncs {
+			revertFunc(completion.NewCallback(context.Background(), nil))
+		}
+
+		return nil
+	}
 }
 
 // RemoveNetworkPolicy removes network policies relevant to the specified
