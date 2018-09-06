@@ -246,11 +246,10 @@ func (kr *PortRuleKafka) Sanitize() error {
 }
 
 func (pr *L7Rules) sanitize() error {
-	if (pr.HTTP != nil) && (pr.Kafka != nil) {
-		return fmt.Errorf("multiple L7 protocol rule types specified in single rule")
-	}
+	nTypes := 0
 
 	if pr.HTTP != nil {
+		nTypes++
 		for i := range pr.HTTP {
 			if err := pr.HTTP[i].Sanitize(); err != nil {
 				return err
@@ -259,11 +258,31 @@ func (pr *L7Rules) sanitize() error {
 	}
 
 	if pr.Kafka != nil {
+		nTypes++
 		for i := range pr.Kafka {
 			if err := pr.Kafka[i].Sanitize(); err != nil {
 				return err
 			}
 		}
+	}
+
+	if pr.L7 != nil && pr.L7Proto == "" {
+		return fmt.Errorf("'l7' may only be specified when a 'l7proto' is also specified")
+	}
+	if pr.L7Proto != "" {
+		if pr.L7 == nil {
+			return fmt.Errorf("'l7' must be specified when 'l7proto' is specified")
+		}
+		nTypes++
+		for i := range pr.L7 {
+			if err := pr.L7[i].Sanitize(); err != nil {
+				return err
+			}
+		}
+	}
+
+	if nTypes > 1 {
+		return fmt.Errorf("multiple L7 protocol rule types specified in single rule")
 	}
 	return nil
 }

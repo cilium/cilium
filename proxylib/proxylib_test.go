@@ -201,17 +201,18 @@ func TestSimplePolicy(t *testing.T) {
 		    remote_policies: 1
 		    remote_policies: 3
 		    remote_policies: 4
-		    http_rules: <
-		      http_rules: <
-		        headers: <
-		          name: "from"
-		          exact_match: "someone"
+		    l7_proto: "test.headerparser"
+		    l7_rules: <
+		      l7_rules: <
+		        rule: <
+		          key: "from"
+		          value: "someone"
 		        >
 		      >
-		      http_rules: <
-		        headers: <
-		          name: "to"
-		          exact_match: "else"
+		      l7_rules: <
+		        rule: <
+		          key: "to"
+		          value: "else"
 		        >
 		      >
 		    >

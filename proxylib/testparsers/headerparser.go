@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package test
+package testparsers
 
 import (
 	"fmt"
@@ -50,17 +50,14 @@ func (rule *HeaderRule) Matches(data interface{}) bool {
 // L7HeaderRuleParser parses protobuf L7 rules to enforcement objects
 // May panic
 func L7HeaderRuleParser(rule *cilium.PortNetworkPolicyRule) []L7NetworkPolicyRule {
-	httpRules := rule.GetHttpRules()
-	if httpRules == nil {
-		panic(fmt.Errorf("Can't get HTTP rules."))
+	l7Rules := rule.GetL7Rules()
+	if l7Rules == nil {
+		panic(fmt.Errorf("Can't get L7 rules."))
 	}
 	var rules []L7NetworkPolicyRule
-	for _, httpRule := range httpRules.HttpRules {
-		for _, header := range httpRule.GetHeaders() {
-			headerRule := HeaderRule{
-				name:  header.Name,
-				value: header.GetExactMatch(),
-			}
+	for _, l7Rule := range l7Rules.GetL7Rules() {
+		for k, v := range l7Rule.Rule {
+			headerRule := HeaderRule{name: k, value: v}
 			if headerRule.value == "" {
 				panic(fmt.Errorf("Empty header value"))
 			}
@@ -78,7 +75,7 @@ var headerParserFactory *HeaderParserFactory
 func init() {
 	log.Info("init(): Registering headerParserFactory")
 	RegisterParserFactory("test.headerparser", headerParserFactory)
-	RegisterL7RuleParser("PortNetworkPolicyRule_HttpRules", L7HeaderRuleParser)
+	RegisterL7RuleParser("test.headerparser", L7HeaderRuleParser)
 }
 
 type HeaderParser struct {
@@ -88,21 +85,6 @@ type HeaderParser struct {
 func (p *HeaderParserFactory) Create(connection *Connection) Parser {
 	log.Infof("HeaderParserFactory: Create: %v", connection)
 	return &HeaderParser{connection: connection}
-}
-
-func getLine(data []string, offset uint32) (string, bool) {
-	var line string
-	for _, s := range data {
-		index := strings.IndexByte(s[offset:], '\n')
-		if index < 0 {
-			line += s[offset:]
-		} else {
-			line += s[offset : offset+uint32(index)+1]
-			return line, true
-		}
-		offset = 0
-	}
-	return line, false
 }
 
 //
