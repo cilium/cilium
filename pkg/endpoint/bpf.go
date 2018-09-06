@@ -414,7 +414,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 
 		// Dry mode needs Network Policy Updates, but the proxy wait group must
 		// not be initialized, as there is no proxy ACKing the changes.
-		if err = e.updateNetworkPolicy(owner, nil); err != nil {
+		if err, _ = e.updateNetworkPolicy(owner, nil); err != nil {
 			return 0, compilationExecuted, err
 		}
 
@@ -491,11 +491,15 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 
 		// Configure the new network policy with the proxies.
 		stats.proxyPolicyCalculation.Start()
-		if err = e.updateNetworkPolicy(owner, proxyWaitGroup); err != nil {
+		var networkPolicyRevertFunc RevertFunc
+		err, networkPolicyRevertFunc = e.updateNetworkPolicy(owner, proxyWaitGroup)
+		if err != nil {
 			e.Unlock()
 			return 0, compilationExecuted, err
 		}
 		stats.proxyPolicyCalculation.End()
+
+		revertStack.Push(networkPolicyRevertFunc)
 	}
 
 	stats.proxyConfiguration.Start()
