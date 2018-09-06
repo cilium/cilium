@@ -64,14 +64,18 @@ func createEnvoyRedirect(r *Redirect, stateDir string, xdsServer *envoy.XDSServe
 	return nil, fmt.Errorf("%s: Envoy proxy process failed to start, cannot add redirect", r.id)
 }
 
-// UpdateRules replaces old l7 rules of a redirect with new ones.
-func (r *envoyRedirect) UpdateRules(wg *completion.WaitGroup) error {
-	return nil
-}
-
 // Close the redirect.
-func (r *envoyRedirect) Close(wg *completion.WaitGroup) {
-	if envoyProxy != nil {
-		r.xdsServer.RemoveListener(r.listenerName, wg)
+func (r *envoyRedirect) Close(wg *completion.WaitGroup) (FinalizeFunc, RevertFunc) {
+	if envoyProxy == nil {
+		return nil, nil
+	}
+
+	revertFunc := r.xdsServer.RemoveListener(r.listenerName, wg)
+
+	return nil, func() error {
+		// Don't wait for an ACK for the reverted xDS updates.
+		// This is best-effort.
+		revertFunc(completion.NewCompletion(nil, nil))
+		return nil
 	}
 }
