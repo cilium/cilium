@@ -130,3 +130,19 @@ func ReloadDatapath(ctx context.Context, ep endpoint) error {
 	}
 	return reloadDatapath(ctx, ep, &dirs)
 }
+
+// Compile compiles a BPF program generating an object file.
+func Compile(ctx context.Context, src string, out string) error {
+	debug := viper.GetBool(option.BPFCompileDebugName)
+	prog := progInfo{
+		Source:     src,
+		Output:     out,
+		OutputType: outputObject,
+	}
+	dirs := directoryInfo{
+		Library: option.Config.BpfDir,
+		Runtime: option.Config.StateDir,
+		Output:  option.Config.StateDir,
+	}
+	return compile(ctx, &prog, &dirs, debug)
+}

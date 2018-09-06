@@ -56,6 +56,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/service"
+	"github.com/cilium/cilium/pkg/sockops"
 	"github.com/cilium/cilium/pkg/version"
 	"github.com/cilium/cilium/pkg/versioncheck"
 	"github.com/cilium/cilium/pkg/workloads"
@@ -96,6 +97,7 @@ var (
 	// Arguments variables keep in alphabetical order
 
 	bpfRoot               string
+	cgroupRoot            string
 	cmdRefDir             string
 	debugVerboseFlags     []string
 	disableConntrack      bool
@@ -355,6 +357,8 @@ func init() {
 		option.AutoIPv6NodeRoutesName, false, "Automatically adds IPv6 L3 routes to reach other nodes for non-overlay mode (--device) (BETA)")
 	flags.StringVar(&bpfRoot,
 		"bpf-root", "", "Path to BPF filesystem")
+	flags.StringVar(&cgroupRoot,
+		"cgroup-root", "", "Path to Cgroup2 filesystem")
 	flags.Bool(option.BPFCompileDebugName, false, "Enable debugging of the BPF compilation process")
 	flags.Int(option.ClusterIDName, 0, "Unique identifier of the cluster")
 	viper.BindEnv(option.ClusterIDName, option.ClusterIDEnv)
@@ -703,6 +707,7 @@ func initEnv(cmd *cobra.Command) {
 	// useful if the daemon is being round inside a namespace and the
 	// BPF filesystem is mapped into the slave namespace.
 	bpf.CheckOrMountFS(bpfRoot)
+	sockops.CheckOrMountCgrpFS(cgroupRoot)
 
 	option.Config.Opts.SetBool(option.Debug, viper.GetBool("debug"))
 
