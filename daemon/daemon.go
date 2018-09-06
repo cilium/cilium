@@ -74,6 +74,7 @@ import (
 	policyApi "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/proxy/logger"
+	"github.com/cilium/cilium/pkg/sockops"
 	"github.com/cilium/cilium/pkg/u8proto"
 	"github.com/cilium/cilium/pkg/workloads"
 
@@ -793,6 +794,12 @@ func (d *Daemon) init() error {
 		if err := d.compileBase(); err != nil {
 			return err
 		}
+
+		// Remove any old sockops and re-enable with _new_ programs
+		sockops.SockmapDisable()
+		sockops.SkmsgDisable()
+		sockops.SockmapEnable()
+		sockops.SkmsgEnable()
 
 		// Set up the list of IPCache listeners in the daemon, to be
 		// used by syncLXCMap().
