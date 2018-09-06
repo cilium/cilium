@@ -45,10 +45,10 @@ else
 
 # Dockerfile builds require special options
 ifdef PKG_BUILD
-BAZEL_BUILD_OPTS = --spawn_strategy=standalone --genrule_strategy=standalone --local_resources 2048,2.0,1.0
+BAZEL_BUILD_OPTS = --spawn_strategy=standalone --genrule_strategy=standalone --local_resources 4096,2.0,1.0 --jobs=4
 all: clean-bins release shutdown-bazel
 else
-BAZEL_BUILD_OPTS = --experimental_strict_action_env --local_resources 2048,2.0,1.0
+BAZEL_BUILD_OPTS = --experimental_strict_action_env --local_resources 4096,2.0,1.0 --jobs=4
 all: clean-bins envoy-default api shutdown-bazel
 endif
 
