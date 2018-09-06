@@ -257,7 +257,7 @@ func (s *XDSServer) AddListener(name string, endpointPolicyName string, port uin
 }
 
 // RemoveListener removes an existing Envoy Listener.
-func (s *XDSServer) RemoveListener(name string, wg *completion.WaitGroup) {
+func (s *XDSServer) RemoveListener(name string, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
 	s.mutex.Lock()
 	log.Debugf("Envoy: removeListener %s", name)
 	if _, ok := s.listeners[name]; !ok {
@@ -267,7 +267,15 @@ func (s *XDSServer) RemoveListener(name string, wg *completion.WaitGroup) {
 	delete(s.listeners, name)
 	s.mutex.Unlock()
 
-	s.listenerMutator.Delete(ListenerTypeURL, name, []string{"127.0.0.1"}, wg.AddCompletion())
+	listenerRevertFunc := s.listenerMutator.Delete(ListenerTypeURL, name, []string{"127.0.0.1"}, wg.AddCompletion())
+
+	return func(completion *completion.Completion) {
+		s.mutex.Lock()
+		s.listeners[name] = struct{}{}
+		s.mutex.Unlock()
+
+		listenerRevertFunc(completion)
+	}
 }
 
 func (s *XDSServer) stop() {
