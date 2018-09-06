@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/test/config"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
@@ -39,7 +40,7 @@ import (
 )
 
 var (
-	log             = logging.DefaultLogger
+	log             = logging.DefaultLogger.WithField(logfields.LogSubsys, "ciliumTest")
 	DefaultSettings = map[string]string{
 		"K8S_VERSION": "1.11",
 	}
