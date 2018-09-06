@@ -793,6 +793,7 @@ func (d *Daemon) init() error {
 		if viper.GetBool(option.SockopsEnableName) == true {
 			sockops.SockmapEnable()
 			sockops.SkmsgEnable()
+			sockmap.SockmapCreate()
 		}
 
 		// Clean all endpoint entries
