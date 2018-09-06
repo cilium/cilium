@@ -141,9 +141,14 @@ func compileAndLink(ctx context.Context, prog *progInfo, dir *directoryInfo, com
 	if err := compileCmd.Start(); err != nil {
 		return fmt.Errorf("Failed to start command: %s", err)
 	}
-
+	log.WithFields(logrus.Fields{
+		"target": linker,
+		"args":   args,
+	}).Debug("Launching linker")
 	linkOut, linkErr := linkCmd.CombinedOutput()
 	compileOut, compileErr := ioutil.ReadAll(compilerStderr)
+	err = fmt.Errorf("CompileAndLink Failed to compile %s: %s", prog.Output, err)
+	log.Error(err)
 	err = compileCmd.Wait()
 	if err != nil || compileErr != nil || linkErr != nil {
 		if err == nil {
@@ -152,7 +157,7 @@ func compileAndLink(ctx context.Context, prog *progInfo, dir *directoryInfo, com
 		if err == nil {
 			err = linkErr
 		}
-		err = fmt.Errorf("Failed to compile %s: %s", prog.Output, err)
+		err = fmt.Errorf("CompileAndLink (compileErr %s, linkErr %s) Failed to compile %s: %s", compileErr, linkErr, prog.Output, err)
 
 		log.Error(err)
 		scopedLog := log.Warn
@@ -217,7 +222,7 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo, debug bool
 		var out []byte
 		out, err = compileCmd.CombinedOutput()
 		if err != nil {
-			err = fmt.Errorf("Failed to compile %s: %s", prog.Output, err)
+			err = fmt.Errorf("otuputSource Failed to compile %s: %s", prog.Output, err)
 			log.WithField("cmd", compileCmd.Args).Debug(err)
 			scanner := bufio.NewScanner(bytes.NewReader(out))
 			for scanner.Scan() {

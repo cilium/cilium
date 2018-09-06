@@ -22,6 +22,7 @@ cilium-agent
       --auto-ipv6-node-routes                       Automatically adds IPv6 L3 routes to reach other nodes for non-overlay mode (--device) (BETA)
       --bpf-compile-debug                           Enable debugging of the BPF compilation process
       --bpf-root string                             Path to BPF filesystem
+      --cgroup-root string                          Path to Cgroup2 filesystem
       --cluster-id int                              Unique identifier of the cluster
       --cluster-name string                         Name of the cluster (default "default")
       --clustermesh-config string                   Path to the ClusterMesh configuration directory

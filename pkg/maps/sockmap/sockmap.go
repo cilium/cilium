@@ -107,31 +107,6 @@ var (
 	)
 )
 
-func init() {
-	bpf.OpenAfterMount(SockMap)
-}
-
-// EndpointFrontend is the interface to implement for an object to synchronize
-// with the endpoint BPF map
-type EndpointFrontend interface {
-	// GetBPFKeys must return a slice of SockmapKey which all represent the endpoint
-	GetBPFKeys() []SockmapKey
-}
-
-// DeleteEntry deletes a single map entry
-func DeleteEntry(dip net.IP, sip net.IP, sport uint32, dport uint32) error {
-	return SockMap.Delete(NewSockmapKey(dip, sip, sport, dport))
-}
-
-// DeleteElement deletes the endpoint using all keys which represent the
-// endpoint. It returns the number of errors encountered during deletion.
-func DeleteElement(f EndpointFrontend) []error {
-	errors := []error{}
-	for _, k := range f.GetBPFKeys() {
-		if err := SockMap.Delete(k); err != nil {
-			errors = append(errors, fmt.Errorf("Unable to delete key %v in endpoint BPF map: %s", k, err))
-		}
-	}
-
-	return errors
+func SockmapCreate() {
+	SockMap.OpenOrCreate()
 }
