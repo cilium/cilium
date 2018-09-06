@@ -156,31 +156,32 @@ type Daemon struct {
 
 // UpdateProxyRedirect updates the redirect rules in the proxy for a particular
 // endpoint using the provided L4 filter. Returns the allocated proxy port
-func (d *Daemon) UpdateProxyRedirect(e *endpoint.Endpoint, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error) {
+func (d *Daemon) UpdateProxyRedirect(e *endpoint.Endpoint, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error, endpoint.FinalizeFunc, endpoint.RevertFunc) {
 	if d.l7Proxy == nil {
-		return 0, fmt.Errorf("can't redirect, proxy disabled")
+		return 0, fmt.Errorf("can't redirect, proxy disabled"), nil, nil
 	}
 
-	r, err := d.l7Proxy.CreateOrUpdateRedirect(l4, e.ProxyID(l4), e, proxyWaitGroup)
+	r, err, finalizeFunc, revertFunc := d.l7Proxy.CreateOrUpdateRedirect(l4, e.ProxyID(l4), e, proxyWaitGroup)
 	if err != nil {
-		return 0, err
+		return 0, err, nil, nil
 	}
 
-	return r.ProxyPort, nil
+	return r.ProxyPort, nil, endpoint.FinalizeFunc(finalizeFunc), endpoint.RevertFunc(revertFunc)
 }
 
 // RemoveProxyRedirect removes a previously installed proxy redirect for an
 // endpoint
-func (d *Daemon) RemoveProxyRedirect(e *endpoint.Endpoint, id string, proxyWaitGroup *completion.WaitGroup) error {
+func (d *Daemon) RemoveProxyRedirect(e *endpoint.Endpoint, id string, proxyWaitGroup *completion.WaitGroup) (error, endpoint.FinalizeFunc, endpoint.RevertFunc) {
 	if d.l7Proxy == nil {
-		return nil
+		return nil, nil, nil
 	}
 
 	log.WithFields(logrus.Fields{
 		logfields.EndpointID: e.ID,
 		logfields.L4PolicyID: id,
 	}).Debug("Removing redirect to endpoint")
-	return d.l7Proxy.RemoveRedirect(id, proxyWaitGroup)
+	err, finalizeFunc, revertFunc := d.l7Proxy.RemoveRedirect(id, proxyWaitGroup)
+	return err, endpoint.FinalizeFunc(finalizeFunc), endpoint.RevertFunc(revertFunc)
 }
 
 // UpdateNetworkPolicy adds or updates a network policy in the set

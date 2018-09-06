@@ -29,8 +29,7 @@ import (
 // RedirectImplementation is the generic proxy redirect interface that each
 // proxy redirect type must implement
 type RedirectImplementation interface {
-	UpdateRules(wg *completion.WaitGroup) error
-	Close(wg *completion.WaitGroup)
+	Close(wg *completion.WaitGroup) (FinalizeFunc, RevertFunc)
 }
 
 type Redirect struct {
@@ -65,10 +64,17 @@ func newRedirect(localEndpoint logger.EndpointUpdater, id string) *Redirect {
 }
 
 // updateRules updates the rules of the redirect, Redirect.mutex must be held
-func (r *Redirect) updateRules(l4 *policy.L4Filter) {
-	r.rules = policy.L7DataMap{}
+func (r *Redirect) updateRules(l4 *policy.L4Filter) RevertFunc {
+	oldRules := r.rules
+	r.rules = make(policy.L7DataMap, len(l4.L7RulesPerEp))
 	for key, val := range l4.L7RulesPerEp {
 		r.rules[key] = val
+	}
+	return func() error {
+		r.mutex.Lock()
+		r.rules = oldRules
+		r.mutex.Unlock()
+		return nil
 	}
 }
 
