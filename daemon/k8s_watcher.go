@@ -259,19 +259,27 @@ func k8sErrorHandler(e error) {
 
 // blockWaitGroupToSyncResources ensures that anything which waits on waitGroup
 // waits until all objects of the specified resource stored in Kubernetes are
-// received by informer. Fatally exits if syncing these initial objects fails.
-func blockWaitGroupToSyncResources(waitGroup *sync.WaitGroup, informer cache.Controller, resourceName string) {
+// received by the informer and processed by the given Function Queue.
+// Fatally exits if syncing these initial objects fails.
+func blockWaitGroupToSyncResources(waitGroup *sync.WaitGroup, informer cache.Controller,
+	resourceName string, queue *serializer.FunctionQueue) {
+
 	waitGroup.Add(1)
 	go func() {
-		completed := make(<-chan struct{})
 		scopedLog := log.WithField("kubernetesResource", resourceName)
 		scopedLog.Debug("waiting for cache to synchronize")
-		if ok := cache.WaitForCacheSync(completed, informer.HasSynced); !ok {
+		if ok := cache.WaitForCacheSync(wait.NeverStop, informer.HasSynced); !ok {
 			// Fatally exit it resource fails to sync
 			scopedLog.Fatalf("failed to wait for cache to sync")
 		}
-		scopedLog.Debug("cache synced")
-		waitGroup.Done()
+		// Enqueue the waitGroup.Done to signalize the that all other functions
+		// queued were serialized. This will make sure the all events received
+		// after the cached was synced were processed by the queue.
+		queue.Enqueue(func() error {
+			scopedLog.Debug("cache synced")
+			waitGroup.Done()
+			return nil
+		}, serializer.NoRetry)
 	}()
 }
 
@@ -364,7 +372,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 				},
 			},
 		)
-		blockWaitGroupToSyncResources(&d.k8sResourceSyncWaitGroup, policyController, "NetworkPolicy")
+		blockWaitGroupToSyncResources(&d.k8sResourceSyncWaitGroup, policyController, "NetworkPolicy", serKNPs)
 		go policyController.Run(wait.NeverStop)
 
 		d.k8sAPIGroups.addAPI(k8sAPIGroupNetworkingV1Core)
@@ -407,7 +415,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 			},
 		},
 	)
-	blockWaitGroupToSyncResources(&d.k8sResourceSyncWaitGroup, svcController, "Service")
+	blockWaitGroupToSyncResources(&d.k8sResourceSyncWaitGroup, svcController, "Service", serSvcs)
 	go svcController.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupServiceV1Core)
 
@@ -448,7 +456,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 			},
 		},
 	)
-	blockWaitGroupToSyncResources(&d.k8sResourceSyncWaitGroup, endpointController, "Endpoint")
+	blockWaitGroupToSyncResources(&d.k8sResourceSyncWaitGroup, endpointController, "Endpoint", serEps)
 	go endpointController.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupEndpointV1Core)
 
@@ -490,7 +498,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 				},
 			},
 		)
-		blockWaitGroupToSyncResources(&d.k8sResourceSyncWaitGroup, ingressController, "Ingress")
+		blockWaitGroupToSyncResources(&d.k8sResourceSyncWaitGroup, ingressController, "Ingress", serEps)
 		go ingressController.Run(wait.NeverStop)
 		d.k8sAPIGroups.addAPI(k8sAPIGroupIngressV1Beta1)
 	}
@@ -532,7 +540,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 				}
 			},
 		})
-		blockWaitGroupToSyncResources(&d.k8sResourceSyncWaitGroup, ciliumV2Controller, "CiliumNetworkPolicy")
+		blockWaitGroupToSyncResources(&d.k8sResourceSyncWaitGroup, ciliumV2Controller, "CiliumNetworkPolicy", serCNPs)
 	}
 
 	si.Start(wait.NeverStop)
