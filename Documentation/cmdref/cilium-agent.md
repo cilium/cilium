@@ -24,6 +24,7 @@ cilium-agent
       --bpf-ct-global-any-max int                   Maximum number of entries in non-TCP CT table (default 262144)
       --bpf-ct-global-tcp-max int                   Maximum number of entries in TCP CT table (default 1000000)
       --bpf-root string                             Path to BPF filesystem
+      --cgroup-root string                          Path to Cgroup2 filesystem
       --cluster-id int                              Unique identifier of the cluster
       --cluster-name string                         Name of the cluster (default "default")
       --clustermesh-config string                   Path to the ClusterMesh configuration directory

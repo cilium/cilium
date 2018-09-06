@@ -76,6 +76,9 @@ const (
 	// DefaultMapRoot is the default path where BPFFS should be mounted
 	DefaultMapRoot = "/sys/fs/bpf"
 
+	// DefaultCgroupRoot is the default path where cilium cgroup2 should be mounted
+	DefaultCgroupRoot = "/mnt/cilium_cgroup2/"
+
 	// DefaultMapRootFallback is the path which is used when /sys/fs/bpf has
 	// a mount, but with the other filesystem than BPFFS.
 	DefaultMapRootFallback = "/run/cilium/bpffs"

@@ -23,9 +23,9 @@ import (
 )
 
 const (
-	// FilesystemTypeBPFFS is a filesystem type name for BPFFS which is used
-	// in /proc/pid/mountinfo
-	FilesystemTypeBPFFS = "bpf"
+	// FilesystemType names for filesystem which are used in /proc/pid/mountinfo
+	FilesystemTypeBPFFS   = "bpf"
+	FilesystemTypeCgroup2 = "cgroup2"
 
 	mountInfoFilepath = "/proc/self/mountinfo"
 )
