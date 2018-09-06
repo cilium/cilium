@@ -17,7 +17,7 @@ ifndef PKG_BUILD
 else
 ENVOY_DEPS_BIN = ./bazel-bin/envoy_deps
 BAZEL ?= bazel
-BAZEL_OPTS ?= --batch
+BAZEL_OPTS ?=
 BAZEL_BUILD_OPTS = --spawn_strategy=standalone --genrule_strategy=standalone
 
 envoy-release-deps: force
