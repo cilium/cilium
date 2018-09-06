@@ -16,6 +16,8 @@ package spanstat
 
 import (
 	"time"
+
+	"github.com/cilium/cilium/pkg/stackdump"
 )
 
 // SpanStat measures the total duration of all time spent in between Start()
@@ -32,7 +34,13 @@ func (s *SpanStat) Start() {
 
 // End ends the current span and adds the measured duration to the total
 func (s *SpanStat) End() {
-	s.totalDuration += time.Since(s.spanStart)
+	if !s.spanStart.IsZero() {
+		s.totalDuration += time.Since(s.spanStart)
+	} else {
+		stackdump.DebugPanicf("End() called without prior Start()")
+	}
+
+	s.spanStart = time.Time{}
 }
 
 // Total returns the total duration of all spans measured
