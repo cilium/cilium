@@ -60,7 +60,7 @@ type DaemonSuite struct {
 	OnGetPolicyRepository             func() *policy.Repository
 	OnUpdateProxyRedirect             func(e *e.Endpoint, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error)
 	OnRemoveProxyRedirect             func(e *e.Endpoint, id string, proxyWaitGroup *completion.WaitGroup) error
-	OnUpdateNetworkPolicy             func(e *e.Endpoint, policy *policy.L4Policy, labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, proxyWaitGroup *completion.WaitGroup) error
+	OnUpdateNetworkPolicy             func(e *e.Endpoint, policy *policy.L4Policy, labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, proxyWaitGroup *completion.WaitGroup) (error, e.RevertFunc)
 	OnRemoveNetworkPolicy             func(e *e.Endpoint)
 	OnGetStateDir                     func() string
 	OnGetBpfDir                       func() string
@@ -240,7 +240,7 @@ func (ds *DaemonSuite) RemoveProxyRedirect(e *e.Endpoint, id string, proxyWatiGr
 }
 
 func (ds *DaemonSuite) UpdateNetworkPolicy(e *e.Endpoint, policy *policy.L4Policy,
-	labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, proxyWaitGroup *completion.WaitGroup) error {
+	labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, proxyWaitGroup *completion.WaitGroup) (error, e.RevertFunc) {
 	if ds.OnUpdateNetworkPolicy != nil {
 		return ds.OnUpdateNetworkPolicy(e, policy, labelsMap, deniedIngressIdentities, deniedEgressIdentities, proxyWaitGroup)
 	}

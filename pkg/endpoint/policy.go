@@ -386,14 +386,14 @@ func (e *Endpoint) IngressOrEgressIsEnforced() bool {
 }
 
 // must be called with endpoint.Mutex held for reading
-func (e *Endpoint) updateNetworkPolicy(owner Owner, proxyWaitGroup *completion.WaitGroup) error {
+func (e *Endpoint) updateNetworkPolicy(owner Owner, proxyWaitGroup *completion.WaitGroup) (reterr error, revertFunc RevertFunc) {
 	// Skip updating the NetworkPolicy if no policy has been calculated.
 	// This breaks a circular dependency between configuring NetworkPolicies in
 	// sidecar Envoy proxies and those proxies needing network connectivity
 	// to get their initial configuration, which is required for them to ACK
 	// the NetworkPolicies.
 	if !e.PolicyCalculated || e.SecurityIdentity == nil {
-		return nil
+		return nil, nil
 	}
 
 	// Compute the set of identities explicitly denied by policy.
@@ -439,12 +439,7 @@ func (e *Endpoint) updateNetworkPolicy(owner Owner, proxyWaitGroup *completion.W
 	}
 
 	// Publish the updated policy to L7 proxies.
-	err := owner.UpdateNetworkPolicy(e, e.DesiredL4Policy, *e.prevIdentityCache, deniedIngressIdentities, deniedEgressIdentities, proxyWaitGroup)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return owner.UpdateNetworkPolicy(e, e.DesiredL4Policy, *e.prevIdentityCache, deniedIngressIdentities, deniedEgressIdentities, proxyWaitGroup)
 }
 
 // regeneratePolicy regenerates endpoint's policy if needed and returns
