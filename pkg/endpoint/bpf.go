@@ -28,6 +28,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -250,10 +251,16 @@ func hashHeaderfile(hashWriter hash.Hash, filepath string) (hash.Hash, error) {
 // writing. On success, returns nil; otherwise, returns an error  indicating the
 // problem that occurred while adding an l7 redirect for the specified policy.
 // Must be called with endpoint.Mutex held.
-func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, desiredRedirects map[string]bool, proxyWaitGroup *completion.WaitGroup) error {
+func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, desiredRedirects map[string]bool, proxyWaitGroup *completion.WaitGroup) (error, FinalizeFunc, RevertFunc) {
 	if option.Config.DryMode {
-		return nil
+		return nil, nil, nil
 	}
+
+	var finalizeList FinalizeList
+	var revertStack RevertStack
+	var updatedStats []*models.ProxyStatistics
+	insertedDesiredMapState := make(map[policymap.PolicyKey]struct{})
+	updatedDesiredMapState := make(PolicyMapState)
 
 	for _, l4 := range m {
 		if l4.IsRedirect() {
@@ -263,16 +270,26 @@ func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, des
 			// container. If running in a sidecar container, just allow traffic
 			// to the port at L4 by setting the proxy port to 0.
 			if !e.hasSidecarProxy || l4.L7Parser != policy.ParserTypeHTTP {
-				redirectPort, err = owner.UpdateProxyRedirect(e, &l4, proxyWaitGroup)
+				var finalizeFunc FinalizeFunc
+				var revertFunc RevertFunc
+				redirectPort, err, finalizeFunc, revertFunc = owner.UpdateProxyRedirect(e, &l4, proxyWaitGroup)
 				if err != nil {
-					return err
+					e.Revert(&revertStack) // Ignore errors while reverting. This is best-effort.
+					return err, nil, nil
 				}
+				finalizeList.Append(finalizeFunc)
+				revertStack.Push(revertFunc)
 
 				proxyID := e.ProxyID(&l4)
 				if e.realizedRedirects == nil {
 					e.realizedRedirects = make(map[string]uint16)
 				}
 				e.realizedRedirects[proxyID] = redirectPort
+				revertStack.Push(func() error {
+					delete(e.realizedRedirects, proxyID)
+					return nil
+				})
+
 				desiredRedirects[proxyID] = true
 
 				// Update the endpoint API model to report that Cilium manages a
@@ -281,6 +298,8 @@ func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, des
 				proxyStats := e.getProxyStatisticsLocked(string(l4.L7Parser), uint16(l4.Port), l4.Ingress)
 				proxyStats.AllocatedProxyPort = int64(redirectPort)
 				e.proxyStatisticsMutex.Unlock()
+
+				updatedStats = append(updatedStats, proxyStats)
 			}
 
 			// Set the proxy port in the policy map.
@@ -292,11 +311,39 @@ func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, des
 			}
 			keysFromFilter := e.convertL4FilterToPolicyMapKeys(&l4, direction)
 			for _, keyFromFilter := range keysFromFilter {
+				if oldEntry, ok := e.desiredMapState[keyFromFilter]; ok {
+					updatedDesiredMapState[keyFromFilter] = oldEntry
+				} else {
+					insertedDesiredMapState[keyFromFilter] = struct{}{}
+				}
+
 				e.desiredMapState[keyFromFilter] = PolicyMapStateEntry{ProxyPort: redirectPort}
 			}
+
 		}
 	}
-	return nil
+
+	revertStack.Push(func() error {
+		e.getLogger().Debug("Reverting addition of new redirects")
+
+		// Restore the proxy stats.
+		e.proxyStatisticsMutex.Lock()
+		for _, stats := range updatedStats {
+			stats.AllocatedProxyPort = 0
+		}
+		e.proxyStatisticsMutex.Unlock()
+
+		// Restore the desired policy map state.
+		for key := range insertedDesiredMapState {
+			delete(e.desiredMapState, key)
+		}
+		for key, entry := range updatedDesiredMapState {
+			e.desiredMapState[key] = entry
+		}
+		return nil
+	})
+
+	return nil, e.FinalizeFunc(&finalizeList), e.RevertFunc(&revertStack)
 }
 
 // addNewRedirects must be called while holding the endpoint lock for writing.
@@ -305,53 +352,98 @@ func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, des
 // The returned map contains the exact set of IDs of proxy redirects that is
 // required to implement the given L4 policy.
 // Must be called with endpoint.Mutex held.
-func (e *Endpoint) addNewRedirects(owner Owner, m *policy.L4Policy, proxyWaitGroup *completion.WaitGroup) (desiredRedirects map[string]bool, err error) {
+func (e *Endpoint) addNewRedirects(owner Owner, m *policy.L4Policy, proxyWaitGroup *completion.WaitGroup) (desiredRedirects map[string]bool, err error, finalizeFunc FinalizeFunc, revertFunc RevertFunc) {
 	desiredRedirects = make(map[string]bool)
-	if err = e.addNewRedirectsFromMap(owner, m.Ingress, desiredRedirects, proxyWaitGroup); err != nil {
-		return desiredRedirects, fmt.Errorf("Unable to allocate ingress redirects: %s", err)
+	var finalizeList FinalizeList
+	var revertStack RevertStack
+
+	var ff FinalizeFunc
+	var rf RevertFunc
+
+	err, ff, rf = e.addNewRedirectsFromMap(owner, m.Ingress, desiredRedirects, proxyWaitGroup)
+	if err != nil {
+		return desiredRedirects, fmt.Errorf("unable to allocate ingress redirects: %s", err), nil, nil
 	}
-	if err = e.addNewRedirectsFromMap(owner, m.Egress, desiredRedirects, proxyWaitGroup); err != nil {
-		return desiredRedirects, fmt.Errorf("Unable to allocate egress redirects: %s", err)
+	finalizeList.Append(ff)
+	revertStack.Push(rf)
+
+	err, ff, rf = e.addNewRedirectsFromMap(owner, m.Egress, desiredRedirects, proxyWaitGroup)
+	if err != nil {
+		e.Revert(&revertStack) // Ignore errors while reverting. This is best-effort.
+		return desiredRedirects, fmt.Errorf("unable to allocate egress redirects: %s", err), nil, nil
 	}
-	return desiredRedirects, nil
+	finalizeList.Append(ff)
+	revertStack.Push(rf)
+
+	return desiredRedirects, nil, e.FinalizeFunc(&finalizeList), e.RevertFunc(&revertStack)
 }
 
 // Must be called with endpoint.Mutex held.
-func (e *Endpoint) removeOldRedirects(owner Owner, desiredRedirects map[string]bool, proxyWaitGroup *completion.WaitGroup) {
+func (e *Endpoint) removeOldRedirects(owner Owner, desiredRedirects map[string]bool, proxyWaitGroup *completion.WaitGroup) (FinalizeFunc, RevertFunc) {
 	if option.Config.DryMode {
-		return
+		return nil, nil
 	}
+
+	var finalizeList FinalizeList
+	var revertStack RevertStack
+	removedRedirects := make(map[string]uint16, len(e.realizedRedirects))
+	updatedStats := make(map[uint16]*models.ProxyStatistics, len(e.realizedRedirects))
 
 	for id, redirectPort := range e.realizedRedirects {
 		// Remove only the redirects that are not required.
 		if desiredRedirects[id] {
 			continue
 		}
-		if err := owner.RemoveProxyRedirect(e, id, proxyWaitGroup); err != nil {
-			e.getLogger().WithError(err).WithField(logfields.L4PolicyID, id).Warn("Error while removing proxy redirect")
-		} else {
-			delete(e.realizedRedirects, id)
 
-			// Update the endpoint API model to report that no redirect is
-			// active or known for that port anymore. We never delete stats
-			// until an endpoint is deleted, so we only set the redirect port
-			// to 0.
-			//
-			// We don't know the L7 protocol of the redirect, so we can't just
-			// build a ProxyStatistics and lookup e.proxyStatistics by key.
-			// We have to loop to find which entry has the same redirect port.
-			// Looping is acceptable since there should be only a few redirects
-			// for each endpoint.
+		err, finalizeFunc, revertFunc := owner.RemoveProxyRedirect(e, id, proxyWaitGroup)
+		if err != nil {
+			e.getLogger().WithError(err).WithField(logfields.L4PolicyID, id).Warn("Error while removing proxy redirect")
+			continue
+		}
+		finalizeList.Append(finalizeFunc)
+		revertStack.Push(revertFunc)
+
+		delete(e.realizedRedirects, id)
+		removedRedirects[id] = redirectPort
+
+		// Update the endpoint API model to report that no redirect is
+		// active or known for that port anymore. We never delete stats
+		// until an endpoint is deleted, so we only set the redirect port
+		// to 0.
+		//
+		// We don't know the L7 protocol of the redirect, so we can't just
+		// build a ProxyStatistics and lookup e.proxyStatistics by key.
+		// We have to loop to find which entry has the same redirect port.
+		// Looping is acceptable since there should be only a few redirects
+		// for each endpoint.
+		e.proxyStatisticsMutex.Lock()
+		for _, stats := range e.proxyStatistics {
+			if stats.AllocatedProxyPort == int64(redirectPort) {
+				updatedStats[redirectPort] = stats
+				stats.AllocatedProxyPort = 0
+				break
+			}
+		}
+		e.proxyStatisticsMutex.Unlock()
+	}
+
+	return e.FinalizeFunc(&finalizeList),
+		func() error {
+			e.getLogger().Debug("Reverting removal of old redirects")
+
+			// Restore the proxy stats.
 			e.proxyStatisticsMutex.Lock()
-			for _, stats := range e.proxyStatistics {
-				if stats.AllocatedProxyPort == int64(redirectPort) {
-					stats.AllocatedProxyPort = 0
-					break
-				}
+			for redirectPort, stats := range updatedStats {
+				stats.AllocatedProxyPort = int64(redirectPort)
 			}
 			e.proxyStatisticsMutex.Unlock()
+
+			for id, redirectPort := range removedRedirects {
+				e.realizedRedirects[id] = redirectPort
+			}
+
+			return e.Revert(&revertStack)
 		}
-	}
 }
 
 // regenerateBPF rewrites all headers and updates all BPF maps to reflect the
@@ -452,13 +544,28 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 
 	// Keep track of the side-effects of the regeneration that need to be
 	// reverted in case of failure.
+	// Also keep track of the regeneration finalization code that can't be
+	// reverted, and execute it in case of regeneration success.
+	var finalizeList FinalizeList
 	var revertStack RevertStack
 	defer func() {
-		if reterr != nil {
+		if reterr == nil {
+			// Always execute the finalization code, even if the endpoint is
+			// terminating, in order to properly release resources.
+			e.UnconditionalLock()
+			e.getLogger().Debug("Finalizing successful endpoint regeneration")
+			e.Finalize(&finalizeList)
+			e.Unlock()
+		} else {
+			if err := e.LockAlive(); err != nil {
+				e.getLogger().WithError(err).Debug("Skipping unnecessary restoring endpoint state")
+				return
+			}
 			e.getLogger().Error("Restoring endpoint state after BPF regeneration failed")
 			if err := e.Revert(&revertStack); err != nil {
 				e.getLogger().WithError(err).Error("Restoring endpoint state failed")
 			}
+			e.Unlock()
 		}
 	}()
 
@@ -503,21 +610,26 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 	}
 
 	stats.proxyConfiguration.Start()
-
+	var finalizeFunc FinalizeFunc
+	var revertFunc RevertFunc
 	// Walk the L4Policy to add new redirects and update the desired policy map
 	// state to set the newly allocated proxy ports.
 	var desiredRedirects map[string]bool
 	if e.DesiredL4Policy != nil {
-		desiredRedirects, err = e.addNewRedirects(owner, e.DesiredL4Policy, proxyWaitGroup)
+		desiredRedirects, err, finalizeFunc, revertFunc = e.addNewRedirects(owner, e.DesiredL4Policy, proxyWaitGroup)
 		if err != nil {
 			e.Unlock()
 			return 0, compilationExecuted, err
 		}
+		finalizeList.Append(finalizeFunc)
+		revertStack.Push(revertFunc)
 	}
 	// At this point, traffic is no longer redirected to the proxy for
 	// now-obsolete redirects, since we synced the updated policy map above.
 	// It's now safe to remove the redirects from the proxy's configuration.
-	e.removeOldRedirects(owner, desiredRedirects, proxyWaitGroup)
+	finalizeFunc, revertFunc = e.removeOldRedirects(owner, desiredRedirects, proxyWaitGroup)
+	finalizeList.Append(finalizeFunc)
+	revertStack.Push(revertFunc)
 	stats.proxyConfiguration.End()
 
 	stats.prepareBuild.Start()

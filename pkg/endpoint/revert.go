@@ -15,12 +15,12 @@
 package endpoint
 
 // RevertFunc is a function returned by a successful function call, which
-// reverts the side-effects of the initial function call. A RevertFunc should
-// not be returned by calls that return errors.
+// reverts the side-effects of the initial function call. A call that returns
+// an error should return a nil RevertFunc.
 type RevertFunc func() error
 
 // RevertStack is a stack of RevertFuncs to be executed in the reverse order
-// they were pushed into it.
+// they were pushed.
 type RevertStack struct {
 	// revertFuncs is the list of revert functions in the order they were
 	// pushed.
@@ -51,4 +51,42 @@ func (e *Endpoint) Revert(s *RevertStack) error {
 // given stack in the reverse order they were pushed.
 func (e *Endpoint) RevertFunc(s *RevertStack) RevertFunc {
 	return func() error { return e.Revert(s) }
+}
+
+// FinalizeFunc is a function returned by a successful function call, which
+// finalizes the initial function call. A call that returns an error should
+// return a nil FinalizeFunc.
+// When a call returns both a RevertFunc and a FinalizeFunc, at most one may be
+// called. The side effects of the FinalizeFunc are not reverted by the
+// RevertFunc.
+type FinalizeFunc func()
+
+// FinalizeList is a list of FinalizeFuncs to be executed in the same order
+// they were appended.
+type FinalizeList struct {
+	// finalizeFuncs is the list of finalize functions in the order they were
+	// appended.
+	finalizeFuncs []FinalizeFunc
+}
+
+// Append appends the given FinalizeFunc at the end of this list. If the
+// function is nil, it is ignored.
+func (s *FinalizeList) Append(finalizeFunc FinalizeFunc) {
+	if finalizeFunc != nil {
+		s.finalizeFuncs = append(s.finalizeFuncs, finalizeFunc)
+	}
+}
+
+// Finalize executes all the FinalizeFuncs in the given list in the same order
+// they were pushed.
+func (e *Endpoint) Finalize(s *FinalizeList) {
+	for _, f := range s.finalizeFuncs {
+		f()
+	}
+}
+
+// FinalizeFunc returns a FinalizeFunc that executes all the FinalizeFuncs in the
+// given list in the same order they were appended.
+func (e *Endpoint) FinalizeFunc(s *FinalizeList) FinalizeFunc {
+	return func() { e.Finalize(s) }
 }
