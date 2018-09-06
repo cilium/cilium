@@ -33,7 +33,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var log = logging.DefaultLogger
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "helpers")
 
 const (
 	// MaxRetries is the number of times that a loop should iterate until a
