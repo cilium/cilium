@@ -44,6 +44,12 @@ const (
 	MaxSeq = 31
 )
 
+var (
+	// cache contains *all* services of both IPv4 and IPv6 based maps
+	// combined
+	cache = lbmapCache{}
+)
+
 // ServiceKey is the interface describing protocol independent key for services map.
 type ServiceKey interface {
 	bpf.MapKey
@@ -153,7 +159,11 @@ func deleteServiceLocked(key ServiceKey) error {
 	if err != nil {
 		return err
 	}
-	return lookupAndDeleteServiceWeights(key)
+	err = lookupAndDeleteServiceWeights(key)
+	if err == nil {
+		cache.delete(key)
+	}
+	return err
 }
 
 func lookupService(key ServiceKey) (ServiceValue, error) {
@@ -338,12 +348,15 @@ func updateMasterService(fe ServiceKey, nbackends int, nonZeroWeights uint16) er
 }
 
 // UpdateService adds or updates the given service in the bpf maps
-func UpdateService(fe ServiceKey, besValues []ServiceValue, addRevNAT bool, revNATID int) error {
+func UpdateService(fe ServiceKey, backends []ServiceValue, addRevNAT bool, revNATID int) error {
 	var (
 		weights         []uint16
 		nNonZeroWeights uint16
 		existingCount   int
 	)
+
+	svc := cache.prepareUpdate(fe, backends)
+	besValues := svc.getBackends()
 
 	for _, be := range besValues {
 		weights = append(weights, be.GetWeight())
