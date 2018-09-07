@@ -1303,6 +1303,10 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 		option.Config.AccessLog, &d, option.Config.AgentLabels)
 
 	d.startStatusCollector()
+
+	if err := fqdn.ConfigFromResolvConf(); err != nil {
+		return nil, nil, err
+	}
 	d.dnsPoller = fqdn.NewDNSPoller(fqdn.DNSPollerConfig{
 		MinTTL:         toFQDNsMinTTL,
 		LookupDNSNames: fqdn.DNSLookupDefaultResolver,
