@@ -103,6 +103,7 @@ type DNSPoller struct {
 	// UUID to the rule copy.
 	allRules map[string]*api.Rule
 
+	// cache is a private copy of the pointer from config.
 	cache *DNSCache
 }
 
@@ -118,9 +119,13 @@ type DNSPollerConfig struct {
 	// When set to nil, it uses fqdn.DefaultDNSCache, a global cache instance.
 	Cache *DNSCache
 
+	// DNSConfig includes the Resolver IPs, port, timeout and retry count. It is
+	// expected to be  generated from /etc/resolv.conf.
+	DNSConfig *dns.ClientConfig
+
 	// LookupDNSNames is a callback to run the provided DNS lookups.
 	// When set to nil, fqdn.DNSLookupDefaultResolver is used.
-	LookupDNSNames func(dnsNames []string) (DNSIPs map[string][]net.IP, errorDNSNames map[string]error)
+	LookupDNSNames func(dnsNames []string) (DNSIPs map[string]*DNSIPRecords, errorDNSNames map[string]error)
 
 	// AddGeneratedRules is a callback  to emit generated rules.
 	// When set to nil, it is a no-op.
@@ -319,8 +324,8 @@ func (poller *DNSPoller) GetDNSNames() (dnsNames []string) {
 // UpdateDNSIPs updates the IPs for each DNS name in updatedDNSIPs.
 // It returns:
 // affectedRules: a list of rule UUIDs that were affected by the new IPs (lookup in .allRules)
-// updatedNames: a map of DNS names to the IPs they were updated with. This is always a subset of updatedDNSIPs.
-func (poller *DNSPoller) UpdateDNSIPs(lookupTime time.Time, updatedDNSIPs map[string][]net.IP) (affectedRules []string, updatedNames map[string][]net.IP) {
+// updatedNames: a map of DNS names to the IPs they were updated with. This is always a superset of updatedDNSIPs.
+func (poller *DNSPoller) UpdateDNSIPs(lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) (affectedRules []string, updatedNames map[string][]net.IP) {
 	updatedNames = make(map[string][]net.IP, len(updatedDNSIPs))
 	affectedRulesSet := make(map[string]struct{}, len(updatedDNSIPs))
 
@@ -329,7 +334,7 @@ func (poller *DNSPoller) UpdateDNSIPs(lookupTime time.Time, updatedDNSIPs map[st
 
 perDNSName:
 	for dnsName, lookupIPs := range updatedDNSIPs {
-		updated := poller.updateIPsForName(lookupTime, dnsName, lookupIPs)
+		updated := poller.updateIPsForName(lookupTime, dnsName, lookupIPs.IPs, lookupIPs.TTL)
 
 		// The IPs didn't change. No more to be done for this dnsName
 		if !updated {
@@ -337,7 +342,7 @@ perDNSName:
 		}
 
 		// record the IPs that were different
-		updatedNames[dnsName] = lookupIPs
+		updatedNames[dnsName] = lookupIPs.IPs
 
 		// accumulate the rules affected by new IPs, that we need to update with
 		// CIDR rules
@@ -519,11 +524,15 @@ func (poller *DNSPoller) ensureExists(dnsName string) (exists bool) {
 // updateIPsName will update the IPs for dnsName. It always retains a copy of
 // newIPs.
 // updated is true when the new IPs differ from the old IPs
-func (poller *DNSPoller) updateIPsForName(lookupTime time.Time, dnsName string, newIPs []net.IP) (updated bool) {
+func (poller *DNSPoller) updateIPsForName(lookupTime time.Time, dnsName string, newIPs []net.IP, ttl int) (updated bool) {
 	oldIPs := poller.IPs[dnsName]
 
+	if poller.config.MinTTL > ttl {
+		ttl = poller.config.MinTTL
+	}
+
 	// TODO: when poller can get the TTLs of DNS responses, apply min(ttl, poller.config.MinTTL)
-	poller.cache.Update(lookupTime, dnsName, newIPs, poller.config.MinTTL)
+	poller.cache.Update(lookupTime, dnsName, newIPs, ttl)
 	sortedNewIPs := poller.cache.Lookup(dnsName) // DNSCache returns IPs sorted
 
 	// store the new IPs, sorted (to help with the updated determination below)
