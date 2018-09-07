@@ -46,6 +46,10 @@ func (l *LogRecordNotify) l7Proto() string {
 		return "kafka"
 	}
 
+	if l.L7 != nil {
+		return l.L7.Proto
+	}
+
 	return "unknown-l7"
 }
 
@@ -68,6 +72,21 @@ func (l *LogRecordNotify) DumpInfo() {
 
 	if kafka := l.Kafka; kafka != nil {
 		fmt.Printf(" %s topic %s => %d\n", kafka.APIKey, kafka.Topic.Topic, kafka.ErrorCode)
+	}
+
+	if l7 := l.L7; l7 != nil {
+		status := ""
+		for k, v := range l7.Fields {
+			if k == "status" {
+				status = v
+			} else {
+				fmt.Printf(" %s:%s", k, v)
+			}
+		}
+		if status != "" {
+			fmt.Printf(" => status:%s", status)
+		}
+		fmt.Printf("\n")
 	}
 }
 
@@ -101,6 +120,7 @@ type LogRecordNotifyVerbose struct {
 	Verdict          accesslog.FlowVerdict      `json:"verdict"`
 	HTTP             *accesslog.LogRecordHTTP   `json:"http,omitempty"`
 	Kafka            *accesslog.LogRecordKafka  `json:"kafka,omitempty"`
+	L7               *accesslog.LogRecordL7     `json:"l7,omitempty"`
 }
 
 // LogRecordNotifyToVerbose turns LogRecordNotify into json-friendly Verbose structure
@@ -119,5 +139,6 @@ func LogRecordNotifyToVerbose(n *LogRecordNotify) LogRecordNotifyVerbose {
 		Verdict:          n.Verdict,
 		HTTP:             n.HTTP,
 		Kafka:            n.Kafka,
+		L7:               n.L7,
 	}
 }
