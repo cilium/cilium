@@ -27,6 +27,7 @@ CHECK_FORMAT ?= ./bazel-bin/check_format.py.runfiles/envoy/tools/check_format.py
 SHELL=/bin/bash -o pipefail
 BAZEL ?= $(QUIET) bazel
 BAZEL_FILTER ?= 2>&1 | grep -v -e "bazel-out/.*/genfiles/external/.*: warning: directory does not exist."
+BAZEL_OPTS ?=
 BAZEL_TEST_OPTS ?= --jobs=1
 BAZEL_CACHE ?= ~/.cache/bazel
 BAZEL_ARCHIVE ?= ~/bazel-cache.tar.bz2
@@ -44,11 +45,9 @@ else
 
 # Dockerfile builds require special options
 ifdef PKG_BUILD
-BAZEL_OPTS ?= --batch
 BAZEL_BUILD_OPTS = --spawn_strategy=standalone --genrule_strategy=standalone --local_resources 2048,2.0,1.0
 all: clean-bins release shutdown-bazel
 else
-BAZEL_OPTS ?=
 BAZEL_BUILD_OPTS = --experimental_strict_action_env --local_resources 2048,2.0,1.0
 all: clean-bins envoy-default api shutdown-bazel
 endif
