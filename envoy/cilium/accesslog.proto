@@ -35,6 +35,11 @@ message HttpLogEntry {
   uint32 status = 7;      // Envoy ":status" header, zero for request
 }
 
+message L7LogEntry {
+  string proto = 1;
+  map<string, string> fields = 2;
+}
+
 message LogEntry {
   // The time that Cilium filter captured this log entry,
   // in, nanoseconds since 1/1/1970.
@@ -63,7 +68,9 @@ message LogEntry {
 
   oneof l7 {
     HttpLogEntry http = 100;
+    L7LogEntry generic_l7 = 102;
   }
+  reserved "kafka"; reserved 101;
 
   //
   // Deprecated HTTP fields. Use the http field above instead.
