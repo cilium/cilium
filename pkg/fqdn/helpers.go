@@ -26,28 +26,6 @@ import (
 	"github.com/miekg/dns"
 )
 
-// DNSLookupDefaultResolver runs a DNS lookup for every name in dnsNames
-// sequentially and synchronously using the net.DefaultResolver. It will
-// return:
-// DNSIPs: a map of DNS names to their IPs (only contains successful lookups)
-// DNSErrors: a map of DNS names to lookup errors.
-// It is used by DNSPoller when no alternative LookupDNSNames is provided
-func DNSLookupDefaultResolver(dnsNames []string) (DNSIPs map[string][]net.IP, DNSErrors map[string]error) {
-	DNSIPs = make(map[string][]net.IP)
-	DNSErrors = make(map[string]error)
-
-	for _, dnsName := range dnsNames {
-		lookupIPs, err := net.LookupIP(dnsName)
-		if err != nil {
-			DNSErrors[dnsName] = err
-			continue
-		}
-		DNSIPs[dnsName] = lookupIPs
-	}
-
-	return DNSIPs, DNSErrors
-}
-
 // getUUIDFromRuleLabels returns the value of the UUID label
 func getUUIDFromRuleLabels(rule *api.Rule) (uuid string) {
 	return rule.Labels.Get(uuidLabelSearchKey)

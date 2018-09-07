@@ -85,23 +85,27 @@ var (
 	// github.com dns target
 	rule4 = makeRule("rule4", "github.com")
 
-	ipLookups = map[string][]net.IP{
+	ipLookups = map[string]*DNSIPRecords{
 		dns.Fqdn("cilium.io"): {
-			net.ParseIP("172.217.18.174"),
-			net.ParseIP("2a00:1450:4001:811::200e")},
+			TTL: 60,
+			IPs: []net.IP{
+				net.ParseIP("172.217.18.174"),
+				net.ParseIP("2a00:1450:4001:811::200e")}},
 		dns.Fqdn("github.com"): {
-			net.ParseIP("98.138.219.231"),
-			net.ParseIP("72.30.35.10"),
-			net.ParseIP("001:4998:c:1023::4"),
-			net.ParseIP("001:4998:58:1836::10")},
+			TTL: 60,
+			IPs: []net.IP{
+				net.ParseIP("98.138.219.231"),
+				net.ParseIP("72.30.35.10"),
+				net.ParseIP("001:4998:c:1023::4"),
+				net.ParseIP("001:4998:58:1836::10")}},
 	}
 )
 
 // LookupDNSNames is a wrappable dummy used by the tests. It counts the number
 // of times a name is looked up in lookups, and uses ipData as a source for the
 // "response"
-func lookupDNSNames(ipData map[string][]net.IP, lookups map[string]int, dnsNames []string) (DNSIPs map[string][]net.IP, errorDNSNames map[string]error) {
-	DNSIPs = make(map[string][]net.IP)
+func lookupDNSNames(ipData map[string]*DNSIPRecords, lookups map[string]int, dnsNames []string) (DNSIPs map[string]*DNSIPRecords, errorDNSNames map[string]error) {
+	DNSIPs = make(map[string]*DNSIPRecords)
 	for _, dnsName := range dnsNames {
 		lookups[dnsName] += 1
 		DNSIPs[dnsName] = ipData[dnsName]
@@ -231,7 +235,7 @@ func (ds *FQDNTestSuite) TestDNSPollerRuleHandling(c *C) {
 				MinTTL: 1,
 				Cache:  NewDNSCache(),
 
-				LookupDNSNames: func(dnsNames []string) (DNSIPs map[string][]net.IP, errorDNSNames map[string]error) {
+				LookupDNSNames: func(dnsNames []string) (DNSIPs map[string]*DNSIPRecords, errorDNSNames map[string]error) {
 					return lookupDNSNames(ipLookups, lookups, dnsNames)
 				},
 
@@ -290,12 +294,12 @@ func (ds *FQDNTestSuite) TestDNSPollerCIDRGeneration(c *C) {
 			MinTTL: 1,
 			Cache:  NewDNSCache(),
 
-			LookupDNSNames: func(dnsNames []string) (DNSIPs map[string][]net.IP, errorDNSNames map[string]error) {
+			LookupDNSNames: func(dnsNames []string) (DNSIPs map[string]*DNSIPRecords, errorDNSNames map[string]error) {
 				switch pollCount {
 				case 1:
-					return map[string][]net.IP{dns.Fqdn("cilium.io"): {net.ParseIP("1.1.1.1")}}, nil
+					return map[string]*DNSIPRecords{dns.Fqdn("cilium.io"): {TTL: 60, IPs: []net.IP{net.ParseIP("1.1.1.1")}}}, nil
 				case 2:
-					return map[string][]net.IP{dns.Fqdn("cilium.io"): {net.ParseIP("2.2.2.2")}}, nil
+					return map[string]*DNSIPRecords{dns.Fqdn("cilium.io"): {TTL: 60, IPs: []net.IP{net.ParseIP("2.2.2.2")}}}, nil
 				}
 				return nil, nil
 			},
@@ -360,9 +364,8 @@ func (ds *FQDNTestSuite) TestDNSPollerDropCIDROnReinsert(c *C) {
 		generatedRules = make([]*api.Rule, 0)
 
 		poller = NewDNSPoller(DNSPollerConfig{
-
-			LookupDNSNames: func(dnsNames []string) (DNSIPs map[string][]net.IP, errorDNSNames map[string]error) {
-				return map[string][]net.IP{dns.Fqdn("cilium.io"): {net.ParseIP("1.1.1.1")}}, nil
+			LookupDNSNames: func(dnsNames []string) (DNSIPs map[string]*DNSIPRecords, errorDNSNames map[string]error) {
+				return map[string]*DNSIPRecords{dns.Fqdn("cilium.io"): {TTL: 60, IPs: []net.IP{net.ParseIP("1.1.1.1")}}}, nil
 			},
 
 			AddGeneratedRules: func(rules []*api.Rule) error {
@@ -398,18 +401,18 @@ func (ds *FQDNTestSuite) TestDNSPollerMultiIPUpdate(c *C) {
 			MinTTL: 1,
 			Cache:  NewDNSCache(),
 
-			LookupDNSNames: func(dnsNames []string) (DNSIPs map[string][]net.IP, errorDNSNames map[string]error) {
+			LookupDNSNames: func(dnsNames []string) (DNSIPs map[string]*DNSIPRecords, errorDNSNames map[string]error) {
 				switch pollCount {
 				case 1:
-					return map[string][]net.IP{dns.Fqdn("cilium.io"): {net.ParseIP("1.1.1.1")}}, nil
+					return map[string]*DNSIPRecords{dns.Fqdn("cilium.io"): {TTL: 60, IPs: []net.IP{net.ParseIP("1.1.1.1")}}}, nil
 				case 2:
-					return map[string][]net.IP{
-						dns.Fqdn("cilium.io"):  {net.ParseIP("2.2.2.2")},
-						dns.Fqdn("github.com"): {net.ParseIP("3.3.3.3")}}, nil
+					return map[string]*DNSIPRecords{
+						dns.Fqdn("cilium.io"):  {TTL: 60, IPs: []net.IP{net.ParseIP("2.2.2.2")}},
+						dns.Fqdn("github.com"): {TTL: 60, IPs: []net.IP{net.ParseIP("3.3.3.3")}}}, nil
 				case 3:
-					return map[string][]net.IP{
-						dns.Fqdn("cilium.io"):  {net.ParseIP("2.2.2.2")},
-						dns.Fqdn("github.com"): {net.ParseIP("4.4.4.4")}}, nil
+					return map[string]*DNSIPRecords{
+						dns.Fqdn("cilium.io"):  {TTL: 60, IPs: []net.IP{net.ParseIP("2.2.2.2")}},
+						dns.Fqdn("github.com"): {TTL: 60, IPs: []net.IP{net.ParseIP("4.4.4.4")}}}, nil
 				}
 				return nil, nil
 			},
@@ -469,17 +472,17 @@ func (ds *FQDNTestSuite) TestDNSPollerMultiIPUpdate(c *C) {
 func (ds *FQDNTestSuite) TestDNSPollerUpdatesOnReplace(c *C) {
 
 	var (
-		dnsIPs = map[string][]net.IP{
-			dns.Fqdn("cilium.io"):         {net.ParseIP("1.1.1.1")},
-			dns.Fqdn("github.com"):        {net.ParseIP("2.2.2.2")},
-			dns.Fqdn("anotherdomain.com"): {net.ParseIP("3.3.3.3")},
+		dnsIPs = map[string]*DNSIPRecords{
+			dns.Fqdn("cilium.io"):         {TTL: 60, IPs: []net.IP{net.ParseIP("1.1.1.1")}},
+			dns.Fqdn("github.com"):        {TTL: 60, IPs: []net.IP{net.ParseIP("2.2.2.2")}},
+			dns.Fqdn("anotherdomain.com"): {TTL: 60, IPs: []net.IP{net.ParseIP("3.3.3.3")}},
 		}
 
 		poller = NewDNSPoller(DNSPollerConfig{
 			MinTTL: 1,
 			Cache:  NewDNSCache(),
 
-			LookupDNSNames: func(dnsNames []string) (DNSIPs map[string][]net.IP, errorDNSNames map[string]error) {
+			LookupDNSNames: func(dnsNames []string) (DNSIPs map[string]*DNSIPRecords, errorDNSNames map[string]error) {
 				lookups := make(map[string]int) // dummy
 				return lookupDNSNames(dnsIPs, lookups, dnsNames)
 			},
