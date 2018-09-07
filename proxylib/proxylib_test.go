@@ -201,17 +201,18 @@ func TestSimplePolicy(t *testing.T) {
 		    remote_policies: 1
 		    remote_policies: 3
 		    remote_policies: 4
-		    http_rules: <
-		      http_rules: <
-		        headers: <
-		          name: "from"
-		          exact_match: "someone"
+		    l7_proto: "test.headerparser"
+		    l7_rules: <
+		      l7_rules: <
+		        rule: <
+		          key: "prefix"
+		          value: "Beginning"
 		        >
 		      >
-		      http_rules: <
-		        headers: <
-		          name: "to"
-		          exact_match: "else"
+		      l7_rules: <
+		        rule: <
+		          key: "suffix"
+		          value: "End"
 		        >
 		      >
 		    >
@@ -224,7 +225,7 @@ func TestSimplePolicy(t *testing.T) {
 		80, proxylib.OK, 1)
 
 	// Original direction data, drops with remaining data
-	line1, line2, line3, line4 := "from=someone\n", "foo\n", "to=else\n", "\n"
+	line1, line2, line3, line4 := "Beginning----\n", "foo\n", "----End\n", "\n"
 	data := line1 + line2 + line3 + line4
 	CheckOnData(t, 1, false, false, &[]string{data}, []ExpFilterOp{
 		{proxylib.PASS, len(line1)},

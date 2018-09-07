@@ -70,12 +70,18 @@ func newPortNetworkPolicyRule(config *cilium.PortNetworkPolicyRule) (PortNetwork
 	}
 
 	// Each parser registers a parsing function to parse it's L7 rules
-	// This requires each L7 to use it's own oneof element!
-	l7Name := reflect.TypeOf(config.L7Rules).Elem().Name()
+	// The registered name must match 'l7_proto', if included in the message,
+	// or one of the oneof type names
+	l7Name := config.L7Proto
+	if l7Name == "" {
+		l7Name = reflect.TypeOf(config.L7).Elem().Name()
+	}
 	l7Parser, ok := L7RuleParsers[l7Name]
 	if ok {
 		log.Debugf("NPDS::PortNetworkPolicyRule: Calling L7Parser %s on %v", l7Name, config.String())
 		rule.L7Rules = l7Parser(config)
+	} else {
+		panic(fmt.Errorf("NPDS: Rule parser not found for %s (%v)", l7Name, config))
 	}
 	return rule, l7Name, ok
 }
@@ -231,7 +237,7 @@ type PolicyInstance struct {
 
 func newPolicyInstance(config *cilium.NetworkPolicy) *PolicyInstance {
 	log.Debugf("NPDS::PolicyInstance: Inserting policy %s", config.String())
-	
+
 	return &PolicyInstance{
 		protobuf: *config,
 		Ingress:  newPortNetworkPolicies(config.GetIngressPerPortPolicies()),

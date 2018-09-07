@@ -81,9 +81,14 @@ message PortNetworkPolicyRule {
   // Optional. If not specified, any remote host is matched by this predicate.
   repeated uint64 remote_policies = 1 [(validate.rules).repeated.unique = true];
 
+  // Optional L7 protocol parser name. This is only used if the parser is not
+  // one of the well knows ones. If specified, the l7 parser having this name
+  // needs to be built in to libcilium.so.
+  string l7_proto = 2;
+
   // Optional. If not specified, any L7 request is matched by this predicate.
   // All rules on any given port must have the same type of L7 rules!
-  oneof l7_rules {
+  oneof l7 {
     // The set of HTTP network policy rules.
     // An HTTP request is matched by this predicate if any of its rules matches
     // the request.
@@ -93,6 +98,11 @@ message PortNetworkPolicyRule {
     // A Kafka request is matched by this predicate if any of its rules matches
     // the request.
     KafkaNetworkPolicyRules kafka_rules = 101;
+
+    // Set of Generic policy rules used when 'l7_proto' is defined.
+    // Only to be used for l7 protocols for which a specific oneof
+    // is not defined
+    L7NetworkPolicyRules l7_rules = 102;
  }
 }
 
@@ -153,4 +163,20 @@ message KafkaNetworkPolicyRule {
   // If specified, this predicates only matches requests that contain this client ID, and never
   // matches requests that don't contain any client ID.
   string client_id = 4 [(validate.rules).string.pattern = "^[a-zA-Z0-9._-]*$"];
+}
+
+// A set of network policy rules that match generic L7 requests.
+message L7NetworkPolicyRules {
+  // The set of generic key-value pair policy rules.
+  // A request is matched if any of these rules matches the request.
+  // Required and may not be empty.
+  repeated L7NetworkPolicyRule l7_rules = 1 [(validate.rules).repeated.min_items = 1];
+}
+
+// A generic L7 policy rule, as a conjunction of predicates on l7 requests.
+// If all the predicates of a rule match a request, the request is allowed. Otherwise, it is
+// denied.
+message L7NetworkPolicyRule {
+  // Optional. If empty, matches any request.
+  map<string, string> rule = 1;
 }
