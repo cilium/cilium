@@ -12,7 +12,7 @@ namespace Cilium {
 
 template <typename Protocol>
 std::unique_ptr<Envoy::Config::Subscription<Protocol>>
-subscribe(const std::string& grpc_method, const envoy::api::v2::core::Node& node,
+subscribe(const std::string& grpc_method, const LocalInfo::LocalInfo& local_info,
 	  Upstream::ClusterManager& cm, Event::Dispatcher& dispatcher,
 	  Runtime::RandomGenerator& random, Stats::Scope &scope) {
   // Hard-coded Cilium gRPC cluster
@@ -28,7 +28,7 @@ subscribe(const std::string& grpc_method, const envoy::api::v2::core::Node& node
   }
 
   return std::make_unique<Config::GrpcSubscriptionImpl<Protocol>>(
-                node,
+                local_info,
 		Config::Utility::factoryForGrpcApiConfigSource(cm.grpcAsyncClientManager(),
 							       api_config_source,
 							       scope)->create(),
