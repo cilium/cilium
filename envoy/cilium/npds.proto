@@ -82,6 +82,7 @@ message PortNetworkPolicyRule {
   repeated uint64 remote_policies = 1 [(validate.rules).repeated.unique = true];
 
   // Optional. If not specified, any L7 request is matched by this predicate.
+  // All rules on any given port must have the same type of L7 rules!
   oneof l7_rules {
     // The set of HTTP network policy rules.
     // An HTTP request is matched by this predicate if any of its rules matches

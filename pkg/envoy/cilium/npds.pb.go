@@ -59,7 +59,7 @@ func (m *NetworkPolicy) Reset()         { *m = NetworkPolicy{} }
 func (m *NetworkPolicy) String() string { return proto.CompactTextString(m) }
 func (*NetworkPolicy) ProtoMessage()    {}
 func (*NetworkPolicy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_npds_a2dfe345e2d12e97, []int{0}
+	return fileDescriptor_npds_b71ce6e58e318243, []int{0}
 }
 func (m *NetworkPolicy) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_NetworkPolicy.Unmarshal(m, b)
@@ -130,7 +130,7 @@ func (m *PortNetworkPolicy) Reset()         { *m = PortNetworkPolicy{} }
 func (m *PortNetworkPolicy) String() string { return proto.CompactTextString(m) }
 func (*PortNetworkPolicy) ProtoMessage()    {}
 func (*PortNetworkPolicy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_npds_a2dfe345e2d12e97, []int{1}
+	return fileDescriptor_npds_b71ce6e58e318243, []int{1}
 }
 func (m *PortNetworkPolicy) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PortNetworkPolicy.Unmarshal(m, b)
@@ -181,6 +181,7 @@ type PortNetworkPolicyRule struct {
 	// Optional. If not specified, any remote host is matched by this predicate.
 	RemotePolicies []uint64 `protobuf:"varint,1,rep,packed,name=remote_policies,json=remotePolicies,proto3" json:"remote_policies,omitempty"`
 	// Optional. If not specified, any L7 request is matched by this predicate.
+	// All rules on any given port must have the same type of L7 rules!
 	//
 	// Types that are valid to be assigned to L7Rules:
 	//	*PortNetworkPolicyRule_HttpRules
@@ -195,7 +196,7 @@ func (m *PortNetworkPolicyRule) Reset()         { *m = PortNetworkPolicyRule{} }
 func (m *PortNetworkPolicyRule) String() string { return proto.CompactTextString(m) }
 func (*PortNetworkPolicyRule) ProtoMessage()    {}
 func (*PortNetworkPolicyRule) Descriptor() ([]byte, []int) {
-	return fileDescriptor_npds_a2dfe345e2d12e97, []int{2}
+	return fileDescriptor_npds_b71ce6e58e318243, []int{2}
 }
 func (m *PortNetworkPolicyRule) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PortNetworkPolicyRule.Unmarshal(m, b)
@@ -348,7 +349,7 @@ func (m *HttpNetworkPolicyRules) Reset()         { *m = HttpNetworkPolicyRules{}
 func (m *HttpNetworkPolicyRules) String() string { return proto.CompactTextString(m) }
 func (*HttpNetworkPolicyRules) ProtoMessage()    {}
 func (*HttpNetworkPolicyRules) Descriptor() ([]byte, []int) {
-	return fileDescriptor_npds_a2dfe345e2d12e97, []int{3}
+	return fileDescriptor_npds_b71ce6e58e318243, []int{3}
 }
 func (m *HttpNetworkPolicyRules) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HttpNetworkPolicyRules.Unmarshal(m, b)
@@ -400,7 +401,7 @@ func (m *HttpNetworkPolicyRule) Reset()         { *m = HttpNetworkPolicyRule{} }
 func (m *HttpNetworkPolicyRule) String() string { return proto.CompactTextString(m) }
 func (*HttpNetworkPolicyRule) ProtoMessage()    {}
 func (*HttpNetworkPolicyRule) Descriptor() ([]byte, []int) {
-	return fileDescriptor_npds_a2dfe345e2d12e97, []int{4}
+	return fileDescriptor_npds_b71ce6e58e318243, []int{4}
 }
 func (m *HttpNetworkPolicyRule) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HttpNetworkPolicyRule.Unmarshal(m, b)
@@ -442,7 +443,7 @@ func (m *KafkaNetworkPolicyRules) Reset()         { *m = KafkaNetworkPolicyRules
 func (m *KafkaNetworkPolicyRules) String() string { return proto.CompactTextString(m) }
 func (*KafkaNetworkPolicyRules) ProtoMessage()    {}
 func (*KafkaNetworkPolicyRules) Descriptor() ([]byte, []int) {
-	return fileDescriptor_npds_a2dfe345e2d12e97, []int{5}
+	return fileDescriptor_npds_b71ce6e58e318243, []int{5}
 }
 func (m *KafkaNetworkPolicyRules) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_KafkaNetworkPolicyRules.Unmarshal(m, b)
@@ -498,7 +499,7 @@ func (m *KafkaNetworkPolicyRule) Reset()         { *m = KafkaNetworkPolicyRule{}
 func (m *KafkaNetworkPolicyRule) String() string { return proto.CompactTextString(m) }
 func (*KafkaNetworkPolicyRule) ProtoMessage()    {}
 func (*KafkaNetworkPolicyRule) Descriptor() ([]byte, []int) {
-	return fileDescriptor_npds_a2dfe345e2d12e97, []int{6}
+	return fileDescriptor_npds_b71ce6e58e318243, []int{6}
 }
 func (m *KafkaNetworkPolicyRule) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_KafkaNetworkPolicyRule.Unmarshal(m, b)
@@ -694,9 +695,9 @@ var _NetworkPolicyDiscoveryService_serviceDesc = grpc.ServiceDesc{
 	Metadata: "cilium/npds.proto",
 }
 
-func init() { proto.RegisterFile("cilium/npds.proto", fileDescriptor_npds_a2dfe345e2d12e97) }
+func init() { proto.RegisterFile("cilium/npds.proto", fileDescriptor_npds_b71ce6e58e318243) }
 
-var fileDescriptor_npds_a2dfe345e2d12e97 = []byte{
+var fileDescriptor_npds_b71ce6e58e318243 = []byte{
 	// 713 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x54, 0xcd, 0x6e, 0xd3, 0x48,
 	0x1c, 0xef, 0xe4, 0xab, 0xe9, 0x44, 0xed, 0xaa, 0xb3, 0x9b, 0xd4, 0x8d, 0xb6, 0x49, 0xd6, 0xcb,
