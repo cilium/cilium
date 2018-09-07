@@ -249,9 +249,10 @@ required = [
   name = "github.com/vishvananda/netlink"
   revision = "v1.0.0"
 
-[[constraint]]
+# This must be an override because miekg/dns uses revision=master
+[[override]]
   name = "golang.org/x/crypto"
-  revision = "847319b7fc94cab682988f93da778204da164588"
+  revision = "5ba7f63082460102a45837dbd1827e10f9479ac0"
 
 [[constraint]]
   name = "golang.org/x/net"
@@ -292,3 +293,7 @@ required = [
     name = "k8s.io/code-generator"
     unused-packages = false
     non-go = false
+
+[[constraint]]
+  name = "github.com/miekg/dns"
+  version = "1.0.8"
