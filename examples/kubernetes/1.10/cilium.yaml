@@ -25,8 +25,22 @@ data:
   # If you want to run cilium in debug mode change this value to true
   debug: "false"
   disable-ipv4: "false"
-  # If you want to clean cilium state; change this value to true
+
+  # If a serious issue occurs during Cilium startup, this
+  # invasive option may be set to true to remove all persistent
+  # state. Endpoints will not be restored using knowledge from a
+  # prior Cilium run, so they may receive new IP addresses upon
+  # restart. This also triggers clean-cilium-bpf-state.
   clean-cilium-state: "false"
+  # If you want to clean cilium BPF state, set this to true;
+  # Removes all BPF maps from the filesystem. Upon restart,
+  # endpoints are restored with the same IP addresses, however
+  # any ongoing connections may be disrupted briefly.
+  # Loadbalancing decisions will be reset, so any ongoing
+  # connections via a service may be loadbalanced to a different
+  # backend after restart.
+  clean-cilium-bpf-state: "false"
+
   legacy-host-allows-world: "false"
 
   # Regular expression matching compatible Istio sidecar istio-proxy
@@ -66,27 +80,33 @@ spec:
     spec:
       serviceAccountName: cilium
       initContainers:
-      - name: clean-cilium-state
-        image: docker.io/library/busybox:1.28.4
-        imagePullPolicy: IfNotPresent
-        command: ['sh', '-c', 'if [ "${CLEAN_CILIUM_STATE}" = "true" ]; then rm -rf /var/run/cilium/state; rm -rf /sys/fs/bpf/tc/globals/cilium_*; fi']
-        securityContext:
-          capabilities:
-            add:
-              - "NET_ADMIN"
-          privileged: true
-        volumeMounts:
-          - name: bpf-maps
-            mountPath: /sys/fs/bpf
-          - name: cilium-run
-            mountPath: /var/run/cilium
-        env:
-          - name: "CLEAN_CILIUM_STATE"
-            valueFrom:
-              configMapKeyRef:
-                name: cilium-config
-                optional: true
-                key: clean-cilium-state
+        - name: clean-cilium-state
+          image: docker.io/library/busybox:1.28.4
+          imagePullPolicy: IfNotPresent
+          command: ['sh', '-c', 'if [ "${CLEAN_CILIUM_STATE}" = "true" ]; then rm -rf /var/run/cilium/state; fi; if [ "${CLEAN_CILIUM_STATE}" = "true" ] || [ "${CLEAN_CILIUM_BPF_STATE}" = "true" ]; then rm -rf /sys/fs/bpf/tc/globals/cilium_* /var/run/cilium/bpffs/tc/globals/cilium_*; fi']
+          securityContext:
+            capabilities:
+              add:
+                - "NET_ADMIN"
+            privileged: true
+          volumeMounts:
+            - name: bpf-maps
+              mountPath: /sys/fs/bpf
+            - name: cilium-run
+              mountPath: /var/run/cilium
+          env:
+            - name: "CLEAN_CILIUM_STATE"
+              valueFrom:
+                configMapKeyRef:
+                  name: cilium-config
+                  optional: true
+                  key: clean-cilium-state
+            - name: "CLEAN_CILIUM_BPF_STATE"
+              valueFrom:
+                configMapKeyRef:
+                  name: cilium-config
+                  optional: true
+                  key: clean-cilium-bpf-state
       containers:
       - image: docker.io/cilium/cilium:v1.1.4
         imagePullPolicy: IfNotPresent

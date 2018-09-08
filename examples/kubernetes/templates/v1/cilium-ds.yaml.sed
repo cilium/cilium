@@ -31,27 +31,33 @@ spec:
     spec:
       serviceAccountName: cilium
       initContainers:
-      - name: clean-cilium-state
-        image: docker.io/library/busybox:1.28.4
-        imagePullPolicy: IfNotPresent
-        command: ['sh', '-c', 'if [ "${CLEAN_CILIUM_STATE}" = "true" ]; then rm -rf /var/run/cilium/state; rm -rf /sys/fs/bpf/tc/globals/cilium_*; fi']
-        securityContext:
-          capabilities:
-            add:
-              - "NET_ADMIN"
-          privileged: true
-        volumeMounts:
-          - name: bpf-maps
-            mountPath: /sys/fs/bpf
-          - name: cilium-run
-            mountPath: /var/run/cilium
-        env:
-          - name: "CLEAN_CILIUM_STATE"
-            valueFrom:
-              configMapKeyRef:
-                name: cilium-config
-                optional: true
-                key: clean-cilium-state
+        - name: clean-cilium-state
+          image: docker.io/library/busybox:1.28.4
+          imagePullPolicy: IfNotPresent
+          command: ['sh', '-c', 'if [ "${CLEAN_CILIUM_STATE}" = "true" ]; then rm -rf /var/run/cilium/state; fi; if [ "${CLEAN_CILIUM_STATE}" = "true" ] || [ "${CLEAN_CILIUM_BPF_STATE}" = "true" ]; then rm -rf /sys/fs/bpf/tc/globals/cilium_* /var/run/cilium/bpffs/tc/globals/cilium_*; fi']
+          securityContext:
+            capabilities:
+              add:
+                - "NET_ADMIN"
+            privileged: true
+          volumeMounts:
+            - name: bpf-maps
+              mountPath: /sys/fs/bpf
+            - name: cilium-run
+              mountPath: /var/run/cilium
+          env:
+            - name: "CLEAN_CILIUM_STATE"
+              valueFrom:
+                configMapKeyRef:
+                  name: cilium-config
+                  optional: true
+                  key: clean-cilium-state
+            - name: "CLEAN_CILIUM_BPF_STATE"
+              valueFrom:
+                configMapKeyRef:
+                  name: cilium-config
+                  optional: true
+                  key: clean-cilium-bpf-state
       containers:
       - image: docker.io/cilium/cilium:__CILIUM_VERSION__
         imagePullPolicy: IfNotPresent
