@@ -23,6 +23,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/miekg/dns"
 )
 
 // DNSLookupDefaultResolver runs a DNS lookup for every name in dnsNames
@@ -78,6 +79,7 @@ func generateUUIDLabel(lbls labels.LabelArray) (id *labels.Label) {
 // injectToCIDRSetRules adds a ToCIDRSets section to the rule with all ToFQDN
 // targets resolved to IPs from dnsNames.
 // Pre-existing rules in ToCIDRSet are preserved.
+// Note: matchNames in rules are made into FQDNs
 func injectToCIDRSetRules(rule *api.Rule, dnsNames map[string][]net.IP) (namesMissingIPs []string) {
 	missing := make(map[string]struct{}) // a set to dedup missing dnsNames
 
@@ -88,7 +90,7 @@ func injectToCIDRSetRules(rule *api.Rule, dnsNames map[string][]net.IP) (namesMi
 
 		// Generate CIDR rules for each FQDN
 		for _, ToFQDN := range egressRule.ToFQDNs {
-			dnsName := ToFQDN.MatchName
+			dnsName := dns.Fqdn(ToFQDN.MatchName)
 			IPs, present := dnsNames[dnsName]
 			if !present {
 				missing[dnsName] = struct{}{}
