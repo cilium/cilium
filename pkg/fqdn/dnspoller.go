@@ -423,7 +423,8 @@ func (poller *DNSPoller) addRule(uuid string, sourceRule *api.Rule) (newDNSNames
 	if oldRule, exists := poller.allRules[uuid]; exists {
 		for _, egressRule := range oldRule.Egress {
 			for _, ToFQDN := range egressRule.ToFQDNs {
-				namesToStopPolling[ToFQDN.MatchName] = struct{}{}
+				matchName := dns.Fqdn(ToFQDN.MatchName)
+				namesToStopPolling[matchName] = struct{}{}
 			}
 		}
 	}
@@ -434,9 +435,9 @@ func (poller *DNSPoller) addRule(uuid string, sourceRule *api.Rule) (newDNSNames
 	// Add a dnsname -> rule reference
 	for _, egressRule := range sourceRule.Egress {
 		for _, ToFQDN := range egressRule.ToFQDNs {
-			dnsName := ToFQDN.MatchName
+			dnsName := dns.Fqdn(ToFQDN.MatchName)
 
-			delete(namesToStopPolling, ToFQDN.MatchName)
+			delete(namesToStopPolling, dnsName)
 
 			dnsNameAlreadyExists := poller.ensureExists(dnsName)
 			if dnsNameAlreadyExists {
@@ -473,7 +474,7 @@ func (poller *DNSPoller) removeRule(uuid string, sourceRule *api.Rule) (noLonger
 	// Delete dnsname -> rule references
 	for _, egressRule := range sourceRule.Egress {
 		for _, ToFQDN := range egressRule.ToFQDNs {
-			dnsName := ToFQDN.MatchName
+			dnsName := dns.Fqdn(ToFQDN.MatchName)
 
 			if shouldStopPolling := poller.removeFromDNSName(dnsName, uuid); shouldStopPolling {
 				delete(poller.IPs, dnsName) // also delete from the IP map, stopping polling

@@ -23,6 +23,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/miekg/dns"
 )
 
 // getUUIDFromRuleLabels returns the value of the UUID label
@@ -66,7 +67,7 @@ func injectToCIDRSetRules(rule *api.Rule, dnsNames map[string][]net.IP) (namesMi
 
 		// Generate CIDR rules for each FQDN
 		for _, ToFQDN := range egressRule.ToFQDNs {
-			dnsName := ToFQDN.MatchName
+			dnsName := dns.Fqdn(ToFQDN.MatchName)
 			IPs, present := dnsNames[dnsName]
 			if !present {
 				missing[dnsName] = struct{}{}

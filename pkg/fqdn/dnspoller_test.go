@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/miekg/dns"
 
 	. "gopkg.in/check.v1"
 )
@@ -29,7 +30,7 @@ func makeRule(key string, dnsNames ...string) *api.Rule {
 	matchNames := []string{}
 	for _, name := range dnsNames {
 		matchNames = append(matchNames,
-			fmt.Sprintf(`{"matchName": "%s"}`, name))
+			fmt.Sprintf(`{"matchName": "%s"}`, dns.Fqdn(name)))
 	}
 
 	rule := fmt.Sprintf(`{
@@ -85,12 +86,12 @@ var (
 	rule4 = makeRule("rule4", "github.com")
 
 	ipLookups = map[string]*DNSIPRecords{
-		"cilium.io": {
+		dns.Fqdn("cilium.io"): {
 			TTL: 60,
 			IPs: []net.IP{
 				net.ParseIP("172.217.18.174"),
 				net.ParseIP("2a00:1450:4001:811::200e")}},
-		"github.com": {
+		dns.Fqdn("github.com"): {
 			TTL: 60,
 			IPs: []net.IP{
 				net.ParseIP("98.138.219.231"),
@@ -141,7 +142,7 @@ func (ds *FQDNTestSuite) TestDNSPollerRuleHandling(c *C) {
 			lookupIterationsAfterDelete: 0,
 			checkFunc: func(lookups map[string]int, generatedRules []*api.Rule, poller *DNSPoller) {
 				c.Assert(len(lookups), Equals, 1, Commentf("More than one DNS name was looked up for a rule with 1 DNS name"))
-				for _, name := range []string{"cilium.io"} {
+				for _, name := range []string{dns.Fqdn("cilium.io")} {
 					c.Assert(lookups[name], Not(Equals), 0, Commentf("No lookups for DNS name %s in rule", name))
 					c.Assert(lookups[name], Equals, 1, Commentf("More than one DNS lookup was triggered for the same DNS name %s", name))
 				}
@@ -156,7 +157,7 @@ func (ds *FQDNTestSuite) TestDNSPollerRuleHandling(c *C) {
 			lookupIterationsAfterDelete: 0,
 			checkFunc: func(lookups map[string]int, generatedRules []*api.Rule, poller *DNSPoller) {
 				c.Assert(len(lookups), Equals, 2, Commentf("More than two DNS names was looked up for a rule with 2 DNS name"))
-				for _, name := range []string{"cilium.io", "github.com"} {
+				for _, name := range []string{dns.Fqdn("cilium.io"), dns.Fqdn("github.com")} {
 					c.Assert(lookups[name], Not(Equals), 0, Commentf("No lookups for DNS name %s in rule", name))
 					c.Assert(lookups[name], Equals, 1, Commentf("More than one DNS lookup was triggered for the same DNS name %s", name))
 				}
@@ -171,7 +172,7 @@ func (ds *FQDNTestSuite) TestDNSPollerRuleHandling(c *C) {
 			lookupIterationsAfterDelete: 0,
 			checkFunc: func(lookups map[string]int, generatedRules []*api.Rule, poller *DNSPoller) {
 				c.Assert(len(lookups), Equals, 1, Commentf("More than one DNS name was looked up for a rule with 1 DNS name"))
-				for _, name := range []string{"cilium.io"} {
+				for _, name := range []string{dns.Fqdn("cilium.io")} {
 					c.Assert(lookups[name], Not(Equals), 0, Commentf("No lookups for DNS name %s in rule", name))
 					c.Assert(lookups[name], Equals, 1, Commentf("More than one DNS lookup was triggered for the same DNS name %s", name))
 				}
@@ -198,7 +199,7 @@ func (ds *FQDNTestSuite) TestDNSPollerRuleHandling(c *C) {
 			checkFunc: func(lookups map[string]int, generatedRules []*api.Rule, poller *DNSPoller) {
 				c.Assert(len(poller.GetDNSNames()), Equals, 1, Commentf("Incorrect number of DNS targets for single name with a single referring rule"))
 				c.Assert(len(lookups), Equals, 1, Commentf("Incorrect number of lookups for single name with a single referring rule"))
-				for _, name := range []string{"cilium.io"} {
+				for _, name := range []string{dns.Fqdn("cilium.io")} {
 					c.Assert(lookups[name], Not(Equals), 0, Commentf("No lookups for DNS name %s in rule", name))
 					c.Assert(lookups[name], Equals, 1, Commentf("More than one DNS lookup was triggered for the same DNS name %s", name))
 				}
@@ -214,7 +215,7 @@ func (ds *FQDNTestSuite) TestDNSPollerRuleHandling(c *C) {
 			checkFunc: func(lookups map[string]int, generatedRules []*api.Rule, poller *DNSPoller) {
 				c.Assert(len(poller.GetDNSNames()), Equals, 1, Commentf("Incorrect number of DNS targets for single name with a single referring rule"))
 				c.Assert(len(lookups), Equals, 1, Commentf("Incorrect number of lookups for single name with a single referring rule"))
-				for _, name := range []string{"cilium.io"} {
+				for _, name := range []string{dns.Fqdn("cilium.io")} {
 					c.Assert(lookups[name], Not(Equals), 0, Commentf("No lookups for DNS name %s in rule", name))
 					c.Assert(lookups[name], Equals, 1, Commentf("More than one DNS lookup was triggered for the same DNS name %s", name))
 				}
@@ -296,9 +297,9 @@ func (ds *FQDNTestSuite) TestDNSPollerCIDRGeneration(c *C) {
 			LookupDNSNames: func(dnsNames []string) (DNSIPs map[string]*DNSIPRecords, errorDNSNames map[string]error) {
 				switch pollCount {
 				case 1:
-					return map[string]*DNSIPRecords{"cilium.io": {TTL: 60, IPs: []net.IP{net.ParseIP("1.1.1.1")}}}, nil
+					return map[string]*DNSIPRecords{dns.Fqdn("cilium.io"): {TTL: 60, IPs: []net.IP{net.ParseIP("1.1.1.1")}}}, nil
 				case 2:
-					return map[string]*DNSIPRecords{"cilium.io": {TTL: 60, IPs: []net.IP{net.ParseIP("2.2.2.2")}}}, nil
+					return map[string]*DNSIPRecords{dns.Fqdn("cilium.io"): {TTL: 60, IPs: []net.IP{net.ParseIP("2.2.2.2")}}}, nil
 				}
 				return nil, nil
 			},
@@ -365,7 +366,7 @@ func (ds *FQDNTestSuite) TestDNSPollerDropCIDROnReinsert(c *C) {
 		poller = NewDNSPoller(DNSPollerConfig{
 
 			LookupDNSNames: func(dnsNames []string) (DNSIPs map[string]*DNSIPRecords, errorDNSNames map[string]error) {
-				return map[string]*DNSIPRecords{"cilium.io": {TTL: 60, IPs: []net.IP{net.ParseIP("1.1.1.1")}}}, nil
+				return map[string]*DNSIPRecords{dns.Fqdn("cilium.io"): {TTL: 60, IPs: []net.IP{net.ParseIP("1.1.1.1")}}}, nil
 			},
 
 			AddGeneratedRules: func(rules []*api.Rule) error {
@@ -404,15 +405,15 @@ func (ds *FQDNTestSuite) TestDNSPollerMultiIPUpdate(c *C) {
 			LookupDNSNames: func(dnsNames []string) (DNSIPs map[string]*DNSIPRecords, errorDNSNames map[string]error) {
 				switch pollCount {
 				case 1:
-					return map[string]*DNSIPRecords{"cilium.io": {TTL: 60, IPs: []net.IP{net.ParseIP("1.1.1.1")}}}, nil
+					return map[string]*DNSIPRecords{dns.Fqdn("cilium.io"): {TTL: 60, IPs: []net.IP{net.ParseIP("1.1.1.1")}}}, nil
 				case 2:
 					return map[string]*DNSIPRecords{
-						"cilium.io":  {TTL: 60, IPs: []net.IP{net.ParseIP("2.2.2.2")}},
-						"github.com": {TTL: 60, IPs: []net.IP{net.ParseIP("3.3.3.3")}}}, nil
+						dns.Fqdn("cilium.io"):  {TTL: 60, IPs: []net.IP{net.ParseIP("2.2.2.2")}},
+						dns.Fqdn("github.com"): {TTL: 60, IPs: []net.IP{net.ParseIP("3.3.3.3")}}}, nil
 				case 3:
 					return map[string]*DNSIPRecords{
-						"cilium.io":  {TTL: 60, IPs: []net.IP{net.ParseIP("2.2.2.2")}},
-						"github.com": {TTL: 60, IPs: []net.IP{net.ParseIP("4.4.4.4")}}}, nil
+						dns.Fqdn("cilium.io"):  {TTL: 60, IPs: []net.IP{net.ParseIP("2.2.2.2")}},
+						dns.Fqdn("github.com"): {TTL: 60, IPs: []net.IP{net.ParseIP("4.4.4.4")}}}, nil
 				}
 				return nil, nil
 			},
@@ -473,9 +474,9 @@ func (ds *FQDNTestSuite) TestDNSPollerUpdatesOnReplace(c *C) {
 
 	var (
 		dnsIPs = map[string]*DNSIPRecords{
-			"cilium.io":         {TTL: 60, IPs: []net.IP{net.ParseIP("1.1.1.1")}},
-			"github.com":        {TTL: 60, IPs: []net.IP{net.ParseIP("2.2.2.2")}},
-			"anotherdomain.com": {TTL: 60, IPs: []net.IP{net.ParseIP("3.3.3.3")}},
+			dns.Fqdn("cilium.io"):         {TTL: 60, IPs: []net.IP{net.ParseIP("1.1.1.1")}},
+			dns.Fqdn("github.com"):        {TTL: 60, IPs: []net.IP{net.ParseIP("2.2.2.2")}},
+			dns.Fqdn("anotherdomain.com"): {TTL: 60, IPs: []net.IP{net.ParseIP("3.3.3.3")}},
 		}
 
 		poller = NewDNSPoller(DNSPollerConfig{
