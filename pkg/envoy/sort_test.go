@@ -100,22 +100,22 @@ func (s *SortSuite) TestSortHttpNetworkPolicyRules(c *C) {
 
 var PortNetworkPolicyRule1 = &cilium.PortNetworkPolicyRule{
 	RemotePolicies: nil,
-	L7Rules:        nil,
+	L7:             nil,
 }
 
 var PortNetworkPolicyRule2 = &cilium.PortNetworkPolicyRule{
 	RemotePolicies: []uint64{1},
-	L7Rules:        nil,
+	L7:             nil,
 }
 
 var PortNetworkPolicyRule3 = &cilium.PortNetworkPolicyRule{
 	RemotePolicies: []uint64{1, 2},
-	L7Rules:        nil,
+	L7:             nil,
 }
 
 var PortNetworkPolicyRule4 = &cilium.PortNetworkPolicyRule{
 	RemotePolicies: nil,
-	L7Rules: &cilium.PortNetworkPolicyRule_HttpRules{
+	L7: &cilium.PortNetworkPolicyRule_HttpRules{
 		HttpRules: &cilium.HttpNetworkPolicyRules{
 			HttpRules: []*cilium.HttpNetworkPolicyRule{
 				HTTPNetworkPolicyRule1,
@@ -126,7 +126,7 @@ var PortNetworkPolicyRule4 = &cilium.PortNetworkPolicyRule{
 
 var PortNetworkPolicyRule5 = &cilium.PortNetworkPolicyRule{
 	RemotePolicies: []uint64{1, 2},
-	L7Rules: &cilium.PortNetworkPolicyRule_HttpRules{
+	L7: &cilium.PortNetworkPolicyRule_HttpRules{
 		HttpRules: &cilium.HttpNetworkPolicyRules{
 			HttpRules: []*cilium.HttpNetworkPolicyRule{
 				HTTPNetworkPolicyRule1,
@@ -137,7 +137,7 @@ var PortNetworkPolicyRule5 = &cilium.PortNetworkPolicyRule{
 
 var PortNetworkPolicyRule6 = &cilium.PortNetworkPolicyRule{
 	RemotePolicies: []uint64{1, 2},
-	L7Rules: &cilium.PortNetworkPolicyRule_HttpRules{
+	L7: &cilium.PortNetworkPolicyRule_HttpRules{
 		HttpRules: &cilium.HttpNetworkPolicyRules{
 			HttpRules: []*cilium.HttpNetworkPolicyRule{
 				HTTPNetworkPolicyRule1,
@@ -149,7 +149,7 @@ var PortNetworkPolicyRule6 = &cilium.PortNetworkPolicyRule{
 
 var PortNetworkPolicyRule7 = &cilium.PortNetworkPolicyRule{
 	RemotePolicies: []uint64{1, 2},
-	L7Rules: &cilium.PortNetworkPolicyRule_HttpRules{
+	L7: &cilium.PortNetworkPolicyRule_HttpRules{
 		HttpRules: &cilium.HttpNetworkPolicyRules{
 			HttpRules: []*cilium.HttpNetworkPolicyRule{
 				HTTPNetworkPolicyRule1,
