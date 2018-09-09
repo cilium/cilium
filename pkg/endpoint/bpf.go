@@ -48,11 +48,12 @@ import (
 )
 
 const (
-	// ExecTimeout is the execution timeout to use in join_ep.sh executions
-	ExecTimeout = 300 * time.Second
-
-	// EndpointGenerationTimeout specifies timeout for proxy completion context
-	EndpointGenerationTimeout = 55 * time.Second
+	// EndpointGenerationTimeout specifies timeout for the whole
+	// endpoint generation process, including the time waiting for:
+	// - locks
+	// - proxy ACKs/NACKs
+	// - BPF recompilation
+	EndpointGenerationTimeout = 300 * time.Second
 )
 
 type getBPFDataCallback func() (s6, s4 []int)
@@ -360,11 +361,6 @@ func (e *Endpoint) removeOldRedirects(owner Owner, desiredRedirects map[string]b
 // Returns the policy revision number when the regeneration has called, a
 // boolean if the BPF compilation was executed and an error in case of an error.
 func (e *Endpoint) regenerateBPF(owner Owner, epdir string, regenContext *RegenerationContext) (revnum uint64, compiled bool, reterr error) {
-	var (
-		err                 error
-		compilationExecuted bool
-	)
-
 	stats := &regenContext.Stats
 	stats.waitingForLock.Start()
 
@@ -373,169 +369,181 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string, regenContext *Regene
 	owner.GetCompilationLock().RLock()
 	defer owner.GetCompilationLock().RUnlock()
 
+	var (
+		epID                  string
+		bpfHeaderfilesHash    string
+		bpfHeaderfilesChanged bool
+		epInfoCache           *epInfoCache
+	)
 	ctCleaned := make(chan struct{})
 
-	if err = e.LockAlive(); err != nil {
-		return 0, compilationExecuted, err
-	}
-	stats.waitingForLock.End()
-
-	epID := e.StringID()
-
-	// In the first ever regeneration of the endpoint, the conntrack table
-	// is cleaned from the new endpoint IPs as it is guaranteed that any
-	// pre-existing connections using that IP are now invalid.
-	if !e.ctCleaned {
-		go func() {
-			e.scrubIPsInConntrackTable()
-			close(ctCleaned)
-		}()
-	} else {
-		close(ctCleaned)
-	}
-
-	// If dry mode is enabled, no further changes to BPF maps are performed
-	if option.Config.DryMode {
-		defer e.Unlock()
-
-		// Compute policy for this endpoint.
-		if err = e.regeneratePolicy(owner); err != nil {
-			return 0, compilationExecuted, fmt.Errorf("Unable to regenerate policy: %s", err)
-		}
-
-		_ = e.updateAndOverrideEndpointOptions(nil)
-
-		// Dry mode needs Network Policy Updates, but the proxy wait group must
-		// not be initialized, as there is no proxy ACKing the changes.
-		if err = e.updateNetworkPolicy(owner, nil); err != nil {
-			return 0, compilationExecuted, err
-		}
-
-		if err = e.writeHeaderfile(epdir, owner); err != nil {
-			return 0, compilationExecuted, fmt.Errorf("Unable to write header file: %s", err)
-		}
-
-		log.WithField(logfields.EndpointID, e.ID).Debug("Skipping bpf updates due to dry mode")
-		return e.nextPolicyRevision, compilationExecuted, nil
-	}
-
-	if e.PolicyMap == nil {
-		e.PolicyMap, _, err = policymap.OpenMap(e.PolicyMapPathLocked())
-		if err != nil {
-			e.Unlock()
-			return 0, compilationExecuted, err
-		}
-		// Clean up map contents
-		e.Logger().Debug("flushing old PolicyMap")
-		err = e.PolicyMap.Flush()
-		if err != nil {
-			e.Unlock()
-			return 0, compilationExecuted, err
-		}
-
-		// Also reset the in-memory state of the realized state as the
-		// BPF map content is guaranteed to be empty right now.
-		e.realizedMapState = make(PolicyMapState)
-	}
-
-	// Set up a context to wait for proxy completions.
+	// Set up a context to wait for locks, proxy completions & BPF compilations.
 	completionCtx, cancel := context.WithTimeout(context.Background(), EndpointGenerationTimeout)
 	proxyWaitGroup := completion.NewWaitGroup(completionCtx)
 	defer cancel()
 
-	// Only generate & populate policy map if a security identity is set up for
-	// this endpoint.
-	if e.SecurityIdentity != nil {
-		stats.policyCalculation.Start()
-		err = e.regeneratePolicy(owner)
+	// This is factored out so that we can defer the unlock, which makes the code cleaner, but also
+	// unlocks if something panics.
+	err := func() (err error) {
+		if err = e.LockAlive(); err != nil {
+			return err
+		}
+		// defer Unlock so that it will be done even if something panics
+		defer e.Unlock()
+		stats.waitingForLock.End()
+
+		if err = completionCtx.Err(); err != nil {
+			return err
+		}
+
+		epID = e.StringID()
+
+		// In the first ever regeneration of the endpoint, the conntrack table
+		// is cleaned from the new endpoint IPs as it is guaranteed that any
+		// pre-existing connections using that IP are now invalid.
+		if !e.ctCleaned {
+			go func() {
+				e.scrubIPsInConntrackTable()
+				close(ctCleaned)
+			}()
+		} else {
+			close(ctCleaned)
+		}
+
+		// If dry mode is enabled, no further changes to BPF maps are performed
+		if option.Config.DryMode {
+			// Compute policy for this endpoint.
+			if err = e.regeneratePolicy(owner); err != nil {
+				return fmt.Errorf("Unable to regenerate policy: %s", err)
+			}
+
+			_ = e.updateAndOverrideEndpointOptions(nil)
+
+			// Dry mode needs Network Policy Updates, but the proxy wait group must
+			// not be initialized, as there is no proxy ACKing the changes.
+			if err = e.updateNetworkPolicy(owner, nil); err != nil {
+				return err
+			}
+
+			if err = e.writeHeaderfile(epdir, owner); err != nil {
+				return fmt.Errorf("Unable to write header file: %s", err)
+			}
+
+			log.WithField(logfields.EndpointID, e.ID).Debug("Skipping bpf updates due to dry mode")
+			return nil
+		}
+
+		if e.PolicyMap == nil {
+			e.PolicyMap, _, err = policymap.OpenMap(e.PolicyMapPathLocked())
+			if err != nil {
+				return err
+			}
+			// Clean up map contents
+			e.Logger().Debug("flushing old PolicyMap")
+			err = e.PolicyMap.Flush()
+			if err != nil {
+				return err
+			}
+
+			// Also reset the in-memory state of the realized state as the
+			// BPF map content is guaranteed to be empty right now.
+			e.realizedMapState = make(PolicyMapState)
+		}
+
+		// Only generate & populate policy map if a security identity is set up for
+		// this endpoint.
+		if e.SecurityIdentity != nil {
+			stats.policyCalculation.Start()
+			err = e.regeneratePolicy(owner)
+			if err != nil {
+				return fmt.Errorf("unable to regenerate policy for '%s': %s", e.PolicyMap.String(), err)
+			}
+			stats.policyCalculation.End()
+
+			_ = e.updateAndOverrideEndpointOptions(nil)
+
+			// Synchronously try to update PolicyMap for this endpoint. If any
+			// part of updating the PolicyMap fails, bail out and do not generate
+			// BPF. Unfortunately, this means that the map will be in an inconsistent
+			// state with the current program (if it exists) for this endpoint.
+			// GH-3897 would fix this by creating a new map to do an atomic swap
+			// with the old one.
+			stats.mapSync.Start()
+			err = e.syncPolicyMap()
+			if err != nil {
+				return fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %s", err)
+			}
+			stats.mapSync.End()
+
+			// Configure the new network policy with the proxies.
+			stats.proxyPolicyCalculation.Start()
+			if err = e.updateNetworkPolicy(owner, proxyWaitGroup); err != nil {
+				return err
+			}
+			stats.proxyPolicyCalculation.End()
+		}
+
+		stats.proxyConfiguration.Start()
+
+		// Walk the L4Policy to add new redirects and update the desired policy map
+		// state to set the newly allocated proxy ports.
+		var desiredRedirects map[string]bool
+		if e.DesiredL4Policy != nil {
+			desiredRedirects, err = e.addNewRedirects(owner, e.DesiredL4Policy, proxyWaitGroup)
+			if err != nil {
+				return err
+			}
+		}
+		// At this point, traffic is no longer redirected to the proxy for
+		// now-obsolete redirects, since we synced the updated policy map above.
+		// It's now safe to remove the redirects from the proxy's configuration.
+		e.removeOldRedirects(owner, desiredRedirects, proxyWaitGroup)
+		stats.proxyConfiguration.End()
+
+		stats.prepareBuild.Start()
+
+		// Generate header file specific to this endpoint for use in compiling
+		// BPF programs for this endpoint.
+		if err = e.writeHeaderfile(epdir, owner); err != nil {
+			return fmt.Errorf("unable to write header file: %s", err)
+		}
+
+		// Avoid BPF program compilation and installation if the headerfile for the endpoint
+		// or the node have not changed.
+		bpfHeaderfilesHash, err = hashEndpointHeaderfiles(epdir)
 		if err != nil {
-			e.Unlock()
-			return 0, compilationExecuted, fmt.Errorf("unable to regenerate policy for '%s': %s", e.PolicyMap.String(), err)
+			e.Logger().WithError(err).Warn("Unable to hash header file")
+			bpfHeaderfilesHash = ""
+			bpfHeaderfilesChanged = true
+		} else {
+			bpfHeaderfilesChanged = (bpfHeaderfilesHash != e.bpfHeaderfileHash)
+			e.Logger().WithField(logfields.BPFHeaderfileHash, bpfHeaderfilesHash).
+				Debugf("BPF header file hashed (was: %q)", e.bpfHeaderfileHash)
 		}
-		stats.policyCalculation.End()
 
-		_ = e.updateAndOverrideEndpointOptions(nil)
-
-		// Synchronously try to update PolicyMap for this endpoint. If any
-		// part of updating the PolicyMap fails, bail out and do not generate
-		// BPF. Unfortunately, this means that the map will be in an inconsistent
-		// state with the current program (if it exists) for this endpoint.
-		// GH-3897 would fix this by creating a new map to do an atomic swap
-		// with the old one.
-		stats.mapSync.Start()
-		err := e.syncPolicyMap()
-		if err != nil {
-			e.Unlock()
-			return 0, compilationExecuted, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %s", err)
+		// Cache endpoint information
+		// TODO (ianvernon): why do we need to do this?
+		epInfoCache = e.createEpInfoCache(epdir)
+		if epInfoCache == nil {
+			return fmt.Errorf("Unable to cache endpoint information")
 		}
-		stats.mapSync.End()
 
-		// Configure the new network policy with the proxies.
-		stats.proxyPolicyCalculation.Start()
-		if err = e.updateNetworkPolicy(owner, proxyWaitGroup); err != nil {
-			e.Unlock()
-			return 0, compilationExecuted, err
-		}
-		stats.proxyPolicyCalculation.End()
-	}
+		// TODO: In Cilium v1.4 or later cycle, remove this.
+		os.RemoveAll(e.IPv6EgressMapPathLocked())
+		os.RemoveAll(e.IPv4EgressMapPathLocked())
+		os.RemoveAll(e.IPv6IngressMapPathLocked())
+		os.RemoveAll(e.IPv4IngressMapPathLocked())
 
-	stats.proxyConfiguration.Start()
-
-	// Walk the L4Policy to add new redirects and update the desired policy map
-	// state to set the newly allocated proxy ports.
-	var desiredRedirects map[string]bool
-	if e.DesiredL4Policy != nil {
-		desiredRedirects, err = e.addNewRedirects(owner, e.DesiredL4Policy, proxyWaitGroup)
-		if err != nil {
-			e.Unlock()
-			return 0, compilationExecuted, err
-		}
-	}
-	// At this point, traffic is no longer redirected to the proxy for
-	// now-obsolete redirects, since we synced the updated policy map above.
-	// It's now safe to remove the redirects from the proxy's configuration.
-	e.removeOldRedirects(owner, desiredRedirects, proxyWaitGroup)
-	stats.proxyConfiguration.End()
-
-	stats.prepareBuild.Start()
-
-	// Generate header file specific to this endpoint for use in compiling
-	// BPF programs for this endpoint.
-	if err = e.writeHeaderfile(epdir, owner); err != nil {
-		e.Unlock()
-		return 0, compilationExecuted, fmt.Errorf("unable to write header file: %s", err)
-	}
-
-	// Avoid BPF program compilation and installation if the headerfile for the endpoint
-	// or the node have not changed.
-	bpfHeaderfilesHash, err := hashEndpointHeaderfiles(epdir)
-	var bpfHeaderfilesChanged bool
+		return nil
+	}()
 	if err != nil {
-		e.Logger().WithError(err).Warn("Unable to hash header file")
-		bpfHeaderfilesHash = ""
-		bpfHeaderfilesChanged = true
-	} else {
-		bpfHeaderfilesChanged = (bpfHeaderfilesHash != e.bpfHeaderfileHash)
-		e.Logger().WithField(logfields.BPFHeaderfileHash, bpfHeaderfilesHash).
-			Debugf("BPF header file hashed (was: %q)", e.bpfHeaderfileHash)
+		return 0, false, err
+	}
+	if option.Config.DryMode {
+		return e.nextPolicyRevision, false, nil
 	}
 
-	// Cache endpoint information
-	// TODO (ianvernon): why do we need to do this?
-	epInfoCache := e.createEpInfoCache(epdir)
-	if epInfoCache == nil {
-		e.Unlock()
-		err = fmt.Errorf("Unable to cache endpoint information")
-		return 0, compilationExecuted, err
-	}
-
-	// TODO: In Cilium v1.4 or later cycle, remove this.
-	os.RemoveAll(e.IPv6EgressMapPathLocked())
-	os.RemoveAll(e.IPv4EgressMapPathLocked())
-	os.RemoveAll(e.IPv6IngressMapPathLocked())
-	os.RemoveAll(e.IPv4IngressMapPathLocked())
-
-	e.Unlock()
+	var compilationExecuted bool
 
 	e.Logger().WithField("bpfHeaderfilesChanged", bpfHeaderfilesChanged).Debug("Preparing to compile BPF")
 
@@ -544,19 +552,17 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string, regenContext *Regene
 		closeChan := loadinfo.LogPeriodicSystemLoad(log.WithFields(logrus.Fields{logfields.EndpointID: epID}).Debugf, time.Second)
 
 		// Compile and install BPF programs for this endpoint
-		ctx, cancel := context.WithTimeout(context.Background(), ExecTimeout)
 		if bpfHeaderfilesChanged {
 			stats.bpfCompilation.Start()
-			err = loader.CompileAndLoad(ctx, epInfoCache)
+			err = loader.CompileAndLoad(completionCtx, epInfoCache)
 			stats.bpfCompilation.End()
 			e.Logger().WithError(err).
 				WithField(logfields.BPFCompilationTime, stats.bpfCompilation.Total().String()).
 				Info("Recompiled endpoint BPF program")
 		} else {
-			err = loader.ReloadDatapath(ctx, epInfoCache)
+			err = loader.ReloadDatapath(completionCtx, epInfoCache)
 			e.Logger().WithError(err).Info("Reloaded endpoint BPF program")
 		}
-		cancel()
 		close(closeChan)
 
 		if err != nil {
@@ -585,8 +591,8 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string, regenContext *Regene
 	if err = e.LockAlive(); err != nil {
 		return 0, compilationExecuted, err
 	}
-	stats.waitingForLock.End()
 	defer e.Unlock()
+	stats.waitingForLock.End()
 
 	e.ctCleaned = true
 
