@@ -29,18 +29,21 @@ typedef std::shared_ptr<Config> ConfigSharedPtr;
 /**
  * Implementation of a Cilium network filter.
  */
-class Instance : public Network::ReadFilter, public Network::ConnectionCallbacks,
+class Instance : public Network::Filter, public Network::ConnectionCallbacks,
                  Logger::Loggable<Logger::Id::filter> {
 public:
   Instance(const ConfigSharedPtr& config) : config_(config) {}
 
   // Network::ReadFilter
-  Network::FilterStatus onData(Buffer::Instance&, bool) override;
+  Network::FilterStatus onData(Buffer::Instance&, bool end_stream) override;
   Network::FilterStatus onNewConnection() override;
   void initializeReadFilterCallbacks(Network::ReadFilterCallbacks& callbacks) override {
     callbacks_ = &callbacks;
   }
 
+  // Network::WriteFilter
+  Network::FilterStatus onWrite(Buffer::Instance&, bool end_stream) override;
+  
   // Network::ConnectionCallbacks
   void onEvent(Network::ConnectionEvent event) override;
   void onAboveWriteBufferHighWatermark() override {}
