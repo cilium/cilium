@@ -561,16 +561,13 @@ func (e *Endpoint) regeneratePolicy(owner Owner) error {
 	// disabled for ingress and / or egress.
 	e.ingressPolicyEnabled, e.egressPolicyEnabled = e.ComputePolicyEnforcement(repo)
 
-	// Skip L4 policy recomputation if possible. However, the rest of the
-	// policy computation still needs to be done for each endpoint separately.
-	l4PolicyChanged := false
-	if e.policyRevision != revision {
-		l4PolicyChanged, err = e.resolveL4Policy(repo)
-		if err != nil {
-			return err
-		}
-	} else {
-		e.Logger().WithField(logfields.Identity, e.SecurityIdentity.ID).Debug("Reusing cached L4 policy")
+	l4PolicyChanged, err := e.resolveL4Policy(repo)
+	if err != nil {
+		return err
+	}
+
+	if l4PolicyChanged {
+		e.Logger().WithField(logfields.Identity, e.SecurityIdentity.ID).Debug("L4 policy changed")
 	}
 
 	// Calculate L3 (CIDR) policy.
