@@ -116,7 +116,7 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 
 	// Add listener3 again
 	log.Debug("adding listener 3")
-	xdsServer.AddListener("listener3", policy.ParserTypeTestLineparser, "1.2.3.4", 8083, false, s.waitGroup)
+	xdsServer.AddListener("listener3", policy.L7ParserType("test.lineparser"), "1.2.3.4", 8083, false, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
 	c.Assert(err, IsNil)

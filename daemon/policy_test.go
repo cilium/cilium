@@ -217,7 +217,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 				Rules: []*cilium.PortNetworkPolicyRule{
 					{
 						RemotePolicies: expectedRemotePolicies,
-						L7Rules: &cilium.PortNetworkPolicyRule_HttpRules{
+						L7: &cilium.PortNetworkPolicyRule_HttpRules{
 							HttpRules: &cilium.HttpNetworkPolicyRules{
 								HttpRules: []*cilium.HttpNetworkPolicyRule{
 									{},
@@ -227,7 +227,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 					},
 					{
 						RemotePolicies: expectedRemotePolicies,
-						L7Rules: &cilium.PortNetworkPolicyRule_HttpRules{
+						L7: &cilium.PortNetworkPolicyRule_HttpRules{
 							HttpRules: &cilium.HttpNetworkPolicyRules{
 								HttpRules: []*cilium.HttpNetworkPolicyRule{
 									{
@@ -281,7 +281,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 				Rules: []*cilium.PortNetworkPolicyRule{
 					{
 						RemotePolicies: expectedRemotePolicies2,
-						L7Rules: &cilium.PortNetworkPolicyRule_HttpRules{
+						L7: &cilium.PortNetworkPolicyRule_HttpRules{
 							HttpRules: &cilium.HttpNetworkPolicyRules{
 								HttpRules: []*cilium.HttpNetworkPolicyRule{
 									{},
@@ -291,7 +291,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 					},
 					{
 						RemotePolicies: expectedRemotePolicies,
-						L7Rules: &cilium.PortNetworkPolicyRule_HttpRules{
+						L7: &cilium.PortNetworkPolicyRule_HttpRules{
 							HttpRules: &cilium.HttpNetworkPolicyRules{
 								HttpRules: []*cilium.HttpNetworkPolicyRule{
 									{},
@@ -301,7 +301,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 					},
 					{
 						RemotePolicies: expectedRemotePolicies,
-						L7Rules: &cilium.PortNetworkPolicyRule_HttpRules{
+						L7: &cilium.PortNetworkPolicyRule_HttpRules{
 							HttpRules: &cilium.HttpNetworkPolicyRules{
 								HttpRules: []*cilium.HttpNetworkPolicyRule{
 									{
