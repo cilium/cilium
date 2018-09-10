@@ -17,7 +17,7 @@ package policy
 import (
 	"bytes"
 
-	"github.com/cilium/cilium/pkg/comparator"
+	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -222,7 +222,7 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndShadowedL7(c *C) {
 		DerivedFromRules: labels.LabelArrayList{nil, nil},
 	}
 
-	c.Assert(*res, comparator.DeepEquals, *expected)
+	c.Assert(*res, checker.DeepEquals, *expected)
 	c.Assert(ingressState.selectedRules, Equals, 1)
 	c.Assert(ingressState.matchedRules, Equals, 0)
 
@@ -336,7 +336,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7HTTP(c *C)
 	res, err := identicalHTTPRule.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, comparator.DeepEquals, *expected)
+	c.Assert(*res, checker.DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
 
@@ -409,7 +409,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(c *C
 	res, err := identicalKafkaRule.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, comparator.DeepEquals, *expected)
+	c.Assert(*res, checker.DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
 
@@ -564,7 +564,7 @@ func (ds *PolicyTestSuite) TestL3RuleShadowedByL3AllowAll(c *C) {
 	res, err := shadowRule.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, comparator.DeepEquals, *expected)
+	c.Assert(*res, checker.DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
 
@@ -620,7 +620,7 @@ func (ds *PolicyTestSuite) TestL3RuleShadowedByL3AllowAll(c *C) {
 	res, err = shadowRule.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, comparator.DeepEquals, *expected)
+	c.Assert(*res, checker.DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
 
@@ -693,7 +693,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *
 	res, err := shadowRule.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, comparator.DeepEquals, *expected)
+	c.Assert(*res, checker.DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
 
@@ -760,7 +760,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *
 	res, err = shadowRule.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, comparator.DeepEquals, *expected)
+	c.Assert(*res, checker.DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
 
@@ -843,7 +843,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 	res, err := case8Rule.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, comparator.DeepEquals, *expected)
+	c.Assert(*res, checker.DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
 
@@ -919,7 +919,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 	res, err = case8Rule.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, comparator.DeepEquals, *expected)
+	c.Assert(*res, checker.DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
 
@@ -1104,7 +1104,7 @@ func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointsSelectedAllowSameL7(
 	res, err := selectDifferentEndpointsRestrictL7.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, comparator.DeepEquals, *expected)
+	c.Assert(*res, checker.DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
 
@@ -1168,7 +1168,7 @@ func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointSelectedAllowAllL7(c 
 	res, err := selectDifferentEndpointsAllowAllL7.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, comparator.DeepEquals, *expected)
+	c.Assert(*res, checker.DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
 
@@ -1244,7 +1244,7 @@ func (ds *PolicyTestSuite) TestAllowingLocalhostShadowsL7(c *C) {
 	res, err := rule.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, comparator.DeepEquals, *expected)
+	c.Assert(*res, checker.DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
 

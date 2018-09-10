@@ -19,7 +19,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cilium/cilium/pkg/comparator"
+	"github.com/cilium/cilium/pkg/checker"
 
 	. "gopkg.in/check.v1"
 )
@@ -57,7 +57,7 @@ func (s *LabelsSuite) TestSortMap(c *C) {
 	lblsString := strings.Join(lblsArray, ";")
 	lblsString += ";"
 	sortedMap := lbls.SortedList()
-	c.Assert(sortedMap, comparator.DeepEquals, []byte(lblsString))
+	c.Assert(sortedMap, checker.DeepEquals, []byte(lblsString))
 }
 
 type lblTest struct {
@@ -75,7 +75,7 @@ func (s *LabelsSuite) TestMap2Labels(c *C) {
 		`//=/`:     "",
 		`%`:        `%ed`,
 	}, LabelSourceUnspec)
-	c.Assert(m, comparator.DeepEquals, lbls)
+	c.Assert(m, checker.DeepEquals, lbls)
 }
 
 func (s *LabelsSuite) TestMergeLabels(c *C) {
@@ -92,7 +92,7 @@ func (s *LabelsSuite) TestMergeLabels(c *C) {
 	}
 	to.MergeLabels(from)
 	from["key1"].Value = "changed"
-	c.Assert(to, comparator.DeepEquals, want)
+	c.Assert(to, checker.DeepEquals, want)
 }
 
 func (s *LabelsSuite) TestParseLabel(c *C) {
@@ -119,7 +119,7 @@ func (s *LabelsSuite) TestParseLabel(c *C) {
 	}
 	for _, test := range tests {
 		lbl := ParseLabel(test.str)
-		c.Assert(lbl, comparator.DeepEquals, test.out)
+		c.Assert(lbl, checker.DeepEquals, test.out)
 	}
 }
 
@@ -147,7 +147,7 @@ func (s *LabelsSuite) TestParseSelectLabel(c *C) {
 	}
 	for _, test := range tests {
 		lbl := ParseSelectLabel(test.str)
-		c.Assert(lbl, comparator.DeepEquals, test.out)
+		c.Assert(lbl, checker.DeepEquals, test.out)
 	}
 }
 
@@ -218,7 +218,7 @@ func (s *LabelsSuite) TestLabelParseKey(c *C) {
 	}
 	for _, test := range tests {
 		lbl := GetExtendedKeyFrom(test.str)
-		c.Assert(lbl, comparator.DeepEquals, test.out)
+		c.Assert(lbl, checker.DeepEquals, test.out)
 	}
 }
 

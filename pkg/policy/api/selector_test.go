@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/cilium/cilium/pkg/comparator"
+	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/labels"
 
 	. "gopkg.in/check.v1"
@@ -72,7 +72,7 @@ func (s *PolicyAPITestSuite) TestLabelSelectorToRequirements(c *C) {
 	c.Assert(err, IsNil)
 	expRequirements = append(expRequirements, *req)
 
-	c.Assert(labelSelectorToRequirements(labelSelector), comparator.DeepEquals, &expRequirements)
+	c.Assert(labelSelectorToRequirements(labelSelector), checker.DeepEquals, &expRequirements)
 }
 
 func benchmarkMatchesSetup(match string, count int) (EndpointSelector, labels.LabelArray) {

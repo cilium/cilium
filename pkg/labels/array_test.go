@@ -15,7 +15,7 @@
 package labels
 
 import (
-	"github.com/cilium/cilium/pkg/comparator"
+	"github.com/cilium/cilium/pkg/checker"
 
 	. "gopkg.in/check.v1"
 )
@@ -42,9 +42,9 @@ func (s *LabelsSuite) TestMatches(c *C) {
 }
 
 func (s *LabelsSuite) TestParse(c *C) {
-	c.Assert(ParseLabelArray(), comparator.DeepEquals, LabelArray{})
-	c.Assert(ParseLabelArray("magic"), comparator.DeepEquals, LabelArray{ParseLabel("magic")})
-	c.Assert(ParseLabelArray("a", "b", "c"), comparator.DeepEquals,
+	c.Assert(ParseLabelArray(), checker.DeepEquals, LabelArray{})
+	c.Assert(ParseLabelArray("magic"), checker.DeepEquals, LabelArray{ParseLabel("magic")})
+	c.Assert(ParseLabelArray("a", "b", "c"), checker.DeepEquals,
 		LabelArray{ParseLabel("a"), ParseLabel("b"), ParseLabel("c")})
 }
 

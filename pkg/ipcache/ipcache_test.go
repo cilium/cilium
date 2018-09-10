@@ -19,7 +19,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/cilium/cilium/pkg/comparator"
+	"github.com/cilium/cilium/pkg/checker"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 
 	. "gopkg.in/check.v1"
@@ -186,7 +186,7 @@ func (s *IPCacheTestSuite) TestKeyToIPNet(c *C) {
 	c.Assert(ipv6, Not(IsNil))
 	c.Assert(err, IsNil)
 	c.Assert(isHost, Equals, true)
-	c.Assert(ipv6, comparator.DeepEquals, expectedIPv6)
+	c.Assert(ipv6, checker.DeepEquals, expectedIPv6)
 
 	// Valid IPv6 prefix.
 	validIPv6Key = "cilium/state/ip/v1/default/f00d::a00:0:0:0/64"
@@ -198,7 +198,7 @@ func (s *IPCacheTestSuite) TestKeyToIPNet(c *C) {
 	c.Assert(ipv6, Not(IsNil))
 	c.Assert(err, IsNil)
 	c.Assert(isHost, Equals, false)
-	c.Assert(ipv6, comparator.DeepEquals, expectedIPv6)
+	c.Assert(ipv6, checker.DeepEquals, expectedIPv6)
 
 	// Valid IPv4.
 	validIPv4Key := "cilium/state/ip/v1/default/10.0.114.197"
@@ -208,7 +208,7 @@ func (s *IPCacheTestSuite) TestKeyToIPNet(c *C) {
 	c.Assert(ipv4, Not(IsNil))
 	c.Assert(err, IsNil)
 	c.Assert(isHost, Equals, true)
-	c.Assert(ipv4, comparator.DeepEquals, expectedIPv4)
+	c.Assert(ipv4, checker.DeepEquals, expectedIPv4)
 
 	// Valid IPv4 prefix.
 	validIPv4Key = "cilium/state/ip/v1/default/10.0.114.0/24"
@@ -218,7 +218,7 @@ func (s *IPCacheTestSuite) TestKeyToIPNet(c *C) {
 	c.Assert(ipv4, Not(IsNil))
 	c.Assert(err, IsNil)
 	c.Assert(isHost, Equals, false)
-	c.Assert(ipv4, comparator.DeepEquals, expectedIPv4)
+	c.Assert(ipv4, checker.DeepEquals, expectedIPv4)
 
 	// Invalid prefix.
 	invalidPrefixKey := "cilium/state/foobar/v1/default/f00d::a00:0:0:c164"

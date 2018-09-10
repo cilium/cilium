@@ -17,7 +17,7 @@ package policy
 import (
 	"net"
 
-	"github.com/cilium/cilium/pkg/comparator"
+	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/node"
 
@@ -53,14 +53,14 @@ func (ds *PolicyTestSuite) TestToBPFData(c *C) {
 	populateMap(&cidrPolicy.Ingress)
 	_, s4 := cidrPolicy.ToBPFData()
 	exp := []int{32, 26, 24, 20, 16, 8, 0}
-	c.Assert(s4, comparator.DeepEquals, exp)
+	c.Assert(s4, checker.DeepEquals, exp)
 
 	cidrPolicy = NewCIDRPolicy()
 	// 8 and 0 represent the host/ cluster / world prefixes.
 	populateMap(&cidrPolicy.Egress)
 	_, s4 = cidrPolicy.ToBPFData()
 	exp = []int{32, 26, 24, 20, 16, 8, 0}
-	c.Assert(s4, comparator.DeepEquals, exp)
+	c.Assert(s4, checker.DeepEquals, exp)
 }
 
 func (ds *PolicyTestSuite) TestGetDefaultPrefixLengths(c *C) {
@@ -68,6 +68,6 @@ func (ds *PolicyTestSuite) TestGetDefaultPrefixLengths(c *C) {
 	expected4 := []int{32, 8, 0}
 	s6, s4 := GetDefaultPrefixLengths()
 
-	c.Assert(s6, comparator.DeepEquals, expected6)
-	c.Assert(s4, comparator.DeepEquals, expected4)
+	c.Assert(s6, checker.DeepEquals, expected6)
+	c.Assert(s4, checker.DeepEquals, expected4)
 }

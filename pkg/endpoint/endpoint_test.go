@@ -22,7 +22,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common/addressing"
-	"github.com/cilium/cilium/pkg/comparator"
+	"github.com/cilium/cilium/pkg/checker"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -70,7 +70,7 @@ func (s *EndpointSuite) TestOrderEndpointAsc(c *C) {
 		{ID: 1000},
 	}
 	OrderEndpointAsc(eps)
-	c.Assert(eps, comparator.DeepEquals, epsWant)
+	c.Assert(eps, checker.DeepEquals, epsWant)
 }
 
 func (s *EndpointSuite) TestEndpointStatus(c *C) {
