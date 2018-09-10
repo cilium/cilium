@@ -8,7 +8,7 @@ pipeline {
     environment {
         PROJ_PATH = "src/github.com/cilium/cilium"
         TESTDIR = "${WORKSPACE}/${PROJ_PATH}/"
-        MEMORY = "3072"
+        MEMORY = "4096"
         SERVER_BOX = "cilium/ubuntu"
     }
 
