@@ -776,7 +776,6 @@ func (kub *Kubectl) ciliumInstall(dsPatchName, cmPatchName string, getK8sDescrip
 	if saPathname == "" {
 		return fmt.Errorf("Cilium ServiceAccount descriptor not found")
 	}
-
 	deployPatch := func(original, patch string) error {
 		// debugYaml only dumps the full created yaml file to the test output if
 		// the cilium manifest can not be created correctly.
@@ -784,9 +783,13 @@ func (kub *Kubectl) ciliumInstall(dsPatchName, cmPatchName string, getK8sDescrip
 			// dry-run is only available since k8s 1.11
 			switch GetCurrentK8SEnv() {
 			case "1.8", "1.9", "1.10":
-				_ = kub.Exec(fmt.Sprintf("kubectl patch --filename='%s' --patch \"$(cat '%s')\" --local -o yaml", original, patch))
+				_ = kub.Exec(fmt.Sprintf(
+					`%s patch --filename='%s' --patch "$(cat '%s')" --local -o yaml`,
+					KubectlCmd, original, patch))
 			default:
-				_ = kub.Exec(fmt.Sprintf("kubectl patch --filename='%s' --patch \"$(cat '%s')\" --local --dry-run -o yaml", original, patch))
+				_ = kub.Exec(fmt.Sprintf(
+					`%s patch --filename='%s' --patch "$(cat '%s')" --local --dry-run -o yaml`,
+					KubectlCmd, original, patch))
 			}
 		}
 
@@ -796,17 +799,21 @@ func (kub *Kubectl) ciliumInstall(dsPatchName, cmPatchName string, getK8sDescrip
 		switch GetCurrentK8SEnv() {
 		case "1.8", "1.9", "1.10":
 		default:
-			res = kub.Exec(fmt.Sprintf("kubectl patch --filename='%s' --patch \"$(cat '%s')\" --local --dry-run", original, patch))
+			res = kub.Exec(fmt.Sprintf(
+				`%s patch --filename='%s' --patch "$(cat '%s')" --local --dry-run`,
+				KubectlCmd, original, patch))
 			if !res.WasSuccessful() {
 				debugYaml(original, patch)
-				return fmt.Errorf(res.GetDebugMessage())
+				return res.GetErr("Cilium patch validation failed")
 			}
 		}
 
-		res = kub.Exec(fmt.Sprintf("kubectl patch --filename='%s' --patch \"$(cat '%s')\" --local -o yaml | kubectl apply -f -", original, patch))
+		res = kub.Exec(fmt.Sprintf(
+			`%s patch --filename='%s' --patch "$(cat '%s')" --local -o yaml | kubectl apply -f -`,
+			KubectlCmd, original, patch))
 		if !res.WasSuccessful() {
 			debugYaml(original, patch)
-			return fmt.Errorf(res.GetDebugMessage())
+			return res.GetErr("Cilium manifest patch instalation failed")
 		}
 		return nil
 	}
@@ -822,13 +829,13 @@ func (kub *Kubectl) ciliumInstall(dsPatchName, cmPatchName string, getK8sDescrip
 		res := kub.Exec(fmt.Sprintf("kubectl apply --filename='%s' --dry-run", original))
 		if !res.WasSuccessful() {
 			debugYaml(original)
-			return fmt.Errorf(res.GetDebugMessage())
+			return res.GetErr("Cilium manifest validation fails")
 		}
 
-		res = kub.Exec(fmt.Sprintf("kubectl apply --filename='%s'", original))
+		res = kub.Apply(original)
 		if !res.WasSuccessful() {
 			debugYaml(original)
-			return fmt.Errorf(res.GetDebugMessage())
+			return res.GetErr("Cannot apply Cilium manifest")
 		}
 		return nil
 	}
