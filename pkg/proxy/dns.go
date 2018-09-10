@@ -15,9 +15,17 @@
 package proxy
 
 import (
+	"fmt"
+
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/logger"
+)
+
+var (
+	DNSProxyPort    int
+	DefaultDNSProxy *dnsproxy.DNSProxy
 )
 
 // dnsRedirect implements the Redirect interface for an l7 proxy
@@ -26,20 +34,34 @@ type dnsRedirect struct {
 	endpointInfoRegistry logger.EndpointInfoRegistry
 	conf                 dnsConfiguration
 	rules                policy.L7DataMap
+	DNSProxyPort         uint16
 }
 
 type dnsConfiguration struct {
 }
 
 // UpdateRules replaces old l7 rules of a redirect with new ones.
-func (k *dnsRedirect) UpdateRules(wg *completion.WaitGroup) error {
+func (r *dnsRedirect) UpdateRules(wg *completion.WaitGroup) error {
 	log.Info("UpdateRules")
+
+	for _, rule := range r.rules {
+		for _, dnsRule := range rule.DNS {
+			DefaultDNSProxy.AddAllowed(dnsRule.MatchName, fmt.Sprintf("%p", r.redirect))
+		}
+	}
+
 	return nil
 }
 
 // Close the redirect.
-func (k *dnsRedirect) Close(wg *completion.WaitGroup) {
+func (r *dnsRedirect) Close(wg *completion.WaitGroup) {
 	log.Info("Close")
+
+	for _, rule := range r.rules {
+		for _, dnsRule := range rule.DNS {
+			DefaultDNSProxy.RemoveAllowed(dnsRule.MatchName, fmt.Sprintf("%p", r.redirect))
+		}
+	}
 }
 
 // creatednsRedirect creates a redirect to the dns proxy. The redirect structure passed
@@ -49,8 +71,23 @@ func createDNSRedirect(r *Redirect, conf dnsConfiguration, endpointInfoRegistry 
 		redirect:             r,
 		conf:                 conf,
 		endpointInfoRegistry: endpointInfoRegistry,
+
+		// FIXME: this is bad. The port was given to us in r but it's unclear who
+		// will release it, and if this global port will be released when any DNS
+		// rules is removed.
+		DNSProxyPort: uint16(DNSProxyPort),
 	}
-	log.Infof("createDNSRedirect %v", redir)
+	r.ProxyPort = redir.DNSProxyPort
+
+	log.Infof("DNS createDNSRedirect redir %+v", redir)
+	log.Infof("DNS createDNSRedirect r %+v", r)
+	log.Infof("DNS createDNSRedirect endpointInfoRegistry %+v", r)
+
+	for _, rule := range r.rules {
+		for _, dnsRule := range rule.DNS {
+			DefaultDNSProxy.AddAllowed(dnsRule.MatchName, fmt.Sprintf("%p", redir))
+		}
+	}
 
 	return redir, nil
 }

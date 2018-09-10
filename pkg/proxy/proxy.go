@@ -218,6 +218,10 @@ retryCreatePort:
 		switch l4.L7Parser {
 		case policy.ParserTypeDNS:
 			redir.implementation, err = createDNSRedirect(redir, dnsConfiguration{}, DefaultEndpointInfoRegistry)
+			// DNS uses a fixed port. Release the allocated ProxyPort since normal cleanup will not (.ProxyPort is set in createDNSRedirect)
+			defer func() {
+				delete(p.allocatedPorts, to)
+			}()
 
 		case policy.ParserTypeKafka:
 			redir.implementation, err = createKafkaRedirect(redir, kafkaConfiguration{}, DefaultEndpointInfoRegistry)
