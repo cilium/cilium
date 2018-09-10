@@ -3,4 +3,15 @@ syntax = "proto3";
 package cilium;
 
 message NetworkFilter {
+  // Path to the proxylib to be opened
+  string proxylib = 1;
+
+  // Transparent set of parameters provided for proxylib initialization
+  map<string, string> proxylib_params = 2;
+
+  // L7 protocol identifier
+  string l7_proto = 3;
+
+  // Name of the policy to be enforced
+  string policy_name = 4;
 }
