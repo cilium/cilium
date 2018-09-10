@@ -116,9 +116,11 @@ var _ = Describe("K8sUpdates", func() {
 // run, and the second one are the cleanup actions
 func ValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newVersion string) (func(), func()) {
 	canRun, err := helpers.CanRunK8sVersion(oldVersion, helpers.GetCurrentK8SEnv())
-	Expect(err).To(BeNil(), "Unable to get k8s constraints for %s", oldVersion)
+	ExpectWithOffset(1, err).To(BeNil(), "Unable to get k8s constraints for %s", oldVersion)
 	if !canRun {
-		log.Info("Cilium %s is not supported in K8s %s. Skipping upgrade/downgrade tests.")
+		Skip(fmt.Sprintf(
+			"Cilium %q is not supported in K8s %q. Skipping upgrade/downgrade tests.",
+			oldVersion, helpers.GetCurrentK8SEnv()))
 		return func() {}, func() {}
 	}
 
@@ -139,7 +141,7 @@ func ValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newVersion str
 			helpers.CiliumDefaultDSPatch,
 			"cilium-cm-patch-clean-cilium-state.yaml",
 		)
-		Expect(err).To(BeNil(), fmt.Sprintf("Cilium %s was not able to be deployed", newVersion))
+		ExpectWithOffset(1, err).To(BeNil(), "Cilium %q was not able to be deployed", newVersion)
 		ExpectCiliumReady(kubectl)
 
 		_ = kubectl.DeleteResource(
@@ -190,10 +192,12 @@ func ValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newVersion str
 		}
 
 		By("Installing kube-dns")
-		kubectl.Apply(helpers.DNSDeployment()).ExpectSuccess("Kube-dns cannot be installed")
+		res := kubectl.Apply(helpers.DNSDeployment())
+		ExpectWithOffset(1, res).To(helpers.CMDSuccess(), "Kube-dns cannot be installed")
 
 		By("Creating some endpoints and L7 policy")
-		kubectl.Apply(demoPath).ExpectSuccess()
+		res = kubectl.Apply(demoPath)
+		ExpectWithOffset(1, res).To(helpers.CMDSuccess(), "cannot apply dempo application")
 
 		err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", timeout)
 		Expect(err).Should(BeNil(), "Test pods are not ready after timeout")
@@ -232,17 +236,17 @@ func ValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newVersion str
 		}
 
 		err = kubectl.CiliumInstall(helpers.CiliumDefaultDSPatch, helpers.CiliumConfigMapPatch)
-		Expect(err).To(BeNil(), fmt.Sprintf("Cilium %s was not able to be deployed", newVersion))
+		ExpectWithOffset(1, err).To(BeNil(), "Cilium %q was not able to be deployed", newVersion)
 
 		err = helpers.WithTimeout(
 			waitForUpdateImage(newVersion),
 			"Cilium Pods are not updating correctly",
 			&helpers.TimeoutConfig{Timeout: timeout})
-		Expect(err).To(BeNil(), "Pods are not updating")
+		ExpectWithOffset(1, err).To(BeNil(), "Pods are not updating")
 
 		err = kubectl.WaitforPods(
 			helpers.KubeSystemNamespace, "-l k8s-app=cilium", timeout)
-		Expect(err).Should(BeNil(), "Cilium is not ready after timeout")
+		ExpectWithOffset(1, err).Should(BeNil(), "Cilium is not ready after timeout")
 
 		validatedImage(newVersion)
 
@@ -255,17 +259,17 @@ func ValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newVersion str
 			helpers.CiliumConfigMapPatch,
 			helpers.CiliumStableVersion,
 		)
-		Expect(err).To(BeNil(), fmt.Sprintf("Cilium %s was not able to be deployed", helpers.CiliumStableVersion))
+		ExpectWithOffset(1, err).To(BeNil(), "Cilium %q was not able to be deployed", helpers.CiliumStableVersion)
 
 		err = helpers.WithTimeout(
 			waitForUpdateImage(helpers.CiliumStableVersion),
 			"Cilium Pods are not updating correctly",
 			&helpers.TimeoutConfig{Timeout: timeout})
-		Expect(err).To(BeNil(), "Pods are not updating")
+		ExpectWithOffset(1, err).To(BeNil(), "Pods are not updating")
 
 		err = kubectl.WaitforPods(
 			helpers.KubeSystemNamespace, "-l k8s-app=cilium", timeout)
-		Expect(err).Should(BeNil(), "Cilium is not ready after timeout")
+		ExpectWithOffset(1, err).Should(BeNil(), "Cilium is not ready after timeout")
 
 		validatedImage(helpers.CiliumStableImageVersion)
 
