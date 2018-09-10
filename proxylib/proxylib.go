@@ -24,6 +24,7 @@ import (
 	"strconv"
 
 	"github.com/cilium/cilium/proxylib/accesslog"
+	"github.com/cilium/cilium/proxylib/npds"
 	. "github.com/cilium/cilium/proxylib/proxylib"
 	_ "github.com/cilium/cilium/proxylib/testparsers"
 
@@ -173,7 +174,7 @@ func Close(connectionId uint64) {
 // different filter instances, which are assumed to pass the same parameters!
 //export InitModule
 func InitModule(params [][2]string, debug bool) bool {
-	var accessLogPath string
+	var accessLogPath, xdsPath string
 
 	if debug {
 		log.SetLevel(log.DebugLevel)
@@ -183,6 +184,8 @@ func InitModule(params [][2]string, debug bool) bool {
 		switch param[0] {
 		case "access-log-path":
 			accessLogPath = param[1]
+		case "xds-path":
+			xdsPath = param[1]
 		default:
 			return false
 		}
@@ -191,6 +194,10 @@ func InitModule(params [][2]string, debug bool) bool {
 	accesslog.SetPath(accessLogPath)
 
 	// XXX: Start NPDS client, but need the node IP for that
+	if xdsPath != "" {
+		npds.StartClient(xdsPath, "host~127.0.0.1~libcilium~localdomain")
+	}
+
 	return true
 }
 
