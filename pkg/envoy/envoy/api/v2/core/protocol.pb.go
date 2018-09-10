@@ -6,89 +6,39 @@ package core
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import _ "github.com/gogo/protobuf/gogoproto"
-import duration "github.com/golang/protobuf/ptypes/duration"
-import wrappers "github.com/golang/protobuf/ptypes/wrappers"
+import google_protobuf3 "github.com/golang/protobuf/ptypes/duration"
+import google_protobuf1 "github.com/golang/protobuf/ptypes/wrappers"
 import _ "github.com/lyft/protoc-gen-validate/validate"
+import _ "github.com/gogo/protobuf/gogoproto"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
-// This is a compile-time assertion to ensure that this generated file
-// is compatible with the proto package it is being compiled against.
-// A compilation error at this line likely means your copy of the
-// proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
-
 // [#not-implemented-hide:]
 type TcpProtocolOptions struct {
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *TcpProtocolOptions) Reset()         { *m = TcpProtocolOptions{} }
-func (m *TcpProtocolOptions) String() string { return proto.CompactTextString(m) }
-func (*TcpProtocolOptions) ProtoMessage()    {}
-func (*TcpProtocolOptions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_protocol_7259b32b8fbb2c29, []int{0}
-}
-func (m *TcpProtocolOptions) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_TcpProtocolOptions.Unmarshal(m, b)
-}
-func (m *TcpProtocolOptions) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_TcpProtocolOptions.Marshal(b, m, deterministic)
-}
-func (dst *TcpProtocolOptions) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TcpProtocolOptions.Merge(dst, src)
-}
-func (m *TcpProtocolOptions) XXX_Size() int {
-	return xxx_messageInfo_TcpProtocolOptions.Size(m)
-}
-func (m *TcpProtocolOptions) XXX_DiscardUnknown() {
-	xxx_messageInfo_TcpProtocolOptions.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_TcpProtocolOptions proto.InternalMessageInfo
+func (m *TcpProtocolOptions) Reset()                    { *m = TcpProtocolOptions{} }
+func (m *TcpProtocolOptions) String() string            { return proto.CompactTextString(m) }
+func (*TcpProtocolOptions) ProtoMessage()               {}
+func (*TcpProtocolOptions) Descriptor() ([]byte, []int) { return fileDescriptor6, []int{0} }
 
 type HttpProtocolOptions struct {
 	// The idle timeout for upstream connection pool connections. The idle timeout is defined as the
 	// period in which there are no active requests. If not set, there is no idle timeout. When the
 	// idle timeout is reached the connection will be closed. Note that request based timeouts mean
 	// that HTTP/2 PINGs will not keep the connection alive.
-	IdleTimeout          *duration.Duration `protobuf:"bytes,1,opt,name=idle_timeout,json=idleTimeout,proto3" json:"idle_timeout,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
-	XXX_unrecognized     []byte             `json:"-"`
-	XXX_sizecache        int32              `json:"-"`
+	IdleTimeout *google_protobuf3.Duration `protobuf:"bytes,1,opt,name=idle_timeout,json=idleTimeout" json:"idle_timeout,omitempty"`
 }
 
-func (m *HttpProtocolOptions) Reset()         { *m = HttpProtocolOptions{} }
-func (m *HttpProtocolOptions) String() string { return proto.CompactTextString(m) }
-func (*HttpProtocolOptions) ProtoMessage()    {}
-func (*HttpProtocolOptions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_protocol_7259b32b8fbb2c29, []int{1}
-}
-func (m *HttpProtocolOptions) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_HttpProtocolOptions.Unmarshal(m, b)
-}
-func (m *HttpProtocolOptions) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_HttpProtocolOptions.Marshal(b, m, deterministic)
-}
-func (dst *HttpProtocolOptions) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HttpProtocolOptions.Merge(dst, src)
-}
-func (m *HttpProtocolOptions) XXX_Size() int {
-	return xxx_messageInfo_HttpProtocolOptions.Size(m)
-}
-func (m *HttpProtocolOptions) XXX_DiscardUnknown() {
-	xxx_messageInfo_HttpProtocolOptions.DiscardUnknown(m)
-}
+func (m *HttpProtocolOptions) Reset()                    { *m = HttpProtocolOptions{} }
+func (m *HttpProtocolOptions) String() string            { return proto.CompactTextString(m) }
+func (*HttpProtocolOptions) ProtoMessage()               {}
+func (*HttpProtocolOptions) Descriptor() ([]byte, []int) { return fileDescriptor6, []int{1} }
 
-var xxx_messageInfo_HttpProtocolOptions proto.InternalMessageInfo
-
-func (m *HttpProtocolOptions) GetIdleTimeout() *duration.Duration {
+func (m *HttpProtocolOptions) GetIdleTimeout() *google_protobuf3.Duration {
 	if m != nil {
 		return m.IdleTimeout
 	}
@@ -100,46 +50,24 @@ type Http1ProtocolOptions struct {
 	// are generally sent by clients to forward/explicit proxies. This allows clients to configure
 	// envoy as their HTTP proxy. In Unix, for example, this is typically done by setting the
 	// *http_proxy* environment variable.
-	AllowAbsoluteUrl *wrappers.BoolValue `protobuf:"bytes,1,opt,name=allow_absolute_url,json=allowAbsoluteUrl,proto3" json:"allow_absolute_url,omitempty"`
+	AllowAbsoluteUrl *google_protobuf1.BoolValue `protobuf:"bytes,1,opt,name=allow_absolute_url,json=allowAbsoluteUrl" json:"allow_absolute_url,omitempty"`
 	// Handle incoming HTTP/1.0 and HTTP 0.9 requests.
 	// This is off by default, and not fully standards compliant. There is support for pre-HTTP/1.1
 	// style connect logic, dechunking, and handling lack of client host iff
 	// *default_host_for_http_10* is configured.
-	AcceptHttp_10 bool `protobuf:"varint,2,opt,name=accept_http_10,json=acceptHttp10,proto3" json:"accept_http_10,omitempty"`
+	AcceptHttp_10 bool `protobuf:"varint,2,opt,name=accept_http_10,json=acceptHttp10" json:"accept_http_10,omitempty"`
 	// A default host for HTTP/1.0 requests. This is highly suggested if *accept_http_10* is true as
 	// Envoy does not otherwise support HTTP/1.0 without a Host header.
 	// This is a no-op if *accept_http_10* is not true.
-	DefaultHostForHttp_10 string   `protobuf:"bytes,3,opt,name=default_host_for_http_10,json=defaultHostForHttp10,proto3" json:"default_host_for_http_10,omitempty"`
-	XXX_NoUnkeyedLiteral  struct{} `json:"-"`
-	XXX_unrecognized      []byte   `json:"-"`
-	XXX_sizecache         int32    `json:"-"`
+	DefaultHostForHttp_10 string `protobuf:"bytes,3,opt,name=default_host_for_http_10,json=defaultHostForHttp10" json:"default_host_for_http_10,omitempty"`
 }
 
-func (m *Http1ProtocolOptions) Reset()         { *m = Http1ProtocolOptions{} }
-func (m *Http1ProtocolOptions) String() string { return proto.CompactTextString(m) }
-func (*Http1ProtocolOptions) ProtoMessage()    {}
-func (*Http1ProtocolOptions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_protocol_7259b32b8fbb2c29, []int{2}
-}
-func (m *Http1ProtocolOptions) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_Http1ProtocolOptions.Unmarshal(m, b)
-}
-func (m *Http1ProtocolOptions) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_Http1ProtocolOptions.Marshal(b, m, deterministic)
-}
-func (dst *Http1ProtocolOptions) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Http1ProtocolOptions.Merge(dst, src)
-}
-func (m *Http1ProtocolOptions) XXX_Size() int {
-	return xxx_messageInfo_Http1ProtocolOptions.Size(m)
-}
-func (m *Http1ProtocolOptions) XXX_DiscardUnknown() {
-	xxx_messageInfo_Http1ProtocolOptions.DiscardUnknown(m)
-}
+func (m *Http1ProtocolOptions) Reset()                    { *m = Http1ProtocolOptions{} }
+func (m *Http1ProtocolOptions) String() string            { return proto.CompactTextString(m) }
+func (*Http1ProtocolOptions) ProtoMessage()               {}
+func (*Http1ProtocolOptions) Descriptor() ([]byte, []int) { return fileDescriptor6, []int{2} }
 
-var xxx_messageInfo_Http1ProtocolOptions proto.InternalMessageInfo
-
-func (m *Http1ProtocolOptions) GetAllowAbsoluteUrl() *wrappers.BoolValue {
+func (m *Http1ProtocolOptions) GetAllowAbsoluteUrl() *google_protobuf1.BoolValue {
 	if m != nil {
 		return m.AllowAbsoluteUrl
 	}
@@ -165,69 +93,47 @@ type Http2ProtocolOptions struct {
 	// (in octets) that the encoder is permitted to use for the dynamic HPACK table. Valid values
 	// range from 0 to 4294967295 (2^32 - 1) and defaults to 4096. 0 effectively disables header
 	// compression.
-	HpackTableSize *wrappers.UInt32Value `protobuf:"bytes,1,opt,name=hpack_table_size,json=hpackTableSize,proto3" json:"hpack_table_size,omitempty"`
+	HpackTableSize *google_protobuf1.UInt32Value `protobuf:"bytes,1,opt,name=hpack_table_size,json=hpackTableSize" json:"hpack_table_size,omitempty"`
 	// `Maximum concurrent streams <http://httpwg.org/specs/rfc7540.html#rfc.section.5.1.2>`_
 	// allowed for peer on one HTTP/2 connection. Valid values range from 1 to 2147483647 (2^31 - 1)
 	// and defaults to 2147483647.
-	MaxConcurrentStreams *wrappers.UInt32Value `protobuf:"bytes,2,opt,name=max_concurrent_streams,json=maxConcurrentStreams,proto3" json:"max_concurrent_streams,omitempty"`
+	MaxConcurrentStreams *google_protobuf1.UInt32Value `protobuf:"bytes,2,opt,name=max_concurrent_streams,json=maxConcurrentStreams" json:"max_concurrent_streams,omitempty"`
 	// This field also acts as a soft limit on the number of bytes Envoy will buffer per-stream in the
 	// HTTP/2 codec buffers. Once the buffer reaches this pointer, watermark callbacks will fire to
 	// stop the flow of data to the codec buffers.
-	InitialStreamWindowSize *wrappers.UInt32Value `protobuf:"bytes,3,opt,name=initial_stream_window_size,json=initialStreamWindowSize,proto3" json:"initial_stream_window_size,omitempty"`
+	InitialStreamWindowSize *google_protobuf1.UInt32Value `protobuf:"bytes,3,opt,name=initial_stream_window_size,json=initialStreamWindowSize" json:"initial_stream_window_size,omitempty"`
 	// Similar to *initial_stream_window_size*, but for connection-level flow-control
 	// window. Currently, this has the same minimum/maximum/default as *initial_stream_window_size*.
-	InitialConnectionWindowSize *wrappers.UInt32Value `protobuf:"bytes,4,opt,name=initial_connection_window_size,json=initialConnectionWindowSize,proto3" json:"initial_connection_window_size,omitempty"`
-	XXX_NoUnkeyedLiteral        struct{}              `json:"-"`
-	XXX_unrecognized            []byte                `json:"-"`
-	XXX_sizecache               int32                 `json:"-"`
+	InitialConnectionWindowSize *google_protobuf1.UInt32Value `protobuf:"bytes,4,opt,name=initial_connection_window_size,json=initialConnectionWindowSize" json:"initial_connection_window_size,omitempty"`
 }
 
-func (m *Http2ProtocolOptions) Reset()         { *m = Http2ProtocolOptions{} }
-func (m *Http2ProtocolOptions) String() string { return proto.CompactTextString(m) }
-func (*Http2ProtocolOptions) ProtoMessage()    {}
-func (*Http2ProtocolOptions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_protocol_7259b32b8fbb2c29, []int{3}
-}
-func (m *Http2ProtocolOptions) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_Http2ProtocolOptions.Unmarshal(m, b)
-}
-func (m *Http2ProtocolOptions) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_Http2ProtocolOptions.Marshal(b, m, deterministic)
-}
-func (dst *Http2ProtocolOptions) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Http2ProtocolOptions.Merge(dst, src)
-}
-func (m *Http2ProtocolOptions) XXX_Size() int {
-	return xxx_messageInfo_Http2ProtocolOptions.Size(m)
-}
-func (m *Http2ProtocolOptions) XXX_DiscardUnknown() {
-	xxx_messageInfo_Http2ProtocolOptions.DiscardUnknown(m)
-}
+func (m *Http2ProtocolOptions) Reset()                    { *m = Http2ProtocolOptions{} }
+func (m *Http2ProtocolOptions) String() string            { return proto.CompactTextString(m) }
+func (*Http2ProtocolOptions) ProtoMessage()               {}
+func (*Http2ProtocolOptions) Descriptor() ([]byte, []int) { return fileDescriptor6, []int{3} }
 
-var xxx_messageInfo_Http2ProtocolOptions proto.InternalMessageInfo
-
-func (m *Http2ProtocolOptions) GetHpackTableSize() *wrappers.UInt32Value {
+func (m *Http2ProtocolOptions) GetHpackTableSize() *google_protobuf1.UInt32Value {
 	if m != nil {
 		return m.HpackTableSize
 	}
 	return nil
 }
 
-func (m *Http2ProtocolOptions) GetMaxConcurrentStreams() *wrappers.UInt32Value {
+func (m *Http2ProtocolOptions) GetMaxConcurrentStreams() *google_protobuf1.UInt32Value {
 	if m != nil {
 		return m.MaxConcurrentStreams
 	}
 	return nil
 }
 
-func (m *Http2ProtocolOptions) GetInitialStreamWindowSize() *wrappers.UInt32Value {
+func (m *Http2ProtocolOptions) GetInitialStreamWindowSize() *google_protobuf1.UInt32Value {
 	if m != nil {
 		return m.InitialStreamWindowSize
 	}
 	return nil
 }
 
-func (m *Http2ProtocolOptions) GetInitialConnectionWindowSize() *wrappers.UInt32Value {
+func (m *Http2ProtocolOptions) GetInitialConnectionWindowSize() *google_protobuf1.UInt32Value {
 	if m != nil {
 		return m.InitialConnectionWindowSize
 	}
@@ -236,35 +142,13 @@ func (m *Http2ProtocolOptions) GetInitialConnectionWindowSize() *wrappers.UInt32
 
 // [#not-implemented-hide:]
 type GrpcProtocolOptions struct {
-	Http2ProtocolOptions *Http2ProtocolOptions `protobuf:"bytes,1,opt,name=http2_protocol_options,json=http2ProtocolOptions,proto3" json:"http2_protocol_options,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
-	XXX_unrecognized     []byte                `json:"-"`
-	XXX_sizecache        int32                 `json:"-"`
+	Http2ProtocolOptions *Http2ProtocolOptions `protobuf:"bytes,1,opt,name=http2_protocol_options,json=http2ProtocolOptions" json:"http2_protocol_options,omitempty"`
 }
 
-func (m *GrpcProtocolOptions) Reset()         { *m = GrpcProtocolOptions{} }
-func (m *GrpcProtocolOptions) String() string { return proto.CompactTextString(m) }
-func (*GrpcProtocolOptions) ProtoMessage()    {}
-func (*GrpcProtocolOptions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_protocol_7259b32b8fbb2c29, []int{4}
-}
-func (m *GrpcProtocolOptions) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_GrpcProtocolOptions.Unmarshal(m, b)
-}
-func (m *GrpcProtocolOptions) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_GrpcProtocolOptions.Marshal(b, m, deterministic)
-}
-func (dst *GrpcProtocolOptions) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GrpcProtocolOptions.Merge(dst, src)
-}
-func (m *GrpcProtocolOptions) XXX_Size() int {
-	return xxx_messageInfo_GrpcProtocolOptions.Size(m)
-}
-func (m *GrpcProtocolOptions) XXX_DiscardUnknown() {
-	xxx_messageInfo_GrpcProtocolOptions.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_GrpcProtocolOptions proto.InternalMessageInfo
+func (m *GrpcProtocolOptions) Reset()                    { *m = GrpcProtocolOptions{} }
+func (m *GrpcProtocolOptions) String() string            { return proto.CompactTextString(m) }
+func (*GrpcProtocolOptions) ProtoMessage()               {}
+func (*GrpcProtocolOptions) Descriptor() ([]byte, []int) { return fileDescriptor6, []int{4} }
 
 func (m *GrpcProtocolOptions) GetHttp2ProtocolOptions() *Http2ProtocolOptions {
 	if m != nil {
@@ -281,11 +165,9 @@ func init() {
 	proto.RegisterType((*GrpcProtocolOptions)(nil), "envoy.api.v2.core.GrpcProtocolOptions")
 }
 
-func init() {
-	proto.RegisterFile("envoy/api/v2/core/protocol.proto", fileDescriptor_protocol_7259b32b8fbb2c29)
-}
+func init() { proto.RegisterFile("envoy/api/v2/core/protocol.proto", fileDescriptor6) }
 
-var fileDescriptor_protocol_7259b32b8fbb2c29 = []byte{
+var fileDescriptor6 = []byte{
 	// 528 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x93, 0xd1, 0x6a, 0x13, 0x4f,
 	0x14, 0xc6, 0xd9, 0x7f, 0xca, 0xdf, 0x3a, 0x2d, 0xb5, 0xdd, 0x2e, 0x6d, 0x8c, 0x12, 0x43, 0x10,

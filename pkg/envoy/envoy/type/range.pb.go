@@ -13,47 +13,19 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
-// This is a compile-time assertion to ensure that this generated file
-// is compatible with the proto package it is being compiled against.
-// A compilation error at this line likely means your copy of the
-// proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
-
 // Specifies the int64 start and end of the range using half-open interval semantics [start,
 // end).
 type Int64Range struct {
 	// start of the range (inclusive)
-	Start int64 `protobuf:"varint,1,opt,name=start,proto3" json:"start,omitempty"`
+	Start int64 `protobuf:"varint,1,opt,name=start" json:"start,omitempty"`
 	// end of the range (exclusive)
-	End                  int64    `protobuf:"varint,2,opt,name=end,proto3" json:"end,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	End int64 `protobuf:"varint,2,opt,name=end" json:"end,omitempty"`
 }
 
-func (m *Int64Range) Reset()         { *m = Int64Range{} }
-func (m *Int64Range) String() string { return proto.CompactTextString(m) }
-func (*Int64Range) ProtoMessage()    {}
-func (*Int64Range) Descriptor() ([]byte, []int) {
-	return fileDescriptor_range_53e49e362a052ab3, []int{0}
-}
-func (m *Int64Range) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_Int64Range.Unmarshal(m, b)
-}
-func (m *Int64Range) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_Int64Range.Marshal(b, m, deterministic)
-}
-func (dst *Int64Range) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Int64Range.Merge(dst, src)
-}
-func (m *Int64Range) XXX_Size() int {
-	return xxx_messageInfo_Int64Range.Size(m)
-}
-func (m *Int64Range) XXX_DiscardUnknown() {
-	xxx_messageInfo_Int64Range.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_Int64Range proto.InternalMessageInfo
+func (m *Int64Range) Reset()                    { *m = Int64Range{} }
+func (m *Int64Range) String() string            { return proto.CompactTextString(m) }
+func (*Int64Range) ProtoMessage()               {}
+func (*Int64Range) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{0} }
 
 func (m *Int64Range) GetStart() int64 {
 	if m != nil {
@@ -73,37 +45,15 @@ func (m *Int64Range) GetEnd() int64 {
 // end).
 type DoubleRange struct {
 	// start of the range (inclusive)
-	Start float64 `protobuf:"fixed64,1,opt,name=start,proto3" json:"start,omitempty"`
+	Start float64 `protobuf:"fixed64,1,opt,name=start" json:"start,omitempty"`
 	// end of the range (exclusive)
-	End                  float64  `protobuf:"fixed64,2,opt,name=end,proto3" json:"end,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	End float64 `protobuf:"fixed64,2,opt,name=end" json:"end,omitempty"`
 }
 
-func (m *DoubleRange) Reset()         { *m = DoubleRange{} }
-func (m *DoubleRange) String() string { return proto.CompactTextString(m) }
-func (*DoubleRange) ProtoMessage()    {}
-func (*DoubleRange) Descriptor() ([]byte, []int) {
-	return fileDescriptor_range_53e49e362a052ab3, []int{1}
-}
-func (m *DoubleRange) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_DoubleRange.Unmarshal(m, b)
-}
-func (m *DoubleRange) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_DoubleRange.Marshal(b, m, deterministic)
-}
-func (dst *DoubleRange) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_DoubleRange.Merge(dst, src)
-}
-func (m *DoubleRange) XXX_Size() int {
-	return xxx_messageInfo_DoubleRange.Size(m)
-}
-func (m *DoubleRange) XXX_DiscardUnknown() {
-	xxx_messageInfo_DoubleRange.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_DoubleRange proto.InternalMessageInfo
+func (m *DoubleRange) Reset()                    { *m = DoubleRange{} }
+func (m *DoubleRange) String() string            { return proto.CompactTextString(m) }
+func (*DoubleRange) ProtoMessage()               {}
+func (*DoubleRange) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{1} }
 
 func (m *DoubleRange) GetStart() float64 {
 	if m != nil {
@@ -124,9 +74,9 @@ func init() {
 	proto.RegisterType((*DoubleRange)(nil), "envoy.type.DoubleRange")
 }
 
-func init() { proto.RegisterFile("envoy/type/range.proto", fileDescriptor_range_53e49e362a052ab3) }
+func init() { proto.RegisterFile("envoy/type/range.proto", fileDescriptor2) }
 
-var fileDescriptor_range_53e49e362a052ab3 = []byte{
+var fileDescriptor2 = []byte{
 	// 146 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x12, 0x4b, 0xcd, 0x2b, 0xcb,
 	0xaf, 0xd4, 0x2f, 0xa9, 0x2c, 0x48, 0xd5, 0x2f, 0x4a, 0xcc, 0x4b, 0x4f, 0xd5, 0x2b, 0x28, 0xca,
