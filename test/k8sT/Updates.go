@@ -114,6 +114,8 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 			"cilium-cm-patch-clean-cilium-state.yaml",
 		)
 		ExpectWithOffset(1, err).To(BeNil(), "Cilium %q was not able to be deployed", newVersion)
+
+		ExpectAllPodsTerminated(kubectl)
 		ExpectCiliumReady(kubectl)
 
 		_ = kubectl.DeleteResource(
