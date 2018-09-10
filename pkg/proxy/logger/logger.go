@@ -279,6 +279,13 @@ func (logTags) Kafka(k *accesslog.LogRecordKafka) LogTag {
 	}
 }
 
+// L7 attaches generic L7 information to the log record
+func (logTags) L7(h *accesslog.LogRecordL7) LogTag {
+	return func(lr *LogRecord) {
+		lr.L7 = h
+	}
+}
+
 // ApplyTags applies tags to an existing log record
 //
 // Example:
