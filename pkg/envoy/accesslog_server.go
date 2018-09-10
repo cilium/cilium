@@ -140,8 +140,13 @@ func (s *accessLogServer) logRecord(localEndpoint logger.EndpointUpdater, pblog 
 			Protocol: http.GetProtocol(),
 			Headers:  http.GetNetHttpHeaders(),
 		})
+	} else if l7 := pblog.GetGenericL7(); l7 != nil {
+		l7tags = logger.LogTags.L7(&accesslog.LogRecordL7{
+			Proto:  l7.GetProto(),
+			Fields: l7.GetFields(),
+		})
 	} else {
-		// Default to the deprecated log format
+		// Default to the deprecated HTTP log format
 		l7tags = logger.LogTags.HTTP(&accesslog.LogRecordHTTP{
 			Method:   pblog.Method,
 			Code:     int(pblog.Status),
