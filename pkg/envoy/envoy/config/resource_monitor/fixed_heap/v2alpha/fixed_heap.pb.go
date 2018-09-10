@@ -18,9 +18,10 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
+// The fixed heap resource monitor reports the Envoy process memory pressure, computed as a
+// fraction of currently reserved heap memory divided by a statically configured maximum
+// specified in the FixedHeapConfig.
 type FixedHeapConfig struct {
-	// Limit of the Envoy process heap size. This is used to calculate heap memory pressure which
-	// is defined as (current heap size)/max_heap_size_bytes.
 	MaxHeapSizeBytes     uint64   `protobuf:"varint,1,opt,name=max_heap_size_bytes,json=maxHeapSizeBytes,proto3" json:"max_heap_size_bytes,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -31,7 +32,7 @@ func (m *FixedHeapConfig) Reset()         { *m = FixedHeapConfig{} }
 func (m *FixedHeapConfig) String() string { return proto.CompactTextString(m) }
 func (*FixedHeapConfig) ProtoMessage()    {}
 func (*FixedHeapConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_fixed_heap_bc9e51372421fd0a, []int{0}
+	return fileDescriptor_fixed_heap_597624118e75827d, []int{0}
 }
 func (m *FixedHeapConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FixedHeapConfig.Unmarshal(m, b)
@@ -63,10 +64,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("envoy/config/resource_monitor/fixed_heap/v2alpha/fixed_heap.proto", fileDescriptor_fixed_heap_bc9e51372421fd0a)
+	proto.RegisterFile("envoy/config/resource_monitor/fixed_heap/v2alpha/fixed_heap.proto", fileDescriptor_fixed_heap_597624118e75827d)
 }
 
-var fileDescriptor_fixed_heap_bc9e51372421fd0a = []byte{
+var fileDescriptor_fixed_heap_597624118e75827d = []byte{
 	// 163 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x72, 0x4c, 0xcd, 0x2b, 0xcb,
 	0xaf, 0xd4, 0x4f, 0xce, 0xcf, 0x4b, 0xcb, 0x4c, 0xd7, 0x2f, 0x4a, 0x2d, 0xce, 0x2f, 0x2d, 0x4a,

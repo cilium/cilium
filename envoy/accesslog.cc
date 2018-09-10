@@ -77,7 +77,8 @@ void AccessLog::Entry::InitFromRequest(
     proto = ::cilium::HttpProtocol::HTTP2;
     break;
   }
-  entry.set_http_protocol(proto);
+  ::cilium::HttpLogEntry* http_entry = entry.mutable_http();
+  http_entry->set_http_protocol(proto);
 
   entry.set_policy_name(policy_name);
 
@@ -102,12 +103,10 @@ void AccessLog::Entry::InitFromRequest(
 
   // request headers
   headers.iterate(
-      [](const Http::HeaderEntry &header,
-         void *entry_) -> Http::HeaderMap::Iterate {
+      [](const Http::HeaderEntry &header, void *entry_) -> Http::HeaderMap::Iterate {
         const Http::HeaderString &key = header.key();
-        const char *value = header.value().c_str();
-        ::cilium::LogEntry *entry =
-            static_cast<::cilium::LogEntry *>(entry_);
+        const char* value = header.value().c_str();
+        auto entry = static_cast<::cilium::HttpLogEntry *>(entry_);
 
         if (key == ":path") {
           entry->set_path(value);
@@ -128,7 +127,7 @@ void AccessLog::Entry::InitFromRequest(
         }
         return Http::HeaderMap::Iterate::Continue;
       },
-      &entry);
+      http_entry);
 
     entry.set_is_ingress(ingress);
 }
@@ -143,14 +142,16 @@ void AccessLog::Entry::UpdateFromResponse(
                           time.time_since_epoch())
                           .count());
 
+  ::cilium::HttpLogEntry* http_entry = entry.mutable_http();
+
   if (info.responseCode()) {
-    entry.set_status(info.responseCode().value());
+    http_entry->set_status(info.responseCode().value());
   } else {
     const Http::HeaderEntry *status_entry = headers.Status();
     if (status_entry) {
       uint64_t status;
       if (StringUtil::atoul(status_entry->value().c_str(), status, 10)) {
-        entry.set_status(status);
+        http_entry->set_status(status);
       }
     }
   }
@@ -201,8 +202,7 @@ bool AccessLog::Connect() {
 
   struct sockaddr_un addr = {.sun_family = AF_UNIX, .sun_path = {}};
   strncpy(addr.sun_path, path_.c_str(), sizeof(addr.sun_path) - 1);
-  if (::connect(fd_, reinterpret_cast<struct sockaddr *>(&addr),
-                sizeof(addr)) == -1) {
+  if (::connect(fd_, reinterpret_cast<struct sockaddr *>(&addr), sizeof(addr)) == -1) {
     ENVOY_LOG(warn, "Connect to {} failed: {}", path_, strerror(errno));
     ::close(fd_);
     fd_ = -1;
