@@ -417,19 +417,6 @@ var _ = Describe("NightlyExamples", func() {
 	Context("Upgrade test", func() {
 		var cleanupCallback = func() { return }
 
-		cleanupPreTest := func(version string) {
-			// Making sure that we deleted the  cilium ds. No assert message
-			// because maybe is not present
-			_ = kubectl.DeleteResource("ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
-
-			// Delete kube-dns because if not will be a restore the old endpoints
-			// from master instead of create the new ones.
-			_ = kubectl.Delete(helpers.DNSDeployment())
-
-			ExpectAllPodsTerminated(kubectl)
-
-		}
-
 		AfterEach(func() {
 			cleanupCallback()
 		})
@@ -441,29 +428,9 @@ var _ = Describe("NightlyExamples", func() {
 		for _, image := range helpers.NightlyStableUpgradesFrom {
 			func(version string) {
 				It(fmt.Sprintf("Update Cilium from %s to master", version), func() {
-					By("Cleaning up everything before testing an upgrade from %q", version)
-					cleanupPreTest(image)
-
-					By("Validating that cilium can be installed")
-					canRun, err := helpers.CanRunK8sVersion(version, helpers.GetCurrentK8SEnv())
-
-					Expect(err).To(BeNil(), "Unable to get k8s constraints for %s", version)
-					if !canRun {
-						Skip(fmt.Sprintf(
-							"Cilium %q is not supported in K8s %q. Skipping upgrade/downgrade tests.",
-							version, helpers.GetCurrentK8SEnv()))
-					}
-					By("Installing Cilium version %q", version)
-					err = kubectl.CiliumInstallVersion(
-						helpers.CiliumDefaultDSPatch,
-						"cilium-cm-patch-clean-cilium-state.yaml",
-						version,
-					)
-					Expect(err).To(BeNil(), "Cilium %s was not able to be deployed", version)
-					ExpectCiliumReady(kubectl)
-
 					var assertUpgradeSuccessful func()
-					assertUpgradeSuccessful, cleanupCallback = ValidateCiliumUpgrades(kubectl, image, helpers.CiliumDeveloperImage)
+					assertUpgradeSuccessful, cleanupCallback = InstallAndValidateCiliumUpgrades(
+						kubectl, image, helpers.CiliumDeveloperImage)
 					assertUpgradeSuccessful()
 				})
 			}(image)

@@ -29,9 +29,7 @@ var _ = Describe("K8sUpdates", func() {
 	var (
 		kubectl *helpers.Kubectl
 
-		microscopeErr    error
-		microscopeCancel = func() error { return nil }
-		cleanupCallback  = func() { return }
+		cleanupCallback = func() { return }
 	)
 
 	BeforeAll(func() {
@@ -52,11 +50,6 @@ var _ = Describe("K8sUpdates", func() {
 		ExpectAllPodsTerminated(kubectl)
 	})
 
-	JustBeforeEach(func() {
-		microscopeErr, microscopeCancel = kubectl.MicroscopeStart()
-		Expect(microscopeErr).To(BeNil(), "Microscope cannot be started")
-	})
-
 	AfterAll(func() {
 		_ = kubectl.Apply(helpers.DNSDeployment())
 
@@ -74,7 +67,6 @@ var _ = Describe("K8sUpdates", func() {
 
 	JustAfterEach(func() {
 		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
-		Expect(microscopeCancel()).To(BeNil(), "cannot stop microscope")
 	})
 
 	AfterEach(func() {
@@ -82,39 +74,19 @@ var _ = Describe("K8sUpdates", func() {
 		ExpectAllPodsTerminated(kubectl)
 	})
 
-	BeforeEach(func() {
-		// Making sure that we deleted the  cilium ds. No assert message
-		// because maybe is not present
-		_ = kubectl.DeleteResource("ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
-
-		// Delete kube-dns because if not will be a restore the old endpoints
-		// from master instead of create the new ones.
-		_ = kubectl.Delete(helpers.DNSDeployment())
-
-		ExpectAllPodsTerminated(kubectl)
-
-		err := kubectl.CiliumInstallVersion(
-			helpers.CiliumDefaultDSPatch,
-			"cilium-cm-patch-clean-cilium-state.yaml",
-			helpers.CiliumStableVersion,
-		)
-		Expect(err).To(BeNil(), fmt.Sprintf("Cilium %s was not able to be deployed", helpers.CiliumStableVersion))
-		ExpectCiliumReady(kubectl)
-	})
-
 	It("Tests upgrade and downgrade from a Cilium stable image to master", func() {
 		var assertUpgradeSuccessful func()
 		assertUpgradeSuccessful, cleanupCallback =
-			ValidateCiliumUpgrades(kubectl, helpers.CiliumStableVersion, helpers.CiliumDeveloperImage)
+			InstallAndValidateCiliumUpgrades(kubectl, helpers.CiliumStableVersion, helpers.CiliumDeveloperImage)
 		assertUpgradeSuccessful()
 	})
 })
 
-// ValidateCiliumUpgrades tests if the oldVersion can be upgrade to the newVersion
-// and if the newVersion can be downgraded to the oldVersion.
-// It returns two callbacks, the first one is the assertfunction that need to
-// run, and the second one are the cleanup actions
-func ValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newVersion string) (func(), func()) {
+// InstallAndValidateCiliumUpgrades installs and tests if the oldVersion can be
+// upgrade to the newVersion and if the newVersion can be downgraded to the
+// oldVersion.  It returns two callbacks, the first one is the assertfunction
+// that need to run, and the second one are the cleanup actions
+func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newVersion string) (func(), func()) {
 	canRun, err := helpers.CanRunK8sVersion(oldVersion, helpers.GetCurrentK8SEnv())
 	ExpectWithOffset(1, err).To(BeNil(), "Unable to get k8s constraints for %s", oldVersion)
 	if !canRun {
@@ -149,6 +121,31 @@ func ValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newVersion str
 	}
 
 	testfunc := func() {
+		// Making sure that we deleted the  cilium ds. No assert message
+		// because maybe is not present
+		_ = kubectl.DeleteResource("ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
+
+		// Delete kube-dns because if not will be a restore the old endpoints
+		// from master instead of create the new ones.
+		_ = kubectl.Delete(helpers.DNSDeployment())
+
+		ExpectAllPodsTerminated(kubectl)
+
+		err = kubectl.CiliumInstallVersion(
+			helpers.CiliumDefaultDSPatch,
+			"cilium-cm-patch-clean-cilium-state.yaml",
+			oldVersion,
+		)
+		Expect(err).To(BeNil(), "Cilium %q was not able to be deployed", oldVersion)
+		ExpectCiliumReady(kubectl)
+
+		By("Cilium %q is installed and running", oldVersion)
+
+		By("Installing Microscope")
+		microscopeErr, microscopeCancel := kubectl.MicroscopeStart()
+		ExpectWithOffset(1, microscopeErr).To(BeNil(), "Microscope cannot be started")
+		defer microscopeCancel()
+
 		validatedImage := func(image string) {
 			By("Checking that installed image is %q", image)
 
