@@ -6,7 +6,8 @@ DEPS := $(shell find ../pkg accesslog npds test . \( -name '*.go' ! -name '*_tes
 $(TARGET): $(DEPS)
 	@$(ECHO_GO)
 	$(GO) build $(GOBUILD) -o $@ -buildmode=c-shared
-	ls -l libcilium.so
+	pwd
+	ls -lrt
 
 all: $(TARGET)
 
@@ -17,4 +18,6 @@ clean:
 
 install:
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(LIBDIR)
+	pwd
+	ls -lrt
 	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(LIBDIR)
