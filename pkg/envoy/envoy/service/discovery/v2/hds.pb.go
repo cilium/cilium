@@ -6,10 +6,11 @@ package v2
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import endpoint "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/endpoint"
-import duration "github.com/golang/protobuf/ptypes/duration"
+import envoy_api_v2_core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+import envoy_api_v2_core1 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+import envoy_api_v2_endpoint "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/endpoint"
 import _ "google.golang.org/genproto/googleapis/api/annotations"
+import google_protobuf3 "github.com/golang/protobuf/ptypes/duration"
 
 import (
 	context "golang.org/x/net/context"
@@ -20,12 +21,6 @@ import (
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
-
-// This is a compile-time assertion to ensure that this generated file
-// is compatible with the proto package it is being compiled against.
-// A compilation error at this line likely means your copy of the
-// proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 // Different Envoy instances may have different capabilities (e.g. Redis)
 // and/or have ports enabled for different protocols.
@@ -51,83 +46,37 @@ var Capability_Protocol_value = map[string]int32{
 func (x Capability_Protocol) String() string {
 	return proto.EnumName(Capability_Protocol_name, int32(x))
 }
-func (Capability_Protocol) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_hds_070ff65e274fcf0d, []int{0, 0}
-}
+func (Capability_Protocol) EnumDescriptor() ([]byte, []int) { return fileDescriptor1, []int{0, 0} }
 
 // Defines supported protocols etc, so the management server can assign proper
 // endpoints to healthcheck.
 type Capability struct {
-	HealthCheckProtocol  []Capability_Protocol `protobuf:"varint,1,rep,packed,name=health_check_protocol,json=healthCheckProtocol,proto3,enum=envoy.service.discovery.v2.Capability_Protocol" json:"health_check_protocol,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
-	XXX_unrecognized     []byte                `json:"-"`
-	XXX_sizecache        int32                 `json:"-"`
+	HealthCheckProtocols []Capability_Protocol `protobuf:"varint,1,rep,packed,name=health_check_protocols,json=healthCheckProtocols,enum=envoy.service.discovery.v2.Capability_Protocol" json:"health_check_protocols,omitempty"`
 }
 
-func (m *Capability) Reset()         { *m = Capability{} }
-func (m *Capability) String() string { return proto.CompactTextString(m) }
-func (*Capability) ProtoMessage()    {}
-func (*Capability) Descriptor() ([]byte, []int) {
-	return fileDescriptor_hds_070ff65e274fcf0d, []int{0}
-}
-func (m *Capability) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_Capability.Unmarshal(m, b)
-}
-func (m *Capability) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_Capability.Marshal(b, m, deterministic)
-}
-func (dst *Capability) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Capability.Merge(dst, src)
-}
-func (m *Capability) XXX_Size() int {
-	return xxx_messageInfo_Capability.Size(m)
-}
-func (m *Capability) XXX_DiscardUnknown() {
-	xxx_messageInfo_Capability.DiscardUnknown(m)
-}
+func (m *Capability) Reset()                    { *m = Capability{} }
+func (m *Capability) String() string            { return proto.CompactTextString(m) }
+func (*Capability) ProtoMessage()               {}
+func (*Capability) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{0} }
 
-var xxx_messageInfo_Capability proto.InternalMessageInfo
-
-func (m *Capability) GetHealthCheckProtocol() []Capability_Protocol {
+func (m *Capability) GetHealthCheckProtocols() []Capability_Protocol {
 	if m != nil {
-		return m.HealthCheckProtocol
+		return m.HealthCheckProtocols
 	}
 	return nil
 }
 
 type HealthCheckRequest struct {
-	Node                 *core.Node  `protobuf:"bytes,1,opt,name=node,proto3" json:"node,omitempty"`
-	Capability           *Capability `protobuf:"bytes,2,opt,name=capability,proto3" json:"capability,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
-	XXX_unrecognized     []byte      `json:"-"`
-	XXX_sizecache        int32       `json:"-"`
+	Node       *envoy_api_v2_core.Node `protobuf:"bytes,1,opt,name=node" json:"node,omitempty"`
+	Capability *Capability             `protobuf:"bytes,2,opt,name=capability" json:"capability,omitempty"`
 }
 
-func (m *HealthCheckRequest) Reset()         { *m = HealthCheckRequest{} }
-func (m *HealthCheckRequest) String() string { return proto.CompactTextString(m) }
-func (*HealthCheckRequest) ProtoMessage()    {}
-func (*HealthCheckRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_hds_070ff65e274fcf0d, []int{1}
-}
-func (m *HealthCheckRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_HealthCheckRequest.Unmarshal(m, b)
-}
-func (m *HealthCheckRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_HealthCheckRequest.Marshal(b, m, deterministic)
-}
-func (dst *HealthCheckRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HealthCheckRequest.Merge(dst, src)
-}
-func (m *HealthCheckRequest) XXX_Size() int {
-	return xxx_messageInfo_HealthCheckRequest.Size(m)
-}
-func (m *HealthCheckRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_HealthCheckRequest.DiscardUnknown(m)
-}
+func (m *HealthCheckRequest) Reset()                    { *m = HealthCheckRequest{} }
+func (m *HealthCheckRequest) String() string            { return proto.CompactTextString(m) }
+func (*HealthCheckRequest) ProtoMessage()               {}
+func (*HealthCheckRequest) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{1} }
 
-var xxx_messageInfo_HealthCheckRequest proto.InternalMessageInfo
-
-func (m *HealthCheckRequest) GetNode() *core.Node {
+func (m *HealthCheckRequest) GetNode() *envoy_api_v2_core.Node {
 	if m != nil {
 		return m.Node
 	}
@@ -142,81 +91,37 @@ func (m *HealthCheckRequest) GetCapability() *Capability {
 }
 
 type EndpointHealth struct {
-	Endpoint             *endpoint.Endpoint `protobuf:"bytes,1,opt,name=endpoint,proto3" json:"endpoint,omitempty"`
-	HealthStatus         core.HealthStatus  `protobuf:"varint,2,opt,name=health_status,json=healthStatus,proto3,enum=envoy.api.v2.core.HealthStatus" json:"health_status,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
-	XXX_unrecognized     []byte             `json:"-"`
-	XXX_sizecache        int32              `json:"-"`
+	Endpoint     *envoy_api_v2_endpoint.Endpoint `protobuf:"bytes,1,opt,name=endpoint" json:"endpoint,omitempty"`
+	HealthStatus envoy_api_v2_core1.HealthStatus `protobuf:"varint,2,opt,name=health_status,json=healthStatus,enum=envoy.api.v2.core.HealthStatus" json:"health_status,omitempty"`
 }
 
-func (m *EndpointHealth) Reset()         { *m = EndpointHealth{} }
-func (m *EndpointHealth) String() string { return proto.CompactTextString(m) }
-func (*EndpointHealth) ProtoMessage()    {}
-func (*EndpointHealth) Descriptor() ([]byte, []int) {
-	return fileDescriptor_hds_070ff65e274fcf0d, []int{2}
-}
-func (m *EndpointHealth) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_EndpointHealth.Unmarshal(m, b)
-}
-func (m *EndpointHealth) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_EndpointHealth.Marshal(b, m, deterministic)
-}
-func (dst *EndpointHealth) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_EndpointHealth.Merge(dst, src)
-}
-func (m *EndpointHealth) XXX_Size() int {
-	return xxx_messageInfo_EndpointHealth.Size(m)
-}
-func (m *EndpointHealth) XXX_DiscardUnknown() {
-	xxx_messageInfo_EndpointHealth.DiscardUnknown(m)
-}
+func (m *EndpointHealth) Reset()                    { *m = EndpointHealth{} }
+func (m *EndpointHealth) String() string            { return proto.CompactTextString(m) }
+func (*EndpointHealth) ProtoMessage()               {}
+func (*EndpointHealth) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{2} }
 
-var xxx_messageInfo_EndpointHealth proto.InternalMessageInfo
-
-func (m *EndpointHealth) GetEndpoint() *endpoint.Endpoint {
+func (m *EndpointHealth) GetEndpoint() *envoy_api_v2_endpoint.Endpoint {
 	if m != nil {
 		return m.Endpoint
 	}
 	return nil
 }
 
-func (m *EndpointHealth) GetHealthStatus() core.HealthStatus {
+func (m *EndpointHealth) GetHealthStatus() envoy_api_v2_core1.HealthStatus {
 	if m != nil {
 		return m.HealthStatus
 	}
-	return core.HealthStatus_UNKNOWN
+	return envoy_api_v2_core1.HealthStatus_UNKNOWN
 }
 
 type EndpointHealthResponse struct {
-	EndpointsHealth      []*EndpointHealth `protobuf:"bytes,1,rep,name=endpoints_health,json=endpointsHealth,proto3" json:"endpoints_health,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
-	XXX_unrecognized     []byte            `json:"-"`
-	XXX_sizecache        int32             `json:"-"`
+	EndpointsHealth []*EndpointHealth `protobuf:"bytes,1,rep,name=endpoints_health,json=endpointsHealth" json:"endpoints_health,omitempty"`
 }
 
-func (m *EndpointHealthResponse) Reset()         { *m = EndpointHealthResponse{} }
-func (m *EndpointHealthResponse) String() string { return proto.CompactTextString(m) }
-func (*EndpointHealthResponse) ProtoMessage()    {}
-func (*EndpointHealthResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_hds_070ff65e274fcf0d, []int{3}
-}
-func (m *EndpointHealthResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_EndpointHealthResponse.Unmarshal(m, b)
-}
-func (m *EndpointHealthResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_EndpointHealthResponse.Marshal(b, m, deterministic)
-}
-func (dst *EndpointHealthResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_EndpointHealthResponse.Merge(dst, src)
-}
-func (m *EndpointHealthResponse) XXX_Size() int {
-	return xxx_messageInfo_EndpointHealthResponse.Size(m)
-}
-func (m *EndpointHealthResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_EndpointHealthResponse.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_EndpointHealthResponse proto.InternalMessageInfo
+func (m *EndpointHealthResponse) Reset()                    { *m = EndpointHealthResponse{} }
+func (m *EndpointHealthResponse) String() string            { return proto.CompactTextString(m) }
+func (*EndpointHealthResponse) ProtoMessage()               {}
+func (*EndpointHealthResponse) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{3} }
 
 func (m *EndpointHealthResponse) GetEndpointsHealth() []*EndpointHealth {
 	if m != nil {
@@ -229,10 +134,7 @@ type HealthCheckRequestOrEndpointHealthResponse struct {
 	// Types that are valid to be assigned to RequestType:
 	//	*HealthCheckRequestOrEndpointHealthResponse_HealthCheckRequest
 	//	*HealthCheckRequestOrEndpointHealthResponse_EndpointHealthResponse
-	RequestType          isHealthCheckRequestOrEndpointHealthResponse_RequestType `protobuf_oneof:"request_type"`
-	XXX_NoUnkeyedLiteral struct{}                                                 `json:"-"`
-	XXX_unrecognized     []byte                                                   `json:"-"`
-	XXX_sizecache        int32                                                    `json:"-"`
+	RequestType isHealthCheckRequestOrEndpointHealthResponse_RequestType `protobuf_oneof:"request_type"`
 }
 
 func (m *HealthCheckRequestOrEndpointHealthResponse) Reset() {
@@ -243,41 +145,22 @@ func (m *HealthCheckRequestOrEndpointHealthResponse) String() string {
 }
 func (*HealthCheckRequestOrEndpointHealthResponse) ProtoMessage() {}
 func (*HealthCheckRequestOrEndpointHealthResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_hds_070ff65e274fcf0d, []int{4}
+	return fileDescriptor1, []int{4}
 }
-func (m *HealthCheckRequestOrEndpointHealthResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_HealthCheckRequestOrEndpointHealthResponse.Unmarshal(m, b)
-}
-func (m *HealthCheckRequestOrEndpointHealthResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_HealthCheckRequestOrEndpointHealthResponse.Marshal(b, m, deterministic)
-}
-func (dst *HealthCheckRequestOrEndpointHealthResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HealthCheckRequestOrEndpointHealthResponse.Merge(dst, src)
-}
-func (m *HealthCheckRequestOrEndpointHealthResponse) XXX_Size() int {
-	return xxx_messageInfo_HealthCheckRequestOrEndpointHealthResponse.Size(m)
-}
-func (m *HealthCheckRequestOrEndpointHealthResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_HealthCheckRequestOrEndpointHealthResponse.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_HealthCheckRequestOrEndpointHealthResponse proto.InternalMessageInfo
 
 type isHealthCheckRequestOrEndpointHealthResponse_RequestType interface {
 	isHealthCheckRequestOrEndpointHealthResponse_RequestType()
 }
 
 type HealthCheckRequestOrEndpointHealthResponse_HealthCheckRequest struct {
-	HealthCheckRequest *HealthCheckRequest `protobuf:"bytes,1,opt,name=health_check_request,json=healthCheckRequest,proto3,oneof"`
+	HealthCheckRequest *HealthCheckRequest `protobuf:"bytes,1,opt,name=health_check_request,json=healthCheckRequest,oneof"`
 }
-
 type HealthCheckRequestOrEndpointHealthResponse_EndpointHealthResponse struct {
-	EndpointHealthResponse *EndpointHealthResponse `protobuf:"bytes,2,opt,name=endpoint_health_response,json=endpointHealthResponse,proto3,oneof"`
+	EndpointHealthResponse *EndpointHealthResponse `protobuf:"bytes,2,opt,name=endpoint_health_response,json=endpointHealthResponse,oneof"`
 }
 
 func (*HealthCheckRequestOrEndpointHealthResponse_HealthCheckRequest) isHealthCheckRequestOrEndpointHealthResponse_RequestType() {
 }
-
 func (*HealthCheckRequestOrEndpointHealthResponse_EndpointHealthResponse) isHealthCheckRequestOrEndpointHealthResponse_RequestType() {
 }
 
@@ -361,12 +244,12 @@ func _HealthCheckRequestOrEndpointHealthResponse_OneofSizer(msg proto.Message) (
 	switch x := m.RequestType.(type) {
 	case *HealthCheckRequestOrEndpointHealthResponse_HealthCheckRequest:
 		s := proto.Size(x.HealthCheckRequest)
-		n += 1 // tag and wire
+		n += proto.SizeVarint(1<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(s))
 		n += s
 	case *HealthCheckRequestOrEndpointHealthResponse_EndpointHealthResponse:
 		s := proto.Size(x.EndpointHealthResponse)
-		n += 1 // tag and wire
+		n += proto.SizeVarint(2<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(s))
 		n += s
 	case nil:
@@ -377,45 +260,23 @@ func _HealthCheckRequestOrEndpointHealthResponse_OneofSizer(msg proto.Message) (
 }
 
 type LocalityEndpoints struct {
-	Locality             *core.Locality       `protobuf:"bytes,1,opt,name=locality,proto3" json:"locality,omitempty"`
-	Endpoints            []*endpoint.Endpoint `protobuf:"bytes,2,rep,name=endpoints,proto3" json:"endpoints,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
-	XXX_unrecognized     []byte               `json:"-"`
-	XXX_sizecache        int32                `json:"-"`
+	Locality  *envoy_api_v2_core.Locality       `protobuf:"bytes,1,opt,name=locality" json:"locality,omitempty"`
+	Endpoints []*envoy_api_v2_endpoint.Endpoint `protobuf:"bytes,2,rep,name=endpoints" json:"endpoints,omitempty"`
 }
 
-func (m *LocalityEndpoints) Reset()         { *m = LocalityEndpoints{} }
-func (m *LocalityEndpoints) String() string { return proto.CompactTextString(m) }
-func (*LocalityEndpoints) ProtoMessage()    {}
-func (*LocalityEndpoints) Descriptor() ([]byte, []int) {
-	return fileDescriptor_hds_070ff65e274fcf0d, []int{5}
-}
-func (m *LocalityEndpoints) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_LocalityEndpoints.Unmarshal(m, b)
-}
-func (m *LocalityEndpoints) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_LocalityEndpoints.Marshal(b, m, deterministic)
-}
-func (dst *LocalityEndpoints) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_LocalityEndpoints.Merge(dst, src)
-}
-func (m *LocalityEndpoints) XXX_Size() int {
-	return xxx_messageInfo_LocalityEndpoints.Size(m)
-}
-func (m *LocalityEndpoints) XXX_DiscardUnknown() {
-	xxx_messageInfo_LocalityEndpoints.DiscardUnknown(m)
-}
+func (m *LocalityEndpoints) Reset()                    { *m = LocalityEndpoints{} }
+func (m *LocalityEndpoints) String() string            { return proto.CompactTextString(m) }
+func (*LocalityEndpoints) ProtoMessage()               {}
+func (*LocalityEndpoints) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{5} }
 
-var xxx_messageInfo_LocalityEndpoints proto.InternalMessageInfo
-
-func (m *LocalityEndpoints) GetLocality() *core.Locality {
+func (m *LocalityEndpoints) GetLocality() *envoy_api_v2_core.Locality {
 	if m != nil {
 		return m.Locality
 	}
 	return nil
 }
 
-func (m *LocalityEndpoints) GetEndpoints() []*endpoint.Endpoint {
+func (m *LocalityEndpoints) GetEndpoints() []*envoy_api_v2_endpoint.Endpoint {
 	if m != nil {
 		return m.Endpoints
 	}
@@ -427,37 +288,15 @@ func (m *LocalityEndpoints) GetEndpoints() []*endpoint.Endpoint {
 // Envoy instance (outside of HDS). For maximum usefulness, it should match the
 // same cluster structure as that provided by EDS.
 type ClusterHealthCheck struct {
-	ClusterName          string               `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName,proto3" json:"cluster_name,omitempty"`
-	HealthChecks         []*core.HealthCheck  `protobuf:"bytes,2,rep,name=health_checks,json=healthChecks,proto3" json:"health_checks,omitempty"`
-	Endpoints            []*LocalityEndpoints `protobuf:"bytes,3,rep,name=endpoints,proto3" json:"endpoints,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
-	XXX_unrecognized     []byte               `json:"-"`
-	XXX_sizecache        int32                `json:"-"`
+	ClusterName       string                            `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName" json:"cluster_name,omitempty"`
+	HealthChecks      []*envoy_api_v2_core1.HealthCheck `protobuf:"bytes,2,rep,name=health_checks,json=healthChecks" json:"health_checks,omitempty"`
+	LocalityEndpoints []*LocalityEndpoints              `protobuf:"bytes,3,rep,name=locality_endpoints,json=localityEndpoints" json:"locality_endpoints,omitempty"`
 }
 
-func (m *ClusterHealthCheck) Reset()         { *m = ClusterHealthCheck{} }
-func (m *ClusterHealthCheck) String() string { return proto.CompactTextString(m) }
-func (*ClusterHealthCheck) ProtoMessage()    {}
-func (*ClusterHealthCheck) Descriptor() ([]byte, []int) {
-	return fileDescriptor_hds_070ff65e274fcf0d, []int{6}
-}
-func (m *ClusterHealthCheck) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_ClusterHealthCheck.Unmarshal(m, b)
-}
-func (m *ClusterHealthCheck) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_ClusterHealthCheck.Marshal(b, m, deterministic)
-}
-func (dst *ClusterHealthCheck) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ClusterHealthCheck.Merge(dst, src)
-}
-func (m *ClusterHealthCheck) XXX_Size() int {
-	return xxx_messageInfo_ClusterHealthCheck.Size(m)
-}
-func (m *ClusterHealthCheck) XXX_DiscardUnknown() {
-	xxx_messageInfo_ClusterHealthCheck.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_ClusterHealthCheck proto.InternalMessageInfo
+func (m *ClusterHealthCheck) Reset()                    { *m = ClusterHealthCheck{} }
+func (m *ClusterHealthCheck) String() string            { return proto.CompactTextString(m) }
+func (*ClusterHealthCheck) ProtoMessage()               {}
+func (*ClusterHealthCheck) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{6} }
 
 func (m *ClusterHealthCheck) GetClusterName() string {
 	if m != nil {
@@ -466,61 +305,39 @@ func (m *ClusterHealthCheck) GetClusterName() string {
 	return ""
 }
 
-func (m *ClusterHealthCheck) GetHealthChecks() []*core.HealthCheck {
+func (m *ClusterHealthCheck) GetHealthChecks() []*envoy_api_v2_core1.HealthCheck {
 	if m != nil {
 		return m.HealthChecks
 	}
 	return nil
 }
 
-func (m *ClusterHealthCheck) GetEndpoints() []*LocalityEndpoints {
+func (m *ClusterHealthCheck) GetLocalityEndpoints() []*LocalityEndpoints {
 	if m != nil {
-		return m.Endpoints
+		return m.LocalityEndpoints
 	}
 	return nil
 }
 
 type HealthCheckSpecifier struct {
-	HealthCheck []*ClusterHealthCheck `protobuf:"bytes,1,rep,name=health_check,json=healthCheck,proto3" json:"health_check,omitempty"`
+	ClusterHealthChecks []*ClusterHealthCheck `protobuf:"bytes,1,rep,name=cluster_health_checks,json=clusterHealthChecks" json:"cluster_health_checks,omitempty"`
 	// The default is 1 second.
-	Interval             *duration.Duration `protobuf:"bytes,2,opt,name=interval,proto3" json:"interval,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
-	XXX_unrecognized     []byte             `json:"-"`
-	XXX_sizecache        int32              `json:"-"`
+	Interval *google_protobuf3.Duration `protobuf:"bytes,2,opt,name=interval" json:"interval,omitempty"`
 }
 
-func (m *HealthCheckSpecifier) Reset()         { *m = HealthCheckSpecifier{} }
-func (m *HealthCheckSpecifier) String() string { return proto.CompactTextString(m) }
-func (*HealthCheckSpecifier) ProtoMessage()    {}
-func (*HealthCheckSpecifier) Descriptor() ([]byte, []int) {
-	return fileDescriptor_hds_070ff65e274fcf0d, []int{7}
-}
-func (m *HealthCheckSpecifier) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_HealthCheckSpecifier.Unmarshal(m, b)
-}
-func (m *HealthCheckSpecifier) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_HealthCheckSpecifier.Marshal(b, m, deterministic)
-}
-func (dst *HealthCheckSpecifier) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HealthCheckSpecifier.Merge(dst, src)
-}
-func (m *HealthCheckSpecifier) XXX_Size() int {
-	return xxx_messageInfo_HealthCheckSpecifier.Size(m)
-}
-func (m *HealthCheckSpecifier) XXX_DiscardUnknown() {
-	xxx_messageInfo_HealthCheckSpecifier.DiscardUnknown(m)
-}
+func (m *HealthCheckSpecifier) Reset()                    { *m = HealthCheckSpecifier{} }
+func (m *HealthCheckSpecifier) String() string            { return proto.CompactTextString(m) }
+func (*HealthCheckSpecifier) ProtoMessage()               {}
+func (*HealthCheckSpecifier) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{7} }
 
-var xxx_messageInfo_HealthCheckSpecifier proto.InternalMessageInfo
-
-func (m *HealthCheckSpecifier) GetHealthCheck() []*ClusterHealthCheck {
+func (m *HealthCheckSpecifier) GetClusterHealthChecks() []*ClusterHealthCheck {
 	if m != nil {
-		return m.HealthCheck
+		return m.ClusterHealthChecks
 	}
 	return nil
 }
 
-func (m *HealthCheckSpecifier) GetInterval() *duration.Duration {
+func (m *HealthCheckSpecifier) GetInterval() *google_protobuf3.Duration {
 	if m != nil {
 		return m.Interval
 	}
@@ -547,9 +364,8 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// HealthDiscoveryServiceClient is the client API for HealthDiscoveryService service.
-//
-// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
+// Client API for HealthDiscoveryService service
+
 type HealthDiscoveryServiceClient interface {
 	// 1. Envoy starts up and if its can_healthcheck option in the static
 	//    bootstrap config is enabled, sends HealthCheckRequest to the management
@@ -601,7 +417,7 @@ func NewHealthDiscoveryServiceClient(cc *grpc.ClientConn) HealthDiscoveryService
 }
 
 func (c *healthDiscoveryServiceClient) StreamHealthCheck(ctx context.Context, opts ...grpc.CallOption) (HealthDiscoveryService_StreamHealthCheckClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_HealthDiscoveryService_serviceDesc.Streams[0], "/envoy.service.discovery.v2.HealthDiscoveryService/StreamHealthCheck", opts...)
+	stream, err := grpc.NewClientStream(ctx, &_HealthDiscoveryService_serviceDesc.Streams[0], c.cc, "/envoy.service.discovery.v2.HealthDiscoveryService/StreamHealthCheck", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -633,14 +449,15 @@ func (x *healthDiscoveryServiceStreamHealthCheckClient) Recv() (*HealthCheckSpec
 
 func (c *healthDiscoveryServiceClient) FetchHealthCheck(ctx context.Context, in *HealthCheckRequestOrEndpointHealthResponse, opts ...grpc.CallOption) (*HealthCheckSpecifier, error) {
 	out := new(HealthCheckSpecifier)
-	err := c.cc.Invoke(ctx, "/envoy.service.discovery.v2.HealthDiscoveryService/FetchHealthCheck", in, out, opts...)
+	err := grpc.Invoke(ctx, "/envoy.service.discovery.v2.HealthDiscoveryService/FetchHealthCheck", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// HealthDiscoveryServiceServer is the server API for HealthDiscoveryService service.
+// Server API for HealthDiscoveryService service
+
 type HealthDiscoveryServiceServer interface {
 	// 1. Envoy starts up and if its can_healthcheck option in the static
 	//    bootstrap config is enabled, sends HealthCheckRequest to the management
@@ -751,55 +568,54 @@ var _HealthDiscoveryService_serviceDesc = grpc.ServiceDesc{
 	Metadata: "envoy/service/discovery/v2/hds.proto",
 }
 
-func init() {
-	proto.RegisterFile("envoy/service/discovery/v2/hds.proto", fileDescriptor_hds_070ff65e274fcf0d)
-}
+func init() { proto.RegisterFile("envoy/service/discovery/v2/hds.proto", fileDescriptor1) }
 
-var fileDescriptor_hds_070ff65e274fcf0d = []byte{
-	// 717 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x55, 0xc1, 0x6e, 0xd3, 0x4a,
-	0x14, 0xcd, 0x24, 0x7d, 0x8f, 0xf4, 0x26, 0x84, 0x74, 0x28, 0x25, 0x84, 0xaa, 0x2d, 0x56, 0x41,
-	0x51, 0x11, 0x76, 0x65, 0x84, 0x90, 0x8a, 0xd8, 0x34, 0x69, 0x15, 0x04, 0x2a, 0x65, 0x52, 0xd6,
-	0xd1, 0xc4, 0x99, 0xd6, 0x16, 0xae, 0xc7, 0xd8, 0x93, 0x48, 0xd9, 0xb2, 0x02, 0xb1, 0x41, 0xea,
-	0x92, 0x0d, 0xff, 0xc0, 0x57, 0xb0, 0xe6, 0x17, 0xfa, 0x21, 0x28, 0x33, 0x63, 0xd7, 0x6d, 0x9a,
-	0xd0, 0xee, 0xd8, 0xc5, 0x33, 0xe7, 0x9c, 0x7b, 0xee, 0x3d, 0xd7, 0x0e, 0xac, 0xb3, 0x60, 0xc8,
-	0x47, 0x56, 0xcc, 0xa2, 0xa1, 0xe7, 0x30, 0xab, 0xef, 0xc5, 0x0e, 0x1f, 0xb2, 0x68, 0x64, 0x0d,
-	0x6d, 0xcb, 0xed, 0xc7, 0x66, 0x18, 0x71, 0xc1, 0x71, 0x5d, 0xa2, 0x4c, 0x8d, 0x32, 0x53, 0x94,
-	0x39, 0xb4, 0xeb, 0xcb, 0x4a, 0x81, 0x86, 0xde, 0x98, 0xe3, 0xf0, 0x88, 0x59, 0x3d, 0x1a, 0x33,
-	0xc5, 0xac, 0xaf, 0x4f, 0xde, 0xba, 0x8c, 0xfa, 0xc2, 0xed, 0x3a, 0x2e, 0x73, 0x3e, 0x5c, 0x8a,
-	0x62, 0x41, 0x3f, 0xe4, 0x5e, 0x20, 0xd2, 0x1f, 0x1a, 0xb5, 0x7c, 0xc4, 0xf9, 0x91, 0xcf, 0x24,
-	0x8c, 0x06, 0x01, 0x17, 0x54, 0x78, 0x3c, 0xd0, 0x1e, 0xeb, 0x2b, 0xfa, 0x56, 0x3e, 0xf5, 0x06,
-	0x87, 0x56, 0x7f, 0x10, 0x49, 0x80, 0xba, 0x37, 0xbe, 0x23, 0x80, 0x26, 0x0d, 0x69, 0xcf, 0xf3,
-	0x3d, 0x31, 0xc2, 0x0e, 0xdc, 0xc9, 0x1a, 0xe9, 0x4a, 0x90, 0xc3, 0xfd, 0x1a, 0x5a, 0x2b, 0x34,
-	0x2a, 0xb6, 0x65, 0x4e, 0x6f, 0xd9, 0x3c, 0x93, 0x31, 0xf7, 0x35, 0x8d, 0xdc, 0x56, 0x6a, 0xcd,
-	0xb1, 0x58, 0x72, 0x68, 0x34, 0xa0, 0x98, 0xfc, 0xc6, 0x45, 0x98, 0x6b, 0x1f, 0x1c, 0xec, 0x57,
-	0x73, 0xf8, 0x06, 0x14, 0x0e, 0x9a, 0xfb, 0x55, 0x84, 0xe7, 0xe1, 0x3f, 0xb2, 0xd3, 0x7a, 0xd5,
-	0xa9, 0xe6, 0x8d, 0x2f, 0x08, 0x70, 0xfb, 0x4c, 0x81, 0xb0, 0x8f, 0x03, 0x16, 0x0b, 0xfc, 0x18,
-	0xe6, 0x02, 0xde, 0x67, 0x35, 0xb4, 0x86, 0x1a, 0x25, 0xfb, 0xae, 0x36, 0x45, 0x43, 0x6f, 0x6c,
-	0x63, 0x3c, 0x4d, 0x73, 0x8f, 0xf7, 0x19, 0x91, 0x20, 0xbc, 0x0b, 0xe0, 0xa4, 0xce, 0x6a, 0x79,
-	0x49, 0x79, 0x74, 0xb5, 0x3e, 0x48, 0x86, 0x69, 0x9c, 0x20, 0xa8, 0xec, 0xe8, 0xd1, 0x2b, 0x4f,
-	0xf8, 0x05, 0x14, 0x93, 0x30, 0xb4, 0x97, 0xd5, 0xf3, 0x5e, 0xd2, 0xa8, 0x12, 0x22, 0x49, 0x09,
-	0xb8, 0x05, 0x37, 0xf5, 0xa8, 0x63, 0x41, 0xc5, 0x20, 0x96, 0xd6, 0x2a, 0x17, 0x15, 0x64, 0x37,
-	0xaa, 0x5c, 0x47, 0xc2, 0x48, 0xd9, 0xcd, 0x3c, 0x19, 0x1c, 0x96, 0xce, 0x9b, 0x22, 0x2c, 0x0e,
-	0x79, 0x10, 0x33, 0xfc, 0x1e, 0xaa, 0x49, 0xad, 0xb8, 0xab, 0x38, 0x32, 0xc5, 0x92, 0xbd, 0x31,
-	0xab, 0xfb, 0x0b, 0x6a, 0xb7, 0x52, 0x0d, 0x75, 0x60, 0x7c, 0xcb, 0xc3, 0xc6, 0x64, 0x24, 0x6f,
-	0xa3, 0x29, 0x2e, 0x7a, 0xb0, 0x78, 0x6e, 0xa1, 0x22, 0x85, 0xd7, 0xe3, 0x32, 0x67, 0x39, 0x99,
-	0xac, 0xd2, 0xce, 0x11, 0xec, 0x4e, 0xae, 0x43, 0x00, 0xb5, 0xc4, 0xa5, 0x6e, 0xb4, 0x1b, 0xe9,
-	0xfa, 0x3a, 0x6f, 0xfb, 0x1a, 0x1d, 0x6b, 0x66, 0x3b, 0x47, 0x96, 0xd8, 0xa5, 0x37, 0xdb, 0x15,
-	0x28, 0xeb, 0x36, 0xba, 0x62, 0x14, 0x32, 0xe3, 0x2b, 0x82, 0x85, 0x37, 0xdc, 0xa1, 0xe3, 0x35,
-	0x49, 0xc4, 0x62, 0xfc, 0x1c, 0x8a, 0xbe, 0x3e, 0xd4, 0xdd, 0xde, 0xbf, 0x24, 0xda, 0x84, 0x47,
-	0x52, 0x30, 0x7e, 0x09, 0xf3, 0xe9, 0xd0, 0x6b, 0x79, 0x99, 0xd8, 0x5f, 0xd7, 0xea, 0x8c, 0x61,
-	0xfc, 0x42, 0x80, 0x9b, 0xfe, 0x20, 0x16, 0x2c, 0xca, 0x4c, 0x10, 0x3f, 0x80, 0xb2, 0xa3, 0x4e,
-	0xbb, 0x01, 0x3d, 0x56, 0xef, 0xce, 0x3c, 0x29, 0xe9, 0xb3, 0x3d, 0x7a, 0xcc, 0x70, 0x33, 0xdd,
-	0x48, 0x99, 0x55, 0x52, 0x7c, 0x65, 0xea, 0x46, 0xaa, 0x14, 0xca, 0x99, 0x48, 0x62, 0xfc, 0x3a,
-	0xeb, 0xbe, 0x20, 0x05, 0x9e, 0xcc, 0x9a, 0xfe, 0xc4, 0xe0, 0xb2, 0xbd, 0xfc, 0x40, 0xb0, 0x98,
-	0x29, 0xd5, 0x09, 0x99, 0xe3, 0x1d, 0x7a, 0x2c, 0xc2, 0xef, 0xa0, 0x9c, 0xb5, 0xaa, 0x17, 0x7b,
-	0xe6, 0x3a, 0x4d, 0xce, 0x84, 0x94, 0x32, 0xce, 0xf1, 0x33, 0x28, 0x7a, 0x81, 0x60, 0xd1, 0x90,
-	0xfa, 0x7a, 0x6b, 0xee, 0x99, 0xea, 0xe3, 0x69, 0x26, 0x1f, 0x4f, 0xb3, 0xa5, 0x3f, 0x9e, 0x24,
-	0x85, 0xda, 0xa7, 0x79, 0x58, 0x52, 0x9a, 0xad, 0xa4, 0x5a, 0x47, 0x95, 0xc7, 0x27, 0x08, 0x16,
-	0x3a, 0x22, 0x62, 0xf4, 0x38, 0x1b, 0xc4, 0xee, 0xf5, 0x76, 0x7e, 0xda, 0x9b, 0x55, 0xdf, 0xbc,
-	0xa2, 0x4e, 0x3a, 0x34, 0x23, 0xd7, 0x40, 0x9b, 0x08, 0xff, 0x44, 0x50, 0xdd, 0x65, 0xc2, 0x71,
-	0xff, 0x0d, 0x53, 0x0f, 0x3f, 0xfd, 0x3e, 0x3d, 0xc9, 0xaf, 0x1a, 0xf5, 0xf1, 0x7f, 0x5c, 0x0a,
-	0xdf, 0xca, 0xa6, 0xbb, 0x85, 0x36, 0xb6, 0x0b, 0x9f, 0x11, 0xea, 0xfd, 0x2f, 0x83, 0x78, 0xfa,
-	0x27, 0x00, 0x00, 0xff, 0xff, 0xed, 0x53, 0x7e, 0x52, 0x9f, 0x07, 0x00, 0x00,
+var fileDescriptor1 = []byte{
+	// 727 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x55, 0x41, 0x6f, 0x12, 0x41,
+	0x14, 0x66, 0xa0, 0x2a, 0x7d, 0x45, 0xa4, 0x63, 0x45, 0xc4, 0xa6, 0xad, 0x9b, 0x6a, 0x48, 0x8d,
+	0x4b, 0x83, 0x31, 0x26, 0x35, 0x5e, 0x0a, 0x6d, 0x30, 0x31, 0xb5, 0x19, 0xea, 0xcd, 0x84, 0x0c,
+	0xcb, 0xb4, 0x6c, 0xdc, 0xee, 0xac, 0x3b, 0x03, 0x09, 0x57, 0x4f, 0x1a, 0x2f, 0x26, 0x3d, 0xfb,
+	0x23, 0x8c, 0x3f, 0xc5, 0x9b, 0xe7, 0xfe, 0x10, 0xc3, 0xcc, 0xec, 0xb2, 0x94, 0x82, 0xed, 0xcd,
+	0x1b, 0xfb, 0xe6, 0x7b, 0xef, 0x7d, 0xdf, 0xfb, 0xde, 0x0c, 0xb0, 0xc9, 0xfc, 0x01, 0x1f, 0x56,
+	0x05, 0x0b, 0x07, 0xae, 0xc3, 0xaa, 0x5d, 0x57, 0x38, 0x7c, 0xc0, 0xc2, 0x61, 0x75, 0x50, 0xab,
+	0xf6, 0xba, 0xc2, 0x0e, 0x42, 0x2e, 0x39, 0x2e, 0x2b, 0x94, 0x6d, 0x50, 0x76, 0x8c, 0xb2, 0x07,
+	0xb5, 0xf2, 0xaa, 0xae, 0x40, 0x03, 0x77, 0x94, 0xe3, 0xf0, 0x90, 0x55, 0x3b, 0x54, 0x30, 0x9d,
+	0x59, 0xde, 0x9c, 0x3e, 0xed, 0x31, 0xea, 0xc9, 0x5e, 0xdb, 0xe9, 0x31, 0xe7, 0xe3, 0xa5, 0x28,
+	0xe6, 0x77, 0x03, 0xee, 0xfa, 0x32, 0xfe, 0x61, 0x50, 0xab, 0x27, 0x9c, 0x9f, 0x78, 0x4c, 0xc1,
+	0xa8, 0xef, 0x73, 0x49, 0xa5, 0xcb, 0x7d, 0xc3, 0xb1, 0xbc, 0x66, 0x4e, 0xd5, 0x57, 0xa7, 0x7f,
+	0x5c, 0xed, 0xf6, 0x43, 0x05, 0xd0, 0xe7, 0xd6, 0x0f, 0x04, 0x50, 0xa7, 0x01, 0xed, 0xb8, 0x9e,
+	0x2b, 0x87, 0x98, 0x41, 0x31, 0x49, 0xa4, 0xad, 0x40, 0x0e, 0xf7, 0x44, 0x09, 0x6d, 0x64, 0x2a,
+	0xf9, 0x5a, 0xd5, 0x9e, 0xad, 0xd9, 0x1e, 0xd7, 0xb1, 0x0f, 0x4d, 0x1e, 0x59, 0xd1, 0xe5, 0xea,
+	0xa3, 0x6a, 0x51, 0x50, 0x58, 0x15, 0xc8, 0x46, 0x1f, 0x38, 0x0b, 0x0b, 0xcd, 0xa3, 0xa3, 0xc3,
+	0x42, 0x0a, 0xdf, 0x82, 0xcc, 0x51, 0xfd, 0xb0, 0x80, 0xf0, 0x22, 0xdc, 0x20, 0x7b, 0x8d, 0x37,
+	0xad, 0x42, 0xda, 0xfa, 0x8a, 0x00, 0x37, 0xc7, 0x25, 0x08, 0xfb, 0xd4, 0x67, 0x42, 0xe2, 0xa7,
+	0xb0, 0xe0, 0xf3, 0x2e, 0x2b, 0xa1, 0x0d, 0x54, 0x59, 0xaa, 0xdd, 0x37, 0xac, 0x68, 0xe0, 0x8e,
+	0x78, 0x8c, 0xe6, 0x69, 0x1f, 0xf0, 0x2e, 0x23, 0x0a, 0x84, 0xf7, 0x01, 0x9c, 0x98, 0x5a, 0x29,
+	0xad, 0x52, 0x9e, 0x5c, 0x4d, 0x08, 0x49, 0x64, 0x5a, 0x67, 0x08, 0xf2, 0x7b, 0x66, 0xf8, 0x9a,
+	0x13, 0x7e, 0x05, 0xd9, 0xc8, 0x0e, 0xc3, 0x65, 0x7d, 0x92, 0x4b, 0x6c, 0x56, 0x94, 0x48, 0xe2,
+	0x04, 0xdc, 0x80, 0xdb, 0x66, 0xd8, 0x42, 0x52, 0xd9, 0x17, 0x8a, 0x5a, 0xfe, 0x62, 0x05, 0xa5,
+	0x46, 0xb7, 0x6b, 0x29, 0x18, 0xc9, 0xf5, 0x12, 0x5f, 0x16, 0x87, 0xe2, 0x24, 0x29, 0xc2, 0x44,
+	0xc0, 0x7d, 0xc1, 0xf0, 0x7b, 0x28, 0x44, 0xbd, 0x44, 0x5b, 0xe7, 0x28, 0x1b, 0x97, 0x6a, 0x5b,
+	0xf3, 0xd4, 0x5f, 0xa8, 0x76, 0x27, 0xae, 0xa1, 0x03, 0xd6, 0xf7, 0x34, 0x6c, 0x4d, 0x5b, 0xf2,
+	0x2e, 0x9c, 0xc1, 0xa2, 0x03, 0x2b, 0x13, 0x2b, 0x15, 0x6a, 0xbc, 0x19, 0x97, 0x3d, 0x8f, 0xc9,
+	0x74, 0x97, 0x66, 0x8a, 0xe0, 0xde, 0xf4, 0x3a, 0xf8, 0x50, 0x8a, 0x58, 0x1a, 0xa1, 0xed, 0xd0,
+	0xf4, 0x37, 0x7e, 0xd7, 0xae, 0xa1, 0xd8, 0x64, 0x36, 0x53, 0xa4, 0xc8, 0x2e, 0x3d, 0xd9, 0xcd,
+	0x43, 0xce, 0xc8, 0x68, 0xcb, 0x61, 0xc0, 0xac, 0x6f, 0x08, 0x96, 0xdf, 0x72, 0x87, 0x8e, 0xd6,
+	0x24, 0x2a, 0x26, 0xf0, 0x4b, 0xc8, 0x7a, 0x26, 0x68, 0xd4, 0x3e, 0xbc, 0xc4, 0xda, 0x28, 0x8f,
+	0xc4, 0x60, 0xfc, 0x1a, 0x16, 0xe3, 0xa1, 0x97, 0xd2, 0xca, 0xb1, 0x7f, 0xae, 0xd5, 0x38, 0xc3,
+	0xfa, 0x83, 0x00, 0xd7, 0xbd, 0xbe, 0x90, 0x2c, 0x4c, 0x4c, 0x10, 0x3f, 0x82, 0x9c, 0xa3, 0xa3,
+	0x6d, 0x9f, 0x9e, 0xea, 0xbb, 0xb3, 0x48, 0x96, 0x4c, 0xec, 0x80, 0x9e, 0x32, 0x5c, 0x8f, 0x37,
+	0x52, 0x79, 0x15, 0x35, 0x5f, 0x9b, 0xb9, 0x91, 0xda, 0x85, 0x5c, 0xc2, 0x12, 0x81, 0x3f, 0x00,
+	0x8e, 0x94, 0xb4, 0xc7, 0x32, 0x32, 0xaa, 0xd2, 0xb3, 0x79, 0x36, 0x4c, 0x4d, 0x90, 0x2c, 0x7b,
+	0x17, 0x43, 0xd6, 0x4f, 0x04, 0x2b, 0x89, 0xde, 0xad, 0x80, 0x39, 0xee, 0xb1, 0xcb, 0x42, 0xdc,
+	0x81, 0x7b, 0x91, 0xbc, 0x49, 0x0d, 0x7a, 0xe5, 0xe7, 0x2e, 0xda, 0xf4, 0xb4, 0xc8, 0x5d, 0x67,
+	0x2a, 0x26, 0xf0, 0x0b, 0xc8, 0xba, 0xbe, 0x64, 0xe1, 0x80, 0x7a, 0x66, 0xaf, 0x1e, 0xd8, 0xfa,
+	0x81, 0xb5, 0xa3, 0x07, 0xd6, 0x6e, 0x98, 0x07, 0x96, 0xc4, 0xd0, 0xda, 0x79, 0x1a, 0x8a, 0xba,
+	0x4e, 0x23, 0xea, 0xda, 0xd2, 0x34, 0xf0, 0x19, 0x82, 0xe5, 0x96, 0x0c, 0x19, 0x3d, 0x4d, 0x5a,
+	0xb5, 0x7f, 0xbd, 0x5b, 0x31, 0xeb, 0xee, 0x95, 0xb7, 0xaf, 0x58, 0x27, 0x9e, 0xa2, 0x95, 0xaa,
+	0xa0, 0x6d, 0x84, 0x7f, 0x21, 0x28, 0xec, 0x33, 0xe9, 0xf4, 0xfe, 0x0f, 0x52, 0x8f, 0x3f, 0xff,
+	0x3e, 0x3f, 0x4b, 0xaf, 0x5b, 0xe5, 0xd1, 0xff, 0x60, 0x0c, 0xdf, 0x49, 0xda, 0xbc, 0x83, 0xb6,
+	0x76, 0x33, 0x5f, 0x10, 0xea, 0xdc, 0x54, 0x46, 0x3c, 0xff, 0x1b, 0x00, 0x00, 0xff, 0xff, 0xee,
+	0x1c, 0x4e, 0x96, 0xc3, 0x07, 0x00, 0x00,
 }

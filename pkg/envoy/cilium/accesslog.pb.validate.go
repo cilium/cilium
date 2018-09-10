@@ -100,7 +100,9 @@ func (m *HttpLogEntry) Validate() error {
 	for idx, item := range m.GetHeaders() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(item).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return HttpLogEntryValidationError{
 					Field:  fmt.Sprintf("Headers[%v]", idx),
@@ -188,7 +190,9 @@ func (m *LogEntry) Validate() error {
 	for idx, item := range m.GetHeaders() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(item).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return LogEntryValidationError{
 					Field:  fmt.Sprintf("Headers[%v]", idx),
@@ -204,7 +208,9 @@ func (m *LogEntry) Validate() error {
 
 	case *LogEntry_Http:
 
-		if v, ok := interface{}(m.GetHttp()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetHttp()).(interface {
+			Validate() error
+		}); ok {
 			if err := v.Validate(); err != nil {
 				return LogEntryValidationError{
 					Field:  "Http",

@@ -6,22 +6,18 @@ package envoy_admin_v2alpha
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import v21 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
-import v2 "github.com/cilium/cilium/pkg/envoy/envoy/config/bootstrap/v2"
+import envoy_api_v22 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
+import envoy_api_v23 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
+import envoy_api_v24 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
+import envoy_config_bootstrap_v2 "github.com/cilium/cilium/pkg/envoy/envoy/config/bootstrap/v2"
+import google_protobuf6 "github.com/golang/protobuf/ptypes/any"
+import google_protobuf4 "github.com/golang/protobuf/ptypes/timestamp"
 import _ "github.com/gogo/protobuf/gogoproto"
-import any "github.com/golang/protobuf/ptypes/any"
-import timestamp "github.com/golang/protobuf/ptypes/timestamp"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
-
-// This is a compile-time assertion to ensure that this generated file
-// is compatible with the proto package it is being compiled against.
-// A compilation error at this line likely means your copy of the
-// proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 // The :ref:`/config_dump <operations_admin_interface_config_dump>` admin endpoint uses this wrapper
 // message to maintain and serve arbitrary configuration information from any component in Envoy.
@@ -36,37 +32,15 @@ type ConfigDump struct {
 	// * *listeners*: :ref:`ListenersConfigDump <envoy_api_msg_admin.v2alpha.ListenersConfigDump>`
 	// * *clusters*: :ref:`ClustersConfigDump <envoy_api_msg_admin.v2alpha.ClustersConfigDump>`
 	// * *routes*:  :ref:`RoutesConfigDump <envoy_api_msg_admin.v2alpha.RoutesConfigDump>`
-	Configs              map[string]*any.Any `protobuf:"bytes,1,rep,name=configs,proto3" json:"configs,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
-	XXX_unrecognized     []byte              `json:"-"`
-	XXX_sizecache        int32               `json:"-"`
+	Configs map[string]*google_protobuf6.Any `protobuf:"bytes,1,rep,name=configs" json:"configs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 }
 
-func (m *ConfigDump) Reset()         { *m = ConfigDump{} }
-func (m *ConfigDump) String() string { return proto.CompactTextString(m) }
-func (*ConfigDump) ProtoMessage()    {}
-func (*ConfigDump) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_dump_8839bd1bf1fe5fcc, []int{0}
-}
-func (m *ConfigDump) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_ConfigDump.Unmarshal(m, b)
-}
-func (m *ConfigDump) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_ConfigDump.Marshal(b, m, deterministic)
-}
-func (dst *ConfigDump) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ConfigDump.Merge(dst, src)
-}
-func (m *ConfigDump) XXX_Size() int {
-	return xxx_messageInfo_ConfigDump.Size(m)
-}
-func (m *ConfigDump) XXX_DiscardUnknown() {
-	xxx_messageInfo_ConfigDump.DiscardUnknown(m)
-}
+func (m *ConfigDump) Reset()                    { *m = ConfigDump{} }
+func (m *ConfigDump) String() string            { return proto.CompactTextString(m) }
+func (*ConfigDump) ProtoMessage()               {}
+func (*ConfigDump) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{0} }
 
-var xxx_messageInfo_ConfigDump proto.InternalMessageInfo
-
-func (m *ConfigDump) GetConfigs() map[string]*any.Any {
+func (m *ConfigDump) GetConfigs() map[string]*google_protobuf6.Any {
 	if m != nil {
 		return m.Configs
 	}
@@ -78,46 +52,24 @@ func (m *ConfigDump) GetConfigs() map[string]*any.Any {
 // the static portions of an Envoy configuration by reusing the output as the bootstrap
 // configuration for another Envoy.
 type BootstrapConfigDump struct {
-	Bootstrap *v2.Bootstrap `protobuf:"bytes,1,opt,name=bootstrap,proto3" json:"bootstrap,omitempty"`
+	Bootstrap *envoy_config_bootstrap_v2.Bootstrap `protobuf:"bytes,1,opt,name=bootstrap" json:"bootstrap,omitempty"`
 	// The timestamp when the BootstrapConfig was last updated.
-	LastUpdated          *timestamp.Timestamp `protobuf:"bytes,2,opt,name=last_updated,json=lastUpdated,proto3" json:"last_updated,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
-	XXX_unrecognized     []byte               `json:"-"`
-	XXX_sizecache        int32                `json:"-"`
+	LastUpdated *google_protobuf4.Timestamp `protobuf:"bytes,2,opt,name=last_updated,json=lastUpdated" json:"last_updated,omitempty"`
 }
 
-func (m *BootstrapConfigDump) Reset()         { *m = BootstrapConfigDump{} }
-func (m *BootstrapConfigDump) String() string { return proto.CompactTextString(m) }
-func (*BootstrapConfigDump) ProtoMessage()    {}
-func (*BootstrapConfigDump) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_dump_8839bd1bf1fe5fcc, []int{1}
-}
-func (m *BootstrapConfigDump) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_BootstrapConfigDump.Unmarshal(m, b)
-}
-func (m *BootstrapConfigDump) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_BootstrapConfigDump.Marshal(b, m, deterministic)
-}
-func (dst *BootstrapConfigDump) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_BootstrapConfigDump.Merge(dst, src)
-}
-func (m *BootstrapConfigDump) XXX_Size() int {
-	return xxx_messageInfo_BootstrapConfigDump.Size(m)
-}
-func (m *BootstrapConfigDump) XXX_DiscardUnknown() {
-	xxx_messageInfo_BootstrapConfigDump.DiscardUnknown(m)
-}
+func (m *BootstrapConfigDump) Reset()                    { *m = BootstrapConfigDump{} }
+func (m *BootstrapConfigDump) String() string            { return proto.CompactTextString(m) }
+func (*BootstrapConfigDump) ProtoMessage()               {}
+func (*BootstrapConfigDump) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{1} }
 
-var xxx_messageInfo_BootstrapConfigDump proto.InternalMessageInfo
-
-func (m *BootstrapConfigDump) GetBootstrap() *v2.Bootstrap {
+func (m *BootstrapConfigDump) GetBootstrap() *envoy_config_bootstrap_v2.Bootstrap {
 	if m != nil {
 		return m.Bootstrap
 	}
 	return nil
 }
 
-func (m *BootstrapConfigDump) GetLastUpdated() *timestamp.Timestamp {
+func (m *BootstrapConfigDump) GetLastUpdated() *google_protobuf4.Timestamp {
 	if m != nil {
 		return m.LastUpdated
 	}
@@ -131,50 +83,28 @@ type ListenersConfigDump struct {
 	// This is the :ref:`version_info <envoy_api_field_DiscoveryResponse.version_info>` in the
 	// last processed LDS discovery response. If there are only static bootstrap listeners, this field
 	// will be "".
-	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo,proto3" json:"version_info,omitempty"`
+	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo" json:"version_info,omitempty"`
 	// The statically loaded listener configs.
-	StaticListeners []*ListenersConfigDump_StaticListener `protobuf:"bytes,2,rep,name=static_listeners,json=staticListeners,proto3" json:"static_listeners,omitempty"`
+	StaticListeners []*ListenersConfigDump_StaticListener `protobuf:"bytes,2,rep,name=static_listeners,json=staticListeners" json:"static_listeners,omitempty"`
 	// The dynamically loaded active listeners. These are listeners that are available to service
 	// data plane traffic.
-	DynamicActiveListeners []*ListenersConfigDump_DynamicListener `protobuf:"bytes,3,rep,name=dynamic_active_listeners,json=dynamicActiveListeners,proto3" json:"dynamic_active_listeners,omitempty"`
+	DynamicActiveListeners []*ListenersConfigDump_DynamicListener `protobuf:"bytes,3,rep,name=dynamic_active_listeners,json=dynamicActiveListeners" json:"dynamic_active_listeners,omitempty"`
 	// The dynamically loaded warming listeners. These are listeners that are currently undergoing
 	// warming in preparation to service data plane traffic. Note that if attempting to recreate an
 	// Envoy configuration from a configuration dump, the warming listeners should generally be
 	// discarded.
-	DynamicWarmingListeners []*ListenersConfigDump_DynamicListener `protobuf:"bytes,4,rep,name=dynamic_warming_listeners,json=dynamicWarmingListeners,proto3" json:"dynamic_warming_listeners,omitempty"`
+	DynamicWarmingListeners []*ListenersConfigDump_DynamicListener `protobuf:"bytes,4,rep,name=dynamic_warming_listeners,json=dynamicWarmingListeners" json:"dynamic_warming_listeners,omitempty"`
 	// The dynamically loaded draining listeners. These are listeners that are currently undergoing
 	// draining in preparation to stop servicing data plane traffic. Note that if attempting to
 	// recreate an Envoy configuration from a configuration dump, the draining listeners should
 	// generally be discarded.
-	DynamicDrainingListeners []*ListenersConfigDump_DynamicListener `protobuf:"bytes,5,rep,name=dynamic_draining_listeners,json=dynamicDrainingListeners,proto3" json:"dynamic_draining_listeners,omitempty"`
-	XXX_NoUnkeyedLiteral     struct{}                               `json:"-"`
-	XXX_unrecognized         []byte                                 `json:"-"`
-	XXX_sizecache            int32                                  `json:"-"`
+	DynamicDrainingListeners []*ListenersConfigDump_DynamicListener `protobuf:"bytes,5,rep,name=dynamic_draining_listeners,json=dynamicDrainingListeners" json:"dynamic_draining_listeners,omitempty"`
 }
 
-func (m *ListenersConfigDump) Reset()         { *m = ListenersConfigDump{} }
-func (m *ListenersConfigDump) String() string { return proto.CompactTextString(m) }
-func (*ListenersConfigDump) ProtoMessage()    {}
-func (*ListenersConfigDump) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_dump_8839bd1bf1fe5fcc, []int{2}
-}
-func (m *ListenersConfigDump) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_ListenersConfigDump.Unmarshal(m, b)
-}
-func (m *ListenersConfigDump) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_ListenersConfigDump.Marshal(b, m, deterministic)
-}
-func (dst *ListenersConfigDump) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ListenersConfigDump.Merge(dst, src)
-}
-func (m *ListenersConfigDump) XXX_Size() int {
-	return xxx_messageInfo_ListenersConfigDump.Size(m)
-}
-func (m *ListenersConfigDump) XXX_DiscardUnknown() {
-	xxx_messageInfo_ListenersConfigDump.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_ListenersConfigDump proto.InternalMessageInfo
+func (m *ListenersConfigDump) Reset()                    { *m = ListenersConfigDump{} }
+func (m *ListenersConfigDump) String() string            { return proto.CompactTextString(m) }
+func (*ListenersConfigDump) ProtoMessage()               {}
+func (*ListenersConfigDump) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{2} }
 
 func (m *ListenersConfigDump) GetVersionInfo() string {
 	if m != nil {
@@ -214,46 +144,26 @@ func (m *ListenersConfigDump) GetDynamicDrainingListeners() []*ListenersConfigDu
 // Describes a statically loaded cluster.
 type ListenersConfigDump_StaticListener struct {
 	// The listener config.
-	Listener *v21.Listener `protobuf:"bytes,1,opt,name=listener,proto3" json:"listener,omitempty"`
+	Listener *envoy_api_v23.Listener `protobuf:"bytes,1,opt,name=listener" json:"listener,omitempty"`
 	// The timestamp when the Listener was last updated.
-	LastUpdated          *timestamp.Timestamp `protobuf:"bytes,2,opt,name=last_updated,json=lastUpdated,proto3" json:"last_updated,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
-	XXX_unrecognized     []byte               `json:"-"`
-	XXX_sizecache        int32                `json:"-"`
+	LastUpdated *google_protobuf4.Timestamp `protobuf:"bytes,2,opt,name=last_updated,json=lastUpdated" json:"last_updated,omitempty"`
 }
 
 func (m *ListenersConfigDump_StaticListener) Reset()         { *m = ListenersConfigDump_StaticListener{} }
 func (m *ListenersConfigDump_StaticListener) String() string { return proto.CompactTextString(m) }
 func (*ListenersConfigDump_StaticListener) ProtoMessage()    {}
 func (*ListenersConfigDump_StaticListener) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_dump_8839bd1bf1fe5fcc, []int{2, 0}
-}
-func (m *ListenersConfigDump_StaticListener) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_ListenersConfigDump_StaticListener.Unmarshal(m, b)
-}
-func (m *ListenersConfigDump_StaticListener) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_ListenersConfigDump_StaticListener.Marshal(b, m, deterministic)
-}
-func (dst *ListenersConfigDump_StaticListener) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ListenersConfigDump_StaticListener.Merge(dst, src)
-}
-func (m *ListenersConfigDump_StaticListener) XXX_Size() int {
-	return xxx_messageInfo_ListenersConfigDump_StaticListener.Size(m)
-}
-func (m *ListenersConfigDump_StaticListener) XXX_DiscardUnknown() {
-	xxx_messageInfo_ListenersConfigDump_StaticListener.DiscardUnknown(m)
+	return fileDescriptor1, []int{2, 0}
 }
 
-var xxx_messageInfo_ListenersConfigDump_StaticListener proto.InternalMessageInfo
-
-func (m *ListenersConfigDump_StaticListener) GetListener() *v21.Listener {
+func (m *ListenersConfigDump_StaticListener) GetListener() *envoy_api_v23.Listener {
 	if m != nil {
 		return m.Listener
 	}
 	return nil
 }
 
-func (m *ListenersConfigDump_StaticListener) GetLastUpdated() *timestamp.Timestamp {
+func (m *ListenersConfigDump_StaticListener) GetLastUpdated() *google_protobuf4.Timestamp {
 	if m != nil {
 		return m.LastUpdated
 	}
@@ -266,39 +176,19 @@ type ListenersConfigDump_DynamicListener struct {
 	// :ref:`version_info <envoy_api_field_DiscoveryResponse.version_info>` field at the time
 	// that the listener was loaded. In the future, discrete per-listener versions may be supported
 	// by the API.
-	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo,proto3" json:"version_info,omitempty"`
+	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo" json:"version_info,omitempty"`
 	// The listener config.
-	Listener *v21.Listener `protobuf:"bytes,2,opt,name=listener,proto3" json:"listener,omitempty"`
+	Listener *envoy_api_v23.Listener `protobuf:"bytes,2,opt,name=listener" json:"listener,omitempty"`
 	// The timestamp when the Listener was last updated.
-	LastUpdated          *timestamp.Timestamp `protobuf:"bytes,3,opt,name=last_updated,json=lastUpdated,proto3" json:"last_updated,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
-	XXX_unrecognized     []byte               `json:"-"`
-	XXX_sizecache        int32                `json:"-"`
+	LastUpdated *google_protobuf4.Timestamp `protobuf:"bytes,3,opt,name=last_updated,json=lastUpdated" json:"last_updated,omitempty"`
 }
 
 func (m *ListenersConfigDump_DynamicListener) Reset()         { *m = ListenersConfigDump_DynamicListener{} }
 func (m *ListenersConfigDump_DynamicListener) String() string { return proto.CompactTextString(m) }
 func (*ListenersConfigDump_DynamicListener) ProtoMessage()    {}
 func (*ListenersConfigDump_DynamicListener) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_dump_8839bd1bf1fe5fcc, []int{2, 1}
+	return fileDescriptor1, []int{2, 1}
 }
-func (m *ListenersConfigDump_DynamicListener) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_ListenersConfigDump_DynamicListener.Unmarshal(m, b)
-}
-func (m *ListenersConfigDump_DynamicListener) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_ListenersConfigDump_DynamicListener.Marshal(b, m, deterministic)
-}
-func (dst *ListenersConfigDump_DynamicListener) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ListenersConfigDump_DynamicListener.Merge(dst, src)
-}
-func (m *ListenersConfigDump_DynamicListener) XXX_Size() int {
-	return xxx_messageInfo_ListenersConfigDump_DynamicListener.Size(m)
-}
-func (m *ListenersConfigDump_DynamicListener) XXX_DiscardUnknown() {
-	xxx_messageInfo_ListenersConfigDump_DynamicListener.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_ListenersConfigDump_DynamicListener proto.InternalMessageInfo
 
 func (m *ListenersConfigDump_DynamicListener) GetVersionInfo() string {
 	if m != nil {
@@ -307,14 +197,14 @@ func (m *ListenersConfigDump_DynamicListener) GetVersionInfo() string {
 	return ""
 }
 
-func (m *ListenersConfigDump_DynamicListener) GetListener() *v21.Listener {
+func (m *ListenersConfigDump_DynamicListener) GetListener() *envoy_api_v23.Listener {
 	if m != nil {
 		return m.Listener
 	}
 	return nil
 }
 
-func (m *ListenersConfigDump_DynamicListener) GetLastUpdated() *timestamp.Timestamp {
+func (m *ListenersConfigDump_DynamicListener) GetLastUpdated() *google_protobuf4.Timestamp {
 	if m != nil {
 		return m.LastUpdated
 	}
@@ -328,45 +218,23 @@ type ClustersConfigDump struct {
 	// This is the :ref:`version_info <envoy_api_field_DiscoveryResponse.version_info>` in the
 	// last processed CDS discovery response. If there are only static bootstrap clusters, this field
 	// will be "".
-	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo,proto3" json:"version_info,omitempty"`
+	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo" json:"version_info,omitempty"`
 	// The statically loaded cluster configs.
-	StaticClusters []*ClustersConfigDump_StaticCluster `protobuf:"bytes,2,rep,name=static_clusters,json=staticClusters,proto3" json:"static_clusters,omitempty"`
+	StaticClusters []*ClustersConfigDump_StaticCluster `protobuf:"bytes,2,rep,name=static_clusters,json=staticClusters" json:"static_clusters,omitempty"`
 	// The dynamically loaded active clusters. These are clusters that are available to service
 	// data plane traffic.
-	DynamicActiveClusters []*ClustersConfigDump_DynamicCluster `protobuf:"bytes,3,rep,name=dynamic_active_clusters,json=dynamicActiveClusters,proto3" json:"dynamic_active_clusters,omitempty"`
+	DynamicActiveClusters []*ClustersConfigDump_DynamicCluster `protobuf:"bytes,3,rep,name=dynamic_active_clusters,json=dynamicActiveClusters" json:"dynamic_active_clusters,omitempty"`
 	// The dynamically loaded warming clusters. These are clusters that are currently undergoing
 	// warming in preparation to service data plane traffic. Note that if attempting to recreate an
 	// Envoy configuration from a configuration dump, the warming clusters should generally be
 	// discarded.
-	DynamicWarmingClusters []*ClustersConfigDump_DynamicCluster `protobuf:"bytes,4,rep,name=dynamic_warming_clusters,json=dynamicWarmingClusters,proto3" json:"dynamic_warming_clusters,omitempty"`
-	XXX_NoUnkeyedLiteral   struct{}                             `json:"-"`
-	XXX_unrecognized       []byte                               `json:"-"`
-	XXX_sizecache          int32                                `json:"-"`
+	DynamicWarmingClusters []*ClustersConfigDump_DynamicCluster `protobuf:"bytes,4,rep,name=dynamic_warming_clusters,json=dynamicWarmingClusters" json:"dynamic_warming_clusters,omitempty"`
 }
 
-func (m *ClustersConfigDump) Reset()         { *m = ClustersConfigDump{} }
-func (m *ClustersConfigDump) String() string { return proto.CompactTextString(m) }
-func (*ClustersConfigDump) ProtoMessage()    {}
-func (*ClustersConfigDump) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_dump_8839bd1bf1fe5fcc, []int{3}
-}
-func (m *ClustersConfigDump) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_ClustersConfigDump.Unmarshal(m, b)
-}
-func (m *ClustersConfigDump) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_ClustersConfigDump.Marshal(b, m, deterministic)
-}
-func (dst *ClustersConfigDump) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ClustersConfigDump.Merge(dst, src)
-}
-func (m *ClustersConfigDump) XXX_Size() int {
-	return xxx_messageInfo_ClustersConfigDump.Size(m)
-}
-func (m *ClustersConfigDump) XXX_DiscardUnknown() {
-	xxx_messageInfo_ClustersConfigDump.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_ClustersConfigDump proto.InternalMessageInfo
+func (m *ClustersConfigDump) Reset()                    { *m = ClustersConfigDump{} }
+func (m *ClustersConfigDump) String() string            { return proto.CompactTextString(m) }
+func (*ClustersConfigDump) ProtoMessage()               {}
+func (*ClustersConfigDump) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{3} }
 
 func (m *ClustersConfigDump) GetVersionInfo() string {
 	if m != nil {
@@ -399,46 +267,26 @@ func (m *ClustersConfigDump) GetDynamicWarmingClusters() []*ClustersConfigDump_D
 // Describes a statically loaded cluster.
 type ClustersConfigDump_StaticCluster struct {
 	// The cluster config.
-	Cluster *v21.Cluster `protobuf:"bytes,1,opt,name=cluster,proto3" json:"cluster,omitempty"`
+	Cluster *envoy_api_v22.Cluster `protobuf:"bytes,1,opt,name=cluster" json:"cluster,omitempty"`
 	// The timestamp when the Cluster was last updated.
-	LastUpdated          *timestamp.Timestamp `protobuf:"bytes,2,opt,name=last_updated,json=lastUpdated,proto3" json:"last_updated,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
-	XXX_unrecognized     []byte               `json:"-"`
-	XXX_sizecache        int32                `json:"-"`
+	LastUpdated *google_protobuf4.Timestamp `protobuf:"bytes,2,opt,name=last_updated,json=lastUpdated" json:"last_updated,omitempty"`
 }
 
 func (m *ClustersConfigDump_StaticCluster) Reset()         { *m = ClustersConfigDump_StaticCluster{} }
 func (m *ClustersConfigDump_StaticCluster) String() string { return proto.CompactTextString(m) }
 func (*ClustersConfigDump_StaticCluster) ProtoMessage()    {}
 func (*ClustersConfigDump_StaticCluster) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_dump_8839bd1bf1fe5fcc, []int{3, 0}
-}
-func (m *ClustersConfigDump_StaticCluster) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_ClustersConfigDump_StaticCluster.Unmarshal(m, b)
-}
-func (m *ClustersConfigDump_StaticCluster) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_ClustersConfigDump_StaticCluster.Marshal(b, m, deterministic)
-}
-func (dst *ClustersConfigDump_StaticCluster) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ClustersConfigDump_StaticCluster.Merge(dst, src)
-}
-func (m *ClustersConfigDump_StaticCluster) XXX_Size() int {
-	return xxx_messageInfo_ClustersConfigDump_StaticCluster.Size(m)
-}
-func (m *ClustersConfigDump_StaticCluster) XXX_DiscardUnknown() {
-	xxx_messageInfo_ClustersConfigDump_StaticCluster.DiscardUnknown(m)
+	return fileDescriptor1, []int{3, 0}
 }
 
-var xxx_messageInfo_ClustersConfigDump_StaticCluster proto.InternalMessageInfo
-
-func (m *ClustersConfigDump_StaticCluster) GetCluster() *v21.Cluster {
+func (m *ClustersConfigDump_StaticCluster) GetCluster() *envoy_api_v22.Cluster {
 	if m != nil {
 		return m.Cluster
 	}
 	return nil
 }
 
-func (m *ClustersConfigDump_StaticCluster) GetLastUpdated() *timestamp.Timestamp {
+func (m *ClustersConfigDump_StaticCluster) GetLastUpdated() *google_protobuf4.Timestamp {
 	if m != nil {
 		return m.LastUpdated
 	}
@@ -451,39 +299,19 @@ type ClustersConfigDump_DynamicCluster struct {
 	// :ref:`version_info <envoy_api_field_DiscoveryResponse.version_info>` field at the time
 	// that the cluster was loaded. In the future, discrete per-cluster versions may be supported by
 	// the API.
-	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo,proto3" json:"version_info,omitempty"`
+	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo" json:"version_info,omitempty"`
 	// The cluster config.
-	Cluster *v21.Cluster `protobuf:"bytes,2,opt,name=cluster,proto3" json:"cluster,omitempty"`
+	Cluster *envoy_api_v22.Cluster `protobuf:"bytes,2,opt,name=cluster" json:"cluster,omitempty"`
 	// The timestamp when the Cluster was last updated.
-	LastUpdated          *timestamp.Timestamp `protobuf:"bytes,3,opt,name=last_updated,json=lastUpdated,proto3" json:"last_updated,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
-	XXX_unrecognized     []byte               `json:"-"`
-	XXX_sizecache        int32                `json:"-"`
+	LastUpdated *google_protobuf4.Timestamp `protobuf:"bytes,3,opt,name=last_updated,json=lastUpdated" json:"last_updated,omitempty"`
 }
 
 func (m *ClustersConfigDump_DynamicCluster) Reset()         { *m = ClustersConfigDump_DynamicCluster{} }
 func (m *ClustersConfigDump_DynamicCluster) String() string { return proto.CompactTextString(m) }
 func (*ClustersConfigDump_DynamicCluster) ProtoMessage()    {}
 func (*ClustersConfigDump_DynamicCluster) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_dump_8839bd1bf1fe5fcc, []int{3, 1}
+	return fileDescriptor1, []int{3, 1}
 }
-func (m *ClustersConfigDump_DynamicCluster) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_ClustersConfigDump_DynamicCluster.Unmarshal(m, b)
-}
-func (m *ClustersConfigDump_DynamicCluster) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_ClustersConfigDump_DynamicCluster.Marshal(b, m, deterministic)
-}
-func (dst *ClustersConfigDump_DynamicCluster) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ClustersConfigDump_DynamicCluster.Merge(dst, src)
-}
-func (m *ClustersConfigDump_DynamicCluster) XXX_Size() int {
-	return xxx_messageInfo_ClustersConfigDump_DynamicCluster.Size(m)
-}
-func (m *ClustersConfigDump_DynamicCluster) XXX_DiscardUnknown() {
-	xxx_messageInfo_ClustersConfigDump_DynamicCluster.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_ClustersConfigDump_DynamicCluster proto.InternalMessageInfo
 
 func (m *ClustersConfigDump_DynamicCluster) GetVersionInfo() string {
 	if m != nil {
@@ -492,14 +320,14 @@ func (m *ClustersConfigDump_DynamicCluster) GetVersionInfo() string {
 	return ""
 }
 
-func (m *ClustersConfigDump_DynamicCluster) GetCluster() *v21.Cluster {
+func (m *ClustersConfigDump_DynamicCluster) GetCluster() *envoy_api_v22.Cluster {
 	if m != nil {
 		return m.Cluster
 	}
 	return nil
 }
 
-func (m *ClustersConfigDump_DynamicCluster) GetLastUpdated() *timestamp.Timestamp {
+func (m *ClustersConfigDump_DynamicCluster) GetLastUpdated() *google_protobuf4.Timestamp {
 	if m != nil {
 		return m.LastUpdated
 	}
@@ -513,37 +341,15 @@ func (m *ClustersConfigDump_DynamicCluster) GetLastUpdated() *timestamp.Timestam
 // in RDS responses.
 type RoutesConfigDump struct {
 	// The statically loaded route configs.
-	StaticRouteConfigs []*RoutesConfigDump_StaticRouteConfig `protobuf:"bytes,2,rep,name=static_route_configs,json=staticRouteConfigs,proto3" json:"static_route_configs,omitempty"`
+	StaticRouteConfigs []*RoutesConfigDump_StaticRouteConfig `protobuf:"bytes,2,rep,name=static_route_configs,json=staticRouteConfigs" json:"static_route_configs,omitempty"`
 	// The dynamically loaded route configs.
-	DynamicRouteConfigs  []*RoutesConfigDump_DynamicRouteConfig `protobuf:"bytes,3,rep,name=dynamic_route_configs,json=dynamicRouteConfigs,proto3" json:"dynamic_route_configs,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                               `json:"-"`
-	XXX_unrecognized     []byte                                 `json:"-"`
-	XXX_sizecache        int32                                  `json:"-"`
+	DynamicRouteConfigs []*RoutesConfigDump_DynamicRouteConfig `protobuf:"bytes,3,rep,name=dynamic_route_configs,json=dynamicRouteConfigs" json:"dynamic_route_configs,omitempty"`
 }
 
-func (m *RoutesConfigDump) Reset()         { *m = RoutesConfigDump{} }
-func (m *RoutesConfigDump) String() string { return proto.CompactTextString(m) }
-func (*RoutesConfigDump) ProtoMessage()    {}
-func (*RoutesConfigDump) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_dump_8839bd1bf1fe5fcc, []int{4}
-}
-func (m *RoutesConfigDump) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_RoutesConfigDump.Unmarshal(m, b)
-}
-func (m *RoutesConfigDump) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_RoutesConfigDump.Marshal(b, m, deterministic)
-}
-func (dst *RoutesConfigDump) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RoutesConfigDump.Merge(dst, src)
-}
-func (m *RoutesConfigDump) XXX_Size() int {
-	return xxx_messageInfo_RoutesConfigDump.Size(m)
-}
-func (m *RoutesConfigDump) XXX_DiscardUnknown() {
-	xxx_messageInfo_RoutesConfigDump.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_RoutesConfigDump proto.InternalMessageInfo
+func (m *RoutesConfigDump) Reset()                    { *m = RoutesConfigDump{} }
+func (m *RoutesConfigDump) String() string            { return proto.CompactTextString(m) }
+func (*RoutesConfigDump) ProtoMessage()               {}
+func (*RoutesConfigDump) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{4} }
 
 func (m *RoutesConfigDump) GetStaticRouteConfigs() []*RoutesConfigDump_StaticRouteConfig {
 	if m != nil {
@@ -561,46 +367,26 @@ func (m *RoutesConfigDump) GetDynamicRouteConfigs() []*RoutesConfigDump_DynamicR
 
 type RoutesConfigDump_StaticRouteConfig struct {
 	// The route config.
-	RouteConfig *v21.RouteConfiguration `protobuf:"bytes,1,opt,name=route_config,json=routeConfig,proto3" json:"route_config,omitempty"`
+	RouteConfig *envoy_api_v24.RouteConfiguration `protobuf:"bytes,1,opt,name=route_config,json=routeConfig" json:"route_config,omitempty"`
 	// The timestamp when the Route was last updated.
-	LastUpdated          *timestamp.Timestamp `protobuf:"bytes,2,opt,name=last_updated,json=lastUpdated,proto3" json:"last_updated,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
-	XXX_unrecognized     []byte               `json:"-"`
-	XXX_sizecache        int32                `json:"-"`
+	LastUpdated *google_protobuf4.Timestamp `protobuf:"bytes,2,opt,name=last_updated,json=lastUpdated" json:"last_updated,omitempty"`
 }
 
 func (m *RoutesConfigDump_StaticRouteConfig) Reset()         { *m = RoutesConfigDump_StaticRouteConfig{} }
 func (m *RoutesConfigDump_StaticRouteConfig) String() string { return proto.CompactTextString(m) }
 func (*RoutesConfigDump_StaticRouteConfig) ProtoMessage()    {}
 func (*RoutesConfigDump_StaticRouteConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_dump_8839bd1bf1fe5fcc, []int{4, 0}
-}
-func (m *RoutesConfigDump_StaticRouteConfig) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_RoutesConfigDump_StaticRouteConfig.Unmarshal(m, b)
-}
-func (m *RoutesConfigDump_StaticRouteConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_RoutesConfigDump_StaticRouteConfig.Marshal(b, m, deterministic)
-}
-func (dst *RoutesConfigDump_StaticRouteConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RoutesConfigDump_StaticRouteConfig.Merge(dst, src)
-}
-func (m *RoutesConfigDump_StaticRouteConfig) XXX_Size() int {
-	return xxx_messageInfo_RoutesConfigDump_StaticRouteConfig.Size(m)
-}
-func (m *RoutesConfigDump_StaticRouteConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_RoutesConfigDump_StaticRouteConfig.DiscardUnknown(m)
+	return fileDescriptor1, []int{4, 0}
 }
 
-var xxx_messageInfo_RoutesConfigDump_StaticRouteConfig proto.InternalMessageInfo
-
-func (m *RoutesConfigDump_StaticRouteConfig) GetRouteConfig() *v21.RouteConfiguration {
+func (m *RoutesConfigDump_StaticRouteConfig) GetRouteConfig() *envoy_api_v24.RouteConfiguration {
 	if m != nil {
 		return m.RouteConfig
 	}
 	return nil
 }
 
-func (m *RoutesConfigDump_StaticRouteConfig) GetLastUpdated() *timestamp.Timestamp {
+func (m *RoutesConfigDump_StaticRouteConfig) GetLastUpdated() *google_protobuf4.Timestamp {
 	if m != nil {
 		return m.LastUpdated
 	}
@@ -611,39 +397,19 @@ type RoutesConfigDump_DynamicRouteConfig struct {
 	// This is the per-resource version information. This version is currently taken from the
 	// :ref:`version_info <envoy_api_field_DiscoveryResponse.version_info>` field at the time that
 	// the route configuration was loaded.
-	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo,proto3" json:"version_info,omitempty"`
+	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo" json:"version_info,omitempty"`
 	// The route config.
-	RouteConfig *v21.RouteConfiguration `protobuf:"bytes,2,opt,name=route_config,json=routeConfig,proto3" json:"route_config,omitempty"`
+	RouteConfig *envoy_api_v24.RouteConfiguration `protobuf:"bytes,2,opt,name=route_config,json=routeConfig" json:"route_config,omitempty"`
 	// The timestamp when the Route was last updated.
-	LastUpdated          *timestamp.Timestamp `protobuf:"bytes,3,opt,name=last_updated,json=lastUpdated,proto3" json:"last_updated,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
-	XXX_unrecognized     []byte               `json:"-"`
-	XXX_sizecache        int32                `json:"-"`
+	LastUpdated *google_protobuf4.Timestamp `protobuf:"bytes,3,opt,name=last_updated,json=lastUpdated" json:"last_updated,omitempty"`
 }
 
 func (m *RoutesConfigDump_DynamicRouteConfig) Reset()         { *m = RoutesConfigDump_DynamicRouteConfig{} }
 func (m *RoutesConfigDump_DynamicRouteConfig) String() string { return proto.CompactTextString(m) }
 func (*RoutesConfigDump_DynamicRouteConfig) ProtoMessage()    {}
 func (*RoutesConfigDump_DynamicRouteConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_dump_8839bd1bf1fe5fcc, []int{4, 1}
+	return fileDescriptor1, []int{4, 1}
 }
-func (m *RoutesConfigDump_DynamicRouteConfig) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_RoutesConfigDump_DynamicRouteConfig.Unmarshal(m, b)
-}
-func (m *RoutesConfigDump_DynamicRouteConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_RoutesConfigDump_DynamicRouteConfig.Marshal(b, m, deterministic)
-}
-func (dst *RoutesConfigDump_DynamicRouteConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RoutesConfigDump_DynamicRouteConfig.Merge(dst, src)
-}
-func (m *RoutesConfigDump_DynamicRouteConfig) XXX_Size() int {
-	return xxx_messageInfo_RoutesConfigDump_DynamicRouteConfig.Size(m)
-}
-func (m *RoutesConfigDump_DynamicRouteConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_RoutesConfigDump_DynamicRouteConfig.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_RoutesConfigDump_DynamicRouteConfig proto.InternalMessageInfo
 
 func (m *RoutesConfigDump_DynamicRouteConfig) GetVersionInfo() string {
 	if m != nil {
@@ -652,14 +418,14 @@ func (m *RoutesConfigDump_DynamicRouteConfig) GetVersionInfo() string {
 	return ""
 }
 
-func (m *RoutesConfigDump_DynamicRouteConfig) GetRouteConfig() *v21.RouteConfiguration {
+func (m *RoutesConfigDump_DynamicRouteConfig) GetRouteConfig() *envoy_api_v24.RouteConfiguration {
 	if m != nil {
 		return m.RouteConfig
 	}
 	return nil
 }
 
-func (m *RoutesConfigDump_DynamicRouteConfig) GetLastUpdated() *timestamp.Timestamp {
+func (m *RoutesConfigDump_DynamicRouteConfig) GetLastUpdated() *google_protobuf4.Timestamp {
 	if m != nil {
 		return m.LastUpdated
 	}
@@ -668,7 +434,6 @@ func (m *RoutesConfigDump_DynamicRouteConfig) GetLastUpdated() *timestamp.Timest
 
 func init() {
 	proto.RegisterType((*ConfigDump)(nil), "envoy.admin.v2alpha.ConfigDump")
-	proto.RegisterMapType((map[string]*any.Any)(nil), "envoy.admin.v2alpha.ConfigDump.ConfigsEntry")
 	proto.RegisterType((*BootstrapConfigDump)(nil), "envoy.admin.v2alpha.BootstrapConfigDump")
 	proto.RegisterType((*ListenersConfigDump)(nil), "envoy.admin.v2alpha.ListenersConfigDump")
 	proto.RegisterType((*ListenersConfigDump_StaticListener)(nil), "envoy.admin.v2alpha.ListenersConfigDump.StaticListener")
@@ -681,11 +446,9 @@ func init() {
 	proto.RegisterType((*RoutesConfigDump_DynamicRouteConfig)(nil), "envoy.admin.v2alpha.RoutesConfigDump.DynamicRouteConfig")
 }
 
-func init() {
-	proto.RegisterFile("envoy/admin/v2alpha/config_dump.proto", fileDescriptor_config_dump_8839bd1bf1fe5fcc)
-}
+func init() { proto.RegisterFile("envoy/admin/v2alpha/config_dump.proto", fileDescriptor1) }
 
-var fileDescriptor_config_dump_8839bd1bf1fe5fcc = []byte{
+var fileDescriptor1 = []byte{
 	// 762 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x95, 0x4d, 0x6f, 0xd3, 0x4c,
 	0x10, 0xc7, 0x1f, 0x27, 0x69, 0xfb, 0x74, 0x92, 0xa7, 0xed, 0xb3, 0x69, 0xd3, 0xd4, 0x97, 0x86,
