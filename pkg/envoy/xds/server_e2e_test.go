@@ -22,10 +22,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/completion"
 	envoy_api_v2 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
 
+	"github.com/cilium/cilium/pkg/checker"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
 	. "gopkg.in/check.v1"
@@ -543,7 +543,7 @@ func (s *ServerSuite) TestRequestSomeResources(c *C) {
 	rsrc, err = cache.Lookup(typeURL, resources[2].Name)
 	c.Assert(err, IsNil)
 	c.Assert(rsrc, Not(IsNil))
-	c.Assert(rsrc.(*envoy_api_v2.RouteConfiguration), comparator.DeepEquals, resources[2])
+	c.Assert(rsrc.(*envoy_api_v2.RouteConfiguration), checker.DeepEquals, resources[2])
 
 	// Close the stream.
 	closeStream()

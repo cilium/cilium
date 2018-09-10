@@ -18,11 +18,11 @@ import (
 	"sort"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/kr/pretty"
 
+	"github.com/cilium/cilium/pkg/checker"
 	. "gopkg.in/check.v1"
 )
 
@@ -94,8 +94,8 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 	wildcardSelector := api.NewESFromLabels()
 
 	model := &models.L4Policy{}
-	c.Assert(pretty.Sprintf("%+ v", model.Egress), comparator.DeepEquals, "[]")
-	c.Assert(pretty.Sprintf("%+ v", model.Ingress), comparator.DeepEquals, "[]")
+	c.Assert(pretty.Sprintf("%+ v", model.Egress), checker.DeepEquals, "[]")
+	c.Assert(pretty.Sprintf("%+ v", model.Ingress), checker.DeepEquals, "[]")
 
 	policy := L4Policy{
 		Egress: L4PolicyMap{

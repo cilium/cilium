@@ -15,9 +15,9 @@
 package api
 
 import (
-	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/labels"
 
+	"github.com/cilium/cilium/pkg/checker"
 	. "gopkg.in/check.v1"
 )
 
@@ -59,7 +59,7 @@ func (s *PolicyAPITestSuite) TestGetAsEndpointSelectors(c *C) {
 	}
 	result := cidrs.GetAsEndpointSelectors()
 	c.Assert(result.Matches(world), Equals, true)
-	c.Assert(result, comparator.DeepEquals, expectedSelectors)
+	c.Assert(result, checker.DeepEquals, expectedSelectors)
 
 	cidrs = CIDRSlice{
 		"::/0",
@@ -70,7 +70,7 @@ func (s *PolicyAPITestSuite) TestGetAsEndpointSelectors(c *C) {
 	}
 	result = cidrs.GetAsEndpointSelectors()
 	c.Assert(result.Matches(world), Equals, true)
-	c.Assert(result, comparator.DeepEquals, expectedSelectors)
+	c.Assert(result, checker.DeepEquals, expectedSelectors)
 
 	cidrs = CIDRSlice{
 		"0.0.0.0/0",
@@ -85,5 +85,5 @@ func (s *PolicyAPITestSuite) TestGetAsEndpointSelectors(c *C) {
 	}
 	result = cidrs.GetAsEndpointSelectors()
 	c.Assert(result.Matches(world), Equals, true)
-	c.Assert(result, comparator.DeepEquals, expectedSelectors)
+	c.Assert(result, checker.DeepEquals, expectedSelectors)
 }

@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/common/addressing"
-	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/envoy/cilium"
 	envoy_api_v2_core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
@@ -29,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/policy/api"
 
+	"github.com/cilium/cilium/pkg/checker"
 	"github.com/gogo/protobuf/sortkeys"
 	. "gopkg.in/check.v1"
 )
@@ -254,7 +254,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 			{Protocol: envoy_api_v2_core.SocketAddress_UDP},
 		},
 	}
-	c.Assert(qaBarNetworkPolicy, comparator.DeepEquals, expectedNetworkPolicy)
+	c.Assert(qaBarNetworkPolicy, checker.DeepEquals, expectedNetworkPolicy)
 
 	prodBarNetworkPolicy := networkPolicies[ProdIPv4Addr.String()]
 	c.Assert(prodBarNetworkPolicy, Not(IsNil))
@@ -328,7 +328,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 			{Protocol: envoy_api_v2_core.SocketAddress_UDP},
 		},
 	}
-	c.Assert(prodBarNetworkPolicy, comparator.DeepEquals, expectedNetworkPolicy)
+	c.Assert(prodBarNetworkPolicy, checker.DeepEquals, expectedNetworkPolicy)
 }
 
 func (ds *DaemonSuite) TestReplacePolicy(c *C) {
