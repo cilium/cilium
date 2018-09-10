@@ -29,22 +29,6 @@ data:
   # If you want to clean cilium state; change this value to true
   clean-cilium-state: "false"
 ---
-# The etcd secrets can be populated in kubernetes.
-# For more information see: https://kubernetes.io/docs/concepts/configuration/secret
-kind: Secret
-apiVersion: v1
-type: Opaque
-metadata:
-  name: cilium-etcd-secrets
-  namespace: kube-system
-data:
-  # ETCD-CERT: Each value should contain the whole certificate in base64, on a
-  # single line. You can generate the base64 with: $ base64 -w 0 ./ca.pem
-  # (the "-w 0" generates the output on a single line)
-  etcd-ca: ""
-  etcd-client-key: ""
-  etcd-client-crt: ""
----
 kind: DaemonSet
 apiVersion: extensions/v1beta1
 metadata:
@@ -324,4 +308,21 @@ apiVersion: v1
 metadata:
   name: cilium
   namespace: kube-system
+---
+---
+# The etcd secrets can be populated in kubernetes.
+# For more information see: https://kubernetes.io/docs/concepts/configuration/secret
+kind: Secret
+apiVersion: v1
+type: Opaque
+metadata:
+  name: cilium-etcd-secrets
+  namespace: kube-system
+data:
+  # ETCD-CERT: Each value should contain the whole certificate in base64, on a
+  # single line. You can generate the base64 with: $ base64 -w 0 ./ca.pem
+  # (the "-w 0" generates the output on a single line)
+  etcd-ca: ""
+  etcd-client-key: ""
+  etcd-client-crt: ""
 ---
