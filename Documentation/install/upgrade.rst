@@ -389,9 +389,21 @@ Downgrading to Cilium 1.0.x from Cilium 1.1.y
    * **IPv6 CIDR matching:** Technically supported since 1.0.2, officially supported
      since 1.1.0. (`PR 4004 <https://github.com/cilium/cilium/pull/4004>`_)
 
-#. Follow the instructions in the section :ref:`upgrade_minor` to perform the
+   Any rules that are not compatible with 1.0.x must be removed before
    downgrade.
 
+#. Add or update the option ``clean-cilium-bpf-state`` to the `ConfigMap` and
+   set to ``true``. This will cause BPF maps to be removed during the
+   downgrade, which avoids bugs such as `Issue 5070
+   <https://github.com/cilium/cilium/issues/5070>`_. As a side effect, any
+   loadbalancing decisions for active connections will be disrupted during
+   downgrade. For more information on changing `ConfigMap` options, see
+   :ref:`upgrade_configmap`.
+
+#. Follow the instructions in the section :ref:`upgrade_minor` to perform the
+   downgrade to the latest micro release of the 1.0 series.
+
+#. Set the ``clean-cilium-bpf-state`` `ConfigMap` option back to ``false``.
 
 .. _upgrade_advanced:
 
