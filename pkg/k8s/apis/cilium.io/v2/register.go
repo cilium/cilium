@@ -386,6 +386,7 @@ var (
 		"PortRule":                 PortRule,
 		"PortRuleHTTP":             PortRuleHTTP,
 		"PortRuleKafka":            PortRuleKafka,
+		"PortRuleL7":               PortRuleL7,
 		"Rule":                     Rule,
 		"Service":                  Service,
 		"ServiceSelector":          ServiceSelector,
@@ -664,6 +665,17 @@ var (
 					Schema: &PortRuleKafka,
 				},
 			},
+			"l7proto": {
+				Description: "Parser type name that uses Key-Value pair rules.",
+				Type:        "string",
+			},
+			"l7": {
+				Description: "Generic Key-Value pair rules.",
+				Type:        "array",
+				Items: &apiextensionsv1beta1.JSONSchemaPropsOrArray{
+					Schema: &PortRuleL7,
+				},
+			},
 		},
 	}
 
@@ -919,6 +931,24 @@ var (
 					"topics are allowed.",
 				Type:      "string",
 				MaxLength: getInt64(255),
+			},
+		},
+	}
+
+	PortRuleL7 = apiextensionsv1beta1.JSONSchemaProps{
+		Description: "PortRuleL7 is a list of {key,value} pair protocol constraints. All fields are " +
+			"optional, if all fields are empty or missing, the rule does not have any effect.",
+		Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+			"rule": {
+				Description: "Rule is a map of {key,value} pairs which must be present in the " +
+					"request. If omitted or empty, all requests are allowed. " +
+					"Both keys and values must be strings.",
+				Type: "object",
+				AdditionalProperties: &apiextensionsv1beta1.JSONSchemaPropsOrBool{
+					Schema: &apiextensionsv1beta1.JSONSchemaProps{
+						Type: "string",
+					},
+				},
 			},
 		},
 	}

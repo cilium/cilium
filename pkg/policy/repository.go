@@ -156,6 +156,17 @@ func wildcardL3L4Rule(proto api.L4Proto, port int, endpoints api.EndpointSelecto
 			filter.Endpoints = append(filter.Endpoints, endpoints...)
 			filter.DerivedFromRules = append(filter.DerivedFromRules, ruleLabels)
 			l4Policy[k] = filter
+		default:
+			// Wildcard at L7 all the endpoints allowed at L3 or L4.
+			for _, sel := range endpoints {
+				filter.L7RulesPerEp[sel] = api.L7Rules{
+					L7Proto: filter.L7Parser.String(),
+					L7:      []api.PortRuleL7{{Rule: make(map[string]string)}},
+				}
+			}
+			filter.Endpoints = append(filter.Endpoints, endpoints...)
+			filter.DerivedFromRules = append(filter.DerivedFromRules, ruleLabels)
+			l4Policy[k] = filter
 		}
 	}
 }
@@ -573,6 +584,8 @@ func (p *Repository) DeleteByLabels(labels labels.LabelArray) (uint64, int) {
 // JSONMarshalRules returns a slice of policy rules as string in JSON
 // representation
 func JSONMarshalRules(rules api.Rules) string {
+	log.Debugf("Marshaling rules %v", rules)
+
 	b, err := json.MarshalIndent(rules, "", "  ")
 	if err != nil {
 		return err.Error()
