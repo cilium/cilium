@@ -17,7 +17,7 @@ package policy
 import (
 	"net"
 
-	"github.com/cilium/cilium/pkg/comparator"
+	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -43,7 +43,7 @@ func (ds *PolicyTestSuite) TestgetPrefixesFromCIDR(c *C) {
 		inputs = append(inputs, api.CIDR(ruleStr))
 	}
 	result := getPrefixesFromCIDR(inputs)
-	c.Assert(result, comparator.DeepEquals, expected)
+	c.Assert(result, checker.DeepEquals, expected)
 }
 
 func (ds *PolicyTestSuite) TestGetCIDRPrefixes(c *C) {
@@ -80,7 +80,7 @@ func (ds *PolicyTestSuite) TestGetCIDRPrefixes(c *C) {
 		c.Assert(err, IsNil)
 		expectedCIDRs = append(expectedCIDRs, cidr)
 	}
-	c.Assert(GetCIDRPrefixes(rules), comparator.DeepEquals, expectedCIDRs)
+	c.Assert(GetCIDRPrefixes(rules), checker.DeepEquals, expectedCIDRs)
 
 	// Now, test with CIDRSets.
 	rules = api.Rules{
@@ -129,5 +129,5 @@ func (ds *PolicyTestSuite) TestGetCIDRPrefixes(c *C) {
 		c.Assert(err, IsNil)
 		expectedCIDRs = append(expectedCIDRs, cidr)
 	}
-	c.Assert(GetCIDRPrefixes(rules), comparator.DeepEquals, expectedCIDRs)
+	c.Assert(GetCIDRPrefixes(rules), checker.DeepEquals, expectedCIDRs)
 }

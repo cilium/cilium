@@ -21,7 +21,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	apiEndpoint "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/common/addressing"
-	"github.com/cilium/cilium/pkg/comparator"
+	"github.com/cilium/cilium/pkg/checker"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
@@ -81,7 +81,7 @@ func (ds *DaemonSuite) TestEndpointAddNoLabels(c *C) {
 	expectedLabels := labels.Labels{
 		labels.IDNameInit: labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved),
 	}
-	c.Assert(ep.OpLabels.IdentityLabels(), comparator.DeepEquals, expectedLabels)
+	c.Assert(ep.OpLabels.IdentityLabels(), checker.DeepEquals, expectedLabels)
 
 	// If the mode is "default", check that the policy is always enforced for
 	// endpoints with the reserved:init label. If no policy rules match

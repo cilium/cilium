@@ -15,7 +15,7 @@
 package envoy
 
 import (
-	"github.com/cilium/cilium/pkg/comparator"
+	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/envoy/cilium"
 	envoy_api_v2_core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
 	envoy_api_v2_route "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/route"
@@ -325,35 +325,35 @@ var L4Policy2 = &policy.L4Policy{
 
 func (s *ServerSuite) TestGetHTTPRule(c *C) {
 	obtained, _ := getHTTPRule(PortRuleHTTP1)
-	c.Assert(obtained, comparator.DeepEquals, ExpectedHeaders1)
+	c.Assert(obtained, checker.DeepEquals, ExpectedHeaders1)
 }
 
 func (s *ServerSuite) TestGetPortNetworkPolicyRule(c *C) {
 	obtained := getPortNetworkPolicyRule(EndpointSelector1, policy.ParserTypeHTTP, L7Rules1,
 		IdentityCache, DeniedIdentitiesNone)
-	c.Assert(obtained, comparator.DeepEquals, ExpectedPortNetworkPolicyRule1)
+	c.Assert(obtained, checker.DeepEquals, ExpectedPortNetworkPolicyRule1)
 
 	obtained = getPortNetworkPolicyRule(EndpointSelector2, policy.ParserTypeHTTP, L7Rules2,
 		IdentityCache, DeniedIdentitiesNone)
-	c.Assert(obtained, comparator.DeepEquals, ExpectedPortNetworkPolicyRule2)
+	c.Assert(obtained, checker.DeepEquals, ExpectedPortNetworkPolicyRule2)
 }
 
 func (s *ServerSuite) TestGetDirectionNetworkPolicy(c *C) {
 	// L4+L7
 	obtained := getDirectionNetworkPolicy(L4PolicyMap1, true, IdentityCache, DeniedIdentitiesNone)
-	c.Assert(obtained, comparator.DeepEquals, ExpectedPerPortPolicies1)
+	c.Assert(obtained, checker.DeepEquals, ExpectedPerPortPolicies1)
 
 	// L4+L7
 	obtained = getDirectionNetworkPolicy(L4PolicyMap2, true, IdentityCache, DeniedIdentitiesNone)
-	c.Assert(obtained, comparator.DeepEquals, ExpectedPerPortPolicies2)
+	c.Assert(obtained, checker.DeepEquals, ExpectedPerPortPolicies2)
 
 	// L4-only
 	obtained = getDirectionNetworkPolicy(L4PolicyMap4, true, IdentityCache, DeniedIdentitiesNone)
-	c.Assert(obtained, comparator.DeepEquals, ExpectedPerPortPolicies6)
+	c.Assert(obtained, checker.DeepEquals, ExpectedPerPortPolicies6)
 
 	// L4-only
 	obtained = getDirectionNetworkPolicy(L4PolicyMap5, true, IdentityCache, DeniedIdentitiesNone)
-	c.Assert(obtained, comparator.DeepEquals, ExpectedPerPortPolicies7)
+	c.Assert(obtained, checker.DeepEquals, ExpectedPerPortPolicies7)
 }
 
 func (s *ServerSuite) TestGetNetworkPolicy(c *C) {
@@ -364,7 +364,7 @@ func (s *ServerSuite) TestGetNetworkPolicy(c *C) {
 		IngressPerPortPolicies: ExpectedPerPortPolicies1,
 		EgressPerPortPolicies:  ExpectedPerPortPolicies2,
 	}
-	c.Assert(obtained, comparator.DeepEquals, expected)
+	c.Assert(obtained, checker.DeepEquals, expected)
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyWildcard(c *C) {
@@ -375,7 +375,7 @@ func (s *ServerSuite) TestGetNetworkPolicyWildcard(c *C) {
 		IngressPerPortPolicies: ExpectedPerPortPolicies3,
 		EgressPerPortPolicies:  ExpectedPerPortPolicies2,
 	}
-	c.Assert(obtained, comparator.DeepEquals, expected)
+	c.Assert(obtained, checker.DeepEquals, expected)
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyDeny(c *C) {
@@ -386,7 +386,7 @@ func (s *ServerSuite) TestGetNetworkPolicyDeny(c *C) {
 		IngressPerPortPolicies: ExpectedPerPortPolicies4,
 		EgressPerPortPolicies:  ExpectedPerPortPolicies2,
 	}
-	c.Assert(obtained, comparator.DeepEquals, expected)
+	c.Assert(obtained, checker.DeepEquals, expected)
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyWildcardDeny(c *C) {
@@ -397,7 +397,7 @@ func (s *ServerSuite) TestGetNetworkPolicyWildcardDeny(c *C) {
 		IngressPerPortPolicies: ExpectedPerPortPolicies5,
 		EgressPerPortPolicies:  ExpectedPerPortPolicies2,
 	}
-	c.Assert(obtained, comparator.DeepEquals, expected)
+	c.Assert(obtained, checker.DeepEquals, expected)
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyNil(c *C) {
@@ -408,7 +408,7 @@ func (s *ServerSuite) TestGetNetworkPolicyNil(c *C) {
 		IngressPerPortPolicies: nil,
 		EgressPerPortPolicies:  nil,
 	}
-	c.Assert(obtained, comparator.DeepEquals, expected)
+	c.Assert(obtained, checker.DeepEquals, expected)
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyIngressNotEnforced(c *C) {
@@ -419,7 +419,7 @@ func (s *ServerSuite) TestGetNetworkPolicyIngressNotEnforced(c *C) {
 		IngressPerPortPolicies: allowAllPortNetworkPolicy,
 		EgressPerPortPolicies:  ExpectedPerPortPolicies2,
 	}
-	c.Assert(obtained, comparator.DeepEquals, expected)
+	c.Assert(obtained, checker.DeepEquals, expected)
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyEgressNotEnforced(c *C) {
@@ -430,5 +430,5 @@ func (s *ServerSuite) TestGetNetworkPolicyEgressNotEnforced(c *C) {
 		IngressPerPortPolicies: ExpectedPerPortPolicies5,
 		EgressPerPortPolicies:  allowAllPortNetworkPolicy,
 	}
-	c.Assert(obtained, comparator.DeepEquals, expected)
+	c.Assert(obtained, checker.DeepEquals, expected)
 }

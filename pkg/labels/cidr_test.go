@@ -15,7 +15,7 @@
 package labels
 
 import (
-	"github.com/cilium/cilium/pkg/comparator"
+	"github.com/cilium/cilium/pkg/checker"
 
 	. "gopkg.in/check.v1"
 )
@@ -33,6 +33,6 @@ func (s *LabelsSuite) TestIPStringToLabel(c *C) {
 		"fdff::ff":     "cidr:fdff--ff/128",
 	}
 	for ip, labelStr := range ipToLabels {
-		c.Assert(IPStringToLabel(ip).String(), comparator.DeepEquals, labelStr)
+		c.Assert(IPStringToLabel(ip).String(), checker.DeepEquals, labelStr)
 	}
 }

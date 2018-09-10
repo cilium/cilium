@@ -19,7 +19,8 @@ import (
 	"encoding/gob"
 	"testing"
 
-	"github.com/cilium/cilium/pkg/comparator"
+	"github.com/cilium/cilium/pkg/checker"
+
 	. "gopkg.in/check.v1"
 )
 
@@ -38,7 +39,7 @@ func (s *PayloadSuite) TestMeta_UnMarshalBinary(c *C) {
 	err = meta2.UnmarshalBinary(buf)
 	c.Assert(err, Equals, nil)
 
-	c.Assert(meta1, comparator.DeepEquals, meta2)
+	c.Assert(meta1, checker.DeepEquals, meta2)
 }
 
 func (s *PayloadSuite) TestPayload_UnMarshalBinary(c *C) {
@@ -55,7 +56,7 @@ func (s *PayloadSuite) TestPayload_UnMarshalBinary(c *C) {
 	err = payload2.Decode(buf)
 	c.Assert(err, Equals, nil)
 
-	c.Assert(payload1, comparator.DeepEquals, payload2)
+	c.Assert(payload1, checker.DeepEquals, payload2)
 }
 
 func (s *PayloadSuite) TestWriteReadMetaPayload(c *C) {
@@ -76,8 +77,8 @@ func (s *PayloadSuite) TestWriteReadMetaPayload(c *C) {
 	err = ReadMetaPayload(&buf, &meta2, &payload2)
 	c.Assert(err, Equals, nil)
 
-	c.Assert(meta1, comparator.DeepEquals, meta2)
-	c.Assert(payload1, comparator.DeepEquals, payload2)
+	c.Assert(meta1, checker.DeepEquals, meta2)
+	c.Assert(payload1, checker.DeepEquals, payload2)
 }
 
 func (s *PayloadSuite) BenchmarkWriteMetaPayload(c *C) {

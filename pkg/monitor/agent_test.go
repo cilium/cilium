@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cilium/cilium/pkg/comparator"
+	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -45,7 +45,7 @@ func testEqualityRules(got, expected string, c *C) {
 	c.Assert(err, IsNil)
 	err = json.Unmarshal([]byte(expected), expectedStruct)
 	c.Assert(err, IsNil)
-	c.Assert(gotStruct, comparator.DeepEquals, expectedStruct)
+	c.Assert(gotStruct, checker.DeepEquals, expectedStruct)
 }
 
 func testEqualityEndpoint(got, expected string, c *C) {
@@ -59,7 +59,7 @@ func testEqualityEndpoint(got, expected string, c *C) {
 
 	sort.Strings(gotStruct.Labels)
 	sort.Strings(expectedStruct.Labels)
-	c.Assert(gotStruct, comparator.DeepEquals, expectedStruct)
+	c.Assert(gotStruct, checker.DeepEquals, expectedStruct)
 }
 
 func (s *MonitorSuite) TestRulesRepr(c *C) {

@@ -20,11 +20,12 @@ import (
 	"testing"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/comparator"
+	"github.com/cilium/cilium/pkg/checker"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+
 	. "gopkg.in/check.v1"
 	"k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -162,7 +163,7 @@ func (s *K8sSuite) TestParseNetworkPolicyIngress(c *C) {
 	ingressL4Policy, err := repo.ResolveL4IngressPolicy(&ctx)
 	c.Assert(ingressL4Policy, Not(IsNil))
 	c.Assert(err, IsNil)
-	c.Assert(ingressL4Policy, comparator.DeepEquals, &policy.L4PolicyMap{
+	c.Assert(ingressL4Policy, checker.DeepEquals, &policy.L4PolicyMap{
 		"80/TCP": {
 			Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 			Endpoints:    []api.EndpointSelector{epSelector},
@@ -268,7 +269,7 @@ func (s *K8sSuite) TestParseNetworkPolicyNoSelectors(c *C) {
 	rules, err := ParseNetworkPolicy(&np)
 	c.Assert(err, IsNil)
 	c.Assert(rules, NotNil)
-	c.Assert(rules, comparator.DeepEquals, expectedRules)
+	c.Assert(rules, checker.DeepEquals, expectedRules)
 }
 
 func (s *K8sSuite) TestParseNetworkPolicyEgress(c *C) {
@@ -338,7 +339,7 @@ func (s *K8sSuite) TestParseNetworkPolicyEgress(c *C) {
 	egressL4Policy, err := repo.ResolveL4EgressPolicy(&ctx)
 	c.Assert(egressL4Policy, Not(IsNil))
 	c.Assert(err, IsNil)
-	c.Assert(egressL4Policy, comparator.DeepEquals, &policy.L4PolicyMap{
+	c.Assert(egressL4Policy, checker.DeepEquals, &policy.L4PolicyMap{
 		"80/TCP": {
 			Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 			Endpoints:    []api.EndpointSelector{epSelector},
@@ -1562,7 +1563,7 @@ func Test_parseNetworkPolicyPeer(t *testing.T) {
 			got := parseNetworkPolicyPeer(tt.args.namespace, tt.args.peer)
 			args := []interface{}{got, tt.want}
 			names := []string{"obtained", "expected"}
-			if equal, err := comparator.DeepEquals.Check(args, names); !equal {
+			if equal, err := checker.DeepEquals.Check(args, names); !equal {
 				t.Errorf("Failed to parseNetworkPolicyPeer():\n%s", err)
 			}
 		})

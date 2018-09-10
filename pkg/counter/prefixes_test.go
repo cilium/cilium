@@ -18,7 +18,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/cilium/cilium/pkg/comparator"
+	"github.com/cilium/cilium/pkg/checker"
 
 	. "gopkg.in/check.v1"
 )
@@ -58,7 +58,7 @@ func (cs *CounterTestSuite) TestReferenceTracker(c *C) {
 	changed, err := result.Add(v4Prefixes)
 	c.Assert(err, IsNil)
 	c.Assert(changed, Equals, true)
-	c.Assert(result.v4, comparator.DeepEquals, expectedPrefixLengths)
+	c.Assert(result.v4, checker.DeepEquals, expectedPrefixLengths)
 
 	// When we add the prefixes again, we should increase the reference
 	// counts appropriately
@@ -69,7 +69,7 @@ func (cs *CounterTestSuite) TestReferenceTracker(c *C) {
 	changed, err = result.Add(v4Prefixes)
 	c.Assert(err, IsNil)
 	c.Assert(changed, Equals, false)
-	c.Assert(result.v4, comparator.DeepEquals, expectedPrefixLengths)
+	c.Assert(result.v4, checker.DeepEquals, expectedPrefixLengths)
 
 	// Delete the /15 prefix and see that it is removed and doesn't affect
 	// other counts
@@ -78,7 +78,7 @@ func (cs *CounterTestSuite) TestReferenceTracker(c *C) {
 	}
 	expectedPrefixLengths[15]--
 	c.Assert(result.Delete(prefixes15), Equals, false)
-	c.Assert(result.v4, comparator.DeepEquals, expectedPrefixLengths)
+	c.Assert(result.v4, checker.DeepEquals, expectedPrefixLengths)
 
 	// Delete some prefix lengths
 	for k, v := range v4PrefixesLengths {
@@ -86,25 +86,25 @@ func (cs *CounterTestSuite) TestReferenceTracker(c *C) {
 	}
 	// No change in prefix lengths; each 'prefixes' was referenced twice.
 	c.Assert(result.Delete(v4Prefixes), Equals, false)
-	c.Assert(result.v4, comparator.DeepEquals, expectedPrefixLengths)
+	c.Assert(result.v4, checker.DeepEquals, expectedPrefixLengths)
 
 	// Re-add the /32 prefix and see that it is added back properly.
 	expectedPrefixLengths[15]++
 	changed, err = result.Add(prefixes15)
 	c.Assert(err, IsNil)
 	c.Assert(changed, Equals, false)
-	c.Assert(result.v4, comparator.DeepEquals, expectedPrefixLengths)
+	c.Assert(result.v4, checker.DeepEquals, expectedPrefixLengths)
 
 	// When removing the 'prefixes' again, return true and the set of
 	// prefixes should be empty
 	c.Assert(result.Delete(v4Prefixes), Equals, true)
-	c.Assert(result.v4, comparator.DeepEquals, IntCounter{})
+	c.Assert(result.v4, checker.DeepEquals, IntCounter{})
 
 	// Add back the v4 prefixes while we add v6 prefixes.
 	changed, err = result.Add(v4Prefixes)
 	c.Assert(err, IsNil)
 	c.Assert(changed, Equals, true)
-	c.Assert(result.v4, comparator.DeepEquals, expectedPrefixLengths)
+	c.Assert(result.v4, checker.DeepEquals, expectedPrefixLengths)
 
 	v6Prefixes := []*net.IPNet{
 		{Mask: net.CIDRMask(0, 128)},
@@ -128,7 +128,7 @@ func (cs *CounterTestSuite) TestReferenceTracker(c *C) {
 	changed, err = result.Add(v6Prefixes)
 	c.Assert(err, IsNil)
 	c.Assert(changed, Equals, true)
-	c.Assert(result.v6, comparator.DeepEquals, expectedPrefixLengths)
+	c.Assert(result.v6, checker.DeepEquals, expectedPrefixLengths)
 
 	// Add the v6 prefixes again (changed: false)
 	for k, v := range v6PrefixesLengths {
@@ -137,25 +137,25 @@ func (cs *CounterTestSuite) TestReferenceTracker(c *C) {
 	changed, err = result.Add(v6Prefixes)
 	c.Assert(err, IsNil)
 	c.Assert(changed, Equals, false)
-	c.Assert(result.v6, comparator.DeepEquals, expectedPrefixLengths)
+	c.Assert(result.v6, checker.DeepEquals, expectedPrefixLengths)
 
 	// Now, remove them (changed: false)
 	for k, v := range v6PrefixesLengths {
 		expectedPrefixLengths[k] -= v
 	}
 	c.Assert(result.Delete(v6Prefixes), Equals, false)
-	c.Assert(result.v6, comparator.DeepEquals, expectedPrefixLengths)
+	c.Assert(result.v6, checker.DeepEquals, expectedPrefixLengths)
 
 	// Delete them again (changed: true)
 	c.Assert(result.Delete(v6Prefixes), Equals, true)
-	c.Assert(result.v6, comparator.DeepEquals, IntCounter{})
+	c.Assert(result.v6, checker.DeepEquals, IntCounter{})
 
 	// Our v4 prefixes should still be here, unchanged
 	expectedPrefixLengths = make(map[int]int, len(v4PrefixesLengths))
 	for k, v := range v4PrefixesLengths {
 		expectedPrefixLengths[k] += v
 	}
-	c.Assert(result.v4, comparator.DeepEquals, expectedPrefixLengths)
+	c.Assert(result.v4, checker.DeepEquals, expectedPrefixLengths)
 }
 
 func (cs *CounterTestSuite) TestCheckLimits(c *C) {
@@ -199,6 +199,6 @@ func (cs *CounterTestSuite) TestToBPFData(c *C) {
 	c.Assert(err, IsNil)
 
 	s6, s4 := result.ToBPFData()
-	c.Assert(s6, comparator.DeepEquals, []int{})
-	c.Assert(s4, comparator.DeepEquals, []int{32, 24, 20})
+	c.Assert(s6, checker.DeepEquals, []int{})
+	c.Assert(s4, checker.DeepEquals, []int{32, 24, 20})
 }

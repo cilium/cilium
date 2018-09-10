@@ -18,7 +18,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cilium/cilium/pkg/comparator"
+	"github.com/cilium/cilium/pkg/checker"
+
 	. "gopkg.in/check.v1"
 )
 
@@ -197,11 +198,11 @@ func expectEvent(c *C, w *Watcher, typ EventType, key string, val []byte) {
 		c.Assert(event.Typ, Equals, typ)
 
 		if event.Typ != EventTypeListDone {
-			c.Assert(event.Key, comparator.DeepEquals, key)
+			c.Assert(event.Key, checker.DeepEquals, key)
 
 			// etcd does not provide the value of deleted keys
 			if selectedModule == "consul" {
-				c.Assert(event.Value, comparator.DeepEquals, val)
+				c.Assert(event.Value, checker.DeepEquals, val)
 			}
 		}
 	case <-time.After(10 * time.Second):

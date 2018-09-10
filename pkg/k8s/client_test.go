@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/annotation"
-	"github.com/cilium/cilium/pkg/comparator"
+	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/node"
 
 	. "gopkg.in/check.v1"
@@ -61,7 +61,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 			n := action.(testing.UpdateAction).GetObject().(*v1.Node)
 			n1copy := node1.DeepCopy()
 			n1copy.Annotations[annotation.V4CIDRName] = "10.2.0.0/16"
-			c.Assert(n, comparator.DeepEquals, n1copy)
+			c.Assert(n, checker.DeepEquals, n1copy)
 			updateChan <- true
 			return true, n1copy, nil
 		})
@@ -120,7 +120,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 			n2Copy := node2.DeepCopy()
 			n2Copy.Annotations[annotation.V4CIDRName] = "10.254.0.0/16"
 			n2Copy.Annotations[annotation.V6CIDRName] = "aaaa:aaaa:aaaa:aaaa:beef:beef::/96"
-			c.Assert(n, comparator.DeepEquals, n2Copy)
+			c.Assert(n, checker.DeepEquals, n2Copy)
 			updateChan <- true
 			return true, n2Copy, nil
 		})

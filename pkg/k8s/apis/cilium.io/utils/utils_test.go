@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/cilium/cilium/pkg/comparator"
+	"github.com/cilium/cilium/pkg/checker"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -238,7 +238,7 @@ func Test_ParseToCiliumRule(t *testing.T) {
 			got := ParseToCiliumRule(tt.args.namespace, tt.name, tt.args.rule)
 			args := []interface{}{got, tt.want}
 			names := []string{"obtained", "expected"}
-			if equal, err := comparator.DeepEquals.Check(args, names); !equal {
+			if equal, err := checker.DeepEquals.Check(args, names); !equal {
 				t.Errorf("Failed to ParseToCiliumRule():\n%s", err)
 			}
 		})

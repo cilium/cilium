@@ -18,9 +18,10 @@ import (
 	"bytes"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/comparator"
+	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
+
 	"github.com/op/go-logging"
 	. "gopkg.in/check.v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -69,7 +70,7 @@ func (ds *PolicyTestSuite) TestAddSearchDelete(c *C) {
 
 	// rule3 should not be in there yet
 	repo.Mutex.RLock()
-	c.Assert(repo.SearchRLocked(lbls2), comparator.DeepEquals, api.Rules{})
+	c.Assert(repo.SearchRLocked(lbls2), checker.DeepEquals, api.Rules{})
 	repo.Mutex.RUnlock()
 
 	// add rule3
@@ -80,8 +81,8 @@ func (ds *PolicyTestSuite) TestAddSearchDelete(c *C) {
 
 	// search rule1,rule2
 	repo.Mutex.RLock()
-	c.Assert(repo.SearchRLocked(lbls1), comparator.DeepEquals, api.Rules{&rule1, &rule2})
-	c.Assert(repo.SearchRLocked(lbls2), comparator.DeepEquals, api.Rules{&rule3})
+	c.Assert(repo.SearchRLocked(lbls1), checker.DeepEquals, api.Rules{&rule1, &rule2})
+	c.Assert(repo.SearchRLocked(lbls2), checker.DeepEquals, api.Rules{&rule3})
 	repo.Mutex.RUnlock()
 
 	// delete rule1, rule2
@@ -97,7 +98,7 @@ func (ds *PolicyTestSuite) TestAddSearchDelete(c *C) {
 
 	// rule3 can still be found
 	repo.Mutex.RLock()
-	c.Assert(repo.SearchRLocked(lbls2), comparator.DeepEquals, api.Rules{&rule3})
+	c.Assert(repo.SearchRLocked(lbls2), checker.DeepEquals, api.Rules{&rule3})
 	repo.Mutex.RUnlock()
 
 	// delete rule3
@@ -107,7 +108,7 @@ func (ds *PolicyTestSuite) TestAddSearchDelete(c *C) {
 
 	// rule1 is gone
 	repo.Mutex.RLock()
-	c.Assert(repo.SearchRLocked(lbls2), comparator.DeepEquals, api.Rules{})
+	c.Assert(repo.SearchRLocked(lbls2), checker.DeepEquals, api.Rules{})
 	repo.Mutex.RUnlock()
 }
 
@@ -418,7 +419,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 			DerivedFromRules: labels.LabelArrayList{labelsHTTP, labelsL3},
 		},
 	}
-	c.Assert((*policy), comparator.DeepEquals, expectedPolicy)
+	c.Assert((*policy), checker.DeepEquals, expectedPolicy)
 }
 
 func (ds *PolicyTestSuite) TestWildcardL4RulesIngress(c *C) {
@@ -559,7 +560,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesIngress(c *C) {
 			DerivedFromRules: labels.LabelArrayList{labelsL4, labelsKafka, labelsL4},
 		},
 	}
-	c.Assert((*policy), comparator.DeepEquals, expectedPolicy)
+	c.Assert((*policy), checker.DeepEquals, expectedPolicy)
 }
 
 func (ds *PolicyTestSuite) TestL3DependentL4IngressFromRequires(c *C) {
@@ -622,7 +623,7 @@ func (ds *PolicyTestSuite) TestL3DependentL4IngressFromRequires(c *C) {
 			DerivedFromRules: labels.LabelArrayList{nil},
 		},
 	}
-	c.Assert((*policy), comparator.DeepEquals, expectedPolicy)
+	c.Assert((*policy), checker.DeepEquals, expectedPolicy)
 }
 
 func (ds *PolicyTestSuite) TestL3DependentL4EgressFromRequires(c *C) {
@@ -684,7 +685,7 @@ func (ds *PolicyTestSuite) TestL3DependentL4EgressFromRequires(c *C) {
 			DerivedFromRules: labels.LabelArrayList{nil},
 		},
 	}
-	c.Assert((*policy), comparator.DeepEquals, expectedPolicy)
+	c.Assert((*policy), checker.DeepEquals, expectedPolicy)
 }
 
 func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
@@ -802,7 +803,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 			DerivedFromRules: labels.LabelArrayList{labelsHTTP, labelsL4},
 		},
 	}
-	c.Assert((*policy), comparator.DeepEquals, expectedPolicy)
+	c.Assert((*policy), checker.DeepEquals, expectedPolicy)
 }
 
 func (ds *PolicyTestSuite) TestWildcardL4RulesEgress(c *C) {
@@ -943,7 +944,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesEgress(c *C) {
 			DerivedFromRules: labels.LabelArrayList{labelsL3, labelsKafka, labelsL3},
 		},
 	}
-	c.Assert((*policy), comparator.DeepEquals, expectedPolicy)
+	c.Assert((*policy), checker.DeepEquals, expectedPolicy)
 }
 
 func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
@@ -1065,7 +1066,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
 		},
 	}
 
-	c.Assert((*policy), comparator.DeepEquals, expectedPolicy)
+	c.Assert((*policy), checker.DeepEquals, expectedPolicy)
 }
 
 func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
@@ -1187,7 +1188,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 		},
 	}
 
-	c.Assert((*policy), comparator.DeepEquals, expectedPolicy)
+	c.Assert((*policy), checker.DeepEquals, expectedPolicy)
 }
 
 func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
@@ -1321,7 +1322,7 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 	expected.Revision = repo.GetRevision()
 
 	c.Assert(len(*l4IngressPolicy), Equals, 1)
-	c.Assert(*l4IngressPolicy, comparator.DeepEquals, expected.Ingress)
+	c.Assert(*l4IngressPolicy, checker.DeepEquals, expected.Ingress)
 
 	// L4 from app3 has no rules
 	expected = NewL4Policy()
@@ -1329,7 +1330,7 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 	l4IngressPolicy, err = repo.ResolveL4IngressPolicy(fromApp3)
 	c.Assert(err, IsNil)
 	c.Assert(len(*l4IngressPolicy), Equals, 0)
-	c.Assert(*l4IngressPolicy, comparator.DeepEquals, expected.Ingress)
+	c.Assert(*l4IngressPolicy, checker.DeepEquals, expected.Ingress)
 }
 
 func buildSearchCtx(from, to string, port uint16) *SearchContext {
@@ -1382,7 +1383,7 @@ func (repo *Repository) checkTrace(c *C, ctx *SearchContext, trace string,
 	c.Assert(verdict, Equals, expectedVerdict)
 
 	expectedOut := "Tracing " + ctx.String() + trace
-	c.Assert(buffer.String(), comparator.DeepEquals, expectedOut)
+	c.Assert(buffer.String(), checker.DeepEquals, expectedOut)
 }
 
 func (ds *PolicyTestSuite) TestPolicyTrace(c *C) {
