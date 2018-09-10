@@ -1,4 +1,5 @@
 #include "cilium_network_filter.h"
+#include "cilium/cilium_network_filter.pb.validate.h"
 
 #include "common/common/assert.h"
 #include "common/common/fmt.h"
@@ -20,20 +21,23 @@ class CiliumNetworkConfigFactory : public NamedNetworkFilterConfigFactory {
 public:
   // NamedNetworkFilterConfigFactory
   Network::FilterFactoryCb
-  createFilterFactoryFromProto(const Protobuf::Message&, FactoryContext&) override {
-    return [](Network::FilterManager &filter_manager) mutable -> void {
-      filter_manager.addReadFilter(std::make_shared<Filter::CiliumL3::Instance>());
+  createFilterFactoryFromProto(const Protobuf::Message& proto_config,
+			       FactoryContext& context) override {
+    auto config = std::make_shared<Filter::CiliumL3::Config>(MessageUtil::downcastAndValidate<const ::cilium::NetworkFilter&>(proto_config), context);
+    return [config](Network::FilterManager &filter_manager) mutable -> void {
+      filter_manager.addReadFilter(std::make_shared<Filter::CiliumL3::Instance>(config));
     };
   }
 
   Network::FilterFactoryCb
-  createFilterFactory(const Json::Object&, FactoryContext&) override {
-    return [](Network::FilterManager &filter_manager) mutable -> void {
-      filter_manager.addReadFilter(std::make_shared<Filter::CiliumL3::Instance>());
+  createFilterFactory(const Json::Object& json_config, FactoryContext& context) override {
+    auto config = std::make_shared<Filter::CiliumL3::Config>(json_config, context);
+    return [config](Network::FilterManager &filter_manager) mutable -> void {
+      filter_manager.addReadFilter(std::make_shared<Filter::CiliumL3::Instance>(config));
     };
   }
   ProtobufTypes::MessagePtr createEmptyConfigProto() override {
-    return ProtobufTypes::MessagePtr{new Envoy::ProtobufWkt::Empty()};
+    return std::make_unique<::cilium::NetworkFilter>();
   }
 
   std::string name() override { return "cilium.network"; }
@@ -50,6 +54,12 @@ static Registry::RegisterFactory<CiliumNetworkConfigFactory, NamedNetworkFilterC
 
 namespace Filter {
 namespace CiliumL3 {
+
+Config::Config(const ::cilium::NetworkFilter&, Server::Configuration::FactoryContext&) {
+}
+
+Config::Config(const Json::Object&, Server::Configuration::FactoryContext&) {
+}
 
 Network::FilterStatus Instance::onNewConnection() {
   ENVOY_LOG(debug, "Cilium Network: onNewConnection");
@@ -81,6 +91,10 @@ Network::FilterStatus Instance::onNewConnection() {
     ENVOY_CONN_LOG(warn, "Cilium Network: No socket options", conn);
   }
 
+  return Network::FilterStatus::Continue;
+}
+
+Network::FilterStatus Instance::onData(Buffer::Instance&, bool) {
   return Network::FilterStatus::Continue;
 }
 

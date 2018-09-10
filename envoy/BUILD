@@ -19,6 +19,11 @@ api_proto_library(
 )
 
 api_proto_library(
+    name = "cilium_network_filter",
+    srcs = ["cilium/cilium_network_filter.proto"],
+)
+
+api_proto_library(
     name = "cilium_l7policy",
     srcs = ["cilium/cilium_l7policy.proto"],
 )
@@ -189,6 +194,7 @@ envoy_cc_library(
         "@envoy//source/common/network:address_lib",
         ":proxymap_lib",
         ":cilium_socket_option_lib",
+        ":cilium_network_filter_cc",
     ],
 )
 

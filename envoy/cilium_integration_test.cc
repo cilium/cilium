@@ -216,11 +216,9 @@ public:
   }
 };
 
-typedef std::shared_ptr<TestConfig> TestConfigSharedPtr;
-
 class TestInstance : public Instance {
 public:
-  TestInstance(TestConfigSharedPtr config) : Instance(config) {}
+  TestInstance(const ConfigSharedPtr& config) : Instance(config) {}
 };
 
 } // namespace BpfMetadata
