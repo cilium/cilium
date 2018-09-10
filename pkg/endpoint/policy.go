@@ -501,18 +501,14 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 		return false, nil
 	}
 
-	// Skip L4 policy recomputation if possible. However, the rest of the
-	// policy computation still needs to be done for each endpoint separately.
-	l4PolicyChanged := false
-	if e.Iteration != revision {
-		l4PolicyChanged, err = e.resolveL4Policy(repo)
-		if err != nil {
-			return false, err
-		}
-		// Result is valid until cache iteration advances
-		e.Iteration = revision
-	} else {
-		e.getLogger().WithField(logfields.Identity, e.SecurityIdentity.ID).Debug("Reusing cached L4 policy")
+	l4PolicyChanged, err := e.resolveL4Policy(repo)
+	if err != nil {
+		return false, err
+	}
+
+	e.Iteration = revision
+	if l4PolicyChanged {
+		e.getLogger().WithField(logfields.Identity, e.SecurityIdentity.ID).Debug("L4 policy changed")
 	}
 
 	// Calculate L3 (CIDR) policy.
