@@ -259,7 +259,7 @@ func (res *CmdRes) Unmarshal(data interface{}) error {
 
 // GetDebugMessage returns executed command and its output
 func (res *CmdRes) GetDebugMessage() string {
-	return fmt.Sprintf("cmd: %s\n%s", res.GetCmd(), res.CombineOutput())
+	return fmt.Sprintf("cmd: %s\n%s", res.GetCmd(), res.OutputPrettyPrint())
 }
 
 // WaitUntilMatch waits until the given substring is present in the `CmdRes.stdout`
@@ -294,7 +294,7 @@ func (res *CmdRes) GetErr(context string) error {
 	if res.WasSuccessful() {
 		return nil
 	}
-	return fmt.Errorf("command context:%s, output: %s", context, res.GetDebugMessage())
+	return &cmdError{fmt.Sprintf("%s output: %s", context, res.GetDebugMessage())}
 }
 
 // BeSuccesfulMatcher a new Ginkgo matcher for CmdRes struct
@@ -330,4 +330,17 @@ func (matcher *BeSuccesfulMatcher) NegatedFailureMessage(actual interface{}) (me
 // CMDSuccess return a new Matcher that expects a CmdRes is a successful run command.
 func CMDSuccess() types.GomegaMatcher {
 	return &BeSuccesfulMatcher{}
+}
+
+// cmdError is a implementation of error with String method to improve the debugging.
+type cmdError struct {
+	s string
+}
+
+func (e *cmdError) Error() string {
+	return e.s
+}
+
+func (e *cmdError) String() string {
+	return e.s
 }
