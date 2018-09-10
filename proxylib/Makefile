@@ -17,4 +17,6 @@ clean:
 
 install:
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(LIBDIR)
+	pwd
+	ls -l
 	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(LIBDIR)
