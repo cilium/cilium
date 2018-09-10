@@ -67,12 +67,12 @@ api: force-non-root Makefile.api
 	$(MAKE) -f Makefile.api all
 
 proxylib-hdrs: ../proxylib/libcilium.h ../proxylib/proxylib/types.h
-	-mkdir proxylib
-	cp $^ proxylib/.
+	$(INSTALL) -m 0755 -d proxylib
+	$(INSTALL) -C -m 0644 $^ proxylib
 
 proxylib-bin: ../proxylib/libcilium.so
-	-mkdir proxylib
-	cp $^ proxylib/.
+	$(INSTALL) -m 0755 -d proxylib
+	$(INSTALL) -m 0755 $^ proxylib
 
 envoy-default: force-non-root proxylib-hdrs
 	@$(ECHO_BAZEL)
