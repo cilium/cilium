@@ -20,7 +20,7 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/comparator"
+	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -187,7 +187,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 
 	res.Egress = res2.Egress
 
-	c.Assert(*res, comparator.DeepEquals, *expected)
+	c.Assert(*res, checker.DeepEquals, *expected)
 	c.Assert(ingressState.selectedRules, Equals, 1)
 	c.Assert(ingressState.matchedRules, Equals, 0)
 
@@ -289,7 +289,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	res.Egress = res2.Egress
 
 	c.Assert(len(res.Ingress), Equals, 1)
-	c.Assert(*res, comparator.DeepEquals, *expected)
+	c.Assert(*res, checker.DeepEquals, *expected)
 	c.Assert(ingressState.selectedRules, Equals, 1)
 	c.Assert(ingressState.matchedRules, Equals, 0)
 
@@ -356,7 +356,7 @@ func (ds *PolicyTestSuite) TestMergeL4PolicyIngress(c *C) {
 	res, err := rule1.resolveL4IngressPolicy(toBar, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, comparator.DeepEquals, *expected)
+	c.Assert(*res, checker.DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
 }
@@ -410,7 +410,7 @@ func (ds *PolicyTestSuite) TestMergeL4PolicyEgress(c *C) {
 	res, err := rule1.resolveL4EgressPolicy(fromBar, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, comparator.DeepEquals, *expected)
+	c.Assert(*res, checker.DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
 }
@@ -487,7 +487,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 	res, err := rule1.resolveL4IngressPolicy(toBar, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, comparator.DeepEquals, *expected)
+	c.Assert(*res, checker.DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
 
@@ -550,7 +550,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 	res, err = rule2.resolveL4IngressPolicy(toBar, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, comparator.DeepEquals, *expected)
+	c.Assert(*res, checker.DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
 
@@ -632,7 +632,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 	res, err = rule3.resolveL4IngressPolicy(toBar, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, comparator.DeepEquals, *expected)
+	c.Assert(*res, checker.DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
 }
@@ -705,7 +705,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 	res, err := rule1.resolveL4EgressPolicy(fromBar, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, comparator.DeepEquals, *expected)
+	c.Assert(*res, checker.DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
 
@@ -776,7 +776,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 	res, err = rule2.resolveL4EgressPolicy(fromBar, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, comparator.DeepEquals, *expected)
+	c.Assert(*res, checker.DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
 
@@ -850,7 +850,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 	res, err = rule3.resolveL4EgressPolicy(fromBar, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, comparator.DeepEquals, *expected)
+	c.Assert(*res, checker.DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
 }
@@ -945,7 +945,7 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 	state := traceState{}
 	res := rule1.resolveCIDRPolicy(toBar, &state, NewCIDRPolicy())
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, comparator.DeepEquals, *expected)
+	c.Assert(*res, checker.DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
 
@@ -1307,14 +1307,14 @@ func (ds *PolicyTestSuite) TestL3RuleLabels(c *C) {
 		for cidrKey := range test.expectedIngressLabels {
 			out := finalPolicy.Ingress.Map[cidrKey]
 			c.Assert(out, Not(IsNil), Commentf(test.description))
-			c.Assert(out.DerivedFromRules, comparator.DeepEquals, test.expectedIngressLabels[cidrKey], Commentf(test.description))
+			c.Assert(out.DerivedFromRules, checker.DeepEquals, test.expectedIngressLabels[cidrKey], Commentf(test.description))
 		}
 
 		c.Assert(len(finalPolicy.Egress.Map), Equals, len(test.expectedEgressLabels), Commentf(test.description))
 		for cidrKey := range test.expectedEgressLabels {
 			out := finalPolicy.Egress.Map[cidrKey]
 			c.Assert(out, Not(IsNil), Commentf(test.description))
-			c.Assert(out.DerivedFromRules, comparator.DeepEquals, test.expectedEgressLabels[cidrKey], Commentf(test.description))
+			c.Assert(out.DerivedFromRules, checker.DeepEquals, test.expectedEgressLabels[cidrKey], Commentf(test.description))
 		}
 	}
 }
@@ -1423,7 +1423,7 @@ func (ds *PolicyTestSuite) TestL4RuleLabels(c *C) {
 			out, found := finalPolicy.Ingress[portProto]
 			c.Assert(found, Equals, true, Commentf(test.description))
 			c.Assert(out, NotNil, Commentf(test.description))
-			c.Assert(out.DerivedFromRules, comparator.DeepEquals, test.expectedIngressLabels[portProto], Commentf(test.description))
+			c.Assert(out.DerivedFromRules, checker.DeepEquals, test.expectedIngressLabels[portProto], Commentf(test.description))
 		}
 
 		c.Assert(len(finalPolicy.Egress), Equals, len(test.expectedEgressLabels), Commentf(test.description))
@@ -1431,7 +1431,7 @@ func (ds *PolicyTestSuite) TestL4RuleLabels(c *C) {
 			out, found := finalPolicy.Egress[portProto]
 			c.Assert(found, Equals, true, Commentf(test.description))
 			c.Assert(out, Not(IsNil), Commentf(test.description))
-			c.Assert(out.DerivedFromRules, comparator.DeepEquals, test.expectedEgressLabels[portProto], Commentf(test.description))
+			c.Assert(out.DerivedFromRules, checker.DeepEquals, test.expectedEgressLabels[portProto], Commentf(test.description))
 		}
 
 	}

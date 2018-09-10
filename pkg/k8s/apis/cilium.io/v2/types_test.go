@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/cilium/cilium/pkg/comparator"
+	"github.com/cilium/cilium/pkg/checker"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	"github.com/cilium/cilium/pkg/labels"
@@ -300,19 +300,19 @@ func (s *CiliumV2Suite) TestParseSpec(c *C) {
 	rules, err := expectedPolicyRule.Parse()
 	c.Assert(err, IsNil)
 	c.Assert(len(rules), Equals, 1)
-	c.Assert(*rules[0], comparator.DeepEquals, expectedSpecRule)
+	c.Assert(*rules[0], checker.DeepEquals, expectedSpecRule)
 
 	b, err := json.Marshal(expectedPolicyRule)
 	c.Assert(err, IsNil)
 	var expectedPolicyRuleUnmarshalled CiliumNetworkPolicy
 	err = json.Unmarshal(b, &expectedPolicyRuleUnmarshalled)
 	c.Assert(err, IsNil)
-	c.Assert(expectedPolicyRuleUnmarshalled, comparator.DeepEquals, *expectedPolicyRule)
+	c.Assert(expectedPolicyRuleUnmarshalled, checker.DeepEquals, *expectedPolicyRule)
 
 	cnpl := CiliumNetworkPolicy{}
 	err = json.Unmarshal(ciliumRule, &cnpl)
 	c.Assert(err, IsNil)
-	c.Assert(cnpl, comparator.DeepEquals, *expectedPolicyRuleWithLabel)
+	c.Assert(cnpl, checker.DeepEquals, *expectedPolicyRuleWithLabel)
 }
 
 func (s *CiliumV2Suite) TestParseRules(c *C) {
@@ -363,7 +363,7 @@ func (s *CiliumV2Suite) TestParseRules(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(len(rules), Equals, 2)
 	for i, rule := range rules {
-		c.Assert(rule, comparator.DeepEquals, expectedSpecRules[i])
+		c.Assert(rule, checker.DeepEquals, expectedSpecRules[i])
 	}
 
 	b, err := json.Marshal(expectedPolicyRuleList)
@@ -371,10 +371,10 @@ func (s *CiliumV2Suite) TestParseRules(c *C) {
 	var expectedPolicyRuleUnmarshalled CiliumNetworkPolicy
 	err = json.Unmarshal(b, &expectedPolicyRuleUnmarshalled)
 	c.Assert(err, IsNil)
-	c.Assert(expectedPolicyRuleUnmarshalled, comparator.DeepEquals, *expectedPolicyRuleList)
+	c.Assert(expectedPolicyRuleUnmarshalled, checker.DeepEquals, *expectedPolicyRuleList)
 
 	cnpl := CiliumNetworkPolicy{}
 	err = json.Unmarshal(ciliumRuleList, &cnpl)
 	c.Assert(err, IsNil)
-	c.Assert(cnpl, comparator.DeepEquals, *expectedPolicyRuleListWithLabel)
+	c.Assert(cnpl, checker.DeepEquals, *expectedPolicyRuleListWithLabel)
 }

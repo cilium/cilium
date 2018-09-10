@@ -18,7 +18,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/cilium/cilium/pkg/comparator"
+	"github.com/cilium/cilium/pkg/checker"
 
 	. "gopkg.in/check.v1"
 )
@@ -44,11 +44,11 @@ func (s *MACSuite) TestUnmarshalJSON(c *C) {
 	w := MAC([]byte{0x11, 0x12, 0x23, 0x34, 0x45, 0xAB})
 	d, err := json.Marshal(m)
 	c.Assert(err, IsNil)
-	c.Assert(d, comparator.DeepEquals, []byte(`"11:12:23:34:45:56"`))
+	c.Assert(d, checker.DeepEquals, []byte(`"11:12:23:34:45:56"`))
 	var t MAC
 	err = json.Unmarshal([]byte(`"11:12:23:34:45:AB"`), &t)
 	c.Assert(err, IsNil)
-	c.Assert(t, comparator.DeepEquals, w)
+	c.Assert(t, checker.DeepEquals, w)
 	err = json.Unmarshal([]byte(`"11:12:23:34:45:A"`), &t)
 	c.Assert(err, NotNil)
 
@@ -56,9 +56,9 @@ func (s *MACSuite) TestUnmarshalJSON(c *C) {
 	w = MAC([]byte{})
 	d, err = json.Marshal(m)
 	c.Assert(err, Equals, nil)
-	c.Assert(d, comparator.DeepEquals, []byte(`""`))
+	c.Assert(d, checker.DeepEquals, []byte(`""`))
 	var t2 MAC
 	err = json.Unmarshal([]byte(`""`), &t2)
 	c.Assert(err, IsNil)
-	c.Assert(t2, comparator.DeepEquals, w)
+	c.Assert(t2, checker.DeepEquals, w)
 }

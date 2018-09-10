@@ -15,47 +15,22 @@
 package comparator
 
 import (
-	"reflect"
-
 	"github.com/kr/pretty"
 	"github.com/pmezard/go-difflib/difflib"
-	"gopkg.in/check.v1"
 )
-
-type diffChecker struct {
-	*check.CheckerInfo
-}
-
-// DeepEquals is a GoCheck checker that does a diff between two objects and
-// pretty-prints any difference between the two. It can act as a substitute
-// for DeepEquals.
-var DeepEquals check.Checker = &diffChecker{
-	&check.CheckerInfo{Name: "Diff", Params: []string{"obtained", "expected"}},
-}
-
-// Check performs a diff between two objects provided as parameters, and
-// returns either true if the objects are identical, or false otherwise. If
-// it returns false, it also returns the unified diff between the expected
-// and obtained output.
-func (checker *diffChecker) Check(params []interface{}, names []string) (result bool, error string) {
-	if reflect.DeepEqual(params[0], params[1]) {
-		return true, ""
-	}
-
-	return false, compare(params[0], params[1], names[1], names[0])
-}
 
 // Compare compares two interfaces and emits a unified diff as string
 func Compare(a, b interface{}) string {
-	return compare(a, b, "b", "a")
+	return CompareWithNames(a, b, "a", "b")
 }
 
-func compare(a, b interface{}, nameA, nameB string) string {
-	string0 := pretty.Sprintf("%# v", a)
-	string1 := pretty.Sprintf("%# v", b)
+// CompareWithNames compares two interfaces and emits a unified diff as string
+func CompareWithNames(a, b interface{}, nameA, nameB string) string {
+	stringA := pretty.Sprintf("%# v", a)
+	stringB := pretty.Sprintf("%# v", b)
 	diff := difflib.UnifiedDiff{
-		A:        difflib.SplitLines(string1),
-		B:        difflib.SplitLines(string0),
+		A:        difflib.SplitLines(stringA),
+		B:        difflib.SplitLines(stringB),
 		FromFile: nameA,
 		ToFile:   nameB,
 		Context:  32,

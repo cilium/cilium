@@ -18,7 +18,7 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/pkg/comparator"
+	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 
@@ -75,7 +75,7 @@ func (ds *ServiceTestSuite) TestServices(c *C) {
 	c.Assert(err, Equals, nil)
 	wantL3n4AddrID.ID = ffsIDu16
 	wantL3n4AddrID.L3n4Addr = l3n4Addr1
-	c.Assert(gotL3n4AddrID, comparator.DeepEquals, wantL3n4AddrID)
+	c.Assert(gotL3n4AddrID, checker.DeepEquals, wantL3n4AddrID)
 
 	err = DeleteID(common.FirstFreeServiceID)
 	c.Assert(err, Equals, nil)
@@ -87,7 +87,7 @@ func (ds *ServiceTestSuite) TestServices(c *C) {
 	c.Assert(err, Equals, nil)
 	wantL3n4AddrID.ID = loadbalancer.ServiceID(common.FirstFreeServiceID + 1)
 	wantL3n4AddrID.L3n4Addr = l3n4Addr2
-	c.Assert(gotL3n4AddrID, comparator.DeepEquals, wantL3n4AddrID)
+	c.Assert(gotL3n4AddrID, checker.DeepEquals, wantL3n4AddrID)
 
 	err = DeleteID(common.FirstFreeServiceID)
 	c.Assert(err, Equals, nil)

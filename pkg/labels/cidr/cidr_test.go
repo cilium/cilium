@@ -18,7 +18,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/cilium/cilium/pkg/comparator"
+	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/node"
 
@@ -61,7 +61,7 @@ func (s *CIDRLabelsSuite) TestGetCIDRLabels(c *C) {
 
 	lbls := GetCIDRLabels(cidr)
 	lblArray := lbls.LabelArray()
-	c.Assert(lblArray.Lacks(expected), comparator.DeepEquals, labels.LabelArray{})
+	c.Assert(lblArray.Lacks(expected), checker.DeepEquals, labels.LabelArray{})
 	// IPs should be masked as the labels are generated
 	c.Assert(lblArray.Has("cidr:192.0.2.3/24"), Equals, false)
 
@@ -75,7 +75,7 @@ func (s *CIDRLabelsSuite) TestGetCIDRLabels(c *C) {
 
 	lbls = GetCIDRLabels(cidr)
 	lblArray = lbls.LabelArray()
-	c.Assert(lblArray.Lacks(expected), comparator.DeepEquals, labels.LabelArray{})
+	c.Assert(lblArray.Lacks(expected), checker.DeepEquals, labels.LabelArray{})
 	// CIDRs that are covered by the prefix should not be in the labels
 	c.Assert(lblArray.Has("cidr.192.0.2.3/32"), Equals, false)
 
@@ -88,7 +88,7 @@ func (s *CIDRLabelsSuite) TestGetCIDRLabels(c *C) {
 
 	lbls = GetCIDRLabels(cidr)
 	lblArray = lbls.LabelArray()
-	c.Assert(lblArray.Lacks(expected), comparator.DeepEquals, labels.LabelArray{})
+	c.Assert(lblArray.Lacks(expected), checker.DeepEquals, labels.LabelArray{})
 	c.Assert(lblArray.Has("cidr.0.0.0.0/0"), Equals, false)
 
 	// Note that we convert the colons in IPv6 addresses into dashes when
@@ -108,7 +108,7 @@ func (s *CIDRLabelsSuite) TestGetCIDRLabels(c *C) {
 
 	lbls = GetCIDRLabels(cidr)
 	lblArray = lbls.LabelArray()
-	c.Assert(lblArray.Lacks(expected), comparator.DeepEquals, labels.LabelArray{})
+	c.Assert(lblArray.Lacks(expected), checker.DeepEquals, labels.LabelArray{})
 	// IPs should be masked as the labels are generated
 	c.Assert(lblArray.Has("cidr.2001-db8--1/24"), Equals, false)
 }
@@ -125,7 +125,7 @@ func (s *CIDRLabelsSuite) TestGetCIDRLabelsInCluster(c *C) {
 	)
 	lbls := GetCIDRLabels(cidr)
 	lblArray := lbls.LabelArray()
-	c.Assert(lblArray.Lacks(expected), comparator.DeepEquals, labels.LabelArray{})
+	c.Assert(lblArray.Lacks(expected), checker.DeepEquals, labels.LabelArray{})
 
 	// This case is firmly within the cluster range
 	_, cidr, err = net.ParseCIDR("2001:db8:cafe::cab:4:b0b:0/112")
@@ -139,5 +139,5 @@ func (s *CIDRLabelsSuite) TestGetCIDRLabelsInCluster(c *C) {
 	)
 	lbls = GetCIDRLabels(cidr)
 	lblArray = lbls.LabelArray()
-	c.Assert(lblArray.Lacks(expected), comparator.DeepEquals, labels.LabelArray{})
+	c.Assert(lblArray.Lacks(expected), checker.DeepEquals, labels.LabelArray{})
 }
