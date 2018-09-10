@@ -2,6 +2,74 @@
 NEWS
 ******
 
+1.2.2
+=====
+
+::
+
+        André Martins (15):
+              pkg/endpoint replace logger atomically
+              refactored dockerID to containerID
+              pkg/endpoint: only update logger fields when changed
+              pkg/endpoint: use e.getLogger() on all log messages
+              Revert "test/k8sT: use specific commit for cilium/star-wars-demo YAMLs"
+              test: fix star wars demo to run star-wars v1.0
+              test: update k8s versions to 1.9.10 1.10.7 1.11.2 and 1.12.0-beta.0
+              test: re-add k8s 1.12 to CI
+              examples/kubernetes: add node.kubernetes.io/not-ready toleration
+              docs: fix microscope link
+              docs: fix prometheus 404 links
+              pkg/identity: Wait For Initial Identities for endpoints without fixed identity
+              k8s: annotate k8s node after IP address allocation
+              k8s: ignore service updates if they are the same
+              pkg/serializer: made FunctionQueue struct public
+
+        Anit Gandhi (1):
+              examples: fix L7 policies for k8s 1.11 case sensitivity issue
+
+        Ian Vernon (1):
+              daemon: factor K8s waitGroup synchronization into function
+
+        Jarno Rajahalme (5):
+              envoy: Disable http connection manager stream idle timeout.
+              envoy: Set route reply policy to retry on "5xx"
+              envoy_test: Better logging for Envoy.
+              envoy: Use POST for admin interface
+              envoy: Unix domain socket for Envoy admin.
+
+        Ray Bejjani (1):
+              fqdn: Strip ToCIDRSet on poll start
+
+        Romain Lenglet (3):
+              test: Fix the semantics of WithTimeout's Timeout
+              docker: Fix logging of endpoint ID in handleCreateWorkload
+              proxy: Remove port binding check on redirect creation
+
+        Thomas Graf (23):
+              alloactor: Log allocator garbage collection events
+              allocator: Periodically re-create master keys for local allocations
+              policy: Fix policy unit tests in context of new identity garbage collector
+              proxy: Re-create redirect if L7 type has changed
+              agent: Require --bpf-compile-debug to enable keeping BPF compilation resources
+              vendor: github.com/shirou/gopsutil/
+              agent: New --log-system-load option to log system load periodically in the background
+              test: Enable system load logging
+              endpoint: Provide load information during the BPF compilation process
+              controller: Optimize locking when updating or getting status
+              endpoint: Avoid policy sync error in log when endpoint disconnects
+              endpoint: Ignore delete requests if endpoint is already deleted
+              loadinfo: Provide the cmdline arguments of high CPU processes
+              test: 1.1.4 is required to up- and downgrade from 1.2.0
+              agent: Fix periodic agent unhealthiness due to CompilationLock contention
+              endpoint: Correctly remove directory on endpoint add failure
+              endpoint: Do not hold manager and endpoint lock during RunK8sCiliumEndpointSync()
+              allocator: Only re-create verified local keys
+              agent: Initialize local identity allocator before clustermesh
+              lbmap: Support transactional updates
+              endpoint: Fix realized state corruption when initial policy regeneration fails
+              daemon: block endpoints addition until all policies are processed from k8s
+              lbmap: Guarantee order of backends while scaling service
+
 1.2.1
 =====
 
