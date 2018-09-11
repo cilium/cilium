@@ -113,10 +113,6 @@ required = [
   revision = "f2b4162afba35581b6d4a50d3b8f34e33c144682"
 
 [[constraint]]
-  name = "github.com/Jeffail/gabs"
-  revision = "44cbc27138518b15305cb3eef220d04f2d641b9b"
-
-[[constraint]]
   name = "github.com/asaskevich/govalidator"
   revision = "fdf19785fd3558d619ef81212f5edf1d6c2a5911"
 
