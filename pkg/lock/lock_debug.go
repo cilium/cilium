@@ -55,16 +55,16 @@ func init() {
 
 type internalRWMutex struct {
 	deadlock.RWMutex
-	time.Time
+	t time.Time
 }
 
 func (i *internalRWMutex) Lock() {
 	i.RWMutex.Lock()
-	i.Time = time.Now()
+	i.t = time.Now()
 }
 
 func (i *internalRWMutex) Unlock() {
-	if sec := time.Since(i.Time).Seconds(); sec >= selfishThresholdSec {
+	if sec := time.Since(i.t).Seconds(); sec >= selfishThresholdSec {
 		printStackTo(sec, debug.Stack(), os.Stderr)
 	}
 	i.RWMutex.Unlock()
@@ -76,11 +76,11 @@ func (i *internalRWMutex) UnlockIgnoreTime() {
 
 func (i *internalRWMutex) RLock() {
 	i.RWMutex.Lock()
-	i.Time = time.Now()
+	i.t = time.Now()
 }
 
 func (i *internalRWMutex) RUnlock() {
-	if sec := time.Since(i.Time).Seconds(); sec >= selfishThresholdSec {
+	if sec := time.Since(i.t).Seconds(); sec >= selfishThresholdSec {
 		printStackTo(sec, debug.Stack(), os.Stderr)
 	}
 	i.RWMutex.Unlock()
