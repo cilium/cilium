@@ -386,6 +386,8 @@ regex
 relocations
 remediate
 reparsing
+ReplicaSet
+ReplicaSets
 repo
 repos
 retpoline
