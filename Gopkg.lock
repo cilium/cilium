@@ -2,13 +2,6 @@
 
 
 [[projects]]
-  digest = "1:638c457cbc4894895add73f34bf5b7d3ba9a614e999826b3fad0aa9715d988b9"
-  name = "github.com/Jeffail/gabs"
-  packages = ["."]
-  pruneopts = "NUT"
-  revision = "44cbc27138518b15305cb3eef220d04f2d641b9b"
-
-[[projects]]
   digest = "1:d4b3bb952a228f05d52a58f8ffc39d5edf5b8f1bd291ac82f0249ffa31c509f5"
   name = "github.com/Microsoft/go-winio"
   packages = ["."]
@@ -1562,7 +1555,6 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
-    "github.com/Jeffail/gabs",
     "github.com/asaskevich/govalidator",
     "github.com/c9s/goprocinfo/linux",
     "github.com/containerd/containerd",
@@ -1679,7 +1671,6 @@
     "k8s.io/apimachinery/pkg/util/intstr",
     "k8s.io/apimachinery/pkg/util/runtime",
     "k8s.io/apimachinery/pkg/util/wait",
-    "k8s.io/apimachinery/pkg/util/yaml",
     "k8s.io/apimachinery/pkg/watch",
     "k8s.io/client-go/discovery",
     "k8s.io/client-go/discovery/fake",
