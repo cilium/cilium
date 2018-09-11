@@ -402,9 +402,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 						return nil
 					}
 				},
-				func(m versioned.Map) versioned.Map {
-					return m
-				},
+				d.missingK8sNetworkPolicyV1,
 				&networkingv1.NetworkPolicy{},
 				k8s.Client(),
 				reSyncPeriod,
@@ -559,9 +557,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 					return nil
 				}
 			},
-			func(m versioned.Map) versioned.Map {
-				return m
-			},
+			d.missingCNPv2,
 			&cilium_v2.CiliumNetworkPolicy{},
 			ciliumNPClient,
 			reSyncPeriod,
@@ -733,6 +729,20 @@ func (d *Daemon) deleteK8sNetworkPolicyV1(k8sNP *networkingv1.NetworkPolicy) {
 	} else {
 		scopedLog.Info("NetworkPolicy successfully removed")
 	}
+}
+
+func (d *Daemon) missingK8sNetworkPolicyV1(m versioned.Map) versioned.Map {
+	missing := versioned.NewMap()
+	d.policy.Mutex.RLock()
+	for k, v := range m {
+		v1NP := v.Data.(*networkingv1.NetworkPolicy)
+		ruleLabels := k8s.GetPolicyLabelsv1(v1NP)
+		if !d.policy.ContainsAllRLocked(labels.LabelArrayList{ruleLabels}) {
+			missing.Add(k, v)
+		}
+	}
+	d.policy.Mutex.RUnlock()
+	return missing
 }
 
 func (d *Daemon) addK8sServiceV1(svc *v1.Service) {
@@ -1728,6 +1738,21 @@ func (d *Daemon) updateCiliumNetworkPolicyV2(ciliumV2Store cache.Store,
 	}
 
 	d.addCiliumNetworkPolicyV2(ciliumV2Store, newRuleCpy)
+}
+
+// missingCNPv2 returns all missing policies from the given map.
+func (d *Daemon) missingCNPv2(m versioned.Map) versioned.Map {
+	missing := versioned.NewMap()
+	d.policy.Mutex.RLock()
+	for k, v := range m {
+		cnp := v.Data.(*cilium_v2.CiliumNetworkPolicy)
+		ruleLabels := cnp.GetRuleLabels()
+		if !d.policy.ContainsAllRLocked(ruleLabels) {
+			missing.Add(k, v)
+		}
+	}
+	d.policy.Mutex.RUnlock()
+	return missing
 }
 
 func (d *Daemon) updatePodHostIP(pod *v1.Pod) (bool, error) {
