@@ -28,7 +28,7 @@ type RBAC struct {
 	Rules *v2alpha.RBAC `protobuf:"bytes,1,opt,name=rules,proto3" json:"rules,omitempty"`
 	// Shadow rules are not enforced by the filter (i.e., returning a 403)
 	// but will emit stats and logs and can be used for rule testing.
-	// If absent, no shadow RBAC policy with be applied.
+	// If absent, no shadow RBAC policy will be applied.
 	ShadowRules          *v2alpha.RBAC `protobuf:"bytes,2,opt,name=shadow_rules,json=shadowRules,proto3" json:"shadow_rules,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
@@ -39,7 +39,7 @@ func (m *RBAC) Reset()         { *m = RBAC{} }
 func (m *RBAC) String() string { return proto.CompactTextString(m) }
 func (*RBAC) ProtoMessage()    {}
 func (*RBAC) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_0b70a83945ff4100, []int{0}
+	return fileDescriptor_rbac_dc6febb26256334b, []int{0}
 }
 func (m *RBAC) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RBAC.Unmarshal(m, b)
@@ -86,7 +86,7 @@ func (m *RBACPerRoute) Reset()         { *m = RBACPerRoute{} }
 func (m *RBACPerRoute) String() string { return proto.CompactTextString(m) }
 func (*RBACPerRoute) ProtoMessage()    {}
 func (*RBACPerRoute) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_0b70a83945ff4100, []int{1}
+	return fileDescriptor_rbac_dc6febb26256334b, []int{1}
 }
 func (m *RBACPerRoute) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RBACPerRoute.Unmarshal(m, b)
@@ -119,10 +119,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/http/rbac/v2/rbac.proto", fileDescriptor_rbac_0b70a83945ff4100)
+	proto.RegisterFile("envoy/config/filter/http/rbac/v2/rbac.proto", fileDescriptor_rbac_dc6febb26256334b)
 }
 
-var fileDescriptor_rbac_0b70a83945ff4100 = []byte{
+var fileDescriptor_rbac_dc6febb26256334b = []byte{
 	// 243 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x90, 0xbf, 0x4b, 0x03, 0x31,
 	0x14, 0xc7, 0xb9, 0xe3, 0x94, 0x92, 0x76, 0x90, 0x20, 0x28, 0x5d, 0x2c, 0x45, 0x44, 0x10, 0x5e,
