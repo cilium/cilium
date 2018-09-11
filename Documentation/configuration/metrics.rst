@@ -52,7 +52,7 @@ Datapath
 * ``datapath_conntrack_gc_entries``: The number of alive and deleted conntrack
   entries at the end of a garbage collector run labeled by datapath family.
 * ``datapath_conntrack_gc_duration_seconds``: Duration in seconds of the garbage
-  collector process labeled by datapath and completation status.
+  collector process labeled by datapath and completion status.
 
 Drops/Forwards (L3/L4)
 ----------------------

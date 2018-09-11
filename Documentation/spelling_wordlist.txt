@@ -79,6 +79,7 @@ conf
 config
 ConfigMap
 configMapKeyRef
+conntrack
 containerd
 contributing
 CoreOS
@@ -385,6 +386,8 @@ regex
 relocations
 remediate
 reparsing
+ReplicaSet
+ReplicaSets
 repo
 repos
 retpoline
