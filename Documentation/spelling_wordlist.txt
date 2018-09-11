@@ -79,6 +79,7 @@ conf
 config
 ConfigMap
 configMapKeyRef
+conntrack
 containerd
 contributing
 CoreOS
