@@ -1444,6 +1444,47 @@ var _ = Describe("RuntimePolicies", func() {
 			monitorRes.ExpectDoesNotMatchRegexp(fmt.Sprintf(`xx drop \(Policy denied \([^)]+\)\) flow [^ ]+ to endpoint %s, identity 1->[^0]`, endpointID), "Unexpected drop")
 		})
 	})
+
+	Context("Test Policy Generation for Already-Allocated Identities", func() {
+		var (
+			newContainerName = fmt.Sprintf("%s-already-allocated-id", helpers.Httpd1)
+		)
+
+		// Apply L3-L4 policy, which will select the already-running containers
+		// that have been created outside of this Context.
+		BeforeEach(func() {
+			By("Importing policy which selects all endpoints with label id.httpd1 to allow ingress traffic on port 80")
+			_, err := vm.PolicyImportAndWait(vm.GetFullPath("Policies-l4-policy.json"), helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "unable to apply L3-L4 policy")
+		})
+
+		AfterEach(func() {
+			vm.ContainerRm(newContainerName)
+		})
+
+		It("Tests L4 Policy is Generated for Endpoint whose identity has already been allocated", func() {
+			// Create a new container which has labels which have already been
+			// allocated an identity from the key-value store.
+			By("Creating new container with label id.httpd1, which has already " +
+				"been allocated an identity from the key-value store")
+			vm.ContainerCreate(newContainerName, helpers.HttpdImage, helpers.CiliumDockerNetwork, fmt.Sprintf("-l id.%s", helpers.Httpd1))
+
+			By("Waiting for newly added endpoint to be ready")
+			areEndpointsReady := vm.WaitEndpointsReady()
+			Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+
+			// All endpoints should be able to connect to this container on port
+			// 80, but should not be able to ping because ICMP does not use
+			// port 80.
+
+			By("Checking that datapath behavior matches policy which selects this new endpoint")
+			for _, app := range []string{helpers.App1, helpers.App2} {
+				connectivityTest(pingRequests, app, newContainerName, false)
+				connectivityTest(httpRequests, app, newContainerName, true)
+			}
+
+		})
+	})
 })
 
 var _ = Describe("RuntimePolicyImportTests", func() {
