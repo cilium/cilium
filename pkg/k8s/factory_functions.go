@@ -385,18 +385,22 @@ func listV1Namespace(client interface{}) func() (versioned.Map, error) {
 }
 
 func equalV1NetworkPolicy(o1, o2 interface{}) bool {
-	_, ok := o1.(*networkingv1.NetworkPolicy)
+	np1, ok := o1.(*networkingv1.NetworkPolicy)
 	if !ok {
 		log.Panicf("Invalid resource type %q, expecting *networkingv1.NetworkPolicy", reflect.TypeOf(o1))
 		return false
 	}
-	_, ok = o1.(*networkingv1.NetworkPolicy)
+	np2, ok := o2.(*networkingv1.NetworkPolicy)
 	if !ok {
 		log.Panicf("Invalid resource type %q, expecting *networkingv1.NetworkPolicy", reflect.TypeOf(o2))
 		return false
 	}
-	// FIXME write dedicated deep equal function
-	return false
+	// As Cilium uses all of the Spec from a NP it's not probably not worth
+	// it to create a dedicated deep equal	 function to compare both network
+	// policies.
+	return np1.Name == np2.Name &&
+		np1.Namespace == np2.Namespace &&
+		reflect.DeepEqual(np1.Spec, np2.Spec)
 }
 
 func equalV1Services(o1, o2 interface{}) bool {
@@ -445,18 +449,20 @@ func equalV1beta1Ingress(o1, o2 interface{}) bool {
 }
 
 func equalV2CNP(o1, o2 interface{}) bool {
-	_, ok := o1.(*cilium_v2.CiliumNetworkPolicy)
+	cnp1, ok := o1.(*cilium_v2.CiliumNetworkPolicy)
 	if !ok {
 		log.Panicf("Invalid resource type %q, expecting *cilium_v2.CiliumNetworkPolicy", reflect.TypeOf(o1))
 		return false
 	}
-	_, ok = o1.(*cilium_v2.CiliumNetworkPolicy)
+	cnp2, ok := o2.(*cilium_v2.CiliumNetworkPolicy)
 	if !ok {
 		log.Panicf("Invalid resource type %q, expecting *cilium_v2.CiliumNetworkPolicy", reflect.TypeOf(o2))
 		return false
 	}
-	// FIXME write dedicated deep equal function
-	return false
+	return cnp1.Name == cnp2.Name &&
+		cnp1.Namespace == cnp2.Namespace &&
+		reflect.DeepEqual(cnp1.Spec, cnp2.Spec) &&
+		reflect.DeepEqual(cnp1.Specs, cnp2.Specs)
 }
 
 func equalV1Pod(o1, o2 interface{}) bool {
