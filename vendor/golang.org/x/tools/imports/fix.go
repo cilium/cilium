@@ -19,6 +19,7 @@ import (
 	"path"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -367,9 +368,19 @@ func fixImports(fset *token.FileSet, f *ast.File, filename string) (added []stri
 // importPathToName returns the package name for the given import path.
 var importPathToName func(importPath, srcDir string) (packageName string) = importPathToNameGoPath
 
-// importPathToNameBasic assumes the package name is the base of import path.
+// importPathToNameBasic assumes the package name is the base of import path,
+// except that if the path ends in foo/vN, it assumes the package name is foo.
 func importPathToNameBasic(importPath, srcDir string) (packageName string) {
-	return path.Base(importPath)
+	base := path.Base(importPath)
+	if strings.HasPrefix(base, "v") {
+		if _, err := strconv.Atoi(base[1:]); err == nil {
+			dir := path.Dir(importPath)
+			if dir != "." {
+				return path.Base(dir)
+			}
+		}
+	}
+	return base
 }
 
 // importPathToNameGoPath finds out the actual package name, as declared in its .go files.
@@ -640,7 +651,12 @@ func scanGoDirs(which goDirType) {
 			continue
 		}
 		testHookScanDir(srcDir)
+		srcV := filepath.Join(srcDir, "v")
+		srcMod := filepath.Join(srcDir, "mod")
 		walkFn := func(path string, typ os.FileMode) error {
+			if path == srcV || path == srcMod {
+				return filepath.SkipDir
+			}
 			dir := filepath.Dir(path)
 			if typ.IsRegular() {
 				if dir == srcDir {
@@ -988,7 +1004,7 @@ func pkgIsCandidate(filename, pkgIdent string, pkg *pkg) bool {
 	// permit a directory "foo" to be package
 	// "bar", which is strongly discouraged
 	// anyway. There's no reason goimports needs
-	// to be slow just to accomodate that.
+	// to be slow just to accommodate that.
 	lastTwo := lastTwoComponents(pkg.importPathShort)
 	if strings.Contains(lastTwo, pkgIdent) {
 		return true
