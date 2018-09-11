@@ -238,6 +238,56 @@ func TestUnsupportedL7Drops(t *testing.T) {
 	CheckClose(t, 1, buf, 1)
 }
 
+func TestUnsupportedL7DropsGeneric(t *testing.T) {
+	logServer := test.StartAccessLogServer(t, "access_log.sock", 10)
+	defer logServer.Close()
+
+	if !InitModule([][2]string{{"access-log-path", logServer.Path}}, true) {
+		t.Errorf("InitModule() with access log path %s failed", logServer.Path)
+	}
+
+	insertPolicyText(t, "1", []string{`
+		name: "FooBar"
+		policy: 2
+		ingress_per_port_policies: <
+		  port: 80
+		  rules: <
+		    remote_policies: 1
+		    remote_policies: 3
+		    remote_policies: 4
+		    l7_proto: "this-parser-does-not-exist"
+		    l7_rules: <
+		      l7_rules: <
+		        rule: <
+		          key: "prefix"
+		          value: "Beginning"
+		        >
+		      >
+		    >
+		  >
+		>
+		`})
+
+	// Using headertester parser
+	buf := CheckOnNewConnection(t, "test.headerparser", 1, true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "FooBar",
+		256, proxylib.OK, 1)
+
+	// Original direction data, drops with remaining data
+	line1, line2, line3, line4 := "Beginning----\n", "foo\n", "----End\n", "\n"
+	data := line1 + line2 + line3 + line4
+	CheckOnData(t, 1, false, false, &[]string{data}, []ExpFilterOp{
+		{proxylib.DROP, len(line1)},
+		{proxylib.DROP, len(line2)},
+		{proxylib.DROP, len(line3)},
+		{proxylib.DROP, len(line4)},
+	}, proxylib.OK, "Line dropped: "+line1+"Line dropped: "+line2+"Line dropped: "+line3+"Line dropped: "+line4)
+
+	expPasses, expDrops := 0, 4
+	checkAccessLogs(t, logServer, expPasses, expDrops)
+
+	CheckClose(t, 1, buf, 1)
+}
+
 func TestTwoRulesOnSamePortFirstNoL7(t *testing.T) {
 	logServer := test.StartAccessLogServer(t, "access_log.sock", 10)
 	defer logServer.Close()
@@ -269,6 +319,104 @@ func TestTwoRulesOnSamePortFirstNoL7(t *testing.T) {
 		`})
 }
 
+func TestTwoRulesOnSamePortFirstNoL7Generic(t *testing.T) {
+	logServer := test.StartAccessLogServer(t, "access_log.sock", 10)
+	defer logServer.Close()
+
+	if !InitModule([][2]string{{"access-log-path", logServer.Path}}, true) {
+		t.Errorf("InitModule() with access log path %s failed", logServer.Path)
+	}
+
+	insertPolicyText(t, "1", []string{`
+		name: "FooBar"
+		policy: 2
+		ingress_per_port_policies: <
+		  port: 80
+		  rules: <
+		    remote_policies: 11
+		  >
+		  rules: <
+		    remote_policies: 1
+		    remote_policies: 3
+		    remote_policies: 4
+		    l7_proto: "test.headerparser"
+		    l7_rules: <
+		      l7_rules: <
+		        rule: <
+		          key: "prefix"
+		          value: "Beginning"
+		        >
+		      >
+		      l7_rules: <
+		        rule: <
+		          key: "suffix"
+		          value: "End"
+		        >
+		      >
+		    >
+		  >
+		>
+		`})
+}
+
+func TestTwoRulesOnSamePortMismatchingL7(t *testing.T) {
+	logServer := test.StartAccessLogServer(t, "access_log.sock", 10)
+	defer logServer.Close()
+
+	if !InitModule([][2]string{{"access-log-path", logServer.Path}}, true) {
+		t.Errorf("InitModule() with access log path %s failed", logServer.Path)
+	}
+
+	// This registation will remain after this test.
+	proxylib.RegisterL7RuleParser("PortNetworkPolicyRule_HttpRules", func(*cilium.PortNetworkPolicyRule) []proxylib.L7NetworkPolicyRule {
+		return nil
+	})
+
+	err := insertPolicyTextRaw(t, "1", []string{`
+		name: "FooBar"
+		policy: 2
+		ingress_per_port_policies: <
+		  port: 80
+		  rules: <
+		    remote_policies: 11
+		    http_rules: <
+		      http_rules: <
+			headers: <
+			  name: ":path"
+			  exact_match: "/allowed"
+			>
+		      >
+		    >
+		  >
+		  rules: <
+		    remote_policies: 1
+		    remote_policies: 3
+		    remote_policies: 4
+		    l7_proto: "test.headerparser"
+		    l7_rules: <
+		      l7_rules: <
+		        rule: <
+		          key: "prefix"
+		          value: "Beginning"
+		        >
+		      >
+		      l7_rules: <
+		        rule: <
+		          key: "suffix"
+		          value: "End"
+		        >
+		      >
+		    >
+		  >
+		>
+		`}, "update")
+	if err == nil {
+		t.Errorf("Expected Policy Update to fail due to mismatching L7 protocols on the same port, but it succeeded")
+	} else {
+		log.Infof("Expected error: %s", err)
+	}
+}
+
 func TestSimplePolicy(t *testing.T) {
 	logServer := test.StartAccessLogServer(t, "access_log.sock", 10)
 	defer logServer.Close()
@@ -286,17 +434,18 @@ func TestSimplePolicy(t *testing.T) {
 		    remote_policies: 1
 		    remote_policies: 3
 		    remote_policies: 4
-		    http_rules: <
-		      http_rules: <
-		        headers: <
-		          name: "from"
-		          exact_match: "someone"
+		    l7_proto: "test.headerparser"
+		    l7_rules: <
+		      l7_rules: <
+		        rule: <
+		          key: "prefix"
+		          value: "Beginning"
 		        >
 		      >
-		      http_rules: <
-		        headers: <
-		          name: "to"
-		          exact_match: "else"
+		      l7_rules: <
+		        rule: <
+		          key: "suffix"
+		          value: "End"
 		        >
 		      >
 		    >
@@ -309,7 +458,7 @@ func TestSimplePolicy(t *testing.T) {
 		80, proxylib.OK, 1)
 
 	// Original direction data, drops with remaining data
-	line1, line2, line3, line4 := "from=someone\n", "foo\n", "to=else\n", "\n"
+	line1, line2, line3, line4 := "Beginning----\n", "foo\n", "----End\n", "\n"
 	data := line1 + line2 + line3 + line4
 	CheckOnData(t, 1, false, false, &[]string{data}, []ExpFilterOp{
 		{proxylib.PASS, len(line1)},

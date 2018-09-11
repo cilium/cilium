@@ -1,0 +1,36 @@
+[{
+    "endpointSelector": {"matchLabels":{"id.echoserver":""}},
+    "ingress": [{
+        "fromEndpoints": [
+            {"matchLabels":{"reserved:host":""}},
+            {"matchLabels":{"id.client":""}}
+        ],
+        "toPorts": [{
+            "ports": [{"port": "2701", "protocol": "tcp"}],
+            "rules": {
+                "l7proto": "test.headerparser",
+                "l7": [{
+                    "prefix": "foo"
+                }]
+            }
+        }]
+    }]
+},{
+    "endpointSelector": {"matchLabels":{"id.echoserver":""}},
+    "ingress": [{
+        "fromEndpoints": [
+            {"matchLabels":{"reserved:host":""}},
+            {"matchLabels":{"id.client":""}}
+        ],
+        "toPorts": [{
+            "ports": [{"port": "2701", "protocol": "tcp"}],
+            "rules": {
+                "l7proto": "test.headerparser",
+                "l7": [
+		    {"prefix": "bar", "contains": "beer"},
+		    {"suffix": "end"}
+                ]
+            }
+        }]
+    }]
+}]

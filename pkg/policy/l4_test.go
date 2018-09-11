@@ -117,6 +117,25 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 				},
 				Ingress: true,
 			},
+			"9090/TCP": {
+				Port: 9090, Protocol: api.ProtoTCP,
+				Endpoints: []api.EndpointSelector{fooSelector},
+				L7Parser:  "tester",
+				L7RulesPerEp: L7DataMap{
+					fooSelector: api.L7Rules{
+						L7Proto: "tester",
+						L7: []api.PortRuleL7{
+							map[string]string{
+								"method": "PUT",
+								"path":   "/"},
+							map[string]string{
+								"method": "GET",
+								"path":   "/"},
+						},
+					},
+				},
+				Ingress: true,
+			},
 			"8080/TCP": {
 				Port: 8080, Protocol: api.ProtoTCP,
 				Endpoints: []api.EndpointSelector{fooSelector},
@@ -161,6 +180,27 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
           {
             "path": "/",
             "method": "GET"
+          }
+        ]
+      }
+    }
+  ]
+}`,
+		`{
+  "port": 9090,
+  "protocol": "TCP",
+  "l7-rules": [
+    {
+      "any.foo=": {
+        "l7proto": "tester",
+        "l7": [
+          {
+            "method": "PUT",
+            "path": "/"
+          },
+          {
+            "method": "GET",
+            "path": "/"
           }
         ]
       }

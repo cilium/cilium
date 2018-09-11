@@ -303,6 +303,16 @@ func (s *XDSServer) stop() {
 	os.Remove(s.socketPath)
 }
 
+func getL7Rule(l7 *api.PortRuleL7) *cilium.L7NetworkPolicyRule {
+	rule := &cilium.L7NetworkPolicyRule{Rule: make(map[string]string, len(*l7))}
+
+	for k, v := range *l7 {
+		rule.Rule[k] = v
+	}
+
+	return rule // No ruleRef
+}
+
 func getHTTPRule(h *api.PortRuleHTTP) (headers []*envoy_api_v2_route.HeaderMatcher, ruleRef string) {
 	// Count the number of header matches we need
 	cnt := len(h.Headers)
@@ -469,7 +479,7 @@ func getPortNetworkPolicyRule(sel api.EndpointSelector, l7Parser policy.L7Parser
 				httpRules = append(httpRules, &cilium.HttpNetworkPolicyRule{Headers: headers})
 			}
 			SortHTTPNetworkPolicyRules(httpRules)
-			r.L7Rules = &cilium.PortNetworkPolicyRule_HttpRules{
+			r.L7 = &cilium.PortNetworkPolicyRule_HttpRules{
 				HttpRules: &cilium.HttpNetworkPolicyRules{
 					HttpRules: httpRules,
 				},
@@ -477,6 +487,22 @@ func getPortNetworkPolicyRule(sel api.EndpointSelector, l7Parser policy.L7Parser
 		}
 	case policy.ParserTypeKafka:
 		// TODO: Support Kafka. For now, just ignore any Kafka L7 rule.
+
+	default:
+		// Assume unknown parser types use a Key-Value Pair policy
+		if len(l7Rules.L7) > 0 {
+			kvpRules := make([]*cilium.L7NetworkPolicyRule, 0, len(l7Rules.L7))
+			for _, l7 := range l7Rules.L7 {
+				kvpRules = append(kvpRules, getL7Rule(&l7))
+			}
+			// L7 rules are not sorted
+			r.L7Proto = l7Parser.String()
+			r.L7 = &cilium.PortNetworkPolicyRule_L7Rules{
+				L7Rules: &cilium.L7NetworkPolicyRules{
+					L7Rules: kvpRules,
+				},
+			}
+		}
 	}
 
 	return r
@@ -514,7 +540,7 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool,
 		for sel, l7 := range l4.L7RulesPerEp {
 			rule := getPortNetworkPolicyRule(sel, l4.L7Parser, l7, labelsMap, deniedIdentities)
 			if rule != nil {
-				if len(rule.RemotePolicies) == 0 && rule.L7Rules == nil {
+				if len(rule.RemotePolicies) == 0 && rule.L7 == nil {
 					// Got an allow-all rule, which would short-circuit all of
 					// the other rules. Just set no rules, which has the same
 					// effect of allowing all.
@@ -608,7 +634,7 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 		for _, p := range policies {
 			for _, pnp := range p.IngressPerPortPolicies {
 				for _, r := range pnp.Rules {
-					if r.L7Rules != nil {
+					if r.L7 != nil {
 						hasL7Rules = true
 						break Policies
 					}
@@ -616,7 +642,7 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 			}
 			for _, pnp := range p.EgressPerPortPolicies {
 				for _, r := range pnp.Rules {
-					if r.L7Rules != nil {
+					if r.L7 != nil {
 						hasL7Rules = true
 						break Policies
 					}
