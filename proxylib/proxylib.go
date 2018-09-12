@@ -23,6 +23,7 @@ import (
 	"net"
 	"strconv"
 
+	_ "github.com/cilium/cilium/proxylib/binarymemcached"
 	. "github.com/cilium/cilium/proxylib/proxylib"
 	_ "github.com/cilium/cilium/proxylib/testparsers"
 
