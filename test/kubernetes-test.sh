@@ -12,6 +12,11 @@ kubectl apply --filename="${k8sDescriptorsPath}/cilium-rbac.yaml"
 kubectl patch --filename="${k8sDescriptorsPath}/cilium-cm.yaml" --patch "$(cat ${k8sManifestsPath}/cilium-cm-patch.yaml)" --local -o yaml | kubectl apply -f -
 kubectl patch --filename="${k8sDescriptorsPath}/cilium-ds.yaml" --patch "$(cat ${k8sManifestsPath}/cilium-ds-patch.yaml)" --local -o yaml | kubectl apply -f -
 
+kubectl get --all --all-namespaces
+
+# deploy core-dns
+kubectl create -f ./test/provision/manifest/coredns_deployment.yaml
+
 while true; do
     result=$(kubectl -n kube-system get pods -l k8s-app=cilium | grep "Running" -c)
     echo "Running pods ${result}"
