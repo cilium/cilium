@@ -24,6 +24,7 @@ import (
 	"strconv"
 
 	"github.com/cilium/cilium/proxylib/accesslog"
+	_ "github.com/cilium/cilium/proxylib/memcached/binary"
 	"github.com/cilium/cilium/proxylib/npds"
 	. "github.com/cilium/cilium/proxylib/proxylib"
 	_ "github.com/cilium/cilium/proxylib/testparsers"
