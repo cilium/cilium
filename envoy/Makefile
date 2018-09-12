@@ -66,19 +66,27 @@ release: envoy-release api
 api: force-non-root Makefile.api
 	$(MAKE) -f Makefile.api all
 
-envoy-default: force-non-root
+proxylib-hdrs: ../proxylib/libcilium.h ../proxylib/proxylib/types.h
+	-mkdir proxylib
+	cp $^ proxylib/.
+
+proxylib-bin: ../proxylib/libcilium.so
+	-mkdir proxylib
+	cp $^ proxylib/.
+
+envoy-default: force-non-root proxylib-hdrs
 	@$(ECHO_BAZEL)
 	-rm -f bazel-out/k8-fastbuild/bin/_objs/envoy/external/envoy/source/common/common/version_linkstamp.o
 	$(BAZEL) $(BAZEL_OPTS) build $(BAZEL_BUILD_OPTS) //:envoy $(BAZEL_FILTER)
 
 # Allow root build for release
-$(CILIUM_ENVOY_BIN) envoy-release: force
+$(CILIUM_ENVOY_BIN) envoy-release: force proxylib-hdrs
 	@$(ECHO_BAZEL)
 	-rm -f bazel-out/k8-opt/bin/_objs/envoy/external/envoy/source/common/common/version_linkstamp.o
 	$(BAZEL) $(BAZEL_OPTS) build $(BAZEL_BUILD_OPTS) -c opt //:envoy $(BAZEL_FILTER)
 
 # Allow root build for release
-$(ISTIO_ENVOY_BIN) $(ISTIO_ENVOY_RELEASE_BIN): force
+$(ISTIO_ENVOY_BIN) $(ISTIO_ENVOY_RELEASE_BIN): force proxylib-hdrs
 	@$(ECHO_BAZEL)
 	-rm -f bazel-out/k8-opt/bin/_objs/istio-envoy/external/envoy/source/common/common/version_linkstamp.o
 	$(BAZEL) $(BAZEL_OPTS) build $(BAZEL_BUILD_OPTS) -c opt //:istio-envoy $(BAZEL_FILTER)
@@ -93,7 +101,7 @@ docker-istio-proxy: Dockerfile.istio_proxy $(ISTIO_ENVOY_RELEASE_BIN) envoy_boot
 docker-istio-proxy-debug: Dockerfile.istio_proxy_debug $(ISTIO_ENVOY_RELEASE_BIN) envoy_bootstrap_tmpl.json
 	-docker build -f $< -t cilium/istio_proxy_debug:$(ISTIO_VERSION) .
 
-envoy-debug: force-non-root
+envoy-debug: force-non-root proxylib-hdrs
 	@$(ECHO_BAZEL)
 	-rm -f bazel-out/k8-dbg/bin/_objs/envoy/external/envoy/source/common/common/version_linkstamp.o
 	$(BAZEL) $(BAZEL_OPTS) build $(BAZEL_BUILD_OPTS) -c dbg //:envoy $(BAZEL_FILTER)
@@ -144,11 +152,11 @@ fix: $(CHECK_FORMAT) force-non-root
 	CLANG_FORMAT=$(CLANG_FORMAT) BUILDIFIER=$(BUILDIFIER) $(CHECK_FORMAT) --add-excluded-prefixes="./linux/" fix
 
 # Run tests using the fastbuild by default.
-tests: force-non-root
+tests: force-non-root proxylib-hdrs proxylib-bin
 	$(BAZEL) $(BAZEL_OPTS) test $(BAZEL_BUILD_OPTS) -c fastbuild $(BAZEL_TEST_OPTS) //:envoy_binary_test $(BAZEL_FILTER)
 	$(BAZEL) $(BAZEL_OPTS) test $(BAZEL_BUILD_OPTS) -c fastbuild $(BAZEL_TEST_OPTS) //:cilium_integration_test $(BAZEL_FILTER)
 
-debug-tests: force-non-root
+debug-tests: force-non-root proxylib-hdrs proxylib-bin
 	$(BAZEL) $(BAZEL_OPTS) test $(BAZEL_BUILD_OPTS) -c debug $(BAZEL_TEST_OPTS) //:envoy_binary_test $(BAZEL_FILTER)
 	$(BAZEL) $(BAZEL_OPTS) test $(BAZEL_BUILD_OPTS) -c debug $(BAZEL_TEST_OPTS) //:cilium_integration_test $(BAZEL_FILTER)
 

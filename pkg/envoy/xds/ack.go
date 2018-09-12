@@ -162,7 +162,7 @@ func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(version uint64, 
 	if err != nil {
 		// Ignore ACKs from unknown or misconfigured nodes which have invalid
 		// node identifiers.
-		ackLog.Warning("invalid ID in Node identifier; ignoring ACK")
+		ackLog.WithError(err).Warning("invalid ID in Node identifier; ignoring ACK")
 		return
 	}
 
