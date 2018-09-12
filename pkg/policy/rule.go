@@ -85,7 +85,7 @@ func mergeL4IngressPort(ctx *SearchContext, endpoints []api.EndpointSelector, en
 		if ep, ok := existingFilter.L7RulesPerEp[hash]; ok {
 			switch {
 			case len(newL7Rules.HTTP) > 0:
-				if len(ep.Kafka) > 0 {
+				if len(ep.Kafka) > 0 || len(ep.L7) > 0 {
 					ctx.PolicyTrace("   Merge conflict: mismatching L7 rule types.\n")
 					return 0, fmt.Errorf("Cannot merge conflicting L7 rule types")
 				}
@@ -96,7 +96,7 @@ func mergeL4IngressPort(ctx *SearchContext, endpoints []api.EndpointSelector, en
 					}
 				}
 			case len(newL7Rules.Kafka) > 0:
-				if len(ep.HTTP) > 0 {
+				if len(ep.HTTP) > 0 || len(ep.L7) > 0 {
 					ctx.PolicyTrace("   Merge conflict: mismatching L7 rule types.\n")
 					return 0, fmt.Errorf("Cannot merge conflicting L7 rule types")
 				}
@@ -104,6 +104,20 @@ func mergeL4IngressPort(ctx *SearchContext, endpoints []api.EndpointSelector, en
 				for _, newRule := range newL7Rules.Kafka {
 					if !newRule.Exists(ep) {
 						ep.Kafka = append(ep.Kafka, newRule)
+					}
+				}
+			case len(newL7Rules.L7) > 0:
+				if len(ep.Kafka) > 0 || len(ep.HTTP) > 0 || (ep.L7Proto != "" && ep.L7Proto != newL7Rules.L7Proto) {
+					ctx.PolicyTrace("   Merge conflict: mismatching L7 rule types.\n")
+					return 0, fmt.Errorf("Cannot merge conflicting L7 rule types")
+				}
+				if ep.L7Proto == "" {
+					ep.L7Proto = newL7Rules.L7Proto
+				}
+
+				for _, newRule := range newL7Rules.L7 {
+					if !newRule.Exists(ep) {
+						ep.L7 = append(ep.L7, newRule)
 					}
 				}
 			default:

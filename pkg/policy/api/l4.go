@@ -72,6 +72,16 @@ type L7Rules struct {
 	//
 	// +optional
 	Kafka []PortRuleKafka `json:"kafka,omitempty"`
+
+	// Name of the L7 protocol for which the Key-value pair rules apply
+	//
+	// +optional
+	L7Proto string `json:"l7proto,omitempty"`
+
+	// Key-value pair rules
+	//
+	// +optional
+	L7 []PortRuleL7 `json:"l7,omitempty"`
 }
 
 // Len returns the total number of rules inside `L7Rules`.
@@ -80,10 +90,10 @@ func (rules *L7Rules) Len() int {
 	if rules == nil {
 		return 0
 	}
-	return len(rules.HTTP) + len(rules.Kafka)
+	return len(rules.HTTP) + len(rules.Kafka) + len(rules.L7)
 }
 
 // IsEmpty returns whether the `L7Rules` is nil or contains nil rules.
 func (rules *L7Rules) IsEmpty() bool {
-	return rules == nil || (rules.HTTP == nil && rules.Kafka == nil)
+	return rules == nil || (rules.HTTP == nil && rules.Kafka == nil && rules.L7 == nil)
 }
