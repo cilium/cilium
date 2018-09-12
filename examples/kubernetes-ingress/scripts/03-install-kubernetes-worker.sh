@@ -75,6 +75,7 @@ EOF
         ;;
 esac
 
+log "Copying cilium certificates to /var/lib/cilium"
 # Copy cilium certificates to /var/lib/cilium
 sudo mkdir -p /var/lib/cilium
 
@@ -86,6 +87,7 @@ cp "${certs_dir}/ca-k8s.pem" \
    "${certs_dir}/k8s-cilium.pem" \
    /var/lib/cilium
 
+log "Copying nginx certificates to /var/lib/nginx"
 # Copy nginx certificates to /var/lib/nginx
 sudo mkdir -p /var/lib/nginx
 
@@ -94,6 +96,7 @@ cp "${certs_dir}/ca-k8s.pem" \
    "${certs_dir}/k8s-nginx.pem" \
    /var/lib/nginx
 
+log "Copying kubelet certificates to /var/lib/kubelet"
 # Copy kube-proxy certificates to /var/lib/kubelet
 sudo mkdir -p /var/lib/kubelet/
 
@@ -106,6 +109,7 @@ cp "${certs_dir}/ca-k8s.pem" \
    "${certs_dir}/kubelet-kubelet-${hostname}-key.pem" \
    /var/lib/kubelet/
 
+log "Copying kube-proxy certificates to /var/lib/kube-proxy"
 # Copy kube-proxy certificates to /var/lib/kube-proxy
 sudo mkdir -p /var/lib/kube-proxy/
 
@@ -115,6 +119,7 @@ cp "${certs_dir}/ca-k8s.pem" \
    "${certs_dir}/k8s-kube-proxy-${hostname}.pem" \
    /var/lib/kube-proxy/
 
+log "Generating etc-docnfig file for cilium to contact etcd"
 # Generate etcd-config file for cilium to contact etcd
 sudo tee /var/lib/cilium/etcd-config.yml <<EOF
 ---
@@ -125,6 +130,7 @@ key-file: '/var/lib/cilium/etcd-cilium-key.pem'
 cert-file: '/var/lib/cilium/etcd-cilium.pem'
 EOF
 
+log "Generating kubeconfig file for cilium"
 # Create dedicated kube-config file for cilium
 kubectl config set-cluster kubernetes \
     --certificate-authority=/var/lib/cilium/ca-k8s.pem \
@@ -150,6 +156,7 @@ sudo cp ./cilium.kubeconfig /var/lib/cilium/cilium.kubeconfig
 
 
 # Create dedicated kube-config file for nginx
+log "creating kubeconfig file for nginx"
 kubectl config set-cluster kubernetes \
     --certificate-authority=/var/lib/nginx/ca-k8s.pem \
     --embed-certs=true \
@@ -173,6 +180,7 @@ kubectl config use-context default \
 sudo cp ./nginx.kubeconfig /var/lib/nginx/nginx.kubeconfig
 
 
+log "creating kubeconfig file for kubelet"
 # Create dedicated kube-config file for kubelet
 sudo mkdir -p /var/lib/kubelet/
 
@@ -199,6 +207,7 @@ kubectl config use-context default \
 sudo cp ./kubelet.kubeconfig /var/lib/kubelet/kubelet.kubeconfig
 
 
+log "creating kubeconfig file for kube-proxy"
 # Create dedicated kube-config file for kube-proxy
 sudo mkdir -p /var/lib/kube-proxy/
 
@@ -226,6 +235,7 @@ sudo cp ./kube-proxy.kubeconfig /var/lib/kube-proxy/kube-proxy.kubeconfig
 # FIXME remove this once we know how to set up kube-proxy in RBAC properly
 sudo cp ./cilium.kubeconfig /var/lib/kube-proxy/kube-proxy.kubeconfig
 
+log "creating kube-proxy systemd service"
 sudo tee /etc/systemd/system/kube-proxy.service <<EOF
 [Unit]
 Description=Kubernetes Kube-Proxy Server
@@ -246,12 +256,14 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
 
+log "reloading systemctl daemon and enabling and restarting kube-proxy"
 sudo systemctl daemon-reload
 sudo systemctl enable kube-proxy
 sudo systemctl restart kube-proxy
 
 sudo systemctl status kube-proxy --no-pager
 
+log "creating systemd service for kubelet"
 sudo tee /etc/systemd/system/kubelet.service <<EOF
 [Unit]
 Description=Kubernetes Kubelet
@@ -292,6 +304,7 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
 
+log "reloading systemctl daemon and enabling and restarting kubelet"
 sudo systemctl daemon-reload
 sudo systemctl enable kubelet
 sudo systemctl restart kubelet
