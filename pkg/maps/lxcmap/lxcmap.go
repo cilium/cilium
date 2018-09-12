@@ -110,6 +110,8 @@ type EndpointInfo struct {
 	Unused  uint16
 	LxcID   uint16
 	Flags   uint32
+	// go alignment
+	_       uint32
 	MAC     MAC
 	NodeMAC MAC
 	Pad     [4]uint32
