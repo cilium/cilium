@@ -25,6 +25,9 @@ build: $(SUBDIRS)
 
 $(SUBDIRS): force
 	@ $(MAKE) -C $@ all
+	$(warning ======================= SUBDIR $@ =======================)
+	ls -lrt proxylib
+	$(warning ======================= SUBDIR FINISH $@ =======================)
 
 jenkins-precheck:
 	docker-compose -f test/docker-compose.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER run --rm precheck
