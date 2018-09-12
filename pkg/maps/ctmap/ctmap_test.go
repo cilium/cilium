@@ -51,7 +51,11 @@ func (t *CTMapTestSuite) TestInit(c *C) {
 			c.Assert(info.maxEntries, Equals, MapNumEntriesLocal)
 		}
 		if mapType.isGlobal() {
-			c.Assert(info.maxEntries, Equals, MapNumEntriesGlobal)
+			if mapType.isTCP() {
+				c.Assert(info.maxEntries, Equals, MapNumEntriesGlobalTCP)
+			} else {
+				c.Assert(info.maxEntries, Equals, MapNumEntriesGlobalAny)
+			}
 		}
 	}
 }
