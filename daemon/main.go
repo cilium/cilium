@@ -491,6 +491,11 @@ func init() {
 	viper.BindEnv("prometheus-serve-addr", "CILIUM_PROMETHEUS_SERVE_ADDR")
 	viper.BindEnv("prometheus-serve-addr-deprecated", "PROMETHEUS_SERVE_ADDR")
 
+	flags.Int(option.CTMapEntriesGlobalTCPName, option.CTMapEntriesGlobalTCPDefault, "Maximum number of entries in TCP CT table")
+	viper.BindEnv(option.CTMapEntriesGlobalTCPName, option.CTMapEntriesGlobalTCPNameEnv)
+	flags.Int(option.CTMapEntriesGlobalAnyName, option.CTMapEntriesGlobalAnyDefault, "Maximum number of entries in non-TCP CT table")
+	viper.BindEnv(option.CTMapEntriesGlobalAnyName, option.CTMapEntriesGlobalAnyNameEnv)
+
 	flags.StringVar(&cmdRefDir,
 		"cmdref", "", "Path to cmdref output directory")
 	flags.MarkHidden("cmdref")

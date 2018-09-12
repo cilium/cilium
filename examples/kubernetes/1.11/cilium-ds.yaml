@@ -142,6 +142,18 @@ spec:
                   key: cluster-id
                   name: cilium-config
                   optional: true
+            - name: CILIUM_GLOBAL_CT_MAX_TCP
+              valueFrom:
+                configMapKeyRef:
+                  key: ct-global-max-entries-tcp
+                  name: cilium-config
+                  optional: true
+            - name: CILIUM_GLOBAL_CT_MAX_ANY
+              valueFrom:
+                configMapKeyRef:
+                  key: ct-global-max-entries-other
+                  name: cilium-config
+                  optional: true
           livenessProbe:
             exec:
               command:

@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 var (
@@ -67,9 +68,7 @@ const (
 	MapNameAny6Global = MapNameAny6 + "global"
 	MapNameAny4Global = MapNameAny4 + "global"
 
-	MapNumEntriesLocal     = 64000
-	MapNumEntriesGlobalTCP = (1 << 19) - 1 // 512Ki
-	MapNumEntriesGlobalAny = (1 << 18) - 1 // 256Ki
+	MapNumEntriesLocal = 64000
 
 	TUPLE_F_OUT     = 0
 	TUPLE_F_IN      = 1
@@ -102,9 +101,14 @@ func setupMapInfo(mapType MapType, define string, keySize, maxEntries int, parse
 	}
 }
 
-func initMapInfo() {
+// InitMapInfo builds the information about different CT maps for the
+// combination of L3/L4 protocols, using the specified limits on TCP vs non-TCP
+// maps.
+func InitMapInfo(tcpMaxEntries, anyMaxEntries int) {
+	mapInfo = make(map[MapType]mapAttributes)
+
 	mapType := MapTypeIPv4TCPLocal
-	for _, maxEntries := range []int{MapNumEntriesLocal, MapNumEntriesGlobalTCP} {
+	for _, maxEntries := range []int{MapNumEntriesLocal, tcpMaxEntries} {
 		setupMapInfo(MapType(mapType), "CT_MAP_TCP4",
 			int(unsafe.Sizeof(CtKey4{})), maxEntries, ct4DumpParser)
 		mapType++
@@ -112,7 +116,7 @@ func initMapInfo() {
 			int(unsafe.Sizeof(CtKey6{})), maxEntries, ct6DumpParser)
 		mapType++
 	}
-	for _, maxEntries := range []int{MapNumEntriesLocal, MapNumEntriesGlobalAny} {
+	for _, maxEntries := range []int{MapNumEntriesLocal, anyMaxEntries} {
 		setupMapInfo(MapType(mapType), "CT_MAP_ANY4",
 			int(unsafe.Sizeof(CtKey4{})), maxEntries, ct4DumpParser)
 		mapType++
@@ -123,7 +127,7 @@ func initMapInfo() {
 }
 
 func init() {
-	initMapInfo()
+	InitMapInfo(option.CTMapEntriesGlobalTCPDefault, option.CTMapEntriesGlobalAnyDefault)
 }
 
 // CtEndpoint represents an endpoint for the functions required to manage
@@ -452,13 +456,7 @@ func NameIsGlobal(filename string) bool {
 // writer, defining usage of the global map or local maps depending on whether
 // the specified CtEndpoint is nil.
 func WriteBPFMacros(fw io.Writer, e CtEndpoint) {
-	if e == nil {
-		fmt.Fprintf(fw, "#define CT_MAP_SIZE_TCP %d\n", MapNumEntriesGlobalTCP)
-		fmt.Fprintf(fw, "#define CT_MAP_SIZE_ANY %d\n", MapNumEntriesGlobalAny)
-	} else {
-		fmt.Fprintf(fw, "#define CT_MAP_SIZE_TCP %d\n", MapNumEntriesLocal)
-		fmt.Fprintf(fw, "#define CT_MAP_SIZE_ANY %d\n", MapNumEntriesLocal)
-	}
+	var mapEntriesTCP, mapEntriesAny int
 	for _, m := range maps(e, true, true) {
 		filepath, err := m.Path()
 		if err != nil {
@@ -466,5 +464,12 @@ func WriteBPFMacros(fw io.Writer, e CtEndpoint) {
 			continue
 		}
 		fmt.Fprintf(fw, "#define %s %s\n", m.define, path.Base(filepath))
+		if m.mapType.isTCP() {
+			mapEntriesTCP = mapInfo[m.mapType].maxEntries
+		} else {
+			mapEntriesAny = mapInfo[m.mapType].maxEntries
+		}
 	}
+	fmt.Fprintf(fw, "#define CT_MAP_SIZE_TCP %d\n", mapEntriesTCP)
+	fmt.Fprintf(fw, "#define CT_MAP_SIZE_ANY %d\n", mapEntriesAny)
 }
