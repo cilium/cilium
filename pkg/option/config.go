@@ -116,6 +116,15 @@ const (
 	// BPFCompileDebugName is the name of the option to enable BPF compiliation debugging
 	BPFCompileDebugName = "bpf-compile-debug"
 
+	// CTMapEntriesGlobalTCP retains the Cilium 1.2 (or earlier) size to
+	// minimize disruption during upgrade.
+	CTMapEntriesGlobalTCPDefault = 1000000
+	CTMapEntriesGlobalAnyDefault = 2 << 17 // 256Ki
+	CTMapEntriesGlobalTCPName    = "bpf-ct-global-tcp-max"
+	CTMapEntriesGlobalAnyName    = "bpf-ct-global-any-max"
+	CTMapEntriesGlobalTCPNameEnv = "CILIUM_GLOBAL_CT_MAX_TCP"
+	CTMapEntriesGlobalAnyNameEnv = "CILIUM_GLOBAL_CT_MAX_ANY"
+
 	// LogSystemLoadConfigName is the name of the option to enable system
 	// load loggging
 	LogSystemLoadConfigName = "log-system-load"
@@ -229,6 +238,14 @@ type daemonConfig struct {
 
 	// ClusterMeshConfig is the path to the clustermesh configuration directory
 	ClusterMeshConfig string
+
+	// CTMapEntriesGlobalTCP is the maximum number of conntrack entries
+	// allowed in each TCP CT table for IPv4/IPv6.
+	CTMapEntriesGlobalTCP int
+
+	// CTMapEntriesGlobalAny is the maximum number of conntrack entries
+	// allowed in each non-TCP CT table for IPv4/IPv6.
+	CTMapEntriesGlobalAny int
 }
 
 var (
@@ -330,6 +347,19 @@ func (c *daemonConfig) Validate() error {
 			return fmt.Errorf("cannot use default cluster name (%s) with option %s",
 				defaults.ClusterName, ClusterIDName)
 		}
+	}
+
+	c.CTMapEntriesGlobalTCP = viper.GetInt(CTMapEntriesGlobalTCPName)
+	c.CTMapEntriesGlobalAny = viper.GetInt(CTMapEntriesGlobalAnyName)
+	ctTableMin := 1 << 10 // 1Ki entries
+	ctTableMax := 1 << 24 // 16Mi entries (~1GiB of entries per map)
+	if c.CTMapEntriesGlobalTCP < ctTableMin || c.CTMapEntriesGlobalAny < ctTableMin {
+		return fmt.Errorf("Specified CT tables values %d/%d must exceed minimum %d",
+			c.CTMapEntriesGlobalTCP, c.CTMapEntriesGlobalAny, ctTableMin)
+	}
+	if c.CTMapEntriesGlobalTCP > ctTableMax || c.CTMapEntriesGlobalAny > ctTableMax {
+		return fmt.Errorf("Specified CT tables values %d/%d must not exceed maximum %d",
+			c.CTMapEntriesGlobalTCP, c.CTMapEntriesGlobalAny, ctTableMax)
 	}
 
 	return nil

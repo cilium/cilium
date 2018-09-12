@@ -1055,6 +1055,8 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 		return nil, nil, fmt.Errorf("invalid daemon configuration: %s", err)
 	}
 
+	ctmap.InitMapInfo(option.Config.CTMapEntriesGlobalTCP, option.Config.CTMapEntriesGlobalAny)
+
 	if err := workloads.Setup(option.Config.Workloads, map[string]string{}); err != nil {
 		return nil, nil, fmt.Errorf("unable to setup workload: %s", err)
 	}

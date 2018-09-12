@@ -21,6 +21,8 @@ cilium-agent
       --allow-localhost string                      Policy when to allow local stack to reach local endpoints { auto | always | policy }  (default "auto")
       --auto-ipv6-node-routes                       Automatically adds IPv6 L3 routes to reach other nodes for non-overlay mode (--device) (BETA)
       --bpf-compile-debug                           Enable debugging of the BPF compilation process
+      --bpf-ct-global-any-max int                   Maximum number of entries in non-TCP CT table (default 262144)
+      --bpf-ct-global-tcp-max int                   Maximum number of entries in TCP CT table (default 1000000)
       --bpf-root string                             Path to BPF filesystem
       --cluster-id int                              Unique identifier of the cluster
       --cluster-name string                         Name of the cluster (default "default")
