@@ -12,6 +12,12 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+
 type SimpleMetric_Type int32
 
 const (
@@ -23,6 +29,7 @@ var SimpleMetric_Type_name = map[int32]string{
 	0: "COUNTER",
 	1: "GAUGE",
 }
+
 var SimpleMetric_Type_value = map[string]int32{
 	"COUNTER": 0,
 	"GAUGE":   1,
@@ -31,20 +38,45 @@ var SimpleMetric_Type_value = map[string]int32{
 func (x SimpleMetric_Type) String() string {
 	return proto.EnumName(SimpleMetric_Type_name, int32(x))
 }
-func (SimpleMetric_Type) EnumDescriptor() ([]byte, []int) { return fileDescriptor2, []int{0, 0} }
+
+func (SimpleMetric_Type) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_680a736ec6584458, []int{0, 0}
+}
 
 // Proto representation of an Envoy Counter or Gauge value.
 type SimpleMetric struct {
 	// Type of metric represented.
-	Type SimpleMetric_Type `protobuf:"varint,1,opt,name=type,enum=envoy.admin.v2alpha.SimpleMetric_Type" json:"type,omitempty"`
+	Type SimpleMetric_Type `protobuf:"varint,1,opt,name=type,proto3,enum=envoy.admin.v2alpha.SimpleMetric_Type" json:"type,omitempty"`
 	// Current metric value.
-	Value uint64 `protobuf:"varint,2,opt,name=value" json:"value,omitempty"`
+	Value                uint64   `protobuf:"varint,2,opt,name=value,proto3" json:"value,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *SimpleMetric) Reset()                    { *m = SimpleMetric{} }
-func (m *SimpleMetric) String() string            { return proto.CompactTextString(m) }
-func (*SimpleMetric) ProtoMessage()               {}
-func (*SimpleMetric) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{0} }
+func (m *SimpleMetric) Reset()         { *m = SimpleMetric{} }
+func (m *SimpleMetric) String() string { return proto.CompactTextString(m) }
+func (*SimpleMetric) ProtoMessage()    {}
+func (*SimpleMetric) Descriptor() ([]byte, []int) {
+	return fileDescriptor_680a736ec6584458, []int{0}
+}
+func (m *SimpleMetric) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SimpleMetric.Unmarshal(m, b)
+}
+func (m *SimpleMetric) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SimpleMetric.Marshal(b, m, deterministic)
+}
+func (dst *SimpleMetric) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SimpleMetric.Merge(dst, src)
+}
+func (m *SimpleMetric) XXX_Size() int {
+	return xxx_messageInfo_SimpleMetric.Size(m)
+}
+func (m *SimpleMetric) XXX_DiscardUnknown() {
+	xxx_messageInfo_SimpleMetric.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SimpleMetric proto.InternalMessageInfo
 
 func (m *SimpleMetric) GetType() SimpleMetric_Type {
 	if m != nil {
@@ -65,9 +97,9 @@ func init() {
 	proto.RegisterEnum("envoy.admin.v2alpha.SimpleMetric_Type", SimpleMetric_Type_name, SimpleMetric_Type_value)
 }
 
-func init() { proto.RegisterFile("envoy/admin/v2alpha/metrics.proto", fileDescriptor2) }
+func init() { proto.RegisterFile("envoy/admin/v2alpha/metrics.proto", fileDescriptor_680a736ec6584458) }
 
-var fileDescriptor2 = []byte{
+var fileDescriptor_680a736ec6584458 = []byte{
 	// 166 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x52, 0x4c, 0xcd, 0x2b, 0xcb,
 	0xaf, 0xd4, 0x4f, 0x4c, 0xc9, 0xcd, 0xcc, 0xd3, 0x2f, 0x33, 0x4a, 0xcc, 0x29, 0xc8, 0x48, 0xd4,

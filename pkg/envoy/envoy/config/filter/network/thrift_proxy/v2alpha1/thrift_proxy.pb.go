@@ -6,13 +6,19 @@ package v2
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import _ "github.com/lyft/protoc-gen-validate/validate"
 import _ "github.com/gogo/protobuf/gogoproto"
+import _ "github.com/lyft/protoc-gen-validate/validate"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 type ThriftProxy_TransportType int32
 
@@ -33,6 +39,7 @@ var ThriftProxy_TransportType_name = map[int32]string{
 	2: "UNFRAMED",
 	3: "HEADER",
 }
+
 var ThriftProxy_TransportType_value = map[string]int32{
 	"AUTO_TRANSPORT": 0,
 	"FRAMED":         1,
@@ -43,7 +50,10 @@ var ThriftProxy_TransportType_value = map[string]int32{
 func (x ThriftProxy_TransportType) String() string {
 	return proto.EnumName(ThriftProxy_TransportType_name, int32(x))
 }
-func (ThriftProxy_TransportType) EnumDescriptor() ([]byte, []int) { return fileDescriptor1, []int{0, 0} }
+
+func (ThriftProxy_TransportType) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_e8fab7646d88fc90, []int{0, 0}
+}
 
 type ThriftProxy_ProtocolType int32
 
@@ -66,6 +76,7 @@ var ThriftProxy_ProtocolType_name = map[int32]string{
 	2: "LAX_BINARY",
 	3: "COMPACT",
 }
+
 var ThriftProxy_ProtocolType_value = map[string]int32{
 	"AUTO_PROTOCOL": 0,
 	"BINARY":        1,
@@ -76,26 +87,51 @@ var ThriftProxy_ProtocolType_value = map[string]int32{
 func (x ThriftProxy_ProtocolType) String() string {
 	return proto.EnumName(ThriftProxy_ProtocolType_name, int32(x))
 }
-func (ThriftProxy_ProtocolType) EnumDescriptor() ([]byte, []int) { return fileDescriptor1, []int{0, 1} }
+
+func (ThriftProxy_ProtocolType) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_e8fab7646d88fc90, []int{0, 1}
+}
 
 // [#protodoc-title: Extensions Thrift Proxy]
 // Thrift Proxy filter configuration.
 // [#comment:next free field: 5]
 type ThriftProxy struct {
 	// Supplies the type of transport that the Thrift proxy should use. Defaults to `AUTO_TRANSPORT`.
-	Transport ThriftProxy_TransportType `protobuf:"varint,2,opt,name=transport,enum=envoy.config.filter.network.thrift_proxy.v2alpha1.ThriftProxy_TransportType" json:"transport,omitempty"`
+	Transport ThriftProxy_TransportType `protobuf:"varint,2,opt,name=transport,proto3,enum=envoy.config.filter.network.thrift_proxy.v2alpha1.ThriftProxy_TransportType" json:"transport,omitempty"`
 	// Supplies the type of protocol that the Thrift proxy should use. Defaults to `AUTO_PROTOCOL`.
-	Protocol ThriftProxy_ProtocolType `protobuf:"varint,3,opt,name=protocol,enum=envoy.config.filter.network.thrift_proxy.v2alpha1.ThriftProxy_ProtocolType" json:"protocol,omitempty"`
+	Protocol ThriftProxy_ProtocolType `protobuf:"varint,3,opt,name=protocol,proto3,enum=envoy.config.filter.network.thrift_proxy.v2alpha1.ThriftProxy_ProtocolType" json:"protocol,omitempty"`
 	// The human readable prefix to use when emitting statistics.
-	StatPrefix string `protobuf:"bytes,1,opt,name=stat_prefix,json=statPrefix" json:"stat_prefix,omitempty"`
+	StatPrefix string `protobuf:"bytes,1,opt,name=stat_prefix,json=statPrefix,proto3" json:"stat_prefix,omitempty"`
 	// The route table for the connection manager is static and is specified in this property.
-	RouteConfig *RouteConfiguration `protobuf:"bytes,4,opt,name=route_config,json=routeConfig" json:"route_config,omitempty"`
+	RouteConfig          *RouteConfiguration `protobuf:"bytes,4,opt,name=route_config,json=routeConfig,proto3" json:"route_config,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
+	XXX_unrecognized     []byte              `json:"-"`
+	XXX_sizecache        int32               `json:"-"`
 }
 
-func (m *ThriftProxy) Reset()                    { *m = ThriftProxy{} }
-func (m *ThriftProxy) String() string            { return proto.CompactTextString(m) }
-func (*ThriftProxy) ProtoMessage()               {}
-func (*ThriftProxy) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{0} }
+func (m *ThriftProxy) Reset()         { *m = ThriftProxy{} }
+func (m *ThriftProxy) String() string { return proto.CompactTextString(m) }
+func (*ThriftProxy) ProtoMessage()    {}
+func (*ThriftProxy) Descriptor() ([]byte, []int) {
+	return fileDescriptor_e8fab7646d88fc90, []int{0}
+}
+func (m *ThriftProxy) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ThriftProxy.Unmarshal(m, b)
+}
+func (m *ThriftProxy) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ThriftProxy.Marshal(b, m, deterministic)
+}
+func (dst *ThriftProxy) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ThriftProxy.Merge(dst, src)
+}
+func (m *ThriftProxy) XXX_Size() int {
+	return xxx_messageInfo_ThriftProxy.Size(m)
+}
+func (m *ThriftProxy) XXX_DiscardUnknown() {
+	xxx_messageInfo_ThriftProxy.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ThriftProxy proto.InternalMessageInfo
 
 func (m *ThriftProxy) GetTransport() ThriftProxy_TransportType {
 	if m != nil {
@@ -132,10 +168,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/network/thrift_proxy/v2alpha1/thrift_proxy.proto", fileDescriptor1)
+	proto.RegisterFile("envoy/config/filter/network/thrift_proxy/v2alpha1/thrift_proxy.proto", fileDescriptor_e8fab7646d88fc90)
 }
 
-var fileDescriptor1 = []byte{
+var fileDescriptor_e8fab7646d88fc90 = []byte{
 	// 415 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x90, 0xc1, 0x6e, 0xd3, 0x40,
 	0x10, 0x86, 0xbb, 0x8e, 0x29, 0xcd, 0x38, 0x8d, 0xcc, 0x0a, 0x09, 0x2b, 0x07, 0x64, 0xe5, 0x14,

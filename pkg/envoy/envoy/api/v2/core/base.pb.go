@@ -6,15 +6,21 @@ package core
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import google_protobuf "github.com/golang/protobuf/ptypes/struct"
-import google_protobuf1 "github.com/golang/protobuf/ptypes/wrappers"
-import _ "github.com/lyft/protoc-gen-validate/validate"
 import _ "github.com/gogo/protobuf/gogoproto"
+import _struct "github.com/golang/protobuf/ptypes/struct"
+import wrappers "github.com/golang/protobuf/ptypes/wrappers"
+import _ "github.com/lyft/protoc-gen-validate/validate"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 // Envoy supports :ref:`upstream priority routing
 // <arch_overview_http_routing_priority>` both at the route and the virtual
@@ -34,6 +40,7 @@ var RoutingPriority_name = map[int32]string{
 	0: "DEFAULT",
 	1: "HIGH",
 }
+
 var RoutingPriority_value = map[string]int32{
 	"DEFAULT": 0,
 	"HIGH":    1,
@@ -42,7 +49,10 @@ var RoutingPriority_value = map[string]int32{
 func (x RoutingPriority) String() string {
 	return proto.EnumName(RoutingPriority_name, int32(x))
 }
-func (RoutingPriority) EnumDescriptor() ([]byte, []int) { return fileDescriptor1, []int{0} }
+
+func (RoutingPriority) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_a7738c0f9e1bfff4, []int{0}
+}
 
 // HTTP request method.
 type RequestMethod int32
@@ -70,6 +80,7 @@ var RequestMethod_name = map[int32]string{
 	7: "OPTIONS",
 	8: "TRACE",
 }
+
 var RequestMethod_value = map[string]int32{
 	"METHOD_UNSPECIFIED": 0,
 	"GET":                1,
@@ -85,7 +96,10 @@ var RequestMethod_value = map[string]int32{
 func (x RequestMethod) String() string {
 	return proto.EnumName(RequestMethod_name, int32(x))
 }
-func (RequestMethod) EnumDescriptor() ([]byte, []int) { return fileDescriptor1, []int{1} }
+
+func (RequestMethod) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_a7738c0f9e1bfff4, []int{1}
+}
 
 type SocketOption_SocketState int32
 
@@ -103,6 +117,7 @@ var SocketOption_SocketState_name = map[int32]string{
 	1: "STATE_BOUND",
 	2: "STATE_LISTENING",
 }
+
 var SocketOption_SocketState_value = map[string]int32{
 	"STATE_PREBIND":   0,
 	"STATE_BOUND":     1,
@@ -112,12 +127,15 @@ var SocketOption_SocketState_value = map[string]int32{
 func (x SocketOption_SocketState) String() string {
 	return proto.EnumName(SocketOption_SocketState_name, int32(x))
 }
-func (SocketOption_SocketState) EnumDescriptor() ([]byte, []int) { return fileDescriptor1, []int{8, 0} }
+
+func (SocketOption_SocketState) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_a7738c0f9e1bfff4, []int{8, 0}
+}
 
 // Identifies location of where either Envoy runs or where upstream hosts run.
 type Locality struct {
 	// Region this :ref:`zone <envoy_api_field_core.Locality.zone>` belongs to.
-	Region string `protobuf:"bytes,1,opt,name=region" json:"region,omitempty"`
+	Region string `protobuf:"bytes,1,opt,name=region,proto3" json:"region,omitempty"`
 	// Defines the local service zone where Envoy is running. Though optional, it
 	// should be set if discovery service routing is used and the discovery
 	// service exposes :ref:`zone data <config_cluster_manager_sds_api_host_az>`,
@@ -126,17 +144,39 @@ type Locality struct {
 	// <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html>`_
 	// on AWS, `Zone <https://cloud.google.com/compute/docs/regions-zones/>`_ on
 	// GCP, etc.
-	Zone string `protobuf:"bytes,2,opt,name=zone" json:"zone,omitempty"`
+	Zone string `protobuf:"bytes,2,opt,name=zone,proto3" json:"zone,omitempty"`
 	// When used for locality of upstream hosts, this field further splits zone
 	// into smaller chunks of sub-zones so they can be load balanced
 	// independently.
-	SubZone string `protobuf:"bytes,3,opt,name=sub_zone,json=subZone" json:"sub_zone,omitempty"`
+	SubZone              string   `protobuf:"bytes,3,opt,name=sub_zone,json=subZone,proto3" json:"sub_zone,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *Locality) Reset()                    { *m = Locality{} }
-func (m *Locality) String() string            { return proto.CompactTextString(m) }
-func (*Locality) ProtoMessage()               {}
-func (*Locality) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{0} }
+func (m *Locality) Reset()         { *m = Locality{} }
+func (m *Locality) String() string { return proto.CompactTextString(m) }
+func (*Locality) ProtoMessage()    {}
+func (*Locality) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a7738c0f9e1bfff4, []int{0}
+}
+func (m *Locality) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_Locality.Unmarshal(m, b)
+}
+func (m *Locality) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Locality.Marshal(b, m, deterministic)
+}
+func (dst *Locality) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Locality.Merge(dst, src)
+}
+func (m *Locality) XXX_Size() int {
+	return xxx_messageInfo_Locality.Size(m)
+}
+func (m *Locality) XXX_DiscardUnknown() {
+	xxx_messageInfo_Locality.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Locality proto.InternalMessageInfo
 
 func (m *Locality) GetRegion() string {
 	if m != nil {
@@ -169,7 +209,7 @@ type Node struct {
 	// <config_cluster_manager_cds>`, and :ref:`HTTP tracing
 	// <arch_overview_tracing>`, either in this message or via
 	// :option:`--service-node`.
-	Id string `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// Defines the local service cluster name where Envoy is running. Though
 	// optional, it should be set if any of the following features are used:
 	// :ref:`statsd <arch_overview_statistics>`, :ref:`health check cluster
@@ -180,22 +220,44 @@ type Node struct {
 	// :ref:`CDS <config_cluster_manager_cds>`, and :ref:`HTTP tracing
 	// <arch_overview_tracing>`, either in this message or via
 	// :option:`--service-cluster`.
-	Cluster string `protobuf:"bytes,2,opt,name=cluster" json:"cluster,omitempty"`
+	Cluster string `protobuf:"bytes,2,opt,name=cluster,proto3" json:"cluster,omitempty"`
 	// Opaque metadata extending the node identifier. Envoy will pass this
 	// directly to the management server.
-	Metadata *google_protobuf.Struct `protobuf:"bytes,3,opt,name=metadata" json:"metadata,omitempty"`
+	Metadata *_struct.Struct `protobuf:"bytes,3,opt,name=metadata,proto3" json:"metadata,omitempty"`
 	// Locality specifying where the Envoy instance is running.
-	Locality *Locality `protobuf:"bytes,4,opt,name=locality" json:"locality,omitempty"`
+	Locality *Locality `protobuf:"bytes,4,opt,name=locality,proto3" json:"locality,omitempty"`
 	// This is motivated by informing a management server during canary which
 	// version of Envoy is being tested in a heterogeneous fleet. This will be set
 	// by Envoy in management server RPCs.
-	BuildVersion string `protobuf:"bytes,5,opt,name=build_version,json=buildVersion" json:"build_version,omitempty"`
+	BuildVersion         string   `protobuf:"bytes,5,opt,name=build_version,json=buildVersion,proto3" json:"build_version,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *Node) Reset()                    { *m = Node{} }
-func (m *Node) String() string            { return proto.CompactTextString(m) }
-func (*Node) ProtoMessage()               {}
-func (*Node) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{1} }
+func (m *Node) Reset()         { *m = Node{} }
+func (m *Node) String() string { return proto.CompactTextString(m) }
+func (*Node) ProtoMessage()    {}
+func (*Node) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a7738c0f9e1bfff4, []int{1}
+}
+func (m *Node) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_Node.Unmarshal(m, b)
+}
+func (m *Node) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Node.Marshal(b, m, deterministic)
+}
+func (dst *Node) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Node.Merge(dst, src)
+}
+func (m *Node) XXX_Size() int {
+	return xxx_messageInfo_Node.Size(m)
+}
+func (m *Node) XXX_DiscardUnknown() {
+	xxx_messageInfo_Node.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Node proto.InternalMessageInfo
 
 func (m *Node) GetId() string {
 	if m != nil {
@@ -211,7 +273,7 @@ func (m *Node) GetCluster() string {
 	return ""
 }
 
-func (m *Node) GetMetadata() *google_protobuf.Struct {
+func (m *Node) GetMetadata() *_struct.Struct {
 	if m != nil {
 		return m.Metadata
 	}
@@ -253,15 +315,37 @@ func (m *Node) GetBuildVersion() string {
 type Metadata struct {
 	// Key is the reverse DNS filter name, e.g. com.acme.widget. The envoy.*
 	// namespace is reserved for Envoy's built-in filters.
-	FilterMetadata map[string]*google_protobuf.Struct `protobuf:"bytes,1,rep,name=filter_metadata,json=filterMetadata" json:"filter_metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	FilterMetadata       map[string]*_struct.Struct `protobuf:"bytes,1,rep,name=filter_metadata,json=filterMetadata,proto3" json:"filter_metadata,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	XXX_NoUnkeyedLiteral struct{}                   `json:"-"`
+	XXX_unrecognized     []byte                     `json:"-"`
+	XXX_sizecache        int32                      `json:"-"`
 }
 
-func (m *Metadata) Reset()                    { *m = Metadata{} }
-func (m *Metadata) String() string            { return proto.CompactTextString(m) }
-func (*Metadata) ProtoMessage()               {}
-func (*Metadata) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{2} }
+func (m *Metadata) Reset()         { *m = Metadata{} }
+func (m *Metadata) String() string { return proto.CompactTextString(m) }
+func (*Metadata) ProtoMessage()    {}
+func (*Metadata) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a7738c0f9e1bfff4, []int{2}
+}
+func (m *Metadata) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_Metadata.Unmarshal(m, b)
+}
+func (m *Metadata) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Metadata.Marshal(b, m, deterministic)
+}
+func (dst *Metadata) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Metadata.Merge(dst, src)
+}
+func (m *Metadata) XXX_Size() int {
+	return xxx_messageInfo_Metadata.Size(m)
+}
+func (m *Metadata) XXX_DiscardUnknown() {
+	xxx_messageInfo_Metadata.DiscardUnknown(m)
+}
 
-func (m *Metadata) GetFilterMetadata() map[string]*google_protobuf.Struct {
+var xxx_messageInfo_Metadata proto.InternalMessageInfo
+
+func (m *Metadata) GetFilterMetadata() map[string]*_struct.Struct {
 	if m != nil {
 		return m.FilterMetadata
 	}
@@ -271,15 +355,37 @@ func (m *Metadata) GetFilterMetadata() map[string]*google_protobuf.Struct {
 // Runtime derived uint32 with a default when not specified.
 type RuntimeUInt32 struct {
 	// Default value if runtime value is not available.
-	DefaultValue uint32 `protobuf:"varint,2,opt,name=default_value,json=defaultValue" json:"default_value,omitempty"`
+	DefaultValue uint32 `protobuf:"varint,2,opt,name=default_value,json=defaultValue,proto3" json:"default_value,omitempty"`
 	// Runtime key to get value for comparison. This value is used if defined.
-	RuntimeKey string `protobuf:"bytes,3,opt,name=runtime_key,json=runtimeKey" json:"runtime_key,omitempty"`
+	RuntimeKey           string   `protobuf:"bytes,3,opt,name=runtime_key,json=runtimeKey,proto3" json:"runtime_key,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *RuntimeUInt32) Reset()                    { *m = RuntimeUInt32{} }
-func (m *RuntimeUInt32) String() string            { return proto.CompactTextString(m) }
-func (*RuntimeUInt32) ProtoMessage()               {}
-func (*RuntimeUInt32) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{3} }
+func (m *RuntimeUInt32) Reset()         { *m = RuntimeUInt32{} }
+func (m *RuntimeUInt32) String() string { return proto.CompactTextString(m) }
+func (*RuntimeUInt32) ProtoMessage()    {}
+func (*RuntimeUInt32) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a7738c0f9e1bfff4, []int{3}
+}
+func (m *RuntimeUInt32) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_RuntimeUInt32.Unmarshal(m, b)
+}
+func (m *RuntimeUInt32) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_RuntimeUInt32.Marshal(b, m, deterministic)
+}
+func (dst *RuntimeUInt32) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RuntimeUInt32.Merge(dst, src)
+}
+func (m *RuntimeUInt32) XXX_Size() int {
+	return xxx_messageInfo_RuntimeUInt32.Size(m)
+}
+func (m *RuntimeUInt32) XXX_DiscardUnknown() {
+	xxx_messageInfo_RuntimeUInt32.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RuntimeUInt32 proto.InternalMessageInfo
 
 func (m *RuntimeUInt32) GetDefaultValue() uint32 {
 	if m != nil {
@@ -298,19 +404,41 @@ func (m *RuntimeUInt32) GetRuntimeKey() string {
 // Header name/value pair.
 type HeaderValue struct {
 	// Header name.
-	Key string `protobuf:"bytes,1,opt,name=key" json:"key,omitempty"`
+	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	// Header value.
 	//
 	// The same :ref:`format specifier <config_access_log_format>` as used for
 	// :ref:`HTTP access logging <config_access_log>` applies here, however
 	// unknown header values are replaced with the empty string instead of `-`.
-	Value string `protobuf:"bytes,2,opt,name=value" json:"value,omitempty"`
+	Value                string   `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *HeaderValue) Reset()                    { *m = HeaderValue{} }
-func (m *HeaderValue) String() string            { return proto.CompactTextString(m) }
-func (*HeaderValue) ProtoMessage()               {}
-func (*HeaderValue) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{4} }
+func (m *HeaderValue) Reset()         { *m = HeaderValue{} }
+func (m *HeaderValue) String() string { return proto.CompactTextString(m) }
+func (*HeaderValue) ProtoMessage()    {}
+func (*HeaderValue) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a7738c0f9e1bfff4, []int{4}
+}
+func (m *HeaderValue) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_HeaderValue.Unmarshal(m, b)
+}
+func (m *HeaderValue) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_HeaderValue.Marshal(b, m, deterministic)
+}
+func (dst *HeaderValue) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HeaderValue.Merge(dst, src)
+}
+func (m *HeaderValue) XXX_Size() int {
+	return xxx_messageInfo_HeaderValue.Size(m)
+}
+func (m *HeaderValue) XXX_DiscardUnknown() {
+	xxx_messageInfo_HeaderValue.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_HeaderValue proto.InternalMessageInfo
 
 func (m *HeaderValue) GetKey() string {
 	if m != nil {
@@ -329,16 +457,38 @@ func (m *HeaderValue) GetValue() string {
 // Header name/value pair plus option to control append behavior.
 type HeaderValueOption struct {
 	// Header name/value pair that this option applies to.
-	Header *HeaderValue `protobuf:"bytes,1,opt,name=header" json:"header,omitempty"`
+	Header *HeaderValue `protobuf:"bytes,1,opt,name=header,proto3" json:"header,omitempty"`
 	// Should the value be appended? If true (default), the value is appended to
 	// existing values.
-	Append *google_protobuf1.BoolValue `protobuf:"bytes,2,opt,name=append" json:"append,omitempty"`
+	Append               *wrappers.BoolValue `protobuf:"bytes,2,opt,name=append,proto3" json:"append,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
+	XXX_unrecognized     []byte              `json:"-"`
+	XXX_sizecache        int32               `json:"-"`
 }
 
-func (m *HeaderValueOption) Reset()                    { *m = HeaderValueOption{} }
-func (m *HeaderValueOption) String() string            { return proto.CompactTextString(m) }
-func (*HeaderValueOption) ProtoMessage()               {}
-func (*HeaderValueOption) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{5} }
+func (m *HeaderValueOption) Reset()         { *m = HeaderValueOption{} }
+func (m *HeaderValueOption) String() string { return proto.CompactTextString(m) }
+func (*HeaderValueOption) ProtoMessage()    {}
+func (*HeaderValueOption) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a7738c0f9e1bfff4, []int{5}
+}
+func (m *HeaderValueOption) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_HeaderValueOption.Unmarshal(m, b)
+}
+func (m *HeaderValueOption) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_HeaderValueOption.Marshal(b, m, deterministic)
+}
+func (dst *HeaderValueOption) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HeaderValueOption.Merge(dst, src)
+}
+func (m *HeaderValueOption) XXX_Size() int {
+	return xxx_messageInfo_HeaderValueOption.Size(m)
+}
+func (m *HeaderValueOption) XXX_DiscardUnknown() {
+	xxx_messageInfo_HeaderValueOption.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_HeaderValueOption proto.InternalMessageInfo
 
 func (m *HeaderValueOption) GetHeader() *HeaderValue {
 	if m != nil {
@@ -347,7 +497,7 @@ func (m *HeaderValueOption) GetHeader() *HeaderValue {
 	return nil
 }
 
-func (m *HeaderValueOption) GetAppend() *google_protobuf1.BoolValue {
+func (m *HeaderValueOption) GetAppend() *wrappers.BoolValue {
 	if m != nil {
 		return m.Append
 	}
@@ -360,30 +510,56 @@ type DataSource struct {
 	//	*DataSource_Filename
 	//	*DataSource_InlineBytes
 	//	*DataSource_InlineString
-	Specifier isDataSource_Specifier `protobuf_oneof:"specifier"`
+	Specifier            isDataSource_Specifier `protobuf_oneof:"specifier"`
+	XXX_NoUnkeyedLiteral struct{}               `json:"-"`
+	XXX_unrecognized     []byte                 `json:"-"`
+	XXX_sizecache        int32                  `json:"-"`
 }
 
-func (m *DataSource) Reset()                    { *m = DataSource{} }
-func (m *DataSource) String() string            { return proto.CompactTextString(m) }
-func (*DataSource) ProtoMessage()               {}
-func (*DataSource) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{6} }
+func (m *DataSource) Reset()         { *m = DataSource{} }
+func (m *DataSource) String() string { return proto.CompactTextString(m) }
+func (*DataSource) ProtoMessage()    {}
+func (*DataSource) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a7738c0f9e1bfff4, []int{6}
+}
+func (m *DataSource) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_DataSource.Unmarshal(m, b)
+}
+func (m *DataSource) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_DataSource.Marshal(b, m, deterministic)
+}
+func (dst *DataSource) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DataSource.Merge(dst, src)
+}
+func (m *DataSource) XXX_Size() int {
+	return xxx_messageInfo_DataSource.Size(m)
+}
+func (m *DataSource) XXX_DiscardUnknown() {
+	xxx_messageInfo_DataSource.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DataSource proto.InternalMessageInfo
 
 type isDataSource_Specifier interface {
 	isDataSource_Specifier()
 }
 
 type DataSource_Filename struct {
-	Filename string `protobuf:"bytes,1,opt,name=filename,oneof"`
+	Filename string `protobuf:"bytes,1,opt,name=filename,proto3,oneof"`
 }
+
 type DataSource_InlineBytes struct {
 	InlineBytes []byte `protobuf:"bytes,2,opt,name=inline_bytes,json=inlineBytes,proto3,oneof"`
 }
+
 type DataSource_InlineString struct {
-	InlineString string `protobuf:"bytes,3,opt,name=inline_string,json=inlineString,oneof"`
+	InlineString string `protobuf:"bytes,3,opt,name=inline_string,json=inlineString,proto3,oneof"`
 }
 
-func (*DataSource_Filename) isDataSource_Specifier()     {}
-func (*DataSource_InlineBytes) isDataSource_Specifier()  {}
+func (*DataSource_Filename) isDataSource_Specifier() {}
+
+func (*DataSource_InlineBytes) isDataSource_Specifier() {}
+
 func (*DataSource_InlineString) isDataSource_Specifier() {}
 
 func (m *DataSource) GetSpecifier() isDataSource_Specifier {
@@ -477,15 +653,15 @@ func _DataSource_OneofSizer(msg proto.Message) (n int) {
 	// specifier
 	switch x := m.Specifier.(type) {
 	case *DataSource_Filename:
-		n += proto.SizeVarint(1<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(len(x.Filename)))
 		n += len(x.Filename)
 	case *DataSource_InlineBytes:
-		n += proto.SizeVarint(2<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(len(x.InlineBytes)))
 		n += len(x.InlineBytes)
 	case *DataSource_InlineString:
-		n += proto.SizeVarint(3<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(len(x.InlineString)))
 		n += len(x.InlineString)
 	case nil:
@@ -502,16 +678,38 @@ func _DataSource_OneofSizer(msg proto.Message) (n int) {
 type TransportSocket struct {
 	// The name of the transport socket to instantiate. The name must match a supported transport
 	// socket implementation.
-	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Implementation specific configuration which depends on the implementation being instantiated.
 	// See the supported transport socket implementations for further documentation.
-	Config *google_protobuf.Struct `protobuf:"bytes,2,opt,name=config" json:"config,omitempty"`
+	Config               *_struct.Struct `protobuf:"bytes,2,opt,name=config,proto3" json:"config,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
+	XXX_unrecognized     []byte          `json:"-"`
+	XXX_sizecache        int32           `json:"-"`
 }
 
-func (m *TransportSocket) Reset()                    { *m = TransportSocket{} }
-func (m *TransportSocket) String() string            { return proto.CompactTextString(m) }
-func (*TransportSocket) ProtoMessage()               {}
-func (*TransportSocket) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{7} }
+func (m *TransportSocket) Reset()         { *m = TransportSocket{} }
+func (m *TransportSocket) String() string { return proto.CompactTextString(m) }
+func (*TransportSocket) ProtoMessage()    {}
+func (*TransportSocket) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a7738c0f9e1bfff4, []int{7}
+}
+func (m *TransportSocket) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_TransportSocket.Unmarshal(m, b)
+}
+func (m *TransportSocket) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_TransportSocket.Marshal(b, m, deterministic)
+}
+func (dst *TransportSocket) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TransportSocket.Merge(dst, src)
+}
+func (m *TransportSocket) XXX_Size() int {
+	return xxx_messageInfo_TransportSocket.Size(m)
+}
+func (m *TransportSocket) XXX_DiscardUnknown() {
+	xxx_messageInfo_TransportSocket.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_TransportSocket proto.InternalMessageInfo
 
 func (m *TransportSocket) GetName() string {
 	if m != nil {
@@ -520,7 +718,7 @@ func (m *TransportSocket) GetName() string {
 	return ""
 }
 
-func (m *TransportSocket) GetConfig() *google_protobuf.Struct {
+func (m *TransportSocket) GetConfig() *_struct.Struct {
 	if m != nil {
 		return m.Config
 	}
@@ -532,45 +730,46 @@ func (m *TransportSocket) GetConfig() *google_protobuf.Struct {
 type SocketOption struct {
 	// An optional name to give this socket option for debugging, etc.
 	// Uniqueness is not required and no special meaning is assumed.
-	Description string `protobuf:"bytes,1,opt,name=description" json:"description,omitempty"`
+	Description string `protobuf:"bytes,1,opt,name=description,proto3" json:"description,omitempty"`
 	// Corresponding to the level value passed to setsockopt, such as IPPROTO_TCP
-	Level int64 `protobuf:"varint,2,opt,name=level" json:"level,omitempty"`
+	Level int64 `protobuf:"varint,2,opt,name=level,proto3" json:"level,omitempty"`
 	// The numeric name as passed to setsockopt
-	Name int64 `protobuf:"varint,3,opt,name=name" json:"name,omitempty"`
+	Name int64 `protobuf:"varint,3,opt,name=name,proto3" json:"name,omitempty"`
 	// Types that are valid to be assigned to Value:
 	//	*SocketOption_IntValue
 	//	*SocketOption_BufValue
 	Value isSocketOption_Value `protobuf_oneof:"value"`
 	// The state in which the option will be applied. When used in BindConfig
 	// STATE_PREBIND is currently the only valid value.
-	State SocketOption_SocketState `protobuf:"varint,6,opt,name=state,enum=envoy.api.v2.core.SocketOption_SocketState" json:"state,omitempty"`
+	State                SocketOption_SocketState `protobuf:"varint,6,opt,name=state,proto3,enum=envoy.api.v2.core.SocketOption_SocketState" json:"state,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
+	XXX_unrecognized     []byte                   `json:"-"`
+	XXX_sizecache        int32                    `json:"-"`
 }
 
-func (m *SocketOption) Reset()                    { *m = SocketOption{} }
-func (m *SocketOption) String() string            { return proto.CompactTextString(m) }
-func (*SocketOption) ProtoMessage()               {}
-func (*SocketOption) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{8} }
-
-type isSocketOption_Value interface {
-	isSocketOption_Value()
+func (m *SocketOption) Reset()         { *m = SocketOption{} }
+func (m *SocketOption) String() string { return proto.CompactTextString(m) }
+func (*SocketOption) ProtoMessage()    {}
+func (*SocketOption) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a7738c0f9e1bfff4, []int{8}
+}
+func (m *SocketOption) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SocketOption.Unmarshal(m, b)
+}
+func (m *SocketOption) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SocketOption.Marshal(b, m, deterministic)
+}
+func (dst *SocketOption) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SocketOption.Merge(dst, src)
+}
+func (m *SocketOption) XXX_Size() int {
+	return xxx_messageInfo_SocketOption.Size(m)
+}
+func (m *SocketOption) XXX_DiscardUnknown() {
+	xxx_messageInfo_SocketOption.DiscardUnknown(m)
 }
 
-type SocketOption_IntValue struct {
-	IntValue int64 `protobuf:"varint,4,opt,name=int_value,json=intValue,oneof"`
-}
-type SocketOption_BufValue struct {
-	BufValue []byte `protobuf:"bytes,5,opt,name=buf_value,json=bufValue,proto3,oneof"`
-}
-
-func (*SocketOption_IntValue) isSocketOption_Value() {}
-func (*SocketOption_BufValue) isSocketOption_Value() {}
-
-func (m *SocketOption) GetValue() isSocketOption_Value {
-	if m != nil {
-		return m.Value
-	}
-	return nil
-}
+var xxx_messageInfo_SocketOption proto.InternalMessageInfo
 
 func (m *SocketOption) GetDescription() string {
 	if m != nil {
@@ -591,6 +790,29 @@ func (m *SocketOption) GetName() int64 {
 		return m.Name
 	}
 	return 0
+}
+
+type isSocketOption_Value interface {
+	isSocketOption_Value()
+}
+
+type SocketOption_IntValue struct {
+	IntValue int64 `protobuf:"varint,4,opt,name=int_value,json=intValue,proto3,oneof"`
+}
+
+type SocketOption_BufValue struct {
+	BufValue []byte `protobuf:"bytes,5,opt,name=buf_value,json=bufValue,proto3,oneof"`
+}
+
+func (*SocketOption_IntValue) isSocketOption_Value() {}
+
+func (*SocketOption_BufValue) isSocketOption_Value() {}
+
+func (m *SocketOption) GetValue() isSocketOption_Value {
+	if m != nil {
+		return m.Value
+	}
+	return nil
 }
 
 func (m *SocketOption) GetIntValue() int64 {
@@ -666,10 +888,10 @@ func _SocketOption_OneofSizer(msg proto.Message) (n int) {
 	// value
 	switch x := m.Value.(type) {
 	case *SocketOption_IntValue:
-		n += proto.SizeVarint(4<<3 | proto.WireVarint)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(x.IntValue))
 	case *SocketOption_BufValue:
-		n += proto.SizeVarint(5<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(len(x.BufValue)))
 		n += len(x.BufValue)
 	case nil:
@@ -683,6 +905,7 @@ func init() {
 	proto.RegisterType((*Locality)(nil), "envoy.api.v2.core.Locality")
 	proto.RegisterType((*Node)(nil), "envoy.api.v2.core.Node")
 	proto.RegisterType((*Metadata)(nil), "envoy.api.v2.core.Metadata")
+	proto.RegisterMapType((map[string]*_struct.Struct)(nil), "envoy.api.v2.core.Metadata.FilterMetadataEntry")
 	proto.RegisterType((*RuntimeUInt32)(nil), "envoy.api.v2.core.RuntimeUInt32")
 	proto.RegisterType((*HeaderValue)(nil), "envoy.api.v2.core.HeaderValue")
 	proto.RegisterType((*HeaderValueOption)(nil), "envoy.api.v2.core.HeaderValueOption")
@@ -694,9 +917,9 @@ func init() {
 	proto.RegisterEnum("envoy.api.v2.core.SocketOption_SocketState", SocketOption_SocketState_name, SocketOption_SocketState_value)
 }
 
-func init() { proto.RegisterFile("envoy/api/v2/core/base.proto", fileDescriptor1) }
+func init() { proto.RegisterFile("envoy/api/v2/core/base.proto", fileDescriptor_a7738c0f9e1bfff4) }
 
-var fileDescriptor1 = []byte{
+var fileDescriptor_a7738c0f9e1bfff4 = []byte{
 	// 956 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x54, 0xdf, 0x6e, 0xe3, 0xc4,
 	0x17, 0xae, 0xed, 0x24, 0x4d, 0x8e, 0x93, 0xd6, 0x9d, 0xad, 0x76, 0xfb, 0xeb, 0x6e, 0xab, 0xca,
