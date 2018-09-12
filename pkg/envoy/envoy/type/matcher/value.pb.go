@@ -13,6 +13,12 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+
 // Specifies the way to match a ProtobufWkt::Value. Primitive values and ListValue are supported.
 // StructValue is not supported and is always not matched.
 type ValueMatcher struct {
@@ -25,43 +31,75 @@ type ValueMatcher struct {
 	//	*ValueMatcher_BoolMatch
 	//	*ValueMatcher_PresentMatch
 	//	*ValueMatcher_ListMatch
-	MatchPattern isValueMatcher_MatchPattern `protobuf_oneof:"match_pattern"`
+	MatchPattern         isValueMatcher_MatchPattern `protobuf_oneof:"match_pattern"`
+	XXX_NoUnkeyedLiteral struct{}                    `json:"-"`
+	XXX_unrecognized     []byte                      `json:"-"`
+	XXX_sizecache        int32                       `json:"-"`
 }
 
-func (m *ValueMatcher) Reset()                    { *m = ValueMatcher{} }
-func (m *ValueMatcher) String() string            { return proto.CompactTextString(m) }
-func (*ValueMatcher) ProtoMessage()               {}
-func (*ValueMatcher) Descriptor() ([]byte, []int) { return fileDescriptor3, []int{0} }
+func (m *ValueMatcher) Reset()         { *m = ValueMatcher{} }
+func (m *ValueMatcher) String() string { return proto.CompactTextString(m) }
+func (*ValueMatcher) ProtoMessage()    {}
+func (*ValueMatcher) Descriptor() ([]byte, []int) {
+	return fileDescriptor_145b36501d266253, []int{0}
+}
+func (m *ValueMatcher) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ValueMatcher.Unmarshal(m, b)
+}
+func (m *ValueMatcher) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ValueMatcher.Marshal(b, m, deterministic)
+}
+func (dst *ValueMatcher) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ValueMatcher.Merge(dst, src)
+}
+func (m *ValueMatcher) XXX_Size() int {
+	return xxx_messageInfo_ValueMatcher.Size(m)
+}
+func (m *ValueMatcher) XXX_DiscardUnknown() {
+	xxx_messageInfo_ValueMatcher.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ValueMatcher proto.InternalMessageInfo
 
 type isValueMatcher_MatchPattern interface {
 	isValueMatcher_MatchPattern()
 }
 
 type ValueMatcher_NullMatch_ struct {
-	NullMatch *ValueMatcher_NullMatch `protobuf:"bytes,1,opt,name=null_match,json=nullMatch,oneof"`
-}
-type ValueMatcher_DoubleMatch struct {
-	DoubleMatch *DoubleMatcher `protobuf:"bytes,2,opt,name=double_match,json=doubleMatch,oneof"`
-}
-type ValueMatcher_StringMatch struct {
-	StringMatch *StringMatcher `protobuf:"bytes,3,opt,name=string_match,json=stringMatch,oneof"`
-}
-type ValueMatcher_BoolMatch struct {
-	BoolMatch bool `protobuf:"varint,4,opt,name=bool_match,json=boolMatch,oneof"`
-}
-type ValueMatcher_PresentMatch struct {
-	PresentMatch bool `protobuf:"varint,5,opt,name=present_match,json=presentMatch,oneof"`
-}
-type ValueMatcher_ListMatch struct {
-	ListMatch *ListMatcher `protobuf:"bytes,6,opt,name=list_match,json=listMatch,oneof"`
+	NullMatch *ValueMatcher_NullMatch `protobuf:"bytes,1,opt,name=null_match,json=nullMatch,proto3,oneof"`
 }
 
-func (*ValueMatcher_NullMatch_) isValueMatcher_MatchPattern()   {}
-func (*ValueMatcher_DoubleMatch) isValueMatcher_MatchPattern()  {}
-func (*ValueMatcher_StringMatch) isValueMatcher_MatchPattern()  {}
-func (*ValueMatcher_BoolMatch) isValueMatcher_MatchPattern()    {}
+type ValueMatcher_DoubleMatch struct {
+	DoubleMatch *DoubleMatcher `protobuf:"bytes,2,opt,name=double_match,json=doubleMatch,proto3,oneof"`
+}
+
+type ValueMatcher_StringMatch struct {
+	StringMatch *StringMatcher `protobuf:"bytes,3,opt,name=string_match,json=stringMatch,proto3,oneof"`
+}
+
+type ValueMatcher_BoolMatch struct {
+	BoolMatch bool `protobuf:"varint,4,opt,name=bool_match,json=boolMatch,proto3,oneof"`
+}
+
+type ValueMatcher_PresentMatch struct {
+	PresentMatch bool `protobuf:"varint,5,opt,name=present_match,json=presentMatch,proto3,oneof"`
+}
+
+type ValueMatcher_ListMatch struct {
+	ListMatch *ListMatcher `protobuf:"bytes,6,opt,name=list_match,json=listMatch,proto3,oneof"`
+}
+
+func (*ValueMatcher_NullMatch_) isValueMatcher_MatchPattern() {}
+
+func (*ValueMatcher_DoubleMatch) isValueMatcher_MatchPattern() {}
+
+func (*ValueMatcher_StringMatch) isValueMatcher_MatchPattern() {}
+
+func (*ValueMatcher_BoolMatch) isValueMatcher_MatchPattern() {}
+
 func (*ValueMatcher_PresentMatch) isValueMatcher_MatchPattern() {}
-func (*ValueMatcher_ListMatch) isValueMatcher_MatchPattern()    {}
+
+func (*ValueMatcher_ListMatch) isValueMatcher_MatchPattern() {}
 
 func (m *ValueMatcher) GetMatchPattern() isValueMatcher_MatchPattern {
 	if m != nil {
@@ -229,28 +267,28 @@ func _ValueMatcher_OneofSizer(msg proto.Message) (n int) {
 	switch x := m.MatchPattern.(type) {
 	case *ValueMatcher_NullMatch_:
 		s := proto.Size(x.NullMatch)
-		n += proto.SizeVarint(1<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
 	case *ValueMatcher_DoubleMatch:
 		s := proto.Size(x.DoubleMatch)
-		n += proto.SizeVarint(2<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
 	case *ValueMatcher_StringMatch:
 		s := proto.Size(x.StringMatch)
-		n += proto.SizeVarint(3<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
 	case *ValueMatcher_BoolMatch:
-		n += proto.SizeVarint(4<<3 | proto.WireVarint)
+		n += 1 // tag and wire
 		n += 1
 	case *ValueMatcher_PresentMatch:
-		n += proto.SizeVarint(5<<3 | proto.WireVarint)
+		n += 1 // tag and wire
 		n += 1
 	case *ValueMatcher_ListMatch:
 		s := proto.Size(x.ListMatch)
-		n += proto.SizeVarint(6<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
 	case nil:
@@ -262,31 +300,75 @@ func _ValueMatcher_OneofSizer(msg proto.Message) (n int) {
 
 // NullMatch is an empty message to specify a null value.
 type ValueMatcher_NullMatch struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *ValueMatcher_NullMatch) Reset()                    { *m = ValueMatcher_NullMatch{} }
-func (m *ValueMatcher_NullMatch) String() string            { return proto.CompactTextString(m) }
-func (*ValueMatcher_NullMatch) ProtoMessage()               {}
-func (*ValueMatcher_NullMatch) Descriptor() ([]byte, []int) { return fileDescriptor3, []int{0, 0} }
+func (m *ValueMatcher_NullMatch) Reset()         { *m = ValueMatcher_NullMatch{} }
+func (m *ValueMatcher_NullMatch) String() string { return proto.CompactTextString(m) }
+func (*ValueMatcher_NullMatch) ProtoMessage()    {}
+func (*ValueMatcher_NullMatch) Descriptor() ([]byte, []int) {
+	return fileDescriptor_145b36501d266253, []int{0, 0}
+}
+func (m *ValueMatcher_NullMatch) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ValueMatcher_NullMatch.Unmarshal(m, b)
+}
+func (m *ValueMatcher_NullMatch) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ValueMatcher_NullMatch.Marshal(b, m, deterministic)
+}
+func (dst *ValueMatcher_NullMatch) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ValueMatcher_NullMatch.Merge(dst, src)
+}
+func (m *ValueMatcher_NullMatch) XXX_Size() int {
+	return xxx_messageInfo_ValueMatcher_NullMatch.Size(m)
+}
+func (m *ValueMatcher_NullMatch) XXX_DiscardUnknown() {
+	xxx_messageInfo_ValueMatcher_NullMatch.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ValueMatcher_NullMatch proto.InternalMessageInfo
 
 // Specifies the way to match a list value.
 type ListMatcher struct {
 	// Types that are valid to be assigned to MatchPattern:
 	//	*ListMatcher_OneOf
-	MatchPattern isListMatcher_MatchPattern `protobuf_oneof:"match_pattern"`
+	MatchPattern         isListMatcher_MatchPattern `protobuf_oneof:"match_pattern"`
+	XXX_NoUnkeyedLiteral struct{}                   `json:"-"`
+	XXX_unrecognized     []byte                     `json:"-"`
+	XXX_sizecache        int32                      `json:"-"`
 }
 
-func (m *ListMatcher) Reset()                    { *m = ListMatcher{} }
-func (m *ListMatcher) String() string            { return proto.CompactTextString(m) }
-func (*ListMatcher) ProtoMessage()               {}
-func (*ListMatcher) Descriptor() ([]byte, []int) { return fileDescriptor3, []int{1} }
+func (m *ListMatcher) Reset()         { *m = ListMatcher{} }
+func (m *ListMatcher) String() string { return proto.CompactTextString(m) }
+func (*ListMatcher) ProtoMessage()    {}
+func (*ListMatcher) Descriptor() ([]byte, []int) {
+	return fileDescriptor_145b36501d266253, []int{1}
+}
+func (m *ListMatcher) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ListMatcher.Unmarshal(m, b)
+}
+func (m *ListMatcher) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ListMatcher.Marshal(b, m, deterministic)
+}
+func (dst *ListMatcher) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListMatcher.Merge(dst, src)
+}
+func (m *ListMatcher) XXX_Size() int {
+	return xxx_messageInfo_ListMatcher.Size(m)
+}
+func (m *ListMatcher) XXX_DiscardUnknown() {
+	xxx_messageInfo_ListMatcher.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ListMatcher proto.InternalMessageInfo
 
 type isListMatcher_MatchPattern interface {
 	isListMatcher_MatchPattern()
 }
 
 type ListMatcher_OneOf struct {
-	OneOf *ValueMatcher `protobuf:"bytes,1,opt,name=one_of,json=oneOf,oneof"`
+	OneOf *ValueMatcher `protobuf:"bytes,1,opt,name=one_of,json=oneOf,proto3,oneof"`
 }
 
 func (*ListMatcher_OneOf) isListMatcher_MatchPattern() {}
@@ -350,7 +432,7 @@ func _ListMatcher_OneofSizer(msg proto.Message) (n int) {
 	switch x := m.MatchPattern.(type) {
 	case *ListMatcher_OneOf:
 		s := proto.Size(x.OneOf)
-		n += proto.SizeVarint(1<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
 	case nil:
@@ -366,9 +448,9 @@ func init() {
 	proto.RegisterType((*ListMatcher)(nil), "envoy.type.matcher.ListMatcher")
 }
 
-func init() { proto.RegisterFile("envoy/type/matcher/value.proto", fileDescriptor3) }
+func init() { proto.RegisterFile("envoy/type/matcher/value.proto", fileDescriptor_145b36501d266253) }
 
-var fileDescriptor3 = []byte{
+var fileDescriptor_145b36501d266253 = []byte{
 	// 335 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x92, 0x4f, 0x4b, 0xfb, 0x30,
 	0x18, 0xc7, 0xd7, 0xdf, 0x7e, 0x9b, 0xf6, 0xe9, 0x76, 0xc9, 0x41, 0x65, 0x07, 0x37, 0x07, 0xc2,

@@ -6,16 +6,22 @@ package core
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import google_protobuf3 "github.com/golang/protobuf/ptypes/duration"
-import google_protobuf "github.com/golang/protobuf/ptypes/struct"
-import google_protobuf1 "github.com/golang/protobuf/ptypes/wrappers"
-import _ "github.com/lyft/protoc-gen-validate/validate"
 import _ "github.com/gogo/protobuf/gogoproto"
+import duration "github.com/golang/protobuf/ptypes/duration"
+import _struct "github.com/golang/protobuf/ptypes/struct"
+import wrappers "github.com/golang/protobuf/ptypes/wrappers"
+import _ "github.com/lyft/protoc-gen-validate/validate"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 // Endpoint health status.
 type HealthStatus int32
@@ -45,6 +51,7 @@ var HealthStatus_name = map[int32]string{
 	3: "DRAINING",
 	4: "TIMEOUT",
 }
+
 var HealthStatus_value = map[string]int32{
 	"UNKNOWN":   0,
 	"HEALTHY":   1,
@@ -56,36 +63,39 @@ var HealthStatus_value = map[string]int32{
 func (x HealthStatus) String() string {
 	return proto.EnumName(HealthStatus_name, int32(x))
 }
-func (HealthStatus) EnumDescriptor() ([]byte, []int) { return fileDescriptor4, []int{0} }
+
+func (HealthStatus) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_b6ca44dd529b90bd, []int{0}
+}
 
 type HealthCheck struct {
 	// The time to wait for a health check response. If the timeout is reached the
 	// health check attempt will be considered a failure.
-	Timeout *google_protobuf3.Duration `protobuf:"bytes,1,opt,name=timeout" json:"timeout,omitempty"`
+	Timeout *duration.Duration `protobuf:"bytes,1,opt,name=timeout,proto3" json:"timeout,omitempty"`
 	// The interval between health checks.
-	Interval *google_protobuf3.Duration `protobuf:"bytes,2,opt,name=interval" json:"interval,omitempty"`
+	Interval *duration.Duration `protobuf:"bytes,2,opt,name=interval,proto3" json:"interval,omitempty"`
 	// An optional jitter amount in millseconds. If specified, during every
 	// interval Envoy will add 0 to interval_jitter to the wait time.
-	IntervalJitter *google_protobuf3.Duration `protobuf:"bytes,3,opt,name=interval_jitter,json=intervalJitter" json:"interval_jitter,omitempty"`
+	IntervalJitter *duration.Duration `protobuf:"bytes,3,opt,name=interval_jitter,json=intervalJitter,proto3" json:"interval_jitter,omitempty"`
 	// An optional jitter amount as a percentage of interval_ms. If specified,
 	// during every interval Envoy will add 0 to interval_ms *
 	// interval_jitter_percent / 100 to the wait time.
 	//
 	// If interval_jitter_ms and interval_jitter_percent are both set, both of
 	// them will be used to increase the wait time.
-	IntervalJitterPercent uint32 `protobuf:"varint,18,opt,name=interval_jitter_percent,json=intervalJitterPercent" json:"interval_jitter_percent,omitempty"`
+	IntervalJitterPercent uint32 `protobuf:"varint,18,opt,name=interval_jitter_percent,json=intervalJitterPercent,proto3" json:"interval_jitter_percent,omitempty"`
 	// The number of unhealthy health checks required before a host is marked
 	// unhealthy. Note that for *http* health checking if a host responds with 503
 	// this threshold is ignored and the host is considered unhealthy immediately.
-	UnhealthyThreshold *google_protobuf1.UInt32Value `protobuf:"bytes,4,opt,name=unhealthy_threshold,json=unhealthyThreshold" json:"unhealthy_threshold,omitempty"`
+	UnhealthyThreshold *wrappers.UInt32Value `protobuf:"bytes,4,opt,name=unhealthy_threshold,json=unhealthyThreshold,proto3" json:"unhealthy_threshold,omitempty"`
 	// The number of healthy health checks required before a host is marked
 	// healthy. Note that during startup, only a single successful health check is
 	// required to mark a host healthy.
-	HealthyThreshold *google_protobuf1.UInt32Value `protobuf:"bytes,5,opt,name=healthy_threshold,json=healthyThreshold" json:"healthy_threshold,omitempty"`
+	HealthyThreshold *wrappers.UInt32Value `protobuf:"bytes,5,opt,name=healthy_threshold,json=healthyThreshold,proto3" json:"healthy_threshold,omitempty"`
 	// [#not-implemented-hide:] Non-serving port for health checking.
-	AltPort *google_protobuf1.UInt32Value `protobuf:"bytes,6,opt,name=alt_port,json=altPort" json:"alt_port,omitempty"`
+	AltPort *wrappers.UInt32Value `protobuf:"bytes,6,opt,name=alt_port,json=altPort,proto3" json:"alt_port,omitempty"`
 	// Reuse health check connection between health checks. Default is true.
-	ReuseConnection *google_protobuf1.BoolValue `protobuf:"bytes,7,opt,name=reuse_connection,json=reuseConnection" json:"reuse_connection,omitempty"`
+	ReuseConnection *wrappers.BoolValue `protobuf:"bytes,7,opt,name=reuse_connection,json=reuseConnection,proto3" json:"reuse_connection,omitempty"`
 	// Types that are valid to be assigned to HealthChecker:
 	//	*HealthCheck_HttpHealthCheck_
 	//	*HealthCheck_TcpHealthCheck_
@@ -100,80 +110,73 @@ type HealthCheck struct {
 	// any other.
 	//
 	// The default value for "no traffic interval" is 60 seconds.
-	NoTrafficInterval *google_protobuf3.Duration `protobuf:"bytes,12,opt,name=no_traffic_interval,json=noTrafficInterval" json:"no_traffic_interval,omitempty"`
+	NoTrafficInterval *duration.Duration `protobuf:"bytes,12,opt,name=no_traffic_interval,json=noTrafficInterval,proto3" json:"no_traffic_interval,omitempty"`
 	// The "unhealthy interval" is a health check interval that is used for hosts that are marked as
 	// unhealthy. As soon as the host is marked as healthy, Envoy will shift back to using the
 	// standard health check interval that is defined.
 	//
 	// The default value for "unhealthy interval" is the same as "interval".
-	UnhealthyInterval *google_protobuf3.Duration `protobuf:"bytes,14,opt,name=unhealthy_interval,json=unhealthyInterval" json:"unhealthy_interval,omitempty"`
+	UnhealthyInterval *duration.Duration `protobuf:"bytes,14,opt,name=unhealthy_interval,json=unhealthyInterval,proto3" json:"unhealthy_interval,omitempty"`
 	// The "unhealthy edge interval" is a special health check interval that is used for the first
 	// health check right after a host is marked as unhealthy. For subsequent health checks
 	// Envoy will shift back to using either "unhealthy interval" if present or the standard health
 	// check interval that is defined.
 	//
 	// The default value for "unhealthy edge interval" is the same as "unhealthy interval".
-	UnhealthyEdgeInterval *google_protobuf3.Duration `protobuf:"bytes,15,opt,name=unhealthy_edge_interval,json=unhealthyEdgeInterval" json:"unhealthy_edge_interval,omitempty"`
+	UnhealthyEdgeInterval *duration.Duration `protobuf:"bytes,15,opt,name=unhealthy_edge_interval,json=unhealthyEdgeInterval,proto3" json:"unhealthy_edge_interval,omitempty"`
 	// The "healthy edge interval" is a special health check interval that is used for the first
 	// health check right after a host is marked as healthy. For subsequent health checks
 	// Envoy will shift back to using the standard health check interval that is defined.
 	//
 	// The default value for "healthy edge interval" is the same as the default interval.
-	HealthyEdgeInterval *google_protobuf3.Duration `protobuf:"bytes,16,opt,name=healthy_edge_interval,json=healthyEdgeInterval" json:"healthy_edge_interval,omitempty"`
+	HealthyEdgeInterval *duration.Duration `protobuf:"bytes,16,opt,name=healthy_edge_interval,json=healthyEdgeInterval,proto3" json:"healthy_edge_interval,omitempty"`
 	// Specifies the path to the :ref:`health check event log <arch_overview_health_check_logging>`.
 	// If empty, no event log will be written.
-	EventLogPath string `protobuf:"bytes,17,opt,name=event_log_path,json=eventLogPath" json:"event_log_path,omitempty"`
+	EventLogPath         string   `protobuf:"bytes,17,opt,name=event_log_path,json=eventLogPath,proto3" json:"event_log_path,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *HealthCheck) Reset()                    { *m = HealthCheck{} }
-func (m *HealthCheck) String() string            { return proto.CompactTextString(m) }
-func (*HealthCheck) ProtoMessage()               {}
-func (*HealthCheck) Descriptor() ([]byte, []int) { return fileDescriptor4, []int{0} }
-
-type isHealthCheck_HealthChecker interface {
-	isHealthCheck_HealthChecker()
+func (m *HealthCheck) Reset()         { *m = HealthCheck{} }
+func (m *HealthCheck) String() string { return proto.CompactTextString(m) }
+func (*HealthCheck) ProtoMessage()    {}
+func (*HealthCheck) Descriptor() ([]byte, []int) {
+	return fileDescriptor_b6ca44dd529b90bd, []int{0}
+}
+func (m *HealthCheck) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_HealthCheck.Unmarshal(m, b)
+}
+func (m *HealthCheck) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_HealthCheck.Marshal(b, m, deterministic)
+}
+func (dst *HealthCheck) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HealthCheck.Merge(dst, src)
+}
+func (m *HealthCheck) XXX_Size() int {
+	return xxx_messageInfo_HealthCheck.Size(m)
+}
+func (m *HealthCheck) XXX_DiscardUnknown() {
+	xxx_messageInfo_HealthCheck.DiscardUnknown(m)
 }
 
-type HealthCheck_HttpHealthCheck_ struct {
-	HttpHealthCheck *HealthCheck_HttpHealthCheck `protobuf:"bytes,8,opt,name=http_health_check,json=httpHealthCheck,oneof"`
-}
-type HealthCheck_TcpHealthCheck_ struct {
-	TcpHealthCheck *HealthCheck_TcpHealthCheck `protobuf:"bytes,9,opt,name=tcp_health_check,json=tcpHealthCheck,oneof"`
-}
-type HealthCheck_GrpcHealthCheck_ struct {
-	GrpcHealthCheck *HealthCheck_GrpcHealthCheck `protobuf:"bytes,11,opt,name=grpc_health_check,json=grpcHealthCheck,oneof"`
-}
-type HealthCheck_CustomHealthCheck_ struct {
-	CustomHealthCheck *HealthCheck_CustomHealthCheck `protobuf:"bytes,13,opt,name=custom_health_check,json=customHealthCheck,oneof"`
-}
+var xxx_messageInfo_HealthCheck proto.InternalMessageInfo
 
-func (*HealthCheck_HttpHealthCheck_) isHealthCheck_HealthChecker()   {}
-func (*HealthCheck_TcpHealthCheck_) isHealthCheck_HealthChecker()    {}
-func (*HealthCheck_GrpcHealthCheck_) isHealthCheck_HealthChecker()   {}
-func (*HealthCheck_CustomHealthCheck_) isHealthCheck_HealthChecker() {}
-
-func (m *HealthCheck) GetHealthChecker() isHealthCheck_HealthChecker {
-	if m != nil {
-		return m.HealthChecker
-	}
-	return nil
-}
-
-func (m *HealthCheck) GetTimeout() *google_protobuf3.Duration {
+func (m *HealthCheck) GetTimeout() *duration.Duration {
 	if m != nil {
 		return m.Timeout
 	}
 	return nil
 }
 
-func (m *HealthCheck) GetInterval() *google_protobuf3.Duration {
+func (m *HealthCheck) GetInterval() *duration.Duration {
 	if m != nil {
 		return m.Interval
 	}
 	return nil
 }
 
-func (m *HealthCheck) GetIntervalJitter() *google_protobuf3.Duration {
+func (m *HealthCheck) GetIntervalJitter() *duration.Duration {
 	if m != nil {
 		return m.IntervalJitter
 	}
@@ -187,30 +190,65 @@ func (m *HealthCheck) GetIntervalJitterPercent() uint32 {
 	return 0
 }
 
-func (m *HealthCheck) GetUnhealthyThreshold() *google_protobuf1.UInt32Value {
+func (m *HealthCheck) GetUnhealthyThreshold() *wrappers.UInt32Value {
 	if m != nil {
 		return m.UnhealthyThreshold
 	}
 	return nil
 }
 
-func (m *HealthCheck) GetHealthyThreshold() *google_protobuf1.UInt32Value {
+func (m *HealthCheck) GetHealthyThreshold() *wrappers.UInt32Value {
 	if m != nil {
 		return m.HealthyThreshold
 	}
 	return nil
 }
 
-func (m *HealthCheck) GetAltPort() *google_protobuf1.UInt32Value {
+func (m *HealthCheck) GetAltPort() *wrappers.UInt32Value {
 	if m != nil {
 		return m.AltPort
 	}
 	return nil
 }
 
-func (m *HealthCheck) GetReuseConnection() *google_protobuf1.BoolValue {
+func (m *HealthCheck) GetReuseConnection() *wrappers.BoolValue {
 	if m != nil {
 		return m.ReuseConnection
+	}
+	return nil
+}
+
+type isHealthCheck_HealthChecker interface {
+	isHealthCheck_HealthChecker()
+}
+
+type HealthCheck_HttpHealthCheck_ struct {
+	HttpHealthCheck *HealthCheck_HttpHealthCheck `protobuf:"bytes,8,opt,name=http_health_check,json=httpHealthCheck,proto3,oneof"`
+}
+
+type HealthCheck_TcpHealthCheck_ struct {
+	TcpHealthCheck *HealthCheck_TcpHealthCheck `protobuf:"bytes,9,opt,name=tcp_health_check,json=tcpHealthCheck,proto3,oneof"`
+}
+
+type HealthCheck_GrpcHealthCheck_ struct {
+	GrpcHealthCheck *HealthCheck_GrpcHealthCheck `protobuf:"bytes,11,opt,name=grpc_health_check,json=grpcHealthCheck,proto3,oneof"`
+}
+
+type HealthCheck_CustomHealthCheck_ struct {
+	CustomHealthCheck *HealthCheck_CustomHealthCheck `protobuf:"bytes,13,opt,name=custom_health_check,json=customHealthCheck,proto3,oneof"`
+}
+
+func (*HealthCheck_HttpHealthCheck_) isHealthCheck_HealthChecker() {}
+
+func (*HealthCheck_TcpHealthCheck_) isHealthCheck_HealthChecker() {}
+
+func (*HealthCheck_GrpcHealthCheck_) isHealthCheck_HealthChecker() {}
+
+func (*HealthCheck_CustomHealthCheck_) isHealthCheck_HealthChecker() {}
+
+func (m *HealthCheck) GetHealthChecker() isHealthCheck_HealthChecker {
+	if m != nil {
+		return m.HealthChecker
 	}
 	return nil
 }
@@ -243,28 +281,28 @@ func (m *HealthCheck) GetCustomHealthCheck() *HealthCheck_CustomHealthCheck {
 	return nil
 }
 
-func (m *HealthCheck) GetNoTrafficInterval() *google_protobuf3.Duration {
+func (m *HealthCheck) GetNoTrafficInterval() *duration.Duration {
 	if m != nil {
 		return m.NoTrafficInterval
 	}
 	return nil
 }
 
-func (m *HealthCheck) GetUnhealthyInterval() *google_protobuf3.Duration {
+func (m *HealthCheck) GetUnhealthyInterval() *duration.Duration {
 	if m != nil {
 		return m.UnhealthyInterval
 	}
 	return nil
 }
 
-func (m *HealthCheck) GetUnhealthyEdgeInterval() *google_protobuf3.Duration {
+func (m *HealthCheck) GetUnhealthyEdgeInterval() *duration.Duration {
 	if m != nil {
 		return m.UnhealthyEdgeInterval
 	}
 	return nil
 }
 
-func (m *HealthCheck) GetHealthyEdgeInterval() *google_protobuf3.Duration {
+func (m *HealthCheck) GetHealthyEdgeInterval() *duration.Duration {
 	if m != nil {
 		return m.HealthyEdgeInterval
 	}
@@ -365,22 +403,22 @@ func _HealthCheck_OneofSizer(msg proto.Message) (n int) {
 	switch x := m.HealthChecker.(type) {
 	case *HealthCheck_HttpHealthCheck_:
 		s := proto.Size(x.HttpHealthCheck)
-		n += proto.SizeVarint(8<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
 	case *HealthCheck_TcpHealthCheck_:
 		s := proto.Size(x.TcpHealthCheck)
-		n += proto.SizeVarint(9<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
 	case *HealthCheck_GrpcHealthCheck_:
 		s := proto.Size(x.GrpcHealthCheck)
-		n += proto.SizeVarint(11<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
 	case *HealthCheck_CustomHealthCheck_:
 		s := proto.Size(x.CustomHealthCheck)
-		n += proto.SizeVarint(13<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
 	case nil:
@@ -395,26 +433,50 @@ type HealthCheck_Payload struct {
 	// Types that are valid to be assigned to Payload:
 	//	*HealthCheck_Payload_Text
 	//	*HealthCheck_Payload_Binary
-	Payload isHealthCheck_Payload_Payload `protobuf_oneof:"payload"`
+	Payload              isHealthCheck_Payload_Payload `protobuf_oneof:"payload"`
+	XXX_NoUnkeyedLiteral struct{}                      `json:"-"`
+	XXX_unrecognized     []byte                        `json:"-"`
+	XXX_sizecache        int32                         `json:"-"`
 }
 
-func (m *HealthCheck_Payload) Reset()                    { *m = HealthCheck_Payload{} }
-func (m *HealthCheck_Payload) String() string            { return proto.CompactTextString(m) }
-func (*HealthCheck_Payload) ProtoMessage()               {}
-func (*HealthCheck_Payload) Descriptor() ([]byte, []int) { return fileDescriptor4, []int{0, 0} }
+func (m *HealthCheck_Payload) Reset()         { *m = HealthCheck_Payload{} }
+func (m *HealthCheck_Payload) String() string { return proto.CompactTextString(m) }
+func (*HealthCheck_Payload) ProtoMessage()    {}
+func (*HealthCheck_Payload) Descriptor() ([]byte, []int) {
+	return fileDescriptor_b6ca44dd529b90bd, []int{0, 0}
+}
+func (m *HealthCheck_Payload) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_HealthCheck_Payload.Unmarshal(m, b)
+}
+func (m *HealthCheck_Payload) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_HealthCheck_Payload.Marshal(b, m, deterministic)
+}
+func (dst *HealthCheck_Payload) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HealthCheck_Payload.Merge(dst, src)
+}
+func (m *HealthCheck_Payload) XXX_Size() int {
+	return xxx_messageInfo_HealthCheck_Payload.Size(m)
+}
+func (m *HealthCheck_Payload) XXX_DiscardUnknown() {
+	xxx_messageInfo_HealthCheck_Payload.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_HealthCheck_Payload proto.InternalMessageInfo
 
 type isHealthCheck_Payload_Payload interface {
 	isHealthCheck_Payload_Payload()
 }
 
 type HealthCheck_Payload_Text struct {
-	Text string `protobuf:"bytes,1,opt,name=text,oneof"`
+	Text string `protobuf:"bytes,1,opt,name=text,proto3,oneof"`
 }
+
 type HealthCheck_Payload_Binary struct {
 	Binary []byte `protobuf:"bytes,2,opt,name=binary,proto3,oneof"`
 }
 
-func (*HealthCheck_Payload_Text) isHealthCheck_Payload_Payload()   {}
+func (*HealthCheck_Payload_Text) isHealthCheck_Payload_Payload() {}
+
 func (*HealthCheck_Payload_Binary) isHealthCheck_Payload_Payload() {}
 
 func (m *HealthCheck_Payload) GetPayload() isHealthCheck_Payload_Payload {
@@ -490,11 +552,11 @@ func _HealthCheck_Payload_OneofSizer(msg proto.Message) (n int) {
 	// payload
 	switch x := m.Payload.(type) {
 	case *HealthCheck_Payload_Text:
-		n += proto.SizeVarint(1<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(len(x.Text)))
 		n += len(x.Text)
 	case *HealthCheck_Payload_Binary:
-		n += proto.SizeVarint(2<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(len(x.Binary)))
 		n += len(x.Binary)
 	case nil:
@@ -508,31 +570,53 @@ type HealthCheck_HttpHealthCheck struct {
 	// The value of the host header in the HTTP health check request. If
 	// left empty (default value), the name of the cluster this health check is associated
 	// with will be used.
-	Host string `protobuf:"bytes,1,opt,name=host" json:"host,omitempty"`
+	Host string `protobuf:"bytes,1,opt,name=host,proto3" json:"host,omitempty"`
 	// Specifies the HTTP path that will be requested during health checking. For example
 	// */healthcheck*.
-	Path string `protobuf:"bytes,2,opt,name=path" json:"path,omitempty"`
+	Path string `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
 	// [#not-implemented-hide:] HTTP specific payload.
-	Send *HealthCheck_Payload `protobuf:"bytes,3,opt,name=send" json:"send,omitempty"`
+	Send *HealthCheck_Payload `protobuf:"bytes,3,opt,name=send,proto3" json:"send,omitempty"`
 	// [#not-implemented-hide:] HTTP specific response.
-	Receive *HealthCheck_Payload `protobuf:"bytes,4,opt,name=receive" json:"receive,omitempty"`
+	Receive *HealthCheck_Payload `protobuf:"bytes,4,opt,name=receive,proto3" json:"receive,omitempty"`
 	// An optional service name parameter which is used to validate the identity of
 	// the health checked cluster. See the :ref:`architecture overview
 	// <arch_overview_health_checking_identity>` for more information.
-	ServiceName string `protobuf:"bytes,5,opt,name=service_name,json=serviceName" json:"service_name,omitempty"`
+	ServiceName string `protobuf:"bytes,5,opt,name=service_name,json=serviceName,proto3" json:"service_name,omitempty"`
 	// Specifies a list of HTTP headers that should be added to each request that is sent to the
 	// health checked cluster. For more information, including details on header value syntax, see
 	// the documentation on :ref:`custom request headers
 	// <config_http_conn_man_headers_custom_request_headers>`.
-	RequestHeadersToAdd []*HeaderValueOption `protobuf:"bytes,6,rep,name=request_headers_to_add,json=requestHeadersToAdd" json:"request_headers_to_add,omitempty"`
+	RequestHeadersToAdd []*HeaderValueOption `protobuf:"bytes,6,rep,name=request_headers_to_add,json=requestHeadersToAdd,proto3" json:"request_headers_to_add,omitempty"`
 	// If set, health checks will be made using http/2.
-	UseHttp2 bool `protobuf:"varint,7,opt,name=use_http2,json=useHttp2" json:"use_http2,omitempty"`
+	UseHttp2             bool     `protobuf:"varint,7,opt,name=use_http2,json=useHttp2,proto3" json:"use_http2,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *HealthCheck_HttpHealthCheck) Reset()                    { *m = HealthCheck_HttpHealthCheck{} }
-func (m *HealthCheck_HttpHealthCheck) String() string            { return proto.CompactTextString(m) }
-func (*HealthCheck_HttpHealthCheck) ProtoMessage()               {}
-func (*HealthCheck_HttpHealthCheck) Descriptor() ([]byte, []int) { return fileDescriptor4, []int{0, 1} }
+func (m *HealthCheck_HttpHealthCheck) Reset()         { *m = HealthCheck_HttpHealthCheck{} }
+func (m *HealthCheck_HttpHealthCheck) String() string { return proto.CompactTextString(m) }
+func (*HealthCheck_HttpHealthCheck) ProtoMessage()    {}
+func (*HealthCheck_HttpHealthCheck) Descriptor() ([]byte, []int) {
+	return fileDescriptor_b6ca44dd529b90bd, []int{0, 1}
+}
+func (m *HealthCheck_HttpHealthCheck) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_HealthCheck_HttpHealthCheck.Unmarshal(m, b)
+}
+func (m *HealthCheck_HttpHealthCheck) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_HealthCheck_HttpHealthCheck.Marshal(b, m, deterministic)
+}
+func (dst *HealthCheck_HttpHealthCheck) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HealthCheck_HttpHealthCheck.Merge(dst, src)
+}
+func (m *HealthCheck_HttpHealthCheck) XXX_Size() int {
+	return xxx_messageInfo_HealthCheck_HttpHealthCheck.Size(m)
+}
+func (m *HealthCheck_HttpHealthCheck) XXX_DiscardUnknown() {
+	xxx_messageInfo_HealthCheck_HttpHealthCheck.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_HealthCheck_HttpHealthCheck proto.InternalMessageInfo
 
 func (m *HealthCheck_HttpHealthCheck) GetHost() string {
 	if m != nil {
@@ -585,17 +669,39 @@ func (m *HealthCheck_HttpHealthCheck) GetUseHttp2() bool {
 
 type HealthCheck_TcpHealthCheck struct {
 	// Empty payloads imply a connect-only health check.
-	Send *HealthCheck_Payload `protobuf:"bytes,1,opt,name=send" json:"send,omitempty"`
+	Send *HealthCheck_Payload `protobuf:"bytes,1,opt,name=send,proto3" json:"send,omitempty"`
 	// When checking the response, “fuzzy” matching is performed such that each
 	// binary block must be found, and in the order specified, but not
 	// necessarily contiguous.
-	Receive []*HealthCheck_Payload `protobuf:"bytes,2,rep,name=receive" json:"receive,omitempty"`
+	Receive              []*HealthCheck_Payload `protobuf:"bytes,2,rep,name=receive,proto3" json:"receive,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}               `json:"-"`
+	XXX_unrecognized     []byte                 `json:"-"`
+	XXX_sizecache        int32                  `json:"-"`
 }
 
-func (m *HealthCheck_TcpHealthCheck) Reset()                    { *m = HealthCheck_TcpHealthCheck{} }
-func (m *HealthCheck_TcpHealthCheck) String() string            { return proto.CompactTextString(m) }
-func (*HealthCheck_TcpHealthCheck) ProtoMessage()               {}
-func (*HealthCheck_TcpHealthCheck) Descriptor() ([]byte, []int) { return fileDescriptor4, []int{0, 2} }
+func (m *HealthCheck_TcpHealthCheck) Reset()         { *m = HealthCheck_TcpHealthCheck{} }
+func (m *HealthCheck_TcpHealthCheck) String() string { return proto.CompactTextString(m) }
+func (*HealthCheck_TcpHealthCheck) ProtoMessage()    {}
+func (*HealthCheck_TcpHealthCheck) Descriptor() ([]byte, []int) {
+	return fileDescriptor_b6ca44dd529b90bd, []int{0, 2}
+}
+func (m *HealthCheck_TcpHealthCheck) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_HealthCheck_TcpHealthCheck.Unmarshal(m, b)
+}
+func (m *HealthCheck_TcpHealthCheck) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_HealthCheck_TcpHealthCheck.Marshal(b, m, deterministic)
+}
+func (dst *HealthCheck_TcpHealthCheck) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HealthCheck_TcpHealthCheck.Merge(dst, src)
+}
+func (m *HealthCheck_TcpHealthCheck) XXX_Size() int {
+	return xxx_messageInfo_HealthCheck_TcpHealthCheck.Size(m)
+}
+func (m *HealthCheck_TcpHealthCheck) XXX_DiscardUnknown() {
+	xxx_messageInfo_HealthCheck_TcpHealthCheck.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_HealthCheck_TcpHealthCheck proto.InternalMessageInfo
 
 func (m *HealthCheck_TcpHealthCheck) GetSend() *HealthCheck_Payload {
 	if m != nil {
@@ -616,13 +722,35 @@ type HealthCheck_RedisHealthCheck struct {
 	// from Redis of 0 (does not exist) is considered a passing healthcheck. A return value other
 	// than 0 is considered a failure. This allows the user to mark a Redis instance for maintenance
 	// by setting the specified key to any value and waiting for traffic to drain.
-	Key string `protobuf:"bytes,1,opt,name=key" json:"key,omitempty"`
+	Key                  string   `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *HealthCheck_RedisHealthCheck) Reset()                    { *m = HealthCheck_RedisHealthCheck{} }
-func (m *HealthCheck_RedisHealthCheck) String() string            { return proto.CompactTextString(m) }
-func (*HealthCheck_RedisHealthCheck) ProtoMessage()               {}
-func (*HealthCheck_RedisHealthCheck) Descriptor() ([]byte, []int) { return fileDescriptor4, []int{0, 3} }
+func (m *HealthCheck_RedisHealthCheck) Reset()         { *m = HealthCheck_RedisHealthCheck{} }
+func (m *HealthCheck_RedisHealthCheck) String() string { return proto.CompactTextString(m) }
+func (*HealthCheck_RedisHealthCheck) ProtoMessage()    {}
+func (*HealthCheck_RedisHealthCheck) Descriptor() ([]byte, []int) {
+	return fileDescriptor_b6ca44dd529b90bd, []int{0, 3}
+}
+func (m *HealthCheck_RedisHealthCheck) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_HealthCheck_RedisHealthCheck.Unmarshal(m, b)
+}
+func (m *HealthCheck_RedisHealthCheck) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_HealthCheck_RedisHealthCheck.Marshal(b, m, deterministic)
+}
+func (dst *HealthCheck_RedisHealthCheck) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HealthCheck_RedisHealthCheck.Merge(dst, src)
+}
+func (m *HealthCheck_RedisHealthCheck) XXX_Size() int {
+	return xxx_messageInfo_HealthCheck_RedisHealthCheck.Size(m)
+}
+func (m *HealthCheck_RedisHealthCheck) XXX_DiscardUnknown() {
+	xxx_messageInfo_HealthCheck_RedisHealthCheck.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_HealthCheck_RedisHealthCheck proto.InternalMessageInfo
 
 func (m *HealthCheck_RedisHealthCheck) GetKey() string {
 	if m != nil {
@@ -641,13 +769,35 @@ type HealthCheck_GrpcHealthCheck struct {
 	// <https://github.com/grpc/grpc/blob/master/src/proto/grpc/health/v1/health.proto#L20>`_.
 	// message. See `gRPC health-checking overview
 	// <https://github.com/grpc/grpc/blob/master/doc/health-checking.md>`_ for more information.
-	ServiceName string `protobuf:"bytes,1,opt,name=service_name,json=serviceName" json:"service_name,omitempty"`
+	ServiceName          string   `protobuf:"bytes,1,opt,name=service_name,json=serviceName,proto3" json:"service_name,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *HealthCheck_GrpcHealthCheck) Reset()                    { *m = HealthCheck_GrpcHealthCheck{} }
-func (m *HealthCheck_GrpcHealthCheck) String() string            { return proto.CompactTextString(m) }
-func (*HealthCheck_GrpcHealthCheck) ProtoMessage()               {}
-func (*HealthCheck_GrpcHealthCheck) Descriptor() ([]byte, []int) { return fileDescriptor4, []int{0, 4} }
+func (m *HealthCheck_GrpcHealthCheck) Reset()         { *m = HealthCheck_GrpcHealthCheck{} }
+func (m *HealthCheck_GrpcHealthCheck) String() string { return proto.CompactTextString(m) }
+func (*HealthCheck_GrpcHealthCheck) ProtoMessage()    {}
+func (*HealthCheck_GrpcHealthCheck) Descriptor() ([]byte, []int) {
+	return fileDescriptor_b6ca44dd529b90bd, []int{0, 4}
+}
+func (m *HealthCheck_GrpcHealthCheck) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_HealthCheck_GrpcHealthCheck.Unmarshal(m, b)
+}
+func (m *HealthCheck_GrpcHealthCheck) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_HealthCheck_GrpcHealthCheck.Marshal(b, m, deterministic)
+}
+func (dst *HealthCheck_GrpcHealthCheck) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HealthCheck_GrpcHealthCheck.Merge(dst, src)
+}
+func (m *HealthCheck_GrpcHealthCheck) XXX_Size() int {
+	return xxx_messageInfo_HealthCheck_GrpcHealthCheck.Size(m)
+}
+func (m *HealthCheck_GrpcHealthCheck) XXX_DiscardUnknown() {
+	xxx_messageInfo_HealthCheck_GrpcHealthCheck.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_HealthCheck_GrpcHealthCheck proto.InternalMessageInfo
 
 func (m *HealthCheck_GrpcHealthCheck) GetServiceName() string {
 	if m != nil {
@@ -659,18 +809,38 @@ func (m *HealthCheck_GrpcHealthCheck) GetServiceName() string {
 // Custom health check.
 type HealthCheck_CustomHealthCheck struct {
 	// The registered name of the custom health checker.
-	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// A custom health checker specific configuration which depends on the custom health checker
 	// being instantiated. See :api:`envoy/config/health_checker` for reference.
-	Config *google_protobuf.Struct `protobuf:"bytes,2,opt,name=config" json:"config,omitempty"`
+	Config               *_struct.Struct `protobuf:"bytes,2,opt,name=config,proto3" json:"config,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
+	XXX_unrecognized     []byte          `json:"-"`
+	XXX_sizecache        int32           `json:"-"`
 }
 
 func (m *HealthCheck_CustomHealthCheck) Reset()         { *m = HealthCheck_CustomHealthCheck{} }
 func (m *HealthCheck_CustomHealthCheck) String() string { return proto.CompactTextString(m) }
 func (*HealthCheck_CustomHealthCheck) ProtoMessage()    {}
 func (*HealthCheck_CustomHealthCheck) Descriptor() ([]byte, []int) {
-	return fileDescriptor4, []int{0, 5}
+	return fileDescriptor_b6ca44dd529b90bd, []int{0, 5}
 }
+func (m *HealthCheck_CustomHealthCheck) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_HealthCheck_CustomHealthCheck.Unmarshal(m, b)
+}
+func (m *HealthCheck_CustomHealthCheck) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_HealthCheck_CustomHealthCheck.Marshal(b, m, deterministic)
+}
+func (dst *HealthCheck_CustomHealthCheck) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HealthCheck_CustomHealthCheck.Merge(dst, src)
+}
+func (m *HealthCheck_CustomHealthCheck) XXX_Size() int {
+	return xxx_messageInfo_HealthCheck_CustomHealthCheck.Size(m)
+}
+func (m *HealthCheck_CustomHealthCheck) XXX_DiscardUnknown() {
+	xxx_messageInfo_HealthCheck_CustomHealthCheck.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_HealthCheck_CustomHealthCheck proto.InternalMessageInfo
 
 func (m *HealthCheck_CustomHealthCheck) GetName() string {
 	if m != nil {
@@ -679,7 +849,7 @@ func (m *HealthCheck_CustomHealthCheck) GetName() string {
 	return ""
 }
 
-func (m *HealthCheck_CustomHealthCheck) GetConfig() *google_protobuf.Struct {
+func (m *HealthCheck_CustomHealthCheck) GetConfig() *_struct.Struct {
 	if m != nil {
 		return m.Config
 	}
@@ -697,9 +867,11 @@ func init() {
 	proto.RegisterEnum("envoy.api.v2.core.HealthStatus", HealthStatus_name, HealthStatus_value)
 }
 
-func init() { proto.RegisterFile("envoy/api/v2/core/health_check.proto", fileDescriptor4) }
+func init() {
+	proto.RegisterFile("envoy/api/v2/core/health_check.proto", fileDescriptor_b6ca44dd529b90bd)
+}
 
-var fileDescriptor4 = []byte{
+var fileDescriptor_b6ca44dd529b90bd = []byte{
 	// 974 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x96, 0xd1, 0x6e, 0xe3, 0x44,
 	0x14, 0x86, 0xeb, 0x24, 0xdb, 0x24, 0x27, 0x69, 0xe2, 0x4c, 0x29, 0x35, 0xa1, 0xec, 0x16, 0x54,

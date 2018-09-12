@@ -12,17 +12,45 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+
 type BpfMetadata struct {
 	// File system root for bpf. Defaults to "/sys/fs/bpf" if left empty.
-	BpfRoot string `protobuf:"bytes,1,opt,name=bpf_root,json=bpfRoot" json:"bpf_root,omitempty"`
+	BpfRoot string `protobuf:"bytes,1,opt,name=bpf_root,json=bpfRoot,proto3" json:"bpf_root,omitempty"`
 	// 'true' if the filter is on ingress listener, 'false' for egress listener.
-	IsIngress bool `protobuf:"varint,2,opt,name=is_ingress,json=isIngress" json:"is_ingress,omitempty"`
+	IsIngress            bool     `protobuf:"varint,2,opt,name=is_ingress,json=isIngress,proto3" json:"is_ingress,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *BpfMetadata) Reset()                    { *m = BpfMetadata{} }
-func (m *BpfMetadata) String() string            { return proto.CompactTextString(m) }
-func (*BpfMetadata) ProtoMessage()               {}
-func (*BpfMetadata) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{0} }
+func (m *BpfMetadata) Reset()         { *m = BpfMetadata{} }
+func (m *BpfMetadata) String() string { return proto.CompactTextString(m) }
+func (*BpfMetadata) ProtoMessage()    {}
+func (*BpfMetadata) Descriptor() ([]byte, []int) {
+	return fileDescriptor_1204b5bcdcef4958, []int{0}
+}
+func (m *BpfMetadata) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_BpfMetadata.Unmarshal(m, b)
+}
+func (m *BpfMetadata) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_BpfMetadata.Marshal(b, m, deterministic)
+}
+func (dst *BpfMetadata) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BpfMetadata.Merge(dst, src)
+}
+func (m *BpfMetadata) XXX_Size() int {
+	return xxx_messageInfo_BpfMetadata.Size(m)
+}
+func (m *BpfMetadata) XXX_DiscardUnknown() {
+	xxx_messageInfo_BpfMetadata.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_BpfMetadata proto.InternalMessageInfo
 
 func (m *BpfMetadata) GetBpfRoot() string {
 	if m != nil {
@@ -42,9 +70,9 @@ func init() {
 	proto.RegisterType((*BpfMetadata)(nil), "cilium.BpfMetadata")
 }
 
-func init() { proto.RegisterFile("cilium/cilium_bpf_metadata.proto", fileDescriptor1) }
+func init() { proto.RegisterFile("cilium/cilium_bpf_metadata.proto", fileDescriptor_1204b5bcdcef4958) }
 
-var fileDescriptor1 = []byte{
+var fileDescriptor_1204b5bcdcef4958 = []byte{
 	// 124 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x52, 0x48, 0xce, 0xcc, 0xc9,
 	0x2c, 0xcd, 0xd5, 0x87, 0x50, 0xf1, 0x49, 0x05, 0x69, 0xf1, 0xb9, 0xa9, 0x25, 0x89, 0x29, 0x89,

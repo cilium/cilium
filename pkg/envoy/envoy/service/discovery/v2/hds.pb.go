@@ -6,11 +6,10 @@ package v2
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import envoy_api_v2_core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import envoy_api_v2_core1 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import envoy_api_v2_endpoint "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/endpoint"
+import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+import endpoint "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/endpoint"
+import duration "github.com/golang/protobuf/ptypes/duration"
 import _ "google.golang.org/genproto/googleapis/api/annotations"
-import google_protobuf3 "github.com/golang/protobuf/ptypes/duration"
 
 import (
 	context "golang.org/x/net/context"
@@ -21,6 +20,12 @@ import (
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 // Different Envoy instances may have different capabilities (e.g. Redis)
 // and/or have ports enabled for different protocols.
@@ -37,6 +42,7 @@ var Capability_Protocol_name = map[int32]string{
 	1: "TCP",
 	2: "REDIS",
 }
+
 var Capability_Protocol_value = map[string]int32{
 	"HTTP":  0,
 	"TCP":   1,
@@ -46,18 +52,43 @@ var Capability_Protocol_value = map[string]int32{
 func (x Capability_Protocol) String() string {
 	return proto.EnumName(Capability_Protocol_name, int32(x))
 }
-func (Capability_Protocol) EnumDescriptor() ([]byte, []int) { return fileDescriptor1, []int{0, 0} }
+
+func (Capability_Protocol) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_773ad67555497672, []int{0, 0}
+}
 
 // Defines supported protocols etc, so the management server can assign proper
 // endpoints to healthcheck.
 type Capability struct {
-	HealthCheckProtocols []Capability_Protocol `protobuf:"varint,1,rep,packed,name=health_check_protocols,json=healthCheckProtocols,enum=envoy.service.discovery.v2.Capability_Protocol" json:"health_check_protocols,omitempty"`
+	HealthCheckProtocols []Capability_Protocol `protobuf:"varint,1,rep,packed,name=health_check_protocols,json=healthCheckProtocols,proto3,enum=envoy.service.discovery.v2.Capability_Protocol" json:"health_check_protocols,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
+	XXX_unrecognized     []byte                `json:"-"`
+	XXX_sizecache        int32                 `json:"-"`
 }
 
-func (m *Capability) Reset()                    { *m = Capability{} }
-func (m *Capability) String() string            { return proto.CompactTextString(m) }
-func (*Capability) ProtoMessage()               {}
-func (*Capability) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{0} }
+func (m *Capability) Reset()         { *m = Capability{} }
+func (m *Capability) String() string { return proto.CompactTextString(m) }
+func (*Capability) ProtoMessage()    {}
+func (*Capability) Descriptor() ([]byte, []int) {
+	return fileDescriptor_773ad67555497672, []int{0}
+}
+func (m *Capability) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_Capability.Unmarshal(m, b)
+}
+func (m *Capability) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Capability.Marshal(b, m, deterministic)
+}
+func (dst *Capability) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Capability.Merge(dst, src)
+}
+func (m *Capability) XXX_Size() int {
+	return xxx_messageInfo_Capability.Size(m)
+}
+func (m *Capability) XXX_DiscardUnknown() {
+	xxx_messageInfo_Capability.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Capability proto.InternalMessageInfo
 
 func (m *Capability) GetHealthCheckProtocols() []Capability_Protocol {
 	if m != nil {
@@ -67,16 +98,38 @@ func (m *Capability) GetHealthCheckProtocols() []Capability_Protocol {
 }
 
 type HealthCheckRequest struct {
-	Node       *envoy_api_v2_core.Node `protobuf:"bytes,1,opt,name=node" json:"node,omitempty"`
-	Capability *Capability             `protobuf:"bytes,2,opt,name=capability" json:"capability,omitempty"`
+	Node                 *core.Node  `protobuf:"bytes,1,opt,name=node,proto3" json:"node,omitempty"`
+	Capability           *Capability `protobuf:"bytes,2,opt,name=capability,proto3" json:"capability,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
+	XXX_unrecognized     []byte      `json:"-"`
+	XXX_sizecache        int32       `json:"-"`
 }
 
-func (m *HealthCheckRequest) Reset()                    { *m = HealthCheckRequest{} }
-func (m *HealthCheckRequest) String() string            { return proto.CompactTextString(m) }
-func (*HealthCheckRequest) ProtoMessage()               {}
-func (*HealthCheckRequest) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{1} }
+func (m *HealthCheckRequest) Reset()         { *m = HealthCheckRequest{} }
+func (m *HealthCheckRequest) String() string { return proto.CompactTextString(m) }
+func (*HealthCheckRequest) ProtoMessage()    {}
+func (*HealthCheckRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_773ad67555497672, []int{1}
+}
+func (m *HealthCheckRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_HealthCheckRequest.Unmarshal(m, b)
+}
+func (m *HealthCheckRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_HealthCheckRequest.Marshal(b, m, deterministic)
+}
+func (dst *HealthCheckRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HealthCheckRequest.Merge(dst, src)
+}
+func (m *HealthCheckRequest) XXX_Size() int {
+	return xxx_messageInfo_HealthCheckRequest.Size(m)
+}
+func (m *HealthCheckRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_HealthCheckRequest.DiscardUnknown(m)
+}
 
-func (m *HealthCheckRequest) GetNode() *envoy_api_v2_core.Node {
+var xxx_messageInfo_HealthCheckRequest proto.InternalMessageInfo
+
+func (m *HealthCheckRequest) GetNode() *core.Node {
 	if m != nil {
 		return m.Node
 	}
@@ -91,37 +144,81 @@ func (m *HealthCheckRequest) GetCapability() *Capability {
 }
 
 type EndpointHealth struct {
-	Endpoint     *envoy_api_v2_endpoint.Endpoint `protobuf:"bytes,1,opt,name=endpoint" json:"endpoint,omitempty"`
-	HealthStatus envoy_api_v2_core1.HealthStatus `protobuf:"varint,2,opt,name=health_status,json=healthStatus,enum=envoy.api.v2.core.HealthStatus" json:"health_status,omitempty"`
+	Endpoint             *endpoint.Endpoint `protobuf:"bytes,1,opt,name=endpoint,proto3" json:"endpoint,omitempty"`
+	HealthStatus         core.HealthStatus  `protobuf:"varint,2,opt,name=health_status,json=healthStatus,proto3,enum=envoy.api.v2.core.HealthStatus" json:"health_status,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
+	XXX_unrecognized     []byte             `json:"-"`
+	XXX_sizecache        int32              `json:"-"`
 }
 
-func (m *EndpointHealth) Reset()                    { *m = EndpointHealth{} }
-func (m *EndpointHealth) String() string            { return proto.CompactTextString(m) }
-func (*EndpointHealth) ProtoMessage()               {}
-func (*EndpointHealth) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{2} }
+func (m *EndpointHealth) Reset()         { *m = EndpointHealth{} }
+func (m *EndpointHealth) String() string { return proto.CompactTextString(m) }
+func (*EndpointHealth) ProtoMessage()    {}
+func (*EndpointHealth) Descriptor() ([]byte, []int) {
+	return fileDescriptor_773ad67555497672, []int{2}
+}
+func (m *EndpointHealth) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_EndpointHealth.Unmarshal(m, b)
+}
+func (m *EndpointHealth) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_EndpointHealth.Marshal(b, m, deterministic)
+}
+func (dst *EndpointHealth) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EndpointHealth.Merge(dst, src)
+}
+func (m *EndpointHealth) XXX_Size() int {
+	return xxx_messageInfo_EndpointHealth.Size(m)
+}
+func (m *EndpointHealth) XXX_DiscardUnknown() {
+	xxx_messageInfo_EndpointHealth.DiscardUnknown(m)
+}
 
-func (m *EndpointHealth) GetEndpoint() *envoy_api_v2_endpoint.Endpoint {
+var xxx_messageInfo_EndpointHealth proto.InternalMessageInfo
+
+func (m *EndpointHealth) GetEndpoint() *endpoint.Endpoint {
 	if m != nil {
 		return m.Endpoint
 	}
 	return nil
 }
 
-func (m *EndpointHealth) GetHealthStatus() envoy_api_v2_core1.HealthStatus {
+func (m *EndpointHealth) GetHealthStatus() core.HealthStatus {
 	if m != nil {
 		return m.HealthStatus
 	}
-	return envoy_api_v2_core1.HealthStatus_UNKNOWN
+	return core.HealthStatus_UNKNOWN
 }
 
 type EndpointHealthResponse struct {
-	EndpointsHealth []*EndpointHealth `protobuf:"bytes,1,rep,name=endpoints_health,json=endpointsHealth" json:"endpoints_health,omitempty"`
+	EndpointsHealth      []*EndpointHealth `protobuf:"bytes,1,rep,name=endpoints_health,json=endpointsHealth,proto3" json:"endpoints_health,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
+	XXX_unrecognized     []byte            `json:"-"`
+	XXX_sizecache        int32             `json:"-"`
 }
 
-func (m *EndpointHealthResponse) Reset()                    { *m = EndpointHealthResponse{} }
-func (m *EndpointHealthResponse) String() string            { return proto.CompactTextString(m) }
-func (*EndpointHealthResponse) ProtoMessage()               {}
-func (*EndpointHealthResponse) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{3} }
+func (m *EndpointHealthResponse) Reset()         { *m = EndpointHealthResponse{} }
+func (m *EndpointHealthResponse) String() string { return proto.CompactTextString(m) }
+func (*EndpointHealthResponse) ProtoMessage()    {}
+func (*EndpointHealthResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_773ad67555497672, []int{3}
+}
+func (m *EndpointHealthResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_EndpointHealthResponse.Unmarshal(m, b)
+}
+func (m *EndpointHealthResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_EndpointHealthResponse.Marshal(b, m, deterministic)
+}
+func (dst *EndpointHealthResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EndpointHealthResponse.Merge(dst, src)
+}
+func (m *EndpointHealthResponse) XXX_Size() int {
+	return xxx_messageInfo_EndpointHealthResponse.Size(m)
+}
+func (m *EndpointHealthResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_EndpointHealthResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_EndpointHealthResponse proto.InternalMessageInfo
 
 func (m *EndpointHealthResponse) GetEndpointsHealth() []*EndpointHealth {
 	if m != nil {
@@ -134,7 +231,10 @@ type HealthCheckRequestOrEndpointHealthResponse struct {
 	// Types that are valid to be assigned to RequestType:
 	//	*HealthCheckRequestOrEndpointHealthResponse_HealthCheckRequest
 	//	*HealthCheckRequestOrEndpointHealthResponse_EndpointHealthResponse
-	RequestType isHealthCheckRequestOrEndpointHealthResponse_RequestType `protobuf_oneof:"request_type"`
+	RequestType          isHealthCheckRequestOrEndpointHealthResponse_RequestType `protobuf_oneof:"request_type"`
+	XXX_NoUnkeyedLiteral struct{}                                                 `json:"-"`
+	XXX_unrecognized     []byte                                                   `json:"-"`
+	XXX_sizecache        int32                                                    `json:"-"`
 }
 
 func (m *HealthCheckRequestOrEndpointHealthResponse) Reset() {
@@ -145,22 +245,41 @@ func (m *HealthCheckRequestOrEndpointHealthResponse) String() string {
 }
 func (*HealthCheckRequestOrEndpointHealthResponse) ProtoMessage() {}
 func (*HealthCheckRequestOrEndpointHealthResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor1, []int{4}
+	return fileDescriptor_773ad67555497672, []int{4}
 }
+func (m *HealthCheckRequestOrEndpointHealthResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_HealthCheckRequestOrEndpointHealthResponse.Unmarshal(m, b)
+}
+func (m *HealthCheckRequestOrEndpointHealthResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_HealthCheckRequestOrEndpointHealthResponse.Marshal(b, m, deterministic)
+}
+func (dst *HealthCheckRequestOrEndpointHealthResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HealthCheckRequestOrEndpointHealthResponse.Merge(dst, src)
+}
+func (m *HealthCheckRequestOrEndpointHealthResponse) XXX_Size() int {
+	return xxx_messageInfo_HealthCheckRequestOrEndpointHealthResponse.Size(m)
+}
+func (m *HealthCheckRequestOrEndpointHealthResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_HealthCheckRequestOrEndpointHealthResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_HealthCheckRequestOrEndpointHealthResponse proto.InternalMessageInfo
 
 type isHealthCheckRequestOrEndpointHealthResponse_RequestType interface {
 	isHealthCheckRequestOrEndpointHealthResponse_RequestType()
 }
 
 type HealthCheckRequestOrEndpointHealthResponse_HealthCheckRequest struct {
-	HealthCheckRequest *HealthCheckRequest `protobuf:"bytes,1,opt,name=health_check_request,json=healthCheckRequest,oneof"`
+	HealthCheckRequest *HealthCheckRequest `protobuf:"bytes,1,opt,name=health_check_request,json=healthCheckRequest,proto3,oneof"`
 }
+
 type HealthCheckRequestOrEndpointHealthResponse_EndpointHealthResponse struct {
-	EndpointHealthResponse *EndpointHealthResponse `protobuf:"bytes,2,opt,name=endpoint_health_response,json=endpointHealthResponse,oneof"`
+	EndpointHealthResponse *EndpointHealthResponse `protobuf:"bytes,2,opt,name=endpoint_health_response,json=endpointHealthResponse,proto3,oneof"`
 }
 
 func (*HealthCheckRequestOrEndpointHealthResponse_HealthCheckRequest) isHealthCheckRequestOrEndpointHealthResponse_RequestType() {
 }
+
 func (*HealthCheckRequestOrEndpointHealthResponse_EndpointHealthResponse) isHealthCheckRequestOrEndpointHealthResponse_RequestType() {
 }
 
@@ -244,12 +363,12 @@ func _HealthCheckRequestOrEndpointHealthResponse_OneofSizer(msg proto.Message) (
 	switch x := m.RequestType.(type) {
 	case *HealthCheckRequestOrEndpointHealthResponse_HealthCheckRequest:
 		s := proto.Size(x.HealthCheckRequest)
-		n += proto.SizeVarint(1<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
 	case *HealthCheckRequestOrEndpointHealthResponse_EndpointHealthResponse:
 		s := proto.Size(x.EndpointHealthResponse)
-		n += proto.SizeVarint(2<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
 	case nil:
@@ -260,23 +379,45 @@ func _HealthCheckRequestOrEndpointHealthResponse_OneofSizer(msg proto.Message) (
 }
 
 type LocalityEndpoints struct {
-	Locality  *envoy_api_v2_core.Locality       `protobuf:"bytes,1,opt,name=locality" json:"locality,omitempty"`
-	Endpoints []*envoy_api_v2_endpoint.Endpoint `protobuf:"bytes,2,rep,name=endpoints" json:"endpoints,omitempty"`
+	Locality             *core.Locality       `protobuf:"bytes,1,opt,name=locality,proto3" json:"locality,omitempty"`
+	Endpoints            []*endpoint.Endpoint `protobuf:"bytes,2,rep,name=endpoints,proto3" json:"endpoints,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
+	XXX_unrecognized     []byte               `json:"-"`
+	XXX_sizecache        int32                `json:"-"`
 }
 
-func (m *LocalityEndpoints) Reset()                    { *m = LocalityEndpoints{} }
-func (m *LocalityEndpoints) String() string            { return proto.CompactTextString(m) }
-func (*LocalityEndpoints) ProtoMessage()               {}
-func (*LocalityEndpoints) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{5} }
+func (m *LocalityEndpoints) Reset()         { *m = LocalityEndpoints{} }
+func (m *LocalityEndpoints) String() string { return proto.CompactTextString(m) }
+func (*LocalityEndpoints) ProtoMessage()    {}
+func (*LocalityEndpoints) Descriptor() ([]byte, []int) {
+	return fileDescriptor_773ad67555497672, []int{5}
+}
+func (m *LocalityEndpoints) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_LocalityEndpoints.Unmarshal(m, b)
+}
+func (m *LocalityEndpoints) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_LocalityEndpoints.Marshal(b, m, deterministic)
+}
+func (dst *LocalityEndpoints) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LocalityEndpoints.Merge(dst, src)
+}
+func (m *LocalityEndpoints) XXX_Size() int {
+	return xxx_messageInfo_LocalityEndpoints.Size(m)
+}
+func (m *LocalityEndpoints) XXX_DiscardUnknown() {
+	xxx_messageInfo_LocalityEndpoints.DiscardUnknown(m)
+}
 
-func (m *LocalityEndpoints) GetLocality() *envoy_api_v2_core.Locality {
+var xxx_messageInfo_LocalityEndpoints proto.InternalMessageInfo
+
+func (m *LocalityEndpoints) GetLocality() *core.Locality {
 	if m != nil {
 		return m.Locality
 	}
 	return nil
 }
 
-func (m *LocalityEndpoints) GetEndpoints() []*envoy_api_v2_endpoint.Endpoint {
+func (m *LocalityEndpoints) GetEndpoints() []*endpoint.Endpoint {
 	if m != nil {
 		return m.Endpoints
 	}
@@ -288,15 +429,37 @@ func (m *LocalityEndpoints) GetEndpoints() []*envoy_api_v2_endpoint.Endpoint {
 // Envoy instance (outside of HDS). For maximum usefulness, it should match the
 // same cluster structure as that provided by EDS.
 type ClusterHealthCheck struct {
-	ClusterName       string                            `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName" json:"cluster_name,omitempty"`
-	HealthChecks      []*envoy_api_v2_core1.HealthCheck `protobuf:"bytes,2,rep,name=health_checks,json=healthChecks" json:"health_checks,omitempty"`
-	LocalityEndpoints []*LocalityEndpoints              `protobuf:"bytes,3,rep,name=locality_endpoints,json=localityEndpoints" json:"locality_endpoints,omitempty"`
+	ClusterName          string               `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName,proto3" json:"cluster_name,omitempty"`
+	HealthChecks         []*core.HealthCheck  `protobuf:"bytes,2,rep,name=health_checks,json=healthChecks,proto3" json:"health_checks,omitempty"`
+	LocalityEndpoints    []*LocalityEndpoints `protobuf:"bytes,3,rep,name=locality_endpoints,json=localityEndpoints,proto3" json:"locality_endpoints,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
+	XXX_unrecognized     []byte               `json:"-"`
+	XXX_sizecache        int32                `json:"-"`
 }
 
-func (m *ClusterHealthCheck) Reset()                    { *m = ClusterHealthCheck{} }
-func (m *ClusterHealthCheck) String() string            { return proto.CompactTextString(m) }
-func (*ClusterHealthCheck) ProtoMessage()               {}
-func (*ClusterHealthCheck) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{6} }
+func (m *ClusterHealthCheck) Reset()         { *m = ClusterHealthCheck{} }
+func (m *ClusterHealthCheck) String() string { return proto.CompactTextString(m) }
+func (*ClusterHealthCheck) ProtoMessage()    {}
+func (*ClusterHealthCheck) Descriptor() ([]byte, []int) {
+	return fileDescriptor_773ad67555497672, []int{6}
+}
+func (m *ClusterHealthCheck) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ClusterHealthCheck.Unmarshal(m, b)
+}
+func (m *ClusterHealthCheck) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ClusterHealthCheck.Marshal(b, m, deterministic)
+}
+func (dst *ClusterHealthCheck) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ClusterHealthCheck.Merge(dst, src)
+}
+func (m *ClusterHealthCheck) XXX_Size() int {
+	return xxx_messageInfo_ClusterHealthCheck.Size(m)
+}
+func (m *ClusterHealthCheck) XXX_DiscardUnknown() {
+	xxx_messageInfo_ClusterHealthCheck.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ClusterHealthCheck proto.InternalMessageInfo
 
 func (m *ClusterHealthCheck) GetClusterName() string {
 	if m != nil {
@@ -305,7 +468,7 @@ func (m *ClusterHealthCheck) GetClusterName() string {
 	return ""
 }
 
-func (m *ClusterHealthCheck) GetHealthChecks() []*envoy_api_v2_core1.HealthCheck {
+func (m *ClusterHealthCheck) GetHealthChecks() []*core.HealthCheck {
 	if m != nil {
 		return m.HealthChecks
 	}
@@ -320,15 +483,37 @@ func (m *ClusterHealthCheck) GetLocalityEndpoints() []*LocalityEndpoints {
 }
 
 type HealthCheckSpecifier struct {
-	ClusterHealthChecks []*ClusterHealthCheck `protobuf:"bytes,1,rep,name=cluster_health_checks,json=clusterHealthChecks" json:"cluster_health_checks,omitempty"`
+	ClusterHealthChecks []*ClusterHealthCheck `protobuf:"bytes,1,rep,name=cluster_health_checks,json=clusterHealthChecks,proto3" json:"cluster_health_checks,omitempty"`
 	// The default is 1 second.
-	Interval *google_protobuf3.Duration `protobuf:"bytes,2,opt,name=interval" json:"interval,omitempty"`
+	Interval             *duration.Duration `protobuf:"bytes,2,opt,name=interval,proto3" json:"interval,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
+	XXX_unrecognized     []byte             `json:"-"`
+	XXX_sizecache        int32              `json:"-"`
 }
 
-func (m *HealthCheckSpecifier) Reset()                    { *m = HealthCheckSpecifier{} }
-func (m *HealthCheckSpecifier) String() string            { return proto.CompactTextString(m) }
-func (*HealthCheckSpecifier) ProtoMessage()               {}
-func (*HealthCheckSpecifier) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{7} }
+func (m *HealthCheckSpecifier) Reset()         { *m = HealthCheckSpecifier{} }
+func (m *HealthCheckSpecifier) String() string { return proto.CompactTextString(m) }
+func (*HealthCheckSpecifier) ProtoMessage()    {}
+func (*HealthCheckSpecifier) Descriptor() ([]byte, []int) {
+	return fileDescriptor_773ad67555497672, []int{7}
+}
+func (m *HealthCheckSpecifier) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_HealthCheckSpecifier.Unmarshal(m, b)
+}
+func (m *HealthCheckSpecifier) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_HealthCheckSpecifier.Marshal(b, m, deterministic)
+}
+func (dst *HealthCheckSpecifier) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HealthCheckSpecifier.Merge(dst, src)
+}
+func (m *HealthCheckSpecifier) XXX_Size() int {
+	return xxx_messageInfo_HealthCheckSpecifier.Size(m)
+}
+func (m *HealthCheckSpecifier) XXX_DiscardUnknown() {
+	xxx_messageInfo_HealthCheckSpecifier.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_HealthCheckSpecifier proto.InternalMessageInfo
 
 func (m *HealthCheckSpecifier) GetClusterHealthChecks() []*ClusterHealthCheck {
 	if m != nil {
@@ -337,7 +522,7 @@ func (m *HealthCheckSpecifier) GetClusterHealthChecks() []*ClusterHealthCheck {
 	return nil
 }
 
-func (m *HealthCheckSpecifier) GetInterval() *google_protobuf3.Duration {
+func (m *HealthCheckSpecifier) GetInterval() *duration.Duration {
 	if m != nil {
 		return m.Interval
 	}
@@ -364,8 +549,9 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// Client API for HealthDiscoveryService service
-
+// HealthDiscoveryServiceClient is the client API for HealthDiscoveryService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type HealthDiscoveryServiceClient interface {
 	// 1. Envoy starts up and if its can_healthcheck option in the static
 	//    bootstrap config is enabled, sends HealthCheckRequest to the management
@@ -417,7 +603,7 @@ func NewHealthDiscoveryServiceClient(cc *grpc.ClientConn) HealthDiscoveryService
 }
 
 func (c *healthDiscoveryServiceClient) StreamHealthCheck(ctx context.Context, opts ...grpc.CallOption) (HealthDiscoveryService_StreamHealthCheckClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_HealthDiscoveryService_serviceDesc.Streams[0], c.cc, "/envoy.service.discovery.v2.HealthDiscoveryService/StreamHealthCheck", opts...)
+	stream, err := c.cc.NewStream(ctx, &_HealthDiscoveryService_serviceDesc.Streams[0], "/envoy.service.discovery.v2.HealthDiscoveryService/StreamHealthCheck", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -449,15 +635,14 @@ func (x *healthDiscoveryServiceStreamHealthCheckClient) Recv() (*HealthCheckSpec
 
 func (c *healthDiscoveryServiceClient) FetchHealthCheck(ctx context.Context, in *HealthCheckRequestOrEndpointHealthResponse, opts ...grpc.CallOption) (*HealthCheckSpecifier, error) {
 	out := new(HealthCheckSpecifier)
-	err := grpc.Invoke(ctx, "/envoy.service.discovery.v2.HealthDiscoveryService/FetchHealthCheck", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/envoy.service.discovery.v2.HealthDiscoveryService/FetchHealthCheck", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// Server API for HealthDiscoveryService service
-
+// HealthDiscoveryServiceServer is the server API for HealthDiscoveryService service.
 type HealthDiscoveryServiceServer interface {
 	// 1. Envoy starts up and if its can_healthcheck option in the static
 	//    bootstrap config is enabled, sends HealthCheckRequest to the management
@@ -568,9 +753,11 @@ var _HealthDiscoveryService_serviceDesc = grpc.ServiceDesc{
 	Metadata: "envoy/service/discovery/v2/hds.proto",
 }
 
-func init() { proto.RegisterFile("envoy/service/discovery/v2/hds.proto", fileDescriptor1) }
+func init() {
+	proto.RegisterFile("envoy/service/discovery/v2/hds.proto", fileDescriptor_773ad67555497672)
+}
 
-var fileDescriptor1 = []byte{
+var fileDescriptor_773ad67555497672 = []byte{
 	// 727 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x55, 0x41, 0x6f, 0x12, 0x41,
 	0x14, 0x66, 0xa0, 0x2a, 0x7d, 0x45, 0xa4, 0x63, 0x45, 0xc4, 0xa6, 0xad, 0x9b, 0x6a, 0x48, 0x8d,

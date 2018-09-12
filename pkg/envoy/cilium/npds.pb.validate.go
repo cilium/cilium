@@ -49,9 +49,7 @@ func (m *NetworkPolicy) Validate() error {
 	for idx, item := range m.GetIngressPerPortPolicies() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return NetworkPolicyValidationError{
 					Field:  fmt.Sprintf("IngressPerPortPolicies[%v]", idx),
@@ -66,9 +64,7 @@ func (m *NetworkPolicy) Validate() error {
 	for idx, item := range m.GetEgressPerPortPolicies() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return NetworkPolicyValidationError{
 					Field:  fmt.Sprintf("EgressPerPortPolicies[%v]", idx),
@@ -134,9 +130,7 @@ func (m *PortNetworkPolicy) Validate() error {
 	for idx, item := range m.GetRules() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return PortNetworkPolicyValidationError{
 					Field:  fmt.Sprintf("Rules[%v]", idx),
@@ -211,9 +205,7 @@ func (m *PortNetworkPolicyRule) Validate() error {
 
 	case *PortNetworkPolicyRule_HttpRules:
 
-		if v, ok := interface{}(m.GetHttpRules()).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(m.GetHttpRules()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return PortNetworkPolicyRuleValidationError{
 					Field:  "HttpRules",
@@ -225,9 +217,7 @@ func (m *PortNetworkPolicyRule) Validate() error {
 
 	case *PortNetworkPolicyRule_KafkaRules:
 
-		if v, ok := interface{}(m.GetKafkaRules()).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(m.GetKafkaRules()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return PortNetworkPolicyRuleValidationError{
 					Field:  "KafkaRules",
@@ -291,9 +281,7 @@ func (m *HttpNetworkPolicyRules) Validate() error {
 	for idx, item := range m.GetHttpRules() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HttpNetworkPolicyRulesValidationError{
 					Field:  fmt.Sprintf("HttpRules[%v]", idx),
@@ -350,9 +338,7 @@ func (m *HttpNetworkPolicyRule) Validate() error {
 	for idx, item := range m.GetHeaders() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HttpNetworkPolicyRuleValidationError{
 					Field:  fmt.Sprintf("Headers[%v]", idx),
@@ -416,9 +402,7 @@ func (m *KafkaNetworkPolicyRules) Validate() error {
 	for idx, item := range m.GetKafkaRules() {
 		_, _ = idx, item
 
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return KafkaNetworkPolicyRulesValidationError{
 					Field:  fmt.Sprintf("KafkaRules[%v]", idx),
