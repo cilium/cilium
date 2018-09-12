@@ -110,9 +110,11 @@ type EndpointInfo struct {
 	SecLabelID uint16
 	LxcID      uint16
 	Flags      uint32
-	MAC        MAC
-	NodeMAC    MAC
-	Pad        [4]uint32
+	// go alignment
+	_       uint32
+	MAC     MAC
+	NodeMAC MAC
+	Pad     [4]uint32
 }
 
 // GetValuePtr returns the unsafe pointer to the BPF value
