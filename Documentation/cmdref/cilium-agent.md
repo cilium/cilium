@@ -22,6 +22,7 @@ cilium-agent
       --auto-ipv6-node-routes                       Automatically adds IPv6 L3 routes to reach other nodes for non-overlay mode (--device) (BETA)
       --bpf-compile-debug                           Enable debugging of the BPF compilation process
       --bpf-root string                             Path to BPF filesystem
+      --cgroup-root string                          Path to Cgroup2 filesystem
       --cluster-id int                              Unique identifier of the cluster
       --cluster-name string                         Name of the cluster (default "default")
       --clustermesh-config string                   Path to the ClusterMesh configuration directory
@@ -78,6 +79,7 @@ cilium-agent
       --sidecar-istio-proxy-image string            Regular expression matching compatible Istio sidecar istio-proxy container image names (default "cilium/istio_proxy")
       --single-cluster-route                        Use a single cluster route instead of per node routes
       --socket-path string                          Sets daemon's socket path to listen for connections (default "/var/run/cilium/cilium.sock")
+      --sockops-enable                              Enable sockops when kernel supported
       --state-dir string                            Directory path to store runtime state (default "/var/run/cilium")
       --tofqdns-min-ttl int                         The minimum time, in seconds, to use DNS data for toFQDNs policies. (default 31536000)
       --trace-payloadlen int                        Length of payload to capture when tracing (default 128)

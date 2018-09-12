@@ -145,6 +145,8 @@ func compileAndLink(ctx context.Context, prog *progInfo, dir *directoryInfo, com
 
 	_, linkErr := linkCmd.CombinedOutput(log, true)
 	compileOut, compileErr := ioutil.ReadAll(compilerStderr)
+	err = fmt.Errorf("CompileAndLink Failed to compile %s: %s", prog.Output, err)
+	log.Error(err)
 	err = compileCmd.Wait()
 	if err != nil || compileErr != nil || linkErr != nil {
 		if err == nil {
@@ -153,7 +155,7 @@ func compileAndLink(ctx context.Context, prog *progInfo, dir *directoryInfo, com
 		if err == nil {
 			err = linkErr
 		}
-		err = fmt.Errorf("Failed to compile %s: %s", prog.Output, err)
+		err = fmt.Errorf("CompileAndLink (compileErr %s, linkErr %s) Failed to compile %s: %s", compileErr, linkErr, prog.Output, err)
 
 		log.Error(err)
 		scopedLog := log.Warn

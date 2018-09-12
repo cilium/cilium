@@ -39,7 +39,7 @@ import (
 )
 
 var (
-	log             = logging.DefaultLogger
+	log             = logging.DefaultLogger.WithField(logfields.LogSubsys, "ciliumTest")
 	DefaultSettings = map[string]string{
 		"K8S_VERSION": "1.11",
 	}

@@ -19,5 +19,5 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var log = logging.DefaultLogger
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "k8sTest")
 var logger = logrus.NewEntry(log)

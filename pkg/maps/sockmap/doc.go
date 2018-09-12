@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,12 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package RuntimeTest
-
-import (
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/sirupsen/logrus"
-)
-
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "RuntimeTest")
-var logger = logrus.NewEntry(log)
+// Package lxcmap represents the endpoints BPF map in the BPF programs. It is
+// implemented as a hash table containing an entry for all local endpoints.
+// The hashtable can be accessed through the key EndpointKey and points which
+// points to the value EndpointInfo.
+package sockmap
