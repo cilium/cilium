@@ -61,7 +61,7 @@ struct bpf_elf_map __section_maps CT_MAP_TCP6 = {
 	.size_key	= sizeof(struct ipv6_ct_tuple),
 	.size_value	= sizeof(struct ct_entry),
 	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= CT_MAP_SIZE,
+	.max_elem	= CT_MAP_SIZE_TCP,
 };
 
 struct bpf_elf_map __section_maps CT_MAP_ANY6 = {
@@ -69,7 +69,7 @@ struct bpf_elf_map __section_maps CT_MAP_ANY6 = {
 	.size_key	= sizeof(struct ipv6_ct_tuple),
 	.size_value	= sizeof(struct ct_entry),
 	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= CT_MAP_SIZE,
+	.max_elem	= CT_MAP_SIZE_ANY,
 };
 
 struct bpf_elf_map __section_maps CT_MAP_TCP4 = {
@@ -77,7 +77,7 @@ struct bpf_elf_map __section_maps CT_MAP_TCP4 = {
 	.size_key	= sizeof(struct ipv4_ct_tuple),
 	.size_value	= sizeof(struct ct_entry),
 	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= CT_MAP_SIZE,
+	.max_elem	= CT_MAP_SIZE_TCP,
 };
 
 struct bpf_elf_map __section_maps CT_MAP_ANY4 = {
@@ -85,7 +85,7 @@ struct bpf_elf_map __section_maps CT_MAP_ANY4 = {
 	.size_key	= sizeof(struct ipv4_ct_tuple),
 	.size_value	= sizeof(struct ct_entry),
 	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= CT_MAP_SIZE,
+	.max_elem	= CT_MAP_SIZE_ANY,
 };
 
 static inline struct bpf_elf_map *

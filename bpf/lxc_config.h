@@ -41,7 +41,8 @@
 #define CT_MAP_ANY6 cilium_ct_any6_111
 #define CT_MAP_TCP4 cilium_ct_tcp4_111
 #define CT_MAP_ANY4 cilium_ct_any4_111
-#define CT_MAP_SIZE 4096
+#define CT_MAP_SIZE_TCP 4096
+#define CT_MAP_SIZE_ANY 4096
 #define CALLS_MAP cilium_calls_111
 #define LB_L3
 #define LB_L4

@@ -67,8 +67,9 @@ const (
 	MapNameAny6Global = MapNameAny6 + "global"
 	MapNameAny4Global = MapNameAny4 + "global"
 
-	MapNumEntriesLocal  = 64000
-	MapNumEntriesGlobal = 1000000
+	MapNumEntriesLocal     = 64000
+	MapNumEntriesGlobalTCP = (1 << 19) - 1 // 512Ki
+	MapNumEntriesGlobalAny = (1 << 18) - 1 // 256Ki
 
 	TUPLE_F_OUT     = 0
 	TUPLE_F_IN      = 1
@@ -103,16 +104,21 @@ func setupMapInfo(mapType MapType, define string, keySize, maxEntries int, parse
 
 func initMapInfo() {
 	mapType := MapTypeIPv4TCPLocal
-	for _, maxEntries := range []int{MapNumEntriesLocal, MapNumEntriesGlobal} {
-		// CT_MAP_ANY4, CT_MAP_ANY6, CT_MAP_TCP4, CT_MAP_TCP6
-		for _, proto := range []string{"TCP", "ANY"} {
-			setupMapInfo(MapType(mapType), fmt.Sprintf("CT_MAP_%s4", proto),
-				int(unsafe.Sizeof(CtKey4{})), maxEntries, ct4DumpParser)
-			mapType++
-			setupMapInfo(MapType(mapType), fmt.Sprintf("CT_MAP_%s6", proto),
-				int(unsafe.Sizeof(CtKey6{})), maxEntries, ct6DumpParser)
-			mapType++
-		}
+	for _, maxEntries := range []int{MapNumEntriesLocal, MapNumEntriesGlobalTCP} {
+		setupMapInfo(MapType(mapType), "CT_MAP_TCP4",
+			int(unsafe.Sizeof(CtKey4{})), maxEntries, ct4DumpParser)
+		mapType++
+		setupMapInfo(MapType(mapType), "CT_MAP_TCP6",
+			int(unsafe.Sizeof(CtKey6{})), maxEntries, ct6DumpParser)
+		mapType++
+	}
+	for _, maxEntries := range []int{MapNumEntriesLocal, MapNumEntriesGlobalAny} {
+		setupMapInfo(MapType(mapType), "CT_MAP_ANY4",
+			int(unsafe.Sizeof(CtKey4{})), maxEntries, ct4DumpParser)
+		mapType++
+		setupMapInfo(MapType(mapType), "CT_MAP_ANY6",
+			int(unsafe.Sizeof(CtKey6{})), maxEntries, ct6DumpParser)
+		mapType++
 	}
 }
 
@@ -447,9 +453,11 @@ func NameIsGlobal(filename string) bool {
 // the specified CtEndpoint is nil.
 func WriteBPFMacros(fw io.Writer, e CtEndpoint) {
 	if e == nil {
-		fmt.Fprintf(fw, "#define CT_MAP_SIZE %d\n", MapNumEntriesGlobal)
+		fmt.Fprintf(fw, "#define CT_MAP_SIZE_TCP %d\n", MapNumEntriesGlobalTCP)
+		fmt.Fprintf(fw, "#define CT_MAP_SIZE_ANY %d\n", MapNumEntriesGlobalAny)
 	} else {
-		fmt.Fprintf(fw, "#define CT_MAP_SIZE %d\n", MapNumEntriesLocal)
+		fmt.Fprintf(fw, "#define CT_MAP_SIZE_TCP %d\n", MapNumEntriesLocal)
+		fmt.Fprintf(fw, "#define CT_MAP_SIZE_ANY %d\n", MapNumEntriesLocal)
 	}
 	for _, m := range maps(e, true, true) {
 		filepath, err := m.Path()
