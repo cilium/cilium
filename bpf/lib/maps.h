@@ -134,14 +134,15 @@ _Pragma("unroll")							\
 
 struct ipcache_key {
 	struct bpf_lpm_trie_key lpm_key;
-	__u8 pad[3];
+	__u16 pad1;
+	__u8 pad2;
 	__u8 family;
 	union {
 		struct {
 			__u32		ip4;
-			__u32		pad1;
-			__u32		pad2;
-			__u32		pad3;
+			__u32		pad4;
+			__u32		pad5;
+			__u32		pad6;
 		};
 		union v6addr	ip6;
 	};
