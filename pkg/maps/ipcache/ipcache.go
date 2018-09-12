@@ -56,8 +56,9 @@ const (
 // Must be in sync with struct bpf_ipcache_key in <bpf/lib/eps.h>
 type Key struct {
 	Prefixlen uint32
-	Pad1      uint16
+	Pad1      uint8
 	Pad2      uint8
+	Pad3      uint8
 	Family    uint8
 	IP        types.IPv6 // represents both IPv6 and IPv4 (in the lowest four bytes)
 }
