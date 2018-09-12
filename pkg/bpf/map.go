@@ -584,7 +584,7 @@ func (m *Map) DumpReliablyWithCallback(cb DumpCallback, stats *DumpStats) error 
 			continue
 		}
 
-		k, v, err := m.dumpParser(nextKey, value)
+		k, v, err := m.dumpParser(currentKey, value)
 		if err != nil {
 			stats.Interrupted++
 			return err
