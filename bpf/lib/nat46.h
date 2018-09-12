@@ -22,6 +22,7 @@
 #include <linux/icmp.h>
 #include <linux/icmpv6.h>
 #include "common.h"
+#include "ipv4.h"
 #include "ipv6.h"
 #include "eth.h"
 #include "dbg.h"
