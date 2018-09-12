@@ -226,6 +226,11 @@ const CiliumDefaultDSPatch = "cilium-ds-patch.yaml"
 // CiliumConfigMapPatch is the default Cilium ConfigMap patch to be used in all tests.
 const CiliumConfigMapPatch = "cilium-cm-patch.yaml"
 
+// goroutineLockRegexp is a regexp that check that a gouroutine is not bigger than 10 seconds.
+// @TODO move this regexp to `[1-9]([0-9]{1,})?\.[0-9]*` to detect more than a second.
+var goroutineLockRegexp = fmt.Sprintf(`"%s.*" goroutine=".*" seconds=([0-9]{2,}\.[0-9]*)`, selfishThresholdMsg)
+
+var checkLogsMessagesRegexp = []string{goroutineLockRegexp}
 var checkLogsMessages = []string{panicMessage, deadLockHeader, segmentationFault, NACKreceived, RunInitFailed}
 var countLogsMessages = []string{contextDeadlineExceeded, ErrorLogs, WarningLogs, APIPanicked, selfishThresholdMsg}
 

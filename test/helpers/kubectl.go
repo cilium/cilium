@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -1340,6 +1341,16 @@ func (kub *Kubectl) ValidateNoErrorsOnLogs(duration time.Duration) {
 			ginkgoext.Fail(fmt.Sprintf("Found a %q in Cilium Logs", message))
 		}
 	}
+
+	for _, re := range checkLogsMessagesRegexp {
+		regExp := regexp.MustCompile(re)
+		val := regExp.FindString(logs)
+		if val != "" {
+			fmt.Fprintf(CheckLogs, "⚠️  Regular expression %q found in logs\n", re)
+			ginkgoext.Fail(fmt.Sprintf("Regular expression %q found in logs\n", re))
+		}
+	}
+
 	// Count part
 	for _, message := range countLogsMessages {
 		var prefix = ""

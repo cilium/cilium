@@ -21,6 +21,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -660,6 +661,15 @@ func (s *SSHMeta) ValidateNoErrorsOnLogs(duration time.Duration) {
 		if strings.Contains(logs, message) {
 			fmt.Fprintf(CheckLogs, "⚠️  Found a %q in logs\n", message)
 			ginkgoext.Fail(fmt.Sprintf("Found a %q in Cilium Logs", message))
+		}
+	}
+
+	for _, re := range checkLogsMessagesRegexp {
+		regExp := regexp.MustCompile(re)
+		val := regExp.FindString(logs)
+		if val != "" {
+			fmt.Fprintf(CheckLogs, "⚠️  Regular expression %q found in logs\n", re)
+			ginkgoext.Fail(fmt.Sprintf("Regular expression %q found in logs\n", re))
 		}
 	}
 
