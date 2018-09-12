@@ -39,13 +39,13 @@ typedef std::shared_ptr<Config> ConfigSharedPtr;
 class Instance : public Network::ListenerFilter,
                  Logger::Loggable<Logger::Id::filter> {
 public:
-  Instance(ConfigSharedPtr config) : config_(config) {}
+  Instance(const ConfigSharedPtr& config) : config_(config) {}
 
   // Network::ListenerFilter
   Network::FilterStatus onAccept(Network::ListenerFilterCallbacks &cb) override;
 
 private:
-  ConfigSharedPtr config_;
+  const ConfigSharedPtr config_;
 };
 
 } // namespace BpfMetadata

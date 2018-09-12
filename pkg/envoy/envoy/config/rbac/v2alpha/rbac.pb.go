@@ -47,7 +47,7 @@ func (x RBAC_Action) String() string {
 	return proto.EnumName(RBAC_Action_name, int32(x))
 }
 func (RBAC_Action) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_4fc46fd8e4e64e64, []int{0, 0}
+	return fileDescriptor_rbac_31d4b33e3f646bd3, []int{0, 0}
 }
 
 // Role Based Access Control (RBAC) provides service-level and method-level access control for a
@@ -102,7 +102,7 @@ func (m *RBAC) Reset()         { *m = RBAC{} }
 func (m *RBAC) String() string { return proto.CompactTextString(m) }
 func (*RBAC) ProtoMessage()    {}
 func (*RBAC) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_4fc46fd8e4e64e64, []int{0}
+	return fileDescriptor_rbac_31d4b33e3f646bd3, []int{0}
 }
 func (m *RBAC) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RBAC.Unmarshal(m, b)
@@ -157,7 +157,7 @@ func (m *Policy) Reset()         { *m = Policy{} }
 func (m *Policy) String() string { return proto.CompactTextString(m) }
 func (*Policy) ProtoMessage()    {}
 func (*Policy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_4fc46fd8e4e64e64, []int{1}
+	return fileDescriptor_rbac_31d4b33e3f646bd3, []int{1}
 }
 func (m *Policy) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Policy.Unmarshal(m, b)
@@ -212,7 +212,7 @@ func (m *Permission) Reset()         { *m = Permission{} }
 func (m *Permission) String() string { return proto.CompactTextString(m) }
 func (*Permission) ProtoMessage()    {}
 func (*Permission) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_4fc46fd8e4e64e64, []int{2}
+	return fileDescriptor_rbac_31d4b33e3f646bd3, []int{2}
 }
 func (m *Permission) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Permission.Unmarshal(m, b)
@@ -542,7 +542,7 @@ func (m *Permission_Set) Reset()         { *m = Permission_Set{} }
 func (m *Permission_Set) String() string { return proto.CompactTextString(m) }
 func (*Permission_Set) ProtoMessage()    {}
 func (*Permission_Set) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_4fc46fd8e4e64e64, []int{2, 0}
+	return fileDescriptor_rbac_31d4b33e3f646bd3, []int{2, 0}
 }
 func (m *Permission_Set) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Permission_Set.Unmarshal(m, b)
@@ -590,7 +590,7 @@ func (m *Principal) Reset()         { *m = Principal{} }
 func (m *Principal) String() string { return proto.CompactTextString(m) }
 func (*Principal) ProtoMessage()    {}
 func (*Principal) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_4fc46fd8e4e64e64, []int{3}
+	return fileDescriptor_rbac_31d4b33e3f646bd3, []int{3}
 }
 func (m *Principal) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Principal.Unmarshal(m, b)
@@ -925,7 +925,7 @@ func (m *Principal_Set) Reset()         { *m = Principal_Set{} }
 func (m *Principal_Set) String() string { return proto.CompactTextString(m) }
 func (*Principal_Set) ProtoMessage()    {}
 func (*Principal_Set) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_4fc46fd8e4e64e64, []int{3, 0}
+	return fileDescriptor_rbac_31d4b33e3f646bd3, []int{3, 0}
 }
 func (m *Principal_Set) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Principal_Set.Unmarshal(m, b)
@@ -966,7 +966,7 @@ func (m *Principal_Authenticated) Reset()         { *m = Principal_Authenticated
 func (m *Principal_Authenticated) String() string { return proto.CompactTextString(m) }
 func (*Principal_Authenticated) ProtoMessage()    {}
 func (*Principal_Authenticated) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_4fc46fd8e4e64e64, []int{3, 1}
+	return fileDescriptor_rbac_31d4b33e3f646bd3, []int{3, 1}
 }
 func (m *Principal_Authenticated) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Principal_Authenticated.Unmarshal(m, b)
@@ -1006,10 +1006,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("envoy/config/rbac/v2alpha/rbac.proto", fileDescriptor_rbac_4fc46fd8e4e64e64)
+	proto.RegisterFile("envoy/config/rbac/v2alpha/rbac.proto", fileDescriptor_rbac_31d4b33e3f646bd3)
 }
 
-var fileDescriptor_rbac_4fc46fd8e4e64e64 = []byte{
+var fileDescriptor_rbac_31d4b33e3f646bd3 = []byte{
 	// 765 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x95, 0x4f, 0x8f, 0x1b, 0x35,
 	0x18, 0xc6, 0x33, 0x7f, 0x77, 0xf2, 0x46, 0x29, 0x2b, 0x73, 0x60, 0x88, 0x28, 0xa4, 0x69, 0x41,

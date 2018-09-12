@@ -3,6 +3,7 @@ include $(ROOT_DIR)/Makefile.quiet
 
 PREFIX?=/usr
 BINDIR?=$(PREFIX)/bin
+LIBDIR?=$(PREFIX)/lib
 RUNDIR?=/var/run
 CONFDIR?=/etc
 

@@ -194,6 +194,9 @@ type LogRecord struct {
 
 	// Kafka contains information for Kafka request/responses
 	Kafka *LogRecordKafka `json:"Kafka,omitempty"`
+
+	// L7 contains information about generic L7 protocols
+	L7 *LogRecordL7 `json:"L7,omitempty"`
 }
 
 // LogRecordHTTP contains the HTTP specific portion of a log record
@@ -239,4 +242,13 @@ type LogRecordKafka struct {
 	// Note that this string can be empty since not all messages use
 	// Topic. example: LeaveGroup, Heartbeat
 	Topic KafkaTopic
+}
+
+// LogRecordL7 contains the generic L7 portion of a log record
+type LogRecordL7 struct {
+	// Proto is the name of the protocol this record represents
+	Proto string `json:"Proto,omitempty"`
+
+	// Fields is a map of key-value pairs describing the protocol
+	Fields map[string]string
 }

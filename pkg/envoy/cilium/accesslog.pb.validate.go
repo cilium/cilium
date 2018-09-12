@@ -148,6 +148,51 @@ func (e HttpLogEntryValidationError) Error() string {
 
 var _ error = HttpLogEntryValidationError{}
 
+// Validate checks the field values on L7LogEntry with the rules defined in the
+// proto definition for this message. If any rules are violated, an error is returned.
+func (m *L7LogEntry) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	// no validation rules for Proto
+
+	// no validation rules for Fields
+
+	return nil
+}
+
+// L7LogEntryValidationError is the validation error returned by
+// L7LogEntry.Validate if the designated constraints aren't met.
+type L7LogEntryValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e L7LogEntryValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sL7LogEntry.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = L7LogEntryValidationError{}
+
 // Validate checks the field values on LogEntry with the rules defined in the
 // proto definition for this message. If any rules are violated, an error is returned.
 func (m *LogEntry) Validate() error {
@@ -208,6 +253,18 @@ func (m *LogEntry) Validate() error {
 			if err := v.Validate(); err != nil {
 				return LogEntryValidationError{
 					Field:  "Http",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	case *LogEntry_GenericL7:
+
+		if v, ok := interface{}(m.GetGenericL7()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return LogEntryValidationError{
+					Field:  "GenericL7",
 					Reason: "embedded message failed validation",
 					Cause:  err,
 				}
