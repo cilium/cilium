@@ -19,6 +19,8 @@ import (
 	"testing"
 	"unsafe"
 
+	"github.com/cilium/cilium/pkg/option"
+
 	. "gopkg.in/check.v1"
 )
 
@@ -32,6 +34,7 @@ func Test(t *testing.T) {
 }
 
 func (t *CTMapTestSuite) TestInit(c *C) {
+	InitMapInfo(option.CTMapEntriesGlobalTCPDefault, option.CTMapEntriesGlobalAnyDefault)
 	for mapType := MapType(0); mapType < MapTypeMax; mapType++ {
 		info := mapInfo[mapType]
 		if mapType.isIPv6() {
@@ -52,9 +55,9 @@ func (t *CTMapTestSuite) TestInit(c *C) {
 		}
 		if mapType.isGlobal() {
 			if mapType.isTCP() {
-				c.Assert(info.maxEntries, Equals, MapNumEntriesGlobalTCP)
+				c.Assert(info.maxEntries, Equals, option.CTMapEntriesGlobalTCPDefault)
 			} else {
-				c.Assert(info.maxEntries, Equals, MapNumEntriesGlobalAny)
+				c.Assert(info.maxEntries, Equals, option.CTMapEntriesGlobalAnyDefault)
 			}
 		}
 	}
