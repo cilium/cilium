@@ -18,6 +18,8 @@ clean:
 	$(GO) clean
 
 install:
+	pwd
+	ls -lrt
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(LIBDIR)
 	pwd
 	ls -lrt
