@@ -26,10 +26,10 @@ const (
 	// * Local (endpoint-specific) or global (endpoint-oblivious).
 	MapTypeIPv4TCPLocal = iota
 	MapTypeIPv6TCPLocal
-	MapTypeIPv4AnyLocal
-	MapTypeIPv6AnyLocal
 	MapTypeIPv4TCPGlobal
 	MapTypeIPv6TCPGlobal
+	MapTypeIPv4AnyLocal
+	MapTypeIPv6AnyLocal
 	MapTypeIPv4AnyGlobal
 	MapTypeIPv6AnyGlobal
 	MapTypeMax
