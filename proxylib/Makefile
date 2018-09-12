@@ -13,11 +13,15 @@ $(TARGET): $(DEPS)
 all: $(TARGET)
 
 clean:
+	$(warning ***************PROXYLIB CLEAN******************************)
 	@$(ECHO_CLEAN) $(notdir $(shell pwd))
 	-$(QUIET)rm -f $(TARGET)
 	$(GO) clean
 
 install:
+	$(warning ***************PROXYLIB INSTALL******************************)
+	pwd
+	ls -lrt
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(LIBDIR)
 	pwd
 	ls -lrt
