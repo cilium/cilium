@@ -31,6 +31,7 @@ type CtEntry struct {
 	Flags     uint16
 	// RevNAT is in network byte order
 	RevNAT           uint16
+	Slave            uint16
 	TxFlagsSeen      uint8
 	RxFlagsSeen      uint8
 	SourceSecurityID uint32

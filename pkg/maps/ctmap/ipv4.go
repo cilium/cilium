@@ -33,6 +33,8 @@ type CtKey4 struct {
 	DestPort   uint16
 	NextHeader u8proto.U8proto
 	Flags      uint8
+	// go alignment padding
+	_ uint8
 }
 
 // GetKeyPtr returns the unsafe.Pointer for k.

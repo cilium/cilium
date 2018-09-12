@@ -38,6 +38,8 @@ type Proxy4Key struct {
 	SPort   uint16
 	Nexthdr uint8
 	Pad     uint8
+	// go alignment
+	_ uint8
 }
 
 // HostPort returns host port for provided proxy key
