@@ -870,8 +870,15 @@ func (kub *Kubectl) CiliumInstall(dsPatchName, cmPatchName string) error {
 // found.
 func (kub *Kubectl) CiliumInstallVersion(dsPatchName, cmPatchName, versionTag string) error {
 	getK8sDescriptorPatch := func(filename string) string {
-		ginkgoVersionedPath := filepath.Join(manifestsPath, GetCurrentK8SEnv(), versionTag, filename)
+		// try dependent Cilium and k8s version patch file
+		ginkgoVersionedPath := filepath.Join(manifestsPath, versionTag, GetCurrentK8SEnv(), filename)
 		_, err := os.Stat(ginkgoVersionedPath)
+		if err == nil {
+			return filepath.Join(BasePath, ginkgoVersionedPath)
+		}
+		// try dependent Cilium version patch file
+		ginkgoVersionedPath = filepath.Join(manifestsPath, versionTag, filename)
+		_, err = os.Stat(ginkgoVersionedPath)
 		if err == nil {
 			return filepath.Join(BasePath, ginkgoVersionedPath)
 		}
