@@ -71,8 +71,11 @@ proxylib-hdrs: ../proxylib/libcilium.h ../proxylib/proxylib/types.h
 	$(INSTALL) -C -m 0644 $^ proxylib
 
 proxylib-bin: ../proxylib/libcilium.so
+	$(warning ^^^^^^^^^^^^^^^^proxylib/libcilium.so^^^^^^^^^^^^^^^^^^^^^^^^^^^^)
 	$(INSTALL) -m 0755 -d proxylib
 	$(INSTALL) -m 0755 $^ proxylib
+	ls -lrt ../proxylib/
+	@echo ^^^^^^^^^^^^^^^^^^^proxylib/envoy finish ^^^^^^^^^^^^^^^^^^^^^^^
 
 envoy-default: force-non-root proxylib-hdrs
 	@$(ECHO_BAZEL)

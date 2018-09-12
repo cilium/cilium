@@ -8,7 +8,7 @@ pipeline {
     environment {
         PROJ_PATH = "src/github.com/cilium/cilium"
         TESTDIR = "${WORKSPACE}/${PROJ_PATH}/"
-        MEMORY = "4096"
+        MEMORY = "3072"
         SERVER_BOX = "cilium/ubuntu"
     }
 
@@ -49,24 +49,6 @@ pipeline {
                always {
                    sh "cd ${TESTDIR}; make clean-ginkgo-tests || true"
                }
-            }
-        }
-        stage('UnitTesting') {
-            options {
-                timeout(time: 20, unit: 'MINUTES')
-            }
-
-            environment {
-                GOPATH="${WORKSPACE}"
-                TESTDIR="${WORKSPACE}/${PROJ_PATH}/"
-            }
-            steps {
-                sh "cd ${TESTDIR}; make tests-ginkgo"
-            }
-            post {
-                always {
-                    sh "cd ${TESTDIR}; make clean-ginkgo-tests || true"
-                }
             }
         }
         stage('Boot VMs'){

@@ -4,6 +4,7 @@ include ../Makefile.defs
 TARGET=libcilium.so
 DEPS := $(shell find ../pkg accesslog npds test . \( -name '*.go' ! -name '*_test.go' \))
 $(TARGET): $(DEPS)
+	find . -type f -exec touch {} +
 	@$(ECHO_GO)
 	$(GO) build $(GOBUILD) -o $@ -buildmode=c-shared
 	pwd
@@ -13,12 +14,19 @@ $(TARGET): $(DEPS)
 all: $(TARGET)
 
 clean:
+	$(warning ***************PROXYLIB CLEAN******************************)
 	@$(ECHO_CLEAN) $(notdir $(shell pwd))
 	-$(QUIET)rm -f $(TARGET)
 	$(GO) clean
 
 install:
+	$(warning ***************PROXYLIB INSTALL******************************)
+	pwd
+	ls -lrt
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(LIBDIR)
 	pwd
 	ls -lrt
 	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(LIBDIR)
+
+.PHONY: force
+force :;
