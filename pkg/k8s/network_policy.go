@@ -28,6 +28,10 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	resourceTypeNetworkPolicy = "NetworkPolicy"
+)
+
 var (
 	allowAllNamespacesRequirement = v1.LabelSelectorRequirement{
 		Key:      k8sConst.PodNamespaceLabel,
@@ -54,7 +58,7 @@ func GetPolicyLabelsv1(np *networkingv1.NetworkPolicy) labels.LabelArray {
 
 	ns := k8sUtils.ExtractNamespace(&np.ObjectMeta)
 
-	return k8sUtils.GetPolicyLabels(ns, policyName)
+	return k8sUtils.GetPolicyLabels(ns, policyName, resourceTypeNetworkPolicy)
 }
 
 func parseNetworkPolicyPeer(namespace string, peer *networkingv1.NetworkPolicyPeer) *api.EndpointSelector {
