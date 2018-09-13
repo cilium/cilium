@@ -119,6 +119,8 @@ func IdentityAllocationIsLocal(lbls labels.Labels) bool {
 // an identity for the specified set of labels already exist, the identity is
 // re-used and reference counting is performed, otherwise a new identity is
 // allocated via the kvstore.
+// If the set of labels contains a fixed-identity label, the ID of the Identity
+// returned will the value set in the fixed-identity label.
 func AllocateIdentity(lbls labels.Labels) (*Identity, bool, error) {
 	log.WithFields(logrus.Fields{
 		logfields.IdentityLabels: lbls.String(),
@@ -132,7 +134,10 @@ func AllocateIdentity(lbls labels.Labels) (*Identity, bool, error) {
 			logfields.IdentityLabels: lbls.String(),
 			"isNew":                  false,
 		}).Debug("Resolved reserved identity")
-		return reservedIdentity, false, nil
+		// Don't return the reserved identity directly, return a new identity,
+		// with the labels received by the allocate identity.
+		id := NewIdentity(reservedIdentity.ID, lbls)
+		return id, false, nil
 	}
 
 	if identityAllocator == nil {
