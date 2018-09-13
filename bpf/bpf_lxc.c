@@ -96,7 +96,7 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	void *data, *data_end;
 	union v6addr *daddr, orig_dip;
 	__u32 tunnel_endpoint = 0;
-	bool monitor = false;
+	__u32 monitor = 0;
 
 	if (unlikely(!is_valid_lxc_src_mac(eth)))
 		return DROP_INVALID_SMAC;
@@ -213,7 +213,7 @@ skip_service_lookup:
 		ret = ct_create6(&CT_MAP6, tuple, skb, CT_EGRESS, &ct_state_new);
 		if (IS_ERR(ret))
 			return ret;
-		monitor = true;
+		monitor = TRACE_PAYLOAD_LEN;
 		break;
 
 	case CT_ESTABLISHED:
@@ -421,7 +421,7 @@ static inline int handle_ipv4_from_lxc(struct __sk_buff *skb, __u32 *dstID)
 	struct ct_state ct_state = {};
 	__be32 orig_dip;
 	__u32 tunnel_endpoint = 0;
-	bool monitor = false;
+	__u32 monitor = 0;
 
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -725,8 +725,9 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 	int ret, l4_off, verdict, hdrlen;
 	struct ct_state ct_state = {};
 	struct ct_state ct_state_new = {};
-	bool skip_proxy, monitor = false;
+	bool skip_proxy = false;
 	union v6addr orig_dip = {};
+	__u32 monitor = 0;
 
 	if (!revalidate_data(skb, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -869,9 +870,10 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 	int ret, verdict, l4_off;
 	struct ct_state ct_state = {};
 	struct ct_state ct_state_new = {};
-	bool skip_proxy, monitor = false;
+	bool skip_proxy = false;
 	__be32 orig_dip, orig_sip;
 	bool is_fragment = false;
+	__u32 monitor = 0;
 
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;

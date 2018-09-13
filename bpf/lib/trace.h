@@ -89,13 +89,13 @@ struct trace_notify {
  * @dst_id:	designated destination endpoint ID
  * @ifindex:	designated destination ifindex
  * @reason:	reason for forwarding the packet (TRACE_REASON_*)
- * @monitor:	whether to send a notification (true) or only metrics (false)
+ * @monitor:	length of notification to send (0 means don't send)
  *
  * Generate a notification to indicate a packet was forwarded at an observation point.
  */
 static inline void
 send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst,
-		  __u16 dst_id, __u32 ifindex, __u8 reason, bool monitor)
+		  __u16 dst_id, __u32 ifindex, __u8 reason, __u32 monitor)
 {
 	switch (obs_point) {
 		case TRACE_TO_LXC:
@@ -131,7 +131,9 @@ send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst,
 	if (MONITOR_AGGREGATION >= TRACE_AGGREGATE_ACTIVE_CT && !monitor)
 		return;
 
-	uint64_t skb_len = (uint64_t)skb->len, cap_len = min((uint64_t)TRACE_PAYLOAD_LEN, (uint64_t)skb_len);
+	if (!monitor)
+		monitor = TRACE_PAYLOAD_LEN;
+	uint64_t skb_len = (uint64_t)skb->len, cap_len = min((uint64_t)monitor, (uint64_t)skb_len);
 	uint32_t hash = get_hash_recalc(skb);
 	struct trace_notify msg = {
 		.type = CILIUM_NOTIFY_TRACE,
@@ -155,7 +157,7 @@ send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst,
 #else
 
 static inline void send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst,
-				     __u16 dst_id, __u32 ifindex, __u8 reason, bool monitor)
+				     __u16 dst_id, __u32 ifindex, __u8 reason, __u32 monitor)
 {
 	switch (obs_point) {
 		case TRACE_TO_LXC:
