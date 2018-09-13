@@ -32,53 +32,76 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func TestInitModule(t *testing.T) {
-	if !InitModule([][2]string{}, true) {
-		t.Error("InitModule() with empty params failed")
+func TestOpenModule(t *testing.T) {
+	mod1 := OpenModule([][2]string{}, true)
+	if mod1 == 0 {
+		t.Error("OpenModule() with empty params failed")
+	} else {
+		defer CloseModule(mod1)
+	}
+	mod2 := OpenModule([][2]string{}, true)
+	if mod2 == 0 {
+		t.Error("OpenModule() with empty params failed")
+	} else {
+		defer CloseModule(mod2)
+	}
+	if mod2 != mod1 {
+		t.Error("OpenModule() with empty params called again opened a new module")
 	}
 
-	if InitModule([][2]string{{"dummy-key", "dummy-value"}, {"key2", "value2"}}, true) {
-		t.Error("InitModule() with unknown params accepted")
+	mod3 := OpenModule([][2]string{{"dummy-key", "dummy-value"}, {"key2", "value2"}}, true)
+	if mod3 != 0 {
+		t.Error("OpenModule() with unknown params accepted")
+		defer CloseModule(mod3)
 	}
 
 	logServer := test.StartAccessLogServer(t, "access_log.sock", 10)
 	defer logServer.Close()
 
-	if !InitModule([][2]string{{"access-log-path", logServer.Path}}, true) {
-		t.Errorf("InitModule() with access log path %s failed", logServer.Path)
+	mod4 := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
+	if mod4 == 0 {
+		t.Errorf("OpenModule() with access log path %s failed", logServer.Path)
+	} else {
+		defer CloseModule(mod4)
+	}
+	if mod4 == mod1 {
+		t.Error("OpenModule() should have returned a different module")
 	}
 }
 
 func TestOnNewConnection(t *testing.T) {
-	if !InitModule([][2]string{}, true) {
-		t.Error("InitModule() with empty access log name failed")
+	mod := OpenModule([][2]string{}, true)
+	if mod == 0 {
+		t.Error("OpenModule() with empty params failed")
+	} else {
+		defer CloseModule(mod)
 	}
 
 	// Unkhown parser
-	CheckOnNewConnection(t, "invalid-parser-should-not-exist", 1, true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "policy-1", 80, proxylib.UNKNOWN_PARSER, 0)
+	CheckOnNewConnection(t, mod, "invalid-parser-should-not-exist", 1, true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "policy-1", 80, proxylib.UNKNOWN_PARSER, 0)
 
 	// Non-numeric destination port
-	CheckOnNewConnection(t, "test.passer", 1, true, 1, 2, "1.1.1.1:34567", "2.2.2.2:XYZ", "policy-1",
+	CheckOnNewConnection(t, mod, "test.passer", 1, true, 1, 2, "1.1.1.1:34567", "2.2.2.2:XYZ", "policy-1",
 		80, proxylib.INVALID_ADDRESS, 0)
 
 	// Missing Destination port
-	CheckOnNewConnection(t, "test.passer", 1, true, 1, 2, "1.1.1.1:34567", "2.2.2.2", "policy-1",
+	CheckOnNewConnection(t, mod, "test.passer", 1, true, 1, 2, "1.1.1.1:34567", "2.2.2.2", "policy-1",
 		80, proxylib.INVALID_ADDRESS, 0)
 
 	// Zero Destination port is reserved for wildcarding
-	CheckOnNewConnection(t, "test.passer", 1, true, 1, 2, "1.1.1.1:34567", "2.2.2.2:0", "policy-1",
+	CheckOnNewConnection(t, mod, "test.passer", 1, true, 1, 2, "1.1.1.1:34567", "2.2.2.2:0", "policy-1",
 		80, proxylib.INVALID_ADDRESS, 0)
 
 	// L7 parser rejecting the connection based on connection metadata
-	CheckOnNewConnection(t, "test.passer", 1, true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "invalid-policy",
+	CheckOnNewConnection(t, mod, "test.passer", 1, true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "invalid-policy",
 		80, proxylib.POLICY_DROP, 0)
 
 	// Using test parser
-	CheckOnNewConnection(t, "test.passer", 1, true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "policy-1",
+	CheckOnNewConnection(t, mod, "test.passer", 1, true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "policy-1",
 		80, proxylib.OK, 1)
 
 	// 2nd connection
-	CheckOnNewConnection(t, "test.passer", 12345678901234567890, false, 2, 1, "2.2.2.2:80", "1.1.1.1:34567", "policy-2",
+	CheckOnNewConnection(t, mod, "test.passer", 12345678901234567890, false, 2, 1, "2.2.2.2:80", "1.1.1.1:34567", "policy-2",
 		80, proxylib.OK, 2)
 
 	CheckClose(t, 1, nil, 2)
@@ -112,12 +135,15 @@ func TestOnDataNoPolicy(t *testing.T) {
 	logServer := test.StartAccessLogServer(t, "access_log.sock", 10)
 	defer logServer.Close()
 
-	if !InitModule([][2]string{{"access-log-path", logServer.Path}}, true) {
-		t.Errorf("InitModule() with access log path %s failed", logServer.Path)
+	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
+	if mod == 0 {
+		t.Errorf("OpenModule() with access log path %s failed", logServer.Path)
+	} else {
+		defer CloseModule(mod)
 	}
 
 	// Using headertester parser
-	buf := CheckOnNewConnection(t, "test.headerparser", 1, true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "policy-1",
+	buf := CheckOnNewConnection(t, mod, "test.headerparser", 1, true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "policy-1",
 		30, proxylib.OK, 1)
 
 	// Original direction data, drops with remaining data
@@ -143,11 +169,11 @@ func TestOnDataNoPolicy(t *testing.T) {
 	CheckClose(t, 1, buf, 1)
 }
 
-func insertPolicyText(t *testing.T, version string, policies []string) bool {
-	return insertPolicyTextRaw(t, version, policies, "") == nil
+func insertPolicyText(t *testing.T, mod uint64, version string, policies []string) bool {
+	return insertPolicyTextRaw(t, mod, version, policies, "") == nil
 }
 
-func insertPolicyTextRaw(t *testing.T, version string, policies []string, expectFail string) error {
+func insertPolicyTextRaw(t *testing.T, mod uint64, version string, policies []string, expectFail string) error {
 	typeUrl := "type.googleapis.com/cilium.NetworkPolicy"
 	var resources []*any.Any
 
@@ -182,10 +208,15 @@ func insertPolicyTextRaw(t *testing.T, version string, policies []string, expect
 		Nonce:       "randomNonce1",
 		Resources:   resources,
 	}
-	err := proxylib.PolicyUpdate(msg)
-	if err != nil {
-		if expectFail != "update" {
-			t.Errorf("Policy Update failed: %v", err)
+	instance := proxylib.FindInstance(mod)
+	if instance == nil {
+		t.Errorf("Policy Update failed to get the library instance.")
+	} else {
+		err := instance.PolicyUpdate(msg)
+		if err != nil {
+			if expectFail != "update" {
+				t.Errorf("Policy Update failed: %v", err)
+			}
 		}
 		return err
 	}
@@ -196,11 +227,14 @@ func TestUnsupportedL7Drops(t *testing.T) {
 	logServer := test.StartAccessLogServer(t, "access_log.sock", 10)
 	defer logServer.Close()
 
-	if !InitModule([][2]string{{"access-log-path", logServer.Path}}, true) {
-		t.Errorf("InitModule() with access log path %s failed", logServer.Path)
+	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
+	if mod == 0 {
+		t.Errorf("OpenModule() with access log path %s failed", logServer.Path)
+	} else {
+		defer CloseModule(mod)
 	}
 
-	insertPolicyText(t, "1", []string{`
+	insertPolicyText(t, mod, "1", []string{`
 		name: "FooBar"
 		policy: 2
 		ingress_per_port_policies: <
@@ -219,7 +253,7 @@ func TestUnsupportedL7Drops(t *testing.T) {
 		`})
 
 	// Using headertester parser
-	buf := CheckOnNewConnection(t, "test.headerparser", 1, true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "FooBar",
+	buf := CheckOnNewConnection(t, mod, "test.headerparser", 1, true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "FooBar",
 		256, proxylib.OK, 1)
 
 	// Original direction data, drops with remaining data
@@ -242,11 +276,14 @@ func TestUnsupportedL7DropsGeneric(t *testing.T) {
 	logServer := test.StartAccessLogServer(t, "access_log.sock", 10)
 	defer logServer.Close()
 
-	if !InitModule([][2]string{{"access-log-path", logServer.Path}}, true) {
-		t.Errorf("InitModule() with access log path %s failed", logServer.Path)
+	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
+	if mod == 0 {
+		t.Errorf("OpenModule() with access log path %s failed", logServer.Path)
+	} else {
+		defer CloseModule(mod)
 	}
 
-	insertPolicyText(t, "1", []string{`
+	insertPolicyText(t, mod, "1", []string{`
 		name: "FooBar"
 		policy: 2
 		ingress_per_port_policies: <
@@ -269,7 +306,7 @@ func TestUnsupportedL7DropsGeneric(t *testing.T) {
 		`})
 
 	// Using headertester parser
-	buf := CheckOnNewConnection(t, "test.headerparser", 1, true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "FooBar",
+	buf := CheckOnNewConnection(t, mod, "test.headerparser", 1, true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "FooBar",
 		256, proxylib.OK, 1)
 
 	// Original direction data, drops with remaining data
@@ -292,11 +329,14 @@ func TestTwoRulesOnSamePortFirstNoL7(t *testing.T) {
 	logServer := test.StartAccessLogServer(t, "access_log.sock", 10)
 	defer logServer.Close()
 
-	if !InitModule([][2]string{{"access-log-path", logServer.Path}}, true) {
-		t.Errorf("InitModule() with access log path %s failed", logServer.Path)
+	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
+	if mod == 0 {
+		t.Errorf("OpenModule() with access log path %s failed", logServer.Path)
+	} else {
+		defer CloseModule(mod)
 	}
 
-	insertPolicyText(t, "1", []string{`
+	insertPolicyText(t, mod, "1", []string{`
 		name: "FooBar"
 		policy: 2
 		ingress_per_port_policies: <
@@ -323,11 +363,14 @@ func TestTwoRulesOnSamePortFirstNoL7Generic(t *testing.T) {
 	logServer := test.StartAccessLogServer(t, "access_log.sock", 10)
 	defer logServer.Close()
 
-	if !InitModule([][2]string{{"access-log-path", logServer.Path}}, true) {
-		t.Errorf("InitModule() with access log path %s failed", logServer.Path)
+	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
+	if mod == 0 {
+		t.Errorf("OpenModule() with access log path %s failed", logServer.Path)
+	} else {
+		defer CloseModule(mod)
 	}
 
-	insertPolicyText(t, "1", []string{`
+	insertPolicyText(t, mod, "1", []string{`
 		name: "FooBar"
 		policy: 2
 		ingress_per_port_policies: <
@@ -363,8 +406,11 @@ func TestTwoRulesOnSamePortMismatchingL7(t *testing.T) {
 	logServer := test.StartAccessLogServer(t, "access_log.sock", 10)
 	defer logServer.Close()
 
-	if !InitModule([][2]string{{"access-log-path", logServer.Path}}, true) {
-		t.Errorf("InitModule() with access log path %s failed", logServer.Path)
+	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
+	if mod == 0 {
+		t.Errorf("OpenModule() with access log path %s failed", logServer.Path)
+	} else {
+		defer CloseModule(mod)
 	}
 
 	// This registation will remain after this test.
@@ -372,7 +418,7 @@ func TestTwoRulesOnSamePortMismatchingL7(t *testing.T) {
 		return nil
 	})
 
-	err := insertPolicyTextRaw(t, "1", []string{`
+	err := insertPolicyTextRaw(t, mod, "1", []string{`
 		name: "FooBar"
 		policy: 2
 		ingress_per_port_policies: <
@@ -421,11 +467,14 @@ func TestSimplePolicy(t *testing.T) {
 	logServer := test.StartAccessLogServer(t, "access_log.sock", 10)
 	defer logServer.Close()
 
-	if !InitModule([][2]string{{"access-log-path", logServer.Path}}, true) {
-		t.Errorf("InitModule() with access log path %s failed", logServer.Path)
+	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
+	if mod == 0 {
+		t.Errorf("OpenModule() with access log path %s failed", logServer.Path)
+	} else {
+		defer CloseModule(mod)
 	}
 
-	insertPolicyText(t, "1", []string{`
+	insertPolicyText(t, mod, "1", []string{`
 		name: "FooBar"
 		policy: 2
 		ingress_per_port_policies: <
@@ -454,7 +503,7 @@ func TestSimplePolicy(t *testing.T) {
 		`})
 
 	// Using headertester parser
-	buf := CheckOnNewConnection(t, "test.headerparser", 1, true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "FooBar",
+	buf := CheckOnNewConnection(t, mod, "test.headerparser", 1, true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "FooBar",
 		80, proxylib.OK, 1)
 
 	// Original direction data, drops with remaining data

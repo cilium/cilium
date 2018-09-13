@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/envoy/cilium"
+	envoy_api_v2 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
 	"github.com/cilium/cilium/proxylib/test"
 
 	log "github.com/sirupsen/logrus"
@@ -60,16 +61,27 @@ func UpsertNetworkPolicy(s *envoy.XDSServer, p *cilium.NetworkPolicy) {
 	s.NetworkPolicyMutator.Upsert(envoy.NetworkPolicyTypeURL, p.Name, p, []string{"127.0.0.1"}, c)
 }
 
+type updater struct{}
+
+func (u *updater) PolicyUpdate(resp *envoy_api_v2.DiscoveryResponse) error {
+	log.Infof("Received policy update: %v", *resp)
+	return nil
+}
+
 func (s *ServerSuite) TestRequestAllResources(c *check.C) {
+	var updater *updater
 	xdsPath := filepath.Join(test.Tmpdir, "xds.sock")
-	StartClient(xdsPath, "sidecar~127.0.0.1~v0.default~default.svc.cluster.local")
+	client1 := NewClient(xdsPath, "sidecar~127.0.0.1~v0.default~default.svc.cluster.local", updater)
+	if client1 == nil {
+		c.Error("NewClient() failed")
+	}
 
 	// Start another client, which will never connect
 	xdsPath2 := filepath.Join(test.Tmpdir, "xds.sock2")
-	StartClient(xdsPath2, "sidecar~127.0.0.2~v0.default~default.svc.cluster.local")
-
-	// Start third client on the same path as the first, should return immediately without connecting again
-	StartClient(xdsPath, "sidecar~127.0.0.1~v0.default~default.svc.cluster.local")
+	client2 := NewClient(xdsPath2, "sidecar~127.0.0.2~v0.default~default.svc.cluster.local", updater)
+	if client2 == nil {
+		c.Error("NewClient() failed")
+	}
 
 	// Some wait before server is made available
 	time.Sleep(500 * time.Millisecond)

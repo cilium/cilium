@@ -17,20 +17,12 @@ package proxylib
 import (
 	"fmt"
 	"reflect"
-	"sync/atomic"
 
 	"github.com/cilium/cilium/pkg/envoy/cilium"
-	envoy_api_v2 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
 	core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-	"github.com/cilium/cilium/pkg/lock"
 
-	"github.com/golang/protobuf/proto"
 	log "github.com/sirupsen/logrus"
 )
-
-type PolicyUpdater interface {
-	Update(resp *envoy_api_v2.DiscoveryResponse) error
-}
 
 // Each L7 rule implements this interface
 type L7NetworkPolicyRule interface {
@@ -263,89 +255,6 @@ func (p *PolicyInstance) Matches(ingress bool, port, remoteId uint32, l7 interfa
 // Network policies keyed by endpoint policy names
 type PolicyMap map[string]*PolicyInstance
 
-var policyMap atomic.Value // holds PolicyMap
-
-func init() {
-	setPolicyMap(newPolicyMap())
-}
-
 func newPolicyMap() PolicyMap {
 	return make(PolicyMap)
-}
-
-func getPolicyMap() PolicyMap {
-	return policyMap.Load().(PolicyMap)
-}
-
-func setPolicyMap(newMap PolicyMap) {
-	policyMap.Store(newMap)
-}
-
-func PolicyMatches(endpointPolicyName string, ingress bool, port, remoteId uint32, l7 interface{}) bool {
-	// Policy maps are never modified once published
-	policy, found := getPolicyMap()[endpointPolicyName]
-	if !found {
-		log.Debugf("NPDS: Policy for %s not found (%v)", endpointPolicyName)
-	}
-
-	return found && policy.Matches(ingress, port, remoteId, l7)
-}
-
-// Used to serialize policy updates. Policy lookups do not need to take this.
-var policyUpdateMutex lock.Mutex
-
-// Update the PolicyMap from a protobuf. PolicyMap is only ever changed if the whole update is successful.
-func PolicyUpdate(resp *envoy_api_v2.DiscoveryResponse) (err error) {
-	policyUpdateMutex.Lock()
-	defer func() {
-		if r := recover(); r != nil {
-			var ok bool
-			if err, ok = r.(error); !ok {
-				err = fmt.Errorf("NPDS: Panic: %v", r)
-			}
-		}
-		policyUpdateMutex.Unlock()
-	}()
-
-	log.Debugf("NPDS: Updating policy from %v", resp)
-
-	oldMap := getPolicyMap()
-	newMap := newPolicyMap()
-
-	for _, any := range resp.Resources {
-		if any.TypeUrl != resp.TypeUrl {
-			return fmt.Errorf("NPDS: Mismatching TypeUrls: %s != %s", any.TypeUrl, resp.TypeUrl)
-		}
-		var config cilium.NetworkPolicy
-		if err = proto.Unmarshal(any.Value, &config); err != nil {
-			return fmt.Errorf("NPDS: Policy unmarshal error: %v", err)
-		}
-
-		policyName := config.GetName()
-
-		// Locate the old version, if any
-		oldPolicy, found := oldMap[policyName]
-		if found {
-			// Check if the new policy is the same as the old one
-			if proto.Equal(&config, &oldPolicy.protobuf) {
-				log.Debugf("NPDS: New policy for %s is equal to the old one, no need to change", policyName)
-				newMap[policyName] = oldPolicy
-				continue
-			}
-		}
-
-		// Validate new config
-		if err = config.Validate(); err != nil {
-			return fmt.Errorf("NPDS: Policy validation error for %s: %v", policyName, err)
-		}
-
-		// Create new PolicyInstance, may panic
-		newMap[policyName] = newPolicyInstance(&config)
-	}
-
-	// Store the new policy map
-	setPolicyMap(newMap)
-
-	log.Debugf("NPDS: Policy Update completed: %v", newMap)
-	return
 }

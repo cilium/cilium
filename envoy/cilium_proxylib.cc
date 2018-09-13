@@ -21,9 +21,14 @@ GoFilter::GoFilter(const std::string& go_module,
 				     go_module, dlerror()));
   }
 
-  GoInitCB go_init_module = GoInitCB(::dlsym(go_module_handle_, "InitModule"));
-  if (!go_init_module) {
-    throw EnvoyException(fmt::format("cilium.network: Cannot find symbol \'InitModule\' from module \'{}\': {}",
+  go_close_module_ = GoCloseModuleCB(::dlsym(go_module_handle_, "CloseModule"));
+  if (!go_close_module_) {
+    throw EnvoyException(fmt::format("cilium.network: Cannot find symbol \'CloseModule\' from module \'{}\': {}",
+				     go_module, dlerror()));
+  }
+  GoOpenModuleCB go_open_module = GoOpenModuleCB(::dlsym(go_module_handle_, "OpenModule"));
+  if (!go_open_module) {
+    throw EnvoyException(fmt::format("cilium.network: Cannot find symbol \'OpenModule\' from module \'{}\': {}",
 				     go_module, dlerror()));
   } else {
     // Convert params to KeyValue pairs
@@ -36,9 +41,9 @@ GoFilter::GoFilter(const std::string& go_module,
       values[i++][1] = GoString(pair.second);
     }
 
-    bool ok = go_init_module(GoKeyValueSlice(&values[0], num, num), ENVOY_LOG_CHECK_LEVEL(debug));
-    if (!ok) {
-      throw EnvoyException(fmt::format("cilium.network: \'{}::InitModule()\' rejected parameters",
+    go_module_id_ = go_open_module(GoKeyValueSlice(&values[0], num, num), ENVOY_LOG_CHECK_LEVEL(debug));
+    if (go_module_id_ == 0) {
+      throw EnvoyException(fmt::format("cilium.network: \'{}::OpenModule()\' rejected parameters",
 				       go_module));
     }
   }
@@ -61,6 +66,9 @@ GoFilter::GoFilter(const std::string& go_module,
 }
 
 GoFilter::~GoFilter() {
+  if (go_module_id_ != 0) {
+    go_close_module_(go_module_id_);
+  }
   if (go_module_handle_) {
     ::dlclose(go_module_handle_);
   }
@@ -74,7 +82,7 @@ GoFilter::InstancePtr GoFilter::NewInstance(Network::Connection& conn, const std
   if (go_module_handle_) {
     parser = std::make_unique<Instance>(*this, conn);
     ENVOY_CONN_LOG(trace, "GoFilter: Calling go module", conn);
-    auto res = (*go_on_new_connection_)(go_proto, conn.id(), ingress, src_id, dst_id, src_addr, dst_addr,
+    auto res = (*go_on_new_connection_)(go_module_id_, go_proto, conn.id(), ingress, src_id, dst_id, src_addr, dst_addr,
 					policy_name,
 					&parser->orig_.inject_slice_, &parser->reply_.inject_slice_);
     if (res != FILTER_OK) {
@@ -97,6 +105,9 @@ GoFilter::InstancePtr GoFilter::NewInstance(Network::Connection& conn, const std
 	break;
       case FILTER_POLICY_DROP:
 	reason = "Connection rejected";
+	break;
+      case FILTER_INVALID_INSTANCE:
+	reason = "Invalid proxylib instance";
 	break;
       }
       ENVOY_CONN_LOG(warn, "Cilium Network: Connection with parser \"{}\" rejected: {}", conn, go_proto, reason);
@@ -279,6 +290,10 @@ FilterResult GoFilter::Instance::OnIO(bool reply, Buffer::Instance& data, bool e
 
       case FILTER_INVALID_ADDRESS:
 	ENVOY_CONN_LOG(warn, "Cilium Network::OnIO: FILTER_INVALID_ADDRESS", conn_);
+	break;
+
+      case FILTER_INVALID_INSTANCE:
+	ENVOY_CONN_LOG(warn, "Cilium Network::OnIO: FILTER_INVALID_INSTANCE", conn_);
 	break;
 
       case FILTER_OK:

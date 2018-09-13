@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/envoy/cilium"
-	"github.com/cilium/cilium/proxylib/accesslog"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -36,6 +35,7 @@ type Direction struct {
 }
 
 type Connection struct {
+	Instance   *Instance
 	Id         uint64
 	Ingress    bool
 	SrcId      uint32
@@ -52,7 +52,7 @@ type Connection struct {
 
 func (connection *Connection) Matches(l7 interface{}) bool {
 	log.Debugf("proxylib: Matching policy on connection %v", connection)
-	return PolicyMatches(connection.PolicyName, connection.Ingress, connection.Port, connection.SrcId, l7)
+	return connection.Instance.PolicyMatches(connection.PolicyName, connection.Ingress, connection.Port, connection.SrcId, l7)
 }
 
 // getInjectBuf return the pointer to the inject buffer slice header for the indicated direction
@@ -97,5 +97,5 @@ func (conn *Connection) Log(entryType cilium.EntryType, l7 interface{}) {
 		DestinationAddress:    conn.DstAddr,
 		L7:                    cilium.IsL7(l7),
 	}
-	accesslog.Log(pblog)
+	conn.Instance.Log(pblog)
 }

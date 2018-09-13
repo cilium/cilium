@@ -53,14 +53,14 @@ func checkConnections(t *testing.T, expected, res Result, expConns int) {
 	checkConnectionCount(t, expConns)
 }
 
-func CheckOnNewConnection(t *testing.T, proto string, connectionId uint64, ingress bool, srcId, dstId uint32, srcAddr, dstAddr, policyName string, bufSize int, expResult Result, expNumConnections int) *byte {
+func CheckOnNewConnection(t *testing.T, instanceId uint64, proto string, connectionId uint64, ingress bool, srcId, dstId uint32, srcAddr, dstAddr, policyName string, bufSize int, expResult Result, expNumConnections int) *byte {
 	t.Helper()
 	origBuf := make([]byte, 0, bufSize)
 	replyBuf := make([]byte, 1, bufSize)
 	replyBufAddr := &replyBuf[0]
 	replyBuf = replyBuf[:0] // make the buffer empty again
 
-	res := Result(OnNewConnection(proto, connectionId, ingress, srcId, dstId, srcAddr, dstAddr, policyName, &origBuf, &replyBuf))
+	res := Result(OnNewConnection(instanceId, proto, connectionId, ingress, srcId, dstId, srcAddr, dstAddr, policyName, &origBuf, &replyBuf))
 	checkConnections(t, res, expResult, expNumConnections)
 
 	return replyBufAddr

@@ -93,21 +93,18 @@ func (cl *Client) Log(pblog *cilium.LogEntry) {
 	}
 }
 
-var client *Client
+func NewClient(accessLogPath string) *Client {
+	client := &Client{}
 
-func init() {
-	client = &Client{}
-}
-
-func SetPath(accessLogPath string) {
 	client.mutex.Lock()
 	client.path = accessLogPath
 	atomic.StoreUint32(&client.connected, 0) // Mark connection as broken
 	client.mutex.Unlock()
 	client.connect()
-	return
+	return client
 }
 
-func Log(pblog *cilium.LogEntry) {
-	client.Log(pblog)
+func (cl *Client) Close() {
+	conn := (*net.UnixConn)(atomic.LoadPointer(&cl.conn))
+	conn.Close()
 }

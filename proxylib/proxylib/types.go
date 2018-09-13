@@ -81,6 +81,7 @@ const (
 	UNKNOWN_PARSER     Result = C.FILTER_UNKNOWN_PARSER
 	UNKNOWN_CONNECTION Result = C.FILTER_UNKNOWN_CONNECTION
 	INVALID_ADDRESS    Result = C.FILTER_INVALID_ADDRESS
+	INVALID_INSTANCE   Result = C.FILTER_INVALID_INSTANCE
 )
 
 func (r Result) String() string {
@@ -97,6 +98,8 @@ func (r Result) String() string {
 		return "UNKNOWN_CONNECTION"
 	case INVALID_ADDRESS:
 		return "INVALID_ADDRESS"
+	case INVALID_INSTANCE:
+		return "INVALID_INSTANCE"
 	}
 	return "UNKNOWN_ERROR"
 }

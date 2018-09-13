@@ -24,7 +24,6 @@ import (
 	envoy_api_v2 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
 	envoy_api_v2_core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/proxylib/proxylib"
 
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/genproto/googleapis/rpc/status"
@@ -37,24 +36,42 @@ const (
 	NPDSTypeURL  = "type.googleapis.com/cilium.NetworkPolicy"
 )
 
-// Mutex is used to protect clients
-var mutex lock.Mutex
+type Updater interface {
+	PolicyUpdate(resp *envoy_api_v2.DiscoveryResponse) error
+}
 
-var clients map[string]string // Set of running clients, map from nodeId to path
+type Client struct {
+	updater Updater
+	mutex   lock.Mutex
+	nodeId  string
+	path    string
+	conn    *grpc.ClientConn
+	stream  grpc.ClientStream
+	closing bool
+}
 
-func StartClient(path, nodeId string) (err error) {
-	mutex.Lock()
-	defer mutex.Unlock()
-	if clients == nil {
-		clients = make(map[string]string)
+func (c *Client) Close() {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	if !c.closing {
+		log.Infof("NPDS: Client %s closing on %s", c.nodeId, c.path)
+		c.closing = true
+		if c.stream != nil {
+			c.stream.CloseSend()
+		}
+		if c.conn != nil {
+			c.conn.Close()
+		}
 	}
-	if oldPath, ok := clients[nodeId]; ok && oldPath == path {
-		log.Infof("NPDS: Client %s already running on %s, not starting again.", nodeId, path)
-		return nil
-	}
-	clients[nodeId] = path
+}
 
-	log.Infof("NPDS: Client %s starting on %s", nodeId, path)
+func NewClient(path, nodeId string, updater Updater) *Client {
+	c := &Client{
+		updater: updater,
+		path:    path,
+		nodeId:  nodeId,
+	}
+	log.Infof("NPDS: Client %s starting on %s", c.nodeId, c.path)
 
 	// These are used to return error if the 1st try fails
 	// Only used for testing and logging, as we keep on trying anyway.
@@ -64,14 +81,17 @@ func StartClient(path, nodeId string) (err error) {
 		starting := true
 		backOff := 1
 		for {
-			err = client(path, nodeId, func() {
+			err := c.Run(func() {
 				// Report successful start on the first try by closing the channel
 				if starting {
 					close(startErr)
 					starting = false
 				}
-				log.Infof("NPDS: Client %s connected on %s", nodeId, path)
+				log.Infof("NPDS: Client %s connected on %s", c.nodeId, c.path)
 			})
+			c.mutex.Lock()
+			closing := c.closing
+			c.mutex.Unlock()
 
 			if err != nil {
 				backOff *= 2
@@ -88,45 +108,56 @@ func StartClient(path, nodeId string) (err error) {
 				backOff = 1
 			}
 
+			if closing {
+				break
+			}
+
 			// Back off before retrying
 			delay := DialDelay * time.Duration(backOff)
-			log.Infof("NPDS: Client %s backing off retry on %s for %v", nodeId, path, delay)
+			log.Infof("NPDS: Client %s backing off retry on %s for %v", c.nodeId, c.path, delay)
 			time.Sleep(delay)
 		}
 	}()
 
 	// Block until we know if the first connection try succeeded or failed
-	err = <-startErr
-	return err
+	_ = <-startErr
+	return c
 }
 
-func client(path, nodeId string, connected func()) (err error) {
-	unixPath := "unix://" + path
+func (c *Client) Run(connected func()) (err error) {
+	unixPath := "unix://" + c.path
 
 	defer func() {
 		// Recover from any possible panics
 		if r := recover(); r != nil {
-			err = fmt.Errorf("NPDS Client %s: Panic: %v", nodeId, r)
+			err = fmt.Errorf("NPDS Client %s: Panic: %v", c.nodeId, r)
 		}
 	}()
 
-	var conn *grpc.ClientConn
 	//
 	// WithInsecure() is safe here because we are connecting to a Unix-domain socket,
 	// data of whch is never on the wire and security for which can be managed with file permissions.
 	//
-	conn, err = grpc.Dial(unixPath, grpc.WithInsecure())
+	conn, err := grpc.Dial(unixPath, grpc.WithInsecure())
 	if err != nil {
-		return fmt.Errorf("NPDS: Client %s grpc.Dial() on %s failed: %s", nodeId, path, err)
+		return fmt.Errorf("NPDS: Client %s grpc.Dial() on %s failed: %s", c.nodeId, c.path, err)
 	}
-	defer conn.Close()
-
 	client := cilium.NewNetworkPolicyDiscoveryServiceClient(conn)
 	stream, err := client.StreamNetworkPolicies(context.Background())
 	if err != nil {
-		return fmt.Errorf("NPDS: Client %s stream failed on %s: %s", nodeId, path, err)
+		conn.Close()
+		return fmt.Errorf("NPDS: Client %s stream failed on %s: %s", c.nodeId, c.path, err)
 	}
-	defer stream.CloseSend()
+	c.mutex.Lock()
+	c.conn = conn
+	c.stream = stream
+	c.mutex.Unlock()
+	defer func() {
+		c.mutex.Lock()
+		c.stream.CloseSend()
+		c.conn.Close()
+		c.mutex.Unlock()
+	}()
 
 	// VersionInfo must be empty as we have not received anything yet.
 	// ResourceNames is empty to request for all policies.
@@ -134,13 +165,13 @@ func client(path, nodeId string, connected func()) (err error) {
 	req := envoy_api_v2.DiscoveryRequest{
 		TypeUrl:       NPDSTypeURL,
 		VersionInfo:   "",
-		Node:          &envoy_api_v2_core.Node{Id: nodeId},
+		Node:          &envoy_api_v2_core.Node{Id: c.nodeId},
 		ResourceNames: nil,
 		ResponseNonce: "",
 	}
 	err = stream.Send(&req)
 	if err != nil {
-		return fmt.Errorf("NPDS: Client %s stream.Send() failed on %s: %s", nodeId, path, err)
+		return fmt.Errorf("NPDS: Client %s stream.Send() failed on %s: %s", c.nodeId, c.path, err)
 	}
 
 	connected()
@@ -150,26 +181,27 @@ func client(path, nodeId string, connected func()) (err error) {
 		// server has a new version to send, which may take a long time.
 		resp, err := stream.Recv()
 		if err == io.EOF {
-			log.Debugf("NPDS: Client %s stream on %s closed.", nodeId, path)
+			log.Debugf("NPDS: Client %s stream on %s closed.", c.nodeId, c.path)
 			break
 		}
 		if err != nil {
-			return fmt.Errorf("NPDS: Client %s stream.Recv() on %s failed: %s", nodeId, path, err)
+			return fmt.Errorf("NPDS: Client %s stream.Recv() on %s failed: %s", c.nodeId, c.path, err)
 		}
+
 		// Validate the response
 		if resp.TypeUrl != req.TypeUrl {
-			msg := fmt.Sprintf("NPDS: Client %s rejecting mismatching resource type on %s: %s", nodeId, path, resp.TypeUrl)
+			msg := fmt.Sprintf("NPDS: Client %s rejecting mismatching resource type on %s: %s", c.nodeId, c.path, resp.TypeUrl)
 			req.ErrorDetail = &status.Status{Message: msg}
 			log.Warning(msg)
 		} else {
-			err = proxylib.PolicyUpdate(resp)
+			err = c.updater.PolicyUpdate(resp)
 			if err != nil {
-				msg := fmt.Sprintf("NPDS: Client %s rejecting invalid policy on %s: %s", nodeId, path, err)
+				msg := fmt.Sprintf("NPDS: Client %s rejecting invalid policy on %s: %s", c.nodeId, c.path, err)
 				req.ErrorDetail = &status.Status{Message: msg}
 				log.Warning(msg)
 			} else {
 				// Success, update the last applied version
-				log.Debugf("NPDS: Client %s acking new policy version on %s: %s", nodeId, path, resp.VersionInfo)
+				log.Debugf("NPDS: Client %s acking new policy version on %s: %s", c.nodeId, c.path, resp.VersionInfo)
 				req.ErrorDetail = nil
 				req.VersionInfo = resp.VersionInfo
 			}
@@ -177,7 +209,7 @@ func client(path, nodeId string, connected func()) (err error) {
 		req.ResponseNonce = resp.Nonce
 		err = stream.Send(&req)
 		if err != nil {
-			return fmt.Errorf("NPDS: Client %s stream.Send() failed on %s: %s", nodeId, path, err)
+			return fmt.Errorf("NPDS: Client %s stream.Send() failed on %s: %s", c.nodeId, c.path, err)
 		}
 	}
 	return nil

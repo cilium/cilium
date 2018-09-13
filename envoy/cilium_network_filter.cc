@@ -58,28 +58,10 @@ static Registry::RegisterFactory<CiliumNetworkConfigFactory, NamedNetworkFilterC
 namespace Filter {
 namespace CiliumL3 {
 
-// Singleton registration via macro defined in envoy/singleton/manager.h
-SINGLETON_MANAGER_REGISTRATION(cilium_proxylib);
-
-namespace {
-
-// Must not be called with an empty 'go_module'
-Cilium::GoFilterSharedPtr
-createProxyLib(const std::string& go_module,
-	       const ::google::protobuf::Map< ::std::string, ::std::string >& params,
-	       Server::Configuration::FactoryContext& context) {
-  return context.singletonManager().getTyped<const Cilium::GoFilter>(
-    SINGLETON_MANAGER_REGISTERED_NAME(cilium_proxylib), [&] {
-      return std::make_shared<Cilium::GoFilter>(go_module, params);
-    });
-}
-
-} // namespace
-
-Config::Config(const ::cilium::NetworkFilter& config, Server::Configuration::FactoryContext& context)
+Config::Config(const ::cilium::NetworkFilter& config, Server::Configuration::FactoryContext&)
   : go_proto_(config.l7_proto()), policy_name_(config.policy_name()) {
   if (config.proxylib().length() > 0) {
-    proxylib_ = createProxyLib(config.proxylib(), config.proxylib_params(), context);
+    proxylib_ = std::make_shared<Cilium::GoFilter>(config.proxylib(), config.proxylib_params());
   }
 }
   

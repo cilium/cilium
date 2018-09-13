@@ -23,13 +23,10 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/cilium/cilium/proxylib/accesslog"
-	"github.com/cilium/cilium/proxylib/npds"
 	. "github.com/cilium/cilium/proxylib/proxylib"
 	_ "github.com/cilium/cilium/proxylib/testparsers"
 
 	"github.com/cilium/cilium/pkg/lock"
-
 	log "github.com/sirupsen/logrus"
 )
 
@@ -37,16 +34,26 @@ var (
 	// mutex protects connections
 	mutex lock.RWMutex
 	// Key uint64 is a connection ID allocated by Envoy, practically a monotonically increasing number
-	connections map[uint64]*Connection
+	connections map[uint64]*Connection = make(map[uint64]*Connection)
 )
 
 func init() {
 	log.Debug("proxylib: Initializing library")
-	connections = make(map[uint64]*Connection)
+}
+
+// Copy value string from C-memory to Go-memory.
+// Go strings are immutable, but byte slices are not. Converting to a byte slice will thus
+// copy the memory.
+func strcpy(str string) string {
+	return string(([]byte(str))[0:])
 }
 
 //export OnNewConnection
-func OnNewConnection(proto string, connectionId uint64, ingress bool, srcId, dstId uint32, srcAddr, dstAddr, policyName string, origBuf, replyBuf *[]byte) C.FilterResult {
+func OnNewConnection(instanceId uint64, proto string, connectionId uint64, ingress bool, srcId, dstId uint32, srcAddr, dstAddr, policyName string, origBuf, replyBuf *[]byte) C.FilterResult {
+	instance := FindInstance(instanceId)
+	if instance == nil {
+		return C.FILTER_INVALID_INSTANCE
+	}
 	// Find the parser for the proto
 	parserFactory := GetParserFactory(proto)
 	if parserFactory == nil {
@@ -60,15 +67,18 @@ func OnNewConnection(proto string, connectionId uint64, ingress bool, srcId, dst
 	if err != nil || dstPort == 0 {
 		return C.FILTER_INVALID_ADDRESS
 	}
+	// Note: Strings passed as arguments from C must be copied to Go memory to keep them valid after this function
+	// returns
 	connection := &Connection{
+		Instance:   instance,
 		Id:         connectionId,
 		Ingress:    ingress,
 		SrcId:      srcId,
 		DstId:      dstId,
-		SrcAddr:    srcAddr,
-		DstAddr:    dstAddr,
+		SrcAddr:    strcpy(srcAddr),
+		DstAddr:    strcpy(dstAddr),
 		Port:       uint32(dstPort),
-		PolicyName: policyName,
+		PolicyName: strcpy(policyName),
 		Orig:       Direction{InjectBuf: origBuf},
 		Reply:      Direction{InjectBuf: replyBuf},
 	}
@@ -174,35 +184,41 @@ func Close(connectionId uint64) {
 	mutex.Unlock()
 }
 
-// InitModule is called before any other APIs, but will be called concurrently by
-// different filter instances, which are assumed to pass the same parameters!
-//export InitModule
-func InitModule(params [][2]string, debug bool) bool {
-	var accessLogPath, xdsPath string
+// OpenModule is called before any other APIs.
+// Called concurrently by different filter instances.
+// Returns a library instance ID that must be passed to all other API calls.
+// Calls with the same parameters will return the same instance.
+// Zero return value indicates an error.
+//export OpenModule
+func OpenModule(params [][2]string, debug bool) uint64 {
+	accessLogPath, xdsPath := "", ""
+	for i := range params {
+		key := params[i][0]
+		value := params[i][1]
 
-	if debug {
-		log.SetLevel(log.DebugLevel)
-	}
-
-	for _, param := range params {
-		switch param[0] {
+		switch key {
 		case "access-log-path":
-			accessLogPath = param[1]
+			accessLogPath = value
 		case "xds-path":
-			xdsPath = param[1]
+			xdsPath = value
 		default:
-			return false
+			return 0
 		}
 	}
 
-	accesslog.SetPath(accessLogPath)
-
-	// XXX: Start NPDS client, but need the node IP for that
-	if xdsPath != "" {
-		npds.StartClient(xdsPath, "host~127.0.0.1~libcilium~localdomain")
+	if debug {
+		mutex.Lock()
+		log.SetLevel(log.DebugLevel)
+		mutex.Unlock()
 	}
+	// Copy strings from C-memory to Go-memory so that the string remains valid
+	// also after this function returns
+	return OpenInstance(strcpy(xdsPath), strcpy(accessLogPath))
+}
 
-	return true
+//export CloseModule
+func CloseModule(id uint64) {
+	CloseInstance(id)
 }
 
 // Must have empty main

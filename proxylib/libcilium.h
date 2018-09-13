@@ -70,7 +70,7 @@ extern "C" {
 #endif
 
 
-extern FilterResult OnNewConnection(GoString p0, GoUint64 p1, GoUint8 p2, GoUint32 p3, GoUint32 p4, GoString p5, GoString p6, GoString p7, GoSlice* p8, GoSlice* p9);
+extern FilterResult OnNewConnection(GoUint64 p0, GoString p1, GoUint64 p2, GoUint8 p3, GoUint32 p4, GoUint32 p5, GoString p6, GoString p7, GoString p8, GoSlice* p9, GoSlice* p10);
 
 // Each connection is assumed to be called from a single thread, so accessing connection metadata
 // does not need protection.
@@ -100,10 +100,15 @@ extern FilterResult OnData(GoUint64 p0, GoUint8 p1, GoUint8 p2, GoSlice* p3, GoS
 
 extern void Close(GoUint64 p0);
 
-// InitModule is called before any other APIs, but will be called concurrently by
-// different filter instances, which are assumed to pass the same parameters!
+// OpenModule is called before any other APIs.
+// Called concurrently by different filter instances.
+// Returns a library instance ID that must be passed to all other API calls.
+// Calls with the same parameters will return the same instance.
+// Zero return value indicates an error.
 
-extern GoUint8 InitModule(GoSlice p0, GoUint8 p1);
+extern GoUint64 OpenModule(GoSlice p0, GoUint8 p1);
+
+extern void CloseModule(GoUint64 p0);
 
 #ifdef __cplusplus
 }

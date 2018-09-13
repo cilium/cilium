@@ -1,7 +1,6 @@
 #pragma once
 
 #include "envoy/network/connection.h"
-#include "envoy/singleton/instance.h"
 
 #include "common/buffer/buffer_impl.h"
 #include "common/common/logger.h"
@@ -70,12 +69,13 @@ typedef GoSlice<FilterOp> GoFilterOpSlice;
 
 typedef GoSlice<GoString[2]> GoKeyValueSlice;
 
-typedef bool (*GoInitCB)(GoKeyValueSlice, bool);
-typedef FilterResult (*GoOnNewConnectionCB)(GoString, uint64_t, bool, uint32_t, uint32_t, GoString, GoString, GoString, GoBufferSlice*, GoBufferSlice*);
+typedef uint64_t (*GoOpenModuleCB)(GoKeyValueSlice, bool);
+typedef void (*GoCloseModuleCB)(uint64_t);
+typedef FilterResult (*GoOnNewConnectionCB)(uint64_t, GoString, uint64_t, bool, uint32_t, uint32_t, GoString, GoString, GoString, GoBufferSlice*, GoBufferSlice*);
 typedef FilterResult (*GoOnDataCB)(uint64_t, bool, bool, GoDataSlice*, GoFilterOpSlice*);
 typedef void (*GoCloseCB)(uint64_t);
 
-class GoFilter : public Singleton::Instance, public Logger::Loggable<Logger::Id::filter> {
+class GoFilter : public Logger::Loggable<Logger::Id::filter> {
 public:
   GoFilter(const std::string& go_module, const ::google::protobuf::Map< ::std::string, ::std::string >&);
   ~GoFilter();
@@ -127,9 +127,11 @@ public:
 
 private:
   void *go_module_handle_{nullptr};
+  GoCloseModuleCB go_close_module_;
   GoOnNewConnectionCB go_on_new_connection_;
   GoOnDataCB go_on_data_;
   GoCloseCB go_close_;
+  uint64_t go_module_id_{0};
 };
 
 typedef std::shared_ptr<const GoFilter> GoFilterSharedPtr;
