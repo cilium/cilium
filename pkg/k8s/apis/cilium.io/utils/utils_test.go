@@ -90,6 +90,11 @@ func Test_ParseToCiliumRule(t *testing.T) {
 						Value:  "default",
 						Source: labels.LabelSourceK8s,
 					},
+					{
+						Key:    "io.cilium.k8s.policy.derived-from",
+						Value:  "CiliumNetworkPolicy",
+						Source: labels.LabelSourceK8s,
+					},
 				},
 			},
 		},
@@ -126,6 +131,11 @@ func Test_ParseToCiliumRule(t *testing.T) {
 					{
 						Key:    "io.cilium.k8s.policy.namespace",
 						Value:  "default",
+						Source: labels.LabelSourceK8s,
+					},
+					{
+						Key:    "io.cilium.k8s.policy.derived-from",
+						Value:  "CiliumNetworkPolicy",
 						Source: labels.LabelSourceK8s,
 					},
 				},
@@ -166,6 +176,11 @@ func Test_ParseToCiliumRule(t *testing.T) {
 					{
 						Key:    "io.cilium.k8s.policy.namespace",
 						Value:  "default",
+						Source: labels.LabelSourceK8s,
+					},
+					{
+						Key:    "io.cilium.k8s.policy.derived-from",
+						Value:  "CiliumNetworkPolicy",
 						Source: labels.LabelSourceK8s,
 					},
 				},
@@ -227,6 +242,11 @@ func Test_ParseToCiliumRule(t *testing.T) {
 					{
 						Key:    "io.cilium.k8s.policy.namespace",
 						Value:  "default",
+						Source: labels.LabelSourceK8s,
+					},
+					{
+						Key:    "io.cilium.k8s.policy.derived-from",
+						Value:  "CiliumNetworkPolicy",
 						Source: labels.LabelSourceK8s,
 					},
 				},

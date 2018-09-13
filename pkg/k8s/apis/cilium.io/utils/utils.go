@@ -39,6 +39,8 @@ const (
 	// podInitLbl is the label used in a label selector to match on
 	// initializing pods.
 	podInitLbl = labels.LabelSourceReservedKeyPrefix + labels.IDNameInit
+
+	resourceTypeCiliumNetworkPolicy = "CiliumNetworkPolicy"
 )
 
 var (
@@ -47,10 +49,11 @@ var (
 )
 
 // GetPolicyLabels returns a LabelArray for the given namespace and name.
-func GetPolicyLabels(ns, name string) labels.LabelArray {
+func GetPolicyLabels(ns, name, derivedFrom string) labels.LabelArray {
 	return []*labels.Label{
 		labels.NewLabel(k8sConst.PolicyLabelName, name, labels.LabelSourceK8s),
 		labels.NewLabel(k8sConst.PolicyLabelNamespace, ns, labels.LabelSourceK8s),
+		labels.NewLabel(k8sConst.PolicyLabelDerivedFrom, derivedFrom, labels.LabelSourceK8s),
 	}
 }
 
@@ -214,7 +217,7 @@ func ParseToCiliumRule(namespace, name string, r *api.Rule) *api.Rule {
 	parseToCiliumIngressRule(namespace, r, retRule)
 	parseToCiliumEgressRule(namespace, r, retRule)
 
-	policyLbls := GetPolicyLabels(namespace, name)
+	policyLbls := GetPolicyLabels(namespace, name, resourceTypeCiliumNetworkPolicy)
 	if retRule.Labels == nil {
 		retRule.Labels = make(labels.LabelArray, 0, len(policyLbls)+len(r.Labels))
 	}
