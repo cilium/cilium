@@ -66,3 +66,4 @@
 #define LB_DEBUG
 #endif
 #define MONITOR_AGGREGATION 5
+#define MTU 1500
