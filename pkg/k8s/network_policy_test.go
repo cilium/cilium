@@ -184,6 +184,7 @@ func (s *K8sSuite) TestParseNetworkPolicyIngress(c *C) {
 				labels.ParseLabelArray(
 					"k8s:"+k8sConst.PolicyLabelName,
 					"k8s:"+k8sConst.PolicyLabelNamespace+"=default",
+					"k8s:"+k8sConst.PolicyLabelDerivedFrom+"="+resourceTypeNetworkPolicy,
 				),
 			},
 		},
@@ -282,6 +283,7 @@ func (s *K8sSuite) TestParseNetworkPolicyNoSelectors(c *C) {
 			Labels: labels.ParseLabelArray(
 				"k8s:"+k8sConst.PolicyLabelName+"=ingress-cidr-test",
 				"k8s:"+k8sConst.PolicyLabelNamespace+"=myns",
+				"k8s:"+k8sConst.PolicyLabelDerivedFrom+"="+resourceTypeNetworkPolicy,
 			),
 		},
 	}
@@ -380,6 +382,7 @@ func (s *K8sSuite) TestParseNetworkPolicyEgress(c *C) {
 				labels.ParseLabelArray(
 					"k8s:"+k8sConst.PolicyLabelName,
 					"k8s:"+k8sConst.PolicyLabelNamespace+"=default",
+					"k8s:"+k8sConst.PolicyLabelDerivedFrom+"="+resourceTypeNetworkPolicy,
 				),
 			},
 		},
