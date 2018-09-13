@@ -335,6 +335,14 @@ enum {
 	CT_RELATED,
 };
 
+/* filter_dns returns true if the packet is a DNS response, false otherwise. */
+static inline bool filter_dns(__u8 nexthdr, __u16 dport, __u8 dir)
+{
+	/* The dport represents the destination of the connection. */
+	return ((nexthdr == IPPROTO_UDP || nexthdr == IPPROTO_UDP) &&
+		dport == bpf_htons(53) && dir == CT_INGRESS);
+}
+
 struct ipv6_ct_tuple {
 	union v6addr	daddr;
 	union v6addr	saddr;
@@ -356,6 +364,11 @@ ipv6_ct_tuple_get_daddr(struct ipv6_ct_tuple *tuple)
 #endif
 }
 
+static inline bool ipv6_is_dns(struct ipv6_ct_tuple *tuple, int dir)
+{
+	return filter_dns(tuple->nexthdr, tuple->dport, dir);
+}
+
 struct ipv4_ct_tuple {
 	__be32		daddr;
 	__be32		saddr;
@@ -375,6 +388,11 @@ ipv4_ct_tuple_get_daddr(struct ipv4_ct_tuple *tuple)
 #else
 	return tuple->daddr;
 #endif
+}
+
+static inline bool ipv4_is_dns(struct ipv4_ct_tuple *tuple, int dir)
+{
+	return filter_dns(tuple->nexthdr, tuple->dport, dir);
 }
 
 struct ct_entry {
