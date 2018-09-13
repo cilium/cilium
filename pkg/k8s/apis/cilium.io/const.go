@@ -18,8 +18,13 @@ const (
 	// PolicyLabelName is the name of the policy label which refers to the
 	// k8s policy name.
 	PolicyLabelName = "io.cilium.k8s.policy.name"
+
 	// PolicyLabelNamespace is the policy's namespace set in k8s.
 	PolicyLabelNamespace = "io.cilium.k8s.policy.namespace"
+
+	// PolicyLabelDerivedFrom is the resource type which was used to
+	// derived the policy rule
+	PolicyLabelDerivedFrom = "io.cilium.k8s.policy.derived-from"
 
 	// PolicyLabelServiceAccount is the name of the label associated with
 	// an endpoint to represent the Kubernetes ServiceAccount name
