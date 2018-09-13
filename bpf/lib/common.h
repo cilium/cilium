@@ -518,4 +518,22 @@ static inline void relax_verifier(void)
 	csum_diff(0, 0, &foo, 1, 0);
 }
 
+/* conn_is_dns returns true if the connection is DNS, false otherwise.
+ *
+ * @dport: Connection destination port.
+ *
+ * To reduce program complexity, we ignore nexthdr and dir here:
+ * nexthdr: The parser will not fill dport if nexthdr is not TCP/UDP.
+ * dir:     Ideally we would only consider responses, but requests are likely
+ *          to be small anyway.
+ * */
+static inline bool conn_is_dns(__u16 dport)
+{
+	if (dport == bpf_htons(53)) {
+		relax_verifier();
+		return true;
+	}
+	return false;
+}
+
 #endif

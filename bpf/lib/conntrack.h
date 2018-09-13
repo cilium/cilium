@@ -408,6 +408,8 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 #endif
 out:
 	cilium_dbg(skb, DBG_CT_VERDICT, ret < 0 ? -ret : ret, ct_state->rev_nat_index);
+	if (conn_is_dns(tuple->dport))
+		*monitor = MTU;
 	return ret;
 }
 
@@ -558,6 +560,8 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 	}
 out:
 	cilium_dbg(skb, DBG_CT_VERDICT, ret < 0 ? -ret : ret, ct_state->rev_nat_index);
+	if (conn_is_dns(tuple->dport))
+		*monitor = MTU;
 	return ret;
 }
 
