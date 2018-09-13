@@ -61,6 +61,12 @@ func GetIdentities() []*models.Identity {
 		}
 
 	})
+	// append user reserved identities
+	for k, v := range reservedIdentityCache {
+		if IsUserReservedIdentity(k) {
+			identities = append(identities, v.GetModel())
+		}
+	}
 
 	return identities
 }
