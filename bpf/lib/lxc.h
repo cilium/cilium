@@ -97,7 +97,7 @@ static inline int __inline__
 ipv4_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 			  int l4_off, __be16 new_port, __be16 old_port, __be32 old_ip,
 			  struct ipv4_ct_tuple *tuple, __u32 identity,
-			  int forwarding_reason, bool monitor)
+			  int forwarding_reason, __u32 monitor)
 {
 	__be32 host_ip = IPV4_GATEWAY;
 	struct proxy4_tbl_key key = {
@@ -150,7 +150,7 @@ static inline int __inline__
 ipv6_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 			  int l4_off, __be16 new_port, __be16 old_port,
 			  union v6addr old_ip, struct ipv6_ct_tuple *tuple, union v6addr *host_ip,
-			  __u32 identity, int forwarding_reason, bool monitor)
+			  __u32 identity, int forwarding_reason, __u32 monitor)
 {
 	struct proxy6_tbl_key key = {
 		.saddr = tuple->daddr,
