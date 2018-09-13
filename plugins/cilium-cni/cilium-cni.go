@@ -423,7 +423,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 		allInterfacesPath := filepath.Join("/proc", "sys", "net", "ipv6", "conf", "all", "disable_ipv6")
 		err = connector.WriteSysConfig(allInterfacesPath, "0\n")
 		if err != nil {
-			logger.WithError(err).Warn("unable to disable ipv6 on all interfaces")
+			logger.WithError(err).Warn("unable to enable ipv6 on all interfaces")
 		}
 		macAddrStr, err = configureIface(ipam, args.IfName, &state)
 		return err
