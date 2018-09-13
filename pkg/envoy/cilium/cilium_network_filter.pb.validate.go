@@ -42,6 +42,14 @@ func (m *NetworkFilter) Validate() error {
 		return nil
 	}
 
+	// no validation rules for Proxylib
+
+	// no validation rules for ProxylibParams
+
+	// no validation rules for L7Proto
+
+	// no validation rules for PolicyName
+
 	return nil
 }
 
