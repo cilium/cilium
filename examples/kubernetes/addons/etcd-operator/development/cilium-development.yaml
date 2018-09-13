@@ -295,6 +295,7 @@ spec:
       - name: etcd-secrets
         secret:
           secretName: cilium-etcd-client-tls
+          optional: true
       # To read the clustermesh configuration
       - name: clustermesh-secrets
         secret:
