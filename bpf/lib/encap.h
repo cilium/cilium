@@ -24,7 +24,7 @@
 #ifdef ENCAP_IFINDEX
 static inline int __inline__
 encap_and_redirect_with_nodeid(struct __sk_buff *skb, __u32 tunnel_endpoint,
-			       __u32 seclabel, bool monitor)
+			       __u32 seclabel, __u32 monitor)
 {
 	struct bpf_tunnel_key key = {};
 	__u32 node_id;
@@ -48,7 +48,7 @@ encap_and_redirect_with_nodeid(struct __sk_buff *skb, __u32 tunnel_endpoint,
 
 static inline int __inline__
 encap_and_redirect(struct __sk_buff *skb, struct endpoint_key *k,
-		   __u32 seclabel, bool monitor)
+		   __u32 seclabel, __u32 monitor)
 {
 	struct endpoint_key *tunnel;
 

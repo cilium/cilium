@@ -200,7 +200,7 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 					 void *tuple, int action, int dir,
 					 struct ct_state *ct_state,
 					 bool is_tcp, union tcp_flags seen_flags,
-					 bool *monitor)
+					 __u32 *monitor)
 {
 	struct ct_entry *entry;
 	int ret;
@@ -248,7 +248,7 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 			else
 				entry->tx_closing = 1;
 
-			*monitor = true;
+			*monitor = TRACE_PAYLOAD_LEN;
 			if (ct_entry_alive(entry))
 				break;
 			__ct_update_timeout(entry, CT_CLOSE_TIMEOUT, dir, seen_flags);
@@ -258,7 +258,7 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 		return CT_ESTABLISHED;
 	}
 
-	*monitor = true;
+	*monitor = TRACE_PAYLOAD_LEN;
 	return CT_NEW;
 }
 
@@ -287,7 +287,7 @@ static inline void __inline__ ipv6_ct_tuple_reverse(struct ipv6_ct_tuple *tuple)
 /* Offset must point to IPv6 */
 static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 					struct __sk_buff *skb, int l4_off, int dir,
-					struct ct_state *ct_state, bool *monitor)
+					struct ct_state *ct_state, __u32 *monitor)
 {
 	int ret = CT_NEW, action = ACTION_UNSPEC;
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
@@ -441,7 +441,7 @@ static inline void ct4_cilium_dbg_tuple(struct __sk_buff *skb, __u8 type,
 /* Offset must point to IPv4 header */
 static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 					struct __sk_buff *skb, int off, int dir,
-					struct ct_state *ct_state, bool *monitor)
+					struct ct_state *ct_state, __u32 *monitor)
 {
 	int ret = CT_NEW, action = ACTION_UNSPEC;
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
@@ -746,14 +746,14 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 #else /* !CONNTRACK */
 static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 					struct __sk_buff *skb, int off, int dir,
-					struct ct_state *ct_state, bool *monitor)
+					struct ct_state *ct_state, __u32 *monitor)
 {
 	return 0;
 }
 
 static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 					struct __sk_buff *skb, int off, int dir,
-					struct ct_state *ct_state, bool *monitor)
+					struct ct_state *ct_state, __u32 *monitor)
 {
 	return 0;
 }
