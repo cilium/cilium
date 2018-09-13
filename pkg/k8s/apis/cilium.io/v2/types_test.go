@@ -145,7 +145,7 @@ var (
 				ToCIDRSet: []api.CIDRRule{{Cidr: api.CIDR("10.0.0.0/8"), ExceptCIDRs: []api.CIDR{"10.96.0.0/12"}}},
 			},
 		},
-		Labels: k8sUtils.GetPolicyLabels("default", "rule1"),
+		Labels: k8sUtils.GetPolicyLabels("default", "rule1", "CiliumNetworkPolicy"),
 	}
 
 	rawRule = []byte(`{
