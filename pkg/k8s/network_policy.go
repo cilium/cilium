@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	k8sCiliumUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -26,6 +27,10 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+const (
+	resourceTypeNetworkPolicy = "NetworkPolicy"
 )
 
 var (
@@ -54,7 +59,7 @@ func GetPolicyLabelsv1(np *networkingv1.NetworkPolicy) labels.LabelArray {
 
 	ns := k8sUtils.ExtractNamespace(&np.ObjectMeta)
 
-	return k8sUtils.GetPolicyLabels(ns, policyName)
+	return k8sCiliumUtils.GetPolicyLabels(ns, policyName, resourceTypeNetworkPolicy)
 }
 
 func parseNetworkPolicyPeer(namespace string, peer *networkingv1.NetworkPolicyPeer) *api.EndpointSelector {
