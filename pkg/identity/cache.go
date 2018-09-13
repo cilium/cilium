@@ -41,7 +41,7 @@ func GetIdentityCache() IdentityCache {
 			if gi, ok := val.(globalIdentity); ok {
 				cache[NumericIdentity(id)] = gi.LabelArray()
 			} else {
-				log.Warning("Ignoring unknown identity type '%s': %+v",
+				log.Warningf("Ignoring unknown identity type '%s': %+v",
 					reflect.TypeOf(val), val)
 			}
 		}
