@@ -356,6 +356,11 @@ ipv6_ct_tuple_get_daddr(struct ipv6_ct_tuple *tuple)
 #endif
 }
 
+static inline bool ipv6_is_dns(struct ipv6_ct_tuple *tuple)
+{
+	return tuple->nexthdr == IPPROTO_UDP && tuple->dport == bpf_htons(53);
+}
+
 struct ipv4_ct_tuple {
 	__be32		daddr;
 	__be32		saddr;
@@ -375,6 +380,11 @@ ipv4_ct_tuple_get_daddr(struct ipv4_ct_tuple *tuple)
 #else
 	return tuple->daddr;
 #endif
+}
+
+static inline bool ipv4_is_dns(struct ipv4_ct_tuple *tuple)
+{
+	return tuple->nexthdr == IPPROTO_UDP && tuple->dport == bpf_htons(53);
 }
 
 struct ct_entry {
