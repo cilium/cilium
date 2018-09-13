@@ -30,7 +30,7 @@ RUN make LOCKDEBUG=$LOCKDEBUG PKG_BUILD=1 V=$V DESTDIR=/tmp/install clean-contai
 # built while allowing the new versions to make changes that are not
 # backwards compatible.
 #
-FROM quay.io/cilium/cilium-runtime:2018-08-06
+FROM quay.io/cilium/cilium-runtime:2018-09-13
 LABEL maintainer="maintainer@cilium.io"
 COPY --from=builder /tmp/install /
 COPY plugins/cilium-cni/cni-install.sh /cni-install.sh
