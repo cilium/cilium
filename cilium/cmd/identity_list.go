@@ -15,13 +15,13 @@
 package cmd
 
 import (
+	"sort"
+
 	identityApi "github.com/cilium/cilium/api/v1/client/policy"
-	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/api"
 	pkg "github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/labels"
 
 	"github.com/spf13/cobra"
 )
@@ -42,11 +42,6 @@ func init() {
 }
 
 func listIdentities(args []string) {
-	reserved := []*models.Identity{}
-	identity.IterateReservedIdentities(func(k string, v identity.NumericIdentity) {
-		reserved = append(reserved, identity.NewIdentity(v, labels.NewLabelsFromModel([]string{"reserved:" + k})).GetModel())
-	})
-
 	params := identityApi.NewGetIdentityParams().WithTimeout(api.ClientTimeout)
 	if len(args) != 0 {
 		params = params.WithLabels(args)
@@ -61,9 +56,8 @@ func listIdentities(args []string) {
 		}
 	}
 
-	if len(args) != 0 {
-		printIdentities(identities.Payload)
-	} else {
-		printIdentities(append(reserved, identities.Payload...))
-	}
+	// sort identities by ID
+	im := identity.IdentitiesModel(identities.Payload)
+	sort.Slice(im, im.Less)
+	printIdentities(identities.Payload)
 }
