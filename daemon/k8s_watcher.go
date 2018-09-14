@@ -1699,17 +1699,10 @@ func (d *Daemon) deleteCiliumNetworkPolicyV2(cnp *cilium_v2.CiliumNetworkPolicy)
 		log.Debugf("Unable to remove controller %s: %s", ctrlName, err)
 	}
 
-	rules, err := cnp.Parse()
-	if err == nil {
-		if len(rules) > 0 {
-			// On a CNP, the transformed rule is stored in the local repository
-			// with a set of labels. On a CNP with multiple rules all rules are
-			// stored in the local repository with the same set of labels.
-			// Therefore the deletion on the local repository can be done with
-			// the set of labels of the first rule.
-			_, err = d.PolicyDelete(rules[0].Labels)
-		}
-	}
+	labels := k8sUtils.GetPolicyLabels(cnp.ObjectMeta.Namespace, cnp.ObjectMeta.Name,
+		k8sUtils.ResourceTypeCiliumNetworkPolicy)
+
+	_, err = d.PolicyDelete(labels)
 	if err == nil {
 		scopedLog.Info("Deleted CiliumNetworkPolicy")
 	} else {
