@@ -478,7 +478,11 @@ func cmdDel(args *skel.CmdArgs) error {
 		log.WithError(err).Warn("Deletion of endpoint failed")
 	}
 
-	return ns.WithNetNSPath(args.Netns, func(netNs ns.NetNS) error {
-		return removeIfFromNSIfExists(netNs, args.IfName)
-	})
+	netNs, err := ns.GetNS(args.Netns)
+	if err != nil {
+		return fmt.Errorf("failed to open netns %q: %s", args.Netns, err)
+	}
+	defer netNs.Close()
+
+	return removeIfFromNSIfExists(netNs, args.IfName)
 }
