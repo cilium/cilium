@@ -89,6 +89,19 @@ type PolicyEntryDump struct {
 	Key PolicyKey
 }
 
+// PolicyEntriesDump is a wrapper for a slice of PolicyEntryDump
+type PolicyEntriesDump []PolicyEntryDump
+
+// Less returns true if the element in index `i` is lower than the element
+// in index `j`
+func (p PolicyEntriesDump) Less(i, j int) bool {
+	if p[i].Key.TrafficDirection < p[j].Key.TrafficDirection {
+		return true
+	}
+	return p[i].Key.TrafficDirection <= p[j].Key.TrafficDirection &&
+		p[i].Key.Identity < p[j].Key.Identity
+}
+
 func (key *PolicyKey) String() string {
 
 	trafficDirectionString := (TrafficDirection)(key.TrafficDirection).String()
@@ -205,9 +218,9 @@ func (pm *PolicyMap) Dump() (string, error) {
 	return buffer.String(), nil
 }
 
-func (pm *PolicyMap) DumpToSlice() ([]PolicyEntryDump, error) {
+func (pm *PolicyMap) DumpToSlice() (PolicyEntriesDump, error) {
 	var key, nextKey PolicyKey
-	entries := []PolicyEntryDump{}
+	entries := PolicyEntriesDump{}
 	for {
 		var entry PolicyEntry
 		err := bpf.GetNextKey(

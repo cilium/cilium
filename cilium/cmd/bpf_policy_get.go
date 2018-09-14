@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strconv"
 	"text/tabwriter"
 
@@ -75,6 +76,7 @@ func listMap(cmd *cobra.Command, args []string) {
 	if err != nil {
 		Fatalf("Error while opening bpf Map: %s\n", err)
 	}
+	sort.Slice(statsMap, statsMap.Less)
 
 	if command.OutputJSON() {
 		if err := command.PrintOutput(statsMap); err != nil {
