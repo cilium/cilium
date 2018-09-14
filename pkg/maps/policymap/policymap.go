@@ -307,26 +307,6 @@ func (pm *PolicyMap) Close() error {
 	return err
 }
 
-// Validate checks the map pinned to the specified path to ensure that the map
-// attributes such as type, key length, value length are the same as for the
-// current version of Cilium.
-func Validate(path string) (bool, error) {
-	dummy := bpf.NewMap(path, bpf.BPF_MAP_TYPE_HASH,
-		int(unsafe.Sizeof(PolicyKey{})),
-		int(unsafe.Sizeof(PolicyEntry{})), MaxEntries, 0, nil)
-
-	existing, err := bpf.OpenMap(path)
-	if err != nil {
-		return true, err
-	}
-
-	if existing != nil {
-		return existing.MetadataDiff(dummy), nil
-	}
-
-	return true, nil
-}
-
 func OpenMap(path string) (*PolicyMap, bool, error) {
 	fd, isNewMap, err := bpf.OpenOrCreateMap(
 		path,

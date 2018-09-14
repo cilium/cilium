@@ -788,11 +788,6 @@ func (d *Daemon) init() error {
 	}
 
 	if !option.Config.DryMode {
-		// Validate existing map paths before attempting BPF compile.
-		if err = d.validateExistingMaps(); err != nil {
-			log.WithError(err).Error("Error while validating maps")
-			return err
-		}
 
 		if err := d.compileBase(); err != nil {
 			return err
@@ -1339,14 +1334,6 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 	return &d, restoredEndpoints, nil
 }
 
-func (d *Daemon) validateExistingMaps() error {
-	walker := func(path string, _ os.FileInfo, _ error) error {
-		return mapValidateWalker(path)
-	}
-
-	return filepath.Walk(bpf.MapPrefixPath(), walker)
-}
-
 func (d *Daemon) collectStaleMapGarbage() {
 	if option.Config.DryMode {
 		return
@@ -1409,31 +1396,6 @@ func (d *Daemon) staleMapWalker(path string) error {
 		if strings.HasPrefix(filename, m) {
 			if id := strings.TrimPrefix(filename, m); id != filename {
 				d.checkStaleMap(path, filename, id)
-			}
-		}
-	}
-
-	return nil
-}
-
-func mapValidateWalker(path string) error {
-	prefixToValidator := map[string]bpf.MapValidator{
-		policymap.MapName: policymap.Validate,
-	}
-
-	filename := filepath.Base(path)
-	for m, validate := range prefixToValidator {
-		if strings.HasPrefix(filename, m) {
-			valid, err := validate(path)
-			switch {
-			case err != nil:
-				return err
-			case !valid:
-				log.WithField(logfields.Path, filename).Info("Outdated non-persistent BPF map found, removing...")
-
-				if err := os.Remove(path); err != nil {
-					return err
-				}
 			}
 		}
 	}
