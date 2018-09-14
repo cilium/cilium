@@ -7,9 +7,11 @@ Alexei Starovoitov                      alexei.starovoitov@gmail.com
 Amey Bhide                              amey@covalent.io
 Amre Shakimov                           amre@covalent.io
 André Martins                           andre@cilium.io
+Andrew Sy Kim                           kim.andrewsy@gmail.com
+Anit Gandhi                             anitgandhi@gmail.com
 Arvind Soni                             arvindsoni@gmail.com
 Ashwin Paranjpe                         ashwin@covalent.io
-ChristopherBiscardi                     chris@christopherbiscardi.com
+Christopher Biscardi                    chris@christopherbiscardi.com
 Craig Box                               craig.box@gmail.com
 Cynthia Thomas                          cynthia@covalent.io
 Daniel Borkmann                         daniel@iogearbox.net
@@ -27,11 +29,13 @@ Fred Hsu                                fredlhsu@gmail.com
 Fulvio Risso                            fulvio.risso@polito.it
 Gianluca Arbezzano                      gianarb92@gmail.com
 Ian Vernon                              ian@cilium.io
+Ifeanyi Ubah                            ify1992@yahoo.com
 Ivar Lazzaro                            ivarlazzaro@gmail.com
 Jan-Erik Rediger                        janerik@fnordig.de
 Jarno Rajahalme                         jarno@covalent.io
 Jerry J. Muzsik                         jerrymuzsik@icloud.com
 Jess Frazelle                           acidburn@microsoft.com
+Jiong Wang                              jiong.wang@netronome.com
 Joe Farrell                             joe2farrell@gmail.com
 Joe Stringer                            joe@covalent.io
 John Fastabend                          john.fastabend@gmail.com
@@ -50,7 +54,7 @@ Martin Charles                          martincharles07@gmail.com
 Matthew Gumport                         me@gum.pt
 Matt Layher                             mdlayher@gmail.com
 Michael Schubert                        michael@kinvolk.io
-Michal Rostecki                         mrostecki@suse.com
+Michal Rostecki                         mrostecki@suse.de
 Michi Mutsuzaki                         michi@covalent.io
 Nathan Taylor                           ntaylor1781@gmail.com
 Nirmoy Das                              ndas@suse.de
@@ -62,11 +66,13 @@ Ray Bejjani                             ray@covalent.io
 Romain Lenglet                          romain@covalent.io
 Ross Guarino                            rssguar@gmail.com
 Russell Bryant                          russell@russellbryant.net
+Scott Albertson                         ascottalbertson@gmail.com
 Sergey Generalov                        sergey@genbit.ru
 Shantanu Deshpande                      shantanud106@gmail.com
 Simon Pasquier                          spasquier@mirantis.com
 Steven Ceuppens                         steven.ceuppens@icloud.com
 Strukov Anton                           anstrukov@luxoft.com
+Taeung Song                             treeze.taeung@gmail.com
 Tasdik Rahman                           prodicus@outlook.com
 Thomas Bachman                          tbachman@yahoo.com
 Thomas Graf                             thomas@cilium.io
@@ -74,11 +80,13 @@ Tobias Klauser                          tklauser@distanz.ch
 Tony Lambiris                           tony@criticalstack.com
 Trevor Roberts Jr                       Trevor.Roberts.Jr@gmail.com
 Zhu Yan                                 hackzhuyan@gmail.com
+Zinin D.A                               admin@kami-no.ru
 
 The following additional people are mentioned in commit logs as having provided
 helpful bug reports, suggestions or have otherwise provided value to the
 project:
 
 Brenden Blanco                          bblanco@plumgrid.com
+Jakub Kicinski                          jakub.kicinski@netronome.com
 Salvatore Orlando                       salv.orlando@gmail.com
 Tomás Senart                            tsenart@gmail.com
