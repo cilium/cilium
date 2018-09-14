@@ -2,6 +2,55 @@
 NEWS
 ******
 
+v1.1.5
+======
+
+::
+
+	André Martins (4):
+	      k8s: fix clean state InitContainer permissions
+	      k8s: add /status to RBAC for backport compatability
+	      examples/kubernetes: add node.kubernetes.io/not-ready toleration
+	      Revert "test/k8sT: use specific commit for cilium/star-wars-demo YAMLs"
+
+	Arvind Soni (1):
+	      Change the prometheus yaml to deploy in monitoring namespace
+
+	Ian Vernon (2):
+	      endpoint: remove revision check around L4 policy calculation
+	      test: add CI test for endpoint with already-allocated identity
+
+	Jarno Rajahalme (4):
+	      envoy: Set route reply policy to retry on "5xx"
+	      envoy: Use POST for admin interface
+	      envoy: Unix domain socket for Envoy admin.
+	      envoy_test: Better logging for Envoy.
+
+	Joe Stringer (3):
+	      lxcmap: Improve error messages in DeleteElement()
+	      lxcmap: Fix always returning an error on delete
+	      examples/kubernetes: Add clean-cilium-bpf-state option
+
+	Maciej Kwiek (1):
+	      Ignore non-existing link error in cni del
+
+	Romain Lenglet (4):
+	      xds: Ignore completion timeouts on resource upsert and delete
+	      endpoint: In BPF regeneration, create/remove listeners early
+	      Revert "endpoint: In BPF regeneration, create/remove listeners early"
+	      proxy: Remove port binding check on redirect creation
+
+	Thomas Graf (9):
+	      agent: Fix periodic agent unhealthiness due to CompilationLock contention
+	      alloactor: Log allocator garbage collection events
+	      allocator: Periodically re-create master keys for local allocations
+	      allocator: Only re-create verified local keys
+	      endpoint: Fix realized state corruption when initial policy regeneration fails
+	      lbmap: Mark internal APIs as private
+	      lbmap: Introduce lock to allow for transactional operations
+	      lbmap: Support transactional updates
+	      lbmap: Guarantee order of backends while scaling service
+
 v1.1.4
 ======
 
