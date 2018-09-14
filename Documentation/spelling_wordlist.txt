@@ -2,6 +2,7 @@
 admin
 Alemayhu
 allocators
+alu
 ami
 analytics
 api
@@ -298,6 +299,8 @@ lwt
 macOS
 Majkowski
 Marek
+mattr
+mc
 Meetup
 Menlo
 Mesos
@@ -436,6 +439,7 @@ subcommands
 subdirectories
 subnet
 subnets
+subregister
 subregisters
 Suchakra
 superset
