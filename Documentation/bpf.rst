@@ -1105,6 +1105,15 @@ For debugging, clang can generate the assembler output as follows:
     __license:
         .asciz    "GPL"
 
+Starting from LLVM's release 6.0, there is also assembler parser support. You can
+program using BPF assembler directly, then use llvm-mc to assemble it into an
+object file. For example, you can assemble the xdp-example.S listed above back
+into object file using:
+
+::
+
+    $ llvm-mc -triple bpf -filetype=obj -o xdp-example.o xdp-example.S
+
 Furthermore, more recent LLVM versions (>= 4.0) can also store debugging
 information in dwarf format into the object file. This can be done through
 the usual workflow by adding ``-g`` for compilation.
@@ -1371,12 +1380,64 @@ the kernel's ``struct pt_regs`` that maps CPU registers, or other kernel
 structures where CPU's register width matters. In all other cases such
 as networking, the use of ``clang -target bpf`` is the preferred choice.
 
-Note that LLVM's BPF back end currently does not support generating code
-that makes use of BPF's 32 bit subregisters. Inline assembly for BPF is
-currently unsupported, too.
+Also, LLVM started to support 32-bit subregisters and BPF ALU32 instructions since
+LLVM's release 7.0. A new code generation attribute ``alu32`` is added. When it is
+enabled, LLVM will try to use 32-bit subregisters whenever possible, typically
+when there are operations on 32-bit types. The associated ALU instructions with
+32-bit subregisters will become ALU32 instructions. For example, for the
+following sample code:
 
-Furthermore, compilation from BPF assembly (e.g. ``llvm-mc xdp-example.S -arch bpf -filetype=obj -o xdp-example.o``)
-is currently not supported either due to missing BPF assembly parser.
+::
+
+    $ cat 32-bit-example.c
+        void cal(unsigned int *a, unsigned int *b, unsigned int *c)
+        {
+          unsigned int sum = *a + *b;
+          *c = sum;
+        }
+
+At default code generation, the assembler will looks like:
+
+::
+
+    $ clang -target bpf -emit-llvm -S 32-bit-example.c
+    $ llc -march=bpf 32-bit-example.ll
+    $ cat 32-bit-example.s
+        cal:
+          r1 = *(u32 *)(r1 + 0)
+          r2 = *(u32 *)(r2 + 0)
+          r2 += r1
+          *(u32 *)(r3 + 0) = r2
+          exit
+
+64-bit registers are used, hence the addition means 64-bit addition. Now, if you
+enable the new 32-bit subregisters support by specifying ``-mattr=+alu32``, then
+the assembler will looks like:
+
+::
+
+    $ llc -march=bpf -mattr=+alu32 32-bit-example.ll
+    $ cat 32-bit-example.s
+        cal:
+          w1 = *(u32 *)(r1 + 0)
+          w2 = *(u32 *)(r2 + 0)
+          w2 += w1
+          *(u32 *)(r3 + 0) = w2
+          exit
+
+``w`` register, meaning 32-bit subregister, will be used instead of 64-bit ``r``
+register.
+
+Enable 32-bit subregisters might help reducing type extension instruction
+sequences. It could also help kernel eBPF JIT compiler for 32-bit architectures
+for which registers pairs are used to model the 64-bit eBPF registers and extra
+instructions are needed for manipulating the high 32-bit. Given read from 32-bit
+subregister is guaranteed to read from low 32-bit only even though write still
+needs to clear the high 32-bit, if the JIT compiler has known the definition of
+one register only has subregister reads, then instructions for setting the high
+32-bit of the destination could be eliminated.
+
+Note inline assembly for BPF is currently unsupported.
 
 When writing C programs for BPF, there are a couple of pitfalls to be aware
 of, compared to usual application development with C. The following items
