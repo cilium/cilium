@@ -53,11 +53,18 @@ pipeline {
             }
 
             steps {
-                sh 'env'
-                Status("PENDING", "${env.JOB_NAME}")
-                sh 'rm -rf src; mkdir -p src/github.com/cilium'
-                sh 'ln -s $WORKSPACE src/github.com/cilium/cilium'
-                checkout scm
+                parallel(
+                    "checkout": {
+                        sh 'env'
+                        Status("PENDING", "${env.JOB_NAME}")
+                        sh 'rm -rf src; mkdir -p src/github.com/cilium'
+                        sh 'ln -s $WORKSPACE src/github.com/cilium/cilium'
+                        checkout scm
+                    },
+                    "cleanup": {
+                        sh '/usr/local/bin/cleanup || true'
+                    }
+                )
             }
         }
         stage('Boot VMs'){
