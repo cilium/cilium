@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -133,8 +133,8 @@ func (n *TraceNotify) DumpInfo(data []byte) {
 
 // DumpVerbose prints the trace notification in human readable form
 func (n *TraceNotify) DumpVerbose(dissect bool, data []byte, prefix string) {
-	fmt.Printf("%s MARK %#x FROM %d %s: %d bytes, state %s",
-		prefix, n.Hash, n.Source, obsPoint(n.ObsPoint), n.OrigLen, connState(n.Reason))
+	fmt.Printf("%s MARK %#x FROM %d %s: %d bytes (%d captured), state %s",
+		prefix, n.Hash, n.Source, obsPoint(n.ObsPoint), n.OrigLen, n.CapLen, connState(n.Reason))
 
 	if n.Ifindex != 0 {
 		fmt.Printf(", interface %s", ifname(int(n.Ifindex)))
