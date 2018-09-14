@@ -120,6 +120,12 @@ var (
 )
 
 func (p *Proxy) allocatePort() (uint16, error) {
+	// Get a snapshot of the TCP ports already open locally.
+	openLocalPorts, err := readOpenLocalPorts(procNetTCPFiles)
+	if err != nil {
+		return 0, fmt.Errorf("couldn't read local ports from /proc: %s", err)
+	}
+
 	portRandomizerMutex.Lock()
 	defer portRandomizerMutex.Unlock()
 
@@ -127,7 +133,9 @@ func (p *Proxy) allocatePort() (uint16, error) {
 		resPort := uint16(r) + p.rangeMin
 
 		if _, ok := p.allocatedPorts[resPort]; !ok {
-			return resPort, nil
+			if _, alreadyOpen := openLocalPorts[resPort]; !alreadyOpen {
+				return resPort, nil
+			}
 		}
 
 	}
