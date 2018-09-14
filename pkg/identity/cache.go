@@ -16,7 +16,6 @@ package identity
 
 import (
 	"reflect"
-	"sort"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -33,23 +32,13 @@ var (
 // IdentityCache is a cache of identity to labels mapping
 type IdentityCache map[NumericIdentity]labels.LabelArray
 
-// identitiesModel is a wrapper so that we can implement the sort.Interface
+// IdentitiesModel is a wrapper so that we can implement the sort.Interface
 // to sort the slice by ID
-type identitiesModel []*models.Identity
-
-// Len returns the length of the identitiesModel
-func (s identitiesModel) Len() int {
-	return len(s)
-}
-
-// Swap swaps the elements in `i` and `j`
-func (s identitiesModel) Swap(i, j int) {
-	s[i], s[j] = s[j], s[i]
-}
+type IdentitiesModel []*models.Identity
 
 // Less returns true if the element in index `i` is lower than the element
 // in index `j`
-func (s identitiesModel) Less(i, j int) bool {
+func (s IdentitiesModel) Less(i, j int) bool {
 	return s[i].ID < s[j].ID
 }
 
@@ -72,8 +61,8 @@ func GetIdentityCache() IdentityCache {
 }
 
 // GetIdentities returns all known identities
-func GetIdentities() identitiesModel {
-	identities := identitiesModel{}
+func GetIdentities() IdentitiesModel {
+	identities := IdentitiesModel{}
 
 	identityAllocator.ForeachCache(func(id allocator.ID, val allocator.AllocatorKey) {
 		if gi, ok := val.(globalIdentity); ok {
@@ -83,14 +72,10 @@ func GetIdentities() identitiesModel {
 
 	})
 	// append user reserved identities
-	for k, v := range reservedIdentityCache {
-		if IsUserReservedIdentity(k) {
-			identities = append(identities, v.GetModel())
-		}
+	for _, v := range reservedIdentityCache {
+		identities = append(identities, v.GetModel())
 	}
 
-	// sort identities by ID
-	sort.Sort(identities)
 	return identities
 }
 
