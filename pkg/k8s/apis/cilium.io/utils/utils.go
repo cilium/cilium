@@ -40,7 +40,9 @@ const (
 	// initializing pods.
 	podInitLbl = labels.LabelSourceReservedKeyPrefix + labels.IDNameInit
 
-	resourceTypeCiliumNetworkPolicy = "CiliumNetworkPolicy"
+	// ResourceTypeCiliumNetworkPolicy is the resource type used for the
+	// PolicyLabelDerivedFrom label
+	ResourceTypeCiliumNetworkPolicy = "CiliumNetworkPolicy"
 )
 
 var (
@@ -217,7 +219,7 @@ func ParseToCiliumRule(namespace, name string, r *api.Rule) *api.Rule {
 	parseToCiliumIngressRule(namespace, r, retRule)
 	parseToCiliumEgressRule(namespace, r, retRule)
 
-	policyLbls := GetPolicyLabels(namespace, name, resourceTypeCiliumNetworkPolicy)
+	policyLbls := GetPolicyLabels(namespace, name, ResourceTypeCiliumNetworkPolicy)
 	if retRule.Labels == nil {
 		retRule.Labels = make(labels.LabelArray, 0, len(policyLbls)+len(r.Labels))
 	}
