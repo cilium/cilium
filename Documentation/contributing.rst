@@ -176,7 +176,7 @@ automatically using `VirtualBox Shared Folders <https://www.virtualbox.org/manua
 You can also use NFS to access your Cilium tree from the VM by
 setting the environment variable ``NFS`` (mentioned above) before running the
 startup script (``export NFS=1``). Note that your host firewall must have a variety
-of port open. The Vagrantfile will inform you of the configuration of these addresses
+of ports open. The Vagrantfile will inform you of the configuration of these addresses
 and ports to enable NFS.
 
 .. note::
@@ -1043,7 +1043,7 @@ requirements have been met:
        Make sure to include a blank line in between commit title and commit
        description.
 
-#. If any of of the commits fixes a particular commit already in the tree, that
+#. If any of the commits fixes a particular commit already in the tree, that
    commit is referenced in the commit message of the bugfix. This ensures that
    whoever performs a backport will pull in all required fixes:
 

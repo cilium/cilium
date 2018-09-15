@@ -176,7 +176,7 @@ guaranteed:
   containers which are already running will not lose any connectivity, and they
   will keep running with the policy loaded before Cilium stopped unexpectedly.
 
-* When running Cilium on a different way, just make sure the bpf fs is mounted
+* When running Cilium in a different way, just make sure the bpf fs is mounted
   :ref:`admin_mount_bpffs`.
 
 ***********
@@ -192,10 +192,10 @@ Labels
 
 Labels are a generic, flexible and highly scalable way of addressing a large
 set of resources as they allow for arbitrary grouping and creation of sets.
-Whenever something needs to be described, addressed or selected this is done
+Whenever something needs to be described, addressed or selected, it is done
 based on labels:
 
-- `Endpoints` are assigned labels as derived from container runtime, the
+- `Endpoints` are assigned labels as derived from the container runtime,
   orchestration system, or other sources.
 - `Network policies` select pairs of `endpoints` which are allowed to
   communicate based on labels. The policies themselves are identified by labels
@@ -262,7 +262,7 @@ an endpoint.
 
 Allocating individual IP addresses enables the use of the entire Layer 4 port
 range by each endpoint. This essentially allows multiple application containers
-running on the same cluster node to all bind to well known ports such ``80``
+running on the same cluster node to all bind to well known ports such as ``80``
 without causing any conflicts.
 
 The default behavior of Cilium is to assign both an IPv6 and IPv4 address to
@@ -337,7 +337,7 @@ An identity is identified by `labels` and is given a cluster wide unique
 identifier. The endpoint is assigned the identity which matches the endpoint's
 `security relevant labels`, i.e. all endpoints which share the same set of
 `security relevant labels` will share the same identity. This concept allows to
-scale policy enforcement to massive number of endpoints as many individual
+scale policy enforcement to a massive number of endpoints as many individual
 endpoints will typically share the same set of security `labels` as applications
 are scaled.
 
@@ -742,7 +742,7 @@ well.  However, ``B`` is not automatically allowed to initiate connections to
 ``A``. If that outcome is desired, then both directions must be explicitly
 allowed.
 
-Security policies are may be enforced at *ingress* or *egress*. For *ingress*,
+Security policies may be enforced at *ingress* or *egress*. For *ingress*,
 this means that each cluster node verifies all incoming packets and determines
 whether the packet is allowed to be transmitted to the intended endpoint.
 Correspondingly, for *egress* each cluster node verifies outgoing packets and

@@ -158,8 +158,8 @@ to be reachable on port 80, but no other ports.  This is a simple policy that
 filters only on IP address (network layer 3) and TCP port (network layer 4), so
 it is often referred to as an L3/L4 network security policy.
 
-Cilium performs stateful ''connection tracking'', meaning that if policy allows
-the *app2* to contact *app1*, it will automatically allow return
+Cilium performs stateful ''connection tracking'', meaning that if a policy allows
+*app2* to contact *app1*, it will automatically allow return
 packets that are part of *app1* replying to *app2* within the context
 of the same TCP/UDP connection.
 
@@ -230,7 +230,7 @@ For example, consider a scenario where *app1* has two API calls:
  * GET /private
 
 Continuing with the example from above, if *app2* requires access only to
-the GET /public API call, the L3/L4 policy along has no visibility into the
+the GET /public API call, the L3/L4 policy alone has no visibility into the
 HTTP requests, and therefore would allow any HTTP request from *app2*
 (since all HTTP is over port 80).
 
