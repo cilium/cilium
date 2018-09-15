@@ -120,7 +120,7 @@ tooling to provide:
 
 - Event monitoring with metadata: When a packet is dropped, the tool doesn't
   just report the source and destination IP of the packet, the tool provides
-  the full label information of both the sender and receiving among a lot of
+  the full label information of both the sender and receiver among a lot of
   other information.
 
 - Policy decision tracing: Why is a packet being dropped or a request rejected.
