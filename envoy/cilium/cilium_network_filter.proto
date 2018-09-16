@@ -1,0 +1,6 @@
+syntax = "proto3";
+
+package cilium;
+
+message NetworkFilter {
+}
