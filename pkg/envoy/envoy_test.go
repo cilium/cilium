@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 
 	"github.com/sirupsen/logrus"
@@ -91,13 +92,13 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 	log.Debug("started Envoy")
 
 	log.Debug("adding listener1")
-	xdsServer.AddListener("listener1", "1.2.3.4", 8081, true, s.waitGroup)
+	xdsServer.AddListener("listener1", policy.ParserTypeHTTP, "1.2.3.4", 8081, true, s.waitGroup)
 
 	log.Debug("adding listener2")
-	xdsServer.AddListener("listener2", "1.2.3.4", 8082, true, s.waitGroup)
+	xdsServer.AddListener("listener2", policy.ParserTypeHTTP, "1.2.3.4", 8082, true, s.waitGroup)
 
 	log.Debug("adding listener3")
-	xdsServer.AddListener("listener3", "1.2.3.4", 8083, false, s.waitGroup)
+	xdsServer.AddListener("listener3", policy.ParserTypeHTTP, "1.2.3.4", 8083, false, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
 	c.Assert(err, IsNil)
@@ -115,7 +116,7 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 
 	// Add listener3 again
 	log.Debug("adding listener 3")
-	xdsServer.AddListener("listener3", "1.2.3.4", 8083, false, s.waitGroup)
+	xdsServer.AddListener("listener3", policy.L7ParserType("test.headerparser"), "1.2.3.4", 8083, false, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
 	c.Assert(err, IsNil)
