@@ -6,13 +6,13 @@ DEPS := $(shell find ../pkg accesslog npds test . \( -name '*.go' ! -name '*_tes
 $(TARGET): $(DEPS)
 	@$(ECHO_GO)
 	$(GO) build $(GOBUILD) -o $@ -buildmode=c-shared
-	ls -l libcilium.so
 
 all: $(TARGET)
 
+# Cleaning up messes CI due to parallel builds, so do not rm the target for now
 clean:
 	@$(ECHO_CLEAN) $(notdir $(shell pwd))
-	-$(QUIET)rm -f $(TARGET)
+#	-$(QUIET)rm -f $(TARGET)
 	$(GO) clean
 
 install:
