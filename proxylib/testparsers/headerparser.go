@@ -98,10 +98,14 @@ type HeaderParserFactory struct{}
 
 var headerParserFactory *HeaderParserFactory
 
+const (
+	parserName = "test.headerparser"
+)
+
 func init() {
 	log.Info("init(): Registering headerParserFactory")
-	RegisterParserFactory("test.headerparser", headerParserFactory)
-	RegisterL7RuleParser("test.headerparser", L7HeaderRuleParser)
+	RegisterParserFactory(parserName, headerParserFactory)
+	RegisterL7RuleParser(parserName, L7HeaderRuleParser)
 }
 
 type HeaderParser struct {
@@ -114,11 +118,7 @@ func (p *HeaderParserFactory) Create(connection *Connection) Parser {
 }
 
 //
-// Parses individual lines that must start with one of:
-// "PASS" the line is passed
-// "DROP" the line is dropped
-// "INJECT" the line is injected in reverse direction
-// "INSERT" the line is injected in current direction
+// Parses individual lines and verifies them against the policy
 //
 func (p *HeaderParser) OnData(reply, endStream bool, data [][]byte, offset int) (OpType, int) {
 	line, ok := getLine(data, offset)
@@ -142,13 +142,30 @@ func (p *HeaderParser) OnData(reply, endStream bool, data [][]byte, offset int) 
 
 	// Replies pass unconditionally
 	if reply || p.connection.Matches(line) {
-		p.connection.Log(cilium.EntryType_Request, &cilium.LogEntry_Http{&cilium.HttpLogEntry{Status: 200}})
+		p.connection.Log(cilium.EntryType_Request,
+			&cilium.LogEntry_GenericL7{
+				&cilium.L7LogEntry{
+					Proto: parserName,
+					Fields: map[string]string{
+						"status": "PASS",
+					},
+				},
+			})
 		return PASS, line_len
 	}
 
 	// Inject Error response to the reverse direction
 	p.connection.Inject(!reply, []byte(fmt.Sprintf("Line dropped: %s", line)))
 	// Drop the line in the current direction
-	p.connection.Log(cilium.EntryType_Denied, &cilium.LogEntry_Http{&cilium.HttpLogEntry{Status: 403}})
+	p.connection.Log(cilium.EntryType_Denied,
+		&cilium.LogEntry_GenericL7{
+			&cilium.L7LogEntry{
+				Proto: parserName,
+				Fields: map[string]string{
+					"status": "DROP",
+				},
+			},
+		})
+
 	return DROP, line_len
 }
