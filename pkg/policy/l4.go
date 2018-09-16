@@ -71,6 +71,10 @@ func (l7 L7DataMap) MarshalJSON() ([]byte, error) {
 // defines all supported types of L7 parsers
 type L7ParserType string
 
+func (l7 L7ParserType) String() string {
+	return (string)(l7)
+}
+
 const (
 	// ParserTypeNone represents the case where no parser type is provided.
 	ParserTypeNone L7ParserType = ""
