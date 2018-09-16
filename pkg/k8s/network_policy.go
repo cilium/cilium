@@ -40,8 +40,6 @@ var (
 // annotation if present. If the policy's annotations do not contain
 // the Cilium annotation, the policy's name field is used instead.
 func GetPolicyLabelsv1(np *networkingv1.NetworkPolicy) labels.LabelArray {
-
-	// TODO: add unit test (GH-3080).
 	if np == nil {
 		log.Warningf("unable to extract policy labels because provided NetworkPolicy is nil")
 		return nil
@@ -251,8 +249,6 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 }
 
 func ipBlockToCIDRRule(block *networkingv1.IPBlock) api.CIDRRule {
-
-	// TODO: add unit test (GH-3080).
 	cidrRule := api.CIDRRule{}
 	cidrRule.Cidr = api.CIDR(block.CIDR)
 	for _, v := range block.Except {
