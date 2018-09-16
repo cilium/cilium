@@ -701,10 +701,13 @@ func (t *TestSpec) InvalidNetworkPolicyApply() (*cnpv2.CiliumNetworkPolicy, erro
 	}
 	body := func() bool {
 		cnp := t.Kub.GetCNP(helpers.DefaultNamespace, t.Prefix)
-		if cnp != nil {
-			return true
+		if cnp == nil {
+			return false
 		}
-		return false
+		if len(cnp.Status.Nodes) == 0 {
+			return false
+		}
+		return true
 	}
 	err = helpers.WithTimeout(
 		body,
