@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/checker"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
@@ -1567,5 +1568,92 @@ func Test_parseNetworkPolicyPeer(t *testing.T) {
 				t.Errorf("Failed to parseNetworkPolicyPeer():\n%s", err)
 			}
 		})
+	}
+}
+
+func (s *K8sSuite) TestGetPolicyLabelsv1(c *C) {
+	tests := []struct {
+		np        *networkingv1.NetworkPolicy // input network policy
+		name      string                      // expected extracted name
+		namespace string                      // expected extracted namespace
+	}{
+		{
+			np:        &networkingv1.NetworkPolicy{},
+			name:      "",
+			namespace: v1.NamespaceDefault,
+		},
+		{
+			np: &networkingv1.NetworkPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.Name: "foo",
+					},
+				},
+			},
+			name:      "foo",
+			namespace: v1.NamespaceDefault,
+		},
+		{
+			np: &networkingv1.NetworkPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "bar",
+				},
+			},
+			name:      "foo",
+			namespace: "bar",
+		},
+	}
+
+	assertLabel := func(lbl *labels.Label, key, value string) {
+		c.Assert(lbl, NotNil)
+		c.Assert(lbl.Key, Equals, key)
+		c.Assert(lbl.Value, Equals, value)
+		c.Assert(lbl.Source, Equals, labels.LabelSourceK8s)
+	}
+
+	for _, tt := range tests {
+		lbls := GetPolicyLabelsv1(tt.np)
+
+		c.Assert(lbls, NotNil)
+		c.Assert(len(lbls), Equals, 2, Commentf("Incorrect number of labels: Expected Name and Namespace labels."))
+
+		assertLabel(lbls[0], k8sConst.PolicyLabelName, tt.name)
+		assertLabel(lbls[1], k8sConst.PolicyLabelNamespace, tt.namespace)
+	}
+}
+
+func (s *K8sSuite) TestIPBlockToCIDRRule(c *C) {
+	blocks := []*networkingv1.IPBlock{
+		{},
+		{CIDR: "192.168.1.1/24"},
+		{CIDR: "192.168.1.1/24", Except: []string{}},
+		{CIDR: "192.168.1.1/24", Except: []string{"192.168.1.1/28"}},
+		{
+			CIDR: "192.168.1.1/24",
+			Except: []string{
+				"192.168.1.1/30",
+				"192.168.1.1/26",
+				"192.168.1.1/28",
+			},
+		},
+	}
+
+	for _, block := range blocks {
+		cidrRule := ipBlockToCIDRRule(block)
+
+		exceptCIDRs := make([]api.CIDR, len(block.Except))
+		for i, v := range block.Except {
+			exceptCIDRs[i] = api.CIDR(v)
+		}
+
+		c.Assert(cidrRule.Generated, Equals, false)
+		c.Assert(cidrRule.Cidr, Equals, api.CIDR(block.CIDR))
+
+		if block.Except == nil || len(block.Except) == 0 {
+			c.Assert(cidrRule.ExceptCIDRs, IsNil)
+		} else {
+			c.Assert(cidrRule.ExceptCIDRs, DeepEquals, exceptCIDRs)
+		}
 	}
 }
