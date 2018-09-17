@@ -117,7 +117,6 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 				   __u32 *dstID)
 {
 	union macaddr router_mac = NODE_MAC;
-	union v6addr router_ip = {};
 	int ret, verdict, l4_off, forwarding_reason, hdrlen;
 	struct csum_offset csum_off = {};
 	struct endpoint_info *ep;
@@ -198,11 +197,8 @@ skip_service_lookup:
 
 	if (!revalidate_data(skb, &data, &data_end, &ip6))
 		return DROP_INVALID;
-	daddr = (union v6addr *)&ip6->daddr;
 
 	/* Determine the destination category for policy fallback. */
-	BPF_V6(router_ip, ROUTER_IP);
-
 	if (1) {
 		struct remote_endpoint_info *info;
 
@@ -210,8 +206,6 @@ skip_service_lookup:
 		if (info != NULL && info->sec_label) {
 			*dstID = info->sec_label;
 			tunnel_endpoint = info->tunnel_endpoint;
-		} else if (ipv6_match_prefix_64(daddr, &router_ip)){
-			*dstID = CLUSTER_ID;
 		} else {
 			*dstID = WORLD_ID;
 		}
@@ -351,11 +345,9 @@ skip_service_lookup:
 #endif
 
 #ifdef LXC_NAT46
-	if (*dstID != CLUSTER_ID) {
-		if (unlikely(ipv6_addr_is_mapped(daddr))) {
-			ep_tail_call(skb, CILIUM_CALL_NAT64);
-			return DROP_MISSED_TAIL_CALL;
-                }
+	if (unlikely(ipv6_addr_is_mapped(daddr))) {
+		ep_tail_call(skb, CILIUM_CALL_NAT64);
+		return DROP_MISSED_TAIL_CALL;
 	}
 #endif
 	goto pass_to_stack;
@@ -521,8 +513,6 @@ skip_service_lookup:
 		if (info != NULL && info->sec_label) {
 			*dstID = info->sec_label;
 			tunnel_endpoint = info->tunnel_endpoint;
-		} else if ((orig_dip & IPV4_CLUSTER_MASK) == IPV4_CLUSTER_RANGE) {
-			*dstID = CLUSTER_ID;
 		} else {
 			*dstID = WORLD_ID;
 		}

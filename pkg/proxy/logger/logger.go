@@ -122,17 +122,7 @@ func (lr *LogRecord) fillEndpointInfo(info *accesslog.EndpointInfo, ip net.IP) {
 		// same as Host
 		if node.IsHostIPv4(ip) {
 			lr.endpointInfoRegistry.FillEndpointIdentityByID(identity.ReservedIdentityHost, info)
-			return
-		}
-
-		// If Host IP check fails, we try to resolve and check
-		// if IP belongs to the cluster.
-		if node.GetIPv4ClusterRange().Contains(ip) {
-			// If endpoint cannot be found, set to cluster identity
-			if !lr.endpointInfoRegistry.FillEndpointIdentityByIP(ip, info) {
-				lr.endpointInfoRegistry.FillEndpointIdentityByID(identity.ReservedIdentityCluster, info)
-			}
-		} else {
+		} else if !lr.endpointInfoRegistry.FillEndpointIdentityByIP(ip, info) {
 			// If we are unable to resolve the HostIP as well
 			// as the cluster IP we mark this as a 'world' identity.
 			lr.endpointInfoRegistry.FillEndpointIdentityByID(identity.ReservedIdentityWorld, info)
@@ -142,14 +132,7 @@ func (lr *LogRecord) fillEndpointInfo(info *accesslog.EndpointInfo, ip net.IP) {
 
 		if node.IsHostIPv6(ip) {
 			lr.endpointInfoRegistry.FillEndpointIdentityByID(identity.ReservedIdentityHost, info)
-			return
-		}
-
-		if node.GetIPv6ClusterRange().Contains(ip) {
-			if !lr.endpointInfoRegistry.FillEndpointIdentityByIP(ip, info) {
-				lr.endpointInfoRegistry.FillEndpointIdentityByID(identity.ReservedIdentityCluster, info)
-			}
-		} else {
+		} else if !lr.endpointInfoRegistry.FillEndpointIdentityByIP(ip, info) {
 			lr.endpointInfoRegistry.FillEndpointIdentityByID(identity.ReservedIdentityWorld, info)
 		}
 	}
