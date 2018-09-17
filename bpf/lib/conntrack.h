@@ -71,6 +71,24 @@ enum {
 	ACTION_CLOSE,
 };
 
+/* conn_is_dns returns true if the connection is DNS, false otherwise.
+ *
+ * @dport: Connection destination port.
+ *
+ * To reduce program complexity, we ignore nexthdr and dir here:
+ * nexthdr: The parser will not fill dport if nexthdr is not TCP/UDP.
+ * dir:     Ideally we would only consider responses, but requests are likely
+ *          to be small anyway.
+ * */
+static inline bool conn_is_dns(__u16 dport)
+{
+	if (dport == bpf_htons(53)) {
+		relax_verifier();
+		return true;
+	}
+	return false;
+}
+
 union tcp_flags {
 #if defined(__LITTLE_ENDIAN_BITFIELD)
 	__u16	res1:4, doff:4, fin:1, syn:1, rst:1, psh:1, ack:1, urg:1, ece:1, cwr:1;
