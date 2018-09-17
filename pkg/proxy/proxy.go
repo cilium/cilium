@@ -221,9 +221,8 @@ retryCreatePort:
 
 		case policy.ParserTypeHTTP:
 			redir.implementation, err = createEnvoyRedirect(redir, p.stateDir, p.XDSServer, wg)
-
 		default:
-			return nil, fmt.Errorf("unsupported L7 parser type: %s", l4.L7Parser)
+			redir.implementation, err = createEnvoyRedirect(redir, p.stateDir, p.XDSServer, wg)
 		}
 
 		switch {

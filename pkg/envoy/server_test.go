@@ -130,7 +130,7 @@ var DeniedIdentities1001 = map[identity.NumericIdentity]bool{1001: true}
 
 var ExpectedPortNetworkPolicyRule1 = &cilium.PortNetworkPolicyRule{
 	RemotePolicies: []uint64{1001, 1002},
-	L7Rules: &cilium.PortNetworkPolicyRule_HttpRules{
+	L7: &cilium.PortNetworkPolicyRule_HttpRules{
 		HttpRules: &cilium.HttpNetworkPolicyRules{
 			HttpRules: []*cilium.HttpNetworkPolicyRule{
 				{Headers: ExpectedHeaders2},
@@ -142,7 +142,7 @@ var ExpectedPortNetworkPolicyRule1 = &cilium.PortNetworkPolicyRule{
 
 var ExpectedPortNetworkPolicyRule2 = &cilium.PortNetworkPolicyRule{
 	RemotePolicies: []uint64{1001, 1003},
-	L7Rules: &cilium.PortNetworkPolicyRule_HttpRules{
+	L7: &cilium.PortNetworkPolicyRule_HttpRules{
 		HttpRules: &cilium.HttpNetworkPolicyRules{
 			HttpRules: []*cilium.HttpNetworkPolicyRule{
 				{Headers: ExpectedHeaders1},
@@ -153,7 +153,7 @@ var ExpectedPortNetworkPolicyRule2 = &cilium.PortNetworkPolicyRule{
 
 var ExpectedPortNetworkPolicyRule3 = &cilium.PortNetworkPolicyRule{
 	RemotePolicies: nil, // Wildcard. Select all.
-	L7Rules: &cilium.PortNetworkPolicyRule_HttpRules{
+	L7: &cilium.PortNetworkPolicyRule_HttpRules{
 		HttpRules: &cilium.HttpNetworkPolicyRules{
 			HttpRules: []*cilium.HttpNetworkPolicyRule{
 				{Headers: ExpectedHeaders2},
@@ -165,7 +165,7 @@ var ExpectedPortNetworkPolicyRule3 = &cilium.PortNetworkPolicyRule{
 
 var ExpectedPortNetworkPolicyRule4 = &cilium.PortNetworkPolicyRule{
 	RemotePolicies: []uint64{1002}, // Like ExpectedPortNetworkPolicyRule1 but 1001 is denied.
-	L7Rules: &cilium.PortNetworkPolicyRule_HttpRules{
+	L7: &cilium.PortNetworkPolicyRule_HttpRules{
 		HttpRules: &cilium.HttpNetworkPolicyRules{
 			HttpRules: []*cilium.HttpNetworkPolicyRule{
 				{Headers: ExpectedHeaders2},
@@ -177,7 +177,7 @@ var ExpectedPortNetworkPolicyRule4 = &cilium.PortNetworkPolicyRule{
 
 var ExpectedPortNetworkPolicyRule5 = &cilium.PortNetworkPolicyRule{
 	RemotePolicies: []uint64{1002, 1003}, // Wildcard, but 1001 is denied.
-	L7Rules: &cilium.PortNetworkPolicyRule_HttpRules{
+	L7: &cilium.PortNetworkPolicyRule_HttpRules{
 		HttpRules: &cilium.HttpNetworkPolicyRules{
 			HttpRules: []*cilium.HttpNetworkPolicyRule{
 				{Headers: ExpectedHeaders2},
@@ -430,5 +430,62 @@ func (s *ServerSuite) TestGetNetworkPolicyEgressNotEnforced(c *C) {
 		IngressPerPortPolicies: ExpectedPerPortPolicies5,
 		EgressPerPortPolicies:  allowAllPortNetworkPolicy,
 	}
+	c.Assert(obtained, checker.DeepEquals, expected)
+}
+
+var L4PolicyL7 = &policy.L4Policy{
+	Ingress: map[string]policy.L4Filter{
+		"9090/TCP": {
+			Port: 9090, Protocol: api.ProtoTCP,
+			L7Parser: "tester",
+			L7RulesPerEp: policy.L7DataMap{
+				EndpointSelector1: api.L7Rules{
+					L7Proto: "tester",
+					L7: []api.PortRuleL7{
+						map[string]string{
+							"method": "PUT",
+							"path":   "/"},
+						map[string]string{
+							"method": "GET",
+							"path":   "/"},
+					},
+				},
+			},
+			Ingress: true,
+		},
+	},
+}
+
+var ExpectedPerPortPoliciesL7 = []*cilium.PortNetworkPolicy{
+	{
+		Port:     9090,
+		Protocol: envoy_api_v2_core.SocketAddress_TCP,
+		Rules: []*cilium.PortNetworkPolicyRule{{
+			RemotePolicies: []uint64{1001, 1002},
+			L7Proto:        "tester",
+			L7: &cilium.PortNetworkPolicyRule_L7Rules{
+				L7Rules: &cilium.L7NetworkPolicyRules{
+					L7Rules: []*cilium.L7NetworkPolicyRule{
+						{Rule: map[string]string{
+							"method": "PUT",
+							"path":   "/"}},
+						{Rule: map[string]string{
+							"method": "GET",
+							"path":   "/"}},
+					},
+				},
+			}},
+		},
+	},
+}
+
+func (s *ServerSuite) TestGetNetworkPolicyL7(c *C) {
+	obtained := getNetworkPolicy(IPv4Addr, Identity, L4PolicyL7, true, true, IdentityCache, DeniedIdentitiesNone, DeniedIdentitiesNone)
+	expected := &cilium.NetworkPolicy{
+		Name:                   IPv4Addr,
+		Policy:                 uint64(Identity),
+		IngressPerPortPolicies: ExpectedPerPortPoliciesL7,
+	}
+	// XXX: DeepEquals on maps?
 	c.Assert(obtained, checker.DeepEquals, expected)
 }

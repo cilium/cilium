@@ -67,8 +67,10 @@ func (l7 L7DataMap) MarshalJSON() ([]byte, error) {
 	return buffer.Bytes(), err
 }
 
-// L7ParserType is the type used to indicate what L7 parser to use and
-// defines all supported types of L7 parsers
+// L7ParserType is the type used to indicate what L7 parser to use.
+// Consts are defined for all well known L7 parsers.
+// Unknown string values are created for key-value pair policies, which
+// are then transparently used in redirect configuration.
 type L7ParserType string
 
 func (l7 L7ParserType) String() string {
@@ -121,6 +123,8 @@ func (l7 L7DataMap) GetRelevantRules(identity *identity.Identity) api.L7Rules {
 			if selector.Matches(identity.Labels.LabelArray()) {
 				rules.HTTP = append(rules.HTTP, endpointRules.HTTP...)
 				rules.Kafka = append(rules.Kafka, endpointRules.Kafka...)
+				rules.L7Proto = endpointRules.L7Proto // XXX: Need to check types are the same?
+				rules.L7 = append(rules.L7, endpointRules.L7...)
 			}
 		}
 	}
@@ -129,6 +133,8 @@ func (l7 L7DataMap) GetRelevantRules(identity *identity.Identity) api.L7Rules {
 	if r, ok := l7[api.WildcardEndpointSelector]; ok {
 		rules.HTTP = append(rules.HTTP, r.HTTP...)
 		rules.Kafka = append(rules.Kafka, r.Kafka...)
+		rules.L7Proto = r.L7Proto // XXX
+		rules.L7 = append(rules.L7, r.L7...)
 	}
 
 	return rules
@@ -182,6 +188,8 @@ func CreateL4Filter(peerEndpoints api.EndpointSelectorSlice, rule api.PortRule, 
 			l4.L7Parser = ParserTypeHTTP
 		case len(rule.Rules.Kafka) > 0:
 			l4.L7Parser = ParserTypeKafka
+		case len(rule.Rules.L7) > 0 && rule.Rules.L7Proto != "":
+			l4.L7Parser = (L7ParserType)(rule.Rules.L7Proto)
 		}
 		l4.L7RulesPerEp.addRulesForEndpoints(*rule.Rules, filterEndpoints)
 	}

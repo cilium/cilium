@@ -513,6 +513,52 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndMismatchingParsers(c *
 	res, err = conflictingParsersRule.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy(), nil)
 	c.Assert(err, Not(IsNil))
 	c.Assert(res, IsNil)
+
+	// Case 5B: HTTP first, generic L7 second.
+	conflictingParsersRule = &rule{
+		Rule: api.Rule{
+			EndpointSelector: endpointSelectorA,
+			Ingress: []api.IngressRule{
+				{
+					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+						Rules: &api.L7Rules{
+							HTTP: []api.PortRuleHTTP{
+								{Method: "GET", Path: "/"},
+							},
+						},
+					}},
+				},
+				{
+					FromEndpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+						Rules: &api.L7Rules{
+							L7: []api.PortRuleL7{
+								map[string]string{
+									"method": "PUT",
+									"path":   "/Foo"},
+							},
+						},
+					}},
+				},
+			},
+		}}
+
+	buffer = new(bytes.Buffer)
+	ctxToA = SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
+	ctxToA.Logging = logging.NewLogBackend(buffer, "", 0)
+	c.Log(buffer)
+
+	state = traceState{}
+	res, err = conflictingParsersRule.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy(), nil)
+	c.Assert(err, Not(IsNil))
+	c.Assert(res, IsNil)
 }
 
 // Case 6: allow all at L3/L7 in one rule, and select an endpoint and allow all on L7

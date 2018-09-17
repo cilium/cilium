@@ -314,6 +314,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
 	labelsKafka := labels.LabelArray{labels.ParseLabel("kafka")}
 	labelsHTTP := labels.LabelArray{labels.ParseLabel("http")}
+	labelsL7 := labels.LabelArray{labels.ParseLabel("l7")}
 
 	l3Rule := api.Rule{
 		EndpointSelector: selFoo,
@@ -373,6 +374,27 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 	_, err = repo.Add(httpRule)
 	c.Assert(err, IsNil)
 
+	l7Rule := api.Rule{
+		EndpointSelector: selFoo,
+		Ingress: []api.IngressRule{
+			{
+				FromEndpoints: []api.EndpointSelector{selBar2},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "9090", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{
+						L7Proto: "tester",
+						L7:      []api.PortRuleL7{map[string]string{"method": "GET", "path": "/"}},
+					},
+				}},
+			},
+		},
+		Labels: labelsL7,
+	}
+	_, err = repo.Add(l7Rule)
+	c.Assert(err, IsNil)
+
 	ctx := &SearchContext{
 		To: labels.ParseSelectLabelArray("id=foo"),
 	}
@@ -392,11 +414,11 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 			L7Parser:  ParserTypeKafka,
 			Ingress:   true,
 			L7RulesPerEp: L7DataMap{
-				selBar1: api.L7Rules{
-					Kafka: []api.PortRuleKafka{{}},
-				},
 				selBar2: api.L7Rules{
 					Kafka: []api.PortRuleKafka{kafkaRule.Ingress[0].ToPorts[0].Rules.Kafka[0]},
+				},
+				selBar1: api.L7Rules{
+					Kafka: []api.PortRuleKafka{{}},
 				},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsKafka, labelsL3},
@@ -409,14 +431,33 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 			L7Parser:  ParserTypeHTTP,
 			Ingress:   true,
 			L7RulesPerEp: L7DataMap{
-				selBar1: api.L7Rules{
-					HTTP: []api.PortRuleHTTP{{}},
-				},
 				selBar2: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{httpRule.Ingress[0].ToPorts[0].Rules.HTTP[0]},
 				},
+				selBar1: api.L7Rules{
+					HTTP: []api.PortRuleHTTP{{}},
+				},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsHTTP, labelsL3},
+		},
+		"9090/TCP": {
+			Port:      9090,
+			Protocol:  api.ProtoTCP,
+			U8Proto:   0x6,
+			Endpoints: []api.EndpointSelector{selBar2, selBar1},
+			L7Parser:  L7ParserType("tester"),
+			Ingress:   true,
+			L7RulesPerEp: L7DataMap{
+				selBar2: api.L7Rules{
+					L7Proto: "tester",
+					L7:      []api.PortRuleL7{l7Rule.Ingress[0].ToPorts[0].Rules.L7[0]},
+				},
+				selBar1: api.L7Rules{
+					L7Proto: "tester",
+					L7:      []api.PortRuleL7{},
+				},
+			},
+			DerivedFromRules: labels.LabelArrayList{labelsL7, labelsL3},
 		},
 	}
 	c.Assert((*policy), checker.DeepEquals, expectedPolicy)
