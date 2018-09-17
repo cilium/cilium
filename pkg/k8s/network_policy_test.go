@@ -1576,14 +1576,16 @@ func Test_parseNetworkPolicyPeer(t *testing.T) {
 
 func (s *K8sSuite) TestGetPolicyLabelsv1(c *C) {
 	tests := []struct {
-		np        *networkingv1.NetworkPolicy // input network policy
-		name      string                      // expected extracted name
-		namespace string                      // expected extracted namespace
+		np          *networkingv1.NetworkPolicy // input network policy
+		name        string                      // expected extracted name
+		namespace   string                      // expected extracted namespace
+		derivedFrom string                      // expected extracted derived
 	}{
 		{
-			np:        &networkingv1.NetworkPolicy{},
-			name:      "",
-			namespace: v1.NamespaceDefault,
+			np:          &networkingv1.NetworkPolicy{},
+			name:        "",
+			namespace:   v1.NamespaceDefault,
+			derivedFrom: resourceTypeNetworkPolicy,
 		},
 		{
 			np: &networkingv1.NetworkPolicy{
@@ -1593,8 +1595,9 @@ func (s *K8sSuite) TestGetPolicyLabelsv1(c *C) {
 					},
 				},
 			},
-			name:      "foo",
-			namespace: v1.NamespaceDefault,
+			name:        "foo",
+			namespace:   v1.NamespaceDefault,
+			derivedFrom: resourceTypeNetworkPolicy,
 		},
 		{
 			np: &networkingv1.NetworkPolicy{
@@ -1603,8 +1606,9 @@ func (s *K8sSuite) TestGetPolicyLabelsv1(c *C) {
 					Namespace: "bar",
 				},
 			},
-			name:      "foo",
-			namespace: "bar",
+			name:        "foo",
+			namespace:   "bar",
+			derivedFrom: resourceTypeNetworkPolicy,
 		},
 	}
 
@@ -1619,10 +1623,11 @@ func (s *K8sSuite) TestGetPolicyLabelsv1(c *C) {
 		lbls := GetPolicyLabelsv1(tt.np)
 
 		c.Assert(lbls, NotNil)
-		c.Assert(len(lbls), Equals, 2, Commentf("Incorrect number of labels: Expected Name and Namespace labels."))
+		c.Assert(len(lbls), Equals, 3, Commentf("Incorrect number of labels: Expected Name, Namespace and DerivedFrom labels."))
 
 		assertLabel(lbls[0], k8sConst.PolicyLabelName, tt.name)
 		assertLabel(lbls[1], k8sConst.PolicyLabelNamespace, tt.namespace)
+		assertLabel(lbls[2], k8sConst.PolicyLabelDerivedFrom, tt.derivedFrom)
 	}
 }
 
