@@ -47,7 +47,7 @@ func (ml *listenerv1_2) Enqueue(pl *payload.Payload) {
 	select {
 	case ml.queue <- pl:
 	default:
-		log.Debugf("Per listener queue is full, dropping message")
+		log.Debug("Per listener queue is full, dropping message")
 	}
 }
 
@@ -64,7 +64,7 @@ func (ml *listenerv1_2) drainQueue() {
 		if err := pl.EncodeBinary(enc); err != nil {
 			switch {
 			case listener.IsDisconnected(err):
-				log.Info("Listener disconnected")
+				log.Debug("Listener disconnected")
 				return
 
 			default:
