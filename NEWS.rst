@@ -2,224 +2,280 @@
 NEWS
 ******
 
+v1.0.6
+======
+
+::
+
+    André Martins (9):
+          pkg/endpoint: annotate pod with numeric identity
+          daemon: always re-add CNP when receiving an update from Kubernetes
+          kubernetes: set maxUnavailable to pods to 2 on upgrade
+          Revert "test/k8sT: use specific commit for cilium/star-wars-demo YAMLs"
+          test: fix star wars demo to run star-wars v1.0
+          k8s fix clean state InitContainer permissions
+          k8s: add /status to RBAC for backport compatability
+          examples/kubernetes: add node.kubernetes.io/not-ready toleration
+          examples/kubernetes: remove etcd Secrets from the ConfigMap
+
+    Daniel Borkmann (1):
+          allocator: nextCache can hold a nil value for a id/key
+
+    Ian Vernon (2):
+          pkg/k8s: properly handle empty NamespaceSelector
+          test/k8sT: use specific commit for cilium/star-wars-demo YAMLs
+
+    Joe Stringer (7):
+          docs: Update sphinx theme to print version for stable
+          docs: Expand the "v:" to "version:" in the nav bar
+          docs: Fix theme paths so RTD picks up in-tree theme
+          lxcmap: Improve error messages in DeleteElement()
+          lxcmap: Fix always returning an error on delete
+          test/k8sT: Fix bad backport
+          examples/kubernetes: Add clean-cilium-bpf-state option
+
+    Maciej Kwiek (2):
+          Add label script for backporting
+          Add label script docs to backporting process
+
+    Romain Lenglet (1):
+          proxy: Remove port binding check on redirect creation
+
+    Thomas Graf (6):
+          monitor: Fix spin loop when reading stdout from monitor fails
+          endpoint: Fix locking while calling endpoint.getLogger()
+          lbmap: Mark internal APIs as private
+          lbmap: Introduce lock to allow for transactional operations
+          lbmap: Support transactional updates
+          lbmap: Guarantee order of backends while scaling service
+
+
 v1.0.5
 ======
 
-André Martins (30):
-      examples/kubernetes: set correct image tag in kubernetes examples
-      daemon: return error if createEndpoint fails
-      docker/Dockerfile: update golang to 1.10.2
-      docker/Dockerfile: update base image to ubuntu 18.04
-      docker/Dockerfile: update iproute2 to 4.16
-      docker/Dockerfile: update loopback cni to 0.6.0
-      docker/Dockerfile: add gpg
-      Dockerfile: update cilium-runtime with 2018-06-04
-      examples/kubernetes: use POSIX regex for CILIUM_VERSION checker
-      docs: use Documentation context to avoid longer image builds
-      test: set default CRI socket
-      ginkgo.Jenkinsfile: increase timeout by 30 minutes
-      pkg/endpoint: set policy revision if there is no datapath changes
-      tests: Update cilium-builder in unit tests to 2018-06-21
-      test: Use latest stable etcd and consul images
-      examples/kubernetes: backport k8s 1.12 daemonset deployment files
-      test: add k8s 1.12 test framework
-      examples/kubernetes: add "system-node-critical" priorityClass
-      test: remove policy enforcement in k8s tests
-      pkg/kvstore: set hard timeout for etcd lock path to 1 minute
-      pkg/endpoint: set state ready if endpoint labels are the same
-      pkg/kvstore: fix high-cpu usage when Cilium loses Consul connectivity
-      ginkgo-kubernetes-all.Jenkinsfile: fix misplaced bracket
-      daemon: change minimal worker thread to 2
-      pkg/endpoint: fix endpoint.logger race condition
-      Revert "Revert "test: update k8s to 1.8.14, 1.10.4 and 1.11.0""
-      test: update k8s to 1.9.9 and 1.10.5
-      Revert "Revert "ginkgo-kubernetes-all.Jenkinsfile: move k8s 1.10 and 1.12 to same stage""
-      tests: disable k8s 1.12-alpha.0 tests
-      test/provision: do not install kubedns in 1.11
+::
 
-Eloy Coto (4):
-      Test: Demo tests waiting to policies to be applied.
-      Backport: Fix Jenkinsfile artifacts
-      Contrib: Backport script to use different versions
-      Test: Skip Kube-dns if the Kubernetes version is 1.11
+    André Martins (30):
+          examples/kubernetes: set correct image tag in kubernetes examples
+          daemon: return error if createEndpoint fails
+          docker/Dockerfile: update golang to 1.10.2
+          docker/Dockerfile: update base image to ubuntu 18.04
+          docker/Dockerfile: update iproute2 to 4.16
+          docker/Dockerfile: update loopback cni to 0.6.0
+          docker/Dockerfile: add gpg
+          Dockerfile: update cilium-runtime with 2018-06-04
+          examples/kubernetes: use POSIX regex for CILIUM_VERSION checker
+          docs: use Documentation context to avoid longer image builds
+          test: set default CRI socket
+          ginkgo.Jenkinsfile: increase timeout by 30 minutes
+          pkg/endpoint: set policy revision if there is no datapath changes
+          tests: Update cilium-builder in unit tests to 2018-06-21
+          test: Use latest stable etcd and consul images
+          examples/kubernetes: backport k8s 1.12 daemonset deployment files
+          test: add k8s 1.12 test framework
+          examples/kubernetes: add "system-node-critical" priorityClass
+          test: remove policy enforcement in k8s tests
+          pkg/kvstore: set hard timeout for etcd lock path to 1 minute
+          pkg/endpoint: set state ready if endpoint labels are the same
+          pkg/kvstore: fix high-cpu usage when Cilium loses Consul connectivity
+          ginkgo-kubernetes-all.Jenkinsfile: fix misplaced bracket
+          daemon: change minimal worker thread to 2
+          pkg/endpoint: fix endpoint.logger race condition
+          Revert "Revert "test: update k8s to 1.8.14, 1.10.4 and 1.11.0""
+          test: update k8s to 1.9.9 and 1.10.5
+          Revert "Revert "ginkgo-kubernetes-all.Jenkinsfile: move k8s 1.10 and 1.12 to same stage""
+          tests: disable k8s 1.12-alpha.0 tests
+          test/provision: do not install kubedns in 1.11
 
-Ian Vernon (4):
-      pkg/policy: take into account To / FromRequires when computing L4 policy
-      envoy: use local_resources parameter during bazel build
-      daemon: fix minimum number of work threads unit test
-      test/k8sT: wait for DNS to be ready in Kafka pods
+    Eloy Coto (4):
+          Test: Demo tests waiting to policies to be applied.
+          Backport: Fix Jenkinsfile artifacts
+          Contrib: Backport script to use different versions
+          Test: Skip Kube-dns if the Kubernetes version is 1.11
 
-Mark deVilliers (1):
-      Check for nil before accessing Status
+    Ian Vernon (4):
+          pkg/policy: take into account To / FromRequires when computing L4 policy
+          envoy: use local_resources parameter during bazel build
+          daemon: fix minimum number of work threads unit test
+          test/k8sT: wait for DNS to be ready in Kafka pods
 
-Michal Rostecki (4):
-      pkg/mountinfo: Add utility for getting mountinfo
-      bpf: Allow to define BPF map root via env variable
-      pkg/envoy: Don't hardcode BPFFS mount path
-      pkg/bpf: Use the other directory when /sys/fs/bpf is not BPFFS
+    Mark deVilliers (1):
+          Check for nil before accessing Status
 
-Nirmoy Das (1):
-      cilium-docker: fix gatewayIPv4 assignment
+    Michal Rostecki (4):
+          pkg/mountinfo: Add utility for getting mountinfo
+          bpf: Allow to define BPF map root via env variable
+          pkg/envoy: Don't hardcode BPFFS mount path
+          pkg/bpf: Use the other directory when /sys/fs/bpf is not BPFFS
 
-Ray Bejjani (2):
-      backport: use the same url for all searches
-      backport: Only check merged PRs
+    Nirmoy Das (1):
+          cilium-docker: fix gatewayIPv4 assignment
 
-Thomas Graf (16):
-      allocator: Use DefaultLogger
-      conntrack: Increase conntrack interval to 1 minute
-      allocator: Increase allocator list timeout to 2 minutes
-      tunnel: Make BPF tunnel map updates atomic
-      tunnel: Add debug messages on tunnel map manipulation
-      maps/tunnel: Use DefaultLogger
-      bpffs: Fix panic when root directory does not exist
-      kubernetes: Fix generation of DaemonSet files to include v image tag prefix
-      kubernetes: Add missing parenthesis to only fail on invalid version
-      test: Use latest stable etcd and consul images
-      allocator: benchmark: Reserve ID space for reserved identities
-      trigger: New trigger package
-      identity: Process identity events in batches
-      identity: Fix allocator init with more than pre-existing 1024 keys
-      allocator: Avoid scanning sequentual list when allocating
-      etcd: Fix and relax during recreate watcher loop
+    Ray Bejjani (2):
+          backport: use the same url for all searches
+          backport: Only check merged PRs
+
+    Thomas Graf (16):
+          allocator: Use DefaultLogger
+          conntrack: Increase conntrack interval to 1 minute
+          allocator: Increase allocator list timeout to 2 minutes
+          tunnel: Make BPF tunnel map updates atomic
+          tunnel: Add debug messages on tunnel map manipulation
+          maps/tunnel: Use DefaultLogger
+          bpffs: Fix panic when root directory does not exist
+          kubernetes: Fix generation of DaemonSet files to include v image tag prefix
+          kubernetes: Add missing parenthesis to only fail on invalid version
+          test: Use latest stable etcd and consul images
+          allocator: benchmark: Reserve ID space for reserved identities
+          trigger: New trigger package
+          identity: Process identity events in batches
+          identity: Fix allocator init with more than pre-existing 1024 keys
+          allocator: Avoid scanning sequentual list when allocating
+          etcd: Fix and relax during recreate watcher loop
 
 v1.0.4
 ======
 
-André Martins (11):
-      docs: backported all document changes from master
-      docs: update kubernetes generated files
-      jenkins: update all jenkins files
-      makefile: backported master's makefile
-      examples/policies: add missing policies from GSGs
-      docs: change minikube GSG to have necessary flags to run CNI
-      docs: remove duplicated cilium installation instructions from GSG
-      docs: layout fixes in GSG
-      pkg/bpf: Use pointer receivers for MapKeys types
-      test: update k8s versions to 1.7.15, 1.8.13, 1.9.8, 1.10.3 and 1.11.0-beta.0
-      test: download exact k8s version of k8s upstream e2e
+::
 
-Arvind Soni (1):
-      Fix image formatting and simplifies app yaml
+    André Martins (11):
+          docs: backported all document changes from master
+          docs: update kubernetes generated files
+          jenkins: update all jenkins files
+          makefile: backported master's makefile
+          examples/policies: add missing policies from GSGs
+          docs: change minikube GSG to have necessary flags to run CNI
+          docs: remove duplicated cilium installation instructions from GSG
+          docs: layout fixes in GSG
+          pkg/bpf: Use pointer receivers for MapKeys types
+          test: update k8s versions to 1.7.15, 1.8.13, 1.9.8, 1.10.3 and 1.11.0-beta.0
+          test: download exact k8s version of k8s upstream e2e
 
-Ashwin Paranjpe (2):
-      GH4164 Append rule labels while parsing api.Rule
-      GH-4339 Add k8s label source in GetPolicyLabels
+    Arvind Soni (1):
+          Fix image formatting and simplifies app yaml
 
-Eloy Coto (1):
-      Test: Fix issues with Ginkgo Kubernetes Job
+    Ashwin Paranjpe (2):
+          GH4164 Append rule labels while parsing api.Rule
+          GH-4339 Add k8s label source in GetPolicyLabels
 
-Ian Vernon (2):
-      pkg/endpointmanager: always regenerate if policy forcibly computed
-      daemon: trigger policy updates upon daemon configuration update
+    Eloy Coto (1):
+          Test: Fix issues with Ginkgo Kubernetes Job
 
-Jarno Rajahalme (3):
-      bugtool: Add '-a' option to netstat.
-      bpf: Only create veth pair if it does not already exist.
-      init.sh: Use 'ip route replace' instead of 'ip route add'
+    Ian Vernon (2):
+          pkg/endpointmanager: always regenerate if policy forcibly computed
+          daemon: trigger policy updates upon daemon configuration update
 
-Joe Stringer (2):
-      docs: Attempt to use RTD version for GH URLs
-      test: Don't gather logs in -holdEnvironment
+    Jarno Rajahalme (3):
+          bugtool: Add '-a' option to netstat.
+          bpf: Only create veth pair if it does not already exist.
+          init.sh: Use 'ip route replace' instead of 'ip route add'
 
-Nirmoy Das (1):
-      cilium status: fix --brief to print less when cilium isn't running
+    Joe Stringer (2):
+          docs: Attempt to use RTD version for GH URLs
+          test: Don't gather logs in -holdEnvironment
 
-Ray Bejjani (2):
-      endpoint: Force regeneration when there are underlying errors
-      fixup: Remove incompatible example policy
+    Nirmoy Das (1):
+          cilium status: fix --brief to print less when cilium isn't running
 
-Romain Lenglet (2):
-      ipcache: Create copies of NPHDS cache resources when deleting
-      xds: Match the client's version if higher than the server's
+    Ray Bejjani (2):
+          endpoint: Force regeneration when there are underlying errors
+          fixup: Remove incompatible example policy
 
-Shantanu Deshpande (3):
-      Add org to spellcheck wordlist
-      Fixes 'any' reference target not found warning
-      Misc fixes for kops installation guide
+    Romain Lenglet (2):
+          ipcache: Create copies of NPHDS cache resources when deleting
+          xds: Match the client's version if higher than the server's
 
-Steven Ceuppens (1):
-      Add "docker info" output to bugtool
+    Shantanu Deshpande (3):
+          Add org to spellcheck wordlist
+          Fixes 'any' reference target not found warning
+          Misc fixes for kops installation guide
 
-Tasdik Rahman (2):
-      docs: k8s: updating docs for k8s v1.9, 1.10 and 1.11 support
-      docs: k8s: updating formatting
+    Steven Ceuppens (1):
+          Add "docker info" output to bugtool
 
-Thomas Graf (2):
-      identity: Ignore nil identity when generating IdentityCache
-      identity: Resolve unknown identity to label reserved:unknown
+    Tasdik Rahman (2):
+          docs: k8s: updating docs for k8s v1.9, 1.10 and 1.11 support
+          docs: k8s: updating formatting
+
+    Thomas Graf (2):
+          identity: Ignore nil identity when generating IdentityCache
+          identity: Resolve unknown identity to label reserved:unknown
 
 
 v1.0.3
 ======
 
-Ian Vernon (1):
-      pkg/policy/api: add basic HTTP Rule sanitization
+::
 
-Joe Stringer (4):
-      k8s: Bump CRD schema version.
-      bpf: Ensure maps are restored on load failure
-      bpf: Fix failure handling in CreateMap
-      bpf: Respond to all ARP requests
+    Ian Vernon (1):
+          pkg/policy/api: add basic HTTP Rule sanitization
 
-Ray Bejjani (3):
-      controller: Cleanup global manager on UpdateController
-      monitor: More correctly cancel contexts on exit
-      monitor: Fatal on critical errors instead of panic
+    Joe Stringer (4):
+          k8s: Bump CRD schema version.
+          bpf: Ensure maps are restored on load failure
+          bpf: Fix failure handling in CreateMap
+          bpf: Respond to all ARP requests
 
-Romain Lenglet (2):
-      controller: Skip StopFunc when stopping controller for update
-      k8s: Consistently check for namespace labels in endpoint selectors
+    Ray Bejjani (3):
+          controller: Cleanup global manager on UpdateController
+          monitor: More correctly cancel contexts on exit
+          monitor: Fatal on critical errors instead of panic
 
-Thomas Graf (2):
-      agent: Fix panic when node.GetNodes() is empty
+    Romain Lenglet (2):
+          controller: Skip StopFunc when stopping controller for update
+          k8s: Consistently check for namespace labels in endpoint selectors
+
+    Thomas Graf (2):
+          agent: Fix panic when node.GetNodes() is empty
 
 v1.0.2
 ======
 
-Eloy Coto (2):
-      Bugtool: Fix gops commands
-      Test/K8s: Added debug logs in cilium DS
+::
 
-Ian Vernon (2):
-      test/k8sT: do not set Debug=False during tests
-      vagrant: configure journald to allow for large amounts of logs
+    Eloy Coto (2):
+          Bugtool: Fix gops commands
+          Test/K8s: Added debug logs in cilium DS
 
-Jarno Rajahalme (3):
-      docs: Fix ginkgo command line.
-      ctmap: Make GC bpf map dumps more robust.
-      proxy: Test if port is available before allocating it for a proxy.
+    Ian Vernon (2):
+          test/k8sT: do not set Debug=False during tests
+          vagrant: configure journald to allow for large amounts of logs
 
-Joe Stringer (10):
-      daemon: Check if device exists on endpoint restore
-      k8sT/Services: Fix URL for bookinfo tests
-      k8sT/Services: Remove fetch http://details:9080/
-      manifests: Pin bookinfo container image versions
-      k8s: Support IPv6 addresses in CIDR policy
-      k8s: Add CRD IP address validation unit tests
-      docs: Describe downgrade impact of IPv6 CRD validation
-      k8s: CIDR: Expand v6 regex to make it more readable
-      k8s: CIDR: Disallow IPv4-mapped IPv6 addresses
-      k8s: CIDR: Format IPv6 CIDR regex
+    Jarno Rajahalme (3):
+          docs: Fix ginkgo command line.
+          ctmap: Make GC bpf map dumps more robust.
+          proxy: Test if port is available before allocating it for a proxy.
 
-Maciej Kwiek (1):
-      Log monitor client disconnect nicely
+    Joe Stringer (10):
+          daemon: Check if device exists on endpoint restore
+          k8sT/Services: Fix URL for bookinfo tests
+          k8sT/Services: Remove fetch http://details:9080/
+          manifests: Pin bookinfo container image versions
+          k8s: Support IPv6 addresses in CIDR policy
+          k8s: Add CRD IP address validation unit tests
+          docs: Describe downgrade impact of IPv6 CRD validation
+          k8s: CIDR: Expand v6 regex to make it more readable
+          k8s: CIDR: Disallow IPv4-mapped IPv6 addresses
+          k8s: CIDR: Format IPv6 CIDR regex
 
-Manali Bhutiyani (1):
-      endpoint: Remove endpoint state directories left behind after build failure
+    Maciej Kwiek (1):
+          Log monitor client disconnect nicely
 
-Ray Bejjani (8):
-      docs: Correct RBAC urls in upgrade guide
-      test: CmdRes.CombineOutput does not clobber stdout
-      test: Switch Kafka runtime test to use CombineOutput
-      test: Star Wars demo checks HTTP status in stdout
-      monitor: Don't spinloop on node-monitor crashes
-      monitor: pass payload objects by reference
-      monitor: only read perf buffer on listener connect
-      monitor: refactor globals into an object
+    Manali Bhutiyani (1):
+          endpoint: Remove endpoint state directories left behind after build failure
 
-Shantanu Deshpande (1):
-      Fix weird indentation for rules*
+    Ray Bejjani (8):
+          docs: Correct RBAC urls in upgrade guide
+          test: CmdRes.CombineOutput does not clobber stdout
+          test: Switch Kafka runtime test to use CombineOutput
+          test: Star Wars demo checks HTTP status in stdout
+          monitor: Don't spinloop on node-monitor crashes
+          monitor: pass payload objects by reference
+          monitor: only read perf buffer on listener connect
+          monitor: refactor globals into an object
+
+    Shantanu Deshpande (1):
+          Fix weird indentation for rules*
 
 v1.0.1
 ======
