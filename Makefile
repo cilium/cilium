@@ -293,8 +293,11 @@ install-manpages:
 	cp man/* /usr/local/share/man/man1/
 	mandb
 
+# Strip "tabs assets" errors from the dummy target, but fail on target failure.
 check-docs:
-	-$(QUIET) $(MAKE) -C Documentation/ dummy SPHINXOPTS="$(SPHINXOPTS)" 2>&1 | grep -v "tabs assets"
+	$(QUIET)($(MAKE) -C Documentation/ dummy SPHINXOPTS="$(SPHINXOPTS)" 2>&1 && touch $@.ok) \
+		| grep -v "tabs assets"
+	@rm $@.ok 2>/dev/null
 
 postcheck: build
 	@$(ECHO_CHECK) contrib/scripts/check-cmdref.sh
