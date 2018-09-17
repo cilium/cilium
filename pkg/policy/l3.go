@@ -22,7 +22,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
@@ -47,17 +46,12 @@ type CIDRPolicyMap struct {
 
 // GetDefaultPrefixLengths returns the set of prefix lengths for handling
 // CIDRs that are unconditionally mapped to identities, ie for the reserved
-// identities 'host', 'cluster', 'world'.
-//
-// This function is dynamic in case the cluster range changes during runtime.
+// identities 'host', 'world'.
 func GetDefaultPrefixLengths() (s6 []int, s4 []int) {
-	v6ClusterRange, _ := node.GetIPv6ClusterRange().Mask.Size()
-	v4ClusterRange, _ := node.GetIPv4ClusterRange().Mask.Size()
-
 	// These *must* be in the order of longest prefix to shortest, as the
 	// LPM implementation on older kernels depends on this ordering.
-	s6 = []int{net.IPv6len * 8, v6ClusterRange, 0}
-	s4 = []int{net.IPv4len * 8, v4ClusterRange, 0}
+	s6 = []int{net.IPv6len * 8, 0}
+	s4 = []int{net.IPv4len * 8, 0}
 	return
 }
 

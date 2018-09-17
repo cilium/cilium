@@ -19,7 +19,6 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/node"
 )
 
 // GetCIDRLabels turns a CIDR into a set of labels representing the cidr itself
@@ -28,8 +27,8 @@ import (
 //     "cidr:10.0.0.0/8", "cidr:10.0.0.0/7", "cidr:8.0.0.0/6",
 //     "cidr:8.0.0.0/5", "cidr:0.0.0.0/4, "cidr:0.0.0.0/3",
 //     "cidr:0.0.0.0/2",  "cidr:0.0.0.0/1",  "cidr:0.0.0.0/0"
-// (plus one of reserved:cluster or reserved:world, depending on whether the
-// cluster falls within the IP range of the cluster or not)
+//
+// The identity reserved:world is always added as it includes any CIDR.
 func GetCIDRLabels(cidr *net.IPNet) labels.Labels {
 	ones, bits := cidr.Mask.Size()
 	result := []string{}
@@ -45,21 +44,7 @@ func GetCIDRLabels(cidr *net.IPNet) labels.Labels {
 		}
 	}
 
-	var cluster *net.IPNet
-	if cidr.IP.To4() == nil {
-		cluster = node.GetIPv6ClusterRange()
-	} else {
-		cluster = node.GetIPv4ClusterRange()
-	}
-
-	var label string
-	clusterSize, _ := cluster.Mask.Size()
-	if cluster.Contains(cidr.IP) && clusterSize <= ones {
-		label = fmt.Sprintf("%s:%s", labels.LabelSourceReserved, labels.IDNameCluster)
-	} else {
-		label = fmt.Sprintf("%s:%s", labels.LabelSourceReserved, labels.IDNameWorld)
-	}
-	result = append(result, label)
+	result = append(result, fmt.Sprintf("%s:%s", labels.LabelSourceReserved, labels.IDNameWorld))
 
 	return labels.NewLabelsFromModel(result)
 }

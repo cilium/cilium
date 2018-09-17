@@ -926,10 +926,6 @@ func createNodeConfigHeaderfile() error {
 	ipv4Range := node.GetIPv4AllocRange()
 	fmt.Fprintf(fw, "#define IPV4_MASK %#x\n", byteorder.HostSliceToNetwork(ipv4Range.Mask, reflect.Uint32).(uint32))
 
-	ipv4ClusterRange := node.GetIPv4ClusterRange()
-	fmt.Fprintf(fw, "#define IPV4_CLUSTER_RANGE %#x\n", byteorder.HostSliceToNetwork(ipv4ClusterRange.IP, reflect.Uint32).(uint32))
-	fmt.Fprintf(fw, "#define IPV4_CLUSTER_MASK %#x\n", byteorder.HostSliceToNetwork(ipv4ClusterRange.Mask, reflect.Uint32).(uint32))
-
 	if nat46Range := option.Config.NAT46Prefix; nat46Range != nil {
 		fw.WriteString(common.FmtDefineAddress("NAT46_PREFIX", nat46Range.IP))
 	}
@@ -937,7 +933,6 @@ func createNodeConfigHeaderfile() error {
 	fw.WriteString(common.FmtDefineComma("HOST_IP", hostIP))
 	fmt.Fprintf(fw, "#define HOST_ID %d\n", identity.GetReservedID(labels.IDNameHost))
 	fmt.Fprintf(fw, "#define WORLD_ID %d\n", identity.GetReservedID(labels.IDNameWorld))
-	fmt.Fprintf(fw, "#define CLUSTER_ID %d\n", identity.GetReservedID(labels.IDNameCluster))
 	fmt.Fprintf(fw, "#define HEALTH_ID %d\n", identity.GetReservedID(labels.IDNameHealth))
 	fmt.Fprintf(fw, "#define INIT_ID %d\n", identity.GetReservedID(labels.IDNameInit))
 	fmt.Fprintf(fw, "#define LB_RR_MAX_SEQ %d\n", lbmap.MaxSeq)
@@ -981,16 +976,6 @@ func (d *Daemon) syncLXCMap() error {
 		{
 			IP: node.GetIPv6Router(),
 			ID: identity.ReservedIdentityHost,
-		},
-		{
-			IP:   node.GetIPv6ClusterRange().IP,
-			Mask: node.GetIPv6ClusterRange().Mask,
-			ID:   identity.ReservedIdentityCluster,
-		},
-		{
-			IP:   node.GetIPv4ClusterRange().IP,
-			Mask: node.GetIPv4ClusterRange().Mask,
-			ID:   identity.ReservedIdentityCluster,
 		},
 		{
 			IP:   net.IPv4zero,
@@ -1063,13 +1048,11 @@ func createPrefixLengthCounter() *counter.PrefixLengthCounter {
 	// without parsing strings, etc.
 	defaultPrefixes := []*net.IPNet{
 		// IPv4
-		createIPNet(0, net.IPv4len*8),                     // world
-		createIPNet(v4ClusterCidrMaskSize, net.IPv4len*8), // cluster
-		createIPNet(net.IPv4len*8, net.IPv4len*8),         // hosts
+		createIPNet(0, net.IPv4len*8),             // world
+		createIPNet(net.IPv4len*8, net.IPv4len*8), // hosts
 
 		// IPv6
-		createIPNet(0, net.IPv6len*8), // world
-		createIPNet(defaults.DefaultIPv6ClusterPrefixLen, net.IPv6len*8),
+		createIPNet(0, net.IPv6len*8),             // world
 		createIPNet(net.IPv6len*8, net.IPv6len*8), // hosts
 	}
 	_, err := counter.Add(defaultPrefixes)
@@ -1261,7 +1244,6 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 	log.Infof("  Node-IPv6: %s", node.GetIPv6())
 	log.Infof("  External-Node IPv4: %s", node.GetExternalIPv4())
 	log.Infof("  Internal-Node IPv4: %s", node.GetInternalIPv4())
-	log.Infof("  Cluster IPv6 prefix: %s", node.GetIPv6ClusterRange())
 	log.Infof("  Cluster IPv4 prefix: %s", node.GetIPv4ClusterRange())
 	log.Infof("  IPv6 node prefix: %s", node.GetIPv6NodeRange())
 	log.Infof("  IPv6 allocation prefix: %s", node.GetIPv6AllocRange())

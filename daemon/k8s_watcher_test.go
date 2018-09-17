@@ -817,7 +817,7 @@ func (ds *DaemonSuite) Test_missingK8sPodV1(c *C) {
 				endpointmanager.Insert(endpointCreator(123, identity.NumericIdentity(1000)))
 				cache := ipcache.NewIPCache()
 				cache.Upsert("127.0.0.1", net.ParseIP("127.0.0.2"), ipcache.Identity{
-					ID:     identity.ReservedIdentityCluster,
+					ID:     identity.ReservedIdentityInit,
 					Source: ipcache.FromKubernetes,
 				})
 				m := versioned.NewMap()
@@ -853,7 +853,7 @@ func (ds *DaemonSuite) Test_missingK8sPodV1(c *C) {
 				endpointmanager.Insert(ep)
 				cache := ipcache.NewIPCache()
 				cache.Upsert("127.0.0.1", net.ParseIP("127.0.0.2"), ipcache.Identity{
-					ID:     identity.ReservedIdentityCluster,
+					ID:     identity.ReservedIdentityInit,
 					Source: ipcache.FromKubernetes,
 				})
 				m := versioned.NewMap()
@@ -909,7 +909,7 @@ func (ds *DaemonSuite) Test_missingK8sPodV1(c *C) {
 				endpointmanager.Insert(ep)
 				cache := ipcache.NewIPCache()
 				cache.Upsert("127.0.0.1", net.ParseIP("127.0.0.2"), ipcache.Identity{
-					ID:     identity.ReservedIdentityCluster,
+					ID:     identity.ReservedIdentityInit,
 					Source: ipcache.FromKubernetes,
 				})
 				m := versioned.NewMap()
@@ -949,7 +949,7 @@ func (ds *DaemonSuite) Test_missingK8sPodV1(c *C) {
 				endpointmanager.Insert(ep)
 				cache := ipcache.NewIPCache()
 				cache.Upsert("127.0.0.1", net.ParseIP("127.0.0.2"), ipcache.Identity{
-					ID:     identity.ReservedIdentityCluster,
+					ID:     identity.ReservedIdentityInit,
 					Source: ipcache.FromKubernetes,
 				})
 				m := versioned.NewMap()
@@ -1067,7 +1067,7 @@ func (ds *DaemonSuite) Test_missingK8sNodeV1(c *C) {
 				node.DeleteAllNodes()
 				cache := ipcache.NewIPCache()
 				cache.Upsert("172.20.0.1", net.ParseIP("172.20.0.2"), ipcache.Identity{
-					ID:     identity.ReservedIdentityCluster,
+					ID:     identity.ReservedIdentityInit,
 					Source: ipcache.FromKubernetes,
 				})
 				node.UpdateNode(&node.Node{
@@ -1108,7 +1108,7 @@ func (ds *DaemonSuite) Test_missingK8sNodeV1(c *C) {
 				node.DeleteAllNodes()
 				cache := ipcache.NewIPCache()
 				cache.Upsert("127.0.0.1", net.ParseIP("127.0.0.2"), ipcache.Identity{
-					ID:     identity.ReservedIdentityCluster,
+					ID:     identity.ReservedIdentityInit,
 					Source: ipcache.FromKubernetes,
 				})
 				m := versioned.NewMap()
@@ -1138,7 +1138,7 @@ func (ds *DaemonSuite) Test_missingK8sNodeV1(c *C) {
 				node.DeleteAllNodes()
 				cache := ipcache.NewIPCache()
 				cache.Upsert("172.20.9.1", net.ParseIP("172.20.1.1"), ipcache.Identity{
-					ID:     identity.ReservedIdentityCluster,
+					ID:     identity.ReservedIdentityInit,
 					Source: ipcache.FromKubernetes,
 				})
 				node.UpdateNode(&node.Node{
