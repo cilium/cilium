@@ -50,6 +50,7 @@ var _ = Describe("K8sDemosTest", func() {
 	)
 
 	BeforeAll(func() {
+		logger = log.WithFields(logrus.Fields{"testName": "K8sDemosTest"})
 		logger.Info("Starting")
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
