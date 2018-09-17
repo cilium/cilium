@@ -7,6 +7,7 @@ ifeq ($(V),0)
 	ECHO_BAZEL=echo "  BAZEL $(notdir $(shell pwd))/$(notdir $(shell dirname $(ENVOY_BIN)))/$@"
 	ECHO_GINKGO=echo "  GINKG $(notdir $(shell pwd))"
 	ECHO_CLEAN=echo "  CLEAN"
+	SPHINXOPTS+="-q"
 else
 	# The whitespace at below EOLs is required for verbose case!
 	ECHO_CC=: 
