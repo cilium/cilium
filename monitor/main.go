@@ -63,7 +63,7 @@ func init() {
 
 func execute() {
 	if err := rootCmd.Execute(); err != nil {
-		log.WithError(err)
+		log.WithError(err).Error("Monitor failed")
 		os.Exit(-1)
 	}
 }

@@ -152,7 +152,7 @@ func (m *Monitor) registerNewListener(parentCtx context.Context, conn net.Conn, 
 	log.WithFields(logrus.Fields{
 		"count.listener": len(m.listeners),
 		"version":        version,
-	}).Info("New listener connected.")
+	}).Debug("New listener connected")
 }
 
 // removeListener deletes the MonitorListener from the list, closes its queue, and
@@ -165,7 +165,7 @@ func (m *Monitor) removeListener(ml listener.MonitorListener) {
 	log.WithFields(logrus.Fields{
 		"count.listener": len(m.listeners),
 		"version":        ml.Version(),
-	}).Info("Removed listener")
+	}).Debug("Removed listener")
 
 	// If this was the final listener, shutdown the perf reader and unmap our
 	// ring buffer readers. This tells the kernel to not emit this data.
@@ -245,7 +245,7 @@ func (m *Monitor) dumpStat() {
 
 	mp, err := json.Marshal(ms)
 	if err != nil {
-		log.WithError(err).Error("error marshalling JSON")
+		log.WithError(err).Error("Error marshalling JSON")
 		return
 	}
 	fmt.Println(string(mp))
@@ -266,7 +266,7 @@ func (m *Monitor) connectionHandler1_0(parentCtx context.Context, server net.Lis
 			return
 
 		case err != nil:
-			log.WithError(err).Warn("error accepting connection")
+			log.WithError(err).Warn("Error accepting connection")
 			continue
 		}
 
@@ -289,7 +289,7 @@ func (m *Monitor) connectionHandler1_2(parentCtx context.Context, server net.Lis
 			return
 
 		case err != nil:
-			log.WithError(err).Warn("error accepting connection")
+			log.WithError(err).Warn("Error accepting connection")
 			continue
 		}
 
