@@ -294,8 +294,7 @@ spec:
       # To read the k8s etcd secrets in case the user might want to use TLS
       - name: etcd-secrets
         secret:
-          secretName: cilium-etcd-secrets
-          optional: true
+          secretName: cilium-etcd-client-tls
       # To read the clustermesh configuration
       - name: clustermesh-secrets
         secret:
