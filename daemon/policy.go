@@ -249,7 +249,10 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 	}
 
 	// The rules are added, we can begin ToFQDN DNS polling for them
-	d.dnsRuleGen.StartManageDNSName(rules)
+	// FIXME: we can't return an error here without cleaning up allocated CIDRs from the new rules
+	if err := d.dnsRuleGen.StartManageDNSName(rules); err != nil {
+		log.WithError(err).Warn("Error trying to manage rules during PolicyAdd")
+	}
 
 	log.WithField(logfields.PolicyRevision, rev).Info("Policy imported via API, recalculating...")
 
