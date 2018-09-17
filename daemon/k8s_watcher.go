@@ -1788,7 +1788,7 @@ func (d *Daemon) updatePodHostIP(pod *v1.Pod) (bool, error) {
 	}
 
 	selfOwned := ipcache.IPIdentityCache.Upsert(pod.Status.PodIP, hostIP, ipcache.Identity{
-		ID:     identity.ReservedIdentityCluster,
+		ID:     identity.ReservedIdentityInit,
 		Source: ipcache.FromKubernetes,
 	})
 	if !selfOwned {

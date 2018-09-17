@@ -205,7 +205,7 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 		info = ipcache_lookup6(&cilium_ipcache, src, V6_CACHE_KEY_LEN);
 		if (info != NULL) {
 			__u32 sec_label = info->sec_label;
-			if (sec_label && sec_label != CLUSTER_ID)
+			if (sec_label)
 				src_identity = info->sec_label;
 		}
 		cilium_dbg(skb, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
@@ -280,12 +280,7 @@ static inline __u32 derive_ipv4_sec_ctx(struct __sk_buff *skb, struct iphdr *ip4
 #ifdef FIXED_SRC_SECCTX
 	return FIXED_SRC_SECCTX;
 #else
-	__u32 secctx = WORLD_ID;
-
-	if ((ip4->saddr & IPV4_CLUSTER_MASK) == IPV4_CLUSTER_RANGE) {
-		/* FIXME: Derive */
-	}
-	return secctx;
+	return WORLD_ID;
 #endif
 }
 
@@ -384,12 +379,8 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 				 * (passed into this function) reports the src
 				 * as the host. So we can ignore the ipcache
 				 * if it reports the source as HOST_ID.
-				 *
-				 * For compatibility with older versions of
-				 * Cilium, we also ignore CLUSTER_ID.
 				 */
-				if (sec_label != CLUSTER_ID &&
-				    sec_label != HOST_ID)
+				if (sec_label != HOST_ID)
 					src_identity = sec_label;
 			}
 		}
@@ -434,7 +425,7 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 	if (info != NULL && info->tunnel_endpoint != 0) {
 		return encap_and_redirect_with_nodeid(skb, info->tunnel_endpoint,
 						      secctx, true);
-	} else if ((ip4->daddr & IPV4_CLUSTER_MASK) == IPV4_CLUSTER_RANGE) {
+	} else {
 		/* IPv4 lookup key: daddr & IPV4_MASK */
 		struct endpoint_key key = {};
 		int ret;

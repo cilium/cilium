@@ -35,7 +35,6 @@
  * - IdentityUnknown		(0)
  * - ReservedIdentityHost	(1)
  * - ReservedIdentityWorld	(2)
- * - ReservedIdentityCluster	(3)
  *
  * The following identities are given to endpoints so return false for these:
  * - ReservedIdentityHealth	(4)

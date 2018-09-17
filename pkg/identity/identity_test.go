@@ -42,9 +42,10 @@ func (s *IdentityTestSuite) TestReservedID(c *C) {
 	c.Assert(i, Equals, NumericIdentity(2))
 	c.Assert(i.String(), Equals, "world")
 
+	// This is an obsoleted identity, we verify that it returns 0
 	i = GetReservedID("cluster")
-	c.Assert(i, Equals, NumericIdentity(3))
-	c.Assert(i.String(), Equals, "cluster")
+	c.Assert(i, Equals, NumericIdentity(0))
+	c.Assert(i.String(), Equals, "0")
 
 	i = GetReservedID("health")
 	c.Assert(i, Equals, NumericIdentity(4))
@@ -60,7 +61,6 @@ func (s *IdentityTestSuite) TestReservedID(c *C) {
 }
 
 func (s *IdentityTestSuite) TestIsReservedIdentity(c *C) {
-	c.Assert(ReservedIdentityCluster.IsReservedIdentity(), Equals, true)
 	c.Assert(ReservedIdentityHealth.IsReservedIdentity(), Equals, true)
 	c.Assert(ReservedIdentityHost.IsReservedIdentity(), Equals, true)
 	c.Assert(ReservedIdentityWorld.IsReservedIdentity(), Equals, true)
@@ -93,15 +93,6 @@ func (s *IdentityTestSuite) TestAllocateIdentityReserved(c *C) {
 	i, isNew, err = AllocateIdentity(lbls)
 	c.Assert(err, IsNil)
 	c.Assert(i.ID, Equals, ReservedIdentityWorld)
-	c.Assert(isNew, Equals, false)
-
-	lbls = labels.Labels{
-		labels.IDNameCluster: labels.NewLabel(labels.IDNameCluster, "", labels.LabelSourceReserved),
-	}
-	c.Assert(IdentityAllocationIsLocal(lbls), Equals, true)
-	i, isNew, err = AllocateIdentity(lbls)
-	c.Assert(err, IsNil)
-	c.Assert(i.ID, Equals, ReservedIdentityCluster)
 	c.Assert(isNew, Equals, false)
 
 	lbls = labels.LabelHealth.DeepCopy()

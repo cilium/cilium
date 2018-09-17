@@ -46,9 +46,9 @@ const (
 	// ReservedIdentityWorld represents any endpoint outside of the cluster
 	ReservedIdentityWorld
 
-	// ReservedIdentityCluster represents any endpoint inside the cluster
-	// that does not have a more specific identity
-	ReservedIdentityCluster
+	// ObsoleteReservedIdentityCluster was previously the cluster identity
+	// which has been obsoleted since.
+	ObsoleteReservedIdentityCluster
 
 	// ReservedIdentityHealth represents the local cilium-health endpoint
 	ReservedIdentityHealth
@@ -61,18 +61,16 @@ const (
 var (
 	reservedIdentitiesMutex lock.RWMutex
 	reservedIdentities      = map[string]NumericIdentity{
-		labels.IDNameHost:    ReservedIdentityHost,
-		labels.IDNameWorld:   ReservedIdentityWorld,
-		labels.IDNameHealth:  ReservedIdentityHealth,
-		labels.IDNameCluster: ReservedIdentityCluster,
-		labels.IDNameInit:    ReservedIdentityInit,
+		labels.IDNameHost:   ReservedIdentityHost,
+		labels.IDNameWorld:  ReservedIdentityWorld,
+		labels.IDNameHealth: ReservedIdentityHealth,
+		labels.IDNameInit:   ReservedIdentityInit,
 	}
 	reservedIdentityNames = map[NumericIdentity]string{
-		ReservedIdentityHost:    labels.IDNameHost,
-		ReservedIdentityWorld:   labels.IDNameWorld,
-		ReservedIdentityHealth:  labels.IDNameHealth,
-		ReservedIdentityCluster: labels.IDNameCluster,
-		ReservedIdentityInit:    labels.IDNameInit,
+		ReservedIdentityHost:   labels.IDNameHost,
+		ReservedIdentityWorld:  labels.IDNameWorld,
+		ReservedIdentityHealth: labels.IDNameHealth,
+		ReservedIdentityInit:   labels.IDNameInit,
 	}
 
 	// ErrNotUserIdentity is an error returned for an identity that is not user
