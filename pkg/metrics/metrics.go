@@ -107,6 +107,9 @@ var (
 	// LabelBuildQueueName is the name of the build queue
 	LabelBuildQueueName = "name"
 
+	// LabelAction is the label used to defined what kind of action was performed in a metric
+	LabelAction = "action"
+
 	// Endpoint
 
 	// EndpointCount is a function used to collect this metric.
@@ -343,6 +346,15 @@ var (
 			"labeled by datapath family and completion status",
 	}, []string{LabelDatapathFamily, LabelProtocol, LabelStatus})
 
+	// Services
+
+	// ServicesCount number of services
+	ServicesCount = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Name:      "services_events_total",
+		Help:      "Number of services events labeled by action type",
+	}, []string{LabelAction})
+
 	// Errors and warnings
 
 	// ErrorsWarnings is the number of errors and warnings in cilium-agent instances
@@ -414,6 +426,8 @@ func init() {
 	MustRegister(ConntrackGCKeyFallbacks)
 	MustRegister(ConntrackGCSize)
 	MustRegister(ConntrackGCDuration)
+
+	MustRegister(ServicesCount)
 
 	MustRegister(ErrorsWarnings)
 

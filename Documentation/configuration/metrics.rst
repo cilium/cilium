@@ -43,9 +43,14 @@ Build Queue
 -----------
 
 * ``buildqueue_entries``: Number of queued, waiting, and running builds.
-  * ``state=running``: Number of builds currently in progress
-  * ``state=blocked``: Number of builds selected for building, waiting for build conditions to be met.
-  * ``state=waiting``: Number of builds in the queue, waiting to be selected.
+    * ``state=running``: Number of builds currently in progress
+    * ``state=blocked``: Number of builds selected for building, waiting for build conditions to be met.
+    * ``state=waiting``: Number of builds in the queue, waiting to be selected.
+
+Services
+--------
+
+* ``services_events_total``: Number of services events labeled by action type
 
 Datapath
 --------

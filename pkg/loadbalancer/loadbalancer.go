@@ -26,11 +26,18 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 
 	"github.com/sirupsen/logrus"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "loadbalancer")
+var (
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "loadbalancer")
+
+	updateMetric = metrics.ServicesCount.WithLabelValues("update")
+	deleteMetric = metrics.ServicesCount.WithLabelValues("delete")
+	addMetric    = metrics.ServicesCount.WithLabelValues("add")
+)
 
 const (
 	NONE = L4Type("NONE")
@@ -126,6 +133,9 @@ func (lb *LoadBalancer) AddService(svc LBSVC) bool {
 		// If service already existed, remove old entry from Cilium's map
 		scopedLog.Debug("service is already in lb.SVCMapID; deleting old entry and updating it with new entry")
 		delete(lb.SVCMap, oldSvc.Sha256)
+		updateMetric.Inc()
+	} else {
+		addMetric.Inc()
 	}
 	scopedLog.Debug("adding service to loadbalancer")
 	lb.SVCMap[svc.Sha256] = svc
@@ -141,6 +151,7 @@ func (lb *LoadBalancer) DeleteService(svc *LBSVC) {
 	}).Debug("deleting service from loadbalancer")
 	delete(lb.SVCMap, svc.Sha256)
 	delete(lb.SVCMapID, svc.FE.ID)
+	deleteMetric.Inc()
 }
 
 func NewL4Type(name string) (L4Type, error) {
