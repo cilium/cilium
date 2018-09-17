@@ -4,7 +4,7 @@ include ../Makefile.quiet
 
 # You can set these variables from the command line.
 SPHINXOPTS    =
-SPHINXBUILD   = $(QUIET) sphinx-build
+SPHINXBUILD   = sphinx-build
 SPHINXPROJ    = Cilium
 SOURCEDIR     = .
 BUILDDIR      = _build
@@ -46,7 +46,7 @@ cmdref:
 
 spellcheck: check-requirements
 	@$(ECHO_CHECK) documentation spelling...
-	$(SPHINXBUILD) -b spelling -d "$(BUILDDIR)/doctrees" "$(SOURCEDIR)" "$(BUILDDIR)/spelling" $(SPHINXOPTS)
+	$(QUIET)$(SPHINXBUILD) -b spelling -d "$(BUILDDIR)/doctrees" "$(SOURCEDIR)" "$(BUILDDIR)/spelling" $(SPHINXOPTS)
 	@if [ "$$(wc -l < "$(BUILDDIR)/spelling/output.txt")" -ne "0" ]; then \
 		echo "Please fix the following spelling mistakes:"; \
 		sed 's/^/* Documentation\//' $(BUILDDIR)/spelling/output.txt; \
@@ -57,7 +57,7 @@ spellcheck: check-requirements
 # To use checklinks with `make render-docs`,
 # edit the line `%: Makefile check-requirements spellcheck checklinks`
 checklinks:
-	$(SPHINXBUILD) -b linkcheck -d "$(BUILDDIR)/doctrees" "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS)
+	$(QUIET)$(SPHINXBUILD) -b linkcheck -d "$(BUILDDIR)/doctrees" "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS)
 
 .PHONY: help Makefile ../Makefile.quiet check-requirements cmdref
 
@@ -65,4 +65,4 @@ checklinks:
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
 %: Makefile check-requirements spellcheck
 	@$(ECHO_GEN)_build/$@
-	$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+	$(QUIET)$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
