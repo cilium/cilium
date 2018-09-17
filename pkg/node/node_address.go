@@ -201,15 +201,6 @@ func GetIPv4AllocRange() *net.IPNet {
 	return ipv4AllocRange
 }
 
-// GetIPv6ClusterRange returns the IPv6 prefix of the clustr
-func GetIPv6ClusterRange() *net.IPNet {
-	mask := net.CIDRMask(defaults.DefaultIPv6ClusterPrefixLen, 128)
-	return &net.IPNet{
-		IP:   ipv6AllocRange.IP.Mask(mask),
-		Mask: mask,
-	}
-}
-
 // GetIPv6AllocRange returns the IPv6 allocation prefix of this node
 func GetIPv6AllocRange() *net.IPNet {
 	mask := net.CIDRMask(defaults.IPv6NodeAllocPrefixLen, 128)

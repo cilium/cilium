@@ -52,20 +52,20 @@ func (ds *PolicyTestSuite) TestToBPFData(c *C) {
 
 	populateMap(&cidrPolicy.Ingress)
 	_, s4 := cidrPolicy.ToBPFData()
-	exp := []int{32, 26, 24, 20, 16, 8, 0}
+	exp := []int{32, 26, 24, 20, 16, 0}
 	c.Assert(s4, checker.DeepEquals, exp)
 
 	cidrPolicy = NewCIDRPolicy()
-	// 8 and 0 represent the host/ cluster / world prefixes.
+	// 32 represent the host and 0 the world prefixes.
 	populateMap(&cidrPolicy.Egress)
 	_, s4 = cidrPolicy.ToBPFData()
-	exp = []int{32, 26, 24, 20, 16, 8, 0}
+	exp = []int{32, 26, 24, 20, 16, 0}
 	c.Assert(s4, checker.DeepEquals, exp)
 }
 
 func (ds *PolicyTestSuite) TestGetDefaultPrefixLengths(c *C) {
-	expected6 := []int{128, 64, 0}
-	expected4 := []int{32, 8, 0}
+	expected6 := []int{128, 0}
+	expected4 := []int{32, 0}
 	s6, s4 := GetDefaultPrefixLengths()
 
 	c.Assert(s6, checker.DeepEquals, expected6)

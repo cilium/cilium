@@ -20,7 +20,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/node"
 
 	. "gopkg.in/check.v1"
 )
@@ -33,17 +32,6 @@ func Test(t *testing.T) {
 type CIDRLabelsSuite struct{}
 
 var _ = Suite(&CIDRLabelsSuite{})
-
-func init() {
-	_, v4CIDR, _ := net.ParseCIDR("10.0.0.0/16")
-	_, v6CIDR, _ := net.ParseCIDR("2001:db8:cafe:0:cab::/96")
-	testNode := &node.Node{
-		Name:          "test_node",
-		IPv4AllocCIDR: v4CIDR,
-		IPv6AllocCIDR: v6CIDR,
-	}
-	node.UseNodeCIDR(testNode)
-}
 
 // TestGetCIDRLabels checks that GetCIDRLabels returns a sane set of labels for
 // given CIDRs.
@@ -121,7 +109,7 @@ func (s *CIDRLabelsSuite) TestGetCIDRLabelsInCluster(c *C) {
 	expected := labels.ParseLabelArray(
 		"cidr:0.0.0.0/0",
 		"cidr:10.0.0.0/16",
-		"reserved:cluster",
+		"reserved:world",
 	)
 	lbls := GetCIDRLabels(cidr)
 	lblArray := lbls.LabelArray()
@@ -135,7 +123,7 @@ func (s *CIDRLabelsSuite) TestGetCIDRLabelsInCluster(c *C) {
 		"cidr:2001-db8-cafe--0/64",
 		"cidr:2001-db8-cafe-0-cab-4--0/96",
 		"cidr:2001-db8-cafe-0-cab-4-b0b-0/112",
-		"reserved:cluster",
+		"reserved:world",
 	)
 	lbls = GetCIDRLabels(cidr)
 	lblArray = lbls.LabelArray()
