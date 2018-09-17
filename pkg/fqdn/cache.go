@@ -17,6 +17,7 @@ package fqdn
 import (
 	"bytes"
 	"net"
+	"regexp"
 	"sort"
 	"time"
 
@@ -156,6 +157,29 @@ func (c *DNSCache) lookupByTime(now time.Time, name string) (ips []net.IP) {
 	}
 
 	return entries.getIPs(now)
+}
+
+// LookupByRegexp returns all non-expired cache entries that match re as a map
+// of name -> IPs
+func (c *DNSCache) LookupByRegexp(re *regexp.Regexp) (matches map[string][]net.IP) {
+	return c.lookupByRegexpByTime(time.Now(), re)
+}
+
+// lookupByRegexpByTime takes a timestamp for expiration comparisions, and is
+// only intended for testing.
+func (c *DNSCache) lookupByRegexpByTime(now time.Time, re *regexp.Regexp) (matches map[string][]net.IP) {
+	matches = make(map[string][]net.IP)
+
+	c.RLock()
+	defer c.RUnlock()
+
+	for name, entry := range c.forward {
+		if re.MatchString(name) {
+			matches[name] = append(matches[name], entry.getIPs(now)...)
+		}
+	}
+
+	return matches
 }
 
 // updateWithEntry adds a mapping for every IP found in `entry` to `ipEntries`

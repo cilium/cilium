@@ -17,7 +17,6 @@
 package fqdn
 
 import (
-	"fmt"
 	"net"
 	"time"
 
@@ -259,7 +258,6 @@ func (ds *FQDNTestSuite) TestRuleGenUpdatesOnReplace(c *C) {
 	gen.StartManageDNSName(rules)
 	gen.UpdateGenerateDNS(time.Now(), lookupDNSNames(dnsIPs, lookups, []string{dns.Fqdn("cilium.io"), dns.Fqdn("anotherdomain.com")}))
 
-	fmt.Printf("%#v\n", gen.IPs)
 	// Add the original 2 matchnames without deleting
 	// MarkToFQDNRules should add 2 entries, as those should be in the gen cache
 	rules = []*api.Rule{makeRule("testRule5", "cilium.io", "github.com")}
