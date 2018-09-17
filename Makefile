@@ -296,7 +296,7 @@ postcheck: build
 	$(QUIET) MAKE=$(MAKE) contrib/scripts/check-cmdref.sh
 	@$(ECHO_CHECK) contrib/scripts/lock-check.sh
 	$(QUIET) contrib/scripts/lock-check.sh
-	-$(QUIET) $(MAKE) -C Documentation/ dummy SPHINXOPTS="-q" 2>&1 | grep -v "tabs assets"
+	-$(QUIET) $(MAKE) -C Documentation/ dummy SPHINXOPTS="$(SPHINXOPTS)" 2>&1 | grep -v "tabs assets"
 
 .PHONY: force generate-api generate-health-api
 force :;
