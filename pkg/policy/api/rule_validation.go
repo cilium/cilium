@@ -217,6 +217,13 @@ func (e *EgressRule) sanitize() error {
 		}
 	}
 
+	for i := range e.ToFQDNs {
+		err := e.ToFQDNs[i].sanitize()
+		if err != nil {
+			return err
+		}
+	}
+
 	// FIXME GH-1781 count coalesced CIDRs and restrict the number of
 	// prefix lengths based on the CIDRSet exclusions.
 	if l := len(prefixLengths); l > MaxCIDRPrefixLengths {

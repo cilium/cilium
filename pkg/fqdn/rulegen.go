@@ -19,10 +19,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cilium/cilium/pkg/fqdn/regexpmap"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
+
 	"github.com/miekg/dns"
 	"github.com/sirupsen/logrus"
 )
@@ -58,23 +60,26 @@ type RuleGen struct {
 
 	// config is a copy from when this instance was initialized.
 	// It is read-only once set
-	config Config // FIXME: make this fqdn.Config
+	config Config
 
-	// IPs maps dnsNames as strings to the most recent IPs emitted for them. It
-	// is, in effect, a reflection of the realized DNS -> IP state (but acts as a
-	// source of information for the CIDR rules we generate).
+	// namesToPoll is the set of names that need to be polled. These do not
+	// include regexes, as those are not polled directly.
+	namesToPoll map[string]struct{}
+
+	// previousEmittedIPs are the IPs most recently emitted in generated rules
+	// for a DNS name. This map is used to check whether a specific DNS name has
+	// IPs different than those already in generated rules.
 	// Note: The IP slice is sorted on insert, in updateIPsForName, and should
 	// not be reshuffled.
 	// Note: Names are turned into FQDNs when stored
-	IPs map[string][]net.IP
+	previousEmittedIPs map[string][]net.IP
 
-	// sourceRule maps dnsNames to a set of rule UUIDs that depend on
-	// that dnsName. It is the desired state for DNS -> IP data, and drives IPs
-	// above, which drives CIDR rule generation.
-	// The data here is map[dnsName][rule uuid]struct{} where the inner map acts
-	// as a refcount of rules that depend on this dnsName.
+	// sourceRules maps dnsNames to a set of rule UUIDs that depend on
+	// that dnsName, and drives CIDR rule generation.
+	// A lookup on sourceRules is looking for all rule UUIDs that have an exact
+	// match or a regex that would match.
 	// The UUID -> rule mapping is allRules below.
-	sourceRules map[string]map[string]struct{}
+	sourceRules *regexpmap.RegexpMap
 
 	// allRules is the global source of truth for rules we are managing. It maps
 	// UUID to the rule copy.
@@ -97,12 +102,14 @@ func NewRuleGen(config Config) *RuleGen {
 	}
 
 	return &RuleGen{
-		config:      config,
-		IPs:         make(map[string][]net.IP),
-		sourceRules: make(map[string]map[string]struct{}),
-		allRules:    make(map[string]*api.Rule),
-		cache:       config.Cache,
+		config:             config,
+		namesToPoll:        make(map[string]struct{}),
+		previousEmittedIPs: make(map[string][]net.IP),
+		sourceRules:        regexpmap.NewRegexpMap(),
+		allRules:           make(map[string]*api.Rule),
+		cache:              config.Cache,
 	}
+
 }
 
 // MarkToFQDNRules adds a tracking label to rules that contain ToFQDN sections.
@@ -130,8 +137,14 @@ perRule:
 		uuidLabel := generateUUIDLabel()
 		sourceRule.Labels = append(sourceRule.Labels, uuidLabel)
 
-		// Inject initial IPs in this rule, best effort from the cache
-		injectToCIDRSetRules(sourceRule, gen.IPs)
+		// Strip out toCIDRSet
+		// Note: See Hack 1 above. When we generate rules, we add them and this
+		// function is called. This avoids accumulating generated toCIDRSet entries.
+		stripToCIDRSet(sourceRule)
+
+		// update IPs in this rule, best effort, from the cache
+		emitted, _ := injectToCIDRSetRules(sourceRule, gen.cache)
+		gen.updateEmittedIPs(emitted)
 	}
 }
 
@@ -140,7 +153,7 @@ perRule:
 // emit a replacement rule that contains the IPs for each matchName.
 // It only adds rules with the ToFQDN-UUID label, added by MarkToFQDNRules, and
 // repeat inserts are effectively no-ops.
-func (gen *RuleGen) StartManageDNSName(sourceRules []*api.Rule) {
+func (gen *RuleGen) StartManageDNSName(sourceRules []*api.Rule) error {
 	gen.Lock()
 	defer gen.Unlock()
 
@@ -157,7 +170,11 @@ perRule:
 		stripToCIDRSet(sourceRuleCopy)
 
 		uuid := getRuleUUIDLabel(sourceRuleCopy)
-		newDNSNames, alreadyExistsDNSNames := gen.addRule(uuid, sourceRuleCopy)
+		newDNSNames, alreadyExistsDNSNames, err := gen.addRule(uuid, sourceRuleCopy)
+		if err != nil {
+			return err
+		}
+
 		// only debug print for new names since this function is called
 		// unconditionally, even when we insert generated rules (which aren't new)
 		if len(newDNSNames) > 0 {
@@ -168,6 +185,8 @@ perRule:
 			}).Debug("Added FQDN to managed list")
 		}
 	}
+
+	return nil
 }
 
 // StopManageDNSName runs the bookkeeping to remove each api.Rule from
@@ -202,7 +221,7 @@ func (gen *RuleGen) GetDNSNames() (dnsNames []string) {
 	gen.Lock()
 	defer gen.Unlock()
 
-	for name := range gen.IPs {
+	for name := range gen.namesToPoll {
 		dnsNames = append(dnsNames, name)
 	}
 
@@ -269,7 +288,7 @@ perDNSName:
 
 		// accumulate the rules affected by new IPs, that we need to update with
 		// CIDR rules
-		for uuid := range gen.sourceRules[dnsName] {
+		for _, uuid := range gen.sourceRules.LookupValues(dnsName) {
 			affectedRulesSet[uuid] = struct{}{}
 		}
 	}
@@ -319,10 +338,11 @@ func (gen *RuleGen) GenerateRulesFromSources(sourceRules []*api.Rule) (generated
 
 	for _, sourceRule := range sourceRules {
 		newRule := sourceRule.DeepCopy()
-		namesMissingIPs := injectToCIDRSetRules(newRule, gen.IPs)
+		emittedIPs, namesMissingIPs := injectToCIDRSetRules(newRule, gen.cache)
 		for _, missing := range namesMissingIPs {
 			namesMissingMap[missing] = struct{}{}
 		}
+		gen.updateEmittedIPs(emittedIPs)
 
 		generatedRules = append(generatedRules, newRule)
 	}
@@ -339,7 +359,7 @@ func (gen *RuleGen) GenerateRulesFromSources(sourceRules []*api.Rule) (generated
 // rule, or that were seen in this rule but were already managed.
 // If newDNSNames and oldDNSNames are both empty, the rule was not added to the
 // managed list.
-func (gen *RuleGen) addRule(uuid string, sourceRule *api.Rule) (newDNSNames, oldDNSNames []string) {
+func (gen *RuleGen) addRule(uuid string, sourceRule *api.Rule) (newDNSNames, oldDNSNames []string, err error) {
 	// if we are updating a rule, track which old dnsNames are removed. We store
 	// possible names to stop managing in namesToStopManaging. As we add names
 	// from the new rule below, these are cleared.
@@ -358,18 +378,26 @@ func (gen *RuleGen) addRule(uuid string, sourceRule *api.Rule) (newDNSNames, old
 
 	// Add a dnsname -> rule reference
 	for _, egressRule := range sourceRule.Egress {
+	perMatchName:
 		for _, ToFQDN := range egressRule.ToFQDNs {
-			dnsName := dns.Fqdn(ToFQDN.MatchName)
+			dnsName := strings.ToLower(dns.Fqdn(ToFQDN.MatchName))
 
-			delete(namesToStopManaging, dnsName)
-
-			dnsNameAlreadyExists := gen.ensureExists(dnsName)
+			delete(namesToStopManaging, dnsName) // keep this dnsName
+			_, dnsNameAlreadyExists := gen.namesToPoll[dnsName]
 			if dnsNameAlreadyExists {
 				oldDNSNames = append(oldDNSNames, dnsName)
-			} else {
-				newDNSNames = append(newDNSNames, dnsName)
-				// Add this egress rule as a dependent on dnsName.
-				gen.sourceRules[dnsName][uuid] = struct{}{}
+				continue perMatchName
+			}
+
+			// This dnsName has not been seen before
+			newDNSNames = append(newDNSNames, dnsName)
+			// we only want to poll non-regex toFQDNs.MatchName entries
+			if isSimpleFQDN(dnsName) {
+				gen.namesToPoll[dnsName] = struct{}{}
+			}
+			// Add this egress rule as a dependent on dnsName.
+			if err = gen.sourceRules.Add(dnsName, uuid); err != nil {
+				return nil, nil, err
 			}
 		}
 	}
@@ -380,11 +408,11 @@ func (gen *RuleGen) addRule(uuid string, sourceRule *api.Rule) (newDNSNames, old
 	// dnsName, if no other rules depend on this dnsName
 	for dnsName := range namesToStopManaging {
 		if shouldStopManaging := gen.removeFromDNSName(dnsName, uuid); shouldStopManaging {
-			delete(gen.IPs, dnsName)
+			delete(gen.namesToPoll, dnsName)
 		}
 	}
 
-	return newDNSNames, oldDNSNames
+	return newDNSNames, oldDNSNames, nil
 }
 
 // removeRule removes an api.Rule from the source rule set for each DNS name,
@@ -398,10 +426,14 @@ func (gen *RuleGen) removeRule(uuid string, sourceRule *api.Rule) (noLongerManag
 	// Delete dnsname -> rule references
 	for _, egressRule := range sourceRule.Egress {
 		for _, ToFQDN := range egressRule.ToFQDNs {
-			dnsName := dns.Fqdn(ToFQDN.MatchName)
+			dnsName := strings.ToLower(dns.Fqdn(ToFQDN.MatchName))
 
 			if shouldStopManaging := gen.removeFromDNSName(dnsName, uuid); shouldStopManaging {
-				delete(gen.IPs, dnsName) // also delete from the IP map, no longer managed
+				if isSimpleFQDN(dnsName) {
+					delete(gen.namesToPoll, dnsName)
+				}
+
+				delete(gen.previousEmittedIPs, dnsName) // also delete from the IP map, no longer managed
 				noLongerManaged = append(noLongerManaged, dnsName)
 			}
 		}
@@ -417,48 +449,30 @@ func (gen *RuleGen) removeFromDNSName(dnsName, uuid string) (shouldStopManaging 
 	// remove the rule from the set of rules that rely on dnsName.
 	// Note: this isn't removing dnsName from gen.sourceRules, that is just
 	// below.
-	delete(gen.sourceRules[dnsName], uuid)
-
-	// Check if any rules remain that rely on this dnsName by checking
-	// if the inner map[rule uuid]struct{} set is empty. If none, we
-	// can delete it so we no longer manage it.
-	isEmpty := len(gen.sourceRules[dnsName]) == 0
-	if isEmpty {
-		shouldStopManaging = true
-		delete(gen.sourceRules, dnsName)
-	}
-
-	return shouldStopManaging
-}
-
-// ensureExists ensures that we have allocated objects for dnsName, and creates
-// them if needed.
-func (gen *RuleGen) ensureExists(dnsName string) (exists bool) {
-	_, exists = gen.IPs[dnsName]
-	if !exists {
-		gen.IPs[dnsName] = make([]net.IP, 0)
-		gen.sourceRules[dnsName] = make(map[string]struct{})
-	}
-
-	return exists
+	return gen.sourceRules.Remove(dnsName, uuid)
 }
 
 // updateIPsName will update the IPs for dnsName. It always retains a copy of
 // newIPs.
 // updated is true when the new IPs differ from the old IPs
 func (gen *RuleGen) updateIPsForName(lookupTime time.Time, dnsName string, newIPs []net.IP, ttl int) (updated bool) {
-	oldIPs := gen.IPs[dnsName]
+	cacheIPs := gen.cache.Lookup(dnsName)
+	oldIPs := gen.previousEmittedIPs[dnsName]
 
 	if gen.config.MinTTL > ttl {
 		ttl = gen.config.MinTTL
 	}
 
-	// TODO: when gen can get the TTLs of DNS responses, apply min(ttl, gen.config.MinTTL)
 	gen.cache.Update(lookupTime, dnsName, newIPs, ttl)
 	sortedNewIPs := gen.cache.Lookup(dnsName) // DNSCache returns IPs sorted
+	return !sortedIPsAreEqual(sortedNewIPs, oldIPs) || !sortedIPsAreEqual(sortedNewIPs, cacheIPs)
+}
 
-	// store the new IPs, sorted (to help with the updated determination below)
-	gen.IPs[dnsName] = sortedNewIPs
-
-	return !sortedIPsAreEqual(sortedNewIPs, oldIPs)
+// updateEmittedIPss stores the IPs per DNS name in previousEmittedIPs. These
+// can later be used to check whether IPs have changed and need to be emitted
+// again.
+func (gen *RuleGen) updateEmittedIPs(emitted map[string][]net.IP) {
+	for name, ips := range emitted {
+		gen.previousEmittedIPs[name] = ips
+	}
 }
