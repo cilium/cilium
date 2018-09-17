@@ -14,6 +14,16 @@
 
 package api
 
+import "regexp"
+
 type FQDNSelector struct {
 	MatchName string `json:"matchName,omitempty"`
+}
+
+// sanitize for FQDNSelector is a little wonky. While we do more processing
+// when using MatchName the basic requirement is that is a valid regexp. We
+// test that it can compile here.
+func (s *FQDNSelector) sanitize() error {
+	_, err := regexp.Compile(s.MatchName)
+	return err
 }
