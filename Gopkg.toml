@@ -277,6 +277,12 @@ required = [
   name = "github.com/shirou/gopsutil"
   revision = "v2.18.07"
 
+# We need to specify fsnotify source to avoid dep panic
+[[constraint]]
+  name = "gopkg.in/fsnotify.v1"
+  revision = "v1.4.7"
+  source = "gopkg.in/fsnotify/fsnotify.v1"
+
 [prune]
   non-go = true
   go-tests = true

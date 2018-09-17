@@ -323,8 +323,7 @@
   name = "github.com/fsnotify/fsnotify"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9"
-  version = "v1.4.7"
+  revision = "v1.4.7"
 
 [[projects]]
   digest = "1:81466b4218bf6adddac2572a30ac733a9255919bc2f470b4827a317bd4ee1756"
@@ -1291,6 +1290,14 @@
   revision = "4f90aeace3a26ad7021961c297b22c42160c7b25"
 
 [[projects]]
+  digest = "1:1b91ae0dc69a41d4c2ed23ea5cffb721ea63f5037ca4b81e6d6771fbb8f45129"
+  name = "gopkg.in/fsnotify.v1"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "v1.4.7"
+  source = "gopkg.in/fsnotify/fsnotify.v1"
+
+[[projects]]
   digest = "1:2d1fbdc6777e5408cabeb02bf336305e724b925ff4546ded0fa8715a7267922a"
   name = "gopkg.in/inf.v0"
   packages = ["."]
@@ -1598,7 +1605,6 @@
     "github.com/docker/libnetwork/types",
     "github.com/evalphobia/logrus_fluent",
     "github.com/fatih/color",
-    "github.com/fsnotify/fsnotify",
     "github.com/go-openapi/errors",
     "github.com/go-openapi/loads",
     "github.com/go-openapi/runtime",
@@ -1669,6 +1675,7 @@
     "google.golang.org/grpc",
     "google.golang.org/grpc/reflection",
     "gopkg.in/check.v1",
+    "gopkg.in/fsnotify.v1",
     "gopkg.in/natefinch/lumberjack.v2",
     "k8s.io/api/core/v1",
     "k8s.io/api/extensions/v1beta1",
