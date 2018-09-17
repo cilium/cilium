@@ -275,7 +275,7 @@ func getSecIDFromK8s(podName string) (string, error) {
 }
 
 // parseL4PortsSlice parses a given `slice` of strings. Each string should be in
-// the form of `<port>[/<protocol>]`, where the `<port>` in an integer and an
+// the form of `<port>[/<protocol>]`, where the `<port>` is an integer and
 // `<protocol>` is an optional layer 4 protocol `tcp` or `udp`. In case
 // `protocol` is not present, or is set to `any`, the parsed port will be set to
 // `models.PortProtocolAny`.

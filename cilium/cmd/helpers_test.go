@@ -2,9 +2,15 @@ package cmd
 
 import (
 	"bytes"
+	"sort"
+	"strconv"
 	"testing"
 
+	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/u8proto"
+
 	. "gopkg.in/check.v1"
 )
 
@@ -65,4 +71,84 @@ func (s *CMDHelpersSuite) TestParseTrafficString(c *C) {
 	c.Assert(invalid, Equals, policymap.Invalid)
 	c.Assert(err, Not(IsNil))
 
+}
+
+func (s *CMDHelpersSuite) TestParsePolicyUpdateArgsHelper(c *C) {
+	sortProtos := func(ints []uint8) {
+		sort.Slice(ints, func(i, j int) bool {
+			return ints[i] < ints[j]
+		})
+	}
+
+	allProtos := []uint8{}
+	for _, proto := range u8proto.ProtoIDs {
+		allProtos = append(allProtos, uint8(proto))
+	}
+
+	tests := []struct {
+		args             []string
+		invalid          bool
+		endpointID       string
+		trafficDirection policymap.TrafficDirection
+		peerLbl          uint32
+		port             uint16
+		protos           []uint8
+	}{
+		{
+			args:             []string{labels.IDNameHost, "ingress", "12345"},
+			invalid:          false,
+			endpointID:       "reserved_" + strconv.Itoa(int(identity.ReservedIdentityHost)),
+			trafficDirection: policymap.Ingress,
+			peerLbl:          12345,
+			port:             0,
+			protos:           []uint8{0},
+		},
+		{
+			args:             []string{"123", "egress", "12345", "1/tcp"},
+			invalid:          false,
+			endpointID:       "123",
+			trafficDirection: policymap.Egress,
+			peerLbl:          12345,
+			port:             1,
+			protos:           []uint8{uint8(u8proto.TCP)},
+		},
+		{
+			args:             []string{"123", "ingress", "12345", "1"},
+			invalid:          false,
+			endpointID:       "123",
+			trafficDirection: policymap.Ingress,
+			peerLbl:          12345,
+			port:             1,
+			protos:           allProtos,
+		},
+		{
+			// Invalid traffic direction.
+			args:    []string{"123", "invalid", "12345"},
+			invalid: true,
+		},
+		{
+			// Invalid protocol.
+			args:    []string{"123", "invalid", "1/udt"},
+			invalid: true,
+		},
+	}
+
+	for _, tt := range tests {
+		args, err := parsePolicyUpdateArgsHelper(tt.args)
+
+		if tt.invalid {
+			c.Assert(err, NotNil)
+		} else {
+			c.Assert(err, IsNil)
+
+			c.Assert(args.endpointID, Equals, tt.endpointID)
+			c.Assert(args.trafficDirection, Equals, tt.trafficDirection)
+			c.Assert(args.label, Equals, tt.peerLbl)
+			c.Assert(args.port, Equals, tt.port)
+
+			sortProtos(args.protocols)
+			sortProtos(tt.protos)
+			c.Assert(args.protocols, DeepEquals, tt.protos)
+		}
+	}
 }

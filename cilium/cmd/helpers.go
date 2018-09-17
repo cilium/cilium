@@ -193,6 +193,29 @@ func expandNestedJSON(result bytes.Buffer) (bytes.Buffer, error) {
 	return result, nil
 }
 
+// PolicyUpdateArgs is the parsed representation of a
+// bpf policy {add,delete} command.
+type PolicyUpdateArgs struct {
+	// endpointID is the identity of the endpoint provided as
+	// argument. If this identity is a reserved identity, then
+	// it is prefixed with 'reserved_'.
+	endpointID string
+
+	// trafficDirection represents the traffic direction provided
+	// as an argument e.g. `ingress`
+	trafficDirection policymap.TrafficDirection
+
+	// label represents the identity of the label provided as argument.
+	label uint32
+
+	// port represents the port associated with the command, if specified.
+	port uint16
+
+	// protocols represents the set of protocols associated with the
+	// command, if specified.
+	protocols []uint8
+}
+
 // parseTrafficString converts the provided string to its corresponding
 // TrafficDirection. If the string does not correspond to a valid TrafficDirection
 // type, returns Invalid and a corresponding error.
@@ -210,19 +233,28 @@ func parseTrafficString(td string) (policymap.TrafficDirection, error) {
 
 }
 
-// updatePolicyKey updates an entry to the PolicyMap for the endpoint ID, identity,
-// traffic direction, and optional list of ports in the list of arguments for the
-// given command. Adds the entry to the PolicyMap if add is true, deletes if fails.
-// TODO: GH-3396.
-func updatePolicyKey(cmd *cobra.Command, args []string, add bool) {
+// parsePolicyUpdateArgs parses the arguments to a bpf policy {add,delete}
+// command, provided as a list containing the endpoint ID, traffic direction,
+// identity and optionally, a list of ports.
+// Returns a parsed representation of the command arguments.
+func parsePolicyUpdateArgs(cmd *cobra.Command, args []string) *PolicyUpdateArgs {
 	if len(args) < 3 {
 		Usagef(cmd, "<endpoint id>, <traffic-direction>, and <identity> required")
 	}
 
+	pa, err := parsePolicyUpdateArgsHelper(args)
+	if err != nil {
+		Fatalf("%s", err)
+	}
+
+	return pa
+}
+
+func parsePolicyUpdateArgsHelper(args []string) (*PolicyUpdateArgs, error) {
 	trafficDirection := args[1]
 	parsedTd, err := parseTrafficString(trafficDirection)
 	if err != nil {
-		Fatalf("Failed to convert %s to a valid traffic direction: %s", args[1], err)
+		return nil, fmt.Errorf("Failed to convert %s to a valid traffic direction: %s", args[1], err)
 	}
 
 	endpointID := args[0]
@@ -230,23 +262,18 @@ func updatePolicyKey(cmd *cobra.Command, args []string, add bool) {
 		endpointID = "reserved_" + strconv.FormatUint(uint64(numericIdentity), 10)
 	}
 
-	policyMapPath := bpf.MapPath(policymap.MapName + endpointID)
-	policyMap, _, err := policymap.OpenMap(policyMapPath)
-	if err != nil {
-		Fatalf("Cannot open policymap '%s' : %s", policyMapPath, err)
-	}
-
 	peerLbl, err := strconv.ParseUint(args[2], 10, 32)
 	if err != nil {
-		Fatalf("Failed to convert %s", args[2])
+		return nil, fmt.Errorf("Failed to convert %s", args[2])
 	}
+	label := uint32(peerLbl)
 
 	port := uint16(0)
 	protos := []uint8{}
 	if len(args) > 3 {
 		pp, err := parseL4PortsSlice([]string{args[3]})
 		if err != nil {
-			Fatalf("Failed to parse L4: %s", err)
+			return nil, fmt.Errorf("Failed to parse L4: %s", err)
 		}
 		port = pp[0].Port
 		if port != 0 {
@@ -264,17 +291,38 @@ func updatePolicyKey(cmd *cobra.Command, args []string, add bool) {
 		protos = append(protos, 0)
 	}
 
-	label := uint32(peerLbl)
-	for _, proto := range protos {
+	pa := &PolicyUpdateArgs{
+		endpointID:       endpointID,
+		trafficDirection: parsedTd,
+		label:            label,
+		port:             port,
+		protocols:        protos,
+	}
+
+	return pa, nil
+}
+
+// updatePolicyKey updates an entry in the PolicyMap for the provided
+// PolicyUpdateArgs argument.
+// Adds the entry to the PolicyMap if add is true, otherwise the entry is
+// deleted.
+func updatePolicyKey(pa *PolicyUpdateArgs, add bool) {
+	policyMapPath := bpf.MapPath(policymap.MapName + pa.endpointID)
+	policyMap, _, err := policymap.OpenMap(policyMapPath)
+	if err != nil {
+		Fatalf("Cannot open policymap '%s' : %s", policyMapPath, err)
+	}
+
+	for _, proto := range pa.protocols {
 		u8p := u8proto.U8proto(proto)
-		entry := fmt.Sprintf("%d %d/%s", label, port, u8p.String())
-		if add == true {
+		entry := fmt.Sprintf("%d %d/%s", pa.label, pa.port, u8p.String())
+		if add {
 			var proxyPort uint16
-			if err := policyMap.Allow(label, port, u8p, parsedTd, proxyPort); err != nil {
+			if err := policyMap.Allow(pa.label, pa.port, u8p, pa.trafficDirection, proxyPort); err != nil {
 				Fatalf("Cannot add policy key '%s': %s\n", entry, err)
 			}
 		} else {
-			if err := policyMap.Delete(label, port, u8p, parsedTd); err != nil {
+			if err := policyMap.Delete(pa.label, pa.port, u8p, pa.trafficDirection); err != nil {
 				Fatalf("Cannot delete policy key '%s': %s\n", entry, err)
 			}
 		}

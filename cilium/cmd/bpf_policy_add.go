@@ -27,7 +27,7 @@ var bpfPolicyAddCmd = &cobra.Command{
 	PreRun: requireEndpointID,
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf policy add")
-		updatePolicyKey(cmd, args, true)
+		updatePolicyKey(parsePolicyUpdateArgs(cmd, args), true)
 	},
 }
 
