@@ -18,6 +18,8 @@ GOTEST_OPTS = -test.v -check.vv
 
 UTC_DATE=$(shell date -u "+%Y-%m-%d")
 
+SKIP_DOCS ?= false
+
 all: precheck build postcheck
 	@echo "Build finished."
 
@@ -291,12 +293,15 @@ install-manpages:
 	cp man/* /usr/local/share/man/man1/
 	mandb
 
+check-docs:
+	-$(QUIET) $(MAKE) -C Documentation/ dummy SPHINXOPTS="$(SPHINXOPTS)" 2>&1 | grep -v "tabs assets"
+
 postcheck: build
 	@$(ECHO_CHECK) contrib/scripts/check-cmdref.sh
 	$(QUIET) MAKE=$(MAKE) contrib/scripts/check-cmdref.sh
 	@$(ECHO_CHECK) contrib/scripts/lock-check.sh
 	$(QUIET) contrib/scripts/lock-check.sh
-	-$(QUIET) $(MAKE) -C Documentation/ dummy SPHINXOPTS="$(SPHINXOPTS)" 2>&1 | grep -v "tabs assets"
+	@$(SKIP_DOCS) || $(MAKE) check-docs
 
 .PHONY: force generate-api generate-health-api
 force :;
