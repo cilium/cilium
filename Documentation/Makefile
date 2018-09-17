@@ -44,18 +44,25 @@ cmdref:
 	@$(ECHO_GEN)cmdref/cilium-health
 	$(QUIET) ${HEALTHDIR}/cilium-health --cmdref $(CMDREFDIR)
 
-spellcheck: check-requirements
-	@$(ECHO_CHECK) documentation spelling...
-	$(QUIET)$(SPHINXBUILD) -b spelling -d "$(BUILDDIR)/doctrees" "$(SOURCEDIR)" "$(BUILDDIR)/spelling" $(SPHINXOPTS)
+# Touch "$@.ok" if the docs build succeeds. Fail if there are errors
+# or output other than those including the following phrases:
+# "tabs assets" - These are always printed by the spelling check.
+# "misspelled words" - These will be explicitly checked below.
+# Finally, fail out if we can't remove the file that marks success.
+check-build: check-requirements
+	@$(ECHO_CHECK) documentation build...
+	$(QUIET)! ($(SPHINXBUILD) -b spelling -d "$(BUILDDIR)/doctrees" "$(SOURCEDIR)" "$(BUILDDIR)/spelling" -q -E $(SPHINXOPTS) 2>&1 && touch $@.ok) \
+		| grep -v -e "tabs assets" -e "misspelled words"
 	@if [ "$$(wc -l < "$(BUILDDIR)/spelling/output.txt")" -ne "0" ]; then \
 		echo "Please fix the following spelling mistakes:"; \
 		sed 's/^/* Documentation\//' $(BUILDDIR)/spelling/output.txt; \
 		echo "If the words are not misspelled, add them to Documentation/$(SPELLING_LIST)."; \
 		exit 1; \
 	fi
+	@rm $@.ok 2>/dev/null
 
 # To use checklinks with `make render-docs`,
-# edit the line `%: Makefile check-requirements spellcheck checklinks`
+# edit the line `%: Makefile check-requirements check-build checklinks`
 checklinks:
 	$(QUIET)$(SPHINXBUILD) -b linkcheck -d "$(BUILDDIR)/doctrees" "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS)
 
@@ -63,6 +70,6 @@ checklinks:
 
 # Catch-all target: route all unknown targets to Sphinx using the new
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
-%: Makefile check-requirements spellcheck
+%: Makefile check-requirements check-build
 	@$(ECHO_GEN)_build/$@
 	$(QUIET)$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
