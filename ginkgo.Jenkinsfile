@@ -25,20 +25,14 @@ pipeline {
             }
 
             steps {
-                parallel(
-                    "checkout": {
-                        BuildIfLabel('area/k8s', 'Cilium-PR-Kubernetes-Upstream')
-                        BuildIfLabel('area/k8s', 'Cilium-PR-Ginkgo-Tests-K8s')
-                        BuildIfLabel('area/documentation', 'Cilium-PR-Doc-Tests')
-                        sh 'env'
-                        sh 'rm -rf src; mkdir -p src/github.com/cilium'
-                        sh 'ln -s $WORKSPACE src/github.com/cilium/cilium'
-                        checkout scm
-                    },
-                    "cleanup": {
-                        sh '/usr/local/bin/cleanup || true'
-                    },
-                )
+                BuildIfLabel('area/k8s', 'Cilium-PR-Kubernetes-Upstream')
+                BuildIfLabel('area/k8s', 'Cilium-PR-Ginkgo-Tests-K8s')
+                BuildIfLabel('area/documentation', 'Cilium-PR-Doc-Tests')
+                sh 'env'
+                sh 'rm -rf src; mkdir -p src/github.com/cilium'
+                sh 'ln -s $WORKSPACE src/github.com/cilium/cilium'
+                checkout scm
+                sh '/usr/local/bin/cleanup || true'
             }
         }
         stage('Precheck') {
