@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -142,12 +142,11 @@ func (v *EndpointInfo) String() string {
 		return fmt.Sprintf("(localhost)")
 	}
 
-	return fmt.Sprintf("id=%-5d ifindex=%-3d mac=%s nodemac=%s seclabel=%#-4x",
+	return fmt.Sprintf("id=%-5d ifindex=%-3d mac=%s nodemac=%s",
 		v.LxcID,
 		v.IfIndex,
 		v.MAC,
 		v.NodeMAC,
-		0,
 	)
 }
 
