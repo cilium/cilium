@@ -113,7 +113,7 @@ var _ = Describe("K8sDemosTest", func() {
 		By("Getting xwing pod names")
 		xwingPods, err := kubectl.GetPodNames(helpers.DefaultNamespace, allianceLabel)
 		Expect(err).Should(BeNil())
-		Expect(xwingPods[0]).ShouldNot(Equal(""), "unable to get xwing pod names")
+		Expect(xwingPods).ShouldNot(BeEmpty(), "Unable to get xwing pod names")
 
 		// Test only needs to access one of the pods.
 		xwingPod := xwingPods[0]
