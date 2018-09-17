@@ -65,11 +65,14 @@ func newPortNetworkPolicyRule(config *cilium.PortNetworkPolicyRule) (PortNetwork
 	}
 
 	// Each parser registers a parsing function to parse it's L7 rules
-	// This requires each L7 to use it's own oneof element!
-	l7Name := ""
-	typeOf := reflect.TypeOf(config.L7Rules)
-	if typeOf != nil {
-		l7Name = typeOf.Elem().Name()
+	// The registered name must match 'l7_proto', if included in the message,
+	// or one of the oneof type names
+	l7Name := config.L7Proto
+	if l7Name == "" {
+		typeOf := reflect.TypeOf(config.L7)
+		if typeOf != nil {
+			l7Name = typeOf.Elem().Name()
+		}
 	}
 	if l7Name != "" {
 		l7Parser, ok := l7RuleParsers[l7Name]

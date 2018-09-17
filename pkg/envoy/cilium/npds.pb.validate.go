@@ -201,7 +201,9 @@ func (m *PortNetworkPolicyRule) Validate() error {
 		// no validation rules for RemotePolicies[idx]
 	}
 
-	switch m.L7Rules.(type) {
+	// no validation rules for L7Proto
+
+	switch m.L7.(type) {
 
 	case *PortNetworkPolicyRule_HttpRules:
 
@@ -221,6 +223,18 @@ func (m *PortNetworkPolicyRule) Validate() error {
 			if err := v.Validate(); err != nil {
 				return PortNetworkPolicyRuleValidationError{
 					Field:  "KafkaRules",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	case *PortNetworkPolicyRule_L7Rules:
+
+		if v, ok := interface{}(m.GetL7Rules()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return PortNetworkPolicyRuleValidationError{
+					Field:  "L7Rules",
 					Reason: "embedded message failed validation",
 					Cause:  err,
 				}
@@ -518,3 +532,111 @@ var _ error = KafkaNetworkPolicyRuleValidationError{}
 var _KafkaNetworkPolicyRule_Topic_Pattern = regexp.MustCompile("^[a-zA-Z0-9._-]*$")
 
 var _KafkaNetworkPolicyRule_ClientId_Pattern = regexp.MustCompile("^[a-zA-Z0-9._-]*$")
+
+// Validate checks the field values on L7NetworkPolicyRules with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, an error is returned.
+func (m *L7NetworkPolicyRules) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	if len(m.GetL7Rules()) < 1 {
+		return L7NetworkPolicyRulesValidationError{
+			Field:  "L7Rules",
+			Reason: "value must contain at least 1 item(s)",
+		}
+	}
+
+	for idx, item := range m.GetL7Rules() {
+		_, _ = idx, item
+
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return L7NetworkPolicyRulesValidationError{
+					Field:  fmt.Sprintf("L7Rules[%v]", idx),
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	}
+
+	return nil
+}
+
+// L7NetworkPolicyRulesValidationError is the validation error returned by
+// L7NetworkPolicyRules.Validate if the designated constraints aren't met.
+type L7NetworkPolicyRulesValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e L7NetworkPolicyRulesValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sL7NetworkPolicyRules.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = L7NetworkPolicyRulesValidationError{}
+
+// Validate checks the field values on L7NetworkPolicyRule with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, an error is returned.
+func (m *L7NetworkPolicyRule) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	// no validation rules for Rule
+
+	return nil
+}
+
+// L7NetworkPolicyRuleValidationError is the validation error returned by
+// L7NetworkPolicyRule.Validate if the designated constraints aren't met.
+type L7NetworkPolicyRuleValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e L7NetworkPolicyRuleValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sL7NetworkPolicyRule.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = L7NetworkPolicyRuleValidationError{}

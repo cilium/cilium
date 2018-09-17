@@ -269,3 +269,62 @@ func (s *PolicyAPITestSuite) TestToServicesSanitize(c *C) {
 	c.Assert(err, IsNil)
 
 }
+
+// This test ensures that PortRules using key-value pairs do not have empty keys
+func (s *PolicyAPITestSuite) TestL7Rules(c *C) {
+
+	validL7Rule := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		Ingress: []IngressRule{
+			{
+				FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				ToPorts: []PortRule{{
+					Ports: []PortProtocol{
+						{Port: "80", Protocol: ProtoTCP},
+						{Port: "81", Protocol: ProtoTCP},
+					},
+					Rules: &L7Rules{
+						L7Proto: "test.lineparser",
+						L7: []PortRuleL7{
+							map[string]string{
+								"method": "PUT",
+								"path":   "/"},
+							map[string]string{
+								"method": "GET",
+								"path":   "/"},
+						},
+					},
+				}},
+			},
+		},
+	}
+
+	err := validL7Rule.Sanitize()
+	c.Assert(err, IsNil)
+
+	invalidL7Rule := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		Ingress: []IngressRule{
+			{
+				FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				ToPorts: []PortRule{{
+					Ports: []PortProtocol{
+						{Port: "80", Protocol: ProtoTCP},
+						{Port: "81", Protocol: ProtoTCP},
+					},
+					Rules: &L7Rules{
+						L7Proto: "test.lineparser",
+						L7: []PortRuleL7{
+							map[string]string{
+								"method": "PUT",
+								"":       "Foo"},
+						},
+					},
+				}},
+			},
+		},
+	}
+
+	err = invalidL7Rule.Sanitize()
+	c.Assert(err, Not(IsNil))
+}

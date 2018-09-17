@@ -12,7 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package test
+//
+// Accompanying file `headerparser.policy` contains an example policy
+// for this protocol. Install it with:
+// $ cilium policy import proxylib/testparsers/headerparser.policy
+//
+
+package testparsers
 
 import (
 	"bytes"
@@ -29,45 +35,62 @@ import (
 //
 
 type HeaderRule struct {
-	name  []byte
-	value []byte
+	hasPrefix []byte
+	contains  []byte
+	hasSuffix []byte
 }
 
+// Matches returns true if the HeaderRule matches
 func (rule *HeaderRule) Matches(data interface{}) bool {
-	// Cast 'data' to the type we give to 'Matches()'
-	items := bytes.SplitN(data.([]byte), []byte("="), 2)
-	matches := len(items) == 2 && bytes.Compare(items[0], rule.name) == 0 && bytes.HasPrefix(items[1], rule.value)
+	log.Infof("headerparser checking rule %v", *rule)
 
-	if matches {
-		log.Infof("HeaderRule: Rule matches %v", rule)
-	} else {
-		log.Infof("HeaderRule: Rule does not match %v", rule)
+	// Trim whitespace from both ends
+	bs := bytes.TrimSpace(data.([]byte))
+
+	if len(rule.hasPrefix) > 0 && !bytes.HasPrefix(bs, rule.hasPrefix) {
+		log.Infof("headerparser HasPrefix %s does not match %s", bs, rule.hasPrefix)
+		return false
 	}
 
-	return matches
+	if len(rule.contains) > 0 && !bytes.Contains(bs, rule.contains) {
+		log.Infof("headerparser Contains %s does not match %s", bs, rule.contains)
+		return false
+	}
+
+	if len(rule.hasSuffix) > 0 && !bytes.HasSuffix(bs, rule.hasSuffix) {
+		log.Infof("headerparser HasSuffix %s does not match %s", bs, rule.hasSuffix)
+		return false
+	}
+	log.Info("headerparser rule matched!")
+
+	return true
 }
 
-// L7HeaderRuleParser parses protobuf L7 rules to enforcement objects
+// L7HeaderRuleParser parses protobuf L7 rules to and array of HeaderRules
 // May panic
 func L7HeaderRuleParser(rule *cilium.PortNetworkPolicyRule) []L7NetworkPolicyRule {
-	httpRules := rule.GetHttpRules()
-	if httpRules == nil {
-		ParseError("Can't get HTTP rules", rule)
+	l7Rules := rule.GetL7Rules()
+	if l7Rules == nil {
+		panic(fmt.Errorf("Can't get L7 rules."))
 	}
 	var rules []L7NetworkPolicyRule
-	for _, httpRule := range httpRules.HttpRules {
-		for _, header := range httpRule.GetHeaders() {
-			headerRule := HeaderRule{
-				name:  []byte(header.Name),
-				value: []byte(header.GetExactMatch()),
+	for _, l7Rule := range l7Rules.GetL7Rules() {
+		var hr HeaderRule
+		for k, v := range l7Rule.Rule {
+			switch k {
+			case "prefix":
+				hr.hasPrefix = []byte(v)
+			case "contains":
+				hr.contains = []byte(v)
+			case "suffix":
+				hr.hasSuffix = []byte(v)
+			default:
+				panic(fmt.Errorf("Unsupported key: %s", k))
 			}
-			if len(headerRule.value) == 0 {
-				ParseError("Empty header value", rule)
-			}
-			rules = append(rules, &headerRule)
 		}
+		log.Infof("Parsed HeaderRule pair: %v", hr)
+		rules = append(rules, &hr)
 	}
-	log.Infof("Parsed HeaderRules: %v", rules)
 	return rules
 }
 
@@ -78,7 +101,7 @@ var headerParserFactory *HeaderParserFactory
 func init() {
 	log.Info("init(): Registering headerParserFactory")
 	RegisterParserFactory("test.headerparser", headerParserFactory)
-	RegisterL7RuleParser("PortNetworkPolicyRule_HttpRules", L7HeaderRuleParser)
+	RegisterL7RuleParser("test.headerparser", L7HeaderRuleParser)
 }
 
 type HeaderParser struct {
@@ -88,22 +111,6 @@ type HeaderParser struct {
 func (p *HeaderParserFactory) Create(connection *Connection) Parser {
 	log.Infof("HeaderParserFactory: Create: %v", connection)
 	return &HeaderParser{connection: connection}
-}
-
-func getLine(data [][]byte, offset int) ([]byte, bool) {
-	var line bytes.Buffer
-	for i, s := range data {
-		index := bytes.IndexByte(s[offset:], '\n')
-		if index < 0 {
-			line.Write(s[offset:])
-		} else {
-			log.Infof("getLine: unit: %d offset: %d length: %d index: %d", i, offset, len(s), index)
-			line.Write(s[offset : offset+index+1])
-			return line.Bytes(), true
-		}
-		offset = 0
-	}
-	return line.Bytes(), false
 }
 
 //
