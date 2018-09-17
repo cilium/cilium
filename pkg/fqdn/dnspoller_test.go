@@ -531,7 +531,6 @@ func (ds *FQDNTestSuite) TestDNSPollerUpdatesOnReplace(c *C) {
 	poller.StartPollForDNSName(rules)
 	poller.LookupUpdateDNS()
 
-	fmt.Printf("%#v\n", poller.IPs)
 	// Add the original 2 matchnames without deleting
 	// MarkToFQDNRules should add only 1 entry
 	rules = []*api.Rule{makeRule("testRule", "cilium.io", "github.com")}

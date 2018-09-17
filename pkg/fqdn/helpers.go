@@ -18,12 +18,14 @@ import (
 	"crypto/sha512"
 	"fmt"
 	"net"
+	"regexp"
 	"sort"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/miekg/dns"
+	"github.com/sirupsen/logrus"
 )
 
 // getUUIDFromRuleLabels returns the value of the UUID label
@@ -55,11 +57,12 @@ func generateUUIDLabel(lbls labels.LabelArray) (id *labels.Label) {
 }
 
 // injectToCIDRSetRules adds a ToCIDRSets section to the rule with all ToFQDN
-// targets resolved to IPs from dnsNames.
+// targets resolved to IPs stored in cache.
 // Pre-existing rules in ToCIDRSet are preserved.
 // Note: matchNames in rules are made into FQDNs
-func injectToCIDRSetRules(rule *api.Rule, dnsNames map[string][]net.IP) (namesMissingIPs []string) {
+func injectToCIDRSetRules(rule *api.Rule, cache *DNSCache) (emittedIPs map[string][]net.IP, namesMissingIPs []string) {
 	missing := make(map[string]struct{}) // a set to dedup missing dnsNames
+	emitted := make(map[string][]net.IP) // name -> IPs we wrote out
 
 	// Add CIDR rules
 	// we need to edit Egress[*] in-place
@@ -67,14 +70,24 @@ func injectToCIDRSetRules(rule *api.Rule, dnsNames map[string][]net.IP) (namesMi
 		egressRule := &rule.Egress[egressIdx]
 
 		// Generate CIDR rules for each FQDN
+	perToFQDN:
 		for _, ToFQDN := range egressRule.ToFQDNs {
 			dnsName := dns.Fqdn(ToFQDN.MatchName)
-			IPs, present := dnsNames[dnsName]
-			if !present {
+			IPs := cache.LookupByRegex(regexp.MustCompile(dnsName))
+			if len(IPs) == 0 {
 				missing[dnsName] = struct{}{}
+				continue perToFQDN
 			}
 
-			egressRule.ToCIDRSet = append(egressRule.ToCIDRSet, ipsToRules(IPs)...)
+			for name, ips := range IPs {
+				log.WithFields(logrus.Fields{
+					"DNSName": name,
+					"IPs":     ips,
+					"rule":    ToFQDN.MatchName,
+				}).Debug("Emitting matching DNS Name -> IPs for ToFQDNs Rule")
+				emitted[ToFQDN.MatchName] = append(emitted[ToFQDN.MatchName], ips...)
+				egressRule.ToCIDRSet = append(egressRule.ToCIDRSet, ipsToRules(ips)...)
+			}
 		}
 	}
 
@@ -82,7 +95,7 @@ func injectToCIDRSetRules(rule *api.Rule, dnsNames map[string][]net.IP) (namesMi
 		namesMissingIPs = append(namesMissingIPs, dnsName)
 	}
 
-	return namesMissingIPs
+	return emitted, namesMissingIPs
 }
 
 // stripeToCIDRSet ensures no ToCIDRSet is nil when ToFQDNs is non-nil
