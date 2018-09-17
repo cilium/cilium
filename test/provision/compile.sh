@@ -29,7 +29,7 @@ then
     fi
 else
     echo "compiling cilium..."
-    sudo -u vagrant -H -E make LOCKDEBUG=1
+    sudo -u vagrant -H -E make LOCKDEBUG=1 SKIP_DOCS=true
     echo "installing cilium..."
     make install
     mkdir -p /etc/sysconfig/
