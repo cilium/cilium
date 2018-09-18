@@ -1,7 +1,7 @@
 include Makefile.defs
 include daemon/bpf.sha
 
-SUBDIRS = envoy plugins bpf cilium daemon monitor cilium-health bugtool
+SUBDIRS = proxylib envoy plugins bpf cilium daemon monitor cilium-health bugtool
 GOFILES ?= $(subst _$(ROOT_DIR)/,,$(shell go list ./... | grep -v /vendor/ | grep -v /contrib/ | grep -v envoy/envoy))
 TESTPKGS ?= $(subst _$(ROOT_DIR)/,,$(shell go list ./... | grep -v /vendor/ | grep -v /contrib/ | grep -v envoy/envoy | grep -v test))
 GOLANGVERSION = $(shell go version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
@@ -27,7 +27,6 @@ build: $(SUBDIRS)
 
 $(SUBDIRS): force
 	@ $(MAKE) -C $@ all
-
 
 jenkins-precheck:
 	docker-compose -f test/docker-compose.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER run --rm precheck
