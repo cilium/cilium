@@ -151,12 +151,11 @@ type etcdClient struct {
 	// is set up in the etcd Client.
 	firstSession chan struct{}
 
-	// protects all members of etcdClient from concurrent access
-	lock.RWMutex
+	client *client.Client
 
-	client      *client.Client
+	// protects session from concurrent access
+	lock.RWMutex
 	session     *concurrency.Session
-	lease       *client.LeaseGrantResponse
 	controllers *controller.Manager
 	lockPathsMU lock.Mutex
 	lockPaths   map[string]*lock.Mutex
@@ -181,11 +180,19 @@ func (e *etcdMutex) Unlock() error {
 	return e.mutex.Unlock(ctx.Background())
 }
 
+// GetLeaseID returns the current lease ID.
+func (e *etcdClient) GetLeaseID() client.LeaseID {
+	e.RWMutex.RLock()
+	l := e.session.Lease()
+	e.RWMutex.RUnlock()
+	return l
+}
+
 func (e *etcdClient) renewSession() error {
 	<-e.firstSession
 	<-e.session.Done()
 
-	newSession, err := concurrency.NewSession(e.client)
+	newSession, err := concurrency.NewSession(e.client, concurrency.WithTTL(int(LeaseTTL.Seconds())))
 	if err != nil {
 		return fmt.Errorf("Unable to renew etcd session: %s", err)
 	}
@@ -197,34 +204,6 @@ func (e *etcdClient) renewSession() error {
 	log.WithField(fieldSession, newSession).Debug("Renewing etcd session")
 
 	go e.checkMinVersion()
-
-	e.renewLease()
-
-	return nil
-}
-
-func (e *etcdClient) renewLease() error {
-	if e.lease != nil {
-		e.client.Revoke(ctx.TODO(), e.lease.ID)
-	}
-
-	lease, err := e.client.Grant(ctx.TODO(), int64(LeaseTTL.Seconds()))
-	if err != nil {
-		e.client.Close()
-		return fmt.Errorf("unable to create default lease: %s", err)
-	}
-
-	e.lease = lease
-
-	e.controllers.UpdateController(fmt.Sprintf("etcd-lease-keepalive-%p", e),
-		controller.ControllerParams{
-			DoFunc: func() error {
-				_, err := e.client.KeepAliveOnce(ctx.TODO(), lease.ID)
-				return err
-			},
-			RunInterval: KeepAliveInterval,
-		},
-	)
 
 	return nil
 }
@@ -295,8 +274,6 @@ func newEtcdClient(config *client.Config, cfgPath string) (BackendOperations, er
 
 		log.Debugf("Session received")
 		s = session
-		// Run renewLease once the firstSession is received
-		err = ec.renewLease()
 		if err != nil {
 			c.Close()
 			err = fmt.Errorf("unable to create default lease: %s", err)
@@ -796,7 +773,7 @@ func (e *etcdClient) Delete(key string) error {
 
 func (e *etcdClient) createOpPut(key string, value []byte, lease bool) *client.Op {
 	if lease {
-		op := client.OpPut(key, string(value), client.WithLease(e.lease.ID))
+		op := client.OpPut(key, string(value), client.WithLease(e.GetLeaseID()))
 		return &op
 	}
 
@@ -808,7 +785,7 @@ func (e *etcdClient) createOpPut(key string, value []byte, lease bool) *client.O
 func (e *etcdClient) Update(key string, value []byte, lease bool) error {
 	<-e.firstSession
 	if lease {
-		_, err := e.client.Put(ctx.Background(), key, string(value), client.WithLease(e.lease.ID))
+		_, err := e.client.Put(ctx.Background(), key, string(value), client.WithLease(e.GetLeaseID()))
 		return err
 	}
 
@@ -889,9 +866,9 @@ func (e *etcdClient) Close() {
 	if e.controllers != nil {
 		e.controllers.RemoveAll()
 	}
-	if e.lease != nil {
-		e.client.Revoke(ctx.TODO(), e.lease.ID)
-	}
+	e.RLock()
+	defer e.RUnlock()
+	e.session.Close()
 	e.client.Close()
 }
 
