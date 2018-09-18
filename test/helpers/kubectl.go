@@ -1910,10 +1910,11 @@ func (kub *Kubectl) DeployETCDOperator() error {
 	if !cmdRes.WasSuccessful() {
 		return fmt.Errorf("unable to generate tls certificates for etcd-operator: %s", cmdRes.OutputPrettyPrint())
 	}
-	cmdRes = kub.Exec(GetFilePath(etcdOperatorPath + "tls/deploy-certs.sh"))
-	if !cmdRes.WasSuccessful() {
-		return fmt.Errorf("unable to deploy generated tls certificates for etcd-operator: %s", cmdRes.OutputPrettyPrint())
-	}
+	// deploy-certs.sh can be called multiple times so it will fail if a
+	// certificate is already created, we will rely in the deployment
+	// of etcd-operator descriptors to check if something is wrong with
+	// the deployment.
+	_ = kub.Exec(GetFilePath(etcdOperatorPath + "tls/deploy-certs.sh"))
 
 	for _, manifest := range etcdDeploymentFiles {
 		err := deployFile(manifest)
