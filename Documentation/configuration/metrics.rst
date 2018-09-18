@@ -60,8 +60,8 @@ Drops/Forwards (L3/L4)
 * ``drop_count_total``: Total dropped packets, tagged by drop reason and ingress/egress direction
 * ``forward_count_total``: Total forwarded packets, tagged by ingress/egress direction
 
-Policy Imports
---------------
+Policy
+------
 
 * ``policy_count``: Number of policies currently loaded
 * ``policy_regeneration_total``: Total number of policies regenerated successfully
@@ -69,6 +69,7 @@ Policy Imports
 * ``policy_regeneration_square_seconds_total``: Total sum of squares of successful policy regeneration times
 * ``policy_max_revision``: Highest policy revision number in the agent
 * ``policy_import_errors``: Number of times a policy import has failed
+* ``policy_endpoint_enforcement_status``: Number of endpoints labeled bypolicy enforcement status.
 
 Policy L7 (HTTP/Kafka)
 ----------------------
