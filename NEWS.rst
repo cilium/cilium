@@ -2,6 +2,43 @@
 NEWS
 ******
 
+1.2.3
+=====
+
+:: 
+
+    André Martins (8):
+          fix alignment in Go structs
+          pkg/identity: fix log warning to be correctly formatted
+          pkg/identity: return user fixed identities with cilium identity list
+          pkg/identity: return identities ordered by ID
+          etcd-operator: update k8s descriptor with cilium 1.2.2
+          etcd-operator: update k8s developer descriptor
+          pkg/k8s: allow namespace specification in FromEndpoints without k8s source
+          dep: avoid dep panic for fsnotify repository
+    
+    Eloy Coto (2):
+          Test: Using locks on read/write operations
+          Test/Demos: Make assert more robust.
+    
+    Ian Vernon (2):
+          endpoint: remove revision check around L4 policy calculation
+          test: add CI test for endpoint with already-allocated identity
+    
+    Joe Stringer (5):
+          examples/kubernetes: Add clean-cilium-bpf-state option
+          docs: Document safe downgrade to Cilium 1.0.
+          bpf: Monitor DNS with MTU-sized payload len
+          bpf: Rework monitor tracing to specify capture len
+          daemon: Define MTU in node_config.h
+    
+    Romain Lenglet (1):
+          proxy: Check whether a port is already open before allocating
+    
+    Thomas Graf (2):
+          k8s: Include type of derived k8s resource in policy rule
+          k8s: Fix CNP delete handling to not rely on rules being embedded
+
 1.2.2
 =====
 
