@@ -81,9 +81,10 @@ type XDSServer struct {
 	// Envoy proxies.
 	networkPolicyCache *xds.Cache
 
-	// networkPolicyMutator wraps networkPolicyCache to publish route
+	// NetworkPolicyMutator wraps networkPolicyCache to publish route
 	// configuration updates to Envoy proxies.
-	networkPolicyMutator xds.AckingResourceMutator
+	// Exported for testing only!
+	NetworkPolicyMutator xds.AckingResourceMutator
 
 	// networkPolicyEndpoints maps each network policy's name to the info on
 	// the local endpoint.
@@ -212,7 +213,7 @@ func StartXDSServer(stateDir string) *XDSServer {
 		listenerMutator:        ldsMutator,
 		listeners:              make(map[string]struct{}),
 		networkPolicyCache:     npdsCache,
-		networkPolicyMutator:   npdsMutator,
+		NetworkPolicyMutator:   npdsMutator,
 		networkPolicyEndpoints: make(map[string]logger.EndpointUpdater),
 		stopServer:             stopServer,
 	}
@@ -620,7 +621,7 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 		} else {
 			nodeIDs = append(nodeIDs, "127.0.0.1")
 		}
-		s.networkPolicyMutator.Upsert(NetworkPolicyTypeURL, p.Name, p, nodeIDs, c)
+		s.NetworkPolicyMutator.Upsert(NetworkPolicyTypeURL, p.Name, p, nodeIDs, c)
 		s.networkPolicyEndpoints[p.Name] = ep
 	}
 

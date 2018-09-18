@@ -111,6 +111,7 @@ pkg/serializer @cilium/agent
 pkg/service @cilium/policy
 plugins/cilium-cni/ @cilium/kubernetes
 plugins/cilium-docker/ @cilium/docker
+proxylib/ @cilium/proxy
 README.md @cilium/docs
 test/ @cilium/ci
 test/Vagrantfile @cilium/vagrant

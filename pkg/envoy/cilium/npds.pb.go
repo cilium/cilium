@@ -185,6 +185,7 @@ type PortNetworkPolicyRule struct {
 	// Optional. If not specified, any remote host is matched by this predicate.
 	RemotePolicies []uint64 `protobuf:"varint,1,rep,packed,name=remote_policies,json=remotePolicies,proto3" json:"remote_policies,omitempty"`
 	// Optional. If not specified, any L7 request is matched by this predicate.
+	// All rules on any given port must have the same type of L7 rules!
 	//
 	// Types that are valid to be assigned to L7Rules:
 	//	*PortNetworkPolicyRule_HttpRules
