@@ -151,25 +151,23 @@ type etcdClient struct {
 	// is set up in the etcd Client.
 	firstSession chan struct{}
 
-	client *client.Client
+	client               *client.Client
+	controllers          *controller.Manager
+	statusCheckerStarted sync.Once
 
 	// protects session from concurrent access
 	lock.RWMutex
-	session     *concurrency.Session
-	controllers *controller.Manager
-	lockPathsMU lock.Mutex
-	lockPaths   map[string]*lock.Mutex
+	session *concurrency.Session
+
+	// statusLock protects latestStatusSnapshot and latestErrorStatus for
+	// read/write access
+	statusLock lock.RWMutex
 
 	// latestStatusSnapshot is a snapshot of the latest etcd cluster status
 	latestStatusSnapshot string
 
 	// latestErrorStatus is the latest error condition of the etcd connection
 	latestErrorStatus error
-
-	statusCheckerStarted sync.Once
-
-	// statusLock protects latestStatusSnapshot for read/write acess
-	statusLock lock.RWMutex
 }
 
 type etcdMutex struct {
@@ -251,7 +249,6 @@ func newEtcdClient(config *client.Config, cfgPath string) (BackendOperations, er
 		client:               c,
 		session:              &s,
 		firstSession:         firstSession,
-		lockPaths:            map[string]*lock.Mutex{},
 		controllers:          controller.NewManager(),
 		latestStatusSnapshot: "No connection to etcd",
 	}
