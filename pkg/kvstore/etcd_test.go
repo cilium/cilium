@@ -44,6 +44,8 @@ type MaintenanceMocker struct {
 	OnDefragment  func(ctx context.Context, endpoint string) (*etcdAPI.DefragmentResponse, error)
 	OnStatus      func(ctx context.Context, endpoint string) (*etcdAPI.StatusResponse, error)
 	OnSnapshot    func(ctx context.Context) (io.ReadCloser, error)
+	OnHashKV      func(ctx context.Context, endpoint string, rev int64) (*etcdAPI.HashKVResponse, error)
+	OnMoveLeader  func(ctx context.Context, transfereeID uint64) (*etcdAPI.MoveLeaderResponse, error)
 }
 
 func (m MaintenanceMocker) AlarmList(ctx context.Context) (*etcdAPI.AlarmResponse, error) {
@@ -79,6 +81,20 @@ func (m MaintenanceMocker) Snapshot(ctx context.Context) (io.ReadCloser, error) 
 		return m.OnSnapshot(ctx)
 	}
 	return nil, fmt.Errorf("Method Snapshot should not have been called")
+}
+
+func (m MaintenanceMocker) HashKV(ctx context.Context, endpoint string, rev int64) (*etcdAPI.HashKVResponse, error) {
+	if m.OnSnapshot != nil {
+		return m.OnHashKV(ctx, endpoint, rev)
+	}
+	return nil, fmt.Errorf("Method HashKV should not have been called")
+}
+
+func (m MaintenanceMocker) MoveLeader(ctx context.Context, transfereeID uint64) (*etcdAPI.MoveLeaderResponse, error) {
+	if m.OnSnapshot != nil {
+		return m.OnMoveLeader(ctx, transfereeID)
+	}
+	return nil, fmt.Errorf("Method MoveLeader should not have been called")
 }
 
 func (s *EtcdSuite) TestETCDVersionCheck(c *C) {

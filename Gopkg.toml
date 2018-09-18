@@ -40,7 +40,7 @@ required = [
 
 [[constraint]]
   name = "github.com/coreos/etcd"
-  revision = "v3.2.20"
+  revision = "v3.3.9"
 
 [[constraint]]
   name = "github.com/evalphobia/logrus_fluent"
