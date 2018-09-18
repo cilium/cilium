@@ -31,13 +31,13 @@ NetworkPolicyMap::NetworkPolicyMap(std::unique_ptr<Envoy::Config::Subscription<c
 }
 
 // This is used in production
-NetworkPolicyMap::NetworkPolicyMap(const envoy::api::v2::core::Node& node,
+NetworkPolicyMap::NetworkPolicyMap(const LocalInfo::LocalInfo& local_info,
 				   Upstream::ClusterManager& cm, Event::Dispatcher& dispatcher,
 				   Runtime::RandomGenerator& random, Stats::Scope &scope,
 				   ThreadLocal::SlotAllocator& tls)
   : NetworkPolicyMap(tls) {
   scope_ = scope.createScope(name_);
-  subscription_ = subscribe<cilium::NetworkPolicy>("cilium.NetworkPolicyDiscoveryService.StreamNetworkPolicies", node, cm, dispatcher, random, *scope_);
+  subscription_ = subscribe<cilium::NetworkPolicy>("cilium.NetworkPolicyDiscoveryService.StreamNetworkPolicies", local_info, cm, dispatcher, random, *scope_);
 }
 
 void NetworkPolicyMap::onConfigUpdate(const ResourceVector& resources, const std::string& version_info) {
