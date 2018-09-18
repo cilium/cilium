@@ -5,7 +5,7 @@ metadata:
   namespace: kube-system
 spec:
   size: 3
-  version: "3.2.22"
+  version: "3.3.9"
   TLS:
     static:
       member:
