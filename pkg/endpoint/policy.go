@@ -674,6 +674,7 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 	context.Stats = regenerationStatistics{}
 	stats := &context.Stats
 
+	stats.endpointID = e.ID
 	metrics.EndpointCountRegenerating.Inc()
 	stats.totalTime.Start()
 	e.Logger().WithFields(logrus.Fields{
@@ -684,8 +685,8 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 	defer func() {
 		stats.totalTime.End()
 		stats.success = retErr == nil
+		stats.policyStatus = e.GetPolicyStatus()
 		stats.SendMetrics()
-
 		scopedLog := e.Logger().WithFields(logrus.Fields{
 			"waitingForLock":         stats.waitingForLock.Total(),
 			"waitingForCTClean":      stats.waitingForCTClean.Total(),
