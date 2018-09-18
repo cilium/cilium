@@ -594,6 +594,7 @@ func (d *Daemon) installIptablesRules() error {
 		//
 		// The following conditions must be met:
 		// * Must be targeted for the cilium_host interface
+		// * Must be targeted to an IP that is not local
 		// * Tunnel mode:
 		//   * May not already be originating from the masquerade IP
 		// * Non-tunnel mode:
@@ -602,8 +603,22 @@ func (d *Daemon) installIptablesRules() error {
 			"-t", "nat",
 			"-A", ciliumPostNatChain,
 			"!", "-s", ingressSnatSrcAddrExclusion,
+			"!", "-d", node.GetIPv4AllocRange().String(),
 			"-o", "cilium_host",
 			"-m", "comment", "--comment", "cilium host->cluster masquerade",
+			"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String()}, false); err != nil {
+			return err
+		}
+
+		// Masquerade all traffic from a local endpoint that is routed
+		// back to an endpoint on the same node. This happens if a
+		// local endpoint talks to a Kubernetes NodePort or HostPort.
+		if err := runProg("iptables", []string{
+			"-t", "nat",
+			"-A", ciliumPostNatChain,
+			"-s", node.GetIPv4AllocRange().String(),
+			"-o", "cilium_host",
+			"-m", "comment", "--comment", "cilium hostport loopback masquerade",
 			"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String()}, false); err != nil {
 			return err
 		}
