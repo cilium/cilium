@@ -537,11 +537,12 @@ func (d *Daemon) installIptablesRules() error {
 	// resolved in #52569 and will be fixed in k8s >= 1.8. The following is
 	// a workaround for earlier Kubernetes versions.
 	//
-	// Accept all packets in FORWARD chain that are going to cilium_host
-	// with a destination IP in the cluster range.
+	// Accept all packets in FORWARD chain that are going to cilium_host.
+	// It is safe to ignore the destination IP here as the pre-requisite
+	// for a packet being routed to cilium_host is that a route exists
+	// which is only installed for known node IP CIDR ranges.
 	if err := runProg("iptables", []string{
 		"-A", ciliumForwardChain,
-		"-d", node.GetIPv4ClusterRange().String(),
 		"-o", "cilium_host",
 		"-m", "comment", "--comment", "cilium: any->cluster on cilium_host forward accept",
 		"-j", "ACCEPT"}, false); err != nil {
@@ -549,10 +550,11 @@ func (d *Daemon) installIptablesRules() error {
 	}
 
 	// Accept all packets in the FORWARD chain that are coming from the
-	// cilium_host interface with a source IP in the cluster range.
+	// cilium_host interface with a source IP in the local node allocation
+	// range.
 	if err := runProg("iptables", []string{
 		"-A", ciliumForwardChain,
-		"-s", node.GetIPv4ClusterRange().String(),
+		"-s", node.GetIPv4AllocRange().String(),
 		"-m", "comment", "--comment", "cilium: cluster->any forward accept",
 		"-j", "ACCEPT"}, false); err != nil {
 		return err
