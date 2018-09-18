@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/lock"
@@ -160,7 +161,11 @@ func UpdateReferences(ep *endpoint.Endpoint) {
 // Must be called with ep.Mutex.RLock held.
 func Remove(ep *endpoint.Endpoint) {
 	mutex.Lock()
-	defer mutex.Unlock()
+	defer func() {
+		mutex.Unlock()
+		SendPolicyMetrics()
+	}()
+
 	delete(endpoints, ep.ID)
 
 	if ep.ContainerID != "" {
@@ -356,6 +361,20 @@ func AddEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, reason string) (er
 	Insert(ep)
 	ep.InsertEvent()
 
+	// Wait until endpoint is totally ready to send the metrics, if not the
+	// endpoint may not have the correct policyVersion (only init, policyVersion=0 identity=5)
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), endpoint.EndpointGenerationTimeout)
+		defer cancel()
+		revCh := ep.WaitForPolicyRevision(ctx, 1)
+		select {
+		case <-revCh:
+			SendPolicyMetrics()
+			return
+		case <-ctx.Done():
+			return
+		}
+	}()
 	return nil
 }
 
@@ -375,4 +394,34 @@ func WaitForEndpointsAtPolicyRev(ctx context.Context, rev uint64) error {
 		}
 	}
 	return nil
+}
+
+// SendPolicyMetrics set the policy status metrics by policy enforcement type
+func SendPolicyMetrics() {
+	policyStatus := map[models.EndpointPolicyEnabled]float64{
+		models.EndpointPolicyEnabledNone:    0,
+		models.EndpointPolicyEnabledEgress:  0,
+		models.EndpointPolicyEnabledIngress: 0,
+		models.EndpointPolicyEnabledBoth:    0,
+	}
+
+	for _, ep := range GetEndpoints() {
+		err := ep.RLockAlive()
+		if err != nil {
+			// Endpoint is disconnected, no need to report this one
+			continue
+		}
+		policyEnabled := ep.GetPolicyStatus()
+		status := ep.GetStateLocked()
+		ep.RUnlock()
+		if status != endpoint.StateReady {
+			// Is not ready yet, no policy yet
+			continue
+		}
+		policyStatus[policyEnabled]++
+	}
+
+	for k, v := range policyStatus {
+		metrics.PolicyEndpointStatus.WithLabelValues(string(k)).Set(v)
+	}
 }
