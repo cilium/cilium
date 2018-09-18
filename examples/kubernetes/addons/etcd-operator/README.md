@@ -1,8 +1,19 @@
 Kubernetes etcd-operator integration (beta)
 ===========================================
 
-This directory contains all the necessary files to deploy etcd-operator with
-Cilium in your development cluster.
+This directory contains the necessary scripts to deploy etcd-operator with Cilium in your development cluster.
+
+Prerequistes
+------------
+
+Ensure the dependencies are installed. The CloudFlare PKI/TLS toolkit is leveraged for generating certificates. The deployment below requires `cfssl` and `cfssljson` which you can download [here](https://pkg.cfssl.org/). Ensure the binaries are in your `PATH`. 
+
+Alternatively, if you have Go installed, you can get the libraries with the following:
+
+```
+go get -u github.com/cloudflare/cfssl/cmd/cfssl
+go get -u github.com/cloudflare/cfssl/cmd/cfssljson
+```
 
 Create etcd certificates
 ------------------------
