@@ -539,7 +539,6 @@ func (d *Daemon) installIptablesRules() error {
 	// with a destination IP in the cluster range.
 	if err := runProg("iptables", []string{
 		"-A", ciliumForwardChain,
-		"-d", node.GetIPv4ClusterRange().String(),
 		"-o", "cilium_host",
 		"-m", "comment", "--comment", "cilium: any->cluster on cilium_host forward accept",
 		"-j", "ACCEPT"}, false); err != nil {
@@ -550,7 +549,7 @@ func (d *Daemon) installIptablesRules() error {
 	// cilium_host interface with a source IP in the cluster range.
 	if err := runProg("iptables", []string{
 		"-A", ciliumForwardChain,
-		"-s", node.GetIPv4ClusterRange().String(),
+		"-s", node.GetIPv4AllocRange().String(),
 		"-m", "comment", "--comment", "cilium: cluster->any forward accept",
 		"-j", "ACCEPT"}, false); err != nil {
 		return err
