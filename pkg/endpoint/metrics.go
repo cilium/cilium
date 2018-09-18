@@ -16,15 +16,23 @@ package endpoint
 
 import (
 	"math"
+	"sync"
 	"time"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/spanstat"
 )
 
+var (
+	endpointPolicyStatus = new(endpointPolicyStatusMap)
+)
+
 type regenerationStatistics struct {
 	success                bool
+	endpointID             uint16
+	policyStatus           models.EndpointPolicyEnabled
 	totalTime              spanstat.SpanStat
 	waitingForLock         spanstat.SpanStat
 	waitingForCTClean      spanstat.SpanStat
@@ -40,7 +48,7 @@ type regenerationStatistics struct {
 // SendMetrics sends the regeneration statistics for this endpoint to
 // Prometheus.
 func (s *regenerationStatistics) SendMetrics() {
-
+	endpointPolicyStatus.Update(s.endpointID, s.policyStatus)
 	metrics.EndpointCountRegenerating.Dec()
 
 	if !s.success {
@@ -72,5 +80,44 @@ func (s *regenerationStatistics) GetMap() map[string]time.Duration {
 		"mapSync":                s.mapSync.Total(),
 		"prepareBuild":           s.prepareBuild.Total(),
 		logfields.BuildDuration:  s.totalTime.Total(),
+	}
+}
+
+// endpointPolicyStatusMap is a map to store the endpoint id and the policy
+// enforcement status. It is used only to send metrics to prometheus.
+type endpointPolicyStatusMap struct {
+	sync.Map
+}
+
+// Update adds or updates a new endpoint to the map and update the metrics
+// related
+func (epPolicyMaps *endpointPolicyStatusMap) Update(endpointID uint16, policyStatus models.EndpointPolicyEnabled) {
+	epPolicyMaps.Store(endpointID, policyStatus)
+	endpointPolicyStatus.UpdateMetrics()
+}
+
+// Remove deletes the given endpoint from the map and update the metrics
+func (epPolicyMaps *endpointPolicyStatusMap) Remove(endpointID uint16) {
+	epPolicyMaps.Delete(endpointID)
+	epPolicyMaps.UpdateMetrics()
+}
+
+// UpdateMetrics update the policy enforcement metrics statistics for the endpoints.
+func (epPolicyMaps *endpointPolicyStatusMap) UpdateMetrics() {
+	policyStatus := map[models.EndpointPolicyEnabled]float64{
+		models.EndpointPolicyEnabledNone:    0,
+		models.EndpointPolicyEnabledEgress:  0,
+		models.EndpointPolicyEnabledIngress: 0,
+		models.EndpointPolicyEnabledBoth:    0,
+	}
+
+	epPolicyMaps.Range(func(key, value interface{}) bool {
+		epPolicyStatus := value.(models.EndpointPolicyEnabled)
+		policyStatus[epPolicyStatus]++
+		return true
+	})
+
+	for k, v := range policyStatus {
+		metrics.PolicyEndpointStatus.WithLabelValues(string(k)).Set(v)
 	}
 }
