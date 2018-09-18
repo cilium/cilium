@@ -22,7 +22,7 @@ class NetworkPolicyMap : public Singleton::Instance,
                          public Logger::Loggable<Logger::Id::config> {
 public:
   NetworkPolicyMap(ThreadLocal::SlotAllocator& tls);
-  NetworkPolicyMap(const envoy::api::v2::core::Node& node, Upstream::ClusterManager& cm,
+  NetworkPolicyMap(const LocalInfo::LocalInfo& local_info, Upstream::ClusterManager& cm,
 		   Event::Dispatcher& dispatcher, Runtime::RandomGenerator& random,
 		   Stats::Scope &scope, ThreadLocal::SlotAllocator& tls);
   NetworkPolicyMap(std::unique_ptr<Envoy::Config::Subscription<cilium::NetworkPolicy>>&& subscription,

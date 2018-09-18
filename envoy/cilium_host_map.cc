@@ -143,12 +143,12 @@ PolicyHostMap::PolicyHostMap(std::unique_ptr<Envoy::Config::Subscription<cilium:
 }
 
 // This is used in production
-PolicyHostMap::PolicyHostMap(const envoy::api::v2::core::Node& node, Upstream::ClusterManager& cm,
+PolicyHostMap::PolicyHostMap(const LocalInfo::LocalInfo& local_info, Upstream::ClusterManager& cm,
 			     Event::Dispatcher& dispatcher, Runtime::RandomGenerator& random,
 			     Stats::Scope &scope, ThreadLocal::SlotAllocator& tls)
   : PolicyHostMap(tls) {
   scope_ = scope.createScope(name_);
-  subscription_ = subscribe<cilium::NetworkPolicyHosts>("cilium.NetworkPolicyHostsDiscoveryService.StreamNetworkPolicyHosts", node, cm, dispatcher, random, *scope_);
+  subscription_ = subscribe<cilium::NetworkPolicyHosts>("cilium.NetworkPolicyHostsDiscoveryService.StreamNetworkPolicyHosts", local_info, cm, dispatcher, random, *scope_);
 }
 
 void PolicyHostMap::onConfigUpdate(const ResourceVector& resources, const std::string& version_info) {

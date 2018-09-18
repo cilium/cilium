@@ -133,7 +133,7 @@ envoy_cc_library(
     repository = "@envoy",
     deps = [
         ":cilium_socket_option_lib",
-        ":accesslog_proto",
+        ":accesslog_proto_cc",
         ":cilium_l7policy_cc",
         "@envoy//source/exe:envoy_common_lib",
         "@envoy//source/common/network:address_lib",

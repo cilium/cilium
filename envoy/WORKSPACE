@@ -7,11 +7,11 @@ workspace(name = "cilium")
 #
 # No other line in this file may have ENVOY_SHA followed by an equals sign!
 #
-ENVOY_SHA = "2d8386532f68899ca1fe6476dc458b0df1260b29"
+ENVOY_SHA = "f936fc60f488cfae07f5e5d20d7381f0f23482fe"
 
 http_archive(
     name = "envoy",
-    url = "https://github.com/istio/envoy/archive/" + ENVOY_SHA + ".zip",
+    url = "https://github.com/envoyproxy/envoy/archive/" + ENVOY_SHA + ".zip",
     strip_prefix = "envoy-" + ENVOY_SHA,
 )
 
@@ -42,7 +42,7 @@ go_register_toolchains()
 # Dependencies for Istio filters.
 # Cf. https://github.com/istio/proxy.
 
-ISTIO_PROXY_SHA = "99cfc3f74c414dd4fa4aa784a0f8b13e22b81893"
+ISTIO_PROXY_SHA = "490d26feeff134b907f700e08e58a9e6219dce11"
 
 http_archive(
     name = "istio_proxy",
