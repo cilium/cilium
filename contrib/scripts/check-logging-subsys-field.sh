@@ -17,9 +17,9 @@
 set -eu
 
 if grep -IPRns '(?!.*LogSubsys)log[ ]*= logging\.DefaultLogger.*' \
-        --exclude-dir=test/ \
-        --exclude-dir=pkg/debugdetection/ \
-        --exclude-dir=vendor/ \
+        --exclude-dir=test \
+        --exclude-dir=pkg/debugdetection \
+        --exclude-dir=vendor \
         --include=*.go .; then
     echo "Logging entry instances have to contain the LogSubsys field. Example of"
     echo "properly configured entry instance:"
