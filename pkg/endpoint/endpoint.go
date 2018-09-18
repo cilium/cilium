@@ -987,18 +987,7 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 		}
 	}
 
-	policyIngressEnabled := e.ingressPolicyEnabled
-	policyEgressEnabled := e.egressPolicyEnabled
-
-	policyEnabled := models.EndpointPolicyEnabledNone
-	switch {
-	case policyIngressEnabled && policyEgressEnabled:
-		policyEnabled = models.EndpointPolicyEnabledBoth
-	case policyIngressEnabled:
-		policyEnabled = models.EndpointPolicyEnabledIngress
-	case policyEgressEnabled:
-		policyEnabled = models.EndpointPolicyEnabledEgress
-	}
+	policyEnabled := e.policyStatus()
 
 	// Make a shallow copy of the stats.
 	e.proxyStatisticsMutex.RLock()
@@ -1041,6 +1030,22 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 		ProxyPolicyRevision: int64(e.proxyPolicyRevision),
 		ProxyStatistics:     proxyStats,
 	}
+}
+
+// policyStatus returns the endpoint's policy status
+//
+// Must be called with e.Mutex locked.
+func (e *Endpoint) policyStatus() models.EndpointPolicyEnabled {
+	policyEnabled := models.EndpointPolicyEnabledNone
+	switch {
+	case e.ingressPolicyEnabled && e.egressPolicyEnabled:
+		policyEnabled = models.EndpointPolicyEnabledBoth
+	case e.ingressPolicyEnabled:
+		policyEnabled = models.EndpointPolicyEnabledIngress
+	case e.egressPolicyEnabled:
+		policyEnabled = models.EndpointPolicyEnabledEgress
+	}
+	return policyEnabled
 }
 
 // GetID returns the endpoint's ID
@@ -1806,6 +1811,7 @@ func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup
 
 	e.SetStateLocked(StateDisconnected, "Endpoint removed")
 
+	endpointPolicyStatus.Remove(e.ID)
 	e.Logger().Info("Removed endpoint")
 
 	return errors

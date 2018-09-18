@@ -92,6 +92,9 @@ var (
 	// LabelStatus the label from completed task
 	LabelStatus = "status"
 
+	//LabelPolicyEnforcement is the label used to see the enforcement status
+	LabelPolicyEnforcement = "enforcement"
+
 	// LabelScope is the label used to defined multiples scopes in the same
 	// metric. For example, one counter may measure a metric over the scope of
 	// the entire event (scope=global), or just part of an event
@@ -211,6 +214,13 @@ var (
 		Name:      "policy_import_errors",
 		Help:      "Number of times a policy import has failed",
 	})
+
+	// PolicyEndpointStatus is the number of endpoints with policy labeled by enforcement type
+	PolicyEndpointStatus = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: Namespace,
+		Name:      "policy_endpoint_enforcement_status",
+		Help:      "Number of endpoints labeled by policy enforcement status",
+	}, []string{LabelPolicyEnforcement})
 
 	// Events
 
@@ -405,6 +415,7 @@ func init() {
 	MustRegister(PolicyRegenerationTimeSquare)
 	MustRegister(PolicyRevision)
 	MustRegister(PolicyImportErrors)
+	MustRegister(PolicyEndpointStatus)
 
 	MustRegister(EventTSK8s)
 	MustRegister(EventTSContainerd)
