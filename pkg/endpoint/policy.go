@@ -673,7 +673,6 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 
 	context.Stats = regenerationStatistics{}
 	stats := &context.Stats
-
 	metrics.EndpointCountRegenerating.Inc()
 	stats.totalTime.Start()
 	e.Logger().WithFields(logrus.Fields{
@@ -685,7 +684,6 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 		stats.totalTime.End()
 		stats.success = retErr == nil
 		stats.SendMetrics()
-
 		scopedLog := e.Logger().WithFields(logrus.Fields{
 			"waitingForLock":         stats.waitingForLock.Total(),
 			"waitingForCTClean":      stats.waitingForCTClean.Total(),
@@ -718,6 +716,10 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 	if err = e.LockAlive(); err != nil {
 		return err
 	}
+
+	stats.endpointID = e.ID
+	stats.policyStatus = e.getPolicyStatus()
+
 	stats.waitingForLock.End()
 
 	// When building the initial drop policy in waiting-for-identity state

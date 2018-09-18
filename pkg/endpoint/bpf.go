@@ -448,6 +448,8 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string, regenContext *Regene
 	if e.SecurityIdentity != nil {
 		stats.policyCalculation.Start()
 		err = e.regeneratePolicy(owner)
+		// Set the final policyStatus for the endpoint.
+		stats.policyStatus = e.getPolicyStatus()
 		if err != nil {
 			e.Unlock()
 			return 0, compilationExecuted, fmt.Errorf("unable to regenerate policy for '%s': %s", e.PolicyMap.String(), err)
