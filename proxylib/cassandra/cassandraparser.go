@@ -1,0 +1,643 @@
+// Copyright 2018 Authors of Cilium
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package cassandra
+
+import (
+	"bytes"
+	"encoding/binary"
+	"fmt"
+	"regexp"
+	"strings"
+
+	"github.com/cilium/cilium/pkg/envoy/cilium"
+	. "github.com/cilium/cilium/proxylib/proxylib"
+
+	log "github.com/sirupsen/logrus"
+)
+
+//
+// Cassandra v3/v4 Parser
+//
+// Spec: https://github.com/apache/cassandra/blob/trunk/doc/native_protocol_v4.spec
+//
+
+// Current Cassandra parser supports filtering on messages where the opcode is 'query-like'
+// (i.e., opcode 'query', 'prepare', 'batch'.  In those scenarios, we match on query_action and query_table.
+// Examples:
+// query_action = 'select', query_table = 'system.*'
+// query_action = 'insert', query_table = 'attendance.daily_records'
+// query_action = 'select', query_table = 'deathstar.scrum_notes'
+// query_action = 'insert', query_table = 'covalent.foo'
+//
+// Batch requests are logged as invidual queries, but an entire batch request will be allowed
+// only if all requests are allowed.
+
+// There are known changes in protocol v2 that are not compatible with this parser, see the
+// the "Changes from v2" in https://github.com/apache/cassandra/blob/trunk/doc/native_protocol_v3.spec
+
+type CassandraRule struct {
+	queryActionExact   string
+	tableRegexCompiled *regexp.Regexp
+}
+
+const cassHdrLen = 9
+const cassMaxLen = 268435456 // 256 MB, per spec
+
+func (rule *CassandraRule) Matches(data interface{}) bool {
+	// Cast 'data' to the type we give to 'Matches()'
+
+	path, ok := data.(string)
+	if !ok {
+		log.Warning("Matches() called with type other than string")
+		return false
+	}
+	log.Debugf("Policy Match test for '%s'", path)
+	regexStr := ""
+	if rule.tableRegexCompiled != nil {
+		regexStr = rule.tableRegexCompiled.String()
+	}
+
+	log.Debugf("Rule: action '%s', table '%s'", rule.queryActionExact, regexStr)
+	parts := strings.Split(path, "/")
+	if len(parts) <= 2 {
+		// this is not a query-like request, just allow
+		return true
+	} else if len(parts) < 4 {
+		// should never happen unless we've messed up internally
+		// as path is either /<opcode> or /<opcode>/<action>/<table>
+		log.Errorf("Invalid parsed path: '%s'", path)
+		return false
+	}
+	if rule.queryActionExact != "" && rule.queryActionExact != parts[2] {
+		log.Debugf("CassandraRule: query_action mismatch %v, %s", rule.queryActionExact, parts[1])
+		return false
+	}
+	if len(parts[3]) > 0 &&
+		rule.tableRegexCompiled != nil &&
+		!rule.tableRegexCompiled.MatchString(parts[3]) {
+		log.Debugf("CassandraRule: table_regex mismatch '%v', '%s'", rule.tableRegexCompiled, parts[3])
+		return false
+	}
+
+	return true
+}
+
+// CassandraRuleParser parses protobuf L7 rules to enforcement objects
+// May panic
+func CassandraRuleParser(rule *cilium.PortNetworkPolicyRule) []L7NetworkPolicyRule {
+	l7Rules := rule.GetL7Rules()
+	if l7Rules == nil {
+		ParseError("Can't get L7 rules.", rule)
+	}
+	var rules []L7NetworkPolicyRule
+	for _, l7Rule := range l7Rules.GetL7Rules() {
+		var cr CassandraRule
+		for k, v := range l7Rule.Rule {
+			switch k {
+			case "query_action":
+				cr.queryActionExact = v
+			case "query_table":
+				if v != "" {
+					cr.tableRegexCompiled = regexp.MustCompile(v)
+				}
+			default:
+				ParseError(fmt.Sprintf("Unsupported key: %s", k), rule)
+			}
+		}
+		if len(cr.queryActionExact) > 0 {
+			// ensure this is a valid query action
+			res := queryActionMap[cr.queryActionExact]
+			if res == invalidAction {
+				ParseError(fmt.Sprintf("Unable to parse L7 cassandra rule with invalid query_action: '%s'", cr.queryActionExact), rule)
+			} else if res == actionNoTable && cr.tableRegexCompiled != nil {
+				ParseError(fmt.Sprintf("query_action '%s' is not compatible with a query_table match", cr.queryActionExact), rule)
+			}
+
+		}
+
+		log.Debugf("Parsed CassandraRule pair: %v", cr)
+		rules = append(rules, &cr)
+	}
+	return rules
+}
+
+type CassandraParserFactory struct{}
+
+var cassandraParserFactory *CassandraParserFactory
+
+func init() {
+	log.Info("init(): Registering cassandraParserFactory")
+	RegisterParserFactory("cassandra", cassandraParserFactory)
+	RegisterL7RuleParser("cassandra", CassandraRuleParser)
+}
+
+type CassandraParser struct {
+	connection *Connection
+	inserted   bool
+	keyspace   string // stores current keyspace name from 'use' command
+
+	// stores prepared query string while
+	// waiting for 'prepared' reply from server
+	// with a prepared id.
+	// replies associated via stream-id
+	preparedQueryPathByStreamID map[uint16]string
+
+	// allowing us to enforce policy on query
+	// at the time of the execute command.
+	preparedQueryPathByPreparedID map[string]string // stores query string based on prepared-id,
+}
+
+func (pf *CassandraParserFactory) Create(connection *Connection) Parser {
+	log.Debugf("CassandraParserFactory: Create: %v", connection)
+
+	p := CassandraParser{connection: connection}
+	p.preparedQueryPathByStreamID = make(map[uint16]string)
+	p.preparedQueryPathByPreparedID = make(map[string]string)
+	return &p
+}
+
+func (p *CassandraParser) OnData(reply, endStream bool, dataArray [][]byte, offset int) (OpType, int) {
+
+	// inefficient, but simple for now
+	data := bytes.Join(dataArray, []byte(""))[offset:]
+	log.Debugf("OnData offset  = %d", offset)
+
+	if len(data) < cassHdrLen {
+		// Partial header received, ask for more
+		needs := cassHdrLen - len(data)
+		log.Debugf("Did not receive full header, need %d more bytes", needs)
+		return MORE, needs
+	}
+
+	// full header available, read full request length
+	requestLen := binary.BigEndian.Uint32(data[5:9])
+	log.Debugf("Request length = %d", requestLen)
+	if requestLen > cassMaxLen {
+		log.Errorf("Request length of %d is greater than 256 MB", requestLen)
+		return ERROR, 0
+	}
+
+	dataMissing := (cassHdrLen + int(requestLen)) - len(data)
+	if dataMissing > 0 {
+		// full header received, but only partial request
+
+		log.Debugf("Hdr received, but need %d more bytes of request", dataMissing)
+		return MORE, dataMissing
+	}
+
+	// we don't parse reply traffic for now
+	if reply {
+		if len(data) == 0 {
+			log.Debugf("ignoring zero length reply call to onData")
+			return NOP, 0
+
+		}
+		cassandraParseReply(p, data[0:(cassHdrLen+requestLen)])
+
+		log.Debugf("reply, passing %d bytes", uint32(len(data)))
+		return PASS, len(data)
+	}
+
+	err, paths := cassandraParseRequest(p, data[0:(cassHdrLen+requestLen)])
+	if err != 0 {
+		log.Errorf("Parsing error %d", err)
+		return ERROR, 0
+	}
+
+	log.Debugf("Request paths = %s", paths)
+
+	matches := true
+	access_log_entry_type := cilium.EntryType_Request
+
+	for i := 0; i < len(paths); i++ {
+		if !p.connection.Matches(paths[i]) {
+			matches = false
+			access_log_entry_type = cilium.EntryType_Denied
+		}
+	}
+
+	for i := 0; i < len(paths); i++ {
+		parts := strings.Split(paths[i], "/")
+		if len(parts) == 4 {
+			p.connection.Log(access_log_entry_type,
+				&cilium.LogEntry_GenericL7{
+					&cilium.L7LogEntry{
+						Proto: "cassandra",
+						Fields: map[string]string{
+							"query_action": parts[2],
+							"query_table":  parts[3],
+						},
+					},
+				})
+		}
+	}
+
+	if !matches {
+		unauthMsg := make([]byte, len(unauthMsgBase))
+		copy(unauthMsg, unauthMsgBase)
+		// We want to use the same protocol and stream ID
+		// as the incoming request.
+		// update the protocol to match the request
+		unauthMsg[0] = 0x80 | (data[0] & 0x07)
+		// update the stream ID to match the request
+		unauthMsg[2] = data[2]
+		unauthMsg[3] = data[3]
+		p.connection.Inject(true, unauthMsg)
+
+		return DROP, int(cassHdrLen + requestLen)
+	}
+
+	return PASS, int(cassHdrLen + requestLen)
+}
+
+// A full response (header + body) to be used as an
+// "unauthorized" error to be sent to cassandra client as part of policy
+// deny.   Array must be updated to ensure that reply has
+// protocol version and stream-id that matches the request.
+
+var unauthMsgBase = []byte{
+	0x0,      // version (uint8) - must be set before injection
+	0x0,      // flags, (uint8)
+	0x0, 0x0, // stream-id (uint16) - must be set before injection
+	0x0,                 // opcode error (uint8)
+	0x0, 0x0, 0x0, 0x1a, // request length (uint32) - update if text changes
+	0x0, 0x0, 0x21, 0x00, // 'unauthorized error code' 0x2100 (uint32)
+	0x0, 0x14, // length of error msg (uint16)  - update if text changes
+	'R', 'e', 'q', 'u', 'e', 's', 't', ' ', 'U', 'n', 'a', 'u', 't', 'h', 'o', 'r', 'i', 'z', 'e', 'd',
+}
+
+// A full response (header + body) to be used as a
+// "unprepared" error to be sent to cassandra client if proxy
+// does not have the path for this prepare-query-id cached
+
+var unpreparedMsgBase = []byte{
+	0x0,      // version (uint8) - must be set before injection
+	0x0,      // flags, (uint8)
+	0x0, 0x0, // stream-id (uint16) - must be set before injection
+	0x0,                 // opcode error (uint8)
+	0x0, 0x0, 0x0, 0x1a, // request length (uint32) - update if text changes
+	0x0, 0x0, 0x25, 0x00, // 'unauthorized error code' 0x2100 (uint32)
+	// must append [short bytes] array of prepared query id.
+}
+
+var opcodeMap = map[byte]string{
+	0x00: "error",
+	0x01: "startup",
+	0x02: "ready",
+	0x03: "authenticate",
+	0x05: "options",
+	0x06: "supported",
+	0x07: "query",
+	0x08: "result",
+	0x09: "prepare",
+	0x0A: "execute",
+	0x0B: "register",
+	0x0C: "event",
+	0x0D: "batch",
+	0x0E: "auth_challenge",
+	0x0F: "auth_response",
+	0x10: "auth_success",
+}
+
+// map to test whether a 'query_action' is valid or not
+
+const invalidAction = 0
+const actionWithTable = 1
+const actionNoTable = 2
+
+var queryActionMap = map[string]int{
+	"select":         actionWithTable,
+	"delete":         actionWithTable,
+	"insert":         actionWithTable,
+	"update":         actionWithTable,
+	"create-table":   actionWithTable,
+	"drop-table":     actionWithTable,
+	"alter-table":    actionWithTable,
+	"truncate-table": actionWithTable,
+
+	// these queries take a keyspace
+	// and match against query_table
+	"use":             actionWithTable,
+	"create-keyspace": actionWithTable,
+	"alter-keyspace":  actionWithTable,
+	"drop-keyspace":   actionWithTable,
+
+	"drop-index":               actionNoTable,
+	"create-index":             actionNoTable, // TODO: we could tie this to table if we want
+	"create-materialized-view": actionNoTable,
+	"drop-materialized-view":   actionNoTable,
+
+	// TODO: these admin ops could be bundled into meta roles
+	// (e.g., role-mgmt, permission-mgmt)
+	"create-role":       actionNoTable,
+	"alter-role":        actionNoTable,
+	"drop-role":         actionNoTable,
+	"grant-role":        actionNoTable,
+	"revoke-role":       actionNoTable,
+	"list-roles":        actionNoTable,
+	"grant-permission":  actionNoTable,
+	"revoke-permission": actionNoTable,
+	"list-permissions":  actionNoTable,
+	"create-user":       actionNoTable,
+	"alter-user":        actionNoTable,
+	"drop-user":         actionNoTable,
+	"list-users":        actionNoTable,
+
+	"create-function":  actionNoTable,
+	"drop-function":    actionNoTable,
+	"create-aggregate": actionNoTable,
+	"drop-aggregate":   actionNoTable,
+	"create-type":      actionNoTable,
+	"alter-type":       actionNoTable,
+	"drop-type":        actionNoTable,
+	"create-trigger":   actionNoTable,
+	"drop-trigger":     actionNoTable,
+}
+
+func parseQuery(p *CassandraParser, query string) (string, string) {
+	var action string
+	var table string
+
+	query = strings.TrimRight(query, ";")            // remove potential trailing ;
+	fields := strings.Fields(strings.ToLower(query)) // handles all whitespace
+
+	// we currently do not strip comments.  It seems like cqlsh does
+	// strip comments, but its not clear if that can be assumed of all clients
+	// It should not be possible to "spoof" the 'action' as this is assumed to be
+	// the first token (leaving no room for a comment to start), but it could potentially
+	// trick this parser into thinking we're accessing table X, when in fact the
+	// query accesses table Y, which would obviously be a security vulnerability
+	// As a result, we look at each token here, and if any of them match the comment
+	// characters for cassandra, we fail parsing.
+	for i := 0; i < len(fields); i++ {
+		if len(fields[i]) >= 2 &&
+			(fields[i][:2] == "--" ||
+				fields[i][:2] == "/*" ||
+				fields[i][:2] == "//") {
+
+			log.Warnf("Unable to safely parse query with comments '%s'", query)
+			return "", ""
+		}
+	}
+	if len(fields) < 2 {
+		goto invalidQuery
+	}
+
+	action = fields[0]
+	switch action {
+	case "select", "delete":
+		for i := 1; i < len(fields); i++ {
+			if fields[i] == "from" {
+				table = strings.ToLower(fields[i+1])
+			}
+		}
+		if len(table) == 0 {
+			log.Warnf("Unable to parse table name from query '%s'", query)
+			return "", ""
+		}
+	case "insert":
+		// INSERT into <table-name>
+		if len(fields) < 3 {
+			goto invalidQuery
+		}
+		table = strings.ToLower(fields[2])
+	case "update":
+		// UPDATE <table-name>
+		table = strings.ToLower(fields[1])
+	case "use":
+		p.keyspace = strings.Trim(fields[1], "\"\\'")
+		log.Debugf("Saving keyspace '%s'", p.keyspace)
+		table = p.keyspace
+	case "alter", "create", "drop", "truncate", "list":
+
+		action = strings.Join([]string{action, fields[1]}, "-")
+		if fields[1] == "table" || fields[1] == "keyspace" {
+
+			if len(fields) < 3 {
+				goto invalidQuery
+			}
+			table = fields[2]
+			if table == "if" {
+				if action == "create-table" {
+					if len(fields) < 6 {
+						goto invalidQuery
+					}
+					// handle optional "IF NOT EXISTS"
+					table = fields[5]
+				} else if action == "drop-table" || action == "drop-keyspace" {
+					if len(fields) < 5 {
+						goto invalidQuery
+					}
+					// handle optional "IF EXISTS"
+					table = fields[4]
+				}
+			}
+		}
+		if action == "truncate" && len(fields) == 2 {
+			// special case, truncate can just be passed table name
+			table = fields[1]
+		}
+		if fields[1] == "materialized" {
+			action = action + "-view"
+		} else if fields[1] == "custom" {
+			action = "create-index"
+		}
+	default:
+		goto invalidQuery
+	}
+
+	if len(table) > 0 && !strings.Contains(table, ".") && action != "use" {
+		table = p.keyspace + "." + table
+	}
+	return action, table
+
+invalidQuery:
+
+	log.Errorf("Unable to parse query: '%s'", query)
+	return "", ""
+}
+
+func cassandraParseRequest(p *CassandraParser, data []byte) (OpError, []string) {
+
+	direction := data[0] & 0x80 // top bit
+	if direction != 0 {
+		log.Errorf("Direction bit is 'reply', but we are trying to parse a request")
+		return ERROR_INVALID_FRAME_TYPE, nil
+	}
+
+	compressionFlag := data[1] & 0x01
+	if compressionFlag == 1 {
+		log.Errorf("Compression flag set, unable to parse beyond the header")
+		return ERROR_INVALID_FRAME_TYPE, nil
+	}
+
+	opcode := data[4]
+	path := opcodeMap[opcode]
+
+	// parse query string from query/prepare/batch requests
+
+	// NOTE: parsing only prepare statements and passing all execute
+	// statements requires that we 'invalidate' all execute statements
+	// anytime policy changes, to ensure that no execute statements are
+	// allowed that correspond to prepared queries that would no longer
+	// be valid.   A better option might be to cache all prepared queries,
+	// mapping the execution ID to allow/deny each time policy is changed.
+	if opcode == 0x07 || opcode == 0x09 {
+		// query || prepare
+		queryLen := binary.BigEndian.Uint32(data[9:13])
+		endIndex := 13 + queryLen
+		query := string(data[13:endIndex])
+		action, table := parseQuery(p, query)
+
+		if action == "" {
+			return ERROR_INVALID_FRAME_TYPE, nil
+		}
+
+		path = "/" + path + "/" + action + "/" + table
+		if opcode == 0x09 {
+			// stash 'path' for this prepared query based on stream id
+			// rewrite 'opcode' portion of the path to be 'execute' rather than 'prepare'
+			streamID := binary.BigEndian.Uint16(data[2:4])
+			log.Debugf("Prepare query path '%s' with stream-id %d", path, streamID)
+			p.preparedQueryPathByStreamID[streamID] = strings.Replace(path, "prepare", "execute", 1)
+		}
+		return 0, []string{path}
+	} else if opcode == 0x0d {
+		// batch
+
+		numQueries := binary.BigEndian.Uint16(data[10:11])
+		paths := make([]string, numQueries)
+		log.Debugf("batch query count = %d", numQueries)
+		offset := 11
+		for i := 0; i < int(numQueries); i++ {
+			kind := data[offset]
+			if kind == 0 {
+				// full query string
+				queryLen := int(binary.BigEndian.Uint32(data[offset : offset+4]))
+
+				query := string(data[offset+4 : offset+4+queryLen])
+				action, table := parseQuery(p, query)
+
+				if action == "" {
+					return ERROR_INVALID_FRAME_TYPE, nil
+				}
+				path = "/" + path + "/" + action + "/" + table
+				paths[i] = path
+				offset = offset + 5 + queryLen
+			} else if kind == 1 {
+				// prepared query id
+				idLen := int(binary.BigEndian.Uint16(data[offset+1 : offset+3]))
+				preparedID := string(data[offset+3 : (offset + 3 + idLen)])
+				log.Debugf("Batch entry with prepared-id = '%s'", preparedID)
+				path := p.preparedQueryPathByPreparedID[preparedID]
+				if len(path) > 0 {
+					paths[i] = path
+				} else {
+					log.Warnf("No cached entry for prepared-id = '%s' in batch", preparedID)
+					sendUnpreparedMsg(p, data[0], data[2:4], data[9:11+idLen])
+					return ERROR_INVALID_FRAME_TYPE, nil
+				}
+				offset = offset + 3 + idLen
+			} else {
+				log.Errorf("unexpected value of 'kind' in batch query: %d", kind)
+				return ERROR_INVALID_FRAME_TYPE, nil
+			}
+		}
+		return 0, paths
+	} else if opcode == 0x0a {
+		// execute
+
+		// parse out prepared query id, and then look up our
+		// cached query path for policy evaluation.
+		idLen := binary.BigEndian.Uint16(data[9:11])
+		preparedID := string(data[11:(11 + idLen)])
+		log.Debugf("Execute with prepared-id = '%s'", preparedID)
+		path := p.preparedQueryPathByPreparedID[preparedID]
+
+		if len(path) == 0 {
+			log.Warnf("No cached entry for prepared-id = '%s'", preparedID)
+			sendUnpreparedMsg(p, data[0], data[2:4], data[9:11+idLen])
+			return ERROR_INVALID_FRAME_TYPE, nil
+		}
+
+		return 0, []string{path}
+	} else {
+		// other opcode, just return type of opcode
+
+		return 0, []string{"/" + path}
+	}
+
+}
+
+// return error with error code 'unprepared' with code 0x2500
+// followed by a [short bytes] indicating the unknown ID
+// must set stream-id of the response to match the request
+func sendUnpreparedMsg(p *CassandraParser, version byte, streamID []byte, preparedId []byte) {
+
+	unpreparedMsg := make([]byte, len(unpreparedMsgBase))
+	copy(unpreparedMsg, unpreparedMsgBase)
+	// We want to use the same protocol and stream ID
+	// as the incoming request.
+	// update the protocol version to match the request
+	unpreparedMsg[0] = 0x80 | (version & 0x07)
+	// update the stream ID to match the request
+	unpreparedMsg[2] = streamID[0]
+	unpreparedMsg[3] = streamID[1]
+	p.connection.Inject(true, unpreparedMsg)
+	// finish error message with a copy of the prepared-query-id
+	// in [short bytes] format
+	p.connection.Inject(true, preparedId)
+}
+
+// reply parsing is very basic, just focusing on parsing RESULT messages that
+// contain prepared query IDs so that we can later enforce policy on "execute" requests.
+func cassandraParseReply(p *CassandraParser, data []byte) {
+
+	direction := data[0] & 0x80 // top bit
+	if direction != 0x80 {
+		log.Errorf("Direction bit is 'request', but we are trying to parse a reply")
+		return
+	}
+
+	compressionFlag := data[1] & 0x01
+	if compressionFlag == 1 {
+		log.Errorf("Compression flag set, unable to parse beyond the header")
+		return
+	}
+
+	streamID := binary.BigEndian.Uint16(data[2:4])
+	log.Debugf("Reply with opcode %d and stream-id %d", data[4], streamID)
+	// if this is an opcode == RESULT message of type 'prepared', associate the prepared
+	// statement id with the full query string that was included in the
+	// associated PREPARE request.  The stream-id in this reply allows us to
+	// find the associated prepare query string.
+	if data[4] == 0x08 {
+		resultKind := binary.BigEndian.Uint32(data[9:13])
+		log.Debugf("resultKind = %d", resultKind)
+		if resultKind == 0x0004 {
+			idLen := binary.BigEndian.Uint16(data[13:15])
+			preparedID := string(data[15 : 15+idLen])
+			log.Debugf("Result with prepared-id = '%s' for stream-id %d", preparedID, streamID)
+			path := p.preparedQueryPathByStreamID[streamID]
+			if len(path) > 0 {
+				// found cached query path to associate with this preparedID
+				p.preparedQueryPathByPreparedID[preparedID] = path
+				log.Debugf("Associating query path '%s' with prepared-id %s as part of stream-id %d", path, preparedID, streamID)
+			} else {
+				log.Warnf("Unable to find prepared query path associated with stream-id %d", streamID)
+			}
+		}
+	}
+}
