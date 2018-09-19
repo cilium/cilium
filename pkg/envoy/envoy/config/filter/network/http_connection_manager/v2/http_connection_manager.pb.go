@@ -3,18 +3,20 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import v2 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
-import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import v21 "github.com/cilium/cilium/pkg/envoy/envoy/config/filter/accesslog/v2"
-import _type "github.com/cilium/cilium/pkg/envoy/envoy/type"
-import _ "github.com/gogo/protobuf/gogoproto"
-import duration "github.com/golang/protobuf/ptypes/duration"
-import _struct "github.com/golang/protobuf/ptypes/struct"
-import wrappers "github.com/golang/protobuf/ptypes/wrappers"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	v2 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
+	core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+	v21 "github.com/cilium/cilium/pkg/envoy/envoy/config/filter/accesslog/v2"
+	_type "github.com/cilium/cilium/pkg/envoy/envoy/type"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/golang/protobuf/proto"
+	duration "github.com/golang/protobuf/ptypes/duration"
+	_struct "github.com/golang/protobuf/ptypes/struct"
+	wrappers "github.com/golang/protobuf/ptypes/wrappers"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -285,14 +287,15 @@ func (*HttpConnectionManager) ProtoMessage()    {}
 func (*HttpConnectionManager) Descriptor() ([]byte, []int) {
 	return fileDescriptor_8fe65268985a88f7, []int{0}
 }
+
 func (m *HttpConnectionManager) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HttpConnectionManager.Unmarshal(m, b)
 }
 func (m *HttpConnectionManager) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_HttpConnectionManager.Marshal(b, m, deterministic)
 }
-func (dst *HttpConnectionManager) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HttpConnectionManager.Merge(dst, src)
+func (m *HttpConnectionManager) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HttpConnectionManager.Merge(m, src)
 }
 func (m *HttpConnectionManager) XXX_Size() int {
 	return xxx_messageInfo_HttpConnectionManager.Size(m)
@@ -608,14 +611,15 @@ func (*HttpConnectionManager_Tracing) ProtoMessage()    {}
 func (*HttpConnectionManager_Tracing) Descriptor() ([]byte, []int) {
 	return fileDescriptor_8fe65268985a88f7, []int{0, 0}
 }
+
 func (m *HttpConnectionManager_Tracing) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HttpConnectionManager_Tracing.Unmarshal(m, b)
 }
 func (m *HttpConnectionManager_Tracing) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_HttpConnectionManager_Tracing.Marshal(b, m, deterministic)
 }
-func (dst *HttpConnectionManager_Tracing) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HttpConnectionManager_Tracing.Merge(dst, src)
+func (m *HttpConnectionManager_Tracing) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HttpConnectionManager_Tracing.Merge(m, src)
 }
 func (m *HttpConnectionManager_Tracing) XXX_Size() int {
 	return xxx_messageInfo_HttpConnectionManager_Tracing.Size(m)
@@ -689,14 +693,15 @@ func (*HttpConnectionManager_SetCurrentClientCertDetails) ProtoMessage() {}
 func (*HttpConnectionManager_SetCurrentClientCertDetails) Descriptor() ([]byte, []int) {
 	return fileDescriptor_8fe65268985a88f7, []int{0, 1}
 }
+
 func (m *HttpConnectionManager_SetCurrentClientCertDetails) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HttpConnectionManager_SetCurrentClientCertDetails.Unmarshal(m, b)
 }
 func (m *HttpConnectionManager_SetCurrentClientCertDetails) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_HttpConnectionManager_SetCurrentClientCertDetails.Marshal(b, m, deterministic)
 }
-func (dst *HttpConnectionManager_SetCurrentClientCertDetails) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HttpConnectionManager_SetCurrentClientCertDetails.Merge(dst, src)
+func (m *HttpConnectionManager_SetCurrentClientCertDetails) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HttpConnectionManager_SetCurrentClientCertDetails.Merge(m, src)
 }
 func (m *HttpConnectionManager_SetCurrentClientCertDetails) XXX_Size() int {
 	return xxx_messageInfo_HttpConnectionManager_SetCurrentClientCertDetails.Size(m)
@@ -768,14 +773,15 @@ func (*HttpConnectionManager_UpgradeConfig) ProtoMessage()    {}
 func (*HttpConnectionManager_UpgradeConfig) Descriptor() ([]byte, []int) {
 	return fileDescriptor_8fe65268985a88f7, []int{0, 2}
 }
+
 func (m *HttpConnectionManager_UpgradeConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HttpConnectionManager_UpgradeConfig.Unmarshal(m, b)
 }
 func (m *HttpConnectionManager_UpgradeConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_HttpConnectionManager_UpgradeConfig.Marshal(b, m, deterministic)
 }
-func (dst *HttpConnectionManager_UpgradeConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HttpConnectionManager_UpgradeConfig.Merge(dst, src)
+func (m *HttpConnectionManager_UpgradeConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HttpConnectionManager_UpgradeConfig.Merge(m, src)
 }
 func (m *HttpConnectionManager_UpgradeConfig) XXX_Size() int {
 	return xxx_messageInfo_HttpConnectionManager_UpgradeConfig.Size(m)
@@ -819,14 +825,15 @@ func (*Rds) ProtoMessage()    {}
 func (*Rds) Descriptor() ([]byte, []int) {
 	return fileDescriptor_8fe65268985a88f7, []int{1}
 }
+
 func (m *Rds) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Rds.Unmarshal(m, b)
 }
 func (m *Rds) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Rds.Marshal(b, m, deterministic)
 }
-func (dst *Rds) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Rds.Merge(dst, src)
+func (m *Rds) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Rds.Merge(m, src)
 }
 func (m *Rds) XXX_Size() int {
 	return xxx_messageInfo_Rds.Size(m)
@@ -889,14 +896,15 @@ func (*HttpFilter) ProtoMessage()    {}
 func (*HttpFilter) Descriptor() ([]byte, []int) {
 	return fileDescriptor_8fe65268985a88f7, []int{2}
 }
+
 func (m *HttpFilter) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HttpFilter.Unmarshal(m, b)
 }
 func (m *HttpFilter) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_HttpFilter.Marshal(b, m, deterministic)
 }
-func (dst *HttpFilter) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HttpFilter.Merge(dst, src)
+func (m *HttpFilter) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HttpFilter.Merge(m, src)
 }
 func (m *HttpFilter) XXX_Size() int {
 	return xxx_messageInfo_HttpFilter.Size(m)
@@ -944,14 +952,15 @@ func (*HttpFilter_DeprecatedV1) ProtoMessage()    {}
 func (*HttpFilter_DeprecatedV1) Descriptor() ([]byte, []int) {
 	return fileDescriptor_8fe65268985a88f7, []int{2, 0}
 }
+
 func (m *HttpFilter_DeprecatedV1) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HttpFilter_DeprecatedV1.Unmarshal(m, b)
 }
 func (m *HttpFilter_DeprecatedV1) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_HttpFilter_DeprecatedV1.Marshal(b, m, deterministic)
 }
-func (dst *HttpFilter_DeprecatedV1) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HttpFilter_DeprecatedV1.Merge(dst, src)
+func (m *HttpFilter_DeprecatedV1) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HttpFilter_DeprecatedV1.Merge(m, src)
 }
 func (m *HttpFilter_DeprecatedV1) XXX_Size() int {
 	return xxx_messageInfo_HttpFilter_DeprecatedV1.Size(m)

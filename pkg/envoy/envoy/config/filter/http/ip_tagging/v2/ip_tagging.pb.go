@@ -3,12 +3,14 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import _ "github.com/golang/protobuf/ptypes/wrappers"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+	proto "github.com/golang/protobuf/proto"
+	_ "github.com/golang/protobuf/ptypes/wrappers"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -76,14 +78,15 @@ func (*IPTagging) ProtoMessage()    {}
 func (*IPTagging) Descriptor() ([]byte, []int) {
 	return fileDescriptor_f4275d0b367744d2, []int{0}
 }
+
 func (m *IPTagging) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_IPTagging.Unmarshal(m, b)
 }
 func (m *IPTagging) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_IPTagging.Marshal(b, m, deterministic)
 }
-func (dst *IPTagging) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_IPTagging.Merge(dst, src)
+func (m *IPTagging) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_IPTagging.Merge(m, src)
 }
 func (m *IPTagging) XXX_Size() int {
 	return xxx_messageInfo_IPTagging.Size(m)
@@ -126,14 +129,15 @@ func (*IPTagging_IPTag) ProtoMessage()    {}
 func (*IPTagging_IPTag) Descriptor() ([]byte, []int) {
 	return fileDescriptor_f4275d0b367744d2, []int{0, 0}
 }
+
 func (m *IPTagging_IPTag) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_IPTagging_IPTag.Unmarshal(m, b)
 }
 func (m *IPTagging_IPTag) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_IPTagging_IPTag.Marshal(b, m, deterministic)
 }
-func (dst *IPTagging_IPTag) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_IPTagging_IPTag.Merge(dst, src)
+func (m *IPTagging_IPTag) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_IPTagging_IPTag.Merge(m, src)
 }
 func (m *IPTagging_IPTag) XXX_Size() int {
 	return xxx_messageInfo_IPTagging_IPTag.Size(m)

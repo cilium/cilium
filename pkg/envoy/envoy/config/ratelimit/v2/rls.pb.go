@@ -3,11 +3,13 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+	proto "github.com/golang/protobuf/proto"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -52,14 +54,15 @@ func (*RateLimitServiceConfig) ProtoMessage()    {}
 func (*RateLimitServiceConfig) Descriptor() ([]byte, []int) {
 	return fileDescriptor_3154ecf621be8917, []int{0}
 }
+
 func (m *RateLimitServiceConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RateLimitServiceConfig.Unmarshal(m, b)
 }
 func (m *RateLimitServiceConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RateLimitServiceConfig.Marshal(b, m, deterministic)
 }
-func (dst *RateLimitServiceConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RateLimitServiceConfig.Merge(dst, src)
+func (m *RateLimitServiceConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RateLimitServiceConfig.Merge(m, src)
 }
 func (m *RateLimitServiceConfig) XXX_Size() int {
 	return xxx_messageInfo_RateLimitServiceConfig.Size(m)

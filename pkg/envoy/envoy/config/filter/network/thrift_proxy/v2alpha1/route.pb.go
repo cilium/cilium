@@ -3,12 +3,14 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import route "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/route"
-import _ "github.com/gogo/protobuf/gogoproto"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	route "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/route"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/golang/protobuf/proto"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -39,14 +41,15 @@ func (*RouteConfiguration) ProtoMessage()    {}
 func (*RouteConfiguration) Descriptor() ([]byte, []int) {
 	return fileDescriptor_3de6ac0eae6369f5, []int{0}
 }
+
 func (m *RouteConfiguration) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RouteConfiguration.Unmarshal(m, b)
 }
 func (m *RouteConfiguration) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RouteConfiguration.Marshal(b, m, deterministic)
 }
-func (dst *RouteConfiguration) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RouteConfiguration.Merge(dst, src)
+func (m *RouteConfiguration) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RouteConfiguration.Merge(m, src)
 }
 func (m *RouteConfiguration) XXX_Size() int {
 	return xxx_messageInfo_RouteConfiguration.Size(m)
@@ -88,14 +91,15 @@ func (*Route) ProtoMessage()    {}
 func (*Route) Descriptor() ([]byte, []int) {
 	return fileDescriptor_3de6ac0eae6369f5, []int{1}
 }
+
 func (m *Route) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Route.Unmarshal(m, b)
 }
 func (m *Route) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Route.Marshal(b, m, deterministic)
 }
-func (dst *Route) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Route.Merge(dst, src)
+func (m *Route) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Route.Merge(m, src)
 }
 func (m *Route) XXX_Size() int {
 	return xxx_messageInfo_Route.Size(m)
@@ -156,14 +160,15 @@ func (*RouteMatch) ProtoMessage()    {}
 func (*RouteMatch) Descriptor() ([]byte, []int) {
 	return fileDescriptor_3de6ac0eae6369f5, []int{2}
 }
+
 func (m *RouteMatch) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RouteMatch.Unmarshal(m, b)
 }
 func (m *RouteMatch) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RouteMatch.Marshal(b, m, deterministic)
 }
-func (dst *RouteMatch) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RouteMatch.Merge(dst, src)
+func (m *RouteMatch) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RouteMatch.Merge(m, src)
 }
 func (m *RouteMatch) XXX_Size() int {
 	return xxx_messageInfo_RouteMatch.Size(m)
@@ -306,14 +311,15 @@ func (*RouteAction) ProtoMessage()    {}
 func (*RouteAction) Descriptor() ([]byte, []int) {
 	return fileDescriptor_3de6ac0eae6369f5, []int{3}
 }
+
 func (m *RouteAction) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RouteAction.Unmarshal(m, b)
 }
 func (m *RouteAction) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RouteAction.Marshal(b, m, deterministic)
 }
-func (dst *RouteAction) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RouteAction.Merge(dst, src)
+func (m *RouteAction) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RouteAction.Merge(m, src)
 }
 func (m *RouteAction) XXX_Size() int {
 	return xxx_messageInfo_RouteAction.Size(m)

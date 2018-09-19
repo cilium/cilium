@@ -3,13 +3,15 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import _ "github.com/gogo/protobuf/gogoproto"
-import duration "github.com/golang/protobuf/ptypes/duration"
-import _struct "github.com/golang/protobuf/ptypes/struct"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/golang/protobuf/proto"
+	duration "github.com/golang/protobuf/ptypes/duration"
+	_struct "github.com/golang/protobuf/ptypes/struct"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -65,14 +67,15 @@ func (*Squash) ProtoMessage()    {}
 func (*Squash) Descriptor() ([]byte, []int) {
 	return fileDescriptor_63fc8434388b1e13, []int{0}
 }
+
 func (m *Squash) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Squash.Unmarshal(m, b)
 }
 func (m *Squash) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Squash.Marshal(b, m, deterministic)
 }
-func (dst *Squash) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Squash.Merge(dst, src)
+func (m *Squash) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Squash.Merge(m, src)
 }
 func (m *Squash) XXX_Size() int {
 	return xxx_messageInfo_Squash.Size(m)

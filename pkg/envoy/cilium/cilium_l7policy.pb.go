@@ -3,10 +3,12 @@
 
 package cilium
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import wrappers "github.com/golang/protobuf/ptypes/wrappers"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	wrappers "github.com/golang/protobuf/ptypes/wrappers"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -41,14 +43,15 @@ func (*L7Policy) ProtoMessage()    {}
 func (*L7Policy) Descriptor() ([]byte, []int) {
 	return fileDescriptor_8b4ffb6fa1d76306, []int{0}
 }
+
 func (m *L7Policy) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_L7Policy.Unmarshal(m, b)
 }
 func (m *L7Policy) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_L7Policy.Marshal(b, m, deterministic)
 }
-func (dst *L7Policy) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_L7Policy.Merge(dst, src)
+func (m *L7Policy) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_L7Policy.Merge(m, src)
 }
 func (m *L7Policy) XXX_Size() int {
 	return xxx_messageInfo_L7Policy.Size(m)

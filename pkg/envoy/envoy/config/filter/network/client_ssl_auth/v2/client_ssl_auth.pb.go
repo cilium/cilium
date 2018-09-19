@@ -3,13 +3,15 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import _ "github.com/gogo/protobuf/gogoproto"
-import duration "github.com/golang/protobuf/ptypes/duration"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/golang/protobuf/proto"
+	duration "github.com/golang/protobuf/ptypes/duration"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -51,14 +53,15 @@ func (*ClientSSLAuth) ProtoMessage()    {}
 func (*ClientSSLAuth) Descriptor() ([]byte, []int) {
 	return fileDescriptor_2c05e9c9b57da130, []int{0}
 }
+
 func (m *ClientSSLAuth) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ClientSSLAuth.Unmarshal(m, b)
 }
 func (m *ClientSSLAuth) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ClientSSLAuth.Marshal(b, m, deterministic)
 }
-func (dst *ClientSSLAuth) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ClientSSLAuth.Merge(dst, src)
+func (m *ClientSSLAuth) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ClientSSLAuth.Merge(m, src)
 }
 func (m *ClientSSLAuth) XXX_Size() int {
 	return xxx_messageInfo_ClientSSLAuth.Size(m)

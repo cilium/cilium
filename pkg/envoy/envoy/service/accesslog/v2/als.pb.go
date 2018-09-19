@@ -3,12 +3,14 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import v2 "github.com/cilium/cilium/pkg/envoy/envoy/data/accesslog/v2"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+	v2 "github.com/cilium/cilium/pkg/envoy/envoy/data/accesslog/v2"
+	proto "github.com/golang/protobuf/proto"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 import (
 	context "golang.org/x/net/context"
@@ -39,14 +41,15 @@ func (*StreamAccessLogsResponse) ProtoMessage()    {}
 func (*StreamAccessLogsResponse) Descriptor() ([]byte, []int) {
 	return fileDescriptor_e4f3a3a69261b513, []int{0}
 }
+
 func (m *StreamAccessLogsResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_StreamAccessLogsResponse.Unmarshal(m, b)
 }
 func (m *StreamAccessLogsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_StreamAccessLogsResponse.Marshal(b, m, deterministic)
 }
-func (dst *StreamAccessLogsResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_StreamAccessLogsResponse.Merge(dst, src)
+func (m *StreamAccessLogsResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_StreamAccessLogsResponse.Merge(m, src)
 }
 func (m *StreamAccessLogsResponse) XXX_Size() int {
 	return xxx_messageInfo_StreamAccessLogsResponse.Size(m)
@@ -81,14 +84,15 @@ func (*StreamAccessLogsMessage) ProtoMessage()    {}
 func (*StreamAccessLogsMessage) Descriptor() ([]byte, []int) {
 	return fileDescriptor_e4f3a3a69261b513, []int{1}
 }
+
 func (m *StreamAccessLogsMessage) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_StreamAccessLogsMessage.Unmarshal(m, b)
 }
 func (m *StreamAccessLogsMessage) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_StreamAccessLogsMessage.Marshal(b, m, deterministic)
 }
-func (dst *StreamAccessLogsMessage) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_StreamAccessLogsMessage.Merge(dst, src)
+func (m *StreamAccessLogsMessage) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_StreamAccessLogsMessage.Merge(m, src)
 }
 func (m *StreamAccessLogsMessage) XXX_Size() int {
 	return xxx_messageInfo_StreamAccessLogsMessage.Size(m)
@@ -234,14 +238,15 @@ func (*StreamAccessLogsMessage_Identifier) ProtoMessage()    {}
 func (*StreamAccessLogsMessage_Identifier) Descriptor() ([]byte, []int) {
 	return fileDescriptor_e4f3a3a69261b513, []int{1, 0}
 }
+
 func (m *StreamAccessLogsMessage_Identifier) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_StreamAccessLogsMessage_Identifier.Unmarshal(m, b)
 }
 func (m *StreamAccessLogsMessage_Identifier) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_StreamAccessLogsMessage_Identifier.Marshal(b, m, deterministic)
 }
-func (dst *StreamAccessLogsMessage_Identifier) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_StreamAccessLogsMessage_Identifier.Merge(dst, src)
+func (m *StreamAccessLogsMessage_Identifier) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_StreamAccessLogsMessage_Identifier.Merge(m, src)
 }
 func (m *StreamAccessLogsMessage_Identifier) XXX_Size() int {
 	return xxx_messageInfo_StreamAccessLogsMessage_Identifier.Size(m)
@@ -284,14 +289,15 @@ func (*StreamAccessLogsMessage_HTTPAccessLogEntries) ProtoMessage() {}
 func (*StreamAccessLogsMessage_HTTPAccessLogEntries) Descriptor() ([]byte, []int) {
 	return fileDescriptor_e4f3a3a69261b513, []int{1, 1}
 }
+
 func (m *StreamAccessLogsMessage_HTTPAccessLogEntries) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_StreamAccessLogsMessage_HTTPAccessLogEntries.Unmarshal(m, b)
 }
 func (m *StreamAccessLogsMessage_HTTPAccessLogEntries) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_StreamAccessLogsMessage_HTTPAccessLogEntries.Marshal(b, m, deterministic)
 }
-func (dst *StreamAccessLogsMessage_HTTPAccessLogEntries) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_StreamAccessLogsMessage_HTTPAccessLogEntries.Merge(dst, src)
+func (m *StreamAccessLogsMessage_HTTPAccessLogEntries) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_StreamAccessLogsMessage_HTTPAccessLogEntries.Merge(m, src)
 }
 func (m *StreamAccessLogsMessage_HTTPAccessLogEntries) XXX_Size() int {
 	return xxx_messageInfo_StreamAccessLogsMessage_HTTPAccessLogEntries.Size(m)
@@ -328,14 +334,15 @@ func (*StreamAccessLogsMessage_TCPAccessLogEntries) ProtoMessage() {}
 func (*StreamAccessLogsMessage_TCPAccessLogEntries) Descriptor() ([]byte, []int) {
 	return fileDescriptor_e4f3a3a69261b513, []int{1, 2}
 }
+
 func (m *StreamAccessLogsMessage_TCPAccessLogEntries) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_StreamAccessLogsMessage_TCPAccessLogEntries.Unmarshal(m, b)
 }
 func (m *StreamAccessLogsMessage_TCPAccessLogEntries) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_StreamAccessLogsMessage_TCPAccessLogEntries.Marshal(b, m, deterministic)
 }
-func (dst *StreamAccessLogsMessage_TCPAccessLogEntries) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_StreamAccessLogsMessage_TCPAccessLogEntries.Merge(dst, src)
+func (m *StreamAccessLogsMessage_TCPAccessLogEntries) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_StreamAccessLogsMessage_TCPAccessLogEntries.Merge(m, src)
 }
 func (m *StreamAccessLogsMessage_TCPAccessLogEntries) XXX_Size() int {
 	return xxx_messageInfo_StreamAccessLogsMessage_TCPAccessLogEntries.Size(m)

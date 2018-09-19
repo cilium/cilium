@@ -3,12 +3,14 @@
 
 package cluster
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import _ "github.com/gogo/protobuf/gogoproto"
-import wrappers "github.com/golang/protobuf/ptypes/wrappers"
+import (
+	fmt "fmt"
+	core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/golang/protobuf/proto"
+	wrappers "github.com/golang/protobuf/ptypes/wrappers"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -41,14 +43,15 @@ func (*CircuitBreakers) ProtoMessage()    {}
 func (*CircuitBreakers) Descriptor() ([]byte, []int) {
 	return fileDescriptor_89bc8d4e21efdd79, []int{0}
 }
+
 func (m *CircuitBreakers) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CircuitBreakers.Unmarshal(m, b)
 }
 func (m *CircuitBreakers) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_CircuitBreakers.Marshal(b, m, deterministic)
 }
-func (dst *CircuitBreakers) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_CircuitBreakers.Merge(dst, src)
+func (m *CircuitBreakers) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CircuitBreakers.Merge(m, src)
 }
 func (m *CircuitBreakers) XXX_Size() int {
 	return xxx_messageInfo_CircuitBreakers.Size(m)
@@ -97,14 +100,15 @@ func (*CircuitBreakers_Thresholds) ProtoMessage()    {}
 func (*CircuitBreakers_Thresholds) Descriptor() ([]byte, []int) {
 	return fileDescriptor_89bc8d4e21efdd79, []int{0, 0}
 }
+
 func (m *CircuitBreakers_Thresholds) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CircuitBreakers_Thresholds.Unmarshal(m, b)
 }
 func (m *CircuitBreakers_Thresholds) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_CircuitBreakers_Thresholds.Marshal(b, m, deterministic)
 }
-func (dst *CircuitBreakers_Thresholds) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_CircuitBreakers_Thresholds.Merge(dst, src)
+func (m *CircuitBreakers_Thresholds) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CircuitBreakers_Thresholds.Merge(m, src)
 }
 func (m *CircuitBreakers_Thresholds) XXX_Size() int {
 	return xxx_messageInfo_CircuitBreakers_Thresholds.Size(m)

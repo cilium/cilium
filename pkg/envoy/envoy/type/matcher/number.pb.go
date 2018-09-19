@@ -3,11 +3,13 @@
 
 package matcher
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import _type "github.com/cilium/cilium/pkg/envoy/envoy/type"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	_type "github.com/cilium/cilium/pkg/envoy/envoy/type"
+	proto "github.com/golang/protobuf/proto"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -37,14 +39,15 @@ func (*DoubleMatcher) ProtoMessage()    {}
 func (*DoubleMatcher) Descriptor() ([]byte, []int) {
 	return fileDescriptor_58ad3770a33c5fc2, []int{0}
 }
+
 func (m *DoubleMatcher) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DoubleMatcher.Unmarshal(m, b)
 }
 func (m *DoubleMatcher) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_DoubleMatcher.Marshal(b, m, deterministic)
 }
-func (dst *DoubleMatcher) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_DoubleMatcher.Merge(dst, src)
+func (m *DoubleMatcher) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DoubleMatcher.Merge(m, src)
 }
 func (m *DoubleMatcher) XXX_Size() int {
 	return xxx_messageInfo_DoubleMatcher.Size(m)

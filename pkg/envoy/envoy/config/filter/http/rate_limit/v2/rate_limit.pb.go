@@ -3,12 +3,14 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import _ "github.com/gogo/protobuf/gogoproto"
-import duration "github.com/golang/protobuf/ptypes/duration"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/golang/protobuf/proto"
+	duration "github.com/golang/protobuf/ptypes/duration"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -57,14 +59,15 @@ func (*RateLimit) ProtoMessage()    {}
 func (*RateLimit) Descriptor() ([]byte, []int) {
 	return fileDescriptor_af348a51c982d3a6, []int{0}
 }
+
 func (m *RateLimit) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RateLimit.Unmarshal(m, b)
 }
 func (m *RateLimit) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RateLimit.Marshal(b, m, deterministic)
 }
-func (dst *RateLimit) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RateLimit.Merge(dst, src)
+func (m *RateLimit) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RateLimit.Merge(m, src)
 }
 func (m *RateLimit) XXX_Size() int {
 	return xxx_messageInfo_RateLimit.Size(m)

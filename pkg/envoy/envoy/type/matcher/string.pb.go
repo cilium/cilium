@@ -3,10 +3,12 @@
 
 package matcher
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -38,14 +40,15 @@ func (*StringMatcher) ProtoMessage()    {}
 func (*StringMatcher) Descriptor() ([]byte, []int) {
 	return fileDescriptor_1dc62c75a0f154e3, []int{0}
 }
+
 func (m *StringMatcher) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_StringMatcher.Unmarshal(m, b)
 }
 func (m *StringMatcher) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_StringMatcher.Marshal(b, m, deterministic)
 }
-func (dst *StringMatcher) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_StringMatcher.Merge(dst, src)
+func (m *StringMatcher) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_StringMatcher.Merge(m, src)
 }
 func (m *StringMatcher) XXX_Size() int {
 	return xxx_messageInfo_StringMatcher.Size(m)

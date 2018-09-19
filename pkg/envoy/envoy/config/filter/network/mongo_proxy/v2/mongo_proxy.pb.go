@@ -3,11 +3,13 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import v2 "github.com/cilium/cilium/pkg/envoy/envoy/config/filter/fault/v2"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	v2 "github.com/cilium/cilium/pkg/envoy/envoy/config/filter/fault/v2"
+	proto "github.com/golang/protobuf/proto"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -44,14 +46,15 @@ func (*MongoProxy) ProtoMessage()    {}
 func (*MongoProxy) Descriptor() ([]byte, []int) {
 	return fileDescriptor_4d590dd12f767c61, []int{0}
 }
+
 func (m *MongoProxy) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_MongoProxy.Unmarshal(m, b)
 }
 func (m *MongoProxy) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_MongoProxy.Marshal(b, m, deterministic)
 }
-func (dst *MongoProxy) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_MongoProxy.Merge(dst, src)
+func (m *MongoProxy) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MongoProxy.Merge(m, src)
 }
 func (m *MongoProxy) XXX_Size() int {
 	return xxx_messageInfo_MongoProxy.Size(m)

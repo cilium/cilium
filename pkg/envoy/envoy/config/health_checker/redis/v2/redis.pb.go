@@ -3,9 +3,11 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -35,14 +37,15 @@ func (*Redis) ProtoMessage()    {}
 func (*Redis) Descriptor() ([]byte, []int) {
 	return fileDescriptor_055a998fcb839d64, []int{0}
 }
+
 func (m *Redis) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Redis.Unmarshal(m, b)
 }
 func (m *Redis) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Redis.Marshal(b, m, deterministic)
 }
-func (dst *Redis) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Redis.Merge(dst, src)
+func (m *Redis) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Redis.Merge(m, src)
 }
 func (m *Redis) XXX_Size() int {
 	return xxx_messageInfo_Redis.Size(m)

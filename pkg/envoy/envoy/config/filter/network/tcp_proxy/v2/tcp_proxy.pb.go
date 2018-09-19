@@ -3,15 +3,17 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import v2 "github.com/cilium/cilium/pkg/envoy/envoy/config/filter/accesslog/v2"
-import _ "github.com/gogo/protobuf/gogoproto"
-import duration "github.com/golang/protobuf/ptypes/duration"
-import wrappers "github.com/golang/protobuf/ptypes/wrappers"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+	v2 "github.com/cilium/cilium/pkg/envoy/envoy/config/filter/accesslog/v2"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/golang/protobuf/proto"
+	duration "github.com/golang/protobuf/ptypes/duration"
+	wrappers "github.com/golang/protobuf/ptypes/wrappers"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -86,14 +88,15 @@ func (*TcpProxy) ProtoMessage()    {}
 func (*TcpProxy) Descriptor() ([]byte, []int) {
 	return fileDescriptor_1f6b35dbcbad27ba, []int{0}
 }
+
 func (m *TcpProxy) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TcpProxy.Unmarshal(m, b)
 }
 func (m *TcpProxy) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_TcpProxy.Marshal(b, m, deterministic)
 }
-func (dst *TcpProxy) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TcpProxy.Merge(dst, src)
+func (m *TcpProxy) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TcpProxy.Merge(m, src)
 }
 func (m *TcpProxy) XXX_Size() int {
 	return xxx_messageInfo_TcpProxy.Size(m)
@@ -186,14 +189,15 @@ func (*TcpProxy_DeprecatedV1) ProtoMessage()    {}
 func (*TcpProxy_DeprecatedV1) Descriptor() ([]byte, []int) {
 	return fileDescriptor_1f6b35dbcbad27ba, []int{0, 0}
 }
+
 func (m *TcpProxy_DeprecatedV1) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TcpProxy_DeprecatedV1.Unmarshal(m, b)
 }
 func (m *TcpProxy_DeprecatedV1) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_TcpProxy_DeprecatedV1.Marshal(b, m, deterministic)
 }
-func (dst *TcpProxy_DeprecatedV1) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TcpProxy_DeprecatedV1.Merge(dst, src)
+func (m *TcpProxy_DeprecatedV1) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TcpProxy_DeprecatedV1.Merge(m, src)
 }
 func (m *TcpProxy_DeprecatedV1) XXX_Size() int {
 	return xxx_messageInfo_TcpProxy_DeprecatedV1.Size(m)
@@ -262,14 +266,15 @@ func (*TcpProxy_DeprecatedV1_TCPRoute) ProtoMessage()    {}
 func (*TcpProxy_DeprecatedV1_TCPRoute) Descriptor() ([]byte, []int) {
 	return fileDescriptor_1f6b35dbcbad27ba, []int{0, 0, 0}
 }
+
 func (m *TcpProxy_DeprecatedV1_TCPRoute) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TcpProxy_DeprecatedV1_TCPRoute.Unmarshal(m, b)
 }
 func (m *TcpProxy_DeprecatedV1_TCPRoute) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_TcpProxy_DeprecatedV1_TCPRoute.Marshal(b, m, deterministic)
 }
-func (dst *TcpProxy_DeprecatedV1_TCPRoute) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TcpProxy_DeprecatedV1_TCPRoute.Merge(dst, src)
+func (m *TcpProxy_DeprecatedV1_TCPRoute) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TcpProxy_DeprecatedV1_TCPRoute.Merge(m, src)
 }
 func (m *TcpProxy_DeprecatedV1_TCPRoute) XXX_Size() int {
 	return xxx_messageInfo_TcpProxy_DeprecatedV1_TCPRoute.Size(m)

@@ -3,12 +3,14 @@
 
 package cilium
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import v2 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
-import _ "github.com/lyft/protoc-gen-validate/validate"
-import _ "google.golang.org/genproto/googleapis/api/annotations"
+import (
+	fmt "fmt"
+	v2 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
+	proto "github.com/golang/protobuf/proto"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	_ "google.golang.org/genproto/googleapis/api/annotations"
+	math "math"
+)
 
 import (
 	context "golang.org/x/net/context"
@@ -46,14 +48,15 @@ func (*NetworkPolicyHosts) ProtoMessage()    {}
 func (*NetworkPolicyHosts) Descriptor() ([]byte, []int) {
 	return fileDescriptor_b92681b0f57c62e0, []int{0}
 }
+
 func (m *NetworkPolicyHosts) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_NetworkPolicyHosts.Unmarshal(m, b)
 }
 func (m *NetworkPolicyHosts) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_NetworkPolicyHosts.Marshal(b, m, deterministic)
 }
-func (dst *NetworkPolicyHosts) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_NetworkPolicyHosts.Merge(dst, src)
+func (m *NetworkPolicyHosts) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_NetworkPolicyHosts.Merge(m, src)
 }
 func (m *NetworkPolicyHosts) XXX_Size() int {
 	return xxx_messageInfo_NetworkPolicyHosts.Size(m)

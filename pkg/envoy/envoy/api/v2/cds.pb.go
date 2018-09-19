@@ -3,19 +3,21 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import auth "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/auth"
-import cluster "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/cluster"
-import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import _type "github.com/cilium/cilium/pkg/envoy/envoy/type"
-import _ "github.com/gogo/protobuf/gogoproto"
-import duration "github.com/golang/protobuf/ptypes/duration"
-import _struct "github.com/golang/protobuf/ptypes/struct"
-import wrappers "github.com/golang/protobuf/ptypes/wrappers"
-import _ "github.com/lyft/protoc-gen-validate/validate"
-import _ "google.golang.org/genproto/googleapis/api/annotations"
+import (
+	fmt "fmt"
+	auth "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/auth"
+	cluster "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/cluster"
+	core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+	_type "github.com/cilium/cilium/pkg/envoy/envoy/type"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/golang/protobuf/proto"
+	duration "github.com/golang/protobuf/ptypes/duration"
+	_struct "github.com/golang/protobuf/ptypes/struct"
+	wrappers "github.com/golang/protobuf/ptypes/wrappers"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	_ "google.golang.org/genproto/googleapis/api/annotations"
+	math "math"
+)
 
 import (
 	context "golang.org/x/net/context"
@@ -440,14 +442,15 @@ func (*Cluster) ProtoMessage()    {}
 func (*Cluster) Descriptor() ([]byte, []int) {
 	return fileDescriptor_e73f50fbb1daa302, []int{0}
 }
+
 func (m *Cluster) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Cluster.Unmarshal(m, b)
 }
 func (m *Cluster) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Cluster.Marshal(b, m, deterministic)
 }
-func (dst *Cluster) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Cluster.Merge(dst, src)
+func (m *Cluster) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Cluster.Merge(m, src)
 }
 func (m *Cluster) XXX_Size() int {
 	return xxx_messageInfo_Cluster.Size(m)
@@ -806,14 +809,15 @@ func (*Cluster_EdsClusterConfig) ProtoMessage()    {}
 func (*Cluster_EdsClusterConfig) Descriptor() ([]byte, []int) {
 	return fileDescriptor_e73f50fbb1daa302, []int{0, 0}
 }
+
 func (m *Cluster_EdsClusterConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Cluster_EdsClusterConfig.Unmarshal(m, b)
 }
 func (m *Cluster_EdsClusterConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Cluster_EdsClusterConfig.Marshal(b, m, deterministic)
 }
-func (dst *Cluster_EdsClusterConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Cluster_EdsClusterConfig.Merge(dst, src)
+func (m *Cluster_EdsClusterConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Cluster_EdsClusterConfig.Merge(m, src)
 }
 func (m *Cluster_EdsClusterConfig) XXX_Size() int {
 	return xxx_messageInfo_Cluster_EdsClusterConfig.Size(m)
@@ -891,14 +895,15 @@ func (*Cluster_LbSubsetConfig) ProtoMessage()    {}
 func (*Cluster_LbSubsetConfig) Descriptor() ([]byte, []int) {
 	return fileDescriptor_e73f50fbb1daa302, []int{0, 2}
 }
+
 func (m *Cluster_LbSubsetConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Cluster_LbSubsetConfig.Unmarshal(m, b)
 }
 func (m *Cluster_LbSubsetConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Cluster_LbSubsetConfig.Marshal(b, m, deterministic)
 }
-func (dst *Cluster_LbSubsetConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Cluster_LbSubsetConfig.Merge(dst, src)
+func (m *Cluster_LbSubsetConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Cluster_LbSubsetConfig.Merge(m, src)
 }
 func (m *Cluster_LbSubsetConfig) XXX_Size() int {
 	return xxx_messageInfo_Cluster_LbSubsetConfig.Size(m)
@@ -954,14 +959,15 @@ func (*Cluster_LbSubsetConfig_LbSubsetSelector) ProtoMessage()    {}
 func (*Cluster_LbSubsetConfig_LbSubsetSelector) Descriptor() ([]byte, []int) {
 	return fileDescriptor_e73f50fbb1daa302, []int{0, 2, 0}
 }
+
 func (m *Cluster_LbSubsetConfig_LbSubsetSelector) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Cluster_LbSubsetConfig_LbSubsetSelector.Unmarshal(m, b)
 }
 func (m *Cluster_LbSubsetConfig_LbSubsetSelector) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Cluster_LbSubsetConfig_LbSubsetSelector.Marshal(b, m, deterministic)
 }
-func (dst *Cluster_LbSubsetConfig_LbSubsetSelector) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Cluster_LbSubsetConfig_LbSubsetSelector.Merge(dst, src)
+func (m *Cluster_LbSubsetConfig_LbSubsetSelector) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Cluster_LbSubsetConfig_LbSubsetSelector.Merge(m, src)
 }
 func (m *Cluster_LbSubsetConfig_LbSubsetSelector) XXX_Size() int {
 	return xxx_messageInfo_Cluster_LbSubsetConfig_LbSubsetSelector.Size(m)
@@ -1003,14 +1009,15 @@ func (*Cluster_RingHashLbConfig) ProtoMessage()    {}
 func (*Cluster_RingHashLbConfig) Descriptor() ([]byte, []int) {
 	return fileDescriptor_e73f50fbb1daa302, []int{0, 3}
 }
+
 func (m *Cluster_RingHashLbConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Cluster_RingHashLbConfig.Unmarshal(m, b)
 }
 func (m *Cluster_RingHashLbConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Cluster_RingHashLbConfig.Marshal(b, m, deterministic)
 }
-func (dst *Cluster_RingHashLbConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Cluster_RingHashLbConfig.Merge(dst, src)
+func (m *Cluster_RingHashLbConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Cluster_RingHashLbConfig.Merge(m, src)
 }
 func (m *Cluster_RingHashLbConfig) XXX_Size() int {
 	return xxx_messageInfo_Cluster_RingHashLbConfig.Size(m)
@@ -1056,14 +1063,15 @@ func (*Cluster_RingHashLbConfig_DeprecatedV1) ProtoMessage()    {}
 func (*Cluster_RingHashLbConfig_DeprecatedV1) Descriptor() ([]byte, []int) {
 	return fileDescriptor_e73f50fbb1daa302, []int{0, 3, 0}
 }
+
 func (m *Cluster_RingHashLbConfig_DeprecatedV1) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Cluster_RingHashLbConfig_DeprecatedV1.Unmarshal(m, b)
 }
 func (m *Cluster_RingHashLbConfig_DeprecatedV1) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Cluster_RingHashLbConfig_DeprecatedV1.Marshal(b, m, deterministic)
 }
-func (dst *Cluster_RingHashLbConfig_DeprecatedV1) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Cluster_RingHashLbConfig_DeprecatedV1.Merge(dst, src)
+func (m *Cluster_RingHashLbConfig_DeprecatedV1) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Cluster_RingHashLbConfig_DeprecatedV1.Merge(m, src)
 }
 func (m *Cluster_RingHashLbConfig_DeprecatedV1) XXX_Size() int {
 	return xxx_messageInfo_Cluster_RingHashLbConfig_DeprecatedV1.Size(m)
@@ -1106,14 +1114,15 @@ func (*Cluster_OriginalDstLbConfig) ProtoMessage()    {}
 func (*Cluster_OriginalDstLbConfig) Descriptor() ([]byte, []int) {
 	return fileDescriptor_e73f50fbb1daa302, []int{0, 4}
 }
+
 func (m *Cluster_OriginalDstLbConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Cluster_OriginalDstLbConfig.Unmarshal(m, b)
 }
 func (m *Cluster_OriginalDstLbConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Cluster_OriginalDstLbConfig.Marshal(b, m, deterministic)
 }
-func (dst *Cluster_OriginalDstLbConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Cluster_OriginalDstLbConfig.Merge(dst, src)
+func (m *Cluster_OriginalDstLbConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Cluster_OriginalDstLbConfig.Merge(m, src)
 }
 func (m *Cluster_OriginalDstLbConfig) XXX_Size() int {
 	return xxx_messageInfo_Cluster_OriginalDstLbConfig.Size(m)
@@ -1165,14 +1174,15 @@ func (*Cluster_CommonLbConfig) ProtoMessage()    {}
 func (*Cluster_CommonLbConfig) Descriptor() ([]byte, []int) {
 	return fileDescriptor_e73f50fbb1daa302, []int{0, 5}
 }
+
 func (m *Cluster_CommonLbConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Cluster_CommonLbConfig.Unmarshal(m, b)
 }
 func (m *Cluster_CommonLbConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Cluster_CommonLbConfig.Marshal(b, m, deterministic)
 }
-func (dst *Cluster_CommonLbConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Cluster_CommonLbConfig.Merge(dst, src)
+func (m *Cluster_CommonLbConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Cluster_CommonLbConfig.Merge(m, src)
 }
 func (m *Cluster_CommonLbConfig) XXX_Size() int {
 	return xxx_messageInfo_Cluster_CommonLbConfig.Size(m)
@@ -1336,14 +1346,15 @@ func (*Cluster_CommonLbConfig_ZoneAwareLbConfig) ProtoMessage()    {}
 func (*Cluster_CommonLbConfig_ZoneAwareLbConfig) Descriptor() ([]byte, []int) {
 	return fileDescriptor_e73f50fbb1daa302, []int{0, 5, 0}
 }
+
 func (m *Cluster_CommonLbConfig_ZoneAwareLbConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Cluster_CommonLbConfig_ZoneAwareLbConfig.Unmarshal(m, b)
 }
 func (m *Cluster_CommonLbConfig_ZoneAwareLbConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Cluster_CommonLbConfig_ZoneAwareLbConfig.Marshal(b, m, deterministic)
 }
-func (dst *Cluster_CommonLbConfig_ZoneAwareLbConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Cluster_CommonLbConfig_ZoneAwareLbConfig.Merge(dst, src)
+func (m *Cluster_CommonLbConfig_ZoneAwareLbConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Cluster_CommonLbConfig_ZoneAwareLbConfig.Merge(m, src)
 }
 func (m *Cluster_CommonLbConfig_ZoneAwareLbConfig) XXX_Size() int {
 	return xxx_messageInfo_Cluster_CommonLbConfig_ZoneAwareLbConfig.Size(m)
@@ -1386,14 +1397,15 @@ func (*Cluster_CommonLbConfig_LocalityWeightedLbConfig) ProtoMessage() {}
 func (*Cluster_CommonLbConfig_LocalityWeightedLbConfig) Descriptor() ([]byte, []int) {
 	return fileDescriptor_e73f50fbb1daa302, []int{0, 5, 1}
 }
+
 func (m *Cluster_CommonLbConfig_LocalityWeightedLbConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Cluster_CommonLbConfig_LocalityWeightedLbConfig.Unmarshal(m, b)
 }
 func (m *Cluster_CommonLbConfig_LocalityWeightedLbConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Cluster_CommonLbConfig_LocalityWeightedLbConfig.Marshal(b, m, deterministic)
 }
-func (dst *Cluster_CommonLbConfig_LocalityWeightedLbConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Cluster_CommonLbConfig_LocalityWeightedLbConfig.Merge(dst, src)
+func (m *Cluster_CommonLbConfig_LocalityWeightedLbConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Cluster_CommonLbConfig_LocalityWeightedLbConfig.Merge(m, src)
 }
 func (m *Cluster_CommonLbConfig_LocalityWeightedLbConfig) XXX_Size() int {
 	return xxx_messageInfo_Cluster_CommonLbConfig_LocalityWeightedLbConfig.Size(m)
@@ -1420,14 +1432,15 @@ func (*UpstreamBindConfig) ProtoMessage()    {}
 func (*UpstreamBindConfig) Descriptor() ([]byte, []int) {
 	return fileDescriptor_e73f50fbb1daa302, []int{1}
 }
+
 func (m *UpstreamBindConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UpstreamBindConfig.Unmarshal(m, b)
 }
 func (m *UpstreamBindConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_UpstreamBindConfig.Marshal(b, m, deterministic)
 }
-func (dst *UpstreamBindConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_UpstreamBindConfig.Merge(dst, src)
+func (m *UpstreamBindConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UpstreamBindConfig.Merge(m, src)
 }
 func (m *UpstreamBindConfig) XXX_Size() int {
 	return xxx_messageInfo_UpstreamBindConfig.Size(m)
@@ -1459,14 +1472,15 @@ func (*UpstreamConnectionOptions) ProtoMessage()    {}
 func (*UpstreamConnectionOptions) Descriptor() ([]byte, []int) {
 	return fileDescriptor_e73f50fbb1daa302, []int{2}
 }
+
 func (m *UpstreamConnectionOptions) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UpstreamConnectionOptions.Unmarshal(m, b)
 }
 func (m *UpstreamConnectionOptions) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_UpstreamConnectionOptions.Marshal(b, m, deterministic)
 }
-func (dst *UpstreamConnectionOptions) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_UpstreamConnectionOptions.Merge(dst, src)
+func (m *UpstreamConnectionOptions) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UpstreamConnectionOptions.Merge(m, src)
 }
 func (m *UpstreamConnectionOptions) XXX_Size() int {
 	return xxx_messageInfo_UpstreamConnectionOptions.Size(m)

@@ -3,11 +3,13 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+	proto "github.com/golang/protobuf/proto"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -46,14 +48,15 @@ func (*HttpGrpcAccessLogConfig) ProtoMessage()    {}
 func (*HttpGrpcAccessLogConfig) Descriptor() ([]byte, []int) {
 	return fileDescriptor_e7b431652a309a2e, []int{0}
 }
+
 func (m *HttpGrpcAccessLogConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HttpGrpcAccessLogConfig.Unmarshal(m, b)
 }
 func (m *HttpGrpcAccessLogConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_HttpGrpcAccessLogConfig.Marshal(b, m, deterministic)
 }
-func (dst *HttpGrpcAccessLogConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HttpGrpcAccessLogConfig.Merge(dst, src)
+func (m *HttpGrpcAccessLogConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HttpGrpcAccessLogConfig.Merge(m, src)
 }
 func (m *HttpGrpcAccessLogConfig) XXX_Size() int {
 	return xxx_messageInfo_HttpGrpcAccessLogConfig.Size(m)
@@ -108,14 +111,15 @@ func (*TcpGrpcAccessLogConfig) ProtoMessage()    {}
 func (*TcpGrpcAccessLogConfig) Descriptor() ([]byte, []int) {
 	return fileDescriptor_e7b431652a309a2e, []int{1}
 }
+
 func (m *TcpGrpcAccessLogConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TcpGrpcAccessLogConfig.Unmarshal(m, b)
 }
 func (m *TcpGrpcAccessLogConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_TcpGrpcAccessLogConfig.Marshal(b, m, deterministic)
 }
-func (dst *TcpGrpcAccessLogConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TcpGrpcAccessLogConfig.Merge(dst, src)
+func (m *TcpGrpcAccessLogConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TcpGrpcAccessLogConfig.Merge(m, src)
 }
 func (m *TcpGrpcAccessLogConfig) XXX_Size() int {
 	return xxx_messageInfo_TcpGrpcAccessLogConfig.Size(m)
@@ -152,14 +156,15 @@ func (*CommonGrpcAccessLogConfig) ProtoMessage()    {}
 func (*CommonGrpcAccessLogConfig) Descriptor() ([]byte, []int) {
 	return fileDescriptor_e7b431652a309a2e, []int{2}
 }
+
 func (m *CommonGrpcAccessLogConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CommonGrpcAccessLogConfig.Unmarshal(m, b)
 }
 func (m *CommonGrpcAccessLogConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_CommonGrpcAccessLogConfig.Marshal(b, m, deterministic)
 }
-func (dst *CommonGrpcAccessLogConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_CommonGrpcAccessLogConfig.Merge(dst, src)
+func (m *CommonGrpcAccessLogConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CommonGrpcAccessLogConfig.Merge(m, src)
 }
 func (m *CommonGrpcAccessLogConfig) XXX_Size() int {
 	return xxx_messageInfo_CommonGrpcAccessLogConfig.Size(m)

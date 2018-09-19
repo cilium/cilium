@@ -3,13 +3,15 @@
 
 package v2alpha
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import route "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/route"
-import matcher "github.com/cilium/cilium/pkg/envoy/envoy/type/matcher"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+	route "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/route"
+	matcher "github.com/cilium/cilium/pkg/envoy/envoy/type/matcher"
+	proto "github.com/golang/protobuf/proto"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -110,14 +112,15 @@ func (*RBAC) ProtoMessage()    {}
 func (*RBAC) Descriptor() ([]byte, []int) {
 	return fileDescriptor_53a5d6d75ef93fbc, []int{0}
 }
+
 func (m *RBAC) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RBAC.Unmarshal(m, b)
 }
 func (m *RBAC) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RBAC.Marshal(b, m, deterministic)
 }
-func (dst *RBAC) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RBAC.Merge(dst, src)
+func (m *RBAC) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RBAC.Merge(m, src)
 }
 func (m *RBAC) XXX_Size() int {
 	return xxx_messageInfo_RBAC.Size(m)
@@ -165,14 +168,15 @@ func (*Policy) ProtoMessage()    {}
 func (*Policy) Descriptor() ([]byte, []int) {
 	return fileDescriptor_53a5d6d75ef93fbc, []int{1}
 }
+
 func (m *Policy) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Policy.Unmarshal(m, b)
 }
 func (m *Policy) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Policy.Marshal(b, m, deterministic)
 }
-func (dst *Policy) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Policy.Merge(dst, src)
+func (m *Policy) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Policy.Merge(m, src)
 }
 func (m *Policy) XXX_Size() int {
 	return xxx_messageInfo_Policy.Size(m)
@@ -220,14 +224,15 @@ func (*Permission) ProtoMessage()    {}
 func (*Permission) Descriptor() ([]byte, []int) {
 	return fileDescriptor_53a5d6d75ef93fbc, []int{2}
 }
+
 func (m *Permission) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Permission.Unmarshal(m, b)
 }
 func (m *Permission) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Permission.Marshal(b, m, deterministic)
 }
-func (dst *Permission) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Permission.Merge(dst, src)
+func (m *Permission) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Permission.Merge(m, src)
 }
 func (m *Permission) XXX_Size() int {
 	return xxx_messageInfo_Permission.Size(m)
@@ -550,14 +555,15 @@ func (*Permission_Set) ProtoMessage()    {}
 func (*Permission_Set) Descriptor() ([]byte, []int) {
 	return fileDescriptor_53a5d6d75ef93fbc, []int{2, 0}
 }
+
 func (m *Permission_Set) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Permission_Set.Unmarshal(m, b)
 }
 func (m *Permission_Set) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Permission_Set.Marshal(b, m, deterministic)
 }
-func (dst *Permission_Set) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Permission_Set.Merge(dst, src)
+func (m *Permission_Set) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Permission_Set.Merge(m, src)
 }
 func (m *Permission_Set) XXX_Size() int {
 	return xxx_messageInfo_Permission_Set.Size(m)
@@ -598,14 +604,15 @@ func (*Principal) ProtoMessage()    {}
 func (*Principal) Descriptor() ([]byte, []int) {
 	return fileDescriptor_53a5d6d75ef93fbc, []int{3}
 }
+
 func (m *Principal) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Principal.Unmarshal(m, b)
 }
 func (m *Principal) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Principal.Marshal(b, m, deterministic)
 }
-func (dst *Principal) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Principal.Merge(dst, src)
+func (m *Principal) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Principal.Merge(m, src)
 }
 func (m *Principal) XXX_Size() int {
 	return xxx_messageInfo_Principal.Size(m)
@@ -933,14 +940,15 @@ func (*Principal_Set) ProtoMessage()    {}
 func (*Principal_Set) Descriptor() ([]byte, []int) {
 	return fileDescriptor_53a5d6d75ef93fbc, []int{3, 0}
 }
+
 func (m *Principal_Set) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Principal_Set.Unmarshal(m, b)
 }
 func (m *Principal_Set) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Principal_Set.Marshal(b, m, deterministic)
 }
-func (dst *Principal_Set) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Principal_Set.Merge(dst, src)
+func (m *Principal_Set) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Principal_Set.Merge(m, src)
 }
 func (m *Principal_Set) XXX_Size() int {
 	return xxx_messageInfo_Principal_Set.Size(m)
@@ -974,14 +982,15 @@ func (*Principal_Authenticated) ProtoMessage()    {}
 func (*Principal_Authenticated) Descriptor() ([]byte, []int) {
 	return fileDescriptor_53a5d6d75ef93fbc, []int{3, 1}
 }
+
 func (m *Principal_Authenticated) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Principal_Authenticated.Unmarshal(m, b)
 }
 func (m *Principal_Authenticated) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Principal_Authenticated.Marshal(b, m, deterministic)
 }
-func (dst *Principal_Authenticated) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Principal_Authenticated.Merge(dst, src)
+func (m *Principal_Authenticated) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Principal_Authenticated.Merge(m, src)
 }
 func (m *Principal_Authenticated) XXX_Size() int {
 	return xxx_messageInfo_Principal_Authenticated.Size(m)

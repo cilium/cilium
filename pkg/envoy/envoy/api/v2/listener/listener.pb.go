@@ -3,15 +3,17 @@
 
 package listener
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import auth "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/auth"
-import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import _ "github.com/gogo/protobuf/gogoproto"
-import _struct "github.com/golang/protobuf/ptypes/struct"
-import wrappers "github.com/golang/protobuf/ptypes/wrappers"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	auth "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/auth"
+	core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/golang/protobuf/proto"
+	_struct "github.com/golang/protobuf/ptypes/struct"
+	wrappers "github.com/golang/protobuf/ptypes/wrappers"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -53,14 +55,15 @@ func (*Filter) ProtoMessage()    {}
 func (*Filter) Descriptor() ([]byte, []int) {
 	return fileDescriptor_0ced541f18749edd, []int{0}
 }
+
 func (m *Filter) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Filter.Unmarshal(m, b)
 }
 func (m *Filter) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Filter.Marshal(b, m, deterministic)
 }
-func (dst *Filter) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Filter.Merge(dst, src)
+func (m *Filter) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Filter.Merge(m, src)
 }
 func (m *Filter) XXX_Size() int {
 	return xxx_messageInfo_Filter.Size(m)
@@ -107,14 +110,15 @@ func (*Filter_DeprecatedV1) ProtoMessage()    {}
 func (*Filter_DeprecatedV1) Descriptor() ([]byte, []int) {
 	return fileDescriptor_0ced541f18749edd, []int{0, 0}
 }
+
 func (m *Filter_DeprecatedV1) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Filter_DeprecatedV1.Unmarshal(m, b)
 }
 func (m *Filter_DeprecatedV1) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Filter_DeprecatedV1.Marshal(b, m, deterministic)
 }
-func (dst *Filter_DeprecatedV1) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Filter_DeprecatedV1.Merge(dst, src)
+func (m *Filter_DeprecatedV1) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Filter_DeprecatedV1.Merge(m, src)
 }
 func (m *Filter_DeprecatedV1) XXX_Size() int {
 	return xxx_messageInfo_Filter_DeprecatedV1.Size(m)
@@ -236,14 +240,15 @@ func (*FilterChainMatch) ProtoMessage()    {}
 func (*FilterChainMatch) Descriptor() ([]byte, []int) {
 	return fileDescriptor_0ced541f18749edd, []int{1}
 }
+
 func (m *FilterChainMatch) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FilterChainMatch.Unmarshal(m, b)
 }
 func (m *FilterChainMatch) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_FilterChainMatch.Marshal(b, m, deterministic)
 }
-func (dst *FilterChainMatch) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_FilterChainMatch.Merge(dst, src)
+func (m *FilterChainMatch) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FilterChainMatch.Merge(m, src)
 }
 func (m *FilterChainMatch) XXX_Size() int {
 	return xxx_messageInfo_FilterChainMatch.Size(m)
@@ -351,14 +356,15 @@ func (*FilterChain) ProtoMessage()    {}
 func (*FilterChain) Descriptor() ([]byte, []int) {
 	return fileDescriptor_0ced541f18749edd, []int{2}
 }
+
 func (m *FilterChain) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FilterChain.Unmarshal(m, b)
 }
 func (m *FilterChain) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_FilterChain.Marshal(b, m, deterministic)
 }
-func (dst *FilterChain) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_FilterChain.Merge(dst, src)
+func (m *FilterChain) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FilterChain.Merge(m, src)
 }
 func (m *FilterChain) XXX_Size() int {
 	return xxx_messageInfo_FilterChain.Size(m)
@@ -433,14 +439,15 @@ func (*ListenerFilter) ProtoMessage()    {}
 func (*ListenerFilter) Descriptor() ([]byte, []int) {
 	return fileDescriptor_0ced541f18749edd, []int{3}
 }
+
 func (m *ListenerFilter) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListenerFilter.Unmarshal(m, b)
 }
 func (m *ListenerFilter) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ListenerFilter.Marshal(b, m, deterministic)
 }
-func (dst *ListenerFilter) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ListenerFilter.Merge(dst, src)
+func (m *ListenerFilter) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListenerFilter.Merge(m, src)
 }
 func (m *ListenerFilter) XXX_Size() int {
 	return xxx_messageInfo_ListenerFilter.Size(m)

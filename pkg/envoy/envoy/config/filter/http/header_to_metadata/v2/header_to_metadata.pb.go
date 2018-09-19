@@ -3,10 +3,12 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -60,14 +62,15 @@ func (*Config) ProtoMessage()    {}
 func (*Config) Descriptor() ([]byte, []int) {
 	return fileDescriptor_5891b90c2f7c1ebe, []int{0}
 }
+
 func (m *Config) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Config.Unmarshal(m, b)
 }
 func (m *Config) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Config.Marshal(b, m, deterministic)
 }
-func (dst *Config) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Config.Merge(dst, src)
+func (m *Config) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Config.Merge(m, src)
 }
 func (m *Config) XXX_Size() int {
 	return xxx_messageInfo_Config.Size(m)
@@ -118,14 +121,15 @@ func (*Config_KeyValuePair) ProtoMessage()    {}
 func (*Config_KeyValuePair) Descriptor() ([]byte, []int) {
 	return fileDescriptor_5891b90c2f7c1ebe, []int{0, 0}
 }
+
 func (m *Config_KeyValuePair) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Config_KeyValuePair.Unmarshal(m, b)
 }
 func (m *Config_KeyValuePair) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Config_KeyValuePair.Marshal(b, m, deterministic)
 }
-func (dst *Config_KeyValuePair) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Config_KeyValuePair.Merge(dst, src)
+func (m *Config_KeyValuePair) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Config_KeyValuePair.Merge(m, src)
 }
 func (m *Config_KeyValuePair) XXX_Size() int {
 	return xxx_messageInfo_Config_KeyValuePair.Size(m)
@@ -193,14 +197,15 @@ func (*Config_Rule) ProtoMessage()    {}
 func (*Config_Rule) Descriptor() ([]byte, []int) {
 	return fileDescriptor_5891b90c2f7c1ebe, []int{0, 1}
 }
+
 func (m *Config_Rule) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Config_Rule.Unmarshal(m, b)
 }
 func (m *Config_Rule) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Config_Rule.Marshal(b, m, deterministic)
 }
-func (dst *Config_Rule) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Config_Rule.Merge(dst, src)
+func (m *Config_Rule) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Config_Rule.Merge(m, src)
 }
 func (m *Config_Rule) XXX_Size() int {
 	return xxx_messageInfo_Config_Rule.Size(m)

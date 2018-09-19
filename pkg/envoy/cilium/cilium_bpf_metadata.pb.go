@@ -3,9 +3,11 @@
 
 package cilium
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -34,14 +36,15 @@ func (*BpfMetadata) ProtoMessage()    {}
 func (*BpfMetadata) Descriptor() ([]byte, []int) {
 	return fileDescriptor_1204b5bcdcef4958, []int{0}
 }
+
 func (m *BpfMetadata) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_BpfMetadata.Unmarshal(m, b)
 }
 func (m *BpfMetadata) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_BpfMetadata.Marshal(b, m, deterministic)
 }
-func (dst *BpfMetadata) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_BpfMetadata.Merge(dst, src)
+func (m *BpfMetadata) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BpfMetadata.Merge(m, src)
 }
 func (m *BpfMetadata) XXX_Size() int {
 	return xxx_messageInfo_BpfMetadata.Size(m)

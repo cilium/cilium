@@ -3,10 +3,12 @@
 
 package v2alpha
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+import (
+	fmt "fmt"
+	core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+	proto "github.com/golang/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -40,14 +42,15 @@ func (*FileBasedMetadataConfig) ProtoMessage()    {}
 func (*FileBasedMetadataConfig) Descriptor() ([]byte, []int) {
 	return fileDescriptor_0f2b21de9d357383, []int{0}
 }
+
 func (m *FileBasedMetadataConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FileBasedMetadataConfig.Unmarshal(m, b)
 }
 func (m *FileBasedMetadataConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_FileBasedMetadataConfig.Marshal(b, m, deterministic)
 }
-func (dst *FileBasedMetadataConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_FileBasedMetadataConfig.Merge(dst, src)
+func (m *FileBasedMetadataConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FileBasedMetadataConfig.Merge(m, src)
 }
 func (m *FileBasedMetadataConfig) XXX_Size() int {
 	return xxx_messageInfo_FileBasedMetadataConfig.Size(m)

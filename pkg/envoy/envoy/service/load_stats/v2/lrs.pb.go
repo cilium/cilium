@@ -3,13 +3,15 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import endpoint "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/endpoint"
-import duration "github.com/golang/protobuf/ptypes/duration"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+	endpoint "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/endpoint"
+	proto "github.com/golang/protobuf/proto"
+	duration "github.com/golang/protobuf/ptypes/duration"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 import (
 	context "golang.org/x/net/context"
@@ -45,14 +47,15 @@ func (*LoadStatsRequest) ProtoMessage()    {}
 func (*LoadStatsRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptor_cd7332d279836518, []int{0}
 }
+
 func (m *LoadStatsRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LoadStatsRequest.Unmarshal(m, b)
 }
 func (m *LoadStatsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_LoadStatsRequest.Marshal(b, m, deterministic)
 }
-func (dst *LoadStatsRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_LoadStatsRequest.Merge(dst, src)
+func (m *LoadStatsRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LoadStatsRequest.Merge(m, src)
 }
 func (m *LoadStatsRequest) XXX_Size() int {
 	return xxx_messageInfo_LoadStatsRequest.Size(m)
@@ -105,14 +108,15 @@ func (*LoadStatsResponse) ProtoMessage()    {}
 func (*LoadStatsResponse) Descriptor() ([]byte, []int) {
 	return fileDescriptor_cd7332d279836518, []int{1}
 }
+
 func (m *LoadStatsResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LoadStatsResponse.Unmarshal(m, b)
 }
 func (m *LoadStatsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_LoadStatsResponse.Marshal(b, m, deterministic)
 }
-func (dst *LoadStatsResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_LoadStatsResponse.Merge(dst, src)
+func (m *LoadStatsResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LoadStatsResponse.Merge(m, src)
 }
 func (m *LoadStatsResponse) XXX_Size() int {
 	return xxx_messageInfo_LoadStatsResponse.Size(m)

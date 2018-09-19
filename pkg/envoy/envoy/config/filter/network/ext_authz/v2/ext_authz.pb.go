@@ -3,11 +3,13 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+	proto "github.com/golang/protobuf/proto"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -46,14 +48,15 @@ func (*ExtAuthz) ProtoMessage()    {}
 func (*ExtAuthz) Descriptor() ([]byte, []int) {
 	return fileDescriptor_3ec2615c2696024a, []int{0}
 }
+
 func (m *ExtAuthz) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ExtAuthz.Unmarshal(m, b)
 }
 func (m *ExtAuthz) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ExtAuthz.Marshal(b, m, deterministic)
 }
-func (dst *ExtAuthz) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ExtAuthz.Merge(dst, src)
+func (m *ExtAuthz) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ExtAuthz.Merge(m, src)
 }
 func (m *ExtAuthz) XXX_Size() int {
 	return xxx_messageInfo_ExtAuthz.Size(m)

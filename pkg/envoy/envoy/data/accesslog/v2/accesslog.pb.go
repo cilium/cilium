@@ -3,15 +3,17 @@
 
 package envoy_data_accesslog_v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import _ "github.com/gogo/protobuf/gogoproto"
-import duration "github.com/golang/protobuf/ptypes/duration"
-import timestamp "github.com/golang/protobuf/ptypes/timestamp"
-import wrappers "github.com/golang/protobuf/ptypes/wrappers"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/golang/protobuf/proto"
+	duration "github.com/golang/protobuf/ptypes/duration"
+	timestamp "github.com/golang/protobuf/ptypes/timestamp"
+	wrappers "github.com/golang/protobuf/ptypes/wrappers"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -132,14 +134,15 @@ func (*TCPAccessLogEntry) ProtoMessage()    {}
 func (*TCPAccessLogEntry) Descriptor() ([]byte, []int) {
 	return fileDescriptor_ca1a3c8f3c17c754, []int{0}
 }
+
 func (m *TCPAccessLogEntry) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TCPAccessLogEntry.Unmarshal(m, b)
 }
 func (m *TCPAccessLogEntry) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_TCPAccessLogEntry.Marshal(b, m, deterministic)
 }
-func (dst *TCPAccessLogEntry) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TCPAccessLogEntry.Merge(dst, src)
+func (m *TCPAccessLogEntry) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TCPAccessLogEntry.Merge(m, src)
 }
 func (m *TCPAccessLogEntry) XXX_Size() int {
 	return xxx_messageInfo_TCPAccessLogEntry.Size(m)
@@ -176,14 +179,15 @@ func (*HTTPAccessLogEntry) ProtoMessage()    {}
 func (*HTTPAccessLogEntry) Descriptor() ([]byte, []int) {
 	return fileDescriptor_ca1a3c8f3c17c754, []int{1}
 }
+
 func (m *HTTPAccessLogEntry) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HTTPAccessLogEntry.Unmarshal(m, b)
 }
 func (m *HTTPAccessLogEntry) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_HTTPAccessLogEntry.Marshal(b, m, deterministic)
 }
-func (dst *HTTPAccessLogEntry) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HTTPAccessLogEntry.Merge(dst, src)
+func (m *HTTPAccessLogEntry) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HTTPAccessLogEntry.Merge(m, src)
 }
 func (m *HTTPAccessLogEntry) XXX_Size() int {
 	return xxx_messageInfo_HTTPAccessLogEntry.Size(m)
@@ -300,14 +304,15 @@ func (*AccessLogCommon) ProtoMessage()    {}
 func (*AccessLogCommon) Descriptor() ([]byte, []int) {
 	return fileDescriptor_ca1a3c8f3c17c754, []int{2}
 }
+
 func (m *AccessLogCommon) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AccessLogCommon.Unmarshal(m, b)
 }
 func (m *AccessLogCommon) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_AccessLogCommon.Marshal(b, m, deterministic)
 }
-func (dst *AccessLogCommon) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_AccessLogCommon.Merge(dst, src)
+func (m *AccessLogCommon) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AccessLogCommon.Merge(m, src)
 }
 func (m *AccessLogCommon) XXX_Size() int {
 	return xxx_messageInfo_AccessLogCommon.Size(m)
@@ -479,14 +484,15 @@ func (*ResponseFlags) ProtoMessage()    {}
 func (*ResponseFlags) Descriptor() ([]byte, []int) {
 	return fileDescriptor_ca1a3c8f3c17c754, []int{3}
 }
+
 func (m *ResponseFlags) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ResponseFlags.Unmarshal(m, b)
 }
 func (m *ResponseFlags) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ResponseFlags.Marshal(b, m, deterministic)
 }
-func (dst *ResponseFlags) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ResponseFlags.Merge(dst, src)
+func (m *ResponseFlags) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ResponseFlags.Merge(m, src)
 }
 func (m *ResponseFlags) XXX_Size() int {
 	return xxx_messageInfo_ResponseFlags.Size(m)
@@ -608,14 +614,15 @@ func (*ResponseFlags_Unauthorized) ProtoMessage()    {}
 func (*ResponseFlags_Unauthorized) Descriptor() ([]byte, []int) {
 	return fileDescriptor_ca1a3c8f3c17c754, []int{3, 0}
 }
+
 func (m *ResponseFlags_Unauthorized) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ResponseFlags_Unauthorized.Unmarshal(m, b)
 }
 func (m *ResponseFlags_Unauthorized) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ResponseFlags_Unauthorized.Marshal(b, m, deterministic)
 }
-func (dst *ResponseFlags_Unauthorized) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ResponseFlags_Unauthorized.Merge(dst, src)
+func (m *ResponseFlags_Unauthorized) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ResponseFlags_Unauthorized.Merge(m, src)
 }
 func (m *ResponseFlags_Unauthorized) XXX_Size() int {
 	return xxx_messageInfo_ResponseFlags_Unauthorized.Size(m)
@@ -657,14 +664,15 @@ func (*TLSProperties) ProtoMessage()    {}
 func (*TLSProperties) Descriptor() ([]byte, []int) {
 	return fileDescriptor_ca1a3c8f3c17c754, []int{4}
 }
+
 func (m *TLSProperties) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TLSProperties.Unmarshal(m, b)
 }
 func (m *TLSProperties) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_TLSProperties.Marshal(b, m, deterministic)
 }
-func (dst *TLSProperties) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TLSProperties.Merge(dst, src)
+func (m *TLSProperties) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TLSProperties.Merge(m, src)
 }
 func (m *TLSProperties) XXX_Size() int {
 	return xxx_messageInfo_TLSProperties.Size(m)
@@ -747,14 +755,15 @@ func (*HTTPRequestProperties) ProtoMessage()    {}
 func (*HTTPRequestProperties) Descriptor() ([]byte, []int) {
 	return fileDescriptor_ca1a3c8f3c17c754, []int{5}
 }
+
 func (m *HTTPRequestProperties) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HTTPRequestProperties.Unmarshal(m, b)
 }
 func (m *HTTPRequestProperties) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_HTTPRequestProperties.Marshal(b, m, deterministic)
 }
-func (dst *HTTPRequestProperties) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HTTPRequestProperties.Merge(dst, src)
+func (m *HTTPRequestProperties) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HTTPRequestProperties.Merge(m, src)
 }
 func (m *HTTPRequestProperties) XXX_Size() int {
 	return xxx_messageInfo_HTTPRequestProperties.Size(m)
@@ -884,14 +893,15 @@ func (*HTTPResponseProperties) ProtoMessage()    {}
 func (*HTTPResponseProperties) Descriptor() ([]byte, []int) {
 	return fileDescriptor_ca1a3c8f3c17c754, []int{6}
 }
+
 func (m *HTTPResponseProperties) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HTTPResponseProperties.Unmarshal(m, b)
 }
 func (m *HTTPResponseProperties) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_HTTPResponseProperties.Marshal(b, m, deterministic)
 }
-func (dst *HTTPResponseProperties) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HTTPResponseProperties.Merge(dst, src)
+func (m *HTTPResponseProperties) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HTTPResponseProperties.Merge(m, src)
 }
 func (m *HTTPResponseProperties) XXX_Size() int {
 	return xxx_messageInfo_HTTPResponseProperties.Size(m)

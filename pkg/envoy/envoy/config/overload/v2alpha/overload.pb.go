@@ -3,12 +3,14 @@
 
 package v2alpha
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import duration "github.com/golang/protobuf/ptypes/duration"
-import _struct "github.com/golang/protobuf/ptypes/struct"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	duration "github.com/golang/protobuf/ptypes/duration"
+	_struct "github.com/golang/protobuf/ptypes/struct"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -41,14 +43,15 @@ func (*ResourceMonitor) ProtoMessage()    {}
 func (*ResourceMonitor) Descriptor() ([]byte, []int) {
 	return fileDescriptor_c3380c1aa89ddd52, []int{0}
 }
+
 func (m *ResourceMonitor) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ResourceMonitor.Unmarshal(m, b)
 }
 func (m *ResourceMonitor) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ResourceMonitor.Marshal(b, m, deterministic)
 }
-func (dst *ResourceMonitor) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ResourceMonitor.Merge(dst, src)
+func (m *ResourceMonitor) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ResourceMonitor.Merge(m, src)
 }
 func (m *ResourceMonitor) XXX_Size() int {
 	return xxx_messageInfo_ResourceMonitor.Size(m)
@@ -88,14 +91,15 @@ func (*ThresholdTrigger) ProtoMessage()    {}
 func (*ThresholdTrigger) Descriptor() ([]byte, []int) {
 	return fileDescriptor_c3380c1aa89ddd52, []int{1}
 }
+
 func (m *ThresholdTrigger) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ThresholdTrigger.Unmarshal(m, b)
 }
 func (m *ThresholdTrigger) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ThresholdTrigger.Marshal(b, m, deterministic)
 }
-func (dst *ThresholdTrigger) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ThresholdTrigger.Merge(dst, src)
+func (m *ThresholdTrigger) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ThresholdTrigger.Merge(m, src)
 }
 func (m *ThresholdTrigger) XXX_Size() int {
 	return xxx_messageInfo_ThresholdTrigger.Size(m)
@@ -130,14 +134,15 @@ func (*Trigger) ProtoMessage()    {}
 func (*Trigger) Descriptor() ([]byte, []int) {
 	return fileDescriptor_c3380c1aa89ddd52, []int{2}
 }
+
 func (m *Trigger) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Trigger.Unmarshal(m, b)
 }
 func (m *Trigger) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Trigger.Marshal(b, m, deterministic)
 }
-func (dst *Trigger) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Trigger.Merge(dst, src)
+func (m *Trigger) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Trigger.Merge(m, src)
 }
 func (m *Trigger) XXX_Size() int {
 	return xxx_messageInfo_Trigger.Size(m)
@@ -254,14 +259,15 @@ func (*OverloadAction) ProtoMessage()    {}
 func (*OverloadAction) Descriptor() ([]byte, []int) {
 	return fileDescriptor_c3380c1aa89ddd52, []int{3}
 }
+
 func (m *OverloadAction) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_OverloadAction.Unmarshal(m, b)
 }
 func (m *OverloadAction) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_OverloadAction.Marshal(b, m, deterministic)
 }
-func (dst *OverloadAction) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_OverloadAction.Merge(dst, src)
+func (m *OverloadAction) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_OverloadAction.Merge(m, src)
 }
 func (m *OverloadAction) XXX_Size() int {
 	return xxx_messageInfo_OverloadAction.Size(m)
@@ -304,14 +310,15 @@ func (*OverloadManager) ProtoMessage()    {}
 func (*OverloadManager) Descriptor() ([]byte, []int) {
 	return fileDescriptor_c3380c1aa89ddd52, []int{4}
 }
+
 func (m *OverloadManager) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_OverloadManager.Unmarshal(m, b)
 }
 func (m *OverloadManager) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_OverloadManager.Marshal(b, m, deterministic)
 }
-func (dst *OverloadManager) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_OverloadManager.Merge(dst, src)
+func (m *OverloadManager) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_OverloadManager.Merge(m, src)
 }
 func (m *OverloadManager) XXX_Size() int {
 	return xxx_messageInfo_OverloadManager.Size(m)

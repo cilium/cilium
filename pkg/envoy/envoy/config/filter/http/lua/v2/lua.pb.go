@@ -3,10 +3,12 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -36,14 +38,15 @@ func (*Lua) ProtoMessage()    {}
 func (*Lua) Descriptor() ([]byte, []int) {
 	return fileDescriptor_f59dca3e63e33613, []int{0}
 }
+
 func (m *Lua) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Lua.Unmarshal(m, b)
 }
 func (m *Lua) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Lua.Marshal(b, m, deterministic)
 }
-func (dst *Lua) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Lua.Merge(dst, src)
+func (m *Lua) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Lua.Merge(m, src)
 }
 func (m *Lua) XXX_Size() int {
 	return xxx_messageInfo_Lua.Size(m)

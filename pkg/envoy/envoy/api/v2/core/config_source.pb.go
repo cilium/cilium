@@ -3,12 +3,14 @@
 
 package core
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import _ "github.com/gogo/protobuf/gogoproto"
-import duration "github.com/golang/protobuf/ptypes/duration"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/golang/protobuf/proto"
+	duration "github.com/golang/protobuf/ptypes/duration"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -86,14 +88,15 @@ func (*ApiConfigSource) ProtoMessage()    {}
 func (*ApiConfigSource) Descriptor() ([]byte, []int) {
 	return fileDescriptor_1ffcc55cf4c30535, []int{0}
 }
+
 func (m *ApiConfigSource) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ApiConfigSource.Unmarshal(m, b)
 }
 func (m *ApiConfigSource) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ApiConfigSource.Marshal(b, m, deterministic)
 }
-func (dst *ApiConfigSource) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ApiConfigSource.Merge(dst, src)
+func (m *ApiConfigSource) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ApiConfigSource.Merge(m, src)
 }
 func (m *ApiConfigSource) XXX_Size() int {
 	return xxx_messageInfo_ApiConfigSource.Size(m)
@@ -154,14 +157,15 @@ func (*AggregatedConfigSource) ProtoMessage()    {}
 func (*AggregatedConfigSource) Descriptor() ([]byte, []int) {
 	return fileDescriptor_1ffcc55cf4c30535, []int{1}
 }
+
 func (m *AggregatedConfigSource) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AggregatedConfigSource.Unmarshal(m, b)
 }
 func (m *AggregatedConfigSource) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_AggregatedConfigSource.Marshal(b, m, deterministic)
 }
-func (dst *AggregatedConfigSource) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_AggregatedConfigSource.Merge(dst, src)
+func (m *AggregatedConfigSource) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AggregatedConfigSource.Merge(m, src)
 }
 func (m *AggregatedConfigSource) XXX_Size() int {
 	return xxx_messageInfo_AggregatedConfigSource.Size(m)
@@ -195,14 +199,15 @@ func (*ConfigSource) ProtoMessage()    {}
 func (*ConfigSource) Descriptor() ([]byte, []int) {
 	return fileDescriptor_1ffcc55cf4c30535, []int{2}
 }
+
 func (m *ConfigSource) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ConfigSource.Unmarshal(m, b)
 }
 func (m *ConfigSource) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ConfigSource.Marshal(b, m, deterministic)
 }
-func (dst *ConfigSource) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ConfigSource.Merge(dst, src)
+func (m *ConfigSource) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConfigSource.Merge(m, src)
 }
 func (m *ConfigSource) XXX_Size() int {
 	return xxx_messageInfo_ConfigSource.Size(m)

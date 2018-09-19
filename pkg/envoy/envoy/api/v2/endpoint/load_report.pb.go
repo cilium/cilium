@@ -3,13 +3,15 @@
 
 package endpoint
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import _ "github.com/gogo/protobuf/gogoproto"
-import duration "github.com/golang/protobuf/ptypes/duration"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/golang/protobuf/proto"
+	duration "github.com/golang/protobuf/ptypes/duration"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -68,14 +70,15 @@ func (*UpstreamLocalityStats) ProtoMessage()    {}
 func (*UpstreamLocalityStats) Descriptor() ([]byte, []int) {
 	return fileDescriptor_5134f8f33d8f8d01, []int{0}
 }
+
 func (m *UpstreamLocalityStats) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UpstreamLocalityStats.Unmarshal(m, b)
 }
 func (m *UpstreamLocalityStats) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_UpstreamLocalityStats.Marshal(b, m, deterministic)
 }
-func (dst *UpstreamLocalityStats) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_UpstreamLocalityStats.Merge(dst, src)
+func (m *UpstreamLocalityStats) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UpstreamLocalityStats.Merge(m, src)
 }
 func (m *UpstreamLocalityStats) XXX_Size() int {
 	return xxx_messageInfo_UpstreamLocalityStats.Size(m)
@@ -179,14 +182,15 @@ func (*UpstreamEndpointStats) ProtoMessage()    {}
 func (*UpstreamEndpointStats) Descriptor() ([]byte, []int) {
 	return fileDescriptor_5134f8f33d8f8d01, []int{1}
 }
+
 func (m *UpstreamEndpointStats) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UpstreamEndpointStats.Unmarshal(m, b)
 }
 func (m *UpstreamEndpointStats) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_UpstreamEndpointStats.Marshal(b, m, deterministic)
 }
-func (dst *UpstreamEndpointStats) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_UpstreamEndpointStats.Merge(dst, src)
+func (m *UpstreamEndpointStats) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UpstreamEndpointStats.Merge(m, src)
 }
 func (m *UpstreamEndpointStats) XXX_Size() int {
 	return xxx_messageInfo_UpstreamEndpointStats.Size(m)
@@ -252,14 +256,15 @@ func (*EndpointLoadMetricStats) ProtoMessage()    {}
 func (*EndpointLoadMetricStats) Descriptor() ([]byte, []int) {
 	return fileDescriptor_5134f8f33d8f8d01, []int{2}
 }
+
 func (m *EndpointLoadMetricStats) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_EndpointLoadMetricStats.Unmarshal(m, b)
 }
 func (m *EndpointLoadMetricStats) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_EndpointLoadMetricStats.Marshal(b, m, deterministic)
 }
-func (dst *EndpointLoadMetricStats) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_EndpointLoadMetricStats.Merge(dst, src)
+func (m *EndpointLoadMetricStats) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EndpointLoadMetricStats.Merge(m, src)
 }
 func (m *EndpointLoadMetricStats) XXX_Size() int {
 	return xxx_messageInfo_EndpointLoadMetricStats.Size(m)
@@ -331,14 +336,15 @@ func (*ClusterStats) ProtoMessage()    {}
 func (*ClusterStats) Descriptor() ([]byte, []int) {
 	return fileDescriptor_5134f8f33d8f8d01, []int{3}
 }
+
 func (m *ClusterStats) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ClusterStats.Unmarshal(m, b)
 }
 func (m *ClusterStats) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ClusterStats.Marshal(b, m, deterministic)
 }
-func (dst *ClusterStats) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ClusterStats.Merge(dst, src)
+func (m *ClusterStats) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ClusterStats.Merge(m, src)
 }
 func (m *ClusterStats) XXX_Size() int {
 	return xxx_messageInfo_ClusterStats.Size(m)
@@ -400,14 +406,15 @@ func (*ClusterStats_DroppedRequests) ProtoMessage()    {}
 func (*ClusterStats_DroppedRequests) Descriptor() ([]byte, []int) {
 	return fileDescriptor_5134f8f33d8f8d01, []int{3, 0}
 }
+
 func (m *ClusterStats_DroppedRequests) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ClusterStats_DroppedRequests.Unmarshal(m, b)
 }
 func (m *ClusterStats_DroppedRequests) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ClusterStats_DroppedRequests.Marshal(b, m, deterministic)
 }
-func (dst *ClusterStats_DroppedRequests) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ClusterStats_DroppedRequests.Merge(dst, src)
+func (m *ClusterStats_DroppedRequests) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ClusterStats_DroppedRequests.Merge(m, src)
 }
 func (m *ClusterStats_DroppedRequests) XXX_Size() int {
 	return xxx_messageInfo_ClusterStats_DroppedRequests.Size(m)

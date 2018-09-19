@@ -3,12 +3,14 @@
 
 package core
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import _ "github.com/gogo/protobuf/gogoproto"
-import wrappers "github.com/golang/protobuf/ptypes/wrappers"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/golang/protobuf/proto"
+	wrappers "github.com/golang/protobuf/ptypes/wrappers"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -64,14 +66,15 @@ func (*Pipe) ProtoMessage()    {}
 func (*Pipe) Descriptor() ([]byte, []int) {
 	return fileDescriptor_6906417f87bcce55, []int{0}
 }
+
 func (m *Pipe) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Pipe.Unmarshal(m, b)
 }
 func (m *Pipe) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Pipe.Marshal(b, m, deterministic)
 }
-func (dst *Pipe) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Pipe.Merge(dst, src)
+func (m *Pipe) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Pipe.Merge(m, src)
 }
 func (m *Pipe) XXX_Size() int {
 	return xxx_messageInfo_Pipe.Size(m)
@@ -128,14 +131,15 @@ func (*SocketAddress) ProtoMessage()    {}
 func (*SocketAddress) Descriptor() ([]byte, []int) {
 	return fileDescriptor_6906417f87bcce55, []int{1}
 }
+
 func (m *SocketAddress) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SocketAddress.Unmarshal(m, b)
 }
 func (m *SocketAddress) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SocketAddress.Marshal(b, m, deterministic)
 }
-func (dst *SocketAddress) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SocketAddress.Merge(dst, src)
+func (m *SocketAddress) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SocketAddress.Merge(m, src)
 }
 func (m *SocketAddress) XXX_Size() int {
 	return xxx_messageInfo_SocketAddress.Size(m)
@@ -299,14 +303,15 @@ func (*TcpKeepalive) ProtoMessage()    {}
 func (*TcpKeepalive) Descriptor() ([]byte, []int) {
 	return fileDescriptor_6906417f87bcce55, []int{2}
 }
+
 func (m *TcpKeepalive) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TcpKeepalive.Unmarshal(m, b)
 }
 func (m *TcpKeepalive) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_TcpKeepalive.Marshal(b, m, deterministic)
 }
-func (dst *TcpKeepalive) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TcpKeepalive.Merge(dst, src)
+func (m *TcpKeepalive) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TcpKeepalive.Merge(m, src)
 }
 func (m *TcpKeepalive) XXX_Size() int {
 	return xxx_messageInfo_TcpKeepalive.Size(m)
@@ -363,14 +368,15 @@ func (*BindConfig) ProtoMessage()    {}
 func (*BindConfig) Descriptor() ([]byte, []int) {
 	return fileDescriptor_6906417f87bcce55, []int{3}
 }
+
 func (m *BindConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_BindConfig.Unmarshal(m, b)
 }
 func (m *BindConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_BindConfig.Marshal(b, m, deterministic)
 }
-func (dst *BindConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_BindConfig.Merge(dst, src)
+func (m *BindConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BindConfig.Merge(m, src)
 }
 func (m *BindConfig) XXX_Size() int {
 	return xxx_messageInfo_BindConfig.Size(m)
@@ -421,14 +427,15 @@ func (*Address) ProtoMessage()    {}
 func (*Address) Descriptor() ([]byte, []int) {
 	return fileDescriptor_6906417f87bcce55, []int{4}
 }
+
 func (m *Address) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Address.Unmarshal(m, b)
 }
 func (m *Address) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Address.Marshal(b, m, deterministic)
 }
-func (dst *Address) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Address.Merge(dst, src)
+func (m *Address) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Address.Merge(m, src)
 }
 func (m *Address) XXX_Size() int {
 	return xxx_messageInfo_Address.Size(m)
@@ -568,14 +575,15 @@ func (*CidrRange) ProtoMessage()    {}
 func (*CidrRange) Descriptor() ([]byte, []int) {
 	return fileDescriptor_6906417f87bcce55, []int{5}
 }
+
 func (m *CidrRange) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CidrRange.Unmarshal(m, b)
 }
 func (m *CidrRange) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_CidrRange.Marshal(b, m, deterministic)
 }
-func (dst *CidrRange) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_CidrRange.Merge(dst, src)
+func (m *CidrRange) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CidrRange.Merge(m, src)
 }
 func (m *CidrRange) XXX_Size() int {
 	return xxx_messageInfo_CidrRange.Size(m)

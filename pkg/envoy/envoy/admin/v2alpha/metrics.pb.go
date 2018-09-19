@@ -3,9 +3,11 @@
 
 package envoy_admin_v2alpha
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -62,14 +64,15 @@ func (*SimpleMetric) ProtoMessage()    {}
 func (*SimpleMetric) Descriptor() ([]byte, []int) {
 	return fileDescriptor_680a736ec6584458, []int{0}
 }
+
 func (m *SimpleMetric) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SimpleMetric.Unmarshal(m, b)
 }
 func (m *SimpleMetric) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SimpleMetric.Marshal(b, m, deterministic)
 }
-func (dst *SimpleMetric) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SimpleMetric.Merge(dst, src)
+func (m *SimpleMetric) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SimpleMetric.Merge(m, src)
 }
 func (m *SimpleMetric) XXX_Size() int {
 	return xxx_messageInfo_SimpleMetric.Size(m)

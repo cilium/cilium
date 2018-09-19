@@ -3,13 +3,15 @@
 
 package v2alpha
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import _type "github.com/cilium/cilium/pkg/envoy/envoy/type"
-import _ "github.com/lyft/protoc-gen-validate/validate"
-import status "google.golang.org/genproto/googleapis/rpc/status"
+import (
+	fmt "fmt"
+	core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+	_type "github.com/cilium/cilium/pkg/envoy/envoy/type"
+	proto "github.com/golang/protobuf/proto"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	status "google.golang.org/genproto/googleapis/rpc/status"
+	math "math"
+)
 
 import (
 	context "golang.org/x/net/context"
@@ -41,14 +43,15 @@ func (*CheckRequest) ProtoMessage()    {}
 func (*CheckRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptor_878c0ddb0c43de8d, []int{0}
 }
+
 func (m *CheckRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CheckRequest.Unmarshal(m, b)
 }
 func (m *CheckRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_CheckRequest.Marshal(b, m, deterministic)
 }
-func (dst *CheckRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_CheckRequest.Merge(dst, src)
+func (m *CheckRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CheckRequest.Merge(m, src)
 }
 func (m *CheckRequest) XXX_Size() int {
 	return xxx_messageInfo_CheckRequest.Size(m)
@@ -88,14 +91,15 @@ func (*DeniedHttpResponse) ProtoMessage()    {}
 func (*DeniedHttpResponse) Descriptor() ([]byte, []int) {
 	return fileDescriptor_878c0ddb0c43de8d, []int{1}
 }
+
 func (m *DeniedHttpResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DeniedHttpResponse.Unmarshal(m, b)
 }
 func (m *DeniedHttpResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_DeniedHttpResponse.Marshal(b, m, deterministic)
 }
-func (dst *DeniedHttpResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_DeniedHttpResponse.Merge(dst, src)
+func (m *DeniedHttpResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DeniedHttpResponse.Merge(m, src)
 }
 func (m *DeniedHttpResponse) XXX_Size() int {
 	return xxx_messageInfo_DeniedHttpResponse.Size(m)
@@ -147,14 +151,15 @@ func (*OkHttpResponse) ProtoMessage()    {}
 func (*OkHttpResponse) Descriptor() ([]byte, []int) {
 	return fileDescriptor_878c0ddb0c43de8d, []int{2}
 }
+
 func (m *OkHttpResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_OkHttpResponse.Unmarshal(m, b)
 }
 func (m *OkHttpResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_OkHttpResponse.Marshal(b, m, deterministic)
 }
-func (dst *OkHttpResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_OkHttpResponse.Merge(dst, src)
+func (m *OkHttpResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_OkHttpResponse.Merge(m, src)
 }
 func (m *OkHttpResponse) XXX_Size() int {
 	return xxx_messageInfo_OkHttpResponse.Size(m)
@@ -195,14 +200,15 @@ func (*CheckResponse) ProtoMessage()    {}
 func (*CheckResponse) Descriptor() ([]byte, []int) {
 	return fileDescriptor_878c0ddb0c43de8d, []int{3}
 }
+
 func (m *CheckResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CheckResponse.Unmarshal(m, b)
 }
 func (m *CheckResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_CheckResponse.Marshal(b, m, deterministic)
 }
-func (dst *CheckResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_CheckResponse.Merge(dst, src)
+func (m *CheckResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CheckResponse.Merge(m, src)
 }
 func (m *CheckResponse) XXX_Size() int {
 	return xxx_messageInfo_CheckResponse.Size(m)

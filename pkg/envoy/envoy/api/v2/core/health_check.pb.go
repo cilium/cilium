@@ -3,14 +3,16 @@
 
 package core
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import _ "github.com/gogo/protobuf/gogoproto"
-import duration "github.com/golang/protobuf/ptypes/duration"
-import _struct "github.com/golang/protobuf/ptypes/struct"
-import wrappers "github.com/golang/protobuf/ptypes/wrappers"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/golang/protobuf/proto"
+	duration "github.com/golang/protobuf/ptypes/duration"
+	_struct "github.com/golang/protobuf/ptypes/struct"
+	wrappers "github.com/golang/protobuf/ptypes/wrappers"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -144,14 +146,15 @@ func (*HealthCheck) ProtoMessage()    {}
 func (*HealthCheck) Descriptor() ([]byte, []int) {
 	return fileDescriptor_b6ca44dd529b90bd, []int{0}
 }
+
 func (m *HealthCheck) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HealthCheck.Unmarshal(m, b)
 }
 func (m *HealthCheck) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_HealthCheck.Marshal(b, m, deterministic)
 }
-func (dst *HealthCheck) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HealthCheck.Merge(dst, src)
+func (m *HealthCheck) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HealthCheck.Merge(m, src)
 }
 func (m *HealthCheck) XXX_Size() int {
 	return xxx_messageInfo_HealthCheck.Size(m)
@@ -445,14 +448,15 @@ func (*HealthCheck_Payload) ProtoMessage()    {}
 func (*HealthCheck_Payload) Descriptor() ([]byte, []int) {
 	return fileDescriptor_b6ca44dd529b90bd, []int{0, 0}
 }
+
 func (m *HealthCheck_Payload) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HealthCheck_Payload.Unmarshal(m, b)
 }
 func (m *HealthCheck_Payload) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_HealthCheck_Payload.Marshal(b, m, deterministic)
 }
-func (dst *HealthCheck_Payload) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HealthCheck_Payload.Merge(dst, src)
+func (m *HealthCheck_Payload) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HealthCheck_Payload.Merge(m, src)
 }
 func (m *HealthCheck_Payload) XXX_Size() int {
 	return xxx_messageInfo_HealthCheck_Payload.Size(m)
@@ -600,14 +604,15 @@ func (*HealthCheck_HttpHealthCheck) ProtoMessage()    {}
 func (*HealthCheck_HttpHealthCheck) Descriptor() ([]byte, []int) {
 	return fileDescriptor_b6ca44dd529b90bd, []int{0, 1}
 }
+
 func (m *HealthCheck_HttpHealthCheck) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HealthCheck_HttpHealthCheck.Unmarshal(m, b)
 }
 func (m *HealthCheck_HttpHealthCheck) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_HealthCheck_HttpHealthCheck.Marshal(b, m, deterministic)
 }
-func (dst *HealthCheck_HttpHealthCheck) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HealthCheck_HttpHealthCheck.Merge(dst, src)
+func (m *HealthCheck_HttpHealthCheck) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HealthCheck_HttpHealthCheck.Merge(m, src)
 }
 func (m *HealthCheck_HttpHealthCheck) XXX_Size() int {
 	return xxx_messageInfo_HealthCheck_HttpHealthCheck.Size(m)
@@ -685,14 +690,15 @@ func (*HealthCheck_TcpHealthCheck) ProtoMessage()    {}
 func (*HealthCheck_TcpHealthCheck) Descriptor() ([]byte, []int) {
 	return fileDescriptor_b6ca44dd529b90bd, []int{0, 2}
 }
+
 func (m *HealthCheck_TcpHealthCheck) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HealthCheck_TcpHealthCheck.Unmarshal(m, b)
 }
 func (m *HealthCheck_TcpHealthCheck) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_HealthCheck_TcpHealthCheck.Marshal(b, m, deterministic)
 }
-func (dst *HealthCheck_TcpHealthCheck) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HealthCheck_TcpHealthCheck.Merge(dst, src)
+func (m *HealthCheck_TcpHealthCheck) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HealthCheck_TcpHealthCheck.Merge(m, src)
 }
 func (m *HealthCheck_TcpHealthCheck) XXX_Size() int {
 	return xxx_messageInfo_HealthCheck_TcpHealthCheck.Size(m)
@@ -734,14 +740,15 @@ func (*HealthCheck_RedisHealthCheck) ProtoMessage()    {}
 func (*HealthCheck_RedisHealthCheck) Descriptor() ([]byte, []int) {
 	return fileDescriptor_b6ca44dd529b90bd, []int{0, 3}
 }
+
 func (m *HealthCheck_RedisHealthCheck) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HealthCheck_RedisHealthCheck.Unmarshal(m, b)
 }
 func (m *HealthCheck_RedisHealthCheck) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_HealthCheck_RedisHealthCheck.Marshal(b, m, deterministic)
 }
-func (dst *HealthCheck_RedisHealthCheck) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HealthCheck_RedisHealthCheck.Merge(dst, src)
+func (m *HealthCheck_RedisHealthCheck) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HealthCheck_RedisHealthCheck.Merge(m, src)
 }
 func (m *HealthCheck_RedisHealthCheck) XXX_Size() int {
 	return xxx_messageInfo_HealthCheck_RedisHealthCheck.Size(m)
@@ -781,14 +788,15 @@ func (*HealthCheck_GrpcHealthCheck) ProtoMessage()    {}
 func (*HealthCheck_GrpcHealthCheck) Descriptor() ([]byte, []int) {
 	return fileDescriptor_b6ca44dd529b90bd, []int{0, 4}
 }
+
 func (m *HealthCheck_GrpcHealthCheck) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HealthCheck_GrpcHealthCheck.Unmarshal(m, b)
 }
 func (m *HealthCheck_GrpcHealthCheck) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_HealthCheck_GrpcHealthCheck.Marshal(b, m, deterministic)
 }
-func (dst *HealthCheck_GrpcHealthCheck) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HealthCheck_GrpcHealthCheck.Merge(dst, src)
+func (m *HealthCheck_GrpcHealthCheck) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HealthCheck_GrpcHealthCheck.Merge(m, src)
 }
 func (m *HealthCheck_GrpcHealthCheck) XXX_Size() int {
 	return xxx_messageInfo_HealthCheck_GrpcHealthCheck.Size(m)
@@ -824,14 +832,15 @@ func (*HealthCheck_CustomHealthCheck) ProtoMessage()    {}
 func (*HealthCheck_CustomHealthCheck) Descriptor() ([]byte, []int) {
 	return fileDescriptor_b6ca44dd529b90bd, []int{0, 5}
 }
+
 func (m *HealthCheck_CustomHealthCheck) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HealthCheck_CustomHealthCheck.Unmarshal(m, b)
 }
 func (m *HealthCheck_CustomHealthCheck) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_HealthCheck_CustomHealthCheck.Marshal(b, m, deterministic)
 }
-func (dst *HealthCheck_CustomHealthCheck) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HealthCheck_CustomHealthCheck.Merge(dst, src)
+func (m *HealthCheck_CustomHealthCheck) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HealthCheck_CustomHealthCheck.Merge(m, src)
 }
 func (m *HealthCheck_CustomHealthCheck) XXX_Size() int {
 	return xxx_messageInfo_HealthCheck_CustomHealthCheck.Size(m)

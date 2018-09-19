@@ -3,13 +3,15 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import _ "github.com/gogo/protobuf/gogoproto"
-import duration "github.com/golang/protobuf/ptypes/duration"
-import wrappers "github.com/golang/protobuf/ptypes/wrappers"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/golang/protobuf/proto"
+	duration "github.com/golang/protobuf/ptypes/duration"
+	wrappers "github.com/golang/protobuf/ptypes/wrappers"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -40,14 +42,15 @@ func (*Buffer) ProtoMessage()    {}
 func (*Buffer) Descriptor() ([]byte, []int) {
 	return fileDescriptor_e782fc75ce4c789f, []int{0}
 }
+
 func (m *Buffer) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Buffer.Unmarshal(m, b)
 }
 func (m *Buffer) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Buffer.Marshal(b, m, deterministic)
 }
-func (dst *Buffer) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Buffer.Merge(dst, src)
+func (m *Buffer) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Buffer.Merge(m, src)
 }
 func (m *Buffer) XXX_Size() int {
 	return xxx_messageInfo_Buffer.Size(m)
@@ -88,14 +91,15 @@ func (*BufferPerRoute) ProtoMessage()    {}
 func (*BufferPerRoute) Descriptor() ([]byte, []int) {
 	return fileDescriptor_e782fc75ce4c789f, []int{1}
 }
+
 func (m *BufferPerRoute) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_BufferPerRoute.Unmarshal(m, b)
 }
 func (m *BufferPerRoute) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_BufferPerRoute.Marshal(b, m, deterministic)
 }
-func (dst *BufferPerRoute) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_BufferPerRoute.Merge(dst, src)
+func (m *BufferPerRoute) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BufferPerRoute.Merge(m, src)
 }
 func (m *BufferPerRoute) XXX_Size() int {
 	return xxx_messageInfo_BufferPerRoute.Size(m)

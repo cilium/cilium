@@ -3,13 +3,15 @@
 
 package core
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import _ "github.com/gogo/protobuf/gogoproto"
-import _struct "github.com/golang/protobuf/ptypes/struct"
-import wrappers "github.com/golang/protobuf/ptypes/wrappers"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/golang/protobuf/proto"
+	_struct "github.com/golang/protobuf/ptypes/struct"
+	wrappers "github.com/golang/protobuf/ptypes/wrappers"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -160,14 +162,15 @@ func (*Locality) ProtoMessage()    {}
 func (*Locality) Descriptor() ([]byte, []int) {
 	return fileDescriptor_a7738c0f9e1bfff4, []int{0}
 }
+
 func (m *Locality) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Locality.Unmarshal(m, b)
 }
 func (m *Locality) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Locality.Marshal(b, m, deterministic)
 }
-func (dst *Locality) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Locality.Merge(dst, src)
+func (m *Locality) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Locality.Merge(m, src)
 }
 func (m *Locality) XXX_Size() int {
 	return xxx_messageInfo_Locality.Size(m)
@@ -241,14 +244,15 @@ func (*Node) ProtoMessage()    {}
 func (*Node) Descriptor() ([]byte, []int) {
 	return fileDescriptor_a7738c0f9e1bfff4, []int{1}
 }
+
 func (m *Node) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Node.Unmarshal(m, b)
 }
 func (m *Node) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Node.Marshal(b, m, deterministic)
 }
-func (dst *Node) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Node.Merge(dst, src)
+func (m *Node) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Node.Merge(m, src)
 }
 func (m *Node) XXX_Size() int {
 	return xxx_messageInfo_Node.Size(m)
@@ -327,14 +331,15 @@ func (*Metadata) ProtoMessage()    {}
 func (*Metadata) Descriptor() ([]byte, []int) {
 	return fileDescriptor_a7738c0f9e1bfff4, []int{2}
 }
+
 func (m *Metadata) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Metadata.Unmarshal(m, b)
 }
 func (m *Metadata) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Metadata.Marshal(b, m, deterministic)
 }
-func (dst *Metadata) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Metadata.Merge(dst, src)
+func (m *Metadata) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Metadata.Merge(m, src)
 }
 func (m *Metadata) XXX_Size() int {
 	return xxx_messageInfo_Metadata.Size(m)
@@ -369,14 +374,15 @@ func (*RuntimeUInt32) ProtoMessage()    {}
 func (*RuntimeUInt32) Descriptor() ([]byte, []int) {
 	return fileDescriptor_a7738c0f9e1bfff4, []int{3}
 }
+
 func (m *RuntimeUInt32) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RuntimeUInt32.Unmarshal(m, b)
 }
 func (m *RuntimeUInt32) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RuntimeUInt32.Marshal(b, m, deterministic)
 }
-func (dst *RuntimeUInt32) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RuntimeUInt32.Merge(dst, src)
+func (m *RuntimeUInt32) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RuntimeUInt32.Merge(m, src)
 }
 func (m *RuntimeUInt32) XXX_Size() int {
 	return xxx_messageInfo_RuntimeUInt32.Size(m)
@@ -422,14 +428,15 @@ func (*HeaderValue) ProtoMessage()    {}
 func (*HeaderValue) Descriptor() ([]byte, []int) {
 	return fileDescriptor_a7738c0f9e1bfff4, []int{4}
 }
+
 func (m *HeaderValue) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HeaderValue.Unmarshal(m, b)
 }
 func (m *HeaderValue) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_HeaderValue.Marshal(b, m, deterministic)
 }
-func (dst *HeaderValue) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HeaderValue.Merge(dst, src)
+func (m *HeaderValue) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HeaderValue.Merge(m, src)
 }
 func (m *HeaderValue) XXX_Size() int {
 	return xxx_messageInfo_HeaderValue.Size(m)
@@ -472,14 +479,15 @@ func (*HeaderValueOption) ProtoMessage()    {}
 func (*HeaderValueOption) Descriptor() ([]byte, []int) {
 	return fileDescriptor_a7738c0f9e1bfff4, []int{5}
 }
+
 func (m *HeaderValueOption) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HeaderValueOption.Unmarshal(m, b)
 }
 func (m *HeaderValueOption) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_HeaderValueOption.Marshal(b, m, deterministic)
 }
-func (dst *HeaderValueOption) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HeaderValueOption.Merge(dst, src)
+func (m *HeaderValueOption) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HeaderValueOption.Merge(m, src)
 }
 func (m *HeaderValueOption) XXX_Size() int {
 	return xxx_messageInfo_HeaderValueOption.Size(m)
@@ -522,14 +530,15 @@ func (*DataSource) ProtoMessage()    {}
 func (*DataSource) Descriptor() ([]byte, []int) {
 	return fileDescriptor_a7738c0f9e1bfff4, []int{6}
 }
+
 func (m *DataSource) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DataSource.Unmarshal(m, b)
 }
 func (m *DataSource) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_DataSource.Marshal(b, m, deterministic)
 }
-func (dst *DataSource) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_DataSource.Merge(dst, src)
+func (m *DataSource) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DataSource.Merge(m, src)
 }
 func (m *DataSource) XXX_Size() int {
 	return xxx_messageInfo_DataSource.Size(m)
@@ -693,14 +702,15 @@ func (*TransportSocket) ProtoMessage()    {}
 func (*TransportSocket) Descriptor() ([]byte, []int) {
 	return fileDescriptor_a7738c0f9e1bfff4, []int{7}
 }
+
 func (m *TransportSocket) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TransportSocket.Unmarshal(m, b)
 }
 func (m *TransportSocket) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_TransportSocket.Marshal(b, m, deterministic)
 }
-func (dst *TransportSocket) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TransportSocket.Merge(dst, src)
+func (m *TransportSocket) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TransportSocket.Merge(m, src)
 }
 func (m *TransportSocket) XXX_Size() int {
 	return xxx_messageInfo_TransportSocket.Size(m)
@@ -753,14 +763,15 @@ func (*SocketOption) ProtoMessage()    {}
 func (*SocketOption) Descriptor() ([]byte, []int) {
 	return fileDescriptor_a7738c0f9e1bfff4, []int{8}
 }
+
 func (m *SocketOption) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SocketOption.Unmarshal(m, b)
 }
 func (m *SocketOption) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SocketOption.Marshal(b, m, deterministic)
 }
-func (dst *SocketOption) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SocketOption.Merge(dst, src)
+func (m *SocketOption) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SocketOption.Merge(m, src)
 }
 func (m *SocketOption) XXX_Size() int {
 	return xxx_messageInfo_SocketOption.Size(m)
