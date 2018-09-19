@@ -17,18 +17,25 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"sort"
+	"strconv"
+	"strings"
+	"text/tabwriter"
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
+	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/monitor"
 
 	"github.com/spf13/cobra"
 )
 
 const (
-	// DropForward is the bpf map key
-	DropForward = "KEY"
-	count       = "COUNT"
+	reasonTitle    = "REASON"
+	directionTitle = "DIRECTION"
+	packetsTitle   = "PACKETS"
+	bytesTitle     = "BYTES"
 )
 
 var bpfMetricsListCmd = &cobra.Command{
@@ -51,13 +58,95 @@ var bpfMetricsListCmd = &cobra.Command{
 			return
 		}
 
-		if len(bpfMetricsList) == 0 {
-			fmt.Fprintf(os.Stderr, "No entries found.\n")
-		} else {
-			TablePrinter(DropForward, count, bpfMetricsList)
+		listMetrics(bpfMetricsList)
+	},
+}
+
+func listMetrics(bpfMetricsList map[string][]string) {
+	if len(bpfMetricsList) == 0 {
+		fmt.Fprintf(os.Stderr, "No entries found.\n")
+		return
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", reasonTitle, directionTitle, packetsTitle, bytesTitle)
+
+	const numColumns = 4
+	rows := [][numColumns]string{}
+
+	for key, value := range bpfMetricsList {
+		var reason, trafficDirection, packets, bytes string
+		var keyIsValid, valueIsValid bool
+		var reasonCode, trafficDirectionCode uint8
+
+		reason, trafficDirection, keyIsValid = extractTwoValues(key)
+
+		if keyIsValid {
+			v, err := strconv.Atoi(reason)
+			reasonCode = uint8(v)
+			keyIsValid = err == nil
 		}
 
-	},
+		if keyIsValid {
+			v, err := strconv.Atoi(trafficDirection)
+			trafficDirectionCode = uint8(v)
+			keyIsValid = err == nil
+		}
+
+		if keyIsValid && len(value) == 1 {
+			packets, bytes, valueIsValid = extractTwoValues(value[0])
+		}
+
+		if keyIsValid && valueIsValid {
+			rows = append(rows, [numColumns]string{monitor.DropReason(reasonCode), policymap.TrafficDirection(trafficDirectionCode).String(), packets, bytes})
+		} else {
+			// Fall back to best effort printing.
+			for i, v := range value {
+				if i == 0 {
+					rows = append(rows, [numColumns]string{key, v, "", ""})
+				} else {
+					rows = append(rows, [numColumns]string{"", v, "", ""})
+				}
+			}
+		}
+	}
+
+	sort.Slice(rows, func(i, j int) bool {
+		for k := 0; k < numColumns; k++ {
+			c := strings.Compare(rows[i][k], rows[j][k])
+
+			if c != 0 {
+				return c < 0
+			}
+		}
+
+		return false
+	})
+
+	for _, r := range rows {
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", r[0], r[1], r[2], r[3])
+	}
+
+	w.Flush()
+}
+
+func extractTwoValues(str string) (string, string, bool) {
+	tmp := strings.Split(str, " ")
+	if len(tmp) != 2 {
+		return "", "", false
+	}
+
+	a := strings.Split(tmp[0], ":")
+	if len(a) != 2 {
+		return "", "", false
+	}
+
+	b := strings.Split(tmp[1], ":")
+	if len(b) != 2 {
+		return "", "", false
+	}
+
+	return a[1], b[1], true
 }
 
 func init() {
