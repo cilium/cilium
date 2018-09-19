@@ -187,7 +187,7 @@ spec:
         - name: cilium-run
           hostPath:
             path: /var/run/cilium
-        # To keep state between restarts / upgrades
+        # To keep state between restarts / upgrades for bpf maps
         - name: bpf-maps
           hostPath:
             path: /sys/fs/bpf
