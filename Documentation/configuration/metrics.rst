@@ -100,6 +100,12 @@ Controllers
 * ``controllers_runs_duration_seconds``: Duration in seconds of the controller
   process labeled by completion status
 
+Kubernetes
+-----------
+
+* ``kubernetes_events_total``: Number of Kubernetes events received labeled by
+  scope, action and the execution result
+
 Cilium as a Kubernetes pod
 ==========================
 The Cilium Prometheus reference configuration configures jobs that automatically
