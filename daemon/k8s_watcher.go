@@ -1693,58 +1693,75 @@ func cnpNodeStatusController(ciliumV2Store cache.Store, cnp *cilium_v2.CiliumNet
 
 	waitForEPsErr := endpointmanager.WaitForEndpointsAtPolicyRev(ctx, rev)
 
-	serverRule, fromStoreErr := getUpdatedCNPFromStore(ciliumV2Store, cnp)
-	if fromStoreErr != nil {
-		logger.WithError(fromStoreErr).Error("error getting updated CNP from store")
-		return fromStoreErr
+	// Number of attempts to retry updating of CNP in case that Update fails
+	// due to out-of-date resource version.
+	maxAttempts := 5
+
+	var (
+		cnpUpdateErr       error
+		updateWaitDuration = time.Duration(200) * time.Millisecond
+	)
+
+	for numAttempts := 0; numAttempts < maxAttempts; numAttempts++ {
+
+		serverRule, fromStoreErr := getUpdatedCNPFromStore(ciliumV2Store, cnp)
+		if fromStoreErr != nil {
+			logger.WithError(fromStoreErr).Error("error getting updated CNP from store")
+			return fromStoreErr
+		}
+
+		// Make a copy since the rule is a pointer, and any of its fields
+		// which are also pointers could be modified outside of this
+		// function.
+		serverRuleCpy := serverRule.DeepCopy()
+		_, ruleCopyParseErr := serverRuleCpy.Parse()
+		if ruleCopyParseErr != nil {
+			// If we can't parse the rule then we should signalize
+			// it in the status
+			log.WithError(ruleCopyParseErr).WithField(logfields.Object, logfields.Repr(serverRuleCpy)).
+				Warn("Error parsing new CiliumNetworkPolicy rule")
+		}
+
+		// Update the status of whether the rule is enforced on this node.
+		// If we are unable to parse the CNP retrieved from the store,
+		// or if endpoints did not reach the desired policy revision
+		// after 30 seconds, then mark the rule as not being enforced.
+		if policyImportErr != nil {
+			// OK is false here because the policy wasn't imported into
+			// cilium on this node; since it wasn't imported, it also
+			// isn't enforced.
+			cnpUpdateErr = updateCNPNodeStatus(serverRuleCpy, false, false, policyImportErr, rev, serverRuleCpy.Annotations)
+		} else if ruleCopyParseErr != nil {
+			// This handles the case where the initial instance of this
+			// rule was imported into the policy repository successfully
+			// (policyImportErr == nil), but, the rule has been updated
+			// in the store soon after, and is now invalid. As such,
+			// the rule is not OK because it cannot be imported due
+			// to parsing errors, and cannot be enforced because it is
+			// not OK.
+			cnpUpdateErr = updateCNPNodeStatus(serverRuleCpy, false, false, ruleCopyParseErr, rev, serverRuleCpy.Annotations)
+		} else {
+			// If the deadline by the above context, then not all
+			// endpoints are enforcing the given policy, and
+			// waitForEpsErr will be non-nil.
+			cnpUpdateErr = updateCNPNodeStatus(serverRuleCpy, waitForEPsErr == nil, true, waitForEPsErr, rev, serverRuleCpy.Annotations)
+		}
+
+		if cnpUpdateErr == nil {
+			logger.WithField("status", serverRuleCpy.Status).Debug("successfully updated with status")
+			break
+		}
+
+		// Wait a small amount of time to try to update again.
+		logger.WithError(cnpUpdateErr).Warningf("update of CNP failed; sleeping for %s amount of time before trying again", updateWaitDuration)
+		time.Sleep(updateWaitDuration)
 	}
 
-	// Make a copy since the rule is a pointer, and any of its fields
-	// which are also pointers could be modified outside of this
-	// function.
-	serverRuleCpy := serverRule.DeepCopy()
-	_, ruleCopyParseErr := serverRuleCpy.Parse()
-	if ruleCopyParseErr != nil {
-		// If we can't parse the rule then we should signalize
-		// it in the status
-		log.WithError(ruleCopyParseErr).WithField(logfields.Object, logfields.Repr(serverRuleCpy)).
-			Warn("Error parsing new CiliumNetworkPolicy rule")
-	}
-
-	var err3 error
-
-	// Update the status of whether the rule is enforced on this node.
-	// If we are unable to parse the CNP retrieved from the store,
-	// or if endpoints did not reach the desired policy revision
-	// after 30 seconds, then mark the rule as not being enforced.
-	if policyImportErr != nil {
-		// OK is false here because the policy wasn't imported into
-		// cilium on this node; since it wasn't imported, it also
-		// isn't enforced.
-		err3 = updateCNPNodeStatus(serverRuleCpy, false, false, policyImportErr, rev, serverRuleCpy.Annotations)
-	} else if ruleCopyParseErr != nil {
-		// This handles the case where the initial instance of this
-		// rule was imported into the policy repository successfully
-		// (policyImportErr == nil), but, the rule has been updated
-		// in the store soon after, and is now invalid. As such,
-		// the rule is not OK because it cannot be imported due
-		// to parsing errors, and cannot be enforced because it is
-		// not OK.
-		err3 = updateCNPNodeStatus(serverRuleCpy, false, false, ruleCopyParseErr, rev, serverRuleCpy.Annotations)
+	if cnpUpdateErr != nil {
+		return cnpUpdateErr
 	} else {
-		// If the deadline by the above context, then not all
-		// endpoints are enforcing the given policy, and
-		// waitForEpsErr will be non-nil.
-		err3 = updateCNPNodeStatus(serverRuleCpy, waitForEPsErr == nil, true, waitForEPsErr, rev, serverRuleCpy.Annotations)
+		return waitForEPsErr
 	}
-
-	if err3 == nil {
-		logger.WithField("status", serverRuleCpy.Status).Debug("successfully updated with status")
-	} else {
-		return err3
-	}
-
-	return waitForEPsErr
 }
 
 func updateCNPNodeStatus(cnp *cilium_v2.CiliumNetworkPolicy, enforcing, ok bool, err error, rev uint64, annotations map[string]string) error {
