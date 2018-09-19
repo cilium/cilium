@@ -33,6 +33,21 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const (
+	// BuildStateWaiting is the value of LabelBuildState to describe
+	// the number of entries waiting in the build queue
+	BuildStateWaiting = "waiting"
+
+	// BuildStateBlocked is the value of LabelBuildState to describe
+	// the number of entries scheduled for building but blocked due to
+	// build conditions
+	BuildStateBlocked = "blocked"
+
+	// BuildStateRunning is the value of LabelBuildState to describe
+	// the number of builds currently running
+	BuildStateRunning = "running"
+)
+
 var (
 	registry = prometheus.NewPedanticRegistry()
 
@@ -85,6 +100,12 @@ var (
 
 	// LabelProtocolL7 is the label used when working with layer 7 protocols.
 	LabelProtocolL7 = "protocol_l7"
+
+	// LabelBuildState is the state a build queue entry is in
+	LabelBuildState = "state"
+
+	// LabelBuildQueueName is the name of the build queue
+	LabelBuildQueueName = "name"
 
 	// Endpoint
 
@@ -344,6 +365,14 @@ var (
 		Name:      "controllers_runs_duration_seconds",
 		Help:      "Duration in seconds of the controller process labeled by completion status",
 	}, []string{LabelStatus})
+
+	// BuildQueueEntries is the number of queued, waiting and running
+	// builds in the build queue
+	BuildQueueEntries = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: Namespace,
+		Name:      "buildqueue_entries",
+		Help:      "The number of queued, waiting and running builds in the build queue",
+	}, []string{LabelBuildState, LabelBuildQueueName})
 )
 
 func init() {
@@ -390,6 +419,8 @@ func init() {
 
 	MustRegister(ControllerRuns)
 	MustRegister(ControllerRunsDuration)
+
+	MustRegister(BuildQueueEntries)
 }
 
 // MustRegister adds the collector to the registry, exposing this metric to
