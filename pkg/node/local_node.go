@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/option"
 
 	"k8s.io/api/core/v1"
@@ -83,8 +84,15 @@ func configureLocalNode() {
 func NotifyLocalNodeUpdated() {
 	go func() {
 		<-nodeRegistered
-		if err := nodeStore.UpdateLocalKeySync(GetLocalNode()); err != nil {
-			log.WithError(err).Error("Unable to propagate local node change to kvstore")
-		}
+		controller.NewManager().UpdateController("propagating local node change to kv-store",
+			controller.ControllerParams{
+				DoFunc: func() error {
+					err := nodeStore.UpdateLocalKeySync(GetLocalNode())
+					if err != nil {
+						log.WithError(err).Error("Unable to propagate local node change to kvstore")
+					}
+					return err
+				},
+			})
 	}()
 }
