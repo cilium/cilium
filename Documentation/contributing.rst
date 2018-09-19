@@ -202,6 +202,8 @@ If for some reason, running of the provisioning script fails, you should bring t
 
     $ vagrant halt
 
+.. _packer_ci:
+
 Packer-CI-Build
 ^^^^^^^^^^^^^^^
 
@@ -2156,6 +2158,12 @@ update:
 You have created a new image build with a new tag. The next steps should be to
 update the repository root's Dockerfile so that it points to the new
 ``cilium-builder`` or ``cilium-runtime`` image recently created.
+
+21. Update the versions of the images that are pulled into the CI VMs.
+
+* Open a PR against the :ref:`packer_ci` with an update to said image versions. Once your PR is merged, a new version of the VM will be ready for consumption in the CI.
+* Update the ``SERVER_VERSION``  field in ``test/Vagrantfile`` to contain the new version, which is the build number from the `Jenkins Job for the VMs <https://jenkins.cilium.io/job/Vagrant-Master-Boxes-Packer-Build/>`_. For example, build 119 from the pipeline would be the value to set for ``SERVER_VERSION``. 
+* Open a pull request with this version change in the cilium repository.
 
 
 Nightly Docker image
