@@ -39,6 +39,14 @@ Endpoint
 * ``endpoint_regeneration_time_stats_seconds``: Endpoint regeneration time stats labeled by scope.
 * ``endpoint_state``: Count of all endpoints, tagged by different endpoint states
 
+Build Queue
+-----------
+
+* ``buildqueue_entries``: Number of queued, waiting, and running builds.
+  * ``state=running``: Number of builds currently in progress
+  * ``state=blocked``: Number of builds selected for building, waiting for build conditions to be met.
+  * ``state=waiting``: Number of builds in the queue, waiting to be selected.
+
 Datapath
 --------
 
