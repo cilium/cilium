@@ -3,14 +3,16 @@
 
 package envoy_admin_v2alpha
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import v21 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
-import v2 "github.com/cilium/cilium/pkg/envoy/envoy/config/bootstrap/v2"
-import _ "github.com/gogo/protobuf/gogoproto"
-import any "github.com/golang/protobuf/ptypes/any"
-import timestamp "github.com/golang/protobuf/ptypes/timestamp"
+import (
+	fmt "fmt"
+	v21 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
+	v2 "github.com/cilium/cilium/pkg/envoy/envoy/config/bootstrap/v2"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/golang/protobuf/proto"
+	any "github.com/golang/protobuf/ptypes/any"
+	timestamp "github.com/golang/protobuf/ptypes/timestamp"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -48,14 +50,15 @@ func (*ConfigDump) ProtoMessage()    {}
 func (*ConfigDump) Descriptor() ([]byte, []int) {
 	return fileDescriptor_bd4e190b1a64d2aa, []int{0}
 }
+
 func (m *ConfigDump) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ConfigDump.Unmarshal(m, b)
 }
 func (m *ConfigDump) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ConfigDump.Marshal(b, m, deterministic)
 }
-func (dst *ConfigDump) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ConfigDump.Merge(dst, src)
+func (m *ConfigDump) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConfigDump.Merge(m, src)
 }
 func (m *ConfigDump) XXX_Size() int {
 	return xxx_messageInfo_ConfigDump.Size(m)
@@ -92,14 +95,15 @@ func (*BootstrapConfigDump) ProtoMessage()    {}
 func (*BootstrapConfigDump) Descriptor() ([]byte, []int) {
 	return fileDescriptor_bd4e190b1a64d2aa, []int{1}
 }
+
 func (m *BootstrapConfigDump) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_BootstrapConfigDump.Unmarshal(m, b)
 }
 func (m *BootstrapConfigDump) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_BootstrapConfigDump.Marshal(b, m, deterministic)
 }
-func (dst *BootstrapConfigDump) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_BootstrapConfigDump.Merge(dst, src)
+func (m *BootstrapConfigDump) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BootstrapConfigDump.Merge(m, src)
 }
 func (m *BootstrapConfigDump) XXX_Size() int {
 	return xxx_messageInfo_BootstrapConfigDump.Size(m)
@@ -158,14 +162,15 @@ func (*ListenersConfigDump) ProtoMessage()    {}
 func (*ListenersConfigDump) Descriptor() ([]byte, []int) {
 	return fileDescriptor_bd4e190b1a64d2aa, []int{2}
 }
+
 func (m *ListenersConfigDump) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListenersConfigDump.Unmarshal(m, b)
 }
 func (m *ListenersConfigDump) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ListenersConfigDump.Marshal(b, m, deterministic)
 }
-func (dst *ListenersConfigDump) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ListenersConfigDump.Merge(dst, src)
+func (m *ListenersConfigDump) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListenersConfigDump.Merge(m, src)
 }
 func (m *ListenersConfigDump) XXX_Size() int {
 	return xxx_messageInfo_ListenersConfigDump.Size(m)
@@ -228,14 +233,15 @@ func (*ListenersConfigDump_StaticListener) ProtoMessage()    {}
 func (*ListenersConfigDump_StaticListener) Descriptor() ([]byte, []int) {
 	return fileDescriptor_bd4e190b1a64d2aa, []int{2, 0}
 }
+
 func (m *ListenersConfigDump_StaticListener) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListenersConfigDump_StaticListener.Unmarshal(m, b)
 }
 func (m *ListenersConfigDump_StaticListener) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ListenersConfigDump_StaticListener.Marshal(b, m, deterministic)
 }
-func (dst *ListenersConfigDump_StaticListener) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ListenersConfigDump_StaticListener.Merge(dst, src)
+func (m *ListenersConfigDump_StaticListener) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListenersConfigDump_StaticListener.Merge(m, src)
 }
 func (m *ListenersConfigDump_StaticListener) XXX_Size() int {
 	return xxx_messageInfo_ListenersConfigDump_StaticListener.Size(m)
@@ -282,14 +288,15 @@ func (*ListenersConfigDump_DynamicListener) ProtoMessage()    {}
 func (*ListenersConfigDump_DynamicListener) Descriptor() ([]byte, []int) {
 	return fileDescriptor_bd4e190b1a64d2aa, []int{2, 1}
 }
+
 func (m *ListenersConfigDump_DynamicListener) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListenersConfigDump_DynamicListener.Unmarshal(m, b)
 }
 func (m *ListenersConfigDump_DynamicListener) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ListenersConfigDump_DynamicListener.Marshal(b, m, deterministic)
 }
-func (dst *ListenersConfigDump_DynamicListener) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ListenersConfigDump_DynamicListener.Merge(dst, src)
+func (m *ListenersConfigDump_DynamicListener) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListenersConfigDump_DynamicListener.Merge(m, src)
 }
 func (m *ListenersConfigDump_DynamicListener) XXX_Size() int {
 	return xxx_messageInfo_ListenersConfigDump_DynamicListener.Size(m)
@@ -350,14 +357,15 @@ func (*ClustersConfigDump) ProtoMessage()    {}
 func (*ClustersConfigDump) Descriptor() ([]byte, []int) {
 	return fileDescriptor_bd4e190b1a64d2aa, []int{3}
 }
+
 func (m *ClustersConfigDump) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ClustersConfigDump.Unmarshal(m, b)
 }
 func (m *ClustersConfigDump) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ClustersConfigDump.Marshal(b, m, deterministic)
 }
-func (dst *ClustersConfigDump) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ClustersConfigDump.Merge(dst, src)
+func (m *ClustersConfigDump) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ClustersConfigDump.Merge(m, src)
 }
 func (m *ClustersConfigDump) XXX_Size() int {
 	return xxx_messageInfo_ClustersConfigDump.Size(m)
@@ -413,14 +421,15 @@ func (*ClustersConfigDump_StaticCluster) ProtoMessage()    {}
 func (*ClustersConfigDump_StaticCluster) Descriptor() ([]byte, []int) {
 	return fileDescriptor_bd4e190b1a64d2aa, []int{3, 0}
 }
+
 func (m *ClustersConfigDump_StaticCluster) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ClustersConfigDump_StaticCluster.Unmarshal(m, b)
 }
 func (m *ClustersConfigDump_StaticCluster) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ClustersConfigDump_StaticCluster.Marshal(b, m, deterministic)
 }
-func (dst *ClustersConfigDump_StaticCluster) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ClustersConfigDump_StaticCluster.Merge(dst, src)
+func (m *ClustersConfigDump_StaticCluster) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ClustersConfigDump_StaticCluster.Merge(m, src)
 }
 func (m *ClustersConfigDump_StaticCluster) XXX_Size() int {
 	return xxx_messageInfo_ClustersConfigDump_StaticCluster.Size(m)
@@ -467,14 +476,15 @@ func (*ClustersConfigDump_DynamicCluster) ProtoMessage()    {}
 func (*ClustersConfigDump_DynamicCluster) Descriptor() ([]byte, []int) {
 	return fileDescriptor_bd4e190b1a64d2aa, []int{3, 1}
 }
+
 func (m *ClustersConfigDump_DynamicCluster) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ClustersConfigDump_DynamicCluster.Unmarshal(m, b)
 }
 func (m *ClustersConfigDump_DynamicCluster) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ClustersConfigDump_DynamicCluster.Marshal(b, m, deterministic)
 }
-func (dst *ClustersConfigDump_DynamicCluster) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ClustersConfigDump_DynamicCluster.Merge(dst, src)
+func (m *ClustersConfigDump_DynamicCluster) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ClustersConfigDump_DynamicCluster.Merge(m, src)
 }
 func (m *ClustersConfigDump_DynamicCluster) XXX_Size() int {
 	return xxx_messageInfo_ClustersConfigDump_DynamicCluster.Size(m)
@@ -527,14 +537,15 @@ func (*RoutesConfigDump) ProtoMessage()    {}
 func (*RoutesConfigDump) Descriptor() ([]byte, []int) {
 	return fileDescriptor_bd4e190b1a64d2aa, []int{4}
 }
+
 func (m *RoutesConfigDump) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RoutesConfigDump.Unmarshal(m, b)
 }
 func (m *RoutesConfigDump) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RoutesConfigDump.Marshal(b, m, deterministic)
 }
-func (dst *RoutesConfigDump) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RoutesConfigDump.Merge(dst, src)
+func (m *RoutesConfigDump) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RoutesConfigDump.Merge(m, src)
 }
 func (m *RoutesConfigDump) XXX_Size() int {
 	return xxx_messageInfo_RoutesConfigDump.Size(m)
@@ -575,14 +586,15 @@ func (*RoutesConfigDump_StaticRouteConfig) ProtoMessage()    {}
 func (*RoutesConfigDump_StaticRouteConfig) Descriptor() ([]byte, []int) {
 	return fileDescriptor_bd4e190b1a64d2aa, []int{4, 0}
 }
+
 func (m *RoutesConfigDump_StaticRouteConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RoutesConfigDump_StaticRouteConfig.Unmarshal(m, b)
 }
 func (m *RoutesConfigDump_StaticRouteConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RoutesConfigDump_StaticRouteConfig.Marshal(b, m, deterministic)
 }
-func (dst *RoutesConfigDump_StaticRouteConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RoutesConfigDump_StaticRouteConfig.Merge(dst, src)
+func (m *RoutesConfigDump_StaticRouteConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RoutesConfigDump_StaticRouteConfig.Merge(m, src)
 }
 func (m *RoutesConfigDump_StaticRouteConfig) XXX_Size() int {
 	return xxx_messageInfo_RoutesConfigDump_StaticRouteConfig.Size(m)
@@ -627,14 +639,15 @@ func (*RoutesConfigDump_DynamicRouteConfig) ProtoMessage()    {}
 func (*RoutesConfigDump_DynamicRouteConfig) Descriptor() ([]byte, []int) {
 	return fileDescriptor_bd4e190b1a64d2aa, []int{4, 1}
 }
+
 func (m *RoutesConfigDump_DynamicRouteConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RoutesConfigDump_DynamicRouteConfig.Unmarshal(m, b)
 }
 func (m *RoutesConfigDump_DynamicRouteConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RoutesConfigDump_DynamicRouteConfig.Marshal(b, m, deterministic)
 }
-func (dst *RoutesConfigDump_DynamicRouteConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RoutesConfigDump_DynamicRouteConfig.Merge(dst, src)
+func (m *RoutesConfigDump_DynamicRouteConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RoutesConfigDump_DynamicRouteConfig.Merge(m, src)
 }
 func (m *RoutesConfigDump_DynamicRouteConfig) XXX_Size() int {
 	return xxx_messageInfo_RoutesConfigDump_DynamicRouteConfig.Size(m)

@@ -3,12 +3,14 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import _struct "github.com/golang/protobuf/ptypes/struct"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+	proto "github.com/golang/protobuf/proto"
+	_struct "github.com/golang/protobuf/ptypes/struct"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -40,14 +42,15 @@ func (*Tracing) ProtoMessage()    {}
 func (*Tracing) Descriptor() ([]byte, []int) {
 	return fileDescriptor_0785d24fc8ab55c7, []int{0}
 }
+
 func (m *Tracing) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Tracing.Unmarshal(m, b)
 }
 func (m *Tracing) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Tracing.Marshal(b, m, deterministic)
 }
-func (dst *Tracing) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Tracing.Merge(dst, src)
+func (m *Tracing) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Tracing.Merge(m, src)
 }
 func (m *Tracing) XXX_Size() int {
 	return xxx_messageInfo_Tracing.Size(m)
@@ -87,14 +90,15 @@ func (*Tracing_Http) ProtoMessage()    {}
 func (*Tracing_Http) Descriptor() ([]byte, []int) {
 	return fileDescriptor_0785d24fc8ab55c7, []int{0, 0}
 }
+
 func (m *Tracing_Http) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Tracing_Http.Unmarshal(m, b)
 }
 func (m *Tracing_Http) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Tracing_Http.Marshal(b, m, deterministic)
 }
-func (dst *Tracing_Http) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Tracing_Http.Merge(dst, src)
+func (m *Tracing_Http) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Tracing_Http.Merge(m, src)
 }
 func (m *Tracing_Http) XXX_Size() int {
 	return xxx_messageInfo_Tracing_Http.Size(m)
@@ -137,14 +141,15 @@ func (*LightstepConfig) ProtoMessage()    {}
 func (*LightstepConfig) Descriptor() ([]byte, []int) {
 	return fileDescriptor_0785d24fc8ab55c7, []int{1}
 }
+
 func (m *LightstepConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LightstepConfig.Unmarshal(m, b)
 }
 func (m *LightstepConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_LightstepConfig.Marshal(b, m, deterministic)
 }
-func (dst *LightstepConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_LightstepConfig.Merge(dst, src)
+func (m *LightstepConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LightstepConfig.Merge(m, src)
 }
 func (m *LightstepConfig) XXX_Size() int {
 	return xxx_messageInfo_LightstepConfig.Size(m)
@@ -192,14 +197,15 @@ func (*ZipkinConfig) ProtoMessage()    {}
 func (*ZipkinConfig) Descriptor() ([]byte, []int) {
 	return fileDescriptor_0785d24fc8ab55c7, []int{2}
 }
+
 func (m *ZipkinConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ZipkinConfig.Unmarshal(m, b)
 }
 func (m *ZipkinConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ZipkinConfig.Marshal(b, m, deterministic)
 }
-func (dst *ZipkinConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ZipkinConfig.Merge(dst, src)
+func (m *ZipkinConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ZipkinConfig.Merge(m, src)
 }
 func (m *ZipkinConfig) XXX_Size() int {
 	return xxx_messageInfo_ZipkinConfig.Size(m)
@@ -252,14 +258,15 @@ func (*DynamicOtConfig) ProtoMessage()    {}
 func (*DynamicOtConfig) Descriptor() ([]byte, []int) {
 	return fileDescriptor_0785d24fc8ab55c7, []int{3}
 }
+
 func (m *DynamicOtConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DynamicOtConfig.Unmarshal(m, b)
 }
 func (m *DynamicOtConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_DynamicOtConfig.Marshal(b, m, deterministic)
 }
-func (dst *DynamicOtConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_DynamicOtConfig.Merge(dst, src)
+func (m *DynamicOtConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DynamicOtConfig.Merge(m, src)
 }
 func (m *DynamicOtConfig) XXX_Size() int {
 	return xxx_messageInfo_DynamicOtConfig.Size(m)
@@ -299,14 +306,15 @@ func (*TraceServiceConfig) ProtoMessage()    {}
 func (*TraceServiceConfig) Descriptor() ([]byte, []int) {
 	return fileDescriptor_0785d24fc8ab55c7, []int{4}
 }
+
 func (m *TraceServiceConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TraceServiceConfig.Unmarshal(m, b)
 }
 func (m *TraceServiceConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_TraceServiceConfig.Marshal(b, m, deterministic)
 }
-func (dst *TraceServiceConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TraceServiceConfig.Merge(dst, src)
+func (m *TraceServiceConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TraceServiceConfig.Merge(m, src)
 }
 func (m *TraceServiceConfig) XXX_Size() int {
 	return xxx_messageInfo_TraceServiceConfig.Size(m)

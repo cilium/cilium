@@ -3,13 +3,15 @@
 
 package auth
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import _ "github.com/gogo/protobuf/gogoproto"
-import wrappers "github.com/golang/protobuf/ptypes/wrappers"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/golang/protobuf/proto"
+	wrappers "github.com/golang/protobuf/ptypes/wrappers"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -101,14 +103,15 @@ func (*TlsParameters) ProtoMessage()    {}
 func (*TlsParameters) Descriptor() ([]byte, []int) {
 	return fileDescriptor_0c3851c0865b2745, []int{0}
 }
+
 func (m *TlsParameters) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TlsParameters.Unmarshal(m, b)
 }
 func (m *TlsParameters) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_TlsParameters.Marshal(b, m, deterministic)
 }
-func (dst *TlsParameters) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TlsParameters.Merge(dst, src)
+func (m *TlsParameters) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TlsParameters.Merge(m, src)
 }
 func (m *TlsParameters) XXX_Size() int {
 	return xxx_messageInfo_TlsParameters.Size(m)
@@ -169,14 +172,15 @@ func (*TlsCertificate) ProtoMessage()    {}
 func (*TlsCertificate) Descriptor() ([]byte, []int) {
 	return fileDescriptor_0c3851c0865b2745, []int{1}
 }
+
 func (m *TlsCertificate) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TlsCertificate.Unmarshal(m, b)
 }
 func (m *TlsCertificate) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_TlsCertificate.Marshal(b, m, deterministic)
 }
-func (dst *TlsCertificate) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TlsCertificate.Merge(dst, src)
+func (m *TlsCertificate) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TlsCertificate.Merge(m, src)
 }
 func (m *TlsCertificate) XXX_Size() int {
 	return xxx_messageInfo_TlsCertificate.Size(m)
@@ -258,14 +262,15 @@ func (*TlsSessionTicketKeys) ProtoMessage()    {}
 func (*TlsSessionTicketKeys) Descriptor() ([]byte, []int) {
 	return fileDescriptor_0c3851c0865b2745, []int{2}
 }
+
 func (m *TlsSessionTicketKeys) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TlsSessionTicketKeys.Unmarshal(m, b)
 }
 func (m *TlsSessionTicketKeys) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_TlsSessionTicketKeys.Marshal(b, m, deterministic)
 }
-func (dst *TlsSessionTicketKeys) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TlsSessionTicketKeys.Merge(dst, src)
+func (m *TlsSessionTicketKeys) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TlsSessionTicketKeys.Merge(m, src)
 }
 func (m *TlsSessionTicketKeys) XXX_Size() int {
 	return xxx_messageInfo_TlsSessionTicketKeys.Size(m)
@@ -391,14 +396,15 @@ func (*CertificateValidationContext) ProtoMessage()    {}
 func (*CertificateValidationContext) Descriptor() ([]byte, []int) {
 	return fileDescriptor_0c3851c0865b2745, []int{3}
 }
+
 func (m *CertificateValidationContext) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CertificateValidationContext.Unmarshal(m, b)
 }
 func (m *CertificateValidationContext) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_CertificateValidationContext.Marshal(b, m, deterministic)
 }
-func (dst *CertificateValidationContext) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_CertificateValidationContext.Merge(dst, src)
+func (m *CertificateValidationContext) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CertificateValidationContext.Merge(m, src)
 }
 func (m *CertificateValidationContext) XXX_Size() int {
 	return xxx_messageInfo_CertificateValidationContext.Size(m)
@@ -506,14 +512,15 @@ func (*CommonTlsContext) ProtoMessage()    {}
 func (*CommonTlsContext) Descriptor() ([]byte, []int) {
 	return fileDescriptor_0c3851c0865b2745, []int{4}
 }
+
 func (m *CommonTlsContext) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CommonTlsContext.Unmarshal(m, b)
 }
 func (m *CommonTlsContext) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_CommonTlsContext.Marshal(b, m, deterministic)
 }
-func (dst *CommonTlsContext) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_CommonTlsContext.Merge(dst, src)
+func (m *CommonTlsContext) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CommonTlsContext.Merge(m, src)
 }
 func (m *CommonTlsContext) XXX_Size() int {
 	return xxx_messageInfo_CommonTlsContext.Size(m)
@@ -687,14 +694,15 @@ func (*CommonTlsContext_DeprecatedV1) ProtoMessage()    {}
 func (*CommonTlsContext_DeprecatedV1) Descriptor() ([]byte, []int) {
 	return fileDescriptor_0c3851c0865b2745, []int{4, 0}
 }
+
 func (m *CommonTlsContext_DeprecatedV1) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CommonTlsContext_DeprecatedV1.Unmarshal(m, b)
 }
 func (m *CommonTlsContext_DeprecatedV1) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_CommonTlsContext_DeprecatedV1.Marshal(b, m, deterministic)
 }
-func (dst *CommonTlsContext_DeprecatedV1) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_CommonTlsContext_DeprecatedV1.Merge(dst, src)
+func (m *CommonTlsContext_DeprecatedV1) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CommonTlsContext_DeprecatedV1.Merge(m, src)
 }
 func (m *CommonTlsContext_DeprecatedV1) XXX_Size() int {
 	return xxx_messageInfo_CommonTlsContext_DeprecatedV1.Size(m)
@@ -734,14 +742,15 @@ func (*UpstreamTlsContext) ProtoMessage()    {}
 func (*UpstreamTlsContext) Descriptor() ([]byte, []int) {
 	return fileDescriptor_0c3851c0865b2745, []int{5}
 }
+
 func (m *UpstreamTlsContext) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UpstreamTlsContext.Unmarshal(m, b)
 }
 func (m *UpstreamTlsContext) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_UpstreamTlsContext.Marshal(b, m, deterministic)
 }
-func (dst *UpstreamTlsContext) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_UpstreamTlsContext.Merge(dst, src)
+func (m *UpstreamTlsContext) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UpstreamTlsContext.Merge(m, src)
 }
 func (m *UpstreamTlsContext) XXX_Size() int {
 	return xxx_messageInfo_UpstreamTlsContext.Size(m)
@@ -797,14 +806,15 @@ func (*DownstreamTlsContext) ProtoMessage()    {}
 func (*DownstreamTlsContext) Descriptor() ([]byte, []int) {
 	return fileDescriptor_0c3851c0865b2745, []int{6}
 }
+
 func (m *DownstreamTlsContext) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DownstreamTlsContext.Unmarshal(m, b)
 }
 func (m *DownstreamTlsContext) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_DownstreamTlsContext.Marshal(b, m, deterministic)
 }
-func (dst *DownstreamTlsContext) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_DownstreamTlsContext.Merge(dst, src)
+func (m *DownstreamTlsContext) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DownstreamTlsContext.Merge(m, src)
 }
 func (m *DownstreamTlsContext) XXX_Size() int {
 	return xxx_messageInfo_DownstreamTlsContext.Size(m)
@@ -967,14 +977,15 @@ func (*SdsSecretConfig) ProtoMessage()    {}
 func (*SdsSecretConfig) Descriptor() ([]byte, []int) {
 	return fileDescriptor_0c3851c0865b2745, []int{7}
 }
+
 func (m *SdsSecretConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SdsSecretConfig.Unmarshal(m, b)
 }
 func (m *SdsSecretConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SdsSecretConfig.Marshal(b, m, deterministic)
 }
-func (dst *SdsSecretConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SdsSecretConfig.Merge(dst, src)
+func (m *SdsSecretConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SdsSecretConfig.Merge(m, src)
 }
 func (m *SdsSecretConfig) XXX_Size() int {
 	return xxx_messageInfo_SdsSecretConfig.Size(m)
@@ -1020,14 +1031,15 @@ func (*Secret) ProtoMessage()    {}
 func (*Secret) Descriptor() ([]byte, []int) {
 	return fileDescriptor_0c3851c0865b2745, []int{8}
 }
+
 func (m *Secret) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Secret.Unmarshal(m, b)
 }
 func (m *Secret) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Secret.Marshal(b, m, deterministic)
 }
-func (dst *Secret) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Secret.Merge(dst, src)
+func (m *Secret) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Secret.Merge(m, src)
 }
 func (m *Secret) XXX_Size() int {
 	return xxx_messageInfo_Secret.Size(m)

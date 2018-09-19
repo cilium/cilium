@@ -3,10 +3,12 @@
 
 package envoy_type
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import _ "github.com/gogo/protobuf/gogoproto"
+import (
+	fmt "fmt"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/golang/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -37,14 +39,15 @@ func (*Int64Range) ProtoMessage()    {}
 func (*Int64Range) Descriptor() ([]byte, []int) {
 	return fileDescriptor_6d5354588716e6e7, []int{0}
 }
+
 func (m *Int64Range) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Int64Range.Unmarshal(m, b)
 }
 func (m *Int64Range) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Int64Range.Marshal(b, m, deterministic)
 }
-func (dst *Int64Range) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Int64Range.Merge(dst, src)
+func (m *Int64Range) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Int64Range.Merge(m, src)
 }
 func (m *Int64Range) XXX_Size() int {
 	return xxx_messageInfo_Int64Range.Size(m)
@@ -87,14 +90,15 @@ func (*DoubleRange) ProtoMessage()    {}
 func (*DoubleRange) Descriptor() ([]byte, []int) {
 	return fileDescriptor_6d5354588716e6e7, []int{1}
 }
+
 func (m *DoubleRange) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DoubleRange.Unmarshal(m, b)
 }
 func (m *DoubleRange) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_DoubleRange.Marshal(b, m, deterministic)
 }
-func (dst *DoubleRange) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_DoubleRange.Merge(dst, src)
+func (m *DoubleRange) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DoubleRange.Merge(m, src)
 }
 func (m *DoubleRange) XXX_Size() int {
 	return xxx_messageInfo_DoubleRange.Size(m)

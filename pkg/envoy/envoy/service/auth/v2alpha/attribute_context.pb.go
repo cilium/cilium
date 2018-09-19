@@ -3,11 +3,13 @@
 
 package v2alpha
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import timestamp "github.com/golang/protobuf/ptypes/timestamp"
+import (
+	fmt "fmt"
+	core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+	proto "github.com/golang/protobuf/proto"
+	timestamp "github.com/golang/protobuf/ptypes/timestamp"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -53,14 +55,15 @@ func (*AttributeContext) ProtoMessage()    {}
 func (*AttributeContext) Descriptor() ([]byte, []int) {
 	return fileDescriptor_df3b25e3374eb3d1, []int{0}
 }
+
 func (m *AttributeContext) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AttributeContext.Unmarshal(m, b)
 }
 func (m *AttributeContext) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_AttributeContext.Marshal(b, m, deterministic)
 }
-func (dst *AttributeContext) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_AttributeContext.Merge(dst, src)
+func (m *AttributeContext) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AttributeContext.Merge(m, src)
 }
 func (m *AttributeContext) XXX_Size() int {
 	return xxx_messageInfo_AttributeContext.Size(m)
@@ -138,14 +141,15 @@ func (*AttributeContext_Peer) ProtoMessage()    {}
 func (*AttributeContext_Peer) Descriptor() ([]byte, []int) {
 	return fileDescriptor_df3b25e3374eb3d1, []int{0, 0}
 }
+
 func (m *AttributeContext_Peer) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AttributeContext_Peer.Unmarshal(m, b)
 }
 func (m *AttributeContext_Peer) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_AttributeContext_Peer.Marshal(b, m, deterministic)
 }
-func (dst *AttributeContext_Peer) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_AttributeContext_Peer.Merge(dst, src)
+func (m *AttributeContext_Peer) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AttributeContext_Peer.Merge(m, src)
 }
 func (m *AttributeContext_Peer) XXX_Size() int {
 	return xxx_messageInfo_AttributeContext_Peer.Size(m)
@@ -201,14 +205,15 @@ func (*AttributeContext_Request) ProtoMessage()    {}
 func (*AttributeContext_Request) Descriptor() ([]byte, []int) {
 	return fileDescriptor_df3b25e3374eb3d1, []int{0, 1}
 }
+
 func (m *AttributeContext_Request) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AttributeContext_Request.Unmarshal(m, b)
 }
 func (m *AttributeContext_Request) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_AttributeContext_Request.Marshal(b, m, deterministic)
 }
-func (dst *AttributeContext_Request) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_AttributeContext_Request.Merge(dst, src)
+func (m *AttributeContext_Request) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AttributeContext_Request.Merge(m, src)
 }
 func (m *AttributeContext_Request) XXX_Size() int {
 	return xxx_messageInfo_AttributeContext_Request.Size(m)
@@ -274,14 +279,15 @@ func (*AttributeContext_HttpRequest) ProtoMessage()    {}
 func (*AttributeContext_HttpRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptor_df3b25e3374eb3d1, []int{0, 2}
 }
+
 func (m *AttributeContext_HttpRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AttributeContext_HttpRequest.Unmarshal(m, b)
 }
 func (m *AttributeContext_HttpRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_AttributeContext_HttpRequest.Marshal(b, m, deterministic)
 }
-func (dst *AttributeContext_HttpRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_AttributeContext_HttpRequest.Merge(dst, src)
+func (m *AttributeContext_HttpRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AttributeContext_HttpRequest.Merge(m, src)
 }
 func (m *AttributeContext_HttpRequest) XXX_Size() int {
 	return xxx_messageInfo_AttributeContext_HttpRequest.Size(m)

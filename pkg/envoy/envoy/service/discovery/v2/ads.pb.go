@@ -3,10 +3,12 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import v2 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
+import (
+	fmt "fmt"
+	v2 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
+	proto "github.com/golang/protobuf/proto"
+	math "math"
+)
 
 import (
 	context "golang.org/x/net/context"
@@ -38,14 +40,15 @@ func (*AdsDummy) ProtoMessage()    {}
 func (*AdsDummy) Descriptor() ([]byte, []int) {
 	return fileDescriptor_187fd5dcc2dab695, []int{0}
 }
+
 func (m *AdsDummy) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AdsDummy.Unmarshal(m, b)
 }
 func (m *AdsDummy) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_AdsDummy.Marshal(b, m, deterministic)
 }
-func (dst *AdsDummy) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_AdsDummy.Merge(dst, src)
+func (m *AdsDummy) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AdsDummy.Merge(m, src)
 }
 func (m *AdsDummy) XXX_Size() int {
 	return xxx_messageInfo_AdsDummy.Size(m)

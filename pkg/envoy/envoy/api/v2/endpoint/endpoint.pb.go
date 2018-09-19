@@ -3,13 +3,15 @@
 
 package endpoint
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import _ "github.com/gogo/protobuf/gogoproto"
-import wrappers "github.com/golang/protobuf/ptypes/wrappers"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/golang/protobuf/proto"
+	wrappers "github.com/golang/protobuf/ptypes/wrappers"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -53,14 +55,15 @@ func (*Endpoint) ProtoMessage()    {}
 func (*Endpoint) Descriptor() ([]byte, []int) {
 	return fileDescriptor_a9d2a3e4ee06324f, []int{0}
 }
+
 func (m *Endpoint) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Endpoint.Unmarshal(m, b)
 }
 func (m *Endpoint) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Endpoint.Marshal(b, m, deterministic)
 }
-func (dst *Endpoint) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Endpoint.Merge(dst, src)
+func (m *Endpoint) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Endpoint.Merge(m, src)
 }
 func (m *Endpoint) XXX_Size() int {
 	return xxx_messageInfo_Endpoint.Size(m)
@@ -105,14 +108,15 @@ func (*Endpoint_HealthCheckConfig) ProtoMessage()    {}
 func (*Endpoint_HealthCheckConfig) Descriptor() ([]byte, []int) {
 	return fileDescriptor_a9d2a3e4ee06324f, []int{0, 0}
 }
+
 func (m *Endpoint_HealthCheckConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Endpoint_HealthCheckConfig.Unmarshal(m, b)
 }
 func (m *Endpoint_HealthCheckConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Endpoint_HealthCheckConfig.Marshal(b, m, deterministic)
 }
-func (dst *Endpoint_HealthCheckConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Endpoint_HealthCheckConfig.Merge(dst, src)
+func (m *Endpoint_HealthCheckConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Endpoint_HealthCheckConfig.Merge(m, src)
 }
 func (m *Endpoint_HealthCheckConfig) XXX_Size() int {
 	return xxx_messageInfo_Endpoint_HealthCheckConfig.Size(m)
@@ -169,14 +173,15 @@ func (*LbEndpoint) ProtoMessage()    {}
 func (*LbEndpoint) Descriptor() ([]byte, []int) {
 	return fileDescriptor_a9d2a3e4ee06324f, []int{1}
 }
+
 func (m *LbEndpoint) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LbEndpoint.Unmarshal(m, b)
 }
 func (m *LbEndpoint) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_LbEndpoint.Marshal(b, m, deterministic)
 }
-func (dst *LbEndpoint) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_LbEndpoint.Merge(dst, src)
+func (m *LbEndpoint) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LbEndpoint.Merge(m, src)
 }
 func (m *LbEndpoint) XXX_Size() int {
 	return xxx_messageInfo_LbEndpoint.Size(m)
@@ -262,14 +267,15 @@ func (*LocalityLbEndpoints) ProtoMessage()    {}
 func (*LocalityLbEndpoints) Descriptor() ([]byte, []int) {
 	return fileDescriptor_a9d2a3e4ee06324f, []int{2}
 }
+
 func (m *LocalityLbEndpoints) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LocalityLbEndpoints.Unmarshal(m, b)
 }
 func (m *LocalityLbEndpoints) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_LocalityLbEndpoints.Marshal(b, m, deterministic)
 }
-func (dst *LocalityLbEndpoints) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_LocalityLbEndpoints.Merge(dst, src)
+func (m *LocalityLbEndpoints) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LocalityLbEndpoints.Merge(m, src)
 }
 func (m *LocalityLbEndpoints) XXX_Size() int {
 	return xxx_messageInfo_LocalityLbEndpoints.Size(m)

@@ -3,11 +3,13 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import v2 "github.com/cilium/cilium/pkg/envoy/envoy/config/filter/accesslog/v2"
-import wrappers "github.com/golang/protobuf/ptypes/wrappers"
+import (
+	fmt "fmt"
+	v2 "github.com/cilium/cilium/pkg/envoy/envoy/config/filter/accesslog/v2"
+	proto "github.com/golang/protobuf/proto"
+	wrappers "github.com/golang/protobuf/ptypes/wrappers"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -50,14 +52,15 @@ func (*Router) ProtoMessage()    {}
 func (*Router) Descriptor() ([]byte, []int) {
 	return fileDescriptor_cc1f525510d06eb8, []int{0}
 }
+
 func (m *Router) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Router.Unmarshal(m, b)
 }
 func (m *Router) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Router.Marshal(b, m, deterministic)
 }
-func (dst *Router) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Router.Merge(dst, src)
+func (m *Router) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Router.Merge(m, src)
 }
 func (m *Router) XXX_Size() int {
 	return xxx_messageInfo_Router.Size(m)

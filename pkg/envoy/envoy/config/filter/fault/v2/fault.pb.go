@@ -3,13 +3,15 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import _type "github.com/cilium/cilium/pkg/envoy/envoy/type"
-import _ "github.com/gogo/protobuf/gogoproto"
-import duration "github.com/golang/protobuf/ptypes/duration"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	_type "github.com/cilium/cilium/pkg/envoy/envoy/type"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/golang/protobuf/proto"
+	duration "github.com/golang/protobuf/ptypes/duration"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -74,14 +76,15 @@ func (*FaultDelay) ProtoMessage()    {}
 func (*FaultDelay) Descriptor() ([]byte, []int) {
 	return fileDescriptor_d1b308afbc13f85b, []int{0}
 }
+
 func (m *FaultDelay) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FaultDelay.Unmarshal(m, b)
 }
 func (m *FaultDelay) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_FaultDelay.Marshal(b, m, deterministic)
 }
-func (dst *FaultDelay) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_FaultDelay.Merge(dst, src)
+func (m *FaultDelay) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FaultDelay.Merge(m, src)
 }
 func (m *FaultDelay) XXX_Size() int {
 	return xxx_messageInfo_FaultDelay.Size(m)

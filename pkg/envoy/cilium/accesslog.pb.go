@@ -3,9 +3,11 @@
 
 package cilium
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -88,14 +90,15 @@ func (*KeyValue) ProtoMessage()    {}
 func (*KeyValue) Descriptor() ([]byte, []int) {
 	return fileDescriptor_f29d2fd7c3943de2, []int{0}
 }
+
 func (m *KeyValue) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_KeyValue.Unmarshal(m, b)
 }
 func (m *KeyValue) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_KeyValue.Marshal(b, m, deterministic)
 }
-func (dst *KeyValue) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_KeyValue.Merge(dst, src)
+func (m *KeyValue) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_KeyValue.Merge(m, src)
 }
 func (m *KeyValue) XXX_Size() int {
 	return xxx_messageInfo_KeyValue.Size(m)
@@ -142,14 +145,15 @@ func (*HttpLogEntry) ProtoMessage()    {}
 func (*HttpLogEntry) Descriptor() ([]byte, []int) {
 	return fileDescriptor_f29d2fd7c3943de2, []int{1}
 }
+
 func (m *HttpLogEntry) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HttpLogEntry.Unmarshal(m, b)
 }
 func (m *HttpLogEntry) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_HttpLogEntry.Marshal(b, m, deterministic)
 }
-func (dst *HttpLogEntry) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HttpLogEntry.Merge(dst, src)
+func (m *HttpLogEntry) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HttpLogEntry.Merge(m, src)
 }
 func (m *HttpLogEntry) XXX_Size() int {
 	return xxx_messageInfo_HttpLogEntry.Size(m)
@@ -254,14 +258,15 @@ func (*LogEntry) ProtoMessage()    {}
 func (*LogEntry) Descriptor() ([]byte, []int) {
 	return fileDescriptor_f29d2fd7c3943de2, []int{2}
 }
+
 func (m *LogEntry) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogEntry.Unmarshal(m, b)
 }
 func (m *LogEntry) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_LogEntry.Marshal(b, m, deterministic)
 }
-func (dst *LogEntry) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_LogEntry.Merge(dst, src)
+func (m *LogEntry) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LogEntry.Merge(m, src)
 }
 func (m *LogEntry) XXX_Size() int {
 	return xxx_messageInfo_LogEntry.Size(m)

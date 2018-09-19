@@ -3,15 +3,17 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import listener "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/listener"
-import _ "github.com/gogo/protobuf/gogoproto"
-import wrappers "github.com/golang/protobuf/ptypes/wrappers"
-import _ "github.com/lyft/protoc-gen-validate/validate"
-import _ "google.golang.org/genproto/googleapis/api/annotations"
+import (
+	fmt "fmt"
+	core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+	listener "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/listener"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/golang/protobuf/proto"
+	wrappers "github.com/golang/protobuf/ptypes/wrappers"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	_ "google.golang.org/genproto/googleapis/api/annotations"
+	math "math"
+)
 
 import (
 	context "golang.org/x/net/context"
@@ -161,14 +163,15 @@ func (*Listener) ProtoMessage()    {}
 func (*Listener) Descriptor() ([]byte, []int) {
 	return fileDescriptor_34e2cd84a105bcd1, []int{0}
 }
+
 func (m *Listener) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Listener.Unmarshal(m, b)
 }
 func (m *Listener) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Listener.Marshal(b, m, deterministic)
 }
-func (dst *Listener) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Listener.Merge(dst, src)
+func (m *Listener) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Listener.Merge(m, src)
 }
 func (m *Listener) XXX_Size() int {
 	return xxx_messageInfo_Listener.Size(m)
@@ -293,14 +296,15 @@ func (*Listener_DeprecatedV1) ProtoMessage()    {}
 func (*Listener_DeprecatedV1) Descriptor() ([]byte, []int) {
 	return fileDescriptor_34e2cd84a105bcd1, []int{0, 0}
 }
+
 func (m *Listener_DeprecatedV1) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Listener_DeprecatedV1.Unmarshal(m, b)
 }
 func (m *Listener_DeprecatedV1) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Listener_DeprecatedV1.Marshal(b, m, deterministic)
 }
-func (dst *Listener_DeprecatedV1) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Listener_DeprecatedV1.Merge(dst, src)
+func (m *Listener_DeprecatedV1) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Listener_DeprecatedV1.Merge(m, src)
 }
 func (m *Listener_DeprecatedV1) XXX_Size() int {
 	return xxx_messageInfo_Listener_DeprecatedV1.Size(m)

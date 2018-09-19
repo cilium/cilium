@@ -3,12 +3,14 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import _ "github.com/gogo/protobuf/gogoproto"
-import duration "github.com/golang/protobuf/ptypes/duration"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/golang/protobuf/proto"
+	duration "github.com/golang/protobuf/ptypes/duration"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -41,14 +43,15 @@ func (*RedisProxy) ProtoMessage()    {}
 func (*RedisProxy) Descriptor() ([]byte, []int) {
 	return fileDescriptor_67e7179f1292d5ae, []int{0}
 }
+
 func (m *RedisProxy) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RedisProxy.Unmarshal(m, b)
 }
 func (m *RedisProxy) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RedisProxy.Marshal(b, m, deterministic)
 }
-func (dst *RedisProxy) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RedisProxy.Merge(dst, src)
+func (m *RedisProxy) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RedisProxy.Merge(m, src)
 }
 func (m *RedisProxy) XXX_Size() int {
 	return xxx_messageInfo_RedisProxy.Size(m)
@@ -100,14 +103,15 @@ func (*RedisProxy_ConnPoolSettings) ProtoMessage()    {}
 func (*RedisProxy_ConnPoolSettings) Descriptor() ([]byte, []int) {
 	return fileDescriptor_67e7179f1292d5ae, []int{0, 0}
 }
+
 func (m *RedisProxy_ConnPoolSettings) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RedisProxy_ConnPoolSettings.Unmarshal(m, b)
 }
 func (m *RedisProxy_ConnPoolSettings) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RedisProxy_ConnPoolSettings.Marshal(b, m, deterministic)
 }
-func (dst *RedisProxy_ConnPoolSettings) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RedisProxy_ConnPoolSettings.Merge(dst, src)
+func (m *RedisProxy_ConnPoolSettings) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RedisProxy_ConnPoolSettings.Merge(m, src)
 }
 func (m *RedisProxy_ConnPoolSettings) XXX_Size() int {
 	return xxx_messageInfo_RedisProxy_ConnPoolSettings.Size(m)

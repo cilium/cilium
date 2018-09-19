@@ -3,12 +3,14 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import ratelimit "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/ratelimit"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+	ratelimit "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/ratelimit"
+	proto "github.com/golang/protobuf/proto"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 import (
 	context "golang.org/x/net/context"
@@ -118,14 +120,15 @@ func (*RateLimitRequest) ProtoMessage()    {}
 func (*RateLimitRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptor_1de95711edb19ee8, []int{0}
 }
+
 func (m *RateLimitRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RateLimitRequest.Unmarshal(m, b)
 }
 func (m *RateLimitRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RateLimitRequest.Marshal(b, m, deterministic)
 }
-func (dst *RateLimitRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RateLimitRequest.Merge(dst, src)
+func (m *RateLimitRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RateLimitRequest.Merge(m, src)
 }
 func (m *RateLimitRequest) XXX_Size() int {
 	return xxx_messageInfo_RateLimitRequest.Size(m)
@@ -180,14 +183,15 @@ func (*RateLimitResponse) ProtoMessage()    {}
 func (*RateLimitResponse) Descriptor() ([]byte, []int) {
 	return fileDescriptor_1de95711edb19ee8, []int{1}
 }
+
 func (m *RateLimitResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RateLimitResponse.Unmarshal(m, b)
 }
 func (m *RateLimitResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RateLimitResponse.Marshal(b, m, deterministic)
 }
-func (dst *RateLimitResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RateLimitResponse.Merge(dst, src)
+func (m *RateLimitResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RateLimitResponse.Merge(m, src)
 }
 func (m *RateLimitResponse) XXX_Size() int {
 	return xxx_messageInfo_RateLimitResponse.Size(m)
@@ -234,14 +238,15 @@ func (*RateLimitResponse_RateLimit) ProtoMessage()    {}
 func (*RateLimitResponse_RateLimit) Descriptor() ([]byte, []int) {
 	return fileDescriptor_1de95711edb19ee8, []int{1, 0}
 }
+
 func (m *RateLimitResponse_RateLimit) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RateLimitResponse_RateLimit.Unmarshal(m, b)
 }
 func (m *RateLimitResponse_RateLimit) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RateLimitResponse_RateLimit.Marshal(b, m, deterministic)
 }
-func (dst *RateLimitResponse_RateLimit) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RateLimitResponse_RateLimit.Merge(dst, src)
+func (m *RateLimitResponse_RateLimit) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RateLimitResponse_RateLimit.Merge(m, src)
 }
 func (m *RateLimitResponse_RateLimit) XXX_Size() int {
 	return xxx_messageInfo_RateLimitResponse_RateLimit.Size(m)
@@ -284,14 +289,15 @@ func (*RateLimitResponse_DescriptorStatus) ProtoMessage()    {}
 func (*RateLimitResponse_DescriptorStatus) Descriptor() ([]byte, []int) {
 	return fileDescriptor_1de95711edb19ee8, []int{1, 1}
 }
+
 func (m *RateLimitResponse_DescriptorStatus) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RateLimitResponse_DescriptorStatus.Unmarshal(m, b)
 }
 func (m *RateLimitResponse_DescriptorStatus) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RateLimitResponse_DescriptorStatus.Marshal(b, m, deterministic)
 }
-func (dst *RateLimitResponse_DescriptorStatus) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RateLimitResponse_DescriptorStatus.Merge(dst, src)
+func (m *RateLimitResponse_DescriptorStatus) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RateLimitResponse_DescriptorStatus.Merge(m, src)
 }
 func (m *RateLimitResponse_DescriptorStatus) XXX_Size() int {
 	return xxx_messageInfo_RateLimitResponse_DescriptorStatus.Size(m)

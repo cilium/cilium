@@ -3,10 +3,12 @@
 
 package ratelimit
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -74,14 +76,15 @@ func (*RateLimitDescriptor) ProtoMessage()    {}
 func (*RateLimitDescriptor) Descriptor() ([]byte, []int) {
 	return fileDescriptor_5684844e04543b8d, []int{0}
 }
+
 func (m *RateLimitDescriptor) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RateLimitDescriptor.Unmarshal(m, b)
 }
 func (m *RateLimitDescriptor) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RateLimitDescriptor.Marshal(b, m, deterministic)
 }
-func (dst *RateLimitDescriptor) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RateLimitDescriptor.Merge(dst, src)
+func (m *RateLimitDescriptor) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RateLimitDescriptor.Merge(m, src)
 }
 func (m *RateLimitDescriptor) XXX_Size() int {
 	return xxx_messageInfo_RateLimitDescriptor.Size(m)
@@ -115,14 +118,15 @@ func (*RateLimitDescriptor_Entry) ProtoMessage()    {}
 func (*RateLimitDescriptor_Entry) Descriptor() ([]byte, []int) {
 	return fileDescriptor_5684844e04543b8d, []int{0, 0}
 }
+
 func (m *RateLimitDescriptor_Entry) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RateLimitDescriptor_Entry.Unmarshal(m, b)
 }
 func (m *RateLimitDescriptor_Entry) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RateLimitDescriptor_Entry.Marshal(b, m, deterministic)
 }
-func (dst *RateLimitDescriptor_Entry) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RateLimitDescriptor_Entry.Merge(dst, src)
+func (m *RateLimitDescriptor_Entry) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RateLimitDescriptor_Entry.Merge(m, src)
 }
 func (m *RateLimitDescriptor_Entry) XXX_Size() int {
 	return xxx_messageInfo_RateLimitDescriptor_Entry.Size(m)

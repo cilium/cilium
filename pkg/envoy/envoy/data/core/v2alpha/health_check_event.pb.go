@@ -3,15 +3,17 @@
 
 package envoy_data_core_v2alpha
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import _ "github.com/gogo/protobuf/gogoproto"
-import _ "github.com/golang/protobuf/ptypes/duration"
-import timestamp "github.com/golang/protobuf/ptypes/timestamp"
-import _ "github.com/golang/protobuf/ptypes/wrappers"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/golang/protobuf/proto"
+	_ "github.com/golang/protobuf/ptypes/duration"
+	timestamp "github.com/golang/protobuf/ptypes/timestamp"
+	_ "github.com/golang/protobuf/ptypes/wrappers"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -104,14 +106,15 @@ func (*HealthCheckEvent) ProtoMessage()    {}
 func (*HealthCheckEvent) Descriptor() ([]byte, []int) {
 	return fileDescriptor_e866c90440508830, []int{0}
 }
+
 func (m *HealthCheckEvent) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HealthCheckEvent.Unmarshal(m, b)
 }
 func (m *HealthCheckEvent) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_HealthCheckEvent.Marshal(b, m, deterministic)
 }
-func (dst *HealthCheckEvent) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HealthCheckEvent.Merge(dst, src)
+func (m *HealthCheckEvent) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HealthCheckEvent.Merge(m, src)
 }
 func (m *HealthCheckEvent) XXX_Size() int {
 	return xxx_messageInfo_HealthCheckEvent.Size(m)
@@ -275,14 +278,15 @@ func (*HealthCheckEjectUnhealthy) ProtoMessage()    {}
 func (*HealthCheckEjectUnhealthy) Descriptor() ([]byte, []int) {
 	return fileDescriptor_e866c90440508830, []int{1}
 }
+
 func (m *HealthCheckEjectUnhealthy) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HealthCheckEjectUnhealthy.Unmarshal(m, b)
 }
 func (m *HealthCheckEjectUnhealthy) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_HealthCheckEjectUnhealthy.Marshal(b, m, deterministic)
 }
-func (dst *HealthCheckEjectUnhealthy) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HealthCheckEjectUnhealthy.Merge(dst, src)
+func (m *HealthCheckEjectUnhealthy) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HealthCheckEjectUnhealthy.Merge(m, src)
 }
 func (m *HealthCheckEjectUnhealthy) XXX_Size() int {
 	return xxx_messageInfo_HealthCheckEjectUnhealthy.Size(m)
@@ -316,14 +320,15 @@ func (*HealthCheckAddHealthy) ProtoMessage()    {}
 func (*HealthCheckAddHealthy) Descriptor() ([]byte, []int) {
 	return fileDescriptor_e866c90440508830, []int{2}
 }
+
 func (m *HealthCheckAddHealthy) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HealthCheckAddHealthy.Unmarshal(m, b)
 }
 func (m *HealthCheckAddHealthy) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_HealthCheckAddHealthy.Marshal(b, m, deterministic)
 }
-func (dst *HealthCheckAddHealthy) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HealthCheckAddHealthy.Merge(dst, src)
+func (m *HealthCheckAddHealthy) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HealthCheckAddHealthy.Merge(m, src)
 }
 func (m *HealthCheckAddHealthy) XXX_Size() int {
 	return xxx_messageInfo_HealthCheckAddHealthy.Size(m)

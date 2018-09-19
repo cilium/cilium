@@ -3,13 +3,15 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import route "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/route"
-import v2 "github.com/cilium/cilium/pkg/envoy/envoy/config/filter/fault/v2"
-import _type "github.com/cilium/cilium/pkg/envoy/envoy/type"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	route "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/route"
+	v2 "github.com/cilium/cilium/pkg/envoy/envoy/config/filter/fault/v2"
+	_type "github.com/cilium/cilium/pkg/envoy/envoy/type"
+	proto "github.com/golang/protobuf/proto"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -47,14 +49,15 @@ func (*FaultAbort) ProtoMessage()    {}
 func (*FaultAbort) Descriptor() ([]byte, []int) {
 	return fileDescriptor_26070db6b6576d5c, []int{0}
 }
+
 func (m *FaultAbort) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FaultAbort.Unmarshal(m, b)
 }
 func (m *FaultAbort) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_FaultAbort.Marshal(b, m, deterministic)
 }
-func (dst *FaultAbort) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_FaultAbort.Merge(dst, src)
+func (m *FaultAbort) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FaultAbort.Merge(m, src)
 }
 func (m *FaultAbort) XXX_Size() int {
 	return xxx_messageInfo_FaultAbort.Size(m)
@@ -193,14 +196,15 @@ func (*HTTPFault) ProtoMessage()    {}
 func (*HTTPFault) Descriptor() ([]byte, []int) {
 	return fileDescriptor_26070db6b6576d5c, []int{1}
 }
+
 func (m *HTTPFault) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HTTPFault.Unmarshal(m, b)
 }
 func (m *HTTPFault) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_HTTPFault.Marshal(b, m, deterministic)
 }
-func (dst *HTTPFault) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HTTPFault.Merge(dst, src)
+func (m *HTTPFault) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HTTPFault.Merge(m, src)
 }
 func (m *HTTPFault) XXX_Size() int {
 	return xxx_messageInfo_HTTPFault.Size(m)

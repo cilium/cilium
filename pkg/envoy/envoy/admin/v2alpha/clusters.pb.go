@@ -3,11 +3,13 @@
 
 package envoy_admin_v2alpha
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import _type "github.com/cilium/cilium/pkg/envoy/envoy/type"
+import (
+	fmt "fmt"
+	core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+	_type "github.com/cilium/cilium/pkg/envoy/envoy/type"
+	proto "github.com/golang/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -36,14 +38,15 @@ func (*Clusters) ProtoMessage()    {}
 func (*Clusters) Descriptor() ([]byte, []int) {
 	return fileDescriptor_c6251a3a957f478b, []int{0}
 }
+
 func (m *Clusters) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Clusters.Unmarshal(m, b)
 }
 func (m *Clusters) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Clusters.Marshal(b, m, deterministic)
 }
-func (dst *Clusters) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Clusters.Merge(dst, src)
+func (m *Clusters) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Clusters.Merge(m, src)
 }
 func (m *Clusters) XXX_Size() int {
 	return xxx_messageInfo_Clusters.Size(m)
@@ -92,14 +95,15 @@ func (*ClusterStatus) ProtoMessage()    {}
 func (*ClusterStatus) Descriptor() ([]byte, []int) {
 	return fileDescriptor_c6251a3a957f478b, []int{1}
 }
+
 func (m *ClusterStatus) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ClusterStatus.Unmarshal(m, b)
 }
 func (m *ClusterStatus) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ClusterStatus.Marshal(b, m, deterministic)
 }
-func (dst *ClusterStatus) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ClusterStatus.Merge(dst, src)
+func (m *ClusterStatus) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ClusterStatus.Merge(m, src)
 }
 func (m *ClusterStatus) XXX_Size() int {
 	return xxx_messageInfo_ClusterStatus.Size(m)
@@ -163,14 +167,15 @@ func (*HostStatus) ProtoMessage()    {}
 func (*HostStatus) Descriptor() ([]byte, []int) {
 	return fileDescriptor_c6251a3a957f478b, []int{2}
 }
+
 func (m *HostStatus) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HostStatus.Unmarshal(m, b)
 }
 func (m *HostStatus) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_HostStatus.Marshal(b, m, deterministic)
 }
-func (dst *HostStatus) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HostStatus.Merge(dst, src)
+func (m *HostStatus) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HostStatus.Merge(m, src)
 }
 func (m *HostStatus) XXX_Size() int {
 	return xxx_messageInfo_HostStatus.Size(m)
@@ -230,14 +235,15 @@ func (*HostHealthStatus) ProtoMessage()    {}
 func (*HostHealthStatus) Descriptor() ([]byte, []int) {
 	return fileDescriptor_c6251a3a957f478b, []int{3}
 }
+
 func (m *HostHealthStatus) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HostHealthStatus.Unmarshal(m, b)
 }
 func (m *HostHealthStatus) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_HostHealthStatus.Marshal(b, m, deterministic)
 }
-func (dst *HostHealthStatus) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HostHealthStatus.Merge(dst, src)
+func (m *HostHealthStatus) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HostHealthStatus.Merge(m, src)
 }
 func (m *HostHealthStatus) XXX_Size() int {
 	return xxx_messageInfo_HostHealthStatus.Size(m)

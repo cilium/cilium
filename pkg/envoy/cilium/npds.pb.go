@@ -3,14 +3,16 @@
 
 package cilium
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import v2 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
-import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import route "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/route"
-import _ "github.com/lyft/protoc-gen-validate/validate"
-import _ "google.golang.org/genproto/googleapis/api/annotations"
+import (
+	fmt "fmt"
+	v2 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
+	core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+	route "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/route"
+	proto "github.com/golang/protobuf/proto"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	_ "google.golang.org/genproto/googleapis/api/annotations"
+	math "math"
+)
 
 import (
 	context "golang.org/x/net/context"
@@ -61,14 +63,15 @@ func (*NetworkPolicy) ProtoMessage()    {}
 func (*NetworkPolicy) Descriptor() ([]byte, []int) {
 	return fileDescriptor_282feee65b187334, []int{0}
 }
+
 func (m *NetworkPolicy) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_NetworkPolicy.Unmarshal(m, b)
 }
 func (m *NetworkPolicy) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_NetworkPolicy.Marshal(b, m, deterministic)
 }
-func (dst *NetworkPolicy) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_NetworkPolicy.Merge(dst, src)
+func (m *NetworkPolicy) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_NetworkPolicy.Merge(m, src)
 }
 func (m *NetworkPolicy) XXX_Size() int {
 	return xxx_messageInfo_NetworkPolicy.Size(m)
@@ -132,14 +135,15 @@ func (*PortNetworkPolicy) ProtoMessage()    {}
 func (*PortNetworkPolicy) Descriptor() ([]byte, []int) {
 	return fileDescriptor_282feee65b187334, []int{1}
 }
+
 func (m *PortNetworkPolicy) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PortNetworkPolicy.Unmarshal(m, b)
 }
 func (m *PortNetworkPolicy) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_PortNetworkPolicy.Marshal(b, m, deterministic)
 }
-func (dst *PortNetworkPolicy) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_PortNetworkPolicy.Merge(dst, src)
+func (m *PortNetworkPolicy) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_PortNetworkPolicy.Merge(m, src)
 }
 func (m *PortNetworkPolicy) XXX_Size() int {
 	return xxx_messageInfo_PortNetworkPolicy.Size(m)
@@ -197,14 +201,15 @@ func (*PortNetworkPolicyRule) ProtoMessage()    {}
 func (*PortNetworkPolicyRule) Descriptor() ([]byte, []int) {
 	return fileDescriptor_282feee65b187334, []int{2}
 }
+
 func (m *PortNetworkPolicyRule) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PortNetworkPolicyRule.Unmarshal(m, b)
 }
 func (m *PortNetworkPolicyRule) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_PortNetworkPolicyRule.Marshal(b, m, deterministic)
 }
-func (dst *PortNetworkPolicyRule) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_PortNetworkPolicyRule.Merge(dst, src)
+func (m *PortNetworkPolicyRule) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_PortNetworkPolicyRule.Merge(m, src)
 }
 func (m *PortNetworkPolicyRule) XXX_Size() int {
 	return xxx_messageInfo_PortNetworkPolicyRule.Size(m)
@@ -350,14 +355,15 @@ func (*HttpNetworkPolicyRules) ProtoMessage()    {}
 func (*HttpNetworkPolicyRules) Descriptor() ([]byte, []int) {
 	return fileDescriptor_282feee65b187334, []int{3}
 }
+
 func (m *HttpNetworkPolicyRules) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HttpNetworkPolicyRules.Unmarshal(m, b)
 }
 func (m *HttpNetworkPolicyRules) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_HttpNetworkPolicyRules.Marshal(b, m, deterministic)
 }
-func (dst *HttpNetworkPolicyRules) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HttpNetworkPolicyRules.Merge(dst, src)
+func (m *HttpNetworkPolicyRules) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HttpNetworkPolicyRules.Merge(m, src)
 }
 func (m *HttpNetworkPolicyRules) XXX_Size() int {
 	return xxx_messageInfo_HttpNetworkPolicyRules.Size(m)
@@ -402,14 +408,15 @@ func (*HttpNetworkPolicyRule) ProtoMessage()    {}
 func (*HttpNetworkPolicyRule) Descriptor() ([]byte, []int) {
 	return fileDescriptor_282feee65b187334, []int{4}
 }
+
 func (m *HttpNetworkPolicyRule) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HttpNetworkPolicyRule.Unmarshal(m, b)
 }
 func (m *HttpNetworkPolicyRule) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_HttpNetworkPolicyRule.Marshal(b, m, deterministic)
 }
-func (dst *HttpNetworkPolicyRule) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HttpNetworkPolicyRule.Merge(dst, src)
+func (m *HttpNetworkPolicyRule) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HttpNetworkPolicyRule.Merge(m, src)
 }
 func (m *HttpNetworkPolicyRule) XXX_Size() int {
 	return xxx_messageInfo_HttpNetworkPolicyRule.Size(m)
@@ -444,14 +451,15 @@ func (*KafkaNetworkPolicyRules) ProtoMessage()    {}
 func (*KafkaNetworkPolicyRules) Descriptor() ([]byte, []int) {
 	return fileDescriptor_282feee65b187334, []int{5}
 }
+
 func (m *KafkaNetworkPolicyRules) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_KafkaNetworkPolicyRules.Unmarshal(m, b)
 }
 func (m *KafkaNetworkPolicyRules) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_KafkaNetworkPolicyRules.Marshal(b, m, deterministic)
 }
-func (dst *KafkaNetworkPolicyRules) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_KafkaNetworkPolicyRules.Merge(dst, src)
+func (m *KafkaNetworkPolicyRules) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_KafkaNetworkPolicyRules.Merge(m, src)
 }
 func (m *KafkaNetworkPolicyRules) XXX_Size() int {
 	return xxx_messageInfo_KafkaNetworkPolicyRules.Size(m)
@@ -500,14 +508,15 @@ func (*KafkaNetworkPolicyRule) ProtoMessage()    {}
 func (*KafkaNetworkPolicyRule) Descriptor() ([]byte, []int) {
 	return fileDescriptor_282feee65b187334, []int{6}
 }
+
 func (m *KafkaNetworkPolicyRule) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_KafkaNetworkPolicyRule.Unmarshal(m, b)
 }
 func (m *KafkaNetworkPolicyRule) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_KafkaNetworkPolicyRule.Marshal(b, m, deterministic)
 }
-func (dst *KafkaNetworkPolicyRule) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_KafkaNetworkPolicyRule.Merge(dst, src)
+func (m *KafkaNetworkPolicyRule) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_KafkaNetworkPolicyRule.Merge(m, src)
 }
 func (m *KafkaNetworkPolicyRule) XXX_Size() int {
 	return xxx_messageInfo_KafkaNetworkPolicyRule.Size(m)

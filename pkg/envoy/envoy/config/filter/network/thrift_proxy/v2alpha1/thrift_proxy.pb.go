@@ -3,11 +3,13 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import _ "github.com/gogo/protobuf/gogoproto"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/golang/protobuf/proto"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -120,14 +122,15 @@ func (*ThriftProxy) ProtoMessage()    {}
 func (*ThriftProxy) Descriptor() ([]byte, []int) {
 	return fileDescriptor_e8fab7646d88fc90, []int{0}
 }
+
 func (m *ThriftProxy) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ThriftProxy.Unmarshal(m, b)
 }
 func (m *ThriftProxy) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ThriftProxy.Marshal(b, m, deterministic)
 }
-func (dst *ThriftProxy) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ThriftProxy.Merge(dst, src)
+func (m *ThriftProxy) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ThriftProxy.Merge(m, src)
 }
 func (m *ThriftProxy) XXX_Size() int {
 	return xxx_messageInfo_ThriftProxy.Size(m)
@@ -192,14 +195,15 @@ func (*ThriftProtocolOptions) ProtoMessage()    {}
 func (*ThriftProtocolOptions) Descriptor() ([]byte, []int) {
 	return fileDescriptor_e8fab7646d88fc90, []int{1}
 }
+
 func (m *ThriftProtocolOptions) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ThriftProtocolOptions.Unmarshal(m, b)
 }
 func (m *ThriftProtocolOptions) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ThriftProtocolOptions.Marshal(b, m, deterministic)
 }
-func (dst *ThriftProtocolOptions) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ThriftProtocolOptions.Merge(dst, src)
+func (m *ThriftProtocolOptions) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ThriftProtocolOptions.Merge(m, src)
 }
 func (m *ThriftProtocolOptions) XXX_Size() int {
 	return xxx_messageInfo_ThriftProtocolOptions.Size(m)

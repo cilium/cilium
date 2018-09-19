@@ -3,10 +3,12 @@
 
 package matcher
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -95,14 +97,15 @@ func (*MetadataMatcher) ProtoMessage()    {}
 func (*MetadataMatcher) Descriptor() ([]byte, []int) {
 	return fileDescriptor_865eaf6a1e9e266d, []int{0}
 }
+
 func (m *MetadataMatcher) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_MetadataMatcher.Unmarshal(m, b)
 }
 func (m *MetadataMatcher) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_MetadataMatcher.Marshal(b, m, deterministic)
 }
-func (dst *MetadataMatcher) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_MetadataMatcher.Merge(dst, src)
+func (m *MetadataMatcher) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MetadataMatcher.Merge(m, src)
 }
 func (m *MetadataMatcher) XXX_Size() int {
 	return xxx_messageInfo_MetadataMatcher.Size(m)
@@ -152,14 +155,15 @@ func (*MetadataMatcher_PathSegment) ProtoMessage()    {}
 func (*MetadataMatcher_PathSegment) Descriptor() ([]byte, []int) {
 	return fileDescriptor_865eaf6a1e9e266d, []int{0, 0}
 }
+
 func (m *MetadataMatcher_PathSegment) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_MetadataMatcher_PathSegment.Unmarshal(m, b)
 }
 func (m *MetadataMatcher_PathSegment) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_MetadataMatcher_PathSegment.Marshal(b, m, deterministic)
 }
-func (dst *MetadataMatcher_PathSegment) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_MetadataMatcher_PathSegment.Merge(dst, src)
+func (m *MetadataMatcher_PathSegment) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MetadataMatcher_PathSegment.Merge(m, src)
 }
 func (m *MetadataMatcher_PathSegment) XXX_Size() int {
 	return xxx_messageInfo_MetadataMatcher_PathSegment.Size(m)

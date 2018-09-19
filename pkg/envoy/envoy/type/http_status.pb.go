@@ -3,10 +3,12 @@
 
 package envoy_type
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -228,14 +230,15 @@ func (*HttpStatus) ProtoMessage()    {}
 func (*HttpStatus) Descriptor() ([]byte, []int) {
 	return fileDescriptor_7544d7adacd3389b, []int{0}
 }
+
 func (m *HttpStatus) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HttpStatus.Unmarshal(m, b)
 }
 func (m *HttpStatus) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_HttpStatus.Marshal(b, m, deterministic)
 }
-func (dst *HttpStatus) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HttpStatus.Merge(dst, src)
+func (m *HttpStatus) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HttpStatus.Merge(m, src)
 }
 func (m *HttpStatus) XXX_Size() int {
 	return xxx_messageInfo_HttpStatus.Size(m)

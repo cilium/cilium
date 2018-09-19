@@ -3,11 +3,13 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import timestamp "github.com/golang/protobuf/ptypes/timestamp"
+import (
+	fmt "fmt"
+	core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+	proto "github.com/golang/protobuf/proto"
+	timestamp "github.com/golang/protobuf/ptypes/timestamp"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -40,14 +42,15 @@ func (*Connection) ProtoMessage()    {}
 func (*Connection) Descriptor() ([]byte, []int) {
 	return fileDescriptor_3c47a37237ee2c93, []int{0}
 }
+
 func (m *Connection) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Connection.Unmarshal(m, b)
 }
 func (m *Connection) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Connection.Marshal(b, m, deterministic)
 }
-func (dst *Connection) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Connection.Merge(dst, src)
+func (m *Connection) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Connection.Merge(m, src)
 }
 func (m *Connection) XXX_Size() int {
 	return xxx_messageInfo_Connection.Size(m)
@@ -100,14 +103,15 @@ func (*Event) ProtoMessage()    {}
 func (*Event) Descriptor() ([]byte, []int) {
 	return fileDescriptor_3c47a37237ee2c93, []int{1}
 }
+
 func (m *Event) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Event.Unmarshal(m, b)
 }
 func (m *Event) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Event.Marshal(b, m, deterministic)
 }
-func (dst *Event) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Event.Merge(dst, src)
+func (m *Event) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Event.Merge(m, src)
 }
 func (m *Event) XXX_Size() int {
 	return xxx_messageInfo_Event.Size(m)
@@ -251,14 +255,15 @@ func (*Event_Read) ProtoMessage()    {}
 func (*Event_Read) Descriptor() ([]byte, []int) {
 	return fileDescriptor_3c47a37237ee2c93, []int{1, 0}
 }
+
 func (m *Event_Read) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Event_Read.Unmarshal(m, b)
 }
 func (m *Event_Read) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Event_Read.Marshal(b, m, deterministic)
 }
-func (dst *Event_Read) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Event_Read.Merge(dst, src)
+func (m *Event_Read) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Event_Read.Merge(m, src)
 }
 func (m *Event_Read) XXX_Size() int {
 	return xxx_messageInfo_Event_Read.Size(m)
@@ -293,14 +298,15 @@ func (*Event_Write) ProtoMessage()    {}
 func (*Event_Write) Descriptor() ([]byte, []int) {
 	return fileDescriptor_3c47a37237ee2c93, []int{1, 1}
 }
+
 func (m *Event_Write) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Event_Write.Unmarshal(m, b)
 }
 func (m *Event_Write) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Event_Write.Marshal(b, m, deterministic)
 }
-func (dst *Event_Write) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Event_Write.Merge(dst, src)
+func (m *Event_Write) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Event_Write.Merge(m, src)
 }
 func (m *Event_Write) XXX_Size() int {
 	return xxx_messageInfo_Event_Write.Size(m)
@@ -344,14 +350,15 @@ func (*Trace) ProtoMessage()    {}
 func (*Trace) Descriptor() ([]byte, []int) {
 	return fileDescriptor_3c47a37237ee2c93, []int{2}
 }
+
 func (m *Trace) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Trace.Unmarshal(m, b)
 }
 func (m *Trace) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Trace.Marshal(b, m, deterministic)
 }
-func (dst *Trace) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Trace.Merge(dst, src)
+func (m *Trace) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Trace.Merge(m, src)
 }
 func (m *Trace) XXX_Size() int {
 	return xxx_messageInfo_Trace.Size(m)

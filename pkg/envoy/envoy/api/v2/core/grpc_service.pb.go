@@ -3,14 +3,16 @@
 
 package core
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import _ "github.com/gogo/protobuf/gogoproto"
-import duration "github.com/golang/protobuf/ptypes/duration"
-import empty "github.com/golang/protobuf/ptypes/empty"
-import _struct "github.com/golang/protobuf/ptypes/struct"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/golang/protobuf/proto"
+	duration "github.com/golang/protobuf/ptypes/duration"
+	empty "github.com/golang/protobuf/ptypes/empty"
+	_struct "github.com/golang/protobuf/ptypes/struct"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -48,14 +50,15 @@ func (*GrpcService) ProtoMessage()    {}
 func (*GrpcService) Descriptor() ([]byte, []int) {
 	return fileDescriptor_936cbcb9830ffdc2, []int{0}
 }
+
 func (m *GrpcService) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GrpcService.Unmarshal(m, b)
 }
 func (m *GrpcService) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GrpcService.Marshal(b, m, deterministic)
 }
-func (dst *GrpcService) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GrpcService.Merge(dst, src)
+func (m *GrpcService) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GrpcService.Merge(m, src)
 }
 func (m *GrpcService) XXX_Size() int {
 	return xxx_messageInfo_GrpcService.Size(m)
@@ -207,14 +210,15 @@ func (*GrpcService_EnvoyGrpc) ProtoMessage()    {}
 func (*GrpcService_EnvoyGrpc) Descriptor() ([]byte, []int) {
 	return fileDescriptor_936cbcb9830ffdc2, []int{0, 0}
 }
+
 func (m *GrpcService_EnvoyGrpc) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GrpcService_EnvoyGrpc.Unmarshal(m, b)
 }
 func (m *GrpcService_EnvoyGrpc) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GrpcService_EnvoyGrpc.Marshal(b, m, deterministic)
 }
-func (dst *GrpcService_EnvoyGrpc) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GrpcService_EnvoyGrpc.Merge(dst, src)
+func (m *GrpcService_EnvoyGrpc) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GrpcService_EnvoyGrpc.Merge(m, src)
 }
 func (m *GrpcService_EnvoyGrpc) XXX_Size() int {
 	return xxx_messageInfo_GrpcService_EnvoyGrpc.Size(m)
@@ -270,14 +274,15 @@ func (*GrpcService_GoogleGrpc) ProtoMessage()    {}
 func (*GrpcService_GoogleGrpc) Descriptor() ([]byte, []int) {
 	return fileDescriptor_936cbcb9830ffdc2, []int{0, 1}
 }
+
 func (m *GrpcService_GoogleGrpc) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GrpcService_GoogleGrpc.Unmarshal(m, b)
 }
 func (m *GrpcService_GoogleGrpc) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GrpcService_GoogleGrpc.Marshal(b, m, deterministic)
 }
-func (dst *GrpcService_GoogleGrpc) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GrpcService_GoogleGrpc.Merge(dst, src)
+func (m *GrpcService_GoogleGrpc) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GrpcService_GoogleGrpc.Merge(m, src)
 }
 func (m *GrpcService_GoogleGrpc) XXX_Size() int {
 	return xxx_messageInfo_GrpcService_GoogleGrpc.Size(m)
@@ -349,14 +354,15 @@ func (*GrpcService_GoogleGrpc_SslCredentials) ProtoMessage()    {}
 func (*GrpcService_GoogleGrpc_SslCredentials) Descriptor() ([]byte, []int) {
 	return fileDescriptor_936cbcb9830ffdc2, []int{0, 1, 0}
 }
+
 func (m *GrpcService_GoogleGrpc_SslCredentials) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GrpcService_GoogleGrpc_SslCredentials.Unmarshal(m, b)
 }
 func (m *GrpcService_GoogleGrpc_SslCredentials) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GrpcService_GoogleGrpc_SslCredentials.Marshal(b, m, deterministic)
 }
-func (dst *GrpcService_GoogleGrpc_SslCredentials) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GrpcService_GoogleGrpc_SslCredentials.Merge(dst, src)
+func (m *GrpcService_GoogleGrpc_SslCredentials) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GrpcService_GoogleGrpc_SslCredentials.Merge(m, src)
 }
 func (m *GrpcService_GoogleGrpc_SslCredentials) XXX_Size() int {
 	return xxx_messageInfo_GrpcService_GoogleGrpc_SslCredentials.Size(m)
@@ -408,14 +414,15 @@ func (*GrpcService_GoogleGrpc_ChannelCredentials) ProtoMessage()    {}
 func (*GrpcService_GoogleGrpc_ChannelCredentials) Descriptor() ([]byte, []int) {
 	return fileDescriptor_936cbcb9830ffdc2, []int{0, 1, 1}
 }
+
 func (m *GrpcService_GoogleGrpc_ChannelCredentials) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GrpcService_GoogleGrpc_ChannelCredentials.Unmarshal(m, b)
 }
 func (m *GrpcService_GoogleGrpc_ChannelCredentials) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GrpcService_GoogleGrpc_ChannelCredentials.Marshal(b, m, deterministic)
 }
-func (dst *GrpcService_GoogleGrpc_ChannelCredentials) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GrpcService_GoogleGrpc_ChannelCredentials.Merge(dst, src)
+func (m *GrpcService_GoogleGrpc_ChannelCredentials) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GrpcService_GoogleGrpc_ChannelCredentials.Merge(m, src)
 }
 func (m *GrpcService_GoogleGrpc_ChannelCredentials) XXX_Size() int {
 	return xxx_messageInfo_GrpcService_GoogleGrpc_ChannelCredentials.Size(m)
@@ -561,14 +568,15 @@ func (*GrpcService_GoogleGrpc_CallCredentials) ProtoMessage()    {}
 func (*GrpcService_GoogleGrpc_CallCredentials) Descriptor() ([]byte, []int) {
 	return fileDescriptor_936cbcb9830ffdc2, []int{0, 1, 2}
 }
+
 func (m *GrpcService_GoogleGrpc_CallCredentials) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GrpcService_GoogleGrpc_CallCredentials.Unmarshal(m, b)
 }
 func (m *GrpcService_GoogleGrpc_CallCredentials) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GrpcService_GoogleGrpc_CallCredentials.Marshal(b, m, deterministic)
 }
-func (dst *GrpcService_GoogleGrpc_CallCredentials) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GrpcService_GoogleGrpc_CallCredentials.Merge(dst, src)
+func (m *GrpcService_GoogleGrpc_CallCredentials) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GrpcService_GoogleGrpc_CallCredentials.Merge(m, src)
 }
 func (m *GrpcService_GoogleGrpc_CallCredentials) XXX_Size() int {
 	return xxx_messageInfo_GrpcService_GoogleGrpc_CallCredentials.Size(m)
@@ -834,14 +842,15 @@ func (*GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials
 func (*GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials) Descriptor() ([]byte, []int) {
 	return fileDescriptor_936cbcb9830ffdc2, []int{0, 1, 2, 0}
 }
+
 func (m *GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials.Unmarshal(m, b)
 }
 func (m *GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials.Marshal(b, m, deterministic)
 }
-func (dst *GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials.Merge(dst, src)
+func (m *GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials.Merge(m, src)
 }
 func (m *GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials) XXX_Size() int {
 	return xxx_messageInfo_GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials.Size(m)
@@ -884,14 +893,15 @@ func (*GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials) ProtoMessage
 func (*GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials) Descriptor() ([]byte, []int) {
 	return fileDescriptor_936cbcb9830ffdc2, []int{0, 1, 2, 1}
 }
+
 func (m *GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials.Unmarshal(m, b)
 }
 func (m *GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials.Marshal(b, m, deterministic)
 }
-func (dst *GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials.Merge(dst, src)
+func (m *GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials.Merge(m, src)
 }
 func (m *GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials) XXX_Size() int {
 	return xxx_messageInfo_GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials.Size(m)
@@ -934,14 +944,15 @@ func (*GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin) Pro
 func (*GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin) Descriptor() ([]byte, []int) {
 	return fileDescriptor_936cbcb9830ffdc2, []int{0, 1, 2, 2}
 }
+
 func (m *GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin.Unmarshal(m, b)
 }
 func (m *GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin.Marshal(b, m, deterministic)
 }
-func (dst *GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin.Merge(dst, src)
+func (m *GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin.Merge(m, src)
 }
 func (m *GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin) XXX_Size() int {
 	return xxx_messageInfo_GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin.Size(m)

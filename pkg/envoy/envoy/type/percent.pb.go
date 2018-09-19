@@ -3,11 +3,13 @@
 
 package envoy_type
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import _ "github.com/gogo/protobuf/gogoproto"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/golang/protobuf/proto"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -72,14 +74,15 @@ func (*Percent) ProtoMessage()    {}
 func (*Percent) Descriptor() ([]byte, []int) {
 	return fileDescriptor_89401f90eb07307e, []int{0}
 }
+
 func (m *Percent) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Percent.Unmarshal(m, b)
 }
 func (m *Percent) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Percent.Marshal(b, m, deterministic)
 }
-func (dst *Percent) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Percent.Merge(dst, src)
+func (m *Percent) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Percent.Merge(m, src)
 }
 func (m *Percent) XXX_Size() int {
 	return xxx_messageInfo_Percent.Size(m)
@@ -120,14 +123,15 @@ func (*FractionalPercent) ProtoMessage()    {}
 func (*FractionalPercent) Descriptor() ([]byte, []int) {
 	return fileDescriptor_89401f90eb07307e, []int{1}
 }
+
 func (m *FractionalPercent) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FractionalPercent.Unmarshal(m, b)
 }
 func (m *FractionalPercent) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_FractionalPercent.Marshal(b, m, deterministic)
 }
-func (dst *FractionalPercent) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_FractionalPercent.Merge(dst, src)
+func (m *FractionalPercent) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FractionalPercent.Merge(m, src)
 }
 func (m *FractionalPercent) XXX_Size() int {
 	return xxx_messageInfo_FractionalPercent.Size(m)

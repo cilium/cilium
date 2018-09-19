@@ -3,12 +3,14 @@
 
 package core
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import _ "github.com/gogo/protobuf/gogoproto"
-import duration "github.com/golang/protobuf/ptypes/duration"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/golang/protobuf/proto"
+	duration "github.com/golang/protobuf/ptypes/duration"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -53,14 +55,15 @@ func (*HttpUri) ProtoMessage()    {}
 func (*HttpUri) Descriptor() ([]byte, []int) {
 	return fileDescriptor_1660b946db74c078, []int{0}
 }
+
 func (m *HttpUri) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HttpUri.Unmarshal(m, b)
 }
 func (m *HttpUri) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_HttpUri.Marshal(b, m, deterministic)
 }
-func (dst *HttpUri) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HttpUri.Merge(dst, src)
+func (m *HttpUri) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HttpUri.Merge(m, src)
 }
 func (m *HttpUri) XXX_Size() int {
 	return xxx_messageInfo_HttpUri.Size(m)

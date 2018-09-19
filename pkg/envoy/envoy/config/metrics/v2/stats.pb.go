@@ -3,13 +3,15 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import _struct "github.com/golang/protobuf/ptypes/struct"
-import wrappers "github.com/golang/protobuf/ptypes/wrappers"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+	proto "github.com/golang/protobuf/proto"
+	_struct "github.com/golang/protobuf/ptypes/struct"
+	wrappers "github.com/golang/protobuf/ptypes/wrappers"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -49,14 +51,15 @@ func (*StatsSink) ProtoMessage()    {}
 func (*StatsSink) Descriptor() ([]byte, []int) {
 	return fileDescriptor_51e6d6532209c486, []int{0}
 }
+
 func (m *StatsSink) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_StatsSink.Unmarshal(m, b)
 }
 func (m *StatsSink) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_StatsSink.Marshal(b, m, deterministic)
 }
-func (dst *StatsSink) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_StatsSink.Merge(dst, src)
+func (m *StatsSink) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_StatsSink.Merge(m, src)
 }
 func (m *StatsSink) XXX_Size() int {
 	return xxx_messageInfo_StatsSink.Size(m)
@@ -115,14 +118,15 @@ func (*StatsConfig) ProtoMessage()    {}
 func (*StatsConfig) Descriptor() ([]byte, []int) {
 	return fileDescriptor_51e6d6532209c486, []int{1}
 }
+
 func (m *StatsConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_StatsConfig.Unmarshal(m, b)
 }
 func (m *StatsConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_StatsConfig.Marshal(b, m, deterministic)
 }
-func (dst *StatsConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_StatsConfig.Merge(dst, src)
+func (m *StatsConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_StatsConfig.Merge(m, src)
 }
 func (m *StatsConfig) XXX_Size() int {
 	return xxx_messageInfo_StatsConfig.Size(m)
@@ -181,14 +185,15 @@ func (*TagSpecifier) ProtoMessage()    {}
 func (*TagSpecifier) Descriptor() ([]byte, []int) {
 	return fileDescriptor_51e6d6532209c486, []int{2}
 }
+
 func (m *TagSpecifier) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TagSpecifier.Unmarshal(m, b)
 }
 func (m *TagSpecifier) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_TagSpecifier.Marshal(b, m, deterministic)
 }
-func (dst *TagSpecifier) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TagSpecifier.Merge(dst, src)
+func (m *TagSpecifier) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TagSpecifier.Merge(m, src)
 }
 func (m *TagSpecifier) XXX_Size() int {
 	return xxx_messageInfo_TagSpecifier.Size(m)
@@ -354,14 +359,15 @@ func (*StatsdSink) ProtoMessage()    {}
 func (*StatsdSink) Descriptor() ([]byte, []int) {
 	return fileDescriptor_51e6d6532209c486, []int{3}
 }
+
 func (m *StatsdSink) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_StatsdSink.Unmarshal(m, b)
 }
 func (m *StatsdSink) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_StatsdSink.Marshal(b, m, deterministic)
 }
-func (dst *StatsdSink) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_StatsdSink.Merge(dst, src)
+func (m *StatsdSink) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_StatsdSink.Merge(m, src)
 }
 func (m *StatsdSink) XXX_Size() int {
 	return xxx_messageInfo_StatsdSink.Size(m)
@@ -506,14 +512,15 @@ func (*DogStatsdSink) ProtoMessage()    {}
 func (*DogStatsdSink) Descriptor() ([]byte, []int) {
 	return fileDescriptor_51e6d6532209c486, []int{4}
 }
+
 func (m *DogStatsdSink) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DogStatsdSink.Unmarshal(m, b)
 }
 func (m *DogStatsdSink) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_DogStatsdSink.Marshal(b, m, deterministic)
 }
-func (dst *DogStatsdSink) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_DogStatsdSink.Merge(dst, src)
+func (m *DogStatsdSink) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DogStatsdSink.Merge(m, src)
 }
 func (m *DogStatsdSink) XXX_Size() int {
 	return xxx_messageInfo_DogStatsdSink.Size(m)
@@ -636,14 +643,15 @@ func (*HystrixSink) ProtoMessage()    {}
 func (*HystrixSink) Descriptor() ([]byte, []int) {
 	return fileDescriptor_51e6d6532209c486, []int{5}
 }
+
 func (m *HystrixSink) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HystrixSink.Unmarshal(m, b)
 }
 func (m *HystrixSink) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_HystrixSink.Marshal(b, m, deterministic)
 }
-func (dst *HystrixSink) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HystrixSink.Merge(dst, src)
+func (m *HystrixSink) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HystrixSink.Merge(m, src)
 }
 func (m *HystrixSink) XXX_Size() int {
 	return xxx_messageInfo_HystrixSink.Size(m)

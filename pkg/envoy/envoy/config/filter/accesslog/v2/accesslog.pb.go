@@ -3,14 +3,16 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import route "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/route"
-import _type "github.com/cilium/cilium/pkg/envoy/envoy/type"
-import _struct "github.com/golang/protobuf/ptypes/struct"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+	route "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/route"
+	_type "github.com/cilium/cilium/pkg/envoy/envoy/type"
+	proto "github.com/golang/protobuf/proto"
+	_struct "github.com/golang/protobuf/ptypes/struct"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -82,14 +84,15 @@ func (*AccessLog) ProtoMessage()    {}
 func (*AccessLog) Descriptor() ([]byte, []int) {
 	return fileDescriptor_67bfd82f8b509e9f, []int{0}
 }
+
 func (m *AccessLog) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AccessLog.Unmarshal(m, b)
 }
 func (m *AccessLog) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_AccessLog.Marshal(b, m, deterministic)
 }
-func (dst *AccessLog) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_AccessLog.Merge(dst, src)
+func (m *AccessLog) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AccessLog.Merge(m, src)
 }
 func (m *AccessLog) XXX_Size() int {
 	return xxx_messageInfo_AccessLog.Size(m)
@@ -144,14 +147,15 @@ func (*AccessLogFilter) ProtoMessage()    {}
 func (*AccessLogFilter) Descriptor() ([]byte, []int) {
 	return fileDescriptor_67bfd82f8b509e9f, []int{1}
 }
+
 func (m *AccessLogFilter) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AccessLogFilter.Unmarshal(m, b)
 }
 func (m *AccessLogFilter) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_AccessLogFilter.Marshal(b, m, deterministic)
 }
-func (dst *AccessLogFilter) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_AccessLogFilter.Merge(dst, src)
+func (m *AccessLogFilter) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AccessLogFilter.Merge(m, src)
 }
 func (m *AccessLogFilter) XXX_Size() int {
 	return xxx_messageInfo_AccessLogFilter.Size(m)
@@ -514,14 +518,15 @@ func (*ComparisonFilter) ProtoMessage()    {}
 func (*ComparisonFilter) Descriptor() ([]byte, []int) {
 	return fileDescriptor_67bfd82f8b509e9f, []int{2}
 }
+
 func (m *ComparisonFilter) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ComparisonFilter.Unmarshal(m, b)
 }
 func (m *ComparisonFilter) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ComparisonFilter.Marshal(b, m, deterministic)
 }
-func (dst *ComparisonFilter) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ComparisonFilter.Merge(dst, src)
+func (m *ComparisonFilter) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ComparisonFilter.Merge(m, src)
 }
 func (m *ComparisonFilter) XXX_Size() int {
 	return xxx_messageInfo_ComparisonFilter.Size(m)
@@ -561,14 +566,15 @@ func (*StatusCodeFilter) ProtoMessage()    {}
 func (*StatusCodeFilter) Descriptor() ([]byte, []int) {
 	return fileDescriptor_67bfd82f8b509e9f, []int{3}
 }
+
 func (m *StatusCodeFilter) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_StatusCodeFilter.Unmarshal(m, b)
 }
 func (m *StatusCodeFilter) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_StatusCodeFilter.Marshal(b, m, deterministic)
 }
-func (dst *StatusCodeFilter) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_StatusCodeFilter.Merge(dst, src)
+func (m *StatusCodeFilter) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_StatusCodeFilter.Merge(m, src)
 }
 func (m *StatusCodeFilter) XXX_Size() int {
 	return xxx_messageInfo_StatusCodeFilter.Size(m)
@@ -601,14 +607,15 @@ func (*DurationFilter) ProtoMessage()    {}
 func (*DurationFilter) Descriptor() ([]byte, []int) {
 	return fileDescriptor_67bfd82f8b509e9f, []int{4}
 }
+
 func (m *DurationFilter) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DurationFilter.Unmarshal(m, b)
 }
 func (m *DurationFilter) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_DurationFilter.Marshal(b, m, deterministic)
 }
-func (dst *DurationFilter) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_DurationFilter.Merge(dst, src)
+func (m *DurationFilter) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DurationFilter.Merge(m, src)
 }
 func (m *DurationFilter) XXX_Size() int {
 	return xxx_messageInfo_DurationFilter.Size(m)
@@ -640,14 +647,15 @@ func (*NotHealthCheckFilter) ProtoMessage()    {}
 func (*NotHealthCheckFilter) Descriptor() ([]byte, []int) {
 	return fileDescriptor_67bfd82f8b509e9f, []int{5}
 }
+
 func (m *NotHealthCheckFilter) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_NotHealthCheckFilter.Unmarshal(m, b)
 }
 func (m *NotHealthCheckFilter) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_NotHealthCheckFilter.Marshal(b, m, deterministic)
 }
-func (dst *NotHealthCheckFilter) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_NotHealthCheckFilter.Merge(dst, src)
+func (m *NotHealthCheckFilter) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_NotHealthCheckFilter.Merge(m, src)
 }
 func (m *NotHealthCheckFilter) XXX_Size() int {
 	return xxx_messageInfo_NotHealthCheckFilter.Size(m)
@@ -672,14 +680,15 @@ func (*TraceableFilter) ProtoMessage()    {}
 func (*TraceableFilter) Descriptor() ([]byte, []int) {
 	return fileDescriptor_67bfd82f8b509e9f, []int{6}
 }
+
 func (m *TraceableFilter) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TraceableFilter.Unmarshal(m, b)
 }
 func (m *TraceableFilter) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_TraceableFilter.Marshal(b, m, deterministic)
 }
-func (dst *TraceableFilter) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TraceableFilter.Merge(dst, src)
+func (m *TraceableFilter) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TraceableFilter.Merge(m, src)
 }
 func (m *TraceableFilter) XXX_Size() int {
 	return xxx_messageInfo_TraceableFilter.Size(m)
@@ -721,14 +730,15 @@ func (*RuntimeFilter) ProtoMessage()    {}
 func (*RuntimeFilter) Descriptor() ([]byte, []int) {
 	return fileDescriptor_67bfd82f8b509e9f, []int{7}
 }
+
 func (m *RuntimeFilter) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RuntimeFilter.Unmarshal(m, b)
 }
 func (m *RuntimeFilter) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RuntimeFilter.Marshal(b, m, deterministic)
 }
-func (dst *RuntimeFilter) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RuntimeFilter.Merge(dst, src)
+func (m *RuntimeFilter) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RuntimeFilter.Merge(m, src)
 }
 func (m *RuntimeFilter) XXX_Size() int {
 	return xxx_messageInfo_RuntimeFilter.Size(m)
@@ -776,14 +786,15 @@ func (*AndFilter) ProtoMessage()    {}
 func (*AndFilter) Descriptor() ([]byte, []int) {
 	return fileDescriptor_67bfd82f8b509e9f, []int{8}
 }
+
 func (m *AndFilter) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AndFilter.Unmarshal(m, b)
 }
 func (m *AndFilter) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_AndFilter.Marshal(b, m, deterministic)
 }
-func (dst *AndFilter) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_AndFilter.Merge(dst, src)
+func (m *AndFilter) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AndFilter.Merge(m, src)
 }
 func (m *AndFilter) XXX_Size() int {
 	return xxx_messageInfo_AndFilter.Size(m)
@@ -817,14 +828,15 @@ func (*OrFilter) ProtoMessage()    {}
 func (*OrFilter) Descriptor() ([]byte, []int) {
 	return fileDescriptor_67bfd82f8b509e9f, []int{9}
 }
+
 func (m *OrFilter) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_OrFilter.Unmarshal(m, b)
 }
 func (m *OrFilter) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_OrFilter.Marshal(b, m, deterministic)
 }
-func (dst *OrFilter) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_OrFilter.Merge(dst, src)
+func (m *OrFilter) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_OrFilter.Merge(m, src)
 }
 func (m *OrFilter) XXX_Size() int {
 	return xxx_messageInfo_OrFilter.Size(m)
@@ -858,14 +870,15 @@ func (*HeaderFilter) ProtoMessage()    {}
 func (*HeaderFilter) Descriptor() ([]byte, []int) {
 	return fileDescriptor_67bfd82f8b509e9f, []int{10}
 }
+
 func (m *HeaderFilter) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HeaderFilter.Unmarshal(m, b)
 }
 func (m *HeaderFilter) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_HeaderFilter.Marshal(b, m, deterministic)
 }
-func (dst *HeaderFilter) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HeaderFilter.Merge(dst, src)
+func (m *HeaderFilter) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HeaderFilter.Merge(m, src)
 }
 func (m *HeaderFilter) XXX_Size() int {
 	return xxx_messageInfo_HeaderFilter.Size(m)
@@ -902,14 +915,15 @@ func (*ResponseFlagFilter) ProtoMessage()    {}
 func (*ResponseFlagFilter) Descriptor() ([]byte, []int) {
 	return fileDescriptor_67bfd82f8b509e9f, []int{11}
 }
+
 func (m *ResponseFlagFilter) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ResponseFlagFilter.Unmarshal(m, b)
 }
 func (m *ResponseFlagFilter) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ResponseFlagFilter.Marshal(b, m, deterministic)
 }
-func (dst *ResponseFlagFilter) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ResponseFlagFilter.Merge(dst, src)
+func (m *ResponseFlagFilter) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ResponseFlagFilter.Merge(m, src)
 }
 func (m *ResponseFlagFilter) XXX_Size() int {
 	return xxx_messageInfo_ResponseFlagFilter.Size(m)

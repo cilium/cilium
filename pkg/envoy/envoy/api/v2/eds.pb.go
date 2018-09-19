@@ -3,15 +3,17 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import endpoint "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/endpoint"
-import _type "github.com/cilium/cilium/pkg/envoy/envoy/type"
-import _ "github.com/gogo/protobuf/gogoproto"
-import wrappers "github.com/golang/protobuf/ptypes/wrappers"
-import _ "github.com/lyft/protoc-gen-validate/validate"
-import _ "google.golang.org/genproto/googleapis/api/annotations"
+import (
+	fmt "fmt"
+	endpoint "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/endpoint"
+	_type "github.com/cilium/cilium/pkg/envoy/envoy/type"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/golang/protobuf/proto"
+	wrappers "github.com/golang/protobuf/ptypes/wrappers"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	_ "google.golang.org/genproto/googleapis/api/annotations"
+	math "math"
+)
 
 import (
 	context "golang.org/x/net/context"
@@ -58,14 +60,15 @@ func (*ClusterLoadAssignment) ProtoMessage()    {}
 func (*ClusterLoadAssignment) Descriptor() ([]byte, []int) {
 	return fileDescriptor_3c8760f38742c17f, []int{0}
 }
+
 func (m *ClusterLoadAssignment) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ClusterLoadAssignment.Unmarshal(m, b)
 }
 func (m *ClusterLoadAssignment) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ClusterLoadAssignment.Marshal(b, m, deterministic)
 }
-func (dst *ClusterLoadAssignment) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ClusterLoadAssignment.Merge(dst, src)
+func (m *ClusterLoadAssignment) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ClusterLoadAssignment.Merge(m, src)
 }
 func (m *ClusterLoadAssignment) XXX_Size() int {
 	return xxx_messageInfo_ClusterLoadAssignment.Size(m)
@@ -140,14 +143,15 @@ func (*ClusterLoadAssignment_Policy) ProtoMessage()    {}
 func (*ClusterLoadAssignment_Policy) Descriptor() ([]byte, []int) {
 	return fileDescriptor_3c8760f38742c17f, []int{0, 0}
 }
+
 func (m *ClusterLoadAssignment_Policy) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ClusterLoadAssignment_Policy.Unmarshal(m, b)
 }
 func (m *ClusterLoadAssignment_Policy) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ClusterLoadAssignment_Policy.Marshal(b, m, deterministic)
 }
-func (dst *ClusterLoadAssignment_Policy) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ClusterLoadAssignment_Policy.Merge(dst, src)
+func (m *ClusterLoadAssignment_Policy) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ClusterLoadAssignment_Policy.Merge(m, src)
 }
 func (m *ClusterLoadAssignment_Policy) XXX_Size() int {
 	return xxx_messageInfo_ClusterLoadAssignment_Policy.Size(m)
@@ -190,14 +194,15 @@ func (*ClusterLoadAssignment_Policy_DropOverload) ProtoMessage()    {}
 func (*ClusterLoadAssignment_Policy_DropOverload) Descriptor() ([]byte, []int) {
 	return fileDescriptor_3c8760f38742c17f, []int{0, 0, 0}
 }
+
 func (m *ClusterLoadAssignment_Policy_DropOverload) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ClusterLoadAssignment_Policy_DropOverload.Unmarshal(m, b)
 }
 func (m *ClusterLoadAssignment_Policy_DropOverload) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ClusterLoadAssignment_Policy_DropOverload.Marshal(b, m, deterministic)
 }
-func (dst *ClusterLoadAssignment_Policy_DropOverload) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ClusterLoadAssignment_Policy_DropOverload.Merge(dst, src)
+func (m *ClusterLoadAssignment_Policy_DropOverload) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ClusterLoadAssignment_Policy_DropOverload.Merge(m, src)
 }
 func (m *ClusterLoadAssignment_Policy_DropOverload) XXX_Size() int {
 	return xxx_messageInfo_ClusterLoadAssignment_Policy_DropOverload.Size(m)

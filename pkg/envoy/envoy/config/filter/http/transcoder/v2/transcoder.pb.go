@@ -3,10 +3,12 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -49,14 +51,15 @@ func (*GrpcJsonTranscoder) ProtoMessage()    {}
 func (*GrpcJsonTranscoder) Descriptor() ([]byte, []int) {
 	return fileDescriptor_540f2f6de8b0585c, []int{0}
 }
+
 func (m *GrpcJsonTranscoder) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GrpcJsonTranscoder.Unmarshal(m, b)
 }
 func (m *GrpcJsonTranscoder) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GrpcJsonTranscoder.Marshal(b, m, deterministic)
 }
-func (dst *GrpcJsonTranscoder) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GrpcJsonTranscoder.Merge(dst, src)
+func (m *GrpcJsonTranscoder) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GrpcJsonTranscoder.Merge(m, src)
 }
 func (m *GrpcJsonTranscoder) XXX_Size() int {
 	return xxx_messageInfo_GrpcJsonTranscoder.Size(m)
@@ -219,14 +222,15 @@ func (*GrpcJsonTranscoder_PrintOptions) ProtoMessage()    {}
 func (*GrpcJsonTranscoder_PrintOptions) Descriptor() ([]byte, []int) {
 	return fileDescriptor_540f2f6de8b0585c, []int{0, 0}
 }
+
 func (m *GrpcJsonTranscoder_PrintOptions) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GrpcJsonTranscoder_PrintOptions.Unmarshal(m, b)
 }
 func (m *GrpcJsonTranscoder_PrintOptions) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GrpcJsonTranscoder_PrintOptions.Marshal(b, m, deterministic)
 }
-func (dst *GrpcJsonTranscoder_PrintOptions) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GrpcJsonTranscoder_PrintOptions.Merge(dst, src)
+func (m *GrpcJsonTranscoder_PrintOptions) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GrpcJsonTranscoder_PrintOptions.Merge(m, src)
 }
 func (m *GrpcJsonTranscoder_PrintOptions) XXX_Size() int {
 	return xxx_messageInfo_GrpcJsonTranscoder_PrintOptions.Size(m)

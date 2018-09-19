@@ -3,14 +3,16 @@
 
 package envoy_config_filter_http_jwt_authn_v2alpha
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import route "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/route"
-import duration "github.com/golang/protobuf/ptypes/duration"
-import wrappers "github.com/golang/protobuf/ptypes/wrappers"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+	route "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/route"
+	proto "github.com/golang/protobuf/proto"
+	duration "github.com/golang/protobuf/ptypes/duration"
+	wrappers "github.com/golang/protobuf/ptypes/wrappers"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -123,14 +125,15 @@ func (*JwtProvider) ProtoMessage()    {}
 func (*JwtProvider) Descriptor() ([]byte, []int) {
 	return fileDescriptor_3d4e20dc3096b50e, []int{0}
 }
+
 func (m *JwtProvider) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_JwtProvider.Unmarshal(m, b)
 }
 func (m *JwtProvider) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_JwtProvider.Marshal(b, m, deterministic)
 }
-func (dst *JwtProvider) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_JwtProvider.Merge(dst, src)
+func (m *JwtProvider) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_JwtProvider.Merge(m, src)
 }
 func (m *JwtProvider) XXX_Size() int {
 	return xxx_messageInfo_JwtProvider.Size(m)
@@ -319,14 +322,15 @@ func (*RemoteJwks) ProtoMessage()    {}
 func (*RemoteJwks) Descriptor() ([]byte, []int) {
 	return fileDescriptor_3d4e20dc3096b50e, []int{1}
 }
+
 func (m *RemoteJwks) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RemoteJwks.Unmarshal(m, b)
 }
 func (m *RemoteJwks) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RemoteJwks.Marshal(b, m, deterministic)
 }
-func (dst *RemoteJwks) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RemoteJwks.Merge(dst, src)
+func (m *RemoteJwks) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RemoteJwks.Merge(m, src)
 }
 func (m *RemoteJwks) XXX_Size() int {
 	return xxx_messageInfo_RemoteJwks.Size(m)
@@ -370,14 +374,15 @@ func (*JwtHeader) ProtoMessage()    {}
 func (*JwtHeader) Descriptor() ([]byte, []int) {
 	return fileDescriptor_3d4e20dc3096b50e, []int{2}
 }
+
 func (m *JwtHeader) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_JwtHeader.Unmarshal(m, b)
 }
 func (m *JwtHeader) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_JwtHeader.Marshal(b, m, deterministic)
 }
-func (dst *JwtHeader) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_JwtHeader.Merge(dst, src)
+func (m *JwtHeader) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_JwtHeader.Merge(m, src)
 }
 func (m *JwtHeader) XXX_Size() int {
 	return xxx_messageInfo_JwtHeader.Size(m)
@@ -419,14 +424,15 @@ func (*ProviderWithAudiences) ProtoMessage()    {}
 func (*ProviderWithAudiences) Descriptor() ([]byte, []int) {
 	return fileDescriptor_3d4e20dc3096b50e, []int{3}
 }
+
 func (m *ProviderWithAudiences) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ProviderWithAudiences.Unmarshal(m, b)
 }
 func (m *ProviderWithAudiences) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ProviderWithAudiences.Marshal(b, m, deterministic)
 }
-func (dst *ProviderWithAudiences) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ProviderWithAudiences.Merge(dst, src)
+func (m *ProviderWithAudiences) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ProviderWithAudiences.Merge(m, src)
 }
 func (m *ProviderWithAudiences) XXX_Size() int {
 	return xxx_messageInfo_ProviderWithAudiences.Size(m)
@@ -510,14 +516,15 @@ func (*JwtRequirement) ProtoMessage()    {}
 func (*JwtRequirement) Descriptor() ([]byte, []int) {
 	return fileDescriptor_3d4e20dc3096b50e, []int{4}
 }
+
 func (m *JwtRequirement) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_JwtRequirement.Unmarshal(m, b)
 }
 func (m *JwtRequirement) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_JwtRequirement.Marshal(b, m, deterministic)
 }
-func (dst *JwtRequirement) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_JwtRequirement.Merge(dst, src)
+func (m *JwtRequirement) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_JwtRequirement.Merge(m, src)
 }
 func (m *JwtRequirement) XXX_Size() int {
 	return xxx_messageInfo_JwtRequirement.Size(m)
@@ -747,14 +754,15 @@ func (*JwtRequirementOrList) ProtoMessage()    {}
 func (*JwtRequirementOrList) Descriptor() ([]byte, []int) {
 	return fileDescriptor_3d4e20dc3096b50e, []int{5}
 }
+
 func (m *JwtRequirementOrList) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_JwtRequirementOrList.Unmarshal(m, b)
 }
 func (m *JwtRequirementOrList) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_JwtRequirementOrList.Marshal(b, m, deterministic)
 }
-func (dst *JwtRequirementOrList) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_JwtRequirementOrList.Merge(dst, src)
+func (m *JwtRequirementOrList) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_JwtRequirementOrList.Merge(m, src)
 }
 func (m *JwtRequirementOrList) XXX_Size() int {
 	return xxx_messageInfo_JwtRequirementOrList.Size(m)
@@ -788,14 +796,15 @@ func (*JwtRequirementAndList) ProtoMessage()    {}
 func (*JwtRequirementAndList) Descriptor() ([]byte, []int) {
 	return fileDescriptor_3d4e20dc3096b50e, []int{6}
 }
+
 func (m *JwtRequirementAndList) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_JwtRequirementAndList.Unmarshal(m, b)
 }
 func (m *JwtRequirementAndList) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_JwtRequirementAndList.Marshal(b, m, deterministic)
 }
-func (dst *JwtRequirementAndList) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_JwtRequirementAndList.Merge(dst, src)
+func (m *JwtRequirementAndList) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_JwtRequirementAndList.Merge(m, src)
 }
 func (m *JwtRequirementAndList) XXX_Size() int {
 	return xxx_messageInfo_JwtRequirementAndList.Size(m)
@@ -859,14 +868,15 @@ func (*RequirementRule) ProtoMessage()    {}
 func (*RequirementRule) Descriptor() ([]byte, []int) {
 	return fileDescriptor_3d4e20dc3096b50e, []int{7}
 }
+
 func (m *RequirementRule) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RequirementRule.Unmarshal(m, b)
 }
 func (m *RequirementRule) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RequirementRule.Marshal(b, m, deterministic)
 }
-func (dst *RequirementRule) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RequirementRule.Merge(dst, src)
+func (m *RequirementRule) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RequirementRule.Merge(m, src)
 }
 func (m *RequirementRule) XXX_Size() int {
 	return xxx_messageInfo_RequirementRule.Size(m)
@@ -991,14 +1001,15 @@ func (*JwtAuthentication) ProtoMessage()    {}
 func (*JwtAuthentication) Descriptor() ([]byte, []int) {
 	return fileDescriptor_3d4e20dc3096b50e, []int{8}
 }
+
 func (m *JwtAuthentication) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_JwtAuthentication.Unmarshal(m, b)
 }
 func (m *JwtAuthentication) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_JwtAuthentication.Marshal(b, m, deterministic)
 }
-func (dst *JwtAuthentication) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_JwtAuthentication.Merge(dst, src)
+func (m *JwtAuthentication) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_JwtAuthentication.Merge(m, src)
 }
 func (m *JwtAuthentication) XXX_Size() int {
 	return xxx_messageInfo_JwtAuthentication.Size(m)

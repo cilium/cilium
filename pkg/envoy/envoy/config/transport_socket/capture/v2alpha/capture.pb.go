@@ -3,10 +3,12 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+import (
+	fmt "fmt"
+	core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+	proto "github.com/golang/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -73,14 +75,15 @@ func (*FileSink) ProtoMessage()    {}
 func (*FileSink) Descriptor() ([]byte, []int) {
 	return fileDescriptor_c451da3beeddae0d, []int{0}
 }
+
 func (m *FileSink) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FileSink.Unmarshal(m, b)
 }
 func (m *FileSink) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_FileSink.Marshal(b, m, deterministic)
 }
-func (dst *FileSink) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_FileSink.Merge(dst, src)
+func (m *FileSink) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FileSink.Merge(m, src)
 }
 func (m *FileSink) XXX_Size() int {
 	return xxx_messageInfo_FileSink.Size(m)
@@ -124,14 +127,15 @@ func (*Capture) ProtoMessage()    {}
 func (*Capture) Descriptor() ([]byte, []int) {
 	return fileDescriptor_c451da3beeddae0d, []int{1}
 }
+
 func (m *Capture) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Capture.Unmarshal(m, b)
 }
 func (m *Capture) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Capture.Marshal(b, m, deterministic)
 }
-func (dst *Capture) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Capture.Merge(dst, src)
+func (m *Capture) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Capture.Merge(m, src)
 }
 func (m *Capture) XXX_Size() int {
 	return xxx_messageInfo_Capture.Size(m)

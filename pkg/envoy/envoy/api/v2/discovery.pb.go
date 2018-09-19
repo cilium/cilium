@@ -3,13 +3,15 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import _ "github.com/gogo/protobuf/gogoproto"
-import any "github.com/golang/protobuf/ptypes/any"
-import status "google.golang.org/genproto/googleapis/rpc/status"
+import (
+	fmt "fmt"
+	core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/golang/protobuf/proto"
+	any "github.com/golang/protobuf/ptypes/any"
+	status "google.golang.org/genproto/googleapis/rpc/status"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -68,14 +70,15 @@ func (*DiscoveryRequest) ProtoMessage()    {}
 func (*DiscoveryRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptor_2c7365e287e5c035, []int{0}
 }
+
 func (m *DiscoveryRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DiscoveryRequest.Unmarshal(m, b)
 }
 func (m *DiscoveryRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_DiscoveryRequest.Marshal(b, m, deterministic)
 }
-func (dst *DiscoveryRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_DiscoveryRequest.Merge(dst, src)
+func (m *DiscoveryRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DiscoveryRequest.Merge(m, src)
 }
 func (m *DiscoveryRequest) XXX_Size() int {
 	return xxx_messageInfo_DiscoveryRequest.Size(m)
@@ -172,14 +175,15 @@ func (*DiscoveryResponse) ProtoMessage()    {}
 func (*DiscoveryResponse) Descriptor() ([]byte, []int) {
 	return fileDescriptor_2c7365e287e5c035, []int{1}
 }
+
 func (m *DiscoveryResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DiscoveryResponse.Unmarshal(m, b)
 }
 func (m *DiscoveryResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_DiscoveryResponse.Marshal(b, m, deterministic)
 }
-func (dst *DiscoveryResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_DiscoveryResponse.Merge(dst, src)
+func (m *DiscoveryResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DiscoveryResponse.Merge(m, src)
 }
 func (m *DiscoveryResponse) XXX_Size() int {
 	return xxx_messageInfo_DiscoveryResponse.Size(m)
@@ -302,14 +306,15 @@ func (*IncrementalDiscoveryRequest) ProtoMessage()    {}
 func (*IncrementalDiscoveryRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptor_2c7365e287e5c035, []int{2}
 }
+
 func (m *IncrementalDiscoveryRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_IncrementalDiscoveryRequest.Unmarshal(m, b)
 }
 func (m *IncrementalDiscoveryRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_IncrementalDiscoveryRequest.Marshal(b, m, deterministic)
 }
-func (dst *IncrementalDiscoveryRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_IncrementalDiscoveryRequest.Merge(dst, src)
+func (m *IncrementalDiscoveryRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_IncrementalDiscoveryRequest.Merge(m, src)
 }
 func (m *IncrementalDiscoveryRequest) XXX_Size() int {
 	return xxx_messageInfo_IncrementalDiscoveryRequest.Size(m)
@@ -392,14 +397,15 @@ func (*IncrementalDiscoveryResponse) ProtoMessage()    {}
 func (*IncrementalDiscoveryResponse) Descriptor() ([]byte, []int) {
 	return fileDescriptor_2c7365e287e5c035, []int{3}
 }
+
 func (m *IncrementalDiscoveryResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_IncrementalDiscoveryResponse.Unmarshal(m, b)
 }
 func (m *IncrementalDiscoveryResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_IncrementalDiscoveryResponse.Marshal(b, m, deterministic)
 }
-func (dst *IncrementalDiscoveryResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_IncrementalDiscoveryResponse.Merge(dst, src)
+func (m *IncrementalDiscoveryResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_IncrementalDiscoveryResponse.Merge(m, src)
 }
 func (m *IncrementalDiscoveryResponse) XXX_Size() int {
 	return xxx_messageInfo_IncrementalDiscoveryResponse.Size(m)
@@ -455,14 +461,15 @@ func (*Resource) ProtoMessage()    {}
 func (*Resource) Descriptor() ([]byte, []int) {
 	return fileDescriptor_2c7365e287e5c035, []int{4}
 }
+
 func (m *Resource) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Resource.Unmarshal(m, b)
 }
 func (m *Resource) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Resource.Marshal(b, m, deterministic)
 }
-func (dst *Resource) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Resource.Merge(dst, src)
+func (m *Resource) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Resource.Merge(m, src)
 }
 func (m *Resource) XXX_Size() int {
 	return xxx_messageInfo_Resource.Size(m)

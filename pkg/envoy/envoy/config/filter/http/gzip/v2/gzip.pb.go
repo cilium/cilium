@@ -3,12 +3,14 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import _ "github.com/gogo/protobuf/gogoproto"
-import wrappers "github.com/golang/protobuf/ptypes/wrappers"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/golang/protobuf/proto"
+	wrappers "github.com/golang/protobuf/ptypes/wrappers"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -126,14 +128,15 @@ func (*Gzip) ProtoMessage()    {}
 func (*Gzip) Descriptor() ([]byte, []int) {
 	return fileDescriptor_e2b7bd5745a19167, []int{0}
 }
+
 func (m *Gzip) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Gzip.Unmarshal(m, b)
 }
 func (m *Gzip) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Gzip.Marshal(b, m, deterministic)
 }
-func (dst *Gzip) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Gzip.Merge(dst, src)
+func (m *Gzip) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Gzip.Merge(m, src)
 }
 func (m *Gzip) XXX_Size() int {
 	return xxx_messageInfo_Gzip.Size(m)
@@ -212,14 +215,15 @@ func (*Gzip_CompressionLevel) ProtoMessage()    {}
 func (*Gzip_CompressionLevel) Descriptor() ([]byte, []int) {
 	return fileDescriptor_e2b7bd5745a19167, []int{0, 0}
 }
+
 func (m *Gzip_CompressionLevel) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Gzip_CompressionLevel.Unmarshal(m, b)
 }
 func (m *Gzip_CompressionLevel) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Gzip_CompressionLevel.Marshal(b, m, deterministic)
 }
-func (dst *Gzip_CompressionLevel) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Gzip_CompressionLevel.Merge(dst, src)
+func (m *Gzip_CompressionLevel) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Gzip_CompressionLevel.Merge(m, src)
 }
 func (m *Gzip_CompressionLevel) XXX_Size() int {
 	return xxx_messageInfo_Gzip_CompressionLevel.Size(m)

@@ -3,11 +3,13 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import v2 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
-import _ "google.golang.org/genproto/googleapis/api/annotations"
+import (
+	fmt "fmt"
+	v2 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
+	proto "github.com/golang/protobuf/proto"
+	_ "google.golang.org/genproto/googleapis/api/annotations"
+	math "math"
+)
 
 import (
 	context "golang.org/x/net/context"
@@ -39,14 +41,15 @@ func (*SdsDummy) ProtoMessage()    {}
 func (*SdsDummy) Descriptor() ([]byte, []int) {
 	return fileDescriptor_f2a4da2e99d9a3e6, []int{0}
 }
+
 func (m *SdsDummy) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SdsDummy.Unmarshal(m, b)
 }
 func (m *SdsDummy) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SdsDummy.Marshal(b, m, deterministic)
 }
-func (dst *SdsDummy) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SdsDummy.Merge(dst, src)
+func (m *SdsDummy) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SdsDummy.Merge(m, src)
 }
 func (m *SdsDummy) XXX_Size() int {
 	return xxx_messageInfo_SdsDummy.Size(m)

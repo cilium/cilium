@@ -3,12 +3,14 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import v2alpha "github.com/cilium/cilium/pkg/envoy/envoy/config/rbac/v2alpha"
-import _ "github.com/gogo/protobuf/gogoproto"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	v2alpha "github.com/cilium/cilium/pkg/envoy/envoy/config/rbac/v2alpha"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/golang/protobuf/proto"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -46,14 +48,15 @@ func (*RBAC) ProtoMessage()    {}
 func (*RBAC) Descriptor() ([]byte, []int) {
 	return fileDescriptor_8ec60cc393c44598, []int{0}
 }
+
 func (m *RBAC) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RBAC.Unmarshal(m, b)
 }
 func (m *RBAC) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RBAC.Marshal(b, m, deterministic)
 }
-func (dst *RBAC) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RBAC.Merge(dst, src)
+func (m *RBAC) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RBAC.Merge(m, src)
 }
 func (m *RBAC) XXX_Size() int {
 	return xxx_messageInfo_RBAC.Size(m)

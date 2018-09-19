@@ -3,14 +3,16 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import route "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/route"
-import _ "github.com/gogo/protobuf/gogoproto"
-import wrappers "github.com/golang/protobuf/ptypes/wrappers"
-import _ "google.golang.org/genproto/googleapis/api/annotations"
+import (
+	fmt "fmt"
+	core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+	route "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/route"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/golang/protobuf/proto"
+	wrappers "github.com/golang/protobuf/ptypes/wrappers"
+	_ "google.golang.org/genproto/googleapis/api/annotations"
+	math "math"
+)
 
 import (
 	context "golang.org/x/net/context"
@@ -83,14 +85,15 @@ func (*RouteConfiguration) ProtoMessage()    {}
 func (*RouteConfiguration) Descriptor() ([]byte, []int) {
 	return fileDescriptor_78812f46dcff924a, []int{0}
 }
+
 func (m *RouteConfiguration) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RouteConfiguration.Unmarshal(m, b)
 }
 func (m *RouteConfiguration) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RouteConfiguration.Marshal(b, m, deterministic)
 }
-func (dst *RouteConfiguration) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RouteConfiguration.Merge(dst, src)
+func (m *RouteConfiguration) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RouteConfiguration.Merge(m, src)
 }
 func (m *RouteConfiguration) XXX_Size() int {
 	return xxx_messageInfo_RouteConfiguration.Size(m)

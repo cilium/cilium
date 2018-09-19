@@ -3,11 +3,13 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+	proto "github.com/golang/protobuf/proto"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -37,14 +39,15 @@ func (*MetricsServiceConfig) ProtoMessage()    {}
 func (*MetricsServiceConfig) Descriptor() ([]byte, []int) {
 	return fileDescriptor_81ac893a597f6d53, []int{0}
 }
+
 func (m *MetricsServiceConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_MetricsServiceConfig.Unmarshal(m, b)
 }
 func (m *MetricsServiceConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_MetricsServiceConfig.Marshal(b, m, deterministic)
 }
-func (dst *MetricsServiceConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_MetricsServiceConfig.Merge(dst, src)
+func (m *MetricsServiceConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MetricsServiceConfig.Merge(m, src)
 }
 func (m *MetricsServiceConfig) XXX_Size() int {
 	return xxx_messageInfo_MetricsServiceConfig.Size(m)

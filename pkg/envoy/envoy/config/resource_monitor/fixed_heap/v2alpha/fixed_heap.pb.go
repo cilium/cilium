@@ -3,9 +3,11 @@
 
 package v2alpha
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -34,14 +36,15 @@ func (*FixedHeapConfig) ProtoMessage()    {}
 func (*FixedHeapConfig) Descriptor() ([]byte, []int) {
 	return fileDescriptor_141ee15b3c15e2df, []int{0}
 }
+
 func (m *FixedHeapConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FixedHeapConfig.Unmarshal(m, b)
 }
 func (m *FixedHeapConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_FixedHeapConfig.Marshal(b, m, deterministic)
 }
-func (dst *FixedHeapConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_FixedHeapConfig.Merge(dst, src)
+func (m *FixedHeapConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FixedHeapConfig.Merge(m, src)
 }
 func (m *FixedHeapConfig) XXX_Size() int {
 	return xxx_messageInfo_FixedHeapConfig.Size(m)

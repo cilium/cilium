@@ -3,15 +3,17 @@
 
 package v2
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import route "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/route"
-import _type "github.com/cilium/cilium/pkg/envoy/envoy/type"
-import _ "github.com/gogo/protobuf/gogoproto"
-import duration "github.com/golang/protobuf/ptypes/duration"
-import wrappers "github.com/golang/protobuf/ptypes/wrappers"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import (
+	fmt "fmt"
+	route "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/route"
+	_type "github.com/cilium/cilium/pkg/envoy/envoy/type"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/golang/protobuf/proto"
+	duration "github.com/golang/protobuf/ptypes/duration"
+	wrappers "github.com/golang/protobuf/ptypes/wrappers"
+	_ "github.com/lyft/protoc-gen-validate/validate"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -49,14 +51,15 @@ func (*HealthCheck) ProtoMessage()    {}
 func (*HealthCheck) Descriptor() ([]byte, []int) {
 	return fileDescriptor_75439d7b4d98e201, []int{0}
 }
+
 func (m *HealthCheck) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HealthCheck.Unmarshal(m, b)
 }
 func (m *HealthCheck) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_HealthCheck.Marshal(b, m, deterministic)
 }
-func (dst *HealthCheck) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HealthCheck.Merge(dst, src)
+func (m *HealthCheck) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HealthCheck.Merge(m, src)
 }
 func (m *HealthCheck) XXX_Size() int {
 	return xxx_messageInfo_HealthCheck.Size(m)
