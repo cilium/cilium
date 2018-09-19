@@ -65,3 +65,12 @@ Running ``kubectl get pods`` will show you that Kubernetes started a new set of
         kube-dns-268032401-j0vml      3/3       Running       0          9s
         kube-dns-268032401-t57r2      3/3       Terminating   0          57m
 
+
+Default Ingress Allow from Local Host
+=====================================
+
+Kubernetes has functionality to indicate to users the current health of their
+applications via `Liveness Probes and Readiness Probes <https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/>`_.
+In order for ``kubelet`` to run these health checks for each pod, by default,
+Cilium will always allow all ingress traffic from the local host to each pod. 
+ 
