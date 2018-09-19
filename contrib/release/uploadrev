@@ -27,15 +27,6 @@ function perror() {
 }
 
 function configure_env() {
-  if ! git rev-parse $REV >/dev/null 2>&1; then
-    perror "Could not find a git ref $REV, trying v$REV..."
-    REV=v$REV
-    if ! git rev-parse $REV >/dev/null 2>&1; then
-      perror "Could not find a git rev $REV, bailing..."
-      exit 1
-    fi
-  fi
-
   if ! which aws; then
     perror "Please install or make sure aws is in your PATH"
     perror "See the user guide for more info "
@@ -54,11 +45,6 @@ function configure_env() {
   SKIP_UPLOAD=${SKIP_UPLOAD:-0}
 }
 
-function pristine_env() {
-  # Get pristine environment before continuing
-  git -C $CILIUM_SOURCE stash
-  git -C $CILIUM_SOURCE checkout $REV
-}
 
 function create_dir() {
   if test -d $TARGET_DIR; then
@@ -74,30 +60,28 @@ function copy_source() {
 }
 
 function copy_binaries() {
-# Copy the binaries
-cp $CILIUM_SOURCE/cilium/cilium $TARGET_DIR/cilium-$ARCH
-cp $CILIUM_SOURCE/daemon/cilium-agent $TARGET_DIR/cilium-agent-$ARCH
-# Since these binaries are newer don't assume their presence in all revisions
-cp $CILIUM_SOURCE/bugtool/cilium-bugtool $TARGET_DIR/cilium-bugtool-$ARCH || true
-cp $CILIUM_SOURCE/monitor/cilium-node-monitor $TARGET_DIR/cilium-node-monitor-$ARCH || true
-cp $CILIUM_SOURCE/cilium-health/cilium-health $TARGET_DIR/cilium-health-$ARCH || true
-cp $CILIUM_SOURCE/contrib/k8s/k8s-cilium-exec.sh $TARGET_DIR/tools/ || true
-cp $CILIUM_SOURCE/contrib/k8s/k8s-get-cilium-pod.sh $TARGET_DIR/tools/ || true
-cp $CILIUM_SOURCE/contrib/k8s/k8s-unmanaged.sh $TARGET_DIR/tools/ || true
+  mkdir -p $TARGET_DIR
+  SHA=$(docker create docker.io/cilium/cilium:$REV)
+  docker cp $SHA:/usr/bin/cilium $TARGET_DIR/cilium-$ARCH
+  docker cp $SHA:/usr/bin/cilium-agent $TARGET_DIR/cilium-agent-$ARCH
+  docker cp $SHA:/usr/bin/cilium-bugtool $TARGET_DIR/cilium-bugtool-$ARCH
+  docker cp $SHA:/usr/bin/cilium-node-monitor $TARGET_DIR/cilium-node-monitor-$ARCH
+  docker cp $SHA:/usr/bin/cilium-health $TARGET_DIR/cilium-health-$ARCH
+  docker cp $SHA:/usr/bin/cilium-envoy $TARGET_DIR/cilium-envoy-$ARCH
+  docker cp $SHA:/usr/bin/cilium-docker $TARGET_DIR/cilium-docker-$ARCH
+  docker cp $SHA:/opt/cni/bin/cilium-cni $TARGET_DIR/cilium-cni-$ARCH
+  cp contrib/k8s/k8s-cilium-exec.sh $TARGET_DIR/tools/ || true
+  cp contrib/k8s/k8s-get-cilium-pod.sh $TARGET_DIR/tools/ || true
+  cp contrib/k8s/k8s-unmanaged.sh $TARGET_DIR/tools/ || true
+  docker rm -f $SHA
 
-# Generate  SHA256 digest
-cd $TARGET_DIR
-for f in *; do
-  [ ! -d "$f" ] && sha256sum $f > $f.sha256sum
-done
+  # Generate  SHA256 digest
+  cd $TARGET_DIR
+  for f in *; do
+    [ ! -d "$f" ] && sha256sum $f > $f.sha256sum
+  done
 }
 
-function build_cilium() {
-  # For older Cilium releases where the Go version mattered, update bindata
-  cd $CILIUM_SOURCE/daemon/ && make go-bindata && cd -
-  make -s -C $CILIUM_SOURCE clean
-  make -s -C $CILIUM_SOURCE
-}
 
 function upload_all() {
   if [ $SKIP_UPLOAD == 1 ]; then
@@ -125,10 +109,8 @@ function print_done() {
 
 function main() {
   configure_env
-  pristine_env
   create_dir
   copy_source
-  build_cilium
   copy_binaries
   upload_all
   print_done
