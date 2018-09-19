@@ -18,8 +18,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-
-	"github.com/cilium/cilium/pkg/color"
 )
 
 // MonitorAggregationLevel represents a level of aggregation for monitor events
@@ -79,10 +77,10 @@ func init() {
 
 // monitorAggregationFormat maps an aggregation level to a formatted string.
 var monitorAggregationFormat = map[OptionSetting]string{
-	MonitorAggregationLevelNone:   color.Red("None"),
-	MonitorAggregationLevelLowest: color.Green("Lowest"),
-	MonitorAggregationLevelLow:    color.Green("Low"),
-	MonitorAggregationLevelMedium: color.Green("Medium"),
+	MonitorAggregationLevelNone:   "None",
+	MonitorAggregationLevelLowest: "Lowest",
+	MonitorAggregationLevelLow:    "Low",
+	MonitorAggregationLevelMedium: "Medium",
 }
 
 // VerifyMonitorAggregationLevel validates the specified key/value for a
