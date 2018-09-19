@@ -385,6 +385,16 @@ var (
 		Name:      "buildqueue_entries",
 		Help:      "The number of queued, waiting and running builds in the build queue",
 	}, []string{LabelBuildState, LabelBuildQueueName})
+
+	// Kubernetes Events
+
+	// KubernetesEvent is the number of Kubernetes events received labeled by
+	// scope, action and execution result
+	KubernetesEvent = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Name:      "kubernetes_events_total",
+		Help:      "Number of Kubernetes events received labeled by scope, action and execution result",
+	}, []string{LabelScope, LabelAction, LabelStatus})
 )
 
 func init() {
@@ -435,6 +445,8 @@ func init() {
 	MustRegister(ControllerRunsDuration)
 
 	MustRegister(BuildQueueEntries)
+
+	MustRegister(KubernetesEvent)
 }
 
 // MustRegister adds the collector to the registry, exposing this metric to
