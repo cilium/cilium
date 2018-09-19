@@ -42,8 +42,6 @@ spec:
                 - "NET_ADMIN"
             privileged: true
           volumeMounts:
-            - name: bpf-maps
-              mountPath: /sys/fs/bpf
             - name: cilium-run
               mountPath: /var/run/cilium
           env:
@@ -156,8 +154,6 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 5
           volumeMounts:
-            - name: bpf-maps
-              mountPath: /sys/fs/bpf
             - name: cilium-run
               mountPath: /var/run/cilium
             - name: cni-path
@@ -187,11 +183,6 @@ spec:
         - name: cilium-run
           hostPath:
             path: /var/run/cilium
-            type: "DirectoryOrCreate"
-        # To keep state between restarts / upgrades for bpf maps
-        - name: bpf-maps
-          hostPath:
-            path: /sys/fs/bpf
             type: "DirectoryOrCreate"
         # To read labels from CRI-O containers running in the host
         - name: crio-socket
