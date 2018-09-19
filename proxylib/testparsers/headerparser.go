@@ -67,11 +67,10 @@ func (rule *HeaderRule) Matches(data interface{}) bool {
 }
 
 // L7HeaderRuleParser parses protobuf L7 rules to and array of HeaderRules
-// May panic
 func L7HeaderRuleParser(rule *cilium.PortNetworkPolicyRule) []L7NetworkPolicyRule {
 	l7Rules := rule.GetL7Rules()
 	if l7Rules == nil {
-		panic(fmt.Errorf("Can't get L7 rules."))
+		ParseError("Can't get L7 rules.", rule)
 	}
 	var rules []L7NetworkPolicyRule
 	for _, l7Rule := range l7Rules.GetL7Rules() {
@@ -85,7 +84,7 @@ func L7HeaderRuleParser(rule *cilium.PortNetworkPolicyRule) []L7NetworkPolicyRul
 			case "suffix":
 				hr.hasSuffix = []byte(v)
 			default:
-				panic(fmt.Errorf("Unsupported key: %s", k))
+				ParseError(fmt.Sprintf("Unsupported key: %s", k), rule)
 			}
 		}
 		log.Infof("Parsed HeaderRule pair: %v", hr)
