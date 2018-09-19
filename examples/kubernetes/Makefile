@@ -22,7 +22,15 @@ $(1)/$(patsubst templates/v1/%,%,$(patsubst %.yaml.sed,%.yaml,$(2))):
 	@$(ECHO_GEN)$$@
 	@echo "$(CILIUM_VERSION)" | egrep -Eq '(v[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+(-.+)?)|(latest)' || \
 	(echo "\"$(CILIUM_VERSION)\" is not a valid version. Must match regexp '(v[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+(-.+)?)|(latest)'. Please fix VERSION file" && false)
+ifneq ("$(wildcard $(1)/cilium-crio-transforms2sed.sed)","")
+ifneq ("$(findstring cilium-crio,$(2))","")
+	-$(QUIET)sed -f $(1)/transforms2sed.sed -f $(1)/cilium-crio-transforms2sed.sed -e s+__CILIUM_VERSION__+$$(CILIUM_VERSION)+ <$$< >$$@
+else
 	-$(QUIET)sed -f $(1)/transforms2sed.sed -e s+__CILIUM_VERSION__+$$(CILIUM_VERSION)+ <$$< >$$@
+endif
+else
+	-$(QUIET)sed -f $(1)/transforms2sed.sed -e s+__CILIUM_VERSION__+$$(CILIUM_VERSION)+ <$$< >$$@
+endif
 endef
 
 SOURCES = $(wildcard templates/v1/*.yaml*)
