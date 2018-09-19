@@ -54,12 +54,13 @@ tls/deploy-certs.sh
 Deploy kube-dns and make sure it contains the required label
 ------------------------------------------------------------
 
-Before running this step, make sure you have `kube-dns` running and contains
-the label `io.cilium.fixed-identity=kube-dns`.
+Ensure your DNS service is running and contains the label `io.cilium.fixed-identity=kube-dns` using the following command.
 
-```
-kubectl label -n kube-system pod $(kubectl -n kube-system get pods -l k8s-app=kube-dns -o jsonpath='{range .items[]}{.metadata.name}{" "}{end}') io.cilium.fixed-identity=kube-dns
-```
+# if using kube-dns
+kubectl patch -n kube-system deployment/kube-dns --type merge -p '{"spec":{"template":{"metadata":{"labels":{"io.cilium.fixed-identity":"kube-dns"}}}}}'
+
+# if using coredns
+kubectl patch -n kube-system deployment/coredns --type merge -p '{"spec":{"template":{"metadata":{"labels":{"io.cilium.fixed-identity":"kube-dns"}}}}}'
 
 Deploy Kubernetes descriptors for etcd operator as well Cilium
 --------------------------------------------------------------
