@@ -400,13 +400,22 @@ var (
 		Help:      "The number of queued, waiting and running builds in the build queue",
 	}, []string{LabelBuildState, LabelBuildQueueName})
 
-	// SubprocessStart is the number of times that Cilium has started a
 	// subprocess, labeled by Subsystem
 	SubprocessStart = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: Namespace,
 		Name:      "subprocess_start_total",
 		Help:      "Number of times that Cilium has started a subprocess, labeled by subsystem",
 	}, []string{LabelSubsystem})
+
+	// Kubernetes Events
+
+	// KubernetesEvent is the number of Kubernetes events received labeled by
+	// scope, action and execution result
+	KubernetesEvent = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Name:      "kubernetes_events_total",
+		Help:      "Number of Kubernetes events received labeled by scope, action and execution result",
+	}, []string{LabelScope, LabelAction, LabelStatus})
 )
 
 func init() {
@@ -460,6 +469,8 @@ func init() {
 	MustRegister(BuildQueueEntries)
 
 	MustRegister(SubprocessStart)
+
+	MustRegister(KubernetesEvent)
 }
 
 // MustRegister adds the collector to the registry, exposing this metric to
