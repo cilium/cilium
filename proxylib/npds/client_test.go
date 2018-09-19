@@ -37,9 +37,9 @@ func Test(t *testing.T) {
 	check.TestingT(t)
 }
 
-type ServerSuite struct{}
+type ClientSuite struct{}
 
-var _ = check.Suite(&ServerSuite{})
+var _ = check.Suite(&ClientSuite{})
 
 const (
 	TestTimeout      = 10 * time.Second
@@ -69,7 +69,7 @@ func (u *updater) PolicyUpdate(resp *envoy_api_v2.DiscoveryResponse) error {
 	return nil
 }
 
-func (s *ServerSuite) TestRequestAllResources(c *check.C) {
+func (s *ClientSuite) TestRequestAllResources(c *check.C) {
 	var updater *updater
 	xdsPath := filepath.Join(test.Tmpdir, "xds.sock")
 	client1 := NewClient(xdsPath, "sidecar~127.0.0.1~v0.default~default.svc.cluster.local", updater)

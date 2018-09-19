@@ -70,6 +70,10 @@ extern "C" {
 #endif
 
 
+// OnNewConnection is used to register a new connection of protocol 'proto'.
+// Note that the 'origBuf' and replyBuf' type '*[]byte' corresponds to 'InjectBuf' type, but due to
+// cgo export restrictions we can't use the go type in the prototype.
+
 extern FilterResult OnNewConnection(GoUint64 p0, GoString p1, GoUint64 p2, GoUint8 p3, GoUint32 p4, GoUint32 p5, GoString p6, GoString p7, GoString p8, GoSlice* p9, GoSlice* p10);
 
 // Each connection is assumed to be called from a single thread, so accessing connection metadata
