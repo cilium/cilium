@@ -106,12 +106,18 @@ Controllers
 * ``controllers_runs_duration_seconds``: Duration in seconds of the controller
   process labeled by completion status
 
-
 SubProcess
 ----------
 
 * ``subprocess_start_total``: Number of times that Cilium has started a
   subprocess, labeled by subsystem
+
+Kubernetes
+-----------
+
+* ``kubernetes_events_total``: Number of Kubernetes events received labeled by
+  scope, action and the execution result
+
 
 Cilium as a Kubernetes pod
 ==========================
