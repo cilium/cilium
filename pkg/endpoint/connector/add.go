@@ -15,6 +15,7 @@
 package connector
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -24,6 +25,8 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/vishvananda/netlink"
+
+	"golang.org/x/sys/unix"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "endpoint-connector")
@@ -37,7 +40,10 @@ const (
 
 // Endpoint2IfName returns the host interface name for the given endpointID.
 func Endpoint2IfName(endpointID string) string {
-	return hostInterfacePrefix + truncateString(endpointID, 5)
+	sum := fmt.Sprintf("%x", sha256.Sum256([]byte(endpointID)))
+	// returned string length should be < unix.IFNAMSIZ
+	truncateLength := uint(unix.IFNAMSIZ - len(temporaryInterfacePrefix) - 1)
+	return hostInterfacePrefix + truncateString(sum, truncateLength)
 }
 
 // Endpoint2TempIfName returns the temporary interface name for the given
