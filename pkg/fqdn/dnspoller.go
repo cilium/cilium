@@ -274,6 +274,13 @@ func (poller *DNSPoller) LookupUpdateDNS() error {
 			Warn("Cannot resolve FQDN. Traffic egressing to this destination may be incorrectly dropped due to stale data.")
 	}
 
+	// TODO: when poller can get the TTLs of DNS responses, pass that here
+	return poller.UpdateGenerateDNS(lookupTime, updatedDNSIPs)
+}
+
+// UpdateGenerateDNS inserts the new DNS information into the cache, and
+// regenerates rules that need to be regenerated.
+func (poller *DNSPoller) UpdateGenerateDNS(lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) error {
 	// Update IPs in poller
 	uuidsToUpdate, updatedDNSNames := poller.UpdateDNSIPs(lookupTime, updatedDNSIPs)
 	for dnsName, IPs := range updatedDNSNames {
@@ -320,7 +327,7 @@ func (poller *DNSPoller) GetDNSNames() (dnsNames []string) {
 // UpdateDNSIPs updates the IPs for each DNS name in updatedDNSIPs.
 // It returns:
 // affectedRules: a list of rule UUIDs that were affected by the new IPs (lookup in .allRules)
-// updatedNames: a map of DNS names to the IPs they were updated with. This is always a superset of updatedDNSIPs.
+// updatedNames: a map of DNS names to the IPs they were updated with.
 func (poller *DNSPoller) UpdateDNSIPs(lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) (affectedRules []string, updatedNames map[string][]net.IP) {
 	updatedNames = make(map[string][]net.IP, len(updatedDNSIPs))
 	affectedRulesSet := make(map[string]struct{}, len(updatedDNSIPs))
