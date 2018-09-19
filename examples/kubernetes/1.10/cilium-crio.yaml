@@ -270,7 +270,7 @@ spec:
           hostPath:
             path: /var/run/cilium
             type: "DirectoryOrCreate"
-        # To keep state between restarts / upgrades
+        # To keep state between restarts / upgrades for bpf maps
         - name: bpf-maps
           hostPath:
             path: /sys/fs/bpf
