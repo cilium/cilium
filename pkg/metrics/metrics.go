@@ -86,6 +86,9 @@ var (
 	// LabelProtocolL7 is the label used when working with layer 7 protocols.
 	LabelProtocolL7 = "protocol_l7"
 
+	// LabelAction is the label that need to be used for label metrics by actions
+	LabelAction = "action"
+
 	// Endpoint
 
 	// EndpointCount is a function used to collect this metric.
@@ -344,6 +347,16 @@ var (
 		Name:      "controllers_runs_duration_seconds",
 		Help:      "Duration in seconds of the controller process labeled by completion status",
 	}, []string{LabelStatus})
+
+	// Kubernetes Events
+
+	// KubernetesEvent is the number of Kubernetes events received labeled by
+	// scope, action and execution result
+	KubernetesEvent = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Name:      "kubernetes_events_total",
+		Help:      "Number of Kubernetes events received labeled by scope, action and execution result",
+	}, []string{LabelScope, LabelAction, LabelStatus})
 )
 
 func init() {
@@ -390,6 +403,8 @@ func init() {
 
 	MustRegister(ControllerRuns)
 	MustRegister(ControllerRunsDuration)
+
+	MustRegister(KubernetesEvent)
 }
 
 // MustRegister adds the collector to the registry, exposing this metric to
