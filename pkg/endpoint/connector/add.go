@@ -15,6 +15,7 @@
 package connector
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -37,7 +38,8 @@ const (
 
 // Endpoint2IfName returns the host interface name for the given endpointID.
 func Endpoint2IfName(endpointID string) string {
-	return hostInterfacePrefix + truncateString(endpointID, 5)
+	sum := fmt.Sprintf("%x", sha256.Sum256([]byte(endpointID)))
+	return hostInterfacePrefix + truncateString(sum, 5)
 }
 
 // Endpoint2TempIfName returns the temporary interface name for the given

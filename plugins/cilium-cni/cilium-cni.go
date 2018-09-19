@@ -339,7 +339,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 		Addressing:  &models.AddressPair{},
 	}
 
-	veth, peer, tmpIfName, err := connector.SetupVeth(ep.ContainerID, int(conf.DeviceMTU), ep)
+	veth, peer, tmpIfName, err := connector.SetupVeth(args.IfName, int(conf.DeviceMTU), ep)
 	if err != nil {
 		return err
 	}
