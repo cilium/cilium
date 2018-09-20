@@ -42,39 +42,41 @@ const (
 	EntityInit Entity = "init"
 )
 
-// EntitySelectorMapping maps special entity names that come in policies to
-// selectors
-var EntitySelectorMapping = map[Entity]EndpointSelectorSlice{
-	EntityAll: {WildcardEndpointSelector},
-	EntityWorld: {
-		NewESFromLabels(&labels.Label{
-			Key:    labels.IDNameWorld,
-			Value:  "",
-			Source: labels.LabelSourceReserved,
-		}),
-	},
-	EntityCluster: {
-		NewESFromLabels(&labels.Label{
-			Key:    labels.IDNameCluster,
-			Value:  "",
-			Source: labels.LabelSourceReserved,
-		}),
-	},
-	EntityHost: {
-		NewESFromLabels(&labels.Label{
-			Key:    labels.IDNameHost,
-			Value:  "",
-			Source: labels.LabelSourceReserved,
-		}),
-	},
-	EntityInit: {
-		NewESFromLabels(&labels.Label{
-			Key:    labels.IDNameInit,
-			Value:  "",
-			Source: labels.LabelSourceReserved,
-		}),
-	},
-}
+var (
+	endpointSelectorWorld = NewESFromLabels(&labels.Label{
+		Key:    labels.IDNameWorld,
+		Value:  "",
+		Source: labels.LabelSourceReserved,
+	})
+
+	endpointSelectorCluster = NewESFromLabels(&labels.Label{
+		Key:    labels.IDNameCluster,
+		Value:  "",
+		Source: labels.LabelSourceReserved,
+	})
+
+	endpointSelectorHost = NewESFromLabels(&labels.Label{
+		Key:    labels.IDNameHost,
+		Value:  "",
+		Source: labels.LabelSourceReserved,
+	})
+
+	endpointSelectorInit = NewESFromLabels(&labels.Label{
+		Key:    labels.IDNameInit,
+		Value:  "",
+		Source: labels.LabelSourceReserved,
+	})
+
+	// EntitySelectorMapping maps special entity names that come in
+	// policies to selectors
+	EntitySelectorMapping = map[Entity]EndpointSelectorSlice{
+		EntityAll:     {WildcardEndpointSelector},
+		EntityWorld:   {endpointSelectorWorld},
+		EntityCluster: {endpointSelectorCluster},
+		EntityHost:    {endpointSelectorHost},
+		EntityInit:    {endpointSelectorInit},
+	}
+)
 
 // EntitySlice is a slice of entities
 type EntitySlice []Entity
