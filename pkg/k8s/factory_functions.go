@@ -419,18 +419,21 @@ func equalV1Services(o1, o2 interface{}) bool {
 }
 
 func equalV1Endpoints(o1, o2 interface{}) bool {
-	_, ok := o1.(*v1.Endpoints)
+	ep1, ok := o1.(*v1.Endpoints)
 	if !ok {
 		log.Panicf("Invalid resource type %q, expecting *v1.Endpoints", reflect.TypeOf(o1))
 		return false
 	}
-	_, ok = o1.(*v1.Endpoints)
+	ep2, ok := o2.(*v1.Endpoints)
 	if !ok {
 		log.Panicf("Invalid resource type %q, expecting *v1.Endpoints", reflect.TypeOf(o2))
 		return false
 	}
-	// FIXME write dedicated deep equal function
-	return false
+	// We only care about the Name, Namespace and Subsets of a particular
+	// endpoint.
+	return ep1.Name == ep2.Name &&
+		ep1.Namespace == ep2.Namespace &&
+		reflect.DeepEqual(ep1.Subsets, ep2.Subsets)
 }
 
 func equalV1beta1Ingress(o1, o2 interface{}) bool {
