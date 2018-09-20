@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	. "gopkg.in/check.v1"
+	core_v1 "k8s.io/api/core/v1"
 	"k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -165,6 +166,138 @@ func (s *K8sSuite) Test_equalV2CNP(c *C) {
 	}
 	for _, tt := range tests {
 		got := equalV2CNP(tt.args.o1, tt.args.o2)
+		c.Assert(got, Equals, tt.want, Commentf("Test Name: %s", tt.name))
+	}
+}
+
+func (s *K8sSuite) Test_equalV1Endpoints(c *C) {
+	type args struct {
+		o1 *core_v1.Endpoints
+		o2 *core_v1.Endpoints
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "EPs with the same name",
+			args: args{
+				o1: &core_v1.Endpoints{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "rule1",
+					},
+				},
+				o2: &core_v1.Endpoints{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "rule1",
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "EPs with the different spec",
+			args: args{
+				o1: &core_v1.Endpoints{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "rule1",
+					},
+					Subsets: []core_v1.EndpointSubset{
+						{
+							Addresses: []core_v1.EndpointAddress{
+								{
+									IP: "172.0.0.1",
+								},
+							},
+						},
+					},
+				},
+				o2: &core_v1.Endpoints{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "rule1",
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "EPs with the same spec",
+			args: args{
+				o1: &core_v1.Endpoints{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "rule1",
+					},
+					Subsets: []core_v1.EndpointSubset{
+						{
+							Addresses: []core_v1.EndpointAddress{
+								{
+									IP: "172.0.0.1",
+								},
+							},
+						},
+					},
+				},
+				o2: &core_v1.Endpoints{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "rule1",
+					},
+					Subsets: []core_v1.EndpointSubset{
+						{
+							Addresses: []core_v1.EndpointAddress{
+								{
+									IP: "172.0.0.1",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "EPs with the same spec (multiple IPs)",
+			args: args{
+				o1: &core_v1.Endpoints{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "rule1",
+					},
+					Subsets: []core_v1.EndpointSubset{
+						{
+							Addresses: []core_v1.EndpointAddress{
+								{
+									IP: "172.0.0.1",
+								},
+								{
+									IP: "172.0.0.2",
+								},
+							},
+						},
+					},
+				},
+				o2: &core_v1.Endpoints{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "rule1",
+					},
+					Subsets: []core_v1.EndpointSubset{
+						{
+							Addresses: []core_v1.EndpointAddress{
+								{
+									IP: "172.0.0.1",
+								},
+								{
+									IP: "172.0.0.2",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		got := equalV1Endpoints(tt.args.o1, tt.args.o2)
 		c.Assert(got, Equals, tt.want, Commentf("Test Name: %s", tt.name))
 	}
 }
