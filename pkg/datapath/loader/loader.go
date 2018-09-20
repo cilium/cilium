@@ -120,6 +120,7 @@ func CompileAndLoad(ctx context.Context, ep endpoint) error {
 	return compileAndLoad(ctx, ep, &dirs)
 }
 
+// Compile compiles a BPF program generating an object file.
 func ReloadDatapath(ctx context.Context, ep endpoint) error {
 	dirs := directoryInfo{
 		Library: option.Config.BpfDir,
@@ -127,4 +128,19 @@ func ReloadDatapath(ctx context.Context, ep endpoint) error {
 		Output:  ep.StateDir(),
 	}
 	return reloadDatapath(ctx, ep, &dirs)
+}
+
+func Compile(ctx context.Context, src string, out string) error {
+	debug := viper.GetBool(option.BPFCompileDebugName)
+	prog := progInfo{
+		Source:     src,
+		Output:     out,
+		OutputType: outputObject,
+	}
+	dirs := directoryInfo{
+		Library: option.Config.BpfDir,
+		Runtime: option.Config.StateDir,
+		Output:  option.Config.StateDir,
+	}
+	return compile(ctx, &prog, &dirs, debug)
 }

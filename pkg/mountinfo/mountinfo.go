@@ -23,9 +23,9 @@ import (
 )
 
 const (
-	// FilesystemTypeBPFFS is a filesystem type name for BPFFS which is used
-	// in /proc/pid/mountinfo
-	FilesystemTypeBPFFS = "bpf"
+	// FilesystemType names for filesystem which are used in /proc/pid/mountinfo
+	FilesystemTypeBPFFS   = "bpf"
+	FilesystemTypeCgroup2 = "cgroup2"
 
 	mountInfoFilepath = "/proc/self/mountinfo"
 )
@@ -116,4 +116,32 @@ func GetMountInfo() ([]*MountInfo, error) {
 	}
 
 	return result, nil
+}
+
+// isMountFS returns two boolean values:checks whether the current mapRoot:
+// - whether the current mapRoot has any mount
+// - whether that mount's filesystem is of type mntType
+func IsMountFS(mntType string, mapRoot string) (bool, bool, error) {
+	var mapRootMountInfo *MountInfo
+
+	mountInfos, err := GetMountInfo()
+	if err != nil {
+		return false, false, err
+	}
+
+	for _, mountInfo := range mountInfos {
+		if mountInfo.MountPoint == mapRoot {
+			mapRootMountInfo = mountInfo
+			break
+		}
+	}
+
+	if mapRootMountInfo == nil {
+		return false, false, nil
+	}
+
+	if mapRootMountInfo.FilesystemType == mntType {
+		return true, true, nil
+	}
+	return true, false, nil
 }

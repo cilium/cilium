@@ -64,6 +64,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/proxymap"
+	"github.com/cilium/cilium/pkg/maps/sockmap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -73,6 +74,7 @@ import (
 	policyApi "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/proxy/logger"
+	"github.com/cilium/cilium/pkg/sockops"
 	"github.com/cilium/cilium/pkg/u8proto"
 	"github.com/cilium/cilium/pkg/workloads"
 
@@ -798,6 +800,17 @@ func (d *Daemon) init() error {
 			return err
 		}
 
+		// Remove any old sockops and re-enable with _new_ programs when Sockops enabled.
+		// Always try to disable in case user toggles from enabled to disabled.
+		sockops.SockmapDisable()
+		sockops.SkmsgDisable()
+
+		if viper.GetBool(option.SockopsEnableName) == true {
+			sockops.SockmapEnable()
+			sockops.SkmsgEnable()
+			sockmap.SockmapCreate()
+		}
+
 		// Clean all endpoint entries
 		if err := lxcmap.LXCMap.DeleteAll(); err != nil {
 			return err
@@ -953,6 +966,7 @@ func createNodeConfigHeaderfile() error {
 	fmt.Fprintf(fw, "#define POLICY_MAP_SIZE %d\n", policymap.MaxEntries)
 	fmt.Fprintf(fw, "#define IPCACHE_MAP_SIZE %d\n", ipcachemap.MaxEntries)
 	fmt.Fprintf(fw, "#define POLICY_PROG_MAP_SIZE %d\n", policymap.ProgArrayMaxEntries)
+	fmt.Fprintf(fw, "#define SOCKOPS_MAP_SIZE %d\n", sockmap.MaxEntries)
 
 	fmt.Fprintf(fw, "#define TRACE_PAYLOAD_LEN %dULL\n", tracePayloadLen)
 	fmt.Fprintf(fw, "#define MTU %d\n", mtu.GetDeviceMTU())
