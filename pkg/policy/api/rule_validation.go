@@ -270,9 +270,6 @@ func (pr *L7Rules) sanitize() error {
 		return fmt.Errorf("'l7' may only be specified when a 'l7proto' is also specified")
 	}
 	if pr.L7Proto != "" {
-		if pr.L7 == nil {
-			return fmt.Errorf("'l7' must be specified when 'l7proto' is specified")
-		}
 		nTypes++
 		for i := range pr.L7 {
 			if err := pr.L7[i].Sanitize(); err != nil {

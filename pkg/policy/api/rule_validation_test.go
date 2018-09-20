@@ -286,12 +286,8 @@ func (s *PolicyAPITestSuite) TestL7Rules(c *C) {
 					Rules: &L7Rules{
 						L7Proto: "test.lineparser",
 						L7: []PortRuleL7{
-							map[string]string{
-								"method": "PUT",
-								"path":   "/"},
-							map[string]string{
-								"method": "GET",
-								"path":   "/"},
+							{"method": "PUT", "path": "/"},
+							{"method": "GET", "path": "/"},
 						},
 					},
 				}},
@@ -300,6 +296,28 @@ func (s *PolicyAPITestSuite) TestL7Rules(c *C) {
 	}
 
 	err := validL7Rule.Sanitize()
+	c.Assert(err, IsNil)
+
+	validL7Rule2 := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		Ingress: []IngressRule{
+			{
+				FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				ToPorts: []PortRule{{
+					Ports: []PortProtocol{
+						{Port: "80", Protocol: ProtoTCP},
+						{Port: "81", Protocol: ProtoTCP},
+					},
+					Rules: &L7Rules{
+						L7Proto: "test.lineparser",
+						// No L7 rules
+					},
+				}},
+			},
+		},
+	}
+
+	err = validL7Rule2.Sanitize()
 	c.Assert(err, IsNil)
 
 	invalidL7Rule := Rule{
