@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/envoy/cilium"
 	envoy_api_v2 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/proxylib/test"
 
 	log "github.com/sirupsen/logrus"
@@ -32,7 +33,7 @@ import (
 
 // Hook up gocheck into the "go test" runner.
 func Test(t *testing.T) {
-	// logging.ToggleDebugLogs(true)
+	logging.ToggleDebugLogs(true)
 	check.TestingT(t)
 }
 
