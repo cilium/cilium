@@ -76,7 +76,7 @@ func CheckClose(t *testing.T, connectionId uint64, replyBufAddr *byte, n int) {
 	mutex.Unlock()
 	if !ok {
 		t.Errorf("OnData(): Connection %d not found!", connectionId)
-	} else if replyBufAddr != nil && len(*connection.Reply.InjectBuf) > 0 && replyBufAddr != &(*connection.Reply.InjectBuf)[0] {
+	} else if replyBufAddr != nil && len(*connection.ReplyBuf) > 0 && replyBufAddr != &(*connection.ReplyBuf)[0] {
 		t.Error("OnData(): Reply injection buffer reallocated while it must not be!")
 	}
 
@@ -103,7 +103,7 @@ func checkOps(ops []C.FilterOp, exp []ExpFilterOp) bool {
 	return true
 }
 
-func checkBuf(t *testing.T, buf *[]byte, expected string) {
+func checkBuf(t *testing.T, buf InjectBuf, expected string) {
 	t.Helper()
 	if len(*buf) < len(expected) {
 		t.Log("Inject buffer too small, data truncated")
@@ -142,7 +142,7 @@ func CheckOnData(t *testing.T, connectionId uint64, reply, endStream bool, data 
 	checkOnData(t, res, expResult, ops, expOps)
 
 	if ok {
-		replyBuf := connection.Reply.InjectBuf
+		replyBuf := connection.ReplyBuf
 		checkBuf(t, replyBuf, expReplyBuf)
 		*replyBuf = (*replyBuf)[:0] // make empty again
 	}

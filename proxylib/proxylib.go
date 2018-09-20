@@ -51,6 +51,9 @@ func strcpy(str string) string {
 	return string(([]byte(str))[0:])
 }
 
+// OnNewConnection is used to register a new connection of protocol 'proto'.
+// Note that the 'origBuf' and replyBuf' type '*[]byte' corresponds to 'InjectBuf' type, but due to
+// cgo export restrictions we can't use the go type in the prototype.
 //export OnNewConnection
 func OnNewConnection(instanceId uint64, proto string, connectionId uint64, ingress bool, srcId, dstId uint32, srcAddr, dstAddr, policyName string, origBuf, replyBuf *[]byte) C.FilterResult {
 	instance := FindInstance(instanceId)
@@ -82,8 +85,8 @@ func OnNewConnection(instanceId uint64, proto string, connectionId uint64, ingre
 		DstAddr:    strcpy(dstAddr),
 		Port:       uint32(dstPort),
 		PolicyName: strcpy(policyName),
-		Orig:       Direction{InjectBuf: origBuf},
-		Reply:      Direction{InjectBuf: replyBuf},
+		OrigBuf:    origBuf,
+		ReplyBuf:   replyBuf,
 	}
 	connection.Parser = parserFactory.Create(connection)
 	if connection.Parser == nil {
