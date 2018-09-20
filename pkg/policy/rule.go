@@ -33,6 +33,81 @@ func (r *rule) String() string {
 	return fmt.Sprintf("%v", r.EndpointSelector)
 }
 
+func mergeL4Port(ctx *SearchContext, endpoints []api.EndpointSelector, existingFilter, filterToMerge *L4Filter) error {
+	// Handle cases where filter we are merging new rule with, new rule itself
+	// allows all traffic on L3, or both rules allow all traffic on L3.
+	//
+	// Case 1: either filter selects all endpoints, which means that this filter
+	// can now simply select all endpoints.
+	if existingFilter.AllowsAllAtL3() || filterToMerge.AllowsAllAtL3() {
+		existingFilter.Endpoints = api.EndpointSelectorSlice{api.WildcardEndpointSelector}
+	} else {
+		// Case 2: no wildcard endpoint selectors in existing filter or in filter
+		// to merge, so just append endpoints.
+		existingFilter.Endpoints = append(existingFilter.Endpoints, endpoints...)
+	}
+
+	// Merge the L7-related data from the arguments provided to this function
+	// with the existing L7-related data already in the filter.
+	if filterToMerge.L7Parser != ParserTypeNone {
+		if existingFilter.L7Parser == ParserTypeNone {
+			existingFilter.L7Parser = filterToMerge.L7Parser
+		} else if filterToMerge.L7Parser != existingFilter.L7Parser {
+			ctx.PolicyTrace("   Merge conflict: mismatching parsers %s/%s\n", filterToMerge.L7Parser, existingFilter.L7Parser)
+			return fmt.Errorf("Cannot merge conflicting L7 parsers (%s/%s)", filterToMerge.L7Parser, existingFilter.L7Parser)
+		}
+	}
+
+	for hash, newL7Rules := range filterToMerge.L7RulesPerEp {
+		if ep, ok := existingFilter.L7RulesPerEp[hash]; ok {
+			switch {
+			case len(newL7Rules.HTTP) > 0:
+				if len(ep.Kafka) > 0 || ep.L7Proto != "" {
+					ctx.PolicyTrace("   Merge conflict: mismatching L7 rule types.\n")
+					return fmt.Errorf("Cannot merge conflicting L7 rule types")
+				}
+
+				for _, newRule := range newL7Rules.HTTP {
+					if !newRule.Exists(ep) {
+						ep.HTTP = append(ep.HTTP, newRule)
+					}
+				}
+			case len(newL7Rules.Kafka) > 0:
+				if len(ep.HTTP) > 0 || ep.L7Proto != "" {
+					ctx.PolicyTrace("   Merge conflict: mismatching L7 rule types.\n")
+					return fmt.Errorf("Cannot merge conflicting L7 rule types")
+				}
+
+				for _, newRule := range newL7Rules.Kafka {
+					if !newRule.Exists(ep) {
+						ep.Kafka = append(ep.Kafka, newRule)
+					}
+				}
+			case newL7Rules.L7Proto != "":
+				if len(ep.Kafka) > 0 || len(ep.HTTP) > 0 || (ep.L7Proto != "" && ep.L7Proto != newL7Rules.L7Proto) {
+					ctx.PolicyTrace("   Merge conflict: mismatching L7 rule types.\n")
+					return fmt.Errorf("Cannot merge conflicting L7 rule types")
+				}
+				if ep.L7Proto == "" {
+					ep.L7Proto = newL7Rules.L7Proto
+				}
+
+				for _, newRule := range newL7Rules.L7 {
+					if !newRule.Exists(ep) {
+						ep.L7 = append(ep.L7, newRule)
+					}
+				}
+			default:
+				ctx.PolicyTrace("   No L7 rules to merge.\n")
+			}
+			existingFilter.L7RulesPerEp[hash] = ep
+		} else {
+			existingFilter.L7RulesPerEp[hash] = newL7Rules
+		}
+	}
+	return nil
+}
+
 // mergeL4IngressPort merges all rules which share the same port & protocol that
 // select a given set of endpoints. It updates the L4Filter mapped to by the specified
 // port and protocol with the contents of the provided PortRule. If the rule
@@ -57,78 +132,9 @@ func mergeL4IngressPort(ctx *SearchContext, endpoints []api.EndpointSelector, en
 	// for merging with the filter which is already in the policy map.
 	filterToMerge := CreateL4IngressFilter(endpoints, endpointsWithL3Override, r, p, proto, ruleLabels)
 
-	// Handle cases where filter we are merging new rule with, new rule itself
-	// allows all traffic on L3, or both rules allow all traffic on L3.
-	//
-	// Case 1: either filter selects all endpoints, which means that this filter
-	// can now simply select all endpoints.
-	if existingFilter.AllowsAllAtL3() || filterToMerge.AllowsAllAtL3() {
-		existingFilter.Endpoints = api.EndpointSelectorSlice{api.WildcardEndpointSelector}
-	} else {
-		// Case 2: no wildcard endpoint selectors in existing filter or in filter
-		// to merge, so just append endpoints.
-		existingFilter.Endpoints = append(existingFilter.Endpoints, endpoints...)
+	if err := mergeL4Port(ctx, endpoints, &existingFilter, &filterToMerge); err != nil {
+		return 0, err
 	}
-
-	// Merge the L7-related data from the arguments provided to this function
-	// with the existing L7-related data already in the filter.
-	if filterToMerge.L7Parser != ParserTypeNone {
-		if existingFilter.L7Parser == ParserTypeNone {
-			existingFilter.L7Parser = filterToMerge.L7Parser
-		} else if filterToMerge.L7Parser != existingFilter.L7Parser {
-			ctx.PolicyTrace("   Merge conflict: mismatching parsers %s/%s\n", filterToMerge.L7Parser, existingFilter.L7Parser)
-			return 0, fmt.Errorf("Cannot merge conflicting L7 parsers (%s/%s)", filterToMerge.L7Parser, existingFilter.L7Parser)
-		}
-	}
-
-	for hash, newL7Rules := range filterToMerge.L7RulesPerEp {
-		if ep, ok := existingFilter.L7RulesPerEp[hash]; ok {
-			switch {
-			case len(newL7Rules.HTTP) > 0:
-				if len(ep.Kafka) > 0 || len(ep.L7) > 0 {
-					ctx.PolicyTrace("   Merge conflict: mismatching L7 rule types.\n")
-					return 0, fmt.Errorf("Cannot merge conflicting L7 rule types")
-				}
-
-				for _, newRule := range newL7Rules.HTTP {
-					if !newRule.Exists(ep) {
-						ep.HTTP = append(ep.HTTP, newRule)
-					}
-				}
-			case len(newL7Rules.Kafka) > 0:
-				if len(ep.HTTP) > 0 || len(ep.L7) > 0 {
-					ctx.PolicyTrace("   Merge conflict: mismatching L7 rule types.\n")
-					return 0, fmt.Errorf("Cannot merge conflicting L7 rule types")
-				}
-
-				for _, newRule := range newL7Rules.Kafka {
-					if !newRule.Exists(ep) {
-						ep.Kafka = append(ep.Kafka, newRule)
-					}
-				}
-			case len(newL7Rules.L7) > 0:
-				if len(ep.Kafka) > 0 || len(ep.HTTP) > 0 || (ep.L7Proto != "" && ep.L7Proto != newL7Rules.L7Proto) {
-					ctx.PolicyTrace("   Merge conflict: mismatching L7 rule types.\n")
-					return 0, fmt.Errorf("Cannot merge conflicting L7 rule types")
-				}
-				if ep.L7Proto == "" {
-					ep.L7Proto = newL7Rules.L7Proto
-				}
-
-				for _, newRule := range newL7Rules.L7 {
-					if !newRule.Exists(ep) {
-						ep.L7 = append(ep.L7, newRule)
-					}
-				}
-			default:
-				ctx.PolicyTrace("   No L7 rules to merge.\n")
-			}
-			existingFilter.L7RulesPerEp[hash] = ep
-		} else {
-			existingFilter.L7RulesPerEp[hash] = newL7Rules
-		}
-	}
-
 	existingFilter.DerivedFromRules = append(existingFilter.DerivedFromRules, ruleLabels)
 	resMap[key] = existingFilter
 	return 1, nil
@@ -167,8 +173,17 @@ func mergeL4Ingress(ctx *SearchContext, rule api.IngressRule, ruleLabels labels.
 
 	for _, r := range rule.ToPorts {
 		ctx.PolicyTrace("    Allows %s port %v from endpoints %v\n", policymap.Ingress, r.Ports, fromEndpoints)
+		if r.Rules != nil && r.Rules.L7Proto != "" {
+			ctx.PolicyTrace("      l7proto: \"%s\"\n", r.Rules.L7Proto)
+		}
 		if !r.Rules.IsEmpty() {
 			for _, l7 := range r.Rules.HTTP {
+				ctx.PolicyTrace("        %+v\n", l7)
+			}
+			for _, l7 := range r.Rules.Kafka {
+				ctx.PolicyTrace("        %+v\n", l7)
+			}
+			for _, l7 := range r.Rules.L7 {
 				ctx.PolicyTrace("        %+v\n", l7)
 			}
 		}
@@ -435,9 +450,17 @@ func mergeL4Egress(ctx *SearchContext, rule api.EgressRule, ruleLabels labels.La
 
 	for _, r := range rule.ToPorts {
 		ctx.PolicyTrace("    Allows %s port %v to endpoints %v\n", policymap.Egress, r.Ports, toEndpoints)
-
+		if r.Rules != nil && r.Rules.L7Proto != "" {
+			ctx.PolicyTrace("      l7proto: \"%s\"\n", r.Rules.L7Proto)
+		}
 		if !r.Rules.IsEmpty() {
 			for _, l7 := range r.Rules.HTTP {
+				ctx.PolicyTrace("        %+v\n", l7)
+			}
+			for _, l7 := range r.Rules.Kafka {
+				ctx.PolicyTrace("        %+v\n", l7)
+			}
+			for _, l7 := range r.Rules.L7 {
 				ctx.PolicyTrace("        %+v\n", l7)
 			}
 		}
@@ -487,64 +510,9 @@ func mergeL4EgressPort(ctx *SearchContext, endpoints []api.EndpointSelector, r a
 	// for merging with the filter which is already in the policy map.
 	filterToMerge := CreateL4EgressFilter(endpoints, r, p, proto, ruleLabels)
 
-	// Handle cases where filter we are merging new rule with, new rule itself
-	// allows all traffic on L3, or both rules allow all traffic on L3.
-	//
-	// Case 1: either filter selects all endpoints, which means that this filter
-	// can now simply select all endpoints.
-	if existingFilter.AllowsAllAtL3() || filterToMerge.AllowsAllAtL3() {
-		existingFilter.Endpoints = api.EndpointSelectorSlice{api.WildcardEndpointSelector}
-	} else {
-		// Case 2: no wildcard endpoint selectors in existing filter or in filter
-		// to merge, so just append endpoints.
-		existingFilter.Endpoints = append(existingFilter.Endpoints, endpoints...)
+	if err := mergeL4Port(ctx, endpoints, &existingFilter, &filterToMerge); err != nil {
+		return 0, err
 	}
-
-	// Merge the L7-related data from the arguments provided to this function
-	// with the existing L7-related data already in the filter.
-	if filterToMerge.L7Parser != ParserTypeNone {
-		if existingFilter.L7Parser == ParserTypeNone {
-			existingFilter.L7Parser = filterToMerge.L7Parser
-		} else if filterToMerge.L7Parser != existingFilter.L7Parser {
-			ctx.PolicyTrace("   Merge conflict: mismatching parsers %s/%s\n", filterToMerge.L7Parser, existingFilter.L7Parser)
-			return 0, fmt.Errorf("Cannot merge conflicting L7 parsers (%s/%s)", filterToMerge.L7Parser, existingFilter.L7Parser)
-		}
-	}
-
-	for hash, newL7Rules := range filterToMerge.L7RulesPerEp {
-		if ep, ok := existingFilter.L7RulesPerEp[hash]; ok {
-			switch {
-			case len(newL7Rules.HTTP) > 0:
-				if len(ep.Kafka) > 0 {
-					ctx.PolicyTrace("   Merge conflict: mismatching L7 rule types.\n")
-					return 0, fmt.Errorf("Cannot merge conflicting L7 rule types")
-				}
-
-				for _, newRule := range newL7Rules.HTTP {
-					if !newRule.Exists(ep) {
-						ep.HTTP = append(ep.HTTP, newRule)
-					}
-				}
-			case len(newL7Rules.Kafka) > 0:
-				if len(ep.HTTP) > 0 {
-					ctx.PolicyTrace("   Merge conflict: mismatching L7 rule types.\n")
-					return 0, fmt.Errorf("Cannot merge conflicting L7 rule types")
-				}
-
-				for _, newRule := range newL7Rules.Kafka {
-					if !newRule.Exists(ep) {
-						ep.Kafka = append(ep.Kafka, newRule)
-					}
-				}
-			default:
-				ctx.PolicyTrace("   No L7 rules to merge.\n")
-			}
-			existingFilter.L7RulesPerEp[hash] = ep
-		} else {
-			existingFilter.L7RulesPerEp[hash] = newL7Rules
-		}
-	}
-
 	existingFilter.DerivedFromRules = append(existingFilter.DerivedFromRules, ruleLabels)
 	resMap[key] = existingFilter
 	return 1, nil

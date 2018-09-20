@@ -123,7 +123,7 @@ func (l7 L7DataMap) GetRelevantRules(identity *identity.Identity) api.L7Rules {
 			if selector.Matches(identity.Labels.LabelArray()) {
 				rules.HTTP = append(rules.HTTP, endpointRules.HTTP...)
 				rules.Kafka = append(rules.Kafka, endpointRules.Kafka...)
-				rules.L7Proto = endpointRules.L7Proto // XXX: Need to check types are the same?
+				rules.L7Proto = endpointRules.L7Proto
 				rules.L7 = append(rules.L7, endpointRules.L7...)
 			}
 		}
@@ -182,16 +182,18 @@ func CreateL4Filter(peerEndpoints api.EndpointSelectorSlice, rule api.PortRule, 
 		Ingress:          ingress,
 	}
 
-	if protocol == api.ProtoTCP && !rule.Rules.IsEmpty() {
+	if protocol == api.ProtoTCP && rule.Rules != nil {
 		switch {
 		case len(rule.Rules.HTTP) > 0:
 			l4.L7Parser = ParserTypeHTTP
 		case len(rule.Rules.Kafka) > 0:
 			l4.L7Parser = ParserTypeKafka
-		case len(rule.Rules.L7) > 0 && rule.Rules.L7Proto != "":
+		case rule.Rules.L7Proto != "":
 			l4.L7Parser = (L7ParserType)(rule.Rules.L7Proto)
 		}
-		l4.L7RulesPerEp.addRulesForEndpoints(*rule.Rules, filterEndpoints)
+		if !rule.Rules.IsEmpty() {
+			l4.L7RulesPerEp.addRulesForEndpoints(*rule.Rules, filterEndpoints)
+		}
 	}
 
 	return l4

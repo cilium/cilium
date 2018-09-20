@@ -514,8 +514,8 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndMismatchingParsers(c *
 	c.Assert(err, Not(IsNil))
 	c.Assert(res, IsNil)
 
-	// Case 5B: HTTP first, generic L7 second.
-	conflictingParsersRule = &rule{
+	// Case 5B+: HTTP first, generic L7 second.
+	conflictingParsersIngressRule := &rule{
 		Rule: api.Rule{
 			EndpointSelector: endpointSelectorA,
 			Ingress: []api.IngressRule{
@@ -539,10 +539,9 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndMismatchingParsers(c *
 							{Port: "80", Protocol: api.ProtoTCP},
 						},
 						Rules: &api.L7Rules{
+							L7Proto: "testing",
 							L7: []api.PortRuleL7{
-								map[string]string{
-									"method": "PUT",
-									"path":   "/Foo"},
+								{"method": "PUT", "path": "/Foo"},
 							},
 						},
 					}},
@@ -555,8 +554,57 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndMismatchingParsers(c *
 	ctxToA.Logging = logging.NewLogBackend(buffer, "", 0)
 	c.Log(buffer)
 
+	err = conflictingParsersIngressRule.Sanitize()
+	c.Assert(err, IsNil)
+
 	state = traceState{}
-	res, err = conflictingParsersRule.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy(), nil)
+	res, err = conflictingParsersIngressRule.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy(), nil)
+	c.Assert(err, Not(IsNil))
+	c.Assert(res, IsNil)
+
+	// Case 5B++: generic L7 without rules first, HTTP second.
+	conflictingParsersEgressRule := &rule{
+		Rule: api.Rule{
+			EndpointSelector: endpointSelectorA,
+			Egress: []api.EgressRule{
+				{
+					ToEndpoints: []api.EndpointSelector{endpointSelectorC},
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+						Rules: &api.L7Rules{
+							L7Proto: "testing",
+						},
+					}},
+				},
+				{
+					ToEndpoints: []api.EndpointSelector{endpointSelectorC},
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+						Rules: &api.L7Rules{
+							HTTP: []api.PortRuleHTTP{
+								{Method: "GET", Path: "/"},
+							},
+						},
+					}},
+				},
+			},
+		}}
+
+	buffer = new(bytes.Buffer)
+	ctxAToC := SearchContext{From: labelsA, To: labelsC, Trace: TRACE_VERBOSE}
+	ctxAToC.Logging = logging.NewLogBackend(buffer, "", 0)
+	c.Log(buffer)
+
+	err = conflictingParsersEgressRule.Sanitize()
+	c.Assert(err, IsNil)
+
+	state = traceState{}
+	res, err = conflictingParsersEgressRule.resolveL4EgressPolicy(&ctxAToC, &state, NewL4Policy(), nil)
+	c.Log(buffer)
 	c.Assert(err, Not(IsNil))
 	c.Assert(res, IsNil)
 }
