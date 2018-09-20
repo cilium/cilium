@@ -101,6 +101,23 @@ func OnNewConnection(instanceId uint64, proto string, connectionId uint64, ingre
 	return C.FILTER_OK
 }
 
+// Skip bytes in input, or exhaust the input.
+// If input is exhausted 'bytes' will return the number of bytes remaining beyond the input
+func advanceInput(bytes, unit, offset int, data *[][]byte) (int, int, int) {
+	for bytes > 0 && unit < len(*data) {
+		rem := len((*data)[unit]) - offset // this much data left in unit
+		if bytes < rem {                   // more than 'bytes' bytes in unit
+			offset += bytes
+			bytes = 0
+		} else { // go to the beginning of the next unit
+			bytes -= rem
+			unit++
+			offset = 0
+		}
+	}
+	return bytes, unit, offset
+}
+
 // Each connection is assumed to be called from a single thread, so accessing connection metadata
 // does not need protection.
 //
@@ -154,18 +171,7 @@ func OnData(connectionId uint64, reply, endStream bool, data *[][]byte, filterOp
 		}
 
 		if op == PASS || op == DROP {
-			// Skip bytes in input, or exhaust the input.
-			for bytes > 0 && unit < len(*data) {
-				rem := len((*data)[unit]) - offset // this much data left in unit
-				if bytes < rem {                   // more than 'bytes' bytes in unit
-					offset += bytes
-					bytes = 0
-				} else { // go to the beginning of the next unit
-					bytes -= rem
-					unit++
-					offset = 0
-				}
-			}
+			_, unit, offset = advanceInput(bytes, unit, offset, data)
 			// Loop back to parser even if have no more data to allow the parser to
 			// inject frames at the end of the input.
 		}
