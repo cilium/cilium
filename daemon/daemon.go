@@ -1153,6 +1153,8 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 		compilationMutex:  new(lock.RWMutex),
 	}
 
+	policyApi.InitEntities(option.Config.ClusterName)
+
 	workloads.Init(&d)
 
 	// Clear previous leftovers before listening for new requests

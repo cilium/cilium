@@ -383,10 +383,6 @@ identities are prefixed with the string ``reserved:``.
 | reserved:host       | The host network namespace on which the pod or    |
 |                     | container is running.                             |
 +---------------------+---------------------------------------------------+
-| reserved:cluster    | Any network endpoint inside of the cluster that   |
-|                     | is not managed by Cilium. Does not include        |
-|                     | reserved:host.                                    |
-+---------------------+---------------------------------------------------+
 | reserved:world      | Any network endpoint outside of the cluster       |
 +---------------------+---------------------------------------------------+
 
