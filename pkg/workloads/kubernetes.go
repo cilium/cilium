@@ -17,7 +17,6 @@ package workloads
 import (
 	"regexp"
 
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -110,9 +109,7 @@ func fetchK8sLabels(containerID string, containerLbls map[string]string) (map[st
 		k8sLabels[k8sConst.PolicyLabelIstioSidecarProxy] = "true"
 	}
 
-	if option.Config.ClusterName != defaults.ClusterName {
-		k8sLabels[k8sConst.PolicyLabelCluster] = option.Config.ClusterName
-	}
+	k8sLabels[k8sConst.PolicyLabelCluster] = option.Config.ClusterName
 
 	return k8sLabels, nil
 }
