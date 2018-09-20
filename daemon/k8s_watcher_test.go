@@ -20,11 +20,13 @@ import (
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/versioned"
 
 	. "gopkg.in/check.v1"
+	core_v1 "k8s.io/api/core/v1"
 	"k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -237,6 +239,276 @@ func (ds *DaemonSuite) Test_missingCNPv2(c *C) {
 		want := tt.setupWanted()
 		ds.d.policy = args.repo
 		got := ds.d.missingCNPv2(args.m)
+		c.Assert(got, DeepEquals, want, Commentf("Test name: %q", tt.name))
+	}
+}
+
+func (ds *DaemonSuite) Test_parseK8sEPv1(c *C) {
+	type args struct {
+		eps *core_v1.Endpoints
+	}
+	tests := []struct {
+		name        string
+		setupArgs   func() args
+		setupWanted func() *loadbalancer.K8sServiceEndpoint
+	}{
+		{
+			name: "empty endpoint",
+			setupArgs: func() args {
+				return args{
+					eps: &core_v1.Endpoints{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+					},
+				}
+			},
+			setupWanted: func() *loadbalancer.K8sServiceEndpoint {
+				return loadbalancer.NewK8sServiceEndpoint()
+			},
+		},
+		{
+			name: "endpoint with an address and port",
+			setupArgs: func() args {
+				return args{
+					eps: &core_v1.Endpoints{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+						Subsets: []core_v1.EndpointSubset{
+							{
+								Addresses: []core_v1.EndpointAddress{
+									{
+										IP: "172.0.0.1",
+									},
+								},
+								Ports: []core_v1.EndpointPort{
+									{
+										Name:     "http-test-svc",
+										Port:     8080,
+										Protocol: core_v1.ProtocolTCP,
+									},
+								},
+							},
+						},
+					},
+				}
+			},
+			setupWanted: func() *loadbalancer.K8sServiceEndpoint {
+				svcEP := loadbalancer.NewK8sServiceEndpoint()
+				p, err := loadbalancer.NewL4Addr(loadbalancer.TCP, 8080)
+				c.Assert(err, IsNil)
+				svcEP.Ports["http-test-svc"] = p
+				svcEP.BEIPs["172.0.0.1"] = true
+				return svcEP
+			},
+		},
+		{
+			name: "endpoint with an address and 2 ports",
+			setupArgs: func() args {
+				return args{
+					eps: &core_v1.Endpoints{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+						Subsets: []core_v1.EndpointSubset{
+							{
+								Addresses: []core_v1.EndpointAddress{
+									{
+										IP: "172.0.0.1",
+									},
+								},
+								Ports: []core_v1.EndpointPort{
+									{
+										Name:     "http-test-svc",
+										Port:     8080,
+										Protocol: core_v1.ProtocolTCP,
+									},
+									{
+										Name:     "http-test-svc-2",
+										Port:     8081,
+										Protocol: core_v1.ProtocolTCP,
+									},
+								},
+							},
+						},
+					},
+				}
+			},
+			setupWanted: func() *loadbalancer.K8sServiceEndpoint {
+				svcEP := loadbalancer.NewK8sServiceEndpoint()
+				p, err := loadbalancer.NewL4Addr(loadbalancer.TCP, 8080)
+				c.Assert(err, IsNil)
+				svcEP.Ports["http-test-svc"] = p
+				p, err = loadbalancer.NewL4Addr(loadbalancer.TCP, 8081)
+				c.Assert(err, IsNil)
+				svcEP.Ports["http-test-svc-2"] = p
+				svcEP.BEIPs["172.0.0.1"] = true
+				return svcEP
+			},
+		},
+		{
+			name: "endpoint with 2 addresses and 2 ports",
+			setupArgs: func() args {
+				return args{
+					eps: &core_v1.Endpoints{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+						Subsets: []core_v1.EndpointSubset{
+							{
+								Addresses: []core_v1.EndpointAddress{
+									{
+										IP: "172.0.0.1",
+									},
+									{
+										IP: "172.0.0.2",
+									},
+								},
+								Ports: []core_v1.EndpointPort{
+									{
+										Name:     "http-test-svc",
+										Port:     8080,
+										Protocol: core_v1.ProtocolTCP,
+									},
+									{
+										Name:     "http-test-svc-2",
+										Port:     8081,
+										Protocol: core_v1.ProtocolTCP,
+									},
+								},
+							},
+						},
+					},
+				}
+			},
+			setupWanted: func() *loadbalancer.K8sServiceEndpoint {
+				svcEP := loadbalancer.NewK8sServiceEndpoint()
+				p, err := loadbalancer.NewL4Addr(loadbalancer.TCP, 8080)
+				c.Assert(err, IsNil)
+				svcEP.Ports["http-test-svc"] = p
+				p, err = loadbalancer.NewL4Addr(loadbalancer.TCP, 8081)
+				c.Assert(err, IsNil)
+				svcEP.Ports["http-test-svc-2"] = p
+				svcEP.BEIPs["172.0.0.1"] = true
+				svcEP.BEIPs["172.0.0.2"] = true
+				return svcEP
+			},
+		},
+		{
+			name: "endpoint with 2 addresses, 1 address not ready and 2 ports",
+			setupArgs: func() args {
+				return args{
+					eps: &core_v1.Endpoints{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+						Subsets: []core_v1.EndpointSubset{
+							{
+								NotReadyAddresses: []core_v1.EndpointAddress{
+									{
+										IP: "172.0.0.3",
+									},
+								},
+								Addresses: []core_v1.EndpointAddress{
+									{
+										IP: "172.0.0.1",
+									},
+									{
+										IP: "172.0.0.2",
+									},
+								},
+								Ports: []core_v1.EndpointPort{
+									{
+										Name:     "http-test-svc",
+										Port:     8080,
+										Protocol: core_v1.ProtocolTCP,
+									},
+									{
+										Name:     "http-test-svc-2",
+										Port:     8081,
+										Protocol: core_v1.ProtocolTCP,
+									},
+								},
+							},
+						},
+					},
+				}
+			},
+			setupWanted: func() *loadbalancer.K8sServiceEndpoint {
+				svcEP := loadbalancer.NewK8sServiceEndpoint()
+				p, err := loadbalancer.NewL4Addr(loadbalancer.TCP, 8080)
+				c.Assert(err, IsNil)
+				svcEP.Ports["http-test-svc"] = p
+				p, err = loadbalancer.NewL4Addr(loadbalancer.TCP, 8081)
+				c.Assert(err, IsNil)
+				svcEP.Ports["http-test-svc-2"] = p
+				svcEP.BEIPs["172.0.0.1"] = true
+				svcEP.BEIPs["172.0.0.2"] = true
+				return svcEP
+			},
+		},
+		{
+			name: "endpoint with 2 addresses, 1 address not ready, 1 good port and 1 port with unknown protocol",
+			setupArgs: func() args {
+				return args{
+					eps: &core_v1.Endpoints{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+						Subsets: []core_v1.EndpointSubset{
+							{
+								NotReadyAddresses: []core_v1.EndpointAddress{
+									{
+										IP: "172.0.0.3",
+									},
+								},
+								Addresses: []core_v1.EndpointAddress{
+									{
+										IP: "172.0.0.1",
+									},
+									{
+										IP: "172.0.0.2",
+									},
+								},
+								Ports: []core_v1.EndpointPort{
+									{
+										Name:     "http-test-svc",
+										Port:     8080,
+										Protocol: core_v1.ProtocolTCP,
+									},
+									{
+										Name:     "http-test-svc-2",
+										Port:     8081,
+										Protocol: core_v1.Protocol("foo"),
+									},
+								},
+							},
+						},
+					},
+				}
+			},
+			setupWanted: func() *loadbalancer.K8sServiceEndpoint {
+				svcEP := loadbalancer.NewK8sServiceEndpoint()
+				p, err := loadbalancer.NewL4Addr(loadbalancer.TCP, 8080)
+				c.Assert(err, IsNil)
+				svcEP.Ports["http-test-svc"] = p
+				svcEP.BEIPs["172.0.0.1"] = true
+				svcEP.BEIPs["172.0.0.2"] = true
+				return svcEP
+			},
+		},
+	}
+	for _, tt := range tests {
+		args := tt.setupArgs()
+		want := tt.setupWanted()
+		got := parseK8sEPv1(args.eps)
 		c.Assert(got, DeepEquals, want, Commentf("Test name: %q", tt.name))
 	}
 }
