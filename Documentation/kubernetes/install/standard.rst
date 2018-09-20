@@ -428,6 +428,31 @@ the CNI configuration ``/etc/cni/net.d/05-cilium.conf`` manually:
 Cilium will use any existing ``/etc/cni/net.d/05-cilium.conf`` file if it
 already exists on a worker node and only creates it if it does not exist yet.
 
+Enabling hostPort Support via CNI configuration
+-----------------------------------------------
+
+Some users may want to enable ``hostPort``. Currently, cilium does not natively 
+support ``hostPort``. However, users can utilize ``hostPort`` via a CNI plugin
+chain, by putting it in their ``cni-conf-dir`` (default ``/etc/cni/net.d``), e.g.:
+
+.. code:: json
+
+    {
+        "cniVersion": "0.3.1",
+        "name": "cilium-portmap",
+        "plugins": [
+                {
+                        "type": "cilium-cni"
+                },
+                {
+                        "type": "portmap",
+                        "capabilities": { "portMappings": true }
+                }
+        ]
+    }
+
+For more information about ``hostPort``, check the `Kubernetes hostPort-CNI plugin documentation <https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/#support-hostport>`_.
+
 Running Kubernetes with CRD Validation (Recommended)
 ----------------------------------------------------
 
