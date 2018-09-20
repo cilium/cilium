@@ -1125,6 +1125,20 @@ var _ = Describe("RuntimePolicies", func() {
 
 		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
 
+		By("testing egress to world with all entity")
+		policy = fmt.Sprintf(`
+		[{
+			"endpointSelector": {"matchLabels":{"%s":""}},
+			"egress": [{
+				"toEntities": [
+					"%s"
+				]
+			}]
+		}]`, app1Label, api.EntityAll)
+		setupPolicyAndTestEgressToWorld(policy)
+
+		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
+
 		By("testing basic egress to 0.0.0.0/0")
 		policy = fmt.Sprintf(`
 		[{
