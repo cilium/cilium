@@ -292,12 +292,25 @@ by the selected endpoints.
 The following entities are defined:
 
 host
-    The local host serving the endpoint. On ingress, this also includes
-    the host of other Cilium cluster nodes.
+    The host entity includes all cluster nodes. This also includes all
+    containers running in host networking mode.
+cluster
+    Cluster is the logical group of all network endpoints inside of the local
+    cluster. This includes all Cilium-managed endpoints of the local cluster.
+    It also includes the host entity to cover host networking containers as
+    well as the init entity to include endpoints currently being bootstrapped.
+init
+    The init entity contains all endpoints in bootstrap phase for which the
+    security identity has not been resolved yet. See section
+    :ref:`endpoint_lifecycle` for details.
 world
-    All traffic outside of the cluster.
+    The world entity corresponds to all endpoints outside of the cluster.
+    Allowing to world is identical to allowing to CIDR 0/0. An alternative
+    to allowing from and to world is to define fine grained DNS or CIDR based
+    policies.
 all
-    All traffic both within the cluster and outside of the cluster.
+    The all entity represents the combination of all known clusters as well
+    world and whitelists all communication.
 
 .. versionadded:: future
    Allowing users to `define custom identities <https://github.com/cilium/cilium/issues/3553>`_
