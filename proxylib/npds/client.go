@@ -20,6 +20,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/envoy/cilium"
 	envoy_api_v2 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
 	envoy_api_v2_core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
@@ -74,9 +75,15 @@ func NewClient(path, nodeId string, updater proxylib.PolicyUpdater) proxylib.Pol
 	// Only used for testing and logging, as we keep on trying anyway.
 	startErr := make(chan error) // Channel open as long as 'starting == true'
 
+	BackOff := backoff.Exponential{
+		Min:  DialDelay,
+		Max:  BackOffLimit * DialDelay,
+		Name: "proxylib NPDS client",
+	}
+
 	go func() {
 		starting := true
-		backOff := 1
+		backOff := BackOff
 		for {
 			err := c.Run(func() {
 				// Report successful start on the first try by closing the channel
@@ -91,10 +98,6 @@ func NewClient(path, nodeId string, updater proxylib.PolicyUpdater) proxylib.Pol
 			c.mutex.Unlock()
 
 			if err != nil {
-				backOff *= 2
-				if backOff > BackOffLimit {
-					backOff = BackOffLimit
-				}
 				log.Info(err)
 				if starting {
 					startErr <- err
@@ -102,7 +105,8 @@ func NewClient(path, nodeId string, updater proxylib.PolicyUpdater) proxylib.Pol
 					starting = false
 				}
 			} else {
-				backOff = 1
+				// Reset backoff after successful start
+				backOff = BackOff
 			}
 
 			if closing {
@@ -110,9 +114,7 @@ func NewClient(path, nodeId string, updater proxylib.PolicyUpdater) proxylib.Pol
 			}
 
 			// Back off before retrying
-			delay := DialDelay * time.Duration(backOff)
-			log.Infof("NPDS: Client %s backing off retry on %s for %v", c.nodeId, c.path, delay)
-			time.Sleep(delay)
+			backOff.Wait()
 		}
 	}()
 
