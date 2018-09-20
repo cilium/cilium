@@ -143,7 +143,7 @@ func (p *HeaderParser) OnData(reply, endStream bool, data [][]byte, offset int) 
 	if reply || p.connection.Matches(line) {
 		p.connection.Log(cilium.EntryType_Request,
 			&cilium.LogEntry_GenericL7{
-				&cilium.L7LogEntry{
+				GenericL7: &cilium.L7LogEntry{
 					Proto: parserName,
 					Fields: map[string]string{
 						"status": "PASS",
@@ -158,7 +158,7 @@ func (p *HeaderParser) OnData(reply, endStream bool, data [][]byte, offset int) 
 	// Drop the line in the current direction
 	p.connection.Log(cilium.EntryType_Denied,
 		&cilium.LogEntry_GenericL7{
-			&cilium.L7LogEntry{
+			GenericL7: &cilium.L7LogEntry{
 				Proto: parserName,
 				Fields: map[string]string{
 					"status": "DROP",
