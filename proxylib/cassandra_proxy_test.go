@@ -28,7 +28,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-
 // util function used for Cassandra tests, as we have cassandra requests
 // as hex strings
 func hex_to_str(data_hex []byte) string {
@@ -43,7 +42,6 @@ func hex_to_str(data_hex []byte) string {
 func TestCassandraOnDataNoHeader(t *testing.T) {
 	logServer := test.StartAccessLogServer(t, "access_log.sock", 10)
 	defer logServer.Close()
-
 
 	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
 	if mod == 0 {
@@ -250,7 +248,7 @@ func TestCassandraOnDataSplitQueryReq(t *testing.T) {
 		30, proxylib.OK, 1)
 
 	data2 := hex_to_str([]byte("0400000407000000760000006f53454c45435420636c75737465725f6e616d652c20646174615f63656e7465722c207261636b2c20746f6b656e732c20706172746974696f6e65722c20736368656d615f76657273696f6e2046524f4d2073797374656d2e6c6f63616c205748455245206b65793d276c6f63616c27000100"))
-	CheckOnData(t, 1, false, false, &[][]byte{ []byte(data2[:10]), []byte(data2[10:])} , []ExpFilterOp{
+	CheckOnData(t, 1, false, false, &[][]byte{[]byte(data2[:10]), []byte(data2[10:])}, []ExpFilterOp{
 		{proxylib.PASS, len(data2)}, {proxylib.MORE, 9},
 	}, proxylib.OK, "")
 

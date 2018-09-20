@@ -49,9 +49,7 @@ $ cat cass-allow-all.json
 		  "ports": [{"port": "9042", "protocol": "TCP"}],
             		"rules": {
                 		"l7proto": "cassandra",
-                		"l7": [{
-                    			"rule": {}
-                		}]
+                		"l7": [{}] 
             		}
 		}]
 	  } ] 
@@ -74,12 +72,12 @@ $ cat cass-no-select-posts.json
             		"rules": {
                 		"l7proto": "cassandra",
                 		"l7": [
-				       {"rule": { "opcode": "startup"}},	
-				       {"rule": { "opcode": "register"}},	
-				       {"rule": { "opcode": "options" }}, 
-				       {"rule": { "opcode": "query", "query_action" : "use"}},
-				       {"rule": { "opcode": "query", "query_action" : "select", "query_table": "^system.*"}}, 
-				       {"rule": { "opcode": "query", "query_action" : "insert", "query_table" : "^posts_db.posts$"}}
+				       { "opcode": "startup"},	
+				       { "opcode": "register"},	
+				       { "opcode": "options" }, 
+				       { "opcode": "query", "query_action" : "use"},
+				       { "opcode": "query", "query_action" : "select", "query_table": "^system.*"}, 
+				       { "opcode": "query", "query_action" : "insert", "query_table" : "^posts_db.posts$"}
 
 				]}
             		}]
