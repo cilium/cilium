@@ -438,9 +438,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 					return nil
 				}
 			},
-			func(m versioned.Map) versioned.Map {
-				return m
-			},
+			d.missingK8sServiceV1,
 			&v1.Service{},
 			k8s.Client(),
 			reSyncPeriod,
@@ -743,7 +741,7 @@ func (d *Daemon) missingK8sNetworkPolicyV1(m versioned.Map) versioned.Map {
 	return missing
 }
 
-func (d *Daemon) addK8sServiceV1(svc *v1.Service) {
+func parseSvcV1(svc *v1.Service) *loadbalancer.K8sServiceInfo {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sSvcName:    svc.ObjectMeta.Name,
 		logfields.K8sNamespace:  svc.ObjectMeta.Namespace,
@@ -757,23 +755,17 @@ func (d *Daemon) addK8sServiceV1(svc *v1.Service) {
 
 	case v1.ServiceTypeExternalName:
 		// External-name services must be ignored
-		return
+		return nil
 
 	default:
 		scopedLog.Warn("Ignoring k8s service: unsupported type")
-		return
+		return nil
 	}
 
 	if svc.Spec.ClusterIP == "" {
 		scopedLog.Info("Ignoring k8s service: empty ClusterIP")
-		return
+		return nil
 	}
-
-	svcns := loadbalancer.K8sServiceNamespace{
-		ServiceName: svc.ObjectMeta.Name,
-		Namespace:   svc.ObjectMeta.Namespace,
-	}
-
 	clusterIP := net.ParseIP(svc.Spec.ClusterIP)
 	headless := false
 	if strings.ToLower(svc.Spec.ClusterIP) == "none" {
@@ -793,6 +785,19 @@ func (d *Daemon) addK8sServiceV1(svc *v1.Service) {
 		if _, ok := newSI.Ports[loadbalancer.FEPortName(port.Name)]; !ok {
 			newSI.Ports[loadbalancer.FEPortName(port.Name)] = p
 		}
+	}
+	return newSI
+}
+
+func (d *Daemon) addK8sServiceV1(svc *v1.Service) {
+	newSI := parseSvcV1(svc)
+	if newSI == nil {
+		return
+	}
+
+	svcns := loadbalancer.K8sServiceNamespace{
+		ServiceName: svc.ObjectMeta.Name,
+		Namespace:   svc.ObjectMeta.Namespace,
 	}
 
 	d.loadBalancer.K8sMU.Lock()
@@ -838,6 +843,33 @@ func (d *Daemon) deleteK8sServiceV1(svc *v1.Service) {
 	d.loadBalancer.K8sMU.Lock()
 	defer d.loadBalancer.K8sMU.Unlock()
 	d.syncLB(nil, nil, svcns)
+}
+
+// missingK8sServiceV1 returns a map containing missing services considered
+// missing from the K8sServices of the loadbalancer.
+func (d *Daemon) missingK8sServiceV1(m versioned.Map) versioned.Map {
+	missing := versioned.NewMap()
+	d.loadBalancer.K8sMU.RLock()
+	for uuid, svcObj := range m {
+		svc := svcObj.Data.(*v1.Service)
+		svcns := loadbalancer.K8sServiceNamespace{
+			ServiceName: svc.ObjectMeta.Name,
+			Namespace:   svc.ObjectMeta.Namespace,
+		}
+
+		k8sSvc, ok := d.loadBalancer.K8sServices[svcns]
+		if !ok {
+			missing.Add(uuid, svcObj)
+			continue
+		}
+
+		newSI := parseSvcV1(svc)
+		if !k8sSvc.Equals(newSI) {
+			missing.Add(uuid, svcObj)
+		}
+	}
+	d.loadBalancer.K8sMU.RUnlock()
+	return missing
 }
 
 func parseK8sEPv1(ep *v1.Endpoints) *loadbalancer.K8sServiceEndpoint {

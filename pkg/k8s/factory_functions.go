@@ -15,11 +15,14 @@
 package k8s
 
 import (
+	"net"
 	"reflect"
+	"strings"
 
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	versionedClient "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/versioned"
 
@@ -404,18 +407,34 @@ func equalV1NetworkPolicy(o1, o2 interface{}) bool {
 }
 
 func equalV1Services(o1, o2 interface{}) bool {
-	_, ok := o1.(*v1.Service)
+	svc1, ok := o1.(*v1.Service)
 	if !ok {
 		log.Panicf("Invalid resource type %q, expecting *v1.Service", reflect.TypeOf(o1))
 		return false
 	}
-	_, ok = o1.(*v1.Service)
+	svc2, ok := o2.(*v1.Service)
 	if !ok {
 		log.Panicf("Invalid resource type %q, expecting *v1.Service", reflect.TypeOf(o2))
 		return false
 	}
-	// FIXME write dedicated deep equal function
-	return false
+
+	clusterIP := net.ParseIP(svc1.Spec.ClusterIP)
+	headless := false
+	if strings.ToLower(svc1.Spec.ClusterIP) == "none" {
+		headless = true
+	}
+	si1 := loadbalancer.NewK8sServiceInfo(clusterIP, headless, svc1.Labels, svc1.Spec.Selector)
+
+	clusterIP = net.ParseIP(svc2.Spec.ClusterIP)
+	headless = false
+	if strings.ToLower(svc2.Spec.ClusterIP) == "none" {
+		headless = true
+	}
+	si2 := loadbalancer.NewK8sServiceInfo(clusterIP, headless, svc2.Labels, svc2.Spec.Selector)
+
+	// Please write all the equalness logic inside the K8sServiceInfo.Equals()
+	// method.
+	return si1.Equals(si2)
 }
 
 func equalV1Endpoints(o1, o2 interface{}) bool {
