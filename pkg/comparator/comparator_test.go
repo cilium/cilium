@@ -29,7 +29,7 @@ type ComparatorSuite struct{}
 
 var _ = Suite(&ComparatorSuite{})
 
-func (s *ComparatorSuite) TestEquals(c *C) {
+func (s *ComparatorSuite) TestMapStringEquals(c *C) {
 	tests := []struct {
 		m1   map[string]string
 		m2   map[string]string
@@ -87,5 +87,66 @@ func (s *ComparatorSuite) TestEquals(c *C) {
 	}
 	for _, tt := range tests {
 		c.Assert(MapStringEquals(tt.m1, tt.m2), Equals, tt.want)
+	}
+}
+
+func (s *ComparatorSuite) TestMapBoolEquals(c *C) {
+	tests := []struct {
+		m1   map[string]bool
+		m2   map[string]bool
+		want bool
+	}{
+		{
+			m1:   nil,
+			m2:   nil,
+			want: true,
+		},
+		{
+			m1: map[string]bool{
+				"foo": true,
+			},
+			m2: map[string]bool{
+				"foo": true,
+			},
+			want: true,
+		},
+		{
+			m1:   map[string]bool{},
+			m2:   map[string]bool{},
+			want: true,
+		},
+		{
+			m1: map[string]bool{
+				"fo": true,
+			},
+			m2: map[string]bool{
+				"foo": true,
+			},
+			want: false,
+		},
+		{
+			m1: nil,
+			m2: map[string]bool{
+				"foo": true,
+			},
+			want: false,
+		},
+		{
+			m1: map[string]bool{
+				"foo": true,
+			},
+			m2:   nil,
+			want: false,
+		},
+		{
+			m1: map[string]bool{
+				"foo": true,
+			},
+			m2:   nil,
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		c.Assert(MapBoolEquals(tt.m1, tt.m2), Equals, tt.want)
 	}
 }
