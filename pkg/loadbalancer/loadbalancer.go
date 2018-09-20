@@ -115,7 +115,7 @@ type LoadBalancer struct {
 	SVCMapID  SVCMapID
 	RevNATMap RevNATMap
 
-	K8sMU        lock.Mutex
+	K8sMU        lock.RWMutex
 	K8sServices  map[K8sServiceNamespace]*K8sServiceInfo
 	K8sEndpoints map[K8sServiceNamespace]*K8sServiceEndpoint
 	K8sIngress   map[K8sServiceNamespace]*K8sServiceInfo
@@ -259,6 +259,29 @@ func NewK8sServiceEndpoint() *K8sServiceEndpoint {
 		BEIPs: map[string]bool{},
 		Ports: map[FEPortName]*L4Addr{},
 	}
+}
+
+// DeepEqual returns true if both k8sServiceEndpoint are deep equal.
+func (e *K8sServiceEndpoint) DeepEqual(o *K8sServiceEndpoint) bool {
+	switch {
+	case (e == nil) != (o == nil):
+		return false
+	case (e == nil) && (o == nil):
+		return true
+	}
+	if !comparator.MapBoolEquals(e.BEIPs, o.BEIPs) {
+		return false
+	}
+	if len(e.Ports) != len(o.Ports) {
+		return false
+	}
+	for k1, v1 := range e.Ports {
+		v2, ok := o.Ports[k1]
+		if !ok || !v1.Equals(v2) {
+			return false
+		}
+	}
+	return true
 }
 
 // CIDRPrefixes returns the endpoint's backends as a slice of IPNets.
