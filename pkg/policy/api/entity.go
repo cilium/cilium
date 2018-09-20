@@ -44,28 +44,36 @@ const (
 
 // EntitySelectorMapping maps special entity names that come in policies to
 // selectors
-var EntitySelectorMapping = map[Entity]EndpointSelector{
-	EntityAll: WildcardEndpointSelector,
-	EntityWorld: NewESFromLabels(&labels.Label{
-		Key:    labels.IDNameWorld,
-		Value:  "",
-		Source: labels.LabelSourceReserved,
-	}),
-	EntityCluster: NewESFromLabels(&labels.Label{
-		Key:    labels.IDNameCluster,
-		Value:  "",
-		Source: labels.LabelSourceReserved,
-	}),
-	EntityHost: NewESFromLabels(&labels.Label{
-		Key:    labels.IDNameHost,
-		Value:  "",
-		Source: labels.LabelSourceReserved,
-	}),
-	EntityInit: NewESFromLabels(&labels.Label{
-		Key:    labels.IDNameInit,
-		Value:  "",
-		Source: labels.LabelSourceReserved,
-	}),
+var EntitySelectorMapping = map[Entity]EndpointSelectorSlice{
+	EntityAll: {WildcardEndpointSelector},
+	EntityWorld: {
+		NewESFromLabels(&labels.Label{
+			Key:    labels.IDNameWorld,
+			Value:  "",
+			Source: labels.LabelSourceReserved,
+		}),
+	},
+	EntityCluster: {
+		NewESFromLabels(&labels.Label{
+			Key:    labels.IDNameCluster,
+			Value:  "",
+			Source: labels.LabelSourceReserved,
+		}),
+	},
+	EntityHost: {
+		NewESFromLabels(&labels.Label{
+			Key:    labels.IDNameHost,
+			Value:  "",
+			Source: labels.LabelSourceReserved,
+		}),
+	},
+	EntityInit: {
+		NewESFromLabels(&labels.Label{
+			Key:    labels.IDNameInit,
+			Value:  "",
+			Source: labels.LabelSourceReserved,
+		}),
+	},
 }
 
 // EntitySlice is a slice of entities
@@ -73,8 +81,8 @@ type EntitySlice []Entity
 
 // Matches returns true if the entity matches the labels
 func (e Entity) Matches(ctx labels.LabelArray) bool {
-	if selector, ok := EntitySelectorMapping[e]; ok {
-		return selector.Matches(ctx)
+	if selectors, ok := EntitySelectorMapping[e]; ok {
+		return selectors.Matches(ctx)
 	}
 
 	return false
@@ -97,7 +105,7 @@ func (s EntitySlice) GetAsEndpointSelectors() EndpointSelectorSlice {
 	slice := EndpointSelectorSlice{}
 	for _, e := range s {
 		if selector, ok := EntitySelectorMapping[e]; ok {
-			slice = append(slice, selector)
+			slice = append(slice, selector...)
 		}
 	}
 
