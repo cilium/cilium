@@ -474,9 +474,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 					return nil
 				}
 			},
-			func(m versioned.Map) versioned.Map {
-				return m
-			},
+			d.missingK8sEndpointsV1,
 			&v1.Endpoints{},
 			k8s.Client(),
 			reSyncPeriod,
@@ -992,6 +990,46 @@ func (d *Daemon) deleteK8sEndpointV1(ep *v1.Endpoints) {
 		}
 	}
 	endpointMetadataCache.delete(ep)
+}
+
+// missingK8sEndpointsV1 returns a map containing missing endpoints considered
+// missing from the k8sEndpoints of the loadbalancer.
+func (d *Daemon) missingK8sEndpointsV1(m versioned.Map) versioned.Map {
+	missing := versioned.NewMap()
+	// parse endpoints first to avoid holding the loadBalancer mutex
+	type metaEP struct {
+		k8sSvcEP *loadbalancer.K8sServiceEndpoint
+		svcNS    loadbalancer.K8sServiceNamespace
+		uuid     versioned.UUID
+		object   versioned.Object
+	}
+	metaEPs := make([]metaEP, 0, len(m))
+	for k, v := range m {
+		v1EP := v.Data.(*v1.Endpoints)
+		metaEPs = append(metaEPs, metaEP{
+			k8sSvcEP: parseK8sEPv1(v1EP),
+			svcNS: loadbalancer.K8sServiceNamespace{
+				ServiceName: v1EP.ObjectMeta.Name,
+				Namespace:   v1EP.ObjectMeta.Namespace,
+			},
+			uuid:   k,
+			object: v,
+		})
+	}
+
+	d.loadBalancer.K8sMU.RLock()
+	for _, metaEP := range metaEPs {
+		lbEP, ok := d.loadBalancer.K8sEndpoints[metaEP.svcNS]
+		if !ok {
+			missing.Add(metaEP.uuid, metaEP.object)
+			continue
+		}
+		if !metaEP.k8sSvcEP.DeepEqual(lbEP) {
+			missing.Add(metaEP.uuid, metaEP.object)
+		}
+	}
+	d.loadBalancer.K8sMU.RUnlock()
+	return missing
 }
 
 func areIPsConsistent(ipv4Enabled, isSvcIPv4 bool, svc loadbalancer.K8sServiceNamespace, se *loadbalancer.K8sServiceEndpoint) error {
