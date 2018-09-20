@@ -525,3 +525,195 @@ func TestK8sServiceInfo_Equals(t *testing.T) {
 		})
 	}
 }
+
+func TestK8sServiceEndpoint_DeepEqual(t *testing.T) {
+	type fields struct {
+		svcEP *K8sServiceEndpoint
+	}
+	type args struct {
+		o *K8sServiceEndpoint
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   bool
+	}{
+
+		{
+			name: "both equal",
+			fields: fields{
+				svcEP: &K8sServiceEndpoint{
+					BEIPs: map[string]bool{
+						"172.20.0.1": true,
+					},
+					Ports: map[FEPortName]*L4Addr{
+						FEPortName("foo"): {
+							Protocol: NONE,
+							Port:     1,
+						},
+					},
+				},
+			},
+			args: args{
+				o: &K8sServiceEndpoint{
+					BEIPs: map[string]bool{
+						"172.20.0.1": true,
+					},
+					Ports: map[FEPortName]*L4Addr{
+						FEPortName("foo"): {
+							Protocol: NONE,
+							Port:     1,
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "different BE IPs",
+			fields: fields{
+				svcEP: &K8sServiceEndpoint{
+					BEIPs: map[string]bool{
+						"172.20.0.1": true,
+					},
+					Ports: map[FEPortName]*L4Addr{
+						FEPortName("foo"): {
+							Protocol: NONE,
+							Port:     1,
+						},
+					},
+				},
+			},
+			args: args{
+				o: &K8sServiceEndpoint{
+					BEIPs: map[string]bool{
+						"172.20.0.2": true,
+					},
+					Ports: map[FEPortName]*L4Addr{
+						FEPortName("foo"): {
+							Protocol: NONE,
+							Port:     1,
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "ports different name",
+			fields: fields{
+				svcEP: &K8sServiceEndpoint{
+					BEIPs: map[string]bool{
+						"172.20.0.1": true,
+					},
+					Ports: map[FEPortName]*L4Addr{
+						FEPortName("foo"): {
+							Protocol: NONE,
+							Port:     1,
+						},
+					},
+				},
+			},
+			args: args{
+				o: &K8sServiceEndpoint{
+					BEIPs: map[string]bool{
+						"172.20.0.1": true,
+					},
+					Ports: map[FEPortName]*L4Addr{
+						FEPortName("foz"): {
+							Protocol: NONE,
+							Port:     1,
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "ports different content",
+			fields: fields{
+				svcEP: &K8sServiceEndpoint{
+					BEIPs: map[string]bool{
+						"172.20.0.1": true,
+					},
+					Ports: map[FEPortName]*L4Addr{
+						FEPortName("foo"): {
+							Protocol: NONE,
+							Port:     1,
+						},
+					},
+				},
+			},
+			args: args{
+				o: &K8sServiceEndpoint{
+					BEIPs: map[string]bool{
+						"172.20.0.1": true,
+					},
+					Ports: map[FEPortName]*L4Addr{
+						FEPortName("foo"): {
+							Protocol: NONE,
+							Port:     2,
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "ports different one is bigger",
+			fields: fields{
+				svcEP: &K8sServiceEndpoint{
+					Ports: map[FEPortName]*L4Addr{
+						FEPortName("foo"): {
+							Protocol: NONE,
+							Port:     1,
+						},
+					},
+				},
+			},
+			args: args{
+				o: &K8sServiceEndpoint{
+					Ports: map[FEPortName]*L4Addr{
+						FEPortName("foo"): {
+							Protocol: NONE,
+							Port:     1,
+						},
+						FEPortName("baz"): {
+							Protocol: NONE,
+							Port:     2,
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name:   "ports different one is nil",
+			fields: fields{},
+			args: args{
+				o: &K8sServiceEndpoint{
+					Ports: map[FEPortName]*L4Addr{
+						FEPortName("foo"): {
+							Protocol: NONE,
+							Port:     1,
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "both nil",
+			args: args{},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.fields.svcEP.DeepEqual(tt.args.o); got != tt.want {
+				t.Errorf("K8sServiceEndpoint.DeepEqual() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
