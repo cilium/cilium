@@ -15,38 +15,44 @@
 package api
 
 import (
+	"fmt"
+
+	k8sapi "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 
 	. "gopkg.in/check.v1"
 )
 
 func (s *PolicyAPITestSuite) TestEntityMatches(c *C) {
+	InitEntities("cluster1")
+
 	c.Assert(EntityHost.Matches(labels.ParseLabelArray("reserved:host")), Equals, true)
 	c.Assert(EntityHost.Matches(labels.ParseLabelArray("reserved:host", "id:foo")), Equals, true)
-	c.Assert(EntityHost.Matches(labels.ParseLabelArray("reserved:cluster")), Equals, false)
 	c.Assert(EntityHost.Matches(labels.ParseLabelArray("reserved:world")), Equals, false)
 	c.Assert(EntityHost.Matches(labels.ParseLabelArray("id=foo")), Equals, false)
 
 	c.Assert(EntityAll.Matches(labels.ParseLabelArray("reserved:host")), Equals, true)
-	c.Assert(EntityAll.Matches(labels.ParseLabelArray("reserved:cluster")), Equals, true)
 	c.Assert(EntityAll.Matches(labels.ParseLabelArray("reserved:world")), Equals, true)
 	c.Assert(EntityAll.Matches(labels.ParseLabelArray("id=foo")), Equals, true)
 
-	// EntityCluster doesn't select host, as EndpointSelector can't express OR relationships.
-	c.Assert(EntityCluster.Matches(labels.ParseLabelArray("reserved:host")), Equals, false)
-	c.Assert(EntityCluster.Matches(labels.ParseLabelArray("reserved:cluster")), Equals, true)
+	c.Assert(EntityCluster.Matches(labels.ParseLabelArray("reserved:host")), Equals, true)
+	c.Assert(EntityCluster.Matches(labels.ParseLabelArray("reserved:init")), Equals, true)
 	c.Assert(EntityCluster.Matches(labels.ParseLabelArray("reserved:world")), Equals, false)
+
+	clusterLabel := fmt.Sprintf("k8s:%s=%s", k8sapi.PolicyLabelCluster, "cluster1")
+	c.Assert(EntityCluster.Matches(labels.ParseLabelArray(clusterLabel, "id=foo")), Equals, true)
+	c.Assert(EntityCluster.Matches(labels.ParseLabelArray(clusterLabel, "id=foo", "id=bar")), Equals, true)
 	c.Assert(EntityCluster.Matches(labels.ParseLabelArray("id=foo")), Equals, false)
-	c.Assert(EntityCluster.Matches(labels.ParseLabelArray("id=foo", "id=bar")), Equals, false)
 
 	c.Assert(EntityWorld.Matches(labels.ParseLabelArray("reserved:host")), Equals, false)
-	c.Assert(EntityWorld.Matches(labels.ParseLabelArray("reserved:cluster")), Equals, false)
 	c.Assert(EntityWorld.Matches(labels.ParseLabelArray("reserved:world")), Equals, true)
 	c.Assert(EntityWorld.Matches(labels.ParseLabelArray("id=foo")), Equals, false)
 	c.Assert(EntityWorld.Matches(labels.ParseLabelArray("id=foo", "id=bar")), Equals, false)
 }
 
 func (s *PolicyAPITestSuite) TestEntitySliceMatches(c *C) {
+	InitEntities("cluster1")
+
 	slice := EntitySlice{EntityHost, EntityWorld}
 	c.Assert(slice.Matches(labels.ParseLabelArray("reserved:host")), Equals, true)
 	c.Assert(slice.Matches(labels.ParseLabelArray("reserved:world")), Equals, true)
