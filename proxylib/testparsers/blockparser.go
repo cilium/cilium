@@ -131,11 +131,11 @@ func (p *BlockParser) OnData(reply, endStream bool, data [][]byte, offset int) (
 	log.Infof("BlockParser: missing: %d", missing)
 
 	if bytes.Contains(block, []byte("PASS")) {
-		p.connection.Log(cilium.EntryType_Request, &cilium.LogEntry_Http{&cilium.HttpLogEntry{Status: 200}})
+		p.connection.Log(cilium.EntryType_Request, &cilium.LogEntry_Http{Http: &cilium.HttpLogEntry{Status: 200}})
 		return PASS, block_len
 	}
 	if bytes.Contains(block, []byte("DROP")) {
-		p.connection.Log(cilium.EntryType_Denied, &cilium.LogEntry_Http{&cilium.HttpLogEntry{Status: 201}})
+		p.connection.Log(cilium.EntryType_Denied, &cilium.LogEntry_Http{Http: &cilium.HttpLogEntry{Status: 201}})
 		return DROP, block_len
 	}
 
