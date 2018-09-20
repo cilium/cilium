@@ -512,3 +512,105 @@ func (ds *DaemonSuite) Test_parseK8sEPv1(c *C) {
 		c.Assert(got, DeepEquals, want, Commentf("Test name: %q", tt.name))
 	}
 }
+
+func (ds *DaemonSuite) Test_missingK8sEndpointsV1(c *C) {
+	type args struct {
+		m  versioned.Map
+		lb *loadbalancer.LoadBalancer
+	}
+	tests := []struct {
+		name        string
+		setupArgs   func() args
+		setupWanted func() versioned.Map
+	}{
+		{
+			name: "both equal",
+			setupArgs: func() args {
+				lb := loadbalancer.NewLoadBalancer()
+				return args{
+					lb: lb,
+					m:  versioned.NewMap(),
+				}
+			},
+			setupWanted: func() versioned.Map {
+				return versioned.NewMap()
+			},
+		},
+		{
+			name: "loadbalancer is missing an endpoint",
+			setupArgs: func() args {
+				lb := loadbalancer.NewLoadBalancer()
+
+				m := versioned.NewMap()
+				m.Add("", versioned.Object{
+					Data: &core_v1.Endpoints{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+					},
+				})
+
+				return args{
+					m:  m,
+					lb: lb,
+				}
+			},
+			setupWanted: func() versioned.Map {
+				m := versioned.NewMap()
+				m.Add("", versioned.Object{
+					Data: &core_v1.Endpoints{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+					},
+				})
+				return m
+			},
+		},
+		{
+			name: "loadbalancer contains all endpoints",
+			setupArgs: func() args {
+				lb := loadbalancer.NewLoadBalancer()
+				lb.K8sMU.Lock()
+				svcNS := loadbalancer.K8sServiceNamespace{
+					ServiceName: "foo",
+					Namespace:   "bar",
+				}
+				lb.K8sEndpoints[svcNS] = parseK8sEPv1(&core_v1.Endpoints{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "foo",
+						Namespace: "bar",
+					},
+				})
+				lb.K8sMU.Unlock()
+
+				m := versioned.NewMap()
+				m.Add("", versioned.Object{
+					Data: &core_v1.Endpoints{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+					},
+				})
+
+				return args{
+					m:  m,
+					lb: lb,
+				}
+			},
+			setupWanted: func() versioned.Map {
+				return versioned.NewMap()
+			},
+		},
+	}
+	for _, tt := range tests {
+		args := tt.setupArgs()
+		want := tt.setupWanted()
+		ds.d.loadBalancer = args.lb
+		got := ds.d.missingK8sEndpointsV1(args.m)
+		c.Assert(got, DeepEquals, want, Commentf("Test name: %q", tt.name))
+	}
+}
