@@ -15,6 +15,7 @@
 package api
 
 import (
+	k8sapi "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 )
 
@@ -49,12 +50,6 @@ var (
 		Source: labels.LabelSourceReserved,
 	})
 
-	endpointSelectorCluster = NewESFromLabels(&labels.Label{
-		Key:    labels.IDNameCluster,
-		Value:  "",
-		Source: labels.LabelSourceReserved,
-	})
-
 	endpointSelectorHost = NewESFromLabels(&labels.Label{
 		Key:    labels.IDNameHost,
 		Value:  "",
@@ -70,11 +65,20 @@ var (
 	// EntitySelectorMapping maps special entity names that come in
 	// policies to selectors
 	EntitySelectorMapping = map[Entity]EndpointSelectorSlice{
-		EntityAll:     {WildcardEndpointSelector},
-		EntityWorld:   {endpointSelectorWorld},
-		EntityCluster: {endpointSelectorCluster},
-		EntityHost:    {endpointSelectorHost},
-		EntityInit:    {endpointSelectorInit},
+		EntityAll:   {WildcardEndpointSelector},
+		EntityWorld: {endpointSelectorWorld},
+		EntityHost:  {endpointSelectorHost},
+		EntityInit:  {endpointSelectorInit},
+
+		// EntityCluster is populated with an empty entry to allow the
+		// cilium client importing this package to perform basic rule
+		// validation. The basic rule validation only enforces
+		// awareness of individual entity names and does not require
+		// understanding of the individual endpoint selectors. The
+		// endpoint selector for the cluster entity can only be
+		// initialized at runtime as it depends on user configuration
+		// such as the cluster name. See InitEntities() below.
+		EntityCluster: {},
 	}
 )
 
@@ -112,4 +116,17 @@ func (s EntitySlice) GetAsEndpointSelectors() EndpointSelectorSlice {
 	}
 
 	return slice
+}
+
+// InitEntities is called to initialize the policy API layer
+func InitEntities(clusterName string) {
+	EntitySelectorMapping[EntityCluster] = EndpointSelectorSlice{
+		endpointSelectorHost,
+		endpointSelectorInit,
+		NewESFromLabels(&labels.Label{
+			Key:    k8sapi.PolicyLabelCluster,
+			Value:  clusterName,
+			Source: labels.LabelSourceK8s,
+		}),
+	}
 }

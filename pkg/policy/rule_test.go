@@ -21,11 +21,18 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/checker"
+	k8sapi "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	"github.com/op/go-logging"
 	. "gopkg.in/check.v1"
+)
+
+var (
+	localClusterLabel = fmt.Sprintf("k8s:%s=%s", k8sapi.PolicyLabelCluster, option.Config.ClusterName)
+	otherClusterLabel = fmt.Sprintf("k8s:%s=%s", k8sapi.PolicyLabelCluster, "non-local")
 )
 
 func (ds *PolicyTestSuite) TestRuleCanReach(c *C) {
@@ -1071,12 +1078,12 @@ func (ds *PolicyTestSuite) TestRuleCanReachFromEntity(c *C) {
 	}
 
 	fromCluster := &SearchContext{
-		From: labels.ParseSelectLabelArray("reserved:cluster"),
+		From: labels.ParseSelectLabelArray("foo", localClusterLabel),
 		To:   labels.ParseSelectLabelArray("bar"),
 	}
 
-	notFromWorld := &SearchContext{
-		From: labels.ParseSelectLabelArray("foo"),
+	fromOtherCluster := &SearchContext{
+		From: labels.ParseSelectLabelArray("foo", otherClusterLabel),
 		To:   labels.ParseSelectLabelArray("bar"),
 	}
 
@@ -1105,12 +1112,14 @@ func (ds *PolicyTestSuite) TestRuleCanReachFromEntity(c *C) {
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 1)
 	state = traceState{}
-	c.Assert(rule1.canReachIngress(notFromWorld, &traceState{}), Equals, api.Undecided)
+	c.Assert(rule1.canReachIngress(fromOtherCluster, &traceState{}), Equals, api.Undecided)
 	c.Assert(state.selectedRules, Equals, 0)
 	c.Assert(state.matchedRules, Equals, 0)
 }
 
 func (ds *PolicyTestSuite) TestRuleCanReachEntity(c *C) {
+	api.InitEntities(option.Config.ClusterName)
+
 	toWorld := &SearchContext{
 		From: labels.ParseSelectLabelArray("bar"),
 		To:   labels.ParseSelectLabelArray("reserved:world"),
@@ -1118,12 +1127,12 @@ func (ds *PolicyTestSuite) TestRuleCanReachEntity(c *C) {
 
 	toCluster := &SearchContext{
 		From: labels.ParseSelectLabelArray("bar"),
-		To:   labels.ParseSelectLabelArray("reserved:cluster"),
+		To:   labels.ParseSelectLabelArray("foo", localClusterLabel),
 	}
 
-	notToWorld := &SearchContext{
+	toOtherCluster := &SearchContext{
 		From: labels.ParseSelectLabelArray("bar"),
-		To:   labels.ParseSelectLabelArray("foo"),
+		To:   labels.ParseSelectLabelArray("foo", otherClusterLabel),
 	}
 
 	rule1 := rule{
@@ -1151,7 +1160,7 @@ func (ds *PolicyTestSuite) TestRuleCanReachEntity(c *C) {
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 1)
 	state = traceState{}
-	c.Assert(rule1.canReachEgress(notToWorld, &traceState{}), Equals, api.Undecided)
+	c.Assert(rule1.canReachEgress(toOtherCluster, &traceState{}), Equals, api.Undecided)
 	c.Assert(state.selectedRules, Equals, 0)
 	c.Assert(state.matchedRules, Equals, 0)
 }
