@@ -936,8 +936,9 @@ var (
 	}
 
 	PortRuleL7 = apiextensionsv1beta1.JSONSchemaProps{
-		Description: "PortRuleL7 is a map of {key,value} pairs which must be present in the " +
-			"request. If omitted or empty, all requests are allowed. " +
+		Description: "PortRuleL7 is a map of {key,value} pairs which is passed to the " +
+			"parser referenced in l7proto. It is up to the parser to define what to " +
+			"do with the map data. If omitted or empty, all requests are allowed. " +
 			"Both keys and values must be strings.",
 		//
 		// AdditionalProperties is supported by k8s 1.11 and later only
