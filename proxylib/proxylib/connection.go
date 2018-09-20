@@ -30,24 +30,32 @@ import (
 // caller and passed in again when more data has been received on the
 // connection.
 
-type Direction struct {
-	InjectBuf *[]byte
-}
+// InjectBuf is a pointer to a slice header for an inject buffer allocated by
+// the proxylib caller. As data is placed into the buffer, the length
+// of the buffer in the slice header is increased correspondingly. To make
+// the the injected data visible to the caller we need to pass the slice header
+// by reference rather than by value, hence the pointer in the type.
+// As the caller is typically in a differnent memory management domain (not
+// subject to Go runtime garbage collection), the underlying buffer may never
+// be expanded or otherwise reallocated.
+type InjectBuf *[]byte
 
+// Connection holds the connection metadata that is used both for
+// policy enforcement and access logging.
 type Connection struct {
-	Instance   *Instance
-	Id         uint64
-	Ingress    bool
-	SrcId      uint32
-	DstId      uint32
-	SrcAddr    string
-	DstAddr    string
-	PolicyName string
-	Port       uint32
+	Instance   *Instance // Holder of POlicy protocol and access logging clients
+	Id         uint64    // Unique connection ID allocated by the caller
+	Ingress    bool      // 'true' for ingress, 'false' foe egress
+	SrcId      uint32    // Source security ID, may be mapped from the source IP address
+	DstId      uint32    // Destination security ID, may be mapped from the destination IP address
+	SrcAddr    string    // Source IP address in "a.b.c.d:port" or "[A:...:C]:port" format
+	DstAddr    string    // Original destination IP address
+	PolicyName string    // Identifies which policy instance applies to this connection
+	Port       uint32    // (original) destination port number in numeric format
 
-	Parser Parser
-	Orig   Direction
-	Reply  Direction
+	Parser   Parser    // Parser instance used on this connection
+	OrigBuf  InjectBuf // Buffer for injected frames in original direction
+	ReplyBuf InjectBuf // Buffer for injected frames in reply direction
 }
 
 func (connection *Connection) Matches(l7 interface{}) bool {
@@ -56,11 +64,11 @@ func (connection *Connection) Matches(l7 interface{}) bool {
 }
 
 // getInjectBuf return the pointer to the inject buffer slice header for the indicated direction
-func (connection *Connection) getInjectBuf(reply bool) *[]byte {
+func (connection *Connection) getInjectBuf(reply bool) InjectBuf {
 	if reply {
-		return connection.Reply.InjectBuf
+		return connection.ReplyBuf
 	}
-	return connection.Orig.InjectBuf
+	return connection.OrigBuf
 }
 
 // inject buffers data to be injected into the connection at the point of INJECT
