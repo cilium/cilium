@@ -939,11 +939,19 @@ var (
 		Description: "PortRuleL7 is a map of {key,value} pairs which must be present in the " +
 			"request. If omitted or empty, all requests are allowed. " +
 			"Both keys and values must be strings.",
-		AdditionalProperties: &apiextensionsv1beta1.JSONSchemaPropsOrBool{
-			Schema: &apiextensionsv1beta1.JSONSchemaProps{
-				Type: "string",
-			},
-		},
+		//
+		// AdditionalProperties is supported by k8s 1.11 and later only
+		// Without it non-string value types are accepted which may cause policy translation
+		// in cilium-agent to fail.
+		//
+		// Keep this here so that we can re-introduce this when th minimum suppoerted k8s version
+		// is 1.11.
+		//
+		//AdditionalProperties: &apiextensionsv1beta1.JSONSchemaPropsOrBool{
+		//	Schema: &apiextensionsv1beta1.JSONSchemaProps{
+		//		Type: "string",
+		//	},
+		//},
 	}
 
 	Rule = apiextensionsv1beta1.JSONSchemaProps{
