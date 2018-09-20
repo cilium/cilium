@@ -57,6 +57,7 @@ bazel-*
 envoy/istio-envoy
 envoy/Dockerfile.istio_proxy
 envoy/Dockerfile.istio_proxy_debug
+envoy/proxylib
 
 test/tmp.yaml
 test/*_service_manifest.json
