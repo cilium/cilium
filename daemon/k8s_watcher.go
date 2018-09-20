@@ -842,17 +842,12 @@ func (d *Daemon) deleteK8sServiceV1(svc *v1.Service) {
 	d.syncLB(nil, nil, svcns)
 }
 
-func (d *Daemon) addK8sEndpointV1(ep *v1.Endpoints) {
+func parseK8sEPv1(ep *v1.Endpoints) *loadbalancer.K8sServiceEndpoint {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sEndpointName: ep.ObjectMeta.Name,
 		logfields.K8sNamespace:    ep.ObjectMeta.Namespace,
 		logfields.K8sAPIVersion:   ep.TypeMeta.APIVersion,
 	})
-
-	svcns := loadbalancer.K8sServiceNamespace{
-		ServiceName: ep.ObjectMeta.Name,
-		Namespace:   ep.ObjectMeta.Namespace,
-	}
 
 	newSvcEP := loadbalancer.NewK8sServiceEndpoint()
 
@@ -869,6 +864,23 @@ func (d *Daemon) addK8sEndpointV1(ep *v1.Endpoints) {
 			newSvcEP.Ports[loadbalancer.FEPortName(port.Name)] = lbPort
 		}
 	}
+
+	return newSvcEP
+}
+
+func (d *Daemon) addK8sEndpointV1(ep *v1.Endpoints) {
+	scopedLog := log.WithFields(logrus.Fields{
+		logfields.K8sEndpointName: ep.ObjectMeta.Name,
+		logfields.K8sNamespace:    ep.ObjectMeta.Namespace,
+		logfields.K8sAPIVersion:   ep.TypeMeta.APIVersion,
+	})
+
+	svcns := loadbalancer.K8sServiceNamespace{
+		ServiceName: ep.ObjectMeta.Name,
+		Namespace:   ep.ObjectMeta.Namespace,
+	}
+
+	newSvcEP := parseK8sEPv1(ep)
 
 	d.loadBalancer.K8sMU.Lock()
 	defer d.loadBalancer.K8sMU.Unlock()
