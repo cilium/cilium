@@ -33,15 +33,13 @@ import (
 // Spec: https://github.com/apache/cassandra/blob/trunk/doc/native_protocol_v4.spec
 //
 
-// Current Cassandra parser supports filtering on 'opcode' and if the opcode is 'query-like'
-// (i.e., opcode 'query', 'prepare', 'batch', we then match on query_action and query_table.
+// Current Cassandra parser supports filtering on messages where the opcode is 'query-like'
+// (i.e., opcode 'query', 'prepare', 'batch'.  In those scenarios, we match on query_action and query_table.
 // Examples:
-// opcode = 'options'
-// opcode = 'execute'
-// opcode = 'query', query_action = 'select', query_table = 'system.*'
-// opcode = 'query', query_action = 'insert', query_table = 'covalent.l3_l4_flows'
-// opcode = 'prepare', query_action = 'select', query_table = 'covalent.foo'
-// opcode = 'batch', query_action = 'insert', query_table = 'covalent.foo'
+// query_action = 'select', query_table = 'system.*'
+// query_action = 'insert', query_table = 'covalent.l3_l4_flows'
+// query_action = 'select', query_table = 'covalent.foo'
+// query_action = 'insert', query_table = 'covalent.foo'
 //
 // Batch requests are logged as invidual queries, but an entire batch request will be allowed
 // only if all requests are allowed.
@@ -50,7 +48,6 @@ import (
 // the "Changes from v2" in https://github.com/apache/cassandra/blob/trunk/doc/native_protocol_v3.spec
 
 type CassandraRule struct {
-	opcode_exact         string
 	query_action_exact   string
 	table_regex_compiled *regexp.Regexp
 }
@@ -64,14 +61,10 @@ func (rule *CassandraRule) Matches(data interface{}) bool {
 	if rule.table_regex_compiled != nil {
 		regex_str = rule.table_regex_compiled.String()
 	}
-	log.Infof("Rule: opcode '%s', action '%s', table '%s'", rule.opcode_exact, rule.query_action_exact, regex_str)
+
+	log.Infof("Rule: action '%s', table '%s'", rule.query_action_exact, regex_str)
 	parts := strings.Split(path, "/")
-	if rule.opcode_exact != "" && rule.opcode_exact != parts[1] {
-		log.Infof("CassandraRule: opcode mismatch %v, %s", rule.opcode_exact, parts[0])
-		return false
-	}
-	if rule.opcode_exact != "query" {
-		log.Infof("CassandraRule: opcode-only match suceeded")
+	if len(parts) < 4 {
 		return true
 	}
 	if rule.query_action_exact != "" && rule.query_action_exact != parts[2] {
@@ -98,8 +91,6 @@ func CassandraRuleParser(rule *cilium.PortNetworkPolicyRule) []L7NetworkPolicyRu
 		var cr CassandraRule
 		for k, v := range l7Rule.Rule {
 			switch k {
-			case "opcode":
-				cr.opcode_exact = v
 			case "query_action":
 				cr.query_action_exact = v
 			case "query_table":
@@ -210,23 +201,12 @@ func (p *CassandraParser) OnData(reply, endStream bool, data_arr [][]byte, offse
 
 	for i := 0; i < len(paths); i++ {
 		parts := strings.Split(paths[i], "/")
-		if len(parts) == 2 {
+		if len(parts) == 4 {
 			p.connection.Log(access_log_entry_type,
 				&cilium.LogEntry_GenericL7{
 					&cilium.L7LogEntry{
 						Proto: "cassandra",
 						Fields: map[string]string{
-							"opcode": parts[1],
-						},
-					},
-				})
-		} else if len(parts) == 4 {
-			p.connection.Log(access_log_entry_type,
-				&cilium.LogEntry_GenericL7{
-					&cilium.L7LogEntry{
-						Proto: "cassandra",
-						Fields: map[string]string{
-							"opcode":       parts[1],
 							"query_action": parts[2],
 							"query_table":  parts[3],
 						},

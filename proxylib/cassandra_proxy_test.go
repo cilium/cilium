@@ -107,8 +107,8 @@ func TestCassandraOnDataOptionsReq(t *testing.T) {
 		    l7_rules: <
 		      l7_rules: <
 		        rule: <
-		          key: "opcode"
-		          value: "options"
+		          key: "query_action"
+		          value: "foo"
                 >
 		      >
 		    >
@@ -325,12 +325,8 @@ func TestSimpleCassandraPolicy(t *testing.T) {
 		    l7_rules: <
 		      l7_rules: <
 		        rule: <
-		          key: "opcode"
-		          value: "query"
-                >
-                rule: <
 		          key: "query_table"
-		          value: "system.local"
+		          value: "no-match"
 		        >
 		      >
 		    >
@@ -345,7 +341,7 @@ func TestSimpleCassandraPolicy(t *testing.T) {
 	unauth_msg_base := []byte{
 		0x84,     // version (updated to have reply bit set and protocol version 4)
 		0x0,      // flags, (uint8)
-		0x0, 0x0, // stream-id (uint16) (test requests use zero as stream ID)
+		0x0, 0x4, // stream-id (uint16) (test request uses 0x0004 as stream ID)
 		0x0,                 // opcode error (uint8)
 		0x0, 0x0, 0x0, 0x1a, // request length (uint32) - update if text changes
 		0x0, 0x0, 0x21, 0x00, // 'unauthorized error code' 0x2100 (uint32)
@@ -356,10 +352,10 @@ func TestSimpleCassandraPolicy(t *testing.T) {
 	data1 := hex_to_str([]byte("040000000500000000"))
 	data2 := hex_to_str([]byte("0400000407000000760000006f53454c45435420636c75737465725f6e616d652c20646174615f63656e7465722c207261636b2c20746f6b656e732c20706172746974696f6e65722c20736368656d615f76657273696f6e2046524f4d2073797374656d2e6c6f63616c205748455245206b65793d276c6f63616c27000100"))
 	CheckOnData(t, 1, false, false, &[][]byte{[]byte(data1 + data2)}, []ExpFilterOp{
-		{proxylib.DROP, len(data1)}, {proxylib.PASS, len(data2)}, {proxylib.MORE, 9},
+		{proxylib.PASS, len(data1)}, {proxylib.DROP, len(data2)}, {proxylib.MORE, 9},
 	}, proxylib.OK, string(unauth_msg_base))
 
-	expPasses, expDrops := 1, 1
+	expPasses, expDrops := 0, 1
 	checkAccessLogs(t, logServer, expPasses, expDrops)
 
 	CheckClose(t, 1, buf, 1)

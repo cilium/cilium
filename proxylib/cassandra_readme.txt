@@ -72,12 +72,9 @@ $ cat cass-no-select-posts.json
             		"rules": {
                 		"l7proto": "cassandra",
                 		"l7": [
-				       { "opcode": "startup"},	
-				       { "opcode": "register"},	
-				       { "opcode": "options" }, 
-				       { "opcode": "query", "query_action" : "use"},
-				       { "opcode": "query", "query_action" : "select", "query_table": "^system.*"}, 
-				       { "opcode": "query", "query_action" : "insert", "query_table" : "^posts_db.posts$"}
+				       { "query_action" : "use"},
+				       { "query_action" : "select", "query_table": "^system.*"}, 
+				       { "query_action" : "insert", "query_table" : "^posts_db.posts$"}
 
 				]}
             		}]
