@@ -829,11 +829,6 @@ func (d *Daemon) init() error {
 			return err
 		}
 
-		// Clean all endpoint entries
-		if err := lxcmap.LXCMap.DeleteAll(); err != nil {
-			return err
-		}
-
 		// Insert local host entries to bpf maps
 		if err := d.syncLXCMap(); err != nil {
 			return err
@@ -895,6 +890,10 @@ func (d *Daemon) init() error {
 					return err
 				}
 			}
+
+			// If we are not restoring state, all endpoints can be
+			// deleted. Entries will be re-populated.
+			lxcmap.LXCMap.DeleteAll()
 		}
 	}
 
@@ -907,12 +906,16 @@ func (d *Daemon) init() error {
 func (d *Daemon) syncLXCMap() error {
 	// TODO: Update addresses first, in case node addressing has changed.
 	// TODO: Once these start changing on runtime, figure out the locking strategy.
-	// TODO: Delete stale host entries from the lxcmap.
 	localIPs := []net.IP{
 		node.GetInternalIPv4(),
 		node.GetExternalIPv4(),
 		node.GetIPv6(),
 		node.GetIPv6Router(),
+	}
+
+	existingEndpoints, err := lxcmap.DumpToMap()
+	if err != nil {
+		return err
 	}
 
 	for _, ip := range localIPs {
@@ -928,6 +931,9 @@ func (d *Daemon) syncLXCMap() error {
 			// Upsert will not propagate (reserved:host->ID) mappings across the cluster.
 			// Manually push it into each IPIdentityMappingListener.
 			log.WithField(logfields.IPAddr, ip).Debug("Adding local ip to ipcache")
+
+			delete(existingEndpoints, ip.String())
+
 			ipcache.IPIdentityCache.Upsert(ip.String(), identity.ReservedIdentityHost)
 
 			localIPIDPair := identity.IPIdentityPair{IP: ip, ID: identity.ReservedIdentityHost}
@@ -935,6 +941,17 @@ func (d *Daemon) syncLXCMap() error {
 			envoy.NetworkPolicyHostsCache.OnIPIdentityCacheChange(ipcache.Upsert, localIPIDPair)
 		}
 	}
+
+	for hostIP, info := range existingEndpoints {
+		if ip := net.ParseIP(hostIP); info.IsHost() && ip != nil {
+			if err := lxcmap.DeleteEntry(ip); err != nil {
+				log.WithError(err).Warn("Unable to delete obsolete host IP from BPF map")
+			} else {
+				log.Debugf("Removed outdated host ip %s from endpoint map", hostIP)
+			}
+		}
+	}
+
 	return nil
 }
 
