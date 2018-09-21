@@ -15,6 +15,7 @@
 package k8s
 
 import (
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -437,6 +438,149 @@ func (s *K8sSuite) Test_equalV1Pod(c *C) {
 	}
 	for _, tt := range tests {
 		got := equalV1Pod(tt.args.o1, tt.args.o2)
+		c.Assert(got, Equals, tt.want, Commentf("Test Name: %s", tt.name))
+	}
+}
+
+func (s *K8sSuite) Test_equalV1Node(c *C) {
+	type args struct {
+		o1 interface{}
+		o2 interface{}
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "Nodes with the same name",
+			args: args{
+				o1: &core_v1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Node1",
+					},
+				},
+				o2: &core_v1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Node1",
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "Nodes with the different names",
+			args: args{
+				o1: &core_v1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Node1",
+					},
+				},
+				o2: &core_v1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Node2",
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "Nodes with the different spec should return true as we don't care about the spec",
+			args: args{
+				o1: &core_v1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Node1",
+					},
+					Spec: core_v1.NodeSpec{
+						PodCIDR: "192.168.0.0/10",
+					},
+				},
+				o2: &core_v1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Node1",
+					},
+					Spec: core_v1.NodeSpec{
+						PodCIDR: "127.0.0.1/10",
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "Nodes with the same annotations",
+			args: args{
+				o1: &core_v1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Node1",
+						Annotations: map[string]string{
+							annotation.CiliumHostIP: "127.0.0.1",
+						},
+					},
+				},
+				o2: &core_v1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Node1",
+						Annotations: map[string]string{
+							annotation.CiliumHostIP: "127.0.0.1",
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "Nodes with the different annotations",
+			args: args{
+				o1: &core_v1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Node1",
+						Annotations: map[string]string{
+							annotation.CiliumHostIP: "127.0.0.1",
+						},
+					},
+				},
+				o2: &core_v1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Node1",
+						Annotations: map[string]string{
+							annotation.CiliumHostIP: "127.0.0.2",
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "Nodes with the same annotations and different specs should return true because he don't care about the spec",
+			args: args{
+				o1: &core_v1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Node1",
+						Annotations: map[string]string{
+							annotation.CiliumHostIP: "127.0.0.1",
+						},
+					},
+					Spec: core_v1.NodeSpec{
+						PodCIDR: "192.168.0.0/10",
+					},
+				},
+				o2: &core_v1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Node1",
+						Annotations: map[string]string{
+							annotation.CiliumHostIP: "127.0.0.1",
+						},
+					},
+					Spec: core_v1.NodeSpec{
+						PodCIDR: "127.0.0.1/10",
+					},
+				},
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		got := equalV1Node(tt.args.o1, tt.args.o2)
 		c.Assert(got, Equals, tt.want, Commentf("Test Name: %s", tt.name))
 	}
 }
