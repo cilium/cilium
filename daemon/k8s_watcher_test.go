@@ -18,6 +18,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -986,6 +987,131 @@ func (ds *DaemonSuite) Test_missingK8sPodV1(c *C) {
 		want := tt.setupWanted()
 		ipcache.IPIdentityCache = args.cache
 		got := missingK8sPodV1(args.m)
+		c.Assert(got, DeepEquals, want, Commentf("Test name: %q", tt.name))
+	}
+}
+
+func (ds *DaemonSuite) Test_missingK8sNodeV1(c *C) {
+	type args struct {
+		m     versioned.Map
+		cache *ipcache.IPCache
+	}
+	tests := []struct {
+		name        string
+		setupArgs   func() args
+		setupWanted func() versioned.Map
+	}{
+		{
+			name: "both equal",
+			setupArgs: func() args {
+				return args{
+					cache: ipcache.NewIPCache(),
+					m:     versioned.NewMap(),
+				}
+			},
+			setupWanted: func() versioned.Map {
+				return versioned.NewMap()
+			},
+		},
+		{
+			name: "ipcache is missing a node",
+			setupArgs: func() args {
+				m := versioned.NewMap()
+				m.Add("", versioned.Object{
+					Data: &core_v1.Node{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "foo",
+							Annotations: map[string]string{
+								annotation.CiliumHostIP: "127.0.0.1",
+							},
+						},
+					},
+				})
+
+				return args{
+					m:     m,
+					cache: ipcache.NewIPCache(),
+				}
+			},
+			setupWanted: func() versioned.Map {
+				m := versioned.NewMap()
+				m.Add("", versioned.Object{
+					Data: &core_v1.Node{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "foo",
+							Annotations: map[string]string{
+								annotation.CiliumHostIP: "127.0.0.1",
+							},
+						},
+					},
+				})
+				return m
+			},
+		},
+		{
+			name: "ipcache contains the node. Should be no-op",
+			setupArgs: func() args {
+				cache := ipcache.NewIPCache()
+				cache.Upsert("127.0.0.1", net.ParseIP("127.0.0.2"), ipcache.Identity{
+					ID:     identity.ReservedIdentityCluster,
+					Source: ipcache.FromKubernetes,
+				})
+				m := versioned.NewMap()
+				m.Add("", versioned.Object{
+					Data: &core_v1.Node{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "foo",
+							Annotations: map[string]string{
+								annotation.CiliumHostIP: "127.0.0.1",
+							},
+						},
+					},
+				})
+
+				return args{
+					m:     m,
+					cache: cache,
+				}
+			},
+			setupWanted: func() versioned.Map {
+				return versioned.NewMap()
+			},
+		},
+		{
+			name: "node doesn't contain any cilium host IP. should be no-op",
+			setupArgs: func() args {
+				cache := ipcache.NewIPCache()
+				cache.Upsert("127.0.0.1", net.ParseIP("127.0.0.2"), ipcache.Identity{
+					ID:     identity.ReservedIdentityCluster,
+					Source: ipcache.FromKubernetes,
+				})
+				m := versioned.NewMap()
+				m.Add("", versioned.Object{
+					Data: &core_v1.Node{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "foo",
+							Labels: map[string]string{
+								"foo": "bar",
+							},
+						},
+					},
+				})
+
+				return args{
+					m:     m,
+					cache: cache,
+				}
+			},
+			setupWanted: func() versioned.Map {
+				return versioned.NewMap()
+			},
+		},
+	}
+	for _, tt := range tests {
+		args := tt.setupArgs()
+		want := tt.setupWanted()
+		ipcache.IPIdentityCache = args.cache
+		got := ds.d.missingK8sNodeV1(args.m)
 		c.Assert(got, DeepEquals, want, Commentf("Test name: %q", tt.name))
 	}
 }
