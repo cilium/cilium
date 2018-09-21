@@ -75,7 +75,7 @@ pipeline {
                 CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
             }
             options {
-                timeout(time: 120, unit: 'MINUTES')
+                timeout(time: 100, unit: 'MINUTES')
             }
             steps {
                 script {
@@ -120,7 +120,7 @@ pipeline {
                 CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
             }
             options {
-                timeout(time: 120, unit: 'MINUTES')
+                timeout(time: 100, unit: 'MINUTES')
             }
             steps {
                 script {
