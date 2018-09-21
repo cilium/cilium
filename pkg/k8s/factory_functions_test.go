@@ -301,3 +301,142 @@ func (s *K8sSuite) Test_equalV1Endpoints(c *C) {
 		c.Assert(got, Equals, tt.want, Commentf("Test Name: %s", tt.name))
 	}
 }
+
+func (s *K8sSuite) Test_equalV1Pod(c *C) {
+	type args struct {
+		o1 interface{}
+		o2 interface{}
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+
+		{
+			name: "Pods with the same name",
+			args: args{
+				o1: &core_v1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "pod1",
+					},
+				},
+				o2: &core_v1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "pod1",
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "Pods with the different spec",
+			args: args{
+				o1: &core_v1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "pod1",
+					},
+					Status: core_v1.PodStatus{
+						HostIP: "127.0.0.1",
+						PodIP:  "127.0.0.2",
+					},
+				},
+				o2: &core_v1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "pod1",
+					},
+					Status: core_v1.PodStatus{
+						HostIP: "127.0.0.1",
+						PodIP:  "127.0.0.1",
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "Pods with the same spec",
+			args: args{
+				o1: &core_v1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "pod1",
+					},
+					Status: core_v1.PodStatus{
+						HostIP: "127.0.0.1",
+						PodIP:  "127.0.0.2",
+					},
+				},
+				o2: &core_v1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "pod1",
+					},
+					Status: core_v1.PodStatus{
+						HostIP: "127.0.0.1",
+						PodIP:  "127.0.0.2",
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "Pods with the same spec but different labels",
+			args: args{
+				o1: &core_v1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "pod1",
+						Labels: map[string]string{
+							"foo": "bar",
+						},
+					},
+					Status: core_v1.PodStatus{
+						HostIP: "127.0.0.1",
+						PodIP:  "127.0.0.2",
+					},
+				},
+				o2: &core_v1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "pod1",
+					},
+					Status: core_v1.PodStatus{
+						HostIP: "127.0.0.1",
+						PodIP:  "127.0.0.2",
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "Pods with the same spec and same labels",
+			args: args{
+				o1: &core_v1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "pod1",
+						Labels: map[string]string{
+							"foo": "bar",
+						},
+					},
+					Status: core_v1.PodStatus{
+						HostIP: "127.0.0.1",
+						PodIP:  "127.0.0.2",
+					},
+				},
+				o2: &core_v1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "pod1",
+						Labels: map[string]string{
+							"foo": "bar",
+						},
+					},
+					Status: core_v1.PodStatus{
+						HostIP: "127.0.0.1",
+						PodIP:  "127.0.0.2",
+					},
+				},
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		got := equalV1Pod(tt.args.o1, tt.args.o2)
+		c.Assert(got, Equals, tt.want, Commentf("Test Name: %s", tt.name))
+	}
+}
