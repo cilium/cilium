@@ -657,9 +657,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 					return nil
 				}
 			},
-			func(m versioned.Map) versioned.Map {
-				return m
-			},
+			d.missingK8sNodeV1,
 			&v1.Node{},
 			k8s.Client(),
 			reSyncPeriod,
@@ -2248,4 +2246,45 @@ func updateK8sEventMetric(scope string, action string, status bool) {
 	}
 
 	metrics.KubernetesEvent.WithLabelValues(scope, action, result).Inc()
+}
+
+// missingK8sNodeV1 checks if all nodes from the possible missing nodes have
+// their CiliumHostIP missing from the ipcache or if the CiliumHostIP is
+// associated with the right node.
+func (d *Daemon) missingK8sNodeV1(m versioned.Map) versioned.Map {
+	missing := versioned.NewMap()
+	nodes := node.GetNodes()
+	for k, v := range m {
+		n := v.Data.(*v1.Node)
+		ciliumHostIPStr := n.GetAnnotations()[annotation.CiliumHostIP]
+		if ciliumHostIPStr == "" {
+			continue
+		}
+		_, exists := ipcache.IPIdentityCache.LookupByIP(ciliumHostIPStr)
+		// The node is considered missing if the Cilium HostIP of that
+		// node doesn't exist in the identity cache.
+		if !exists {
+			missing.Add(k, v)
+			continue
+		}
+
+		ciliumHostIP := net.ParseIP(ciliumHostIPStr)
+		if ciliumHostIP == nil {
+			continue
+		}
+
+		// Or if the CiliumHostIP is the right one for this node.
+		nodeIdentity := node.Identity{Name: n.GetName(), Cluster: option.Config.ClusterName}
+		var found bool
+		for _, v := range nodes[nodeIdentity].IPAddresses {
+			if v.IP.Equal(ciliumHostIP) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			missing.Add(k, v)
+		}
+	}
+	return missing
 }

@@ -18,6 +18,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -25,6 +26,8 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/versioned"
@@ -986,6 +989,201 @@ func (ds *DaemonSuite) Test_missingK8sPodV1(c *C) {
 		want := tt.setupWanted()
 		ipcache.IPIdentityCache = args.cache
 		got := missingK8sPodV1(args.m)
+		c.Assert(got, DeepEquals, want, Commentf("Test name: %q", tt.name))
+	}
+}
+
+func (ds *DaemonSuite) Test_missingK8sNodeV1(c *C) {
+	defer node.DeleteAllNodes()
+	prevClusterName := option.Config.ClusterName
+	option.Config.ClusterName = "default"
+	defer func() {
+		option.Config.ClusterName = prevClusterName
+	}()
+	type args struct {
+		m     versioned.Map
+		cache *ipcache.IPCache
+	}
+	tests := []struct {
+		name        string
+		setupArgs   func() args
+		setupWanted func() versioned.Map
+	}{
+		{
+			name: "both equal",
+			setupArgs: func() args {
+				return args{
+					cache: ipcache.NewIPCache(),
+					m:     versioned.NewMap(),
+				}
+			},
+			setupWanted: func() versioned.Map {
+				return versioned.NewMap()
+			},
+		},
+		{
+			name: "ipcache is missing a node",
+			setupArgs: func() args {
+				m := versioned.NewMap()
+				m.Add("", versioned.Object{
+					Data: &core_v1.Node{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "foo",
+							Annotations: map[string]string{
+								annotation.CiliumHostIP: "127.0.0.1",
+							},
+						},
+					},
+				})
+
+				return args{
+					m:     m,
+					cache: ipcache.NewIPCache(),
+				}
+			},
+			setupWanted: func() versioned.Map {
+				m := versioned.NewMap()
+				m.Add("", versioned.Object{
+					Data: &core_v1.Node{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "foo",
+							Annotations: map[string]string{
+								annotation.CiliumHostIP: "127.0.0.1",
+							},
+						},
+					},
+				})
+				return m
+			},
+		},
+		{
+			name: "ipcache and the node package contains the node. Should be no-op",
+			setupArgs: func() args {
+				node.DeleteAllNodes()
+				cache := ipcache.NewIPCache()
+				cache.Upsert("172.20.0.1", net.ParseIP("172.20.0.2"), ipcache.Identity{
+					ID:     identity.ReservedIdentityCluster,
+					Source: ipcache.FromKubernetes,
+				})
+				node.UpdateNode(&node.Node{
+					Name:    "foo",
+					Cluster: "default",
+					IPAddresses: []node.Address{
+						{
+							AddressType: core_v1.NodeAddressType(core_v1.NodeInternalIP),
+							IP:          net.ParseIP("172.20.0.1"),
+						},
+					},
+				}, 0, net.ParseIP("172.20.0.2"))
+
+				m := versioned.NewMap()
+				m.Add("", versioned.Object{
+					Data: &core_v1.Node{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "foo",
+							Annotations: map[string]string{
+								annotation.CiliumHostIP: "172.20.0.1",
+							},
+						},
+					},
+				})
+
+				return args{
+					m:     m,
+					cache: cache,
+				}
+			},
+			setupWanted: func() versioned.Map {
+				return versioned.NewMap()
+			},
+		},
+		{
+			name: "node doesn't contain any cilium host IP. should be no-op",
+			setupArgs: func() args {
+				node.DeleteAllNodes()
+				cache := ipcache.NewIPCache()
+				cache.Upsert("127.0.0.1", net.ParseIP("127.0.0.2"), ipcache.Identity{
+					ID:     identity.ReservedIdentityCluster,
+					Source: ipcache.FromKubernetes,
+				})
+				m := versioned.NewMap()
+				m.Add("", versioned.Object{
+					Data: &core_v1.Node{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "foo",
+							Labels: map[string]string{
+								"foo": "bar",
+							},
+						},
+					},
+				})
+
+				return args{
+					m:     m,
+					cache: cache,
+				}
+			},
+			setupWanted: func() versioned.Map {
+				return versioned.NewMap()
+			},
+		},
+		{
+			name: "ipcache contains the node but the CiliumHostIP is not the right one for the given nodeIP",
+			setupArgs: func() args {
+				node.DeleteAllNodes()
+				cache := ipcache.NewIPCache()
+				cache.Upsert("172.20.9.1", net.ParseIP("172.20.1.1"), ipcache.Identity{
+					ID:     identity.ReservedIdentityCluster,
+					Source: ipcache.FromKubernetes,
+				})
+				node.UpdateNode(&node.Node{
+					Name:    "bar",
+					Cluster: "default",
+					IPAddresses: []node.Address{
+						{
+							AddressType: core_v1.NodeAddressType(core_v1.NodeInternalIP),
+							IP:          net.ParseIP("172.20.0.1"),
+						},
+					},
+				}, 0, net.ParseIP("172.20.2.1"))
+				m := versioned.NewMap()
+				m.Add("", versioned.Object{
+					Data: &core_v1.Node{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "bar",
+							Annotations: map[string]string{
+								annotation.CiliumHostIP: "172.20.9.1",
+							},
+						},
+					},
+				})
+
+				return args{
+					m:     m,
+					cache: cache,
+				}
+			},
+			setupWanted: func() versioned.Map {
+				m := versioned.NewMap()
+				m.Add("", versioned.Object{
+					Data: &core_v1.Node{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "bar",
+							Annotations: map[string]string{
+								annotation.CiliumHostIP: "172.20.9.1",
+							},
+						},
+					},
+				})
+				return m
+			},
+		},
+	}
+	for _, tt := range tests {
+		args := tt.setupArgs()
+		want := tt.setupWanted()
+		ipcache.IPIdentityCache = args.cache
+		got := ds.d.missingK8sNodeV1(args.m)
 		c.Assert(got, DeepEquals, want, Commentf("Test name: %q", tt.name))
 	}
 }
