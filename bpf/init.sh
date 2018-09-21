@@ -58,21 +58,6 @@ echo 0 > /proc/sys/net/ipv6/conf/all/disable_ipv6
 # This directory was created by the daemon and contains the per container header file
 DIR="$PWD/globals"
 
-function delete_old_ip_rules_af()
-{
-	IP=$1
-	TBL=$2
-	for i in $($IP rule list | grep "lookup $TBL" | awk -F: '{print $1}'); do
-		$IP rule del pref $i;
-	done
-}
-
-function delete_old_ip_rules()
-{
-	delete_old_ip_rules_af "ip -4" $1
-	delete_old_ip_rules_af "ip -6" $1
-}
-
 function setup_veth()
 {
 	local -r NAME=$1
@@ -140,19 +125,15 @@ function move_local_rules()
 
 function setup_proxy_rules()
 {
-	# delete old ip rules and flush table
-	delete_old_ip_rules $PROXY_RT_TABLE
+	# Any packet from a local process uses a separate routing table
+	rulespec="fwmark 0xA00/0xF00 pref 10 lookup $PROXY_RT_TABLE"
 
-	if [ -n "$(ip -4 rule list)" ]; then
-		ip -4 route flush table $PROXY_RT_TABLE
-		# Any packet from a proxy uses a separate routing table
-		ip -4 rule add fwmark 0xA00/0xF00 pref 10 lookup $PROXY_RT_TABLE
+	if [ -z "$(ip -4 rule list $rulespec)" ]; then
+		ip -4 rule add $rulespec
 	fi
 
-	if [ -n "$(ip -6 rule list)" ]; then
-		ip -6 route flush table $PROXY_RT_TABLE
-		# Any packet from a proxy uses a separate routing table
-		ip -6 rule add fwmark 0xA00/0xF00 pref 10 lookup $PROXY_RT_TABLE
+	if [ -z "$(ip -6 rule list $rulespec)" ]; then
+		ip -6 rule add $rulespec
 	fi
 
 	if [ -n "$IP4_HOST" ]; then
