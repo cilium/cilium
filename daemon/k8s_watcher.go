@@ -588,9 +588,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 					return nil
 				}
 			},
-			func(m versioned.Map) versioned.Map {
-				return m
-			},
+			missingK8sPodV1,
 			&v1.Pod{},
 			k8s.Client(),
 			reSyncPeriod,
@@ -1967,6 +1965,48 @@ func (d *Daemon) deleteK8sPodV1(pod *v1.Pod) {
 	default:
 		logger.Debug("Deleted ipcache map entry on pod delete")
 	}
+}
+
+// missingK8sPodV1 returns all pods considered missing, if the IP doesn't exist in
+// the cache or if there is an endpoint associated with that pod that doesn't
+// contain all labels from the pod.
+func missingK8sPodV1(m versioned.Map) versioned.Map {
+	missing := versioned.NewMap()
+	for k, v := range m {
+		pod := v.Data.(*v1.Pod)
+		_, exists := ipcache.IPIdentityCache.LookupByIP(pod.Status.PodIP)
+		// As we also look at pod events to populate ipcache we can only
+		// consider that a pods is missing if it doesn't exist in the
+		// identity cache.
+		if !exists {
+			missing.Add(k, v)
+			continue
+		}
+		podNSName := k8sUtils.GetObjNamespaceName(&pod.ObjectMeta)
+
+		podEP := endpointmanager.LookupPodName(podNSName)
+		// Only 1 endpoint in the whole cluster is managing this pod, if it's
+		// not found is due:
+		// - pod is not being managed by this node;
+		// - pod is running on this node but there are no endpoints associated
+		//   with it. This association pod to endpoint association occurs when
+		//   the endpoint is created, by the pkg/workload.
+		if podEP == nil {
+			continue
+		}
+
+		// If it doesn't contain all pod labels for an endpoint that is managing
+		// that pod then the pod is also considered missing.
+		k8sEPPodLabels := podEP.GetK8sPodLabels()
+
+		podLabels := labels.Map2Labels(pod.GetLabels(), labels.LabelSourceK8s)
+		podFilteredLabels, _ := labels.FilterLabels(podLabels)
+
+		if !k8sEPPodLabels.Equals(podFilteredLabels) {
+			missing.Add(k, v)
+		}
+	}
+	return missing
 }
 
 func (d *Daemon) updateK8sV1Namespace(oldNS, newNS *v1.Namespace) {
