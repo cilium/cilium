@@ -151,7 +151,7 @@ https://www.kernel.org/pub/linux/utils/net/iproute2/ for documentation on how
 to install iproute2.
 
 Firewall Rules
-========
+==============
 
 If you are running Cilium in an environment that requires firewall rules to enable connectivity, you will have to add the following rules to ensure Cilium works properly.
 
