@@ -15,6 +15,7 @@
 package k8s
 
 import (
+	"github.com/cilium/cilium/pkg/comparator"
 	"net"
 	"reflect"
 	"strings"
@@ -488,18 +489,25 @@ func equalV2CNP(o1, o2 interface{}) bool {
 }
 
 func equalV1Pod(o1, o2 interface{}) bool {
-	_, ok := o1.(*v1.Pod)
+	pod1, ok := o1.(*v1.Pod)
 	if !ok {
 		log.Panicf("Invalid resource type %q, expecting *v1.Pod", reflect.TypeOf(o1))
 		return false
 	}
-	_, ok = o1.(*v1.Pod)
+	pod2, ok := o2.(*v1.Pod)
 	if !ok {
 		log.Panicf("Invalid resource type %q, expecting *v1.Pod", reflect.TypeOf(o2))
 		return false
 	}
-	// FIXME write dedicated deep equal function
-	return false
+
+	// We only care about the HostIP, the PodIP and the labels of the pods.
+	if pod1.Status.PodIP != pod2.Status.PodIP ||
+		pod1.Status.HostIP != pod2.Status.HostIP {
+		return false
+	}
+	oldPodLabels := pod1.GetLabels()
+	newPodLabels := pod2.GetLabels()
+	return comparator.MapStringEquals(oldPodLabels, newPodLabels)
 }
 
 func equalV1Node(o1, o2 interface{}) bool {
