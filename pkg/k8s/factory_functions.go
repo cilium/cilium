@@ -15,6 +15,7 @@
 package k8s
 
 import (
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/comparator"
 	"net"
 	"reflect"
@@ -511,18 +512,20 @@ func equalV1Pod(o1, o2 interface{}) bool {
 }
 
 func equalV1Node(o1, o2 interface{}) bool {
-	_, ok := o1.(*v1.Node)
+	node1, ok := o1.(*v1.Node)
 	if !ok {
 		log.Panicf("Invalid resource type %q, expecting *v1.Node", reflect.TypeOf(o1))
 		return false
 	}
-	_, ok = o1.(*v1.Node)
+	node2, ok := o2.(*v1.Node)
 	if !ok {
 		log.Panicf("Invalid resource type %q, expecting *v1.Node", reflect.TypeOf(o2))
 		return false
 	}
-	// FIXME write dedicated deep equal function
-	return false
+	// The only information we care about the node is it's annotations, in
+	// particularly the CiliumHostIP annotation.
+	return node1.GetObjectMeta().GetName() == node2.GetObjectMeta().GetName() &&
+		node1.GetAnnotations()[annotation.CiliumHostIP] == node2.GetAnnotations()[annotation.CiliumHostIP]
 }
 
 func equalV1Namespace(o1, o2 interface{}) bool {
