@@ -17,6 +17,7 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"net"
 	"path/filepath"
 
 	"github.com/cilium/cilium/common"
@@ -26,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/workloads/containerd"
 
@@ -39,6 +41,11 @@ import (
 func (d *Daemon) SyncState(dir string, clean bool) error {
 
 	log.Info("Restoring endpoints from former life...")
+
+	existingEndpoints, err := lxcmap.DumpToMap()
+	if err != nil {
+		return err
+	}
 
 	dirFiles, err := ioutil.ReadDir(dir)
 	if err != nil {
@@ -128,6 +135,9 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 				return
 			}
 
+			delete(existingEndpoints, ep.IPv4.String())
+			delete(existingEndpoints, ep.IPv6.String())
+
 			ep.Mutex.RLock()
 			scopedLog.WithField(logfields.IPAddr, []string{ep.IPv4.String(), ep.IPv6.String()}).Info("Restored endpoint")
 			ep.Mutex.RUnlock()
@@ -172,6 +182,16 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 			"count.restored": nEPsRestored,
 			"count.total":    nEndpoints,
 		}).Info("Endpoints restored, endpoints will continue to regenerate in background")
+	}
+
+	for hostIP, info := range existingEndpoints {
+		if ip := net.ParseIP(hostIP); !info.IsHost() && ip != nil {
+			if err := lxcmap.DeleteEntry(ip); err != nil {
+				log.WithError(err).Warn("Unable to delete obsolete endpoint from BPF map")
+			} else {
+				log.Debugf("Removed outdated endpoint %d from endpoint map", info.LxcID)
+			}
+		}
 	}
 
 	return nil
