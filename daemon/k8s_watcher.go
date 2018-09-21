@@ -622,9 +622,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 					return nil
 				}
 			},
-			func(m versioned.Map) versioned.Map {
-				return m
-			},
+			d.missingK8sNodeV1,
 			&v1.Node{},
 			k8s.Client(),
 			reSyncPeriod,
@@ -2173,4 +2171,24 @@ func (d *Daemon) deleteK8sNodeV1(k8sNode *v1.Node) {
 		logger.Warning("Unable to parse Cilium IP")
 		return
 	}
+}
+
+// missingK8sNodeV1 checks if all nodes from the possible missing nodes have
+// their CiliumHostIP missing from the ipcache.
+func (d *Daemon) missingK8sNodeV1(m versioned.Map) versioned.Map {
+	missing := versioned.NewMap()
+	for k, v := range m {
+		n := v.Data.(*v1.Node)
+		ciliumHostIP := n.GetAnnotations()[annotation.CiliumHostIP]
+		if ciliumHostIP == "" {
+			continue
+		}
+		_, exists := ipcache.IPIdentityCache.LookupByIP(ciliumHostIP)
+		// We can only consider the node is missing if the Cilium HostIP of that
+		// node doesn't exist in the identity cache.
+		if !exists {
+			missing.Add(k, v)
+		}
+	}
+	return missing
 }
