@@ -359,7 +359,7 @@ func (e *Endpoint) removeOldRedirects(owner Owner, desiredRedirects map[string]b
 // Must be called with endpoint.Mutex not held and endpoint.BuildMutex held.
 // Returns the policy revision number when the regeneration has called, a
 // boolean if the BPF compilation was executed and an error in case of an error.
-func (e *Endpoint) regenerateBPF(owner Owner, epdir string, regenContext *RegenerationContext) (revnum uint64, compiled bool, reterr error) {
+func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenContext *RegenerationContext) (revnum uint64, compiled bool, reterr error) {
 	var (
 		err                 error
 		compilationExecuted bool
@@ -411,7 +411,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string, regenContext *Regene
 			return 0, compilationExecuted, err
 		}
 
-		if err = e.writeHeaderfile(epdir, owner); err != nil {
+		if err = e.writeHeaderfile(nextDir, owner); err != nil {
 			return 0, compilationExecuted, fmt.Errorf("Unable to write header file: %s", err)
 		}
 
@@ -501,14 +501,14 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string, regenContext *Regene
 
 	// Generate header file specific to this endpoint for use in compiling
 	// BPF programs for this endpoint.
-	if err = e.writeHeaderfile(epdir, owner); err != nil {
+	if err = e.writeHeaderfile(nextDir, owner); err != nil {
 		e.Unlock()
 		return 0, compilationExecuted, fmt.Errorf("unable to write header file: %s", err)
 	}
 
 	// Avoid BPF program compilation and installation if the headerfile for the endpoint
 	// or the node have not changed.
-	bpfHeaderfilesHash, err := hashEndpointHeaderfiles(epdir)
+	bpfHeaderfilesHash, err := hashEndpointHeaderfiles(nextDir)
 	var bpfHeaderfilesChanged bool
 	if err != nil {
 		e.Logger().WithError(err).Warn("Unable to hash header file")
@@ -522,7 +522,12 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string, regenContext *Regene
 
 	// Cache endpoint information
 	// TODO (ianvernon): why do we need to do this?
-	epInfoCache := e.createEpInfoCache(epdir)
+	var epInfoCache *epInfoCache
+	if bpfHeaderfilesChanged {
+		epInfoCache = e.createEpInfoCache(nextDir)
+	} else {
+		epInfoCache = e.createEpInfoCache(currentDir)
+	}
 	if epInfoCache == nil {
 		e.Unlock()
 		err = fmt.Errorf("Unable to cache endpoint information")

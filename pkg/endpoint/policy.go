@@ -765,7 +765,7 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 		e.Unlock()
 	}()
 
-	revision, compilationExecuted, err = e.regenerateBPF(owner, tmpDir, context)
+	revision, compilationExecuted, err = e.regenerateBPF(owner, origDir, tmpDir, context)
 	if err != nil {
 		failDir := e.FailedDirectoryPath()
 		e.Logger().WithFields(logrus.Fields{
