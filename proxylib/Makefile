@@ -13,7 +13,7 @@ all: $(TARGET)
 clean:
 	@$(ECHO_CLEAN) $(notdir $(shell pwd))
 #	-$(QUIET)rm -f $(TARGET)
-	$(GO) clean
+#	$(GO) clean
 
 install:
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(LIBDIR)
