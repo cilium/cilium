@@ -114,13 +114,17 @@ union tcp_flags {
  * updates of the entry and returning true for each CPU. The BPF architecture
  * guarantees that entire 8-bit or 32-bit values will be set within the entry,
  * so although the CPUs may race, the worst result is that multiple executions
- * of this function return 'true' for the same connection within short
+ * of this function return non-zero for the same connection within short
  * succession, leading to multiple trace notifications being sent when one
  * might otherwise expect such notifications to be aggregated.
+ *
+ * Returns how many bytes of the packet should be monitored:
+ * - Zero if this flow was recently monitored.
+ * - Non-zero if this flow has not been monitored recently.
  */
-static inline bool __inline__ __ct_update_timeout(struct ct_entry *entry,
-						  __u32 lifetime, int dir,
-						  union tcp_flags flags)
+static inline __u32 __inline__ __ct_update_timeout(struct ct_entry *entry,
+						   __u32 lifetime, int dir,
+						   union tcp_flags flags)
 {
 	__u32 now = bpf_ktime_get_sec();
 	__u8 *accumulated_flags;
@@ -173,9 +177,9 @@ static inline bool __inline__ __ct_update_timeout(struct ct_entry *entry,
 	    *accumulated_flags != seen_flags) {
 		*last_report = now;
 		*accumulated_flags = seen_flags;
-		return true;
+		return TRACE_PAYLOAD_LEN;
 	}
-	return false;
+	return 0;
 }
 
 /**
