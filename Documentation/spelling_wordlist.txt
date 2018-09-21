@@ -145,6 +145,7 @@ eu
 eXpress
 extensibility
 Facebook
+fallback
 Fastabend
 filename
 filesystem
@@ -355,6 +356,7 @@ pem
 Pepelnjak
 perf
 Pfaff
+playbook
 pluggable
 plugin
 Plugin
@@ -486,6 +488,7 @@ ui
 Uncomment
 underrepresents
 uninline
+Uninstalling
 unix
 Unix
 unmanaged

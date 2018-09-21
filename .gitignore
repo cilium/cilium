@@ -80,3 +80,6 @@ envoy/Dockerfile.builder
 envoy/external
 
 test/bpf/_results
+
+# generated from make targets
+*.ok
