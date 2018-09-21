@@ -18,6 +18,9 @@ import (
 	"net"
 	"time"
 
+	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/ipcache"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/labels"
@@ -733,6 +736,256 @@ func (ds *DaemonSuite) Test_missingK8sServicesV1(c *C) {
 		want := tt.setupWanted()
 		ds.d.loadBalancer = args.lb
 		got := ds.d.missingK8sServiceV1(args.m)
+		c.Assert(got, DeepEquals, want, Commentf("Test name: %q", tt.name))
+	}
+}
+
+func (ds *DaemonSuite) Test_missingK8sPodV1(c *C) {
+	defer endpointmanager.RemoveAll()
+	type args struct {
+		m     versioned.Map
+		cache *ipcache.IPCache
+	}
+	tests := []struct {
+		name        string
+		setupArgs   func() args
+		setupWanted func() versioned.Map
+	}{
+		{
+			name: "both equal",
+			setupArgs: func() args {
+				return args{
+					cache: ipcache.NewIPCache(),
+					m:     versioned.NewMap(),
+				}
+			},
+			setupWanted: func() versioned.Map {
+				return versioned.NewMap()
+			},
+		},
+		{
+			name: "ipcache is missing a pod",
+			setupArgs: func() args {
+				endpointmanager.RemoveAll()
+				endpointmanager.Insert(endpointCreator(123, identity.NumericIdentity(1000)))
+				m := versioned.NewMap()
+				m.Add("", versioned.Object{
+					Data: &core_v1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+						Status: core_v1.PodStatus{
+							PodIP: "127.0.0.1",
+						},
+					},
+				})
+
+				return args{
+					m:     m,
+					cache: ipcache.NewIPCache(),
+				}
+			},
+			setupWanted: func() versioned.Map {
+				m := versioned.NewMap()
+				m.Add("", versioned.Object{
+					Data: &core_v1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+						Status: core_v1.PodStatus{
+							PodIP: "127.0.0.1",
+						},
+					},
+				})
+				return m
+			},
+		},
+		{
+			name: "ipcache contains the pod but endpointmanager doesn't contain any endpoint that manages the pod. Should be no-op",
+			setupArgs: func() args {
+				endpointmanager.RemoveAll()
+				endpointmanager.Insert(endpointCreator(123, identity.NumericIdentity(1000)))
+				cache := ipcache.NewIPCache()
+				cache.Upsert("127.0.0.1", net.ParseIP("127.0.0.2"), ipcache.Identity{
+					ID:     identity.ReservedIdentityCluster,
+					Source: ipcache.FromKubernetes,
+				})
+				m := versioned.NewMap()
+				m.Add("", versioned.Object{
+					Data: &core_v1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+						Status: core_v1.PodStatus{
+							PodIP:  "127.0.0.1",
+							HostIP: "127.0.0.2",
+						},
+					},
+				})
+
+				return args{
+					m:     m,
+					cache: cache,
+				}
+			},
+			setupWanted: func() versioned.Map {
+				return versioned.NewMap()
+			},
+		},
+		{
+			name: "ipcache contains the pod and endpointmanager contains the endpoint that manages the pod but ep doesn't have all labels",
+			setupArgs: func() args {
+				endpointmanager.RemoveAll()
+				ep := endpointCreator(123, identity.NumericIdentity(1000))
+				ep.SetK8sPodName("foo")
+				ep.SetK8sNamespace("bar")
+				endpointmanager.Insert(ep)
+				cache := ipcache.NewIPCache()
+				cache.Upsert("127.0.0.1", net.ParseIP("127.0.0.2"), ipcache.Identity{
+					ID:     identity.ReservedIdentityCluster,
+					Source: ipcache.FromKubernetes,
+				})
+				m := versioned.NewMap()
+				m.Add("", versioned.Object{
+					Data: &core_v1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+							Labels: map[string]string{
+								"id.foo": "bar",
+							},
+						},
+						Status: core_v1.PodStatus{
+							PodIP:  "127.0.0.1",
+							HostIP: "127.0.0.2",
+						},
+					},
+				})
+
+				return args{
+					m:     m,
+					cache: cache,
+				}
+			},
+			setupWanted: func() versioned.Map {
+				m := versioned.NewMap()
+				m.Add("", versioned.Object{
+					Data: &core_v1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+							Labels: map[string]string{
+								"id.foo": "bar",
+							},
+						},
+						Status: core_v1.PodStatus{
+							PodIP:  "127.0.0.1",
+							HostIP: "127.0.0.2",
+						},
+					},
+				})
+				return m
+			},
+		},
+		{
+			name: "ipcache contains the pod and endpointmanager contains the endpoint that manages the pod and have all labels",
+			setupArgs: func() args {
+				endpointmanager.RemoveAll()
+				ep := endpointCreator(123, identity.NumericIdentity(1000))
+				ep.OpLabels.OrchestrationIdentity = labels.Map2Labels(map[string]string{"foo": "bar"}, labels.LabelSourceK8s)
+				ep.SetK8sPodName("foo")
+				ep.SetK8sNamespace("bar")
+				endpointmanager.Insert(ep)
+				cache := ipcache.NewIPCache()
+				cache.Upsert("127.0.0.1", net.ParseIP("127.0.0.2"), ipcache.Identity{
+					ID:     identity.ReservedIdentityCluster,
+					Source: ipcache.FromKubernetes,
+				})
+				m := versioned.NewMap()
+				m.Add("", versioned.Object{
+					Data: &core_v1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+							Labels: map[string]string{
+								"foo": "bar",
+							},
+						},
+						Status: core_v1.PodStatus{
+							PodIP:  "127.0.0.1",
+							HostIP: "127.0.0.2",
+						},
+					},
+				})
+
+				return args{
+					m:     m,
+					cache: cache,
+				}
+			},
+			setupWanted: func() versioned.Map {
+				return versioned.NewMap()
+			},
+		},
+		{
+			name: "ipcache contains the pod and endpointmanager contains the endpoint that manages the pod but ep has old pod labels",
+			setupArgs: func() args {
+				endpointmanager.RemoveAll()
+				ep := endpointCreator(123, identity.NumericIdentity(1000))
+				ep.OpLabels.OrchestrationIdentity = labels.Map2Labels(map[string]string{"foo": "bar"}, labels.LabelSourceK8s)
+				ep.SetK8sPodName("foo")
+				ep.SetK8sNamespace("bar")
+				endpointmanager.Insert(ep)
+				cache := ipcache.NewIPCache()
+				cache.Upsert("127.0.0.1", net.ParseIP("127.0.0.2"), ipcache.Identity{
+					ID:     identity.ReservedIdentityCluster,
+					Source: ipcache.FromKubernetes,
+				})
+				m := versioned.NewMap()
+				m.Add("", versioned.Object{
+					Data: &core_v1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+						Status: core_v1.PodStatus{
+							PodIP:  "127.0.0.1",
+							HostIP: "127.0.0.2",
+						},
+					},
+				})
+
+				return args{
+					m:     m,
+					cache: cache,
+				}
+			},
+			setupWanted: func() versioned.Map {
+				m := versioned.NewMap()
+				m.Add("", versioned.Object{
+					Data: &core_v1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+						Status: core_v1.PodStatus{
+							PodIP:  "127.0.0.1",
+							HostIP: "127.0.0.2",
+						},
+					},
+				})
+				return m
+			},
+		},
+	}
+	for _, tt := range tests {
+		args := tt.setupArgs()
+		want := tt.setupWanted()
+		ipcache.IPIdentityCache = args.cache
+		got := missingK8sPodV1(args.m)
 		c.Assert(got, DeepEquals, want, Commentf("Test name: %q", tt.name))
 	}
 }
