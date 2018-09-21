@@ -800,11 +800,6 @@ func (d *Daemon) init() error {
 			return err
 		}
 
-		// Clean all endpoint entries
-		if err := lxcmap.LXCMap.DeleteAll(); err != nil {
-			return err
-		}
-
 		// Set up the list of IPCache listeners in the daemon, to be
 		// used by syncLXCMap().
 		d.ipcacheListeners = []ipcache.IPIdentityMappingListener{&envoy.NetworkPolicyHostsCache, d}
@@ -878,6 +873,10 @@ func (d *Daemon) init() error {
 					return err
 				}
 			}
+
+			// If we are not restoring state, all endpoints can be
+			// deleted. Entries will be re-populated.
+			lxcmap.LXCMap.DeleteAll()
 		}
 	}
 
@@ -966,7 +965,6 @@ func createNodeConfigHeaderfile() error {
 func (d *Daemon) syncLXCMap() error {
 	// TODO: Update addresses first, in case node addressing has changed.
 	// TODO: Once these start changing on runtime, figure out the locking strategy.
-	// TODO: Delete stale host entries from the lxcmap.
 	specialIdentities := []identity.IPIdentityPair{
 		{
 			IP: node.GetInternalIPv4(),
@@ -1006,6 +1004,11 @@ func (d *Daemon) syncLXCMap() error {
 		},
 	}
 
+	existingEndpoints, err := lxcmap.DumpToMap()
+	if err != nil {
+		return err
+	}
+
 	for _, ipIDPair := range specialIdentities {
 		isHost := ipIDPair.ID == identity.ReservedIdentityHost
 		if isHost {
@@ -1017,6 +1020,9 @@ func (d *Daemon) syncLXCMap() error {
 				log.WithField(logfields.IPAddr, ipIDPair.IP).Debugf("Added local ip to endpoint map")
 			}
 		}
+
+		delete(existingEndpoints, ipIDPair.IP.String())
+
 		prefix := ipIDPair.PrefixString()
 		cachedIdentity, exists := ipcache.IPIdentityCache.LookupByIP(prefix)
 		if !exists || cachedIdentity != ipIDPair.ID {
@@ -1047,6 +1053,17 @@ func (d *Daemon) syncLXCMap() error {
 			}
 		}
 	}
+
+	for hostIP, info := range existingEndpoints {
+		if ip := net.ParseIP(hostIP); info.IsHost() && ip != nil {
+			if err := lxcmap.DeleteEntry(ip); err != nil {
+				log.WithError(err).Warn("Unable to delete obsolete host IP from BPF map")
+			} else {
+				log.Debugf("Removed outdated host ip %s from endpoint map", hostIP)
+			}
+		}
+	}
+
 	return nil
 }
 
