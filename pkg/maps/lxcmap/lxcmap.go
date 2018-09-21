@@ -136,6 +136,11 @@ func NewEndpointKey(ip net.IP) *EndpointKey {
 	}
 }
 
+// IsHost returns true if the EndpointInfo represents a host IP
+func (v *EndpointInfo) IsHost() bool {
+	return v.Flags&EndpointFlagHost != 0
+}
+
 // String returns the human readable representation of an EndpointInfo
 func (v *EndpointInfo) String() string {
 	if v.Flags&EndpointFlagHost != 0 {
@@ -205,4 +210,22 @@ func DeleteElement(f EndpointFrontend) []error {
 	}
 
 	return errors
+}
+
+// DumpToMap dumps the contents of the lxcmap into a map and returns it
+func DumpToMap() (map[string]*EndpointInfo, error) {
+	m := map[string]*EndpointInfo{}
+	callback := func(key bpf.MapKey, value bpf.MapValue) {
+		if info, ok := value.(*EndpointInfo); ok {
+			if endpointKey, ok := key.(*EndpointKey); ok {
+				m[endpointKey.IP.String()] = info
+			}
+		}
+	}
+
+	if err := LXCMap.DumpWithCallback(callback); err != nil {
+		return m, fmt.Errorf("unable to read BPF endpoint list: %s", err)
+	}
+
+	return m, nil
 }

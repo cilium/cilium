@@ -17,6 +17,7 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"net"
 	"path/filepath"
 	"strings"
 
@@ -28,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/workloads"
@@ -62,6 +64,11 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 	}
 
 	log.Info("Restoring endpoints from former life...")
+
+	existingEndpoints, err := lxcmap.DumpToMap()
+	if err != nil {
+		return nil, err
+	}
 
 	dirFiles, err := ioutil.ReadDir(dir)
 	if err != nil {
@@ -122,12 +129,25 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 		ep.Unlock()
 
 		state.restored = append(state.restored, ep)
+
+		delete(existingEndpoints, ep.IPv4.String())
+		delete(existingEndpoints, ep.IPv6.String())
 	}
 
 	log.WithFields(logrus.Fields{
 		"count.restored": len(state.restored),
 		"count.total":    len(possibleEPs),
 	}).Info("Endpoints restored")
+
+	for hostIP, info := range existingEndpoints {
+		if ip := net.ParseIP(hostIP); !info.IsHost() && ip != nil {
+			if err := lxcmap.DeleteEntry(ip); err != nil {
+				log.WithError(err).Warn("Unable to delete obsolete endpoint from BPF map")
+			} else {
+				log.Debugf("Removed outdated endpoint %d from endpoint map", info.LxcID)
+			}
+		}
+	}
 
 	return state, nil
 }
