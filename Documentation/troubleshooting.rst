@@ -308,7 +308,7 @@ When running in :ref:`arch_overlay` mode:
 
    * verify that the node IP listed in ``cilium bpf tunnel list`` can reach each
      other.
-   * verify that the firewall on each node allows UDP port 4789.
+   * verify that the firewall on each node allows UDP port 8472.
 
 When running in :ref:`arch_direct_routing` mode:
 
