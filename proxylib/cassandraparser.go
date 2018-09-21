@@ -304,63 +304,49 @@ var opcodeMap = map[byte]string{
 	0x10: "auth_success",
 }
 
-var reg_select = regexp.MustCompile("(?i)^select ")
-var reg_insert = regexp.MustCompile("(?i)^insert ")
-var reg_update = regexp.MustCompile("(?i)^update ")
-var reg_delete = regexp.MustCompile("(?i)^delete ")
-var reg_use = regexp.MustCompile("(?i)^use ")
-var reg_from = regexp.MustCompile("(?i)^from$")
-
 func parse_query(p *CassandraParser, query string) (string, string) {
 	var action string
 	var table string = ""
-	if reg_select.MatchString(query) {
-		action = "select"
-		fields := strings.Fields(query)
+
+	query = strings.TrimRight(query, ";")            // remove potential trailing ;
+	fields := strings.Fields(strings.ToLower(query)) // handles all whitespace
+
+	action = fields[0]
+	if action == "select" || action == "delete" {
 		for i := 0; i < len(fields); i++ {
-			if reg_from.MatchString(fields[i]) {
+			if fields[i] == "from" {
 				table = strings.ToLower(fields[i+1])
 			}
 		}
 		if len(table) == 0 {
-			log.Warnf("Unable to parse table name from select query '%s'", query)
+			log.Warnf("Unable to parse table name from query '%s'", query)
+			return "", ""
 		}
-	} else if reg_insert.MatchString(query) {
-		action = "insert"
-		fields := strings.Fields(query)
+	} else if action == "insert" || action == "update" {
 		table = strings.ToLower(fields[2])
-	} else if reg_update.MatchString(query) {
-		action = "update"
-		fields := strings.Fields(query)
-		table = strings.ToLower(fields[2])
-	} else if reg_delete.MatchString(query) {
-		action = "delete"
-		fields := strings.Fields(query)
-		for i := 0; i < len(fields); i++ {
-			if reg_from.MatchString(fields[i]) {
-				table = strings.ToLower(fields[i+1])
-			}
-		}
-		if len(table) == 0 {
-			log.Warnf("Unable to parse table name from delete query '%s'", query)
-		}
-	} else if reg_use.MatchString(query) {
-		action = "use"
-		p.keyspace = strings.Trim(strings.Fields(query)[1], "\"\\'")
+	} else if action == "use" {
+		p.keyspace = strings.Trim(fields[1], "\"\\'")
 		log.Infof("Saving keyspace '%s'", p.keyspace)
 		table = "*"
-	} else {
-		fields := strings.Fields(strings.ToLower(query))
-		f0 := fields[0]
-		if strings.Compare(f0, "alter") == 0 ||
-			strings.Compare(f0, "drop") == 0 ||
-			strings.Compare(f0, "create") == 0 ||
-			strings.Compare(f0, "list") == 0 {
-			action = strings.Join([]string{f0, fields[1]}, "-")
-		} else {
-			action = f0
+	} else if action == "alter" ||
+		action == "drop" ||
+		action == "create" ||
+		action == "truncate" ||
+		action == "list" {
+
+		action = strings.Join([]string{action, fields[1]}, "-")
+		if fields[1] == "table" {
+			table = fields[2]
 		}
+		if action == "truncate" && len(fields) == 2 {
+			// special case, truncate can just be passed table name
+			table = fields[1]
+		}
+	} else {
+		log.Errorf("Unexpected action '%s', unable to parse query", action)
+		return "", ""
 	}
+
 	if len(table) > 0 && !strings.Contains(table, ".") {
 		table = p.keyspace + "." + table
 	}
@@ -399,6 +385,10 @@ func cassandra_parse_request(p *CassandraParser, data []byte) (OpError, []string
 		query := string(data[13:end_index])
 		action, table := parse_query(p, query)
 
+		if action == "" {
+			return ERROR_INVALID_FRAME_TYPE, nil
+		}
+
 		path = "/" + path + "/" + action + "/" + table
 		if opcode == 0x09 {
 			// stash 'path' for this prepared query based on stream id
@@ -411,7 +401,7 @@ func cassandra_parse_request(p *CassandraParser, data []byte) (OpError, []string
 	} else if opcode == 0x0d {
 		// batch
 
-		// TODO: need to handle already prepared query in batch requests
+		// TODO: need to handle prepared queries in batch requests
 
 		num_queries := binary.BigEndian.Uint16(data[10:11])
 		paths := make([]string, num_queries)
@@ -423,6 +413,9 @@ func cassandra_parse_request(p *CassandraParser, data []byte) (OpError, []string
 			query := string(data[offset+4 : query_end_offset])
 
 			action, table := parse_query(p, query)
+			if action == "" {
+				return ERROR_INVALID_FRAME_TYPE, nil
+			}
 			path = "/" + path + "/" + action + "/" + table
 			paths[i] = path
 			offset = query_end_offset
