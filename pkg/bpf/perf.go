@@ -80,9 +80,11 @@ int perf_event_read_init(int page_count, int page_size, void *_header, void *_st
 	return state->begin != state->end;
 }
 
-int perf_event_read(void *_state, void *buf, void *_msg)
+int perf_event_read(void *_state, void *buf, void *_msg, void *_sample, void *_lost)
 {
 	void **msg = (void **) _msg;
+	void **sample = (void **) _sample;
+	void **lost = (void **) _lost;
 	struct read_state *state = _state;
 	struct event_sample *e = state->begin;
 
@@ -105,6 +107,12 @@ int perf_event_read(void *_state, void *buf, void *_msg)
 
 	*msg = e;
 
+	if (e->header.type == PERF_RECORD_SAMPLE) {
+		*sample = e;
+	} else if (e->header.type == PERF_RECORD_LOST) {
+		*lost = e;
+	}
+
 	return 1;
 }
 
@@ -116,13 +124,6 @@ void perf_event_read_finish(void *_header, void *_state)
 	__sync_synchronize();
 	header->data_tail = (uint64_t) state->head;
 }
-
-void cast(void *ptr, void *_dst)
-{
-	void **dst = (void **) _dst;
-	*dst = ptr;
-}
-
 */
 import "C"
 
@@ -317,20 +318,20 @@ func (e *PerfEvent) Read(receive ReceiveFunc, lostFn LostFunc) {
 	}
 
 	for {
-		var msg *PerfEventHeader
+		var (
+			msg    *PerfEventHeader
+			sample *PerfEventSample
+			lost   *PerfEventLost
+		)
 
 		if ok := C.perf_event_read(unsafe.Pointer(e.state),
-			unsafe.Pointer(&e.buf[0]), unsafe.Pointer(&msg)); ok == 0 {
+			unsafe.Pointer(&e.buf[0]), unsafe.Pointer(&msg), unsafe.Pointer(&sample), unsafe.Pointer(&lost)); ok == 0 {
 			break
 		}
 
 		if msg.Type == C.PERF_RECORD_SAMPLE {
-			var sample *PerfEventSample
-			C.cast(unsafe.Pointer(msg), unsafe.Pointer(&sample))
 			receive(sample, e.cpu)
 		} else if msg.Type == C.PERF_RECORD_LOST {
-			var lost *PerfEventLost
-			C.cast(unsafe.Pointer(msg), unsafe.Pointer(&lost))
 			e.lost += lost.Lost
 			if lostFn != nil {
 				lostFn(lost, e.cpu)
