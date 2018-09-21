@@ -42,6 +42,10 @@ var _ = Describe("K8sPolicyTest", func() {
 		knpAllowIngress      = helpers.ManifestGet("knp-default-allow-ingress.yaml")
 		knpAllowEgress       = helpers.ManifestGet("knp-default-allow-egress.yaml")
 		cnpMatchExpression   = helpers.ManifestGet("cnp-matchexpressions.yaml")
+		cnpToEntitiesAll     = helpers.ManifestGet("cnp-to-entities-all.yaml")
+		cnpToEntitiesWorld   = helpers.ManifestGet("cnp-to-entities-world.yaml")
+		cnpToEntitiesCluster = helpers.ManifestGet("cnp-to-entities-cluster.yaml")
+		cnpToEntitiesHost    = helpers.ManifestGet("cnp-to-entities-host.yaml")
 		app1Service          = "app1-service"
 		microscopeErr        error
 		microscopeCancel                        = func() error { return nil }
@@ -134,6 +138,64 @@ var _ = Describe("K8sPolicyTest", func() {
 			ExpectWithOffset(1, cep.Status.Policy.Realized.PolicyEnabled).To(
 				Equal(models.EndpointPolicyEnabledIngress),
 				"Policy status does not match for endpoint %s", appPods[helpers.App1])
+		}
+
+		importPolicy := func(file string) {
+			_, err := kubectl.CiliumPolicyAction(
+				helpers.KubeSystemNamespace, file, helpers.KubectlApply, helpers.HelperTimeout)
+			ExpectWithOffset(1, err).Should(BeNil(),
+				"policy %s cannot be applied in %q namespace", file, helpers.DefaultNamespace)
+		}
+
+		validatePolicyEnforcementStatus := func(desiredState models.EndpointPolicyEnabled) {
+			ExpectWithOffset(1, kubectl.WaitCEPReady()).To(BeNil(), "Cep is not ready after a specified timeout")
+			for _, app := range []string{helpers.App1, helpers.App2, helpers.App3} {
+				pod := appPods[app]
+				cep := kubectl.CepGet(helpers.DefaultNamespace, pod)
+				ExpectWithOffset(1, cep).NotTo(BeNil(), "Endpoint %q does not exist", pod)
+
+				ExpectWithOffset(1, cep.Status.Policy.Realized.PolicyEnabled).To(
+					Equal(desiredState),
+					"Unexpected policy enforcement status for endpoint %s. have: %v want: %v",
+					pod, cep.Status.Policy.Realized.PolicyEnabled, desiredState)
+			}
+		}
+
+		validateConnectivity := func(expectWorldSuccess, expectClusterSuccess bool) {
+			for _, pod := range []string{appPods[helpers.App2], appPods[helpers.App3]} {
+				By("HTTP connectivity to google.com")
+				res := kubectl.ExecPodCmd(
+					helpers.DefaultNamespace, pod,
+					helpers.CurlFail("http://www.google.com/"))
+
+				ExpectWithOffset(1, res.WasSuccessful()).To(Equal(expectWorldSuccess),
+					"HTTP egress connectivity to google.com from pod %q", pod)
+
+				By("ICMP connectivity to 8.8.8.8")
+				res = kubectl.ExecPodCmd(
+					helpers.DefaultNamespace, pod,
+					helpers.Ping("8.8.8.8"))
+
+				ExpectWithOffset(1, res.WasSuccessful()).To(Equal(expectWorldSuccess),
+					"ICMP egress connectivity to 8.8.8.8 from pod %q", pod)
+
+				By("DNS lookup of google.com")
+				res = kubectl.ExecPodCmd(
+					helpers.DefaultNamespace, pod,
+					"host www.google.com")
+
+				// kube-dns is always whitelisted so this should always work
+				ExpectWithOffset(1, res.WasSuccessful()).To(Equal(expectWorldSuccess || expectClusterSuccess),
+					"DNS connectivity of www.google.com from pod %q", pod)
+
+				By("HTTP connectivity from pod to pod")
+				res = kubectl.ExecPodCmd(
+					helpers.DefaultNamespace, pod,
+					helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
+
+				ExpectWithOffset(1, res.WasSuccessful()).To(Equal(expectClusterSuccess),
+					"HTTP connectivity to clusterIP %q of app1 from pod %q", clusterIP, appPods[helpers.App2])
+			}
 		}
 
 		BeforeAll(func() {
@@ -599,6 +661,50 @@ var _ = Describe("K8sPolicyTest", func() {
 					"host www.google.com")
 				res.ExpectSuccess("Egress DNS connectivity should be allowed for pod %q", pod)
 			}
+		})
+
+		It("toEntities All", func() {
+			By("Installing toEntities All")
+			importPolicy(cnpToEntitiesAll)
+
+			By("Checking that all endpoints have egress enforcement enabled")
+			validatePolicyEnforcementStatus(models.EndpointPolicyEnabledEgress)
+
+			By("Verifying policy correctness")
+			validateConnectivity(true, true)
+		})
+
+		It("toEntities World", func() {
+			By("Installing toEntities World")
+			importPolicy(cnpToEntitiesWorld)
+
+			By("Checking that all endpoints have egress enforcement enabled")
+			validatePolicyEnforcementStatus(models.EndpointPolicyEnabledEgress)
+
+			By("Verifying policy correctness")
+			validateConnectivity(true, false)
+		})
+
+		It("toEntities Cluster", func() {
+			By("Installing toEntities Cluster")
+			importPolicy(cnpToEntitiesCluster)
+
+			By("Checking that all endpoints have egress enforcement enabled")
+			validatePolicyEnforcementStatus(models.EndpointPolicyEnabledEgress)
+
+			By("Verifying policy correctness")
+			validateConnectivity(false, true)
+		})
+
+		It("toEntities Host", func() {
+			By("Installing toEntities Host")
+			importPolicy(cnpToEntitiesHost)
+
+			By("Checking that all endpoints have egress enforcement enabled")
+			validatePolicyEnforcementStatus(models.EndpointPolicyEnabledEgress)
+
+			By("Verifying policy correctness")
+			validateConnectivity(false, false)
 		})
 	})
 
