@@ -584,3 +584,144 @@ func (s *K8sSuite) Test_equalV1Node(c *C) {
 		c.Assert(got, Equals, tt.want, Commentf("Test Name: %s", tt.name))
 	}
 }
+
+func (s *K8sSuite) Test_equalV1Namespace(c *C) {
+	type args struct {
+		o1 interface{}
+		o2 interface{}
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "Namespaces with the same name",
+			args: args{
+				o1: &core_v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Namespace1",
+					},
+				},
+				o2: &core_v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Namespace1",
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "Namespaces with the different names",
+			args: args{
+				o1: &core_v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Namespace1",
+					},
+				},
+				o2: &core_v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Namespace2",
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "Namespaces with the different spec should return true as we don't care about the spec",
+			args: args{
+				o1: &core_v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Namespace1",
+					},
+					Spec: core_v1.NamespaceSpec{
+						Finalizers: []core_v1.FinalizerName{
+							core_v1.FinalizerName("foo"),
+						},
+					},
+				},
+				o2: &core_v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Namespace1",
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "Namespaces with the same labels",
+			args: args{
+				o1: &core_v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Namespace1",
+						Labels: map[string]string{
+							"prod": "true",
+						},
+					},
+				},
+				o2: &core_v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Namespace1",
+						Labels: map[string]string{
+							"prod": "true",
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "Namespaces with the different labels",
+			args: args{
+				o1: &core_v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Namespace1",
+						Labels: map[string]string{
+							"prod": "true",
+						},
+					},
+				},
+				o2: &core_v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Namespace1",
+						Labels: map[string]string{
+							"prod": "false",
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "Namespaces with the same annotations and different specs should return true because he don't care about the spec",
+			args: args{
+				o1: &core_v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Namespace1",
+						Labels: map[string]string{
+							"prod": "false",
+						},
+					},
+					Spec: core_v1.NamespaceSpec{
+						Finalizers: []core_v1.FinalizerName{
+							core_v1.FinalizerName("foo"),
+						},
+					},
+				},
+				o2: &core_v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Namespace1",
+						Labels: map[string]string{
+							"prod": "false",
+						},
+					},
+				},
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		got := equalV1Namespace(tt.args.o1, tt.args.o2)
+		c.Assert(got, Equals, tt.want, Commentf("Test Name: %s", tt.name))
+	}
+}
