@@ -22,7 +22,7 @@ import (
 	time "time"
 
 	versioned "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
-	cilium_io "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions/cilium.io"
+	ciliumio "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions/cilium.io"
 	internalinterfaces "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions/internalinterfaces"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
@@ -170,9 +170,9 @@ type SharedInformerFactory interface {
 	ForResource(resource schema.GroupVersionResource) (GenericInformer, error)
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 
-	Cilium() cilium_io.Interface
+	Cilium() ciliumio.Interface
 }
 
-func (f *sharedInformerFactory) Cilium() cilium_io.Interface {
-	return cilium_io.New(f, f.namespace, f.tweakListOptions)
+func (f *sharedInformerFactory) Cilium() ciliumio.Interface {
+	return ciliumio.New(f, f.namespace, f.tweakListOptions)
 }

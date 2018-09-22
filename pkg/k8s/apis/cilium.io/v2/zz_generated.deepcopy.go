@@ -90,22 +90,17 @@ func (in *CiliumNetworkPolicy) DeepCopyInto(out *CiliumNetworkPolicy) {
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
 	if in.Spec != nil {
 		in, out := &in.Spec, &out.Spec
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(api.Rule)
-			(*in).DeepCopyInto(*out)
-		}
+		*out = new(api.Rule)
+		(*in).DeepCopyInto(*out)
 	}
 	if in.Specs != nil {
 		in, out := &in.Specs, &out.Specs
 		*out = make(api.Rules, len(*in))
 		for i := range *in {
-			if (*in)[i] == nil {
-				(*out)[i] = nil
-			} else {
-				(*out)[i] = new(api.Rule)
-				(*in)[i].DeepCopyInto((*out)[i])
+			if (*in)[i] != nil {
+				in, out := &(*in)[i], &(*out)[i]
+				*out = new(api.Rule)
+				(*in).DeepCopyInto(*out)
 			}
 		}
 	}
@@ -195,9 +190,7 @@ func (in *CiliumNetworkPolicyStatus) DeepCopyInto(out *CiliumNetworkPolicyStatus
 		in, out := &in.Nodes, &out.Nodes
 		*out = make(map[string]CiliumNetworkPolicyNodeStatus, len(*in))
 		for key, val := range *in {
-			newVal := new(CiliumNetworkPolicyNodeStatus)
-			val.DeepCopyInto(newVal)
-			(*out)[key] = *newVal
+			(*out)[key] = *val.DeepCopy()
 		}
 	}
 	return

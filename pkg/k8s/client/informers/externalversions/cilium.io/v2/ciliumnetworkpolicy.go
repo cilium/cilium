@@ -19,7 +19,7 @@ package v2
 import (
 	time "time"
 
-	cilium_io_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	versioned "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	internalinterfaces "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions/internalinterfaces"
 	v2 "github.com/cilium/cilium/pkg/k8s/client/listers/cilium.io/v2"
@@ -68,7 +68,7 @@ func NewFilteredCiliumNetworkPolicyInformer(client versioned.Interface, namespac
 				return client.CiliumV2().CiliumNetworkPolicies(namespace).Watch(options)
 			},
 		},
-		&cilium_io_v2.CiliumNetworkPolicy{},
+		&ciliumiov2.CiliumNetworkPolicy{},
 		resyncPeriod,
 		indexers,
 	)
@@ -79,7 +79,7 @@ func (f *ciliumNetworkPolicyInformer) defaultInformer(client versioned.Interface
 }
 
 func (f *ciliumNetworkPolicyInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&cilium_io_v2.CiliumNetworkPolicy{}, f.defaultInformer)
+	return f.factory.InformerFor(&ciliumiov2.CiliumNetworkPolicy{}, f.defaultInformer)
 }
 
 func (f *ciliumNetworkPolicyInformer) Lister() v2.CiliumNetworkPolicyLister {
