@@ -297,3 +297,7 @@ required = [
 [[constraint]]
   name = "github.com/miekg/dns"
   version = "1.0.8"
+
+[[constraint]]
+  name = "github.com/hashicorp/go-immutable-radix"
+  version = "1.0.0"
