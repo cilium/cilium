@@ -63,6 +63,12 @@ type ResponseWriter interface {
 	Hijack()
 }
 
+// A ConnectionStater interface is used by a DNS Handler to access TLS connection state
+// when available.
+type ConnectionStater interface {
+	ConnectionState() *tls.ConnectionState
+}
+
 type response struct {
 	msg            []byte
 	hijacked       bool // connection has been hijacked by handler
@@ -891,6 +897,18 @@ func (w *response) Close() error {
 		e := w.tcp.Close()
 		w.tcp = nil
 		return e
+	}
+	return nil
+}
+
+// ConnectionState() implements the ConnectionStater.ConnectionState() interface.
+func (w *response) ConnectionState() *tls.ConnectionState {
+	type tlsConnectionStater interface {
+		ConnectionState() tls.ConnectionState
+	}
+	if v, ok := w.tcp.(tlsConnectionStater); ok {
+		t := v.ConnectionState()
+		return &t
 	}
 	return nil
 }

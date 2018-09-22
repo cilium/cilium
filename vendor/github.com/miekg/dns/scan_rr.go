@@ -1665,9 +1665,9 @@ func setTA(h RR_Header, c chan lex, o, f string) (RR, *ParseError, string) {
 		return nil, &ParseError{f, "bad TA DigestType", l}, ""
 	}
 	rr.DigestType = uint8(i)
-	s, e, c1 := endingToString(c, "bad TA Digest", f)
-	if e != nil {
-		return nil, e.(*ParseError), c1
+	s, err, c1 := endingToString(c, "bad TA Digest", f)
+	if err != nil {
+		return nil, err, c1
 	}
 	rr.Digest = s
 	return rr, nil, c1
