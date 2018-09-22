@@ -529,16 +529,17 @@ func equalV1Node(o1, o2 interface{}) bool {
 }
 
 func equalV1Namespace(o1, o2 interface{}) bool {
-	_, ok := o1.(*v1.Namespace)
+	ns1, ok := o1.(*v1.Namespace)
 	if !ok {
 		log.Panicf("Invalid resource type %q, expecting *v1.Namespace", reflect.TypeOf(o1))
 		return false
 	}
-	_, ok = o1.(*v1.Namespace)
+	ns2, ok := o2.(*v1.Namespace)
 	if !ok {
 		log.Panicf("Invalid resource type %q, expecting *v1.Namespace", reflect.TypeOf(o2))
 		return false
 	}
-	// FIXME write dedicated deep equal function
-	return false
+	// we only care about namespace labels.
+	return ns1.Name == ns2.Name &&
+		comparator.MapStringEquals(ns1.GetLabels(), ns2.GetLabels())
 }
