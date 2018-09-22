@@ -103,12 +103,12 @@ func newPid(pid int) (c Capabilities, err error) {
 	case linuxCapVer1:
 		p := new(capsV1)
 		p.hdr.version = capVers
-		p.hdr.pid = pid
+		p.hdr.pid = int32(pid)
 		c = p
 	case linuxCapVer2, linuxCapVer3:
 		p := new(capsV3)
 		p.hdr.version = capVers
-		p.hdr.pid = pid
+		p.hdr.pid = int32(pid)
 		c = p
 	default:
 		err = errUnknownVers

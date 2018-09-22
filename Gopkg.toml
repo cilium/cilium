@@ -85,32 +85,27 @@ required = [
 
 [[constraint]]
   name = "k8s.io/api"
-  revision = "kubernetes-1.11.3"
+  revision = "kubernetes-1.12.0-rc.2"
 
 [[constraint]]
   name = "k8s.io/apiextensions-apiserver"
-  revision = "kubernetes-1.11.3"
+  revision = "kubernetes-1.12.0-rc.2"
 
 [[constraint]]
   name = "k8s.io/apimachinery"
-  revision = "kubernetes-1.11.3"
+  revision = "kubernetes-1.12.0-rc.2"
 
 [[constraint]]
   name = "k8s.io/client-go"
-  revision = "kubernetes-1.11.3"
+  revision = "kubernetes-1.12.0-rc.2"
 
 [[constraint]]
   name = "k8s.io/code-generator"
-  revision = "kubernetes-1.11.3"
+  revision = "kubernetes-1.12.0-rc.2"
 
 [[constraint]]
   name = "k8s.io/kubernetes"
-  revision = "v1.11.3"
-
-# Hard dependency of kubernetes 1.11
-[[override]]
-  name = "github.com/json-iterator/go"
-  revision = "f2b4162afba35581b6d4a50d3b8f34e33c144682"
+  revision = "v1.12.0-rc.2"
 
 [[constraint]]
   name = "github.com/asaskevich/govalidator"
