@@ -686,9 +686,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 					return nil
 				}
 			},
-			func(m versioned.Map) versioned.Map {
-				return m
-			},
+			d.missingK8sNamespaceV1,
 			&v1.Namespace{},
 			k8s.Client(),
 			reSyncPeriod,
@@ -2103,6 +2101,35 @@ func (d *Daemon) updateK8sV1Namespace(oldNS, newNS *v1.Namespace) error {
 		return errors.New("unable to update some endpoints with new namespace labels")
 	}
 	return nil
+}
+
+// missingK8sNamespaceV1 returns all namespaces that don't have all of their
+// labels in the namespace's endpoints.
+func (d *Daemon) missingK8sNamespaceV1(m versioned.Map) versioned.Map {
+	missing := versioned.NewMap()
+	eps := endpointmanager.GetEndpoints()
+	for k, v := range m {
+		ns := v.Data.(*v1.Namespace)
+
+		nsK8sLabels := map[string]string{}
+
+		for k, v := range ns.GetLabels() {
+			nsK8sLabels[policy.JoinPath(ciliumio.PodNamespaceMetaLabels, k)] = v
+		}
+
+		nsLabels := labels.Map2Labels(nsK8sLabels, labels.LabelSourceK8s)
+
+		nsFilteredLabels, _ := labels.FilterLabels(nsLabels)
+
+		for _, ep := range eps {
+			epNS := ep.GetK8sNamespace()
+			if ns.Name == epNS && !ep.HasLabels(nsFilteredLabels) {
+				missing.Add(k, v)
+				break
+			}
+		}
+	}
+	return missing
 }
 
 func (d *Daemon) updateK8sNodeTunneling(k8sNodeOld, k8sNodeNew *v1.Node) error {

@@ -1187,3 +1187,120 @@ func (ds *DaemonSuite) Test_missingK8sNodeV1(c *C) {
 		c.Assert(got, DeepEquals, want, Commentf("Test name: %q", tt.name))
 	}
 }
+
+func (ds *DaemonSuite) Test_missingK8sNamespaceV1(c *C) {
+	type args struct {
+		m versioned.Map
+	}
+	tests := []struct {
+		name        string
+		setupArgs   func() args
+		setupWanted func() versioned.Map
+	}{
+		{
+			name: "both equal",
+			setupArgs: func() args {
+				return args{
+					m: versioned.NewMap(),
+				}
+			},
+			setupWanted: func() versioned.Map {
+				return versioned.NewMap()
+			},
+		},
+		{
+			name: "endpointmanager doesn't contain any endpoint that is part of that namespace. Should be no-op",
+			setupArgs: func() args {
+				ep := endpointCreator(123, identity.NumericIdentity(1000))
+				endpointmanager.Insert(ep)
+				m := versioned.NewMap()
+				m.Add("", versioned.Object{
+					Data: &core_v1.Namespace{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "bar",
+						},
+					},
+				})
+
+				return args{
+					m: m,
+				}
+			},
+			setupWanted: func() versioned.Map {
+				return versioned.NewMap()
+			},
+		},
+		{
+			name: "endpointmanager contains the endpoint that is part of that namespace but ep doesn't have all labels",
+			setupArgs: func() args {
+				ep := endpointCreator(123, identity.NumericIdentity(1000))
+				ep.SetK8sNamespace("foo")
+				endpointmanager.Insert(ep)
+				m := versioned.NewMap()
+				m.Add("", versioned.Object{
+					Data: &core_v1.Namespace{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "foo",
+							Labels: map[string]string{
+								"id.foo": "bar",
+							},
+						},
+					},
+				})
+
+				return args{
+					m: m,
+				}
+			},
+			setupWanted: func() versioned.Map {
+				m := versioned.NewMap()
+				m.Add("", versioned.Object{
+					Data: &core_v1.Namespace{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "foo",
+							Labels: map[string]string{
+								"id.foo": "bar",
+							},
+						},
+					},
+				})
+				return m
+			},
+		},
+		{
+			name: "endpointmanager contains the endpoint that is part of that namespace and have all labels",
+			setupArgs: func() args {
+				ep := endpointCreator(123, identity.NumericIdentity(1000))
+				ep.OpLabels.OrchestrationIdentity = labels.Map2Labels(
+					map[string]string{policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "id.foo"): "bar"},
+					labels.LabelSourceK8s)
+				ep.SetK8sNamespace("foo")
+				endpointmanager.Insert(ep)
+				m := versioned.NewMap()
+				m.Add("", versioned.Object{
+					Data: &core_v1.Namespace{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "foo",
+							Labels: map[string]string{
+								"id.foo": "bar",
+							},
+						},
+					},
+				})
+
+				return args{
+					m: m,
+				}
+			},
+			setupWanted: func() versioned.Map {
+				return versioned.NewMap()
+			},
+		},
+	}
+	for _, tt := range tests {
+		args := tt.setupArgs()
+		want := tt.setupWanted()
+		got := ds.d.missingK8sNamespaceV1(args.m)
+		c.Assert(got, DeepEquals, want, Commentf("Test name: %q", tt.name))
+	}
+}
