@@ -128,17 +128,21 @@ function setup_proxy_rules()
 	# Any packet from a local process uses a separate routing table
 	rulespec="fwmark 0xA00/0xF00 pref 10 lookup $PROXY_RT_TABLE"
 
-	if [ -z "$(ip -4 rule list $rulespec)" ]; then
-		ip -4 rule add $rulespec
-	fi
-
-	if [ -z "$(ip -6 rule list $rulespec)" ]; then
-		ip -6 rule add $rulespec
+	if [ -n "$(ip -4 rule list)" ]; then
+		if [ -z "$(ip -4 rule list $rulespec)" ]; then
+			ip -4 rule add $rulespec
+		fi
 	fi
 
 	if [ -n "$IP4_HOST" ]; then
 		ip route replace table $PROXY_RT_TABLE $IP4_HOST/32 dev $HOST_DEV1
 		ip route replace table $PROXY_RT_TABLE default via $IP4_HOST
+	fi
+
+	if [ -n "$(ip -6 rule list)" ]; then
+		if [-z "$(ip -6 rule list $rulespec)" ]; then
+			ip -6 rule add $rulespec
+		fi
 	fi
 
 	IP6_LLADDR=$(ip -6 addr show dev $HOST_DEV2 | grep inet6 | head -1 | awk '{print $2}' | awk -F'/' '{print $1}')
