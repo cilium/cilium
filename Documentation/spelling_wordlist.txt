@@ -56,6 +56,8 @@ bugtool
 Bugtool
 bytecode
 callee
+cass
+cassandra
 ciliumnetworkpolicy
 cBPF
 CEP
@@ -88,6 +90,7 @@ contributing
 CoreOS
 cpuma
 cpumap
+cqlsh
 createtopic
 CreationDate
 cri
@@ -250,6 +253,8 @@ json
 JUnit
 kafka
 kallsyms
+keyspace
+keyspaces
 Kicinski
 kops
 kprobes
