@@ -1,8 +1,10 @@
 package k8sTest
 
 import (
+	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
@@ -96,9 +98,10 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		return func() {}, func() {}
 	}
 
-	demoPath := helpers.ManifestGet("demo.yaml")
+	demoPath := helpers.ManifestGet("demo_extended.yaml")
 	l7Policy := helpers.ManifestGet("l7-policy.yaml")
-	apps := []string{helpers.App1, helpers.App2, helpers.App3}
+	l4Policy := helpers.ManifestGet("l3-l4-policy-app4.yaml")
+	apps := []string{helpers.App1, helpers.App2, helpers.App3, helpers.App4}
 	app1Service := "app1-service"
 
 	cleanupCallback := func() {
@@ -207,7 +210,37 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 			helpers.KubeSystemNamespace, l7Policy, helpers.KubectlApply, timeout)
 		Expect(err).Should(BeNil(), "cannot import l7 policy: %v", l7Policy)
 
+		_, err = kubectl.CiliumPolicyAction(
+			helpers.KubeSystemNamespace, l4Policy, helpers.KubectlApply, timeout)
+		Expect(err).Should(BeNil(), "cannot import l7 policy: %v", l7Policy)
+
 		validateEndpointsConnection()
+
+		By("Starting background process that checks L4 connectivity each 5 seconds")
+
+		appPods := helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "id")
+		podsIps, err := kubectl.GetPodsIPs(helpers.DefaultNamespace, "zgroup=testapp")
+		Expect(err).To(BeNil(), "cannot get pods ips for testapp")
+		app4IP := podsIps[appPods[helpers.App4]]
+
+		ctx, cancel := context.WithCancel(context.Background())
+		restartConnections := []*helpers.CmdRes{}
+		go func() {
+			ticker := time.NewTicker(time.Duration(5 * time.Second))
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+					res := kubectl.ExecPodCmd(
+						helpers.DefaultNamespace,
+						appPods[helpers.App2],
+						helpers.CurlFail("http://%s/public", app4IP))
+					restartConnections = append(restartConnections, res)
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
 
 		By("Updating cilium to master image")
 
@@ -248,6 +281,13 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		ExpectWithOffset(1, err).Should(BeNil(), "Cilium is not ready after timeout")
 
 		validatedImage(newVersion)
+		By("Stopping background connection from app2 to app4")
+		cancel()
+
+		for _, res := range restartConnections {
+			Expect(res).To(helpers.CMDSuccess(),
+				"Connection from app2 to app4 with L4 policy did not work during upgrade")
+		}
 
 		validateEndpointsConnection()
 
