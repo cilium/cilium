@@ -25,6 +25,7 @@ complete will help you to get started in your area of choice:
    kafka
    grpc
    elasticsearch
+   cassandra
    mesos
    docker
 
