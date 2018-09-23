@@ -1,9 +1,12 @@
 package k8sTest
 
 import (
+	"context"
 	"fmt"
 	"strings"
+	"time"
 
+	"github.com/asaskevich/govalidator"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 	. "github.com/onsi/gomega"
@@ -90,13 +93,18 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		return func() {}, func() {}
 	}
 
-	demoPath := helpers.ManifestGet("demo.yaml")
+	demoPath := helpers.ManifestGet("demo_extended.yaml")
 	l7Policy := helpers.ManifestGet("l7-policy.yaml")
-	apps := []string{helpers.App1, helpers.App2, helpers.App3}
+	l4Policy := helpers.ManifestGet("l3-l4-policy-extended.yaml")
+	apps := []string{helpers.App1, helpers.App2, helpers.App3, helpers.App4}
 	app1Service := "app1-service"
+	app4Service := "app4-service"
+	backgroundCheckInternal := 500 * time.Millisecond
+	MaxNumberOfBackgroundConnectionsFails := 3
 
 	cleanupCallback := func() {
 		kubectl.Delete(l7Policy)
+		kubectl.Delete(l4Policy)
 		kubectl.Delete(demoPath)
 
 		// make sure that Kubedns is deleted correctly
@@ -213,7 +221,92 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 			helpers.KubeSystemNamespace, l7Policy, helpers.KubectlApply, timeout)
 		Expect(err).Should(BeNil(), "cannot import l7 policy: %v", l7Policy)
 
+		_, err = kubectl.CiliumPolicyAction(
+			helpers.KubeSystemNamespace, l4Policy, helpers.KubectlApply, timeout)
+		Expect(err).Should(BeNil(), "cannot import l4 policy: %v", l7Policy)
+
 		validateEndpointsConnection()
+
+		By("Starting background process that checks L4 connectivity each %s", backgroundCheckInternal)
+
+		appPods := helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "id")
+		podsIps, err := kubectl.GetPodsIPs(helpers.DefaultNamespace, "zgroup=testapp")
+		Expect(err).To(BeNil(), "cannot get pods ips for testapp")
+		app4IP := podsIps[appPods[helpers.App4]]
+
+		clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, app4Service)
+		Expect(err).Should(BeNil(), "Cannot get service %s", app4Service)
+		Expect(govalidator.IsIP(clusterIP)).Should(BeTrue(), "ClusterIP is not an IP")
+
+		res = kubectl.ExecPodCmd(
+			helpers.DefaultNamespace,
+			appPods[helpers.App3],
+			helpers.CurlFail("http://cilium.io"))
+		res.ExpectFail("App3 can connect to cilium.io when it should not")
+
+		ctx, cancel := context.WithCancel(context.Background())
+		type BackgroundTestAsserts struct {
+			res           *helpers.CmdRes
+			time          time.Time
+			assertMessage string
+		}
+
+		backgroundChecks := []*BackgroundTestAsserts{}
+		go func() {
+			ticker := time.NewTicker(backgroundCheckInternal)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+					res := kubectl.ExecPodCmd(
+						helpers.DefaultNamespace,
+						appPods[helpers.App2],
+						helpers.CurlFail("http://%s/public", app4IP))
+					assert := &BackgroundTestAsserts{
+						res:           res,
+						time:          time.Now(),
+						assertMessage: "app2 can't curl app4 pod IP",
+					}
+					backgroundChecks = append(backgroundChecks, assert)
+
+					res = kubectl.ExecPodCmd(
+						helpers.DefaultNamespace,
+						appPods[helpers.App2],
+						helpers.CurlFail("http://%s/public", app4Service))
+					assert = &BackgroundTestAsserts{
+						res:           res,
+						time:          time.Now(),
+						assertMessage: "app2 can't curl app4 using DNS name",
+					}
+					backgroundChecks = append(backgroundChecks, assert)
+
+					res = kubectl.ExecPodCmd(
+						helpers.DefaultNamespace,
+						appPods[helpers.App2],
+						helpers.CurlFail("http://%s/public", clusterIP))
+					assert = &BackgroundTestAsserts{
+						res:           res,
+						time:          time.Now(),
+						assertMessage: "app2 can't curl app4 service IP",
+					}
+					backgroundChecks = append(backgroundChecks, assert)
+
+					res = kubectl.ExecPodCmd(
+						helpers.DefaultNamespace,
+						appPods[helpers.App3],
+						helpers.CurlFail("https://1.1.1.1/"))
+					assert = &BackgroundTestAsserts{
+						res:           res,
+						time:          time.Now(),
+						assertMessage: "app3 pod can't connect to 1.1.1.1 IP",
+					}
+					backgroundChecks = append(backgroundChecks, assert)
+
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
 
 		By("Updating cilium to master image")
 
@@ -263,6 +356,28 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		ExpectWithOffset(1, err).Should(BeNil(), "Cilium is not ready after timeout")
 
 		validatedImage(newVersion)
+		By("Stopping background connection test")
+		cancel()
+
+		Expect(backgroundChecks).ShouldNot(BeEmpty(), "No background connections were made")
+		BackgroundConnectionsTotal := 0
+		BackgroundConnectionFailed := 0
+		BackgroundConnectionFailedMessage := ""
+		for _, testAssert := range backgroundChecks {
+			BackgroundConnectionsTotal++
+			if !testAssert.res.WasSuccessful() {
+				BackgroundConnectionFailed++
+				BackgroundConnectionFailedMessage += fmt.Sprintf("Connection Failed: %q at %s\n%s",
+					testAssert.assertMessage,
+					testAssert.time,
+					testAssert.res.OutputPrettyPrint())
+			}
+		}
+		GinkgoPrint("Made %v backgrounds connections, %v failed",
+			BackgroundConnectionsTotal, BackgroundConnectionFailed)
+		Expect(BackgroundConnectionFailed).ShouldNot(
+			BeNumerically(">", MaxNumberOfBackgroundConnectionsFails),
+			BackgroundConnectionFailedMessage)
 
 		validateEndpointsConnection()
 

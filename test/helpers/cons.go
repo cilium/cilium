@@ -102,6 +102,7 @@ const (
 	App1   = "app1"
 	App2   = "app2"
 	App3   = "app3"
+	App4   = "app4"
 	Client = "client"
 	Server = "server"
 	Host   = "host"

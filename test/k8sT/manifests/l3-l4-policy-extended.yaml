@@ -1,0 +1,24 @@
+---
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+description: "L3-L4 policy"
+metadata:
+  name: "l3-l4-policy-app4"
+specs:
+  - endpointSelector:
+      matchLabels:
+        id: app4
+    ingress:
+    - fromEndpoints:
+      - matchLabels:
+          id: app2
+      toPorts:
+      - ports:
+        - port: "80"
+          protocol: TCP
+  - endpointSelector:
+      matchLabels:
+        id: app3
+    egress:
+    - toCIDR:
+      - 1.1.1.1/32
