@@ -110,6 +110,10 @@ var (
 	// LabelAction is the label used to defined what kind of action was performed in a metric
 	LabelAction = "action"
 
+	// LabelSubsystem is the label used to refer to any of the child process
+	// started by cilium (Envoy, monitor, etc..)
+	LabelSubsystem = "subsystem"
+
 	// Endpoint
 
 	// EndpointCount is a function used to collect this metric.
@@ -385,6 +389,14 @@ var (
 		Name:      "buildqueue_entries",
 		Help:      "The number of queued, waiting and running builds in the build queue",
 	}, []string{LabelBuildState, LabelBuildQueueName})
+
+	// SubprocessStart is the number of times that Cilium has started a
+	// subprocess, labeled by Subsystem
+	SubprocessStart = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Name:      "subprocess_start_total",
+		Help:      "Number of times that Cilium has started a subprocess, labeled by subsystem",
+	}, []string{LabelSubsystem})
 )
 
 func init() {
@@ -435,6 +447,8 @@ func init() {
 	MustRegister(ControllerRunsDuration)
 
 	MustRegister(BuildQueueEntries)
+
+	MustRegister(SubprocessStart)
 }
 
 // MustRegister adds the collector to the registry, exposing this metric to
