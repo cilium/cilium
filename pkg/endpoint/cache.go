@@ -73,8 +73,8 @@ func (ep *epInfoCache) StringID() string {
 }
 
 // Logger returns the logger for the endpoint that is being cached.
-func (ep *epInfoCache) Logger() *logrus.Entry {
-	return ep.endpoint.Logger()
+func (ep *epInfoCache) Logger(subsystem string) *logrus.Entry {
+	return ep.endpoint.Logger(subsystem)
 }
 
 // StateDir returns the directory for the endpoint's (next) state.
