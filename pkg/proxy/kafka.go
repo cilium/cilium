@@ -419,7 +419,9 @@ func (k *kafkaRedirect) handleRequestConnection(pair *connectionPair) {
 		time.Sleep(proxyConnectionCloseTimeout + time.Second)
 
 		if err := k.redirect.removeProxyMapEntryOnClose(pair.Rx.conn); err != nil {
-			log.WithError(err).Warning("Unable to remove proxymap entry after closing connection")
+			log.WithError(err).WithFields(logrus.Fields{
+				"from": pair.Rx,
+			}).Warning("Unable to remove proxymap entry after closing connection")
 		}
 	}
 }
