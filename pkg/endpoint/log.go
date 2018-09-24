@@ -25,7 +25,10 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "endpoint")
+var (
+	Subsystem = "endpoint"
+	log       = logging.DefaultLogger.WithField(logfields.LogSubsys, Subsystem)
+)
 
 // Logger returns a logrus object with EndpointID, ContainerID and the Endpoint
 // revision fields.
@@ -76,6 +79,7 @@ func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
 	// When adding new fields, make sure they are abstracted by a setter
 	// and update the logger when the value is set.
 	l := baseLogger.WithFields(logrus.Fields{
+		logfields.LogSubsys:              Subsystem,
 		logfields.EndpointID:             e.ID,
 		logfields.ContainerID:            e.getShortContainerID(),
 		logfields.DatapathPolicyRevision: e.policyRevision,
