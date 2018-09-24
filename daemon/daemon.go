@@ -31,7 +31,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
-	health "github.com/cilium/cilium/cilium-health/launch"
+	health "github.com/cilium/cilium/cilium-health/watch"
 	"github.com/cilium/cilium/common"
 	monitorLaunch "github.com/cilium/cilium/monitor/launch"
 	"github.com/cilium/cilium/pkg/api"

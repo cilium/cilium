@@ -28,7 +28,8 @@ import (
 
 	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/api/v1/server/restapi"
-	health "github.com/cilium/cilium/cilium-health/launch"
+	healthlaunch "github.com/cilium/cilium/cilium-health/launch"
+	healthwatch "github.com/cilium/cilium/cilium-health/watch"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
 	_ "github.com/cilium/cilium/pkg/alignchecker"
@@ -813,10 +814,25 @@ func cleanupHealthEndpoint(d *Daemon) {
 // if it cannot be reached, restarts it.
 func runCiliumHealthEndpoint(d *Daemon) error {
 	// PingEndpoint will always fail the first time (initialization).
-	if err := health.PingEndpoint(); err != nil {
-		cleanupHealthEndpoint(d)
+	if err := healthlaunch.PingEndpoint(); err != nil {
+		// Delete the process
+		healthlaunch.CleanupEndpoint(d)
+		// Clean up agent resources
+		ip6 := node.GetIPv6HealthIP()
+		id := addressing.CiliumIPv6(ip6).EndpointID()
+		ep := endpointmanager.LookupCiliumID(id)
+		if ep == nil {
+			log.WithField(logfields.EndpointID, id).Debug("Didn't find existing cilium-health endpoint to delete")
+		} else {
+			log.Debug("Removing existing cilium-health endpoint")
+			errs := d.deleteEndpointQuiet(ep, false)
+			for _, err := range errs {
+				log.WithError(err).Debug("Error occurred while deleting cilium-health endpoint")
+			}
+		}
 		addressing := d.getNodeAddressing()
-		return health.LaunchAsEndpoint(d, addressing)
+		// Launch new instance
+		return healthlaunch.LaunchAsEndpoint(d, addressing)
 	}
 	return nil
 }
@@ -930,10 +946,10 @@ func runDaemon() {
 	log.Debugf("IPv6 health endpoint address: %s", node.GetIPv6HealthIP())
 	node.NotifyLocalNodeUpdated()
 
-	// Launch cilium-health in the same namespace as cilium.
-	log.Info("Launching Cilium health daemon")
-	d.ciliumHealth = &health.CiliumHealth{}
-	go d.ciliumHealth.Run()
+	// Watch cilium-health daemon.
+	log.Info("Watching Cilium health daemon")
+	d.ciliumHealth = &healthwatch.CiliumHealth{}
+	go d.ciliumHealth.Watch()
 
 	// Launch another cilium-health as an endpoint, managed by cilium.
 	log.Info("Launching Cilium health endpoint")
@@ -961,7 +977,7 @@ func runDaemon() {
 	}
 	if promAddr != "" {
 		log.Infof("Serving prometheus metrics on %s", promAddr)
-		if err := metrics.Enable(promAddr); err != nil {
+		if err := metrics.EnableAgent(promAddr); err != nil {
 			log.WithError(err).Fatal("Error while starting metrics")
 		}
 	}
