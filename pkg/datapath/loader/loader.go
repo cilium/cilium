@@ -26,7 +26,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-// TODO: Rebase against https://github.com/cilium/cilium/pull/5286.
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "datapath-loader")
 
 const (
