@@ -913,7 +913,7 @@ func runDaemon() {
 	log.Info("Building health endpoint")
 	health4, health6, err := ipam.AllocateNext("")
 	if err != nil {
-		log.WithError(err).Fatal("Error while allocating cilium-health IP")
+		log.WithError(err).Fatal("IPAM allocation failed. For more detail, see https://cilium.link/ipam-range-full")
 	}
 
 	err = node.SetIPv4HealthIP(health4)
