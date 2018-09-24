@@ -387,7 +387,14 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 	// pre-existing connections using that IP are now invalid.
 	if !e.ctCleaned {
 		go func() {
-			e.scrubIPsInConntrackTable()
+			ipv4 := !option.Config.IPv4Disabled
+			created := ctmap.Exists(nil, ipv4, true)
+			if e.ConntrackLocal() {
+				created = ctmap.Exists(e, ipv4, true)
+			}
+			if created {
+				e.scrubIPsInConntrackTable()
+			}
 			close(ctCleaned)
 		}()
 	} else {
