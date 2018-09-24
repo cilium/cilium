@@ -16,11 +16,11 @@ package labels
 
 import (
 	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/checker"
-
 	. "gopkg.in/check.v1"
 )
 
@@ -244,4 +244,48 @@ func (s *LabelsSuite) TestLabelsCompare(c *C) {
 	c.Assert(lblsLa22.Equals(lblsLa12), Equals, false)
 	c.Assert(lblsLa22.Equals(lblsLb22), Equals, false)
 	c.Assert(lblsLb22.Equals(lblsLa22), Equals, false)
+}
+
+func TestLabels_GetFromSource(t *testing.T) {
+	type args struct {
+		source string
+	}
+	tests := []struct {
+		name string
+		l    Labels
+		args args
+		want Labels
+	}{
+		{
+			name: "should contain label with the given source",
+			l: Labels{
+				"foo":   NewLabel("foo", "bar", "my-source"),
+				"other": NewLabel("other", "bar", ""),
+			},
+			args: args{
+				source: "my-source",
+			},
+			want: Labels{
+				"foo": NewLabel("foo", "bar", "my-source"),
+			},
+		},
+		{
+			name: "should return an empty slice as there are not labels for the given source",
+			l: Labels{
+				"foo":   NewLabel("foo", "bar", "any"),
+				"other": NewLabel("other", "bar", ""),
+			},
+			args: args{
+				source: "my-source",
+			},
+			want: Labels{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.l.GetFromSource(tt.args.source); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Labels.GetFromSource() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

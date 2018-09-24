@@ -281,6 +281,17 @@ func (l Labels) Equals(other Labels) bool {
 	return true
 }
 
+// GetFromSource returns all labels that are from the given source.
+func (l Labels) GetFromSource(source string) Labels {
+	lbls := Labels{}
+	for k, v := range l {
+		if v.Source == source {
+			lbls[k] = v
+		}
+	}
+	return lbls
+}
+
 // NewLabel returns a new label from the given key, value and source. If source is empty,
 // the default value will be LabelSourceUnspec. If key starts with '$', the source
 // will be overwritten with LabelSourceReserved. If key contains ':', the value
