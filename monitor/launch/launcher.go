@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "monitor-launcher")
@@ -101,6 +102,7 @@ func (nm *NodeMonitor) run(sockPath, bpfRoot string) error {
 	if err := nm.Launcher.Run(); err != nil {
 		return err
 	}
+	metrics.SubprocessStart.WithLabelValues(targetName).Inc()
 
 	r := bufio.NewReader(nm.GetStdout())
 	for nm.GetProcess() != nil {

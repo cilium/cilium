@@ -36,12 +36,17 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
 
 	"github.com/vishvananda/netlink"
+)
+
+const (
+	ciliumHealth = "cilium-health"
 )
 
 var (
@@ -182,7 +187,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 	info := &models.EndpointChangeRequest{
 		ID:            id,
 		ContainerID:   endpointid.NewCiliumID(id),
-		ContainerName: "cilium-health",
+		ContainerName: ciliumHealth,
 		State:         models.EndpointStateWaitingForIdentity,
 		Addressing: &models.AddressPair{
 			IPV6: ip6.String(),
@@ -197,7 +202,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 	pidfile := filepath.Join(option.Config.StateDir, healthPidfile)
 	healthArgs := fmt.Sprintf("-d --admin=unix --passive --pidfile %s", pidfile)
 	args := []string{info.ContainerName, info.InterfaceName, vethPeerName,
-		ip6.String(), ip4.String(), "cilium-health", healthArgs}
+		ip6.String(), ip4.String(), ciliumHealth, healthArgs}
 	prog := filepath.Join(option.Config.BpfDir, "spawn_netns.sh")
 
 	cmd := exec.CommandContext(context.Background(), prog, args...)
@@ -257,6 +262,6 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 	if err != nil {
 		return fmt.Errorf("Cannot establish connection to health endpoint: %s", err)
 	}
-
+	metrics.SubprocessStart.WithLabelValues(ciliumHealth).Inc()
 	return nil
 }

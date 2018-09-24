@@ -106,6 +106,13 @@ Controllers
 * ``controllers_runs_duration_seconds``: Duration in seconds of the controller
   process labeled by completion status
 
+
+SubProcess
+----------
+
+* ``subprocess_start_total``: Number of times that Cilium has started a
+  subprocess, labeled by subsystem
+
 Cilium as a Kubernetes pod
 ==========================
 The Cilium Prometheus reference configuration configures jobs that automatically

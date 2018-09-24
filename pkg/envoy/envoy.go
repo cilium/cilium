@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 
 	"github.com/sirupsen/logrus"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -53,7 +54,8 @@ var (
 )
 
 const (
-	adminSock = "envoy-admin.sock"
+	adminSock   = "envoy-admin.sock"
+	ciliumEnvoy = "cilium-envoy"
 )
 
 // EnableTracing changes Envoy log level to "trace", producing the most logs.
@@ -132,9 +134,9 @@ type Envoy struct {
 
 // GetEnvoyVersion returns the envoy binary version string
 func GetEnvoyVersion() string {
-	out, err := exec.Command("cilium-envoy", "--version").Output()
+	out, err := exec.Command(ciliumEnvoy, "--version").Output()
 	if err != nil {
-		log.WithError(err).Fatal(`Envoy: Binary "cilium-envoy" cannot be executed`)
+		log.WithError(err).Fatalf("Envoy: Binary %q cannot be executed", ciliumEnvoy)
 	}
 	return strings.TrimSpace(string(out))
 }
@@ -204,7 +206,7 @@ func StartEnvoy(stateDir, logPath string, baseID uint64) *Envoy {
 
 		for {
 			logLevel := logging.GetLevel(logging.DefaultLogger)
-			cmd := exec.Command("cilium-envoy", "-l", mapLogLevel(logLevel), "-c", bootstrapPath, "--base-id", strconv.FormatUint(baseID, 10), "--log-format", logFormat)
+			cmd := exec.Command(ciliumEnvoy, "-l", mapLogLevel(logLevel), "-c", bootstrapPath, "--base-id", strconv.FormatUint(baseID, 10), "--log-format", logFormat)
 			cmd.Stderr = logWriter
 			cmd.Stdout = logWriter
 
@@ -223,6 +225,7 @@ func StartEnvoy(stateDir, logPath string, baseID uint64) *Envoy {
 			}
 
 			log.Infof("Envoy: Proxy started with pid %d", cmd.Process.Pid)
+			metrics.SubprocessStart.WithLabelValues(ciliumEnvoy).Inc()
 
 			// We do not return after a successful start, but watch the Envoy process
 			// and restart it if it crashes.
