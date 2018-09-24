@@ -39,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	cilium_client_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
@@ -1060,6 +1061,29 @@ func (e *Endpoint) GetLabels() []string {
 	}
 
 	return e.SecurityIdentity.Labels.GetModel()
+}
+
+// GetK8sPodLabels returns all labels that exist in the endpoint and were
+// derived from k8s pod.
+func (e *Endpoint) GetK8sPodLabels() pkgLabels.Labels {
+	e.UnconditionalRLock()
+	defer e.RUnlock()
+	allLabels := e.OpLabels.AllLabels()
+	if allLabels == nil {
+		return nil
+	}
+
+	allLabelsFromK8s := allLabels.GetFromSource(pkgLabels.LabelSourceK8s)
+
+	k8sEPPodLabels := pkgLabels.Labels{}
+	for k, v := range allLabelsFromK8s {
+		if !strings.HasPrefix(v.Key, ciliumio.PodNamespaceMetaLabels) &&
+			!strings.HasPrefix(v.Key, ciliumio.PolicyLabelServiceAccount) &&
+			!strings.HasPrefix(v.Key, ciliumio.PodNamespaceLabel) {
+			k8sEPPodLabels[k] = v
+		}
+	}
+	return k8sEPPodLabels
 }
 
 // GetLabelsSHA returns the SHA of labels
