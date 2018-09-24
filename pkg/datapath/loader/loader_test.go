@@ -46,7 +46,7 @@ func (ep *testEP) InterfaceName() string {
 	return "cilium_test"
 }
 
-func (ep *testEP) Logger() *logrus.Entry {
+func (ep *testEP) Logger(subsystem string) *logrus.Entry {
 	return log
 }
 

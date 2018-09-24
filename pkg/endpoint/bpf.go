@@ -328,7 +328,7 @@ func (e *Endpoint) removeOldRedirects(owner Owner, desiredRedirects map[string]b
 			continue
 		}
 		if err := owner.RemoveProxyRedirect(e, id, proxyWaitGroup); err != nil {
-			e.Logger().WithError(err).WithField(logfields.L4PolicyID, id).Warn("Error while removing proxy redirect")
+			e.getLogger().WithError(err).WithField(logfields.L4PolicyID, id).Warn("Error while removing proxy redirect")
 		} else {
 			delete(e.realizedRedirects, id)
 
@@ -426,7 +426,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 			return 0, compilationExecuted, err
 		}
 		// Clean up map contents
-		e.Logger().Debug("flushing old PolicyMap")
+		e.getLogger().Debug("flushing old PolicyMap")
 		err = e.PolicyMap.Flush()
 		if err != nil {
 			e.Unlock()
@@ -511,12 +511,12 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 	bpfHeaderfilesHash, err := hashEndpointHeaderfiles(nextDir)
 	var bpfHeaderfilesChanged bool
 	if err != nil {
-		e.Logger().WithError(err).Warn("Unable to hash header file")
+		e.getLogger().WithError(err).Warn("Unable to hash header file")
 		bpfHeaderfilesHash = ""
 		bpfHeaderfilesChanged = true
 	} else {
 		bpfHeaderfilesChanged = (bpfHeaderfilesHash != e.bpfHeaderfileHash)
-		e.Logger().WithField(logfields.BPFHeaderfileHash, bpfHeaderfilesHash).
+		e.getLogger().WithField(logfields.BPFHeaderfileHash, bpfHeaderfilesHash).
 			Debugf("BPF header file hashed (was: %q)", e.bpfHeaderfileHash)
 	}
 
@@ -542,7 +542,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 
 	e.Unlock()
 
-	e.Logger().WithField("bpfHeaderfilesChanged", bpfHeaderfilesChanged).Debug("Preparing to compile BPF")
+	e.getLogger().WithField("bpfHeaderfilesChanged", bpfHeaderfilesChanged).Debug("Preparing to compile BPF")
 
 	stats.prepareBuild.End()
 	if bpfHeaderfilesChanged || regenContext.ReloadDatapath {
@@ -554,12 +554,12 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 			stats.bpfCompilation.Start()
 			err = loader.CompileAndLoad(ctx, epInfoCache)
 			stats.bpfCompilation.End()
-			e.Logger().WithError(err).
+			e.getLogger().WithError(err).
 				WithField(logfields.BPFCompilationTime, stats.bpfCompilation.Total().String()).
 				Info("Recompiled endpoint BPF program")
 		} else {
 			err = loader.ReloadDatapath(ctx, epInfoCache)
-			e.Logger().WithError(err).Info("Reloaded endpoint BPF program")
+			e.getLogger().WithError(err).Info("Reloaded endpoint BPF program")
 		}
 		cancel()
 		close(closeChan)
@@ -570,7 +570,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 		compilationExecuted = true
 		e.bpfHeaderfileHash = bpfHeaderfilesHash
 	} else {
-		e.Logger().WithField(logfields.BPFHeaderfileHash, bpfHeaderfilesHash).
+		e.getLogger().WithField(logfields.BPFHeaderfileHash, bpfHeaderfilesHash).
 			Debug("BPF header file unchanged, skipping BPF compilation and installation")
 	}
 

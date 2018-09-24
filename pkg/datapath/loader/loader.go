@@ -26,7 +26,10 @@ import (
 	"github.com/spf13/viper"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "datapath-loader")
+var (
+	Subsystem = "datapath-loader"
+	log       = logging.DefaultLogger.WithField(logfields.LogSubsys, Subsystem)
+)
 
 const (
 	symbolFromEndpoint = "from-container"
@@ -36,7 +39,7 @@ const (
 // compile and load the datapath.
 type endpoint interface {
 	InterfaceName() string
-	Logger() *logrus.Entry
+	Logger(subsystem string) *logrus.Entry
 	StateDir() string
 }
 
@@ -49,7 +52,7 @@ type endpoint interface {
 // * Object compiled with debug symbols
 func compileDatapath(ctx context.Context, ep endpoint, dirs *directoryInfo, debug bool) error {
 	// TODO: Consider logging kernel/clang versions here too
-	epLog := ep.Logger()
+	epLog := ep.Logger(Subsystem)
 
 	// Write out assembly and preprocessing files for debugging purposes
 	if debug {
@@ -82,7 +85,7 @@ func reloadDatapath(ctx context.Context, ep endpoint, dirs *directoryInfo) error
 	// Replace the current program
 	objPath := path.Join(dirs.Output, endpointObj)
 	if err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint); err != nil {
-		scopedLog := ep.Logger().WithFields(logrus.Fields{
+		scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
 			logfields.Path: objPath,
 			logfields.Veth: ep.InterfaceName(),
 		})
