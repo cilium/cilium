@@ -237,14 +237,14 @@ var _ = BeforeAll(func() {
 	return
 })
 
-var _ = AfterAll(func() {
+var _ = AfterSuite(func() {
 	if !helpers.IsRunningOnJenkins() {
-		log.Infof("AfterSuite: not running on Jenkins; leaving VMs running for debugging")
+		GinkgoPrint("AfterSuite: not running on Jenkins; leaving VMs running for debugging")
 		return
 	}
 	// Errors are not checked here because it should fail on BeforeAll
 	scope, _ := helpers.GetScope()
-	log.Infof("cleaning up VMs started for %s tests", scope)
+	GinkgoPrint("cleaning up VMs started for %s tests", scope)
 	switch scope {
 	case helpers.Runtime:
 		helpers.DestroyVM(helpers.Runtime)
