@@ -37,9 +37,6 @@ type Redirect struct {
 	// The following fields are only written to during initialization, it
 	// is safe to read these fields without locking the mutex
 
-	// ProxyPort is the port the redirects redirects to where the proxy is
-	// listening on
-	ProxyPort      uint16
 	endpointID     uint64
 	id             string
 	ingress        bool
@@ -50,7 +47,10 @@ type Redirect struct {
 
 	// The following fields are updated while the redirect is alive, the
 	// mutex must be held to read and write these fields
-	mutex       lock.RWMutex
+	mutex lock.RWMutex
+	// ProxyPort is the port the redirects redirects to where the proxy is
+	// listening on. Immutable after proxy has started listening.
+	ProxyPort   uint16
 	lastUpdated time.Time
 	rules       policy.L7DataMap
 }
@@ -75,7 +75,10 @@ func (r *Redirect) updateRules(l4 *policy.L4Filter) {
 // removeProxyMapEntryOnClose is called after the proxy has closed a connection
 // and will remove the proxymap entry for that connection
 func (r *Redirect) removeProxyMapEntryOnClose(c net.Conn) error {
-	key, err := getProxyMapKey(c, r.ProxyPort)
+	r.mutex.RLock()
+	port := r.ProxyPort
+	r.mutex.RUnlock()
+	key, err := getProxyMapKey(c, port)
 	if err != nil {
 		return fmt.Errorf("unable to extract proxymap key: %s", err)
 	}

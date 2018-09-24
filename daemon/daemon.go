@@ -155,18 +155,20 @@ type Daemon struct {
 }
 
 // UpdateProxyRedirect updates the redirect rules in the proxy for a particular
-// endpoint using the provided L4 filter. Returns the allocated proxy port
-func (d *Daemon) UpdateProxyRedirect(e *endpoint.Endpoint, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error) {
+// endpoint using the provided L4 filter. Returns the allocated proxy port via
+// 'acked' callback, which will be called if the operation is successful
+// before the 'proxyWaitGroup' is canceled.
+func (d *Daemon) UpdateProxyRedirect(e *endpoint.Endpoint, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup, acked func(redirectPort uint16)) error {
 	if d.l7Proxy == nil {
-		return 0, fmt.Errorf("can't redirect, proxy disabled")
+		return fmt.Errorf("can't redirect, proxy disabled")
 	}
 
-	r, err := d.l7Proxy.CreateOrUpdateRedirect(l4, e.ProxyID(l4), e, proxyWaitGroup)
+	err := d.l7Proxy.CreateOrUpdateRedirect(l4, e.ProxyID(l4), e, proxyWaitGroup, acked)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
-	return r.ProxyPort, nil
+	return nil
 }
 
 // RemoveProxyRedirect removes a previously installed proxy redirect for an

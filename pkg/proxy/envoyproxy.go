@@ -15,6 +15,7 @@
 package proxy
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -37,7 +38,7 @@ var envoyOnce sync.Once
 
 // createEnvoyRedirect creates a redirect with corresponding proxy
 // configuration. This will launch a proxy instance.
-func createEnvoyRedirect(r *Redirect, stateDir string, xdsServer *envoy.XDSServer, wg *completion.WaitGroup) (RedirectImplementation, error) {
+func createEnvoyRedirect(r *Redirect, stateDir string, xdsServer *envoy.XDSServer, wg *completion.WaitGroup, acked func(redirectPort uint16), realloc func() (uint16, error)) (RedirectImplementation, error) {
 	envoyOnce.Do(func() {
 		// Start Envoy on first invocation
 		envoyProxy = envoy.StartEnvoy(stateDir, viper.GetString("envoy-log"), 0)
@@ -56,7 +57,51 @@ func createEnvoyRedirect(r *Redirect, stateDir string, xdsServer *envoy.XDSServe
 		if ip == "" {
 			return nil, fmt.Errorf("%s: Cannot create redirect, proxy local endpoint has no IP address", r.id)
 		}
-		xdsServer.AddListener(redir.listenerName, r.parserType, ip, r.ProxyPort, r.ingress, wg)
+
+		retries := 0
+		maxRetries := 10
+		var comp *completion.Completion
+		comp = wg.AddCompletionWithCallback(func(err error) error {
+			r.mutex.Lock()
+			oldPort := r.ProxyPort
+			r.mutex.Unlock()
+
+			switch err {
+			case nil:
+				acked(oldPort)
+			case context.Canceled, context.DeadlineExceeded:
+				// nothing
+			default:
+				port, err2 := realloc()
+				if err2 != nil {
+					return err2
+				}
+
+				retries++
+
+				// AddListener cannot be called from the callback due to a locks being held.
+				go func() {
+					// RemoveListener
+					xdsServer.RemoveListener(redir.listenerName, nil) // Not using comp, it will time out.
+
+					// Create a new one with the reallocated port
+					if retries < maxRetries {
+						log.Debugf("Retrying redirect %s with reallocated proxyport (%d -> %d)", r.id, oldPort, port)
+						redir.listenerName = fmt.Sprintf("%s:%d", r.id, port)
+						xdsServer.AddListener(redir.listenerName, r.parserType, ip, port, r.ingress, comp)
+					}
+				}()
+
+				if retries >= maxRetries {
+					log.Errorf("Envoy: Failed to apply new listener configuration after %d retries (irrecoverable NACK received), removing listener %s", retries, redir.listenerName)
+					return err
+				}
+			}
+			return nil
+		})
+
+		// redirect not visible yet, no need to lock for ProxyPort
+		xdsServer.AddListener(redir.listenerName, r.parserType, ip, r.ProxyPort, r.ingress, comp)
 
 		return redir, nil
 	}
@@ -72,6 +117,6 @@ func (r *envoyRedirect) UpdateRules(wg *completion.WaitGroup) error {
 // Close the redirect.
 func (r *envoyRedirect) Close(wg *completion.WaitGroup) {
 	if envoyProxy != nil {
-		r.xdsServer.RemoveListener(r.listenerName, wg)
+		r.xdsServer.RemoveListener(r.listenerName, wg.AddCompletion())
 	}
 }

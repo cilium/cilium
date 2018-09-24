@@ -16,6 +16,7 @@ package xds
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"sort"
@@ -28,6 +29,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
+	"github.com/golang/protobuf/ptypes/wrappers"
 	. "gopkg.in/check.v1"
 )
 
@@ -45,6 +47,10 @@ const (
 	TestTimeout      = 10 * time.Second
 	StreamTimeout    = 2 * time.Second
 	CacheUpdateDelay = 250 * time.Millisecond
+)
+
+var (
+	DeferredCompletion error = errors.New("Deferred completion")
 )
 
 // ResponseMatchesChecker checks that a DiscoveryResponse's fields match the given
@@ -315,7 +321,7 @@ func (s *ServerSuite) TestAck(c *C) {
 	// Create version 1 with resource 0.
 	time.Sleep(CacheUpdateDelay)
 	comp1 := wg.AddCompletion()
-	defer comp1.Complete()
+	defer comp1.Complete(DeferredCompletion)
 	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp1)
 	c.Assert(comp1, Not(IsCompleted))
 
@@ -328,7 +334,7 @@ func (s *ServerSuite) TestAck(c *C) {
 	// Create version 2 with resources 0 and 1.
 	// This time, update the cache before sending the request.
 	comp2 := wg.AddCompletion()
-	defer comp2.Complete()
+	defer comp2.Complete(DeferredCompletion)
 	mutator.Upsert(typeURL, resources[1].Name, resources[1], []string{node0}, comp2)
 	c.Assert(comp2, Not(IsCompleted))
 
@@ -860,8 +866,15 @@ func (s *ServerSuite) TestNAck(c *C) {
 
 	// Create version 1 with resource 0.
 	time.Sleep(CacheUpdateDelay)
-	comp1 := wg.AddCompletion()
-	defer comp1.Complete()
+
+	callback := func(err error) error {
+		log.Info("comp1 callback received with ", err)
+		// nil return with non-nil 'err' signifies retry - completion will not be completed yet,
+		// but possiby later
+		return nil
+	}
+	comp1 := wg.AddCompletionWithCallback(callback)
+	defer comp1.Complete(DeferredCompletion)
 	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp1)
 	c.Assert(comp1, Not(IsCompleted))
 
@@ -884,12 +897,15 @@ func (s *ServerSuite) TestNAck(c *C) {
 
 	// Create version 2 with resources 0 and 1.
 	time.Sleep(CacheUpdateDelay)
-	comp2 := wg.AddCompletion()
-	defer comp2.Complete()
+	comp2 := wg.AddCompletionWithCallback(func(err error) error {
+		log.Info("comp2 callback received with ", err)
+		return nil
+	})
+	defer comp2.Complete(DeferredCompletion)
 	mutator.Upsert(typeURL, resources[1].Name, resources[1], []string{node0}, comp2)
 	c.Assert(comp2, Not(IsCompleted))
 
-	// Version 1 was NACKed by the last request, so it must NOT be completed yet.
+	// Version 1 was NACKed by the last request, so comp1 must NOT be completed yet.
 	c.Assert(comp1, Not(IsCompleted))
 
 	// Expecting a response with both resources.
@@ -899,6 +915,7 @@ func (s *ServerSuite) TestNAck(c *C) {
 	c.Assert(resp, ResponseMatches, "2", []proto.Message{resources[0], resources[1]}, false, typeURL)
 	c.Assert(resp.Nonce, Not(Equals), "")
 
+	c.Assert(comp1, Not(IsCompleted))
 	c.Assert(comp2, Not(IsCompleted))
 
 	// Request the next version of resources.
@@ -916,7 +933,7 @@ func (s *ServerSuite) TestNAck(c *C) {
 
 	time.Sleep(CacheUpdateDelay)
 
-	// Versions 1 & 2 was ACKed by the last request.
+	// Versions 1 and 2 were ACKed by the last request.
 	c.Assert(comp1, IsCompleted)
 	c.Assert(comp2, IsCompleted)
 
@@ -991,7 +1008,7 @@ func (s *ServerSuite) TestNAckFromTheStart(c *C) {
 	// Create version 1 with resource 0.
 	time.Sleep(CacheUpdateDelay)
 	comp1 := wg.AddCompletion()
-	defer comp1.Complete()
+	defer comp1.Complete(DeferredCompletion)
 	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp1)
 	c.Assert(comp1, Not(IsCompleted))
 
@@ -1012,15 +1029,22 @@ func (s *ServerSuite) TestNAckFromTheStart(c *C) {
 	err = stream.SendRequest(req)
 	c.Assert(err, IsNil)
 
-	// Create version 2 with resources 0 and 1.
 	time.Sleep(CacheUpdateDelay)
+
+	// Version 1 was NACKed by the last request, so it must NOT be completed successfully.
+	c.Assert(comp1, Not(IsCompleted))
+	// Version 1 did not have a callback, so the completion was completed with an error
+	c.Assert(comp1.Error, Not(IsNil))
+	c.Assert(comp1.Error, Equals, NackReceived)
+
+	// NACK canceled the WaitGroup, create new one
+	wg = completion.NewWaitGroup(ctx)
+
+	// Create version 2 with resources 0 and 1.
 	comp2 := wg.AddCompletion()
-	defer comp2.Complete()
+	defer comp2.Complete(DeferredCompletion)
 	mutator.Upsert(typeURL, resources[1].Name, resources[1], []string{node0}, comp2)
 	c.Assert(comp2, Not(IsCompleted))
-
-	// Version 1 was NACKed by the last request, so it must NOT be completed yet.
-	c.Assert(comp1, Not(IsCompleted))
 
 	// Expecting a response with both resources.
 	// Note that the stream should not have a message that repeats the previous one!
@@ -1046,8 +1070,7 @@ func (s *ServerSuite) TestNAckFromTheStart(c *C) {
 
 	time.Sleep(CacheUpdateDelay)
 
-	// Versions 1 & 2 was ACKed by the last request.
-	c.Assert(comp1, IsCompleted)
+	// Version 2 was ACKed by the last request.
 	c.Assert(comp2, IsCompleted)
 
 	// Close the stream.
@@ -1093,7 +1116,7 @@ func (s *ServerSuite) TestRequestHighVersionFromTheStart(c *C) {
 	// Create version 1 with resource 0.
 	time.Sleep(CacheUpdateDelay)
 	comp1 := wg.AddCompletion()
-	defer comp1.Complete()
+	defer comp1.Complete(DeferredCompletion)
 	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp1)
 	c.Assert(comp1, Not(IsCompleted))
 
@@ -1115,6 +1138,324 @@ func (s *ServerSuite) TestRequestHighVersionFromTheStart(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(resp, ResponseMatches, "65", []proto.Message{resources[0]}, false, typeURL)
 	c.Assert(resp.Nonce, Not(Equals), "")
+
+	// Close the stream.
+	closeStream()
+
+	select {
+	case <-ctx.Done():
+		c.Errorf("HandleRequestStream(%v, %v, %v) took too long to return after stream was closed", "ctx", "stream", AnyTypeURL)
+	case <-streamDone:
+	}
+}
+
+func (s *ServerSuite) TestNAckWithRetry(c *C) {
+	typeURL := "type.googleapis.com/envoy.api.v2.DummyConfiguration"
+
+	var err error
+	var req *envoy_api_v2.DiscoveryRequest
+	var resp *envoy_api_v2.DiscoveryResponse
+
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	defer cancel()
+	wg := completion.NewWaitGroup(ctx)
+
+	cache := NewCache()
+	mutator := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
+
+	streamCtx, closeStream := context.WithCancel(ctx)
+	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
+	defer stream.Close()
+
+	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}},
+		TestTimeout)
+
+	streamDone := make(chan struct{})
+
+	// Run the server's stream handler concurrently.
+	go func() {
+		err := server.HandleRequestStream(ctx, stream, AnyTypeURL)
+		close(streamDone)
+		c.Check(err, IsNil)
+	}()
+
+	// Request all resources.
+	req = &envoy_api_v2.DiscoveryRequest{
+		TypeUrl:       typeURL,
+		VersionInfo:   "",
+		Node:          nodes[node0],
+		ResourceNames: nil,
+		ResponseNonce: "",
+	}
+	err = stream.SendRequest(req)
+	c.Assert(err, IsNil)
+
+	// Expecting an empty response.
+	resp, err = stream.RecvResponse()
+	c.Assert(err, IsNil)
+	c.Assert(resp, ResponseMatches, "0", nil, false, typeURL)
+	c.Assert(resp.Nonce, Not(Equals), "")
+
+	// Request the next version of resources.
+	req = &envoy_api_v2.DiscoveryRequest{
+		TypeUrl:       typeURL,
+		VersionInfo:   resp.VersionInfo, // ACK the received version.
+		Node:          nodes[node0],
+		ResourceNames: nil,
+		ResponseNonce: resp.Nonce,
+	}
+	ackedVersion := resp.VersionInfo
+	err = stream.SendRequest(req)
+	c.Assert(err, IsNil)
+
+	// Create version 1 with resource 0.
+	time.Sleep(CacheUpdateDelay)
+	nacks := 0
+	acks := 0
+	comp1 := wg.AddCompletionWithCallback(func(err error) error {
+		if err == nil {
+			acks++
+		} else {
+			nacks++
+		}
+		return nil
+	})
+	defer comp1.Complete(DeferredCompletion)
+	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp1)
+	c.Assert(comp1, Not(IsCompleted))
+
+	// Expecting a response with that resource.
+	resp, err = stream.RecvResponse()
+	c.Assert(err, IsNil)
+	c.Assert(resp, ResponseMatches, "1", []proto.Message{resources[0]}, false, typeURL)
+	c.Assert(resp.Nonce, Not(Equals), "")
+
+	// NACK the received version of resources.
+	req = &envoy_api_v2.DiscoveryRequest{
+		TypeUrl:       typeURL,
+		VersionInfo:   ackedVersion, // NACK the received version.
+		Node:          nodes[node0],
+		ResourceNames: nil,
+		ResponseNonce: resp.Nonce,
+	}
+	err = stream.SendRequest(req)
+	c.Assert(err, IsNil)
+
+	// Create version 2 with resources 0 and 1.
+	time.Sleep(CacheUpdateDelay)
+
+	// One NACK was received
+	c.Assert(nacks, Equals, 1)
+
+	// No ACKs yet after the initial ACK
+	c.Assert(acks, Equals, 0)
+
+	comp2 := wg.AddCompletionWithCallback(func(err error) error {
+		if err == nil {
+			acks++
+		} else {
+			nacks++
+		}
+		return nil
+	})
+	defer comp2.Complete(DeferredCompletion)
+	mutator.Upsert(typeURL, resources[1].Name, resources[1], []string{node0}, comp2)
+	c.Assert(comp2, Not(IsCompleted))
+
+	// Version 1 was NACKed by the last request, so it must NOT be completed yet.
+	c.Assert(comp1, Not(IsCompleted))
+
+	// Expecting a response with both resources.
+	// Note that the stream should not have a message that repeats the previous one!
+	resp, err = stream.RecvResponse()
+	c.Assert(err, IsNil)
+	c.Assert(resp, ResponseMatches, "2", []proto.Message{resources[0], resources[1]}, false, typeURL)
+	c.Assert(resp.Nonce, Not(Equals), "")
+
+	c.Assert(comp2, Not(IsCompleted))
+
+	// Request the next version of resources.
+	req = &envoy_api_v2.DiscoveryRequest{
+		TypeUrl:       typeURL,
+		VersionInfo:   resp.VersionInfo, // ACK the received version.
+		Node:          nodes[node0],
+		ResourceNames: nil,
+		ResponseNonce: resp.Nonce,
+	}
+	err = stream.SendRequest(req)
+	c.Assert(err, IsNil)
+
+	// Expecting no response.
+
+	time.Sleep(CacheUpdateDelay)
+
+	// Versions 1 & 2 were ACKed by the last request.
+	c.Assert(comp1, IsCompleted)
+	c.Assert(comp2, IsCompleted)
+
+	// Close the stream.
+	closeStream()
+
+	// One completion was NACKed
+	c.Assert(nacks, Equals, 1)
+
+	// One completion was ACKed
+	c.Assert(acks, Equals, 2)
+
+	select {
+	case <-ctx.Done():
+		c.Errorf("HandleRequestStream(%v, %v, %v) took too long to return after stream was closed", "ctx", "stream", AnyTypeURL)
+	case <-streamDone:
+	}
+}
+
+func (s *ServerSuite) TestNAckWithRetryUpdatesCompletion(c *C) {
+	typeURL := "type.googleapis.com/envoy.api.v2.DummyConfiguration"
+
+	var err error
+	var req *envoy_api_v2.DiscoveryRequest
+	var resp *envoy_api_v2.DiscoveryResponse
+
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	defer cancel()
+	wg := completion.NewWaitGroup(ctx)
+
+	cache := NewCache()
+	mutator := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
+
+	streamCtx, closeStream := context.WithCancel(ctx)
+	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
+	defer stream.Close()
+
+	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}},
+		TestTimeout)
+
+	streamDone := make(chan struct{})
+
+	// Run the server's stream handler concurrently.
+	go func() {
+		err := server.HandleRequestStream(ctx, stream, AnyTypeURL)
+		close(streamDone)
+		c.Check(err, IsNil)
+	}()
+
+	// Request all resources.
+	req = &envoy_api_v2.DiscoveryRequest{
+		TypeUrl:       typeURL,
+		VersionInfo:   "",
+		Node:          nodes[node0],
+		ResourceNames: nil,
+		ResponseNonce: "",
+	}
+	err = stream.SendRequest(req)
+	c.Assert(err, IsNil)
+
+	// Expecting an empty response.
+	resp, err = stream.RecvResponse()
+	c.Assert(err, IsNil)
+	c.Assert(resp, ResponseMatches, "0", nil, false, typeURL)
+	c.Assert(resp.Nonce, Not(Equals), "")
+
+	// Request the next version of resources.
+	req = &envoy_api_v2.DiscoveryRequest{
+		TypeUrl:       typeURL,
+		VersionInfo:   resp.VersionInfo, // ACK the received version.
+		Node:          nodes[node0],
+		ResourceNames: nil,
+		ResponseNonce: resp.Nonce,
+	}
+	ackedVersion := resp.VersionInfo
+	err = stream.SendRequest(req)
+	c.Assert(err, IsNil)
+
+	// Create version 1 with resource 0.
+	time.Sleep(CacheUpdateDelay)
+	nacks := 0
+	acks := 0
+
+	var comp *completion.Completion
+	var callback func(err error) error
+	callback = func(err error) error {
+		if err == nil {
+			acks++
+		} else if err != context.Canceled && err != context.DeadlineExceeded {
+			// Once a completion is completed it cant be recycled, create a new one
+			comp = wg.AddCompletionWithCallback(callback)
+			// Upsert cannot be called from the callback due to locks being held
+			go func() {
+				if comp != nil {
+					nacks++
+				}
+				// Upsert a new version of the resource
+				resources[0].ValidateClusters = &wrappers.BoolValue{Value: true}
+				log.Infof("Upserting a retry with completion %v", comp)
+				mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp)
+			}()
+		}
+		return nil
+	}
+	comp = wg.AddCompletionWithCallback(callback)
+	defer comp.Complete(DeferredCompletion)
+	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp)
+	c.Assert(comp, Not(IsCompleted))
+
+	// Expecting a response with that resource.
+	resp, err = stream.RecvResponse()
+	c.Assert(err, IsNil)
+	c.Assert(resp, ResponseMatches, "1", []proto.Message{resources[0]}, false, typeURL)
+	c.Assert(resp.Nonce, Not(Equals), "")
+
+	// NACK the received version of resources.
+	req = &envoy_api_v2.DiscoveryRequest{
+		TypeUrl:       typeURL,
+		VersionInfo:   ackedVersion, // NACK the received version.
+		Node:          nodes[node0],
+		ResourceNames: nil,
+		ResponseNonce: resp.Nonce,
+	}
+	err = stream.SendRequest(req)
+	c.Assert(err, IsNil)
+
+	time.Sleep(CacheUpdateDelay)
+
+	// One NACK was received
+	c.Assert(nacks, Equals, 1)
+
+	// No ACKs yet after the initial ACK
+	c.Assert(acks, Equals, 0)
+
+	// Version 1 was NACKed by the last request, so it must NOT be completed yet.
+	c.Assert(comp, Not(IsCompleted))
+
+	// Retry callback "fixes" the resource, expect a new version to be received.
+	resp, err = stream.RecvResponse()
+	c.Assert(err, IsNil)
+	c.Assert(resp, ResponseMatches, "2", []proto.Message{resources[0]}, false, typeURL)
+	c.Assert(resp.Nonce, Not(Equals), "")
+
+	// ACK the received version by sending a new request
+	req = &envoy_api_v2.DiscoveryRequest{
+		TypeUrl:       typeURL,
+		VersionInfo:   resp.VersionInfo, // ACK the received version.
+		Node:          nodes[node0],
+		ResourceNames: nil,
+		ResponseNonce: resp.Nonce,
+	}
+	err = stream.SendRequest(req)
+	c.Assert(err, IsNil)
+
+	// Expecting no response.
+
+	time.Sleep(CacheUpdateDelay)
+
+	// One NACK was received
+	c.Assert(nacks, Equals, 1)
+
+	// Two ACK was received (NACK was followed by a successful retry)
+	c.Assert(acks, Equals, 2)
+
+	// Versions 2 was ACKed by the last request.
+	c.Assert(comp, IsCompleted)
 
 	// Close the stream.
 	closeStream()

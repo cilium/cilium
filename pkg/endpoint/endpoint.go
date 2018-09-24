@@ -2618,7 +2618,7 @@ func (e *Endpoint) syncPolicyMap() error {
 
 		// If key that is in policy map is not in desired state, just remove it.
 		if _, ok := e.desiredMapState[keyHostOrder]; !ok {
-			// Can pass key with host byte-order fields, as it will get
+			// Must pass key with host byte-order fields, as it will get
 			// converted to network byte-order.
 			err := e.PolicyMap.DeleteKey(keyHostOrder)
 			if err != nil {

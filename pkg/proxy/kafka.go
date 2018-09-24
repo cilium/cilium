@@ -82,6 +82,7 @@ func createKafkaRedirect(r *Redirect, conf kafkaConfiguration, endpointInfoRegis
 
 	// Listen needs to be in the synchronous part of this function to ensure that
 	// the proxy port is never refusing connections.
+	// redirect not visible yet, no need to lock for ProxyPort
 	socket, err := listenSocket(fmt.Sprintf(":%d", r.ProxyPort), marker)
 	if err != nil {
 		return nil, err
@@ -100,6 +101,7 @@ func createKafkaRedirect(r *Redirect, conf kafkaConfiguration, endpointInfoRegis
 			}
 
 			if err != nil {
+				// r.ProxyPort is immutable after successful listen, no need to lock here
 				log.WithField(logfields.Port, r.ProxyPort).WithError(err).Error("Unable to accept connection on port")
 				continue
 			}
@@ -323,6 +325,7 @@ func (k *kafkaRedirect) handleRequests(done <-chan struct{}, pair *connectionPai
 
 	// retrieve identity of source together with original destination IP
 	// and destination port
+	// k.redirect.ProxyPort is immutable after successful listen, no need to lock here
 	srcIdentity, dstIPPort, err := k.conf.lookupNewDest(remoteAddr.String(), k.redirect.ProxyPort)
 	if err != nil {
 		scopedLog.WithField("source",

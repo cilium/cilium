@@ -194,7 +194,7 @@ const (
 	panicMessage        = "panic:"
 	deadLockHeader      = "POTENTIAL DEADLOCK:"               // from github.com/sasha-s/go-deadlock/deadlock.go:header
 	segmentationFault   = "segmentation fault"                // from https://github.com/cilium/cilium/issues/3233
-	NACKreceived        = "NACK received for version"         // from https://github.com/cilium/cilium/issues/4003
+	NACKreceived        = "irrecoverable NACK received"       // from https://github.com/cilium/cilium/issues/4003
 	RunInitFailed       = "JoinEP: "                          // from https://github.com/cilium/cilium/pull/5052
 	selfishThresholdMsg = "Goroutine took lock for more than" // from https://github.com/cilium/cilium/pull/5268
 
