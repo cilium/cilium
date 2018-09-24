@@ -15,6 +15,7 @@
 package helpers
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -78,15 +79,31 @@ func CreateVM(scope string) error {
 // for the provided Vagrant of name vmName. Returns an error if
 // `vagrant ssh-config` fails to execute.
 func GetVagrantSSHMetadata(vmName string) ([]byte, error) {
+	// debugVMs is used when ssh-config returns error and be able to debug the
+	// virtual machines status.
+	debugVms := func() {
+		cmd := getCmd("vagrant status --machine-readable")
+		output, _ := cmd.CombinedOutput()
+		fmt.Fprintf(&config.TestLogWriter, "Vagrant status on failure:\n%s\n", output)
+	}
+
+	var stdout, stderr bytes.Buffer
 	cmd := getCmd(fmt.Sprintf("vagrant ssh-config %s", vmName))
 	if config.CiliumTestConfig.SSHConfig != "" {
 		cmd = getCmd(config.CiliumTestConfig.SSHConfig)
+		debugVms = func() {} // not apply the debug helper due is a dev env.
 	}
-	result, err := cmd.Output()
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
 	if err != nil {
+		fmt.Fprintf(&config.TestLogWriter, "cmd='%s %s'\noutput:\n%s\nstderr:\n%s\n",
+			cmd.Path, strings.Join(cmd.Args, " "), stdout.String(), stderr.String())
+		debugVms()
 		return nil, err
 	}
-	return result, nil
+	return stdout.Bytes(), nil
 }
 
 //DestroyVM destroys all running Vagrant VMs in the provided scope. It returns an
