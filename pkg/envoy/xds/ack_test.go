@@ -40,7 +40,7 @@ var nodes = map[string]*envoy_api_v2_core.Node{
 	node2: {Id: "sidecar~10.0.0.2~node2~bar"},
 }
 
-// IsCompletedChecker checks that a Completion is completed.
+// IsCompletedChecker checks that a Completion is completed without errors.
 type IsCompletedChecker struct {
 	*CheckerInfo
 }
@@ -56,7 +56,7 @@ func (c *IsCompletedChecker) Check(params []interface{}, names []string) (result
 
 	select {
 	case <-comp.Completed():
-		return true, ""
+		return comp.Error == nil, ""
 	default:
 		return false, ""
 	}
@@ -79,7 +79,7 @@ func (s *AckSuite) TestUpsertSingleNode(c *C) {
 
 	// Create version 1 with resource 0.
 	comp := wg.AddCompletion()
-	defer comp.Complete()
+	defer comp.Complete(nil)
 
 	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp)
 	c.Assert(comp, Not(IsCompleted))
@@ -112,7 +112,7 @@ func (s *AckSuite) TestUpsertMultipleNodes(c *C) {
 
 	// Create version 1 with resource 0.
 	comp := wg.AddCompletion()
-	defer comp.Complete()
+	defer comp.Complete(nil)
 
 	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0, node1}, comp)
 	c.Assert(comp, Not(IsCompleted))
@@ -142,7 +142,7 @@ func (s *AckSuite) TestUpsertMoreRecentVersion(c *C) {
 
 	// Create version 1 with resource 0.
 	comp := wg.AddCompletion()
-	defer comp.Complete()
+	defer comp.Complete(nil)
 
 	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp)
 	c.Assert(comp, Not(IsCompleted))
@@ -167,7 +167,7 @@ func (s *AckSuite) TestDeleteSingleNode(c *C) {
 
 	// Create version 1 with resource 0.
 	comp := wg.AddCompletion()
-	defer comp.Complete()
+	defer comp.Complete(nil)
 
 	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp)
 	c.Assert(comp, Not(IsCompleted))
@@ -178,7 +178,7 @@ func (s *AckSuite) TestDeleteSingleNode(c *C) {
 
 	// Create version 2 with no resources.
 	comp = wg.AddCompletion()
-	defer comp.Complete()
+	defer comp.Complete(nil)
 
 	acker.Delete(typeURL, resources[0].Name, []string{node0}, comp)
 	c.Assert(comp, Not(IsCompleted))
@@ -204,7 +204,7 @@ func (s *AckSuite) TestDeleteMultipleNodes(c *C) {
 
 	// Create version 1 with resource 0.
 	comp := wg.AddCompletion()
-	defer comp.Complete()
+	defer comp.Complete(nil)
 
 	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp)
 	c.Assert(comp, Not(IsCompleted))
@@ -215,7 +215,7 @@ func (s *AckSuite) TestDeleteMultipleNodes(c *C) {
 
 	// Create version 2 with no resources.
 	comp = wg.AddCompletion()
-	defer comp.Complete()
+	defer comp.Complete(nil)
 
 	acker.Delete(typeURL, resources[0].Name, []string{node0, node1}, comp)
 	c.Assert(comp, Not(IsCompleted))

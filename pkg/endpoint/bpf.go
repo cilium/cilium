@@ -26,6 +26,7 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/common"
@@ -246,53 +247,124 @@ func hashHeaderfile(hashWriter hash.Hash, filepath string) (hash.Hash, error) {
 	return hashWriter, nil
 }
 
+// AckedRedirect is a map value type that contains minimal state that
+// allows the acknowledged proxyport ('port') to be stored into
+// appropriate data structures. "proxyID" is the corresponding map key
+// type, so it does not need to be stored here.
+// These are placed into a sync.Map so that it is safe to insert
+// them concurrently from multiple goroutines (including the one
+// requesting a redirect be added).
+type AckedRedirect struct {
+	direction policymap.TrafficDirection
+	key       string
+	port      uint16
+}
+
+// syncAckedRedirects() takes the acknowledged proxyports in
+// 'ackedRedirects' and creates the associated state in the
+// endpoint. This is to be called after WaitForProxyCompletions() on
+// the associated WaitGroup has returned.
+func (e *Endpoint) syncAckedRedirects(ackedRedirects *sync.Map) error {
+	var err error
+
+	if e.LockAlive() == nil {
+		defer e.Unlock()
+		e.proxyStatisticsMutex.Lock()
+		defer e.proxyStatisticsMutex.Unlock()
+
+		ackedRedirects.Range(func(key, value interface{}) bool {
+			proxyID, keyOk := key.(string)
+			redirect, redirectOk := value.(*AckedRedirect)
+			if !keyOk || !redirectOk {
+				err = fmt.Errorf("Error syncing acknowledged redirects!")
+				return false
+			}
+			var m policy.L4PolicyMap
+			if redirect.direction == policymap.Ingress {
+				m = e.DesiredL4Policy.Ingress
+			} else {
+				m = e.DesiredL4Policy.Egress
+			}
+			l4, l4Ok := m[redirect.key]
+			if !l4Ok {
+				err = fmt.Errorf("Error syncing acknowledged redirects, missing l4 policy for %s!", redirect.key)
+				return false
+			}
+
+			e.Logger().Debugf("%s: Setting the acked proxyport %d", proxyID, redirect.port)
+
+			if e.realizedRedirects == nil {
+				e.realizedRedirects = make(map[string]uint16)
+			}
+			e.realizedRedirects[proxyID] = redirect.port
+
+			// Update the endpoint API model to report that Cilium manages a
+			// redirect for that port.
+			proxyStats := e.getProxyStatisticsLocked(string(l4.L7Parser), uint16(l4.Port), l4.Ingress)
+			proxyStats.AllocatedProxyPort = int64(redirect.port)
+
+			// Set the proxy port in the policy map.
+			keysFromFilter := e.convertL4FilterToPolicyMapKeys(&l4, redirect.direction)
+			for _, keyFromFilter := range keysFromFilter {
+				e.desiredMapState[keyFromFilter] = PolicyMapStateEntry{ProxyPort: redirect.port}
+			}
+			return true // continue iteration
+		})
+	}
+	return err
+}
+
 // addNewRedirectsFromMap must be called while holding the endpoint lock for
 // writing. On success, returns nil; otherwise, returns an error  indicating the
 // problem that occurred while adding an l7 redirect for the specified policy.
 // Must be called with endpoint.Mutex held.
-func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, desiredRedirects map[string]bool, proxyWaitGroup *completion.WaitGroup) error {
+func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, desiredRedirects map[string]bool, ackedRedirects *sync.Map, proxyWaitGroup *completion.WaitGroup) error {
 	if option.Config.DryMode {
 		return nil
 	}
 
-	for _, l4 := range m {
+	for k, l4 := range m {
 		if l4.IsRedirect() {
-			var redirectPort uint16
 			var err error
 			// Only create a redirect if the proxy is NOT running in a sidecar
-			// container. If running in a sidecar container, just allow traffic
-			// to the port at L4 by setting the proxy port to 0.
-			if !e.hasSidecarProxy || l4.L7Parser != policy.ParserTypeHTTP {
-				redirectPort, err = owner.UpdateProxyRedirect(e, &l4, proxyWaitGroup)
-				if err != nil {
-					return err
-				}
-
-				proxyID := e.ProxyID(&l4)
-				if e.realizedRedirects == nil {
-					e.realizedRedirects = make(map[string]uint16)
-				}
-				e.realizedRedirects[proxyID] = redirectPort
-				desiredRedirects[proxyID] = true
-
-				// Update the endpoint API model to report that Cilium manages a
-				// redirect for that port.
-				e.proxyStatisticsMutex.Lock()
-				proxyStats := e.getProxyStatisticsLocked(string(l4.L7Parser), uint16(l4.Port), l4.Ingress)
-				proxyStats.AllocatedProxyPort = int64(redirectPort)
-				e.proxyStatisticsMutex.Unlock()
-			}
-
-			// Set the proxy port in the policy map.
+			// container.
 			var direction policymap.TrafficDirection
 			if l4.Ingress {
 				direction = policymap.Ingress
 			} else {
 				direction = policymap.Egress
 			}
-			keysFromFilter := e.convertL4FilterToPolicyMapKeys(&l4, direction)
-			for _, keyFromFilter := range keysFromFilter {
-				e.desiredMapState[keyFromFilter] = PolicyMapStateEntry{ProxyPort: redirectPort}
+
+			if !e.hasSidecarProxy || l4.L7Parser != policy.ParserTypeHTTP {
+				proxyID := e.ProxyID(&l4)
+				// Must take a local copy for the lambda below, otherwise only the last
+				// value of 'k' is used when ACKs are received.
+				key := k
+
+				err = owner.UpdateProxyRedirect(e, &l4, proxyWaitGroup,
+					func(redirectPort uint16) {
+						// Called concurrently when Proxy has acknowledged the redirect
+						ackedRedirects.Store(proxyID, &AckedRedirect{
+							direction: direction,
+							key:       key,
+							port:      redirectPort,
+						})
+					},
+					func(err error) {
+						e.Logger().WithError(err).WithField(logfields.L4PolicyID, proxyID).Warningf("Redirect update failed")
+					})
+				if err != nil {
+					return err
+				}
+				desiredRedirects[proxyID] = true
+			} else {
+				// Endpoint is running in a sidecar container, just allow traffic
+				// to the port at L4 by setting the proxy port to 0.
+				keysFromFilter := e.convertL4FilterToPolicyMapKeys(&l4, direction)
+
+				for _, keyFromFilter := range keysFromFilter {
+					e.desiredMapState[keyFromFilter] = PolicyMapStateEntry{ProxyPort: 0}
+				}
 			}
 		}
 	}
@@ -305,15 +377,16 @@ func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, des
 // The returned map contains the exact set of IDs of proxy redirects that is
 // required to implement the given L4 policy.
 // Must be called with endpoint.Mutex held.
-func (e *Endpoint) addNewRedirects(owner Owner, m *policy.L4Policy, proxyWaitGroup *completion.WaitGroup) (desiredRedirects map[string]bool, err error) {
+func (e *Endpoint) addNewRedirects(owner Owner, m *policy.L4Policy, proxyWaitGroup *completion.WaitGroup) (desiredRedirects map[string]bool, ackedRedirects *sync.Map, err error) {
 	desiredRedirects = make(map[string]bool)
-	if err = e.addNewRedirectsFromMap(owner, m.Ingress, desiredRedirects, proxyWaitGroup); err != nil {
-		return desiredRedirects, fmt.Errorf("Unable to allocate ingress redirects: %s", err)
+	ackedRedirects = &sync.Map{}
+	if err = e.addNewRedirectsFromMap(owner, m.Ingress, desiredRedirects, ackedRedirects, proxyWaitGroup); err != nil {
+		return desiredRedirects, ackedRedirects, fmt.Errorf("Unable to allocate ingress redirects: %s", err)
 	}
-	if err = e.addNewRedirectsFromMap(owner, m.Egress, desiredRedirects, proxyWaitGroup); err != nil {
-		return desiredRedirects, fmt.Errorf("Unable to allocate egress redirects: %s", err)
+	if err = e.addNewRedirectsFromMap(owner, m.Egress, desiredRedirects, ackedRedirects, proxyWaitGroup); err != nil {
+		return desiredRedirects, ackedRedirects, fmt.Errorf("Unable to allocate egress redirects: %s", err)
 	}
-	return desiredRedirects, nil
+	return desiredRedirects, ackedRedirects, nil
 }
 
 // Must be called with endpoint.Mutex held.
@@ -342,6 +415,9 @@ func (e *Endpoint) removeOldRedirects(owner Owner, desiredRedirects map[string]b
 			// We have to loop to find which entry has the same redirect port.
 			// Looping is acceptable since there should be only a few redirects
 			// for each endpoint.
+			//
+			// XXX: We probably should do this only after the proxy has acknowledged the
+			// removal of the redirect
 			e.proxyStatisticsMutex.Lock()
 			for _, stats := range e.proxyStatistics {
 				if stats.AllocatedProxyPort == int64(redirectPort) {
@@ -479,17 +555,27 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string, regenContext *Regene
 		stats.proxyPolicyCalculation.End()
 	}
 
+	// Start the stats timer for the configuration of proxy redirects
+	// Does not include the time spent on updating the network policy with the proxies.
 	stats.proxyConfiguration.Start()
 
 	// Walk the L4Policy to add new redirects and update the desired policy map
 	// state to set the newly allocated proxy ports.
 	var desiredRedirects map[string]bool
+	var ackedRedirects *sync.Map
+	var redirectSyncDone bool
 	if e.DesiredL4Policy != nil {
-		desiredRedirects, err = e.addNewRedirects(owner, e.DesiredL4Policy, proxyWaitGroup)
+		desiredRedirects, ackedRedirects, err = e.addNewRedirects(owner, e.DesiredL4Policy, proxyWaitGroup)
 		if err != nil {
 			e.Unlock()
 			return 0, compilationExecuted, err
 		}
+		// Sync acknowledged redirects back to the endpoint when we return, if not done already
+		defer func() {
+			if !redirectSyncDone {
+				e.syncAckedRedirects(ackedRedirects)
+			}
+		}()
 	}
 	// At this point, traffic is no longer redirected to the proxy for
 	// now-obsolete redirects, since we synced the updated policy map above.
@@ -570,11 +656,19 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string, regenContext *Regene
 	}
 
 	stats.proxyWaitForAck.Start()
+	// WaitForProxyCompletions must be called after endpoint mutex has been released.
 	err = e.WaitForProxyCompletions(proxyWaitGroup)
+	// All callbacks on completions added to proxyWaitGroup have been called before this point.
 	if err != nil {
 		return 0, compilationExecuted, fmt.Errorf("Error while configuring proxy redirects: %s", err)
 	}
+	// Most be called without endpoint lock being held
+	redirectSyncDone = true
+	err = e.syncAckedRedirects(ackedRedirects)
 	stats.proxyWaitForAck.End()
+	if err != nil {
+		return 0, compilationExecuted, err
+	}
 
 	// Wait for connection tracking cleaning to be complete
 	stats.waitingForCTClean.Start()
