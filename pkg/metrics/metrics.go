@@ -385,6 +385,14 @@ var (
 		Name:      "buildqueue_entries",
 		Help:      "The number of queued, waiting and running builds in the build queue",
 	}, []string{LabelBuildState, LabelBuildQueueName})
+
+	// SubroutineStart is the number of times that a subroutine has started by
+	// Cilium labeled by scope
+	SubroutineStart = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Name:      "subroutine_start_total",
+		Help:      "Number of times that a subroutine has started by Cilium labeled by scope",
+	}, []string{LabelScope})
 )
 
 func init() {
@@ -435,6 +443,8 @@ func init() {
 	MustRegister(ControllerRunsDuration)
 
 	MustRegister(BuildQueueEntries)
+
+	MustRegister(SubroutineStart)
 }
 
 // MustRegister adds the collector to the registry, exposing this metric to
