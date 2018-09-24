@@ -246,6 +246,7 @@ var _ = Describe("RuntimePolicies", func() {
 		vm            *helpers.SSHMeta
 		monitorStop   = func() error { return nil }
 		initContainer string
+		cleanup       = func() { return }
 	)
 
 	BeforeAll(func() {
@@ -263,10 +264,12 @@ var _ = Describe("RuntimePolicies", func() {
 
 	BeforeEach(func() {
 		ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementDefault)
+		cleanup = func() { return }
 	})
 
 	AfterEach(func() {
 		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
+		cleanup()
 	})
 
 	JustBeforeEach(func() {
@@ -668,12 +671,10 @@ var _ = Describe("RuntimePolicies", func() {
 
 		// Delete the pseudo-host IPs that we added to localhost after test
 		// finishes. Don't care about success; this is best-effort.
-		cleanup := func() {
+		cleanup = func() {
 			_ = vm.RemoveIPFromLoopbackDevice(fmt.Sprintf("%s/32", helpers.IPv4Host))
 			_ = vm.RemoveIPFromLoopbackDevice(fmt.Sprintf("%s/128", helpers.IPv6Host))
 		}
-
-		defer cleanup()
 
 		By("Adding Pseudo-Host IPs to localhost")
 		vm.AddIPToLoopbackDevice(fmt.Sprintf("%s/32", helpers.IPv4Host)).ExpectSuccess("Unable to add %s to pseudo-host IP to localhost", helpers.IPv4Host)
