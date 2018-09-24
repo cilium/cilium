@@ -20,6 +20,7 @@ import (
 	"io"
 	"math"
 	"net"
+	"os"
 	"path"
 	"unsafe"
 
@@ -472,4 +473,23 @@ func WriteBPFMacros(fw io.Writer, e CtEndpoint) {
 	}
 	fmt.Fprintf(fw, "#define CT_MAP_SIZE_TCP %d\n", mapEntriesTCP)
 	fmt.Fprintf(fw, "#define CT_MAP_SIZE_ANY %d\n", mapEntriesAny)
+}
+
+// Exists returns false if the CT maps for the specified endpoint (or global
+// maps if nil) are not pinned to the filesystem, or true if they exist or
+// an internal error occurs.
+func Exists(e CtEndpoint, ipv4, ipv6 bool) bool {
+	result := true
+	for _, m := range maps(e, ipv4, ipv6) {
+		path, err := m.Path()
+		if err != nil {
+			// Catch this error early
+			return true
+		}
+		if _, err = os.Stat(path); os.IsNotExist(err) {
+			result = false
+		}
+	}
+
+	return result
 }
