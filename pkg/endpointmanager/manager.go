@@ -323,15 +323,6 @@ func AddEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, reason string) (er
 	ep.SetIngressPolicyEnabled(alwaysEnforce)
 	ep.SetEgressPolicyEnabled(alwaysEnforce)
 
-	if err := ep.CreateDirectory(); err != nil {
-		return err
-	}
-	defer func() {
-		if err != nil {
-			ep.RemoveDirectory()
-		}
-	}()
-
 	// Regenerate immediately if ready or waiting for identity
 	if err := ep.LockAlive(); err != nil {
 		return err
