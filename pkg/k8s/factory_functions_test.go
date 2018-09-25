@@ -19,9 +19,11 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	. "gopkg.in/check.v1"
 	core_v1 "k8s.io/api/core/v1"
+	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -722,6 +724,160 @@ func (s *K8sSuite) Test_equalV1Namespace(c *C) {
 	}
 	for _, tt := range tests {
 		got := equalV1Namespace(tt.args.o1, tt.args.o2)
+		c.Assert(got, Equals, tt.want, Commentf("Test Name: %s", tt.name))
+	}
+}
+
+func (s *K8sSuite) Test_equalV1beta1Ingress(c *C) {
+	type args struct {
+		o1 interface{}
+		o2 interface{}
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "Ingresses with the same name",
+			args: args{
+				o1: &v1beta1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Ingress1",
+					},
+				},
+				o2: &v1beta1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Ingress1",
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "Ingresses with the different names",
+			args: args{
+				o1: &v1beta1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Ingress1",
+					},
+				},
+				o2: &v1beta1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Ingress2",
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "Ingresses with the different spec should return true as we don't care about the spec",
+			args: args{
+				o1: &v1beta1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Ingress1",
+					},
+					Spec: v1beta1.IngressSpec{
+						Rules: []v1beta1.IngressRule{
+							{
+								Host: "not relevant",
+							},
+						},
+					},
+				},
+				o2: &v1beta1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Ingress1",
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "Ingresses with the different backend name should be considered the same because we only care about the ports",
+			args: args{
+				o1: &v1beta1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Ingress1",
+					},
+					Spec: v1beta1.IngressSpec{
+						Backend: &v1beta1.IngressBackend{
+							ServiceName: "svc ingress 1",
+						},
+					},
+				},
+				o2: &v1beta1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Ingress1",
+					},
+					Spec: v1beta1.IngressSpec{
+						Backend: &v1beta1.IngressBackend{
+							ServiceName: "svc ingress",
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "Ingresses with the different backend name should be considered the same because we only care about the ports",
+			args: args{
+				o1: &v1beta1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Ingress1",
+					},
+					Spec: v1beta1.IngressSpec{
+						Backend: &v1beta1.IngressBackend{
+							ServiceName: "svc ingress 1",
+							ServicePort: intstr.FromString("10"),
+						},
+					},
+				},
+				o2: &v1beta1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Ingress1",
+					},
+					Spec: v1beta1.IngressSpec{
+						Backend: &v1beta1.IngressBackend{
+							ServiceName: "svc ingress",
+							ServicePort: intstr.FromString("10"),
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "Ingresses with the different ports should be considered different",
+			args: args{
+				o1: &v1beta1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Ingress1",
+					},
+					Spec: v1beta1.IngressSpec{
+						Backend: &v1beta1.IngressBackend{
+							ServiceName: "svc ingress 1",
+							ServicePort: intstr.FromString("1"),
+						},
+					},
+				},
+				o2: &v1beta1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Ingress1",
+					},
+					Spec: v1beta1.IngressSpec{
+						Backend: &v1beta1.IngressBackend{
+							ServiceName: "svc ingress",
+							ServicePort: intstr.FromString("10"),
+						},
+					},
+				},
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		got := equalV1beta1Ingress(tt.args.o1, tt.args.o2)
 		c.Assert(got, Equals, tt.want, Commentf("Test Name: %s", tt.name))
 	}
 }

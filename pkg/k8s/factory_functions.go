@@ -458,18 +458,31 @@ func equalV1Endpoints(o1, o2 interface{}) bool {
 }
 
 func equalV1beta1Ingress(o1, o2 interface{}) bool {
-	_, ok := o1.(*v1beta1.Ingress)
+	ing1, ok := o1.(*v1beta1.Ingress)
 	if !ok {
 		log.Panicf("Invalid resource type %q, expecting *v1beta1.Ingress", reflect.TypeOf(o1))
 		return false
 	}
-	_, ok = o1.(*v1beta1.Ingress)
+	ing2, ok := o2.(*v1beta1.Ingress)
 	if !ok {
 		log.Panicf("Invalid resource type %q, expecting *v1beta1.Ingress", reflect.TypeOf(o2))
 		return false
 	}
-	// FIXME write dedicated deep equal function
-	return false
+
+	if ing1.Name != ing2.Name || ing1.Namespace != ing2.Namespace {
+		return false
+	}
+	switch {
+	case (ing1.Spec.Backend == nil) != (ing2.Spec.Backend == nil):
+		return false
+	case (ing1.Spec.Backend == nil) && (ing2.Spec.Backend == nil):
+		return true
+	}
+
+	return ing1.Spec.Backend.ServicePort.IntVal ==
+		ing2.Spec.Backend.ServicePort.IntVal &&
+		ing1.Spec.Backend.ServicePort.StrVal ==
+			ing2.Spec.Backend.ServicePort.StrVal
 }
 
 func equalV2CNP(o1, o2 interface{}) bool {
