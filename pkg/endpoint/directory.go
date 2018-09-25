@@ -69,7 +69,6 @@ func (e *Endpoint) synchronizeDirectories(origDir string, compilationExecuted bo
 
 		// Move the current endpoint directory to a backup location
 		if err := os.Rename(origDir, backupDir); err != nil {
-			os.RemoveAll(tmpDir)
 			return fmt.Errorf("unable to rename current endpoint directory: %s", err)
 		}
 
@@ -80,8 +79,6 @@ func (e *Endpoint) synchronizeDirectories(origDir string, compilationExecuted bo
 
 		// Make temporary directory the new endpoint directory
 		if err := os.Rename(tmpDir, origDir); err != nil {
-			os.RemoveAll(tmpDir)
-
 			if err2 := os.Rename(backupDir, origDir); err2 != nil {
 				scopedLog.WithFields(logrus.Fields{
 					logfields.Path: backupDir,
@@ -108,7 +105,6 @@ func (e *Endpoint) synchronizeDirectories(origDir string, compilationExecuted bo
 	default:
 		// Make temporary directory the new endpoint directory
 		if err := os.Rename(tmpDir, origDir); err != nil {
-			os.RemoveAll(tmpDir)
 			return fmt.Errorf("atomic endpoint directory move failed: %s", err)
 		}
 	}
