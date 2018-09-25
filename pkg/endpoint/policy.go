@@ -746,6 +746,12 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 	// entire generation process has succeeded.
 	tmpDir := e.NextDirectoryPath()
 
+	// Remove an eventual existing temporary directory that has been left
+	// over to make sure we can start the build from scratch
+	if err := os.RemoveAll(tmpDir); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("unable to remove old temporary directory: %s", err)
+	}
+
 	// Create temporary endpoint directory if it does not exist yet
 	if err := os.MkdirAll(tmpDir, 0777); err != nil {
 		return fmt.Errorf("Failed to create endpoint directory: %s", err)
