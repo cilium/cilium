@@ -750,6 +750,7 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 	if err := os.MkdirAll(tmpDir, 0777); err != nil {
 		return fmt.Errorf("Failed to create endpoint directory: %s", err)
 	}
+
 	stats.prepareBuild.End()
 
 	defer func() {
@@ -761,6 +762,13 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 			}
 			return
 		}
+
+		// Guarntee removal of temporary directory regardless of outcome of
+		// build. If the build was successful, the temporary directory will
+		// have been moved to a new permanent location. If the build failed,
+		// the temporary directory will still exist and we will reomve it.
+		os.RemoveAll(tmpDir)
+
 		// Set to Ready, but only if no other changes are pending.
 		// State will remain as waiting-to-regenerate if further
 		// changes are needed. There should be an another regenerate
