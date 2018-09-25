@@ -27,6 +27,15 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+type ProxyError struct {
+	Err    error
+	Detail string
+}
+
+func (pe *ProxyError) Error() string {
+	return pe.Err.Error() + ": " + pe.Detail
+}
+
 var (
 	NackReceived error = errors.New("NACK received")
 )
@@ -43,7 +52,7 @@ type ResourceVersionAckObserver interface {
 	// HandleResourceVersionNack notifies that the node with the given Node ID
 	// failed to apply the resources.
 	// Calls to this function must not block.
-	HandleResourceVersionNack(version uint64, node *envoy_api_v2_core.Node, resourceNames []string, typeURL string)
+	HandleResourceVersionNack(version uint64, node *envoy_api_v2_core.Node, resourceNames []string, typeURL string, detail string)
 }
 
 // AckingResourceMutator is a variant of ResourceMutator which calls back a
@@ -244,7 +253,7 @@ func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(version uint64, 
 }
 
 // HandleResourceVersionNack handles NACKs by calling callbacks of pending completions, if set.
-func (m *AckingResourceMutatorWrapper) HandleResourceVersionNack(version uint64, node *envoy_api_v2_core.Node, resourceNames []string, typeURL string) {
+func (m *AckingResourceMutatorWrapper) HandleResourceVersionNack(version uint64, node *envoy_api_v2_core.Node, resourceNames []string, typeURL string, detail string) {
 	ackLog := log.WithFields(logrus.Fields{
 		logfields.XDSVersionInfo: version,
 		logfields.XDSClientNode:  node,
@@ -279,7 +288,7 @@ func (m *AckingResourceMutatorWrapper) HandleResourceVersionNack(version uint64,
 			_, found := pending.remainingNodesResources[nodeID]
 			if found {
 				ackLog.Debugf("Notifying resource owner of NACK: %v", pending)
-				comp.Complete(NackReceived)
+				comp.Complete(&ProxyError{Err: NackReceived, Detail: detail})
 			}
 		}
 

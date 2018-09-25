@@ -170,7 +170,7 @@ func (s *EnvoySuite) TestEnvoyNACK(c *C) {
 	c.Assert(envoyProxy, NotNil)
 	log.Debug("started Envoy")
 
-	ProxyPort := uint16(80)
+	ProxyPort := uint16(80) // Port 80 requires privileges we dont have when running this test
 	pPort := &ProxyPort
 	rName := "listener:80"
 
@@ -188,8 +188,12 @@ func (s *EnvoySuite) TestEnvoyNACK(c *C) {
 
 	err = s.waitForProxyCompletion()
 	c.Assert(err, Not(IsNil))
-	c.Assert(err, Equals, xds.NackReceived)
-	c.Assert(comp.Error, Equals, xds.NackReceived)
+	c.Assert(err, Equals, comp.Error)
+	proxyError, ok := err.(*xds.ProxyError)
+	c.Assert(ok, Equals, true)
+	c.Assert(proxyError.Err, Equals, xds.NackReceived)
+	c.Assert(proxyError.Detail, Equals, "Error adding/updating listener listener:80: cannot bind '[::]:80': Permission denied")
+	c.Assert(comp.Error.Error(), Equals, "NACK received: Error adding/updating listener listener:80: cannot bind '[::]:80': Permission denied")
 
 	s.waitGroup = completion.NewWaitGroup(ctx)
 	// Remove listener1
