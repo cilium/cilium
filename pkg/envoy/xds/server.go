@@ -311,9 +311,14 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 						requestLog.Debug("ACK received but no observers are waiting for ACKs")
 					}
 				} else if state.nonce != "" {
+					var detail string
+					status := req.GetErrorDetail()
+					if status != nil {
+						detail = status.Message
+					}
 					requestLog.Warningf("NACK received for version %d; waiting for a version update before sending again", state.version)
 					if ackObserver != nil {
-						ackObserver.HandleResourceVersionNack(state.version, req.GetNode(), state.resourceNames, typeURL)
+						ackObserver.HandleResourceVersionNack(state.version, req.GetNode(), state.resourceNames, typeURL, detail)
 					} else {
 						requestLog.Debug("NACK received but no observers are waiting for ACKs")
 					}
