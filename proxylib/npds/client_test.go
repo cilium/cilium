@@ -15,7 +15,6 @@
 package npds
 
 import (
-	"context"
 	"path/filepath"
 	"testing"
 	"time"
@@ -52,13 +51,17 @@ var resources = []*cilium.NetworkPolicy{
 	{Name: "resource2"},
 }
 
-func ackCallback() {
-	log.Info("ACK Callback called")
+func ackCallback(err error) {
+	if err == nil {
+		log.Info("ACK Callback called")
+	} else {
+		log.Info("NACK Callback called")
+	}
 }
 
 // UpsertNetworkPolicy must only be used for testing!
 func UpsertNetworkPolicy(s *envoy.XDSServer, p *cilium.NetworkPolicy) {
-	c := completion.NewCallback(context.Background(), ackCallback)
+	c := completion.NewCompletion(nil, ackCallback)
 	s.NetworkPolicyMutator.Upsert(envoy.NetworkPolicyTypeURL, p.Name, p, []string{"127.0.0.1"}, c)
 }
 

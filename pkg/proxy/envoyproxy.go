@@ -37,7 +37,7 @@ var envoyOnce sync.Once
 
 // createEnvoyRedirect creates a redirect with corresponding proxy
 // configuration. This will launch a proxy instance.
-func createEnvoyRedirect(r *Redirect, stateDir string, xdsServer *envoy.XDSServer, wg *completion.WaitGroup) (RedirectImplementation, error) {
+func createEnvoyRedirect(r *Redirect, stateDir string, xdsServer *envoy.XDSServer, wg *completion.WaitGroup, acked func(redirectPort uint16), nacked func(error)) (RedirectImplementation, error) {
 	envoyOnce.Do(func() {
 		// Start Envoy on first invocation
 		envoyProxy = envoy.StartEnvoy(stateDir, viper.GetString("envoy-log"), 0)
@@ -56,7 +56,17 @@ func createEnvoyRedirect(r *Redirect, stateDir string, xdsServer *envoy.XDSServe
 		if ip == "" {
 			return nil, fmt.Errorf("%s: Cannot create redirect, proxy local endpoint has no IP address", r.id)
 		}
-		xdsServer.AddListener(redir.listenerName, r.parserType, ip, r.ProxyPort, r.ingress, wg)
+
+		comp := wg.AddCompletionWithCallback(func(err error) {
+			if err == nil {
+				acked(r.ProxyPort)
+			} else {
+				// May also see context.Canceled or context.DeadlineExceeded here
+				nacked(err)
+			}
+		})
+
+		xdsServer.AddListener(redir.listenerName, r.parserType, ip, r.ProxyPort, r.ingress, comp)
 
 		return redir, nil
 	}
@@ -72,6 +82,6 @@ func (r *envoyRedirect) UpdateRules(wg *completion.WaitGroup) error {
 // Close the redirect.
 func (r *envoyRedirect) Close(wg *completion.WaitGroup) {
 	if envoyProxy != nil {
-		r.xdsServer.RemoveListener(r.listenerName, wg)
+		r.xdsServer.RemoveListener(r.listenerName, wg.AddCompletion())
 	}
 }

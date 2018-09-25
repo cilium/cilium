@@ -251,7 +251,7 @@ func StartXDSServer(stateDir string) *XDSServer {
 }
 
 // AddListener adds a listener to a running Envoy proxy.
-func (s *XDSServer) AddListener(name string, kind policy.L7ParserType, endpointPolicyName string, port uint16, isIngress bool, wg *completion.WaitGroup) {
+func (s *XDSServer) AddListener(name string, kind policy.L7ParserType, endpointPolicyName string, port uint16, isIngress bool, comp *completion.Completion) {
 	log.Debugf("Envoy: %s AddListener %s", kind, name)
 
 	s.mutex.Lock()
@@ -281,11 +281,11 @@ func (s *XDSServer) AddListener(name string, kind policy.L7ParserType, endpointP
 		listenerConf.ListenerFilters[0].Config.Fields["is_ingress"].GetKind().(*structpb.Value_BoolValue).BoolValue = true
 	}
 
-	s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConf, []string{"127.0.0.1"}, wg.AddCompletion())
+	s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConf, []string{"127.0.0.1"}, comp)
 }
 
 // RemoveListener removes an existing Envoy Listener.
-func (s *XDSServer) RemoveListener(name string, wg *completion.WaitGroup) {
+func (s *XDSServer) RemoveListener(name string, comp *completion.Completion) {
 	s.mutex.Lock()
 	log.Debugf("Envoy: removeListener %s", name)
 	if _, ok := s.listeners[name]; !ok {
@@ -295,7 +295,7 @@ func (s *XDSServer) RemoveListener(name string, wg *completion.WaitGroup) {
 	delete(s.listeners, name)
 	s.mutex.Unlock()
 
-	s.listenerMutator.Delete(ListenerTypeURL, name, []string{"127.0.0.1"}, wg.AddCompletion())
+	s.listenerMutator.Delete(ListenerTypeURL, name, []string{"127.0.0.1"}, comp)
 }
 
 func (s *XDSServer) stop() {
@@ -596,7 +596,7 @@ func getNetworkPolicy(name string, id identity.NumericIdentity, policy *policy.L
 // UpdateNetworkPolicy adds or updates a network policy in the set published
 // to L7 proxies.
 // When the proxy acknowledges the network policy update, it will result in
-// a subsequent call to the endpoint's OnProxyPolicyAcknowledge() function.
+// a subsequent call to the endpoint's OnProxyPolicyUpdate() function.
 func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *policy.L4Policy,
 	ingressPolicyEnforced, egressPolicyEnforced bool, labelsMap identity.IdentityCache,
 	deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, wg *completion.WaitGroup) error {
@@ -663,16 +663,18 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 
 	// When successful, push them into the cache.
 	for _, p := range policies {
-		var callback func()
+		var callback func(error)
 		if policy != nil {
 			policyRevision := policy.Revision
-			callback = func() {
-				go ep.OnProxyPolicyUpdate(policyRevision)
+			callback = func(err error) {
+				if err == nil {
+					go ep.OnProxyPolicyUpdate(policyRevision)
+				}
 			}
 		}
 		var c *completion.Completion
 		if wg == nil {
-			c = completion.NewCallback(context.Background(), callback)
+			c = completion.NewCompletion(nil, callback)
 		} else {
 			c = wg.AddCompletionWithCallback(callback)
 		}
