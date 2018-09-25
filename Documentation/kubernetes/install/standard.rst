@@ -35,6 +35,16 @@ Requirements
 
 See :ref:`admin_system_reqs` for additional details on systems requirements.
 
+Privileged Mode
+---------------
+
+This requirement is typically met automatically by Kubernetes installers but we
+list it here for completeness.  Kubernetes must allow to run privileged
+containers. In the past, this was achieved by passing the flag
+``--allow-privileged`` to kubelet. The flag has since been deprecated and is
+being replaced by [PodSecurity
+policies](https://kubernetes.io/docs/concepts/policy/pod-security-policy/).
+
 Preparation
 ===========
 

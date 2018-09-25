@@ -207,3 +207,20 @@ ICMP 8/0                 egress          ``worker-sg`` (self) health checks
           these rules into ingress/egress to self. If you are using Direct 
           Routing mode, you can condense all rules into ingress/egress ANY 
           port/protocol to/from self.
+
+Privileges
+==========
+
+The following privileges are required to run Cilium. When running the standard
+Kubernetes `DaemonSet`, the privileges are automatically granted to Cilium.
+
+* Cilium interacts with the Linux kernel to install BPF program which will then
+  perform networking tasks and implement security rules. In order to install
+  BPF programs system-wide, ``CAP_SYS_ADMIN`` privileges are required. These
+  privileges must be granted to ``cilium-agent``.
+
+  The quickest way to meet the requirement is to run ``cilium-agent`` as root
+  and/or as privileged container.
+
+* Cilium requires access to the host networking namespace. For this purpose,
+  the Cilium pod is scheduled to run in the host networking namespace directly.
