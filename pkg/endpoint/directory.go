@@ -64,8 +64,14 @@ func (e *Endpoint) synchronizeDirectories(origDir string, compilationExecuted bo
 	// An endpoint directory already exists. We need to back it up before attempting
 	// to move the new directory in its place so we can attempt recovery.
 	case !os.IsNotExist(err):
-		// Move the current endpoint directory to a backup location
 		backupDir := origDir + "_stale"
+
+		// Remove any eventual old backup directory. This may fail if
+		// the directory does not exist. The error is deliberately
+		// ignored.
+		os.RemoveAll(backupDir)
+
+		// Move the current endpoint directory to a backup location
 		if err := os.Rename(origDir, backupDir); err != nil {
 			os.RemoveAll(tmpDir)
 			return fmt.Errorf("unable to rename current endpoint directory: %s", err)
