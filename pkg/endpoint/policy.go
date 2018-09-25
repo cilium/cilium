@@ -775,6 +775,9 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 		e.Logger().WithFields(logrus.Fields{
 			logfields.Path: failDir,
 		}).Warn("generating BPF for endpoint failed, keeping stale directory.")
+
+		// Remove an eventual existing previous failure directory
+		os.RemoveAll(failDir)
 		os.Rename(tmpDir, failDir)
 		return err
 	}
