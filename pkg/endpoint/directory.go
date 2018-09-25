@@ -41,6 +41,10 @@ func (e *Endpoint) NextDirectoryPath() string {
 	return filepath.Join(".", fmt.Sprintf("%d%s", e.ID, "_next"))
 }
 
+func (e *Endpoint) backupDirectoryPath() string {
+	return e.DirectoryPath() + "_stale"
+}
+
 // synchronizeDirectories moves the files related to endpoint BPF program
 // compilation to their according directories if compilation of BPF was
 // necessary for the endpoint.
@@ -60,7 +64,7 @@ func (e *Endpoint) synchronizeDirectories(origDir string, compilationExecuted bo
 	// An endpoint directory already exists. We need to back it up before attempting
 	// to move the new directory in its place so we can attempt recovery.
 	case !os.IsNotExist(err):
-		backupDir := origDir + "_stale"
+		backupDir := e.backupDirectoryPath()
 
 		// Remove any eventual old backup directory. This may fail if
 		// the directory does not exist. The error is deliberately
