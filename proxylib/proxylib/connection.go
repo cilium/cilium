@@ -53,9 +53,10 @@ type Connection struct {
 	PolicyName string    // Identifies which policy instance applies to this connection
 	Port       uint32    // (original) destination port number in numeric format
 
-	Parser   Parser    // Parser instance used on this connection
-	OrigBuf  InjectBuf // Buffer for injected frames in original direction
-	ReplyBuf InjectBuf // Buffer for injected frames in reply direction
+	ParserName string    // Name of the parser
+	Parser     Parser    // Parser instance used on this connection
+	OrigBuf    InjectBuf // Buffer for injected frames in original direction
+	ReplyBuf   InjectBuf // Buffer for injected frames in reply direction
 }
 
 func (connection *Connection) Matches(l7 interface{}) bool {

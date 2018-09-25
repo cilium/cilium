@@ -15,6 +15,7 @@
 package main
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -165,6 +166,56 @@ func TestOnDataNoPolicy(t *testing.T) {
 	checkAccessLogs(t, logServer, expPasses, expDrops)
 
 	CheckClose(t, 1, buf, 1)
+}
+
+type PanicParserFactory struct{}
+
+var panicParserFactory *PanicParserFactory
+
+type PanicParser struct {
+	connection *proxylib.Connection
+}
+
+func (p *PanicParserFactory) Create(connection *proxylib.Connection) proxylib.Parser {
+	log.Infof("PanicParserFactory: Create: %v", connection)
+	return &PanicParser{connection: connection}
+}
+
+//
+// Parses individual lines and verifies them against the policy
+//
+func (p *PanicParser) OnData(reply, endStream bool, data [][]byte, offset int) (proxylib.OpType, int) {
+	if !reply {
+		panic(fmt.Errorf("PanicParser OnData(reply=%t, endStream=%t, data=%v, offset=%d) panicing...", reply, endStream, data, offset))
+	}
+	return proxylib.NOP, 0
+}
+
+func TestOnDataPanic(t *testing.T) {
+	logServer := test.StartAccessLogServer(t, "access_log.sock", 10)
+	defer logServer.Close()
+
+	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
+	if mod == 0 {
+		t.Errorf("OpenModule() with access log path %s failed", logServer.Path)
+	} else {
+		defer CloseModule(mod)
+	}
+
+	// This registation will remain after this test.
+	proxylib.RegisterParserFactory("test.panicparser", panicParserFactory)
+
+	// Using headertester parser
+	buf := CheckOnNewConnection(t, mod, "test.panicparser", 11, true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "policy-1",
+		30, proxylib.OK, 1)
+
+	// Original direction data, drops with remaining data
+	CheckOnData(t, 11, false, false, &[][]byte{[]byte("foo")}, []ExpFilterOp{}, proxylib.PARSER_ERROR, "")
+
+	expPasses, expDrops := 0, 1
+	checkAccessLogs(t, logServer, expPasses, expDrops)
+
+	CheckClose(t, 11, buf, 1)
 }
 
 func insertPolicyText(t *testing.T, mod uint64, version string, policies []string) bool {

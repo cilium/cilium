@@ -45,7 +45,7 @@ func checkConnectionCount(t *testing.T, expConns int) {
 	}
 }
 
-func checkConnections(t *testing.T, expected, res Result, expConns int) {
+func checkConnections(t *testing.T, res, expected Result, expConns int) {
 	t.Helper()
 	if res != expected {
 		t.Errorf("OnNewConnection(): Invalid result, have %s, expected %s", res.String(), expected.String())
@@ -135,7 +135,7 @@ func CheckOnData(t *testing.T, connectionId uint64, reply, endStream bool, data 
 		t.Errorf("OnData(): Connection %d not found!", connectionId)
 	}
 
-	ops := make([]C.FilterOp, 0, len(expOps)*2)
+	ops := make([]C.FilterOp, 0, 1+len(expOps)*2)
 
 	res := Result(OnData(connectionId, reply, endStream, data, &ops))
 
