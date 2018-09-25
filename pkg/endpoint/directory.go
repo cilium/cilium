@@ -56,39 +56,57 @@ func (e *Endpoint) synchronizeDirectories(origDir string, compilationExecuted bo
 	failDir := e.FailedDirectoryPath()
 	os.RemoveAll(failDir) // Most likely will not exist; ignore failure.
 
-	// Move the current endpoint directory to a backup location
-	backupDir := origDir + "_stale"
-	if err := os.Rename(origDir, backupDir); err != nil {
-		os.RemoveAll(tmpDir)
-		return fmt.Errorf("unable to rename current endpoint directory: %s", err)
-	}
+	// Check if an existing endpoint directory exists, e.g.
+	// /var/run/cilium/state/1111
+	_, err := os.Stat(origDir)
+	switch {
 
-	// Make temporary directory the new endpoint directory
-	if err := os.Rename(tmpDir, origDir); err != nil {
-		os.RemoveAll(tmpDir)
-
-		if err2 := os.Rename(backupDir, origDir); err2 != nil {
-			scopedLog.WithFields(logrus.Fields{
-				logfields.Path: backupDir,
-			}).Warn("restoring directory for endpoint failed, endpoint " +
-				"is in inconsistent state. Keeping stale directory.")
-			return err2
+	// An endpoint directory already exists. We need to back it up before attempting
+	// to move the new directory in its place so we can attempt recovery.
+	case !os.IsNotExist(err):
+		// Move the current endpoint directory to a backup location
+		backupDir := origDir + "_stale"
+		if err := os.Rename(origDir, backupDir); err != nil {
+			os.RemoveAll(tmpDir)
+			return fmt.Errorf("unable to rename current endpoint directory: %s", err)
 		}
 
-		return fmt.Errorf("restored original endpoint directory, atomic replace failed: %s", err)
-	}
+		// Make temporary directory the new endpoint directory
+		if err := os.Rename(tmpDir, origDir); err != nil {
+			os.RemoveAll(tmpDir)
 
-	// If the compilation was skipped then we need to copy the old bpf objects
-	// into the new directory
-	if !compilationExecuted {
-		err := common.MoveNewFilesTo(backupDir, origDir)
-		if err != nil {
-			log.WithError(err).Debugf("unable to copy old bpf object "+
-				"files from %s into the new directory %s.", backupDir, origDir)
+			if err2 := os.Rename(backupDir, origDir); err2 != nil {
+				scopedLog.WithFields(logrus.Fields{
+					logfields.Path: backupDir,
+				}).Warn("restoring directory for endpoint failed, endpoint " +
+					"is in inconsistent state. Keeping stale directory.")
+				return err2
+			}
+
+			return fmt.Errorf("restored original endpoint directory, atomic directory move failed: %s", err)
+		}
+
+		// If the compilation was skipped then we need to copy the old
+		// bpf objects into the new directory
+		if !compilationExecuted {
+			err := common.MoveNewFilesTo(backupDir, origDir)
+			if err != nil {
+				log.WithError(err).Debugf("unable to copy old bpf object "+
+					"files from %s into the new directory %s.", backupDir, origDir)
+			}
+		}
+
+		os.RemoveAll(backupDir)
+
+	// No existing endpoint directory, synchronizing the directory is a
+	// simple move
+	default:
+		// Make temporary directory the new endpoint directory
+		if err := os.Rename(tmpDir, origDir); err != nil {
+			os.RemoveAll(tmpDir)
+			return fmt.Errorf("atomic endpoint directory move failed: %s", err)
 		}
 	}
-
-	os.RemoveAll(backupDir)
 
 	return nil
 }

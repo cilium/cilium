@@ -1851,26 +1851,6 @@ func (e *Endpoint) removeFailedDirectory() {
 	os.RemoveAll(e.FailedDirectoryPath())
 }
 
-func (e *Endpoint) RemoveDirectory() {
-	e.UnconditionalLock()
-	defer e.Unlock()
-	e.removeDirectory()
-}
-
-// CreateDirectory creates endpoint directory
-func (e *Endpoint) CreateDirectory() error {
-	if err := e.LockAlive(); err != nil {
-		return err
-	}
-	defer e.Unlock()
-	lxcDir := e.DirectoryPath()
-	if err := os.MkdirAll(lxcDir, 0777); err != nil {
-		return fmt.Errorf("unable to create endpoint directory: %s", err)
-	}
-
-	return nil
-}
-
 // RegenerateWait should only be called when endpoint's state has successfully
 // been changed to "waiting-to-regenerate"
 func (e *Endpoint) RegenerateWait(owner Owner, reason string) error {
