@@ -20,9 +20,11 @@ package main
 import "C"
 
 import (
+	"fmt"
 	"net"
 	"strconv"
 
+	"github.com/cilium/cilium/pkg/envoy/cilium"
 	"github.com/cilium/cilium/proxylib/accesslog"
 	_ "github.com/cilium/cilium/proxylib/cassandra"
 	_ "github.com/cilium/cilium/proxylib/memcached/binary"
@@ -86,6 +88,7 @@ func OnNewConnection(instanceId uint64, proto string, connectionId uint64, ingre
 		DstAddr:    strcpy(dstAddr),
 		Port:       uint32(dstPort),
 		PolicyName: strcpy(policyName),
+		ParserName: strcpy(proto),
 		OrigBuf:    origBuf,
 		ReplyBuf:   replyBuf,
 	}
@@ -141,7 +144,7 @@ func advanceInput(bytes, unit, offset int, data *[][]byte) (int, int, int) {
 // us again for the reverse direction input.
 //
 //export OnData
-func OnData(connectionId uint64, reply, endStream bool, data *[][]byte, filterOps *[]C.FilterOp) C.FilterResult {
+func OnData(connectionId uint64, reply, endStream bool, data *[][]byte, filterOps *[]C.FilterOp) (res C.FilterResult) {
 	// Find the connection
 	mutex.RLock()
 	connection, ok := connections[connectionId]
@@ -149,6 +152,24 @@ func OnData(connectionId uint64, reply, endStream bool, data *[][]byte, filterOp
 	if !ok {
 		return C.FILTER_UNKNOWN_CONNECTION
 	}
+
+	defer func() {
+		// Recover from any possible parser datapath panics
+		if r := recover(); r != nil {
+			// Log the Panic into accesslog
+			connection.Log(cilium.EntryType_Denied,
+				&cilium.LogEntry_GenericL7{
+					GenericL7: &cilium.L7LogEntry{
+						Proto: connection.ParserName,
+						Fields: map[string]string{
+							// "status" is shown in Cilium monitor
+							"status": fmt.Sprintf("Panic: %s", r),
+						},
+					},
+				})
+			res = C.FILTER_PARSER_ERROR // Causes the connection to be dropped
+		}
+	}()
 
 	unit := 0
 	offset := 0
