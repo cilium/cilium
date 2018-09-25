@@ -1826,8 +1826,7 @@ func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup
 		e.SecurityIdentity = nil
 	}
 
-	e.removeDirectory()
-	e.removeFailedDirectory()
+	e.removeDirectories()
 	e.controllers.RemoveAll()
 	e.cleanPolicySignals()
 
@@ -1843,12 +1842,11 @@ func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup
 	return errors
 }
 
-func (e *Endpoint) removeDirectory() {
+func (e *Endpoint) removeDirectories() {
 	os.RemoveAll(e.DirectoryPath())
-}
-
-func (e *Endpoint) removeFailedDirectory() {
 	os.RemoveAll(e.FailedDirectoryPath())
+	os.RemoveAll(e.NextDirectoryPath())
+	os.RemoveAll(e.backupDirectoryPath())
 }
 
 // RegenerateWait should only be called when endpoint's state has successfully
