@@ -89,7 +89,7 @@ func (h *deleteIPAMIP) Handle(params ipamapi.DeleteIPAMIPParams) middleware.Resp
 	return ipamapi.NewDeleteIPAMIPOK()
 }
 
-// DumpIPAM dumps in the form of a map, and only if debug is enabled, the list of
+// DumpIPAM dumps in the form of a map, the list of
 // reserved IPv4 and IPv6 addresses.
 func (d *Daemon) DumpIPAM() *models.IPAMStatus {
 	allocv4, allocv6 := ipam.Dump()

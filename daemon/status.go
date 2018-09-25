@@ -157,10 +157,7 @@ func (d *Daemon) getStatus() models.StatusResponse {
 		sr.Cilium = &models.Status{State: models.StatusStateOk, Msg: "OK"}
 	}
 
-	if d.DebugEnabled() {
-		sr.IPAM = d.DumpIPAM()
-	}
-
+	sr.IPAM = d.DumpIPAM()
 	sr.NodeMonitor = d.nodeMonitor.State()
 
 	sr.Cluster = d.getNodeStatus()
