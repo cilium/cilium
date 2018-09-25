@@ -322,6 +322,13 @@ func GetNodes() map[Identity]Node {
 	return nodes
 }
 
+// DeleteAllNodes deletes all nodes from the node maanger.
+func DeleteAllNodes() {
+	clusterConf.RLock()
+	defer clusterConf.RUnlock()
+	clusterConf.nodes = map[Identity]*Node{}
+}
+
 // updateIPRoute updates the IP routing entry for the given node n via the
 // network interface that as ownAddr.
 func updateIPRoute(oldNode, n *Node, ownAddr net.IP) {
