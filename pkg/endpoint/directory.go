@@ -51,10 +51,6 @@ func (e *Endpoint) synchronizeDirectories(origDir string, compilationExecuted bo
 	scopedLog := e.Logger()
 
 	tmpDir := e.NextDirectoryPath()
-	// If generation failed, keep the directory around. If it ever succeeds
-	// again, clean up the XXX_next_fail copy.
-	failDir := e.FailedDirectoryPath()
-	os.RemoveAll(failDir) // Most likely will not exist; ignore failure.
 
 	// Check if an existing endpoint directory exists, e.g.
 	// /var/run/cilium/state/1111
@@ -116,6 +112,10 @@ func (e *Endpoint) synchronizeDirectories(origDir string, compilationExecuted bo
 			return fmt.Errorf("atomic endpoint directory move failed: %s", err)
 		}
 	}
+
+	// The build succeeded and is in place, any eventual existing failure
+	// directory can be removed.
+	os.RemoveAll(e.FailedDirectoryPath())
 
 	return nil
 }
