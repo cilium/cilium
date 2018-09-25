@@ -77,6 +77,11 @@ func (e *Endpoint) synchronizeDirectories(origDir string, compilationExecuted bo
 			return fmt.Errorf("unable to rename current endpoint directory: %s", err)
 		}
 
+		// Regarldess of whether the atomic replace succeeds or not,
+		// ensure that the backup directory is removed when the
+		// function returns.
+		defer os.RemoveAll(backupDir)
+
 		// Make temporary directory the new endpoint directory
 		if err := os.Rename(tmpDir, origDir); err != nil {
 			os.RemoveAll(tmpDir)
@@ -101,8 +106,6 @@ func (e *Endpoint) synchronizeDirectories(origDir string, compilationExecuted bo
 					"files from %s into the new directory %s.", backupDir, origDir)
 			}
 		}
-
-		os.RemoveAll(backupDir)
 
 	// No existing endpoint directory, synchronizing the directory is a
 	// simple move
