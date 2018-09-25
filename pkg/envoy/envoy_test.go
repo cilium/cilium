@@ -16,7 +16,6 @@ package envoy
 
 import (
 	"context"
-	"errors"
 	"io/ioutil"
 	"net"
 	"os"
@@ -25,6 +24,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy"
@@ -48,7 +48,7 @@ func (s *EnvoySuite) waitForProxyCompletion() error {
 	log.Debug("Waiting for proxy updates to complete...")
 	err := s.waitGroup.Wait()
 	if err != nil {
-		return errors.New("proxy state changes failed")
+		return err
 	}
 	log.Debug("Wait time for proxy updates: ", time.Since(start))
 	return nil
@@ -91,14 +91,20 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 	c.Assert(envoyProxy, NotNil)
 	log.Debug("started Envoy")
 
+	callback := func(err error) {
+		if err == nil {
+			log.Debug("Envoy Acked redirect port")
+		}
+	}
+
 	log.Debug("adding listener1")
-	xdsServer.AddListener("listener1", policy.ParserTypeHTTP, "1.2.3.4", 8081, true, s.waitGroup)
+	xdsServer.AddListener("listener1", policy.ParserTypeHTTP, "1.2.3.4", 8081, true, s.waitGroup.AddCompletionWithCallback(callback))
 
 	log.Debug("adding listener2")
-	xdsServer.AddListener("listener2", policy.ParserTypeHTTP, "1.2.3.4", 8082, true, s.waitGroup)
+	xdsServer.AddListener("listener2", policy.ParserTypeHTTP, "1.2.3.4", 8082, true, s.waitGroup.AddCompletionWithCallback(callback))
 
 	log.Debug("adding listener3")
-	xdsServer.AddListener("listener3", policy.ParserTypeHTTP, "1.2.3.4", 8083, false, s.waitGroup)
+	xdsServer.AddListener("listener3", policy.ParserTypeHTTP, "1.2.3.4", 8083, false, s.waitGroup.AddCompletionWithCallback(callback))
 
 	err = s.waitForProxyCompletion()
 	c.Assert(err, IsNil)
@@ -107,7 +113,7 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 
 	// Remove listener3
 	log.Debug("removing listener 3")
-	xdsServer.RemoveListener("listener3", s.waitGroup)
+	xdsServer.RemoveListener("listener3", s.waitGroup.AddCompletion())
 
 	err = s.waitForProxyCompletion()
 	c.Assert(err, IsNil)
@@ -116,7 +122,7 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 
 	// Add listener3 again
 	log.Debug("adding listener 3")
-	xdsServer.AddListener("listener3", policy.L7ParserType("test.headerparser"), "1.2.3.4", 8083, false, s.waitGroup)
+	xdsServer.AddListener("listener3", policy.L7ParserType("test.headerparser"), "1.2.3.4", 8083, false, s.waitGroup.AddCompletionWithCallback(callback))
 
 	err = s.waitForProxyCompletion()
 	c.Assert(err, IsNil)
@@ -131,8 +137,64 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 
 	// Remove listener3 again, and wait for timeout after stopping Envoy.
 	log.Debug("removing listener 3")
-	xdsServer.RemoveListener("listener3", s.waitGroup)
+	xdsServer.RemoveListener("listener3", s.waitGroup.AddCompletion())
 	err = s.waitForProxyCompletion()
 	c.Assert(err, NotNil)
 	log.Debugf("failed to remove listener 3: %s", err)
+}
+
+func (s *EnvoySuite) TestEnvoyNACK(c *C) {
+	log.Logger.SetLevel(logrus.DebugLevel)
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
+	defer cancel()
+
+	s.waitGroup = completion.NewWaitGroup(ctx)
+
+	if os.Getenv("CILIUM_ENABLE_ENVOY_UNIT_TEST") == "" {
+		c.Skip("skipping envoy unit test; CILIUM_ENABLE_ENVOY_UNIT_TEST not set")
+	}
+
+	flowdebug.Enable()
+
+	stateLogDir, err := ioutil.TempDir("", "envoy_go_test")
+	c.Assert(err, IsNil)
+
+	log.Debugf("state log directory: %s", stateLogDir)
+
+	xdsServer := StartXDSServer(stateLogDir)
+	defer xdsServer.stop()
+	StartAccessLogServer(stateLogDir, xdsServer, &dummyEndpointInfoRegistry{})
+
+	// launch debug variant of the Envoy proxy
+	envoyProxy := StartEnvoy(stateLogDir, filepath.Join(stateLogDir, "cilium-envoy.log"), 42)
+	c.Assert(envoyProxy, NotNil)
+	log.Debug("started Envoy")
+
+	ProxyPort := uint16(80)
+	pPort := &ProxyPort
+	rName := "listener:80"
+
+	callback := func(err error) {
+		if err == nil {
+			log.Debug("Envoy Acked redirect port: ", *pPort)
+		} else {
+			log.Debug("Envoy NACKED redirect with error: ", err)
+		}
+	}
+	comp := s.waitGroup.AddCompletionWithCallback(callback)
+
+	log.Debug("adding ", rName)
+	xdsServer.AddListener(rName, policy.ParserTypeHTTP, "1.2.3.4", ProxyPort, true, comp)
+
+	err = s.waitForProxyCompletion()
+	c.Assert(err, Not(IsNil))
+	c.Assert(err, Equals, xds.NackReceived)
+	c.Assert(comp.Error, Equals, xds.NackReceived)
+
+	s.waitGroup = completion.NewWaitGroup(ctx)
+	// Remove listener1
+	log.Debug("removing ", rName)
+	xdsServer.RemoveListener(rName, s.waitGroup.AddCompletion())
+	err = s.waitForProxyCompletion()
+	c.Assert(err, IsNil)
 }

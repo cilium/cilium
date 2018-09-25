@@ -72,11 +72,10 @@ type Proxy struct {
 	// ports out of the rangeMin-rangeMax range.
 	rangeMax uint16
 
-	// allocatedPorts is a map of all allocated proxy ports pointing
-	// to the redirect rules attached to that port
+	// allocatedPorts is the map of all allocated proxy ports
 	allocatedPorts map[uint16]struct{}
 
-	// redirects is a map of all redirect configurations indexed by
+	// redirects is the map of all redirect configurations indexed by
 	// the redirect identifier. Redirects may be implemented by different
 	// proxies.
 	redirects map[string]*Redirect
@@ -146,12 +145,16 @@ func (p *Proxy) allocatePort() (uint16, error) {
 
 var gcOnce sync.Once
 
-// CreateOrUpdateRedirect creates or updates a L4 redirect with corresponding
+// CreateOrUpdateRedirect creates or updates a L7 redirect with corresponding
 // proxy configuration. This will allocate a proxy port as required and launch
 // a proxy instance. If the redirect is already in place, only the rules will be
 // updated.
+// The allocated proxy port will be returned asynchronously via the
+// 'acked' callback after a positive acknowledgement from the proxy has been
+// received. The callback will not be called after the WaitGroup has been
+// canceled or timed out.
 func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndpoint logger.EndpointUpdater,
-	wg *completion.WaitGroup) (*Redirect, error) {
+	wg *completion.WaitGroup, acked func(redirectPort uint16), nacked func(error)) error {
 	gcOnce.Do(func() {
 		go func() {
 			for {
@@ -178,7 +181,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 
 		if r.parserType != l4.L7Parser {
 			if err := p.removeRedirect(id, r, wg); err != nil {
-				return nil, fmt.Errorf("unable to remove old redirect: %s", err)
+				return fmt.Errorf("unable to remove old redirect: %s", err)
 			}
 
 			goto create
@@ -188,7 +191,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 		err := r.implementation.UpdateRules(wg)
 		if err != nil {
 			scopedLog.WithError(err).Error("Unable to update ", l4.L7Parser, " proxy")
-			return nil, err
+			return err
 		}
 
 		r.lastUpdated = time.Now()
@@ -196,7 +199,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 		scopedLog.WithField(logfields.Object, logfields.Repr(r)).
 			Debug("updated existing ", l4.L7Parser, " proxy instance")
 
-		return r, nil
+		return nil
 	}
 
 create:
@@ -210,7 +213,7 @@ retryCreatePort:
 	for nRetry := 0; ; nRetry++ {
 		to, err := p.allocatePort()
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		redir.ProxyPort = to
@@ -218,11 +221,14 @@ retryCreatePort:
 		switch l4.L7Parser {
 		case policy.ParserTypeKafka:
 			redir.implementation, err = createKafkaRedirect(redir, kafkaConfiguration{}, DefaultEndpointInfoRegistry)
-
+			if err == nil {
+				// Kafka redirects are created synchronously, so we'll have to trigger the callback here
+				acked(to)
+			}
 		case policy.ParserTypeHTTP:
-			redir.implementation, err = createEnvoyRedirect(redir, p.stateDir, p.XDSServer, wg)
+			fallthrough
 		default:
-			redir.implementation, err = createEnvoyRedirect(redir, p.stateDir, p.XDSServer, wg)
+			redir.implementation, err = createEnvoyRedirect(redir, p.stateDir, p.XDSServer, wg, acked, nacked)
 		}
 
 		switch {
@@ -238,7 +244,7 @@ retryCreatePort:
 		// an error occurred, and we have no more retries
 		case nRetry >= redirectCreationAttempts:
 			scopedLog.WithError(err).Error("Unable to create ", l4.L7Parser, " proxy")
-			return nil, err
+			return err
 
 		// an error occurred and we can retry
 		default:
@@ -246,7 +252,7 @@ retryCreatePort:
 		}
 	}
 
-	return redir, nil
+	return nil
 }
 
 // RemoveRedirect removes an existing redirect.

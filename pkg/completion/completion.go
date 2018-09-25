@@ -25,6 +25,9 @@ type WaitGroup struct {
 	// ctx is the context of all the Completions in the wait group.
 	ctx context.Context
 
+	// cancel is the function to call if any pending operation fails
+	cancel context.CancelFunc
+
 	// counterLocker locks all calls to AddCompletion and Wait, which must not
 	// be called concurrently.
 	counterLocker lock.Mutex
@@ -36,7 +39,8 @@ type WaitGroup struct {
 
 // NewWaitGroup returns a new WaitGroup using the given context.
 func NewWaitGroup(ctx context.Context) *WaitGroup {
-	return &WaitGroup{ctx: ctx}
+	ctx2, cancel := context.WithCancel(ctx)
+	return &WaitGroup{ctx: ctx2, cancel: cancel}
 }
 
 // Context returns the context of all the Completions in the wait group.
@@ -46,14 +50,11 @@ func (wg *WaitGroup) Context() context.Context {
 
 // AddCompletionWithCallback creates a new completion, adds it to the wait
 // group, and returns it. The callback will be called upon completion.
-func (wg *WaitGroup) AddCompletionWithCallback(callback func()) *Completion {
+// Completion can complete in a failure (err != nil)
+func (wg *WaitGroup) AddCompletionWithCallback(callback func(err error)) *Completion {
 	wg.counterLocker.Lock()
 	defer wg.counterLocker.Unlock()
-	c := &Completion{
-		ctx:       wg.ctx,
-		completed: make(chan struct{}),
-		callback:  callback,
-	}
+	c := NewCompletion(wg, callback)
 	wg.pendingCompletions = append(wg.pendingCompletions, c)
 	return c
 }
@@ -67,33 +68,47 @@ func (wg *WaitGroup) AddCompletion() *Completion {
 // Wait blocks until all completions added by calling AddCompletion are
 // completed, or the context is canceled, whichever happens first.
 // Returns the context's error if it is cancelled, nil otherwise.
+// No callbacks of the completions in this wait group will be called after
+// this returns.
+// Returns the error value of one of the completions, if available, or the
+// error value of the WaitGroup otherwise.
 func (wg *WaitGroup) Wait() error {
 	wg.counterLocker.Lock()
 	defer wg.counterLocker.Unlock()
 
+	var err error
 Loop:
 	for i, comp := range wg.pendingCompletions {
 		select {
 		case <-comp.Completed():
+			err = comp.Error
 			continue Loop
 		case <-wg.ctx.Done():
 			// Complete the remaining completions to make sure their completed
 			// channels are closed.
+			wgErr := wg.ctx.Err() // context.Canceled or context.DeadlineExeeded
 			for _, comp := range wg.pendingCompletions[i:] {
-				comp.complete(false)
+				comp.Complete(wgErr)
+				// Note if the completion errored
+				if err == nil && comp.Error != wgErr {
+					err = comp.Error
+				}
+			}
+			if err == nil {
+				err = wgErr
 			}
 			break Loop
 		}
 	}
 	wg.pendingCompletions = nil
-	return wg.ctx.Err()
+	return err
 }
 
 // Completion provides the Complete callback to be called when an asynchronous
 // computation is completed.
 type Completion struct {
-	// ctx is the context of the wait group.
-	ctx context.Context
+	// wg is the wait group the completion belongs to
+	wg *WaitGroup
 
 	// lock is used to check and close the completed channel atomically.
 	lock lock.Mutex
@@ -103,38 +118,43 @@ type Completion struct {
 	completed chan struct{}
 
 	// callback is called when Complete is called the first time.
-	callback func()
+	callback func(err error)
+
+	// err is the error the completion completed with
+	Error error
 }
 
 // Context returns the context of the asynchronous computation.
 // If the context is cancelled, e.g. if it times out, the computation must be
 // cancelled.
 func (c *Completion) Context() context.Context {
-	return c.ctx
+	if c.wg == nil {
+		return context.Background()
+	}
+	return c.wg.ctx
 }
 
 // Complete notifies of the completion of the asynchronous computation.
 // Idempotent.
-func (c *Completion) Complete() {
-	c.complete(true)
-}
-
-// Complete notifies of the completion of the asynchronous computation.
-// If this is the first time this method is called, runCallback is true, and
-// the Completion was created by calling WaitGroup.AddCompletionWithCallback or
-// NewCallback with a non-nil callback, that callback is called.
-// Idempotent.
-func (c *Completion) complete(runCallback bool) {
+// If the operation completed successfully 'err' is passed as nil.
+func (c *Completion) Complete(err error) {
 	c.lock.Lock()
 	select {
 	case <-c.completed:
 		c.lock.Unlock()
 	default:
+		if c.callback != nil {
+			// We must call the callbacks synchronously to guarantee
+			// that they are actually called before Wait() returns.
+			c.callback(err)
+		}
+		// Terminate the WaitGroup on failure
+		if err != nil {
+			c.Error = err
+			c.wg.cancel()
+		}
 		close(c.completed)
 		c.lock.Unlock()
-		if runCallback && c.callback != nil {
-			c.callback()
-		}
 	}
 }
 
@@ -145,10 +165,12 @@ func (c *Completion) Completed() <-chan struct{} {
 	return c.completed
 }
 
-// NewCallback creates a Completion which calls a function upon Complete().
-func NewCallback(ctx context.Context, callback func()) *Completion {
+// NewCompletion creates a Completion which calls a function upon Complete().
+// WaitGroup 'wg' is canceled if the associated operation fails for any
+// reason.
+func NewCompletion(wg *WaitGroup, callback func(err error)) *Completion {
 	return &Completion{
-		ctx:       ctx,
+		wg:        wg,
 		completed: make(chan struct{}),
 		callback:  callback,
 	}

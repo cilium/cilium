@@ -106,7 +106,6 @@ func (p PolicyEntriesDump) Less(i, j int) bool {
 }
 
 func (key *PolicyKey) String() string {
-
 	trafficDirectionString := (TrafficDirection)(key.TrafficDirection).String()
 	if key.DestPort != 0 {
 		return fmt.Sprintf("%s: %d %d/%d", trafficDirectionString, key.Identity, byteorder.NetworkToHost(key.DestPort), key.Nexthdr)
@@ -185,6 +184,7 @@ func (pm *PolicyMap) Exists(id uint32, dport uint16, proto u8proto.U8proto, traf
 
 // DeleteKey deletes the key-value pair from the given PolicyMap with PolicyKey
 // k. Returns an error if deletion from the PolicyMap fails.
+// PolicyKey must be in host byte-order!
 func (pm *PolicyMap) DeleteKey(k PolicyKey) error {
 	return pm.Delete(k.Identity, k.DestPort, u8proto.U8proto(k.Nexthdr), TrafficDirection(k.TrafficDirection))
 }
