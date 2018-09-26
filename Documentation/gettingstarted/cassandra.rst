@@ -5,7 +5,7 @@
     http://docs.cilium.io
 
 **********************************
-Getting Started Securing Cassandra 
+Getting Started Securing Cassandra
 **********************************
 
 This document serves as an introduction to using Cilium to enforce Cassandra-aware
@@ -13,9 +13,9 @@ security policies.  It is a detailed walk-through of getting a single-node
 Cilium environment running on your machine. It is designed to take 15-30
 minutes.
 
-**NOTE:** Cassandra-aware policy support is still "experimental".  It is not yet ready for 
-production use.   Additionally, the Cassandra-specific policy language is highly likely to 
-change in a future Cilium version.   
+**NOTE:** Cassandra-aware policy support is still "experimental".  It is not yet ready for
+production use.   Additionally, the Cassandra-specific policy language is highly likely to
+change in a future Cilium version.
 
 .. include:: gsg_intro.rst
 .. include:: minikube_intro.rst
@@ -25,26 +25,26 @@ Step 2: Deploy the Demo Application
 ===================================
 
 Now that we have Cilium deployed and ``kube-dns`` operating correctly we can
-deploy our demo Kafka application.  Since our first 
+deploy our demo Cassandra application.  Since our first
 `HTTP-aware Cilium  Star Wars demo <https://www.cilium.io/blog/2017/5/4/demo-may-the-force-be-with-you>`_
 showed how the Galactic Empire used HTTP-aware security policies to protect the Death Star from the
-Rebel Alliance, this Cassandra demo is Star Wars-themed as well. 
+Rebel Alliance, this Cassandra demo is Star Wars-themed as well.
 
-`Apache Cassanadra <http://cassandra.apache.org>`_ is a popular NOSQL database focused on 
-delivering high-performance transactions (especially on writes) without sacrificing on availability or scale.   
-Cassandra operates as a cluster of servers, and Cassandra clients query these services via a 
-the `native Cassandra protocol <https://github.com/apache/cassandra/blob/trunk/doc/native_protocol_v4.spec>`_ . 
+`Apache Cassanadra <http://cassandra.apache.org>`_ is a popular NOSQL database focused on
+delivering high-performance transactions (especially on writes) without sacrificing on availability or scale.
+Cassandra operates as a cluster of servers, and Cassandra clients query these services via a
+the `native Cassandra protocol <https://github.com/apache/cassandra/blob/trunk/doc/native_protocol_v4.spec>`_ .
 Cilium understands the Cassandra protocol, and thus is able to provide deep visibility and control over
-which clients are able to access particular table inside a Cassandra cluster, and which actions 
-(e.g., "select", "insert", "update", "delete") can be performed on tables.  
+which clients are able to access particular tables inside a Cassandra cluster, and which actions
+(e.g., "select", "insert", "update", "delete") can be performed on tables.
 
 With Cassandra, each table belongs to a "keyspace", allowing multiple groups to use a single cluster without conflicting.
-Cassandra queries specify the full table name qualified by the keyspace using the syntax "<keyspace>.<table>".   
+Cassandra queries specify the full table name qualified by the keyspace using the syntax "<keyspace>.<table>".
 
 In our simple example, the Empire uses a Cassandra cluster to store two different types of information:
 
-- **Employee Attendance Records** : Use to store daily attendance data (attendance.daily_records).  
-- **Deathstar Scrum Reports** : Daily scrum reports from the teams working on the Deathstar (deathstar.scrum_reports). 
+- **Employee Attendance Records** : Use to store daily attendance data (attendance.daily_records).
+- **Deathstar Scrum Reports** : Daily scrum reports from the teams working on the Deathstar (deathstar.scrum_reports).
 
 To keep the setup small, we will just launch a small number of pods to represent this setup:
 
@@ -53,7 +53,7 @@ To keep the setup small, we will just launch a small number of pods to represent
 - **empire-hq** : A pod representing the Empire's Headquarters, which is the only pod that should
   be able to read all attendance data, or read/write the Deathstar scrum notes (label app=empire-hq).
 - **empire-outpost** : A random outpost in the empire.  It should be able to insert employee attendance
-  records, but not read records for other empire facilities.   It also should not have any access to the 
+  records, but not read records for other empire facilities.   It also should not have any access to the
   deathstar keyspace (label app=empire-outpost).
 
 All pods other than *cass-server* are Cassandra clients, which need access to the *cass-server*
@@ -72,7 +72,7 @@ above, as well as a Kubernetes Service *cassandra-svc* for the Cassandra cluster
     deployment.extensions/empire-hq created
     deployment.extensions/empire-outpost created
 
-Kubernetes will deploy the pods and service  in the background.
+Kubernetes will deploy the pods and service in the background.
 Running ``kubectl get svc,pods`` will inform you about the progress of the operation.
 Each pod will go through several states until it reaches ``Running`` at which
 point the setup is ready.
@@ -93,13 +93,13 @@ point the setup is ready.
 Step 3: Test Basic Cassandra Access
 ===================================
 
-First, we'll create the keyspaces and tables mentioned above, and populate them with some initial data: 
+First, we'll create the keyspaces and tables mentioned above, and populate them with some initial data:
 
-.. parsed-literal:: 
-  
-   $  curl -s \ |SCM_WEB|\/examples/cass-populate-tables.sh | bash 
+.. parsed-literal::
 
-Next, create two environment variables that refer to the *empire-hq* and *empire-outpost* pods: 
+   $  curl -s \ |SCM_WEB|\/examples/cass-populate-tables.sh | bash
+
+Next, create two environment variables that refer to the *empire-hq* and *empire-outpost* pods:
 
 ::
 
@@ -108,34 +108,34 @@ Next, create two environment variables that refer to the *empire-hq* and *empire
 
 
 Now we will run the 'cqlsh' Cassandra client in the *empire-outpost* pod, telling it to access
-the Cassandra cluster identified by the 'cassandra-svc' DNS name: 
+the Cassandra cluster identified by the 'cassandra-svc' DNS name:
 
-::  
+::
 
     $ kubectl exec -it $OUTPOST_POD cqlsh -- cassandra-svc
     Connected to Test Cluster at cassandra-svc:9042.
     [cqlsh 5.0.1 | Cassandra 3.11.3 | CQL spec 3.4.4 | Native protocol v4]
     Use HELP for help.
-    cqlsh> 
+    cqlsh>
 
 Next, using the cqlsh prompt, we'll show that the outpost can add records to the "daily_records" table
-in the "attendance" keyspace: 
+in the "attendance" keyspace:
 
 ::
 
-    cqlsh> INSERT INTO attendance.daily_records (creation, loc_id, present, empire_member_id) values (now(), 074AD3B9-A47D-4EBC-83D3-CAD75B1911CE, true, 6AD3139F-EBFC-4E0C-9F79-8F997BA01D90); 
+    cqlsh> INSERT INTO attendance.daily_records (creation, loc_id, present, empire_member_id) values (now(), 074AD3B9-A47D-4EBC-83D3-CAD75B1911CE, true, 6AD3139F-EBFC-4E0C-9F79-8F997BA01D90);
 
-We have confirmed that outposts are able to report daily attendance records as intended. We're off to a good start! 
+We have confirmed that outposts are able to report daily attendance records as intended. We're off to a good start!
 
 Step 4:  The Danger of a Compromised Cassandra Client
 =====================================================
 
 But what if a rebel spy gains access to any of the remote outposts that act as a Cassandra client?
 Since every client has access to the Cassandra API on port 9042, it can do some bad stuff.
-For starters, the outpost container can not only add entries to the attendance.daily_reports table, 
-but it could read all entries as well. 
+For starters, the outpost container can not only add entries to the attendance.daily_reports table,
+but it could read all entries as well.
 
-To see this, we can run the following command: 
+To see this, we can run the following command:
 
 ::
 
@@ -158,9 +158,9 @@ To see this, we can run the following command:
   (11 rows)
 
 
-Uh oh!  The rebels now has strategic information about empire troop strengths at each location in the galaxy.  
+Uh oh!  The rebels now has strategic information about empire troop strengths at each location in the galaxy.
 
-But even more nasty from a security perspective is that the outpost container can also access information in any keyspace, 
+But even more nasty from a security perspective is that the outpost container can also access information in any keyspace,
 including the deathstar keyspace.  For example, run:
 
 ::
@@ -175,7 +175,7 @@ including the deathstar keyspace.  For example, run:
 
  (3 rows)
 
-We see that any outpost can actually access the deathstar scrum notes, which mentions a pretty serious issue with the exhaust port.   
+We see that any outpost can actually access the deathstar scrum notes, which mentions a pretty serious issue with the exhaust port.
 
 Step 5: Securing Access to Cassandra with Cilium
 ================================================
@@ -185,32 +185,33 @@ least privilege (i.e., only what is needed for the app to operate correctly and 
 
 We can do that with the following Cilium security policy.   As with Cilium HTTP policies, we can write
 policies that identify pods by labels, and then limit the traffic in/out of this pod.  In
-this case, we'll create a policy that identifies the tables that each client should be able to access, 
+this case, we'll create a policy that identifies the tables that each client should be able to access,
 the actions that are allowed on those tables, and deny the rest.
 
-As an example, a policy could limit containers with label *app=empire-outpost* to only be able to 
+As an example, a policy could limit containers with label *app=empire-outpost* to only be able to
 insert entries into the table "attendance.daily_reports", but would block any attempt by a compromised outpost
-to read all attendance information or access other keyspaces. 
+to read all attendance information or access other keyspaces.
 
 .. image:: images/cilium_cass_gsg_attack.png
 
 Here is the *CiliumNetworkPolicy* rule that limits access of pods with label *app=empire-outpost* to
-only consume on topic *empire-announce*:
+only insert records into "attendance.daily_reports":
 
 .. literalinclude:: ../../examples/kubernetes-cassandra/cass-sw-security-policy.yaml
 
 A *CiliumNetworkPolicy* contains a list of rules that define allowed requests, meaning that requests
 that do not match any rules are denied as invalid.
 
-The rule explicitly matches Cassandra connections destined to TCP 9042 on cass-server pods, and allows consume/produce actions on various topics of interest.
+The rule explicitly matches Cassandra connections destined to TCP 9042 on cass-server pods, and allows
+query actions like select/insert/update/delete only on a specified set of tables.
 The above rule applies to inbound (i.e., "ingress") connections to cass-server pods (as indicated by "app:cass-server"
-in the "endpointSelector" section).  The rule will applies different rules based on whether the
-client pod has labels "app: empire-outpost" or "app: empire-hq" as indicated by the "fromEndpoints" section. 
+in the "endpointSelector" section).  The rule applies different rules based on whether the
+client pod has labels "app: empire-outpost" or "app: empire-hq" as indicated by the "fromEndpoints" section.
 
-The policy limits the *empire-outpost* pod to performing "select" queries on the "system" and "system_schema" 
+The policy limits the *empire-outpost* pod to performing "select" queries on the "system" and "system_schema"
 keyspaces (required by cqlsh on startup) and "insert" queries to the "attendance.daily_records" table.
 
-The full policy adds another rule that allows all queries from the *empire-hq* pod.  
+The full policy adds another rule that allows all queries from the *empire-hq* pod.
 
 Apply this Cassandra-aware network security policy using ``kubectl`` in a new window:
 
@@ -218,98 +219,98 @@ Apply this Cassandra-aware network security policy using ``kubectl`` in a new wi
 
     $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes-cassandra/cass-sw-security-policy.yaml
 
-If we then again try to perform the attacks from the *empire-outpost* pod, we'll see that they are denied: 
+If we then again try to perform the attacks from the *empire-outpost* pod, we'll see that they are denied:
 
 ::
 
   $ cqlsh> SELECT * FROM attendance.daily_records;
   Unauthorized: Error from server: code=2100 [Unauthorized] message="Request Unauthorized"
 
-This is because the policy only permits pods with labels app: empire-outpost to insert into attendance.daily_records, it does 
-not permit select on that table, or any action on other tables (with the exception of the system.* and system_schema.* 
+This is because the policy only permits pods with labels app: empire-outpost to insert into attendance.daily_records, it does
+not permit select on that table, or any action on other tables (with the exception of the system.* and system_schema.*
 keyspaces).  Its worth noting that we don't simply drop the message (which
-could easily be confused with a network error), but rather we respond with the Cassandra Unauthorized error message. 
+could easily be confused with a network error), but rather we respond with the Cassandra Unauthorized error message.
 (similar to how HTTP would return an error code of 403 unauthorized).
 
 Likewise, if the outpost pod ever tries to access a table in another keyspace, like deathstar, this request will also be
-denied: 
+denied:
 
 ::
 
   $ cqlsh> SELECT * FROM deathstar.scrum_notes;
   Unauthorized: Error from server: code=2100 [Unauthorized] message="Request Unauthorized"
 
-This is blocked as well, thanks to the Cilium network policy.  
+This is blocked as well, thanks to the Cilium network policy.
 
-Use another window to confirm that the *empire-hq* pod still has full access to the cassandra cluster: 
+Use another window to confirm that the *empire-hq* pod still has full access to the cassandra cluster:
 
-:: 
+::
 
     $ kubectl exec -it $HQ_POD cqlsh -- cassandra-svc
     Connected to Test Cluster at cassandra-svc:9042.
     [cqlsh 5.0.1 | Cassandra 3.11.3 | CQL spec 3.4.4 | Native protocol v4]
     Use HELP for help.
-    cqlsh> 
+    cqlsh>
 
-The power of Cilium's identity-based security allows *empire-hq* Test access to still have full access 
+The power of Cilium's identity-based security allows *empire-hq* to still have full access
 to both tables:
 
 ::
 
 
-  $ cqlsh> SELECT * FROM attendance.daily_records; 
+  $ cqlsh> SELECT * FROM attendance.daily_records;
    loc_id                               | creation                             | empire_member_id                     | present
   --------------------------------------+--------------------------------------+--------------------------------------+---------
   a855e745-69d8-4159-b8b6-e2bafed8387a | c692ce90-bf57-11e8-98e6-f1a9f45fc4d8 | cee6d956-dbeb-4b09-ad21-1dd93290fa6c |    True
 
-  <snip> 
+  <snip>
 
   (12 rows)
 
 
-Similarly, the deathstar can still access the scrum notes: 
+Similarly, the deathstar can still access the scrum notes:
 
 ::
 
-  $ cqlsh> SELECT * FROM deathstar.scrum_notes; 
+  $ cqlsh> SELECT * FROM deathstar.scrum_notes;
 
-    <snip> 
+    <snip>
 
-  (3 rows) 
+  (3 rows)
 
 Step 7: Cassandra-Aware Visibility (Bonus)
 ==========================================
 
-As a bonus, you can re-run the above queries with policy enforced and view how Cilium provides Cassandra-aware visibility, including 
-whether requests are forwarded or denied.   First, use "kubectl exec" to access the cilium pod. 
-
-:: 
-  
-  $ CILIUM_POD=$(kubectl get pods -n kube-system -l k8s-app=cilium -o jsonpath='{.items[0].metadata.name}')
-  $ kubectl exec -it -n kube-system $CILIUM_POD /bin/bash
-  root@minikube:~# 
-
-Next, start Cilium monitor, and limit the output to only "l7" type messages using the "-t" flag: 
+As a bonus, you can re-run the above queries with policy enforced and view how Cilium provides Cassandra-aware visibility, including
+whether requests are forwarded or denied.   First, use "kubectl exec" to access the cilium pod.
 
 ::
 
-  root@minikube:~# cilium monitor -t l7 
+  $ CILIUM_POD=$(kubectl get pods -n kube-system -l k8s-app=cilium -o jsonpath='{.items[0].metadata.name}')
+  $ kubectl exec -it -n kube-system $CILIUM_POD /bin/bash
+  root@minikube:~#
+
+Next, start Cilium monitor, and limit the output to only "l7" type messages using the "-t" flag:
+
+::
+
+  root@minikube:~# cilium monitor -t l7
   Listening for events on 2 CPUs with 64x4096 of shared memory
   Press Ctrl-C to quit
-  
-In the other windows, re-run the above queries, and you will see that Cilium provides full visibility at the level of
-each Cassandra request, indicating: 
 
-- The Kubernetes label-based identity of both the sending and receiving pod. 
-- The details of the Cassandra request, including the 'query_action' (e.g., 'select', 'insert') 
-  and 'query_table' (e.g., 'system.local', 'attendance.daily_records') 
-- The 'verdict' indicating whether the request was allowed by policy ('Forwarded' or 'Denied'). 
+In the other windows, re-run the above queries, and you will see that Cilium provides full visibility at the level of
+each Cassandra request, indicating:
+
+- The Kubernetes label-based identity of both the sending and receiving pod.
+- The details of the Cassandra request, including the 'query_action' (e.g., 'select', 'insert')
+  and 'query_table' (e.g., 'system.local', 'attendance.daily_records')
+- The 'verdict' indicating whether the request was allowed by policy ('Forwarded' or 'Denied').
 
 Example output is below.   All requests are from *empire-outpost* to *cass-server*.   The first two requests are
-allowed, a 'select' into 'system.local' and an 'insert' into 'attendance.daily_records'. 
-The second two requests are denied, a 'select' into 'attendance.daily_records' and a select into 'deathstar.scrum_notes' :  
+allowed, a 'select' into 'system.local' and an 'insert' into 'attendance.daily_records'.
+The second two requests are denied, a 'select' into 'attendance.daily_records' and a select into 'deathstar.scrum_notes' :
 
-:: 
+::
 
   <- Request cassandra from 0 ([k8s:io.cilium.k8s.policy.serviceaccount=default k8s:io.kubernetes.pod.namespace=default k8s:app=empire-outpost]) to 64503 ([k8s:app=cass-server k8s:io.kubernetes.pod.namespace=default k8s:io.cilium.k8s.policy.serviceaccount=default]), identity 12443->16168, verdict Forwarded query_table:system.local query_action:selec
   <- Request cassandra from 0 ([k8s:io.cilium.k8s.policy.serviceaccount=default k8s:io.kubernetes.pod.namespace=default k8s:app=empire-outpost]) to 64503 ([k8s:app=cass-server k8s:io.kubernetes.pod.namespace=default k8s:io.cilium.k8s.policy.serviceaccount=default]), identity 12443->16168, verdict Forwarded query_action:insert query_table:attendance.daily_records
@@ -319,7 +320,7 @@ The second two requests are denied, a 'select' into 'attendance.daily_records' a
 Step 8: Clean Up
 ================
 
-You have now installed Cilium, deployed a demo app, and tested both
+You have now installed Cilium, deployed a demo app, and tested
 L7 Cassandra-aware network security policies.  To clean up, run:
 
 ::

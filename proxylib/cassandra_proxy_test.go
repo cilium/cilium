@@ -28,13 +28,13 @@ import (
 
 // util function used for Cassandra tests, as we have cassandra requests
 // as hex strings
-func hexToStr(dataHex []byte) string {
+func hexToByteArr(dataHex []byte) []byte {
 	dataRaw := make([]byte, hex.DecodedLen(len(dataHex)))
 	_, err := hex.Decode(dataRaw, dataHex)
 	if err != nil {
 		log.Fatal(err)
 	}
-	return string(dataRaw)
+	return dataRaw
 }
 
 func TestCassandraOnDataNoHeader(t *testing.T) {
@@ -72,8 +72,8 @@ func TestCassandraOnDataNoHeader(t *testing.T) {
 	buf := CheckOnNewConnection(t, mod, "cassandra", 1, true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "cp7",
 		30, proxylib.OK, 1)
 
-	data1 := hexToStr([]byte("0400"))
-	CheckOnData(t, 1, false, false, &[][]byte{[]byte(data1)}, []ExpFilterOp{
+	data1 := hexToByteArr([]byte("0400"))
+	CheckOnData(t, 1, false, false, &[][]byte{data1}, []ExpFilterOp{
 		{proxylib.MORE, 9 - len(data1)},
 	}, proxylib.OK, "")
 
@@ -116,8 +116,8 @@ func TestCassandraOnDataOptionsReq(t *testing.T) {
 	buf := CheckOnNewConnection(t, mod, "cassandra", 1, true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "cp6",
 		30, proxylib.OK, 1)
 
-	data2 := hexToStr([]byte("040000000500000000"))
-	CheckOnData(t, 1, false, false, &[][]byte{[]byte(data2)}, []ExpFilterOp{
+	data2 := hexToByteArr([]byte("040000000500000000"))
+	CheckOnData(t, 1, false, false, &[][]byte{data2}, []ExpFilterOp{
 		{proxylib.PASS, len(data2)}, {proxylib.MORE, 9},
 	}, proxylib.OK, "")
 
@@ -160,8 +160,8 @@ func TestCassandraOnDataPartialReq(t *testing.T) {
 	buf := CheckOnNewConnection(t, mod, "cassandra", 1, true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "cp5",
 		30, proxylib.OK, 1)
 
-	data2 := hexToStr([]byte("0400000407000000760000006f53454c45435420636c75737465725f6e616d652c20646174615f63656e7465722c207261636b2c20746f6b656e732c20706172746974696f6e65722c20736368656d615f76657273696f6e2046524f4d2073797374656d2e6c6f63616c205748455245206b65793d276c6f63616c270001"))
-	CheckOnData(t, 1, false, false, &[][]byte{[]byte(data2)}, []ExpFilterOp{{proxylib.MORE, 1}}, proxylib.OK, "")
+	data2 := hexToByteArr([]byte("0400000407000000760000006f53454c45435420636c75737465725f6e616d652c20646174615f63656e7465722c207261636b2c20746f6b656e732c20706172746974696f6e65722c20736368656d615f76657273696f6e2046524f4d2073797374656d2e6c6f63616c205748455245206b65793d276c6f63616c270001"))
+	CheckOnData(t, 1, false, false, &[][]byte{data2}, []ExpFilterOp{{proxylib.MORE, 1}}, proxylib.OK, "")
 
 	CheckClose(t, 1, buf, 1)
 }
@@ -201,8 +201,8 @@ func TestCassandraOnDataQueryReq(t *testing.T) {
 	buf := CheckOnNewConnection(t, mod, "cassandra", 1, true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "cp4",
 		30, proxylib.OK, 1)
 
-	data2 := hexToStr([]byte("0400000407000000760000006f53454c45435420636c75737465725f6e616d652c20646174615f63656e7465722c207261636b2c20746f6b656e732c20706172746974696f6e65722c20736368656d615f76657273696f6e2046524f4d2073797374656d2e6c6f63616c205748455245206b65793d276c6f63616c27000100"))
-	CheckOnData(t, 1, false, false, &[][]byte{[]byte(data2)}, []ExpFilterOp{
+	data2 := hexToByteArr([]byte("0400000407000000760000006f53454c45435420636c75737465725f6e616d652c20646174615f63656e7465722c207261636b2c20746f6b656e732c20706172746974696f6e65722c20736368656d615f76657273696f6e2046524f4d2073797374656d2e6c6f63616c205748455245206b65793d276c6f63616c27000100"))
+	CheckOnData(t, 1, false, false, &[][]byte{data2}, []ExpFilterOp{
 		{proxylib.PASS, len(data2)}, {proxylib.MORE, 9},
 	}, proxylib.OK, "")
 
@@ -245,8 +245,8 @@ func TestCassandraOnDataSplitQueryReq(t *testing.T) {
 	buf := CheckOnNewConnection(t, mod, "cassandra", 1, true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "cp3",
 		30, proxylib.OK, 1)
 
-	data2 := hexToStr([]byte("0400000407000000760000006f53454c45435420636c75737465725f6e616d652c20646174615f63656e7465722c207261636b2c20746f6b656e732c20706172746974696f6e65722c20736368656d615f76657273696f6e2046524f4d2073797374656d2e6c6f63616c205748455245206b65793d276c6f63616c27000100"))
-	CheckOnData(t, 1, false, false, &[][]byte{[]byte(data2[:10]), []byte(data2[10:])}, []ExpFilterOp{
+	data2 := hexToByteArr([]byte("0400000407000000760000006f53454c45435420636c75737465725f6e616d652c20646174615f63656e7465722c207261636b2c20746f6b656e732c20706172746974696f6e65722c20736368656d615f76657273696f6e2046524f4d2073797374656d2e6c6f63616c205748455245206b65793d276c6f63616c27000100"))
+	CheckOnData(t, 1, false, false, &[][]byte{data2[:10], data2[10:]}, []ExpFilterOp{
 		{proxylib.PASS, len(data2)}, {proxylib.MORE, 9},
 	}, proxylib.OK, "")
 
@@ -290,9 +290,9 @@ func TestCassandraOnDataMultiReq(t *testing.T) {
 	buf := CheckOnNewConnection(t, mod, "cassandra", 1, true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "cp2",
 		30, proxylib.OK, 1)
 
-	data1 := hexToStr([]byte("040000000500000000"))
-	data2 := hexToStr([]byte("0400000407000000760000006f53454c45435420636c75737465725f6e616d652c20646174615f63656e7465722c207261636b2c20746f6b656e732c20706172746974696f6e65722c20736368656d615f76657273696f6e2046524f4d2073797374656d2e6c6f63616c205748455245206b65793d276c6f63616c27000100"))
-	CheckOnData(t, 1, false, false, &[][]byte{[]byte(data1 + data2)}, []ExpFilterOp{
+	data1 := hexToByteArr([]byte("040000000500000000"))
+	data2 := hexToByteArr([]byte("0400000407000000760000006f53454c45435420636c75737465725f6e616d652c20646174615f63656e7465722c207261636b2c20746f6b656e732c20706172746974696f6e65722c20736368656d615f76657273696f6e2046524f4d2073797374656d2e6c6f63616c205748455245206b65793d276c6f63616c27000100"))
+	CheckOnData(t, 1, false, false, &[][]byte{append(data1, data2...)}, []ExpFilterOp{
 		{proxylib.PASS, len(data1)}, {proxylib.PASS, len(data2)}, {proxylib.MORE, 9},
 	}, proxylib.OK, "")
 
@@ -347,9 +347,9 @@ func TestSimpleCassandraPolicy(t *testing.T) {
 		'R', 'e', 'q', 'u', 'e', 's', 't', ' ', 'U', 'n', 'a', 'u', 't', 'h', 'o', 'r', 'i', 'z', 'e', 'd',
 	}
 
-	data1 := hexToStr([]byte("040000000500000000"))
-	data2 := hexToStr([]byte("0400000407000000760000006f53454c45435420636c75737465725f6e616d652c20646174615f63656e7465722c207261636b2c20746f6b656e732c20706172746974696f6e65722c20736368656d615f76657273696f6e2046524f4d2073797374656d2e6c6f63616c205748455245206b65793d276c6f63616c27000100"))
-	CheckOnData(t, 1, false, false, &[][]byte{[]byte(data1 + data2)}, []ExpFilterOp{
+	data1 := hexToByteArr([]byte("040000000500000000"))
+	data2 := hexToByteArr([]byte("0400000407000000760000006f53454c45435420636c75737465725f6e616d652c20646174615f63656e7465722c207261636b2c20746f6b656e732c20706172746974696f6e65722c20736368656d615f76657273696f6e2046524f4d2073797374656d2e6c6f63616c205748455245206b65793d276c6f63616c27000100"))
+	CheckOnData(t, 1, false, false, &[][]byte{append(data1, data2...)}, []ExpFilterOp{
 		{proxylib.PASS, len(data1)}, {proxylib.DROP, len(data2)}, {proxylib.MORE, 9},
 	}, proxylib.OK, string(unauthMsgBase))
 

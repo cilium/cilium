@@ -186,7 +186,7 @@ func (p *CassandraParser) OnData(reply, endStream bool, dataArray [][]byte, offs
 	log.Debugf("Request length = %d", requestLen)
 	if requestLen > cassMaxLen {
 		log.Errorf("Request length of %d is greater than 256 MB", requestLen)
-		return ERROR, 0
+		return ERROR, int(ERROR_INVALID_FRAME_LENGTH)
 	}
 
 	dataMissing := (cassHdrLen + int(requestLen)) - len(data)
@@ -206,14 +206,14 @@ func (p *CassandraParser) OnData(reply, endStream bool, dataArray [][]byte, offs
 		}
 		cassandraParseReply(p, data[0:(cassHdrLen+requestLen)])
 
-		log.Debugf("reply, passing %d bytes", uint32(len(data)))
-		return PASS, len(data)
+		log.Debugf("reply, passing %d bytes", (cassHdrLen + requestLen))
+		return PASS, (cassHdrLen + int(requestLen))
 	}
 
 	err, paths := cassandraParseRequest(p, data[0:(cassHdrLen+requestLen)])
 	if err != 0 {
 		log.Errorf("Parsing error %d", err)
-		return ERROR, 0
+		return ERROR, int(err)
 	}
 
 	log.Debugf("Request paths = %s", paths)
@@ -479,7 +479,7 @@ func cassandraParseRequest(p *CassandraParser, data []byte) (OpError, []string) 
 
 	compressionFlag := data[1] & 0x01
 	if compressionFlag == 1 {
-		log.Errorf("Compression flag set, unable to parse beyond the header")
+		log.Errorf("Compression flag set, unable to parse request beyond the header")
 		return ERROR_INVALID_FRAME_TYPE, nil
 	}
 
@@ -613,7 +613,7 @@ func cassandraParseReply(p *CassandraParser, data []byte) {
 
 	compressionFlag := data[1] & 0x01
 	if compressionFlag == 1 {
-		log.Errorf("Compression flag set, unable to parse beyond the header")
+		log.Errorf("Compression flag set, unable to parse reply beyond the header")
 		return
 	}
 
