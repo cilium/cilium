@@ -45,7 +45,7 @@ type Instance struct {
 	accessLogger  AccessLogger
 	xdsPath       string
 	policyClient  PolicyClient
-	nodeId        string
+	nodeID        string
 	openCount     uint64
 
 	policyMap atomic.Value // holds PolicyMap
@@ -62,14 +62,14 @@ var (
 
 // OpenInstance creates a new instance or finds an existing one with equivalent parameters.
 // returns the instance id.
-func OpenInstance(xdsPath string, newPolicyClient func(path, nodeId string, updater PolicyUpdater) PolicyClient,
+func OpenInstance(nodeID string, xdsPath string, newPolicyClient func(path, nodeID string, updater PolicyUpdater) PolicyClient,
 	accessLogPath string, newAccessLogger func(accessLogPath string) AccessLogger) uint64 {
 	mutex.Lock()
 	defer mutex.Unlock()
 
 	// Check if have an instance with these params already
 	for id, old := range instances {
-		if old.xdsPath == xdsPath && old.accessLogPath == accessLogPath {
+		if (nodeID == "" || old.nodeID == nodeID) && old.xdsPath == xdsPath && old.accessLogPath == accessLogPath {
 			old.openCount++
 			log.Infof("Opened existing library instance %d, open count: %d", id, old.openCount)
 			return id
@@ -77,19 +77,21 @@ func OpenInstance(xdsPath string, newPolicyClient func(path, nodeId string, upda
 	}
 
 	instanceId++
+	if nodeID == "" {
+		nodeID = fmt.Sprintf("host~127.0.0.1~libcilium-%d~localdomain", instanceId)
+	}
 
-	// TODO: Sidecar instance id needs to be different.
 	new := &Instance{
 		id:            instanceId,
 		accessLogPath: accessLogPath,
 		xdsPath:       xdsPath,
-		nodeId:        fmt.Sprintf("host~127.0.0.1~libcilium-%d~localdomain", instanceId),
+		nodeID:        nodeID,
 		openCount:     1,
 	}
 
 	new.setPolicyMap(newPolicyMap())
 	if new.xdsPath != "" {
-		new.policyClient = newPolicyClient(new.xdsPath, new.nodeId, new)
+		new.policyClient = newPolicyClient(new.xdsPath, new.nodeID, new)
 	}
 	if new.accessLogPath != "" {
 		new.accessLogger = newAccessLogger(new.accessLogPath)
