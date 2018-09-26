@@ -225,16 +225,18 @@ func Close(connectionId uint64) {
 // Zero return value indicates an error.
 //export OpenModule
 func OpenModule(params [][2]string, debug bool) uint64 {
-	accessLogPath, xdsPath := "", ""
+	var accessLogPath, xdsPath, nodeID string
 	for i := range params {
 		key := params[i][0]
-		value := params[i][1]
+		value := strcpy(params[i][1])
 
 		switch key {
 		case "access-log-path":
 			accessLogPath = value
 		case "xds-path":
 			xdsPath = value
+		case "node-id":
+			nodeID = value
 		default:
 			return 0
 		}
@@ -247,7 +249,7 @@ func OpenModule(params [][2]string, debug bool) uint64 {
 	}
 	// Copy strings from C-memory to Go-memory so that the string remains valid
 	// also after this function returns
-	return OpenInstance(strcpy(xdsPath), npds.NewClient, strcpy(accessLogPath), accesslog.NewClient)
+	return OpenInstance(nodeID, xdsPath, npds.NewClient, accessLogPath, accesslog.NewClient)
 }
 
 //export CloseModule

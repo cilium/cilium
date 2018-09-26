@@ -67,6 +67,16 @@ func TestOpenModule(t *testing.T) {
 	if mod4 == mod1 {
 		t.Error("OpenModule() should have returned a different module")
 	}
+
+	mod5 := OpenModule([][2]string{{"access-log-path", logServer.Path}, {"node-id", "host~127.0.0.1~libcilium~localdomain"}}, true)
+	if mod5 == 0 {
+		t.Errorf("OpenModule() with access log path %s failed", logServer.Path)
+	} else {
+		defer CloseModule(mod5)
+	}
+	if mod5 == mod1 || mod5 == mod2 || mod5 == mod3 || mod5 == mod4 {
+		t.Error("OpenModule() should have returned a different module")
+	}
 }
 
 func TestOnNewConnection(t *testing.T) {
