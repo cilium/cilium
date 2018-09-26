@@ -34,6 +34,16 @@ func (s *IdentityTestSuite) TestLookupReservedIdentity(c *C) {
 	identity = LookupIdentity(labels.NewLabelsFromModel([]string{"reserved:world"}))
 	c.Assert(identity, Not(IsNil))
 	c.Assert(identity.ID, Equals, worldID)
+
+	initWellKnownIdentities()
+
+	identity = LookupIdentity(labels.NewLabelsFromModel([]string{
+		"k8s:name=etcd-operator",
+		"k8s:io.cilium.k8s.policy.namespace=kube-system",
+		"k8s:io.cilium.k8s.policy.serviceaccount=default",
+	}))
+	c.Assert(identity, Not(IsNil))
+	c.Assert(identity.ID, Equals, ReservedCiliumKVStore)
 }
 
 func (s *IdentityTestSuite) TestLookupReservedIdentityByLabels(c *C) {
