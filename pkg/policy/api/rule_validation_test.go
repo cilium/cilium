@@ -15,7 +15,11 @@
 package api
 
 import (
+	"github.com/cilium/cilium/pkg/labels"
+
 	. "gopkg.in/check.v1"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // This test ensures that only PortRules which have L7Rules associated with them
@@ -345,4 +349,80 @@ func (s *PolicyAPITestSuite) TestL7Rules(c *C) {
 
 	err = invalidL7Rule.Sanitize()
 	c.Assert(err, Not(IsNil))
+}
+
+func (s *PolicyAPITestSuite) TestInvalidEndpointSelectors(c *C) {
+
+	// Operator in MatchExpressions is invalid, so sanitization should fail.
+	labelSel := &metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			"any.foo": "bar",
+			"k8s.baz": "alice",
+		},
+		MatchExpressions: []metav1.LabelSelectorRequirement{
+			{
+				Key:      "any.foo",
+				Operator: "asdfasdfasdf",
+				Values:   []string{"default"},
+			},
+		},
+	}
+
+	invalidSel := NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, labelSel)
+
+	invalidEpSelectorRule := Rule{
+		EndpointSelector: invalidSel,
+	}
+
+	err := invalidEpSelectorRule.Sanitize()
+	c.Assert(err, Not(IsNil))
+
+	invalidEpSelectorIngress := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		Ingress: []IngressRule{
+			{
+				FromEndpoints: []EndpointSelector{invalidSel},
+			},
+		},
+	}
+
+	err = invalidEpSelectorIngress.Sanitize()
+	c.Assert(err, Not(IsNil))
+
+	invalidEpSelectorIngressFromReq := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		Ingress: []IngressRule{
+			{
+				FromRequires: []EndpointSelector{invalidSel},
+			},
+		},
+	}
+
+	err = invalidEpSelectorIngressFromReq.Sanitize()
+	c.Assert(err, Not(IsNil))
+
+	invalidEpSelectorEgress := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		Egress: []EgressRule{
+			{
+				ToEndpoints: []EndpointSelector{invalidSel},
+			},
+		},
+	}
+
+	err = invalidEpSelectorEgress.Sanitize()
+	c.Assert(err, Not(IsNil))
+
+	invalidEpSelectorEgressToReq := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		Egress: []EgressRule{
+			{
+				ToRequires: []EndpointSelector{invalidSel},
+			},
+		},
+	}
+
+	err = invalidEpSelectorEgressToReq.Sanitize()
+	c.Assert(err, Not(IsNil))
+
 }
