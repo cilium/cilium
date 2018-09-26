@@ -2221,6 +2221,13 @@ func (d *Daemon) updateK8sNodeTunneling(k8sNodeOld, k8sNodeNew *v1.Node) error {
 		}
 
 		ciliumIPStr := k8sNode.GetAnnotations()[annotation.CiliumHostIP]
+		if ciliumIPStr == "" {
+			// Don't return an error here, as the node may not have been
+			// annotated yet by the Cilium agent on it. If the node is annotated
+			// later, we will receive an event via the K8s watcher.
+			log.Infof("not updating ipcache entry for node %s because it does not have the CiliumHostIP annotation yet", k8sNode.Name)
+			return "", nil, nil
+		}
 		ciliumIP := net.ParseIP(ciliumIPStr)
 		if ciliumIP == nil {
 			return "", nil, fmt.Errorf("no/invalid Cilium-Host IP for host %s: %s", hostIP, ciliumIPStr)
