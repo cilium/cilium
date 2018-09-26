@@ -15,19 +15,13 @@
 package kvstore
 
 import (
-	"encoding/json"
 	"fmt"
-	"path"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	client "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/clientv3/concurrency"
@@ -365,175 +359,6 @@ func (e *etcdClient) LockPath(path string) (kvLocker, error) {
 	}
 
 	return &etcdMutex{mutex: mu}, nil
-}
-
-// FIXME: Obsolete, remove
-func (e *etcdClient) GetValue(k string) (json.RawMessage, error) {
-	gresp, err := e.client.Get(ctx.Background(), k)
-	if err != nil {
-		return nil, err
-	}
-	if gresp.Count == 0 {
-		return nil, nil
-	}
-	return json.RawMessage(gresp.Kvs[0].Value), nil
-}
-
-// FIXME: Obsolete, remove
-func (e *etcdClient) SetValue(k string, v interface{}) error {
-	vByte, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-	_, err = e.client.Put(ctx.Background(), k, string(vByte))
-	return err
-}
-
-// FIXME: Obsolete, remove
-func (e *etcdClient) InitializeFreeID(path string, firstID uint32) error {
-	kvLocker, err := LockPath(path)
-	if err != nil {
-		return err
-	}
-	defer kvLocker.Unlock()
-
-	log.Debug("Trying to acquire free ID...")
-	k, err := e.GetValue(path)
-	if err != nil {
-		return err
-	}
-	if k != nil {
-		// FreeID already set
-		return nil
-	}
-	err = e.SetValue(path, firstID)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// FIXME: Obsolete, remove
-func (e *etcdClient) GetMaxID(key string, firstID uint32) (uint32, error) {
-	var (
-		attempts = 3
-		value    json.RawMessage
-		err      error
-		freeID   uint32
-	)
-	for {
-		switch value, err = e.GetValue(key); {
-		case attempts == 0:
-			err = fmt.Errorf("Unable to retrieve last free ID because key is always empty")
-			log.Error(err)
-			fallthrough
-		case err != nil:
-			return 0, err
-		case value == nil:
-			if err = e.InitializeFreeID(key, firstID); err != nil {
-				return 0, err
-			}
-			attempts--
-		case err == nil:
-			if err = json.Unmarshal(value, &freeID); err != nil {
-				return 0, err
-			}
-			return freeID, nil
-		}
-	}
-}
-
-// FIXME: Obsolete, remove
-func (e *etcdClient) SetMaxID(key string, firstID, maxID uint32) error {
-	value, err := e.GetValue(key)
-	if err != nil {
-		return err
-	}
-	if value == nil {
-		// FreeID is empty? We should set it out!
-		if err := e.InitializeFreeID(key, firstID); err != nil {
-			return err
-		}
-		k, err := e.GetValue(key)
-		if err != nil {
-			return err
-		}
-		if k == nil {
-			// Something is really wrong
-			errMsg := "Unable to set ID because the key is always empty"
-			log.Error(errMsg)
-			return fmt.Errorf("%s\n", errMsg)
-		}
-	}
-	return e.SetValue(key, maxID)
-}
-
-// FIXME: Obsolete, remove
-func (e *etcdClient) setMaxL3n4AddrID(maxID uint32) error {
-	return e.SetMaxID(common.LastFreeServiceIDKeyPath, common.FirstFreeServiceID, maxID)
-}
-
-// GASNewL3n4AddrID gets the next available ServiceID and sets it in lAddrID. After
-// assigning the ServiceID to lAddrID it sets the ServiceID + 1 in
-// common.LastFreeServiceIDKeyPath path.
-//
-// FIXME: Obsolete, remove
-func (e *etcdClient) GASNewL3n4AddrID(basePath string, baseID uint32, lAddrID *loadbalancer.L3n4AddrID) error {
-	setIDtoL3n4Addr := func(id uint32) error {
-		lAddrID.ID = loadbalancer.ServiceID(id)
-		keyPath := path.Join(basePath, strconv.FormatUint(uint64(lAddrID.ID), 10))
-		if err := e.SetValue(keyPath, lAddrID); err != nil {
-			return err
-		}
-		return e.setMaxL3n4AddrID(id + 1)
-	}
-
-	acquireFreeID := func(firstID uint32, incID *uint32) (bool, error) {
-		keyPath := path.Join(basePath, strconv.FormatUint(uint64(*incID), 10))
-
-		locker, err := e.LockPath(getLockPath(keyPath))
-		if err != nil {
-			return false, err
-		}
-		defer locker.Unlock()
-
-		value, err := e.GetValue(keyPath)
-		if err != nil {
-			return false, err
-		}
-		if value == nil {
-			return false, setIDtoL3n4Addr(*incID)
-		}
-		var consulL3n4AddrID loadbalancer.L3n4AddrID
-		if err := json.Unmarshal(value, &consulL3n4AddrID); err != nil {
-			return false, err
-		}
-		if consulL3n4AddrID.ID == 0 {
-			log.WithField(logfields.Identity, *incID).Info("Recycling Service ID")
-			return false, setIDtoL3n4Addr(*incID)
-		}
-
-		*incID++
-		if *incID > common.MaxSetOfServiceID {
-			*incID = common.FirstFreeServiceID
-		}
-		if firstID == *incID {
-			return false, fmt.Errorf("reached maximum set of serviceIDs available.")
-		}
-		// Only retry if we have incremented the service ID
-		return true, nil
-	}
-
-	beginning := baseID
-	for {
-		retry, err := acquireFreeID(beginning, &baseID)
-		if err != nil {
-			return err
-		} else if !retry {
-			return nil
-		}
-	}
 }
 
 func (e *etcdClient) DeletePrefix(path string) error {

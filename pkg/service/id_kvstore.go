@@ -16,6 +16,7 @@ package service
 
 import (
 	"encoding/json"
+	"fmt"
 	"path"
 	"strconv"
 
@@ -25,18 +26,112 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-var (
-	serviceKvstorePrefix = common.OperationalPath + "/ServicesV2/"
-)
-
 func updateL3n4AddrIDRef(id loadbalancer.ServiceID, l3n4AddrID loadbalancer.L3n4AddrID) error {
-	key := path.Join(common.ServiceIDKeyPath, strconv.FormatUint(uint64(id), 10))
-	return kvstore.Client().SetValue(key, l3n4AddrID)
+	key := path.Join(ServiceIDKeyPath, strconv.FormatUint(uint64(id), 10))
+	value, err := json.Marshal(l3n4AddrID)
+	if err != nil {
+		return err
+	}
+	return kvstore.Client().Set(key, value)
+}
+
+func initializeFreeID(path string, firstID uint32) error {
+
+	client := kvstore.Client()
+	kvLocker, err := client.LockPath(path)
+	if err != nil {
+		return err
+	}
+	defer kvLocker.Unlock()
+
+	log.Debug("Trying to acquire free ID...")
+	k, err := client.Get(path)
+	if err != nil {
+		return err
+	}
+	if k != nil {
+		// FreeID already set
+		return nil
+	}
+
+	marshaledID, err := json.Marshal(firstID)
+	if err != nil {
+		return fmt.Errorf("cannot marshal initialize id: %s", err)
+	}
+
+	err = client.Set(path, marshaledID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// getMaxID returns the maximum possible free UUID stored.
+func getMaxID(key string, firstID uint32) (uint32, error) {
+	client := kvstore.Client()
+	k, err := client.Get(key)
+	if err != nil {
+		return 0, err
+	}
+	if k == nil {
+		// FreeID is empty? We should set it out!
+		if err := initializeFreeID(key, firstID); err != nil {
+			return 0, err
+		}
+		// Due other goroutine can take the ID, still need to get the key from the kvstore.
+		k, err = client.Get(key)
+		if err != nil {
+			return 0, err
+		}
+		if k == nil {
+			// Something is really wrong
+			errMsg := "Unable to retrieve last free ID because the key is always empty\n"
+			log.Error(errMsg)
+			return 0, fmt.Errorf(errMsg)
+		}
+	}
+	var freeID uint32
+	if err := json.Unmarshal(k, &freeID); err != nil {
+		return 0, err
+	}
+	return freeID, nil
+}
+
+func setMaxID(key string, firstID, maxID uint32) error {
+	client := kvstore.Client()
+	value, err := client.Get(key)
+	if err != nil {
+		return err
+	}
+	if value == nil {
+		// FreeID is empty? We should set it out!
+		if err := initializeFreeID(key, firstID); err != nil {
+			return err
+		}
+		k, err := client.Get(key)
+		if err != nil {
+			return err
+		}
+		if k == nil {
+			// Something is really wrong
+			errMsg := "unable to set ID because the key is always empty"
+			log.Error(errMsg)
+			return fmt.Errorf("%s", errMsg)
+		}
+	}
+	marshaledID, err := json.Marshal(maxID)
+	if err != nil {
+		return nil
+	}
+	return client.Set(key, marshaledID)
 }
 
 // gasNewL3n4AddrID gets and sets a new L3n4Addr ID. If baseID is different than zero,
 // KVStore tries to assign that ID first.
 func gasNewL3n4AddrID(l3n4AddrID *loadbalancer.L3n4AddrID, baseID uint32) error {
+	client := kvstore.Client()
+
 	if baseID == 0 {
 		var err error
 		baseID, err = getGlobalMaxServiceID()
@@ -45,7 +140,65 @@ func gasNewL3n4AddrID(l3n4AddrID *loadbalancer.L3n4AddrID, baseID uint32) error 
 		}
 	}
 
-	return kvstore.Client().GASNewL3n4AddrID(common.ServiceIDKeyPath, baseID, l3n4AddrID)
+	setIDtoL3n4Addr := func(id uint32) error {
+		l3n4AddrID.ID = loadbalancer.ServiceID(id)
+		marshaledL3n4AddrID, err := json.Marshal(l3n4AddrID)
+		if err != nil {
+			return err
+		}
+		keyPath := path.Join(ServiceIDKeyPath, strconv.FormatUint(uint64(l3n4AddrID.ID), 10))
+		if err := client.Set(keyPath, marshaledL3n4AddrID); err != nil {
+			return err
+		}
+
+		return setMaxID(LastFreeServiceIDKeyPath, FirstFreeServiceID, id+1)
+	}
+
+	acquireFreeID := func(firstID uint32, incID *uint32) (bool, error) {
+		keyPath := path.Join(ServiceIDKeyPath, strconv.FormatUint(uint64(*incID), 10))
+
+		locker, err := client.LockPath(keyPath)
+		if err != nil {
+			return false, err
+		}
+		defer locker.Unlock()
+
+		value, err := client.Get(keyPath)
+		if err != nil {
+			return false, err
+		}
+		if value == nil {
+			return false, setIDtoL3n4Addr(*incID)
+		}
+		var kvstoreL3n4AddrID loadbalancer.L3n4AddrID
+		if err := json.Unmarshal(value, &kvstoreL3n4AddrID); err != nil {
+			return false, err
+		}
+		if kvstoreL3n4AddrID.ID == 0 {
+			log.WithField(logfields.Identity, *incID).Info("Recycling Service ID")
+			return false, setIDtoL3n4Addr(*incID)
+		}
+
+		*incID++
+		if *incID > MaxSetOfServiceID {
+			*incID = FirstFreeServiceID
+		}
+		if firstID == *incID {
+			return false, fmt.Errorf("reached maximum set of serviceIDs available")
+		}
+		// Only retry if we have incremented the service ID
+		return true, nil
+	}
+
+	beginning := baseID
+	for {
+		retry, err := acquireFreeID(beginning, &baseID)
+		if err != nil {
+			return err
+		} else if !retry {
+			return nil
+		}
+	}
 }
 
 // acquireGlobalID stores the given service in the kvstore and returns the L3n4AddrID
@@ -64,7 +217,7 @@ func acquireGlobalID(l3n4Addr loadbalancer.L3n4Addr, baseID uint32) (*loadbalanc
 	defer lockKey.Unlock()
 
 	// After lock complete, get svc's path
-	rmsg, err := kvstore.Client().GetValue(svcPath)
+	rmsg, err := kvstore.Client().Get(svcPath)
 	if err != nil {
 		return nil, err
 	}
@@ -80,14 +233,21 @@ func acquireGlobalID(l3n4Addr loadbalancer.L3n4Addr, baseID uint32) (*loadbalanc
 		if err := gasNewL3n4AddrID(&sl4KV, baseID); err != nil {
 			return nil, err
 		}
-		err = kvstore.Client().SetValue(svcPath, sl4KV)
+		marshaledSl4Kv, err := json.Marshal(sl4KV)
+		if err != nil {
+			return nil, err
+		}
+		err = kvstore.Client().Set(svcPath, marshaledSl4Kv)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &sl4KV, err
 }
 
 func getL3n4AddrID(keyPath string) (*loadbalancer.L3n4AddrID, error) {
-	rmsg, err := kvstore.Client().GetValue(keyPath)
+	rmsg, err := kvstore.Client().Get(keyPath)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +268,7 @@ func getGlobalID(id uint32) (*loadbalancer.L3n4AddrID, error) {
 	strID := strconv.FormatUint(uint64(id), 10)
 	log.WithField(logfields.L3n4AddrID, strID).Debug("getting L3n4AddrID for ID")
 
-	return getL3n4AddrID(path.Join(common.ServiceIDKeyPath, strID))
+	return getL3n4AddrID(path.Join(ServiceIDKeyPath, strID))
 }
 
 // deleteGlobalID deletes the L3n4AddrID belonging to the given id from the kvstore.
@@ -140,7 +300,7 @@ func deleteL3n4AddrIDBySHA256(sha256Sum string) error {
 	defer lockKey.Unlock()
 
 	// After lock complete, get label's path
-	rmsg, err := kvstore.Client().GetValue(svcPath)
+	rmsg, err := kvstore.Client().Get(svcPath)
 	if err != nil {
 		return err
 	}
@@ -159,13 +319,17 @@ func deleteL3n4AddrIDBySHA256(sha256Sum string) error {
 	if err := updateL3n4AddrIDRef(oldL3n4ID, l3n4AddrID); err != nil {
 		return err
 	}
-	return kvstore.Client().SetValue(svcPath, l3n4AddrID)
+	marshaledL3n4AddrID, err := json.Marshal(l3n4AddrID)
+	if err != nil {
+		return err
+	}
+	return kvstore.Client().Set(svcPath, marshaledL3n4AddrID)
 }
 
 func getGlobalMaxServiceID() (uint32, error) {
-	return kvstore.Client().GetMaxID(common.LastFreeServiceIDKeyPath, common.FirstFreeServiceID)
+	return getMaxID(LastFreeServiceIDKeyPath, FirstFreeServiceID)
 }
 
 func setGlobalIDSpace(next, max uint32) error {
-	return kvstore.Client().SetMaxID(common.LastFreeServiceIDKeyPath, next, max)
+	return setMaxID(LastFreeServiceIDKeyPath, next, max)
 }
