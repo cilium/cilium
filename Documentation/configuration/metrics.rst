@@ -118,6 +118,11 @@ Kubernetes
 * ``kubernetes_events_total``: Number of Kubernetes events received labeled by
   scope, action and the execution result
 
+IPAM
+------
+
+* ``ipam_events_total``: Number of IPAM events received labeled by action and
+  datapath family type
 
 Cilium as a Kubernetes pod
 ==========================
