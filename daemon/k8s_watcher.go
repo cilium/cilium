@@ -534,9 +534,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 						return nil
 					}
 				},
-				func(m versioned.Map) versioned.Map {
-					return m
-				},
+				d.missingK8sIngressV1Beta1,
 				&v1beta1.Ingress{},
 				k8s.Client(),
 				reSyncPeriod,
@@ -1345,6 +1343,35 @@ func (d *Daemon) syncLB(newSN, modSN, delSN *loadbalancer.K8sServiceNamespace) e
 	return nil
 }
 
+func supportV1beta1(ing *v1beta1.Ingress) bool {
+	// We only support Single Service Ingress for now which means
+	// ing.Spec.Backend needs to be different than nil.
+	return ing.Spec.Backend != nil
+}
+
+// parsingV1beta1 returns a loadbalancer.K8sServiceInfo from a given
+// v1beta1.Ingress. If the v1beta1.Ingress is not valid, or not supported by
+// Cilium, an error is returned.
+func parsingV1beta1(ing *v1beta1.Ingress, host net.IP) (*loadbalancer.K8sServiceInfo, error) {
+	if !supportV1beta1(ing) {
+		return nil, fmt.Errorf("only Single Service Ingress is supported for now, ignoring Ingress")
+	}
+	ingressPort := ing.Spec.Backend.ServicePort.IntValue()
+	if ingressPort == 0 {
+		return nil, fmt.Errorf("invalid port number")
+	}
+	fePort, err := loadbalancer.NewFEPort(loadbalancer.TCP, uint16(ingressPort))
+	if err != nil {
+		return nil, err
+	}
+
+	ingressSvcInfo := loadbalancer.NewK8sServiceInfo(host, false, nil, nil)
+	portName := loadbalancer.FEPortName(ing.Spec.Backend.ServiceName + "/" + ing.Spec.Backend.ServicePort.String())
+	ingressSvcInfo.Ports[portName] = fePort
+
+	return ingressSvcInfo, nil
+}
+
 func (d *Daemon) addIngressV1beta1(ingress *v1beta1.Ingress) error {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sIngressName: ingress.ObjectMeta.Name,
@@ -1352,9 +1379,16 @@ func (d *Daemon) addIngressV1beta1(ingress *v1beta1.Ingress) error {
 		logfields.K8sNamespace:   ingress.ObjectMeta.Namespace,
 	})
 
-	if ingress.Spec.Backend == nil {
-		// We only support Single Service Ingress for now
-		scopedLog.Warn("Cilium only supports Single Service Ingress for now, ignoring ingress")
+	var host net.IP
+	if option.Config.IPv4Disabled {
+		host = option.Config.HostV6Addr
+	} else {
+		host = option.Config.HostV4Addr
+	}
+
+	k8sSvcInfo, err := parsingV1beta1(ingress, host)
+	if err != nil {
+		scopedLog.WithError(err).Errorf("Unable to add ingress v1beta1")
 		return nil
 	}
 
@@ -1362,21 +1396,6 @@ func (d *Daemon) addIngressV1beta1(ingress *v1beta1.Ingress) error {
 		ServiceName: ingress.Spec.Backend.ServiceName,
 		Namespace:   ingress.ObjectMeta.Namespace,
 	}
-
-	ingressPort := ingress.Spec.Backend.ServicePort.IntValue()
-	fePort, err := loadbalancer.NewFEPort(loadbalancer.TCP, uint16(ingressPort))
-	if err != nil {
-		return err
-	}
-
-	var host net.IP
-	if option.Config.IPv4Disabled {
-		host = option.Config.HostV6Addr
-	} else {
-		host = option.Config.HostV4Addr
-	}
-	ingressSvcInfo := loadbalancer.NewK8sServiceInfo(host, false, nil, nil)
-	ingressSvcInfo.Ports[loadbalancer.FEPortName(ingress.Spec.Backend.ServicePort.StrVal)] = fePort
 
 	syncIngress := func(ingressSvcInfo *loadbalancer.K8sServiceInfo) error {
 		d.loadBalancer.K8sIngress[svcName] = ingressSvcInfo
@@ -1388,7 +1407,7 @@ func (d *Daemon) addIngressV1beta1(ingress *v1beta1.Ingress) error {
 	}
 
 	d.loadBalancer.K8sMU.Lock()
-	err = syncIngress(ingressSvcInfo)
+	err = syncIngress(k8sSvcInfo)
 	d.loadBalancer.K8sMU.Unlock()
 	if err != nil {
 		scopedLog.WithError(err).Error("Error in syncIngress")
@@ -1538,6 +1557,42 @@ func (d *Daemon) deleteIngressV1beta1(ingress *v1beta1.Ingress) error {
 	}
 	delete(d.loadBalancer.K8sIngress, svcName)
 	return nil
+}
+
+func (d *Daemon) missingK8sIngressV1Beta1(m versioned.Map) versioned.Map {
+	missing := versioned.NewMap()
+	var host net.IP
+	if option.Config.IPv4Disabled {
+		host = option.Config.HostV6Addr
+	} else {
+		host = option.Config.HostV4Addr
+	}
+	d.loadBalancer.K8sMU.RLock()
+	for k, v := range m {
+		ing := v.Data.(*v1beta1.Ingress)
+
+		// If we don't support it don't bother checking if it's missing
+		if !supportV1beta1(ing) {
+			continue
+		}
+
+		k8sSvcInfo, err := parsingV1beta1(ing, host)
+		if err != nil {
+			// If there's an error parsing the v1beta1, don't bother checking if it's missing
+			continue
+		}
+
+		svcName := loadbalancer.K8sServiceNamespace{
+			ServiceName: ing.Spec.Backend.ServiceName,
+			Namespace:   ing.ObjectMeta.Namespace,
+		}
+		lbK8sSvcInfo, ok := d.loadBalancer.K8sIngress[svcName]
+		if !ok || !lbK8sSvcInfo.Equals(k8sSvcInfo) {
+			missing.Add(k, v)
+		}
+	}
+	d.loadBalancer.K8sMU.RUnlock()
+	return missing
 }
 
 func (d *Daemon) syncExternalLB(newSN, modSN, delSN *loadbalancer.K8sServiceNamespace) error {

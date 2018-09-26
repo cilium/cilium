@@ -15,6 +15,7 @@
 package main
 
 import (
+	"fmt"
 	"net"
 	"time"
 
@@ -34,8 +35,10 @@ import (
 
 	. "gopkg.in/check.v1"
 	core_v1 "k8s.io/api/core/v1"
+	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 func (ds *DaemonSuite) TestK8sErrorLogTimeout(c *C) {
@@ -1301,6 +1304,321 @@ func (ds *DaemonSuite) Test_missingK8sNamespaceV1(c *C) {
 		args := tt.setupArgs()
 		want := tt.setupWanted()
 		got := ds.d.missingK8sNamespaceV1(args.m)
+		c.Assert(got, DeepEquals, want, Commentf("Test name: %q", tt.name))
+	}
+}
+
+func (ds *DaemonSuite) Test_supportV1beta1(c *C) {
+	type args struct {
+		i *v1beta1.Ingress
+	}
+	tests := []struct {
+		name      string
+		setupArgs func() args
+		want      bool
+	}{
+		{
+			name: "We only support Single Service Ingress, which means Spec.Backend is not nil",
+			setupArgs: func() args {
+				return args{
+					i: &v1beta1.Ingress{
+						Spec: v1beta1.IngressSpec{
+							Backend: &v1beta1.IngressBackend{
+								ServiceName: "svc1",
+							},
+						},
+					},
+				}
+			},
+			want: true,
+		},
+		{
+			name: "We don't support any other ingress type",
+			setupArgs: func() args {
+				return args{
+					i: &v1beta1.Ingress{
+						Spec: v1beta1.IngressSpec{
+							Rules: []v1beta1.IngressRule{
+								{
+									Host: "hostless",
+								},
+							},
+						},
+					},
+				}
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		args := tt.setupArgs()
+		want := tt.want
+		got := supportV1beta1(args.i)
+		c.Assert(got, DeepEquals, want, Commentf("Test name: %q", tt.name))
+	}
+}
+
+func (ds *DaemonSuite) Test_parsingV1beta1(c *C) {
+	type args struct {
+		i    *v1beta1.Ingress
+		host net.IP
+	}
+	tests := []struct {
+		name        string
+		setupArgs   func() args
+		setupWanted func() (*loadbalancer.K8sServiceInfo, error)
+	}{
+		{
+			name: "Parse a normal Single Service Ingress with no ports",
+			setupArgs: func() args {
+				return args{
+					i: &v1beta1.Ingress{
+						Spec: v1beta1.IngressSpec{
+							Backend: &v1beta1.IngressBackend{
+								ServiceName: "svc1",
+							},
+						},
+					},
+					host: net.ParseIP("172.0.0.1"),
+				}
+			},
+			setupWanted: func() (*loadbalancer.K8sServiceInfo, error) {
+				return nil, fmt.Errorf("invalid port number")
+			},
+		},
+		{
+			name: "Parse a normal Single Service Ingress with ports",
+			setupArgs: func() args {
+				return args{
+					i: &v1beta1.Ingress{
+						Spec: v1beta1.IngressSpec{
+							Backend: &v1beta1.IngressBackend{
+								ServiceName: "svc1",
+								ServicePort: intstr.IntOrString{
+									IntVal: 8080,
+									StrVal: "foo",
+									Type:   intstr.Int,
+								},
+							},
+						},
+					},
+					host: net.ParseIP("172.0.0.1"),
+				}
+			},
+			setupWanted: func() (*loadbalancer.K8sServiceInfo, error) {
+				ingSvcInfo := &loadbalancer.K8sServiceInfo{
+					FEIP: net.ParseIP("172.0.0.1"),
+					Ports: map[loadbalancer.FEPortName]*loadbalancer.FEPort{
+						loadbalancer.FEPortName("svc1/8080"): {
+							L4Addr: &loadbalancer.L4Addr{
+								Protocol: loadbalancer.TCP,
+								Port:     8080,
+							},
+						},
+					},
+				}
+
+				return ingSvcInfo, nil
+			},
+		},
+	}
+	for _, tt := range tests {
+		args := tt.setupArgs()
+		wantK8sSvcInfo, wantError := tt.setupWanted()
+		gotK8sSvcInfo, gotError := parsingV1beta1(args.i, args.host)
+		c.Assert(gotError, DeepEquals, wantError, Commentf("Test name: %q", tt.name))
+		c.Assert(gotK8sSvcInfo, DeepEquals, wantK8sSvcInfo, Commentf("Test name: %q", tt.name))
+	}
+}
+
+func (ds *DaemonSuite) Test_missingK8sIngressV1Beta1(c *C) {
+	hostV4AddrBackUP := option.Config.HostV4Addr
+	defer func() {
+		option.Config.HostV4Addr = hostV4AddrBackUP
+	}()
+	option.Config.HostV4Addr = net.ParseIP("172.0.0.1")
+	type args struct {
+		m  versioned.Map
+		lb *loadbalancer.LoadBalancer
+	}
+	tests := []struct {
+		name        string
+		setupArgs   func() args
+		setupWanted func() versioned.Map
+	}{
+		{
+			name: "both equal",
+			setupArgs: func() args {
+				lb := loadbalancer.NewLoadBalancer()
+				return args{
+					lb: lb,
+					m:  versioned.NewMap(),
+				}
+			},
+			setupWanted: func() versioned.Map {
+				return versioned.NewMap()
+			},
+		},
+		{
+			name: "loadbalancer is missing an ingress",
+			setupArgs: func() args {
+				lb := loadbalancer.NewLoadBalancer()
+
+				m := versioned.NewMap()
+				m.Add("", versioned.Object{
+					Data: &v1beta1.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+						Spec: v1beta1.IngressSpec{
+							Backend: &v1beta1.IngressBackend{
+								ServiceName: "foo",
+								ServicePort: intstr.FromInt(10),
+							},
+						},
+					},
+				})
+
+				return args{
+					m:  m,
+					lb: lb,
+				}
+			},
+			setupWanted: func() versioned.Map {
+				m := versioned.NewMap()
+				m.Add("", versioned.Object{
+					Data: &v1beta1.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+						Spec: v1beta1.IngressSpec{
+							Backend: &v1beta1.IngressBackend{
+								ServiceName: "foo",
+								ServicePort: intstr.FromInt(10),
+							},
+						},
+					},
+				})
+				return m
+			},
+		},
+		{
+			name: "loadbalancer contains all ingresses",
+			setupArgs: func() args {
+				lb := loadbalancer.NewLoadBalancer()
+				svcNS := loadbalancer.K8sServiceNamespace{
+					ServiceName: "foo",
+					Namespace:   "bar",
+				}
+				lb.K8sMU.Lock()
+				lb.K8sIngress[svcNS] = &loadbalancer.K8sServiceInfo{
+					FEIP: option.Config.HostV4Addr,
+					Ports: map[loadbalancer.FEPortName]*loadbalancer.FEPort{
+						loadbalancer.FEPortName("foo/10"): {
+							L4Addr: &loadbalancer.L4Addr{
+								Protocol: loadbalancer.TCP,
+								Port:     10,
+							},
+						},
+					},
+				}
+				lb.K8sMU.Unlock()
+
+				m := versioned.NewMap()
+				m.Add("", versioned.Object{
+					Data: &v1beta1.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+						Spec: v1beta1.IngressSpec{
+							Backend: &v1beta1.IngressBackend{
+								ServiceName: "foo",
+								ServicePort: intstr.FromInt(10),
+							},
+						},
+					},
+				})
+
+				return args{
+					m:  m,
+					lb: lb,
+				}
+			},
+			setupWanted: func() versioned.Map {
+				return versioned.NewMap()
+			},
+		},
+		{
+			name: "loadbalancer contains an ingress but it's different than the one that is missing",
+			setupArgs: func() args {
+				lb := loadbalancer.NewLoadBalancer()
+				svcNS := loadbalancer.K8sServiceNamespace{
+					ServiceName: "foo",
+					Namespace:   "bar",
+				}
+
+				lb.K8sMU.Lock()
+				lb.K8sIngress[svcNS] = &loadbalancer.K8sServiceInfo{
+					FEIP: option.Config.HostV4Addr,
+					Ports: map[loadbalancer.FEPortName]*loadbalancer.FEPort{
+						loadbalancer.FEPortName("foo/8080"): {
+							L4Addr: &loadbalancer.L4Addr{
+								Protocol: loadbalancer.TCP,
+								Port:     8080,
+							},
+						},
+					},
+				}
+				lb.K8sMU.Unlock()
+
+				m := versioned.NewMap()
+				m.Add("", versioned.Object{
+					Data: &v1beta1.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+						Spec: v1beta1.IngressSpec{
+							Backend: &v1beta1.IngressBackend{
+								ServiceName: "foo",
+								ServicePort: intstr.FromInt(10),
+							},
+						},
+					},
+				})
+				return args{
+					m:  m,
+					lb: lb,
+				}
+			},
+			setupWanted: func() versioned.Map {
+				m := versioned.NewMap()
+				m.Add("", versioned.Object{
+					Data: &v1beta1.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+						Spec: v1beta1.IngressSpec{
+							Backend: &v1beta1.IngressBackend{
+								ServiceName: "foo",
+								ServicePort: intstr.FromInt(10),
+							},
+						},
+					},
+				})
+				return m
+			},
+		},
+	}
+	for _, tt := range tests {
+		args := tt.setupArgs()
+		want := tt.setupWanted()
+		ds.d.loadBalancer = args.lb
+		got := ds.d.missingK8sIngressV1Beta1(args.m)
 		c.Assert(got, DeepEquals, want, Commentf("Test name: %q", tt.name))
 	}
 }
