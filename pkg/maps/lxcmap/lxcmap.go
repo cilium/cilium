@@ -218,7 +218,7 @@ func DumpToMap() (map[string]*EndpointInfo, error) {
 	callback := func(key bpf.MapKey, value bpf.MapValue) {
 		if info, ok := value.(*EndpointInfo); ok {
 			if endpointKey, ok := key.(*EndpointKey); ok {
-				m[endpointKey.IP.String()] = info
+				m[endpointKey.ToIP().String()] = info
 			}
 		}
 	}
