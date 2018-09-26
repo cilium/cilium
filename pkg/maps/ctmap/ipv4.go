@@ -88,6 +88,10 @@ func (k CtKey4) Dump(buffer *bytes.Buffer) bool {
 		buffer.WriteString("related ")
 	}
 
+	if k.Flags&TUPLE_F_SERVICE != 0 {
+		buffer.WriteString("service ")
+	}
+
 	return true
 }
 
@@ -125,6 +129,10 @@ func (k CtKey4Global) Dump(buffer *bytes.Buffer) bool {
 
 	if k.Flags&TUPLE_F_RELATED != 0 {
 		buffer.WriteString("related ")
+	}
+
+	if k.Flags&TUPLE_F_SERVICE != 0 {
+		buffer.WriteString("service ")
 	}
 
 	return true
