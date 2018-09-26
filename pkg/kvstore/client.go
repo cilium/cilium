@@ -14,9 +14,7 @@
 
 package kvstore
 
-import (
-	"fmt"
-)
+import "fmt"
 
 var (
 	// defaultClient is the default client initialized by initClient

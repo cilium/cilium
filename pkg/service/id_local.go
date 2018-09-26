@@ -17,7 +17,6 @@ package service
 import (
 	"fmt"
 
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 )
@@ -33,10 +32,10 @@ var (
 	services = map[string]uint32{}
 
 	// nextID is the next service ID to attempt to allocate
-	nextID = common.FirstFreeServiceID
+	nextID = FirstFreeServiceID
 
 	// maxID is the maximum service ID available for allocation
-	maxID = common.MaxSetOfServiceID
+	maxID = MaxSetOfServiceID
 )
 
 func newServiceID(svc loadbalancer.L3n4Addr, id uint32) *loadbalancer.L3n4AddrID {
@@ -76,7 +75,7 @@ func acquireLocalID(svc loadbalancer.L3n4Addr, desiredID uint32) (*loadbalancer.
 		if nextID == startingID && rollover {
 			break
 		} else if nextID == maxID {
-			nextID = common.FirstFreeServiceID
+			nextID = FirstFreeServiceID
 			rollover = true
 		}
 
@@ -134,7 +133,7 @@ func resetLocalID() {
 	mutex.Lock()
 	servicesID = map[uint32]*loadbalancer.L3n4AddrID{}
 	services = map[string]uint32{}
-	nextID = common.FirstFreeServiceID
-	maxID = common.MaxSetOfServiceID
+	nextID = FirstFreeServiceID
+	maxID = MaxSetOfServiceID
 	mutex.Unlock()
 }
