@@ -564,6 +564,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 			e.getLogger().WithError(err).
 				WithField(logfields.BPFCompilationTime, stats.bpfCompilation.Total().String()).
 				Info("Recompiled endpoint BPF program")
+			compilationExecuted = true
 		} else {
 			err = loader.ReloadDatapath(ctx, epInfoCache)
 			e.getLogger().WithError(err).Info("Reloaded endpoint BPF program")
@@ -574,7 +575,6 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 		if err != nil {
 			return epInfoCache.revision, compilationExecuted, err
 		}
-		compilationExecuted = true
 		e.bpfHeaderfileHash = bpfHeaderfilesHash
 	} else {
 		e.getLogger().WithField(logfields.BPFHeaderfileHash, bpfHeaderfilesHash).
