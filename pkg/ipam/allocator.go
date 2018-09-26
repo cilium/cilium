@@ -20,9 +20,17 @@ import (
 	"math/big"
 	"net"
 
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 
 	k8sAPI "k8s.io/kubernetes/pkg/apis/core"
+)
+
+const (
+	metricAllocate = "allocate"
+	metricRelease  = "release"
+	familyIPv4     = "ipv4"
+	familyIPv6     = "ipv6"
 )
 
 // Error definitions
@@ -38,7 +46,7 @@ var (
 func AllocateIP(ip net.IP) error {
 	ipamConf.allocatorMutex.Lock()
 	defer ipamConf.allocatorMutex.Unlock()
-
+	family := familyIPv4
 	if ip.To4() != nil {
 		if ipamConf.IPv4Allocator == nil {
 			return ErrIPv4Disabled
@@ -48,6 +56,7 @@ func AllocateIP(ip net.IP) error {
 			return err
 		}
 	} else {
+		family = familyIPv6
 		if ipamConf.IPv6Allocator == nil {
 			return ErrIPv6Disabled
 		}
@@ -57,6 +66,7 @@ func AllocateIP(ip net.IP) error {
 		}
 	}
 
+	metrics.IpamEvent.WithLabelValues(metricAllocate, family).Inc()
 	return nil
 }
 
@@ -84,6 +94,7 @@ func AllocateNext(family string) (net.IP, net.IP, error) {
 		}
 
 		ipv6 = ipConf
+		metrics.IpamEvent.WithLabelValues(metricAllocate, familyIPv6).Inc()
 	}
 
 	if (family == "ipv4" || family == "") && ipamConf.IPv4Allocator != nil {
@@ -93,6 +104,7 @@ func AllocateNext(family string) (net.IP, net.IP, error) {
 		}
 
 		ipv4 = ipConf
+		metrics.IpamEvent.WithLabelValues(metricAllocate, familyIPv4).Inc()
 	}
 
 	return ipv4, ipv6, nil
@@ -102,7 +114,7 @@ func AllocateNext(family string) (net.IP, net.IP, error) {
 func ReleaseIP(ip net.IP) error {
 	ipamConf.allocatorMutex.Lock()
 	defer ipamConf.allocatorMutex.Unlock()
-
+	family := familyIPv4
 	if ip.To4() != nil {
 		if ipamConf.IPv4Allocator == nil {
 			return ErrIPv4Disabled
@@ -112,6 +124,7 @@ func ReleaseIP(ip net.IP) error {
 			return err
 		}
 	} else {
+		family = familyIPv6
 		if ipamConf.IPv6Allocator == nil {
 			return ErrIPv6Disabled
 		}
@@ -120,7 +133,7 @@ func ReleaseIP(ip net.IP) error {
 			return err
 		}
 	}
-
+	metrics.IpamEvent.WithLabelValues(metricRelease, family).Inc()
 	return nil
 }
 
