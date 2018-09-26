@@ -57,10 +57,13 @@ Deploy kube-dns and make sure it contains the required label
 Ensure your DNS service is running and contains the label `io.cilium.fixed-identity=kube-dns` using the following command.
 
 # if using kube-dns
+```
 kubectl patch -n kube-system deployment/kube-dns --type merge -p '{"spec":{"template":{"metadata":{"labels":{"io.cilium.fixed-identity":"kube-dns"}}}}}'
-
+```
 # if using coredns
+```
 kubectl patch -n kube-system deployment/coredns --type merge -p '{"spec":{"template":{"metadata":{"labels":{"io.cilium.fixed-identity":"kube-dns"}}}}}'
+```
 
 Deploy Kubernetes descriptors for etcd operator as well Cilium
 --------------------------------------------------------------
