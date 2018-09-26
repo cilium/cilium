@@ -1032,7 +1032,9 @@ func (d *Daemon) syncLXCMap() error {
 	for hostIP, info := range existingEndpoints {
 		if ip := net.ParseIP(hostIP); info.IsHost() && ip != nil {
 			if err := lxcmap.DeleteEntry(ip); err != nil {
-				log.WithError(err).Warn("Unable to delete obsolete host IP from BPF map")
+				log.WithError(err).WithFields(logrus.Fields{
+					logfields.IPAddr: hostIP,
+				}).Warn("Unable to delete obsolete host IP from BPF map")
 			} else {
 				log.Debugf("Removed outdated host ip %s from endpoint map", hostIP)
 			}
