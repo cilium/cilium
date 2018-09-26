@@ -326,6 +326,15 @@ func (n *EndpointSelector) ConvertToLabelSelectorRequirementSlice() []metav1.Lab
 	return requirements
 }
 
+// Sanitize returns an error if the EndpointSelector's LabelSelector is invalid.
+func (n *EndpointSelector) Sanitize() error {
+
+	// Unfortunately, the validation inside of LabelSelector is not publicly
+	// exported, so we have to convert it to a selector to validate it.
+	_, err := metav1.LabelSelectorAsSelector(n.LabelSelector)
+	return err
+}
+
 // EndpointSelectorSlice is a slice of EndpointSelectors that can be sorted.
 type EndpointSelectorSlice []EndpointSelector
 
