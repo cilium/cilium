@@ -20,18 +20,10 @@ const (
 	// OperationalPath is the base path to store the operational details in the kvstore.
 	OperationalPath = "cilium-net/operational"
 
-	// LastFreeServiceIDKeyPath is the path where the Last free UUID is stored in the kvstore.
-	LastFreeServiceIDKeyPath = OperationalPath + "/ServicesV2/LastUUID"
 	// ServicesKeyPath is the base path where services are stored in the kvstore.
 	ServicesKeyPath = OperationalPath + "/ServicesV2/SHA256SUMServices"
-	// ServiceIDKeyPath is the base path where the IDs are stored in the kvstore.
-	ServiceIDKeyPath = OperationalPath + "/ServicesV2/IDs"
 	// ServicePathV1 is the base path for the services stored in the kvstore.
 	ServicePathV1 = OperationalPath + "/Services/"
-	// MaxSetOfServiceID is maximum number of set of service IDs that can be stored in the kvstore.
-	MaxSetOfServiceID = uint32(0xFFFF)
-	// FirstFreeServiceID is the first ID for which the services should be assigned.
-	FirstFreeServiceID = uint32(1)
 
 	// Miscellaneous dedicated constants
 

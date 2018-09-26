@@ -15,9 +15,9 @@
 package service
 
 import (
+	"encoding/json"
 	"net"
 
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -49,9 +49,9 @@ func (ds *ServiceTestSuite) TestServices(c *C) {
 	// Set up last free ID with zero
 	id, err := getMaxServiceID()
 	c.Assert(err, Equals, nil)
-	c.Assert(id, Equals, common.FirstFreeServiceID)
+	c.Assert(id, Equals, FirstFreeServiceID)
 
-	ffsIDu16 := loadbalancer.ServiceID(uint16(common.FirstFreeServiceID))
+	ffsIDu16 := loadbalancer.ServiceID(uint16(FirstFreeServiceID))
 
 	l3n4AddrID, err := AcquireID(l3n4Addr1, 0)
 	c.Assert(err, Equals, nil)
@@ -71,45 +71,45 @@ func (ds *ServiceTestSuite) TestServices(c *C) {
 	c.Assert(err, Equals, nil)
 	c.Assert(l3n4AddrID.ID, Equals, ffsIDu16+1)
 
-	gotL3n4AddrID, err := GetID(common.FirstFreeServiceID)
+	gotL3n4AddrID, err := GetID(FirstFreeServiceID)
 	c.Assert(err, Equals, nil)
 	wantL3n4AddrID.ID = ffsIDu16
 	wantL3n4AddrID.L3n4Addr = l3n4Addr1
 	c.Assert(gotL3n4AddrID, checker.DeepEquals, wantL3n4AddrID)
 
-	err = DeleteID(common.FirstFreeServiceID)
+	err = DeleteID(FirstFreeServiceID)
 	c.Assert(err, Equals, nil)
-	gotL3n4AddrID, err = GetID(common.FirstFreeServiceID)
+	gotL3n4AddrID, err = GetID(FirstFreeServiceID)
 	c.Assert(err, Equals, nil)
 	c.Assert(gotL3n4AddrID, Equals, nilL3n4AddrID)
 
-	gotL3n4AddrID, err = GetID(common.FirstFreeServiceID + 1)
+	gotL3n4AddrID, err = GetID(FirstFreeServiceID + 1)
 	c.Assert(err, Equals, nil)
-	wantL3n4AddrID.ID = loadbalancer.ServiceID(common.FirstFreeServiceID + 1)
+	wantL3n4AddrID.ID = loadbalancer.ServiceID(FirstFreeServiceID + 1)
 	wantL3n4AddrID.L3n4Addr = l3n4Addr2
 	c.Assert(gotL3n4AddrID, checker.DeepEquals, wantL3n4AddrID)
 
-	err = DeleteID(common.FirstFreeServiceID)
+	err = DeleteID(FirstFreeServiceID)
 	c.Assert(err, Equals, nil)
 
-	err = setIDSpace(common.FirstFreeServiceID, common.FirstFreeServiceID)
+	err = setIDSpace(FirstFreeServiceID, FirstFreeServiceID)
 	c.Assert(err, Equals, nil)
 
-	err = DeleteID(common.FirstFreeServiceID)
+	err = DeleteID(FirstFreeServiceID)
 	c.Assert(err, Equals, nil)
-	gotL3n4AddrID, err = GetID(common.FirstFreeServiceID)
+	gotL3n4AddrID, err = GetID(FirstFreeServiceID)
 	c.Assert(err, Equals, nil)
 	c.Assert(gotL3n4AddrID, Equals, nilL3n4AddrID)
 
 	gotL3n4AddrID, err = AcquireID(l3n4Addr2, 0)
 	c.Assert(err, Equals, nil)
-	c.Assert(gotL3n4AddrID.ID, Equals, loadbalancer.ServiceID(common.FirstFreeServiceID+1))
+	c.Assert(gotL3n4AddrID.ID, Equals, loadbalancer.ServiceID(FirstFreeServiceID+1))
 
 	err = DeleteID(uint32(gotL3n4AddrID.ID))
 	c.Assert(err, Equals, nil)
-	err = DeleteID(common.FirstFreeServiceID + 1)
+	err = DeleteID(FirstFreeServiceID + 1)
 	c.Assert(err, Equals, nil)
-	err = DeleteID(common.FirstFreeServiceID + 1)
+	err = DeleteID(FirstFreeServiceID + 1)
 	c.Assert(err, Equals, nil)
 
 	gotL3n4AddrID, err = AcquireID(l3n4Addr2, 0)
@@ -118,13 +118,13 @@ func (ds *ServiceTestSuite) TestServices(c *C) {
 
 	gotL3n4AddrID, err = AcquireID(l3n4Addr1, 0)
 	c.Assert(err, Equals, nil)
-	c.Assert(gotL3n4AddrID.ID, Equals, loadbalancer.ServiceID(common.FirstFreeServiceID+1))
+	c.Assert(gotL3n4AddrID.ID, Equals, loadbalancer.ServiceID(FirstFreeServiceID+1))
 
 	gotL3n4AddrID, err = AcquireID(l3n4Addr1, 99)
 	c.Assert(err, Equals, nil)
-	c.Assert(gotL3n4AddrID.ID, Equals, loadbalancer.ServiceID(common.FirstFreeServiceID+1))
+	c.Assert(gotL3n4AddrID.ID, Equals, loadbalancer.ServiceID(FirstFreeServiceID+1))
 
-	err = DeleteID(uint32(common.FirstFreeServiceID + 1))
+	err = DeleteID(uint32(FirstFreeServiceID + 1))
 	c.Assert(err, Equals, nil)
 
 	gotL3n4AddrID, err = AcquireID(l3n4Addr1, 99)
@@ -133,19 +133,21 @@ func (ds *ServiceTestSuite) TestServices(c *C) {
 }
 
 func (ds *ServiceTestSuite) TestGetMaxServiceID(c *C) {
-	lastID := uint32(common.MaxSetOfServiceID - 1)
+	lastID := uint32(MaxSetOfServiceID - 1)
 
+	marshaledID, err := json.Marshal(lastID)
+	c.Assert(err, IsNil)
 	if enableGlobalServiceIDs {
-		err := kvstore.Client().SetValue(common.LastFreeServiceIDKeyPath, lastID)
+		err := kvstore.Client().Set(LastFreeServiceIDKeyPath, marshaledID)
 		c.Assert(err, IsNil)
 	} else {
-		err := setIDSpace(lastID, common.MaxSetOfServiceID)
+		err := setIDSpace(lastID, MaxSetOfServiceID)
 		c.Assert(err, IsNil)
 	}
 
 	id, err := getMaxServiceID()
 	c.Assert(err, Equals, nil)
-	c.Assert(id, Equals, (common.MaxSetOfServiceID - 1))
+	c.Assert(id, Equals, (MaxSetOfServiceID - 1))
 }
 
 func (ds *ServiceTestSuite) BenchmarkAllocation(c *C) {

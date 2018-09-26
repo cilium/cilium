@@ -14,12 +14,6 @@
 
 package kvstore
 
-import (
-	"encoding/json"
-
-	"github.com/cilium/cilium/pkg/loadbalancer"
-)
-
 type backendOption struct {
 	// description is the description of the option
 	description string
@@ -90,18 +84,6 @@ func getBackend(name string) backendModule {
 // must implement. Direct use of this interface is possible but will bypass the
 // tracing layer.
 type BackendOperations interface {
-	// BEGIN Obsolete API
-	//
-	// These functions have been obsoleted but are still in use. They will
-	// get obsoleted over the course of the next couple of releases.
-	GetValue(k string) (json.RawMessage, error)          // Use Get() instead
-	SetValue(k string, v interface{}) error              // Use Set() instead
-	InitializeFreeID(path string, firstID uint32) error  // Do not use anymore
-	GetMaxID(key string, firstID uint32) (uint32, error) // Do not use anymore
-	SetMaxID(key string, firstID, maxID uint32) error    // Do not use anymore
-
-	GASNewL3n4AddrID(basePath string, baseID uint32, lAddrID *loadbalancer.L3n4AddrID) error // Do not use anymore
-	// END Obsolete API
 
 	// Status returns the status of he kvstore client including an
 	// eventual error
