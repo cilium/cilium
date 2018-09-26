@@ -416,6 +416,16 @@ var (
 		Name:      "kubernetes_events_total",
 		Help:      "Number of Kubernetes events received labeled by scope, action and execution result",
 	}, []string{LabelScope, LabelAction, LabelStatus})
+
+	// IPAM events
+
+	// IpamEvent is the number of IPAM events received labeled by action and
+	// datapath family type
+	IpamEvent = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Name:      "ipam_events_total",
+		Help:      "Number of IPAM events received labeled by action and datapath family type",
+	}, []string{LabelAction, LabelDatapathFamily})
 )
 
 func init() {
@@ -471,6 +481,8 @@ func init() {
 	MustRegister(SubprocessStart)
 
 	MustRegister(KubernetesEvent)
+
+	MustRegister(IpamEvent)
 }
 
 // MustRegister adds the collector to the registry, exposing this metric to
