@@ -51,14 +51,12 @@ in the Kubernetes cluster, this can be achieved by running:
 tls/deploy-certs.sh
 ```
 
-Deploy kube-dns and make sure it contains the required label
-------------------------------------------------------------
-
-Ensure your DNS service is running and contains the label `io.cilium.fixed-identity=kube-dns` using the following command.
+Restart kube-dns to ensure it is managed by Cilium
+--------------------------------------------------
 
 # if using kube-dns
 ```
-kubectl patch -n kube-system deployment/kube-dns --type merge -p '{"spec":{"template":{"metadata":{"labels":{"io.cilium.fixed-identity":"kube-dns"}}}}}'
+kubectl -n kube-system delete pod -l k8s-app=kube-dns
 ```
 # if using coredns
 ```

@@ -131,6 +131,10 @@ func LookupIdentity(lbls labels.Labels) *Identity {
 // LookupReservedIdentityByLabels looks up a reserved identity by its labels and
 // returns it if found. Returns nil if not found.
 func LookupReservedIdentityByLabels(lbls labels.Labels) *Identity {
+	if identity := wellKnown.lookup(lbls); identity != nil {
+		return identity
+	}
+
 	for _, lbl := range lbls {
 		switch {
 		// If the set of labels contain a fixed identity then and exists in

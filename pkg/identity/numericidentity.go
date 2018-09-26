@@ -16,9 +16,13 @@ package identity
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 
+	"github.com/cilium/cilium/pkg/defaults"
+	api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 const (
@@ -55,7 +59,114 @@ const (
 	// ReservedIdentityInit is the identity given to endpoints that have not
 	// received any labels yet.
 	ReservedIdentityInit
+
+	// --------------------------------------------------------------
+	// Special identities for well-known cluster components
+
+	// ReservedETCDOperator is the reserved identity used for the etcd-operator
+	// managed by Cilium.
+	ReservedETCDOperator NumericIdentity = 100
+
+	// ReservedCiliumKVStore is the reserved identity used for the kvstore
+	// managed by Cilium (etcd-operator).
+	ReservedCiliumKVStore NumericIdentity = 101
+
+	// ReservedKubeDNS is the reserved identity used for kube-dns.
+	ReservedKubeDNS NumericIdentity = 102
+
+	// ReservedEKSKubeDNS is the reserved identity used for kube-dns on EKS
+	ReservedEKSKubeDNS NumericIdentity = 103
 )
+
+type wellKnownIdentities struct {
+	identities map[NumericIdentity]wellKnownIdentity
+}
+
+func newWellKnownIdentities() *wellKnownIdentities {
+	return &wellKnownIdentities{
+		identities: map[NumericIdentity]wellKnownIdentity{},
+	}
+}
+
+// wellKnownIdentitity is an identity for well-known security labels for which
+// a well-known numeric identity is reserved to avoid requiring a cluster wide
+// setup. Examples of this include kube-dns and the etcd-operator.
+type wellKnownIdentity struct {
+	identity   *Identity
+	labelArray labels.LabelArray
+}
+
+func (w *wellKnownIdentities) add(i NumericIdentity, lbls []string) {
+	if option.Config.ClusterName != "" && option.Config.ClusterName != defaults.ClusterName {
+		lbls = append(lbls, fmt.Sprintf("k8s:%s=%s", api.PolicyLabelCluster, option.Config.ClusterName))
+	}
+
+	labelMap := labels.NewLabelsFromModel(lbls)
+	identity := NewIdentity(i, labelMap)
+	w.identities[i] = wellKnownIdentity{
+		identity:   NewIdentity(i, labelMap),
+		labelArray: labelMap.LabelArray(),
+	}
+
+	reservedIdentityCache[i] = identity
+}
+
+func (w *wellKnownIdentities) lookup(lbls labels.Labels) *Identity {
+	for _, i := range w.identities {
+		if lbls.Equals(i.identity.Labels) {
+			return i.identity
+		}
+	}
+
+	return nil
+}
+
+// initWellKnownIdentities establishes all well-known identities
+func initWellKnownIdentities() {
+	// etcd-operator labels
+	//   k8s:io.cilium.k8s.policy.serviceaccount=cilium-etcd-sa
+	//   k8s:io.kubernetes.pod.namespace=kube-system
+	//   k8s:io.cilium/app=etcd-operator
+	wellKnown.add(ReservedETCDOperator, []string{
+		"k8s:io.cilium/app=etcd-operator",
+		fmt.Sprintf("k8s:%s=kube-system", api.PodNamespaceLabel),
+		fmt.Sprintf("k8s:%s=cilium-etcd-sa", api.PolicyLabelServiceAccount),
+	})
+
+	// cilium-etcd labels
+	//   k8s:app=etcd
+	//   k8s:io.cilium/app=etcd-operator
+	//   k8s:etcd_cluster=cilium-etcd
+	//   k8s:io.cilium.k8s.policy.serviceaccount=default
+	//   k8s:io.kubernetes.pod.namespace=kube-system
+	// these 2 labels are ignored by cilium-agent as they can change over time
+	//   container:annotation.etcd.version=3.3.9
+	//   k8s:etcd_node=cilium-etcd-6snk6vsjcm
+	wellKnown.add(ReservedCiliumKVStore, []string{
+		"k8s:app=etcd",
+		"k8s:etcd_cluster=cilium-etcd",
+		"k8s:io.cilium/app=etcd-operator",
+		fmt.Sprintf("k8s:%s=kube-system", api.PodNamespaceLabel),
+		fmt.Sprintf("k8s:%s=default", api.PolicyLabelServiceAccount),
+	})
+
+	// kube-dns labels
+	//   k8s:io.cilium.k8s.policy.serviceaccount=kube-dns
+	//   k8s:io.kubernetes.pod.namespace=kube-system
+	//   k8s:k8s-app=kube-dns
+	wellKnown.add(ReservedKubeDNS, []string{
+		"k8s:k8s-app=kube-dns",
+		fmt.Sprintf("k8s:%s=kube-system", api.PodNamespaceLabel),
+		fmt.Sprintf("k8s:%s=kube-dns", api.PolicyLabelServiceAccount),
+	})
+
+	wellKnown.add(ReservedEKSKubeDNS, []string{
+		"k8s:k8s-app=kube-dns",
+		"k8s:eks.amazonaws.com/component=kube-dns",
+		fmt.Sprintf("k8s:%s=kube-system", api.PodNamespaceLabel),
+		fmt.Sprintf("k8s:%s=default", api.PolicyLabelServiceAccount),
+	})
+}
 
 var (
 	reservedIdentities = map[string]NumericIdentity{
@@ -72,6 +183,8 @@ var (
 		ReservedIdentityCluster: labels.IDNameCluster,
 		ReservedIdentityInit:    labels.IDNameInit,
 	}
+
+	wellKnown = newWellKnownIdentities()
 
 	// ErrNotUserIdentity is an error returned for an identity that is not user
 	// reserved.
