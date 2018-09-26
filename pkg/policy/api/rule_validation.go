@@ -49,6 +49,10 @@ func (r Rule) Sanitize() error {
 		return fmt.Errorf("rule cannot have nil EndpointSelector")
 	}
 
+	if err := r.EndpointSelector.sanitize(); err != nil {
+		return err
+	}
+
 	for i := range r.Ingress {
 		if err := r.Ingress[i].sanitize(); err != nil {
 			return err
@@ -77,6 +81,7 @@ func (i *IngressRule) sanitize() error {
 		"FromCIDRSet":   false,
 		"FromEntities":  true,
 	}
+
 	for m1 := range l3Members {
 		for m2 := range l3Members {
 			if m2 != m1 && l3Members[m1] > 0 && l3Members[m2] > 0 {
@@ -87,6 +92,18 @@ func (i *IngressRule) sanitize() error {
 	for member := range l3Members {
 		if l3Members[member] > 0 && len(i.ToPorts) > 0 && !l3DependentL4Support[member] {
 			return fmt.Errorf("Combining %s and ToPorts is not supported yet", member)
+		}
+	}
+
+	for _, es := range i.FromEndpoints {
+		if err := es.sanitize(); err != nil {
+			return err
+		}
+	}
+
+	for _, es := range i.FromRequires {
+		if err := es.sanitize(); err != nil {
+			return err
 		}
 	}
 
@@ -156,6 +173,18 @@ func (e *EgressRule) sanitize() error {
 	for member := range l3Members {
 		if l3Members[member] > 0 && len(e.ToPorts) > 0 && !l3DependentL4Support[member] {
 			return fmt.Errorf("Combining %s and ToPorts is not supported yet", member)
+		}
+	}
+
+	for _, es := range e.ToEndpoints {
+		if err := es.sanitize(); err != nil {
+			return err
+		}
+	}
+
+	for _, es := range e.ToRequires {
+		if err := es.sanitize(); err != nil {
+			return err
 		}
 	}
 

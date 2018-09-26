@@ -16,6 +16,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/labels"
@@ -23,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/mitchellh/hashstructure"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/validation"
 	k8sLbls "k8s.io/apimachinery/pkg/labels"
 )
 
@@ -324,6 +326,15 @@ func (n *EndpointSelector) ConvertToLabelSelectorRequirementSlice() []metav1.Lab
 		requirements = append(requirements, requirementFromMatchLabels)
 	}
 	return requirements
+}
+
+// sanitize returns an error if the EndpointSelector's LabelSelector is invalid.
+func (n *EndpointSelector) sanitize() error {
+	errList := validation.ValidateLabelSelector(n.LabelSelector, nil)
+	if len(errList) > 0 {
+		return fmt.Errorf("invalid label selector: %s", errList.ToAggregate().Error())
+	}
+	return nil
 }
 
 // EndpointSelectorSlice is a slice of EndpointSelectors that can be sorted.
