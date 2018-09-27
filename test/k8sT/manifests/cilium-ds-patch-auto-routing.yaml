@@ -1,4 +1,6 @@
 ---
+metadata:
+  namespace: kube-system
 spec:
   template:
     spec:
