@@ -977,7 +977,25 @@ func (kub *Kubectl) CiliumEndpointWaitReady() error {
 		}
 		return true
 	}
-	return WithTimeout(body, "cannot retrieve endpoints", &TimeoutConfig{Timeout: HelperTimeout})
+	err = WithTimeout(body, "Endpoints are not ready after timeout", &TimeoutConfig{Timeout: HelperTimeout})
+	if err == nil {
+		return err
+	}
+
+	callback := func() string {
+		var errorMessage string
+		for _, pod := range ciliumPods {
+			var endpoints []models.Endpoint
+			_ = kub.CiliumEndpointsList(pod).Unmarshal(&endpoints)
+			for _, ep := range endpoints {
+				errorMessage += fmt.Sprintf(
+					"\tCilium Pod: %s \tEndpoint: %d \tIdentity: %d\t State: %s\n",
+					pod, ep.ID, ep.Status.Identity.ID, ep.Status.State)
+			}
+		}
+		return errorMessage
+	}
+	return NewSSHMetaError(err.Error(), callback)
 }
 
 // CiliumExec runs cmd in the specified Cilium pod.
