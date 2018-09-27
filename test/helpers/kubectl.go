@@ -800,8 +800,8 @@ func (kub *Kubectl) ciliumInstall(dsPatchName, cmPatchName string, getK8sDescrip
 		}
 
 		res = kub.Exec(fmt.Sprintf(
-			`%s patch --filename='%s' --patch "$(cat '%s')" --local -o yaml | kubectl apply -n %s -f -`,
-			KubectlCmd, original, patch, KubeSystemNamespace))
+			`%s patch --filename='%s' --patch "$(cat '%s')" --local -o yaml | kubectl apply -f -`,
+			KubectlCmd, original, patch))
 		if !res.WasSuccessful() {
 			debugYaml(original, patch)
 			return res.GetErr("Cilium manifest patch instalation failed")
