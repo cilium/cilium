@@ -40,7 +40,7 @@ func (k *BinaryMemcachedTestSuite) TestMemcacheGetKey(c *C) {
 
 	key := getMemcacheKey(packet, 0, 5)
 
-	c.Assert(key, Equals, "Test1")
+	c.Assert(string(key), Equals, "Test1")
 
 	packet = []byte{
 		0x80, 0, 0, 0x5,
@@ -56,7 +56,7 @@ func (k *BinaryMemcachedTestSuite) TestMemcacheGetKey(c *C) {
 
 	key = getMemcacheKey(packet, 4, 5)
 
-	c.Assert(key, Equals, "Test1")
+	c.Assert(string(key), Equals, "Test1")
 
 	packet = []byte{
 		0x80, 0x8, 0, 0x0,
@@ -70,5 +70,5 @@ func (k *BinaryMemcachedTestSuite) TestMemcacheGetKey(c *C) {
 
 	key = getMemcacheKey(packet, 4, 0)
 
-	c.Assert(key, Equals, "")
+	c.Assert(string(key), Equals, "")
 }
