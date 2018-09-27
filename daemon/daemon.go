@@ -31,7 +31,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
-	health "github.com/cilium/cilium/cilium-health/launch"
 	"github.com/cilium/cilium/common"
 	monitorLaunch "github.com/cilium/cilium/monitor/launch"
 	"github.com/cilium/cilium/pkg/api"
@@ -48,6 +47,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/fqdn"
+	healthClientPkg "github.com/cilium/cilium/pkg/health/client"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -123,8 +123,7 @@ type Daemon struct {
 	uniqueIDMU lock.Mutex
 	uniqueID   map[uint64]bool
 
-	nodeMonitor  *monitorLaunch.NodeMonitor
-	ciliumHealth *health.CiliumHealth
+	nodeMonitor *monitorLaunch.NodeMonitor
 
 	// dnsPoller is used to implement ToFQDN rules
 	dnsPoller *fqdn.DNSPoller
@@ -153,6 +152,10 @@ type Daemon struct {
 	// maps, etc. being performed without crucial information in securing said
 	// components. See GH-5038 and GH-4457.
 	k8sResourceSyncWaitGroup sync.WaitGroup
+
+	// healthClient is a client of cilium-health deamon. It's used to get
+	// cilium-health daemon status.
+	healthClient *healthClientPkg.Client
 }
 
 // UpdateProxyRedirect updates the redirect rules in the proxy for a particular

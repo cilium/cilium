@@ -20,7 +20,9 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
+	clientPkg "github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/controller"
+	healthClientPkg "github.com/cilium/cilium/pkg/health/client"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/node"
@@ -83,6 +85,32 @@ func (d *Daemon) getNodeStatus() *models.ClusterStatus {
 		clusterStatus.Nodes = append(clusterStatus.Nodes, node.GetModel(ipv4))
 	}
 	return &clusterStatus
+}
+
+func (d *Daemon) getCiliumHealthStatus() *models.Status {
+	status := &models.Status{
+		State: models.StatusStateOk,
+	}
+
+	// Initialize cilium-health client if needed.
+	// If initialization fails, the client will be still uninitialized and
+	// StatusStateFailure will be returned.
+	if d.healthClient == nil {
+		healthClient, err := healthClientPkg.NewDefaultClient()
+		if err != nil {
+			status.Msg = clientPkg.Hint(err).Error()
+			status.State = models.StatusStateFailure
+			return status
+		}
+		d.healthClient = healthClient
+	}
+
+	if _, err := d.healthClient.Restapi.GetHello(nil); err != nil {
+		status.Msg = clientPkg.Hint(err).Error()
+		status.State = models.StatusStateWarning
+	}
+
+	return status
 }
 
 func (d *Daemon) collectStatus() {
@@ -161,10 +189,7 @@ func (d *Daemon) getStatus() models.StatusResponse {
 	sr.NodeMonitor = d.nodeMonitor.State()
 
 	sr.Cluster = d.getNodeStatus()
-
-	if d.ciliumHealth != nil {
-		sr.Cluster.CiliumHealth = d.ciliumHealth.GetStatus()
-	}
+	sr.Cluster.CiliumHealth = d.getCiliumHealthStatus()
 
 	if d.l7Proxy != nil {
 		sr.Proxy = d.l7Proxy.GetStatusModel()
