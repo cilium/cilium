@@ -269,8 +269,15 @@ func RunAfterEach(cs *scope) {
 	runAllAfterFail(cs, testName)
 	afterFailedStatus[testName] = true
 
+	hasFailed := afterEachFailed[testName] || ginkgo.CurrentGinkgoTestDescription().Failed
 	for _, body := range cs.afterEach {
 		body()
+	}
+	// Run the afterFailed in case that something fails on afterEach
+	if hasFailed != afterEachFailed[testName] {
+		GinkgoPrint("Something has failed on AfterEach, running AfterFailed functions")
+		afterFailedStatus[testName] = false
+		runAllAfterFail(cs, testName)
 	}
 
 	// Only run afterAll when all the counters are 0 and all afterEach are executed
