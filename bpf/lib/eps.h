@@ -35,15 +35,34 @@ lookup_ip6_endpoint(struct ipv6hdr *ip6)
 }
 
 static __always_inline struct endpoint_info *
-lookup_ip4_endpoint(struct iphdr *ip4)
+__lookup_ip4_endpoint(uint32_t ip)
 {
-	struct endpoint_key key = {};
+	struct endpoint_key key= {};
 
-	key.ip4 = ip4->daddr;
+	key.ip4 = ip;
 	key.family = ENDPOINT_KEY_IPV4;
 
 	return map_lookup_elem(&cilium_lxc, &key);
 }
+
+static __always_inline struct endpoint_info *
+lookup_ip4_endpoint(struct iphdr *ip4)
+{
+	return __lookup_ip4_endpoint(ip4->daddr);
+}
+
+#ifdef SOCKMAP
+static __always_inline void *
+lookup_ip4_endpoint_policy_map(uint32_t ip)
+{
+	struct endpoint_key key = {};
+
+	key.ip4 = ip;
+	key.family = ENDPOINT_KEY_IPV4;
+
+	return map_lookup_elem(&cilium_ep_to_policy, &key);
+}
+#endif
 
 /* IPCACHE_STATIC_PREFIX gets sizeof non-IP, non-prefix part of ipcache_key */
 #define IPCACHE_STATIC_PREFIX							\
@@ -79,7 +98,7 @@ ipcache_lookup4(struct bpf_elf_map *map, __be32 addr, __u32 prefix)
 	return map_lookup_elem(map, &key);
 }
 
-#if defined LXC_ID
+#if defined LXC_ID || defined SOCKMAP
 #ifndef HAVE_LPM_MAP_TYPE
 /* Define a function with the following NAME which iterates through PREFIXES
  * (a list of integers ordered from high to low representing prefix length),
@@ -114,5 +133,4 @@ LPM_LOOKUP_FN(lookup_ip4_remote_endpoint, __be32, IPCACHE4_PREFIXES,
 	ipcache_lookup4(&cilium_ipcache, addr, V4_CACHE_KEY_LEN)
 #endif /* HAVE_LPM_MAP_TYPE */
 #endif /* LXC_ID */
-
 #endif /* __LIB_EPS_H_ */
