@@ -31,7 +31,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
-	health "github.com/cilium/cilium/cilium-health/launch"
 	"github.com/cilium/cilium/common"
 	monitorLaunch "github.com/cilium/cilium/monitor/launch"
 	"github.com/cilium/cilium/pkg/api"
@@ -122,8 +121,7 @@ type Daemon struct {
 	uniqueIDMU lock.Mutex
 	uniqueID   map[uint64]bool
 
-	nodeMonitor  *monitorLaunch.NodeMonitor
-	ciliumHealth *health.CiliumHealth
+	nodeMonitor *monitorLaunch.NodeMonitor
 
 	// dnsPoller is used to implement ToFQDN rules
 	dnsPoller *fqdn.DNSPoller

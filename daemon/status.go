@@ -162,10 +162,6 @@ func (d *Daemon) getStatus() models.StatusResponse {
 
 	sr.Cluster = d.getNodeStatus()
 
-	if d.ciliumHealth != nil {
-		sr.Cluster.CiliumHealth = d.ciliumHealth.GetStatus()
-	}
-
 	if d.l7Proxy != nil {
 		sr.Proxy = d.l7Proxy.GetStatusModel()
 	}
