@@ -2,6 +2,51 @@
 NEWS
 ******
 
+1.2.4
+=====
+
+::
+
+  André Martins (6):
+      vendor: update etcd client lib that contains bugfixes
+      pkg/kvstore: use leaseID from etcd session
+      etcd-operator: update etcd-operator cilium-deployment
+      etcd-operator: update cilium-developer descriptor
+      test: move kube-dns pre-flight check to ExpectKubeDNSReady
+      test: ignore headless services in precheck
+
+  Anit Gandhi (3):
+        Documentation: add minimum firewall rules, examples
+        Documentation: minor fixes
+        Documentation: note that firewall rules for health information are optional but recommended
+  
+  Cynthia Thomas (1):
+        Update prereqs to install dependencies
+  
+  Eloy Coto (2):
+        Test: Re-Enable kafka
+        Test: Use AfterSuite to clean the VMs at the end.
+  
+  Joe Stringer (5):
+        bpf: Fix CGO import warning
+        bpf: Fix only monitoring one byte of packets
+        lxcmap: Fix invalid dumping of IPv4 entries
+        daemon: Improve syncLXCMap failure log
+        bpf: Add basic endpointKey.ToIP() test
+  
+  John Fastabend (1):
+        cilium: config fails without MonitorAggregationLevel specified
+  
+  Maciej Kwiek (3):
+        Add service preflight check to tests
+        Check bpf lb map in pre flight check
+        Add kubectl.serviceCache and k8s service check
+  
+  Thomas Graf (3):
+        agent: Don't masquerade ingress traffic to local endpoints
+        agent: Fix temporary corruption of BPF endpoint map on restart
+        bpf: Do not delete and re-add ip rules and routes in the proxy table
+  
 1.2.3
 =====
 

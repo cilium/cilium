@@ -60,7 +60,7 @@ spec:
                   optional: true
                   key: clean-cilium-bpf-state
       containers:
-        - image: docker.io/cilium/cilium:v1.2.3
+        - image: docker.io/cilium/cilium:v1.2.4
           imagePullPolicy: IfNotPresent
           name: cilium-agent
           command: ["cilium-agent"]
