@@ -43,6 +43,60 @@ static inline bool identity_is_reserved(__u32 identity)
 	return identity < UNMANAGED_ID;
 }
 
+#ifdef SOCKMAP
+static inline int __inline__
+policy_sk_egress(__u32 identity, __u32 ip,  __u16 dport)
+{
+	void *map = lookup_ip4_endpoint_policy_map(ip);
+	int dir = CT_EGRESS;
+	__u8 proto = IPPROTO_TCP;
+	struct policy_entry *policy;
+	struct policy_key key = {
+		.sec_label = identity,
+		.dport = dport,
+		.protocol = proto,
+		.egress = !dir,
+		.pad = 0,
+	};
+
+	if (!map)
+		return 0;
+
+	policy = map_lookup_elem(map, &key);
+	if (likely(policy)) {
+		/* FIXME: Need byte counter */
+		__sync_fetch_and_add(&policy->packets, 1);
+		goto get_proxy_port;
+	}
+
+	/* If L4 policy check misses, fall back to L3. */
+	key.dport = 0;
+	key.protocol = 0;
+	policy = map_lookup_elem(map, &key);
+	if (likely(policy)) {
+		/* FIXME: Need byte counter */
+		__sync_fetch_and_add(&policy->packets, 1);
+		return TC_ACT_OK;
+	}
+
+	key.sec_label = 0;
+	key.dport = dport;
+	key.protocol = proto;
+	policy = map_lookup_elem(map, &key);
+	if (likely(policy)) {
+		/* FIXME: Use per cpu counters */
+		__sync_fetch_and_add(&policy->packets, 1);
+		goto get_proxy_port;
+	}
+	return DROP_POLICY;
+get_proxy_port:
+	if (likely(policy)) {
+		return policy->proxy_port;
+	}
+	return TC_ACT_OK;
+}
+#else
+
 static inline int __inline__
 __policy_can_access(void *map, struct __sk_buff *skb, __u32 identity,
 		    __u16 dport, __u8 proto, size_t cidr_addr_size,
@@ -217,6 +271,7 @@ static inline int is_policy_skip(struct __sk_buff *skb)
 	return skb->cb[CB_POLICY];
 }
 
+#endif // SOCKMAP
 #else
 
 
