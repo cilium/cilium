@@ -35,6 +35,10 @@ struct bpf_elf_map {
 	__u32 flags;
 	__u32 id;
 	__u32 pinning;
+#ifdef SOCKMAP
+	__u32 inner_id;
+	__u32 inner_idx;
+#endif
 };
 
 #endif /* __BPF_ELF__ */
