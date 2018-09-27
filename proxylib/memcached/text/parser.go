@@ -14,173 +14,66 @@
 
 // text memcache protocol parser based on https://github.com/memcached/memcached/blob/master/doc/protocol.txt
 
-package textmemcache
+package text
 
 import (
 	"bytes"
-	"fmt"
-	"regexp"
 	"strconv"
 
 	"github.com/cilium/cilium/pkg/envoy/cilium"
+	"github.com/cilium/cilium/proxylib/memcached/meta"
 	"github.com/cilium/cilium/proxylib/proxylib"
 
 	log "github.com/sirupsen/logrus"
 )
 
-// TextMemcacheRule matches against memcached requests
-type TextMemcacheRule struct {
-	// opCode group name
-	command string
+// ParserFactory implements proxylib.ParserFactory
+type ParserFactory struct{}
 
-	keyExact  string
-	keyPrefix string
-	keyRegex  string
-
-	// allowed commands
-	commands memcacheCommandSet
-	// compiled regex
-	keyExactBytes  []byte
-	keyPrefixBytes []byte
-	regex          *regexp.Regexp
-}
-
-type textMemcacheMeta struct {
-	command []byte
-	keys    [][]byte
-}
-
-// Matches returns true if the TextMemcacheRule matches
-func (rule *TextMemcacheRule) Matches(data interface{}) bool {
-	log.Infof("textmemcache checking rule %v", *rule)
-
-	packetMeta := data.(textMemcacheMeta)
-
-	if !rule.matchCommand(string(packetMeta.command)) {
-		return false
-	}
-
-	if rule.keyExact != "" {
-		for _, key := range packetMeta.keys {
-			if !bytes.Equal(rule.keyExactBytes, key) {
-				return false
-			}
-		}
-		return true
-	}
-
-	if rule.keyPrefix != "" {
-		for _, key := range packetMeta.keys {
-			if !bytes.HasPrefix(key, rule.keyPrefixBytes) {
-				return false
-			}
-		}
-		return true
-	}
-
-	if rule.keyRegex != "" {
-		for _, key := range packetMeta.keys {
-			if !rule.regex.Match(key) {
-				return false
-			}
-		}
-		return true
-	}
-
-	log.Infof("No key rule specified, matching by opcode")
-	return true
-}
-
-func (rule *TextMemcacheRule) matchCommand(cmd string) bool {
-	_, ok := rule.commands[cmd]
-	return ok
-}
-
-// L7TextMemcacheRuleParser parses protobuf L7 rules to and array of TextMemcacheRule
-// May panic
-func L7TextMemcacheRuleParser(rule *cilium.PortNetworkPolicyRule) []proxylib.L7NetworkPolicyRule {
-	l7Rules := rule.GetL7Rules()
-	if l7Rules == nil {
-		proxylib.ParseError("Can't get L7 rules", rule)
-	}
-	var rules []proxylib.L7NetworkPolicyRule
-	for _, l7Rule := range l7Rules.GetL7Rules() {
-		var br TextMemcacheRule
-		for k, v := range l7Rule.Rule {
-			switch k {
-			case "command":
-				br.command = v
-				br.commands = MemcacheOpCodeMap[v]
-			case "keyExact":
-				br.keyExact = v
-				br.keyExactBytes = []byte(v)
-			case "keyPrefix":
-				br.keyPrefix = v
-				br.keyPrefixBytes = []byte(v)
-			case "keyRegex":
-				br.keyRegex = v
-				br.regex = regexp.MustCompile(v)
-			default:
-				proxylib.ParseError(fmt.Sprintf("Unsupported key: %s", k), rule)
-			}
-		}
-		if br.command == "" {
-			proxylib.ParseError("command not specified", rule)
-		}
-		log.Infof("Parsed TextMemcacheRule pair: %v", br)
-		rules = append(rules, &br)
-	}
-	return rules
-}
-
-// TextMemcacheParserFactory implements proxylib.ParserFactory
-type TextMemcacheParserFactory struct{}
-
-// Create creates binary memcached parser
-func (p *TextMemcacheParserFactory) Create(connection *proxylib.Connection) proxylib.Parser {
-	log.Infof("TextMemcacheParserFactory: Create: %v", connection)
-	return &TextMemcacheParser{connection: connection, replyQueue: make([]*replyIntent, 0)}
+// Create creates memcached parser
+func (p *ParserFactory) Create(connection *proxylib.Connection) proxylib.Parser {
+	log.Infof("ParserFactory: Create: %v", connection)
+	return &Parser{connection: connection, replyQueue: make([]*replyIntent, 0)}
 }
 
 // compile time check for interface implementation
-var _ proxylib.ParserFactory = &TextMemcacheParserFactory{}
+var _ proxylib.ParserFactory = &ParserFactory{}
 
-var textMemcacheParserFactory *TextMemcacheParserFactory
+// ParserFactoryInstance creates text parser for unified memcached parser
+var ParserFactoryInstance *ParserFactory
 
-const (
-	parserName = "textmemcache"
-)
-
-func init() {
-	log.Info("init(): Registering textMemcacheParserFactory")
-	proxylib.RegisterParserFactory(parserName, textMemcacheParserFactory)
-	proxylib.RegisterL7RuleParser(parserName, L7TextMemcacheRuleParser)
-}
-
-// TextMemcacheParser implements proxylib.Parser
-type TextMemcacheParser struct {
+// Parser implements proxylib.Parser
+type Parser struct {
 	connection *proxylib.Connection
 
-	requestCount uint32
-	replyCount   uint32
-	replyQueue   []*replyIntent
+	replyQueue []*replyIntent
+
+	//set to true when watch command is observed
+	watching bool
 }
 
 type replyIntent struct {
-	command   []byte
-	requestID uint32
-	denied    bool
+	command []byte
+	denied  bool
 }
 
-var _ proxylib.Parser = &TextMemcacheParser{}
+var _ proxylib.Parser = &Parser{}
 
-// OnData parses binary memcached data
-func (p *TextMemcacheParser) OnData(reply, endStream bool, dataBuffers [][]byte, offset int) (proxylib.OpType, int) {
-	log.Infof("OnData with offset %d", offset)
+// consts indicating number of tokens in memcache command that indicates noreply command
+const (
+	casWithNoreplyFields     = 7
+	storageWithNoreplyFields = 6
+	deleteWithNoreplyFields  = 3
+	incrWithNoreplyFields    = 4
+	touchWithNoreplyFields   = 4
+)
 
+// OnData parses text memcached data
+func (p *Parser) OnData(reply, endStream bool, dataBuffers [][]byte) (proxylib.OpType, int) {
 	if reply {
-		if p.injectFromQueue() {
-			return proxylib.INJECT, len(DeniedMsg)
+		injected := p.injectFromQueue()
+		if injected > 0 {
+			return proxylib.INJECT, injected
 		}
 		if len(dataBuffers) == 0 {
 			return proxylib.NOP, 0
@@ -188,13 +81,16 @@ func (p *TextMemcacheParser) OnData(reply, endStream bool, dataBuffers [][]byte,
 	}
 
 	// TODO: don't copy data to new slices
-	data := (bytes.Join(dataBuffers, []byte{}))[offset:]
-	log.Infof("Data length: %d", len(data))
+	data := (bytes.Join(dataBuffers, []byte{}))
+	log.Debugf("Data length: %d", len(data))
 
 	linefeed := bytes.Index(data, []byte("\r\n"))
 	if linefeed < 0 {
-		log.Infof("Did not receive full first line, asking for 1 byte more")
-		return proxylib.MORE, 1
+		log.Debugf("Did not receive full first line")
+		if len(data) > 0 && data[len(data)-1] == '\r' {
+			return proxylib.MORE, 1
+		}
+		return proxylib.MORE, 2
 	}
 
 	// TODO: iterate over data without copying it to new slices
@@ -202,67 +98,65 @@ func (p *TextMemcacheParser) OnData(reply, endStream bool, dataBuffers [][]byte,
 	tokens := bytes.Fields(data[:linefeed])
 
 	if !reply {
-		meta := textMemcacheMeta{
-			command: tokens[0],
+		meta := meta.MemcacheMeta{
+			Command: string(tokens[0]),
 		}
+		command := tokens[0]
 
-		frameLength := 0
-		noreply := false
-		if p.isCommandRetrieval(meta.command) {
+		frameLength := linefeed + 2
+		hasNoreply := false
+		switch {
+		case p.isCommandRetrieval(command):
 			// get, gets, gat, gats
-			if bytes.HasPrefix(meta.command, []byte("get")) {
-				meta.keys = tokens[1:]
-			} else if bytes.HasPrefix(meta.command, []byte("gat")) {
-				meta.keys = tokens[2:]
+			if bytes.HasPrefix(command, []byte("get")) {
+				meta.Keys = tokens[1:]
+			} else if bytes.HasPrefix(command, []byte("gat")) {
+				meta.Keys = tokens[2:]
 			}
-			frameLength = linefeed + 2
-		} else if p.isCommandStorage(meta.command) {
+		case p.isCommandStorage(command):
 			// storage commands
-			meta.keys = tokens[1:2]
+			meta.Keys = tokens[1:2]
 			nBytes, err := strconv.Atoi(string(tokens[4]))
 			if err != nil {
 				log.Error("Failed to parse storage payload length")
 				return proxylib.ERROR, 0
 			}
 			// 2 additional bytes for terminating linefeed
-			frameLength = linefeed + 2 + nBytes + 2
+			frameLength += nBytes + 2
 
-			if meta.command[0] == 'c' { //storage command is "cas"
-				noreply = len(tokens) == 7
+			if command[0] == 'c' { //storage command is "cas"
+				hasNoreply = len(tokens) == casWithNoreplyFields
 			} else {
-				noreply = len(tokens) == 6
+				hasNoreply = len(tokens) == storageWithNoreplyFields
 			}
-		} else if p.isCommandDelete(meta.command) {
-			meta.keys = tokens[1:2]
-			noreply = len(tokens) == 3
-			frameLength = linefeed + 2
-		} else if p.isCommandIncrDecr(meta.command) {
-			meta.keys = tokens[1:2]
-			noreply = len(tokens) == 4
-			frameLength = linefeed + 2
-		} else if bytes.Equal(meta.command, []byte("touch")) {
-			meta.keys = tokens[1:2]
-			noreply = len(tokens) == 4
-			frameLength = linefeed + 2
-		} else if bytes.Equal(meta.command, []byte("slabs")) ||
-			bytes.Equal(meta.command, []byte("lru")) ||
-			bytes.Equal(meta.command, []byte("lru_crawler")) ||
-			bytes.Equal(meta.command, []byte("stats")) ||
-			bytes.Equal(meta.command, []byte("version")) ||
-			bytes.Equal(meta.command, []byte("misbehave")) {
+		case p.isCommandDelete(command):
+			meta.Keys = tokens[1:2]
+			hasNoreply = len(tokens) == deleteWithNoreplyFields
+		case p.isCommandIncrDecr(command):
+			meta.Keys = tokens[1:2]
+			hasNoreply = len(tokens) == incrWithNoreplyFields
+		case bytes.Equal(command, []byte("touch")):
+			meta.Keys = tokens[1:2]
+			hasNoreply = len(tokens) == touchWithNoreplyFields
+		case bytes.Equal(command, []byte("slabs")),
+			bytes.Equal(command, []byte("lru")),
+			bytes.Equal(command, []byte("lru_crawler")),
+			bytes.Equal(command, []byte("stats")),
+			bytes.Equal(command, []byte("version")),
+			bytes.Equal(command, []byte("misbehave")):
 
-			meta.keys = [][]byte{}
-			frameLength = linefeed + 2
-		} else if bytes.Equal(meta.command, []byte("flush_all")) ||
-			bytes.Equal(meta.command, []byte("cache_memlimit")) {
-			meta.keys = [][]byte{}
-			noreply = bytes.Equal(tokens[len(tokens)-1], []byte("noreply"))
-			frameLength = linefeed + 2
-		} else if bytes.Equal(meta.command, []byte("quit")) {
-			meta.keys = [][]byte{}
-			noreply = true
-			frameLength = linefeed + 2
-		} else {
+			meta.Keys = [][]byte{}
+		case bytes.Equal(command, []byte("flush_all")),
+			bytes.Equal(command, []byte("cache_memlimit")):
+			meta.Keys = [][]byte{}
+			hasNoreply = bytes.Equal(tokens[len(tokens)-1], []byte("noreply"))
+		case bytes.Equal(command, []byte("quit")):
+			meta.Keys = [][]byte{}
+			hasNoreply = true
+		case bytes.Equal(command, []byte("watch")):
+			meta.Keys = [][]byte{}
+			p.watching = true
+		default:
 			log.Error("Could not parse text memcache frame")
 			return proxylib.ERROR, 0
 		}
@@ -270,112 +164,120 @@ func (p *TextMemcacheParser) OnData(reply, endStream bool, dataBuffers [][]byte,
 			&cilium.L7LogEntry{
 				Proto: "textmemcached",
 				Fields: map[string]string{
-					"command": string(meta.command),
-					"keys":    string(bytes.Join(meta.keys, []byte(", "))),
+					"command": meta.Command,
+					"keys":    string(bytes.Join(meta.Keys, []byte(", "))),
 				},
 			},
 		}
 
-		p.requestCount++
 		r := &replyIntent{
-			requestID: p.requestCount,
-			command:   meta.command,
+			command: command,
 		}
 
 		matches := p.connection.Matches(meta)
 
 		if matches {
 			r.denied = false
-			p.replyQueue = append(p.replyQueue, r)
+			if !hasNoreply {
+				p.replyQueue = append(p.replyQueue, r)
+			}
 			p.connection.Log(cilium.EntryType_Request, logEntry)
 			return proxylib.PASS, frameLength
 		}
 
 		r.denied = true
-		if !noreply {
-			p.injectDeniedMessage()
-			if p.requestCount == p.replyCount+1 {
+		if !hasNoreply {
+			if len(p.replyQueue) == 0 {
+				p.injectDeniedMessage()
 			} else {
 				p.replyQueue = append(p.replyQueue, r)
 			}
 		}
 		p.connection.Log(cilium.EntryType_Denied, logEntry)
 		return proxylib.DROP, frameLength
-	} else {
-		//reply
-		log.Debugf("reply, parsing to figure out if we have it all")
+	}
 
-		intent := p.replyQueue[0]
+	//reply
+	log.Debugf("reply, parsing to figure out if we have it all")
 
-		logEntry := &cilium.LogEntry_GenericL7{
-			&cilium.L7LogEntry{
-				Proto: "textmemcached",
-				Fields: map[string]string{
-					"command": string(intent.command),
-				},
+	intent := p.replyQueue[0]
+
+	logEntry := &cilium.LogEntry_GenericL7{
+		&cilium.L7LogEntry{
+			Proto: "textmemcached",
+			Fields: map[string]string{
+				"command": string(intent.command),
 			},
-		}
+		},
+	}
+	if p.watching {
+		// in watch mode we pass all replied lines
+		return proxylib.PASS, linefeed + 2
+	}
 
-		if p.isErrorReply(tokens[0]) ||
-			p.isCommandStorage(intent.command) ||
-			p.isCommandDelete(intent.command) ||
-			p.isCommandIncrDecr(intent.command) ||
-			bytes.Equal(intent.command, []byte("touch")) ||
-			bytes.Equal(intent.command, []byte("slabs")) ||
-			bytes.Equal(intent.command, []byte("lru")) ||
-			bytes.Equal(intent.command, []byte("flush_all")) ||
-			bytes.Equal(intent.command, []byte("cache_memlimit")) ||
-			bytes.Equal(intent.command, []byte("version")) ||
-			bytes.Equal(intent.command, []byte("misbehave")) {
+	switch {
+	case p.isErrorReply(tokens[0]),
+		p.isCommandStorage(intent.command),
+		p.isCommandDelete(intent.command),
+		p.isCommandIncrDecr(intent.command),
+		bytes.Equal(intent.command, []byte("touch")),
+		bytes.Equal(intent.command, []byte("slabs")),
+		bytes.Equal(intent.command, []byte("lru")),
+		bytes.Equal(intent.command, []byte("flush_all")),
+		bytes.Equal(intent.command, []byte("cache_memlimit")),
+		bytes.Equal(intent.command, []byte("version")),
+		bytes.Equal(intent.command, []byte("misbehave")):
 
-			// passing one line of reply
+		// passing one line of reply
+		p.connection.Log(cilium.EntryType_Response, logEntry)
+		p.replyQueue = p.replyQueue[1:]
+		return proxylib.PASS, linefeed + 2
+	case p.isCommandRetrieval(intent.command),
+		bytes.Equal(intent.command, []byte("stats")):
+		t, nBytes := p.untilEnd(data)
+		if t == proxylib.PASS {
 			p.connection.Log(cilium.EntryType_Response, logEntry)
-			return proxylib.PASS, linefeed + 2
-		} else if p.isCommandRetrieval(intent.command) ||
-			bytes.Equal(intent.command, []byte("stats")) {
-			t, nBytes := p.untilEnd(data)
-			if t == proxylib.PASS {
-				p.connection.Log(cilium.EntryType_Response, logEntry)
-				p.replyQueue = p.replyQueue[1:]
-			}
-			return t, nBytes
-		} else if bytes.Equal(intent.command, []byte("lru_crawler")) {
-			// check if it's response line
-			if bytes.Equal(tokens[0], []byte("OK")) ||
-				bytes.Equal(tokens[0], []byte("BUSY")) ||
-				bytes.Equal(tokens[0], []byte("BADCLASS")) {
-				p.connection.Log(cilium.EntryType_Response, logEntry)
-				return proxylib.PASS, linefeed + 2
-			}
-
-			t, nBytes := p.untilEnd(data)
-			if t == proxylib.PASS {
-				p.connection.Log(cilium.EntryType_Response, logEntry)
-				p.replyQueue = p.replyQueue[1:]
-			}
-			return t, nBytes
+			p.replyQueue = p.replyQueue[1:]
 		}
-		log.Error("Could not parse text memcache frame")
-		return proxylib.ERROR, 0
+		return t, nBytes
+	case bytes.Equal(intent.command, []byte("lru_crawler")):
+		// check if it's response line
+		if bytes.Equal(tokens[0], []byte("OK")) ||
+			bytes.Equal(tokens[0], []byte("BUSY")) ||
+			bytes.Equal(tokens[0], []byte("BADCLASS")) {
+			p.connection.Log(cilium.EntryType_Response, logEntry)
+			p.replyQueue = p.replyQueue[1:]
+			return proxylib.PASS, linefeed + 2
+		}
+
+		t, nBytes := p.untilEnd(data)
+		if t == proxylib.PASS {
+			p.connection.Log(cilium.EntryType_Response, logEntry)
+			p.replyQueue = p.replyQueue[1:]
+		}
+		return t, nBytes
 	}
+	log.Error("Could not parse text memcache frame")
+	return proxylib.ERROR, 0
 }
 
-func (p *TextMemcacheParser) untilEnd(data []byte) (proxylib.OpType, int) {
+const payloadEnd = "\r\nEND\r\n"
+
+func (p *Parser) untilEnd(data []byte) (proxylib.OpType, int) {
 	// TODO: optimise this to not ask per byte, but take VALUES lines into account
-	endIndex := bytes.Index(data, []byte("END\r\n"))
+	endIndex := bytes.Index(data, []byte(payloadEnd))
 	if endIndex > 0 {
-		return proxylib.PASS, endIndex + 5
-	} else {
-		return proxylib.MORE, 1
+		return proxylib.PASS, endIndex + len(payloadEnd)
 	}
+	return proxylib.MORE, 1
 }
 
-func (p *TextMemcacheParser) isCommandRetrieval(cmd []byte) bool {
+func (p *Parser) isCommandRetrieval(cmd []byte) bool {
 	return bytes.HasPrefix(cmd, []byte("get")) ||
 		bytes.HasPrefix(cmd, []byte("gat"))
 }
 
-func (p *TextMemcacheParser) isCommandStorage(cmd []byte) bool {
+func (p *Parser) isCommandStorage(cmd []byte) bool {
 	return bytes.Equal(cmd, []byte("set")) ||
 		bytes.Equal(cmd, []byte("add")) ||
 		bytes.Equal(cmd, []byte("replace")) ||
@@ -384,85 +286,45 @@ func (p *TextMemcacheParser) isCommandStorage(cmd []byte) bool {
 		bytes.Equal(cmd, []byte("cas"))
 }
 
-func (p *TextMemcacheParser) isCommandDelete(cmd []byte) bool {
+func (p *Parser) isCommandDelete(cmd []byte) bool {
 	return bytes.Equal(cmd, []byte("delete"))
 }
 
-func (p *TextMemcacheParser) isCommandIncrDecr(cmd []byte) bool {
+func (p *Parser) isCommandIncrDecr(cmd []byte) bool {
 	return bytes.Equal(cmd, []byte("incr")) ||
 		bytes.Equal(cmd, []byte("decr"))
 }
 
-func (p *TextMemcacheParser) isErrorReply(firstToken []byte) bool {
+func (p *Parser) isErrorReply(firstToken []byte) bool {
 	return bytes.Equal(firstToken, []byte("ERROR")) ||
 		bytes.Equal(firstToken, []byte("CLIENT_ERROR")) ||
 		bytes.Equal(firstToken, []byte("SERVER_ERROR"))
 }
 
-func (p *TextMemcacheParser) injectFromQueue() bool {
-	if len(p.replyQueue) > 0 {
-		if p.replyQueue[0].requestID == p.replyCount+1 && p.replyQueue[0].denied {
+// returns injected bytes
+func (p *Parser) injectFromQueue() int {
+	injected := 0
+	for _, rep := range p.replyQueue {
+		if rep.denied {
+			injected++
 			p.injectDeniedMessage()
-			p.replyQueue = p.replyQueue[1:]
-			return true
+		} else {
+			break
 		}
+
 	}
-	return false
+	if injected > 0 {
+		p.replyQueue = p.replyQueue[injected:]
+	}
+	return injected * len(DeniedMsg)
 }
 
-func (p *TextMemcacheParser) injectDeniedMessage() {
+func (p *Parser) injectDeniedMessage() {
 	p.connection.Inject(true, DeniedMsg)
-	p.replyCount++
 }
 
 // DeniedMsg is sent if policy denies the request. Exported for tests
 var DeniedMsg = []byte("CLIENT_ERROR access denied\r\n")
 
+// ErrorMsg is standard memcached error line
 var ErrorMsg = []byte("ERROR\r\n")
-
-type memcacheCommandSet map[string]struct{}
-type e struct{}
-
-// MemcacheOpCodeMap maps human-readable names of memcached operations and groups to opcodes
-var MemcacheOpCodeMap = map[string]memcacheCommandSet{
-	"add":     memcacheCommandSet{"add": e{}},
-	"set":     memcacheCommandSet{"set": e{}},
-	"replace": memcacheCommandSet{"replace": e{}},
-	"append":  memcacheCommandSet{"append": e{}},
-	"prepend": memcacheCommandSet{"prepend": e{}},
-	"cas":     memcacheCommandSet{"cas": e{}},
-
-	"get":  memcacheCommandSet{"get": e{}},
-	"gets": memcacheCommandSet{"gets": e{}},
-
-	"delete": memcacheCommandSet{"delete": e{}},
-
-	"incr": memcacheCommandSet{"incr": e{}},
-	"decr": memcacheCommandSet{"decr": e{}},
-
-	"touch": memcacheCommandSet{"touch": e{}},
-
-	"gat":  memcacheCommandSet{"gat": e{}},
-	"gats": memcacheCommandSet{"gats": e{}},
-
-	"slabs": memcacheCommandSet{"slabs": e{}},
-
-	"lru": memcacheCommandSet{"lru": e{}},
-
-	"lru_crawler": memcacheCommandSet{"lru_crawler": e{}},
-
-	// TODO: figure out how to handle connections in watch mode
-	"watch": memcacheCommandSet{"watch": e{}},
-
-	"stats": memcacheCommandSet{"stats": e{}},
-
-	"flush_all": memcacheCommandSet{"flush_all": e{}},
-
-	"cache_memlimit": memcacheCommandSet{"cache_memlimit": e{}},
-
-	"version": memcacheCommandSet{"version": e{}},
-
-	"quit": memcacheCommandSet{"quit": e{}},
-
-	"misbehave": memcacheCommandSet{"misbehave": e{}},
-}
