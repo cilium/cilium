@@ -29,7 +29,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
-	health "github.com/cilium/cilium/cilium-health/launch"
 	"github.com/cilium/cilium/common"
 	monitorLaunch "github.com/cilium/cilium/monitor/launch"
 	"github.com/cilium/cilium/pkg/api"
@@ -49,6 +48,7 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
+	healthClientPkg "github.com/cilium/cilium/pkg/health/client"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipam"
@@ -126,8 +126,7 @@ type Daemon struct {
 	uniqueIDMU lock.Mutex
 	uniqueID   map[uint64]context.CancelFunc
 
-	nodeMonitor  *monitorLaunch.NodeMonitor
-	ciliumHealth *health.CiliumHealth
+	nodeMonitor *monitorLaunch.NodeMonitor
 
 	// dnsRuleGen manages toFQDNs rules
 	dnsRuleGen *fqdn.RuleGen
@@ -162,6 +161,10 @@ type Daemon struct {
 
 	// k8sSvcCache is a cache of all Kubernetes services and endpoints
 	k8sSvcCache k8s.ServiceCache
+
+	// healthClient is a client of cilium-health deamon. It's used to get
+	// cilium-health daemon status.
+	healthClient *healthClientPkg.Client
 }
 
 // UpdateProxyRedirect updates the redirect rules in the proxy for a particular

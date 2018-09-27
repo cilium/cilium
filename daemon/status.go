@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/pkg/controller"
+	healthClientPkg "github.com/cilium/cilium/pkg/health/client"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/node"
@@ -285,16 +286,22 @@ func (d *Daemon) startStatusCollector() {
 		{
 			Name: "cilium-health",
 			Probe: func(ctx context.Context) (interface{}, error) {
-				if d.ciliumHealth == nil {
-					return nil, nil
-				}
-				return d.ciliumHealth.GetStatus(), nil
-			},
-			OnStatusUpdate: func(status status.Status) {
-				if d.ciliumHealth == nil {
-					return
+				if d.healthClient == nil {
+					healthClient, err := healthClientPkg.NewDefaultClient()
+					if err != nil {
+						return nil, err
+					}
+					d.healthClient = healthClient
 				}
 
+				status, err := d.healthClient.Connectivity.GetStatus(nil)
+				if err != nil {
+					return nil, err
+				}
+
+				return status, nil
+			},
+			OnStatusUpdate: func(status status.Status) {
 				d.statusCollectMutex.Lock()
 				defer d.statusCollectMutex.Unlock()
 
