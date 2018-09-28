@@ -119,8 +119,8 @@ func (p *HeaderParserFactory) Create(connection *Connection) Parser {
 //
 // Parses individual lines and verifies them against the policy
 //
-func (p *HeaderParser) OnData(reply, endStream bool, data [][]byte, offset int) (OpType, int) {
-	line, ok := getLine(data, offset)
+func (p *HeaderParser) OnData(reply, endStream bool, data [][]byte) (OpType, int) {
+	line, ok := getLine(data)
 	line_len := len(line)
 
 	if !reply {

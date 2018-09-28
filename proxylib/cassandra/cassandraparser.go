@@ -168,11 +168,10 @@ func (pf *CassandraParserFactory) Create(connection *Connection) Parser {
 	return &p
 }
 
-func (p *CassandraParser) OnData(reply, endStream bool, dataArray [][]byte, offset int) (OpType, int) {
+func (p *CassandraParser) OnData(reply, endStream bool, dataArray [][]byte) (OpType, int) {
 
 	// inefficient, but simple for now
-	data := bytes.Join(dataArray, []byte(""))[offset:]
-	log.Debugf("OnData offset  = %d", offset)
+	data := bytes.Join(dataArray, []byte{})
 
 	if len(data) < cassHdrLen {
 		// Partial header received, ask for more

@@ -33,37 +33,32 @@ type LibSuite struct{}
 var _ = Suite(&LibSuite{})
 
 func (l *LibSuite) TestAdvanceInput(c *C) {
-	data := &[][]byte{[]byte("ABCD"), []byte("1234567890"), []byte("abcdefghij")}
-	unit := 0
-	offset := 0
-	var bytes int
+	input := [][]byte{[]byte("ABCD"), []byte("1234567890"), []byte("abcdefghij")}
 
-	c.Assert((*data)[unit][offset], Equals, byte('A'))
+	c.Assert(input[0][0], Equals, byte('A'))
+	c.Assert(len(input), Equals, 3) // Three slices in input
 
 	// Advance to one byte before the end of the first slice
-	bytes, unit, offset = advanceInput(3, unit, offset, data)
-	c.Assert(bytes, Equals, 0)  // Had as many bytes as requested
-	c.Assert(unit, Equals, 0)   // Still in the first slice
-	c.Assert(offset, Equals, 3) // At the offset 3 within the first unit
-	c.Assert((*data)[unit][offset], Equals, byte('D'))
+	input = advanceInput(input, 3)
+	c.Assert(len(input), Equals, 3)    // Still in the first slice
+	c.Assert(len(input[0]), Equals, 1) // One byte left in the first slice
+	c.Assert(input[0][0], Equals, byte('D'))
 
 	// Advance to the beginning of the next slice
-	bytes, unit, offset = advanceInput(1, unit, offset, data)
-	c.Assert(bytes, Equals, 0)  // Had as many bytes as requested
-	c.Assert(unit, Equals, 1)   // Moved to the next slice
-	c.Assert(offset, Equals, 0) // In the begining of the 2nd slice
-	c.Assert((*data)[unit][offset], Equals, byte('1'))
+	input = advanceInput(input, 1)
+	c.Assert(len(input), Equals, 2) // Moved to the next slice
+	c.Assert(input[0][0], Equals, byte('1'))
 
 	// Advance 11 bytes, crossing to the next slice
-	bytes, unit, offset = advanceInput(11, unit, offset, data)
-	c.Assert(bytes, Equals, 0)  // Had as many bytes as requested
-	c.Assert(unit, Equals, 2)   // Moved to the 3rd slice
-	c.Assert(offset, Equals, 1) // One past the beginning
-	c.Assert((*data)[unit][offset], Equals, byte('b'))
+	input = advanceInput(input, 11)
+	c.Assert(len(input), Equals, 1) // Moved to the 3rd slice
+	c.Assert(input[0][0], Equals, byte('b'))
 
 	// Try to advance 11 bytes when only 9 remmain
-	bytes, unit, offset = advanceInput(11, unit, offset, data)
-	c.Assert(bytes, Equals, 2) // 2 bytes remaining
-	c.Assert(unit, Equals, 3)  // All data exhausted
-	c.Assert(offset, Equals, 0)
+	input = advanceInput(input, 11)
+	c.Assert(len(input), Equals, 0) // All data exhausted
+
+	// Try advance on an empty slice
+	input = advanceInput(input, 1)
+	c.Assert(len(input), Equals, 0)
 }

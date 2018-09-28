@@ -209,11 +209,14 @@ FilterResult GoFilter::Instance::OnIO(bool reply, Buffer::Instance& data, bool e
 
     int64_t total_length = 0;
     GoSlice<uint8_t> buffer_slices[num_slices];
+    uint64_t non_empty_slices = 0;
     for (uint64_t i = 0; i < num_slices; i++) {
-      buffer_slices[i] = GoSlice<uint8_t>(reinterpret_cast<uint8_t*>(raw_slices[i].mem_), raw_slices[i].len_);
-      total_length += raw_slices[i].len_;
+      if (raw_slices[i].len_ > 0) {
+	buffer_slices[non_empty_slices++] = GoSlice<uint8_t>(reinterpret_cast<uint8_t*>(raw_slices[i].mem_), raw_slices[i].len_);
+	total_length += raw_slices[i].len_;
+      }
     }
-    GoDataSlices input_slices(buffer_slices, num_slices);
+    GoDataSlices input_slices(buffer_slices, non_empty_slices);
 
     ENVOY_CONN_LOG(trace, "Cilium Network::OnIO: Calling go module, data starting at {}, {} bytes", conn_, raw_slices[0].mem_, total_length);
     res = (*parent_.go_on_data_)(connection_id_, reply, end_stream, &input_slices, &ops);
