@@ -619,7 +619,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 			By("Applying l3-l4 policy")
 			_, err = kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, cnpUpdateAllow, helpers.KubectlApply, 300)
+				helpers.KubeSystemNamespace, cnpUpdateDeny, helpers.KubectlApply, 300)
 			Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpUpdateDeny)
 
 			validatePolicyStatus()
