@@ -175,9 +175,12 @@ func (ds *DaemonSuite) TestReadEPsFromDirNames(c *C) {
 		os.RemoveAll(tmpDir)
 	}()
 
+	os.Chdir(tmpDir)
+
 	oldStateDir := option.Config.StateDir
 	option.Config.StateDir = tmpDir
 	defer func() {
+		os.Chdir(oldStateDir)
 		option.Config.StateDir = oldStateDir
 	}()
 	c.Assert(err, IsNil)
