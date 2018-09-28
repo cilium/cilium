@@ -1713,13 +1713,13 @@ func (d *Daemon) deleteCiliumNetworkPolicyV2(cnp *cilium_v2.CiliumNetworkPolicy)
 func (d *Daemon) updateCiliumNetworkPolicyV2(ciliumV2Store cache.Store,
 	oldRuleCpy, newRuleCpy *cilium_v2.CiliumNetworkPolicy) {
 
-	_, err := oldRuleCpy.Parse()
+	oldRules, err := oldRuleCpy.Parse()
 	if err != nil {
 		log.WithError(err).WithField(logfields.Object, logfields.Repr(oldRuleCpy)).
 			Warn("Error parsing old CiliumNetworkPolicy rule")
 		return
 	}
-	_, err = newRuleCpy.Parse()
+	newRules, err := newRuleCpy.Parse()
 	if err != nil {
 		log.WithError(err).WithField(logfields.Object, logfields.Repr(newRuleCpy)).
 			Warn("Error parsing new CiliumNetworkPolicy rule")
@@ -1760,7 +1760,16 @@ func (d *Daemon) updateCiliumNetworkPolicyV2(ciliumV2Store cache.Store,
 		return
 	}
 
+	// If the new CNP contains 0 rules then delete all old rules from the
+	// policy repo.
+	if len(newRules) == 0 && len(oldRules) != 0 {
+		lbls := k8sUtils.GetPolicyLabels(oldRuleCpy.ObjectMeta.Namespace, oldRuleCpy.ObjectMeta.Name,
+			k8sUtils.ResourceTypeCiliumNetworkPolicy)
+		d.PolicyDelete(lbls)
+	}
+
 	d.addCiliumNetworkPolicyV2(ciliumV2Store, newRuleCpy)
+	return
 }
 
 func (d *Daemon) updatePodHostIP(pod *v1.Pod) (bool, error) {
