@@ -1777,6 +1777,8 @@ func cnpNodeStatusController(ciliumV2Store cache.Store, cnp *cilium_v2.CiliumNet
 				Warn("Error parsing new CiliumNetworkPolicy rule")
 		}
 
+		logger.WithField("cnpFromStore", serverRuleCpy.String()).Debug("copy of CNP retrieved from store which is being updated with status")
+
 		// Update the status of whether the rule is enforced on this node.
 		// If we are unable to parse the CNP retrieved from the store,
 		// or if endpoints did not reach the desired policy revision
