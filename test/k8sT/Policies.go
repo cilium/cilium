@@ -42,6 +42,8 @@ var _ = Describe("K8sPolicyTest", func() {
 		knpAllowIngress      = helpers.ManifestGet("knp-default-allow-ingress.yaml")
 		knpAllowEgress       = helpers.ManifestGet("knp-default-allow-egress.yaml")
 		cnpMatchExpression   = helpers.ManifestGet("cnp-matchexpressions.yaml")
+		cnpUpdateAllow       = helpers.ManifestGet("cnp-update-allow-all.yaml")
+		cnpUpdateDeny        = helpers.ManifestGet("cnp-update-deny-ingress.yaml")
 		app1Service          = "app1-service"
 		microscopeErr        error
 		microscopeCancel                        = func() error { return nil }
@@ -595,6 +597,66 @@ var _ = Describe("K8sPolicyTest", func() {
 				res.ExpectSuccess("Egress DNS connectivity should be allowed for pod %q", pod)
 			}
 		})
+
+		It("Enforces connectivity correctly when the same CNP is updated", func() {
+
+			By("Applying default allow policy")
+			_, err := kubectl.CiliumPolicyAction(
+				helpers.KubeSystemNamespace, cnpUpdateAllow, helpers.KubectlApply, 300)
+			Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpUpdateAllow)
+
+			validateNoPolicyEnabled()
+
+			res := kubectl.ExecPodCmd(
+				helpers.DefaultNamespace, appPods[helpers.App2],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
+			res.ExpectSuccess("%q cannot curl clusterIP %q", appPods[helpers.App2], clusterIP)
+
+			res = kubectl.ExecPodCmd(
+				helpers.DefaultNamespace, appPods[helpers.App3],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
+			res.ExpectSuccess("%q cannot curl clusterIP %q", appPods[helpers.App3], clusterIP)
+
+			By("Applying l3-l4 policy")
+			_, err = kubectl.CiliumPolicyAction(
+				helpers.KubeSystemNamespace, cnpUpdateAllow, helpers.KubectlApply, 300)
+			Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpUpdateDeny)
+
+			validatePolicyStatus()
+
+			res = kubectl.ExecPodCmd(
+				helpers.DefaultNamespace, appPods[helpers.App2],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
+			res.ExpectSuccess("%q cannot curl clusterIP %q", appPods[helpers.App2], clusterIP)
+
+			res = kubectl.ExecPodCmd(
+				helpers.DefaultNamespace, appPods[helpers.App3],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
+			res.ExpectFail("%q can curl to %q", appPods[helpers.App3], clusterIP)
+
+			By("Applying default allow policy again")
+			_, err = kubectl.CiliumPolicyAction(
+				helpers.KubeSystemNamespace, cnpUpdateAllow, helpers.KubectlApply, 300)
+			Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpUpdateAllow)
+
+			validateNoPolicyEnabled()
+
+			res = kubectl.ExecPodCmd(
+				helpers.DefaultNamespace, appPods[helpers.App2],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
+			res.ExpectSuccess("%q cannot curl clusterIP %q", appPods[helpers.App2], clusterIP)
+
+			res = kubectl.ExecPodCmd(
+				helpers.DefaultNamespace, appPods[helpers.App3],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
+			res.ExpectSuccess("%q cannot curl clusterIP %q", appPods[helpers.App3], clusterIP)
+
+			By("Removing cnp-update policy")
+			_, err = kubectl.CiliumPolicyAction(
+				helpers.KubeSystemNamespace, cnpUpdateAllow, helpers.KubectlDelete, 300)
+			Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpUpdateAllow)
+		})
+
 	})
 
 	Context("GuestBook Examples", func() {
