@@ -1716,7 +1716,16 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumV2Store cache.Store, cnp *cilium
 		policyImportErr = k8s.PreprocessRules(rules, d.loadBalancer.K8sEndpoints, d.loadBalancer.K8sServices)
 		d.loadBalancer.K8sMU.Unlock()
 		if policyImportErr == nil {
-			rev, policyImportErr = d.PolicyAdd(rules, &AddOptions{Replace: true})
+			// If the new CNP contains a single rule with user defined labels, we need
+			// to delete the old rules as the PolicyAdd won't be able to find the old
+			// rules with the user defined labels.
+			rev, policyImportErr = d.PolicyAdd(rules, &AddOptions{
+				Replace: true,
+				CleanRulesWithLabels: utils.GetPolicyLabels(
+					cnp.ObjectMeta.Namespace,
+					cnp.ObjectMeta.Name,
+					utils.ResourceTypeCiliumNetworkPolicy),
+			})
 		}
 	}
 
