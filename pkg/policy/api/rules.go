@@ -14,9 +14,29 @@
 
 package api
 
+import (
+	"github.com/cilium/cilium/pkg/labels"
+)
+
 // Rules is a collection of api.Rule.
 //
 // All rules must be evaluated in order to come to a conclusion. While
 // it is sufficient to have a single fromEndpoints rule match, none of
 // the fromRequires may be violated at the same time.
 type Rules []*Rule
+
+func (rs Rules) GetSetOfLabels() []labels.LabelArray {
+	var labelSet []labels.LabelArray
+	for _, r := range rs {
+		exists := false
+		for _, set := range labelSet {
+			if r.Labels.Equals(set) {
+				exists = true
+			}
+		}
+		if !exists {
+			labelSet = append(labelSet, r.Labels)
+		}
+	}
+	return labelSet
+}
