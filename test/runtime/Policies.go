@@ -20,6 +20,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -49,6 +50,7 @@ const (
 	multL7PoliciesJSON              = "Policies-l7-multiple.json"
 	policiesL7JSON                  = "Policies-l7-simple.json"
 	policiesL3JSON                  = "Policies-l3-policy.json"
+	policiesL4Json                  = "Policies-l4-policy.json"
 	policiesL3DependentL7EgressJSON = "Policies-l3-dependent-l7-egress.json"
 	policiesReservedInitJSON        = "Policies-reserved-init.json"
 )
@@ -401,7 +403,7 @@ var _ = Describe("RuntimePolicies", func() {
 	})
 
 	It("L4Policy Checks", func() {
-		_, err := vm.PolicyImportAndWait(vm.GetFullPath("Policies-l4-policy.json"), helpers.HelperTimeout)
+		_, err := vm.PolicyImportAndWait(vm.GetFullPath(policiesL4Json), helpers.HelperTimeout)
 		Expect(err).Should(BeNil())
 
 		for _, app := range []string{helpers.App1, helpers.App2} {
@@ -422,6 +424,56 @@ var _ = Describe("RuntimePolicies", func() {
 		for _, app := range []string{helpers.App1, helpers.App2} {
 			connectivityTest(allRequests, app, helpers.Httpd1, true)
 			connectivityTest(allRequests, app, helpers.Httpd2, true)
+		}
+	})
+
+	It("Checks that traffic is not dropped when L4 policy is installed and deleted", func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		srvIP, err := vm.ContainerInspectNet(helpers.Httpd1)
+		Expect(err).Should(BeNil(), "Cannot get httpd1 server address")
+		type BackgroundTestAsserts struct {
+			res  *helpers.CmdRes
+			time time.Time
+		}
+		backgroundChecks := []*BackgroundTestAsserts{}
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			for {
+				select {
+				default:
+					res := vm.ContainerExec(
+						helpers.App1,
+						helpers.CurlFail("http://%s/", srvIP[helpers.IPv4]))
+					assert := &BackgroundTestAsserts{
+						res:  res,
+						time: time.Now(),
+					}
+					backgroundChecks = append(backgroundChecks, assert)
+				case <-ctx.Done():
+					wg.Done()
+					return
+				}
+			}
+		}()
+		// Sleep a bit to make sure that the goroutine starts.
+		time.Sleep(50 * time.Millisecond)
+
+		_, err = vm.PolicyImportAndWait(vm.GetFullPath(policiesL4Json), helpers.HelperTimeout)
+		Expect(err).Should(BeNil(), "Cannot install L4 policy")
+
+		By("Uninstalling policy")
+		vm.PolicyDelAll().ExpectSuccess("Cannot delete all policies")
+		vm.WaitEndpointsReady()
+
+		By("Canceling background connections from app2 to httpd1")
+		cancel()
+		wg.Wait()
+		GinkgoPrint("Made %d connections in total", len(backgroundChecks))
+		Expect(backgroundChecks).ShouldNot(BeEmpty(), "No background connections were made")
+		for _, check := range backgroundChecks {
+			check.res.ExpectSuccess("Curl from app2 to httpd1 should work but it failed at %s", check.time)
 		}
 	})
 
