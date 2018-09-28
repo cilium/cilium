@@ -26,22 +26,23 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// BinaryMemcacheParserFactory implements proxylib.ParserFactory
-type BinaryMemcacheParserFactory struct{}
+// ParserFactory implements proxylib.ParserFactory
+type ParserFactory struct{}
 
 // Create creates binary memcached parser
-func (p *BinaryMemcacheParserFactory) Create(connection *proxylib.Connection) proxylib.Parser {
-	log.Infof("BinaryMemcacheParserFactory: Create: %v", connection)
-	return &BinaryMemcacheParser{connection: connection, injectQueue: make([]queuedInject, 0)}
+func (p *ParserFactory) Create(connection *proxylib.Connection) proxylib.Parser {
+	log.Infof("ParserFactory: Create: %v", connection)
+	return &Parser{connection: connection, injectQueue: make([]queuedInject, 0)}
 }
 
 // compile time check for interface implementation
-var _ proxylib.ParserFactory = &BinaryMemcacheParserFactory{}
+var _ proxylib.ParserFactory = &ParserFactory{}
 
-var BinaryMemcacheParserFactoryInstance *BinaryMemcacheParserFactory
+// ParserFactoryInstance creates binary parser for unified parser
+var ParserFactoryInstance *ParserFactory
 
-// BinaryMemcacheParser implements proxylib.Parser
-type BinaryMemcacheParser struct {
+// Parser implements proxylib.Parser
+type Parser struct {
 	connection *proxylib.Connection
 
 	requestCount uint32
@@ -49,12 +50,12 @@ type BinaryMemcacheParser struct {
 	injectQueue  []queuedInject
 }
 
-var _ proxylib.Parser = &BinaryMemcacheParser{}
+var _ proxylib.Parser = &Parser{}
 
 const headerSize = 24
 
 // OnData parses binary memcached data
-func (p *BinaryMemcacheParser) OnData(reply, endStream bool, dataBuffers [][]byte, offset int) (proxylib.OpType, int) {
+func (p *Parser) OnData(reply, endStream bool, dataBuffers [][]byte, offset int) (proxylib.OpType, int) {
 	log.Debugf("Binary memcached OnData with offset %d", offset)
 
 	if reply {
@@ -145,7 +146,7 @@ type queuedInject struct {
 	requestID uint32
 }
 
-func (p *BinaryMemcacheParser) injectDeniedMessage(magic byte) {
+func (p *Parser) injectDeniedMessage(magic byte) {
 	deniedMsg := make([]byte, len(DeniedMsgBase))
 	copy(deniedMsg, DeniedMsgBase)
 
@@ -155,7 +156,7 @@ func (p *BinaryMemcacheParser) injectDeniedMessage(magic byte) {
 	p.replyCount++
 }
 
-func (p *BinaryMemcacheParser) injectFromQueue() bool {
+func (p *Parser) injectFromQueue() bool {
 	if len(p.injectQueue) > 0 {
 		if p.injectQueue[0].requestID == p.replyCount+1 {
 			p.injectDeniedMessage(p.injectQueue[0].magic)
@@ -167,11 +168,13 @@ func (p *BinaryMemcacheParser) injectFromQueue() bool {
 }
 
 const (
-	RequestMagic  = 0x80
+	// RequestMagic says that memcache frame is a request
+	RequestMagic = 0x80
+	// ResponseMagic says that memcache frame is a response
 	ResponseMagic = 0x81
 )
 
-func (p *BinaryMemcacheParser) getOpcodeAndKey(data []byte, extrasLength byte, keyLength uint16) (byte, []byte, proxylib.OpError) {
+func (p *Parser) getOpcodeAndKey(data []byte, extrasLength byte, keyLength uint16) (byte, []byte, proxylib.OpError) {
 	if data[0]&RequestMagic != RequestMagic {
 		log.Warnf("Direction bit is 'response', but memcached parser only parses requests")
 		return 0, []byte{}, proxylib.ERROR_INVALID_FRAME_TYPE
