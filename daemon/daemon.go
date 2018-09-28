@@ -926,13 +926,12 @@ func (d *Daemon) syncLXCMap() error {
 		if added {
 			log.WithField(logfields.IPAddr, ip).Debugf("Adding local ip to endpoint map")
 		}
+		delete(existingEndpoints, ip.String())
 		id, exists := ipcache.IPIdentityCache.LookupByIP(ip.String())
 		if !exists || id != identity.ReservedIdentityHost {
 			// Upsert will not propagate (reserved:host->ID) mappings across the cluster.
 			// Manually push it into each IPIdentityMappingListener.
 			log.WithField(logfields.IPAddr, ip).Debug("Adding local ip to ipcache")
-
-			delete(existingEndpoints, ip.String())
 
 			ipcache.IPIdentityCache.Upsert(ip.String(), identity.ReservedIdentityHost)
 
