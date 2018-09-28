@@ -48,6 +48,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/versioncheck"
 	"github.com/cilium/cilium/pkg/versioned"
@@ -557,7 +558,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		rehf := k8sUtils.ResourceEventHandlerFactory(
 			func(i interface{}) func() error {
 				return func() error {
-					err := d.addCiliumNetworkPolicyV2(cnpStore, i.(*cilium_v2.CiliumNetworkPolicy))
+					err := d.addCiliumNetworkPolicyV2(cnpStore, nil, i.(*cilium_v2.CiliumNetworkPolicy))
 					updateK8sEventMetric(metricCNP, metricCreate, err == nil)
 					return nil
 				}
@@ -1699,7 +1700,7 @@ func (d *Daemon) updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumV2Store cache.
 
 }
 
-func (d *Daemon) addCiliumNetworkPolicyV2(ciliumV2Store cache.Store, cnp *cilium_v2.CiliumNetworkPolicy) error {
+func (d *Daemon) addCiliumNetworkPolicyV2(ciliumV2Store cache.Store, oldRules api.Rules, cnp *cilium_v2.CiliumNetworkPolicy) error {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
 		logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
@@ -1716,7 +1717,13 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumV2Store cache.Store, cnp *cilium
 		policyImportErr = k8s.PreprocessRules(rules, d.loadBalancer.K8sEndpoints, d.loadBalancer.K8sServices)
 		d.loadBalancer.K8sMU.Unlock()
 		if policyImportErr == nil {
-			rev, policyImportErr = d.PolicyAdd(rules, &AddOptions{Replace: true})
+			// If the new CNP contains a single rule with user defined labels, we need
+			// to delete the old rules as the PolicyAdd won't be able to find the old
+			// rules with the user defined labels.
+			rev, policyImportErr = d.PolicyAdd(rules, &AddOptions{
+				Replace:              true,
+				CleanRulesWithLabels: oldRules.GetSetOfLabels(),
+			})
 		}
 	}
 
@@ -1944,7 +1951,7 @@ func (d *Daemon) updateCiliumNetworkPolicyV2(ciliumV2Store cache.Store,
 		d.PolicyDelete(lbls)
 	}
 
-	return d.addCiliumNetworkPolicyV2(ciliumV2Store, newRuleCpy)
+	return d.addCiliumNetworkPolicyV2(ciliumV2Store, oldRules, newRuleCpy)
 }
 
 // missingCNPv2 returns all missing policies from the given map.
