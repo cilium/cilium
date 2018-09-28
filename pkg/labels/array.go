@@ -70,6 +70,21 @@ nextLabel:
 	return true
 }
 
+// Equals returns true if all ls equals the needed LabelsArray.
+func (ls LabelArray) Equals(needed LabelArray) bool {
+	if len(ls) != len(needed) {
+		return false
+	}
+
+	for i, neededLabel := range needed {
+		if !neededLabel.Equals(ls[i]) {
+			return false
+		}
+	}
+
+	return true
+}
+
 // Lacks is identical to Contains but returns all missing labels
 func (ls LabelArray) Lacks(needed LabelArray) LabelArray {
 	missing := LabelArray{}

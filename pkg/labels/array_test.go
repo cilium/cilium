@@ -16,7 +16,6 @@ package labels
 
 import (
 	"github.com/cilium/cilium/pkg/checker"
-
 	. "gopkg.in/check.v1"
 )
 
@@ -74,4 +73,39 @@ func (s *LabelsSuite) TestHas(c *C) {
 		c.Logf("has %q?", tt.input)
 		c.Assert(lbls.Has(tt.input), Equals, tt.expected)
 	}
+}
+
+func (s *LabelsSuite) TestLabelArray_Equals(c *C) {
+	a := LabelArray{
+		NewLabel("1", "1", "1"),
+		NewLabel("2", "2", "1"),
+		NewLabel("3", "3", "1"),
+	}
+	b := LabelArray{
+		NewLabel("1", "1", "1"),
+		NewLabel("2", "2", "1"),
+	}
+	d := LabelArray{
+		NewLabel("2", "2", "1"),
+		NewLabel("1", "1", "1"),
+		NewLabel("3", "3", "1"),
+	}
+	e := LabelArray{
+		NewLabel("2", "2", "1"),
+		NewLabel("1", "1", "1"),
+		NewLabel("3", "2", "1"),
+	}
+	empty := LabelArray{}
+
+	c.Assert(b.Equals(a), Equals, false)        // b is NOT equal to a
+	c.Assert(a.Equals(b), Equals, false)        // a is NOT equal to b
+	c.Assert(empty.Equals(a), Equals, false)    // empty is NOT equal to a
+	c.Assert(empty.Equals(b), Equals, false)    // empty is NOT equal to b
+	c.Assert(a.Equals(empty), Equals, false)    // a is NOT equal to empty
+	c.Assert(b.Equals(empty), Equals, false)    // b is NOT equal to empty
+	c.Assert(a.Equals(d), Equals, false)        // a is NOT equal to d
+	c.Assert(b.Equals(b), Equals, true)         // b is equal to b
+	c.Assert(empty.Equals(empty), Equals, true) // empty is equal to empty
+	c.Assert(a.Equals(e), Equals, false)        // a is NOT equal to e
+	c.Assert(e.Equals(a), Equals, false)        // e is NOT equal to a
 }
