@@ -69,7 +69,7 @@ spec:
   - args:
     - sleep
     - "100000"
-    image: docker.io/cilium/microscope:1.1.1-ci
+    image: docker.io/cilium/microscope:1.1.2-ci
     imagePullPolicy: IfNotPresent
     name: microscope
     readinessProbe:
