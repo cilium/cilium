@@ -31,8 +31,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// MemcacheRule matches against memcached requests
-type MemcacheRule struct {
+// Rule matches against memcached requests
+type Rule struct {
 	// opCode group name
 	command string
 
@@ -48,14 +48,14 @@ type MemcacheRule struct {
 	regex          *regexp.Regexp
 }
 
-// Matches returns true if the MemcacheRule matches
-func (rule *MemcacheRule) Matches(data interface{}) bool {
+// Matches returns true if the Rule matches
+func (rule *Rule) Matches(data interface{}) bool {
 	log.Debugf("memcache checking rule %v", *rule)
 
 	packetMeta, ok := data.(meta.MemcacheMeta)
 
 	if !ok {
-		log.Debugf("Wrong type supplied to MemcacheRule.Matches")
+		log.Debugf("Wrong type supplied to Rule.Matches")
 		return false
 	}
 
@@ -100,26 +100,26 @@ func (rule *MemcacheRule) Matches(data interface{}) bool {
 	return true
 }
 
-func (rule *MemcacheRule) matchCommand(cmd string) bool {
+func (rule *Rule) matchCommand(cmd string) bool {
 	_, ok := rule.commands.text[cmd]
 	return ok
 }
 
-func (rule *MemcacheRule) matchOpcode(code byte) bool {
+func (rule *Rule) matchOpcode(code byte) bool {
 	_, ok := rule.commands.binary[code]
 	return ok
 }
 
-// L7MemcacheRuleParser parses protobuf L7 rules to and array of MemcacheRule
+// L7RuleParser parses protobuf L7 rules to and array of Rule
 // May panic
-func L7MemcacheRuleParser(rule *cilium.PortNetworkPolicyRule) []proxylib.L7NetworkPolicyRule {
+func L7RuleParser(rule *cilium.PortNetworkPolicyRule) []proxylib.L7NetworkPolicyRule {
 	l7Rules := rule.GetL7Rules()
 	if l7Rules == nil {
 		proxylib.ParseError("Can't get L7 rules", rule)
 	}
 	var rules []proxylib.L7NetworkPolicyRule
 	for _, l7Rule := range l7Rules.GetL7Rules() {
-		var br MemcacheRule
+		var br Rule
 		for k, v := range l7Rule.Rule {
 			switch k {
 			case "command":
@@ -141,29 +141,29 @@ func L7MemcacheRuleParser(rule *cilium.PortNetworkPolicyRule) []proxylib.L7Netwo
 		if br.command == "" {
 			proxylib.ParseError("command not specified", rule)
 		}
-		log.Debugf("Parsed MemcacheRule pair: %v", br)
+		log.Debugf("Parsed Rule pair: %v", br)
 		rules = append(rules, &br)
 	}
 	return rules
 }
 
-// MemcacheParserFactory implements proxylib.ParserFactory
-type MemcacheParserFactory struct{}
+// ParserFactory implements proxylib.ParserFactory
+type ParserFactory struct{}
 
 // Create creates memcached parser
-func (p *MemcacheParserFactory) Create(connection *proxylib.Connection) proxylib.Parser {
-	log.Debugf("MemcacheParserFactory: Create: %v", connection)
-	return &MemcacheParser{
+func (p *ParserFactory) Create(connection *proxylib.Connection) proxylib.Parser {
+	log.Debugf("ParserFactory: Create: %v", connection)
+	return &Parser{
 		connection:   connection,
-		textParser:   text.TextMemcacheParserFactoryInstance.Create(connection),
-		binaryParser: binary.BinaryMemcacheParserFactoryInstance.Create(connection),
+		textParser:   text.ParserFactoryInstance.Create(connection),
+		binaryParser: binary.ParserFactoryInstance.Create(connection),
 	}
 }
 
 // compile time check for interface implementation
-var _ proxylib.ParserFactory = &MemcacheParserFactory{}
+var _ proxylib.ParserFactory = &ParserFactory{}
 
-var memcacheParserFactory *MemcacheParserFactory
+var memcacheParserFactory *ParserFactory
 
 const (
 	parserName = "memcache"
@@ -172,23 +172,23 @@ const (
 func init() {
 	log.Info("init(): Registering memcacheParserFactory")
 	proxylib.RegisterParserFactory(parserName, memcacheParserFactory)
-	proxylib.RegisterL7RuleParser(parserName, L7MemcacheRuleParser)
+	proxylib.RegisterL7RuleParser(parserName, L7RuleParser)
 }
 
-// MemcacheParser implements proxylib.Parser
-type MemcacheParser struct {
+// Parser implements proxylib.Parser
+type Parser struct {
 	connection   *proxylib.Connection
 	textParser   proxylib.Parser
 	binaryParser proxylib.Parser
 	isBinary     *bool
 }
 
-var _ proxylib.Parser = &MemcacheParser{}
+var _ proxylib.Parser = &Parser{}
 var t = true
 var f = false
 
 // OnData parses binary memcached data
-func (p *MemcacheParser) OnData(reply, endStream bool, dataBuffers [][]byte, offset int) (proxylib.OpType, int) {
+func (p *Parser) OnData(reply, endStream bool, dataBuffers [][]byte, offset int) (proxylib.OpType, int) {
 	if p.isBinary == nil {
 		remainingOffset := offset
 		var magicByte byte
@@ -220,7 +220,7 @@ type memcacheCommandSet struct {
 }
 
 // empty var for filling map below which will be used as set
-var e struct{} = struct{}{}
+var e = struct{}{}
 
 // MemcacheOpCodeMap maps human-readable names of memcached operations and groups to opcodes
 var MemcacheOpCodeMap = map[string]memcacheCommandSet{

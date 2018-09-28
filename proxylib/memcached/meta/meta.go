@@ -16,6 +16,7 @@
 
 package meta
 
+// MemcacheMeta gathers information about memcache frame for L7 rules matching
 type MemcacheMeta struct {
 	Command  []byte
 	Opcode   byte
