@@ -14,7 +14,11 @@
 
 package api
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/cilium/cilium/pkg/labels"
+)
 
 // Rules is a collection of api.Rule.
 //
@@ -54,4 +58,22 @@ func (r Rules) String() string {
 	rulesString += "]"
 
 	return rulesString
+}
+
+// GetSetOfLabels returns a unique set of labels defined in all rules of `rs`.
+func (r Rules) GetSetOfLabels() []labels.LabelArray {
+	var labelSet []labels.LabelArray
+	for _, r := range r {
+		exists := false
+		for _, set := range labelSet {
+			if r.Labels.Equals(set) {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			labelSet = append(labelSet, r.Labels)
+		}
+	}
+	return labelSet
 }
