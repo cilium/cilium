@@ -186,6 +186,9 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 type AddOptions struct {
 	// Replace if true indicates that existing rules with identical labels should be replaced
 	Replace bool
+	// ReplaceWithLabels if present indicates that existing rules with the
+	// given LabelArray should be deleted.
+	ReplaceWithLabels labels.LabelArray
 }
 
 func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, error) {
@@ -242,18 +245,28 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 		return d.policy.GetRevision(), err
 	}
 
-	rev, err := d.policyAdd(rules, opts)
-	if err != nil {
-		// Don't leak identities allocated above.
-		if err2 := ipcache.ReleaseCIDRs(prefixes); err2 != nil {
-			log.WithError(err2).WithField("prefixes", prefixes).Warn(
-				"Failed to release CIDRs during policy import failure")
+	d.policy.Mutex.Lock()
+	if opts != nil {
+		if opts.Replace {
+			for _, r := range rules {
+				tmp := d.policy.SearchRLocked(r.Labels)
+				if len(tmp) > 0 {
+					d.policy.DeleteByLabelsLocked(r.Labels)
+				}
+			}
 		}
-		return 0, api.Error(PutPolicyFailureCode, err)
+		if len(opts.ReplaceWithLabels) > 0 {
+			tmp := d.policy.SearchRLocked(opts.ReplaceWithLabels)
+			if len(tmp) > 0 {
+				d.policy.DeleteByLabelsLocked(opts.ReplaceWithLabels)
+			}
+		}
 	}
 
-	log.WithField(logfields.PolicyRevision, rev).Info("Policy imported via API, recalculating...")
+	rev, err := d.policy.AddListLocked(rules)
+	d.policy.Mutex.Unlock()
 
+	log.WithField(logfields.PolicyRevision, rev).Info("Policy imported via API, recalculating...")
 	d.TriggerPolicyUpdates(false)
 
 	repr, err := monitor.PolicyUpdateRepr(rules, rev)
