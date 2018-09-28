@@ -45,18 +45,17 @@ func (p *LineParserFactory) Create(connection *Connection) Parser {
 	return &LineParser{connection: connection}
 }
 
-func getLine(data [][]byte, offset int) ([]byte, bool) {
+func getLine(data [][]byte) ([]byte, bool) {
 	var line bytes.Buffer
 	for i, s := range data {
-		index := bytes.IndexByte(s[offset:], '\n')
+		index := bytes.IndexByte(s, '\n')
 		if index < 0 {
-			line.Write(s[offset:])
+			line.Write(s)
 		} else {
-			log.Infof("getLine: unit: %d offset: %d length: %d index: %d", i, offset, len(s), index)
-			line.Write(s[offset : offset+index+1])
+			log.Infof("getLine: unit: %d length: %d index: %d", i, len(s), index)
+			line.Write(s[:index+1])
 			return line.Bytes(), true
 		}
-		offset = 0
 	}
 	return line.Bytes(), false
 }
@@ -68,8 +67,8 @@ func getLine(data [][]byte, offset int) ([]byte, bool) {
 // "INJECT" the line is injected in reverse direction
 // "INSERT" the line is injected in current direction
 //
-func (p *LineParser) OnData(reply, endStream bool, data [][]byte, offset int) (OpType, int) {
-	line, ok := getLine(data, offset)
+func (p *LineParser) OnData(reply, endStream bool, data [][]byte) (OpType, int) {
+	line, ok := getLine(data)
 	line_len := len(line)
 
 	if p.inserted {

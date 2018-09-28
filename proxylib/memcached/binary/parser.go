@@ -157,9 +157,7 @@ var _ proxylib.Parser = &BinaryMemcacheParser{}
 const headerSize = 24
 
 // OnData parses binary memcached data
-func (p *BinaryMemcacheParser) OnData(reply, endStream bool, dataBuffers [][]byte, offset int) (proxylib.OpType, int) {
-	log.Debugf("OnData with offset %d", offset)
-
+func (p *BinaryMemcacheParser) OnData(reply, endStream bool, dataBuffers [][]byte) (proxylib.OpType, int) {
 	if reply {
 		if p.injectFromQueue() {
 			return proxylib.INJECT, len(DeniedMsgBase)
@@ -170,7 +168,7 @@ func (p *BinaryMemcacheParser) OnData(reply, endStream bool, dataBuffers [][]byt
 	}
 
 	//TODO don't copy data from buffers
-	data := (bytes.Join(dataBuffers, []byte{}))[offset:]
+	data := bytes.Join(dataBuffers, []byte{})
 	log.Debugf("Data length: %d", len(data))
 
 	if headerSize > len(data) {

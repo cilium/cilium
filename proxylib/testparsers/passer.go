@@ -42,11 +42,10 @@ func (p *PasserParserFactory) Create(connection *Connection) Parser {
 //
 // This simply passes all data in either direction.
 //
-func (p *PasserParser) OnData(reply, endStream bool, data [][]byte, offset int) (OpType, int) {
+func (p *PasserParser) OnData(reply, endStream bool, data [][]byte) (OpType, int) {
 	n_bytes := 0
 	for _, s := range data {
-		n_bytes += len(s) - offset
-		offset = 0
+		n_bytes += len(s)
 	}
 	if n_bytes == 0 {
 		return NOP, 0

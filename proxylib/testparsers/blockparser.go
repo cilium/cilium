@@ -48,9 +48,10 @@ func (p *BlockParserFactory) Create(connection *Connection) Parser {
 	return &BlockParser{connection: connection}
 }
 
-func getBlock(data [][]byte, offset int) ([]byte, int, int, error) {
+func getBlock(data [][]byte) ([]byte, int, int, error) {
 	var block bytes.Buffer
 
+	offset := 0
 	block_len := 0
 	have_length := false
 	missing := 0
@@ -105,8 +106,8 @@ func getBlock(data [][]byte, offset int) ([]byte, int, int, error) {
 // "INJECT" the block is injected in reverse direction
 // "INSERT" the block is injected in current direction
 //
-func (p *BlockParser) OnData(reply, endStream bool, data [][]byte, offset int) (OpType, int) {
-	block, block_len, missing, err := getBlock(data, offset)
+func (p *BlockParser) OnData(reply, endStream bool, data [][]byte) (OpType, int) {
+	block, block_len, missing, err := getBlock(data)
 	if err != nil {
 		log.WithError(err).Warnf("BlockParser: Invalid frame length")
 		return ERROR, int(ERROR_INVALID_FRAME_LENGTH)

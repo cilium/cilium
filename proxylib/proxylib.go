@@ -106,20 +106,18 @@ func OnNewConnection(instanceId uint64, proto string, connectionId uint64, ingre
 }
 
 // Skip bytes in input, or exhaust the input.
-// If input is exhausted 'bytes' will return the number of bytes remaining beyond the input
-func advanceInput(bytes, unit, offset int, data *[][]byte) (int, int, int) {
-	for bytes > 0 && unit < len(*data) {
-		rem := len((*data)[unit]) - offset // this much data left in unit
-		if bytes < rem {                   // more than 'bytes' bytes in unit
-			offset += bytes
+func advanceInput(input [][]byte, bytes int) [][]byte {
+	for bytes > 0 && len(input) > 0 {
+		rem := len(input[0]) // this much data left in the first slice
+		if bytes < rem {
+			input[0] = input[0][bytes:] // skip 'bytes' bytes
 			bytes = 0
 		} else { // go to the beginning of the next unit
 			bytes -= rem
-			unit++
-			offset = 0
+			input = input[1:] // may result in an empty slice
 		}
 	}
-	return bytes, unit, offset
+	return input
 }
 
 // Each connection is assumed to be called from a single thread, so accessing connection metadata
@@ -171,12 +169,11 @@ func OnData(connectionId uint64, reply, endStream bool, data *[][]byte, filterOp
 		}
 	}()
 
-	unit := 0
-	offset := 0
+	input := *data
 
 	// Loop until `filterOps` becomes full, or parser is done with the data.
 	for len(*filterOps) < cap(*filterOps) {
-		op, bytes := connection.Parser.OnData(reply, endStream, (*data)[unit:], offset)
+		op, bytes := connection.Parser.OnData(reply, endStream, input)
 		if op == NOP {
 			break // No operations after NOP
 		}
@@ -193,7 +190,8 @@ func OnData(connectionId uint64, reply, endStream bool, data *[][]byte, filterOp
 		}
 
 		if op == PASS || op == DROP {
-			_, unit, offset = advanceInput(bytes, unit, offset, data)
+			// Reslice the input to advance in the data for byte amount 'bytes'
+			input = advanceInput(input, bytes)
 			// Loop back to parser even if have no more data to allow the parser to
 			// inject frames at the end of the input.
 		}
