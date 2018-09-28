@@ -165,7 +165,7 @@ type AddOptions struct {
 // pods which are selected. Eventual changes in policy rules are propagated to
 // all locally managed endpoints.
 func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, error) {
-	log.WithField(logfields.CiliumNetworkPolicy, logfields.Repr(rules)).Debug("Policy Add Request")
+	log.WithField(logfields.CiliumNetworkPolicy, rules.String()).Info("Policy Add Request")
 
 	// These must be marked before actually adding them to the repository since a
 	// copy may be made and we won't be able to add the ToFQDN tracking labels
