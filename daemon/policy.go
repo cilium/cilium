@@ -187,6 +187,9 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 type AddOptions struct {
 	// Replace if true indicates that existing rules with identical labels should be replaced
 	Replace bool
+	// ReplaceWithLabels if present indicates that existing rules with the
+	// given LabelArray should be deleted.
+	ReplaceWithLabels labels.LabelArray
 }
 
 func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions, prefixes []*net.IPNet) (uint64, error) {
@@ -195,14 +198,19 @@ func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions, prefixes []*
 
 	oldRules := policyAPI.Rules{}
 
-	if opts != nil && opts.Replace {
-		// Make copy of rules matching labels of new rules while
-		// deleting them.
-		for _, r := range rules {
-			tmp := d.policy.SearchRLocked(r.Labels)
+	if opts != nil {
+		if opts.Replace {
+			for _, r := range rules {
+				tmp := d.policy.SearchRLocked(r.Labels)
+				if len(tmp) > 0 {
+					d.policy.DeleteByLabelsLocked(r.Labels)
+				}
+			}
+		}
+		if len(opts.ReplaceWithLabels) > 0 {
+			tmp := d.policy.SearchRLocked(opts.ReplaceWithLabels)
 			if len(tmp) > 0 {
-				d.policy.DeleteByLabelsLocked(r.Labels)
-				oldRules = append(oldRules, tmp...)
+				d.policy.DeleteByLabelsLocked(opts.ReplaceWithLabels)
 			}
 		}
 	}
