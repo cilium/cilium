@@ -14,9 +14,44 @@
 
 package api
 
+import "fmt"
+
 // Rules is a collection of api.Rule.
 //
 // All rules must be evaluated in order to come to a conclusion. While
 // it is sufficient to have a single fromEndpoints rule match, none of
 // the fromRequires may be violated at the same time.
 type Rules []*Rule
+
+func (r Rules) String() string {
+
+	if len(r) == 0 {
+		return ""
+	}
+
+	if len(r) == 1 {
+		if r[0] != nil {
+			return fmt.Sprintf("%v", *r[0])
+		}
+		return "<nil>"
+	}
+
+	rulesString := ""
+
+	if r[0] != nil {
+		rulesString = fmt.Sprintf("[%v", *r[0])
+	} else {
+		rulesString = "[<nil>"
+	}
+	for i := 1; i < len(r); i++ {
+		if r[i] == nil {
+			rulesString += ", <nil>"
+		} else {
+			rulesString += fmt.Sprintf(", %v", *r[i])
+		}
+	}
+
+	rulesString += "]"
+
+	return rulesString
+}
