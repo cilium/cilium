@@ -119,6 +119,20 @@ func (t *Timestamp) DeepCopyInto(out *Timestamp) {
 	*out = *t
 }
 
+func (r *CiliumNetworkPolicy) String() string {
+	result := ""
+	result += fmt.Sprintf("TypeMeta: %s, ", r.TypeMeta.String())
+	result += fmt.Sprintf("ObjectMeta: %s, ", r.ObjectMeta.String())
+	if r.Spec != nil {
+		result += fmt.Sprintf("Spec: %v", *(r.Spec))
+	}
+	if r.Specs != nil {
+		result += fmt.Sprintf("Specs: %s", r.Specs)
+	}
+	result += fmt.Sprintf("Status: %v", r.Status)
+	return result
+}
+
 // GetPolicyStatus returns the CiliumNetworkPolicyNodeStatus corresponding to
 // nodeName in the provided CiliumNetworkPolicy. If Nodes within the rule's
 // Status is nil, returns an empty CiliumNetworkPolicyNodeStatus.
