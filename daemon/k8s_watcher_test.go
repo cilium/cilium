@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -39,6 +40,7 @@ import (
 	"k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/tools/cache"
 )
 
 func (ds *DaemonSuite) TestK8sErrorLogTimeout(c *C) {
@@ -1620,5 +1622,212 @@ func (ds *DaemonSuite) Test_missingK8sIngressV1Beta1(c *C) {
 		ds.d.loadBalancer = args.lb
 		got := ds.d.missingK8sIngressV1Beta1(args.m)
 		c.Assert(got, DeepEquals, want, Commentf("Test name: %q", tt.name))
+	}
+}
+
+func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
+	// ciliumV2Store cache.Store, oldRules api.Rules, cnp *cilium_v2.CiliumNetworkPolicy
+	type args struct {
+		ciliumV2Store cache.Store
+		cnp           *v2.CiliumNetworkPolicy
+		repo          *policy.Repository
+	}
+	type wanted struct {
+		err  error
+		repo *policy.Repository
+	}
+	tests := []struct {
+		name        string
+		setupArgs   func() args
+		setupWanted func() wanted
+	}{
+		{
+			name: "simple policy added",
+			setupArgs: func() args {
+				return args{
+					ciliumV2Store: &cache.FakeCustomStore{},
+					cnp: &v2.CiliumNetworkPolicy{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "db",
+							Namespace: "production",
+						},
+						Spec: &api.Rule{
+							EndpointSelector: api.EndpointSelector{
+								LabelSelector: &metav1.LabelSelector{
+									MatchLabels: map[string]string{
+										"env": "cluster-1",
+									},
+								},
+							},
+						},
+					},
+					repo: policy.NewPolicyRepository(),
+				}
+			},
+			setupWanted: func() wanted {
+				r := policy.NewPolicyRepository()
+				r.AddList(api.Rules{
+					{
+						EndpointSelector: api.EndpointSelector{
+							LabelSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"env": "cluster-1",
+									labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
+								},
+							},
+						},
+						Ingress:     nil,
+						Egress:      nil,
+						Labels:      utils.GetPolicyLabels("production", "db", utils.ResourceTypeCiliumNetworkPolicy),
+						Description: "",
+					},
+				})
+				return wanted{
+					err:  nil,
+					repo: r,
+				}
+			},
+		},
+		{
+			name: "have a rule with user labels and update it without user labels, all other rules should be deleted",
+			setupArgs: func() args {
+				r := policy.NewPolicyRepository()
+				lbls := utils.GetPolicyLabels("production", "db", utils.ResourceTypeCiliumNetworkPolicy)
+				lbls = append(lbls, labels.ParseLabelArray("foo=bar")...)
+				r.AddList(api.Rules{
+					{
+						EndpointSelector: api.EndpointSelector{
+							LabelSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"env": "cluster-1",
+									labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
+								},
+							},
+						},
+						Ingress:     nil,
+						Egress:      nil,
+						Labels:      lbls,
+						Description: "",
+					},
+				})
+				return args{
+					ciliumV2Store: &cache.FakeCustomStore{},
+					cnp: &v2.CiliumNetworkPolicy{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "db",
+							Namespace: "production",
+						},
+						Spec: &api.Rule{
+							EndpointSelector: api.EndpointSelector{
+								LabelSelector: &metav1.LabelSelector{
+									MatchLabels: map[string]string{
+										"env": "cluster-1",
+									},
+								},
+							},
+						},
+					},
+					repo: r,
+				}
+			},
+			setupWanted: func() wanted {
+				r := policy.NewPolicyRepository()
+				r.AddList(api.Rules{
+					{
+						EndpointSelector: api.EndpointSelector{
+							LabelSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"env": "cluster-1",
+									labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
+								},
+							},
+						},
+						Ingress:     nil,
+						Egress:      nil,
+						Labels:      utils.GetPolicyLabels("production", "db", utils.ResourceTypeCiliumNetworkPolicy),
+						Description: "",
+					},
+				})
+				return wanted{
+					err:  nil,
+					repo: r,
+				}
+			},
+		},
+		{
+			name: "have a rule without user labels and update it with user labels, all other rules should be deleted",
+			setupArgs: func() args {
+				r := policy.NewPolicyRepository()
+				r.AddList(api.Rules{
+					{
+						EndpointSelector: api.EndpointSelector{
+							LabelSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"env": "cluster-1",
+									labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
+								},
+							},
+						},
+						Ingress:     nil,
+						Egress:      nil,
+						Labels:      utils.GetPolicyLabels("production", "db", utils.ResourceTypeCiliumNetworkPolicy),
+						Description: "",
+					},
+				})
+				return args{
+					ciliumV2Store: &cache.FakeCustomStore{},
+					cnp: &v2.CiliumNetworkPolicy{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "db",
+							Namespace: "production",
+						},
+						Spec: &api.Rule{
+							EndpointSelector: api.EndpointSelector{
+								LabelSelector: &metav1.LabelSelector{
+									MatchLabels: map[string]string{
+										"env": "cluster-1",
+									},
+								},
+							},
+							Labels: labels.ParseLabelArray("foo=bar"),
+						},
+					},
+					repo: r,
+				}
+			},
+			setupWanted: func() wanted {
+				r := policy.NewPolicyRepository()
+				lbls := utils.GetPolicyLabels("production", "db", utils.ResourceTypeCiliumNetworkPolicy)
+				lbls = append(lbls, labels.ParseLabelArray("foo=bar")...)
+				r.AddList(api.Rules{
+					{
+						EndpointSelector: api.EndpointSelector{
+							LabelSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"env": "cluster-1",
+									labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
+								},
+							},
+						},
+						Ingress:     nil,
+						Egress:      nil,
+						Labels:      lbls,
+						Description: "",
+					},
+				})
+				return wanted{
+					err:  nil,
+					repo: r,
+				}
+			},
+		},
+	}
+	for _, tt := range tests {
+		args := tt.setupArgs()
+		want := tt.setupWanted()
+		ds.d.policy = args.repo
+		err := ds.d.addCiliumNetworkPolicyV2(args.ciliumV2Store, args.cnp)
+		c.Assert(err, DeepEquals, want.err, Commentf("Test name: %q", tt.name))
+		c.Assert(ds.d.policy.GetRulesList().Policy, DeepEquals, want.repo.GetRulesList().Policy, Commentf("Test name: %q", tt.name))
 	}
 }

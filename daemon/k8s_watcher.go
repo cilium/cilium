@@ -1716,7 +1716,14 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumV2Store cache.Store, cnp *cilium
 		policyImportErr = k8s.PreprocessRules(rules, d.loadBalancer.K8sEndpoints, d.loadBalancer.K8sServices)
 		d.loadBalancer.K8sMU.Unlock()
 		if policyImportErr == nil {
-			rev, policyImportErr = d.PolicyAdd(rules, &AddOptions{Replace: true})
+			// Replace all rules with the same name, namespace and
+			// resourceTypeCiliumNetworkPolicy
+			rev, policyImportErr = d.PolicyAdd(rules, &AddOptions{
+				ReplaceWithLabels: utils.GetPolicyLabels(
+					cnp.ObjectMeta.Namespace,
+					cnp.ObjectMeta.Name,
+					utils.ResourceTypeCiliumNetworkPolicy),
+			})
 		}
 	}
 
