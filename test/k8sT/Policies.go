@@ -598,7 +598,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			}
 		})
 
-		It("Enforces connectivity correctly when the same CNP is updated", func() {
+		FIt("K8sXFoo Enforces connectivity correctly when the same CNP is updated", func() {
 
 			By("Applying default allow policy")
 			_, err := kubectl.CiliumPolicyAction(
