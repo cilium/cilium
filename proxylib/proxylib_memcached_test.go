@@ -48,6 +48,15 @@ var okText = []byte("OK\r\n")
 var lruCrawlerText = []byte("lru_crawler metadump all\r\n")
 var statsText = []byte("stats\r\n")
 var flushAllText = []byte("flush_all 15\r\n")
+var watchText = []byte("watch mutations\r\n")
+
+var watchReply = []byte(
+	"OK\r\n" +
+		"ts=1538135970.404892 gid=5 type=item_store key=key3 status=stored cmd=set ttl=500 clsid=1\r\n" +
+		"ts=1538135970.404898 gid=6 type=item_store key=key4 status=stored cmd=set ttl=500 clsid=1\r\n" +
+		"ts=1538135974.340708 gid=7 type=item_store key=key3 status=stored cmd=set ttl=500 clsid=1\r\n" +
+		"ts=1538135974.340714 gid=8 type=item_store key=key4 status=stored cmd=set ttl=500 clsid=1\r\n" +
+		"ts=1538135976.436863 gid=9 type=item_store key=key3 status=stored cmd=set ttl=500 clsid=1\r\n")
 
 var lruCrawlerResponse = []byte(
 	"key=key3 exp=1538047402 la=1538046902 cas=1 fetch=no cls=1 size=67\r\n" +
@@ -526,6 +535,24 @@ var textTestCases = []testCase{
 				{proxylib.DROP, len(flushAllText)}, {proxylib.MORE, 1},
 			}, proxylib.OK, string(textmemcache.DeniedMsg))
 
+		},
+	},
+	{
+		"text watch passed",
+		`		        rule: <
+				  key: "command"
+				  value: "watch"
+		        >
+		`,
+		func(t *testing.T) {
+
+			CheckOnData(t, 1, false, false, &[][]byte{watchText}, []ExpFilterOp{
+				{proxylib.PASS, len(watchText)}, {proxylib.MORE, 1},
+			}, proxylib.OK, "")
+
+			CheckOnData(t, 1, true, false, &[][]byte{watchReply}, []ExpFilterOp{
+				{proxylib.PASS, 4}, {proxylib.PASS, 91}, {proxylib.PASS, 91}, {proxylib.PASS, 91}, {proxylib.PASS, 91}, {proxylib.PASS, 91},
+			}, proxylib.OK, "")
 		},
 	},
 }

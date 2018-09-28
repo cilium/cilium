@@ -358,7 +358,6 @@ var MemcacheOpCodeMap = map[string]memcacheCommandSet{
 		binary: map[byte]struct{}{},
 	},
 
-	// TODO: figure out how to handle connections in watch mode
 	"watch": {
 		text:   map[string]struct{}{"watch": e},
 		binary: map[byte]struct{}{},

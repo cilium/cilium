@@ -49,6 +49,9 @@ type Parser struct {
 	requestCount uint32
 	replyCount   uint32
 	replyQueue   []*replyIntent
+
+	//set to true when watch command is observed
+	watching bool
 }
 
 type replyIntent struct {
@@ -148,6 +151,10 @@ func (p *Parser) OnData(reply, endStream bool, dataBuffers [][]byte, offset int)
 			meta.Keys = [][]byte{}
 			noreply = true
 			frameLength = linefeed + 2
+		} else if bytes.Equal(meta.Command, []byte("watch")) {
+			meta.Keys = [][]byte{}
+			frameLength = linefeed + 2
+			p.watching = true
 		} else {
 			log.Error("Could not parse text memcache frame")
 			return proxylib.ERROR, 0
@@ -188,6 +195,7 @@ func (p *Parser) OnData(reply, endStream bool, dataBuffers [][]byte, offset int)
 		p.connection.Log(cilium.EntryType_Denied, logEntry)
 		return proxylib.DROP, frameLength
 	}
+
 	//reply
 	log.Debugf("reply, parsing to figure out if we have it all")
 
@@ -200,6 +208,10 @@ func (p *Parser) OnData(reply, endStream bool, dataBuffers [][]byte, offset int)
 				"command": string(intent.command),
 			},
 		},
+	}
+	if p.watching {
+		// in watch mode we pass all replied lines
+		return proxylib.PASS, linefeed + 2
 	}
 
 	if p.isErrorReply(tokens[0]) ||
