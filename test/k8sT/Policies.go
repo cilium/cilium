@@ -99,17 +99,16 @@ var _ = Describe("K8sPolicyTest", func() {
 			ExpectWithOffset(1, kubectl.WaitForEnforcingCNP(name, "default")).To(BeNil(), "CNP is not in enforcing mode after timeout")
 		}
 
-		validateConnectivity := func(expectWorldSuccess, expectClusterSuccess bool) {
-
-			// getMatcher returns a helper.CMDSucess() matcher for success or
-			// failure situations.
-			getMatcher := func(val bool) types.GomegaMatcher {
-				if val {
-					return helpers.CMDSuccess()
-				}
-				return Not(helpers.CMDSuccess())
+		// getMatcher returns a helper.CMDSucess() matcher for success or
+		// failure situations.
+		getMatcher := func(val bool) types.GomegaMatcher {
+			if val {
+				return helpers.CMDSuccess()
 			}
+			return Not(helpers.CMDSuccess())
+		}
 
+		validateConnectivity := func(expectWorldSuccess, expectClusterSuccess bool) {
 			for _, pod := range []string{appPods[helpers.App2], appPods[helpers.App3]} {
 				By("HTTP connectivity to google.com")
 				res := kubectl.ExecPodCmd(
@@ -640,6 +639,85 @@ var _ = Describe("K8sPolicyTest", func() {
 				validateConnectivity(WorldConnectivityDeny, ClusterConnectivityDeny)
 			})
 		})
+
+		Context("Validate CNP update", func() {
+			const (
+				allowAll     = true
+				denyFromApp3 = false
+			)
+
+			var (
+				policyName            = "cnp-update"
+				cnpUpdateAllow        = helpers.ManifestGet("cnp-update-allow-all.yaml")
+				cnpUpdateDeny         = helpers.ManifestGet("cnp-update-deny-ingress.yaml")
+				cnpUpdateNoSpecs      = helpers.ManifestGet("cnp-update-no-specs.yaml")
+				cnpUpdateDenyLabelled = helpers.ManifestGet("cnp-update-deny-ingress-labelled.yaml")
+			)
+
+			validateL3L4 := func(allowApp3 bool) {
+				res := kubectl.ExecPodCmd(
+					helpers.DefaultNamespace, appPods[helpers.App2],
+					helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
+				ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
+					"%q cannot curl clusterIP %q",
+					appPods[helpers.App2], clusterIP)
+
+				res = kubectl.ExecPodCmd(
+					helpers.DefaultNamespace, appPods[helpers.App3],
+					helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
+				ExpectWithOffset(1, res).To(getMatcher(allowApp3),
+					"%q curl clusterIP %q (expected to allow: %t)",
+					appPods[helpers.App3], clusterIP, allowApp3)
+			}
+
+			It("Enforces connectivity correctly when the same CNP is updated", func() {
+				By("Applying default allow policy")
+				_, err := kubectl.CiliumPolicyAction(
+					helpers.KubeSystemNamespace, cnpUpdateAllow, helpers.KubectlApply, 300)
+				Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpUpdateAllow)
+
+				Expect(kubectl.WaitForEnforcingCNP(policyName, "default")).To(BeNil(),
+					"CNP is not in enforcing mode after timeout")
+				validateL3L4(allowAll)
+
+				By("Applying l3-l4 policy")
+				_, err = kubectl.CiliumPolicyAction(
+					helpers.KubeSystemNamespace, cnpUpdateDeny, helpers.KubectlApply, 300)
+				Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpUpdateDeny)
+
+				Expect(kubectl.WaitForEnforcingCNP(policyName, "default")).To(BeNil(),
+					"CNP is not in enforcing mode after timeout")
+				validateL3L4(denyFromApp3)
+
+				By("Applying no-specs policy")
+				_, err = kubectl.CiliumPolicyAction(
+					helpers.KubeSystemNamespace, cnpUpdateNoSpecs, helpers.KubectlApply, 300)
+				Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpUpdateAllow)
+
+				Expect(kubectl.WaitForEnforcingCNP(policyName, "default")).To(BeNil(),
+					"CNP is not in enforcing mode after timeout")
+				validateL3L4(allowAll)
+
+				By("Applying l3-l4 policy with user-specified labels")
+				_, err = kubectl.CiliumPolicyAction(
+					helpers.KubeSystemNamespace, cnpUpdateDenyLabelled, helpers.KubectlApply, 300)
+				Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpUpdateDeny)
+
+				Expect(kubectl.WaitForEnforcingCNP(policyName, "default")).To(BeNil(),
+					"CNP is not in enforcing mode after timeout")
+				validateL3L4(denyFromApp3)
+
+				By("Applying default allow policy (should remove policy with user labels)")
+				_, err = kubectl.CiliumPolicyAction(
+					helpers.KubeSystemNamespace, cnpUpdateAllow, helpers.KubectlApply, 300)
+				Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpUpdateAllow)
+
+				Expect(kubectl.WaitForEnforcingCNP(policyName, "default")).To(BeNil(),
+					"CNP is not in enforcing mode after timeout")
+				validateL3L4(allowAll)
+			})
+		})
+
 	})
 
 	Context("GuestBook Examples", func() {
