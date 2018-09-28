@@ -15,9 +15,12 @@
 package RuntimeTest
 
 import (
+	"context"
 	"crypto/md5"
 	"fmt"
 	"strings"
+	"sync"
+	"time"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
@@ -44,6 +47,10 @@ var _ = Describe("RuntimeChaos", func() {
 	AfterAll(func() {
 		vm.ContainerRm(helpers.Client)
 		vm.ContainerRm(helpers.Server)
+	})
+
+	AfterEach(func() {
+		vm.PolicyDelAll()
 	})
 
 	JustAfterEach(func() {
@@ -127,4 +134,62 @@ var _ = Describe("RuntimeChaos", func() {
 		Expect(fds).To(BeNumerically("<", threshold),
 			fmt.Sprintf("%d file descriptors open from Cilium processes", fds))
 	}, 300)
+
+	It("Checking that during restart no traffic is dropped using Egress + Ingress Traffic", func() {
+		By("Installing sample containers")
+		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
+		vm.PolicyDelAll().ExpectSuccess("Cannot deleted all policies")
+
+		_, err := vm.PolicyImportAndWait(vm.GetFullPath(policiesL4Json), helpers.HelperTimeout)
+		Expect(err).Should(BeNil(), "Cannot install L4 policy")
+
+		areEndpointsReady := vm.WaitEndpointsReady()
+		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+
+		By("Starting background connection from app2 to httpd1 container")
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		srvIP, err := vm.ContainerInspectNet(helpers.Httpd1)
+		Expect(err).Should(BeNil(), "Cannot get httpd1 server address")
+		type BackgroundTestAsserts struct {
+			res  *helpers.CmdRes
+			time time.Time
+		}
+		backgroundChecks := []*BackgroundTestAsserts{}
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			for {
+				select {
+				default:
+					res := vm.ContainerExec(
+						helpers.App1,
+						helpers.CurlFail("http://%s/", srvIP[helpers.IPv4]))
+					assert := &BackgroundTestAsserts{
+						res:  res,
+						time: time.Now(),
+					}
+					backgroundChecks = append(backgroundChecks, assert)
+				case <-ctx.Done():
+					wg.Done()
+					return
+				}
+			}
+		}()
+		// Sleep a bit to make sure that the goroutine starts.
+		time.Sleep(50 * time.Millisecond)
+
+		err = vm.RestartCilium()
+		Expect(err).Should(BeNil(), "restarting Cilium failed")
+
+		By("Stopping background connections")
+		cancel()
+		wg.Wait()
+
+		GinkgoPrint("Made %d connections in total", len(backgroundChecks))
+		Expect(backgroundChecks).ShouldNot(BeEmpty(), "No background connections were made")
+		for _, check := range backgroundChecks {
+			check.res.ExpectSuccess("Curl from app2 to httpd1 should work but it failed at %s", check.time)
+		}
+	})
 })
