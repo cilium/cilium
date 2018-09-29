@@ -282,6 +282,11 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 					return ErrInvalidResponseNonce
 				}
 			}
+			var detail string
+			status := req.GetErrorDetail()
+			if status != nil {
+				detail = status.Message
+			}
 
 			typeURL := req.GetTypeUrl()
 			if defaultTypeURL == AnyTypeURL && typeURL == "" {
@@ -308,7 +313,7 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 				// ACK versions up to the received versionInfo
 				if ackObserver != nil {
 					requestLog.Debug("notifying observers of ACKs")
-					ackObserver.HandleResourceVersionAck(versionInfo, nonce, req.GetNode(), state.resourceNames, typeURL)
+					ackObserver.HandleResourceVersionAck(versionInfo, nonce, req.GetNode(), state.resourceNames, typeURL, detail)
 					if versionInfo < nonce {
 						// versions after VersionInfo, upto and including ResponseNonce are NACKed
 						requestLog.Warningf("NACK received for versions after %s and up to %s; waiting for a version update before sending again", req.VersionInfo, req.ResponseNonce)
