@@ -27,10 +27,8 @@
 //    comp2 := wg.AddCompletion()
 //    DoSomethingElse(..., comp2)
 //
-// The Completion type provides the WaitGroup's context and the Complete
-// method:
+// The Completion type provides the Complete and Completed() methods:
 //
-//    func (c *Completion) Context() context.Context
 //    func (c *Completion) Complete()
 //    func (c *Completion) Completed() <-chan struct{}
 //
@@ -42,7 +40,7 @@
 //        go func() {
 //            ...
 //            // Computation is completed successfully.
-//            comp.Complete()
+//            comp.Complete(nil)
 //        }()
 //        ...
 //    }
@@ -53,14 +51,25 @@
 //    err := wg.Wait()
 //
 // Wait blocks until either all Completions are completed, or the context is
-// canceled (e.g. times out), whichever happens first. The returned error is
-// non-nil in the case the context is canceled, nil otherwise.
+// canceled, times out, or any of the concurrent operations associated with
+// the WaitGroup fails, whichever happens first. The returned error is
+// nil if all the concurrent operations are successfully completed, a non-nil
+// error otherwise.
 //
 // A Completion can also be created with a callback, which is called at most
-// once when the Completion is successfully completed before the context is
-// cancelled:
+// once when the Completion is completed before the context is canceled:
 //
-//    comp := wg.AddCompletionWithCallback(func() { fmt.Println("completed') })
+//    comp := wg.AddCompletionWithCallback(func(err error) {
+//        if err == nil {
+//            fmt.Println("completed')
+//        }
+//    })
 //
 // The callback is called in the goroutine which calls Complete the first time.
+// The callback is called with an non-nil error if the associated concurrent
+// operation fails. Error values 'context.DeadlineExceeded' and
+// 'context.Canceled' are passed if the WaitGroup's context times out or is
+// canceled. Note that the context is canceled also if any of the other
+// completions in the WaitGroup fails, and the non-failing completions will
+// have their callbacks called with 'context.Canceled'.
 package completion

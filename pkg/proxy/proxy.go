@@ -72,11 +72,10 @@ type Proxy struct {
 	// ports out of the rangeMin-rangeMax range.
 	rangeMax uint16
 
-	// allocatedPorts is a map of all allocated proxy ports pointing
-	// to the redirect rules attached to that port
+	// allocatedPorts is the map of all allocated proxy ports
 	allocatedPorts map[uint16]struct{}
 
-	// redirects is a map of all redirect configurations indexed by
+	// redirects is the map of all redirect configurations indexed by
 	// the redirect identifier. Redirects may be implemented by different
 	// proxies.
 	redirects map[string]*Redirect
