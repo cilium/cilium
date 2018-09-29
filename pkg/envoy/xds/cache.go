@@ -38,6 +38,8 @@ type Cache struct {
 	resources map[cacheKey]cacheValue
 
 	// version is the current version of the resources in the cache.
+	// valid version numbers start at 1, which is the version of a cache
+	// before any modifications have been made
 	version uint64
 }
 
@@ -66,7 +68,7 @@ func NewCache() *Cache {
 	return &Cache{
 		BaseObservableResourceSource: NewBaseObservableResourceSource(),
 		resources:                    make(map[cacheKey]cacheValue),
-		version:                      0,
+		version:                      1,
 	}
 }
 
@@ -181,7 +183,7 @@ func (c *Cache) Clear(typeURL string, force bool) (version uint64, updated bool)
 	return c.version, cacheIsUpdated
 }
 
-func (c *Cache) GetResources(ctx context.Context, typeURL string, lastVersion *uint64,
+func (c *Cache) GetResources(ctx context.Context, typeURL string, lastVersion uint64,
 	node *envoy_api_v2_core.Node, resourceNames []string) (*VersionedResources, error) {
 	c.locker.RLock()
 	defer c.locker.RUnlock()
@@ -233,7 +235,7 @@ func (c *Cache) GetResources(ctx context.Context, typeURL string, lastVersion *u
 		if found {
 			cacheLog.WithField(logfields.XDSResourceName, name).
 				Debugf("resource found, last modified in version %d", v.lastModifiedVersion)
-			if lastVersion == nil || (*lastVersion < v.lastModifiedVersion) {
+			if lastVersion == 0 || (lastVersion < v.lastModifiedVersion) {
 				updatedSinceLastVersion = true
 			}
 			res.ResourceNames = append(res.ResourceNames, name)
@@ -275,7 +277,7 @@ func (c *Cache) EnsureVersion(typeURL string, version uint64) {
 // if available, and returns it. Otherwise, returns nil. If an error occurs while
 // fetching the resource, also returns the error.
 func (c *Cache) Lookup(typeURL string, resourceName string) (proto.Message, error) {
-	res, err := c.GetResources(context.Background(), typeURL, nil, nil, []string{resourceName})
+	res, err := c.GetResources(context.Background(), typeURL, 0, nil, []string{resourceName})
 	if err != nil || res == nil || len(res.Resources) == 0 {
 		return nil, err
 	}
