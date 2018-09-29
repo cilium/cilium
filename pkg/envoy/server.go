@@ -724,7 +724,7 @@ func (s *XDSServer) RemoveAllNetworkPolicies() {
 // the given names.
 // If resourceNames is empty, all resources are returned.
 func (s *XDSServer) GetNetworkPolicies(resourceNames []string) (map[string]*cilium.NetworkPolicy, error) {
-	resources, err := s.networkPolicyCache.GetResources(context.Background(), NetworkPolicyTypeURL, nil, nil, resourceNames)
+	resources, err := s.networkPolicyCache.GetResources(context.Background(), NetworkPolicyTypeURL, 0, nil, resourceNames)
 	if err != nil {
 		return nil, err
 	}

@@ -40,6 +40,7 @@ type ResourceWatcher struct {
 
 	// version is the current version of the resources. Updated in calls to
 	// NotifyNewVersion.
+	// Versioning starts at 1.
 	version uint64
 
 	// versionLocker is used to lock all accesses to version.
@@ -59,6 +60,7 @@ type ResourceWatcher struct {
 // resource set.
 func NewResourceWatcher(typeURL string, resourceSet ResourceSource, resourceAccessTimeout time.Duration) *ResourceWatcher {
 	w := &ResourceWatcher{
+		version:               1,
 		typeURL:               typeURL,
 		resourceSet:           resourceSet,
 		resourceAccessTimeout: resourceAccessTimeout,
@@ -97,7 +99,7 @@ func (w *ResourceWatcher) HandleNewResourceVersion(typeURL string, version uint6
 // lastVersion is the last version successfully applied by the
 // client; nil if this is the first request for resources.
 // This method call must always close the out channel.
-func (w *ResourceWatcher) WatchResources(ctx context.Context, typeURL string, lastVersion *uint64, node *envoy_api_v2_core.Node,
+func (w *ResourceWatcher) WatchResources(ctx context.Context, typeURL string, lastVersion uint64, node *envoy_api_v2_core.Node,
 	resourceNames []string, out chan<- *VersionedResources) {
 	defer close(out)
 
@@ -111,9 +113,9 @@ func (w *ResourceWatcher) WatchResources(ctx context.Context, typeURL string, la
 
 	var waitVersion uint64
 	var waitForVersion bool
-	if lastVersion != nil {
+	if lastVersion != 0 {
 		waitForVersion = true
-		waitVersion = *lastVersion
+		waitVersion = lastVersion
 	}
 
 	for ctx.Err() == nil && res == nil {
