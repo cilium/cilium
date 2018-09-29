@@ -596,7 +596,7 @@ func getNetworkPolicy(name string, id identity.NumericIdentity, policy *policy.L
 // UpdateNetworkPolicy adds or updates a network policy in the set published
 // to L7 proxies.
 // When the proxy acknowledges the network policy update, it will result in
-// a subsequent call to the endpoint's OnProxyPolicyAcknowledge() function.
+// a subsequent call to the endpoint's OnProxyPolicyUpdate() function.
 func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *policy.L4Policy,
 	ingressPolicyEnforced, egressPolicyEnforced bool, labelsMap identity.IdentityCache,
 	deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, wg *completion.WaitGroup) error {
@@ -663,16 +663,19 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 
 	// When successful, push them into the cache.
 	for _, p := range policies {
-		var callback func()
+		var callback func(error)
 		if policy != nil {
 			policyRevision := policy.Revision
-			callback = func() {
-				go ep.OnProxyPolicyUpdate(policyRevision)
+			callback = func(err error) {
+				if err == nil {
+					go ep.OnProxyPolicyUpdate(policyRevision)
+				}
 			}
 		}
 		var c *completion.Completion
 		if wg == nil {
-			c = completion.NewCallback(context.Background(), callback)
+			// Passing a nil CancelFunc
+			c = completion.NewCompletion(nil, callback)
 		} else {
 			c = wg.AddCompletionWithCallback(callback)
 		}

@@ -16,7 +16,6 @@ package envoy
 
 import (
 	"context"
-	"errors"
 	"io/ioutil"
 	"net"
 	"os"
@@ -25,6 +24,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy"
@@ -47,11 +47,8 @@ func (s *EnvoySuite) waitForProxyCompletion() error {
 	start := time.Now()
 	log.Debug("Waiting for proxy updates to complete...")
 	err := s.waitGroup.Wait()
-	if err != nil {
-		return errors.New("proxy state changes failed")
-	}
 	log.Debug("Wait time for proxy updates: ", time.Since(start))
-	return nil
+	return err
 }
 
 type dummyEndpointInfoRegistry struct{}
@@ -135,4 +132,48 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 	err = s.waitForProxyCompletion()
 	c.Assert(err, NotNil)
 	log.Debugf("failed to remove listener 3: %s", err)
+}
+
+func (s *EnvoySuite) TestEnvoyNACK(c *C) {
+	log.Logger.SetLevel(logrus.DebugLevel)
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
+	defer cancel()
+
+	s.waitGroup = completion.NewWaitGroup(ctx)
+
+	if os.Getenv("CILIUM_ENABLE_ENVOY_UNIT_TEST") == "" {
+		c.Skip("skipping envoy unit test; CILIUM_ENABLE_ENVOY_UNIT_TEST not set")
+	}
+
+	flowdebug.Enable()
+
+	stateLogDir, err := ioutil.TempDir("", "envoy_go_test")
+	c.Assert(err, IsNil)
+
+	log.Debugf("state log directory: %s", stateLogDir)
+
+	xdsServer := StartXDSServer(stateLogDir)
+	defer xdsServer.stop()
+	StartAccessLogServer(stateLogDir, xdsServer, &dummyEndpointInfoRegistry{})
+
+	// launch debug variant of the Envoy proxy
+	envoyProxy := StartEnvoy(stateLogDir, filepath.Join(stateLogDir, "cilium-envoy.log"), 42)
+	c.Assert(envoyProxy, NotNil)
+	log.Debug("started Envoy")
+
+	rName := "listener:22"
+
+	log.Debug("adding ", rName)
+	xdsServer.AddListener(rName, policy.ParserTypeHTTP, "1.2.3.4", 22, true, s.waitGroup)
+
+	err = s.waitForProxyCompletion()
+	c.Assert(err, Not(IsNil))
+	c.Assert(err, Equals, xds.ErrNackReceived)
+
+	s.waitGroup = completion.NewWaitGroup(ctx)
+	// Remove listener1
+	log.Debug("removing ", rName)
+	xdsServer.RemoveListener(rName, s.waitGroup)
+	err = s.waitForProxyCompletion()
+	c.Assert(err, IsNil)
 }
