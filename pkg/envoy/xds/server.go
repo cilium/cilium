@@ -49,6 +49,10 @@ var (
 	// with a version info that is not a positive integer.
 	ErrInvalidVersionInfo = errors.New("invalid version info")
 
+	// ErrInvalidNonce is the error returned when receiving a request
+	// with a response nonce that is not a positive integer.
+	ErrInvalidResponseNonce = errors.New("invalid response nonce info")
+
 	// ErrResourceWatch is the error returned whenever an internal error
 	// occurs while waiting for new versions of resources.
 	ErrResourceWatch = errors.New("resource watch failed")
@@ -166,10 +170,6 @@ type perTypeStreamState struct {
 	// If nil, no watch is pending.
 	pendingWatchCancel context.CancelFunc
 
-	// nonce is the nonce sent in the last response to a request for this
-	// resource type.
-	nonce string
-
 	// version is the last version sent. This is needed so that we'll know
 	// if a new request is an ACK (VersionInfo matches current version), or a NACK
 	// (VersionInfo matches an earlier version).
@@ -241,9 +241,6 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 
 	streamLog.Info("starting xDS stream processing")
 
-	// The last nonce returned in a response in this stream.
-	var responseNonce uint64
-
 	for {
 		// Process either a new request from the xDS stream or a response
 		// from the resource watcher.
@@ -276,6 +273,15 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 				}
 				versionInfo = &versionInfoVal
 			}
+			var nonce uint64
+			if req.GetResponseNonce() != "" {
+				var err error
+				nonce, err = strconv.ParseUint(req.ResponseNonce, 10, 64)
+				if err != nil {
+					requestLog.Error("invalid response nonce info in xDS request, not a uint64")
+					return ErrInvalidResponseNonce
+				}
+			}
 
 			typeURL := req.GetTypeUrl()
 			if defaultTypeURL == AnyTypeURL && typeURL == "" {
@@ -292,33 +298,30 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 
 			state := &typeStates[index]
 
-			// Only handle a request if the nonce is valid, i.e. if it's
-			// the first request (which nonce is "") or if it's the nonce of
-			// the last response that was sent.
-			//
-			// If the nonce is different (stale), the client hasn't processed
-			// the last response yet. Ignore every request until it processes
-			// that response and sends a request with that response's nonce.
-			if state.nonce == "" || state.nonce == req.GetResponseNonce() {
-				if versionInfo != nil && *versionInfo == state.version {
-					// This request is an ACK.
-					// Notify every observer of the ACK.
-					ackObserver := s.ackObservers[typeURL]
-					if ackObserver != nil {
-						requestLog.Debug("notifying observers of ACK")
-						ackObserver.HandleResourceVersionAck(*versionInfo, req.GetNode(), state.resourceNames, typeURL)
-					} else {
-						requestLog.Debug("ACK received but no observers are waiting for ACKs")
+			// Response nonce is always the same as the response version.
+			// Request version indicates the last acked version. If the
+			// response nonce in the request is different (smaller) than
+			// the version, all versions upto that version are acked, but
+			// the versions from that to and including the nonce are nacked.
+			if versionInfo == nil || *versionInfo <= nonce {
+				ackObserver := s.ackObservers[typeURL]
+				// ACK versions up to the received versionInfo
+				if ackObserver != nil {
+					requestLog.Debug("notifying observers of ACKs")
+					ackObserver.HandleResourceVersionAck(versionInfo, nonce, req.GetNode(), state.resourceNames, typeURL)
+					if (versionInfo != nil && *versionInfo < nonce) || (versionInfo == nil && nonce > 0) {
+						// versions after VersionInfo, upto and including ResponseNonce are NACKed
+						requestLog.Warningf("NACK received for versions after %s and up to %s; waiting for a version update before sending again", req.VersionInfo, req.ResponseNonce)
+						// Watcher will behave as if the sent version was acked.
+						// Otherwise we will just be sending the same failing
+						// version over and over filling logs.
+						stateVersionCopy := state.version
+						versionInfo = &stateVersionCopy
 					}
-				} else if state.nonce != "" {
-					requestLog.Warningf("NACK received for version %d; waiting for a version update before sending again", state.version)
-					// Watcher will behave as if the sent version was acked.
-					// Otherwise we will just be sending the same failing
-					// version over and over filling logs.
-					stateVersionCopy := state.version
-					versionInfo = &stateVersionCopy
-				}
 
+				} else {
+					requestLog.Debug("ACK received but no observers are waiting for ACKs")
+				}
 				if state.pendingWatchCancel != nil {
 					// A pending watch exists for this type URL. Cancel it to
 					// start a new watch.
@@ -336,9 +339,8 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 				go s.watchers[typeURL].WatchResources(ctx, typeURL, versionInfo,
 					req.GetNode(), req.GetResourceNames(), respCh)
 			} else {
-				requestLog.Debug("received stale nonce in xDS request; ignoring request")
+				requestLog.Debug("received invalid nonce in xDS request; ignoring request")
 			}
-
 		default: // Pending watch response.
 			state := &typeStates[chosen]
 			state.pendingWatchCancel()
@@ -356,14 +358,11 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 
 			resp := recv.Interface().(*VersionedResources)
 
-			responseNonce++
-			nonce := strconv.FormatUint(responseNonce, 10)
-
 			responseLog := streamLog.WithFields(logrus.Fields{
 				logfields.XDSVersionInfo: resp.Version,
 				logfields.XDSCanary:      resp.Canary,
 				logfields.XDSTypeURL:     state.typeURL,
-				logfields.XDSNonce:       nonce,
+				logfields.XDSNonce:       resp.Version,
 			})
 
 			resources := make([]*any.Any, len(resp.Resources))
@@ -383,19 +382,19 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 
 			responseLog.Debugf("sending xDS response with %d resources", len(resp.Resources))
 
+			versionStr := strconv.FormatUint(resp.Version, 10)
 			out := &envoy_api_v2.DiscoveryResponse{
-				VersionInfo: strconv.FormatUint(resp.Version, 10),
+				VersionInfo: versionStr,
 				Resources:   resources,
 				Canary:      resp.Canary,
 				TypeUrl:     state.typeURL,
-				Nonce:       nonce,
+				Nonce:       versionStr,
 			}
 			err := stream.Send(out)
 			if err != nil {
 				return err
 			}
 
-			state.nonce = nonce
 			state.version = resp.Version
 			state.resourceNames = resp.ResourceNames
 		}
