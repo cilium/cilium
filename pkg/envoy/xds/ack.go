@@ -26,6 +26,17 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// ProxyError wraps the error and the detail received from the proxy in to a new type
+// that implements the error interface.
+type ProxyError struct {
+	Err    error
+	Detail string
+}
+
+func (pe *ProxyError) Error() string {
+	return pe.Err.Error() + ": " + pe.Detail
+}
+
 var (
 	ErrNackReceived error = errors.New("NACK received")
 )
@@ -37,7 +48,7 @@ type ResourceVersionAckObserver interface {
 	// HandleResourceVersionAck notifies that the node with the given Node ID
 	// has acknowledged having applied the resources.
 	// Calls to this function must not block.
-	HandleResourceVersionAck(ackVersion uint64, nackVersion uint64, node *envoy_api_v2_core.Node, resourceNames []string, typeURL string)
+	HandleResourceVersionAck(ackVersion uint64, nackVersion uint64, node *envoy_api_v2_core.Node, resourceNames []string, typeURL string, detail string)
 }
 
 // AckingResourceMutator is a variant of ResourceMutator which calls back a
@@ -188,7 +199,7 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 }
 
 // 'ackVersion' is the last version that was acked. 'nackVersion', if greater than 'nackVersion', is the last version that was NACKed.
-func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(ackVersion uint64, nackVersion uint64, node *envoy_api_v2_core.Node, resourceNames []string, typeURL string) {
+func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(ackVersion uint64, nackVersion uint64, node *envoy_api_v2_core.Node, resourceNames []string, typeURL string, detail string) {
 	ackLog := log.WithFields(logrus.Fields{
 		logfields.XDSVersionInfo: ackVersion,
 		logfields.XDSNonce:       nackVersion,
@@ -236,7 +247,7 @@ func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(ackVersion uint6
 							comp.Complete(nil)
 						} else {
 							ackLog.Debugf("completing NACK: %v", pending)
-							comp.Complete(ErrNackReceived)
+							comp.Complete(&ProxyError{Err: ErrNackReceived, Detail: detail})
 						}
 						continue
 					}
