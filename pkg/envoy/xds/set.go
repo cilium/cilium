@@ -33,7 +33,7 @@ type ResourceSource interface {
 	// changed since lastVersion, nil is returned.
 	// If resourceNames is empty, all resources are returned.
 	// Should not be blocking.
-	GetResources(ctx context.Context, typeURL string, lastVersion *uint64,
+	GetResources(ctx context.Context, typeURL string, lastVersion uint64,
 		node *envoy_api_v2_core.Node, resourceNames []string) (*VersionedResources, error)
 
 	// EnsureVersion increases this resource set's version to be at least the
