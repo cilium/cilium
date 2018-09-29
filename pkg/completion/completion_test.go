@@ -15,6 +15,7 @@
 package completion
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -60,9 +61,8 @@ func (s *CompletionSuite) TestCompletionBeforeWait(c *C) {
 	wg := NewWaitGroup(ctx)
 
 	comp := wg.AddCompletion()
-	c.Assert(comp.Context(), Equals, ctx)
 
-	comp.Complete()
+	comp.Complete(nil)
 
 	// Wait should return immediately, since the only completion is already completed.
 	err = wg.Wait()
@@ -78,11 +78,10 @@ func (s *CompletionSuite) TestCompletionAfterWait(c *C) {
 	wg := NewWaitGroup(ctx)
 
 	comp := wg.AddCompletion()
-	c.Assert(comp.Context(), Equals, ctx)
 
 	go func() {
 		time.Sleep(CompletionDelay)
-		comp.Complete()
+		comp.Complete(nil)
 	}()
 
 	// Wait should block until comp.Complete is called, then return nil.
@@ -99,16 +98,14 @@ func (s *CompletionSuite) TestCompletionBeforeAndAfterWait(c *C) {
 	wg := NewWaitGroup(ctx)
 
 	comp1 := wg.AddCompletion()
-	c.Assert(comp1.Context(), Equals, ctx)
 
 	comp2 := wg.AddCompletion()
-	c.Assert(comp2.Context(), Equals, ctx)
 
-	comp1.Complete()
+	comp1.Complete(nil)
 
 	go func() {
 		time.Sleep(CompletionDelay)
-		comp2.Complete()
+		comp2.Complete(nil)
 	}()
 
 	// Wait should block until comp2.Complete is called, then return nil.
@@ -127,8 +124,10 @@ func (s *CompletionSuite) TestCompletionTimeout(c *C) {
 	defer cancel()
 	wg := NewWaitGroup(wgCtx)
 
-	comp := wg.AddCompletion()
-	c.Assert(comp.Context(), Equals, wgCtx)
+	comp := wg.AddCompletionWithCallback(func(err error) {
+		// Callback gets called with context.DeadlineExceeded if the WaitGroup times out
+		c.Assert(err, Equals, context.DeadlineExceeded)
+	})
 
 	// comp never completes.
 
@@ -139,7 +138,7 @@ func (s *CompletionSuite) TestCompletionTimeout(c *C) {
 
 	// Complete is idempotent and harmless, and can be called after the
 	// context is canceled.
-	comp.Complete()
+	comp.Complete(nil)
 }
 
 func (s *CompletionSuite) TestCompletionMultipleCompleteCalls(c *C) {
@@ -152,12 +151,11 @@ func (s *CompletionSuite) TestCompletionMultipleCompleteCalls(c *C) {
 	wg := NewWaitGroup(ctx)
 
 	comp := wg.AddCompletion()
-	c.Assert(comp.Context(), Equals, ctx)
 
 	// Complete is idempotent.
-	comp.Complete()
-	comp.Complete()
-	comp.Complete()
+	comp.Complete(nil)
+	comp.Complete(nil)
+	comp.Complete(nil)
 
 	// Wait should return immediately, since the only completion is already completed.
 	err = wg.Wait()
@@ -174,13 +172,16 @@ func (s *CompletionSuite) TestCompletionWithCallback(c *C) {
 	// Set a shorter timeout to shorten the test duration.
 	wg := NewWaitGroup(ctx)
 
-	comp := wg.AddCompletionWithCallback(func() { callbackCount++ })
-	c.Assert(comp.Context(), Equals, ctx)
+	comp := wg.AddCompletionWithCallback(func(err error) {
+		if err == nil {
+			callbackCount++
+		}
+	})
 
 	// Complete is idempotent.
-	comp.Complete()
-	comp.Complete()
-	comp.Complete()
+	comp.Complete(nil)
+	comp.Complete(nil)
+	comp.Complete(nil)
 
 	// The callback is called exactly once.
 	c.Assert(callbackCount, Equals, 1)
@@ -188,6 +189,83 @@ func (s *CompletionSuite) TestCompletionWithCallback(c *C) {
 	// Wait should return immediately, since the only completion is already completed.
 	err = wg.Wait()
 	c.Assert(err, IsNil)
+}
+
+func (s *CompletionSuite) TestCompletionWithCallbackError(c *C) {
+	var err error
+	var callbackCount, callbackCount2 int
+
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	defer cancel()
+
+	err1 := errors.New("Error1")
+	err2 := errors.New("Error2")
+
+	// Set a shorter timeout to shorten the test duration.
+	wg := NewWaitGroup(ctx)
+
+	comp := wg.AddCompletionWithCallback(func(err error) {
+		callbackCount++
+		// Completion that completes with a failure gets the reason for the failure
+		c.Assert(err, Equals, err1)
+	})
+
+	wg.AddCompletionWithCallback(func(err error) {
+		callbackCount2++
+		// When one completions fail the other completion callbacks
+		// are called with context.Canceled
+		c.Assert(err, Equals, context.Canceled)
+	})
+
+	// Complete is idempotent.
+	comp.Complete(err1)
+	comp.Complete(err2)
+	comp.Complete(nil)
+
+	// Wait should return immediately, since the only completion is already completed.
+	err = wg.Wait()
+	c.Assert(err, Equals, err1)
+
+	// The callbacks are called exactly once.
+	c.Assert(callbackCount, Equals, 1)
+	c.Assert(callbackCount2, Equals, 1)
+}
+
+func (s *CompletionSuite) TestCompletionWithCallbackOtherError(c *C) {
+	var err error
+	var callbackCount, callbackCount2 int
+
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	defer cancel()
+
+	err1 := errors.New("Error1")
+	err2 := errors.New("Error2")
+
+	// Set a shorter timeout to shorten the test duration.
+	wg := NewWaitGroup(ctx)
+
+	wg.AddCompletionWithCallback(func(err error) {
+		callbackCount++
+		c.Assert(err, Equals, context.Canceled)
+	})
+
+	comp2 := wg.AddCompletionWithCallback(func(err error) {
+		callbackCount2++
+		c.Assert(err, Equals, err2)
+	})
+
+	// Complete is idempotent.
+	comp2.Complete(err2)
+	comp2.Complete(err1)
+	comp2.Complete(nil)
+
+	// Wait should return immediately, since the only completion is already completed.
+	err = wg.Wait()
+	c.Assert(err, Equals, err2)
+
+	// The callbacks are called exactly once.
+	c.Assert(callbackCount, Equals, 1)
+	c.Assert(callbackCount2, Equals, 1)
 }
 
 func (s *CompletionSuite) TestCompletionWithCallbackTimeout(c *C) {
@@ -202,8 +280,12 @@ func (s *CompletionSuite) TestCompletionWithCallbackTimeout(c *C) {
 	defer cancel()
 	wg := NewWaitGroup(wgCtx)
 
-	comp := wg.AddCompletionWithCallback(func() { callbackCount++ })
-	c.Assert(comp.Context(), Equals, wgCtx)
+	comp := wg.AddCompletionWithCallback(func(err error) {
+		if err == nil {
+			callbackCount++
+		}
+		c.Assert(err, Equals, context.DeadlineExceeded)
+	})
 
 	// comp never completes.
 
@@ -214,8 +296,8 @@ func (s *CompletionSuite) TestCompletionWithCallbackTimeout(c *C) {
 
 	// Complete is idempotent and harmless, and can be called after the
 	// context is canceled.
-	comp.Complete()
+	comp.Complete(nil)
 
-	// The callback is never called.
+	// The callback is only called with the error 'context.DeadlineExceeded'.
 	c.Assert(callbackCount, Equals, 0)
 }
