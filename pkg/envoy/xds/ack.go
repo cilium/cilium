@@ -37,7 +37,7 @@ type ResourceVersionAckObserver interface {
 	// HandleResourceVersionAck notifies that the node with the given Node ID
 	// has acknowledged having applied the resources.
 	// Calls to this function must not block.
-	HandleResourceVersionAck(ackVersion *uint64, nackVersion uint64, node *envoy_api_v2_core.Node, resourceNames []string, typeURL string)
+	HandleResourceVersionAck(ackVersion uint64, nackVersion uint64, node *envoy_api_v2_core.Node, resourceNames []string, typeURL string)
 }
 
 // AckingResourceMutator is a variant of ResourceMutator which calls back a
@@ -188,7 +188,7 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 }
 
 // 'ackVersion' is the last version that was acked. 'nackVersion', if greater than 'nackVersion', is the last version that was NACKed.
-func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(ackVersion *uint64, nackVersion uint64, node *envoy_api_v2_core.Node, resourceNames []string, typeURL string) {
+func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(ackVersion uint64, nackVersion uint64, node *envoy_api_v2_core.Node, resourceNames []string, typeURL string) {
 	ackLog := log.WithFields(logrus.Fields{
 		logfields.XDSVersionInfo: ackVersion,
 		logfields.XDSNonce:       nackVersion,
@@ -231,7 +231,7 @@ func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(ackVersion *uint
 					}
 					if len(pending.remainingNodesResources) == 0 {
 						// Completed. Notify and remove from pending list.
-						if ackVersion != nil && pending.version <= *ackVersion {
+						if pending.version <= ackVersion {
 							ackLog.Debugf("completing ACK: %v", pending)
 							comp.Complete(nil)
 						} else {
