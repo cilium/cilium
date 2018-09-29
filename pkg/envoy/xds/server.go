@@ -264,14 +264,14 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 			// Ensure that the version info is a string that was sent by this
 			// server or the empty string (the first request in a stream should
 			// always have an empty version info).
-			var versionInfo *uint64
+			var versionInfo uint64
 			if req.GetVersionInfo() != "" {
-				versionInfoVal, err := strconv.ParseUint(req.VersionInfo, 10, 64)
+				var err error
+				versionInfo, err = strconv.ParseUint(req.VersionInfo, 10, 64)
 				if err != nil {
 					requestLog.Errorf("invalid version info in xDS request, not a uint64")
 					return ErrInvalidVersionInfo
 				}
-				versionInfo = &versionInfoVal
 			}
 			var nonce uint64
 			if req.GetResponseNonce() != "" {
@@ -303,20 +303,19 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 			// response nonce in the request is different (smaller) than
 			// the version, all versions upto that version are acked, but
 			// the versions from that to and including the nonce are nacked.
-			if versionInfo == nil || *versionInfo <= nonce {
+			if versionInfo <= nonce {
 				ackObserver := s.ackObservers[typeURL]
 				// ACK versions up to the received versionInfo
 				if ackObserver != nil {
 					requestLog.Debug("notifying observers of ACKs")
 					ackObserver.HandleResourceVersionAck(versionInfo, nonce, req.GetNode(), state.resourceNames, typeURL)
-					if (versionInfo != nil && *versionInfo < nonce) || (versionInfo == nil && nonce > 0) {
+					if versionInfo < nonce {
 						// versions after VersionInfo, upto and including ResponseNonce are NACKed
 						requestLog.Warningf("NACK received for versions after %s and up to %s; waiting for a version update before sending again", req.VersionInfo, req.ResponseNonce)
 						// Watcher will behave as if the sent version was acked.
 						// Otherwise we will just be sending the same failing
 						// version over and over filling logs.
-						stateVersionCopy := state.version
-						versionInfo = &stateVersionCopy
+						versionInfo = state.version
 					}
 
 				} else {
