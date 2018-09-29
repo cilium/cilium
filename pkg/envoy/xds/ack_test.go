@@ -40,7 +40,7 @@ var nodes = map[string]*envoy_api_v2_core.Node{
 	node2: {Id: "sidecar~10.0.0.2~node2~bar"},
 }
 
-// IsCompletedChecker checks that a Completion is completed.
+// IsCompletedChecker checks that a Completion is completed without errors.
 type IsCompletedChecker struct {
 	*CheckerInfo
 }
@@ -56,7 +56,7 @@ func (c *IsCompletedChecker) Check(params []interface{}, names []string) (result
 
 	select {
 	case <-comp.Completed():
-		return true, ""
+		return comp.Err() == nil, ""
 	default:
 		return false, ""
 	}
@@ -79,25 +79,27 @@ func (s *AckSuite) TestUpsertSingleNode(c *C) {
 
 	// Create version 1 with resource 0.
 	comp := wg.AddCompletion()
-	defer comp.Complete()
+	defer comp.Complete(nil)
 
 	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp)
 	c.Assert(comp, Not(IsCompleted))
+	one := uint64(1)
+	zero := uint64(0)
 
 	// Ack the right version, for the right resource, from another node.
-	acker.HandleResourceVersionAck(1, nodes[node1], []string{resources[0].Name}, typeURL)
+	acker.HandleResourceVersionAck(&one, 1, nodes[node1], []string{resources[0].Name}, typeURL)
 	c.Assert(comp, Not(IsCompleted))
 
 	// Ack the right version, for another resource, from the right node.
-	acker.HandleResourceVersionAck(1, nodes[node0], []string{resources[1].Name}, typeURL)
+	acker.HandleResourceVersionAck(&one, 1, nodes[node0], []string{resources[1].Name}, typeURL)
 	c.Assert(comp, Not(IsCompleted))
 
 	// Ack an older version, for the right resource, from the right node.
-	acker.HandleResourceVersionAck(0, nodes[node0], []string{resources[0].Name}, typeURL)
+	acker.HandleResourceVersionAck(&zero, 0, nodes[node0], []string{resources[0].Name}, typeURL)
 	c.Assert(comp, Not(IsCompleted))
 
 	// Ack the right version, for the right resource, from the right node.
-	acker.HandleResourceVersionAck(1, nodes[node0], []string{resources[0].Name}, typeURL)
+	acker.HandleResourceVersionAck(&one, 1, nodes[node0], []string{resources[0].Name}, typeURL)
 	c.Assert(comp, IsCompleted)
 }
 
@@ -110,24 +112,26 @@ func (s *AckSuite) TestUpsertMultipleNodes(c *C) {
 	cache := NewCache()
 	acker := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
 
+	one := uint64(1)
+
 	// Create version 1 with resource 0.
 	comp := wg.AddCompletion()
-	defer comp.Complete()
+	defer comp.Complete(nil)
 
 	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0, node1}, comp)
 	c.Assert(comp, Not(IsCompleted))
 
 	// Ack the right version, for the right resource, from another node.
-	acker.HandleResourceVersionAck(1, nodes[node2], []string{resources[0].Name}, typeURL)
+	acker.HandleResourceVersionAck(&one, 1, nodes[node2], []string{resources[0].Name}, typeURL)
 	c.Assert(comp, Not(IsCompleted))
 
 	// Ack the right version, for the right resource, from one of the nodes (node0).
 	// One of the nodes (node1) still needs to ACK.
-	acker.HandleResourceVersionAck(1, nodes[node0], []string{resources[0].Name}, typeURL)
+	acker.HandleResourceVersionAck(&one, 1, nodes[node0], []string{resources[0].Name}, typeURL)
 	c.Assert(comp, Not(IsCompleted))
 
 	// Ack the right version, for the right resource, from the last remaining node (node1).
-	acker.HandleResourceVersionAck(1, nodes[node1], []string{resources[0].Name}, typeURL)
+	acker.HandleResourceVersionAck(&one, 1, nodes[node1], []string{resources[0].Name}, typeURL)
 	c.Assert(comp, IsCompleted)
 }
 
@@ -139,21 +143,51 @@ func (s *AckSuite) TestUpsertMoreRecentVersion(c *C) {
 
 	cache := NewCache()
 	acker := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
+	zero := uint64(0)
+	bigOne := uint64(123)
 
 	// Create version 1 with resource 0.
 	comp := wg.AddCompletion()
-	defer comp.Complete()
+	defer comp.Complete(nil)
 
 	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp)
 	c.Assert(comp, Not(IsCompleted))
 
 	// Ack an older version, for the right resource, from the right node.
-	acker.HandleResourceVersionAck(0, nodes[node0], []string{resources[0].Name}, typeURL)
+	acker.HandleResourceVersionAck(&zero, 0, nodes[node0], []string{resources[0].Name}, typeURL)
 	c.Assert(comp, Not(IsCompleted))
 
 	// Ack a more recent version, for the right resource, from the right node.
-	acker.HandleResourceVersionAck(123, nodes[node0], []string{resources[0].Name}, typeURL)
+	acker.HandleResourceVersionAck(&bigOne, bigOne, nodes[node0], []string{resources[0].Name}, typeURL)
 	c.Assert(comp, IsCompleted)
+}
+
+func (s *AckSuite) TestUpsertMoreRecentVersionNack(c *C) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	typeURL := "type.googleapis.com/envoy.api.v2.DummyConfiguration"
+	wg := completion.NewWaitGroup(ctx)
+
+	cache := NewCache()
+	acker := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
+
+	// Create version 1 with resource 0.
+	comp := wg.AddCompletion()
+	defer comp.Complete(nil)
+	zero := uint64(0)
+
+	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp)
+	c.Assert(comp, Not(IsCompleted))
+
+	// Ack an older version, for the right resource, from the right node.
+	acker.HandleResourceVersionAck(&zero, 0, nodes[node0], []string{resources[0].Name}, typeURL)
+	c.Assert(comp, Not(IsCompleted))
+
+	// NAck a more recent version, for the right resource, from the right node.
+	acker.HandleResourceVersionAck(&zero, 1, nodes[node0], []string{resources[0].Name}, typeURL)
+	// IsCompleted is true only for completions without error
+	c.Assert(comp, Not(IsCompleted))
+	c.Assert(comp.Err(), Not(Equals), nil)
 }
 
 func (s *AckSuite) TestDeleteSingleNode(c *C) {
@@ -167,28 +201,30 @@ func (s *AckSuite) TestDeleteSingleNode(c *C) {
 
 	// Create version 1 with resource 0.
 	comp := wg.AddCompletion()
-	defer comp.Complete()
+	defer comp.Complete(nil)
+	one := uint64(1)
+	two := uint64(2)
 
 	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp)
 	c.Assert(comp, Not(IsCompleted))
 
 	// Ack the right version, for the right resource, from the right node.
-	acker.HandleResourceVersionAck(1, nodes[node0], []string{resources[0].Name}, typeURL)
+	acker.HandleResourceVersionAck(&one, 1, nodes[node0], []string{resources[0].Name}, typeURL)
 	c.Assert(comp, IsCompleted)
 
 	// Create version 2 with no resources.
 	comp = wg.AddCompletion()
-	defer comp.Complete()
+	defer comp.Complete(nil)
 
 	acker.Delete(typeURL, resources[0].Name, []string{node0}, comp)
 	c.Assert(comp, Not(IsCompleted))
 
 	// Ack the right version, for another resource, from another node.
-	acker.HandleResourceVersionAck(2, nodes[node1], []string{resources[2].Name}, typeURL)
+	acker.HandleResourceVersionAck(&two, 2, nodes[node1], []string{resources[2].Name}, typeURL)
 	c.Assert(comp, Not(IsCompleted))
 
 	// Ack the right version, for another resource, from the right node.
-	acker.HandleResourceVersionAck(2, nodes[node0], []string{resources[2].Name}, typeURL)
+	acker.HandleResourceVersionAck(&two, 2, nodes[node0], []string{resources[2].Name}, typeURL)
 	// The resource name is ignored. For delete, we only consider the version.
 	c.Assert(comp, IsCompleted)
 }
@@ -201,31 +237,33 @@ func (s *AckSuite) TestDeleteMultipleNodes(c *C) {
 
 	cache := NewCache()
 	acker := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
+	one := uint64(1)
+	two := uint64(2)
 
 	// Create version 1 with resource 0.
 	comp := wg.AddCompletion()
-	defer comp.Complete()
+	defer comp.Complete(nil)
 
 	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp)
 	c.Assert(comp, Not(IsCompleted))
 
 	// Ack the right version, for the right resource, from the right node.
-	acker.HandleResourceVersionAck(1, nodes[node0], []string{resources[0].Name}, typeURL)
+	acker.HandleResourceVersionAck(&one, 1, nodes[node0], []string{resources[0].Name}, typeURL)
 	c.Assert(comp, IsCompleted)
 
 	// Create version 2 with no resources.
 	comp = wg.AddCompletion()
-	defer comp.Complete()
+	defer comp.Complete(nil)
 
 	acker.Delete(typeURL, resources[0].Name, []string{node0, node1}, comp)
 	c.Assert(comp, Not(IsCompleted))
 
 	// Ack the right version, for another resource, from one of the nodes.
-	acker.HandleResourceVersionAck(2, nodes[node1], []string{resources[2].Name}, typeURL)
+	acker.HandleResourceVersionAck(&two, 2, nodes[node1], []string{resources[2].Name}, typeURL)
 	c.Assert(comp, Not(IsCompleted))
 
 	// Ack the right version, for another resource, from the remaining node.
-	acker.HandleResourceVersionAck(2, nodes[node0], []string{resources[2].Name}, typeURL)
+	acker.HandleResourceVersionAck(&two, 2, nodes[node0], []string{resources[2].Name}, typeURL)
 	// The resource name is ignored. For delete, we only consider the version.
 	c.Assert(comp, IsCompleted)
 }
