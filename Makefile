@@ -217,6 +217,7 @@ gofmt:
 
 govet:
 	@$(ECHO_CHECK) vetting all GOFILES...
+	$(GO) clean -cache github.com/cilium/cilium/...
 	$(GO) tool vet api pkg $(SUBDIRS)
 
 ineffassign:
