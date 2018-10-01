@@ -1764,7 +1764,7 @@ func cnpNodeStatusController(cnp *cilium_v2.CiliumNetworkPolicy, rev uint64, log
 		}
 
 		// Wait a small amount of time to try to update again.
-		logger.WithError(cnpUpdateErr).Warningf("update of CNP failed; sleeping for %s amount of time before trying again", updateWaitDuration)
+		logger.WithError(cnpUpdateErr).Debugf("Update of CNP failed; sleeping for %s amount of time before trying again", updateWaitDuration)
 		time.Sleep(updateWaitDuration)
 	}
 
@@ -1774,6 +1774,8 @@ func cnpNodeStatusController(cnp *cilium_v2.CiliumNetworkPolicy, rev uint64, log
 	if overallErr != nil && cnpUpdateErr != nil {
 		overallErr = cnpUpdateErr
 	}
+
+	logger.WithError(overallErr).Warningf("Update of CNP failed %s times. Will keep retrying.", maxAttempts)
 
 	return overallErr
 }
