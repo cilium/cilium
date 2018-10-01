@@ -1737,12 +1737,15 @@ func cnpNodeStatusController(cnp *cilium_v2.CiliumNetworkPolicy, rev uint64, log
 		maxAttempts = 5
 
 		cnpUpdateErr error
+		overallErr   error
 	)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+	if rev > 0 {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
 
-	overallErr := endpointmanager.WaitForEndpointsAtPolicyRev(ctx, rev)
+		overallErr = endpointmanager.WaitForEndpointsAtPolicyRev(ctx, rev)
+	}
 
 	for numAttempts := 0; numAttempts < maxAttempts; numAttempts++ {
 		var updatedCNP *cilium_v2.CiliumNetworkPolicy
