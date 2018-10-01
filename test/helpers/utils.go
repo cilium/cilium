@@ -296,13 +296,8 @@ func WriteOrAppendToFile(filename string, data []byte, perm os.FileMode) error {
 
 // DNSDeployment returns the manifest to install dns engine on the server.
 func DNSDeployment() string {
-	var DNSEngine = "kubedns"
-	k8sVersion := GetCurrentK8SEnv()
-	switch k8sVersion {
-	case "1.11", "1.12":
-		DNSEngine = "coredns"
-	}
-	return GetFilePath("provision/manifest/" + DNSEngine + "_deployment.yaml")
+	// dns_deployment.yaml will be created by the provision/k8s_install.sh
+	return GetFilePath("provision/manifest/dns_deployment.yaml")
 }
 
 // getK8sSupportedConstraints returns the Kubernetes versions supported by
