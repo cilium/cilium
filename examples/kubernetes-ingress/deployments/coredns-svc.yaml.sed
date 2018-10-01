@@ -19,11 +19,14 @@ kind: Service
 metadata:
   name: kube-dns
   namespace: kube-system
+  annotations:
+    prometheus.io/port: "9153"
+    prometheus.io/scrape: "true"
   labels:
     k8s-app: kube-dns
     kubernetes.io/cluster-service: "true"
     addonmanager.kubernetes.io/mode: Reconcile
-    kubernetes.io/name: "KubeDNS"
+    kubernetes.io/name: "CoreDNS"
 spec:
   selector:
     k8s-app: kube-dns

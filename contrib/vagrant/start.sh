@@ -267,7 +267,7 @@ export ETCD_CLEAN="${ETCD_CLEAN}"
 cd "${k8s_dir}"
 "\${k8s_path}/05-install-cilium.sh"
 if [[ "\$(hostname)" == "${VM_BASENAME}1" ]]; then
-    "\${k8s_path}/06-install-kubedns.sh"
+    "\${k8s_path}/06-install-coredns.sh"
 else
     "\${k8s_path}/04-install-kubectl.sh"
 fi
