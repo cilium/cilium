@@ -24,11 +24,9 @@ if [[ -n "${IPV6_EXT}" ]]; then
     # controllers_ips[0] contains the IP with brackets, to be used with Port in IPv6
     # controllers_ips[1] contains the IP without brackets
     controllers_ips=( "[${master_ip}]" "${master_ip}" )
-    dns_probes_ips=( "[::1]" "::1" )
 else
     master_ip=${MASTER_IPV4:-"192.168.33.11"}
     controllers_ips=( "${master_ip}" "${master_ip}" )
-    dns_probes_ips=( "127.0.0.1" "127.0.0.1" )
 fi
 
 # container runtime options
