@@ -37,6 +37,10 @@ const (
 	staleTimeout = 1 * time.Minute
 )
 
+var (
+	collector *agentStatusCollector
+)
+
 func (d *Daemon) getK8sStatus() *models.K8sStatus {
 	if !k8s.IsEnabled() {
 		return &models.K8sStatus{State: models.StatusStateDisabled}
@@ -65,14 +69,6 @@ func NewGetHealthzHandler(d *Daemon) GetHealthzHandler {
 	return &getHealthz{daemon: d}
 }
 
-func checkLocks(d *Daemon) {
-	// Try to acquire a couple of global locks to have the status API fail
-	// in case of a deadlock on these locks
-
-	option.Config.ConfigPatchMutex.Lock()
-	option.Config.ConfigPatchMutex.Unlock()
-}
-
 func (d *Daemon) getNodeStatus() *models.ClusterStatus {
 	ipv4 := !option.Config.IPv4Disabled
 
@@ -85,21 +81,8 @@ func (d *Daemon) getNodeStatus() *models.ClusterStatus {
 	return &clusterStatus
 }
 
-func (d *Daemon) collectStatus() {
-	for {
-		response := d.getStatus()
-
-		d.statusCollectMutex.Lock()
-		d.statusResponse = response
-		d.statusResponseTimestamp = time.Now()
-		d.statusCollectMutex.Unlock()
-
-		time.Sleep(collectStatusInterval)
-	}
-}
-
 func (d *Daemon) startStatusCollector() {
-	go d.collectStatus()
+	collector = d.newAgentStatusCollector()
 }
 
 func (h *getHealthz) Handle(params GetHealthzParams) middleware.Responder {
@@ -119,22 +102,130 @@ func (h *getHealthz) Handle(params GetHealthzParams) middleware.Responder {
 	return NewGetHealthzOK().WithPayload(&sr)
 }
 
+type agentStatusCollector struct {
+	mutex     lock.Mutex
+	resp      models.StatusResponse
+	daemon    *Daemon
+	collector *status.Collector
+}
+
+func toModelStatus(status status.Status) *models.Status {
+	switch {
+	case status.StaleWarning:
+		return &models.Status{State: models.StatusStateWarning, Msg: err.Error()}
+	case status.Err != nil:
+		return &models.Status{State: models.StatusStateFailure, Msg: err.Error()}
+	default:
+		return &models.Status{State: models.StatusStateOk, Msg: status.Data.(string)}
+	}
+}
+
+func (d *Daemon) newAgentStatusCollector() *agentStatusCollector {
+	a := &agentStatusCollector{}
+
+	probes := []status.Probe{
+		{
+			Probe: func(ctx context.Context) (interface{}, error) {
+				// Try to acquire a couple of global locks to have the status API fail
+				// in case of a deadlock on these locks
+				option.Config.ConfigPatchMutex.Lock()
+				option.Config.ConfigPatchMutex.Unlock()
+				return nil, nil
+			},
+			Status: func(status status.Status) {
+				a.mutex.Lock()
+				switch {
+				case status.Err != nil:
+					a.response.Stale["check-locks"] = status.Err.Error()
+				default:
+					delete(a.response.Stale, "check-locks")
+				}
+				a.mutex.Unlock()
+			},
+		},
+		{
+			Probe: func(ctx context.Context) (interface{}, error) {
+				return kvstore.Client().Status()
+			},
+			Status: func(status status.Status) {
+				a.mutex.Lock()
+				s.response.Kvstore = toModelStatus(status)
+				a.mutex.Unlock()
+			},
+		},
+		{
+			Probe: func(ctx context.Context) (interface{}, error) {
+				status := d.getK8sStatus()
+				return status, nil
+			},
+			Status: func(status status.Status) {
+				a.mutex.Lock()
+				switch {
+				case status.StaleWarning:
+					s.response.Kvstore = &models.Status{State: models.StatusStateWarning, Msg: err.Error()}
+				case status.Err != nil:
+					s.response.Kvstore = &models.Status{State: models.StatusStateFailure, Msg: err.Error()}
+				default:
+					s.response.Kvstore = &models.Status{State: models.StatusStateOk, Msg: status.Data.(string)}
+				}
+				a.mutex.Unlock()
+			},
+		},
+		{
+			Probe: func(ctx context.Context) (interface{}, error) {
+				status := controller.GetGlobalStatus()
+				return status, nil
+			},
+			Status: func(status status.Status) {
+				a.mutex.Lock()
+				switch {
+				case status.StaleWarning:
+					s.response.Kvstore = &models.Status{State: models.StatusStateWarning, Msg: err.Error()}
+				case status.Err != nil:
+					s.response.Kvstore = &models.Status{State: models.StatusStateFailure, Msg: err.Error()}
+				default:
+					s.response.Controllers = GetGlobalStatus()
+				}
+				a.mutex.Unlock()
+			},
+		},
+	}
+
+	a.collector = status.NewCollector(probes, Configuration{
+		Interval:         5 * time.Second,
+		WarningThreshold: 15 * time.Second,
+		FailureThreshold: time.Minute,
+	})
+
+	controller.NewManager().UpdateController("agent-status",
+		controller.ControllerParams{
+			DoFunc: func() error {
+				d.statusCollectMutex.Lock()
+				d.statusResponse = response
+				d.statusResponseTimestamp = time.Now()
+				d.statusCollectMutex.Unlock()
+
+				return nil
+			},
+			RunInterval: time.Second,
+		})
+
+	return a
+}
+
+func (s *agentStatusCollector) k8sStatus(ctx context.Context) {
+
+	s.mutex.Lock()
+	s.response.Kubernetes = status
+	s.mutex.Unlock()
+}
+
+func (s *agentStatusCollector) Tests() status.FunctionMap {
+}
+
 func (d *Daemon) getStatus() models.StatusResponse {
-	sr := models.StatusResponse{
-		Controllers: controller.GetGlobalStatus(),
-	}
-
-	checkLocks(d)
-
-	if info, err := kvstore.Client().Status(); err != nil {
-		sr.Kvstore = &models.Status{State: models.StatusStateFailure, Msg: fmt.Sprintf("Err: %s - %s", err, info)}
-	} else {
-		sr.Kvstore = &models.Status{State: models.StatusStateOk, Msg: info}
-	}
 
 	sr.ContainerRuntime = workloads.Status()
-
-	sr.Kubernetes = d.getK8sStatus()
 
 	// Note: A final, overriding, check is made in Handle to check the staleness
 	// of this data, and will clobber these messages if set.
