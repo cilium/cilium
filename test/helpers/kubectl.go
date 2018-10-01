@@ -1106,7 +1106,7 @@ func (kub *Kubectl) CiliumEndpointWaitReady() error {
 func (kub *Kubectl) CiliumExecContext(ctx context.Context, pod string, cmd string) *CmdRes {
 	limitTimes := 5
 	execute := func() *CmdRes {
-		command := fmt.Sprintf("%s exec -n kube-system %s -- %s", KubectlCmd, pod, cmd)
+		command := fmt.Sprintf("%s exec -n kube-system -c cilium-agent %s -- %s", KubectlCmd, pod, cmd)
 		return kub.ExecContext(ctx, command)
 	}
 	var res *CmdRes
