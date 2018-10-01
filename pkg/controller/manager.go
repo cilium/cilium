@@ -89,11 +89,12 @@ func (m *Manager) UpdateController(name string, params ControllerParams) *Contro
 		ctrl.getLogger().Debug("Controller update time: ", time.Since(start))
 	} else {
 		ctrl = &Controller{
-			name:   name,
-			params: params,
-			uuid:   uuid.NewUUID().String(),
-			stop:   make(chan struct{}, 0),
-			update: make(chan struct{}, 1),
+			name:       name,
+			params:     params,
+			uuid:       uuid.NewUUID().String(),
+			stop:       make(chan struct{}, 0),
+			update:     make(chan struct{}, 1),
+			terminated: make(chan struct{}, 0),
 		}
 		ctrl.getLogger().Debug("Starting new controller")
 
@@ -121,6 +122,17 @@ func (m *Manager) removeController(ctrl *Controller) {
 	ctrl.getLogger().Debug("Removed controller")
 }
 
+func (m *Manager) lookup(name string) *Controller {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	if c, ok := m.controllers[name]; ok {
+		return c
+	}
+
+	return nil
+}
+
 // RemoveController stops and removes a controller from the manager. If DoFunc
 // is currently running, DoFunc is allowed to complete in the background.
 func (m *Manager) RemoveController(name string) error {
@@ -139,6 +151,37 @@ func (m *Manager) RemoveController(name string) error {
 	m.removeController(oldCtrl)
 
 	return nil
+}
+
+// RemoveControllerAndWait stops and removes a controller using
+// RemoveController() and then waits for it to run to completion.
+func (m *Manager) RemoveControllerAndWait(name string) error {
+	m.mutex.Lock()
+
+	oldCtrl, ok := m.controllers[name]
+	if !ok {
+		m.mutex.Unlock()
+		return fmt.Errorf("unable to find controller %s", name)
+	}
+
+	m.removeController(oldCtrl)
+	m.mutex.Unlock()
+
+	<-oldCtrl.terminated
+
+	return nil
+}
+
+// TerminationChannel returns a channel that is closed after the controller has
+// been terminated
+func (m *Manager) TerminationChannel(name string) chan struct{} {
+	if c := m.lookup(name); c != nil {
+		return c.terminated
+	}
+
+	c := make(chan struct{}, 0)
+	close(c)
+	return c
 }
 
 // RemoveAll stops and removes all controllers of the manager
