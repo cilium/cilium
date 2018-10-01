@@ -1869,7 +1869,7 @@ func (d *Daemon) deleteCiliumNetworkPolicyV2(cnp *cilium_v2.CiliumNetworkPolicy)
 
 	importMetadataCache.delete(cnp)
 	ctrlName := cnp.GetControllerName()
-	err := k8sCM.RemoveController(ctrlName)
+	err := k8sCM.RemoveControllerAndWait(ctrlName)
 	if err != nil {
 		log.Debugf("Unable to remove controller %s: %s", ctrlName, err)
 	}
