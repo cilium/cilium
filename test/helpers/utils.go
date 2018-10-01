@@ -302,7 +302,12 @@ func DNSDeployment() string {
 	case "1.11", "1.12":
 		DNSEngine = "coredns"
 	}
-	return GetFilePath("provision/manifest/" + DNSEngine + "_deployment.yaml")
+	fullPath := filepath.Join("provision", "manifest", k8sVersion, DNSEngine+"_deployment.yaml")
+	_, err := os.Stat(fullPath)
+	if err == nil {
+		return filepath.Join(BasePath, fullPath)
+	}
+	return filepath.Join(BasePath, "provision", "manifest", DNSEngine+"_deployment.yaml")
 }
 
 // getK8sSupportedConstraints returns the Kubernetes versions supported by
