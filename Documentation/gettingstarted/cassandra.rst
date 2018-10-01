@@ -287,7 +287,7 @@ whether requests are forwarded or denied.   First, use "kubectl exec" to access 
 ::
 
   $ CILIUM_POD=$(kubectl get pods -n kube-system -l k8s-app=cilium -o jsonpath='{.items[0].metadata.name}')
-  $ kubectl exec -it -n kube-system $CILIUM_POD /bin/bash
+  $ kubectl exec -it -c cilium-agent -n kube-system $CILIUM_POD /bin/bash
   root@minikube:~#
 
 Next, start Cilium monitor, and limit the output to only "l7" type messages using the "-t" flag:
