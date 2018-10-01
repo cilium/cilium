@@ -300,6 +300,10 @@ func DeleteNode(ni Identity, routesTypes RouteType) {
 
 			deleteTunnelMapping(n.IPv4AllocCIDR)
 			deleteTunnelMapping(n.IPv6AllocCIDR)
+
+			// Always delete routes when in tunnel mode as well.
+			deleteNodeRoute(n.IPv4AllocCIDR)
+			deleteNodeRoute(n.IPv6AllocCIDR)
 		}
 		if (routesTypes & DirectRoute) != 0 {
 			deleteIPRoute(n)
