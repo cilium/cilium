@@ -67,7 +67,7 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 
 	existingEndpoints, err := lxcmap.DumpToMap()
 	if err != nil {
-		return nil, err
+		return state, err
 	}
 
 	dirFiles, err := ioutil.ReadDir(dir)
