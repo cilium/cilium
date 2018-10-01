@@ -26,7 +26,10 @@ export KUBEADM_OPTIONS=""
 export K8S_FULL_VERSION=""
 export DNS_DEPLOYMENT="${PROVISIONSRC}/manifest/dns_deployment.yaml"
 export KUBEDNS_DEPLOYMENT="${PROVISIONSRC}/manifest/kubedns_deployment.yaml"
-export COREDNS_DEPLOYMENT="${PROVISIONSRC}/manifest/coredns_deployment.yaml"
+export COREDNS_DEPLOYMENT="${PROVISIONSRC}/manifest/${K8S_VERSION}/coredns_deployment.yaml"
+if [ ! -f "${COREDNS_DEPLOYMENT}" ]; then
+    export COREDNS_DEPLOYMENT="${PROVISIONSRC}/manifest/coredns_deployment.yaml"
+fi
 
 source ${PROVISIONSRC}/helpers.bash
 
