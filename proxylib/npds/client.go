@@ -63,7 +63,14 @@ func (c *Client) Close() {
 	}
 }
 
+func (c *Client) Path() string {
+	return c.path
+}
+
 func NewClient(path, nodeId string, updater proxylib.PolicyUpdater) proxylib.PolicyClient {
+	if path == "" {
+		return nil
+	}
 	c := &Client{
 		updater: updater,
 		path:    path,

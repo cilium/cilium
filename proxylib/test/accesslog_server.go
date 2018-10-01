@@ -22,7 +22,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"syscall"
-	"testing"
+	"time"
 
 	"github.com/cilium/cilium/pkg/envoy/cilium"
 
@@ -40,16 +40,37 @@ type AccessLogServer struct {
 
 // Close removes the unix domain socket from the filesystem
 func (s *AccessLogServer) Close() {
-	atomic.StoreUint32(&s.closing, 1)
-	s.listener.Close()
-	for _, conn := range s.conns {
-		conn.Close()
+	if s != nil {
+		atomic.StoreUint32(&s.closing, 1)
+		s.listener.Close()
+		for _, conn := range s.conns {
+			conn.Close()
+		}
+		os.Remove(s.Path)
 	}
-	os.Remove(s.Path)
+}
+
+// Clear empties the access log server buffer, counting the passes and drops
+func (s *AccessLogServer) Clear() (passed, drops int) {
+	passes, drops := 0, 0
+	empty := false
+	for !empty {
+		select {
+		case pblog := <-s.Logs:
+			if pblog.EntryType == cilium.EntryType_Denied {
+				drops++
+			} else {
+				passes++
+			}
+		case <-time.After(10 * time.Millisecond):
+			empty = true
+		}
+	}
+	return passes, drops
 }
 
 // StartAccessLogServer starts the access log server.
-func StartAccessLogServer(t *testing.T, accessLogName string, bufSize int) *AccessLogServer {
+func StartAccessLogServer(accessLogName string, bufSize int) *AccessLogServer {
 	accessLogPath := filepath.Join(Tmpdir, accessLogName)
 
 	server := &AccessLogServer{
@@ -62,14 +83,14 @@ func StartAccessLogServer(t *testing.T, accessLogName string, bufSize int) *Acce
 	var err error
 	server.listener, err = net.ListenUnix("unixpacket", &net.UnixAddr{Name: accessLogPath, Net: "unixpacket"})
 	if err != nil {
-		t.Fatalf("Failed to open access log listen socket at %s: %v", accessLogPath, err)
+		log.Fatalf("Failed to open access log listen socket at %s: %v", accessLogPath, err)
 	}
 	server.listener.SetUnlinkOnClose(true)
 
 	// Make the socket accessible by non-root Envoy proxies, e.g. running in
 	// sidecar containers.
 	if err = os.Chmod(accessLogPath, 0777); err != nil {
-		t.Fatalf("Failed to change mode of access log listen socket at %s: %v", accessLogPath, err)
+		log.Fatalf("Failed to change mode of access log listen socket at %s: %v", accessLogPath, err)
 	}
 
 	log.Info("Starting Access Log Server")
