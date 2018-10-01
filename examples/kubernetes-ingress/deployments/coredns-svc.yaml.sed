@@ -12,10 +12,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Warning: This is a file generated from the base underscore template file: kubedns-svc.yaml.base
+
 apiVersion: v1
-kind: ConfigMap
+kind: Service
 metadata:
   name: kube-dns
   namespace: kube-system
+  annotations:
+    prometheus.io/port: "9153"
+    prometheus.io/scrape: "true"
   labels:
-    addonmanager.kubernetes.io/mode: EnsureExists
+    k8s-app: kube-dns
+    kubernetes.io/cluster-service: "true"
+    addonmanager.kubernetes.io/mode: Reconcile
+    kubernetes.io/name: "CoreDNS"
+spec:
+  selector:
+    k8s-app: kube-dns
+  clusterIP: $DNS_SERVER_IP
+  ports:
+  - name: dns
+    port: 53
+    protocol: UDP
+  - name: dns-tcp
+    port: 53
+    protocol: TCP

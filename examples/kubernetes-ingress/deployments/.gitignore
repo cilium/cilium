@@ -1,3 +1,3 @@
-kubedns-rc.yaml
-kubedns-svc.yaml
-kubedns-controller.yaml
+coredns-rc.yaml
+coredns-svc.yaml
+coredns-cm.yaml
