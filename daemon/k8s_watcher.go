@@ -1743,6 +1743,8 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumV2Store cache.Store, cnp *cilium
 }
 
 func cnpNodeStatusController(ciliumV2Store cache.Store, cnp *cilium_v2.CiliumNetworkPolicy, rev uint64, logger *logrus.Entry, policyImportErr error) error {
+	var overallErr error
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -1809,16 +1811,21 @@ func cnpNodeStatusController(ciliumV2Store cache.Store, cnp *cilium_v2.CiliumNet
 			break
 		}
 
-		// Wait a small amount of time to try to update again.
-		logger.WithError(cnpUpdateErr).Warningf("update of CNP failed; sleeping for %s amount of time before trying again", updateWaitDuration)
+		logger.WithError(cnpUpdateErr).Debugf("Update of CNP status failed. Sleeping for %s before retrying", updateWaitDuration)
 		time.Sleep(updateWaitDuration)
 	}
 
 	if cnpUpdateErr != nil {
-		return cnpUpdateErr
+		overallErr = cnpUpdateErr
 	} else {
-		return waitForEPsErr
+		overallErr = waitForEPsErr
 	}
+
+	if overallErr != nil {
+		logger.WithError(overallErr).Warningf("Update of CNP status failed %d times. Will keep retrying.", maxAttempts)
+	}
+
+	return overallErr
 }
 
 func updateCNPNodeStatus(cnp *cilium_v2.CiliumNetworkPolicy, enforcing, ok bool, err error, rev uint64, annotations map[string]string) error {
