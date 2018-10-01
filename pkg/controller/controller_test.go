@@ -21,6 +21,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/cilium/pkg/testutils"
+
 	. "gopkg.in/check.v1"
 )
 
@@ -145,4 +147,30 @@ func (b *ControllerSuite) TestRunController(c *C) {
 	c.Assert(ctrl.GetFailureCount(), Equals, 2)
 	c.Assert(ctrl.GetLastError(), IsNil)
 	c.Assert(mngr.RemoveController("test"), IsNil)
+}
+
+func (b *ControllerSuite) TestWaitForTermination(c *C) {
+	mngr := NewManager()
+	mngr.UpdateController("test1", ControllerParams{})
+	mngr.UpdateController("test1", ControllerParams{})
+
+	// Ensure that the channel does not get closed while the controller is
+	// still running
+	c.Assert(testutils.WaitUntil(func() bool {
+		select {
+		case <-mngr.TerminationChannel("test1"):
+			return false
+		default:
+			return true
+		}
+	}, 20*time.Millisecond), IsNil)
+
+	c.Assert(mngr.RemoveControllerAndWait("test1"), IsNil)
+
+	// The controller must have been terminated already due to AndWait above
+	select {
+	case <-mngr.TerminationChannel("test1"):
+	default:
+		c.Fail()
+	}
 }

@@ -138,6 +138,9 @@ type Controller struct {
 	uuid              string
 	stop              chan struct{}
 	update            chan struct{}
+
+	// terminated is closed after the controller has been terminated
+	terminated chan struct{}
 }
 
 // GetSuccessCount returns the number of successful controller runs
@@ -271,6 +274,8 @@ shutdown:
 		c.getLogger().WithField(fieldConsecutiveErrors, errorRetries).
 			WithError(err).Warn("Error on Controller stop")
 	}
+
+	close(c.terminated)
 }
 
 func (c *Controller) stopController() {
