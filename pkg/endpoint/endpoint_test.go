@@ -46,11 +46,12 @@ type EndpointSuite struct{}
 var _ = Suite(&EndpointSuite{})
 
 func (s *EndpointSuite) TestEndpointID(c *C) {
-	e := Endpoint{
+	e := &Endpoint{
 		ID:     IPv6Addr.EndpointID(),
 		IPv6:   IPv6Addr,
 		IPv4:   IPv4Addr,
 		Status: NewEndpointStatus(),
+		mutex:  &lock.RWMutex{},
 	}
 	c.Assert(e.ID, Equals, uint16(4370)) //"0x1112"
 	c.Assert(bytes.Compare(e.IPv6, IPv6Addr) == 0, Equals, true)
@@ -176,7 +177,7 @@ func (s *EndpointSuite) TestEndpointStatus(c *C) {
 }
 
 func (s *EndpointSuite) TestEndpointUpdateLabels(c *C) {
-	e := Endpoint{
+	e := &Endpoint{
 		ID:     IPv6Addr.EndpointID(),
 		IPv6:   IPv6Addr,
 		IPv4:   IPv4Addr,
@@ -187,6 +188,7 @@ func (s *EndpointSuite) TestEndpointUpdateLabels(c *C) {
 			OrchestrationIdentity: pkgLabels.Labels{},
 			OrchestrationInfo:     pkgLabels.Labels{},
 		},
+		mutex: &lock.RWMutex{},
 	}
 	e.UnconditionalLock()
 	e.SetDefaultOpts(nil)
@@ -214,11 +216,12 @@ func (s *EndpointSuite) TestEndpointUpdateLabels(c *C) {
 }
 
 func (s *EndpointSuite) TestEndpointState(c *C) {
-	e := Endpoint{
+	e := &Endpoint{
 		ID:     IPv6Addr.EndpointID(),
 		IPv6:   IPv6Addr,
 		IPv4:   IPv4Addr,
 		Status: NewEndpointStatus(),
+		mutex:  &lock.RWMutex{},
 	}
 	e.UnconditionalLock()
 	e.SetDefaultOpts(nil)
@@ -340,7 +343,10 @@ func (s *EndpointSuite) TestEndpointState(c *C) {
 }
 
 func (s *EndpointSuite) TestWaitForPolicyRevision(c *C) {
-	e := &Endpoint{policyRevision: 0}
+	e := &Endpoint{
+		policyRevision: 0,
+		mutex:          &lock.RWMutex{},
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(1*time.Second))
 
@@ -412,7 +418,11 @@ func (s *EndpointSuite) TestWaitForPolicyRevision(c *C) {
 }
 
 func (s *EndpointSuite) TestProxyID(c *C) {
-	e := &Endpoint{ID: 123, policyRevision: 0}
+	e := &Endpoint{
+		ID:             123,
+		policyRevision: 0,
+		mutex:          &lock.RWMutex{},
+	}
 
 	id := e.ProxyID(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, Ingress: true})
 	endpointID, ingress, protocol, port, err := policy.ParseProxyID(id)
@@ -425,21 +435,22 @@ func (s *EndpointSuite) TestProxyID(c *C) {
 
 func TestEndpoint_GetK8sPodLabels(t *testing.T) {
 	type fields struct {
-		mutex    lock.RWMutex
+		mutex    *lock.RWMutex
 		OpLabels pkgLabels.OpLabels
 	}
-	tests := []struct {
+	type testCase struct {
 		name   string
 		fields fields
 		want   pkgLabels.Labels
-	}{
+	}
+	tests := []*testCase{
 		{
 			name: "has all k8s labels",
 			fields: fields{
 				OpLabels: pkgLabels.OpLabels{
 					OrchestrationInfo: pkgLabels.Map2Labels(map[string]string{"foo": "bar"}, pkgLabels.LabelSourceK8s),
 				},
-				mutex: lock.RWMutex{},
+				mutex: &lock.RWMutex{},
 			},
 			want: pkgLabels.Map2Labels(map[string]string{"foo": "bar"}, pkgLabels.LabelSourceK8s),
 		},
@@ -454,7 +465,7 @@ func TestEndpoint_GetK8sPodLabels(t *testing.T) {
 						ciliumio.PodNamespaceLabel:               "default",
 					}, pkgLabels.LabelSourceK8s),
 				},
-				mutex: lock.RWMutex{},
+				mutex: &lock.RWMutex{},
 			},
 			want: pkgLabels.Map2Labels(map[string]string{"foo": "bar"}, pkgLabels.LabelSourceK8s),
 		},
@@ -471,7 +482,7 @@ func TestEndpoint_GetK8sPodLabels(t *testing.T) {
 						ciliumio.PodNamespaceMetaLabels + ".env": "prod2",
 					}, pkgLabels.LabelSourceAny),
 				},
-				mutex: lock.RWMutex{},
+				mutex: &lock.RWMutex{},
 			},
 			want: pkgLabels.Map2Labels(map[string]string{"foo": "bar"}, pkgLabels.LabelSourceK8s),
 		},

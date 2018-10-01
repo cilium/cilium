@@ -260,7 +260,7 @@ const (
 )
 
 // compile time interface check
-var _ notifications.RegenNotificationInfo = &Endpoint{}
+var _ notifications.RegenNotificationInfo = &Endpoint{mutex: &lock.RWMutex{}}
 
 // PolicyMapState is a state of a policy map.
 type PolicyMapState map[policymap.PolicyKey]PolicyMapStateEntry
@@ -292,7 +292,7 @@ type Endpoint struct {
 
 	// mutex protects write operations to this endpoint structure except
 	// for the logger field which has its own mutex
-	mutex lock.RWMutex
+	mutex *lock.RWMutex
 
 	// ContainerName is the name given to the endpoint by the container runtime
 	ContainerName string
@@ -697,6 +697,7 @@ func NewEndpointWithState(ID uint16, state string) *Endpoint {
 		Options: option.NewIntOptions(&EndpointMutableOptionLibrary),
 		Status:  NewEndpointStatus(),
 		state:   state,
+		mutex:   &lock.RWMutex{},
 	}
 	ep.UpdateLogger(nil)
 	return ep
@@ -724,6 +725,7 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, 
 		},
 		state:  "",
 		Status: NewEndpointStatus(),
+		mutex:  &lock.RWMutex{},
 	}
 	ep.UpdateLogger(nil)
 
