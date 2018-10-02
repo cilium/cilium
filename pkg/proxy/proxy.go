@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/logger"
+	"github.com/cilium/cilium/pkg/revert"
 
 	"github.com/sirupsen/logrus"
 )
@@ -145,25 +146,12 @@ func (p *Proxy) allocatePort() (uint16, error) {
 
 var gcOnce sync.Once
 
-// RevertFunc is a function returned by a successful function call, which
-// reverts the side-effects of the initial function call. A call that returns
-// an error should return a nil RevertFunc.
-type RevertFunc func() error
-
-// FinalizeFunc is a function returned by a successful function call, which
-// finalizes the initial function call. A call that returns an error should
-// return a nil FinalizeFunc.
-// When a call returns both a RevertFunc and a FinalizeFunc, at most one may be
-// called. The side effects of the FinalizeFunc are not reverted by the
-// RevertFunc.
-type FinalizeFunc func()
-
 // CreateOrUpdateRedirect creates or updates a L4 redirect with corresponding
 // proxy configuration. This will allocate a proxy port as required and launch
 // a proxy instance. If the redirect is already in place, only the rules will be
 // updated.
 func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndpoint logger.EndpointUpdater,
-	wg *completion.WaitGroup) (redir *Redirect, err error, finalizeFunc FinalizeFunc, revertFunc RevertFunc) {
+	wg *completion.WaitGroup) (redir *Redirect, err error, finalizeFunc revert.FinalizeFunc, revertFunc revert.RevertFunc) {
 	gcOnce.Do(func() {
 		go func() {
 			for {
@@ -181,22 +169,15 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 
 	scopedLog := log.WithField(fieldProxyRedirectID, id)
 
-	revertFuncs := make([]RevertFunc, 0, 2)
-	revertFunc = func() error {
-		for i := len(revertFuncs) - 1; i >= 0; i-- {
-			if err := revertFuncs[i](); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
+	var revertStack revert.RevertStack
+	revertFunc = revertStack.Revert
 
 	var ok bool
 	if redir, ok = p.redirects[id]; ok {
 		redir.mutex.Lock()
 
 		if redir.parserType != l4.L7Parser {
-			var removeRevertFunc RevertFunc
+			var removeRevertFunc revert.RevertFunc
 			err, finalizeFunc, removeRevertFunc = p.removeRedirect(id, wg)
 			redir.mutex.Unlock()
 
@@ -205,13 +186,13 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 				return
 			}
 
-			revertFuncs = append(revertFuncs, removeRevertFunc)
+			revertStack.Push(removeRevertFunc)
 
 			goto create
 		}
 
 		updateRevertFunc := redir.updateRules(l4)
-		revertFuncs = append(revertFuncs, updateRevertFunc)
+		revertStack.Push(updateRevertFunc)
 
 		redir.lastUpdated = time.Now()
 
@@ -261,7 +242,7 @@ retryCreatePort:
 			p.allocatedPorts[to] = struct{}{}
 			p.redirects[id] = redir
 
-			revertFuncs = append(revertFuncs, func() error {
+			revertStack.Push(func() error {
 				completionCtx, cancel := context.WithCancel(context.Background())
 				proxyWaitGroup := completion.NewWaitGroup(completionCtx)
 				err, finalize, _ := p.RemoveRedirect(id, proxyWaitGroup)
@@ -293,14 +274,14 @@ retryCreatePort:
 }
 
 // RemoveRedirect removes an existing redirect.
-func (p *Proxy) RemoveRedirect(id string, wg *completion.WaitGroup) (error, FinalizeFunc, RevertFunc) {
+func (p *Proxy) RemoveRedirect(id string, wg *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 	return p.removeRedirect(id, wg)
 }
 
 // removeRedirect removes an existing redirect. p.mutex must be held
-func (p *Proxy) removeRedirect(id string, wg *completion.WaitGroup) (err error, finalizeFunc FinalizeFunc, revertFunc RevertFunc) {
+func (p *Proxy) removeRedirect(id string, wg *completion.WaitGroup) (err error, finalizeFunc revert.FinalizeFunc, revertFunc revert.RevertFunc) {
 	log.WithField(fieldProxyRedirectID, id).
 		Debug("Removing proxy redirect")
 
