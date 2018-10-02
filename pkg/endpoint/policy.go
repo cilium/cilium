@@ -43,6 +43,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/revert"
 
 	"github.com/sirupsen/logrus"
 )
@@ -386,7 +387,7 @@ func (e *Endpoint) IngressOrEgressIsEnforced() bool {
 }
 
 // must be called with endpoint.Mutex held for reading
-func (e *Endpoint) updateNetworkPolicy(owner Owner, proxyWaitGroup *completion.WaitGroup) (reterr error, revertFunc RevertFunc) {
+func (e *Endpoint) updateNetworkPolicy(owner Owner, proxyWaitGroup *completion.WaitGroup) (reterr error, revertFunc revert.RevertFunc) {
 	// Skip updating the NetworkPolicy if no policy has been calculated.
 	// This breaks a circular dependency between configuring NetworkPolicies in
 	// sidecar Envoy proxies and those proxies needing network connectivity
