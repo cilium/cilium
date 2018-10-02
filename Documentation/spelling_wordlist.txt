@@ -109,6 +109,7 @@ Dinan
 disassembly
 distros
 DMA
+DMA'ed
 dns
 Dockerfile
 doesn
