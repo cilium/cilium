@@ -28,11 +28,13 @@ import (
 
 type PolicyClient interface {
 	Close()
+	Path() string
 }
 
 type AccessLogger interface {
 	Log(pblog *cilium.LogEntry)
 	Close()
+	Path() string
 }
 
 type PolicyUpdater interface {
@@ -40,13 +42,11 @@ type PolicyUpdater interface {
 }
 
 type Instance struct {
-	id            uint64
-	accessLogPath string
-	accessLogger  AccessLogger
-	xdsPath       string
-	policyClient  PolicyClient
-	nodeID        string
-	openCount     uint64
+	id           uint64
+	openCount    uint64
+	nodeID       string
+	accessLogger AccessLogger
+	policyClient PolicyClient
 
 	policyMap atomic.Value // holds PolicyMap
 }
@@ -60,6 +60,26 @@ var (
 	instanceId uint64 = 0
 )
 
+func NewInstance(nodeID string, accessLogger AccessLogger) *Instance {
+
+	instanceId++
+
+	if nodeID == "" {
+		nodeID = fmt.Sprintf("host~127.0.0.1~libcilium-%d~localdomain", instanceId)
+	}
+
+	// TODO: Sidecar instance id needs to be different.
+	ins := &Instance{
+		id:           instanceId,
+		openCount:    1,
+		nodeID:       nodeID,
+		accessLogger: accessLogger,
+	}
+	ins.setPolicyMap(newPolicyMap())
+
+	return ins
+}
+
 // OpenInstance creates a new instance or finds an existing one with equivalent parameters.
 // returns the instance id.
 func OpenInstance(nodeID string, xdsPath string, newPolicyClient func(path, nodeID string, updater PolicyUpdater) PolicyClient,
@@ -69,35 +89,26 @@ func OpenInstance(nodeID string, xdsPath string, newPolicyClient func(path, node
 
 	// Check if have an instance with these params already
 	for id, old := range instances {
-		if (nodeID == "" || old.nodeID == nodeID) && old.xdsPath == xdsPath && old.accessLogPath == accessLogPath {
+		oldXdsPath := ""
+		if old.policyClient != nil {
+			oldXdsPath = old.policyClient.Path()
+		}
+		oldAccessLogPath := ""
+		if old.accessLogger != nil {
+			oldAccessLogPath = old.accessLogger.Path()
+		}
+		if (nodeID == "" || old.nodeID == nodeID) && xdsPath == oldXdsPath && accessLogPath == oldAccessLogPath {
 			old.openCount++
 			log.Infof("Opened existing library instance %d, open count: %d", id, old.openCount)
 			return id
 		}
 	}
 
-	instanceId++
-	if nodeID == "" {
-		nodeID = fmt.Sprintf("host~127.0.0.1~libcilium-%d~localdomain", instanceId)
-	}
+	ins := NewInstance(nodeID, newAccessLogger(accessLogPath))
+	// policy client needs the instance so we set it after instance has been created
+	ins.policyClient = newPolicyClient(xdsPath, ins.nodeID, ins)
 
-	new := &Instance{
-		id:            instanceId,
-		accessLogPath: accessLogPath,
-		xdsPath:       xdsPath,
-		nodeID:        nodeID,
-		openCount:     1,
-	}
-
-	new.setPolicyMap(newPolicyMap())
-	if new.xdsPath != "" {
-		new.policyClient = newPolicyClient(new.xdsPath, new.nodeID, new)
-	}
-	if new.accessLogPath != "" {
-		new.accessLogger = newAccessLogger(new.accessLogPath)
-	}
-
-	instances[instanceId] = new
+	instances[instanceId] = ins
 
 	log.Infof("Opened new library instance %d", instanceId)
 

@@ -28,13 +28,17 @@ import (
 )
 
 type Client struct {
-	connected uint32     // Accessed atomically without locking
-	mutex     lock.Mutex // Used to protect opening the connection
+	connected uint32 // Accessed atomically without locking
 	path      string
+	mutex     lock.Mutex     // Used to protect opening the connection
 	conn      unsafe.Pointer // Read atomically without locking
 }
 
 func (cl *Client) connect() *net.UnixConn {
+	if cl.path == "" {
+		return nil
+	}
+
 	if atomic.LoadUint32(&cl.connected) > 0 {
 		// Guaranteed to be non-nil
 		return (*net.UnixConn)(atomic.LoadPointer(&cl.conn))
@@ -42,9 +46,6 @@ func (cl *Client) connect() *net.UnixConn {
 
 	cl.mutex.Lock()
 	defer cl.mutex.Unlock()
-	if cl.path == "" {
-		return nil
-	}
 
 	// Safe to read cl.conn while holding the mutex
 	conn := (*net.UnixConn)(cl.conn)
@@ -86,26 +87,27 @@ func (cl *Client) Log(pblog *cilium.LogEntry) {
 		if err != nil {
 			log.Errorf("Accesslog: Write() failed: %v", err)
 			atomic.StoreUint32(&cl.connected, 0) // Mark connection as broken
-		} else {
-			log.Debugf("Accesslog: Wrote: %s", pblog.String())
 		}
 	} else {
 		log.Debugf("Accesslog: No connection, cannot send: %s", pblog.String())
 	}
 }
 
-func NewClient(accessLogPath string) proxylib.AccessLogger {
-	client := &Client{}
+func (c *Client) Path() string {
+	return c.path
+}
 
-	client.mutex.Lock()
-	client.path = accessLogPath
-	atomic.StoreUint32(&client.connected, 0) // Mark connection as broken
-	client.mutex.Unlock()
+func NewClient(accessLogPath string) proxylib.AccessLogger {
+	client := &Client{
+		path: accessLogPath,
+	}
 	client.connect()
 	return client
 }
 
 func (cl *Client) Close() {
 	conn := (*net.UnixConn)(atomic.LoadPointer(&cl.conn))
-	conn.Close()
+	if conn != nil {
+		conn.Close()
+	}
 }

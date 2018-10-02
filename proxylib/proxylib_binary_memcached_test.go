@@ -63,7 +63,7 @@ var setHello = []byte{
 }
 
 func TestBinaryMemcacheOnDataReq(t *testing.T) {
-	logServer := test.StartAccessLogServer(t, "access_log.sock", 10)
+	logServer := test.StartAccessLogServer("access_log.sock", 10)
 	defer logServer.Close()
 
 	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
@@ -109,7 +109,7 @@ func TestBinaryMemcacheOnDataReq(t *testing.T) {
 }
 
 func TestBinaryMemcacheOnDataReqKey(t *testing.T) {
-	logServer := test.StartAccessLogServer(t, "access_log.sock", 10)
+	logServer := test.StartAccessLogServer("access_log.sock", 10)
 	defer logServer.Close()
 
 	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
@@ -155,7 +155,7 @@ func TestBinaryMemcacheOnDataReqKey(t *testing.T) {
 }
 
 func TestBinaryMemcacheOnDataReqKeyPrefix(t *testing.T) {
-	logServer := test.StartAccessLogServer(t, "access_log.sock", 10)
+	logServer := test.StartAccessLogServer("access_log.sock", 10)
 	defer logServer.Close()
 
 	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
@@ -201,7 +201,7 @@ func TestBinaryMemcacheOnDataReqKeyPrefix(t *testing.T) {
 }
 
 func TestBinaryMemcacheOnDataReqKeyRegex(t *testing.T) {
-	logServer := test.StartAccessLogServer(t, "access_log.sock", 10)
+	logServer := test.StartAccessLogServer("access_log.sock", 10)
 	defer logServer.Close()
 
 	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
@@ -247,7 +247,7 @@ func TestBinaryMemcacheOnDataReqKeyRegex(t *testing.T) {
 }
 
 func TestBinaryMemcacheOnDataReqDrop(t *testing.T) {
-	logServer := test.StartAccessLogServer(t, "access_log.sock", 10)
+	logServer := test.StartAccessLogServer("access_log.sock", 10)
 	defer logServer.Close()
 
 	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
@@ -292,7 +292,7 @@ func TestBinaryMemcacheOnDataReqDrop(t *testing.T) {
 }
 
 func TestBinaryMemcacheOnDataReqMore(t *testing.T) {
-	logServer := test.StartAccessLogServer(t, "access_log.sock", 10)
+	logServer := test.StartAccessLogServer("access_log.sock", 10)
 	defer logServer.Close()
 
 	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
@@ -337,7 +337,7 @@ func TestBinaryMemcacheOnDataReqMore(t *testing.T) {
 }
 
 func TestBinaryMemcacheOnDataReqSplit(t *testing.T) {
-	logServer := test.StartAccessLogServer(t, "access_log.sock", 10)
+	logServer := test.StartAccessLogServer("access_log.sock", 10)
 	defer logServer.Close()
 
 	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
@@ -384,7 +384,7 @@ func TestBinaryMemcacheOnDataReqSplit(t *testing.T) {
 }
 
 func TestBinaryMemcacheOnDataReqGetRemainingKey(t *testing.T) {
-	logServer := test.StartAccessLogServer(t, "access_log.sock", 10)
+	logServer := test.StartAccessLogServer("access_log.sock", 10)
 	defer logServer.Close()
 
 	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
@@ -431,7 +431,7 @@ func TestBinaryMemcacheOnDataReqGetRemainingKey(t *testing.T) {
 }
 
 func TestBinaryMemcacheOnDataReqDropAndAllow(t *testing.T) {
-	logServer := test.StartAccessLogServer(t, "access_log.sock", 10)
+	logServer := test.StartAccessLogServer("access_log.sock", 10)
 	defer logServer.Close()
 
 	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)

@@ -27,18 +27,21 @@ import (
 	"github.com/cilium/cilium/proxylib/test"
 
 	log "github.com/sirupsen/logrus"
-	"gopkg.in/check.v1"
+	. "gopkg.in/check.v1"
 )
 
 // Hook up gocheck into the "go test" runner.
 func Test(t *testing.T) {
 	logging.ToggleDebugLogs(true)
-	check.TestingT(t)
+	TestingT(t)
 }
 
-type ClientSuite struct{}
+type ClientSuite struct {
+	acks  int
+	nacks int
+}
 
-var _ = check.Suite(&ClientSuite{})
+var _ = Suite(&ClientSuite{})
 
 const (
 	TestTimeout      = 10 * time.Second
@@ -51,18 +54,19 @@ var resources = []*cilium.NetworkPolicy{
 	{Name: "resource2"},
 }
 
-func ackCallback(err error) {
-	if err == nil {
-		log.Info("ACK Callback called")
-	} else {
-		log.Info("NACK Callback called")
-	}
-}
-
 // UpsertNetworkPolicy must only be used for testing!
-func UpsertNetworkPolicy(s *envoy.XDSServer, p *cilium.NetworkPolicy) {
-	c := completion.NewCompletion(nil, ackCallback)
-	s.NetworkPolicyMutator.Upsert(envoy.NetworkPolicyTypeURL, p.Name, p, []string{"127.0.0.1"}, c)
+func (cs *ClientSuite) UpsertNetworkPolicy(c *C, s *envoy.XDSServer, p *cilium.NetworkPolicy) {
+	comp := completion.NewCompletion(nil, func(err error) {
+		if err == nil {
+			log.Info("ACK Callback called")
+			cs.acks++
+		} else {
+			log.Info("NACK Callback called")
+			cs.nacks++
+		}
+	})
+
+	s.NetworkPolicyMutator.Upsert(envoy.NetworkPolicyTypeURL, p.Name, p, []string{"127.0.0.1"}, comp)
 }
 
 type updater struct{}
@@ -72,7 +76,7 @@ func (u *updater) PolicyUpdate(resp *envoy_api_v2.DiscoveryResponse) error {
 	return nil
 }
 
-func (s *ClientSuite) TestRequestAllResources(c *check.C) {
+func (s *ClientSuite) TestRequestAllResources(c *C) {
 	var updater *updater
 	xdsPath := filepath.Join(test.Tmpdir, "xds.sock")
 	client1 := NewClient(xdsPath, "sidecar~127.0.0.1~v0.default~default.svc.cluster.local", updater)
@@ -93,7 +97,9 @@ func (s *ClientSuite) TestRequestAllResources(c *check.C) {
 	time.Sleep(500 * time.Millisecond)
 
 	// Create version 1 with resource 0.
-	UpsertNetworkPolicy(xdsServer, resources[0])
+	s.UpsertNetworkPolicy(c, xdsServer, resources[0])
 
 	time.Sleep(DialDelay * BackOffLimit)
+	c.Assert(s.acks, Equals, 1)
+	c.Assert(s.nacks, Equals, 0)
 }
