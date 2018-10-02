@@ -36,7 +36,8 @@ extensions = ['sphinx.ext.ifconfig',
     'sphinx.ext.githubpages',
     'sphinxcontrib.openapi',
     'sphinx_tabs.tabs',
-    'sphinxcontrib.spelling' ]
+    'sphinxcontrib.spelling',
+    'versionwarning.extension' ]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -64,6 +65,9 @@ author = u'Cilium Authors'
 #
 # The short X.Y version.
 release = open("../VERSION", "r").read().strip()
+# Used by version warning
+versionwarning_project_version = open("../VERSION", "r").read().strip()
+versionwarning_body_selector = "div.document"
 
 # Fetch the docs version from an environment variable. Map latest -> master.
 branch = os.environ.get('READTHEDOCS_VERSION')
