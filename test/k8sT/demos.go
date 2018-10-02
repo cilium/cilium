@@ -113,6 +113,10 @@ var _ = Describe("K8sDemosTest", func() {
 		err := kubectl.WaitforPods(helpers.DefaultNamespace, fmt.Sprintf("-l %s", empireLabel), 300)
 		Expect(err).Should(BeNil(), "Empire pods are not ready after timeout")
 
+		By("Applying alliance deployment")
+		res = kubectl.Apply(xwingYAMLLink)
+		res.ExpectSuccess("unable to apply %s: %s", xwingYAMLLink, res.CombineOutput())
+
 		By("Getting xwing pod names")
 		xwingPods, err := kubectl.GetPodNames(helpers.DefaultNamespace, allianceLabel)
 		Expect(err).Should(BeNil())
