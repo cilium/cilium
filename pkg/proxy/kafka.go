@@ -17,6 +17,7 @@ package proxy
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/cilium/cilium/pkg/revert"
 	"io"
 	"net"
 	"time"
@@ -438,7 +439,7 @@ func (k *kafkaRedirect) handleResponseConnection(pair *connectionPair, correlati
 }
 
 // Close the redirect.
-func (k *kafkaRedirect) Close(wg *completion.WaitGroup) (FinalizeFunc, RevertFunc) {
+func (k *kafkaRedirect) Close(wg *completion.WaitGroup) (revert.FinalizeFunc, revert.RevertFunc) {
 	return k.socket.Close, nil
 }
 
