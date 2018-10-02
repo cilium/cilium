@@ -113,6 +113,7 @@ diff
 disassembly
 distros
 DMA
+DMA'ed
 dns
 Dockerfile
 dockerhub
