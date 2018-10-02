@@ -168,8 +168,8 @@ func StartEnvoy(stateDir, logPath string, baseID uint64) *Envoy {
 	nodeId := "host~127.0.0.1~no-id~localdomain"
 
 	// Create static configuration
-	createBootstrap(bootstrapPath, nodeId, "cluster1", "version1",
-		xdsPath, "cluster1", adminPath)
+	createBootstrap(bootstrapPath, nodeId, ingressClusterName, "version1",
+		xdsPath, egressClusterName, ingressClusterName, adminPath)
 
 	log.Debugf("Envoy: Starting: %v", *e)
 
