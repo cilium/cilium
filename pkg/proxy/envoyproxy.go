@@ -16,6 +16,7 @@ package proxy
 
 import (
 	"fmt"
+	"github.com/cilium/cilium/pkg/revert"
 	"sync"
 
 	"github.com/cilium/cilium/pkg/completion"
@@ -65,7 +66,7 @@ func createEnvoyRedirect(r *Redirect, stateDir string, xdsServer *envoy.XDSServe
 }
 
 // Close the redirect.
-func (r *envoyRedirect) Close(wg *completion.WaitGroup) (FinalizeFunc, RevertFunc) {
+func (r *envoyRedirect) Close(wg *completion.WaitGroup) (revert.FinalizeFunc, revert.RevertFunc) {
 	if envoyProxy == nil {
 		return nil, nil
 	}

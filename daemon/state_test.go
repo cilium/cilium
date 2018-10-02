@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/revert"
 
 	. "gopkg.in/check.v1"
 )
@@ -118,7 +119,7 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 	}
 
 	ds.OnUpdateNetworkPolicy = func(e *e.Endpoint, policy *policy.L4Policy,
-		labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, proxyWaitGroup *completion.WaitGroup) (error, e.RevertFunc) {
+		labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc) {
 		return nil, nil
 	}
 

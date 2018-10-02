@@ -16,6 +16,7 @@ package proxy
 
 import (
 	"fmt"
+	"github.com/cilium/cilium/pkg/revert"
 	"net"
 	"time"
 
@@ -29,7 +30,7 @@ import (
 // RedirectImplementation is the generic proxy redirect interface that each
 // proxy redirect type must implement
 type RedirectImplementation interface {
-	Close(wg *completion.WaitGroup) (FinalizeFunc, RevertFunc)
+	Close(wg *completion.WaitGroup) (revert.FinalizeFunc, revert.RevertFunc)
 }
 
 type Redirect struct {
@@ -64,7 +65,7 @@ func newRedirect(localEndpoint logger.EndpointUpdater, id string) *Redirect {
 }
 
 // updateRules updates the rules of the redirect, Redirect.mutex must be held
-func (r *Redirect) updateRules(l4 *policy.L4Filter) RevertFunc {
+func (r *Redirect) updateRules(l4 *policy.L4Filter) revert.RevertFunc {
 	oldRules := r.rules
 	r.rules = make(policy.L7DataMap, len(l4.L7RulesPerEp))
 	for key, val := range l4.L7RulesPerEp {

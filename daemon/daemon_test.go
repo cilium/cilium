@@ -15,6 +15,7 @@
 package main
 
 import (
+	"github.com/cilium/cilium/pkg/revert"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -55,9 +56,9 @@ type DaemonSuite struct {
 	OnAlwaysAllowLocalhost    func() bool
 	OnGetCachedLabelList      func(id identity.NumericIdentity) (labels.LabelArray, error)
 	OnGetPolicyRepository     func() *policy.Repository
-	OnUpdateProxyRedirect     func(e *e.Endpoint, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error, e.FinalizeFunc, e.RevertFunc)
-	OnRemoveProxyRedirect     func(e *e.Endpoint, id string, proxyWaitGroup *completion.WaitGroup) (error, e.FinalizeFunc, e.RevertFunc)
-	OnUpdateNetworkPolicy     func(e *e.Endpoint, policy *policy.L4Policy, labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, proxyWaitGroup *completion.WaitGroup) (error, e.RevertFunc)
+	OnUpdateProxyRedirect     func(e *e.Endpoint, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error, revert.FinalizeFunc, revert.RevertFunc)
+	OnRemoveProxyRedirect     func(e *e.Endpoint, id string, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc)
+	OnUpdateNetworkPolicy     func(e *e.Endpoint, policy *policy.L4Policy, labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc)
 	OnRemoveNetworkPolicy     func(e *e.Endpoint)
 	OnQueueEndpointBuild      func(r *e.Request)
 	OnRemoveFromEndpointQueue func(epID uint64)
@@ -194,14 +195,14 @@ func (ds *DaemonSuite) GetPolicyRepository() *policy.Repository {
 	panic("GetPolicyRepository should not have been called")
 }
 
-func (ds *DaemonSuite) UpdateProxyRedirect(e *e.Endpoint, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error, e.FinalizeFunc, e.RevertFunc) {
+func (ds *DaemonSuite) UpdateProxyRedirect(e *e.Endpoint, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error, revert.FinalizeFunc, revert.RevertFunc) {
 	if ds.OnUpdateProxyRedirect != nil {
 		return ds.OnUpdateProxyRedirect(e, l4, proxyWaitGroup)
 	}
 	panic("UpdateProxyRedirect should not have been called")
 }
 
-func (ds *DaemonSuite) RemoveProxyRedirect(e *e.Endpoint, id string, proxyWaitGroup *completion.WaitGroup) (error, e.FinalizeFunc, e.RevertFunc) {
+func (ds *DaemonSuite) RemoveProxyRedirect(e *e.Endpoint, id string, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
 	if ds.OnRemoveProxyRedirect != nil {
 		return ds.OnRemoveProxyRedirect(e, id, proxyWaitGroup)
 	}
@@ -209,7 +210,7 @@ func (ds *DaemonSuite) RemoveProxyRedirect(e *e.Endpoint, id string, proxyWaitGr
 }
 
 func (ds *DaemonSuite) UpdateNetworkPolicy(e *e.Endpoint, policy *policy.L4Policy,
-	labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, proxyWaitGroup *completion.WaitGroup) (error, e.RevertFunc) {
+	labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc) {
 	if ds.OnUpdateNetworkPolicy != nil {
 		return ds.OnUpdateNetworkPolicy(e, policy, labelsMap, deniedIngressIdentities, deniedEgressIdentities, proxyWaitGroup)
 	}
