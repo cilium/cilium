@@ -92,6 +92,8 @@ const char* filter_strerror(FilterResult res) {
     return "Connection rejected";
   case FILTER_INVALID_INSTANCE:
     return "Invalid proxylib instance";
+  case FILTER_UNKNOWN_ERROR:
+    break;
   }
   return "Unknown error";
 }

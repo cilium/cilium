@@ -22,13 +22,10 @@ import (
 	_ "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/envoy/cilium"
-	envoy_api_v2 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
 	"github.com/cilium/cilium/proxylib/proxylib"
 	"github.com/cilium/cilium/proxylib/test"
 	_ "github.com/cilium/cilium/proxylib/testparsers"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/any"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -55,7 +52,7 @@ func TestOpenModule(t *testing.T) {
 		defer CloseModule(mod3)
 	}
 
-	logServer := test.StartAccessLogServer(t, "access_log.sock", 10)
+	logServer := test.StartAccessLogServer("access_log.sock", 10)
 	defer logServer.Close()
 
 	mod4 := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
@@ -142,7 +139,7 @@ func checkAccessLogs(t *testing.T, logServer *test.AccessLogServer, expPasses, e
 }
 
 func TestOnDataNoPolicy(t *testing.T) {
-	logServer := test.StartAccessLogServer(t, "access_log.sock", 10)
+	logServer := test.StartAccessLogServer("access_log.sock", 10)
 	defer logServer.Close()
 
 	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
@@ -202,7 +199,7 @@ func (p *PanicParser) OnData(reply, endStream bool, data [][]byte) (proxylib.OpT
 }
 
 func TestOnDataPanic(t *testing.T) {
-	logServer := test.StartAccessLogServer(t, "access_log.sock", 10)
+	logServer := test.StartAccessLogServer("access_log.sock", 10)
 	defer logServer.Close()
 
 	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
@@ -233,57 +230,17 @@ func insertPolicyText(t *testing.T, mod uint64, version string, policies []strin
 }
 
 func insertPolicyTextRaw(t *testing.T, mod uint64, version string, policies []string, expectFail string) error {
-	typeUrl := "type.googleapis.com/cilium.NetworkPolicy"
-	var resources []*any.Any
-
-	for _, policy := range policies {
-		pb := new(cilium.NetworkPolicy)
-		err := proto.UnmarshalText(policy, pb)
-		if err != nil {
-			if expectFail != "unmarshal" {
-				t.Errorf("Policy UnmarshalText failed: %v", err)
-			}
-			return err
-		}
-		log.Infof("Text -> proto.Message: %s -> %v", policy, pb)
-		data, err := proto.Marshal(pb)
-		if err != nil {
-			if expectFail != "marshal" {
-				t.Errorf("Policy marshal failed: %v", err)
-			}
-			return err
-		}
-
-		resources = append(resources, &any.Any{
-			TypeUrl: typeUrl,
-			Value:   data,
-		})
-	}
-
-	msg := &envoy_api_v2.DiscoveryResponse{
-		VersionInfo: version,
-		Canary:      false,
-		TypeUrl:     typeUrl,
-		Nonce:       "randomNonce1",
-		Resources:   resources,
-	}
 	instance := proxylib.FindInstance(mod)
 	if instance == nil {
 		t.Errorf("Policy Update failed to get the library instance.")
 	} else {
-		err := instance.PolicyUpdate(msg)
-		if err != nil {
-			if expectFail != "update" {
-				t.Errorf("Policy Update failed: %v", err)
-			}
-		}
-		return err
+		return instance.InsertPolicyText(version, policies, expectFail)
 	}
 	return nil
 }
 
 func TestUnsupportedL7Drops(t *testing.T) {
-	logServer := test.StartAccessLogServer(t, "access_log.sock", 10)
+	logServer := test.StartAccessLogServer("access_log.sock", 10)
 	defer logServer.Close()
 
 	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
@@ -332,7 +289,7 @@ func TestUnsupportedL7Drops(t *testing.T) {
 }
 
 func TestUnsupportedL7DropsGeneric(t *testing.T) {
-	logServer := test.StartAccessLogServer(t, "access_log.sock", 10)
+	logServer := test.StartAccessLogServer("access_log.sock", 10)
 	defer logServer.Close()
 
 	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
@@ -385,7 +342,7 @@ func TestUnsupportedL7DropsGeneric(t *testing.T) {
 }
 
 func TestTwoRulesOnSamePortFirstNoL7(t *testing.T) {
-	logServer := test.StartAccessLogServer(t, "access_log.sock", 10)
+	logServer := test.StartAccessLogServer("access_log.sock", 10)
 	defer logServer.Close()
 
 	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
@@ -419,7 +376,7 @@ func TestTwoRulesOnSamePortFirstNoL7(t *testing.T) {
 }
 
 func TestTwoRulesOnSamePortFirstNoL7Generic(t *testing.T) {
-	logServer := test.StartAccessLogServer(t, "access_log.sock", 10)
+	logServer := test.StartAccessLogServer("access_log.sock", 10)
 	defer logServer.Close()
 
 	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
@@ -462,7 +419,7 @@ func TestTwoRulesOnSamePortFirstNoL7Generic(t *testing.T) {
 }
 
 func TestTwoRulesOnSamePortMismatchingL7(t *testing.T) {
-	logServer := test.StartAccessLogServer(t, "access_log.sock", 10)
+	logServer := test.StartAccessLogServer("access_log.sock", 10)
 	defer logServer.Close()
 
 	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
@@ -523,7 +480,7 @@ func TestTwoRulesOnSamePortMismatchingL7(t *testing.T) {
 }
 
 func TestSimplePolicy(t *testing.T) {
-	logServer := test.StartAccessLogServer(t, "access_log.sock", 10)
+	logServer := test.StartAccessLogServer("access_log.sock", 10)
 	defer logServer.Close()
 
 	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)

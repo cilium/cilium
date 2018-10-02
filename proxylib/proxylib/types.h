@@ -46,6 +46,7 @@ typedef enum {
   FILTER_UNKNOWN_CONNECTION, // Connection needs to be dropped due to it being unknown
   FILTER_INVALID_ADDRESS,    // Destination address in invalid format
   FILTER_INVALID_INSTANCE,   // Destination address in invalid format
+  FILTER_UNKNOWN_ERROR,      // Error type could not be cast to an error code
 } FilterResult;
 
 #endif
