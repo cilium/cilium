@@ -21,12 +21,8 @@ import "C"
 
 // Mirror C types to be able to use them in other Go files and tests.
 
-type OpType uint32
-type OpError uint32
-type Op struct {
-	op      uint32
-	n_bytes uint32 // The number of bytes of data the operation 'op' applies to.
-}
+type OpType int64
+type OpError int64
 
 const (
 	MORE   OpType = C.FILTEROP_MORE
@@ -72,19 +68,20 @@ func (opErr OpError) String() string {
 	return "UNKNOWN_OP_ERROR"
 }
 
-type Result int
+type FilterResult int
 
 const (
-	OK                 Result = C.FILTER_OK
-	POLICY_DROP        Result = C.FILTER_POLICY_DROP
-	PARSER_ERROR       Result = C.FILTER_PARSER_ERROR
-	UNKNOWN_PARSER     Result = C.FILTER_UNKNOWN_PARSER
-	UNKNOWN_CONNECTION Result = C.FILTER_UNKNOWN_CONNECTION
-	INVALID_ADDRESS    Result = C.FILTER_INVALID_ADDRESS
-	INVALID_INSTANCE   Result = C.FILTER_INVALID_INSTANCE
+	OK                 FilterResult = C.FILTER_OK
+	POLICY_DROP        FilterResult = C.FILTER_POLICY_DROP
+	PARSER_ERROR       FilterResult = C.FILTER_PARSER_ERROR
+	UNKNOWN_PARSER     FilterResult = C.FILTER_UNKNOWN_PARSER
+	UNKNOWN_CONNECTION FilterResult = C.FILTER_UNKNOWN_CONNECTION
+	INVALID_ADDRESS    FilterResult = C.FILTER_INVALID_ADDRESS
+	INVALID_INSTANCE   FilterResult = C.FILTER_INVALID_INSTANCE
 )
 
-func (r Result) String() string {
+// Error() implements the error interface for FilterResult
+func (r FilterResult) Error() string {
 	switch r {
 	case OK:
 		return "OK"

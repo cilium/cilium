@@ -20,11 +20,6 @@ package main
 //
 // These can not be defined in '_test.go' files, as Go test is not compatible with Cgo.
 
-/*
-#include "proxylib/types.h"
-*/
-import "C"
-
 import (
 	"testing"
 
@@ -45,22 +40,22 @@ func checkConnectionCount(t *testing.T, expConns int) {
 	}
 }
 
-func checkConnections(t *testing.T, res, expected Result, expConns int) {
+func checkConnections(t *testing.T, res, expected FilterResult, expConns int) {
 	t.Helper()
 	if res != expected {
-		t.Errorf("OnNewConnection(): Invalid result, have %s, expected %s", res.String(), expected.String())
+		t.Errorf("OnNewConnection(): Invalid result, have %s, expected %s", res.Error(), expected.Error())
 	}
 	checkConnectionCount(t, expConns)
 }
 
-func CheckOnNewConnection(t *testing.T, instanceId uint64, proto string, connectionId uint64, ingress bool, srcId, dstId uint32, srcAddr, dstAddr, policyName string, bufSize int, expResult Result, expNumConnections int) *byte {
+func CheckOnNewConnection(t *testing.T, instanceId uint64, proto string, connectionId uint64, ingress bool, srcId, dstId uint32, srcAddr, dstAddr, policyName string, bufSize int, expResult FilterResult, expNumConnections int) *byte {
 	t.Helper()
 	origBuf := make([]byte, 0, bufSize)
 	replyBuf := make([]byte, 1, bufSize)
 	replyBufAddr := &replyBuf[0]
 	replyBuf = replyBuf[:0] // make the buffer empty again
 
-	res := Result(OnNewConnection(instanceId, proto, connectionId, ingress, srcId, dstId, srcAddr, dstAddr, policyName, &origBuf, &replyBuf))
+	res := FilterResult(OnNewConnection(instanceId, proto, connectionId, ingress, srcId, dstId, srcAddr, dstAddr, policyName, &origBuf, &replyBuf))
 	checkConnections(t, res, expResult, expNumConnections)
 
 	return replyBufAddr
@@ -90,12 +85,12 @@ type ExpFilterOp struct {
 	n_bytes int
 }
 
-func checkOps(ops []C.FilterOp, exp []ExpFilterOp) bool {
+func checkOps(ops [][2]int64, exp []ExpFilterOp) bool {
 	if len(ops) != len(exp) {
 		return false
 	} else {
 		for i, op := range ops {
-			if op.op != C.uint64_t(exp[i].op) || op.n_bytes != C.int64_t(exp[i].n_bytes) {
+			if op[0] != int64(exp[i].op) || op[1] != int64(exp[i].n_bytes) {
 				return false
 			}
 		}
@@ -114,17 +109,17 @@ func checkBuf(t *testing.T, buf InjectBuf, expected string) {
 	}
 }
 
-func checkOnData(t *testing.T, res, expected Result, ops []C.FilterOp, expOps []ExpFilterOp) {
+func checkOnData(t *testing.T, res, expected FilterResult, ops [][2]int64, expOps []ExpFilterOp) {
 	t.Helper()
 	if res != expected {
-		t.Errorf("OnData(): Invalid result, have %s, expected %s", res.String(), expected.String())
+		t.Errorf("OnData(): Invalid result, have %s, expected %s", res.Error(), expected.Error())
 	}
 	if !checkOps(ops, expOps) {
 		t.Errorf("OnData(): Unexpected filter operations: %v, expected %v", ops, expOps)
 	}
 }
 
-func CheckOnData(t *testing.T, connectionId uint64, reply, endStream bool, data *[][]byte, expOps []ExpFilterOp, expResult Result, expReplyBuf string) {
+func CheckOnData(t *testing.T, connectionId uint64, reply, endStream bool, data *[][]byte, expOps []ExpFilterOp, expResult FilterResult, expReplyBuf string) {
 	t.Helper()
 
 	// Find the connection
@@ -135,9 +130,9 @@ func CheckOnData(t *testing.T, connectionId uint64, reply, endStream bool, data 
 		t.Errorf("OnData(): Connection %d not found!", connectionId)
 	}
 
-	ops := make([]C.FilterOp, 0, 1+len(expOps)*2)
+	ops := make([][2]int64, 0, 1+len(expOps)*2)
 
-	res := Result(OnData(connectionId, reply, endStream, data, &ops))
+	res := FilterResult(OnData(connectionId, reply, endStream, data, &ops))
 
 	checkOnData(t, res, expResult, ops, expOps)
 
