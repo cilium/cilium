@@ -73,6 +73,7 @@ import (
 	policyApi "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/proxy/logger"
+	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/u8proto"
 	"github.com/cilium/cilium/pkg/workloads"
 
@@ -156,7 +157,7 @@ type Daemon struct {
 
 // UpdateProxyRedirect updates the redirect rules in the proxy for a particular
 // endpoint using the provided L4 filter. Returns the allocated proxy port
-func (d *Daemon) UpdateProxyRedirect(e *endpoint.Endpoint, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error, endpoint.FinalizeFunc, endpoint.RevertFunc) {
+func (d *Daemon) UpdateProxyRedirect(e *endpoint.Endpoint, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error, revert.FinalizeFunc, revert.RevertFunc) {
 	if d.l7Proxy == nil {
 		return 0, fmt.Errorf("can't redirect, proxy disabled"), nil, nil
 	}
@@ -166,12 +167,12 @@ func (d *Daemon) UpdateProxyRedirect(e *endpoint.Endpoint, l4 *policy.L4Filter, 
 		return 0, err, nil, nil
 	}
 
-	return r.ProxyPort, nil, endpoint.FinalizeFunc(finalizeFunc), endpoint.RevertFunc(revertFunc)
+	return r.ProxyPort, nil, finalizeFunc, revertFunc
 }
 
 // RemoveProxyRedirect removes a previously installed proxy redirect for an
 // endpoint
-func (d *Daemon) RemoveProxyRedirect(e *endpoint.Endpoint, id string, proxyWaitGroup *completion.WaitGroup) (error, endpoint.FinalizeFunc, endpoint.RevertFunc) {
+func (d *Daemon) RemoveProxyRedirect(e *endpoint.Endpoint, id string, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
 	if d.l7Proxy == nil {
 		return nil, nil, nil
 	}
@@ -180,20 +181,19 @@ func (d *Daemon) RemoveProxyRedirect(e *endpoint.Endpoint, id string, proxyWaitG
 		logfields.EndpointID: e.ID,
 		logfields.L4PolicyID: id,
 	}).Debug("Removing redirect to endpoint")
-	err, finalizeFunc, revertFunc := d.l7Proxy.RemoveRedirect(id, proxyWaitGroup)
-	return err, endpoint.FinalizeFunc(finalizeFunc), endpoint.RevertFunc(revertFunc)
+	return d.l7Proxy.RemoveRedirect(id, proxyWaitGroup)
 }
 
 // UpdateNetworkPolicy adds or updates a network policy in the set
 // published to L7 proxies.
 func (d *Daemon) UpdateNetworkPolicy(e *endpoint.Endpoint, policy *policy.L4Policy,
-	labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, proxyWaitGroup *completion.WaitGroup) (error, endpoint.RevertFunc) {
+	labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc) {
 	if d.l7Proxy == nil {
 		return fmt.Errorf("can't update network policy, proxy disabled"), nil
 	}
 	err, revertFunc := d.l7Proxy.UpdateNetworkPolicy(e, policy, e.GetIngressPolicyEnabledLocked(), e.GetEgressPolicyEnabledLocked(),
 		labelsMap, deniedIngressIdentities, deniedEgressIdentities, proxyWaitGroup)
-	return err, endpoint.RevertFunc(revertFunc)
+	return err, revert.RevertFunc(revertFunc)
 }
 
 // RemoveNetworkPolicy removes a network policy from the set published to
