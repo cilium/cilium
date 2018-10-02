@@ -641,10 +641,13 @@ var _ = Describe("K8sPolicyTest", func() {
 			// the policy and we want to make sure that it's deleted
 			kubectl.Delete(helpers.ManifestGet(redisPolicy))
 
-			Expect(kubectl.CiliumIsPolicyLoaded(ciliumPod, getPolicyCmd(webPolicyName))).To(
-				BeFalse(), "WebPolicy is not deleted")
-			Expect(kubectl.CiliumIsPolicyLoaded(ciliumPod, getPolicyCmd(redisPolicyName))).To(
-				BeFalse(), "RedisPolicyName is not deleted")
+			err := kubectl.WaitPolicyDeleted(ciliumPod, getPolicyCmd(webPolicyName))
+			Expect(err).To(
+				BeNil(), "WebPolicy is not deleted")
+
+			err = kubectl.WaitPolicyDeleted(ciliumPod, getPolicyCmd(redisPolicyName))
+			Expect(err).To(
+				BeNil(), "RedisPolicy is not deleted")
 
 			ExpectAllPodsTerminated(kubectl)
 		})
