@@ -1086,6 +1086,21 @@ func (kub *Kubectl) CiliumNodesWait() (bool, error) {
 	return true, nil
 }
 
+// WaitPolicyDeleted waits for policy policyName to be deleted from the
+// cilium-agent running in pod. Returns an error if policyName was unable to
+// be deleted after some amount of time.
+func (kub *Kubectl) WaitPolicyDeleted(pod string, policyName string) error {
+	body := func() bool {
+		res := kub.CiliumExec(pod, fmt.Sprintf("cilium policy get %s", policyName))
+
+		// `cilium policy get <policy name>` fails if the policy is not loaded,
+		// which is the condition we want.
+		return !res.WasSuccessful()
+	}
+
+	return WithTimeout(body, fmt.Sprintf("Policy %s was not deleted in time", policyName), &TimeoutConfig{Timeout: HelperTimeout})
+}
+
 // CiliumIsPolicyLoaded returns true if the policy is loaded in the given
 // cilium Pod. it returns false in case that the policy is not in place
 func (kub *Kubectl) CiliumIsPolicyLoaded(pod string, policyCmd string) bool {
