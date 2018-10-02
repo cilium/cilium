@@ -285,11 +285,13 @@ func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, des
 				if e.realizedRedirects == nil {
 					e.realizedRedirects = make(map[string]uint16)
 				}
+				if _, found := e.realizedRedirects[proxyID]; !found {
+					revertStack.Push(func() error {
+						delete(e.realizedRedirects, proxyID)
+						return nil
+					})
+				}
 				e.realizedRedirects[proxyID] = redirectPort
-				revertStack.Push(func() error {
-					delete(e.realizedRedirects, proxyID)
-					return nil
-				})
 
 				desiredRedirects[proxyID] = true
 
