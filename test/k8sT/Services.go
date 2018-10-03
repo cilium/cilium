@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"sync"
 	"time"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
@@ -39,6 +40,11 @@ var _ = Describe("K8sServicesTest", func() {
 		ciliumPodK8s1    string
 		testDSClient     = "zgroup=testDSClient"
 		testDS           = "zgroup=testDS"
+	)
+
+	const (
+		maxNumberOfBackgroundConnectionsFails = 3
+		backgroundSleepInterval               = 100 * time.Millisecond
 	)
 
 	applyPolicy := func(path string) {
@@ -121,27 +127,36 @@ var _ = Describe("K8sServicesTest", func() {
 	Context("Checks ClusterIP Connectivity", func() {
 
 		var (
-			demoYAML = helpers.ManifestGet("demo.yaml")
+			demoYAML  = helpers.ManifestGet("demo.yaml")
+			clusterIP string
+			appPods   map[string]string
 		)
 
-		BeforeEach(func() {
+		BeforeAll(func() {
 			res := kubectl.Apply(demoYAML)
 			res.ExpectSuccess("unable to apply %s", demoYAML)
+
+			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", 300)
+			Expect(err).Should(BeNil(), "Pods are not ready after timeout")
+
+			clusterIP, _, err = kubectl.GetServiceHostPort(helpers.DefaultNamespace, serviceName)
+			Expect(err).Should(BeNil(), "Cannot get service %s", serviceName)
+			Expect(govalidator.IsIP(clusterIP)).Should(BeTrue(),
+				"ClusterIP %q is not an IP", clusterIP)
+
+			apps := []string{helpers.App1, helpers.App2, helpers.App3}
+			appPods = helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "id")
 		})
 
-		AfterEach(func() {
+		AfterAll(func() {
 			// Explicitly ignore result of deletion of resources to avoid incomplete
 			// teardown if any step fails.
 			_ = kubectl.Delete(demoYAML)
+
+			ExpectAllPodsTerminated(kubectl)
 		})
 
 		It("Checks service on same node", func() {
-			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", 300)
-			Expect(err).Should(BeNil())
-			clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, serviceName)
-			Expect(err).Should(BeNil(), "Cannot get service %s", serviceName)
-			Expect(govalidator.IsIP(clusterIP)).Should(BeTrue(), "ClusterIP is not an IP")
-
 			status := kubectl.Exec(helpers.CurlFail("http://%s/", clusterIP))
 			status.ExpectSuccess("cannot curl to service IP from host")
 			ciliumPods, err := kubectl.GetCiliumPods(helpers.KubeSystemNamespace)
@@ -152,6 +167,94 @@ var _ = Describe("K8sServicesTest", func() {
 				service.ExpectContains(clusterIP, "ClusterIP is not present in the cilium service list")
 			}
 		}, 300)
+
+		It("Checks connectivity is correct during deployment scale", func() {
+			// Add a goroutine to check the connectivity meanwhile
+			// service/deployment is scaling or downgrading.
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			type BackgroundTestAsserts struct {
+				res  *helpers.CmdRes
+				time time.Time
+			}
+			backgroundChecks := []*BackgroundTestAsserts{}
+			started := make(chan struct{})
+			var wg sync.WaitGroup
+			wg.Add(1)
+			go func() {
+				close(started)
+				for {
+					select {
+					case <-ctx.Done():
+						wg.Done()
+						return
+					default:
+						res := kubectl.ExecPodCmd(
+							helpers.DefaultNamespace, appPods[helpers.App2],
+							helpers.CurlFail("http://%s/public", clusterIP))
+						assert := &BackgroundTestAsserts{
+							res:  res,
+							time: time.Now(),
+						}
+						backgroundChecks = append(backgroundChecks, assert)
+						time.Sleep(backgroundSleepInterval)
+					}
+				}
+			}()
+			<-started
+
+			By("Autoscaling %q to 4 replicas", helpers.App1)
+			res := kubectl.Exec(fmt.Sprintf("%s scale deployment %s --replicas=4",
+				helpers.KubectlCmd, helpers.App1))
+			res.ExpectSuccess("Cannot scale up %s to 4 replicas", helpers.App1)
+
+			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", 300)
+			Expect(err).To(BeNil(), "Pods are not ready after scaling up")
+
+			pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, fmt.Sprintf("id=%s", helpers.App1))
+			Expect(err).To(BeNil(), "Cannot get pods names for app1 deployment")
+			Expect(len(pods)).To(Equal(4), "Mismatch in number of scaled pods")
+
+			By("Autoscaling %q to 2 replicas", helpers.App1)
+
+			res = kubectl.Exec(fmt.Sprintf("%s scale deployment %s --replicas=2",
+				helpers.KubectlCmd, helpers.App1))
+			res.ExpectSuccess("Cannot scale up %s to 2 replicas", helpers.App1)
+
+			ExpectAllPodsTerminated(kubectl)
+
+			pods, err = kubectl.GetPodNames(helpers.DefaultNamespace, fmt.Sprintf("id=%s", helpers.App1))
+			Expect(err).To(BeNil(), "Cannot get pods names for app1 deployment")
+			Expect(len(pods)).To(Equal(2), "Mismatch in number of scaled pods")
+
+			By("Checking connectivity during service scaling")
+			cancel()
+			wg.Wait()
+
+			backgroundConnectionTotal := len(backgroundChecks)
+			backgroundConnectionFailed := 0
+			backgroundConnectionFailedMessage := ""
+			Expect(backgroundChecks).ShouldNot(BeEmpty(), "No background connections were made")
+			for _, check := range backgroundChecks {
+				if !check.res.WasSuccessful() {
+					backgroundConnectionFailed++
+					backgroundConnectionFailedMessage += fmt.Sprintf(
+						"Connection to the service at %s failed \n%s",
+						check.time, check.res.OutputPrettyPrint())
+				}
+			}
+			GinkgoPrint("Made %d connections in total and %d failed",
+				backgroundConnectionTotal, backgroundConnectionFailed)
+			// This assert make sure that a big percentage of http requests
+			// works. Some packets are expected to be dropped because can be
+			// started in a container that is deleted or a container that it's
+			// not ready.  So, only fails in case of failed request are bigger
+			// than the allowed max.
+			Expect(backgroundConnectionFailed).ShouldNot(
+				BeNumerically(">", maxNumberOfBackgroundConnectionsFails),
+				backgroundConnectionFailedMessage)
+		})
 	})
 
 	Context("Checks service across nodes", func() {
