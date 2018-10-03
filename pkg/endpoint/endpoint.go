@@ -1842,13 +1842,6 @@ func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup
 	return errors
 }
 
-func (e *Endpoint) removeDirectories() {
-	e.removeDirectory(e.DirectoryPath())
-	e.removeDirectory(e.FailedDirectoryPath())
-	e.removeDirectory(e.NextDirectoryPath())
-	e.removeDirectory(e.backupDirectoryPath())
-}
-
 // RegenerateWait should only be called when endpoint's state has successfully
 // been changed to "waiting-to-regenerate"
 func (e *Endpoint) RegenerateWait(owner Owner, reason string) error {
