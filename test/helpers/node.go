@@ -21,6 +21,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/test/config"
@@ -235,18 +236,32 @@ func (s *SSHMeta) ExecContext(ctx context.Context, cmd string, options ...ExecOp
 		Stdout: stdout,
 		Stderr: stderr,
 	}
-
+	var wg sync.WaitGroup
 	res := &CmdRes{
 		cmd:     cmd,
 		stdout:  stdout,
 		stderr:  stderr,
 		success: false,
+		wg:      &wg,
 	}
 
 	go func(res *CmdRes) {
 		start := time.Now()
-		if err := s.sshClient.RunCommandContext(ctx, command); err != nil {
-			log.WithError(err).Error("Error running context")
+		res.wg.Add(1)
+		defer res.wg.Done()
+		err := s.sshClient.RunCommandContext(ctx, command)
+		if err != nil {
+			exiterr, isExitError := err.(*ssh.ExitError)
+			if isExitError {
+				res.exitcode = exiterr.Waitmsg.ExitStatus()
+				// Set success as true if SIGINT signal was sent to command
+				if res.exitcode == 130 {
+					res.success = true
+				}
+			}
+		} else {
+			res.success = true
+			res.exitcode = 0
 		}
 		res.duration = time.Since(start)
 		res.SendToLog(ops.SkipLog)

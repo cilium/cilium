@@ -22,6 +22,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/test/config"
@@ -33,13 +34,14 @@ import (
 
 // CmdRes contains a variety of data which results from running a command.
 type CmdRes struct {
-	cmd      string        // Command to run
-	params   []string      // Parameters to provide to command
-	stdout   *Buffer       // Stdout from running cmd
-	stderr   *Buffer       // Stderr from running cmd
-	success  bool          // Whether command successfully executed
-	exitcode int           // The exit code of cmd
-	duration time.Duration // Is the representation of the the time that command took to execute.
+	cmd      string          // Command to run
+	params   []string        // Parameters to provide to command
+	stdout   *Buffer         // Stdout from running cmd
+	stderr   *Buffer         // Stderr from running cmd
+	success  bool            // Whether command successfully executed
+	exitcode int             // The exit code of cmd
+	duration time.Duration   // Is the representation of the the time that command took to execute.
+	wg       *sync.WaitGroup // Used to wait until the command has finished running when used in conjunction with a Context
 }
 
 // GetCmd returns res's cmd.
@@ -287,6 +289,14 @@ func (res *CmdRes) WaitUntilMatchRegexp(expr string) error {
 		body,
 		fmt.Sprintf("The output doesn't match regexp %q after timeout", expr),
 		&TimeoutConfig{Timeout: HelperTimeout})
+}
+
+// WaitUntilFinish waits until the command context completes correctly
+func (res *CmdRes) WaitUntilFinish() {
+	if res.wg == nil {
+		return
+	}
+	res.wg.Wait()
 }
 
 // GetErr returns error created from program output if command is not successful
