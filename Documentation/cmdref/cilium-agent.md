@@ -75,6 +75,7 @@ cilium-agent
       --pprof                                       Enable serving the pprof debugging API
       --prefilter-device string                     Device facing external network for XDP prefiltering (default "undefined")
       --prefilter-mode string                       Prefilter mode { native | generic } (default: native) (default "native")
+      --prepend-iptables-chains                     Prepend custom iptables chains instead of appending (default true)
       --prometheus-serve-addr string                IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
       --restore                                     Restores state, if possible, from previous daemon (default true)
       --sidecar-istio-proxy-image string            Regular expression matching compatible Istio sidecar istio-proxy container image names (default "cilium/istio_proxy")

@@ -472,8 +472,13 @@ func (c *customChain) remove() {
 }
 
 func (c *customChain) installFeeder() error {
+	installMode := "-A"
+	if viper.GetBool(option.PrependIptablesChainsName) {
+		installMode = "-I"
+	}
+
 	for _, feedArgs := range c.feederArgs {
-		err := runProg("iptables", append([]string{"-t", c.table, "-A", c.hook}, getFeedRule(c.name, feedArgs)...), true)
+		err := runProg("iptables", append([]string{"-t", c.table, installMode, c.hook}, getFeedRule(c.name, feedArgs)...), true)
 		if err != nil {
 			return err
 		}
