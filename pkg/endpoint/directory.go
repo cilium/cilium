@@ -135,3 +135,10 @@ func (e *Endpoint) removeDirectory(path string) error {
 	e.getLogger().WithField("directory", path).Debug("removing directory")
 	return os.RemoveAll(path)
 }
+
+func (e *Endpoint) removeDirectories() {
+	e.removeDirectory(e.DirectoryPath())
+	e.removeDirectory(e.FailedDirectoryPath())
+	e.removeDirectory(e.NextDirectoryPath())
+	e.removeDirectory(e.backupDirectoryPath())
+}
