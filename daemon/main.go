@@ -451,6 +451,8 @@ func init() {
 	viper.BindEnv(option.MonitorAggregationName, "CILIUM_MONITOR_AGGREGATION_LEVEL")
 	flags.IntVar(&option.Config.MTU,
 		option.MTUName, mtu.AutoDetect(), "Overwrite auto-detected MTU of underlying network")
+	flags.Bool(option.PrependIptablesChainsName, true, "Prepend custom iptables chains instead of appending")
+	viper.BindEnv(option.PrependIptablesChainsName, option.PrependIptablesChainsNameEnv)
 	flags.StringVar(&v6Address,
 		"ipv6-node", "auto", "IPv6 address of node")
 	flags.StringVar(&v4Address,
