@@ -140,7 +140,7 @@ function setup_proxy_rules()
 	fi
 
 	if [ -n "$(ip -6 rule list)" ]; then
-		if [-z "$(ip -6 rule list $rulespec)" ]; then
+		if [ -z "$(ip -6 rule list $rulespec)" ]; then
 			ip -6 rule add $rulespec
 		fi
 	fi
