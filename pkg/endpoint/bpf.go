@@ -419,8 +419,6 @@ func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, des
 	}
 
 	revertStack.Push(func() error {
-		e.getLogger().Debug("Reverting addition of new redirects")
-
 		// Restore the proxy stats.
 		e.proxyStatisticsMutex.Lock()
 		for _, stats := range updatedStats {
@@ -470,7 +468,15 @@ func (e *Endpoint) addNewRedirects(owner Owner, m *policy.L4Policy, proxyWaitGro
 	finalizeList.Append(ff)
 	revertStack.Push(rf)
 
-	return desiredRedirects, nil, finalizeList.Finalize, revertStack.Revert
+	return desiredRedirects, nil, finalizeList.Finalize, func() error {
+		e.getLogger().Debug("Reverting proxy redirect additions")
+
+		err := revertStack.Revert()
+
+		e.getLogger().Debug("Finished reverting proxy redirect additions")
+
+		return err
+	}
 }
 
 // Must be called with endpoint.Mutex held.
@@ -524,7 +530,7 @@ func (e *Endpoint) removeOldRedirects(owner Owner, desiredRedirects map[string]b
 
 	return finalizeList.Finalize,
 		func() error {
-			e.getLogger().Debug("Reverting removal of old redirects")
+			e.getLogger().Debug("Reverting proxy redirect removals")
 
 			// Restore the proxy stats.
 			e.proxyStatisticsMutex.Lock()
@@ -537,7 +543,11 @@ func (e *Endpoint) removeOldRedirects(owner Owner, desiredRedirects map[string]b
 				e.realizedRedirects[id] = redirectPort
 			}
 
-			return revertStack.Revert()
+			err := revertStack.Revert()
+
+			e.getLogger().Debug("Finished reverting proxy redirect removals")
+
+			return err
 		}
 }
 
@@ -670,6 +680,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 			if err := revertStack.Revert(); err != nil {
 				e.getLogger().WithError(err).Error("Restoring endpoint state failed")
 			}
+			e.getLogger().Error("Finished restoring endpoint state after BPF regeneration failed")
 			e.Unlock()
 		}
 	}()
