@@ -20,8 +20,10 @@ import (
 	"net"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
@@ -163,6 +165,13 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 	// they have finished to rebuild after being restored.
 	epRegenerated := make(chan bool, len(state.restored))
 
+	// Insert all endpoints into the endpoint list first before starting
+	// the regeneration. This is required to ensure that if an individual
+	// regeneration causes an identity change of an endpoint, the new
+	// identity will trigger a policy recalculation of all endpoints to
+	// account for the new identity during the grace period. For this
+	// purpose, all endpoints being restored must already be in the
+	// endpoint list.
 	for _, ep := range state.restored {
 		// If the endpoint has local conntrack option enabled, then
 		// check whether the CT map needs upgrading (and do so).
@@ -177,7 +186,9 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 		// endpointmanager.
 
 		endpointmanager.Insert(ep)
+	}
 
+	for _, ep := range state.restored {
 		go func(ep *endpoint.Endpoint, epRegenerated chan<- bool) {
 			if err := ep.RLockAlive(); err != nil {
 				ep.LogDisconnectedMutexAction(err, "before filtering labels during regenerating restored endpoint")
@@ -214,6 +225,44 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 						logfields.IdentityLabels + ".old": oldSecID,
 						logfields.IdentityLabels + ".new": identity.ID,
 					}).Info("Security identity for endpoint is different from the security identity restored for the endpoint")
+
+					// The identity of the endpoint being
+					// restored has changed. This can be
+					// caused by two main reasons:
+					//
+					// 1) Cilium has been upgraded,
+					// downgraded or the configuration has
+					// changed and the new version or
+					// configuration causes different
+					// labels to be considered security
+					// relevant for this endpoint.
+					//
+					// Immediately using the identity may
+					// cause connectivity problems if this
+					// is the first endpoint in the cluster
+					// to use the new identity. All other
+					// nodes will not have had a chance to
+					// adjust the security policies for
+					// their endpoints. Hence, apply a
+					// grace period to allow for the
+					// update. It is not required to check
+					// any local endpoints for potential
+					// outdated security rules, the
+					// notification of the new security
+					// identity will have been received and
+					// will trigger the necessary
+					// recalculation of all local
+					// endpoints.
+					//
+					// 2) The identity is outdated as the
+					// state in the kvstore has changed.
+					// This reason would justify an
+					// immediate use of the new identity
+					// but given the current identity is
+					// already in place, it is also correct
+					// to continue using it for the
+					// duration of a grace period.
+					time.Sleep(defaults.IdentityChangeGracePeriod)
 				}
 			}
 			ep.SetIdentity(identity)
