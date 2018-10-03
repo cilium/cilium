@@ -724,6 +724,8 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 	}
 
 	return nil, func() error {
+		log.Debug("Reverting xDS network policy update")
+
 		s.mutex.Lock()
 		defer s.mutex.Unlock()
 
@@ -740,6 +742,8 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 		for _, revertFunc := range revertFuncs {
 			revertFunc(completion.NewCompletion(nil, nil))
 		}
+
+		log.Debug("Finished reverting xDS network policy update")
 
 		return nil
 	}
