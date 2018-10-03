@@ -122,7 +122,7 @@ spec:
                   optional: true
                   key: clean-cilium-state
       containers:
-        - image: docker.io/cilium/cilium:v1.2.4
+        - image: docker.io/cilium/cilium:v1.2.3
           imagePullPolicy: IfNotPresent
           name: cilium-agent
           command: ["cilium-agent"]
