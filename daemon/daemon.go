@@ -412,6 +412,22 @@ func (c *customChain) add() error {
 	return runProg("iptables", []string{"-t", c.table, "-N", c.name}, false)
 }
 
+func reverseRule(rule string) ([]string, error) {
+	if strings.HasPrefix(rule, "-A") {
+		// From: -A POSTROUTING -m comment [...]
+		// To:   -D POSTROUTING -m comment [...]
+		return shellwords.Parse(strings.Replace(rule, "-A", "-D", 1))
+	}
+
+	if strings.HasPrefix(rule, "-I") {
+		// From: -I POSTROUTING -m comment [...]
+		// To:   -D POSTROUTING -m comment [...]
+		return shellwords.Parse(strings.Replace(rule, "-I", "-D", 1))
+	}
+
+	return []string{}, nil
+}
+
 func removeCiliumRules(table string) {
 	prog := "iptables"
 	args := []string{"-t", table, "-S"}
@@ -426,21 +442,20 @@ func removeCiliumRules(table string) {
 		rule := scanner.Text()
 		log.WithField(logfields.Object, logfields.Repr(rule)).Debug("Considering removing iptables rule")
 
-		if strings.Contains(strings.ToLower(rule), "cilium") &&
-			(strings.HasPrefix(rule, "-A") || strings.HasPrefix(rule, "-I")) {
-			// From: -A POSTROUTING -m comment [...]
-			// To:   -D POSTROUTING -m comment [...]
-			ruleAsArgs, err := shellwords.Parse(strings.Replace(rule, "-A", "-D", 1))
+		if strings.Contains(strings.ToLower(rule), "cilium") {
+			reversedRule, err := reverseRule(rule)
 			if err != nil {
 				log.WithError(err).WithField(logfields.Object, rule).Warn("Unable to parse iptables rule into slice. Leaving rule behind.")
 				continue
 			}
 
-			deleteRule := append([]string{"-t", table}, ruleAsArgs...)
-			log.WithField(logfields.Object, logfields.Repr(deleteRule)).Debug("Removing iptables rule")
-			err = runProg("iptables", deleteRule, true)
-			if err != nil {
-				log.WithError(err).WithField(logfields.Object, rule).Warn("Unable to delete Cilium iptables rule")
+			if len(reversedRule) > 0 {
+				deleteRule := append([]string{"-t", table}, reversedRule...)
+				log.WithField(logfields.Object, logfields.Repr(deleteRule)).Debug("Removing iptables rule")
+				err = runProg("iptables", deleteRule, true)
+				if err != nil {
+					log.WithError(err).WithField(logfields.Object, rule).Warn("Unable to delete Cilium iptables rule")
+				}
 			}
 		}
 	}
