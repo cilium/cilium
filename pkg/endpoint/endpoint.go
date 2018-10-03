@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/defaults"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -2460,6 +2461,33 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 					WithError(err).Warn("BUG: Unable to release old endpoint identity")
 			}
 		}()
+
+		// The identity of the endpoint is changing, delay the use of
+		// the identity by a grace period to give all other cluster
+		// nodes a chance to adjust their policies first. This requires
+		// to unlock the endpoit and then lock it again.
+		//
+		// If the identity change is from init -> *, don't delay the
+		// use of the identity as we want the init duration to be as
+		// short as possible.
+		if identity.ID != oldIdentity.ID && oldIdentity.ID != identityPkg.ReservedIdentityInit {
+			e.Unlock()
+
+			elog.Debugf("Applying grace period before regeneration due to identity change")
+			time.Sleep(defaults.IdentityChangeGracePeriod)
+
+			if err := e.LockAlive(); err != nil {
+				identity.Release()
+				return err
+			}
+
+			// Since we unlocked the endpoint and re-locked, the label update may already be obsolete
+			if e.identityResolutionIsObsolete(myChangeRev) {
+				e.Unlock()
+				identity.Release()
+				return nil
+			}
+		}
 	}
 
 	elog.WithFields(logrus.Fields{logfields.Identity: identity.StringID()}).

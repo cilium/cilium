@@ -15,6 +15,8 @@
 package defaults
 
 import (
+	"time"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -85,4 +87,11 @@ const (
 
 	// ToFQDNsMinTTL is the default lower bound for TTLs used with ToFQDNs rules.
 	ToFQDNsMinTTL = 365 * 86400 // 1 year in seconds
+
+	// IdentityChangeGracePeriod is the grace period that needs to pass
+	// before an endpoint that has changed its identity will start using
+	// that new identity. During the grace period, the new identity has
+	// already been allocated and other nodes in the cluster have a chance
+	// to whitelist the new upcoming identity of the endpoint.
+	IdentityChangeGracePeriod = 25 * time.Second
 )
