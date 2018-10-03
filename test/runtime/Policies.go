@@ -305,9 +305,11 @@ var _ = Describe("RuntimePolicies", func() {
 			assertFn = BeFalse
 		}
 
-		_, err := vm.ContainerInspectNet(client)
-		ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf(
-			"could not get container %q (client) meta", client))
+		if client != helpers.Host {
+			_, err := vm.ContainerInspectNet(client)
+			ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf(
+				"could not get container %q (client) meta", client))
+		}
 
 		srvIP, err := vm.ContainerInspectNet(server)
 		ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf(
@@ -341,8 +343,13 @@ var _ = Describe("RuntimePolicies", func() {
 			} else {
 				resultName = "fail"
 			}
-			By("Client %q attempting to %q %q", client, commandName, server)
-			res := vm.ContainerExec(client, command)
+			By("%q attempting to %q %q", client, commandName, server)
+			var res *helpers.CmdRes
+			if client != helpers.Host {
+				res = vm.ContainerExec(client, command)
+			} else {
+				res = vm.Exec(command)
+			}
 			ExpectWithOffset(1, res.WasSuccessful()).Should(assertFn(),
 				fmt.Sprintf("%q expects %s %s (%s) to %s", client, commandName, server, dst, resultName))
 		}
@@ -486,6 +493,10 @@ var _ = Describe("RuntimePolicies", func() {
 		// app1 can connect to /public, but not to /private.
 		connectivityTest(httpRequestsPublic, helpers.App1, helpers.Httpd1, true)
 		connectivityTest(httpRequestsPrivate, helpers.App1, helpers.Httpd1, false)
+
+		// Host can connect to /public, but not to /private.
+		connectivityTest(httpRequestsPublic, helpers.Host, helpers.Httpd1, true)
+		connectivityTest(httpRequestsPrivate, helpers.Host, helpers.Httpd1, false)
 
 		// app cannot connect to httpd1 because httpd1 only allows ingress from app1.
 		connectivityTest(httpRequestsPublic, helpers.App2, helpers.Httpd1, false)
