@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"sync"
 	"time"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
@@ -115,27 +116,35 @@ var _ = Describe("K8sServicesTest", func() {
 	Context("Checks ClusterIP Connectivity", func() {
 
 		var (
-			demoYAML = helpers.ManifestGet("demo.yaml")
+			demoYAML  = helpers.ManifestGet("demo.yaml")
+			clusterIP string
+			appPods   map[string]string
 		)
 
-		BeforeEach(func() {
+		BeforeAll(func() {
 			res := kubectl.Apply(demoYAML)
-			res.ExpectSuccess("unable to apply %s: %s", demoYAML, res.CombineOutput())
-		})
+			res.ExpectSuccess("unable to apply %s", demoYAML)
 
-		AfterEach(func() {
-			// Explicitly ignore result of deletion of resources to avoid incomplete
-			// teardown if any step fails.
-			_ = kubectl.Delete(demoYAML)
-		})
-
-		It("Checks service on same node", func() {
 			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", 300)
-			Expect(err).Should(BeNil())
-			clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, serviceName)
+			Expect(err).Should(BeNil(), "Pods are not ready after timeout")
+
+			clusterIP, _, err = kubectl.GetServiceHostPort(helpers.DefaultNamespace, serviceName)
 			Expect(err).Should(BeNil(), "Cannot get service %s", serviceName)
 			Expect(govalidator.IsIP(clusterIP)).Should(BeTrue(), "ClusterIP is not an IP")
 
+			apps := []string{helpers.App1, helpers.App2, helpers.App3}
+			appPods = helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "id")
+		})
+
+		AfterAll(func() {
+			// Explicitly ignore result of deletion of resources to avoid incomplete
+			// teardown if any step fails.
+			_ = kubectl.Delete(demoYAML)
+
+			ExpectAllPodsTerminated(kubectl)
+		})
+
+		It("Checks service on same node", func() {
 			status := kubectl.Exec(helpers.CurlFail("http://%s/", clusterIP))
 			status.ExpectSuccess("cannot curl to service IP from host")
 			ciliumPods, err := kubectl.GetCiliumPods(helpers.KubeSystemNamespace)
@@ -146,6 +155,73 @@ var _ = Describe("K8sServicesTest", func() {
 				service.ExpectContains(clusterIP, "ClusterIP is not present in the cilium service list")
 			}
 		}, 300)
+
+		It("Checks connectivity is correct during deployment scale", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			type BackgroundTestAsserts struct {
+				res  *helpers.CmdRes
+				time time.Time
+			}
+			backgroundChecks := []*BackgroundTestAsserts{}
+			var wg sync.WaitGroup
+			wg.Add(1)
+			go func() {
+				for {
+					select {
+					default:
+						res := kubectl.ExecPodCmd(
+							helpers.DefaultNamespace, appPods[helpers.App2],
+							helpers.CurlFail("http://%s/public", clusterIP))
+						assert := &BackgroundTestAsserts{
+							res:  res,
+							time: time.Now(),
+						}
+						backgroundChecks = append(backgroundChecks, assert)
+					case <-ctx.Done():
+						wg.Done()
+						return
+					}
+				}
+			}()
+			// Sleep a bit to make sure that the goroutine starts.
+			time.Sleep(50 * time.Millisecond)
+
+			By("Autoscaling app1 to 4 replicas")
+			res := kubectl.Exec(fmt.Sprintf("%s scale deployment %s --replicas=4",
+				helpers.KubectlCmd, helpers.App1))
+			res.ExpectSuccess("Cannot scale up %s to 4 replicas", helpers.App1)
+
+			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", 300)
+			Expect(err).To(BeNil(), "Pods are not ready after scaling up")
+
+			pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, fmt.Sprintf("id=%s", helpers.App1))
+			Expect(err).To(BeNil(), "Cannot get Pods names for app1 deployment")
+			Expect(len(pods)).To(Equal(4), "The number of scale pods mismatch")
+
+			By("Autoscaling app1 to 2 replicas")
+
+			res = kubectl.Exec(fmt.Sprintf("%s scale deployment %s --replicas=2",
+				helpers.KubectlCmd, helpers.App1))
+			res.ExpectSuccess("Cannot scale up %s to 2 replicas", helpers.App1)
+
+			ExpectAllPodsTerminated(kubectl)
+
+			pods, err = kubectl.GetPodNames(helpers.DefaultNamespace, fmt.Sprintf("id=%s", helpers.App1))
+			Expect(err).To(BeNil(), "Cannot get Pods names for app1 deployment")
+			Expect(len(pods)).To(Equal(2), "The number of scale pods mismatch")
+
+			By("Checking connectivity during service scalation")
+			cancel()
+			wg.Wait()
+			GinkgoPrint("Made %d connections in total", len(backgroundChecks))
+			Expect(backgroundChecks).ShouldNot(BeEmpty(), "No background connections were made")
+			for _, check := range backgroundChecks {
+				check.res.ExpectSuccess("Curl from %s to %s should work but it failed at %s",
+					helpers.App2, clusterIP, check.time)
+			}
+		})
 	})
 
 	Context("Checks service across nodes", func() {
