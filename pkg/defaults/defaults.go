@@ -15,6 +15,8 @@
 package defaults
 
 import (
+	"time"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -82,4 +84,11 @@ const (
 
 	// DefaultMapPrefix is the default prefix for all BPF maps.
 	DefaultMapPrefix = "tc/globals"
+
+	// IdentityChangeGracePeriod is the grace period that needs to pass
+	// before an endpoint that has changed its identity will start using
+	// that new identity. During the grace period, the new identity has
+	// already been allocated and other nodes in the cluster have a chance
+	// to whitelist the new upcoming identity of the endpoint.
+	IdentityChangeGracePeriod = 25 * time.Second
 )
