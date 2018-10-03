@@ -105,7 +105,7 @@ const (
 // CreateMap creates a Map of type mapType, with key size keySize, a value size of
 // valueSize and the maximum amount of entries of maxEntries.
 // mapType should be one of the bpf_map_type in "uapi/linux/bpf.h"
-func CreateMap(mapType int, keySize, valueSize, maxEntries, flags uint32) (int, error) {
+func CreateMap(mapType int, keySize, valueSize, maxEntries, flags, innerId uint32) (int, error) {
 	// This struct must be in sync with union bpf_attr's anonymous struct
 	// used by the BPF_MAP_CREATE command
 	uba := struct {
@@ -114,12 +114,14 @@ func CreateMap(mapType int, keySize, valueSize, maxEntries, flags uint32) (int, 
 		valueSize  uint32
 		maxEntries uint32
 		mapFlags   uint32
+		innerId    uint32
 	}{
 		uint32(mapType),
 		keySize,
 		valueSize,
 		maxEntries,
 		flags,
+		innerId,
 	}
 
 	ret, _, err := unix.Syscall(
@@ -368,7 +370,7 @@ func objCheck(fd int, path string, mapType int, keySize, valueSize, maxEntries, 
 	return false
 }
 
-func OpenOrCreateMap(path string, mapType int, keySize, valueSize, maxEntries, flags uint32) (int, bool, error) {
+func OpenOrCreateMap(path string, mapType int, keySize, valueSize, maxEntries, flags uint32, inner_id uint32) (int, bool, error) {
 	var fd int
 
 	redo := false
@@ -402,6 +404,7 @@ recreate:
 			valueSize,
 			maxEntries,
 			flags,
+			inner_id,
 		)
 
 		defer func() {

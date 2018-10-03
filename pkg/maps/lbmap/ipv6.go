@@ -31,7 +31,7 @@ var (
 		int(unsafe.Sizeof(Service6Key{})),
 		int(unsafe.Sizeof(Service6Value{})),
 		MaxEntries,
-		0,
+		0, 0,
 		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
 			svcKey, svcVal := Service6Key{}, Service6Value{}
 
@@ -47,7 +47,7 @@ var (
 		int(unsafe.Sizeof(RevNat6Key{})),
 		int(unsafe.Sizeof(RevNat6Value{})),
 		MaxEntries,
-		0,
+		0, 0,
 		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
 			var ukey uint16
 			var revNat RevNat6Value
@@ -66,7 +66,7 @@ var (
 		int(unsafe.Sizeof(Service6Key{})),
 		int(unsafe.Sizeof(RRSeqValue{})),
 		maxFrontEnds,
-		0,
+		0, 0,
 		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
 			svcKey, svcVal := Service6Key{}, RRSeqValue{}
 
