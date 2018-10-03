@@ -53,6 +53,7 @@ func (e *Endpoint) backupDirectoryPath() string {
 // Must be called with endpoint.Mutex held.
 func (e *Endpoint) synchronizeDirectories(origDir string, compilationExecuted bool) error {
 	scopedLog := e.getLogger()
+	scopedLog.Debug("synchronizing directories")
 
 	tmpDir := e.NextDirectoryPath()
 
@@ -64,14 +65,19 @@ func (e *Endpoint) synchronizeDirectories(origDir string, compilationExecuted bo
 	// An endpoint directory already exists. We need to back it up before attempting
 	// to move the new directory in its place so we can attempt recovery.
 	case !os.IsNotExist(err):
+		scopedLog.Debug("endpoint directory exists; backing it up")
 		backupDir := e.backupDirectoryPath()
 
 		// Remove any eventual old backup directory. This may fail if
 		// the directory does not exist. The error is deliberately
 		// ignored.
-		os.RemoveAll(backupDir)
+		e.removeDirectory(backupDir)
 
 		// Move the current endpoint directory to a backup location
+		scopedLog.WithFields(logrus.Fields{
+			"originalDirectory": origDir,
+			"backupDirectory":   backupDir,
+		}).Debug("moving current directory to backup location")
 		if err := os.Rename(origDir, backupDir); err != nil {
 			return fmt.Errorf("unable to rename current endpoint directory: %s", err)
 		}
@@ -79,7 +85,7 @@ func (e *Endpoint) synchronizeDirectories(origDir string, compilationExecuted bo
 		// Regarldess of whether the atomic replace succeeds or not,
 		// ensure that the backup directory is removed when the
 		// function returns.
-		defer os.RemoveAll(backupDir)
+		defer e.removeDirectory(backupDir)
 
 		// Make temporary directory the new endpoint directory
 		if err := os.Rename(tmpDir, origDir); err != nil {
@@ -97,6 +103,7 @@ func (e *Endpoint) synchronizeDirectories(origDir string, compilationExecuted bo
 		// If the compilation was skipped then we need to copy the old
 		// bpf objects into the new directory
 		if !compilationExecuted {
+			scopedLog.Debug("compilation was skipped; moving old BPF objects into new directory")
 			err := common.MoveNewFilesTo(backupDir, origDir)
 			if err != nil {
 				log.WithError(err).Debugf("unable to copy old bpf object "+
@@ -108,6 +115,10 @@ func (e *Endpoint) synchronizeDirectories(origDir string, compilationExecuted bo
 	// simple move
 	default:
 		// Make temporary directory the new endpoint directory
+		scopedLog.WithFields(logrus.Fields{
+			"temporaryDirectory": tmpDir,
+			"originalDirectory":  origDir,
+		}).Debug("attempting to make temporary directory new directory for endpoint programs")
 		if err := os.Rename(tmpDir, origDir); err != nil {
 			return fmt.Errorf("atomic endpoint directory move failed: %s", err)
 		}
@@ -115,7 +126,12 @@ func (e *Endpoint) synchronizeDirectories(origDir string, compilationExecuted bo
 
 	// The build succeeded and is in place, any eventual existing failure
 	// directory can be removed.
-	os.RemoveAll(e.FailedDirectoryPath())
+	e.removeDirectory(e.FailedDirectoryPath())
 
 	return nil
+}
+
+func (e *Endpoint) removeDirectory(path string) error {
+	e.getLogger().WithField("directory", path).Debug("removing directory")
+	return os.RemoveAll(path)
 }

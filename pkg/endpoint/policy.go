@@ -744,7 +744,7 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 
 	// Remove an eventual existing temporary directory that has been left
 	// over to make sure we can start the build from scratch
-	if err := os.RemoveAll(tmpDir); err != nil && !os.IsNotExist(err) {
+	if err := e.removeDirectory(tmpDir); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("unable to remove old temporary directory: %s", err)
 	}
 
@@ -769,7 +769,7 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 		// build. If the build was successful, the temporary directory will
 		// have been moved to a new permanent location. If the build failed,
 		// the temporary directory will still exist and we will reomve it.
-		os.RemoveAll(tmpDir)
+		e.removeDirectory(tmpDir)
 
 		// Set to Ready, but only if no other changes are pending.
 		// State will remain as waiting-to-regenerate if further
@@ -787,7 +787,7 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 		}).Warn("generating BPF for endpoint failed, keeping stale directory.")
 
 		// Remove an eventual existing previous failure directory
-		os.RemoveAll(failDir)
+		e.removeDirectory(failDir)
 		os.Rename(tmpDir, failDir)
 		return err
 	}
