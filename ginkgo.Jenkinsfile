@@ -104,7 +104,7 @@ pipeline {
                             sh 'cd ${TESTDIR}; K8S_VERSION=1.8 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
                         },
                         "K8s-1.11":{
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.11 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
+                            sh 'cd ${TESTDIR}; K8S_VERSION=1.11 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} --seed=1538222048'
                         },
                         failFast: "${FAILFAST}".toBoolean()
                     )
