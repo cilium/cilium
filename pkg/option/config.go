@@ -128,6 +128,14 @@ const (
 	// LogSystemLoadConfigName is the name of the option to enable system
 	// load loggging
 	LogSystemLoadConfigName = "log-system-load"
+
+	// PrependIptablesChainsName is the name of the option to enable
+	// prepending iptables chains instead of appending
+	PrependIptablesChainsName = "prepend-iptables-chains"
+
+	// PrependIptablesChainsNameEnv is the name of the environment variable
+	// of the PrependIptablesChainsName option
+	PrependIptablesChainsNameEnv = "CILIUM_PREPEND_IPTABLES_CHAIN"
 )
 
 // Available option for daemonConfig.Tunnel
