@@ -45,7 +45,7 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 
 	BeforeEach(func() {
 		res := vm.ExecWithSudo("systemctl stop cilium")
-		res.ExpectSuccess()
+		res.ExpectSuccess("Failed trying to stop cilium via systemctl")
 	}, 150)
 
 	AfterEach(func() {
@@ -65,30 +65,34 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 	It("Consul KVStore", func() {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
+		By("Starting Cilium with consul as kvstore")
 		vm.ExecContext(
 			ctx,
 			"sudo cilium-agent --kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug")
 		err := vm.WaitUntilReady(150)
 		Expect(err).Should(BeNil())
 
+		By("Restarting cilium-docker service")
 		vm.Exec("sudo systemctl restart cilium-docker")
 		helpers.Sleep(2)
 		containers(helpers.Create)
 		vm.WaitEndpointsReady()
 		eps, err := vm.GetEndpointsNames()
-		Expect(err).Should(BeNil())
-		Expect(len(eps)).To(Equal(1))
+		Expect(err).Should(BeNil(), "Error getting names of endpoints from cilium")
+		Expect(len(eps)).To(Equal(1), "Number of endpoints in Cilium differs from what is expected")
 	})
 
 	It("Etcd KVStore", func() {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
+		By("Starting Cilium with etcd as kvstore")
 		vm.ExecContext(
 			ctx,
 			"sudo cilium-agent --kvstore etcd --kvstore-opt etcd.address=127.0.0.1:4001 2>&1 | logger -t cilium")
 		err := vm.WaitUntilReady(150)
-		Expect(err).Should(BeNil())
+		Expect(err).Should(BeNil(), "Timed out waiting for VM to be ready after restarting Cilium")
 
+		By("Restarting cilium-docker service")
 		vm.Exec("sudo systemctl restart cilium-docker")
 		helpers.Sleep(2)
 		containers(helpers.Create)
@@ -96,7 +100,7 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 		vm.WaitEndpointsReady()
 
 		eps, err := vm.GetEndpointsNames()
-		Expect(err).Should(BeNil())
-		Expect(len(eps)).To(Equal(1))
+		Expect(err).Should(BeNil(), "Error getting names of endpoints from cilium")
+		Expect(len(eps)).To(Equal(1), "Number of endpoints in Cilium differs from what is expected")
 	})
 })
