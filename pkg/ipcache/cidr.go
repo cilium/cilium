@@ -38,6 +38,22 @@ func AllocateCIDRs(impl Implementation, prefixes []*net.IPNet) error {
 		return err
 	}
 
+	// insert these locally. FromAgentLocal cannot be overwritten.
+	// stolen from pkg/ipcache/kvstore.go:158, UpsertIPToKVStore
+	for idx, prefix := range prefixes {
+		ipIDPair := identity.IPIdentityPair{
+			IP:       prefix.IP,
+			Mask:     prefix.Mask,
+			ID:       prefixIdentities[idx].ID,
+			Metadata: AddressSpace, // XXX: Should we associate more metadata?
+		}
+
+		IPIdentityCache.Upsert(ipIDPair.PrefixString(), ipIDPair.HostIP, Identity{
+			ID:     ipIDPair.ID,
+			Source: FromAgentLocal,
+		})
+	}
+
 	// Finally, allocate CIDR -> ID mappings in KVstore (for ipcache)
 	err = upsertIPNetsToKVStore(prefixes, prefixIdentities)
 	if err != nil {
@@ -56,6 +72,11 @@ func AllocateCIDRs(impl Implementation, prefixes []*net.IPNet) error {
 // will be attempted to be rolled back and an error is returned representing
 // the most recent error. Returns nil if no errors occur.
 func ReleaseCIDRs(prefixes []*net.IPNet) (err error) {
+	// delete locally. Stolen from pkg/ipcache/kvstore.go:359
+	for _, prefix := range prefixes {
+		IPIdentityCache.Delete(prefix.String(), FromAgentLocal)
+	}
+
 	scopedLog := log.WithField("prefixes", prefixes)
 	if prefixes != nil {
 		if err = deleteIPNetsFromKVStore(prefixes); err != nil {

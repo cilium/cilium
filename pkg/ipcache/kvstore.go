@@ -370,7 +370,7 @@ restart:
 				} else {
 					ip = ipnet.String()
 				}
-				IPIdentityCache.Delete(ip)
+				IPIdentityCache.Delete(ip, FromKVStore)
 			}
 
 		case <-iw.stop:

@@ -339,7 +339,7 @@ func (ipc *IPCache) DumpToListenerLocked(listener IPIdentityMappingListener) {
 
 // deleteLocked removes removes the provided IP-to-security-identity mapping
 // from ipc with the assumption that the IPCache's mutex is held.
-func (ipc *IPCache) deleteLocked(ip string) {
+func (ipc *IPCache) deleteLocked(ip string, src Source) {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.IPAddr: ip,
 	})
@@ -348,6 +348,11 @@ func (ipc *IPCache) deleteLocked(ip string) {
 	if !found {
 		scopedLog.Debug("Attempt to remove non-existing IP from ipcache layer")
 		return
+	} else {
+		if !allowOverwrite(cachedIdentity.Source, src) {
+			scopedLog.Warnf("Ignoring IPCache delete with source %s for existing source  %s", src, cachedIdentity.Source)
+			return
+		}
 	}
 
 	var cidr *net.IPNet
@@ -426,10 +431,10 @@ func (ipc *IPCache) deleteLocked(ip string) {
 }
 
 // Delete removes the provided IP-to-security-identity mapping from the IPCache.
-func (ipc *IPCache) Delete(IP string) {
+func (ipc *IPCache) Delete(IP string, src Source) {
 	ipc.mutex.Lock()
 	defer ipc.mutex.Unlock()
-	ipc.deleteLocked(IP)
+	ipc.deleteLocked(IP, src)
 }
 
 // LookupByIP returns the corresponding security identity that endpoint IP maps
