@@ -3,7 +3,7 @@ include daemon/bpf.sha
 
 SUBDIRS = proxylib envoy plugins bpf cilium daemon monitor cilium-health bugtool
 GOFILES ?= $(subst _$(ROOT_DIR)/,,$(shell go list ./... | grep -v /vendor/ | grep -v /contrib/ | grep -v envoy/envoy))
-TESTPKGS ?= $(subst _$(ROOT_DIR)/,,$(shell go list ./... | grep -v /vendor/ | grep -v /contrib/ | grep -v envoy/envoy | grep -v test))
+TESTPKGS ?= $(subst _$(ROOT_DIR)/,,$(shell go list ./... | grep -v /vendor/ | grep -v /contrib/ | grep -v envoy/envoy | awk '!/\/test/ || /test\/helpers/'))
 GOLANGVERSION = $(shell go version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
 GOLANG_SRCFILES=$(shell for pkg in $(subst github.com/cilium/cilium/,,$(GOFILES)); do find $$pkg -name *.go -print; done | grep -v vendor)
 BPF_FILES ?= $(shell git ls-files ../bpf/ | tr "\n" ' ')
