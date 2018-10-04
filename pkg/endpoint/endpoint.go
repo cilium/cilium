@@ -2432,7 +2432,17 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 		return err
 	}
 
+	releaseNewlyAllocatedIdentity := func() {
+		err := identity.Release()
+		if err != nil {
+			// non fatal error as keys will expire after lease expires but log it
+			elog.WithFields(logrus.Fields{logfields.Identity: identity.ID}).
+				WithError(err).Warn("Unable to release newly allocated identity again")
+		}
+	}
+
 	if err := e.LockAlive(); err != nil {
+		releaseNewlyAllocatedIdentity()
 		return err
 	}
 
@@ -2440,12 +2450,7 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 	if e.identityResolutionIsObsolete(myChangeRev) {
 		e.Unlock()
 
-		err := identity.Release()
-		if err != nil {
-			// non fatal error as keys will expire after lease expires but log it
-			elog.WithFields(logrus.Fields{logfields.Identity: identity.ID}).
-				WithError(err).Warn("Unable to release newly allocated identity again")
-		}
+		releaseNewlyAllocatedIdentity()
 
 		return nil
 	}
@@ -2477,14 +2482,14 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 			time.Sleep(defaults.IdentityChangeGracePeriod)
 
 			if err := e.LockAlive(); err != nil {
-				identity.Release()
+				releaseNewlyAllocatedIdentity()
 				return err
 			}
 
 			// Since we unlocked the endpoint and re-locked, the label update may already be obsolete
 			if e.identityResolutionIsObsolete(myChangeRev) {
 				e.Unlock()
-				identity.Release()
+				releaseNewlyAllocatedIdentity()
 				return nil
 			}
 		}
