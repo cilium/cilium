@@ -45,8 +45,8 @@ func AllocateCIDRIdentities(prefixes []*net.IPNet) (res []*identity.Identity, er
 
 	// Allocate identities for each CIDR.
 	var lbls labels.Labels
-	res = make([]*identity.Identity, 0, len(prefixes))
-	for _, prefix := range prefixes {
+	res = make([]*identity.Identity, len(prefixes))
+	for i, prefix := range prefixes {
 		if prefix == nil {
 			continue
 		}
@@ -61,7 +61,7 @@ func AllocateCIDRIdentities(prefixes []*net.IPNet) (res []*identity.Identity, er
 			res = nil
 			break
 		}
-		res = append(res, id)
+		res[i] = id
 	}
 
 	if err == nil {
@@ -82,12 +82,12 @@ func AllocateCIDRIdentities(prefixes []*net.IPNet) (res []*identity.Identity, er
 // the specified slice of prefixes, and nil.
 // On error, returns all identities that can be resolved and an error.
 func LookupCIDRIdentities(prefixes []*net.IPNet) (res []*identity.Identity, err error) {
-	res = make([]*identity.Identity, 0, len(prefixes))
+	res = make([]*identity.Identity, len(prefixes))
 
-	for _, prefix := range prefixes {
+	for i, prefix := range prefixes {
 		labels := cidr.GetCIDRLabels(prefix)
 		if id := identity.LookupIdentity(labels); id != nil {
-			res = append(res, id)
+			res[i] = id
 		} else {
 			err = fmt.Errorf("Unable to find CIDR identity for labels %s", labels)
 			log.Infof("Cannot locate identity for CIDR %s", prefix.String())
