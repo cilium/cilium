@@ -94,14 +94,19 @@ type kvReferenceCounter struct {
 	// keys is a map from key to reference count for locally-referenced
 	// keys in the global kvstore.
 	keys map[string]uint64
+
+	// marshaledIPIDPair is map indexed by the key that contains the
+	// marshaled IPIdentityPair
+	marshaledIPIDPairs map[string][]byte
 }
 
 // newKVReferenceCounter creates a new reference counter using the specified
 // store as the underlying location for key/value pairs to be stored.
 func newKVReferenceCounter(s store) *kvReferenceCounter {
 	return &kvReferenceCounter{
-		store: s,
-		keys:  map[string]uint64{},
+		store:              s,
+		keys:               map[string]uint64{},
+		marshaledIPIDPairs: map[string][]byte{},
 	}
 }
 
@@ -129,6 +134,7 @@ func (r *kvReferenceCounter) upsert(ipKey string, ipIDPair identity.IPIdentityPa
 	err = r.store.upsert(ipKey, marshaledIPIDPair, true)
 	if err == nil {
 		r.keys[ipKey] = refcnt
+		r.marshaledIPIDPairs[ipKey] = marshaledIPIDPair
 	}
 	return err
 }
@@ -145,8 +151,9 @@ func (r *kvReferenceCounter) release(key string) (err error) {
 	}
 
 	if refcnt == 0 {
-		err = r.store.release(key)
 		delete(r.keys, key)
+		delete(r.marshaledIPIDPairs, key)
+		err = r.store.release(key)
 	} else {
 		r.keys[key] = refcnt
 	}
@@ -370,7 +377,23 @@ restart:
 				} else {
 					ip = ipnet.String()
 				}
-				IPIdentityCache.Delete(ip)
+				globalMap.Lock()
+
+				if m, ok := globalMap.marshaledIPIDPairs[event.Key]; ok {
+					log.WithField("ip", ip).Warning("Received kvstore delete notification for alive ipcache entry")
+					err := globalMap.store.upsert(event.Key, m, true)
+					if err != nil {
+						log.WithError(err).WithField("ip", ip).Warning("Unable to re-create alive ipcache entry")
+					}
+					globalMap.Unlock()
+				} else {
+					globalMap.Unlock()
+
+					// The key no longer exists in the
+					// local cache, it is safe to remove
+					// from the datapath ipcache.
+					IPIdentityCache.Delete(ip)
+				}
 			}
 
 		case <-iw.stop:
@@ -391,8 +414,8 @@ func (iw *IPIdentityWatcher) Close() {
 // InitIPIdentityWatcher initializes the watcher for ip-identity mapping events
 // in the key-value store.
 func InitIPIdentityWatcher() {
-	globalMap = newKVReferenceCounter(kvstoreImplementation{})
 	setupIPIdentityWatcher.Do(func() {
+		globalMap = newKVReferenceCounter(kvstoreImplementation{})
 		log.Info("Starting IP identity watcher")
 		watch := NewIPIdentityWatcher(kvstore.Client())
 		go watch.Watch()
