@@ -58,6 +58,11 @@ var (
 	}
 )
 
+const (
+	egressClusterName  = "egress-cluster"
+	ingressClusterName = "ingress-cluster"
+)
+
 // XDSServer provides a high-lever interface to manage resources published
 // using the xDS gRPC API.
 type XDSServer struct {
@@ -182,7 +187,7 @@ func StartXDSServer(stateDir string) *XDSServer {
 											"prefix": {Kind: &structpb.Value_StringValue{StringValue: "/"}},
 										}}}},
 										"route": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
-											"cluster":          {Kind: &structpb.Value_StringValue{StringValue: "cluster1"}},
+											// "cluster":          {Kind: &structpb.Value_StringValue{StringValue: "cluster1"}},
 											"max_grpc_timeout": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{}}}},
 											"retry_policy": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
 												"retry_on":    {Kind: &structpb.Value_StringValue{StringValue: "5xx"}},
@@ -232,6 +237,11 @@ func (s *XDSServer) AddListener(name string, endpointPolicyName string, port uin
 
 	s.mutex.Unlock()
 
+	clusterName := egressClusterName
+	if isIngress {
+		clusterName = ingressClusterName
+	}
+
 	// Fill in the listener-specific parts.
 	listenerConf := proto.Clone(s.listenerProto).(*envoy_api_v2.Listener)
 	listenerConf.Name = name
@@ -241,6 +251,7 @@ func (s *XDSServer) AddListener(name string, endpointPolicyName string, port uin
 	}
 
 	listenerConf.FilterChains[0].Filters[1].Config.Fields["http_filters"].GetListValue().Values[0].GetStructValue().Fields["config"].GetStructValue().Fields["policy_name"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: endpointPolicyName}}
+	listenerConf.FilterChains[0].Filters[1].Config.Fields["route_config"].GetStructValue().Fields["virtual_hosts"].GetListValue().Values[0].GetStructValue().Fields["routes"].GetListValue().Values[0].GetStructValue().Fields["route"].GetStructValue().Fields["cluster"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: clusterName}}
 
 	s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConf, []string{"127.0.0.1"}, wg.AddCompletion())
 }
@@ -325,13 +336,21 @@ func getHTTPRule(h *api.PortRuleHTTP) (headers []*envoy_api_v2_route.HeaderMatch
 	return
 }
 
-func createBootstrap(filePath string, name, cluster, version string, xdsSock, envoyClusterName string, adminPath string) {
+func createBootstrap(filePath string, name, cluster, version string, xdsSock, egressClusterName, ingressClusterName string, adminPath string) {
 	bs := &envoy_config_bootstrap_v2.Bootstrap{
 		Node: &envoy_api_v2_core.Node{Id: name, Cluster: cluster, Metadata: nil, Locality: nil, BuildVersion: version},
 		StaticResources: &envoy_config_bootstrap_v2.Bootstrap_StaticResources{
 			Clusters: []*envoy_api_v2.Cluster{
 				{
-					Name:              envoyClusterName,
+					Name:              egressClusterName,
+					Type:              envoy_api_v2.Cluster_ORIGINAL_DST,
+					ConnectTimeout:    &duration.Duration{Seconds: 1, Nanos: 0},
+					CleanupInterval:   &duration.Duration{Seconds: 1, Nanos: 500000000},
+					LbPolicy:          envoy_api_v2.Cluster_ORIGINAL_DST_LB,
+					ProtocolSelection: envoy_api_v2.Cluster_USE_DOWNSTREAM_PROTOCOL,
+				},
+				{
+					Name:              ingressClusterName,
 					Type:              envoy_api_v2.Cluster_ORIGINAL_DST,
 					ConnectTimeout:    &duration.Duration{Seconds: 1, Nanos: 0},
 					CleanupInterval:   &duration.Duration{Seconds: 1, Nanos: 500000000},
