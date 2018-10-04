@@ -12,27 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Warning: This is a file generated from the base underscore template file: kubedns-svc.yaml.base
+
 apiVersion: v1
-kind: ConfigMap
+kind: Service
 metadata:
-  name: coredns
+  name: kube-dns
   namespace: kube-system
   labels:
-    addonmanager.kubernetes.io/mode: EnsureExists
-data:
-  Corefile: |
-    .:53 {
-        errors
-        health
-        kubernetes cluster.local in-addr.arpa ip6.arpa {
-            pods insecure
-            upstream
-            fallthrough in-addr.arpa ip6.arpa
-        }
-        prometheus :9153
-        proxy . /etc/resolv.conf
-        cache 30
-        loop
-        reload
-        loadbalance
-    }
+    k8s-app: kube-dns
+    kubernetes.io/cluster-service: "true"
+    addonmanager.kubernetes.io/mode: Reconcile
+    kubernetes.io/name: "KubeDNS"
+spec:
+  selector:
+    k8s-app: kube-dns
+  clusterIP: $DNS_SERVER_IP
+  ports:
+  - name: dns
+    port: 53
+    protocol: UDP
+  - name: dns-tcp
+    port: 53
+    protocol: TCP
