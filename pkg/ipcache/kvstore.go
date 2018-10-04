@@ -247,6 +247,8 @@ func upsertIPNetsToKVStore(prefixes []*net.IPNet, identities []*identity.Identit
 					}).Error("Failed to clean up CIDR->ID mappings")
 				}
 			}
+
+			return
 		}
 	}
 
