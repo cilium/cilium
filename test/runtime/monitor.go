@@ -264,6 +264,10 @@ var _ = Describe("RuntimeMonitorTest", func() {
 			vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
 			cancelfn()
 
+			for _, res := range monitorRes {
+				res.WaitUntilFinish()
+			}
+
 			Expect(monitorRes[0].CountLines()).Should(BeNumerically(">", 2))
 
 			//Due to the ssh connection, sometimes the result has one line more in
