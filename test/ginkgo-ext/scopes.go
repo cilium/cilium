@@ -274,7 +274,7 @@ func RunAfterEach(cs *scope) {
 		body()
 	}
 	// Run the afterFailed in case that something fails on afterEach
-	if hasFailed != afterEachFailed[testName] {
+	if hasFailed == false && afterEachFailed[testName] {
 		GinkgoPrint("Something has failed on AfterEach, running AfterFailed functions")
 		afterFailedStatus[testName] = false
 		runAllAfterFail(cs, testName)
