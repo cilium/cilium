@@ -43,15 +43,15 @@ var _ = Describe("K8sPolicyTest", func() {
 		knpAllowEgress       = helpers.ManifestGet("knp-default-allow-egress.yaml")
 		cnpMatchExpression   = helpers.ManifestGet("cnp-matchexpressions.yaml")
 		cnpToEntitiesAll     = helpers.ManifestGet("cnp-to-entities-all.yaml")
-		cnpToEntitiesWorld   = helpers.ManifestGet("cnp-to-entities-world.yaml")
-		cnpToEntitiesCluster = helpers.ManifestGet("cnp-to-entities-cluster.yaml")
-		cnpToEntitiesHost    = helpers.ManifestGet("cnp-to-entities-host.yaml")
-		app1Service          = "app1-service"
-		microscopeErr        error
-		microscopeCancel                        = func() error { return nil }
-		backgroundCancel     context.CancelFunc = func() { return }
-		backgroundError      error
-		apps                 = []string{helpers.App1, helpers.App2, helpers.App3}
+		//cnpToEntitiesWorld   = helpers.ManifestGet("cnp-to-entities-world.yaml")
+		//cnpToEntitiesCluster = helpers.ManifestGet("cnp-to-entities-cluster.yaml")
+		cnpToEntitiesHost = helpers.ManifestGet("cnp-to-entities-host.yaml")
+		app1Service       = "app1-service"
+		microscopeErr     error
+		microscopeCancel                     = func() error { return nil }
+		backgroundCancel  context.CancelFunc = func() { return }
+		backgroundError   error
+		apps              = []string{helpers.App1, helpers.App2, helpers.App3}
 	)
 
 	BeforeAll(func() {
@@ -674,27 +674,27 @@ var _ = Describe("K8sPolicyTest", func() {
 			validateConnectivity(true, true)
 		})
 
-		It("toEntities World", func() {
-			By("Installing toEntities World")
-			importPolicy(cnpToEntitiesWorld)
-
-			By("Checking that all endpoints have egress enforcement enabled")
-			validatePolicyEnforcementStatus(models.EndpointPolicyEnabledEgress)
-
-			By("Verifying policy correctness")
-			validateConnectivity(true, false)
-		})
-
-		It("toEntities Cluster", func() {
-			By("Installing toEntities Cluster")
-			importPolicy(cnpToEntitiesCluster)
-
-			By("Checking that all endpoints have egress enforcement enabled")
-			validatePolicyEnforcementStatus(models.EndpointPolicyEnabledEgress)
-
-			By("Verifying policy correctness")
-			validateConnectivity(false, true)
-		})
+		//		It("toEntities World", func() {
+		//			By("Installing toEntities World")
+		//			importPolicy(cnpToEntitiesWorld)
+		//
+		//			By("Checking that all endpoints have egress enforcement enabled")
+		//			validatePolicyEnforcementStatus(models.EndpointPolicyEnabledEgress)
+		//
+		//			By("Verifying policy correctness")
+		//			validateConnectivity(true, false)
+		//		})
+		//
+		//		It("toEntities Cluster", func() {
+		//			By("Installing toEntities Cluster")
+		//			importPolicy(cnpToEntitiesCluster)
+		//
+		//			By("Checking that all endpoints have egress enforcement enabled")
+		//			validatePolicyEnforcementStatus(models.EndpointPolicyEnabledEgress)
+		//
+		//			By("Verifying policy correctness")
+		//			validateConnectivity(false, true)
+		//		})
 
 		It("toEntities Host", func() {
 			By("Installing toEntities Host")
