@@ -82,6 +82,7 @@ metadata:
     kubernetes.io/cluster-service: "true"
     addonmanager.kubernetes.io/mode: Reconcile
     kubernetes.io/name: "CoreDNS"
+    io.cilium.fixed-identity: kube-dns
 spec:
   # replicas: not specified here:
   # 1. In order to make Addon Manager do not reconcile this replicas parameter.
@@ -94,10 +95,12 @@ spec:
   selector:
     matchLabels:
       k8s-app: kube-dns
+      io.cilium.fixed-identity: kube-dns
   template:
     metadata:
       labels:
         k8s-app: kube-dns
+        io.cilium.fixed-identity: kube-dns
       annotations:
         seccomp.security.alpha.kubernetes.io/pod: 'docker/default'
     spec:
