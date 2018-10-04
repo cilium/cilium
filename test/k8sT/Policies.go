@@ -797,14 +797,13 @@ var _ = Describe("K8sPolicyTest", func() {
 				fmt.Sprintf("-l %s", groupLabel), 300)
 			ExpectWithOffset(1, err).Should(BeNil(), "Bookinfo pods are not ready after timeout")
 
-			port := "6379"
 			err := kubectl.WaitForServiceEndpoints(
-				helpers.DefaultNamespace, "", "redis-master", port, helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), "error waiting for redis-master service to be ready on port %s", port)
+				helpers.DefaultNamespace, "", "redis-master", helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "error waiting for redis-master service to be ready")
 
 			err = kubectl.WaitForServiceEndpoints(
-				helpers.DefaultNamespace, "", "redis-slave", port, helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), "error waiting for redis-slave service to be ready on port %s", port)
+				helpers.DefaultNamespace, "", "redis-slave", helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "error waiting for redis-slave service to be ready")
 
 		}
 
