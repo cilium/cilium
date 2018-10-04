@@ -560,13 +560,13 @@ func (kub *Kubectl) WaitforPods(namespace string, filter string, timeout int64) 
 }
 
 // WaitForServiceEndpoints waits up until timeout seconds have elapsed for all
-// endpoints in the specified namespace that match the provided JSONPath filter
-// to have their port equal to the provided port. Returns true if all pods achieve
-// the aforementioned desired state within timeout seconds. Returns false and
-// an error if the command failed or the timeout was exceeded.
-func (kub *Kubectl) WaitForServiceEndpoints(namespace string, filter string, service string, port string, timeout int64) error {
+// endpoints in the specified namespace that match the provided JSONPath
+// filter. Returns true if all pods achieve the aforementioned desired state
+// within timeout seconds. Returns false and an error if the command failed or
+// the timeout was exceeded.
+func (kub *Kubectl) WaitForServiceEndpoints(namespace string, filter string, service string, timeout int64) error {
 	body := func() bool {
-		var jsonPath = fmt.Sprintf("{.items[?(@.metadata.name =='%s')].subsets[0].ports[0].port}", service)
+		var jsonPath = fmt.Sprintf("{.items[?(@.metadata.name == '%s')].subsets[0].ports[0].port}", service)
 		data, err := kub.GetEndpoints(namespace, filter).Filter(jsonPath)
 
 		if err != nil {
@@ -574,7 +574,7 @@ func (kub *Kubectl) WaitForServiceEndpoints(namespace string, filter string, ser
 			return false
 		}
 
-		if data.String() == port {
+		if data.String() != "" {
 			return true
 		}
 
@@ -583,7 +583,6 @@ func (kub *Kubectl) WaitForServiceEndpoints(namespace string, filter string, ser
 			"filter":    filter,
 			"data":      data,
 			"service":   service,
-			"port":      port,
 		}).Info("WaitForServiceEndpoints: service endpoint not ready")
 		return false
 	}
