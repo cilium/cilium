@@ -396,7 +396,7 @@ var _ = Describe("K8sServicesTest", func() {
 			for _, service := range []string{details, ratings, reviews, productPage} {
 				err = kubectl.WaitForServiceEndpoints(
 					helpers.DefaultNamespace, "", service,
-					apiPort, helpers.HelperTimeout)
+					helpers.HelperTimeout)
 				Expect(err).Should(BeNil(), "Service %q is not ready after timeout", service)
 			}
 			By("Validating DNS without Policy")
