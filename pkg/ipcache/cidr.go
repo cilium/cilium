@@ -69,8 +69,7 @@ func ReleaseCIDRs(prefixes []*net.IPNet) (err error) {
 		if err == nil {
 			err = err2
 		}
-		scopedLog.WithError(err2).Debug(
-			"Could not find identities for CIDRs during release")
+		scopedLog.WithError(err2).Warning("Could not find identities for CIDRs during release")
 	}
 	if prefixIdentities != nil {
 		if err2 = identity.ReleaseSlice(prefixIdentities); err2 != nil {
@@ -79,7 +78,7 @@ func ReleaseCIDRs(prefixes []*net.IPNet) (err error) {
 			}
 			log.WithError(err2).WithFields(logrus.Fields{
 				fieldIdentities: prefixIdentities,
-			}).Debug("Failed to release Identities for CIDRs")
+			}).Warning("Failed to release Identities for CIDRs")
 		}
 	}
 

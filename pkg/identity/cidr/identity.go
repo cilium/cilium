@@ -90,7 +90,7 @@ func LookupCIDRIdentities(prefixes []*net.IPNet) (res []*identity.Identity, err 
 			res[i] = id
 		} else {
 			err = fmt.Errorf("Unable to find CIDR identity for labels %s", labels)
-			log.Infof("Cannot locate identity for CIDR %s", prefix.String())
+			log.Debugf("Cannot locate identity for CIDR %s", prefix.String())
 		}
 	}
 
