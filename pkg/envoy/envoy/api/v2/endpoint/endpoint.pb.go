@@ -25,6 +25,14 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 // Upstream host identifier.
 type Endpoint struct {
 	// The upstream host address.
+	//
+	// .. attention::
+	//
+	//   The form of host address depends on the given cluster type. For STATIC,
+	//   it is expected to be a direct IP address (or something resolvable by the
+	//   specified :ref:`resolver <envoy_api_field_core.SocketAddress.resolver_name>`
+	//   in the Address). For LOGICAL or STRICT DNS, it is expected to be hostname,
+	//   and will be resolved via DNS.
 	Address *core.Address `protobuf:"bytes,1,opt,name=address" json:"address,omitempty"`
 	// [#not-implemented-hide:] The optional health check configuration is used as
 	// configuration for the health checker to contact the health checked host.
@@ -43,7 +51,7 @@ func (m *Endpoint) Reset()         { *m = Endpoint{} }
 func (m *Endpoint) String() string { return proto.CompactTextString(m) }
 func (*Endpoint) ProtoMessage()    {}
 func (*Endpoint) Descriptor() ([]byte, []int) {
-	return fileDescriptor_endpoint_c0575e0c381169cc, []int{0}
+	return fileDescriptor_endpoint_ac874e8927bdf21f, []int{0}
 }
 func (m *Endpoint) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Endpoint.Unmarshal(m, b)
@@ -95,7 +103,7 @@ func (m *Endpoint_HealthCheckConfig) Reset()         { *m = Endpoint_HealthCheck
 func (m *Endpoint_HealthCheckConfig) String() string { return proto.CompactTextString(m) }
 func (*Endpoint_HealthCheckConfig) ProtoMessage()    {}
 func (*Endpoint_HealthCheckConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_endpoint_c0575e0c381169cc, []int{0, 0}
+	return fileDescriptor_endpoint_ac874e8927bdf21f, []int{0, 0}
 }
 func (m *Endpoint_HealthCheckConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Endpoint_HealthCheckConfig.Unmarshal(m, b)
@@ -159,7 +167,7 @@ func (m *LbEndpoint) Reset()         { *m = LbEndpoint{} }
 func (m *LbEndpoint) String() string { return proto.CompactTextString(m) }
 func (*LbEndpoint) ProtoMessage()    {}
 func (*LbEndpoint) Descriptor() ([]byte, []int) {
-	return fileDescriptor_endpoint_c0575e0c381169cc, []int{1}
+	return fileDescriptor_endpoint_ac874e8927bdf21f, []int{1}
 }
 func (m *LbEndpoint) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LbEndpoint.Unmarshal(m, b)
@@ -252,7 +260,7 @@ func (m *LocalityLbEndpoints) Reset()         { *m = LocalityLbEndpoints{} }
 func (m *LocalityLbEndpoints) String() string { return proto.CompactTextString(m) }
 func (*LocalityLbEndpoints) ProtoMessage()    {}
 func (*LocalityLbEndpoints) Descriptor() ([]byte, []int) {
-	return fileDescriptor_endpoint_c0575e0c381169cc, []int{2}
+	return fileDescriptor_endpoint_ac874e8927bdf21f, []int{2}
 }
 func (m *LocalityLbEndpoints) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LocalityLbEndpoints.Unmarshal(m, b)
@@ -308,10 +316,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("envoy/api/v2/endpoint/endpoint.proto", fileDescriptor_endpoint_c0575e0c381169cc)
+	proto.RegisterFile("envoy/api/v2/endpoint/endpoint.proto", fileDescriptor_endpoint_ac874e8927bdf21f)
 }
 
-var fileDescriptor_endpoint_c0575e0c381169cc = []byte{
+var fileDescriptor_endpoint_ac874e8927bdf21f = []byte{
 	// 500 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x52, 0xc1, 0x6e, 0xd3, 0x40,
 	0x10, 0xc5, 0x49, 0x4b, 0xc3, 0x26, 0xad, 0xd4, 0x0d, 0x15, 0x91, 0x29, 0x0d, 0x44, 0x3d, 0x44,

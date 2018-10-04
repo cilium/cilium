@@ -37,7 +37,7 @@ func (m *CheckRequest) Reset()         { *m = CheckRequest{} }
 func (m *CheckRequest) String() string { return proto.CompactTextString(m) }
 func (*CheckRequest) ProtoMessage()    {}
 func (*CheckRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_external_auth_630f628bdc10f3a2, []int{0}
+	return fileDescriptor_external_auth_afd5f8379bcf3809, []int{0}
 }
 func (m *CheckRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CheckRequest.Unmarshal(m, b)
@@ -76,7 +76,7 @@ func (m *CheckResponse) Reset()         { *m = CheckResponse{} }
 func (m *CheckResponse) String() string { return proto.CompactTextString(m) }
 func (*CheckResponse) ProtoMessage()    {}
 func (*CheckResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_external_auth_630f628bdc10f3a2, []int{1}
+	return fileDescriptor_external_auth_afd5f8379bcf3809, []int{1}
 }
 func (m *CheckResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CheckResponse.Unmarshal(m, b)
@@ -122,7 +122,7 @@ func (m *CheckResponse_HttpResponse) Reset()         { *m = CheckResponse_HttpRe
 func (m *CheckResponse_HttpResponse) String() string { return proto.CompactTextString(m) }
 func (*CheckResponse_HttpResponse) ProtoMessage()    {}
 func (*CheckResponse_HttpResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_external_auth_630f628bdc10f3a2, []int{1, 0}
+	return fileDescriptor_external_auth_afd5f8379bcf3809, []int{1, 0}
 }
 func (m *CheckResponse_HttpResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CheckResponse_HttpResponse.Unmarshal(m, b)
@@ -247,10 +247,10 @@ var _Authorization_serviceDesc = grpc.ServiceDesc{
 }
 
 func init() {
-	proto.RegisterFile("envoy/service/auth/v2alpha/external_auth.proto", fileDescriptor_external_auth_630f628bdc10f3a2)
+	proto.RegisterFile("envoy/service/auth/v2alpha/external_auth.proto", fileDescriptor_external_auth_afd5f8379bcf3809)
 }
 
-var fileDescriptor_external_auth_630f628bdc10f3a2 = []byte{
+var fileDescriptor_external_auth_afd5f8379bcf3809 = []byte{
 	// 390 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x92, 0x41, 0x8a, 0x9c, 0x40,
 	0x14, 0x86, 0x51, 0xa7, 0xa7, 0x99, 0xd7, 0x36, 0x0c, 0x45, 0x20, 0xe2, 0xaa, 0x99, 0x95, 0x19,

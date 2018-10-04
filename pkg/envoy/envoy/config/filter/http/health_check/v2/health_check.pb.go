@@ -29,6 +29,8 @@ type HealthCheck struct {
 	PassThroughMode *wrappers.BoolValue `protobuf:"bytes,1,opt,name=pass_through_mode,json=passThroughMode" json:"pass_through_mode,omitempty"`
 	// Specifies the incoming HTTP endpoint that should be considered the
 	// health check endpoint. For example */healthcheck*.
+	// Note that this field is deprecated in favor of
+	// :ref:`headers <envoy_api_field_config.filter.http.health_check.v2.HealthCheck.headers>`.
 	Endpoint string `protobuf:"bytes,2,opt,name=endpoint" json:"endpoint,omitempty"` // Deprecated: Do not use.
 	// If operating in pass through mode, the amount of time in milliseconds
 	// that the filter should cache the upstream response.
@@ -52,7 +54,7 @@ func (m *HealthCheck) Reset()         { *m = HealthCheck{} }
 func (m *HealthCheck) String() string { return proto.CompactTextString(m) }
 func (*HealthCheck) ProtoMessage()    {}
 func (*HealthCheck) Descriptor() ([]byte, []int) {
-	return fileDescriptor_health_check_855578a6ba69cf68, []int{0}
+	return fileDescriptor_health_check_93fab441d25775b1, []int{0}
 }
 func (m *HealthCheck) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HealthCheck.Unmarshal(m, b)
@@ -114,10 +116,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/http/health_check/v2/health_check.proto", fileDescriptor_health_check_855578a6ba69cf68)
+	proto.RegisterFile("envoy/config/filter/http/health_check/v2/health_check.proto", fileDescriptor_health_check_93fab441d25775b1)
 }
 
-var fileDescriptor_health_check_855578a6ba69cf68 = []byte{
+var fileDescriptor_health_check_93fab441d25775b1 = []byte{
 	// 461 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x52, 0x41, 0x8b, 0xd4, 0x30,
 	0x14, 0xa6, 0x9d, 0x19, 0x75, 0x32, 0x07, 0xd7, 0x2a, 0x58, 0x07, 0xd9, 0x9d, 0xf5, 0x34, 0x5e,

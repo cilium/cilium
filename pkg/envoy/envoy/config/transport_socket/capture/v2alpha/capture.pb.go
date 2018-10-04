@@ -24,10 +24,10 @@ type FileSink_Format int32
 
 const (
 	// Binary proto format as per :ref:`Trace
-	// <envoy_api_msg_extensions.common.tap.v2alpha.Trace>`.
+	// <envoy_api_msg_data.tap.v2alpha.Trace>`.
 	FileSink_PROTO_BINARY FileSink_Format = 0
 	// Text proto format as per :ref:`Trace
-	// <envoy_api_msg_extensions.common.tap.v2alpha.Trace>`.
+	// <envoy_api_msg_data.tap.v2alpha.Trace>`.
 	FileSink_PROTO_TEXT FileSink_Format = 1
 )
 
@@ -44,7 +44,7 @@ func (x FileSink_Format) String() string {
 	return proto.EnumName(FileSink_Format_name, int32(x))
 }
 func (FileSink_Format) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_capture_4d7fb14f6ad97158, []int{0, 0}
+	return fileDescriptor_capture_95048b78d4910e85, []int{0, 0}
 }
 
 // File sink.
@@ -69,7 +69,7 @@ func (m *FileSink) Reset()         { *m = FileSink{} }
 func (m *FileSink) String() string { return proto.CompactTextString(m) }
 func (*FileSink) ProtoMessage()    {}
 func (*FileSink) Descriptor() ([]byte, []int) {
-	return fileDescriptor_capture_4d7fb14f6ad97158, []int{0}
+	return fileDescriptor_capture_95048b78d4910e85, []int{0}
 }
 func (m *FileSink) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FileSink.Unmarshal(m, b)
@@ -120,7 +120,7 @@ func (m *Capture) Reset()         { *m = Capture{} }
 func (m *Capture) String() string { return proto.CompactTextString(m) }
 func (*Capture) ProtoMessage()    {}
 func (*Capture) Descriptor() ([]byte, []int) {
-	return fileDescriptor_capture_4d7fb14f6ad97158, []int{1}
+	return fileDescriptor_capture_95048b78d4910e85, []int{1}
 }
 func (m *Capture) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Capture.Unmarshal(m, b)
@@ -233,10 +233,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("envoy/config/transport_socket/capture/v2alpha/capture.proto", fileDescriptor_capture_4d7fb14f6ad97158)
+	proto.RegisterFile("envoy/config/transport_socket/capture/v2alpha/capture.proto", fileDescriptor_capture_95048b78d4910e85)
 }
 
-var fileDescriptor_capture_4d7fb14f6ad97158 = []byte{
+var fileDescriptor_capture_95048b78d4910e85 = []byte{
 	// 312 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x91, 0xc1, 0x4b, 0xc3, 0x30,
 	0x14, 0xc6, 0xd7, 0x21, 0x73, 0x7b, 0xd3, 0xad, 0xe4, 0x34, 0x44, 0x70, 0xf4, 0x34, 0x04, 0x13,

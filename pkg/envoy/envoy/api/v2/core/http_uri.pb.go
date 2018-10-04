@@ -22,7 +22,6 @@ var _ = math.Inf
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 // Envoy external URI descriptor
-// [#not-implemented-hide:]
 type HttpUri struct {
 	// The HTTP server URI. It should be a full FQDN with protocol, host and path.
 	//
@@ -52,7 +51,7 @@ func (m *HttpUri) Reset()         { *m = HttpUri{} }
 func (m *HttpUri) String() string { return proto.CompactTextString(m) }
 func (*HttpUri) ProtoMessage()    {}
 func (*HttpUri) Descriptor() ([]byte, []int) {
-	return fileDescriptor_http_uri_4501e6d234fd0b0e, []int{0}
+	return fileDescriptor_http_uri_9db5dbee2e1c00da, []int{0}
 }
 func (m *HttpUri) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HttpUri.Unmarshal(m, b)
@@ -166,10 +165,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("envoy/api/v2/core/http_uri.proto", fileDescriptor_http_uri_4501e6d234fd0b0e)
+	proto.RegisterFile("envoy/api/v2/core/http_uri.proto", fileDescriptor_http_uri_9db5dbee2e1c00da)
 }
 
-var fileDescriptor_http_uri_4501e6d234fd0b0e = []byte{
+var fileDescriptor_http_uri_9db5dbee2e1c00da = []byte{
 	// 261 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x5c, 0x90, 0x4f, 0x4a, 0x03, 0x31,
 	0x14, 0xc6, 0x9b, 0x19, 0xeb, 0xd8, 0xb8, 0x32, 0x08, 0x8e, 0x2d, 0xe8, 0x20, 0x08, 0x5d, 0x25,
