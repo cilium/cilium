@@ -252,7 +252,7 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 	info = ipcache_lookup6(&cilium_ipcache, dst, V6_CACHE_KEY_LEN);
 	if (info != NULL && info->tunnel_endpoint != 0) {
 		return encap_and_redirect_with_nodeid(skb, info->tunnel_endpoint,
-						      flowlabel, true);
+						      flowlabel, TRACE_PAYLOAD_LEN);
 	} else if (likely(ipv6_match_prefix_96(dst, &node_ip))) {
 		struct endpoint_key key = {};
 		int ret;
@@ -265,7 +265,7 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 		key.ip6.p4 = 0;
 		key.family = ENDPOINT_KEY_IPV6;
 
-		ret = encap_and_redirect(skb, &key, flowlabel, true);
+		ret = encap_and_redirect(skb, &key, flowlabel, TRACE_PAYLOAD_LEN);
 		if (ret != DROP_NO_TUNNEL_ENDPOINT)
 			return ret;
 	}
@@ -424,7 +424,7 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 	info = ipcache_lookup4(&cilium_ipcache, ip4->daddr, V4_CACHE_KEY_LEN);
 	if (info != NULL && info->tunnel_endpoint != 0) {
 		return encap_and_redirect_with_nodeid(skb, info->tunnel_endpoint,
-						      secctx, true);
+						      secctx, TRACE_PAYLOAD_LEN);
 	} else {
 		/* IPv4 lookup key: daddr & IPV4_MASK */
 		struct endpoint_key key = {};
@@ -434,7 +434,7 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 		key.family = ENDPOINT_KEY_IPV4;
 
 		cilium_dbg(skb, DBG_NETDEV_ENCAP4, key.ip4, secctx);
-		ret = encap_and_redirect(skb, &key, secctx, true);
+		ret = encap_and_redirect(skb, &key, secctx, TRACE_PAYLOAD_LEN);
 		if (ret != DROP_NO_TUNNEL_ENDPOINT)
 			return ret;
 	}
@@ -475,11 +475,11 @@ int from_netdev(struct __sk_buff *skb)
 		if (from_proxy)
 			trace = TRACE_FROM_PROXY;
 		send_trace_notify(skb, trace, identity, 0, 0,
-				  skb->ingress_ifindex, 0, true);
+				  skb->ingress_ifindex, 0, TRACE_PAYLOAD_LEN);
 	}
 #else
 	send_trace_notify(skb, TRACE_FROM_STACK, 0, 0, 0, skb->ingress_ifindex,
-			  0, true);
+			  0, TRACE_PAYLOAD_LEN);
 #endif
 
 	switch (skb->protocol) {
