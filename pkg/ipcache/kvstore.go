@@ -146,10 +146,13 @@ func (r *kvReferenceCounter) release(key string) (err error) {
 	defer r.Unlock()
 
 	refcnt, ok := r.keys[key] // 0 if not found
-	if ok {
-		refcnt--
+	// avoid underflow and report bug
+	if !ok || refcnt == 0 {
+		log.WithField("key", key).Error("BUG: attempt to release ipcache entry while refcnt == 0")
+		return nil
 	}
 
+	refcnt--
 	if refcnt == 0 {
 		delete(r.keys, key)
 		delete(r.marshaledIPIDPairs, key)
