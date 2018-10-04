@@ -24,9 +24,11 @@ if [[ -n "${IPV6_EXT}" ]]; then
     # controllers_ips[0] contains the IP with brackets, to be used with Port in IPv6
     # controllers_ips[1] contains the IP without brackets
     controllers_ips=( "[${master_ip}]" "${master_ip}" )
+    dns_probes_ips=( "[::1]" "::1" )
 else
     master_ip=${MASTER_IPV4:-"192.168.33.11"}
     controllers_ips=( "${master_ip}" "${master_ip}" )
+    dns_probes_ips=( "127.0.0.1" "127.0.0.1" )
 fi
 
 # container runtime options
@@ -73,8 +75,8 @@ cluster_api_server_ip=${K8S_CLUSTER_API_SERVER_IP:-"172.20.0.1"}
 #cluster_dns_ip=${K8S_CLUSTER_DNS_IP:-"FD03::A"}
 #cluster_api_server_ip=${K8S_CLUSTER_API_SERVER_IP:-"FD03::1"}
 
-k8s_version="v1.12.0"
-etcd_version="v3.2.24"
+k8s_version="v1.11.3"
+etcd_version="v3.2.7"
 
 function restore_flag {
   check_num_params "$#" "2"
