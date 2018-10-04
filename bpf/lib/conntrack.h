@@ -188,9 +188,9 @@ static inline __u32 __inline__ __ct_update_timeout(struct ct_entry *entry,
  * If CT_REPORT_INTERVAL has elapsed since the last update, updates the
  * last_updated timestamp and returns true. Otherwise returns false.
  */
-static inline bool __inline__ ct_update_timeout(struct ct_entry *entry,
-						bool tcp, int dir,
-						union tcp_flags seen_flags)
+static inline __u32 __inline__ ct_update_timeout(struct ct_entry *entry,
+						 bool tcp, int dir,
+						 union tcp_flags seen_flags)
 {
 	__u32 lifetime = CT_LIFETIME_NONTCP;
 	bool syn = seen_flags.syn;
