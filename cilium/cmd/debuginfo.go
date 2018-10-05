@@ -50,7 +50,7 @@ const (
 )
 
 var (
-	// Can't tall it jsonOutput because another var in this package uses that.
+	// Can't call it jsonOutput because another var in this package uses that.
 	jsonOutputDebuginfo = "json"
 	markdownOutput      = "markdown"
 	htmlOutput          = "html"
