@@ -16,6 +16,7 @@ public:
   bool setOption(Network::Socket& socket, envoy::api::v2::core::SocketOption::SocketState state) const override {
     // Only set the option once per socket
     if (state != envoy::api::v2::core::SocketOption::STATE_PREBIND) {
+      ENVOY_LOG(trace, "Skipping setting socket ({}) option SO_MARK, state != STATE_PREBIND", socket.fd());
       return true;
     }
     uint32_t cluster_id = (identity_ >> 16) & 0xFF;
@@ -34,6 +35,7 @@ public:
 	return false;
       }
     }
+    ENVOY_LOG(trace, "Set socket ({}) option SO_MARK to {:x} (magic mark: {:x}, id: {}, cluster: {})", socket.fd(), mark, mark & 0xff00, mark >> 16, mark & 0xff);
     return true;
   }
   void hashKey(std::vector<uint8_t>& key) const override {
