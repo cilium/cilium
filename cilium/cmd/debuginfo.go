@@ -28,6 +28,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	pkg "github.com/cilium/cilium/pkg/client"
+	"github.com/cilium/cilium/pkg/command"
 
 	"github.com/russross/blackfriday"
 	"github.com/spf13/cobra"
@@ -80,6 +81,7 @@ func init() {
 	debuginfoCmd.Flags().StringVarP(&file, "file", "f", "", "Redirect output to file")
 	debuginfoCmd.Flags().StringVarP(&html, "html-file", "", "", "Convert default output to HTML file")
 	debuginfoCmd.Flags().BoolVarP(&filePerCommand, "file-per-command", "", false, "Generate a single file per command")
+	command.AddJSONOutput(debuginfoCmd)
 }
 
 func runDebugInfo(cmd *cobra.Command, args []string) {
@@ -124,12 +126,19 @@ func runDebugInfo(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	// generate a single file
-	addHeader(w)
-	for _, section := range sections {
-		section(w, p)
+	if command.OutputJSON() {
+		if err := command.PrintOutput(p); err != nil {
+			os.Exit(1)
+		}
+		return
+	} else {
+		// generate a single file
+		addHeader(w)
+		for _, section := range sections {
+			section(w, p)
+		}
+		writeToOutput(buf, output, path, "")
 	}
-	writeToOutput(buf, output, path, "")
 
 }
 
