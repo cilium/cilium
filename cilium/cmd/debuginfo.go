@@ -28,6 +28,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	pkg "github.com/cilium/cilium/pkg/client"
+	"github.com/cilium/cilium/pkg/command"
 
 	"github.com/russross/blackfriday"
 	"github.com/spf13/cobra"
@@ -80,11 +81,16 @@ func init() {
 	debuginfoCmd.Flags().StringVarP(&file, "file", "f", "", "Redirect output to file")
 	debuginfoCmd.Flags().StringVarP(&html, "html-file", "", "", "Convert default output to HTML file")
 	debuginfoCmd.Flags().BoolVarP(&filePerCommand, "file-per-command", "", false, "Generate a single file per command")
+	command.AddJSONOutput(debuginfoCmd)
 }
 
 func runDebugInfo(cmd *cobra.Command, args []string) {
-	if os.Getuid() != 0 {
-		fmt.Fprint(os.Stderr, "Warning, some of the BPF commands might fail when run as not root\n")
+
+	// Only warn when not dumping output as JSON so that when the output of the
+	// command is specified to be JSON, the only outputted content is the JSON
+	// model of debuginfo.
+	if os.Getuid() != 0 && !command.OutputJSON() {
+		fmt.Fprint(os.Stderr, "Warning, some of the BPF commands might fail when not run as root\n")
 	}
 
 	resp, err := client.Daemon.GetDebuginfo(nil)
@@ -124,7 +130,14 @@ func runDebugInfo(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	// generate a single file
+	if command.OutputJSON() {
+		if err := command.PrintOutput(p); err != nil {
+			os.Exit(1)
+		}
+		return
+	}
+
+	// Generate a single file.
 	addHeader(w)
 	for _, section := range sections {
 		section(w, p)

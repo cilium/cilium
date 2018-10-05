@@ -19,6 +19,7 @@ cilium debuginfo
   -f, --file string        Redirect output to file
       --file-per-command   Generate a single file per command
       --html-file string   Convert default output to HTML file
+  -o, --output string      json| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands
