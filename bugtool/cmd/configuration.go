@@ -212,7 +212,7 @@ func copyCiliumInfoCommands(cmdDir string, k8sPods []string) []string {
 	// Most of the output should come via debuginfo but also adding
 	// these ones for skimming purposes
 	ciliumCommands := []string{
-		"cilium debuginfo",
+		fmt.Sprintf("cilium debuginfo --output=markdown,json -f --output-directory=%s", cmdDir),
 		"cilium metrics list",
 		"cilium config",
 		"cilium bpf tunnel list",
