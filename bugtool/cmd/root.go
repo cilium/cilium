@@ -66,18 +66,20 @@ for sensitive information.
 )
 
 var (
-	archive      bool
-	archiveType  string
-	k8s          bool
-	serve        bool
-	port         int
-	dumpPath     string
-	host         string
-	k8sNamespace string
-	k8sLabel     string
-	execTimeout  time.Duration
-	configPath   string
-	dryRunMode   bool
+	archive        bool
+	archiveType    string
+	k8s            bool
+	serve          bool
+	port           int
+	dumpPath       string
+	host           string
+	k8sNamespace   string
+	k8sLabel       string
+	execTimeout    time.Duration
+	configPath     string
+	dryRunMode     bool
+	enableMarkdown bool
+	archivePrefix  string
 )
 
 func init() {
@@ -93,6 +95,8 @@ func init() {
 	BugtoolRootCmd.Flags().StringVarP(&k8sLabel, "k8s-label", "", "k8s-app=cilium", "Kubernetes label for Cilium pod")
 	BugtoolRootCmd.Flags().DurationVarP(&execTimeout, "exec-timeout", "", 30*time.Second, "The default timeout for any cmd execution in seconds")
 	BugtoolRootCmd.Flags().StringVarP(&configPath, "config", "", "./.cilium-bugtool.config", "Configuration to decide what should be run")
+	BugtoolRootCmd.Flags().BoolVar(&enableMarkdown, "enable-markdown", false, "Dump output of commands in markdown format")
+	BugtoolRootCmd.Flags().StringVarP(&archivePrefix, "archive-prefix", "", "", "String to prefix to name of archive if created (e.g., with cilium pod-name)")
 }
 
 func getVerifyCiliumPods() []string {
@@ -161,7 +165,12 @@ func runTool() {
 
 	// Prevent collision with other directories
 	nowStr := time.Now().Format("20060102-150405.999-0700-MST")
-	prefix := fmt.Sprintf("cilium-bugtool-%s-", nowStr)
+	var prefix string
+	if archivePrefix != "" {
+		prefix = fmt.Sprintf("%s-cilium-bugtool-%s-", archivePrefix, nowStr)
+	} else {
+		prefix = fmt.Sprintf("cilium-bugtool-%s-", nowStr)
+	}
 	dbgDir, err := ioutil.TempDir(dumpPath, prefix)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to create debug directory %s\n", err)
@@ -318,7 +327,7 @@ func runAll(commands []string, cmdDir string, k8sPods []string) {
 			// iptables commands hold locks so we can't have multiple runs. They
 			// have to be run one at a time to avoid 'Another app is currently
 			// holding the xtables lock...'
-			writeCmdToFile(cmdDir, cmd, k8sPods)
+			writeCmdToFile(cmdDir, cmd, k8sPods, enableMarkdown)
 			continue
 		}
 		// Tell the wait group it needs to track another goroutine
@@ -337,7 +346,7 @@ func runAll(commands []string, cmdDir string, k8sPods []string) {
 			// When we are done we return the thing we took from
 			// the semaphore, so another goroutine can get it
 			defer func() { semaphore <- true }()
-			writeCmdToFile(cmdDir, cmd, k8sPods)
+			writeCmdToFile(cmdDir, cmd, k8sPods, enableMarkdown)
 		}(cmd)
 	}
 	// Wait for all the spawned goroutines to finish up.
@@ -355,7 +364,7 @@ func execCommand(prompt string) (string, error) {
 }
 
 // writeCmdToFile will execute command and write markdown output to a file
-func writeCmdToFile(cmdDir, prompt string, k8sPods []string) {
+func writeCmdToFile(cmdDir, prompt string, k8sPods []string, enableMarkdown bool) {
 	// Clean up the filename
 	name := strings.Replace(prompt, "/", " ", -1)
 	name = strings.Replace(name, " ", "-", -1)
@@ -393,10 +402,10 @@ func writeCmdToFile(cmdDir, prompt string, k8sPods []string) {
 	}
 	// We deliberately continue in case there was a error but the output
 	// produced might have useful information
-	if strings.Contains(output, "```") {
+	if strings.Contains(output, "```") || !enableMarkdown {
 		// Already contains Markdown, print as is.
 		fmt.Fprint(f, output)
-	} else if len(output) > 0 {
+	} else if enableMarkdown && len(output) > 0 {
 		fmt.Fprint(f, fmt.Sprintf("# %s\n\n```\n%s\n```\n", prompt, output))
 	} else {
 		// Empty file

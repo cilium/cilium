@@ -37,9 +37,11 @@ cilium-bugtool [OPTIONS]
 
 ```
       --archive                 Create archive when false skips deletion of the output directory (default true)
+      --archive-prefix string   String to prefix to name of archive if created (e.g., with cilium pod-name)
   -o, --archiveType string      Archive type: tar | gz (default "tar")
       --config string           Configuration to decide what should be run (default "./.cilium-bugtool.config")
       --dry-run                 Create configuration file of all commands that would have been executed
+      --enable-markdown         Dump output of commands in markdown format
       --exec-timeout duration   The default timeout for any cmd execution in seconds (default 30s)
   -H, --host string             URI to server-side API
       --k8s-label string        Kubernetes label for Cilium pod (default "k8s-app=cilium")
