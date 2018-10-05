@@ -7,45 +7,81 @@ NEWS
 
 ::
 
-  André Martins (6):
-      vendor: update etcd client lib that contains bugfixes
-      pkg/kvstore: use leaseID from etcd session
-      etcd-operator: update etcd-operator cilium-deployment
-      etcd-operator: update cilium-developer descriptor
-      test: move kube-dns pre-flight check to ExpectKubeDNSReady
-      test: ignore headless services in precheck
+    André Martins (11):
+          vendor: update etcd client lib that contains bugfixes
+          pkg/kvstore: use leaseID from etcd session
+          etcd-operator: update etcd-operator cilium-deployment
+          etcd-operator: update cilium-developer descriptor
+          test: move kube-dns pre-flight check to ExpectKubeDNSReady
+          test: ignore headless services in precheck
+          pkg/k8s: delete old policies installed if new policy contains 0 rules
+          examples/kubernetes: add better comment for bpf-maps volume
+          crio: don't mount bpf path for k8s >= 1.11
+          policy: do policy modifications based on the CNP identifiable labels
+          pkg/node: propagate local node change to kv-store in a controller
 
-  Anit Gandhi (3):
-        Documentation: add minimum firewall rules, examples
-        Documentation: minor fixes
-        Documentation: note that firewall rules for health information are optional but recommended
-  
-  Cynthia Thomas (1):
-        Update prereqs to install dependencies
-  
-  Eloy Coto (2):
-        Test: Re-Enable kafka
-        Test: Use AfterSuite to clean the VMs at the end.
-  
-  Joe Stringer (5):
-        bpf: Fix CGO import warning
-        bpf: Fix only monitoring one byte of packets
-        lxcmap: Fix invalid dumping of IPv4 entries
-        daemon: Improve syncLXCMap failure log
-        bpf: Add basic endpointKey.ToIP() test
-  
-  John Fastabend (1):
-        cilium: config fails without MonitorAggregationLevel specified
-  
-  Maciej Kwiek (3):
-        Add service preflight check to tests
-        Check bpf lb map in pre flight check
-        Add kubectl.serviceCache and k8s service check
-  
-  Thomas Graf (3):
-        agent: Don't masquerade ingress traffic to local endpoints
-        agent: Fix temporary corruption of BPF endpoint map on restart
-        bpf: Do not delete and re-add ip rules and routes in the proxy table
+    Anit Gandhi (3):
+          Documentation: add minimum firewall rules, examples
+          Documentation: minor fixes
+          Documentation: note that firewall rules for health information are optional but recommended
+
+    Cynthia Thomas (3):
+          Update prereqs to install dependencies
+          Update dns pod label modification
+          Added formatting
+
+    Daniel Borkmann (1):
+          daemon: fix potential nil pointer dereference
+
+    Eloy Coto (2):
+          Test: Re-Enable kafka
+          Test: Use AfterSuite to clean the VMs at the end.
+
+    Ian Vernon (3):
+          Prepare for release v1.2.4
+          examples: set Cilium image version to v1.2.3
+          pkg/node: delete tunnel routes when remote nodes are removed
+
+    Jarno Rajahalme (6):
+          envoy: Make NACK cancel the WaitGroup
+          xds: Start versioning at 1.
+          envoy: Pass error detail when NACK
+          envoy: Update generated protobufs
+          envoy: Use separate clusters for egress and ingress redirects.
+          bpf: Fix setting IPv6 proxy rule
+
+    Joe Stringer (6):
+          bpf: Fix CGO import warning
+          bpf: Fix only monitoring one byte of packets
+          lxcmap: Fix invalid dumping of IPv4 entries
+          daemon: Improve syncLXCMap failure log
+          bpf: Add basic endpointKey.ToIP() test
+          bpf: Fix some remaining monitor truncation issues
+
+    John Fastabend (1):
+          cilium: config fails without MonitorAggregationLevel specified
+
+    Maciej Kwiek (3):
+          Add service preflight check to tests
+          Check bpf lb map in pre flight check
+          Add kubectl.serviceCache and k8s service check
+
+    Romain Lenglet (7):
+          xds: Return a revert function on every cache update
+          endpoint: Implement stack of endpoint state revert functions
+          endpoint: Revert xDS network policy changes on regeneration failure
+          endpoint: Revert listener addition/removal on configuration failure
+          endpoint: Move the revert types and logic into pkg/revert
+          endpoint: In revert, only delete from realizedRedirects if necessary
+          endpoint: Add proxy revert logging
+
+    Thomas Graf (6):
+          agent: Don't masquerade ingress traffic to local endpoints
+          agent: Fix temporary corruption of BPF endpoint map on restart
+          bpf: Do not delete and re-add ip rules and routes in the proxy table
+          endpoint: Establish grace period when endpoint changes identity
+          ipcache: Re-create keys when necessary
+          bpf: Only attempt to install ip rules if address family is available
   
 1.2.3
 =====
