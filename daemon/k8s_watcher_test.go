@@ -222,13 +222,18 @@ func (ds *DaemonSuite) Test_missingCNPv2(c *C) {
 				p1 := policy.NewPolicyRepository()
 				_, err := p1.Add(api.Rule{
 					EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("id=a")),
-					Labels:           labels.ParseLabelArray("k8s:name=bar", "k8s:namespace=bar"),
+					Labels: utils.GetPolicyLabels("foo", "bar",
+						utils.ResourceTypeCiliumNetworkPolicy),
 				})
 				c.Assert(err, IsNil)
 
 				m := versioned.NewMap()
 				m.Add("", versioned.Object{
 					Data: &v2.CiliumNetworkPolicy{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "bar",
+							Namespace: "foo",
+						},
 						Spec: &api.Rule{
 							EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("id=a")),
 							Labels:           labels.ParseLabelArray("k8s:name=bar", "k8s:namespace=bar"),
