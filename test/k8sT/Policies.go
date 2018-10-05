@@ -22,6 +22,7 @@ import (
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	"github.com/sirupsen/logrus"
 )
 
@@ -42,10 +43,6 @@ var _ = Describe("K8sPolicyTest", func() {
 		knpAllowIngress      = helpers.ManifestGet("knp-default-allow-ingress.yaml")
 		knpAllowEgress       = helpers.ManifestGet("knp-default-allow-egress.yaml")
 		cnpMatchExpression   = helpers.ManifestGet("cnp-matchexpressions.yaml")
-		cnpToEntitiesAll     = helpers.ManifestGet("cnp-to-entities-all.yaml")
-		cnpToEntitiesWorld   = helpers.ManifestGet("cnp-to-entities-world.yaml")
-		cnpToEntitiesCluster = helpers.ManifestGet("cnp-to-entities-cluster.yaml")
-		cnpToEntitiesHost    = helpers.ManifestGet("cnp-to-entities-host.yaml")
 		app1Service          = "app1-service"
 		microscopeErr        error
 		microscopeCancel                        = func() error { return nil }
@@ -162,13 +159,23 @@ var _ = Describe("K8sPolicyTest", func() {
 		}
 
 		validateConnectivity := func(expectWorldSuccess, expectClusterSuccess bool) {
+
+			// getMatcher returns a helper.CMDSucess() matcher for success or
+			// failure situations.
+			getMatcher := func(val bool) types.GomegaMatcher {
+				if val {
+					return helpers.CMDSuccess()
+				}
+				return Not(helpers.CMDSuccess())
+			}
+
 			for _, pod := range []string{appPods[helpers.App2], appPods[helpers.App3]} {
 				By("HTTP connectivity to google.com")
 				res := kubectl.ExecPodCmd(
 					helpers.DefaultNamespace, pod,
 					helpers.CurlFail("http://www.google.com/"))
 
-				ExpectWithOffset(1, res.WasSuccessful()).To(Equal(expectWorldSuccess),
+				ExpectWithOffset(1, res).To(getMatcher(expectWorldSuccess),
 					"HTTP egress connectivity to google.com from pod %q", pod)
 
 				By("ICMP connectivity to 8.8.8.8")
@@ -176,7 +183,7 @@ var _ = Describe("K8sPolicyTest", func() {
 					helpers.DefaultNamespace, pod,
 					helpers.Ping("8.8.8.8"))
 
-				ExpectWithOffset(1, res.WasSuccessful()).To(Equal(expectWorldSuccess),
+				ExpectWithOffset(1, res).To(getMatcher(expectWorldSuccess),
 					"ICMP egress connectivity to 8.8.8.8 from pod %q", pod)
 
 				By("DNS lookup of google.com")
@@ -185,7 +192,7 @@ var _ = Describe("K8sPolicyTest", func() {
 					"host www.google.com")
 
 				// kube-dns is always whitelisted so this should always work
-				ExpectWithOffset(1, res.WasSuccessful()).To(Equal(expectWorldSuccess || expectClusterSuccess),
+				ExpectWithOffset(1, res).To(getMatcher(expectWorldSuccess || expectClusterSuccess),
 					"DNS connectivity of www.google.com from pod %q", pod)
 
 				By("HTTP connectivity from pod to pod")
@@ -193,7 +200,7 @@ var _ = Describe("K8sPolicyTest", func() {
 					helpers.DefaultNamespace, pod,
 					helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
 
-				ExpectWithOffset(1, res.WasSuccessful()).To(Equal(expectClusterSuccess),
+				ExpectWithOffset(1, res).To(getMatcher(expectClusterSuccess),
 					"HTTP connectivity to clusterIP %q of app1 from pod %q", clusterIP, appPods[helpers.App2])
 			}
 		}
@@ -663,51 +670,68 @@ var _ = Describe("K8sPolicyTest", func() {
 			}
 		})
 
-		It("toEntities All", func() {
-			By("Installing toEntities All")
-			importPolicy(cnpToEntitiesAll)
+		Context("Validate to-entities policies", func() {
+			const (
+				WorldConnectivityDeny  = false
+				WorldConnectivityAllow = true
 
-			By("Checking that all endpoints have egress enforcement enabled")
-			validatePolicyEnforcementStatus(models.EndpointPolicyEnabledEgress)
+				ClusterConnectivityDeny  = false
+				ClusterConnectivityAllow = true
+			)
 
-			By("Verifying policy correctness")
-			validateConnectivity(true, true)
-		})
+			var (
+				cnpToEntitiesAll     = helpers.ManifestGet("cnp-to-entities-all.yaml")
+				cnpToEntitiesWorld   = helpers.ManifestGet("cnp-to-entities-world.yaml")
+				cnpToEntitiesCluster = helpers.ManifestGet("cnp-to-entities-cluster.yaml")
+				cnpToEntitiesHost    = helpers.ManifestGet("cnp-to-entities-host.yaml")
+			)
 
-		It("toEntities World", func() {
+			It("Validate toEntities All", func() {
+				By("Installing toEntities All")
+				importPolicy(cnpToEntitiesAll)
 
-			Skip("Disabled due issues GH-5791")
-			By("Installing toEntities World")
-			importPolicy(cnpToEntitiesWorld)
+				By("Checking that all endpoints have egress enforcement enabled")
+				validatePolicyEnforcementStatus(models.EndpointPolicyEnabledEgress)
 
-			By("Checking that all endpoints have egress enforcement enabled")
-			validatePolicyEnforcementStatus(models.EndpointPolicyEnabledEgress)
+				By("Verifying policy correctness")
+				validateConnectivity(WorldConnectivityAllow, ClusterConnectivityAllow)
+			})
 
-			By("Verifying policy correctness")
-			validateConnectivity(true, false)
-		})
+			It("Validate toEntities World", func() {
+				Skip("Disabled due issues GH-5791")
+				By("Installing toEntities World")
+				importPolicy(cnpToEntitiesWorld)
 
-		It("toEntities Cluster", func() {
-			Skip("Disabled due issues GH-5791")
-			By("Installing toEntities Cluster")
-			importPolicy(cnpToEntitiesCluster)
+				By("Checking that all endpoints have egress enforcement enabled")
+				validatePolicyEnforcementStatus(models.EndpointPolicyEnabledEgress)
 
-			By("Checking that all endpoints have egress enforcement enabled")
-			validatePolicyEnforcementStatus(models.EndpointPolicyEnabledEgress)
+				By("Verifying policy correctness")
+				validateConnectivity(WorldConnectivityAllow, ClusterConnectivityDeny)
 
-			By("Verifying policy correctness")
-			validateConnectivity(false, true)
-		})
+			})
 
-		It("toEntities Host", func() {
-			By("Installing toEntities Host")
-			importPolicy(cnpToEntitiesHost)
+			It("Validate toEntities Cluster", func() {
+				Skip("Disabled due issues GH-5791")
+				By("Installing toEntities Cluster")
+				importPolicy(cnpToEntitiesCluster)
 
-			By("Checking that all endpoints have egress enforcement enabled")
-			validatePolicyEnforcementStatus(models.EndpointPolicyEnabledEgress)
+				By("Checking that all endpoints have egress enforcement enabled")
+				validatePolicyEnforcementStatus(models.EndpointPolicyEnabledEgress)
 
-			By("Verifying policy correctness")
-			validateConnectivity(false, false)
+				By("Verifying policy correctness")
+				validateConnectivity(WorldConnectivityDeny, ClusterConnectivityAllow)
+			})
+
+			It("Validate toEntities Host", func() {
+				By("Installing toEntities Host")
+				importPolicy(cnpToEntitiesHost)
+
+				By("Checking that all endpoints have egress enforcement enabled")
+				validatePolicyEnforcementStatus(models.EndpointPolicyEnabledEgress)
+
+				By("Verifying policy correctness")
+				validateConnectivity(WorldConnectivityDeny, ClusterConnectivityDeny)
+			})
 		})
 	})
 
