@@ -1710,17 +1710,15 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumV2Store cache.Store, cnp *cilium
 	var rev uint64
 
 	rules, policyImportErr := cnp.Parse()
-	if policyImportErr == nil && len(rules) > 0 {
+	if policyImportErr == nil {
 		d.loadBalancer.K8sMU.Lock()
 		policyImportErr = k8s.PreprocessRules(rules, d.loadBalancer.K8sEndpoints, d.loadBalancer.K8sServices)
 		d.loadBalancer.K8sMU.Unlock()
-		if policyImportErr == nil {
-			// Replace all rules with the same name, namespace and
-			// resourceTypeCiliumNetworkPolicy
-			rev, policyImportErr = d.PolicyAdd(rules, &AddOptions{
-				ReplaceWithLabels: cnp.GetIdentityLabels(),
-			})
-		}
+		// Replace all rules with the same name, namespace and
+		// resourceTypeCiliumNetworkPolicy
+		rev, policyImportErr = d.PolicyAdd(rules, &AddOptions{
+			ReplaceWithLabels: cnp.GetIdentityLabels(),
+		})
 	}
 
 	if policyImportErr != nil {
@@ -1896,13 +1894,13 @@ func (d *Daemon) deleteCiliumNetworkPolicyV2(cnp *cilium_v2.CiliumNetworkPolicy)
 func (d *Daemon) updateCiliumNetworkPolicyV2(ciliumV2Store cache.Store,
 	oldRuleCpy, newRuleCpy *cilium_v2.CiliumNetworkPolicy) error {
 
-	oldRules, err := oldRuleCpy.Parse()
+	_, err := oldRuleCpy.Parse()
 	if err != nil {
 		log.WithError(err).WithField(logfields.Object, logfields.Repr(oldRuleCpy)).
 			Warn("Error parsing old CiliumNetworkPolicy rule")
 		return err
 	}
-	newRules, err := newRuleCpy.Parse()
+	_, err = newRuleCpy.Parse()
 	if err != nil {
 		log.WithError(err).WithField(logfields.Object, logfields.Repr(newRuleCpy)).
 			Warn("Error parsing new CiliumNetworkPolicy rule")
@@ -1941,12 +1939,6 @@ func (d *Daemon) updateCiliumNetworkPolicyV2(ciliumV2Store cache.Store,
 			d.updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumV2Store, newRuleCpy)
 		}
 		return nil
-	}
-
-	// If the new CNP contains 0 rules then delete all old rules from the
-	// policy repo.
-	if len(newRules) == 0 && len(oldRules) != 0 {
-		d.PolicyDelete(oldRuleCpy.GetIdentityLabels())
 	}
 
 	return d.addCiliumNetworkPolicyV2(ciliumV2Store, newRuleCpy)
