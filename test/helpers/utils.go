@@ -29,6 +29,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/versioncheck"
 	"github.com/cilium/cilium/test/config"
 	"github.com/cilium/cilium/test/ginkgo-ext"
@@ -120,19 +121,45 @@ func WithTimeout(body func() bool, msg string, config *TimeoutConfig) error {
 	}
 
 	done := time.After(time.Duration(config.Timeout) * time.Second)
-	ticker := time.NewTicker(time.Duration(config.Ticker) * time.Second)
-	defer ticker.Stop()
-	if body() {
-		return nil
+	status := make(chan bool)
+	var mutex = &lock.Mutex{}
+	var bodyLock bool
+
+	setBodyLock := func(val bool) {
+		mutex.Lock()
+		bodyLock = val
+		mutex.Unlock()
 	}
+
+	getBodyLock := func() bool {
+		mutex.Lock()
+		result := bodyLock
+		mutex.Unlock()
+		return result
+	}
+	setBodyLock(false)
+
+	WithLock := func() {
+		if getBodyLock() {
+			return
+		}
+		setBodyLock(true)
+		defer setBodyLock(false)
+		status <- body()
+	}
+
+	go WithLock()
 	for {
 		select {
-		case <-ticker.C:
-			if body() {
+		case res := <-status:
+			if res {
 				return nil
 			}
+			time.Sleep(time.Duration(config.Ticker) * time.Second)
 		case <-done:
 			return fmt.Errorf("Timeout reached: %s", msg)
+		default:
+			go WithLock()
 		}
 	}
 }
