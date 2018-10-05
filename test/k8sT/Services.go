@@ -233,7 +233,7 @@ var _ = Describe("K8sServicesTest", func() {
 			_ = kubectl.Delete(servicePath)
 			_ = kubectl.Delete(podPath)
 
-			kubectl.WaitCleanAllTerminatingPods()
+			ExpectAllPodsTerminated(kubectl)
 		})
 
 		validateEgress := func() {

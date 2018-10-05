@@ -711,8 +711,8 @@ func (kub *Kubectl) WaitForKubeDNSEntry(serviceName, serviceNamespace string) er
 
 // WaitCleanAllTerminatingPods waits until all nodes that are in `Terminating`
 // state are deleted correctly in the platform. In case of excedding the
-// default timeout it returns an error
-func (kub *Kubectl) WaitCleanAllTerminatingPods() error {
+// given timeout (in seconds) it returns an error
+func (kub *Kubectl) WaitCleanAllTerminatingPods(timeout int64) error {
 	body := func() bool {
 		res := kub.Exec(fmt.Sprintf(
 			"%s get pods --all-namespaces -o jsonpath='{.items[*].metadata.deletionTimestamp}'",
@@ -737,7 +737,7 @@ func (kub *Kubectl) WaitCleanAllTerminatingPods() error {
 	err := WithTimeout(
 		body,
 		"Pods are still not deleted after a timeout",
-		&TimeoutConfig{Timeout: HelperTimeout})
+		&TimeoutConfig{Timeout: timeout})
 	return err
 }
 

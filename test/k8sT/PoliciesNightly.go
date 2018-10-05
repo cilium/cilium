@@ -27,6 +27,7 @@ import (
 var _ = Describe("NightlyPolicies", func() {
 
 	var kubectl *helpers.Kubectl
+	var timeout int64 = 600
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
@@ -53,17 +54,13 @@ var _ = Describe("NightlyPolicies", func() {
 		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
 	})
 
-	AfterEach(func() {
-		ExpectAllPodsTerminated(kubectl)
-	})
-
 	AfterAll(func() {
 		// Delete all pods created
 		kubectl.Exec(fmt.Sprintf(
 			"%s delete pods,svc,cnp -n %s -l test=policygen",
 			helpers.KubectlCmd, helpers.DefaultNamespace))
-
-		ExpectAllPodsTerminated(kubectl)
+		err := kubectl.WaitCleanAllTerminatingPods(timeout)
+		Expect(err).To(BeNil(), "Cannot clean pods during timeout")
 	})
 
 	Context("PolicyEnforcement default", func() {
