@@ -57,6 +57,7 @@ metadata:
 data:
   Corefile: |
     .:53 {
+        log
         errors
         health
         kubernetes cluster.local in-addr.arpa ip6.arpa {
