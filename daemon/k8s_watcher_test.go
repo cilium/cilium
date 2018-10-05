@@ -1826,6 +1826,59 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 				}
 			},
 		},
+		{
+			name: "have a rule policy installed with multiple rules and apply an empty spec should delete all rules installed",
+			setupArgs: func() args {
+				r := policy.NewPolicyRepository()
+				r.AddList(api.Rules{
+					{
+						EndpointSelector: api.EndpointSelector{
+							LabelSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"env": "cluster-1",
+									labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
+								},
+							},
+						},
+						Ingress: []api.IngressRule{
+							{
+								FromEndpoints: []api.EndpointSelector{
+									{
+										LabelSelector: &metav1.LabelSelector{
+											MatchLabels: map[string]string{
+												"env": "cluster-1",
+												labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
+											},
+										},
+									},
+								},
+							},
+						},
+						Egress:      nil,
+						Labels:      utils.GetPolicyLabels("production", "db", utils.ResourceTypeCiliumNetworkPolicy),
+						Description: "",
+					},
+				})
+				return args{
+					ciliumV2Store: &cache.FakeCustomStore{},
+					cnp: &v2.CiliumNetworkPolicy{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "db",
+							Namespace: "production",
+						},
+					},
+					repo: r,
+				}
+			},
+			setupWanted: func() wanted {
+				r := policy.NewPolicyRepository()
+				r.AddList(api.Rules{})
+				return wanted{
+					err:  nil,
+					repo: r,
+				}
+			},
+		},
 	}
 	for _, tt := range tests {
 		args := tt.setupArgs()
