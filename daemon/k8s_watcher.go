@@ -34,7 +34,6 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	informer "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions"
@@ -1719,10 +1718,7 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumV2Store cache.Store, cnp *cilium
 			// Replace all rules with the same name, namespace and
 			// resourceTypeCiliumNetworkPolicy
 			rev, policyImportErr = d.PolicyAdd(rules, &AddOptions{
-				ReplaceWithLabels: utils.GetPolicyLabels(
-					cnp.ObjectMeta.Namespace,
-					cnp.ObjectMeta.Name,
-					utils.ResourceTypeCiliumNetworkPolicy),
+				ReplaceWithLabels: cnp.GetIdentityLabels(),
 			})
 		}
 	}
@@ -1888,10 +1884,7 @@ func (d *Daemon) deleteCiliumNetworkPolicyV2(cnp *cilium_v2.CiliumNetworkPolicy)
 		log.Debugf("Unable to remove controller %s: %s", ctrlName, err)
 	}
 
-	labels := utils.GetPolicyLabels(cnp.ObjectMeta.Namespace, cnp.ObjectMeta.Name,
-		utils.ResourceTypeCiliumNetworkPolicy)
-
-	_, err = d.PolicyDelete(labels)
+	_, err = d.PolicyDelete(cnp.GetIdentityLabels())
 	if err == nil {
 		scopedLog.Info("Deleted CiliumNetworkPolicy")
 	} else {
@@ -1953,9 +1946,7 @@ func (d *Daemon) updateCiliumNetworkPolicyV2(ciliumV2Store cache.Store,
 	// If the new CNP contains 0 rules then delete all old rules from the
 	// policy repo.
 	if len(newRules) == 0 && len(oldRules) != 0 {
-		lbls := utils.GetPolicyLabels(oldRuleCpy.ObjectMeta.Namespace, oldRuleCpy.ObjectMeta.Name,
-			utils.ResourceTypeCiliumNetworkPolicy)
-		d.PolicyDelete(lbls)
+		d.PolicyDelete(oldRuleCpy.GetIdentityLabels())
 	}
 
 	return d.addCiliumNetworkPolicyV2(ciliumV2Store, newRuleCpy)
@@ -1967,8 +1958,8 @@ func (d *Daemon) missingCNPv2(m versioned.Map) versioned.Map {
 	d.policy.Mutex.RLock()
 	for k, v := range m {
 		cnp := v.Data.(*cilium_v2.CiliumNetworkPolicy)
-		ruleLabels := cnp.GetRuleLabels()
-		if !d.policy.ContainsAllRLocked(ruleLabels) {
+		ruleLabels := cnp.GetIdentityLabels()
+		if !d.policy.ContainsAllRLocked(labels.LabelArrayList{ruleLabels}) {
 			missing.Add(k, v)
 		}
 	}

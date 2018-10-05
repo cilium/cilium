@@ -210,22 +210,12 @@ func (r *CiliumNetworkPolicy) GetControllerName() string {
 	return fmt.Sprintf("%s (v2 %s)", k8sConst.CtrlPrefixPolicyStatus, name)
 }
 
-// GetRuleLabels returns all rule labels in the CiliumNetworkPolicy.
-func (r *CiliumNetworkPolicy) GetRuleLabels() labels.LabelArrayList {
+// GetIdentityLabels returns all rule labels in the CiliumNetworkPolicy.
+func (r *CiliumNetworkPolicy) GetIdentityLabels() labels.LabelArray {
 	namespace := k8sUtils.ExtractNamespace(&r.ObjectMeta)
 	name := r.ObjectMeta.Name
-
-	var retRules labels.LabelArrayList
-
-	if r.Spec != nil {
-		retRules = append(retRules, k8sCiliumUtils.ParseToCiliumLabels(namespace, name, r.Spec.Labels))
-	}
-	if r.Specs != nil {
-		for _, rule := range r.Specs {
-			retRules = append(retRules, k8sCiliumUtils.ParseToCiliumLabels(namespace, name, rule.Labels))
-		}
-	}
-	return retRules
+	return k8sCiliumUtils.GetPolicyLabels(namespace, name,
+		k8sCiliumUtils.ResourceTypeCiliumNetworkPolicy)
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
