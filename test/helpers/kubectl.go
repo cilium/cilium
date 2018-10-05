@@ -1819,7 +1819,7 @@ func (kub *Kubectl) ServicePreFlightCheck(serviceName, serviceNamespace string) 
 
 		err := validateK8sService(*service, kub.serviceCache.endpoints.Items, pod.services, pod.loadBalancers)
 		if err != nil {
-			return fmt.Errorf("Error validating Cilium service on pod %s: %s", pod, err.Error())
+			return fmt.Errorf("Error validating Cilium service on pod %v: %s", pod, err.Error())
 		}
 	}
 	return nil
@@ -1859,7 +1859,7 @@ func (kub *Kubectl) CiliumServicePreFlightCheck() error {
 		for _, cSvc := range pod.services {
 			err := validateCiliumSvc(cSvc, kub.serviceCache.services.Items, kub.serviceCache.endpoints.Items, k8sServicesFound)
 			if err != nil {
-				return fmt.Errorf("Error validating Cilium service on pod %s: %s", pod, err.Error())
+				return fmt.Errorf("Error validating Cilium service on pod %v: %s", pod, err.Error())
 			}
 		}
 
@@ -1877,18 +1877,18 @@ func (kub *Kubectl) CiliumServicePreFlightCheck() error {
 		}
 
 		if len(notFoundServices) > 0 {
-			return fmt.Errorf("Failed to find Cilium service corresponding to k8s services %s on pod %s",
+			return fmt.Errorf("Failed to find Cilium service corresponding to k8s services %s on pod %v",
 				strings.Join(notFoundServices, ", "), pod)
 		}
 
 		for _, cSvc := range pod.services {
 			err := validateCiliumSvcLB(cSvc, pod.loadBalancers)
 			if err != nil {
-				return fmt.Errorf("Error validating Cilium service on pod %s: %s", pod, err.Error())
+				return fmt.Errorf("Error validating Cilium service on pod %v: %s", pod, err.Error())
 			}
 		}
 		if len(pod.services) != len(pod.loadBalancers) {
-			return fmt.Errorf("Length of Cilium services doesn't match length of bpf LB map on pod %s", pod)
+			return fmt.Errorf("Length of Cilium services doesn't match length of bpf LB map on pod %v", pod)
 		}
 	}
 	return nil

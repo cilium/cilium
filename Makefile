@@ -217,7 +217,7 @@ gofmt:
 
 govet:
 	@$(ECHO_CHECK) vetting all GOFILES...
-	$(GO) tool vet api pkg $(SUBDIRS)
+	$(GO) tool vet api pkg test $(SUBDIRS)
 
 ineffassign:
 	@$(ECHO_CHECK) ineffassign
