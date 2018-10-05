@@ -60,44 +60,44 @@ func PrintOutputWithType(data interface{}, outputType string) error {
 	return fmt.Errorf("Couldn't found output printer")
 }
 
-// DumpJSONToString dumps the contents of data into a string. If jsonpath
+// DumpJSONToSlice dumps the contents of data into a byte slice. If jsonpath
 // is non-empty, will attempt to do jsonpath filtering using said string.
-// Returns the string representation of the JSON in data, or an error if
-// any JSON marshaling, parsing operations fail.
-func DumpJSONToString(data interface{}, jsonPath string) (string, error) {
+// Returns byte array containing the JSON in data, or an error if any JSON
+// marshaling, parsing operations fail.
+func DumpJSONToSlice(data interface{}, jsonPath string) ([]byte, error) {
 	if len(jsonPath) == 0 {
 		result, err := json.MarshalIndent(data, "", "  ")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Couldn't marshal to json: '%s'\n", err)
-			return "", err
+			return nil, err
 		}
 		fmt.Println(string(result))
-		return "", nil
+		return nil, nil
 	}
 
 	parser := jsonpath.New("").AllowMissingKeys(true)
 	if err := parser.Parse(jsonPath); err != nil {
 		fmt.Fprintf(os.Stderr, "Couldn't parse jsonpath expression: '%s'\n", err)
-		return "", err
+		return nil, err
 	}
 
 	buf := new(bytes.Buffer)
 	if err := parser.Execute(buf, data); err != nil {
 		fmt.Fprintf(os.Stderr, "Couldn't parse jsonpath expression: '%s'\n", err)
-		return "", err
+		return nil, err
 
 	}
-	return buf.String(), nil
+	return buf.Bytes(), nil
 }
 
 // dumpJSON dump the data variable to the stdout as json.
 // If somethings fail, it'll return an error
 // If jsonPath is passed, it'll run the json query over data var.
 func dumpJSON(data interface{}, jsonPath string) error {
-	strOut, err := DumpJSONToString(data, jsonPath)
+	jsonBytes, err := DumpJSONToSlice(data, jsonPath)
 	if err != nil {
 		return err
 	}
-	fmt.Println(strOut)
+	fmt.Println(string(jsonBytes[:]))
 	return nil
 }
