@@ -149,15 +149,15 @@ esac
 
 #Install kubernetes
 case $K8S_VERSION in
-    "1.8"|"1.9"|"1.10"|"1.11"|"1.12")
+    "1.8")
         install_k8s_using_packages \
             kubernetes-cni=${KUBERNETES_CNI_VERSION}* \
             kubelet=${K8S_FULL_VERSION}* \
             kubeadm=${K8S_FULL_VERSION}* \
             kubectl=${K8S_FULL_VERSION}*
         ;;
-    "1.13")
-        install_k8s_using_binary "v${K8S_FULL_VERSION}" "${KUBERNETES_CNI_VERSION}"
+    "1.9"|"1.10"|"1.11"|"1.12"|"1.13")
+        install_k8s_using_binary "v${K8S_FULL_VERSION}" "v${KUBERNETES_CNI_VERSION}"
         ;;
 esac
 
