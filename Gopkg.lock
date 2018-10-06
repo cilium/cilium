@@ -1368,7 +1368,7 @@
   version = "v2.2.1"
 
 [[projects]]
-  digest = "1:44eacde418468b319a1454ba01b453fc99828d573cbdb20367e0950e77720684"
+  digest = "1:c6b0cfc418f5e8bb9169d78f1024cb1c9f3e61c9a76235134d26d3f28ecdf27b"
   name = "k8s.io/api"
   packages = [
     "admissionregistration/v1alpha1",
@@ -1404,7 +1404,7 @@
     "storage/v1beta1",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.12.0"
+  revision = "kubernetes-1.12.1"
 
 [[projects]]
   digest = "1:6863750b53ac3e57c4ea2b068c6c07d3b42a6dc965f64c5fdd56ae2ab768deb5"
@@ -1418,7 +1418,7 @@
     "pkg/features",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.12.0"
+  revision = "kubernetes-1.12.1"
 
 [[projects]]
   digest = "1:c3b112dfc74978e590f83e4394d7e27e60743926a1b466e728f13e947e4cba8b"
@@ -1469,7 +1469,7 @@
     "third_party/forked/golang/reflect",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.12.0"
+  revision = "kubernetes-1.12.1"
 
 [[projects]]
   branch = "master"
@@ -1582,7 +1582,7 @@
     "util/retry",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.12.0"
+  revision = "kubernetes-1.12.1"
 
 [[projects]]
   digest = "1:4e2addcdbe0330f43800c1fcb905fc7a21b86415dfcca619e5c606c87257af1b"
@@ -1599,7 +1599,7 @@
     "pkg/util",
   ]
   pruneopts = "T"
-  revision = "kubernetes-1.12.0"
+  revision = "kubernetes-1.12.1"
 
 [[projects]]
   branch = "master"
@@ -1627,7 +1627,7 @@
   revision = "c01ed926f1243ac17a23a66f67da7fbdb2e2e298"
 
 [[projects]]
-  digest = "1:6847551e9d5685dd8b7d32706cb1a00bcfaaf2d6bbfb3daecbe2b9b0880214cc"
+  digest = "1:de8410607ca75fd98e5431ddf0fe6a14349584254155c49e193dbe4dec2c9cf4"
   name = "k8s.io/kubernetes"
   packages = [
     "pkg/apis/core",
@@ -1640,7 +1640,7 @@
     "pkg/registry/core/service/ipallocator",
   ]
   pruneopts = "NUT"
-  revision = "v1.12.0"
+  revision = "v1.12.1"
 
 [solve-meta]
   analyzer-name = "dep"
