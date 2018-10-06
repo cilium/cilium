@@ -39,6 +39,10 @@ var statusGetCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		var sr *models.HealthStatusResponse
 
+		if client == nil {
+			Fatalf("Invalid combination of arguments")
+		}
+
 		if probe {
 			result, err := client.Connectivity.PutStatusProbe(nil)
 			if err != nil {
