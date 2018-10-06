@@ -242,7 +242,8 @@ func ResourceEventHandlerFactory(
 	}
 
 	if addFunc != nil && delFunc != nil {
-		replaceFunc := replaceFuncFactory(listerClient, resourceObj, addFunc, delFunc, missingFunc, fqueue)
+		replaceFunc := replaceFuncFactory(listerClient, resourceObj, addFunc,
+			delFunc, updateFunc, missingFunc, fqueue)
 		s := sync.Once{}
 
 		k8sSyncCM.UpdateController(fmt.Sprintf("k8s-sync-%s", resourceNameOf(resourceObj)),
@@ -343,6 +344,7 @@ func replaceFuncFactory(
 	listerClient interface{},
 	resourceObj runtime.Object,
 	addFunc, delFunc func(i interface{}) func() error,
+	updateFunc func(old, new interface{}) func() error,
 	missingFunc func(comparableMap versioned.Map) versioned.Map,
 	fqueue *serializer.FunctionQueue,
 ) func(oldMap *versioned.ComparableMap) (*versioned.ComparableMap, error) {
@@ -358,6 +360,8 @@ func replaceFuncFactory(
 		var (
 			added       = versioned.NewMap()
 			deleted     = versioned.NewMap()
+			updatedOld  = versioned.NewMap()
+			updatedNew  = versioned.NewMap()
 			newEqualMap = &versioned.ComparableMap{
 				Map:        newMap,
 				DeepEquals: oldCompMapCpy.DeepEquals,
@@ -382,7 +386,8 @@ func replaceFuncFactory(
 			if ok {
 				if oldObj.CompareVersion(v) < 0 &&
 					!newEqualMap.DeepEquals(oldObj.Data, v.Data) {
-					added.Add(k, v)
+					updatedOld.Add(k, oldObj)
+					updatedNew.Add(k, v)
 				}
 			} else {
 				added.Add(k, v)
@@ -392,7 +397,7 @@ func replaceFuncFactory(
 		// when should we keep and updated version without performing any
 		// operation?
 		// - when an object is not going to be deleted and is stored locally
-		//   as a newer version than the one retrieved from kubernetes.
+		//   with a newer version than the one retrieved from kubernetes.
 		for k, v := range oldCompMapCpy.Map {
 			_, exists := deleted.Get(k)
 			if !exists {
@@ -409,6 +414,14 @@ func replaceFuncFactory(
 			}
 		}
 
+		for k, v := range updatedNew {
+			// If the objects to be updated exist in the added map, then
+			// we will remove it from the added map as we will consider this an
+			// update.
+			added.Delete(k)
+			oldObj, _ := updatedOld.Get(k)
+			fqueue.Enqueue(updateFunc(oldObj.Data, v.Data), serializer.NoRetry)
+		}
 		for _, v := range added {
 			fqueue.Enqueue(addFunc(v.Data), serializer.NoRetry)
 		}

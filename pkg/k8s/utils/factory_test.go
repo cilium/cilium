@@ -97,20 +97,23 @@ func equalTestObject(o1, o2 interface{}) bool {
 
 func (s *FactorySuite) Test_replaceFuncFactory(c *C) {
 	type args struct {
-		listerClient interface{}
-		resourceObj  runtime.Object
-		addFunc      func(i interface{}) func() error
-		delFunc      func(i interface{}) func() error
-		missingFunc  func(comparableMap versioned.Map) versioned.Map
-		fqueue       *serializer.FunctionQueue
-		addFuncCalls *int
-		delFuncCalls *int
+		listerClient    interface{}
+		resourceObj     runtime.Object
+		addFunc         func(i interface{}) func() error
+		delFunc         func(i interface{}) func() error
+		updateFunc      func(old, new interface{}) func() error
+		missingFunc     func(comparableMap versioned.Map) versioned.Map
+		fqueue          *serializer.FunctionQueue
+		addFuncCalls    *int
+		delFuncCalls    *int
+		updateFuncCalls *int
 	}
 	type want struct {
-		oldMap       *versioned.ComparableMap
-		newMap       *versioned.ComparableMap
-		addFuncCalls int
-		delFuncCalls int
+		oldMap          *versioned.ComparableMap
+		newMap          *versioned.ComparableMap
+		addFuncCalls    int
+		delFuncCalls    int
+		updateFuncCalls int
 	}
 	tests := []struct {
 		name      string
@@ -122,6 +125,7 @@ func (s *FactorySuite) Test_replaceFuncFactory(c *C) {
 			setupArgs: func() args {
 				addFuncCalls := 0
 				delFuncCalls := 0
+				updateFuncCalls := 0
 
 				k8sClient := &fake.Clientset{}
 				k8sClient.AddReactor("list", "networkpolicies",
@@ -162,6 +166,12 @@ func (s *FactorySuite) Test_replaceFuncFactory(c *C) {
 						return nil
 					}
 				}
+				updateFunc := func(old, new interface{}) func() error {
+					updateFuncCalls++
+					return func() error {
+						return nil
+					}
+				}
 				fqueue := serializer.NewFunctionQueue(1024)
 
 				missingFunc := func(m versioned.Map) versioned.Map {
@@ -171,14 +181,16 @@ func (s *FactorySuite) Test_replaceFuncFactory(c *C) {
 				}
 
 				return args{
-					listerClient: k8sClient,
-					resourceObj:  &v1.NetworkPolicy{},
-					addFunc:      addFunc,
-					delFunc:      delFunc,
-					missingFunc:  missingFunc,
-					fqueue:       fqueue,
-					addFuncCalls: &addFuncCalls,
-					delFuncCalls: &delFuncCalls,
+					listerClient:    k8sClient,
+					resourceObj:     &v1.NetworkPolicy{},
+					addFunc:         addFunc,
+					delFunc:         delFunc,
+					updateFunc:      updateFunc,
+					missingFunc:     missingFunc,
+					fqueue:          fqueue,
+					addFuncCalls:    &addFuncCalls,
+					delFuncCalls:    &delFuncCalls,
+					updateFuncCalls: &updateFuncCalls,
 				}
 			},
 			setupWant: func() want {
@@ -207,6 +219,7 @@ func (s *FactorySuite) Test_replaceFuncFactory(c *C) {
 			setupArgs: func() args {
 				addFuncCalls := 0
 				delFuncCalls := 0
+				updateFuncCalls := 0
 
 				k8sClient := &fake.Clientset{}
 				k8sClient.AddReactor("list", "networkpolicies",
@@ -239,6 +252,12 @@ func (s *FactorySuite) Test_replaceFuncFactory(c *C) {
 						return nil
 					}
 				}
+				updateFunc := func(old, new interface{}) func() error {
+					updateFuncCalls++
+					return func() error {
+						return nil
+					}
+				}
 				fqueue := serializer.NewFunctionQueue(1024)
 
 				missingFunc := func(m versioned.Map) versioned.Map {
@@ -249,14 +268,16 @@ func (s *FactorySuite) Test_replaceFuncFactory(c *C) {
 				}
 
 				return args{
-					listerClient: k8sClient,
-					resourceObj:  &v1.NetworkPolicy{},
-					addFunc:      addFunc,
-					delFunc:      delFunc,
-					missingFunc:  missingFunc,
-					fqueue:       fqueue,
-					addFuncCalls: &addFuncCalls,
-					delFuncCalls: &delFuncCalls,
+					listerClient:    k8sClient,
+					resourceObj:     &v1.NetworkPolicy{},
+					addFunc:         addFunc,
+					delFunc:         delFunc,
+					updateFunc:      updateFunc,
+					missingFunc:     missingFunc,
+					fqueue:          fqueue,
+					addFuncCalls:    &addFuncCalls,
+					delFuncCalls:    &delFuncCalls,
+					updateFuncCalls: &updateFuncCalls,
 				}
 			},
 			setupWant: func() want {
@@ -285,6 +306,7 @@ func (s *FactorySuite) Test_replaceFuncFactory(c *C) {
 			setupArgs: func() args {
 				addFuncCalls := 0
 				delFuncCalls := 0
+				updateFuncCalls := 0
 
 				k8sClient := &fake.Clientset{}
 				k8sClient.AddReactor("list", "networkpolicies",
@@ -317,6 +339,12 @@ func (s *FactorySuite) Test_replaceFuncFactory(c *C) {
 						return nil
 					}
 				}
+				updateFunc := func(old, new interface{}) func() error {
+					updateFuncCalls++
+					return func() error {
+						return nil
+					}
+				}
 				fqueue := serializer.NewFunctionQueue(1024)
 
 				missingFunc := func(m versioned.Map) versioned.Map {
@@ -342,14 +370,16 @@ func (s *FactorySuite) Test_replaceFuncFactory(c *C) {
 				}
 
 				return args{
-					listerClient: k8sClient,
-					resourceObj:  &v1.NetworkPolicy{},
-					addFunc:      addFunc,
-					delFunc:      delFunc,
-					missingFunc:  missingFunc,
-					fqueue:       fqueue,
-					addFuncCalls: &addFuncCalls,
-					delFuncCalls: &delFuncCalls,
+					listerClient:    k8sClient,
+					resourceObj:     &v1.NetworkPolicy{},
+					addFunc:         addFunc,
+					delFunc:         delFunc,
+					updateFunc:      updateFunc,
+					missingFunc:     missingFunc,
+					fqueue:          fqueue,
+					addFuncCalls:    &addFuncCalls,
+					delFuncCalls:    &delFuncCalls,
+					updateFuncCalls: &updateFuncCalls,
 				}
 			},
 			setupWant: func() want {
@@ -394,10 +424,11 @@ func (s *FactorySuite) Test_replaceFuncFactory(c *C) {
 		},
 		{
 			name: "Cilium is not synced with kube-apiserver. When a field, that Cilium cares about, " +
-				"was modified then it needs to send an AddFunc event",
+				"was modified then it needs to send an UpdateFunc event",
 			setupArgs: func() args {
 				addFuncCalls := 0
 				delFuncCalls := 0
+				updateFuncCalls := 0
 
 				k8sClient := &fake.Clientset{}
 				k8sClient.AddReactor("list", "networkpolicies",
@@ -426,9 +457,21 @@ func (s *FactorySuite) Test_replaceFuncFactory(c *C) {
 						return true, list, nil
 					})
 				addFunc := func(i interface{}) func() error {
-					obj, ok := i.(*v1.NetworkPolicy)
+					addFuncCalls++
+					return func() error {
+						return nil
+					}
+				}
+				delFunc := func(i interface{}) func() error {
+					delFuncCalls++
+					return func() error {
+						return nil
+					}
+				}
+				updateFunc := func(old, new interface{}) func() error {
+					objNew, ok := new.(*v1.NetworkPolicy)
 					c.Assert(ok, Equals, true)
-					wanted := &v1.NetworkPolicy{
+					wantedNew := &v1.NetworkPolicy{
 						ObjectMeta: meta_v1.ObjectMeta{
 							Name:      "foo",
 							Namespace: "bar",
@@ -446,14 +489,21 @@ func (s *FactorySuite) Test_replaceFuncFactory(c *C) {
 							},
 						},
 					}
-					c.Assert(obj, DeepEquals, wanted, Commentf("NetworkPolicy deleted should be exactly that is missing from kube-apiserver"))
-					addFuncCalls++
-					return func() error {
-						return nil
+					c.Assert(objNew, DeepEquals, wantedNew, Commentf("The new NetworkPolicy added should be exactly the one that is missing from kube-apiserver"))
+
+					objOld, ok := old.(*v1.NetworkPolicy)
+					c.Assert(ok, Equals, true)
+					wantedOld := &v1.NetworkPolicy{
+						ObjectMeta: meta_v1.ObjectMeta{
+							Name:            "foo",
+							Namespace:       "bar",
+							UID:             "1234",
+							ResourceVersion: "12",
+						},
 					}
-				}
-				delFunc := func(i interface{}) func() error {
-					delFuncCalls++
+					c.Assert(objOld, DeepEquals, wantedOld, Commentf("The old NetworkPolicy should be the previous know object"))
+
+					updateFuncCalls++
 					return func() error {
 						return nil
 					}
@@ -490,14 +540,16 @@ func (s *FactorySuite) Test_replaceFuncFactory(c *C) {
 				}
 
 				return args{
-					listerClient: k8sClient,
-					resourceObj:  &v1.NetworkPolicy{},
-					addFunc:      addFunc,
-					delFunc:      delFunc,
-					missingFunc:  missingFunc,
-					fqueue:       fqueue,
-					addFuncCalls: &addFuncCalls,
-					delFuncCalls: &delFuncCalls,
+					listerClient:    k8sClient,
+					resourceObj:     &v1.NetworkPolicy{},
+					addFunc:         addFunc,
+					delFunc:         delFunc,
+					updateFunc:      updateFunc,
+					missingFunc:     missingFunc,
+					fqueue:          fqueue,
+					addFuncCalls:    &addFuncCalls,
+					delFuncCalls:    &delFuncCalls,
+					updateFuncCalls: &updateFuncCalls,
 				}
 			},
 			setupWant: func() want {
@@ -540,9 +592,9 @@ func (s *FactorySuite) Test_replaceFuncFactory(c *C) {
 				})
 
 				return want{
-					oldMap:       oldMap,
-					newMap:       newMap,
-					addFuncCalls: 1,
+					oldMap:          oldMap,
+					newMap:          newMap,
+					updateFuncCalls: 1,
 				}
 			},
 		},
@@ -551,6 +603,7 @@ func (s *FactorySuite) Test_replaceFuncFactory(c *C) {
 			setupArgs: func() args {
 				addFuncCalls := 0
 				delFuncCalls := 0
+				updateFuncCalls := 0
 
 				k8sClient := &fake.Clientset{}
 				k8sClient.AddReactor("list", "networkpolicies",
@@ -590,6 +643,12 @@ func (s *FactorySuite) Test_replaceFuncFactory(c *C) {
 						return nil
 					}
 				}
+				updateFunc := func(old, new interface{}) func() error {
+					updateFuncCalls++
+					return func() error {
+						return nil
+					}
+				}
 				fqueue := serializer.NewFunctionQueue(1024)
 
 				missingFunc := func(m versioned.Map) versioned.Map {
@@ -612,14 +671,16 @@ func (s *FactorySuite) Test_replaceFuncFactory(c *C) {
 				}
 
 				return args{
-					listerClient: k8sClient,
-					resourceObj:  &v1.NetworkPolicy{},
-					addFunc:      addFunc,
-					delFunc:      delFunc,
-					missingFunc:  missingFunc,
-					fqueue:       fqueue,
-					addFuncCalls: &addFuncCalls,
-					delFuncCalls: &delFuncCalls,
+					listerClient:    k8sClient,
+					resourceObj:     &v1.NetworkPolicy{},
+					addFunc:         addFunc,
+					delFunc:         delFunc,
+					updateFunc:      updateFunc,
+					missingFunc:     missingFunc,
+					fqueue:          fqueue,
+					addFuncCalls:    &addFuncCalls,
+					delFuncCalls:    &delFuncCalls,
+					updateFuncCalls: &updateFuncCalls,
 				}
 			},
 			setupWant: func() want {
@@ -661,7 +722,7 @@ func (s *FactorySuite) Test_replaceFuncFactory(c *C) {
 	for _, tt := range tests {
 		args := tt.setupArgs()
 		want := tt.setupWant()
-		replaceFunc := replaceFuncFactory(args.listerClient, args.resourceObj, args.addFunc, args.delFunc, args.missingFunc, args.fqueue)
+		replaceFunc := replaceFuncFactory(args.listerClient, args.resourceObj, args.addFunc, args.delFunc, args.updateFunc, args.missingFunc, args.fqueue)
 		newMap, err := replaceFunc(want.oldMap)
 		c.Assert(err, IsNil, Commentf("Test Name: %s", tt.name))
 		c.Assert(newMap.Map, DeepEquals, want.newMap.Map, Commentf("Test Name: %s", tt.name))
