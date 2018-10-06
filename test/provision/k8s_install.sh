@@ -157,7 +157,7 @@ case $K8S_VERSION in
             kubectl=${K8S_FULL_VERSION}*
         ;;
     "1.13")
-        install_k8s_using_binary "v${K8S_FULL_VERSION}" "${KUBERNETES_CNI_VERSION}"
+        install_k8s_using_binary "v${K8S_FULL_VERSION}" "v${KUBERNETES_CNI_VERSION}"
         ;;
 esac
 
