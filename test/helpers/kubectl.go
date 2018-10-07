@@ -306,8 +306,7 @@ func (kub *Kubectl) GetPodNames(namespace string, label string) ([]string, error
 
 	cmd := fmt.Sprintf("%s -n %s get pods -l %s %s", KubectlCmd, namespace, label, filter)
 
-	err := kub.Execute(
-		cmd, stdout, nil)
+	err := kub.ExecuteContext(context.TODO(), cmd, stdout, nil)
 
 	if err != nil {
 		return nil, fmt.Errorf(
