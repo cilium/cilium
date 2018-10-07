@@ -158,6 +158,11 @@ type ExecOptions struct {
 
 // Exec returns the results of executing the provided cmd via SSH.
 func (s *SSHMeta) Exec(cmd string, options ...ExecOptions) *CmdRes {
+	return s.ExecContext(context.Background(), cmd, options...)
+}
+
+// ExecContext returns the results of executing the provided cmd via SSH.
+func (s *SSHMeta) ExecContext(ctx context.Context, cmd string, options ...ExecOptions) *CmdRes {
 	var ops ExecOptions
 	if len(options) > 0 {
 		ops = options[0]
@@ -167,7 +172,7 @@ func (s *SSHMeta) Exec(cmd string, options ...ExecOptions) *CmdRes {
 	stdout := new(Buffer)
 	stderr := new(Buffer)
 	start := time.Now()
-	err := s.ExecuteContext(context.TODO(), cmd, stdout, stderr)
+	err := s.ExecuteContext(ctx, cmd, stdout, stderr)
 
 	res := CmdRes{
 		cmd:      cmd,
