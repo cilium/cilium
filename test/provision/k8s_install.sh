@@ -111,8 +111,8 @@ if [[ -f  "/etc/cni/net.d/100-crio-bridge.conf" ]]; then
 fi
 
 # Around the `--ignore-preflight-errors=cri` is used because
-# /var/run/dockershim.sock is not present (because base image has containerid)
-# so with that option Kubeadm fallbacks to /var/run/docker.sock
+# /var/run/dockershim.sock is not present (because base image has containerd)
+# so with that option kubeadm fallback to /var/run/docker.sock
 case $K8S_VERSION in
     "1.8")
         KUBERNETES_CNI_VERSION="0.5.1-00"
@@ -133,8 +133,8 @@ case $K8S_VERSION in
     "1.11")
         KUBERNETES_CNI_VERSION="0.6.0-00"
         K8S_FULL_VERSION="1.11.3"
-        KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
-        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri"
+        KUBEADM_OPTIONS="--ignore-preflight-errors=cri,FileExisting-crictl"
+        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,FileExisting-crictl"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
         ;;
     "1.12")
