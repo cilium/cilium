@@ -137,9 +137,10 @@ func WithTimeout(body func() bool, msg string, config *TimeoutConfig) error {
 	}
 }
 
-// WithTimeoutErr executes body using the time interval specified. The function
+// WithContext executes body with the given frequency. The function
 // f is executed until bool returns true or the given context signalizes Done.
-func WithTimeoutErr(ctx context.Context, f func() (bool, error), freq time.Duration) error {
+// `f` should stop if context is canceled.
+func WithContext(ctx context.Context, f func(ctx context.Context) (bool, error), freq time.Duration) error {
 	ticker := time.NewTicker(freq)
 	defer ticker.Stop()
 	for {
@@ -147,12 +148,22 @@ func WithTimeoutErr(ctx context.Context, f func() (bool, error), freq time.Durat
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
-			exit, err := f()
+			stop, err := f(ctx)
 			if err != nil {
-				return err
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				default:
+					return err
+				}
 			}
-			if exit {
-				return nil
+			if stop {
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				default:
+					return nil
+				}
 			}
 		}
 	}
