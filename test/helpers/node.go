@@ -195,6 +195,7 @@ func (s *SSHMeta) ExecContext(ctx context.Context, cmd string, options ...ExecOp
 		} else {
 			// Log other error types. They are likely from SSH or the network
 			log.WithError(err).Errorf("Error executing command '%s'", cmd)
+			res.err = err
 		}
 	}
 
