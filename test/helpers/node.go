@@ -220,9 +220,10 @@ func (s *SSHMeta) GetCopy() *SSHMeta {
 	return copy
 }
 
-// ExecContext returns the results of running cmd via SSH in the specified
-// context.
-func (s *SSHMeta) ExecContext(ctx context.Context, cmd string, options ...ExecOptions) *CmdRes {
+// ExecInBackground returns the results of running cmd via SSH in the specified
+// context. The command will be executed in the background until context.Context
+// is canceled or the command has finish its execution.
+func (s *SSHMeta) ExecInBackground(ctx context.Context, cmd string, options ...ExecOptions) *CmdRes {
 	if ctx == nil {
 		panic("no context provided")
 	}
