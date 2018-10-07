@@ -251,10 +251,10 @@ func (s *SSHMeta) ExecContext(ctx context.Context, cmd string, options ...ExecOp
 		wg:      &wg,
 	}
 
+	res.wg.Add(1)
 	go func(res *CmdRes) {
-		start := time.Now()
-		res.wg.Add(1)
 		defer res.wg.Done()
+		start := time.Now()
 		err := s.sshClient.RunCommandContext(ctx, command)
 		if err != nil {
 			exiterr, isExitError := err.(*ssh.ExitError)
