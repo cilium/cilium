@@ -1019,12 +1019,12 @@ func (kub *Kubectl) CiliumEndpointWaitReady() error {
 	return NewSSHMetaError(err.Error(), callback)
 }
 
-// CiliumExec runs cmd in the specified Cilium pod.
-func (kub *Kubectl) CiliumExec(pod string, cmd string) *CmdRes {
+// CiliumExecContext runs cmd in the specified Cilium pod with the given context.
+func (kub *Kubectl) CiliumExecContext(ctx context.Context, pod string, cmd string) *CmdRes {
 	limitTimes := 5
 	execute := func() *CmdRes {
 		command := fmt.Sprintf("%s exec -n kube-system %s -- %s", KubectlCmd, pod, cmd)
-		return kub.Exec(command)
+		return kub.ExecContext(ctx, command)
 	}
 	var res *CmdRes
 	// Sometimes Kubectl returns 126 exit code, It use to happen in Nightly
@@ -1040,6 +1040,12 @@ func (kub *Kubectl) CiliumExec(pod string, cmd string) *CmdRes {
 		time.Sleep(200 * time.Millisecond)
 	}
 	return res
+}
+
+// CiliumExec runs cmd in the specified Cilium pod.
+// Deprecated: use CiliumExecContext instead
+func (kub *Kubectl) CiliumExec(pod string, cmd string) *CmdRes {
+	return kub.CiliumExecContext(context.Background(), pod, cmd)
 }
 
 // CiliumExecUntilMatch executes the specified command repeatedly for the

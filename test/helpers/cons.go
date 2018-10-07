@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/cilium/cilium/pkg/versioncheck"
 	"github.com/cilium/cilium/test/ginkgo-ext"
@@ -28,6 +29,8 @@ import (
 var (
 	// HelperTimeout is a predefined timeout value for commands, in seconds.
 	HelperTimeout int64 = 300
+	// HelperTimeoutDuration is a predefined timeout value for commands.
+	HelperTimeoutDuration = time.Duration(HelperTimeout) * time.Second
 
 	// BasePath is the path in the Vagrant VMs to which the test directory
 	// is mounted
