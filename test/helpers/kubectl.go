@@ -912,8 +912,8 @@ func (kub *Kubectl) GetCiliumPods(namespace string) ([]string, error) {
 
 // CiliumEndpointsList returns the result of `cilium endpoint list` from the
 // specified pod.
-func (kub *Kubectl) CiliumEndpointsList(pod string) *CmdRes {
-	return kub.CiliumExec(pod, "cilium endpoint list -o json")
+func (kub *Kubectl) CiliumEndpointsList(ctx context.Context, pod string) *CmdRes {
+	return kub.CiliumExecContext(ctx, pod, "cilium endpoint list -o json")
 }
 
 // CiliumEndpointsStatus returns a mapping  of a pod name to it is corresponding
@@ -944,7 +944,7 @@ func (kub *Kubectl) CiliumEndpointWaitReady() error {
 				wg.Done()
 			}()
 			logCtx := kub.logger.WithField("pod", pod)
-			status, err := kub.CiliumEndpointsList(pod).Filter(`{range [*]}{.status.state}{"="}{.status.identity.id}{"\n"}{end}`)
+			status, err := kub.CiliumEndpointsList(context.TODO(), pod).Filter(`{range [*]}{.status.state}{"="}{.status.identity.id}{"\n"}{end}`)
 			if err != nil {
 				logCtx.WithError(err).Errorf("cannot get endpoints states on Cilium pod")
 				return
@@ -1007,7 +1007,7 @@ func (kub *Kubectl) CiliumEndpointWaitReady() error {
 		var errorMessage string
 		for _, pod := range ciliumPods {
 			var endpoints []models.Endpoint
-			_ = kub.CiliumEndpointsList(pod).Unmarshal(&endpoints)
+			_ = kub.CiliumEndpointsList(context.TODO(), pod).Unmarshal(&endpoints)
 			for _, ep := range endpoints {
 				errorMessage += fmt.Sprintf(
 					"\tCilium Pod: %s \tEndpoint: %d \tIdentity: %d\t State: %s\n",
