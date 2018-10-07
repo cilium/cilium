@@ -934,17 +934,17 @@ func (kub *Kubectl) CiliumEndpointWaitReady() error {
 		return err
 	}
 
-	body := func() bool {
+	body := func(ctx context.Context) (bool, error) {
 		var wg sync.WaitGroup
 		queue := make(chan bool, len(ciliumPods))
-		endpoinstsReady := func(pod string) {
+		endpointsReady := func(pod string) {
 			valid := false
 			defer func() {
 				queue <- valid
 				wg.Done()
 			}()
 			logCtx := kub.logger.WithField("pod", pod)
-			status, err := kub.CiliumEndpointsList(context.TODO(), pod).Filter(`{range [*]}{.status.state}{"="}{.status.identity.id}{"\n"}{end}`)
+			status, err := kub.CiliumEndpointsList(ctx, pod).Filter(`{range [*]}{.status.state}{"="}{.status.identity.id}{"\n"}{end}`)
 			if err != nil {
 				logCtx.WithError(err).Errorf("cannot get endpoints states on Cilium pod")
 				return
@@ -985,7 +985,7 @@ func (kub *Kubectl) CiliumEndpointWaitReady() error {
 		}
 		wg.Add(len(ciliumPods))
 		for _, pod := range ciliumPods {
-			go endpoinstsReady(pod)
+			go endpointsReady(pod)
 		}
 
 		wg.Wait()
@@ -993,12 +993,15 @@ func (kub *Kubectl) CiliumEndpointWaitReady() error {
 
 		for status := range queue {
 			if status == false {
-				return false
+				return false, nil
 			}
 		}
-		return true
+		return true, nil
 	}
-	err = WithTimeout(body, "Endpoints are not ready after timeout", &TimeoutConfig{Timeout: HelperTimeout})
+
+	ctx, cancel := context.WithTimeout(context.Background(), HelperTimeoutDuration)
+	defer cancel()
+	err = WithContext(ctx, body, 1*time.Second)
 	if err == nil {
 		return err
 	}
@@ -1007,7 +1010,16 @@ func (kub *Kubectl) CiliumEndpointWaitReady() error {
 		var errorMessage string
 		for _, pod := range ciliumPods {
 			var endpoints []models.Endpoint
-			_ = kub.CiliumEndpointsList(context.TODO(), pod).Unmarshal(&endpoints)
+			ctx, cancel := context.WithTimeout(context.Background(), HelperTimeoutDuration)
+			cmdRes := kub.CiliumEndpointsList(ctx, pod)
+			cancel()
+			if !cmdRes.WasSuccessful() {
+				return fmt.Sprintf("unable to get cilium endpoint list from pod %s: %s", pod, cmdRes.err)
+			}
+			err := cmdRes.Unmarshal(&endpoints)
+			if err != nil {
+				return fmt.Sprintf("error parsing endpoint list for pod %s: %s", pod, err)
+			}
 			for _, ep := range endpoints {
 				errorMessage += fmt.Sprintf(
 					"\tCilium Pod: %s \tEndpoint: %d \tIdentity: %d\t State: %s\n",
