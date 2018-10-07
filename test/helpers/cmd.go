@@ -140,7 +140,7 @@ func (res *CmdRes) CombineOutput() *bytes.Buffer {
 
 // IntOutput returns the stdout of res as an integer
 func (res *CmdRes) IntOutput() (int, error) {
-	return strconv.Atoi(strings.Trim(res.stdout.String(), "\n"))
+	return strconv.Atoi(strings.Trim(strings.Trim(res.stdout.String(), "\n"), "\r"))
 }
 
 // FindResults filters res's stdout using the provided JSONPath filter. It
@@ -190,7 +190,12 @@ func (res *CmdRes) Filter(filter string) (*FilterBuffer, error) {
 
 // ByLines returns res's stdout split by the newline character .
 func (res *CmdRes) ByLines() []string {
-	return strings.Split(res.stdout.String(), "\n")
+	stdoutStr := res.stdout.String()
+	sep := "\n"
+	if strings.Contains(stdoutStr, "\r") {
+		sep = "\r\n"
+	}
+	return strings.Split(stdoutStr, sep)
 }
 
 // KVOutput returns a map of the stdout of res split based on
@@ -249,7 +254,9 @@ func (res *CmdRes) Reset() {
 
 // SingleOut returns res's stdout as a string without any newline characters
 func (res *CmdRes) SingleOut() string {
-	return strings.Replace(res.stdout.String(), "\n", "", -1)
+	strstdout := res.stdout.String()
+	strstdoutSingle := strings.Replace(strstdout, "\n", "", -1)
+	return strings.Replace(strstdoutSingle, "\r", "", -1)
 }
 
 // Unmarshal unmarshalls res's stdout into data. It assumes that the stdout of
