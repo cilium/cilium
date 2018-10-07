@@ -66,7 +66,7 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		By("Starting Cilium with consul as kvstore")
-		vm.ExecContext(
+		vm.ExecInBackground(
 			ctx,
 			"sudo cilium-agent --kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug")
 		err := vm.WaitUntilReady(150)
@@ -86,7 +86,7 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		By("Starting Cilium with etcd as kvstore")
-		vm.ExecContext(
+		vm.ExecInBackground(
 			ctx,
 			"sudo cilium-agent --kvstore etcd --kvstore-opt etcd.address=127.0.0.1:4001 2>&1 | logger -t cilium")
 		err := vm.WaitUntilReady(150)

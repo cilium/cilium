@@ -191,7 +191,7 @@ func (kub *Kubectl) ExecPodCmd(namespace string, pod string, cmd string, options
 // output
 func (kub *Kubectl) ExecPodCmdContext(ctx context.Context, namespace string, pod string, cmd string) *CmdRes {
 	command := fmt.Sprintf("%s exec -n %s %s -- %s", KubectlCmd, namespace, pod, cmd)
-	return kub.ExecContext(ctx, command)
+	return kub.ExecInBackground(ctx, command)
 }
 
 // Get retrieves the provided Kubernetes objects from the specified namespace.
@@ -365,7 +365,7 @@ func (kub *Kubectl) MicroscopeStart() (error, func() error) {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	res := kub.ExecContext(ctx, cmd, ExecOptions{SkipLog: true})
+	res := kub.ExecInBackground(ctx, cmd, ExecOptions{SkipLog: true})
 
 	cb = func() error {
 		cancel()
