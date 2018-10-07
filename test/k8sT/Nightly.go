@@ -65,7 +65,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 	deleteAll := func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 		defer cancel()
-		kubectl.ExecContext(ctx, fmt.Sprintf(
+		kubectl.ExecInBackground(ctx, fmt.Sprintf(
 			"%s delete --all pods,svc,cnp -n %s --grace-period=0 --force",
 			helpers.KubectlCmd, helpers.DefaultNamespace))
 

@@ -389,7 +389,7 @@ func (s *SSHMeta) ManifestsPath() string {
 func (s *SSHMeta) MonitorStart() func() error {
 	cmd := "cilium monitor -v | ts '[%Y-%m-%d %H:%M:%S]'"
 	ctx, cancel := context.WithCancel(context.Background())
-	res := s.ExecContext(ctx, cmd, ExecOptions{SkipLog: true})
+	res := s.ExecInBackground(ctx, cmd, ExecOptions{SkipLog: true})
 
 	cb := func() error {
 		cancel()
@@ -694,7 +694,7 @@ func (s *SSHMeta) PprofReport() {
 			d := time.Now().Add(50 * time.Second)
 			ctx, cancel := context.WithDeadline(context.Background(), d)
 
-			res := s.ExecContext(ctx, `sudo gops pprof-cpu $(pgrep cilium-agent)`)
+			res := s.ExecInBackground(ctx, `sudo gops pprof-cpu $(pgrep cilium-agent)`)
 
 			err = res.WaitUntilMatch("Profiling dump saved to")
 			if err != nil {
