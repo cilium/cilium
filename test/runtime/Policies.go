@@ -1394,7 +1394,7 @@ var _ = Describe("RuntimePolicies", func() {
 		It("Init Ingress Policy Default Drop Test", func() {
 			By("Starting cilium monitor in background")
 			ctx, cancel := context.WithCancel(context.Background())
-			monitorRes := vm.ExecContext(ctx, "cilium monitor --type drop --type trace")
+			monitorRes := vm.ExecInBackground(ctx, "cilium monitor --type drop --type trace")
 			defer cancel()
 
 			By("Creating an endpoint")
@@ -1430,7 +1430,7 @@ var _ = Describe("RuntimePolicies", func() {
 
 			By("Starting cilium monitor in background")
 			ctx, cancel := context.WithCancel(context.Background())
-			monitorRes := vm.ExecContext(ctx, "cilium monitor --type drop --type trace")
+			monitorRes := vm.ExecInBackground(ctx, "cilium monitor --type drop --type trace")
 			defer cancel()
 
 			By("Creating an endpoint")
@@ -1467,7 +1467,7 @@ var _ = Describe("RuntimePolicies", func() {
 		It("Init Ingress Policy Test", func() {
 			By("Starting cilium monitor in background")
 			ctx, cancel := context.WithCancel(context.Background())
-			monitorRes := vm.ExecContext(ctx, "cilium monitor --type drop --type trace")
+			monitorRes := vm.ExecInBackground(ctx, "cilium monitor --type drop --type trace")
 			defer cancel()
 
 			By("Creating an endpoint")
@@ -1502,7 +1502,7 @@ var _ = Describe("RuntimePolicies", func() {
 
 			By("Starting cilium monitor in background")
 			ctx, cancel := context.WithCancel(context.Background())
-			monitorRes := vm.ExecContext(ctx, "cilium monitor --type drop --type trace")
+			monitorRes := vm.ExecInBackground(ctx, "cilium monitor --type drop --type trace")
 			defer cancel()
 
 			By("Creating an endpoint")

@@ -201,7 +201,7 @@ var _ = Describe("RuntimeKafka", func() {
 		// Consumer timeout didn't work correctly, so make sure that AUTH is present in the reply
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		res = vm.ExecContext(ctx, fmt.Sprintf(
+		res = vm.ExecInBackground(ctx, fmt.Sprintf(
 			"docker exec -i %s %s", client, consumerCmd(disallowTopic, MaxMessages)))
 		err = res.WaitUntilMatch("{disallowTopic=TOPIC_AUTHORIZATION_FAILED}")
 		Expect(err).To(BeNil(), "Traffic in disallowTopic is allowed")
