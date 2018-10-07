@@ -116,10 +116,11 @@ func (s *SSHMeta) setBasePath() {
 	return
 }
 
-// Execute executes cmd on the provided node and stores the stdout / stderr of
-// the command in the provided buffers. Returns false if the command failed
-// during its execution.
-func (s *SSHMeta) Execute(cmd string, stdout io.Writer, stderr io.Writer) error {
+// ExecuteContext executes the given `cmd` and writes the cmd's stdout and
+// stderr into the given io.Writers.
+// Returns an error if context Deadline() is reached or if there was an error
+// executing the command.
+func (s *SSHMeta) ExecuteContext(ctx context.Context, cmd string, stdout io.Writer, stderr io.Writer) error {
 	if stdout == nil {
 		stdout = os.Stdout
 	}
@@ -134,8 +135,13 @@ func (s *SSHMeta) Execute(cmd string, stdout io.Writer, stderr io.Writer) error 
 		Stdout: stdout,
 		Stderr: stderr,
 	}
-	err := s.sshClient.RunCommand(command)
-	return err
+	err := s.sshClient.RunCommandContext(ctx, command)
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+		return err
+	}
 }
 
 // ExecWithSudo returns the result of executing the provided cmd via SSH using
@@ -161,7 +167,7 @@ func (s *SSHMeta) Exec(cmd string, options ...ExecOptions) *CmdRes {
 	stdout := new(Buffer)
 	stderr := new(Buffer)
 	start := time.Now()
-	err := s.Execute(cmd, stdout, stderr)
+	err := s.ExecuteContext(context.TODO(), cmd, stdout, stderr)
 
 	res := CmdRes{
 		cmd:      cmd,
