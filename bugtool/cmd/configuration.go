@@ -74,6 +74,8 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		"ip6tables -S",
 		"iptables -L -v",
 		"ip rule",
+		"ip -4 route show table 2005",
+		"ip -6 route show table 2005",
 		// gops
 		fmt.Sprintf("gops memstats $(pidof %s)", helpers.AgentDaemon),
 		fmt.Sprintf("gops stack $(pidof %s)", helpers.AgentDaemon),
