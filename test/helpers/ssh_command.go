@@ -23,6 +23,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/kevinburke/ssh_config"
@@ -188,9 +189,11 @@ func (client *SSHClient) RunCommand(cmd *SSHCommand) error {
 	return runCommand(session, cmd)
 }
 
-// RunCommandContext runs an SSH command in a similar way to RunCommand, but
-// with a context which allows the command to be cancelled at any time.
-func (client *SSHClient) RunCommandContext(ctx context.Context, cmd *SSHCommand) error {
+// RunCommandInBackground runs an SSH command in a similar way to
+// RunCommandContext, but with a context which allows the command to be
+// cancelled at any time. When cancel is called the error of the command is
+// returned instead the context error.
+func (client *SSHClient) RunCommandInBackground(ctx context.Context, cmd *SSHCommand) error {
 	if ctx == nil {
 		panic("nil context provided to RunCommandContext()")
 	}
@@ -233,6 +236,58 @@ func (client *SSHClient) RunCommandContext(ctx context.Context, cmd *SSHCommand)
 		}
 	}()
 	return runCommand(session, cmd)
+}
+
+// RunCommandContext runs an SSH command in a similar way to RunCommand but with
+// a context. If context is canceled it will return the error of that given
+// context.
+func (client *SSHClient) RunCommandContext(ctx context.Context, cmd *SSHCommand) error {
+	if ctx == nil {
+		panic("nil context provided to RunCommandContext()")
+	}
+
+	session, err := client.newSession()
+	if err != nil {
+		return err
+	}
+	defer session.Close()
+
+	stdin, err := session.StdinPipe()
+	if err != nil {
+		log.Errorf("Could not get stdin", err)
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		select {
+		case <-ctx.Done():
+			_, err := stdin.Write([]byte{3})
+			if err != nil {
+				log.Errorf("write ^C error:", err)
+			}
+			err = session.Wait()
+			if err != nil {
+				log.Errorf("wait error:", err)
+			}
+			if err = session.Signal(ssh.SIGHUP); err != nil {
+				log.Errorf("failed to kill command: %s", err)
+			}
+			if err = session.Close(); err != nil {
+				log.Errorf("failed to close session: %s", err)
+			}
+		}
+		wg.Done()
+	}()
+	err = runCommand(session, cmd)
+	select {
+	case <-ctx.Done():
+		// Wait until the ssh session is stopped
+		wg.Wait()
+		return ctx.Err()
+	default:
+		return err
+	}
 }
 
 func (client *SSHClient) newSession() (*ssh.Session, error) {
