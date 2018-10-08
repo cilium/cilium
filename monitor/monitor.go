@@ -202,6 +202,7 @@ func (m *Monitor) perfEventReader(stopCtx context.Context, nPages int) {
 	m.monitorEvents = monitorEvents
 	receiveEvent := m.receiveEvent
 	lostEvent := m.lostEvent
+	errorEvent := m.errorEvent
 	m.Unlock()
 
 	last := time.Now()
@@ -220,7 +221,7 @@ func (m *Monitor) perfEventReader(stopCtx context.Context, nPages int) {
 		}
 
 		if todo > 0 {
-			if err := monitorEvents.ReadAll(receiveEvent, lostEvent); err != nil {
+			if err := monitorEvents.ReadAll(receiveEvent, lostEvent, errorEvent); err != nil {
 				scopedLog.WithError(err).Warn("Error received while reading from perf buffer")
 			}
 		}
@@ -314,4 +315,8 @@ func (m *Monitor) receiveEvent(es *bpf.PerfEventSample, c int) {
 func (m *Monitor) lostEvent(el *bpf.PerfEventLost, c int) {
 	pl := payload.Payload{Data: []byte{}, CPU: c, Lost: el.Lost, Type: payload.RecordLost}
 	m.send(&pl)
+}
+
+func (m *Monitor) errorEvent(el *bpf.PerfEvent) {
+	log.Errorf("BUG: Perf buffer corrupted, event debug info: %s", el.Debug())
 }
