@@ -644,6 +644,8 @@ var _ = Describe("RuntimePolicies", func() {
 		app3EndpointID, exists := endpointIDS[helpers.App3]
 		Expect(exists).To(BeTrue(), "Expected endpoint ID to exist for %s", helpers.App3)
 
+		connectivityTest(httpRequestsPublic, helpers.Host, helpers.Httpd2, true)
+
 		connectivityTest(httpRequestsPublic, helpers.App3, helpers.Httpd1, true)
 
 		// Since policy allows connectivity on /public to httpd1 from app3, we
