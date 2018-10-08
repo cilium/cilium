@@ -124,6 +124,15 @@ void perf_event_read_finish(void *_header, void *_state)
 	__sync_synchronize();
 	header->data_tail = (uint64_t) state->head;
 }
+
+struct perf_event_mmap_page* get_test_header()
+{
+	struct perf_event_mmap_page *p = malloc(sizeof(struct perf_event_mmap_page));
+	p->data_head = 8;
+	p->data_tail = 16;
+
+	return p;
+}
 */
 import "C"
 
@@ -132,6 +141,7 @@ import (
 	"os"
 	"path"
 	"runtime"
+	"time"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -240,6 +250,9 @@ func (e *PerfEventSample) DataCopy() []byte {
 type ReceiveFunc func(msg *PerfEventSample, cpu int)
 type LostFunc func(msg *PerfEventLost, cpu int)
 
+// ErrorFunc is run when reading PerfEvent results in an error
+type ErrorFunc func(msg *PerfEvent)
+
 func PerfEventOpen(config *PerfEventConfig, pid int, cpu int, groupFD int, flags int) (*PerfEvent, error) {
 	attr := C.struct_perf_event_attr{}
 
@@ -307,7 +320,7 @@ func (e *PerfEvent) Disable() error {
 	return nil
 }
 
-func (e *PerfEvent) Read(receive ReceiveFunc, lostFn LostFunc) {
+func (e *PerfEvent) Read(receive ReceiveFunc, lostFn LostFunc, err ErrorFunc) {
 	// Prepare for reading and check if events are available
 	available := C.perf_event_read_init(C.int(e.npages), C.int(e.pagesize),
 		unsafe.Pointer(&e.data[0]), unsafe.Pointer(e.state))
@@ -317,6 +330,9 @@ func (e *PerfEvent) Read(receive ReceiveFunc, lostFn LostFunc) {
 		return
 	}
 
+	timer := time.After(20 * time.Second)
+
+read:
 	for {
 		var (
 			msg    *PerfEventHeader
@@ -339,6 +355,13 @@ func (e *PerfEvent) Read(receive ReceiveFunc, lostFn LostFunc) {
 		} else {
 			e.unknown++
 		}
+
+		select {
+		case <-timer:
+			err(e)
+			break read
+		default:
+		}
 	}
 
 	// Move ring buffer tail pointer
@@ -351,6 +374,11 @@ func (e *PerfEvent) Close() {
 	}
 
 	unix.Close(e.Fd)
+}
+
+// Debug returns string with internal information about PerfEvent
+func (e *PerfEvent) Debug() string {
+	return fmt.Sprintf("cpu: %d, Fd: %d, pagesize: %d, npages: %d, lost: %d, unknown: %d, data: %v, state: %v, buf: %v", e.cpu, e.Fd, e.pagesize, e.npages, e.lost, e.unknown, e.data, C.GoBytes(e.state, C.sizeof_struct_read_state), e.buf)
 }
 
 type EPoll struct {
@@ -487,11 +515,12 @@ func (e *PerCpuEvents) Poll(timeout int) (int, error) {
 	return e.poll.Poll(timeout)
 }
 
-func (e *PerCpuEvents) ReadAll(receive ReceiveFunc, lost LostFunc) error {
+// ReadAll reads perf events
+func (e *PerCpuEvents) ReadAll(receive ReceiveFunc, lost LostFunc, handleError ErrorFunc) error {
 	for i := 0; i < e.poll.nfds; i++ {
 		fd := int(e.poll.events[i].Fd)
 		if event, ok := e.event[fd]; ok {
-			event.Read(receive, lost)
+			event.Read(receive, lost, handleError)
 		}
 	}
 
@@ -524,4 +553,10 @@ func (e *PerCpuEvents) CloseAll() error {
 	}
 
 	return retErr
+}
+
+func getTestHeader() []byte {
+	var p unsafe.Pointer = unsafe.Pointer(C.get_test_header())
+
+	return C.GoBytes(p, C.sizeof_struct_perf_event_mmap_page)
 }
