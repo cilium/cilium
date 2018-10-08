@@ -329,13 +329,21 @@ var _ = Describe("RuntimePolicies", func() {
 				dst = fmt.Sprintf("[%s]", srvIP[helpers.IPv6])
 			}
 			switch test {
-			case ping, ping6:
+			case ping:
 				commandName = "ping"
-			case http, http6:
-				commandName = "curl public URL on"
+			case ping6:
+				commandName = "ping6"
+			case http:
+				commandName = "curl public IPv4 URL on"
 				command = helpers.CurlFail("http://%s:80/public", dst)
-			case httpPrivate, http6Private:
-				commandName = "curl private URL on"
+			case http6:
+				commandName = "curl public IPv6 URL on"
+				command = helpers.CurlFail("http://%s:80/public", dst)
+			case httpPrivate:
+				commandName = "curl private IPv4 URL on"
+				command = helpers.CurlFail("http://%s:80/private", dst)
+			case http6Private:
+				commandName = "curl private IPv6 URL on"
 				command = helpers.CurlFail("http://%s:80/private", dst)
 			}
 			if expectsSuccess {
