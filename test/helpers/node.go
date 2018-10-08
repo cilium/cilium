@@ -262,7 +262,7 @@ func (s *SSHMeta) ExecInBackground(ctx context.Context, cmd string, options ...E
 	go func(res *CmdRes) {
 		defer res.wg.Done()
 		start := time.Now()
-		err := s.sshClient.RunCommandContext(ctx, command)
+		err := s.sshClient.RunCommandInBackground(ctx, command)
 		if err != nil {
 			exiterr, isExitError := err.(*ssh.ExitError)
 			if isExitError {
