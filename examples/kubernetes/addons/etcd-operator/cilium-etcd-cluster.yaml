@@ -14,4 +14,4 @@ spec:
       operatorSecret: cilium-etcd-client-tls
   pod:
     labels:
-      "io.cilium.fixed-identity": "kv-store"
+      "io.cilium/app": "etcd-operator"
