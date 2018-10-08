@@ -88,7 +88,7 @@ int perf_event_read(void *_state, void *buf, void *_msg, void *_sample, void *_l
 	struct read_state *state = _state;
 	struct event_sample *e = state->begin;
 
-	if (state->begin == state->end)
+	if (state->begin >= state->end)
 		return 0;
 
 	if (state->begin + e->header.size > state->base + state->raw_size) {
@@ -123,6 +123,15 @@ void perf_event_read_finish(void *_header, void *_state)
 
 	__sync_synchronize();
 	header->data_tail = (uint64_t) state->head;
+}
+
+struct perf_event_mmap_page* get_test_header()
+{
+	struct perf_event_mmap_page *p = malloc(sizeof(struct perf_event_mmap_page));
+	p->data_head = 8;
+	p->data_tail = 16;
+
+	return p;
 }
 */
 import "C"
@@ -524,4 +533,10 @@ func (e *PerCpuEvents) CloseAll() error {
 	}
 
 	return retErr
+}
+
+func GetTestHeader() []byte {
+	var p unsafe.Pointer = unsafe.Pointer(C.get_test_header())
+
+	return C.GoBytes(p, C.sizeof_struct_perf_event_mmap_page)
 }
