@@ -112,9 +112,9 @@ static inline int map_lxc_out(struct __sk_buff *skb, int l4_off, __u8 nexthdr)
 }
 #endif /* DISABLE_PORT_MAP */
 
-static inline bool redirect_to_proxy(int verdict)
+static inline bool redirect_to_proxy(int verdict, int dir)
 {
-	return verdict > 0;
+	return verdict > 0 && (dir == CT_NEW || dir == CT_ESTABLISHED);
 }
 
 static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
@@ -256,7 +256,7 @@ skip_service_lookup:
 		return DROP_POLICY;
 	}
 
-	if (redirect_to_proxy(verdict)) {
+	if (redirect_to_proxy(verdict, ret)) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 		union v6addr host_ip = {};
 
@@ -555,7 +555,7 @@ skip_service_lookup:
 		return DROP_POLICY;
 	}
 
-	if (redirect_to_proxy(verdict)) {
+	if (redirect_to_proxy(verdict, ret)) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 
 		ret = ipv4_redirect_to_host_port(skb, &csum_off, l4_off,
@@ -835,7 +835,7 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 		/* NOTE: tuple has been invalidated after this */
 	}
 
-	if (redirect_to_proxy(verdict) && (ret == CT_NEW || ret == CT_ESTABLISHED)) {
+	if (redirect_to_proxy(verdict, ret)) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 		union macaddr router_mac = NODE_MAC;
 		union v6addr host_ip = {};
@@ -945,7 +945,7 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 		/* NOTE: tuple has been invalidated after this */
 	}
 
-	if (redirect_to_proxy(verdict) && (ret == CT_NEW || ret == CT_ESTABLISHED)) {
+	if (redirect_to_proxy(verdict, ret)) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 		union macaddr router_mac = NODE_MAC;
 
