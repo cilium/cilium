@@ -22,4 +22,16 @@
             {"matchLabels":{"id.httpd2":""}}
         ]
     }]
+},{
+    "endpointSelector":
+        {"matchLabels":{"id.httpd2":""}},
+    "egress": [{
+	"toEntities": ["host"],
+        "toPorts": [{
+            "ports": [{"port": "80", "protocol": "tcp"}],
+            "rules": {
+                "http": [{}]
+            }
+        }]
+    }]
 }]
