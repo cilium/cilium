@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,14 +19,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"os"
+	"path"
 	"syscall"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/monitor/payload"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -201,6 +204,7 @@ func (m *Monitor) perfEventReader(stopCtx context.Context, nPages int) {
 	m.monitorEvents = monitorEvents
 	receiveEvent := m.receiveEvent
 	lostEvent := m.lostEvent
+	errorEvent := m.errorEvent
 	m.Unlock()
 
 	last := time.Now()
@@ -219,7 +223,7 @@ func (m *Monitor) perfEventReader(stopCtx context.Context, nPages int) {
 		}
 
 		if todo > 0 {
-			if err := monitorEvents.ReadAll(receiveEvent, lostEvent); err != nil {
+			if err := monitorEvents.ReadAll(receiveEvent, lostEvent, errorEvent); err != nil {
 				scopedLog.WithError(err).Warn("Error received while reading from perf buffer")
 			}
 		}
@@ -328,4 +332,12 @@ func (m *Monitor) receiveEvent(es *bpf.PerfEventSample, c int) {
 func (m *Monitor) lostEvent(el *bpf.PerfEventLost, c int) {
 	pl := payload.Payload{Data: []byte{}, CPU: c, Lost: el.Lost, Type: payload.RecordLost}
 	m.send(&pl)
+}
+
+func (m *Monitor) errorEvent(el *bpf.PerfEvent) {
+	log.Errorf("BUG: Timeout while reading perf ring buffer: %s", el.Debug())
+	dumpFile := path.Join(defaults.RuntimePath, defaults.StateDir, "ring-buffer-crash.dump")
+	if err := ioutil.WriteFile(dumpFile, []byte(el.DebugDump()), 0644); err != nil {
+		log.WithError(err).Errorf("Unable to dump ring buffer state to %s", dumpFile)
+	}
 }
