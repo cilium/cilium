@@ -1,0 +1,12 @@
+[ {
+    "endpointSelector": {"matchLabels":{"id.redis-server":""}},
+    "ingress": [ {
+          "toPorts": [{
+                  "ports": [{"port": "6379", "protocol": "TCP"}],
+                        "rules": {
+                                "l7proto": "redis",
+                                "l7": [{}]
+                        }
+                }]
+          } ]
+}]

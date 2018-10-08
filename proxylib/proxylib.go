@@ -25,6 +25,7 @@ import (
 	_ "github.com/cilium/cilium/proxylib/memcached/binary"
 	"github.com/cilium/cilium/proxylib/npds"
 	. "github.com/cilium/cilium/proxylib/proxylib"
+	_ "github.com/cilium/cilium/proxylib/redis"
 	_ "github.com/cilium/cilium/proxylib/testparsers"
 
 	"github.com/cilium/cilium/pkg/lock"
