@@ -188,9 +188,11 @@ func (client *SSHClient) RunCommand(cmd *SSHCommand) error {
 	return runCommand(session, cmd)
 }
 
-// RunCommandContext runs an SSH command in a similar way to RunCommand, but
-// with a context which allows the command to be cancelled at any time.
-func (client *SSHClient) RunCommandContext(ctx context.Context, cmd *SSHCommand) error {
+// RunCommandContextCancel runs an SSH command in a similar way to
+// RunCommandContext, but with a context which allows the command to be
+// cancelled at any time. When cancel is called the error of the command is
+// returned instead the context error.
+func (client *SSHClient) RunCommandContextCancel(ctx context.Context, cmd *SSHCommand) error {
 	if ctx == nil {
 		panic("nil context provided to RunCommandContext()")
 	}
@@ -233,6 +235,19 @@ func (client *SSHClient) RunCommandContext(ctx context.Context, cmd *SSHCommand)
 		}
 	}()
 	return runCommand(session, cmd)
+}
+
+// RunCommandContext runs an SSH command in a similar way to RunCommand but with
+// a context. If context is canceled it will return the error of that given
+// context.
+func (client *SSHClient) RunCommandContext(ctx context.Context, cmd *SSHCommand) error {
+	err := client.RunCommandContextCancel(ctx, cmd)
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+		return err
+	}
 }
 
 func (client *SSHClient) newSession() (*ssh.Session, error) {
