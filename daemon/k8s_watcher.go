@@ -1764,7 +1764,7 @@ func cnpNodeStatusController(ciliumV2Store cache.Store, cnp *cilium_v2.CiliumNet
 
 		serverRule, fromStoreErr := getUpdatedCNPFromStore(ciliumV2Store, cnp)
 		if fromStoreErr != nil {
-			logger.WithError(fromStoreErr).Error("error getting updated CNP from store")
+			logger.WithError(fromStoreErr).Debug("error getting updated CNP from store")
 			return fromStoreErr
 		}
 
