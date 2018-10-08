@@ -54,21 +54,12 @@ Create EKS Cluster
 
        kubectl -n kube-system set env ds aws-node AWS_VPC_K8S_CNI_EXTERNALSNAT=true
 
-#. Assign a fixed security identity to ``kube-dns`` by  adding the label ``io.cilium.fixed-identity: kube-dns``
+#. Restart kube-dns to ensure that it is being managed by Cilium.
 
    .. code:: bash
 
-       # if using kube-dns
-       kubectl patch -n kube-system deployment/kube-dns --type merge -p '{"spec":{"template":{"metadata":{"labels":{"io.cilium.fixed-identity":"kube-dns"}}}}}'
+       kubectl -n kube-system delete pod -l k8s-app=kube-dns
        
-       # if using coredns
-       kubectl patch -n kube-system deployment/coredns --type merge -p '{"spec":{"template":{"metadata":{"labels":{"io.cilium.fixed-identity":"kube-dns"}}}}}'
-
-   This step allows Cilium to bring up ``kube-dns`` networking and enforce
-   security policies before etcd is up. (Note: By default, kubernetes keeps the old ReplicaSet 
-   but those sets are not running. When the deployment is deleted all ReplicaSets will be cleaned up 
-   and they are not left in the users's cluster.)
-
 Prepare etcd operator
 =====================
 
