@@ -99,7 +99,7 @@ func (kub *Kubectl) CepGet(namespace string, pod string) *models.Endpoint {
 		"cep":       pod,
 		"namespace": namespace})
 
-	cmd := fmt.Sprintf("%s -n %s get cep %s -o json | jq '.status'", KubectlCmd, namespace, pod)
+	cmd := fmt.Sprintf("%s -n %s get cep %s -o json | jq -M '.status'", KubectlCmd, namespace, pod)
 	res := kub.Exec(cmd)
 	if !res.WasSuccessful() {
 		log.Debug("cep is not present")

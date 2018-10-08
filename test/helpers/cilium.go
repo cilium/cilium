@@ -89,7 +89,7 @@ func (s *SSHMeta) EndpointGet(id string) *models.Endpoint {
 // error if optionName's corresponding value cannot be retrieved for the
 // endpoint.
 func (s *SSHMeta) GetEndpointMutableConfigurationOption(endpointID, optionName string) (string, error) {
-	cmd := fmt.Sprintf("endpoint config %s -o json | jq -r '.realized.options.%s'", endpointID, optionName)
+	cmd := fmt.Sprintf("endpoint config %s -o json | jq -M -r '.realized.options.%s'", endpointID, optionName)
 	res := s.ExecCilium(cmd)
 	if !res.WasSuccessful() {
 		return "", fmt.Errorf("Unable to execute %q: %s", cmd, res.CombineOutput())
@@ -204,7 +204,7 @@ func (s *SSHMeta) WaitEndpointsDeleted() bool {
 	// cilium-health endpoint is always running.
 	desiredState := "1"
 	body := func() bool {
-		cmd := fmt.Sprintf(`cilium endpoint list -o json | jq '. | length'`)
+		cmd := fmt.Sprintf(`cilium endpoint list -o json | jq -M '. | length'`)
 		res := s.Exec(cmd)
 		numEndpointsRunning := strings.TrimSpace(res.GetStdOut())
 		if numEndpointsRunning == desiredState {
@@ -280,7 +280,7 @@ func (s *SSHMeta) WaitEndpointsReady() bool {
 func (s *SSHMeta) EndpointSetConfig(id, option, value string) bool {
 	logger := s.logger.WithFields(logrus.Fields{"endpointID": id})
 	res := s.ExecCilium(fmt.Sprintf(
-		"endpoint config %s -o json | jq -r '.realized.options.%s'", id, option))
+		"endpoint config %s -o json | jq -M -r '.realized.options.%s'", id, option))
 
 	if res.SingleOut() == value {
 		logger.Debugf("no need to update %s=%s; value already set", option, value)
@@ -458,7 +458,7 @@ func (s *SSHMeta) SetPolicyEnforcement(status string) *CmdRes {
 	// We check before setting PolicyEnforcement; if we do not, EndpointWait
 	// will fail due to the status of the endpoints not changing.
 	log.Infof("setting %s=%s", PolicyEnforcement, status)
-	res := s.ExecCilium(fmt.Sprintf("config -o json | jq -r '.status.realized[\"policy-enforcement\"]'"))
+	res := s.ExecCilium(fmt.Sprintf("config -o json | jq -M -r '.status.realized[\"policy-enforcement\"]'"))
 	if res.SingleOut() == status {
 		return res
 	}
@@ -487,7 +487,7 @@ func (s *SSHMeta) PolicyDelAll() *CmdRes {
 // PolicyDel deletes the policy with the given ID from Cilium.
 func (s *SSHMeta) PolicyDel(id string) *CmdRes {
 	res := s.ExecCilium(fmt.Sprintf(
-		"policy delete %s -o json | jq '.revision'", id))
+		"policy delete %s -o json | jq -M '.revision'", id))
 	if !res.WasSuccessful() {
 		return res
 	}
@@ -511,7 +511,7 @@ func (s *SSHMeta) PolicyGetAll() *CmdRes {
 // PolicyGetRevision retrieves the current policy revision number in the Cilium
 // agent.
 func (s *SSHMeta) PolicyGetRevision() (int, error) {
-	rev := s.ExecCilium("policy get -o json | jq '.revision'")
+	rev := s.ExecCilium("policy get -o json | jq -M '.revision'")
 	return rev.IntOutput()
 }
 

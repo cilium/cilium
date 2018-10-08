@@ -1193,7 +1193,7 @@ var _ = Describe("RuntimePolicies", func() {
 
 			By("Detecting host IP in world CIDR")
 
-			// docker network inspect bridge | jq -r '.[0]."IPAM"."Config"[0]."Gateway"'
+			// docker network inspect bridge | jq -M -r '.[0]."IPAM"."Config"[0]."Gateway"'
 			res = vm.NetworkGet("bridge")
 			res.ExpectSuccess("No docker bridge available for testing egress CIDR within host")
 			filter := fmt.Sprintf(`{ [0].IPAM.Config[0].Gateway }`)
