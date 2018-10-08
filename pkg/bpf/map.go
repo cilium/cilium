@@ -808,7 +808,7 @@ func (m *Map) DeleteAll() error {
 		if err2 == nil {
 			m.deleteCacheEntry(k, err)
 		} else {
-			log.WithError(err2).Warning("Unable to correlate iteration key %v with cache entry. Inconsistent cache.", nextKey)
+			log.WithError(err2).Warningf("Unable to correlate iteration key %v with cache entry. Inconsistent cache.", nextKey)
 		}
 
 		if err != nil {
