@@ -240,7 +240,7 @@ func (m *Monitor) dumpStat() {
 	c := int64(m.monitorEvents.Cpus)
 	n := int64(m.monitorEvents.Npages)
 	p := int64(m.monitorEvents.Pagesize)
-	l, u := m.monitorEvents.Stats()
+	l, _, u := m.monitorEvents.Stats()
 	ms := models.MonitorStatus{Cpus: c, Npages: n, Pagesize: p, Lost: int64(l), Unknown: int64(u)}
 
 	mp, err := json.Marshal(ms)
