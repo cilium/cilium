@@ -95,6 +95,14 @@ func WithTimeout(timeout time.Duration, prog string, args ...string) *Cmd {
 	return cmd
 }
 
+// WithCancel creates a Cmd with a context that can be cancelled by calling the
+// resulting Cancel() function.
+func WithCancel(ctx context.Context, prog string, args ...string) (*Cmd, context.CancelFunc) {
+	newCtx, cancel := context.WithCancel(ctx)
+	cmd := CommandContext(newCtx, prog, args...)
+	return cmd, cancel
+}
+
 // WithFilters modifies the specified command to filter any output lines from
 // logs if they contain any of the substrings specified as arguments to this
 // function.
