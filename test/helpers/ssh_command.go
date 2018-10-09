@@ -188,11 +188,11 @@ func (client *SSHClient) RunCommand(cmd *SSHCommand) error {
 	return runCommand(session, cmd)
 }
 
-// RunCommandContextCancel runs an SSH command in a similar way to
+// RunCommandInBackground runs an SSH command in a similar way to
 // RunCommandContext, but with a context which allows the command to be
 // cancelled at any time. When cancel is called the error of the command is
 // returned instead the context error.
-func (client *SSHClient) RunCommandContextCancel(ctx context.Context, cmd *SSHCommand) error {
+func (client *SSHClient) RunCommandInBackground(ctx context.Context, cmd *SSHCommand) error {
 	if ctx == nil {
 		panic("nil context provided to RunCommandContext()")
 	}
@@ -241,7 +241,41 @@ func (client *SSHClient) RunCommandContextCancel(ctx context.Context, cmd *SSHCo
 // a context. If context is canceled it will return the error of that given
 // context.
 func (client *SSHClient) RunCommandContext(ctx context.Context, cmd *SSHCommand) error {
-	err := client.RunCommandContextCancel(ctx, cmd)
+	if ctx == nil {
+		panic("nil context provided to RunCommandContext()")
+	}
+
+	session, err := client.newSession()
+	if err != nil {
+		return err
+	}
+	defer session.Close()
+
+	stdin, err := session.StdinPipe()
+	if err != nil {
+		log.Errorf("Could not get stdin", err)
+	}
+
+	go func() {
+		select {
+		case <-ctx.Done():
+			_, err := stdin.Write([]byte{3})
+			if err != nil {
+				log.Errorf("write ^C error:", err)
+			}
+			err = session.Wait()
+			if err != nil {
+				log.Errorf("wait error:", err)
+			}
+			if err = session.Signal(ssh.SIGHUP); err != nil {
+				log.Errorf("failed to kill command: %s", err)
+			}
+			if err = session.Close(); err != nil {
+				log.Errorf("failed to close session: %s", err)
+			}
+		}
+	}()
+	return runCommand(session, cmd)
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
