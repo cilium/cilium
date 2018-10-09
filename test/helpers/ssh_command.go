@@ -23,6 +23,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/kevinburke/ssh_config"
@@ -256,6 +257,8 @@ func (client *SSHClient) RunCommandContext(ctx context.Context, cmd *SSHCommand)
 		log.Errorf("Could not get stdin", err)
 	}
 
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
 		select {
 		case <-ctx.Done():
@@ -274,10 +277,13 @@ func (client *SSHClient) RunCommandContext(ctx context.Context, cmd *SSHCommand)
 				log.Errorf("failed to close session: %s", err)
 			}
 		}
+		wg.Done()
 	}()
 	return runCommand(session, cmd)
 	select {
 	case <-ctx.Done():
+		// Wait until the ssh session is stopped
+		wg.Wait()
 		return ctx.Err()
 	default:
 		return err
