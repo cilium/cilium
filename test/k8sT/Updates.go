@@ -30,6 +30,9 @@ var _ = Describe("K8sUpdates", func() {
 		kubectl *helpers.Kubectl
 
 		cleanupCallback = func() { return }
+
+		tcpdumpCancel = func() error { return nil }
+		tcpdumpErr    error
 	)
 
 	BeforeAll(func() {
@@ -62,6 +65,12 @@ var _ = Describe("K8sUpdates", func() {
 
 	JustAfterEach(func() {
 		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+		Expect(tcpdumpCancel()).To(BeNil(), "cannot stoped tcpdump")
+	})
+
+	JustBeforeEach(func() {
+		tcpdumpErr, tcpdumpCancel = kubectl.TcpdumpStart()
+		Expect(tcpdumpErr).To(BeNil(), "tcpdump cannot be started")
 	})
 
 	AfterEach(func() {
