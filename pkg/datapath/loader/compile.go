@@ -124,45 +124,48 @@ func prepareCmdPipes(cmd *exec.Cmd) (io.ReadCloser, io.ReadCloser, error) {
 
 // compileAndLink links the specified program from the specified path to the
 // intermediate representation, to the output specified in the prog's info.
-func compileAndLink(ctx context.Context, prog *progInfo, dir *directoryInfo, compileCmd *exec.Cmd, debug bool) error {
+func compileAndLink(ctx context.Context, prog *progInfo, dir *directoryInfo, debug bool, compileArgs ...string) error {
+	compileCmd, cancelCompile := exec.WithCancel(ctx, compiler, compileArgs...)
+	defer cancelCompile()
 	compilerStdout, compilerStderr, err := prepareCmdPipes(compileCmd)
 	if err != nil {
 		return err
 	}
 
-	args := make([]string, 0, 8)
+	linkArgs := make([]string, 0, 8)
 	if debug {
-		args = append(args, "-mattr=dwarfris")
+		linkArgs = append(linkArgs, "-mattr=dwarfris")
 	}
-	args = append(args, standardLDFlags...)
-	args = append(args, progLDFlags(prog, dir)...)
+	linkArgs = append(linkArgs, standardLDFlags...)
+	linkArgs = append(linkArgs, progLDFlags(prog, dir)...)
 
-	linkCmd := exec.CommandContext(ctx, linker, args...)
+	linkCmd := exec.CommandContext(ctx, linker, linkArgs...)
 	linkCmd.Stdin = compilerStdout
 	if err := compileCmd.Start(); err != nil {
-		return fmt.Errorf("Failed to start command: %s", err)
+		return fmt.Errorf("Failed to start command %s: %s", compileCmd.Args, err)
 	}
 
-	_, linkErr := linkCmd.CombinedOutput(log, true)
-	compileOut, compileErr := ioutil.ReadAll(compilerStderr)
-	err = compileCmd.Wait()
-	if err != nil || compileErr != nil || linkErr != nil {
-		if err == nil {
-			err = compileErr
-		}
-		if err == nil {
-			err = linkErr
-		}
+	var compileOut []byte
+	/* Ignoring the output here because pkg/command/exec will log it. */
+	_, err = linkCmd.CombinedOutput(log, true)
+	if err == nil {
+		compileOut, _ = ioutil.ReadAll(compilerStderr)
+		err = compileCmd.Wait()
+	} else {
+		cancelCompile()
+	}
+	if err != nil {
 		err = fmt.Errorf("Failed to compile %s: %s", prog.Output, err)
-
 		log.Error(err)
-		scopedLog := log.Warn
-		if debug {
-			scopedLog = log.Debug
-		}
-		scanner := bufio.NewScanner(bytes.NewReader(compileOut))
-		for scanner.Scan() {
-			scopedLog(scanner.Text())
+		if compileOut != nil {
+			scopedLog := log.Warn
+			if debug {
+				scopedLog = log.Debug
+			}
+			scanner := bufio.NewScanner(bytes.NewReader(compileOut))
+			for scanner.Scan() {
+				scopedLog(scanner.Text())
+			}
 		}
 	}
 
@@ -208,16 +211,15 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo, debug bool
 		"target": compiler,
 		"args":   args,
 	}).Debug("Launching compiler")
-	compileCmd := exec.CommandContext(ctx, compiler, args...)
-
 	if prog.OutputType == outputSource {
+		compileCmd := exec.CommandContext(ctx, compiler, args...)
 		_, err = compileCmd.CombinedOutput(log, debug)
 	} else {
 		switch prog.OutputType {
 		case outputObject:
-			err = compileAndLink(ctx, prog, dir, compileCmd, debug)
+			err = compileAndLink(ctx, prog, dir, debug, args...)
 		case outputAssembly:
-			err = compileAndLink(ctx, prog, dir, compileCmd, false)
+			err = compileAndLink(ctx, prog, dir, false, args...)
 		default:
 			log.Fatalf("Unhandled progInfo.OutputType %s", prog.OutputType)
 		}
