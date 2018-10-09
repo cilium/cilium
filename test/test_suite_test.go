@@ -232,6 +232,7 @@ var _ = BeforeAll(func() {
 		}
 		kubectl := helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		kubectl.Apply(helpers.GetFilePath("../examples/kubernetes/addons/prometheus/prometheus.yaml"))
+		kubectl.Apply(helpers.ManifestGet(helpers.TcpdumpManifest))
 
 		// deploy Cilium etcd operator
 		kubectl.DeployETCDOperator()
@@ -312,5 +313,14 @@ var _ = AfterEach(func() {
 			return
 		}
 		_ = os.Remove(filepath.Join(testPath, helpers.MonitorLogFileName))
+
+		// Removed all tcpdump files
+		tcpdumpFiles, err := filepath.Glob(fmt.Sprintf("%s/%s-*.log", testPath, helpers.Tcpdump))
+		if err != nil {
+			return
+		}
+		for _, file := range tcpdumpFiles {
+			_ = os.Remove(file)
+		}
 	}
 })
