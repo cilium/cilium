@@ -172,7 +172,8 @@ func (kub *Kubectl) ExecKafkaPodCmd(namespace string, pod string, arg string) er
 			res.GetCmd(), res.OutputPrettyPrint())
 	}
 
-	if strings.Contains(res.GetStdErr(), "ERROR") {
+	if strings.Contains(res.GetStdErr(), "ERROR") ||
+		strings.Contains(res.GetStdOut(), "ERROR") {
 		return fmt.Errorf("ExecKafkaPodCmd: command '%s' failed '%s'",
 			res.GetCmd(), res.OutputPrettyPrint())
 	}
