@@ -25,18 +25,31 @@ package bpf
 #include <sys/resource.h>
 #include <stdlib.h>
 
+// Only x64 and arm64 right now, but trivial to extend.
+#if defined(__x86_64__)
+# define mb()           asm volatile("mfence" ::: "memory")
+# define rmb()          asm volatile("lfence" ::: "memory")
+#elif defined(__aarch64__)
+# define mb()           asm volatile("dmb ish" ::: "memory")
+# define rmb()          asm volatile("dmb ishld" ::: "memory")
+#else
+# error "Please define mb(), rmb() barriers!"
+#endif
+
+#define READ_ONCE_64(x)	*((volatile uint64_t *) &x)
+
 void create_perf_event_attr(int type, int config, int sample_type,
 			    int wakeup_events, void *attr)
 {
-	struct perf_event_attr *ptr = (struct perf_event_attr *) attr;
+	struct perf_event_attr *ptr = attr;
 
 	memset(ptr, 0, sizeof(*ptr));
 
 	ptr->type = type;
 	ptr->config = config;
 	ptr->sample_type = sample_type;
+	ptr->sample_period = 1;
 	ptr->wakeup_events = wakeup_events;
-
 }
 
 static void dump_data(uint8_t *data, size_t size, int cpu)
@@ -56,74 +69,119 @@ struct event_sample {
 };
 
 struct read_state {
-	size_t raw_size;
-	void *base, *begin, *end, *head;
+	void *base;
+	uint64_t raw_size;
+	uint64_t last_size;
 };
 
-int perf_event_read_init(int page_count, int page_size, void *_header, void *_state)
+// Contract with kernel/user space on perf ring buffer. From
+// kernel/events/ring_buffer.c:
+//
+//   kernel                             user
+//
+//   if (LOAD ->data_tail) {            LOAD ->data_head
+//                      (A)             smp_rmb()       (C)
+//      STORE $data                     LOAD $data
+//      smp_wmb()       (B)             smp_mb()        (D)
+//      STORE ->data_head               STORE ->data_tail
+//   }
+//
+// Where A pairs with D, and B pairs with C.
+//
+// In our case (A) is a control dependency that separates the load
+// of the ->data_tail and the stores of $data. In case ->data_tail
+// indicates there is no room in the buffer to store $data we do
+// not. D needs to be a full barrier since it separates the data
+// READ from the tail WRITE. For B a WMB is sufficient since it
+// separates two WRITEs, and for C an RMB is sufficient since it
+// separates two READs.
+
+static inline uint64_t perf_read_head(struct perf_event_mmap_page *up)
 {
-	volatile struct perf_event_mmap_page *header = _header;
-	struct read_state *state = _state;
-	uint64_t data_tail = header->data_tail;
-	uint64_t data_head = *((volatile uint64_t *) &header->data_head);
-
-	__sync_synchronize();
-	if (data_head == data_tail)
-		return 0;
-
-	state->head = (void *) data_head;
-	state->raw_size = page_count * page_size;
-	state->base  = ((uint8_t *)header) + page_size;
-	state->begin = state->base + data_tail % state->raw_size;
-	state->end   = state->base + data_head % state->raw_size;
-
-	return state->begin != state->end;
+	uint64_t data_head = READ_ONCE_64(up->data_head);
+	rmb();
+	return data_head;
 }
 
-int perf_event_read(void *_state, void *buf, void *_msg, void *_sample, void *_lost)
+static inline void perf_write_tail(struct perf_event_mmap_page *up,
+				   uint64_t data_tail)
 {
-	void **msg = (void **) _msg;
-	void **sample = (void **) _sample;
-	void **lost = (void **) _lost;
-	struct read_state *state = _state;
-	struct event_sample *e = state->begin;
+	mb();
+	up->data_tail = data_tail;
+}
 
-	if (state->begin == state->end)
+int perf_event_read_init(int page_count, int page_size, void *_page,
+			 void *_state)
+{
+	struct perf_event_mmap_page *up = _page;
+	struct read_state *state = _state;
+	uint64_t data_tail = up->data_tail;
+
+	if (perf_read_head(up) == data_tail)
 		return 0;
 
-	if (state->begin + e->header.size > state->base + state->raw_size) {
-		uint64_t len = state->base + state->raw_size - state->begin;
+	state->raw_size = page_count * page_size;
+	state->base = ((uint8_t *)up) + page_size;
+	state->last_size = 0;
 
-		memcpy(buf, state->begin, len);
-		memcpy((char *) buf + len, state->base, e->header.size - len);
+	return 1;
+}
 
-		e = buf;
-		state->begin = state->base + e->header.size - len;
-	} else if (state->begin + e->header.size == state->base + state->raw_size) {
-		state->begin = state->base;
-	} else {
-		state->begin += e->header.size;
+int perf_event_read(int page_size, void *_page, void *_state,
+		    void *_buf, void *_msg, void *_sample, void *_lost)
+{
+	struct perf_event_mmap_page *up = _page;
+	struct read_state *state = _state;
+	void **sample = (void **) _sample;
+	void **lost = (void **) _lost;
+	void **msg = (void **) _msg;
+	void **buf = (void **) _buf;
+	uint64_t e_size, data_tail;
+	struct event_sample *e;
+	int trunc = 0;
+	void *begin;
+
+	data_tail = up->data_tail + state->last_size;
+	perf_write_tail(up, data_tail);
+	if (perf_read_head(up) == data_tail)
+		return 0;
+
+	// raw_size is guaranteed power of 2
+	e = begin = state->base + (data_tail & (state->raw_size - 1));
+	e_size = state->last_size = e->header.size;
+	if (begin + e_size > state->base + state->raw_size) {
+		uint64_t len = state->base + state->raw_size - begin;
+		uint64_t len_first, len_secnd;
+		void *ptr = *buf;
+
+		// For small sizes, we just go with prealloc'ed buffer.
+		if (e_size > page_size) {
+			ptr = realloc(*buf, e_size);
+			if (!ptr) {
+				ptr = *buf;
+				trunc = 1;
+			} else {
+				*buf = ptr;
+			}
+		}
+
+		len_first = trunc ? (len <= page_size ? len : page_size) : len;
+		memcpy(ptr, begin, len_first);
+		len_secnd = trunc ? (page_size - len_first) : e_size - len;
+		memcpy(ptr + len_first, state->base, len_secnd);
+		e = ptr;
 	}
 
 	*msg = e;
-
 	if (e->header.type == PERF_RECORD_SAMPLE) {
 		*sample = e;
 	} else if (e->header.type == PERF_RECORD_LOST) {
 		*lost = e;
 	}
 
-	return 1;
+	return 1 + trunc;
 }
 
-void perf_event_read_finish(void *_header, void *_state)
-{
-	volatile struct perf_event_mmap_page *header = _header;
-	struct read_state *state = _state;
-
-	__sync_synchronize();
-	header->data_tail = (uint64_t) state->head;
-}
 */
 import "C"
 
@@ -199,12 +257,13 @@ type PerfEvent struct {
 	pagesize int
 	npages   int
 	lost     uint64
+	trunc    uint64
 	unknown  uint64
 	data     []byte
 	// state is placed here to reduce memory allocations
 	state unsafe.Pointer
 	// buf is placed here to reduce memory allocations
-	buf [256]byte
+	buf unsafe.Pointer
 }
 
 // PerfEventHeader must match 'struct perf_event_header in <linux/perf_event.h>.
@@ -269,13 +328,17 @@ func PerfEventOpen(config *PerfEventConfig, pid int, cpu int, groupFD int, flags
 }
 
 func (e *PerfEvent) Mmap(pagesize int, npages int) error {
+	datasize := uint32(pagesize) * uint32(npages)
+	if (datasize & (datasize - 1)) != 0 {
+		return fmt.Errorf("Unable to mmap perf event: ring size not power of 2")
+	}
+
 	size := pagesize * (npages + 1)
 	data, err := unix.Mmap(e.Fd,
 		0,
 		size,
 		unix.PROT_READ|unix.PROT_WRITE,
 		unix.MAP_SHARED)
-
 	if err != nil {
 		return fmt.Errorf("Unable to mmap perf event: %s", err)
 	}
@@ -287,24 +350,48 @@ func (e *PerfEvent) Mmap(pagesize int, npages int) error {
 	return nil
 }
 
+func (e *PerfEvent) Munmap() error {
+	return unix.Munmap(e.data)
+}
+
 func (e *PerfEvent) Enable() error {
+	e.state = C.malloc(C.size_t(unsafe.Sizeof(C.struct_read_state{})))
+	if e.state == nil {
+		return fmt.Errorf("Unable to enable perf event: cannot allocate buffers")
+	}
+
+	e.buf = C.malloc(C.size_t(e.pagesize))
+	if e.buf == nil {
+		C.free(e.state)
+		return fmt.Errorf("Unable to enable perf event: cannot allocate buffers")
+	}
+
 	if err := unix.IoctlSetInt(e.Fd, unix.PERF_EVENT_IOC_ENABLE, 0); err != nil {
+		C.free(e.state)
+		C.free(e.buf)
 		return fmt.Errorf("Unable to enable perf event: %v", err)
 	}
-	e.state = C.malloc(C.size_t(unsafe.Sizeof(C.struct_read_state{})))
+
 	return nil
 }
 
 func (e *PerfEvent) Disable() error {
+	var ret error
+
 	if e == nil {
 		return nil
 	}
 
-	C.free(e.state)
+	// Does not fail in perf's kernel-side ioctl handler, but even if
+	// there's not much we can do here ...
+	ret = nil
 	if err := unix.IoctlSetInt(e.Fd, unix.PERF_EVENT_IOC_DISABLE, 0); err != nil {
-		return fmt.Errorf("Unable to disable perf event: %v", err)
+		ret = fmt.Errorf("Unable to disable perf event: %v", err)
 	}
-	return nil
+
+	C.free(e.buf)
+	C.free(e.state)
+	return ret
 }
 
 func (e *PerfEvent) Read(receive ReceiveFunc, lostFn LostFunc) {
@@ -322,13 +409,19 @@ func (e *PerfEvent) Read(receive ReceiveFunc, lostFn LostFunc) {
 			msg    *PerfEventHeader
 			sample *PerfEventSample
 			lost   *PerfEventLost
+			ok     C.int
 		)
 
-		if ok := C.perf_event_read(unsafe.Pointer(e.state),
-			unsafe.Pointer(&e.buf[0]), unsafe.Pointer(&msg), unsafe.Pointer(&sample), unsafe.Pointer(&lost)); ok == 0 {
+		if ok = C.perf_event_read(C.int(e.pagesize),
+			unsafe.Pointer(&e.data[0]), unsafe.Pointer(e.state),
+			unsafe.Pointer(&e.buf), unsafe.Pointer(&msg),
+			unsafe.Pointer(&sample), unsafe.Pointer(&lost)); ok == 0 {
 			break
 		}
 
+		if ok == 2 {
+			e.trunc++
+		}
 		if msg.Type == C.PERF_RECORD_SAMPLE {
 			receive(sample, e.cpu)
 		} else if msg.Type == C.PERF_RECORD_LOST {
@@ -340,9 +433,6 @@ func (e *PerfEvent) Read(receive ReceiveFunc, lostFn LostFunc) {
 			e.unknown++
 		}
 	}
-
-	// Move ring buffer tail pointer
-	C.perf_event_read_finish(unsafe.Pointer(&e.data[0]), unsafe.Pointer(e.state))
 }
 
 func (e *PerfEvent) Close() {
@@ -498,15 +588,16 @@ func (e *PerCpuEvents) ReadAll(receive ReceiveFunc, lost LostFunc) error {
 	return nil
 }
 
-func (e *PerCpuEvents) Stats() (uint64, uint64) {
-	var lost, unknown uint64
+func (e *PerCpuEvents) Stats() (uint64, uint64, uint64) {
+	var lost, trunc, unknown uint64
 
 	for _, event := range e.event {
 		lost += event.lost
+		trunc += event.trunc
 		unknown += event.unknown
 	}
 
-	return lost, unknown
+	return lost, trunc, unknown
 }
 
 func (e *PerCpuEvents) CloseAll() error {
@@ -520,6 +611,7 @@ func (e *PerCpuEvents) CloseAll() error {
 			retErr = err
 		}
 
+		event.Munmap()
 		event.Close()
 	}
 
