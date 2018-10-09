@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,6 +25,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+
+	"github.com/sirupsen/logrus"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "pidfile")
@@ -54,7 +56,7 @@ func Write(path string) error {
 
 // kill parses the PID in the provided slice and attempts to kill the process
 // associated with that PID.
-func kill(buf []byte) error {
+func kill(buf []byte, pidfile string) error {
 	pidStr := strings.TrimSpace(string(buf))
 	pid, err := strconv.Atoi(pidStr)
 	if err != nil {
@@ -70,6 +72,10 @@ func kill(buf []byte) error {
 	//
 	// It could return "os: process already finished", so just log it at
 	// a low level and ignore the error.
+	log.WithFields(logrus.Fields{
+		"pid":     pid,
+		"pidfile": pidfile,
+	}).Info("Killing old process")
 	if err := oldProc.Kill(); err != nil {
 		log.WithError(err).Debug("Ignoring process kill failure")
 	}
@@ -97,7 +103,7 @@ func Kill(pidfilePath string) error {
 		return err
 	}
 
-	if err := kill(pidfile); err != nil {
+	if err := kill(pidfile, pidfilePath); err != nil {
 		return err
 	}
 
