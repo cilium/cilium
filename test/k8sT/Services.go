@@ -33,7 +33,9 @@ var _ = Describe("K8sServicesTest", func() {
 		kubectl          *helpers.Kubectl
 		serviceName      = "app1-service"
 		microscopeErr    error
-		microscopeCancel                    = func() error { return nil }
+		microscopeCancel = func() error { return nil }
+		tcpdumpErr       error
+		tcpdumpCancel                       = func() error { return nil }
 		backgroundCancel context.CancelFunc = func() { return }
 		backgroundError  error
 		ciliumPodK8s1    string
@@ -68,11 +70,14 @@ var _ = Describe("K8sServicesTest", func() {
 		Expect(microscopeErr).To(BeNil(), "Microscope cannot be started")
 		backgroundCancel, backgroundError = kubectl.BackgroundReport("uptime")
 		Expect(backgroundError).To(BeNil(), "Cannot start background report process")
+		tcpdumpErr, tcpdumpCancel = kubectl.TcpdumpStart()
+		Expect(tcpdumpErr).To(BeNil(), "tcpdump cannot be started")
 	})
 
 	JustAfterEach(func() {
 		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 		Expect(microscopeCancel()).To(BeNil(), "cannot stop microscope")
+		Expect(tcpdumpCancel()).To(BeNil(), "cannot stop tcpdump")
 		backgroundCancel()
 	})
 

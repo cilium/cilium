@@ -1,0 +1,47 @@
+---
+apiVersion: apps/v1beta2
+kind: DaemonSet
+metadata:
+  name: tcpdump
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      k8s-app: tcpdump
+  template:
+    metadata:
+      labels:
+        k8s-app: tcpdump
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ''
+        scheduler.alpha.kubernetes.io/tolerations: >-
+          [{"key":"dedicated","operator":"Equal","value":"master","effect":"NoSchedule"}]
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+    spec:
+      containers:
+        - image: docker.io/corfr/tcpdump:latest
+          imagePullPolicy: IfNotPresent
+          name: tcpdump
+          command: ["sleep"]
+          args:
+            - "1000h"
+          securityContext:
+            capabilities:
+              add:
+                - "NET_ADMIN"
+            privileged: true
+            allowPrivilegeEscalation: true
+      hostNetwork: true
+      restartPolicy: Always
+      priorityClassName: system-node-critical
+      tolerations:
+        - effect: NoSchedule
+          key: node.kubernetes.io/not-ready
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/master
+        - effect: NoSchedule
+          key: node.cloudprovider.kubernetes.io/uninitialized
+          value: "true"
+        - key: CriticalAddonsOnly
+          operator: "Exists"

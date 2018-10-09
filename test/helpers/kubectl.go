@@ -451,6 +451,61 @@ func (kub *Kubectl) MicroscopeStart(microscopeOptions ...string) (error, func() 
 	return nil, cb
 }
 
+// TcpdumpStart runs tcpdump on all tcpdumps pods and return a callback
+// function to close the tcpdump and store the logs in test result folder
+func (kub *Kubectl) TcpdumpStart() (error, func() error) {
+	var tcpDumpCmd = fmt.Sprintf("%s -n -i any not port 22", Tcpdump)
+	var cb = func() error { return nil }
+
+	_ = kub.Apply(ManifestGet(TcpdumpManifest))
+
+	err := kub.WaitforPods(
+		KubeSystemNamespace,
+		fmt.Sprintf("-l k8s-app=%s", Tcpdump),
+		300)
+	if err != nil {
+		return err, cb
+	}
+
+	pods, err := kub.GetPodNames(KubeSystemNamespace, fmt.Sprintf("k8s-app=%s", Tcpdump))
+	if err != nil {
+		return err, cb
+	}
+	tcpdumpCmdsResponses := map[string]*CmdRes{}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	for _, pod := range pods {
+		cmd := fmt.Sprintf("%s -n %s exec %s -ti -- %s",
+			KubectlCmd, KubeSystemNamespace, pod, tcpDumpCmd)
+		tcpdumpCmdsResponses[pod] = kub.ExecContext(ctx, cmd, ExecOptions{SkipLog: true})
+	}
+
+	cb = func() error {
+		cancel()
+		testPath, err := CreateReportDirectory()
+		if err != nil {
+			kub.logger.WithError(err).Errorf(
+				"cannot create test results path '%s'", testPath)
+			return err
+		}
+
+		for pod, response := range tcpdumpCmdsResponses {
+			response.WaitUntilFinish()
+			filename := fmt.Sprintf("%s-%s.log", Tcpdump, pod)
+			err = WriteOrAppendToFile(
+				filepath.Join(testPath, filename),
+				response.CombineOutput().Bytes(),
+				LogPerm)
+			if err != nil {
+				kub.logger.WithError(err).Errorf("cannot create tcpdump log file")
+			}
+		}
+		return nil
+	}
+	return nil, cb
+}
+
 // BackgroundReport dumps the result of the given commands on cilium pods each
 // five seconds.
 func (kub *Kubectl) BackgroundReport(commands ...string) (context.CancelFunc, error) {

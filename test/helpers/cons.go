@@ -181,6 +181,8 @@ const (
 
 	MonitorLogFileName = "monitor.log"
 	microscopeManifest = "microscope.yaml"
+	TcpdumpManifest    = "tcpdump.yaml"
+	Tcpdump            = "tcpdump"
 
 	// CiliumTestLog is the filename where the cilium logs that happens during
 	// the test are saved.
