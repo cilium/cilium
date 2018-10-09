@@ -480,10 +480,11 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 
 	ctCleaned := make(chan struct{})
 
-	if err = e.LockAlive(); err != nil {
+	err = e.LockAlive()
+	stats.waitingForLock.End(err == nil)
+	if err != nil {
 		return 0, compilationExecuted, err
 	}
-	stats.waitingForLock.End()
 
 	epID := e.StringID()
 
@@ -588,11 +589,11 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 	if e.SecurityIdentity != nil {
 		stats.policyCalculation.Start()
 		err = e.regeneratePolicy(owner)
+		stats.policyCalculation.End(err == nil)
 		if err != nil {
 			e.Unlock()
 			return 0, compilationExecuted, fmt.Errorf("unable to regenerate policy for '%s': %s", e.PolicyMap.String(), err)
 		}
-		stats.policyCalculation.End()
 
 		_ = e.updateAndOverrideEndpointOptions(nil)
 
@@ -604,21 +605,21 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 		// with the old one.
 		stats.mapSync.Start()
 		err := e.syncPolicyMap()
+		stats.mapSync.End(err == nil)
 		if err != nil {
 			e.Unlock()
 			return 0, compilationExecuted, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %s", err)
 		}
-		stats.mapSync.End()
 
 		// Configure the new network policy with the proxies.
 		stats.proxyPolicyCalculation.Start()
 		var networkPolicyRevertFunc revert.RevertFunc
 		err, networkPolicyRevertFunc = e.updateNetworkPolicy(owner, proxyWaitGroup)
+		stats.proxyPolicyCalculation.End(err == nil)
 		if err != nil {
 			e.Unlock()
 			return 0, compilationExecuted, err
 		}
-		stats.proxyPolicyCalculation.End()
 
 		revertStack.Push(networkPolicyRevertFunc)
 	}
@@ -632,6 +633,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 	if e.DesiredL4Policy != nil {
 		desiredRedirects, err, finalizeFunc, revertFunc = e.addNewRedirects(owner, e.DesiredL4Policy, proxyWaitGroup)
 		if err != nil {
+			stats.proxyConfiguration.End(false)
 			e.Unlock()
 			return 0, compilationExecuted, err
 		}
@@ -644,13 +646,14 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 	finalizeFunc, revertFunc = e.removeOldRedirects(owner, desiredRedirects, proxyWaitGroup)
 	finalizeList.Append(finalizeFunc)
 	revertStack.Push(revertFunc)
-	stats.proxyConfiguration.End()
+	stats.proxyConfiguration.End(true)
 
 	stats.prepareBuild.Start()
 
 	// Generate header file specific to this endpoint for use in compiling
 	// BPF programs for this endpoint.
 	if err = e.writeHeaderfile(nextDir, owner); err != nil {
+		stats.prepareBuild.End(false)
 		e.Unlock()
 		return 0, compilationExecuted, fmt.Errorf("unable to write header file: %s", err)
 	}
@@ -678,6 +681,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 		epInfoCache = e.createEpInfoCache(currentDir)
 	}
 	if epInfoCache == nil {
+		stats.prepareBuild.End(false)
 		e.Unlock()
 		err = fmt.Errorf("Unable to cache endpoint information")
 		return 0, compilationExecuted, err
@@ -693,7 +697,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 
 	e.getLogger().WithField("bpfHeaderfilesChanged", bpfHeaderfilesChanged).Debug("Preparing to compile BPF")
 
-	stats.prepareBuild.End()
+	stats.prepareBuild.End(true)
 	if bpfHeaderfilesChanged || regenContext.ReloadDatapath {
 		closeChan := loadinfo.LogPeriodicSystemLoad(log.WithFields(logrus.Fields{logfields.EndpointID: epID}).Debugf, time.Second)
 
@@ -702,7 +706,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 		if bpfHeaderfilesChanged {
 			stats.bpfCompilation.Start()
 			err = loader.CompileAndLoad(ctx, epInfoCache)
-			stats.bpfCompilation.End()
+			stats.bpfCompilation.End(err == nil)
 			e.getLogger().WithError(err).
 				WithField(logfields.BPFCompilationTime, stats.bpfCompilation.Total().String()).
 				Info("Recompiled endpoint BPF program")
@@ -725,21 +729,22 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 
 	stats.proxyWaitForAck.Start()
 	err = e.WaitForProxyCompletions(proxyWaitGroup)
+	stats.proxyWaitForAck.End(err == nil)
 	if err != nil {
 		return 0, compilationExecuted, fmt.Errorf("Error while configuring proxy redirects: %s", err)
 	}
-	stats.proxyWaitForAck.End()
 
 	// Wait for connection tracking cleaning to be complete
 	stats.waitingForCTClean.Start()
 	<-ctCleaned
-	stats.waitingForCTClean.End()
+	stats.waitingForCTClean.End(true)
 
 	stats.waitingForLock.Start()
-	if err = e.LockAlive(); err != nil {
+	err = e.LockAlive()
+	stats.waitingForLock.End(err == nil)
+	if err != nil {
 		return 0, compilationExecuted, err
 	}
-	stats.waitingForLock.End()
 	defer e.Unlock()
 
 	e.ctCleaned = true
@@ -756,6 +761,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 	stats.mapSync.Start()
 	err = e.syncPolicyMap()
 	if err != nil {
+		stats.mapSync.End(false)
 		return 0, compilationExecuted, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %s", err)
 	}
 
@@ -764,7 +770,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 	if err != nil {
 		log.WithField(logfields.EndpointID, e.ID).WithError(err).Error("Exposing new bpf failed")
 	}
-	stats.mapSync.End()
+	stats.mapSync.End(true)
 
 	return epInfoCache.revision, compilationExecuted, err
 }

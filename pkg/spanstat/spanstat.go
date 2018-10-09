@@ -19,10 +19,11 @@ import (
 )
 
 // SpanStat measures the total duration of all time spent in between Start()
-// and Stop() calls
+// and Stop() calls.
 type SpanStat struct {
-	spanStart     time.Time
-	totalDuration time.Duration
+	spanStart       time.Time
+	successDuration time.Duration
+	failureDuration time.Duration
 }
 
 // Start starts a new span
@@ -31,19 +32,38 @@ func (s *SpanStat) Start() {
 }
 
 // End ends the current span and adds the measured duration to the total
-func (s *SpanStat) End() {
+// cumulated duration, and to the success or failure cumulated duration
+// depending on the given success flag
+func (s *SpanStat) End(success bool) {
 	if !s.spanStart.IsZero() {
-		s.totalDuration += time.Since(s.spanStart)
+		d := time.Since(s.spanStart)
+		if success {
+			s.successDuration += d
+		} else {
+			s.failureDuration += d
+		}
 	}
 	s.spanStart = time.Time{}
 }
 
-// Total returns the total duration of all spans measured
+// Total returns the total duration of all spans measured, including both
+// successes and failures
 func (s *SpanStat) Total() time.Duration {
-	return s.totalDuration
+	return s.successDuration + s.failureDuration
 }
 
-// Reset rests the duration measurement
+// SuccessTotal returns the total duration of all successful spans measured
+func (s *SpanStat) SuccessTotal() time.Duration {
+	return s.successDuration
+}
+
+// FailureTotal returns the total duration of all successful spans measured
+func (s *SpanStat) FailureTotal() time.Duration {
+	return s.failureDuration
+}
+
+// Reset rests the duration measurements
 func (s *SpanStat) Reset() {
-	s.totalDuration = 0
+	s.successDuration = 0
+	s.failureDuration = 0
 }

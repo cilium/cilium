@@ -166,12 +166,13 @@ var (
 		[]string{"endpoint_state"},
 	)
 
-	// EndpointRegenerationTimeStats is the total time taken to regenerate endpoint
+	// EndpointRegenerationTimeStats is the total time taken to regenerate
+	// endpoints, labeled by span name and status ("success" or "failure")
 	EndpointRegenerationTimeStats = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: Namespace,
 		Name:      "endpoint_regeneration_time_stats_seconds",
 		Help:      "Endpoint regeneration time stats labeled by the scope",
-	}, []string{LabelScope})
+	}, []string{LabelScope, LabelStatus})
 
 	// Policy
 

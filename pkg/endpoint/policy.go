@@ -677,8 +677,9 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 	}).Info("Regenerating endpoint")
 
 	defer func() {
-		stats.totalTime.End()
-		stats.success = retErr == nil
+		success := retErr == nil
+		stats.totalTime.End(success)
+		stats.success = success
 
 		e.mutex.RLock()
 		stats.endpointID = e.ID
@@ -715,10 +716,11 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 
 	stats.waitingForLock.Start()
 	// Check if endpoints is still alive before doing any build
-	if err = e.LockAlive(); err != nil {
+	err = e.LockAlive()
+	stats.waitingForLock.End(err == nil)
+	if err != nil {
 		return err
 	}
-	stats.waitingForLock.End()
 
 	// When building the initial drop policy in waiting-for-identity state
 	// the state remains unchanged
@@ -745,15 +747,17 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 	// Remove an eventual existing temporary directory that has been left
 	// over to make sure we can start the build from scratch
 	if err := e.removeDirectory(tmpDir); err != nil && !os.IsNotExist(err) {
+		stats.prepareBuild.End(false)
 		return fmt.Errorf("unable to remove old temporary directory: %s", err)
 	}
 
 	// Create temporary endpoint directory if it does not exist yet
 	if err := os.MkdirAll(tmpDir, 0777); err != nil {
+		stats.prepareBuild.End(false)
 		return fmt.Errorf("Failed to create endpoint directory: %s", err)
 	}
 
-	stats.prepareBuild.End()
+	stats.prepareBuild.End(true)
 
 	defer func() {
 		if err := e.LockAlive(); err != nil {
@@ -796,10 +800,11 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 	// in the datapath. PolicyMap state is not updated here, because that is
 	// performed in endpoint.syncPolicyMap().
 	stats.waitingForLock.Start()
-	if err = e.LockAlive(); err != nil {
+	err = e.LockAlive()
+	stats.waitingForLock.End(err == nil)
+	if err != nil {
 		return err
 	}
-	stats.waitingForLock.End()
 
 	// Depending upon result of BPF regeneration (compilation executed),
 	// shift endpoint directories to match said BPF regeneration
