@@ -232,6 +232,7 @@ var _ = BeforeAll(func() {
 		}
 		kubectl := helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		kubectl.Apply(helpers.GetFilePath("../examples/kubernetes/addons/prometheus/prometheus.yaml"))
+		kubectl.Apply(helpers.ManifestGet(helpers.TcpdumpManifest))
 
 		// deploy Cilium etcd operator
 		kubectl.DeployETCDOperator()

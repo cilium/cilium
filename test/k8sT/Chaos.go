@@ -30,6 +30,8 @@ var _ = Describe("K8sChaosTest", func() {
 		kubectl       *helpers.Kubectl
 		demoDSPath    = helpers.ManifestGet("demo_ds.yaml")
 		testDSService = "testds-service"
+		tcpdumpCancel = func() error { return nil }
+		tcpdumpErr    error
 	)
 
 	BeforeAll(func() {
@@ -55,8 +57,14 @@ var _ = Describe("K8sChaosTest", func() {
 			"cilium endpoint list")
 	})
 
+	JustBeforeEach(func() {
+		tcpdumpErr, tcpdumpCancel = kubectl.TcpDumpStart()
+		Expect(tcpdumpErr).To(BeNil(), "tcpdump cannot be started")
+	})
+
 	JustAfterEach(func() {
 		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+		Expect(tcpdumpCancel()).To(BeNil(), "cannot stoped tcpdump")
 	})
 
 	AfterAll(func() {
