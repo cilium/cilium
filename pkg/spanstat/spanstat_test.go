@@ -34,27 +34,46 @@ func (s *SpanStatTestSuite) TestSpanStat(c *C) {
 
 	// no spans measured yet
 	c.Assert(span1.Total(), Equals, time.Duration(0))
+	c.Assert(span1.SuccessTotal(), Equals, time.Duration(0))
+	c.Assert(span1.FailureTotal(), Equals, time.Duration(0))
 
 	// End() without Start()
-	span1.End()
+	span1.End(true)
 	c.Assert(span1.Total(), Equals, time.Duration(0))
+	c.Assert(span1.SuccessTotal(), Equals, time.Duration(0))
+	c.Assert(span1.FailureTotal(), Equals, time.Duration(0))
 
 	// Start() but no end yet
 	span1.Start()
 	c.Assert(span1.Total(), Equals, time.Duration(0))
+	c.Assert(span1.SuccessTotal(), Equals, time.Duration(0))
+	c.Assert(span1.FailureTotal(), Equals, time.Duration(0))
 
 	// First span measured with End()
-	span1.End()
-	firstSpanTotal := span1.Total()
-	c.Assert(firstSpanTotal, Not(Equals), time.Duration(0))
+	span1.End(true)
+	spanTotal1 := span1.Total()
+	spanSuccessTotal1 := span1.SuccessTotal()
+	spanFailureTotal1 := span1.FailureTotal()
+	c.Assert(span1.Total(), Not(Equals), time.Duration(0))
+	c.Assert(span1.SuccessTotal(), Not(Equals), time.Duration(0))
+	c.Assert(span1.FailureTotal(), Equals, time.Duration(0))
+	c.Assert(span1.Total(), Equals, span1.SuccessTotal()+span1.FailureTotal())
 
 	// End() without a prior Start(), no change
-	span1.End()
-	c.Assert(span1.Total(), Equals, firstSpanTotal)
+	span1.End(true)
+	c.Assert(span1.Total(), Equals, spanTotal1)
+	c.Assert(span1.SuccessTotal(), Equals, spanSuccessTotal1)
+	c.Assert(span1.FailureTotal(), Equals, spanFailureTotal1)
 
 	span1.Start()
-	span1.End()
-	c.Assert(span1.Total(), Not(Equals), firstSpanTotal)
-	c.Assert(span1.Total(), Not(Equals), time.Duration(0))
+	span1.End(false)
+	c.Assert(span1.Total(), Not(Equals), spanTotal1)
+	c.Assert(span1.SuccessTotal(), Equals, spanSuccessTotal1)
+	c.Assert(span1.FailureTotal(), Not(Equals), spanFailureTotal1)
+	c.Assert(span1.Total(), Equals, span1.SuccessTotal()+span1.FailureTotal())
 
+	span1.Reset()
+	c.Assert(span1.Total(), Equals, time.Duration(0))
+	c.Assert(span1.SuccessTotal(), Equals, time.Duration(0))
+	c.Assert(span1.FailureTotal(), Equals, time.Duration(0))
 }

@@ -15,14 +15,13 @@
 package endpoint
 
 import (
-	"math"
-	"sync"
-	"time"
-
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/spanstat"
+	"math"
+	"sync"
+	"time"
 )
 
 var (
@@ -62,24 +61,32 @@ func (s *regenerationStatistics) SendMetrics() {
 	metrics.EndpointRegenerationTime.Add(regenerateTimeSec)
 	metrics.EndpointRegenerationTimeSquare.Add(math.Pow(regenerateTimeSec, 2))
 
-	for scope, value := range s.GetMap() {
-		metrics.EndpointRegenerationTimeStats.WithLabelValues(scope).Observe(value.Seconds())
+	for scope, stat := range s.GetMap() {
+		// Skip scopes that have not been hit (zero duration), so the count in
+		// the histogram accurately reflects the number of times each scope is
+		// hit, and the distribution is not incorrectly skewed towards zero.
+		if stat.SuccessTotal() != time.Duration(0) {
+			metrics.EndpointRegenerationTimeStats.WithLabelValues(scope, "success").Observe(stat.SuccessTotal().Seconds())
+		}
+		if stat.FailureTotal() != time.Duration(0) {
+			metrics.EndpointRegenerationTimeStats.WithLabelValues(scope, "failure").Observe(stat.FailureTotal().Seconds())
+		}
 	}
 }
 
-// GetMap returns a map where the key is the stats name and the value is the duration of the stat.
-func (s *regenerationStatistics) GetMap() map[string]time.Duration {
-	return map[string]time.Duration{
-		"waitingForLock":         s.waitingForLock.Total(),
-		"waitingForCTClean":      s.waitingForCTClean.Total(),
-		"policyCalculation":      s.policyCalculation.Total(),
-		"proxyConfiguration":     s.proxyConfiguration.Total(),
-		"proxyPolicyCalculation": s.proxyPolicyCalculation.Total(),
-		"proxyWaitForAck":        s.proxyWaitForAck.Total(),
-		"bpfCompilation":         s.bpfCompilation.Total(),
-		"mapSync":                s.mapSync.Total(),
-		"prepareBuild":           s.prepareBuild.Total(),
-		logfields.BuildDuration:  s.totalTime.Total(),
+// GetMap returns a map which key is the stat name and the value is the stat
+func (s *regenerationStatistics) GetMap() map[string]*spanstat.SpanStat {
+	return map[string]*spanstat.SpanStat{
+		"waitingForLock":         &s.waitingForLock,
+		"waitingForCTClean":      &s.waitingForCTClean,
+		"policyCalculation":      &s.policyCalculation,
+		"proxyConfiguration":     &s.proxyConfiguration,
+		"proxyPolicyCalculation": &s.proxyPolicyCalculation,
+		"proxyWaitForAck":        &s.proxyWaitForAck,
+		"bpfCompilation":         &s.bpfCompilation,
+		"mapSync":                &s.mapSync,
+		"prepareBuild":           &s.prepareBuild,
+		logfields.BuildDuration:  &s.totalTime,
 	}
 }
 
