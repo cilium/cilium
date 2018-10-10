@@ -176,6 +176,9 @@ func (id *Identity) Release() error {
 func ReleaseSlice(identities []*Identity) error {
 	var err error
 	for _, id := range identities {
+		if id == nil {
+			continue
+		}
 		if err2 := id.Release(); err2 != nil {
 			log.WithError(err2).WithFields(logrus.Fields{
 				logfields.Identity: id,
