@@ -246,6 +246,9 @@ func upsertIPNetsToKVStore(prefixes []*net.IPNet, identities []*identity.Identit
 	}
 	for i, prefix := range prefixes {
 		id := identities[i]
+		if id == nil {
+			continue
+		}
 		err = upsertIPNetToKVStore(prefix, id)
 		if err != nil {
 			for j := 0; j < i; j++ {
