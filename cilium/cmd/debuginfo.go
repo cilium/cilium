@@ -16,15 +16,18 @@ package cmd
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	pkg "github.com/cilium/cilium/pkg/client"
@@ -42,13 +45,26 @@ const (
 	STDOUT outputType = 0 + iota
 	MARKDOWN
 	HTML
+	JSONOUTPUT
+	JSONPATH
+)
+
+var (
+	// Can't tall it jsonOutput because another var in this package uses that.
+	jsonOutputDebuginfo = "JSON"
+	markdownOutput      = "MARKDOWN"
+	htmlOutput          = "HTML"
+	jsonpathOutput      = "JSONPATH"
+	re                  = regexp.MustCompile(`^jsonpath\=(.*)`)
 )
 
 // outputTypes enum strings
 var outputTypes = [...]string{
 	"STDOUT",
-	"MARKDOWN",
-	"HTML",
+	markdownOutput,
+	htmlOutput,
+	jsonOutputDebuginfo,
+	jsonpathOutput,
 }
 
 var debuginfoCmd = &cobra.Command{
@@ -58,9 +74,10 @@ var debuginfoCmd = &cobra.Command{
 }
 
 var (
-	file           string
+	outputToFile   bool
 	html           string
 	filePerCommand bool
+	outputOpts     []string
 )
 
 type addSection func(*tabwriter.Writer, *models.DebugInfo)
@@ -78,10 +95,58 @@ var sections = map[string]addSection{
 
 func init() {
 	rootCmd.AddCommand(debuginfoCmd)
-	debuginfoCmd.Flags().StringVarP(&file, "file", "f", "", "Redirect output to file")
-	debuginfoCmd.Flags().StringVarP(&html, "html-file", "", "", "Convert default output to HTML file")
+	debuginfoCmd.Flags().BoolVarP(&outputToFile, "file", "f", false, "Redirect output to file(s)")
 	debuginfoCmd.Flags().BoolVarP(&filePerCommand, "file-per-command", "", false, "Generate a single file per command")
-	command.AddJSONOutput(debuginfoCmd)
+	debuginfoCmd.Flags().StringSliceVar(&outputOpts, "output", []string{}, "markdown| html| json| jsonpath='{}'")
+}
+
+func validateOutputOpts() {
+
+	for _, outputOpt := range outputOpts {
+		switch strings.ToUpper(outputOpt) {
+		case markdownOutput:
+		case htmlOutput:
+			if !outputToFile {
+				fmt.Fprintf(os.Stderr, "if HTML is specified as the output format, it is required that you provide the `--file` argument as well\n")
+				os.Exit(1)
+			}
+		case jsonOutputDebuginfo:
+			if filePerCommand {
+				fmt.Fprintf(os.Stderr, "%s does not support dumping a file per command; exiting\n", jsonOutputDebuginfo)
+				os.Exit(1)
+			}
+		case jsonpathOutput:
+			if filePerCommand {
+				fmt.Fprintf(os.Stderr, "%s does not support dumping a file per command; exiting\n", jsonpathOutput)
+				os.Exit(1)
+			}
+		default:
+			// Check to see if arg contains jsonpath filtering as well.
+			if re.MatchString(outputOpt) {
+				return
+			}
+			fmt.Fprintf(os.Stderr, "%s is not a valid output format; exiting\n", outputOpt)
+			os.Exit(1)
+		}
+	}
+}
+
+func formatFileName(cmdTime time.Time, outtype outputType) string {
+	var fileName string
+	timeStr := cmdTime.Format("20060102-150405.999-0700-MST")
+	switch outtype {
+	case MARKDOWN:
+		fileName = fmt.Sprintf("cilium-debuginfo-%s.md", timeStr)
+	case HTML:
+		fileName = fmt.Sprintf("cilium-debuginfo-%s.html", timeStr)
+	case JSONOUTPUT:
+		fileName = fmt.Sprintf("cilium-debuginfo-%s.json", timeStr)
+	case JSONPATH:
+		fileName = fmt.Sprintf("cilium-debuginfo-%s.jsonpath", timeStr)
+	default:
+		fileName = fmt.Sprintf("cilium-debuginfo-%s.md", timeStr)
+	}
+	return fileName
 }
 
 func runDebugInfo(cmd *cobra.Command, args []string) {
@@ -99,50 +164,85 @@ func runDebugInfo(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	// define output type and file path
+	validateOutputOpts()
 	var output outputType
-	var path string
-
-	switch {
-	case len(file) > 0: // Markdown file
-		output = MARKDOWN
-		path = file
-	case len(html) > 0: // HTML file
-		output = HTML
-		path = html
-	default: // Write to standard output
-		output = STDOUT
-	}
 
 	// create tab-writer to fill buffer
 	var buf bytes.Buffer
 	w := tabwriter.NewWriter(&buf, 5, 0, 3, ' ', 0)
 	p := resp.Payload
 
-	// generate multiple files
-	if (len(file) > 0 || len(html) > 0) && filePerCommand {
-		for cmdName, section := range sections {
-			addHeader(w)
-			section(w, p)
-			writeToOutput(buf, output, path, cmdName)
-			buf.Reset()
+	cmdTime := time.Now()
+
+	if outputToFile && len(outputOpts) == 0 {
+		outputOpts = append(outputOpts, markdownOutput)
+	}
+
+	// Dump payload for each output format.
+	if len(outputOpts) > 0 {
+		for _, outputOpt := range outputOpts {
+			var fileName string
+
+			switch strings.ToUpper(outputOpt) {
+			case markdownOutput:
+				output = MARKDOWN
+			case htmlOutput:
+				output = HTML
+			case jsonOutputDebuginfo:
+				output = JSONOUTPUT
+			case jsonpathOutput:
+				output = JSONPATH
+			default:
+				if re.MatchString(outputOpt) {
+					output = JSONPATH
+				}
+			}
+
+			if outputToFile {
+				fileName = formatFileName(cmdTime, output)
+			}
+
+			// Generate multiple files for each subsection of the command if
+			// specified, except in the JSON cases.
+			if filePerCommand && (output != JSONOUTPUT && output != JSONPATH) {
+				for cmdName, section := range sections {
+					addHeader(w)
+					section(w, p)
+					writeToOutput(buf, output, fileName, cmdName)
+					buf.Reset()
+				}
+				continue
+			}
+
+			// Generate a single file, except not for JSON; no formatting is
+			// needed.
+			if output != JSONOUTPUT && output != JSONPATH {
+				addHeader(w)
+				for _, section := range sections {
+					section(w, p)
+				}
+				writeToOutput(buf, output, fileName, "")
+				buf.Reset()
+			} else {
+				marshaledDebugInfo, _ := p.MarshalBinary()
+				buf.Write(marshaledDebugInfo)
+				if output == JSONOUTPUT {
+					writeToOutput(buf, output, fileName, "")
+				} else {
+					writeJSONPathToOutput(buf, fileName, "", outputOpt)
+				}
+				buf.Reset()
+			}
 		}
 		return
 	}
 
-	if command.OutputJSON() {
-		if err := command.PrintOutput(p); err != nil {
-			os.Exit(1)
-		}
-		return
-	}
-
-	// Generate a single file.
+	// Just write to stdout in markdown formats if no output option specified.
 	addHeader(w)
 	for _, section := range sections {
 		section(w, p)
 	}
-	writeToOutput(buf, output, path, "")
+	writeToOutput(buf, STDOUT, "", "")
 
 }
 
@@ -208,8 +308,53 @@ func addCiliumMemoryMap(w *tabwriter.Writer, p *models.DebugInfo) {
 	}
 }
 
+func writeJSONPathToOutput(buf bytes.Buffer, path string, suffix string, jsonPath string) {
+	data := buf.Bytes()
+	db := &models.DebugInfo{}
+	err := db.UnmarshalBinary(data)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error unmarshaling binary: %s\n", err)
+	}
+
+	jsonString, err := command.DumpJSONToString(db, jsonPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error printing JSON: %s\n", err)
+	}
+
+	// Print to stdout
+	if path == "" {
+		fmt.Println(jsonString)
+		return
+	}
+
+	fileName := fileName(path, suffix)
+	writeJSON(([]byte)(jsonString), fileName)
+	return
+
+}
+
 func writeToOutput(buf bytes.Buffer, output outputType, path string, suffix string) {
 	data := buf.Bytes()
+
+	if path == "" {
+		switch output {
+		case JSONOUTPUT:
+			db := &models.DebugInfo{}
+			err := db.UnmarshalBinary(data)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "error unmarshaling binary: %s\n", err)
+			}
+
+			err = command.PrintOutputWithType(db, "json")
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "error printing JSON: %s\n", err)
+			}
+		default:
+			fmt.Println(string(data))
+		}
+		return
+	}
+
 	if output == STDOUT {
 		// Write to standard output
 		fmt.Println(string(data))
@@ -225,6 +370,10 @@ func writeToOutput(buf bytes.Buffer, output outputType, path string, suffix stri
 	case HTML:
 		// HTML file
 		writeHTML(data, fileName)
+	case JSONOUTPUT:
+		writeJSON(data, fileName)
+	case JSONPATH:
+		writeJSON(data, fileName)
 	}
 
 	fmt.Printf("%s output at %s\n", outputTypes[output], fileName)
@@ -277,4 +426,27 @@ func writeMarkdown(data []byte, path string) {
 	}
 	w := tabwriter.NewWriter(f, 5, 0, 3, ' ', 0)
 	w.Write(data)
+}
+
+func writeJSON(data []byte, path string) {
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Could not create file %s", path)
+		os.Exit(1)
+	}
+
+	db := &models.DebugInfo{}
+
+	err = db.UnmarshalBinary(data)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error unmarshaling binary: %s\n", err)
+		os.Exit(1)
+	}
+	result, err := json.MarshalIndent(db, "", "  ")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error marshal-indenting data: %s\n", err)
+		os.Exit(1)
+	}
+	f.Write(result)
+
 }
