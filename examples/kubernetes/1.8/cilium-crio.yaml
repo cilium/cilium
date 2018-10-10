@@ -115,9 +115,9 @@ spec:
       serviceAccountName: cilium
       initContainers:
         - name: clean-cilium-state
-          image: docker.io/library/busybox:1.28.4
+          image: docker.io/cilium/cilium-init:2018-10-10
           imagePullPolicy: IfNotPresent
-          command: ['sh', '-c', 'rm /var/run/cilium/cilium.pid; rm /var/run/cilium/state/health-endpoint.pid; if [ "${CLEAN_CILIUM_STATE}" = "true" ]; then rm -rf /var/run/cilium/state; fi; if [ "${CLEAN_CILIUM_STATE}" = "true" ] || [ "${CLEAN_CILIUM_BPF_STATE}" = "true" ]; then rm -rf /sys/fs/bpf/tc/globals/cilium_* /var/run/cilium/bpffs/tc/globals/cilium_*; fi']
+          command: ["/init-container.sh"]
           securityContext:
             capabilities:
               add:
