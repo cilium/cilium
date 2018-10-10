@@ -129,22 +129,26 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 
 		ExpectAllPodsTerminated(kubectl)
 
-		By("Installing kube-dns")
-		_ = kubectl.Apply(helpers.DNSDeployment())
-
-		// Deploy the etcd operator
-		err = kubectl.DeployETCDOperator()
-		Expect(err).To(BeNil(), "Unable to deploy etcd operator")
-
+		By("Installing a cleaning state of Cilium")
 		err = kubectl.CiliumInstallVersion(
 			helpers.CiliumDefaultDSPatch,
 			"cilium-cm-patch-clean-cilium-state.yaml",
 			oldVersion,
 		)
 		Expect(err).To(BeNil(), "Cilium %q was not able to be deployed", oldVersion)
-		ExpectCiliumReady(kubectl)
 
+		By("Installing kube-dns")
+		_ = kubectl.Apply(helpers.DNSDeployment())
+
+		// Deploy the etcd operator
+		By("Deploying etcd-operator")
+		err = kubectl.DeployETCDOperator()
+		Expect(err).To(BeNil(), "Unable to deploy etcd operator")
+
+		// Cilium is only ready if kvstore is ready, the kvstore is ready if
+		// kube-dns is running.
 		By("Cilium %q is installed and running", oldVersion)
+		ExpectCiliumReady(kubectl)
 
 		By("Installing Microscope")
 		microscopeErr, microscopeCancel := kubectl.MicroscopeStart()
