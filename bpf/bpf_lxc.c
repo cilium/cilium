@@ -256,7 +256,7 @@ skip_service_lookup:
 		return DROP_POLICY;
 	}
 
-	if (redirect_to_proxy(verdict, ret)) {
+	if (redirect_to_proxy(verdict, forwarding_reason)) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 		union v6addr host_ip = {};
 
@@ -555,7 +555,7 @@ skip_service_lookup:
 		return DROP_POLICY;
 	}
 
-	if (redirect_to_proxy(verdict, ret)) {
+	if (redirect_to_proxy(verdict, forwarding_reason)) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 
 		ret = ipv4_redirect_to_host_port(skb, &csum_off, l4_off,
@@ -835,7 +835,7 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 		/* NOTE: tuple has been invalidated after this */
 	}
 
-	if (redirect_to_proxy(verdict, ret)) {
+	if (redirect_to_proxy(verdict, *forwarding_reason)) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 		union macaddr router_mac = NODE_MAC;
 		union v6addr host_ip = {};
@@ -945,7 +945,7 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 		/* NOTE: tuple has been invalidated after this */
 	}
 
-	if (redirect_to_proxy(verdict, ret)) {
+	if (redirect_to_proxy(verdict, *forwarding_reason)) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 		union macaddr router_mac = NODE_MAC;
 
