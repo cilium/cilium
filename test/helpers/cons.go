@@ -258,11 +258,11 @@ var ciliumKubCLICommands = map[string]string{
 // etcdDeploymentFiles are the list of files used to deploy etcd operator.
 var etcdDeploymentFiles = []string{
 	"00-crd-etcd.yaml",
-	"cilium-etcd-cluster.yaml",
 	"cilium-etcd-sa.yaml",
 	"cluster-role-binding-template.yaml",
 	"cluster-role-template.yaml",
 	"deployment.yaml",
+	"cilium-etcd-cluster.yaml",
 }
 
 //GetFilePath returns the absolute path of the provided filename
