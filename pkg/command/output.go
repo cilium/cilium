@@ -25,7 +25,10 @@ import (
 	"k8s.io/client-go/util/jsonpath"
 )
 
-var outputOpt string
+var (
+	outputOpt string
+	re        = regexp.MustCompile(`^jsonpath\=(.*)`)
+)
 
 // OutputJSON returns true if the JSON output option was specified
 func OutputJSON() bool {
@@ -40,46 +43,61 @@ func AddJSONOutput(cmd *cobra.Command) {
 //PrintOutput receives an interface and dump the data using the --output flag.
 //ATM only json or jsonpath. In the future yaml
 func PrintOutput(data interface{}) error {
-	var re = regexp.MustCompile(`^jsonpath\=(.*)`)
+	return PrintOutputWithType(data, outputOpt)
+}
 
-	if outputOpt == "json" {
+//PrintOutputWithType receives an interface and dump the data using the --output flag.
+//ATM only json or jsonpath. In the future yaml
+func PrintOutputWithType(data interface{}, outputType string) error {
+	if outputType == "json" {
 		return dumpJSON(data, "")
 	}
 
-	if re.MatchString(outputOpt) {
-		return dumpJSON(data, re.ReplaceAllString(outputOpt, "$1"))
+	if re.MatchString(outputType) {
+		return dumpJSON(data, re.ReplaceAllString(outputType, "$1"))
 	}
 
 	return fmt.Errorf("Couldn't found output printer")
+}
+
+// DumpJSONToString dumps the contents of data into a string. If jsonpath
+// is non-empty, will attempt to do jsonpath filtering using said string.
+// Returns the string representation of the JSON in data, or an error if
+// any JSON marshaling, parsing operations fail.
+func DumpJSONToString(data interface{}, jsonPath string) (string, error) {
+	if len(jsonPath) == 0 {
+		result, err := json.MarshalIndent(data, "", "  ")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Couldn't marshal to json: '%s'\n", err)
+			return "", err
+		}
+		fmt.Println(string(result))
+		return "", nil
+	}
+
+	parser := jsonpath.New("").AllowMissingKeys(true)
+	if err := parser.Parse(jsonPath); err != nil {
+		fmt.Fprintf(os.Stderr, "Couldn't parse jsonpath expression: '%s'\n", err)
+		return "", err
+	}
+
+	buf := new(bytes.Buffer)
+	if err := parser.Execute(buf, data); err != nil {
+		fmt.Fprintf(os.Stderr, "Couldn't parse jsonpath expression: '%s'\n", err)
+		return "", err
+
+	}
+	return buf.String(), nil
 }
 
 // dumpJSON dump the data variable to the stdout as json.
 // If somethings fail, it'll return an error
 // If jsonPath is passed, it'll run the json query over data var.
 func dumpJSON(data interface{}, jsonPath string) error {
-
-	if len(jsonPath) == 0 {
-		result, err := json.MarshalIndent(data, "", "  ")
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Couldn't marshal to json: '%s'\n", err)
-			return err
-		}
-		fmt.Println(string(result))
-		return nil
-	}
-
-	parser := jsonpath.New("").AllowMissingKeys(true)
-	if err := parser.Parse(jsonPath); err != nil {
-		fmt.Fprintf(os.Stderr, "Couldn't parse jsonpath expression: '%s'\n", err)
+	strOut, err := DumpJSONToString(data, jsonPath)
+	if err != nil {
 		return err
 	}
-
-	buf := new(bytes.Buffer)
-	if err := parser.Execute(buf, data); err != nil {
-		fmt.Fprintf(os.Stderr, "Couldn't parse jsonpath expression: '%s'\n", err)
-		return err
-
-	}
-	fmt.Println(buf.String())
+	fmt.Println(strOut)
 	return nil
 }
