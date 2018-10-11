@@ -810,8 +810,7 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 	}
 
 	verdict = policy_can_access_ingress(skb, src_label, tuple.dport,
-					    tuple.nexthdr, sizeof(tuple.saddr),
-					    &tuple.saddr, false);
+					    tuple.nexthdr, false);
 
 	if (verdict < 0) {
 		/* If the connection was previously known and packet is now
@@ -894,7 +893,7 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 	struct ct_state ct_state = {};
 	struct ct_state ct_state_new = {};
 	bool skip_proxy = false;
-	__be32 orig_dip, orig_sip;
+	__be32 orig_dip;
 	bool is_fragment = false;
 	__u32 monitor = 0;
 
@@ -911,7 +910,6 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 	tuple.daddr = ip4->daddr;
 	tuple.saddr = ip4->saddr;
 	orig_dip = ip4->daddr;
-	orig_sip = ip4->saddr;
 
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
@@ -950,8 +948,7 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 	}
 
 	verdict = policy_can_access_ingress(skb, src_label, tuple.dport,
-					    tuple.nexthdr, sizeof(orig_sip),
-					    &orig_sip, is_fragment);
+					    tuple.nexthdr, is_fragment);
 
 	if (verdict < 0) {
 		/* If the connection was previously known and packet is now

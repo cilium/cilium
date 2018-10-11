@@ -44,8 +44,7 @@ static inline bool identity_is_reserved(__u32 identity)
 
 static inline int __inline__
 __policy_can_access(void *map, struct __sk_buff *skb, __u32 identity,
-		    __u16 dport, __u8 proto, size_t cidr_addr_size,
-		    void *cidr_addr, int dir, bool is_fragment)
+		    __u16 dport, __u8 proto, int dir, bool is_fragment)
 {
 	struct policy_entry *policy;
 
@@ -114,8 +113,6 @@ allow:
  * @arg src_identity	Source security identity for this packet
  * @arg dport		Destination port of this packet
  * @arg proto		L3 Protocol of this packet
- * @arg cidr_addr_size	Size of the destination CIDR of this packet
- * @arg cidr_addr	Destination CIDR of this packet
  *
  * Returns:
  *   - Positive integer indicating the proxy_port to handle this traffic
@@ -124,14 +121,12 @@ allow:
  */
 static inline int __inline__
 policy_can_access_ingress(struct __sk_buff *skb, __u32 src_identity,
-			  __u16 dport, __u8 proto, size_t cidr_addr_size,
-			  void *cidr_addr, bool is_fragment)
+			  __u16 dport, __u8 proto, bool is_fragment)
 {
 	int ret;
 
 	ret = __policy_can_access(&POLICY_MAP, skb, src_identity, dport,
-				      proto, cidr_addr_size, cidr_addr,
-				      CT_INGRESS, is_fragment);
+				      proto, CT_INGRESS, is_fragment);
 	if (ret >= TC_ACT_OK)
 		return ret;
 
@@ -150,7 +145,7 @@ static inline int __inline__
 policy_can_egress(struct __sk_buff *skb, __u32 identity, __u16 dport, __u8 proto)
 {
 	int ret = __policy_can_access(&POLICY_MAP, skb, identity, dport, proto,
-				      0, NULL, CT_EGRESS, false);
+				      CT_EGRESS, false);
 	if (ret >= 0)
 		return ret;
 
