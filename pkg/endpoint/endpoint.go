@@ -463,6 +463,8 @@ type Endpoint struct {
 	// is enabled for this endpoint.
 	egressPolicyEnabled bool
 
+	hasBPFProgram chan struct{}
+
 	///////////////////////
 	// DEPRECATED FIELDS //
 	///////////////////////
@@ -472,6 +474,28 @@ type Endpoint struct {
 	//
 	// Deprecated: Use Options instead.
 	DeprecatedOpts deprecatedOptions `json:"Opts"`
+}
+
+// CloseBPFProgramChannel closes the channel that signals whether the endpoint
+// has had its BPF program compiled. If the channel is already closed, this is
+// a no-op.
+func (e *Endpoint) CloseBPFProgramChannel() {
+	select {
+	case <-e.hasBPFProgram:
+	default:
+		close(e.hasBPFProgram)
+	}
+}
+
+// HasBPFProgram returns whether a BPF program has been generated for this
+// endpoint.
+func (e *Endpoint) HasBPFProgram() bool {
+	select {
+	case <-e.hasBPFProgram:
+		return true
+	default:
+		return false
+	}
 }
 
 // GetIngressPolicyEnabledLocked returns whether ingress policy enforcement is
@@ -694,10 +718,11 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 // NewEndpointWithState creates a new endpoint useful for testing purposes
 func NewEndpointWithState(ID uint16, state string) *Endpoint {
 	ep := &Endpoint{
-		ID:      ID,
-		Options: option.NewIntOptions(&EndpointMutableOptionLibrary),
-		Status:  NewEndpointStatus(),
-		state:   state,
+		ID:            ID,
+		Options:       option.NewIntOptions(&EndpointMutableOptionLibrary),
+		Status:        NewEndpointStatus(),
+		state:         state,
+		hasBPFProgram: make(chan struct{}, 0),
 	}
 	ep.UpdateLogger(nil)
 	return ep
@@ -723,8 +748,9 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, 
 			OrchestrationIdentity: pkgLabels.Labels{},
 			OrchestrationInfo:     pkgLabels.Labels{},
 		},
-		state:  "",
-		Status: NewEndpointStatus(),
+		state:         "",
+		Status:        NewEndpointStatus(),
+		hasBPFProgram: make(chan struct{}, 0),
 	}
 	ep.UpdateLogger(nil)
 
@@ -1456,6 +1482,9 @@ func ParseEndpoint(strEp string) (*Endpoint, error) {
 	if err := parseBase64ToEndpoint(strEpSlice[1], &ep); err != nil {
 		return nil, fmt.Errorf("failed to parse base64toendpoint: %s", err)
 	}
+
+	// Initialize fields to values which are non-nil that are not serialized.
+	ep.hasBPFProgram = make(chan struct{}, 0)
 
 	// We need to check for nil in Status, CurrentStatuses and Log, since in
 	// some use cases, status will be not nil and Cilium will eventually
