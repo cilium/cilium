@@ -127,6 +127,11 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		// from master instead of create the new ones.
 		_ = kubectl.Delete(helpers.DNSDeployment())
 
+		// Delete etcd operator because sometimes when install from clean-state
+		// the quorum is lost.
+		err = kubectl.DeleteETCDOperator()
+		Expect(err).To(BeNil(), "etcd operator cannot be uninstalled")
+
 		ExpectAllPodsTerminated(kubectl)
 
 		By("Installing a cleaning state of Cilium")
@@ -149,6 +154,13 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		// kube-dns is running.
 		By("Cilium %q is installed and running", oldVersion)
 		ExpectCiliumReady(kubectl)
+
+		By("Waiting etcd-operator is ready")
+		// On upgrades from v1.0 and v1.1 (Where etcd-operator is not used)
+		// etcd operator pods were not ready when upgrades. With this change we make
+		// sure that waits until all pods are in place.
+		err = kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l name=etcd-operator", 600)
+		Expect(err).To(BeNil(), "etcd-operator is not ready after timeout on cilium %s", oldVersion)
 
 		By("Installing Microscope")
 		microscopeErr, microscopeCancel := kubectl.MicroscopeStart()
