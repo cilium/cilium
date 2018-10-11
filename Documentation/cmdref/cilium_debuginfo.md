@@ -16,9 +16,10 @@ cilium debuginfo
 ### Options
 
 ```
-  -f, --file                 Redirect output to file(s)
-      --file-per-command     Generate a single file per command
-      --output stringSlice   markdown| html| json| jsonpath='{}'
+  -f, --file                      Redirect output to file(s)
+      --file-per-command          Generate a single file per command
+      --output stringSlice        markdown| html| json| jsonpath='{}'
+      --output-directory string   directory for files (if specified will use directory in which this command was ran)
 ```
 
 ### Options inherited from parent commands
