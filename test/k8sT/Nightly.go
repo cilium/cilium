@@ -325,7 +325,6 @@ var _ = Describe("NightlyExamples", func() {
 	var kubectl *helpers.Kubectl
 	var demoPath string
 	var l3Policy, l7Policy string
-	var appService = "app1-service"
 	var apps []string
 
 	BeforeAll(func() {
@@ -356,67 +355,6 @@ var _ = Describe("NightlyExamples", func() {
 		ExpectAllPodsTerminated(kubectl)
 	})
 
-	Context("Cilium DaemonSet from example", func() {
-		AfterEach(func() {
-
-			_ = kubectl.Delete(demoPath)
-			_ = kubectl.Delete(l3Policy)
-			_ = kubectl.Delete(l7Policy)
-
-			res := kubectl.DeleteResource(
-				"ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
-			res.ExpectSuccess("Cilium DS cannot be deleted")
-		})
-
-		BeforeEach(func() {
-
-			By("Uninstalling kube-dns")
-			kubectl.Delete(helpers.DNSDeployment()).ExpectSuccess("Kube-dns cannot be deleted")
-			ExpectAllPodsTerminated(kubectl)
-			// Making sure that we deleted the cilium ds. No assert message
-			// because maybe is not present
-			_ = kubectl.DeleteResource("ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
-
-			err := kubectl.CiliumInstallVersion(
-				helpers.CiliumDefaultDSPatch,
-				"cilium-cm-patch-clean-cilium-state.yaml",
-				helpers.CiliumStableVersion,
-			)
-			Expect(err).Should(BeNil(), "Cilium version %s could not be installed", helpers.CiliumStableVersion)
-
-			By("Installing kube-dns")
-			kubectl.Apply(helpers.DNSDeployment()).ExpectSuccess("Kube-dns cannot be installed")
-		})
-
-		It("Check Kubernetes Example is working correctly", func() {
-			kubectl.Apply(demoPath).ExpectSuccess()
-			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", timeout)
-			Expect(err).Should(BeNil())
-
-			_, err = kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, l3Policy, helpers.KubectlApply, timeout)
-			Expect(err).Should(BeNil())
-
-			appPods := helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "id")
-
-			clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, appService)
-			Expect(err).Should(BeNil())
-
-			res := kubectl.ExecPodCmd(
-				helpers.DefaultNamespace, appPods[helpers.App2],
-				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
-			res.ExpectSuccess("Cannot curl to %q from %q", clusterIP, appPods[helpers.App2])
-
-			res = kubectl.ExecPodCmd(
-				helpers.DefaultNamespace, appPods[helpers.App3],
-				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
-			res.ExpectFail("Can curl to %q from %q and it shouldn't",
-				clusterIP, appPods[helpers.App3])
-
-		})
-
-	})
-
 	Context("Upgrade test", func() {
 		var cleanupCallback = func() { return }
 
@@ -425,10 +363,11 @@ var _ = Describe("NightlyExamples", func() {
 			// from master instead of create the new ones.
 			_ = kubectl.Delete(helpers.DNSDeployment())
 
-			// Delete etcd operator because sometimes when install from clean-state
-			// the quorum is lost.
-			err := kubectl.DeleteETCDOperator()
-			Expect(err).To(BeNil(), "etcd operator cannot be uninstalled")
+			// Delete etcd operator because sometimes when install from
+			// clean-state the quorum is lost.
+			// ETCD operator maybe is not installed at all, so no assert here.
+			_ = kubectl.DeleteETCDOperator()
+
 		})
 
 		AfterEach(func() {
