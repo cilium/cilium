@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/api"
+	ciliumPkg "github.com/cilium/cilium/pkg/client"
 	clientPkg "github.com/cilium/cilium/pkg/health/client"
 	"github.com/cilium/cilium/pkg/health/defaults"
 	serverPkg "github.com/cilium/cilium/pkg/health/server"
@@ -37,7 +38,15 @@ import (
 	"github.com/spf13/viper"
 )
 
-const targetName = "cilium-health"
+const (
+	targetName = "cilium-health"
+
+	// connectMaxRetries is the number of retries to connect to cilium-agent
+	// API before failure.
+	connectMaxRetries = 120
+
+	connectErrMsg = "Cannot establish connection to local cilium instance"
+)
 
 var (
 	cfgFile   string
@@ -46,6 +55,8 @@ var (
 	server    *serverPkg.Server
 	log       = logging.DefaultLogger.WithField(logfields.LogSubsys, targetName)
 	logOpts   = make(map[string]string)
+
+	connectRetryInterval = 1 * time.Second
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -138,8 +149,30 @@ func initConfig() {
 	}
 }
 
+// waitForCiliumAPI waits until cilium-agent API is available.
+func waitForCiliumAPI() {
+	var cli *ciliumPkg.Client
+	var err error
+	for i := 0; i < connectMaxRetries; i++ {
+		cli, err = ciliumPkg.NewDefaultClient()
+		if err == nil {
+			if _, err = cli.Daemon.GetHealthz(nil); err == nil {
+				return
+			}
+		}
+		log.WithError(err).Debug(connectErrMsg)
+		time.Sleep(connectRetryInterval)
+	}
+	log.WithError(err).Fatal(connectErrMsg)
+}
+
 func runServer() {
 	common.RequireRootPrivilege(targetName)
+
+	// Wait until Cilium API is available
+	waitForCiliumAPI()
+	// Remove old cilium-health daemon socket
+	os.Remove(defaults.SockPath)
 
 	// Write the pidfile (if specified)
 	if path := viper.GetString("pidfile"); path != "" {
