@@ -815,6 +815,9 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 		e.RUnlock()
 	}
 
+	// Signal that BPF program has been generated.
+	e.CloseBPFProgramChannel()
+
 	err = e.WaitForProxyCompletions(proxyWaitGroup)
 	if err != nil {
 		return 0, compilationExecuted, fmt.Errorf("Error while configuring proxy redirects: %s", err)
