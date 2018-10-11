@@ -294,6 +294,17 @@ func WriteOrAppendToFile(filename string, data []byte, perm os.FileMode) error {
 	return err
 }
 
+// GetDNSDeploymentName returns the name of the deployment depending on the
+// deployed Kubernetes version
+func GetDNSDeploymentName() string {
+	dnsDeployment := "deployment/kube-dns"
+	switch GetCurrentK8SEnv() {
+	case "1.11", "1.12":
+		dnsDeployment = "deployment/coredns"
+	}
+	return dnsDeployment
+}
+
 // DNSDeployment returns the manifest to install dns engine on the server.
 func DNSDeployment() string {
 	var DNSEngine = "kubedns"
