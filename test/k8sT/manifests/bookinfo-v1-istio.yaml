@@ -39,7 +39,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"7c483d21f2b4d2a2216a5946f7721f8938f54b2b92ac0deb5691f75d6a6eb71a","initContainers":["sleep","istio-init"],"containers":["istio-proxy"],"volumes":["cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"5df6620314d4af3529f7d4af2c676981846448006d05b8cf76ce47dd849ba915","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: details
@@ -100,7 +100,7 @@ spec:
               fieldPath: metadata.name
         - name: ISTIO_META_INTERCEPTION_MODE
           value: TPROXY
-        image: docker.io/cilium/istio_proxy_debug:1.0.0
+        image: docker.io/cilium/istio_proxy_debug:1.0.2
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         resources:
@@ -110,7 +110,6 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
-          privileged: false
           readOnlyRootFilesystem: true
           runAsGroup: 1337
         volumeMounts:
@@ -122,14 +121,6 @@ spec:
           name: istio-certs
           readOnly: true
       initContainers:
-      - command:
-        - sh
-        - -c
-        - sleep 30
-        image: busybox
-        imagePullPolicy: IfNotPresent
-        name: sleep
-        resources: {}
       - args:
         - -p
         - "15001"
@@ -145,7 +136,7 @@ spec:
         - 9080,
         - -d
         - ""
-        image: docker.io/istio/proxy_init:1.0.0
+        image: docker.io/istio/proxy_init:1.0.2
         imagePullPolicy: IfNotPresent
         name: istio-init
         resources: {}
@@ -153,7 +144,6 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
-          privileged: true
       volumes:
       - hostPath:
           path: /var/run/cilium
@@ -194,7 +184,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"7c483d21f2b4d2a2216a5946f7721f8938f54b2b92ac0deb5691f75d6a6eb71a","initContainers":["sleep","istio-init"],"containers":["istio-proxy"],"volumes":["cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"5df6620314d4af3529f7d4af2c676981846448006d05b8cf76ce47dd849ba915","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: reviews
@@ -255,7 +245,7 @@ spec:
               fieldPath: metadata.name
         - name: ISTIO_META_INTERCEPTION_MODE
           value: TPROXY
-        image: docker.io/cilium/istio_proxy_debug:1.0.0
+        image: docker.io/cilium/istio_proxy_debug:1.0.2
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         resources:
@@ -265,7 +255,6 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
-          privileged: false
           readOnlyRootFilesystem: true
           runAsGroup: 1337
         volumeMounts:
@@ -277,14 +266,6 @@ spec:
           name: istio-certs
           readOnly: true
       initContainers:
-      - command:
-        - sh
-        - -c
-        - sleep 30
-        image: busybox
-        imagePullPolicy: IfNotPresent
-        name: sleep
-        resources: {}
       - args:
         - -p
         - "15001"
@@ -300,7 +281,7 @@ spec:
         - 9080,
         - -d
         - ""
-        image: docker.io/istio/proxy_init:1.0.0
+        image: docker.io/istio/proxy_init:1.0.2
         imagePullPolicy: IfNotPresent
         name: istio-init
         resources: {}
@@ -308,7 +289,6 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
-          privileged: true
       volumes:
       - hostPath:
           path: /var/run/cilium
@@ -349,7 +329,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"7c483d21f2b4d2a2216a5946f7721f8938f54b2b92ac0deb5691f75d6a6eb71a","initContainers":["sleep","istio-init"],"containers":["istio-proxy"],"volumes":["cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"5df6620314d4af3529f7d4af2c676981846448006d05b8cf76ce47dd849ba915","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: productpage
@@ -410,7 +390,7 @@ spec:
               fieldPath: metadata.name
         - name: ISTIO_META_INTERCEPTION_MODE
           value: TPROXY
-        image: docker.io/cilium/istio_proxy_debug:1.0.0
+        image: docker.io/cilium/istio_proxy_debug:1.0.2
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         resources:
@@ -420,7 +400,6 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
-          privileged: false
           readOnlyRootFilesystem: true
           runAsGroup: 1337
         volumeMounts:
@@ -432,14 +411,6 @@ spec:
           name: istio-certs
           readOnly: true
       initContainers:
-      - command:
-        - sh
-        - -c
-        - sleep 30
-        image: busybox
-        imagePullPolicy: IfNotPresent
-        name: sleep
-        resources: {}
       - args:
         - -p
         - "15001"
@@ -455,7 +426,7 @@ spec:
         - 9080,
         - -d
         - ""
-        image: docker.io/istio/proxy_init:1.0.0
+        image: docker.io/istio/proxy_init:1.0.2
         imagePullPolicy: IfNotPresent
         name: istio-init
         resources: {}
@@ -463,7 +434,6 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
-          privileged: true
       volumes:
       - hostPath:
           path: /var/run/cilium
