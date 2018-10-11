@@ -271,7 +271,7 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 				hasSidecarProxy := e.HasSidecarProxy()
 				e.RUnlock()
 
-				if hasSidecarProxy {
+				if hasSidecarProxy && e.HasBPFProgram() {
 					// If the endpoint is determined to have a sidecar proxy,
 					// return immediately to let the sidecar container start,
 					// in case it is required to enforce L7 rules.
@@ -471,6 +471,13 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []er
 
 	// Wait for existing builds to complete and prevent further builds
 	ep.BuildMutex.Lock()
+
+	// Given that we are deleting the endpoint and that no more builds are
+	// going to occur for this endpoint, close the channel which signals whether
+	// the endpoint has its BPF program compiled or not to avoid it persisting
+	// if anything is blocking on it. If a delete request has already been
+	// enqueued for this endpoint, this is a no-op.
+	ep.CloseBPFProgramChannel()
 
 	// Lock out any other writers to the endpoint
 	ep.UnconditionalLock()
