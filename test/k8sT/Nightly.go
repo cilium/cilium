@@ -331,15 +331,6 @@ var _ = Describe("NightlyExamples", func() {
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
-		_ = kubectl.Apply(helpers.DNSDeployment())
-
-		// Deploy the etcd operator
-		err := kubectl.DeployETCDOperator()
-		Expect(err).To(BeNil(), "Unable to deploy etcd operator")
-
-		err = kubectl.CiliumInstall(helpers.CiliumDefaultDSPatch, helpers.CiliumConfigMapPatch)
-		Expect(err).To(BeNil(), "Cilium cannot be installed")
-
 		apps = []string{helpers.App1, helpers.App2, helpers.App3}
 
 		demoPath = helpers.ManifestGet("demo.yaml")
@@ -428,6 +419,17 @@ var _ = Describe("NightlyExamples", func() {
 
 	Context("Upgrade test", func() {
 		var cleanupCallback = func() { return }
+
+		BeforeEach(func() {
+			// Delete kube-dns because if not will be a restore the old endpoints
+			// from master instead of create the new ones.
+			_ = kubectl.Delete(helpers.DNSDeployment())
+
+			// Delete etcd operator because sometimes when install from clean-state
+			// the quorum is lost.
+			err := kubectl.DeleteETCDOperator()
+			Expect(err).To(BeNil(), "etcd operator cannot be uninstalled")
+		})
 
 		AfterEach(func() {
 			cleanupCallback()
