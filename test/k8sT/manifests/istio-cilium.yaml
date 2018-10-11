@@ -585,10 +585,6 @@ data:
     policy: enabled
     template: |-
       initContainers:
-      - name: sleep
-        image: busybox
-        imagePullPolicy: IfNotPresent
-        command: ['sh', '-c', 'sleep 30']
       - name: istio-init
         image: "docker.io/istio/proxy_init:1.0.0"
         args:

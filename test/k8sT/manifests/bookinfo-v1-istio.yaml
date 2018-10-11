@@ -122,14 +122,6 @@ spec:
           name: istio-certs
           readOnly: true
       initContainers:
-      - command:
-        - sh
-        - -c
-        - sleep 30
-        image: busybox
-        imagePullPolicy: IfNotPresent
-        name: sleep
-        resources: {}
       - args:
         - -p
         - "15001"
@@ -277,14 +269,6 @@ spec:
           name: istio-certs
           readOnly: true
       initContainers:
-      - command:
-        - sh
-        - -c
-        - sleep 30
-        image: busybox
-        imagePullPolicy: IfNotPresent
-        name: sleep
-        resources: {}
       - args:
         - -p
         - "15001"
@@ -432,14 +416,6 @@ spec:
           name: istio-certs
           readOnly: true
       initContainers:
-      - command:
-        - sh
-        - -c
-        - sleep 30
-        image: busybox
-        imagePullPolicy: IfNotPresent
-        name: sleep
-        resources: {}
       - args:
         - -p
         - "15001"
