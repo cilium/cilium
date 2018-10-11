@@ -78,6 +78,7 @@ var (
 	html           string
 	filePerCommand bool
 	outputOpts     []string
+	outputDir      string
 )
 
 type addSection func(*tabwriter.Writer, *models.DebugInfo)
@@ -98,6 +99,15 @@ func init() {
 	debuginfoCmd.Flags().BoolVarP(&outputToFile, "file", "f", false, "Redirect output to file(s)")
 	debuginfoCmd.Flags().BoolVarP(&filePerCommand, "file-per-command", "", false, "Generate a single file per command")
 	debuginfoCmd.Flags().StringSliceVar(&outputOpts, "output", []string{}, "markdown| html| json| jsonpath='{}'")
+	debuginfoCmd.Flags().StringVar(&outputDir, "output-directory", "", "directory for files (if specified will use directory in which this command was ran)")
+}
+
+func validateInput() {
+	if outputDir != "" && !outputToFile {
+		fmt.Fprintf(os.Stderr, "invalid option combination; specified output-directory %q, but did not specify for output to be redirected to file; exiting\n", outputDir)
+		os.Exit(1)
+	}
+	validateOutputOpts()
 }
 
 func validateOutputOpts() {
@@ -126,20 +136,24 @@ func validateOutputOpts() {
 	}
 }
 
-func formatFileName(cmdTime time.Time, outtype outputType) string {
+func formatFileName(outputDir string, cmdTime time.Time, outtype outputType) string {
 	var fileName string
+	var sep string
+	if outputDir != "" {
+		sep = outputDir + "/"
+	}
 	timeStr := cmdTime.Format("20060102-150405.999-0700-MST")
 	switch outtype {
 	case MARKDOWN:
-		fileName = fmt.Sprintf("cilium-debuginfo-%s.md", timeStr)
+		fileName = fmt.Sprintf("%scilium-debuginfo-%s.md", sep, timeStr)
 	case HTML:
-		fileName = fmt.Sprintf("cilium-debuginfo-%s.html", timeStr)
+		fileName = fmt.Sprintf("%scilium-debuginfo-%s.html", sep, timeStr)
 	case JSONOUTPUT:
-		fileName = fmt.Sprintf("cilium-debuginfo-%s.json", timeStr)
+		fileName = fmt.Sprintf("%scilium-debuginfo-%s.json", sep, timeStr)
 	case JSONPATH:
-		fileName = fmt.Sprintf("cilium-debuginfo-%s.jsonpath", timeStr)
+		fileName = fmt.Sprintf("%scilium-debuginfo-%s.jsonpath", sep, timeStr)
 	default:
-		fileName = fmt.Sprintf("cilium-debuginfo-%s.md", timeStr)
+		fileName = fmt.Sprintf("%scilium-debuginfo-%s.md", sep, timeStr)
 	}
 	return fileName
 }
@@ -150,7 +164,7 @@ func rootWarningMessage() {
 
 func runDebugInfo(cmd *cobra.Command, args []string) {
 
-	validateOutputOpts()
+	validateInput()
 
 	resp, err := client.Daemon.GetDebuginfo(nil)
 	if err != nil {
@@ -158,7 +172,6 @@ func runDebugInfo(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	validateOutputOpts()
 	var output outputType
 
 	// create tab-writer to fill buffer
@@ -198,7 +211,7 @@ func runDebugInfo(cmd *cobra.Command, args []string) {
 		}
 
 		if outputToFile {
-			fileName = formatFileName(cmdTime, output)
+			fileName = formatFileName(outputDir, cmdTime, output)
 		}
 
 		// Generate multiple files for each subsection of the command if
