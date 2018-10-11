@@ -447,14 +447,6 @@ static inline void __inline__ ipv4_ct_tuple_reverse(struct ipv4_ct_tuple *tuple)
 		tuple->flags |= TUPLE_F_IN;
 }
 
-static inline void ct4_cilium_dbg_tuple(struct __sk_buff *skb, __u8 type,
-					  const struct ipv4_ct_tuple *tuple,
-					  __u32 rev_nat_index, int dir)
-{
-	__be32 addr = (dir == CT_INGRESS) ? tuple->saddr : tuple->daddr;
-	cilium_dbg(skb, type, addr, rev_nat_index);
-}
-
 /* Offset must point to IPv4 header */
 static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 					struct __sk_buff *skb, int off, int dir,
