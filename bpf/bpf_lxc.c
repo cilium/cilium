@@ -136,8 +136,10 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	else if (unlikely(!is_valid_lxc_src_ip(ip6)))
 		return DROP_INVALID_SIP;
 
-	ipv6_addr_copy(&tuple->daddr, (union v6addr *) &ip6->daddr);
-	ipv6_addr_copy(&tuple->saddr, (union v6addr *) &ip6->saddr);
+	/* Ports are copied from the packet to the tuple in flipped order,
+	 * do the same for addresses. */
+	ipv6_addr_copy(&tuple->saddr, (union v6addr *) &ip6->daddr);
+	ipv6_addr_copy(&tuple->daddr, (union v6addr *) &ip6->saddr);
 
 	hdrlen = ipv6_hdrlen(skb, l3_off, &tuple->nexthdr);
 	if (hdrlen < 0)
@@ -174,10 +176,10 @@ skip_service_lookup:
 	 * skip_service_lookup is hit. However, in the case the packet
 	 * is _not_ TCP or UDP we should not be using proxy logic anyways. For
 	 * correctness it must be below the service handler in case the service
-	 * logic re-writes the tuple daddr. In "theory" however the assignment
+	 * logic re-writes the tuple saddr. In "theory" however the assignment
 	 * should be OK to move above goto label.
 	 */
-	ipv6_addr_copy(&orig_dip, (union v6addr *) &tuple->daddr);
+	ipv6_addr_copy(&orig_dip, (union v6addr *) &tuple->saddr);
 
 
 	/* WARNING: eth and ip6 offset check invalidated, revalidate before use */
@@ -456,8 +458,10 @@ static inline int handle_ipv4_from_lxc(struct __sk_buff *skb, __u32 *dstID)
 	else if (unlikely(!is_valid_lxc_src_ipv4(ip4)))
 		return DROP_INVALID_SIP;
 
-	tuple.daddr = ip4->daddr;
-	tuple.saddr = ip4->saddr;
+	/* Ports are copied from the packet to the tuple in flipped order,
+	 * do the same for addresses. */
+	tuple.daddr = ip4->saddr;
+	tuple.saddr = ip4->daddr;
 
 	l4_off = l3_off + ipv4_hdrlen(ip4);
 
@@ -486,7 +490,7 @@ skip_service_lookup:
 	 * logic re-writes the tuple daddr. In "theory" however the assignment
 	 * should be OK to move above goto label.
 	 */
-	orig_dip = tuple.daddr;
+	orig_dip = tuple.saddr;
 
 	/* WARNING: eth and ip4 offset check invalidated, revalidate before use */
 
@@ -753,8 +757,10 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 	policy_clear_mark(skb);
 	tuple.nexthdr = ip6->nexthdr;
 
-	ipv6_addr_copy(&tuple.daddr, (union v6addr *) &ip6->daddr);
-	ipv6_addr_copy(&tuple.saddr, (union v6addr *) &ip6->saddr);
+	/* Ports are copied from the packet to the tuple in flipped order,
+	 * do the same for addresses. */
+	ipv6_addr_copy(&tuple.daddr, (union v6addr *) &ip6->saddr);
+	ipv6_addr_copy(&tuple.saddr, (union v6addr *) &ip6->daddr);
 	ipv6_addr_copy(&orig_dip, (union v6addr *) &ip6->daddr);
 
 	/* If packet is coming from the ingress proxy we have to skip
@@ -907,14 +913,17 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 	 * redirection to the ingress proxy as we would loop forever. */
 	skip_proxy = tc_index_skip_proxy(skb);
 
-	tuple.daddr = ip4->daddr;
-	tuple.saddr = ip4->saddr;
+	/* Ports are copied from the packet to the tuple in flipped order,
+	 * do the same for addresses. */
+	tuple.daddr = ip4->saddr;
+	tuple.saddr = ip4->daddr;
 	orig_dip = ip4->daddr;
 
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 	is_fragment = ipv4_is_fragment(ip4);
 
+	/* Lookup reverses the tuple if an exiting entry in the reverse direction is not found. */
 	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, skb, l4_off, CT_INGRESS, &ct_state,
 			 &monitor);
 	if (ret < 0)
@@ -965,6 +974,9 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 	if (ret == CT_NEW) {
 		ct_state_new.orig_dport = tuple.dport;
 		ct_state_new.src_sec_id = src_label;
+		/* The tuple was reversed by the lookup above, so the CT entry is
+		 * created with a reversed tuple (addresses/ports), but the direction
+		 * flag in the tuple indicates the original direction of the packet. */
 		ret = ct_create4(get_ct_map4(&tuple), &tuple, skb, CT_INGRESS, &ct_state_new);
 		if (IS_ERR(ret))
 			return ret;

@@ -341,9 +341,11 @@ ct_is_reply(int res)
 	return res >= CT_REPLY;
 }
 
+/* Tuple addresses and ports are loaded from a packet in the reverse order.
+ * For outgoing connections, lib/conntrack swaps them to the correct order. */
 struct ipv6_ct_tuple {
-	union v6addr	daddr;
 	union v6addr	saddr;
+	union v6addr	daddr;
 	/* The order of dport+sport must not be changed */
 	__be16		dport;
 	__be16		sport;
@@ -355,16 +357,17 @@ static inline union v6addr *
 ipv6_ct_tuple_get_daddr(struct ipv6_ct_tuple *tuple)
 {
 #ifdef CONNTRACK
-	/* For outgoing connections, lib/conntrack.h swaps the src/dst. */
-	return &tuple->saddr;
-#else
 	return &tuple->daddr;
+#else
+	return &tuple->saddr;
 #endif
 }
 
+/* Tuple addresses and ports are loaded from a packet in the reverse order.
+ * For outgoing connections, lib/conntrack swaps them to the correct order. */
 struct ipv4_ct_tuple {
-	__be32		daddr;
 	__be32		saddr;
+	__be32		daddr;
 	/* The order of dport+sport must not be changed */
 	__be16		dport;
 	__be16		sport;
@@ -376,10 +379,9 @@ static inline __be32
 ipv4_ct_tuple_get_daddr(struct ipv4_ct_tuple *tuple)
 {
 #ifdef CONNTRACK
-	/* For outgoing connections, lib/conntrack.h swaps the src/dst. */
-	return tuple->saddr;
-#else
 	return tuple->daddr;
+#else
+	return tuple->saddr;
 #endif
 }
 

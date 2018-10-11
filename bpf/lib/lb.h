@@ -271,9 +271,10 @@ static inline int __inline__ __lb6_rev_nat(struct __sk_buff *skb, int l4_off,
 	}
 
 	if (flags & REV_NAT_F_TUPLE_SADDR) {
-		ipv6_addr_copy(&old_saddr, &tuple->saddr);
-		ipv6_addr_copy(&tuple->saddr, &nat->address);
-		new_saddr = tuple->saddr.addr;
+		/* Tuple addresses have not been reversed back at this point. */
+		ipv6_addr_copy(&old_saddr, &tuple->daddr);
+		ipv6_addr_copy(&tuple->daddr, &nat->address);
+		new_saddr = tuple->daddr.addr;
 	} else {
 		if (ipv6_load_saddr(skb, ETH_HLEN, &old_saddr) < 0)
 			return DROP_INVALID;
@@ -337,7 +338,10 @@ static inline int __inline__ lb6_extract_key(struct __sk_buff *skb, struct ipv6_
 {
 	union v6addr *addr;
 
-	addr = (dir == CT_INGRESS) ? &tuple->saddr : &tuple->daddr;
+	/* tuple addresses are flipped, so we need to use 'saddr' to get
+	 * the destination address for egress, and conversely 'daddr' to get
+	 * the source address for ingress. */
+	addr = (dir == CT_EGRESS) ? &tuple->saddr : &tuple->daddr;
 	ipv6_addr_copy(&key->address, addr);
 	csum_l4_offset_and_flags(tuple->nexthdr, csum_off);
 
@@ -464,12 +468,13 @@ static inline int __inline__ lb6_local(void *map, struct __sk_buff *skb, int l3_
 		ct_update6_slave(map, tuple, state);
 	}
 
-	/* Restore flags so that SERVICE flag is only used in used when the
+	/* Restore flags so that SERVICE flag is only used when the
 	 * service lookup happens and future lookups use EGRESS or INGRESS.
 	 */
 	tuple->flags = flags;
-	ipv6_addr_copy(&tuple->daddr, &svc->target);
-	addr = &tuple->daddr;
+	/* Tuple has flipped addresses and ports */
+	ipv6_addr_copy(&tuple->saddr, &svc->target);
+	addr = &tuple->saddr;
 
 	if (state)
 		state->rev_nat_index = svc->rev_nat_index;
@@ -496,8 +501,8 @@ static inline int __inline__ __lb4_rev_nat(struct __sk_buff *skb, int l3_off, in
 	}
 
 	if (flags & REV_NAT_F_TUPLE_SADDR) {
-		old_sip = tuple->saddr;
-		tuple->saddr = new_sip = nat->address;
+		old_sip = tuple->daddr;
+		tuple->daddr = new_sip = nat->address;
 	} else {
 		ret = skb_load_bytes(skb, l3_off + offsetof(struct iphdr, saddr), &old_sip, 4);
 		if (IS_ERR(ret))
@@ -526,8 +531,8 @@ static inline int __inline__ __lb4_rev_nat(struct __sk_buff *skb, int l3_off, in
 
 		sum = csum_diff(&old_dip, 4, &old_sip, 4, 0);
 
-		/* Update the tuple address which is representing the destination address */
-		tuple->saddr = old_sip;
+		/* Update the tuple address which is representing the source address */
+		tuple->daddr = old_sip;
 	}
 
         ret = skb_store_bytes(skb, l3_off + offsetof(struct iphdr, saddr), &new_sip, 4, 0);
@@ -587,7 +592,10 @@ static inline int __inline__ lb4_extract_key(struct __sk_buff *skb, struct ipv4_
 					     int l4_off, struct lb4_key *key,
 					     struct csum_offset *csum_off, int dir)
 {
-	key->address = (dir == CT_INGRESS) ? tuple->saddr : tuple->daddr;
+	/* tuple addresses are flipped, so we need to use 'saddr' to get
+	 * the destination address for egress, and conversely 'daddr' to get
+	 * the source address for ingress. */
+	key->address = (dir == CT_EGRESS) ? tuple->saddr : tuple->daddr;
 	csum_l4_offset_and_flags(tuple->nexthdr, csum_off);
 
 #ifdef LB_L4
@@ -759,7 +767,7 @@ static inline int __inline__ lb4_local(void *map, struct __sk_buff *skb,
 #endif
 
 	if (!state->loopback)
-		tuple->daddr = svc->target;
+		tuple->saddr = svc->target;
 
 	return lb4_xlate(skb, &new_daddr, &new_saddr, &saddr,
 			 tuple->nexthdr, l3_off, l4_off, csum_off, key,

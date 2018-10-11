@@ -396,7 +396,7 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 	 * This will find an existing flow in the reverse direction.
 	 * The reverse direction is the one where reverse nat index is stored.
 	 */
-	cilium_dbg3(skb, DBG_CT_LOOKUP6_1, (__u32) tuple->saddr.p4, (__u32) tuple->daddr.p4,
+	cilium_dbg3(skb, DBG_CT_LOOKUP6_1, (__u32) tuple->daddr.p4, (__u32) tuple->saddr.p4,
 		      (bpf_ntohs(tuple->sport) << 16) | bpf_ntohs(tuple->dport));
 	cilium_dbg3(skb, DBG_CT_LOOKUP6_2, (tuple->nexthdr << 8) | tuple->flags, 0, 0);
 	ret = __ct_lookup(map, skb, tuple, action, dir, ct_state, is_tcp,
@@ -456,15 +456,17 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
 	union tcp_flags tcp_flags = { 0 };
 
-	/* The tuple is created in reverse order initially to find a
-	 * potential reverse flow. This is required because the RELATED
-	 * or REPLY state takes precedence over ESTABLISHED due to
-	 * policy requirements. Set the tuple flags accordingly.
+	/* The CT entry is created in reverse order. 'tuple' at this
+	 * point reflects the actual packet headers, so it can match an
+	 * existing conntrack entry, if this is a reply direction packet.
+	 * Reply direction match is tried first as the RELATED or REPLY
+	 * state takes precedence over ESTABLISHED due to policy
+	 * requirements. Set the tuple flags accordingly.
 	 */
 	if (dir == CT_INGRESS)
-		tuple->flags = 0;
+		tuple->flags = 0; /* Look for an egress connection first */
 	else if (dir == CT_EGRESS)
-		tuple->flags = TUPLE_F_IN;
+		tuple->flags = TUPLE_F_IN; /* Look for an ingress connection first */
 	else if (dir == CT_SERVICE)
 		tuple->flags = TUPLE_F_SERVICE;
 	else
@@ -537,7 +539,7 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 	 * This will find an existing flow in the reverse direction.
 	 */
 #ifndef QUIET_CT
-	cilium_dbg3(skb, DBG_CT_LOOKUP4_1, tuple->saddr, tuple->daddr,
+	cilium_dbg3(skb, DBG_CT_LOOKUP4_1, tuple->daddr, tuple->saddr,
 		      (bpf_ntohs(tuple->sport) << 16) | bpf_ntohs(tuple->dport));
 	cilium_dbg3(skb, DBG_CT_LOOKUP4_2, (tuple->nexthdr << 8) | tuple->flags, 0, 0);
 #endif
@@ -706,9 +708,9 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 		saddr = tuple->saddr;
 		daddr = tuple->daddr;
 		if (dir == CT_INGRESS)
-			tuple->saddr = ct_state->addr;
-		else
 			tuple->daddr = ct_state->addr;
+		else
+			tuple->saddr = ct_state->addr;
 
 		/* We are looping back into the origin endpoint through a service,
 		 * set up a conntrack tuple for the reply to ensure we do rev NAT
@@ -717,9 +719,9 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 		if (ct_state->loopback) {
 			tuple->flags = TUPLE_F_IN;
 			if (dir == CT_INGRESS)
-				tuple->daddr = ct_state->svc_addr;
-			else
 				tuple->saddr = ct_state->svc_addr;
+			else
+				tuple->daddr = ct_state->svc_addr;
 		}
 
 		if (map_update_elem(map, tuple, &entry, 0) < 0)
