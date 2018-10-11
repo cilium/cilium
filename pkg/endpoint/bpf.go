@@ -770,6 +770,9 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 			Debug("BPF header file unchanged, skipping BPF compilation and installation")
 	}
 
+	// Signal that BPF program has been generated.
+	e.CloseBPFProgramChannel()
+
 	// Allow another builder to start while we wait for the proxy
 	if regenContext.DoneFunc != nil {
 		regenContext.DoneFunc()
