@@ -60,8 +60,7 @@
 
 #ifdef CONNTRACK
 
-#define TUPLE_F_OUT		0	/* Outgoing flow */
-#define TUPLE_F_IN		1	/* Incoming flow */
+#define TUPLE_F_IN		1	/* Incoming flow if set, outgoing if not set */
 #define TUPLE_F_RELATED		2	/* Flow represents related packets */
 #define TUPLE_F_SERVICE		4	/* Flow represents service/slave map */
 
@@ -318,17 +317,10 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 	/* The tuple is created in reverse order initially to find a
 	 * potential reverse flow. This is required because the RELATED
 	 * or REPLY state takes precedence over ESTABLISHED due to
-	 * policy requirements.
-	 *
-	 * Depending on direction, either source or destination address
-	 * is assumed to be the address of the container. Therefore,
-	 * the source address for incoming respectively the destination
-	 * address for outgoing packets is stored in a single field in
-	 * the tuple. The TUPLE_F_OUT and TUPLE_F_IN flags indicate which
-	 * address the field currently represents.
+	 * policy requirements. Set the tuple flags accordingly.
 	 */
 	if (dir == CT_INGRESS)
-		tuple->flags = TUPLE_F_OUT;
+		tuple->flags = 0;
 	else if (dir == CT_EGRESS)
 		tuple->flags = TUPLE_F_IN;
 	else if (dir == CT_SERVICE)
@@ -475,17 +467,10 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 	/* The tuple is created in reverse order initially to find a
 	 * potential reverse flow. This is required because the RELATED
 	 * or REPLY state takes precedence over ESTABLISHED due to
-	 * policy requirements.
-	 *
-	 * Depending on direction, either source or destination address
-	 * is assumed to be the address of the container. Therefore,
-	 * the source address for incoming respectively the destination
-	 * address for outgoing packets is stored in a single field in
-	 * the tuple. The TUPLE_F_OUT and TUPLE_F_IN flags indicate which
-	 * address the field currently represents.
+	 * policy requirements. Set the tuple flags accordingly.
 	 */
 	if (dir == CT_INGRESS)
-		tuple->flags = TUPLE_F_OUT;
+		tuple->flags = 0;
 	else if (dir == CT_EGRESS)
 		tuple->flags = TUPLE_F_IN;
 	else if (dir == CT_SERVICE)
