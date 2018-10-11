@@ -45,6 +45,8 @@ var (
 	}
 	k8sNodesEnv         = "K8S_NODES"
 	commandsLogFileName = "cmds.log"
+
+	node *helpers.SSHMeta
 )
 
 func init() {
@@ -184,6 +186,7 @@ var _ = BeforeAll(func() {
 		}
 
 		vm := helpers.InitRuntimeHelper(helpers.Runtime, logger)
+		node = vm
 		err = vm.SetUpCilium()
 
 		if err != nil {
@@ -231,6 +234,7 @@ var _ = BeforeAll(func() {
 			}
 		}
 		kubectl := helpers.CreateKubectl(helpers.K8s1VMName(), logger)
+		node = kubectl.SSHMeta
 		kubectl.Apply(helpers.GetFilePath("../examples/kubernetes/addons/prometheus/prometheus.yaml"))
 
 		// deploy Cilium etcd operator
@@ -239,6 +243,14 @@ var _ = BeforeAll(func() {
 		go kubectl.PprofReport()
 	}
 	return
+})
+
+var _ = JustBeforeEach(func() {
+	if node == nil {
+		return
+	}
+	node.Exec(helpers.CurlFail("-4 https://google.com")).ExpectSuccess(
+		"Node cannot connect to Google in a pre-flight test")
 })
 
 var _ = AfterSuite(func() {
