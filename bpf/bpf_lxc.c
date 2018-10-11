@@ -106,9 +106,9 @@ get_ct_map4(struct ipv4_ct_tuple *tuple)
 	return &CT_MAP_ANY4;
 }
 
-static inline bool redirect_to_proxy(int verdict, int dir)
+static inline bool redirect_to_proxy(int verdict)
 {
-	return verdict > 0 && (dir == CT_NEW || dir == CT_ESTABLISHED);
+	return verdict > 0;
 }
 
 static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
@@ -214,39 +214,10 @@ skip_service_lookup:
 			   orig_dip.p4, *dstID);
 	}
 
-	/* If the packet is in the establishing direction and it's destined
-	 * within the cluster, it must match policy or be dropped. If it's
-	 * bound for the host/outside, perform the CIDR policy check. */
-	verdict = policy_can_egress6(skb, tuple, *dstID,
-				     ipv6_ct_tuple_get_daddr(tuple));
-	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
-		/* If the connection was previously known and packet is now
-		 * denied, remove the connection tracking entry */
-		if (ret == CT_ESTABLISHED)
-			ct_delete6(get_ct_map6(tuple), tuple, skb);
-
-		return verdict;
-	}
-
-	switch (ret) {
-	case CT_NEW:
-		/* New connection implies that rev_nat_index remains untouched
-		 * to the index provided by the loadbalancer (if it applied).
-		 * Create a CT entry which allows to track replies and to
-		 * reverse NAT.
-		 */
-		ct_state_new.src_sec_id = SECLABEL;
-		ret = ct_create6(get_ct_map6(tuple), tuple, skb, CT_EGRESS, &ct_state_new);
-		if (IS_ERR(ret))
-			return ret;
-		monitor = TRACE_PAYLOAD_LEN;
-		break;
-
-	case CT_ESTABLISHED:
-		break;
-
-	case CT_RELATED:
-	case CT_REPLY:
+	/* Reply packets and related packets are allowed, all others must be
+	 * permitted by policy. Reply or related packets are never redirected to
+	 * the proxy as they are already addressed to the proxy if going there. */
+	if (ct_is_reply(forwarding_reason)) {
 		policy_mark_skip(skb);
 
 		if (ct_state.rev_nat_index) {
@@ -259,13 +230,38 @@ skip_service_lookup:
 			 * on the local node in which case this marking is cleared again. */
 			policy_mark_skip(skb);
 		}
-		break;
+		goto reply_skip_policy;
+	}
+	/* ELSE due to (ret < 0) handling above forwarding_reason is either CT_NEW or CT_ESTABLISHED */
 
-	default:
-		return DROP_POLICY;
+	/* If the packet is in the establishing direction and it's destined
+	 * within the cluster, it must match policy or be dropped. If it's
+	 * bound for the host/outside, perform the CIDR policy check. */
+	verdict = policy_can_egress6(skb, tuple, *dstID,
+				     ipv6_ct_tuple_get_daddr(tuple));
+	if (verdict < 0) {
+		/* If the connection was previously known and packet is now
+		 * denied, remove the connection tracking entry */
+		if (forwarding_reason == CT_ESTABLISHED)
+			ct_delete6(get_ct_map6(tuple), tuple, skb);
+
+		return verdict;
 	}
 
-	if (redirect_to_proxy(verdict, forwarding_reason)) {
+	if (forwarding_reason == CT_NEW) {
+		/* New connection implies that rev_nat_index remains untouched
+		 * to the index provided by the loadbalancer (if it applied).
+		 * Create a CT entry which allows to track replies and to
+		 * reverse NAT.
+		 */
+		ct_state_new.src_sec_id = SECLABEL;
+		ret = ct_create6(get_ct_map6(tuple), tuple, skb, CT_EGRESS, &ct_state_new);
+		if (IS_ERR(ret))
+			return ret;
+		monitor = TRACE_PAYLOAD_LEN;
+	}
+
+	if (redirect_to_proxy(verdict)) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 		union v6addr host_ip = {};
 
@@ -288,7 +284,7 @@ skip_service_lookup:
 		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
 		return redirect(HOST_IFINDEX, 0);
 	}
-
+reply_skip_policy:
 	if (!revalidate_data(skb, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
@@ -521,38 +517,10 @@ skip_service_lookup:
 			   orig_dip, *dstID);
 	}
 
-	/* If the packet is in the establishing direction and it's destined
-	 * within the cluster, it must match policy or be dropped. If it's
-	 * bound for the host/outside, perform the CIDR policy check. */
-	verdict = policy_can_egress4(skb, &tuple, *dstID, ipv4_ct_tuple_get_daddr(&tuple));
-	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
-		/* If the connection was previously known and packet is now
-		 * denied, remove the connection tracking entry */
-		if (ret == CT_ESTABLISHED)
-			ct_delete4(get_ct_map4(&tuple), &tuple, skb);
-
-		return verdict;
-	}
-
-	switch (ret) {
-	case CT_NEW:
-		/* New connection implies that rev_nat_index remains untouched
-		 * to the index provided by the loadbalancer (if it applied).
-		 * Create a CT entry which allows to track replies and to
-		 * reverse NAT.
-		 */
-		ct_state_new.src_sec_id = SECLABEL;
-		ret = ct_create4(get_ct_map4(&tuple), &tuple, skb, CT_EGRESS,
-				 &ct_state_new);
-		if (IS_ERR(ret))
-			return ret;
-		break;
-
-	case CT_ESTABLISHED:
-		break;
-
-	case CT_RELATED:
-	case CT_REPLY:
+	/* Reply packets and related packets are allowed, all others must be
+	 * permitted by policy. Reply or related packets are never redirected to
+	 * the proxy as they are already addressed to the proxy if going there. */
+	if (ct_is_reply(forwarding_reason)) {
 		policy_mark_skip(skb);
 
 		if (ct_state.rev_nat_index) {
@@ -563,13 +531,37 @@ skip_service_lookup:
 				return ret;
 			}
 		}
-		break;
+		goto reply_skip_policy;
+	}
+	/* ELSE due to (ret < 0) handling above forwarding_reason is either CT_NEW or CT_ESTABLISHED */
 
-	default:
-		return DROP_POLICY;
+	/* If the packet is in the establishing direction and it's destined
+	 * within the cluster, it must match policy or be dropped. If it's
+	 * bound for the host/outside, perform the CIDR policy check. */
+	verdict = policy_can_egress4(skb, &tuple, *dstID, ipv4_ct_tuple_get_daddr(&tuple));
+	if (verdict < 0) {
+		/* If the connection was previously known and packet is now
+		 * denied, remove the connection tracking entry */
+		if (forwarding_reason == CT_ESTABLISHED)
+			ct_delete4(get_ct_map4(&tuple), &tuple, skb);
+
+		return verdict;
 	}
 
-	if (redirect_to_proxy(verdict, forwarding_reason)) {
+	if (forwarding_reason == CT_NEW) {
+		/* New connection implies that rev_nat_index remains untouched
+		 * to the index provided by the loadbalancer (if it applied).
+		 * Create a CT entry which allows to track replies and to
+		 * reverse NAT.
+		 */
+		ct_state_new.src_sec_id = SECLABEL;
+		ret = ct_create4(get_ct_map4(&tuple), &tuple, skb, CT_EGRESS,
+				 &ct_state_new);
+		if (IS_ERR(ret))
+			return ret;
+	}
+
+	if (redirect_to_proxy(verdict)) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 
 		ret = ipv4_redirect_to_host_port(skb, &csum_off, l4_off,
@@ -592,7 +584,7 @@ skip_service_lookup:
 		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
 		return redirect(HOST_IFINDEX, 0);
 	}
-
+reply_skip_policy:
 	/* After L4 write in port mapping: revalidate for direct packet access */
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -765,8 +757,8 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 	ipv6_addr_copy(&tuple.saddr, (union v6addr *) &ip6->saddr);
 	ipv6_addr_copy(&orig_dip, (union v6addr *) &ip6->daddr);
 
-	/* If packet is coming from the egress proxy we have to skip
-	 * redirection to the egress proxy as we would loop forever. */
+	/* If packet is coming from the ingress proxy we have to skip
+	 * redirection to the ingress proxy as we would loop forever. */
 	skip_proxy = tc_index_skip_proxy(skb);
 
 	hdrlen = ipv6_hdrlen(skb, ETH_HLEN, &tuple.nexthdr);
@@ -811,13 +803,17 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 			return ret2;
 	}
 
+	/* Reply packets and related packets are allowed, all others must be
+	 * permitted by policy */
+	if (ct_is_reply(ret)) {
+		goto reply_skip_policy;
+	}
+
 	verdict = policy_can_access_ingress(skb, src_label, tuple.dport,
 					    tuple.nexthdr, sizeof(tuple.saddr),
 					    &tuple.saddr, false);
 
-	/* Reply packets and related packets are allowed, all others must be
-	 * permitted by policy */
-	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
+	if (verdict < 0) {
 		/* If the connection was previously known and packet is now
 		 * denied, remove the connection tracking entry */
 		if (ret == CT_ESTABLISHED)
@@ -839,7 +835,7 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 		/* NOTE: tuple has been invalidated after this */
 	}
 
-	if (redirect_to_proxy(verdict, *forwarding_reason)) {
+	if (redirect_to_proxy(verdict)) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 		union macaddr router_mac = NODE_MAC;
 		union v6addr host_ip = {};
@@ -861,6 +857,7 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 
 		skb->cb[CB_IFINDEX] = HOST_IFINDEX;
 	} else { // Not redirected to host / proxy.
+reply_skip_policy:
 		send_trace_notify(skb, TRACE_TO_LXC, src_label, SECLABEL,
 				  LXC_ID, ifindex, *forwarding_reason, monitor);
 	}
@@ -907,8 +904,8 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 	policy_clear_mark(skb);
 	tuple.nexthdr = ip4->protocol;
 
-	/* If packet is coming from the egress proxy we have to skip
-	 * redirection to the egress proxy as we would loop forever. */
+	/* If packet is coming from the ingress proxy we have to skip
+	 * redirection to the ingress proxy as we would loop forever. */
 	skip_proxy = tc_index_skip_proxy(skb);
 
 	tuple.daddr = ip4->daddr;
@@ -945,13 +942,18 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 			return ret2;
 	}
 
+	/* Reply packets and related packets are allowed, all others must be
+	 * permitted by policy. Reply or related packets are never redirected to
+	 * the proxy as they are already addressed to the proxy if going there. */
+	if (ct_is_reply(ret)) {
+		goto reply_skip_policy;
+	}
+
 	verdict = policy_can_access_ingress(skb, src_label, tuple.dport,
 					    tuple.nexthdr, sizeof(orig_sip),
 					    &orig_sip, is_fragment);
 
-	/* Reply packets and related packets are allowed, all others must be
-	 * permitted by policy */
-	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
+	if (verdict < 0) {
 		/* If the connection was previously known and packet is now
 		 * denied, remove the connection tracking entry */
 		if (ret == CT_ESTABLISHED)
@@ -973,7 +975,7 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 		/* NOTE: tuple has been invalidated after this */
 	}
 
-	if (redirect_to_proxy(verdict, *forwarding_reason)) {
+	if (redirect_to_proxy(verdict)) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 		union macaddr router_mac = NODE_MAC;
 
@@ -994,6 +996,7 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 
 		skb->cb[CB_IFINDEX] = HOST_IFINDEX;
 	} else { // Not redirected to host / proxy.
+reply_skip_policy:
 		send_trace_notify(skb, TRACE_TO_LXC, src_label, SECLABEL,
 				  LXC_ID, ifindex, *forwarding_reason, monitor);
 	}

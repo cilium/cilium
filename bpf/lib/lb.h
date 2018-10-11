@@ -434,8 +434,12 @@ static inline int __inline__ lb6_local(void *map, struct __sk_buff *skb, int l3_
 	int ret;
 
 	ret = ct_lookup6(map, tuple, skb, l4_off, CT_SERVICE, state, &monitor);
-	switch(ret) {
-	case CT_NEW:
+	if (ret < 0) {
+		tuple->flags = flags;
+		return DROP_NO_SERVICE;
+	}
+
+	if (ret == CT_NEW) {
 		state->slave = lb6_select_slave(skb, key, svc->count, svc->weight);
 		ret = ct_create6(map, tuple, skb, CT_SERVICE, state);
 		/* Fail closed, if the conntrack entry create fails drop
@@ -445,14 +449,6 @@ static inline int __inline__ lb6_local(void *map, struct __sk_buff *skb, int l3_
 			tuple->flags = flags;
 			return DROP_NO_SERVICE;
 		}
-		break;
-	case CT_ESTABLISHED:
-	case CT_RELATED:
-	case CT_REPLY:
-		break;
-	default:
-		tuple->flags = flags;
-		return DROP_NO_SERVICE;
 	}
 
 	/* If the lookup fails it means the user deleted the backend out from
@@ -709,8 +705,12 @@ static inline int __inline__ lb4_local(void *map, struct __sk_buff *skb,
 	int ret;
 
 	ret = ct_lookup4(map, tuple, skb, l4_off, CT_SERVICE, state, &monitor);
-	switch(ret) {
-	case CT_NEW:
+	if (ret < 0) {
+		tuple->flags = flags;
+		return DROP_NO_SERVICE;
+	}
+
+	if (ret == CT_NEW) {
 		state->slave = lb4_select_slave(skb, key, svc->count, svc->weight);
 		ret = ct_create4(map, tuple, skb, CT_SERVICE, state);
 		/* Fail closed, if the conntrack entry create fails drop
@@ -720,14 +720,6 @@ static inline int __inline__ lb4_local(void *map, struct __sk_buff *skb,
 			tuple->flags = flags;
 			return DROP_NO_SERVICE;
 		}
-		break;
-	case CT_ESTABLISHED:
-	case CT_RELATED:
-	case CT_REPLY:
-		break;
-	default:
-		tuple->flags = flags;
-		return DROP_NO_SERVICE;
 	}
 
 	/* If the lookup fails it means the user deleted the backend out from

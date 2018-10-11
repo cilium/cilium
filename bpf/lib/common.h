@@ -335,6 +335,12 @@ enum {
 	CT_RELATED,
 };
 
+static inline bool
+ct_is_reply(int res)
+{
+	return res >= CT_REPLY;
+}
+
 struct ipv6_ct_tuple {
 	union v6addr	daddr;
 	union v6addr	saddr;
