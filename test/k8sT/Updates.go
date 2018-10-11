@@ -1,6 +1,7 @@
 package k8sTest
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -145,6 +146,22 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		err = kubectl.DeployETCDOperator()
 		Expect(err).To(BeNil(), "Unable to deploy etcd operator")
 
+		var oldLabels map[string]string
+		// Workaround to allow upgrading from 1.2 to newer Cilium versions
+		if strings.HasPrefix(oldVersion, "1.2") {
+			// Apply patch for fixed identities for if oldVersion is 1.2
+			oldLabels, err = patchKubeDNSWithFixedIdentity(kubectl)
+			ExpectWithOffset(1, err).To(BeNil(), "Unable to patch kube-dns with fixed identity labels")
+			defer func() {
+				if err != nil {
+					err := revertPatchKubeDNSWithFixedIdentity(kubectl, oldLabels)
+					if err != nil {
+						log.Errorf("Unable to revert patch with fixed identities: %s", err)
+					}
+				}
+			}()
+		}
+
 		// Cilium is only ready if kvstore is ready, the kvstore is ready if
 		// kube-dns is running.
 		By("Cilium %q is installed and running", oldVersion)
@@ -237,6 +254,13 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 			}
 		}
 
+		// We need to revert the patch we have implemented in kube-dns for 1.2
+		// otherwise the well known identities introduced in 1.3 will not work.
+		if strings.HasPrefix(oldVersion, "1.2") {
+			err = revertPatchKubeDNSWithFixedIdentity(kubectl, oldLabels)
+			ExpectWithOffset(1, err).To(BeNil(), "Unable remove patch in kube-dns with fixed identity labels")
+		}
+
 		err = kubectl.CiliumInstall(helpers.CiliumDefaultDSPatch, helpers.CiliumConfigMapPatch)
 		ExpectWithOffset(1, err).To(BeNil(), "Cilium %q was not able to be deployed", newVersion)
 
@@ -279,4 +303,45 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 
 	}
 	return testfunc, cleanupCallback
+}
+
+// patchKubeDNSWithFixedIdentity patches the kube-dns with fixed identity
+// labels and returns the labels stored in the deployment template before
+// applying the patch.
+func patchKubeDNSWithFixedIdentity(kubectl *helpers.Kubectl) (map[string]string, error) {
+	dnsDeployment := helpers.GetDNSDeploymentName()
+	fb, err := kubectl.Get(helpers.KubeSystemNamespace, dnsDeployment).Filter("{.spec.template.metadata.labels}")
+	if err != nil {
+		return nil, err
+	}
+
+	oldLabelsMap := fb.KVOutput()
+
+	// Apply fixed identity patch
+	cmdRes := kubectl.Exec(fmt.Sprintf(`%s patch -n %s %s --type merge -p '{"spec":{"template":{"metadata":{"labels":{"io.cilium.fixed-identity":"kube-dns"}}}}}'`,
+		helpers.KubectlCmd, helpers.KubeSystemNamespace, dnsDeployment))
+	if !cmdRes.WasSuccessful() {
+		return nil, fmt.Errorf("%s", cmdRes.OutputPrettyPrint())
+	}
+	return oldLabelsMap, nil
+}
+
+// revertPatchKubeDNSWithFixedIdentity reverts the changes made by
+// PatchKubeDNSWithFixedIdentity
+func revertPatchKubeDNSWithFixedIdentity(kubectl *helpers.Kubectl, oldLabels map[string]string) error {
+	dnsDeployment := helpers.GetDNSDeploymentName()
+
+	b, err := json.Marshal(oldLabels)
+	if err != nil {
+		return fmt.Errorf("Cannot marshal old labels:", err)
+	}
+
+	// Apply old labels in kube-dns
+	cmdRes := kubectl.Exec(fmt.Sprintf(`%s patch -n %s %s --type json -p '[{"op": "replace","path": "/spec/template/metadata/labels","value": %s}]'`,
+		helpers.KubectlCmd, helpers.KubeSystemNamespace, dnsDeployment, string(b)))
+
+	if !cmdRes.WasSuccessful() {
+		return fmt.Errorf("%s", cmdRes.OutputPrettyPrint())
+	}
+	return nil
 }
