@@ -140,10 +140,15 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		By("Installing kube-dns")
 		_ = kubectl.Apply(helpers.DNSDeployment())
 
-		// Deploy the etcd operator
-		By("Deploying etcd-operator")
-		err = kubectl.DeployETCDOperator()
-		Expect(err).To(BeNil(), "Unable to deploy etcd operator")
+		switch oldVersion {
+		// Don't run etcd operator for the following branches
+		case "v1.0", "v1.1", "v1.2":
+		default:
+			// Deploy the etcd operator
+			By("Deploying etcd-operator")
+			err = kubectl.DeployETCDOperator()
+			Expect(err).To(BeNil(), "Unable to deploy etcd operator")
+		}
 
 		// Cilium is only ready if kvstore is ready, the kvstore is ready if
 		// kube-dns is running.

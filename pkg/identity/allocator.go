@@ -71,6 +71,8 @@ type IdentityAllocatorOwner interface {
 // InitIdentityAllocator creates the the identity allocator. Only the first
 // invocation of this function will have an effect.
 func InitIdentityAllocator(owner IdentityAllocatorOwner) {
+	initWellKnownIdentities()
+
 	setupOnce.Do(func() {
 		log.Info("Initializing identity allocator")
 
