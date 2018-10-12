@@ -455,19 +455,12 @@ func (kub *Kubectl) MicroscopeStart(microscopeOptions ...string) (error, func() 
 // function to close the tcpdump and store the logs in test result folder
 func (kub *Kubectl) TcpdumpStart() (error, func() error) {
 	var tcpDumpCmd = "%s -n -i any not port 22 -w %s"
-	var containerVolumeMount = "/test/"
+	var tmpFolder = "/tmp/"
 	var cb = func() error { return nil }
-
-	testPath, err := CreateReportDirectory()
-	if err != nil {
-		kub.logger.WithError(err).Errorf(
-			"cannot create test results path '%s'", testPath)
-		return err, cb
-	}
 
 	_ = kub.Apply(ManifestGet(TcpdumpManifest))
 
-	err = kub.WaitforPods(
+	err := kub.WaitforPods(
 		KubeSystemNamespace,
 		fmt.Sprintf("-l k8s-app=%s", Tcpdump),
 		300)
@@ -479,22 +472,60 @@ func (kub *Kubectl) TcpdumpStart() (error, func() error) {
 	if err != nil {
 		return err, cb
 	}
-	tcpdumpCmdsResponses := map[string]*CmdRes{}
+
+	type tcpdumpresponses struct {
+		res        *CmdRes
+		filename   string
+		pod        string
+		sourcePath string
+	}
+	tcpdumpCmdsResponses := []tcpdumpresponses{}
 
 	ctx, cancel := context.WithCancel(context.Background())
 
 	for _, pod := range pods {
-		tcpdumpCmdWithFile := fmt.Sprintf(tcpDumpCmd,
-			Tcpdump, filepath.Join(containerVolumeMount, testPath, fmt.Sprintf("tcpdump-%s.pcap", pod)))
+		response := tcpdumpresponses{}
+		response.filename = fmt.Sprintf("%s-%s.pcap", Tcpdump, pod)
+		response.pod = pod
+		response.sourcePath = filepath.Join(tmpFolder, response.filename)
+		tcpdumpCommand := fmt.Sprintf(tcpDumpCmd, Tcpdump, response.sourcePath)
 		cmd := fmt.Sprintf("%s -n %s exec %s -ti -- %s",
-			KubectlCmd, KubeSystemNamespace, pod, tcpdumpCmdWithFile)
-		tcpdumpCmdsResponses[pod] = kub.ExecContext(ctx, cmd, ExecOptions{SkipLog: true})
+			KubectlCmd, KubeSystemNamespace, pod, tcpdumpCommand)
+		response.res = kub.ExecContext(ctx, cmd, ExecOptions{SkipLog: true})
+		tcpdumpCmdsResponses = append(tcpdumpCmdsResponses, response)
 	}
 
 	cb = func() error {
 		cancel()
+
+		reportPath, err := CreateReportDirectory()
+		if err != nil {
+			kub.logger.WithError(err).Errorf(
+				"cannot create test results path '%s'", reportPath)
+			return err
+		}
+
 		for _, response := range tcpdumpCmdsResponses {
-			response.WaitUntilFinish()
+			response.res.WaitUntilFinish()
+			// Getting file from pod to vm shared folder
+			cmd := fmt.Sprintf("%s cp %s/%s:%s %s",
+				KubectlCmd,
+				KubeSystemNamespace,
+				response.pod,
+				response.sourcePath,
+				filepath.Join(BasePath, reportPath, response.filename))
+			res := kub.Exec(cmd)
+			if !res.WasSuccessful() {
+				kub.logger.WithFields(logrus.Fields{
+					"sourceFile": response.sourcePath,
+					"pod":        response.pod,
+				}).Errorf("Cannot retrieve tcpdump file")
+			}
+			// Make sure that the container is deleted from the pod
+			_ = kub.ExecPodCmd(
+				KubeSystemNamespace,
+				response.pod,
+				fmt.Sprintf("rm -rfv %s", response.sourcePath))
 		}
 		return nil
 	}
