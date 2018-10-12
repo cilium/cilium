@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net"
 	"sync"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -207,19 +208,37 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 
 	d.policy.Mutex.Lock()
 	if opts != nil {
+		// removedPrefixes tracks prefixes that we are replacing in the rules. We
+		// remove them unconditionally here, but have added them above already, so
+		// the refcount is still correct. The policy repository is locked during
+		// both operations.
+		var removedPrefixes []*net.IPNet
 		if opts.Replace {
 			for _, r := range rules {
-				tmp := d.policy.SearchRLocked(r.Labels)
-				if len(tmp) > 0 {
+				oldRules := d.policy.SearchRLocked(r.Labels)
+				removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(oldRules)...)
+				if len(oldRules) > 0 {
 					d.policy.DeleteByLabelsLocked(r.Labels)
 				}
 			}
 		}
 		if len(opts.ReplaceWithLabels) > 0 {
-			tmp := d.policy.SearchRLocked(opts.ReplaceWithLabels)
-			if len(tmp) > 0 {
+			oldRules := d.policy.SearchRLocked(opts.ReplaceWithLabels)
+			removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(oldRules)...)
+			if len(oldRules) > 0 {
 				d.policy.DeleteByLabelsLocked(opts.ReplaceWithLabels)
 			}
+		}
+
+		if err := ipcache.ReleaseCIDRs(removedPrefixes); err != nil {
+			_ = d.prefixLengths.Delete(prefixes)
+			metrics.PolicyImportErrors.Inc()
+			log.WithError(err).WithField("prefixes", prefixes).Warn(
+				"Failed to release CIDRs in replaced rules during policy add with replace")
+			return d.policy.GetRevision(), err
+		}
+		if len(removedPrefixes) > 0 {
+			log.WithField("prefixes", removedPrefixes).Info("CIDR refcounts decremented for old rules")
 		}
 	}
 	rev := d.policy.AddListLocked(rules)
