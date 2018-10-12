@@ -996,3 +996,21 @@ resources.
 
         .. literalinclude:: ../../examples/policies/kubernetes/serviceaccount/serviceaccount-policy.json
 
+Well-known Identities
+---------------------
+
+The following is a list of well-known identities which Cilium is aware of
+automatically and will hand out a security identity without requiring to
+contact any external dependencies such as the kvstore. The purpose of this is
+to allow bootstrapping Cilium and enable network connectivity with policy
+enforcement in the cluster for essential services without depending on any
+dependencies.
+
+======================== ============ ============== =========== ================================================================
+Deployment               Namespace    ServiceAccount Numeric ID  Labels
+======================== ============ ============== =========== ================================================================
+etcd-operator            kube-system  default        100         ``io.cilium/app=etcd-operator``
+cilium-etcd              kube-system  default        101         ``app=etcd``, ``etcd_cluster=cilium-etcd``, ``io.cilium/app=etcd-operator``
+kube-dns                 kube-system  kube-dns       102         ``k8s-app=kube-dns``
+kube-dns (EKS)           kube-system  default        103         ``k8s-app=kube-dns``, ``eks.amazonaws.com/component=kube-dns``
+======================== ============ ============== =========== ================================================================

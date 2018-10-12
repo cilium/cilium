@@ -145,6 +145,15 @@ func (d dummyOwner) GetNodeSuffix() string {
 	return "foo"
 }
 
+func (ias *IdentityAllocatorSuite) TestGetIdentityCache(c *C) {
+	InitIdentityAllocator(dummyOwner{})
+	defer identityAllocator.DeleteAllKeys()
+
+	cache := GetIdentityCache()
+	_, ok := cache[ReservedCiliumKVStore]
+	c.Assert(ok, Equals, true)
+}
+
 func (ias *IdentityAllocatorSuite) TestAllocator(c *C) {
 	lbls1 := labels.NewLabelsFromSortedList("id=foo;user=anna;blah=%%//!!")
 	lbls2 := labels.NewLabelsFromSortedList("id=bar;user=anna")

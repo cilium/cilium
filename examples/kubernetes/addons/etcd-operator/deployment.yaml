@@ -8,8 +8,7 @@ spec:
   template:
     metadata:
       labels:
-        name: etcd-operator
-        io.cilium.fixed-identity: "kv-store"
+        io.cilium/app: etcd-operator
     spec:
       serviceAccountName: cilium-etcd-sa
       containers:
