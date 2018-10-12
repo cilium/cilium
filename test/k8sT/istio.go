@@ -126,22 +126,6 @@ var _ = Describe("K8sIstioTest", func() {
 		kubectl.WaitCleanAllTerminatingPods(600)
 	})
 
-	JustBeforeEach(func() {
-		var err error
-		err, microscopeCancel = kubectl.MicroscopeStart()
-		Expect(err).To(BeNil(), "Microscope cannot be started")
-
-		uptimeCancel, err = kubectl.BackgroundReport("uptime")
-		Expect(err).To(BeNil(), "Cannot start background report process")
-	})
-
-	JustAfterEach(func() {
-		Expect(microscopeCancel()).To(BeNil(), "Cannot stop microscope")
-		uptimeCancel()
-
-		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
-	})
-
 	AfterFailed(func() {
 		kubectl.CiliumReport(helpers.KubeSystemNamespace,
 			"cilium endpoint list",
@@ -156,6 +140,22 @@ var _ = Describe("K8sIstioTest", func() {
 			resourceYAMLPaths []string
 			policyPaths       []string
 		)
+
+		BeforeAll(func() {
+			var err error
+			err, microscopeCancel = kubectl.MicroscopeStart()
+			Expect(err).To(BeNil(), "Microscope cannot be started")
+
+			uptimeCancel, err = kubectl.BackgroundReport("uptime")
+			Expect(err).To(BeNil(), "Cannot start background report process")
+		})
+
+		AfterAll(func() {
+			Expect(microscopeCancel()).To(BeNil(), "Cannot stop microscope")
+			uptimeCancel()
+
+			kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+		})
 
 		BeforeEach(func() {
 			// Those YAML files are the bookinfo-v1.yaml and bookinfo-v2.yaml
