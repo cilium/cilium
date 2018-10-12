@@ -16,8 +16,6 @@ spec:
         - "--kvstore-opt=etcd.config=/var/lib/etcd-config/etcd.config"
         - "--disable-ipv4=$(DISABLE_IPV4)"
         - "--log-system-load"
-        - "--fixed-identity-mapping=128=kv-store"
-        - "--fixed-identity-mapping=129=kube-dns"
       volumes:
       - name: etcd-secrets
         secret:

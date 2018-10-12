@@ -192,26 +192,6 @@ func (e *Endpoint) computeDesiredL4PolicyMapEntries(keysToAdd PolicyMapState) {
 	return
 }
 
-func getLabelsMap() (*identityPkg.IdentityCache, error) {
-	labelsMap := identityPkg.GetIdentityCache()
-
-	reservedIDs := identityPkg.GetAllReservedIdentities()
-	var idx identityPkg.NumericIdentity
-	for _, idx = range reservedIDs {
-		identity := identityPkg.LookupIdentityByID(idx)
-		if identity == nil {
-			return nil, fmt.Errorf("unable to resolve reserved identity")
-		}
-		lbls := identity.Labels.ToSlice()
-		if len(lbls) == 0 {
-			return nil, fmt.Errorf("unable to resolve reserved identity")
-		}
-		labelsMap[idx] = lbls
-	}
-
-	return &labelsMap, nil
-}
-
 // resolveL4Policy iterates through the policy repository to determine whether
 // any L4 (including L4-dependent L7) policy changes have occurred. If an error
 // occurs during calculation, it will return (false, err). Otherwise, it will
@@ -514,11 +494,8 @@ func (e *Endpoint) regeneratePolicy(owner Owner) error {
 	// GH-1128 should allow optimizing this away, but currently we can't
 	// reliably know if the KV-store has changed or not, so we must scan
 	// through it each time.
-	labelsMap, err := getLabelsMap()
-	if err != nil {
-		e.getLogger().WithError(err).Debug("Received error while evaluating policy")
-		return err
-	}
+	identityCache := identityPkg.GetIdentityCache()
+	labelsMap := &identityCache
 
 	regenerateStart := time.Now()
 
