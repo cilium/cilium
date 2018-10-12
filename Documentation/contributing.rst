@@ -1925,8 +1925,8 @@ On Freeze date
 
         * @cilium/janitors
         api/ @cilium/api
-        monitor/payload @cilium/api
         pkg/apisocket/ @cilium/api
+        pkg/monitor/payload @cilium/api
         pkg/policy/api/ @cilium/api
         pkg/proxy/accesslog @cilium/api
 
