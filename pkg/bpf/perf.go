@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -473,7 +473,7 @@ func (e *PerfEvent) Debug() string {
 }
 
 func (e *PerfEvent) DebugDump() string {
-	return fmt.Sprintf("%s data: %v", e.Debug(), e.data)
+	return fmt.Sprintf("%s, data: %v", e.Debug(), e.data)
 }
 
 type EPoll struct {
