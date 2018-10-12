@@ -18,7 +18,7 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/monitor/listener"
-	"github.com/cilium/cilium/monitor/payload"
+	"github.com/cilium/cilium/pkg/monitor/payload"
 )
 
 // listenerv1_0 implements the ciliim-node-monitor API protocol compatible with

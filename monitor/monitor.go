@@ -27,7 +27,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/monitor/listener"
-	"github.com/cilium/cilium/monitor/payload"
+	"github.com/cilium/cilium/pkg/monitor/payload"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
