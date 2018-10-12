@@ -97,5 +97,5 @@ func (s *SearchContext) CallDepth() string {
 
 // Translator is an interface for altering policy rules
 type Translator interface {
-	Translate(*api.Rule) error
+	Translate(*api.Rule, *TranslationResult) error
 }
