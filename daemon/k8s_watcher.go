@@ -945,10 +945,10 @@ func (d *Daemon) addK8sEndpointV1(ep *v1.Endpoints) {
 	svc, ok := d.loadBalancer.K8sServices[svcns]
 	if ok && svc.IsExternal() {
 		translator := k8s.NewK8sTranslator(svcns, *newSvcEP, false, svc.Labels, bpfIPCache.IPCache)
-		err := d.policy.TranslateRules(translator)
+		result, err := d.policy.TranslateRules(translator)
 		if err != nil {
 			log.Errorf("Unable to repopulate egress policies from ToService rules: %v", err)
-		} else {
+		} else if result.NumToServicesRules > 0 {
 			d.TriggerPolicyUpdates(true, "Kubernetes service endpoint added")
 		}
 	}
@@ -987,10 +987,11 @@ func (d *Daemon) deleteK8sEndpointV1(ep *v1.Endpoints) {
 		svc, ok := d.loadBalancer.K8sServices[svcns]
 		if ok && svc.IsExternal() {
 			translator := k8s.NewK8sTranslator(svcns, *endpoint, true, svc.Labels, bpfIPCache.IPCache)
-			err := d.policy.TranslateRules(translator)
+			result, err := d.policy.TranslateRules(translator)
 			if err != nil {
 				log.Errorf("Unable to depopulate egress policies from ToService rules: %v", err)
-			} else {
+			} else if result.NumToServicesRules > 0 {
+				// Only trigger policy updates if ToServices rules are in effect
 				d.TriggerPolicyUpdates(true, "Kubernetes service endpoint deleted")
 			}
 		}
