@@ -252,9 +252,20 @@ var _ = JustBeforeEach(func() {
 	if node == nil {
 		return
 	}
+
+	debugCallback := func() string {
+		result := node.Exec("mtr --report --report-cycles 10 8.8.8.8 -z -n").CombineOutput().String()
+		result += "\n---------------------------\n1.1.1.1\n"
+		result += node.Exec("mtr --report --report-cycles 10 1.1.1.1 -z -n").CombineOutput().String()
+		return result
+	}
+
 	By("Preflight test to validate internet access")
-	node.Exec(helpers.CurlFail("-4 https://google.com")).ExpectSuccess(
-		"Node cannot connect to Google in a pre-flight test")
+
+	res := node.Exec(helpers.CurlFail("-4 https://www.google.es"))
+	res.ExpectSuccess(
+		"Node cannot connect to Google in a pre-flight test: MTR output %v",
+		debugCallback())
 })
 
 var _ = AfterSuite(func() {
