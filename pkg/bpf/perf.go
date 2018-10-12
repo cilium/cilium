@@ -25,15 +25,13 @@ package bpf
 #include <sys/resource.h>
 #include <stdlib.h>
 
-// Only x64 and arm64 right now, but trivial to extend.
 #if defined(__x86_64__)
-# define mb()           asm volatile("mfence" ::: "memory")
-# define rmb()          asm volatile("lfence" ::: "memory")
-#elif defined(__aarch64__)
-# define mb()           asm volatile("dmb ish" ::: "memory")
-# define rmb()          asm volatile("dmb ishld" ::: "memory")
+# define barrier()          asm volatile("" ::: "memory")
+# define smp_mb()           asm volatile("lock; addl $0,-132(%%rsp)" ::: "memory", "cc")
+# define smp_rmb()          barrier()
 #else
-# error "Please define mb(), rmb() barriers!"
+# define smp_mb()           __sync_synchronize()
+# define smp_rmb()          __sync_synchronize()
 #endif
 
 #define READ_ONCE_64(x)	*((volatile uint64_t *) &x)
@@ -99,14 +97,14 @@ struct read_state {
 static inline uint64_t perf_read_head(struct perf_event_mmap_page *up)
 {
 	uint64_t data_head = READ_ONCE_64(up->data_head);
-	rmb();
+	smp_rmb();
 	return data_head;
 }
 
 static inline void perf_write_tail(struct perf_event_mmap_page *up,
 				   uint64_t data_tail)
 {
-	mb();
+	smp_mb();
 	up->data_tail = data_tail;
 }
 
