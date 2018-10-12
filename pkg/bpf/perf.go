@@ -195,9 +195,12 @@ int perf_event_read(int page_size, void *_page, void *_state,
 import "C"
 
 import (
+	"encoding/binary"
 	"fmt"
+	"io"
 	"os"
 	"path"
+	"reflect"
 	"runtime"
 	"time"
 	"unsafe"
@@ -408,6 +411,13 @@ func (e *PerfEvent) Disable() error {
 	return ret
 }
 
+// Read attempts to read all events from the perf event buffer, calling one of
+// the receive / lost functions for each event. receiveFn is called when the
+// event is a valid sample; lostFn is called when the kernel has attempted to
+// write an event into the ringbuffer but ran out of space for the event.
+//
+// If all events are not read within a time period (default 20s), it will call
+// errFn() and stop reading events.
 func (e *PerfEvent) Read(receive ReceiveFunc, lostFn LostFunc, err ErrorFunc) {
 	// Prepare for reading and check if events are available
 	available := C.perf_event_read_init(C.int(e.npages), C.int(e.pagesize),
@@ -419,7 +429,6 @@ func (e *PerfEvent) Read(receive ReceiveFunc, lostFn LostFunc, err ErrorFunc) {
 	}
 
 	timer := time.After(20 * time.Second)
-
 read:
 	for {
 		var (
@@ -429,12 +438,22 @@ read:
 			ok     C.int
 		)
 
+		// Storing the C pointer to the temporary wrapper buffer on the
+		// stack allows CGo to understand it better when passing into
+		// perf_event_read(), to avoid the following error:
+		//
+		// runtime error: cgo argument has Go pointer to Go pointer
+		//
+		// We MUST store it back to 'e' in case it was reallocated.
+		wrapBuf := e.buf
 		if ok = C.perf_event_read(C.int(e.pagesize),
 			unsafe.Pointer(&e.data[0]), unsafe.Pointer(e.state),
-			unsafe.Pointer(&e.buf), unsafe.Pointer(&msg),
+			unsafe.Pointer(&wrapBuf), unsafe.Pointer(&msg),
 			unsafe.Pointer(&sample), unsafe.Pointer(&lost)); ok == 0 {
+			e.buf = wrapBuf
 			break
 		}
+		e.buf = wrapBuf
 
 		if ok == 2 {
 			e.trunc++
@@ -651,4 +670,105 @@ func (e *PerCpuEvents) CloseAll() error {
 	}
 
 	return retErr
+}
+
+// decode uses reflection to read bytes directly from 'reader' into the object
+// pointed to from 'i'. Assumes that 'i' is a pointer.
+//
+// This function should not be used from performance-sensitive code.
+func decode(i interface{}, reader io.ReadSeeker) error {
+	value := reflect.ValueOf(i).Elem()
+	decodeSize := int64(reflect.TypeOf(value).Size())
+	if _, err := reader.Seek(decodeSize, io.SeekStart); err != nil {
+		return fmt.Errorf("failed to seek into reader %d bytes", decodeSize)
+	}
+	_, _ = reader.Seek(0, io.SeekStart)
+
+	for i := 0; i < value.NumField(); i++ {
+		if err := binary.Read(reader, binary.LittleEndian, value.Field(i).Addr().Interface()); err != nil {
+			return fmt.Errorf("failed to decode field %d", i)
+		}
+	}
+	return nil
+}
+
+// ReadState is a golang reflection of C.struct_read_state{}
+type ReadState struct {
+	Base     uint64 // Actually a pointer
+	RawSize  uint64
+	LastSize uint64
+}
+
+// Decode populates 'r' based on the bytes read from the specified reader.
+//
+// This function should not be used from performance-sensitive code.
+func (r *ReadState) Decode(reader io.ReadSeeker) error {
+	return decode(r, reader)
+}
+
+// PerfEventMmapPage reflects the Linux 'struct perf_event_mmap_page'
+type PerfEventMmapPage struct {
+	Version       uint32 // version number of this structure
+	CompatVersion uint32 // lowest version this is compat with
+
+	Lock        uint32 // seqlock for synchronization
+	Index       uint32 // hardware event identifier
+	Offset      int64  // add to hardware event value
+	TimeEnabled uint64 // time event active
+	TimeRunning uint64 // time event on cpu
+	//union {
+	Capabilities uint64
+	//struct {
+	//	__u64	cap_bit0		: 1, /* Always 0, deprecated, see commit 860f085b74e9 */
+	//		cap_bit0_is_deprecated	: 1, /* Always 1, signals that bit 0 is zero */
+
+	//		cap_user_rdpmc		: 1, /* The RDPMC instruction can be used to read counts */
+	//		cap_user_time		: 1, /* The time_* fields are used */
+	//		cap_user_time_zero	: 1, /* The time_zero field is used */
+	//		cap_____res		: 59;
+	//};
+	//};
+	PmcWidth uint16
+
+	TimeShift  uint16
+	TimeMult   uint32
+	TimeOffset uint64
+	TimeZero   uint64
+	Size       uint32
+
+	Reserved [118*8 + 4]uint8 // align to 1k.
+
+	DataHead   uint64 // head in the data section
+	DataTail   uint64 // user-space written tail
+	DataOffset uint64 // where the buffer starts
+	DataSize   uint64 // data buffer size
+
+	AuxHead   uint64
+	AuxTail   uint64
+	AuxOffset uint64
+	AuxSize   uint64
+}
+
+// Decode populates 'p' base on the bytes read from the specified reader.
+//
+// This function should not be used from performance-sensitive code.
+func (p *PerfEventMmapPage) Decode(reader io.ReadSeeker) error {
+	return decode(p, reader)
+}
+
+// PerfEventFromMemory creates an in-memory PerfEvent object for testing
+// and analysis purposes. No kernel interaction is made.
+//
+// The caller MUST eventually call Disable() to free event resources.
+func PerfEventFromMemory(page *PerfEventMmapPage, buf []byte) *PerfEvent {
+	pagesize := os.Getpagesize()
+	e := &PerfEvent{
+		cpu:      1,
+		pagesize: pagesize,
+		npages:   int(page.DataSize) / pagesize,
+		data:     buf,
+	}
+
+	e.allocateBuffers()
+	return e
 }
