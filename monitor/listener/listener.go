@@ -19,7 +19,7 @@ import (
 	"os"
 	"syscall"
 
-	"github.com/cilium/cilium/monitor/payload"
+	"github.com/cilium/cilium/pkg/monitor/payload"
 )
 
 // Version is the version of a node-monitor listener client. There are

@@ -35,5 +35,5 @@ patched version of the monitor manually commenting out the call to
 agent from starting the node monitor and then you  can execute your version of
 the node monitor.
 
-[0]: https://godoc.org/github.com/cilium/cilium/monitor/payload#Meta
-[1]: https://godoc.org/github.com/cilium/cilium/monitor/payload#Payload
+[0]: https://godoc.org/github.com/cilium/cilium/pkg/monitor/payload#Meta
+[1]: https://godoc.org/github.com/cilium/cilium/pkg/monitor/payload#Payload
