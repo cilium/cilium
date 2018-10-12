@@ -73,6 +73,7 @@ var _ = Describe("K8sIstioTest", func() {
 	)
 
 	BeforeAll(func() {
+		Skip("Test disabled due issues GH-5859")
 		k8sVersion := helpers.GetCurrentK8SEnv()
 		switch k8sVersion {
 		case "1.7", "1.8", "1.9":
