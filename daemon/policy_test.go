@@ -338,6 +338,7 @@ func (ds *DaemonSuite) TestReplacePolicy(c *C) {
 		{
 			Labels:           lbls,
 			EndpointSelector: api.NewESFromLabels(lblBar),
+			Egress:           []api.EgressRule{{ToCIDR: api.CIDRSlice{"1.1.1.1/32", "2.2.2.2/32"}}},
 		},
 		{
 			Labels:           lbls,
@@ -350,11 +351,29 @@ func (ds *DaemonSuite) TestReplacePolicy(c *C) {
 	ds.d.policy.Mutex.RLock()
 	c.Assert(len(ds.d.policy.SearchRLocked(lbls)), Equals, 2)
 	ds.d.policy.Mutex.RUnlock()
+
+	// replace a CIDR range
+	rules = api.Rules{
+		{
+			Labels:           lbls,
+			EndpointSelector: api.NewESFromLabels(lblBar),
+			Egress:           []api.EgressRule{{ToCIDR: api.CIDRSlice{"1.1.1.1/32", "3.3.3.3/32"}}},
+		},
+		{
+			Labels:           lbls,
+			EndpointSelector: api.NewESFromLabels(lblBar),
+		},
+	}
+
 	_, err = ds.d.PolicyAdd(rules, &AddOptions{Replace: true})
 	c.Assert(err, IsNil)
 	ds.d.policy.Mutex.RLock()
 	c.Assert(len(ds.d.policy.SearchRLocked(lbls)), Equals, 2)
 	ds.d.policy.Mutex.RUnlock()
+
+	// We expect only 2 identities to remain, since the 2.2.2.2/32 refcount has
+	// gone to 0.
+	c.Assert(len(identity.GetIdentities()), Equals, 2, Commentf("Incorrect number of identities remaining after rule replace: %v", identity.GetIdentities())
 }
 
 func (ds *DaemonSuite) TestRemovePolicy(c *C) {
