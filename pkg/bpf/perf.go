@@ -367,21 +367,23 @@ func (e *PerfEvent) Munmap() error {
 	return unix.Munmap(e.data)
 }
 
-func (e *PerfEvent) Enable() error {
+// allocateBuffers initializes the buffers for sharing between Golang and C.
+func (e *PerfEvent) allocateBuffers() {
+	// C.malloc() will crash the program if allocation fails, skip check:
+	// https://golang.org/cmd/cgo/
 	e.state = C.malloc(C.size_t(unsafe.Sizeof(C.struct_read_state{})))
-	if e.state == nil {
-		return fmt.Errorf("Unable to enable perf event: cannot allocate buffers")
-	}
-
 	e.buf = C.malloc(C.size_t(e.pagesize))
-	if e.buf == nil {
-		C.free(e.state)
-		return fmt.Errorf("Unable to enable perf event: cannot allocate buffers")
-	}
+}
 
+func (e *PerfEvent) freeBuffers() {
+	C.free(e.buf)
+	C.free(e.state)
+}
+
+func (e *PerfEvent) Enable() error {
+	e.allocateBuffers()
 	if err := unix.IoctlSetInt(e.Fd, unix.PERF_EVENT_IOC_ENABLE, 0); err != nil {
-		C.free(e.state)
-		C.free(e.buf)
+		e.freeBuffers()
 		return fmt.Errorf("Unable to enable perf event: %v", err)
 	}
 
@@ -402,8 +404,7 @@ func (e *PerfEvent) Disable() error {
 		ret = fmt.Errorf("Unable to disable perf event: %v", err)
 	}
 
-	C.free(e.buf)
-	C.free(e.state)
+	e.freeBuffers()
 	return ret
 }
 
