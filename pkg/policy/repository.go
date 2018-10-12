@@ -663,17 +663,26 @@ func (p *Repository) Empty() bool {
 	return p.NumRules() == 0
 }
 
+// TranslationResult contains the results of the rule translation
+type TranslationResult struct {
+	// NumToServicesRules is the number of ToServices rules processed while
+	// translating the rules
+	NumToServicesRules int
+}
+
 // TranslateRules traverses rules and applies provided translator to rules
-func (p *Repository) TranslateRules(translator Translator) error {
+func (p *Repository) TranslateRules(translator Translator) (error, *TranslationResult) {
 	p.Mutex.Lock()
 	defer p.Mutex.Unlock()
 
+	result := &TranslationResult{}
+
 	for ruleIndex := range p.rules {
-		if err := translator.Translate(&p.rules[ruleIndex].Rule); err != nil {
-			return err
+		if err := translator.Translate(&p.rules[ruleIndex].Rule, result); err != nil {
+			return err, nil
 		}
 	}
-	return nil
+	return nil, result
 }
 
 // BumpRevision allows forcing policy regeneration

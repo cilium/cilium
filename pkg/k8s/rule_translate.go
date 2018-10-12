@@ -41,9 +41,9 @@ type RuleTranslator struct {
 }
 
 // Translate calls TranslateEgress on all r.Egress rules
-func (k RuleTranslator) Translate(r *api.Rule) error {
+func (k RuleTranslator) Translate(r *api.Rule, result *policy.TranslationResult) error {
 	for egressIndex := range r.Egress {
-		err := k.TranslateEgress(&r.Egress[egressIndex])
+		err := k.TranslateEgress(&r.Egress[egressIndex], result)
 		if err != nil {
 			return err
 		}
@@ -53,13 +53,13 @@ func (k RuleTranslator) Translate(r *api.Rule) error {
 
 // TranslateEgress populates/depopulates egress rules with ToCIDR entries based
 // on toService entries
-func (k RuleTranslator) TranslateEgress(r *api.EgressRule) error {
-	err := k.depopulateEgress(r)
+func (k RuleTranslator) TranslateEgress(r *api.EgressRule, result *policy.TranslationResult) error {
+	err := k.depopulateEgress(r, result)
 	if err != nil {
 		return err
 	}
 	if !k.Revert {
-		err := k.populateEgress(r)
+		err := k.populateEgress(r, result)
 		if err != nil {
 			return err
 		}
@@ -67,7 +67,7 @@ func (k RuleTranslator) TranslateEgress(r *api.EgressRule) error {
 	return nil
 }
 
-func (k RuleTranslator) populateEgress(r *api.EgressRule) error {
+func (k RuleTranslator) populateEgress(r *api.EgressRule, result *policy.TranslationResult) error {
 	for _, service := range r.ToServices {
 		if k.serviceMatches(service) {
 			if err := generateToCidrFromEndpoint(r, k.Endpoint, k.IPCache); err != nil {
@@ -79,8 +79,11 @@ func (k RuleTranslator) populateEgress(r *api.EgressRule) error {
 	return nil
 }
 
-func (k RuleTranslator) depopulateEgress(r *api.EgressRule) error {
+func (k RuleTranslator) depopulateEgress(r *api.EgressRule, result *policy.TranslationResult) error {
 	for _, service := range r.ToServices {
+		// NumToServicesRules are only counted in depopulate to avoid
+		// counting rules twice
+		result.NumToServicesRules++
 		if k.serviceMatches(service) {
 			if err := deleteToCidrFromEndpoint(r, k.Endpoint, k.IPCache); err != nil {
 				return err
@@ -227,7 +230,7 @@ func PreprocessRules(
 			svc, ok := services[ns]
 			if ok && svc.IsExternal() {
 				t := NewK8sTranslator(ns, *ep, false, svc.Labels, ipcache)
-				err := t.Translate(rule)
+				err := t.Translate(rule, &policy.TranslationResult{})
 				if err != nil {
 					return err
 				}
