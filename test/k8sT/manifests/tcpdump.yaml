@@ -32,6 +32,9 @@ spec:
                 - "NET_ADMIN"
             privileged: true
             allowPrivilegeEscalation: true
+          volumeMounts:
+            - mountPath: /test
+              name: test-volume
       hostNetwork: true
       restartPolicy: Always
       priorityClassName: system-node-critical
@@ -45,3 +48,8 @@ spec:
           value: "true"
         - key: CriticalAddonsOnly
           operator: "Exists"
+      volumes:
+        - name: test-volume
+          hostPath:
+            path: /home/vagrant/go/src/github.com/cilium/cilium/test/
+            type: Directory

@@ -454,12 +454,20 @@ func (kub *Kubectl) MicroscopeStart(microscopeOptions ...string) (error, func() 
 // TcpdumpStart runs tcpdump on all tcpdumps pods and return a callback
 // function to close the tcpdump and store the logs in test result folder
 func (kub *Kubectl) TcpdumpStart() (error, func() error) {
-	var tcpDumpCmd = fmt.Sprintf("%s -n -i any not port 22", Tcpdump)
+	var tcpDumpCmd = "%s -n -i any not port 22 -w %s"
+	var containerVolumeMount = "/test/"
 	var cb = func() error { return nil }
+
+	testPath, err := CreateReportDirectory()
+	if err != nil {
+		kub.logger.WithError(err).Errorf(
+			"cannot create test results path '%s'", testPath)
+		return err, cb
+	}
 
 	_ = kub.Apply(ManifestGet(TcpdumpManifest))
 
-	err := kub.WaitforPods(
+	err = kub.WaitforPods(
 		KubeSystemNamespace,
 		fmt.Sprintf("-l k8s-app=%s", Tcpdump),
 		300)
@@ -476,30 +484,17 @@ func (kub *Kubectl) TcpdumpStart() (error, func() error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	for _, pod := range pods {
+		tcpdumpCmdWithFile := fmt.Sprintf(tcpDumpCmd,
+			Tcpdump, filepath.Join(containerVolumeMount, testPath, fmt.Sprintf("tcpdump-%s.pcap", pod)))
 		cmd := fmt.Sprintf("%s -n %s exec %s -ti -- %s",
-			KubectlCmd, KubeSystemNamespace, pod, tcpDumpCmd)
+			KubectlCmd, KubeSystemNamespace, pod, tcpdumpCmdWithFile)
 		tcpdumpCmdsResponses[pod] = kub.ExecContext(ctx, cmd, ExecOptions{SkipLog: true})
 	}
 
 	cb = func() error {
 		cancel()
-		testPath, err := CreateReportDirectory()
-		if err != nil {
-			kub.logger.WithError(err).Errorf(
-				"cannot create test results path '%s'", testPath)
-			return err
-		}
-
-		for pod, response := range tcpdumpCmdsResponses {
+		for _, response := range tcpdumpCmdsResponses {
 			response.WaitUntilFinish()
-			filename := fmt.Sprintf("%s-%s.log", Tcpdump, pod)
-			err = WriteOrAppendToFile(
-				filepath.Join(testPath, filename),
-				response.CombineOutput().Bytes(),
-				LogPerm)
-			if err != nil {
-				kub.logger.WithError(err).Errorf("cannot create tcpdump log file")
-			}
 		}
 		return nil
 	}
