@@ -698,7 +698,6 @@ var _ = Describe("K8sPolicyTest", func() {
 			})
 
 			It("Validate toEntities World", func() {
-				Skip("Disabled due issues GH-5791")
 				By("Installing toEntities World")
 				importPolicy(cnpToEntitiesWorld)
 
@@ -711,7 +710,6 @@ var _ = Describe("K8sPolicyTest", func() {
 			})
 
 			It("Validate toEntities Cluster", func() {
-				Skip("Disabled due issues GH-5791")
 				By("Installing toEntities Cluster")
 				importPolicy(cnpToEntitiesCluster)
 

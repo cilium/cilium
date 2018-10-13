@@ -118,6 +118,12 @@ func (id *Identity) IsFixed() bool {
 	return LookupReservedIdentity(id.ID) != nil && IsUserReservedIdentity(id.ID)
 }
 
+// IsWellKnown returns whether the identity represents a well known identity
+// (true), or not (false).
+func (id *Identity) IsWellKnown() bool {
+	return wellKnown.lookupByNumericIdentity(id.ID) != nil
+}
+
 // NewIdentity creates a new identity
 func NewIdentity(id NumericIdentity, lbls labels.Labels) *Identity {
 	var lblArray labels.LabelArray
