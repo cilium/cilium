@@ -151,7 +151,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		ExpectCiliumReady(kubectl)
 
 		By("Waiting etcd-operator is ready")
-		err = kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l name=etcd-operator", 600)
+		err = kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l io.cilium/app=etcd-operator", 600)
 		Expect(err).To(BeNil(), "etcd-operator is not ready after timeout on cilium %s", oldVersion)
 
 		By("Installing Microscope")
