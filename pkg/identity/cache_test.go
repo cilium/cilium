@@ -16,11 +16,29 @@ package identity
 
 import (
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/option"
 
 	. "gopkg.in/check.v1"
 )
 
+var (
+	kvstoreLabels = labels.NewLabelsFromModel([]string{
+		"k8s:app=etcd",
+		"k8s:etcd_cluster=cilium-etcd",
+		"k8s:io.cilium/app=etcd-operator",
+		"k8s:io.kubernetes.pod.namespace=kube-system",
+		"k8s:io.cilium.k8s.policy.serviceaccount=default",
+		"k8s:io.cilium.k8s.policy.cluster=default",
+	})
+)
+
 func (s *IdentityTestSuite) TestLookupReservedIdentity(c *C) {
+	bak := option.Config.ClusterName
+	option.Config.ClusterName = "default"
+	defer func() {
+		option.Config.ClusterName = bak
+	}()
+
 	hostID := GetReservedID("host")
 	c.Assert(LookupIdentityByID(hostID), Not(IsNil))
 
@@ -34,6 +52,12 @@ func (s *IdentityTestSuite) TestLookupReservedIdentity(c *C) {
 	identity = LookupIdentity(labels.NewLabelsFromModel([]string{"reserved:world"}))
 	c.Assert(identity, Not(IsNil))
 	c.Assert(identity.ID, Equals, worldID)
+
+	initWellKnownIdentities()
+
+	identity = LookupIdentity(kvstoreLabels)
+	c.Assert(identity, Not(IsNil))
+	c.Assert(identity.ID, Equals, ReservedCiliumKVStore)
 }
 
 func (s *IdentityTestSuite) TestLookupReservedIdentityByLabels(c *C) {
@@ -80,6 +104,13 @@ func (s *IdentityTestSuite) TestLookupReservedIdentityByLabels(c *C) {
 				},
 			},
 			want: nil,
+		},
+		{
+			name: "well-known-kvstore",
+			args: args{
+				lbls: kvstoreLabels,
+			},
+			want: NewIdentity(ReservedCiliumKVStore, kvstoreLabels),
 		},
 	}
 	for _, tt := range tests {

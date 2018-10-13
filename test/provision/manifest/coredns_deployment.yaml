@@ -9,7 +9,6 @@ metadata:
   generation: 1
   labels:
     k8s-app: kube-dns
-    io.cilium.fixed-identity: kube-dns
   name: coredns
   namespace: kube-system
 spec:
@@ -19,7 +18,6 @@ spec:
   selector:
     matchLabels:
       k8s-app: kube-dns
-      io.cilium.fixed-identity: kube-dns
   strategy:
     rollingUpdate:
       maxSurge: 25%
@@ -30,7 +28,6 @@ spec:
       creationTimestamp: null
       labels:
         k8s-app: kube-dns
-        io.cilium.fixed-identity: kube-dns
     spec:
       containers:
       - args:
