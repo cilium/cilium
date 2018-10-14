@@ -130,6 +130,8 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 
 		ep.Unlock()
 
+		ep.SkipStateClean()
+
 		state.restored = append(state.restored, ep)
 
 		delete(existingEndpoints, ep.IPv4.String())
