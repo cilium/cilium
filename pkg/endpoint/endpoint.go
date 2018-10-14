@@ -2759,3 +2759,16 @@ func (e *Endpoint) scrubIPsInConntrackTable() {
 	e.scrubIPsInConntrackTableLocked()
 	e.Unlock()
 }
+
+// SkipStateClean can be called on a endpoint before its first build to skip
+// the cleaning of state such as the conntrack table. This is useful when an
+// endpoint is being restored from state and the datapath state should not be
+// claned.
+//
+// The endpoint lock must NOT be held.
+func (e *Endpoint) SkipStateClean() {
+	// Mark conntrack as already cleaned
+	e.UnconditionalLock()
+	e.ctCleaned = true
+	e.Unlock()
+}
