@@ -13,3 +13,5 @@ sudo systemctl restart ssh
 
 "${PROVISIONSRC}"/dns.sh
 "${PROVISIONSRC}"/compile.sh
+
+install_iftop
