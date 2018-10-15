@@ -360,6 +360,7 @@ func init() {
 	flags.StringVar(&cgroupRoot,
 		"cgroup-root", "", "Path to Cgroup2 filesystem")
 	flags.Bool(option.BPFCompileDebugName, false, "Enable debugging of the BPF compilation process")
+	flags.Bool(option.SockopsEnableName, defaults.SockopsEnable, "Enable sockops when kernel supported")
 	flags.Int(option.ClusterIDName, 0, "Unique identifier of the cluster")
 	viper.BindEnv(option.ClusterIDName, option.ClusterIDEnv)
 	flags.String(option.ClusterName, defaults.ClusterName, "Name of the cluster")
