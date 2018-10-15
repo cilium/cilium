@@ -2,7 +2,7 @@
 
 pipeline {
     agent {
-        label 'baremetal'
+        label 'eloy'
     }
 
     environment {
