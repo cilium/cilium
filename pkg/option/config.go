@@ -145,6 +145,9 @@ const (
 	// of MaxControllerInterval.
 	MaxCtrlIntervalName    = "max-controller-interval"
 	MaxCtrlIntervalNameEnv = "CILIUM_MAX_CONTROLLER_INTERVAL"
+
+	// SockopsEnableName is the name of the option to enable sockops
+	SockopsEnableName = "sockops-enable"
 )
 
 // Available option for daemonConfig.Tunnel
