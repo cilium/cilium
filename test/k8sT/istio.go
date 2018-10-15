@@ -17,7 +17,6 @@ package k8sTest
 import (
 	"context"
 	"fmt"
-
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
@@ -46,6 +45,11 @@ var _ = Describe("K8sIstioTest", func() {
 		// Istio 1.0.0. mTLS is enabled.
 		istioYAMLPath = helpers.ManifestGet("istio-cilium.yaml")
 
+		// istioProxyImage is the name of the Cilium Istio proxy image.
+		// This must be exactly the contents of the "name" attribute of the
+		// istio-proxy container template in istio-cilium.yaml.
+		istioProxyImage = "docker.io/cilium/istio_proxy_debug:1.0.2"
+
 		// istioServiceNames is the subset of Istio services in the Istio
 		// namespace that are accessed from sidecar proxies.
 		istioServiceNames = []string{
@@ -72,6 +76,12 @@ var _ = Describe("K8sIstioTest", func() {
 		uptimeCancel     context.CancelFunc
 	)
 
+	pullImage := func(vmName, imageName string) {
+		node := helpers.GetVagrantSSHMeta(vmName)
+		res := node.PullImage(imageName)
+		res.ExpectSuccess("unable to pull image %q onto node %q", imageName, vmName)
+	}
+
 	BeforeAll(func() {
 		k8sVersion := helpers.GetCurrentK8SEnv()
 		switch k8sVersion {
@@ -80,6 +90,14 @@ var _ = Describe("K8sIstioTest", func() {
 		}
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
+
+		// Pre-pull the Istio proxy image on every node to speed up pod startup
+		// and reduce the probability that the first Cilium endpoint
+		// regenerations time out.
+		By("Pulling the Istio proxy image")
+		pullImage(helpers.K8s1VMName(), istioProxyImage)
+		pullImage(helpers.K8s2VMName(), istioProxyImage)
+
 		ProvisionInfraPods(kubectl)
 
 		By("Creating the istio-system namespace")

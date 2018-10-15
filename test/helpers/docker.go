@@ -116,6 +116,11 @@ func (s *SSHMeta) NetworkGet(name string) *CmdRes {
 	return s.ExecWithSudo(fmt.Sprintf("docker network inspect %s", name))
 }
 
+// PullImage pulls a Docker onto the node.
+func (s *SSHMeta) PullImage(name string) *CmdRes {
+	return s.ExecWithSudo(fmt.Sprintf("docker pull %s", name))
+}
+
 func (s *SSHMeta) execCmd(cmd string) *CmdRes {
 	return s.ExecWithSudo(cmd)
 }
