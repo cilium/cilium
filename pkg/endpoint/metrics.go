@@ -15,13 +15,14 @@
 package endpoint
 
 import (
+	"math"
+	"sync"
+	"time"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/spanstat"
-	"math"
-	"sync"
-	"time"
 )
 
 var (
@@ -65,10 +66,10 @@ func (s *regenerationStatistics) SendMetrics() {
 		// Skip scopes that have not been hit (zero duration), so the count in
 		// the histogram accurately reflects the number of times each scope is
 		// hit, and the distribution is not incorrectly skewed towards zero.
-		if stat.SuccessTotal() != time.Duration(0) {
+		if stat.SuccessTotal() > time.Duration(0) {
 			metrics.EndpointRegenerationTimeStats.WithLabelValues(scope, "success").Observe(stat.SuccessTotal().Seconds())
 		}
-		if stat.FailureTotal() != time.Duration(0) {
+		if stat.FailureTotal() > time.Duration(0) {
 			metrics.EndpointRegenerationTimeStats.WithLabelValues(scope, "failure").Observe(stat.FailureTotal().Seconds())
 		}
 	}
