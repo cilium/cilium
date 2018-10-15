@@ -21,9 +21,9 @@ deploying Cilium.
 Docker Based
 ------------
 
-`install_cilium_docker`
+.. include:: cilium_install_docker.rst
 
 CRI-O Based
 -----------
 
-`install_cilium_crio`
+.. include:: cilium_install_crio.rst
