@@ -695,6 +695,11 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 
 	e.Unlock()
 
+	// Wait for connection tracking cleaning to complete
+	stats.waitingForCTClean.Start()
+	<-ctCleaned
+	stats.waitingForCTClean.End(true)
+
 	e.getLogger().WithField("bpfHeaderfilesChanged", bpfHeaderfilesChanged).Debug("Preparing to compile BPF")
 
 	stats.prepareBuild.End(true)
@@ -733,11 +738,6 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 	if err != nil {
 		return 0, compilationExecuted, fmt.Errorf("Error while configuring proxy redirects: %s", err)
 	}
-
-	// Wait for connection tracking cleaning to be complete
-	stats.waitingForCTClean.Start()
-	<-ctCleaned
-	stats.waitingForCTClean.End(true)
 
 	stats.waitingForLock.Start()
 	err = e.LockAlive()
