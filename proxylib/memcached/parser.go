@@ -39,6 +39,8 @@ type Rule struct {
 	keyExact  []byte
 	keyPrefix []byte
 	regex     *regexp.Regexp
+
+	empty bool
 }
 
 // Matches returns true if the Rule matches
@@ -50,6 +52,10 @@ func (rule *Rule) Matches(data interface{}) bool {
 	if !ok {
 		log.Debugf("Wrong type supplied to Rule.Matches")
 		return false
+	}
+
+	if rule.empty {
+		return true
 	}
 
 	if packetMeta.IsBinary() {
@@ -130,7 +136,11 @@ func L7RuleParser(rule *cilium.PortNetworkPolicyRule) []proxylib.L7NetworkPolicy
 			}
 		}
 		if !commandFound {
-			proxylib.ParseError("command not specified", rule)
+			if len(br.keyExact) > 0 || len(br.keyPrefix) > 0 || br.regex != nil {
+				proxylib.ParseError("command not specified but key was provided", rule)
+			} else {
+				br.empty = true
+			}
 		}
 		log.Debugf("Parsed Rule pair: %v", br)
 		rules = append(rules, &br)
