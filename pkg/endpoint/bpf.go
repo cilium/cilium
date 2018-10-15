@@ -780,6 +780,10 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 	os.RemoveAll(e.IPv4IngressMapPathLocked())
 
 	e.Unlock()
+
+	// Wait for connection tracking cleaning to complete
+	<-ctCleaned
+
 	e.getLogger().WithField("bpfHeaderfilesChanged", bpfHeaderfilesChanged).Debug("Preparing to compile BPF")
 	libdir := owner.GetBpfDir()
 	rundir := owner.GetStateDir()
@@ -815,9 +819,6 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 	if err != nil {
 		return 0, compilationExecuted, fmt.Errorf("Error while configuring proxy redirects: %s", err)
 	}
-
-	// Wait for connection tracking cleaning to be complete
-	<-ctCleaned
 
 	if err = e.LockAlive(); err != nil {
 		return 0, compilationExecuted, err
