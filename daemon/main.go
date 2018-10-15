@@ -446,6 +446,9 @@ func init() {
 		"nat46-range", defaults.DefaultNAT46Prefix, "IPv6 prefix to map IPv4 addresses to")
 	flags.BoolVar(&masquerade,
 		"masquerade", true, "Masquerade packets from endpoints leaving the host")
+	flags.IntVar(&option.Config.MaxControllerInterval, option.MaxCtrlIntervalName, 0,
+		"Maximum interval (in seconds) between controller runs. Zero is no limit.")
+	viper.BindEnv(option.MaxCtrlIntervalName, option.MaxCtrlIntervalNameEnv)
 	flags.String(option.MonitorAggregationName, "None",
 		"Level of monitor aggregation for traces from the datapath")
 	viper.BindEnv(option.MonitorAggregationName, "CILIUM_MONITOR_AGGREGATION_LEVEL")
@@ -650,6 +653,7 @@ func initEnv(cmd *cobra.Command) {
 			scopedLog.WithError(err).Fatal("Unable to restore agent assets")
 		}
 	}
+	option.Config.MaxControllerInterval = viper.GetInt(option.MaxCtrlIntervalName)
 
 	checkMinRequirements()
 
