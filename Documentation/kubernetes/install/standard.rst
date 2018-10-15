@@ -137,6 +137,12 @@ Configuration
 
       $ wget \ |SCM_WEB|\/examples/kubernetes/1.11/cilium.yaml
 
+  .. group-tab:: K8s 1.12
+
+    .. parsed-literal::
+
+      $ wget \ |SCM_WEB|\/examples/kubernetes/1.12/cilium.yaml
+
 Configuring etcd (Required)
 ---------------------------
 

@@ -432,6 +432,12 @@ To try out the metrics exported by cilium, simply install the example prometheus
       $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/addons/prometheus/prometheus.yaml
       $ kubectl replace --force -f \ |SCM_WEB|\/examples/kubernetes/1.11/cilium.yaml
 
+  .. group-tab:: K8s 1.12
+
+    .. parsed-literal::
+
+      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/addons/prometheus/prometheus.yaml
+      $ kubectl replace --force -f \ |SCM_WEB|\/examples/kubernetes/1.12/cilium.yaml
 
 This will create a barebones prometheus installation that you can use to
 inspect metrics from the agent, then restart cilium so it can consume the new
