@@ -815,7 +815,14 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 		e.RUnlock()
 	}
 
+	// Hook the endpoint into the endpoint table and expose it
+	err = lxcmap.WriteEndpoint(epInfoCache)
+	if err != nil {
+		return 0, compilationExecuted, fmt.Errorf("Exposing new BPF failed: %s", err)
+	}
+
 	// Signal that BPF program has been generated.
+	// The endpoint has at least L3/L4 connectivity at this point.
 	e.CloseBPFProgramChannel()
 
 	err = e.WaitForProxyCompletions(proxyWaitGroup)
@@ -840,14 +847,9 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (revnum uint
 	// This must be done after allocating the new redirects, to update the
 	// policy map with the new proxy ports.
 	err = e.syncPolicyMap()
+	stats.mapSync.End(err == nil)
 	if err != nil {
 		return 0, compilationExecuted, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %s", err)
-	}
-
-	// The last operation hooks the endpoint into the endpoint table and exposes it
-	err = lxcmap.WriteEndpoint(epInfoCache)
-	if err != nil {
-		log.WithField(logfields.EndpointID, e.ID).WithError(err).Error("Exposing new bpf failed")
 	}
 
 	return epInfoCache.revision, compilationExecuted, err
