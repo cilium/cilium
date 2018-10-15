@@ -1553,6 +1553,7 @@ func (kub *Kubectl) GatherLogs() {
 		reportCmds := map[string]string{
 			"journalctl --no-pager -au kubelet": fmt.Sprintf("kubelet-%s.log", node),
 			"sudo top -n 1 -b":                  fmt.Sprintf("top-%s.log", node),
+			"sudo iftop -n -N -t -s 5":          fmt.Sprintf("iftop-%s.log", node),
 			"sudo ps aux":                       fmt.Sprintf("ps-%s.log", node),
 		}
 		reportMap(testPath, reportCmds, vm)

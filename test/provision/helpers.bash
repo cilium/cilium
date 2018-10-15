@@ -80,3 +80,6 @@ function install_cfssl {
     chmod +x cfssljson_linux-amd64
     sudo mv cfssljson_linux-amd64 /usr/bin/cfssljson
 }
+function install_iftop {
+    sudo apt-get install -y iftop
+}

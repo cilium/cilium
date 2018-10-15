@@ -215,6 +215,7 @@ if [[ "${HOST}" == "k8s1" ]]; then
     $PROVISIONSRC/compile.sh
 
     install_cfssl
+    install_iftop
 else
     kubeadm join --token=$TOKEN ${KUBEADM_ADDR}:6443 \
         ${KUBEADM_SLAVE_OPTIONS}
@@ -228,6 +229,7 @@ else
     # This particular workaround is only needed for cilium, running on a pod on host
     # network namespace, to reach out kube-api-server.
     sudo iptables -t nat -A POSTROUTING -o enp0s8 ! -s 192.168.36.12 -j MASQUERADE
+    install_iftop
 fi
 
 sudo touch /etc/provision_finished
