@@ -2,6 +2,44 @@
 NEWS
 ******
 
+v1.0.7
+======
+
+::
+
+    Daniel Borkmann (1):
+          bpf, perf: refine barriers, tail pointer update and buffers
+    
+    Eloy Coto (1):
+          Test/Demos: Make assert more robust.
+    
+    Jarno Rajahalme (3):
+          envoy: Use separate clusters for egress and ingress redirects.
+          bpf: Do not redirect replies from a pod to a proxyport.
+          bpf: Use 'forwarding_reason' instead of potentially overwritten 'ret'
+    
+    Joe Stringer (4):
+          daemon: Improve syncLXCMap failure log
+          lxcmap: Fix invalid dumping of IPv4 entries
+          bpf: Add basic endpointKey.ToIP() test
+          examples/kubernetes: Clean up pidfiles on startup
+    
+    John Fastabend (1):
+          agent: Fix backport to resolve temporary endpoing map corruption
+    
+    Maciej Kwiek (1):
+          protect bpf.PerfEvent.Read from infinite loop
+    
+    Romain Lenglet (2):
+          proxy: Check whether a port is already open before allocating
+          controller: Fix controller update
+    
+    Thomas Graf (3):
+          launcher: Wait for process to exit and release resources
+          agent: Fix temporary corruption of BPF endpoint map on restart
+          bpf: Avoid additional cgo call per perf read
+    
+
 v1.0.6
 ======
 
