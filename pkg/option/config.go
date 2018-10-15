@@ -136,6 +136,11 @@ const (
 	// PrependIptablesChainsNameEnv is the name of the environment variable
 	// of the PrependIptablesChainsName option
 	PrependIptablesChainsNameEnv = "CILIUM_PREPEND_IPTABLES_CHAIN"
+
+	// MaxCtrlIntervalName and MaxCtrlIntervalNameEnv allow configuration
+	// of MaxControllerInterval.
+	MaxCtrlIntervalName    = "max-controller-interval"
+	MaxCtrlIntervalNameEnv = "CILIUM_MAX_CONTROLLER_INTERVAL"
 )
 
 // Available option for daemonConfig.Tunnel
@@ -254,6 +259,10 @@ type daemonConfig struct {
 	// CTMapEntriesGlobalAny is the maximum number of conntrack entries
 	// allowed in each non-TCP CT table for IPv4/IPv6.
 	CTMapEntriesGlobalAny int
+
+	// MaxControllerInterval is the maximum value for a controller's
+	// RunInterval. Zero means unlimited.
+	MaxControllerInterval int
 }
 
 var (

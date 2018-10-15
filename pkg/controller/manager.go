@@ -77,7 +77,7 @@ func (m *Manager) UpdateController(name string, params ControllerParams) *Contro
 
 		ctrl.getLogger().Debug("Updating existing controller")
 		ctrl.mutex.Lock()
-		ctrl.params = params
+		ctrl.updateParamsLocked(params)
 		ctrl.mutex.Unlock()
 
 		// Notify the goroutine of the params update.
@@ -90,12 +90,12 @@ func (m *Manager) UpdateController(name string, params ControllerParams) *Contro
 	} else {
 		ctrl = &Controller{
 			name:       name,
-			params:     params,
 			uuid:       uuid.NewUUID().String(),
 			stop:       make(chan struct{}, 0),
 			update:     make(chan struct{}, 1),
 			terminated: make(chan struct{}, 0),
 		}
+		ctrl.updateParamsLocked(params)
 		ctrl.getLogger().Debug("Starting new controller")
 
 		m.controllers[ctrl.name] = ctrl
