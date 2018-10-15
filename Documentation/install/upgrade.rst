@@ -173,6 +173,8 @@ latest ``1.1.y`` release before subsequently upgrading to ``1.2.z``.
 +-----------------------+-----------------------+-----------------------+-------------------------+---------------------------+
 | ``1.1.x``             | ``1.2.y``             | Required              | Temporary disruption[2] | Clients must reconnect[1] |
 +-----------------------+-----------------------+-----------------------+-------------------------+---------------------------+
+| ``1.2.x``             | ``1.3.y``             | Required              | Minimal to None         | Clients must reconnect[1] |
++-----------------------+-----------------------+-----------------------+-------------------------+---------------------------+
 
 Annotations:
 
@@ -184,6 +186,41 @@ Annotations:
 #. **Temporary disruption**: All traffic may be temporarily disrupted during
    upgrade. Connections should successfully re-establish without requiring
    clients to reconnect.
+
+1.3 Upgrade Notes
+-----------------
+
+Upgrading from 1.2.x to 1.3.y
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+#. If you are running Cilium 1.0.x or 1.1.x, please upgrade to 1.2.x first. It
+   is also possible to upgrade from 1.0 or 1.1 directly to 1.3 by combining the
+   upgrade instructions for each minor release. See :ref:`1.2_upgrade_notes`.
+
+#. Upgrade to Cilium ``1.2.4`` or later using the guide :ref:`upgrade_micro`.
+
+#. Follow the standard procedures to perform the upgrade as described in :ref:`upgrade_minor`.
+
+.. _1.3_new_options:
+
+New ConfigMap Options
+~~~~~~~~~~~~~~~~~~~~~
+
+  * ``ct-global-max-entries-tcp/ct-global-max-entries-other:`` Specifies the
+    maximum number of connections supported across all endpoints, split by
+    protocol: tcp or other. One pair of maps uses these values for IPv4
+    connections, and another pair of maps use these values for IPv6
+    connections. If these values are modified, then during the next Cilium
+    startup the tracking of ongoing connections may be disrupted. This may lead
+    to brief policy drops or a change in loadbalancing decisions for a
+    connection.
+
+  *  ``clean-cilium-bpf-state``: Similar to ``clean-cilium-state`` but only
+     cleans the BPF state while preserving all other state. Endpoints will
+     still be restored and IP allocations will prevail but all datapath state
+     is cleaned when Cilium starts up. Not required for normal operation.
+
+.. _1.2_upgrade_notes:
 
 1.2 Upgrade Notes
 -----------------
