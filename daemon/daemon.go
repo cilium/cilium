@@ -43,6 +43,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/counter"
 	bpfIPCache "github.com/cilium/cilium/pkg/datapath/ipcache"
+	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -112,7 +113,7 @@ type Daemon struct {
 	l7Proxy           *proxy.Proxy
 	loadBalancer      *loadbalancer.LoadBalancer
 	policy            *policy.Repository
-	preFilter         *policy.PreFilter
+	preFilter         *prefilter.PreFilter
 	// Only used for CRI-O since it does not support events.
 	workloadsEventsCh chan<- *workloads.EventMessage
 
@@ -708,13 +709,13 @@ func (d *Daemon) compileBase() error {
 
 	scopedLog := log.WithField(logfields.XDPDevice, option.Config.DevicePreFilter)
 	if option.Config.DevicePreFilter != "undefined" {
-		if err := policy.ProbePreFilter(option.Config.DevicePreFilter, option.Config.ModePreFilter); err != nil {
+		if err := prefilter.ProbePreFilter(option.Config.DevicePreFilter, option.Config.ModePreFilter); err != nil {
 			scopedLog.WithError(err).Warn("Turning off prefilter")
 			option.Config.DevicePreFilter = "undefined"
 		}
 	}
 	if option.Config.DevicePreFilter != "undefined" {
-		if d.preFilter, ret = policy.NewPreFilter(); ret != nil {
+		if d.preFilter, ret = prefilter.NewPreFilter(); ret != nil {
 			scopedLog.WithError(ret).Warn("Unable to init prefilter")
 			return ret
 		}
