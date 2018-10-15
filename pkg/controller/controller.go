@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/go-openapi/strfmt"
 	"github.com/sirupsen/logrus"
@@ -276,6 +277,19 @@ shutdown:
 	}
 
 	close(c.terminated)
+}
+
+// updateParamsLocked sets the specified controller's parameters.
+//
+// If the RunInterval exceeds ControllerMaxInterval, it will be capped.
+func (c *Controller) updateParamsLocked(params ControllerParams) {
+	c.params = params
+
+	maxInterval := time.Duration(option.Config.MaxControllerInterval) * time.Second
+	if maxInterval > 0 && params.RunInterval > maxInterval {
+		c.getLogger().Infof("Limiting interval to %s", maxInterval)
+		c.params.RunInterval = maxInterval
+	}
 }
 
 func (c *Controller) stopController() {

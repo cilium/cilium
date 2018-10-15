@@ -140,6 +140,11 @@ const (
 	// DisableCiliumEndpointCRDName is the name of the option to disable
 	// use of the CEP CRD
 	DisableCiliumEndpointCRDName = "disable-endpoint-crd"
+
+	// MaxCtrlIntervalName and MaxCtrlIntervalNameEnv allow configuration
+	// of MaxControllerInterval.
+	MaxCtrlIntervalName    = "max-controller-interval"
+	MaxCtrlIntervalNameEnv = "CILIUM_MAX_CONTROLLER_INTERVAL"
 )
 
 // Available option for daemonConfig.Tunnel
@@ -261,6 +266,10 @@ type daemonConfig struct {
 
 	// DisableCiliumEndpointCRD disables the use of CiliumEndpoint CRD
 	DisableCiliumEndpointCRD bool
+
+	// MaxControllerInterval is the maximum value for a controller's
+	// RunInterval. Zero means unlimited.
+	MaxControllerInterval int
 }
 
 var (
