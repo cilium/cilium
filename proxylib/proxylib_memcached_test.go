@@ -572,6 +572,19 @@ var textTestCases = []testCase{
 			}, proxylib.OK, "")
 		},
 	},
+	{
+		"text set pass on empty rule",
+		"",
+		func(t *testing.T) {
+			CheckOnData(t, 1, false, false, &[][]byte{setHelloText}, []ExpFilterOp{
+				{proxylib.PASS, len(setHelloText)}, {proxylib.MORE, 2},
+			}, proxylib.OK, "")
+
+			CheckOnData(t, 1, true, false, &[][]byte{stored}, []ExpFilterOp{
+				{proxylib.PASS, len(stored)},
+			}, proxylib.OK, "")
+		},
+	},
 }
 
 var binaryTestCases = []testCase{
