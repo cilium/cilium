@@ -798,8 +798,12 @@ func (d *Daemon) init() error {
 		// Remove any old sockops and re-enable with _new_ programs
 		sockops.SockmapDisable()
 		sockops.SkmsgDisable()
-		sockops.SockmapEnable()
-		sockops.SkmsgEnable()
+
+		if viper.GetBool(option.SockopsEnableName) == true {
+			sockops.SockmapEnable()
+			sockops.SkmsgEnable()
+			sockmap.SockmapCreate()
+		}
 
 		// Set up the list of IPCache listeners in the daemon, to be
 		// used by syncLXCMap().
