@@ -20,6 +20,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"hash"
 	"io"
 	"os"
@@ -39,7 +40,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/ipcache"
-	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -732,7 +732,16 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 			Debug("BPF header file unchanged, skipping BPF compilation and installation")
 	}
 
+	// Hook the endpoint into the endpoint table and expose it
+	stats.mapSync.Start()
+	err = lxcmap.WriteEndpoint(epInfoCache)
+	stats.mapSync.End(err == nil)
+	if err != nil {
+		return 0, compilationExecuted, fmt.Errorf("Exposing new BPF failed: %s", err)
+	}
+
 	// Signal that BPF program has been generated.
+	// The endpoint has at least L3/L4 connectivity at this point.
 	e.CloseBPFProgramChannel()
 
 	stats.proxyWaitForAck.Start()
@@ -763,17 +772,10 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 	// policy map with the new proxy ports.
 	stats.mapSync.Start()
 	err = e.syncPolicyMap()
+	stats.mapSync.End(err == nil)
 	if err != nil {
-		stats.mapSync.End(false)
 		return 0, compilationExecuted, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %s", err)
 	}
-
-	// The last operation hooks the endpoint into the endpoint table and exposes it
-	err = lxcmap.WriteEndpoint(epInfoCache)
-	if err != nil {
-		log.WithField(logfields.EndpointID, e.ID).WithError(err).Error("Exposing new bpf failed")
-	}
-	stats.mapSync.End(true)
 
 	return epInfoCache.revision, compilationExecuted, err
 }
