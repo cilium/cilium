@@ -28,6 +28,17 @@ import (
 
 var log = logging.DefaultLogger
 
+// Remove deletes the pidfile at the specified path. This does not clean up
+// the corresponding process, so should only be used when it is known that the
+// PID contained in the file at the specified path is no longer running.
+func Remove(path string) {
+	scopedLog := log.WithField(logfields.PIDFile, path)
+	scopedLog.Debug("Removing pidfile")
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		scopedLog.WithError(err).Warning("Failed to remove pidfile")
+	}
+}
+
 // Write the pid of the process to the specified path, and attach a cleanup
 // handler to the exit of the program so it's removed afterwards.
 func Write(path string) error {
@@ -43,7 +54,7 @@ func Write(path string) error {
 	go func() {
 		for s := range sig {
 			log.WithField("signal", s).Info("Exiting due to signal")
-			os.Remove(path)
+			Remove(path)
 			os.Exit(0)
 		}
 	}()
@@ -69,6 +80,13 @@ func kill(buf []byte) error {
 	//
 	// It could return "os: process already finished", so just log it at
 	// a low level and ignore the error.
+<<<<<<< HEAD
+=======
+	log.WithFields(logrus.Fields{
+		logfields.PID:     pid,
+		logfields.PIDFile: pidfile,
+	}).Info("Killing old process")
+>>>>>>> pidfile: Add 'Remove' to provide pidfile deletion
 	if err := oldProc.Kill(); err != nil {
 		log.WithError(err).Debug("Ignoring process kill failure")
 	}

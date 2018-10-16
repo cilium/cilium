@@ -262,4 +262,10 @@ const (
 
 	// BPFMapFD is the file descriptor for a BPF map.
 	BPFMapFD = "bpfMapFileDescriptor"
+
+	// PID is an integer value for the process identifier of a process.
+	PID = "pid"
+
+	// PIDFile is a string value for the path to a file containing a PID.
+	PIDFile = "pidfile"
 )
