@@ -139,14 +139,16 @@ func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName strin
 	m.locker.Lock()
 	defer m.locker.Unlock()
 
-	if c == nil {
-		log.WithFields(logrus.Fields{
-			logfields.XDSTypeURL:      typeURL,
-			logfields.XDSResourceName: resourceName,
-		}).Fatal("no completion given to upsert xDS resource")
-	}
-
 	version, _, revert := m.mutator.Upsert(typeURL, resourceName, resource, true)
+
+	if c == nil {
+		// No completion in upsert, revert also without completion
+		return func(_ *completion.Completion) {
+			m.locker.Lock()
+			defer m.locker.Unlock()
+			revert(true)
+		}
+	}
 
 	if _, found := m.pendingCompletions[c]; found {
 		log.WithFields(logrus.Fields{
@@ -194,10 +196,12 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 	version, _, revert := m.mutator.Delete(typeURL, resourceName, true)
 
 	if c == nil {
-		log.WithFields(logrus.Fields{
-			logfields.XDSTypeURL:      typeURL,
-			logfields.XDSResourceName: resourceName,
-		}).Fatal("no completion given to delete xDS resource")
+		// No completion in upsert, revert also without completion
+		return func(_ *completion.Completion) {
+			m.locker.Lock()
+			defer m.locker.Unlock()
+			revert(true)
+		}
 	}
 
 	if _, found := m.pendingCompletions[c]; found {

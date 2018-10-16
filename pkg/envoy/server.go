@@ -703,10 +703,7 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 			}
 		}
 		var c *completion.Completion
-		if wg == nil {
-			// Passing a nil CancelFunc
-			c = completion.NewCompletion(nil, callback)
-		} else {
+		if wg != nil {
 			c = wg.AddCompletionWithCallback(callback)
 		}
 		nodeIDs := make([]string, 0, 1)
