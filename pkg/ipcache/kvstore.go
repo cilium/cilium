@@ -125,7 +125,7 @@ func (r *kvReferenceCounter) upsert(ipKey string, ipIDPair identity.IPIdentityPa
 		logfields.IPMask:       ipIDPair.Mask,
 		logfields.Identity:     ipIDPair.ID,
 		logfields.Modification: Upsert,
-	}).Debug("upserting IP->ID mapping to kvstore")
+	}).Debug("upserting CIDR->ID mapping to kvstore")
 
 	r.Lock()
 	defer r.Unlock()
@@ -174,7 +174,18 @@ func UpsertIPToKVStore(IP, hostIP net.IP, ID identity.NumericIdentity, metadata 
 		HostIP:   hostIP,
 	}
 
-	return globalMap.upsert(ipKey, ipIDPair)
+	marshaledIPIDPair, err := json.Marshal(ipIDPair)
+	if err != nil {
+		return err
+	}
+
+	log.WithFields(logrus.Fields{
+		logfields.IPAddr:       ipIDPair.IP,
+		logfields.Identity:     ipIDPair.ID,
+		logfields.Modification: Upsert,
+	}).Debug("upserting IP->ID mapping to kvstore")
+
+	return globalMap.store.upsert(ipKey, marshaledIPIDPair, true)
 }
 
 // upsertIPNetToKVStore updates / inserts the provided CIDR->Identity mapping
@@ -273,7 +284,7 @@ func upsertIPNetsToKVStore(prefixes []*net.IPNet, identities []*identity.Identit
 // NewIPIdentityWatcher().
 func DeleteIPFromKVStore(ip string) error {
 	ipKey := path.Join(IPIdentitiesPath, AddressSpace, ip)
-	return globalMap.release(ipKey)
+	return globalMap.store.release(ipKey)
 }
 
 // deleteIPNetsFromKVStore removes the Prefix->Identity mappings for the
