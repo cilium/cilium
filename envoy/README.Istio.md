@@ -12,7 +12,10 @@ Istio images.
 Build the Istio binaries, especially a `pilot-discovery` modified to
 configure Cilium filters in every HTTP filter chain.  This work is
 being developed in Cilium's `inject-cilium-filters` branch, which is
-based on Istio's release-1.0 branch.
+based on Istio's release-1.0 branch. Make sure that when you build
+the Istio binaries that you are using a Linux box meeting the
+requirements of Istio.
+
 
     mkdir -p ${GOPATH}/src/istio.io
     cd ${GOPATH}/src/istio.io
@@ -27,13 +30,13 @@ based on Istio's release-1.0 branch.
 
 Only one image needs to be built: `cilium/istio_pilot`.
 
-    TAG=1.0.0 make docker.pilot
+    TAG=1.0.2 make docker.pilot
 
 The `istio/proxytproxy` and `istio/proxytproxy_debug` for pre-releases are not
 available on Docker Hub. If the version built is a pre-release, build
 them here:
 
-    TAG=1.0.0 make docker.proxytproxy docker.proxytproxy_debug
+    TAG=1.0.2 make docker.proxytproxy docker.proxytproxy_debug
 
 ## Build Cilium's sidecar proxy Docker images
 
@@ -41,11 +44,12 @@ them here:
     cd ${GOPATH}/src/github.com/cilium
     git clone git@github.com:cilium/cilium.git
     cd cilium/envoy
+    # Update ISTIO_VERSION if needed in envoy/Makefile
     make docker-istio-proxy docker-istio-proxy-debug
 
 ## Push the Docker images to Docker Hub
 
     docker login -u ...
-    docker image push cilium/istio_pilot:1.0.0
-    docker image push cilium/istio_proxy:1.0.0
-    docker image push cilium/istio_proxy_debug:1.0.0
+    docker image push cilium/istio_pilot:1.0.2
+    docker image push cilium/istio_proxy:1.0.2
+    docker image push cilium/istio_proxy_debug:1.0.2
