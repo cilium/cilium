@@ -211,6 +211,9 @@ type Allocator struct {
 	// enableMasterKeyProtection if true, causes master keys that are still in
 	// local use to be automatically re-created
 	enableMasterKeyProtection bool
+
+	// disableGC disables the garbage collector
+	disableGC bool
 }
 
 func locklessCapability() bool {
@@ -281,14 +284,16 @@ func NewAllocator(basePath string, typ AllocatorKey, opts ...AllocatorOption) (*
 	}
 
 	a.initialListDone = a.mainCache.start(a)
-	go func() {
-		select {
-		case <-a.initialListDone:
-		case <-time.After(listTimeout):
-			log.Fatalf("Timeout while waiting for initial allocator state")
-		}
-		a.startGC()
-	}()
+	if !a.disableGC {
+		go func() {
+			select {
+			case <-a.initialListDone:
+			case <-time.After(listTimeout):
+				log.Fatalf("Timeout while waiting for initial allocator state")
+			}
+			a.startGC()
+		}()
+	}
 
 	return a, nil
 }
@@ -330,6 +335,11 @@ func WithPrefixMask(mask ID) AllocatorOption {
 // re-created them if local usage suggests that the key is still in use
 func WithMasterKeyProtection() AllocatorOption {
 	return func(a *Allocator) { a.enableMasterKeyProtection = true }
+}
+
+// WithoutGC disables the use of the garbage collector
+func WithoutGC() AllocatorOption {
+	return func(a *Allocator) { a.disableGC = true }
 }
 
 // Delete deletes an allocator and stops the garbage collector
