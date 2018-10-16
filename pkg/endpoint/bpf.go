@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/maps/eppolicymap"
 	"github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
@@ -615,6 +616,11 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 	err = e.syncPolicyMap()
 	if err != nil {
 		return 0, compilationExecuted, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %s", err)
+	}
+
+	err = eppolicymap.WriteEndpoint(epInfoCache.keys, e.PolicyMap.Fd)
+	if err != nil {
+		e.logStatusLocked(BPF, Warning, fmt.Sprintf("Unable to sync EpToPolicy Map continue with Sockmap support: %s", err))
 	}
 
 	// The last operation hooks the endpoint into the endpoint table and exposes it

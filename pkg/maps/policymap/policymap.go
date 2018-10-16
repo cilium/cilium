@@ -24,9 +24,10 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/u8proto"
-
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 )
 
 const (
@@ -314,7 +315,7 @@ func OpenMap(path string) (*PolicyMap, bool, error) {
 		uint32(unsafe.Sizeof(PolicyKey{})),
 		uint32(unsafe.Sizeof(PolicyEntry{})),
 		MaxEntries,
-		0,
+		0, 0,
 	)
 
 	if err != nil {

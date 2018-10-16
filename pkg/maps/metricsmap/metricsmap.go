@@ -251,7 +251,7 @@ func init() {
 		int(unsafe.Sizeof(Key{})),
 		int(unsafe.Sizeof(Value{})),
 		MaxEntries,
-		0,
+		0, 0,
 		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
 			k, v := Key{}, Value{}
 
