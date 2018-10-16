@@ -93,30 +93,30 @@ type BackendOperations interface {
 	LockPath(path string) (kvLocker, error)
 
 	// Get returns value of key
-	Get(key string) ([]byte, error)
+	Get(namspace, key string) ([]byte, error)
 
 	// GetPrefix returns the first key which matches the prefix
-	GetPrefix(prefix string) ([]byte, error)
+	GetPrefix(namespace, prefix string) ([]byte, error)
 
 	// Set sets value of key
-	Set(key string, value []byte) error
+	Set(namespace, key string, value []byte) error
 
 	// Delete deletes a key
-	Delete(key string) error
+	Delete(namespace, key string) error
 
-	DeletePrefix(path string) error
+	DeletePrefix(namespace, path string) error
 
 	// Update atomically creates a key or fails if it already exists
-	Update(key string, value []byte, lease bool) error
+	Update(namespace, key string, value []byte, lease bool) error
 
 	// CreateOnly atomically creates a key or fails if it already exists
-	CreateOnly(key string, value []byte, lease bool) error
+	CreateOnly(namespace, key string, value []byte, lease bool) error
 
 	// CreateIfExists creates a key with the value only if key condKey exists
-	CreateIfExists(condKey, key string, value []byte, lease bool) error
+	CreateIfExists(namespace, condKey, key string, value []byte, lease bool) error
 
 	// ListPrefix returns a list of keys matching the prefix
-	ListPrefix(prefix string) (KeyValuePairs, error)
+	ListPrefix(namespace, prefix string) (KeyValuePairs, error)
 
 	// Watch starts watching for changes in a prefix. If list is true, the
 	// current keys matching the prefix will be listed and reported as new
@@ -127,7 +127,7 @@ type BackendOperations interface {
 	Close()
 
 	// GetCapabilities returns the capabilities of the backend
-	GetCapabilities() Capabilities
+	GetCapabilities(namespace string) Capabilities
 
 	// Encodes a binary slice into a character set that the backend
 	// supports

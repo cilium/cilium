@@ -28,6 +28,14 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+var (
+	kvClient *kvstore.ExtendedKVStore
+)
+
+func init() {
+	kvClient = kvstore.GetKVStoreExtendedClientWithNamespace("identity")
+}
+
 // globalIdentity is the structure used to store an identity in the kvstore
 type globalIdentity struct {
 	labels.Labels
@@ -35,12 +43,12 @@ type globalIdentity struct {
 
 // GetKey() encodes a globalIdentity as string
 func (gi globalIdentity) GetKey() string {
-	return kvstore.Encode(gi.SortedList())
+	return kvClient.Encode(gi.SortedList())
 }
 
 // PutKey() decides a globalIdentity from its string representation
 func (gi globalIdentity) PutKey(v string) (allocator.AllocatorKey, error) {
-	b, err := kvstore.Decode(v)
+	b, err := kvClient.Decode(v)
 	if err != nil {
 		return nil, err
 	}

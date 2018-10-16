@@ -47,7 +47,7 @@ func (e *AllocatorEtcdSuite) SetUpTest(c *C) {
 }
 
 func (e *AllocatorEtcdSuite) TearDownTest(c *C) {
-	kvstore.DeletePrefix(testPrefix)
+	kvClient.DeletePrefix(testPrefix)
 	kvstore.Close()
 }
 
@@ -62,7 +62,7 @@ func (e *AllocatorConsulSuite) SetUpTest(c *C) {
 }
 
 func (e *AllocatorConsulSuite) TearDownTest(c *C) {
-	kvstore.DeletePrefix(testPrefix)
+	kvClient.DeletePrefix(testPrefix)
 	kvstore.Close()
 }
 
@@ -218,7 +218,7 @@ func testAllocator(c *C, maxID ID, allocatorName string, suffix string) {
 	// running the GC should not evict any entries
 	allocator.runGC()
 
-	v, err := kvstore.ListPrefix(allocator.idPrefix)
+	v, err := kvClient.ListPrefix(allocator.idPrefix)
 	c.Assert(err, IsNil)
 	c.Assert(len(v), Equals, int(maxID))
 
@@ -235,7 +235,7 @@ func testAllocator(c *C, maxID ID, allocatorName string, suffix string) {
 	// running the GC should evict all entries
 	allocator.runGC()
 
-	v, err = kvstore.ListPrefix(allocator.idPrefix)
+	v, err = kvClient.ListPrefix(allocator.idPrefix)
 	c.Assert(err, IsNil)
 	c.Assert(len(v), Equals, 0)
 

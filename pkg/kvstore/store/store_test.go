@@ -30,6 +30,10 @@ const (
 	testPrefix = "store-tests"
 )
 
+var (
+	kvClient = kvstore.GetKVStoreExtendedClient()
+)
+
 func Test(t *testing.T) {
 	TestingT(t)
 }
@@ -47,7 +51,7 @@ func (e *StoreEtcdSuite) SetUpTest(c *C) {
 }
 
 func (e *StoreEtcdSuite) TearDownTest(c *C) {
-	kvstore.DeletePrefix(testPrefix)
+	kvClient.DeletePrefix(testPrefix)
 	kvstore.Close()
 }
 
@@ -62,7 +66,7 @@ func (e *StoreConsulSuite) SetUpTest(c *C) {
 }
 
 func (e *StoreConsulSuite) TearDownTest(c *C) {
-	kvstore.DeletePrefix(testPrefix)
+	kvClient.DeletePrefix(testPrefix)
 	kvstore.Close()
 }
 

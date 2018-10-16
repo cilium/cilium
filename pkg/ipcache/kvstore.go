@@ -51,6 +51,8 @@ var (
 	globalMap *kvReferenceCounter
 
 	setupIPIdentityWatcher sync.Once
+
+	kvClient = kvstore.GetKVStoreExtendedClientWithNamespace("ipcache")
 )
 
 // store is a key-value store for an underlying implementation, provided to
@@ -70,12 +72,12 @@ type kvstoreImplementation struct{}
 // upsert places the mapping of {key, value} into the kvstore, optionally with
 // a lease.
 func (k kvstoreImplementation) upsert(key string, value []byte, lease bool) error {
-	return kvstore.Update(key, value, lease)
+	return kvClient.Update(key, value, lease)
 }
 
 // release removes the specified key from the kvstore.
 func (k kvstoreImplementation) release(key string) error {
-	return kvstore.Delete(key)
+	return kvClient.Delete(key)
 }
 
 // kvReferenceCounter provides a thin wrapper around the kvstore which adds

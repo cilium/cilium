@@ -33,7 +33,9 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "allocator")
+	subsys   = "allocator"
+	log      = logging.DefaultLogger.WithField(logfields.LogSubsys, subsys)
+	kvClient = kvstore.GetKVStoreExtendedClientWithNamespace(subsys)
 )
 
 const (
@@ -217,7 +219,7 @@ type Allocator struct {
 
 func locklessCapability() bool {
 	required := kvstore.CapabilityCreateIfExists | kvstore.CapabilityDeleteOnZeroCount
-	return kvstore.GetCapabilities()&required == required
+	return kvClient.GetCapabilities()&required == required
 }
 
 // AllocatorOption is the base type for allocator options
@@ -366,7 +368,7 @@ func (a *Allocator) lockPath(key string) (*kvstore.Lock, error) {
 
 // DeleteAllKeys will delete all keys
 func (a *Allocator) DeleteAllKeys() {
-	kvstore.DeletePrefix(a.basePrefix)
+	kvClient.DeletePrefix(a.basePrefix)
 }
 
 // RangeFunc is the function called by RangeCache
@@ -388,7 +390,7 @@ func invalidKey(key, prefix string, deleteInvalid bool) {
 	log.WithFields(logrus.Fields{fieldKey: key, fieldPrefix: prefix}).Warning("Found invalid key outside of prefix")
 
 	if deleteInvalid {
-		kvstore.Delete(key)
+		kvClient.Delete(key)
 	}
 }
 
@@ -409,7 +411,7 @@ func (a *Allocator) createValueNodeKey(key string, newID ID) error {
 	// add a new key /value/<key>/<node> to account for the reference
 	// The key is protected with a TTL/lease and will expire after LeaseTTL
 	valueKey := path.Join(a.valuePrefix, key, a.suffix)
-	if err := kvstore.Update(valueKey, []byte(newID.String()), true); err != nil {
+	if err := kvClient.Update(valueKey, []byte(newID.String()), true); err != nil {
 		return fmt.Errorf("unable to create value-node key '%s': %s", valueKey, err)
 	}
 
@@ -507,7 +509,7 @@ func (a *Allocator) lockedAllocate(key AllocatorKey) (ID, bool, error) {
 
 	// create /id/<ID> and fail if it already exists
 	keyPath := path.Join(a.idPrefix, strID)
-	err = kvstore.CreateOnly(keyPath, []byte(k), false)
+	err = kvClient.CreateOnly(keyPath, []byte(k), false)
 	if err != nil {
 		// Creation failed. Another agent most likely beat us to allocting this
 		// ID, retry.
@@ -604,7 +606,7 @@ func (a *Allocator) Get(key AllocatorKey) (ID, error) {
 // Get returns the ID which is allocated to a key in the kvstore
 func (a *Allocator) GetNoCache(key AllocatorKey) (ID, error) {
 	prefix := path.Join(a.valuePrefix, key.GetKey())
-	value, err := kvstore.GetPrefix(prefix)
+	value, err := kvClient.GetPrefix(prefix)
 	kvstore.Trace("AllocateGet", err, logrus.Fields{fieldPrefix: prefix, fieldValue: value})
 	if err != nil || value == nil {
 		return 0, err
@@ -625,7 +627,7 @@ func (a *Allocator) GetByID(id ID) (AllocatorKey, error) {
 		return key, nil
 	}
 
-	v, err := kvstore.Get(path.Join(a.idPrefix, id.String()))
+	v, err := kvClient.Get(path.Join(a.idPrefix, id.String()))
 	if err != nil {
 		return nil, err
 	}
@@ -647,7 +649,7 @@ func (a *Allocator) Release(key AllocatorKey) (err error) {
 
 	if lastUse {
 		valueKey := path.Join(a.valuePrefix, k, a.suffix)
-		if err := kvstore.Delete(valueKey); err != nil {
+		if err := kvClient.Delete(valueKey); err != nil {
 			log.WithError(err).WithFields(logrus.Fields{fieldKey: key}).Warning("Ignoring node specific ID")
 		}
 
@@ -663,7 +665,7 @@ func (a *Allocator) Release(key AllocatorKey) (err error) {
 
 func (a *Allocator) runGC() error {
 	// fetch list of all /id/ keys
-	allocated, err := kvstore.ListPrefix(a.idPrefix)
+	allocated, err := kvClient.ListPrefix(a.idPrefix)
 	if err != nil {
 		return fmt.Errorf("list failed: %s", err)
 	}
@@ -682,7 +684,7 @@ func (a *Allocator) runGC() error {
 
 		// fetch list of all /value/<key> keys
 		valueKeyPrefix := path.Join(a.valuePrefix, string(v))
-		uses, err := kvstore.ListPrefix(valueKeyPrefix)
+		uses, err := kvClient.ListPrefix(valueKeyPrefix)
 		if err != nil {
 			log.WithError(err).WithField(fieldPrefix, valueKeyPrefix).Warning("allocator garbage collector was unable to list keys")
 			lock.Unlock()
@@ -695,7 +697,7 @@ func (a *Allocator) runGC() error {
 				fieldKey: key,
 				fieldID:  path.Base(key),
 			})
-			if err := kvstore.Delete(key); err != nil {
+			if err := kvClient.Delete(key); err != nil {
 				scopedLog.WithError(err).Warning("Unable to delete unused allocator master key")
 			} else {
 				scopedLog.Info("Deleted unused allocator master key")
@@ -713,7 +715,8 @@ func (a *Allocator) recreateMasterKey(id ID, value string, reliablyMissing bool)
 
 	// Use of CreateOnly() ensures that any existing potentially
 	// conflicting key is never overwritten.
-	err := kvstore.CreateOnly(keyPath, []byte(value), false)
+
+	err := kvClient.CreateOnly(keyPath, []byte(value), false)
 	if reliablyMissing || err == nil {
 		log.WithError(err).WithField(fieldKey, keyPath).Warning("Re-created potentially missing master key")
 	}
@@ -722,7 +725,7 @@ func (a *Allocator) recreateMasterKey(id ID, value string, reliablyMissing bool)
 	// ensure that the next garbage collection cycle of any participating
 	// node does not remove the master key again.
 	valueKey := path.Join(a.valuePrefix, value, a.suffix)
-	err = kvstore.CreateOnly(valueKey, []byte(id.String()), true)
+	err = kvClient.CreateOnly(valueKey, []byte(id.String()), true)
 	if reliablyMissing || err == nil {
 		log.WithError(err).WithField(fieldKey, valueKey).Warning("Re-created potentially missing slave key")
 	}

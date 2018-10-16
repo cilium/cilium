@@ -15,8 +15,6 @@
 package cmd
 
 import (
-	"github.com/cilium/cilium/pkg/kvstore"
-
 	"github.com/spf13/cobra"
 )
 
@@ -34,9 +32,9 @@ var kvstoreSetCmd = &cobra.Command{
 			Fatalf("--key attribute reqiured")
 		}
 
-		setupKvstore()
+		kvClient := setupKvstore()
 
-		err := kvstore.Set(key, []byte(value))
+		err := kvClient.Set(key, []byte(value))
 		if err != nil {
 			Fatalf("Unable to set key: %s", err)
 		}

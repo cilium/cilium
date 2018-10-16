@@ -19,7 +19,6 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/checker"
-	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 
 	. "gopkg.in/check.v1"
@@ -138,7 +137,7 @@ func (ds *ServiceTestSuite) TestGetMaxServiceID(c *C) {
 	marshaledID, err := json.Marshal(lastID)
 	c.Assert(err, IsNil)
 	if enableGlobalServiceIDs {
-		err := kvstore.Client().Set(LastFreeServiceIDKeyPath, marshaledID)
+		err := kvClient.Set(LastFreeServiceIDKeyPath, marshaledID)
 		c.Assert(err, IsNil)
 	} else {
 		err := setIDSpace(lastID, MaxSetOfServiceID)

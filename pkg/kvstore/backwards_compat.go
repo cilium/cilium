@@ -33,5 +33,6 @@ import (
 //
 func deleteLegacyPrefixes() {
 	// Delete all keys in old services prefix
-	DeletePrefix(common.ServicePathV1)
+	kvClient := GetKVStoreExtendedClientWithNamespace("kvstore")
+	kvClient.DeletePrefix(common.ServicePathV1)
 }

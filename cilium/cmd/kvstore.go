@@ -21,10 +21,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	kvNamespace = "cmd"
+)
+
 var (
 	recursive   bool
 	kvStore     string
 	kvStoreOpts = make(map[string]string)
+
+	kvClient = kvstore.GetKVStoreExtendedClientWithNamespace(kvNamespace)
 )
 
 // kvstoreCmd represents the bpf command
@@ -33,7 +39,7 @@ var kvstoreCmd = &cobra.Command{
 	Short: "Direct access to the kvstore",
 }
 
-func setupKvstore() {
+func setupKvstore() *kvstore.ExtendedKVStore {
 	if kvStore == "" || len(kvStoreOpts) == 0 {
 		resp, err := client.ConfigGet()
 		if err != nil {
@@ -59,6 +65,8 @@ func setupKvstore() {
 	if err := kvstore.Setup(kvStore, kvStoreOpts); err != nil {
 		Fatalf("Unable to setup kvstore: %s", err)
 	}
+
+	return kvstore.GetKVStoreExtendedClientWithNamespace(kvNamespace)
 }
 
 func init() {

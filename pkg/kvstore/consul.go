@@ -304,25 +304,29 @@ func (c *consulClient) Status() (string, error) {
 	return "Consul: " + leader, err
 }
 
-func (c *consulClient) DeletePrefix(path string) error {
+func (c *consulClient) DeletePrefix(namespace, path string) error {
+	increaseMetric(namespace, metricDelete, "DeletePrefix")
 	_, err := c.Client.KV().DeleteTree(path, nil)
 	return err
 }
 
 // Set sets value of key
-func (c *consulClient) Set(key string, value []byte) error {
+func (c *consulClient) Set(namespace, key string, value []byte) error {
+	increaseMetric(namespace, metricSet, "Set")
 	_, err := c.KV().Put(&consulAPI.KVPair{Key: key, Value: value}, nil)
 	return err
 }
 
 // Delete deletes a key
-func (c *consulClient) Delete(key string) error {
+func (c *consulClient) Delete(namespace, key string) error {
+	increaseMetric(namespace, metricDelete, "Delete")
 	_, err := c.KV().Delete(key, nil)
 	return err
 }
 
 // Get returns value of key
-func (c *consulClient) Get(key string) ([]byte, error) {
+func (c *consulClient) Get(namespace string, key string) ([]byte, error) {
+	increaseMetric(namespace, metricRead, "Get")
 	pair, _, err := c.KV().Get(key, nil)
 	if err != nil {
 		return nil, err
@@ -334,7 +338,8 @@ func (c *consulClient) Get(key string) ([]byte, error) {
 }
 
 // GetPrefix returns the first key which matches the prefix
-func (c *consulClient) GetPrefix(prefix string) ([]byte, error) {
+func (c *consulClient) GetPrefix(namespace, prefix string) ([]byte, error) {
+	increaseMetric(namespace, metricRead, "GetPrefix")
 	pairs, _, err := c.KV().List(prefix, nil)
 	if err != nil {
 		return nil, err
@@ -348,7 +353,8 @@ func (c *consulClient) GetPrefix(prefix string) ([]byte, error) {
 }
 
 // Update creates or updates a key with the value
-func (c *consulClient) Update(key string, value []byte, lease bool) error {
+func (c *consulClient) Update(namespace, key string, value []byte, lease bool) error {
+	increaseMetric(namespace, metricSet, "Update")
 	k := &consulAPI.KVPair{Key: key, Value: value}
 
 	if lease {
@@ -360,7 +366,8 @@ func (c *consulClient) Update(key string, value []byte, lease bool) error {
 }
 
 // CreateOnly creates a key with the value and will fail if the key already exists
-func (c *consulClient) CreateOnly(key string, value []byte, lease bool) error {
+func (c *consulClient) CreateOnly(namespace, key string, value []byte, lease bool) error {
+	increaseMetric(namespace, metricSet, "CreateOnly")
 	k := &consulAPI.KVPair{
 		Key:         key,
 		Value:       value,
@@ -383,7 +390,7 @@ func (c *consulClient) CreateOnly(key string, value []byte, lease bool) error {
 }
 
 // CreateIfExists creates a key with the value only if key condKey exists
-func (c *consulClient) CreateIfExists(condKey, key string, value []byte, lease bool) error {
+func (c *consulClient) CreateIfExists(namespace, condKey, key string, value []byte, lease bool) error {
 	// Consul does not support transactions which would allow to check for
 	// the presence of a conditional key if the key is not the key being
 	// manipulated
@@ -397,15 +404,15 @@ func (c *consulClient) CreateIfExists(condKey, key string, value []byte, lease b
 	defer l.Unlock()
 
 	// Create the key if it does not exist
-	if err := c.CreateOnly(key, value, lease); err != nil {
+	if err := c.CreateOnly(namespace, key, value, lease); err != nil {
 		return err
 	}
 
 	// Consul does not support transactions which would allow to check for
 	// the presence of another key
-	masterKey, err := c.Get(condKey)
+	masterKey, err := c.Get(namespace, condKey)
 	if err != nil || masterKey == nil {
-		c.Delete(key)
+		c.Delete(namespace, key)
 		return fmt.Errorf("conditional key not present")
 	}
 
@@ -413,7 +420,8 @@ func (c *consulClient) CreateIfExists(condKey, key string, value []byte, lease b
 }
 
 // ListPrefix returns a map of matching keys
-func (c *consulClient) ListPrefix(prefix string) (KeyValuePairs, error) {
+func (c *consulClient) ListPrefix(namespace, prefix string) (KeyValuePairs, error) {
+	increaseMetric(namespace, metricRead, "ListPrefix")
 	pairs, _, err := c.KV().List(prefix, nil)
 	if err != nil {
 		return nil, err
@@ -438,7 +446,8 @@ func (c *consulClient) Close() {
 }
 
 // GetCapabilities returns the capabilities of the backend
-func (c *consulClient) GetCapabilities() Capabilities {
+func (c *consulClient) GetCapabilities(namespace string) Capabilities {
+	increaseMetric(namespace, metricRead, "GetCapabilities")
 	return Capabilities(0)
 }
 

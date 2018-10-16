@@ -45,7 +45,8 @@ const (
 var (
 	controllers controller.Manager
 
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "shared-store")
+	namespace = "shared-store"
+	log       = logging.DefaultLogger.WithField(logfields.LogSubsys, namespace)
 )
 
 // KeyCreator is the function to create a new empty Key instances. Store
@@ -218,7 +219,7 @@ func (s *SharedStore) Close() {
 	controllers.RemoveController(s.controllerName)
 
 	for name, key := range s.localKeys {
-		if err := s.backend.Delete(s.keyPath(key)); err != nil {
+		if err := s.backend.Delete(namespace, s.keyPath(key)); err != nil {
 			s.getLogger().WithError(err).Warning("Unable to delete key in kvstore")
 		}
 
@@ -243,7 +244,7 @@ func (s *SharedStore) syncLocalKey(key LocalKey) error {
 
 	// Update key in kvstore, overwrite an eventual existing key, attach
 	// lease to expire entry when agent dies and never comes back up.
-	if err := s.backend.Update(s.keyPath(key), jsonValue, true); err != nil {
+	if err := s.backend.Update(namespace, s.keyPath(key), jsonValue, true); err != nil {
 		return err
 	}
 
@@ -293,7 +294,7 @@ func (s *SharedStore) UpdateLocalKeySync(key LocalKey) error {
 
 // DeleteLocalKey removes a key from being synchronized with the kvstore
 func (s *SharedStore) DeleteLocalKey(key LocalKey) {
-	err := s.backend.Delete(s.keyPath(key))
+	err := s.backend.Delete(namespace, s.keyPath(key))
 	name := key.GetKeyName()
 
 	s.mutex.Lock()

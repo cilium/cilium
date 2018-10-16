@@ -28,11 +28,15 @@ import (
 // agnostic to the backend implementation.
 type BaseTests struct{}
 
+var (
+	kvClient = GetKVStoreExtendedClient()
+)
+
 func (s *BaseTests) TestLock(c *C) {
 	prefix := "locktest/"
 
-	DeletePrefix(prefix)
-	defer DeletePrefix(prefix)
+	kvClient.DeletePrefix(prefix)
+	defer kvClient.DeletePrefix(prefix)
 
 	for i := 0; i < 10; i++ {
 		lock, err := LockPath(fmt.Sprintf("%sfoo/%d", prefix, i))
@@ -54,97 +58,97 @@ func (s *BaseTests) TestGetSet(c *C) {
 	prefix := "unit-test/"
 	maxID := 256
 
-	DeletePrefix(prefix)
-	defer DeletePrefix(prefix)
+	kvClient.DeletePrefix(prefix)
+	defer kvClient.DeletePrefix(prefix)
 
-	val, err := GetPrefix(prefix)
+	val, err := kvClient.GetPrefix(prefix)
 	c.Assert(err, IsNil)
 	c.Assert(val, IsNil)
 
 	for i := 0; i < maxID; i++ {
-		val, err = Get(testKey(prefix, i))
+		val, err = kvClient.Get(testKey(prefix, i))
 		c.Assert(err, IsNil)
 		c.Assert(val, IsNil)
 
-		val, err = GetPrefix(testKey(prefix, i))
+		val, err = kvClient.GetPrefix(testKey(prefix, i))
 		c.Assert(err, IsNil)
 		c.Assert(val, IsNil)
 
-		c.Assert(Set(testKey(prefix, i), testValue(i)), IsNil)
+		c.Assert(kvClient.Set(testKey(prefix, i), testValue(i)), IsNil)
 
-		val, err = Get(testKey(prefix, i))
+		val, err = kvClient.Get(testKey(prefix, i))
 		c.Assert(err, IsNil)
 		c.Assert(val, DeepEquals, testValue(i))
 
-		val, err = Get(testKey(prefix, i))
+		val, err = kvClient.Get(testKey(prefix, i))
 		c.Assert(err, IsNil)
 		c.Assert(val, DeepEquals, testValue(i))
 	}
 
 	for i := 0; i < maxID; i++ {
-		c.Assert(Delete(testKey(prefix, i)), IsNil)
+		c.Assert(kvClient.Delete(testKey(prefix, i)), IsNil)
 
-		val, err = Get(testKey(prefix, i))
+		val, err = kvClient.Get(testKey(prefix, i))
 		c.Assert(err, IsNil)
 		c.Assert(val, IsNil)
 
-		val, err = GetPrefix(testKey(prefix, i))
+		val, err = kvClient.GetPrefix(testKey(prefix, i))
 		c.Assert(err, IsNil)
 		c.Assert(val, IsNil)
 	}
 
-	val, err = GetPrefix(prefix)
+	val, err = kvClient.GetPrefix(prefix)
 	c.Assert(err, IsNil)
 	c.Assert(val, IsNil)
 }
 
 func (s *BaseTests) BenchmarkGet(c *C) {
 	prefix := "unit-test/"
-	DeletePrefix(prefix)
-	defer DeletePrefix(prefix)
+	kvClient.DeletePrefix(prefix)
+	defer kvClient.DeletePrefix(prefix)
 
 	key := testKey(prefix, 1)
-	c.Assert(Set(key, testValue(100)), IsNil)
+	c.Assert(kvClient.Set(key, testValue(100)), IsNil)
 
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
-		Get(key)
+		kvClient.Get(key)
 	}
 }
 
 func (s *BaseTests) BenchmarkSet(c *C) {
 	prefix := "unit-test/"
-	DeletePrefix(prefix)
-	defer DeletePrefix(prefix)
+	kvClient.DeletePrefix(prefix)
+	defer kvClient.DeletePrefix(prefix)
 
 	key, val := testKey(prefix, 1), testValue(100)
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
-		Set(key, val)
+		kvClient.Set(key, val)
 	}
 }
 
 func (s *BaseTests) TestUpdate(c *C) {
 	prefix := "unit-test/"
 
-	DeletePrefix(prefix)
-	defer DeletePrefix(prefix)
+	kvClient.DeletePrefix(prefix)
+	defer kvClient.DeletePrefix(prefix)
 
-	val, err := GetPrefix(prefix)
+	val, err := kvClient.GetPrefix(prefix)
 	c.Assert(err, IsNil)
 	c.Assert(val, IsNil)
 
 	// create
-	c.Assert(Update(testKey(prefix, 0), testValue(0), true), IsNil)
+	c.Assert(kvClient.Update(testKey(prefix, 0), testValue(0), true), IsNil)
 
-	val, err = Get(testKey(prefix, 0))
+	val, err = kvClient.Get(testKey(prefix, 0))
 	c.Assert(err, IsNil)
 	c.Assert(val, DeepEquals, testValue(0))
 
 	// update
-	c.Assert(Update(testKey(prefix, 0), testValue(0), true), IsNil)
+	c.Assert(kvClient.Update(testKey(prefix, 0), testValue(0), true), IsNil)
 
-	val, err = Get(testKey(prefix, 0))
+	val, err = kvClient.Get(testKey(prefix, 0))
 	c.Assert(err, IsNil)
 	c.Assert(val, DeepEquals, testValue(0))
 }
@@ -152,36 +156,36 @@ func (s *BaseTests) TestUpdate(c *C) {
 func (s *BaseTests) TestCreateOnly(c *C) {
 	prefix := "unit-test/"
 
-	DeletePrefix(prefix)
-	defer DeletePrefix(prefix)
+	kvClient.DeletePrefix(prefix)
+	defer kvClient.DeletePrefix(prefix)
 
-	val, err := GetPrefix(prefix)
+	val, err := kvClient.GetPrefix(prefix)
 	c.Assert(err, IsNil)
 	c.Assert(val, IsNil)
 
-	c.Assert(CreateOnly(testKey(prefix, 0), testValue(0), false), IsNil)
+	c.Assert(kvClient.CreateOnly(testKey(prefix, 0), testValue(0), false), IsNil)
 
-	val, err = Get(testKey(prefix, 0))
+	val, err = kvClient.Get(testKey(prefix, 0))
 	c.Assert(err, IsNil)
 	c.Assert(val, DeepEquals, testValue(0))
 
-	c.Assert(CreateOnly(testKey(prefix, 0), testValue(1), false), Not(IsNil))
+	c.Assert(kvClient.CreateOnly(testKey(prefix, 0), testValue(1), false), Not(IsNil))
 
-	val, err = Get(testKey(prefix, 0))
+	val, err = kvClient.Get(testKey(prefix, 0))
 	c.Assert(err, IsNil)
 	c.Assert(val, DeepEquals, testValue(0))
 
 	// key 1 does not exist so CreateIfExists should fail
-	c.Assert(CreateIfExists(testKey(prefix, 1), testKey(prefix, 2), testValue(2), false), Not(IsNil))
+	c.Assert(kvClient.CreateIfExists(testKey(prefix, 1), testKey(prefix, 2), testValue(2), false), Not(IsNil))
 
-	val, err = Get(testKey(prefix, 2))
+	val, err = kvClient.Get(testKey(prefix, 2))
 	c.Assert(err, IsNil)
 	c.Assert(val, IsNil)
 
 	// key 0 exists so CreateIfExists should succeed
-	c.Assert(CreateIfExists(testKey(prefix, 0), testKey(prefix, 2), testValue(2), false), IsNil)
+	c.Assert(kvClient.CreateIfExists(testKey(prefix, 0), testKey(prefix, 2), testValue(2), false), IsNil)
 
-	val, err = Get(testKey(prefix, 2))
+	val, err = kvClient.Get(testKey(prefix, 2))
 	c.Assert(err, IsNil)
 	c.Assert(val, DeepEquals, testValue(2))
 }
@@ -214,10 +218,10 @@ func (s *BaseTests) TestListAndWatch(c *C) {
 	key1, key2 := "foo2/key1", "foo2/key2"
 	val1, val2 := []byte("val1"), []byte("val2")
 
-	DeletePrefix("foo2/")
-	defer DeletePrefix("foo2/")
+	kvClient.DeletePrefix("foo2/")
+	defer kvClient.DeletePrefix("foo2/")
 
-	err := CreateOnly(key1, val1, false)
+	err := kvClient.CreateOnly(key1, val1, false)
 	c.Assert(err, IsNil)
 
 	w := ListAndWatch("testWatcher2", "foo2/", 100)
@@ -226,23 +230,23 @@ func (s *BaseTests) TestListAndWatch(c *C) {
 	expectEvent(c, w, EventTypeCreate, key1, val1)
 	expectEvent(c, w, EventTypeListDone, "", []byte{})
 
-	err = CreateOnly(key2, val2, false)
+	err = kvClient.CreateOnly(key2, val2, false)
 	c.Assert(err, IsNil)
 	expectEvent(c, w, EventTypeCreate, key2, val2)
 
-	err = Delete(key1)
+	err = kvClient.Delete(key1)
 	c.Assert(err, IsNil)
 	expectEvent(c, w, EventTypeDelete, key1, val1)
 
-	err = CreateOnly(key1, val1, false)
+	err = kvClient.CreateOnly(key1, val1, false)
 	c.Assert(err, IsNil)
 	expectEvent(c, w, EventTypeCreate, key1, val1)
 
-	err = Delete(key1)
+	err = kvClient.Delete(key1)
 	c.Assert(err, IsNil)
 	expectEvent(c, w, EventTypeDelete, key1, val1)
 
-	err = Delete(key2)
+	err = kvClient.Delete(key2)
 	c.Assert(err, IsNil)
 	expectEvent(c, w, EventTypeDelete, key2, val2)
 

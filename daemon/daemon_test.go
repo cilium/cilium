@@ -15,13 +15,14 @@
 package main
 
 import (
-	"github.com/cilium/cilium/pkg/revert"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
 	"time"
+
+	"github.com/cilium/cilium/pkg/revert"
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/completion"
@@ -102,8 +103,9 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	ds.d = d
 
-	kvstore.DeletePrefix(common.OperationalPath)
-	kvstore.DeletePrefix(kvstore.BaseKeyPrefix)
+	kvClient := kvstore.GetKVStoreExtendedClient()
+	kvClient.DeletePrefix(common.OperationalPath)
+	kvClient.DeletePrefix(kvstore.BaseKeyPrefix)
 
 	identity.InitIdentityAllocator(d)
 
@@ -131,8 +133,9 @@ func (ds *DaemonSuite) TearDownTest(c *C) {
 	}
 
 	if ds.kvstoreInit {
-		kvstore.DeletePrefix(common.OperationalPath)
-		kvstore.DeletePrefix(kvstore.BaseKeyPrefix)
+		kvClient := kvstore.GetKVStoreExtendedClient()
+		kvClient.DeletePrefix(common.OperationalPath)
+		kvClient.DeletePrefix(kvstore.BaseKeyPrefix)
 	}
 
 	// Restore the policy enforcement mode.

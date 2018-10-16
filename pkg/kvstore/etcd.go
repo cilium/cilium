@@ -361,7 +361,8 @@ func (e *etcdClient) LockPath(path string) (kvLocker, error) {
 	return &etcdMutex{mutex: mu}, nil
 }
 
-func (e *etcdClient) DeletePrefix(path string) error {
+func (e *etcdClient) DeletePrefix(namespace, path string) error {
+	increaseMetric(namespace, metricDelete, "DeletePrefix")
 	_, err := e.client.Delete(ctx.Background(), path, client.WithPrefix())
 	return err
 }
@@ -556,7 +557,8 @@ func (e *etcdClient) Status() (string, error) {
 }
 
 // Get returns value of key
-func (e *etcdClient) Get(key string) ([]byte, error) {
+func (e *etcdClient) Get(namespace string, key string) ([]byte, error) {
+	increaseMetric(namespace, metricRead, "Get")
 	getR, err := e.client.Get(ctx.Background(), key)
 	if err != nil {
 		return nil, err
@@ -569,7 +571,8 @@ func (e *etcdClient) Get(key string) ([]byte, error) {
 }
 
 // GetPrefix returns the first key which matches the prefix
-func (e *etcdClient) GetPrefix(prefix string) ([]byte, error) {
+func (e *etcdClient) GetPrefix(namespace, prefix string) ([]byte, error) {
+	increaseMetric(namespace, metricRead, "GetPrefix")
 	getR, err := e.client.Get(ctx.Background(), prefix, client.WithPrefix())
 	if err != nil {
 		return nil, err
@@ -582,13 +585,15 @@ func (e *etcdClient) GetPrefix(prefix string) ([]byte, error) {
 }
 
 // Set sets value of key
-func (e *etcdClient) Set(key string, value []byte) error {
+func (e *etcdClient) Set(namespace, key string, value []byte) error {
+	increaseMetric(namespace, metricSet, "Set")
 	_, err := e.client.Put(ctx.Background(), key, string(value))
 	return err
 }
 
 // Delete deletes a key
-func (e *etcdClient) Delete(key string) error {
+func (e *etcdClient) Delete(namespace, key string) error {
+	increaseMetric(namespace, metricDelete, "Delete")
 	_, err := e.client.Delete(ctx.Background(), key)
 	return err
 }
@@ -604,7 +609,9 @@ func (e *etcdClient) createOpPut(key string, value []byte, lease bool) *client.O
 }
 
 // Update creates or updates a key
-func (e *etcdClient) Update(key string, value []byte, lease bool) error {
+func (e *etcdClient) Update(namespace, key string, value []byte, lease bool) error {
+
+	increaseMetric(namespace, metricSet, "Update")
 	<-e.firstSession
 	if lease {
 		_, err := e.client.Put(ctx.Background(), key, string(value), client.WithLease(e.GetLeaseID()))
@@ -616,7 +623,8 @@ func (e *etcdClient) Update(key string, value []byte, lease bool) error {
 }
 
 // CreateOnly creates a key with the value and will fail if the key already exists
-func (e *etcdClient) CreateOnly(key string, value []byte, lease bool) error {
+func (e *etcdClient) CreateOnly(namespace, key string, value []byte, lease bool) error {
+	increaseMetric(namespace, metricSet, "CreateOnly")
 	req := e.createOpPut(key, value, lease)
 	cond := client.Compare(client.Version(key), "=", 0)
 	txnresp, err := e.client.Txn(ctx.TODO()).If(cond).Then(*req).Commit()
@@ -632,7 +640,7 @@ func (e *etcdClient) CreateOnly(key string, value []byte, lease bool) error {
 }
 
 // CreateIfExists creates a key with the value only if key condKey exists
-func (e *etcdClient) CreateIfExists(condKey, key string, value []byte, lease bool) error {
+func (e *etcdClient) CreateIfExists(namespace, condKey, key string, value []byte, lease bool) error {
 	req := e.createOpPut(key, value, lease)
 	cond := client.Compare(client.Version(condKey), "!=", 0)
 	txnresp, err := e.client.Txn(ctx.TODO()).If(cond).Then(*req).Commit()
@@ -667,7 +675,8 @@ func (e *etcdClient) CreateIfExists(condKey, key string, value []byte, lease boo
 //}
 
 // ListPrefix returns a map of matching keys
-func (e *etcdClient) ListPrefix(prefix string) (KeyValuePairs, error) {
+func (e *etcdClient) ListPrefix(namespace, prefix string) (KeyValuePairs, error) {
+	increaseMetric(namespace, metricRead, "ListPrefix")
 	getR, err := e.client.Get(ctx.Background(), prefix, client.WithPrefix())
 	if err != nil {
 		return nil, err
@@ -695,7 +704,8 @@ func (e *etcdClient) Close() {
 }
 
 // GetCapabilities returns the capabilities of the backend
-func (e *etcdClient) GetCapabilities() Capabilities {
+func (e *etcdClient) GetCapabilities(namespace string) Capabilities {
+	increaseMetric(namespace, metricRead, "GetCapabilities")
 	return Capabilities(CapabilityCreateIfExists)
 }
 

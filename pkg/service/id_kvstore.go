@@ -26,26 +26,29 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
+var (
+	kvClient = kvstore.GetKVStoreExtendedClientWithNamespace("service")
+)
+
 func updateL3n4AddrIDRef(id loadbalancer.ServiceID, l3n4AddrID loadbalancer.L3n4AddrID) error {
 	key := path.Join(ServiceIDKeyPath, strconv.FormatUint(uint64(id), 10))
 	value, err := json.Marshal(l3n4AddrID)
 	if err != nil {
 		return err
 	}
-	return kvstore.Client().Set(key, value)
+	return kvClient.Set(key, value)
 }
 
 func initializeFreeID(path string, firstID uint32) error {
 
-	client := kvstore.Client()
-	kvLocker, err := client.LockPath(path)
+	kvLocker, err := kvClient.LockPath(path)
 	if err != nil {
 		return err
 	}
 	defer kvLocker.Unlock()
 
 	log.Debug("Trying to acquire free ID...")
-	k, err := client.Get(path)
+	k, err := kvClient.Get(path)
 	if err != nil {
 		return err
 	}
@@ -59,7 +62,7 @@ func initializeFreeID(path string, firstID uint32) error {
 		return fmt.Errorf("cannot marshal initialize id: %s", err)
 	}
 
-	err = client.Set(path, marshaledID)
+	err = kvClient.Set(path, marshaledID)
 	if err != nil {
 		return err
 	}
@@ -69,8 +72,7 @@ func initializeFreeID(path string, firstID uint32) error {
 
 // getMaxID returns the maximum possible free UUID stored.
 func getMaxID(key string, firstID uint32) (uint32, error) {
-	client := kvstore.Client()
-	k, err := client.Get(key)
+	k, err := kvClient.Get(key)
 	if err != nil {
 		return 0, err
 	}
@@ -80,7 +82,7 @@ func getMaxID(key string, firstID uint32) (uint32, error) {
 			return 0, err
 		}
 		// Due other goroutine can take the ID, still need to get the key from the kvstore.
-		k, err = client.Get(key)
+		k, err = kvClient.Get(key)
 		if err != nil {
 			return 0, err
 		}
@@ -99,8 +101,7 @@ func getMaxID(key string, firstID uint32) (uint32, error) {
 }
 
 func setMaxID(key string, firstID, maxID uint32) error {
-	client := kvstore.Client()
-	value, err := client.Get(key)
+	value, err := kvClient.Get(key)
 	if err != nil {
 		return err
 	}
@@ -109,7 +110,7 @@ func setMaxID(key string, firstID, maxID uint32) error {
 		if err := initializeFreeID(key, firstID); err != nil {
 			return err
 		}
-		k, err := client.Get(key)
+		k, err := kvClient.Get(key)
 		if err != nil {
 			return err
 		}
@@ -124,13 +125,12 @@ func setMaxID(key string, firstID, maxID uint32) error {
 	if err != nil {
 		return nil
 	}
-	return client.Set(key, marshaledID)
+	return kvClient.Set(key, marshaledID)
 }
 
 // gasNewL3n4AddrID gets and sets a new L3n4Addr ID. If baseID is different than zero,
 // KVStore tries to assign that ID first.
 func gasNewL3n4AddrID(l3n4AddrID *loadbalancer.L3n4AddrID, baseID uint32) error {
-	client := kvstore.Client()
 
 	if baseID == 0 {
 		var err error
@@ -147,7 +147,7 @@ func gasNewL3n4AddrID(l3n4AddrID *loadbalancer.L3n4AddrID, baseID uint32) error 
 			return err
 		}
 		keyPath := path.Join(ServiceIDKeyPath, strconv.FormatUint(uint64(l3n4AddrID.ID), 10))
-		if err := client.Set(keyPath, marshaledL3n4AddrID); err != nil {
+		if err := kvClient.Set(keyPath, marshaledL3n4AddrID); err != nil {
 			return err
 		}
 
@@ -157,13 +157,13 @@ func gasNewL3n4AddrID(l3n4AddrID *loadbalancer.L3n4AddrID, baseID uint32) error 
 	acquireFreeID := func(firstID uint32, incID *uint32) (bool, error) {
 		keyPath := path.Join(ServiceIDKeyPath, strconv.FormatUint(uint64(*incID), 10))
 
-		locker, err := client.LockPath(keyPath)
+		locker, err := kvClient.LockPath(keyPath)
 		if err != nil {
 			return false, err
 		}
 		defer locker.Unlock()
 
-		value, err := client.Get(keyPath)
+		value, err := kvClient.Get(keyPath)
 		if err != nil {
 			return false, err
 		}
@@ -217,7 +217,7 @@ func acquireGlobalID(l3n4Addr loadbalancer.L3n4Addr, baseID uint32) (*loadbalanc
 	defer lockKey.Unlock()
 
 	// After lock complete, get svc's path
-	rmsg, err := kvstore.Client().Get(svcPath)
+	rmsg, err := kvClient.Get(svcPath)
 	if err != nil {
 		return nil, err
 	}
@@ -237,7 +237,7 @@ func acquireGlobalID(l3n4Addr loadbalancer.L3n4Addr, baseID uint32) (*loadbalanc
 		if err != nil {
 			return nil, err
 		}
-		err = kvstore.Client().Set(svcPath, marshaledSl4Kv)
+		err = kvClient.Set(svcPath, marshaledSl4Kv)
 		if err != nil {
 			return nil, err
 		}
@@ -247,7 +247,7 @@ func acquireGlobalID(l3n4Addr loadbalancer.L3n4Addr, baseID uint32) (*loadbalanc
 }
 
 func getL3n4AddrID(keyPath string) (*loadbalancer.L3n4AddrID, error) {
-	rmsg, err := kvstore.Client().Get(keyPath)
+	rmsg, err := kvClient.Get(keyPath)
 	if err != nil {
 		return nil, err
 	}
@@ -300,7 +300,7 @@ func deleteL3n4AddrIDBySHA256(sha256Sum string) error {
 	defer lockKey.Unlock()
 
 	// After lock complete, get label's path
-	rmsg, err := kvstore.Client().Get(svcPath)
+	rmsg, err := kvClient.Get(svcPath)
 	if err != nil {
 		return err
 	}
@@ -323,7 +323,7 @@ func deleteL3n4AddrIDBySHA256(sha256Sum string) error {
 	if err != nil {
 		return err
 	}
-	return kvstore.Client().Set(svcPath, marshaledL3n4AddrID)
+	return kvClient.Set(svcPath, marshaledL3n4AddrID)
 }
 
 func getGlobalMaxServiceID() (uint32, error) {

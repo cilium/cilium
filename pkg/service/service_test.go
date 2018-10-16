@@ -38,11 +38,11 @@ var _ = Suite(&ServiceEtcdSuite{})
 func (e *ServiceEtcdSuite) SetUpTest(c *C) {
 	EnableGlobalServiceID(true)
 	kvstore.SetupDummy("etcd")
-	kvstore.DeletePrefix(serviceKvstorePrefix)
+	kvClient.DeletePrefix(serviceKvstorePrefix)
 }
 
 func (e *ServiceEtcdSuite) TearDownTest(c *C) {
-	kvstore.DeletePrefix(serviceKvstorePrefix)
+	kvClient.DeletePrefix(serviceKvstorePrefix)
 	kvstore.Close()
 }
 
@@ -55,11 +55,11 @@ var _ = Suite(&ServiceConsulSuite{})
 func (e *ServiceConsulSuite) SetUpTest(c *C) {
 	EnableGlobalServiceID(true)
 	kvstore.SetupDummy("consul")
-	kvstore.DeletePrefix(serviceKvstorePrefix)
+	kvClient.DeletePrefix(serviceKvstorePrefix)
 }
 
 func (e *ServiceConsulSuite) TearDownTest(c *C) {
-	kvstore.DeletePrefix(serviceKvstorePrefix)
+	kvClient.DeletePrefix(serviceKvstorePrefix)
 	kvstore.Close()
 }
 
