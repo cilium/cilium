@@ -15,41 +15,25 @@
 package fqdn
 
 import (
-	"crypto/sha512"
-	"fmt"
 	"net"
-	"sort"
-	"strings"
 
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/uuid"
 	"github.com/miekg/dns"
 )
 
 // getUUIDFromRuleLabels returns the value of the UUID label
-func getUUIDFromRuleLabels(rule *api.Rule) (uuid string) {
+func getRuleUUIDLabel(rule *api.Rule) (uuid string) {
 	return rule.Labels.Get(uuidLabelSearchKey)
 }
 
-// generateUUIDLabel builds a UUID label to unique a rule on PolicyAdd, it is
-// consistent over the labels passed in.
-// It sorts a copy of the lbls array, and returns a hash
-// TODO: this function is a frankenstein mix of labels.Labels.SortedList and
-// SHA256Sum, neither of this exist on labels.LabelArray and there is no
-// conversion function that won't be even less efficient. fix
-func generateUUIDLabel(lbls labels.LabelArray) (id *labels.Label) {
-	sorted := make([]string, len(lbls)) // copy uses len(dst) not cap!
-	for _, lbl := range lbls {
-		sorted = append(sorted, lbl.String())
-	}
-	sort.Strings(sorted)
-
-	data := []byte(strings.Join(sorted, ""))
-	uuid := fmt.Sprintf("%x", sha512.Sum512_256(data))
-
+// generateUUIDLabel builds a random UUID label that can be used to uniquely identify
+// rules augmented with a "toCIDRSet" based on "toFQDNs".
+func generateUUIDLabel() (id *labels.Label) {
 	return &labels.Label{
 		Key:    generatedLabelNameUUID,
-		Value:  uuid,
+		Value:  uuid.NewUUID().String(),
 		Source: labels.LabelSourceCiliumGenerated,
 	}
 }
