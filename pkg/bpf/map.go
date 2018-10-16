@@ -152,6 +152,7 @@ type MapInfo struct {
 	ValueSize     uint32
 	MaxEntries    uint32
 	Flags         uint32
+	InnerID       uint32
 	OwnerProgType ProgType
 }
 
@@ -224,7 +225,7 @@ type Map struct {
 }
 
 // NewMap creates a new Map instance - object representing a BPF map
-func NewMap(name string, mapType MapType, keySize int, valueSize int, maxEntries int, flags uint32, dumpParser DumpParser) *Map {
+func NewMap(name string, mapType MapType, keySize int, valueSize int, maxEntries int, flags uint32, innerID uint32, dumpParser DumpParser) *Map {
 	m := &Map{
 		MapInfo: MapInfo{
 			MapType:       mapType,
@@ -232,6 +233,7 @@ func NewMap(name string, mapType MapType, keySize int, valueSize int, maxEntries
 			ValueSize:     uint32(valueSize),
 			MaxEntries:    uint32(maxEntries),
 			Flags:         flags,
+			InnerID:       innerID,
 			OwnerProgType: ProgTypeUnspec,
 		},
 		name:       path.Base(name),
@@ -415,7 +417,7 @@ func (m *Map) OpenOrCreate() (bool, error) {
 	}
 
 retry:
-	fd, isNew, err := OpenOrCreateMap(m.path, int(m.MapType), m.KeySize, m.ValueSize, m.MaxEntries, m.Flags)
+	fd, isNew, err := OpenOrCreateMap(m.path, int(m.MapType), m.KeySize, m.ValueSize, m.MaxEntries, m.Flags, m.InnerID)
 	if err != nil && m.MapType == BPF_MAP_TYPE_LPM_TRIE {
 		// If the map type is an LPM, then we can typically fall back
 		// to a hash map. Note that this requires datapath support,

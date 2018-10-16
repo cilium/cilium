@@ -102,7 +102,7 @@ var (
 		int(unsafe.Sizeof(SockmapKey{})),
 		4,
 		MaxEntries,
-		0,
+		0, 0,
 		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
 			k, v := SockmapKey{}, SockmapValue{}
 
