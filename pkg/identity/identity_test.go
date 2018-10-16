@@ -55,6 +55,10 @@ func (s *IdentityTestSuite) TestReservedID(c *C) {
 	c.Assert(i, Equals, NumericIdentity(5))
 	c.Assert(i.String(), Equals, "init")
 
+	i = GetReservedID("unmanaged")
+	c.Assert(i, Equals, NumericIdentity(3))
+	c.Assert(i.String(), Equals, "unmanaged")
+
 	c.Assert(GetReservedID("unknown"), Equals, IdentityUnknown)
 	unknown := NumericIdentity(700)
 	c.Assert(unknown.String(), Equals, "700")
@@ -65,6 +69,7 @@ func (s *IdentityTestSuite) TestIsReservedIdentity(c *C) {
 	c.Assert(ReservedIdentityHost.IsReservedIdentity(), Equals, true)
 	c.Assert(ReservedIdentityWorld.IsReservedIdentity(), Equals, true)
 	c.Assert(ReservedIdentityInit.IsReservedIdentity(), Equals, true)
+	c.Assert(ReservedIdentityUnmanaged.IsReservedIdentity(), Equals, true)
 
 	c.Assert(NumericIdentity(123456).IsReservedIdentity(), Equals, false)
 }
@@ -110,6 +115,15 @@ func (s *IdentityTestSuite) TestAllocateIdentityReserved(c *C) {
 	i, isNew, err = AllocateIdentity(lbls)
 	c.Assert(err, IsNil)
 	c.Assert(i.ID, Equals, ReservedIdentityInit)
+	c.Assert(isNew, Equals, false)
+
+	lbls = labels.Labels{
+		labels.IDNameUnmanaged: labels.NewLabel(labels.IDNameUnmanaged, "", labels.LabelSourceReserved),
+	}
+	c.Assert(IdentityAllocationIsLocal(lbls), Equals, true)
+	i, isNew, err = AllocateIdentity(lbls)
+	c.Assert(err, IsNil)
+	c.Assert(i.ID, Equals, ReservedIdentityUnmanaged)
 	c.Assert(isNew, Equals, false)
 }
 
