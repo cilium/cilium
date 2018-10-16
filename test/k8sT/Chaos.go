@@ -172,7 +172,6 @@ var _ = Describe("K8sChaosTest", func() {
 			netperfPolicy      = helpers.ManifestGet("netperf-policy.yaml")
 			netperfServiceName = "netperf-service"
 			podsIps            map[string]string
-			netperfServiceIP   string
 			netperfClient      = "netperf-client"
 			netperfServer      = "netperf-server"
 		)
@@ -188,7 +187,7 @@ var _ = Describe("K8sChaosTest", func() {
 			podsIps, err = kubectl.GetPodsIPs(helpers.DefaultNamespace, "zgroup=testapp")
 			Expect(err).To(BeNil(), "Cannot get pods ips")
 
-			netperfServiceIP, _, err = kubectl.GetServiceHostPort(helpers.DefaultNamespace, netperfServiceName)
+			_, _, err = kubectl.GetServiceHostPort(helpers.DefaultNamespace, netperfServiceName)
 			Expect(err).To(BeNil(), "cannot get service netperf ip")
 		})
 
