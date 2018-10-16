@@ -52,7 +52,7 @@ const (
 
 // uuidLabelSearchKey is an *extended* label key. This is because .Has
 // expects the source:key delimiter to be the labels.PathDelimiter
-var uuidLabelSearchKey = generateUUIDLabel(nil).GetExtendedKey()
+var uuidLabelSearchKey = generateUUIDLabel().GetExtendedKey()
 
 // StartDNSPoller spawns a singleton DNS polling controller. The controller
 // will, periodically, run a DNS lookup for each ToFQDN target DNS name
@@ -181,14 +181,10 @@ perRule:
 		}
 
 		// add a unique ID that we can use later to replace this rule.
-		uuidLabel := generateUUIDLabel(sourceRule.Labels)
+		uuidLabel := generateUUIDLabel()
 		sourceRule.Labels = append(sourceRule.Labels, uuidLabel)
 
-		// Strip out toCIDRSet
-		// Note: See Hack 1 above. When we generate rules, we add them and this
-		// function is called. This avoids accumulating generated toCIDRSet entries.
-		stripToCIDRSet(sourceRule)
-		// update IPs in this rule, best effort from the cache
+		// Inject initial IPs in this rule, best effort from the cache
 		injectToCIDRSetRules(sourceRule, poller.IPs)
 	}
 }
@@ -213,7 +209,7 @@ perRule:
 		sourceRuleCopy := sourceRule.DeepCopy()
 		stripToCIDRSet(sourceRuleCopy)
 
-		uuid := getUUIDFromRuleLabels(sourceRule)
+		uuid := getRuleUUIDLabel(sourceRule)
 		newDNSNames, alreadyExistsDNSNames := poller.addRule(uuid, sourceRuleCopy)
 		// only debug print for new names, since this function is called
 		// unconditionally, even when we insert generated rules (which aren't new)
@@ -246,7 +242,7 @@ func (poller *DNSPoller) StopPollForDNSName(sourceRules []*api.Rule) {
 			continue
 		}
 
-		uuid := getUUIDFromRuleLabels(sourceRule)
+		uuid := getRuleUUIDLabel(sourceRule)
 		noLongerPolledDNSNames := poller.removeRule(uuid, sourceRule)
 		log.WithFields(logrus.Fields{
 			"noLongerPolled": noLongerPolledDNSNames,

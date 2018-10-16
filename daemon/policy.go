@@ -211,6 +211,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 			for _, r := range rules {
 				tmp := d.policy.SearchRLocked(r.Labels)
 				if len(tmp) > 0 {
+					d.dnsPoller.StopPollForDNSName(tmp)
 					d.policy.DeleteByLabelsLocked(r.Labels)
 				}
 			}
@@ -218,6 +219,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 		if len(opts.ReplaceWithLabels) > 0 {
 			tmp := d.policy.SearchRLocked(opts.ReplaceWithLabels)
 			if len(tmp) > 0 {
+				d.dnsPoller.StopPollForDNSName(tmp)
 				d.policy.DeleteByLabelsLocked(opts.ReplaceWithLabels)
 			}
 		}
