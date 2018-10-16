@@ -423,6 +423,14 @@ type AllocatorKey interface {
 func (a *Allocator) lockedAllocate(key AllocatorKey) (ID, bool, error) {
 	kvstore.Trace("Allocating key in kvstore", nil, logrus.Fields{fieldKey: key})
 
+	k := key.GetKey()
+	lock, err := a.lockPath(k)
+	if err != nil {
+		return 0, false, err
+	}
+
+	defer lock.Unlock()
+
 	// fetch first key that matches /value/<key> while ignoring the
 	// node suffix
 	value, err := a.Get(key)
@@ -430,7 +438,6 @@ func (a *Allocator) lockedAllocate(key AllocatorKey) (ID, bool, error) {
 		return 0, false, err
 	}
 
-	k := key.GetKey()
 	kvstore.Trace("kvstore state is: ", nil, logrus.Fields{fieldID: value})
 
 	if value != 0 {
@@ -477,22 +484,14 @@ func (a *Allocator) lockedAllocate(key AllocatorKey) (ID, bool, error) {
 		return 0, false, fmt.Errorf("another writer has allocated this key")
 	}
 
-	lock, err := a.lockPath(k)
-	if err != nil {
-		releaseKeyAndID()
-		return 0, false, fmt.Errorf("unable to lock key: %s", err)
-	}
-
 	value, err = a.GetNoCache(key)
 	if err != nil {
 		releaseKeyAndID()
-		lock.Unlock()
 		return 0, false, err
 	}
 
 	if value != 0 {
 		releaseKeyAndID()
-		lock.Unlock()
 		return 0, false, fmt.Errorf("master key already exists")
 	}
 
@@ -503,7 +502,6 @@ func (a *Allocator) lockedAllocate(key AllocatorKey) (ID, bool, error) {
 		// Creation failed. Another agent most likely beat us to allocting this
 		// ID, retry.
 		releaseKeyAndID()
-		lock.Unlock()
 		return 0, false, fmt.Errorf("unable to create master key '%s': %s", keyPath, err)
 	}
 
@@ -515,11 +513,8 @@ func (a *Allocator) lockedAllocate(key AllocatorKey) (ID, bool, error) {
 		// exposed and may be in use by other nodes. The garbage
 		// collector will release it again.
 		a.localKeys.release(k)
-		lock.Unlock()
 		return 0, false, fmt.Errorf("slave key creation failed '%s': %s", k, err)
 	}
-
-	lock.Unlock()
 
 	return id, true, nil
 }
