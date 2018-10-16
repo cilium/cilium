@@ -939,6 +939,12 @@ func runDaemon() {
 
 	// Launch another cilium-health as an endpoint, managed by cilium.
 	log.Info("Launching Cilium health endpoint")
+	if k8s.IsEnabled() {
+		// When Cilium starts up in k8s mode, it is guaranteed to be
+		// running inside a new PID namespace which means that existing
+		// PIDfiles are referring to PIDs that may be reused. Clean up.
+		pidfile.Remove(filepath.Join(option.Config.StateDir, health.PidfilePath))
+	}
 	controller.NewManager().UpdateController("cilium-health-ep",
 		controller.ControllerParams{
 			DoFunc: func() error {
