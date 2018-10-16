@@ -156,7 +156,10 @@ func compileAndLink(ctx context.Context, prog *progInfo, dir *directoryInfo, deb
 	}
 	if err != nil {
 		err = fmt.Errorf("Failed to compile %s: %s", prog.Output, err)
-		log.Error(err)
+		log.WithFields(logrus.Fields{
+			"compiler-pid": compileCmd.Process.Pid,
+			"linker-pid":   linkCmd.Process.Pid,
+		}).Error(err)
 		if compileOut != nil {
 			scopedLog := log.Warn
 			if debug {
