@@ -139,7 +139,8 @@ func (s *AllocatorSuite) BenchmarkAllocate(c *C) {
 }
 
 func testAllocator(c *C, maxID ID, allocatorName string, suffix string) {
-	allocator, err := NewAllocator(allocatorName, TestType(""), WithMax(maxID), WithSuffix(suffix))
+	allocator, err := NewAllocator(allocatorName, TestType(""), WithMax(maxID),
+		WithSuffix(suffix), WithoutGC())
 	c.Assert(err, IsNil)
 	c.Assert(allocator, Not(IsNil))
 
@@ -181,7 +182,8 @@ func testAllocator(c *C, maxID ID, allocatorName string, suffix string) {
 	}
 
 	// Create a 2nd allocator, refill it
-	allocator2, err := NewAllocator(allocatorName, TestType(""), WithMax(maxID), WithSuffix("b"))
+	allocator2, err := NewAllocator(allocatorName, TestType(""), WithMax(maxID),
+		WithSuffix("b"), WithoutGC())
 	c.Assert(err, IsNil)
 	c.Assert(allocator2, Not(IsNil))
 
@@ -223,6 +225,11 @@ func testAllocator(c *C, maxID ID, allocatorName string, suffix string) {
 	// release final reference of all IDs
 	for i := ID(1); i <= maxID; i++ {
 		allocator.Release(TestType(fmt.Sprintf("key%04d", i)))
+	}
+
+	for i := ID(1); i <= maxID; i++ {
+		key := TestType(fmt.Sprintf("key%04d", i))
+		c.Assert(allocator.localKeys.keys[key.GetKey()], IsNil)
 	}
 
 	// running the GC should evict all entries
