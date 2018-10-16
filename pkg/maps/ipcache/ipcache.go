@@ -159,7 +159,7 @@ func NewMap(name string) *Map {
 			int(unsafe.Sizeof(Key{})),
 			int(unsafe.Sizeof(RemoteEndpointInfo{})),
 			MaxEntries,
-			bpf.BPF_F_NO_PREALLOC,
+			bpf.BPF_F_NO_PREALLOC, 0,
 			func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
 				k, v := Key{}, RemoteEndpointInfo{}
 

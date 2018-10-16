@@ -59,6 +59,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/maps/eppolicymap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
@@ -823,6 +824,7 @@ func (d *Daemon) init() error {
 		// Remove any old sockops and re-enable with _new_ programs
 		sockops.SockmapDisable()
 		sockops.SkmsgDisable()
+		eppolicymap.CreateEPPolicyMap()
 		sockops.SockmapEnable()
 		sockops.SkmsgEnable()
 
