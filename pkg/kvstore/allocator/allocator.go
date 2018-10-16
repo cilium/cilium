@@ -698,13 +698,23 @@ func (a *Allocator) runGC() error {
 	return nil
 }
 
-func (a *Allocator) recreateMasterKey(id ID, value string) {
+func (a *Allocator) recreateMasterKey(id ID, value string, reliablyMissing bool) {
 	keyPath := path.Join(a.idPrefix, id.String())
 
 	// Use of CreateOnly() ensures that any existing potentially
 	// conflicting key is never overwritten.
-	if err := kvstore.CreateOnly(keyPath, []byte(value), false); err == nil {
-		log.WithField(fieldKey, keyPath).Warning("Re-created missing master key")
+	err := kvstore.CreateOnly(keyPath, []byte(value), false)
+	if reliablyMissing || err == nil {
+		log.WithError(err).WithField(fieldKey, keyPath).Warning("Re-created potentially missing master key")
+	}
+
+	// Also re-create the slave key in case it has been deleted. This will
+	// ensure that the next garbage collection cycle of any participating
+	// node does not remove the master key again.
+	valueKey := path.Join(a.valuePrefix, value, a.suffix)
+	err = kvstore.CreateOnly(valueKey, []byte(id.String()), true)
+	if reliablyMissing || err == nil {
+		log.WithError(err).WithField(fieldKey, valueKey).Warning("Re-created potentially missing slave key")
 	}
 }
 
@@ -720,7 +730,7 @@ func (a *Allocator) syncLocalKeys() error {
 	ids := a.localKeys.getVerifiedIDs()
 
 	for id, value := range ids {
-		a.recreateMasterKey(id, value)
+		a.recreateMasterKey(id, value, false)
 	}
 
 	return nil
