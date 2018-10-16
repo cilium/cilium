@@ -55,6 +55,7 @@ The documentation is divided into the following sections:
    istio/index
    docker/index
    mesos/index
+   gettingstarted/proxylib   
 
 .. toctree::
    :maxdepth: 2
