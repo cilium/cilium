@@ -16,6 +16,14 @@ package spanstat
 
 import (
 	"time"
+
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+)
+
+var (
+	subSystem = "snapstat"
+	log       = logging.DefaultLogger.WithField(logfields.LogSubsys, subSystem)
 )
 
 // SpanStat measures the total duration of all time spent in between Start()
@@ -37,10 +45,14 @@ func (s *SpanStat) Start() {
 func (s *SpanStat) End(success bool) {
 	if !s.spanStart.IsZero() {
 		d := time.Since(s.spanStart)
-		if success {
-			s.successDuration += d
+		if d >= time.Duration(0) {
+			if success {
+				s.successDuration += d
+			} else {
+				s.failureDuration += d
+			}
 		} else {
-			s.failureDuration += d
+			log.WithField("duration", d).Warn("Duration is negative on End")
 		}
 	}
 	s.spanStart = time.Time{}
