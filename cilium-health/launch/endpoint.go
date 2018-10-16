@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -50,8 +50,8 @@ var (
 	// vethPeerName is the endpoint-side link device name for cilium-health.
 	vethPeerName = "cilium"
 
-	// healthPidfile
-	healthPidfile = "health-endpoint.pid"
+	// PidfilePath
+	PidfilePath = "health-endpoint.pid"
 
 	// client is used to ping the cilium-health endpoint as a health check.
 	client *healthPkg.Client
@@ -141,7 +141,7 @@ func PingEndpoint() error {
 // * The health endpoint crashed during the current run of the Cilium agent
 //   and needs to be cleaned up before it is restarted.
 func KillEndpoint() {
-	path := filepath.Join(option.Config.StateDir, healthPidfile)
+	path := filepath.Join(option.Config.StateDir, PidfilePath)
 	if err := pidfile.Kill(path); err != nil {
 		scopedLog := log.WithField(logfields.Path, path).WithError(err)
 		scopedLog.Info("Failed to kill previous cilium-health instance")
@@ -193,7 +193,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 		return fmt.Errorf("Error while creating veth: %s", err)
 	}
 
-	pidfile := filepath.Join(option.Config.StateDir, healthPidfile)
+	pidfile := filepath.Join(option.Config.StateDir, PidfilePath)
 	healthArgs := fmt.Sprintf("-d --admin=unix --passive --pidfile %s", pidfile)
 	args := []string{info.ContainerName, info.InterfaceName, vethPeerName,
 		ip6.String(), ip4.String(), "cilium-health", healthArgs}
