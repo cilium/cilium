@@ -62,6 +62,12 @@ var (
 		Source: labels.LabelSourceReserved,
 	})
 
+	endpointSelectorUnmanaged = NewESFromLabels(&labels.Label{
+		Key:    labels.IDNameUnmanaged,
+		Value:  "",
+		Source: labels.LabelSourceReserved,
+	})
+
 	// EntitySelectorMapping maps special entity names that come in
 	// policies to selectors
 	EntitySelectorMapping = map[Entity]EndpointSelectorSlice{
@@ -123,6 +129,7 @@ func InitEntities(clusterName string) {
 	EntitySelectorMapping[EntityCluster] = EndpointSelectorSlice{
 		endpointSelectorHost,
 		endpointSelectorInit,
+		endpointSelectorUnmanaged,
 		NewESFromLabels(&labels.Label{
 			Key:    k8sapi.PolicyLabelCluster,
 			Value:  clusterName,
