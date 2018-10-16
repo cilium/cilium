@@ -1,8 +1,5 @@
 #!/bin/sh
 
-echo "Removing old cilium and cilium-health pidfiles..."
-rm /var/run/cilium/cilium.pid \
-   /var/run/cilium/state/health-endpoint.pid
 if [ "${CLEAN_CILIUM_STATE}" = "true" ]; then
     echo "Removing Cilium state..."
     rm -rf /var/run/cilium/state;
