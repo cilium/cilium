@@ -200,7 +200,7 @@ func (c *cache) start(a *Allocator) waitChan {
 
 						if a.enableMasterKeyProtection {
 							if value := a.localKeys.lookupID(id); value != "" {
-								a.recreateMasterKey(id, value)
+								a.recreateMasterKey(id, value, true)
 								break
 							}
 						}
