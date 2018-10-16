@@ -139,32 +139,27 @@ func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName strin
 	m.locker.Lock()
 	defer m.locker.Unlock()
 
-	if c == nil {
-		log.WithFields(logrus.Fields{
-			logfields.XDSTypeURL:      typeURL,
-			logfields.XDSResourceName: resourceName,
-		}).Fatal("no completion given to upsert xDS resource")
-	}
-
 	version, _, revert := m.mutator.Upsert(typeURL, resourceName, resource, true)
 
-	if _, found := m.pendingCompletions[c]; found {
-		log.WithFields(logrus.Fields{
-			logfields.XDSTypeURL:      typeURL,
-			logfields.XDSResourceName: resourceName,
-		}).Fatalf("attempt to reuse completion to upsert xDS resource: %v", c)
-	}
+	if c != nil {
+		if _, found := m.pendingCompletions[c]; found {
+			log.WithFields(logrus.Fields{
+				logfields.XDSTypeURL:      typeURL,
+				logfields.XDSResourceName: resourceName,
+			}).Fatalf("attempt to reuse completion to upsert xDS resource: %v", c)
+		}
 
-	comp := &pendingCompletion{
-		version:                 version,
-		typeURL:                 typeURL,
-		remainingNodesResources: make(map[string]map[string]struct{}, len(nodeIDs)),
+		comp := &pendingCompletion{
+			version:                 version,
+			typeURL:                 typeURL,
+			remainingNodesResources: make(map[string]map[string]struct{}, len(nodeIDs)),
+		}
+		for _, nodeID := range nodeIDs {
+			comp.remainingNodesResources[nodeID] = make(map[string]struct{}, 1)
+			comp.remainingNodesResources[nodeID][resourceName] = struct{}{}
+		}
+		m.pendingCompletions[c] = comp
 	}
-	for _, nodeID := range nodeIDs {
-		comp.remainingNodesResources[nodeID] = make(map[string]struct{}, 1)
-		comp.remainingNodesResources[nodeID][resourceName] = struct{}{}
-	}
-	m.pendingCompletions[c] = comp
 
 	return func(completion *completion.Completion) {
 		m.locker.Lock()
@@ -172,10 +167,12 @@ func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName strin
 
 		version, _ := revert(true)
 
-		// We don't know whether the revert did an Upsert or a Delete, so as a
-		// best effort, just wait for any ACK for the version and type URL,
-		// and ignore the ACKed resource names, like for a Delete.
-		m.addDeleteCompletion(typeURL, version, nodeIDs, completion)
+		if completion != nil {
+			// We don't know whether the revert did an Upsert or a Delete, so as a
+			// best effort, just wait for any ACK for the version and type URL,
+			// and ignore the ACKed resource names, like for a Delete.
+			m.addDeleteCompletion(typeURL, version, nodeIDs, completion)
+		}
 	}
 }
 
@@ -193,21 +190,16 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 
 	version, _, revert := m.mutator.Delete(typeURL, resourceName, true)
 
-	if c == nil {
-		log.WithFields(logrus.Fields{
-			logfields.XDSTypeURL:      typeURL,
-			logfields.XDSResourceName: resourceName,
-		}).Fatal("no completion given to delete xDS resource")
-	}
+	if c != nil {
+		if _, found := m.pendingCompletions[c]; found {
+			log.WithFields(logrus.Fields{
+				logfields.XDSTypeURL:      typeURL,
+				logfields.XDSResourceName: resourceName,
+			}).Fatalf("attempt to reuse completion to delete xDS resource: %v", c)
+		}
 
-	if _, found := m.pendingCompletions[c]; found {
-		log.WithFields(logrus.Fields{
-			logfields.XDSTypeURL:      typeURL,
-			logfields.XDSResourceName: resourceName,
-		}).Fatalf("attempt to reuse completion to delete xDS resource: %v", c)
+		m.addDeleteCompletion(typeURL, version, nodeIDs, c)
 	}
-
-	m.addDeleteCompletion(typeURL, version, nodeIDs, c)
 
 	return func(completion *completion.Completion) {
 		m.locker.Lock()
@@ -215,10 +207,12 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 
 		version, _ := revert(true)
 
-		// We don't know whether the revert had any effect at all, so as a
-		// best effort, just wait for any ACK for the version and type URL,
-		// and ignore the ACKed resource names, like for a Delete.
-		m.addDeleteCompletion(typeURL, version, nodeIDs, completion)
+		if completion != nil {
+			// We don't know whether the revert had any effect at all, so as a
+			// best effort, just wait for any ACK for the version and type URL,
+			// and ignore the ACKed resource names, like for a Delete.
+			m.addDeleteCompletion(typeURL, version, nodeIDs, completion)
+		}
 	}
 }
 
