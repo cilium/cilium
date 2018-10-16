@@ -267,14 +267,10 @@ func (s *AckSuite) TestRevertInsert(c *C) {
 
 	// Create version 1 with resource 0.
 	// Insert.
-	comp := wg.AddCompletion()
-	defer comp.Complete(nil)
-	revert := acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp)
+	revert := acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, nil)
 
 	// Insert another resource.
-	comp = wg.AddCompletion()
-	defer comp.Complete(nil)
-	_ = acker.Upsert(typeURL, resources[2].Name, resources[2], []string{node0}, comp)
+	_ = acker.Upsert(typeURL, resources[2].Name, resources[2], []string{node0}, nil)
 
 	res, err := cache.Lookup(typeURL, resources[0].Name)
 	c.Assert(err, IsNil)
@@ -284,7 +280,7 @@ func (s *AckSuite) TestRevertInsert(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(res, Equals, resources[2])
 
-	comp = wg.AddCompletion()
+	comp := wg.AddCompletion()
 	defer comp.Complete(nil)
 	revert(comp)
 
@@ -308,14 +304,10 @@ func (s *AckSuite) TestRevertUpdate(c *C) {
 
 	// Create version 1 with resource 0.
 	// Insert.
-	comp := wg.AddCompletion()
-	defer comp.Complete(nil)
-	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp)
+	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, nil)
 
 	// Insert another resource.
-	comp = wg.AddCompletion()
-	defer comp.Complete(nil)
-	_ = acker.Upsert(typeURL, resources[2].Name, resources[2], []string{node0}, comp)
+	_ = acker.Upsert(typeURL, resources[2].Name, resources[2], []string{node0}, nil)
 
 	res, err := cache.Lookup(typeURL, resources[0].Name)
 	c.Assert(err, IsNil)
@@ -326,15 +318,13 @@ func (s *AckSuite) TestRevertUpdate(c *C) {
 	c.Assert(res, Equals, resources[2])
 
 	// Update.
-	comp = wg.AddCompletion()
-	defer comp.Complete(nil)
-	revert := acker.Upsert(typeURL, resources[0].Name, resources[1], []string{node0}, comp)
+	revert := acker.Upsert(typeURL, resources[0].Name, resources[1], []string{node0}, nil)
 
 	res, err = cache.Lookup(typeURL, resources[0].Name)
 	c.Assert(err, IsNil)
 	c.Assert(res, Equals, resources[1])
 
-	comp = wg.AddCompletion()
+	comp := wg.AddCompletion()
 	defer comp.Complete(nil)
 	revert(comp)
 
@@ -358,14 +348,10 @@ func (s *AckSuite) TestRevertDelete(c *C) {
 
 	// Create version 1 with resource 0.
 	// Insert.
-	comp := wg.AddCompletion()
-	defer comp.Complete(nil)
-	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp)
+	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, nil)
 
 	// Insert another resource.
-	comp = wg.AddCompletion()
-	defer comp.Complete(nil)
-	_ = acker.Upsert(typeURL, resources[2].Name, resources[2], []string{node0}, comp)
+	_ = acker.Upsert(typeURL, resources[2].Name, resources[2], []string{node0}, nil)
 
 	res, err := cache.Lookup(typeURL, resources[0].Name)
 	c.Assert(err, IsNil)
@@ -376,9 +362,7 @@ func (s *AckSuite) TestRevertDelete(c *C) {
 	c.Assert(res, Equals, resources[2])
 
 	// Delete.
-	comp = wg.AddCompletion()
-	defer comp.Complete(nil)
-	revert := acker.Delete(typeURL, resources[0].Name, []string{node0}, comp)
+	revert := acker.Delete(typeURL, resources[0].Name, []string{node0}, nil)
 
 	res, err = cache.Lookup(typeURL, resources[0].Name)
 	c.Assert(err, IsNil)
@@ -388,7 +372,7 @@ func (s *AckSuite) TestRevertDelete(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(res, Equals, resources[2])
 
-	comp = wg.AddCompletion()
+	comp := wg.AddCompletion()
 	defer comp.Complete(nil)
 	revert(comp)
 
