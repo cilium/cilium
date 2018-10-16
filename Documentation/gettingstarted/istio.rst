@@ -22,12 +22,12 @@ Step 2: Install Istio
 
 Install the `Helm client <https://docs.helm.sh/using_helm/#installing-helm>`_.
 
-Download `Istio version 1.0.0
-<https://github.com/istio/istio/releases/tag/1.0.0>`_:
+Download `Istio version 1.0.2
+<https://github.com/istio/istio/releases/tag/1.0.2>`_:
 
 ::
 
-   $ export ISTIO_VERSION=1.0.0
+   $ export ISTIO_VERSION=1.0.2
    $ curl -L https://git.io/getLatestIstio | sh -
    $ export ISTIO_HOME=`pwd`/istio-${ISTIO_VERSION}
    $ export PATH="$PATH:${ISTIO_HOME}/bin"
@@ -83,8 +83,8 @@ of Pilot, and disables unused services:
 ::
 
     $ helm template istio-cilium-helm --name istio --namespace istio-system \
-          --set pilot.image=docker.io/cilium/istio_pilot:1.0.0 \
-          --set sidecarInjectorWebhook.enabled=true \
+          --set pilot.image=docker.io/cilium/istio_pilot:1.0.2 \
+          --set sidecarInjectorWebhook.enabled=false \
           --set global.controlPlaneSecurityEnabled=true \
           --set global.mtls.enabled=true \
           --set global.proxy.image=proxy_debug \
@@ -116,7 +116,6 @@ Check the progress of the deployment (every service should have an
     istio-ingressgateway       1         1         1            1           1m
     istio-pilot                1         1         1            1           1m
     istio-policy               1         1         1            1           1m
-    istio-sidecar-injector     1         1         1            1           1m
     istio-statsd-prom-bridge   1         1         1            1           1m
     istio-telemetry            1         1         1            1           1m
     prometheus                 1         1         1            1           1m
