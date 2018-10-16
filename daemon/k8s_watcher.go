@@ -1976,8 +1976,11 @@ func (d *Daemon) updatePodHostIP(pod *v1.Pod) (bool, error) {
 		return true, fmt.Errorf("no/invalid PodIP: %s", pod.Status.PodIP)
 	}
 
+	// Initial mapping of podIP <-> hostIP <-> identity. The mapping is
+	// later updated once the allocator has determined the real identity.
+	// If the endpoint remains unmanaged, the identity remains untouched.
 	selfOwned := ipcache.IPIdentityCache.Upsert(pod.Status.PodIP, hostIP, ipcache.Identity{
-		ID:     identity.ReservedIdentityInit,
+		ID:     identity.ReservedIdentityUnmanaged,
 		Source: ipcache.FromKubernetes,
 	})
 	if !selfOwned {

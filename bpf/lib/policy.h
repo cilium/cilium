@@ -32,6 +32,7 @@
  * - ReservedIdentityWorld	(2)
  *
  * The following identities are given to endpoints so return false for these:
+ * - ReservedIdentityUnmanaged  (3)
  * - ReservedIdentityHealth	(4)
  * - ReservedIdentityInit	(5)
  *
@@ -39,7 +40,7 @@
  */
 static inline bool identity_is_reserved(__u32 identity)
 {
-	return identity < HEALTH_ID;
+	return identity < UNMANAGED_ID;
 }
 
 static inline int __inline__

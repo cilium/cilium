@@ -399,6 +399,10 @@ identities are prefixed with the string ``reserved:``.
 |                     | security identity is still missing. This is       |
 |                     | typically the case in the bootstrapping phase.    |
 +---------------------+---------------------------------------------------+
+| reserved:unmanaged  | An endpoint that is not managed by Cilium, e.g.   |
+|                     | a Kubernetes pod that was launched before Cilium  |
+|                     | was installed.                                    |
++---------------------+---------------------------------------------------+
 
 Identity Management in the Cluster
 ----------------------------------

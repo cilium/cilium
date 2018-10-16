@@ -48,9 +48,8 @@ const (
 	// ReservedIdentityWorld represents any endpoint outside of the cluster
 	ReservedIdentityWorld
 
-	// ObsoleteReservedIdentityCluster was previously the cluster identity
-	// which has been obsoleted since.
-	ObsoleteReservedIdentityCluster
+	// ReservedIdentityUnmanaged represents unmanaged endpoints.
+	ReservedIdentityUnmanaged
 
 	// ReservedIdentityHealth represents the local cilium-health endpoint
 	ReservedIdentityHealth
@@ -193,16 +192,18 @@ func initWellKnownIdentities() {
 
 var (
 	reservedIdentities = map[string]NumericIdentity{
-		labels.IDNameHost:   ReservedIdentityHost,
-		labels.IDNameWorld:  ReservedIdentityWorld,
-		labels.IDNameHealth: ReservedIdentityHealth,
-		labels.IDNameInit:   ReservedIdentityInit,
+		labels.IDNameHost:      ReservedIdentityHost,
+		labels.IDNameWorld:     ReservedIdentityWorld,
+		labels.IDNameUnmanaged: ReservedIdentityUnmanaged,
+		labels.IDNameHealth:    ReservedIdentityHealth,
+		labels.IDNameInit:      ReservedIdentityInit,
 	}
 	reservedIdentityNames = map[NumericIdentity]string{
-		ReservedIdentityHost:   labels.IDNameHost,
-		ReservedIdentityWorld:  labels.IDNameWorld,
-		ReservedIdentityHealth: labels.IDNameHealth,
-		ReservedIdentityInit:   labels.IDNameInit,
+		ReservedIdentityHost:      labels.IDNameHost,
+		ReservedIdentityWorld:     labels.IDNameWorld,
+		ReservedIdentityUnmanaged: labels.IDNameUnmanaged,
+		ReservedIdentityHealth:    labels.IDNameHealth,
+		ReservedIdentityInit:      labels.IDNameInit,
 	}
 
 	wellKnown = wellKnownIdentities{}
