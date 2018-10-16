@@ -45,7 +45,7 @@ var (
 		int(unsafe.Sizeof(tunnelEndpoint{})),
 		int(unsafe.Sizeof(tunnelEndpoint{})),
 		MaxEntries,
-		0,
+		0, 0,
 		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
 			k, v := tunnelEndpoint{}, tunnelEndpoint{}
 
