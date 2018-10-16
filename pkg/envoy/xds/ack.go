@@ -113,20 +113,12 @@ func NewAckingResourceMutatorWrapper(mutator ResourceMutator, nodeToID NodeToIDF
 	}
 }
 
-func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName string, resource proto.Message, nodeIDs []string, completion *completion.Completion) {
+func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName string, resource proto.Message, nodeIDs []string, c *completion.Completion) {
 	m.locker.Lock()
 	defer m.locker.Unlock()
 
-	if completion == nil {
-		log.WithFields(logrus.Fields{
-			logfields.XDSTypeURL:      typeURL,
-			logfields.XDSResourceName: resourceName,
-		}).Fatal("no completion given to Upsert xDS resource.")
-		return
-	}
-
 	// Do not add the resource if the context is already cancelled
-	if completion.Err() != nil {
+	if c != nil && c.Err() != nil {
 		log.WithFields(logrus.Fields{
 			logfields.XDSTypeURL:      typeURL,
 			logfields.XDSResourceName: resourceName,
@@ -136,27 +128,28 @@ func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName strin
 
 	version, _ := m.mutator.Upsert(typeURL, resourceName, resource, true)
 
-	comp, found := m.pendingCompletions[completion]
-	if found {
-		log.WithFields(logrus.Fields{
-			logfields.XDSTypeURL:      typeURL,
-			logfields.XDSResourceName: resourceName,
-		}).Fatalf("attempt to reuse completion to upsert xDS resource: %v", completion)
-	}
-	comp = &pendingCompletion{
-		version:                 version,
-		typeURL:                 typeURL,
-		remainingNodesResources: make(map[string]map[string]struct{}, len(nodeIDs)),
-	}
+	if c != nil {
+		if _, found := m.pendingCompletions[c]; found {
+			log.WithFields(logrus.Fields{
+				logfields.XDSTypeURL:      typeURL,
+				logfields.XDSResourceName: resourceName,
+			}).Fatalf("attempt to reuse completion to upsert xDS resource: %v", c)
+		}
+		comp := &pendingCompletion{
+			version:                 version,
+			typeURL:                 typeURL,
+			remainingNodesResources: make(map[string]map[string]struct{}, len(nodeIDs)),
+		}
 
-	for _, nodeID := range nodeIDs {
-		comp.remainingNodesResources[nodeID] = make(map[string]struct{}, 1)
-		comp.remainingNodesResources[nodeID][resourceName] = struct{}{}
+		for _, nodeID := range nodeIDs {
+			comp.remainingNodesResources[nodeID] = make(map[string]struct{}, 1)
+			comp.remainingNodesResources[nodeID][resourceName] = struct{}{}
+		}
+		m.pendingCompletions[c] = comp
 	}
-	m.pendingCompletions[completion] = comp
 }
 
-func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName string, nodeIDs []string, completion *completion.Completion) {
+func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName string, nodeIDs []string, c *completion.Completion) {
 	m.locker.Lock()
 	defer m.locker.Unlock()
 
@@ -170,32 +163,25 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 
 	version, _ := m.mutator.Delete(typeURL, resourceName, true)
 
-	if completion == nil {
-		log.WithFields(logrus.Fields{
-			logfields.XDSTypeURL:      typeURL,
-			logfields.XDSResourceName: resourceName,
-		}).Debug("no completion given to delete xDS resource")
-		return
-	}
+	if c != nil {
+		if _, found := m.pendingCompletions[c]; found {
+			log.WithFields(logrus.Fields{
+				logfields.XDSTypeURL:      typeURL,
+				logfields.XDSResourceName: resourceName,
+			}).Fatalf("attempt to reuse completion to delete xDS resource: %v", c)
+		}
+		comp := &pendingCompletion{
+			version:                 version,
+			typeURL:                 typeURL,
+			remainingNodesResources: make(map[string]map[string]struct{}, len(nodeIDs)),
+		}
 
-	comp, found := m.pendingCompletions[completion]
-	if found {
-		log.WithFields(logrus.Fields{
-			logfields.XDSTypeURL:      typeURL,
-			logfields.XDSResourceName: resourceName,
-		}).Fatalf("attempt to reuse completion to delete xDS resource: %v", completion)
-	}
-	comp = &pendingCompletion{
-		version:                 version,
-		typeURL:                 typeURL,
-		remainingNodesResources: make(map[string]map[string]struct{}, len(nodeIDs)),
-	}
+		for _, nodeID := range nodeIDs {
+			comp.remainingNodesResources[nodeID] = nil
+		}
 
-	for _, nodeID := range nodeIDs {
-		comp.remainingNodesResources[nodeID] = nil
+		m.pendingCompletions[c] = comp
 	}
-
-	m.pendingCompletions[completion] = comp
 }
 
 // 'ackVersion' is the last version that was acked. 'nackVersion', if greater than 'nackVersion', is the last version that was NACKed.
