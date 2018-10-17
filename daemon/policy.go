@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net"
 	"sync"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -206,26 +207,46 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 	}
 
 	d.policy.Mutex.Lock()
+	// removedPrefixes tracks prefixes that we replace in the rules. It is used
+	// after we release the policy repository lock.
+	var removedPrefixes []*net.IPNet
 	if opts != nil {
 		if opts.Replace {
 			for _, r := range rules {
-				tmp := d.policy.SearchRLocked(r.Labels)
-				if len(tmp) > 0 {
-					d.dnsPoller.StopPollForDNSName(tmp)
+				oldRules := d.policy.SearchRLocked(r.Labels)
+				removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(oldRules)...)
+				if len(oldRules) > 0 {
+					d.dnsPoller.StopPollForDNSName(oldRules)
 					d.policy.DeleteByLabelsLocked(r.Labels)
 				}
 			}
 		}
 		if len(opts.ReplaceWithLabels) > 0 {
-			tmp := d.policy.SearchRLocked(opts.ReplaceWithLabels)
-			if len(tmp) > 0 {
-				d.dnsPoller.StopPollForDNSName(tmp)
+			oldRules := d.policy.SearchRLocked(opts.ReplaceWithLabels)
+			removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(oldRules)...)
+			if len(oldRules) > 0 {
+				d.dnsPoller.StopPollForDNSName(oldRules)
 				d.policy.DeleteByLabelsLocked(opts.ReplaceWithLabels)
 			}
 		}
 	}
 	rev := d.policy.AddListLocked(rules)
 	d.policy.Mutex.Unlock()
+
+	// remove prefixes of replaced rules above. This potentially blocks on the
+	// kvstore and should happen without holding the policy lock. Refcounts have
+	// been incremented above, so any decrements here will be no-ops for CIDRs
+	// that are re-added, and will trigger deletions for those that are no longer
+	// used.
+	if len(removedPrefixes) > 0 {
+		log.WithField("prefixes", removedPrefixes).Debug("Decrementing replaced CIDR refcounts when adding rules")
+		if err := ipcache.ReleaseCIDRs(removedPrefixes); err != nil {
+			log.WithError(err).WithField("prefixes", removedPrefixes).Error(
+				"Failed to release CIDRs in replaced rules during policy add with replace. These may never be released.")
+		} else {
+			_ = d.prefixLengths.Delete(removedPrefixes)
+		}
+	}
 
 	// The rules are added, we can begin ToFQDN DNS polling for them
 	d.dnsPoller.StartPollForDNSName(rules)
