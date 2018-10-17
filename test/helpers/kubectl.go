@@ -1551,9 +1551,13 @@ func (kub *Kubectl) GatherLogs() {
 	for _, node := range []string{K8s1VMName(), K8s2VMName()} {
 		vm := GetVagrantSSHMeta(node)
 		reportCmds := map[string]string{
-			"journalctl --no-pager -au kubelet": fmt.Sprintf("kubelet-%s.log", node),
-			"sudo top -n 1 -b":                  fmt.Sprintf("top-%s.log", node),
-			"sudo ps aux":                       fmt.Sprintf("ps-%s.log", node),
+			"journalctl --no-pager -au kubelet":  fmt.Sprintf("kubelet-%s.log", node),
+			"sudo top -n 1 -b":                   fmt.Sprintf("top-%s.log", node),
+			"sudo ps aux":                        fmt.Sprintf("ps-%s.log", node),
+			"sudo iftop -n -N -t -s 5 -i lo":     fmt.Sprintf("iftop-%s-lo.log", node),
+			"sudo iftop -n -N -t -s 5 -i enp0s3": fmt.Sprintf("iftop-%s-enp0s3.log", node),
+			"sudo iftop -n -N -t -s 5 -i enp0s8": fmt.Sprintf("iftop-%s-enp0s8.log", node),
+			"sudo iftop -n -N -t -s 5 -i enp0s9": fmt.Sprintf("iftop-%s-enp0s9.log", node),
 		}
 		reportMap(testPath, reportCmds, vm)
 	}
