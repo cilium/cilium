@@ -517,6 +517,15 @@ func (kub *Kubectl) NamespaceDelete(name string) *CmdRes {
 // the aforementioned desired state within timeout seconds. Returns false and
 // an error if the command failed or the timeout was exceeded.
 func (kub *Kubectl) WaitforPods(namespace string, filter string, timeout int64) error {
+	return kub.WaitforNPods(namespace, filter, 0, timeout)
+}
+
+// WaitforNPods waits up until timeout seconds have elapsed for at least
+// minRequired pods in the specified namespace that match the provided JSONPath
+// filter to have their containterStatuses equal to "ready". Returns true if all
+// pods achieve the aforementioned desired state within timeout seconds. Returns
+// false and an error if the command failed or the timeout was exceeded.
+func (kub *Kubectl) WaitforNPods(namespace string, filter string, podsRunning int, timeout int64) error {
 	data, err := kub.GetPods(namespace, filter).Filter("{.items[*].metadata.deletionTimestamp}")
 	if err != nil {
 		return fmt.Errorf("Cannot get pods with filter '%s': %s", filter, err)
@@ -535,21 +544,28 @@ func (kub *Kubectl) WaitforPods(namespace string, filter string, timeout int64) 
 			return false
 		}
 
-		valid := true
+		valid := 0
+		minRequired := podsRunning
+
 		result := strings.Split(data.String(), " ")
+		if podsRunning == 0 {
+			minRequired = len(result)
+		}
 		for _, v := range result {
-			if val, _ := govalidator.ToBoolean(v); val == false {
-				valid = false
+			if val, _ := govalidator.ToBoolean(v); !val {
 				break
 			}
+			valid++
 		}
-		if valid == true {
+		if valid >= minRequired {
 			return true
 		}
 		kub.logger.WithFields(logrus.Fields{
-			"namespace": namespace,
-			"filter":    filter,
-			"data":      data,
+			"namespace":   namespace,
+			"filter":      filter,
+			"data":        data,
+			"valid":       valid,
+			"minRequired": minRequired,
 		}).Info("WaitforPods: pods are not ready")
 		return false
 	}
