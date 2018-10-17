@@ -42,6 +42,8 @@ var _ = Describe("NightlyPolicies", func() {
 
 		ExpectCiliumReady(kubectl)
 		ExpectKubeDNSReady(kubectl)
+		By("Waiting for all etcd-operator pods are ready")
+		ExpectETCDOperatorReady(kubectl)
 	})
 
 	AfterFailed(func() {

@@ -39,6 +39,8 @@ var _ = Describe("K8sMicroscope", func() {
 		Expect(err).To(BeNil(), "Cilium cannot be installed")
 
 		ExpectCiliumReady(kubectl)
+		By("Waiting for all etcd-operator pods are ready")
+		ExpectETCDOperatorReady(kubectl)
 	})
 
 	AfterFailed(func() {

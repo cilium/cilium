@@ -64,6 +64,8 @@ var _ = Describe("K8sDemosTest", func() {
 
 		ExpectCiliumReady(kubectl)
 		ExpectKubeDNSReady(kubectl)
+		By("Waiting for all etcd-operator pods are ready")
+		ExpectETCDOperatorReady(kubectl)
 	})
 
 	AfterFailed(func() {
