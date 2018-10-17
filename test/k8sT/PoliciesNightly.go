@@ -42,6 +42,7 @@ var _ = Describe("NightlyPolicies", func() {
 
 		ExpectCiliumReady(kubectl)
 		ExpectKubeDNSReady(kubectl)
+		ExpectETCDOperatorReady(kubectl)
 	})
 
 	AfterFailed(func() {

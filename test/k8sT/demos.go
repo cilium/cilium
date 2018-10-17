@@ -64,6 +64,7 @@ var _ = Describe("K8sDemosTest", func() {
 
 		ExpectCiliumReady(kubectl)
 		ExpectKubeDNSReady(kubectl)
+		ExpectETCDOperatorReady(kubectl)
 	})
 
 	AfterFailed(func() {

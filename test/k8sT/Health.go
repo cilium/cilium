@@ -42,6 +42,7 @@ var _ = Describe("K8sHealthTest", func() {
 		Expect(err).To(BeNil(), "Cilium cannot be installed")
 
 		ExpectCiliumReady(kubectl)
+		ExpectETCDOperatorReady(kubectl)
 	})
 
 	AfterFailed(func() {
