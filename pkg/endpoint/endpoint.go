@@ -61,7 +61,6 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 	"github.com/cilium/cilium/pkg/versioncheck"
 
-	go_version "github.com/hashicorp/go-version"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
@@ -89,8 +88,6 @@ var (
 	// ciliumUpdateStatusVerConstr is the minimal version supported for
 	// to perform a CRD UpdateStatus.
 	ciliumUpdateStatusVerConstr = versioncheck.MustCompile(">= 1.11.0")
-
-	k8sServerVer *go_version.Version
 )
 
 // getCiliumClient builds and returns a k8s auto-generated client for cilium
@@ -554,7 +551,7 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 		scopedLog.Debug("Not starting controller because k8s is disabled")
 		return
 	}
-	k8sServerVer, err = k8s.GetServerVersion()
+	k8sServerVer, err := k8s.GetServerVersion()
 	if err != nil {
 		scopedLog.WithError(err).Error("unable to retrieve kubernetes serverversion")
 		return
