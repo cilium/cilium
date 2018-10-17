@@ -16,6 +16,7 @@ package main
 
 import (
 	"os"
+	"sort"
 	"time"
 
 	"github.com/cilium/cilium/common/addressing"
@@ -338,6 +339,7 @@ func (ds *DaemonSuite) TestReplacePolicy(c *C) {
 		{
 			Labels:           lbls,
 			EndpointSelector: api.NewESFromLabels(lblBar),
+			Egress:           []api.EgressRule{{ToCIDR: []api.CIDR{"1.1.1.1/32", "2.2.2.0/24"}}},
 		},
 		{
 			Labels:           lbls,
@@ -350,11 +352,19 @@ func (ds *DaemonSuite) TestReplacePolicy(c *C) {
 	ds.d.policy.Mutex.RLock()
 	c.Assert(len(ds.d.policy.SearchRLocked(lbls)), Equals, 2)
 	ds.d.policy.Mutex.RUnlock()
+	rules[0].Egress = []api.EgressRule{{ToCIDR: []api.CIDR{"1.1.1.1/32", "2.2.2.2/32"}}}
 	_, err = ds.d.PolicyAdd(rules, &AddOptions{Replace: true})
 	c.Assert(err, IsNil)
 	ds.d.policy.Mutex.RLock()
 	c.Assert(len(ds.d.policy.SearchRLocked(lbls)), Equals, 2)
 	ds.d.policy.Mutex.RUnlock()
+
+	_, s4 := ds.d.prefixLengths.ToBPFData()
+	sort.Ints(s4)
+	c.Assert(len(s4), Equals, 2, Commentf("IPv4 Prefix lengths incorrect (expected [0, 32]). This may be because CIDRs were not released on replace. %+v", s4))
+	for i, v := range []int{0, 32} {
+		c.Assert(s4[i], Equals, v, Commentf("Unexpected IPv4 Prefix length. This may be because CIDRs were not released on replace. %+v", s4))
+	}
 }
 
 func (ds *DaemonSuite) TestRemovePolicy(c *C) {
