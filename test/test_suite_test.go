@@ -95,7 +95,7 @@ func TestTest(t *testing.T) {
 
 	if config.CiliumTestConfig.CiliumDSManifest != "" {
 		helpers.CiliumDSPath = config.CiliumTestConfig.CiliumDSManifest
-		log.Info("Using new Cilium daemonset manifest '%s'", helpers.CiliumDSPath)
+		log.Infof("Using new Cilium daemonset manifest '%s'", helpers.CiliumDSPath)
 	}
 
 	if config.CiliumTestConfig.HoldEnvironment {

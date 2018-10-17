@@ -12,10 +12,7 @@ import (
 
 var _ = Describe("K8sUpdates", func() {
 	var (
-		kubectl            *helpers.Kubectl
-		demoPath           string
-		l3Policy, l7Policy string
-		apps               []string
+		kubectl *helpers.Kubectl
 
 		microscopeErr    error
 		microscopeCancel = func() error { return nil }
@@ -31,12 +28,6 @@ var _ = Describe("K8sUpdates", func() {
 		// from master instead of create the new ones.
 		_ = kubectl.DeleteResource(
 			"deploy", fmt.Sprintf("-n %s kube-dns", helpers.KubeSystemNamespace))
-
-		apps = []string{helpers.App1, helpers.App2, helpers.App3}
-
-		demoPath = helpers.ManifestGet("demo.yaml")
-		l3Policy = helpers.ManifestGet("l3-l4-policy.yaml")
-		l7Policy = helpers.ManifestGet("l7-policy.yaml")
 
 		// Sometimes PolicyGen has a lot of pods running around without delete
 		// it. Using this we are sure that we delete before this test start

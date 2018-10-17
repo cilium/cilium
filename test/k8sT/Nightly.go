@@ -45,7 +45,6 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 	endpointsTimeout := endpointTimeout * int64(endpointCount)
 	manifestPath := "tmp.yaml"
 	vagrantManifestPath := path.Join(helpers.BasePath, manifestPath)
-	var lastServer int
 	var err error
 
 	BeforeAll(func() {
@@ -83,7 +82,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 	})
 
 	deployEndpoints := func() {
-		_, lastServer, err = helpers.GenerateManifestForEndpoints(endpointCount, manifestPath)
+		_, _, err = helpers.GenerateManifestForEndpoints(endpointCount, manifestPath)
 		ExpectWithOffset(1, err).Should(BeNil(), "Manifest cannot be created correctly")
 		res := kubectl.Apply(vagrantManifestPath)
 		res.ExpectSuccess("cannot apply eps manifest :%s", res.GetDebugMessage())
