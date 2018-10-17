@@ -16,6 +16,7 @@ cilium bpf policy get
 ### Options
 
 ```
+      --all             Dump all policy maps
   -n, --numeric         Do not resolve IDs
   -o, --output string   json| jsonpath='{}'
 ```
