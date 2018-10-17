@@ -134,6 +134,7 @@ var _ = Describe("K8sTunnelTest", func() {
 			Expect(err).To(BeNil(), "Cilium cannot be installed")
 
 			ExpectCiliumReady(kubectl)
+			ExpectETCDOperatorReady(kubectl)
 
 			err = kubectl.WaitforPods(helpers.DefaultNamespace, "", 300)
 			Expect(err).Should(BeNil(), "Pods are not ready after timeout")
