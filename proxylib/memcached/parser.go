@@ -112,11 +112,11 @@ func (rule *Rule) matchOpcode(code byte) bool {
 // L7RuleParser parses protobuf L7 rules to and array of Rule
 // May panic
 func L7RuleParser(rule *cilium.PortNetworkPolicyRule) []proxylib.L7NetworkPolicyRule {
+	var rules []proxylib.L7NetworkPolicyRule
 	l7Rules := rule.GetL7Rules()
 	if l7Rules == nil {
-		proxylib.ParseError("Can't get L7 rules", rule)
+		return rules
 	}
-	var rules []proxylib.L7NetworkPolicyRule
 	for _, l7Rule := range l7Rules.GetL7Rules() {
 		var br Rule
 		var commandFound = false

@@ -537,3 +537,97 @@ func TestSimplePolicy(t *testing.T) {
 
 	CheckClose(t, 1, buf, 1)
 }
+
+func TestAllowAllPolicy(t *testing.T) {
+	logServer := test.StartAccessLogServer("access_log.sock", 10)
+	defer logServer.Close()
+
+	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
+	if mod == 0 {
+		t.Errorf("OpenModule() with access log path %s failed", logServer.Path)
+	} else {
+		defer CloseModule(mod)
+	}
+
+	insertPolicyText(t, mod, "1", []string{`
+		name: "FooBar"
+		policy: 2
+		ingress_per_port_policies: <
+		  port: 80
+		  rules: <
+		    l7_proto: "test.headerparser"
+		    l7_rules: <
+		      l7_rules: <>
+		    >
+		  >
+		>
+		`})
+
+	// Using headertester parser
+	buf := CheckOnNewConnection(t, mod, "test.headerparser", 1, true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "FooBar",
+		80, proxylib.OK, 1)
+
+	// Original direction data, drops with remaining data
+	line1, line2, line3, line4 := "Beginning----\n", "foo\n", "----End\n", "\n"
+	data := line1 + line2 + line3 + line4
+	CheckOnData(t, 1, false, false, &[][]byte{[]byte(data)}, []ExpFilterOp{
+		{proxylib.PASS, len(line1)},
+		{proxylib.PASS, len(line2)},
+		{proxylib.PASS, len(line3)},
+		{proxylib.PASS, len(line4)},
+	}, proxylib.OK, "")
+
+	expPasses, expDrops := 4, 0
+	checkAccessLogs(t, logServer, expPasses, expDrops)
+
+	CheckClose(t, 1, buf, 1)
+}
+
+func TestAllowEmptyPolicy(t *testing.T) {
+	logServer := test.StartAccessLogServer("access_log.sock", 10)
+	defer logServer.Close()
+
+	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
+	if mod == 0 {
+		t.Errorf("OpenModule() with access log path %s failed", logServer.Path)
+	} else {
+		defer CloseModule(mod)
+	}
+
+	insertPolicyText(t, mod, "1", []string{`
+		name: "FooBar"
+		policy: 2
+		ingress_per_port_policies: <
+		  port: 80
+		  rules: <
+		    l7_proto: "test.headerparser"
+		  >
+		>
+		`})
+
+	// Using headertester parser, policy name matches the policy
+	buf := CheckOnNewConnection(t, mod, "test.headerparser", 1, true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "FooBar",
+		80, proxylib.OK, 1)
+
+	// Original direction data, drops with remaining data
+	line1, line2, line3, line4 := "Beginning----\n", "foo\n", "----End\n", "\n"
+	CheckOnData(t, 1, false, false, &[][]byte{[]byte(line1), []byte(line2), []byte(line3), []byte(line4)}, []ExpFilterOp{
+		{proxylib.PASS, len(line1)},
+		{proxylib.PASS, len(line2)},
+		{proxylib.PASS, len(line3)},
+		{proxylib.PASS, len(line4)},
+	}, proxylib.OK, "")
+
+	// Connection using a different policy name still drops
+	CheckOnNewConnection(t, mod, "test.headerparser", 2, true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "FooBar2",
+		80, proxylib.OK, 2)
+	CheckOnData(t, 2, false, false, &[][]byte{[]byte(line1)}, []ExpFilterOp{
+		{proxylib.DROP, len(line1)},
+	}, proxylib.OK, "Line dropped: "+line1)
+
+	expPasses, expDrops := 4, 1
+	checkAccessLogs(t, logServer, expPasses, expDrops)
+
+	CheckClose(t, 2, buf, 2)
+	CheckClose(t, 1, buf, 1)
+}

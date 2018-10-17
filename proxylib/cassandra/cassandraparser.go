@@ -97,11 +97,11 @@ func (rule *CassandraRule) Matches(data interface{}) bool {
 // CassandraRuleParser parses protobuf L7 rules to enforcement objects
 // May panic
 func CassandraRuleParser(rule *cilium.PortNetworkPolicyRule) []L7NetworkPolicyRule {
+	var rules []L7NetworkPolicyRule
 	l7Rules := rule.GetL7Rules()
 	if l7Rules == nil {
-		ParseError("Can't get L7 rules.", rule)
+		return rules
 	}
-	var rules []L7NetworkPolicyRule
 	for _, l7Rule := range l7Rules.GetL7Rules() {
 		var cr CassandraRule
 		for k, v := range l7Rule.Rule {
