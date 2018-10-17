@@ -17,7 +17,10 @@ package cmd
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
+	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"text/tabwriter"
@@ -34,26 +37,53 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var printIDs bool
+var (
+	printIDs bool
+	allList  bool
+)
+
+var epIdRegExp = regexp.MustCompile("cilium_policy_[0-9]*$|cilium_policy_reserved_[0-9]*$")
 
 // bpfPolicyListCmd represents the bpf_policy_list command
 var bpfPolicyListCmd = &cobra.Command{
-	Use:    "get",
-	Short:  "List contents of a policy BPF map",
-	PreRun: requireEndpointID,
+	Use:   "get",
+	Short: "List contents of a policy BPF map",
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf policy get")
-		listMap(cmd, args)
+		if allList {
+			listAllMaps()
+			return
+		}
+		requireEndpointID(cmd, args)
+		listMap(args)
 	},
 }
 
 func init() {
 	bpfPolicyCmd.AddCommand(bpfPolicyListCmd)
 	bpfPolicyListCmd.Flags().BoolVarP(&printIDs, "numeric", "n", false, "Do not resolve IDs")
+	bpfPolicyListCmd.Flags().BoolVarP(&allList, "all", "", false, "Dump all policy maps")
 	command.AddJSONOutput(bpfPolicyListCmd)
 }
 
-func listMap(cmd *cobra.Command, args []string) {
+func listAllMaps() {
+	mapRootPrefixPath := bpf.MapPrefixPath()
+	files, err := ioutil.ReadDir(mapRootPrefixPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, file := range files {
+		if epIdRegExp.MatchString(file.Name()) {
+			fmt.Printf("%s:\n", file.Name())
+			fmt.Println()
+			dumpMap(filepath.Join(mapRootPrefixPath, file.Name()))
+			fmt.Println()
+			fmt.Println()
+		}
+	}
+}
+
+func listMap(args []string) {
 	lbl := args[0]
 
 	if lbl != "" {
@@ -65,6 +95,11 @@ func listMap(cmd *cobra.Command, args []string) {
 	}
 
 	file := bpf.MapPath(policymap.MapName + lbl)
+	dumpMap(file)
+}
+
+func dumpMap(file string) {
+
 	fd, err := bpf.ObjGet(file)
 	if err != nil {
 		Fatalf("%s\n", err)
@@ -90,6 +125,7 @@ func listMap(cmd *cobra.Command, args []string) {
 			fmt.Printf("Policy stats empty. Perhaps the policy enforcement is disabled?\n")
 		}
 	}
+
 }
 
 func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
