@@ -53,3 +53,11 @@ func ExpectCEPUpdates(vm *helpers.Kubectl) {
 	err := vm.WaitCEPReady()
 	ExpectWithOffset(1, err).To(BeNil(), "CEP does not updated correctly")
 }
+
+// ExpectETCDOperatorReady is a wrapper around helpers/WaitForNPods. It asserts
+// the error returned by that function is nil.
+func ExpectETCDOperatorReady(vm *helpers.Kubectl) {
+	// We need to wait for all etcd pods to be ready (1 etcd-operator + 3 etcd nodes)
+	err := vm.WaitforNPods(helpers.KubeSystemNamespace, "-l io.cilium/app=etcd-operator", 4, 600)
+	Expect(err).To(BeNil(), "etcd-operator is not ready after timeout")
+}

@@ -60,6 +60,8 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 
 		ExpectCiliumReady(kubectl)
 		ExpectKubeDNSReady(kubectl)
+		By("Waiting for all etcd-operator pods are ready")
+		ExpectETCDOperatorReady(kubectl)
 	})
 	deleteAll := func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
@@ -412,6 +414,8 @@ var _ = Describe("NightlyExamples", func() {
 
 			ExpectCiliumReady(kubectl)
 			ExpectKubeDNSReady(kubectl)
+			By("Waiting for all etcd-operator pods are ready")
+			ExpectETCDOperatorReady(kubectl)
 		})
 
 		AfterAll(func() {

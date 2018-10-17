@@ -133,6 +133,8 @@ var _ = Describe("K8sKafkaPolicyTest", func() {
 			Expect(err).To(BeNil(), "Cilium cannot be installed")
 			ExpectCiliumReady(kubectl)
 			ExpectKubeDNSReady(kubectl)
+			By("Waiting for all etcd-operator pods are ready")
+			ExpectETCDOperatorReady(kubectl)
 
 			kubectl.Apply(demoPath)
 			err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=kafkaTestApp", helpers.HelperTimeout)
