@@ -119,6 +119,10 @@ const (
 	// LogSystemLoadConfigName is the name of the option to enable system
 	// load loggging
 	LogSystemLoadConfigName = "log-system-load"
+
+	// DisableCiliumEndpointCRDName is the name of the option to disable
+	// use of the CEP CRD
+	DisableCiliumEndpointCRDName = "disable-endpoint-crd"
 )
 
 // Available option for daemonConfig.Tunnel
@@ -229,6 +233,9 @@ type daemonConfig struct {
 
 	// ClusterMeshConfig is the path to the clustermesh configuration directory
 	ClusterMeshConfig string
+
+	// DisableCiliumEndpointCRD disables the use of CiliumEndpoint CRD
+	DisableCiliumEndpointCRD bool
 }
 
 var (
