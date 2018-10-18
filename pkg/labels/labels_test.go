@@ -110,11 +110,14 @@ func (s *LabelsSuite) TestParseLabel(c *C) {
 		{"1foo", NewLabel("1foo", "", LabelSourceUnspec)},
 		{":2foo", NewLabel("2foo", "", LabelSourceUnspec)},
 		{":3foo=", NewLabel("3foo", "", LabelSourceUnspec)},
+		{"reserved:=key", NewLabel("key", "", LabelSourceReserved)},
 		{"4blah=:foo=", NewLabel("foo", "", "4blah=")},
 		{"5blah::foo=", NewLabel("::foo", "", "5blah")},
 		{"6foo==", NewLabel("6foo", "=", LabelSourceUnspec)},
 		{"7foo=bar", NewLabel("7foo", "bar", LabelSourceUnspec)},
 		{"k8s:foo=bar:", NewLabel("foo", "bar:", "k8s")},
+		{"reservedz=host", NewLabel("reservedz", "host", LabelSourceUnspec)},
+		{":", NewLabel("", "", LabelSourceUnspec)},
 		{LabelSourceReservedKeyPrefix + "host", NewLabel("host", "", LabelSourceReserved)},
 	}
 	for _, test := range tests {

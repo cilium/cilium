@@ -33,7 +33,7 @@ func (s *LabelsPrefCfgSuite) TestFilterLabels(c *C) {
 	}
 
 	dlpcfg := defaultLabelPrefixCfg()
-	d, err := parseLabelPrefix("!ignor[eE]")
+	d, err := parseLabelPrefix(":!ignor[eE]")
 	c.Assert(err, IsNil)
 	c.Assert(d, Not(IsNil))
 	dlpcfg.LabelPrefixes = append(dlpcfg.LabelPrefixes, d)
