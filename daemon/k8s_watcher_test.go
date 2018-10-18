@@ -908,7 +908,7 @@ func (ds *DaemonSuite) Test_missingK8sPodV1(c *C) {
 			setupArgs: func() args {
 				endpointmanager.RemoveAll()
 				ep := endpointCreator(123, identity.NumericIdentity(1000))
-				ep.OpLabels.OrchestrationIdentity = labels.Map2Labels(map[string]string{"foo": "bar"}, labels.LabelSourceK8s)
+				ep.OpLabels.ReplaceIdentityLabels(labels.Map2Labels(map[string]string{"foo": "bar"}, labels.LabelSourceK8s), nil)
 				ep.SetK8sPodName("foo")
 				ep.SetK8sNamespace("bar")
 				endpointmanager.Insert(ep)
@@ -948,7 +948,7 @@ func (ds *DaemonSuite) Test_missingK8sPodV1(c *C) {
 			setupArgs: func() args {
 				endpointmanager.RemoveAll()
 				ep := endpointCreator(123, identity.NumericIdentity(1000))
-				ep.OpLabels.OrchestrationIdentity = labels.Map2Labels(map[string]string{"foo": "bar"}, labels.LabelSourceK8s)
+				ep.OpLabels.ReplaceIdentityLabels(labels.Map2Labels(map[string]string{"foo": "bar"}, labels.LabelSourceK8s), nil)
 				ep.SetK8sPodName("foo")
 				ep.SetK8sNamespace("bar")
 				endpointmanager.Insert(ep)
@@ -1281,9 +1281,9 @@ func (ds *DaemonSuite) Test_missingK8sNamespaceV1(c *C) {
 			name: "endpointmanager contains the endpoint that is part of that namespace and have all labels",
 			setupArgs: func() args {
 				ep := endpointCreator(123, identity.NumericIdentity(1000))
-				ep.OpLabels.OrchestrationIdentity = labels.Map2Labels(
+				ep.OpLabels.ReplaceIdentityLabels(labels.Map2Labels(
 					map[string]string{policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "id.foo"): "bar"},
-					labels.LabelSourceK8s)
+					labels.LabelSourceK8s), nil)
 				ep.SetK8sNamespace("foo")
 				endpointmanager.Insert(ep)
 				m := versioned.NewMap()

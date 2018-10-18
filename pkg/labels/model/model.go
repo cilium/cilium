@@ -24,11 +24,17 @@ func NewOplabelsFromModel(base *models.LabelConfigurationStatus) *labels.OpLabel
 	if base == nil {
 		return nil
 	}
+	oplabels := labels.NewOpLabelsFromModel(base.Realized.User, base.Disabled, base.SecurityRelevant, base.Derived)
+	return &oplabels
+}
 
-	return &labels.OpLabels{
-		Custom:                labels.NewLabelsFromModel(base.Realized.User),
-		Disabled:              labels.NewLabelsFromModel(base.Disabled),
-		OrchestrationIdentity: labels.NewLabelsFromModel(base.SecurityRelevant),
-		OrchestrationInfo:     labels.NewLabelsFromModel(base.Derived),
+func NewModel(o *labels.OpLabels) *models.LabelConfigurationStatus {
+	return &models.LabelConfigurationStatus{
+		Realized: &models.LabelConfigurationSpec{
+			User: o.GetUserModel(),
+		},
+		SecurityRelevant: o.GetIdentityModel(),
+		Derived:          o.GetInfoModel(),
+		Disabled:         o.GetDisabledModel(),
 	}
 }

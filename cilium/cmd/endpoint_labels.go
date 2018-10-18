@@ -78,7 +78,7 @@ func printEndpointLabels(lbls *labels.OpLabels) {
 		fmt.Fprintf(w, "%s\t%s\n", v, text)
 	}
 
-	for _, v := range lbls.Disabled {
+	for _, v := range lbls.DisabledLabels() {
 		text := color.Red("Disabled")
 		fmt.Fprintf(w, "%s\t%s\n", v, text)
 	}

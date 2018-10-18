@@ -61,69 +61,6 @@ var (
 	LabelHealth = Labels{IDNameHealth: NewLabel(IDNameHealth, "", LabelSourceReserved)}
 )
 
-// OpLabels represents the the possible types.
-// +k8s:openapi-gen=false
-type OpLabels struct {
-	// Active labels that are enabled and disabled but not deleted
-	Custom Labels
-	// Labels derived from orchestration system
-	OrchestrationIdentity Labels
-
-	//OrchestrationIdentity
-	// OrchestrationIdentity labels which have been disabled
-	Disabled Labels
-
-	//OrchestrationInfo - labels from orchestration which are not used in determining a security identity
-	OrchestrationInfo Labels
-}
-
-// IdentityLabels returns map of labels that are used when determining a
-// security identity.
-func (o *OpLabels) IdentityLabels() Labels {
-	enabled := make(Labels, len(o.Custom)+len(o.OrchestrationIdentity))
-
-	for k, v := range o.Custom {
-		enabled[k] = v
-	}
-
-	for k, v := range o.OrchestrationIdentity {
-		enabled[k] = v
-	}
-
-	return enabled
-}
-
-// GetIdentityLabel returns the value of the given Key from all IdentityLabels.
-func (o *OpLabels) GetIdentityLabel(key string) *Label {
-	l := o.OrchestrationIdentity[key]
-	if l != nil {
-		return l
-	}
-	return o.Custom[key]
-}
-
-// AllLabels returns all Labels within the provided OpLabels.
-func (o *OpLabels) AllLabels() Labels {
-	all := make(Labels, len(o.Custom)+len(o.OrchestrationInfo)+len(o.OrchestrationIdentity)+len(o.Disabled))
-
-	for k, v := range o.Custom {
-		all[k] = v
-	}
-
-	for k, v := range o.Disabled {
-		all[k] = v
-	}
-
-	for k, v := range o.OrchestrationIdentity {
-		all[k] = v
-	}
-
-	for k, v := range o.OrchestrationInfo {
-		all[k] = v
-	}
-	return all
-}
-
 const (
 	// LabelSourceUnspec is a label with unspecified source
 	LabelSourceUnspec = "unspec"
@@ -170,8 +107,6 @@ type Label struct {
 	Value string `json:"value,omitempty"`
 	// Source can be one of the values present in const.go (e.g.: LabelSourceContainer)
 	Source string `json:"source"`
-	// Mark element to be used to find unused labels in lists
-	deletionMark bool
 }
 
 // Labels is a map of labels where the map's key is the same as the label's key.
@@ -208,49 +143,6 @@ func (l Labels) GetPrintableModel() (res []string) {
 // String returns the map of labels as human readable string
 func (l Labels) String() string {
 	return strings.Join(l.GetPrintableModel(), ",")
-}
-
-// MarkAllForDeletion marks all the labels with the deletionMark.
-func (l Labels) MarkAllForDeletion() {
-	for k := range l {
-		l[k].deletionMark = true
-	}
-}
-
-func (l *Label) ClearDeletionMark() {
-	l.deletionMark = false
-}
-
-// UpsertLabel updates or inserts 'label' in 'l', but only if exactly the same label
-// was not already in 'l'. If a label with the same key is found, the label's deletionMark
-// is cleared. Returns 'true' if a label was added, or an old label was updated, 'false'
-// otherwise.
-func (l Labels) UpsertLabel(label *Label) bool {
-	oldLabel := l[label.Key]
-	if oldLabel != nil {
-		l[label.Key].ClearDeletionMark()
-		// Key is the same, check if Value and Source are also the same
-		if label.Value == oldLabel.Value && label.Source == oldLabel.Source {
-			return false // No change
-		}
-	}
-	// Insert or replace old label
-	l[label.Key] = label.DeepCopy()
-	return true
-}
-
-// DeleteMarked deletes the labels which have the deletionMark set and returns
-// true if any of them were deleted.
-func (l Labels) DeleteMarked() bool {
-	deleted := false
-	for k := range l {
-		if l[k].deletionMark {
-			delete(l, k)
-			deleted = true
-		}
-	}
-
-	return deleted
 }
 
 // AppendPrefixInKey appends the given prefix to all the Key's of the map and the
@@ -559,7 +451,7 @@ func (l Labels) SortedList() []byte {
 func (l Labels) ToSlice() []*Label {
 	labels := []*Label{}
 	for _, v := range l {
-		labels = append(labels, v.DeepCopy())
+		labels = append(labels, NewLabel(v.Key, v.Value, v.Source))
 	}
 	return labels
 }

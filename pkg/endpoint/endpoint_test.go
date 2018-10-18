@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/checker"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy"
@@ -181,12 +180,7 @@ func (s *EndpointSuite) TestEndpointUpdateLabels(c *C) {
 		IPv6:   IPv6Addr,
 		IPv4:   IPv4Addr,
 		Status: NewEndpointStatus(),
-		OpLabels: pkgLabels.OpLabels{
-			Custom:                pkgLabels.Labels{},
-			Disabled:              pkgLabels.Labels{},
-			OrchestrationIdentity: pkgLabels.Labels{},
-			OrchestrationInfo:     pkgLabels.Labels{},
-		},
+		OpLabels: pkgLabels.NewOpLabels(),
 	}
 	e.UnconditionalLock()
 	e.SetDefaultOpts(nil)
@@ -195,22 +189,22 @@ func (s *EndpointSuite) TestEndpointUpdateLabels(c *C) {
 	// Test that inserting identity labels works
 	rev := e.replaceIdentityLabels(pkgLabels.Map2Labels(map[string]string{"foo": "bar", "zip": "zop"}, "cilium"))
 	c.Assert(rev, Not(Equals), 0)
-	c.Assert(string(e.OpLabels.OrchestrationIdentity.SortedList()), Equals, "cilium:foo=bar;cilium:zip=zop;")
+	c.Assert(string(e.OpLabels.OrchestrationIdentitySortedList()), Equals, "cilium:foo=bar;cilium:zip=zop;")
 	// Test that nothing changes
 	rev = e.replaceIdentityLabels(pkgLabels.Map2Labels(map[string]string{"foo": "bar", "zip": "zop"}, "cilium"))
 	c.Assert(rev, Equals, 0)
-	c.Assert(string(e.OpLabels.OrchestrationIdentity.SortedList()), Equals, "cilium:foo=bar;cilium:zip=zop;")
+	c.Assert(string(e.OpLabels.OrchestrationIdentitySortedList()), Equals, "cilium:foo=bar;cilium:zip=zop;")
 	// Remove one label, change the source and value of the other.
 	rev = e.replaceIdentityLabels(pkgLabels.Map2Labels(map[string]string{"foo": "zop"}, "nginx"))
 	c.Assert(rev, Not(Equals), 0)
-	c.Assert(string(e.OpLabels.OrchestrationIdentity.SortedList()), Equals, "nginx:foo=zop;")
+	c.Assert(string(e.OpLabels.OrchestrationIdentitySortedList()), Equals, "nginx:foo=zop;")
 
 	// Test that inserting information labels works
 	e.replaceInformationLabels(pkgLabels.Map2Labels(map[string]string{"foo": "bar", "zip": "zop"}, "cilium"))
-	c.Assert(string(e.OpLabels.OrchestrationInfo.SortedList()), Equals, "cilium:foo=bar;cilium:zip=zop;")
+	c.Assert(string(e.OpLabels.OrchestrationInfoSortedList()), Equals, "cilium:foo=bar;cilium:zip=zop;")
 	// Remove one label, change the source and value of the other.
 	e.replaceInformationLabels(pkgLabels.Map2Labels(map[string]string{"foo": "zop"}, "nginx"))
-	c.Assert(string(e.OpLabels.OrchestrationInfo.SortedList()), Equals, "nginx:foo=zop;")
+	c.Assert(string(e.OpLabels.OrchestrationInfoSortedList()), Equals, "nginx:foo=zop;")
 }
 
 func (s *EndpointSuite) TestEndpointState(c *C) {
@@ -436,9 +430,8 @@ func TestEndpoint_GetK8sPodLabels(t *testing.T) {
 		{
 			name: "has all k8s labels",
 			fields: fields{
-				OpLabels: pkgLabels.OpLabels{
-					OrchestrationInfo: pkgLabels.Map2Labels(map[string]string{"foo": "bar"}, pkgLabels.LabelSourceK8s),
-				},
+				OpLabels: pkgLabels.NewOpLabelsFromModel(nil, nil, nil, []string{
+					"k8s:foo=bar"}), 
 				mutex: lock.RWMutex{},
 			},
 			want: pkgLabels.Map2Labels(map[string]string{"foo": "bar"}, pkgLabels.LabelSourceK8s),
@@ -446,14 +439,12 @@ func TestEndpoint_GetK8sPodLabels(t *testing.T) {
 		{
 			name: "the namespace labels, service account and namespace should be ignored as they don't belong to pod labels",
 			fields: fields{
-				OpLabels: pkgLabels.OpLabels{
-					OrchestrationInfo: pkgLabels.Map2Labels(map[string]string{
-						"foo": "bar",
-						ciliumio.PodNamespaceMetaLabels + ".env": "prod",
-						ciliumio.PolicyLabelServiceAccount:       "default",
-						ciliumio.PodNamespaceLabel:               "default",
-					}, pkgLabels.LabelSourceK8s),
-				},
+				OpLabels: pkgLabels.NewOpLabelsFromModel(nil, nil, nil, []string{
+					"k8s:foo=bar",
+					"k8s:io.cilium.k8s.namespace.labels.env=prod",
+					"k8s:io.cilium.k8s.policy.serviceaccount=default",
+					"k8s:io.kubernetes.pod.namespace=default",
+					}),
 				mutex: lock.RWMutex{},
 			},
 			want: pkgLabels.Map2Labels(map[string]string{"foo": "bar"}, pkgLabels.LabelSourceK8s),
@@ -461,16 +452,13 @@ func TestEndpoint_GetK8sPodLabels(t *testing.T) {
 		{
 			name: "labels with other source than k8s should also be ignored",
 			fields: fields{
-				OpLabels: pkgLabels.OpLabels{
-					OrchestrationInfo: pkgLabels.Map2Labels(map[string]string{
-						"foo": "bar",
-						ciliumio.PodNamespaceMetaLabels + ".env": "prod",
-					}, pkgLabels.LabelSourceK8s),
-					OrchestrationIdentity: pkgLabels.Map2Labels(map[string]string{
-						"foo2": "bar",
-						ciliumio.PodNamespaceMetaLabels + ".env": "prod2",
-					}, pkgLabels.LabelSourceAny),
-				},
+				OpLabels: pkgLabels.NewOpLabelsFromModel(nil, nil, []string{
+					"any:foo2=bar",
+					"any:io.cilium.k8s.namespace.labels.env=prod2",
+				}, []string{
+					"k8s:foo=bar",
+					"k8s:io.cilium.k8s.namespace.labels.env=prod",
+				}),
 				mutex: lock.RWMutex{},
 			},
 			want: pkgLabels.Map2Labels(map[string]string{"foo": "bar"}, pkgLabels.LabelSourceK8s),
