@@ -378,6 +378,8 @@ func init() {
 		"disable-conntrack", false, "Disable connection tracking")
 	flags.BoolVar(&option.Config.IPv4Disabled,
 		"disable-ipv4", false, "Disable IPv4 mode")
+	flags.BoolVar(&option.Config.DisableCiliumEndpointCRD,
+		option.DisableCiliumEndpointCRDName, false, "Disable use of CiliumEndpoint CRD")
 	flags.Bool("disable-k8s-services",
 		false, "Disable east-west K8s load balancing by cilium")
 	flags.StringVarP(&dockerEndpoint,
