@@ -177,7 +177,7 @@ func RunK8sCiliumEndpointSyncGC() {
 	// this dummy manager is needed only to add this controller to the global list
 	controller.NewManager().UpdateController(controllerName,
 		controller.ControllerParams{
-			RunInterval: 1 * time.Minute,
+			RunInterval: 30 * time.Minute,
 			DoFunc: func() error {
 				// Don't run immediately
 				if firstRun {
