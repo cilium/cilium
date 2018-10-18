@@ -147,6 +147,11 @@ func RunK8sCiliumEndpointSyncGC() {
 		runThrottler = rand.New(rand.NewSource(time.Now().UnixNano()))
 	)
 
+	if option.Config.DisableCiliumEndpointCRD {
+		scopedLog.WithField("name", controllerName).Warn("Not running controller. CEP CRD synchronization is disabled")
+		return
+	}
+
 	// this is a sanity check
 	if !k8s.IsEnabled() {
 		scopedLog.WithField("name", controllerName).Warn("Not running controller because k8s is disabled")
@@ -546,6 +551,11 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 		scopedLog      = e.getLogger().WithField("controller", controllerName)
 		err            error
 	)
+
+	if option.Config.DisableCiliumEndpointCRD {
+		scopedLog.Warn("Not running controller. CEP CRD synchronization is disabled")
+		return
+	}
 
 	if !k8s.IsEnabled() {
 		scopedLog.Debug("Not starting controller because k8s is disabled")
