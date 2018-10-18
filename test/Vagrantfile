@@ -8,13 +8,21 @@ $K8S_VERSION = ENV['K8S_VERSION'] || "1.12"
 $K8S_NODES = (ENV['K8S_NODES'] || "2").to_i
 $NFS = ENV['NFS']=="1"? true : false
 $SERVER_BOX = (ENV['SERVER_BOX'] || "cilium/ubuntu-dev")
-$SERVER_VERSION="120"
+$SERVER_VERSION= "120"
+$NETNEXT_SERVER_BOX= "cilium/ubuntu-next"
+$NETNEXT_SERVER_VERSION= "6"
 $IPv6=(ENV['IPv6'] || "0")
 $CONTAINER_RUNTIME=(ENV['CONTAINER_RUNTIME'] || "docker")
 
 # RAM and CPU settings
 $MEMORY = (ENV['MEMORY'] || "4096").to_i
 $CPU = (ENV['CPUS'] || "2").to_i
+
+if ENV['NETNEXT'] == "true"
+    $SERVER_BOX = $NETNEXT_SERVER_BOX
+    $SERVER_VERSION = $NETNEXT_SERVER_VERSION
+    puts "Vagrant to use net-next version"
+end
 
 ENV["VAGRANT_DEFAULT_PROVIDER"] = "virtualbox"
 Vagrant.configure("2") do |config|
