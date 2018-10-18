@@ -595,12 +595,12 @@ func parseSource(str string) (src, next string) {
 		return "", ""
 	}
 	if str[0] == '$' {
-		str = strings.Replace(str, "$", LabelSourceReserved+":", 1)
+		return LabelSourceReserved, str[1:]
 	}
 	sourceSplit := strings.SplitN(str, ":", 2)
 	if len(sourceSplit) != 2 {
 		next = sourceSplit[0]
-		if strings.HasPrefix(next, LabelSourceReserved) {
+		if strings.HasPrefix(next, LabelSourceReservedKeyPrefix) {
 			src = LabelSourceReserved
 			next = strings.TrimPrefix(next, LabelSourceReservedKeyPrefix)
 		}
