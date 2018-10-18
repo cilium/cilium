@@ -638,7 +638,7 @@ func (h *getEndpointIDConfig) Handle(params GetEndpointIDConfigParams) middlewar
 		cfgStatus := &models.EndpointConfigurationStatus{
 			Realized: &models.EndpointConfigurationSpec{
 				LabelConfiguration: &models.LabelConfigurationSpec{
-					User: ep.OpLabels.Custom.GetModel(),
+					User: ep.OpLabels.GetUserModel(),
 				},
 				Options: *ep.Options.GetMutableModel(),
 			},
@@ -672,16 +672,16 @@ func (h *getEndpointIDLabels) Handle(params GetEndpointIDLabelsParams) middlewar
 		return api.Error(GetEndpointIDInvalidCode, err)
 	}
 	spec := &models.LabelConfigurationSpec{
-		User: ep.OpLabels.Custom.GetModel(),
+		User: ep.OpLabels.GetUserModel(),
 	}
 
 	cfg := models.LabelConfiguration{
 		Spec: spec,
 		Status: &models.LabelConfigurationStatus{
 			Realized:         spec,
-			SecurityRelevant: ep.OpLabels.OrchestrationIdentity.GetModel(),
-			Derived:          ep.OpLabels.OrchestrationInfo.GetModel(),
-			Disabled:         ep.OpLabels.Disabled.GetModel(),
+			SecurityRelevant: ep.OpLabels.GetIdentityModel(),
+			Derived:          ep.OpLabels.GetInfoModel(),
+			Disabled:         ep.OpLabels.GetDisabledModel(),
 		},
 	}
 	ep.RUnlock()
@@ -794,9 +794,6 @@ func (h *putEndpointIDLabels) Handle(params PatchEndpointIDLabelsParams) middlew
 	mod := params.Configuration
 	lbls := labels.NewLabelsFromModel(mod.User)
 
-	add := labels.Labels{}
-	del := labels.Labels{}
-
 	ep, err := endpointmanager.Lookup(params.ID)
 	if err != nil {
 		return NewPatchEndpointIDLabelsNotFound()
@@ -805,29 +802,9 @@ func (h *putEndpointIDLabels) Handle(params PatchEndpointIDLabelsParams) middlew
 	if err := ep.RLockAlive(); err != nil {
 		return api.Error(PutEndpointIDInvalidCode, err)
 	}
-	currentLbls := ep.OpLabels.DeepCopy()
+
+	add, del := ep.OpLabels.SplitUserLabelChanges(lbls)
 	ep.RUnlock()
-
-	for _, lbl := range lbls {
-		if currentLbls.Custom[lbl.Key] == nil {
-			add[lbl.Key] = lbl
-		}
-	}
-
-	for _, currLbl := range currentLbls.Custom {
-		if lbls[currLbl.Key] == nil {
-			del[currLbl.Key] = currLbl
-		}
-	}
-
-	// FIXME Somewhere in the code we crash if these are non-nil but length 0. We
-	// retain this behaviour here because it's easier.
-	if len(del) == 0 {
-		del = nil
-	}
-	if len(add) == 0 {
-		add = nil
-	}
 
 	code, err := d.modifyEndpointIdentityLabelsFromAPI(params.ID, add, del)
 	if err != nil {
