@@ -126,6 +126,42 @@ func (s *LabelsSuite) TestParseLabel(c *C) {
 	}
 }
 
+func BenchmarkParseLabel(b *testing.B) {
+	tests := []struct {
+		str string
+		out *Label
+	}{
+		{"source1:key1=value1", NewLabel("key1", "value1", "source1")},
+		{"key1=value1", NewLabel("key1", "value1", LabelSourceUnspec)},
+		{"value1", NewLabel("value1", "", LabelSourceUnspec)},
+		{"source1:key1", NewLabel("key1", "", "source1")},
+		{"source1:key1==value1", NewLabel("key1", "=value1", "source1")},
+		{"source::key1=value1", NewLabel("::key1", "value1", "source")},
+		{"$key1=value1", NewLabel("key1", "value1", LabelSourceReserved)},
+		{"1foo", NewLabel("1foo", "", LabelSourceUnspec)},
+		{":2foo", NewLabel("2foo", "", LabelSourceUnspec)},
+		{":3foo=", NewLabel("3foo", "", LabelSourceUnspec)},
+		{"reserved:=key", NewLabel("key", "", LabelSourceReserved)},
+		{"4blah=:foo=", NewLabel("foo", "", "4blah=")},
+		{"5blah::foo=", NewLabel("::foo", "", "5blah")},
+		{"6foo==", NewLabel("6foo", "=", LabelSourceUnspec)},
+		{"7foo=bar", NewLabel("7foo", "bar", LabelSourceUnspec)},
+		{"k8s:foo=bar:", NewLabel("foo", "bar:", "k8s")},
+		{"reservedz=host", NewLabel("reservedz", "host", LabelSourceUnspec)},
+		{":", NewLabel("", "", LabelSourceUnspec)},
+		{LabelSourceReservedKeyPrefix + "host", NewLabel("host", "", LabelSourceReserved)},
+	}
+	count := 0
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for _, test := range tests {
+			if ParseLabel(test.str).Source == LabelSourceUnspec {
+				count++
+			}
+		}
+	}
+}
+
 func (s *LabelsSuite) TestParseSelectLabel(c *C) {
 	tests := []struct {
 		str string
