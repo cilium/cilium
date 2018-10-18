@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/rand"
 	"net"
 	"os"
 	"reflect"
@@ -142,9 +141,7 @@ func RunK8sCiliumEndpointSyncGC() {
 	var (
 		controllerName = fmt.Sprintf("sync-to-k8s-ciliumendpoint-gc (%v)", node.GetName())
 		scopedLog      = log.WithField("controller", controllerName)
-
-		// random source to throttle how often this controller runs cluster-wide
-		runThrottler = rand.New(rand.NewSource(time.Now().UnixNano()))
+		firstRun       = true
 	)
 
 	if option.Config.DisableCiliumEndpointCRD {
@@ -182,13 +179,22 @@ func RunK8sCiliumEndpointSyncGC() {
 		controller.ControllerParams{
 			RunInterval: 1 * time.Minute,
 			DoFunc: func() error {
-				// Don't run if there are no other known nodes
-				// Only run with a probability of 1/(number of nodes in cluster). This
-				// is because this controller runs on every node on the same interval
-				// but only one is neede to run.
-				nodes := node.GetNodes()
-				if len(nodes) <= 1 || runThrottler.Int63n(int64(len(nodes))) != 0 {
+				// Don't run immediately
+				if firstRun {
+					firstRun = false
 					return nil
+				}
+
+				// Only run if we are the "lowest" node in our cluster, when sorted by
+				// names. This means only one node will ever run GCs in a given
+				// cluster.
+				thisNode := node.GetLocalNode().Identity()
+				thisNodeStr := thisNode.String()
+				for id := range node.GetNodes() {
+					if idStr := id.String(); id.Cluster == thisNode.Cluster && idStr < thisNodeStr {
+						scopedLog.WithField(logfields.Node, idStr).Debug("Skipping GC because another node is a better candidate")
+						return nil
+					}
 				}
 
 				clusterPodSet := map[string]bool{}
