@@ -21,6 +21,8 @@ cilium-agent
       --allow-localhost string                      Policy when to allow local stack to reach local endpoints { auto | always | policy }  (default "auto")
       --auto-ipv6-node-routes                       Automatically adds IPv6 L3 routes to reach other nodes for non-overlay mode (--device) (BETA)
       --bpf-compile-debug                           Enable debugging of the BPF compilation process
+      --bpf-ct-global-any-max int                   Maximum number of entries in non-TCP CT table (default 262144)
+      --bpf-ct-global-tcp-max int                   Maximum number of entries in TCP CT table (default 1000000)
       --bpf-root string                             Path to BPF filesystem
       --cluster-id int                              Unique identifier of the cluster
       --cluster-name string                         Name of the cluster (default "default")
@@ -33,6 +35,7 @@ cilium-agent
       --debug-verbose stringSlice                   List of enabled verbose debug groups
   -d, --device string                               Device facing cluster/external network for direct L3 (non-overlay mode) (default "undefined")
       --disable-conntrack                           Disable connection tracking
+      --disable-endpoint-crd                        Disable use of CiliumEndpoint CRD
       --disable-ipv4                                Disable IPv4 mode
       --disable-k8s-services                        Disable east-west K8s load balancing by cilium
   -e, --docker string                               Path to docker runtime socket (DEPRECATED: use container-runtime-endpoint instead) (default "unix:///var/run/docker.sock")
@@ -73,12 +76,14 @@ cilium-agent
       --pprof                                       Enable serving the pprof debugging API
       --prefilter-device string                     Device facing external network for XDP prefiltering (default "undefined")
       --prefilter-mode string                       Prefilter mode { native | generic } (default: native) (default "native")
+      --prepend-iptables-chains                     Prepend custom iptables chains instead of appending (default true)
       --prometheus-serve-addr string                IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
       --restore                                     Restores state, if possible, from previous daemon (default true)
       --sidecar-istio-proxy-image string            Regular expression matching compatible Istio sidecar istio-proxy container image names (default "cilium/istio_proxy")
       --single-cluster-route                        Use a single cluster route instead of per node routes
       --socket-path string                          Sets daemon's socket path to listen for connections (default "/var/run/cilium/cilium.sock")
       --state-dir string                            Directory path to store runtime state (default "/var/run/cilium")
+      --tofqdns-min-ttl int                         The minimum time, in seconds, to use DNS data for toFQDNs policies. (default 31536000)
       --trace-payloadlen int                        Length of payload to capture when tracing (default 128)
   -t, --tunnel string                               Tunnel mode {vxlan, geneve, disabled} (default "vxlan")
       --version                                     Print version information
