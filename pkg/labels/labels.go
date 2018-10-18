@@ -423,11 +423,11 @@ func (l *Label) GetExtendedKey() string {
 // GetCiliumKeyFrom returns the label's source and key from the an extended key
 // in the format SOURCE:KEY.
 func GetCiliumKeyFrom(extKey string) string {
-	sourceSplit := strings.SplitN(extKey, PathDelimiter, 2)
-	if len(sourceSplit) == 2 {
-		return sourceSplit[0] + ":" + sourceSplit[1]
+	i := strings.IndexByte(extKey, PathDelimiter[0])
+	if i >= 0 {
+		return extKey[:i] + ":" + extKey[i+1:]
 	}
-	return LabelSourceAny + ":" + sourceSplit[0]
+	return LabelSourceAny + ":" + extKey
 }
 
 // GetExtendedKeyFrom returns the extended key of a label string.
@@ -441,8 +441,10 @@ func GetExtendedKeyFrom(str string) string {
 		src = LabelSourceAny
 	}
 	// Remove an eventually value
-	nextSplit := strings.SplitN(next, "=", 2)
-	next = nextSplit[0]
+	i := strings.IndexByte(next, '=')
+	if i >= 0 {
+		return src + PathDelimiter + next[:i]
+	}
 	return src + PathDelimiter + next
 }
 
@@ -597,20 +599,14 @@ func parseSource(str string) (src, next string) {
 	if str[0] == '$' {
 		return LabelSourceReserved, str[1:]
 	}
-	sourceSplit := strings.SplitN(str, ":", 2)
-	if len(sourceSplit) != 2 {
-		next = sourceSplit[0]
-		if strings.HasPrefix(next, LabelSourceReservedKeyPrefix) {
-			src = LabelSourceReserved
-			next = strings.TrimPrefix(next, LabelSourceReservedKeyPrefix)
+	i := strings.IndexByte(str, ':')
+	if i < 0 {
+		if strings.HasPrefix(str, LabelSourceReservedKeyPrefix) {
+			return LabelSourceReserved, strings.TrimPrefix(str, LabelSourceReservedKeyPrefix)
 		}
-	} else {
-		if sourceSplit[0] != "" {
-			src = sourceSplit[0]
-		}
-		next = sourceSplit[1]
+		return "", str
 	}
-	return
+	return str[:i], str[i+1:]
 }
 
 // ParseLabel returns the label representation of the given string. The str should be
@@ -625,13 +621,15 @@ func ParseLabel(str string) *Label {
 		lbl.Source = LabelSourceUnspec
 	}
 
-	keySplit := strings.SplitN(next, "=", 2)
-	lbl.Key = keySplit[0]
-	if len(keySplit) > 1 {
-		if src == LabelSourceReserved && keySplit[0] == "" {
-			lbl.Key = keySplit[1]
+	i := strings.IndexByte(next, '=')
+	if i < 0 {
+		lbl.Key = next
+	} else {
+		if i == 0 && src == LabelSourceReserved {
+			lbl.Key = next[i+1:]
 		} else {
-			lbl.Value = keySplit[1]
+			lbl.Key = next[:i]
+			lbl.Value = next[i+1:]
 		}
 	}
 	return &lbl
