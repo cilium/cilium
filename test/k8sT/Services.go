@@ -51,19 +51,7 @@ var _ = Describe("K8sServicesTest", func() {
 		var err error
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-		_ = kubectl.Apply(helpers.DNSDeployment())
-
-		// Deploy the etcd operator
-		err = kubectl.DeployETCDOperator()
-		Expect(err).To(BeNil(), "Unable to deploy etcd operator")
-
-		err = kubectl.CiliumInstall(helpers.CiliumDefaultDSPatch, helpers.CiliumConfigMapPatch)
-		Expect(err).To(BeNil(), "Cilium cannot be installed")
-
-		ExpectCiliumReady(kubectl)
-
-		ExpectKubeDNSReady(kubectl)
-		ExpectETCDOperatorReady(kubectl)
+		ProvisionInfraPods(kubectl)
 
 		ciliumPodK8s1, err = kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
 		Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s1")

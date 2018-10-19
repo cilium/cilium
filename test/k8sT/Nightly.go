@@ -48,19 +48,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-
-		_ = kubectl.Apply(helpers.DNSDeployment())
-
-		// Deploy the etcd operator
-		err := kubectl.DeployETCDOperator()
-		Expect(err).To(BeNil(), "Unable to deploy etcd operator")
-
-		err = kubectl.CiliumInstall(helpers.CiliumDefaultDSPatch, helpers.CiliumConfigMapPatch)
-		Expect(err).To(BeNil(), "Cilium cannot be installed")
-
-		ExpectCiliumReady(kubectl)
-		ExpectKubeDNSReady(kubectl)
-		ExpectETCDOperatorReady(kubectl)
+		ProvisionInfraPods(kubectl)
 	})
 	deleteAll := func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
@@ -402,18 +390,7 @@ var _ = Describe("NightlyExamples", func() {
 		)
 
 		BeforeAll(func() {
-			_ = kubectl.Apply(helpers.DNSDeployment())
-
-			// Deploy the etcd operator
-			err := kubectl.DeployETCDOperator()
-			Expect(err).To(BeNil(), "Unable to deploy etcd operator")
-
-			err = kubectl.CiliumInstall(helpers.CiliumDefaultDSPatch, helpers.CiliumConfigMapPatch)
-			Expect(err).To(BeNil(), "Cilium cannot be installed")
-
-			ExpectCiliumReady(kubectl)
-			ExpectKubeDNSReady(kubectl)
-			ExpectETCDOperatorReady(kubectl)
+			ProvisionInfraPods(kubectl)
 		})
 
 		AfterAll(func() {

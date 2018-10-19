@@ -81,18 +81,7 @@ var _ = Describe("K8sIstioTest", func() {
 		}
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-
-		_ = kubectl.Apply(helpers.DNSDeployment())
-
-		err := kubectl.DeployETCDOperator()
-		Expect(err).To(BeNil(), "Unable to deploy etcd operator")
-
-		err = kubectl.CiliumInstall(helpers.CiliumDefaultDSPatch, helpers.CiliumConfigMapPatch)
-		Expect(err).To(BeNil(), "Cilium cannot be installed")
-
-		ExpectCiliumReady(kubectl)
-		ExpectETCDOperatorReady(kubectl)
-		ExpectKubeDNSReady(kubectl)
+		ProvisionInfraPods(kubectl)
 
 		By("Creating the istio-system namespace")
 		res := kubectl.NamespaceCreate(istioSystemNamespace)
@@ -105,7 +94,7 @@ var _ = Describe("K8sIstioTest", func() {
 		// Ignore one-time jobs and Prometheus. All other pods in the
 		// namespaces have an "istio" label.
 		By("Waiting for Istio pods to be ready")
-		err = kubectl.WaitforPods(istioSystemNamespace, "-l istio", 300)
+		err := kubectl.WaitforPods(istioSystemNamespace, "-l istio", 300)
 		Expect(err).To(BeNil(),
 			"Istio pods are not ready after timeout in namespace %q", istioSystemNamespace)
 
