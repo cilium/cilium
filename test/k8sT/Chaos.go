@@ -229,6 +229,9 @@ var _ = Describe("K8sChaosTest", func() {
 			err := kubectl.WaitforPods(
 				helpers.KubeSystemNamespace, fmt.Sprintf("-l %s", ciliumFilter), 300)
 			Expect(err).Should(BeNil(), "Pods are not ready after timeout")
+
+			err = kubectl.CiliumEndpointWaitReady()
+			Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
 		}
 
 		It("TCP connection is not dropped when cilium restarts", func() {
