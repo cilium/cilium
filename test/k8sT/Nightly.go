@@ -368,6 +368,7 @@ var _ = Describe("NightlyExamples", func() {
 			// clean-state the quorum is lost.
 			// ETCD operator maybe is not installed at all, so no assert here.
 			_ = kubectl.DeleteETCDOperator()
+			ExpectAllPodsTerminated(kubectl)
 
 		})
 
