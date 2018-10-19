@@ -122,21 +122,10 @@ var _ = Describe("K8sKafkaPolicyTest", func() {
 
 		BeforeAll(func() {
 			kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-
-			_ = kubectl.Apply(helpers.DNSDeployment())
-
-			// Deploy the etcd operator
-			err := kubectl.DeployETCDOperator()
-			Expect(err).To(BeNil(), "Unable to deploy etcd operator")
-
-			err = kubectl.CiliumInstall(helpers.CiliumDefaultDSPatch, helpers.CiliumConfigMapPatch)
-			Expect(err).To(BeNil(), "Cilium cannot be installed")
-			ExpectCiliumReady(kubectl)
-			ExpectKubeDNSReady(kubectl)
-			ExpectETCDOperatorReady(kubectl)
+			ProvisionInfraPods(kubectl)
 
 			kubectl.Apply(demoPath)
-			err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=kafkaTestApp", helpers.HelperTimeout)
+			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=kafkaTestApp", helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Kafka Pods are not ready after timeout")
 
 			err = kubectl.WaitForKubeDNSEntry("kafka-service", helpers.DefaultNamespace)

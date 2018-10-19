@@ -38,7 +38,7 @@ func ExpectCiliumReady(vm *helpers.Kubectl) {
 	ExpectWithOffset(1, err).Should(BeNil(), "cilium was not able to get into ready state")
 
 	err = vm.CiliumPreFlightCheck()
-	ExpectWithOffset(1, err).Should(BeNil(), "cilium pre flight checks has failed")
+	ExpectWithOffset(1, err).Should(BeNil(), "cilium pre-flight checks failed")
 }
 
 // ExpectAllPodsTerminated is a wrapper around helpers/WaitCleanAllTerminatingPods.
@@ -66,4 +66,23 @@ func ExpectETCDOperatorReady(vm *helpers.Kubectl) {
 	By("Waiting for all etcd-operator pods are ready")
 	err := vm.WaitforNPods(helpers.KubeSystemNamespace, "-l io.cilium/app=etcd-operator", 4, 600)
 	Expect(err).To(BeNil(), "etcd-operator is not ready after timeout")
+}
+
+// ProvisionInfraPods deploys DNS, etcd-operator, and cilium into the kubernetes
+// cluster of which vm is a member.
+func ProvisionInfraPods(vm *helpers.Kubectl) {
+	By("Installing DNS Deployment")
+	_ = vm.Apply(helpers.DNSDeployment())
+
+	By("Deploying etcd-operator")
+	err := vm.DeployETCDOperator()
+	Expect(err).To(BeNil(), "Unable to deploy etcd operator")
+
+	By("Installing Cilium")
+	err = vm.CiliumInstall(helpers.CiliumDefaultDSPatch, helpers.CiliumConfigMapPatch)
+	Expect(err).To(BeNil(), "Cilium cannot be installed")
+
+	ExpectCiliumReady(vm)
+	ExpectETCDOperatorReady(vm)
+	ExpectKubeDNSReady(vm)
 }

@@ -75,19 +75,8 @@ var _ = Describe("K8sTunnelTest", func() {
 		})
 
 		It("Check VXLAN mode", func() {
-			_ = kubectl.Apply(helpers.DNSDeployment())
-
-			// Deploy the etcd operator
-			err := kubectl.DeployETCDOperator()
-			Expect(err).To(BeNil(), "Unable to deploy etcd operator")
-
-			err = kubectl.CiliumInstall(helpers.CiliumDefaultDSPatch, helpers.CiliumConfigMapPatch)
-			Expect(err).To(BeNil(), "Cilium cannot be installed")
-
-			ExpectCiliumReady(kubectl)
-			ExpectETCDOperatorReady(kubectl)
-
-			err = kubectl.WaitforPods(helpers.DefaultNamespace, "", 300)
+			ProvisionInfraPods(kubectl)
+			err := kubectl.WaitforPods(helpers.DefaultNamespace, "", 300)
 			Expect(err).Should(BeNil(), "Pods are not ready after timeout")
 
 			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
