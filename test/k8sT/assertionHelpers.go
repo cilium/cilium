@@ -95,3 +95,22 @@ func ProvisionInfraPods(vm *helpers.Kubectl) {
 	ExpectETCDOperatorReady(vm)
 	ExpectKubeDNSReady(vm)
 }
+
+// ProvisionInfraPods deploys DNS, etcd-operator, and cilium into the kubernetes
+// cluster of which vm is a member.
+func ProvisionInfraPods(vm *helpers.Kubectl) {
+	By("Installing DNS Deployment")
+	_ = vm.Apply(helpers.DNSDeployment())
+
+	By("Deploying etcd-operator")
+	err := vm.DeployETCDOperator()
+	Expect(err).To(BeNil(), "Unable to deploy etcd operator")
+
+	By("Installing Cilium")
+	err = vm.CiliumInstall(helpers.CiliumDefaultDSPatch, helpers.CiliumConfigMapPatch)
+	Expect(err).To(BeNil(), "Cilium cannot be installed")
+
+	ExpectCiliumReady(vm)
+	ExpectETCDOperatorReady(vm)
+	ExpectKubeDNSReady(vm)
+}
