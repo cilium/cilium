@@ -255,15 +255,7 @@ var ciliumKubCLICommands = map[string]string{
 	"cilium kvstore get cilium --recursive": "kvstore_get.txt",
 }
 
-// etcdDeploymentFiles are the list of files used to deploy etcd operator.
-var etcdDeploymentFiles = []string{
-	"00-crd-etcd.yaml",
-	"cilium-etcd-sa.yaml",
-	"cluster-role-binding-template.yaml",
-	"cluster-role-template.yaml",
-	"deployment.yaml",
-	"cilium-etcd-cluster.yaml",
-}
+const ciliumEtcdOperator = "https://raw.githubusercontent.com/cilium/cilium-etcd-operator/1.2/cilium-etcd-operator.yaml"
 
 //GetFilePath returns the absolute path of the provided filename
 func GetFilePath(filename string) string {
