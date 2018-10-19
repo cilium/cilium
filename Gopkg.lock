@@ -1125,14 +1125,14 @@
   revision = "d37e108c89765a8e307f15b8fb2ecd10575da6bb"
 
 [[projects]]
-  digest = "1:936ab0fd3f16edc83131e626594a4f4e75426e5adeb7adbe57ed203db4c1b950"
+  digest = "1:57f5ef2fb4a27a73c8e21b3fe5518d738e8ad9f23c33161012f0e10beb3daad6"
   name = "github.com/vishvananda/netlink"
   packages = [
     ".",
     "nl",
   ]
   pruneopts = "NUT"
-  revision = "v1.0.0"
+  revision = "d3a23fd178f1a0d9cf1f194af62864b1dfe02be5"
 
 [[projects]]
   branch = "master"

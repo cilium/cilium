@@ -22,6 +22,10 @@ const (
 	FAMILY_V4   = unix.AF_INET
 	FAMILY_V6   = unix.AF_INET6
 	FAMILY_MPLS = AF_MPLS
+	// Arbitrary set value (greater than default 4k) to allow receiving
+	// from kernel more verbose messages e.g. for statistics,
+	// tc rules or filters, or other more memory requiring data.
+	RECEIVE_BUFFER_SIZE = 65536
 )
 
 // SupportedNlFamilies contains the list of netlink families this netlink package supports
@@ -278,8 +282,8 @@ func NewRtAttrChild(parent *RtAttr, attrType int, data []byte) *RtAttr {
 	return attr
 }
 
-// AddChild adds an existing RtAttr as a child.
-func (a *RtAttr) AddChild(attr *RtAttr) {
+// AddChild adds an existing NetlinkRequestData as a child.
+func (a *RtAttr) AddChild(attr NetlinkRequestData) {
 	a.children = append(a.children, attr)
 }
 
@@ -615,7 +619,7 @@ func (s *NetlinkSocket) Receive() ([]syscall.NetlinkMessage, error) {
 	if fd < 0 {
 		return nil, fmt.Errorf("Receive called on a closed socket")
 	}
-	rb := make([]byte, unix.Getpagesize())
+	rb := make([]byte, RECEIVE_BUFFER_SIZE)
 	nr, _, err := unix.Recvfrom(fd, rb, 0)
 	if err != nil {
 		return nil, err

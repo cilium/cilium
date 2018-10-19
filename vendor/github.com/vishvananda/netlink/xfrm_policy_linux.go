@@ -27,6 +27,7 @@ func selFromPolicy(sel *nl.XfrmSelector, policy *XfrmPolicy) {
 	if sel.Sport != 0 {
 		sel.SportMask = ^uint16(0)
 	}
+	sel.Ifindex = int32(policy.Ifindex)
 }
 
 // XfrmPolicyAdd will add an xfrm policy to the system.
@@ -61,6 +62,7 @@ func (h *Handle) xfrmPolicyAddOrUpdate(policy *XfrmPolicy, nlProto int) error {
 	msg.Priority = uint32(policy.Priority)
 	msg.Index = uint32(policy.Index)
 	msg.Dir = uint8(policy.Dir)
+	msg.Action = uint8(policy.Action)
 	msg.Lft.SoftByteLimit = nl.XFRM_INF
 	msg.Lft.HardByteLimit = nl.XFRM_INF
 	msg.Lft.SoftPacketLimit = nl.XFRM_INF
@@ -220,9 +222,11 @@ func parseXfrmPolicy(m []byte, family int) (*XfrmPolicy, error) {
 	policy.Proto = Proto(msg.Sel.Proto)
 	policy.DstPort = int(nl.Swap16(msg.Sel.Dport))
 	policy.SrcPort = int(nl.Swap16(msg.Sel.Sport))
+	policy.Ifindex = int(msg.Sel.Ifindex)
 	policy.Priority = int(msg.Priority)
 	policy.Index = int(msg.Index)
 	policy.Dir = Dir(msg.Dir)
+	policy.Action = PolicyAction(msg.Action)
 
 	attrs, err := nl.ParseRouteAttr(m[msg.Len():])
 	if err != nil {
