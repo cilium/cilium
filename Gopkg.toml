@@ -242,7 +242,9 @@ required = [
 
 [[constraint]]
   name = "github.com/vishvananda/netlink"
-  revision = "v1.0.0"
+# From this revision it contains the serializing empty TCA_OPTIONS in qdisc
+# messages.
+  revision = "d3a23fd178f1a0d9cf1f194af62864b1dfe02be5"
 
 # This must be an override because miekg/dns uses revision=master
 [[override]]
