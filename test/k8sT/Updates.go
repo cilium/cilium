@@ -105,6 +105,8 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 
 		kubectl.DeleteETCDOperator()
 
+		ExpectAllPodsTerminated(kubectl)
+
 		// make sure we clean everything up before doing any other test
 		err := kubectl.CiliumInstall(
 			helpers.CiliumDefaultDSPatch,
