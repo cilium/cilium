@@ -2005,30 +2005,9 @@ func (kub *Kubectl) CiliumServicePreFlightCheck() error {
 // DeployETCDOperator deploys the etcd-operator k8s descriptors into the cluster
 // pointer by kub.
 func (kub *Kubectl) DeployETCDOperator() error {
-	const etcdOperatorPath = "../examples/kubernetes/addons/etcd-operator/"
-	deployFile := func(filename string) error {
-		cmdRes := kub.Apply(GetFilePath(etcdOperatorPath + filename))
-		if !cmdRes.WasSuccessful() {
-			return fmt.Errorf("Unable to deploy descriptor of etcd-operator %s: %s", filename, cmdRes.OutputPrettyPrint())
-		}
-		return nil
-	}
-
-	cmdRes := kub.Exec(fmt.Sprintf("%s '%s'", GetFilePath(etcdOperatorPath+"tls/certs/gen-cert.sh"), "cluster.local"))
+	cmdRes := kub.Apply(ciliumEtcdOperator)
 	if !cmdRes.WasSuccessful() {
-		return fmt.Errorf("unable to generate tls certificates for etcd-operator: %s", cmdRes.OutputPrettyPrint())
-	}
-	// deploy-certs.sh can be called multiple times so it will fail if a
-	// certificate is already created, we will rely in the deployment
-	// of etcd-operator descriptors to check if something is wrong with
-	// the deployment.
-	_ = kub.Exec(GetFilePath(etcdOperatorPath + "tls/deploy-certs.sh"))
-
-	for _, manifest := range etcdDeploymentFiles {
-		err := deployFile(manifest)
-		if err != nil {
-			return err
-		}
+		return fmt.Errorf("Unable to deploy descriptor of etcd-operator %s: %s", ciliumEtcdOperator, cmdRes.OutputPrettyPrint())
 	}
 	return nil
 }
@@ -2036,24 +2015,14 @@ func (kub *Kubectl) DeployETCDOperator() error {
 // DeleteETCDOperator delete the etcd-operator from the cluster pointed by
 // kub.
 func (kub *Kubectl) DeleteETCDOperator() error {
-	const etcdOperatorPath = "../examples/kubernetes/addons/etcd-operator/"
-	deleteFile := func(filename string) error {
-		cmdRes := kub.Delete(GetFilePath(etcdOperatorPath + filename))
-		if !cmdRes.WasSuccessful() {
-			return fmt.Errorf("Unable to delete descriptor of etcd-operator %s: %s", filename, cmdRes.OutputPrettyPrint())
-		}
-		return nil
+	cmdRes := kub.Delete(ciliumEtcdOperator)
+	if !cmdRes.WasSuccessful() {
+		return fmt.Errorf("Unable to delete descriptor of etcd-operator %s: %s", ciliumEtcdOperator, cmdRes.OutputPrettyPrint())
 	}
-
-	var retErr error
-	for i := len(etcdDeploymentFiles) - 1; i > 0; i-- {
-		err := deleteFile(etcdDeploymentFiles[i])
-		if err != nil {
-			// delete all files regardless of the returned error.
-			retErr = err
-		}
-	}
-	return retErr
+	kub.Exec("kubectl delete deployment -n kube-system -l io.cilium/app=etcd-operator")
+	kub.Exec("kubectl delete pods -n kube-system -l io.cilium/app=etcd-operator")
+	kub.Exec("kubectl delete etcdclusters.etcd.database.coreos.com -n kube-system -l io.cilium/app=etcd-operator")
+	return nil
 }
 
 func serviceKey(s v1.Service) string {
