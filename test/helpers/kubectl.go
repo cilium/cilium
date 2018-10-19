@@ -1638,6 +1638,7 @@ func (kub *Kubectl) GetCiliumPodOnNode(namespace string, node string) (string, e
 // Cilium are in a good state. If one of the multiple preflight fails it'll
 // return an error.
 func (kub *Kubectl) CiliumPreFlightCheck() error {
+	ginkgo.By("Performing Cilium preflight check")
 	// Doing this withTimeout because the Status can be ready, but the other
 	// nodes cannot be show up yet, and the cilium-health can fail as a false positive.
 	var err error
@@ -1674,6 +1675,7 @@ func (kub *Kubectl) CiliumPreFlightCheck() error {
 // CiliumControllersPreFlightCheck validates that all controllers are not
 // failing. If any of the controllers fails will return an error.
 func (kub *Kubectl) CiliumControllersPreFlightCheck() error {
+	ginkgo.By("Checking that no controllers in Cilium have failed")
 	var controllersFilter = `{range .controllers[*]}{.name}{"="}{.status.consecutive-failure-count}{"\n"}{end}`
 	ciliumPods, err := kub.GetCiliumPods(KubeSystemNamespace)
 	if err != nil {
@@ -1702,6 +1704,7 @@ func (kub *Kubectl) CiliumControllersPreFlightCheck() error {
 // correctly and the number of nodes does not mistmatch with the running pods.
 // It return an error if health mark a node as failed.
 func (kub *Kubectl) CiliumHealthPreFlightCheck() error {
+	ginkgo.By("Checking that cilium-health status is healthy")
 	var nodesFilter = `{.nodes[*].name}`
 	var statusFilter = `{range .nodes[*]}{.name}{"="}{.host.primary-address.http.status}{"\n"}{end}`
 
@@ -1835,6 +1838,7 @@ func (kub *Kubectl) KubeDNSPreFlightCheck() error {
 
 //ServicePreFlightCheck makes sure that k8s service with given name and namespace is properly plumbed in Cilium
 func (kub *Kubectl) ServicePreFlightCheck(serviceName, serviceNamespace string) error {
+	ginkgo.By("Checking that the kubernetes service is correctly plumbed by Cilium")
 	var service *v1.Service
 	for _, s := range kub.serviceCache.services.Items {
 		if s.Name == serviceName && s.Namespace == serviceNamespace {
@@ -1885,6 +1889,7 @@ CILIUM_SERVICES:
 
 // CiliumServicePreFlightCheck checks that k8s service is plumbed correctly
 func (kub *Kubectl) CiliumServicePreFlightCheck() error {
+	ginkgo.By("Checking that Kubernetes services are correctly plumbed by Cilium")
 	for _, pod := range kub.serviceCache.pods {
 		k8sServicesFound := map[string]bool{}
 
