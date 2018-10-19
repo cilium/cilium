@@ -120,13 +120,13 @@ case $K8S_VERSION in
         ;;
     "1.9")
         KUBERNETES_CNI_VERSION="0.6.0"
-        K8S_FULL_VERSION="1.9.10"
+        K8S_FULL_VERSION="1.9.11"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
         ;;
     "1.10")
         KUBERNETES_CNI_VERSION="0.6.0"
-        K8S_FULL_VERSION="1.10.7"
+        K8S_FULL_VERSION="1.10.9"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
         ;;
