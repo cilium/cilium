@@ -100,6 +100,14 @@ var _ = Describe("K8sIstioTest", func() {
 
 		ProvisionInfraPods(kubectl)
 
+		By("Disabling debug mode for Istio test")
+		err := kubectl.CiliumExecAll("cilium config Debug=Disabled")
+		Expect(err).To(BeNil(), "unable to set cilium configuration to Debug=Disabled")
+
+		By("Setting medium monitor aggregation for Istio test")
+		err = kubectl.CiliumExecAll("cilium config MonitorAggregationLevel=Medium")
+		Expect(err).To(BeNil(), "unable to set cilium configuration to MonitorAggregationLevel=Medium")
+
 		By("Creating the istio-system namespace")
 		res := kubectl.NamespaceCreate(istioSystemNamespace)
 		res.ExpectSuccess("unable to create namespace %q", istioSystemNamespace)
@@ -111,7 +119,7 @@ var _ = Describe("K8sIstioTest", func() {
 		// Ignore one-time jobs and Prometheus. All other pods in the
 		// namespaces have an "istio" label.
 		By("Waiting for Istio pods to be ready")
-		err := kubectl.WaitforPods(istioSystemNamespace, "-l istio", 300)
+		err = kubectl.WaitforPods(istioSystemNamespace, "-l istio", 300)
 		Expect(err).To(BeNil(),
 			"Istio pods are not ready after timeout in namespace %q", istioSystemNamespace)
 
@@ -135,6 +143,14 @@ var _ = Describe("K8sIstioTest", func() {
 
 		By("Deleting the istio-system namespace")
 		_ = kubectl.NamespaceDelete(istioSystemNamespace)
+
+		By("Enabling debug mode after Istio test")
+		err := kubectl.CiliumExecAll("cilium config Debug=Enabled")
+		Expect(err).To(BeNil(), "unable to set cilium configuration to Debug=Enabled")
+
+		By("Setting no monitor aggregation after Istio test")
+		err = kubectl.CiliumExecAll("cilium config MonitorAggregationLevel=None")
+		Expect(err).To(BeNil(), "unable to set cilium configuration to MonitorAggregationLevel=None")
 
 		kubectl.WaitCleanAllTerminatingPods(600)
 	})
