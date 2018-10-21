@@ -35,6 +35,7 @@ cilium-agent
       --debug-verbose stringSlice                   List of enabled verbose debug groups
   -d, --device string                               Device facing cluster/external network for direct L3 (non-overlay mode) (default "undefined")
       --disable-conntrack                           Disable connection tracking
+      --disable-endpoint-crd                        Disable use of CiliumEndpoint CRD
       --disable-ipv4                                Disable IPv4 mode
       --disable-k8s-services                        Disable east-west K8s load balancing by cilium
   -e, --docker string                               Path to docker runtime socket (DEPRECATED: use container-runtime-endpoint instead) (default "unix:///var/run/docker.sock")

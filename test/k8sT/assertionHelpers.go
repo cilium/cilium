@@ -15,6 +15,7 @@
 package k8sTest
 
 import (
+	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
 	. "github.com/onsi/gomega"
@@ -52,4 +53,17 @@ func ExpectAllPodsTerminated(vm *helpers.Kubectl) {
 func ExpectCEPUpdates(vm *helpers.Kubectl) {
 	err := vm.WaitCEPReady()
 	ExpectWithOffset(1, err).To(BeNil(), "CEP does not updated correctly")
+}
+
+// ExpectETCDOperatorReady is a wrapper around helpers/WaitForNPods. It asserts
+// the error returned by that function is nil.
+func ExpectETCDOperatorReady(vm *helpers.Kubectl) {
+	// Etcd operator creates 4 nodes (1 etcd-operator + 3 etcd nodes),
+	// the new pods are added when the previous is ready,
+	// so we need to wait until 4 pods are in ready state.
+	// This is to avoid cases where a few pods are ready, but the
+	// new one is not created yet.
+	By("Waiting for all etcd-operator pods are ready")
+	err := vm.WaitforNPods(helpers.KubeSystemNamespace, "-l io.cilium/app=etcd-operator", 4, 600)
+	Expect(err).To(BeNil(), "etcd-operator is not ready after timeout")
 }

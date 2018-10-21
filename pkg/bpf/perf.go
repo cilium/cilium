@@ -25,16 +25,77 @@ package bpf
 #include <sys/resource.h>
 #include <stdlib.h>
 
-#if defined(__x86_64__)
-# define barrier()          asm volatile("" ::: "memory")
-# define smp_mb()           asm volatile("lock; addl $0,-132(%%rsp)" ::: "memory", "cc")
-# define smp_rmb()          barrier()
-#else
-# define smp_mb()           __sync_synchronize()
-# define smp_rmb()          __sync_synchronize()
-#endif
+#define READ_ONCE(x)		(*(volatile typeof(x) *)&x)
+#define WRITE_ONCE(x, v)	(*(volatile typeof(x) *)&x) = (v)
 
-#define READ_ONCE_64(x)	*((volatile uint64_t *) &x)
+// Contract with kernel/user space on perf ring buffer. From
+// kernel/events/ring_buffer.c:
+//
+//   kernel                             user
+//
+//   if (LOAD ->data_tail) {            LOAD ->data_head
+//                      (A)             smp_rmb()       (C)
+//      STORE $data                     LOAD $data
+//      smp_wmb()       (B)             smp_mb()        (D)
+//      STORE ->data_head               STORE ->data_tail
+//   }
+//
+// Where A pairs with D, and B pairs with C.
+//
+// In our case (A) is a control dependency that separates the load
+// of the ->data_tail and the stores of $data. In case ->data_tail
+// indicates there is no room in the buffer to store $data we do
+// not. D needs to be a full barrier since it separates the data
+// READ from the tail WRITE. For B a WMB is sufficient since it
+// separates two WRITEs, and for C an RMB is sufficient since it
+// separates two READs.
+
+#if defined(__x86_64__)
+# define barrier()				\
+	asm volatile("" ::: "memory")
+
+# define smp_store_release(p, v)		\
+do {						\
+	barrier();				\
+	WRITE_ONCE(*p, v);			\
+} while (0)
+
+# define smp_load_acquire(p)			\
+({						\
+	typeof(*p) ___p1 = READ_ONCE(*p);	\
+	barrier();				\
+	___p1;					\
+})
+
+static inline uint64_t perf_read_head(struct perf_event_mmap_page *up)
+{
+	return smp_load_acquire(&up->data_head);
+}
+
+static inline void perf_write_tail(struct perf_event_mmap_page *up,
+				   uint64_t data_tail)
+{
+	smp_store_release(&up->data_tail, data_tail);
+}
+#else
+# define smp_mb()	__sync_synchronize()
+# define smp_rmb()	__sync_synchronize()
+
+static inline uint64_t perf_read_head(struct perf_event_mmap_page *up)
+{
+	uint64_t data_head = READ_ONCE(up->data_head);
+
+	smp_rmb();
+	return data_head;
+}
+
+static inline void perf_write_tail(struct perf_event_mmap_page *up,
+				   uint64_t data_tail)
+{
+	smp_mb();
+	WRITE_ONCE(up->data_tail, data_tail);
+}
+#endif
 
 void create_perf_event_attr(int type, int config, int sample_type,
 			    int wakeup_events, void *attr)
@@ -71,42 +132,6 @@ struct read_state {
 	uint64_t raw_size;
 	uint64_t last_size;
 };
-
-// Contract with kernel/user space on perf ring buffer. From
-// kernel/events/ring_buffer.c:
-//
-//   kernel                             user
-//
-//   if (LOAD ->data_tail) {            LOAD ->data_head
-//                      (A)             smp_rmb()       (C)
-//      STORE $data                     LOAD $data
-//      smp_wmb()       (B)             smp_mb()        (D)
-//      STORE ->data_head               STORE ->data_tail
-//   }
-//
-// Where A pairs with D, and B pairs with C.
-//
-// In our case (A) is a control dependency that separates the load
-// of the ->data_tail and the stores of $data. In case ->data_tail
-// indicates there is no room in the buffer to store $data we do
-// not. D needs to be a full barrier since it separates the data
-// READ from the tail WRITE. For B a WMB is sufficient since it
-// separates two WRITEs, and for C an RMB is sufficient since it
-// separates two READs.
-
-static inline uint64_t perf_read_head(struct perf_event_mmap_page *up)
-{
-	uint64_t data_head = READ_ONCE_64(up->data_head);
-	smp_rmb();
-	return data_head;
-}
-
-static inline void perf_write_tail(struct perf_event_mmap_page *up,
-				   uint64_t data_tail)
-{
-	smp_mb();
-	up->data_tail = data_tail;
-}
 
 void perf_event_reset_tail(void *_page)
 {

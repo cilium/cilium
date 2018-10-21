@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/rand"
 	"net"
 	"os"
 	"reflect"
@@ -61,7 +60,6 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 	"github.com/cilium/cilium/pkg/versioncheck"
 
-	go_version "github.com/hashicorp/go-version"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
@@ -89,8 +87,6 @@ var (
 	// ciliumUpdateStatusVerConstr is the minimal version supported for
 	// to perform a CRD UpdateStatus.
 	ciliumUpdateStatusVerConstr = versioncheck.MustCompile(">= 1.11.0")
-
-	k8sServerVer *go_version.Version
 )
 
 // getCiliumClient builds and returns a k8s auto-generated client for cilium
@@ -145,10 +141,13 @@ func RunK8sCiliumEndpointSyncGC() {
 	var (
 		controllerName = fmt.Sprintf("sync-to-k8s-ciliumendpoint-gc (%v)", node.GetName())
 		scopedLog      = log.WithField("controller", controllerName)
-
-		// random source to throttle how often this controller runs cluster-wide
-		runThrottler = rand.New(rand.NewSource(time.Now().UnixNano()))
+		firstRun       = true
 	)
+
+	if option.Config.DisableCiliumEndpointCRD {
+		scopedLog.WithField("name", controllerName).Warn("Not running controller. CEP CRD synchronization is disabled")
+		return
+	}
 
 	// this is a sanity check
 	if !k8s.IsEnabled() {
@@ -178,15 +177,24 @@ func RunK8sCiliumEndpointSyncGC() {
 	// this dummy manager is needed only to add this controller to the global list
 	controller.NewManager().UpdateController(controllerName,
 		controller.ControllerParams{
-			RunInterval: 1 * time.Minute,
+			RunInterval: 30 * time.Minute,
 			DoFunc: func() error {
-				// Don't run if there are no other known nodes
-				// Only run with a probability of 1/(number of nodes in cluster). This
-				// is because this controller runs on every node on the same interval
-				// but only one is neede to run.
-				nodes := node.GetNodes()
-				if len(nodes) <= 1 || runThrottler.Int63n(int64(len(nodes))) != 0 {
+				// Don't run immediately
+				if firstRun {
+					firstRun = false
 					return nil
+				}
+
+				// Only run if we are the "lowest" node in our cluster, when sorted by
+				// names. This means only one node will ever run GCs in a given
+				// cluster.
+				thisNode := node.GetLocalNode().Identity()
+				thisNodeStr := thisNode.String()
+				for id := range node.GetNodes() {
+					if idStr := id.String(); id.Cluster == thisNode.Cluster && idStr < thisNodeStr {
+						scopedLog.WithField(logfields.Node, idStr).Debug("Skipping GC because another node is a better candidate")
+						return nil
+					}
 				}
 
 				clusterPodSet := map[string]bool{}
@@ -550,11 +558,16 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 		err            error
 	)
 
+	if option.Config.DisableCiliumEndpointCRD {
+		scopedLog.Warn("Not running controller. CEP CRD synchronization is disabled")
+		return
+	}
+
 	if !k8s.IsEnabled() {
 		scopedLog.Debug("Not starting controller because k8s is disabled")
 		return
 	}
-	k8sServerVer, err = k8s.GetServerVersion()
+	k8sServerVer, err := k8s.GetServerVersion()
 	if err != nil {
 		scopedLog.WithError(err).Error("unable to retrieve kubernetes serverversion")
 		return

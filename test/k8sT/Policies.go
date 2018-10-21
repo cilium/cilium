@@ -64,6 +64,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 		ExpectCiliumReady(kubectl)
 		ExpectKubeDNSReady(kubectl)
+		ExpectETCDOperatorReady(kubectl)
 	})
 
 	AfterEach(func() {

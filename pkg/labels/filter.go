@@ -85,10 +85,10 @@ func (p LabelPrefix) matches(l *Label) (bool, int) {
 // parseLabelPrefix returns a LabelPrefix created from the string label parameter.
 func parseLabelPrefix(label string) (*LabelPrefix, error) {
 	labelPrefix := LabelPrefix{}
-	t := strings.SplitN(label, ":", 2)
-	if len(t) > 1 {
-		labelPrefix.Source = t[0]
-		labelPrefix.Prefix = t[1]
+	i := strings.IndexByte(label, ':')
+	if i >= 0 {
+		labelPrefix.Source = label[:i]
+		labelPrefix.Prefix = label[i+1:]
 	} else {
 		labelPrefix.Prefix = label
 	}
