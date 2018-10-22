@@ -29,5 +29,9 @@ new feature please file the issue according to the `GitHub template
 **Contributing**: If you want to contribute, reading the :ref:`dev_guide` should
 help you.
 
-**Security**: If you want to report any security issues within Cilium, please
-send an email to ``security@cilium.io``
+**Security**: We strongly encourage you to report security vulnerabilities to
+our private security mailing list: security@cilium.io - first, before
+disclosing them in any public forums.
+
+This is a private mailing list where only members of the Cilium internal
+security team are subscribed to, and is treated as top priority.
