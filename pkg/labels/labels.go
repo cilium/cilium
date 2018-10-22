@@ -302,7 +302,7 @@ func (l Labels) GetFromSource(source string) Labels {
 // ':' will be deleted and unused.
 func NewLabel(key string, value string, source string) *Label {
 	var src string
-	src, key = parseSource(key)
+	src, key = parseSource(key, ':')
 	if source == "" {
 		if src == "" {
 			source = LabelSourceUnspec
@@ -436,7 +436,7 @@ func GetCiliumKeyFrom(extKey string) string {
 // `container:foo=bar` returns `container.foo`
 // `foo=bar` returns `any.foo=bar`
 func GetExtendedKeyFrom(str string) string {
-	src, next := parseSource(str)
+	src, next := parseSource(str, ':')
 	if src == "" {
 		src = LabelSourceAny
 	}
@@ -592,16 +592,18 @@ func (l Labels) FindReserved() Labels {
 //  src, next := parseSource("foo:bar==value")
 // Println(src) // foo
 // Println(next) // bar==value
-func parseSource(str string) (src, next string) {
+// For Cilium format 'delim' must be passed in as ':'
+// For k8s format 'delim' must be passed in as '.'
+func parseSource(str string, delim byte) (src, next string) {
 	if str == "" {
 		return "", ""
 	}
 	if str[0] == '$' {
 		return LabelSourceReserved, str[1:]
 	}
-	i := strings.IndexByte(str, ':')
+	i := strings.IndexByte(str, delim)
 	if i < 0 {
-		if strings.HasPrefix(str, LabelSourceReservedKeyPrefix) {
+		if delim != '.' && strings.HasPrefix(str, LabelSourceReservedKeyPrefix) {
 			return LabelSourceReserved, strings.TrimPrefix(str, LabelSourceReservedKeyPrefix)
 		}
 		return "", str
@@ -613,8 +615,15 @@ func parseSource(str string) (src, next string) {
 // in the form of Source:Key=Value or Source:Key if Value is empty. It also parses short
 // forms, for example: $host will be Label{Key: "host", Source: "reserved", Value: ""}.
 func ParseLabel(str string) *Label {
-	lbl := Label{}
-	src, next := parseSource(str)
+	lbl := parseLabel(str, ':')
+	return &lbl
+}
+
+// parseLabel returns the label representation of the given string by value.
+// For Cilium format 'delim' must be passed in as ':'
+// For k8s format 'delim' must be passed in as '.'
+func parseLabel(str string, delim byte) (lbl Label) {
+	src, next := parseSource(str, delim)
 	if src != "" {
 		lbl.Source = src
 	} else {
@@ -632,14 +641,24 @@ func ParseLabel(str string) *Label {
 			lbl.Value = next[i+1:]
 		}
 	}
-	return &lbl
+	return lbl
 }
 
 // ParseSelectLabel returns a selecting label representation of the given
 // string. Unlike ParseLabel, if source is unspecified, the source defaults to
 // LabelSourceAny
 func ParseSelectLabel(str string) *Label {
-	lbl := ParseLabel(str)
+	lbl := parseSelectLabel(str, ':')
+
+	return &lbl
+}
+
+// parseSelectLabel returns a selecting label representation of the given
+// string by value.
+// For Cilium format 'delim' must be passed in as ':'
+// For k8s format 'delim' must be passed in as '.'
+func parseSelectLabel(str string, delim byte) Label {
+	lbl := parseLabel(str, delim)
 
 	if lbl.Source == LabelSourceUnspec {
 		lbl.Source = LabelSourceAny
