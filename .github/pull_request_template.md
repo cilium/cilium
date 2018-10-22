@@ -1,20 +1,18 @@
-<!--  Thanks for contributing to Cilium!
+Please ensure your pull request adheres to the following guidelines:
 
-If this is your first time contributing, then please see the following
-guidelines for detailed instructions on how to contribute:
-https://github.com/cilium/cilium/blob/master/CONTRIBUTING.md for detailed instructions 
+- [ ] For first time contributors, read [Submitting a pull request](http://docs.cilium.io/en/stable/contributing/#submitting-a-pull-request)
+- [ ] All code is covered by unit and/or runtime tests where feasible.
+- [ ] All commits contain a well written commit description including a title,
+      description and a `Fixes: #XXX` line if the commit addresses a particular
+      GitHub issue. 
+- [ ] All commits are signed off. See the section [Developer’s Certificate of Origin](http://docs.cilium.io/en/stable/contributing/#dev-coo).
+- [ ] Provide a title or release-note blurb suitable for the release notes.
+- [ ] Thanks for contributing!
 
--->
-
-**Summary of changes**:
+<!-- Description of change -->
 
 Fixes: #issue-number
 
 ```release-note
 <!-- Enter the release note text here if needed -->
 ```
-
-**How to test (optional)**:
-e.g. Run `make tests`, `make runtime-tests` and/or some more specific way to
-exercise the new behavior(s).
-Note: [The runtime testsuite will modify the host it runs on.](http://cilium.readthedocs.io/en/latest/contributing/#testsuite)
