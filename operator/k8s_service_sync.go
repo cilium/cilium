@@ -83,7 +83,7 @@ func startSynchronizingServices() {
 	servicesStore = store
 
 	// Watch for v1.Service changes and push changes into ServiceCache
-	svcController := utils.ControllerFactory(
+	_, svcController := utils.ControllerFactory(
 		k8s.Client().CoreV1().RESTClient(),
 		&v1.Service{},
 		utils.ResourceEventHandlerFactory(
@@ -119,7 +119,7 @@ func startSynchronizingServices() {
 	go svcController.Run(wait.NeverStop)
 
 	// Watch for v1.Endpoints changes and push changes into ServiceCache
-	endpointController := utils.ControllerFactory(
+	_, endpointController := utils.ControllerFactory(
 		k8s.Client().CoreV1().RESTClient(),
 		&v1.Endpoints{},
 		utils.ResourceEventHandlerFactory(
