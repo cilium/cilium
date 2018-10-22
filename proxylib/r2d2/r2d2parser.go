@@ -21,7 +21,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/envoy/cilium"
-	. "github.com/cilium/cilium/proxylib/proxylib"
+	"github.com/cilium/cilium/proxylib/proxylib"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -48,20 +48,20 @@ import (
 // {file : "/public/.*" } - Allow read/write on the public directory.
 // {cmd : "HALT"} - Allow shutdown, but no other actions.
 
-type R2d2Rule struct {
+type r2d2Rule struct {
 	cmdExact          string
 	fileRegexCompiled *regexp.Regexp
 }
 
-type R2d2RequestData struct {
+type r2d2RequestData struct {
 	cmd  string
 	file string
 }
 
-func (rule *R2d2Rule) Matches(data interface{}) bool {
+func (rule *r2d2Rule) Matches(data interface{}) bool {
 	// Cast 'data' to the type we give to 'Matches()'
 
-	reqData, ok := data.(R2d2RequestData)
+	reqData, ok := data.(r2d2RequestData)
 	regexStr := ""
 	if rule.fileRegexCompiled != nil {
 		regexStr = rule.fileRegexCompiled.String()
@@ -84,16 +84,16 @@ func (rule *R2d2Rule) Matches(data interface{}) bool {
 	return true
 }
 
-// R2d2RuleParser parses protobuf L7 rules to enforcement objects
+// ruleParser parses protobuf L7 rules to enforcement objects
 // May panic
-func R2d2RuleParser(rule *cilium.PortNetworkPolicyRule) []L7NetworkPolicyRule {
+func ruleParser(rule *cilium.PortNetworkPolicyRule) []proxylib.L7NetworkPolicyRule {
 	l7Rules := rule.GetL7Rules()
-	var rules []L7NetworkPolicyRule
+	var rules []proxylib.L7NetworkPolicyRule
 	if l7Rules == nil {
 		return rules
 	}
 	for _, l7Rule := range l7Rules.GetL7Rules() {
-		var rr R2d2Rule
+		var rr r2d2Rule
 		for k, v := range l7Rule.Rule {
 			switch k {
 			case "cmd":
@@ -103,7 +103,7 @@ func R2d2RuleParser(rule *cilium.PortNetworkPolicyRule) []L7NetworkPolicyRule {
 					rr.fileRegexCompiled = regexp.MustCompile(v)
 				}
 			default:
-				ParseError(fmt.Sprintf("Unsupported key: %s", k), rule)
+				proxylib.ParseError(fmt.Sprintf("Unsupported key: %s", k), rule)
 			}
 		}
 		if rr.cmdExact != "" &&
@@ -111,10 +111,10 @@ func R2d2RuleParser(rule *cilium.PortNetworkPolicyRule) []L7NetworkPolicyRule {
 			rr.cmdExact != "WRITE" &&
 			rr.cmdExact != "HALT" &&
 			rr.cmdExact != "RESET" {
-			ParseError(fmt.Sprintf("Unable to parse L7 r2d2 rule with invalid cmd: '%s'", rr.cmdExact), rule)
+			proxylib.ParseError(fmt.Sprintf("Unable to parse L7 r2d2 rule with invalid cmd: '%s'", rr.cmdExact), rule)
 		}
 		if (rr.fileRegexCompiled != nil) && !(rr.cmdExact == "" || rr.cmdExact == "READ" || rr.cmdExact == "WRITE") {
-			ParseError(fmt.Sprintf("Unable to parse L7 r2d2 rule, cmd '%s' is not compatible with 'file'", rr.cmdExact), rule)
+			proxylib.ParseError(fmt.Sprintf("Unable to parse L7 r2d2 rule, cmd '%s' is not compatible with 'file'", rr.cmdExact), rule)
 		}
 		regexStr := ""
 		if rr.fileRegexCompiled != nil {
@@ -126,63 +126,55 @@ func R2d2RuleParser(rule *cilium.PortNetworkPolicyRule) []L7NetworkPolicyRule {
 	return rules
 }
 
-type R2d2ParserFactory struct{}
-
-var r2d2ParserFactory *R2d2ParserFactory
+type factory struct{}
 
 func init() {
 	log.Info("init(): Registering r2d2ParserFactory")
-	RegisterParserFactory("r2d2", r2d2ParserFactory)
-	RegisterL7RuleParser("r2d2", R2d2RuleParser)
+	proxylib.RegisterParserFactory("r2d2", &factory{})
+	proxylib.RegisterL7RuleParser("r2d2", ruleParser)
 }
 
-type R2d2Parser struct {
-	connection *Connection
+type parser struct {
+	connection *proxylib.Connection
 	inserted   bool
 }
 
-func (pf *R2d2ParserFactory) Create(connection *Connection) Parser {
+func (f *factory) Create(connection *proxylib.Connection) proxylib.Parser {
 	log.Debugf("R2d2ParserFactory: Create: %v", connection)
 
-	p := R2d2Parser{connection: connection}
-	return &p
+	return &parser{connection: connection}
 }
 
-func (p *R2d2Parser) OnData(reply, endStream bool, dataArray [][]byte) (OpType, int) {
+func (p *parser) OnData(reply, endStream bool, dataArray [][]byte) (proxylib.OpType, int) {
 
 	// inefficient, but simple
 	data := string(bytes.Join(dataArray, []byte{}))
 
 	log.Infof("OnData: '%s'", data)
-
-	if !strings.Contains(data, "\r\n") {
+	msgLen := strings.Index(data, "\r\n")
+	if msgLen < 0 {
 		// No delimiter, request more data
 		log.Infof("No delimiter found, requesting more bytes")
-		return MORE, 1
+		return proxylib.MORE, 1
 	}
 
-	// read single request
-	msgStr := strings.Split(data, "\r\n")[0]
-	msgLen := len(msgStr) + 2
+	msgStr := data[:msgLen] // read single request
+	msgLen += 2             // include "\r\n"
 	log.Infof("Request = '%s'", msgStr)
 
 	// we don't process reply traffic for now
 	if reply {
 		log.Infof("reply, passing %d bytes", msgLen)
-		return PASS, msgLen
+		return proxylib.PASS, msgLen
 	}
 
-	fileStr := ""
 	fields := strings.Split(msgStr, " ")
-	if len(fields) == 0 {
-		return ERROR, int(ERROR_INVALID_FRAME_TYPE)
+	if len(fields) < 1 {
+		return proxylib.ERROR, int(proxylib.ERROR_INVALID_FRAME_TYPE)
 	}
+	reqData := r2d2RequestData{cmd: fields[0]}
 	if len(fields) == 2 {
-		fileStr = fields[1]
-	}
-	reqData := R2d2RequestData{
-		cmd:  fields[0],
-		file: fileStr,
+		reqData.file = fields[1]
 	}
 
 	matches := true
@@ -207,8 +199,8 @@ func (p *R2d2Parser) OnData(reply, endStream bool, dataArray [][]byte) (OpType, 
 	if !matches {
 		p.connection.Inject(true, []byte("ERROR\r\n"))
 		log.Infof("Policy mismatch, dropping %d bytes", msgLen)
-		return DROP, msgLen
+		return proxylib.DROP, msgLen
 	}
 
-	return PASS, msgLen
+	return proxylib.PASS, msgLen
 }
