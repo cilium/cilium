@@ -4,7 +4,7 @@ ifeq ($(CILIUM_VERSION),)
     CILIUM_VERSION = "v$(shell cat ../../VERSION)"
 endif
 
-K8S_VERSIONS = 1.8 1.9 1.10 1.11 1.12
+K8S_VERSIONS = 1.8 1.9 1.10 1.11 1.12 1.13
 
 SOURCES = $(wildcard templates/v1/*.yaml*)
 FILENAME_SOURCES = $(patsubst templates/v1/%,%,$(patsubst %.yaml.sed,%.yaml,$(SOURCES)))
