@@ -76,6 +76,12 @@ The documentation is divided into the following sections:
 
 .. toctree::
    :maxdepth: 2
+   :caption: Community
+
+   community
+
+.. toctree::
+   :maxdepth: 2
    :caption: For Developers
 
    contributing

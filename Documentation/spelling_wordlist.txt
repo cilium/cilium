@@ -451,6 +451,8 @@ Sharma
 Shirokov
 Sidious
 sidious
+sig
+SIG
 Sith
 skb
 Spectre
