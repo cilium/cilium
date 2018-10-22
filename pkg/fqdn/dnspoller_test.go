@@ -235,7 +235,7 @@ func (ds *FQDNTestSuite) TestDNSPollerRuleHandling(c *C) {
 			lookups        = make(map[string]int)
 			generatedRules = make([]*api.Rule, 0)
 
-			poller = NewDNSPoller(DNSPollerConfig{
+			poller = NewDNSPoller(Config{
 				MinTTL: 1,
 				Cache:  NewDNSCache(),
 
@@ -305,7 +305,7 @@ func (ds *FQDNTestSuite) TestDNSPollerCIDRGeneration(c *C) {
 		pollCount      = 0
 		generatedRules = make([]*api.Rule, 0)
 
-		poller = NewDNSPoller(DNSPollerConfig{
+		poller = NewDNSPoller(Config{
 			MinTTL: 1,
 			Cache:  NewDNSCache(),
 
@@ -378,7 +378,7 @@ func (ds *FQDNTestSuite) TestDNSPollerDropCIDROnReinsert(c *C) {
 	var (
 		generatedRules = make([]*api.Rule, 0)
 
-		poller = NewDNSPoller(DNSPollerConfig{
+		poller = NewDNSPoller(Config{
 			LookupDNSNames: func(dnsNames []string) (DNSIPs map[string]*DNSIPRecords, errorDNSNames map[string]error) {
 				return map[string]*DNSIPRecords{dns.Fqdn("cilium.io"): {TTL: 60, IPs: []net.IP{net.ParseIP("1.1.1.1")}}}, nil
 			},
@@ -408,7 +408,7 @@ func (ds *FQDNTestSuite) TestDNSPollerMultiIPUpdate(c *C) {
 		pollCount      = 0
 		generatedRules = make([]*api.Rule, 0)
 
-		poller = NewDNSPoller(DNSPollerConfig{
+		poller = NewDNSPoller(Config{
 			MinTTL: 1,
 			Cache:  NewDNSCache(),
 
@@ -489,7 +489,7 @@ func (ds *FQDNTestSuite) TestDNSPollerUpdatesOnReplace(c *C) {
 			dns.Fqdn("anotherdomain.com"): {TTL: 60, IPs: []net.IP{net.ParseIP("3.3.3.3")}},
 		}
 
-		poller = NewDNSPoller(DNSPollerConfig{
+		poller = NewDNSPoller(Config{
 			MinTTL: 1,
 			Cache:  NewDNSCache(),
 
