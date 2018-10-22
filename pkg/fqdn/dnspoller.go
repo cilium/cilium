@@ -46,7 +46,7 @@ const (
 	// DNSPollerInterval is the time between 2 complete DNS lookup runs of the
 	// DNSPoller controller
 	// Note: This cannot be less than 1*time.Second, as it is used as a default
-	// for MinTTL in DNSPollerConfig
+	// for MinTTL in fqdn.Config
 	DNSPollerInterval = 5 * time.Second
 )
 
@@ -73,7 +73,7 @@ func StartDNSPoller(poller *DNSPoller) {
 // DNSPoller periodically runs lookups for registered DNS names. It will emit
 // regenerated policy rules when the IPs change. CNAMEs (and DNAMEs) are not
 // handled directly, but will depend on the resolver's behavior.
-// DNSPollerConfig can be opitonally used to set how the DNS lookups are
+// fqdn.Config can be opitonally used to set how the DNS lookups are
 // executed (via LookupDNSNames) and how generated policy rules are handled
 // (via AddGeneratedRules).
 type DNSPoller struct {
@@ -81,7 +81,7 @@ type DNSPoller struct {
 
 	// config is a copy from when this instance was initialized.
 	// It is read-only once set
-	config DNSPollerConfig
+	config Config
 
 	// IPs maps dnsNames as strings to the most recent IPs seen for them. It is,
 	// in effect, a reflection of the realized DNS -> IP state (but acts as a
@@ -107,33 +107,8 @@ type DNSPoller struct {
 	cache *DNSCache
 }
 
-// DNSPollerConfig is a simple configuration structure to set how DNSPoller
-// does DNS lookups and emits generated policy rules via the AddGeneratedRules
-// callback.
-type DNSPollerConfig struct {
-	// MinTTL is the time used by the poller to cache information.
-	// When set to 0, 2*DNSPollerInterval is used.
-	MinTTL int
-
-	// Cache is where the poller stores DNS data used to generate rules.
-	// When set to nil, it uses fqdn.DefaultDNSCache, a global cache instance.
-	Cache *DNSCache
-
-	// DNSConfig includes the Resolver IPs, port, timeout and retry count. It is
-	// expected to be  generated from /etc/resolv.conf.
-	DNSConfig *dns.ClientConfig
-
-	// LookupDNSNames is a callback to run the provided DNS lookups.
-	// When set to nil, fqdn.DNSLookupDefaultResolver is used.
-	LookupDNSNames func(dnsNames []string) (DNSIPs map[string]*DNSIPRecords, errorDNSNames map[string]error)
-
-	// AddGeneratedRules is a callback  to emit generated rules.
-	// When set to nil, it is a no-op.
-	AddGeneratedRules func([]*api.Rule) error
-}
-
 // NewDNSPoller creates an initialized DNSPoller. It does not start the controller (use .Start)
-func NewDNSPoller(config DNSPollerConfig) *DNSPoller {
+func NewDNSPoller(config Config) *DNSPoller {
 	if config.MinTTL == 0 {
 		config.MinTTL = 2 * int(DNSPollerInterval/time.Second)
 	}
