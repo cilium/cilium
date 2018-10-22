@@ -70,7 +70,7 @@ pipeline {
                 sh 'cd ${TESTDIR}; K8S_VERSION=1.9 vagrant up --no-provision'
             }
         }
-        stage('BDD-Test-k8s-1.8-and-1.9') {
+        stage('BDD-Test-k8s-1.9-and-1.10') {
             environment {
                 CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
             }
@@ -80,11 +80,11 @@ pipeline {
             steps {
                 script {
                     parallel(
-                        "K8s-1.8":{
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.8 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
-                        },
                         "K8s-1.9":{
                             sh 'cd ${TESTDIR}; K8S_VERSION=1.9 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
+                        },
+                        "K8s-1.10":{
+                            sh 'cd ${TESTDIR}; K8S_VERSION=1.10 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
                         },
                         failFast: "${FAILFAST}".toBoolean()
                     )
@@ -111,11 +111,11 @@ pipeline {
             }
 
             steps {
-                sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant up --no-provision'
                 sh 'cd ${TESTDIR}; K8S_VERSION=1.11 vagrant up --no-provision'
+                sh 'cd ${TESTDIR}; K8S_VERSION=1.13 vagrant up --no-provision'
             }
         }
-        stage('BDD-Test-k8s-1.10-and-1.11') {
+        stage('BDD-Test-k8s-1.11-and-1.13') {
             environment {
                 CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
             }
@@ -125,11 +125,11 @@ pipeline {
             steps {
                 script {
                     parallel(
-                        "K8s-1.10":{
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.10 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
-                        },
                         "K8s-1.11":{
                             sh 'cd ${TESTDIR}; K8S_VERSION=1.11 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
+                        },
+                        "K8s-1.13":{
+                            sh 'cd ${TESTDIR}; K8S_VERSION=1.13 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
                         },
                         failFast: "${FAILFAST}".toBoolean()
                     )
@@ -147,10 +147,10 @@ pipeline {
     }
     post {
         always {
-            sh "cd ${TESTDIR}; K8S_VERSION=1.8 vagrant destroy -f || true"
             sh "cd ${TESTDIR}; K8S_VERSION=1.9 vagrant destroy -f || true"
             sh "cd ${TESTDIR}; K8S_VERSION=1.10 vagrant destroy -f || true"
             sh "cd ${TESTDIR}; K8S_VERSION=1.11 vagrant destroy -f || true"
+            sh "cd ${TESTDIR}; K8S_VERSION=1.13 vagrant destroy -f || true"
             sh "cd ${TESTDIR}; ./post_build_agent.sh || true"
             cleanWs()
         }
