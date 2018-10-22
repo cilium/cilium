@@ -391,7 +391,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 
 	switch {
 	case networkPolicyV1VerConstr.Check(k8sServerVer):
-		policyController := k8sUtils.ControllerFactory(
+		_, policyController := k8sUtils.ControllerFactory(
 			k8s.Client().NetworkingV1().RESTClient(),
 			&networkingv1.NetworkPolicy{},
 			k8sUtils.ResourceEventHandlerFactory(
@@ -432,7 +432,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		d.k8sAPIGroups.addAPI(k8sAPIGroupNetworkingV1Core)
 	}
 
-	svcController := k8sUtils.ControllerFactory(
+	_, svcController := k8sUtils.ControllerFactory(
 		k8s.Client().CoreV1().RESTClient(),
 		&v1.Service{},
 		k8sUtils.ResourceEventHandlerFactory(
@@ -469,7 +469,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	go svcController.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupServiceV1Core)
 
-	endpointController := k8sUtils.ControllerFactory(
+	_, endpointController := k8sUtils.ControllerFactory(
 		k8s.Client().CoreV1().RESTClient(),
 		&v1.Endpoints{},
 		k8sUtils.ResourceEventHandlerFactory(
@@ -508,7 +508,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	d.k8sAPIGroups.addAPI(k8sAPIGroupEndpointV1Core)
 
 	if option.Config.IsLBEnabled() {
-		ingressController := k8sUtils.ControllerFactory(
+		_, ingressController := k8sUtils.ControllerFactory(
 			k8s.Client().ExtensionsV1beta1().RESTClient(),
 			&v1beta1.Ingress{},
 			k8sUtils.ResourceEventHandlerFactory(
@@ -592,7 +592,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 
 	si.Start(wait.NeverStop)
 
-	podsController := k8sUtils.ControllerFactory(
+	_, podsController := k8sUtils.ControllerFactory(
 		k8s.Client().CoreV1().RESTClient(),
 		&v1.Pod{},
 		k8sUtils.ResourceEventHandlerFactory(
@@ -629,7 +629,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	go podsController.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupPodV1Core)
 
-	nodesController := k8sUtils.ControllerFactory(
+	_, nodesController := k8sUtils.ControllerFactory(
 		k8s.Client().CoreV1().RESTClient(),
 		&v1.Node{},
 		k8sUtils.ResourceEventHandlerFactory(
@@ -666,7 +666,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	go nodesController.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupNodeV1Core)
 
-	namespaceController := k8sUtils.ControllerFactory(
+	_, namespaceController := k8sUtils.ControllerFactory(
 		k8s.Client().CoreV1().RESTClient(),
 		&v1.Namespace{},
 		k8sUtils.ResourceEventHandlerFactory(
