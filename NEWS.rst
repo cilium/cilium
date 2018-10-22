@@ -2,6 +2,70 @@
 NEWS
 ******
 
+v1.1.6
+=======
+
+::
+
+    André Martins (12):
+          test: set default CRI socket
+          Revert "Revert "test: update k8s to 1.8.14, 1.10.4 and 1.11.0""
+          test: update k8s to 1.9.9 and 1.10.5
+          Revert "Revert "ginkgo-kubernetes-all.Jenkinsfile: move k8s 1.10 and 1.12 to same stage""
+          tests: disable k8s 1.12-alpha.0 tests
+          Revert "test/k8sT: use specific commit for cilium/star-wars-demo YAMLs"
+          test: fix star wars demo to run star-wars v1.0
+          fix alignment in Go structs
+          test: fix star wars demo
+          examples/kubernetes: add better comment for bpf-maps volume
+          crio: don't mount bpf path for k8s >= 1.11
+          policy: do policy modifications based on the CNP identifiable labels
+    
+    Daniel Borkmann (2):
+          daemon: fix potential nil pointer dereference
+          bpf, perf: refine barriers, tail pointer update and buffers
+    
+    Eloy Coto (2):
+          Test: Fix issues with kubernetes test on old branchs.
+          Test/Demos: Make assert more robust.
+    
+    Ian Vernon (1):
+          test/k8sT: wait for DNS to be ready in Kafka pods
+    
+    Jarno Rajahalme (8):
+          envoy: Make NACK cancel the WaitGroup
+          xds: Start versioning at 1.
+          envoy: Pass error detail when NACK
+          envoy: Update generated protobufs
+          envoy: Use separate clusters for egress and ingress redirects.
+          bpf: Do not redirect replies from a pod to a proxyport.
+          bpf: Use 'forwarding_reason' instead of potentially overwritten 'ret'
+          envoy: Pass nil completion if Acks are not expected.
+    
+    Joe Stringer (7):
+          lxcmap: Fix invalid dumping of IPv4 entries
+          daemon: Improve syncLXCMap failure log
+          bpf: Add basic endpointKey.ToIP() test
+          examples/kubernetes: Clean up pidfiles on startup
+          examples/kubernetes: Synchronize CRIO init YAMLs
+          pidfile: Add 'Remove' to provide pidfile deletion
+          daemon: Clean up k8s health EP pidfile on startup
+    
+    Maciej Kwiek (1):
+          protect bpf.PerfEvent.Read from infinite loop
+    
+    Romain Lenglet (2):
+          test: Fix the semantics of WithTimeout's Timeout
+          proxy: Check whether a port is already open before allocating
+    
+    Thomas Graf (5):
+          k8s: Include type of derived k8s resource in policy rule
+          k8s: Fix CNP delete handling to not rely on rules being embedded
+          agent: Fix temporary corruption of BPF endpoint map on restart
+          bpf: Avoid additional cgo call per perf read
+          endpoint: Skip conntrack clean on endpoint restore
+    
+
 v1.1.5
 ======
 
