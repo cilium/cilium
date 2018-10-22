@@ -44,13 +44,8 @@ func replaceQdisc(ifName string) error {
 		QdiscType:  "clsact",
 	}
 
-	// Replacing the qdisc after the first creation will always fail with
-	// the current netlink library due to the issue fixed in this PR:
-	// https://github.com/vishvananda/netlink/pull/382
-	//
-	// FIXME GH-5423 rebase against the latest netlink library
 	if err = netlink.QdiscReplace(qdisc); err != nil {
-		log.WithError(err).Debugf("netlink: Replacing qdisc for %s failed", ifName)
+		return fmt.Errorf("netlink: Replacing qdisc for %s failed: %s", ifName, err)
 	} else {
 		log.Debugf("netlink: Replacing qdisc for %s succeeded", ifName)
 	}
