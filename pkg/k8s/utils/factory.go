@@ -178,13 +178,13 @@ func ControllerFactory(
 	resourceObj runtime.Object,
 	rehf ResourceEventHandler,
 	selector fields.Selector,
-) cache.Controller {
+) (cache.Store, cache.Controller) {
 
 	if selector == nil {
 		selector = fields.Everything()
 	}
 
-	_, c := cache.NewInformer(
+	s, c := cache.NewInformer(
 		cache.NewListWatchFromClient(
 			k8sGetter,
 			resourceNameOf(resourceObj),
@@ -196,7 +196,7 @@ func ControllerFactory(
 		rehf,
 	)
 
-	return c
+	return s, c
 }
 
 // ResourceEventHandlerFactory returns a ResourceEventHandlerSyncer,
