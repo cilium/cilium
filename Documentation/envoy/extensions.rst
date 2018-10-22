@@ -4,17 +4,17 @@
     Please use the official rendered version released here:
     http://docs.cilium.io
 
-***************************
-Golang Extensions for Envoy
-***************************
+*******************
+Envoy Go Extensions
+*******************
 
-This is a guide for developers who are interested in writing a Golang extension to the 
+This is a guide for developers who are interested in writing a Go extension to the 
 Envoy proxy as part of Cilium.   
 
 .. image:: images/proxylib_logical_flow.png
 
-As depicted above, this framework allows a developer to write a small amount of Golang
-code (green box) focused on parsing a new API protocol, and this Golang code is able to  
+As depicted above, this framework allows a developer to write a small amount of Go
+code (green box) focused on parsing a new API protocol, and this Go code is able to  
 full advantage of Cilium features including high-performance redirection to/from Envoy, 
 rich L7-aware policy language
 and access logging, and visibility into encrypted traffic traffic via kTLS (coming soon!).  
@@ -93,17 +93,17 @@ by a space, and a non-empty filename that contains only non whitespace ASCII cha
 Step 3: Search for Existing Parser Code / Libraries
 ===================================================
 
-Look for open source Golang library/code that can help.    
-Is there existing open source Golang code that parse your protocol that you can leverage, 
+Look for open source Go library/code that can help.    
+Is there existing open source Go code that parse your protocol that you can leverage, 
 either directly as library or a motivating example?  For example, the `tidwall/recon library 
-<https://github.com/tidwall/redcon>`_ parses Redis in Golang, and `Vitess 
-<https://github.com/vitessio/vitess>`_ parses MySQL in Golang.   `Wireshark dissectors 
+<https://github.com/tidwall/redcon>`_ parses Redis in Go, and `Vitess 
+<https://github.com/vitessio/vitess>`_ parses MySQL in Go.   `Wireshark dissectors 
 <https://github.com/boundary/wireshark/tree/master/epan/dissectors>`_ also has a wealth of 
 protocol parsers written in C that can serve as useful guidance.    Note:  finding client-only 
 protocol parsing code is typically less helpful than finding a proxy implementation, or a full 
 parser library.   This is because the set of requests a client parsers is typically the inverse
 set of the requests a Cilium proxy needs to parse, since the proxy mimics the server rather than 
-the client.   Still, viewing a Golang client can give you a general idea of how to parse the 
+the client.   Still, viewing a Go client can give you a general idea of how to parse the 
 general serialization format of the protocol.  
 
 Step 4: Follow the Cilium Developer Guide
@@ -162,7 +162,7 @@ the reply direction (i.e., server to client).   OnData is called when there is d
 and the value of the boolean 'reply' parameter indicates the direction of the stream for a given 
 call to OnData.   The data passed to OnData is a slice of byte slices (i.e., an array of byte arrays).  
 
-The return values of the OnData function tell the Golang framework tell how data in the stream
+The return values of the OnData function tell the Go framework tell how data in the stream
 should be processed, with four primary outcomes:  
 
 - **PASS x** :  The next x bytes in the data stream passed to OnData represent a request/reply that should be
@@ -172,7 +172,7 @@ should be processed, with four primary outcomes:
   onData is invoked next.  x bytes may also be more than the data that has been passed to OnData. 
   For example, in the case of a protocol where the parser filters only on values in a protocol header, 
   it is often possible to make a filtering decision, and then pass (or drop) the size of the full 
-  request/reply without having the entire request passed to Golang.  
+  request/reply without having the entire request passed to Go.  
 
 - **MORE x** :  The buffers passed to OnData to do not represent all of the data required to frame and
   filter the request/reply.  Instead, the parser 
@@ -196,7 +196,7 @@ should be processed, with four primary outcomes:
     for the full request to be received and parsed  (see the existing CassandraParser as an example).
     However, as an optimization, the parser can attempt to only 
     request the minimum number of bytes required beyond the header to make a policy decision, and then PASS or DROP
-    the remaining bytes without requiring them to be passed to the Golang parser. 
+    the remaining bytes without requiring them to be passed to the Go parser. 
 
 - **DROP x** :  Remove the first x bytes from the data stream passed to OnData, as they represent a request/reply
   that should not be forwarded to the client or server based on policy.  Don't worry about making onData return 
@@ -224,7 +224,7 @@ Step 7: Use Unit Testing To Drive Development
 
 Use unit tests to drive your development.    Its tempting to want to first test your parser by firing up a
 client and server and developing on the fly.   But in our experience you’ll iterate faster by using the 
-great unit test framework created along with the Golang proxy framework.   This framework lets you pass
+great unit test framework created along with the Go proxy framework.   This framework lets you pass
 in an example set of requests as byte arrays to a CheckOnDataOK method, which are passed to the parser's OnData method.
 CheckOnDataOK takes a set of expected return values, and compares them to the actual return values from OnData 
 processing the byte arrays.  
@@ -269,7 +269,7 @@ A couple scenarios to make sure your parser handles properly via unit tests:
 For certain advanced cases, it is required for a parser to store state across requests. 
 In this case, data can be stored using data structures that
 are included as part of the main parser struct.  See CassandraParser in cassandra/cassandraparser.go as an example 
-of how the parser uses a string to store the current 'keyspace' in use, and uses Golang maps to keep 
+of how the parser uses a string to store the current 'keyspace' in use, and uses Go maps to keep 
 state required for handling prepared queries.   
 
 Step 9:  Add Policy Loading and Matching
@@ -277,7 +277,7 @@ Step 9:  Add Policy Loading and Matching
 
 Once you have the parsing of most protocol messages ironed out, its time to start enforcing policy. 
 
-First, create a Golang object that will represent a single rule in the policy language. For example,
+First, create a Go object that will represent a single rule in the policy language. For example,
 this is the rule for the r2d2 protocol, which performs exact match on the command string, and a regex
 on the filename:  
 
@@ -434,7 +434,7 @@ One can then invoke the client CLI using that server IP address (10.11.51.247 in
 
 Note that in the above example, ingress policy is not enforced for the Cassandra server endpoint, so no data will flow through the
 Cassandra parser.  A simple ''allow all'' L7 Cassandra policy can be used to send all data to the Cassandra server through the 
-Golang Cassandra parser.  This policy has a single empty rule, which matches all requests.  An allow all policy looks like: 
+Go Cassandra parser.  This policy has a single empty rule, which matches all requests.  An allow all policy looks like: 
 
 :: 
 
@@ -496,7 +496,7 @@ select statements on a specific set of tables to this Cassandra server, but deny
          }]
   } ]
 
-When performing manual testing, remember that each time you change your Golang proxy code, you must
+When performing manual testing, remember that each time you change your Go proxy code, you must
 re-run ''make'' and ''sudo make install'' and then restart the cilium-agent process.  If the only changes
 you have made since last compiling cilium are in your cilium/proxylib directory, you can safely 
 just run ''make'' and ''sudo make install''  in that directory, which saves time.  
@@ -513,7 +513,7 @@ For example:
 If you rebase or other files change, you need to run both commands from the top level directory.  
 
 Cilium agent default to running as a service in the development VM.  However, the default options do not include 
-the ''--debug-verbose=flow'' flag, which is critical to getting visibility in troubleshooting Golang proxy frameworks. 
+the ''--debug-verbose=flow'' flag, which is critical to getting visibility in troubleshooting Go proxy frameworks. 
 So it is easiest to stop the cilium service and run the cilium-agent directly as a command in a terminal window, 
 and adding the ''--debug-verbose=flow'' flag. 
 
