@@ -203,6 +203,7 @@ performance packet processor in the Linux kernel networking data path.
 Further information about BPF and XDP targeted for developers can be found in
 the `BPF and XDP Reference Guide`_.
 
+
 Further Reading
 ===============
 
@@ -247,17 +248,28 @@ Community blog posts
 
 .. further-reading-end
 
-Weekly Hangout
-==============
+Community
+=========
+
+Slack
+-----
+
+Join the Cilium `Slack channel <https://cilium.herokuapp.com/>`_ to chat with
+Cilium developers and other Cilium users. This is a good place to learn about
+Cilium, ask questions, and share your experiences.
+
+Special Interest Groups (SIG)
+-----------------------------
+
+See `Special Interest groups
+<http://docs.cilium.io/en/stable/community.html#special-interest-groups` for a list of all SIGs and their meeting times.
+
+Weekly Developer meeting
+------------------------
 * The developer community is hanging out on zoom on a weekly basis to chat.
   Everybody is welcome.
 * Weekly, Monday, 9:00 am PT, 12:00 pm (noon) ET, 6:00 pm CEST
 * `Join zoom <https://zoom.us/j/328820525>`_
-
-Contact
-=======
-
-If you have any questions feel free to contact us on `Slack <https://cilium.herokuapp.com/>`_.
 
 License
 =======
