@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"net"
+	"testing"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/checker"
@@ -1163,6 +1164,77 @@ func (ds *PolicyTestSuite) TestRuleCanReachEntity(c *C) {
 	c.Assert(rule1.canReachEgress(toOtherCluster, &traceState{}), Equals, api.Undecided)
 	c.Assert(state.selectedRules, Equals, 0)
 	c.Assert(state.matchedRules, Equals, 0)
+}
+
+func BenchmarkRuleCanReachEntity(b *testing.B) {
+	api.InitEntities(option.Config.ClusterName)
+
+	toOtherCluster := &SearchContext{
+		From: labels.ParseSelectLabelArray("bar"),
+		To:   labels.ParseSelectLabelArray("foo", otherClusterLabel),
+	}
+	toFooBar := &SearchContext{
+		From: labels.ParseSelectLabelArray("k8s:app=bar", "k8s:namespace=default"),
+		To:   labels.ParseSelectLabelArray("k8s:app=FooBar", "k8s:namespace=default"),
+	}
+	toFooBar2 := &SearchContext{
+		From: labels.ParseSelectLabelArray("k8s:app=bar", "k8s:namespace=default"),
+		To:   labels.ParseSelectLabelArray("k8s:app=FooBar2", "k8s:namespace=default2"),
+	}
+
+	rule1 := rule{
+		Rule: api.Rule{
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+			Egress: []api.EgressRule{
+				{
+					ToEntities: []api.Entity{
+						api.EntityWorld,
+						api.EntityCluster,
+					},
+				},
+			},
+		},
+	}
+
+	rule2 := rule{
+		Rule: api.Rule{
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("k8s:app=bar"), labels.ParseSelectLabel("k8s:namespace=default")),
+			Egress: []api.EgressRule{
+				{
+					ToEndpoints: []api.EndpointSelector{
+						api.NewESFromLabels(labels.ParseSelectLabel("k8s:namespace=default2"), labels.ParseSelectLabel("k8s:app=FooBar")),
+						api.NewESFromLabels(labels.ParseSelectLabel("k8s:namespace=default"), labels.ParseSelectLabel("k8s:app=FooBar4")),
+						api.NewESFromLabels(labels.ParseSelectLabel("k8s:namespace=default"), labels.ParseSelectLabel("k8s:app=FooBar3")),
+						api.NewESFromLabels(labels.ParseSelectLabel("k8s:namespace=default"), labels.ParseSelectLabel("k8s:app=FooBar2")),
+						api.NewESFromLabels(labels.ParseSelectLabel("k8s:namespace=default"), labels.ParseSelectLabel("k8s:app=FooBar")),
+					},
+				},
+			},
+		},
+	}
+
+	b.ResetTimer()
+	allowed := 0
+	for i := 0; i < b.N; i++ {
+		state := traceState{}
+		verdict := rule2.canReachEgress(toFooBar, &state)
+		if verdict == api.Allowed {
+			allowed++
+		}
+
+		state = traceState{}
+		verdict = rule2.canReachEgress(toFooBar2, &state)
+		if verdict == api.Allowed {
+			allowed++
+		}
+
+		state = traceState{}
+		verdict = rule1.canReachEgress(toOtherCluster, &state)
+		if verdict == api.Allowed {
+			allowed++
+		}
+	}
+	b.Log("Allowed: ", allowed)
 }
 
 func (ds *PolicyTestSuite) TestPolicyEntityValidationEgress(c *C) {
