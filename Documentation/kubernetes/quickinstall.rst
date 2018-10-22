@@ -65,6 +65,14 @@ chapter.
       $ vim cilium.yaml
       [adjust the etcd address]
 
+  .. group-tab:: K8s 1.13
+
+    .. parsed-literal::
+
+      $ wget \ |SCM_WEB|\/examples/kubernetes/1.13/cilium.yaml
+      $ vim cilium.yaml
+      [adjust the etcd address]
+
 
 3. Deploy ``cilium`` with your local changes
 

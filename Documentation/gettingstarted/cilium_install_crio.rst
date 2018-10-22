@@ -82,6 +82,18 @@ To deploy Cilium, run:
       clusterrole.rbac.authorization.k8s.io "cilium" created
       serviceaccount "cilium" created
 
+  .. group-tab:: K8s 1.13
+
+    .. parsed-literal::
+
+      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.13/cilium-crio.yaml
+      configmap "cilium-config" created
+      secret "cilium-etcd-secrets" created
+      daemonset.extensions "cilium" created
+      clusterrolebinding.rbac.authorization.k8s.io "cilium" created
+      clusterrole.rbac.authorization.k8s.io "cilium" created
+      serviceaccount "cilium" created
+
 Kubernetes is now deploying Cilium with its RBAC settings, ConfigMap
 and DaemonSet as a pod on minikube. This operation is performed in the
 background.
