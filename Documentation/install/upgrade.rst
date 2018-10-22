@@ -174,6 +174,13 @@ Both files are dedicated to "\ |SCM_BRANCH|" for each Kubernetes version.
       $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.12/cilium-rbac.yaml
       $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.12/cilium-ds.yaml
 
+  .. group-tab:: K8s 1.13
+
+    .. parsed-literal::
+
+      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.13/cilium-rbac.yaml
+      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.13/cilium-ds.yaml
+
 Below we will show examples of how Cilium should be upgraded using Kubernetes
 rolling upgrade functionality in order to preserve any existing Cilium
 configuration changes (e.g., etc configuration) and minimize network
@@ -615,6 +622,11 @@ Download the ConfigMap with the changes for |SCM_BRANCH|
 
       $ wget \ |SCM_WEB|\/examples/kubernetes/1.12/cilium-cm.yaml
 
+  .. group-tab:: K8s 1.12
+
+    .. parsed-literal::
+
+      $ wget \ |SCM_WEB|\/examples/kubernetes/1.13/cilium-cm.yaml
 
 Verify its contents:
 
