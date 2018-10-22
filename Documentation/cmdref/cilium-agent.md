@@ -83,7 +83,7 @@ cilium-agent
       --single-cluster-route                        Use a single cluster route instead of per node routes
       --socket-path string                          Sets daemon's socket path to listen for connections (default "/var/run/cilium/cilium.sock")
       --state-dir string                            Directory path to store runtime state (default "/var/run/cilium")
-      --tofqdns-min-ttl int                         The minimum time, in seconds, to use DNS data for toFQDNs policies. (default 31536000)
+      --tofqdns-min-ttl int                         The minimum time, in seconds, to use DNS data for toFQDNs policies. (default 3600)
       --trace-payloadlen int                        Length of payload to capture when tracing (default 128)
   -t, --tunnel string                               Tunnel mode {vxlan, geneve, disabled} (default "vxlan")
       --version                                     Print version information
