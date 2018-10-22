@@ -1359,7 +1359,7 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 	if err := fqdn.ConfigFromResolvConf(); err != nil {
 		return nil, nil, err
 	}
-	d.dnsPoller = fqdn.NewDNSPoller(fqdn.DNSPollerConfig{
+	d.dnsPoller = fqdn.NewDNSPoller(fqdn.Config{
 		MinTTL:         toFQDNsMinTTL,
 		LookupDNSNames: fqdn.DNSLookupDefaultResolver,
 		AddGeneratedRules: func(generatedRules []*policyApi.Rule) error {
