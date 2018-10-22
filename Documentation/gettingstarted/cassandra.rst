@@ -13,7 +13,7 @@ security policies.  It is a detailed walk-through of getting a single-node
 Cilium environment running on your machine. It is designed to take 15-30
 minutes.
 
-**NOTE:** Cassandra-aware policy support is still "experimental".  It is not yet ready for
+**NOTE:** Cassandra-aware policy support is still in beta phase.  It is not yet ready for
 production use.   Additionally, the Cassandra-specific policy language is highly likely to
 change in a future Cilium version.
 
