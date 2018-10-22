@@ -133,7 +133,10 @@ type Daemon struct {
 	nodeMonitor  *monitorLaunch.NodeMonitor
 	ciliumHealth *health.CiliumHealth
 
-	// dnsPoller is used to implement ToFQDN rules
+	// dnsRuleGen manages toFQDNs rules
+	dnsRuleGen *fqdn.RuleGen
+
+	// dnsPoller polls DNS names and sends them to dnsRuleGen
 	dnsPoller *fqdn.DNSPoller
 
 	// k8sAPIs is a set of k8s API in use. They are setup in EnableK8sWatcher,
@@ -1359,7 +1362,7 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 	if err := fqdn.ConfigFromResolvConf(); err != nil {
 		return nil, nil, err
 	}
-	d.dnsPoller = fqdn.NewDNSPoller(fqdn.Config{
+	cfg := fqdn.Config{
 		MinTTL:         toFQDNsMinTTL,
 		LookupDNSNames: fqdn.DNSLookupDefaultResolver,
 		AddGeneratedRules: func(generatedRules []*policyApi.Rule) error {
@@ -1368,7 +1371,9 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 			// the ToFQDN-UUID one).
 			_, err := d.PolicyAdd(generatedRules, &AddOptions{Replace: true, Generated: true})
 			return err
-		}})
+		}}
+	d.dnsRuleGen = fqdn.NewRuleGen(cfg)
+	d.dnsPoller = fqdn.NewDNSPoller(cfg, d.dnsRuleGen)
 	fqdn.StartDNSPoller(d.dnsPoller)
 
 	return &d, restoredEndpoints, nil

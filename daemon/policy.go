@@ -179,7 +179,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 	}
 	// These must be marked before actually adding them to the repository since a
 	// copy may be made and we won't be able to add the ToFQDN tracking labels
-	d.dnsPoller.MarkToFQDNRules(rules)
+	d.dnsRuleGen.MarkToFQDNRules(rules)
 
 	prefixes := policy.GetCIDRPrefixes(rules)
 	log.WithField("prefixes", prefixes).Debug("Policy imported via API, found CIDR prefixes...")
@@ -222,7 +222,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 				oldRules := d.policy.SearchRLocked(r.Labels)
 				removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(oldRules)...)
 				if len(oldRules) > 0 {
-					d.dnsPoller.StopPollForDNSName(oldRules)
+					d.dnsRuleGen.StopManageDNSName(oldRules)
 					d.policy.DeleteByLabelsLocked(r.Labels)
 				}
 			}
@@ -231,7 +231,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 			oldRules := d.policy.SearchRLocked(opts.ReplaceWithLabels)
 			removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(oldRules)...)
 			if len(oldRules) > 0 {
-				d.dnsPoller.StopPollForDNSName(oldRules)
+				d.dnsRuleGen.StopManageDNSName(oldRules)
 				d.policy.DeleteByLabelsLocked(opts.ReplaceWithLabels)
 			}
 		}
@@ -255,7 +255,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 	}
 
 	// The rules are added, we can begin ToFQDN DNS polling for them
-	d.dnsPoller.StartPollForDNSName(rules)
+	d.dnsRuleGen.StartManageDNSName(rules)
 
 	log.WithField(logfields.PolicyRevision, rev).Info("Policy imported via API, recalculating...")
 
@@ -320,7 +320,7 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
 	}
 
 	// Stop polling for ToFQDN DNS names for these rules
-	d.dnsPoller.StopPollForDNSName(rules)
+	d.dnsRuleGen.StopManageDNSName(rules)
 
 	d.TriggerPolicyUpdates(false, "policy rules deleted")
 
