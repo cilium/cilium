@@ -2,6 +2,56 @@
 NEWS
 ******
 
+1.2.5
+=====
+
+::
+
+    André Martins (1):
+          pkg/endpoint: fix global k8sServerVer variable assignment
+    
+    Daniel Borkmann (1):
+          bpf, perf: refine barriers, tail pointer update and buffers
+    
+    Eloy Coto (1):
+          V1.2: Add toleration on not-ready
+    
+    Ian Vernon (3):
+          daemon: add parameter indicating why TriggerPolicyUpdates is called
+          bump timeout on K8s upstream tests to 40 minutes
+          test: fix `go vet` failures in v1.2
+    
+    Jarno Rajahalme (3):
+          bpf: Do not redirect replies from a pod to a proxyport.
+          bpf: Use 'forwarding_reason' instead of potentially overwritten 'ret'
+          envoy: Pass nil completion if Acks are not expected.
+    
+    Joe Stringer (5):
+          examples/kubernetes: Clean up pidfiles on startup
+          examples/kubernetes: Synchronize CRIO init YAMLs
+          pidfile: Log when killing a process
+          pidfile: Add 'Remove' to provide pidfile deletion
+          daemon: Clean up k8s health EP pidfile on startup
+    
+    Maciej Kwiek (1):
+          protect bpf.PerfEvent.Read from infinite loop
+    
+    Ray Bejjani (2):
+          k8s: Simpler CEP GC should-run logic
+          k8s: Increase CEP GC interval to 30 minutes
+    
+    Romain Lenglet (1):
+          endpoint: Wait for CT cleanup to complete before BPF compilation
+    
+    Thomas Graf (7):
+          bpf: Avoid additional cgo call per perf read
+          k8s: Avoid TriggerPolicyUpdates when no ToServices rules are loaded
+          endpoint: Skip conntrack clean on endpoint restore
+          allocator: Lock master key prefix when reusing existing cluster identity
+          allocator: Re-create slave keys when master key is missing
+          allocator: test: Disable GC in GC unit tests
+          k8s: Add --disable-endpoint-crd to disable use of the CEP CRD
+    
 1.2.4
 =====
 
