@@ -67,16 +67,3 @@ function install_k8s_using_binary {
     curl -sSL "https://raw.githubusercontent.com/kubernetes/kubernetes/${RELEASE}/build/debs/10-kubeadm.conf" > /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
     systemctl enable kubelet
 }
-
-function install_cfssl {
-    log_msg "Downloading cfssl utility..."
-    cfssl_url="https://pkg.cfssl.org/R1.2/cfssl_linux-amd64"
-    cfssljson_url="https://pkg.cfssl.org/R1.2/cfssljson_linux-amd64"
-    wget -nv ${cfssl_url}
-    wget -nv ${cfssljson_url}
-    log_msg "Downloading cfssl utility... Done!"
-    chmod +x cfssl_linux-amd64
-    sudo mv cfssl_linux-amd64 /usr/bin/cfssl
-    chmod +x cfssljson_linux-amd64
-    sudo mv cfssljson_linux-amd64 /usr/bin/cfssljson
-}
