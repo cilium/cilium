@@ -8,6 +8,8 @@
 Envoy Go Extensions
 *******************
 
+.. note:: This feature is currently in beta phase.
+
 This is a guide for developers who are interested in writing a Go extension to the 
 Envoy proxy as part of Cilium.   
 
