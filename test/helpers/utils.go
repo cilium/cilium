@@ -310,7 +310,7 @@ func DNSDeployment() string {
 	var DNSEngine = "kubedns"
 	k8sVersion := GetCurrentK8SEnv()
 	switch k8sVersion {
-	case "1.11", "1.12":
+	case "1.11", "1.12", "1.13":
 		DNSEngine = "coredns"
 	}
 	fullPath := filepath.Join("provision", "manifest", k8sVersion, DNSEngine+"_deployment.yaml")

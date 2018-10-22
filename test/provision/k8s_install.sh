@@ -103,6 +103,33 @@ nodeRegistration:
 EOF
 )
 
+KUBEADM_CONFIG_ALPHA3=$(cat <<-EOF
+apiVersion: kubeadm.k8s.io/v1beta1
+kind: InitConfiguration
+localAPIEndpoint:
+  advertiseAddress: "{{ .KUBEADM_ADDR }}"
+  bindPort: 6443
+bootstrapTokens:
+- groups:
+  - system:bootstrappers:kubeadm:default-node-token
+  token: {{ .TOKEN }}
+  ttl: 24h0m0s
+  usages:
+  - signing
+  - authentication
+nodeRegistration:
+  criSocket: "{{ .KUBEADM_CRI_SOCKET }}"
+---
+apiVersion: kubeadm.k8s.io/v1beta1
+kind: ClusterConfiguration
+kubernetesVersion: "v{{ .K8S_FULL_VERSION }}"
+networking:
+  dnsDomain: cluster.local
+  podSubnet: "{{ .KUBEADM_POD_NETWORK }}/{{ .KUBEADM_POD_CIDR}}"
+  serviceSubnet: "{{ .KUBEADM_SVC_CIDR }}"
+EOF
+)
+
 # CRIO bridge disabled.
 if [[ -f  "/etc/cni/net.d/100-crio-bridge.conf" ]]; then
     echo "Disabling crio CNI bridge"
@@ -146,6 +173,14 @@ case $K8S_VERSION in
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
         KUBEADM_CONFIG="${KUBEADM_CONFIG_ALPHA2}"
+        ;;
+    "1.13")
+        KUBERNETES_CNI_VERSION="0.6.0"
+        K8S_FULL_VERSION="1.13.0-beta.2"
+        KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
+        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri"
+        sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
+        KUBEADM_CONFIG="${KUBEADM_CONFIG_ALPHA3}"
         ;;
 esac
 
