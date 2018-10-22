@@ -1,0 +1,51 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "secure-fleet"
+spec:
+  endpointSelector:
+    matchLabels:
+      app: memcd-server
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        app: a-wing
+    toPorts:
+    - ports:
+      - port: '11211'
+        protocol: TCP
+      rules:
+        l7proto: memcache
+        l7:
+        - command: get
+          keyExact: awing-coord
+        - command: set
+          keyExact: awing-coord
+  - fromEndpoints:
+    - matchLabels:
+        app: x-wing
+    toPorts:
+    - ports:
+      - port: '11211'
+        protocol: TCP
+      rules:
+        l7proto: memcache
+        l7:
+        - command: get
+          keyExact: xwing-coord
+        - command: set
+          keyExact: xwing-coord
+  - fromEndpoints:
+    - matchLabels:
+        name: fleet-tracker
+    toPorts:
+    - ports:
+      - port: '11211'
+        protocol: TCP
+      rules:
+        l7proto: memcache
+        l7:
+        - command: get
+          keyExact: awing-coord
+        - command: get
+          keyExact: xwing-coord

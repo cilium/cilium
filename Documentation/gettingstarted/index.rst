@@ -20,6 +20,7 @@ complete will help you to get started in your area of choice:
    grpc
    elasticsearch
    cassandra
+   memcached
    mesos
    docker
 
