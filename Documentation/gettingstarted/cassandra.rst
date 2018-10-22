@@ -97,7 +97,7 @@ First, we'll create the keyspaces and tables mentioned above, and populate them 
 
 .. parsed-literal::
 
-   $  curl -s \ |SCM_WEB|\/examples/cass-populate-tables.sh | bash
+   $  curl -s \ |SCM_WEB|\/examples/kubernetes-cassandra/cass-populate-tables.sh | bash
 
 Next, create two environment variables that refer to the *empire-hq* and *empire-outpost* pods:
 

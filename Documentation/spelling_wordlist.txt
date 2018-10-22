@@ -35,6 +35,7 @@ bindata
 Blanco
 Blog
 blog
+bmemcached
 bnxt
 Bookinfo
 bookinfo
@@ -89,6 +90,7 @@ configMapKeyRef
 conntrack
 containerd
 contributing
+coord
 CoreOS
 cpuma
 cpumap
@@ -317,7 +319,10 @@ Marek
 mattr
 mc
 Meetup
+memcache
 Memcached
+memcached
+memcd
 Menlo
 Mesos
 Metadata
@@ -460,6 +465,8 @@ Stacktrace
 stacktrace
 stap
 stapbpf
+starfighter
+starfighters
 Starovoitov
 startup
 Stateful
@@ -477,6 +484,7 @@ subregister
 subregisters
 Suchakra
 sudo
+supergalatic
 superset
 Suricata
 Suricate
