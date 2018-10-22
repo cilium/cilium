@@ -86,7 +86,7 @@ const (
 	DefaultMapPrefix = "tc/globals"
 
 	// ToFQDNsMinTTL is the default lower bound for TTLs used with ToFQDNs rules.
-	ToFQDNsMinTTL = 365 * 86400 // 1 year in seconds
+	ToFQDNsMinTTL = 3600 // 1 hour in seconds
 
 	// IdentityChangeGracePeriod is the grace period that needs to pass
 	// before an endpoint that has changed its identity will start using
