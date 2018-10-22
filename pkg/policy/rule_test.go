@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"net"
+	"testing"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/checker"
@@ -1163,6 +1164,61 @@ func (ds *PolicyTestSuite) TestRuleCanReachEntity(c *C) {
 	c.Assert(rule1.canReachEgress(toOtherCluster, &traceState{}), Equals, api.Undecided)
 	c.Assert(state.selectedRules, Equals, 0)
 	c.Assert(state.matchedRules, Equals, 0)
+}
+
+func BenchmarkRuleCanReachEntity(b *testing.B) {
+	api.InitEntities(option.Config.ClusterName)
+
+	toWorld := &SearchContext{
+		From: labels.ParseSelectLabelArray("bar"),
+		To:   labels.ParseSelectLabelArray("reserved:world"),
+	}
+
+	toCluster := &SearchContext{
+		From: labels.ParseSelectLabelArray("bar"),
+		To:   labels.ParseSelectLabelArray("foo", localClusterLabel),
+	}
+
+	toOtherCluster := &SearchContext{
+		From: labels.ParseSelectLabelArray("bar"),
+		To:   labels.ParseSelectLabelArray("foo", otherClusterLabel),
+	}
+
+	rule1 := rule{
+		Rule: api.Rule{
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+			Egress: []api.EgressRule{
+				{
+					ToEntities: []api.Entity{
+						api.EntityWorld,
+						api.EntityCluster,
+					},
+				},
+			},
+		},
+	}
+	b.ResetTimer()
+	allowed := 0
+	for i := 0; i < b.N; i++ {
+		state := traceState{}
+		verdict := rule1.canReachEgress(toWorld, &state)
+		if verdict == api.Allowed {
+			allowed++
+		}
+
+		state = traceState{}
+		verdict = rule1.canReachEgress(toCluster, &state)
+		if verdict == api.Allowed {
+			allowed++
+		}
+
+		state = traceState{}
+		verdict = rule1.canReachEgress(toOtherCluster, &state)
+		if verdict == api.Allowed {
+			allowed++
+		}
+	}
+	b.Log("Allowed: ", allowed)
 }
 
 func (ds *PolicyTestSuite) TestPolicyEntityValidationEgress(c *C) {
