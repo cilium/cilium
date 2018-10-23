@@ -223,7 +223,10 @@ func newEtcdClient(config *client.Config, cfgPath string) (BackendOperations, er
 	if err != nil {
 		return nil, err
 	}
-	log.Info("Waiting for etcd client to be ready")
+	log.WithFields(logrus.Fields{
+		"endpoints": config.Endpoints,
+		"config":    cfgPath,
+	}).Info("Waiting for etcd client to be ready")
 
 	var s concurrency.Session
 	firstSession := make(chan struct{})
