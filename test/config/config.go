@@ -18,11 +18,12 @@ import "flag"
 
 // CiliumTestConfigType holds all of the configurable elements of the testsuite
 type CiliumTestConfigType struct {
-	Reprovision     bool
-	HoldEnvironment bool
-	SSHConfig       string
-	ShowCommands    bool
-	TestScope       string
+	Reprovision      bool
+	HoldEnvironment  bool
+	SSHConfig        string
+	ShowCommands     bool
+	TestScope        string
+	SkipLogGathering bool
 }
 
 // CiliumTestConfig holds the global configuration of commandline flags
@@ -35,6 +36,8 @@ func (c *CiliumTestConfigType) ParseFlags() {
 		"Provision Vagrant boxes and Cilium before running test")
 	flag.BoolVar(&c.HoldEnvironment, "cilium.holdEnvironment", false,
 		"On failure, hold the environment in its current state")
+	flag.BoolVar(&c.SkipLogGathering, "cilium.skipLogs", false,
+		"skip gathering logs if a test fails")
 	flag.StringVar(&c.SSHConfig, "cilium.SSHConfig", "",
 		"Specify a custom command to fetch SSH configuration (eg: 'vagrant ssh-config')")
 	flag.BoolVar(&c.ShowCommands, "cilium.showCommands", false,

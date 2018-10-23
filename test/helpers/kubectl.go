@@ -1308,8 +1308,8 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 // CiliumReport report the cilium pod to the log and appends the logs for the
 // given commands.
 func (kub *Kubectl) CiliumReport(namespace string, commands ...string) {
-	if config.CiliumTestConfig.HoldEnvironment {
-		ginkgoext.GinkgoPrint("Skipped gathering logs (-cilium.holdEnvironment=true)\n")
+	if config.CiliumTestConfig.SkipLogGathering {
+		ginkgoext.GinkgoPrint("Skipped gathering logs (-cilium.skipLogs=true)\n")
 		return
 	}
 	kub.CiliumCheckReport()
