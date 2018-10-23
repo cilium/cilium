@@ -67,8 +67,8 @@ func flushCt(eID string) {
 			}
 			continue
 		}
-		defer m.Close()
 		entries := m.Flush()
+		m.Close()
 		fmt.Printf("Flushed %d entries from %s\n", entries, path)
 	}
 }

@@ -62,7 +62,6 @@ func dumpCt(eID string) {
 				Fatalf("Unable to open %s: %s", path, err)
 			}
 		}
-		defer m.Close()
 		if command.OutputJSON() {
 			if err := command.PrintOutput(m); err != nil {
 				os.Exit(1)
@@ -74,5 +73,6 @@ func dumpCt(eID string) {
 			}
 			fmt.Println(out)
 		}
+		m.Close()
 	}
 }
