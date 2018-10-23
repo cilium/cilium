@@ -27,6 +27,8 @@ import (
 	. "gopkg.in/check.v1"
 )
 
+var testTime = 300 * time.Second
+
 // Hook up gocheck into the "go test" runner.
 func Test(t *testing.T) { TestingT(t) }
 
@@ -48,7 +50,8 @@ func (p *ProbesTestSuite) TestProbes(c *C) {
 	c.Assert(os.Chdir("../../bpf"), IsNil)
 	Init()
 
-	time.Sleep(300 * time.Second)
+	log.Debugf("Sleeping for %s", testTime)
+	time.Sleep(testTime)
 }
 
 func (p *ProbesTestSuite) TearDownTest(c *C) {
