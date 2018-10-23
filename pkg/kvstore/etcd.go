@@ -201,29 +201,27 @@ func (e *etcdClient) renewSession() error {
 }
 
 func newEtcdClient(config *client.Config, cfgPath string) (BackendOperations, error) {
-	var (
-		c   *client.Client
-		err error
-	)
 	if cfgPath != "" {
-		config, err = clientyaml.NewConfig(cfgPath)
+		cfg, err := clientyaml.NewConfig(cfgPath)
 		if err != nil {
 			return nil, err
 		}
+		config = cfg
 	}
-	if config != nil {
-		// Set DialTimeout to 0, otherwise the creation of a new client will
-		// block until DialTimeout is reached or a connection to the server
-		// is made.
-		config.DialTimeout = 0
-		c, err = client.New(*config)
-	} else {
-		err = fmt.Errorf("empty configuration provided")
-	}
+
+	// Set DialTimeout to 0, otherwise the creation of a new client will
+	// block until DialTimeout is reached or a connection to the server
+	// is made.
+	config.DialTimeout = 0
+	c, err := client.New(*config)
 	if err != nil {
 		return nil, err
 	}
-	log.Info("Waiting for etcd client to be ready")
+
+	log.WithFields(logrus.Fields{
+		"endpoints": config.Endpoints,
+		"config":    cfgPath,
+	}).Info("Waiting for etcd client to be ready")
 
 	var s concurrency.Session
 	firstSession := make(chan struct{})
