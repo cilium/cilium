@@ -33,7 +33,7 @@ struct connect_event {
 	u32 daddr;
 	u16 dport;
 	u16 type;
-	u64 sockaddr;
+	union comm comm;
 };
 
 int kprobe__tcp_v4_connect(struct pt_regs *ctx, struct sock *sk)
@@ -47,8 +47,13 @@ int kprobe__tcp_v4_connect(struct pt_regs *ctx, struct sock *sk)
 		.saddr = sk->__sk_common.skc_rcv_saddr,
 		.daddr = sk->__sk_common.skc_daddr,
 		.type = TYPE_ENTER,
-		.sockaddr = sk,
 	};
+
+	struct comm_event *comm;
+	comm = pid2comm_map.lookup(&pid);
+	if (comm != NULL) {
+		copy_comm(&comm->comm, &event.comm);
+	}
 
 	connect_events.perf_submit(ctx, &event, sizeof(event));
 
@@ -69,11 +74,16 @@ int kretprobe__tcp_v4_connect(struct pt_regs *ctx)
 	if (skpp != NULL) {
 		struct sock *sk = *skpp;
 
+		event.dport = sk->__sk_common.skc_dport;
 		event.saddr = sk->__sk_common.skc_rcv_saddr;
 		event.daddr = sk->__sk_common.skc_daddr;
-		event.dport = sk->__sk_common.skc_dport;
 		event.type = TYPE_RETURN;
-		event.sockaddr = skpp;
+
+		struct comm_event *comm;
+		comm = pid2comm_map.lookup(&pid);
+		if (comm != NULL) {
+			copy_comm(&comm->comm, &event.comm);
+		}
 	}
 
 	connect_events.perf_submit(ctx, &event, sizeof(event));
@@ -95,10 +105,11 @@ int syscall__execve(struct pt_regs *ctx,
 
 	struct comm_event event = {
 		.pid = pid,
-		.type = TYPE_ENTER,
 	};
 
 	bpf_get_current_comm(&event.comm, sizeof(event.comm));
+
+	pid2comm_map.update(&pid, &event);
 	comm_events.perf_submit(ctx, &event, sizeof(event));
 
 	return 0;
@@ -106,9 +117,11 @@ int syscall__execve(struct pt_regs *ctx,
 
 int syscall__ret_execve(struct pt_regs *ctx)
 {
+	u32 pid = bpf_get_current_pid_tgid() >> 32;
+	pid2comm_map.delete(&pid);
+
 	struct comm_event event = {
-		.pid = bpf_get_current_pid_tgid() >> 32,
-		.type = TYPE_RETURN,
+		.pid = pid,
 	};
 
 	bpf_get_current_comm(&event.comm, sizeof(event.comm));
