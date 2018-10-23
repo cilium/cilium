@@ -35,7 +35,7 @@ var _ = Describe("RuntimePolicyValidationTests", func() {
 	})
 
 	JustAfterEach(func() {
-		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+		vm.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 	})
 
 	AfterFailed(func() {

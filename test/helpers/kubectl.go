@@ -1395,11 +1395,11 @@ func (kub *Kubectl) CiliumCheckReport() {
 	}
 }
 
-// ValidateNoErrorsOnLogs checks in cilium logs since the given duration (By
+// ValidateNoErrorsInLogs checks in cilium logs since the given duration (By
 // default `CurrentGinkgoTestDescription().Duration`) do not contain `panic`,
 // `deadlocks` or `segmentation faults` messages. In case of any of these
 // messages, it'll mark the test as failed.
-func (kub *Kubectl) ValidateNoErrorsOnLogs(duration time.Duration) {
+func (kub *Kubectl) ValidateNoErrorsInLogs(duration time.Duration) {
 	var logs string
 	cmd := fmt.Sprintf("%s -n %s logs --timestamps=true -l k8s-app=cilium --since=%vs",
 		KubectlCmd, KubeSystemNamespace, duration.Seconds())
