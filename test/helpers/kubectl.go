@@ -1466,6 +1466,31 @@ func (kub *Kubectl) CiliumCheckReport() {
 	}
 }
 
+// CheckNoPodRestarts checks whether any pod has a nonzero restart count. If
+// any pod has a non-zero restart count, the test suite will be marked as having
+// failed.
+func (kub *Kubectl) CheckNoPodRestarts() {
+	pods, err := kub.GetAllPods(ExecOptions{SkipLog: true})
+	if err != nil {
+		kub.logger.WithError(err).Error("Unable to get pods from Kubernetes via kubectl")
+	}
+
+	var restartedPods []string
+
+	for _, pod := range pods {
+		for _, containerStatus := range pod.Status.ContainerStatuses {
+
+			if containerStatus.RestartCount > 0 {
+				restartedPods = append(restartedPods, fmt.Sprintf("%s/%s", pod.Namespace, pod.Name))
+			}
+		}
+	}
+
+	if len(restartedPods) > 0 {
+		ginkgoext.Fail(fmt.Sprintf("The following pod(s) restarted during the test: %s", restartedPods))
+	}
+}
+
 // ValidateNoErrorsInLogs checks in cilium logs since the given duration (By
 // default `CurrentGinkgoTestDescription().Duration`) do not contain `panic`,
 // `deadlocks` or `segmentation faults` messages. In case of any of these
