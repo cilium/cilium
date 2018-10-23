@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/shirou/gopsutil/process"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -102,6 +103,14 @@ func (p *ProcessContext) readPIDProcFile() {
 		s := scanner.Text()
 		if strings.Contains(s, "/docker") && strings.Contains(s, ":cpu") {
 			p.DockerContainerID = extractContainerID(s)
+			log.WithFields(logrus.Fields{
+				logfields.ContainerID: p.DockerContainerID,
+				logfields.PID:         p.HostPID,
+			}).Debugf("Extracting from /proc: %s", s)
+		} else {
+			log.WithFields(logrus.Fields{
+				logfields.PID: p.HostPID,
+			}).Debugf("Skipping container extraction: %s", s)
 		}
 	}
 

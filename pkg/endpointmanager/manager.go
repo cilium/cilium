@@ -243,22 +243,27 @@ func linkContainerID(ep *endpoint.Endpoint) {
 // endpoints, such as ContainerID, Docker Container Name, Pod Name, etc.
 func updateReferences(ep *endpoint.Endpoint) {
 	if ep.ContainerID != "" {
+		log.Debugf("updating containerID => %s", ep.ContainerID)
 		linkContainerID(ep)
 	}
 
 	if ep.DockerEndpointID != "" {
+		log.Debugf("updating dockerID => %s", ep.DockerEndpointID)
 		endpointsAux[endpointid.NewID(endpointid.DockerEndpointPrefix, ep.DockerEndpointID)] = ep
 	}
 
 	if ep.IPv4.String() != "" {
+		log.Debugf("updating IPv4 => %s", ep.IPv4.String())
 		endpointsAux[endpointid.NewID(endpointid.IPv4Prefix, ep.IPv4.String())] = ep
 	}
 
 	if ep.ContainerName != "" {
+		log.Debugf("updating ContainerName => %s", ep.ContainerName)
 		endpointsAux[endpointid.NewID(endpointid.ContainerNamePrefix, ep.ContainerName)] = ep
 	}
 
 	if podName := ep.GetK8sNamespaceAndPodNameLocked(); podName != "" {
+		log.Debugf("updating podName => %s", podName)
 		endpointsAux[endpointid.NewID(endpointid.PodNamePrefix, podName)] = ep
 	}
 }
