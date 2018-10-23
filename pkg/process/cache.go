@@ -18,7 +18,11 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -26,13 +30,32 @@ var (
 )
 
 type cache struct {
-	mutex lock.Mutex
-	pids  map[PID]*ProcessContext
+	mutex         lock.Mutex
+	byPID         map[PID]*ProcessContext
+	byContainerID map[string]*ProcessContext
 }
 
 func newCache() *cache {
 	return &cache{
-		pids: map[PID]*ProcessContext{},
+		byPID:         map[PID]*ProcessContext{},
+		byContainerID: map[string]*ProcessContext{},
+	}
+}
+
+func (c *cache) UpdateReferences(endpoint *endpoint.Endpoint) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	context, ok := c.byContainerID[endpoint.GetContainerID()]
+	if ok {
+		log.WithFields(logrus.Fields{
+			logfields.ContainerID: endpoint.GetContainerID(),
+		}).Debug("Updating process cache entry for endpoint")
+		context.endpoint = endpoint
+	} else {
+		log.WithFields(logrus.Fields{
+			logfields.ContainerID: endpoint.GetContainerID(),
+		}).Warning("Couldn't find process cache entry for endpoint")
 	}
 }
 
@@ -40,10 +63,11 @@ func (c *cache) LookupOrCreate(pid PID) *ProcessContext {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	context, ok := c.pids[pid]
+	context, ok := c.byPID[pid]
 	if !ok {
 		context = newProcessContext(pid)
-		c.pids[pid] = context
+		c.byPID[pid] = context
+		c.byContainerID[context.DockerContainerID] = context
 	}
 
 	return context
@@ -51,7 +75,7 @@ func (c *cache) LookupOrCreate(pid PID) *ProcessContext {
 
 func (c *cache) Dump(writer io.Writer) {
 	c.mutex.Lock()
-	for _, p := range c.pids {
+	for _, p := range c.byPID {
 		fmt.Fprintln(writer, p.String())
 		for _, conn := range p.connections {
 			fmt.Fprintf(writer, "  %s\n", conn.String())
@@ -62,6 +86,8 @@ func (c *cache) Dump(writer io.Writer) {
 
 func (c *cache) Delete(pid PID) {
 	c.mutex.Lock()
-	delete(c.pids, pid)
+	context := c.byPID[pid]
+	delete(c.byPID, pid)
+	delete(c.byContainerID, context.DockerContainerID)
 	c.mutex.Unlock()
 }

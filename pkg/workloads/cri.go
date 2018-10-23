@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/process"
 
 	"github.com/containerd/containerd/namespaces"
 	criStore "github.com/containerd/cri/pkg/store"
@@ -276,6 +277,7 @@ func (c *criClient) handleCreateWorkload(id string, retry bool) {
 		// Update map allowing to lookup endpoint by endpoint
 		// attributes with new attributes set on endpoint
 		endpointmanager.UpdateReferences(ep)
+		process.Cache.UpdateReferences(ep)
 
 		ep.UpdateLabels(Owner(), identityLabels, informationLabels)
 		return
