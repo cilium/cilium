@@ -25,30 +25,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// ProbeType defines the type of probe
-type ProbeType int
-
-// String returns the human readable form of a probe type
-func (p ProbeType) String() string {
-	switch p {
-	case KProbeType:
-		return "kprobe"
-	case KRetProbeType:
-		return "kretprobe"
-	default:
-		return "unknown"
-	}
-}
-
-const (
-	// KProbeType is a probe invoked when entering known kernel functions
-	KProbeType ProbeType = iota
-
-	// KretProbeType is a probe invoked when returning from known kernel
-	// functions
-	KRetProbeType
-)
-
 // ProbeAttachment is an attachenment of a function of ProbeProg to a probe
 type ProbeAttachment struct {
 	// Typ is the type of probe to attach to

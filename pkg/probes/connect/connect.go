@@ -52,12 +52,14 @@ type connectEvent struct {
 	SourceAddress      uint32
 	DestinationAddress uint32
 	DestinationPort    uint16
-	Typ                uint16
+	Typ                api.ProbeType // uint16
 	Comm               [taskCommLen]byte
 }
 
 type commEvent struct {
 	ProcessID uint32
+	Typ       api.ProbeType // uint16
+	_         uint16
 	Command   [taskCommLen]byte
 }
 
@@ -125,9 +127,9 @@ func (c *connectProbe) OnAttach() error {
 			pid := process.PID(event.ProcessID)
 			context := process.Cache.LookupOrCreate(pid)
 			switch event.Typ {
-			case typeEnter:
+			case api.KProbeType:
 				context.AddExecveEvent(strings.TrimRight(string(event.Command[:taskCommLen]), "\x00"))
-			case typeReturn:
+			case api.KRetProbeType:
 				process.Cache.Delete(pid)
 			}
 		}
@@ -166,7 +168,7 @@ func init() {
 					ProbeName: bcc.GetSyscallFnName("execve"),
 				},
 				{
-					Typ:       api.KProbeType,
+					Typ:       api.KRetProbeType,
 					FuncName:  "syscall__ret_execve",
 					ProbeName: bcc.GetSyscallFnName("execve"),
 				},

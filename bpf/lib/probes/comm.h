@@ -35,6 +35,8 @@ union comm {
 
 struct comm_event {
 	u32		pid;
+	u16		type;
+	u16		pad;
 	union comm	comm;
 };
 

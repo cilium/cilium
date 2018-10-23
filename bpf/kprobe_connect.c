@@ -23,9 +23,12 @@
 BPF_HASH(currsock, u32, struct sock *);
 BPF_PERF_OUTPUT(connect_events);
 
-#define TYPE_ENTER 1
-#define TYPE_RETURN 2
-#define TYPE_NOT_FOUND 3
+/* Compare with pkg/probes/api/type.go */
+enum {
+	TYPE_NOT_FOUND,
+	TYPE_ENTER,
+	TYPE_RETURN,
+};
 
 struct connect_event {
 	u32 pid;
@@ -105,6 +108,7 @@ int syscall__execve(struct pt_regs *ctx,
 
 	struct comm_event event = {
 		.pid = pid,
+		.type = TYPE_ENTER,
 	};
 
 	bpf_get_current_comm(&event.comm, sizeof(event.comm));
@@ -122,6 +126,7 @@ int syscall__ret_execve(struct pt_regs *ctx)
 
 	struct comm_event event = {
 		.pid = pid,
+		.type = TYPE_RETURN,
 	};
 
 	bpf_get_current_comm(&event.comm, sizeof(event.comm));
