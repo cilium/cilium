@@ -17,11 +17,13 @@ package k8s
 import (
 	"fmt"
 	"net"
+	"sort"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/service"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
@@ -177,4 +179,38 @@ func (s *Service) UniquePorts() map[uint16]bool {
 		uniqPorts[p.Port] = true
 	}
 	return uniqPorts
+}
+
+// NewClusterService returns the service.ClusterService representing a
+// Kubernetes Service
+func NewClusterService(id ServiceID, k8sService *Service, k8sEndpoints *Endpoints) service.ClusterService {
+	svc := service.NewClusterService(id.Name, id.Namespace)
+	svc.FrontendIP = k8sService.FrontendIP.String()
+
+	for key, value := range k8sService.Labels {
+		svc.Labels[key] = value
+	}
+
+	for key, value := range k8sService.Selector {
+		svc.Selector[key] = value
+	}
+
+	for portName, port := range k8sService.Ports {
+		svc.FrontendPorts[string(portName)] = *port.L4Addr
+	}
+
+	index := 0
+	svc.BackendIPs = make([]string, len(k8sEndpoints.BackendIPs))
+	for ipString := range k8sEndpoints.BackendIPs {
+		svc.BackendIPs[index] = ipString
+		index++
+	}
+
+	sort.Strings(svc.BackendIPs)
+
+	for portName, port := range k8sEndpoints.Ports {
+		svc.BackendPorts[string(portName)] = *port
+	}
+
+	return svc
 }
