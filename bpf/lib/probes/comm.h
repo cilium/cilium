@@ -40,8 +40,6 @@ struct comm_event {
 	union comm	comm;
 };
 
-BPF_HASH(pid2comm_map, u32, struct comm_event);
-
 static inline void copy_comm(union comm *src, union comm *dst)
 {
 	dst->p1 = src->p1;

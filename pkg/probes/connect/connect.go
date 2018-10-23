@@ -45,6 +45,9 @@ type connectProbe struct {
 
 const (
 	taskCommLen = 16
+
+	typeEnter  = uint16(1)
+	typeReturn = uint16(2)
 )
 
 type connectEvent struct {
@@ -53,7 +56,7 @@ type connectEvent struct {
 	DestinationAddress uint32
 	DestinationPort    uint16
 	Typ                api.ProbeType // uint16
-	Comm               [taskCommLen]byte
+	SocketAddress      uint64
 }
 
 type commEvent struct {
@@ -107,7 +110,7 @@ func (c *connectProbe) OnAttach() error {
 				SrcIP:   ip.ParseUint32(event.SourceAddress),
 				DstIP:   ip.ParseUint32(event.DestinationAddress),
 				DstPort: byteorder.NetworkToHost(event.DestinationPort).(uint16),
-				//Socket:  event.SocketAddress,
+				Socket:  event.SocketAddress,
 			})
 		}
 	}()
