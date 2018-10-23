@@ -101,7 +101,7 @@ func (p *ProcessContext) readPIDProcFile() {
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		s := scanner.Text()
-		if strings.Contains(s, "/docker") && strings.Contains(s, ":cpu") {
+		if strings.Contains(s, "/docker/") && strings.Contains(s, ":cpu") {
 			p.DockerContainerID = extractContainerID(s)
 			log.WithFields(logrus.Fields{
 				logfields.ContainerID: p.DockerContainerID,
