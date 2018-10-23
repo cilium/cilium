@@ -135,12 +135,10 @@ var _ = Describe("RuntimeMonitorTest", func() {
 				defer cancel()
 				res := vm.ExecContext(ctx, fmt.Sprintf("cilium monitor --type %s -v", k))
 
-				areEndpointsReady := vm.WaitEndpointsReady()
-				Expect(areEndpointsReady).Should(BeTrue())
-
 				vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
 				vm.ContainerExec(helpers.App3, helpers.Ping(helpers.Httpd1))
 
+				cancel()
 				Expect(res.WaitUntilMatch(v)).To(BeNil(),
 					"%q is not in the output after timeout", v)
 				Expect(res.CountLines()).Should(BeNumerically(">", 3))
