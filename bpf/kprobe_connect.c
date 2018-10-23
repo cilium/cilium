@@ -107,11 +107,12 @@ int syscall__execve(struct pt_regs *ctx,
 	return 0;
 }
 
-int syscall__ret_execve(struct pt_regs *ctx)
+//int syscall__ret_execve(struct pt_regs *ctx)
+int syscall__exit(struct pt_regs *ctx)
 {
 	struct comm_event event = {
 		.pid = bpf_get_current_pid_tgid() >> 32,
-		.type = TYPE_RETURN,
+		.type = TYPE_RETURN, // XXX: Not really a KRetProbe
 	};
 
 	bpf_get_current_comm(&event.comm, sizeof(event.comm));

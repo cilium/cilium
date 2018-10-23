@@ -171,9 +171,9 @@ func init() {
 					ProbeName: bcc.GetSyscallFnName("execve"),
 				},
 				{
-					Typ:       api.KRetProbeType,
-					FuncName:  "syscall__ret_execve",
-					ProbeName: bcc.GetSyscallFnName("execve"),
+					Typ:       api.KProbeType,
+					FuncName:  "syscall__exit",
+					ProbeName: bcc.GetSyscallFnName("exit"),
 				},
 			},
 		},
