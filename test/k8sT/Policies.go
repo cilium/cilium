@@ -79,7 +79,7 @@ var _ = Describe("K8sPolicyTest", func() {
 	})
 
 	JustAfterEach(func() {
-		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 		Expect(microscopeCancel()).To(BeNil(), "cannot stop microscope")
 		backgroundCancel()
 	})
