@@ -135,7 +135,7 @@ var _ = Describe("K8sIstioTest", func() {
 		Expect(microscopeCancel()).To(BeNil(), "Cannot stop microscope")
 		uptimeCancel()
 
-		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 	})
 
 	AfterFailed(func() {

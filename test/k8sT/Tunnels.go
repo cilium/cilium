@@ -56,7 +56,7 @@ var _ = Describe("K8sTunnelTest", func() {
 	})
 
 	JustAfterEach(func() {
-		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 	})
 
 	cleanService := func() {

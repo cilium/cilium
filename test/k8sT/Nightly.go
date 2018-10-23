@@ -74,7 +74,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 	})
 
 	JustAfterEach(func() {
-		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 	})
 
 	AfterEach(func() {
@@ -291,7 +291,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 		}
 
 		It("Test TCP Keepalive with L7 Policy", func() {
-			kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+			kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 			manifest := helpers.ManifestGet(netcatDsManifest)
 			kubectl.Apply(manifest).ExpectSuccess("Cannot apply netcat ds")
 			defer kubectl.Delete(manifest)
@@ -330,7 +330,7 @@ var _ = Describe("NightlyExamples", func() {
 	})
 
 	JustAfterEach(func() {
-		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 	})
 
 	AfterEach(func() {

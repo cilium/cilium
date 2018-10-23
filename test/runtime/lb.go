@@ -44,7 +44,7 @@ var _ = Describe("RuntimeLB", func() {
 	})
 
 	JustAfterEach(func() {
-		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+		vm.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 		Expect(monitorStop()).To(BeNil(), "cannot stop monitor command")
 	})
 

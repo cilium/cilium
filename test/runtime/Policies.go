@@ -83,7 +83,7 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 	})
 
 	JustAfterEach(func() {
-		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+		vm.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 	})
 
 	AfterFailed(func() {
@@ -279,7 +279,7 @@ var _ = Describe("RuntimePolicies", func() {
 	})
 
 	JustAfterEach(func() {
-		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+		vm.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 		Expect(monitorStop()).To(BeNil(), "cannot stop monitor command")
 	})
 
@@ -1599,7 +1599,7 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 	})
 
 	JustAfterEach(func() {
-		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+		vm.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 	})
 
 	AfterFailed(func() {
