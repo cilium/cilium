@@ -2752,9 +2752,8 @@ func (e *Endpoint) garbageCollectConntrack(filter *ctmap.GCFilter) {
 			log.WithError(err).WithField(logfields.Path, filepath).Warn("Unable to open map")
 			continue
 		}
-		defer m.Close()
-
 		ctmap.GC(m, filter)
+		m.Close()
 	}
 }
 

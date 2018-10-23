@@ -58,9 +58,9 @@ func runGC(e *endpoint.Endpoint, ipv4, ipv6 bool, filter *ctmap.GCFilter) {
 			}
 			continue
 		}
-		defer m.Close()
 
 		deleted := ctmap.GC(m, filter)
+		m.Close()
 
 		if deleted > 0 {
 			log.WithFields(logrus.Fields{
