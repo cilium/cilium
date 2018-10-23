@@ -59,18 +59,29 @@ func (c *cache) UpdateReferences(endpoint *endpoint.Endpoint) {
 	}
 }
 
-func (c *cache) LookupOrCreate(pid PID) *ProcessContext {
+func (c *cache) LookupOrCreate(pid PID) (*ProcessContext, error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
 	context, ok := c.byPID[pid]
 	if !ok {
-		context = newProcessContext(pid)
+		var err error
+
+		context, err = newProcessContext(pid)
+		if err != nil {
+			return nil, err
+		}
+		log.WithFields(logrus.Fields{
+			logfields.PID:         pid,
+			logfields.ContainerID: context.DockerContainerID,
+		}).Debug("Inserting ProcessContext into cache")
 		c.byPID[pid] = context
-		c.byContainerID[context.DockerContainerID] = context
+		if context.DockerContainerID != "" {
+			c.byContainerID[context.DockerContainerID] = context
+		}
 	}
 
-	return context
+	return context, nil
 }
 
 func (c *cache) Dump(writer io.Writer) {
@@ -87,6 +98,10 @@ func (c *cache) Dump(writer io.Writer) {
 func (c *cache) Delete(pid PID) {
 	c.mutex.Lock()
 	context := c.byPID[pid]
+	log.WithFields(logrus.Fields{
+		logfields.PID:         pid,
+		logfields.ContainerID: context.DockerContainerID,
+	}).Debug("Deleting ProcessContext from cache")
 	delete(c.byPID, pid)
 	delete(c.byContainerID, context.DockerContainerID)
 	c.mutex.Unlock()

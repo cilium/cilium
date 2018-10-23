@@ -53,13 +53,15 @@ type ProcessContext struct {
 	endpoint *endpoint.Endpoint
 }
 
-func newProcessContext(hostPID PID) *ProcessContext {
+func newProcessContext(hostPID PID) (*ProcessContext, error) {
 	context := &ProcessContext{
 		HostPID:     hostPID,
 		connections: map[string]ConnectContext{},
 	}
 
-	context.readPIDProcFile()
+	if err := context.readPIDProcFile(); err != nil {
+		return nil, err
+	}
 
 	p, err := process.NewProcess(int32(hostPID))
 	if err != nil {
@@ -84,12 +86,12 @@ func newProcessContext(hostPID PID) *ProcessContext {
 			log.WithFields(logrus.Fields{
 				logfields.PID:         hostPID,
 				logfields.ContainerID: context.DockerContainerID,
-				logfields.EndpointID:  context.endpoint.String(),
+				logfields.EndpointID:  context.endpoint.StringID(),
 			}).Debugf("Associating PID to endpoint")
 		}
 	}
 
-	return context
+	return context, nil
 }
 
 func extractContainerID(s string) string {
@@ -106,11 +108,11 @@ func (p *ProcessContext) String() string {
 		endpoint, p.HostPID, p.ContainerPID, p.DockerContainerID, p.Binary, p.CmdLine)
 }
 
-func (p *ProcessContext) readPIDProcFile() {
+func (p *ProcessContext) readPIDProcFile() error {
 	cgroupPath := fmt.Sprintf("/proc/%d/cgroup", p.HostPID)
 	file, err := os.Open(cgroupPath)
 	if err != nil {
-		log.WithError(err).WithField("file", cgroupPath).Error("Unable to open cgroup file")
+		return err
 	}
 	defer file.Close()
 
@@ -131,6 +133,8 @@ func (p *ProcessContext) readPIDProcFile() {
 	}
 
 	if err := scanner.Err(); err != nil {
-		log.WithError(err).WithField("file", cgroupPath).Error("Unable to parse cgroup file")
+		return err
 	}
+
+	return nil
 }

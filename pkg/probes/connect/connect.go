@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/process"
 
 	"github.com/iovisor/gobpf/bcc"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -105,7 +106,13 @@ func (c *connectProbe) OnAttach() error {
 				continue
 			}
 
-			context := process.Cache.LookupOrCreate(process.PID(event.ProcessID))
+			context, err := process.Cache.LookupOrCreate(process.PID(event.ProcessID))
+			if err != nil {
+				log.WithError(err).WithFields(logrus.Fields{
+					logfields.PID: event.ProcessID,
+				}).Warning("Cannot cache process from connect hook")
+				continue
+			}
 			context.AddConnectEvent(process.ConnectContext{
 				SrcIP:   ip.ParseUint32(event.SourceAddress),
 				DstIP:   ip.ParseUint32(event.DestinationAddress),
@@ -128,7 +135,13 @@ func (c *connectProbe) OnAttach() error {
 			}
 
 			pid := process.PID(event.ProcessID)
-			context := process.Cache.LookupOrCreate(pid)
+			context, err := process.Cache.LookupOrCreate(pid)
+			if err != nil {
+				log.WithError(err).WithFields(logrus.Fields{
+					logfields.PID: event.ProcessID,
+				}).Warning("Cannot cache process from exec/exit hook")
+				continue
+			}
 			switch event.Typ {
 			case api.KProbeType:
 				context.AddExecveEvent(strings.TrimRight(string(event.Command[:taskCommLen]), "\x00"))
