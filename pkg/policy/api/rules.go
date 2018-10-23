@@ -14,7 +14,10 @@
 
 package api
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // Rules is a collection of api.Rule.
 //
@@ -23,35 +26,12 @@ import "fmt"
 // the fromRequires may be violated at the same time.
 type Rules []*Rule
 
-func (r Rules) String() string {
+func (rs Rules) String() string {
+	strRules := make([]string, 0, len(rs))
 
-	if len(r) == 0 {
-		return ""
+	for _, r := range rs {
+		strRules = append(strRules, fmt.Sprintf("%+v", r))
 	}
 
-	if len(r) == 1 {
-		if r[0] != nil {
-			return fmt.Sprintf("%v", *r[0])
-		}
-		return "<nil>"
-	}
-
-	rulesString := ""
-
-	if r[0] != nil {
-		rulesString = fmt.Sprintf("[%v", *r[0])
-	} else {
-		rulesString = "[<nil>"
-	}
-	for i := 1; i < len(r); i++ {
-		if r[i] == nil {
-			rulesString += ", <nil>"
-		} else {
-			rulesString += fmt.Sprintf(", %v", *r[i])
-		}
-	}
-
-	rulesString += "]"
-
-	return rulesString
+	return "[" + strings.Join(strRules, ",") + "]"
 }
