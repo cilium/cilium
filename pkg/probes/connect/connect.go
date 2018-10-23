@@ -135,15 +135,15 @@ func (c *connectProbe) OnAttach() error {
 			}
 
 			pid := process.PID(event.ProcessID)
-			context, err := process.Cache.LookupOrCreate(pid)
-			if err != nil {
-				log.WithError(err).WithFields(logrus.Fields{
-					logfields.PID: event.ProcessID,
-				}).Warning("Cannot cache process from exec/exit hook")
-				continue
-			}
 			switch event.Typ {
 			case api.KProbeType:
+				context, err := process.Cache.LookupOrCreate(pid)
+				if err != nil {
+					log.WithError(err).WithFields(logrus.Fields{
+						logfields.PID: event.ProcessID,
+					}).Warning("Cannot cache process from comm hook")
+					continue
+				}
 				context.AddExecveEvent(strings.TrimRight(string(event.Command[:taskCommLen]), "\x00"))
 			case api.KRetProbeType:
 				process.Cache.Delete(pid)
