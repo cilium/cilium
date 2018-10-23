@@ -1338,7 +1338,7 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 			// Insert the new rules into the policy repository. We need them to
 			// replace the previous set. This requires the labels to match (including
 			// the ToFQDN-UUID one).
-			_, err := d.PolicyAdd(generatedRules, &AddOptions{Replace: true})
+			_, err := d.PolicyAdd(generatedRules, &AddOptions{Replace: true, Generated: true})
 			return err
 		}})
 	fqdn.StartDNSPoller(d.dnsPoller)
