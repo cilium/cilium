@@ -70,7 +70,23 @@ func newProcessContext(hostPID PID) *ProcessContext {
 	}
 
 	if context.DockerContainerID != "" {
+		// TODO: This races with the Update of the ContainerID which is
+		//       done from the plugin via a call to
+		//       endpoint.SetContainerID(). As a result, this is
+		//       usually failing to associate with an endpoint.
 		context.endpoint = endpointmanager.LookupDockerID(context.DockerContainerID)
+		if context.endpoint == nil {
+			log.WithFields(logrus.Fields{
+				logfields.PID:         hostPID,
+				logfields.ContainerID: context.DockerContainerID,
+			}).Infof("Failed to associate PID to endpoint")
+		} else {
+			log.WithFields(logrus.Fields{
+				logfields.PID:         hostPID,
+				logfields.ContainerID: context.DockerContainerID,
+				logfields.EndpointID:  context.endpoint.String(),
+			}).Debugf("Associating PID to endpoint")
+		}
 	}
 
 	return context
