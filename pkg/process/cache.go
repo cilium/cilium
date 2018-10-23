@@ -71,10 +71,10 @@ func (c *cache) LookupOrCreate(pid PID) (*ProcessContext, error) {
 		if err != nil {
 			return nil, err
 		}
-		log.WithFields(logrus.Fields{
-			logfields.PID:         pid,
-			logfields.ContainerID: context.DockerContainerID,
-		}).Debug("Inserting ProcessContext into cache")
+		//log.WithFields(logrus.Fields{
+		//	logfields.PID:         pid,
+		//	logfields.ContainerID: context.DockerContainerID,
+		//}).Debug("Inserting ProcessContext into cache")
 		c.byPID[pid] = context
 		if context.DockerContainerID != "" {
 			c.byContainerID[context.DockerContainerID] = context
@@ -98,11 +98,13 @@ func (c *cache) Dump(writer io.Writer) {
 func (c *cache) Delete(pid PID) {
 	c.mutex.Lock()
 	context := c.byPID[pid]
-	log.WithFields(logrus.Fields{
-		logfields.PID:         pid,
-		logfields.ContainerID: context.DockerContainerID,
-	}).Debug("Deleting ProcessContext from cache")
+	//log.WithFields(logrus.Fields{
+	//	logfields.PID:         pid,
+	//	logfields.ContainerID: context.DockerContainerID,
+	//}).Debug("Deleting ProcessContext from cache")
 	delete(c.byPID, pid)
-	delete(c.byContainerID, context.DockerContainerID)
+	if context != nil && context.DockerContainerID != "" {
+		delete(c.byContainerID, context.DockerContainerID)
+	}
 	c.mutex.Unlock()
 }

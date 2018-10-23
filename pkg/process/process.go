@@ -125,10 +125,6 @@ func (p *ProcessContext) readPIDProcFile() error {
 				logfields.ContainerID: p.DockerContainerID,
 				logfields.PID:         p.HostPID,
 			}).Debugf("Extracting from /proc: %s", s)
-		} else {
-			//log.WithFields(logrus.Fields{
-			//	logfields.PID: p.HostPID,
-			//}).Debugf("Skipping container extraction: %s", s)
 		}
 	}
 

@@ -108,9 +108,12 @@ func (c *connectProbe) OnAttach() error {
 
 			context, err := process.Cache.LookupOrCreate(process.PID(event.ProcessID))
 			if err != nil {
+				// XXX: Short-lived processes often hit this,
+				//      They race and exit before we handle
+				//      this event from the kernel.
 				log.WithError(err).WithFields(logrus.Fields{
 					logfields.PID: event.ProcessID,
-				}).Warning("Cannot cache process from connect hook")
+				}).Debug("Cannot cache process from connect hook")
 				continue
 			}
 			context.AddConnectEvent(process.ConnectContext{
@@ -145,6 +148,7 @@ func (c *connectProbe) OnAttach() error {
 					continue
 				}
 				context.AddExecveEvent(strings.TrimRight(string(event.Command[:taskCommLen]), "\x00"))
+			// TODO: sys_exit() doesn't seem reliable.
 			case api.KRetProbeType:
 				process.Cache.Delete(pid)
 			}
