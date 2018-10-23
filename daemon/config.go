@@ -27,4 +27,7 @@ func populateConfig() {
 	option.Config.CTMapEntriesGlobalTCP = viper.GetInt(option.CTMapEntriesGlobalTCPName)
 	option.Config.CTMapEntriesGlobalAny = viper.GetInt(option.CTMapEntriesGlobalAnyName)
 	option.Config.UseSingleClusterRoute = viper.GetBool(option.SingleClusterRouteName)
+	option.Config.K8sAPIServer = viper.GetString(option.K8sAPIServerName)
+	option.Config.K8sKubeConfigPath = viper.GetString(option.K8sKubeConfigPathName)
+	option.Config.KVStoreType = viper.GetString(option.KVStoreName)
 }

@@ -146,9 +146,21 @@ const (
 
 	// SockopsEnableName is the name of the option to enable sockops
 	SockopsEnableName = "sockops-enable"
+
+	// K8sAPIServerName is the name of the option of K8sAPIServer
+	K8sAPIServerName = "k8s-api-server"
+
+	// K8sKubeConfigPath is the name of the option of K8sKubeConfigPath
+	K8sKubeConfigPathName = "k8s-kubeconfig-path"
+
+	// KVStoreName is the name of the option of KVStoreType
+	KVStoreName = "kvstore"
+
+	// KVStoreOptsName is the name of the option of KVStoreOpts
+	KVStoreOptsName = "kvstore-opt"
 )
 
-// Available option for daemonConfig.Tunnel
+// Available option for nodeConfig.Tunnel
 const (
 	// TunnelVXLAN specifies VXLAN encapsulation
 	TunnelVXLAN = "vxlan"
@@ -165,8 +177,8 @@ func GetTunnelModes() string {
 	return fmt.Sprintf("%s, %s, %s", TunnelVXLAN, TunnelGeneve, TunnelDisabled)
 }
 
-// daemonConfig is the configuration used by Daemon.
-type daemonConfig struct {
+// nodeConfig is the configuration used by
+type nodeConfig struct {
 	BpfDir          string     // BPF template files directory
 	LibDir          string     // Cilium library files directory
 	RunDir          string     // Cilium runtime directory
@@ -228,7 +240,7 @@ type daemonConfig struct {
 	// contains the CIDR without the mask, e.g. "fdfd::1/64" -> "fdfd::"
 	//
 	// This variable should never be written to, it is initialized via
-	// daemonConfig.Validate()
+	// nodeConfig.Validate()
 	IPv6ClusterAllocCIDRBase string
 
 	// K8sRequireIPv4PodCIDR requires the k8s node resource to specify the
@@ -275,35 +287,49 @@ type daemonConfig struct {
 	// UseSingleClusterRoute specifies whether to use a single cluster route
 	// instead of per-node routes.
 	UseSingleClusterRoute bool
+
+	// K8sAPIServer is the address of the Kubernetes API server
+	K8sAPIServer string
+
+	// K8sKubeConfigPath is the path to the kubeconfig file. This
+	// overwrites the K8sAPIServer
+	K8sKubeConfigPath string
+
+	// KVStoreType is the type of kvstore to use
+	KVStoreType string
+
+	// KVStoreOpts are the kvstore specific configuration options
+	KVStoreOpts map[string]string
 }
 
 var (
-	Config = &daemonConfig{
+	Config = &nodeConfig{
 		Opts:                     NewIntOptions(&DaemonOptionLibrary),
 		Monitor:                  &models.MonitorStatus{Cpus: int64(runtime.NumCPU()), Npages: 64, Pagesize: int64(os.Getpagesize()), Lost: 0, Unknown: 0},
 		IPv6ClusterAllocCIDR:     defaults.IPv6ClusterAllocCIDR,
 		IPv6ClusterAllocCIDRBase: defaults.IPv6ClusterAllocCIDRBase,
 		EnableHostIPRestore:      defaults.EnableHostIPRestore,
+		KVStoreOpts:              map[string]string{},
 	}
 )
 
-func (c *daemonConfig) IsLBEnabled() bool {
+func (c *nodeConfig) IsLBEnabled() bool {
 	return c.LBInterface != ""
 }
 
 // GetNodeConfigPath returns the full path of the NodeConfigFile.
-func (c *daemonConfig) GetNodeConfigPath() string {
+func (c *nodeConfig) GetNodeConfigPath() string {
 	return filepath.Join(c.GetGlobalsDir(), common.NodeConfigFile)
 }
 
 // GetGlobalsDir returns the path for the globals directory.
-func (c *daemonConfig) GetGlobalsDir() string {
+func (c *nodeConfig) GetGlobalsDir() string {
 	return filepath.Join(c.StateDir, "globals")
 }
 
 // AlwaysAllowLocalhost returns true if the daemon has the option set that
 // localhost can always reach local endpoints
-func (c *daemonConfig) AlwaysAllowLocalhost() bool {
+func (c *nodeConfig) AlwaysAllowLocalhost() bool {
 	switch c.AllowLocalhost {
 	case AllowLocalhostAlways:
 		return true
@@ -316,11 +342,11 @@ func (c *daemonConfig) AlwaysAllowLocalhost() bool {
 
 // TracingEnabled returns if tracing policy (outlining which rules apply to a
 // specific set of labels) is enabled.
-func (c *daemonConfig) TracingEnabled() bool {
+func (c *nodeConfig) TracingEnabled() bool {
 	return c.Opts.IsEnabled(PolicyTracing)
 }
 
-func (c *daemonConfig) validateIPv6ClusterAllocCIDR() error {
+func (c *nodeConfig) validateIPv6ClusterAllocCIDR() error {
 	ip, cidr, err := net.ParseCIDR(c.IPv6ClusterAllocCIDR)
 	if err != nil {
 		return err
@@ -339,8 +365,29 @@ func (c *daemonConfig) validateIPv6ClusterAllocCIDR() error {
 	return nil
 }
 
-// Validate validates the daemon configuration
-func (c *daemonConfig) Validate() error {
+// ValidateCommon validates the common configuration of the node
+func (c *nodeConfig) ValidateCommon() error {
+	if c.ClusterID < ClusterIDMin || c.ClusterID > ClusterIDMax {
+		return fmt.Errorf("invalid cluster id %d: must be in range %d..%d",
+			c.ClusterID, ClusterIDMin, ClusterIDMax)
+	}
+
+	if c.ClusterID != 0 {
+		if c.ClusterName == defaults.ClusterName {
+			return fmt.Errorf("cannot use default cluster name (%s) with option %s",
+				defaults.ClusterName, ClusterIDName)
+		}
+	}
+
+	return nil
+}
+
+// Validate validates the configuration of the node
+func (c *nodeConfig) Validate() error {
+	if err := c.ValidateCommon(); err != nil {
+		return err
+	}
+
 	if err := c.validateIPv6ClusterAllocCIDR(); err != nil {
 		return fmt.Errorf("unable to parse CIDR value '%s' of option --%s: %s",
 			c.IPv6ClusterAllocCIDR, IPv6ClusterAllocCIDRName, err)
@@ -359,18 +406,6 @@ func (c *daemonConfig) Validate() error {
 		}
 	default:
 		return fmt.Errorf("invalid tunnel mode '%s', valid modes = {%s}", c.Tunnel, GetTunnelModes())
-	}
-
-	if c.ClusterID < ClusterIDMin || c.ClusterID > ClusterIDMax {
-		return fmt.Errorf("invalid cluster id %d: must be in range %d..%d",
-			c.ClusterID, ClusterIDMin, ClusterIDMax)
-	}
-
-	if c.ClusterID != 0 {
-		if c.ClusterName == defaults.ClusterName {
-			return fmt.Errorf("cannot use default cluster name (%s) with option %s",
-				defaults.ClusterName, ClusterIDName)
-		}
 	}
 
 	ctTableMin := 1 << 10 // 1Ki entries
