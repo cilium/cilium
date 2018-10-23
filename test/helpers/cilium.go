@@ -611,8 +611,8 @@ func (s *SSHMeta) PolicyWait(revisionNum int) *CmdRes {
 // ReportFailed gathers relevant Cilium runtime data and logs for debugging
 // purposes.
 func (s *SSHMeta) ReportFailed(commands ...string) {
-	if config.CiliumTestConfig.HoldEnvironment {
-		ginkgoext.GinkgoPrint("Skipped gathering logs (-cilium.holdEnvironment=true)\n")
+	if config.CiliumTestConfig.SkipLogGathering {
+		ginkgoext.GinkgoPrint("Skipped gathering logs (-cilium.skipLogs=true)\n")
 		return
 	}
 
