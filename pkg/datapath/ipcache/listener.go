@@ -226,6 +226,10 @@ func (l *BPFListener) garbageCollect() error {
 		}
 		pendingListener := newListener(pendingMap, l.datapath)
 		ipcache.IPIdentityCache.DumpToListenerLocked(pendingListener)
+		err := pendingMap.Close()
+		if err != nil {
+			log.WithError(err).WithField("map-name", pendingMapName).Warning("unable to close map")
+		}
 
 		// Move the maps around on the filesystem so that BPF reload
 		// will pick up the new paths without requiring recompilation.
