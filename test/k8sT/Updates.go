@@ -6,7 +6,6 @@ import (
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
-
 	. "github.com/onsi/gomega"
 )
 
@@ -166,7 +165,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 			ExpectWithOffset(1, err).To(BeNil(), "Cannot get cilium pods")
 
 			for _, val := range strings.Split(data.String(), " ") {
-				ExpectWithOffset(1, image).To(ContainSubstring(val), "Cilium image didn't update correctly")
+				ExpectWithOffset(1, val).To(ContainSubstring(image), "Cilium image didn't update correctly")
 			}
 		}
 
