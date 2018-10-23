@@ -285,7 +285,9 @@ func RegenerateAllEndpoints(owner endpoint.Owner, regenContext *endpoint.Regener
 				ep.Unlock()
 				if regen {
 					// Regenerate logs status according to the build success/failure
-					<-ep.Regenerate(owner, regenContext)
+					// Create a new regenContext to not overwrite the spanStats
+					// values on the endpoint regeneration.
+					<-ep.Regenerate(owner, endpoint.NewRegenerationContext(regenContext.Reason))
 				}
 			}
 			wg.Done()
