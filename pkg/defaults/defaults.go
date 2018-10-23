@@ -16,8 +16,6 @@ package defaults
 
 import (
 	"time"
-
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -63,10 +61,6 @@ const (
 
 	// PidFilePath is the path to the pid file for the agent.
 	PidFilePath = RuntimePath + "/cilium.pid"
-
-	// DefaultLogLevel is the alternative we provide to Debug
-	// We set this in pkg/logging.
-	DefaultLogLevel = logrus.InfoLevel
 
 	// EventsPipe is the name of the named pipe for agent <=> monitor events
 	EventsPipe = "events.sock"
