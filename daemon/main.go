@@ -704,7 +704,6 @@ func initEnv(cmd *cobra.Command) {
 	// BPF filesystem is mapped into the slave namespace.
 	bpf.CheckOrMountFS(bpfRoot)
 
-	logging.DefaultLogLevel = defaults.DefaultLogLevel
 	option.Config.Opts.SetBool(option.Debug, viper.GetBool("debug"))
 
 	option.Config.Opts.SetBool(option.DropNotify, true)
