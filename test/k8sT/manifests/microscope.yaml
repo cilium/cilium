@@ -81,4 +81,5 @@ spec:
         - --timeout-monitors
         - "2"
       initialDelaySeconds: 0
-      periodSeconds: 3
+      periodSeconds: 5
+      timeoutSeconds: 3
