@@ -635,39 +635,16 @@ func (d *Daemon) SyncLBMap() error {
 // elsewhere it needed. Returns an error if any issues occur dumping BPF maps
 // or deleting entries from BPF maps.
 func (d *Daemon) syncLBMapsWithK8s() error {
-	// Set of L3n4Addrs in string form for storage as a key in map.
-	k8sServicesFrontendAddresses := make(map[string]struct{})
 	k8sDeletedServices := []loadbalancer.LBSVC{}
 
 	// Maps service IDs to whether they are IPv6 (true) or IPv4 (false).
 	k8sDeletedRevNATS := make(map[loadbalancer.ServiceID]bool)
 
-	// Make sure we can't update the K8s service maps or the BPF maps while we
-	// are iterating over each to avoid having one updated before the other in
-	// parallel, resulting in inadvertent deletions of services from the BPF
-	// maps.
-	d.loadBalancer.K8sMU.Lock()
-	defer d.loadBalancer.K8sMU.Unlock()
+	// Set of L3n4Addrs in string form for storage as a key in map.
+	k8sServicesFrontendAddresses := d.k8sSvcCache.UniqueServiceFrontends()
 
 	d.loadBalancer.BPFMapMU.Lock()
 	defer d.loadBalancer.BPFMapMU.Unlock()
-
-	log.Debugf("syncing BPF service maps with in-memory Kubernetes service map")
-	// Convert K8sServices to L3n4Addrs for easy comparison with values from
-	// dumps of BPF maps.
-	for _, k8sServiceInfo := range d.loadBalancer.K8sServices {
-		for _, frontendPort := range k8sServiceInfo.Ports {
-			// Convert L3n4Addr to string for use as key in map so we can
-			// easily perform lookup for it later.
-			address := loadbalancer.L3n4Addr{
-				IP:     k8sServiceInfo.FEIP,
-				L4Addr: *frontendPort.L4Addr,
-			}
-			k8sServicesFrontendAddresses[address.StringWithProtocol()] = struct{}{}
-			log.WithFields(logrus.Fields{logfields.ServiceID: frontendPort.ID,
-				logfields.L3n4Addr: address}).Debug("adding service to set of services to check against service map BPF contents")
-		}
-	}
 
 	log.Debugf("dumping BPF service maps to userspace")
 	_, newSVCList, lbmapDumpErrors := lbmap.DumpServiceMapsToUserspace(true, option.Config.IPv4Disabled)

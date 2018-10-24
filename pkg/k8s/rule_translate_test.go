@@ -29,15 +29,15 @@ func (s *K8sSuite) TestTranslatorDirect(c *C) {
 	repo := policy.NewPolicyRepository()
 
 	tag1 := labels.LabelArray{labels.ParseLabel("tag1")}
-	serviceInfo := loadbalancer.K8sServiceNamespace{
-		ServiceName: "svc",
-		Namespace:   "default",
+	serviceInfo := ServiceID{
+		Name:      "svc",
+		Namespace: "default",
 	}
 
 	epIP := "10.1.1.1"
 
-	endpointInfo := loadbalancer.K8sServiceEndpoint{
-		BEIPs: map[string]bool{
+	endpointInfo := Endpoints{
+		BackendIPs: map[string]bool{
 			epIP: true,
 		},
 		Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
@@ -55,7 +55,7 @@ func (s *K8sSuite) TestTranslatorDirect(c *C) {
 				ToServices: []api.Service{
 					{
 						K8sService: &api.K8sServiceNamespace{
-							ServiceName: serviceInfo.ServiceName,
+							ServiceName: serviceInfo.Name,
 							Namespace:   serviceInfo.Namespace,
 						},
 					},
@@ -94,14 +94,14 @@ func (s *K8sSuite) TestServiceMatches(c *C) {
 		"app": "tested-service",
 	}
 
-	serviceInfo := loadbalancer.K8sServiceNamespace{
-		ServiceName: "doesn't matter",
-		Namespace:   "default",
+	serviceInfo := ServiceID{
+		Name:      "doesn't matter",
+		Namespace: "default",
 	}
 
 	epIP := "10.1.1.1"
-	endpointInfo := loadbalancer.K8sServiceEndpoint{
-		BEIPs: map[string]bool{
+	endpointInfo := Endpoints{
+		BackendIPs: map[string]bool{
 			epIP: true,
 		},
 		Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
@@ -131,15 +131,15 @@ func (s *K8sSuite) TestTranslatorLabels(c *C) {
 	}
 
 	tag1 := labels.LabelArray{labels.ParseLabel("tag1")}
-	serviceInfo := loadbalancer.K8sServiceNamespace{
-		ServiceName: "doesn't matter",
-		Namespace:   "default",
+	serviceInfo := ServiceID{
+		Name:      "doesn't matter",
+		Namespace: "default",
 	}
 
 	epIP := "10.1.1.1"
 
-	endpointInfo := loadbalancer.K8sServiceEndpoint{
-		BEIPs: map[string]bool{
+	endpointInfo := Endpoints{
+		BackendIPs: map[string]bool{
 			epIP: true,
 		},
 		Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
@@ -195,8 +195,8 @@ func (s *K8sSuite) TestGenerateToCIDRFromEndpoint(c *C) {
 
 	epIP := "10.1.1.1"
 
-	endpointInfo := loadbalancer.K8sServiceEndpoint{
-		BEIPs: map[string]bool{
+	endpointInfo := Endpoints{
+		BackendIPs: map[string]bool{
 			epIP: true,
 		},
 		Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
@@ -227,15 +227,17 @@ func (s *K8sSuite) TestGenerateToCIDRFromEndpoint(c *C) {
 
 func (s *K8sSuite) TestPreprocessRules(c *C) {
 	tag1 := labels.LabelArray{labels.ParseLabel("tag1")}
-	serviceInfo := loadbalancer.K8sServiceNamespace{
-		ServiceName: "svc",
-		Namespace:   "default",
+	serviceInfo := ServiceID{
+		Name:      "svc",
+		Namespace: "default",
 	}
 
 	epIP := "10.1.1.1"
 
-	endpointInfo := loadbalancer.K8sServiceEndpoint{
-		BEIPs: map[string]bool{
+	cache := NewServiceCache()
+
+	endpointInfo := Endpoints{
+		BackendIPs: map[string]bool{
 			epIP: true,
 		},
 		Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
@@ -246,9 +248,7 @@ func (s *K8sSuite) TestPreprocessRules(c *C) {
 		},
 	}
 
-	service := loadbalancer.K8sServiceInfo{
-		IsHeadless: true,
-	}
+	service := Service{IsHeadless: true}
 
 	rule1 := api.Rule{
 		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
@@ -256,7 +256,7 @@ func (s *K8sSuite) TestPreprocessRules(c *C) {
 			ToServices: []api.Service{
 				{
 					K8sService: &api.K8sServiceNamespace{
-						ServiceName: serviceInfo.ServiceName,
+						ServiceName: serviceInfo.Name,
 						Namespace:   serviceInfo.Namespace,
 					},
 				},
@@ -265,17 +265,17 @@ func (s *K8sSuite) TestPreprocessRules(c *C) {
 		Labels: tag1,
 	}
 
-	endpoints := map[loadbalancer.K8sServiceNamespace]*loadbalancer.K8sServiceEndpoint{
+	cache.endpoints = map[ServiceID]*Endpoints{
 		serviceInfo: &endpointInfo,
 	}
 
-	services := map[loadbalancer.K8sServiceNamespace]*loadbalancer.K8sServiceInfo{
+	cache.services = map[ServiceID]*Service{
 		serviceInfo: &service,
 	}
 
 	rules := api.Rules{&rule1}
 
-	err := PreprocessRules(rules, endpoints, services)
+	err := PreprocessRules(rules, &cache)
 	c.Assert(err, IsNil)
 
 	c.Assert(len(rule1.Egress[0].ToCIDRSet), Equals, 1)
@@ -294,8 +294,8 @@ func (s *K8sSuite) TestDontDeleteUserRules(c *C) {
 
 	epIP := "10.1.1.1"
 
-	endpointInfo := loadbalancer.K8sServiceEndpoint{
-		BEIPs: map[string]bool{
+	endpointInfo := Endpoints{
+		BackendIPs: map[string]bool{
 			epIP: true,
 		},
 		Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
