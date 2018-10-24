@@ -53,8 +53,8 @@ func (s *LabelsPrefCfgSuite) TestFilterLabels(c *C) {
 		"io.kubernetes.pod.uid":                          "c2e22414-dfc3-11e5-9792-080027755f5a",
 		"ignore":                                         "foo",
 		"ignorE":                                         "foo",
-		"annotation.kubernetes.io/config.seen": "2017-05-30T14:22:17.691491034Z",
-		"controller-revision-hash":             "123456",
+		"annotation.kubernetes.io/config.seen":           "2017-05-30T14:22:17.691491034Z",
+		"controller-revision-hash":                       "123456",
 	}
 	allLabels := Map2Labels(allNormalLabels, LabelSourceContainer)
 	filtered, _ := dlpcfg.filterLabels(allLabels)

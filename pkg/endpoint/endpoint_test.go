@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
-
 	. "gopkg.in/check.v1"
 )
 
@@ -425,7 +424,6 @@ func (s *EndpointSuite) TestProxyID(c *C) {
 
 func TestEndpoint_GetK8sPodLabels(t *testing.T) {
 	type fields struct {
-		mutex    lock.RWMutex
 		OpLabels pkgLabels.OpLabels
 	}
 	tests := []struct {
@@ -439,7 +437,6 @@ func TestEndpoint_GetK8sPodLabels(t *testing.T) {
 				OpLabels: pkgLabels.OpLabels{
 					OrchestrationInfo: pkgLabels.Map2Labels(map[string]string{"foo": "bar"}, pkgLabels.LabelSourceK8s),
 				},
-				mutex: lock.RWMutex{},
 			},
 			want: pkgLabels.Map2Labels(map[string]string{"foo": "bar"}, pkgLabels.LabelSourceK8s),
 		},
@@ -448,13 +445,12 @@ func TestEndpoint_GetK8sPodLabels(t *testing.T) {
 			fields: fields{
 				OpLabels: pkgLabels.OpLabels{
 					OrchestrationInfo: pkgLabels.Map2Labels(map[string]string{
-						"foo": "bar",
+						"foo":                                    "bar",
 						ciliumio.PodNamespaceMetaLabels + ".env": "prod",
 						ciliumio.PolicyLabelServiceAccount:       "default",
 						ciliumio.PodNamespaceLabel:               "default",
 					}, pkgLabels.LabelSourceK8s),
 				},
-				mutex: lock.RWMutex{},
 			},
 			want: pkgLabels.Map2Labels(map[string]string{"foo": "bar"}, pkgLabels.LabelSourceK8s),
 		},
@@ -463,15 +459,14 @@ func TestEndpoint_GetK8sPodLabels(t *testing.T) {
 			fields: fields{
 				OpLabels: pkgLabels.OpLabels{
 					OrchestrationInfo: pkgLabels.Map2Labels(map[string]string{
-						"foo": "bar",
+						"foo":                                    "bar",
 						ciliumio.PodNamespaceMetaLabels + ".env": "prod",
 					}, pkgLabels.LabelSourceK8s),
 					OrchestrationIdentity: pkgLabels.Map2Labels(map[string]string{
-						"foo2": "bar",
+						"foo2":                                   "bar",
 						ciliumio.PodNamespaceMetaLabels + ".env": "prod2",
 					}, pkgLabels.LabelSourceAny),
 				},
-				mutex: lock.RWMutex{},
 			},
 			want: pkgLabels.Map2Labels(map[string]string{"foo": "bar"}, pkgLabels.LabelSourceK8s),
 		},
@@ -479,7 +474,7 @@ func TestEndpoint_GetK8sPodLabels(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			e := &Endpoint{
-				mutex:    tt.fields.mutex,
+				mutex:    lock.RWMutex{},
 				OpLabels: tt.fields.OpLabels,
 			}
 			if got := e.GetK8sPodLabels(); !reflect.DeepEqual(got, tt.want) {
