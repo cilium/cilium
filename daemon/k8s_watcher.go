@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -183,39 +182,25 @@ type endpointImportMetadata struct {
 	ruleTranslationError error
 }
 
-func (r *endpointImportMetadataCache) upsert(ep *v1.Endpoints, ruleTranslationErr error) {
-	if ep == nil {
-		return
-	}
-
+func (r *endpointImportMetadataCache) upsert(id k8s.ServiceID, ruleTranslationErr error) {
 	meta := endpointImportMetadata{
 		ruleTranslationError: ruleTranslationErr,
 	}
-	epNSName := k8sUtils.GetObjNamespaceName(&ep.ObjectMeta)
 
 	r.mutex.Lock()
-	r.endpointImportMetadataMap[epNSName] = meta
+	r.endpointImportMetadataMap[id.String()] = meta
 	r.mutex.Unlock()
 }
 
-func (r *endpointImportMetadataCache) delete(ep *v1.Endpoints) {
-	if ep == nil {
-		return
-	}
-	epNSName := k8sUtils.GetObjNamespaceName(&ep.ObjectMeta)
-
+func (r *endpointImportMetadataCache) delete(id k8s.ServiceID) {
 	r.mutex.Lock()
-	delete(r.endpointImportMetadataMap, epNSName)
+	delete(r.endpointImportMetadataMap, id.String())
 	r.mutex.Unlock()
 }
 
-func (r *endpointImportMetadataCache) get(cnp *v1.Endpoints) (endpointImportMetadata, bool) {
-	if cnp == nil {
-		return endpointImportMetadata{}, false
-	}
-	epNSName := k8sUtils.GetObjNamespaceName(&cnp.ObjectMeta)
+func (r *endpointImportMetadataCache) get(id k8s.ServiceID) (endpointImportMetadata, bool) {
 	r.mutex.RLock()
-	endpointImportMeta, ok := r.endpointImportMetadataMap[epNSName]
+	endpointImportMeta, ok := r.endpointImportMetadataMap[id.String()]
 	r.mutex.RUnlock()
 	return endpointImportMeta, ok
 }
@@ -457,7 +442,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 					return nil
 				}
 			},
-			d.missingK8sServiceV1,
+			d.k8sSvcCache.ListMissingServices,
 			&v1.Service{},
 			k8s.Client(),
 			reSyncPeriod,
@@ -494,7 +479,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 					return nil
 				}
 			},
-			d.missingK8sEndpointsV1,
+			d.k8sSvcCache.ListMissingEndpoints,
 			&v1.Endpoints{},
 			k8s.Client(),
 			reSyncPeriod,
@@ -771,356 +756,115 @@ func (d *Daemon) missingK8sNetworkPolicyV1(m versioned.Map) versioned.Map {
 	return missing
 }
 
-func parseSvcV1(svc *v1.Service) *loadbalancer.K8sServiceInfo {
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.K8sSvcName:    svc.ObjectMeta.Name,
-		logfields.K8sNamespace:  svc.ObjectMeta.Namespace,
-		logfields.K8sAPIVersion: svc.TypeMeta.APIVersion,
-		logfields.K8sSvcType:    svc.Spec.Type,
-	})
-
-	switch svc.Spec.Type {
-	case v1.ServiceTypeClusterIP, v1.ServiceTypeNodePort, v1.ServiceTypeLoadBalancer:
-		break
-
-	case v1.ServiceTypeExternalName:
-		// External-name services must be ignored
-		return nil
-
-	default:
-		scopedLog.Warn("Ignoring k8s service: unsupported type")
-		return nil
-	}
-
-	if svc.Spec.ClusterIP == "" {
-		scopedLog.Info("Ignoring k8s service: empty ClusterIP")
-		return nil
-	}
-
-	clusterIP := net.ParseIP(svc.Spec.ClusterIP)
-	headless := false
-	if strings.ToLower(svc.Spec.ClusterIP) == "none" {
-		headless = true
-	}
-	newSI := loadbalancer.NewK8sServiceInfo(clusterIP, headless, svc.Labels, svc.Spec.Selector)
-
-	// FIXME: Add support for
-	//  - NodePort
-	for _, port := range svc.Spec.Ports {
-		p := loadbalancer.NewFEPort(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
-		if _, ok := newSI.Ports[loadbalancer.FEPortName(port.Name)]; !ok {
-			newSI.Ports[loadbalancer.FEPortName(port.Name)] = p
-		}
-	}
-	return newSI
-}
-
-func (d *Daemon) addK8sServiceV1(svc *v1.Service) error {
-	newSI := parseSvcV1(svc)
-	if newSI == nil {
-		return nil
-	}
-
-	svcns := loadbalancer.K8sServiceNamespace{
-		ServiceName: svc.ObjectMeta.Name,
-		Namespace:   svc.ObjectMeta.Namespace,
-	}
-
-	d.loadBalancer.K8sMU.Lock()
-	defer d.loadBalancer.K8sMU.Unlock()
-
-	if oldSI, ok := d.loadBalancer.K8sServices[svcns]; ok {
-		if oldSI.Equals(newSI) {
-			return nil
-		}
-	}
-
-	d.loadBalancer.K8sServices[svcns] = newSI
-
-	return d.syncLB(&svcns, nil, nil)
-}
-
-func (d *Daemon) updateK8sServiceV1(oldSvc, newSvc *v1.Service) error {
-	log.WithFields(logrus.Fields{
-		logfields.K8sAPIVersion:         oldSvc.TypeMeta.APIVersion,
-		logfields.K8sSvcName + ".old":   oldSvc.ObjectMeta.Name,
-		logfields.K8sNamespace + ".old": oldSvc.ObjectMeta.Namespace,
-		logfields.K8sSvcType + ".old":   oldSvc.Spec.Type,
-		logfields.K8sSvcName:            newSvc.ObjectMeta.Name,
-		logfields.K8sNamespace:          newSvc.ObjectMeta.Namespace,
-		logfields.K8sSvcType:            newSvc.Spec.Type,
-	}).Debug("Received service update")
-
-	return d.addK8sServiceV1(newSvc)
-}
-
-func (d *Daemon) deleteK8sServiceV1(svc *v1.Service) error {
-	log.WithFields(logrus.Fields{
-		logfields.K8sSvcName:    svc.ObjectMeta.Name,
-		logfields.K8sNamespace:  svc.ObjectMeta.Namespace,
-		logfields.K8sAPIVersion: svc.TypeMeta.APIVersion,
-	}).Debug("Deleting k8s service")
-
-	svcns := &loadbalancer.K8sServiceNamespace{
-		ServiceName: svc.ObjectMeta.Name,
-		Namespace:   svc.ObjectMeta.Namespace,
-	}
-
-	d.loadBalancer.K8sMU.Lock()
-	defer d.loadBalancer.K8sMU.Unlock()
-	return d.syncLB(nil, nil, svcns)
-}
-
-// missingK8sServiceV1 returns a map containing missing services considered
-// missing from the K8sServices of the loadbalancer.
-func (d *Daemon) missingK8sServiceV1(m versioned.Map) versioned.Map {
-	missing := versioned.NewMap()
-	d.loadBalancer.K8sMU.RLock()
-	for uuid, svcObj := range m {
-		svc := svcObj.Data.(*v1.Service)
-		svcns := loadbalancer.K8sServiceNamespace{
-			ServiceName: svc.ObjectMeta.Name,
-			Namespace:   svc.ObjectMeta.Namespace,
-		}
-
-		k8sSvc, ok := d.loadBalancer.K8sServices[svcns]
+func (d *Daemon) k8sServiceHandler() {
+	for {
+		event, ok := <-d.k8sSvcCache.Events
 		if !ok {
-			missing.Add(uuid, svcObj)
-			continue
+			return
 		}
 
-		newSI := parseSvcV1(svc)
-		if !k8sSvc.Equals(newSI) {
-			missing.Add(uuid, svcObj)
-		}
-	}
-	d.loadBalancer.K8sMU.RUnlock()
-	return missing
-}
+		svc := event.Service
 
-func parseK8sEPv1(ep *v1.Endpoints) *loadbalancer.K8sServiceEndpoint {
-	newSvcEP := loadbalancer.NewK8sServiceEndpoint()
+		scopedLog := log.WithFields(logrus.Fields{
+			logfields.K8sSvcName:   event.ID.Name,
+			logfields.K8sNamespace: event.ID.Namespace,
+		})
 
-	for _, sub := range ep.Subsets {
-		for _, addr := range sub.Addresses {
-			newSvcEP.BEIPs[addr.IP] = true
-		}
-		for _, port := range sub.Ports {
-			lbPort := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
-			newSvcEP.Ports[loadbalancer.FEPortName(port.Name)] = lbPort
-		}
-	}
+		scopedLog.WithFields(logrus.Fields{
+			"action":    event.Action.String(),
+			"service":   event.Service.String(),
+			"endpoints": event.Endpoints.String(),
+		}).Info("Kubernetes service definition changed")
 
-	return newSvcEP
-}
-
-func (d *Daemon) addK8sEndpointV1(ep *v1.Endpoints) error {
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.K8sEndpointName: ep.ObjectMeta.Name,
-		logfields.K8sNamespace:    ep.ObjectMeta.Namespace,
-		logfields.K8sAPIVersion:   ep.TypeMeta.APIVersion,
-	})
-
-	svcns := loadbalancer.K8sServiceNamespace{
-		ServiceName: ep.ObjectMeta.Name,
-		Namespace:   ep.ObjectMeta.Namespace,
-	}
-
-	newSvcEP := parseK8sEPv1(ep)
-
-	d.loadBalancer.K8sMU.Lock()
-	defer d.loadBalancer.K8sMU.Unlock()
-
-	// Check whether any service corresponding to this endpoint already exists
-	// before it gets inserted. If it does exist, this means that we may not have
-	// to plumb the Kubernetes Endpoint into any toService rules if nothing
-	// about the Endpoint has changed.
-	storedK8sEndpoint, storedK8sEndpointOK := d.loadBalancer.K8sEndpoints[svcns]
-	endpointsEqual := storedK8sEndpointOK && reflect.DeepEqual(storedK8sEndpoint, newSvcEP)
-
-	d.loadBalancer.K8sEndpoints[svcns] = newSvcEP
-
-	// Note: this does nothing if the service is headless.
-	d.syncLB(&svcns, nil, nil)
-
-	if option.Config.IsLBEnabled() {
-		if err := d.syncExternalLB(&svcns, nil, nil); err != nil {
-			scopedLog.WithError(err).Error("Unable to add endpoints on ingress service")
-			return err
-		}
-	}
-
-	svc, ok := d.loadBalancer.K8sServices[svcns]
-
-	if ok && svc.IsExternal() {
-		serviceImportMeta, cacheOK := endpointMetadataCache.get(ep)
-
-		// If this is the first time adding this Endpoint, or there was an error
-		// adding it last time, then try to add translate it and its
-		// corresponding external service for any toServices rules which
-		// select said service.
-		if !cacheOK || (cacheOK && serviceImportMeta.ruleTranslationError != nil) {
-			translator := k8s.NewK8sTranslator(svcns, *newSvcEP, false, svc.Labels, bpfIPCache.IPCache)
-			result, err := d.policy.TranslateRules(translator)
-			endpointMetadataCache.upsert(ep, err)
-			if err != nil {
-				log.Errorf("Unable to repopulate egress policies from ToService rules: %v", err)
-				return err
-			} else if result.NumToServicesRules > 0 {
-				// Only trigger policy updates if ToServices rules are in effect
-				scopedLog.Info("Kubernetes service endpoint added")
-				d.TriggerPolicyUpdates(true, "Kubernetes service endpoint added")
+		switch event.Action {
+		case k8s.UpdateService, k8s.UpdateIngress:
+			if err := d.addK8sSVCs(event.ID, svc, event.Endpoints); err != nil {
+				scopedLog.WithError(err).Error("Unable to add/update service to implement k8s event")
 			}
-		} else if serviceImportMeta.ruleTranslationError == nil {
-			// Given that we provide a non-zero value for the resyncPeriod for
-			// the Kubernetes informer, we will receive updates for all
-			// Endpoints from Kubernetes even if no meaningful content of the
-			// Endpoints has changed. Do not trigger policy updates if no
-			// meaningful content of the rule has changed, but only if the prior
-			// addition of the service endpoints into the policy repository
-			// succeeded.
-			if endpointsEqual {
-				scopedLog.Debugf("no changes to Kubernetes endpoint; not triggering policy updates")
-				return nil
+
+			if !svc.IsExternal() {
+				continue
 			}
-			// Endpoint has changed, but already exists.
-			scopedLog.Info("Kubernetes endpoint updated")
-			d.TriggerPolicyUpdates(true, "Kubernetes service endpoint updated")
-		}
-	}
-	return nil
-}
 
-func (d *Daemon) updateK8sEndpointV1(oldEP, newEP *v1.Endpoints) error {
-	// TODO only print debug message if the difference between the old endpoint
-	// and the new endpoint are important to us.
-	//log.WithFields(logrus.Fields{
-	//	logfields.K8sAPIVersion:            oldEP.TypeMeta.APIVersion,
-	//	logfields.K8sEndpointName + ".old": oldEP.ObjectMeta.Name,
-	//	logfields.K8sNamespace + ".old":    oldEP.ObjectMeta.Namespace,
-	//	logfields.K8sEndpointName: newEP.ObjectMeta.Name,
-	//	logfields.K8sNamespace:    newEP.ObjectMeta.Namespace,
-	//}).Debug("Received endpoint update")
+			serviceImportMeta, cacheOK := endpointMetadataCache.get(event.ID)
 
-	return d.addK8sEndpointV1(newEP)
-}
+			// If this is the first time adding this Endpoint, or there was an error
+			// adding it last time, then try to add translate it and its
+			// corresponding external service for any toServices rules which
+			// select said service.
+			if !cacheOK || (cacheOK && serviceImportMeta.ruleTranslationError != nil) {
+				translator := k8s.NewK8sTranslator(event.ID, *event.Endpoints, false, svc.Labels, bpfIPCache.IPCache)
+				result, err := d.policy.TranslateRules(translator)
+				endpointMetadataCache.upsert(event.ID, err)
+				if err != nil {
+					log.Errorf("Unable to repopulate egress policies from ToService rules: %v", err)
+					break
+				} else if result.NumToServicesRules > 0 {
+					// Only trigger policy updates if ToServices rules are in effect
+					d.TriggerPolicyUpdates(true, "Kubernetes service endpoint added")
+				}
+			} else if serviceImportMeta.ruleTranslationError == nil {
+				d.TriggerPolicyUpdates(true, "Kubernetes service endpoint updated")
+			}
 
-func (d *Daemon) deleteK8sEndpointV1(ep *v1.Endpoints) error {
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.K8sEndpointName: ep.ObjectMeta.Name,
-		logfields.K8sNamespace:    ep.ObjectMeta.Namespace,
-		logfields.K8sAPIVersion:   ep.TypeMeta.APIVersion,
-	})
+		case k8s.DeleteService, k8s.DeleteIngress:
+			if err := d.delK8sSVCs(event.ID, event.Service, event.Endpoints); err != nil {
+				scopedLog.WithError(err).Error("Unable to delete service to implement k8s event")
+			}
 
-	svcns := loadbalancer.K8sServiceNamespace{
-		ServiceName: ep.ObjectMeta.Name,
-		Namespace:   ep.ObjectMeta.Namespace,
-	}
+			if !svc.IsExternal() {
+				continue
+			}
 
-	d.loadBalancer.K8sMU.Lock()
-	defer d.loadBalancer.K8sMU.Unlock()
+			endpointMetadataCache.delete(event.ID)
 
-	if endpoint, ok := d.loadBalancer.K8sEndpoints[svcns]; ok {
-		svc, ok := d.loadBalancer.K8sServices[svcns]
-		if ok && svc.IsExternal() {
-			translator := k8s.NewK8sTranslator(svcns, *endpoint, true, svc.Labels, bpfIPCache.IPCache)
+			translator := k8s.NewK8sTranslator(event.ID, *event.Endpoints, true, svc.Labels, bpfIPCache.IPCache)
 			result, err := d.policy.TranslateRules(translator)
 			if err != nil {
 				log.Errorf("Unable to depopulate egress policies from ToService rules: %v", err)
+				break
 			} else if result.NumToServicesRules > 0 {
 				// Only trigger policy updates if ToServices rules are in effect
 				d.TriggerPolicyUpdates(true, "Kubernetes service endpoint deleted")
 			}
 		}
 	}
-
-	syncErr := d.syncLB(nil, nil, &svcns)
-	if option.Config.IsLBEnabled() {
-		if err := d.syncExternalLB(nil, nil, &svcns); err != nil {
-			scopedLog.WithError(err).Error("Unable to remove endpoints on ingress service")
-			return err
-		}
-	}
-	endpointMetadataCache.delete(ep)
-	return syncErr
 }
 
-// missingK8sEndpointsV1 returns a map containing missing endpoints considered
-// missing from the k8sEndpoints of the loadbalancer.
-func (d *Daemon) missingK8sEndpointsV1(m versioned.Map) versioned.Map {
-	missing := versioned.NewMap()
-	// parse endpoints first to avoid holding the loadBalancer mutex
-	type metaEP struct {
-		k8sSvcEP *loadbalancer.K8sServiceEndpoint
-		svcNS    loadbalancer.K8sServiceNamespace
-		uuid     versioned.UUID
-		object   versioned.Object
-	}
-	metaEPs := make([]metaEP, 0, len(m))
-	for k, v := range m {
-		v1EP := v.Data.(*v1.Endpoints)
-		metaEPs = append(metaEPs, metaEP{
-			k8sSvcEP: parseK8sEPv1(v1EP),
-			svcNS: loadbalancer.K8sServiceNamespace{
-				ServiceName: v1EP.ObjectMeta.Name,
-				Namespace:   v1EP.ObjectMeta.Namespace,
-			},
-			uuid:   k,
-			object: v,
-		})
-	}
-
-	d.loadBalancer.K8sMU.RLock()
-	for _, metaEP := range metaEPs {
-		lbEP, ok := d.loadBalancer.K8sEndpoints[metaEP.svcNS]
-		if !ok {
-			missing.Add(metaEP.uuid, metaEP.object)
-			continue
-		}
-		if !metaEP.k8sSvcEP.DeepEqual(lbEP) {
-			missing.Add(metaEP.uuid, metaEP.object)
-		}
-	}
-	d.loadBalancer.K8sMU.RUnlock()
-	return missing
+func (d *Daemon) runK8sServiceHandler() {
+	go d.k8sServiceHandler()
 }
 
-func areIPsConsistent(ipv4Enabled, isSvcIPv4 bool, svc loadbalancer.K8sServiceNamespace, se *loadbalancer.K8sServiceEndpoint) error {
-	if isSvcIPv4 {
-		if !ipv4Enabled {
-			return fmt.Errorf("Received an IPv4 k8s service but IPv4 is "+
-				"disabled in the cilium daemon. Ignoring service %+v", svc)
-		}
-
-		for epIP := range se.BEIPs {
-			//is IPv6?
-			if net.ParseIP(epIP).To4() == nil {
-				return fmt.Errorf("Not all endpoints IPs are IPv4. Ignoring IPv4 service %+v", svc)
-			}
-		}
-	} else {
-		for epIP := range se.BEIPs {
-			//is IPv4?
-			if net.ParseIP(epIP).To4() != nil {
-				return fmt.Errorf("Not all endpoints IPs are IPv6. Ignoring IPv6 service %+v", svc)
-			}
-		}
-	}
+func (d *Daemon) addK8sServiceV1(svc *v1.Service) error {
+	d.k8sSvcCache.UpdateService(svc)
 	return nil
 }
 
-func getUniqPorts(svcPorts map[loadbalancer.FEPortName]*loadbalancer.FEPort) map[uint16]bool {
-	// We are not discriminating the different L4 protocols on the same L4
-	// port so we create the number of unique sets of service IP + service
-	// port.
-	uniqPorts := map[uint16]bool{}
-	for _, svcPort := range svcPorts {
-		uniqPorts[svcPort.Port] = true
-	}
-	return uniqPorts
+func (d *Daemon) updateK8sServiceV1(oldSvc, newSvc *v1.Service) error {
+	return d.addK8sServiceV1(newSvc)
 }
 
-func (d *Daemon) delK8sSVCs(svc loadbalancer.K8sServiceNamespace, svcInfo *loadbalancer.K8sServiceInfo, se *loadbalancer.K8sServiceEndpoint) error {
+func (d *Daemon) deleteK8sServiceV1(svc *v1.Service) error {
+	d.k8sSvcCache.DeleteService(svc)
+	return nil
+}
+
+func (d *Daemon) addK8sEndpointV1(ep *v1.Endpoints) error {
+	d.k8sSvcCache.UpdateEndpoints(ep)
+	return nil
+}
+
+func (d *Daemon) updateK8sEndpointV1(oldEP, newEP *v1.Endpoints) error {
+	d.k8sSvcCache.UpdateEndpoints(newEP)
+	return nil
+}
+
+func (d *Daemon) deleteK8sEndpointV1(ep *v1.Endpoints) error {
+	d.k8sSvcCache.DeleteEndpoints(ep)
+	return nil
+}
+
+func (d *Daemon) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service, se *k8s.Endpoints) error {
 	// If east-west load balancing is disabled, we should not sync(add or delete)
 	// K8s service to a cilium service.
 	if lb := viper.GetBool("disable-k8s-services"); lb == true {
@@ -1132,17 +876,12 @@ func (d *Daemon) delK8sSVCs(svc loadbalancer.K8sServiceNamespace, svcInfo *loadb
 		return nil
 	}
 
-	isSvcIPv4 := svcInfo.FEIP.To4() != nil
-	if err := areIPsConsistent(!option.Config.IPv4Disabled, isSvcIPv4, svc, se); err != nil {
-		return err
-	}
-
 	scopedLog := log.WithFields(logrus.Fields{
-		logfields.K8sSvcName:   svc.ServiceName,
+		logfields.K8sSvcName:   svc.Name,
 		logfields.K8sNamespace: svc.Namespace,
 	})
 
-	repPorts := getUniqPorts(svcInfo.Ports)
+	repPorts := svcInfo.UniquePorts()
 
 	for _, svcPort := range svcInfo.Ports {
 		if !repPorts[svcPort.Port] {
@@ -1156,14 +895,13 @@ func (d *Daemon) delK8sSVCs(svc loadbalancer.K8sServiceNamespace, svcInfo *loadb
 			}
 		}
 
-		fe := loadbalancer.NewL3n4Addr(svcPort.Protocol, svcInfo.FEIP, svcPort.Port)
-
+		fe := loadbalancer.NewL3n4Addr(svcPort.Protocol, svcInfo.FrontendIP, svcPort.Port)
 		if err := d.svcDeleteByFrontend(fe); err != nil {
 			scopedLog.WithError(err).WithField(logfields.Object, logfields.Repr(fe)).
 				Warn("Error deleting service by frontend")
 
 		} else {
-			scopedLog.Debugf("# cilium lb delete-service %s %d 0", svcInfo.FEIP, svcPort.Port)
+			scopedLog.Debugf("# cilium lb delete-service %s %d 0", svcInfo.FrontendIP, svcPort.Port)
 		}
 
 		if err := d.RevNATDelete(svcPort.ID); err != nil {
@@ -1175,7 +913,7 @@ func (d *Daemon) delK8sSVCs(svc loadbalancer.K8sServiceNamespace, svcInfo *loadb
 	return nil
 }
 
-func (d *Daemon) addK8sSVCs(svc loadbalancer.K8sServiceNamespace, svcInfo *loadbalancer.K8sServiceInfo, se *loadbalancer.K8sServiceEndpoint) error {
+func (d *Daemon) addK8sSVCs(svcID k8s.ServiceID, svc *k8s.Service, endpoints *k8s.Endpoints) error {
 	// If east-west load balancing is disabled, we should not sync(add or delete)
 	// K8s service to a cilium service.
 	if lb := viper.GetBool("disable-k8s-services"); lb == true {
@@ -1183,37 +921,32 @@ func (d *Daemon) addK8sSVCs(svc loadbalancer.K8sServiceNamespace, svcInfo *loadb
 	}
 
 	// Headless services do not need any datapath implementation
-	if svcInfo.IsHeadless {
+	if svc.IsHeadless {
 		return nil
 	}
 
 	scopedLog := log.WithFields(logrus.Fields{
-		logfields.K8sSvcName:   svc.ServiceName,
-		logfields.K8sNamespace: svc.Namespace,
+		logfields.K8sSvcName:   svcID.Name,
+		logfields.K8sNamespace: svcID.Namespace,
 	})
 
-	isSvcIPv4 := svcInfo.FEIP.To4() != nil
-	if err := areIPsConsistent(!option.Config.IPv4Disabled, isSvcIPv4, svc, se); err != nil {
-		return err
-	}
+	uniqPorts := svc.UniquePorts()
 
-	uniqPorts := getUniqPorts(svcInfo.Ports)
-
-	for fePortName, fePort := range svcInfo.Ports {
+	for fePortName, fePort := range svc.Ports {
 		if !uniqPorts[fePort.Port] {
 			continue
 		}
 
-		k8sBEPort := se.Ports[fePortName]
+		k8sBEPort := endpoints.Ports[fePortName]
 		uniqPorts[fePort.Port] = false
 
 		if fePort.ID == 0 {
-			feAddr := loadbalancer.NewL3n4Addr(fePort.Protocol, svcInfo.FEIP, fePort.Port)
+			feAddr := loadbalancer.NewL3n4Addr(fePort.Protocol, svc.FrontendIP, fePort.Port)
 			feAddrID, err := service.AcquireID(*feAddr, 0)
 			if err != nil {
 				scopedLog.WithError(err).WithFields(logrus.Fields{
 					logfields.ServiceID: fePortName,
-					logfields.IPAddr:    svcInfo.FEIP,
+					logfields.IPAddr:    svc.FrontendIP,
 					logfields.Port:      fePort.Port,
 					logfields.Protocol:  fePort.Protocol,
 				}).Error("Error while getting a new service ID. Ignoring service...")
@@ -1230,7 +963,7 @@ func (d *Daemon) addK8sSVCs(svc loadbalancer.K8sServiceNamespace, svcInfo *loadb
 		besValues := []loadbalancer.LBBackEnd{}
 
 		if k8sBEPort != nil {
-			for epIP := range se.BEIPs {
+			for epIP := range endpoints.BackendIPs {
 				bePort := loadbalancer.LBBackEnd{
 					L3n4Addr: loadbalancer.L3n4Addr{IP: net.ParseIP(epIP), L4Addr: *k8sBEPort},
 					Weight:   0,
@@ -1239,101 +972,12 @@ func (d *Daemon) addK8sSVCs(svc loadbalancer.K8sServiceNamespace, svcInfo *loadb
 			}
 		}
 
-		fe := loadbalancer.NewL3n4AddrID(fePort.Protocol, svcInfo.FEIP, fePort.Port, fePort.ID)
+		fe := loadbalancer.NewL3n4AddrID(fePort.Protocol, svc.FrontendIP, fePort.Port, fePort.ID)
 		if _, err := d.svcAdd(*fe, besValues, true); err != nil {
 			scopedLog.WithError(err).Error("Error while inserting service in LB map")
 		}
 	}
 	return nil
-}
-
-func (d *Daemon) syncLB(newSN, modSN, delSN *loadbalancer.K8sServiceNamespace) error {
-	deleteSN := func(delSN loadbalancer.K8sServiceNamespace) error {
-		svc, ok := d.loadBalancer.K8sServices[delSN]
-		if !ok {
-			delete(d.loadBalancer.K8sEndpoints, delSN)
-			return nil
-		}
-
-		endpoint, ok := d.loadBalancer.K8sEndpoints[delSN]
-		if !ok {
-			delete(d.loadBalancer.K8sServices, delSN)
-			return nil
-		}
-
-		if err := d.delK8sSVCs(delSN, svc, endpoint); err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
-				logfields.K8sSvcName:   delSN.ServiceName,
-				logfields.K8sNamespace: delSN.Namespace,
-			}).Error("Unable to delete k8s service")
-			return err
-		}
-
-		delete(d.loadBalancer.K8sServices, delSN)
-		delete(d.loadBalancer.K8sEndpoints, delSN)
-		return nil
-	}
-
-	addSN := func(addSN loadbalancer.K8sServiceNamespace) error {
-		svcInfo, ok := d.loadBalancer.K8sServices[addSN]
-		if !ok {
-			return nil
-		}
-
-		endpoint, ok := d.loadBalancer.K8sEndpoints[addSN]
-		if !ok {
-			return nil
-		}
-
-		if err := d.addK8sSVCs(addSN, svcInfo, endpoint); err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
-				logfields.K8sSvcName:   addSN.ServiceName,
-				logfields.K8sNamespace: addSN.Namespace,
-			}).Error("Unable to add k8s service")
-			return err
-		}
-		return nil
-	}
-
-	if delSN != nil {
-		// Clean old services
-		return deleteSN(*delSN)
-	}
-	if modSN != nil {
-		// Re-add modified services
-		return addSN(*modSN)
-	}
-	if newSN != nil {
-		// Add new services
-		return addSN(*newSN)
-	}
-	return nil
-}
-
-func supportV1beta1(ing *v1beta1.Ingress) bool {
-	// We only support Single Service Ingress for now which means
-	// ing.Spec.Backend needs to be different than nil.
-	return ing.Spec.Backend != nil
-}
-
-// parsingV1beta1 returns a loadbalancer.K8sServiceInfo from a given
-// v1beta1.Ingress. If the v1beta1.Ingress is not valid, or not supported by
-// Cilium, an error is returned.
-func parsingV1beta1(ing *v1beta1.Ingress, host net.IP) (*loadbalancer.K8sServiceInfo, error) {
-	if !supportV1beta1(ing) {
-		return nil, fmt.Errorf("only Single Service Ingress is supported for now, ignoring Ingress")
-	}
-	ingressPort := ing.Spec.Backend.ServicePort.IntValue()
-	if ingressPort == 0 {
-		return nil, fmt.Errorf("invalid port number")
-	}
-	fePort := loadbalancer.NewFEPort(loadbalancer.TCP, uint16(ingressPort))
-
-	ingressSvcInfo := loadbalancer.NewK8sServiceInfo(host, false, nil, nil)
-	portName := loadbalancer.FEPortName(ing.Spec.Backend.ServiceName + "/" + ing.Spec.Backend.ServicePort.String())
-	ingressSvcInfo.Ports[portName] = fePort
-
-	return ingressSvcInfo, nil
 }
 
 func (d *Daemon) addIngressV1beta1(ingress *v1beta1.Ingress) error {
@@ -1342,6 +986,7 @@ func (d *Daemon) addIngressV1beta1(ingress *v1beta1.Ingress) error {
 		logfields.K8sAPIVersion:  ingress.TypeMeta.APIVersion,
 		logfields.K8sNamespace:   ingress.ObjectMeta.Namespace,
 	})
+	scopedLog.Info("Kubernetes ingress added")
 
 	var host net.IP
 	if option.Config.IPv4Disabled {
@@ -1350,31 +995,8 @@ func (d *Daemon) addIngressV1beta1(ingress *v1beta1.Ingress) error {
 		host = option.Config.HostV4Addr
 	}
 
-	k8sSvcInfo, err := parsingV1beta1(ingress, host)
+	_, err := d.k8sSvcCache.UpdateIngress(ingress, host)
 	if err != nil {
-		scopedLog.WithError(err).Errorf("Unable to add ingress v1beta1")
-		return nil
-	}
-
-	svcName := loadbalancer.K8sServiceNamespace{
-		ServiceName: ingress.Spec.Backend.ServiceName,
-		Namespace:   ingress.ObjectMeta.Namespace,
-	}
-
-	syncIngress := func(ingressSvcInfo *loadbalancer.K8sServiceInfo) error {
-		d.loadBalancer.K8sIngress[svcName] = ingressSvcInfo
-
-		if err := d.syncExternalLB(&svcName, nil, nil); err != nil {
-			return fmt.Errorf("Unable to add ingress service %s: %s", svcName, err)
-		}
-		return nil
-	}
-
-	d.loadBalancer.K8sMU.Lock()
-	err = syncIngress(k8sSvcInfo)
-	d.loadBalancer.K8sMU.Unlock()
-	if err != nil {
-		scopedLog.WithError(err).Error("Error in syncIngress")
 		return err
 	}
 
@@ -1464,10 +1086,7 @@ func (d *Daemon) deleteIngressV1beta1(ingress *v1beta1.Ingress) error {
 		return nil
 	}
 
-	svcName := loadbalancer.K8sServiceNamespace{
-		ServiceName: ingress.Spec.Backend.ServiceName,
-		Namespace:   ingress.ObjectMeta.Namespace,
-	}
+	d.k8sSvcCache.DeleteIngress(ingress)
 
 	// Remove RevNAT from the BPF Map for non-LB nodes.
 	if !option.Config.IsLBEnabled() {
@@ -1492,116 +1111,18 @@ func (d *Daemon) deleteIngressV1beta1(ingress *v1beta1.Ingress) error {
 		return nil
 	}
 
-	d.loadBalancer.K8sMU.Lock()
-	defer d.loadBalancer.K8sMU.Unlock()
-
-	ingressSvcInfo, ok := d.loadBalancer.K8sIngress[svcName]
-	if !ok {
-		return nil
-	}
-
-	// Get all active endpoints for the service specified in ingress
-	k8sEP, ok := d.loadBalancer.K8sEndpoints[svcName]
-	if !ok {
-		return nil
-	}
-
-	err := d.delK8sSVCs(svcName, ingressSvcInfo, k8sEP)
-	if err != nil {
-		scopedLog.WithError(err).Error("Unable to delete K8s ingress")
-		return err
-	}
-	delete(d.loadBalancer.K8sIngress, svcName)
 	return nil
 }
 
 func (d *Daemon) missingK8sIngressV1Beta1(m versioned.Map) versioned.Map {
-	missing := versioned.NewMap()
 	var host net.IP
 	if option.Config.IPv4Disabled {
 		host = option.Config.HostV6Addr
 	} else {
 		host = option.Config.HostV4Addr
 	}
-	d.loadBalancer.K8sMU.RLock()
-	for k, v := range m {
-		ing := v.Data.(*v1beta1.Ingress)
 
-		// If we don't support it don't bother checking if it's missing
-		if !supportV1beta1(ing) {
-			continue
-		}
-
-		k8sSvcInfo, err := parsingV1beta1(ing, host)
-		if err != nil {
-			// If there's an error parsing the v1beta1, don't bother checking if it's missing
-			continue
-		}
-
-		svcName := loadbalancer.K8sServiceNamespace{
-			ServiceName: ing.Spec.Backend.ServiceName,
-			Namespace:   ing.ObjectMeta.Namespace,
-		}
-		lbK8sSvcInfo, ok := d.loadBalancer.K8sIngress[svcName]
-		if !ok || !lbK8sSvcInfo.Equals(k8sSvcInfo) {
-			missing.Add(k, v)
-		}
-	}
-	d.loadBalancer.K8sMU.RUnlock()
-	return missing
-}
-
-func (d *Daemon) syncExternalLB(newSN, modSN, delSN *loadbalancer.K8sServiceNamespace) error {
-	deleteSN := func(delSN loadbalancer.K8sServiceNamespace) error {
-		ingSvc, ok := d.loadBalancer.K8sIngress[delSN]
-		if !ok {
-			return nil
-		}
-
-		endpoint, ok := d.loadBalancer.K8sEndpoints[delSN]
-		if !ok {
-			return nil
-		}
-
-		if err := d.delK8sSVCs(delSN, ingSvc, endpoint); err != nil {
-			return err
-		}
-
-		delete(d.loadBalancer.K8sServices, delSN)
-		return nil
-	}
-
-	addSN := func(addSN loadbalancer.K8sServiceNamespace) error {
-		ingressSvcInfo, ok := d.loadBalancer.K8sIngress[addSN]
-		if !ok {
-			return nil
-		}
-
-		k8sEP, ok := d.loadBalancer.K8sEndpoints[addSN]
-		if !ok {
-			return nil
-		}
-
-		err := d.addK8sSVCs(addSN, ingressSvcInfo, k8sEP)
-		if err != nil {
-			return err
-		}
-		return nil
-	}
-
-	if delSN != nil {
-		// Clean old services
-		return deleteSN(*delSN)
-	}
-	if modSN != nil {
-		// Re-add modified services
-		return addSN(*modSN)
-	}
-	if newSN != nil {
-		// Add new services
-		return addSN(*newSN)
-	}
-	return nil
+	return d.k8sSvcCache.ListMissingIngresses(m, host)
 }
 
 // getUpdatedCNPFromStore gets the most recent version of cnp from the store
@@ -1668,9 +1189,7 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumV2Store cache.Store, cnp *cilium
 
 	rules, policyImportErr := cnp.Parse()
 	if policyImportErr == nil {
-		d.loadBalancer.K8sMU.Lock()
-		policyImportErr = k8s.PreprocessRules(rules, d.loadBalancer.K8sEndpoints, d.loadBalancer.K8sServices)
-		d.loadBalancer.K8sMU.Unlock()
+		policyImportErr = k8s.PreprocessRules(rules, &d.k8sSvcCache)
 		// Replace all rules with the same name, namespace and
 		// resourceTypeCiliumNetworkPolicy
 		rev, policyImportErr = d.PolicyAdd(rules, &AddOptions{
