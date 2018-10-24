@@ -49,6 +49,20 @@ data:
   # that will be seen in monitor output.
   monitor-aggregation-level: "none"
 
+  # ct-global-max-entries-* specifies the maximum number of connections
+  # supported across all endpoints, split by protocol: tcp or other. One pair
+  # of maps uses these values for IPv4 connections, and another pair of maps
+  # use these values for IPv6 connections.
+  #
+  # If these values are modified, then during the next Cilium startup the
+  # tracking of ongoing connections may be disrupted. This may lead to brief
+  # policy drops or a change in loadbalancing decisions for a connection.
+  #
+  # For users upgrading from Cilium 1.2 or earlier, to minimize disruption
+  # during the upgrade process, comment out these options.
+  ct-global-max-entries-tcp: "524288"
+  ct-global-max-entries-other: "262144"
+
   # Regular expression matching compatible Istio sidecar istio-proxy
   # container image names
   sidecar-istio-proxy-image: "cilium/istio_proxy"
@@ -103,7 +117,7 @@ spec:
       - name: clean-cilium-state
         image: docker.io/library/busybox:1.28.4
         imagePullPolicy: IfNotPresent
-        command: ['sh', '-c', 'if [ "${CLEAN_CILIUM_STATE}" = "true" ]; then rm -rf /var/run/cilium/state; fi; if [ "${CLEAN_CILIUM_STATE}" = "true" ] || [ "${CLEAN_CILIUM_BPF_STATE}" = "true" ]; then rm -rf /sys/fs/bpf/tc/globals/cilium_* /var/run/cilium/bpffs/tc/globals/cilium_*; fi']
+        command: ['sh', '-c', 'rm /var/run/cilium/cilium.pid; rm /var/run/cilium/state/health-endpoint.pid; if [ "${CLEAN_CILIUM_STATE}" = "true" ]; then rm -rf /var/run/cilium/state; fi; if [ "${CLEAN_CILIUM_STATE}" = "true" ] || [ "${CLEAN_CILIUM_BPF_STATE}" = "true" ]; then rm -rf /sys/fs/bpf/tc/globals/cilium_* /var/run/cilium/bpffs/tc/globals/cilium_*; fi']
         securityContext:
           capabilities:
             add:
@@ -128,7 +142,7 @@ spec:
               optional: true
               key: clean-cilium-bpf-state
       containers:
-      - image: docker.io/cilium/cilium:v1.2.2
+      - image: docker.io/cilium/cilium:v1.3.0
         imagePullPolicy: IfNotPresent
         name: cilium-agent
         command: ["cilium-agent"]
@@ -212,6 +226,18 @@ spec:
               key: cluster-id
               name: cilium-config
               optional: true
+        - name: CILIUM_GLOBAL_CT_MAX_TCP
+          valueFrom:
+            configMapKeyRef:
+              key: ct-global-max-entries-tcp
+              name: cilium-config
+              optional: true
+        - name: CILIUM_GLOBAL_CT_MAX_ANY
+          valueFrom:
+            configMapKeyRef:
+              key: ct-global-max-entries-other
+              name: cilium-config
+              optional: true
         livenessProbe:
           exec:
             command:
@@ -264,7 +290,7 @@ spec:
         hostPath:
           path: /var/run/cilium
           type: "DirectoryOrCreate"
-      # To keep state between restarts / upgrades
+      # To keep state between restarts / upgrades for bpf maps
       - name: bpf-maps
         hostPath:
           path: /sys/fs/bpf
