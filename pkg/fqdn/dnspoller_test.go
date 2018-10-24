@@ -139,7 +139,7 @@ func (ds *FQDNTestSuite) TestDNSPollerRuleHandling(c *C) {
 		checkFunc                   func(lookups map[string]int, generatedRules []*api.Rule, poller *DNSPoller)
 	}{
 		{
-			desc: "Lookup a name when added in a rule",
+			desc:                        "Lookup a name when added in a rule",
 			lookupIterationsAfterAdd:    1,
 			lookupIterationsAfterDelete: 0,
 			checkFunc: func(lookups map[string]int, generatedRules []*api.Rule, poller *DNSPoller) {
@@ -154,7 +154,7 @@ func (ds *FQDNTestSuite) TestDNSPollerRuleHandling(c *C) {
 		},
 
 		{
-			desc: "Lookup each name once when 2 are added in a rule",
+			desc:                        "Lookup each name once when 2 are added in a rule",
 			lookupIterationsAfterAdd:    1,
 			lookupIterationsAfterDelete: 0,
 			checkFunc: func(lookups map[string]int, generatedRules []*api.Rule, poller *DNSPoller) {
@@ -169,7 +169,7 @@ func (ds *FQDNTestSuite) TestDNSPollerRuleHandling(c *C) {
 		},
 
 		{
-			desc: "Lookup name once when two rules refer to it",
+			desc:                        "Lookup name once when two rules refer to it",
 			lookupIterationsAfterAdd:    1,
 			lookupIterationsAfterDelete: 0,
 			checkFunc: func(lookups map[string]int, generatedRules []*api.Rule, poller *DNSPoller) {
@@ -184,7 +184,7 @@ func (ds *FQDNTestSuite) TestDNSPollerRuleHandling(c *C) {
 		},
 
 		{
-			desc: "No lookups after removing all rules",
+			desc:                        "No lookups after removing all rules",
 			lookupIterationsAfterAdd:    0,
 			lookupIterationsAfterDelete: 1,
 			checkFunc: func(lookups map[string]int, generatedRules []*api.Rule, poller *DNSPoller) {
@@ -195,7 +195,7 @@ func (ds *FQDNTestSuite) TestDNSPollerRuleHandling(c *C) {
 		},
 
 		{
-			desc: "One lookup for a name after removing one of two referring rules",
+			desc:                        "One lookup for a name after removing one of two referring rules",
 			lookupIterationsAfterAdd:    0,
 			lookupIterationsAfterDelete: 1,
 			checkFunc: func(lookups map[string]int, generatedRules []*api.Rule, poller *DNSPoller) {
@@ -211,7 +211,7 @@ func (ds *FQDNTestSuite) TestDNSPollerRuleHandling(c *C) {
 		},
 
 		{
-			desc: "One lookup for a name after removing an unrelated rule",
+			desc:                        "One lookup for a name after removing an unrelated rule",
 			lookupIterationsAfterAdd:    0,
 			lookupIterationsAfterDelete: 1,
 			checkFunc: func(lookups map[string]int, generatedRules []*api.Rule, poller *DNSPoller) {
