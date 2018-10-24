@@ -19,7 +19,6 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/ipcache"
-	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -33,8 +32,8 @@ var _ policy.Translator = RuleTranslator{}
 // Translate populates/depopulates given rule with ToCIDR rules
 // Based on provided service/endpoint
 type RuleTranslator struct {
-	Service       loadbalancer.K8sServiceNamespace
-	Endpoint      loadbalancer.K8sServiceEndpoint
+	Service       ServiceID
+	Endpoint      Endpoints
 	ServiceLabels map[string]string
 	Revert        bool
 	IPCache       ipcache.Implementation
@@ -104,7 +103,7 @@ func (k RuleTranslator) serviceMatches(service api.Service) bool {
 	}
 
 	if service.K8sService != nil {
-		return service.K8sService.ServiceName == k.Service.ServiceName &&
+		return service.K8sService.ServiceName == k.Service.Name &&
 			(service.K8sService.Namespace == k.Service.Namespace || service.K8sService.Namespace == "")
 	}
 
@@ -115,7 +114,7 @@ func (k RuleTranslator) serviceMatches(service api.Service) bool {
 // ToCIDR rules based on provided endpoint object
 func generateToCidrFromEndpoint(
 	egress *api.EgressRule,
-	endpoint loadbalancer.K8sServiceEndpoint,
+	endpoint Endpoints,
 	impl ipcache.Implementation) error {
 
 	// Non-nil implementation here implies that this translation is
@@ -134,7 +133,7 @@ func generateToCidrFromEndpoint(
 
 	// This will generate one-address CIDRs consisting of endpoint backend ip
 	mask := net.CIDRMask(128, 128)
-	for ip := range endpoint.BEIPs {
+	for ip := range endpoint.BackendIPs {
 		epIP := net.ParseIP(ip)
 		if epIP == nil {
 			return fmt.Errorf("Unable to parse ip: %s", ip)
@@ -172,13 +171,13 @@ func generateToCidrFromEndpoint(
 // processing to proceed.
 func deleteToCidrFromEndpoint(
 	egress *api.EgressRule,
-	endpoint loadbalancer.K8sServiceEndpoint,
+	endpoint Endpoints,
 	impl ipcache.Implementation) error {
 
 	newToCIDR := make([]api.CIDRRule, 0, len(egress.ToCIDRSet))
 	deleted := make([]api.CIDRRule, 0, len(egress.ToCIDRSet))
 
-	for ip := range endpoint.BEIPs {
+	for ip := range endpoint.BackendIPs {
 		epIP := net.ParseIP(ip)
 		if epIP == nil {
 			return fmt.Errorf("Unable to parse ip: %s", ip)
@@ -215,19 +214,20 @@ func deleteToCidrFromEndpoint(
 }
 
 // PreprocessRules translates rules that apply to headless services
-func PreprocessRules(
-	r api.Rules,
-	endpoints map[loadbalancer.K8sServiceNamespace]*loadbalancer.K8sServiceEndpoint,
-	services map[loadbalancer.K8sServiceNamespace]*loadbalancer.K8sServiceInfo) error {
+func PreprocessRules(r api.Rules, cache *ServiceCache) error {
 
 	// Headless services are translated prior to policy import, so the
 	// policy will contain all of the CIDRs and can handle ipcache
 	// interactions when the policy is imported. Ignore the IPCache
 	// interaction here and just set the implementation to nil.
 	ipcache := ipcache.Implementation(nil)
+
+	cache.mutex.Lock()
+	defer cache.mutex.Unlock()
+
 	for _, rule := range r {
-		for ns, ep := range endpoints {
-			svc, ok := services[ns]
+		for ns, ep := range cache.endpoints {
+			svc, ok := cache.services[ns]
 			if ok && svc.IsExternal() {
 				t := NewK8sTranslator(ns, *ep, false, svc.Labels, ipcache)
 				err := t.Translate(rule, &policy.TranslationResult{})
@@ -242,8 +242,8 @@ func PreprocessRules(
 
 // NewK8sTranslator returns RuleTranslator
 func NewK8sTranslator(
-	serviceInfo loadbalancer.K8sServiceNamespace,
-	endpoint loadbalancer.K8sServiceEndpoint,
+	serviceInfo ServiceID,
+	endpoint Endpoints,
 	revert bool,
 	labels map[string]string,
 	ipcache ipcache.Implementation) RuleTranslator {
