@@ -127,7 +127,7 @@ func (r *CiliumNetworkPolicy) String() string {
 		result += fmt.Sprintf("Spec: %v", *(r.Spec))
 	}
 	if r.Specs != nil {
-		result += fmt.Sprintf("Specs: %s", r.Specs)
+		result += fmt.Sprintf("Specs: %v", r.Specs)
 	}
 	result += fmt.Sprintf("Status: %v", r.Status)
 	return result

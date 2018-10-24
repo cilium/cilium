@@ -424,54 +424,42 @@ func (s *EndpointSuite) TestProxyID(c *C) {
 }
 
 func TestEndpoint_GetK8sPodLabels(t *testing.T) {
-	type fields struct {
-		mutex    lock.RWMutex
-		OpLabels pkgLabels.OpLabels
-	}
 	tests := []struct {
 		name   string
-		fields fields
+		fields pkgLabels.OpLabels
 		want   pkgLabels.Labels
 	}{
 		{
 			name: "has all k8s labels",
-			fields: fields{
-				OpLabels: pkgLabels.OpLabels{
-					OrchestrationInfo: pkgLabels.Map2Labels(map[string]string{"foo": "bar"}, pkgLabels.LabelSourceK8s),
-				},
-				mutex: lock.RWMutex{},
+			fields: pkgLabels.OpLabels{
+				OrchestrationInfo: pkgLabels.Map2Labels(map[string]string{"foo": "bar"}, pkgLabels.LabelSourceK8s),
 			},
 			want: pkgLabels.Map2Labels(map[string]string{"foo": "bar"}, pkgLabels.LabelSourceK8s),
 		},
 		{
 			name: "the namespace labels, service account and namespace should be ignored as they don't belong to pod labels",
-			fields: fields{
-				OpLabels: pkgLabels.OpLabels{
-					OrchestrationInfo: pkgLabels.Map2Labels(map[string]string{
-						"foo": "bar",
-						ciliumio.PodNamespaceMetaLabels + ".env": "prod",
-						ciliumio.PolicyLabelServiceAccount:       "default",
-						ciliumio.PodNamespaceLabel:               "default",
-					}, pkgLabels.LabelSourceK8s),
-				},
-				mutex: lock.RWMutex{},
+
+			fields: pkgLabels.OpLabels{
+				OrchestrationInfo: pkgLabels.Map2Labels(map[string]string{
+					"foo": "bar",
+					ciliumio.PodNamespaceMetaLabels + ".env": "prod",
+					ciliumio.PolicyLabelServiceAccount:       "default",
+					ciliumio.PodNamespaceLabel:               "default",
+				}, pkgLabels.LabelSourceK8s),
 			},
 			want: pkgLabels.Map2Labels(map[string]string{"foo": "bar"}, pkgLabels.LabelSourceK8s),
 		},
 		{
 			name: "labels with other source than k8s should also be ignored",
-			fields: fields{
-				OpLabels: pkgLabels.OpLabels{
-					OrchestrationInfo: pkgLabels.Map2Labels(map[string]string{
-						"foo": "bar",
-						ciliumio.PodNamespaceMetaLabels + ".env": "prod",
-					}, pkgLabels.LabelSourceK8s),
-					OrchestrationIdentity: pkgLabels.Map2Labels(map[string]string{
-						"foo2": "bar",
-						ciliumio.PodNamespaceMetaLabels + ".env": "prod2",
-					}, pkgLabels.LabelSourceAny),
-				},
-				mutex: lock.RWMutex{},
+			fields: pkgLabels.OpLabels{
+				OrchestrationInfo: pkgLabels.Map2Labels(map[string]string{
+					"foo": "bar",
+					ciliumio.PodNamespaceMetaLabels + ".env": "prod",
+				}, pkgLabels.LabelSourceK8s),
+				OrchestrationIdentity: pkgLabels.Map2Labels(map[string]string{
+					"foo2": "bar",
+					ciliumio.PodNamespaceMetaLabels + ".env": "prod2",
+				}, pkgLabels.LabelSourceAny),
 			},
 			want: pkgLabels.Map2Labels(map[string]string{"foo": "bar"}, pkgLabels.LabelSourceK8s),
 		},
@@ -479,8 +467,8 @@ func TestEndpoint_GetK8sPodLabels(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			e := &Endpoint{
-				mutex:    tt.fields.mutex,
-				OpLabels: tt.fields.OpLabels,
+				mutex:    lock.RWMutex{},
+				OpLabels: tt.fields,
 			}
 			if got := e.GetK8sPodLabels(); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Endpoint.GetK8sPodLabels() = %v, want %v", got, tt.want)

@@ -352,7 +352,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 	}()
 
 	if err = netlink.LinkSetNsFd(*peer, int(netNs.Fd())); err != nil {
-		return fmt.Errorf("unable to move veth pair %q to netns: %s", peer, err)
+		return fmt.Errorf("unable to move veth pair '%v' to netns: %s", peer, err)
 	}
 
 	err = netNs.Do(func(_ ns.NetNS) error {
