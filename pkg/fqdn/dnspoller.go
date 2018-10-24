@@ -209,7 +209,7 @@ perRule:
 		sourceRuleCopy := sourceRule.DeepCopy()
 		stripToCIDRSet(sourceRuleCopy)
 
-		uuid := getRuleUUIDLabel(sourceRule)
+		uuid := getRuleUUIDLabel(sourceRuleCopy)
 		newDNSNames, alreadyExistsDNSNames := poller.addRule(uuid, sourceRuleCopy)
 		// only debug print for new names, since this function is called
 		// unconditionally, even when we insert generated rules (which aren't new)
