@@ -403,7 +403,7 @@ func UseNodeCIDR(node *Node) error {
 	if node.IPv6AllocCIDR != nil {
 		scopedLog.WithField(logfields.V6Prefix, node.IPv6AllocCIDR).Info("Retrieved IPv6 allocation range for node. Using it for ipv6-range")
 		if err := SetIPv6NodeRange(node.IPv6AllocCIDR); err != nil {
-			scopedLog.WithError(err).WithField(logfields.V4Prefix, node.IPv6AllocCIDR).Warn("k8s: Can't use IPv6 CIDR range from k8s")
+			scopedLog.WithError(err).WithField(logfields.V6Prefix, node.IPv6AllocCIDR).Warn("k8s: Can't use IPv6 CIDR range from k8s")
 		}
 	}
 
