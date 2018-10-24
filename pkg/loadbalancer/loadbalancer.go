@@ -21,8 +21,6 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/comparator"
-	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -114,11 +112,6 @@ type LoadBalancer struct {
 	SVCMap    SVCMap
 	SVCMapID  SVCMapID
 	RevNATMap RevNATMap
-
-	K8sMU        lock.RWMutex
-	K8sServices  map[K8sServiceNamespace]*K8sServiceInfo
-	K8sEndpoints map[K8sServiceNamespace]*K8sServiceEndpoint
-	K8sIngress   map[K8sServiceNamespace]*K8sServiceInfo
 }
 
 // AddService adds a service to list of loadbalancers and returns true if created.
@@ -168,133 +161,10 @@ func NewL4Type(name string) (L4Type, error) {
 // NewLoadBalancer returns a LoadBalancer with all maps initialized.
 func NewLoadBalancer() *LoadBalancer {
 	return &LoadBalancer{
-		SVCMap:       SVCMap{},
-		SVCMapID:     SVCMapID{},
-		RevNATMap:    RevNATMap{},
-		K8sServices:  map[K8sServiceNamespace]*K8sServiceInfo{},
-		K8sEndpoints: map[K8sServiceNamespace]*K8sServiceEndpoint{},
-		K8sIngress:   map[K8sServiceNamespace]*K8sServiceInfo{},
+		SVCMap:    SVCMap{},
+		SVCMapID:  SVCMapID{},
+		RevNATMap: RevNATMap{},
 	}
-}
-
-// K8sServiceNamespace is an abstraction for the k8s service + namespace loadbalancer.
-type K8sServiceNamespace struct {
-	ServiceName string `json:"serviceName,omitempty"`
-	Namespace   string `json:"namespace,omitempty"`
-}
-
-// K8sServiceInfo is an abstraction for a k8s service that is composed by the frontend IP
-// address (FEIP) and the map of the frontend ports (Ports).
-type K8sServiceInfo struct {
-	FEIP       net.IP
-	IsHeadless bool
-	Ports      map[FEPortName]*FEPort
-	Labels     map[string]string
-	Selector   map[string]string
-}
-
-// IsExternal returns true if the service is expected to serve out-of-cluster endpoints:
-func (si K8sServiceInfo) IsExternal() bool {
-	return len(si.Selector) == 0
-}
-
-// Equals returns true if K8sServiceInfo is considered equal to the given
-// k8sServiceInfo.
-// Parameters:
-//  * o K8sServiceInfo to be compared with.
-func (si *K8sServiceInfo) Equals(o *K8sServiceInfo) bool {
-	switch {
-	case (si == nil) != (o == nil):
-		return false
-	case (si == nil) && (o == nil):
-		return true
-	}
-	if si.IsHeadless == o.IsHeadless &&
-		si.FEIP.Equal(o.FEIP) &&
-		comparator.MapStringEquals(si.Labels, o.Labels) &&
-		comparator.MapStringEquals(si.Selector, o.Selector) {
-
-		if ((si.Ports == nil) != (o.Ports == nil)) ||
-			len(si.Ports) != len(o.Ports) {
-			return false
-		}
-		for portName, port := range si.Ports {
-			oPort, ok := o.Ports[portName]
-			if !ok {
-				return false
-			}
-			if !port.EqualsIgnoreID(oPort) {
-				return false
-			}
-		}
-		return true
-	}
-	return false
-}
-
-// NewK8sServiceInfo creates a new K8sServiceInfo with the Ports map initialized.
-func NewK8sServiceInfo(ip net.IP, headless bool, labels map[string]string, selector map[string]string) *K8sServiceInfo {
-	return &K8sServiceInfo{
-		FEIP:       ip,
-		IsHeadless: headless,
-		Ports:      map[FEPortName]*FEPort{},
-		Labels:     labels,
-		Selector:   selector,
-	}
-}
-
-// K8sServiceEndpoint is an abstraction for the k8s endpoint object. Each service is
-// composed by a set of backend IPs (BEIPs) and a map of Ports (Ports). Each k8s endpoint
-// present in BEIPs share the same list of Ports open.
-type K8sServiceEndpoint struct {
-	// TODO: Replace bool for time.Time so we know last time the service endpoint was seen?
-	BEIPs map[string]bool
-	Ports map[FEPortName]*L4Addr
-}
-
-// NewK8sServiceEndpoint creates a new K8sServiceEndpoint with the backend BEIPs map and
-// Ports map initialized.
-func NewK8sServiceEndpoint() *K8sServiceEndpoint {
-	return &K8sServiceEndpoint{
-		BEIPs: map[string]bool{},
-		Ports: map[FEPortName]*L4Addr{},
-	}
-}
-
-// DeepEqual returns true if both k8sServiceEndpoint are deep equal.
-func (e *K8sServiceEndpoint) DeepEqual(o *K8sServiceEndpoint) bool {
-	switch {
-	case (e == nil) != (o == nil):
-		return false
-	case (e == nil) && (o == nil):
-		return true
-	}
-	if !comparator.MapBoolEquals(e.BEIPs, o.BEIPs) {
-		return false
-	}
-	if len(e.Ports) != len(o.Ports) {
-		return false
-	}
-	for k1, v1 := range e.Ports {
-		v2, ok := o.Ports[k1]
-		if !ok || !v1.Equals(v2) {
-			return false
-		}
-	}
-	return true
-}
-
-// CIDRPrefixes returns the endpoint's backends as a slice of IPNets.
-func (e *K8sServiceEndpoint) CIDRPrefixes() ([]*net.IPNet, error) {
-	prefixes := make([]string, 0, len(e.BEIPs))
-	for backend := range e.BEIPs {
-		prefixes = append(prefixes, backend)
-	}
-	valid, invalid := ip.ParseCIDRs(prefixes)
-	if len(invalid) > 0 {
-		return nil, fmt.Errorf("invalid IPs specified as backends: %+v", invalid)
-	}
-	return valid, nil
 }
 
 // L4Addr is an abstraction for the backend port with a L4Type, usually tcp or udp, and

@@ -24,7 +24,6 @@ import (
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	versionedClient "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/k8s/utils"
-	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/versioned"
 
@@ -425,18 +424,18 @@ func equalV1Services(o1, o2 interface{}) bool {
 	if strings.ToLower(svc1.Spec.ClusterIP) == "none" {
 		headless = true
 	}
-	si1 := loadbalancer.NewK8sServiceInfo(clusterIP, headless, svc1.Labels, svc1.Spec.Selector)
+	si1 := NewService(clusterIP, headless, svc1.Labels, svc1.Spec.Selector)
 
 	clusterIP = net.ParseIP(svc2.Spec.ClusterIP)
 	headless = false
 	if strings.ToLower(svc2.Spec.ClusterIP) == "none" {
 		headless = true
 	}
-	si2 := loadbalancer.NewK8sServiceInfo(clusterIP, headless, svc2.Labels, svc2.Spec.Selector)
+	si2 := NewService(clusterIP, headless, svc2.Labels, svc2.Spec.Selector)
 
 	// Please write all the equalness logic inside the K8sServiceInfo.Equals()
 	// method.
-	return si1.Equals(si2)
+	return si1.DeepEquals(si2)
 }
 
 func equalV1Endpoints(o1, o2 interface{}) bool {

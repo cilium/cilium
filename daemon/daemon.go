@@ -159,6 +159,9 @@ type Daemon struct {
 	// maps, etc. being performed without crucial information in securing said
 	// components. See GH-5038 and GH-4457.
 	k8sResourceSyncWaitGroup sync.WaitGroup
+
+	// k8sSvcCache is a cache of all Kubernetes services and endpoints
+	k8sSvcCache k8s.ServiceCache
 }
 
 // UpdateProxyRedirect updates the redirect rules in the proxy for a particular
@@ -1119,10 +1122,9 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 		return nil, nil, fmt.Errorf("unable to setup workload: %s", err)
 	}
 
-	lb := loadbalancer.NewLoadBalancer()
-
 	d := Daemon{
-		loadBalancer:  lb,
+		loadBalancer:  loadbalancer.NewLoadBalancer(),
+		k8sSvcCache:   k8s.NewServiceCache(),
 		policy:        policy.NewPolicyRepository(),
 		uniqueID:      map[uint64]bool{},
 		nodeMonitor:   monitorLaunch.NewNodeMonitor(),
@@ -1136,6 +1138,7 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 		compilationMutex:  new(lock.RWMutex),
 	}
 
+	d.runK8sServiceHandler()
 	policyApi.InitEntities(option.Config.ClusterName)
 
 	workloads.Init(&d)
