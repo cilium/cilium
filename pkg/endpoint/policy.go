@@ -698,6 +698,12 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 	e.BuildMutex.Lock()
 	defer e.BuildMutex.Unlock()
 
+	if e.SecurityIdentity != nil && e.SecurityIdentity.ID == 104 {
+		e.getLogger().Info("endpoint has identity 104; sleeping for 60 seconds")
+		time.Sleep(time.Duration(60) * time.Second)
+		e.getLogger().Info("done sleeping for 60 seconds")
+	}
+
 	stats.waitingForLock.Start()
 	// Check if endpoints is still alive before doing any build
 	err = e.LockAlive()
