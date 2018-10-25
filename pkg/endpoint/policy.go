@@ -34,6 +34,7 @@ import (
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	bpfconfig "github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/monitor"
@@ -533,6 +534,10 @@ func (e *Endpoint) regeneratePolicy(owner Owner) error {
 	// information to short-circuit policy generation if enforcement is
 	// disabled for ingress and / or egress.
 	e.ingressPolicyEnabled, e.egressPolicyEnabled = e.ComputePolicyEnforcement(repo)
+
+	// realizedBPFConfig may be updated at any point after we figure out
+	// whether ingress/egress policy is enabled.
+	e.realizedBPFConfig = bpfconfig.GetConfig(e)
 
 	l4PolicyChanged, err := e.resolveL4Policy(repo)
 	if err != nil {
