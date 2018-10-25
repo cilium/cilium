@@ -72,6 +72,13 @@ struct bpf_elf_map __section_maps POLICY_MAP = {
 };
 #endif
 
+struct bpf_elf_map __section_maps CONFIG_MAP = {
+	.type		= BPF_MAP_TYPE_ARRAY,
+	.size_key	= sizeof(__u32),
+	.size_value	= sizeof(struct ep_config),
+	.max_elem	= 1,
+};
+
 struct bpf_elf_map __section_maps cilium_proxy4 = {
 	.type		= BPF_MAP_TYPE_HASH,
 	.size_key	= sizeof(struct proxy4_tbl_key),

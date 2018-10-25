@@ -77,6 +77,7 @@ var errors = map[uint8]string{
 	162: "Policy denied (CIDR)",
 	163: "Unknown connection tracking state",
 	164: "Local host is unreachable",
+	165: "No configuration available to perform policy decision",
 }
 
 // DropReason prints the drop reason in a human readable string

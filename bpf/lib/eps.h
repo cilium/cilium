@@ -134,4 +134,17 @@ LPM_LOOKUP_FN(lookup_ip4_remote_endpoint, __be32, IPCACHE4_PREFIXES,
 #endif /* HAVE_LPM_MAP_TYPE */
 #endif /* LXC_ID */
 
+enum ep_cfg_flag {
+	EP_F_SKIP_POLICY_INGRESS = 1<<0,
+	EP_F_SKIP_POLICY_EGRESS = 1<<1,
+};
+
+static __always_inline struct ep_config *
+lookup_ep_config(void)
+{
+	__u32 key = 0;
+
+	return map_lookup_elem(&CONFIG_MAP, &key);
+}
+
 #endif /* __LIB_EPS_H_ */
