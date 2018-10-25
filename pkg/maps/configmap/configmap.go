@@ -99,7 +99,7 @@ func (cfg *EndpointConfig) String() string {
 	return cfg.Flags.String()
 }
 
-// EndpointInfo represents the value of the endpoints BPF map.
+// EndpointConfig represents the value of the endpoints BPF map.
 //
 // Must be in sync with struct config_value in <bpf/lib/common.h>
 type EndpointConfig struct {
@@ -137,7 +137,7 @@ func GetConfig(e endpoint) *EndpointConfig {
 	return &value
 }
 
-// Sync pushes the configuration options from the specified endpoint into the
+// Update pushes the configuration options from the specified endpoint into the
 // configuration map.
 func (m *EndpointConfigMap) Update(value *EndpointConfig) error {
 	configKey := &Key{Bits: 0}

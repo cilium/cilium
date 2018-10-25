@@ -103,6 +103,16 @@ func (e *Endpoint) CallsMapPathLocked() string {
 	return bpf.MapPath(CallsMapName + strconv.Itoa(int(e.ID)))
 }
 
+// BPFConfigMapPathLocked returns the path to the BPF config map of endpoint.
+func (e *Endpoint) BPFConfigMapPathLocked() string {
+	return bpf.MapPath(e.BPFConfigMapName())
+}
+
+// BPFConfigMapName returns the name of the config map for endpoint.
+func (e *Endpoint) BPFConfigMapName() string {
+	return bpfconfig.MapNamePrefix + strconv.Itoa(int(e.ID))
+}
+
 type getBPFDataCallback func() (s6, s4 []int)
 
 // WriteIPCachePrefixes fetches the set of prefixes that should be used from
@@ -598,6 +608,17 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 		e.realizedMapState = make(PolicyMapState)
 	}
 
+	if e.bpfConfigMap == nil {
+		e.bpfConfigMap, _, err = bpfconfig.OpenMapWithName(e.BPFConfigMapPathLocked(), e.BPFConfigMapName())
+		if err != nil {
+			e.Unlock()
+			return 0, compilationExecuted, err
+		}
+		// Also reset the in-memory state of the realized state as the
+		// BPF map content is guaranteed to be empty right now.
+		e.realizedBPFConfig = &bpfconfig.EndpointConfig{}
+	}
+
 	// Set up a context to wait for proxy completions.
 	completionCtx, cancel := context.WithTimeout(context.Background(), EndpointGenerationTimeout)
 	proxyWaitGroup := completion.NewWaitGroup(completionCtx)
@@ -657,6 +678,18 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 			e.Unlock()
 			return 0, compilationExecuted, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %s", err)
 		}
+
+		// Synchronously update the BPF ConfigMap for this endpoint.
+		// This is unlikely to fail, but will have the same
+		// inconsistency issues as above if there is a failure. Long
+		// term the solution to this is to templatize this map in the
+		// ELF file, but there's no solution to this just yet.
+		if err = e.bpfConfigMap.Update(e.desiredBPFConfig); err != nil {
+			e.getLogger().WithError(err).Error("unable to update BPF config map")
+			e.Unlock()
+			return 0, compilationExecuted, err
+		}
+		e.realizedBPFConfig = e.desiredBPFConfig
 
 		// Configure the new network policy with the proxies.
 		stats.proxyPolicyCalculation.Start()
@@ -841,14 +874,15 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 func (e *Endpoint) DeleteMapsLocked() []error {
 	var errors []error
 
-	// Remove policy BPF map
-	if err := os.RemoveAll(e.PolicyMapPathLocked()); err != nil {
-		errors = append(errors, fmt.Errorf("unable to remove policy map file %s: %s", e.PolicyMapPathLocked(), err))
+	maps := map[string]string{
+		"config": e.BPFConfigMapPathLocked(),
+		"policy": e.PolicyMapPathLocked(),
+		"calls":  e.CallsMapPathLocked(),
 	}
-
-	// Remove calls BPF map
-	if err := os.RemoveAll(e.CallsMapPathLocked()); err != nil {
-		errors = append(errors, fmt.Errorf("unable to remove calls map file %s: %s", e.CallsMapPathLocked(), err))
+	for name, path := range maps {
+		if err := os.RemoveAll(path); err != nil {
+			errors = append(errors, fmt.Errorf("unable to remove %s map file %s: %s", name, path, err))
+		}
 	}
 
 	if e.ConntrackLocalLocked() {
