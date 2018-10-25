@@ -42,6 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
+	bpfconfig "github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
@@ -288,6 +289,15 @@ type Endpoint struct {
 	// Proxy port 0 indicates no proxy redirection.
 	// All fields within the PolicyKey and the proxy port must be in host byte-order.
 	desiredMapState PolicyMapState
+
+	// BPFConfigMap provides access to the endpoint's BPF configuration.
+	bpfConfigMap *bpfconfig.EndpointConfigMap
+
+	// desiredBPFConfig is the BPF Configuration computed from the endpoint.
+	desiredBPFConfig *bpfconfig.EndpointConfig
+
+	// realizedBPFConfig is the config currently active in the BPF datapath.
+	realizedBPFConfig *bpfconfig.EndpointConfig
 
 	// ctCleaned indicates whether the conntrack table has already been
 	// cleaned when this endpoint was first created
@@ -1248,6 +1258,15 @@ func (e *Endpoint) GetBPFValue() (*lxcmap.EndpointInfo, error) {
 // mapPath returns the path to a map for endpoint ID.
 func mapPath(mapname string, id int) string {
 	return bpf.MapPath(mapname + strconv.Itoa(id))
+}
+
+// BPFConfigMapPathLocked returns the path to the BPF config map of endpoint.
+func (e *Endpoint) BPFConfigMapPathLocked() string {
+	return mapPath(bpfconfig.MapNamePrefix, int(e.ID))
+}
+
+func (e *Endpoint) BPFConfigMapPathWithoutPrefix() string {
+	return bpfconfig.MapNamePrefix + strconv.Itoa(int(e.ID))
 }
 
 // PolicyMapPathLocked returns the path to the policy map of endpoint.
