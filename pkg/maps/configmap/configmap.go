@@ -80,7 +80,7 @@ type Key struct {
 	uint32
 }
 
-// EndpointInfo represents the value of the endpoints BPF map.
+// EndpointConfig represents the value of the endpoints BPF map.
 //
 // Must be in sync with struct config_value in <bpf/lib/common.h>
 type EndpointConfig struct {
