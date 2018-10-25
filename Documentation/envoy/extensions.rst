@@ -17,7 +17,7 @@ Envoy proxy as part of Cilium.
 
 As depicted above, this framework allows a developer to write a small amount of Go
 code (green box) focused on parsing a new API protocol, and this Go code is able to  
-full advantage of Cilium features including high-performance redirection to/from Envoy, 
+take full advantage of Cilium features including high-performance redirection to/from Envoy, 
 rich L7-aware policy language
 and access logging, and visibility into encrypted traffic traffic via kTLS (coming soon!).  
 In sum, you as the developer need only worry about the logic of parsing the protocol, 
