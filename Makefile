@@ -58,7 +58,7 @@ tests-ginkgo-real:
 	rm coverage.out
 	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
 
-tests-envoy:
+tests-envoy: proxylib
 	@ $(MAKE) -C envoy tests
 
 start-kvstores:
