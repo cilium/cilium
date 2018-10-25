@@ -269,6 +269,7 @@ enum {
 #define DROP_POLICY_CIDR		-162
 #define DROP_UNKNOWN_CT			-163
 #define DROP_HOST_UNREACHABLE		-164
+#define DROP_NO_CONFIG		-165
 
 /* Cilium metrics reason for forwarding packet.
  * If reason > 0 then this is a drop reason and value corresponds to -(DROP_*)
@@ -508,6 +509,11 @@ struct proxy6_tbl_value {
 	__u32 identity;
 	__u32 lifetime;
 } __attribute__((packed));
+
+/* ep_config corresponds to the EndpointConfig object in pkg/maps/configmap. */
+struct ep_config {
+	__u32 flags; /* enum ep_cfg_flag */
+};
 
 /**
  * relax_verifier is a dummy helper call to introduce a pruning checkpoing to
