@@ -173,7 +173,6 @@ func OpenMapWithName(path, name string) (*EndpointConfigMap, bool, error) {
 		int(unsafe.Sizeof(EndpointConfig{})),
 		MaxEntries,
 		0,
-		0,
 		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
 			k, v := Key{}, EndpointConfig{}
 
