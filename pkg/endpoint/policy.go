@@ -537,7 +537,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) error {
 
 	// realizedBPFConfig may be updated at any point after we figure out
 	// whether ingress/egress policy is enabled.
-	e.realizedBPFConfig = bpfconfig.GetConfig(e)
+	e.desiredBPFConfig = bpfconfig.GetConfig(e)
 
 	l4PolicyChanged, err := e.resolveL4Policy(repo)
 	if err != nil {
