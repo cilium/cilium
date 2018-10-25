@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	bpfconfig "github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
@@ -169,6 +170,7 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	}
 	fmt.Fprintf(fw, "#define POLICY_MAP %s\n", path.Base(e.PolicyMapPathLocked()))
 	fmt.Fprintf(fw, "#define CALLS_MAP %s\n", path.Base(e.CallsMapPathLocked()))
+	fmt.Fprintf(fw, "#define CONFIG_MAP %s\n", path.Base(e.BPFConfigMapPathLocked()))
 	if e.ConntrackLocalLocked() {
 		ctmap.WriteBPFMacros(fw, e)
 	} else {
