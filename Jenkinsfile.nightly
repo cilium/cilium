@@ -99,19 +99,6 @@ pipeline {
                 }
             }
         }
-
-        stage('Kubernetes tests') {
-            steps {
-                sh 'cd ${TESTDIR}; K8S_VERSION=1.8 ginkgo --focus=" K8s*" -v'
-            }
-            post {
-                always {
-                    sh 'cd ${TEST_DIR}; ./archive_test_results.sh || true'
-                    archiveArtifacts artifacts: '*.zip'
-                    junit testDataPublishers: [[$class: 'AttachmentPublisher']], testResults: 'test/*.xml'
-                }
-            }
-        }
         stage('Envoy Tests') {
             steps {
                  sh 'cd ${TESTDIR}; vagrant up runtime --no-provision'
@@ -126,7 +113,6 @@ pipeline {
     }
     post {
         always {
-            sh "cd ${TESTDIR}; K8S_VERSION=1.8 vagrant destroy -f || true"
             sh "cd ${TESTDIR}; K8S_VERSION=1.12 vagrant destroy -f || true"
             sh "cd ${TESTDIR}; vagrant destroy -f || true"
             sh 'cd ${TEST_DIR}; ./post_build_agent.sh || true'
