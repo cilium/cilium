@@ -117,7 +117,7 @@ func GetConfig(e endpoint) *EndpointConfig {
 	return &value
 }
 
-// Sync pushes the configuration options from the specified endpoint into the
+// Update pushes the configuration options from the specified endpoint into the
 // configuration map.
 func (m *EndpointConfigMap) Update(value *EndpointConfig) error {
 	return bpf.UpdateElement(m.Fd, unsafe.Pointer(&configKey),
