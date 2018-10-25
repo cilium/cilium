@@ -15,9 +15,10 @@
 package k8sTest
 
 import (
+	"fmt"
+
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
-
 	. "github.com/onsi/gomega"
 )
 
@@ -64,8 +65,16 @@ func ExpectETCDOperatorReady(vm *helpers.Kubectl) {
 	// This is to avoid cases where a few pods are ready, but the
 	// new one is not created yet.
 	By("Waiting for all etcd-operator pods are ready")
+
 	err := vm.WaitforNPods(helpers.KubeSystemNamespace, "-l io.cilium/app=etcd-operator", 4, 600)
-	Expect(err).To(BeNil(), "etcd-operator is not ready after timeout")
+	warningMessage := ""
+	if err != nil {
+		res := vm.Exec(fmt.Sprintf(
+			"%s -n %s get pods -l io.cilium/app=etcd-operator",
+			helpers.KubectlCmd, helpers.KubeSystemNamespace))
+		warningMessage = res.Output().String()
+	}
+	Expect(err).To(BeNil(), "etcd-operator is not ready after timeout, pods status:\n %s", warningMessage)
 }
 
 // ProvisionInfraPods deploys DNS, etcd-operator, and cilium into the kubernetes
