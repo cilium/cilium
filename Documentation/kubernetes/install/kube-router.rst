@@ -23,7 +23,7 @@ Download the kube-router DaemonSet template:
     curl -LO https://raw.githubusercontent.com/cloudnativelabs/kube-router/v0.2.0-beta.7/daemonset/generic-kuberouter-only-advertise-routes.yaml
 
 Open the file ``generic-kuberouter-only-advertise-routes.yaml`` and edit the
-``args:`` section. The following arguments are **requried** to be set to
+``args:`` section. The following arguments are **required** to be set to
 exactly these values:
 
 .. code:: bash
