@@ -41,6 +41,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
+	bpfconfig "github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/monitor/notifications"
@@ -274,6 +275,15 @@ type Endpoint struct {
 	// Proxy port 0 indicates no proxy redirection.
 	// All fields within the PolicyKey and the proxy port must be in host byte-order.
 	desiredMapState PolicyMapState
+
+	// BPFConfigMap provides access to the endpoint's BPF configuration.
+	bpfConfigMap *bpfconfig.EndpointConfigMap
+
+	// desiredBPFConfig is the BPF Configuration computed from the endpoint.
+	desiredBPFConfig *bpfconfig.EndpointConfig
+
+	// realizedBPFConfig is the config currently active in the BPF datapath.
+	realizedBPFConfig *bpfconfig.EndpointConfig
 
 	// ctCleaned indicates whether the conntrack table has already been
 	// cleaned when this endpoint was first created
