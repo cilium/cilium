@@ -731,7 +731,7 @@ int handle_ingress(struct __sk_buff *skb)
 }
 
 static inline int __inline__
-ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding_reason)
+ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding_reason, struct ep_config *cfg)
 {
 	struct ipv6_ct_tuple tuple = {};
 	void *data, *data_end;
@@ -800,9 +800,12 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 			return ret2;
 	}
 
-	verdict = policy_can_access_ingress(skb, src_label, tuple.dport,
-					    tuple.nexthdr, sizeof(tuple.saddr),
-					    &tuple.saddr, false);
+	if (!(cfg->flags & EP_F_SKIP_POLICY_INGRESS))
+		verdict = policy_can_access_ingress(skb, src_label, tuple.dport,
+				tuple.nexthdr, sizeof(tuple.saddr),
+				&tuple.saddr, false);
+	else
+		verdict = TC_ACT_OK;
 
 	/* Reply packets and related packets are allowed, all others must be
 	 * permitted by policy */
@@ -866,7 +869,13 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_TO_LXC) int tail_ipv6_policy(s
 	__u32 src_label = skb->cb[CB_SRC_LABEL];
 	int forwarding_reason = 0;
 
-	ret = ipv6_policy(skb, ifindex, src_label, &forwarding_reason);
+	struct ep_config *cfg = lookup_ep_config();
+
+	if (cfg)
+		ret = ipv6_policy(skb, ifindex, src_label, &forwarding_reason, cfg);
+	else
+		ret = DROP_NO_CONFIG;
+
 	if (IS_ERR(ret))
 		return send_drop_notify(skb, src_label, SECLABEL, LXC_ID,
 					ifindex, ret, TC_ACT_SHOT, METRIC_INGRESS);
@@ -876,7 +885,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_TO_LXC) int tail_ipv6_policy(s
 
 #ifdef LXC_IPV4
 static inline int __inline__
-ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding_reason)
+ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding_reason, struct ep_config *cfg)
 {
 	struct ipv4_ct_tuple tuple = {};
 	void *data, *data_end;
@@ -934,9 +943,13 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 			return ret2;
 	}
 
-	verdict = policy_can_access_ingress(skb, src_label, tuple.dport,
-					    tuple.nexthdr, sizeof(orig_sip),
-					    &orig_sip, is_fragment);
+	if (!(cfg->flags & EP_F_SKIP_POLICY_INGRESS))
+		verdict = policy_can_access_ingress(skb, src_label, tuple.dport,
+						    tuple.nexthdr,
+						    sizeof(orig_sip),
+						    &orig_sip, is_fragment);
+	else
+		verdict = TC_ACT_OK;
 
 	/* Reply packets and related packets are allowed, all others must be
 	 * permitted by policy */
@@ -995,11 +1008,15 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_TO_LXC) int tail_ipv4_policy(struct __sk_buff *skb) {
+	struct ep_config *cfg = lookup_ep_config();
 	int ret, ifindex = skb->cb[CB_IFINDEX];
 	__u32 src_label = skb->cb[CB_SRC_LABEL];
 	int forwarding_reason = 0;
 
-	ret = ipv4_policy(skb, ifindex, src_label, &forwarding_reason);
+	if (cfg)
+		ret = ipv4_policy(skb, ifindex, src_label, &forwarding_reason, cfg);
+	else
+		ret = DROP_NO_CONFIG;
 	if (IS_ERR(ret))
 		return send_drop_notify(skb, src_label, SECLABEL, LXC_ID,
 					ifindex, ret, TC_ACT_SHOT, METRIC_INGRESS);
