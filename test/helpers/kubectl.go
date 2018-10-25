@@ -345,14 +345,21 @@ func (kub *Kubectl) Logs(namespace string, pod string) *CmdRes {
 // MicroscopeStart installs (if it is not installed) a new microscope pod,
 // waits until pod is ready, and runs microscope in background. It returns an
 // error in the case where microscope cannot be installed, or it is not ready after
-// a timeout. Also it returns a callback function to stop the monitor and save
-// the output to `helpers.monitorLogFileName` file.
-func (kub *Kubectl) MicroscopeStart() (error, func() error) {
+// a timeout. It also returns a callback function to stop the monitor and save
+// the output to `helpers.monitorLogFileName` file. Takes an optional list of
+// arguments to pass to mircoscope.
+func (kub *Kubectl) MicroscopeStart(microscopeOptions ...string) (error, func() error) {
 	microscope := "microscope"
-	var microscopeCmd = microscope + "| ts '[%Y-%m-%d %H:%M:%S]'"
+	var microscopeCmd string
+	if len(microscopeOptions) == 0 {
+		microscopeCmd = "microscope"
+	} else {
+		microscopeCmd = fmt.Sprintf("%s %s", microscope, strings.Join(microscopeOptions, " "))
+	}
+	var microscopeCmdWithTimestamps = microscopeCmd + "| ts '[%Y-%m-%d %H:%M:%S]'"
 	var cb = func() error { return nil }
 	cmd := fmt.Sprintf("%[1]s -ti -n %[2]s exec %[3]s -- %[4]s",
-		KubectlCmd, KubeSystemNamespace, microscope, microscopeCmd)
+		KubectlCmd, KubeSystemNamespace, microscope, microscopeCmdWithTimestamps)
 	microscopePath := ManifestGet(microscopeManifest)
 	_ = kub.Apply(microscopePath)
 
