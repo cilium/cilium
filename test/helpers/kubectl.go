@@ -1938,15 +1938,27 @@ func (kub *Kubectl) DeployETCDOperator() error {
 		return nil
 	}
 
-	cmdRes := kub.Exec(fmt.Sprintf("%s '%s'", GetFilePath(etcdOperatorPath+"tls/certs/gen-cert.sh"), "cluster.local"))
+	// In CI using a custom path to avoid issues with parallel execution in Jenkins
+	certTMPFolder := kub.Exec(fmt.Sprintf("mktemp -d"))
+	if !certTMPFolder.WasSuccessful() {
+		return fmt.Errorf("Cannot create temporal folder for etcd certs: %v", certTMPFolder.OutputPrettyPrint())
+	}
+
+	cmdRes := kub.Exec(fmt.Sprintf("%s '%s' %s",
+		GetFilePath(etcdOperatorPath+"tls/certs/gen-cert.sh"),
+		"cluster.local",
+		certTMPFolder.SingleOut()))
 	if !cmdRes.WasSuccessful() {
 		return fmt.Errorf("unable to generate tls certificates for etcd-operator: %s", cmdRes.OutputPrettyPrint())
 	}
+
 	// deploy-certs.sh can be called multiple times so it will fail if a
 	// certificate is already created, we will rely in the deployment
 	// of etcd-operator descriptors to check if something is wrong with
 	// the deployment.
-	_ = kub.Exec(GetFilePath(etcdOperatorPath + "tls/deploy-certs.sh"))
+	_ = kub.Exec(fmt.Sprintf("%s %s",
+		GetFilePath(etcdOperatorPath+"tls/deploy-certs.sh"),
+		certTMPFolder.SingleOut()))
 
 	for _, manifest := range etcdDeploymentFiles {
 		err := deployFile(manifest)

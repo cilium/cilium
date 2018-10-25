@@ -2,7 +2,13 @@
 
 dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
-cd "${dir}/certs"
+CERT_TMP_DIR=${1:-"${dir}/certs"}
+
+if [ -z "${1}" ]; then
+    echo "DEBUG: Using provided folder ${CERT_TMP_DIR}"
+fi
+
+cd "${CERT_TMP_DIR}"
 
 # member.peerSecret
 kubectl create secret generic -n kube-system cilium-etcd-peer-tls --from-file=peer-ca.crt --from-file=peer.crt --from-file=peer.key

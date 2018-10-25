@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 
 dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+CERT_TMP_DIR=${2:-"${dir}"}
+
+if [ -z "${2}" ]; then
+    echo "DEBUG: Using provided folder ${CERT_TMP_DIR}"
+fi
 
 if [ -z "$(which cfssl)" ]; then
     echo "Please install the cfssl utility and make sure you have it in your \$PATH"
@@ -27,23 +32,23 @@ if [ -z "${cluster_domain}" ]; then
     exit -1
 fi
 
-cd "${dir}"
+cd "${CERT_TMP_DIR}"
 
 echo "generating CA certs ==="
-cfssl gencert -initca ca-csr.json | cfssljson -bare ca
+cfssl gencert -initca ${dir}/ca-csr.json | cfssljson -bare ca
 
 echo "generating etcd peer.json for cluster domain ${cluster_domain} ==="
 
-sed -e "s/CLUSTER_DOMAIN/${cluster_domain}/" peer.json.sed > peer.json
+sed -e "s/CLUSTER_DOMAIN/${cluster_domain}/" ${dir}/peer.json.sed > peer.json
 
 echo "generating etcd peer certs ==="
-cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=peer peer.json | cfssljson -bare peer
+cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=${dir}/ca-config.json -profile=peer peer.json | cfssljson -bare peer
 
 echo "generating etcd server certs ==="
-cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=server server.json | cfssljson -bare server
+cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=${dir}/ca-config.json -profile=server ${dir}/server.json | cfssljson -bare server
 
 echo "generating etcd client certs ==="
-cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=client etcd-client.json | cfssljson -bare etcd-client
+cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=${dir}/ca-config.json -profile=client ${dir}/etcd-client.json | cfssljson -bare etcd-client
 
 mv etcd-client.pem etcd-client.crt
 mv etcd-client-key.pem etcd-client.key
