@@ -172,7 +172,10 @@ var _ = Describe("K8sIstioTest", func() {
 
 		BeforeAll(func() {
 			var err error
-			err, microscopeCancel = kubectl.MicroscopeStart()
+			// Only monitor for drops in this test because streaming all events
+			// to userspace when running with Istio puts an extreme amount of
+			// load on the CI VMs.
+			err, microscopeCancel = kubectl.MicroscopeStart("--type drop")
 			Expect(err).To(BeNil(), "Microscope cannot be started")
 
 			uptimeCancel, err = kubectl.BackgroundReport("uptime")
