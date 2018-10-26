@@ -138,11 +138,11 @@ policy_can_access_ingress(struct __sk_buff *skb, __u32 src_identity,
 
 	cilium_dbg(skb, DBG_POLICY_DENIED, src_identity, SECLABEL);
 
-#ifndef IGNORE_DROP
-	return DROP_POLICY;
-#else
-	return TC_ACT_OK;
+#ifdef IGNORE_DROP
+	ret = TC_ACT_OK;
 #endif
+
+	return ret;
 }
 
 #if defined LXC_ID
@@ -156,10 +156,12 @@ policy_can_egress(struct __sk_buff *skb, __u32 identity, __u16 dport, __u8 proto
 		return ret;
 
 	cilium_dbg(skb, DBG_POLICY_DENIED, SECLABEL, identity);
-#ifndef IGNORE_DROP
-	return DROP_POLICY;
+
+#ifdef IGNORE_DROP
+	ret = TC_ACT_OK;
 #endif
-	return TC_ACT_OK;
+
+	return ret;
 }
 
 static inline int policy_can_egress6(struct __sk_buff *skb,
