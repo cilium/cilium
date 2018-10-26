@@ -267,6 +267,8 @@ enum {
 #define DROP_NO_TUNNEL_ENDPOINT -160
 #define DROP_PROXYMAP_CREATE_FAILED	-161
 #define DROP_POLICY_CIDR		-162
+#define DROP_UNKNOWN_CT			-163
+#define DROP_HOST_UNREACHABLE		-164
 
 /* Cilium metrics reason for forwarding packet.
  * If reason > 0 then this is a drop reason and value corresponds to -(DROP_*)
