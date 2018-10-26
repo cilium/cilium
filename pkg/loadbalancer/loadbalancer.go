@@ -304,14 +304,9 @@ type L4Addr struct {
 	Port     uint16
 }
 
-// NewL4Addr creates a new L4Addr. Returns an error if protocol is not recognized.
-func NewL4Addr(protocol L4Type, number uint16) (*L4Addr, error) {
-	switch protocol {
-	case TCP, UDP, NONE:
-	default:
-		return nil, fmt.Errorf("unknown protocol type %s", protocol)
-	}
-	return &L4Addr{Protocol: protocol, Port: number}, nil
+// NewL4Addr creates a new L4Addr.
+func NewL4Addr(protocol L4Type, number uint16) *L4Addr {
+	return &L4Addr{Protocol: protocol, Port: number}
 }
 
 // Equals returns true if both L4Addr are considered equal.
@@ -340,9 +335,8 @@ type FEPort struct {
 }
 
 // NewFEPort creates a new FEPort with the ID set to 0.
-func NewFEPort(protocol L4Type, portNumber uint16) (*FEPort, error) {
-	lbport, err := NewL4Addr(protocol, portNumber)
-	return &FEPort{L4Addr: lbport}, err
+func NewFEPort(protocol L4Type, portNumber uint16) *FEPort {
+	return &FEPort{L4Addr: NewL4Addr(protocol, portNumber)}
 }
 
 // EqualsIgnoreID returns true if both L4Addr are considered equal without
@@ -375,16 +369,13 @@ type L3n4Addr struct {
 }
 
 // NewL3n4Addr creates a new L3n4Addr.
-func NewL3n4Addr(protocol L4Type, ip net.IP, portNumber uint16) (*L3n4Addr, error) {
-	lbport, err := NewL4Addr(protocol, portNumber)
-	if err != nil {
-		return nil, err
-	}
+func NewL3n4Addr(protocol L4Type, ip net.IP, portNumber uint16) *L3n4Addr {
+	lbport := NewL4Addr(protocol, portNumber)
 
 	addr := L3n4Addr{IP: ip, L4Addr: *lbport}
 	log.WithField(logfields.IPAddr, addr).Debug("created new L3n4Addr")
 
-	return &addr, nil
+	return &addr
 }
 
 func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
@@ -401,11 +392,7 @@ func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
 		return nil, err
 	}
 
-	l4addr, err := NewL4Addr(proto, base.Port)
-	if err != nil {
-		return nil, err
-	}
-
+	l4addr := NewL4Addr(proto, base.Port)
 	ip := net.ParseIP(base.IP)
 	if ip == nil {
 		return nil, fmt.Errorf("Invalid IP address \"%s\"", base.IP)
@@ -414,19 +401,15 @@ func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
 	return &L3n4Addr{IP: ip, L4Addr: *l4addr}, nil
 }
 
-func NewLBBackEnd(protocol L4Type, ip net.IP, portNumber uint16, weight uint16) (*LBBackEnd, error) {
-	lbport, err := NewL4Addr(protocol, portNumber)
-	if err != nil {
-		return nil, err
-	}
-
+func NewLBBackEnd(protocol L4Type, ip net.IP, portNumber uint16, weight uint16) *LBBackEnd {
+	lbport := NewL4Addr(protocol, portNumber)
 	lbbe := LBBackEnd{
 		L3n4Addr: L3n4Addr{IP: ip, L4Addr: *lbport},
 		Weight:   weight,
 	}
 	log.WithField("backend", lbbe).Debug("created new LBBackend")
 
-	return &lbbe, nil
+	return &lbbe
 }
 
 func NewLBBackEndFromBackendModel(base *models.BackendAddress) (*LBBackEnd, error) {
@@ -435,11 +418,7 @@ func NewLBBackEndFromBackendModel(base *models.BackendAddress) (*LBBackEnd, erro
 	}
 
 	// FIXME: Should this be NONE ?
-	l4addr, err := NewL4Addr(NONE, base.Port)
-	if err != nil {
-		return nil, err
-	}
-
+	l4addr := NewL4Addr(NONE, base.Port)
 	ip := net.ParseIP(*base.IP)
 	if ip == nil {
 		return nil, fmt.Errorf("Invalid IP address \"%s\"", *base.IP)
@@ -457,11 +436,7 @@ func NewL3n4AddrFromBackendModel(base *models.BackendAddress) (*L3n4Addr, error)
 	}
 
 	// FIXME: Should this be NONE ?
-	l4addr, err := NewL4Addr(NONE, base.Port)
-	if err != nil {
-		return nil, err
-	}
-
+	l4addr := NewL4Addr(NONE, base.Port)
 	ip := net.ParseIP(*base.IP)
 	if ip == nil {
 		return nil, fmt.Errorf("Invalid IP address \"%s\"", *base.IP)
@@ -555,12 +530,9 @@ type L3n4AddrID struct {
 }
 
 // NewL3n4AddrID creates a new L3n4AddrID.
-func NewL3n4AddrID(protocol L4Type, ip net.IP, portNumber uint16, id ServiceID) (*L3n4AddrID, error) {
-	l3n4Addr, err := NewL3n4Addr(protocol, ip, portNumber)
-	if err != nil {
-		return nil, err
-	}
-	return &L3n4AddrID{L3n4Addr: *l3n4Addr, ID: id}, nil
+func NewL3n4AddrID(protocol L4Type, ip net.IP, portNumber uint16, id ServiceID) *L3n4AddrID {
+	l3n4Addr := NewL3n4Addr(protocol, ip, portNumber)
+	return &L3n4AddrID{L3n4Addr: *l3n4Addr, ID: id}
 }
 
 // DeepCopy returns a DeepCopy of the given L3n4AddrID.
