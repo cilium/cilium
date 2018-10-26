@@ -32,7 +32,7 @@ var _ = Describe("RuntimeMemcache", func() {
 	containers := func(mode string) {
 
 		images := map[string]string{
-			"memcache":             "memcached",
+			"memcache":             "memcached:1.5.11",
 			"memcache-bin-client":  "nebril/python-binary-memcached",
 			"memcache-text-client": "alpine",
 		}
