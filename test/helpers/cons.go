@@ -226,6 +226,12 @@ var (
 // CiliumDefaultDSPatch is the default Cilium DaemonSet patch to be used in all tests.
 const CiliumDefaultDSPatch = "cilium-ds-patch.yaml"
 
+// CiliumDefaultPreFlightPatch is the default Cilium Pre-flight DaemonSet patch to be used in all tests.
+const CiliumDefaultPreFlightPatch = "cilium-pre-flight-patch.yaml"
+
+// CiliumDefaultPreFlight is the default Cilium Pre-flight DaemonSet descriptor to be used in all tests.
+const CiliumDefaultPreFlight = "cilium-pre-flight.yaml"
+
 // CiliumConfigMapPatch is the default Cilium ConfigMap patch to be used in all tests.
 const CiliumConfigMapPatch = "cilium-cm-patch.yaml"
 

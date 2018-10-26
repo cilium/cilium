@@ -238,6 +238,15 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 			}
 		}
 
+		By("Install Cilium pre-flight check DaemonSet")
+		err = kubectl.CiliumPreFlightInstall(helpers.CiliumDefaultPreFlightPatch)
+		ExpectWithOffset(1, err).To(BeNil(), "Cilium pre-flight %q was not able to be deployed", newVersion)
+		ExpectCiliumPreFlightInstallReady(kubectl)
+
+		// Once they are installed we can remove it
+		By("Removing Cilium pre-flight check DaemonSet")
+		kubectl.Delete(helpers.GetK8sDescriptor(helpers.CiliumDefaultPreFlight))
+
 		err = kubectl.CiliumInstall(helpers.CiliumDefaultDSPatch, helpers.CiliumConfigMapPatch)
 		ExpectWithOffset(1, err).To(BeNil(), "Cilium %q was not able to be deployed", newVersion)
 
