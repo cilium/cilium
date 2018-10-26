@@ -6,64 +6,66 @@ endif
 
 K8S_VERSIONS = 1.8 1.9 1.10 1.11 1.12
 
-# make_concat creates a concatenated YAML file specific for a K8s version.
-# $(1) is the K8s version. $(2) is the concatenated file.
-define make_concat
-all: $(1)/$(2)
-$(1)/$(2):
-	@$(ECHO_GEN)$$@
-	-$(QUIET)for f in $$^ ; do cat "$$$${f}"; done >$$@
-endef
-
-# make_yaml creates a YAML specific for a K8s version.
-# $(1) is the K8s version. $(2) is the source file.
-define make_yaml
-$(1)/$(patsubst templates/v1/%,%,$(patsubst %.yaml.sed,%.yaml,$(2))):
-	@$(ECHO_GEN)$$@
-	@echo "$(CILIUM_VERSION)" | egrep -Eq '(v[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+(-.+)?)|(latest)' || \
-	(echo "\"$(CILIUM_VERSION)\" is not a valid version. Must match regexp '(v[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+(-.+)?)|(latest)'. Please fix VERSION file" && false)
-ifneq ("$(wildcard $(1)/cilium-crio-transforms2sed.sed)","")
-ifneq ("$(findstring cilium-crio,$(2))","")
-	-$(QUIET)sed -f $(1)/transforms2sed.sed -f $(1)/cilium-crio-transforms2sed.sed -e s+__CILIUM_VERSION__+$$(CILIUM_VERSION)+ <$$< >$$@
-else
-	-$(QUIET)sed -f $(1)/transforms2sed.sed -e s+__CILIUM_VERSION__+$$(CILIUM_VERSION)+ <$$< >$$@
-endif
-else
-	-$(QUIET)sed -f $(1)/transforms2sed.sed -e s+__CILIUM_VERSION__+$$(CILIUM_VERSION)+ <$$< >$$@
-endif
-endef
-
 SOURCES = $(wildcard templates/v1/*.yaml*)
-YAMLS = $(patsubst templates/v1/%,%,$(patsubst %.yaml.sed,%.yaml,$(SOURCES)))
-NON_DAEMONSET_YAMLS = $(filter-out %-ds.yaml,$(YAMLS))
-DAEMONSET_YAMLS = $(filter %-ds.yaml,$(YAMLS))
-CONCAT_FILES = $(patsubst %-ds.yaml,%.yaml,$(DAEMONSET_YAMLS))
+FILENAME_SOURCES = $(patsubst templates/v1/%,%,$(patsubst %.yaml.sed,%.yaml,$(SOURCES)))
+CILIUM_CRIO_SOURCES = $(sort $(filter-out cilium-ds.yaml,$(FILENAME_SOURCES)))
+CILIUM_DOCKER_SOURCES = $(sort $(filter-out cilium-crio-ds.yaml,$(FILENAME_SOURCES)))
 
-# Add the concatenated files as a dependency of all.
-# Build the concatenated files.
-$(foreach K8S_VERSION,$(K8S_VERSIONS), \
-	$(foreach CONCAT_FILE,$(CONCAT_FILES), \
-		$(eval $(call make_concat,$(K8S_VERSION),$(CONCAT_FILE)))))
+all: transform cilium.yaml cilium-crio.yaml
 
-# Add all YAML files as dependencies of concatenated files.
-$(foreach K8S_VERSION,$(K8S_VERSIONS), \
-	$(foreach CONCAT_FILE,$(CONCAT_FILES), \
-		$(eval $(K8S_VERSION)/$(CONCAT_FILE): $(sort    $(patsubst %,$(K8S_VERSION)/%,$(NON_DAEMONSET_YAMLS)) \
-														$(K8S_VERSION)/$(patsubst %.yaml,%-ds.yaml,$(CONCAT_FILE)))) \
-	))
+%.sed:
+	for k8s_version in $(K8S_VERSIONS); do \
+	    (mkdir -p $$k8s_version && \
+	    cd $$k8s_version && \
+	    sed -f transforms2sed.sed ../templates/v1/$@ | \
+	    sed s+__CILIUM_VERSION__+$(CILIUM_VERSION)+g > "$*"); \
+	done
 
-# Add dependencies for individual YAML files.
-$(foreach K8S_VERSION,$(K8S_VERSIONS), \
-	$(foreach SOURCE,$(SOURCES), \
-		$(eval $(K8S_VERSION)/$(patsubst templates/v1/%,%,$(patsubst %.yaml.sed,%.yaml,$(SOURCE))): $(SOURCE) $(K8S_VERSION)/transforms2sed.sed)))
+cilium-crio-ds.yaml.sed:
+	for k8s_version in $(K8S_VERSIONS); do \
+	    (mkdir -p $$k8s_version && \
+	    cd $$k8s_version && \
+	    if [ -f cilium-crio-transforms2sed.sed ]; then \
+	        sed -f transforms2sed.sed ../templates/v1/$@ | \
+	        sed -f cilium-crio-transforms2sed.sed | \
+	        sed s+__CILIUM_VERSION__+$(CILIUM_VERSION)+g > "cilium-crio-ds.yaml"; \
+	    else \
+	        sed -f transforms2sed.sed ../templates/v1/$@ | \
+	        sed s+__CILIUM_VERSION__+$(CILIUM_VERSION)+g > "cilium-crio-ds.yaml"; \
+	    fi); \
+	done
 
-# Build the individual YAML files.
-$(foreach K8S_VERSION,$(K8S_VERSIONS), \
-	$(foreach SOURCE,$(SOURCES), \
-		$(eval $(call make_yaml,$(K8S_VERSION),$(SOURCE)))))
+%.yaml:
+	for k8s_version in $(K8S_VERSIONS); do \
+	    (mkdir -p $$k8s_version && \
+	    cd $$k8s_version && \
+	    cp ../templates/v1/$@ $@); \
+	done
+
+cilium.yaml:
+	for k8s_version in $(K8S_VERSIONS); do \
+        (cd $$k8s_version && \
+            rm -f ./$@ && \
+            for f in $(CILIUM_DOCKER_SOURCES); do (cat "$${f}") >> $@; done); \
+	done
+
+cilium-crio.yaml:
+	for k8s_version in $(K8S_VERSIONS); do \
+        (cd $$k8s_version && \
+            rm -f ./$@ && \
+            for f in $(CILIUM_CRIO_SOURCES); do (cat "$${f}") >> $@; done); \
+	done
 
 clean:
-	@$(ECHO_CLEAN) $(notdir $(shell pwd))
-	-$(QUIET)for k8s_version in $(K8S_VERSIONS); do  rm -f ./$$k8s_version/*.yaml; done
+	for k8s_version in $(K8S_VERSIONS); do \
+        rm ./$$k8s_version/*.yaml; \
+	done
 
-.PHONY: all clean
+transform: cilium-rbac.yaml.sed \
+    cilium-cm.yaml \
+    cilium-crio-ds.yaml.sed \
+    cilium-ds.yaml.sed \
+    cilium-rbac.yaml.sed \
+    cilium-sa.yaml
+
+.PHONY: transform cilium.yaml
