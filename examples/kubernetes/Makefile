@@ -8,8 +8,8 @@ K8S_VERSIONS = 1.8 1.9 1.10 1.11 1.12
 
 SOURCES = $(wildcard templates/v1/*.yaml*)
 FILENAME_SOURCES = $(patsubst templates/v1/%,%,$(patsubst %.yaml.sed,%.yaml,$(SOURCES)))
-CILIUM_CRIO_SOURCES = $(sort $(filter-out cilium-ds.yaml,$(FILENAME_SOURCES)))
-CILIUM_DOCKER_SOURCES = $(sort $(filter-out cilium-crio-ds.yaml,$(FILENAME_SOURCES)))
+CILIUM_CRIO_SOURCES = $(sort $(filter-out cilium-pre-flight.yaml cilium-ds.yaml,$(FILENAME_SOURCES)))
+CILIUM_DOCKER_SOURCES = $(sort $(filter-out cilium-pre-flight.yaml cilium-crio-ds.yaml,$(FILENAME_SOURCES)))
 
 all: transform cilium.yaml cilium-crio.yaml
 
@@ -65,6 +65,7 @@ transform: cilium-rbac.yaml.sed \
     cilium-cm.yaml \
     cilium-crio-ds.yaml.sed \
     cilium-ds.yaml.sed \
+    cilium-pre-flight.yaml.sed \
     cilium-rbac.yaml.sed \
     cilium-sa.yaml
 
