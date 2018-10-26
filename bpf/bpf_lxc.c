@@ -262,7 +262,7 @@ skip_service_lookup:
 		break;
 
 	default:
-		return DROP_POLICY;
+		return DROP_UNKNOWN_CT;
 	}
 
 	if (redirect_to_proxy(verdict, forwarding_reason)) {
@@ -305,7 +305,7 @@ skip_service_lookup:
 #ifdef HOST_IFINDEX
 			goto to_host;
 #else
-			return DROP_NO_LXC;
+			return DROP_HOST_UNREACHABLE;
 #endif
 		}
 
@@ -566,7 +566,7 @@ skip_service_lookup:
 		break;
 
 	default:
-		return DROP_POLICY;
+		return DROP_UNKNOWN_CT;
 	}
 
 	if (redirect_to_proxy(verdict, forwarding_reason)) {
@@ -610,7 +610,7 @@ skip_service_lookup:
 #ifdef HOST_IFINDEX
 			goto to_host;
 #else
-			return DROP_NO_LXC;
+			return DROP_HOST_UNREACHABLE;
 #endif
 		}
 		policy_clear_mark(skb);
@@ -823,7 +823,7 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 		if (ret == CT_ESTABLISHED)
 			ct_delete6(get_ct_map6(&tuple), &tuple, skb);
 
-		return DROP_POLICY;
+		return verdict;
 	}
 
 	if (skip_proxy)
@@ -957,7 +957,7 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 		if (ret == CT_ESTABLISHED)
 			ct_delete4(get_ct_map4(&tuple), &tuple, skb);
 
-		return DROP_POLICY;
+		return verdict;
 	}
 
 	if (skip_proxy)
