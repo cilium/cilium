@@ -811,6 +811,49 @@ func (kub *Kubectl) WaitCleanAllTerminatingPods(timeout int64) error {
 	return err
 }
 
+// DeployPatch deploys the original kubernetes descriptor with the given patch.
+func (kub *Kubectl) DeployPatch(original, patch string) error {
+	// debugYaml only dumps the full created yaml file to the test output if
+	// the cilium manifest can not be created correctly.
+	debugYaml := func(original, patch string) {
+		// dry-run is only available since k8s 1.11
+		switch GetCurrentK8SEnv() {
+		case "1.8", "1.9", "1.10":
+			_ = kub.Exec(fmt.Sprintf(
+				`%s patch --filename='%s' --patch "$(cat '%s')" --local -o yaml`,
+				KubectlCmd, original, patch))
+		default:
+			_ = kub.Exec(fmt.Sprintf(
+				`%s patch --filename='%s' --patch "$(cat '%s')" --local --dry-run -o yaml`,
+				KubectlCmd, original, patch))
+		}
+	}
+
+	var res *CmdRes
+	// validation 1st
+	// dry-run is only available since k8s 1.11
+	switch GetCurrentK8SEnv() {
+	case "1.8", "1.9", "1.10":
+	default:
+		res = kub.Exec(fmt.Sprintf(
+			`%s patch --filename='%s' --patch "$(cat '%s')" --local --dry-run`,
+			KubectlCmd, original, patch))
+		if !res.WasSuccessful() {
+			debugYaml(original, patch)
+			return res.GetErr("Cilium patch validation failed")
+		}
+	}
+
+	res = kub.Exec(fmt.Sprintf(
+		`%s patch --filename='%s' --patch "$(cat '%s')" --local -o yaml | kubectl apply -f -`,
+		KubectlCmd, original, patch))
+	if !res.WasSuccessful() {
+		debugYaml(original, patch)
+		return res.GetErr("Cilium manifest patch instalation failed")
+	}
+	return nil
+}
+
 // ciliumInstall installs all Cilium descriptors into kubernetes.
 // dsPatchName corresponds to the DaemonSet patch, found by
 // getK8sDescriptorPatch, that will be applied to the original Cilium DaemonSet
@@ -836,47 +879,6 @@ func (kub *Kubectl) ciliumInstall(dsPatchName, cmPatchName string, getK8sDescrip
 	saPathname := getK8sDescriptor("cilium-sa.yaml")
 	if saPathname == "" {
 		return fmt.Errorf("Cilium ServiceAccount descriptor not found")
-	}
-	deployPatch := func(original, patch string) error {
-		// debugYaml only dumps the full created yaml file to the test output if
-		// the cilium manifest can not be created correctly.
-		debugYaml := func(original, patch string) {
-			// dry-run is only available since k8s 1.11
-			switch GetCurrentK8SEnv() {
-			case "1.8", "1.9", "1.10":
-				_ = kub.Exec(fmt.Sprintf(
-					`%s patch --filename='%s' --patch "$(cat '%s')" --local -o yaml`,
-					KubectlCmd, original, patch))
-			default:
-				_ = kub.Exec(fmt.Sprintf(
-					`%s patch --filename='%s' --patch "$(cat '%s')" --local --dry-run -o yaml`,
-					KubectlCmd, original, patch))
-			}
-		}
-
-		var res *CmdRes
-		// validation 1st
-		// dry-run is only available since k8s 1.11
-		switch GetCurrentK8SEnv() {
-		case "1.8", "1.9", "1.10":
-		default:
-			res = kub.Exec(fmt.Sprintf(
-				`%s patch --filename='%s' --patch "$(cat '%s')" --local --dry-run`,
-				KubectlCmd, original, patch))
-			if !res.WasSuccessful() {
-				debugYaml(original, patch)
-				return res.GetErr("Cilium patch validation failed")
-			}
-		}
-
-		res = kub.Exec(fmt.Sprintf(
-			`%s patch --filename='%s' --patch "$(cat '%s')" --local -o yaml | kubectl apply -f -`,
-			KubectlCmd, original, patch))
-		if !res.WasSuccessful() {
-			debugYaml(original, patch)
-			return res.GetErr("Cilium manifest patch instalation failed")
-		}
-		return nil
 	}
 
 	deployOriginal := func(original string) error {
@@ -909,11 +911,11 @@ func (kub *Kubectl) ciliumInstall(dsPatchName, cmPatchName string, getK8sDescrip
 		return err
 	}
 
-	if err := deployPatch(cmPathname, getK8sDescriptorPatch(cmPatchName)); err != nil {
+	if err := kub.DeployPatch(cmPathname, getK8sDescriptorPatch(cmPatchName)); err != nil {
 		return err
 	}
 
-	if err := deployPatch(dsPathname, getK8sDescriptorPatch(dsPatchName)); err != nil {
+	if err := kub.DeployPatch(dsPathname, getK8sDescriptorPatch(dsPatchName)); err != nil {
 		return err
 	}
 	return nil
@@ -928,6 +930,19 @@ func (kub *Kubectl) ciliumInstall(dsPatchName, cmPatchName string, getK8sDescrip
 // found.
 func (kub *Kubectl) CiliumInstall(dsPatchName, cmPatchName string) error {
 	return kub.ciliumInstall(dsPatchName, cmPatchName, GetK8sDescriptor, ManifestGet)
+}
+
+// CiliumPreFlightInstall install Cilium pre-flight DaemonSet.
+func (kub *Kubectl) CiliumPreFlightInstall(patchName string) error {
+	dsPathname := GetK8sDescriptor(CiliumDefaultPreFlight)
+	if dsPathname == "" {
+		return fmt.Errorf("Cilium Pre-flight DaemonSet descriptor not found")
+	}
+	patchFilepath := ManifestGet(patchName)
+	if patchFilepath == "" {
+		return fmt.Errorf("Cilium pre-flight DaemonSet patch not found")
+	}
+	return kub.DeployPatch(dsPathname, patchFilepath)
 }
 
 // CiliumInstallVersion installs all Cilium descriptors into kubernetes for
