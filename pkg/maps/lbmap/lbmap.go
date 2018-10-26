@@ -481,7 +481,7 @@ func L3n4Addr2RevNatKeynValue(svcID loadbalancer.ServiceID, feL3n4Addr loadbalan
 }
 
 // serviceKey2L3n4Addr converts the given svcKey to a L3n4Addr.
-func serviceKey2L3n4Addr(svcKey ServiceKey) (*loadbalancer.L3n4Addr, error) {
+func serviceKey2L3n4Addr(svcKey ServiceKey) *loadbalancer.L3n4Addr {
 	log.WithField(logfields.ServiceID, svcKey).Debug("creating L3n4Addr for ServiceKey")
 	var (
 		feIP   net.IP
@@ -501,7 +501,7 @@ func serviceKey2L3n4Addr(svcKey ServiceKey) (*loadbalancer.L3n4Addr, error) {
 
 // serviceKeynValue2FEnBE converts the given svcKey and svcValue to a frontend in the
 // form of L3n4AddrID and backend in the form of L3n4Addr.
-func serviceKeynValue2FEnBE(svcKey ServiceKey, svcValue ServiceValue) (*loadbalancer.L3n4AddrID, *loadbalancer.LBBackEnd, error) {
+func serviceKeynValue2FEnBE(svcKey ServiceKey, svcValue ServiceValue) (*loadbalancer.L3n4AddrID, *loadbalancer.LBBackEnd) {
 	var (
 		beIP     net.IP
 		svcID    loadbalancer.ServiceID
@@ -528,59 +528,48 @@ func serviceKeynValue2FEnBE(svcKey ServiceKey, svcValue ServiceValue) (*loadbala
 		beWeight = svc4Val.Weight
 	}
 
-	feL3n4Addr, err := serviceKey2L3n4Addr(svcKey)
-	if err != nil {
-		return nil, nil, fmt.Errorf("unable to create a new frontend for service key %s: %s", svcKey, err)
-	}
-
-	beLBBackEnd, err := loadbalancer.NewLBBackEnd(loadbalancer.TCP, beIP, bePort, beWeight)
-	if err != nil {
-		return nil, nil, fmt.Errorf("unable to create a new backend for %s:%d: %s", beIP, bePort, err)
-	}
+	feL3n4Addr := serviceKey2L3n4Addr(svcKey)
+	beLBBackEnd := loadbalancer.NewLBBackEnd(loadbalancer.TCP, beIP, bePort, beWeight)
 
 	feL3n4AddrID := &loadbalancer.L3n4AddrID{
 		L3n4Addr: *feL3n4Addr,
 		ID:       svcID,
 	}
 
-	return feL3n4AddrID, beLBBackEnd, nil
+	return feL3n4AddrID, beLBBackEnd
 }
 
 // RevNat6Value2L3n4Addr converts the given RevNat6Value to a L3n4Addr.
-func revNat6Value2L3n4Addr(revNATV *RevNat6Value) (*loadbalancer.L3n4Addr, error) {
+func revNat6Value2L3n4Addr(revNATV *RevNat6Value) *loadbalancer.L3n4Addr {
 	return loadbalancer.NewL3n4Addr(loadbalancer.TCP, revNATV.Address.IP(), revNATV.Port)
 }
 
 // revNat4Value2L3n4Addr converts the given RevNat4Value to a L3n4Addr.
-func revNat4Value2L3n4Addr(revNATV *RevNat4Value) (*loadbalancer.L3n4Addr, error) {
+func revNat4Value2L3n4Addr(revNATV *RevNat4Value) *loadbalancer.L3n4Addr {
 	return loadbalancer.NewL3n4Addr(loadbalancer.TCP, revNATV.Address.IP(), revNATV.Port)
 }
 
 // revNatValue2L3n4AddrID converts the given RevNatKey and RevNatValue to a L3n4AddrID.
-func revNatValue2L3n4AddrID(revNATKey RevNatKey, revNATValue RevNatValue) (*loadbalancer.L3n4AddrID, error) {
+func revNatValue2L3n4AddrID(revNATKey RevNatKey, revNATValue RevNatValue) *loadbalancer.L3n4AddrID {
 	var (
 		svcID loadbalancer.ServiceID
 		be    *loadbalancer.L3n4Addr
-		err   error
 	)
 	if revNATKey.IsIPv6() {
 		revNat6Key := revNATKey.(*RevNat6Key)
 		svcID = loadbalancer.ServiceID(revNat6Key.Key)
 
 		revNat6Value := revNATValue.(*RevNat6Value)
-		be, err = revNat6Value2L3n4Addr(revNat6Value)
+		be = revNat6Value2L3n4Addr(revNat6Value)
 	} else {
 		revNat4Key := revNATKey.(*RevNat4Key)
 		svcID = loadbalancer.ServiceID(revNat4Key.Key)
 
 		revNat4Value := revNATValue.(*RevNat4Value)
-		be, err = revNat4Value2L3n4Addr(revNat4Value)
-	}
-	if err != nil {
-		return nil, err
+		be = revNat4Value2L3n4Addr(revNat4Value)
 	}
 
-	return &loadbalancer.L3n4AddrID{L3n4Addr: *be, ID: svcID}, nil
+	return &loadbalancer.L3n4AddrID{L3n4Addr: *be, ID: svcID}
 }
 
 // DeleteRevNATBPF deletes the revNAT entry from its corresponding BPF map
@@ -622,13 +611,7 @@ func DumpServiceMapsToUserspace(includeMasterBackend, skipIPv4 bool) (loadbalanc
 		})
 
 		scopedLog.Debug("parsing service mapping")
-		fe, be, err := serviceKeynValue2FEnBE(svcKey, svcValue)
-		if err != nil {
-			scopedLog.WithError(err).Error("error converting service key to userspace representation")
-			errors = append(errors, err)
-			return
-		}
-
+		fe, be := serviceKeynValue2FEnBE(svcKey, svcValue)
 		svc := newSVCMap.AddFEnBE(fe, be, svcKey.GetBackend())
 		newSVCList = append(newSVCList, svc)
 	}
@@ -669,12 +652,7 @@ func DumpRevNATMapsToUserspace(skipIPv4 bool) (loadbalancer.RevNATMap, []error) 
 		})
 
 		scopedLog.Debug("parsing BPF revNAT mapping")
-		fe, err := revNatValue2L3n4AddrID(revNatK, revNatV)
-		if err != nil {
-			scopedLog.WithError(err).Error("error converting revNAT key to userspace representation")
-			errors = append(errors, err)
-			return
-		}
+		fe := revNatValue2L3n4AddrID(revNatK, revNatV)
 		newRevNATMap[fe.ID] = fe.L3n4Addr
 	}
 

@@ -807,11 +807,7 @@ func parseSvcV1(svc *v1.Service) *loadbalancer.K8sServiceInfo {
 	// FIXME: Add support for
 	//  - NodePort
 	for _, port := range svc.Spec.Ports {
-		p, err := loadbalancer.NewFEPort(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
-		if err != nil {
-			scopedLog.WithError(err).WithField("port", port).Error("Unable to add service port")
-			continue
-		}
+		p := loadbalancer.NewFEPort(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
 		if _, ok := newSI.Ports[loadbalancer.FEPortName(port.Name)]; !ok {
 			newSI.Ports[loadbalancer.FEPortName(port.Name)] = p
 		}
@@ -903,12 +899,6 @@ func (d *Daemon) missingK8sServiceV1(m versioned.Map) versioned.Map {
 }
 
 func parseK8sEPv1(ep *v1.Endpoints) *loadbalancer.K8sServiceEndpoint {
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.K8sEndpointName: ep.ObjectMeta.Name,
-		logfields.K8sNamespace:    ep.ObjectMeta.Namespace,
-		logfields.K8sAPIVersion:   ep.TypeMeta.APIVersion,
-	})
-
 	newSvcEP := loadbalancer.NewK8sServiceEndpoint()
 
 	for _, sub := range ep.Subsets {
@@ -916,11 +906,7 @@ func parseK8sEPv1(ep *v1.Endpoints) *loadbalancer.K8sServiceEndpoint {
 			newSvcEP.BEIPs[addr.IP] = true
 		}
 		for _, port := range sub.Ports {
-			lbPort, err := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
-			if err != nil {
-				scopedLog.WithError(err).Error("Error while creating a new LB Port")
-				continue
-			}
+			lbPort := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
 			newSvcEP.Ports[loadbalancer.FEPortName(port.Name)] = lbPort
 		}
 	}
@@ -1170,11 +1156,7 @@ func (d *Daemon) delK8sSVCs(svc loadbalancer.K8sServiceNamespace, svcInfo *loadb
 			}
 		}
 
-		fe, err := loadbalancer.NewL3n4Addr(svcPort.Protocol, svcInfo.FEIP, svcPort.Port)
-		if err != nil {
-			scopedLog.WithError(err).Error("Error while creating a New L3n4AddrID. Ignoring service")
-			continue
-		}
+		fe := loadbalancer.NewL3n4Addr(svcPort.Protocol, svcInfo.FEIP, svcPort.Port)
 
 		if err := d.svcDeleteByFrontend(fe); err != nil {
 			scopedLog.WithError(err).WithField(logfields.Object, logfields.Repr(fe)).
@@ -1226,16 +1208,7 @@ func (d *Daemon) addK8sSVCs(svc loadbalancer.K8sServiceNamespace, svcInfo *loadb
 		uniqPorts[fePort.Port] = false
 
 		if fePort.ID == 0 {
-			feAddr, err := loadbalancer.NewL3n4Addr(fePort.Protocol, svcInfo.FEIP, fePort.Port)
-			if err != nil {
-				scopedLog.WithError(err).WithFields(logrus.Fields{
-					logfields.ServiceID: fePortName,
-					logfields.IPAddr:    svcInfo.FEIP,
-					logfields.Port:      fePort.Port,
-					logfields.Protocol:  fePort.Protocol,
-				}).Error("Error while creating a new L3n4Addr. Ignoring service...")
-				continue
-			}
+			feAddr := loadbalancer.NewL3n4Addr(fePort.Protocol, svcInfo.FEIP, fePort.Port)
 			feAddrID, err := service.AcquireID(*feAddr, 0)
 			if err != nil {
 				scopedLog.WithError(err).WithFields(logrus.Fields{
@@ -1266,14 +1239,7 @@ func (d *Daemon) addK8sSVCs(svc loadbalancer.K8sServiceNamespace, svcInfo *loadb
 			}
 		}
 
-		fe, err := loadbalancer.NewL3n4AddrID(fePort.Protocol, svcInfo.FEIP, fePort.Port, fePort.ID)
-		if err != nil {
-			scopedLog.WithError(err).WithFields(logrus.Fields{
-				logfields.IPAddr: svcInfo.FEIP,
-				logfields.Port:   svcInfo.Ports,
-			}).Error("Error while creating a New L3n4AddrID. Ignoring service...")
-			continue
-		}
+		fe := loadbalancer.NewL3n4AddrID(fePort.Protocol, svcInfo.FEIP, fePort.Port, fePort.ID)
 		if _, err := d.svcAdd(*fe, besValues, true); err != nil {
 			scopedLog.WithError(err).Error("Error while inserting service in LB map")
 		}
@@ -1361,10 +1327,7 @@ func parsingV1beta1(ing *v1beta1.Ingress, host net.IP) (*loadbalancer.K8sService
 	if ingressPort == 0 {
 		return nil, fmt.Errorf("invalid port number")
 	}
-	fePort, err := loadbalancer.NewFEPort(loadbalancer.TCP, uint16(ingressPort))
-	if err != nil {
-		return nil, err
-	}
+	fePort := loadbalancer.NewFEPort(loadbalancer.TCP, uint16(ingressPort))
 
 	ingressSvcInfo := loadbalancer.NewK8sServiceInfo(host, false, nil, nil)
 	portName := loadbalancer.FEPortName(ing.Spec.Backend.ServiceName + "/" + ing.Spec.Backend.ServicePort.String())
@@ -1458,11 +1421,7 @@ func (d *Daemon) updateIngressV1beta1(oldIngress, newIngress *v1beta1.Ingress) e
 			if ingressIP == nil {
 				continue
 			}
-			feAddr, err := loadbalancer.NewL3n4Addr(loadbalancer.TCP, ingressIP, uint16(port))
-			if err != nil {
-				scopedLog.WithError(err).Error("Error while creating a new L3n4Addr. Ignoring ingress...")
-				continue
-			}
+			feAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, ingressIP, uint16(port))
 			feAddrID, err := service.AcquireID(*feAddr, 0)
 			if err != nil {
 				scopedLog.WithError(err).Error("Error while getting a new service ID. Ignoring ingress...")
@@ -1518,11 +1477,7 @@ func (d *Daemon) deleteIngressV1beta1(ingress *v1beta1.Ingress) error {
 			if ingressIP == nil {
 				continue
 			}
-			feAddr, err := loadbalancer.NewL3n4Addr(loadbalancer.TCP, ingressIP, uint16(port))
-			if err != nil {
-				scopedLog.WithError(err).Error("Error while creating a new L3n4Addr. Ignoring ingress...")
-				continue
-			}
+			feAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, ingressIP, uint16(port))
 			// This is the only way that we can get the service's ID
 			// without accessing the KVStore.
 			svc := d.svcGetBySHA256Sum(feAddr.SHA256Sum())

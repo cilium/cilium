@@ -315,9 +315,7 @@ func (ds *DaemonSuite) Test_parseK8sEPv1(c *C) {
 			},
 			setupWanted: func() *loadbalancer.K8sServiceEndpoint {
 				svcEP := loadbalancer.NewK8sServiceEndpoint()
-				p, err := loadbalancer.NewL4Addr(loadbalancer.TCP, 8080)
-				c.Assert(err, IsNil)
-				svcEP.Ports["http-test-svc"] = p
+				svcEP.Ports["http-test-svc"] = loadbalancer.NewL4Addr(loadbalancer.TCP, 8080)
 				svcEP.BEIPs["172.0.0.1"] = true
 				return svcEP
 			},
@@ -357,12 +355,8 @@ func (ds *DaemonSuite) Test_parseK8sEPv1(c *C) {
 			},
 			setupWanted: func() *loadbalancer.K8sServiceEndpoint {
 				svcEP := loadbalancer.NewK8sServiceEndpoint()
-				p, err := loadbalancer.NewL4Addr(loadbalancer.TCP, 8080)
-				c.Assert(err, IsNil)
-				svcEP.Ports["http-test-svc"] = p
-				p, err = loadbalancer.NewL4Addr(loadbalancer.TCP, 8081)
-				c.Assert(err, IsNil)
-				svcEP.Ports["http-test-svc-2"] = p
+				svcEP.Ports["http-test-svc"] = loadbalancer.NewL4Addr(loadbalancer.TCP, 8080)
+				svcEP.Ports["http-test-svc-2"] = loadbalancer.NewL4Addr(loadbalancer.TCP, 8081)
 				svcEP.BEIPs["172.0.0.1"] = true
 				return svcEP
 			},
@@ -405,12 +399,8 @@ func (ds *DaemonSuite) Test_parseK8sEPv1(c *C) {
 			},
 			setupWanted: func() *loadbalancer.K8sServiceEndpoint {
 				svcEP := loadbalancer.NewK8sServiceEndpoint()
-				p, err := loadbalancer.NewL4Addr(loadbalancer.TCP, 8080)
-				c.Assert(err, IsNil)
-				svcEP.Ports["http-test-svc"] = p
-				p, err = loadbalancer.NewL4Addr(loadbalancer.TCP, 8081)
-				c.Assert(err, IsNil)
-				svcEP.Ports["http-test-svc-2"] = p
+				svcEP.Ports["http-test-svc"] = loadbalancer.NewL4Addr(loadbalancer.TCP, 8080)
+				svcEP.Ports["http-test-svc-2"] = loadbalancer.NewL4Addr(loadbalancer.TCP, 8081)
 				svcEP.BEIPs["172.0.0.1"] = true
 				svcEP.BEIPs["172.0.0.2"] = true
 				return svcEP
@@ -459,63 +449,8 @@ func (ds *DaemonSuite) Test_parseK8sEPv1(c *C) {
 			},
 			setupWanted: func() *loadbalancer.K8sServiceEndpoint {
 				svcEP := loadbalancer.NewK8sServiceEndpoint()
-				p, err := loadbalancer.NewL4Addr(loadbalancer.TCP, 8080)
-				c.Assert(err, IsNil)
-				svcEP.Ports["http-test-svc"] = p
-				p, err = loadbalancer.NewL4Addr(loadbalancer.TCP, 8081)
-				c.Assert(err, IsNil)
-				svcEP.Ports["http-test-svc-2"] = p
-				svcEP.BEIPs["172.0.0.1"] = true
-				svcEP.BEIPs["172.0.0.2"] = true
-				return svcEP
-			},
-		},
-		{
-			name: "endpoint with 2 addresses, 1 address not ready, 1 good port and 1 port with unknown protocol",
-			setupArgs: func() args {
-				return args{
-					eps: &core_v1.Endpoints{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "foo",
-							Namespace: "bar",
-						},
-						Subsets: []core_v1.EndpointSubset{
-							{
-								NotReadyAddresses: []core_v1.EndpointAddress{
-									{
-										IP: "172.0.0.3",
-									},
-								},
-								Addresses: []core_v1.EndpointAddress{
-									{
-										IP: "172.0.0.1",
-									},
-									{
-										IP: "172.0.0.2",
-									},
-								},
-								Ports: []core_v1.EndpointPort{
-									{
-										Name:     "http-test-svc",
-										Port:     8080,
-										Protocol: core_v1.ProtocolTCP,
-									},
-									{
-										Name:     "http-test-svc-2",
-										Port:     8081,
-										Protocol: core_v1.Protocol("foo"),
-									},
-								},
-							},
-						},
-					},
-				}
-			},
-			setupWanted: func() *loadbalancer.K8sServiceEndpoint {
-				svcEP := loadbalancer.NewK8sServiceEndpoint()
-				p, err := loadbalancer.NewL4Addr(loadbalancer.TCP, 8080)
-				c.Assert(err, IsNil)
-				svcEP.Ports["http-test-svc"] = p
+				svcEP.Ports["http-test-svc"] = loadbalancer.NewL4Addr(loadbalancer.TCP, 8080)
+				svcEP.Ports["http-test-svc-2"] = loadbalancer.NewL4Addr(loadbalancer.TCP, 8081)
 				svcEP.BEIPs["172.0.0.1"] = true
 				svcEP.BEIPs["172.0.0.2"] = true
 				return svcEP
