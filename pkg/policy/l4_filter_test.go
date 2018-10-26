@@ -27,14 +27,9 @@ import (
 )
 
 var (
-	fooSelector      = api.NewESFromLabels(labels.ParseSelectLabel("foo"))
-	barSelector      = api.NewESFromLabels(labels.ParseSelectLabel("bar"))
-	hostSelector     = api.ReservedEndpointSelectors[labels.IDNameHost]
-	fooSelectorSlice = []api.EndpointSelector{
-		fooSelector,
-	}
-	toBar = &SearchContext{To: labels.ParseSelectLabelArray("bar")}
-	toFoo = &SearchContext{To: labels.ParseSelectLabelArray("foo")}
+	barSelector  = api.NewESFromLabels(labels.ParseSelectLabel("bar"))
+	hostSelector = api.ReservedEndpointSelectors[labels.IDNameHost]
+	toFoo        = &SearchContext{To: labels.ParseSelectLabelArray("foo")}
 )
 
 // Tests in this file:
