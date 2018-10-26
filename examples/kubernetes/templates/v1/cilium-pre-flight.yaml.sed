@@ -1,0 +1,67 @@
+---
+apiVersion: __DS_API_VERSION__
+kind: DaemonSet
+metadata:
+  name: cilium-pre-flight-check
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      k8s-app: cilium-pre-flight-check
+      kubernetes.io/cluster-service: "true"
+  template:
+    metadata:
+      labels:
+        k8s-app: cilium-pre-flight-check
+        kubernetes.io/cluster-service: "true"
+    spec:
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: "k8s-app"
+                operator: In
+                values:
+                - cilium
+            topologyKey: "kubernetes.io/hostname"
+      initContainers:
+        - name: clean-cilium-state
+          image: docker.io/cilium/cilium-init:2018-10-16
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/echo"]
+          args:
+          - "hello"
+      containers:
+        - image: docker.io/cilium/cilium:__CILIUM_VERSION__
+          imagePullPolicy: Always
+          name: cilium-pre-flight-check
+          command: ["/bin/sh"]
+          args:
+          - -c
+          - touch /tmp/ready; sleep 1h
+          livenessProbe:
+            exec:
+              command:
+              - cat
+              - /tmp/ready
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          readinessProbe:
+            exec:
+              command:
+              - cat
+              - /tmp/ready
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      restartPolicy: Always
+      tolerations:
+        - effect: NoSchedule
+          key: node.kubernetes.io/not-ready
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/master
+        - effect: NoSchedule
+          key: node.cloudprovider.kubernetes.io/uninitialized
+          value: "true"
+        - key: CriticalAddonsOnly
+          operator: "Exists"
