@@ -15,6 +15,8 @@
 package k8sTest
 
 import (
+	"fmt"
+
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
@@ -65,5 +67,28 @@ func ExpectETCDOperatorReady(vm *helpers.Kubectl) {
 	// new one is not created yet.
 	By("Waiting for all etcd-operator pods are ready")
 	err := vm.WaitforNPods(helpers.KubeSystemNamespace, "-l io.cilium/app=etcd-operator", 4, 600)
-	Expect(err).To(BeNil(), "etcd-operator is not ready after timeout")
+	warningMessage := ""
+	if err != nil {
+		res := vm.Exec(fmt.Sprintf(
+			"%s -n %s get pods -l io.cilium/app=etcd-operator",
+			helpers.KubectlCmd, helpers.KubeSystemNamespace))
+		warningMessage = res.Output().String()
+	}
+	Expect(err).To(BeNil(), "etcd-operator is not ready after timeout, pods status:\n %s", warningMessage)
+}
+
+// ExpectCiliumPreFlightInstallReady is a wrapper around helpers/WaitForNPods.
+// It asserts the error returned by that function is nil.
+func ExpectCiliumPreFlightInstallReady(vm *helpers.Kubectl) {
+	By("Waiting for all cilium pre-flight pods to be ready")
+
+	err := vm.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium-pre-flight-check", 600)
+	warningMessage := ""
+	if err != nil {
+		res := vm.Exec(fmt.Sprintf(
+			"%s -n %s get pods -l k8s-app=cilium-pre-flight-check",
+			helpers.KubectlCmd, helpers.KubeSystemNamespace))
+		warningMessage = res.Output().String()
+	}
+	Expect(err).To(BeNil(), "cilium pre-flight check is not ready after timeout, pods status:\n %s", warningMessage)
 }
