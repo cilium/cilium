@@ -123,10 +123,7 @@ func updateService(cmd *cobra.Command, args []string) {
 			Fatalf("Cannot parse backend address \"%s\": %s", backend, err)
 		}
 
-		be, err := loadbalancer.NewLBBackEnd(loadbalancer.TCP, beAddr.IP, uint16(beAddr.Port), uint16(weight))
-		if err != nil {
-			Fatalf("Unable to create a new L3n4Addr for backend %s: %s", backend, err)
-		}
+		be := loadbalancer.NewLBBackEnd(loadbalancer.TCP, beAddr.IP, uint16(beAddr.Port), uint16(weight))
 
 		if be.IsIPv6() && faIP.To4() != nil {
 			Fatalf("Address mismatch between frontend and backend %s", backend)
