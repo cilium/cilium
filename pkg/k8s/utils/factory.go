@@ -271,7 +271,9 @@ func ResourceEventHandlerFactory(
 
 	if addFunc != nil {
 		rehf.AddFunc = func(obj interface{}) {
-			gauge.SetToCurrentTime()
+			if gauge != nil {
+				gauge.SetToCurrentTime()
+			}
 			if metaObj := castToDeepCopy(obj); metaObj != nil {
 				if scm.AddEqual(GetVerStructFrom(metaObj)) {
 					return
@@ -282,7 +284,9 @@ func ResourceEventHandlerFactory(
 	}
 	if updateFunc != nil {
 		rehf.UpdateFunc = func(oldObj, newObj interface{}) {
-			gauge.SetToCurrentTime()
+			if gauge != nil {
+				gauge.SetToCurrentTime()
+			}
 			if oldMetaObj := castToDeepCopy(oldObj); oldMetaObj != nil {
 				if newMetaObj := castToDeepCopy(newObj); newMetaObj != nil {
 					if scm.AddEqual(GetVerStructFrom(newMetaObj)) {
@@ -296,7 +300,9 @@ func ResourceEventHandlerFactory(
 
 	if delFunc != nil {
 		rehf.DeleteFunc = func(obj interface{}) {
-			gauge.SetToCurrentTime()
+			if gauge != nil {
+				gauge.SetToCurrentTime()
+			}
 			if metaObj := castToDeepCopy(obj); metaObj != nil {
 				if ok := scm.Delete(versioned.UUID(GetObjUID(metaObj))); !ok {
 					return
