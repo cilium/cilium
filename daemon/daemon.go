@@ -1167,10 +1167,6 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 	return NewPatchConfigOK()
 }
 
-func (d *Daemon) getNodeAddressing() *models.NodeAddressing {
-	return node.GetNodeAddressing(option.Config.EnableIPv4)
-}
-
 type getConfig struct {
 	daemon *Daemon
 }
@@ -1190,7 +1186,7 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 	}
 
 	status := &models.DaemonConfigurationStatus{
-		Addressing:       d.getNodeAddressing(),
+		Addressing:       node.GetNodeAddressing(),
 		K8sConfiguration: k8s.GetKubeconfigPath(),
 		K8sEndpoint:      k8s.GetAPIServer(),
 		NodeMonitor:      d.nodeMonitor.State(),

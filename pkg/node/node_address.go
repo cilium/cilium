@@ -439,15 +439,15 @@ func IsHostIPv6(ip net.IP) bool {
 }
 
 // GetNodeAddressing returns the NodeAddressing model for the local IPs.
-func GetNodeAddressing(enableIPv4 bool) *models.NodeAddressing {
+func GetNodeAddressing() *models.NodeAddressing {
 	return &models.NodeAddressing{
 		IPV6: &models.NodeAddressingElement{
-			Enabled:    true,
+			Enabled:    option.Config.EnableIPv6,
 			IP:         GetIPv6Router().String(),
 			AllocRange: GetIPv6AllocRange().String(),
 		},
 		IPV4: &models.NodeAddressingElement{
-			Enabled:    enableIPv4,
+			Enabled:    option.Config.EnableIPv4,
 			IP:         GetInternalIPv4().String(),
 			AllocRange: GetIPv4AllocRange().String(),
 		},
