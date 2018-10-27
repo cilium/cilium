@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
@@ -41,6 +42,7 @@ var (
 	// cache contains *all* services of both IPv4 and IPv6 based maps
 	// combined
 	cache = newLBMapCache()
+	mutex lock.RWMutex
 )
 
 // ServiceKey is the interface describing protocol independent key for services map.
@@ -561,11 +563,90 @@ func RevNatValue2L3n4AddrID(revNATKey RevNatKey, revNATValue RevNatValue) (*type
 		revNat4Value := revNATValue.(*RevNat4Value)
 		be, err = RevNat4Value2L3n4Addr(revNat4Value)
 	}
-	if err != nil {
-		return nil, err
+
+	return &types.L3n4AddrID{L3n4Addr: *be, ID: svcID}, err
+}
+
+// DeleteRevNATBPF deletes the revNAT entry from its corresponding BPF map
+// (IPv4 or IPv6) with ID id. Returns an error if the deletion operation failed.
+func DeleteRevNATBPF(id types.ServiceID, isIPv6 bool) error {
+	var revNATK RevNatKey
+	if isIPv6 {
+		revNATK = NewRevNat6Key(uint16(id))
+	} else {
+		revNATK = NewRevNat4Key(uint16(id))
+	}
+	err := DeleteRevNat(revNATK)
+	return err
+}
+
+// DumpServiceMapsToUserspace dumps the contents of both the IPv6 and IPv4
+// service / loadbalancer BPF maps, and converts them to a SVCMap and slice of
+// LBSVC. IPv4 maps may not be dumped depending on if skipIPv4 is enabled. If
+// includeMasterBackend is true, the returned values will also include services
+// which correspond to "master" backend values in the BPF maps. Returns the
+// errors that occurred while dumping the maps.
+func DumpServiceMapsToUserspace(includeMasterBackend, skipIPv4 bool) (types.SVCMap, []*types.LBSVC, []error) {
+
+	newSVCMap := types.SVCMap{}
+	newSVCList := []*types.LBSVC{}
+	errors := []error{}
+	idCache := map[string]types.ServiceID{}
+
+	parseSVCEntries := func(key bpf.MapKey, value bpf.MapValue) {
+		svcKey := key.(ServiceKey)
+		//It's the frontend service so we don't add this one
+		if svcKey.GetBackend() == 0 && !includeMasterBackend {
+			return
+		}
+		svcValue := value.(ServiceValue)
+
+		scopedLog := log.WithFields(logrus.Fields{
+			logfields.BPFMapKey:   svcKey,
+			logfields.BPFMapValue: svcValue,
+		})
+
+		scopedLog.Debug("parsing service mapping")
+		fe, be, err := ServiceKeynValue2FEnBE(svcKey, svcValue)
+		if err != nil {
+			errors = append(errors, err)
+		}
+
+		// Build a cache to map frontend IP to service ID. The master
+		// service key does not have the service ID set so the cache
+		// needs to be built based on backend key entries.
+		if k := svcValue.RevNatKey().GetKey(); k != uint16(0) {
+			idCache[fe.String()] = types.ServiceID(k)
+		}
+
+		svc := newSVCMap.AddFEnBE(fe, be, svcKey.GetBackend())
+		newSVCList = append(newSVCList, svc)
 	}
 
-	return &types.L3n4AddrID{L3n4Addr: *be, ID: svcID}, nil
+	mutex.RLock()
+	defer mutex.RUnlock()
+
+	if !skipIPv4 {
+		err := Service4Map.DumpWithCallback(parseSVCEntries)
+		if err != nil {
+			errors = append(errors, err)
+		}
+	}
+
+	// ServiceKeynValue2FEnBE() cannot fill in the service ID reliably as
+	// not all BPF map entries contain the service ID. Do a pass over all
+	// parsed entries and fill in the service ID
+	for i := range newSVCList {
+		newSVCList[i].FE.ID = idCache[newSVCList[i].FE.String()]
+	}
+
+	// Do the same for the svcMap
+	for key, svc := range newSVCMap {
+		svc.FE.ID = idCache[svc.FE.String()]
+		newSVCMap[key] = svc
+	}
+
+	return newSVCMap, newSVCList, errors
 }
 
 // ServiceValue2LBBackEnd converts the svcValue to a LBBackEnd. The svcKey is necessary to
