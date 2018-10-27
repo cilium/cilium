@@ -5,10 +5,9 @@ set -x
 
 source /opt/cilium/env
 
-envsubst '${VERSION} ${COMMIT} ${SHORTCOMMIT}' < \
+envsubst '${VERSION} ${RELEASE} ${COMMIT} ${SHORTCOMMIT}' < \
 	/opt/cilium/cilium.spec.envsubst > /opt/cilium/cilium.spec
 
-echo $(git describe --tags $(git rev-list --tags --max-count=1) | tr -d '-').$(git rev-parse --short HEAD)
 sed -i -re '/^Version/s/-//g' /opt/cilium/cilium.spec
 
 # Install any lingering build requirements

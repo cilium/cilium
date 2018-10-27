@@ -42,7 +42,7 @@
 
 Name:          cilium
 Version:       ${VERSION}
-Release:       0.git%{shortcommit0}%{?dist}
+Release:       ${RELEASE}.git%{shortcommit0}%{?dist}
 Summary:       BPF & XDP for containers
 License:       Apache
 URL:           https://%{provider_prefix}
@@ -62,6 +62,8 @@ BuildRequires: go-bindata
 BuildRequires: glibc-devel(x86-32)
 BuildRequires: cmake
 BuildRequires: bazel
+BuildRequires: ninja-build
+BuildRequires: systemd
 BuildRequires: gcc-c++
 BuildRequires: elfutils-libelf-devel
 BuildRequires: libstdc++-static
@@ -100,44 +102,47 @@ export GOPATH=$(pwd):%{gopath}
 export GOPATH=$(pwd):$(pwd)/vendor:%{gopath}
 %endif
 
-echo "%{version}-0.git%{shortcommit0}" > VERSION
+echo "%{version}.%{release}.git%{shortcommit0}" > VERSION
 
 export PKG_BUILD=1
 
 make -C daemon apply-bindata
-make V=1 plugins bpf cilium daemon monitor cilium-health bugtool
+make V=1 proxylib plugins bpf cilium daemon monitor cilium-health bugtool tools
 
 export CC="/usr/bin/gcc"
 export CXX="/usr/bin/g++"
 
 cd envoy
+make proxylib-hdrs
+
 bazel clean
 bazel build //:envoy --action_env=PATH="$PATH"
 
 %install
 export PKG_BUILD=1
 
-%{__make} DESTDIR=%{buildroot} install
+%{__make} DESTDIR=%{buildroot} BINDIR=%{_bindir} LIBDIR=%{_libdir} install
 
-mkdir -p "%{buildroot}%{_prefix}/lib/systemd/system"
-mkdir -p "%{buildroot}%{_sysconfdir}/sysconfig"
+mkdir -p %{buildroot}%{_unitdir}
+mkdir -p %{buildroot}%{_sysconfdir}/sysconfig
 
-cp contrib/systemd/*.service "%{buildroot}%{_prefix}/lib/systemd/system"
-cp contrib/systemd/*.mount "%{buildroot}%{_prefix}/lib/systemd/system"
-chmod 644 %{buildroot}%{_prefix}/lib/systemd/system/*
+cp contrib/systemd/*.service %{buildroot}%{_unitdir}
+cp contrib/systemd/*.mount %{buildroot}%{_unitdir}
+chmod 644 %{buildroot}%{_unitdir}/*.{service,mount}
 
-cp contrib/systemd/cilium "%{buildroot}%{_sysconfdir}/sysconfig"
-chmod 644 "%{buildroot}%{_sysconfdir}/sysconfig/cilium"
+cp contrib/systemd/cilium %{buildroot}%{_sysconfdir}/sysconfig
+chmod 644 %{buildroot}%{_sysconfdir}/sysconfig/cilium
 
 %files
 %{_sysconfdir}/bash_completion.d/cilium
 %{_sysconfdir}/cni/net.d/05-cilium-cni.conf
 %{_sysconfdir}/sysconfig/cilium
-%{_prefix}/lib/systemd/system/cilium-consul.service
-%{_prefix}/lib/systemd/system/cilium-docker.service
-%{_prefix}/lib/systemd/system/cilium-etcd.service
-%{_prefix}/lib/systemd/system/cilium.service
-%{_prefix}/lib/systemd/system/sys-fs-bpf.mount
+%{_unitdir}/cilium-consul.service
+%{_unitdir}/cilium-docker.service
+%{_unitdir}/cilium-etcd.service
+%{_unitdir}/cilium.service
+%{_unitdir}/sys-fs-bpf.mount
+%{_libdir}/libcilium.so
 /opt/cni/bin/cilium-cni
 %{_bindir}/cilium
 %{_bindir}/cilium-agent
@@ -147,6 +152,7 @@ chmod 644 "%{buildroot}%{_sysconfdir}/sysconfig/cilium"
 %{_bindir}/cilium-health
 %{_bindir}/cilium-envoy
 %{_bindir}/cilium-map-migrate
+%{_bindir}/cilium-ring-dump
 
 %changelog
 * Thu Mar 29 2018 Tony Lambiris <tony@criticalstack.com> - 1.0.0rc8-0.git${SHORTCOMMIT}
