@@ -596,6 +596,7 @@ func DumpServiceMapsToUserspace(includeMasterBackend, skipIPv4 bool) (loadbalanc
 	newSVCMap := loadbalancer.SVCMap{}
 	newSVCList := []*loadbalancer.LBSVC{}
 	errors := []error{}
+	idCache := map[string]loadbalancer.ServiceID{}
 
 	parseSVCEntries := func(key bpf.MapKey, value bpf.MapValue) {
 		svcKey := key.(ServiceKey)
@@ -612,6 +613,14 @@ func DumpServiceMapsToUserspace(includeMasterBackend, skipIPv4 bool) (loadbalanc
 
 		scopedLog.Debug("parsing service mapping")
 		fe, be := serviceKeynValue2FEnBE(svcKey, svcValue)
+
+		// Build a cache to map frontend IP to service ID. The master
+		// service key does not have the service ID set so the cache
+		// needs to be built based on backend key entries.
+		if k := svcValue.RevNatKey().GetKey(); k != uint16(0) {
+			idCache[fe.String()] = loadbalancer.ServiceID(k)
+		}
+
 		svc := newSVCMap.AddFEnBE(fe, be, svcKey.GetBackend())
 		newSVCList = append(newSVCList, svc)
 	}
@@ -629,6 +638,19 @@ func DumpServiceMapsToUserspace(includeMasterBackend, skipIPv4 bool) (loadbalanc
 	err := Service6Map.DumpWithCallback(parseSVCEntries)
 	if err != nil {
 		errors = append(errors, err)
+	}
+
+	// serviceKeynValue2FEnBE() cannot fill in the service ID reliably as
+	// not all BPF map entries contain the service ID. Do a pass over all
+	// parsed entries and fill in the service ID
+	for i := range newSVCList {
+		newSVCList[i].FE.ID = idCache[newSVCList[i].FE.String()]
+	}
+
+	// Do the same for the svcMap
+	for key, svc := range newSVCMap {
+		svc.FE.ID = idCache[svc.FE.String()]
+		newSVCMap[key] = svc
 	}
 
 	return newSVCMap, newSVCList, errors
