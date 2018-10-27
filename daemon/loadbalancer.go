@@ -424,6 +424,33 @@ func (d *Daemon) RevNATDump() ([]loadbalancer.L3n4AddrID, error) {
 	return dump, nil
 }
 
+func restoreServiceIDs() {
+	svcMap, _, errors := lbmap.DumpServiceMapsToUserspace(false, false)
+	for _, err := range errors {
+		log.WithError(err).Warning("Error occured while dumping service table from datapath")
+	}
+
+	for _, svc := range svcMap {
+		// The service ID can only be restored when global service IDs
+		// are disabled. Global service IDs require kvstore access but
+		// service load-balancing needs to be enabled before the
+		// kvstore is guaranteed to be connected
+		if option.Config.LBInterface == "" && uint32(svc.FE.ID) != uint32(0) {
+			scopedLog := log.WithFields(logrus.Fields{
+				logfields.ServiceID: svc.FE.ID,
+				logfields.ServiceIP: svc.FE.L3n4Addr.String(),
+			})
+
+			_, err := service.RestoreID(svc.FE.L3n4Addr, uint32(svc.FE.ID))
+			if err != nil {
+				scopedLog.WithError(err).Warning("Unable to restore service ID from datapath")
+			} else {
+				scopedLog.Info("Restored service ID from datapath")
+			}
+		}
+	}
+}
+
 // SyncLBMap syncs the bpf lbmap with the daemon's lb map. All bpf entries will overwrite
 // the daemon's LB map. If the bpf lbmap entry has a different service ID than the
 // KVStore's ID, that entry will be updated on the bpf map accordingly with the new ID
