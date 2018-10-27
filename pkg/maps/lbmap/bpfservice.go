@@ -125,8 +125,10 @@ func (b *bpfService) deleteBackend(backend ServiceValue) {
 
 func (b *bpfService) getBackends() []ServiceValue {
 	backends := make([]ServiceValue, len(b.backendsByMapIndex))
-	for i := 1; i <= len(b.backendsByMapIndex); i++ {
-		backends[i-1] = b.backendsByMapIndex[i].bpfValue
+	if len(b.backendsByMapIndex) >= 1 {
+		for i := 1; i <= len(b.backendsByMapIndex); i++ {
+			backends[i-1] = b.backendsByMapIndex[i].bpfValue
+		}
 	}
 	return backends
 }
