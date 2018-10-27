@@ -607,6 +607,7 @@ func DumpServiceMapsToUserspace(includeMasterBackend, skipIPv4 bool) (loadbalanc
 	newSVCMap := loadbalancer.SVCMap{}
 	newSVCList := []*loadbalancer.LBSVC{}
 	errors := []error{}
+	idCache := map[string]loadbalancer.ServiceID{}
 
 	parseSVCEntries := func(key bpf.MapKey, value bpf.MapValue) {
 		svcKey := key.(ServiceKey)
@@ -629,6 +630,10 @@ func DumpServiceMapsToUserspace(includeMasterBackend, skipIPv4 bool) (loadbalanc
 			return
 		}
 
+		if k := svcValue.RevNatKey().GetKey(); k != uint16(0) {
+			idCache[fe.String()] = loadbalancer.ServiceID(k)
+		}
+
 		svc := newSVCMap.AddFEnBE(fe, be, svcKey.GetBackend())
 		newSVCList = append(newSVCList, svc)
 	}
@@ -646,6 +651,15 @@ func DumpServiceMapsToUserspace(includeMasterBackend, skipIPv4 bool) (loadbalanc
 	err := Service6Map.DumpWithCallback(parseSVCEntries)
 	if err != nil {
 		errors = append(errors, err)
+	}
+
+	for i := range newSVCList {
+		newSVCList[i].FE.ID = idCache[newSVCList[i].FE.String()]
+	}
+
+	for key, svc := range newSVCMap {
+		svc.FE.ID = idCache[svc.FE.String()]
+		newSVCMap[key] = svc
 	}
 
 	return newSVCMap, newSVCList, errors
