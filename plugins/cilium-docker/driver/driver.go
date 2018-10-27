@@ -134,7 +134,7 @@ func (driver *driver) updateRoutes(addressing *models.NodeAddressing) {
 
 	driver.routes = []api.StaticRoute{}
 
-	if driver.conf.Addressing.IPV6 != nil {
+	if driver.conf.Addressing.IPV6 != nil && driver.conf.Addressing.IPV6.Enabled {
 		if routes, err := connector.IPv6Routes(driver.conf.Addressing, int(driver.conf.RouteMTU)); err != nil {
 			log.Fatalf("Unable to generate IPv6 routes: %s", err)
 		} else {
@@ -146,7 +146,7 @@ func (driver *driver) updateRoutes(addressing *models.NodeAddressing) {
 		driver.gatewayIPv6 = connector.IPv6Gateway(driver.conf.Addressing)
 	}
 
-	if driver.conf.Addressing.IPV4 != nil {
+	if driver.conf.Addressing.IPV4 != nil && driver.conf.Addressing.IPV4.Enabled {
 		if routes, err := connector.IPv4Routes(driver.conf.Addressing, int(driver.conf.RouteMTU)); err != nil {
 			log.Fatalf("Unable to generate IPv4 routes: %s", err)
 		} else {
@@ -282,12 +282,8 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 	}
 	log.WithField(logfields.Request, logfields.Repr(&create)).Debug("Create endpoint request")
 
-	if create.Interface.Address == "" {
-		log.Warn("No IPv4 address provided in CreateEndpoint request")
-	}
-
-	if create.Interface.AddressIPv6 == "" {
-		sendError(w, "No IPv6 address provided (required)", http.StatusBadRequest)
+	if create.Interface.Address == "" && create.Interface.AddressIPv6 == "" {
+		sendError(w, "No IPv4 or IPv6 address provided (required)", http.StatusBadRequest)
 		return
 	}
 
