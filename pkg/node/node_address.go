@@ -302,7 +302,7 @@ func ValidatePostInit() error {
 		return fmt.Errorf("External IPv4 node address could not be derived, please configure via --ipv4-node")
 	}
 
-	if !option.Config.IPv4Disabled {
+	if option.Config.EnableIPv4 {
 		if ipv4InternalAddress == nil {
 			return fmt.Errorf("BUG: Internal IPv4 node address was not configured")
 		}

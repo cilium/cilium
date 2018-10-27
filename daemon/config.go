@@ -38,4 +38,11 @@ func populateConfig() {
 	option.Config.EnvoyLogPath = viper.GetString("envoy-log")
 	option.Config.SockopsEnable = viper.GetBool(option.SockopsEnableName)
 	option.Config.PrependIptablesChains = viper.GetBool(option.PrependIptablesChainsName)
+
+	if viper.IsSet(option.LegacyDisableIPv4Name) {
+		option.Config.EnableIPv4 = !viper.GetBool(option.LegacyDisableIPv4Name)
+	} else {
+		option.Config.EnableIPv4 = viper.GetBool(option.EnableIPv4Name)
+	}
+	option.Config.EnableIPv6 = viper.GetBool(option.EnableIPv6Name)
 }

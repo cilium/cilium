@@ -74,7 +74,7 @@ func checkLocks(d *Daemon) {
 }
 
 func (d *Daemon) getNodeStatus() *models.ClusterStatus {
-	ipv4 := !option.Config.IPv4Disabled
+	ipv4 := option.Config.EnableIPv4
 
 	clusterStatus := models.ClusterStatus{
 		Self: node.GetLocalNode().Fullname(),

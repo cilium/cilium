@@ -337,7 +337,7 @@ func (d *Daemon) allocateIPsLocked(ep *endpoint.Endpoint) error {
 		}
 	}(ep)
 
-	if !option.Config.IPv4Disabled {
+	if option.Config.EnableIPv4 {
 		if ep.IPv4 != nil {
 			if err = ipam.AllocateIP(ep.IPv4.IP()); err != nil {
 				return fmt.Errorf("unable to reallocate IPv4 address: %s", err)

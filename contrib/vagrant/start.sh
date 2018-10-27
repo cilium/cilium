@@ -285,7 +285,7 @@ function write_cilium_cfg() {
             cilium_options+=" --ipv4-range 10.${master_ipv4_suffix}.0.0/16"
         fi
     else
-        cilium_options+=" --disable-ipv4"
+        cilium_options+=" --enable-ipv4=false"
     fi
 
     if [ -n "${K8S}" ]; then

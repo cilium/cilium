@@ -97,4 +97,10 @@ const (
 
 	// ExecTimeout is a timeout for executing commands.
 	ExecTimeout = 300 * time.Second
+
+	// EnableIPv4 is the default value for IPv4 enablement
+	EnableIPv4 = true
+
+	// EnableIPv6 is the default value for IPv6 enablement
+	EnableIPv6 = true
 )
