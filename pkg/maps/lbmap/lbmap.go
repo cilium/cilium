@@ -696,3 +696,9 @@ func DumpRevNATMapsToUserspace(skipIPv4 bool) (loadbalancer.RevNATMap, []error) 
 	return newRevNATMap, errors
 
 }
+
+// RestoreService restores a single service in the cache. This is required to
+// guarantee consistent backend ordering
+func RestoreService(svc loadbalancer.LBSVC) error {
+	return cache.restoreService(svc)
+}
