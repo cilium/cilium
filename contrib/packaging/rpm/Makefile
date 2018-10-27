@@ -1,5 +1,7 @@
 include ../../../Makefile.defs
 
+VERSION := $(shell git tag -l --sort=-v:refname | sed 's/v\([^-].*\)/\1/g' | head -1)
+RELEASE := $(shell git describe --long --tags | sed 's/\([^-].*\)-\([0-9]*\)-\(g.*\)/\2/g')
 BUILDDIR := "$(CURDIR)/cilium-$(VERSION)"
 BASEDIR := "$(CURDIR)/../../../"
 BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
@@ -8,7 +10,7 @@ SHORTCOMMIT := $(shell git rev-parse HEAD | cut -c1-7)
 
 build: clean
 	mkdir -p output
-	echo "export VERSION=$(VERSION) COMMIT=$(COMMIT) SHORTCOMMIT=$(SHORTCOMMIT)" > env
+	echo "export VERSION=$(VERSION) RELEASE=$(RELEASE) COMMIT=$(COMMIT) SHORTCOMMIT=$(SHORTCOMMIT)" > env
 	(cd $(BASEDIR) && git bundle create $(CURDIR)/version_$(VERSION) $(BRANCH) --tags)
 	(cd $(CURDIR) && git clone $(CURDIR)/version_$(VERSION) cilium -b $(BRANCH))
 	tar -c cilium --transform s/cilium/cilium-$(COMMIT)/ | gzip -9 &> cilium-$(SHORTCOMMIT).tar.gz
