@@ -182,14 +182,20 @@ func (c *criClient) processEvents(events chan EventMessage) {
 	}
 }
 
-func (c *criClient) getCiliumEndpointID(pod *criRuntime.PodSandboxStatus) uint16 {
+func (c *criClient) getEndpointByPodIP(pod *criRuntime.PodSandboxStatus) *endpoint.Endpoint {
 	scopedLog := log.WithField(logfields.ContainerID, shortContainerID(pod.GetId()))
+
 	if ciliumIP := c.getCiliumIP(pod); ciliumIP != nil {
-		return ciliumIP.EndpointID()
+		id := endpointid.NewIPPrefixID(ciliumIP.IP())
+		if ep, err := endpointmanager.Lookup(id); err != nil {
+			log.WithError(err).Warning("Unable to lookup endpoint by IP prefix")
+		} else if ep != nil {
+			return ep
+		}
 	}
 
 	scopedLog.Debug("IP address assigned by Cilium could not be derived from pod")
-	return 0
+	return nil
 }
 
 func (c *criClient) getCiliumIP(pod *criRuntime.PodSandboxStatus) addressing.CiliumIP {
@@ -237,12 +243,13 @@ func (c *criClient) handleCreateWorkload(id string, retry bool) {
 
 		ep := endpointmanager.LookupDockerID(id)
 		if ep == nil {
-			// Container ID is not yet known; try and find endpoint via
-			// the IP address assigned.
-			ciliumID = c.getCiliumEndpointID(pod)
-			if ciliumID != 0 {
-				ep = endpointmanager.LookupCiliumID(ciliumID)
-			}
+			// Container ID is not yet known; try and find endpoint
+			// via one of the IP addresses assigned.
+			ep = c.getEndpointByPodIP(pod)
+		}
+
+		if ep != nil {
+			ciliumID = ep.ID
 		}
 
 		retryLog.WithFields(logrus.Fields{
