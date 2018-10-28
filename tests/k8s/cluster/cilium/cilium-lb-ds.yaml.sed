@@ -35,7 +35,6 @@ spec:
           - "etcd.config=/var/lib/cilium/etcd-config.yml"
           - "--k8s-kubeconfig-path"
           - "/var/lib/cilium/kubeconfig"
-          - "--disable-ipv4=$(disable_ipv4)"
         lifecycle:
           postStart:
             exec:

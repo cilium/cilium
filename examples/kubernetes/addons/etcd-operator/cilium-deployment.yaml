@@ -150,7 +150,6 @@ spec:
         - "--debug=$(CILIUM_DEBUG)"
         - "--kvstore=etcd"
         - "--kvstore-opt=etcd.config=/var/lib/etcd-config/etcd.config"
-        - "--disable-ipv4=$(DISABLE_IPV4)"
         - "--fixed-identity-mapping=128=kv-store"
         - "--fixed-identity-mapping=129=kube-dns"
         ports:

@@ -68,7 +68,6 @@ spec:
             - "--debug=$(CILIUM_DEBUG)"
             - "--kvstore=etcd"
             - "--kvstore-opt=etcd.config=/var/lib/etcd-config/etcd.config"
-            - "--disable-ipv4=$(DISABLE_IPV4)"
           ports:
             - name: prometheus
               containerPort: 9090
