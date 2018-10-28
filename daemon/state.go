@@ -108,12 +108,15 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 			continue
 		}
 
-		ep.UnconditionalLock()
+		// Note: It is not required to lock the endpoint here, the
+		// endpoint has been recovered from state and has not been
+		// exposed yet to the endpointmanager. It cannot be accesses
+		// by a parallel reader or writer.
+
 		scopedLog.Debug("Restoring endpoint")
 		ep.LogStatusOKLocked(endpoint.Other, "Restoring endpoint from previous cilium instance")
 
 		if err := d.allocateIPsLocked(ep); err != nil {
-			ep.Unlock()
 			scopedLog.WithError(err).Error("Failed to re-allocate IP of endpoint. Not restoring endpoint.")
 			state.toClean = append(state.toClean, ep)
 			continue
@@ -127,8 +130,6 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 			ep.SetIngressPolicyEnabledLocked(alwaysEnforce)
 			ep.SetEgressPolicyEnabledLocked(alwaysEnforce)
 		}
-
-		ep.Unlock()
 
 		ep.SkipStateClean()
 
