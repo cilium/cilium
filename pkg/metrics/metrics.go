@@ -500,7 +500,7 @@ func Enable(addr string) error {
 		// The Handler function provides a default handler to expose metrics
 		// via an HTTP server. "/metrics" is the usual endpoint for that.
 		http.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
-		log.WithError(http.ListenAndServe(addr, nil)).Warn("Cannot start metrics server on %s", addr)
+		log.WithError(http.ListenAndServe(addr, nil)).Warnf("Cannot start metrics server on %s", addr)
 	}()
 
 	return nil
