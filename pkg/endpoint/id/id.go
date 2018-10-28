@@ -35,6 +35,9 @@ const (
 	// IPv4Prefix is the prefix used in Cilium IDs when the identifier is
 	// the IPv4 address of the endpoint
 	IPv4Prefix = "ipv4"
+
+	// IPv6Prefix is the prefix used to refer to an endpoint via IPv6 address
+	IPv6Prefix = "ipv6"
 )
 
 func NewCiliumID(id int64) string {
