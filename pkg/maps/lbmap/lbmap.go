@@ -674,6 +674,6 @@ func ServiceValue2LBBackEnd(svcKey ServiceKey, svcValue ServiceValue) (*types.LB
 
 // RestoreService restores a single service in the cache. This is required to
 // guarantee consistent backend ordering
-func RestoreService(svc loadbalancer.LBSVC) error {
+func RestoreService(svc types.LBSVC) error {
 	return cache.restoreService(svc)
 }

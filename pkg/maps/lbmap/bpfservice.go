@@ -15,7 +15,7 @@
 package lbmap
 
 import (
-	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/common/types"
 )
 
 type serviceValueMap map[string]ServiceValue
@@ -149,7 +149,7 @@ func createBackendsMap(backends []ServiceValue) serviceValueMap {
 	return m
 }
 
-func (l *lbmapCache) restoreService(svc loadbalancer.LBSVC) error {
+func (l *lbmapCache) restoreService(svc types.LBSVC) error {
 	frontendID := svc.FE.String()
 
 	serviceKey, serviceValues, err := LBSVC2ServiceKeynValue(svc)
