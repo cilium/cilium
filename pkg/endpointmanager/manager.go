@@ -59,7 +59,19 @@ func init() {
 }
 
 // Insert inserts the endpoint into the global maps.
-func Insert(ep *endpoint.Endpoint) {
+func Insert(ep *endpoint.Endpoint) error {
+	if ep.ID != 0 {
+		if err := endpointid.Reuse(ep.ID); err != nil {
+			return fmt.Errorf("unable to reuse endpoint ID: %s", err)
+		}
+	} else {
+		if id := endpointid.Allocate(); id == uint16(0) {
+			return fmt.Errorf("no more endpoint IDs available")
+		} else {
+			ep.ID = id
+		}
+	}
+
 	// No need to check liveness as an endpoint can only be deleted via the
 	// API after it has been inserted into the manager.
 	ep.UnconditionalRLock()
@@ -72,6 +84,8 @@ func Insert(ep *endpoint.Endpoint) {
 	ep.RUnlock()
 
 	ep.RunK8sCiliumEndpointSync()
+
+	return nil
 }
 
 // Lookup looks up the endpoint by prefix id
@@ -163,6 +177,10 @@ func Remove(ep *endpoint.Endpoint) {
 	defer mutex.Unlock()
 	delete(endpoints, ep.ID)
 
+	if err := endpointid.Release(ep.ID); err != nil {
+		log.WithError(err).Warning("Unable to relese endpoint ID")
+	}
+
 	if ep.ContainerID != "" {
 		delete(endpointsAux, endpointid.NewID(endpointid.ContainerIdPrefix, ep.ContainerID))
 	}
@@ -192,6 +210,7 @@ func Remove(ep *endpoint.Endpoint) {
 func RemoveAll() {
 	mutex.Lock()
 	defer mutex.Unlock()
+	endpointid.ReallocatePool()
 	endpoints = map[uint16]*endpoint.Endpoint{}
 	endpointsAux = map[string]*endpoint.Endpoint{}
 }
@@ -342,6 +361,10 @@ func AddEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, reason string) (er
 	ep.SetIngressPolicyEnabled(alwaysEnforce)
 	ep.SetEgressPolicyEnabled(alwaysEnforce)
 
+	if ep.ID != 0 {
+		return fmt.Errorf("Endpoint ID is already set to %d", ep.ID)
+	}
+
 	// Regenerate immediately if ready or waiting for identity
 	if err := ep.LockAlive(); err != nil {
 		return err
@@ -355,15 +378,20 @@ func AddEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, reason string) (er
 		ep.SetStateLocked(endpoint.StateWaitingToRegenerate, reason)
 		build = true
 	}
+
 	ep.Unlock()
+
+	if err := Insert(ep); err != nil {
+		return err
+	}
 
 	if build {
 		if err := ep.RegenerateWait(owner, reason); err != nil {
+			Remove(ep)
 			return err
 		}
 	}
 
-	Insert(ep)
 	ep.InsertEvent()
 
 	return nil

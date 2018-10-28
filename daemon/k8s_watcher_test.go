@@ -780,7 +780,9 @@ func (ds *DaemonSuite) Test_missingK8sPodV1(c *C) {
 			name: "ipcache is missing a pod",
 			setupArgs: func() args {
 				endpointmanager.RemoveAll()
-				endpointmanager.Insert(endpointCreator(123, identity.NumericIdentity(1000)))
+				if err := endpointmanager.Insert(endpointCreator(123, identity.NumericIdentity(1000))); err != nil {
+					panic(err)
+				}
 				m := versioned.NewMap()
 				m.Add("", versioned.Object{
 					Data: &core_v1.Pod{
@@ -819,7 +821,9 @@ func (ds *DaemonSuite) Test_missingK8sPodV1(c *C) {
 			name: "ipcache contains the pod but endpointmanager doesn't contain any endpoint that manages the pod. Should be no-op",
 			setupArgs: func() args {
 				endpointmanager.RemoveAll()
-				endpointmanager.Insert(endpointCreator(123, identity.NumericIdentity(1000)))
+				if err := endpointmanager.Insert(endpointCreator(123, identity.NumericIdentity(1000))); err != nil {
+					panic(err)
+				}
 				cache := ipcache.NewIPCache()
 				cache.Upsert("127.0.0.1", net.ParseIP("127.0.0.2"), ipcache.Identity{
 					ID:     identity.ReservedIdentityInit,
@@ -855,7 +859,9 @@ func (ds *DaemonSuite) Test_missingK8sPodV1(c *C) {
 				ep := endpointCreator(123, identity.NumericIdentity(1000))
 				ep.SetK8sPodName("foo")
 				ep.SetK8sNamespace("bar")
-				endpointmanager.Insert(ep)
+				if err := endpointmanager.Insert(ep); err != nil {
+					panic(err)
+				}
 				cache := ipcache.NewIPCache()
 				cache.Upsert("127.0.0.1", net.ParseIP("127.0.0.2"), ipcache.Identity{
 					ID:     identity.ReservedIdentityInit,
@@ -911,7 +917,9 @@ func (ds *DaemonSuite) Test_missingK8sPodV1(c *C) {
 				ep.OpLabels.OrchestrationIdentity = labels.Map2Labels(map[string]string{"foo": "bar"}, labels.LabelSourceK8s)
 				ep.SetK8sPodName("foo")
 				ep.SetK8sNamespace("bar")
-				endpointmanager.Insert(ep)
+				if err := endpointmanager.Insert(ep); err != nil {
+					panic(err)
+				}
 				cache := ipcache.NewIPCache()
 				cache.Upsert("127.0.0.1", net.ParseIP("127.0.0.2"), ipcache.Identity{
 					ID:     identity.ReservedIdentityInit,
@@ -951,7 +959,9 @@ func (ds *DaemonSuite) Test_missingK8sPodV1(c *C) {
 				ep.OpLabels.OrchestrationIdentity = labels.Map2Labels(map[string]string{"foo": "bar"}, labels.LabelSourceK8s)
 				ep.SetK8sPodName("foo")
 				ep.SetK8sNamespace("bar")
-				endpointmanager.Insert(ep)
+				if err := endpointmanager.Insert(ep); err != nil {
+					panic(err)
+				}
 				cache := ipcache.NewIPCache()
 				cache.Upsert("127.0.0.1", net.ParseIP("127.0.0.2"), ipcache.Identity{
 					ID:     identity.ReservedIdentityInit,
@@ -1202,6 +1212,7 @@ func (ds *DaemonSuite) Test_missingK8sNamespaceV1(c *C) {
 	type args struct {
 		m versioned.Map
 	}
+
 	tests := []struct {
 		name        string
 		setupArgs   func() args
@@ -1221,8 +1232,11 @@ func (ds *DaemonSuite) Test_missingK8sNamespaceV1(c *C) {
 		{
 			name: "endpointmanager doesn't contain any endpoint that is part of that namespace. Should be no-op",
 			setupArgs: func() args {
+				endpointmanager.RemoveAll()
 				ep := endpointCreator(123, identity.NumericIdentity(1000))
-				endpointmanager.Insert(ep)
+				if err := endpointmanager.Insert(ep); err != nil {
+					panic(err)
+				}
 				m := versioned.NewMap()
 				m.Add("", versioned.Object{
 					Data: &core_v1.Namespace{
@@ -1243,9 +1257,12 @@ func (ds *DaemonSuite) Test_missingK8sNamespaceV1(c *C) {
 		{
 			name: "endpointmanager contains the endpoint that is part of that namespace but ep doesn't have all labels",
 			setupArgs: func() args {
-				ep := endpointCreator(123, identity.NumericIdentity(1000))
+				endpointmanager.RemoveAll()
+				ep := endpointCreator(124, identity.NumericIdentity(1000))
 				ep.SetK8sNamespace("foo")
-				endpointmanager.Insert(ep)
+				if err := endpointmanager.Insert(ep); err != nil {
+					panic(err)
+				}
 				m := versioned.NewMap()
 				m.Add("", versioned.Object{
 					Data: &core_v1.Namespace{
@@ -1280,12 +1297,15 @@ func (ds *DaemonSuite) Test_missingK8sNamespaceV1(c *C) {
 		{
 			name: "endpointmanager contains the endpoint that is part of that namespace and have all labels",
 			setupArgs: func() args {
-				ep := endpointCreator(123, identity.NumericIdentity(1000))
+				endpointmanager.RemoveAll()
+				ep := endpointCreator(125, identity.NumericIdentity(1000))
 				ep.OpLabels.OrchestrationIdentity = labels.Map2Labels(
 					map[string]string{policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "id.foo"): "bar"},
 					labels.LabelSourceK8s)
 				ep.SetK8sNamespace("foo")
-				endpointmanager.Insert(ep)
+				if err := endpointmanager.Insert(ep); err != nil {
+					panic(err)
+				}
 				m := versioned.NewMap()
 				m.Add("", versioned.Object{
 					Data: &core_v1.Namespace{

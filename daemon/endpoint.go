@@ -135,14 +135,14 @@ func NewPutEndpointIDHandler(d *Daemon) PutEndpointIDHandler {
 // createEndpoint attempts to create the endpoint corresponding to the change
 // request that was specified. Returns an HTTP code response code and an
 // error msg (or nil on success).
-func (d *Daemon) createEndpoint(epTemplate *models.EndpointChangeRequest, id string, lbls []string) (int, error) {
+func (d *Daemon) createEndpoint(epTemplate *models.EndpointChangeRequest, lbls []string) (*endpoint.Endpoint, int, error) {
 	ep, err := endpoint.NewEndpointFromChangeModel(epTemplate)
 	if err != nil {
-		return PutEndpointIDInvalidCode, err
+		return nil, PutEndpointIDInvalidCode, err
 	}
 	ep.SetDefaultOpts(option.Config.Opts)
 
-	checkIDs := []string{id}
+	checkIDs := []string{}
 
 	if ep.IPv4.IsSet() {
 		checkIDs = append(checkIDs, endpointid.NewID(endpointid.IPv4Prefix, ep.IPv4.String()))
@@ -155,14 +155,14 @@ func (d *Daemon) createEndpoint(epTemplate *models.EndpointChangeRequest, id str
 	for _, id := range checkIDs {
 		oldEp, err2 := endpointmanager.Lookup(id)
 		if err2 != nil {
-			return PutEndpointIDInvalidCode, err2
+			return nil, PutEndpointIDInvalidCode, err2
 		} else if oldEp != nil {
-			return PutEndpointIDExistsCode, fmt.Errorf("Endpoint ID %s already exists", id)
+			return nil, PutEndpointIDExistsCode, fmt.Errorf("Endpoint ID %s already exists", id)
 		}
 	}
 
 	if err = endpoint.APICanModify(ep); err != nil {
-		return PutEndpointIDInvalidCode, err
+		return nil, PutEndpointIDInvalidCode, err
 	}
 
 	addLabels := labels.NewLabelsFromModel(lbls)
@@ -170,10 +170,10 @@ func (d *Daemon) createEndpoint(epTemplate *models.EndpointChangeRequest, id str
 	if len(addLabels) > 0 {
 		addLabels, _, ok := checkLabels(addLabels, nil)
 		if !ok {
-			return PutEndpointIDInvalidCode, fmt.Errorf("No valid label")
+			return nil, PutEndpointIDInvalidCode, fmt.Errorf("No valid label")
 		}
 		if lbls := addLabels.FindReserved(); lbls != nil {
-			return PutEndpointIDInvalidCode, fmt.Errorf("Not allowed to add reserved labels: %s", lbls)
+			return nil, PutEndpointIDInvalidCode, fmt.Errorf("Not allowed to add reserved labels: %s", lbls)
 		}
 	} else {
 		// If the endpoint has no labels, give the endpoint a special identity with
@@ -188,7 +188,7 @@ func (d *Daemon) createEndpoint(epTemplate *models.EndpointChangeRequest, id str
 
 	if err := endpointmanager.AddEndpoint(d, ep, "Create endpoint from API PUT"); err != nil {
 		log.WithError(err).Warn("Aborting endpoint join")
-		return PutEndpointIDFailedCode, err
+		return nil, PutEndpointIDFailedCode, err
 	}
 
 	// Only used for CRI-O since it does not support events.
@@ -199,7 +199,7 @@ func (d *Daemon) createEndpoint(epTemplate *models.EndpointChangeRequest, id str
 		}
 	}
 
-	return PutEndpointIDCreatedCode, nil
+	return ep, PutEndpointIDCreatedCode, nil
 }
 
 func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder {
@@ -207,22 +207,11 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 	epTemplate := params.Endpoint
 
 	logger := log.WithFields(logrus.Fields{
-		logfields.EndpointID:  epTemplate.ID,
 		logfields.ContainerID: epTemplate.ContainerID,
 		logfields.EventUUID:   uuid.NewUUID(),
 	})
 
-	if n, err := endpointid.ParseCiliumID(params.ID); err != nil {
-		return api.Error(PutEndpointIDInvalidCode, err)
-	} else if n != epTemplate.ID {
-		return api.New(PutEndpointIDInvalidCode,
-			"ID parameter does not match ID in endpoint parameter")
-	} else if epTemplate.ID == 0 {
-		return api.New(PutEndpointIDInvalidCode,
-			"endpoint ID cannot be 0")
-	}
-
-	code, err := h.d.createEndpoint(epTemplate, params.ID, params.Endpoint.Labels)
+	e, code, err := h.d.createEndpoint(epTemplate, params.Endpoint.Labels)
 	if err != nil {
 		logger.WithError(err).Error("Endpoint cannot be created")
 		return api.Error(code, err)
@@ -230,21 +219,6 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 
 	// Wait for endpoint to be in "ready" state if specified in API call.
 	if params.Endpoint.SyncBuildEndpoint {
-
-		e, err := endpointmanager.Lookup(params.ID)
-		if err != nil {
-			// Delete endpoint if any operation that occurs during PUT, fails,
-			// so that endpoints in an unhealthy state are not left lying around.
-			if e != nil {
-				h.d.deleteEndpoint(e)
-			}
-			return api.Error(PutEndpointIDFailedCode, err)
-		}
-
-		if e == nil {
-			return api.Error(PutEndpointIDFailedCode, fmt.Errorf("error retrieving endpoint"))
-		}
-
 		logger.Debug("Synchronously waiting for endpoint to regenerate")
 
 		// Default timeout for PUT /endpoint/{id} is 60 seconds, so put timeout

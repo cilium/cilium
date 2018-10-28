@@ -23,7 +23,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/client/endpoint"
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/route"
@@ -306,20 +305,12 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ip6, err := addressing.NewCiliumIPv6(create.Interface.AddressIPv6)
-	if err != nil {
-		sendError(w, fmt.Sprintf("Unable to parse IPv6 address: %s", err),
-			http.StatusBadRequest)
-		return
-	}
-
 	endpoint := &models.EndpointChangeRequest{
-		ID:               int64(ip6.EndpointID()),
 		State:            models.EndpointStateWaitingForIdentity,
 		DockerEndpointID: create.EndpointID,
 		DockerNetworkID:  create.NetworkID,
 		Addressing: &models.AddressPair{
-			IPV6: ip6.String(),
+			IPV6: create.Interface.AddressIPv6,
 			IPV4: create.Interface.Address,
 		},
 	}

@@ -402,7 +402,6 @@ func cmdAdd(args *skel.CmdArgs) error {
 		if err != nil {
 			return err
 		}
-		ep.ID = int64(state.IP6.EndpointID())
 		res.IPs = append(res.IPs, ipConfig)
 		res.Routes = append(res.Routes, routes...)
 	} else {
@@ -441,13 +440,11 @@ func cmdAdd(args *skel.CmdArgs) error {
 	ep.SyncBuildEndpoint = true
 	if err = client.EndpointCreate(ep); err != nil {
 		logger.WithError(err).WithFields(logrus.Fields{
-			logfields.EndpointID:  ep.ID,
 			logfields.ContainerID: ep.ContainerID}).Warn("Unable to create endpoint")
 		return fmt.Errorf("Unable to create endpoint: %s", err)
 	}
 
 	logger.WithFields(logrus.Fields{
-		logfields.EndpointID:  ep.ID,
 		logfields.ContainerID: ep.ContainerID}).Debug("Endpoint successfully created")
 	return cniTypes.PrintResult(res, cniVersion)
 }

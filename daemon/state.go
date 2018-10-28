@@ -174,7 +174,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 	// account for the new identity during the grace period. For this
 	// purpose, all endpoints being restored must already be in the
 	// endpoint list.
-	for _, ep := range state.restored {
+	for i, ep := range state.restored {
 		// If the endpoint has local conntrack option enabled, then
 		// check whether the CT map needs upgrading (and do so).
 		if ep.Options.IsEnabled(option.ConntrackLocal) {
@@ -187,7 +187,11 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 		// upon returning that endpoints are exposed to other subsystems via
 		// endpointmanager.
 
-		endpointmanager.Insert(ep)
+		if err := endpointmanager.Insert(ep); err != nil {
+			log.WithError(err).Warning("Unable to restore endpoint")
+			// remove endpoint from slice of endpoints to restore
+			state.restored = append(state.restored[:i], state.restored[i+1:]...)
+		}
 	}
 
 	for _, ep := range state.restored {

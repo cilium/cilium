@@ -25,11 +25,9 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/datapath/route"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/connector"
-	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	healthPkg "github.com/cilium/cilium/pkg/health/client"
 	"github.com/cilium/cilium/pkg/health/defaults"
@@ -183,10 +181,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 	ip6 := node.GetIPv6HealthIP()
 
 	// Prepare the endpoint change request
-	id := int64(addressing.CiliumIPv6(ip6).EndpointID())
 	info := &models.EndpointChangeRequest{
-		ID:            id,
-		ContainerID:   endpointid.NewCiliumID(id),
 		ContainerName: ciliumHealth,
 		State:         models.EndpointStateWaitingForIdentity,
 		Addressing: &models.AddressPair{
