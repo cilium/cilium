@@ -15,6 +15,7 @@
 package idpool
 
 import (
+	"fmt"
 	"math/rand"
 	"strconv"
 	"time"
@@ -91,6 +92,11 @@ func NewIDPool(minID ID, maxID ID) *IDPool {
 	p.FinishRefresh()
 
 	return p
+}
+
+// Dump returns the IDPool as formatted structure for debugging
+func (p *IDPool) Dump() string {
+	return fmt.Sprintf("pool: %+v, cache: %+v", p, p.nextIDCache)
 }
 
 // StartRefresh creates a new cache backing the pool.
@@ -187,8 +193,9 @@ func newIDCache(minID ID, maxID ID) *idCache {
 		leased: make(map[ID]struct{}, n),
 	}
 
+	seq := random.Perm(n)
 	for i := 0; i < n; i++ {
-		id := ID(i) + minID
+		id := ID(seq[i]) + minID
 		c.ids[i] = id
 		c.index[id] = i
 	}
@@ -204,10 +211,15 @@ func (c *idCache) leaseAvailableID() ID {
 		return NoID
 	}
 
-	id := c.ids[random.Intn(len(c.ids))]
-	c.doRemove(id)
-	// Mark the ID as leased.
+	// Dequeue the next available ID from the random sequence
+	id := c.ids[0]
+	c.ids = c.ids[1:]
+
+	// Mark as leased
 	c.leased[id] = struct{}{}
+
+	// Remove from slice of avaiable IDs
+	delete(c.index, id)
 
 	return id
 }
@@ -274,6 +286,10 @@ func (c *idCache) doRemove(id ID) bool {
 	delete(c.index, id)
 
 	N := len(c.ids)
+	if N == 0 {
+		return false
+	}
+
 	tmp := c.ids[N-1]
 	c.ids[i] = tmp
 	if N > 1 {
