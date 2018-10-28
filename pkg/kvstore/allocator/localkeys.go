@@ -17,6 +17,7 @@ package allocator
 import (
 	"fmt"
 
+	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 
@@ -24,7 +25,7 @@ import (
 )
 
 type localKey struct {
-	val    ID
+	val    idpool.ID
 	key    string
 	refcnt uint64
 
@@ -37,26 +38,26 @@ type localKey struct {
 type localKeys struct {
 	lock.RWMutex
 	keys map[string]*localKey
-	ids  map[ID]*localKey
+	ids  map[idpool.ID]*localKey
 }
 
 func newLocalKeys() *localKeys {
 	return &localKeys{
 		keys: map[string]*localKey{},
-		ids:  map[ID]*localKey{},
+		ids:  map[idpool.ID]*localKey{},
 	}
 }
 
 // allocate creates an entry for key in localKeys if needed and increments the
 // refcnt. The value associated with the key must match the local cache or an
 // error is returned
-func (lk *localKeys) allocate(key string, val ID) (ID, error) {
+func (lk *localKeys) allocate(key string, val idpool.ID) (idpool.ID, error) {
 	lk.Lock()
 	defer lk.Unlock()
 
 	if k, ok := lk.keys[key]; ok {
 		if val != k.val {
-			return NoID, fmt.Errorf("local key already allocated with different value (%s != %s)", val, k.val)
+			return idpool.NoID, fmt.Errorf("local key already allocated with different value (%s != %s)", val, k.val)
 		}
 
 		k.refcnt++
@@ -85,7 +86,7 @@ func (lk *localKeys) verify(key string) error {
 }
 
 // lookupID returns the key for a given ID or an empty string
-func (lk *localKeys) lookupID(id ID) string {
+func (lk *localKeys) lookupID(id idpool.ID) string {
 	lk.RLock()
 	defer lk.RUnlock()
 
@@ -97,14 +98,14 @@ func (lk *localKeys) lookupID(id ID) string {
 }
 
 // use increments the refcnt of the key and returns its value
-func (lk *localKeys) use(key string) ID {
+func (lk *localKeys) use(key string) idpool.ID {
 	lk.Lock()
 	defer lk.Unlock()
 
 	if k, ok := lk.keys[key]; ok {
 		// unverified keys behave as if they do not exist
 		if !k.verified {
-			return NoID
+			return idpool.NoID
 		}
 
 		k.refcnt++
@@ -112,7 +113,7 @@ func (lk *localKeys) use(key string) ID {
 		return k.val
 	}
 
-	return NoID
+	return idpool.NoID
 }
 
 // release releases the refcnt of a key. When the last reference was released,
@@ -135,8 +136,8 @@ func (lk *localKeys) release(key string) (lastUse bool, err error) {
 	return false, fmt.Errorf("unable to find key in local cache")
 }
 
-func (lk *localKeys) getVerifiedIDs() map[ID]string {
-	ids := map[ID]string{}
+func (lk *localKeys) getVerifiedIDs() map[idpool.ID]string {
+	ids := map[idpool.ID]string{}
 	lk.RLock()
 	for id, localKey := range lk.ids {
 		if localKey.verified {

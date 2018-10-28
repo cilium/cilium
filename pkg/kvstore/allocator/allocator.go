@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/backoff"
+	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -56,19 +57,7 @@ const (
 	// localKeySyncInterval is the interval in which local keys are being
 	// synced to the kvstore in case master keys get lost
 	localKeySyncInterval = 1 * time.Minute
-
-	// NoID is a special ID that represents "no ID available"
-	NoID ID = 0
 )
-
-// ID is the identified type which is being allocated. An ID maps to an
-// AllocatorKey and back.
-type ID uint64
-
-// String returns the string representation of an allocated ID
-func (i ID) String() string {
-	return strconv.FormatUint(uint64(i), 10)
-}
 
 // Allocator is a distributed ID allocator backed by a KVstore. It maps
 // arbitrary keys to identifiers. Multiple users on different cluster nodes can
@@ -161,15 +150,15 @@ type Allocator struct {
 
 	// min is the lower limit when allocating IDs. The allocator will never
 	// allocate an ID lesser than this value.
-	min ID
+	min idpool.ID
 
 	// max is the upper limit when allocating IDs. The allocator will never
 	// allocate an ID greater than this value.
-	max ID
+	max idpool.ID
 
 	// prefixMask if set, will be ORed to all selected IDs prior to
 	// allocation
-	prefixMask ID
+	prefixMask idpool.ID
 
 	// localKeys contains all keys including their reference count for keys
 	// which have been allocated and are in local use
@@ -205,7 +194,7 @@ type Allocator struct {
 	initialListDone waitChan
 
 	// idPool maintains a pool of available ids for allocation.
-	idPool *idPool
+	idPool *idpool.IDPool
 
 	// enableMasterKeyProtection if true, causes master keys that are still in
 	// local use to be automatically re-created
@@ -248,8 +237,8 @@ func NewAllocator(basePath string, typ AllocatorKey, opts ...AllocatorOption) (*
 		idPrefix:     path.Join(basePath, "id"),
 		valuePrefix:  path.Join(basePath, "value"),
 		lockPrefix:   path.Join(basePath, "locks"),
-		min:          1,
-		max:          ID(^uint64(0)),
+		min:          idpool.ID(1),
+		max:          idpool.ID(^uint64(0)),
 		localKeys:    newLocalKeys(),
 		stopGC:       make(chan struct{}, 0),
 		suffix:       uuid.NewUUID().String()[:10],
@@ -282,7 +271,7 @@ func NewAllocator(basePath string, typ AllocatorKey, opts ...AllocatorOption) (*
 		return nil, errors.New("Maximum ID must be greater than minimum ID")
 	}
 
-	a.idPool = newIDPool(a.min, a.max)
+	a.idPool = idpool.NewIDPool(a.min, a.max)
 
 	a.initialListDone = a.mainCache.start(a)
 	if !a.disableGC {
@@ -315,12 +304,12 @@ func WithSuffix(v string) AllocatorOption {
 }
 
 // WithMin sets the minimum identifier to be allocated
-func WithMin(id ID) AllocatorOption {
+func WithMin(id idpool.ID) AllocatorOption {
 	return func(a *Allocator) { a.min = id }
 }
 
 // WithMax sets the maximum identifier to be allocated
-func WithMax(id ID) AllocatorOption {
+func WithMax(id idpool.ID) AllocatorOption {
 	return func(a *Allocator) { a.max = id }
 }
 
@@ -328,7 +317,7 @@ func WithMax(id ID) AllocatorOption {
 // will be ORed to all selected IDs prior to allocation. It is the
 // responsibility of the caller to ensure that the mask is not conflicting with
 // min..max.
-func WithPrefixMask(mask ID) AllocatorOption {
+func WithPrefixMask(mask idpool.ID) AllocatorOption {
 	return func(a *Allocator) { a.prefixMask = mask }
 }
 
@@ -370,7 +359,7 @@ func (a *Allocator) DeleteAllKeys() {
 }
 
 // RangeFunc is the function called by RangeCache
-type RangeFunc func(ID, AllocatorKey)
+type RangeFunc func(idpool.ID, AllocatorKey)
 
 // ForeachCache iterates over the allocator cache and calls RangeFunc on each
 // cached entry
@@ -395,8 +384,8 @@ func invalidKey(key, prefix string, deleteInvalid bool) {
 // Selects an available ID.
 // Returns a triple of the selected ID ORed with prefixMask,
 // the ID string and the originally selected ID.
-func (a *Allocator) selectAvailableID() (ID, string, ID) {
-	if id := a.idPool.LeaseAvailableID(); id != NoID {
+func (a *Allocator) selectAvailableID() (idpool.ID, string, idpool.ID) {
+	if id := a.idPool.LeaseAvailableID(); id != idpool.NoID {
 		unmaskedID := id
 		id |= a.prefixMask
 		return id, id.String(), unmaskedID
@@ -405,7 +394,7 @@ func (a *Allocator) selectAvailableID() (ID, string, ID) {
 	return 0, "", 0
 }
 
-func (a *Allocator) createValueNodeKey(key string, newID ID) error {
+func (a *Allocator) createValueNodeKey(key string, newID idpool.ID) error {
 	// add a new key /value/<key>/<node> to account for the reference
 	// The key is protected with a TTL/lease and will expire after LeaseTTL
 	valueKey := path.Join(a.valuePrefix, key, a.suffix)
@@ -430,7 +419,7 @@ type AllocatorKey interface {
 	String() string
 }
 
-func (a *Allocator) lockedAllocate(key AllocatorKey) (ID, bool, error) {
+func (a *Allocator) lockedAllocate(key AllocatorKey) (idpool.ID, bool, error) {
 	kvstore.Trace("Allocating key in kvstore", nil, logrus.Fields{fieldKey: key})
 
 	k := key.GetKey()
@@ -536,10 +525,10 @@ func (a *Allocator) lockedAllocate(key AllocatorKey) (ID, bool, error) {
 //
 // Returns the ID allocated to the key, if the ID had to be allocated, then
 // true is returned. An error is returned in case of failure.
-func (a *Allocator) Allocate(key AllocatorKey) (ID, bool, error) {
+func (a *Allocator) Allocate(key AllocatorKey) (idpool.ID, bool, error) {
 	var (
 		err   error
-		value ID
+		value idpool.ID
 		isNew bool
 		k     = key.GetKey()
 	)
@@ -549,7 +538,7 @@ func (a *Allocator) Allocate(key AllocatorKey) (ID, bool, error) {
 	// Check our list of local keys already in use and increment the
 	// refcnt. The returned key must be released afterwards. No kvstore
 	// operation was performed for this allocation
-	if val := a.localKeys.use(k); val != NoID {
+	if val := a.localKeys.use(k); val != idpool.NoID {
 		kvstore.Trace("Reusing local id", nil, logrus.Fields{fieldID: val, fieldKey: key})
 		a.mainCache.insert(key, val)
 		return val, false, nil
@@ -593,8 +582,8 @@ func (a *Allocator) Allocate(key AllocatorKey) (ID, bool, error) {
 
 // Get returns the ID which is allocated to a key. Returns an ID of NoID if no ID
 // has been allocated to this key yet.
-func (a *Allocator) Get(key AllocatorKey) (ID, error) {
-	if id := a.mainCache.get(key.GetKey()); id != NoID {
+func (a *Allocator) Get(key AllocatorKey) (idpool.ID, error) {
+	if id := a.mainCache.get(key.GetKey()); id != idpool.NoID {
 		return id, nil
 	}
 
@@ -602,7 +591,7 @@ func (a *Allocator) Get(key AllocatorKey) (ID, error) {
 }
 
 // Get returns the ID which is allocated to a key in the kvstore
-func (a *Allocator) GetNoCache(key AllocatorKey) (ID, error) {
+func (a *Allocator) GetNoCache(key AllocatorKey) (idpool.ID, error) {
 	prefix := path.Join(a.valuePrefix, key.GetKey())
 	value, err := kvstore.GetPrefix(prefix)
 	kvstore.Trace("AllocateGet", err, logrus.Fields{fieldPrefix: prefix, fieldValue: value})
@@ -612,15 +601,15 @@ func (a *Allocator) GetNoCache(key AllocatorKey) (ID, error) {
 
 	id, err := strconv.ParseUint(string(value), 10, 64)
 	if err != nil {
-		return NoID, fmt.Errorf("unable to parse value '%s': %s", value, err)
+		return idpool.NoID, fmt.Errorf("unable to parse value '%s': %s", value, err)
 	}
 
-	return ID(id), nil
+	return idpool.ID(id), nil
 }
 
 // GetByID returns the key associated with an ID. Returns nil if no key is
 // associated with the ID.
-func (a *Allocator) GetByID(id ID) (AllocatorKey, error) {
+func (a *Allocator) GetByID(id idpool.ID) (AllocatorKey, error) {
 	if key := a.mainCache.getByID(id); key != nil {
 		return key, nil
 	}
@@ -708,7 +697,7 @@ func (a *Allocator) runGC() error {
 	return nil
 }
 
-func (a *Allocator) recreateMasterKey(id ID, value string, reliablyMissing bool) {
+func (a *Allocator) recreateMasterKey(id idpool.ID, value string, reliablyMissing bool) {
 	keyPath := path.Join(a.idPrefix, id.String())
 
 	// Use of CreateOnly() ensures that any existing potentially
@@ -792,7 +781,7 @@ type AllocatorEvent struct {
 	Typ kvstore.EventType
 
 	// ID is the allocated ID
-	ID ID
+	ID idpool.ID
 
 	// Key is the key associated with the ID
 	Key AllocatorKey

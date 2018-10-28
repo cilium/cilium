@@ -12,24 +12,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package allocator
+package idpool
 
 import (
 	"sort"
+	"testing"
 
 	. "gopkg.in/check.v1"
 )
 
-func (s *AllocatorSuite) TestLeaseAvailableID(c *C) {
+func Test(t *testing.T) {
+	TestingT(t)
+}
+
+type IDPoolTestSuite struct{}
+
+var _ = Suite(&IDPoolTestSuite{})
+
+func (s *IDPoolTestSuite) TestLeaseAvailableID(c *C) {
 	minID, maxID := 1, 5
-	p := newIDPool(ID(minID), ID(maxID))
+	p := NewIDPool(ID(minID), ID(maxID))
 
 	leaseAllIDs(p, minID, maxID, c)
 }
 
-func (s *AllocatorSuite) TestInsertIDs(c *C) {
+func (s *IDPoolTestSuite) TestInsertIDs(c *C) {
 	minID, maxID := 2, 6
-	p := newIDPool(ID(minID), ID(maxID))
+	p := NewIDPool(ID(minID), ID(maxID))
 
 	// Insert IDs beyond minID, maxID range.
 	for i := minID - 1; i <= maxID+1; i++ {
@@ -40,9 +49,9 @@ func (s *AllocatorSuite) TestInsertIDs(c *C) {
 	leaseAllIDs(p, minID-1, maxID+1, c)
 }
 
-func (s *AllocatorSuite) TestInsertRemoveIDs(c *C) {
+func (s *IDPoolTestSuite) TestInsertRemoveIDs(c *C) {
 	minID, maxID := 1, 5
-	p := newIDPool(ID(minID), ID(maxID))
+	p := NewIDPool(ID(minID), ID(maxID))
 
 	// Remove all IDs.
 	for i := minID; i <= maxID; i++ {
@@ -85,9 +94,9 @@ func (s *AllocatorSuite) TestInsertRemoveIDs(c *C) {
 	c.Assert(actualIDs, DeepEquals, evenIDs)
 }
 
-func (s *AllocatorSuite) TestRefresh(c *C) {
+func (s *IDPoolTestSuite) TestRefresh(c *C) {
 	minID, maxID := 1, 5
-	p := newIDPool(ID(minID), ID(maxID))
+	p := NewIDPool(ID(minID), ID(maxID))
 
 	p.StartRefresh()
 
@@ -130,9 +139,9 @@ func (s *AllocatorSuite) TestRefresh(c *C) {
 	c.Assert(actual, DeepEquals, expected)
 }
 
-func (s *AllocatorSuite) TestReleaseID(c *C) {
+func (s *IDPoolTestSuite) TestReleaseID(c *C) {
 	minID, maxID := 1, 5
-	p := newIDPool(ID(minID), ID(maxID))
+	p := NewIDPool(ID(minID), ID(maxID))
 
 	// Lease all ids and release them.
 	for i := minID; i <= maxID; i++ {
@@ -160,11 +169,11 @@ func (s *AllocatorSuite) TestReleaseID(c *C) {
 	}
 }
 
-func (s *AllocatorSuite) TestOperationsOnAvailableIDs(c *C) {
+func (s *IDPoolTestSuite) TestOperationsOnAvailableIDs(c *C) {
 	minID, maxID := 1, 5
 
 	// Leasing available IDs should move its state to leased.
-	p0 := newIDPool(ID(minID), ID(maxID))
+	p0 := NewIDPool(ID(minID), ID(maxID))
 	leaseAllIDs(p0, minID, maxID, c)
 	// Check all IDs are in leased state.
 	for i := minID; i <= maxID; i++ {
@@ -173,28 +182,28 @@ func (s *AllocatorSuite) TestOperationsOnAvailableIDs(c *C) {
 	leaseAllIDs(p0, minID, maxID, c)
 
 	// Releasing available IDs should not have any effect.
-	p1 := newIDPool(ID(minID), ID(maxID))
+	p1 := NewIDPool(ID(minID), ID(maxID))
 	for i := minID; i <= maxID; i++ {
 		c.Assert(p1.Release(ID(i)), Equals, false)
 	}
 	leaseAllIDs(p1, minID, maxID, c)
 
 	// Using available IDs should not have any effect.
-	p2 := newIDPool(ID(minID), ID(maxID))
+	p2 := NewIDPool(ID(minID), ID(maxID))
 	for i := minID; i <= maxID; i++ {
 		c.Assert(p2.Use(ID(i)), Equals, false)
 	}
 	leaseAllIDs(p2, minID, maxID, c)
 
 	// Inserting available IDs should not have any effect.
-	p3 := newIDPool(ID(minID), ID(maxID))
+	p3 := NewIDPool(ID(minID), ID(maxID))
 	for i := minID; i <= maxID; i++ {
 		c.Assert(p3.Insert(ID(i)), Equals, false)
 	}
 	leaseAllIDs(p3, minID, maxID, c)
 
 	// Removing available IDs should make them unavailable.
-	p4 := newIDPool(ID(minID), ID(maxID))
+	p4 := NewIDPool(ID(minID), ID(maxID))
 	for i := minID; i <= maxID; i++ {
 		c.Assert(p4.Remove(ID(i)), Equals, true)
 	}
@@ -204,10 +213,10 @@ func (s *AllocatorSuite) TestOperationsOnAvailableIDs(c *C) {
 	}
 }
 
-func (s *AllocatorSuite) TestOperationsOnLeasedIDs(c *C) {
+func (s *IDPoolTestSuite) TestOperationsOnLeasedIDs(c *C) {
 	minID, maxID := 1, 5
-	var poolWithAllIDsLeased = func() *idPool {
-		p := newIDPool(ID(minID), ID(maxID))
+	var poolWithAllIDsLeased = func() *IDPool {
+		p := NewIDPool(ID(minID), ID(maxID))
 		leaseAllIDs(p, minID, maxID, c)
 		return p
 	}
@@ -252,10 +261,10 @@ func (s *AllocatorSuite) TestOperationsOnLeasedIDs(c *C) {
 	leaseAllIDs(p3, minID, minID-1, c)
 }
 
-func (s *AllocatorSuite) TestOperationsOnUnavailableIDs(c *C) {
+func (s *IDPoolTestSuite) TestOperationsOnUnavailableIDs(c *C) {
 	minID, maxID := 1, 5
-	var poolWithAllIDsUnavailable = func() *idPool {
-		p := newIDPool(ID(minID), ID(maxID))
+	var poolWithAllIDsUnavailable = func() *IDPool {
+		p := NewIDPool(ID(minID), ID(maxID))
 		for i := minID; i <= maxID; i++ {
 			c.Assert(p.Remove(ID(i)), Equals, true)
 		}
@@ -296,7 +305,7 @@ func (s *AllocatorSuite) TestOperationsOnUnavailableIDs(c *C) {
 	leaseAllIDs(p4, minID, minID-1, c)
 }
 
-func leaseAllIDs(p *idPool, minID int, maxID int, c *C) {
+func leaseAllIDs(p *IDPool, minID int, maxID int, c *C) {
 	expected := make([]int, 0)
 	actual := make([]int, 0)
 	for i := minID; i <= maxID; i++ {

@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/allocator"
 	"github.com/cilium/cilium/pkg/labels"
@@ -46,7 +47,7 @@ func (s IdentitiesModel) Less(i, j int) bool {
 func GetIdentityCache() IdentityCache {
 	cache := IdentityCache{}
 
-	identityAllocator.ForeachCache(func(id allocator.ID, val allocator.AllocatorKey) {
+	identityAllocator.ForeachCache(func(id idpool.ID, val allocator.AllocatorKey) {
 		if val != nil {
 			if gi, ok := val.(globalIdentity); ok {
 				cache[NumericIdentity(id)] = gi.LabelArray()
@@ -68,7 +69,7 @@ func GetIdentityCache() IdentityCache {
 func GetIdentities() IdentitiesModel {
 	identities := IdentitiesModel{}
 
-	identityAllocator.ForeachCache(func(id allocator.ID, val allocator.AllocatorKey) {
+	identityAllocator.ForeachCache(func(id idpool.ID, val allocator.AllocatorKey) {
 		if gi, ok := val.(globalIdentity); ok {
 			identity := NewIdentity(NumericIdentity(id), gi.Labels)
 			identities = append(identities, identity.GetModel())
@@ -125,7 +126,7 @@ func LookupIdentity(lbls labels.Labels) *Identity {
 		return nil
 	}
 
-	if id == allocator.NoID {
+	if id == idpool.NoID {
 		return nil
 	}
 
@@ -191,7 +192,7 @@ func LookupIdentityByID(id NumericIdentity) *Identity {
 		return nil
 	}
 
-	allocatorKey, err := identityAllocator.GetByID(allocator.ID(id))
+	allocatorKey, err := identityAllocator.GetByID(idpool.ID(id))
 	if err != nil {
 		return nil
 	}

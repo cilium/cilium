@@ -19,6 +19,7 @@ import (
 	"path"
 	"sync"
 
+	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/allocator"
 	"github.com/cilium/cilium/pkg/labels"
@@ -76,8 +77,8 @@ func InitIdentityAllocator(owner IdentityAllocatorOwner) {
 	setupOnce.Do(func() {
 		log.Info("Initializing identity allocator")
 
-		minID := allocator.ID(MinimalNumericIdentity)
-		maxID := allocator.ID(^uint16(0))
+		minID := idpool.ID(MinimalNumericIdentity)
+		maxID := idpool.ID(^uint16(0))
 		events := make(allocator.AllocatorEventChan, 65536)
 
 		// It is important to start listening for events before calling
@@ -90,7 +91,7 @@ func InitIdentityAllocator(owner IdentityAllocatorOwner) {
 			allocator.WithSuffix(owner.GetNodeSuffix()),
 			allocator.WithEvents(events),
 			allocator.WithMasterKeyProtection(),
-			allocator.WithPrefixMask(allocator.ID(option.Config.ClusterID<<option.ClusterIDShift)))
+			allocator.WithPrefixMask(idpool.ID(option.Config.ClusterID<<option.ClusterIDShift)))
 		if err != nil {
 			log.WithError(err).Fatal("Unable to initialize identity allocator")
 		}
