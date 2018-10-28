@@ -15,18 +15,11 @@
 package addressing
 
 import (
-	"encoding/json"
 	"fmt"
 	"net"
-	"reflect"
-
-	"github.com/cilium/cilium/pkg/byteorder"
 )
 
 type CiliumIP interface {
-	NodeID() uint32
-	State() uint16
-	EndpointID() uint16
 	IPNet(ones int) *net.IPNet
 	EndpointPrefix() *net.IPNet
 	IP() net.IP
@@ -76,59 +69,6 @@ func (ip CiliumIPv6) IsIPv6() bool {
 	return true
 }
 
-// NodeID returns the node ID portion of the address or 0.
-func (ip CiliumIPv6) NodeID() uint32 {
-	return byteorder.HostToNetworkSlice(ip[8:12], reflect.Uint32).(uint32)
-}
-
-func (ip CiliumIPv6) State() uint16 {
-	return byteorder.HostToNetworkSlice(ip[12:14], reflect.Uint16).(uint16)
-}
-
-func (ip CiliumIPv6) SetState(state uint16) {
-	byteorder.HostToNetworkPut(ip[12:14], state)
-}
-
-// EndpointID returns the container ID portion of the address or 0.
-func (ip CiliumIPv6) EndpointID() uint16 {
-	return byteorder.HostToNetworkSlice(ip[14:], reflect.Uint16).(uint16)
-}
-
-// ValidContainerIP returns true if IP is a valid IP for a container.
-// To be valid must obey to the following rules:
-// - Node ID, bits from 64 to 96, must be different than 0
-// - State, bits from 96 to 112, must be 0
-// - Endpoint ID, bits from 112 to 128, must be different than 0
-func (ip CiliumIPv6) ValidContainerIP() bool {
-	return ip.NodeID() != 0 && ip.State() == 0 && ip.EndpointID() != 0
-}
-
-// ValidNodeIP returns true if IP is a valid IP of a node.
-// - Node ID, bits from 64 to 96, must be different than 0
-// - State, bits from 96 to 112, must be 0
-// - Endpoint ID, bits from 112 to 128, must be 0
-func (ip *CiliumIPv6) ValidNodeIP() bool {
-	return ip.NodeID() != 0 && ip.State() == 0 && ip.EndpointID() == 0
-}
-
-// NodeIP returns the node's IP based on an endpoint IP of the local node.
-func (ip CiliumIPv6) NodeIP() net.IP {
-	nodeAddr := make(net.IP, len(ip))
-	copy(nodeAddr, ip)
-	nodeAddr[14] = 0
-	nodeAddr[15] = 0
-	return nodeAddr
-}
-
-// HostIP returns the host address from the node ID.
-func (ip CiliumIPv6) HostIP() net.IP {
-	nodeAddr := make(net.IP, len(ip))
-	copy(nodeAddr, ip)
-	nodeAddr[14] = 0xff
-	nodeAddr[15] = 0xff
-	return nodeAddr
-}
-
 func (ip CiliumIPv6) IPNet(ones int) *net.IPNet {
 	return &net.IPNet{
 		IP:   ip.IP(),
@@ -150,29 +90,6 @@ func (ip CiliumIPv6) String() string {
 	}
 
 	return net.IP(ip).String()
-}
-
-func (ip CiliumIPv6) MarshalJSON() ([]byte, error) {
-	return json.Marshal(net.IP(ip))
-}
-
-func (ip *CiliumIPv6) UnmarshalJSON(b []byte) error {
-	if len(b) < len(`""`) {
-		return fmt.Errorf("Invalid CiliumIPv6 '%s'", string(b))
-	}
-
-	str := string(b[1 : len(b)-1])
-	if str == "" {
-		return nil
-	}
-
-	c, err := NewCiliumIPv6(str)
-	if err != nil {
-		return fmt.Errorf("Invalid CiliumIPv6 '%s': %s", str, err)
-	}
-
-	*ip = c
-	return nil
 }
 
 type CiliumIPv4 []byte
@@ -208,16 +125,6 @@ func (ip CiliumIPv4) IsIPv6() bool {
 	return false
 }
 
-func (ip CiliumIPv4) NodeID() uint32 {
-	data := make([]byte, 4)
-	copy(data, ip[0:2])
-	return byteorder.HostToNetworkSlice(data, reflect.Uint32).(uint32)
-}
-
-func (ip CiliumIPv4) EndpointID() uint16 {
-	return byteorder.HostToNetworkSlice(ip[2:], reflect.Uint16).(uint16)
-}
-
 func (ip CiliumIPv4) IPNet(ones int) *net.IPNet {
 	return &net.IPNet{
 		IP:   net.IP(ip),
@@ -233,63 +140,12 @@ func (ip CiliumIPv4) IP() net.IP {
 	return net.IP(ip)
 }
 
-func (ip CiliumIPv4) State() uint16 {
-	// IPv4 addresses can't carry state
-	return 0
-}
-
 func (ip CiliumIPv4) String() string {
 	if ip == nil {
 		return ""
 	}
 
 	return net.IP(ip).String()
-}
-
-func (ip CiliumIPv4) MarshalJSON() ([]byte, error) {
-	return json.Marshal(net.IP(ip))
-}
-
-func (ip *CiliumIPv4) UnmarshalJSON(b []byte) error {
-	if len(b) < len(`""`) {
-		return fmt.Errorf("Invalid CiliumIPv4 '%s'", string(b))
-	}
-
-	str := string(b[1 : len(b)-1])
-	if str == "" {
-		return nil
-	}
-
-	c, err := NewCiliumIPv4(str)
-	if err != nil {
-		return fmt.Errorf("Invalid CiliumIPv4 '%s': %s", str, err)
-	}
-
-	*ip = c
-	return nil
-}
-
-// ValidContainerIP returns true if the IPv4 address is a valid IP for a container.
-// To be valid must obey to the following rules:
-// - Node ID, bits from 0 to 16, must be different than 0
-// - Endpoint ID, bits from 16 to 32, must be different than 0
-func (ip CiliumIPv4) ValidContainerIP() bool {
-	return ip.NodeID() != 0 && ip.EndpointID() != 0
-}
-
-// ValidNodeIP returns true if the IPv4 address is a valid IP of a node.
-func (ip CiliumIPv4) ValidNodeIP() bool {
-	// Unlike IPv6, a node address looks the same as a container address
-	return ip.ValidContainerIP()
-}
-
-// NodeIP returns the node's IP based on an endpoint IP of the local node.
-func (ip CiliumIPv4) NodeIP() net.IP {
-	nodeIP := make(net.IP, len(ip))
-	copy(nodeIP, ip)
-	nodeIP[3] = 1
-
-	return nodeIP
 }
 
 // GetFamilyString returns the address family of ip as a string.
