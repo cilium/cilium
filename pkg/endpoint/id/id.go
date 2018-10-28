@@ -47,13 +47,10 @@ func NewID(prefix PrefixType, id string) string {
 
 // SplitID splits ID into prefix and id. No validation is performed on prefix.
 func SplitID(id string) (PrefixType, string) {
-	if s := strings.Split(id, ":"); len(s) == 2 {
+	if s := strings.SplitN(id, ":", 2); len(s) == 2 {
 		return PrefixType(s[0]), s[1]
-	} else if len(s) == 3 {
-		// PodNamePrefix case, e.g. "pod-name:default:foobar" where the prefix is
-		// pod-name, the pod namespace is default, and the pod-name is foobar.
-		return PrefixType(s[0]), strings.Join([]string{s[1], s[2]}, ":")
 	}
+
 	// default prefix
 	return CiliumLocalIdPrefix, id
 }
@@ -71,31 +68,15 @@ func ParseCiliumID(id string) (int64, error) {
 	return n, nil
 }
 
-// FIXME:
-//  - Add docker ID and docker endpoint parsers
-
-// ParseID parses specified id and returns normalized id as string.
-func ParseID(id string) (PrefixType, string, error) {
-	prefix, eid := SplitID(id)
-	switch prefix {
-	case CiliumLocalIdPrefix:
-		if _, err := ParseCiliumID(id); err != nil {
-			return "", "", err
-		}
-		return prefix, eid, nil
-	case CiliumGlobalIdPrefix, ContainerIdPrefix, DockerEndpointPrefix, ContainerNamePrefix, PodNamePrefix:
-		// FIXME: Validate IDs
-		return prefix, eid, nil
-	}
-
-	return "", "", fmt.Errorf("unknown endpoint ID prefix \"%s\"", prefix)
-}
-
 // ValidateID parses specified id and returns normalized id as string.
 func ValidateID(id string) (PrefixType, string, error) {
-	prefix, _, err := ParseID(id)
-	if err != nil {
-		return "", "", err
+	prefix, id := SplitID(id)
+	switch prefix {
+	case CiliumLocalIdPrefix, CiliumGlobalIdPrefix, ContainerIdPrefix, DockerEndpointPrefix, ContainerNamePrefix:
+	case PodNamePrefix, IPv4Prefix, IPv6Prefix:
+	default:
+		return "", "", fmt.Errorf("Unknown id prefix %s", prefix)
 	}
+
 	return prefix, id, nil
 }
