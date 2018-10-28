@@ -280,7 +280,7 @@ func RegenerateAllEndpoints(owner endpoint.Owner, regenContext *endpoint.Regener
 	for _, ep := range eps {
 		go func(ep *endpoint.Endpoint, wg *sync.WaitGroup) {
 			if err := ep.LockAlive(); err != nil {
-				log.WithError(err).Warn("Error regenerating endpoint for event %s", regenContext.Reason)
+				log.WithError(err).Warnf("Endpoint disappeared while queued to be regenerated: %s", regenContext.Reason)
 				ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+err.Error())
 			} else {
 				regen := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenContext.Reason))
