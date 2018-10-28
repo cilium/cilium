@@ -158,7 +158,7 @@ func (ins *Instance) PolicyMatches(endpointPolicyName string, ingress bool, port
 	// Policy maps are never modified once published
 	policy, found := ins.getPolicyMap()[endpointPolicyName]
 	if !found {
-		log.Debugf("NPDS: Policy for %s not found (%v)", endpointPolicyName)
+		log.Debugf("NPDS: Policy for %s not found", endpointPolicyName)
 	}
 
 	return found && policy.Matches(ingress, port, remoteId, l7)
