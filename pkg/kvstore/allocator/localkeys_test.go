@@ -15,16 +15,18 @@
 package allocator
 
 import (
+	"github.com/cilium/cilium/pkg/idpool"
+
 	. "gopkg.in/check.v1"
 )
 
 func (s *AllocatorSuite) TestLocalKeys(c *C) {
 	k := newLocalKeys()
-	key, val := "foo", ID(200)
-	key2, val2 := "bar", ID(300)
+	key, val := "foo", idpool.ID(200)
+	key2, val2 := "bar", idpool.ID(300)
 
 	v := k.use(key)
-	c.Assert(v, Equals, NoID)
+	c.Assert(v, Equals, idpool.NoID)
 
 	v, err := k.allocate(key, val) // refcnt=1
 	c.Assert(err, IsNil)
@@ -59,9 +61,9 @@ func (s *AllocatorSuite) TestLocalKeys(c *C) {
 	k.release(key) // refcnt=1
 	k.release(key) // refcnt=0
 	v = k.use(key)
-	c.Assert(v, Equals, NoID)
+	c.Assert(v, Equals, idpool.NoID)
 
 	k.release(key2) // refcnt=0
 	v = k.use(key2)
-	c.Assert(v, Equals, NoID)
+	c.Assert(v, Equals, idpool.NoID)
 }

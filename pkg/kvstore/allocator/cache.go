@@ -21,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 
@@ -28,10 +29,10 @@ import (
 )
 
 // idMap provides mapping from ID to an AllocatorKey
-type idMap map[ID]AllocatorKey
+type idMap map[idpool.ID]AllocatorKey
 
 // keyMap provides mapping from AllocatorKey to ID
-type keyMap map[string]ID
+type keyMap map[string]idpool.ID
 
 type cache struct {
 	backend  kvstore.BackendOperations
@@ -97,10 +98,10 @@ func (c *cache) restart(a *Allocator) error {
 	return c.startAndWait(a)
 }
 
-func (c *cache) keyToID(key string, deleteInvalid bool) ID {
+func (c *cache) keyToID(key string, deleteInvalid bool) idpool.ID {
 	if !strings.HasPrefix(key, c.prefix) {
 		invalidKey(key, c.prefix, deleteInvalid)
-		return NoID
+		return idpool.NoID
 	}
 
 	suffix := strings.TrimPrefix(key, c.prefix)
@@ -111,10 +112,10 @@ func (c *cache) keyToID(key string, deleteInvalid bool) ID {
 	id, err := strconv.ParseUint(suffix, 10, 64)
 	if err != nil {
 		invalidKey(key, c.prefix, deleteInvalid)
-		return NoID
+		return idpool.NoID
 	}
 
-	return ID(id)
+	return idpool.ID(id)
 }
 
 // start requests a LIST operation from the kvstore and starts watching the
@@ -217,7 +218,7 @@ func (c *cache) start(a *Allocator) waitChan {
 					if a.events != nil {
 						a.events <- AllocatorEvent{
 							Typ: event.Typ,
-							ID:  ID(id),
+							ID:  idpool.ID(id),
 							Key: key,
 						}
 					}
@@ -258,7 +259,7 @@ func (c *cache) stop() {
 	c.stopWatchWg.Wait()
 }
 
-func (c *cache) get(key string) ID {
+func (c *cache) get(key string) idpool.ID {
 	c.mutex.RLock()
 	if id, ok := c.keyCache[key]; ok {
 		c.mutex.RUnlock()
@@ -266,10 +267,10 @@ func (c *cache) get(key string) ID {
 	}
 	c.mutex.RUnlock()
 
-	return NoID
+	return idpool.NoID
 }
 
-func (c *cache) getByID(id ID) AllocatorKey {
+func (c *cache) getByID(id idpool.ID) AllocatorKey {
 	c.mutex.RLock()
 	if v, ok := c.cache[id]; ok {
 		c.mutex.RUnlock()
@@ -288,7 +289,7 @@ func (c *cache) foreach(cb RangeFunc) {
 	c.mutex.RUnlock()
 }
 
-func (c *cache) insert(key AllocatorKey, val ID) {
+func (c *cache) insert(key AllocatorKey, val idpool.ID) {
 	c.mutex.Lock()
 	c.nextCache[val] = key
 	c.nextKeyCache[key.GetKey()] = val
