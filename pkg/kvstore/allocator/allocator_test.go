@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/testutils"
 
@@ -80,28 +81,29 @@ func randomTestName() string {
 
 func (s *AllocatorSuite) TestSelectID(c *C) {
 	allocatorName := randomTestName()
-	minID, maxID := ID(1), ID(5)
+	minID, maxID := idpool.ID(1), idpool.ID(5)
 	a, err := NewAllocator(allocatorName, TestType(""), WithMin(minID), WithMax(maxID), WithSuffix("a"))
 	c.Assert(err, IsNil)
 	c.Assert(a, Not(IsNil))
 
 	// allocate all available IDs
 	for i := minID; i <= maxID; i++ {
-		id, val := a.selectAvailableID()
-		c.Assert(id, Not(Equals), NoID)
+		id, val, _ := a.selectAvailableID()
+		c.Assert(id, Not(Equals), idpool.NoID)
 		c.Assert(val, Equals, id.String())
 		a.mainCache.cache[id] = TestType(fmt.Sprintf("key-%d", i))
 	}
 
 	// we should be out of IDs
-	id, val := a.selectAvailableID()
-	c.Assert(id, Equals, ID(0))
+	id, val, unmaskedID := a.selectAvailableID()
+	c.Assert(id, Equals, idpool.ID(0))
+	c.Assert(id, Equals, unmaskedID)
 	c.Assert(val, Equals, "")
 }
 
 func (s *AllocatorSuite) TestPrefixMask(c *C) {
 	allocatorName := randomTestName()
-	minID, maxID := ID(1), ID(5)
+	minID, maxID := idpool.ID(1), idpool.ID(5)
 	a, err := NewAllocator(allocatorName, TestType(""), WithMin(minID),
 		WithMax(maxID), WithSuffix("a"), WithPrefixMask(1<<16))
 	c.Assert(err, IsNil)
@@ -109,9 +111,10 @@ func (s *AllocatorSuite) TestPrefixMask(c *C) {
 
 	// allocate all available IDs
 	for i := minID; i <= maxID; i++ {
-		id, val := a.selectAvailableID()
-		c.Assert(id, Not(Equals), NoID)
-		c.Assert(id>>16, Equals, ID(1))
+		id, val, unmaskedID := a.selectAvailableID()
+		c.Assert(id, Not(Equals), idpool.NoID)
+		c.Assert(id>>16, Equals, idpool.ID(1))
+		c.Assert(id, Not(Equals), unmaskedID)
 		c.Assert(val, Equals, id.String())
 	}
 
@@ -120,7 +123,7 @@ func (s *AllocatorSuite) TestPrefixMask(c *C) {
 
 func (s *AllocatorSuite) BenchmarkAllocate(c *C) {
 	allocatorName := randomTestName()
-	maxID := ID(256 + c.N)
+	maxID := idpool.ID(256 + c.N)
 	allocator, err := NewAllocator(allocatorName, TestType(""), WithMax(maxID), WithSuffix("a"))
 	c.Assert(err, IsNil)
 	c.Assert(allocator, Not(IsNil))
@@ -135,7 +138,7 @@ func (s *AllocatorSuite) BenchmarkAllocate(c *C) {
 
 }
 
-func testAllocator(c *C, maxID ID, allocatorName string, suffix string) {
+func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 	allocator, err := NewAllocator(allocatorName, TestType(""), WithMax(maxID),
 		WithSuffix(suffix), WithoutGC())
 	c.Assert(err, IsNil)
@@ -145,7 +148,7 @@ func testAllocator(c *C, maxID ID, allocatorName string, suffix string) {
 	allocator.DeleteAllKeys()
 
 	// allocate all available IDs
-	for i := ID(1); i <= maxID; i++ {
+	for i := idpool.ID(1); i <= maxID; i++ {
 		key := TestType(fmt.Sprintf("key%04d", i))
 		id, new, err := allocator.Allocate(key)
 		c.Assert(err, IsNil)
@@ -167,7 +170,7 @@ func testAllocator(c *C, maxID ID, allocatorName string, suffix string) {
 	allocator.backoffTemplate.Factor = saved
 
 	// allocate all IDs again using the same set of keys, refcnt should go to 2
-	for i := ID(1); i <= maxID; i++ {
+	for i := idpool.ID(1); i <= maxID; i++ {
 		key := TestType(fmt.Sprintf("key%04d", i))
 		id, new, err := allocator.Allocate(key)
 		c.Assert(err, IsNil)
@@ -185,7 +188,7 @@ func testAllocator(c *C, maxID ID, allocatorName string, suffix string) {
 	c.Assert(allocator2, Not(IsNil))
 
 	// allocate all IDs again using the same set of keys, refcnt should go to 2
-	for i := ID(1); i <= maxID; i++ {
+	for i := idpool.ID(1); i <= maxID; i++ {
 		key := TestType(fmt.Sprintf("key%04d", i))
 		id, new, err := allocator2.Allocate(key)
 		c.Assert(err, IsNil)
@@ -202,12 +205,12 @@ func testAllocator(c *C, maxID ID, allocatorName string, suffix string) {
 	}
 
 	// release 2nd reference of all IDs
-	for i := ID(1); i <= maxID; i++ {
+	for i := idpool.ID(1); i <= maxID; i++ {
 		allocator.Release(TestType(fmt.Sprintf("key%04d", i)))
 	}
 
 	// refcnt should be back to 1
-	for i := ID(1); i <= maxID; i++ {
+	for i := idpool.ID(1); i <= maxID; i++ {
 		key := TestType(fmt.Sprintf("key%04d", i))
 		c.Assert(allocator.localKeys.keys[key.GetKey()].refcnt, Equals, uint64(1))
 	}
@@ -220,11 +223,11 @@ func testAllocator(c *C, maxID ID, allocatorName string, suffix string) {
 	c.Assert(len(v), Equals, int(maxID))
 
 	// release final reference of all IDs
-	for i := ID(1); i <= maxID; i++ {
+	for i := idpool.ID(1); i <= maxID; i++ {
 		allocator.Release(TestType(fmt.Sprintf("key%04d", i)))
 	}
 
-	for i := ID(1); i <= maxID; i++ {
+	for i := idpool.ID(1); i <= maxID; i++ {
 		key := TestType(fmt.Sprintf("key%04d", i))
 		c.Assert(allocator.localKeys.keys[key.GetKey()], IsNil)
 	}
@@ -242,7 +245,7 @@ func testAllocator(c *C, maxID ID, allocatorName string, suffix string) {
 }
 
 func (s *AllocatorSuite) TestAllocateCached(c *C) {
-	testAllocator(c, ID(256), randomTestName(), "a") // enable use of local cache
+	testAllocator(c, idpool.ID(256), randomTestName(), "a") // enable use of local cache
 }
 
 func (s *AllocatorSuite) TestKeyToID(c *C) {
@@ -251,14 +254,14 @@ func (s *AllocatorSuite) TestKeyToID(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(a, Not(IsNil))
 
-	c.Assert(a.mainCache.keyToID(path.Join(allocatorName, "invalid"), false), Equals, NoID)
-	c.Assert(a.mainCache.keyToID(path.Join(a.idPrefix, "invalid"), false), Equals, NoID)
-	c.Assert(a.mainCache.keyToID(path.Join(a.idPrefix, "10"), false), Equals, ID(10))
+	c.Assert(a.mainCache.keyToID(path.Join(allocatorName, "invalid"), false), Equals, idpool.NoID)
+	c.Assert(a.mainCache.keyToID(path.Join(a.idPrefix, "invalid"), false), Equals, idpool.NoID)
+	c.Assert(a.mainCache.keyToID(path.Join(a.idPrefix, "10"), false), Equals, idpool.ID(10))
 }
 
 func (s *AllocatorSuite) TestRemoteCache(c *C) {
 	testName := randomTestName()
-	allocator, err := NewAllocator(testName, TestType(""), WithMax(ID(256)), WithSuffix("a"))
+	allocator, err := NewAllocator(testName, TestType(""), WithMax(idpool.ID(256)), WithSuffix("a"))
 	c.Assert(err, IsNil)
 	c.Assert(allocator, Not(IsNil))
 
@@ -266,7 +269,7 @@ func (s *AllocatorSuite) TestRemoteCache(c *C) {
 	allocator.DeleteAllKeys()
 
 	// allocate all available IDs
-	for i := ID(1); i <= ID(4); i++ {
+	for i := idpool.ID(1); i <= idpool.ID(4); i++ {
 		key := TestType(fmt.Sprintf("key%04d", i))
 		_, _, err := allocator.Allocate(key)
 		c.Assert(err, IsNil)
@@ -276,8 +279,8 @@ func (s *AllocatorSuite) TestRemoteCache(c *C) {
 	c.Assert(testutils.WaitUntil(func() bool { return len(allocator.mainCache.cache) == 4 }, 5*time.Second), IsNil)
 
 	// count identical allocations returned
-	cache := map[ID]int{}
-	allocator.ForeachCache(func(id ID, val AllocatorKey) {
+	cache := map[idpool.ID]int{}
+	allocator.ForeachCache(func(id idpool.ID, val AllocatorKey) {
 		cache[id]++
 	})
 
@@ -295,8 +298,8 @@ func (s *AllocatorSuite) TestRemoteCache(c *C) {
 	c.Assert(testutils.WaitUntil(func() bool { return len(rc.cache.cache) == 4 }, 5*time.Second), IsNil)
 
 	// count the allocations in the main cache *AND* the remote cache
-	cache = map[ID]int{}
-	allocator.ForeachCache(func(id ID, val AllocatorKey) {
+	cache = map[idpool.ID]int{}
+	allocator.ForeachCache(func(id idpool.ID, val AllocatorKey) {
 		cache[id]++
 	})
 
@@ -316,13 +319,13 @@ func (s *AllocatorSuite) TestRemoteCache(c *C) {
 // The following tests are currently disabled as they are not 100% reliable in
 // the Jenkins CI
 //
-//func testParallelAllocator(c *C, maxID ID, allocatorName string, suffix string) {
+//func testParallelAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 //	allocator, err := NewAllocator(allocatorName, TestType(""), WithMax(maxID), WithSuffix(suffix))
 //	c.Assert(err, IsNil)
 //	c.Assert(allocator, Not(IsNil))
 //
 //	// allocate all available IDs
-//	for i := ID(1); i <= maxID; i++ {
+//	for i := idpool.ID(1); i <= maxID; i++ {
 //		key := TestType(fmt.Sprintf("key%04d", i))
 //		id, _, err := allocator.Allocate(key)
 //		c.Assert(err, IsNil)
@@ -343,7 +346,7 @@ func (s *AllocatorSuite) TestRemoteCache(c *C) {
 //	allocator.backoffTemplate.Factor = saved
 //
 //	// allocate all IDs again using the same set of keys, refcnt should go to 2
-//	for i := ID(1); i <= maxID; i++ {
+//	for i := idpool.ID(1); i <= maxID; i++ {
 //		key := TestType(fmt.Sprintf("key%04d", i))
 //		id, _, err := allocator.Allocate(key)
 //		c.Assert(err, IsNil)
@@ -353,12 +356,12 @@ func (s *AllocatorSuite) TestRemoteCache(c *C) {
 //		c.Assert(allocator.localKeys.keys[key.GetKey()].refcnt, Equals, uint64(2))
 //	}
 //
-//	for i := ID(1); i <= maxID; i++ {
+//	for i := idpool.ID(1); i <= maxID; i++ {
 //		allocator.Release(TestType(fmt.Sprintf("key%04d", i)))
 //	}
 //
 //	// release final reference of all IDs
-//	for i := ID(1); i <= maxID; i++ {
+//	for i := idpool.ID(1); i <= maxID; i++ {
 //		allocator.Release(TestType(fmt.Sprintf("key%04d", i)))
 //	}
 //
@@ -389,7 +392,7 @@ func (s *AllocatorSuite) TestRemoteCache(c *C) {
 //		wg.Add(1)
 //		go func() {
 //			defer wg.Done()
-//			testParallelAllocator(c, ID(64), allocatorName, fmt.Sprintf("node-%d", i))
+//			testParallelAllocator(c, idpool.ID(64), allocatorName, fmt.Sprintf("node-%d", i))
 //		}()
 //	}
 //
