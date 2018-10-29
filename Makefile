@@ -64,7 +64,6 @@ tests-ginkgo-real:
             -tags=privileged_tests $(pkg) $(GOTEST_OPTS) || exit 1; \
             tail -n +2 coverage.out >> coverage-all.out;)
 	$(GO) tool cover -html=coverage-all.out -o=coverage-all.html
-	rm coverage-all.out
 	rm coverage.out
 	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
 
