@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
 
 	"github.com/spf13/cobra"
@@ -203,7 +204,7 @@ type PolicyUpdateArgs struct {
 
 	// trafficDirection represents the traffic direction provided
 	// as an argument e.g. `ingress`
-	trafficDirection policymap.TrafficDirection
+	trafficDirection trafficdirection.TrafficDirection
 
 	// label represents the identity of the label provided as argument.
 	label uint32
@@ -219,16 +220,16 @@ type PolicyUpdateArgs struct {
 // parseTrafficString converts the provided string to its corresponding
 // TrafficDirection. If the string does not correspond to a valid TrafficDirection
 // type, returns Invalid and a corresponding error.
-func parseTrafficString(td string) (policymap.TrafficDirection, error) {
+func parseTrafficString(td string) (trafficdirection.TrafficDirection, error) {
 	lowered := strings.ToLower(td)
 
 	switch lowered {
 	case "ingress":
-		return policymap.Ingress, nil
+		return trafficdirection.Ingress, nil
 	case "egress":
-		return policymap.Egress, nil
+		return trafficdirection.Egress, nil
 	default:
-		return policymap.Invalid, fmt.Errorf("invalid direction %q provided", td)
+		return trafficdirection.Invalid, fmt.Errorf("invalid direction %q provided", td)
 	}
 
 }

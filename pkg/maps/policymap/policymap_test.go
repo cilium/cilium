@@ -17,6 +17,8 @@
 package policymap
 
 import (
+	"github.com/cilium/cilium/pkg/policy/trafficdirection"
+
 	"testing"
 
 	. "gopkg.in/check.v1"
@@ -49,7 +51,7 @@ func (pm *PolicyMapTestSuite) TestPolicyEntriesDump_Less(c *C) {
 						Identity:         uint32(0),
 						DestPort:         0,
 						Nexthdr:          0,
-						TrafficDirection: uint8(Ingress),
+						TrafficDirection: uint8(trafficdirection.Ingress),
 					},
 				},
 			},
@@ -67,7 +69,7 @@ func (pm *PolicyMapTestSuite) TestPolicyEntriesDump_Less(c *C) {
 						Identity:         uint32(0),
 						DestPort:         0,
 						Nexthdr:          0,
-						TrafficDirection: uint8(Ingress),
+						TrafficDirection: uint8(trafficdirection.Ingress),
 					},
 				},
 				{
@@ -75,7 +77,7 @@ func (pm *PolicyMapTestSuite) TestPolicyEntriesDump_Less(c *C) {
 						Identity:         uint32(1),
 						DestPort:         0,
 						Nexthdr:          0,
-						TrafficDirection: uint8(Ingress),
+						TrafficDirection: uint8(trafficdirection.Ingress),
 					},
 				},
 			},
@@ -93,7 +95,7 @@ func (pm *PolicyMapTestSuite) TestPolicyEntriesDump_Less(c *C) {
 						Identity:         uint32(0),
 						DestPort:         0,
 						Nexthdr:          0,
-						TrafficDirection: uint8(Ingress),
+						TrafficDirection: uint8(trafficdirection.Ingress),
 					},
 				},
 				{
@@ -101,7 +103,7 @@ func (pm *PolicyMapTestSuite) TestPolicyEntriesDump_Less(c *C) {
 						Identity:         uint32(1),
 						DestPort:         0,
 						Nexthdr:          0,
-						TrafficDirection: uint8(Egress),
+						TrafficDirection: uint8(trafficdirection.Egress),
 					},
 				},
 			},
@@ -119,7 +121,7 @@ func (pm *PolicyMapTestSuite) TestPolicyEntriesDump_Less(c *C) {
 						Identity:         uint32(1),
 						DestPort:         0,
 						Nexthdr:          0,
-						TrafficDirection: uint8(Egress),
+						TrafficDirection: uint8(trafficdirection.Egress),
 					},
 				},
 				{
@@ -127,7 +129,7 @@ func (pm *PolicyMapTestSuite) TestPolicyEntriesDump_Less(c *C) {
 						Identity:         uint32(0),
 						DestPort:         0,
 						Nexthdr:          0,
-						TrafficDirection: uint8(Egress),
+						TrafficDirection: uint8(trafficdirection.Egress),
 					},
 				},
 			},

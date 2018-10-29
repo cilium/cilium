@@ -74,6 +74,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	policyApi "github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/revert"
@@ -1385,8 +1386,8 @@ func (d *Daemon) removeStaleMap(path string) {
 func (d *Daemon) removeStaleIDFromPolicyMap(id uint32) {
 	gpm, err := policymap.OpenGlobalMap(bpf.MapPath(endpoint.PolicyGlobalMapName))
 	if err == nil {
-		gpm.Delete(id, policymap.AllPorts, u8proto.All, policymap.Ingress)
-		gpm.Delete(id, policymap.AllPorts, u8proto.All, policymap.Egress)
+		gpm.Delete(id, policymap.AllPorts, u8proto.All, trafficdirection.Ingress)
+		gpm.Delete(id, policymap.AllPorts, u8proto.All, trafficdirection.Egress)
 		gpm.Close()
 	}
 }

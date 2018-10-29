@@ -56,6 +56,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/u8proto"
 	"github.com/cilium/cilium/pkg/versioncheck"
@@ -996,13 +997,13 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 			// not be added to these sets.
 			continue
 		}
-		switch policymap.TrafficDirection(policyMapKey.TrafficDirection) {
-		case policymap.Ingress:
+		switch trafficdirection.TrafficDirection(policyMapKey.TrafficDirection) {
+		case trafficdirection.Ingress:
 			realizedIngressIdentities = append(realizedIngressIdentities, int64(policyMapKey.Identity))
-		case policymap.Egress:
+		case trafficdirection.Egress:
 			realizedEgressIdentities = append(realizedEgressIdentities, int64(policyMapKey.Identity))
 		default:
-			log.WithField(logfields.TrafficDirection, policymap.TrafficDirection(policyMapKey.TrafficDirection)).Error("Unexpected traffic direction present in realized PolicyMap state for endpoint")
+			log.WithField(logfields.TrafficDirection, trafficdirection.TrafficDirection(policyMapKey.TrafficDirection)).Error("Unexpected traffic direction present in realized PolicyMap state for endpoint")
 		}
 	}
 
@@ -1018,13 +1019,13 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 			// not be added to these sets.
 			continue
 		}
-		switch policymap.TrafficDirection(policyMapKey.TrafficDirection) {
-		case policymap.Ingress:
+		switch trafficdirection.TrafficDirection(policyMapKey.TrafficDirection) {
+		case trafficdirection.Ingress:
 			desiredIngressIdentities = append(desiredIngressIdentities, int64(policyMapKey.Identity))
-		case policymap.Egress:
+		case trafficdirection.Egress:
 			desiredEgressIdentities = append(desiredEgressIdentities, int64(policyMapKey.Identity))
 		default:
-			log.WithField(logfields.TrafficDirection, policymap.TrafficDirection(policyMapKey.TrafficDirection)).Error("Unexpected traffic direction present in desired PolicyMap state for endpoint")
+			log.WithField(logfields.TrafficDirection, trafficdirection.TrafficDirection(policyMapKey.TrafficDirection)).Error("Unexpected traffic direction present in desired PolicyMap state for endpoint")
 		}
 	}
 
@@ -1333,7 +1334,7 @@ func (e *Endpoint) Allows(id identityPkg.NumericIdentity) bool {
 
 	keyToLookup := policymap.PolicyKey{
 		Identity:         uint32(id),
-		TrafficDirection: policymap.Ingress.Uint8(),
+		TrafficDirection: trafficdirection.Ingress.Uint8(),
 	}
 
 	_, ok := e.desiredMapState[keyToLookup]
@@ -1519,8 +1520,8 @@ func (e *Endpoint) RemoveFromGlobalPolicyMap() error {
 	if err == nil {
 		// We need to remove ourselves from global map, so that
 		// resources (prog/map reference counts) can be released.
-		gpm.Delete(uint32(e.ID), policymap.AllPorts, u8proto.All, policymap.Ingress)
-		gpm.Delete(uint32(e.ID), policymap.AllPorts, u8proto.All, policymap.Egress)
+		gpm.Delete(uint32(e.ID), policymap.AllPorts, u8proto.All, trafficdirection.Ingress)
+		gpm.Delete(uint32(e.ID), policymap.AllPorts, u8proto.All, trafficdirection.Egress)
 		gpm.Close()
 	}
 
