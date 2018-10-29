@@ -9,6 +9,8 @@ workspace(name = "cilium")
 #
 ENVOY_SHA = "f936fc60f488cfae07f5e5d20d7381f0f23482fe"
 
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
 http_archive(
     name = "envoy",
     url = "https://github.com/envoyproxy/envoy/archive/" + ENVOY_SHA + ".zip",
