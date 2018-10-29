@@ -50,12 +50,18 @@ tests-ginkgo-real:
 	echo "mode: count" > coverage-all.out
 	echo "mode: count" > coverage.out
 	$(foreach pkg,$(TESTPKGS),\
-	go test $(TEST_LDFLAGS) \
-            -timeout 360s -tags=privileged_tests \
-            -coverpkg ./... \
+            go test $(TEST_LDFLAGS) -timeout 360s \
             -coverprofile=coverage.out \
             -covermode=count \
-            $(pkg) $(GOTEST_OPTS) || exit 1;\
+            -coverpkg ./... \
+            $(pkg) $(GOTEST_OPTS) || exit 1; \
+            tail -n +2 coverage.out >> coverage-all.out;)
+	$(foreach pkg,$(TESTPKGS),\
+            go test $(TEST_LDFLAGS) -timeout 360s \
+            -coverprofile=coverage.out \
+            -covermode=count \
+            -coverpkg ./... \
+            -tags=privileged_tests $(pkg) $(GOTEST_OPTS) || exit 1; \
             tail -n +2 coverage.out >> coverage-all.out;)
 	$(GO) tool cover -html=coverage-all.out -o=coverage-all.html
 	rm coverage-all.out
