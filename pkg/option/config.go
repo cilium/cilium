@@ -25,8 +25,6 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
-
-	"github.com/spf13/viper"
 )
 
 const (
@@ -273,6 +271,10 @@ type daemonConfig struct {
 	// MaxControllerInterval is the maximum value for a controller's
 	// RunInterval. Zero means unlimited.
 	MaxControllerInterval int
+
+	// UseSingleClusterRoute specifies whether to use a single cluster route
+	// instead of per-node routes.
+	UseSingleClusterRoute bool
 }
 
 var (
@@ -348,21 +350,16 @@ func (c *daemonConfig) Validate() error {
 		return fmt.Errorf("MTU '%d' cannot be 0 or negative", c.MTU)
 	}
 
-	c.Tunnel = viper.GetString(TunnelName)
 	switch c.Tunnel {
 	case TunnelVXLAN, TunnelGeneve:
 	case TunnelDisabled:
-		if viper.GetBool(SingleClusterRouteName) {
+		if c.UseSingleClusterRoute {
 			return fmt.Errorf("option --%s cannot be used in combination with --%s=%s",
 				SingleClusterRouteName, TunnelName, TunnelDisabled)
 		}
 	default:
 		return fmt.Errorf("invalid tunnel mode '%s', valid modes = {%s}", c.Tunnel, GetTunnelModes())
 	}
-
-	c.ClusterName = viper.GetString(ClusterName)
-	c.ClusterID = viper.GetInt(ClusterIDName)
-	c.ClusterMeshConfig = viper.GetString(ClusterMeshConfigName)
 
 	if c.ClusterID < ClusterIDMin || c.ClusterID > ClusterIDMax {
 		return fmt.Errorf("invalid cluster id %d: must be in range %d..%d",
@@ -376,8 +373,6 @@ func (c *daemonConfig) Validate() error {
 		}
 	}
 
-	c.CTMapEntriesGlobalTCP = viper.GetInt(CTMapEntriesGlobalTCPName)
-	c.CTMapEntriesGlobalAny = viper.GetInt(CTMapEntriesGlobalAnyName)
 	ctTableMin := 1 << 10 // 1Ki entries
 	ctTableMax := 1 << 24 // 16Mi entries (~1GiB of entries per map)
 	if c.CTMapEntriesGlobalTCP < ctTableMin || c.CTMapEntriesGlobalAny < ctTableMin {
