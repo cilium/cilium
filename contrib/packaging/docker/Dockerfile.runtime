@@ -81,7 +81,7 @@ apt-get clean
 #
 # Go-based tools we need at runtime
 #
-FROM golang:1.10.3 as runtime-gobuild
+FROM golang:1.11.1 as runtime-gobuild
 WORKDIR /tmp
 RUN go get -u github.com/cilium/go-bindata/... && \
 go get -u github.com/google/gops && \

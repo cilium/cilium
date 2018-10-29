@@ -16,7 +16,7 @@ WORKDIR /go/src/github.com/cilium/cilium/envoy
 ENV GOROOT /usr/local/go
 ENV GOPATH /go
 ENV PATH "$GOROOT/bin:$GOPATH/bin:$PATH"
-ENV GO_VERSION 1.10.3
+ENV GO_VERSION 1.11.1
 
 #
 # Build dependencies
