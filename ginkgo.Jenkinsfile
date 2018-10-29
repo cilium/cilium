@@ -61,6 +61,7 @@ pipeline {
             environment {
                 GOPATH="${WORKSPACE}"
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/"
+                COVERALLS_TOKEN = credentials('COVERALLS_TOKEN')
             }
             steps {
                 sh "cd ${TESTDIR}; make tests-ginkgo"
