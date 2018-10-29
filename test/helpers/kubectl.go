@@ -1407,6 +1407,7 @@ func (kub *Kubectl) CiliumCheckReport() {
 // `deadlocks` or `segmentation faults` messages. In case of any of these
 // messages, it'll mark the test as failed.
 func (kub *Kubectl) ValidateNoErrorsInLogs(duration time.Duration) {
+	fmt.Fprintf(CheckLogs, "Starting validation: %s\n", time.Now())
 	var logs string
 	cmd := fmt.Sprintf("%s -n %s logs --timestamps=true -l k8s-app=cilium --since=%vs",
 		KubectlCmd, KubeSystemNamespace, duration.Seconds())
@@ -1414,10 +1415,12 @@ func (kub *Kubectl) ValidateNoErrorsInLogs(duration time.Duration) {
 	if res.WasSuccessful() {
 		logs += res.Output().String()
 	}
+	fmt.Fprintf(CheckLogs, "Finished with previous log %s\n", time.Now())
 	res = kub.Exec(cmd, ExecOptions{SkipLog: true})
 	if res.WasSuccessful() {
 		logs += res.Output().String()
 	}
+	fmt.Fprintf(CheckLogs, "Finished with current log len=%d %s\n", len(logs), time.Now())
 	defer func() {
 		// Keep the cilium logs for the given test in a separate file.
 		testPath, err := CreateReportDirectory()
@@ -1435,6 +1438,7 @@ func (kub *Kubectl) ValidateNoErrorsInLogs(duration time.Duration) {
 	}()
 
 	for _, message := range checkLogsMessages {
+		fmt.Fprintf(CheckLogs, "Starting scan for %s - %s\n", message, time.Now())
 		if strings.Contains(logs, message) {
 			fmt.Fprintf(CheckLogs, "⚠️  Found a '%s' in logs\n", message)
 			ginkgoext.Fail(fmt.Sprintf("Found a '%s' in Cilium Logs", message))
@@ -1442,6 +1446,7 @@ func (kub *Kubectl) ValidateNoErrorsInLogs(duration time.Duration) {
 	}
 	// Count part
 	for _, message := range countLogsMessages {
+		fmt.Fprintf(CheckLogs, "Starting scan for %s - %s\n", message, time.Now())
 		var prefix = ""
 		result := strings.Count(logs, message)
 		if result > 5 {
@@ -1451,6 +1456,7 @@ func (kub *Kubectl) ValidateNoErrorsInLogs(duration time.Duration) {
 		fmt.Fprintf(CheckLogs, "%sNumber of '%s' in logs: %d\n", prefix, message, result)
 	}
 
+	fmt.Fprintf(CheckLogs, "Finished %s\n", time.Now())
 }
 
 // GatherCiliumCoreDumps copies core dumps if are present in the /tmp folder
