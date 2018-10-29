@@ -90,14 +90,18 @@ unit-tests: start-kvstores
 	$(QUIET) echo "mode: count" > coverage-all.out
 	$(QUIET) echo "mode: count" > coverage.out
 	$(QUIET)$(foreach pkg,$(TESTPKGS),\
-	go test \
-            -timeout 360s -coverprofile=coverage.out -covermode=count $(pkg) $(GOTEST_OPTS) || exit 1;\
+            go test -timeout 360s \
+            -coverprofile=coverage.out \
+            -covermode=count \
+            $(pkg) $(GOTEST_OPTS) || exit 1; \
             tail -n +2 coverage.out >> coverage-all.out;)
 	$(QUIET)$(foreach pkg,$(TESTPKGS),\
-            sudo -E go test -timeout 360s -tags=privileged_tests $(pkg) $(GOTEST_OPTS) || exit 1;\
+            sudo -E go test -timeout 360s \
+            -coverprofile=coverage.out \
+            -covermode=count \
+            -tags=privileged_tests $(pkg) $(GOTEST_OPTS) || exit 1; \
             tail -n +2 coverage.out >> coverage-all.out;)
 	$(GO) tool cover -html=coverage-all.out -o=coverage-all.html
-	$(QUIET) rm coverage-all.out
 	$(QUIET) rm coverage.out
 	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
 	$(DOCKER) rm -f "cilium-etcd-test-container"
