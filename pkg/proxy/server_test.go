@@ -1,5 +1,8 @@
 // This code is copied from github.com/optiopay/kafka to provide the testing
 // framework
+
+// +build !privileged_tests
+
 package proxy
 
 import (
