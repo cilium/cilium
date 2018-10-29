@@ -2,13 +2,14 @@ package cmd
 
 import (
 	"bytes"
+
 	"sort"
 	"strconv"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
 
 	. "gopkg.in/check.v1"
@@ -57,18 +58,18 @@ func (s *CMDHelpersSuite) TestParseTrafficString(c *C) {
 
 	for _, validCase := range validIngressCases {
 		ingressDir, err := parseTrafficString(validCase)
-		c.Assert(ingressDir, Equals, policymap.Ingress)
+		c.Assert(ingressDir, Equals, trafficdirection.Ingress)
 		c.Assert(err, IsNil)
 	}
 
 	for _, validCase := range validEgressCases {
 		egressDir, err := parseTrafficString(validCase)
-		c.Assert(egressDir, Equals, policymap.Egress)
+		c.Assert(egressDir, Equals, trafficdirection.Egress)
 		c.Assert(err, IsNil)
 	}
 
 	invalid, err := parseTrafficString(invalidStr)
-	c.Assert(invalid, Equals, policymap.Invalid)
+	c.Assert(invalid, Equals, trafficdirection.Invalid)
 	c.Assert(err, Not(IsNil))
 
 }
@@ -89,7 +90,7 @@ func (s *CMDHelpersSuite) TestParsePolicyUpdateArgsHelper(c *C) {
 		args             []string
 		invalid          bool
 		endpointID       string
-		trafficDirection policymap.TrafficDirection
+		trafficDirection trafficdirection.TrafficDirection
 		peerLbl          uint32
 		port             uint16
 		protos           []uint8
@@ -98,7 +99,7 @@ func (s *CMDHelpersSuite) TestParsePolicyUpdateArgsHelper(c *C) {
 			args:             []string{labels.IDNameHost, "ingress", "12345"},
 			invalid:          false,
 			endpointID:       "reserved_" + strconv.Itoa(int(identity.ReservedIdentityHost)),
-			trafficDirection: policymap.Ingress,
+			trafficDirection: trafficdirection.Ingress,
 			peerLbl:          12345,
 			port:             0,
 			protos:           []uint8{0},
@@ -107,7 +108,7 @@ func (s *CMDHelpersSuite) TestParsePolicyUpdateArgsHelper(c *C) {
 			args:             []string{"123", "egress", "12345", "1/tcp"},
 			invalid:          false,
 			endpointID:       "123",
-			trafficDirection: policymap.Egress,
+			trafficDirection: trafficdirection.Egress,
 			peerLbl:          12345,
 			port:             1,
 			protos:           []uint8{uint8(u8proto.TCP)},
@@ -116,7 +117,7 @@ func (s *CMDHelpersSuite) TestParsePolicyUpdateArgsHelper(c *C) {
 			args:             []string{"123", "ingress", "12345", "1"},
 			invalid:          false,
 			endpointID:       "123",
-			trafficDirection: policymap.Ingress,
+			trafficDirection: trafficdirection.Ingress,
 			peerLbl:          12345,
 			port:             1,
 			protos:           allProtos,
