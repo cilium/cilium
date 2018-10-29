@@ -28,7 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
-
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"github.com/sirupsen/logrus"
@@ -1087,20 +1086,40 @@ var _ = Describe("RuntimePolicies", func() {
 	It("Tests Egress To World", func() {
 		googleDNS := "8.8.8.8"
 		googleHTTP := "google.com"
+		numberOfTries := 5
+		maxNumberOffFailures := 1
+
 		checkEgressToWorld := func() {
-			By("Testing egress access to the world")
 
-			res := vm.ContainerExec(helpers.App1, helpers.Ping(googleDNS))
-			ExpectWithOffset(2, res).Should(helpers.CMDSuccess(),
-				"not able to ping %q", googleDNS)
-
-			res = vm.ContainerExec(helpers.App1, helpers.Ping(helpers.App2))
+			res := vm.ContainerExec(helpers.App1, helpers.Ping(helpers.App2))
 			ExpectWithOffset(2, res).ShouldNot(helpers.CMDSuccess(),
 				"unexpectedly able to ping %q", helpers.App2)
 
-			res = vm.ContainerExec(helpers.App1, helpers.CurlFail("-4 http://%s", googleHTTP))
-			ExpectWithOffset(2, res).Should(helpers.CMDSuccess(),
-				"not able to curl %s", googleHTTP)
+			By("Testing egress access to the world")
+			pingFailures := 0
+			curlFailures := 0
+
+			for i := 0; i < numberOfTries; i++ {
+				res := vm.ContainerExec(helpers.App1, helpers.Ping(googleDNS))
+				if !res.WasSuccessful() {
+					pingFailures++
+				}
+				res = vm.ContainerExec(helpers.App1, helpers.CurlFail("-4 http://%s", googleHTTP))
+				if !res.WasSuccessful() {
+					curlFailures++
+				}
+				// If no failures, let's skip the next ones.
+				if (curlFailures + pingFailures) == 0 {
+					break
+				}
+			}
+
+			ExpectWithOffset(2, pingFailures).To(BeNumerically("<=", maxNumberOffFailures),
+				"%d of %d  pings to %q failed", pingFailures, maxNumberOffFailures, googleDNS)
+
+			ExpectWithOffset(2, curlFailures).To(BeNumerically("<=", maxNumberOffFailures),
+				"%d of %d  HTTP request to %q failed",
+				pingFailures, maxNumberOffFailures, googleHTTP)
 		}
 
 		setupPolicyAndTestEgressToWorld := func(policy string) {
