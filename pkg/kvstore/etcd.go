@@ -333,7 +333,7 @@ func (e *etcdClient) checkMinVersion() bool {
 		log.WithFields(logrus.Fields{
 			fieldEtcdEndpoint: ep,
 			"version":         v,
-		}).Debug("Successfully verified version of etcd endpoint")
+		}).Info("Successfully verified version of etcd endpoint")
 	}
 
 	if len(eps) == 0 {
