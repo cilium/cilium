@@ -9,10 +9,10 @@ Jinja2==2.10
 jsonschema==2.6.0
 MarkupSafe==1.0
 Pygments==2.2.0
-pytz==2018.7
-PyYAML==3.13
+pytz==2017.2
+PyYAML==3.12
 requests==2.20.0
-six==1.11.0
+six==1.10.0
 snowballstemmer==1.2.1
 Sphinx==1.8.1
 sphinx-rtd-theme==0.2.4
