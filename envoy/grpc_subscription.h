@@ -32,7 +32,7 @@ subscribe(const std::string& grpc_method, const LocalInfo::LocalInfo& local_info
 		Config::Utility::factoryForGrpcApiConfigSource(cm.grpcAsyncClientManager(),
 							       api_config_source,
 							       scope)->create(),
-		dispatcher, random, *method, Config::Utility::generateStats(scope));
+		dispatcher, random, *method, Config::Utility::generateStats(scope), scope);
 }
 
 } // namespace Cilium
