@@ -167,7 +167,7 @@ Http::FilterHeadersStatus AccessFilter::decodeHeaders(Http::HeaderMap& headers, 
 
   // Fill in the log entry
   log_entry_.InitFromRequest(config_->policy_name_, ingress, callbacks_->connection(),
-                             headers, callbacks_->requestInfo());
+                             headers, callbacks_->streamInfo());
   if (!allowed) {
     denied_ = true;
     config_->stats_.access_denied_.inc();
@@ -183,7 +183,7 @@ Http::FilterHeadersStatus AccessFilter::decodeHeaders(Http::HeaderMap& headers, 
 
 Http::FilterHeadersStatus AccessFilter::encodeHeaders(Http::HeaderMap &headers,
                                                       bool) {
-  log_entry_.UpdateFromResponse(headers, callbacks_->requestInfo());
+  log_entry_.UpdateFromResponse(headers, callbacks_->streamInfo());
   config_->Log(log_entry_, denied_ ? ::cilium::EntryType::Denied
                                    : ::cilium::EntryType::Response);
   return Http::FilterHeadersStatus::Continue;
