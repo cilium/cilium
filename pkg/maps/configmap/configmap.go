@@ -80,6 +80,20 @@ type Key struct {
 	uint32
 }
 
+func (k Key) String() string {
+	return fmt.Sprintf("%d", k)
+}
+
+func (k Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(&k) }
+
+// NewValue returns a new empty instance of the structure representing the BPF
+// map value
+func (k Key) NewValue() bpf.MapValue { return &EndpointConfig{} }
+
+func (cfg EndpointConfig) String() string {
+	return cfg.Flags.String()
+}
+
 // EndpointConfig represents the value of the endpoints BPF map.
 //
 // Must be in sync with struct config_value in <bpf/lib/common.h>
@@ -88,7 +102,7 @@ type EndpointConfig struct {
 }
 
 // GetValuePtr returns the unsafe pointer to the BPF value
-func (c *EndpointConfig) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(c) }
+func (c EndpointConfig) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(&c) }
 
 // endpoint provides access to the properties of an endpoint that are relevant
 // for configuring the BPF program for the endpoint.
@@ -99,6 +113,7 @@ type endpoint interface {
 
 // EndpointConfigMap is a map type for interfacing with endpoint BPF config.
 type EndpointConfigMap struct {
+	Map  *bpf.Map
 	path string
 	Fd   int
 }
@@ -128,20 +143,30 @@ func (m *EndpointConfigMap) Update(value *EndpointConfig) error {
 // On success, it returns a map and whether the map was newly created, or
 // otherwise an error.
 func OpenMap(path string) (*EndpointConfigMap, bool, error) {
-	fd, isNewMap, err := bpf.OpenOrCreateMap(
-		path,
+
+	newMap := bpf.NewMap("cilium_lb4_services",
 		bpf.BPF_MAP_TYPE_ARRAY,
-		uint32(unsafe.Sizeof(uint32(0))),
-		uint32(unsafe.Sizeof(EndpointConfig{})),
+		int(unsafe.Sizeof(uint32(0))),
+		int(unsafe.Sizeof(EndpointConfig{})),
 		MaxEntries,
 		0,
-	)
+		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
+			k, v := Key{}, EndpointConfig{}
+
+			if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
+				return nil, nil, err
+			}
+
+			return k, v, nil
+		}).WithCache()
+
+	isNewMap, err := newMap.OpenOrCreate()
 
 	if err != nil {
 		return nil, false, err
 	}
 
-	m := &EndpointConfigMap{path: path, Fd: fd}
+	m := &EndpointConfigMap{Map: newMap, path: path, Fd: newMap.GetFd()}
 
 	return m, isNewMap, nil
 }

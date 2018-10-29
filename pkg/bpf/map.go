@@ -504,6 +504,7 @@ func (m *Map) DumpWithCallback(cb DumpCallback) error {
 	}
 
 	for {
+		fmt.Printf("getNextKey: iter\n")
 		err := GetNextKey(
 			m.fd,
 			unsafe.Pointer(&key[0]),
