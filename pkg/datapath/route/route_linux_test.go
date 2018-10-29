@@ -11,18 +11,31 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
+
 // +build privileged_tests
 
 package route
 
 import (
 	"net"
+	"testing"
 
 	. "gopkg.in/check.v1"
 
 	"github.com/vishvananda/netlink"
 )
+
+// Hook up gocheck into the "go test" runner.
+func Test(t *testing.T) { TestingT(t) }
+
+type RouteSuitePrivileged struct{}
+
+var _ = Suite(&RouteSuitePrivileged{})
+
+func parseIP(ip string) *net.IP {
+	result := net.ParseIP(ip)
+	return &result
+}
 
 func testReplaceNexthopRoute(c *C, link netlink.Link, routerNet *net.IPNet) {
 	// delete route in case it exists from a previous failed run
@@ -43,7 +56,7 @@ func testReplaceNexthopRoute(c *C, link netlink.Link, routerNet *net.IPNet) {
 	c.Assert(err, IsNil)
 }
 
-func (p *RouteSuite) TestReplaceNexthopRoute(c *C) {
+func (p *RouteSuitePrivileged) TestReplaceNexthopRoute(c *C) {
 	link, err := netlink.LinkByName("lo")
 	c.Assert(err, IsNil)
 
@@ -90,7 +103,7 @@ func testReplaceRoute(c *C, prefixStr, nexthopStr string) {
 	c.Assert(err, IsNil)
 }
 
-func (p *RouteSuite) TestReplaceRoute(c *C) {
+func (p *RouteSuitePrivileged) TestReplaceRoute(c *C) {
 	testReplaceRoute(c, "2.2.0.0/16", "1.2.3.4")
 	testReplaceRoute(c, "f00d::a02:200:0:0/96", "f00d::a02:100:0:815b")
 }
