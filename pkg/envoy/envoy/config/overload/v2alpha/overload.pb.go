@@ -29,6 +29,8 @@ type ResourceMonitor struct {
 	//
 	// * :ref:`envoy.resource_monitors.fixed_heap
 	//   <envoy_api_msg_config.resource_monitor.fixed_heap.v2alpha.FixedHeapConfig>`
+	// * :ref:`envoy.resource_monitors.injected_resource
+	//   <envoy_api_msg_config.resource_monitor.injected_resource.v2alpha.InjectedResourceConfig>`
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Configuration for the resource monitor being instantiated.
 	Config               *_struct.Struct `protobuf:"bytes,2,opt,name=config,proto3" json:"config,omitempty"`

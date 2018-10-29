@@ -245,10 +245,10 @@ func (m *Config_Rule) GetRemove() bool {
 }
 
 func init() {
+	proto.RegisterEnum("envoy.config.filter.http.header_to_metadata.v2.Config_ValueType", Config_ValueType_name, Config_ValueType_value)
 	proto.RegisterType((*Config)(nil), "envoy.config.filter.http.header_to_metadata.v2.Config")
 	proto.RegisterType((*Config_KeyValuePair)(nil), "envoy.config.filter.http.header_to_metadata.v2.Config.KeyValuePair")
 	proto.RegisterType((*Config_Rule)(nil), "envoy.config.filter.http.header_to_metadata.v2.Config.Rule")
-	proto.RegisterEnum("envoy.config.filter.http.header_to_metadata.v2.Config_ValueType", Config_ValueType_name, Config_ValueType_value)
 }
 
 func init() {

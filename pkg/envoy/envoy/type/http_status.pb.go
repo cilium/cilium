@@ -257,8 +257,8 @@ func (m *HttpStatus) GetCode() StatusCode {
 }
 
 func init() {
-	proto.RegisterType((*HttpStatus)(nil), "envoy.type.HttpStatus")
 	proto.RegisterEnum("envoy.type.StatusCode", StatusCode_name, StatusCode_value)
+	proto.RegisterType((*HttpStatus)(nil), "envoy.type.HttpStatus")
 }
 
 func init() { proto.RegisterFile("envoy/type/http_status.proto", fileDescriptor_7544d7adacd3389b) }

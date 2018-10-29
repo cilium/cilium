@@ -151,7 +151,7 @@ func (m *Filter_DeprecatedV1) GetType() string {
 // 4. Transport protocol.
 // 5. Application protocols (e.g. ALPN for TLS protocol).
 //
-// For criterias that allow ranges or wildcards, the most specific value in any
+// For criteria that allow ranges or wildcards, the most specific value in any
 // of the configured filter chains that matches the incoming connection is going
 // to be used (e.g. for SNI ``www.example.com`` the most specific match would be
 // ``www.example.com``, then ``*.example.com``, then ``*.com``, then any filter

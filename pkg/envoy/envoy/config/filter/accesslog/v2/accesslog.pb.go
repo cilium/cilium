@@ -942,6 +942,7 @@ func (m *ResponseFlagFilter) GetFlags() []string {
 }
 
 func init() {
+	proto.RegisterEnum("envoy.config.filter.accesslog.v2.ComparisonFilter_Op", ComparisonFilter_Op_name, ComparisonFilter_Op_value)
 	proto.RegisterType((*AccessLog)(nil), "envoy.config.filter.accesslog.v2.AccessLog")
 	proto.RegisterType((*AccessLogFilter)(nil), "envoy.config.filter.accesslog.v2.AccessLogFilter")
 	proto.RegisterType((*ComparisonFilter)(nil), "envoy.config.filter.accesslog.v2.ComparisonFilter")
@@ -954,7 +955,6 @@ func init() {
 	proto.RegisterType((*OrFilter)(nil), "envoy.config.filter.accesslog.v2.OrFilter")
 	proto.RegisterType((*HeaderFilter)(nil), "envoy.config.filter.accesslog.v2.HeaderFilter")
 	proto.RegisterType((*ResponseFlagFilter)(nil), "envoy.config.filter.accesslog.v2.ResponseFlagFilter")
-	proto.RegisterEnum("envoy.config.filter.accesslog.v2.ComparisonFilter_Op", ComparisonFilter_Op_name, ComparisonFilter_Op_value)
 }
 
 func init() {

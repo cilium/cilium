@@ -101,7 +101,7 @@ type SocketAddress struct {
 	// in :ref:`FilterChainMatch <envoy_api_msg_listener.FilterChainMatch>`.] When used
 	// within an upstream :ref:`BindConfig <envoy_api_msg_core.BindConfig>`, the address
 	// controls the source address of outbound connections. For :ref:`clusters
-	// <config_cluster_manager_cluster>`, the cluster type determines whether the
+	// <envoy_api_msg_Cluster>`, the cluster type determines whether the
 	// address must be an IP (*STATIC* or *EDS* clusters) or a hostname resolved by DNS
 	// (*STRICT_DNS* or *LOGICAL_DNS* clusters). Address resolution can be customized
 	// via :ref:`resolver_name <envoy_api_field_core.SocketAddress.resolver_name>`.
@@ -609,13 +609,13 @@ func (m *CidrRange) GetPrefixLen() *wrappers.UInt32Value {
 }
 
 func init() {
+	proto.RegisterEnum("envoy.api.v2.core.SocketAddress_Protocol", SocketAddress_Protocol_name, SocketAddress_Protocol_value)
 	proto.RegisterType((*Pipe)(nil), "envoy.api.v2.core.Pipe")
 	proto.RegisterType((*SocketAddress)(nil), "envoy.api.v2.core.SocketAddress")
 	proto.RegisterType((*TcpKeepalive)(nil), "envoy.api.v2.core.TcpKeepalive")
 	proto.RegisterType((*BindConfig)(nil), "envoy.api.v2.core.BindConfig")
 	proto.RegisterType((*Address)(nil), "envoy.api.v2.core.Address")
 	proto.RegisterType((*CidrRange)(nil), "envoy.api.v2.core.CidrRange")
-	proto.RegisterEnum("envoy.api.v2.core.SocketAddress_Protocol", SocketAddress_Protocol_name, SocketAddress_Protocol_value)
 }
 
 func init() { proto.RegisterFile("envoy/api/v2/core/address.proto", fileDescriptor_6906417f87bcce55) }

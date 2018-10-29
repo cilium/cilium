@@ -182,18 +182,7 @@ type Http2ProtocolOptions struct {
 	// Similar to *initial_stream_window_size*, but for connection-level flow-control
 	// window. Currently, this has the same minimum/maximum/default as *initial_stream_window_size*.
 	InitialConnectionWindowSize *wrappers.UInt32Value `protobuf:"bytes,4,opt,name=initial_connection_window_size,json=initialConnectionWindowSize,proto3" json:"initial_connection_window_size,omitempty"`
-	// [#not-implemented-hide:] Hiding until nghttp2 has native support.
-	//
 	// Allows proxying Websocket and other upgrades over H2 connect.
-	//
-	// THIS IS NOT SAFE TO USE IN PRODUCTION
-	//
-	// This currently works via disabling all HTTP sanity checks for H2 traffic
-	// which is a much larger hammer than we'd like to use. Eventually when
-	// https://github.com/nghttp2/nghttp2/issues/1181 is resolved, this will work
-	// with simply enabling CONNECT for H2. This may require some tweaks to the
-	// headers making pre-CONNECT-support proxying not backwards compatible with
-	// post-CONNECT-support proxying.
 	AllowConnect         bool     `protobuf:"varint,5,opt,name=allow_connect,json=allowConnect,proto3" json:"allow_connect,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`

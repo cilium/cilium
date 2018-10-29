@@ -948,6 +948,9 @@ func (m *HTTPResponseProperties) GetResponseTrailers() map[string]string {
 }
 
 func init() {
+	proto.RegisterEnum("envoy.data.accesslog.v2.HTTPAccessLogEntry_HTTPVersion", HTTPAccessLogEntry_HTTPVersion_name, HTTPAccessLogEntry_HTTPVersion_value)
+	proto.RegisterEnum("envoy.data.accesslog.v2.ResponseFlags_Unauthorized_Reason", ResponseFlags_Unauthorized_Reason_name, ResponseFlags_Unauthorized_Reason_value)
+	proto.RegisterEnum("envoy.data.accesslog.v2.TLSProperties_TLSVersion", TLSProperties_TLSVersion_name, TLSProperties_TLSVersion_value)
 	proto.RegisterType((*TCPAccessLogEntry)(nil), "envoy.data.accesslog.v2.TCPAccessLogEntry")
 	proto.RegisterType((*HTTPAccessLogEntry)(nil), "envoy.data.accesslog.v2.HTTPAccessLogEntry")
 	proto.RegisterType((*AccessLogCommon)(nil), "envoy.data.accesslog.v2.AccessLogCommon")
@@ -959,9 +962,6 @@ func init() {
 	proto.RegisterType((*HTTPResponseProperties)(nil), "envoy.data.accesslog.v2.HTTPResponseProperties")
 	proto.RegisterMapType((map[string]string)(nil), "envoy.data.accesslog.v2.HTTPResponseProperties.ResponseHeadersEntry")
 	proto.RegisterMapType((map[string]string)(nil), "envoy.data.accesslog.v2.HTTPResponseProperties.ResponseTrailersEntry")
-	proto.RegisterEnum("envoy.data.accesslog.v2.HTTPAccessLogEntry_HTTPVersion", HTTPAccessLogEntry_HTTPVersion_name, HTTPAccessLogEntry_HTTPVersion_value)
-	proto.RegisterEnum("envoy.data.accesslog.v2.ResponseFlags_Unauthorized_Reason", ResponseFlags_Unauthorized_Reason_name, ResponseFlags_Unauthorized_Reason_value)
-	proto.RegisterEnum("envoy.data.accesslog.v2.TLSProperties_TLSVersion", TLSProperties_TLSVersion_name, TLSProperties_TLSVersion_value)
 }
 
 func init() {
