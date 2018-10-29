@@ -174,3 +174,33 @@ func (b *LBMapTestSuite) TestPrepareUpdate(c *C) {
 	backends = bpfSvc.getBackends()
 	c.Assert(len(backends), Equals, 0)
 }
+
+func (b *LBMapTestSuite) TestGetBackends(c *C) {
+	b1 := NewService4Value(1, net.ParseIP("2.2.2.2"), 80, 1, 0)
+	b2 := NewService4Value(2, net.ParseIP("1.1.1.1"), 80, 1, 0)
+
+	svc := bpfService{}
+	c.Assert(len(svc.getBackends()), Equals, 0)
+
+	svc = bpfService{
+		backendsByMapIndex: map[int]*bpfBackend{
+			1: {id: "1", isHole: true, bpfValue: b1},
+		},
+	}
+
+	backends := svc.getBackends()
+	c.Assert(len(backends), Equals, 1)
+	c.Assert(backends[0], DeepEquals, b1)
+
+	svc = bpfService{
+		backendsByMapIndex: map[int]*bpfBackend{
+			1: {id: "1", isHole: true, bpfValue: b1},
+			2: {id: "2", isHole: false, bpfValue: b2},
+		},
+	}
+
+	backends = svc.getBackends()
+	c.Assert(len(backends), Equals, 2)
+	c.Assert(backends[0], DeepEquals, b1)
+	c.Assert(backends[1], DeepEquals, b2)
+}
