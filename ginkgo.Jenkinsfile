@@ -11,6 +11,7 @@ pipeline {
         MEMORY = "4096"
         SERVER_BOX = "cilium/ubuntu"
         NETNEXT=setIfLabel("ci/net-next", "true", "false")
+        COVERALLS_TOKEN = credentials('COVERALLS_TOKEN')
     }
 
     options {
@@ -64,6 +65,7 @@ pipeline {
             }
             steps {
                 sh "cd ${TESTDIR}; make tests-ginkgo"
+                sh "go get golang.org/x/tools/cmd/cover && go get github.com/mattn/goveralls && find -iname "*goveralls*" && $HOME/go/bin/goveralls -coverprofile=${TESTDIR}coverage-all.out -service=travis-ci -repotoken=${COVERALLS_TOKEN}"
             }
             post {
                 always {
