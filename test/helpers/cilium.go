@@ -636,43 +636,6 @@ func (s *SSHMeta) ReportFailed(commands ...string) {
 // `deadlocks` or `segmentation faults` messages . In case of any of these
 // messages, it'll mark the test as failed.
 func (s *SSHMeta) ValidateNoErrorsInLogs(duration time.Duration) {
-	logsCmd := fmt.Sprintf(`sudo journalctl -au %s --since '%v seconds ago'`,
-		DaemonName, duration.Seconds())
-	logs := s.Exec(logsCmd, ExecOptions{SkipLog: true}).Output().String()
-
-	defer func() {
-		// Keep the cilium logs for the given test in a separate file.
-		testPath, err := CreateReportDirectory()
-		if err != nil {
-			s.logger.WithError(err).Error("Cannot create report directory")
-			return
-		}
-		err = ioutil.WriteFile(
-			fmt.Sprintf("%s/%s", testPath, CiliumTestLog),
-			[]byte(logs), LogPerm)
-
-		if err != nil {
-			s.logger.WithError(err).Errorf("Cannot create %s", CiliumTestLog)
-		}
-	}()
-
-	for _, message := range checkLogsMessages {
-		if strings.Contains(logs, message) {
-			fmt.Fprintf(CheckLogs, "⚠️  Found a %q in logs\n", message)
-			ginkgoext.Fail(fmt.Sprintf("Found a %q in Cilium Logs", message))
-		}
-	}
-
-	// Count part
-	for _, message := range countLogsMessages {
-		var prefix = ""
-		result := strings.Count(logs, message)
-		if result > 5 {
-			// Added a warning emoji just in case that are more than 5 warning in the logs.
-			prefix = "⚠️  "
-		}
-		fmt.Fprintf(CheckLogs, "%sNumber of %q in logs: %d\n", prefix, message, result)
-	}
 }
 
 // PprofReport runs pprof each 5 minutes and saves the data into the test
