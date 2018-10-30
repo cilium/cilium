@@ -279,6 +279,10 @@ type daemonConfig struct {
 	// HTTP403Message is the error message to return when a HTTP 403 is returned
 	// by the proxy, if L7 policy is configured.
 	HTTP403Message string
+
+	// BPFCompilationDebug specifies whether to compile BPF programs compilation
+	// debugging enabled.
+	BPFCompilationDebug bool
 }
 
 var (
