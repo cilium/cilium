@@ -7,7 +7,7 @@ workspace(name = "cilium")
 #
 # No other line in this file may have ENVOY_SHA followed by an equals sign!
 #
-ENVOY_SHA = "ce634f4be8929f42366ea729fb098afdc139766a"
+ENVOY_SHA = "1071264d4edd8a1fc21c0029e3a2c1f2ec184a48"
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
@@ -25,7 +25,7 @@ http_archive(
 #   the workspace above.
 # - loads of "//..." need to be renamed as "@envoy//..."
 #
-load("@envoy//bazel:repositories.bzl", "envoy_dependencies")
+load("@envoy//bazel:repositories.bzl", "envoy_dependencies", "GO_VERSION")
 load("@envoy//bazel:cc_configure.bzl", "cc_configure")
 
 envoy_dependencies()
@@ -36,7 +36,7 @@ api_dependencies()
 
 load("@io_bazel_rules_go//go:def.bzl", "go_rules_dependencies", "go_register_toolchains")
 go_rules_dependencies()
-go_register_toolchains()
+go_register_toolchains(go_version = GO_VERSION)
 
 
 # Dependencies for Istio filters.
