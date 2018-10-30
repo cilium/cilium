@@ -14,7 +14,8 @@ DOCKER=$(QUIET)docker
 SWAGGER_VERSION = 0.12.0
 SWAGGER = $(DOCKER) run --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) -e GOPATH=$(GOPATH) --entrypoint swagger quay.io/goswagger/swagger:$(SWAGGER_VERSION)
 
-GOTEST_OPTS = -test.v -check.vv -timeout 360s -coverprofile=coverage.out -covermode=count -coverpkg ./...
+COVERPKG ?= ./...
+GOTEST_OPTS = -test.v -check.vv -timeout 360s -coverprofile=coverage.out -covermode=count -coverpkg $(COVERPKG)
 GOTEST_PRIV_OPTS = $(GOTEST_OPTS) -tags=privileged_tests
 
 UTC_DATE=$(shell date -u "+%Y-%m-%d")
