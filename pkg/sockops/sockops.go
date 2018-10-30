@@ -130,7 +130,7 @@ func CheckOrMountCgrpFS(mapRoot string) {
 		err := cgrpCheckOrMountLocation(mapRoot)
 		// Failed cgroup2 mount is not a fatal error, sockmap will be disabled however
 		if err == nil {
-			log.Info("Mounted Cgroup2 filesystem %s", mapRoot)
+			log.Infof("Mounted Cgroup2 filesystem %s", mapRoot)
 		}
 	})
 }
@@ -452,7 +452,7 @@ func SockmapEnable() error {
 		log.Error(err)
 		return err
 	}
-	log.Info("Sockmap Enabled: bpf_sockops prog_id %d and map_id %d loaded", progID, mapID)
+	log.Infof("Sockmap Enabled: bpf_sockops prog_id %d and map_id %d loaded", progID, mapID)
 	return nil
 }
 
