@@ -17,6 +17,7 @@ package mountinfo
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -46,18 +47,12 @@ type MountInfo struct {
 	SuperOptions   string
 }
 
-// GetMountInfo returns a slice of *MountInfo with information parsed from
-// /proc/self/mountinfo
-func GetMountInfo() ([]*MountInfo, error) {
+// parseMountInfoFile returns a slice of *MountInfo with information parsed from
+// the given reader
+func parseMountInfoFile(r io.Reader) ([]*MountInfo, error) {
 	var result []*MountInfo
 
-	fMounts, err := os.Open(mountInfoFilepath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open mount information at %s: %s", mountInfoFilepath, err)
-	}
-	defer fMounts.Close()
-
-	scanner := bufio.NewScanner(fMounts)
+	scanner := bufio.NewScanner(r)
 	scanner.Split(bufio.ScanLines)
 
 	for scanner.Scan() {
@@ -116,4 +111,16 @@ func GetMountInfo() ([]*MountInfo, error) {
 	}
 
 	return result, nil
+}
+
+// GetMountInfo returns a slice of *MountInfo with information parsed from
+// /proc/self/mountinfo
+func GetMountInfo() ([]*MountInfo, error) {
+	fMounts, err := os.Open(mountInfoFilepath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open mount information at %s: %s", mountInfoFilepath, err)
+	}
+	defer fMounts.Close()
+
+	return parseMountInfoFile(fMounts)
 }
