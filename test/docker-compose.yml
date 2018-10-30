@@ -27,7 +27,3 @@ services:
     extends:
       service: base_image
     command: "bash -c 'cd /go/src/github.com/cilium/cilium/; make precheck || exit 1'"
-  publish_unit_test_cover:
-    extends:
-      service: base_image
-    command: "bash -c 'cd /go/src/github.com/cilium/cilium/; go get golang.org/x/tools/cmd/cover && go get github.com/mattn/goveralls && goveralls -coverprofile=coverage-all.out -service=travis-ci -repotoken=${COVERALLS_TOKEN}'"
