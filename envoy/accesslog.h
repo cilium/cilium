@@ -6,7 +6,7 @@
 
 #include "envoy/http/header_map.h"
 #include "envoy/network/connection.h"
-#include "envoy/request_info/request_info.h"
+#include "envoy/stream_info/stream_info.h"
 #include "envoy/router/router.h"
 
 #include "common/common/logger.h"
@@ -25,8 +25,8 @@ public:
   class Entry {
   public:
     void InitFromRequest(std::string policy_name, bool ingress, const Network::Connection *,
-                         const Http::HeaderMap &, const RequestInfo::RequestInfo &);
-    void UpdateFromResponse(const Http::HeaderMap &, const RequestInfo::RequestInfo &);
+                         const Http::HeaderMap &, const StreamInfo::StreamInfo &);
+    void UpdateFromResponse(const Http::HeaderMap &, const StreamInfo::StreamInfo &);
 
     ::cilium::LogEntry entry{};
   };

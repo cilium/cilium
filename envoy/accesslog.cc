@@ -58,7 +58,7 @@ AccessLog::~AccessLog() {}
 
 void AccessLog::Entry::InitFromRequest(
     std::string policy_name, bool ingress, const Network::Connection *conn,
-    const Http::HeaderMap &headers, const RequestInfo::RequestInfo &info) {
+    const Http::HeaderMap &headers, const StreamInfo::StreamInfo &info) {
   auto time = info.startTime();
   entry.set_timestamp(std::chrono::duration_cast<std::chrono::nanoseconds>(
                           time.time_since_epoch())
@@ -133,7 +133,7 @@ void AccessLog::Entry::InitFromRequest(
 }
 
 void AccessLog::Entry::UpdateFromResponse(
-    const Http::HeaderMap &headers, const RequestInfo::RequestInfo &info) {
+    const Http::HeaderMap &headers, const StreamInfo::StreamInfo &info) {
   auto time = info.startTime();
   if (info.lastUpstreamRxByteReceived()) {
     time += info.lastUpstreamRxByteReceived().value();
