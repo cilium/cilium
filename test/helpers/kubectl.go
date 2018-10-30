@@ -398,7 +398,7 @@ func (kub *Kubectl) MicroscopeStart(microscopeOptions ...string) (error, func() 
 			return err
 		}
 		fmt.Fprintf(CheckLogs, "Deleting pod %s\n", time.Now())
-		res := kub.Exec(fmt.Sprintf("%s -n %s delete pod microscope", KubectlCmd, KubeSystemNamespace))
+		res := kub.Exec(fmt.Sprintf("%s -n %s delete pod --grace-period=0 --force microscope", KubectlCmd, KubeSystemNamespace))
 		if !res.WasSuccessful() {
 			return fmt.Errorf("error deleting microscope pod: %s", res.OutputPrettyPrint())
 		}
