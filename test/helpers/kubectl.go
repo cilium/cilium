@@ -375,8 +375,11 @@ func (kub *Kubectl) MicroscopeStart(microscopeOptions ...string) (error, func() 
 	res := kub.ExecInBackground(ctx, cmd, ExecOptions{SkipLog: true})
 
 	cb = func() error {
+		fmt.Fprintf(CheckLogs, "Starting microscope cancel: %s\n", time.Now())
 		cancel()
+		fmt.Fprintf(CheckLogs, "Waiting microscope cancel: %s\n", time.Now())
 		<-ctx.Done()
+		fmt.Fprintf(CheckLogs, "Done waiting microscope cancel: %s\n", time.Now())
 		testPath, err := CreateReportDirectory()
 		if err != nil {
 			kub.logger.WithError(err).Errorf(
@@ -384,18 +387,22 @@ func (kub *Kubectl) MicroscopeStart(microscopeOptions ...string) (error, func() 
 			return err
 		}
 
+		fmt.Fprintf(CheckLogs, "Created directory %s\n", time.Now())
 		err = WriteOrAppendToFile(
 			filepath.Join(testPath, MonitorLogFileName),
 			res.CombineOutput().Bytes(),
 			LogPerm)
+		fmt.Fprintf(CheckLogs, "Wrote file %s\n", time.Now())
 		if err != nil {
 			log.WithError(err).Errorf("cannot create monitor log file")
 			return err
 		}
+		fmt.Fprintf(CheckLogs, "Deleting pod %s\n", time.Now())
 		res := kub.Exec(fmt.Sprintf("%s -n %s delete pod microscope", KubectlCmd, KubeSystemNamespace))
 		if !res.WasSuccessful() {
 			return fmt.Errorf("error deleting microscope pod: %s", res.OutputPrettyPrint())
 		}
+		fmt.Fprintf(CheckLogs, "Deleted pod %s\n", time.Now())
 		return nil
 	}
 

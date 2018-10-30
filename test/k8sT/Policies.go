@@ -17,6 +17,7 @@ package k8sTest
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
@@ -52,12 +53,16 @@ var _ = Describe("K8sPolicyTest", func() {
 	)
 
 	BeforeAll(func() {
+		fmt.Fprintf(helpers.CheckLogs, "BeforeAll start: %s\n", time.Now())
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		ProvisionInfraPods(kubectl)
+		fmt.Fprintf(helpers.CheckLogs, "BeforeAll end: %s\n", time.Now())
 	})
 
 	AfterEach(func() {
+		fmt.Fprintf(helpers.CheckLogs, "AfterEach start: %s\n", time.Now())
 		ExpectAllPodsTerminated(kubectl)
+		fmt.Fprintf(helpers.CheckLogs, "AfterEach end: %s\n", time.Now())
 	})
 
 	AfterFailed(func() {
@@ -67,21 +72,32 @@ var _ = Describe("K8sPolicyTest", func() {
 	})
 
 	AfterAll(func() {
+		fmt.Fprintf(helpers.CheckLogs, "AfterAll start: %s\n", time.Now())
 		ExpectAllPodsTerminated(kubectl)
+		fmt.Fprintf(helpers.CheckLogs, "AfterAll end: %s\n", time.Now())
 	})
 
 	JustBeforeEach(func() {
+		fmt.Fprintf(helpers.CheckLogs, "microscope start: %s\n", time.Now())
 		microscopeErr, microscopeCancel = kubectl.MicroscopeStart()
 		Expect(microscopeErr).To(BeNil(), "Microscope cannot be started")
+		fmt.Fprintf(helpers.CheckLogs, "microscope end: %s\n", time.Now())
 
+		fmt.Fprintf(helpers.CheckLogs, "background start: %s\n", time.Now())
 		backgroundCancel, backgroundError = kubectl.BackgroundReport("uptime")
 		Expect(backgroundError).To(BeNil(), "Cannot start background report process")
+		fmt.Fprintf(helpers.CheckLogs, "background end: %s\n", time.Now())
 	})
 
 	JustAfterEach(func() {
+		fmt.Fprintf(helpers.CheckLogs, "JustAfterEach start: %s\n", time.Now())
+		fmt.Fprintf(helpers.CheckLogs, "validate start: %s\n", time.Now())
 		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
+		fmt.Fprintf(helpers.CheckLogs, "microscope start: %s\n", time.Now())
 		Expect(microscopeCancel()).To(BeNil(), "cannot stop microscope")
+		fmt.Fprintf(helpers.CheckLogs, "cancel start: %s\n", time.Now())
 		backgroundCancel()
+		fmt.Fprintf(helpers.CheckLogs, "JustAfterEach end: %s\n", time.Now())
 	})
 
 	Context("Basic Test", func() {
