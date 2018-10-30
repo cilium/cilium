@@ -30,9 +30,9 @@ var (
 	log       = logging.DefaultLogger.WithField(logfields.LogSubsys, Subsystem)
 )
 
-// getLogger returns a logrus object with EndpointID, ContainerID and the Endpoint
+// GetLogger returns a logrus object with EndpointID, ContainerID and the Endpoint
 // revision fields.
-func (e *Endpoint) getLogger() *logrus.Entry {
+func (e *Endpoint) GetLogger() *logrus.Entry {
 	v := atomic.LoadPointer(&e.logger)
 	return (*logrus.Entry)(v)
 }
@@ -40,7 +40,7 @@ func (e *Endpoint) getLogger() *logrus.Entry {
 // Logger returns a logrus object with EndpointID, ContainerID and the Endpoint
 // revision fields. The caller must specify their subsystem.
 func (e *Endpoint) Logger(subsystem string) *logrus.Entry {
-	return e.getLogger().WithField(logfields.LogSubsys, subsystem)
+	return e.GetLogger().WithField(logfields.LogSubsys, subsystem)
 }
 
 // UpdateLogger creates a logger instance specific to this endpoint. It will
