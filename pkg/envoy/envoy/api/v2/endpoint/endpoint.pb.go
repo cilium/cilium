@@ -144,7 +144,8 @@ type LbEndpoint struct {
 	// balancer to select endpoints in a cluster for a given request. The filter
 	// name should be specified as *envoy.lb*. An example boolean key-value pair
 	// is *canary*, providing the optional canary status of the upstream host.
-	// This may be matched against in a route's ForwardAction metadata_match field
+	// This may be matched against in a route's
+	// :ref:`RouteAction <envoy_api_msg_route.RouteAction>` metadata_match field
 	// to subset the endpoints considered in cluster load balancing.
 	Metadata *core.Metadata `protobuf:"bytes,3,opt,name=metadata,proto3" json:"metadata,omitempty"`
 	// The optional load balancing weight of the upstream host, in the range 1 -

@@ -233,9 +233,9 @@ func _Capture_OneofSizer(msg proto.Message) (n int) {
 }
 
 func init() {
+	proto.RegisterEnum("envoy.config.transport_socket.capture.v2alpha.FileSink_Format", FileSink_Format_name, FileSink_Format_value)
 	proto.RegisterType((*FileSink)(nil), "envoy.config.transport_socket.capture.v2alpha.FileSink")
 	proto.RegisterType((*Capture)(nil), "envoy.config.transport_socket.capture.v2alpha.Capture")
-	proto.RegisterEnum("envoy.config.transport_socket.capture.v2alpha.FileSink_Format", FileSink_Format_name, FileSink_Format_value)
 }
 
 func init() {

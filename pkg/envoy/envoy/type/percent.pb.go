@@ -157,9 +157,9 @@ func (m *FractionalPercent) GetDenominator() FractionalPercent_DenominatorType {
 }
 
 func init() {
+	proto.RegisterEnum("envoy.type.FractionalPercent_DenominatorType", FractionalPercent_DenominatorType_name, FractionalPercent_DenominatorType_value)
 	proto.RegisterType((*Percent)(nil), "envoy.type.Percent")
 	proto.RegisterType((*FractionalPercent)(nil), "envoy.type.FractionalPercent")
-	proto.RegisterEnum("envoy.type.FractionalPercent_DenominatorType", FractionalPercent_DenominatorType_name, FractionalPercent_DenominatorType_value)
 }
 
 func init() { proto.RegisterFile("envoy/type/percent.proto", fileDescriptor_89401f90eb07307e) }

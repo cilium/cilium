@@ -105,8 +105,8 @@ func (m *SimpleMetric) GetName() string {
 }
 
 func init() {
-	proto.RegisterType((*SimpleMetric)(nil), "envoy.admin.v2alpha.SimpleMetric")
 	proto.RegisterEnum("envoy.admin.v2alpha.SimpleMetric_Type", SimpleMetric_Type_name, SimpleMetric_Type_value)
+	proto.RegisterType((*SimpleMetric)(nil), "envoy.admin.v2alpha.SimpleMetric")
 }
 
 func init() { proto.RegisterFile("envoy/admin/v2alpha/metrics.proto", fileDescriptor_680a736ec6584458) }
