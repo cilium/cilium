@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 )
 
 var (
@@ -97,7 +96,7 @@ func reloadDatapath(ctx context.Context, ep endpoint, dirs *directoryInfo) error
 }
 
 func compileAndLoad(ctx context.Context, ep endpoint, dirs *directoryInfo) error {
-	debug := viper.GetBool(option.BPFCompileDebugName)
+	debug := option.Config.BPFCompilationDebug
 	if err := compileDatapath(ctx, ep, dirs, debug); err != nil {
 		return err
 	}
@@ -133,7 +132,7 @@ func ReloadDatapath(ctx context.Context, ep endpoint) error {
 
 // Compile compiles a BPF program generating an object file.
 func Compile(ctx context.Context, src string, out string) error {
-	debug := viper.GetBool(option.BPFCompileDebugName)
+	debug := option.Config.BPFCompilationDebug
 	prog := progInfo{
 		Source:     src,
 		Output:     out,
