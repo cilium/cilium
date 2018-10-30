@@ -5,27 +5,6 @@ load(
     "envoy_cc_binary",
     "envoy_cc_library",
     "envoy_cc_test",
-    "envoy_proto_library",
-)
-
-load(
-    "@envoy_api//bazel:api_build_system.bzl",
-    "api_proto_library",
-)
-
-api_proto_library(
-    name = "cilium_bpf_metadata",
-    srcs = ["cilium/cilium_bpf_metadata.proto"],
-)
-
-api_proto_library(
-    name = "cilium_network_filter",
-    srcs = ["cilium/cilium_network_filter.proto"],
-)
-
-api_proto_library(
-    name = "cilium_l7policy",
-    srcs = ["cilium/cilium_l7policy.proto"],
 )
 
 envoy_cc_binary(
@@ -62,33 +41,6 @@ envoy_cc_binary(
     ],
 )
 
-envoy_proto_library(
-    name = "accesslog_proto",
-    srcs = ["cilium/accesslog.proto"],
-)
-
-# TODO: Replace has_services=1 with a new api_go_grpc_library target after rebasing to use data-plane-api's master.
-api_proto_library(
-    name = "npds",
-    srcs = ["cilium/npds.proto"],
-    has_services = 1,
-    deps = [
-        "@envoy_api//envoy/api/v2:discovery",
-        "@envoy_api//envoy/api/v2/core:address",
-        "@envoy_api//envoy/api/v2/route:route",
-    ],
-)
-
-# TODO: Replace has_services=1 with a new api_go_grpc_library target after rebasing to use data-plane-api's master.
-api_proto_library(
-    name = "nphds",
-    srcs = ["cilium/nphds.proto"],
-    has_services = 1,
-    deps = [
-        "@envoy_api//envoy/api/v2:discovery",
-    ],
-)
-
 envoy_cc_library(
     name = "cilium_socket_option_lib",
     hdrs = [
@@ -102,14 +54,6 @@ envoy_cc_library(
     ],
 )
 
-api_proto_library(
-    name = "config_source",
-    srcs = [],
-    deps = [
-        "@envoy_api//envoy/api/v2/core:config_source",
-    ],
-)
-
 envoy_cc_library(
     name = "grpc_subscription_lib",
     hdrs = [
@@ -119,7 +63,7 @@ envoy_cc_library(
     deps = [
         "@envoy//source/exe:envoy_common_lib",
         "@envoy//source/common/config:subscription_factory_lib",
-        ":config_source_cc",
+        "@envoy_api//envoy/api/v2/core:config_source_cc",
     ],
 )
 
@@ -138,14 +82,14 @@ envoy_cc_library(
     repository = "@envoy",
     deps = [
         ":cilium_socket_option_lib",
-        ":accesslog_proto_cc",
-        ":cilium_l7policy_cc",
+        "//cilium:accesslog_proto_cc",
+        "//cilium:cilium_l7policy_cc",
         "@envoy//source/exe:envoy_common_lib",
         "@envoy//source/common/network:address_lib",
         "@envoy//include/envoy/config:subscription_interface",
         "@envoy//include/envoy/singleton:manager_interface",
         "@envoy//source/common/local_info:local_info_lib",
-        ":npds_cc",
+        "//cilium:npds_cc",
         ":grpc_subscription_lib",
     ],
 )
@@ -214,7 +158,7 @@ envoy_cc_library(
         "@envoy//source/common/network:address_lib",
         ":proxymap_lib",
         ":cilium_proxylib_lib",
-        ":cilium_network_filter_cc",
+        "//cilium:cilium_network_filter_cc",
         ":cilium_socket_option_lib",
     ],
 )
@@ -243,9 +187,9 @@ envoy_cc_library(
         "@envoy//include/envoy/config:subscription_interface",
         "@envoy//include/envoy/singleton:manager_interface",
         "@envoy//source/common/local_info:local_info_lib",
-        ":nphds_cc",
+        "//cilium:nphds_cc",
         ":proxymap_lib",
-        ":cilium_bpf_metadata_cc",
+        "//cilium:cilium_bpf_metadata_cc",
         ":cilium_socket_option_lib",
         ":grpc_subscription_lib",
     ],
