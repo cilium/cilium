@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
+	epK8s "github.com/cilium/cilium/pkg/endpoint/kubernetes"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -71,7 +72,7 @@ func Insert(ep *endpoint.Endpoint) {
 	mutex.Unlock()
 	ep.RUnlock()
 
-	ep.RunK8sCiliumEndpointSync()
+	epK8s.RunK8sCiliumEndpointSync(ep)
 }
 
 // Lookup looks up the endpoint by prefix id

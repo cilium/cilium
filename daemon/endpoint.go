@@ -29,6 +29,7 @@ import (
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/ipam"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
@@ -141,6 +142,11 @@ func (d *Daemon) createEndpoint(epTemplate *models.EndpointChangeRequest, id str
 		return PutEndpointIDInvalidCode, err
 	}
 	ep.SetDefaultOpts(option.Config.Opts)
+	if k8s.IsEnabled() {
+		ep.Annotator = k8s.K8sCli
+	} else {
+		ep.Annotator = endpoint.DummyAnnotator{}
+	}
 
 	oldEp, err2 := endpointmanager.Lookup(id)
 	if err2 != nil {

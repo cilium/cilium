@@ -28,7 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/endpoint"
+	endpointK8s "github.com/cilium/cilium/pkg/endpoint/kubernetes"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -695,7 +695,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	go namespaceController.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupNamespaceV1Core)
 
-	endpoint.RunK8sCiliumEndpointSyncGC()
+	endpointK8s.RunK8sCiliumEndpointSyncGC()
 
 	return nil
 }

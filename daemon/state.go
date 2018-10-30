@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipam"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -126,6 +127,12 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 			alwaysEnforce := policy.GetPolicyEnabled() == option.AlwaysEnforce
 			ep.SetIngressPolicyEnabledLocked(alwaysEnforce)
 			ep.SetEgressPolicyEnabledLocked(alwaysEnforce)
+		}
+
+		if k8s.IsEnabled() {
+			ep.Annotator = k8s.K8sCli
+		} else {
+			ep.Annotator = endpoint.DummyAnnotator{}
 		}
 
 		ep.Unlock()
