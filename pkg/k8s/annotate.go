@@ -16,38 +16,24 @@ package k8s
 
 import (
 	"fmt"
+	"k8s.io/client-go/kubernetes"
 
-	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/uuid"
-
-	"github.com/sirupsen/logrus"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// PodEndpoint is the interface that the endpoint representing a pod has to implement
-type PodEndpoint interface {
-	// GetK8sNamespace returns the name of the namespace
-	GetK8sNamespace() string
+type K8sClient struct {
+	kubernetes.Interface
+}
 
-	// GetK8sPodName returns the name of the pod
-	GetK8sPodName() string
-
-	// StringID returns the ID of the endpoint
-	StringID() string
+func (k8sCli *K8sClient) GetClient() kubernetes.Interface {
+	return client
 }
 
 // AnnotatePod adds a Kubernetes annotation with key annotationKey and value
 // annotationValue
-func AnnotatePod(e PodEndpoint, annotationKey, annotationValue string) error {
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.EndpointID:            e.StringID(),
-		logfields.K8sNamespace:          e.GetK8sNamespace(),
-		logfields.K8sPodName:            e.GetK8sPodName(),
-		logfields.K8sIdentityAnnotation: annotationKey,
-		logfields.RetryUUID:             uuid.NewUUID(),
-	})
+func (k8sCli K8sClient) AnnotatePod(k8sNamespace, k8sPodName, annotationKey, annotationValue string) error {
 
-	pod, err := Client().CoreV1().Pods(e.GetK8sNamespace()).Get(e.GetK8sPodName(), meta_v1.GetOptions{})
+	pod, err := k8sCli.GetClient().CoreV1().Pods(k8sNamespace).Get(k8sPodName, meta_v1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to annotate pod, cannot retrieve pod: %s", err)
 	}
@@ -57,11 +43,9 @@ func AnnotatePod(e PodEndpoint, annotationKey, annotationValue string) error {
 	}
 
 	pod.Annotations[annotationKey] = annotationValue
-	pod, err = Client().CoreV1().Pods(e.GetK8sNamespace()).Update(pod)
+	pod, err = Client().CoreV1().Pods(k8sNamespace).Update(pod)
 	if err != nil {
 		return fmt.Errorf("unable to annotate pod, cannot update pod: %s", err)
 	}
-
-	scopedLog.Debugf("Successfully annotated pod with %s=%s", annotationKey, annotationValue)
 	return nil
 }

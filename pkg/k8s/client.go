@@ -40,6 +40,8 @@ var (
 	// ErrNilNode is returned when the Kubernetes API server has returned a nil node
 	ErrNilNode = goerrors.New("API server returned nil node")
 
+	K8sCli = &K8sClient{}
+
 	// client is the object through which interactions with Kubernetes are
 	// performed.
 	client kubernetes.Interface

@@ -221,6 +221,12 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 	}
 	ep.SetDefaultOpts(option.Config.Opts)
 
+	if k8s.IsEnabled() {
+		ep.Annotator = k8s.K8sCli
+	} else {
+		ep.Annotator = endpoint.DummyAnnotator{}
+	}
+
 	// Give the endpoint a security identity
 	lbls := labels.LabelHealth.DeepCopy()
 	ep.UpdateLabels(owner, lbls, nil)
