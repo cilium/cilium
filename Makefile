@@ -29,7 +29,6 @@ $(SUBDIRS): force
 	@ $(MAKE) -C $@ all
 
 jenkins-precheck:
-	docker-compose -f test/docker-compose.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER run --rm precheck
 
 # invoked from ginkgo Jenkinsfile
 tests-ginkgo: force
