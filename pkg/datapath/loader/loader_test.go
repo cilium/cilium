@@ -133,6 +133,52 @@ func getDirs(tmpDir string) (*directoryInfo, error) {
 	return &dirs, nil
 }
 
+// TestCompileAndLoad checks that the datapath can be compiled and loaded.
+func (s *LoaderTestSuite) TestCompileAndLoad(c *C) {
+	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
+	defer cancel()
+
+	err := compileAndLoad(ctx, ep, dirInfo)
+	c.Assert(err, IsNil)
+}
+
+// TestReload compiles and attaches the datapath multiple times.
+func (s *LoaderTestSuite) TestReload(c *C) {
+	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
+	defer cancel()
+
+	err := compileDatapath(ctx, ep, dirInfo, true)
+	c.Assert(err, IsNil)
+
+	objPath := fmt.Sprintf("%s/%s", dirInfo.Output, endpointObj)
+	err = replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint)
+	c.Assert(err, IsNil)
+
+	err = replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint)
+	c.Assert(err, IsNil)
+}
+
+// TestCompileFailure attempts to compile then cancels the context and ensures
+// that the failure paths may be hit.
+func (s *LoaderTestSuite) TestCompileFailure(c *C) {
+	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
+	defer cancel()
+
+	exit := make(chan bool)
+	defer close(exit)
+	go func() {
+		select {
+		case <-time.After(100 * time.Millisecond):
+			cancel()
+		case <-exit:
+			break
+		}
+	}()
+
+	err := compileAndLoad(ctx, ep, dirInfo)
+	c.Assert(err, NotNil)
+}
+
 // BenchmarkCompileAndLoad benchmarks the entire compilation + loading process.
 func BenchmarkCompileAndLoad(b *testing.B) {
 	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
