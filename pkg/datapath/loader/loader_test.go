@@ -35,10 +35,45 @@ type LoaderTestSuite struct{}
 var (
 	_              = Suite(&LoaderTestSuite{})
 	contextTimeout = 5 * time.Minute
+
+	dirInfo *directoryInfo
+	ep      = &testEP{}
 )
 
 func Test(t *testing.T) {
 	TestingT(t)
+}
+
+// runTests configures devices for running the whole testsuite, and runs the
+// tests. It is kept separate from TestMain() so that this function can defer
+// cleanups and pass the exit code of the test run to the caller which can run
+// os.Exit() with the result.
+func runTests(m *testing.M) (int, error) {
+	var err error
+
+	if dirInfo, err = getDirs(); err != nil {
+		return 1, err
+	}
+
+	cleanup, err := prepareEnv(ep)
+	if err != nil {
+		return 1, fmt.Errorf("Failed to prepare environment: %s", err)
+	}
+	defer func() {
+		if err := cleanup(); err != nil {
+			log.Errorf(err.Error())
+		}
+	}()
+
+	return m.Run(), nil
+}
+
+func TestMain(m *testing.M) {
+	exitCode, err := runTests(m)
+	if err != nil {
+		log.Fatal(err)
+	}
+	os.Exit(exitCode)
 }
 
 type testEP struct {
@@ -56,7 +91,7 @@ func (ep *testEP) StateDir() string {
 	return "test_loader"
 }
 
-func prepareEnv(ep *testEP) (*directoryInfo, func() error, error) {
+func prepareEnv(ep *testEP) (func() error, error) {
 	link := netlink.Dummy{
 		LinkAttrs: netlink.LinkAttrs{
 			Name: ep.InterfaceName(),
@@ -64,7 +99,7 @@ func prepareEnv(ep *testEP) (*directoryInfo, func() error, error) {
 	}
 	if err := netlink.LinkAdd(&link); err != nil {
 		if !os.IsExist(err) {
-			return nil, nil, fmt.Errorf("Failed to add link: %s", err)
+			return nil, fmt.Errorf("Failed to add link: %s", err)
 		}
 	}
 	cleanupFn := func() error {
@@ -73,11 +108,13 @@ func prepareEnv(ep *testEP) (*directoryInfo, func() error, error) {
 		}
 		return nil
 	}
+	return cleanupFn, nil
+}
 
+func getDirs() (*directoryInfo, error) {
 	wd, err := os.Getwd()
 	if err != nil {
-		cleanupFn()
-		return nil, nil, fmt.Errorf("Failed to get working directory: %s", err)
+		return nil, fmt.Errorf("Failed to get working directory: %s", err)
 	}
 	bpfdir := filepath.Join(wd, "..", "..", "..", "bpf")
 	dirs := directoryInfo{
@@ -86,7 +123,7 @@ func prepareEnv(ep *testEP) (*directoryInfo, func() error, error) {
 		Output:  bpfdir,
 	}
 
-	return &dirs, cleanupFn, nil
+	return &dirs, nil
 }
 
 // BenchmarkCompileAndLoad benchmarks the entire compilation + loading process.
@@ -94,16 +131,9 @@ func BenchmarkCompileAndLoad(b *testing.B) {
 	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 	defer cancel()
 
-	ep := &testEP{}
-	dirs, cleanup, err := prepareEnv(ep)
-	if err != nil {
-		b.Fatal(err)
-	}
-	defer cleanup()
-
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if err := compileAndLoad(ctx, ep, dirs); err != nil {
+		if err := compileAndLoad(ctx, ep, dirInfo); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -115,17 +145,10 @@ func BenchmarkReplaceDatapath(b *testing.B) {
 	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 	defer cancel()
 
-	ep := &testEP{}
-	dirs, cleanup, err := prepareEnv(ep)
-	if err != nil {
+	if err := compileDatapath(ctx, ep, dirInfo, false); err != nil {
 		b.Fatal(err)
 	}
-	defer cleanup()
-
-	if err := compileDatapath(ctx, ep, dirs, false); err != nil {
-		b.Fatal(err)
-	}
-	objPath := fmt.Sprintf("%s/%s", dirs.Output, endpointObj)
+	objPath := fmt.Sprintf("%s/%s", dirInfo.Output, endpointObj)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		if err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint); err != nil {
