@@ -71,7 +71,10 @@ func (e *Endpoint) synchronizeDirectories(origDir string, compilationExecuted bo
 		// Remove any eventual old backup directory. This may fail if
 		// the directory does not exist. The error is deliberately
 		// ignored.
-		e.removeDirectory(backupDir)
+		err := e.removeDirectory(backupDir)
+		if err != nil {
+			scopedLog.WithError(err).Error("Unable to remove directory")
+		}
 
 		// Move the current endpoint directory to a backup location
 		scopedLog.WithFields(logrus.Fields{

@@ -2,9 +2,9 @@ include Makefile.defs
 include daemon/bpf.sha
 
 SUBDIRS = proxylib envoy plugins bpf cilium daemon monitor cilium-health bugtool tools
-GOFILES ?= $(subst _$(ROOT_DIR)/,,$(shell go list ./... | grep -v /vendor/ | grep -v /contrib/ | grep -v envoy/envoy))
-TESTPKGS ?= $(subst _$(ROOT_DIR)/,,$(shell go list ./... | grep -v /vendor/ | grep -v /contrib/ | grep -v envoy/envoy | grep -v test))
-GOLANGVERSION = $(shell go version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
+GOFILES ?= $(subst _$(ROOT_DIR)/,,$(shell $(GO) list ./... | grep -v /vendor/ | grep -v /contrib/ | grep -v envoy/envoy))
+TESTPKGS ?= $(subst _$(ROOT_DIR)/,,$(shell $(GO) list ./... | grep -v /vendor/ | grep -v /contrib/ | grep -v envoy/envoy | grep -v test))
+GOLANGVERSION = $(shell $(GO) version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
 GOLANG_SRCFILES=$(shell for pkg in $(subst github.com/cilium/cilium/,,$(GOFILES)); do find $$pkg -name *.go -print; done | grep -v vendor)
 BPF_FILES ?= $(shell git ls-files ../bpf/ | tr "\n" ' ')
 BPF_SRCFILES=$(subst ../,,$(BPF_FILES))
@@ -50,14 +50,14 @@ tests-ginkgo-real:
 	echo "mode: count" > coverage-all.out
 	echo "mode: count" > coverage.out
 	$(foreach pkg,$(TESTPKGS),\
-            go test $(TEST_LDFLAGS) -timeout 360s \
+            $(GO) test $(TEST_LDFLAGS) -timeout 360s \
             -coverprofile=coverage.out \
             -covermode=count \
             -coverpkg ./... \
             $(pkg) $(GOTEST_OPTS) || exit 1; \
             tail -n +2 coverage.out >> coverage-all.out;)
 	$(foreach pkg,$(TESTPKGS),\
-            go test $(TEST_LDFLAGS) -timeout 360s \
+            $(GO) test $(TEST_LDFLAGS) -timeout 360s \
             -coverprofile=coverage.out \
             -covermode=count \
             -coverpkg ./... \
@@ -99,14 +99,14 @@ unit-tests: start-kvstores
 	$(QUIET) echo "mode: count" > coverage-all.out
 	$(QUIET) echo "mode: count" > coverage.out
 	$(QUIET)$(foreach pkg,$(TESTPKGS),\
-            go test -timeout 360s \
+            $(GO) test -timeout 360s \
             -coverprofile=coverage.out \
             -covermode=count \
             -coverpkg ./... \
             $(pkg) $(GOTEST_OPTS) || exit 1; \
             tail -n +2 coverage.out >> coverage-all.out;)
 	$(QUIET)$(foreach pkg,$(TESTPKGS),\
-            sudo -E go test -timeout 360s \
+            sudo $(GO) test -timeout 360s \
             -coverprofile=coverage.out \
             -covermode=count \
             -coverpkg ./... \
@@ -229,7 +229,7 @@ release:
 	git archive --format tar $(BRANCH) | gzip > ../cilium_$(VERSION).orig.tar.gz
 
 gofmt:
-	for pkg in $(GOFILES); do go fmt $$pkg; done
+	for pkg in $(GOFILES); do $(GO) fmt $$pkg; done
 
 govet:
 	@$(ECHO_CHECK) vetting all GOFILES...
