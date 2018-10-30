@@ -91,61 +91,12 @@ var _ = Describe("K8sPolicyTest", func() {
 			appPods   map[string]string
 		)
 
-		validateNoPolicyEnabled := func() {
-			// Validates that the `apps` pods do not have any policy
-			// enforcement enabled.
-			ExpectWithOffset(1, kubectl.WaitCEPReady()).To(BeNil(), "Cep is not ready after a specified timeout")
-			for _, app := range apps {
-				pod := appPods[app]
-				cep := kubectl.CepGet(helpers.DefaultNamespace, pod)
-				ExpectWithOffset(1, cep).NotTo(BeNil(), "Endpoint %q does not exist", pod)
-
-				ExpectWithOffset(1, cep.Status.Policy.Realized.PolicyEnabled).To(
-					Equal(models.EndpointPolicyEnabledNone),
-					"Policy status does not match for endpoint %s", pod)
-			}
-		}
-
-		validatePolicyStatus := func() {
-			// Validates that app2 and app3 do not have a policy enforcement
-			// enabled. And validate that the app1 pods have ingress policy
-			// loaded.
-			ExpectWithOffset(1, kubectl.WaitCEPReady()).To(BeNil(), "Cep is not ready after a specified timeout")
-			for _, app := range []string{helpers.App2, helpers.App3} {
-				pod := appPods[app]
-				cep := kubectl.CepGet(helpers.DefaultNamespace, pod)
-				ExpectWithOffset(1, cep).NotTo(BeNil(), "Endpoint %q does not exist", pod)
-
-				ExpectWithOffset(1, cep.Status.Policy.Realized.PolicyEnabled).To(
-					Equal(models.EndpointPolicyEnabledNone),
-					"Policy status does not match for endpoint %s", pod)
-			}
-			cep := kubectl.CepGet(helpers.DefaultNamespace, appPods[helpers.App1])
-			ExpectWithOffset(1, cep).NotTo(BeNil(), "Endpoint %q does not exist", appPods[helpers.App1])
-			ExpectWithOffset(1, cep.Status.Policy.Realized.PolicyEnabled).To(
-				Equal(models.EndpointPolicyEnabledIngress),
-				"Policy status does not match for endpoint %s", appPods[helpers.App1])
-		}
-
-		importPolicy := func(file string) {
+		importPolicy := func(file, name string) {
 			_, err := kubectl.CiliumPolicyAction(
 				helpers.KubeSystemNamespace, file, helpers.KubectlApply, helpers.HelperTimeout)
 			ExpectWithOffset(1, err).Should(BeNil(),
 				"policy %s cannot be applied in %q namespace", file, helpers.DefaultNamespace)
-		}
-
-		validatePolicyEnforcementStatus := func(desiredState models.EndpointPolicyEnabled) {
-			ExpectWithOffset(1, kubectl.WaitCEPReady()).To(BeNil(), "Cep is not ready after a specified timeout")
-			for _, app := range []string{helpers.App1, helpers.App2, helpers.App3} {
-				pod := appPods[app]
-				cep := kubectl.CepGet(helpers.DefaultNamespace, pod)
-				ExpectWithOffset(1, cep).NotTo(BeNil(), "Endpoint %q does not exist", pod)
-
-				ExpectWithOffset(1, cep.Status.Policy.Realized.PolicyEnabled).To(
-					Equal(desiredState),
-					"Unexpected policy enforcement status for endpoint %s. have: %v want: %v",
-					pod, cep.Status.Policy.Realized.PolicyEnabled, desiredState)
-			}
+			ExpectWithOffset(1, kubectl.WaitForEnforcingCNP(name, "default")).To(BeNil(), "CNP is not in enforcing mode after timeout")
 		}
 
 		validateConnectivity := func(expectWorldSuccess, expectClusterSuccess bool) {
@@ -246,7 +197,7 @@ var _ = Describe("K8sPolicyTest", func() {
 				helpers.KubeSystemNamespace, l3Policy, helpers.KubectlApply, 300)
 			Expect(err).Should(BeNil())
 
-			validatePolicyStatus()
+			Expect(kubectl.WaitForEnforcingCNP("l3-l4-policy", "default")).To(BeNil(), "CNP is not in enforcing mode after timeout")
 
 			trace := kubectl.CiliumExec(ciliumPod, fmt.Sprintf(
 				"cilium policy trace --src-k8s-pod default:%s --dst-k8s-pod default:%s --dport 80",
@@ -281,7 +232,7 @@ var _ = Describe("K8sPolicyTest", func() {
 				helpers.KubeSystemNamespace, l7Policy, helpers.KubectlApply, 300)
 			Expect(err).Should(BeNil(), "Cannot install %q policy", l7Policy)
 
-			validatePolicyStatus()
+			Expect(kubectl.WaitForEnforcingCNP("l7-policy", "default")).To(BeNil(), "CNP is not in enforcing mode after timeout")
 
 			res = kubectl.ExecPodCmd(
 				helpers.DefaultNamespace, appPods[helpers.App2],
@@ -315,7 +266,7 @@ var _ = Describe("K8sPolicyTest", func() {
 				helpers.KubeSystemNamespace, l7PolicyKafka, helpers.KubectlApply, 300)
 			Expect(err).Should(BeNil(), "Cannot update L7 policy (%q) from parser http to kafka", l7PolicyKafka)
 
-			validatePolicyStatus()
+			Expect(kubectl.WaitForEnforcingCNP("l7-policy", "default")).To(BeNil(), "CNP is not in enforcing mode after timeout")
 
 			_, err = kubectl.CiliumPolicyAction(
 				helpers.KubeSystemNamespace, l7Policy,
@@ -336,11 +287,11 @@ var _ = Describe("K8sPolicyTest", func() {
 		It("ServiceAccount Based Enforcement", func() {
 			// Load policy allowing serviceAccount of app2 to talk
 			// to app1 on port 80 TCP
-			validateNoPolicyEnabled()
-
 			_, err := kubectl.CiliumPolicyAction(
 				helpers.KubeSystemNamespace, serviceAccountPolicy, helpers.KubectlApply, 300)
 			Expect(err).Should(BeNil())
+
+			Expect(kubectl.WaitForEnforcingCNP("service-account", "default")).To(BeNil(), "CNP is not in enforcing mode after timeout")
 
 			trace := kubectl.CiliumExec(ciliumPod, fmt.Sprintf(
 				"cilium policy trace --src-k8s-pod default:%s --dst-k8s-pod default:%s --dport 80",
@@ -363,8 +314,6 @@ var _ = Describe("K8sPolicyTest", func() {
 				helpers.DefaultNamespace, appPods[helpers.App3],
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
 			res.ExpectFail("%q can curl to %q", appPods[helpers.App3], clusterIP)
-
-			validatePolicyStatus()
 
 		}, 500)
 
@@ -526,16 +475,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			Expect(err).Should(BeNil(),
 				"L3 deny-ingress Policy cannot be applied in %q namespace", helpers.DefaultNamespace)
 
-			Expect(kubectl.WaitCEPReady()).To(BeNil(), "Cep is not ready after a specified timeout")
-			for _, app := range apps {
-				pod := appPods[app]
-				cep := kubectl.CepGet(helpers.DefaultNamespace, pod)
-				Expect(cep).NotTo(BeNil(), "Endpoint %q does not exist", pod)
-
-				Expect(cep.Status.Policy.Realized.PolicyEnabled).To(
-					Equal(models.EndpointPolicyEnabledIngress),
-					"Policy status does not match for endpoint %s", pod)
-			}
+			Expect(kubectl.WaitForEnforcingCNP("cnp-default-deny-ingress", "default")).To(BeNil(), "CNP is not in enforcing mode after timeout")
 
 			By("Testing connectivity with ingress default-deny policy loaded")
 
@@ -561,16 +501,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 			By("Testing if egress policy enforcement is enabled on the endpoint")
 
-			Expect(kubectl.WaitCEPReady()).To(BeNil(), "Cep is not ready after a specified timeout")
-			for _, app := range apps {
-				pod := appPods[app]
-				cep := kubectl.CepGet(helpers.DefaultNamespace, pod)
-				Expect(cep).NotTo(BeNil(), "Endpoint %q does not exist", pod)
-
-				Expect(cep.Status.Policy.Realized.PolicyEnabled).To(
-					Equal(models.EndpointPolicyEnabledEgress),
-					"Policy status does not match for endpoint %s", pod)
-			}
+			Expect(kubectl.WaitForEnforcingCNP("cnp-default-deny-egress", "default")).To(BeNil(), "CNP is not in enforcing mode after timeout")
 
 			for _, pod := range apps {
 				res := kubectl.ExecPodCmd(
@@ -678,10 +609,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 			It("Validate toEntities All", func() {
 				By("Installing toEntities All")
-				importPolicy(cnpToEntitiesAll)
-
-				By("Checking that all endpoints have egress enforcement enabled")
-				validatePolicyEnforcementStatus(models.EndpointPolicyEnabledEgress)
+				importPolicy(cnpToEntitiesAll, "to-entities-all")
 
 				By("Verifying policy correctness")
 				validateConnectivity(WorldConnectivityAllow, ClusterConnectivityAllow)
@@ -689,10 +617,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 			It("Validate toEntities World", func() {
 				By("Installing toEntities World")
-				importPolicy(cnpToEntitiesWorld)
-
-				By("Checking that all endpoints have egress enforcement enabled")
-				validatePolicyEnforcementStatus(models.EndpointPolicyEnabledEgress)
+				importPolicy(cnpToEntitiesWorld, "to-entities-world")
 
 				By("Verifying policy correctness")
 				validateConnectivity(WorldConnectivityAllow, ClusterConnectivityDeny)
@@ -701,10 +626,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 			It("Validate toEntities Cluster", func() {
 				By("Installing toEntities Cluster")
-				importPolicy(cnpToEntitiesCluster)
-
-				By("Checking that all endpoints have egress enforcement enabled")
-				validatePolicyEnforcementStatus(models.EndpointPolicyEnabledEgress)
+				importPolicy(cnpToEntitiesCluster, "to-entities-cluster")
 
 				By("Verifying policy correctness")
 				validateConnectivity(WorldConnectivityDeny, ClusterConnectivityAllow)
@@ -712,10 +634,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 			It("Validate toEntities Host", func() {
 				By("Installing toEntities Host")
-				importPolicy(cnpToEntitiesHost)
-
-				By("Checking that all endpoints have egress enforcement enabled")
-				validatePolicyEnforcementStatus(models.EndpointPolicyEnabledEgress)
+				importPolicy(cnpToEntitiesHost, "to-entities-host")
 
 				By("Verifying policy correctness")
 				validateConnectivity(WorldConnectivityDeny, ClusterConnectivityDeny)
