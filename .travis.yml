@@ -1,0 +1,19 @@
+language: go
+
+dist: trusty
+sudo: required
+
+#go:
+# - tip
+
+addons:
+  apt:
+    packages:
+      - kernel-package libc6-dev-i386
+
+before_install: ./.travis/prepare.sh
+
+before_script:
+  - export PATH=/usr/local/clang/bin:$PATH
+
+script: ./.travis/build.sh
