@@ -379,11 +379,11 @@ func (e *Endpoint) addNewRedirects(owner Owner, m *policy.L4Policy, proxyWaitGro
 	revertStack.Push(rf)
 
 	return desiredRedirects, nil, finalizeList.Finalize, func() error {
-		e.getLogger().Debug("Reverting proxy redirect additions")
+		e.GetLogger().Debug("Reverting proxy redirect additions")
 
 		err := revertStack.Revert()
 
-		e.getLogger().Debug("Finished reverting proxy redirect additions")
+		e.GetLogger().Debug("Finished reverting proxy redirect additions")
 
 		return err
 	}
@@ -408,7 +408,7 @@ func (e *Endpoint) removeOldRedirects(owner Owner, desiredRedirects map[string]b
 
 		err, finalizeFunc, revertFunc := owner.RemoveProxyRedirect(e, id, proxyWaitGroup)
 		if err != nil {
-			e.getLogger().WithError(err).WithField(logfields.L4PolicyID, id).Warn("Error while removing proxy redirect")
+			e.GetLogger().WithError(err).WithField(logfields.L4PolicyID, id).Warn("Error while removing proxy redirect")
 			continue
 		}
 		finalizeList.Append(finalizeFunc)
@@ -440,7 +440,7 @@ func (e *Endpoint) removeOldRedirects(owner Owner, desiredRedirects map[string]b
 
 	return finalizeList.Finalize,
 		func() error {
-			e.getLogger().Debug("Reverting proxy redirect removals")
+			e.GetLogger().Debug("Reverting proxy redirect removals")
 
 			// Restore the proxy stats.
 			e.proxyStatisticsMutex.Lock()
@@ -455,7 +455,7 @@ func (e *Endpoint) removeOldRedirects(owner Owner, desiredRedirects map[string]b
 
 			err := revertStack.Revert()
 
-			e.getLogger().Debug("Finished reverting proxy redirect removals")
+			e.GetLogger().Debug("Finished reverting proxy redirect removals")
 
 			return err
 		}
@@ -541,7 +541,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 			return 0, compilationExecuted, err
 		}
 		// Clean up map contents
-		e.getLogger().Debug("flushing old PolicyMap")
+		e.GetLogger().Debug("flushing old PolicyMap")
 		err = e.PolicyMap.Flush()
 		if err != nil {
 			e.Unlock()
@@ -569,19 +569,19 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 			// Always execute the finalization code, even if the endpoint is
 			// terminating, in order to properly release resources.
 			e.UnconditionalLock()
-			e.getLogger().Debug("Finalizing successful endpoint regeneration")
+			e.GetLogger().Debug("Finalizing successful endpoint regeneration")
 			finalizeList.Finalize()
 			e.Unlock()
 		} else {
 			if err := e.LockAlive(); err != nil {
-				e.getLogger().WithError(err).Debug("Skipping unnecessary restoring endpoint state")
+				e.GetLogger().WithError(err).Debug("Skipping unnecessary restoring endpoint state")
 				return
 			}
-			e.getLogger().Error("Restoring endpoint state after BPF regeneration failed")
+			e.GetLogger().Error("Restoring endpoint state after BPF regeneration failed")
 			if err := revertStack.Revert(); err != nil {
-				e.getLogger().WithError(err).Error("Restoring endpoint state failed")
+				e.GetLogger().WithError(err).Error("Restoring endpoint state failed")
 			}
-			e.getLogger().Error("Finished restoring endpoint state after BPF regeneration failed")
+			e.GetLogger().Error("Finished restoring endpoint state after BPF regeneration failed")
 			e.Unlock()
 		}
 	}()
@@ -665,12 +665,12 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 	bpfHeaderfilesHash, err := hashEndpointHeaderfiles(nextDir)
 	var bpfHeaderfilesChanged bool
 	if err != nil {
-		e.getLogger().WithError(err).Warn("Unable to hash header file")
+		e.GetLogger().WithError(err).Warn("Unable to hash header file")
 		bpfHeaderfilesHash = ""
 		bpfHeaderfilesChanged = true
 	} else {
 		bpfHeaderfilesChanged = (bpfHeaderfilesHash != e.bpfHeaderfileHash)
-		e.getLogger().WithField(logfields.BPFHeaderfileHash, bpfHeaderfilesHash).
+		e.GetLogger().WithField(logfields.BPFHeaderfileHash, bpfHeaderfilesHash).
 			Debugf("BPF header file hashed (was: %q)", e.bpfHeaderfileHash)
 	}
 
@@ -702,7 +702,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 	<-ctCleaned
 	stats.waitingForCTClean.End(true)
 
-	e.getLogger().WithField("bpfHeaderfilesChanged", bpfHeaderfilesChanged).Debug("Preparing to compile BPF")
+	e.GetLogger().WithField("bpfHeaderfilesChanged", bpfHeaderfilesChanged).Debug("Preparing to compile BPF")
 
 	stats.prepareBuild.End(true)
 	if bpfHeaderfilesChanged || regenContext.ReloadDatapath {
@@ -714,13 +714,13 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 			stats.bpfCompilation.Start()
 			err = loader.CompileAndLoad(ctx, epInfoCache)
 			stats.bpfCompilation.End(err == nil)
-			e.getLogger().WithError(err).
+			e.GetLogger().WithError(err).
 				WithField(logfields.BPFCompilationTime, stats.bpfCompilation.Total().String()).
 				Info("Recompiled endpoint BPF program")
 			compilationExecuted = true
 		} else {
 			err = loader.ReloadDatapath(ctx, epInfoCache)
-			e.getLogger().WithError(err).Info("Reloaded endpoint BPF program")
+			e.GetLogger().WithError(err).Info("Reloaded endpoint BPF program")
 		}
 		cancel()
 		close(closeChan)
@@ -730,7 +730,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 		}
 		e.bpfHeaderfileHash = bpfHeaderfilesHash
 	} else {
-		e.getLogger().WithField(logfields.BPFHeaderfileHash, bpfHeaderfilesHash).
+		e.GetLogger().WithField(logfields.BPFHeaderfileHash, bpfHeaderfilesHash).
 			Debug("BPF header file unchanged, skipping BPF compilation and installation")
 	}
 

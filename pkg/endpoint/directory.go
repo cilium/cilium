@@ -52,7 +52,7 @@ func (e *Endpoint) backupDirectoryPath() string {
 // or if any updates to directories for the endpoint's directories fails.
 // Must be called with endpoint.Mutex held.
 func (e *Endpoint) synchronizeDirectories(origDir string, compilationExecuted bool) error {
-	scopedLog := e.getLogger()
+	scopedLog := e.GetLogger()
 	scopedLog.Debug("synchronizing directories")
 
 	tmpDir := e.NextDirectoryPath()
@@ -132,7 +132,7 @@ func (e *Endpoint) synchronizeDirectories(origDir string, compilationExecuted bo
 }
 
 func (e *Endpoint) removeDirectory(path string) error {
-	e.getLogger().WithField("directory", path).Debug("removing directory")
+	e.GetLogger().WithField("directory", path).Debug("removing directory")
 	return os.RemoveAll(path)
 }
 
