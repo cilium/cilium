@@ -19,6 +19,7 @@ package loader
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -44,10 +45,17 @@ func Test(t *testing.T) {
 	TestingT(t)
 }
 
-func TestMain(m *testing.M) {
-	var err error
-
-	if dirInfo, err = getDirs(); err != nil {
+// runTests configures devices for running the whole testsuite, and runs the
+// tests. It is kept separate from TestMain() so that this function can defer
+// cleanups and pass the exit code of the test run to the caller which can run
+// os.Exit() with the result.
+func runTests(m *testing.M) int {
+	tmpDir, err := ioutil.TempDir("/tmp/", "cilium_")
+	if err != nil {
+		log.Fatalf("Failed to create temporary directory: %s", err)
+	}
+	defer os.RemoveAll(tmpDir)
+	if dirInfo, err = getDirs(tmpDir); err != nil {
 		log.Fatal(err.Error())
 	}
 
@@ -61,7 +69,11 @@ func TestMain(m *testing.M) {
 		}
 	}()
 
-	os.Exit(m.Run())
+	return m.Run()
+}
+
+func TestMain(m *testing.M) {
+	os.Exit(runTests(m))
 }
 
 type testEP struct {
@@ -99,7 +111,7 @@ func prepareEnv(ep *testEP) (func() error, error) {
 	return cleanupFn, nil
 }
 
-func getDirs() (*directoryInfo, error) {
+func getDirs(tmpDir string) (*directoryInfo, error) {
 	wd, err := os.Getwd()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get working directory: %s", err)
@@ -108,7 +120,8 @@ func getDirs() (*directoryInfo, error) {
 	dirs := directoryInfo{
 		Library: bpfdir,
 		Runtime: bpfdir,
-		Output:  bpfdir,
+		State:   bpfdir,
+		Output:  tmpDir,
 	}
 
 	return &dirs, nil

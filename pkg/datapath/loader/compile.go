@@ -54,6 +54,8 @@ type directoryInfo struct {
 	Library string
 	// Runtime contains headers for compilation
 	Runtime string
+	// State contains node, lxc, and features headers for templatization
+	State string
 	// Output is the directory where the files will be stored
 	Output string
 }
@@ -187,7 +189,7 @@ func progCFlags(prog *progInfo, dir *directoryInfo) []string {
 
 	return []string{
 		fmt.Sprintf("-I%s", path.Join(dir.Runtime, "globals")),
-		fmt.Sprintf("-I%s", dir.Output),
+		fmt.Sprintf("-I%s", dir.State),
 		fmt.Sprintf("-I%s", path.Join(dir.Library, "include")),
 		"-c", path.Join(dir.Library, prog.Source),
 		"-o", output,
