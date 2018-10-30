@@ -118,6 +118,49 @@ func (kub *Kubectl) CepGet(namespace string, pod string) *models.Endpoint {
 	return data
 }
 
+// GetNumNodes returns the number of Kubernetes nodes running
+func (kub *Kubectl) GetNumNodes() int {
+	getNodesCmd := fmt.Sprintf("%s get nodes -o jsonpath='{.items.*.metadata.name}'", KubectlCmd)
+	res := kub.Exec(getNodesCmd)
+	if !res.WasSuccessful() {
+		return 0
+	}
+
+	return len(strings.Split(res.SingleOut(), " "))
+}
+
+// WaitForEnforcingCNP waits for the CNP with the specified to go into
+// enforcing mode on all nodes
+func (kub *Kubectl) WaitForEnforcingCNP(cnpName, namespace string) error {
+	numNodes := kub.GetNumNodes()
+
+	body := func() bool {
+		cnpCMD := fmt.Sprintf("%s get cnp -n %s %s -o jsonpath='{.status.nodes.*.enforcing}'", KubectlCmd, namespace, cnpName)
+		res := kub.Exec(cnpCMD)
+		if !res.WasSuccessful() {
+			return false
+		}
+
+		enforcingState := strings.Split(res.SingleOut(), " ")
+		if len(enforcingState) != numNodes {
+			return false
+		}
+
+		for _, state := range enforcingState {
+			if state != "true" {
+				return false
+			}
+		}
+
+		return true
+	}
+
+	// Wait for CNP to go into enforcing mode.
+	// - 30s timeout
+	// - 1s interval
+	return WithTimeout(body, "CNP not enforcing after timeout", &TimeoutConfig{Timeout: 30, Ticker: 1})
+}
+
 // WaitCEPReady waits until all Cilium endpoints are sync in Kubernetes resource.
 func (kub *Kubectl) WaitCEPReady() error {
 	pods, err := kub.GetCiliumPods(KubeSystemNamespace)
