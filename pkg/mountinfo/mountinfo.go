@@ -17,6 +17,7 @@ package mountinfo
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -46,18 +47,12 @@ type MountInfo struct {
 	SuperOptions   string
 }
 
-// GetMountInfo returns a slice of *MountInfo with information parsed from
-// /proc/self/mountinfo
-func GetMountInfo() ([]*MountInfo, error) {
+// parseMountInfoFile returns a slice of *MountInfo with information parsed from
+// the given reader
+func parseMountInfoFile(r io.Reader) ([]*MountInfo, error) {
 	var result []*MountInfo
 
-	fMounts, err := os.Open(mountInfoFilepath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open mount information at %s: %s", mountInfoFilepath, err)
-	}
-	defer fMounts.Close()
-
-	scanner := bufio.NewScanner(fMounts)
+	scanner := bufio.NewScanner(r)
 	scanner.Split(bufio.ScanLines)
 
 	for scanner.Scan() {
@@ -118,16 +113,20 @@ func GetMountInfo() ([]*MountInfo, error) {
 	return result, nil
 }
 
-// IsMountFS returns two boolean values:checks whether the current mapRoot:
-// - whether the current mapRoot has any mount
-// - whether that mount's filesystem is of type mntType
-func IsMountFS(mntType string, mapRoot string) (bool, bool, error) {
-	var mapRootMountInfo *MountInfo
-
-	mountInfos, err := GetMountInfo()
+// GetMountInfo returns a slice of *MountInfo with information parsed from
+// /proc/self/mountinfo
+func GetMountInfo() ([]*MountInfo, error) {
+	fMounts, err := os.Open(mountInfoFilepath)
 	if err != nil {
-		return false, false, err
+		return nil, fmt.Errorf("failed to open mount information at %s: %s", mountInfoFilepath, err)
 	}
+	defer fMounts.Close()
+
+	return parseMountInfoFile(fMounts)
+}
+
+func isMountFS(mountInfos []*MountInfo, mntType string, mapRoot string) (bool, bool) {
+	var mapRootMountInfo *MountInfo
 
 	for _, mountInfo := range mountInfos {
 		if mountInfo.MountPoint == mapRoot {
@@ -137,11 +136,24 @@ func IsMountFS(mntType string, mapRoot string) (bool, bool, error) {
 	}
 
 	if mapRootMountInfo == nil {
-		return false, false, nil
+		return false, false
 	}
 
 	if mapRootMountInfo.FilesystemType == mntType {
-		return true, true, nil
+		return true, true
 	}
-	return true, false, nil
+	return true, false
+}
+
+// IsMountFS returns two boolean values:checks whether the current mapRoot:
+// - whether the current mapRoot has any mount
+// - whether that mount's filesystem is of type mntType
+func IsMountFS(mntType string, mapRoot string) (bool, bool, error) {
+	mountInfos, err := GetMountInfo()
+	if err != nil {
+		return false, false, err
+	}
+
+	mounted, mntTypeInstance := isMountFS(mountInfos, mntType, mapRoot)
+	return mounted, mntTypeInstance, nil
 }
