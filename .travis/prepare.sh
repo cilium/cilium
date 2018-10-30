@@ -13,3 +13,7 @@ rm $CLANG_FILE
 
 NEWPATH="/usr/local/clang/bin"
 export PATH="$NEWPATH:$PATH"
+
+go get -u github.com/jteeuwen/go-bindata/...
+go get golang.org/x/tools/cmd/cover
+go get github.com/mattn/goveralls

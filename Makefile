@@ -2,9 +2,9 @@ include Makefile.defs
 include daemon/bpf.sha
 
 SUBDIRS = proxylib envoy plugins bpf cilium daemon monitor cilium-health bugtool tools
-GOFILES ?= $(subst _$(ROOT_DIR)/,,$(shell go list ./... | grep -v -e /vendor/ -e /contrib/ -e envoy/envoy))
-TESTPKGS ?= $(subst _$(ROOT_DIR)/,,$(shell go list ./... | grep -v -e /api/v1 -e /vendor/ -e /contrib/ -e envoy/envoy -e test))
-GOLANGVERSION = $(shell go version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
+GOFILES ?= $(subst _$(ROOT_DIR)/,,$(shell $(GO) list ./... | grep -v -e /vendor/ -e /contrib/ -e envoy/envoy))
+TESTPKGS ?= $(subst _$(ROOT_DIR)/,,$(shell $(GO) list ./... | grep -v -e /api/v1 -e /vendor/ -e /contrib/ -e envoy/envoy -e test))
+GOLANGVERSION = $(shell $(GO) version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
 GOLANG_SRCFILES=$(shell for pkg in $(subst github.com/cilium/cilium/,,$(GOFILES)); do find $$pkg -name *.go -print; done | grep -v vendor)
 BPF_FILES ?= $(shell git ls-files ../bpf/ | tr "\n" ' ')
 BPF_SRCFILES=$(subst ../,,$(BPF_FILES))
@@ -15,8 +15,9 @@ SWAGGER_VERSION = 0.12.0
 SWAGGER = $(DOCKER) run --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) -e GOPATH=$(GOPATH) --entrypoint swagger quay.io/goswagger/swagger:$(SWAGGER_VERSION)
 
 COVERPKG ?= ./...
-GOTEST_OPTS = -test.v -check.vv -timeout 360s -coverprofile=coverage.out -covermode=count -coverpkg $(COVERPKG)
-GOTEST_PRIV_OPTS = $(GOTEST_OPTS) -tags=privileged_tests
+GOTEST_BASE = -test.v -check.vv -timeout 360s
+GOTEST_PRIV_OPTS = $(GOTEST_BASE) -tags=privileged_tests
+GOTEST_COVER_OPTS = -coverprofile=coverage.out -covermode=count -coverpkg $(COVERPKG)
 
 UTC_DATE=$(shell date -u "+%Y-%m-%d")
 
@@ -49,17 +50,10 @@ TEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyAddres
 
 # invoked from ginkgo compose file after starting kvstore backends
 tests-ginkgo-real:
-	echo "mode: count" > coverage-all.out
-	echo "mode: count" > coverage.out
 	$(QUIET)$(foreach pkg,$(TESTPKGS),\
-		go test $(TEST_LDFLAGS) $(pkg) $(GOTEST_OPTS) || exit 1; \
-		tail -n +2 coverage.out >> coverage-all.out;)
+		$(GO) test $(TEST_LDFLAGS) $(pkg) $(GOTEST_BASE) || exit 1;)
 	$(QUIET)$(foreach pkg,$(TESTPKGS),\
-		go test $(TEST_LDFLAGS) $(pkg) $(GOTEST_PRIV_OPTS) || exit 1; \
-		tail -n +2 coverage.out >> coverage-all.out;)
-	$(GO) tool cover -html=coverage-all.out -o=coverage-all.html
-	rm coverage-all.out
-	rm coverage.out
+		$(GO) test $(TEST_LDFLAGS) $(pkg) $(GOTEST_PRIV_OPTS) || exit 1;)
 	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
 
 tests-envoy: proxylib
@@ -94,10 +88,10 @@ unit-tests: start-kvstores
 	$(QUIET) echo "mode: count" > coverage-all.out
 	$(QUIET) echo "mode: count" > coverage.out
 	$(QUIET)$(foreach pkg,$(TESTPKGS),\
-		go test $(pkg) $(GOTEST_OPTS) || exit 1; \
+		$(GO) test $(pkg) $(GOTEST_BASE) $(GOTEST_COVER_OPTS) || exit 1; \
 		tail -n +2 coverage.out >> coverage-all.out;)
 	$(QUIET)$(foreach pkg,$(TESTPKGS),\
-		sudo -E go test $(pkg) $(GOTEST_PRIV_OPTS) || exit 1; \
+		sudo $(GO) test $(pkg) $(GOTEST_PRIV_OPTS) $(GOTEST_COVER_OPTS) || exit 1; \
 		tail -n +2 coverage.out >> coverage-all.out;)
 	$(GO) tool cover -html=coverage-all.out -o=coverage-all.html
 	$(QUIET) rm coverage.out
@@ -216,7 +210,7 @@ release:
 	git archive --format tar $(BRANCH) | gzip > ../cilium_$(VERSION).orig.tar.gz
 
 gofmt:
-	for pkg in $(GOFILES); do go fmt $$pkg; done
+	for pkg in $(GOFILES); do $(GO) fmt $$pkg; done
 
 govet:
 	@$(ECHO_CHECK) vetting all GOFILES...
