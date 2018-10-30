@@ -249,6 +249,8 @@ precheck: govet ineffassign logging-subsys-field
 	$(QUIET) contrib/scripts/check-fmt.sh
 	@$(ECHO_CHECK) contrib/scripts/check-log-newlines.sh
 	$(QUIET) contrib/scripts/check-log-newlines.sh
+	@$(ECHO_CHECK) contrib/scripts/check-missing-tags-in-tests.sh
+	$(QUIET) contrib/scripts/check-missing-tags-in-tests.sh
 
 pprof-help:
 	@echo "Available pprof targets:"
