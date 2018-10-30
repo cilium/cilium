@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy/logger"
@@ -44,7 +45,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/struct"
-	"github.com/spf13/viper"
 )
 
 var (
@@ -115,7 +115,7 @@ func getXDSPath(stateDir string) string {
 func StartXDSServer(stateDir string) *XDSServer {
 	xdsPath := getXDSPath(stateDir)
 	accessLogPath := getAccessLogPath(stateDir)
-	denied403body := viper.GetString("http-403-msg")
+	denied403body := option.Config.HTTP403Message
 
 	os.Remove(xdsPath)
 	socketListener, err := net.ListenUnix("unix", &net.UnixAddr{Name: xdsPath, Net: "unix"})

@@ -275,6 +275,10 @@ type daemonConfig struct {
 	// UseSingleClusterRoute specifies whether to use a single cluster route
 	// instead of per-node routes.
 	UseSingleClusterRoute bool
+
+	// HTTP403Message is the error message to return when a HTTP 403 is returned
+	// by the proxy, if L7 policy is configured.
+	HTTP403Message string
 }
 
 var (
