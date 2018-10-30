@@ -6,6 +6,11 @@ sudo: required
 go:
  - 1.11.1
 
+# This will travis to build on branch updates only for the master branch
+branches:
+  only:
+  - master
+
 addons:
   apt:
     packages:
