@@ -54,6 +54,8 @@ const (
 	// The kubedns resyncPeriod is defined at
 	// https://github.com/kubernetes/dns/blob/80fdd88276adba36a87c4f424b66fdf37cd7c9a8/pkg/dns/dns.go#L53
 	DNSHelperTimeout int64 = 420
+
+	enableMicroscope = false
 )
 
 // GetCurrentK8SEnv returns the value of K8S_VERSION from the OS environment.
@@ -349,6 +351,10 @@ func (kub *Kubectl) Logs(namespace string, pod string) *CmdRes {
 // the output to `helpers.monitorLogFileName` file. Takes an optional list of
 // arguments to pass to mircoscope.
 func (kub *Kubectl) MicroscopeStart(microscopeOptions ...string) (error, func() error) {
+	if !enableMicroscope {
+		return nil, func() error { return nil }
+	}
+
 	microscope := "microscope"
 	var microscopeCmd string
 	if len(microscopeOptions) == 0 {
