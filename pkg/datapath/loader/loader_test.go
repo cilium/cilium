@@ -19,6 +19,7 @@ package loader
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -49,9 +50,12 @@ func Test(t *testing.T) {
 // cleanups and pass the exit code of the test run to the caller which can run
 // os.Exit() with the result.
 func runTests(m *testing.M) (int, error) {
-	var err error
-
-	if dirInfo, err = getDirs(); err != nil {
+	tmpDir, err := ioutil.TempDir("", "cilium_")
+	if err != nil {
+		return 1, fmt.Errorf("Failed to create temporary directory: %s", err)
+	}
+	defer os.RemoveAll(tmpDir)
+	if dirInfo, err = getDirs(tmpDir); err != nil {
 		return 1, err
 	}
 
@@ -111,7 +115,7 @@ func prepareEnv(ep *testEP) (func() error, error) {
 	return cleanupFn, nil
 }
 
-func getDirs() (*directoryInfo, error) {
+func getDirs(tmpDir string) (*directoryInfo, error) {
 	wd, err := os.Getwd()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get working directory: %s", err)
@@ -120,7 +124,8 @@ func getDirs() (*directoryInfo, error) {
 	dirs := directoryInfo{
 		Library: bpfdir,
 		Runtime: bpfdir,
-		Output:  bpfdir,
+		State:   bpfdir,
+		Output:  tmpDir,
 	}
 
 	return &dirs, nil
