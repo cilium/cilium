@@ -562,12 +562,12 @@ func (e *Endpoint) WaitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 
 	start := time.Now()
 
-	e.getLogger().Debug("Waiting for proxy updates to complete...")
+	e.GetLogger().Debug("Waiting for proxy updates to complete...")
 	err = proxyWaitGroup.Wait()
 	if err != nil {
 		return fmt.Errorf("proxy state changes failed: %s", err)
 	}
-	e.getLogger().Debug("Wait time for proxy updates: ", time.Since(start))
+	e.GetLogger().Debug("Wait time for proxy updates: ", time.Since(start))
 
 	return nil
 }
@@ -579,7 +579,7 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 	var (
 		endpointID     = e.ID
 		controllerName = fmt.Sprintf("sync-to-k8s-ciliumendpoint (%v)", endpointID)
-		scopedLog      = e.getLogger().WithField("controller", controllerName)
+		scopedLog      = e.GetLogger().WithField("controller", controllerName)
 		err            error
 	)
 
@@ -630,7 +630,7 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 			DoFunc: func() (err error) {
 				// Update logger as scopeLog might not have the podName when it
 				// was created.
-				scopedLog = e.getLogger().WithField("controller", controllerName)
+				scopedLog = e.GetLogger().WithField("controller", controllerName)
 
 				podName := e.GetK8sPodName()
 				if podName == "" {
@@ -1645,7 +1645,7 @@ func (e *Endpoint) logStatusLocked(typ StatusType, code StatusCode, msg string) 
 		Timestamp: time.Now().UTC(),
 	}
 	e.Status.addStatusLog(sts)
-	e.getLogger().WithFields(logrus.Fields{
+	e.GetLogger().WithFields(logrus.Fields{
 		"code":                   sts.Status.Code,
 		"type":                   sts.Status.Type,
 		logfields.EndpointState:  sts.Status.State,
@@ -1689,7 +1689,7 @@ func (e *Endpoint) Update(owner Owner, cfg *models.EndpointConfigurationSpec) er
 		return err
 	}
 
-	e.getLogger().WithField("configuration-options", cfg).Debug("updating endpoint configuration options")
+	e.GetLogger().WithField("configuration-options", cfg).Debug("updating endpoint configuration options")
 
 	// CurrentStatus will be not OK when we have an uncleared error in BPF,
 	// policy or Other. We should keep trying to regenerate in the hopes of
@@ -1708,7 +1708,7 @@ func (e *Endpoint) Update(owner Owner, cfg *models.EndpointConfigurationSpec) er
 	}
 
 	if needToRegenerateBPF {
-		e.getLogger().Debug("need to regenerate endpoint; checking state before" +
+		e.GetLogger().Debug("need to regenerate endpoint; checking state before" +
 			" attempting to regenerate")
 
 		// TODO / FIXME: GH-3281: need ways to queue up regenerations per-endpoint.
@@ -1741,7 +1741,7 @@ func (e *Endpoint) Update(owner Owner, cfg *models.EndpointConfigurationSpec) er
 				}
 				e.Unlock()
 			case <-timeout:
-				e.getLogger().Warningf("timed out waiting for endpoint state to change")
+				e.GetLogger().Warningf("timed out waiting for endpoint state to change")
 				return UpdateStateChangeError{fmt.Sprintf("unable to regenerate endpoint program because state transition to %s was unsuccessful; check `cilium endpoint log %d` for more information", StateWaitingToRegenerate, e.ID)}
 			}
 		}
@@ -1792,7 +1792,7 @@ func (e *Endpoint) replaceInformationLabels(l pkgLabels.Labels) {
 	}
 	e.OpLabels.OrchestrationInfo.MarkAllForDeletion()
 
-	scopedLog := e.getLogger()
+	scopedLog := e.GetLogger()
 
 	for _, v := range l {
 		if e.OpLabels.OrchestrationInfo.UpsertLabel(v) {
@@ -1818,7 +1818,7 @@ func (e *Endpoint) replaceIdentityLabels(l pkgLabels.Labels) int {
 	e.OpLabels.OrchestrationIdentity.MarkAllForDeletion()
 	e.OpLabels.Disabled.MarkAllForDeletion()
 
-	scopedLog := e.getLogger()
+	scopedLog := e.GetLogger()
 
 	for k, v := range l {
 		// A disabled identity label stays disabled without value updates
@@ -1881,7 +1881,7 @@ func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup
 	e.SetStateLocked(StateDisconnected, "Endpoint removed")
 
 	endpointPolicyStatus.Remove(e.ID)
-	e.getLogger().Info("Removed endpoint")
+	e.GetLogger().Info("Removed endpoint")
 
 	return errors
 }
@@ -2084,7 +2084,7 @@ func (e *Endpoint) SetStateLocked(toState, reason string) bool {
 	}
 	if toState != fromState {
 		_, fileName, fileLine, _ := runtime.Caller(1)
-		e.getLogger().WithFields(logrus.Fields{
+		e.GetLogger().WithFields(logrus.Fields{
 			logfields.EndpointState + ".from": fromState,
 			logfields.EndpointState + ".to":   toState,
 			"file":                            fileName,
@@ -2409,12 +2409,12 @@ func (e *Endpoint) runLabelsResolver(owner Owner, myChangeRev int) {
 		// If a labels update and an endpoint delete API request arrive
 		// in quick succession, this could occur; in that case, there's
 		// no point updating the controller.
-		e.getLogger().WithError(err).Info("Cannot run labels resolver")
+		e.GetLogger().WithError(err).Info("Cannot run labels resolver")
 		return
 	}
 	newLabels := e.OpLabels.IdentityLabels()
 	e.RUnlock()
-	scopedLog := e.getLogger().WithField(logfields.IdentityLabels, newLabels)
+	scopedLog := e.GetLogger().WithField(logfields.IdentityLabels, newLabels)
 
 	// If we are certain we can resolve the identity without accessing the KV
 	// store, do it first synchronously right now. This can reduce the number
@@ -2443,7 +2443,7 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 		return err
 	}
 	newLabels := e.OpLabels.IdentityLabels()
-	elog := e.getLogger().WithFields(logrus.Fields{
+	elog := e.GetLogger().WithFields(logrus.Fields{
 		logfields.EndpointID:     e.ID,
 		logfields.IdentityLabels: newLabels,
 	})
@@ -2637,7 +2637,7 @@ func (e *Endpoint) IPs() []net.IP {
 // InsertEvent is called when the endpoint is inserted into the endpoint
 // manager.
 func (e *Endpoint) InsertEvent() {
-	e.getLogger().Info("New endpoint")
+	e.GetLogger().Info("New endpoint")
 }
 
 // syncPolicyMap attempts to synchronize the PolicyMap for this endpoint to
@@ -2668,14 +2668,14 @@ func (e *Endpoint) syncPolicyMap() error {
 	// If map is unable to be dumped, attempt to close map and open it again.
 	// See GH-4229.
 	if err != nil {
-		e.getLogger().WithError(err).Error("unable to dump PolicyMap when trying to sync desired and realized PolicyMap state")
+		e.GetLogger().WithError(err).Error("unable to dump PolicyMap when trying to sync desired and realized PolicyMap state")
 
 		// Close to avoid leaking of file descriptors, but still continue in case
 		// Close() does not succeed, because otherwise the map will never be
 		// opened again unless the agent is restarted.
 		err := e.PolicyMap.Close()
 		if err != nil {
-			e.getLogger().WithError(err).Error("unable to close PolicyMap which was not able to be dumped")
+			e.GetLogger().WithError(err).Error("unable to close PolicyMap which was not able to be dumped")
 		}
 
 		e.PolicyMap, _, err = policymap.OpenMap(e.PolicyMapPathLocked())
@@ -2702,7 +2702,7 @@ func (e *Endpoint) syncPolicyMap() error {
 			// converted to network byte-order.
 			err := e.PolicyMap.DeleteKey(keyHostOrder)
 			if err != nil {
-				e.getLogger().WithError(err).Errorf("Failed to delete PolicyMap key %s", entry.Key.String())
+				e.GetLogger().WithError(err).Errorf("Failed to delete PolicyMap key %s", entry.Key.String())
 				errors = append(errors, err)
 			} else {
 				// Operation was successful, remove from realized state.
@@ -2715,7 +2715,7 @@ func (e *Endpoint) syncPolicyMap() error {
 		if oldEntry, ok := e.realizedMapState[keyToAdd]; !ok || oldEntry != entry {
 			err := e.PolicyMap.AllowKey(keyToAdd, entry.ProxyPort)
 			if err != nil {
-				e.getLogger().WithError(err).Errorf("Failed to add PolicyMap key %s %d", keyToAdd.String(), entry.ProxyPort)
+				e.GetLogger().WithError(err).Errorf("Failed to add PolicyMap key %s %d", keyToAdd.String(), entry.ProxyPort)
 				errors = append(errors, err)
 			} else {
 				// Operation was successful, add to realized state.
