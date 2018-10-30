@@ -14,7 +14,8 @@ DOCKER=$(QUIET)docker
 SWAGGER_VERSION = 0.12.0
 SWAGGER = $(DOCKER) run --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) -e GOPATH=$(GOPATH) --entrypoint swagger quay.io/goswagger/swagger:$(SWAGGER_VERSION)
 
-GOTEST_OPTS = -test.v -check.vv
+GOTEST_OPTS = -test.v -check.vv -timeout 360s -coverprofile=coverage.out -covermode=count -coverpkg ./...
+GOTEST_PRIV_OPTS = $(GOTEST_OPTS) -tags=privileged_tests
 
 UTC_DATE=$(shell date -u "+%Y-%m-%d")
 
@@ -49,20 +50,12 @@ TEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyAddres
 tests-ginkgo-real:
 	echo "mode: count" > coverage-all.out
 	echo "mode: count" > coverage.out
-	$(foreach pkg,$(TESTPKGS),\
-            go test $(TEST_LDFLAGS) -timeout 360s \
-            -coverprofile=coverage.out \
-            -covermode=count \
-            -coverpkg ./... \
-            $(pkg) $(GOTEST_OPTS) || exit 1; \
-            tail -n +2 coverage.out >> coverage-all.out;)
-	$(foreach pkg,$(TESTPKGS),\
-            go test $(TEST_LDFLAGS) -timeout 360s \
-            -coverprofile=coverage.out \
-            -covermode=count \
-            -coverpkg ./... \
-            -tags=privileged_tests $(pkg) $(GOTEST_OPTS) || exit 1; \
-            tail -n +2 coverage.out >> coverage-all.out;)
+	$(QUIET)$(foreach pkg,$(TESTPKGS),\
+		go test $(TEST_LDFLAGS) $(pkg) $(GOTEST_OPTS) || exit 1; \
+		tail -n +2 coverage.out >> coverage-all.out;)
+	$(QUIET)$(foreach pkg,$(TESTPKGS),\
+		go test $(TEST_LDFLAGS) $(pkg) $(GOTEST_PRIV_OPTS) || exit 1; \
+		tail -n +2 coverage.out >> coverage-all.out;)
 	$(GO) tool cover -html=coverage-all.out -o=coverage-all.html
 	rm coverage-all.out
 	rm coverage.out
@@ -100,19 +93,11 @@ unit-tests: start-kvstores
 	$(QUIET) echo "mode: count" > coverage-all.out
 	$(QUIET) echo "mode: count" > coverage.out
 	$(QUIET)$(foreach pkg,$(TESTPKGS),\
-            go test -timeout 360s \
-            -coverprofile=coverage.out \
-            -covermode=count \
-            -coverpkg ./... \
-            $(pkg) $(GOTEST_OPTS) || exit 1; \
-            tail -n +2 coverage.out >> coverage-all.out;)
+		go test $(pkg) $(GOTEST_OPTS) || exit 1; \
+		tail -n +2 coverage.out >> coverage-all.out;)
 	$(QUIET)$(foreach pkg,$(TESTPKGS),\
-            sudo -E go test -timeout 360s \
-            -coverprofile=coverage.out \
-            -covermode=count \
-            -coverpkg ./... \
-            -tags=privileged_tests $(pkg) $(GOTEST_OPTS) || exit 1; \
-            tail -n +2 coverage.out >> coverage-all.out;)
+		sudo -E go test $(pkg) $(GOTEST_PRIV_OPTS) || exit 1; \
+		tail -n +2 coverage.out >> coverage-all.out;)
 	$(GO) tool cover -html=coverage-all.out -o=coverage-all.html
 	$(QUIET) rm coverage.out
 	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
