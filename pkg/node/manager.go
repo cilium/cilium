@@ -28,7 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	"github.com/vishvananda/netlink"
 )
 
@@ -151,7 +150,7 @@ func (cc *clusterConfiguation) replaceHostRoutes() {
 	// allows to share a CIDR with legacy endpoints outside of the cluster
 	// but requires individual routes to be installed which creates an
 	// overhead with many nodes.
-	if !viper.GetBool(option.SingleClusterRouteName) {
+	if !option.Config.UseSingleClusterRoute {
 		for _, n := range cc.nodes {
 			// Insert node routes in the form of:
 			//   Node-CIDR via GetRouterIP() dev cilium_host
