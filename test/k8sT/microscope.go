@@ -41,6 +41,10 @@ var _ = Describe("K8sMicroscope", func() {
 	})
 
 	It("Runs microscope", func() {
+		if !helpers.EnableMicroscope {
+			Skip("Microscope is disabled")
+		}
+
 		microscopeErr, microscopeCancel := kubectl.MicroscopeStart()
 		Expect(microscopeErr).To(BeNil(), "Microscope cannot be started")
 
