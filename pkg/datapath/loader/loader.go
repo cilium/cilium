@@ -117,6 +117,7 @@ func CompileAndLoad(ctx context.Context, ep endpoint) error {
 	dirs := directoryInfo{
 		Library: option.Config.BpfDir,
 		Runtime: option.Config.StateDir,
+		State:   ep.StateDir(),
 		Output:  ep.StateDir(),
 	}
 	return compileAndLoad(ctx, ep, &dirs)
@@ -126,6 +127,7 @@ func ReloadDatapath(ctx context.Context, ep endpoint) error {
 	dirs := directoryInfo{
 		Library: option.Config.BpfDir,
 		Runtime: option.Config.StateDir,
+		State:   ep.StateDir(),
 		Output:  ep.StateDir(),
 	}
 	return reloadDatapath(ctx, ep, &dirs)
