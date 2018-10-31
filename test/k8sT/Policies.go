@@ -267,11 +267,6 @@ var _ = Describe("K8sPolicyTest", func() {
 
 			Expect(kubectl.WaitForEnforcingCNP("l7-policy", "default")).To(BeNil(), "CNP is not in enforcing mode after timeout")
 
-			_, err = kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, l7Policy,
-				helpers.KubectlDelete, helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), "Cannot delete L7 Policy")
-
 			res = kubectl.ExecPodCmd(
 				helpers.DefaultNamespace, appPods[helpers.App3],
 				helpers.CurlFail("http://%s/public", clusterIP))
