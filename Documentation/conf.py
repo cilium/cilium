@@ -68,6 +68,7 @@ author = u'Cilium Authors'
 release = open("../VERSION", "r").read().strip()
 # Used by version warning
 versionwarning_project_version = open("../VERSION", "r").read().strip()
+versionwarning_api_url='http://localhost:8000/api/v2/'
 
 # Fetch the docs version from an environment variable.
 # Map latest -> master.
