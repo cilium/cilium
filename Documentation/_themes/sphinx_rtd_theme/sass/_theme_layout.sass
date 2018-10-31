@@ -1,3 +1,7 @@
+// Set uniform (but not relative) base font size
+html
+  font-size: $base-font-size
+
 .wy-affix
   position: fixed
   top: $gutter
@@ -25,6 +29,7 @@
 
 .wy-menu-vertical
   width: $nav-desktop-width
+
   header, p.caption
     height: $base-font-size * 2
     display: inline-block
@@ -35,7 +40,6 @@
     font-weight: bold
     text-transform: uppercase
     font-size: 80%
-    color: $menu-dark
     white-space: nowrap
 
   ul
@@ -78,8 +82,6 @@
     position: relative
     background: $menu-vertical-background-color
     border: none
-    border-bottom: solid 1px darken($menu-vertical-background-color, 20%)
-    border-top: solid 1px darken($menu-vertical-background-color, 20%)
     padding-left: $gutter -4px
     +font-smooth
     &:hover
@@ -94,7 +96,13 @@
       line-height: 1.6em
       color: darken($menu-link-medium, 30%)
 
+  li.toctree-l1.current > a
+    border-bottom: solid 1px darken($menu-vertical-background-color, 20%)
+    border-top: solid 1px darken($menu-vertical-background-color, 20%)
+
   // This is the on state for pages beyond second level
+  li.toctree-l2 a, li.toctree-l3 a, li.toctree-l4 a
+    color: $menu-link-color
   li.toctree-l1.current li.toctree-l2, li.toctree-l2.current li.toctree-l3
     > ul
       display: none
@@ -123,8 +131,6 @@
         display: block
         background: darken($menu-vertical-background-color, 25%)
         padding: $gutter / 4 $gutter * 3.5
-        border-top: none
-        border-bottom: none
     a:hover span.toctree-expand
       color: $menu-link-medium
     span.toctree-expand
@@ -137,9 +143,6 @@
   li ul
     margin-bottom: 0
     display: none
-  .local-toc
-    li ul
-      display: block
   li ul li a
     margin-bottom: 0
     color: $menu-link-light
@@ -247,9 +250,7 @@
 
 
 .wy-body-for-nav
-  background: left repeat-y $section-background-color
-  background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAyRpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDUuMy1jMDExIDY2LjE0NTY2MSwgMjAxMi8wMi8wNi0xNDo1NjoyNyAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RSZWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZVJlZiMiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIENTNiAoTWFjaW50b3NoKSIgeG1wTU06SW5zdGFuY2VJRD0ieG1wLmlpZDoxOERBMTRGRDBFMUUxMUUzODUwMkJCOThDMEVFNURFMCIgeG1wTU06RG9jdW1lbnRJRD0ieG1wLmRpZDoxOERBMTRGRTBFMUUxMUUzODUwMkJCOThDMEVFNURFMCI+IDx4bXBNTTpEZXJpdmVkRnJvbSBzdFJlZjppbnN0YW5jZUlEPSJ4bXAuaWlkOjE4REExNEZCMEUxRTExRTM4NTAyQkI5OEMwRUU1REUwIiBzdFJlZjpkb2N1bWVudElEPSJ4bXAuZGlkOjE4REExNEZDMEUxRTExRTM4NTAyQkI5OEMwRUU1REUwIi8+IDwvcmRmOkRlc2NyaXB0aW9uPiA8L3JkZjpSREY+IDwveDp4bXBtZXRhPiA8P3hwYWNrZXQgZW5kPSJyIj8+EwrlwAAAAA5JREFUeNpiMDU0BAgwAAE2AJgB9BnaAAAAAElFTkSuQmCC)
-  background-size: $nav-desktop-width 1px
+  background: $section-background-color
 
 .wy-grid-for-nav
   position: absolute
@@ -266,6 +267,7 @@
   overflow-x: hidden
   overflow-y: hidden
   min-height: 100%
+  color: $menu-medium
   background: $nav-background-color
   z-index: $z-index-popover
 
@@ -311,7 +313,7 @@
 .wy-nav-content
   padding: $gutter $gutter * 2
   height: 100%
-  max-width: 800px
+  max-width: $nav-content-width
   margin: auto
 
 .wy-body-mask
@@ -392,7 +394,7 @@ footer
       height: 100%
       overflow: hidden
 
-+media($desktop-wider)
+@media screen and (min-width: $nav-media-query)
   .wy-nav-content-wrap
     background: rgba(0,0,0,.05)
   .wy-nav-content

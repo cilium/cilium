@@ -1,15 +1,7 @@
-sphinx_rtd_theme/static/fonts/Inconsolata-Bold.ttf
-sphinx_rtd_theme/static/fonts/Lato-Bold.ttf
-sphinx_rtd_theme/static/fonts/Inconsolata.ttf
-sphinx_rtd_theme/static/fonts/Lato-Regular.ttf
+sphinx_rtd_theme/static/fonts/Lato/*
 
-
-
-Copyright (c) <dates>, <Copyright Holder> (<URL|email>),
-with Reserved Font Name <Reserved Font Name>.
-Copyright (c) <dates>, <additional Copyright Holder> (<URL|email>),
-with Reserved Font Name <additional Reserved Font Name>.
-Copyright (c) <dates>, <additional Copyright Holder> (<URL|email>).
+Copyright (c) 2010-2015, Łukasz Dziedzic (dziedzic@typoland.com),
+with Reserved Font Name Lato.
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:

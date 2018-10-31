@@ -5,7 +5,6 @@
   width: $nav-desktop-width
   color: $section-background-color
   background: darken($menu-background-color, 8%)
-  border-top: solid 10px $menu-background-color
   font-family: $base-font-family
   z-index: $z-index-tray
   a
@@ -34,6 +33,9 @@
     &.rst-active-old-version
       background-color: $yellow
       color: $black
+  &.shift-up
+    height: auto
+    max-height: 100%
   &.shift-up .rst-other-versions
     display: block
   .rst-other-versions

@@ -1,0 +1,15 @@
+# Document global line endings settings
+# https://help.github.com/articles/dealing-with-line-endings/
+*       text eol=lf
+
+
+# Denote all files that are truly binary and should not be modified.
+*.ai    binary
+*.jpg   binary
+*.otf   binary
+*.png   binary
+*.eot   binary
+*.ttf   binary
+*.whl   binary
+*.woff  binary
+*.woff2 binary

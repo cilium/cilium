@@ -17,15 +17,14 @@
   // Sphinx by default applies HxW style attributes to images. This fixes that oversite.
   img
     max-width: 100%
-    height: auto !important
-
-  .highlight > pre, .linenodiv > pre
-    line-height: normal
+    height: auto
 
   div.figure
     margin-bottom: $base-line-height
     p.caption
       font-style: italic
+    p:last-child.caption
+      margin-bottom: 0px
 
   div.figure.align-center
     text-align: center
@@ -33,13 +32,19 @@
   // Usually it's a good idea to give images some space.
   .section > img,   .section > a > img
     margin-bottom: $base-line-height
-  // Questionable whether this is nice or not. It styles eternal links, but comes with some baggage.
-  // a.reference.external:after
-  //   font-family: FontAwesome
-  //   content: " \f08e "
-  //   color: $text-light
-  //   vertical-align: super
-  //   font-size: 60%
+
+  // normalize browser styling
+  abbr[title]
+    text-decoration: none
+
+  // Style external links
+  &.style-external-links a.reference.external:after
+    font-family: FontAwesome
+    content: "\f08e"
+    color: $text-light
+    vertical-align: super
+    font-size: 60%
+    margin: 0 0.2em
 
   // For the most part, its safe to assume that sphinx wants you to use a blockquote as an indent. It gets
   // used in many different ways, so don't assume you can apply some fancy style, just leave it be.
@@ -47,8 +52,53 @@
     margin-left: $base-line-height
     line-height: $base-line-height
     margin-bottom: $base-line-height
-  .literal-block, pre.literal-block
-    @extend .codeblock
+
+  pre.literal-block
+    white-space: pre
+    margin: 0
+    padding: $base-line-height / 2 $base-line-height / 2
+    font-family: $code-font-family
+    display: block
+    overflow: auto
+  pre.literal-block, div[class^='highlight']
+    border: 1px solid $table-border-color
+    overflow-x: auto
+    // 1px hack otherwise border won't show. lame
+    margin: 1px 0 $base-line-height 0
+    div[class^='highlight']
+      padding: 0px
+      border: none
+      margin: 0
+  // Needs 100% width for line highlighting to work properly
+  div[class^='highlight'] td.code
+    width: 100%
+  .linenodiv pre
+    border-right: solid 1px lighten($table-border-color, 2%)
+    margin: 0
+    padding: $base-line-height / 2 $base-line-height / 2
+    font-family: $code-font-family
+    user-select: none
+    pointer-events: none
+  div[class^='highlight'] pre
+    white-space: pre
+    margin: 0
+    padding: $base-line-height / 2 $base-line-height / 2
+    display: block
+    overflow: auto
+    & .hll
+      // Line emphasis spans full width
+      display: block
+      margin: 0 -1 * $base-line-height / 2
+      padding: 0 $base-line-height / 2
+  pre.literal-block, div[class^='highlight'] pre, .linenodiv pre
+    font-family: $code-font-family
+    font-size: 12px
+    line-height: 1.4
+
+  @media print
+    .codeblock, div[class^='highlight'], div[class^='highlight'] pre
+      white-space: pre-wrap
+
   // These are the various note pullouts that sphinx applies
   .note, .attention, .caution, .danger, .error, .hint, .important, .tip, .warning, .seealso, .admonition-todo, .admonition
     @extend .wy-alert
@@ -84,8 +134,15 @@
     @extend .wy-plain-list-decimal
   .section ol p, .section ul p
     margin-bottom: $base-line-height / 2
+    &:last-child
+      margin-bottom: $base-line-height
   .line-block
+    margin-left: 0px
+    margin-bottom: $base-line-height
+    line-height: $base-line-height
+  .line-block .line-block
     margin-left: $base-line-height
+    margin-bottom: 0px
 
   // Generics handling of headings and toc stuff.
   .topic-title
@@ -101,24 +158,26 @@
     margin: 0px $base-line-height $base-line-height 0px
   .align-center
     margin: auto
-    display: block
+    // Do not override display:table for tables
+    &:not(table)
+      display: block
   .toctree-wrapper p.caption
     @extend h2
 
   // This is the #href that shows up on hover. Sphinx's is terrible so I hack it away.
-  h1, h2, h3, h4, h5, h6, dl dt, p.caption
+  h1, h2, h3, h4, h5, h6, dl dt, p.caption, table > caption
     .headerlink
-      display: none
       visibility: hidden
       font-size: 14px
       @extend .fa
       &:after
-        visibility: visible
         content: "\f0c1"
         font-family: FontAwesome
-        display: inline-block
-    &:hover .headerlink
-      display: inline-block
+    &:hover .headerlink:after
+      visibility: visible
+
+  table > caption .headerlink:after
+    font-size: 12px
 
   .centered
     text-align: center
@@ -155,7 +214,10 @@
 
   // These are the little citation links [1] that show up within paragraphs.
   .footnote-reference, .citation-reference
-    vertical-align: super
+    vertical-align: baseline
+    position: relative
+    top: -0.4em
+    line-height: 0
     font-size: 90%
 
   // Tables! Sphinx LOVES TABLES. Most of wyrm assumes you're only going to use a table as a table
@@ -174,11 +236,27 @@
       vertical-align: top
     code
       color: $gray
+  // Remove the large vertical space between citations and footnotes
+  .wy-table-responsive.citation, .wy-table-responsive.footnote
+    margin-bottom: 0
+  // Re-add vertical space to element directly following citation and footnotes,
+  // if the following element is of a different type
+  .wy-table-responsive.citation + :not(.citation),
+  .wy-table-responsive.footnote + :not(.footnote)
+    margin-top: $base-line-height
+  // Re-add vertical space after citation and footnotes if it is the last child of a parent
+  .wy-table-responsive.citation:last-child, .wy-table-responsive.footnote:last-child
+    margin-bottom: $base-line-height
   table.docutils
     @extend .wy-table
     @extend .wy-table-bordered-all
+    th
+      border-color: $table-border-color
     &:not(.field-list)
       @extend .wy-table-striped
+    // Remove bottom margin for the last element (and it's last child)
+    td .last, td .last :last-child
+      margin-bottom: 0
   // This table is what gets spit out for auto-generated API stuff. I style it smaller bits of padding.
   table.field-list
     @extend .wy-table
@@ -198,6 +276,7 @@
   tt, code
     @extend code
     color: $black
+    font-family: $code-font-family
     padding: 2px 5px
     big, em
       font-size: 100% !important
@@ -208,6 +287,8 @@
     &.xref, a &
       font-weight: bold
       color: $text-codexref-color
+  pre, kbd, samp
+    font-family: $code-font-family
   // If the literal is inside an a tag, let's color it like a link
   a tt, a code
     color: $link-color
@@ -215,12 +296,14 @@
     margin-bottom: $base-line-height
     dt
       font-weight: bold
+      margin-bottom: $base-line-height / 2
     // Most of the content within these dls are one liners, so I halve the normal margins.
     p, table, ul, ol
       margin-bottom: $base-line-height / 2 !important
     // rST seems to want dds to be treated as the browser would, indented.
     dd
       margin: 0  0 $base-line-height / 2 $base-line-height
+      line-height: $base-line-height
   // This is what Sphinx spits out for it's autodocs. Depending upon what language the person is referencing
   // these things usually have a class of "method" or "class" or something similar, but really who knows.
   // Sphinx doesn't give me a generic class on these, so unfortunately I have to apply it to the root dl.

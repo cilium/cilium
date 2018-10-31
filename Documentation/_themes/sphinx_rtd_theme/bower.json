@@ -1,9 +1,9 @@
 {
   "name": "sphinx-rtd-theme",
-  "version": "0.2.4",
+  "version": "0.4.2",
   "homepage": "https://github.com/rtfd/sphinx_rtd_theme",
   "authors": [
-    "Dave Snider <dave.snider@gmail.com>"
+    "Dave Snider, Read the Docs, Inc. & contributors <dev@readthedocs.org>"
   ],
   "description": "Sphinx theme for readthedocs.org.",
   "license": "MIT",
@@ -12,7 +12,6 @@
   ],
   "ignore": [
     "docs",
-    "demo_docs",
     ".gitignore",
     ".DS_Store",
     ".sass-cache*",
@@ -30,9 +29,6 @@
     "wyrm": "~1.0.x"
   },
   "dependencies": {
-    "lato-googlefont": "*",
-    "robotoslab-googlefont": "*",
-    "inconsolata-googlefont": "*",
     "font-awesome": "~4.7"
   },
   "resolutions": {

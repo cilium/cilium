@@ -1,5 +1,4 @@
-sphinx_rtd_theme/static/fonts/RobotoSlab-Bold.ttf
-sphinx_rtd_theme/static/fonts/RobotoSlab-Regular.tt/
+/fonts/RobotoSlab/*
 
 
                                  Apache License

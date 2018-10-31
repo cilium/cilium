@@ -5,7 +5,7 @@ From https://github.com/ryan-roemer/sphinx-bootstrap-theme.
 """
 from os import path
 
-__version__ = '0.2.5b1'
+__version__ = '0.4.2'
 __version_full__ = __version__
 
 

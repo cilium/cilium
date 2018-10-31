@@ -33,48 +33,44 @@
   {# OPENSEARCH #}
   {% if not embedded %}
     {% if use_opensearch %}
-      <link rel="search" type="application/opensearchdescription+xml" title="{% trans docstitle=docstitle|e %}Search within {{ docstitle }}{% endtrans %}" href="{{ pathto('_static/opensearch.xml', 1) }}"/>
+      <link rel="search" type="application/opensearchdescription+xml"
+            title="{% trans docstitle=docstitle|e %}Search within {{ docstitle }}{% endtrans %}"
+            href="{{ pathto('_static/opensearch.xml', 1) }}"/>
     {% endif %}
 
   {% endif %}
 
-  {# RTD hosts this file, so just load on non RTD builds #}
-  {% if not READTHEDOCS %}
-    <link rel="stylesheet" href="{{ pathto('_static/' + style, 1) }}" type="text/css" />
-  {% endif %}
-
-  {% for cssfile in css_files %}
+  <link rel="stylesheet" href="{{ pathto('_static/' + style, 1) }}" type="text/css" />
+  <link rel="stylesheet" href="{{ pathto('_static/pygments.css', 1) }}" type="text/css" />
+  {%- for css in css_files %}
+    {%- if css|attr("rel") %}
+  <link rel="{{ css.rel }}" href="{{ pathto(css.filename, 1) }}" type="text/css"{% if css.title is not none %} title="{{ css.title }}"{% endif %} />
+    {%- else %}
+  <link rel="stylesheet" href="{{ pathto(css, 1) }}" type="text/css" />
+    {%- endif %}
+  {%- endfor %}
+  {%- for cssfile in extra_css_files %}
     <link rel="stylesheet" href="{{ pathto(cssfile, 1) }}" type="text/css" />
-  {% endfor %}
-
-  {% for cssfile in extra_css_files %}
-    <link rel="stylesheet" href="{{ pathto(cssfile, 1) }}" type="text/css" />
-  {% endfor %}
+  {%- endfor %}
 
   {%- block linktags %}
     {%- if hasdoc('about') %}
-        <link rel="author" title="{{ _('About these documents') }}"
-              href="{{ pathto('about') }}"/>
+    <link rel="author" title="{{ _('About these documents') }}" href="{{ pathto('about') }}" />
     {%- endif %}
     {%- if hasdoc('genindex') %}
-        <link rel="index" title="{{ _('Index') }}"
-              href="{{ pathto('genindex') }}"/>
+    <link rel="index" title="{{ _('Index') }}" href="{{ pathto('genindex') }}" />
     {%- endif %}
     {%- if hasdoc('search') %}
-        <link rel="search" title="{{ _('Search') }}" href="{{ pathto('search') }}"/>
+    <link rel="search" title="{{ _('Search') }}" href="{{ pathto('search') }}" />
     {%- endif %}
     {%- if hasdoc('copyright') %}
-        <link rel="copyright" title="{{ _('Copyright') }}" href="{{ pathto('copyright') }}"/>
-    {%- endif %}
-    <link rel="top" title="{{ docstitle|e }}" href="{{ pathto('index') }}"/>
-    {%- if parents %}
-        <link rel="up" title="{{ parents[-1].title|striptags|e }}" href="{{ parents[-1].link|e }}"/>
+    <link rel="copyright" title="{{ _('Copyright') }}" href="{{ pathto('copyright') }}" />
     {%- endif %}
     {%- if next %}
-        <link rel="next" title="{{ next.title|striptags|e }}" href="{{ next.link|e }}"/>
+    <link rel="next" title="{{ next.title|striptags|e }}" href="{{ next.link|e }}" />
     {%- endif %}
     {%- if prev %}
-        <link rel="prev" title="{{ prev.title|striptags|e }}" href="{{ prev.link|e }}"/>
+    <link rel="prev" title="{{ prev.title|striptags|e }}" href="{{ prev.link|e }}" />
     {%- endif %}
   {%- endblock %}
   {%- block extrahead %} {% endblock %}
@@ -84,7 +80,7 @@
 
 </head>
 
-<body class="wy-body-for-nav" role="document">
+<body class="wy-body-for-nav">
 
   {% block extrabody %} {% endblock %}
   <div class="wy-grid-for-nav">
@@ -102,8 +98,10 @@
           {% endif %}
 
           {% if logo %}
-            {# Not strictly valid HTML, but it's the only way to display/scale it properly, without weird scripting or heaps of work #}
-            <img src="{{ pathto('_static/' + logo, 1) }}" class="logo" />
+            {# Not strictly valid HTML, but it's the only way to display/scale
+               it properly, without weird scripting or heaps of work
+            #}
+            <img src="{{ pathto('_static/' + logo, 1) }}" class="logo" alt="Logo"/>
           {% endif %}
           </a>
 
@@ -114,11 +112,7 @@
             {% endif %}
             {% if nav_version %}
               <div class="version">
-                {% if nav_version == 'stable' %}
-                {{ nav_version }} ({{ release }})
-                {% else %}
                 {{ nav_version }}
-                {% endif %}
               </div>
             {% endif %}
           {% endif %}
@@ -135,7 +129,10 @@
               toctree is empty. Skip building this for now.
             #}
             {% if 'singlehtml' not in builder %}
-              {% set global_toc = toctree(maxdepth=theme_navigation_depth|int, collapse=theme_collapse_navigation, includehidden=True) %}
+              {% set global_toc = toctree(maxdepth=theme_navigation_depth|int,
+                                          collapse=theme_collapse_navigation|tobool,
+                                          includehidden=theme_includehidden|tobool,
+                                          titles_only=theme_titles_only|tobool) %}
             {% endif %}
             {% if global_toc %}
               {{ global_toc }}
@@ -151,7 +148,7 @@
     <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
 
       {# MOBILE NAV, TRIGGLES SIDE NAV ON TOGGLE #}
-      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+      <nav class="wy-nav-top" aria-label="top navigation">
         {% block mobile_nav %}
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
           <a href="{{ pathto(master_doc) }}">{{ project }}</a>
@@ -159,20 +156,29 @@
       </nav>
 
 
-      {# PAGE CONTENT #}
       <div class="wy-nav-content">
+      {%- block content %}
+        {% if theme_style_external_links|tobool %}
+        <div class="rst-content style-external-links">
+        {% else %}
         <div class="rst-content">
+        {% endif %}
           {% include "breadcrumbs.html" %}
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+          {%- block document %}
            <div itemprop="articleBody">
             {% block body %}{% endblock %}
            </div>
+           {% if self.comments()|trim %}
            <div class="articleComments">
             {% block comments %}{% endblock %}
            </div>
+           {% endif%}
           </div>
+          {%- endblock %}
           {% include "footer.html" %}
         </div>
+      {%- endblock %}
       </div>
 
     </section>
@@ -182,36 +188,38 @@
 
   {% if not embedded %}
 
-    <script type="text/javascript">
-        var DOCUMENTATION_OPTIONS = {
-            URL_ROOT:'{{ url_root }}',
-            VERSION:'{{ release|e }}',
-            LANGUAGE:'{{ language }}',
-            COLLAPSE_INDEX:false,
-            FILE_SUFFIX:'{{ '' if no_search_suffix else file_suffix }}',
-            HAS_SOURCE:  {{ has_source|lower }},
-            SOURCELINK_SUFFIX: '{{ sourcelink_suffix }}'
-        };
-    </script>
-    {%- for scriptfile in script_files %}
-      <script type="text/javascript" src="{{ pathto(scriptfile, 1) }}"></script>
-    {%- endfor %}
+    {# XXX Sphinx 1.8.0 made this an external js-file, quick fix until we refactor the template to inherert more blocks directly from sphinx #}
+    {% if sphinx_version >= "1.8.0" %}
+      <script type="text/javascript" id="documentation_options" data-url_root="{{ pathto('', 1) }}" src="{{ pathto('_static/documentation_options.js', 1) }}"></script>
+      {%- for scriptfile in script_files %}
+        {{ js_tag(scriptfile) }}
+      {%- endfor %}
+    {% else %}
+      <script type="text/javascript">
+          var DOCUMENTATION_OPTIONS = {
+              URL_ROOT:'{{ url_root }}',
+              VERSION:'{{ release|e }}',
+              LANGUAGE:'{{ language }}',
+              COLLAPSE_INDEX:false,
+              FILE_SUFFIX:'{{ '' if no_search_suffix else file_suffix }}',
+              HAS_SOURCE:  {{ has_source|lower }},
+              SOURCELINK_SUFFIX: '{{ sourcelink_suffix }}'
+          };
+      </script>
+      {%- for scriptfile in script_files %}
+        <script type="text/javascript" src="{{ pathto(scriptfile, 1) }}"></script>
+      {%- endfor %}
+    {% endif %}
 
   {% endif %}
 
-  {# RTD hosts this file, so just load on non RTD builds #}
-  {% if not READTHEDOCS %}
-    <script type="text/javascript" src="{{ pathto('_static/js/theme.js', 1) }}"></script>
-  {% endif %}
+  <script type="text/javascript" src="{{ pathto('_static/js/theme.js', 1) }}"></script>
 
-  {# STICKY NAVIGATION #}
-  {% if theme_sticky_navigation %}
   <script type="text/javascript">
       jQuery(function () {
-          SphinxRtdTheme.StickyNav.enable();
+          SphinxRtdTheme.Navigation.enable({{ 'true' if theme_sticky_navigation|tobool else 'false' }});
       });
   </script>
-  {% endif %}
 
   {%- block footer %} {% endblock %}
 
