@@ -15,11 +15,13 @@
 package k8s
 
 import (
+	"fmt"
 	"net"
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
@@ -27,6 +29,22 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
+
+// ParseNodeAddressType converts a Kubernetes NodeAddressType to a Cilium
+// NodeAddressType. If the Kubernetes NodeAddressType does not have a
+// corresponding Cilium AddressType, returns an error.
+func ParseNodeAddressType(k8sAddress v1.NodeAddressType) (addressing.AddressType, error) {
+
+	var err error
+	convertedAddr := addressing.AddressType(k8sAddress)
+
+	switch convertedAddr {
+	case addressing.NodeExternalDNS, addressing.NodeExternalIP, addressing.NodeHostName, addressing.NodeInternalIP, addressing.NodeInternalDNS:
+	default:
+		err = fmt.Errorf("invalid Kubernetes NodeAddressType %s", convertedAddr)
+	}
+	return convertedAddr, err
+}
 
 // ParseNode parses a kubernetes node to a cilium node
 func ParseNode(k8sNode *v1.Node, source node.Source) *node.Node {
@@ -51,9 +69,16 @@ func ParseNode(k8sNode *v1.Node, source node.Source) *node.Node {
 			}).Warn("Ignoring invalid node IP")
 			continue
 		}
+
+		addressType, err := ParseNodeAddressType(addr.Type)
+
+		if err != nil {
+			scopedLog.WithError(err).Warn("invalid address type for node")
+		}
+
 		na := node.Address{
-			AddressType: addr.Type,
-			IP:          ip,
+			Type: addressType,
+			IP:   ip,
 		}
 		addrs = append(addrs, na)
 	}

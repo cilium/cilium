@@ -21,7 +21,6 @@ import (
 	"testing"
 
 	. "gopkg.in/check.v1"
-	"k8s.io/api/core/v1"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -37,34 +36,34 @@ func (s *NodeSuite) TestGetNodeIP(c *C) {
 	n := Node{
 		Name: "node-1",
 		IPAddresses: []Address{
-			{IP: net.ParseIP("192.0.2.3"), AddressType: v1.NodeExternalIP},
+			{IP: net.ParseIP("192.0.2.3"), Type: NodeExternalIP},
 		},
 	}
 	ip := n.GetNodeIP(false)
 	// Return the only IP present
 	c.Assert(ip.Equal(net.ParseIP("192.0.2.3")), Equals, true)
 
-	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("192.0.2.3"), AddressType: v1.NodeExternalIP})
+	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("192.0.2.3"), Type: NodeExternalIP})
 	ip = n.GetNodeIP(false)
 	// The next priority should be NodeExternalIP
 	c.Assert(ip.Equal(net.ParseIP("192.0.2.3")), Equals, true)
 
-	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("198.51.100.2"), AddressType: v1.NodeInternalIP})
+	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("198.51.100.2"), Type: NodeInternalIP})
 	ip = n.GetNodeIP(false)
 	// The next priority should be NodeInternalIP
 	c.Assert(ip.Equal(net.ParseIP("198.51.100.2")), Equals, true)
 
-	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("2001:DB8::1"), AddressType: v1.NodeExternalIP})
+	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("2001:DB8::1"), Type: NodeExternalIP})
 	ip = n.GetNodeIP(true)
 	// The next priority should be NodeExternalIP and IPv6
 	c.Assert(ip.Equal(net.ParseIP("2001:DB8::1")), Equals, true)
 
-	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("2001:DB8::2"), AddressType: v1.NodeInternalIP})
+	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("2001:DB8::2"), Type: NodeInternalIP})
 	ip = n.GetNodeIP(true)
 	// The next priority should be NodeInternalIP and IPv6
 	c.Assert(ip.Equal(net.ParseIP("2001:DB8::2")), Equals, true)
 
-	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("198.51.100.2"), AddressType: v1.NodeInternalIP})
+	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("198.51.100.2"), Type: NodeInternalIP})
 	ip = n.GetNodeIP(false)
 	// Should still return NodeInternalIP and IPv4
 	c.Assert(ip.Equal(net.ParseIP("198.51.100.2")), Equals, true)
@@ -109,7 +108,7 @@ func (s *NodeSuite) TestPublicAttrEquals(c *C) {
 				IPv6HealthIP:  net.ParseIP("fd00::1"),
 				ClusterID:     1,
 				Source:        FromKubernetes,
-				IPAddresses:   []Address{{IP: net.ParseIP("1.1.1.1"), AddressType: v1.NodeHostName}},
+				IPAddresses:   []Address{{IP: net.ParseIP("1.1.1.1"), Type: NodeHostName}},
 				IPv4AllocCIDR: &net.IPNet{IP: net.ParseIP("1.1.1.1"), Mask: net.IPv4Mask(0xff, 0xff, 0xff, 0)},
 				IPv6AllocCIDR: &net.IPNet{IP: net.ParseIP("fd00::1"), Mask: net.CIDRMask(64, 128)},
 			},
@@ -121,7 +120,7 @@ func (s *NodeSuite) TestPublicAttrEquals(c *C) {
 					IPv6HealthIP:  net.ParseIP("fd00::1"),
 					ClusterID:     1,
 					Source:        FromKubernetes,
-					IPAddresses:   []Address{{IP: net.ParseIP("1.1.1.1"), AddressType: v1.NodeHostName}},
+					IPAddresses:   []Address{{IP: net.ParseIP("1.1.1.1"), Type: NodeHostName}},
 					IPv4AllocCIDR: &net.IPNet{IP: net.ParseIP("1.1.1.1"), Mask: net.IPv4Mask(0xff, 0xff, 0xff, 0)},
 					IPv6AllocCIDR: &net.IPNet{IP: net.ParseIP("fd00::1"), Mask: net.CIDRMask(64, 128)},
 				},
@@ -137,7 +136,7 @@ func (s *NodeSuite) TestPublicAttrEquals(c *C) {
 				IPv6HealthIP:  net.ParseIP("fd00::1"),
 				ClusterID:     1,
 				Source:        FromKubernetes,
-				IPAddresses:   []Address{{IP: net.ParseIP("1.1.1.1"), AddressType: v1.NodeHostName}},
+				IPAddresses:   []Address{{IP: net.ParseIP("1.1.1.1"), Type: NodeHostName}},
 				IPv4AllocCIDR: &net.IPNet{IP: net.ParseIP("1.1.1.1"), Mask: net.IPv4Mask(0xff, 0xff, 0xff, 0)},
 				IPv6AllocCIDR: &net.IPNet{IP: net.ParseIP("fd00::1"), Mask: net.CIDRMask(64, 128)},
 			},
@@ -164,7 +163,7 @@ func (s *NodeSuite) TestPublicAttrEquals(c *C) {
 				IPv6HealthIP:  net.ParseIP("fd00::1"),
 				ClusterID:     1,
 				Source:        FromKubernetes,
-				IPAddresses:   []Address{{IP: net.ParseIP("1.1.1.1"), AddressType: v1.NodeHostName}},
+				IPAddresses:   []Address{{IP: net.ParseIP("1.1.1.1"), Type: NodeHostName}},
 				IPv4AllocCIDR: &net.IPNet{IP: net.ParseIP("1.1.1.1"), Mask: net.IPv4Mask(0xff, 0xff, 0xff, 0)},
 				IPv6AllocCIDR: &net.IPNet{IP: net.ParseIP("fd00::1"), Mask: net.CIDRMask(64, 128)},
 			},
@@ -176,7 +175,7 @@ func (s *NodeSuite) TestPublicAttrEquals(c *C) {
 					IPv6HealthIP:  net.ParseIP("fd00::1"),
 					ClusterID:     1,
 					Source:        FromKubernetes,
-					IPAddresses:   []Address{{IP: net.ParseIP("1.1.1.0"), AddressType: v1.NodeHostName}},
+					IPAddresses:   []Address{{IP: net.ParseIP("1.1.1.0"), Type: NodeHostName}},
 					IPv6AllocCIDR: &net.IPNet{IP: net.ParseIP("fd00::1"), Mask: net.CIDRMask(64, 128)},
 				},
 			},
@@ -191,7 +190,7 @@ func (s *NodeSuite) TestPublicAttrEquals(c *C) {
 				IPv6HealthIP:  net.ParseIP("fd00::1"),
 				ClusterID:     1,
 				Source:        FromKubernetes,
-				IPAddresses:   []Address{{IP: net.ParseIP("1.1.1.1"), AddressType: v1.NodeHostName}},
+				IPAddresses:   []Address{{IP: net.ParseIP("1.1.1.1"), Type: NodeHostName}},
 				IPv4AllocCIDR: &net.IPNet{IP: net.ParseIP("1.1.1.1"), Mask: net.IPv4Mask(0xff, 0xff, 0xff, 0)},
 				IPv6AllocCIDR: &net.IPNet{IP: net.ParseIP("fd00::1"), Mask: net.CIDRMask(64, 128)},
 			},
@@ -203,7 +202,7 @@ func (s *NodeSuite) TestPublicAttrEquals(c *C) {
 					IPv6HealthIP:  net.ParseIP("fd00::1"),
 					ClusterID:     1,
 					Source:        FromKubernetes,
-					IPAddresses:   []Address{{IP: net.ParseIP("1.1.1.0"), AddressType: v1.NodeHostName}},
+					IPAddresses:   []Address{{IP: net.ParseIP("1.1.1.0"), Type: NodeHostName}},
 					IPv4AllocCIDR: &net.IPNet{IP: net.ParseIP("1.1.1.1"), Mask: net.IPv4Mask(0xff, 0xff, 0xff, 0)},
 				},
 			},
@@ -218,7 +217,7 @@ func (s *NodeSuite) TestPublicAttrEquals(c *C) {
 				IPv6HealthIP:  net.ParseIP("fd00::1"),
 				ClusterID:     1,
 				Source:        FromKubernetes,
-				IPAddresses:   []Address{{IP: net.ParseIP("1.1.1.1"), AddressType: v1.NodeHostName}},
+				IPAddresses:   []Address{{IP: net.ParseIP("1.1.1.1"), Type: NodeHostName}},
 				IPv4AllocCIDR: &net.IPNet{IP: net.ParseIP("1.1.1.1"), Mask: net.IPv4Mask(0xff, 0xff, 0xff, 0)},
 				IPv6AllocCIDR: &net.IPNet{IP: net.ParseIP("fd00::1"), Mask: net.CIDRMask(64, 128)},
 			},
@@ -229,7 +228,7 @@ func (s *NodeSuite) TestPublicAttrEquals(c *C) {
 					IPv6HealthIP:  net.ParseIP("fd00::1"),
 					ClusterID:     1,
 					Source:        FromKubernetes,
-					IPAddresses:   []Address{{IP: net.ParseIP("1.1.1.0"), AddressType: v1.NodeHostName}},
+					IPAddresses:   []Address{{IP: net.ParseIP("1.1.1.0"), Type: NodeHostName}},
 					IPv4AllocCIDR: &net.IPNet{IP: net.ParseIP("1.1.1.1"), Mask: net.IPv4Mask(0xff, 0xff, 0xff, 0)},
 					IPv6AllocCIDR: &net.IPNet{IP: net.ParseIP("fd00::1"), Mask: net.CIDRMask(64, 128)},
 				},
