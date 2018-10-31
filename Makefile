@@ -19,6 +19,8 @@ GOTEST_BASE = -test.v -check.vv -timeout 360s
 GOTEST_PRIV_OPTS = $(GOTEST_BASE) -tags=privileged_tests
 GOTEST_COVER_OPTS = -coverprofile=coverage.out -covermode=count -coverpkg $(COVERPKG)
 
+JOB_BASE_NAME ?= cilium_test
+
 UTC_DATE=$(shell date -u "+%Y-%m-%d")
 
 SKIP_DOCS ?= false
@@ -32,19 +34,19 @@ $(SUBDIRS): force
 	@ $(MAKE) -C $@ all
 
 jenkins-precheck:
-	docker-compose -f test/docker-compose.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER run --rm precheck
+	docker-compose -f test/docker-compose.yml -p $(JOB_BASE_NAME)-$$BUILD_NUMBER run --rm precheck
 
 # invoked from ginkgo Jenkinsfile
 tests-ginkgo: force
 	# Make the bindata to run the unittest
 	$(MAKE) -C daemon go-bindata
-	docker-compose -f test/docker-compose.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER run --rm test
+	docker-compose -f test/docker-compose.yml -p $(JOB_BASE_NAME)-$$BUILD_NUMBER run --rm test
 	# Remove the networks
-	docker-compose -f test/docker-compose.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER down
+	docker-compose -f test/docker-compose.yml -p $(JOB_BASE_NAME)-$$BUILD_NUMBER down
 
 clean-ginkgo-tests:
-	docker-compose -f test/docker-compose.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER down
-	docker-compose -f test/docker-compose.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER rm
+	docker-compose -f test/docker-compose.yml -p $(JOB_BASE_NAME)-$$BUILD_NUMBER down
+	docker-compose -f test/docker-compose.yml -p $(JOB_BASE_NAME)-$$BUILD_NUMBER rm
 
 TEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyAddress=consul:8500 -X github.com/cilium/cilium/pkg/kvstore.etcdDummyAddress=http://etcd:4002"
 
