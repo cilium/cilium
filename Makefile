@@ -26,7 +26,7 @@ SKIP_DOCS ?= false
 all: precheck build postcheck
 	@echo "Build finished."
 
-build: $(SUBDIRS)
+build: envoy-version-check $(SUBDIRS)
 
 $(SUBDIRS): force
 	@ $(MAKE) -C $@ all
@@ -124,9 +124,12 @@ install:
 GIT_VERSION: .git
 	echo "$(GIT_VERSION)" >GIT_VERSION
 
+envoy-version-check: CILIUM_ENVOY_SHA pkg/envoy/envoy.go
+	grep -e "RequiredEnvoyVersionSHA = \"`cat CILIUM_ENVOY_SHA`\"" pkg/envoy/envoy.go
+
 docker-image: clean docker-image-no-clean
 
-docker-image-no-clean: GIT_VERSION
+docker-image-no-clean: envoy-version-check GIT_VERSION
 	$(QUIET)grep -v -E "GIT_VERSION" .gitignore >.dockerignore
 	$(QUIET)echo ".*" >>.dockerignore # .git pruned out
 	$(QUIET)echo "Documentation" >>.dockerignore # Not needed
@@ -141,16 +144,16 @@ docker-image-runtime:
 docker-image-builder:
 	docker build -t "cilium/cilium-builder:$(UTC_DATE)" -f Dockerfile.builder .
 
-build-deb:
+build-deb: envoy-version-check
 	$(MAKE) -C ./contrib/packaging/deb
 
-build-rpm:
+build-rpm: envoy-version-check
 	$(MAKE) -C ./contrib/packaging/rpm
 
-runtime-tests:
+runtime-tests: envoy-version-check
 	$(MAKE) -C tests runtime-tests
 
-k8s-tests:
+k8s-tests: envoy-version-check
 	$(MAKE) -C tests k8s-tests
 
 generate-api: api/v1/openapi.yaml
