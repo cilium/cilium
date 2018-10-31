@@ -1,7 +1,7 @@
 include Makefile.defs
 include daemon/bpf.sha
 
-SUBDIRS = proxylib envoy plugins bpf cilium daemon monitor cilium-health bugtool tools
+SUBDIRS = proxylib envoy plugins bpf daemon cilium-health bugtool tools
 GOFILES ?= $(subst _$(ROOT_DIR)/,,$(shell $(GO) list ./... | grep -v -e /vendor/ -e /contrib/))
 TESTPKGS ?= $(subst _$(ROOT_DIR)/,,$(shell $(GO) list ./... | grep -v -e /api/v1 -e /vendor/ -e /contrib/ -e test))
 GOLANGVERSION = $(shell $(GO) version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
