@@ -267,20 +267,17 @@ var _ = Describe("K8sPolicyTest", func() {
 
 			Expect(kubectl.WaitForEnforcingCNP("l7-policy", "default")).To(BeNil(), "CNP is not in enforcing mode after timeout")
 
-			_, err = kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, l7Policy,
-				helpers.KubectlDelete, helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), "Cannot delete L7 Policy")
-
 			res = kubectl.ExecPodCmd(
 				helpers.DefaultNamespace, appPods[helpers.App3],
 				helpers.CurlFail("http://%s/public", clusterIP))
-			res.ExpectSuccess("%q cannot curl to %q public", appPods[helpers.App3], clusterIP)
+			res.ExpectFail("Unexpected connection from %q to 'http://%s/public'",
+				appPods[helpers.App3], clusterIP)
 
 			res = kubectl.ExecPodCmd(
 				helpers.DefaultNamespace, appPods[helpers.App2],
 				helpers.CurlFail("http://%s/public", clusterIP))
-			res.ExpectSuccess("%q cannot curl to %q public", appPods[helpers.App2], clusterIP)
+			res.ExpectFail("Unexpected connection from %q to 'http://%s/public'",
+				appPods[helpers.App2], clusterIP)
 		}, 500)
 
 		It("ServiceAccount Based Enforcement", func() {
