@@ -15,6 +15,7 @@
 package node
 
 import (
+	"encoding/json"
 	"net"
 	"path"
 
@@ -293,4 +294,21 @@ func (n *Node) PublicAttrEquals(o *Node) bool {
 	}
 
 	return false
+}
+
+// GetKeyName returns the kvstore key to be used for the node
+func (n *Node) GetKeyName() string {
+	// WARNING - STABLE API: Changing the structure of the key may break
+	// backwards compatibility
+	return path.Join(n.Cluster, n.Name)
+}
+
+// Marshal returns the node object as JSON byte slice
+func (n *Node) Marshal() ([]byte, error) {
+	return json.Marshal(n)
+}
+
+// Unmarshal parses the JSON byte slice and updates the node receiver
+func (n *Node) Unmarshal(data []byte) error {
+	return json.Unmarshal(data, n)
 }

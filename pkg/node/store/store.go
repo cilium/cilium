@@ -12,15 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package node
+package store
 
 import (
-	"encoding/json"
 	"path"
 	"time"
 
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
+	"github.com/cilium/cilium/pkg/node"
 )
 
 var (
@@ -32,33 +32,18 @@ var (
 
 	// KeyCreator creates a node for a shared store
 	KeyCreator = func() store.Key {
-		n := Node{}
+		n := node.Node{}
 		return &n
 	}
-
-	nodeStore *store.SharedStore
 )
 
-// GetKeyName returns the kvstore key to be used for the node
-func (n *Node) GetKeyName() string {
-	// WARNING - STABLE API: Changing the structure of the key may break
-	// backwards compatibility
-	return path.Join(n.Cluster, n.Name)
+// NodeRegistrar is a wrapper around store.SharedStore.
+type NodeRegistrar struct {
+	*store.SharedStore
 }
 
-// Marshal returns the node object as JSON byte slice
-func (n *Node) Marshal() ([]byte, error) {
-	return json.Marshal(n)
-}
-
-// Unmarshal parses the JSON byte slice and updates the node receiver
-func (n *Node) Unmarshal(data []byte) error {
-	return json.Unmarshal(data, n)
-}
-
-// registerNode registers the local node in the cluster
-func registerNode() error {
-	localNode.getLogger().Info("Adding local node to cluster")
+// RegisterNode registers the local node in the cluster
+func (nr *NodeRegistrar) RegisterNode(n *node.Node) error {
 
 	// Join the shared store holding node information of entire cluster
 	store, err := store.JoinSharedStore(store.Configuration{
@@ -71,12 +56,18 @@ func registerNode() error {
 		return err
 	}
 
-	if err = store.UpdateLocalKeySync(&localNode); err != nil {
+	if err = store.UpdateLocalKeySync(n); err != nil {
 		store.Close()
 		return err
 	}
 
-	nodeStore = store
+	nr.SharedStore = store
 
 	return nil
+}
+
+// UpdateLocalKeySync synchronizes the local key for the node using the
+// SharedStore.
+func (nr *NodeRegistrar) UpdateLocalKeySync(n *node.Node) error {
+	return nr.SharedStore.UpdateLocalKeySync(n)
 }
