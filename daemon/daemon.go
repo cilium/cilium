@@ -71,6 +71,7 @@ import (
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
+	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	policyApi "github.com/cilium/cilium/pkg/policy/api"
@@ -1189,6 +1190,9 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 	// or IPv4 alloc prefix, respectively, retrieved by k8s node annotations.
 	log.Info("Initializing node addressing")
 
+	// Inject kvstore dependency into node pkg.
+	node.NodeReg = &nodeStore.NodeRegistrar{}
+
 	if err := node.AutoComplete(); err != nil {
 		log.WithError(err).Fatal("Cannot autocomplete node addresses")
 	}
@@ -1321,7 +1325,7 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 			clustermesh, err := clustermesh.NewClusterMesh(clustermesh.Configuration{
 				Name:            "clustermesh",
 				ConfigDirectory: path,
-				NodeKeyCreator:  node.KeyCreator,
+				NodeKeyCreator:  nodeStore.KeyCreator,
 			})
 			if err != nil {
 				log.WithError(err).Fatal("Unable to initialize ClusterMesh")
