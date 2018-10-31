@@ -52,8 +52,8 @@ func ParseNode(k8sNode *v1.Node, source node.Source) *node.Node {
 			continue
 		}
 		na := node.Address{
-			AddressType: addr.Type,
-			IP:          ip,
+			Type: node.AddressType(addr.Type),
+			IP:   ip,
 		}
 		addrs = append(addrs, na)
 	}
