@@ -9,6 +9,6 @@ export CGO_CFLAGS="-DCI_BUILD"
 
 make unit-tests
 
-$HOME/gopath/bin/goveralls -coverprofile=coverage-all.out -service=travis-ci -repotoken ${COVERALLS_REPO_TOKEN}
+$HOME/gopath/bin/goveralls -coverprofile=coverage-all.out -service=travis-ci
 
 exit 0
