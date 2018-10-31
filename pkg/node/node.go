@@ -22,8 +22,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/option"
-
-	"k8s.io/api/core/v1"
 )
 
 // Identity represents the node identity of a node.
@@ -88,14 +86,14 @@ func (n *Node) Fullname() string {
 
 // Address is a node address which contains an IP and the address type.
 type Address struct {
-	AddressType v1.NodeAddressType
+	AddressType NodeAddressType
 	IP          net.IP
 }
 
-func (n *Node) getNodeIP(ipv6 bool) (net.IP, v1.NodeAddressType) {
+func (n *Node) getNodeIP(ipv6 bool) (net.IP, NodeAddressType) {
 	var (
 		backupIP net.IP
-		ipType   v1.NodeAddressType
+		ipType   NodeAddressType
 	)
 	for _, addr := range n.IPAddresses {
 		if (ipv6 && addr.IP.To4() != nil) ||
@@ -104,9 +102,9 @@ func (n *Node) getNodeIP(ipv6 bool) (net.IP, v1.NodeAddressType) {
 		}
 		switch addr.AddressType {
 		// Always prefer a cluster internal IP
-		case v1.NodeInternalIP:
+		case NodeInternalIP:
 			return addr.IP, addr.AddressType
-		case v1.NodeExternalIP:
+		case NodeExternalIP:
 			// Fall back to external Node IP
 			// if no internal IP could be found
 			backupIP = addr.IP

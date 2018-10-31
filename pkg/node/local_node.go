@@ -20,8 +20,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/option"
-
-	"k8s.io/api/core/v1"
 )
 
 var (
@@ -52,7 +50,7 @@ func configureLocalNode() {
 		cluster: clusterConf,
 		IPAddresses: []Address{
 			{
-				AddressType: v1.NodeInternalIP,
+				AddressType: NodeInternalIP,
 				IP:          GetExternalIPv4(),
 			},
 		},

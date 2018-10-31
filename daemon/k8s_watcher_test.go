@@ -1017,7 +1017,7 @@ func (ds *DaemonSuite) Test_missingK8sNodeV1(c *C) {
 					Cluster: "default",
 					IPAddresses: []node.Address{
 						{
-							AddressType: core_v1.NodeAddressType(core_v1.NodeInternalIP),
+							AddressType: node.NodeAddressType(core_v1.NodeInternalIP),
 							IP:          net.ParseIP("172.20.0.1"),
 						},
 					},
@@ -1088,7 +1088,7 @@ func (ds *DaemonSuite) Test_missingK8sNodeV1(c *C) {
 					Cluster: "default",
 					IPAddresses: []node.Address{
 						{
-							AddressType: core_v1.NodeAddressType(core_v1.NodeInternalIP),
+							AddressType: node.NodeAddressType(core_v1.NodeInternalIP),
 							IP:          net.ParseIP("172.20.0.1"),
 						},
 					},
