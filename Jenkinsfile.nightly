@@ -99,17 +99,6 @@ pipeline {
                 }
             }
         }
-        stage('Envoy Tests') {
-            steps {
-                 sh 'cd ${TESTDIR}; vagrant up runtime --no-provision'
-                 sh 'cd ${TESTDIR}; ./run-envoy-unit-tests.sh'
-            }
-            post {
-                always {
-                    sh "cd ${TESTDIR}; vagrant destroy -f || true"
-                }
-            }
-        }
     }
     post {
         always {
