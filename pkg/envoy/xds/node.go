@@ -20,7 +20,7 @@ import (
 	"net"
 	"strings"
 
-	envoy_api_v2_core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+	envoy_api_v2_core "github.com/cilium/proxy/go/envoy/api/v2/core"
 )
 
 // NodeToIDFunc extracts a string identifier from an Envoy Node identifier.

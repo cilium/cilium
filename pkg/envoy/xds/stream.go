@@ -19,7 +19,7 @@ import (
 	"io"
 	"time"
 
-	envoy_api_v2 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
+	envoy_api_v2 "github.com/cilium/proxy/go/envoy/api/v2"
 )
 
 // Stream is the subset of the gRPC bi-directional stream types which is used

@@ -20,8 +20,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/cilium/cilium/pkg/envoy/cilium"
-
+	"github.com/cilium/proxy/go/cilium"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -208,7 +207,7 @@ func (connection *Connection) IsInjectBufFull(reply bool) bool {
 	return len(*buf) == cap(*buf)
 }
 
-func (conn *Connection) Log(entryType cilium.EntryType, l7 interface{}) {
+func (conn *Connection) Log(entryType cilium.EntryType, l7 *cilium.LogEntry_GenericL7) {
 	pblog := &cilium.LogEntry{
 		Timestamp:             uint64(time.Now().UnixNano()),
 		IsIngress:             conn.Ingress,
@@ -218,7 +217,7 @@ func (conn *Connection) Log(entryType cilium.EntryType, l7 interface{}) {
 		DestinationSecurityId: conn.DstId,
 		SourceAddress:         conn.SrcAddr,
 		DestinationAddress:    conn.DstAddr,
-		L7:                    cilium.IsL7(l7),
+		L7:                    l7,
 	}
 	conn.Instance.Log(pblog)
 }

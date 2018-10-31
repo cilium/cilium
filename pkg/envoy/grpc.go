@@ -21,10 +21,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cilium/cilium/pkg/envoy/cilium"
-	envoy_api_v2 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 
+	"github.com/cilium/proxy/go/cilium"
+	envoy_api_v2 "github.com/cilium/proxy/go/envoy/api/v2"
 	net_context "golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"

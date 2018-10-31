@@ -19,10 +19,10 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/cilium/cilium/pkg/envoy/cilium"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/proxylib/proxylib"
 
+	"github.com/cilium/proxy/go/cilium"
 	"github.com/golang/protobuf/proto"
 	log "github.com/sirupsen/logrus"
 )
