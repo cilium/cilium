@@ -98,7 +98,7 @@ func updateNodeAnnotation(c kubernetes.Interface, node *v1.Node, v4CIDR, v6CIDR 
 // AnnotateNode writes v4 and v6 CIDRs and health IPs in the given k8s node name.
 // In case of failure while updating the node, this function while spawn a go
 // routine to retry the node update indefinitely.
-func AnnotateNode(c kubernetes.Interface, nodeName string, v4CIDR, v6CIDR *net.IPNet, v4HealthIP, v6HealthIP, v4CiliumHostIP net.IP) error {
+func (k8sCli K8sClient) AnnotateNode(nodeName string, v4CIDR, v6CIDR *net.IPNet, v4HealthIP, v6HealthIP, v4CiliumHostIP net.IP) error {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.NodeName:       nodeName,
 		logfields.V4Prefix:       v4CIDR,
@@ -139,7 +139,7 @@ func AnnotateNode(c kubernetes.Interface, nodeName string, v4CIDR, v6CIDR *net.I
 
 			time.Sleep(time.Duration(n) * time.Second)
 		}
-	}(c, nodeName, v4CIDR, v6CIDR, v4HealthIP, v6HealthIP, v4CiliumHostIP)
+	}(client, nodeName, v4CIDR, v6CIDR, v4HealthIP, v6HealthIP, v4CiliumHostIP)
 
 	return nil
 }

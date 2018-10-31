@@ -52,6 +52,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 	// and we need to wait for the response of the channel.
 	updateChan := make(chan bool, 2)
 	k8sClient := &fake.Clientset{}
+	client = k8sClient
 	k8sClient.AddReactor("get", "nodes",
 		func(action testing.Action) (bool, runtime.Object, error) {
 			name := action.(testing.GetAction).GetName()
@@ -74,7 +75,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 	c.Assert(node.GetIPv4AllocRange().String(), Equals, "10.2.0.0/16")
 	// IPv6 Node range is not checked because it shouldn't be changed.
 
-	AnnotateNode(k8sClient, "node1",
+	K8sCli.AnnotateNode("node1",
 		node.GetIPv4AllocRange(),
 		node.GetIPv6NodeRange(),
 		nil,
@@ -105,7 +106,9 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 	}
 
 	failAttempts := 0
+
 	k8sClient = &fake.Clientset{}
+	client = k8sClient
 	k8sClient.AddReactor("get", "nodes",
 		func(action testing.Action) (bool, runtime.Object, error) {
 			name := action.(testing.GetAction).GetName()
@@ -136,7 +139,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 	c.Assert(node.GetIPv4AllocRange().String(), Equals, "10.254.0.0/16")
 	c.Assert(node.GetIPv6NodeRange().String(), Equals, "aaaa:aaaa:aaaa:aaaa:beef:beef::/96")
 
-	err = AnnotateNode(k8sClient, "node2",
+	err = K8sCli.AnnotateNode("node2",
 		node.GetIPv4AllocRange(),
 		node.GetIPv6NodeRange(),
 		nil,
@@ -151,5 +154,4 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 		c.Errorf("d.k8sClient.CoreV1().Nodes().Update() was not called")
 		c.FailNow()
 	}
-
 }
