@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package monitor
 
 import (
 	"context"
@@ -61,15 +61,12 @@ func init() {
 	rootCmd.Flags().StringVar(&bpfRoot, "bpf-root", "/sys/fs/bpf", "Path to the root of the bpf mount")
 }
 
-func execute() {
+// Execute is an entry point for node monitor
+func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		log.WithError(err).Error("Monitor failed")
 		os.Exit(-1)
 	}
-}
-
-func main() {
-	execute()
 }
 
 // buildServerOrExit opens a listener socket at path. It exits with logging on
