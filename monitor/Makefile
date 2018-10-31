@@ -1,4 +1,4 @@
-# Copyright 2017 Authors of Cilium
+# Copyright 2017-2018 Authors of Cilium
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,14 +18,14 @@ TARGET=cilium-node-monitor
 SOURCES := $(shell find ../monitor ../common ../pkg ../api . \( -name '*.go' ! -name '*_test.go' \))
 $(TARGET): $(SOURCES)
 	@$(ECHO_GO)
-	$(GO) build $(GOBUILD) -o $(TARGET)
+	$(QUIET)$(GO) build $(GOBUILD) -o $(TARGET)
 
 all: $(TARGET)
 
 clean:
 	@$(ECHO_CLEAN) $(notdir $(shell pwd))
 	$(QUIET)rm -f $(TARGET)
-	$(GO) clean
+	$(QUIET)$(GO) clean
 
 install:
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)

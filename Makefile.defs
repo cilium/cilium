@@ -7,11 +7,9 @@ LIBDIR?=$(PREFIX)/lib
 RUNDIR?=/var/run
 CONFDIR?=/etc
 
-# GO_NOQUIET should not have any Makefile directives.
-ifeq ($(GO_NOQUIET),)
-	GO_NOQUIET = go
+ifeq ($(GO),)
+	GO = go
 endif
-GO = $(QUIET)$(GO_NOQUIET)
 INSTALL = $(QUIET)install
 
 VERSION = $(shell cat $(dir $(lastword $(MAKEFILE_LIST)))/VERSION)

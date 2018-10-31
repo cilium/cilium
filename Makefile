@@ -93,7 +93,7 @@ unit-tests: start-kvstores
 	$(QUIET)$(foreach pkg,$(TESTPKGS),\
 		sudo $(GO) test $(pkg) $(GOTEST_PRIV_OPTS) $(GOTEST_COVER_OPTS) || exit 1; \
 		tail -n +2 coverage.out >> coverage-all.out;)
-	$(GO) tool cover -html=coverage-all.out -o=coverage-all.html
+	$(QUIET)$(GO) tool cover -html=coverage-all.out -o=coverage-all.html
 	$(QUIET) rm coverage.out
 	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
 	$(DOCKER) rm -f "cilium-etcd-test-container"
@@ -212,11 +212,11 @@ release:
 	git archive --format tar $(BRANCH) | gzip > ../cilium_$(VERSION).orig.tar.gz
 
 gofmt:
-	for pkg in $(GOFILES); do $(GO) fmt $$pkg; done
+	$(QUIET)for pkg in $(GOFILES); do $(GO) fmt $$pkg; done
 
 govet:
 	@$(ECHO_CHECK) vetting all GOFILES...
-	$(GO) tool vet api pkg test $(SUBDIRS)
+	$(QUIET)$(GO) tool vet api pkg test $(SUBDIRS)
 
 ineffassign:
 	@$(ECHO_CHECK) ineffassign
@@ -243,20 +243,20 @@ pprof-help:
 	@echo "  pprof-mutex"
 
 pprof-heap:
-	$(GO) tool pprof http://localhost:6060/debug/pprof/heap
+	$(QUIET)$(GO) tool pprof http://localhost:6060/debug/pprof/heap
 
 pprof-profile:
-	$(GO) tool pprof http://localhost:6060/debug/pprof/profile
+	$(QUIET)$(GO) tool pprof http://localhost:6060/debug/pprof/profile
 
 
 pprof-block:
-	$(GO) tool pprof http://localhost:6060/debug/pprof/block
+	$(QUIET)$(GO) tool pprof http://localhost:6060/debug/pprof/block
 
 pprof-trace-5s:
 	curl http://localhost:6060/debug/pprof/trace?seconds=5
 
 pprof-mutex:
-	$(GO) tool pprof http://localhost:6060/debug/pprof/mutex
+	$(QUIET)$(GO) tool pprof http://localhost:6060/debug/pprof/mutex
 
 update-authors:
 	@echo "Updating AUTHORS file..."
