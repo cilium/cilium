@@ -24,14 +24,14 @@ import (
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/envoy/cilium"
-	envoy_api_v2_core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-	envoy_api_v2_route "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/route"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/policy/api"
 
+	"github.com/cilium/proxy/go/cilium"
+	envoy_api_v2_core "github.com/cilium/proxy/go/envoy/api/v2/core"
+	envoy_api_v2_route "github.com/cilium/proxy/go/envoy/api/v2/route"
 	"github.com/gogo/protobuf/sortkeys"
 	. "gopkg.in/check.v1"
 )

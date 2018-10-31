@@ -17,7 +17,7 @@
 package xds
 
 import (
-	envoy_api_v2_core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+	envoy_api_v2_core "github.com/cilium/proxy/go/envoy/api/v2/core"
 
 	. "gopkg.in/check.v1"
 )

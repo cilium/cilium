@@ -298,3 +298,7 @@ required = [
 [[constraint]]
   name = "github.com/hashicorp/go-immutable-radix"
   version = "1.0.0"
+
+[[constraint]]
+  name = "github.com/cilium/proxy"
+  revision = "971e018d05c0fce542d315e320b7b5d9e7480d24"

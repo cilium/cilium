@@ -19,9 +19,9 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/cilium/cilium/pkg/envoy/cilium"
 	. "github.com/cilium/cilium/proxylib/proxylib"
 
+	"github.com/cilium/proxy/go/cilium"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -33,9 +33,13 @@ type BlockParserFactory struct{}
 
 var blockParserFactory *BlockParserFactory
 
+const (
+	blockParserName = "test.blockparser"
+)
+
 func init() {
 	log.Info("init(): Registering blockParserFactory")
-	RegisterParserFactory("test.blockparser", blockParserFactory)
+	RegisterParserFactory(blockParserName, blockParserFactory)
 }
 
 type BlockParser struct {
@@ -132,11 +136,25 @@ func (p *BlockParser) OnData(reply, endStream bool, data [][]byte) (OpType, int)
 	log.Infof("BlockParser: missing: %d", missing)
 
 	if bytes.Contains(block, []byte("PASS")) {
-		p.connection.Log(cilium.EntryType_Request, &cilium.LogEntry_Http{Http: &cilium.HttpLogEntry{Status: 200}})
+		p.connection.Log(cilium.EntryType_Request, &cilium.LogEntry_GenericL7{
+			GenericL7: &cilium.L7LogEntry{
+				Proto: blockParserName,
+				Fields: map[string]string{
+					"status": "200",
+				},
+			},
+		})
 		return PASS, block_len
 	}
 	if bytes.Contains(block, []byte("DROP")) {
-		p.connection.Log(cilium.EntryType_Denied, &cilium.LogEntry_Http{Http: &cilium.HttpLogEntry{Status: 201}})
+		p.connection.Log(cilium.EntryType_Denied, &cilium.LogEntry_GenericL7{
+			GenericL7: &cilium.L7LogEntry{
+				Proto: blockParserName,
+				Fields: map[string]string{
+					"status": "503",
+				},
+			},
+		})
 		return DROP, block_len
 	}
 

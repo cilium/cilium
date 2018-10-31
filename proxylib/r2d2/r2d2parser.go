@@ -20,9 +20,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/cilium/cilium/pkg/envoy/cilium"
 	"github.com/cilium/cilium/proxylib/proxylib"
 
+	"github.com/cilium/proxy/go/cilium"
 	log "github.com/sirupsen/logrus"
 )
 
