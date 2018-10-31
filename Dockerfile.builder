@@ -1,0 +1,52 @@
+#
+# Builder dependencies. This takes a long time to build from scratch!
+# Also note that if build fails due to C++ internal error or similar,
+# it is possible that the image build needs more RAM than available by
+# default on non-Linux docker installs.
+#
+FROM ubuntu:18.04
+
+LABEL maintainer="maintainer@cilium.io"
+
+WORKDIR /go/src/github.com/cilium/cilium/envoy
+
+#
+# Env setup for Go (installed below)
+#
+ENV GOROOT /usr/local/go
+ENV GOPATH /go
+ENV PATH "$GOROOT/bin:$GOPATH/bin:$PATH"
+ENV GO_VERSION 1.11.1
+
+#
+# Build dependencies
+#
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y --no-install-recommends \
+	&& DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+		apt-utils \
+		binutils \
+		ca-certificates \
+		coreutils \
+		curl \
+		gcc \
+		git \
+		libelf-dev \
+		m4 \
+		make \
+		pkg-config \
+		python \
+		rsync \
+		unzip \
+		wget \
+		zip \
+		zlib1g-dev \
+	&& apt-get clean \
+	&& rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+#
+# Install Go
+#
+RUN curl -sfL https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz | tar -xzC /usr/local \
+	&& go get -u github.com/cilium/go-bindata/... \
+	&& go get -u github.com/gordonklaus/ineffassign

@@ -39,6 +39,7 @@ import (
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "envoy-manager")
 
 var (
+	RequiredEnvoyVersionSHA = "3b55d746a0f9274d1954e7f1d1014b37e3ad1834"
 	// envoyLevelMap maps logrus.Level values to Envoy (spdlog) log levels.
 	envoyLevelMap = map[logrus.Level]string{
 		logrus.PanicLevel: "off",
