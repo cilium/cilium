@@ -615,8 +615,9 @@ func initEnv(cmd *cobra.Command) {
 			log.Fatal("Truncated Envoy version string, cannot verify version match.")
 		}
 		// Make sure Envoy version matches ours
-		if !strings.HasPrefix(envoyVersionArray[2], version.GetCiliumVersion().Revision) {
-			log.Fatal("Envoy version mismatch, aborting.")
+		if !strings.HasPrefix(envoyVersionArray[2], envoy.RequiredEnvoyVersionSHA) {
+			log.Fatalf("Envoy version %s does not match with required version %s ,aborting.",
+				envoyVersionArray[2], envoy.RequiredEnvoyVersionSHA)
 		}
 	}
 
