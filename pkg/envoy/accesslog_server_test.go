@@ -17,7 +17,7 @@
 package envoy
 
 import (
-	"github.com/cilium/cilium/pkg/envoy/cilium"
+	"github.com/cilium/proxy/go/cilium"
 
 	. "gopkg.in/check.v1"
 )
@@ -34,7 +34,7 @@ func (k *AccessLogServerSuite) TestParseURL(c *C) {
 	}
 
 	for _, l := range logs {
-		u := l.ParseURL()
+		u := ParseURL(l.Scheme, l.Host, l.Path)
 		c.Assert(u.Scheme, Equals, "http")
 		c.Assert(u.Host, Equals, "foo")
 		c.Assert(u.Path, Equals, "/foo")

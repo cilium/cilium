@@ -15,9 +15,8 @@
 package proxylib
 
 import (
-	"github.com/cilium/cilium/pkg/envoy/cilium"
-	envoy_api_v2 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
-
+	"github.com/cilium/proxy/go/cilium"
+	envoy_api_v2 "github.com/cilium/proxy/go/envoy/api/v2"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
 	log "github.com/sirupsen/logrus"

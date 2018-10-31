@@ -20,10 +20,10 @@ import (
 	"sync"
 	"time"
 
-	envoy_api_v2_core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
-	"github.com/cilium/cilium/pkg/lock"
+	envoy_api_v2_core "github.com/cilium/proxy/go/envoy/api/v2/core"
 	"github.com/sirupsen/logrus"
 )
 
