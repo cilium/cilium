@@ -35,7 +35,6 @@ import (
 	"github.com/cilium/cilium/test/ginkgo-ext"
 
 	"github.com/asaskevich/govalidator"
-	"github.com/onsi/ginkgo"
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
 )
@@ -76,7 +75,7 @@ type Kubectl struct {
 func CreateKubectl(vmName string, log *logrus.Entry) *Kubectl {
 	node := GetVagrantSSHMeta(vmName)
 	if node == nil {
-		ginkgo.Fail(fmt.Sprintf("Cannot connect to vmName  '%s'", vmName), 1)
+		ginkgoext.Fail(fmt.Sprintf("Cannot connect to vmName  '%s'", vmName), 1)
 		return nil
 	}
 	// This `ls` command is a sanity check, sometimes the meta ssh info is not
@@ -84,7 +83,7 @@ func CreateKubectl(vmName string, log *logrus.Entry) *Kubectl {
 	// was hard to debug.
 	res := node.Exec("ls /tmp/")
 	if !res.WasSuccessful() {
-		ginkgo.Fail(fmt.Sprintf(
+		ginkgoext.Fail(fmt.Sprintf(
 			"Cannot execute ls command on vmName '%s'", vmName), 1)
 		return nil
 	}
@@ -1695,7 +1694,7 @@ func (kub *Kubectl) GetCiliumPodOnNode(namespace string, node string) (string, e
 // Cilium are in a good state. If one of the multiple preflight fails it'll
 // return an error.
 func (kub *Kubectl) CiliumPreFlightCheck() error {
-	ginkgo.By("Performing Cilium preflight check")
+	ginkgoext.By("Performing Cilium preflight check")
 	// Doing this withTimeout because the Status can be ready, but the other
 	// nodes cannot be show up yet, and the cilium-health can fail as a false positive.
 	var err error
@@ -1732,7 +1731,7 @@ func (kub *Kubectl) CiliumPreFlightCheck() error {
 // CiliumControllersPreFlightCheck validates that all controllers are not
 // failing. If any of the controllers fails will return an error.
 func (kub *Kubectl) CiliumControllersPreFlightCheck() error {
-	ginkgo.By("Checking that no controllers in Cilium have failed")
+	ginkgoext.By("Checking that no controllers in Cilium have failed")
 	var controllersFilter = `{range .controllers[*]}{.name}{"="}{.status.consecutive-failure-count}{"\n"}{end}`
 	ciliumPods, err := kub.GetCiliumPods(KubeSystemNamespace)
 	if err != nil {
@@ -1761,7 +1760,7 @@ func (kub *Kubectl) CiliumControllersPreFlightCheck() error {
 // correctly and the number of nodes does not mistmatch with the running pods.
 // It return an error if health mark a node as failed.
 func (kub *Kubectl) CiliumHealthPreFlightCheck() error {
-	ginkgo.By("Checking that cilium-health status is healthy")
+	ginkgoext.By("Checking that cilium-health status is healthy")
 	var nodesFilter = `{.nodes[*].name}`
 	var statusFilter = `{range .nodes[*]}{.name}{"="}{.host.primary-address.http.status}{"\n"}{end}`
 
@@ -1895,7 +1894,7 @@ func (kub *Kubectl) KubeDNSPreFlightCheck() error {
 
 //ServicePreFlightCheck makes sure that k8s service with given name and namespace is properly plumbed in Cilium
 func (kub *Kubectl) ServicePreFlightCheck(serviceName, serviceNamespace string) error {
-	ginkgo.By("Checking that the kubernetes service is correctly plumbed by Cilium")
+	ginkgoext.By("Checking that the kubernetes service is correctly plumbed by Cilium")
 	var service *v1.Service
 	for _, s := range kub.serviceCache.services.Items {
 		if s.Name == serviceName && s.Namespace == serviceNamespace {
@@ -1946,7 +1945,7 @@ CILIUM_SERVICES:
 
 // CiliumServicePreFlightCheck checks that k8s service is plumbed correctly
 func (kub *Kubectl) CiliumServicePreFlightCheck() error {
-	ginkgo.By("Checking that Kubernetes services are correctly plumbed by Cilium")
+	ginkgoext.By("Checking that Kubernetes services are correctly plumbed by Cilium")
 	for _, pod := range kub.serviceCache.pods {
 		k8sServicesFound := map[string]bool{}
 
