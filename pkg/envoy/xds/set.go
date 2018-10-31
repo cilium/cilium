@@ -17,9 +17,9 @@ package xds
 import (
 	"context"
 
-	envoy_api_v2_core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
 	"github.com/cilium/cilium/pkg/lock"
 
+	envoy_api_v2_core "github.com/cilium/proxy/go/envoy/api/v2/core"
 	"github.com/golang/protobuf/proto"
 )
 

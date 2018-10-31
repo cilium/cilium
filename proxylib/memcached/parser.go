@@ -21,13 +21,13 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/cilium/cilium/pkg/envoy/cilium"
 	"github.com/cilium/cilium/proxylib/proxylib"
 
 	"github.com/cilium/cilium/proxylib/memcached/binary"
 	"github.com/cilium/cilium/proxylib/memcached/meta"
 	"github.com/cilium/cilium/proxylib/memcached/text"
 
+	"github.com/cilium/proxy/go/cilium"
 	log "github.com/sirupsen/logrus"
 )
 

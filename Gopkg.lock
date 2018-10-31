@@ -77,6 +77,28 @@
   revision = "0010a05ce49fde7f50669bc7ecda7d41dd6ab824"
 
 [[projects]]
+  digest = "1:3e20ef8a07567f2613ee131c39bd8d6afd0dc3fef6577f2767c6bcbba626e834"
+  name = "github.com/cilium/proxy"
+  packages = [
+    "go/cilium",
+    "go/envoy/api/v2",
+    "go/envoy/api/v2/auth",
+    "go/envoy/api/v2/cluster",
+    "go/envoy/api/v2/core",
+    "go/envoy/api/v2/endpoint",
+    "go/envoy/api/v2/listener",
+    "go/envoy/api/v2/route",
+    "go/envoy/config/bootstrap/v2",
+    "go/envoy/config/metrics/v2",
+    "go/envoy/config/overload/v2alpha",
+    "go/envoy/config/ratelimit/v2",
+    "go/envoy/config/trace/v2",
+    "go/envoy/type",
+  ]
+  pruneopts = "NUT"
+  revision = "971e018d05c0fce542d315e320b7b5d9e7480d24"
+
+[[projects]]
   digest = "1:7d39d7f6f0947a8ecbce768541e6737ae71bf756d6d3ed0bd78b1c0290a59c8d"
   name = "github.com/containerd/containerd"
   packages = [
@@ -1648,6 +1670,12 @@
   input-imports = [
     "github.com/asaskevich/govalidator",
     "github.com/c9s/goprocinfo/linux",
+    "github.com/cilium/proxy/go/cilium",
+    "github.com/cilium/proxy/go/envoy/api/v2",
+    "github.com/cilium/proxy/go/envoy/api/v2/core",
+    "github.com/cilium/proxy/go/envoy/api/v2/listener",
+    "github.com/cilium/proxy/go/envoy/api/v2/route",
+    "github.com/cilium/proxy/go/envoy/config/bootstrap/v2",
     "github.com/containerd/containerd",
     "github.com/containerd/containerd/api/events",
     "github.com/containerd/containerd/events",
@@ -1684,16 +1712,11 @@
     "github.com/go-openapi/strfmt",
     "github.com/go-openapi/swag",
     "github.com/go-openapi/validate",
-    "github.com/gogo/protobuf/gogoproto",
     "github.com/gogo/protobuf/sortkeys",
     "github.com/golang/protobuf/proto",
-    "github.com/golang/protobuf/ptypes",
     "github.com/golang/protobuf/ptypes/any",
     "github.com/golang/protobuf/ptypes/duration",
-    "github.com/golang/protobuf/ptypes/empty",
     "github.com/golang/protobuf/ptypes/struct",
-    "github.com/golang/protobuf/ptypes/timestamp",
-    "github.com/golang/protobuf/ptypes/wrappers",
     "github.com/google/gopacket",
     "github.com/google/gopacket/layers",
     "github.com/google/gops/agent",
@@ -1704,7 +1727,6 @@
     "github.com/jessevdk/go-flags",
     "github.com/kevinburke/ssh_config",
     "github.com/kr/pretty",
-    "github.com/lyft/protoc-gen-validate/validate",
     "github.com/mattn/go-shellwords",
     "github.com/miekg/dns",
     "github.com/mitchellh/hashstructure",
@@ -1740,7 +1762,6 @@
     "golang.org/x/crypto/ssh/agent",
     "golang.org/x/net/context",
     "golang.org/x/sys/unix",
-    "google.golang.org/genproto/googleapis/api/annotations",
     "google.golang.org/genproto/googleapis/rpc/status",
     "google.golang.org/grpc",
     "google.golang.org/grpc/reflection",

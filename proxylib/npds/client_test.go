@@ -23,11 +23,11 @@ import (
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy"
-	"github.com/cilium/cilium/pkg/envoy/cilium"
-	envoy_api_v2 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/proxylib/test"
 
+	"github.com/cilium/proxy/go/cilium"
+	envoy_api_v2 "github.com/cilium/proxy/go/envoy/api/v2"
 	log "github.com/sirupsen/logrus"
 	. "gopkg.in/check.v1"
 )

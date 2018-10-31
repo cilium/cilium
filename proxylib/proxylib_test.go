@@ -23,11 +23,11 @@ import (
 
 	_ "gopkg.in/check.v1"
 
-	"github.com/cilium/cilium/pkg/envoy/cilium"
 	"github.com/cilium/cilium/proxylib/proxylib"
 	"github.com/cilium/cilium/proxylib/test"
 	_ "github.com/cilium/cilium/proxylib/testparsers"
 
+	"github.com/cilium/proxy/go/cilium"
 	log "github.com/sirupsen/logrus"
 )
 

@@ -18,9 +18,8 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/cilium/cilium/pkg/envoy/cilium"
-	core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-
+	"github.com/cilium/proxy/go/cilium"
+	core "github.com/cilium/proxy/go/envoy/api/v2/core"
 	log "github.com/sirupsen/logrus"
 )
 

@@ -23,11 +23,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/cilium/cilium/pkg/envoy/cilium"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 
+	"github.com/cilium/proxy/go/cilium"
 	"github.com/golang/protobuf/proto"
 	"github.com/sirupsen/logrus"
 )
@@ -136,9 +136,9 @@ func (s *accessLogServer) logRecord(localEndpoint logger.EndpointUpdater, pblog 
 		l7tags = logger.LogTags.HTTP(&accesslog.LogRecordHTTP{
 			Method:   http.Method,
 			Code:     int(http.Status),
-			URL:      http.ParseURL(),
-			Protocol: http.GetProtocol(),
-			Headers:  http.GetNetHttpHeaders(),
+			URL:      ParseURL(http.Scheme, http.Host, http.Path),
+			Protocol: GetProtocol(http.HttpProtocol),
+			Headers:  GetNetHttpHeaders(http.Headers),
 		})
 	} else if l7 := pblog.GetGenericL7(); l7 != nil {
 		l7tags = logger.LogTags.L7(&accesslog.LogRecordL7{
@@ -150,15 +150,15 @@ func (s *accessLogServer) logRecord(localEndpoint logger.EndpointUpdater, pblog 
 		l7tags = logger.LogTags.HTTP(&accesslog.LogRecordHTTP{
 			Method:   pblog.Method,
 			Code:     int(pblog.Status),
-			URL:      pblog.ParseURL(),
-			Protocol: pblog.GetProtocol(),
-			Headers:  pblog.GetNetHttpHeaders(),
+			URL:      ParseURL(pblog.Scheme, pblog.Host, pblog.Path),
+			Protocol: GetProtocol(pblog.HttpProtocol),
+			Headers:  GetNetHttpHeaders(pblog.Headers),
 		})
 	}
 
-	r := logger.NewLogRecord(s.endpointInfoRegistry, localEndpoint, pblog.GetFlowType(), pblog.IsIngress,
+	r := logger.NewLogRecord(s.endpointInfoRegistry, localEndpoint, GetFlowType(pblog), pblog.IsIngress,
 		logger.LogTags.Timestamp(time.Unix(int64(pblog.Timestamp/1000000000), int64(pblog.Timestamp%1000000000))),
-		logger.LogTags.Verdict(pblog.GetVerdict(), pblog.CiliumRuleRef),
+		logger.LogTags.Verdict(GetVerdict(pblog), pblog.CiliumRuleRef),
 		logger.LogTags.Addressing(logger.AddressingInfo{
 			SrcIPPort:   pblog.SourceAddress,
 			DstIPPort:   pblog.DestinationAddress,

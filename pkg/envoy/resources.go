@@ -18,12 +18,12 @@ import (
 	"net"
 	"sort"
 
-	envoyAPI "github.com/cilium/cilium/pkg/envoy/cilium"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
+	envoyAPI "github.com/cilium/proxy/go/cilium"
 	"github.com/sirupsen/logrus"
 )
 

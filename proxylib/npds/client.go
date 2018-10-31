@@ -21,12 +21,12 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/backoff"
-	"github.com/cilium/cilium/pkg/envoy/cilium"
-	envoy_api_v2 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
-	envoy_api_v2_core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/proxylib/proxylib"
 
+	"github.com/cilium/proxy/go/cilium"
+	envoy_api_v2 "github.com/cilium/proxy/go/envoy/api/v2"
+	envoy_api_v2_core "github.com/cilium/proxy/go/envoy/api/v2/core"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
