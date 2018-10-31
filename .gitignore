@@ -52,13 +52,6 @@ outgoing
 
 man/
 
-# Bazel symlinks
-bazel-*
-envoy/istio-envoy
-envoy/Dockerfile.istio_proxy
-envoy/Dockerfile.istio_proxy_debug
-envoy/proxylib
-
 test/tmp.yaml
 test/*_service_manifest.json
 test/*_manifest.yaml
@@ -73,11 +66,6 @@ test/*.xml
 
 # Temporary files that allow build containers/VMs work without git
 GIT_VERSION
-envoy/SOURCE_VERSION
-envoy/Dockerfile.builder
-
-# To run Envoy tests under gdb do "cd envoy && make debug && ln -s bazel-envoy/external external"
-envoy/external
 
 test/bpf/_results
 
