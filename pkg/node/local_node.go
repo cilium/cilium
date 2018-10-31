@@ -28,6 +28,8 @@ var (
 	localNode      Node
 	nodeRegistered = make(chan struct{})
 	registerOnce   sync.Once
+
+	NodeReg NodeRegistrar
 )
 
 // GetLocalNode returns the identity and node spec for the local node
@@ -65,7 +67,8 @@ func configureLocalNode() {
 	UpdateNode(&localNode, TunnelRoute, nil)
 
 	go func() {
-		if err := registerNode(); err != nil {
+		localNode.getLogger().Info("Adding local node to cluster")
+		if err := NodeReg.RegisterNode(&localNode); err != nil {
 			log.WithError(err).Fatal("Unable to initialize local node")
 		}
 		close(nodeRegistered)
@@ -79,6 +82,11 @@ func configureLocalNode() {
 	}()
 }
 
+type NodeRegistrar interface {
+	RegisterNode(n *Node) error
+	UpdateLocalKeySync(n *Node) error
+}
+
 // NotifyLocalNodeUpdated Update local node information in the key-value
 // storage
 func NotifyLocalNodeUpdated() {
@@ -87,7 +95,7 @@ func NotifyLocalNodeUpdated() {
 		controller.NewManager().UpdateController("propagating local node change to kv-store",
 			controller.ControllerParams{
 				DoFunc: func() error {
-					err := nodeStore.UpdateLocalKeySync(GetLocalNode())
+					err := NodeReg.UpdateLocalKeySync(GetLocalNode())
 					if err != nil {
 						log.WithError(err).Error("Unable to propagate local node change to kvstore")
 					}
