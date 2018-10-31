@@ -8,6 +8,7 @@ include ../Makefile.defs
 
 
 TARGET=cilium-agent
+LINKS=cilium cilium-node-monitor
 SOURCES := $(shell find ../api ../common ../daemon ../pkg ../monitor . \( -name '*.go'  ! -name '*_test.go' \))
 $(TARGET): $(SOURCES) check-bindata
 	@$(ECHO_GO)
@@ -19,12 +20,16 @@ GO_BINDATA := $(QUIET) go-bindata -prefix ../ -mode 0640 -modtime 1450269211 \
 	-ignore '.+\.o$$' -ignore '.+\.orig$$' -ignore '.+~$$' \
 	-ignore '\.DS_Store'
 
-all: $(TARGET)
+all: $(TARGET) links
+
+links:
+	$(foreach link,$(LINKS), ln -f -s $(TARGET) $(link);)
 
 clean:
 	@$(ECHO_CLEAN) $(notdir $(shell pwd))
 	$(QUIET)rm -f $(TARGET)
 	$(QUIET)$(GO) clean
+	$(foreach link,$(LINKS), rm $(link);)
 
 ifeq ("$(PKG_BUILD)","")
 
@@ -32,12 +37,14 @@ install:
 	groupadd -f cilium
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
+	$(foreach link,$(LINKS), ln -f -s $(TARGET) $(DESTDIR)$(BINDIR)/$(link);)
 
 else
 
 install:
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
+	$(foreach link,$(LINKS), ln -f -s $(TARGET) $(DESTDIR)$(BINDIR)/$(link);)
 
 endif
 
