@@ -18,14 +18,14 @@ TARGET=cilium-bugtool
 SOURCES := $(shell find ../common . -name '*.go')
 $(TARGET): $(SOURCES)
 	@$(ECHO_GO)
-	$(GO) build $(GOBUILD) -o $(TARGET)
+	$(QUIET)$(GO) build $(GOBUILD) -o $(TARGET)
 
 all: $(TARGET)
 
 clean:
 	@$(ECHO_CLEAN) $(notdir $(shell pwd))
 	-$(QUIET)rm -f .cilium-bugtool.config $(TARGET)
-	$(GO) clean
+	$(QUIET)$(GO) clean
 
 install:
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)

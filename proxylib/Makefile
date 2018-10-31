@@ -5,14 +5,14 @@ TARGET=libcilium.so
 DEPS := $(shell find ../pkg accesslog npds test . \( -name '*.go' ! -name '*_test.go' \))
 $(TARGET): $(DEPS)
 	@$(ECHO_GO)
-	$(GO) build $(GOBUILD) -o $@ -buildmode=c-shared
+	$(QUIET)$(GO) build $(GOBUILD) -o $@ -buildmode=c-shared
 
 all: $(TARGET)
 
 clean:
 	@$(ECHO_CLEAN) $(notdir $(shell pwd))
 	-$(QUIET)rm -f $(TARGET)
-	$(GO) clean
+	$(QUIET)$(GO) clean
 
 install:
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(LIBDIR)
