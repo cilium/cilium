@@ -21,9 +21,8 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/option"
-
-	"k8s.io/api/core/v1"
 )
 
 // Identity represents the node identity of a node.
@@ -88,35 +87,35 @@ func (n *Node) Fullname() string {
 
 // Address is a node address which contains an IP and the address type.
 type Address struct {
-	AddressType v1.NodeAddressType
-	IP          net.IP
+	Type addressing.AddressType
+	IP   net.IP
 }
 
-func (n *Node) getNodeIP(ipv6 bool) (net.IP, v1.NodeAddressType) {
+func (n *Node) getNodeIP(ipv6 bool) (net.IP, addressing.AddressType) {
 	var (
 		backupIP net.IP
-		ipType   v1.NodeAddressType
+		ipType   addressing.AddressType
 	)
 	for _, addr := range n.IPAddresses {
 		if (ipv6 && addr.IP.To4() != nil) ||
 			(!ipv6 && addr.IP.To4() == nil) {
 			continue
 		}
-		switch addr.AddressType {
+		switch addr.Type {
 		// Always prefer a cluster internal IP
-		case v1.NodeInternalIP:
-			return addr.IP, addr.AddressType
-		case v1.NodeExternalIP:
+		case addressing.NodeInternalIP:
+			return addr.IP, addr.Type
+		case addressing.NodeExternalIP:
 			// Fall back to external Node IP
 			// if no internal IP could be found
 			backupIP = addr.IP
-			ipType = addr.AddressType
+			ipType = addr.Type
 		default:
 			// As a last resort, if no internal or external
 			// IP was found, use any node address available
 			if backupIP == nil {
 				backupIP = addr.IP
-				ipType = addr.AddressType
+				ipType = addr.Type
 			}
 		}
 	}
@@ -171,7 +170,7 @@ func (n *Node) getSecondaryAddresses(ipv4 bool) []*models.NodeAddressingElement 
 		if !n.isPrimaryAddress(addr, ipv4) {
 			result = append(result, &models.NodeAddressingElement{
 				IP:          addr.IP.String(),
-				AddressType: string(addr.AddressType),
+				AddressType: string(addr.Type),
 			})
 		}
 	}
@@ -270,7 +269,7 @@ func (n *Node) PublicAttrEquals(o *Node) bool {
 		}
 
 		for i := range n.IPAddresses {
-			if (n.IPAddresses[i].AddressType != o.IPAddresses[i].AddressType) ||
+			if (n.IPAddresses[i].Type != o.IPAddresses[i].Type) ||
 				!n.IPAddresses[i].IP.Equal(o.IPAddresses[i].IP) {
 				return false
 			}

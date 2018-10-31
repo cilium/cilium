@@ -19,9 +19,8 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/option"
-
-	"k8s.io/api/core/v1"
 )
 
 var (
@@ -53,8 +52,8 @@ func configureLocalNode() {
 		cluster: clusterConf,
 		IPAddresses: []Address{
 			{
-				AddressType: v1.NodeInternalIP,
-				IP:          GetExternalIPv4(),
+				Type: addressing.NodeInternalIP,
+				IP:   GetExternalIPv4(),
 			},
 		},
 		IPv4AllocCIDR: GetIPv4AllocRange(),

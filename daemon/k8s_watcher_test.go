@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/node"
+	nodeAddressing "github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -1022,8 +1023,8 @@ func (ds *DaemonSuite) Test_missingK8sNodeV1(c *C) {
 					Cluster: "default",
 					IPAddresses: []node.Address{
 						{
-							AddressType: core_v1.NodeAddressType(core_v1.NodeInternalIP),
-							IP:          net.ParseIP("172.20.0.1"),
+							Type: nodeAddressing.NodeInternalIP,
+							IP:   net.ParseIP("172.20.0.1"),
 						},
 					},
 				}, 0, net.ParseIP("172.20.0.2"))
@@ -1093,8 +1094,8 @@ func (ds *DaemonSuite) Test_missingK8sNodeV1(c *C) {
 					Cluster: "default",
 					IPAddresses: []node.Address{
 						{
-							AddressType: core_v1.NodeAddressType(core_v1.NodeInternalIP),
-							IP:          net.ParseIP("172.20.0.1"),
+							Type: nodeAddressing.NodeInternalIP,
+							IP:   net.ParseIP("172.20.0.1"),
 						},
 					},
 				}, 0, net.ParseIP("172.20.2.1"))
