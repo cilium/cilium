@@ -25,11 +25,16 @@ RUN apt-get update \
 		apt-utils \
 		binutils \
 		ca-certificates \
+		clang \
 		coreutils \
 		curl \
 		gcc \
 		git \
+		iproute2 \
+		libc6-dev \
+		libc6-dev-i386 \
 		libelf-dev \
+		llvm \
 		m4 \
 		make \
 		pkg-config \
