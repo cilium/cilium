@@ -20,10 +20,9 @@ import (
 	"os"
 	"time"
 
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/versioncheck"
 	"github.com/cilium/cilium/test/ginkgo-ext"
-
-	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 )
 
 var (
@@ -177,7 +176,7 @@ const (
 	KubectlPolicyNameSpaceLabel = k8sConst.PolicyLabelNamespace
 
 	CiliumStableVersion      = "v1.3"
-	CiliumStableImageVersion = "docker.io/cilium/cilium:" + CiliumStableVersion
+	CiliumStableImageVersion = "cilium/cilium:" + CiliumStableVersion
 	CiliumDeveloperImage     = "k8s1:5000/cilium/cilium-dev:latest"
 
 	MonitorLogFileName = "monitor.log"
