@@ -117,6 +117,9 @@ var (
 	// started by cilium (Envoy, monitor, etc..)
 	LabelSubsystem = "subsystem"
 
+	// LabelKind is the kind a label
+	LabelKind = "kind"
+
 	// Endpoint
 
 	// EndpointCount is a function used to collect this metric.
@@ -427,6 +430,15 @@ var (
 		Name:      "ipam_events_total",
 		Help:      "Number of IPAM events received labeled by action and datapath family type",
 	}, []string{LabelAction, LabelDatapathFamily})
+
+	// KVstore events
+
+	// KVStoreOperationsTotal is the  number of interactions with the Key-Value
+	// Store, labeled by subsystem, kind of action and action
+	KVStoreOperationsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "kvstore_operations_total",
+		Help: "Number of interactions with the Key-Value Store, labeled by subsystem, kind of action and action",
+	}, []string{LabelScope, LabelKind, LabelAction})
 )
 
 func init() {
@@ -484,6 +496,8 @@ func init() {
 	MustRegister(KubernetesEvent)
 
 	MustRegister(IpamEvent)
+
+	MustRegister(KVStoreOperationsTotal)
 }
 
 // MustRegister adds the collector to the registry, exposing this metric to

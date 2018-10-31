@@ -305,24 +305,28 @@ func (c *consulClient) Status() (string, error) {
 }
 
 func (c *consulClient) DeletePrefix(path string) error {
+	increaseMetric(path, metricDelete, "DeletePrefix")
 	_, err := c.Client.KV().DeleteTree(path, nil)
 	return err
 }
 
 // Set sets value of key
 func (c *consulClient) Set(key string, value []byte) error {
+	increaseMetric(key, metricSet, "Set")
 	_, err := c.KV().Put(&consulAPI.KVPair{Key: key, Value: value}, nil)
 	return err
 }
 
 // Delete deletes a key
 func (c *consulClient) Delete(key string) error {
+	increaseMetric(key, metricDelete, "Delete")
 	_, err := c.KV().Delete(key, nil)
 	return err
 }
 
 // Get returns value of key
 func (c *consulClient) Get(key string) ([]byte, error) {
+	increaseMetric(key, metricRead, "Get")
 	pair, _, err := c.KV().Get(key, nil)
 	if err != nil {
 		return nil, err
@@ -335,6 +339,7 @@ func (c *consulClient) Get(key string) ([]byte, error) {
 
 // GetPrefix returns the first key which matches the prefix
 func (c *consulClient) GetPrefix(prefix string) ([]byte, error) {
+	increaseMetric(prefix, metricRead, "GetPrefix")
 	pairs, _, err := c.KV().List(prefix, nil)
 	if err != nil {
 		return nil, err
@@ -349,6 +354,7 @@ func (c *consulClient) GetPrefix(prefix string) ([]byte, error) {
 
 // Update creates or updates a key with the value
 func (c *consulClient) Update(key string, value []byte, lease bool) error {
+	increaseMetric(key, metricSet, "Update")
 	k := &consulAPI.KVPair{Key: key, Value: value}
 
 	if lease {
@@ -361,6 +367,7 @@ func (c *consulClient) Update(key string, value []byte, lease bool) error {
 
 // CreateOnly creates a key with the value and will fail if the key already exists
 func (c *consulClient) CreateOnly(key string, value []byte, lease bool) error {
+	increaseMetric(key, metricSet, "CreateOnly")
 	k := &consulAPI.KVPair{
 		Key:         key,
 		Value:       value,
@@ -389,6 +396,8 @@ func (c *consulClient) CreateIfExists(condKey, key string, value []byte, lease b
 	// manipulated
 	//
 	// Lock the conditional key to serialize all CreateIfExists() calls
+
+	increaseMetric(key, metricSet, "CreateIfExists")
 	l, err := LockPath(condKey)
 	if err != nil {
 		return fmt.Errorf("unable to lock condKey for CreateIfExists: %s", err)
@@ -414,6 +423,7 @@ func (c *consulClient) CreateIfExists(condKey, key string, value []byte, lease b
 
 // ListPrefix returns a map of matching keys
 func (c *consulClient) ListPrefix(prefix string) (KeyValuePairs, error) {
+	increaseMetric(prefix, metricRead, "ListPrefix")
 	pairs, _, err := c.KV().List(prefix, nil)
 	if err != nil {
 		return nil, err
