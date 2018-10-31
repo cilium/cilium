@@ -121,7 +121,9 @@ install:
 GIT_VERSION: .git
 	echo "$(GIT_VERSION)" >GIT_VERSION
 
-docker-image: clean GIT_VERSION
+docker-image: clean docker-image-no-clean
+
+docker-image-no-clean: GIT_VERSION
 	$(QUIET)grep -v -E "GIT_VERSION" .gitignore >.dockerignore
 	$(QUIET)echo ".*" >>.dockerignore # .git pruned out
 	$(QUIET)echo "Documentation" >>.dockerignore # Not needed
