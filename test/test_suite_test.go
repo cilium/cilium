@@ -152,10 +152,12 @@ func reportCreateVMFailure(vm string, err error) {
 var _ = BeforeAll(func() {
 	var err error
 
-	if !config.CiliumTestConfig.Reprovision {
-		// The developer has explicitly told us that they don't care
-		// about updating Cilium inside the guest, so skip setup below.
-		return
+	logger := log.WithFields(logrus.Fields{"testName": "BeforeAll"})
+	scope, err := helpers.GetScope()
+	if err != nil {
+		Fail(fmt.Sprintf(
+			"Cannot get the scope for running test, please use --cilium.testScope option: %s",
+			err))
 	}
 
 	if config.CiliumTestConfig.SSHConfig != "" {
@@ -167,20 +169,18 @@ var _ = BeforeAll(func() {
 	if progressChan := goReportVagrantStatus(); progressChan != nil {
 		defer func() { progressChan <- err == nil }()
 	}
-	logger := log.WithFields(logrus.Fields{"testName": "BeforeSuite"})
-	scope, err := helpers.GetScope()
-	if err != nil {
-		Fail(fmt.Sprintf(
-			"Cannot get the scope for running test, please use --cilium.testScope option: %s",
-			err))
-	}
 
 	switch scope {
 	case helpers.Runtime:
-		err = helpers.CreateVM(helpers.Runtime)
-		if err != nil {
-			log.WithError(err).Error("Error starting VM")
-			reportCreateVMFailure(helpers.Runtime, err)
+		var err error
+
+		// Boot / provision VMs if specified by configuration.
+		if config.CiliumTestConfig.Reprovision {
+			err = helpers.CreateVM(helpers.Runtime)
+			if err != nil {
+				log.WithError(err).Error("Error starting VM")
+				reportCreateVMFailure(helpers.Runtime, err)
+			}
 		}
 
 		vm := helpers.InitRuntimeHelper(helpers.Runtime, logger)
@@ -205,28 +205,31 @@ var _ = BeforeAll(func() {
 
 		// Name for K8s VMs depends on K8s version that is running.
 
-		err = helpers.CreateVM(helpers.K8s1VMName())
-		if err != nil {
-			reportCreateVMFailure(helpers.K8s1VMName(), err)
-		}
-
-		err = helpers.CreateVM(helpers.K8s2VMName())
-		if err != nil {
-			reportCreateVMFailure(helpers.K8s2VMName(), err)
-		}
-
-		// For Nightly test we need to have more than two kubernetes nodes. If
-		// the env variable K8S_NODES is present, more nodes will be created.
-		if nodes := os.Getenv(k8sNodesEnv); nodes != "" {
-			nodesInt, err := strconv.Atoi(nodes)
+		// Boot / provision VMs if specified by configuration.
+		if config.CiliumTestConfig.Reprovision {
+			err = helpers.CreateVM(helpers.K8s1VMName())
 			if err != nil {
-				Fail(fmt.Sprintf("%s value is not a number %q", k8sNodesEnv, nodes))
+				reportCreateVMFailure(helpers.K8s1VMName(), err)
 			}
-			for i := 3; i <= nodesInt; i++ {
-				vmName := fmt.Sprintf("%s%d-%s", helpers.K8s, i, helpers.GetCurrentK8SEnv())
-				err = helpers.CreateVM(vmName)
+
+			err = helpers.CreateVM(helpers.K8s2VMName())
+			if err != nil {
+				reportCreateVMFailure(helpers.K8s2VMName(), err)
+			}
+
+			// For Nightly test we need to have more than two kubernetes nodes. If
+			// the env variable K8S_NODES is present, more nodes will be created.
+			if nodes := os.Getenv(k8sNodesEnv); nodes != "" {
+				nodesInt, err := strconv.Atoi(nodes)
 				if err != nil {
-					reportCreateVMFailure(vmName, err)
+					Fail(fmt.Sprintf("%s value is not a number %q", k8sNodesEnv, nodes))
+				}
+				for i := 3; i <= nodesInt; i++ {
+					vmName := fmt.Sprintf("%s%d-%s", helpers.K8s, i, helpers.GetCurrentK8SEnv())
+					err = helpers.CreateVM(vmName)
+					if err != nil {
+						reportCreateVMFailure(vmName, err)
+					}
 				}
 			}
 		}
