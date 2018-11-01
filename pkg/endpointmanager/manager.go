@@ -41,7 +41,15 @@ var (
 	// be held to read and write.
 	endpoints    = map[uint16]*endpoint.Endpoint{}
 	endpointsAux = map[string]*endpoint.Endpoint{}
+
+	// EndpointSynchronizer updates external resources (e.g., Kubernetes) with
+	// up-to-date information about endpoints managed by the endpoint manager.
+	EndpointSynchronizer EndpointResourceSynchronizer
 )
+
+type EndpointResourceSynchronizer interface {
+	RunK8sCiliumEndpointSync(ep *endpoint.Endpoint)
+}
 
 func init() {
 	// EndpointCount is a function used to collect this metric. We cannot
@@ -71,7 +79,9 @@ func Insert(ep *endpoint.Endpoint) {
 	mutex.Unlock()
 	ep.RUnlock()
 
-	ep.RunK8sCiliumEndpointSync()
+	if EndpointSynchronizer != nil {
+		EndpointSynchronizer.RunK8sCiliumEndpointSync(ep)
+	}
 }
 
 // Lookup looks up the endpoint by prefix id
