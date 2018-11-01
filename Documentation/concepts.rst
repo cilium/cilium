@@ -23,7 +23,6 @@ Component Overview
 .. image:: images/cilium-arch.png
     :width: 600px
     :align: center
-    :height: 300px
 
 A deployment of Cilium consists of the following components running on each
 Linux container node in the container cluster:
