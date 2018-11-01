@@ -8,7 +8,8 @@ pipeline {
     environment {
         PROJ_PATH = "src/github.com/cilium/cilium"
         TESTDIR = "${WORKSPACE}/${PROJ_PATH}/"
-        MEMORY = "4096"
+        MEMORY = "6144"
+        CPUS = "3"
         SERVER_BOX = "cilium/ubuntu"
         NETNEXT=setIfLabel("ci/net-next", "true", "false")
     }
@@ -61,7 +62,6 @@ pipeline {
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
             }
             steps {
-                sh 'cd ${TESTDIR}; K8S_VERSION=1.8 vagrant up --no-provision'
                 sh 'cd ${TESTDIR}; K8S_VERSION=1.12 vagrant up --no-provision'
             }
         }
@@ -83,10 +83,6 @@ pipeline {
                         "Runtime":{
                             sh 'cd ${TESTDIR}; vagrant provision runtime' 
                             sh 'cd ${TESTDIR}; ginkgo --focus=" Runtime*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
-                        },
-                        "K8s-1.8":{
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.8 vagrant provision k8s1-1.8; K8S_VERSION=1.8 vagrant provision k8s2-1.8' 
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.8 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
                         },
                         "K8s-1.12":{
                             sh 'cd ${TESTDIR}; K8S_VERSION=1.12 vagrant provision k8s1-1.12; K8S_VERSION=1.12 vagrant provision k8s2-1.12' 
