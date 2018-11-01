@@ -41,21 +41,9 @@ contribute to Cilium:
 +----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
 + `gomega <https://github.com/onsi/gomega>`_                                       | >= 1.2.0                 | ``go get -u github.com/onsi/gomega``                                          |
 +----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
-| `protoc-gen-go <https://github.com/golang/protobuf/tree/master/protoc-gen-go>`_  | latest                   | ``go get -u github.com/golang/protobuf/protoc-gen-go``                        |
-+----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
-| `protoc-gen-validate <https://github.com/lyft/protoc-gen-validate>`_             | latest                   | ``go get -u github.com/lyft/protoc-gen-validate``                             |
-+----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
 + `Docker <https://docs.docker.com/engine/installation/>`_                         | OS-Dependent             | N/A (OS-specific)                                                             |
 +----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
 + `Docker-Compose <https://docs.docker.com/compose/install/>`_                     | OS-Dependent             | N/A (OS-specific)                                                             |
-+----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
-+ `Cmake  <https://cmake.org/download/>`_                                          | OS-Dependent             | N/A (OS-specific)                                                             |
-+----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
-+ `Bazel <https://docs.bazel.build/versions/master/install.html>`_                 | 0.14.1                   | N/A (OS-specific)                                                             |
-+----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
-+ `Libtool <https://www.gnu.org/software/libtool/>`_                               | >= 1.4.2                 | N/A (OS-specific)                                                             |
-+----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
-+ `Automake <https://www.gnu.org/software/automake/>`_                             | OS-Dependent             | N/A (OS-specific)                                                             |
 +----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
 
 
@@ -342,13 +330,6 @@ project root directory:
 ::
 
     $ make unit-tests
-
-.. Warning::
-
- Running envoy unit tests  can sometimes cause the developer VM to run out of
- memory. This pressure can be alleviated by shutting down the bazel caching
- daemon left by these tests. Run ``(cd envoy; bazel shutdown)`` after a build to
- do this.
 
 Testing individual packages
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -2057,8 +2038,8 @@ Update cilium-builder and cilium-runtime images
 Login to quay.io with your credentials to the repository that you want to
 update:
 
-`cilium-builder <https://quay.io/repository/cilium/cilium-builder?tab=builds>`__ - contains all envoy dependencies
-`cilium-runtime <https://quay.io/repository/cilium/cilium-runtime?tab=builds>`__ - contains all cilium dependencies (excluding envoy dependencies)
+`cilium-builder <https://quay.io/repository/cilium/cilium-builder?tab=builds>`__ - contains Cilium build-time dependencies
+`cilium-runtime <https://quay.io/repository/cilium/cilium-runtime?tab=builds>`__ - contains Cilium run-time dependencies
 
 0. After login, select the tab "builds" on the left menu.
 
