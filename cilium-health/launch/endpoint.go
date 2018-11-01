@@ -18,6 +18,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -33,7 +34,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	healthPkg "github.com/cilium/cilium/pkg/health/client"
 	"github.com/cilium/cilium/pkg/health/defaults"
-	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -61,6 +61,10 @@ var (
 
 	// client is used to ping the cilium-health endpoint as a health check.
 	client *healthPkg.Client
+
+	// NodeEpAnnotator is used to annotate nodes and pods in a cluster with
+	// information about this cilium-health instance.
+	NodeEpAnnotator Annotator
 )
 
 func logFromCommand(cmd *exec.Cmd, netns string) error {
@@ -171,6 +175,13 @@ func CleanupEndpoint() {
 	}
 }
 
+// Annotator is an interface which describes anything which annotates a node
+// with cilium-health metadata.
+type Annotator interface {
+	AnnotateNode(nodeName string, v4CIDR, v6CIDR *net.IPNet, v4HealthIP, v6HealthIP, v4CiliumHostIP net.IP) error
+	AnnotatePod(k8sNamespace, k8sPodName, annotationKey, annotationValue string) error
+}
+
 // LaunchAsEndpoint launches the cilium-health agent in a nested network
 // namespace and attaches it to Cilium the same way as any other endpoint,
 // but with special reserved labels.
@@ -248,9 +259,9 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 		return fmt.Errorf("Error while adding endpoint: %s", err)
 	}
 
-	// Propagate health IPs to all other nodes
-	if k8s.IsEnabled() {
-		err := k8s.AnnotateNode(k8s.Client(), node.GetName(), nil, nil, ip4, ip6, nil)
+	// Propagate health IPs to all other nodes via annotations
+	if NodeEpAnnotator != nil {
+		err = NodeEpAnnotator.AnnotateNode(node.GetName(), nil, nil, ip4, ip6, nil)
 		if err != nil {
 			return fmt.Errorf("Cannot annotate node CIDR range data: %s", err)
 		}

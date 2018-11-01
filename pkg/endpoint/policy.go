@@ -31,7 +31,6 @@ import (
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
-	"github.com/cilium/cilium/pkg/k8s"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -44,6 +43,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/revert"
+	"github.com/cilium/cilium/pkg/uuid"
 
 	"github.com/sirupsen/logrus"
 )
@@ -890,8 +890,23 @@ func (e *Endpoint) runIdentityToK8sPodSync() {
 				}
 				e.RUnlock()
 
+				// This is equivalent to checking if K8s is enabled, but by
+				// checking endpoint state instead.
 				if id != "" && e.GetK8sNamespace() != "" && e.GetK8sPodName() != "" {
-					return k8s.AnnotatePod(e, k8sConst.CiliumIdentityAnnotation, id)
+					if EpAnnotator != nil {
+						err := EpAnnotator.AnnotatePod(e.GetK8sNamespace(), e.GetK8sPodName(), k8sConst.CiliumIdentityAnnotation, id)
+						if err == nil {
+							log.WithFields(logrus.Fields{
+								logfields.EndpointID:            e.StringID(),
+								logfields.K8sNamespace:          e.GetK8sNamespace(),
+								logfields.K8sPodName:            e.GetK8sPodName(),
+								logfields.K8sIdentityAnnotation: k8sConst.CiliumIdentityAnnotation,
+								logfields.RetryUUID:             uuid.NewUUID(),
+							}).Debugf("Successfully annotated endpoint with %s=%s", logfields.K8sIdentityAnnotation, id)
+						}
+						return err
+					}
+					e.getLogger().Warningf("unable to annotate corresponding pod due to nil annotator")
 				}
 
 				return nil
