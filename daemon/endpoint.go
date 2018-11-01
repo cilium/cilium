@@ -23,12 +23,14 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
+	"github.com/cilium/cilium/cilium-health/launch"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/ipam"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
@@ -132,14 +134,32 @@ func NewPutEndpointIDHandler(d *Daemon) PutEndpointIDHandler {
 	return &putEndpointID{d: d}
 }
 
+func getEndpointAnnotator() endpoint.Annotator {
+	var annotator endpoint.Annotator
+	if k8s.IsEnabled() {
+		annotator = k8s.Client()
+	}
+	return annotator
+}
+
+func getHealthAnnotator() launch.Annotator {
+	var annotator launch.Annotator
+	if k8s.IsEnabled() {
+		annotator = k8s.Client()
+	}
+	return annotator
+}
+
 // createEndpoint attempts to create the endpoint corresponding to the change
 // request that was specified. Returns an HTTP code response code and an
 // error msg (or nil on success).
 func (d *Daemon) createEndpoint(epTemplate *models.EndpointChangeRequest, id string, lbls []string) (int, error) {
+
 	ep, err := endpoint.NewEndpointFromChangeModel(epTemplate)
 	if err != nil {
 		return PutEndpointIDInvalidCode, err
 	}
+
 	ep.SetDefaultOpts(option.Config.Opts)
 
 	oldEp, err2 := endpointmanager.Lookup(id)
