@@ -66,7 +66,7 @@ var (
 		int(unsafe.Sizeof(Proxy6Key{})),
 		int(unsafe.Sizeof(Proxy6Value{})),
 		MaxEntries,
-		0,
+		0, 0,
 		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
 			k, v := Proxy6Key{}, Proxy6Value{}
 

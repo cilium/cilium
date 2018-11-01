@@ -59,12 +59,14 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/maps/eppolicymap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/proxymap"
+	"github.com/cilium/cilium/pkg/maps/sockmap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -72,9 +74,11 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	policyApi "github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/revert"
+	"github.com/cilium/cilium/pkg/sockops"
 	"github.com/cilium/cilium/pkg/u8proto"
 	"github.com/cilium/cilium/pkg/workloads"
 
@@ -818,6 +822,17 @@ func (d *Daemon) init() error {
 			return err
 		}
 
+		// Remove any old sockops and re-enable with _new_ programs if flag is set
+		sockops.SockmapDisable()
+		sockops.SkmsgDisable()
+
+		if viper.GetBool(option.SockopsEnableName) == true {
+			eppolicymap.CreateEPPolicyMap()
+			sockops.SockmapEnable()
+			sockops.SkmsgEnable()
+			sockmap.SockmapCreate()
+		}
+
 		// Set up the list of IPCache listeners in the daemon, to be
 		// used by syncLXCMap().
 		ipcache.IPIdentityCache.SetListeners([]ipcache.IPIdentityMappingListener{
@@ -968,6 +983,7 @@ func createNodeConfigHeaderfile() error {
 	fmt.Fprintf(fw, "#define POLICY_MAP_SIZE %d\n", policymap.MaxEntries)
 	fmt.Fprintf(fw, "#define IPCACHE_MAP_SIZE %d\n", ipcachemap.MaxEntries)
 	fmt.Fprintf(fw, "#define POLICY_PROG_MAP_SIZE %d\n", policymap.ProgArrayMaxEntries)
+	fmt.Fprintf(fw, "#define SOCKOPS_MAP_SIZE %d\n", sockmap.MaxEntries)
 
 	fmt.Fprintf(fw, "#define TRACE_PAYLOAD_LEN %dULL\n", tracePayloadLen)
 	fmt.Fprintf(fw, "#define MTU %d\n", mtu.GetDeviceMTU())
@@ -1088,7 +1104,10 @@ func createPrefixLengthCounter() *counter.PrefixLengthCounter {
 
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
 func NewDaemon() (*Daemon, *endpointRestoreState, error) {
-	// Validate the daemon specific global options
+	// Prepopulate option.Config with options from CLI.
+	populateConfig()
+
+	// Validate the daemon-specific global options.
 	if err := option.Config.Validate(); err != nil {
 		return nil, nil, fmt.Errorf("invalid daemon configuration: %s", err)
 	}
@@ -1370,8 +1389,8 @@ func (d *Daemon) removeStaleMap(path string) {
 func (d *Daemon) removeStaleIDFromPolicyMap(id uint32) {
 	gpm, err := policymap.OpenGlobalMap(bpf.MapPath(endpoint.PolicyGlobalMapName))
 	if err == nil {
-		gpm.Delete(id, policymap.AllPorts, u8proto.All, policymap.Ingress)
-		gpm.Delete(id, policymap.AllPorts, u8proto.All, policymap.Egress)
+		gpm.Delete(id, policymap.AllPorts, u8proto.All, trafficdirection.Ingress)
+		gpm.Delete(id, policymap.AllPorts, u8proto.All, trafficdirection.Egress)
 		gpm.Close()
 	}
 }

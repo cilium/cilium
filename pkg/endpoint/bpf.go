@@ -38,11 +38,13 @@ import (
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/maps/eppolicymap"
 	"github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/version"
 
@@ -306,11 +308,11 @@ func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, des
 			}
 
 			// Set the proxy port in the policy map.
-			var direction policymap.TrafficDirection
+			var direction trafficdirection.TrafficDirection
 			if l4.Ingress {
-				direction = policymap.Ingress
+				direction = trafficdirection.Ingress
 			} else {
-				direction = policymap.Egress
+				direction = trafficdirection.Egress
 			}
 			keysFromFilter := e.convertL4FilterToPolicyMapKeys(&l4, direction)
 			for _, keyFromFilter := range keysFromFilter {
@@ -732,10 +734,14 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 			Debug("BPF header file unchanged, skipping BPF compilation and installation")
 	}
 
-	// Hook the endpoint into the endpoint table and expose it
+	// Hook the endpoint into the endpoint and endpoint to policy tables then expose it
 	stats.mapSync.Start()
+	epErr := eppolicymap.WriteEndpoint(epInfoCache.keys, e.PolicyMap.Fd)
 	err = lxcmap.WriteEndpoint(epInfoCache)
 	stats.mapSync.End(err == nil)
+	if epErr != nil {
+		e.logStatusLocked(BPF, Warning, fmt.Sprintf("Unable to sync EpToPolicy Map continue with Sockmap support: %s", err))
+	}
 	if err != nil {
 		return 0, compilationExecuted, fmt.Errorf("Exposing new BPF failed: %s", err)
 	}

@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
 
 	"github.com/spf13/cobra"
@@ -157,7 +158,7 @@ func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
 	}
 	for _, stat := range statsMap {
 		id := identity.NumericIdentity(stat.Key.Identity)
-		trafficDirection := policymap.TrafficDirection(stat.Key.TrafficDirection)
+		trafficDirection := trafficdirection.TrafficDirection(stat.Key.TrafficDirection)
 		trafficDirectionString := trafficDirection.String()
 		port := models.PortProtocolANY
 		if stat.Key.DestPort != 0 {

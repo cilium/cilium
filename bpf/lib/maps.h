@@ -50,8 +50,19 @@ struct bpf_elf_map __section_maps cilium_policy = {
 	.max_elem	= POLICY_PROG_MAP_SIZE,
 };
 
-/* Per-endpoint policy enforcement map */
+/* Map to link endpoint id to per endpoint cilium_policy map */
+#ifdef SOCKMAP
+struct bpf_elf_map __section_maps cilium_ep_to_policy = {
+	.type		= BPF_MAP_TYPE_HASH_OF_MAPS,
+	.size_key	= sizeof(struct endpoint_key),
+	.size_value	= sizeof(int),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= ENDPOINTS_MAP_SIZE,
+};
+#endif
+
 #ifdef POLICY_MAP
+/* Per-endpoint policy enforcement map */
 struct bpf_elf_map __section_maps POLICY_MAP = {
 	.type		= BPF_MAP_TYPE_HASH,
 	.size_key	= sizeof(struct policy_key),

@@ -20,10 +20,9 @@ import (
 	"os"
 	"time"
 
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/versioncheck"
 	"github.com/cilium/cilium/test/ginkgo-ext"
-
-	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 )
 
 var (
@@ -176,8 +175,8 @@ const (
 	KubectlPolicyNameLabel      = k8sConst.PolicyLabelName
 	KubectlPolicyNameSpaceLabel = k8sConst.PolicyLabelNamespace
 
-	CiliumStableVersion      = "v1.2"
-	CiliumStableImageVersion = "docker.io/cilium/cilium:" + CiliumStableVersion
+	CiliumStableVersion      = "v1.3"
+	CiliumStableImageVersion = "cilium/cilium:" + CiliumStableVersion
 	CiliumDeveloperImage     = "k8s1:5000/cilium/cilium-dev:latest"
 
 	MonitorLogFileName = "monitor.log"
@@ -215,12 +214,13 @@ const (
 )
 
 // NightlyStableUpgradesFrom the cilium images to update from in Nightly test.
-var NightlyStableUpgradesFrom = []string{"v1.0", "v1.1"}
+var NightlyStableUpgradesFrom = []string{"v1.2"}
 
 var (
 	CiliumV1_0 = versioncheck.MustCompile(">=v1.0,<v1.1")
 	CiliumV1_1 = versioncheck.MustCompile(">=v1.1,<v1.2")
 	CiliumV1_2 = versioncheck.MustCompile(">=v1.2,<v1.3")
+	CiliumV1_3 = versioncheck.MustCompile(">=v1.2,<v1.4")
 )
 
 // CiliumDefaultDSPatch is the default Cilium DaemonSet patch to be used in all tests.

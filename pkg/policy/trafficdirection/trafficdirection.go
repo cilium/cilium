@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package policymap
+package trafficdirection
 
 // TrafficDirection specifies the directionality of policy (ingress or egress).
 type TrafficDirection uint8

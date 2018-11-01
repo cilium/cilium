@@ -159,6 +159,9 @@ const (
 	// ServiceID is the orchestration unique ID of a service
 	ServiceID = "serviceID"
 
+	// ServiceIP is the IP of the service
+	ServiceIP = "serviceIP"
+
 	// CiliumNetworkPolicy is a cilium specific NetworkPolicy
 	CiliumNetworkPolicy = "ciliumNetworkPolicy"
 

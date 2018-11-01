@@ -28,12 +28,10 @@ import (
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
-
 	gops "github.com/google/gops/agent"
 	"github.com/onsi/ginkgo"
 	ginkgoconfig "github.com/onsi/ginkgo/config"
 	. "github.com/onsi/gomega"
-
 	"github.com/onsi/gomega/format"
 	"github.com/sirupsen/logrus"
 )
@@ -172,7 +170,9 @@ var _ = BeforeAll(func() {
 	logger := log.WithFields(logrus.Fields{"testName": "BeforeSuite"})
 	scope, err := helpers.GetScope()
 	if err != nil {
-		Fail(fmt.Sprintf("Cannot get the scope for running test: %s", err))
+		Fail(fmt.Sprintf(
+			"Cannot get the scope for running test, please use --cilium.testScope option: %s",
+			err))
 	}
 
 	switch scope {

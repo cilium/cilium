@@ -9,11 +9,10 @@ $(TARGET): $(DEPS)
 
 all: $(TARGET)
 
-# Cleaning up messes CI due to parallel builds, so do not rm the target for now
 clean:
 	@$(ECHO_CLEAN) $(notdir $(shell pwd))
-#	-$(QUIET)rm -f $(TARGET)
-#	$(GO) clean
+	-$(QUIET)rm -f $(TARGET)
+	$(GO) clean
 
 install:
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(LIBDIR)

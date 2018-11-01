@@ -14,6 +14,10 @@
 
 package lbmap
 
+import (
+	"github.com/cilium/cilium/pkg/loadbalancer"
+)
+
 type serviceValueMap map[string]ServiceValue
 
 type bpfBackend struct {
@@ -143,6 +147,38 @@ func createBackendsMap(backends []ServiceValue) serviceValueMap {
 		m[b.String()] = b
 	}
 	return m
+}
+
+func (l *lbmapCache) restoreService(svc loadbalancer.LBSVC) error {
+	frontendID := svc.FE.String()
+
+	serviceKey, serviceValues, err := LBSVC2ServiceKeynValue(svc)
+	if err != nil {
+		return err
+	}
+
+	bpfSvc, ok := l.entries[frontendID]
+	if !ok {
+		bpfSvc = newBpfService(serviceKey)
+		l.entries[frontendID] = bpfSvc
+	}
+
+	for index, backend := range serviceValues {
+		b := &bpfBackend{
+			id:       backend.String(),
+			bpfValue: backend,
+		}
+		if _, ok := bpfSvc.uniqueBackends[backend.String()]; ok {
+			b.isHole = true
+			bpfSvc.holes = append(bpfSvc.holes, index+1)
+		} else {
+			bpfSvc.uniqueBackends[backend.String()] = backend
+		}
+
+		bpfSvc.backendsByMapIndex[index+1] = b
+	}
+
+	return nil
 }
 
 func (l *lbmapCache) prepareUpdate(fe ServiceKey, backends []ServiceValue) *bpfService {

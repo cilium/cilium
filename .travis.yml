@@ -1,0 +1,25 @@
+language: go
+
+dist: trusty
+sudo: required
+
+go:
+ - 1.11.1
+
+# This will travis to build on branch updates only for the master branch
+branches:
+  only:
+  - master
+
+addons:
+  apt:
+    packages:
+      - kernel-package libc6-dev-i386
+
+before_install: ./.travis/prepare.sh
+
+before_script:
+  - export PATH=/usr/local/clang/bin:$PATH
+  - export GO_NOQUIET=/home/travis/.gimme/versions/go1.11.1.linux.amd64/bin/go
+
+script: ./.travis/build.sh

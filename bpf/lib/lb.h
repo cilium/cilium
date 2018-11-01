@@ -601,8 +601,7 @@ static inline int __inline__ lb4_extract_key(struct __sk_buff *skb, struct ipv4_
 #endif
 }
 
-static inline struct lb4_service *lb4_lookup_service(struct __sk_buff *skb,
-						     struct lb4_key *key)
+static inline struct lb4_service *__lb4_lookup_service(struct lb4_key *key)
 {
 #ifdef LB_L4
 	if (key->dport) {
@@ -629,9 +628,17 @@ static inline struct lb4_service *lb4_lookup_service(struct __sk_buff *skb,
 			return svc;
 	}
 #endif
-
-	cilium_dbg_lb(skb, DBG_LB4_LOOKUP_MASTER_FAIL, 0, 0);
 	return NULL;
+}
+
+static inline struct lb4_service *lb4_lookup_service(struct __sk_buff *skb,
+						     struct lb4_key *key)
+{
+	struct lb4_service *svc = __lb4_lookup_service(key);
+
+	if (!svc)
+		cilium_dbg_lb(skb, DBG_LB4_LOOKUP_MASTER_FAIL, 0, 0);
+	return svc;
 }
 
 static inline struct lb4_service *lb4_lookup_slave(struct __sk_buff *skb,

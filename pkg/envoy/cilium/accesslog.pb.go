@@ -556,13 +556,13 @@ func _LogEntry_OneofSizer(msg proto.Message) (n int) {
 }
 
 func init() {
+	proto.RegisterEnum("cilium.HttpProtocol", HttpProtocol_name, HttpProtocol_value)
+	proto.RegisterEnum("cilium.EntryType", EntryType_name, EntryType_value)
 	proto.RegisterType((*KeyValue)(nil), "cilium.KeyValue")
 	proto.RegisterType((*HttpLogEntry)(nil), "cilium.HttpLogEntry")
 	proto.RegisterType((*L7LogEntry)(nil), "cilium.L7LogEntry")
 	proto.RegisterMapType((map[string]string)(nil), "cilium.L7LogEntry.FieldsEntry")
 	proto.RegisterType((*LogEntry)(nil), "cilium.LogEntry")
-	proto.RegisterEnum("cilium.HttpProtocol", HttpProtocol_name, HttpProtocol_value)
-	proto.RegisterEnum("cilium.EntryType", EntryType_name, EntryType_value)
 }
 
 func init() { proto.RegisterFile("cilium/accesslog.proto", fileDescriptor_f29d2fd7c3943de2) }

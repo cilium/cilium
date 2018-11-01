@@ -8,7 +8,9 @@ RUNDIR?=/var/run
 CONFDIR?=/etc
 
 # GO_NOQUIET should not have any Makefile directives.
-GO_NOQUIET = go
+ifeq ($(GO_NOQUIET),)
+	GO_NOQUIET = go
+endif
 GO = $(QUIET)$(GO_NOQUIET)
 INSTALL = $(QUIET)install
 

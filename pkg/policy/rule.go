@@ -18,9 +18,9 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -142,7 +142,7 @@ func mergeL4IngressPort(ctx *SearchContext, endpoints []api.EndpointSelector, en
 
 func mergeL4Ingress(ctx *SearchContext, rule api.IngressRule, ruleLabels labels.LabelArray, resMap L4PolicyMap) (int, error) {
 	if len(rule.ToPorts) == 0 {
-		ctx.PolicyTrace("    No L4 %s rules\n", policymap.Ingress)
+		ctx.PolicyTrace("    No L4 %s rules\n", trafficdirection.Ingress)
 		return 0, nil
 	}
 
@@ -172,7 +172,7 @@ func mergeL4Ingress(ctx *SearchContext, rule api.IngressRule, ruleLabels labels.
 	}
 
 	for _, r := range rule.ToPorts {
-		ctx.PolicyTrace("    Allows %s port %v from endpoints %v\n", policymap.Ingress, r.Ports, fromEndpoints)
+		ctx.PolicyTrace("    Allows %s port %v from endpoints %v\n", trafficdirection.Ingress, r.Ports, fromEndpoints)
 		if r.Rules != nil && r.Rules.L7Proto != "" {
 			ctx.PolicyTrace("      l7proto: \"%s\"\n", r.Rules.L7Proto)
 		}
@@ -441,7 +441,7 @@ func (r *rule) canReachEgress(ctx *SearchContext, state *traceState) api.Decisio
 
 func mergeL4Egress(ctx *SearchContext, rule api.EgressRule, ruleLabels labels.LabelArray, resMap L4PolicyMap) (int, error) {
 	if len(rule.ToPorts) == 0 {
-		ctx.PolicyTrace("    No L4 %s rules\n", policymap.Egress)
+		ctx.PolicyTrace("    No L4 %s rules\n", trafficdirection.Egress)
 		return 0, nil
 	}
 
@@ -449,7 +449,7 @@ func mergeL4Egress(ctx *SearchContext, rule api.EgressRule, ruleLabels labels.La
 	found := 0
 
 	for _, r := range rule.ToPorts {
-		ctx.PolicyTrace("    Allows %s port %v to endpoints %v\n", policymap.Egress, r.Ports, toEndpoints)
+		ctx.PolicyTrace("    Allows %s port %v to endpoints %v\n", trafficdirection.Egress, r.Ports, toEndpoints)
 		if r.Rules != nil && r.Rules.L7Proto != "" {
 			ctx.PolicyTrace("      l7proto: \"%s\"\n", r.Rules.L7Proto)
 		}

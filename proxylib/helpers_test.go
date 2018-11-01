@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// +build !privileged_tests
+
 package main
 
 // These helpers must be defined in the main package so that the exported shared library functions

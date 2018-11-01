@@ -41,6 +41,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/revert"
 
 	"github.com/sirupsen/logrus"
@@ -50,13 +51,13 @@ var (
 	// localHostKey represents an ingress L3 allow from the local host.
 	localHostKey = policymap.PolicyKey{
 		Identity:         identityPkg.ReservedIdentityHost.Uint32(),
-		TrafficDirection: policymap.Ingress.Uint8(),
+		TrafficDirection: trafficdirection.Ingress.Uint8(),
 	}
 
 	// worldKey represents an ingress L3 allow from the world.
 	worldKey = policymap.PolicyKey{
 		Identity:         identityPkg.ReservedIdentityWorld.Uint32(),
-		TrafficDirection: policymap.Ingress.Uint8(),
+		TrafficDirection: trafficdirection.Ingress.Uint8(),
 	}
 )
 
@@ -108,7 +109,7 @@ func getSecurityIdentities(labelsMap identityPkg.IdentityCache, selector *api.En
 // convertL4FilterToPolicyMapKeys converts filter into a list of PolicyKeys
 // that apply to this endpoint.
 // Must be called with endpoint.Mutex locked.
-func (e *Endpoint) convertL4FilterToPolicyMapKeys(filter *policy.L4Filter, direction policymap.TrafficDirection) []policymap.PolicyKey {
+func (e *Endpoint) convertL4FilterToPolicyMapKeys(filter *policy.L4Filter, direction trafficdirection.TrafficDirection) []policymap.PolicyKey {
 	keysToAdd := []policymap.PolicyKey{}
 	port := uint16(filter.Port)
 	proto := uint8(filter.U8Proto)
@@ -151,7 +152,7 @@ func (e *Endpoint) computeDesiredL4PolicyMapEntries(keysToAdd PolicyMapState) {
 	}
 
 	for _, filter := range e.DesiredL4Policy.Ingress {
-		keysFromFilter := e.convertL4FilterToPolicyMapKeys(&filter, policymap.Ingress)
+		keysFromFilter := e.convertL4FilterToPolicyMapKeys(&filter, trafficdirection.Ingress)
 		for _, keyFromFilter := range keysFromFilter {
 			var proxyPort uint16
 			// Preserve the already-allocated proxy ports for redirects that
@@ -171,7 +172,7 @@ func (e *Endpoint) computeDesiredL4PolicyMapEntries(keysToAdd PolicyMapState) {
 	}
 
 	for _, filter := range e.DesiredL4Policy.Egress {
-		keysFromFilter := e.convertL4FilterToPolicyMapKeys(&filter, policymap.Egress)
+		keysFromFilter := e.convertL4FilterToPolicyMapKeys(&filter, trafficdirection.Egress)
 		for _, keyFromFilter := range keysFromFilter {
 			var proxyPort uint16
 			// Preserve the already-allocated proxy ports for redirects that
@@ -344,7 +345,7 @@ func (e *Endpoint) computeDesiredL3PolicyMapEntries(repo *policy.Repository, des
 		if ingressAccess == api.Allowed {
 			keyToAdd := policymap.PolicyKey{
 				Identity:         identity.Uint32(),
-				TrafficDirection: policymap.Ingress.Uint8(),
+				TrafficDirection: trafficdirection.Ingress.Uint8(),
 			}
 			desiredPolicyKeys[keyToAdd] = PolicyMapStateEntry{}
 		}
@@ -363,7 +364,7 @@ func (e *Endpoint) computeDesiredL3PolicyMapEntries(repo *policy.Repository, des
 		if egressAccess == api.Allowed {
 			keyToAdd := policymap.PolicyKey{
 				Identity:         identity.Uint32(),
-				TrafficDirection: policymap.Egress.Uint8(),
+				TrafficDirection: trafficdirection.Egress.Uint8(),
 			}
 			desiredPolicyKeys[keyToAdd] = PolicyMapStateEntry{}
 		}
