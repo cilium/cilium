@@ -85,16 +85,19 @@ tests: force
 
 unit-tests: start-kvstores
 	$(QUIET) $(MAKE) -C daemon/ check-bindata
-	$(QUIET) echo "mode: count" > coverage-all.out
+	$(QUIET) echo "mode: count" > coverage-all-tmp.out
 	$(QUIET) echo "mode: count" > coverage.out
 	$(QUIET)$(foreach pkg,$(TESTPKGS),\
 		$(GO) test $(pkg) $(GOTEST_BASE) $(GOTEST_COVER_OPTS) || exit 1; \
-		tail -n +2 coverage.out >> coverage-all.out;)
+		tail -n +2 coverage.out >> coverage-all-tmp.out;)
 	$(QUIET)$(foreach pkg,$(TESTPKGS),\
-		sudo $(GO) test $(pkg) $(GOTEST_PRIV_OPTS) $(GOTEST_COVER_OPTS) || exit 1; \
-		tail -n +2 coverage.out >> coverage-all.out;)
+		sudo -E $(GO) test $(pkg) $(GOTEST_PRIV_OPTS) $(GOTEST_COVER_OPTS) || exit 1; \
+		tail -n +2 coverage.out >> coverage-all-tmp.out;)
+	# Remove generated code from coverage
+	$(QUIET) grep -Ev '(^github.com/cilium/cilium/api/v1)|(generated.deepcopy.go)|(^github.com/cilium/cilium/pkg/k8s/client/)' \
+		coverage-all-tmp.out > coverage-all.out
 	$(QUIET)$(GO) tool cover -html=coverage-all.out -o=coverage-all.html
-	$(QUIET) rm coverage.out
+	$(QUIET) rm coverage.out coverage-all-tmp.out
 	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
 	$(DOCKER) rm -f "cilium-etcd-test-container"
 	$(DOCKER) rm -f "cilium-consul-test-container"
