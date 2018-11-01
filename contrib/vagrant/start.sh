@@ -50,8 +50,6 @@ export 'YES_TO_ALL'=${YES_TO_ALL:-"0"}
 export 'CILIUM_SCRIPT'=true
 # Sets the directory where the temporary setup scripts are created
 export 'CILIUM_TEMP'="${dir}"
-# Required bazel version
-export 'BAZEL_VERSION'=$(<envoy/BAZEL_VERSION)
 
 # Sets the RELOAD env variable with 1 if there is any VM printed by
 # vagrant status.

@@ -2,8 +2,8 @@ include Makefile.defs
 include daemon/bpf.sha
 
 SUBDIRS = proxylib envoy plugins bpf cilium daemon monitor cilium-health bugtool tools
-GOFILES ?= $(subst _$(ROOT_DIR)/,,$(shell $(GO) list ./... | grep -v -e /vendor/ -e /contrib/ -e envoy/envoy))
-TESTPKGS ?= $(subst _$(ROOT_DIR)/,,$(shell $(GO) list ./... | grep -v -e /api/v1 -e /vendor/ -e /contrib/ -e envoy/envoy -e test))
+GOFILES ?= $(subst _$(ROOT_DIR)/,,$(shell $(GO) list ./... | grep -v -e /vendor/ -e /contrib/))
+TESTPKGS ?= $(subst _$(ROOT_DIR)/,,$(shell $(GO) list ./... | grep -v -e /api/v1 -e /vendor/ -e /contrib/ -e test))
 GOLANGVERSION = $(shell $(GO) version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
 GOLANG_SRCFILES=$(shell for pkg in $(subst github.com/cilium/cilium/,,$(GOFILES)); do find $$pkg -name *.go -print; done | grep -v vendor)
 BPF_FILES ?= $(shell git ls-files ../bpf/ | tr "\n" ' ')
@@ -56,9 +56,6 @@ tests-ginkgo-real:
 		$(GO) test $(TEST_LDFLAGS) $(pkg) $(GOTEST_PRIV_OPTS) || exit 1;)
 	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
 
-tests-envoy: proxylib
-	@ $(MAKE) -C envoy tests
-
 start-kvstores:
 	@echo Starting key-value store containers...
 	-$(DOCKER) rm -f "cilium-etcd-test-container" 2> /dev/null
@@ -81,7 +78,7 @@ start-kvstores:
            agent -client=0.0.0.0 -server -bootstrap-expect 1
 
 tests: force
-	$(MAKE) unit-tests tests-envoy
+	$(MAKE) unit-tests
 
 unit-tests: start-kvstores
 	$(QUIET) $(MAKE) -C daemon/ check-bindata
@@ -127,17 +124,14 @@ install:
 GIT_VERSION: .git
 	echo "$(GIT_VERSION)" >GIT_VERSION
 
-envoy/SOURCE_VERSION: .git
-	git rev-parse HEAD >envoy/SOURCE_VERSION
-
 docker-image: clean docker-image-no-clean
 
-docker-image-no-clean: GIT_VERSION envoy/SOURCE_VERSION
-	$(QUIET)grep -v -E "(SOURCE|GIT)_VERSION" .gitignore >.dockerignore
+docker-image-no-clean: GIT_VERSION
+	$(QUIET)grep -v -E "GIT_VERSION" .gitignore >.dockerignore
 	$(QUIET)echo ".*" >>.dockerignore # .git pruned out
 	$(QUIET)echo "Documentation" >>.dockerignore # Not needed
 	@$(ECHO_GEN) docker-image
-	$(DOCKER) build --build-arg LOCKDEBUG=${LOCKDEBUG} --build-arg V=${V} -t "cilium/cilium:$(DOCKER_IMAGE_TAG)" .
+	$(DOCKER) build --build-arg CILIUM_ENVOY_SHA=${CILIUM_ENVOY_SHA} --build-arg LOCKDEBUG=${LOCKDEBUG} --build-arg V=${V} -t "cilium/cilium:$(DOCKER_IMAGE_TAG)" .
 	$(QUIET)echo "Push like this when ready:"
 	$(QUIET)echo "docker push cilium/cilium:$(DOCKER_IMAGE_TAG)"
 
@@ -145,7 +139,7 @@ docker-image-runtime:
 	cd contrib/packaging/docker && docker build -t "cilium/cilium-runtime:$(UTC_DATE)" -f Dockerfile.runtime .
 
 docker-image-builder:
-	cd envoy && docker build -t "quay.io/cilium/cilium-builder:$(UTC_DATE)" .
+	docker build -t "cilium/cilium-builder:$(UTC_DATE)" -f Dockerfile.builder .
 
 build-deb:
 	$(MAKE) -C ./contrib/packaging/deb

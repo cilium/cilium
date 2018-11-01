@@ -1,4 +1,13 @@
 #
+# cilium-envoy from github.com/cilium/proxy
+#
+# This ARG is used in FROM below and must be placed before ALL FROM lines!
+# Otherwise its value is not passed in.
+#
+ARG CILIUM_ENVOY_SHA
+FROM cilium/cilium-envoy:${CILIUM_ENVOY_SHA:-latest} as cilium-envoy
+
+#
 # Cilium incremental build. Should be fast given builder-deps is up-to-date!
 #
 # cilium-builder tag is the date on which the compatible build image
@@ -8,7 +17,7 @@
 # versions to be built while allowing the new versions to make changes
 # that are not backwards compatible.
 #
-FROM quay.io/cilium/cilium-builder:2018-10-29 as builder
+FROM quay.io/cilium/cilium-builder:2018-11-01 as builder
 LABEL maintainer="maintainer@cilium.io"
 WORKDIR /go/src/github.com/cilium/cilium
 COPY . ./
@@ -33,6 +42,7 @@ RUN make LOCKDEBUG=$LOCKDEBUG PKG_BUILD=1 V=$V SKIP_DOCS=true DESTDIR=/tmp/insta
 FROM quay.io/cilium/cilium-runtime:2018-10-29
 LABEL maintainer="maintainer@cilium.io"
 COPY --from=builder /tmp/install /
+COPY --from=cilium-envoy / /
 COPY plugins/cilium-cni/cni-install.sh /cni-install.sh
 COPY plugins/cilium-cni/cni-uninstall.sh /cni-uninstall.sh
 WORKDIR /root

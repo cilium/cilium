@@ -4,7 +4,6 @@ ifeq ($(V),0)
 	ECHO_GEN=echo "  GEN   $(notdir $(shell pwd))/"
 	ECHO_GO=echo "  GO    $(notdir $(shell pwd))/$@"
 	ECHO_CHECK=echo "  CHECK"
-	ECHO_BAZEL=echo "  BAZEL $(notdir $(shell pwd))/$(notdir $(shell dirname $(ENVOY_BIN)))/$@"
 	ECHO_GINKGO=echo "  GINKG $(notdir $(shell pwd))"
 	ECHO_CLEAN=echo "  CLEAN"
 	SPHINXOPTS+="-q"
@@ -14,7 +13,6 @@ else
 	ECHO_GEN=: 
 	ECHO_GO=: 
 	ECHO_CHECK=: 
-	ECHO_BAZEL=: 
 	ECHO_GINKGO=: 
 	ECHO_CLEAN=: 
 endif

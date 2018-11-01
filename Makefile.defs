@@ -36,3 +36,5 @@ endif
 ifeq ($(DOCKER_IMAGE_TAG),)
     DOCKER_IMAGE_TAG="latest"
 endif
+
+CILIUM_ENVOY_SHA=$(shell cat $(ROOT_DIR)/CILIUM_ENVOY_SHA)
