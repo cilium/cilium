@@ -23,6 +23,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
@@ -51,9 +52,10 @@ var (
 )
 
 // GetPolicyLabels returns a LabelArray for the given namespace and name.
-func GetPolicyLabels(ns, name, derivedFrom string) labels.LabelArray {
+func GetPolicyLabels(ns, name string, uid types.UID, derivedFrom string) labels.LabelArray {
 	return []*labels.Label{
 		labels.NewLabel(k8sConst.PolicyLabelName, name, labels.LabelSourceK8s),
+		labels.NewLabel(k8sConst.PolicyLabelUID, string(uid), labels.LabelSourceK8s),
 		labels.NewLabel(k8sConst.PolicyLabelNamespace, ns, labels.LabelSourceK8s),
 		labels.NewLabel(k8sConst.PolicyLabelDerivedFrom, derivedFrom, labels.LabelSourceK8s),
 	}
@@ -190,7 +192,7 @@ func namespacesAreValid(namespace string, userNamespaces []string) bool {
 
 // ParseToCiliumRule returns an api.Rule with all the labels parsed into cilium
 // labels.
-func ParseToCiliumRule(namespace, name string, r *api.Rule) *api.Rule {
+func ParseToCiliumRule(namespace, name string, uid types.UID, r *api.Rule) *api.Rule {
 	retRule := &api.Rule{}
 	if r.EndpointSelector.LabelSelector != nil {
 		retRule.EndpointSelector = api.NewESFromK8sLabelSelector("", r.EndpointSelector.LabelSelector)
@@ -219,7 +221,7 @@ func ParseToCiliumRule(namespace, name string, r *api.Rule) *api.Rule {
 	parseToCiliumIngressRule(namespace, r, retRule)
 	parseToCiliumEgressRule(namespace, r, retRule)
 
-	retRule.Labels = ParseToCiliumLabels(namespace, name, r.Labels)
+	retRule.Labels = ParseToCiliumLabels(namespace, name, uid, r.Labels)
 
 	retRule.Description = r.Description
 
@@ -229,7 +231,7 @@ func ParseToCiliumRule(namespace, name string, r *api.Rule) *api.Rule {
 // ParseToCiliumLabels returns all ruleLbls appended with a specific label that
 // represents the given namespace and name along with a label that specifies
 // these labels were derived from a CiliumNetworkPolicy.
-func ParseToCiliumLabels(namespace, name string, ruleLbs labels.LabelArray) labels.LabelArray {
-	policyLbls := GetPolicyLabels(namespace, name, ResourceTypeCiliumNetworkPolicy)
+func ParseToCiliumLabels(namespace, name string, uid types.UID, ruleLbs labels.LabelArray) labels.LabelArray {
+	policyLbls := GetPolicyLabels(namespace, name, uid, ResourceTypeCiliumNetworkPolicy)
 	return append(policyLbls, ruleLbs...)
 }

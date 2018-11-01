@@ -33,6 +33,7 @@ import (
 	"k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -176,6 +177,7 @@ func (s *K8sSuite) TestParseNetworkPolicyIngress(c *C) {
 			DerivedFromRules: []labels.LabelArray{
 				labels.ParseLabelArray(
 					"k8s:"+k8sConst.PolicyLabelName,
+					"k8s:"+k8sConst.PolicyLabelUID,
 					"k8s:"+k8sConst.PolicyLabelNamespace+"=default",
 					"k8s:"+k8sConst.PolicyLabelDerivedFrom+"="+resourceTypeNetworkPolicy,
 				),
@@ -212,7 +214,8 @@ func (s *K8sSuite) TestParseNetworkPolicyNoSelectors(c *C) {
 "apiVersion": "extensions/networkingv1",
 "metadata": {
   "name": "ingress-cidr-test",
-  "namespace": "myns"
+  "namespace": "myns",
+  "uid": "11bba160-ddca-11e8-b697-0800273b04ff"
 },
 "spec": {
   "podSelector": {
@@ -265,6 +268,7 @@ func (s *K8sSuite) TestParseNetworkPolicyNoSelectors(c *C) {
 			Egress: []api.EgressRule{},
 			Labels: labels.ParseLabelArray(
 				"k8s:"+k8sConst.PolicyLabelName+"=ingress-cidr-test",
+				"k8s:"+k8sConst.PolicyLabelUID+"=11bba160-ddca-11e8-b697-0800273b04ff",
 				"k8s:"+k8sConst.PolicyLabelNamespace+"=myns",
 				"k8s:"+k8sConst.PolicyLabelDerivedFrom+"="+resourceTypeNetworkPolicy,
 			),
@@ -354,6 +358,7 @@ func (s *K8sSuite) TestParseNetworkPolicyEgress(c *C) {
 			DerivedFromRules: []labels.LabelArray{
 				labels.ParseLabelArray(
 					"k8s:"+k8sConst.PolicyLabelName,
+					"k8s:"+k8sConst.PolicyLabelUID,
 					"k8s:"+k8sConst.PolicyLabelNamespace+"=default",
 					"k8s:"+k8sConst.PolicyLabelDerivedFrom+"="+resourceTypeNetworkPolicy,
 				),
@@ -1577,16 +1582,19 @@ func Test_parseNetworkPolicyPeer(t *testing.T) {
 }
 
 func (s *K8sSuite) TestGetPolicyLabelsv1(c *C) {
+	uuid := "1bba160-ddca-11e8-b697-0800273b04ff"
 	tests := []struct {
 		np          *networkingv1.NetworkPolicy // input network policy
 		name        string                      // expected extracted name
 		namespace   string                      // expected extracted namespace
+		uuid        string                      // expected extracted uuid
 		derivedFrom string                      // expected extracted derived
 	}{
 		{
 			np:          &networkingv1.NetworkPolicy{},
 			name:        "",
 			namespace:   v1.NamespaceDefault,
+			uuid:        "",
 			derivedFrom: resourceTypeNetworkPolicy,
 		},
 		{
@@ -1598,6 +1606,7 @@ func (s *K8sSuite) TestGetPolicyLabelsv1(c *C) {
 				},
 			},
 			name:        "foo",
+			uuid:        "",
 			namespace:   v1.NamespaceDefault,
 			derivedFrom: resourceTypeNetworkPolicy,
 		},
@@ -1606,10 +1615,12 @@ func (s *K8sSuite) TestGetPolicyLabelsv1(c *C) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
 					Namespace: "bar",
+					UID:       types.UID(uuid),
 				},
 			},
 			name:        "foo",
 			namespace:   "bar",
+			uuid:        uuid,
 			derivedFrom: resourceTypeNetworkPolicy,
 		},
 	}
@@ -1625,11 +1636,12 @@ func (s *K8sSuite) TestGetPolicyLabelsv1(c *C) {
 		lbls := GetPolicyLabelsv1(tt.np)
 
 		c.Assert(lbls, NotNil)
-		c.Assert(len(lbls), Equals, 3, Commentf("Incorrect number of labels: Expected Name, Namespace and DerivedFrom labels."))
-
+		c.Assert(len(lbls), Equals, 4, Commentf(
+			"Incorrect number of labels: Expected Name, UID, Namespace and DerivedFrom labels."))
 		assertLabel(lbls[0], k8sConst.PolicyLabelName, tt.name)
-		assertLabel(lbls[1], k8sConst.PolicyLabelNamespace, tt.namespace)
-		assertLabel(lbls[2], k8sConst.PolicyLabelDerivedFrom, tt.derivedFrom)
+		assertLabel(lbls[1], k8sConst.PolicyLabelUID, tt.uuid)
+		assertLabel(lbls[2], k8sConst.PolicyLabelNamespace, tt.namespace)
+		assertLabel(lbls[3], k8sConst.PolicyLabelDerivedFrom, tt.derivedFrom)
 	}
 }
 

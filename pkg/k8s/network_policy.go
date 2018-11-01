@@ -50,6 +50,7 @@ func GetPolicyLabelsv1(np *networkingv1.NetworkPolicy) labels.LabelArray {
 	}
 
 	policyName := np.Annotations[annotation.Name]
+	policyUID := np.UID
 
 	if policyName == "" {
 		policyName = np.Name
@@ -57,7 +58,7 @@ func GetPolicyLabelsv1(np *networkingv1.NetworkPolicy) labels.LabelArray {
 
 	ns := k8sUtils.ExtractNamespace(&np.ObjectMeta)
 
-	return k8sCiliumUtils.GetPolicyLabels(ns, policyName, resourceTypeNetworkPolicy)
+	return k8sCiliumUtils.GetPolicyLabels(ns, policyName, policyUID, resourceTypeNetworkPolicy)
 }
 
 func parseNetworkPolicyPeer(namespace string, peer *networkingv1.NetworkPolicyPeer) *api.EndpointSelector {

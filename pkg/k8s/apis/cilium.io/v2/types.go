@@ -179,6 +179,7 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 
 	namespace := k8sUtils.ExtractNamespace(&r.ObjectMeta)
 	name := r.ObjectMeta.Name
+	uid := r.ObjectMeta.UID
 
 	retRules := api.Rules{}
 
@@ -187,7 +188,7 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 			return nil, fmt.Errorf("Invalid CiliumNetworkPolicy spec: %s", err)
 
 		}
-		cr := k8sCiliumUtils.ParseToCiliumRule(namespace, name, r.Spec)
+		cr := k8sCiliumUtils.ParseToCiliumRule(namespace, name, uid, r.Spec)
 		retRules = append(retRules, cr)
 	}
 	if r.Specs != nil {
@@ -196,7 +197,7 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 				return nil, fmt.Errorf("Invalid CiliumNetworkPolicy specs: %s", err)
 
 			}
-			cr := k8sCiliumUtils.ParseToCiliumRule(namespace, name, rule)
+			cr := k8sCiliumUtils.ParseToCiliumRule(namespace, name, uid, rule)
 			retRules = append(retRules, cr)
 		}
 	}
@@ -214,7 +215,8 @@ func (r *CiliumNetworkPolicy) GetControllerName() string {
 func (r *CiliumNetworkPolicy) GetIdentityLabels() labels.LabelArray {
 	namespace := k8sUtils.ExtractNamespace(&r.ObjectMeta)
 	name := r.ObjectMeta.Name
-	return k8sCiliumUtils.GetPolicyLabels(namespace, name,
+	uid := r.ObjectMeta.UID
+	return k8sCiliumUtils.GetPolicyLabels(namespace, name, uid,
 		k8sCiliumUtils.ResourceTypeCiliumNetworkPolicy)
 }
 

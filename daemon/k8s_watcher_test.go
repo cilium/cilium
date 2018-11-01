@@ -41,6 +41,7 @@ import (
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/cache"
 )
@@ -163,6 +164,8 @@ func (ds *DaemonSuite) Test_missingK8sNetworkPolicyV1(c *C) {
 }
 
 func (ds *DaemonSuite) Test_missingCNPv2(c *C) {
+	uuid := types.UID("11bba160-ddca-11e8-b697-0800273b04ff")
+
 	type args struct {
 		m    versioned.Map
 		repo *policy.Repository
@@ -224,7 +227,8 @@ func (ds *DaemonSuite) Test_missingCNPv2(c *C) {
 				p1 := policy.NewPolicyRepository()
 				_, err := p1.Add(api.Rule{
 					EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("id=a")),
-					Labels: utils.GetPolicyLabels("foo", "bar",
+					Labels: utils.GetPolicyLabels(
+						"foo", "bar", uuid,
 						utils.ResourceTypeCiliumNetworkPolicy),
 				})
 				c.Assert(err, IsNil)
@@ -235,6 +239,7 @@ func (ds *DaemonSuite) Test_missingCNPv2(c *C) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "bar",
 							Namespace: "foo",
+							UID:       uuid,
 						},
 						Spec: &api.Rule{
 							EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("id=a")),
@@ -1569,6 +1574,8 @@ func (ds *DaemonSuite) Test_missingK8sIngressV1Beta1(c *C) {
 
 func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 	// ciliumV2Store cache.Store, oldRules api.Rules, cnp *cilium_v2.CiliumNetworkPolicy
+
+	uuid := types.UID("11bba160-ddca-11e8-b697-0800273b04ff")
 	type args struct {
 		ciliumV2Store cache.Store
 		cnp           *v2.CiliumNetworkPolicy
@@ -1592,6 +1599,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "db",
 							Namespace: "production",
+							UID:       uuid,
 						},
 						Spec: &api.Rule{
 							EndpointSelector: api.EndpointSelector{
@@ -1620,7 +1628,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 						},
 						Ingress:     nil,
 						Egress:      nil,
-						Labels:      utils.GetPolicyLabels("production", "db", utils.ResourceTypeCiliumNetworkPolicy),
+						Labels:      utils.GetPolicyLabels("production", "db", uuid, utils.ResourceTypeCiliumNetworkPolicy),
 						Description: "",
 					},
 				})
@@ -1634,7 +1642,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 			name: "have a rule with user labels and update it without user labels, all other rules should be deleted",
 			setupArgs: func() args {
 				r := policy.NewPolicyRepository()
-				lbls := utils.GetPolicyLabels("production", "db", utils.ResourceTypeCiliumNetworkPolicy)
+				lbls := utils.GetPolicyLabels("production", "db", uuid, utils.ResourceTypeCiliumNetworkPolicy)
 				lbls = append(lbls, labels.ParseLabelArray("foo=bar")...)
 				r.AddList(api.Rules{
 					{
@@ -1658,6 +1666,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "db",
 							Namespace: "production",
+							UID:       uuid,
 						},
 						Spec: &api.Rule{
 							EndpointSelector: api.EndpointSelector{
@@ -1686,7 +1695,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 						},
 						Ingress:     nil,
 						Egress:      nil,
-						Labels:      utils.GetPolicyLabels("production", "db", utils.ResourceTypeCiliumNetworkPolicy),
+						Labels:      utils.GetPolicyLabels("production", "db", uuid, utils.ResourceTypeCiliumNetworkPolicy),
 						Description: "",
 					},
 				})
@@ -1712,7 +1721,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 						},
 						Ingress:     nil,
 						Egress:      nil,
-						Labels:      utils.GetPolicyLabels("production", "db", utils.ResourceTypeCiliumNetworkPolicy),
+						Labels:      utils.GetPolicyLabels("production", "db", uuid, utils.ResourceTypeCiliumNetworkPolicy),
 						Description: "",
 					},
 				})
@@ -1722,6 +1731,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "db",
 							Namespace: "production",
+							UID:       uuid,
 						},
 						Spec: &api.Rule{
 							EndpointSelector: api.EndpointSelector{
@@ -1739,7 +1749,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 			},
 			setupWanted: func() wanted {
 				r := policy.NewPolicyRepository()
-				lbls := utils.GetPolicyLabels("production", "db", utils.ResourceTypeCiliumNetworkPolicy)
+				lbls := utils.GetPolicyLabels("production", "db", uuid, utils.ResourceTypeCiliumNetworkPolicy)
 				lbls = append(lbls, labels.ParseLabelArray("foo=bar")...)
 				r.AddList(api.Rules{
 					{
@@ -1792,7 +1802,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 							},
 						},
 						Egress:      nil,
-						Labels:      utils.GetPolicyLabels("production", "db", utils.ResourceTypeCiliumNetworkPolicy),
+						Labels:      utils.GetPolicyLabels("production", "db", uuid, utils.ResourceTypeCiliumNetworkPolicy),
 						Description: "",
 					},
 				})
@@ -1802,6 +1812,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "db",
 							Namespace: "production",
+							UID:       uuid,
 						},
 					},
 					repo: r,
