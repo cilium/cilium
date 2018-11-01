@@ -128,6 +128,8 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 			ep.SetEgressPolicyEnabledLocked(alwaysEnforce)
 		}
 
+		ep.Annotator = getEndpointAnnotator()
+
 		ep.Unlock()
 
 		ep.SkipStateClean()
