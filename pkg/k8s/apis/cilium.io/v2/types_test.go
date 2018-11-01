@@ -29,6 +29,7 @@ import (
 
 	. "gopkg.in/check.v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -111,7 +112,7 @@ var (
 		},
 		Labels: labels.LabelArray{{Key: "uuid", Value: "98678-9868976-78687678887678", Source: ""}},
 	}
-
+	uuidRule         = types.UID("98678-9868976-78687678887678")
 	expectedSpecRule = api.Rule{
 		Ingress: []api.IngressRule{
 			{
@@ -147,7 +148,7 @@ var (
 				ToCIDRSet: []api.CIDRRule{{Cidr: api.CIDR("10.0.0.0/8"), ExceptCIDRs: []api.CIDR{"10.96.0.0/12"}}},
 			},
 		},
-		Labels: k8sUtils.GetPolicyLabels("default", "rule1", "CiliumNetworkPolicy"),
+		Labels: k8sUtils.GetPolicyLabels("default", "rule1", uuidRule, "CiliumNetworkPolicy"),
 	}
 
 	rawRule = []byte(`{
@@ -244,13 +245,15 @@ var (
 
 	ciliumRule = append(append([]byte(`{
     "metadata": {
-        "name": "rule1"
+        "name": "rule1",
+		"uid": "`+uuidRule+`"
     },
     "spec": `), rawRule...), []byte(`
 }`)...)
 	ciliumRuleList = append(append(append(append([]byte(`{
     "metadata": {
-        "name": "rule1"
+        "name": "rule1",
+		"uid": "`+uuidRule+`"
     },
     "specs": [`), rawRule...), []byte(`, `)...), rawRule...), []byte(`]
 }`)...)
@@ -273,6 +276,7 @@ func (s *CiliumV2Suite) TestParseSpec(c *C) {
 	expectedPolicyRule := &CiliumNetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "rule1",
+			UID:  uuidRule,
 		},
 		Spec: &apiRule,
 	}
@@ -282,6 +286,7 @@ func (s *CiliumV2Suite) TestParseSpec(c *C) {
 	expectedPolicyRuleWithLabel := &CiliumNetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "rule1",
+			UID:  uuidRule,
 		},
 		Spec: &apiRuleWithLabels,
 	}
@@ -334,6 +339,7 @@ func (s *CiliumV2Suite) TestParseRules(c *C) {
 	expectedPolicyRuleList := &CiliumNetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "rule1",
+			UID:  uuidRule,
 		},
 		Specs: api.Rules{&apiRule, &apiRule},
 	}
@@ -343,6 +349,7 @@ func (s *CiliumV2Suite) TestParseRules(c *C) {
 	expectedPolicyRuleListWithLabel := &CiliumNetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "rule1",
+			UID:  uuidRule,
 		},
 		Specs: api.Rules{&apiRuleWithLabels, &apiRuleWithLabels},
 	}
