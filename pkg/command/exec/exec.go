@@ -54,16 +54,6 @@ func combinedOutput(ctx context.Context, cmd *exec.Cmd, filters []string, scoped
 	return out, err
 }
 
-// CombinedOutput runs the command 'cmd' which was initialized with reference
-// to 'ctx', and logs an error to 'scopedLog', with more verbosity if 'verbose'
-// is set to true.
-//
-// Returns any error (including timeout) that may have occurred during
-// execution of 'cmd'.
-func CombinedOutput(ctx context.Context, cmd *exec.Cmd, scopedLog *logrus.Entry, verbose bool) ([]byte, error) {
-	return combinedOutput(ctx, cmd, nil, scopedLog, verbose)
-}
-
 // Cmd wraps exec.Cmd with a context to provide convenient execution of a
 // command with nice checking of the context timeout in the form:
 //
