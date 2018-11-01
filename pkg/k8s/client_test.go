@@ -51,14 +51,15 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 	// set buffer to 2 to prevent blocking when calling UseNodeCIDR
 	// and we need to wait for the response of the channel.
 	updateChan := make(chan bool, 2)
-	k8sClient := &fake.Clientset{}
-	k8sClient.AddReactor("get", "nodes",
+	fakeK8sClient := &fake.Clientset{}
+	k8sCli.Interface = fakeK8sClient
+	fakeK8sClient.AddReactor("get", "nodes",
 		func(action testing.Action) (bool, runtime.Object, error) {
 			name := action.(testing.GetAction).GetName()
 			c.Assert(name, Equals, "node1")
 			return true, node1.DeepCopy(), nil
 		})
-	k8sClient.AddReactor("update", "nodes",
+	fakeK8sClient.AddReactor("update", "nodes",
 		func(action testing.Action) (bool, runtime.Object, error) {
 			n := action.(testing.UpdateAction).GetObject().(*v1.Node)
 			n1copy := node1.DeepCopy()
@@ -74,7 +75,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 	c.Assert(node.GetIPv4AllocRange().String(), Equals, "10.2.0.0/16")
 	// IPv6 Node range is not checked because it shouldn't be changed.
 
-	AnnotateNode(k8sClient, "node1",
+	k8sCli.AnnotateNode("node1",
 		node.GetIPv4AllocRange(),
 		node.GetIPv6NodeRange(),
 		nil,
@@ -86,7 +87,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 	select {
 	case <-updateChan:
 	case <-time.Tick(10 * time.Second):
-		c.Errorf("d.k8sClient.CoreV1().Nodes().Update() was not called")
+		c.Errorf("d.fakeK8sClient.CoreV1().Nodes().Update() was not called")
 		c.FailNow()
 	}
 
@@ -105,14 +106,16 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 	}
 
 	failAttempts := 0
-	k8sClient = &fake.Clientset{}
-	k8sClient.AddReactor("get", "nodes",
+
+	fakeK8sClient = &fake.Clientset{}
+	k8sCli.Interface = fakeK8sClient
+	fakeK8sClient.AddReactor("get", "nodes",
 		func(action testing.Action) (bool, runtime.Object, error) {
 			name := action.(testing.GetAction).GetName()
 			c.Assert(name, Equals, "node2")
 			return true, node2.DeepCopy(), nil
 		})
-	k8sClient.AddReactor("update", "nodes",
+	fakeK8sClient.AddReactor("update", "nodes",
 		func(action testing.Action) (bool, runtime.Object, error) {
 			n := action.(testing.UpdateAction).GetObject().(*v1.Node)
 			if failAttempts == 0 {
@@ -136,7 +139,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 	c.Assert(node.GetIPv4AllocRange().String(), Equals, "10.254.0.0/16")
 	c.Assert(node.GetIPv6NodeRange().String(), Equals, "aaaa:aaaa:aaaa:aaaa:beef:beef::/96")
 
-	err = AnnotateNode(k8sClient, "node2",
+	err = k8sCli.AnnotateNode("node2",
 		node.GetIPv4AllocRange(),
 		node.GetIPv6NodeRange(),
 		nil,
@@ -148,8 +151,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 	select {
 	case <-updateChan:
 	case <-time.Tick(10 * time.Second):
-		c.Errorf("d.k8sClient.CoreV1().Nodes().Update() was not called")
+		c.Errorf("d.fakeK8sClient.CoreV1().Nodes().Update() was not called")
 		c.FailNow()
 	}
-
 }
