@@ -155,7 +155,7 @@ func Dump() ([]string, []string) {
 	allocv4 := []string{}
 	ralv4 := k8sAPI.RangeAllocation{}
 	ipamConf.IPv4Allocator.Snapshot(&ralv4)
-	origIP := big.NewInt(0).SetBytes(node.GetIPv4AllocRange().IP)
+	origIP := big.NewInt(0).SetBytes(node.GetIPv4AllocRange().IP.To4())
 	v4Bits := big.NewInt(0).SetBytes(ralv4.Data)
 	for i := 0; i < v4Bits.BitLen(); i++ {
 		if v4Bits.Bit(i) != 0 {
