@@ -24,8 +24,10 @@ import (
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
+
 	. "gopkg.in/check.v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -47,9 +49,11 @@ func (s *CiliumUtilsSuite) Test_namespacesAreValid(c *C) {
 func Test_ParseToCiliumRule(t *testing.T) {
 	role := fmt.Sprintf("%s.role", labels.LabelSourceAny)
 	namespace := fmt.Sprintf("%s.%s", labels.LabelSourceK8s, k8sConst.PodNamespaceLabel)
+	uuid := types.UID("11bba160-ddca-11e8-b697-0800273b04ff")
 	type args struct {
 		namespace string
 		rule      *api.Rule
+		uid       types.UID
 	}
 	tests := []struct {
 		name string
@@ -63,6 +67,7 @@ func Test_ParseToCiliumRule(t *testing.T) {
 			name: "parse-in-namespace",
 			args: args{
 				namespace: metav1.NamespaceDefault,
+				uid:       uuid,
 				rule: &api.Rule{
 					EndpointSelector: api.NewESFromMatchRequirements(
 						map[string]string{
@@ -87,6 +92,11 @@ func Test_ParseToCiliumRule(t *testing.T) {
 						Source: labels.LabelSourceK8s,
 					},
 					{
+						Key:    "io.cilium.k8s.policy.uid",
+						Value:  string(uuid),
+						Source: labels.LabelSourceK8s,
+					},
+					{
 						Key:    "io.cilium.k8s.policy.namespace",
 						Value:  "default",
 						Source: labels.LabelSourceK8s,
@@ -105,6 +115,7 @@ func Test_ParseToCiliumRule(t *testing.T) {
 			name: "parse-in-namespace-with-ns-selector",
 			args: args{
 				namespace: metav1.NamespaceDefault,
+				uid:       uuid,
 				rule: &api.Rule{
 					EndpointSelector: api.NewESFromMatchRequirements(
 						map[string]string{
@@ -130,6 +141,11 @@ func Test_ParseToCiliumRule(t *testing.T) {
 						Source: labels.LabelSourceK8s,
 					},
 					{
+						Key:    "io.cilium.k8s.policy.uid",
+						Value:  string(uuid),
+						Source: labels.LabelSourceK8s,
+					},
+					{
 						Key:    "io.cilium.k8s.policy.namespace",
 						Value:  "default",
 						Source: labels.LabelSourceK8s,
@@ -148,6 +164,7 @@ func Test_ParseToCiliumRule(t *testing.T) {
 			name: "parse-init-policy",
 			args: args{
 				namespace: metav1.NamespaceDefault,
+				uid:       uuid,
 				rule: &api.Rule{
 					EndpointSelector: api.NewESFromMatchRequirements(
 						map[string]string{
@@ -175,6 +192,11 @@ func Test_ParseToCiliumRule(t *testing.T) {
 						Source: labels.LabelSourceK8s,
 					},
 					{
+						Key:    "io.cilium.k8s.policy.uid",
+						Value:  string(uuid),
+						Source: labels.LabelSourceK8s,
+					},
+					{
 						Key:    "io.cilium.k8s.policy.namespace",
 						Value:  "default",
 						Source: labels.LabelSourceK8s,
@@ -191,6 +213,7 @@ func Test_ParseToCiliumRule(t *testing.T) {
 			name: "set-any-source-for-namespace",
 			args: args{
 				namespace: metav1.NamespaceDefault,
+				uid:       uuid,
 				rule: &api.Rule{
 					EndpointSelector: api.NewESFromMatchRequirements(
 						map[string]string{
@@ -241,6 +264,11 @@ func Test_ParseToCiliumRule(t *testing.T) {
 						Source: labels.LabelSourceK8s,
 					},
 					{
+						Key:    "io.cilium.k8s.policy.uid",
+						Value:  string(uuid),
+						Source: labels.LabelSourceK8s,
+					},
+					{
 						Key:    "io.cilium.k8s.policy.namespace",
 						Value:  "default",
 						Source: labels.LabelSourceK8s,
@@ -256,7 +284,7 @@ func Test_ParseToCiliumRule(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := ParseToCiliumRule(tt.args.namespace, tt.name, tt.args.rule)
+			got := ParseToCiliumRule(tt.args.namespace, tt.name, tt.args.uid, tt.args.rule)
 			args := []interface{}{got, tt.want}
 			names := []string{"obtained", "expected"}
 			if equal, err := checker.DeepEquals.Check(args, names); !equal {
@@ -267,9 +295,12 @@ func Test_ParseToCiliumRule(t *testing.T) {
 }
 
 func (s *CiliumUtilsSuite) TestParseToCiliumLabels(c *C) {
+
+	uuid := types.UID("11bba160-ddca-11e8-b697-0800273b04ff")
 	type args struct {
 		namespace string
 		name      string
+		uid       types.UID
 		ruleLbs   labels.LabelArray
 	}
 	tests := []struct {
@@ -282,6 +313,7 @@ func (s *CiliumUtilsSuite) TestParseToCiliumLabels(c *C) {
 			args: args{
 				name:      "foo",
 				namespace: "bar",
+				uid:       uuid,
 				ruleLbs: labels.LabelArray{
 					{
 						Key:    "hello",
@@ -294,6 +326,11 @@ func (s *CiliumUtilsSuite) TestParseToCiliumLabels(c *C) {
 				{
 					Key:    "io.cilium.k8s.policy.name",
 					Value:  "foo",
+					Source: labels.LabelSourceK8s,
+				},
+				{
+					Key:    "io.cilium.k8s.policy.uid",
+					Value:  string(uuid),
 					Source: labels.LabelSourceK8s,
 				},
 				{
@@ -315,7 +352,7 @@ func (s *CiliumUtilsSuite) TestParseToCiliumLabels(c *C) {
 		},
 	}
 	for _, tt := range tests {
-		got := ParseToCiliumLabels(tt.args.namespace, tt.args.name, tt.args.ruleLbs)
+		got := ParseToCiliumLabels(tt.args.namespace, tt.args.name, tt.args.uid, tt.args.ruleLbs)
 		c.Assert(got, DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
 	}
 }

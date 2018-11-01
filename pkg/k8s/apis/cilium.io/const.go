@@ -19,6 +19,10 @@ const (
 	// k8s policy name.
 	PolicyLabelName = "io.cilium.k8s.policy.name"
 
+	// PolicyLabelUID is the uid of the policy label which refers to the
+	// k8s policy UID.
+	PolicyLabelUID = "io.cilium.k8s.policy.uid"
+
 	// PolicyLabelNamespace is the policy's namespace set in k8s.
 	PolicyLabelNamespace = "io.cilium.k8s.policy.namespace"
 
