@@ -136,10 +136,12 @@ func NewPutEndpointIDHandler(d *Daemon) PutEndpointIDHandler {
 // request that was specified. Returns an HTTP code response code and an
 // error msg (or nil on success).
 func (d *Daemon) createEndpoint(epTemplate *models.EndpointChangeRequest, id string, lbls []string) (int, error) {
+
 	ep, err := endpoint.NewEndpointFromChangeModel(epTemplate)
 	if err != nil {
 		return PutEndpointIDInvalidCode, err
 	}
+
 	ep.SetDefaultOpts(option.Config.Opts)
 
 	oldEp, err2 := endpointmanager.Lookup(id)

@@ -35,9 +35,8 @@ var (
 	// ErrNilNode is returned when the Kubernetes API server has returned a nil node
 	ErrNilNode = goerrors.New("API server returned nil node")
 
-	// client is the object through which interactions with Kubernetes are
-	// performed.
-	client kubernetes.Interface
+	// k8sCli is the default client.
+	k8sCli = &K8sClient{}
 )
 
 // CreateConfig creates a rest.Config for a given endpoint using a kubeconfig file.
@@ -134,9 +133,9 @@ func isConnReady(c *kubernetes.Clientset) error {
 	return err
 }
 
-// Client returns the default Kubernetes client
-func Client() kubernetes.Interface {
-	return client
+// Client returns the default Kubernetes client.
+func Client() *K8sClient {
+	return k8sCli
 }
 
 func createDefaultClient() error {
@@ -145,12 +144,12 @@ func createDefaultClient() error {
 		return fmt.Errorf("unable to create k8s client rest configuration: %s", err)
 	}
 
-	k8sClient, err := CreateClient(restConfig)
+	createdK8sClient, err := CreateClient(restConfig)
 	if err != nil {
 		return fmt.Errorf("unable to create k8s client: %s", err)
 	}
 
-	client = k8sClient
+	k8sCli.Interface = createdK8sClient
 
 	return nil
 }

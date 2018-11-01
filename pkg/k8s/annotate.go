@@ -21,7 +21,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/uuid"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
@@ -30,30 +29,18 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-// PodEndpoint is the interface that the endpoint representing a pod has to implement
-type PodEndpoint interface {
-	// GetK8sNamespace returns the name of the namespace
-	GetK8sNamespace() string
-
-	// GetK8sPodName returns the name of the pod
-	GetK8sPodName() string
-
-	// StringID returns the ID of the endpoint
-	StringID() string
+// K8sClient is a wrapper around kubernetes.Interface.
+type K8sClient struct {
+	// kubernetes.Interface is the object through which interactions with
+	// Kubernetes are performed.
+	kubernetes.Interface
 }
 
 // AnnotatePod adds a Kubernetes annotation with key annotationKey and value
 // annotationValue
-func AnnotatePod(e PodEndpoint, annotationKey, annotationValue string) error {
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.EndpointID:            e.StringID(),
-		logfields.K8sNamespace:          e.GetK8sNamespace(),
-		logfields.K8sPodName:            e.GetK8sPodName(),
-		logfields.K8sIdentityAnnotation: annotationKey,
-		logfields.RetryUUID:             uuid.NewUUID(),
-	})
+func (k8sCli K8sClient) AnnotatePod(k8sNamespace, k8sPodName, annotationKey, annotationValue string) error {
 
-	pod, err := Client().CoreV1().Pods(e.GetK8sNamespace()).Get(e.GetK8sPodName(), meta_v1.GetOptions{})
+	pod, err := k8sCli.CoreV1().Pods(k8sNamespace).Get(k8sPodName, meta_v1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to annotate pod, cannot retrieve pod: %s", err)
 	}
@@ -63,12 +50,10 @@ func AnnotatePod(e PodEndpoint, annotationKey, annotationValue string) error {
 	}
 
 	pod.Annotations[annotationKey] = annotationValue
-	pod, err = Client().CoreV1().Pods(e.GetK8sNamespace()).Update(pod)
+	pod, err = k8sCli.CoreV1().Pods(k8sNamespace).Update(pod)
 	if err != nil {
 		return fmt.Errorf("unable to annotate pod, cannot update pod: %s", err)
 	}
-
-	scopedLog.Debugf("Successfully annotated pod with %s=%s", annotationKey, annotationValue)
 	return nil
 }
 
@@ -110,7 +95,7 @@ func updateNodeAnnotation(c kubernetes.Interface, node *v1.Node, v4CIDR, v6CIDR 
 // AnnotateNode writes v4 and v6 CIDRs and health IPs in the given k8s node name.
 // In case of failure while updating the node, this function while spawn a go
 // routine to retry the node update indefinitely.
-func AnnotateNode(c kubernetes.Interface, nodeName string, v4CIDR, v6CIDR *net.IPNet, v4HealthIP, v6HealthIP, v4CiliumHostIP net.IP) error {
+func (k8sCli K8sClient) AnnotateNode(nodeName string, v4CIDR, v6CIDR *net.IPNet, v4HealthIP, v6HealthIP, v4CiliumHostIP net.IP) error {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.NodeName:       nodeName,
 		logfields.V4Prefix:       v4CIDR,
@@ -151,7 +136,7 @@ func AnnotateNode(c kubernetes.Interface, nodeName string, v4CIDR, v6CIDR *net.I
 
 			time.Sleep(time.Duration(n) * time.Second)
 		}
-	}(c, nodeName, v4CIDR, v6CIDR, v4HealthIP, v6HealthIP, v4CiliumHostIP)
+	}(k8sCli, nodeName, v4CIDR, v6CIDR, v4HealthIP, v6HealthIP, v4CiliumHostIP)
 
 	return nil
 }

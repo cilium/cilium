@@ -1283,7 +1283,7 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 
 	if k8s.IsEnabled() {
 		log.Info("Annotating k8s node with CIDR ranges")
-		err := k8s.AnnotateNode(k8s.Client(), node.GetName(),
+		err := k8s.Client().AnnotateNode(node.GetName(),
 			node.GetIPv4AllocRange(), node.GetIPv6NodeRange(),
 			nil, nil, node.GetInternalIPv4())
 		if err != nil {
