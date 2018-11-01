@@ -311,6 +311,8 @@ Cilium uses the standard `go test <https://golang.org/pkg/testing/>`__ framework
 in combination with `gocheck <http://labix.org/gocheck>`__ for richer testing
 functionality.
 
+.. _unit_testing_prerequisites:
+
 Prerequisites
 ^^^^^^^^^^^^^
 
@@ -350,6 +352,14 @@ If you need more verbose output, you can pass in the ``-check.v`` and
 
     $ cd pkg/kvstore
     $ go test -check.v -check.vv
+
+If the unit tests have some prerequisites like :ref:`unit_testing_prerequisites`,
+you can use the following command to automatically set up the prerequisites,
+run the unit tests and tear down the prerequisites:
+
+::
+
+    $ make unit-tests TESTPKGS=github.com/cilium/cilium/pkg/kvstore
 
 Running individual tests
 ^^^^^^^^^^^^^^^^^^^^^^^^
