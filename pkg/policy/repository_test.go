@@ -18,6 +18,9 @@ package policy
 
 import (
 	"bytes"
+	"fmt"
+	"testing"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/labels"
@@ -111,6 +114,43 @@ func (ds *PolicyTestSuite) TestAddSearchDelete(c *C) {
 	repo.Mutex.RLock()
 	c.Assert(repo.SearchRLocked(lbls2), checker.DeepEquals, api.Rules{})
 	repo.Mutex.RUnlock()
+}
+
+func BenchmarkParseLabel(b *testing.B) {
+	repo := NewPolicyRepository()
+	b.ResetTimer()
+	var err error
+	var cntAdd, cntFound int
+
+	lbls := make([]labels.LabelArray, 100, 100)
+	for i := 0; i < 100; i++ {
+		I := fmt.Sprintf("%d", i)
+		lbls[i] = labels.LabelArray{labels.NewLabel("tag3", I, labels.LabelSourceK8s), labels.NewLabel("namespace", "default", labels.LabelSourceK8s)}
+	}
+	for i := 0; i < b.N; i++ {
+		for j := 0; j < 100; j++ {
+			J := fmt.Sprintf("%d", j)
+			_, err = repo.Add(api.Rule{
+				EndpointSelector: api.NewESFromLabels(labels.NewLabel("foo", J, labels.LabelSourceK8s), labels.NewLabel("namespace", "default", labels.LabelSourceK8s)),
+				Labels: labels.LabelArray{
+					labels.ParseLabel("k8s:tag1"),
+					labels.NewLabel("namespace", "default", labels.LabelSourceK8s),
+					labels.NewLabel("tag3", J, labels.LabelSourceK8s),
+				},
+			})
+			if err == nil {
+				cntAdd++
+			}
+		}
+
+		repo.Mutex.RLock()
+		for j := 0; j < 100; j++ {
+			cntFound += len(repo.SearchRLocked(lbls[j]))
+		}
+		repo.Mutex.RUnlock()
+	}
+	b.Log("Added: ", cntAdd)
+	b.Log("found: ", cntFound)
 }
 
 func (ds *PolicyTestSuite) TestContainsAllRLocked(c *C) {
