@@ -290,6 +290,10 @@ type daemonConfig struct {
 
 	// EnableSockOps specifies whether to enable sockops (socket lookup).
 	SockopsEnable bool
+
+	// PrependIptablesChains is the name of the option to enable prepending
+	// iptables chains instead of appending
+	PrependIptablesChains bool
 }
 
 var (

@@ -31,4 +31,5 @@ func populateConfig() {
 	option.Config.BPFCompilationDebug = viper.GetBool(option.BPFCompileDebugName)
 	option.Config.EnvoyLogPath = viper.GetString("envoy-log")
 	option.Config.SockopsEnable = viper.GetBool(option.SockopsEnableName)
+	option.Config.PrependIptablesChains = viper.GetBool(option.PrependIptablesChainsName)
 }
