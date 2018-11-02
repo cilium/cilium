@@ -94,4 +94,7 @@ const (
 	// already been allocated and other nodes in the cluster have a chance
 	// to whitelist the new upcoming identity of the endpoint.
 	IdentityChangeGracePeriod = 25 * time.Second
+
+	// ExecTimeout is a timeout for executing commands.
+	ExecTimeout = 300 * time.Second
 )

@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/maps"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -449,7 +450,7 @@ func init() {
 	flags.Bool(option.LogSystemLoadConfigName, false, "Enable periodic logging of system load")
 	flags.StringVar(&nat46prefix,
 		"nat46-range", defaults.DefaultNAT46Prefix, "IPv6 prefix to map IPv4 addresses to")
-	flags.BoolVar(&masquerade,
+	flags.BoolVar(&iptables.Masquerade,
 		"masquerade", true, "Masquerade packets from endpoints leaving the host")
 	flags.IntVar(&option.Config.MaxControllerInterval, option.MaxCtrlIntervalName, 0,
 		"Maximum interval (in seconds) between controller runs. Zero is no limit.")
