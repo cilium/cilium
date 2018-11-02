@@ -5,6 +5,7 @@
 
 # LLVM IR files
 *.ll
+*.ll-*
 
 # Folders
 _obj
