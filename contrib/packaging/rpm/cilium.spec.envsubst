@@ -103,7 +103,7 @@ export GOPATH=$(pwd):%{gopath}
 export GOPATH=$(pwd):$(pwd)/vendor:%{gopath}
 %endif
 
-echo "%{version}.%{release}.git%{shortcommit0}" > VERSION
+echo "%{version}.%{release}" > VERSION
 
 export PKG_BUILD=1
 
@@ -114,6 +114,8 @@ make V=1 proxylib plugins bpf cilium daemon monitor cilium-health bugtool tools
 export PKG_BUILD=1
 
 %{__make} DESTDIR=%{buildroot} BINDIR=%{_bindir} LIBDIR=%{_libdir} install
+
+cp envoy/cilium-envoy %{buildroot}%{_bindir}
 
 mkdir -p %{buildroot}%{_unitdir}
 mkdir -p %{buildroot}%{_sysconfdir}/sysconfig
@@ -142,6 +144,7 @@ chmod 644 %{buildroot}%{_sysconfdir}/sysconfig/cilium
 %{_bindir}/cilium-node-monitor
 %{_bindir}/cilium-bugtool
 %{_bindir}/cilium-health
+%{_bindir}/cilium-envoy
 %{_bindir}/cilium-map-migrate
 %{_bindir}/cilium-ring-dump
 
