@@ -40,7 +40,7 @@ const (
 
 var (
 	// TunnelMap represents the BPF map for tunnels
-	TunnelMap = bpf.NewMap(MapName,
+	TunnelMap = &Map{Map: bpf.NewMap(MapName,
 		bpf.MapTypeHash,
 		int(unsafe.Sizeof(tunnelEndpoint{})),
 		int(unsafe.Sizeof(tunnelEndpoint{})),
@@ -54,12 +54,18 @@ var (
 			}
 
 			return &k, &v, nil
-		}).WithCache()
+		}).WithCache(),
+	}
 )
+
+// Map implements tunnel connectivity configuration in the BPF datapath.
+type Map struct {
+	*bpf.Map
+}
 
 func init() {
 	TunnelMap.NonPersistent = true
-	bpf.OpenAfterMount(TunnelMap)
+	bpf.OpenAfterMount(TunnelMap.Map)
 
 	// Remove old map and ignore errors; this is the "normal" case.
 	// BPFFS map root in older versions of Cilium wasn't dynamic, so the
@@ -81,7 +87,7 @@ func newTunnelEndpoint(ip net.IP) *tunnelEndpoint {
 func (v tunnelEndpoint) NewValue() bpf.MapValue { return &tunnelEndpoint{} }
 
 // SetTunnelEndpoint adds/replaces a prefix => tunnel-endpoint mapping
-func SetTunnelEndpoint(prefix net.IP, endpoint net.IP) error {
+func (m *Map) SetTunnelEndpoint(prefix net.IP, endpoint net.IP) error {
 	key, val := newTunnelEndpoint(prefix), newTunnelEndpoint(endpoint)
 
 	log.WithFields(logrus.Fields{
@@ -93,7 +99,7 @@ func SetTunnelEndpoint(prefix net.IP, endpoint net.IP) error {
 }
 
 // DeleteTunnelEndpoint removes a prefix => tunnel-endpoint mapping
-func DeleteTunnelEndpoint(prefix net.IP) error {
+func (m *Map) DeleteTunnelEndpoint(prefix net.IP) error {
 	log.WithField(fieldPrefix, prefix).Debug("Deleting tunnel map entry")
 	return TunnelMap.Delete(newTunnelEndpoint(prefix))
 }
