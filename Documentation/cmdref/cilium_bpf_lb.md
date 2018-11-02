@@ -18,6 +18,6 @@ Load-balancing configuration
 ```
 
 ### SEE ALSO
-* [cilium bpf](cilium_bpf.html)	 - Direct access to local BPF maps
-* [cilium bpf lb list](cilium_bpf_lb_list.html)	 - List load-balancing configuration
+* [cilium bpf](../cilium_bpf)	 - Direct access to local BPF maps
+* [cilium bpf lb list](../cilium_bpf_lb_list)	 - List load-balancing configuration
 

@@ -34,5 +34,5 @@ cilium map get cilium_ipcache
 ```
 
 ### SEE ALSO
-* [cilium map](cilium_map.html)	 - Access BPF maps
+* [cilium map](../cilium_map)	 - Access BPF maps
 

@@ -18,7 +18,7 @@ Access BPF maps
 ```
 
 ### SEE ALSO
-* [cilium](cilium.html)	 - CLI
-* [cilium map get](cilium_map_get.html)	 - Display BPF map information
-* [cilium map list](cilium_map_list.html)	 - List all open BPF maps
+* [cilium](../cilium)	 - CLI
+* [cilium map get](../cilium_map_get)	 - Display BPF map information
+* [cilium map list](../cilium_map_list)	 - List all open BPF maps
 

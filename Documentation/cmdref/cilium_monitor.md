@@ -38,5 +38,5 @@ cilium monitor
 ```
 
 ### SEE ALSO
-* [cilium](cilium.html)	 - CLI
+* [cilium](../cilium)	 - CLI
 
