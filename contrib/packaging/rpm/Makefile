@@ -13,6 +13,7 @@ build: clean
 	echo "export VERSION=$(VERSION) RELEASE=$(RELEASE) COMMIT=$(COMMIT) SHORTCOMMIT=$(SHORTCOMMIT)" > env
 	(cd $(BASEDIR) && git bundle create $(CURDIR)/version_$(VERSION) $(BRANCH) --tags)
 	(cd $(CURDIR) && git clone $(CURDIR)/version_$(VERSION) cilium -b $(BRANCH))
+	(cd $(CURDIR)/cilium/envoy && make BINDIR=$$PWD install)
 	tar -c cilium --transform s/cilium/cilium-$(COMMIT)/ | gzip -9 &> cilium-$(SHORTCOMMIT).tar.gz
 	docker build -t cilium:cilium-bin-rpm-$(VERSION) $(CURDIR)
 	docker run --rm -v $(CURDIR)/output:/output cilium:cilium-bin-rpm-$(VERSION)
