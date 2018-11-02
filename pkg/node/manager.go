@@ -28,7 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
-	"github.com/vishvananda/netlink"
 )
 
 // RouteType represents the route type to be configured when adding the node
@@ -407,25 +406,6 @@ func deleteIPRoute(node *Node) {
 			"device":           node.dev,
 		}).Warn("Cannot delete route")
 	}
-}
-
-// firstLinkWithv6 returns the first network interface that contains the given
-// IPv6 address.
-func firstLinkWithv6(ip net.IP) (netlink.Link, error) {
-	links, err := netlink.LinkList()
-	if err != nil {
-		return nil, err
-	}
-	for _, l := range links {
-		addrs, _ := netlink.AddrList(l, netlink.FAMILY_V6)
-		for _, a := range addrs {
-			if ip.Equal(a.IP) {
-				return l, nil
-			}
-		}
-	}
-
-	return nil, fmt.Errorf("No address found")
 }
 
 func routeAdd(dstNode, podCIDR, dev string) error {

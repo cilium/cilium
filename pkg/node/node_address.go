@@ -28,9 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
-
-	"github.com/vishvananda/netlink"
-	"golang.org/x/sys/unix"
 )
 
 var (
@@ -55,60 +52,6 @@ func makeIPv6HostIP() net.IP {
 	}
 
 	return ip
-}
-
-func firstGlobalV4Addr(intf string) (net.IP, error) {
-	var link netlink.Link
-	var err error
-
-	if intf != "" && intf != "undefined" {
-		link, err = netlink.LinkByName(intf)
-		if err != nil {
-			return firstGlobalV4Addr("")
-		}
-	}
-
-	addr, err := netlink.AddrList(link, netlink.FAMILY_V4)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, a := range addr {
-		if a.Scope == unix.RT_SCOPE_UNIVERSE {
-			if len(a.IP) >= 4 {
-				return a.IP, nil
-			}
-		}
-	}
-
-	return nil, fmt.Errorf("No address found")
-}
-
-func findIPv6NodeAddr() net.IP {
-	addr, err := netlink.AddrList(nil, netlink.FAMILY_V6)
-	if err != nil {
-		return nil
-	}
-
-	// prefer global scope address
-	for _, a := range addr {
-		if a.Scope == unix.RT_SCOPE_UNIVERSE {
-			if len(a.IP) >= 16 {
-				return a.IP
-			}
-		}
-	}
-
-	// fall back to anything wider than link (site, custom, ...)
-	for _, a := range addr {
-		if a.Scope < unix.RT_SCOPE_LINK {
-			if len(a.IP) >= 16 {
-				return a.IP
-			}
-		}
-	}
-
-	return nil
 }
 
 // SetIPv4ClusterCidrMaskSize sets the size of the mask of the IPv4 cluster prefix
@@ -489,31 +432,6 @@ func getCiliumHostIPsFromFile(nodeConfig string) (ipv4GW, ipv6Router net.IP) {
 					continue
 				}
 				ipv6Router = net.IP(ipv6)
-			}
-		}
-	}
-	return ipv4GW, ipv6Router
-}
-
-// getCiliumHostIPsFromNetDev returns the first IPv4 link local and returns
-// it
-func getCiliumHostIPsFromNetDev(devName string) (ipv4GW, ipv6Router net.IP) {
-	hostDev, err := netlink.LinkByName(devName)
-	if err != nil {
-		return nil, nil
-	}
-	addrs, err := netlink.AddrList(hostDev, netlink.FAMILY_ALL)
-	if err != nil {
-		return nil, nil
-	}
-	for _, addr := range addrs {
-		if addr.IP.To4() != nil {
-			if addr.Scope == int(netlink.SCOPE_LINK) {
-				ipv4GW = addr.IP
-			}
-		} else {
-			if addr.Scope != int(netlink.SCOPE_LINK) {
-				ipv6Router = addr.IP
 			}
 		}
 	}
