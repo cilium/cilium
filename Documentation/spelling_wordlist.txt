@@ -73,6 +73,7 @@ CIDR
 CIDRs
 CiliumEndpoint
 ciliumnetworkpolicy
+cilium_vxlan
 classful
 classid
 cli
@@ -131,6 +132,7 @@ dockerhub
 doesn
 DoorManager
 dports
+droid
 dryRun
 DTrace
 DWARF
@@ -416,6 +418,7 @@ readelf
 rebase
 rebased
 recompiles
+recv
 Redis
 refactor
 refactoring
@@ -461,6 +464,7 @@ sig
 SIG
 Sith
 skb
+sockmap
 Spectre
 Stacktrace
 stacktrace
@@ -541,6 +545,7 @@ uretprobes
 url
 username
 Userspace
+userspace
 uuid
 Vader
 vader
@@ -562,6 +567,7 @@ vlan
 VM
 vmlinux
 vX
+vxlan
 waker
 Wakeup
 walkthrough
