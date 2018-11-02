@@ -49,7 +49,6 @@ Name                 Purpose
 ==================== ============================================================
 #bpf                 BPF specific questions
 #development         Development discussions
-#documentation       Documentation specific 
 #general             General user discussions & questions
 #git                 GitHub notifications
 #kubernetes          Kubernetes specific questions
