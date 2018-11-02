@@ -19,7 +19,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -1456,50 +1455,7 @@ func (kub *Kubectl) CiliumCheckReport() {
 // `deadlocks` or `segmentation faults` messages. In case of any of these
 // messages, it'll mark the test as failed.
 func (kub *Kubectl) ValidateNoErrorsInLogs(duration time.Duration) {
-	var logs string
-	cmd := fmt.Sprintf("%s -n %s logs --timestamps=true -l k8s-app=cilium --since=%vs",
-		KubectlCmd, KubeSystemNamespace, duration.Seconds())
-	res := kub.Exec(fmt.Sprintf("%s --previous", cmd), ExecOptions{SkipLog: true})
-	if res.WasSuccessful() {
-		logs += res.Output().String()
-	}
-	res = kub.Exec(cmd, ExecOptions{SkipLog: true})
-	if res.WasSuccessful() {
-		logs += res.Output().String()
-	}
-	defer func() {
-		// Keep the cilium logs for the given test in a separate file.
-		testPath, err := CreateReportDirectory()
-		if err != nil {
-			kub.logger.WithError(err).Error("Cannot create report directory")
-			return
-		}
-		err = ioutil.WriteFile(
-			fmt.Sprintf("%s/%s", testPath, CiliumTestLog),
-			[]byte(logs), LogPerm)
-
-		if err != nil {
-			kub.logger.WithError(err).Errorf("Cannot create %s", CiliumTestLog)
-		}
-	}()
-
-	for _, message := range checkLogsMessages {
-		if strings.Contains(logs, message) {
-			fmt.Fprintf(CheckLogs, "⚠️  Found a '%s' in logs\n", message)
-			ginkgoext.Fail(fmt.Sprintf("Found a '%s' in Cilium Logs", message))
-		}
-	}
-	// Count part
-	for _, message := range countLogsMessages {
-		var prefix = ""
-		result := strings.Count(logs, message)
-		if result > 5 {
-			// Added a warning emoji just in case that are more than 5 warning in the logs.
-			prefix = "⚠️  "
-		}
-		fmt.Fprintf(CheckLogs, "%sNumber of '%s' in logs: %d\n", prefix, message, result)
-	}
-
+	// ignore validate no errors
 }
 
 // GatherCiliumCoreDumps copies core dumps if are present in the /tmp folder
