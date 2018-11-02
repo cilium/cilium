@@ -22,5 +22,5 @@ cilium bpf ipcache get
 ```
 
 ### SEE ALSO
-* [cilium bpf ipcache](cilium_bpf_ipcache.html)	 - Manage the IPCache mappings for IP/CIDR <-> Identity
+* [cilium bpf ipcache](../cilium_bpf_ipcache)	 - Manage the IPCache mappings for IP/CIDR <-> Identity
 
