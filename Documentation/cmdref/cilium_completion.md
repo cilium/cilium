@@ -47,5 +47,5 @@ cilium completion [bash]
 ```
 
 ### SEE ALSO
-* [cilium](cilium.html)	 - CLI
+* [cilium](../cilium)	 - CLI
 

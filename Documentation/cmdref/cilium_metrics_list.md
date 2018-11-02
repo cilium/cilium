@@ -28,5 +28,5 @@ cilium metrics list
 ```
 
 ### SEE ALSO
-* [cilium metrics](cilium_metrics.html)	 - Access metric status
+* [cilium metrics](../cilium_metrics)	 - Access metric status
 

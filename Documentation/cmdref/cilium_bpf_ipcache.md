@@ -18,7 +18,7 @@ Manage the IPCache mappings for IP/CIDR <-> Identity
 ```
 
 ### SEE ALSO
-* [cilium bpf](cilium_bpf.html)	 - Direct access to local BPF maps
-* [cilium bpf ipcache get](cilium_bpf_ipcache_get.html)	 - Retrieve identity for an ip
-* [cilium bpf ipcache list](cilium_bpf_ipcache_list.html)	 - List endpoint IPs (local and remote) and their corresponding security identities
+* [cilium bpf](../cilium_bpf)	 - Direct access to local BPF maps
+* [cilium bpf ipcache get](../cilium_bpf_ipcache_get)	 - Retrieve identity for an ip
+* [cilium bpf ipcache list](../cilium_bpf_ipcache_list)	 - List endpoint IPs (local and remote) and their corresponding security identities
 

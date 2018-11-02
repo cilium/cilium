@@ -29,5 +29,5 @@ cilium endpoint list
 ```
 
 ### SEE ALSO
-* [cilium endpoint](cilium_endpoint.html)	 - Manage endpoints
+* [cilium endpoint](../cilium_endpoint)	 - Manage endpoints
 

@@ -30,5 +30,5 @@ cilium config [<option>=(enable|disable) ...]
 ```
 
 ### SEE ALSO
-* [cilium](cilium.html)	 - CLI
+* [cilium](../cilium)	 - CLI
 

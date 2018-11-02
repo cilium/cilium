@@ -18,6 +18,6 @@ Manage cluster nodes
 ```
 
 ### SEE ALSO
-* [cilium](cilium.html)	 - CLI
-* [cilium node list](cilium_node_list.html)	 - List nodes
+* [cilium](../cilium)	 - CLI
+* [cilium node list](../cilium_node_list)	 - List nodes
 
