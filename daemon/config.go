@@ -27,4 +27,5 @@ func populateConfig() {
 	option.Config.CTMapEntriesGlobalTCP = viper.GetInt(option.CTMapEntriesGlobalTCPName)
 	option.Config.CTMapEntriesGlobalAny = viper.GetInt(option.CTMapEntriesGlobalAnyName)
 	option.Config.UseSingleClusterRoute = viper.GetBool(option.SingleClusterRouteName)
+	option.Config.PrependIptablesChains = viper.GetBool(option.PrependIptablesChainsName)
 }
