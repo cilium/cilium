@@ -12,13 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package identity
+package cache
 
 import (
 	"fmt"
 	"path"
 	"sync"
 
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/allocator"
@@ -50,8 +51,11 @@ func (gi globalIdentity) PutKey(v string) (allocator.AllocatorKey, error) {
 }
 
 var (
-	setupOnce         sync.Once
-	identityAllocator *allocator.Allocator
+	setupOnce sync.Once
+
+	// IdentityAllocator is an allocator for security identities from the
+	// kvstore.
+	IdentityAllocator *allocator.Allocator
 
 	// IdentitiesPath is the path to where identities are stored in the key-value
 	// store.
@@ -72,12 +76,12 @@ type IdentityAllocatorOwner interface {
 // InitIdentityAllocator creates the the identity allocator. Only the first
 // invocation of this function will have an effect.
 func InitIdentityAllocator(owner IdentityAllocatorOwner) {
-	initWellKnownIdentities()
+	identity.InitWellKnownIdentities()
 
 	setupOnce.Do(func() {
 		log.Info("Initializing identity allocator")
 
-		minID := idpool.ID(MinimalNumericIdentity)
+		minID := idpool.ID(identity.MinimalNumericIdentity)
 		maxID := idpool.ID(^uint16(0))
 		events := make(allocator.AllocatorEventChan, 65536)
 
@@ -96,14 +100,14 @@ func InitIdentityAllocator(owner IdentityAllocatorOwner) {
 			log.WithError(err).Fatal("Unable to initialize identity allocator")
 		}
 
-		identityAllocator = a
+		IdentityAllocator = a
 	})
 }
 
 // WaitForInitialIdentities waits for the initial set of security identities to
 // have been received and populated into the allocator cache
 func WaitForInitialIdentities() {
-	identityAllocator.WaitForInitialSync()
+	IdentityAllocator.WaitForInitialSync()
 }
 
 // IdentityAllocationIsLocal returns true if a call to AllocateIdentity with
@@ -122,7 +126,7 @@ func IdentityAllocationIsLocal(lbls labels.Labels) bool {
 // an identity for the specified set of labels already exist, the identity is
 // re-used and reference counting is performed, otherwise a new identity is
 // allocated via the kvstore.
-func AllocateIdentity(lbls labels.Labels) (*Identity, bool, error) {
+func AllocateIdentity(lbls labels.Labels) (*identity.Identity, bool, error) {
 	log.WithFields(logrus.Fields{
 		logfields.IdentityLabels: lbls.String(),
 	}).Debug("Resolving identity")
@@ -138,11 +142,11 @@ func AllocateIdentity(lbls labels.Labels) (*Identity, bool, error) {
 		return reservedIdentity, false, nil
 	}
 
-	if identityAllocator == nil {
+	if IdentityAllocator == nil {
 		return nil, false, fmt.Errorf("allocator not initialized")
 	}
 
-	id, isNew, err := identityAllocator.Allocate(globalIdentity{lbls})
+	id, isNew, err := IdentityAllocator.Allocate(globalIdentity{lbls})
 	if err != nil {
 		return nil, false, err
 	}
@@ -153,36 +157,36 @@ func AllocateIdentity(lbls labels.Labels) (*Identity, bool, error) {
 		"isNew":                  isNew,
 	}).Debug("Resolved identity")
 
-	return NewIdentity(NumericIdentity(id), lbls), isNew, nil
+	return identity.NewIdentity(identity.NumericIdentity(id), lbls), isNew, nil
 }
 
 // Release is the reverse operation of AllocateIdentity() and releases the
 // identity again. This function may result in kvstore operations.
 // After the last user has released the ID, the returned lastUse value is true.
-func (id *Identity) Release() error {
+func Release(id *identity.Identity) error {
 	// Ignore reserved identities.
-	if LookupReservedIdentity(id.ID) != nil {
+	if identity.LookupReservedIdentity(id.ID) != nil {
 		return nil
 	}
 
-	if identityAllocator == nil {
+	if IdentityAllocator == nil {
 		return fmt.Errorf("allocator not initialized")
 	}
 
-	return identityAllocator.Release(globalIdentity{id.Labels})
+	return IdentityAllocator.Release(globalIdentity{id.Labels})
 }
 
 // ReleaseSlice attempts to release a set of identities. It is a helper
 // function that may be useful for cleaning up multiple identities in paths
 // where several identities may be allocated and another error means that they
 // should all be released.
-func ReleaseSlice(identities []*Identity) error {
+func ReleaseSlice(identities []*identity.Identity) error {
 	var err error
 	for _, id := range identities {
 		if id == nil {
 			continue
 		}
-		if err2 := id.Release(); err2 != nil {
+		if err2 := Release(id); err2 != nil {
 			log.WithError(err2).WithFields(logrus.Fields{
 				logfields.Identity: id,
 			}).Error("Failed to release identity")
@@ -195,5 +199,5 @@ func ReleaseSlice(identities []*Identity) error {
 // WatchRemoteIdentities starts watching for identities in another kvstore and
 // syncs all identities to the local identity cache.
 func WatchRemoteIdentities(backend kvstore.BackendOperations) *allocator.RemoteCache {
-	return identityAllocator.WatchRemoteKVStore(backend, IdentitiesPath)
+	return IdentityAllocator.WatchRemoteKVStore(backend, IdentitiesPath)
 }

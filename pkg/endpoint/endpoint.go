@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -362,7 +363,7 @@ type Endpoint struct {
 
 	// prevIdentityCache is the set of all security identities used in the
 	// previous policy computation
-	prevIdentityCache *identityPkg.IdentityCache
+	prevIdentityCache *cache.IdentityCache
 
 	// RealizedL4Policy is the L4Policy in effect for the endpoint.
 	RealizedL4Policy *policy.L4Policy `json:"-"`
@@ -1861,7 +1862,7 @@ func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup
 	}
 
 	if e.SecurityIdentity != nil {
-		err := e.SecurityIdentity.Release()
+		err := cache.Release(e.SecurityIdentity)
 		if err != nil {
 			errors = append(errors, fmt.Errorf("unable to release identity: %s", err))
 		}
@@ -2419,7 +2420,7 @@ func (e *Endpoint) runLabelsResolver(owner Owner, myChangeRev int) {
 	// If we are certain we can resolve the identity without accessing the KV
 	// store, do it first synchronously right now. This can reduce the number
 	// of regenerations for the endpoint during its initialization.
-	if identityPkg.IdentityAllocationIsLocal(newLabels) {
+	if cache.IdentityAllocationIsLocal(newLabels) {
 		scopedLog.Debug("Endpoint has reserved identity, changing synchronously")
 		err := e.identityLabelsChanged(owner, myChangeRev)
 		if err != nil {
@@ -2469,7 +2470,7 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 	e.RUnlock()
 	elog.Debug("Resolving identity for labels")
 
-	identity, _, err := identityPkg.AllocateIdentity(newLabels)
+	identity, _, err := cache.AllocateIdentity(newLabels)
 	if err != nil {
 		err = fmt.Errorf("unable to resolve identity: %s", err)
 		e.LogStatus(Other, Warning, fmt.Sprintf("%s (will retry)", err.Error()))
@@ -2477,7 +2478,7 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 	}
 
 	releaseNewlyAllocatedIdentity := func() {
-		err := identity.Release()
+		err := cache.Release(identity)
 		if err != nil {
 			// non fatal error as keys will expire after lease expires but log it
 			elog.WithFields(logrus.Fields{logfields.Identity: identity.ID}).
@@ -2504,7 +2505,7 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 	if e.SecurityIdentity != nil {
 		oldIdentity := e.SecurityIdentity
 		defer func() {
-			err := oldIdentity.Release()
+			err := cache.Release(oldIdentity)
 			if err != nil {
 				elog.WithFields(logrus.Fields{logfields.Identity: oldIdentity.ID}).
 					WithError(err).Warn("BUG: Unable to release old endpoint identity")

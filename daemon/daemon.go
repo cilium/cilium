@@ -50,6 +50,7 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -192,7 +193,7 @@ func (d *Daemon) RemoveProxyRedirect(e *endpoint.Endpoint, id string, proxyWaitG
 // UpdateNetworkPolicy adds or updates a network policy in the set
 // published to L7 proxies.
 func (d *Daemon) UpdateNetworkPolicy(e *endpoint.Endpoint, policy *policy.L4Policy,
-	labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc) {
+	labelsMap cache.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc) {
 	if d.l7Proxy == nil {
 		return fmt.Errorf("can't update network policy, proxy disabled"), nil
 	}
@@ -1313,8 +1314,8 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 	}
 
 	// This needs to be done after the node addressing has been configured
-	// as the node address is required as sufix
-	identity.InitIdentityAllocator(&d)
+	// as the node address is required as suffix.
+	cache.InitIdentityAllocator(&d)
 
 	if path := option.Config.ClusterMeshConfig; path != "" {
 		if option.Config.ClusterID == 0 {

@@ -97,10 +97,10 @@ func (w wellKnownIdentities) add(i NumericIdentity, lbls []string) {
 		labelArray: labelMap.LabelArray(),
 	}
 
-	reservedIdentityCache[i] = identity
+	ReservedIdentityCache[i] = identity
 }
 
-func (w wellKnownIdentities) lookupByLabels(lbls labels.Labels) *Identity {
+func (w wellKnownIdentities) LookupByLabels(lbls labels.Labels) *Identity {
 	for _, i := range w {
 		if lbls.Equals(i.identity.Labels) {
 			return i.identity
@@ -118,14 +118,14 @@ func (w wellKnownIdentities) lookupByNumericIdentity(identity NumericIdentity) *
 	return wki.identity
 }
 
-// initWellKnownIdentities establishes all well-known identities
-func initWellKnownIdentities() {
+// InitWellKnownIdentities establishes all well-known identities
+func InitWellKnownIdentities() {
 	// etcd-operator labels
 	//   k8s:io.cilium.k8s.policy.serviceaccount=cilium-etcd-sa
 	//   k8s:io.kubernetes.pod.namespace=kube-system
 	//   k8s:io.cilium/app=etcd-operator
 	//   k8s:io.cilium.k8s.policy.cluster=default
-	wellKnown.add(ReservedETCDOperator, []string{
+	WellKnown.add(ReservedETCDOperator, []string{
 		"k8s:io.cilium/app=etcd-operator",
 		fmt.Sprintf("k8s:%s=kube-system", api.PodNamespaceLabel),
 		fmt.Sprintf("k8s:%s=cilium-etcd-sa", api.PolicyLabelServiceAccount),
@@ -142,7 +142,7 @@ func initWellKnownIdentities() {
 	// these 2 labels are ignored by cilium-agent as they can change over time
 	//   container:annotation.etcd.version=3.3.9
 	//   k8s:etcd_node=cilium-etcd-6snk6vsjcm
-	wellKnown.add(ReservedCiliumKVStore, []string{
+	WellKnown.add(ReservedCiliumKVStore, []string{
 		"k8s:app=etcd",
 		"k8s:etcd_cluster=cilium-etcd",
 		"k8s:io.cilium/app=etcd-operator",
@@ -156,7 +156,7 @@ func initWellKnownIdentities() {
 	//   k8s:io.kubernetes.pod.namespace=kube-system
 	//   k8s:k8s-app=kube-dns
 	//   k8s:io.cilium.k8s.policy.cluster=default
-	wellKnown.add(ReservedKubeDNS, []string{
+	WellKnown.add(ReservedKubeDNS, []string{
 		"k8s:k8s-app=kube-dns",
 		fmt.Sprintf("k8s:%s=kube-system", api.PodNamespaceLabel),
 		fmt.Sprintf("k8s:%s=kube-dns", api.PolicyLabelServiceAccount),
@@ -169,7 +169,7 @@ func initWellKnownIdentities() {
 	//   k8s:k8s-app=kube-dns
 	//   k8s:io.cilium.k8s.policy.cluster=default
 	//   k8s:eks.amazonaws.com/component=kube-dns
-	wellKnown.add(ReservedEKSKubeDNS, []string{
+	WellKnown.add(ReservedEKSKubeDNS, []string{
 		"k8s:k8s-app=kube-dns",
 		"k8s:eks.amazonaws.com/component=kube-dns",
 		fmt.Sprintf("k8s:%s=kube-system", api.PodNamespaceLabel),
@@ -182,7 +182,7 @@ func initWellKnownIdentities() {
 	//   k8s:io.kubernetes.pod.namespace=kube-system
 	//   k8s:k8s-app=kube-dns
 	//   k8s:io.cilium.k8s.policy.cluster=default
-	wellKnown.add(ReservedCoreDNS, []string{
+	WellKnown.add(ReservedCoreDNS, []string{
 		"k8s:k8s-app=kube-dns",
 		fmt.Sprintf("k8s:%s=kube-system", api.PodNamespaceLabel),
 		fmt.Sprintf("k8s:%s=coredns", api.PolicyLabelServiceAccount),
@@ -206,7 +206,8 @@ var (
 		ReservedIdentityInit:      labels.IDNameInit,
 	}
 
-	wellKnown = wellKnownIdentities{}
+	// WellKnown identities stores global state of all well-known identities.
+	WellKnown = wellKnownIdentities{}
 
 	// ErrNotUserIdentity is an error returned for an identity that is not user
 	// reserved.
