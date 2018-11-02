@@ -51,6 +51,7 @@ Source0:       https://%{provider_prefix}/archive/%{commit0}/%{repo}-%{shortcomm
 ExclusiveArch: x86_64
 
 Requires:      git
+Requires:      llvm
 Requires:      docker-engine >= 1.12, glibc-devel(x86-32), iproute >= 4.10, clang
 %{?fc25:Requires: clang >= 3.8, clang < 3.9}
 
@@ -109,15 +110,6 @@ export PKG_BUILD=1
 make -C daemon apply-bindata
 make V=1 proxylib plugins bpf cilium daemon monitor cilium-health bugtool tools
 
-export CC="/usr/bin/gcc"
-export CXX="/usr/bin/g++"
-
-cd envoy
-make proxylib-hdrs
-
-bazel clean
-bazel build //:envoy --action_env=PATH="$PATH"
-
 %install
 export PKG_BUILD=1
 
@@ -150,7 +142,6 @@ chmod 644 %{buildroot}%{_sysconfdir}/sysconfig/cilium
 %{_bindir}/cilium-node-monitor
 %{_bindir}/cilium-bugtool
 %{_bindir}/cilium-health
-%{_bindir}/cilium-envoy
 %{_bindir}/cilium-map-migrate
 %{_bindir}/cilium-ring-dump
 
