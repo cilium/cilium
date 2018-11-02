@@ -2617,7 +2617,7 @@ bpftool can provide some high-level metadata specific to the program:
           xlated 11144B  jited 7721B  memlock 12288B  map_ids 18,20,8,5,6,14
 
 The program of ID 406 is of type ``sched_cls`` (``BPF_PROG_TYPE_SCHED_CLS``),
-has a ``tag`` of ``e0362f5bd9163a0a`` (sha sum over the instruction sequence),
+has a ``tag`` of ``e0362f5bd9163a0a`` (SHA sum over the instruction sequence),
 it was loaded by root ``uid 0`` on ``Apr 09/16:24``. The BPF instruction
 sequence is ``11,144 bytes`` long and the JITed image ``7,721 bytes``. The
 program itself (excluding maps) consumes ``12,288 bytes`` that are accounted /
