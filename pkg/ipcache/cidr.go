@@ -17,7 +17,7 @@ package ipcache
 import (
 	"net"
 
-	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/cidr"
 
 	"github.com/sirupsen/logrus"
@@ -41,7 +41,7 @@ func AllocateCIDRs(impl Implementation, prefixes []*net.IPNet) error {
 	// Finally, allocate CIDR -> ID mappings in KVstore (for ipcache)
 	err = upsertIPNetsToKVStore(prefixes, prefixIdentities)
 	if err != nil {
-		if err2 := identity.ReleaseSlice(prefixIdentities); err2 != nil {
+		if err2 := cache.ReleaseSlice(prefixIdentities); err2 != nil {
 			log.WithError(err2).WithFields(logrus.Fields{
 				fieldIdentities: prefixIdentities,
 			}).Warn("Failed to release CIDRs during CIDR->ID mapping")
@@ -72,7 +72,7 @@ func ReleaseCIDRs(prefixes []*net.IPNet) (err error) {
 		scopedLog.WithError(err2).Warning("Could not find identities for CIDRs during release")
 	}
 	if prefixIdentities != nil {
-		if err2 = identity.ReleaseSlice(prefixIdentities); err2 != nil {
+		if err2 = cache.ReleaseSlice(prefixIdentities); err2 != nil {
 			if err == nil {
 				err = err2
 			}

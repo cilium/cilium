@@ -12,26 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package identity
+package cache
 
 import (
 	"reflect"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/allocator"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/trigger"
 )
 
 var (
-	reservedIdentityCache = map[NumericIdentity]*Identity{}
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "identity-cache")
 )
 
 // IdentityCache is a cache of identity to labels mapping
-type IdentityCache map[NumericIdentity]labels.LabelArray
+type IdentityCache map[identity.NumericIdentity]labels.LabelArray
 
 // IdentitiesModel is a wrapper so that we can implement the sort.Interface
 // to sort the slice by ID
@@ -47,10 +50,10 @@ func (s IdentitiesModel) Less(i, j int) bool {
 func GetIdentityCache() IdentityCache {
 	cache := IdentityCache{}
 
-	identityAllocator.ForeachCache(func(id idpool.ID, val allocator.AllocatorKey) {
+	IdentityAllocator.ForeachCache(func(id idpool.ID, val allocator.AllocatorKey) {
 		if val != nil {
 			if gi, ok := val.(globalIdentity); ok {
-				cache[NumericIdentity(id)] = gi.LabelArray()
+				cache[identity.NumericIdentity(id)] = gi.LabelArray()
 			} else {
 				log.Warningf("Ignoring unknown identity type '%s': %+v",
 					reflect.TypeOf(val), val)
@@ -58,7 +61,7 @@ func GetIdentityCache() IdentityCache {
 		}
 	})
 
-	for key, identity := range reservedIdentityCache {
+	for key, identity := range identity.ReservedIdentityCache {
 		cache[key] = identity.Labels.LabelArray()
 	}
 
@@ -69,15 +72,15 @@ func GetIdentityCache() IdentityCache {
 func GetIdentities() IdentitiesModel {
 	identities := IdentitiesModel{}
 
-	identityAllocator.ForeachCache(func(id idpool.ID, val allocator.AllocatorKey) {
+	IdentityAllocator.ForeachCache(func(id idpool.ID, val allocator.AllocatorKey) {
 		if gi, ok := val.(globalIdentity); ok {
-			identity := NewIdentity(NumericIdentity(id), gi.Labels)
+			identity := identity.NewIdentity(identity.NumericIdentity(id), gi.Labels)
 			identities = append(identities, identity.GetModel())
 		}
 
 	})
 	// append user reserved identities
-	for _, v := range reservedIdentityCache {
+	for _, v := range identity.ReservedIdentityCache {
 		identities = append(identities, v.GetModel())
 	}
 
@@ -112,16 +115,16 @@ func identityWatcher(owner IdentityAllocatorOwner, events allocator.AllocatorEve
 // LookupIdentity looks up the identity by its labels but does not create it.
 // This function will first search through the local cache and fall back to
 // querying the kvstore.
-func LookupIdentity(lbls labels.Labels) *Identity {
+func LookupIdentity(lbls labels.Labels) *identity.Identity {
 	if reservedIdentity := LookupReservedIdentityByLabels(lbls); reservedIdentity != nil {
 		return reservedIdentity
 	}
 
-	if identityAllocator == nil {
+	if IdentityAllocator == nil {
 		return nil
 	}
 
-	id, err := identityAllocator.Get(globalIdentity{lbls})
+	id, err := IdentityAllocator.Get(globalIdentity{lbls})
 	if err != nil {
 		return nil
 	}
@@ -130,13 +133,13 @@ func LookupIdentity(lbls labels.Labels) *Identity {
 		return nil
 	}
 
-	return NewIdentity(NumericIdentity(id), lbls)
+	return identity.NewIdentity(identity.NumericIdentity(id), lbls)
 }
 
 // LookupReservedIdentityByLabels looks up a reserved identity by its labels and
 // returns it if found. Returns nil if not found.
-func LookupReservedIdentityByLabels(lbls labels.Labels) *Identity {
-	if identity := wellKnown.lookupByLabels(lbls); identity != nil {
+func LookupReservedIdentityByLabels(lbls labels.Labels) *identity.Identity {
+	if identity := identity.WellKnown.LookupByLabels(lbls); identity != nil {
 		return identity
 	}
 
@@ -145,9 +148,9 @@ func LookupReservedIdentityByLabels(lbls labels.Labels) *Identity {
 		// If the set of labels contain a fixed identity then and exists in
 		// the map of reserved IDs then return the identity of that reserved ID.
 		case lbl.Key == labels.LabelKeyFixedIdentity:
-			id := GetReservedID(lbl.Value)
-			if id != IdentityUnknown && IsUserReservedIdentity(id) {
-				return LookupReservedIdentity(id)
+			id := identity.GetReservedID(lbl.Value)
+			if id != identity.IdentityUnknown && identity.IsUserReservedIdentity(id) {
+				return identity.LookupReservedIdentity(id)
 			}
 			// If a fixed identity was not found then we return nil to avoid
 			// falling to a reserved identity.
@@ -160,66 +163,42 @@ func LookupReservedIdentityByLabels(lbls labels.Labels) *Identity {
 			if len(lbls) != 1 {
 				return nil
 			}
-			id := GetReservedID(lbl.Key)
-			if id != IdentityUnknown && !IsUserReservedIdentity(id) {
-				return LookupReservedIdentity(id)
+			id := identity.GetReservedID(lbl.Key)
+			if id != identity.IdentityUnknown && !identity.IsUserReservedIdentity(id) {
+				return identity.LookupReservedIdentity(id)
 			}
 		}
 	}
 	return nil
 }
 
-// LookupReservedIdentity looks up a reserved identity by its NumericIdentity
-// and returns it if found. Returns nil if not found.
-func LookupReservedIdentity(ni NumericIdentity) *Identity {
-	return reservedIdentityCache[ni]
-}
-
-var unknownIdentity = NewIdentity(IdentityUnknown, labels.Labels{labels.IDNameUnknown: labels.NewLabel(labels.IDNameUnknown, "", labels.LabelSourceReserved)})
+var unknownIdentity = identity.NewIdentity(identity.IdentityUnknown, labels.Labels{labels.IDNameUnknown: labels.NewLabel(labels.IDNameUnknown, "", labels.LabelSourceReserved)})
 
 // LookupIdentityByID returns the identity by ID. This function will first
 // search through the local cache and fall back to querying the kvstore.
-func LookupIdentityByID(id NumericIdentity) *Identity {
-	if id == IdentityUnknown {
+func LookupIdentityByID(id identity.NumericIdentity) *identity.Identity {
+	if id == identity.IdentityUnknown {
 		return unknownIdentity
 	}
 
-	if identity := LookupReservedIdentity(id); identity != nil {
+	if identity := identity.LookupReservedIdentity(id); identity != nil {
 		return identity
 	}
 
-	if identityAllocator == nil {
+	if IdentityAllocator == nil {
 		return nil
 	}
 
-	allocatorKey, err := identityAllocator.GetByID(idpool.ID(id))
+	allocatorKey, err := IdentityAllocator.GetByID(idpool.ID(id))
 	if err != nil {
 		return nil
 	}
 
 	if gi, ok := allocatorKey.(globalIdentity); ok {
-		return NewIdentity(id, gi.Labels)
+		return identity.NewIdentity(id, gi.Labels)
 	}
 
 	return nil
-}
-
-// AddReservedIdentity adds the reserved numeric identity with the respective
-// label into the map of reserved identity cache.
-func AddReservedIdentity(ni NumericIdentity, lbl string) {
-	identity := NewIdentity(ni, labels.Labels{lbl: labels.NewLabel(lbl, "", labels.LabelSourceReserved)})
-	// Pre-calculate the SHA256 hash.
-	identity.GetLabelsSHA256()
-	reservedIdentityCache[ni] = identity
-}
-
-func init() {
-	IterateReservedIdentities(func(lbl string, ni NumericIdentity) {
-		identity := NewIdentity(ni, labels.Labels{lbl: labels.NewLabel(lbl, "", labels.LabelSourceReserved)})
-		// Pre-calculate the SHA256 hash.
-		identity.GetLabelsSHA256()
-		reservedIdentityCache[ni] = identity
-	})
 }
 
 // AddUserDefinedNumericIdentitySet adds all key-value pairs from the given map
@@ -229,18 +208,18 @@ func init() {
 func AddUserDefinedNumericIdentitySet(m map[string]string) error {
 	// Validate first
 	for k := range m {
-		ni, err := ParseNumericIdentity(k)
+		ni, err := identity.ParseNumericIdentity(k)
 		if err != nil {
 			return err
 		}
-		if !IsUserReservedIdentity(ni) {
-			return ErrNotUserIdentity
+		if !identity.IsUserReservedIdentity(ni) {
+			return identity.ErrNotUserIdentity
 		}
 	}
 	for k, lbl := range m {
-		ni, _ := ParseNumericIdentity(k)
-		AddUserDefinedNumericIdentity(ni, lbl)
-		AddReservedIdentity(ni, lbl)
+		ni, _ := identity.ParseNumericIdentity(k)
+		identity.AddUserDefinedNumericIdentity(ni, lbl)
+		identity.AddReservedIdentity(ni, lbl)
 	}
 	return nil
 }

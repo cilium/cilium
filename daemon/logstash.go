@@ -23,6 +23,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 )
@@ -103,7 +104,7 @@ func EnableLogstash(LogstashAddr string, refreshTime int) {
 }
 
 func getInlineLabelStr(id identity.NumericIdentity) string {
-	lbls := identity.LookupIdentityByID(id)
+	lbls := cache.LookupIdentityByID(id)
 	if lbls == nil {
 		return ""
 	}

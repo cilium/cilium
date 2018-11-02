@@ -40,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -729,7 +730,7 @@ func initEnv(cmd *cobra.Command) {
 
 	policy.SetPolicyEnabled(strings.ToLower(viper.GetString("enable-policy")))
 
-	if err := identity.AddUserDefinedNumericIdentitySet(fixedIdentity); err != nil {
+	if err := cache.AddUserDefinedNumericIdentitySet(fixedIdentity); err != nil {
 		log.Fatalf("Invalid fixed identities provided: %s", err)
 	}
 

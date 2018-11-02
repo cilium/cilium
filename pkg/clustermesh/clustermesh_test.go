@@ -26,7 +26,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
@@ -103,7 +103,7 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 
 	logging.DefaultLogger.SetLevel(logrus.DebugLevel)
 
-	identity.InitIdentityAllocator(&identityAllocatorOwnerMock{})
+	cache.InitIdentityAllocator(&identityAllocatorOwnerMock{})
 
 	dir, err := ioutil.TempDir("", "multicluster")
 	c.Assert(err, IsNil)

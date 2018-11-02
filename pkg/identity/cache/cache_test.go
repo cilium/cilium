@@ -14,9 +14,12 @@
 
 // +build !privileged_tests
 
-package identity
+package cache
 
 import (
+	"testing"
+
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 
@@ -34,39 +37,48 @@ var (
 	})
 )
 
-func (s *IdentityTestSuite) TestLookupReservedIdentity(c *C) {
+// Hook up gocheck into the "go test" runner.
+func Test(t *testing.T) {
+	TestingT(t)
+}
+
+type IdentityCacheTestSuite struct{}
+
+var _ = Suite(&IdentityCacheTestSuite{})
+
+func (s *IdentityCacheTestSuite) TestLookupReservedIdentity(c *C) {
 	bak := option.Config.ClusterName
 	option.Config.ClusterName = "default"
 	defer func() {
 		option.Config.ClusterName = bak
 	}()
 
-	hostID := GetReservedID("host")
+	hostID := identity.GetReservedID("host")
 	c.Assert(LookupIdentityByID(hostID), Not(IsNil))
 
-	identity := LookupIdentity(labels.NewLabelsFromModel([]string{"reserved:host"}))
-	c.Assert(identity, Not(IsNil))
-	c.Assert(identity.ID, Equals, hostID)
+	id := LookupIdentity(labels.NewLabelsFromModel([]string{"reserved:host"}))
+	c.Assert(id, Not(IsNil))
+	c.Assert(id.ID, Equals, hostID)
 
-	worldID := GetReservedID("world")
+	worldID := identity.GetReservedID("world")
 	c.Assert(LookupIdentityByID(worldID), Not(IsNil))
 
-	identity = LookupIdentity(labels.NewLabelsFromModel([]string{"reserved:world"}))
-	c.Assert(identity, Not(IsNil))
-	c.Assert(identity.ID, Equals, worldID)
+	id = LookupIdentity(labels.NewLabelsFromModel([]string{"reserved:world"}))
+	c.Assert(id, Not(IsNil))
+	c.Assert(id.ID, Equals, worldID)
 
-	initWellKnownIdentities()
+	identity.InitWellKnownIdentities()
 
-	identity = LookupIdentity(kvstoreLabels)
-	c.Assert(identity, Not(IsNil))
-	c.Assert(identity.ID, Equals, ReservedCiliumKVStore)
+	id = LookupIdentity(kvstoreLabels)
+	c.Assert(id, Not(IsNil))
+	c.Assert(id.ID, Equals, identity.ReservedCiliumKVStore)
 }
 
-func (s *IdentityTestSuite) TestLookupReservedIdentityByLabels(c *C) {
-	ni, err := ParseNumericIdentity("129")
+func (s *IdentityCacheTestSuite) TestLookupReservedIdentityByLabels(c *C) {
+	ni, err := identity.ParseNumericIdentity("129")
 	c.Assert(err, IsNil)
-	AddUserDefinedNumericIdentity(ni, "kvstore")
-	AddReservedIdentity(ni, "kvstore")
+	identity.AddUserDefinedNumericIdentity(ni, "kvstore")
+	identity.AddReservedIdentity(ni, "kvstore")
 
 	type args struct {
 		lbls labels.Labels
@@ -74,14 +86,14 @@ func (s *IdentityTestSuite) TestLookupReservedIdentityByLabels(c *C) {
 	tests := []struct {
 		name string
 		args args
-		want *Identity
+		want *identity.Identity
 	}{
 		{
 			name: "fixed-identity",
 			args: args{
 				lbls: labels.Labels{labels.LabelKeyFixedIdentity: labels.ParseLabel(labels.LabelKeyFixedIdentity + "=" + "kvstore")},
 			},
-			want: NewIdentity(ni, labels.Labels{"kvstore": labels.NewLabel("kvstore", "", labels.LabelSourceReserved)}),
+			want: identity.NewIdentity(ni, labels.Labels{"kvstore": labels.NewLabel("kvstore", "", labels.LabelSourceReserved)}),
 		},
 		{
 			name: "non-existing-fixed-identity",
@@ -95,7 +107,7 @@ func (s *IdentityTestSuite) TestLookupReservedIdentityByLabels(c *C) {
 			args: args{
 				lbls: labels.Labels{labels.LabelSourceReserved: labels.NewLabel(labels.LabelSourceReservedKeyPrefix+"host", "", labels.LabelSourceReserved)},
 			},
-			want: NewIdentity(ReservedIdentityHost, labels.Labels{"host": labels.ParseLabel("reserved:host")}),
+			want: identity.NewIdentity(identity.ReservedIdentityHost, labels.Labels{"host": labels.ParseLabel("reserved:host")}),
 		},
 		{
 			name: "reserved-identity+other-labels",
@@ -112,7 +124,7 @@ func (s *IdentityTestSuite) TestLookupReservedIdentityByLabels(c *C) {
 			args: args{
 				lbls: kvstoreLabels,
 			},
-			want: NewIdentity(ReservedCiliumKVStore, kvstoreLabels),
+			want: identity.NewIdentity(identity.ReservedCiliumKVStore, kvstoreLabels),
 		},
 	}
 	for _, tt := range tests {
