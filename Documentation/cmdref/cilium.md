@@ -18,21 +18,21 @@ CLI for interacting with the local Cilium Agent
 ```
 
 ### SEE ALSO
-* [cilium bpf](cilium_bpf.html)	 - Direct access to local BPF maps
-* [cilium cleanup](cilium_cleanup.html)	 - Reset the agent state
-* [cilium completion](cilium_completion.html)	 - Output shell completion code for bash
-* [cilium config](cilium_config.html)	 - Cilium configuration options
-* [cilium debuginfo](cilium_debuginfo.html)	 - Request available debugging information from agent
-* [cilium endpoint](cilium_endpoint.html)	 - Manage endpoints
-* [cilium identity](cilium_identity.html)	 - Manage security identities
-* [cilium kvstore](cilium_kvstore.html)	 - Direct access to the kvstore
-* [cilium map](cilium_map.html)	 - Access BPF maps
-* [cilium metrics](cilium_metrics.html)	 - Access metric status
-* [cilium monitor](cilium_monitor.html)	 - Display BPF program events
-* [cilium node](cilium_node.html)	 - Manage cluster nodes
-* [cilium policy](cilium_policy.html)	 - Manage security policies
-* [cilium prefilter](cilium_prefilter.html)	 - Manage XDP CIDR filters
-* [cilium service](cilium_service.html)	 - Manage services & loadbalancers
-* [cilium status](cilium_status.html)	 - Display status of daemon
-* [cilium version](cilium_version.html)	 - Print version information
+* [cilium bpf](../cilium_bpf)	 - Direct access to local BPF maps
+* [cilium cleanup](../cilium_cleanup)	 - Reset the agent state
+* [cilium completion](../cilium_completion)	 - Output shell completion code for bash
+* [cilium config](../cilium_config)	 - Cilium configuration options
+* [cilium debuginfo](../cilium_debuginfo)	 - Request available debugging information from agent
+* [cilium endpoint](../cilium_endpoint)	 - Manage endpoints
+* [cilium identity](../cilium_identity)	 - Manage security identities
+* [cilium kvstore](../cilium_kvstore)	 - Direct access to the kvstore
+* [cilium map](../cilium_map)	 - Access BPF maps
+* [cilium metrics](../cilium_metrics)	 - Access metric status
+* [cilium monitor](../cilium_monitor)	 - Display BPF program events
+* [cilium node](../cilium_node)	 - Manage cluster nodes
+* [cilium policy](../cilium_policy)	 - Manage security policies
+* [cilium prefilter](../cilium_prefilter)	 - Manage XDP CIDR filters
+* [cilium service](../cilium_service)	 - Manage services & loadbalancers
+* [cilium status](../cilium_status)	 - Display status of daemon
+* [cilium version](../cilium_version)	 - Print version information
 

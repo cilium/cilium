@@ -28,5 +28,5 @@ cilium policy get [<labels>]
 ```
 
 ### SEE ALSO
-* [cilium policy](cilium_policy.html)	 - Manage security policies
+* [cilium policy](../cilium_policy)	 - Manage security policies
 

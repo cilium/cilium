@@ -37,5 +37,5 @@ cilium kvstore get --recursive foo
 ```
 
 ### SEE ALSO
-* [cilium kvstore](cilium_kvstore.html)	 - Direct access to the kvstore
+* [cilium kvstore](../cilium_kvstore)	 - Direct access to the kvstore
 

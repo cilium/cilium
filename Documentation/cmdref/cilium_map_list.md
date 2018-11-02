@@ -35,5 +35,5 @@ cilium map list
 ```
 
 ### SEE ALSO
-* [cilium map](cilium_map.html)	 - Access BPF maps
+* [cilium map](../cilium_map)	 - Access BPF maps
 

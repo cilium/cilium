@@ -18,7 +18,7 @@ Manage security identities
 ```
 
 ### SEE ALSO
-* [cilium](cilium.html)	 - CLI
-* [cilium identity get](cilium_identity_get.html)	 - Retrieve information about an identity
-* [cilium identity list](cilium_identity_list.html)	 - List identities
+* [cilium](../cilium)	 - CLI
+* [cilium identity get](../cilium_identity_get)	 - Retrieve information about an identity
+* [cilium identity list](../cilium_identity_list)	 - List identities
 

@@ -28,5 +28,5 @@ cilium node list
 ```
 
 ### SEE ALSO
-* [cilium node](cilium_node.html)	 - Manage cluster nodes
+* [cilium node](../cilium_node)	 - Manage cluster nodes
 

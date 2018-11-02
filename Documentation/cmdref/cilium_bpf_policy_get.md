@@ -30,5 +30,5 @@ cilium bpf policy get
 ```
 
 ### SEE ALSO
-* [cilium bpf policy](cilium_bpf_policy.html)	 - Manage policy related BPF maps
+* [cilium bpf policy](../cilium_bpf_policy)	 - Manage policy related BPF maps
 

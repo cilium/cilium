@@ -28,5 +28,5 @@ cilium bpf metrics list
 ```
 
 ### SEE ALSO
-* [cilium bpf metrics](cilium_bpf_metrics.html)	 - BPF datapath traffic metrics
+* [cilium bpf metrics](../cilium_bpf_metrics)	 - BPF datapath traffic metrics
 
