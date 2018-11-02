@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/datapath/firewall"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -111,7 +112,6 @@ var (
 	loggers               []string
 	logstashAddr          string
 	logstashProbeTimer    uint32
-	masquerade            bool
 	nat46prefix           string
 	prometheusServeAddr   string
 	socketPath            string
@@ -451,7 +451,7 @@ func init() {
 	flags.Bool(option.LogSystemLoadConfigName, false, "Enable periodic logging of system load")
 	flags.StringVar(&nat46prefix,
 		"nat46-range", defaults.DefaultNAT46Prefix, "IPv6 prefix to map IPv4 addresses to")
-	flags.BoolVar(&masquerade,
+	flags.BoolVar(&firewall.Masquerade,
 		"masquerade", true, "Masquerade packets from endpoints leaving the host")
 	flags.IntVar(&option.Config.MaxControllerInterval, option.MaxCtrlIntervalName, 0,
 		"Maximum interval (in seconds) between controller runs. Zero is no limit.")

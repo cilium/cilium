@@ -275,6 +275,10 @@ type daemonConfig struct {
 	// UseSingleClusterRoute specifies whether to use a single cluster route
 	// instead of per-node routes.
 	UseSingleClusterRoute bool
+
+	// PrependIptablesChains is the name of the option to enable prepending
+	// iptables chains instead of appending
+	PrependIptablesChains bool
 }
 
 var (

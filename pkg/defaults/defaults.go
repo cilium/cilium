@@ -94,4 +94,7 @@ const (
 	// already been allocated and other nodes in the cluster have a chance
 	// to whitelist the new upcoming identity of the endpoint.
 	IdentityChangeGracePeriod = 25 * time.Second
+
+	// ExecTimeout is the execution timeout to use in init.sh executions
+	ExecTimeout = 300 * time.Second
 )
