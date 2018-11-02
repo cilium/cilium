@@ -5,7 +5,7 @@
 # Otherwise its value is not passed in.
 #
 ARG CILIUM_ENVOY_SHA
-FROM cilium/cilium-envoy:${CILIUM_ENVOY_SHA:-"fd3866831d8f85e27120f34d98133343fc9c4e0e"} as cilium-envoy
+FROM quay.io/cilium/cilium-envoy:${CILIUM_ENVOY_SHA:-"971e018d05c0fce542d315e320b7b5d9e7480d24"} as cilium-envoy
 
 #
 # Cilium incremental build. Should be fast given builder-deps is up-to-date!
