@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,7 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
@@ -96,7 +95,7 @@ func deleteTunnelMapping(ip *net.IPNet) {
 		return
 	}
 
-	if err := tunnel.DeleteTunnelEndpoint(ip.IP); err != nil {
+	if err := TunnelDatapath.DeleteTunnelEndpoint(ip.IP); err != nil {
 		log.WithError(err).WithFields(logrus.Fields{
 			logfields.IPAddr: ip,
 		}).Debug("bpf: Unable to delete in tunnel endpoint map")
@@ -218,7 +217,7 @@ func updateTunnelMapping(n *Node, ip *net.IPNet) {
 		return
 	}
 
-	if err := tunnel.SetTunnelEndpoint(ip.IP, n.GetNodeIP(false)); err != nil {
+	if err := TunnelDatapath.SetTunnelEndpoint(ip.IP, n.GetNodeIP(false)); err != nil {
 		log.WithError(err).WithFields(logrus.Fields{
 			logfields.IPAddr: ip,
 		}).Error("bpf: Unable to update in tunnel endpoint map")

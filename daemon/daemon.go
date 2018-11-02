@@ -1189,6 +1189,9 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 	// or IPv4 alloc prefix, respectively, retrieved by k8s node annotations.
 	log.Info("Initializing node addressing")
 
+	// Inject BPF dependency into node package.
+	node.TunnelDatapath = tunnel.TunnelMap
+
 	if err := node.AutoComplete(); err != nil {
 		log.WithError(err).Fatal("Cannot autocomplete node addresses")
 	}
