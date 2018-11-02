@@ -35,5 +35,5 @@ cilium status
 ```
 
 ### SEE ALSO
-* [cilium](cilium.html)	 - CLI
+* [cilium](../cilium)	 - CLI
 

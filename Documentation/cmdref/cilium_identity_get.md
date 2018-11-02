@@ -29,5 +29,5 @@ cilium identity get
 ```
 
 ### SEE ALSO
-* [cilium identity](cilium_identity.html)	 - Manage security identities
+* [cilium identity](../cilium_identity)	 - Manage security identities
 

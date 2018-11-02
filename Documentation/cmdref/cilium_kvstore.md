@@ -25,8 +25,8 @@ Direct access to the kvstore
 ```
 
 ### SEE ALSO
-* [cilium](cilium.html)	 - CLI
-* [cilium kvstore delete](cilium_kvstore_delete.html)	 - Delete a key
-* [cilium kvstore get](cilium_kvstore_get.html)	 - Retrieve a key
-* [cilium kvstore set](cilium_kvstore_set.html)	 - Set a key and value
+* [cilium](../cilium)	 - CLI
+* [cilium kvstore delete](../cilium_kvstore_delete)	 - Delete a key
+* [cilium kvstore get](../cilium_kvstore_get)	 - Retrieve a key
+* [cilium kvstore set](../cilium_kvstore_set)	 - Set a key and value
 
