@@ -23,6 +23,8 @@ all:
 install:
 	echo "cilium-envoy must be installed separately"
 
+clean:
+
 else
 
 all:
@@ -32,5 +34,7 @@ install:
 	docker create -ti --name cilium-envoy cilium/cilium-envoy:${CILIUM_ENVOY_SHA} bash
 	docker cp cilium-envoy:/usr/bin/cilium-envoy $(BINDIR)/cilium-envoy
 	docker rm -fv cilium-envoy
+
+clean:
 
 endif

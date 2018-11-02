@@ -39,10 +39,11 @@ import (
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "envoy-manager")
 
 var (
+	// RequiredEnvoyVersionSHA is set during build
 	// Running Envoy version will be checked against `RequiredEnvoyVersionSHA`.
 	// By default cilium-agent will fail to start if there is a version mismatch.
-	// This value must match the one in file CILIUM_ENVOY_SHA.
-	RequiredEnvoyVersionSHA = "fd3866831d8f85e27120f34d98133343fc9c4e0e"
+	RequiredEnvoyVersionSHA string
+
 	// envoyLevelMap maps logrus.Level values to Envoy (spdlog) log levels.
 	envoyLevelMap = map[logrus.Level]string{
 		logrus.PanicLevel: "off",
