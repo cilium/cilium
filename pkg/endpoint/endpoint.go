@@ -2268,6 +2268,7 @@ func (e *Endpoint) ModifyIdentityLabels(owner Owner, addLabels, delLabels pkgLab
 
 	switch e.GetStateLocked() {
 	case StateDisconnected, StateDisconnecting:
+		e.Unlock()
 		return nil
 	}
 
