@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/kafka"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
@@ -118,7 +119,7 @@ func (k *kafkaRedirect) canAccess(req *kafka.RequestMessage, srcIdentity identit
 	var id *identity.Identity
 
 	if srcIdentity != 0 {
-		id = identity.LookupIdentityByID(srcIdentity)
+		id = cache.LookupIdentityByID(srcIdentity)
 		if id == nil {
 			log.WithFields(logrus.Fields{
 				logfields.Request:  req.String(),

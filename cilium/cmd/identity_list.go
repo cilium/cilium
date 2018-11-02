@@ -21,7 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/api"
 	pkg "github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/command"
-	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
 
 	"github.com/spf13/cobra"
 )
@@ -57,7 +57,7 @@ func listIdentities(args []string) {
 	}
 
 	// sort identities by ID
-	im := identity.IdentitiesModel(identities.Payload)
+	im := cache.IdentitiesModel(identities.Payload)
 	sort.Slice(im, im.Less)
 	printIdentities(identities.Payload)
 }

@@ -19,6 +19,7 @@ package envoy
 import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -111,7 +112,7 @@ var L7Rules1 = api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1, *PortRuleHTT
 
 var L7Rules2 = api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1}}
 
-var IdentityCache = identity.IdentityCache{
+var IdentityCache = cache.IdentityCache{
 	1001: []*labels.Label{
 		{Key: "app", Value: "etcd", Source: labels.LabelSourceK8s},
 		{Key: "version", Value: "v1", Source: labels.LabelSourceK8s},

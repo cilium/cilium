@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/allocator"
@@ -125,7 +125,7 @@ func (rc *remoteCluster) restartRemoteConnection() {
 				ipCacheWatcher := ipcache.NewIPIdentityWatcher(backend)
 				go ipCacheWatcher.Watch()
 
-				remoteIdentityCache := identity.WatchRemoteIdentities(backend)
+				remoteIdentityCache := cache.WatchRemoteIdentities(backend)
 
 				rc.mutex.Lock()
 				rc.remoteNodes = remoteNodes

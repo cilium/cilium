@@ -37,6 +37,10 @@ type Identity struct {
 	LabelArray labels.LabelArray `json:"-"`
 }
 
+type IdentityCacheIfc interface {
+	LookupReservedIdentity(identity NumericIdentity) error
+}
+
 // IPIdentityPair is a pairing of an IP and the security identity to which that
 // IP corresponds. May include an optional Mask which, if present, denotes that
 // the IP represents a CIDR with the specified Mask.
@@ -121,7 +125,7 @@ func (id *Identity) IsFixed() bool {
 // IsWellKnown returns whether the identity represents a well known identity
 // (true), or not (false).
 func (id *Identity) IsWellKnown() bool {
-	return wellKnown.lookupByNumericIdentity(id.ID) != nil
+	return WellKnown.lookupByNumericIdentity(id.ID) != nil
 }
 
 // NewIdentity creates a new identity

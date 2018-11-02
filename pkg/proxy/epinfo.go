@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 )
@@ -35,7 +36,7 @@ var (
 type defaultEndpointInfoRegistry struct{}
 
 func (r *defaultEndpointInfoRegistry) FillEndpointIdentityByID(id identity.NumericIdentity, info *accesslog.EndpointInfo) bool {
-	identity := identity.LookupIdentityByID(id)
+	identity := cache.LookupIdentityByID(id)
 	if identity == nil {
 		return false
 	}

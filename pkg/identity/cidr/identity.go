@@ -19,6 +19,7 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labels/cidr"
 	"github.com/cilium/cilium/pkg/logging"
@@ -51,11 +52,11 @@ func AllocateCIDRIdentities(prefixes []*net.IPNet) (res []*identity.Identity, er
 			continue
 		}
 		lbls := cidr.GetCIDRLabels(prefix)
-		id, _, err := identity.AllocateIdentity(lbls)
+		id, _, err := cache.AllocateIdentity(lbls)
 		if err != nil {
 			// If any identity allocation failed, release existing identities
 			// and log the error.
-			if err2 := identity.ReleaseSlice(res); err2 != nil {
+			if err2 := cache.ReleaseSlice(res); err2 != nil {
 				log.WithError(err2).Error("Could not recover from error during CIDR identity allocation")
 			}
 			res = nil
@@ -86,7 +87,7 @@ func LookupCIDRIdentities(prefixes []*net.IPNet) (res []*identity.Identity, err 
 
 	for i, prefix := range prefixes {
 		labels := cidr.GetCIDRLabels(prefix)
-		if id := identity.LookupIdentity(labels); id != nil {
+		if id := cache.LookupIdentity(labels); id != nil {
 			res[i] = id
 		} else {
 			err = fmt.Errorf("Unable to find CIDR identity for labels %s", labels)

@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
@@ -35,9 +36,9 @@ func (h *getIdentity) Handle(params GetIdentityParams) middleware.Responder {
 	if params.Labels == nil {
 		// if labels is nil, return all identities from the kvstore
 		// This is in response to "identity list" command
-		identities = identity.GetIdentities()
+		identities = cache.GetIdentities()
 	} else {
-		identity := identity.LookupIdentity(labels.NewLabelsFromModel(params.Labels))
+		identity := cache.LookupIdentity(labels.NewLabelsFromModel(params.Labels))
 		if identity == nil {
 			return NewGetIdentityIDNotFound()
 		}
@@ -58,7 +59,7 @@ func (h *getIdentityID) Handle(params GetIdentityIDParams) middleware.Responder 
 		return NewGetIdentityIDBadRequest()
 	}
 
-	identity := identity.LookupIdentityByID(nid)
+	identity := cache.LookupIdentityByID(nid)
 	if identity == nil {
 		return NewGetIdentityIDNotFound()
 	}

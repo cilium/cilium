@@ -26,7 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	identityPkg "github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -201,7 +201,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 			l, _ := labels.FilterLabels(ep.OpLabels.IdentityLabels())
 			ep.RUnlock()
 
-			identity, _, err := identityPkg.AllocateIdentity(l)
+			identity, _, err := cache.AllocateIdentity(l)
 			if err != nil {
 				scopedLog.WithError(err).Warn("Unable to restore endpoint")
 				epRegenerated <- false
@@ -210,7 +210,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 			// doing any policy calculation for endpoints that don't have
 			// a fixed identity or are not well known.
 			if !identity.IsFixed() && !identity.IsWellKnown() {
-				identityPkg.WaitForInitialIdentities()
+				cache.WaitForInitialIdentities()
 			}
 
 			if err := ep.LockAlive(); err != nil {

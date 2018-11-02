@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -91,7 +92,7 @@ func (e *Endpoint) ProxyID(l4 *policy.L4Filter) string {
 	return policy.ProxyID(e.ID, l4.Ingress, string(l4.Protocol), uint16(l4.Port))
 }
 
-func getSecurityIdentities(labelsMap identityPkg.IdentityCache, selector *api.EndpointSelector) []identityPkg.NumericIdentity {
+func getSecurityIdentities(labelsMap cache.IdentityCache, selector *api.EndpointSelector) []identityPkg.NumericIdentity {
 	identities := []identityPkg.NumericIdentity{}
 	for idx, labels := range labelsMap {
 		if selector.Matches(labels) {
@@ -495,7 +496,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) error {
 	// GH-1128 should allow optimizing this away, but currently we can't
 	// reliably know if the KV-store has changed or not, so we must scan
 	// through it each time.
-	identityCache := identityPkg.GetIdentityCache()
+	identityCache := cache.GetIdentityCache()
 	labelsMap := &identityCache
 
 	regenerateStart := time.Now()

@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -474,7 +475,7 @@ func createBootstrap(filePath string, name, cluster, version string, xdsSock, eg
 }
 
 func getPortNetworkPolicyRule(sel api.EndpointSelector, l7Parser policy.L7ParserType, l7Rules api.L7Rules,
-	labelsMap identity.IdentityCache, deniedIdentities map[identity.NumericIdentity]bool) *cilium.PortNetworkPolicyRule {
+	labelsMap cache.IdentityCache, deniedIdentities map[identity.NumericIdentity]bool) *cilium.PortNetworkPolicyRule {
 	// In case the endpoint selector is a wildcard and there are no denied
 	// identities, optimize the policy by setting an empty remote policies list
 	// to match all remote policies.
@@ -537,7 +538,7 @@ func getPortNetworkPolicyRule(sel api.EndpointSelector, l7Parser policy.L7Parser
 }
 
 func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool,
-	labelsMap identity.IdentityCache, deniedIdentities map[identity.NumericIdentity]bool) []*cilium.PortNetworkPolicy {
+	labelsMap cache.IdentityCache, deniedIdentities map[identity.NumericIdentity]bool) []*cilium.PortNetworkPolicy {
 	if !policyEnforced {
 		// Return an allow-all policy.
 		return allowAllPortNetworkPolicy
@@ -605,7 +606,7 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool,
 
 // getNetworkPolicy converts a network policy into a cilium.NetworkPolicy.
 func getNetworkPolicy(name string, id identity.NumericIdentity, policy *policy.L4Policy,
-	ingressPolicyEnforced, egressPolicyEnforced bool, labelsMap identity.IdentityCache,
+	ingressPolicyEnforced, egressPolicyEnforced bool, labelsMap cache.IdentityCache,
 	deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool) *cilium.NetworkPolicy {
 	p := &cilium.NetworkPolicy{
 		Name:   name,
@@ -626,7 +627,7 @@ func getNetworkPolicy(name string, id identity.NumericIdentity, policy *policy.L
 // When the proxy acknowledges the network policy update, it will result in
 // a subsequent call to the endpoint's OnProxyPolicyUpdate() function.
 func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *policy.L4Policy,
-	ingressPolicyEnforced, egressPolicyEnforced bool, labelsMap identity.IdentityCache,
+	ingressPolicyEnforced, egressPolicyEnforced bool, labelsMap cache.IdentityCache,
 	deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, wg *completion.WaitGroup) (error, func() error) {
 
 	s.mutex.Lock()
