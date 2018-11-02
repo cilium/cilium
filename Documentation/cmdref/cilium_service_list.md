@@ -28,5 +28,5 @@ cilium service list
 ```
 
 ### SEE ALSO
-* [cilium service](cilium_service.html)	 - Manage services & loadbalancers
+* [cilium service](../cilium_service)	 - Manage services & loadbalancers
 

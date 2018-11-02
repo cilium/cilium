@@ -35,5 +35,5 @@ endpoint config 5421 DropNotification=false TraceNotification=false
 ```
 
 ### SEE ALSO
-* [cilium endpoint](cilium_endpoint.html)	 - Manage endpoints
+* [cilium endpoint](../cilium_endpoint)	 - Manage endpoints
 

@@ -28,5 +28,5 @@ cilium bpf tunnel list
 ```
 
 ### SEE ALSO
-* [cilium bpf tunnel](cilium_bpf_tunnel.html)	 - Tunnel endpoint map
+* [cilium bpf tunnel](../cilium_bpf_tunnel)	 - Tunnel endpoint map
 

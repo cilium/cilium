@@ -28,5 +28,5 @@ cilium bpf endpoint list
 ```
 
 ### SEE ALSO
-* [cilium bpf endpoint](cilium_bpf_endpoint.html)	 - Local endpoint map
+* [cilium bpf endpoint](../cilium_bpf_endpoint)	 - Local endpoint map
 
