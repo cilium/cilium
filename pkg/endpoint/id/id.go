@@ -26,15 +26,15 @@ func (s PrefixType) String() string { return string(s) }
 
 const (
 	CiliumLocalIdPrefix  PrefixType = "cilium-local"
-	CiliumGlobalIdPrefix            = "cilium-global"
-	ContainerIdPrefix               = "container-id"
-	DockerEndpointPrefix            = "docker-endpoint"
-	ContainerNamePrefix             = "container-name"
-	PodNamePrefix                   = "pod-name"
+	CiliumGlobalIdPrefix PrefixType = "cilium-global"
+	ContainerIdPrefix    PrefixType = "container-id"
+	DockerEndpointPrefix PrefixType = "docker-endpoint"
+	ContainerNamePrefix  PrefixType = "container-name"
+	PodNamePrefix        PrefixType = "pod-name"
 
 	// IPv4Prefix is the prefix used in Cilium IDs when the identifier is
 	// the IPv4 address of the endpoint
-	IPv4Prefix = "ipv4"
+	IPv4Prefix PrefixType = "ipv4"
 )
 
 func NewCiliumID(id int64) string {
@@ -47,12 +47,8 @@ func NewID(prefix PrefixType, id string) string {
 
 // SplitID splits ID into prefix and id. No validation is performed on prefix.
 func SplitID(id string) (PrefixType, string) {
-	if s := strings.Split(id, ":"); len(s) == 2 {
-		return PrefixType(s[0]), s[1]
-	} else if len(s) == 3 {
-		// PodNamePrefix case, e.g. "pod-name:default:foobar" where the prefix is
-		// pod-name, the pod namespace is default, and the pod-name is foobar.
-		return PrefixType(s[0]), strings.Join([]string{s[1], s[2]}, ":")
+	if idx := strings.Index(id, ":"); idx > -1 {
+		return PrefixType(id[:idx]), id[idx+1:]
 	}
 	// default prefix
 	return CiliumLocalIdPrefix, id
