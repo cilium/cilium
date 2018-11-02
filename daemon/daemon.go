@@ -24,7 +24,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -76,12 +75,10 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	policyApi "github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/sockops"
-	"github.com/cilium/cilium/pkg/u8proto"
 	"github.com/cilium/cilium/pkg/workloads"
 
 	"github.com/go-openapi/runtime/middleware"
@@ -1377,75 +1374,6 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 	fqdn.StartDNSPoller(d.dnsPoller)
 
 	return &d, restoredEndpoints, nil
-}
-
-func (d *Daemon) collectStaleMapGarbage() {
-	if option.Config.DryMode {
-		return
-	}
-	walker := func(path string, _ os.FileInfo, _ error) error {
-		return d.staleMapWalker(path)
-	}
-
-	if err := filepath.Walk(bpf.MapPrefixPath(), walker); err != nil {
-		log.WithError(err).Warn("Error while scanning for stale maps")
-	}
-}
-
-func (d *Daemon) removeStaleMap(path string) {
-	if err := os.RemoveAll(path); err != nil {
-		log.WithError(err).WithField(logfields.Path, path).Warn("Error while deleting stale map file")
-	} else {
-		log.WithField(logfields.Path, path).Info("Removed stale bpf map")
-	}
-}
-
-func (d *Daemon) removeStaleIDFromPolicyMap(id uint32) {
-	gpm, err := policymap.OpenGlobalMap(bpf.MapPath(endpoint.PolicyGlobalMapName))
-	if err == nil {
-		gpm.Delete(id, policymap.AllPorts, u8proto.All, trafficdirection.Ingress)
-		gpm.Delete(id, policymap.AllPorts, u8proto.All, trafficdirection.Egress)
-		gpm.Close()
-	}
-}
-
-func (d *Daemon) checkStaleMap(path string, filename string, id string) {
-	if tmp, err := strconv.ParseUint(id, 0, 16); err == nil {
-		if ep := endpointmanager.LookupCiliumID(uint16(tmp)); ep == nil {
-			d.removeStaleIDFromPolicyMap(uint32(tmp))
-			d.removeStaleMap(path)
-		}
-	}
-}
-
-func (d *Daemon) checkStaleGlobalMap(path string, filename string) {
-	globalCTinUse := endpointmanager.HasGlobalCT()
-
-	if !globalCTinUse && ctmap.NameIsGlobal(filename) {
-		d.removeStaleMap(path)
-	}
-}
-
-func (d *Daemon) staleMapWalker(path string) error {
-	filename := filepath.Base(path)
-
-	mapPrefix := []string{
-		policymap.MapName,
-		ctmap.MapNamePrefix,
-		endpoint.CallsMapName,
-	}
-
-	d.checkStaleGlobalMap(path, filename)
-
-	for _, m := range mapPrefix {
-		if strings.HasPrefix(filename, m) {
-			if id := strings.TrimPrefix(filename, m); id != filename {
-				d.checkStaleMap(path, filename, id)
-			}
-		}
-	}
-
-	return nil
 }
 
 // TriggerReloadWithoutCompile causes all BPF programs and maps to be reloaded,

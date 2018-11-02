@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/datapath/maps"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -928,7 +929,7 @@ func runDaemon() {
 		workloads.IgnoreRunningWorkloads()
 	}
 
-	d.collectStaleMapGarbage()
+	maps.CollectStaleMapGarbage()
 
 	// The workload event listener *must* be enabled *after* restored endpoints
 	// are added into the endpoint manager; otherwise, updates to important
