@@ -15,7 +15,7 @@ modes. It focuses on a full deployment of Cilium within a datacenter or public
 cloud. If you are just looking for a simple way to experiment, we highly
 recommend trying out the :ref:`gs_guide` instead.
 
-This guide assumes that you have read the :ref:`arch_guide` which explains all
+This guide assumes that you have read the :ref:`concepts` which explains all
 the components and concepts.
 
 We use GitHub issues to maintain a list of `Cilium Frequently Asked Questions

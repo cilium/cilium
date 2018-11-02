@@ -13,10 +13,13 @@ The documentation is divided into the following sections:
   setup on your laptop.  Intended as an easy way to get your hands dirty
   applying Cilium security policies between containers.
 
-* :ref:`arch_guide`: Describes the components of the Cilium architecture,
+* :ref:`concepts`: Describes the components of Cilium,
   and the different models for deploying Cilium.  Provides the high-level
   understanding required to run a full Cilium deployment and understand its
   behavior.
+
+* :ref:`arch_guide`: Describes the components of the Cilium architecture and
+  how these components integrate with existing architectures, such as Kubernetes.
 
 * :ref:`install_guide` :  Details instructions for installing, configuring, and
   troubleshooting Cilium in different deployment modes.
@@ -45,6 +48,7 @@ The documentation is divided into the following sections:
    intro
    gettingstarted/index
    concepts
+   architecture
    gettinghelp
 
 .. toctree::

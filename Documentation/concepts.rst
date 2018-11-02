@@ -4,7 +4,7 @@
     Please use the official rendered version released here:
     http://docs.cilium.io
 
-.. _arch_guide:
+.. _concepts:
 
 ########
 Concepts
@@ -794,18 +794,3 @@ the identity of the endpoint.
 
 When two pods communicate via a service construct, then the labels of the
 origin pod apply to determine the identity.
-
-********
-Datapath
-********
-
-This section describes the datapath architecture and concepts.
-
-Kubernetes Integration
-======================
-
-The following diagram shows the integration of iptables rules as installed by
-kube-proxy and the iptables rules as installed by Cilium.
-
-.. image:: /_static/kubernetes_iptables.svg
-   :target: /_static/kubernetes_iptables.svg
