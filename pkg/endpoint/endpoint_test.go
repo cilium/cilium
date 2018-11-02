@@ -178,16 +178,11 @@ func (s *EndpointSuite) TestEndpointStatus(c *C) {
 
 func (s *EndpointSuite) TestEndpointUpdateLabels(c *C) {
 	e := Endpoint{
-		ID:     IPv6Addr.EndpointID(),
-		IPv6:   IPv6Addr,
-		IPv4:   IPv4Addr,
-		Status: NewEndpointStatus(),
-		OpLabels: pkgLabels.OpLabels{
-			Custom:                pkgLabels.Labels{},
-			Disabled:              pkgLabels.Labels{},
-			OrchestrationIdentity: pkgLabels.Labels{},
-			OrchestrationInfo:     pkgLabels.Labels{},
-		},
+		ID:       IPv6Addr.EndpointID(),
+		IPv6:     IPv6Addr,
+		IPv4:     IPv4Addr,
+		Status:   NewEndpointStatus(),
+		OpLabels: pkgLabels.NewOpLabels(),
 	}
 	e.UnconditionalLock()
 	e.SetDefaultOpts(nil)

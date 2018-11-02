@@ -67,7 +67,7 @@ func NewIdentityFromModel(base *models.Identity) *Identity {
 	}
 
 	if id.Labels != nil {
-		id.LabelArray = id.Labels.ToSlice()
+		id.LabelArray = id.Labels.LabelArray()
 	}
 
 	return id
@@ -129,7 +129,7 @@ func NewIdentity(id NumericIdentity, lbls labels.Labels) *Identity {
 	var lblArray labels.LabelArray
 
 	if lbls != nil {
-		lblArray = lbls.ToSlice()
+		lblArray = lbls.LabelArray()
 	}
 	return &Identity{ID: id, Labels: lbls, LabelArray: lblArray}
 }

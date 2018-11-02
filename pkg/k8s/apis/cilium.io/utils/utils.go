@@ -52,7 +52,7 @@ var (
 
 // GetPolicyLabels returns a LabelArray for the given namespace and name.
 func GetPolicyLabels(ns, name, derivedFrom string) labels.LabelArray {
-	return []*labels.Label{
+	return labels.LabelArray{
 		labels.NewLabel(k8sConst.PolicyLabelName, name, labels.LabelSourceK8s),
 		labels.NewLabel(k8sConst.PolicyLabelNamespace, ns, labels.LabelSourceK8s),
 		labels.NewLabel(k8sConst.PolicyLabelDerivedFrom, derivedFrom, labels.LabelSourceK8s),

@@ -68,20 +68,12 @@ func (s *MonitorSuite) TestRulesRepr(c *C) {
 	rules := api.Rules{
 		&api.Rule{
 			Labels: labels.LabelArray{
-				&labels.Label{
-					Key:    "key1",
-					Value:  "value1",
-					Source: labels.LabelSourceUnspec,
-				},
+				labels.NewLabel("key1", "value1", labels.LabelSourceUnspec),
 			},
 		},
 		&api.Rule{
 			Labels: labels.LabelArray{
-				&labels.Label{
-					Key:    "key2",
-					Value:  "value2",
-					Source: labels.LabelSourceUnspec,
-				},
+				labels.NewLabel("key2", "value2", labels.LabelSourceUnspec),
 			},
 		},
 	}
@@ -103,11 +95,7 @@ func (s *MonitorSuite) TestRulesReprEmpty(c *C) {
 
 func (s *MonitorSuite) TestPolicyDeleteRepr(c *C) {
 	lab := labels.LabelArray{
-		&labels.Label{
-			Key:    "key1",
-			Value:  "value1",
-			Source: labels.LabelSourceUnspec,
-		},
+		labels.NewLabel("key1", "value1", labels.LabelSourceUnspec),
 	}
 
 	repr, err := PolicyDeleteRepr(1, lab.GetModel(), 2)
@@ -128,16 +116,8 @@ func (MockEndpoint) GetID() uint64 {
 }
 
 func (MockEndpoint) GetOpLabels() []string {
-	return labels.Labels{"label": &labels.Label{
-		Key:    "key1",
-		Value:  "value1",
-		Source: labels.LabelSourceUnspec,
-	},
-		"label2": &labels.Label{
-			Key:    "key2",
-			Value:  "value2",
-			Source: labels.LabelSourceUnspec,
-		},
+	return labels.Labels{"label": labels.NewLabel("key1", "value1", labels.LabelSourceUnspec),
+		"label2": labels.NewLabel("key2", "value2", labels.LabelSourceUnspec),
 	}.GetModel()
 }
 

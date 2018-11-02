@@ -1614,8 +1614,7 @@ func (s *K8sSuite) TestGetPolicyLabelsv1(c *C) {
 		},
 	}
 
-	assertLabel := func(lbl *labels.Label, key, value string) {
-		c.Assert(lbl, NotNil)
+	assertLabel := func(lbl labels.Label, key, value string) {
 		c.Assert(lbl.Key, Equals, key)
 		c.Assert(lbl.Value, Equals, value)
 		c.Assert(lbl.Source, Equals, labels.LabelSourceK8s)

@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -52,7 +53,7 @@ const (
 
 // uuidLabelSearchKey is an *extended* label key. This is because .Has
 // expects the source:key delimiter to be the labels.PathDelimiter
-var uuidLabelSearchKey = generateUUIDLabel().GetExtendedKey()
+var uuidLabelSearchKey = labels.LabelSourceCiliumGenerated + labels.PathDelimiter + generatedLabelNameUUID
 
 // StartDNSPoller spawns a singleton DNS polling controller. The controller
 // will, periodically, run a DNS lookup for each ToFQDN target DNS name

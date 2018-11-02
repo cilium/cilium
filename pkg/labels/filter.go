@@ -61,7 +61,7 @@ func (p LabelPrefix) String() string {
 
 // matches returns true and the length of the matched section if the label is
 // matched by the LabelPrefix. The Ignore flag has no effect at this point.
-func (p LabelPrefix) matches(l *Label) (bool, int) {
+func (p LabelPrefix) matches(l Label) (bool, int) {
 	if p.Source != "" && p.Source != l.Source {
 		return false, 0
 	}
@@ -262,9 +262,9 @@ func (cfg *labelPrefixCfg) filterLabels(lbls Labels) (identityLabels, informatio
 		if (!cfg.whitelist && ignored == 0) || included > ignored {
 			// Just want to make sure we don't have labels deleted in
 			// on side and disappearing in the other side...
-			identityLabels[k] = v.DeepCopy()
+			identityLabels[k] = v
 		} else {
-			informationLabels[k] = v.DeepCopy()
+			informationLabels[k] = v
 		}
 	}
 	return identityLabels, informationLabels

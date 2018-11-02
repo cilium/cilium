@@ -66,8 +66,7 @@ func (s *LabelsPrefCfgSuite) TestFilterLabels(c *C) {
 	filtered, _ = dlpcfg.filterLabels(allLabels)
 	c.Assert(len(filtered), Equals, 3)
 	c.Assert(filtered, checker.DeepEquals, wanted)
-
 	// Making sure we are deep copying the labels
-	allLabels["id.lizards"].Source = "I can change this and doesn't affect any one"
+	allLabels["id.lizards"] = NewLabel("id.lizards", "web", "I can change this and doesn't affect any one")
 	c.Assert(filtered, checker.DeepEquals, wanted)
 }

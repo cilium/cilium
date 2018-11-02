@@ -78,8 +78,11 @@ func (s CIDRSlice) GetAsEndpointSelectors() EndpointSelectorSlice {
 			hasWorldBeenAdded = true
 			slice = append(slice, ReservedEndpointSelectors[labels.IDNameWorld])
 		}
-		lbl := labels.IPStringToLabel(string(cidr))
-		slice = append(slice, NewESFromLabels(lbl))
+		lbl, err := labels.IPStringToLabel(string(cidr))
+		if err == nil {
+			slice = append(slice, NewESFromLabels(lbl))
+		}
+		// TODO: Log the error?
 	}
 
 	return slice

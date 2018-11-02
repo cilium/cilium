@@ -177,7 +177,7 @@ func labelSelectorToRequirements(labelSelector *metav1.LabelSelector) *k8sLbls.R
 }
 
 // NewESFromLabels creates a new endpoint selector from the given labels.
-func NewESFromLabels(lbls ...*labels.Label) EndpointSelector {
+func NewESFromLabels(lbls ...labels.Label) EndpointSelector {
 	ml := map[string]string{}
 	for _, lbl := range lbls {
 		ml[lbl.GetExtendedKey()] = lbl.Value

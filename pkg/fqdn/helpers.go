@@ -30,12 +30,8 @@ func getRuleUUIDLabel(rule *api.Rule) (uuid string) {
 
 // generateUUIDLabel builds a random UUID label that can be used to uniquely identify
 // rules augmented with a "toCIDRSet" based on "toFQDNs".
-func generateUUIDLabel() (id *labels.Label) {
-	return &labels.Label{
-		Key:    generatedLabelNameUUID,
-		Value:  uuid.NewUUID().String(),
-		Source: labels.LabelSourceCiliumGenerated,
-	}
+func generateUUIDLabel() labels.Label {
+	return labels.NewLabel(generatedLabelNameUUID, uuid.NewUUID().String(), labels.LabelSourceCiliumGenerated)
 }
 
 // injectToCIDRSetRules adds a ToCIDRSets section to the rule with all ToFQDN

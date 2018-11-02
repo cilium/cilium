@@ -80,6 +80,7 @@ func endpointCreator(id uint16, secID identity.NumericIdentity) *e.Endpoint {
 			"foo" + strID: labels.NewLabel("foo"+strID, "", ""),
 		},
 	}
+	ep.OpLabels = labels.NewOpLabels()
 	return ep
 }
 
