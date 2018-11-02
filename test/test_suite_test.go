@@ -266,6 +266,19 @@ func getOrSetEnvVar(key, value string) {
 	}
 }
 
+var t time.Time
+
+var _ = JustBeforeEach(func() {
+	t = time.Now()
+	GinkgoPrint("TEST STARTED: %s", time.Now())
+})
+
+var _ = JustAfterEach(func() {
+	t2 := time.Now()
+	GinkgoPrint("TEST STOPPED: %s", t2)
+	GinkgoPrint("TEST TOOK: %s", t2.Sub(t))
+})
+
 var _ = AfterEach(func() {
 
 	// Send the Checks output to Junit report to be render on Jenkins.
