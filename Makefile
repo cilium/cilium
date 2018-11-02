@@ -26,7 +26,7 @@ SKIP_DOCS ?= false
 all: precheck build postcheck
 	@echo "Build finished."
 
-build: envoy-version-check $(SUBDIRS)
+build: $(SUBDIRS)
 
 $(SUBDIRS): force
 	@ $(MAKE) -C $@ all
@@ -124,17 +124,14 @@ install:
 GIT_VERSION: .git
 	echo "$(GIT_VERSION)" >GIT_VERSION
 
-envoy-version-check: CILIUM_ENVOY_SHA pkg/envoy/envoy.go
-	grep -e "RequiredEnvoyVersionSHA = \"`cat CILIUM_ENVOY_SHA`\"" pkg/envoy/envoy.go
-
 docker-image: clean docker-image-no-clean
 
-docker-image-no-clean: envoy-version-check GIT_VERSION
+docker-image-no-clean: GIT_VERSION
 	$(QUIET)grep -v -E "GIT_VERSION" .gitignore >.dockerignore
 	$(QUIET)echo ".*" >>.dockerignore # .git pruned out
 	$(QUIET)echo "Documentation" >>.dockerignore # Not needed
 	@$(ECHO_GEN) docker-image
-	$(DOCKER) build --build-arg CILIUM_ENVOY_SHA=${CILIUM_ENVOY_SHA} --build-arg LOCKDEBUG=${LOCKDEBUG} --build-arg V=${V} -t "cilium/cilium:$(DOCKER_IMAGE_TAG)" .
+	$(DOCKER) build --build-arg LOCKDEBUG=${LOCKDEBUG} --build-arg V=${V} -t "cilium/cilium:$(DOCKER_IMAGE_TAG)" .
 	$(QUIET)echo "Push like this when ready:"
 	$(QUIET)echo "docker push cilium/cilium:$(DOCKER_IMAGE_TAG)"
 
@@ -147,16 +144,16 @@ docker-image-runtime:
 docker-image-builder:
 	docker build -t "cilium/cilium-builder:$(UTC_DATE)" -f Dockerfile.builder .
 
-build-deb: envoy-version-check
+build-deb:
 	$(MAKE) -C ./contrib/packaging/deb
 
-build-rpm: envoy-version-check
+build-rpm:
 	$(MAKE) -C ./contrib/packaging/rpm
 
-runtime-tests: envoy-version-check
+runtime-tests:
 	$(MAKE) -C tests runtime-tests
 
-k8s-tests: envoy-version-check
+k8s-tests:
 	$(MAKE) -C tests k8s-tests
 
 generate-api: api/v1/openapi.yaml
