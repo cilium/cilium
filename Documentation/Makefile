@@ -51,7 +51,7 @@ cmdref:
 # Finally, fail out if we can't remove the file that marks success.
 check-build: check-requirements
 	@$(ECHO_CHECK) documentation build...
-	$(QUIET)! ($(SPHINXBUILD) -b spelling -d "$(BUILDDIR)/doctrees" "$(SOURCEDIR)" "$(BUILDDIR)/spelling" -q -E $(SPHINXOPTS) 2>&1 && touch $@.ok) \
+	$(QUIET)! ($(SPHINXBUILD) -b spelling -d "$(BUILDDIR)/doctrees" "$(SOURCEDIR)" "$(BUILDDIR)/spelling" -q -E $(SPHINXOPTS) && touch $@.ok) \
 		| grep -v -e "tabs assets" -e "misspelled words"
 	@if [ "$$(wc -l < "$(BUILDDIR)/spelling/output.txt")" -ne "0" ]; then \
 		echo "Please fix the following spelling mistakes:"; \
