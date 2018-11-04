@@ -33,7 +33,7 @@ var mapGetCmd = &cobra.Command{
 	Short:   "Display BPF map information",
 	Example: "cilium map get cilium_ipcache",
 	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) < 0 {
+		if len(args) == 0 {
 			Fatalf("map name must be specified")
 		}
 
