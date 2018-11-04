@@ -241,7 +241,7 @@ var _ = Describe("K8sServicesTest", func() {
 				data, err := res.Filter(`{.status.status.policy.realized.cidr-policy.egress}`)
 				ExpectWithOffset(1, err).To(BeNil(), "unable to get endpoint %s metadata", podName)
 				return data.String()
-			}, 2*time.Minute, 5*time.Second).Should(ContainSubstring(expectedCIDR))
+			}, 2*time.Minute, 2*time.Second).Should(ContainSubstring(expectedCIDR))
 		}
 
 		validateEgressAfterDeletion := func() {
@@ -257,8 +257,7 @@ var _ = Describe("K8sServicesTest", func() {
 				data, err := res.Filter(`{.status.status.policy.realized.cidr-policy.egress}`)
 				ExpectWithOffset(1, err).To(BeNil(), "unable to get endpoint %s metadata", podName)
 				return data.String()
-			}, 2*time.Minute, 5*time.Second).ShouldNot(ContainSubstring(expectedCIDR))
-
+			}, 2*time.Minute, 2*time.Second).ShouldNot(ContainSubstring(expectedCIDR))
 		}
 
 		It("To Services first endpoint creation", func() {
