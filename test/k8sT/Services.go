@@ -241,12 +241,32 @@ var _ = Describe("K8sServicesTest", func() {
 			}, 2*time.Minute, 5*time.Second).Should(ContainSubstring(expectedCIDR))
 		}
 
+		validateEgressAfterDeletion := func() {
+			By("Checking that toServices CIDR is no longer plumbed into CEP")
+			ExpectWithOffset(1, kubectl.WaitCEPReady()).To(BeNil(), "Cep is not ready after timeout")
+			Eventually(func() string {
+				res := kubectl.Exec(fmt.Sprintf(
+					"%s -n %s get cep %s -o json",
+					helpers.KubectlCmd,
+					helpers.DefaultNamespace,
+					podName))
+				res.ExpectSuccess("cannot get Cilium Endpoint")
+				data, err := res.Filter(`{.status.status.policy.realized.cidr-policy.egress}`)
+				ExpectWithOffset(1, err).To(BeNil(), "unable to get endpoint %s metadata", podName)
+				return data.String()
+			}, 2*time.Minute, 5*time.Second).Should(Not(ContainSubstring(expectedCIDR)))
+		}
+
 		It("To Services first endpoint creation", func() {
 			res := kubectl.Apply(endpointPath)
 			res.ExpectSuccess()
 
 			applyPolicy(policyPath)
 			validateEgress()
+
+			kubectl.Delete(policyPath)
+			kubectl.Delete(endpointPath)
+			validateEgressAfterDeletion()
 		})
 
 		It("To Services first policy", func() {
@@ -255,6 +275,10 @@ var _ = Describe("K8sServicesTest", func() {
 			res.ExpectSuccess()
 
 			validateEgress()
+
+			kubectl.Delete(policyPath)
+			kubectl.Delete(endpointPath)
+			validateEgressAfterDeletion()
 		})
 
 		It("To Services first endpoint creation match service by labels", func() {
@@ -265,6 +289,10 @@ var _ = Describe("K8sServicesTest", func() {
 			applyPolicy(policyLabeledPath)
 
 			validateEgress()
+
+			kubectl.Delete(policyLabeledPath)
+			kubectl.Delete(endpointPath)
+			validateEgressAfterDeletion()
 		})
 
 		It("To Services first policy, match service by labels", func() {
@@ -275,6 +303,10 @@ var _ = Describe("K8sServicesTest", func() {
 			res.ExpectSuccess()
 
 			validateEgress()
+
+			kubectl.Delete(policyLabeledPath)
+			kubectl.Delete(endpointPath)
+			validateEgressAfterDeletion()
 		})
 	})
 
