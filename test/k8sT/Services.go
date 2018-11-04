@@ -207,7 +207,7 @@ var _ = Describe("K8sServicesTest", func() {
 			servicePath       = helpers.ManifestGet("external_service.yaml")
 		)
 
-		BeforeEach(func() {
+		BeforeAll(func() {
 			kubectl.Apply(servicePath).ExpectSuccess("cannot install external service")
 			kubectl.Apply(podPath).ExpectSuccess("cannot install pod path")
 
@@ -215,14 +215,17 @@ var _ = Describe("K8sServicesTest", func() {
 			Expect(err).To(BeNil(), "Pods are not ready after timeout")
 		})
 
-		AfterEach(func() {
-			_ = kubectl.Delete(policyLabeledPath)
-			_ = kubectl.Delete(policyPath)
-			_ = kubectl.Delete(endpointPath)
+		AfterAll(func() {
 			_ = kubectl.Delete(servicePath)
 			_ = kubectl.Delete(podPath)
 
 			ExpectAllPodsTerminated(kubectl)
+		})
+
+		AfterEach(func() {
+			_ = kubectl.Delete(policyLabeledPath)
+			_ = kubectl.Delete(policyPath)
+			_ = kubectl.Delete(endpointPath)
 		})
 
 		validateEgress := func() {
