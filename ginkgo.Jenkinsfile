@@ -53,24 +53,6 @@ pipeline {
                }
             }
         }
-        stage('UnitTesting') {
-            options {
-                timeout(time: 20, unit: 'MINUTES')
-            }
-
-            environment {
-                GOPATH="${WORKSPACE}"
-                TESTDIR="${WORKSPACE}/${PROJ_PATH}/"
-            }
-            steps {
-                sh "cd ${TESTDIR}; make tests-ginkgo"
-            }
-            post {
-                always {
-                    sh "cd ${TESTDIR}; make clean-ginkgo-tests || true"
-                }
-            }
-        }
         stage('Boot VMs'){
             options {
                 timeout(time: 30, unit: 'MINUTES')
