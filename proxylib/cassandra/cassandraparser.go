@@ -44,6 +44,9 @@ import (
 // Batch requests are logged as invidual queries, but an entire batch request will be allowed
 // only if all requests are allowed.
 
+// Non-query client requests, including 'Options', 'Auth_Response', 'Startup', and 'Register'
+// are automatically allowed to simplify the policy language.
+
 // There are known changes in protocol v2 that are not compatible with this parser, see the
 // the "Changes from v2" in https://github.com/apache/cassandra/blob/trunk/doc/native_protocol_v3.spec
 
@@ -54,6 +57,8 @@ type CassandraRule struct {
 
 const cassHdrLen = 9
 const cassMaxLen = 268435456 // 256 MB, per spec
+
+const unknownPreparedQueryPath = "/unknown-prepared-query"
 
 func (rule *CassandraRule) Matches(data interface{}) bool {
 	// Cast 'data' to the type we give to 'Matches()'
@@ -70,6 +75,10 @@ func (rule *CassandraRule) Matches(data interface{}) bool {
 	}
 
 	log.Debugf("Rule: action '%s', table '%s'", rule.queryActionExact, regexStr)
+	if path == unknownPreparedQueryPath {
+		log.Warning("Dropping execute for unknown prepared-id")
+		return false
+	}
 	parts := strings.Split(path, "/")
 	if len(parts) <= 2 {
 		// this is not a query-like request, just allow
@@ -196,7 +205,7 @@ func (p *CassandraParser) OnData(reply, endStream bool, dataArray [][]byte) (OpT
 		return MORE, dataMissing
 	}
 
-	// we don't parse reply traffic for now
+	// we parse replies, but only to look for prepared-query-id responses
 	if reply {
 		if len(data) == 0 {
 			log.Debugf("ignoring zero length reply call to onData")
@@ -219,42 +228,73 @@ func (p *CassandraParser) OnData(reply, endStream bool, dataArray [][]byte) (OpT
 
 	matches := true
 	access_log_entry_type := cilium.EntryType_Request
+	unpreparedQuery := false
 
 	for i := 0; i < len(paths); i++ {
+		if strings.HasPrefix(paths[i], "/query/use/") ||
+			strings.HasPrefix(paths[i], "/batch/use/") ||
+			strings.HasPrefix(paths[i], "/prepare/use/") {
+			// do not count a "use" query as a deny
+			continue
+		}
+
+		if paths[i] == unknownPreparedQueryPath {
+			matches = false
+			unpreparedQuery = true
+			access_log_entry_type = cilium.EntryType_Denied
+			break
+		}
+
 		if !p.connection.Matches(paths[i]) {
 			matches = false
 			access_log_entry_type = cilium.EntryType_Denied
+			break
 		}
 	}
 
 	for i := 0; i < len(paths); i++ {
 		parts := strings.Split(paths[i], "/")
-		if len(parts) == 4 {
-			p.connection.Log(access_log_entry_type,
-				&cilium.LogEntry_GenericL7{
-					&cilium.L7LogEntry{
-						Proto: "cassandra",
-						Fields: map[string]string{
-							"query_action": parts[2],
-							"query_table":  parts[3],
-						},
-					},
-				})
+		fields := map[string]string{}
+
+		if len(parts) >= 3 && parts[2] == "use" {
+			// do not log 'use' queries
+			continue
+		} else if len(parts) == 4 {
+			fields["query_action"] = parts[2]
+			fields["query_table"] = parts[3]
+		} else if unpreparedQuery == true {
+			fields["error"] = "unknown prepared query id"
+		} else {
+			// do not log non-query accesses
+			continue
 		}
+
+		p.connection.Log(access_log_entry_type,
+			&cilium.LogEntry_GenericL7{
+				&cilium.L7LogEntry{
+					Proto:  "cassandra",
+					Fields: fields,
+				},
+			})
+
 	}
 
 	if !matches {
-		unauthMsg := make([]byte, len(unauthMsgBase))
-		copy(unauthMsg, unauthMsgBase)
-		// We want to use the same protocol and stream ID
-		// as the incoming request.
-		// update the protocol to match the request
-		unauthMsg[0] = 0x80 | (data[0] & 0x07)
-		// update the stream ID to match the request
-		unauthMsg[2] = data[2]
-		unauthMsg[3] = data[3]
-		p.connection.Inject(true, unauthMsg)
 
+		// If we have already sent another error to the client,
+		// do not send unauthorized message
+		if !unpreparedQuery {
+			unauthMsg := make([]byte, len(unauthMsgBase))
+			copy(unauthMsg, unauthMsgBase)
+			// We want to use the same protocol and stream ID
+			// as the incoming request.
+			// update the protocol to match the request
+			unauthMsg[0] = 0x80 | (data[0] & 0x07)
+			// update the stream ID to match the request
+			unauthMsg[2] = data[2]
+			unauthMsg[3] = data[3]
+			p.connection.Inject(true, unauthMsg)
+		}
 		return DROP, int(cassHdrLen + requestLen)
 	}
 
@@ -285,10 +325,38 @@ var unpreparedMsgBase = []byte{
 	0x0,      // version (uint8) - must be set before injection
 	0x0,      // flags, (uint8)
 	0x0, 0x0, // stream-id (uint16) - must be set before injection
-	0x0,                 // opcode error (uint8)
-	0x0, 0x0, 0x0, 0x1a, // request length (uint32) - update if text changes
-	0x0, 0x0, 0x25, 0x00, // 'unauthorized error code' 0x2100 (uint32)
+	0x0,                // opcode error (uint8)
+	0x0, 0x0, 0x0, 0x0, // request length (uint32) - must be set based on
+	// of length of prepared query id
+	0x0, 0x0, 0x25, 0x00, // 'unprepared error code' 0x2500 (uint32)
 	// must append [short bytes] array of prepared query id.
+}
+
+// create reply byte buffer with error code 'unprepared' with code 0x2500
+// followed by a [short bytes] indicating the unknown ID
+// must set stream-id of the response to match the request
+func createUnpreparedMsg(version byte, streamID []byte, preparedID string) []byte {
+
+	unpreparedMsg := make([]byte, len(unpreparedMsgBase))
+	copy(unpreparedMsg, unpreparedMsgBase)
+	unpreparedMsg[0] = 0x80 | version
+	unpreparedMsg[2] = streamID[0]
+	unpreparedMsg[3] = streamID[1]
+
+	idLen := len(preparedID)
+	idLenBytes := make([]byte, 2)
+	binary.BigEndian.PutUint16(idLenBytes, uint16(idLen))
+
+	reqLen := 4 + 2 + idLen
+	reqLenBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(reqLenBytes, uint32(reqLen))
+	unpreparedMsg[5] = reqLenBytes[0]
+	unpreparedMsg[6] = reqLenBytes[1]
+	unpreparedMsg[7] = reqLenBytes[2]
+	unpreparedMsg[8] = reqLenBytes[3]
+
+	res := append(unpreparedMsg, idLenBytes...)
+	return append(res, []byte(preparedID)...)
 }
 
 var opcodeMap = map[byte]string{
@@ -516,17 +584,17 @@ func cassandraParseRequest(p *CassandraParser, data []byte) (OpError, []string) 
 	} else if opcode == 0x0d {
 		// batch
 
-		numQueries := binary.BigEndian.Uint16(data[10:11])
+		numQueries := binary.BigEndian.Uint16(data[10:12])
 		paths := make([]string, numQueries)
 		log.Debugf("batch query count = %d", numQueries)
-		offset := 11
+		offset := 12
 		for i := 0; i < int(numQueries); i++ {
 			kind := data[offset]
 			if kind == 0 {
 				// full query string
-				queryLen := int(binary.BigEndian.Uint32(data[offset : offset+4]))
+				queryLen := int(binary.BigEndian.Uint32(data[offset+1 : offset+5]))
 
-				query := string(data[offset+4 : offset+4+queryLen])
+				query := string(data[offset+5 : offset+5+queryLen])
 				action, table := parseQuery(p, query)
 
 				if action == "" {
@@ -534,9 +602,12 @@ func cassandraParseRequest(p *CassandraParser, data []byte) (OpError, []string) 
 				}
 				path = "/" + path + "/" + action + "/" + table
 				paths[i] = path
+				path = "batch" // reset for next item
 				offset = offset + 5 + queryLen
+				offset = readPastBatchValues(data, offset)
 			} else if kind == 1 {
 				// prepared query id
+
 				idLen := int(binary.BigEndian.Uint16(data[offset+1 : offset+3]))
 				preparedID := string(data[offset+3 : (offset + 3 + idLen)])
 				log.Debugf("Batch entry with prepared-id = '%s'", preparedID)
@@ -545,10 +616,13 @@ func cassandraParseRequest(p *CassandraParser, data []byte) (OpError, []string) 
 					paths[i] = path
 				} else {
 					log.Warnf("No cached entry for prepared-id = '%s' in batch", preparedID)
-					sendUnpreparedMsg(p, data[0], data[2:4], data[9:11+idLen])
-					return ERROR_INVALID_FRAME_TYPE, nil
+					unpreparedMsg := createUnpreparedMsg(data[0], data[2:4], preparedID)
+					p.connection.Inject(true, unpreparedMsg)
+					return 0, []string{unknownPreparedQueryPath}
 				}
 				offset = offset + 3 + idLen
+
+				offset = readPastBatchValues(data, offset)
 			} else {
 				log.Errorf("unexpected value of 'kind' in batch query: %d", kind)
 				return ERROR_INVALID_FRAME_TYPE, nil
@@ -567,8 +641,12 @@ func cassandraParseRequest(p *CassandraParser, data []byte) (OpError, []string) 
 
 		if len(path) == 0 {
 			log.Warnf("No cached entry for prepared-id = '%s'", preparedID)
-			sendUnpreparedMsg(p, data[0], data[2:4], data[9:11+idLen])
-			return ERROR_INVALID_FRAME_TYPE, nil
+			unpreparedMsg := createUnpreparedMsg(data[0], data[2:4], preparedID)
+			p.connection.Inject(true, unpreparedMsg)
+
+			// this path is special-cased in Matches() so that unknown
+			// prepared IDs are dropped if any rules are defined
+			return 0, []string{unknownPreparedQueryPath}
 		}
 
 		return 0, []string{path}
@@ -580,24 +658,17 @@ func cassandraParseRequest(p *CassandraParser, data []byte) (OpError, []string) 
 
 }
 
-// return error with error code 'unprepared' with code 0x2500
-// followed by a [short bytes] indicating the unknown ID
-// must set stream-id of the response to match the request
-func sendUnpreparedMsg(p *CassandraParser, version byte, streamID []byte, preparedId []byte) {
-
-	unpreparedMsg := make([]byte, len(unpreparedMsgBase))
-	copy(unpreparedMsg, unpreparedMsgBase)
-	// We want to use the same protocol and stream ID
-	// as the incoming request.
-	// update the protocol version to match the request
-	unpreparedMsg[0] = 0x80 | (version & 0x07)
-	// update the stream ID to match the request
-	unpreparedMsg[2] = streamID[0]
-	unpreparedMsg[3] = streamID[1]
-	p.connection.Inject(true, unpreparedMsg)
-	// finish error message with a copy of the prepared-query-id
-	// in [short bytes] format
-	p.connection.Inject(true, preparedId)
+func readPastBatchValues(data []byte, initialOffset int) int {
+	numValues := int(binary.BigEndian.Uint16(data[initialOffset : initialOffset+2]))
+	offset := initialOffset + 2
+	for i := 0; i < numValues; i++ {
+		valueLen := int(binary.BigEndian.Uint32(data[offset : offset+4]))
+		// handle 'null' (-1) and 'not set' (-2) case, where 0 bytes follow
+		if valueLen >= 0 {
+			offset = offset + 4 + valueLen
+		}
+	}
+	return offset
 }
 
 // reply parsing is very basic, just focusing on parsing RESULT messages that
