@@ -821,12 +821,19 @@ func (e *Endpoint) Regenerate(owner Owner, context *RegenerationContext) <-chan 
 
 	go func(owner Owner, req *Request, e *Endpoint) {
 		var buildSuccess bool
+		defer func() {
+			// The external listener can ignore the channel so we need to
+			// make sure we don't block
+			select {
+			case req.ExternalDone <- buildSuccess:
+			default:
+			}
+			close(req.ExternalDone)
+		}()
 
 		err := e.RLockAlive()
 		if err != nil {
 			e.LogDisconnectedMutexAction(err, "before regeneration")
-			req.ExternalDone <- false
-			close(req.ExternalDone)
 			return
 		}
 		e.RUnlock()
@@ -862,16 +869,8 @@ func (e *Endpoint) Regenerate(owner Owner, context *RegenerationContext) <-chan 
 			req.Done <- buildSuccess
 		} else {
 			buildSuccess = false
-
 			scopedLog.Debug("My request was cancelled because I'm already in line")
 		}
-		// The external listener can ignore the channel so we need to
-		// make sure we don't block
-		select {
-		case req.ExternalDone <- buildSuccess:
-		default:
-		}
-		close(req.ExternalDone)
 	}(owner, newReq, e)
 	return newReq.ExternalDone
 }
