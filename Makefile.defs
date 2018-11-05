@@ -37,5 +37,5 @@ ifeq ($(DOCKER_IMAGE_TAG),)
     DOCKER_IMAGE_TAG="latest"
 endif
 
-CILIUM_ENVOY_SHA=$(shell grep "CILIUM_ENVOY_SHA[ \t]*:-" $(ROOT_DIR)/Dockerfile | cut -d \" -f 2)
+CILIUM_ENVOY_SHA=$(shell grep -o "FROM.*cilium/cilium-envoy:[0-9a-fA-F]*" $(ROOT_DIR)/Dockerfile | cut -d : -f 2)
 GOBUILD += -ldflags '-X "github.com/cilium/cilium/pkg/envoy.RequiredEnvoyVersionSHA=$(CILIUM_ENVOY_SHA)"'

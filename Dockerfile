@@ -1,11 +1,7 @@
 #
 # cilium-envoy from github.com/cilium/proxy
 #
-# This ARG is used in FROM below and must be placed before ALL FROM lines!
-# Otherwise its value is not passed in.
-#
-ARG CILIUM_ENVOY_SHA
-FROM quay.io/cilium/cilium-envoy:${CILIUM_ENVOY_SHA:-"971e018d05c0fce542d315e320b7b5d9e7480d24"} as cilium-envoy
+FROM quay.io/cilium/cilium-envoy:971e018d05c0fce542d315e320b7b5d9e7480d24 as cilium-envoy
 
 #
 # Cilium incremental build. Should be fast given builder-deps is up-to-date!
