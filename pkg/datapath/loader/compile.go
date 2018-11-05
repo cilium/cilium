@@ -74,6 +74,8 @@ var (
 	endpointObjDebug = fmt.Sprintf("%s.dbg.o", endpointPrefix)
 	endpointAsm      = fmt.Sprintf("%s.%s", endpointPrefix, outputAssembly)
 
+	testIncludes string
+
 	debugProgs = []*progInfo{
 		{
 			Source:     endpointProg,
@@ -188,6 +190,7 @@ func progCFlags(prog *progInfo, dir *directoryInfo) []string {
 	}
 
 	return []string{
+		testIncludes,
 		fmt.Sprintf("-I%s", path.Join(dir.Runtime, "globals")),
 		fmt.Sprintf("-I%s", dir.State),
 		fmt.Sprintf("-I%s", path.Join(dir.Library, "include")),
