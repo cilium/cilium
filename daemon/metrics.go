@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 
 	"github.com/go-openapi/runtime/middleware"
+	"github.com/spf13/viper"
 )
 
 type getMetrics struct {
@@ -42,4 +43,17 @@ func (h *getMetrics) Handle(params restapi.GetMetricsParams) middleware.Responde
 	}
 
 	return restapi.NewGetMetricsOK().WithPayload(metrics)
+}
+
+func initMetrics() {
+	promAddr := viper.GetString("prometheus-serve-addr")
+	if promAddr == "" {
+		promAddr = viper.GetString("prometheus-serve-addr-deprecated")
+	}
+	if promAddr != "" {
+		log.Infof("Serving prometheus metrics on %s", promAddr)
+		if err := metrics.Enable(promAddr); err != nil {
+			log.WithError(err).Fatal("Error while starting metrics")
+		}
+	}
 }
