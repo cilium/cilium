@@ -834,24 +834,7 @@ func runDaemon() {
 	log.Info("Launching node monitor daemon")
 	go d.nodeMonitor.Run(path.Join(defaults.RuntimePath, defaults.EventsPipe), bpf.GetMapRoot())
 
-	if err := d.EnableK8sWatcher(5 * time.Minute); err != nil {
-		log.WithError(err).Fatal("Unable to establish connection to Kubernetes apiserver")
-	}
-
-	cachesSynced := make(chan struct{})
-
-	go func() {
-		log.Info("Waiting until all pre-existing resources related to policy have been received")
-		d.k8sResourceSyncWaitGroup.Wait()
-		cachesSynced <- struct{}{}
-	}()
-
-	select {
-	case <-cachesSynced:
-		log.Info("All pre-existing resources related to policy have been received; continuing")
-	case <-time.After(cacheSyncTimeout):
-		log.Fatalf("Timed out waiting for pre-existing resources related to policy to be received; exiting")
-	}
+	d.initK8sSubsystem()
 
 	if option.Config.RestoreState {
 		// When we regenerate restored endpoints, it is guaranteed tha we have
