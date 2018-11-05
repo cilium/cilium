@@ -96,7 +96,7 @@ func Lookup(id string) (*endpoint.Endpoint, error) {
 		return nil, fmt.Errorf("Unsupported id format for now")
 
 	case endpointid.ContainerIdPrefix:
-		return lookupDockerID(eid), nil
+		return lookupContainerID(eid), nil
 
 	case endpointid.DockerEndpointPrefix:
 		return lookupDockerEndpoint(eid), nil
@@ -123,10 +123,10 @@ func LookupCiliumID(id uint16) *endpoint.Endpoint {
 	return ep
 }
 
-// LookupDockerID looks up endpoint by Docker ID
-func LookupDockerID(id string) *endpoint.Endpoint {
+// LookupContainerID looks up endpoint by Docker ID
+func LookupContainerID(id string) *endpoint.Endpoint {
 	mutex.RLock()
-	ep := lookupDockerID(id)
+	ep := lookupContainerID(id)
 	mutex.RUnlock()
 	return ep
 }
@@ -228,7 +228,7 @@ func lookupIPv4(ipv4 string) *endpoint.Endpoint {
 	return nil
 }
 
-func lookupDockerID(id string) *endpoint.Endpoint {
+func lookupContainerID(id string) *endpoint.Endpoint {
 	if ep, ok := endpointsAux[endpointid.NewID(endpointid.ContainerIdPrefix, id)]; ok {
 		return ep
 	}
