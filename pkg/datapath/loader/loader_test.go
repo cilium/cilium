@@ -50,7 +50,9 @@ func Test(t *testing.T) {
 // cleanups and pass the exit code of the test run to the caller which can run
 // os.Exit() with the result.
 func runTests(m *testing.M) (int, error) {
-	tmpDir, err := ioutil.TempDir("", "cilium_")
+	testIncludes = "-I/usr/include/x86_64-linux-gnu/"
+
+	tmpDir, err := ioutil.TempDir("/tmp/", "cilium_")
 	if err != nil {
 		return 1, fmt.Errorf("Failed to create temporary directory: %s", err)
 	}
