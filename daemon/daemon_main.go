@@ -886,16 +886,7 @@ func runDaemon() {
 
 	d.initHealth()
 
-	promAddr := viper.GetString("prometheus-serve-addr")
-	if promAddr == "" {
-		promAddr = viper.GetString("prometheus-serve-addr-deprecated")
-	}
-	if promAddr != "" {
-		log.Infof("Serving prometheus metrics on %s", promAddr)
-		if err := metrics.Enable(promAddr); err != nil {
-			log.WithError(err).Fatal("Error while starting metrics")
-		}
-	}
+	initMetrics()
 
 	api := d.instantiateAPI()
 
