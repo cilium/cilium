@@ -53,6 +53,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -1117,6 +1118,15 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 		return nil, nil, fmt.Errorf("invalid daemon configuration: %s", err)
 	}
 
+	if err := kvstore.Setup(option.Config.KVStoreType, option.Config.KVStoreOpts); err != nil {
+		addrkey := fmt.Sprintf("%s.address", option.Config.KVStoreType)
+		addr := option.Config.KVStoreOpts[addrkey]
+		log.WithError(err).WithFields(logrus.Fields{
+			"kvstore": option.Config.KVStoreType,
+			"address": addr,
+		}).Fatal("Unable to setup kvstore")
+	}
+
 	ctmap.InitMapInfo(option.Config.CTMapEntriesGlobalTCP, option.Config.CTMapEntriesGlobalAny)
 
 	if err := workloads.Setup(option.Config.Workloads, map[string]string{}); err != nil {
@@ -1517,8 +1527,8 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 		K8sEndpoint:      k8s.GetAPIServer(),
 		NodeMonitor:      d.nodeMonitor.State(),
 		KvstoreConfiguration: &models.KVstoreConfiguration{
-			Type:    kvStore,
-			Options: kvStoreOpts,
+			Type:    option.Config.KVStoreType,
+			Options: option.Config.KVStoreOpts,
 		},
 		Realized:  spec,
 		DeviceMTU: int64(mtu.GetDeviceMTU()),

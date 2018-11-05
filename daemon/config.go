@@ -31,4 +31,7 @@ func populateConfig() {
 	option.Config.BPFCompilationDebug = viper.GetBool(option.BPFCompileDebugName)
 	option.Config.EnvoyLogPath = viper.GetString("envoy-log")
 	option.Config.SockopsEnable = viper.GetBool(option.SockopsEnableName)
+	option.Config.K8sAPIServer = viper.GetString(option.K8sAPIServerName)
+	option.Config.K8sKubeConfigPath = viper.GetString(option.K8sKubeConfigPathName)
+	option.Config.KVStoreType = viper.GetString(option.KVStoreName)
 }

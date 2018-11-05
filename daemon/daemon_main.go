@@ -102,9 +102,6 @@ var (
 	dockerEndpoint        string
 	enableLogstash        bool
 	enableTracing         bool
-	k8sAPIServer          string
-	k8sKubeConfigPath     string
-	kvStore               string
 	labelPrefixFile       string
 	loggers               []string
 	logstashAddr          string
@@ -127,7 +124,6 @@ var (
 
 var (
 	logOpts                = make(map[string]string)
-	kvStoreOpts            = make(map[string]string)
 	fixedIdentity          = make(map[string]string)
 	fixedIdentityValidator = option.Validator(func(val string) (string, error) {
 		vals := strings.Split(val, "=")
@@ -343,6 +339,20 @@ func checkMinRequirements() {
 func init() {
 	cobra.OnInitialize(initConfig)
 	flags := RootCmd.Flags()
+
+	// Common flags
+	flags.Int(option.ClusterIDName, 0, "Unique identifier of the cluster")
+	viper.BindEnv(option.ClusterIDName, option.ClusterIDEnv)
+	flags.String(option.ClusterName, defaults.ClusterName, "Name of the cluster")
+	viper.BindEnv(option.ClusterName, option.ClusterNameEnv)
+	flags.BoolP("debug", "D", false, "Enable debugging mode")
+	flags.String(option.K8sAPIServerName, "", "Kubernetes api address server (for https use --k8s-kubeconfig-path instead)")
+	flags.String(option.K8sKubeConfigPathName, "", "Absolute path of the kubernetes kubeconfig file")
+	flags.String(option.KVStoreName, "", "Key-value store type")
+	flags.Var(option.NewNamedMapOptions(option.KVStoreOptsName, &option.Config.KVStoreOpts, nil),
+		option.KVStoreOptsName, "Key-value store options")
+
+	// Agent specific flags
 	flags.StringVar(&option.Config.AccessLog,
 		"access-log", "", "Path to access log of supported L7 requests observed")
 	viper.BindEnv("access-log", "CILIUM_ACCESS_LOG")
@@ -359,10 +369,6 @@ func init() {
 		"cgroup-root", "", "Path to Cgroup2 filesystem")
 	flags.Bool(option.BPFCompileDebugName, false, "Enable debugging of the BPF compilation process")
 	flags.Bool(option.SockopsEnableName, defaults.SockopsEnable, "Enable sockops when kernel supported")
-	flags.Int(option.ClusterIDName, 0, "Unique identifier of the cluster")
-	viper.BindEnv(option.ClusterIDName, option.ClusterIDEnv)
-	flags.String(option.ClusterName, defaults.ClusterName, "Name of the cluster")
-	viper.BindEnv(option.ClusterName, option.ClusterNameEnv)
 	flags.String(option.ClusterMeshConfigName, "", "Path to the ClusterMesh configuration directory")
 	viper.BindEnv(option.ClusterMeshConfigName, option.ClusterMeshConfigNameEnv)
 	flags.StringVar(&cfgFile,
@@ -372,8 +378,6 @@ func init() {
 		"container-runtime", []string{"auto"}, `Sets the container runtime(s) used by Cilium { containerd | crio | docker | none | auto } ( "auto" uses the container runtime found in the order: "docker", "containerd", "crio" )`)
 	flags.Var(option.NewNamedMapOptions("container-runtime-endpoints", &containerRuntimesOpts, nil),
 		"container-runtime-endpoint", `Container runtime(s) endpoint(s). (default: `+workloads.GetDefaultEPOptsStringWithPrefix("--container-runtime-endpoint=")+`)`)
-	flags.BoolP(
-		"debug", "D", false, "Enable debugging mode")
 	flags.StringSliceVar(&debugVerboseFlags, argDebugVerbose, []string{}, "List of enabled verbose debug groups")
 	flags.StringVarP(&option.Config.Device,
 		"device", "d", "undefined", "Device facing cluster/external network for direct L3 (non-overlay mode)")
@@ -411,10 +415,6 @@ func init() {
 		"ipv4-service-range", AutoCIDR, "Kubernetes IPv4 services CIDR if not inside cluster prefix")
 	flags.StringVar(&v6ServicePrefix,
 		"ipv6-service-range", AutoCIDR, "Kubernetes IPv6 services CIDR if not inside cluster prefix")
-	flags.StringVar(&k8sAPIServer,
-		"k8s-api-server", "", "Kubernetes api address server (for https use --k8s-kubeconfig-path instead)")
-	flags.StringVar(&k8sKubeConfigPath,
-		"k8s-kubeconfig-path", "", "Absolute path of the kubernetes kubeconfig file")
 	viper.BindEnv("k8s-legacy-host-allows-world", "CILIUM_LEGACY_HOST_ALLOWS_WORLD")
 	flags.BoolVar(&option.Config.K8sRequireIPv4PodCIDR,
 		option.K8sRequireIPv4PodCIDRName, false, "Require IPv4 PodCIDR to be specified in node resource")
@@ -424,10 +424,6 @@ func init() {
 		"keep-config", false, "When restoring state, keeps containers' configuration in place")
 	flags.BoolVar(&option.Config.KeepTemplates,
 		"keep-bpf-templates", false, "Do not restore BPF template files from binary")
-	flags.StringVar(&kvStore,
-		"kvstore", "", "Key-value store type")
-	flags.Var(option.NewNamedMapOptions("kvstore-opts", &kvStoreOpts, nil),
-		"kvstore-opt", "Key-value store options")
 	flags.StringVar(&labelPrefixFile,
 		"label-prefix-file", "", "Valid label prefixes file path")
 	flags.StringSliceVar(&validLabels,
@@ -726,15 +722,6 @@ func initEnv(cmd *cobra.Command) {
 		log.Fatalf("Invalid fixed identities provided: %s", err)
 	}
 
-	if err := kvstore.Setup(kvStore, kvStoreOpts); err != nil {
-		addrkey := fmt.Sprintf("%s.address", kvStore)
-		addr := kvStoreOpts[addrkey]
-		log.WithError(err).WithFields(logrus.Fields{
-			"kvstore": kvStore,
-			"address": addr,
-		}).Fatal("Unable to setup kvstore")
-	}
-
 	if err := labels.ParseLabelPrefixCfg(validLabels, labelPrefixFile); err != nil {
 		log.WithError(err).Fatal("Unable to parse Label prefix configuration")
 	}
@@ -781,7 +768,7 @@ func initEnv(cmd *cobra.Command) {
 		restoreServiceIDs()
 	}
 
-	k8s.Configure(k8sAPIServer, k8sKubeConfigPath)
+	k8s.Configure(option.Config.K8sAPIServer, option.Config.K8sKubeConfigPath)
 
 	// workaround for to use the values of the deprecated dockerEndpoint
 	// variable if it is set with a different value than defaults.
