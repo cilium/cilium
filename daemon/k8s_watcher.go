@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -329,6 +329,27 @@ func blockWaitGroupToSyncResources(waitGroup *sync.WaitGroup, informer cache.Con
 		scopedLog.Debug("cache synced")
 		waitGroup.Done()
 	}()
+}
+
+func (d *Daemon) initK8sSubsystem() {
+	if err := d.EnableK8sWatcher(5 * time.Minute); err != nil {
+		log.WithError(err).Fatal("Unable to establish connection to Kubernetes apiserver")
+	}
+
+	cachesSynced := make(chan struct{})
+
+	go func() {
+		log.Info("Waiting until all pre-existing resources related to policy have been received")
+		d.k8sResourceSyncWaitGroup.Wait()
+		cachesSynced <- struct{}{}
+	}()
+
+	select {
+	case <-cachesSynced:
+		log.Info("All pre-existing resources related to policy have been received; continuing")
+	case <-time.After(cacheSyncTimeout):
+		log.Fatalf("Timed out waiting for pre-existing resources related to policy to be received; exiting")
+	}
 }
 
 // EnableK8sWatcher watches for policy, services and endpoint changes on the Kubernetes
