@@ -283,6 +283,10 @@ type daemonConfig struct {
 	// BPFCompilationDebug specifies whether to compile BPF programs compilation
 	// debugging enabled.
 	BPFCompilationDebug bool
+
+	// EnvoyLogPath specifies where to store the Envoy proxy logs when Envoy
+	// runs in the same container as Cilium.
+	EnvoyLogPath string
 }
 
 var (
