@@ -63,7 +63,9 @@ func replaceDatapath(ctx context.Context, ifName string, objPath string, progSec
 	// FIXME: Replace cilium-map-migrate with Golang map migration
 	cmd := exec.CommandContext(ctx, "cilium-map-migrate", "-s", objPath)
 	cmd.Env = bpf.Environment()
-	_, err = cmd.CombinedOutput(log, true)
+	if _, err = cmd.CombinedOutput(log, true); err != nil {
+		return err
+	}
 	defer func() {
 		var retCode string
 		if err == nil {
