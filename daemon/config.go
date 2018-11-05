@@ -29,4 +29,5 @@ func populateConfig() {
 	option.Config.UseSingleClusterRoute = viper.GetBool(option.SingleClusterRouteName)
 	option.Config.HTTP403Message = viper.GetString("http-403-msg")
 	option.Config.BPFCompilationDebug = viper.GetBool(option.BPFCompileDebugName)
+	option.Config.EnvoyLogPath = viper.GetString("envoy-log")
 }
