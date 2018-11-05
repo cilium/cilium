@@ -802,7 +802,7 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 	e.RealizedL4Policy = e.DesiredL4Policy
 	// Mark the endpoint to be running the policy revision it was
 	// compiled for
-	e.bumpPolicyRevisionLocked(revision)
+	e.setPolicyRevision(revision)
 	e.Unlock()
 
 	return nil
