@@ -67,20 +67,13 @@ func ParseCiliumID(id string) (int64, error) {
 	return n, nil
 }
 
-// FIXME:
-//  - Add docker ID and docker endpoint parsers
-
-// ParseID parses specified id and returns normalized id as string.
-func ParseID(id string) (PrefixType, string, error) {
+// ParsePrefix parses the PrefixType from the given id that contains the prefix
+// and an ID. Returns a PrefixType and the ID. An error is returned if the prefix
+// is not known by the constants of valid prefixes.
+func ParsePrefix(id string) (PrefixType, string, error) {
 	prefix, eid := SplitID(id)
 	switch prefix {
-	case CiliumLocalIdPrefix:
-		if _, err := ParseCiliumID(id); err != nil {
-			return "", "", err
-		}
-		return prefix, eid, nil
-	case CiliumGlobalIdPrefix, ContainerIdPrefix, DockerEndpointPrefix, ContainerNamePrefix, PodNamePrefix:
-		// FIXME: Validate IDs
+	case CiliumLocalIdPrefix, CiliumGlobalIdPrefix, ContainerIdPrefix, DockerEndpointPrefix, ContainerNamePrefix, PodNamePrefix, IPv4Prefix:
 		return prefix, eid, nil
 	}
 
@@ -89,7 +82,7 @@ func ParseID(id string) (PrefixType, string, error) {
 
 // ValidateID parses specified id and returns normalized id as string.
 func ValidateID(id string) (PrefixType, string, error) {
-	prefix, _, err := ParseID(id)
+	prefix, _, err := ParsePrefix(id)
 	if err != nil {
 		return "", "", err
 	}
