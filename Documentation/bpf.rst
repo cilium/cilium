@@ -358,6 +358,9 @@ type.
 Maps
 ----
 
+.. image:: images/bpf_map.png
+    :align: center
+
 Maps are efficient key / value stores that reside in kernel space. They can be
 accessed from a BPF program in order to keep state among multiple BPF program
 invocations. They can also be accessed through file descriptors from user space
@@ -392,6 +395,9 @@ program invocations.
 Object Pinning
 --------------
 
+.. image:: images/bpf_fs.png
+    :align: center
+
 BPF maps and programs act as a kernel resource and can only be accessed through
 file descriptors, backed by anonymous inodes in the kernel. Advantages, but
 also a number of disadvantages come along with them:
@@ -421,6 +427,9 @@ it does support multiple mount instances, hard and soft links, etc.
 
 Tail Calls
 ----------
+
+.. image:: images/bpf_tailcall.png
+    :align: center
 
 Another concept that can be used with BPF is called tail calls. Tail calls can
 be seen as a mechanism that allows one BPF program to call another, without
@@ -457,6 +466,9 @@ program's execution behavior.
 
 BPF to BPF Calls
 ----------------
+
+.. image:: images/bpf_call.png
+    :align: center
 
 Aside from BPF helper calls and BPF tail calls, a more recent feature that has
 been added to the BPF core infrastructure is BPF to BPF calls. Before this
@@ -547,9 +559,13 @@ BPF calls as conventional BPF helper calls.
 JIT
 ---
 
+.. image:: images/bpf_jit.png
+    :align: center
+
 The 64 bit ``x86_64``, ``arm64``, ``ppc64``, ``s390x``, ``mips64``, ``sparc64``
-and 32 bit ``arm`` architectures are all shipped with an in-kernel eBPF JIT
-compiler, also all of them are feature equivalent and can be enabled through:
+and 32 bit ``arm``, ``x86_32`` architectures are all shipped with an in-kernel
+eBPF JIT compiler, also all of them are feature equivalent and can be enabled
+through:
 
 ::
 
@@ -718,6 +734,9 @@ point onwards. Upon start, Cilium sets this knob to ``1`` as well.
 
 Offloads
 --------
+
+.. image:: images/bpf_offload.png
+    :align: center
 
 Networking programs in BPF, in particular for tc and XDP do have an
 offload-interface to hardware in the kernel in order to execute BPF
