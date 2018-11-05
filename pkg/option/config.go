@@ -287,6 +287,9 @@ type daemonConfig struct {
 	// EnvoyLogPath specifies where to store the Envoy proxy logs when Envoy
 	// runs in the same container as Cilium.
 	EnvoyLogPath string
+
+	// EnableSockOps specifies whether to enable sockops (socket lookup).
+	SockopsEnable bool
 }
 
 var (
