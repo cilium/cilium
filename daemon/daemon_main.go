@@ -903,11 +903,6 @@ func runDaemon() {
 
 	d.initHealth()
 
-	swaggerSpec, err := loads.Analyzed(server.SwaggerJSON, "")
-	if err != nil {
-		log.WithError(err).Fatal("Cannot load swagger spec")
-	}
-
 	promAddr := viper.GetString("prometheus-serve-addr")
 	if promAddr == "" {
 		promAddr = viper.GetString("prometheus-serve-addr-deprecated")
@@ -917,6 +912,39 @@ func runDaemon() {
 		if err := metrics.Enable(promAddr); err != nil {
 			log.WithError(err).Fatal("Error while starting metrics")
 		}
+	}
+
+	api := d.instantiateAPI()
+
+	server := server.NewServer(api)
+	server.EnabledListeners = []string{"unix"}
+	server.SocketPath = flags.Filename(socketPath)
+	server.ReadTimeout = apiTimeout
+	server.WriteTimeout = apiTimeout
+	defer server.Shutdown()
+
+	server.ConfigureAPI()
+
+	repr, err := monitor.TimeRepr(time.Now())
+	if err != nil {
+		log.WithError(err).Warn("Failed to generate agent start monitor message")
+	} else {
+		d.SendNotification(monitor.AgentNotifyStart, repr)
+	}
+
+	log.WithField("bootstrapTime", time.Since(bootstrapTimestamp)).
+		Info("Daemon initialization completed")
+
+	if err := server.Serve(); err != nil {
+		log.WithError(err).Fatal("Error returned from non-returning Serve() call")
+	}
+}
+
+func (d *Daemon) instantiateAPI() *restapi.CiliumAPI {
+
+	swaggerSpec, err := loads.Analyzed(server.SwaggerJSON, "")
+	if err != nil {
+		log.WithError(err).Fatal("Cannot load swagger spec")
 	}
 
 	log.Info("Initializing Cilium API")
@@ -993,26 +1021,5 @@ func runDaemon() {
 	// metrics
 	api.MetricsGetMetricsHandler = NewGetMetricsHandler(d)
 
-	server := server.NewServer(api)
-	server.EnabledListeners = []string{"unix"}
-	server.SocketPath = flags.Filename(socketPath)
-	server.ReadTimeout = apiTimeout
-	server.WriteTimeout = apiTimeout
-	defer server.Shutdown()
-
-	server.ConfigureAPI()
-
-	repr, err := monitor.TimeRepr(time.Now())
-	if err != nil {
-		log.WithError(err).Warn("Failed to generate agent start monitor message")
-	} else {
-		d.SendNotification(monitor.AgentNotifyStart, repr)
-	}
-
-	log.WithField("bootstrapTime", time.Since(bootstrapTimestamp)).
-		Info("Daemon initialization completed")
-
-	if err := server.Serve(); err != nil {
-		log.WithError(err).Fatal("Error returned from non-returning Serve() call")
-	}
+	return api
 }
