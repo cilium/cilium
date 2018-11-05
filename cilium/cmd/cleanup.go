@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -78,7 +79,7 @@ func runCleanup() {
 	// errors seen, but continue.  So that one remove function does not
 	// prevent the remaining from running.
 	type cleanupFunc func() error
-	checks := []cleanupFunc{removeAllMaps, removeDirs, removeCNI}
+	checks := []cleanupFunc{removeAllMaps, unmountCgroup, removeDirs, removeCNI}
 	for _, clean := range checks {
 		if err := clean(); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
@@ -94,11 +95,13 @@ func showWhatWillBeRemoved(routes map[int]netlink.Route, links map[int]netlink.L
 	fmt.Printf("Warning: Destructive operation. You are about to remove:\n"+
 		"- all BPF maps in %s containing '%s' and '%s'\n"+
 		"- mounted bpffs at %s\n"+
+		"- mounted cgroupv2 at %s\n"+
 		"- library code in %s\n"+
 		"- endpoint state in %s\n"+
 		"- CNI configuration at %s, %s, %s\n",
 		bpf.MapPrefixPath(), ciliumLinkPrefix, tunnel.MapName, bpf.GetMapRoot(),
-		defaults.LibraryPath, defaults.RuntimePath, cniConfigV1, cniConfigV2, cniConfigV3)
+		defaults.DefaultCgroupRoot, defaults.LibraryPath, defaults.RuntimePath,
+		cniConfigV1, cniConfigV2, cniConfigV3)
 
 	if len(routes) > 0 {
 		fmt.Printf("- routes\n")
@@ -131,6 +134,22 @@ func removeCNI() error {
 		return nil
 	}
 	return err
+}
+
+func unmountCgroup() error {
+	cgroupRoot := defaults.DefaultCgroupRoot
+	cgroupRootStat, err := os.Stat(cgroupRoot)
+	if err != nil {
+		return nil
+	} else if !cgroupRootStat.IsDir() {
+		return fmt.Errorf("%s is a file which is not a directory", cgroupRoot)
+	}
+
+	log.Info("Trying to unmount ", cgroupRoot)
+	if err := syscall.Unmount(cgroupRoot, syscall.MNT_FORCE); err != nil {
+		return fmt.Errorf("Failed to unmount %s: %s", cgroupRoot, err)
+	}
+	return nil
 }
 
 func removeDirs() error {
