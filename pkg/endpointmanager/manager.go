@@ -91,7 +91,7 @@ func Lookup(id string) (*endpoint.Endpoint, error) {
 	mutex.RLock()
 	defer mutex.RUnlock()
 
-	prefix, eid, err := endpointid.ParseID(id)
+	prefix, eid, err := endpointid.ParsePrefix(id)
 	if err != nil {
 		return nil, err
 	}
