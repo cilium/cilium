@@ -74,7 +74,7 @@ func Insert(ep *endpoint.Endpoint) {
 	ep.RunK8sCiliumEndpointSync()
 }
 
-// Lookup looks up the endpoint by prefix id
+// Lookup looks up the endpoint by prefix ip
 func Lookup(id string) (*endpoint.Endpoint, error) {
 	mutex.RLock()
 	defer mutex.RUnlock()
@@ -93,7 +93,7 @@ func Lookup(id string) (*endpoint.Endpoint, error) {
 		return lookupCiliumID(uint16(n)), nil
 
 	case endpointid.CiliumGlobalIdPrefix:
-		return nil, fmt.Errorf("Unsupported id format for now")
+		return nil, ErrUnsupportedID
 
 	case endpointid.ContainerIdPrefix:
 		return lookupContainerID(eid), nil
@@ -111,7 +111,7 @@ func Lookup(id string) (*endpoint.Endpoint, error) {
 		return lookupIPv4(eid), nil
 
 	default:
-		return nil, fmt.Errorf("Unknown endpoint prefix %s", prefix)
+		return nil, ErrInvalidPrefix{InvalidPrefix: prefix.String()}
 	}
 }
 
