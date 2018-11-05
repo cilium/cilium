@@ -1855,15 +1855,6 @@ OKState:
 	return true
 }
 
-// bumpPolicyRevisionLocked marks the endpoint to be running the next scheduled
-// policy revision as setup by e.regenerate()
-// endpoint.Mutex should held.
-func (e *Endpoint) bumpPolicyRevisionLocked(revision uint64) {
-	if revision > e.policyRevision {
-		e.setPolicyRevision(revision)
-	}
-}
-
 // OnProxyPolicyUpdate is a callback used to update the Endpoint's
 // proxyPolicyRevision when the specified revision has been applied in the
 // proxy.
@@ -2237,8 +2228,23 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 	return nil
 }
 
-// setPolicyRevision sets the policy wantedRev with the given revision.
+// SetPolicyRevision sets the endpoint's policy revision with the given
+// revision.
+func (e *Endpoint) SetPolicyRevision(rev uint64) {
+	if err := e.LockAlive(); err != nil {
+		return
+	}
+	e.setPolicyRevision(rev)
+	e.Unlock()
+}
+
+// setPolicyRevision sets the endpoint's policy revision with the given
+// revision.
 func (e *Endpoint) setPolicyRevision(rev uint64) {
+	if rev <= e.policyRevision {
+		return
+	}
+
 	e.policyRevision = rev
 	e.UpdateLogger(map[string]interface{}{
 		logfields.DatapathPolicyRevision: e.policyRevision,
