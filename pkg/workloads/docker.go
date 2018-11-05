@@ -420,7 +420,7 @@ func (d *dockerClient) handleCreateWorkload(id string, retry bool) {
 			retryLog.Warn("Container name not set in event from docker")
 		}
 
-		ep := endpointmanager.LookupDockerID(id)
+		ep := endpointmanager.LookupContainerID(id)
 		if ep == nil {
 			// Container ID is not yet known; try and find endpoint via
 			// the IP address assigned.
