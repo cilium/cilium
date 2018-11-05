@@ -247,15 +247,11 @@ func lookupContainerID(id string) *endpoint.Endpoint {
 	return nil
 }
 
-func linkContainerID(ep *endpoint.Endpoint) {
-	endpointsAux[endpointid.NewID(endpointid.ContainerIdPrefix, ep.ContainerID)] = ep
-}
-
 // UpdateReferences updates the mappings of various values to their corresponding
 // endpoints, such as ContainerID, Docker Container Name, Pod Name, etc.
 func updateReferences(ep *endpoint.Endpoint) {
 	if ep.ContainerID != "" {
-		linkContainerID(ep)
+		endpointsAux[endpointid.NewID(endpointid.ContainerIdPrefix, ep.ContainerID)] = ep
 	}
 
 	if ep.DockerEndpointID != "" {
