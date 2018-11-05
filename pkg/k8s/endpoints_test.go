@@ -433,18 +433,21 @@ func (s *K8sSuite) TestEndpointsString(c *check.C) {
 			{
 				Addresses: []v1.EndpointAddress{
 					{
+						IP: "172.0.0.2",
+					},
+					{
 						IP: "172.0.0.1",
 					},
 				},
 				Ports: []v1.EndpointPort{
 					{
-						Name:     "http-test-svc",
-						Port:     8080,
+						Name:     "http-test-svc-2",
+						Port:     8081,
 						Protocol: v1.ProtocolTCP,
 					},
 					{
-						Name:     "http-test-svc-2",
-						Port:     8081,
+						Name:     "http-test-svc",
+						Port:     8080,
 						Protocol: v1.ProtocolTCP,
 					},
 				},
@@ -453,5 +456,5 @@ func (s *K8sSuite) TestEndpointsString(c *check.C) {
 	}
 
 	_, ep := ParseEndpoints(endpoints)
-	c.Assert(ep.String(), check.Equals, "backends:172.0.0.1/ports:http-test-svc,http-test-svc-2")
+	c.Assert(ep.String(), check.Equals, "backends:172.0.0.1,172.0.0.2/ports:http-test-svc,http-test-svc-2")
 }

@@ -17,6 +17,7 @@ package k8s
 import (
 	"fmt"
 	"net"
+	"sort"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/comparator"
@@ -36,7 +37,8 @@ type Endpoints struct {
 	Ports      map[loadbalancer.FEPortName]*loadbalancer.L4Addr
 }
 
-// String returns the string representation of an endpoints resource
+// String returns the string representation of an endpoints resource, with
+// backends and ports sorted.
 func (e *Endpoints) String() string {
 	if e == nil {
 		return "nil"
@@ -55,6 +57,9 @@ func (e *Endpoints) String() string {
 		ports[i] = string(p)
 		i++
 	}
+
+	sort.Strings(backends)
+	sort.Strings(ports)
 
 	return fmt.Sprintf("backends:%v/ports:%v", strings.Join(backends, ","), strings.Join(ports, ","))
 }
