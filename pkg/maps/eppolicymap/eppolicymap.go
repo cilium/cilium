@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/spf13/viper"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-ep-policy")
@@ -106,7 +105,7 @@ func newEndpointKey(ip net.IP) *endpointKey {
 // handled in the usual way via Map lock. If sockops is disabled this will be
 // a nop.
 func WriteEndpoint(keys []*lxcmap.EndpointKey, fd int) error {
-	if viper.GetBool(option.SockopsEnableName) == false {
+	if option.Config.SockopsEnable == false {
 		return nil
 	}
 

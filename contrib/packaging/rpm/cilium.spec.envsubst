@@ -51,6 +51,7 @@ Source0:       https://%{provider_prefix}/archive/%{commit0}/%{repo}-%{shortcomm
 ExclusiveArch: x86_64
 
 Requires:      git
+Requires:      llvm
 Requires:      docker-engine >= 1.12, glibc-devel(x86-32), iproute >= 4.10, clang
 %{?fc25:Requires: clang >= 3.8, clang < 3.9}
 
@@ -102,26 +103,19 @@ export GOPATH=$(pwd):%{gopath}
 export GOPATH=$(pwd):$(pwd)/vendor:%{gopath}
 %endif
 
-echo "%{version}.%{release}.git%{shortcommit0}" > VERSION
+echo "%{version}.%{release}" > VERSION
 
 export PKG_BUILD=1
 
 make -C daemon apply-bindata
 make V=1 proxylib plugins bpf cilium daemon monitor cilium-health bugtool tools
 
-export CC="/usr/bin/gcc"
-export CXX="/usr/bin/g++"
-
-cd envoy
-make proxylib-hdrs
-
-bazel clean
-bazel build //:envoy --action_env=PATH="$PATH"
-
 %install
 export PKG_BUILD=1
 
 %{__make} DESTDIR=%{buildroot} BINDIR=%{_bindir} LIBDIR=%{_libdir} install
+
+cp envoy/cilium-envoy %{buildroot}%{_bindir}
 
 mkdir -p %{buildroot}%{_unitdir}
 mkdir -p %{buildroot}%{_sysconfdir}/sysconfig

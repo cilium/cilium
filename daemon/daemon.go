@@ -24,7 +24,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -72,15 +71,14 @@ import (
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
+	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	policyApi "github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/sockops"
-	"github.com/cilium/cilium/pkg/u8proto"
 	"github.com/cilium/cilium/pkg/workloads"
 
 	"github.com/go-openapi/runtime/middleware"
@@ -132,7 +130,10 @@ type Daemon struct {
 	nodeMonitor  *monitorLaunch.NodeMonitor
 	ciliumHealth *health.CiliumHealth
 
-	// dnsPoller is used to implement ToFQDN rules
+	// dnsRuleGen manages toFQDNs rules
+	dnsRuleGen *fqdn.RuleGen
+
+	// dnsPoller polls DNS names and sends them to dnsRuleGen
 	dnsPoller *fqdn.DNSPoller
 
 	// k8sAPIs is a set of k8s API in use. They are setup in EnableK8sWatcher,
@@ -159,6 +160,9 @@ type Daemon struct {
 	// maps, etc. being performed without crucial information in securing said
 	// components. See GH-5038 and GH-4457.
 	k8sResourceSyncWaitGroup sync.WaitGroup
+
+	// k8sSvcCache is a cache of all Kubernetes services and endpoints
+	k8sSvcCache k8s.ServiceCache
 }
 
 // UpdateProxyRedirect updates the redirect rules in the proxy for a particular
@@ -1119,10 +1123,9 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 		return nil, nil, fmt.Errorf("unable to setup workload: %s", err)
 	}
 
-	lb := loadbalancer.NewLoadBalancer()
-
 	d := Daemon{
-		loadBalancer:  lb,
+		loadBalancer:  loadbalancer.NewLoadBalancer(),
+		k8sSvcCache:   k8s.NewServiceCache(),
 		policy:        policy.NewPolicyRepository(),
 		uniqueID:      map[uint64]bool{},
 		nodeMonitor:   monitorLaunch.NewNodeMonitor(),
@@ -1136,6 +1139,7 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 		compilationMutex:  new(lock.RWMutex),
 	}
 
+	d.runK8sServiceHandler()
 	policyApi.InitEntities(option.Config.ClusterName)
 
 	workloads.Init(&d)
@@ -1190,8 +1194,9 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 	// or IPv4 alloc prefix, respectively, retrieved by k8s node annotations.
 	log.Info("Initializing node addressing")
 
-	// Inject BPF dependency into node package.
+	// Inject BPF dependency, kvstore dependency into node package.
 	node.TunnelDatapath = tunnel.TunnelMap
+	node.NodeReg = &nodeStore.NodeRegistrar{}
 
 	if err := node.AutoComplete(); err != nil {
 		log.WithError(err).Fatal("Cannot autocomplete node addresses")
@@ -1278,7 +1283,7 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 
 	if k8s.IsEnabled() {
 		log.Info("Annotating k8s node with CIDR ranges")
-		err := k8s.AnnotateNode(k8s.Client(), node.GetName(),
+		err := k8s.Client().AnnotateNode(node.GetName(),
 			node.GetIPv4AllocRange(), node.GetIPv6NodeRange(),
 			nil, nil, node.GetInternalIPv4())
 		if err != nil {
@@ -1325,7 +1330,7 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 			clustermesh, err := clustermesh.NewClusterMesh(clustermesh.Configuration{
 				Name:            "clustermesh",
 				ConfigDirectory: path,
-				NodeKeyCreator:  node.KeyCreator,
+				NodeKeyCreator:  nodeStore.KeyCreator,
 			})
 			if err != nil {
 				log.WithError(err).Fatal("Unable to initialize ClusterMesh")
@@ -1354,7 +1359,7 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 	if err := fqdn.ConfigFromResolvConf(); err != nil {
 		return nil, nil, err
 	}
-	d.dnsPoller = fqdn.NewDNSPoller(fqdn.DNSPollerConfig{
+	cfg := fqdn.Config{
 		MinTTL:         toFQDNsMinTTL,
 		LookupDNSNames: fqdn.DNSLookupDefaultResolver,
 		AddGeneratedRules: func(generatedRules []*policyApi.Rule) error {
@@ -1363,79 +1368,12 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 			// the ToFQDN-UUID one).
 			_, err := d.PolicyAdd(generatedRules, &AddOptions{Replace: true, Generated: true})
 			return err
-		}})
+		}}
+	d.dnsRuleGen = fqdn.NewRuleGen(cfg)
+	d.dnsPoller = fqdn.NewDNSPoller(cfg, d.dnsRuleGen)
 	fqdn.StartDNSPoller(d.dnsPoller)
 
 	return &d, restoredEndpoints, nil
-}
-
-func (d *Daemon) collectStaleMapGarbage() {
-	if option.Config.DryMode {
-		return
-	}
-	walker := func(path string, _ os.FileInfo, _ error) error {
-		return d.staleMapWalker(path)
-	}
-
-	if err := filepath.Walk(bpf.MapPrefixPath(), walker); err != nil {
-		log.WithError(err).Warn("Error while scanning for stale maps")
-	}
-}
-
-func (d *Daemon) removeStaleMap(path string) {
-	if err := os.RemoveAll(path); err != nil {
-		log.WithError(err).WithField(logfields.Path, path).Warn("Error while deleting stale map file")
-	} else {
-		log.WithField(logfields.Path, path).Info("Removed stale bpf map")
-	}
-}
-
-func (d *Daemon) removeStaleIDFromPolicyMap(id uint32) {
-	gpm, err := policymap.OpenGlobalMap(bpf.MapPath(endpoint.PolicyGlobalMapName))
-	if err == nil {
-		gpm.Delete(id, policymap.AllPorts, u8proto.All, trafficdirection.Ingress)
-		gpm.Delete(id, policymap.AllPorts, u8proto.All, trafficdirection.Egress)
-		gpm.Close()
-	}
-}
-
-func (d *Daemon) checkStaleMap(path string, filename string, id string) {
-	if tmp, err := strconv.ParseUint(id, 0, 16); err == nil {
-		if ep := endpointmanager.LookupCiliumID(uint16(tmp)); ep == nil {
-			d.removeStaleIDFromPolicyMap(uint32(tmp))
-			d.removeStaleMap(path)
-		}
-	}
-}
-
-func (d *Daemon) checkStaleGlobalMap(path string, filename string) {
-	globalCTinUse := endpointmanager.HasGlobalCT()
-
-	if !globalCTinUse && ctmap.NameIsGlobal(filename) {
-		d.removeStaleMap(path)
-	}
-}
-
-func (d *Daemon) staleMapWalker(path string) error {
-	filename := filepath.Base(path)
-
-	mapPrefix := []string{
-		policymap.MapName,
-		ctmap.MapNamePrefix,
-		endpoint.CallsMapName,
-	}
-
-	d.checkStaleGlobalMap(path, filename)
-
-	for _, m := range mapPrefix {
-		if strings.HasPrefix(filename, m) {
-			if id := strings.TrimPrefix(filename, m); id != filename {
-				d.checkStaleMap(path, filename, id)
-			}
-		}
-	}
-
-	return nil
 }
 
 // TriggerReloadWithoutCompile causes all BPF programs and maps to be reloaded,

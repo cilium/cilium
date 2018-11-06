@@ -26,7 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/allocator"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/node"
+	nodeStore "github.com/cilium/cilium/pkg/node/store"
 
 	"github.com/sirupsen/logrus"
 )
@@ -112,7 +112,7 @@ func (rc *remoteCluster) restartRemoteConnection() {
 				}
 
 				remoteNodes, err := store.JoinSharedStore(store.Configuration{
-					Prefix:                  path.Join(node.NodeStorePrefix, rc.name),
+					Prefix:                  path.Join(nodeStore.NodeStorePrefix, rc.name),
 					KeyCreator:              rc.mesh.conf.NodeKeyCreator,
 					SynchronizationInterval: time.Minute,
 					Backend:                 backend,

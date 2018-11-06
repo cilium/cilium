@@ -27,4 +27,8 @@ func populateConfig() {
 	option.Config.CTMapEntriesGlobalTCP = viper.GetInt(option.CTMapEntriesGlobalTCPName)
 	option.Config.CTMapEntriesGlobalAny = viper.GetInt(option.CTMapEntriesGlobalAnyName)
 	option.Config.UseSingleClusterRoute = viper.GetBool(option.SingleClusterRouteName)
+	option.Config.HTTP403Message = viper.GetString("http-403-msg")
+	option.Config.BPFCompilationDebug = viper.GetBool(option.BPFCompileDebugName)
+	option.Config.EnvoyLogPath = viper.GetString("envoy-log")
+	option.Config.SockopsEnable = viper.GetBool(option.SockopsEnableName)
 }

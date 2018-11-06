@@ -41,7 +41,17 @@ var (
 	// be held to read and write.
 	endpoints    = map[uint16]*endpoint.Endpoint{}
 	endpointsAux = map[string]*endpoint.Endpoint{}
+
+	// EndpointSynchronizer updates external resources (e.g., Kubernetes) with
+	// up-to-date information about endpoints managed by the endpoint manager.
+	EndpointSynchronizer EndpointResourceSynchronizer
 )
+
+// EndpointResourceSynchronizer is an interface which synchronizes CiliumEndpoint
+// resources with Kubernetes.
+type EndpointResourceSynchronizer interface {
+	RunK8sCiliumEndpointSync(ep *endpoint.Endpoint)
+}
 
 func init() {
 	// EndpointCount is a function used to collect this metric. We cannot
@@ -71,7 +81,9 @@ func Insert(ep *endpoint.Endpoint) {
 	mutex.Unlock()
 	ep.RUnlock()
 
-	ep.RunK8sCiliumEndpointSync()
+	if EndpointSynchronizer != nil {
+		EndpointSynchronizer.RunK8sCiliumEndpointSync(ep)
+	}
 }
 
 // Lookup looks up the endpoint by prefix id
@@ -79,7 +91,7 @@ func Lookup(id string) (*endpoint.Endpoint, error) {
 	mutex.RLock()
 	defer mutex.RUnlock()
 
-	prefix, eid, err := endpointid.ParseID(id)
+	prefix, eid, err := endpointid.ParsePrefix(id)
 	if err != nil {
 		return nil, err
 	}
@@ -93,10 +105,10 @@ func Lookup(id string) (*endpoint.Endpoint, error) {
 		return lookupCiliumID(uint16(n)), nil
 
 	case endpointid.CiliumGlobalIdPrefix:
-		return nil, fmt.Errorf("Unsupported id format for now")
+		return nil, ErrUnsupportedID
 
 	case endpointid.ContainerIdPrefix:
-		return lookupDockerID(eid), nil
+		return lookupContainerID(eid), nil
 
 	case endpointid.DockerEndpointPrefix:
 		return lookupDockerEndpoint(eid), nil
@@ -111,7 +123,7 @@ func Lookup(id string) (*endpoint.Endpoint, error) {
 		return lookupIPv4(eid), nil
 
 	default:
-		return nil, fmt.Errorf("Unknown endpoint prefix %s", prefix)
+		return nil, ErrInvalidPrefix{InvalidPrefix: prefix.String()}
 	}
 }
 
@@ -123,10 +135,10 @@ func LookupCiliumID(id uint16) *endpoint.Endpoint {
 	return ep
 }
 
-// LookupDockerID looks up endpoint by Docker ID
-func LookupDockerID(id string) *endpoint.Endpoint {
+// LookupContainerID looks up endpoint by Docker ID
+func LookupContainerID(id string) *endpoint.Endpoint {
 	mutex.RLock()
-	ep := lookupDockerID(id)
+	ep := lookupContainerID(id)
 	mutex.RUnlock()
 	return ep
 }
@@ -228,22 +240,18 @@ func lookupIPv4(ipv4 string) *endpoint.Endpoint {
 	return nil
 }
 
-func lookupDockerID(id string) *endpoint.Endpoint {
+func lookupContainerID(id string) *endpoint.Endpoint {
 	if ep, ok := endpointsAux[endpointid.NewID(endpointid.ContainerIdPrefix, id)]; ok {
 		return ep
 	}
 	return nil
 }
 
-func linkContainerID(ep *endpoint.Endpoint) {
-	endpointsAux[endpointid.NewID(endpointid.ContainerIdPrefix, ep.ContainerID)] = ep
-}
-
 // UpdateReferences updates the mappings of various values to their corresponding
 // endpoints, such as ContainerID, Docker Container Name, Pod Name, etc.
 func updateReferences(ep *endpoint.Endpoint) {
 	if ep.ContainerID != "" {
-		linkContainerID(ep)
+		endpointsAux[endpointid.NewID(endpointid.ContainerIdPrefix, ep.ContainerID)] = ep
 	}
 
 	if ep.DockerEndpointID != "" {

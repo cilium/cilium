@@ -17,6 +17,66 @@ It is assuming that Cilium has been deployed using standard procedures as
 described in the :ref:`k8s_concepts_deployment`. If you have installed Cilium
 using the guide :ref:`ds_deploy`, then this is automatically the case.
 
+Running a pre-flight DaemonSet
+==============================
+
+.. _pre_flight:
+
+When rolling out an upgrade with Kubernetes, Kubernetes will first terminate the
+pod followed by pulling the new image version and then finally spin up the new
+image. In order to reduce the downtime of the agent, the new image version can
+be pre-pulled. It also verifies that the new image version can be pulled and
+avoids ErrImagePull errors during the rollout.
+
+.. tabs::
+  .. group-tab:: K8s 1.8
+
+    .. parsed-literal::
+
+      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.8/cilium-pre-flight.yaml
+
+  .. group-tab:: K8s 1.9
+
+    .. parsed-literal::
+
+      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.9/cilium-pre-flight.yaml
+
+  .. group-tab:: K8s 1.10
+
+    .. parsed-literal::
+
+      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.10/cilium-pre-flight.yaml
+
+  .. group-tab:: K8s 1.11
+
+    .. parsed-literal::
+
+      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.11/cilium-pre-flight.yaml
+
+  .. group-tab:: K8s 1.12
+
+    .. parsed-literal::
+
+      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.12/cilium-pre-flight.yaml
+
+
+After running the cilium-pre-flight.yaml, make sure the number of READY pods
+is the same number of Cilium pods running.
+
+.. code-block:: shell-session
+
+    kubectl get daemonset -n kube-system | grep cilium
+    NAME                      DESIRED   CURRENT   READY   UP-TO-DATE   AVAILABLE   NODE SELECTOR   AGE
+    cilium                    2         2         2       2            2           <none>          1h20m
+    cilium-pre-flight-check   2         2         2       2            2           <none>          7m15s
+
+Once the number of READY pods are the same, you can delete cilium-pre-flight-check
+`DaemonSet` and proceed with the upgrade.
+
+.. code-block:: shell-session
+
+      kubectl -n kube-system delete ds cilium-pre-flight-check
+
 .. _upgrade_micro:
 
 Upgrading Micro Versions

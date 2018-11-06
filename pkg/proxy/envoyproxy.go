@@ -16,13 +16,12 @@ package proxy
 
 import (
 	"fmt"
-	"github.com/cilium/cilium/pkg/revert"
 	"sync"
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy"
-
-	"github.com/spf13/viper"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/revert"
 )
 
 // the global Envoy instance
@@ -41,7 +40,7 @@ var envoyOnce sync.Once
 func createEnvoyRedirect(r *Redirect, stateDir string, xdsServer *envoy.XDSServer, wg *completion.WaitGroup) (RedirectImplementation, error) {
 	envoyOnce.Do(func() {
 		// Start Envoy on first invocation
-		envoyProxy = envoy.StartEnvoy(stateDir, viper.GetString("envoy-log"), 0)
+		envoyProxy = envoy.StartEnvoy(stateDir, option.Config.EnvoyLogPath, 0)
 	})
 
 	if envoyProxy != nil {

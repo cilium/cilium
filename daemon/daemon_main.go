@@ -35,7 +35,9 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/datapath/maps"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
@@ -863,6 +865,8 @@ func runDaemon() {
 		viper.GetInt("conntrack-garbage-collector-interval"),
 		restoredEndpoints.restored)
 
+	endpointmanager.EndpointSynchronizer = &k8s.EndpointSynchronizer{}
+
 	if enableLogstash {
 		log.Info("Enabling Logstash")
 		go EnableLogstash(logstashAddr, int(logstashProbeTimer))
@@ -925,7 +929,7 @@ func runDaemon() {
 		workloads.IgnoreRunningWorkloads()
 	}
 
-	d.collectStaleMapGarbage()
+	maps.CollectStaleMapGarbage()
 
 	// The workload event listener *must* be enabled *after* restored endpoints
 	// are added into the endpoint manager; otherwise, updates to important
@@ -971,6 +975,11 @@ func runDaemon() {
 		// running inside a new PID namespace which means that existing
 		// PIDfiles are referring to PIDs that may be reused. Clean up.
 		pidfile.Remove(filepath.Join(option.Config.StateDir, health.PidfilePath))
+
+		// Inject K8s dependency into packages which need to annotate K8s resources.
+		endpoint.EpAnnotator = k8s.Client()
+		health.NodeEpAnnotator = k8s.Client()
+
 	}
 	controller.NewManager().UpdateController("cilium-health-ep",
 		controller.ControllerParams{
