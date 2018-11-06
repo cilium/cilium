@@ -234,7 +234,7 @@ var _ = Describe("RuntimeLB", func() {
 			status.ExpectSuccess("failed to ping service IP f00d::1:1")
 		}, 500)
 
-		It("validates that services work for L4 (IP+Port) loadbalancing", func() {
+		It("validates that services work for L4 (IP+Port) loadbalancing, HTTP", func() {
 			err := createLBDevice(vm)
 			if err != nil {
 				log.Errorf("error creating interface: %s", err)
@@ -271,6 +271,126 @@ var _ = Describe("RuntimeLB", func() {
 				url := fmt.Sprintf("http://%s/public", ip)
 				status := vm.ContainerExec(helpers.Client, helpers.CurlFail(url))
 				status.ExpectSuccess(fmt.Sprintf("failed to fetch via URL %s", url))
+			}
+		}, 500)
+
+		It("validates that services work for L4 (IP+Port) loadbalancing, netperf single", func() {
+			err := createLBDevice(vm)
+			if err != nil {
+				log.Errorf("error creating interface: %s", err)
+			}
+			Expect(err).Should(BeNil())
+
+			httpd1, err := vm.ContainerInspectNet(helpers.Httpd1)
+			Expect(err).Should(BeNil())
+			httpd2, err := vm.ContainerInspectNet(helpers.Httpd2)
+			Expect(err).Should(BeNil())
+
+			By("Creating services")
+
+			services := map[string][]string{
+				"2.2.2.2:80": {
+					fmt.Sprintf("%s:80", httpd1[helpers.IPv4]),
+					fmt.Sprintf("%s:80", httpd2[helpers.IPv4]),
+				},
+				"[f00d::1:1]:80": {
+					fmt.Sprintf("[%s]:80", httpd1[helpers.IPv6]),
+					fmt.Sprintf("[%s]:80", httpd2[helpers.IPv6]),
+				},
+			}
+			svc := 1
+			for fe, be := range services {
+				status := vm.ServiceAdd(svc, fe, be)
+				status.ExpectSuccess("failed to create service %s=>%v", fe, be)
+				svc++
+			}
+
+			By("Making netperf TCP STREAM requests from container => bpf_lb => container")
+
+			for ip := range services {
+				status := vm.ContainerExec(helpers.Client, helpers.Netperf(ip, helpers.TCP_STREAM))
+				status.ExpectSuccess(fmt.Sprintf("failed run netperf %s against %s", helpers.TCP_STREAM, ip))
+			}
+
+			By("Making netperf TCP RR requests from container => bpf_lb => container")
+
+			for ip := range services {
+				status := vm.ContainerExec(helpers.Client, helpers.Netperf(ip, helpers.TCP_RR))
+				status.ExpectSuccess(fmt.Sprintf("failed run netperf %s against %s", helpers.TCP_RR, ip))
+			}
+
+			By("Making netperf UDP STREAM requests from container => bpf_lb => container")
+
+			for ip := range services {
+				status := vm.ContainerExec(helpers.Client, helpers.Netperf(ip, helpers.UDP_STREAM))
+				status.ExpectSuccess(fmt.Sprintf("failed run netperf %s against %s", helpers.UDP_STREAM, ip))
+			}
+
+			By("Making netperf UDP RR requests from container => bpf_lb => container")
+
+			for ip := range services {
+				status := vm.ContainerExec(helpers.Client, helpers.Netperf(ip, helpers.UDP_RR))
+				status.ExpectSuccess(fmt.Sprintf("failed run netperf %s against %s", helpers.UDP_RR, ip))
+			}
+		}, 500)
+
+		It("validates that services work for L4 (IP+Port) loadbalancing, netperf stress", func() {
+			err := createLBDevice(vm)
+			if err != nil {
+				log.Errorf("error creating interface: %s", err)
+			}
+			Expect(err).Should(BeNil())
+
+			httpd1, err := vm.ContainerInspectNet(helpers.Httpd1)
+			Expect(err).Should(BeNil())
+			httpd2, err := vm.ContainerInspectNet(helpers.Httpd2)
+			Expect(err).Should(BeNil())
+
+			By("Creating services")
+
+			services := map[string][]string{
+				"2.2.2.2:80": {
+					fmt.Sprintf("%s:80", httpd1[helpers.IPv4]),
+					fmt.Sprintf("%s:80", httpd2[helpers.IPv4]),
+				},
+				"[f00d::1:1]:80": {
+					fmt.Sprintf("[%s]:80", httpd1[helpers.IPv6]),
+					fmt.Sprintf("[%s]:80", httpd2[helpers.IPv6]),
+				},
+			}
+			svc := 1
+			for fe, be := range services {
+				status := vm.ServiceAdd(svc, fe, be)
+				status.ExpectSuccess("failed to create service %s=>%v", fe, be)
+				svc++
+			}
+
+			By("Making super_netperf TCP STREAM requests from container => bpf_lb => container")
+
+			for ip := range services {
+				status := vm.ContainerExec(helpers.Client, helpers.SuperNetperf(ip, helpers.TCP_STREAM))
+				status.ExpectSuccess(fmt.Sprintf("failed run super_netperf %s against %s", helpers.TCP_STREAM, ip))
+			}
+
+			By("Making super_netperf TCP RR requests from container => bpf_lb => container")
+
+			for ip := range services {
+				status := vm.ContainerExec(helpers.Client, helpers.SuperNetperf(ip, helpers.TCP_RR))
+				status.ExpectSuccess(fmt.Sprintf("failed run super_netperf %s against %s", helpers.TCP_RR, ip))
+			}
+
+			By("Making super_netperf UDP STREAM requests from container => bpf_lb => container")
+
+			for ip := range services {
+				status := vm.ContainerExec(helpers.Client, helpers.SuperNetperf(ip, helpers.UDP_STREAM))
+				status.ExpectSuccess(fmt.Sprintf("failed run super_netperf %s against %s", helpers.UDP_STREAM, ip))
+			}
+
+			By("Making super_netperf UDP RR requests from container => bpf_lb => container")
+
+			for ip := range services {
+				status := vm.ContainerExec(helpers.Client, helpers.SuperNetperf(ip, helpers.UDP_RR))
+				status.ExpectSuccess(fmt.Sprintf("failed run super_netperf %s against %s", helpers.UDP_RR, ip))
 			}
 		}, 500)
 

@@ -20,13 +20,11 @@ import "fmt"
 type PerfTest string
 
 const (
-	// TCP_RR represents a netperf test for TCP Request/Response performance.
 	// For more information, consult : http://www.cs.kent.edu/~farrell/dist/ref/Netperf.html
-	TCP_RR = PerfTest("TCP_RR")
-
-	// UDP_RR represents a netperf test for UDP Request/Response performance.
-	// For more information, consult : http://www.cs.kent.edu/~farrell/dist/ref/Netperf.html
-	UDP_RR = PerfTest("UDP_RR")
+	TCP_RR     = PerfTest("TCP_RR")
+	TCP_STREAM = PerfTest("TCP_STREAM")
+	UDP_RR     = PerfTest("UDP_RR")
+	UDP_STREAM = PerfTest("UDP_STREAM")
 )
 
 // Ping returns the string representing the ping command to ping the specified
@@ -75,6 +73,12 @@ func CurlWithHTTPCode(endpoint string, optionalValues ...interface{}) string {
 // connectivity between endpoints.
 func Netperf(endpoint string, perfTest PerfTest) string {
 	return fmt.Sprintf("netperf -l 3 -t %s -H %s", perfTest, endpoint)
+}
+
+// SuperNetperf returns the string representing the super_netperf command to use
+// when testing connectivity between endpoints.
+func SuperNetperf(endpoint string, perfTest PerfTest) string {
+	return fmt.Sprintf("super_netperf 200 -l 30 -t %s -H %s", perfTest, endpoint)
 }
 
 // Netcat returns the string representing the netcat command to the specified
