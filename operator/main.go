@@ -43,6 +43,8 @@ var (
 			runOperator(cmd)
 		},
 	}
+
+	synchronizeServices bool
 )
 
 func main() {
@@ -74,6 +76,8 @@ func init() {
 	flags.String(option.KVStoreName, "", "Key-value store type")
 	flags.Var(option.NewNamedMapOptions(option.KVStoreOptsName, &option.Config.KVStoreOpts, nil),
 		option.KVStoreOptsName, "Key-value store options")
+
+	flags.BoolVar(&synchronizeServices, "synchronize-k8s-services", true, "Synchronize Kubernetes services to kvstore")
 
 	viper.BindPFlags(flags)
 }
@@ -115,6 +119,10 @@ func runOperator(cmd *cobra.Command) {
 	k8s.Configure(option.Config.K8sAPIServer, option.Config.K8sKubeConfigPath)
 	if err := k8s.Init(); err != nil {
 		log.WithError(err).Fatal("Unable to connect to Kubernetes apiserver")
+	}
+
+	if synchronizeServices {
+		startSynchronizingServices()
 	}
 
 	for {
