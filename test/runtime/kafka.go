@@ -106,7 +106,7 @@ var _ = Describe("RuntimeKafka", func() {
 
 	BeforeAll(func() {
 		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
-		ExpectCiliumReady(vm)
+		helpers.ExpectCiliumReady(vm)
 
 		containers("create")
 		epsReady := vm.WaitEndpointsReady()

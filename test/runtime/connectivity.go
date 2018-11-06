@@ -20,7 +20,7 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 
 	BeforeAll(func() {
 		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
-		ExpectCiliumReady(vm)
+		helpers.ExpectCiliumReady(vm)
 	})
 
 	JustBeforeEach(func() {
@@ -309,7 +309,7 @@ var _ = Describe("RuntimeConntrackTest", func() {
 
 	BeforeAll(func() {
 		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
-		ExpectCiliumReady(vm)
+		helpers.ExpectCiliumReady(vm)
 
 		ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementAlways)
 	})

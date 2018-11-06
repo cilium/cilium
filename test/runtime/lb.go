@@ -32,7 +32,7 @@ var _ = Describe("RuntimeLB", func() {
 
 	BeforeAll(func() {
 		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
-		ExpectCiliumReady(vm)
+		helpers.ExpectCiliumReady(vm)
 	})
 
 	AfterAll(func() {

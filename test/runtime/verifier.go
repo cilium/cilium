@@ -33,7 +33,7 @@ var _ = Describe("RuntimeVerifier", func() {
 
 	BeforeAll(func() {
 		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
-		ExpectCiliumReady(vm)
+		helpers.ExpectCiliumReady(vm)
 
 		By("Stopping Cilium")
 		res := vm.ExecWithSudo("systemctl stop cilium")

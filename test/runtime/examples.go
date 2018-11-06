@@ -31,7 +31,7 @@ var _ = Describe("RuntimePolicyValidationTests", func() {
 
 	BeforeAll(func() {
 		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
-		ExpectCiliumReady(vm)
+		helpers.ExpectCiliumReady(vm)
 	})
 
 	JustAfterEach(func() {

@@ -29,7 +29,7 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 
 	BeforeAll(func() {
 		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
-		ExpectCiliumReady(vm)
+		helpers.ExpectCiliumReady(vm)
 	})
 
 	containers := func(option string) {

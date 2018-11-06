@@ -63,7 +63,7 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 
 	BeforeAll(func() {
 		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
-		ExpectCiliumReady(vm)
+		helpers.ExpectCiliumReady(vm)
 
 		vm.ContainerCreate(appContainerName, helpers.HttpdImage, helpers.CiliumDockerNetwork, "-l id.app")
 		areEndpointsReady := vm.WaitEndpointsReady()
@@ -252,7 +252,7 @@ var _ = Describe("RuntimePolicies", func() {
 
 	BeforeAll(func() {
 		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
-		ExpectCiliumReady(vm)
+		helpers.ExpectCiliumReady(vm)
 
 		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
 		vm.PolicyDelAll()
@@ -1601,7 +1601,7 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 
 	BeforeAll(func() {
 		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
-		ExpectCiliumReady(vm)
+		helpers.ExpectCiliumReady(vm)
 
 		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
 
