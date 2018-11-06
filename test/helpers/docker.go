@@ -92,6 +92,21 @@ func (s *SSHMeta) ContainerInspectNet(name string) (map[string]string, error) {
 	return result, nil
 }
 
+func (s *SSHMeta) ContainerInspectIP(name string) (string, string, error) {
+	containerData := s.ContainerInspect(name)
+
+	ipv4, err := containerData.Filter(fmt.Sprintf("{[0].NetworkSettings.Networks.%s.IPAddress}", CiliumDockerNetwork))
+	if err != nil {
+		return "", "", err
+	}
+	ipv6, err := containerData.Filter(fmt.Sprintf("{[0].NetworkSettings.Networks.%s.GlobalIPv6Address}", CiliumDockerNetwork))
+	if err != nil {
+		return "", "", err
+	}
+
+	return ipv4.String(), ipv6.String(), nil
+}
+
 // NetworkCreate creates a Docker network of the provided name with the
 // specified subnet. It is a wrapper around `docker network create`.
 func (s *SSHMeta) NetworkCreate(name string, subnet string) *CmdRes {

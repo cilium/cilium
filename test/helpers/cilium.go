@@ -894,6 +894,11 @@ PATH=/usr/lib/llvm-3.8/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sb
 CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug --pprof=true --log-system-load
 INITSYSTEM=SYSTEMD`
 
+	templateSockops := `
+PATH=/usr/lib/llvm-3.8/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
+CILIUM_OPTS=--sockops-enable --kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug --pprof=true --log-system-load
+INITSYSTEM=SYSTEMD`
+
 	err := RenderTemplateToFile("cilium", template, os.ModePerm)
 	if err != nil {
 		return err
@@ -904,6 +909,21 @@ INITSYSTEM=SYSTEMD`
 	if !res.WasSuccessful() {
 		return fmt.Errorf("%s", res.CombineOutput())
 	}
+	res = s.Exec("sudo cp /vagrant/cilium /etc/sysconfig/cilium-normal")
+	if !res.WasSuccessful() {
+		return fmt.Errorf("%s", res.CombineOutput())
+	}
+
+	err = RenderTemplateToFile("cilium-sockops", templateSockops, os.ModePerm)
+	if err != nil {
+		return err
+	}
+	defer os.Remove("cilium-sockops")
+	res = s.Exec("sudo cp /vagrant/cilium-sockops /etc/sysconfig/cilium-sockops")
+	if !res.WasSuccessful() {
+		return fmt.Errorf("%s", res.CombineOutput())
+	}
+
 	res = s.Exec("sudo systemctl restart cilium")
 	if !res.WasSuccessful() {
 		return fmt.Errorf("%s", res.CombineOutput())
@@ -941,6 +961,16 @@ func (s *SSHMeta) RestartCilium() error {
 		return fmt.Errorf("Endpoints are not ready after timeout")
 	}
 	return nil
+}
+
+// RestartCiliumSockops reloads cilium on this host with sockops-enable set,
+// then waits for it to become ready again.
+func (s *SSHMeta) RestartCiliumSockops() error {
+	res := s.Exec("sudo cp /etc/sysconfig/cilium-sockops /etc/sysconfig/cilium")
+	if !res.WasSuccessful() {
+		return fmt.Errorf("%s", res.CombineOutput())
+	}
+	return s.RestartCilium()
 }
 
 // AddIPToLoopbackDevice adds the specified IP (assumed to be in form <ip>/<mask>)
