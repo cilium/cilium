@@ -73,18 +73,18 @@ func (d *Daemon) initHealth() {
 	controller.NewManager().UpdateController("cilium-health-ep",
 		controller.ControllerParams{
 			DoFunc: func() error {
-				return runCiliumHealthEndpoint(d)
+				return d.runCiliumHealthEndpoint()
 			},
 			StopFunc: func() error {
 				err := health.PingEndpoint()
-				cleanupHealthEndpoint(d)
+				d.cleanupHealthEndpoint()
 				return err
 			},
 			RunInterval: 30 * time.Second,
 		})
 }
 
-func cleanupHealthEndpoint(d *Daemon) {
+func (d *Daemon) cleanupHealthEndpoint() {
 	// Delete the process
 	health.KillEndpoint()
 	// Clean up agent resources
@@ -105,10 +105,10 @@ func cleanupHealthEndpoint(d *Daemon) {
 
 // runCiliumHealthEndpoint attempts to contact the cilium-health endpoint, and
 // if it cannot be reached, restarts it.
-func runCiliumHealthEndpoint(d *Daemon) error {
+func (d *Daemon) runCiliumHealthEndpoint() error {
 	// PingEndpoint will always fail the first time (initialization).
 	if err := health.PingEndpoint(); err != nil {
-		cleanupHealthEndpoint(d)
+		d.cleanupHealthEndpoint()
 		addressing := d.getNodeAddressing()
 		return health.LaunchAsEndpoint(d, addressing)
 	}
