@@ -52,6 +52,8 @@ TEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyAddres
 
 # invoked from ginkgo compose file after starting kvstore backends
 tests-privileged:
+	# cilium-map-migrate is a dependency of some unit tests.
+	$(MAKE) -C bpf cilium-map-migrate
 	$(QUIET)$(foreach pkg,$(TESTPKGS),\
 		$(GO) test $(TEST_LDFLAGS) $(pkg) $(GOTEST_PRIV_OPTS) || exit 1;)
 	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
