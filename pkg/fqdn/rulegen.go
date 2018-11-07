@@ -58,7 +58,7 @@ type RuleGen struct {
 
 	// config is a copy from when this instance was initialized.
 	// It is read-only once set
-	config Config // FIXME: make this fqdn.Config
+	config Config
 
 	// IPs maps dnsNames as strings to the most recent IPs emitted for them. It
 	// is, in effect, a reflection of the realized DNS -> IP state (but acts as a
