@@ -26,6 +26,7 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -33,10 +34,12 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/cidrmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/eppolicymap"
 	"github.com/cilium/cilium/pkg/maps/ipcache"
@@ -58,6 +61,50 @@ const (
 	// EndpointGenerationTimeout specifies timeout for proxy completion context
 	EndpointGenerationTimeout = 55 * time.Second
 )
+
+// mapPath returns the path to a map for endpoint ID.
+func mapPath(mapname string, id int) string {
+	return bpf.MapPath(mapname + strconv.Itoa(id))
+}
+
+// PolicyMapPathLocked returns the path to the policy map of endpoint.
+func (e *Endpoint) PolicyMapPathLocked() string {
+	return mapPath(policymap.MapName, int(e.ID))
+}
+
+// IPv6IngressMapPathLocked returns the path to policy map of endpoint.
+func (e *Endpoint) IPv6IngressMapPathLocked() string {
+	return mapPath(cidrmap.MapName+"ingress6_", int(e.ID))
+}
+
+// IPv6EgressMapPathLocked returns the path to policy map of endpoint.
+func (e *Endpoint) IPv6EgressMapPathLocked() string {
+	return mapPath(cidrmap.MapName+"egress6_", int(e.ID))
+}
+
+// IPv4IngressMapPathLocked returns the path to policy map of endpoint.
+func (e *Endpoint) IPv4IngressMapPathLocked() string {
+	return mapPath(cidrmap.MapName+"ingress4_", int(e.ID))
+}
+
+// IPv4EgressMapPathLocked returns the path to policy map of endpoint.
+func (e *Endpoint) IPv4EgressMapPathLocked() string {
+	return mapPath(cidrmap.MapName+"egress4_", int(e.ID))
+}
+
+// PolicyGlobalMapPathLocked returns the path to the global policy map.
+func (e *Endpoint) PolicyGlobalMapPathLocked() string {
+	return bpf.MapPath(PolicyGlobalMapName)
+}
+
+func CallsMapPath(id int) string {
+	return bpf.MapPath(CallsMapName + strconv.Itoa(id))
+}
+
+// CallsMapPathLocked returns the path to cilium tail calls map of an endpoint.
+func (e *Endpoint) CallsMapPathLocked() string {
+	return CallsMapPath(int(e.ID))
+}
 
 type getBPFDataCallback func() (s6, s4 []int)
 
@@ -823,4 +870,221 @@ func (e *Endpoint) DeleteMapsLocked() []error {
 	}
 
 	return errors
+}
+
+// garbageCollectConntrack will run the ctmap.GC() on either the endpoint's
+// local conntrack table or the global conntrack table.
+//
+// The endpoint lock must be held
+func (e *Endpoint) garbageCollectConntrack(filter *ctmap.GCFilter) {
+	var maps []*ctmap.Map
+
+	ipv4 := !option.Config.IPv4Disabled
+	if e.ConntrackLocalLocked() {
+		maps = ctmap.LocalMaps(e, ipv4, true)
+	} else {
+		maps = ctmap.GlobalMaps(ipv4, true)
+	}
+	for _, m := range maps {
+		if err := m.Open(); err != nil {
+			filepath, err2 := m.Path()
+			if err2 != nil {
+				log.WithError(err2).Warn("Unable to get CT map path")
+			}
+			log.WithError(err).WithField(logfields.Path, filepath).Warn("Unable to open map")
+			continue
+		}
+		defer m.Close()
+
+		ctmap.GC(m, filter)
+	}
+}
+
+func (e *Endpoint) scrubIPsInConntrackTableLocked() {
+	e.garbageCollectConntrack(&ctmap.GCFilter{
+		MatchIPs: map[string]struct{}{
+			e.IPv4.String(): {},
+			e.IPv6.String(): {},
+		},
+	})
+}
+
+func (e *Endpoint) scrubIPsInConntrackTable() {
+	e.UnconditionalLock()
+	e.scrubIPsInConntrackTableLocked()
+	e.Unlock()
+}
+
+// SkipStateClean can be called on a endpoint before its first build to skip
+// the cleaning of state such as the conntrack table. This is useful when an
+// endpoint is being restored from state and the datapath state should not be
+// claned.
+//
+// The endpoint lock must NOT be held.
+func (e *Endpoint) SkipStateClean() {
+	// Mark conntrack as already cleaned
+	e.UnconditionalLock()
+	e.ctCleaned = true
+	e.Unlock()
+}
+
+// GetBPFKeys returns all keys which should represent this endpoint in the BPF
+// endpoints map
+func (e *Endpoint) GetBPFKeys() []*lxcmap.EndpointKey {
+	key := lxcmap.NewEndpointKey(e.IPv6.IP())
+
+	if e.IPv4 != nil {
+		key4 := lxcmap.NewEndpointKey(e.IPv4.IP())
+		return []*lxcmap.EndpointKey{key, key4}
+	}
+
+	return []*lxcmap.EndpointKey{key}
+}
+
+// GetBPFValue returns the value which should represent this endpoint in the
+// BPF endpoints map
+func (e *Endpoint) GetBPFValue() (*lxcmap.EndpointInfo, error) {
+	mac, err := e.LXCMAC.Uint64()
+	if err != nil {
+		return nil, fmt.Errorf("invalid LXC MAC: %v", err)
+	}
+
+	nodeMAC, err := e.NodeMAC.Uint64()
+	if err != nil {
+		return nil, fmt.Errorf("invalid node MAC: %v", err)
+	}
+
+	info := &lxcmap.EndpointInfo{
+		IfIndex: uint32(e.IfIndex),
+		// Store security identity in network byte order so it can be
+		// written into the packet without an additional byte order
+		// conversion.
+		LxcID:   e.ID,
+		MAC:     lxcmap.MAC(mac),
+		NodeMAC: lxcmap.MAC(nodeMAC),
+	}
+
+	return info, nil
+}
+
+// PolicyMapState is a state of a policy map.
+type PolicyMapState map[policymap.PolicyKey]PolicyMapStateEntry
+
+// PolicyMapStateEntry is the configuration associated with a PolicyKey in a
+// PolicyMapState. This is a minimized version of policymap.PolicyEntry.
+type PolicyMapStateEntry struct {
+	// The proxy port, in host byte order.
+	// If 0 (default), there is no proxy redirection for the corresponding
+	// PolicyKey.
+	ProxyPort uint16
+}
+
+// syncPolicyMap attempts to synchronize the PolicyMap for this endpoint to
+// contain the set of PolicyKeys represented by the endpoint's desiredMapState.
+// It checks the current contents of the endpoint's PolicyMap and deletes any
+// PolicyKeys that are not present in the endpoint's desiredMapState. It then
+// adds any keys that are not present in the map. When a key from desiredMapState
+// is inserted successfully to the endpoint's BPF PolicyMap, it is added to the
+// endpoint's realizedMapState field. Returns an error if the endpoint's BPF
+// PolicyMap is unable to be dumped, or any update operation to the map fails.
+// Must be called with e.Mutex locked.
+func (e *Endpoint) syncPolicyMap() error {
+
+	if e.realizedMapState == nil {
+		e.realizedMapState = make(PolicyMapState)
+	}
+
+	if e.desiredMapState == nil {
+		e.desiredMapState = make(PolicyMapState)
+	}
+
+	if e.PolicyMap == nil {
+		return fmt.Errorf("not syncing PolicyMap state for endpoint because PolicyMap is nil")
+	}
+
+	currentMapContents, err := e.PolicyMap.DumpToSlice()
+
+	// If map is unable to be dumped, attempt to close map and open it again.
+	// See GH-4229.
+	if err != nil {
+		e.getLogger().WithError(err).Error("unable to dump PolicyMap when trying to sync desired and realized PolicyMap state")
+
+		// Close to avoid leaking of file descriptors, but still continue in case
+		// Close() does not succeed, because otherwise the map will never be
+		// opened again unless the agent is restarted.
+		err := e.PolicyMap.Close()
+		if err != nil {
+			e.getLogger().WithError(err).Error("unable to close PolicyMap which was not able to be dumped")
+		}
+
+		e.PolicyMap, _, err = policymap.OpenMap(e.PolicyMapPathLocked())
+		if err != nil {
+			return fmt.Errorf("unable to open PolicyMap for endpoint: %s", err)
+		}
+
+		// Try to dump again, fail if error occurs.
+		currentMapContents, err = e.PolicyMap.DumpToSlice()
+		if err != nil {
+			return err
+		}
+	}
+
+	errors := []error{}
+
+	for _, entry := range currentMapContents {
+		// Convert key to host-byte order for lookup in the desiredMapState.
+		keyHostOrder := entry.Key.ToHost()
+
+		// If key that is in policy map is not in desired state, just remove it.
+		if _, ok := e.desiredMapState[keyHostOrder]; !ok {
+			// Can pass key with host byte-order fields, as it will get
+			// converted to network byte-order.
+			err := e.PolicyMap.DeleteKey(keyHostOrder)
+			if err != nil {
+				e.getLogger().WithError(err).Errorf("Failed to delete PolicyMap key %s", entry.Key.String())
+				errors = append(errors, err)
+			} else {
+				// Operation was successful, remove from realized state.
+				delete(e.realizedMapState, keyHostOrder)
+			}
+		}
+	}
+
+	for keyToAdd, entry := range e.desiredMapState {
+		if oldEntry, ok := e.realizedMapState[keyToAdd]; !ok || oldEntry != entry {
+			err := e.PolicyMap.AllowKey(keyToAdd, entry.ProxyPort)
+			if err != nil {
+				e.getLogger().WithError(err).Errorf("Failed to add PolicyMap key %s %d", keyToAdd.String(), entry.ProxyPort)
+				errors = append(errors, err)
+			} else {
+				// Operation was successful, add to realized state.
+				e.realizedMapState[keyToAdd] = entry
+			}
+		}
+	}
+
+	if len(errors) > 0 {
+		return fmt.Errorf("synchronizing desired PolicyMap state failed: %s", errors)
+	}
+
+	return nil
+}
+
+func (e *Endpoint) syncPolicyMapController() {
+	ctrlName := fmt.Sprintf("sync-policymap-%d", e.ID)
+	e.controllers.UpdateController(ctrlName,
+		controller.ControllerParams{
+			DoFunc: func() (reterr error) {
+				// Failure to lock is not an error, it means
+				// that the endpoint was disconnected and we
+				// should exit gracefully.
+				if err := e.LockAlive(); err != nil {
+					return nil
+				}
+				defer e.Unlock()
+				return e.syncPolicyMap()
+			},
+			RunInterval: 1 * time.Minute,
+		},
+	)
 }
