@@ -101,11 +101,11 @@ var ExpectedHeaders3 = []*envoy_api_v2_route.HeaderMatcher{
 }
 
 var EndpointSelector1 = api.NewESFromLabels(
-	&labels.Label{Key: "app", Value: "etcd", Source: labels.LabelSourceK8s},
+	labels.NewLabel("app", "etcd", labels.LabelSourceK8s),
 )
 
 var EndpointSelector2 = api.NewESFromLabels(
-	&labels.Label{Key: "version", Value: "v1", Source: labels.LabelSourceK8s},
+	labels.NewLabel("version", "v1", labels.LabelSourceK8s),
 )
 
 var L7Rules1 = api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1, *PortRuleHTTP2}}
@@ -113,17 +113,17 @@ var L7Rules1 = api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1, *PortRuleHTT
 var L7Rules2 = api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1}}
 
 var IdentityCache = cache.IdentityCache{
-	1001: []*labels.Label{
-		{Key: "app", Value: "etcd", Source: labels.LabelSourceK8s},
-		{Key: "version", Value: "v1", Source: labels.LabelSourceK8s},
+	1001: labels.LabelArray{
+		labels.NewLabel("app", "etcd", labels.LabelSourceK8s),
+		labels.NewLabel("version", "v1", labels.LabelSourceK8s),
 	},
-	1002: []*labels.Label{
-		{Key: "app", Value: "etcd", Source: labels.LabelSourceK8s},
-		{Key: "version", Value: "v2", Source: labels.LabelSourceK8s},
+	1002: labels.LabelArray{
+		labels.NewLabel("app", "etcd", labels.LabelSourceK8s),
+		labels.NewLabel("version", "v2", labels.LabelSourceK8s),
 	},
-	1003: []*labels.Label{
-		{Key: "app", Value: "cassandra", Source: labels.LabelSourceK8s},
-		{Key: "version", Value: "v1", Source: labels.LabelSourceK8s},
+	1003: labels.LabelArray{
+		labels.NewLabel("app", "cassandra", labels.LabelSourceK8s),
+		labels.NewLabel("version", "v1", labels.LabelSourceK8s),
 	},
 }
 

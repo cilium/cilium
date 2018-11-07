@@ -12,9 +12,5 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +k8s:deepcopy-gen=package
-// +k8s:openapi-gen=true
-
 // Package api defines the API of the Cilium network policy interface
-// +groupName=pkg
 package labels

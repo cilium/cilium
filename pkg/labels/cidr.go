@@ -46,7 +46,7 @@ func maskedIPToLabelString(ip *net.IP, prefix int) string {
 
 // IPNetToLabel turns a CIDR into a Label object which can be used to create
 // EndpointSelector objects.
-func IPNetToLabel(cidr *net.IPNet) *Label {
+func IPNetToLabel(cidr *net.IPNet) Label {
 	ones, _ := cidr.Mask.Size()
 	lblStr := maskedIPToLabelString(&cidr.IP, ones)
 	return ParseLabel(lblStr)
@@ -54,13 +54,13 @@ func IPNetToLabel(cidr *net.IPNet) *Label {
 
 // IPStringToLabel parses a string and returns it as a CIDR label.
 //
-// If "IP" is not a valid IP address or CIDR Prefix, returns nil.
-func IPStringToLabel(IP string) *Label {
+// If "IP" is not a valid IP address or CIDR Prefix, returns an error.
+func IPStringToLabel(IP string) (Label, error) {
 	_, parsedPrefix, err := net.ParseCIDR(IP)
 	if err != nil {
 		parsedIP := net.ParseIP(IP)
 		if parsedIP == nil {
-			return nil
+			return Label{}, fmt.Errorf("Not an IP address or CIDR: %s", IP)
 		}
 		bits := net.IPv6len * 8
 		if parsedIP.To4() != nil {
@@ -69,7 +69,7 @@ func IPStringToLabel(IP string) *Label {
 		parsedPrefix = &net.IPNet{IP: parsedIP, Mask: net.CIDRMask(bits, bits)}
 	}
 
-	return IPNetToLabel(parsedPrefix)
+	return IPNetToLabel(parsedPrefix), nil
 }
 
 // MaskedIPNetToLabelString masks the prefix/bits of the specified 'cidr' then

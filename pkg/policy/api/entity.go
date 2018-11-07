@@ -44,29 +44,13 @@ const (
 )
 
 var (
-	endpointSelectorWorld = NewESFromLabels(&labels.Label{
-		Key:    labels.IDNameWorld,
-		Value:  "",
-		Source: labels.LabelSourceReserved,
-	})
+	endpointSelectorWorld = NewESFromLabels(labels.NewLabel(labels.IDNameWorld, "", labels.LabelSourceReserved))
 
-	endpointSelectorHost = NewESFromLabels(&labels.Label{
-		Key:    labels.IDNameHost,
-		Value:  "",
-		Source: labels.LabelSourceReserved,
-	})
+	endpointSelectorHost = NewESFromLabels(labels.NewLabel(labels.IDNameHost, "", labels.LabelSourceReserved))
 
-	endpointSelectorInit = NewESFromLabels(&labels.Label{
-		Key:    labels.IDNameInit,
-		Value:  "",
-		Source: labels.LabelSourceReserved,
-	})
+	endpointSelectorInit = NewESFromLabels(labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved))
 
-	endpointSelectorUnmanaged = NewESFromLabels(&labels.Label{
-		Key:    labels.IDNameUnmanaged,
-		Value:  "",
-		Source: labels.LabelSourceReserved,
-	})
+	endpointSelectorUnmanaged = NewESFromLabels(labels.NewLabel(labels.IDNameUnmanaged, "", labels.LabelSourceReserved))
 
 	// EntitySelectorMapping maps special entity names that come in
 	// policies to selectors
@@ -130,10 +114,6 @@ func InitEntities(clusterName string) {
 		endpointSelectorHost,
 		endpointSelectorInit,
 		endpointSelectorUnmanaged,
-		NewESFromLabels(&labels.Label{
-			Key:    k8sapi.PolicyLabelCluster,
-			Value:  clusterName,
-			Source: labels.LabelSourceK8s,
-		}),
+		NewESFromLabels(labels.NewLabel(k8sapi.PolicyLabelCluster, clusterName, labels.LabelSourceK8s)),
 	}
 }

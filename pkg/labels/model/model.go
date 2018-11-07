@@ -32,3 +32,14 @@ func NewOplabelsFromModel(base *models.LabelConfigurationStatus) *labels.OpLabel
 		OrchestrationInfo:     labels.NewLabelsFromModel(base.Derived),
 	}
 }
+
+func NewModel(o *labels.OpLabels) *models.LabelConfigurationStatus {
+	return &models.LabelConfigurationStatus{
+		Realized: &models.LabelConfigurationSpec{
+			User: o.Custom.GetModel(),
+		},
+		SecurityRelevant: o.OrchestrationIdentity.GetModel(),
+		Derived:          o.OrchestrationInfo.GetModel(),
+		Disabled:         o.Disabled.GetModel(),
+	}
+}

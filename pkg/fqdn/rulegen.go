@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -44,7 +45,7 @@ const (
 
 // uuidLabelSearchKey is an *extended* label key. This is because .Has
 // expects the source:key delimiter to be the labels.PathDelimiter
-var uuidLabelSearchKey = generateUUIDLabel().GetExtendedKey()
+var uuidLabelSearchKey = labels.LabelSourceCiliumGenerated + labels.PathDelimiter + generatedLabelNameUUID
 
 // RuleGen tracks which rules depend on which DNS names. When DNS updates are
 // given to a RuleGen it will emit generated policy rules with DNS IPs inserted

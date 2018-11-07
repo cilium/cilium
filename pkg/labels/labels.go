@@ -61,69 +61,6 @@ var (
 	LabelHealth = Labels{IDNameHealth: NewLabel(IDNameHealth, "", LabelSourceReserved)}
 )
 
-// OpLabels represents the the possible types.
-// +k8s:openapi-gen=false
-type OpLabels struct {
-	// Active labels that are enabled and disabled but not deleted
-	Custom Labels
-	// Labels derived from orchestration system
-	OrchestrationIdentity Labels
-
-	//OrchestrationIdentity
-	// OrchestrationIdentity labels which have been disabled
-	Disabled Labels
-
-	//OrchestrationInfo - labels from orchestration which are not used in determining a security identity
-	OrchestrationInfo Labels
-}
-
-// IdentityLabels returns map of labels that are used when determining a
-// security identity.
-func (o *OpLabels) IdentityLabels() Labels {
-	enabled := make(Labels, len(o.Custom)+len(o.OrchestrationIdentity))
-
-	for k, v := range o.Custom {
-		enabled[k] = v
-	}
-
-	for k, v := range o.OrchestrationIdentity {
-		enabled[k] = v
-	}
-
-	return enabled
-}
-
-// GetIdentityLabel returns the value of the given Key from all IdentityLabels.
-func (o *OpLabels) GetIdentityLabel(key string) *Label {
-	l := o.OrchestrationIdentity[key]
-	if l != nil {
-		return l
-	}
-	return o.Custom[key]
-}
-
-// AllLabels returns all Labels within the provided OpLabels.
-func (o *OpLabels) AllLabels() Labels {
-	all := make(Labels, len(o.Custom)+len(o.OrchestrationInfo)+len(o.OrchestrationIdentity)+len(o.Disabled))
-
-	for k, v := range o.Custom {
-		all[k] = v
-	}
-
-	for k, v := range o.Disabled {
-		all[k] = v
-	}
-
-	for k, v := range o.OrchestrationIdentity {
-		all[k] = v
-	}
-
-	for k, v := range o.OrchestrationInfo {
-		all[k] = v
-	}
-	return all
-}
-
 const (
 	// LabelSourceUnspec is a label with unspecified source
 	LabelSourceUnspec = "unspec"
@@ -170,12 +107,10 @@ type Label struct {
 	Value string `json:"value,omitempty"`
 	// Source can be one of the values present in const.go (e.g.: LabelSourceContainer)
 	Source string `json:"source"`
-	// Mark element to be used to find unused labels in lists
-	deletionMark bool
 }
 
 // Labels is a map of labels where the map's key is the same as the label's key.
-type Labels map[string]*Label
+type Labels map[string]Label
 
 // GetPrintableModel turns the Labels into a sorted list of strings
 // representing the labels, with CIDRs deduplicated (ie, only provide the most
@@ -210,55 +145,12 @@ func (l Labels) String() string {
 	return strings.Join(l.GetPrintableModel(), ",")
 }
 
-// MarkAllForDeletion marks all the labels with the deletionMark.
-func (l Labels) MarkAllForDeletion() {
-	for k := range l {
-		l[k].deletionMark = true
-	}
-}
-
-func (l *Label) ClearDeletionMark() {
-	l.deletionMark = false
-}
-
-// UpsertLabel updates or inserts 'label' in 'l', but only if exactly the same label
-// was not already in 'l'. If a label with the same key is found, the label's deletionMark
-// is cleared. Returns 'true' if a label was added, or an old label was updated, 'false'
-// otherwise.
-func (l Labels) UpsertLabel(label *Label) bool {
-	oldLabel := l[label.Key]
-	if oldLabel != nil {
-		l[label.Key].ClearDeletionMark()
-		// Key is the same, check if Value and Source are also the same
-		if label.Value == oldLabel.Value && label.Source == oldLabel.Source {
-			return false // No change
-		}
-	}
-	// Insert or replace old label
-	l[label.Key] = label.DeepCopy()
-	return true
-}
-
-// DeleteMarked deletes the labels which have the deletionMark set and returns
-// true if any of them were deleted.
-func (l Labels) DeleteMarked() bool {
-	deleted := false
-	for k := range l {
-		if l[k].deletionMark {
-			delete(l, k)
-			deleted = true
-		}
-	}
-
-	return deleted
-}
-
 // AppendPrefixInKey appends the given prefix to all the Key's of the map and the
 // respective Labels' Key.
 func (l Labels) AppendPrefixInKey(prefix string) Labels {
 	newLabels := Labels{}
 	for k, v := range l {
-		newLabels[prefix+k] = &Label{
+		newLabels[prefix+k] = Label{
 			Key:    prefix + v.Key,
 			Value:  v.Value,
 			Source: v.Source,
@@ -300,7 +192,7 @@ func (l Labels) GetFromSource(source string) Labels {
 // will be overwritten with LabelSourceReserved. If key contains ':', the value
 // before ':' will be used as source if given source is empty, otherwise the value before
 // ':' will be deleted and unused.
-func NewLabel(key string, value string, source string) *Label {
+func NewLabel(key string, value string, source string) Label {
 	var src string
 	src, key = parseSource(key, ':')
 	if source == "" {
@@ -315,7 +207,7 @@ func NewLabel(key string, value string, source string) *Label {
 		value = ""
 	}
 
-	return &Label{
+	return Label{
 		Key:    key,
 		Value:  value,
 		Source: source,
@@ -324,10 +216,8 @@ func NewLabel(key string, value string, source string) *Label {
 
 // Equals returns true if source, AbsoluteKey() and Value are equal and false otherwise.
 func (l *Label) Equals(b *Label) bool {
-	if !l.IsAnySource() {
-		if l.Source != b.Source {
-			return false
-		}
+	if !l.IsAnySource() && l.Source != b.Source {
+		return false
 	}
 	return l.Key == b.Key && l.Value == b.Value
 }
@@ -401,7 +291,7 @@ func (l *Label) UnmarshalJSON(data []byte) error {
 			return fmt.Errorf("invalid Label: Failed to parse %s as a string", data)
 		}
 
-		*l = *ParseLabel(aux)
+		*l = ParseLabel(aux)
 	} else {
 		if aux.Key == "" {
 			return fmt.Errorf("invalid Label: '%s' does not contain label key", data)
@@ -463,19 +353,6 @@ func Map2Labels(m map[string]string, source string) Labels {
 	return o
 }
 
-// DeepCopy returns a deep copy of the labels.
-func (l Labels) DeepCopy() Labels {
-	if l == nil {
-		return nil
-	}
-
-	o := make(Labels, len(l))
-	for k, v := range l {
-		o[k] = v.DeepCopy()
-	}
-	return o
-}
-
 // NewLabelsFromModel creates labels from string array.
 func NewLabelsFromModel(base []string) Labels {
 	lbls := make(Labels, len(base))
@@ -497,8 +374,8 @@ func NewLabelsFromSortedList(list string) Labels {
 // into an array of selecting labels.
 func NewSelectLabelArrayFromModel(base []string) LabelArray {
 	lbls := make(LabelArray, 0, len(base))
-	for _, v := range base {
-		lbls = append(lbls, ParseSelectLabel(v))
+	for i := range base {
+		lbls = append(lbls, ParseSelectLabel(base[i]))
 	}
 
 	return lbls
@@ -522,8 +399,7 @@ func (l Labels) GetModel() []string {
 // fmt.Printf("%+v\n", to)
 //   Labels{Label{key1, value3, source4}, Label{key2, value3, source4}}
 func (l Labels) MergeLabels(from Labels) {
-	fromCpy := from.DeepCopy()
-	for k, v := range fromCpy {
+	for k, v := range from {
 		l[k] = v
 	}
 }
@@ -556,27 +432,32 @@ func (l Labels) SortedList() []byte {
 }
 
 // ToSlice returns a slice of label with the values of the given Labels' map.
-func (l Labels) ToSlice() []*Label {
-	labels := []*Label{}
+func (l Labels) ToSlice() []Label {
+	labels := []Label{}
 	for _, v := range l {
-		labels = append(labels, v.DeepCopy())
+		labels = append(labels, v)
 	}
 	return labels
 }
 
 // LabelArray returns the labels as label array
 func (l Labels) LabelArray() LabelArray {
-	return l.ToSlice()
+	labels := []Label{}
+	for _, v := range l {
+		labels = append(labels, v)
+	}
+	return labels
 }
 
 // FindReserved locates all labels with reserved source in the labels and
 // returns a copy of them. If there are no reserved labels, returns nil.
+// TODO: return LabelArray as it is likely faster
 func (l Labels) FindReserved() Labels {
 	lbls := Labels{}
 
 	for k, lbl := range l {
 		if lbl.Source == LabelSourceReserved {
-			lbls[k] = lbl.DeepCopy()
+			lbls[k] = lbl
 		}
 	}
 
@@ -584,6 +465,16 @@ func (l Labels) FindReserved() Labels {
 		return lbls
 	}
 	return nil
+}
+
+// IsReserved returns true if any of the labels has a reserved source.
+func (l Labels) IsReserved() bool {
+	for _, lbl := range l {
+		if lbl.Source == LabelSourceReserved {
+			return true
+		}
+	}
+	return false
 }
 
 // parseSource returns the parsed source of the given str. It also returns the next piece
@@ -614,9 +505,8 @@ func parseSource(str string, delim byte) (src, next string) {
 // ParseLabel returns the label representation of the given string. The str should be
 // in the form of Source:Key=Value or Source:Key if Value is empty. It also parses short
 // forms, for example: $host will be Label{Key: "host", Source: "reserved", Value: ""}.
-func ParseLabel(str string) *Label {
-	lbl := parseLabel(str, ':')
-	return &lbl
+func ParseLabel(str string) Label {
+	return parseLabel(str, ':')
 }
 
 // parseLabel returns the label representation of the given string by value.
@@ -647,10 +537,8 @@ func parseLabel(str string, delim byte) (lbl Label) {
 // ParseSelectLabel returns a selecting label representation of the given
 // string. Unlike ParseLabel, if source is unspecified, the source defaults to
 // LabelSourceAny
-func ParseSelectLabel(str string) *Label {
-	lbl := parseSelectLabel(str, ':')
-
-	return &lbl
+func ParseSelectLabel(str string) Label {
+	return parseSelectLabel(str, ':')
 }
 
 // parseSelectLabel returns a selecting label representation of the given
