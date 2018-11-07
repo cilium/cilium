@@ -22,8 +22,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/test/helpers"
 
 	"github.com/sirupsen/logrus"
 )
@@ -76,11 +76,11 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		"ip -4 route show table 2005",
 		"ip -6 route show table 2005",
 		// gops
-		fmt.Sprintf("gops memstats $(pidof %s)", helpers.AgentDaemon),
-		fmt.Sprintf("gops stack $(pidof %s)", helpers.AgentDaemon),
-		fmt.Sprintf("gops stats $(pidof %s)", helpers.AgentDaemon),
+		fmt.Sprintf("gops memstats $(pidof %s)", components.CiliumAgentName),
+		fmt.Sprintf("gops stack $(pidof %s)", components.CiliumAgentName),
+		fmt.Sprintf("gops stats $(pidof %s)", components.CiliumAgentName),
 		// Get list of open file descriptors managed by the agent
-		fmt.Sprintf("ls -la /proc/$(pidof %s)/fd", helpers.AgentDaemon),
+		fmt.Sprintf("ls -la /proc/$(pidof %s)/fd", components.CiliumAgentName),
 	}
 
 	// Commands that require variables and / or more configuration are added
