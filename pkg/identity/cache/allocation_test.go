@@ -52,10 +52,8 @@ func (s *IdentityCacheTestSuite) TestAllocateIdentityReserved(c *C) {
 	c.Assert(i.ID, Equals, identity.ReservedIdentityWorld)
 	c.Assert(isNew, Equals, false)
 
-	lbls = labels.LabelHealth.DeepCopy()
-
-	c.Assert(IdentityAllocationIsLocal(lbls), Equals, true)
-	i, isNew, err = AllocateIdentity(lbls)
+	c.Assert(IdentityAllocationIsLocal(labels.LabelHealth), Equals, true)
+	i, isNew, err = AllocateIdentity(labels.LabelHealth)
 	c.Assert(err, IsNil)
 	c.Assert(i.ID, Equals, identity.ReservedIdentityHealth)
 	c.Assert(isNew, Equals, false)

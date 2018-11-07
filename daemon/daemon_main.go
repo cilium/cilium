@@ -145,10 +145,7 @@ var (
 		}
 		lblStr := vals[1]
 		lbl := labels.ParseLabel(lblStr)
-		switch {
-		case lbl == nil:
-			return "", fmt.Errorf(`unable to parse given label: %s`, lblStr)
-		case lbl.IsReservedSource():
+		if lbl.IsReservedSource() {
 			return "", fmt.Errorf(`invalid source %q for label: %s`, labels.LabelSourceReserved, lblStr)
 		}
 		return val, nil

@@ -35,6 +35,8 @@ func (s *LabelsSuite) TestIPStringToLabel(c *C) {
 		"fdff::ff":     "cidr:fdff--ff/128",
 	}
 	for ip, labelStr := range ipToLabels {
-		c.Assert(IPStringToLabel(ip).String(), checker.DeepEquals, labelStr)
+		lbl, err := IPStringToLabel(ip)
+		c.Assert(err, IsNil)
+		c.Assert(lbl.String(), checker.DeepEquals, labelStr)
 	}
 }

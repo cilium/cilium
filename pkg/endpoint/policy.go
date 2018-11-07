@@ -986,8 +986,8 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) {
 
 	// Set a boolean flag to indicate whether the endpoint has been injected by
 	// Istio with a Cilium-compatible sidecar proxy.
-	istioSidecarProxyLabel := identity.Labels[k8sConst.PolicyLabelIstioSidecarProxy]
-	e.hasSidecarProxy = istioSidecarProxyLabel != nil &&
+	istioSidecarProxyLabel, found := identity.Labels[k8sConst.PolicyLabelIstioSidecarProxy]
+	e.hasSidecarProxy = found &&
 		istioSidecarProxyLabel.Source == labels.LabelSourceK8s &&
 		strings.ToLower(istioSidecarProxyLabel.Value) == "true"
 

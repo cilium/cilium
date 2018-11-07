@@ -64,7 +64,7 @@ func (s *LabelsSuite) TestSortMap(c *C) {
 
 type lblTest struct {
 	label  string
-	result *Label
+	result Label
 }
 
 func (s *LabelsSuite) TestMap2Labels(c *C) {
@@ -93,14 +93,14 @@ func (s *LabelsSuite) TestMergeLabels(c *C) {
 		"key2": NewLabel("key2", "value3", "source4"),
 	}
 	to.MergeLabels(from)
-	from["key1"].Value = "changed"
+	from["key1"] = NewLabel("key1", "changed", "source4")
 	c.Assert(to, checker.DeepEquals, want)
 }
 
 func (s *LabelsSuite) TestParseLabel(c *C) {
 	tests := []struct {
 		str string
-		out *Label
+		out Label
 	}{
 		{"source1:key1=value1", NewLabel("key1", "value1", "source1")},
 		{"key1=value1", NewLabel("key1", "value1", LabelSourceUnspec)},
@@ -131,7 +131,7 @@ func (s *LabelsSuite) TestParseLabel(c *C) {
 func BenchmarkParseLabel(b *testing.B) {
 	tests := []struct {
 		str string
-		out *Label
+		out Label
 	}{
 		{"source1:key1=value1", NewLabel("key1", "value1", "source1")},
 		{"key1=value1", NewLabel("key1", "value1", LabelSourceUnspec)},
@@ -167,7 +167,7 @@ func BenchmarkParseLabel(b *testing.B) {
 func (s *LabelsSuite) TestParseSelectLabel(c *C) {
 	tests := []struct {
 		str string
-		out *Label
+		out Label
 	}{
 		{"source1:key1=value1", NewLabel("key1", "value1", "source1")},
 		{"key1=value1", NewLabel("key1", "value1", LabelSourceAny)},
@@ -226,12 +226,12 @@ func (s *LabelsSuite) TestLabelCompare(c *C) {
 	c1 := NewLabel("bar", "", "kubernetes")
 	d1 := NewLabel("", "", "")
 
-	c.Assert(a1.Equals(a2), Equals, true)
-	c.Assert(a2.Equals(a1), Equals, true)
-	c.Assert(a1.Equals(b1), Equals, false)
-	c.Assert(a1.Equals(c1), Equals, false)
-	c.Assert(a1.Equals(d1), Equals, false)
-	c.Assert(b1.Equals(c1), Equals, false)
+	c.Assert(a1.Equals(&a2), Equals, true)
+	c.Assert(a2.Equals(&a1), Equals, true)
+	c.Assert(a1.Equals(&b1), Equals, false)
+	c.Assert(a1.Equals(&c1), Equals, false)
+	c.Assert(a1.Equals(&d1), Equals, false)
+	c.Assert(b1.Equals(&c1), Equals, false)
 }
 
 func (s *LabelsSuite) TestLabelParseKey(c *C) {

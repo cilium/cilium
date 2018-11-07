@@ -15,11 +15,11 @@
 package labels
 
 // LabelArray is an array of labels forming a set
-type LabelArray []*Label
+type LabelArray []Label
 
 // ParseLabelArray parses a list of labels and returns a LabelArray
 func ParseLabelArray(labels ...string) LabelArray {
-	array := make([]*Label, len(labels))
+	array := make([]Label, len(labels))
 	for i := range labels {
 		array[i] = ParseLabel(labels[i])
 	}
@@ -28,7 +28,7 @@ func ParseLabelArray(labels ...string) LabelArray {
 
 // ParseSelectLabelArray parses a list of select labels and returns a LabelArray
 func ParseSelectLabelArray(labels ...string) LabelArray {
-	array := make([]*Label, len(labels))
+	array := make([]Label, len(labels))
 	for i := range labels {
 		array[i] = ParseSelectLabel(labels[i])
 	}
@@ -37,7 +37,7 @@ func ParseSelectLabelArray(labels ...string) LabelArray {
 
 // ParseLabelArrayFromArray converts an array of strings as labels and returns a LabelArray
 func ParseLabelArrayFromArray(base []string) LabelArray {
-	array := make([]*Label, len(base))
+	array := make([]Label, len(base))
 	for i := range base {
 		array[i] = ParseLabel(base[i])
 	}
@@ -46,7 +46,7 @@ func ParseLabelArrayFromArray(base []string) LabelArray {
 
 // ParseSelectLabelArrayFromArray converts an array of strings as select labels and returns a LabelArray
 func ParseSelectLabelArrayFromArray(base []string) LabelArray {
-	array := make([]*Label, len(base))
+	array := make([]Label, len(base))
 	for i := range base {
 		array[i] = ParseSelectLabel(base[i])
 	}
@@ -57,9 +57,9 @@ func ParseSelectLabelArrayFromArray(base []string) LabelArray {
 // needed contains no labels, Contains() will always return true
 func (ls LabelArray) Contains(needed LabelArray) bool {
 nextLabel:
-	for _, neededLabel := range needed {
-		for _, l := range ls {
-			if neededLabel.Matches(l) {
+	for i := range needed {
+		for l := range ls {
+			if needed[i].Matches(&ls[l]) {
 				continue nextLabel
 			}
 		}
@@ -74,14 +74,14 @@ nextLabel:
 func (ls LabelArray) Lacks(needed LabelArray) LabelArray {
 	missing := LabelArray{}
 nextLabel:
-	for _, neededLabel := range needed {
-		for _, l := range ls {
-			if neededLabel.Matches(l) {
+	for i := range needed {
+		for l := range ls {
+			if needed[i].Matches(&ls[l]) {
 				continue nextLabel
 			}
 		}
 
-		missing = append(missing, neededLabel)
+		missing = append(missing, needed[i])
 	}
 
 	return missing
@@ -93,8 +93,8 @@ func (ls LabelArray) Has(key string) bool {
 	// The key is submitted in the form of `source.key=value`
 	keyLabel := parseSelectLabel(key, '.')
 	if keyLabel.IsAnySource() {
-		for _, lsl := range ls {
-			if lsl.Key == keyLabel.Key {
+		for l := range ls {
+			if ls[l].Key == keyLabel.Key {
 				return true
 			}
 		}
@@ -114,9 +114,9 @@ func (ls LabelArray) Has(key string) bool {
 func (ls LabelArray) Get(key string) string {
 	keyLabel := parseSelectLabel(key, '.')
 	if keyLabel.IsAnySource() {
-		for _, lsl := range ls {
-			if lsl.Key == keyLabel.Key {
-				return lsl.Value
+		for l := range ls {
+			if ls[l].Key == keyLabel.Key {
+				return ls[l].Value
 			}
 		}
 	} else {
@@ -135,10 +135,8 @@ func (ls LabelArray) DeepCopy() LabelArray {
 		return nil
 	}
 
-	o := make(LabelArray, 0, len(ls))
-	for _, v := range ls {
-		o = append(o, v.DeepCopy())
-	}
+	o := make(LabelArray, len(ls), len(ls))
+	copy(o, ls)
 	return o
 }
 
@@ -146,12 +144,20 @@ func (ls LabelArray) DeepCopy() LabelArray {
 // The output is parseable by ParseLabelArrayFromArray
 func (ls LabelArray) GetModel() []string {
 	res := []string{}
-	for _, v := range ls {
-		if v == nil {
-			res = append(res, "")
-		} else {
-			res = append(res, v.String())
-		}
+	for l := range ls {
+		res = append(res, ls[l].String())
 	}
+	return res
+}
+
+func (ls LabelArray) String() string {
+	res := "["
+	for l := range ls {
+		if l > 0 {
+			res += " "
+		}
+		res += ls[l].String()
+	}
+	res += "]"
 	return res
 }

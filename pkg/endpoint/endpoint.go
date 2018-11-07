@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/labels/model"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
@@ -412,6 +413,7 @@ func NewEndpointWithState(ID uint16, state string) *Endpoint {
 	ep := &Endpoint{
 		ID:            ID,
 		Options:       option.NewIntOptions(&EndpointMutableOptionLibrary),
+		OpLabels:      pkgLabels.NewOpLabels(),
 		Status:        NewEndpointStatus(),
 		state:         state,
 		hasBPFProgram: make(chan struct{}, 0),
@@ -434,15 +436,10 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, 
 		DockerEndpointID: base.DockerEndpointID,
 		IfName:           base.InterfaceName,
 		IfIndex:          int(base.InterfaceIndex),
-		OpLabels: pkgLabels.OpLabels{
-			Custom:                pkgLabels.Labels{},
-			Disabled:              pkgLabels.Labels{},
-			OrchestrationIdentity: pkgLabels.Labels{},
-			OrchestrationInfo:     pkgLabels.Labels{},
-		},
-		state:         "",
-		Status:        NewEndpointStatus(),
-		hasBPFProgram: make(chan struct{}, 0),
+		OpLabels:         pkgLabels.NewOpLabels(),
+		state:            "",
+		Status:           NewEndpointStatus(),
+		hasBPFProgram:    make(chan struct{}, 0),
 	}
 	ep.UpdateLogger(nil)
 
@@ -504,18 +501,11 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 		statusLog = statusLog[:1]
 	}
 
-	lblSpec := &models.LabelConfigurationSpec{
-		User: e.OpLabels.Custom.GetModel(),
-	}
-	lblMdl := &models.LabelConfigurationStatus{
-		Realized:         lblSpec,
-		SecurityRelevant: e.OpLabels.OrchestrationIdentity.GetModel(),
-		Derived:          e.OpLabels.OrchestrationInfo.GetModel(),
-		Disabled:         e.OpLabels.Disabled.GetModel(),
-	}
+	lblMdl := model.NewModel(&e.OpLabels)
+
 	// Sort these slices since they come out in random orders. This allows
 	// reflect.DeepEqual to succeed.
-	sort.StringSlice(lblSpec.User).Sort()
+	sort.StringSlice(lblMdl.Realized.User).Sort()
 	sort.StringSlice(lblMdl.Disabled).Sort()
 	sort.StringSlice(lblMdl.SecurityRelevant).Sort()
 	sort.StringSlice(lblMdl.Derived).Sort()
@@ -524,7 +514,7 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 	sort.Slice(controllerMdl, func(i, j int) bool { return controllerMdl[i].Name < controllerMdl[j].Name })
 
 	spec := &models.EndpointConfigurationSpec{
-		LabelConfiguration: lblSpec,
+		LabelConfiguration: lblMdl.Realized,
 		Options:            *e.Options.GetMutableModel(),
 	}
 
@@ -1170,7 +1160,7 @@ func ParseEndpoint(strEp string) (*Endpoint, error) {
 	if len(strEpSlice) != 2 {
 		return nil, fmt.Errorf("invalid format %q. Should contain a single ':'", strEp)
 	}
-	var ep Endpoint
+	ep := Endpoint{OpLabels: pkgLabels.NewOpLabels()}
 	if err := parseBase64ToEndpoint(strEpSlice[1], &ep); err != nil {
 		return nil, fmt.Errorf("failed to parse base64toendpoint: %s", err)
 	}
@@ -1448,7 +1438,7 @@ func (e *Endpoint) hasLabelsRLocked(l pkgLabels.Labels) bool {
 	for _, v := range l {
 		found := false
 		for _, j := range allEpLabels {
-			if j.Equals(v) {
+			if j.Equals(&v) {
 				found = true
 				break
 			}
@@ -1468,16 +1458,7 @@ func (e *Endpoint) replaceInformationLabels(l pkgLabels.Labels) {
 	if l == nil {
 		return
 	}
-	e.OpLabels.OrchestrationInfo.MarkAllForDeletion()
-
-	scopedLog := e.getLogger()
-
-	for _, v := range l {
-		if e.OpLabels.OrchestrationInfo.UpsertLabel(v) {
-			scopedLog.WithField(logfields.Labels, logfields.Repr(v)).Debug("Assigning information label")
-		}
-	}
-	e.OpLabels.OrchestrationInfo.DeleteMarked()
+	e.OpLabels.ReplaceInformationLabels(l, e.getLogger())
 }
 
 // replaceIdentityLabels replaces the identity labels of the endpoint. If a net
@@ -1491,27 +1472,7 @@ func (e *Endpoint) replaceIdentityLabels(l pkgLabels.Labels) int {
 		return e.identityRevision
 	}
 
-	changed := false
-
-	e.OpLabels.OrchestrationIdentity.MarkAllForDeletion()
-	e.OpLabels.Disabled.MarkAllForDeletion()
-
-	scopedLog := e.getLogger()
-
-	for k, v := range l {
-		// A disabled identity label stays disabled without value updates
-		if e.OpLabels.Disabled[k] != nil {
-			e.OpLabels.Disabled[k].ClearDeletionMark()
-		} else if e.OpLabels.OrchestrationIdentity.UpsertLabel(v) {
-			scopedLog.WithField(logfields.Labels, logfields.Repr(v)).Debug("Assigning security relevant label")
-			changed = true
-		}
-	}
-
-	if e.OpLabels.OrchestrationIdentity.DeleteMarked() || e.OpLabels.Disabled.DeleteMarked() {
-		changed = true
-	}
-
+	changed := e.OpLabels.ReplaceIdentityLabels(l, e.getLogger())
 	rev := 0
 	if changed {
 		e.identityRevision++
@@ -1938,7 +1899,7 @@ func APICanModify(e *Endpoint) error {
 	if e.IsInit() {
 		return nil
 	}
-	if lbls := e.OpLabels.OrchestrationIdentity.FindReserved(); lbls != nil {
+	if e.OpLabels.OrchestrationIdentity.IsReserved() {
 		return fmt.Errorf("Endpoint cannot be modified by API call")
 	}
 	return nil
@@ -1971,60 +1932,35 @@ func (e *Endpoint) ModifyIdentityLabels(owner Owner, addLabels, delLabels pkgLab
 		return nil
 	}
 
-	newLabels := e.OpLabels.DeepCopy()
-
-	for k := range delLabels {
-		// The change request is accepted if the label is on
-		// any of the lists. If the label is already disabled,
-		// we will simply ignore that change.
-		if newLabels.Custom[k] == nil && newLabels.OrchestrationIdentity[k] == nil && newLabels.Disabled[k] == nil {
-			e.Unlock()
-			return fmt.Errorf("label %s not found", k)
-		}
-
-		if v := newLabels.OrchestrationIdentity[k]; v != nil {
-			delete(newLabels.OrchestrationIdentity, k)
-			newLabels.Disabled[k] = v
-		}
-
-		if newLabels.Custom[k] != nil {
-			delete(newLabels.Custom, k)
-		}
+	changed, err := e.OpLabels.ModifyIdentityLabels(addLabels, delLabels)
+	if err != nil {
+		e.Unlock()
+		return err
 	}
 
-	for k, v := range addLabels {
-		if newLabels.Disabled[k] != nil { // Restore label.
-			delete(newLabels.Disabled, k)
-			newLabels.OrchestrationIdentity[k] = v
-		} else if newLabels.OrchestrationIdentity[k] != nil { // Replace label's source and value.
-			newLabels.OrchestrationIdentity[k] = v
-		} else {
-			newLabels.Custom[k] = v
-		}
+	var rev int
+	if changed {
+		// Mark with StateWaitingForIdentity, it will be set to
+		// StateWaitingToRegenerate after the identity resolution has been
+		// completed
+		e.SetStateLocked(StateWaitingForIdentity, "Triggering identity resolution due to updated identity labels")
+
+		e.identityRevision++
+		rev = e.identityRevision
 	}
-
-	e.OpLabels = *newLabels
-
-	// Mark with StateWaitingForIdentity, it will be set to
-	// StateWaitingToRegenerate after the identity resolution has been
-	// completed
-	e.SetStateLocked(StateWaitingForIdentity, "Triggering identity resolution due to updated identity labels")
-
-	e.identityRevision++
-	rev := e.identityRevision
-
 	e.Unlock()
 
-	e.runLabelsResolver(owner, rev)
-
+	if changed {
+		e.runLabelsResolver(owner, rev)
+	}
 	return nil
 }
 
 // IsInit returns true if the endpoint still hasn't received identity labels,
 // i.e. has the special identity with label reserved:init.
 func (e *Endpoint) IsInit() bool {
-	init := e.OpLabels.GetIdentityLabel(pkgLabels.IDNameInit)
-	return init != nil && init.Source == pkgLabels.LabelSourceReserved
+	init, found := e.OpLabels.GetIdentityLabel(pkgLabels.IDNameInit)
+	return found && init.Source == pkgLabels.LabelSourceReserved
 }
 
 // UpdateLabels is called to update the labels of an endpoint. Calls to this
