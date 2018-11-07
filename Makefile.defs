@@ -20,7 +20,17 @@ else
 	GIT_VERSION = $(shell cat $(ROOT_DIR)/GIT_VERSION)
 endif
 BUILD = $(VERSION) $(GIT_VERSION) $(shell go version)
-GOBUILD = -ldflags '-X "github.com/cilium/cilium/pkg/version.Version=$(BUILD)"'
+GOLDFLAGS = -X "github.com/cilium/cilium/pkg/version.Version=$(BUILD)"
+
+CILIUM_ENVOY_SHA=$(shell grep -o "FROM.*cilium/cilium-envoy:[0-9a-fA-F]*" $(ROOT_DIR)/Dockerfile | cut -d : -f 2)
+GOLDFLAGS += -X "github.com/cilium/cilium/pkg/envoy.RequiredEnvoyVersionSHA=$(CILIUM_ENVOY_SHA)"
+
+# Set DOCKER_IMAGE_TAG with "latest" by default
+ifeq ($(DOCKER_IMAGE_TAG),)
+    DOCKER_IMAGE_TAG="latest"
+endif
+
+GOBUILD = -ldflags '$(GOLDFLAGS)'
 
 # Uncomment to enable race detection
 #GOBUILD += -race
@@ -31,11 +41,3 @@ GOBUILD = -ldflags '-X "github.com/cilium/cilium/pkg/version.Version=$(BUILD)"'
 ifneq ($(LOCKDEBUG),)
     GOBUILD += -tags lockdebug
 endif
-
-# Set DOCKER_IMAGE_TAG with "latest" by default
-ifeq ($(DOCKER_IMAGE_TAG),)
-    DOCKER_IMAGE_TAG="latest"
-endif
-
-CILIUM_ENVOY_SHA=$(shell grep -o "FROM.*cilium/cilium-envoy:[0-9a-fA-F]*" $(ROOT_DIR)/Dockerfile | cut -d : -f 2)
-GOBUILD += -ldflags '-X "github.com/cilium/cilium/pkg/envoy.RequiredEnvoyVersionSHA=$(CILIUM_ENVOY_SHA)"'
