@@ -1,2 +1,5 @@
-cilium-agent
 bindata.go
+
+cilium
+cilium-agent
+cilium-node-monitor
