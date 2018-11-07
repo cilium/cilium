@@ -23,7 +23,6 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/test/helpers"
 
 	"github.com/sirupsen/logrus"
@@ -115,7 +114,7 @@ func save(c *BugtoolConfiguration, path string) error {
 func loadConfigFile(path string) (*BugtoolConfiguration, error) {
 	var content []byte
 	var err error
-	logrus.WithField(logfields.Path, path).Debug("Loading file")
+	logrus.WithField("path", path).Debug("Loading file")
 
 	content, err = ioutil.ReadFile(path)
 
