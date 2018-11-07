@@ -102,38 +102,51 @@ func init() {
 	debuginfoCmd.Flags().StringVar(&outputDir, "output-directory", "", "directory for files (if specified will use directory in which this command was ran)")
 }
 
-func validateInput() {
+func validateInput() []outputType {
 	if outputDir != "" && !outputToFile {
 		fmt.Fprintf(os.Stderr, "invalid option combination; specified output-directory %q, but did not specify for output to be redirected to file; exiting\n", outputDir)
 		os.Exit(1)
 	}
-	validateOutputOpts()
+	return validateOutputOpts()
 }
 
-func validateOutputOpts() {
+func validateOutputOpts() []outputType {
 
+	var outputTypes []outputType
 	for _, outputOpt := range outputOpts {
 		switch strings.ToLower(outputOpt) {
 		case markdownOutput:
+			outputTypes = append(outputTypes, MARKDOWN)
 		case htmlOutput:
 			if !outputToFile {
 				fmt.Fprintf(os.Stderr, "if HTML is specified as the output format, it is required that you provide the `--file` argument as well\n")
 				os.Exit(1)
 			}
-		case jsonOutputDebuginfo, jsonpathOutput:
+			outputTypes = append(outputTypes, HTML)
+		case jsonOutputDebuginfo:
 			if filePerCommand {
 				fmt.Fprintf(os.Stderr, "%s does not support dumping a file per command; exiting\n", outputOpt)
 				os.Exit(1)
 			}
+			outputTypes = append(outputTypes, JSONOUTPUT)
+		// Empty JSONPath filter case.
+		case jsonpathOutput:
+			if filePerCommand {
+				fmt.Fprintf(os.Stderr, "%s does not support dumping a file per command; exiting\n", outputOpt)
+				os.Exit(1)
+			}
+			outputTypes = append(outputTypes, JSONPATH)
 		default:
 			// Check to see if arg contains jsonpath filtering as well.
 			if jsonPathRegExp.MatchString(outputOpt) {
-				return
+				outputTypes = append(outputTypes, JSONPATH)
+				continue
 			}
 			fmt.Fprintf(os.Stderr, "%s is not a valid output format; exiting\n", outputOpt)
 			os.Exit(1)
 		}
 	}
+	return outputTypes
 }
 
 func formatFileName(outputDir string, cmdTime time.Time, outtype outputType) string {
@@ -164,15 +177,13 @@ func rootWarningMessage() {
 
 func runDebugInfo(cmd *cobra.Command, args []string) {
 
-	validateInput()
+	outputTypes := validateInput()
 
 	resp, err := client.Daemon.GetDebuginfo(nil)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", pkg.Hint(err))
 		os.Exit(1)
 	}
-
-	var output outputType
 
 	// create tab-writer to fill buffer
 	var buf bytes.Buffer
@@ -181,28 +192,14 @@ func runDebugInfo(cmd *cobra.Command, args []string) {
 
 	cmdTime := time.Now()
 
-	if outputToFile && len(outputOpts) == 0 {
-		outputOpts = append(outputOpts, markdownOutput)
+	if outputToFile && len(outputTypes) == 0 {
+		outputTypes = append(outputTypes, MARKDOWN)
 	}
 
 	// Dump payload for each output format.
-	for _, outputOpt := range outputOpts {
+	for i, output := range outputTypes {
 		var fileName string
 
-		switch strings.ToLower(outputOpt) {
-		case markdownOutput:
-			output = MARKDOWN
-		case htmlOutput:
-			output = HTML
-		case jsonOutputDebuginfo:
-			output = JSONOUTPUT
-		case jsonpathOutput:
-			output = JSONPATH
-		default:
-			if jsonPathRegExp.MatchString(outputOpt) {
-				output = JSONPATH
-			}
-		}
 		// Only warn when not dumping output as JSON so that when the output of the
 		// command is specified to be JSON, the only outputted content is the JSON
 		// model of debuginfo.
@@ -235,7 +232,7 @@ func runDebugInfo(cmd *cobra.Command, args []string) {
 			if output == JSONOUTPUT {
 				writeToOutput(buf, output, fileName, "")
 			} else {
-				writeJSONPathToOutput(buf, fileName, "", outputOpt)
+				writeJSONPathToOutput(buf, fileName, "", outputOpts[i])
 			}
 			buf.Reset()
 		} else {
@@ -248,7 +245,7 @@ func runDebugInfo(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	if len(outputOpts) > 0 {
+	if len(outputTypes) > 0 {
 		return
 	}
 
@@ -339,7 +336,6 @@ func writeJSONPathToOutput(buf bytes.Buffer, path string, suffix string, jsonPat
 		fmt.Fprintf(os.Stderr, "error printing JSON: %s\n", err)
 	}
 
-	// Print to stdout
 	if path == "" {
 		fmt.Println(string(jsonBytes[:]))
 		return
