@@ -39,8 +39,6 @@ coverage-all.html
 .idea/
 *.plist
 
-daemon/bindata.go
-
 cilium/bash_autocomplete
 *.swo
 outgoing
