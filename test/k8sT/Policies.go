@@ -256,28 +256,6 @@ var _ = Describe("K8sPolicyTest", func() {
 				helpers.CurlFail("http://%s/private", clusterIP))
 			res.ExpectFail("Unexpected connection from %q to 'http://%s/private'",
 				appPods[helpers.App3], clusterIP)
-
-			// Update existing policy on port 80 from http to kafka
-			// to test ability to change L7 parser type of a port.
-			// Traffic cannot flow but policy must be able to be
-			// imported and applied to the endpoints.
-			_, err = kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, l7PolicyKafka, helpers.KubectlApply, 300)
-			Expect(err).Should(BeNil(), "Cannot update L7 policy (%q) from parser http to kafka", l7PolicyKafka)
-
-			Expect(kubectl.WaitForEnforcingCNP("l7-policy", "default")).To(BeNil(), "CNP is not in enforcing mode after timeout")
-
-			res = kubectl.ExecPodCmd(
-				helpers.DefaultNamespace, appPods[helpers.App3],
-				helpers.CurlFail("http://%s/public", clusterIP))
-			res.ExpectFail("Unexpected connection from %q to 'http://%s/public'",
-				appPods[helpers.App3], clusterIP)
-
-			res = kubectl.ExecPodCmd(
-				helpers.DefaultNamespace, appPods[helpers.App2],
-				helpers.CurlFail("http://%s/public", clusterIP))
-			res.ExpectFail("Unexpected connection from %q to 'http://%s/public'",
-				appPods[helpers.App2], clusterIP)
 		}, 500)
 
 		It("ServiceAccount Based Enforcement", func() {
@@ -667,7 +645,7 @@ var _ = Describe("K8sPolicyTest", func() {
 					appPods[helpers.App3], clusterIP, allowApp3)
 			}
 
-			It("Enforces connectivity correctly when the same CNP is updated", func() {
+			It("Enforces connectivity correctly when the same L3/L4 CNP is updated", func() {
 				By("Applying default allow policy")
 				_, err := kubectl.CiliumPolicyAction(
 					helpers.KubeSystemNamespace, cnpUpdateAllow, helpers.KubectlApply, 300)
@@ -712,6 +690,43 @@ var _ = Describe("K8sPolicyTest", func() {
 				Expect(kubectl.WaitForEnforcingCNP(policyName, "default")).To(BeNil(),
 					"CNP is not in enforcing mode after timeout")
 				validateL3L4(allowAll)
+			})
+
+			It("Verifies that a CNP with L7 HTTP rules can be replaced with L7 Kafka rules", func() {
+				By("Installing L7 Policy")
+
+				// This HTTP policy was already validated in the
+				// test "checks all kind of Kubernetes policies".
+				// Install it then move on.
+				_, err := kubectl.CiliumPolicyAction(
+					helpers.KubeSystemNamespace, l7Policy, helpers.KubectlApply, 300)
+				Expect(err).Should(BeNil(), "Cannot install %q policy", l7Policy)
+
+				Expect(kubectl.WaitForEnforcingCNP("l7-policy", "default")).To(BeNil(),
+					"CNP is not in enforcing mode after timeout")
+
+				// Update existing policy on port 80 from http to kafka
+				// to test ability to change L7 parser type of a port.
+				// Traffic cannot flow but policy must be able to be
+				// imported and applied to the endpoints.
+				_, err = kubectl.CiliumPolicyAction(
+					helpers.KubeSystemNamespace, l7PolicyKafka, helpers.KubectlApply, 300)
+				Expect(err).Should(BeNil(), "Cannot update L7 policy (%q) from parser http to kafka", l7PolicyKafka)
+
+				Expect(kubectl.WaitForEnforcingCNP("l7-policy", "default")).To(BeNil(),
+					"CNP is not in enforcing mode after timeout")
+
+				res := kubectl.ExecPodCmd(
+					helpers.DefaultNamespace, appPods[helpers.App3],
+					helpers.CurlFail("http://%s/public", clusterIP))
+				res.ExpectFail("Unexpected connection from %q to 'http://%s/public'",
+					appPods[helpers.App3], clusterIP)
+
+				res = kubectl.ExecPodCmd(
+					helpers.DefaultNamespace, appPods[helpers.App2],
+					helpers.CurlFail("http://%s/public", clusterIP))
+				res.ExpectFail("Unexpected connection from %q to 'http://%s/public'",
+					appPods[helpers.App2], clusterIP)
 			})
 		})
 
