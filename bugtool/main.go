@@ -19,16 +19,9 @@ import (
 	"os"
 
 	"github.com/cilium/cilium/bugtool/cmd"
-
-	gops "github.com/google/gops/agent"
 )
 
 func main() {
-	// Open socket for using gops to get stacktraces of the agent
-	if err := gops.Listen(gops.Options{}); err != nil {
-		fmt.Println("Unable to start gops")
-		os.Exit(1)
-	}
 	if err := cmd.BugtoolRootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
