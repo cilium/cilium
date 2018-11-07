@@ -23,7 +23,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/envoy/xds"
 
-	"github.com/cilium/proxy/go/cilium"
+	"github.com/cilium/proxy/go/cilium/api"
 	envoy_api_v2 "github.com/cilium/proxy/go/envoy/api/v2"
 	net_context "golang.org/x/net/context"
 	"google.golang.org/grpc"

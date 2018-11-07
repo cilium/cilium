@@ -27,7 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 
-	"github.com/cilium/proxy/go/cilium"
+	"github.com/cilium/proxy/go/cilium/api"
 	"github.com/golang/protobuf/proto"
 	"github.com/sirupsen/logrus"
 )
