@@ -116,6 +116,7 @@ func (rc *remoteCluster) restartRemoteConnection() {
 					KeyCreator:              rc.mesh.conf.NodeKeyCreator,
 					SynchronizationInterval: time.Minute,
 					Backend:                 backend,
+					Observer:                &nodeStore.NodeObserver{},
 				})
 				if err != nil {
 					backend.Close()
