@@ -20,7 +20,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/lock"
 
-	"github.com/cilium/proxy/go/cilium"
+	"github.com/cilium/proxy/go/cilium/api"
 	envoy_api_v2 "github.com/cilium/proxy/go/envoy/api/v2"
 	"github.com/golang/protobuf/proto"
 	log "github.com/sirupsen/logrus"

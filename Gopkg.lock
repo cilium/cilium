@@ -77,10 +77,10 @@
   revision = "0010a05ce49fde7f50669bc7ecda7d41dd6ab824"
 
 [[projects]]
-  digest = "1:3e20ef8a07567f2613ee131c39bd8d6afd0dc3fef6577f2767c6bcbba626e834"
+  digest = "1:70ecb94718c7e45fa5102f715d15c765fad2aac2fe83ee611d917079f0ad9960"
   name = "github.com/cilium/proxy"
   packages = [
-    "go/cilium",
+    "go/cilium/api",
     "go/envoy/api/v2",
     "go/envoy/api/v2/auth",
     "go/envoy/api/v2/cluster",
@@ -94,9 +94,10 @@
     "go/envoy/config/ratelimit/v2",
     "go/envoy/config/trace/v2",
     "go/envoy/type",
+    "go/envoy/type/matcher",
   ]
   pruneopts = "NUT"
-  revision = "971e018d05c0fce542d315e320b7b5d9e7480d24"
+  revision = "84ee839e1d78ef858a39e390288ad417d35bb1d4"
 
 [[projects]]
   digest = "1:7d39d7f6f0947a8ecbce768541e6737ae71bf756d6d3ed0bd78b1c0290a59c8d"
@@ -1670,7 +1671,7 @@
   input-imports = [
     "github.com/asaskevich/govalidator",
     "github.com/c9s/goprocinfo/linux",
-    "github.com/cilium/proxy/go/cilium",
+    "github.com/cilium/proxy/go/cilium/api",
     "github.com/cilium/proxy/go/envoy/api/v2",
     "github.com/cilium/proxy/go/envoy/api/v2/core",
     "github.com/cilium/proxy/go/envoy/api/v2/listener",

@@ -27,7 +27,7 @@ import (
 	"github.com/cilium/cilium/proxylib/test"
 	_ "github.com/cilium/cilium/proxylib/testparsers"
 
-	"github.com/cilium/proxy/go/cilium"
+	"github.com/cilium/proxy/go/cilium/api"
 	log "github.com/sirupsen/logrus"
 )
 

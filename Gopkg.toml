@@ -301,4 +301,4 @@ required = [
 
 [[constraint]]
   name = "github.com/cilium/proxy"
-  revision = "971e018d05c0fce542d315e320b7b5d9e7480d24"
+  revision = "84ee839e1d78ef858a39e390288ad417d35bb1d4"

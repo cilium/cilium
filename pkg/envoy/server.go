@@ -35,7 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 
-	"github.com/cilium/proxy/go/cilium"
+	"github.com/cilium/proxy/go/cilium/api"
 	envoy_api_v2 "github.com/cilium/proxy/go/envoy/api/v2"
 	envoy_api_v2_core "github.com/cilium/proxy/go/envoy/api/v2/core"
 	envoy_api_v2_listener "github.com/cilium/proxy/go/envoy/api/v2/listener"
@@ -164,10 +164,12 @@ func StartXDSServer(stateDir string) *XDSServer {
 		// FilterChains: []*envoy_api_v2_listener.FilterChain
 		ListenerFilters: []*envoy_api_v2_listener.ListenerFilter{{
 			Name: "cilium.bpf_metadata",
-			Config: &structpb.Struct{Fields: map[string]*structpb.Value{
-				"is_ingress": {Kind: &structpb.Value_BoolValue{BoolValue: false}},
-				"bpf_root":   {Kind: &structpb.Value_StringValue{StringValue: bpf.GetMapRoot()}},
-			}},
+			ConfigType: &envoy_api_v2_listener.ListenerFilter_Config{
+				Config: &structpb.Struct{Fields: map[string]*structpb.Value{
+					"is_ingress": {Kind: &structpb.Value_BoolValue{BoolValue: false}},
+					"bpf_root":   {Kind: &structpb.Value_StringValue{StringValue: bpf.GetMapRoot()}},
+				}},
+			},
 		}},
 	}
 
@@ -176,69 +178,75 @@ func StartXDSServer(stateDir string) *XDSServer {
 			Name: "cilium.network",
 		}, {
 			Name: "envoy.http_connection_manager",
-			Config: &structpb.Struct{Fields: map[string]*structpb.Value{
-				"stat_prefix": {Kind: &structpb.Value_StringValue{StringValue: "proxy"}},
-				"http_filters": {Kind: &structpb.Value_ListValue{ListValue: &structpb.ListValue{Values: []*structpb.Value{
-					{Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
-						"name": {Kind: &structpb.Value_StringValue{StringValue: "cilium.l7policy"}},
-						"config": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
-							"access_log_path": {Kind: &structpb.Value_StringValue{StringValue: accessLogPath}},
-							"denied_403_body": {Kind: &structpb.Value_StringValue{StringValue: denied403body}},
+			ConfigType: &envoy_api_v2_listener.Filter_Config{
+				Config: &structpb.Struct{Fields: map[string]*structpb.Value{
+					"stat_prefix": {Kind: &structpb.Value_StringValue{StringValue: "proxy"}},
+					"http_filters": {Kind: &structpb.Value_ListValue{ListValue: &structpb.ListValue{Values: []*structpb.Value{
+						{Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+							"name": {Kind: &structpb.Value_StringValue{StringValue: "cilium.l7policy"}},
+							"config": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+								"access_log_path": {Kind: &structpb.Value_StringValue{StringValue: accessLogPath}},
+								"denied_403_body": {Kind: &structpb.Value_StringValue{StringValue: denied403body}},
+							}}}},
+						}}}},
+						{Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+							"name":   {Kind: &structpb.Value_StringValue{StringValue: "envoy.router"}},
+							"config": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{}}}},
 						}}}},
 					}}}},
-					{Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
-						"name":   {Kind: &structpb.Value_StringValue{StringValue: "envoy.router"}},
-						"config": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{}}}},
-					}}}},
-				}}}},
-				"stream_idle_timeout": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{}}}},
-				"route_config": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
-					"virtual_hosts": {Kind: &structpb.Value_ListValue{ListValue: &structpb.ListValue{Values: []*structpb.Value{
-						{Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
-							"name": {Kind: &structpb.Value_StringValue{StringValue: "default_route"}},
-							"domains": {Kind: &structpb.Value_ListValue{ListValue: &structpb.ListValue{Values: []*structpb.Value{
-								{Kind: &structpb.Value_StringValue{StringValue: "*"}},
-							}}}},
-							"routes": {Kind: &structpb.Value_ListValue{ListValue: &structpb.ListValue{Values: []*structpb.Value{
-								{Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
-									"match": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
-										"prefix": {Kind: &structpb.Value_StringValue{StringValue: "/"}},
-									}}}},
-									"route": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
-										// "cluster":          {Kind: &structpb.Value_StringValue{StringValue: "cluster1"}},
-										"max_grpc_timeout": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{}}}},
-										"retry_policy": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
-											"retry_on":    {Kind: &structpb.Value_StringValue{StringValue: "5xx"}},
-											"num_retries": {Kind: &structpb.Value_NumberValue{NumberValue: 3}},
+					"stream_idle_timeout": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{}}}},
+					"route_config": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+						"virtual_hosts": {Kind: &structpb.Value_ListValue{ListValue: &structpb.ListValue{Values: []*structpb.Value{
+							{Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+								"name": {Kind: &structpb.Value_StringValue{StringValue: "default_route"}},
+								"domains": {Kind: &structpb.Value_ListValue{ListValue: &structpb.ListValue{Values: []*structpb.Value{
+									{Kind: &structpb.Value_StringValue{StringValue: "*"}},
+								}}}},
+								"routes": {Kind: &structpb.Value_ListValue{ListValue: &structpb.ListValue{Values: []*structpb.Value{
+									{Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+										"match": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+											"prefix": {Kind: &structpb.Value_StringValue{StringValue: "/"}},
+										}}}},
+										"route": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+											// "cluster":          {Kind: &structpb.Value_StringValue{StringValue: "cluster1"}},
+											"max_grpc_timeout": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{}}}},
+											"retry_policy": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+												"retry_on":    {Kind: &structpb.Value_StringValue{StringValue: "5xx"}},
+												"num_retries": {Kind: &structpb.Value_NumberValue{NumberValue: 3}},
+											}}}},
 										}}}},
 									}}}},
 								}}}},
 							}}}},
 						}}}},
 					}}}},
-				}}}},
-			}},
+				}},
+			},
 		}},
 	}
 
 	tcpFilterChainProto := &envoy_api_v2_listener.FilterChain{
 		Filters: []*envoy_api_v2_listener.Filter{{
 			Name: "cilium.network",
-			Config: &structpb.Struct{Fields: map[string]*structpb.Value{
-				"proxylib": {Kind: &structpb.Value_StringValue{StringValue: "libcilium.so"}},
-				"proxylib_params": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
-					"access-log-path": {Kind: &structpb.Value_StringValue{StringValue: accessLogPath}},
-					"xds-path":        {Kind: &structpb.Value_StringValue{StringValue: xdsPath}},
-				}}}},
-				// "l7_proto": {Kind: &structpb.Value_StringValue{StringValue: "parsername"}},
-				// "policy_name": {Kind: &structpb.Value_StringValue{StringValue: "1.2.3.4"}},
-			}},
+			ConfigType: &envoy_api_v2_listener.Filter_Config{
+				Config: &structpb.Struct{Fields: map[string]*structpb.Value{
+					"proxylib": {Kind: &structpb.Value_StringValue{StringValue: "libcilium.so"}},
+					"proxylib_params": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+						"access-log-path": {Kind: &structpb.Value_StringValue{StringValue: accessLogPath}},
+						"xds-path":        {Kind: &structpb.Value_StringValue{StringValue: xdsPath}},
+					}}}},
+					// "l7_proto": {Kind: &structpb.Value_StringValue{StringValue: "parsername"}},
+					// "policy_name": {Kind: &structpb.Value_StringValue{StringValue: "1.2.3.4"}},
+				}},
+			},
 		}, {
 			Name: "envoy.tcp_proxy",
-			Config: &structpb.Struct{Fields: map[string]*structpb.Value{
-				"stat_prefix": {Kind: &structpb.Value_StringValue{StringValue: "tcp_proxy"}},
-				// "cluster":     {Kind: &structpb.Value_StringValue{StringValue: "cluster1"}},
-			}},
+			ConfigType: &envoy_api_v2_listener.Filter_Config{
+				Config: &structpb.Struct{Fields: map[string]*structpb.Value{
+					"stat_prefix": {Kind: &structpb.Value_StringValue{StringValue: "tcp_proxy"}},
+					// "cluster":     {Kind: &structpb.Value_StringValue{StringValue: "cluster1"}},
+				}},
+			},
 		}},
 	}
 
@@ -279,19 +287,19 @@ func (s *XDSServer) AddListener(name string, kind policy.L7ParserType, endpointP
 	listenerConf := proto.Clone(s.listenerProto).(*envoy_api_v2.Listener)
 	if kind == policy.ParserTypeHTTP {
 		listenerConf.FilterChains = append(listenerConf.FilterChains, proto.Clone(s.httpFilterChainProto).(*envoy_api_v2_listener.FilterChain))
-		listenerConf.FilterChains[0].Filters[1].Config.Fields["http_filters"].GetListValue().Values[0].GetStructValue().Fields["config"].GetStructValue().Fields["policy_name"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: endpointPolicyName}}
-		listenerConf.FilterChains[0].Filters[1].Config.Fields["route_config"].GetStructValue().Fields["virtual_hosts"].GetListValue().Values[0].GetStructValue().Fields["routes"].GetListValue().Values[0].GetStructValue().Fields["route"].GetStructValue().Fields["cluster"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: clusterName}}
+		listenerConf.FilterChains[0].Filters[1].ConfigType.(*envoy_api_v2_listener.Filter_Config).Config.Fields["http_filters"].GetListValue().Values[0].GetStructValue().Fields["config"].GetStructValue().Fields["policy_name"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: endpointPolicyName}}
+		listenerConf.FilterChains[0].Filters[1].ConfigType.(*envoy_api_v2_listener.Filter_Config).Config.Fields["route_config"].GetStructValue().Fields["virtual_hosts"].GetListValue().Values[0].GetStructValue().Fields["routes"].GetListValue().Values[0].GetStructValue().Fields["route"].GetStructValue().Fields["cluster"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: clusterName}}
 	} else {
 		listenerConf.FilterChains = append(listenerConf.FilterChains, proto.Clone(s.tcpFilterChainProto).(*envoy_api_v2_listener.FilterChain))
-		listenerConf.FilterChains[0].Filters[0].Config.Fields["policy_name"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: endpointPolicyName}}
-		listenerConf.FilterChains[0].Filters[0].Config.Fields["l7_proto"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: kind.String()}}
-		listenerConf.FilterChains[0].Filters[1].Config.Fields["cluster"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: clusterName}}
+		listenerConf.FilterChains[0].Filters[0].ConfigType.(*envoy_api_v2_listener.Filter_Config).Config.Fields["policy_name"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: endpointPolicyName}}
+		listenerConf.FilterChains[0].Filters[0].ConfigType.(*envoy_api_v2_listener.Filter_Config).Config.Fields["l7_proto"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: kind.String()}}
+		listenerConf.FilterChains[0].Filters[1].ConfigType.(*envoy_api_v2_listener.Filter_Config).Config.Fields["cluster"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: clusterName}}
 	}
 
 	listenerConf.Name = name
 	listenerConf.Address.GetSocketAddress().PortSpecifier = &envoy_api_v2_core.SocketAddress_PortValue{PortValue: uint32(port)}
 	if isIngress {
-		listenerConf.ListenerFilters[0].Config.Fields["is_ingress"].GetKind().(*structpb.Value_BoolValue).BoolValue = true
+		listenerConf.ListenerFilters[0].ConfigType.(*envoy_api_v2_listener.ListenerFilter_Config).Config.Fields["is_ingress"].GetKind().(*structpb.Value_BoolValue).BoolValue = true
 	}
 
 	s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConf, []string{"127.0.0.1"}, wg.AddCompletion())

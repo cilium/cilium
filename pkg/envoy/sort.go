@@ -17,7 +17,7 @@ package envoy
 import (
 	"sort"
 
-	"github.com/cilium/proxy/go/cilium"
+	"github.com/cilium/proxy/go/cilium/api"
 	envoy_api_v2_route "github.com/cilium/proxy/go/envoy/api/v2/route"
 )
 

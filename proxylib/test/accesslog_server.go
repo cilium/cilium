@@ -24,7 +24,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/cilium/proxy/go/cilium"
+	"github.com/cilium/proxy/go/cilium/api"
 	"github.com/golang/protobuf/proto"
 	log "github.com/sirupsen/logrus"
 )

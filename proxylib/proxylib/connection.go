@@ -20,7 +20,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/cilium/proxy/go/cilium"
+	"github.com/cilium/proxy/go/cilium/api"
 	log "github.com/sirupsen/logrus"
 )
 
