@@ -511,6 +511,7 @@ func (m *Map) DumpWithCallback(cb DumpCallback) error {
 		)
 
 		if err != nil {
+			fmt.Printf("error getting next key: %s\n", err)
 			break
 		}
 
@@ -524,8 +525,13 @@ func (m *Map) DumpWithCallback(cb DumpCallback) error {
 			return err
 		}
 
+		fmt.Printf("calling dump parser for map!\n")
+		if m.dumpParser == nil {
+			fmt.Printf("dumpparser is nil!\n")
+		}
 		k, v, err := m.dumpParser(nextKey, value)
 		if err != nil {
+			fmt.Printf("error after calling dump parser: %s\n", err)
 			return err
 		}
 
@@ -630,6 +636,7 @@ func (m *Map) Dump(hash map[string][]string) error {
 		hash[key.String()] = append(hash[key.String()], value.String())
 	}
 
+	fmt.Printf("dumping map %s\n", m.name)
 	if err := m.DumpWithCallback(callback); err != nil {
 		return err
 	}

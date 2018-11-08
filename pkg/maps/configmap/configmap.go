@@ -31,7 +31,7 @@ const (
 	MapNamePrefix = "cilium_ep_config_"
 
 	// MaxEntries represents the maximum number of elements in the map
-	MaxEntries = 1
+	MaxEntries = 2
 
 	// SkipPolicyIngress causes ingress policy to be skipped.
 	SkipPolicyIngress = 1 << 0
@@ -51,7 +51,7 @@ var (
 	}
 
 	// configKey is the key in each endpoint's map for its configuration.
-	configKey = Key{uint32: 0}
+	configKey = Key{Bits: 0}
 )
 
 // Flags is a set of endpoint configuration flags interpreted by BPF code.
@@ -84,7 +84,7 @@ func (f Flags) String() string {
 //
 // Must be in sync with the key of CONFIG_MAP in <bpf/lib/maps.h>
 type Key struct {
-	uint32
+	Bits uint32
 }
 
 func (k Key) String() string {
@@ -197,7 +197,7 @@ func OpenMapWithName(path, name string) (*EndpointConfigMap, bool, error) {
 			if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
 				return nil, nil, err
 			}
-
+			fmt.Printf("k: %d, v: %b", k, v.Flags)
 			return k, v, nil
 		}).WithCache()
 

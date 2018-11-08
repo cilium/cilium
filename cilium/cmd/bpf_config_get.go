@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/spf13/cobra"
 	"os"
@@ -42,6 +43,7 @@ var bpfConfigGetCmd = &cobra.Command{
 
 func init() {
 	bpfConfigCmd.AddCommand(bpfConfigGetCmd)
+	command.AddJSONOutput(bpfConfigCmd)
 }
 func listAllEndpointConfigMaps() {
 
@@ -62,31 +64,27 @@ func listEndpointConfigMap(args []string) {
 	}
 	defer bpf.ObjClose(fd)
 
-	m, err := bpf.OpenMap(file)
+	m, _, err := configmap.OpenMapWithName(file, configmap.MapNamePrefix+lbl)
 	if err != nil {
 		fmt.Printf("error opening map %s: %s\n", file, err)
 		os.Exit(1)
 	}
 
 	bpfConfigGet := make(map[string][]string)
-	if err := m.Dump(bpfConfigGet); err != nil {
+	if err := m.Map.Dump(bpfConfigGet); err != nil {
 		os.Exit(1)
 	}
 	if err != nil {
 		Fatalf("Error while opening bpf Map: %s\n", err)
 	}
-	//sort.Slice(statsMap, statsMap.Less)
 
-	/*if command.OutputJSON() {
-		if err := command.PrintOutput(statsMap); err != nil {
+	fmt.Printf("bpfConfigGet: %s\n", bpfConfigGet)
+	if command.OutputJSON() {
+		if err := command.PrintOutput(bpfConfigCmd); err != nil {
 			os.Exit(1)
 		}
-	} else {
-		w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
-		formatMap(w, statsMap)
-		w.Flush()
-		if len(statsMap) == 0 {
-			fmt.Printf("Policy stats empty. Perhaps the policy enforcement is disabled?\n")
-		}
-	}*/
+		return
+	}
+
+	TablePrinter("KEY", "ENDPOINT CONFIGURATION", bpfConfigGet)
 }
