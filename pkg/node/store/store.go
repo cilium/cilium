@@ -37,6 +37,22 @@ var (
 	}
 )
 
+// NodeObserver implements the store.Observer interface and delegates update
+// and deletion events to the node object itself.
+type NodeObserver struct{}
+
+func (o *NodeObserver) OnUpdate(k store.Key) {
+	if n, ok := k.(*node.Node); ok {
+		n.OnUpdate()
+	}
+}
+
+func (o *NodeObserver) OnDelete(k store.Key) {
+	if n, ok := k.(*node.Node); ok {
+		n.OnDelete()
+	}
+}
+
 // NodeRegistrar is a wrapper around store.SharedStore.
 type NodeRegistrar struct {
 	*store.SharedStore
@@ -50,6 +66,7 @@ func (nr *NodeRegistrar) RegisterNode(n *node.Node) error {
 		Prefix:                  NodeStorePrefix,
 		KeyCreator:              KeyCreator,
 		SynchronizationInterval: time.Minute,
+		Observer:                &NodeObserver{},
 	})
 
 	if err != nil {

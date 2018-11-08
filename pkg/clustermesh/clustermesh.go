@@ -43,6 +43,8 @@ type Configuration struct {
 	// NodeKeyCreator is the function used to create node instances as
 	// nodes are being discovered in remote clusters
 	NodeKeyCreator store.KeyCreator
+
+	observer store.Observer
 }
 
 // ClusterMesh is a cache of multiple remote clusters
