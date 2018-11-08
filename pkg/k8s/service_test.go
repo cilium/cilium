@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/service"
 
 	"gopkg.in/check.v1"
 	"k8s.io/api/core/v1"
@@ -449,4 +450,56 @@ func (s *K8sSuite) TestServiceString(c *check.C) {
 
 	_, svc := ParseService(k8sSvc)
 	c.Assert(svc.String(), check.Equals, "frontend:127.0.0.1/ports=[]/selector=map[foo:bar]")
+}
+
+func (s *K8sSuite) TestNewClusterService(c *check.C) {
+	id, svc := ParseService(&v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+			Labels: map[string]string{
+				"foo": "bar",
+			},
+		},
+		Spec: v1.ServiceSpec{
+			ClusterIP: "127.0.0.1",
+			Selector: map[string]string{
+				"foo": "bar",
+			},
+			Type: v1.ServiceTypeClusterIP,
+		},
+	})
+
+	_, endpoints := ParseEndpoints(&v1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+		},
+		Subsets: []v1.EndpointSubset{
+			{
+				Addresses: []v1.EndpointAddress{{IP: "2.2.2.2"}},
+				Ports: []v1.EndpointPort{
+					{
+						Name:     "http-test-svc",
+						Port:     8080,
+						Protocol: v1.ProtocolTCP,
+					},
+				},
+			},
+		},
+	})
+
+	clusterService := NewClusterService(id, svc, endpoints)
+	c.Assert(clusterService, check.DeepEquals, service.ClusterService{
+		Name:          "foo",
+		Namespace:     "bar",
+		Labels:        map[string]string{"foo": "bar"},
+		Selector:      map[string]string{"foo": "bar"},
+		FrontendIP:    "127.0.0.1",
+		FrontendPorts: map[string]loadbalancer.L4Addr{},
+		BackendIPs:    []string{"2.2.2.2"},
+		BackendPorts: map[string]loadbalancer.L4Addr{
+			"http-test-svc": {Protocol: loadbalancer.TCP, Port: 8080},
+		},
+	})
 }
