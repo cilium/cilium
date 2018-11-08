@@ -45,6 +45,11 @@ var (
 		SkipPolicyEgress:  "SKIP_POLICY_EGRESS",
 	}
 
+	binMap = map[uint]string{
+		0: "POLICY_INGRESS",
+		1: "POLICY_EGRESS",
+	}
+
 	// configKey is the key in each endpoint's map for its configuration.
 	configKey = Key{uint32: 0}
 )
@@ -57,15 +62,17 @@ type Flags uint32
 // String converts the specified flags into a human-readable form.
 func (f Flags) String() string {
 	var buffer bytes.Buffer
-
 	for i := uint(0); i < 32; i++ {
-		bit := int(f & 1 << i)
-		if bit > 0 {
-			if flag, ok := flagsToString[bit]; ok {
+		bitVal := int(f & (1 << i))
+		if bitVal > 0 {
+			if flag, ok := flagsToString[bitVal]; ok {
 				buffer.WriteString(flag)
 				buffer.WriteString(",")
-			} else {
-				buffer.WriteString(fmt.Sprintf("Unknown(%#x)", bit))
+			}
+		} else if bitVal == 0 {
+			if flag, ok := binMap[i]; ok {
+				buffer.WriteString(flag)
+				buffer.WriteString(",")
 			}
 		}
 	}
@@ -135,8 +142,7 @@ func GetConfig(e endpoint) *EndpointConfig {
 // Update pushes the configuration options from the specified endpoint into the
 // configuration map.
 func (m *EndpointConfigMap) Update(value *EndpointConfig) error {
-	return bpf.UpdateElement(m.Fd, unsafe.Pointer(&configKey),
-		unsafe.Pointer(&value), 0)
+	return m.Map.Update(configKey, value)
 }
 
 // OpenMap attempts to open or create a BPF config map at the specified path.
@@ -149,6 +155,41 @@ func OpenMap(path string) (*EndpointConfigMap, bool, error) {
 		int(unsafe.Sizeof(uint32(0))),
 		int(unsafe.Sizeof(EndpointConfig{})),
 		MaxEntries,
+		0,
+		0,
+		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
+			k, v := Key{}, EndpointConfig{}
+
+			if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
+				return nil, nil, err
+			}
+
+			return k, v, nil
+		}).WithCache()
+
+	isNewMap, err := newMap.OpenOrCreate()
+
+	if err != nil {
+		return nil, false, err
+	}
+
+	m := &EndpointConfigMap{Map: newMap, path: path, Fd: newMap.GetFd()}
+
+	return m, isNewMap, nil
+}
+
+// OpenMapWithName attempts to open or create a BPF config map at the specified
+// path with the specified name.
+// On success, it returns a map and whether the map was newly created, or
+// otherwise an error.
+func OpenMapWithName(path, name string) (*EndpointConfigMap, bool, error) {
+
+	newMap := bpf.NewMap(name,
+		bpf.BPF_MAP_TYPE_ARRAY,
+		int(unsafe.Sizeof(uint32(0))),
+		int(unsafe.Sizeof(EndpointConfig{})),
+		MaxEntries,
+		0,
 		0,
 		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
 			k, v := Key{}, EndpointConfig{}

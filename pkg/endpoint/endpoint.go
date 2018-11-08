@@ -1265,6 +1265,10 @@ func (e *Endpoint) BPFConfigMapPathLocked() string {
 	return mapPath(bpfconfig.MapNamePrefix, int(e.ID))
 }
 
+func (e *Endpoint) BPFConfigMapPathWithoutPrefix() string {
+	return bpfconfig.MapNamePrefix + strconv.Itoa(int(e.ID))
+}
+
 // PolicyMapPathLocked returns the path to the policy map of endpoint.
 func (e *Endpoint) PolicyMapPathLocked() string {
 	return mapPath(policymap.MapName, int(e.ID))

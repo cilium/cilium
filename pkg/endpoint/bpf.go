@@ -556,7 +556,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 	}
 
 	if e.bpfConfigMap == nil {
-		e.bpfConfigMap, _, err = bpfconfig.OpenMap(e.BPFConfigMapPathLocked())
+		e.bpfConfigMap, _, err = bpfconfig.OpenMapWithName(e.BPFConfigMapPathLocked(), e.BPFConfigMapPathWithoutPrefix())
 		if err != nil {
 			e.Unlock()
 			return 0, compilationExecuted, err
