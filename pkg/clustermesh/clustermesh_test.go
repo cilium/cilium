@@ -62,18 +62,6 @@ func (n *testNode) GetKeyName() string {
 	return path.Join(n.Name, n.Cluster)
 }
 
-func (n *testNode) OnUpdate() {
-	nodesMutex.Lock()
-	nodes[n.GetKeyName()] = n
-	nodesMutex.Unlock()
-}
-
-func (n *testNode) OnDelete() {
-	nodesMutex.Lock()
-	delete(nodes, n.GetKeyName())
-	nodesMutex.Unlock()
-}
-
 func (n *testNode) Marshal() ([]byte, error) {
 	return json.Marshal(n)
 }
@@ -85,6 +73,22 @@ func (n *testNode) Unmarshal(data []byte) error {
 var testNodeCreator = func() store.Key {
 	n := testNode{}
 	return &n
+}
+
+type testObserver struct{}
+
+func (o *testObserver) OnUpdate(k store.Key) {
+	n := k.(*testNode)
+	nodesMutex.Lock()
+	nodes[n.GetKeyName()] = n
+	nodesMutex.Unlock()
+}
+
+func (o *testObserver) OnDelete(k store.Key) {
+	n := k.(*testNode)
+	nodesMutex.Lock()
+	delete(nodes, n.GetKeyName())
+	nodesMutex.Unlock()
 }
 
 type identityAllocatorOwnerMock struct{}
@@ -123,6 +127,7 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 		Name:            "test2",
 		ConfigDirectory: dir,
 		NodeKeyCreator:  testNodeCreator,
+		observer:        &testObserver{},
 	})
 	c.Assert(err, IsNil)
 	c.Assert(cm, Not(IsNil))

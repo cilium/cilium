@@ -73,6 +73,9 @@ type Configuration struct {
 	// Backend is the kvstore to use as a backend. If no backend is
 	// specified, kvstore.Client() is being used.
 	Backend kvstore.BackendOperations
+
+	// Observer is the observe that will receive events on key mutations
+	Observer Observer
 }
 
 // validate is invoked by JoinSharedStore to validate and complete the
@@ -133,6 +136,16 @@ type SharedStore struct {
 	kvstoreWatcher *kvstore.Watcher
 }
 
+// Observer receives events when objects in the store mutate
+type Observer interface {
+	// OnDelete is called when the key has been deleted from the shared store
+	OnDelete(k Key)
+
+	// OnUpdate is called whenever a change has occurred in the data
+	// structure represented by the key
+	OnUpdate(k Key)
+}
+
 // Key is the interface that a data structure must implement in order to be
 // stored and shared as a key in a SharedStore.
 type Key interface {
@@ -141,13 +154,6 @@ type Key interface {
 	// of the key must be identical across agent restarts as the keys
 	// remain in the kvstore.
 	GetKeyName() string
-
-	// OnDelete is called when the key has been deleted from the shared store
-	OnDelete()
-
-	// OnUpdate is called whenever a change has occurred in the data
-	// structure represented by the key
-	OnUpdate()
 
 	// Marshal is called to retrieve the byte slice representation of the
 	// data represented by the key to store it in the kvstore. The function
@@ -203,6 +209,18 @@ func JoinSharedStore(c Configuration) (*SharedStore, error) {
 	return s, nil
 }
 
+func (s *SharedStore) onDelete(k Key) {
+	if s.conf.Observer != nil {
+		s.conf.Observer.OnDelete(k)
+	}
+}
+
+func (s *SharedStore) onUpdate(k Key) {
+	if s.conf.Observer != nil {
+		s.conf.Observer.OnUpdate(k)
+	}
+}
+
 // Close stops participation with a shared store. This stops the controller
 // started by JoinSharedStore().
 func (s *SharedStore) Close() {
@@ -223,7 +241,7 @@ func (s *SharedStore) Close() {
 		}
 
 		delete(s.localKeys, name)
-		key.OnDelete()
+		s.onDelete(key)
 	}
 }
 
@@ -306,7 +324,7 @@ func (s *SharedStore) DeleteLocalKey(key LocalKey) {
 			s.getLogger().WithError(err).Warning("Unable to delete key in kvstore")
 		}
 
-		key.OnDelete()
+		s.onDelete(key)
 	}
 }
 
@@ -367,7 +385,7 @@ func (s *SharedStore) updateKey(name string, value []byte) error {
 		return err
 	}
 
-	key.OnUpdate()
+	s.onUpdate(key)
 	return nil
 }
 
@@ -378,7 +396,7 @@ func (s *SharedStore) deleteKey(name string) {
 	s.mutex.Unlock()
 
 	if ok {
-		existingKey.OnDelete()
+		s.onDelete(existingKey)
 	} else {
 		s.getLogger().WithField("key", name).
 			Warning("Unable to find deleted key in local state")

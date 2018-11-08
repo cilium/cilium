@@ -111,11 +111,17 @@ func (rc *remoteCluster) restartRemoteConnection() {
 					return err
 				}
 
+				observer := rc.mesh.conf.observer
+				if observer == nil {
+					observer = &nodeStore.NodeObserver{}
+				}
+
 				remoteNodes, err := store.JoinSharedStore(store.Configuration{
 					Prefix:                  path.Join(nodeStore.NodeStorePrefix, rc.name),
 					KeyCreator:              rc.mesh.conf.NodeKeyCreator,
 					SynchronizationInterval: time.Minute,
 					Backend:                 backend,
+					Observer:                observer,
 				})
 				if err != nil {
 					backend.Close()

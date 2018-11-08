@@ -77,11 +77,18 @@ type TestType struct {
 
 var testType = TestType{}
 
-func (t *TestType) OnUpdate()                   { t.updated++ }
-func (t *TestType) OnDelete()                   { t.deleted++ }
 func (t *TestType) GetKeyName() string          { return t.Name }
 func (t *TestType) Marshal() ([]byte, error)    { return json.Marshal(t) }
 func (t *TestType) Unmarshal(data []byte) error { return json.Unmarshal(data, t) }
+
+type observer struct{}
+
+func (o *observer) OnUpdate(k Key) {
+	k.(*TestType).updated++
+}
+func (o *observer) OnDelete(k Key) {
+	k.(*TestType).deleted++
+}
 
 func newTestType() Key {
 	t := TestType{}
@@ -131,7 +138,7 @@ func expect(check func() bool) error {
 
 func (s *StoreSuite) TestStoreOperations(c *C) {
 	// Basic creation should result in default values
-	store, err := JoinSharedStore(Configuration{Prefix: testutils.RandomRune(), KeyCreator: newTestType})
+	store, err := JoinSharedStore(Configuration{Prefix: testutils.RandomRune(), KeyCreator: newTestType, Observer: &observer{}})
 	c.Assert(err, IsNil)
 	c.Assert(store, Not(IsNil))
 	defer store.Close()
@@ -172,6 +179,7 @@ func (s *StoreSuite) TestStorePeriodicSync(c *C) {
 		Prefix:                  testutils.RandomRune(),
 		KeyCreator:              newTestType,
 		SynchronizationInterval: 10 * time.Millisecond,
+		Observer:                &observer{},
 	})
 	c.Assert(err, IsNil)
 	c.Assert(store, Not(IsNil))
@@ -202,6 +210,7 @@ func setupStoreCollaboration(c *C, storePrefix, keyPrefix string) *SharedStore {
 		Prefix:                  storePrefix,
 		KeyCreator:              newTestType,
 		SynchronizationInterval: time.Second,
+		Observer:                &observer{},
 	})
 	c.Assert(err, IsNil)
 	c.Assert(store, Not(IsNil))
