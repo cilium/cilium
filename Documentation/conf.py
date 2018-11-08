@@ -67,7 +67,6 @@ author = u'Cilium Authors'
 # The short X.Y version.
 release = open("../VERSION", "r").read().strip()
 # Used by version warning
-versionwarning_project_version = open("../VERSION", "r").read().strip()
 versionwarning_body_selector = "div.document"
 
 # Fetch the docs version from an environment variable.
