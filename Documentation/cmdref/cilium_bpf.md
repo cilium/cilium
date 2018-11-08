@@ -19,6 +19,7 @@ Direct access to local BPF maps
 
 ### SEE ALSO
 * [cilium](../cilium)	 - CLI
+* [cilium bpf config](../cilium_bpf_config)	 - Manage endpoint configuration BPF maps
 * [cilium bpf ct](../cilium_bpf_ct)	 - Connection tracking tables
 * [cilium bpf endpoint](../cilium_bpf_endpoint)	 - Local endpoint map
 * [cilium bpf ipcache](../cilium_bpf_ipcache)	 - Manage the IPCache mappings for IP/CIDR <-> Identity
