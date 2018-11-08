@@ -530,18 +530,6 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 		scopedLog.Debug("Not starting controller because k8s is disabled")
 		return
 	}
-	k8sServerVer, err := k8s.GetServerVersion()
-	if err != nil {
-		scopedLog.WithError(err).Error("unable to retrieve kubernetes serverversion")
-		return
-	}
-	if !ciliumEPControllerLimit.Check(k8sServerVer) {
-		scopedLog.WithFields(logrus.Fields{
-			"expected": k8sServerVer,
-			"found":    ciliumEPControllerLimit,
-		}).Warn("cannot run with this k8s version")
-		return
-	}
 
 	ciliumClient, err := getCiliumClient()
 	if err != nil {
@@ -557,8 +545,9 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 	}
 
 	var (
-		lastMdl  *models.Endpoint
-		firstRun = true
+		lastMdl      *models.Endpoint
+		firstRun     = true
+		k8sServerVer *go_version.Version // CEPs are not supported with certain versions
 	)
 
 	// NOTE: The controller functions do NOT hold the endpoint locks
@@ -569,6 +558,27 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 				// Update logger as scopeLog might not have the podName when it
 				// was created.
 				scopedLog = e.getLogger().WithField("controller", controllerName)
+
+				// This lookup can fail but once we do it once, we no longer want to try again.
+				if k8sServerVer == nil {
+					var err error
+					k8sServerVer, err = k8s.GetServerVersion()
+					switch {
+					case err != nil:
+						scopedLog.WithError(err).Error("Unable to retrieve kubernetes server version")
+						return err
+
+					case !ciliumEPControllerLimit.Check(k8sServerVer):
+						scopedLog.WithFields(logrus.Fields{
+							"found":    k8sServerVer,
+							"expected": ciliumEPControllerLimit,
+						}).Warn("Cannot run with this k8s version")
+						return nil
+					}
+				}
+				if k8sServerVer == nil || !ciliumEPControllerLimit.Check(k8sServerVer) {
+					return nil // silently return when k8s is incompatible
+				}
 
 				podName := e.GetK8sPodName()
 				if podName == "" {
