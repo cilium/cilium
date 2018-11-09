@@ -16,9 +16,9 @@
 /initContainers:/ {
 	indent = $0 ; gsub(/[^ ].*/, "", indent)
 	print indent "- name: sleep"
-	print indent "  image: busybox"
+	print indent "  image: busybox:1.28.4"
 	print indent "  imagePullPolicy: IfNotPresent"
-	print indent "  command: ['sh', '-c', 'sleep 10']"
+	print indent "  command: ['sh', '-c', 'until nslookup kube-dns.kube-system.svc.cluster.local; do sleep 1; done']"
 }
 
 # Mount the Cilium state directory to give Cilium's Envoy filters access to the
