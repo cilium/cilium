@@ -132,6 +132,18 @@ type EgressRule struct {
 	//
 	// +optional
 	ToFQDNs []FQDNSelector `json:"toFQDNs,omitempty"`
+
+	// ToGroups is a directive that allows the integrate with multiple outside
+	// providers. Currently only AWS is supported and the rule can select by
+	// multiple fields:
+	//
+	// Example:
+	// toGroups:
+	// - aws:
+	//     securityGroupsIds:
+	//     - 'sg-XXXXXXXXXXXXX'
+	// +optional
+	ToGroups []ToGroups `json:"toGroups,omitempty"`
 }
 
 // GetDestinationEndpointSelectors returns a slice of endpoints selectors
@@ -147,4 +159,34 @@ func (e *EgressRule) GetDestinationEndpointSelectors() EndpointSelectorSlice {
 // setting any To field.
 func (e *EgressRule) IsLabelBased() bool {
 	return len(e.ToRequires)+len(e.ToCIDR)+len(e.ToCIDRSet)+len(e.ToServices) == 0
+}
+
+// RequiresDerivative returns true when the EgressRule contains sections that
+// need a derivative policy created in order to be enforced (e.g. ToGroups).
+func (e *EgressRule) RequiresDerivative() bool {
+	if len(e.ToGroups) > 0 {
+		return true
+	}
+	return false
+}
+
+// CreateDerivative will return a new rule based on the data gathered by the
+// rules that creates a new derivative policy.
+// In the case of ToGroups will call outside using the groups callback and this
+// function can take a bit of time.
+func (e *EgressRule) CreateDerivative() (*EgressRule, error) {
+	newEgressRule := e.DeepCopy()
+	if len(e.ToGroups) == 0 {
+		return newEgressRule, nil
+	}
+	newEgressRule.ToGroups = []ToGroups{}
+
+	for _, group := range e.ToGroups {
+		cidrSet, err := group.GetCidrSet()
+		if err != nil {
+			return newEgressRule, err
+		}
+		newEgressRule.ToCIDRSet = append(newEgressRule.ToCIDRSet, cidrSet...)
+	}
+	return newEgressRule, nil
 }
