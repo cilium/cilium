@@ -39,6 +39,7 @@ RUN apt-get update \
 		wget \
 		zip \
 		zlib1g-dev \
+		gcc-multilib \
 	&& apt-get clean \
 	&& rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
