@@ -561,7 +561,11 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		rehf := k8sUtils.ResourceEventHandlerFactory(
 			func(i interface{}) func() error {
 				return func() error {
-					err := d.addCiliumNetworkPolicyV2(cnpStore, i.(*cilium_v2.CiliumNetworkPolicy))
+					cnp := i.(*cilium_v2.CiliumNetworkPolicy)
+					if cnp.RequiresDerivative() {
+						return nil
+					}
+					err := d.addCiliumNetworkPolicyV2(cnpStore, cnp)
 					updateK8sEventMetric(metricCNP, metricCreate, err == nil)
 					return nil
 				}
@@ -575,11 +579,14 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 			},
 			func(old, new interface{}) func() error {
 				return func() error {
+					oldCNP := old.(*cilium_v2.CiliumNetworkPolicy)
+					newCNP := new.(*cilium_v2.CiliumNetworkPolicy)
+					if newCNP.RequiresDerivative() {
+						return nil
+					}
+
 					err := d.updateCiliumNetworkPolicyV2(
-						cnpStore,
-						old.(*cilium_v2.CiliumNetworkPolicy),
-						new.(*cilium_v2.CiliumNetworkPolicy),
-					)
+						cnpStore, oldCNP, newCNP)
 					updateK8sEventMetric(metricCNP, metricUpdate, err == nil)
 					return nil
 				}
