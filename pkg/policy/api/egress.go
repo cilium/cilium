@@ -132,6 +132,17 @@ type EgressRule struct {
 	//
 	// +optional
 	ToFQDNs []FQDNSelector `json:"toFQDNs,omitempty"`
+
+	// ToGroups is a directive that allows the integrate with multiple outside
+	// providers.  Per each field in the struct will have a register callback
+	// that will return a number of IPs to be whitelisting in a new child
+	// policy.
+	//
+	// Example:
+	// A to groups that need to whitelist all the AWS instances based on a label.
+	//
+	// +optional
+	ToGroups []ToGroups `json:"toGroups,omitempty"`
 }
 
 // GetDestinationEndpointSelectors returns a slice of endpoints selectors
@@ -147,4 +158,32 @@ func (e *EgressRule) GetDestinationEndpointSelectors() EndpointSelectorSlice {
 // setting any To field.
 func (e *EgressRule) IsLabelBased() bool {
 	return len(e.ToRequires)+len(e.ToCIDR)+len(e.ToCIDRSet)+len(e.ToServices) == 0
+}
+
+// RequiresDerivative returns true if the policy has any rule that will create
+// a new child policy in the future.
+func (e *EgressRule) RequiresDerivative() bool {
+	if len(e.ToGroups) > 0 {
+		return true
+	}
+	return false
+}
+
+// CreateDerivative will return a new rule based on the data gathered by
+// the rules that creates a new child policy.
+func (e *EgressRule) CreateDerivative() (*EgressRule, error) {
+	newEgressRule := e.DeepCopy()
+	if len(e.ToGroups) == 0 {
+		return newEgressRule, nil
+	}
+	newEgressRule.ToGroups = []ToGroups{}
+
+	for _, group := range e.ToGroups {
+		cidrSet, err := group.GetCidrSet()
+		if err != nil {
+			return newEgressRule, err
+		}
+		newEgressRule.ToCIDRSet = append(newEgressRule.ToCIDRSet, cidrSet...)
+	}
+	return newEgressRule, nil
 }
