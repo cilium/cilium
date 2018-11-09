@@ -60,7 +60,10 @@ const (
 	ExecTimeout = 300 * time.Second
 
 	// EndpointGenerationTimeout specifies timeout for proxy completion context
-	EndpointGenerationTimeout = 55 * time.Second
+	// Must be greater than `ExecTimeout` as a context with this timeout
+	// is started before using `ExecTimeout` and still used after `ExecTimeout`
+	// is already canceled.
+	EndpointGenerationTimeout = 330 * time.Second
 )
 
 // mapPath returns the path to a map for endpoint ID.
