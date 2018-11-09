@@ -67,6 +67,9 @@ type CiliumNetworkPolicy struct {
 type CiliumNetworkPolicyStatus struct {
 	// Nodes is the Cilium policy status for each node
 	Nodes map[string]CiliumNetworkPolicyNodeStatus `json:"nodes,omitempty"`
+
+	// DerivativesPolicies is the Cilium Children policies status
+	DerivativesPolicies map[string]CiliumDerivativePolicyStatus `json:"DerivativesPolicies,omitempty"`
 }
 
 // CiliumNetworkPolicyNodeStatus is the status of a Cilium policy rule for a
@@ -99,6 +102,22 @@ type CiliumNetworkPolicyNodeStatus struct {
 	// CNP that was imported corresponding to Annotation X=Y has been realized on
 	// the node.
 	Annotations map[string]string `json:"annotations,omitempty"`
+}
+
+// CiliumDerivativePolicyStatus is the status of a Cilium derived policies.
+type CiliumDerivativePolicyStatus struct {
+	// OK is true when the policy has been parsed and imported successfully
+	// into the in-memory policy repository on the node.
+	OK bool `json:"ok,omitempty"`
+	// Error describes any error that occurred when parsing or importing the
+	// policy, or realizing the policy for the endpoints to which it applies
+	// on the node.
+	Error string `json:"error,omitempty"`
+	// LastUpdated contains the last time this status was updated
+	LastUpdated Timestamp `json:"lastUpdated,omitempty"`
+	// Enforcing is set to true once all endpoints present at the time the
+	// policy has been imported are enforcing this policy.
+	Enforcing bool `json:"enforcing,omitempty"`
 }
 
 // NewTimestamp creates a new Timestamp with the current time.Now()
@@ -149,6 +168,15 @@ func (r *CiliumNetworkPolicy) SetPolicyStatus(nodeName string, cnpns CiliumNetwo
 		r.Status.Nodes = map[string]CiliumNetworkPolicyNodeStatus{}
 	}
 	r.Status.Nodes[nodeName] = cnpns
+}
+
+// SetDerivedPolicyStatus set the derivative policy status for the given
+// derivative policy name.
+func (r *CiliumNetworkPolicy) SetDerivedPolicyStatus(derivativePolicyName string, status CiliumDerivativePolicyStatus) {
+	if r.Status.DerivativesPolicies == nil {
+		r.Status.DerivativesPolicies = map[string]CiliumDerivativePolicyStatus{}
+	}
+	r.Status.DerivativesPolicies[derivativePolicyName] = status
 }
 
 // SpecEquals returns true if the spec and specs metadata is the sa
@@ -218,6 +246,24 @@ func (r *CiliumNetworkPolicy) GetIdentityLabels() labels.LabelArray {
 	uid := r.ObjectMeta.UID
 	return k8sCiliumUtils.GetPolicyLabels(namespace, name, uid,
 		k8sCiliumUtils.ResourceTypeCiliumNetworkPolicy)
+}
+
+// RequiresDerivative return true if the CNP has any rule that will create a new
+// derivative rule.
+func (r *CiliumNetworkPolicy) RequiresDerivative() bool {
+	if r.Spec != nil {
+		if r.Spec.RequiresDerivative() {
+			return true
+		}
+	}
+	if r.Specs != nil {
+		for _, rule := range r.Specs {
+			if rule.RequiresDerivative() {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
