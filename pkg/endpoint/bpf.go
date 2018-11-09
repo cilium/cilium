@@ -466,7 +466,10 @@ func (e *Endpoint) removeOldRedirects(owner Owner, desiredRedirects map[string]b
 // Must be called with endpoint.Mutex not held and endpoint.BuildMutex held.
 // Returns the policy revision number when the regeneration has called, a
 // boolean if the BPF compilation was executed and an error in case of an error.
-func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenContext *RegenerationContext) (revnum uint64, compiled bool, reterr error) {
+// Also returns a function which performs additional operations depending on
+// the state of the returned error. This function must be invoked by the
+// caller if it is non-nil.
+func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenContext *RegenerationContext) (revnum uint64, compiled bool, afterFunc func(error), reterr error) {
 	var (
 		err                 error
 		compilationExecuted bool
@@ -485,7 +488,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 	err = e.LockAlive()
 	stats.waitingForLock.End(err == nil)
 	if err != nil {
-		return 0, compilationExecuted, err
+		return 0, compilationExecuted, nil, err
 	}
 
 	epID := e.StringID()
@@ -515,7 +518,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 
 		// Compute policy for this endpoint.
 		if err = e.regeneratePolicy(owner); err != nil {
-			return 0, compilationExecuted, fmt.Errorf("Unable to regenerate policy: %s", err)
+			return 0, compilationExecuted, nil, fmt.Errorf("Unable to regenerate policy: %s", err)
 		}
 
 		_ = e.updateAndOverrideEndpointOptions(nil)
@@ -523,29 +526,29 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 		// Dry mode needs Network Policy Updates, but the proxy wait group must
 		// not be initialized, as there is no proxy ACKing the changes.
 		if err, _ = e.updateNetworkPolicy(owner, nil); err != nil {
-			return 0, compilationExecuted, err
+			return 0, compilationExecuted, nil, err
 		}
 
 		if err = e.writeHeaderfile(nextDir, owner); err != nil {
-			return 0, compilationExecuted, fmt.Errorf("Unable to write header file: %s", err)
+			return 0, compilationExecuted, nil, fmt.Errorf("Unable to write header file: %s", err)
 		}
 
 		log.WithField(logfields.EndpointID, e.ID).Debug("Skipping bpf updates due to dry mode")
-		return e.nextPolicyRevision, compilationExecuted, nil
+		return e.nextPolicyRevision, compilationExecuted, nil, nil
 	}
 
 	if e.PolicyMap == nil {
 		e.PolicyMap, _, err = policymap.OpenMap(e.PolicyMapPathLocked())
 		if err != nil {
 			e.Unlock()
-			return 0, compilationExecuted, err
+			return 0, compilationExecuted, nil, err
 		}
 		// Clean up map contents
 		e.getLogger().Debug("flushing old PolicyMap")
 		err = e.PolicyMap.Flush()
 		if err != nil {
 			e.Unlock()
-			return 0, compilationExecuted, err
+			return 0, compilationExecuted, nil, err
 		}
 
 		// Also reset the in-memory state of the realized state as the
@@ -564,8 +567,12 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 	// reverted, and execute it in case of regeneration success.
 	var finalizeList revert.FinalizeList
 	var revertStack revert.RevertStack
-	defer func() {
-		if reterr == nil {
+
+	// Do not defer this function, because it acquires the endpoint lock. If
+	// a panic occurs in regenerateBPF while the endpoint lock was held, and
+	// this function was deferred, it would deadlock this endpoint.
+	afterFunc = func(err error) {
+		if err == nil {
 			// Always execute the finalization code, even if the endpoint is
 			// terminating, in order to properly release resources.
 			e.UnconditionalLock()
@@ -584,7 +591,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 			e.getLogger().Error("Finished restoring endpoint state after BPF regeneration failed")
 			e.Unlock()
 		}
-	}()
+	}
 
 	// Only generate & populate policy map if a security identity is set up for
 	// this endpoint.
@@ -594,7 +601,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 		stats.policyCalculation.End(err == nil)
 		if err != nil {
 			e.Unlock()
-			return 0, compilationExecuted, fmt.Errorf("unable to regenerate policy for '%s': %s", e.PolicyMap.String(), err)
+			return 0, compilationExecuted, afterFunc, fmt.Errorf("unable to regenerate policy for '%s': %s", e.PolicyMap.String(), err)
 		}
 
 		_ = e.updateAndOverrideEndpointOptions(nil)
@@ -610,7 +617,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 		stats.mapSync.End(err == nil)
 		if err != nil {
 			e.Unlock()
-			return 0, compilationExecuted, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %s", err)
+			return 0, compilationExecuted, afterFunc, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %s", err)
 		}
 
 		// Configure the new network policy with the proxies.
@@ -620,7 +627,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 		stats.proxyPolicyCalculation.End(err == nil)
 		if err != nil {
 			e.Unlock()
-			return 0, compilationExecuted, err
+			return 0, compilationExecuted, afterFunc, err
 		}
 
 		revertStack.Push(networkPolicyRevertFunc)
@@ -637,7 +644,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 		if err != nil {
 			stats.proxyConfiguration.End(false)
 			e.Unlock()
-			return 0, compilationExecuted, err
+			return 0, compilationExecuted, afterFunc, err
 		}
 		finalizeList.Append(finalizeFunc)
 		revertStack.Push(revertFunc)
@@ -657,7 +664,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 	if err = e.writeHeaderfile(nextDir, owner); err != nil {
 		stats.prepareBuild.End(false)
 		e.Unlock()
-		return 0, compilationExecuted, fmt.Errorf("unable to write header file: %s", err)
+		return 0, compilationExecuted, afterFunc, fmt.Errorf("unable to write header file: %s", err)
 	}
 
 	// Avoid BPF program compilation and installation if the headerfile for the endpoint
@@ -686,7 +693,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 		stats.prepareBuild.End(false)
 		e.Unlock()
 		err = fmt.Errorf("Unable to cache endpoint information")
-		return 0, compilationExecuted, err
+		return 0, compilationExecuted, afterFunc, err
 	}
 
 	// TODO: In Cilium v1.4 or later cycle, remove this.
@@ -726,7 +733,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 		close(closeChan)
 
 		if err != nil {
-			return epInfoCache.revision, compilationExecuted, err
+			return epInfoCache.revision, compilationExecuted, afterFunc, err
 		}
 		e.bpfHeaderfileHash = bpfHeaderfilesHash
 	} else {
@@ -743,7 +750,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 		e.logStatusLocked(BPF, Warning, fmt.Sprintf("Unable to sync EpToPolicy Map continue with Sockmap support: %s", err))
 	}
 	if err != nil {
-		return 0, compilationExecuted, fmt.Errorf("Exposing new BPF failed: %s", err)
+		return 0, compilationExecuted, afterFunc, fmt.Errorf("Exposing new BPF failed: %s", err)
 	}
 
 	// Signal that BPF program has been generated.
@@ -754,14 +761,14 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 	err = e.WaitForProxyCompletions(proxyWaitGroup)
 	stats.proxyWaitForAck.End(err == nil)
 	if err != nil {
-		return 0, compilationExecuted, fmt.Errorf("Error while configuring proxy redirects: %s", err)
+		return 0, compilationExecuted, afterFunc, fmt.Errorf("Error while configuring proxy redirects: %s", err)
 	}
 
 	stats.waitingForLock.Start()
 	err = e.LockAlive()
 	stats.waitingForLock.End(err == nil)
 	if err != nil {
-		return 0, compilationExecuted, err
+		return 0, compilationExecuted, afterFunc, err
 	}
 	defer e.Unlock()
 
@@ -780,10 +787,10 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 	err = e.syncPolicyMap()
 	stats.mapSync.End(err == nil)
 	if err != nil {
-		return 0, compilationExecuted, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %s", err)
+		return 0, compilationExecuted, afterFunc, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %s", err)
 	}
 
-	return epInfoCache.revision, compilationExecuted, err
+	return epInfoCache.revision, compilationExecuted, afterFunc, err
 }
 
 // DeleteMapsLocked releases references to all BPF maps associated with this
