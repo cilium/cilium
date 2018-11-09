@@ -652,10 +652,12 @@ func (e *Endpoint) ComputePolicyEnforcement(repo *policy.Repository) (ingress bo
 }
 
 // Called with e.Mutex UNlocked
-func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr error) {
+func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (regenResult *regenerationResult) {
 	var revision uint64
 	var compilationExecuted bool
 	var err error
+
+	regenResult = &regenerationResult{}
 
 	context.Stats = regenerationStatistics{}
 	stats := &context.Stats
@@ -666,41 +668,6 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 		logfields.Reason:    context.Reason,
 	}).Info("Regenerating endpoint")
 
-	defer func() {
-		success := retErr == nil
-		stats.totalTime.End(success)
-		stats.success = success
-
-		e.mutex.RLock()
-		stats.endpointID = e.ID
-		stats.policyStatus = e.policyStatus()
-		e.RUnlock()
-		stats.SendMetrics()
-
-		scopedLog := e.getLogger().WithFields(logrus.Fields{
-			"waitingForLock":         stats.waitingForLock.Total(),
-			"waitingForCTClean":      stats.waitingForCTClean.Total(),
-			"policyCalculation":      stats.policyCalculation.Total(),
-			"proxyConfiguration":     stats.proxyConfiguration.Total(),
-			"proxyPolicyCalculation": stats.proxyPolicyCalculation.Total(),
-			"proxyWaitForAck":        stats.proxyWaitForAck.Total(),
-			"bpfCompilation":         stats.bpfCompilation.Total(),
-			"mapSync":                stats.mapSync.Total(),
-			"prepareBuild":           stats.prepareBuild.Total(),
-			logfields.BuildDuration:  stats.totalTime.Total(),
-			logfields.Reason:         context.Reason,
-		})
-
-		if retErr != nil {
-			scopedLog.WithError(retErr).Warn("Regeneration of endpoint failed")
-			e.LogStatus(BPF, Failure, "Error regenerating endpoint: "+retErr.Error())
-			return
-		}
-
-		scopedLog.Info("Completed endpoint regeneration")
-		e.LogStatusOK(BPF, "Successfully regenerated endpoint program (Reason: "+context.Reason+")")
-	}()
-
 	e.BuildMutex.Lock()
 	defer e.BuildMutex.Unlock()
 
@@ -709,7 +676,8 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 	err = e.LockAlive()
 	stats.waitingForLock.End(err == nil)
 	if err != nil {
-		return err
+		regenResult.err = err
+		return
 	}
 
 	// When building the initial drop policy in waiting-for-identity state
@@ -721,7 +689,8 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 		e.getLogger().WithField(logfields.EndpointState, e.state).Debug("Skipping build due to invalid state")
 		e.Unlock()
 
-		return fmt.Errorf("Skipping build due to invalid state: %s", e.state)
+		regenResult.err = fmt.Errorf("Skipping build due to invalid state: %s", e.state)
+		return
 	}
 
 	e.Unlock()
@@ -738,21 +707,27 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 	// over to make sure we can start the build from scratch
 	if err := e.removeDirectory(tmpDir); err != nil && !os.IsNotExist(err) {
 		stats.prepareBuild.End(false)
-		return fmt.Errorf("unable to remove old temporary directory: %s", err)
+		regenResult.err = fmt.Errorf("unable to remove old temporary directory: %s", err)
+		return
 	}
 
 	// Create temporary endpoint directory if it does not exist yet
 	if err := os.MkdirAll(tmpDir, 0777); err != nil {
 		stats.prepareBuild.End(false)
-		return fmt.Errorf("Failed to create endpoint directory: %s", err)
+		regenResult.err = fmt.Errorf("Failed to create endpoint directory: %s", err)
+		return
 	}
 
 	stats.prepareBuild.End(true)
 
-	defer func() {
+	// Append function to be ran after this function returns. Do not defer
+	// this function because it acquires the endpoint lock; if a panic
+	// occurs while we hold a lock and this function is deffered, the agent
+	// can deadlock.
+	completeBuild := func() {
 		if err := e.LockAlive(); err != nil {
-			if retErr == nil {
-				retErr = err
+			if regenResult.err == nil {
+				regenResult.err = err
 			} else {
 				e.LogDisconnectedMutexAction(err, "after regenerate")
 			}
@@ -771,7 +746,11 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 		// queued for taking care of it.
 		e.BuilderSetStateLocked(StateReady, "Completed endpoint regeneration with no pending regeneration requests")
 		e.Unlock()
-	}()
+
+		return
+	}
+
+	regenResult.afterFuncs = append(regenResult.afterFuncs, completeBuild)
 
 	revision, compilationExecuted, afterFunc, err := e.regenerateBPF(owner, origDir, tmpDir, context)
 
@@ -788,7 +767,8 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 		// Remove an eventual existing previous failure directory
 		e.removeDirectory(failDir)
 		os.Rename(tmpDir, failDir)
-		return err
+		regenResult.err = err
+		return
 	}
 
 	// Update desired policy for endpoint because policy has now been realized
@@ -798,7 +778,8 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 	err = e.LockAlive()
 	stats.waitingForLock.End(err == nil)
 	if err != nil {
-		return err
+		regenResult.err = err
+		return
 	}
 
 	// Depending upon result of BPF regeneration (compilation executed),
@@ -807,7 +788,8 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 	err = e.synchronizeDirectories(origDir, compilationExecuted)
 	if err != nil {
 		e.Unlock()
-		return fmt.Errorf("error synchronizing endpoint BPF program directories: %s", err)
+		regenResult.err = fmt.Errorf("error synchronizing endpoint BPF program directories: %s", err)
+		return
 	}
 
 	// Keep PolicyMap for this endpoint in sync with desired / realized state.
@@ -821,7 +803,14 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 	e.setPolicyRevision(revision)
 	e.Unlock()
 
-	return nil
+	return
+}
+
+type regenerationResult struct {
+	// list of functions to execute in reverse order.
+	afterFuncs []func()
+
+	err error
 }
 
 // Regenerate forces the regeneration of endpoint programs & policy
@@ -864,7 +853,17 @@ func (e *Endpoint) Regenerate(owner Owner, context *RegenerationContext) <-chan 
 		if isMyTurnChanOK && isMyTurn {
 			scopedLog.Debug("Dequeued endpoint from build queue")
 
-			err := e.regenerate(owner, context)
+			regenResult := e.regenerate(owner, context)
+			// Execute each function in reverse order that is needed to be ran
+			// after regeneration
+			for i := len(regenResult.afterFuncs) - 1; i >= 0; i-- {
+				regenResult.afterFuncs[i]()
+			}
+
+			e.logRegenerationResults(context, regenResult.err)
+
+			err = regenResult.err
+
 			repr, reprerr := monitor.EndpointRegenRepr(e, err)
 			if reprerr != nil {
 				scopedLog.WithError(reprerr).Warn("Notifying monitor about endpoint regeneration failed")
@@ -889,6 +888,40 @@ func (e *Endpoint) Regenerate(owner Owner, context *RegenerationContext) <-chan 
 		}
 	}(owner, newReq, e)
 	return newReq.ExternalDone
+}
+
+func (e *Endpoint) logRegenerationResults(context *RegenerationContext, err error) {
+	stats := &context.Stats
+	success := err == nil
+	stats.totalTime.End(success)
+	stats.success = success
+
+	e.mutex.RLock()
+	stats.endpointID = e.ID
+	stats.policyStatus = e.policyStatus()
+	e.RUnlock()
+	stats.SendMetrics()
+
+	scopedLog := e.getLogger().WithFields(logrus.Fields{
+		"waitingForLock":         stats.waitingForLock.Total(),
+		"waitingForCTClean":      stats.waitingForCTClean.Total(),
+		"policyCalculation":      stats.policyCalculation.Total(),
+		"proxyConfiguration":     stats.proxyConfiguration.Total(),
+		"proxyPolicyCalculation": stats.proxyPolicyCalculation.Total(),
+		"proxyWaitForAck":        stats.proxyWaitForAck.Total(),
+		"bpfCompilation":         stats.bpfCompilation.Total(),
+		"mapSync":                stats.mapSync.Total(),
+		"prepareBuild":           stats.prepareBuild.Total(),
+		logfields.BuildDuration:  stats.totalTime.Total(),
+		logfields.Reason:         context.Reason,
+	})
+	if err != nil {
+		scopedLog.WithError(err).Warn("Regeneration of endpoint failed")
+		e.LogStatus(BPF, Failure, "Error regenerating endpoint: "+err.Error())
+	} else {
+		scopedLog.Info("Completed endpoint regeneration")
+		e.LogStatusOK(BPF, "Successfully regenerated endpoint program (Reason: "+context.Reason+")")
+	}
 }
 
 func (e *Endpoint) runIdentityToK8sPodSync() {
