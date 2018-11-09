@@ -67,6 +67,10 @@ type CiliumNetworkPolicy struct {
 type CiliumNetworkPolicyStatus struct {
 	// Nodes is the Cilium policy status for each node
 	Nodes map[string]CiliumNetworkPolicyNodeStatus `json:"nodes,omitempty"`
+
+	// DerivativePolicies is the status of all policies derived from the Cilium
+	// policy
+	DerivativePolicies map[string]CiliumNetworkPolicyNodeStatus `json:"DerivativePolicies,omitempty"`
 }
 
 // CiliumNetworkPolicyNodeStatus is the status of a Cilium policy rule for a
@@ -151,6 +155,15 @@ func (r *CiliumNetworkPolicy) SetPolicyStatus(nodeName string, cnpns CiliumNetwo
 	r.Status.Nodes[nodeName] = cnpns
 }
 
+// SetDerivedPolicyStatus set the derivative policy status for the given
+// derivative policy name.
+func (r *CiliumNetworkPolicy) SetDerivedPolicyStatus(derivativePolicyName string, status CiliumNetworkPolicyNodeStatus) {
+	if r.Status.DerivativePolicies == nil {
+		r.Status.DerivativePolicies = map[string]CiliumNetworkPolicyNodeStatus{}
+	}
+	r.Status.DerivativePolicies[derivativePolicyName] = status
+}
+
 // SpecEquals returns true if the spec and specs metadata is the sa
 func (r *CiliumNetworkPolicy) SpecEquals(o *CiliumNetworkPolicy) bool {
 	if o == nil {
@@ -218,6 +231,24 @@ func (r *CiliumNetworkPolicy) GetIdentityLabels() labels.LabelArray {
 	uid := r.ObjectMeta.UID
 	return k8sCiliumUtils.GetPolicyLabels(namespace, name, uid,
 		k8sCiliumUtils.ResourceTypeCiliumNetworkPolicy)
+}
+
+// RequiresDerivative return true if the CNP has any rule that will create a new
+// derivative rule.
+func (r *CiliumNetworkPolicy) RequiresDerivative() bool {
+	if r.Spec != nil {
+		if r.Spec.RequiresDerivative() {
+			return true
+		}
+	}
+	if r.Specs != nil {
+		for _, rule := range r.Specs {
+			if rule.RequiresDerivative() {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
