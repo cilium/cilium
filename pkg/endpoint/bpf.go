@@ -54,7 +54,10 @@ const (
 	ExecTimeout = 300 * time.Second
 
 	// EndpointGenerationTimeout specifies timeout for proxy completion context
-	EndpointGenerationTimeout = 55 * time.Second
+	// Must be greater than `ExecTimeout` as a context with this timeout
+	// is started before using `ExecTimeout` and still used after `ExecTimeout`
+	// is already canceled.
+	EndpointGenerationTimeout = 330 * time.Second
 )
 
 type getBPFDataCallback func() (s6, s4 []int)
