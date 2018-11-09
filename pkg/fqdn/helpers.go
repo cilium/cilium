@@ -54,7 +54,7 @@ func injectToCIDRSetRules(rule *api.Rule, dnsNames map[string][]net.IP) (namesMi
 				missing[dnsName] = struct{}{}
 			}
 
-			egressRule.ToCIDRSet = append(egressRule.ToCIDRSet, ipsToRules(IPs)...)
+			egressRule.ToCIDRSet = append(egressRule.ToCIDRSet, api.IpsToCIDRRules(IPs)...)
 		}
 	}
 
@@ -73,23 +73,6 @@ func stripToCIDRSet(rule *api.Rule) {
 			egressRule.ToCIDRSet = nil
 		}
 	}
-}
-
-// ipsToRules generates CIDRRules for the IPs passed in.
-func ipsToRules(ips []net.IP) (cidrRules []api.CIDRRule) {
-	for _, ip := range ips {
-		rule := api.CIDRRule{ExceptCIDRs: make([]api.CIDR, 0)}
-		rule.Generated = true
-		if ip.To4() != nil {
-			rule.Cidr = api.CIDR(ip.String() + "/32")
-		} else {
-			rule.Cidr = api.CIDR(ip.String() + "/128")
-		}
-
-		cidrRules = append(cidrRules, rule)
-	}
-
-	return cidrRules
 }
 
 // hasToFQDN indicates whether a ToFQDN rule exists in the api.Rule
