@@ -590,9 +590,9 @@ data:
     template: |-
       initContainers:
       - name: sleep
-        image: busybox
+        image: busybox:1.28.4
         imagePullPolicy: IfNotPresent
-        command: ['sh', '-c', 'sleep 10']
+        command: ['sh', '-c', 'until nslookup kube-dns.kube-system.svc.cluster.local; do sleep 1; done']
       - name: istio-init
         image: "docker.io/istio/proxy_init:1.0.2"
         args:

@@ -125,8 +125,8 @@ spec:
       - command:
         - sh
         - -c
-        - sleep 30
-        image: busybox
+        - "until nslookup kube-dns.kube-system.svc.cluster.local; do sleep 1; done"
+        image: busybox:1.28.4
         imagePullPolicy: IfNotPresent
         name: sleep
         resources: {}
@@ -280,8 +280,8 @@ spec:
       - command:
         - sh
         - -c
-        - sleep 30
-        image: busybox
+        - "until nslookup kube-dns.kube-system.svc.cluster.local; do sleep 1; done"
+        image: busybox:1.28.4
         imagePullPolicy: IfNotPresent
         name: sleep
         resources: {}
@@ -435,8 +435,8 @@ spec:
       - command:
         - sh
         - -c
-        - sleep 30
-        image: busybox
+        - "until nslookup kube-dns.kube-system.svc.cluster.local; do sleep 1; done"
+        image: busybox:1.28.4
         imagePullPolicy: IfNotPresent
         name: sleep
         resources: {}
