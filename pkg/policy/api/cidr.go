@@ -133,3 +133,19 @@ func ComputeResultantCIDRSet(cidrs CIDRRuleSlice) CIDRSlice {
 	}
 	return allResultantAllowedCIDRs
 }
+
+// IPsToCIDRRules generates CIDRRules for the IPs passed in./
+// This function will mark the rule to Generated true by default.
+func IPsToCIDRRules(ips []net.IP) (cidrRules []CIDRRule) {
+	for _, ip := range ips {
+		rule := CIDRRule{ExceptCIDRs: make([]CIDR, 0)}
+		rule.Generated = true
+		if ip.To4() != nil {
+			rule.Cidr = CIDR(ip.String() + "/32")
+		} else {
+			rule.Cidr = CIDR(ip.String() + "/128")
+		}
+		cidrRules = append(cidrRules, rule)
+	}
+	return cidrRules
+}
