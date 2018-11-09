@@ -18,6 +18,14 @@
 
 #include "sockops_config.h"
 
+#ifndef AF_INET
+#define AF_INET 2
+#endif
+
+#ifndef AF_INET6
+#define AF_INET6 10
+#endif
+
 /* Structure representing an L7 sock */
 struct sock_key {
 	union {
