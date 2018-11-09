@@ -310,3 +310,7 @@ required = [
 [[constraint]]
   name = "github.com/cilium/proxy"
   revision = "84ee839e1d78ef858a39e390288ad417d35bb1d4"
+
+[[constraint]]
+  name = "github.com/aws/aws-sdk-go-v2"
+  version = "2.0.0-preview.5"

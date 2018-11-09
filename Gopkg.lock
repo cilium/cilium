@@ -62,6 +62,37 @@
   revision = "fdf19785fd3558d619ef81212f5edf1d6c2a5911"
 
 [[projects]]
+  digest = "1:c026f5bfc3d7fa48e86a2b0e45f90c555bd4a36d3064224a7581545337f6e867"
+  name = "github.com/aws/aws-sdk-go-v2"
+  packages = [
+    ".",
+    "aws",
+    "aws/awserr",
+    "aws/defaults",
+    "aws/ec2metadata",
+    "aws/ec2rolecreds",
+    "aws/endpointcreds",
+    "aws/endpoints",
+    "aws/external",
+    "aws/signer/v4",
+    "aws/stscreds",
+    "internal/awsutil",
+    "internal/ini",
+    "internal/sdk",
+    "private/protocol",
+    "private/protocol/ec2query",
+    "private/protocol/query",
+    "private/protocol/query/queryutil",
+    "private/protocol/rest",
+    "private/protocol/xml/xmlutil",
+    "service/ec2",
+    "service/sts",
+  ]
+  pruneopts = "NUT"
+  revision = "d52522b5f4b95591ff6528d7c54923951aadf099"
+  version = "v2.0.0-preview.5"
+
+[[projects]]
   branch = "master"
   digest = "1:707ebe952a8b3d00b343c01536c79c73771d100f63ec6babeaed5c79e2b8a8dd"
   name = "github.com/beorn7/perks"
@@ -678,6 +709,13 @@
   packages = ["."]
   pruneopts = "NUT"
   revision = "4e64e4a4e2552194cf594243e23aa9baf3b4297e"
+
+[[projects]]
+  digest = "1:ac6d01547ec4f7f673311b4663909269bfb8249952de3279799289467837c3cc"
+  name = "github.com/jmespath/go-jmespath"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "0b12d6b5"
 
 [[projects]]
   digest = "1:8e36686e8b139f8fe240c1d5cf3a145bc675c22ff8e707857cdd3ae17b00d728"
@@ -1680,6 +1718,10 @@
   analyzer-version = 1
   input-imports = [
     "github.com/asaskevich/govalidator",
+    "github.com/aws/aws-sdk-go-v2",
+    "github.com/aws/aws-sdk-go-v2/aws",
+    "github.com/aws/aws-sdk-go-v2/aws/external",
+    "github.com/aws/aws-sdk-go-v2/service/ec2",
     "github.com/c9s/goprocinfo/linux",
     "github.com/cilium/proxy/go/cilium/api",
     "github.com/cilium/proxy/go/envoy/api/v2",
