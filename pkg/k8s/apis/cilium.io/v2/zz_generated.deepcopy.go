@@ -193,6 +193,13 @@ func (in *CiliumNetworkPolicyStatus) DeepCopyInto(out *CiliumNetworkPolicyStatus
 			(*out)[key] = *val.DeepCopy()
 		}
 	}
+	if in.DerivativePolicies != nil {
+		in, out := &in.DerivativePolicies, &out.DerivativePolicies
+		*out = make(map[string]CiliumNetworkPolicyNodeStatus, len(*in))
+		for key, val := range *in {
+			(*out)[key] = *val.DeepCopy()
+		}
+	}
 	return
 }
 

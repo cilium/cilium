@@ -154,6 +154,7 @@ func (e *EgressRule) sanitize() error {
 		"ToEntities":  len(e.ToEntities),
 		"ToServices":  len(e.ToServices),
 		"ToFQDNs":     len(e.ToFQDNs),
+		"ToGroups":    len(e.ToGroups),
 	}
 	l3DependentL4Support := map[interface{}]bool{
 		"ToCIDR":      true,
@@ -162,6 +163,7 @@ func (e *EgressRule) sanitize() error {
 		"ToEntities":  true,
 		"ToServices":  true,
 		"ToFQDNs":     true,
+		"ToGroups":    true,
 	}
 	for m1 := range l3Members {
 		for m2 := range l3Members {
