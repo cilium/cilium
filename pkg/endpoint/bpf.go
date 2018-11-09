@@ -56,13 +56,7 @@ import (
 )
 
 const (
-	// ExecTimeout is the execution timeout to use in join_ep.sh executions
-	ExecTimeout = 300 * time.Second
-
 	// EndpointGenerationTimeout specifies timeout for proxy completion context
-	// Must be greater than `ExecTimeout` as a context with this timeout
-	// is started before using `ExecTimeout` and still used after `ExecTimeout`
-	// is already canceled.
 	EndpointGenerationTimeout = 330 * time.Second
 )
 
@@ -797,20 +791,18 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 		closeChan := loadinfo.LogPeriodicSystemLoad(log.WithFields(logrus.Fields{logfields.EndpointID: epID}).Debugf, time.Second)
 
 		// Compile and install BPF programs for this endpoint
-		ctx, cancel := context.WithTimeout(context.Background(), ExecTimeout)
 		if bpfHeaderfilesChanged {
 			stats.bpfCompilation.Start()
-			err = loader.CompileAndLoad(ctx, epInfoCache)
+			err = loader.CompileAndLoad(completionCtx, epInfoCache)
 			stats.bpfCompilation.End(err == nil)
 			e.getLogger().WithError(err).
 				WithField(logfields.BPFCompilationTime, stats.bpfCompilation.Total().String()).
 				Info("Recompiled endpoint BPF program")
 			compilationExecuted = true
 		} else {
-			err = loader.ReloadDatapath(ctx, epInfoCache)
+			err = loader.ReloadDatapath(completionCtx, epInfoCache)
 			e.getLogger().WithError(err).Info("Reloaded endpoint BPF program")
 		}
-		cancel()
 		close(closeChan)
 
 		if err != nil {
