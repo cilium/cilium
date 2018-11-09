@@ -71,7 +71,7 @@ func injectToCIDRSetRules(rule *api.Rule, cache *DNSCache, reMap *regexpmap.Rege
 					"matchName": ToFQDN.MatchName,
 				}).Debug("Emitting matching DNS Name -> IPs for ToFQDNs Rule")
 				emitted[dnsName] = append(emitted[dnsName], lookupIPs...)
-				egressRule.ToCIDRSet = append(egressRule.ToCIDRSet, ipsToRules(lookupIPs)...)
+				egressRule.ToCIDRSet = append(egressRule.ToCIDRSet, api.IPsToCIDRRules(lookupIPs)...)
 			}
 
 			if len(ToFQDN.MatchPattern) > 0 {
@@ -99,7 +99,7 @@ func injectToCIDRSetRules(rule *api.Rule, cache *DNSCache, reMap *regexpmap.Rege
 					}).Debug("Emitting matching DNS Name -> IPs for ToFQDNs Rule")
 					delete(missing, ToFQDN.MatchPattern)
 					emitted[name] = append(emitted[name], ips...)
-					egressRule.ToCIDRSet = append(egressRule.ToCIDRSet, ipsToRules(ips)...)
+					egressRule.ToCIDRSet = append(egressRule.ToCIDRSet, api.IPsToCIDRRules(ips)...)
 				}
 			}
 		}
@@ -120,23 +120,6 @@ func stripToCIDRSet(rule *api.Rule) {
 			egressRule.ToCIDRSet = nil
 		}
 	}
-}
-
-// ipsToRules generates CIDRRules for the IPs passed in.
-func ipsToRules(ips []net.IP) (cidrRules []api.CIDRRule) {
-	for _, ip := range ips {
-		rule := api.CIDRRule{ExceptCIDRs: make([]api.CIDR, 0)}
-		rule.Generated = true
-		if ip.To4() != nil {
-			rule.Cidr = api.CIDR(ip.String() + "/32")
-		} else {
-			rule.Cidr = api.CIDR(ip.String() + "/128")
-		}
-
-		cidrRules = append(cidrRules, rule)
-	}
-
-	return cidrRules
 }
 
 // hasToFQDN indicates whether a ToFQDN rule exists in the api.Rule
