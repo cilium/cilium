@@ -129,9 +129,7 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	__u32 tunnel_endpoint = 0;
 	__u32 monitor = 0;
 
-	if (unlikely(!is_valid_lxc_src_mac(eth)))
-		return DROP_INVALID_SMAC;
-	else if (unlikely(!is_valid_gw_dst_mac(eth)))
+	if (unlikely(!is_valid_gw_dst_mac(eth)))
 		return DROP_INVALID_DMAC;
 	else if (unlikely(!is_valid_lxc_src_ip(ip6)))
 		return DROP_INVALID_SIP;
@@ -453,9 +451,7 @@ static inline int handle_ipv4_from_lxc(struct __sk_buff *skb, __u32 *dstID)
 	tuple.nexthdr = ip4->protocol;
 
 	eth = data;
-	if (unlikely(!is_valid_lxc_src_mac(eth)))
-		return DROP_INVALID_SMAC;
-	else if (unlikely(!is_valid_gw_dst_mac(eth)))
+	if (unlikely(!is_valid_gw_dst_mac(eth)))
 		return DROP_INVALID_DMAC;
 	else if (unlikely(!is_valid_lxc_src_ipv4(ip4)))
 		return DROP_INVALID_SIP;
