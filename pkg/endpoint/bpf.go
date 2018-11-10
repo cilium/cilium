@@ -121,7 +121,6 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	}
 
 	fmt.Fprintf(fw, ""+
-		" * MAC: %s\n"+
 		" * IPv6 address: %s\n"+
 		" * IPv4 address: %s\n"+
 		" * Identity: %d\n"+
@@ -132,7 +131,7 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 		" * IPv4 Egress Map: %s\n"+
 		" * NodeMAC: %s\n"+
 		" */\n\n",
-		e.LXCMAC, e.IPv6.String(), e.IPv4.String(),
+		e.IPv6.String(), e.IPv4.String(),
 		e.GetIdentity(), path.Base(e.PolicyMapPathLocked()),
 		path.Base(e.IPv6IngressMapPathLocked()),
 		path.Base(e.IPv6EgressMapPathLocked()),
@@ -153,7 +152,6 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	}
 	fw.WriteString(" */\n\n")
 
-	fw.WriteString(common.FmtDefineAddress("LXC_MAC", e.LXCMAC))
 	fw.WriteString(common.FmtDefineComma("LXC_IP", e.IPv6))
 	if e.IPv4 != nil {
 		fmt.Fprintf(fw, "#define LXC_IPV4 %#x\n", byteorder.HostSliceToNetwork(e.IPv4, reflect.Uint32))
