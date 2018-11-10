@@ -59,20 +59,6 @@ static inline int is_valid_lxc_src_ipv4(struct iphdr *ip4)
 }
 #endif
 
-#ifndef DISABLE_DMAC_VERIFICATION
-static inline int is_valid_gw_dst_mac(struct ethhdr *eth)
-{
-	union macaddr valid = NODE_MAC;
-
-	return !eth_addrcmp(&valid, (union macaddr *) &eth->h_dest);
-}
-#else
-static inline int is_valid_gw_dst_mac(struct ethhdr *eth)
-{
-	return 1;
-}
-#endif
-
 #ifdef LXC_IPV4
 static inline void __inline__ proxy4_update_timeout(struct proxy4_tbl_value *value)
 {
