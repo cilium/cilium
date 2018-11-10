@@ -70,18 +70,8 @@ type ServiceEvent struct {
 	// Service is the service structure
 	Service *Service
 
-	// K8sService is the corresponding Kubernetes service resource that
-	// triggered the action or nil if the action was not triggered by a
-	// Kubernetes service update
-	K8sService *v1.Service
-
 	// Endpoints is the endpoints structured correlated with the service
 	Endpoints *Endpoints
-
-	// K8sEndpoints is the corresponding Kubernetes endpoints resource that
-	// triggered the action or nil if the action was not triggered by a
-	// Kubernetes endpoints update
-	K8sEndpoints *v1.Endpoints
 }
 
 // ServiceCache is a list of services and ingresses correlated with the
@@ -131,11 +121,10 @@ func (s *ServiceCache) UpdateService(k8sSvc *v1.Service) ServiceID {
 	endpoints, ok := s.endpoints[svcID]
 	if ok {
 		s.Events <- ServiceEvent{
-			Action:     UpdateService,
-			ID:         svcID,
-			Service:    newService,
-			K8sService: k8sSvc,
-			Endpoints:  endpoints,
+			Action:    UpdateService,
+			ID:        svcID,
+			Service:   newService,
+			Endpoints: endpoints,
 		}
 	}
 
@@ -155,11 +144,10 @@ func (s *ServiceCache) DeleteService(k8sSvc *v1.Service) {
 
 	if serviceOK && endpointsOK {
 		s.Events <- ServiceEvent{
-			Action:     DeleteService,
-			ID:         svcID,
-			Service:    oldService,
-			K8sService: k8sSvc,
-			Endpoints:  endpoints,
+			Action:    DeleteService,
+			ID:        svcID,
+			Service:   oldService,
+			Endpoints: endpoints,
 		}
 	}
 }
@@ -212,11 +200,10 @@ func (s *ServiceCache) UpdateEndpoints(k8sEndpoints *v1.Endpoints) (ServiceID, *
 	service, ok := s.services[svcID]
 	if ok {
 		s.Events <- ServiceEvent{
-			Action:       UpdateService,
-			ID:           svcID,
-			Service:      service,
-			Endpoints:    newEndpoints,
-			K8sEndpoints: k8sEndpoints,
+			Action:    UpdateService,
+			ID:        svcID,
+			Service:   service,
+			Endpoints: newEndpoints,
 		}
 	}
 
