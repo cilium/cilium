@@ -113,8 +113,7 @@ static inline bool redirect_to_proxy(int verdict, int dir)
 
 static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 				   struct ipv6_ct_tuple *tuple, int l3_off,
-				   struct ethhdr *eth, struct ipv6hdr *ip6,
-				   __u32 *dstID)
+				   struct ipv6hdr *ip6, __u32 *dstID)
 {
 	union macaddr router_mac = NODE_MAC;
 	int ret, verdict, l4_off, forwarding_reason, hdrlen;
@@ -129,9 +128,7 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	__u32 tunnel_endpoint = 0;
 	__u32 monitor = 0;
 
-	if (unlikely(!is_valid_gw_dst_mac(eth)))
-		return DROP_INVALID_DMAC;
-	else if (unlikely(!is_valid_lxc_src_ip(ip6)))
+	if (unlikely(!is_valid_lxc_src_ip(ip6)))
 		return DROP_INVALID_SIP;
 
 	ipv6_addr_copy(&tuple->daddr, (union v6addr *) &ip6->daddr);
@@ -178,7 +175,7 @@ skip_service_lookup:
 	ipv6_addr_copy(&orig_dip, (union v6addr *) &tuple->daddr);
 
 
-	/* WARNING: eth and ip6 offset check invalidated, revalidate before use */
+	/* WARNING: ip6 offset check invalidated, revalidate before use */
 
 	/* Pass all outgoing packets through conntrack. This will create an
 	 * entry to allow reverse packets and return set cb[CB_POLICY] to
@@ -410,7 +407,7 @@ static inline int __inline__ handle_ipv6(struct __sk_buff *skb, __u32 *dstID)
 
 	/* Perform L3 action on the frame */
 	tuple.nexthdr = ip6->nexthdr;
-	return ipv6_l3_from_lxc(skb, &tuple, ETH_HLEN, data, ip6, dstID);
+	return ipv6_l3_from_lxc(skb, &tuple, ETH_HLEN, ip6, dstID);
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_LXC) int tail_handle_ipv6(struct __sk_buff *skb)
@@ -433,7 +430,6 @@ static inline int handle_ipv4_from_lxc(struct __sk_buff *skb, __u32 *dstID)
 	union macaddr router_mac = NODE_MAC;
 	void *data, *data_end;
 	struct iphdr *ip4;
-	struct ethhdr *eth;
 	int ret, verdict, l3_off = ETH_HLEN, l4_off, forwarding_reason;
 	struct csum_offset csum_off = {};
 	struct endpoint_info *ep;
@@ -450,10 +446,7 @@ static inline int handle_ipv4_from_lxc(struct __sk_buff *skb, __u32 *dstID)
 
 	tuple.nexthdr = ip4->protocol;
 
-	eth = data;
-	if (unlikely(!is_valid_gw_dst_mac(eth)))
-		return DROP_INVALID_DMAC;
-	else if (unlikely(!is_valid_lxc_src_ipv4(ip4)))
+	if (unlikely(!is_valid_lxc_src_ipv4(ip4)))
 		return DROP_INVALID_SIP;
 
 	tuple.daddr = ip4->daddr;
@@ -488,7 +481,7 @@ skip_service_lookup:
 	 */
 	orig_dip = tuple.daddr;
 
-	/* WARNING: eth and ip4 offset check invalidated, revalidate before use */
+	/* WARNING: ip4 offset check invalidated, revalidate before use */
 
 	/* Pass all outgoing packets through conntrack. This will create an
 	 * entry to allow reverse packets and return set cb[CB_POLICY] to
