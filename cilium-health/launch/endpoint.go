@@ -16,7 +16,6 @@ package launch
 
 import (
 	"bufio"
-	"context"
 	"fmt"
 	"net"
 	"os"
@@ -35,6 +34,7 @@ import (
 	healthPkg "github.com/cilium/cilium/pkg/health/client"
 	"github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/launcher"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -192,6 +192,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 
 	ip4 := node.GetIPv4HealthIP()
 	ip6 := node.GetIPv6HealthIP()
+	cmd := launcher.Launcher{}
 
 	// Prepare the endpoint change request
 	id := int64(addressing.CiliumIPv6(ip6).EndpointID())
@@ -215,14 +216,10 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 	args := []string{info.ContainerName, info.InterfaceName, vethPeerName,
 		ip6.String(), ip4.String(), ciliumHealth, healthArgs}
 	prog := filepath.Join(option.Config.BpfDir, "spawn_netns.sh")
-
-	cmd := exec.CommandContext(context.Background(), prog, args...)
-	if err := logFromCommand(cmd, info.ContainerName); err != nil {
-		return fmt.Errorf("Error while opening pipes to health endpoint: %s", err)
-	}
-	if err := cmd.Start(); err != nil {
-		target := fmt.Sprintf("%s %s", prog, strings.Join(args, " "))
-		return fmt.Errorf("Error spawning endpoint (%q): %s", target, err)
+	cmd.SetTarget(prog)
+	cmd.SetArgs(args)
+	if err := cmd.Run(); err != nil {
+		return err
 	}
 
 	// Create the endpoint
