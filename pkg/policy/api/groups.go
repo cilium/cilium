@@ -60,6 +60,7 @@ func RegisterToGroupsProvider(providerName string, callback ProviderIntegration)
 func (group *ToGroups) GetCidrSet() ([]CIDRRule, error) {
 
 	var ips []net.IP
+
 	emptyResult := []CIDRRule{}
 
 	// Get per  provider CIDRSet
@@ -78,12 +79,22 @@ func (group *ToGroups) GetCidrSet() ([]CIDRRule, error) {
 		ips = append(ips, awsIPs...)
 	}
 
+	uniqueIPs := []net.IP{}
+	IPUniqueMap := map[string]bool{}
+	for _, ip := range ips {
+		if _, ok := IPUniqueMap[ip.String()]; ok {
+			continue
+		}
+		IPUniqueMap[ip.String()] = true
+		uniqueIPs = append(uniqueIPs, ip)
+	}
+
 	// Sort IPS to have always the same result and do not update policies if it
 	// is not needed.
-	sort.Slice(ips, func(i, j int) bool {
+	sort.Slice(uniqueIPs, func(i, j int) bool {
 		return bytes.Compare(ips[i], ips[j]) < 0
 	})
-	return IpsToCIDRRules(ips), nil
+	return IpsToCIDRRules(uniqueIPs), nil
 }
 
 type providersCallbacks struct {
