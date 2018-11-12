@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
@@ -76,6 +77,15 @@ func EnableCNPWatcher() error {
 	si := informer.NewSharedInformerFactory(ciliumNPClient, reSyncPeriod)
 	ciliumV2Controller := si.Cilium().V2().CiliumNetworkPolicies().Informer()
 	ciliumV2Controller.AddEventHandler(watcher)
+
+	controller.NewManager().UpdateController("cnp-to-groups-controller",
+		controller.ControllerParams{
+			DoFunc: func() error {
+				togroups.UpgradeCNPInformation()
+				return nil
+			},
+			RunInterval: 5 * time.Minute,
+		})
 
 	return nil
 }
