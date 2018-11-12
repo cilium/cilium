@@ -42,6 +42,10 @@ type Endpoints struct {
 // String returns the string representation of an endpoints resource, with
 // backends and ports sorted.
 func (e *Endpoints) String() string {
+	if e == nil {
+		return ""
+	}
+
 	backends := []string{}
 	for ip, ports := range e.Backends {
 		for _, port := range ports {
@@ -133,4 +137,17 @@ func ParseEndpoints(ep *v1.Endpoints) (ServiceID, *Endpoints) {
 	}
 
 	return ParseEndpointsID(ep), endpoints
+}
+
+// externalEndpoints is the collection of external endpoints in all remote
+// clusters. The map key is the name of the remote cluster.
+type externalEndpoints struct {
+	endpoints map[string]*Endpoints
+}
+
+// newExternalEndpoints returns a new ExternalEndpoints
+func newExternalEndpoints() externalEndpoints {
+	return externalEndpoints{
+		endpoints: map[string]*Endpoints{},
+	}
 }

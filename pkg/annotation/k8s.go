@@ -15,26 +15,33 @@
 package annotation
 
 const (
+	// Prefix is the common prefix for all annotations
+	Prefix = "io.cilium"
+
 	// Name is an optional annotation to the NetworkPolicy
 	// resource which specifies the name of the policy node to which all
 	// rules should be applied to.
-	Name = "io.cilium.name"
+	Name = Prefix + ".name"
 
 	// V4CIDRName is the annotation name used to store the IPv4
 	// pod CIDR in the node's annotations.
-	V4CIDRName = "io.cilium.network.ipv4-pod-cidr"
+	V4CIDRName = Prefix + ".network.ipv4-pod-cidr"
 	// V6CIDRName is the annotation name used to store the IPv6
 	// pod CIDR in the node's annotations.
-	V6CIDRName = "io.cilium.network.ipv6-pod-cidr"
+	V6CIDRName = Prefix + ".network.ipv6-pod-cidr"
 
 	// V4HealthName is the annotation name used to store the IPv4
 	// address of the cilium-health endpoint in the node's annotations.
-	V4HealthName = "io.cilium.network.ipv4-health-ip"
+	V4HealthName = Prefix + ".network.ipv4-health-ip"
 	// V6HealthName is the annotation name used to store the IPv6
 	// address of the cilium-health endpoint in the node's annotations.
-	V6HealthName = "io.cilium.network.ipv6-health-ip"
+	V6HealthName = Prefix + ".network.ipv6-health-ip"
 
 	// CiliumHostIP is the annotation name used to store the IPv4 address
 	// of the cilium host interface in the node's annotations.
-	CiliumHostIP = "io.cilium.network.ipv4-cilium-host"
+	CiliumHostIP = Prefix + ".network.ipv4-cilium-host"
+
+	// GlobalService if set to true, marks a service to become a global
+	// service
+	GlobalService = Prefix + "/global-service"
 )
