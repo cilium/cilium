@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
+	"github.com/cilium/cilium/pkg/service"
 
 	"github.com/sirupsen/logrus"
 )
@@ -63,6 +64,10 @@ type remoteCluster struct {
 
 	// store is the shared store representing all nodes in the remote cluster
 	remoteNodes *store.SharedStore
+
+	// remoteServices is the shared store representing services in remote
+	// clusters
+	remoteServices *store.SharedStore
 
 	// ipCacheWatcher is the watcher that notifies about IP<->identity
 	// changes in the remote cluster
@@ -111,19 +116,32 @@ func (rc *remoteCluster) restartRemoteConnection() {
 					return err
 				}
 
-				observer := rc.mesh.conf.observer
-				if observer == nil {
-					observer = &nodeStore.NodeObserver{}
-				}
-
 				remoteNodes, err := store.JoinSharedStore(store.Configuration{
 					Prefix:                  path.Join(nodeStore.NodeStorePrefix, rc.name),
 					KeyCreator:              rc.mesh.conf.NodeKeyCreator,
 					SynchronizationInterval: time.Minute,
 					Backend:                 backend,
-					Observer:                observer,
+					Observer:                rc.mesh.conf.NodeObserver(),
 				})
 				if err != nil {
+					backend.Close()
+					return err
+				}
+
+				remoteServices, err := store.JoinSharedStore(store.Configuration{
+					Prefix: path.Join(service.ServiceStorePrefix, rc.name),
+					KeyCreator: func() store.Key {
+						svc := service.ClusterService{}
+						return &svc
+					},
+					SynchronizationInterval: time.Minute,
+					Backend:                 backend,
+					Observer: &remoteServiceObserver{
+						remoteCluster: rc,
+					},
+				})
+				if err != nil {
+					remoteNodes.Close()
 					backend.Close()
 					return err
 				}
@@ -135,6 +153,7 @@ func (rc *remoteCluster) restartRemoteConnection() {
 
 				rc.mutex.Lock()
 				rc.remoteNodes = remoteNodes
+				rc.remoteServices = remoteServices
 				rc.backend = backend
 				rc.ipCacheWatcher = ipCacheWatcher
 				rc.remoteIdentityCache = remoteIdentityCache

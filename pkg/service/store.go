@@ -67,6 +67,11 @@ func (s *ClusterService) String() string {
 	return s.Cluster + "/" + s.Namespace + ":" + s.Name
 }
 
+// NamespaceServiceName returns the namespace and service name
+func (s *ClusterService) NamespaceServiceName() string {
+	return s.Namespace + "/" + s.Name
+}
+
 // GetKeyName returns the kvstore key to be used for the global service
 func (s *ClusterService) GetKeyName() string {
 	// WARNING - STABLE API: Changing the structure of the key may break

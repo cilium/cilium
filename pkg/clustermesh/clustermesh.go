@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
+	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -44,7 +45,20 @@ type Configuration struct {
 	// nodes are being discovered in remote clusters
 	NodeKeyCreator store.KeyCreator
 
-	observer store.Observer
+	// ServiceMerger is the interface responsible to merge service and
+	// endpoints into an existing cache
+	ServiceMerger ServiceMerger
+
+	nodeObserver store.Observer
+}
+
+// NodeObserver returns the node store observer of the configuration
+func (c *Configuration) NodeObserver() store.Observer {
+	if c.nodeObserver != nil {
+		return c.nodeObserver
+	}
+
+	return &nodeStore.NodeObserver{}
 }
 
 // ClusterMesh is a cache of multiple remote clusters
@@ -56,15 +70,20 @@ type ClusterMesh struct {
 	clusters      map[string]*remoteCluster
 	controllers   *controller.Manager
 	configWatcher *configDirectoryWatcher
+
+	// globalServices is a list of all global services. The datastructure
+	// is protected by its own mutex inside of the structure.
+	globalServices *globalServiceCache
 }
 
 // NewClusterMesh creates a new remote cluster cache based on the
 // provided configuration
 func NewClusterMesh(c Configuration) (*ClusterMesh, error) {
 	cm := &ClusterMesh{
-		conf:        c,
-		clusters:    map[string]*remoteCluster{},
-		controllers: controller.NewManager(),
+		conf:           c,
+		clusters:       map[string]*remoteCluster{},
+		controllers:    controller.NewManager(),
+		globalServices: newGlobalServiceCache(),
 	}
 
 	w, err := createConfigDirectoryWatcher(c.ConfigDirectory, cm)
@@ -143,6 +162,8 @@ func (cm *ClusterMesh) remove(name string) {
 	if cluster, ok := cm.clusters[name]; ok {
 		cluster.onRemove()
 		delete(cm.clusters, name)
+
+		cm.globalServices.onClusterDelete(name)
 	}
 	cm.mutex.Unlock()
 

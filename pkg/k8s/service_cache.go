@@ -19,8 +19,12 @@ import (
 
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/versioned"
 
+	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 )
@@ -83,16 +87,20 @@ type ServiceCache struct {
 	endpoints map[ServiceID]*Endpoints
 	ingresses map[ServiceID]*Service
 
+	// externalEndpoints is a list of additional service backends derived from source other than the local cluster
+	externalEndpoints map[ServiceID]externalEndpoints
+
 	Events chan ServiceEvent
 }
 
 // NewServiceCache returns a new ServiceCache
 func NewServiceCache() ServiceCache {
 	return ServiceCache{
-		services:  map[ServiceID]*Service{},
-		endpoints: map[ServiceID]*Endpoints{},
-		ingresses: map[ServiceID]*Service{},
-		Events:    make(chan ServiceEvent, 128),
+		services:          map[ServiceID]*Service{},
+		endpoints:         map[ServiceID]*Endpoints{},
+		ingresses:         map[ServiceID]*Service{},
+		externalEndpoints: map[ServiceID]externalEndpoints{},
+		Events:            make(chan ServiceEvent, 128),
 	}
 }
 
@@ -118,8 +126,8 @@ func (s *ServiceCache) UpdateService(k8sSvc *v1.Service) ServiceID {
 	s.services[svcID] = newService
 
 	// Check if the corresponding Endpoints resource is already available
-	endpoints, ok := s.endpoints[svcID]
-	if ok {
+	endpoints := s.correlateEndpoints(svcID)
+	if endpoints.HasBackends() {
 		s.Events <- ServiceEvent{
 			Action:    UpdateService,
 			ID:        svcID,
@@ -138,11 +146,11 @@ func (s *ServiceCache) DeleteService(k8sSvc *v1.Service) {
 
 	s.mutex.Lock()
 	oldService, serviceOK := s.services[svcID]
-	endpoints, endpointsOK := s.endpoints[svcID]
+	endpoints := s.correlateEndpoints(svcID)
 	delete(s.services, svcID)
 	s.mutex.Unlock()
 
-	if serviceOK && endpointsOK {
+	if serviceOK && endpoints.HasBackends() {
 		s.Events <- ServiceEvent{
 			Action:    DeleteService,
 			ID:        svcID,
@@ -203,7 +211,7 @@ func (s *ServiceCache) UpdateEndpoints(k8sEndpoints *v1.Endpoints) (ServiceID, *
 			Action:    UpdateService,
 			ID:        svcID,
 			Service:   service,
-			Endpoints: newEndpoints,
+			Endpoints: s.correlateEndpoints(svcID),
 		}
 	}
 
@@ -217,16 +225,16 @@ func (s *ServiceCache) DeleteEndpoints(k8sEndpoints *v1.Endpoints) ServiceID {
 
 	s.mutex.Lock()
 	service, serviceOK := s.services[svcID]
-	endpoints, endpointsOK := s.endpoints[svcID]
+	endpoints := s.correlateEndpoints(svcID)
 	delete(s.endpoints, svcID)
 	s.mutex.Unlock()
 
-	if serviceOK && endpointsOK {
+	if serviceOK && endpoints.HasBackends() {
 		s.Events <- ServiceEvent{
 			Action:    DeleteService,
 			ID:        svcID,
 			Service:   service,
-			Endpoints: endpoints,
+			Endpoints: s.correlateEndpoints(svcID),
 		}
 	}
 
@@ -368,4 +376,101 @@ func (s *ServiceCache) UniqueServiceFrontends() map[string]struct{} {
 	}
 
 	return uniqueFrontends
+}
+
+// correlateEndpoints builds a combined Endpoints of the local endpoints and
+// all external endpoints if the service is marked as a global service
+func (s *ServiceCache) correlateEndpoints(id ServiceID) *Endpoints {
+	endpoints := newEndpoints()
+
+	localEndpoints, ok := s.endpoints[id]
+	if ok {
+		for ip, e := range localEndpoints.Backends {
+			endpoints.Backends[ip] = e
+		}
+	}
+
+	svc, ok := s.services[id]
+	if ok && svc.IncludeExternal {
+		externalEndpoints, ok := s.externalEndpoints[id]
+		if ok {
+			for clusterName, remoteClusterEndpoints := range externalEndpoints.endpoints {
+				if clusterName == option.Config.ClusterName {
+					continue
+				}
+
+				for ip, e := range remoteClusterEndpoints.Backends {
+					if _, ok := endpoints.Backends[ip]; ok {
+						log.WithFields(logrus.Fields{
+							logfields.K8sSvcName:   id.Name,
+							logfields.K8sNamespace: id.Namespace,
+							logfields.IPAddr:       ip,
+							"cluster":              clusterName,
+						}).Warning("Conflicting service backend IP")
+					} else {
+						endpoints.Backends[ip] = e
+					}
+				}
+			}
+		}
+	}
+
+	return endpoints
+}
+
+// MergeExternalServiceUpdate merges a cluster service of a remote cluster into
+// the local service cache. The service endpoints are stored as external endpoints
+// and are correlated on demand with local services via correlateEndpoints().
+func (s *ServiceCache) MergeExternalServiceUpdate(service *service.ClusterService) {
+	id := ServiceID{Name: service.Name, Namespace: service.Namespace}
+
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	externalEndpoints, ok := s.externalEndpoints[id]
+	if !ok {
+		externalEndpoints = newExternalEndpoints()
+		s.externalEndpoints[id] = externalEndpoints
+	}
+
+	externalEndpoints.endpoints[service.Cluster] = &Endpoints{
+		Backends: service.Backends,
+	}
+
+	svc, ok := s.services[id]
+	if ok {
+		s.Events <- ServiceEvent{
+			Action:    UpdateService,
+			ID:        id,
+			Service:   svc,
+			Endpoints: s.correlateEndpoints(id),
+		}
+	}
+}
+
+// MergeExternalServiceUpdate merges the deletion a cluster service in a remote
+// cluster into the local service cache. The service endpoints are stored as
+// external endpoints and are correlated on demand with local services via
+// correlateEndpoints().
+func (s *ServiceCache) MergeExternalServiceDelete(service *service.ClusterService) {
+	id := ServiceID{Name: service.Name, Namespace: service.Namespace}
+
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	externalEndpoints, ok := s.externalEndpoints[id]
+	if ok {
+
+		delete(externalEndpoints.endpoints, service.Cluster)
+
+		svc, ok := s.services[id]
+		if ok {
+			s.Events <- ServiceEvent{
+				Action:    UpdateService,
+				ID:        id,
+				Service:   svc,
+				Endpoints: s.correlateEndpoints(id),
+			}
+		}
+	}
 }

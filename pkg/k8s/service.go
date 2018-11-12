@@ -19,6 +19,7 @@ import (
 	"net"
 	"strings"
 
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -72,6 +73,10 @@ func ParseService(svc *v1.Service) (ServiceID, *Service) {
 	}
 	svcInfo := NewService(clusterIP, headless, svc.Labels, svc.Spec.Selector)
 
+	if value, ok := svc.ObjectMeta.Annotations[annotation.GlobalService]; ok {
+		svcInfo.IncludeExternal = strings.ToLower(value) == "true"
+	}
+
 	// FIXME: Add support for
 	//  - NodePort
 	for _, port := range svc.Spec.Ports {
@@ -100,9 +105,14 @@ func (s ServiceID) String() string {
 type Service struct {
 	FrontendIP net.IP
 	IsHeadless bool
-	Ports      map[loadbalancer.FEPortName]*loadbalancer.FEPort
-	Labels     map[string]string
-	Selector   map[string]string
+
+	// IncludeExternal is true when external endpoints from other clusters
+	// should be included
+	IncludeExternal bool
+
+	Ports    map[loadbalancer.FEPortName]*loadbalancer.FEPort
+	Labels   map[string]string
+	Selector map[string]string
 }
 
 // String returns the string representation of a service resource

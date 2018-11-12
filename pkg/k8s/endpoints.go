@@ -50,6 +50,15 @@ func (e *Endpoints) String() string {
 	return strings.Join(backends, ",")
 }
 
+// HasBackends returns true if backends exists
+func (e *Endpoints) HasBackends() bool {
+	if e == nil {
+		return false
+	}
+
+	return len(e.Backends) > 0
+}
+
 // newEndpoints returns a new Endpoints
 func newEndpoints() *Endpoints {
 	return &Endpoints{
@@ -137,4 +146,17 @@ func ParseEndpoints(ep *v1.Endpoints) (ServiceID, *Endpoints) {
 	}
 
 	return ParseEndpointsID(ep), endpoints
+}
+
+// externalEndpoints is the collection of external endpoints in all remote
+// clusters. The map key is the name of the remote cluster.
+type externalEndpoints struct {
+	endpoints map[string]*Endpoints
+}
+
+// newExternalEndpoints returns a new ExternalEndpoints
+func newExternalEndpoints() externalEndpoints {
+	return externalEndpoints{
+		endpoints: map[string]*Endpoints{},
+	}
 }

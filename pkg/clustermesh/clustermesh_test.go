@@ -127,7 +127,7 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 		Name:            "test2",
 		ConfigDirectory: dir,
 		NodeKeyCreator:  testNodeCreator,
-		observer:        &testObserver{},
+		nodeObserver:    &testObserver{},
 	})
 	c.Assert(err, IsNil)
 	c.Assert(cm, Not(IsNil))
