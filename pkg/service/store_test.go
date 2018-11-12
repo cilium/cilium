@@ -33,7 +33,7 @@ func (s *ServiceGenericSuite) TestClusterService(c *check.C) {
 	c.Assert(svc.Name, check.Equals, "foo")
 	c.Assert(svc.Namespace, check.Equals, "bar")
 
-	c.Assert(svc.String(), check.Equals, "default/bar:foo")
+	c.Assert(svc.String(), check.Equals, "default/bar/foo")
 
 	b, err := svc.Marshal()
 	c.Assert(err, check.IsNil)

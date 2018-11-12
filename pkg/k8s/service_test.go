@@ -29,6 +29,28 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+func (s *K8sSuite) TestGetAnnotationIncludeExternal(c *check.C) {
+	svc := &v1.Service{ObjectMeta: metav1.ObjectMeta{
+		Name: "foo",
+	}}
+	c.Assert(getAnnotationIncludeExternal(svc), check.Equals, false)
+
+	svc = &v1.Service{ObjectMeta: metav1.ObjectMeta{
+		Annotations: map[string]string{"io.cilium/global-service": "True"},
+	}}
+	c.Assert(getAnnotationIncludeExternal(svc), check.Equals, true)
+
+	svc = &v1.Service{ObjectMeta: metav1.ObjectMeta{
+		Annotations: map[string]string{"io.cilium/global-service": "false"},
+	}}
+	c.Assert(getAnnotationIncludeExternal(svc), check.Equals, false)
+
+	svc = &v1.Service{ObjectMeta: metav1.ObjectMeta{
+		Annotations: map[string]string{"io.cilium/global-service": ""},
+	}}
+	c.Assert(getAnnotationIncludeExternal(svc), check.Equals, false)
+}
+
 func (s *K8sSuite) TestParseServiceID(c *check.C) {
 	svc := &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
