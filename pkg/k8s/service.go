@@ -17,7 +17,6 @@ package k8s
 import (
 	"fmt"
 	"net"
-	"sort"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/comparator"
@@ -185,7 +184,6 @@ func (s *Service) UniquePorts() map[uint16]bool {
 // Kubernetes Service
 func NewClusterService(id ServiceID, k8sService *Service, k8sEndpoints *Endpoints) service.ClusterService {
 	svc := service.NewClusterService(id.Name, id.Namespace)
-	svc.FrontendIP = k8sService.FrontendIP.String()
 
 	for key, value := range k8sService.Labels {
 		svc.Labels[key] = value
@@ -195,21 +193,17 @@ func NewClusterService(id ServiceID, k8sService *Service, k8sEndpoints *Endpoint
 		svc.Selector[key] = value
 	}
 
+	portConfig := service.PortConfiguration{}
 	for portName, port := range k8sService.Ports {
-		svc.FrontendPorts[string(portName)] = *port.L4Addr
+		portConfig[string(portName)] = port.L4Addr
 	}
 
-	index := 0
-	svc.BackendIPs = make([]string, len(k8sEndpoints.BackendIPs))
-	for ipString := range k8sEndpoints.BackendIPs {
-		svc.BackendIPs[index] = ipString
-		index++
-	}
+	svc.Frontends = map[string]service.PortConfiguration{}
+	svc.Frontends[k8sService.FrontendIP.String()] = portConfig
 
-	sort.Strings(svc.BackendIPs)
-
-	for portName, port := range k8sEndpoints.Ports {
-		svc.BackendPorts[string(portName)] = *port
+	svc.Backends = map[string]service.PortConfiguration{}
+	for ipString, portConfig := range k8sEndpoints.Backends {
+		svc.Backends[ipString] = portConfig
 	}
 
 	return svc

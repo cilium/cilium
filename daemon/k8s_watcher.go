@@ -957,7 +957,6 @@ func (d *Daemon) addK8sSVCs(svcID k8s.ServiceID, svc *k8s.Service, endpoints *k8
 			continue
 		}
 
-		k8sBEPort := endpoints.Ports[fePortName]
 		uniqPorts[fePort.Port] = false
 
 		if fePort.ID == 0 {
@@ -981,14 +980,12 @@ func (d *Daemon) addK8sSVCs(svcID k8s.ServiceID, svc *k8s.Service, endpoints *k8
 		}
 
 		besValues := []loadbalancer.LBBackEnd{}
-
-		if k8sBEPort != nil {
-			for epIP := range endpoints.BackendIPs {
-				bePort := loadbalancer.LBBackEnd{
-					L3n4Addr: loadbalancer.L3n4Addr{IP: net.ParseIP(epIP), L4Addr: *k8sBEPort},
+		for ip, portConfiguration := range endpoints.Backends {
+			if backendPort := portConfiguration[string(fePortName)]; backendPort != nil {
+				besValues = append(besValues, loadbalancer.LBBackEnd{
+					L3n4Addr: loadbalancer.L3n4Addr{IP: net.ParseIP(ip), L4Addr: *backendPort},
 					Weight:   0,
-				}
-				besValues = append(besValues, bePort)
+				})
 			}
 		}
 

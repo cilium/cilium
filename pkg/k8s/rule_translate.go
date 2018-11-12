@@ -133,7 +133,7 @@ func generateToCidrFromEndpoint(
 
 	// This will generate one-address CIDRs consisting of endpoint backend ip
 	mask := net.CIDRMask(128, 128)
-	for ip := range endpoint.BackendIPs {
+	for ip := range endpoint.Backends {
 		epIP := net.ParseIP(ip)
 		if epIP == nil {
 			return fmt.Errorf("Unable to parse ip: %s", ip)
@@ -177,7 +177,7 @@ func deleteToCidrFromEndpoint(
 	newToCIDR := make([]api.CIDRRule, 0, len(egress.ToCIDRSet))
 	deleted := make([]api.CIDRRule, 0, len(egress.ToCIDRSet))
 
-	for ip := range endpoint.BackendIPs {
+	for ip := range endpoint.Backends {
 		epIP := net.ParseIP(ip)
 		if epIP == nil {
 			return fmt.Errorf("Unable to parse ip: %s", ip)

@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/service"
 
 	. "gopkg.in/check.v1"
 )
@@ -37,13 +38,12 @@ func (s *K8sSuite) TestTranslatorDirect(c *C) {
 	epIP := "10.1.1.1"
 
 	endpointInfo := Endpoints{
-		BackendIPs: map[string]bool{
-			epIP: true,
-		},
-		Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
-			"port": {
-				Protocol: loadbalancer.TCP,
-				Port:     80,
+		Backends: map[string]service.PortConfiguration{
+			epIP: map[string]*loadbalancer.L4Addr{
+				"port": {
+					Protocol: loadbalancer.TCP,
+					Port:     80,
+				},
 			},
 		},
 	}
@@ -101,13 +101,12 @@ func (s *K8sSuite) TestServiceMatches(c *C) {
 
 	epIP := "10.1.1.1"
 	endpointInfo := Endpoints{
-		BackendIPs: map[string]bool{
-			epIP: true,
-		},
-		Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
-			"port": {
-				Protocol: loadbalancer.TCP,
-				Port:     80,
+		Backends: map[string]service.PortConfiguration{
+			epIP: map[string]*loadbalancer.L4Addr{
+				"port": {
+					Protocol: loadbalancer.TCP,
+					Port:     80,
+				},
 			},
 		},
 	}
@@ -139,13 +138,12 @@ func (s *K8sSuite) TestTranslatorLabels(c *C) {
 	epIP := "10.1.1.1"
 
 	endpointInfo := Endpoints{
-		BackendIPs: map[string]bool{
-			epIP: true,
-		},
-		Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
-			"port": {
-				Protocol: loadbalancer.TCP,
-				Port:     80,
+		Backends: map[string]service.PortConfiguration{
+			epIP: map[string]*loadbalancer.L4Addr{
+				"port": {
+					Protocol: loadbalancer.TCP,
+					Port:     80,
+				},
 			},
 		},
 	}
@@ -196,13 +194,12 @@ func (s *K8sSuite) TestGenerateToCIDRFromEndpoint(c *C) {
 	epIP := "10.1.1.1"
 
 	endpointInfo := Endpoints{
-		BackendIPs: map[string]bool{
-			epIP: true,
-		},
-		Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
-			"port": {
-				Protocol: loadbalancer.TCP,
-				Port:     80,
+		Backends: map[string]service.PortConfiguration{
+			epIP: map[string]*loadbalancer.L4Addr{
+				"port": {
+					Protocol: loadbalancer.TCP,
+					Port:     80,
+				},
 			},
 		},
 	}
@@ -237,13 +234,12 @@ func (s *K8sSuite) TestPreprocessRules(c *C) {
 	cache := NewServiceCache()
 
 	endpointInfo := Endpoints{
-		BackendIPs: map[string]bool{
-			epIP: true,
-		},
-		Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
-			"port": {
-				Protocol: loadbalancer.TCP,
-				Port:     80,
+		Backends: map[string]service.PortConfiguration{
+			epIP: map[string]*loadbalancer.L4Addr{
+				"port": {
+					Protocol: loadbalancer.TCP,
+					Port:     80,
+				},
 			},
 		},
 	}
@@ -295,13 +291,12 @@ func (s *K8sSuite) TestDontDeleteUserRules(c *C) {
 	epIP := "10.1.1.1"
 
 	endpointInfo := Endpoints{
-		BackendIPs: map[string]bool{
-			epIP: true,
-		},
-		Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
-			"port": {
-				Protocol: loadbalancer.TCP,
-				Port:     80,
+		Backends: map[string]service.PortConfiguration{
+			epIP: map[string]*loadbalancer.L4Addr{
+				"port": {
+					Protocol: loadbalancer.TCP,
+					Port:     80,
+				},
 			},
 		},
 	}
