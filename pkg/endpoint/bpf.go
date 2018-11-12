@@ -63,33 +63,33 @@ const (
 )
 
 // mapPath returns the path to a map for endpoint ID.
-func mapPath(mapname string, id int) string {
-	return bpf.MapPath(mapname + strconv.Itoa(id))
+func (e *Endpoint) mapPath(mapname string) string {
+	return bpf.MapPath(mapname + strconv.Itoa(int(e.ID)))
 }
 
 // PolicyMapPathLocked returns the path to the policy map of endpoint.
 func (e *Endpoint) PolicyMapPathLocked() string {
-	return mapPath(policymap.MapName, int(e.ID))
+	return e.mapPath(policymap.MapName)
 }
 
 // IPv6IngressMapPathLocked returns the path to policy map of endpoint.
 func (e *Endpoint) IPv6IngressMapPathLocked() string {
-	return mapPath(cidrmap.MapName+"ingress6_", int(e.ID))
+	return e.mapPath(cidrmap.MapName + "ingress6_")
 }
 
 // IPv6EgressMapPathLocked returns the path to policy map of endpoint.
 func (e *Endpoint) IPv6EgressMapPathLocked() string {
-	return mapPath(cidrmap.MapName+"egress6_", int(e.ID))
+	return e.mapPath(cidrmap.MapName + "egress6_")
 }
 
 // IPv4IngressMapPathLocked returns the path to policy map of endpoint.
 func (e *Endpoint) IPv4IngressMapPathLocked() string {
-	return mapPath(cidrmap.MapName+"ingress4_", int(e.ID))
+	return e.mapPath(cidrmap.MapName + "ingress4_")
 }
 
 // IPv4EgressMapPathLocked returns the path to policy map of endpoint.
 func (e *Endpoint) IPv4EgressMapPathLocked() string {
-	return mapPath(cidrmap.MapName+"egress4_", int(e.ID))
+	return e.mapPath(cidrmap.MapName + "egress4_")
 }
 
 // PolicyGlobalMapPathLocked returns the path to the global policy map.
