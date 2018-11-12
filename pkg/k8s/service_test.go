@@ -491,15 +491,17 @@ func (s *K8sSuite) TestNewClusterService(c *check.C) {
 
 	clusterService := NewClusterService(id, svc, endpoints)
 	c.Assert(clusterService, check.DeepEquals, service.ClusterService{
-		Name:          "foo",
-		Namespace:     "bar",
-		Labels:        map[string]string{"foo": "bar"},
-		Selector:      map[string]string{"foo": "bar"},
-		FrontendIP:    "127.0.0.1",
-		FrontendPorts: map[string]loadbalancer.L4Addr{},
-		BackendIPs:    []string{"2.2.2.2"},
-		BackendPorts: map[string]loadbalancer.L4Addr{
-			"http-test-svc": {Protocol: loadbalancer.TCP, Port: 8080},
+		Name:      "foo",
+		Namespace: "bar",
+		Labels:    map[string]string{"foo": "bar"},
+		Selector:  map[string]string{"foo": "bar"},
+		Frontends: map[string]service.PortConfiguration{
+			"127.0.0.1": {},
+		},
+		Backends: map[string]service.PortConfiguration{
+			"2.2.2.2": {
+				"http-test-svc": {Protocol: loadbalancer.TCP, Port: 8080},
+			},
 		},
 	})
 }

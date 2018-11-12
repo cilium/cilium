@@ -17,6 +17,8 @@
 package service
 
 import (
+	"github.com/cilium/cilium/pkg/loadbalancer"
+
 	"gopkg.in/check.v1"
 )
 
@@ -42,4 +44,66 @@ func (s *ServiceGenericSuite) TestClusterService(c *check.C) {
 	c.Assert(svc, check.DeepEquals, unmarshal)
 
 	c.Assert(svc.GetKeyName(), check.Equals, "default/bar/foo")
+}
+
+func (s *ServiceGenericSuite) TestPortConfigurationDeepEqual(c *check.C) {
+	tests := []struct {
+		a    PortConfiguration
+		b    PortConfiguration
+		want bool
+	}{
+
+		{
+			a: PortConfiguration{
+				"foo": {Protocol: loadbalancer.NONE, Port: 1},
+			},
+			b: PortConfiguration{
+				"foo": {Protocol: loadbalancer.NONE, Port: 1},
+			},
+			want: true,
+		},
+		{
+			a: PortConfiguration{
+				"foo": {Protocol: loadbalancer.NONE, Port: 1},
+			},
+			b: PortConfiguration{
+				"foz": {Protocol: loadbalancer.NONE, Port: 1},
+			},
+			want: false,
+		},
+		{
+			a: PortConfiguration{
+				"foo": {Protocol: loadbalancer.NONE, Port: 1},
+			},
+			b: PortConfiguration{
+				"foo": {Protocol: loadbalancer.NONE, Port: 2},
+			},
+			want: false,
+		},
+		{
+			a: PortConfiguration{
+				"foo": {Protocol: loadbalancer.NONE, Port: 1},
+			},
+			b: PortConfiguration{
+				"foo": {Protocol: loadbalancer.NONE, Port: 1},
+				"baz": {Protocol: loadbalancer.NONE, Port: 2},
+			},
+			want: false,
+		},
+		{
+			a: PortConfiguration{},
+			b: PortConfiguration{
+				"foo": {Protocol: loadbalancer.NONE, Port: 1},
+			},
+			want: false,
+		},
+		{
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		if got := tt.a.DeepEquals(tt.b); got != tt.want {
+			c.Errorf("PortConfiguration.DeepEqual() = %v, want %v", got, tt.want)
+		}
+	}
 }

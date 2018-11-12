@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/service"
 
 	"gopkg.in/check.v1"
 	"k8s.io/api/core/v1"
@@ -44,26 +45,24 @@ func TestEndpoints_DeepEqual(t *testing.T) {
 			name: "both equal",
 			fields: fields{
 				svcEP: &Endpoints{
-					BackendIPs: map[string]bool{
-						"172.20.0.1": true,
-					},
-					Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
-						loadbalancer.FEPortName("foo"): {
-							Protocol: loadbalancer.NONE,
-							Port:     1,
+					Backends: map[string]service.PortConfiguration{
+						"172.20.0.1": map[string]*loadbalancer.L4Addr{
+							"foo": {
+								Protocol: loadbalancer.NONE,
+								Port:     1,
+							},
 						},
 					},
 				},
 			},
 			args: args{
 				o: &Endpoints{
-					BackendIPs: map[string]bool{
-						"172.20.0.1": true,
-					},
-					Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
-						loadbalancer.FEPortName("foo"): {
-							Protocol: loadbalancer.NONE,
-							Port:     1,
+					Backends: map[string]service.PortConfiguration{
+						"172.20.0.1": map[string]*loadbalancer.L4Addr{
+							"foo": {
+								Protocol: loadbalancer.NONE,
+								Port:     1,
+							},
 						},
 					},
 				},
@@ -74,26 +73,24 @@ func TestEndpoints_DeepEqual(t *testing.T) {
 			name: "different BE IPs",
 			fields: fields{
 				svcEP: &Endpoints{
-					BackendIPs: map[string]bool{
-						"172.20.0.1": true,
-					},
-					Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
-						loadbalancer.FEPortName("foo"): {
-							Protocol: loadbalancer.NONE,
-							Port:     1,
+					Backends: map[string]service.PortConfiguration{
+						"172.20.0.1": map[string]*loadbalancer.L4Addr{
+							"foo": {
+								Protocol: loadbalancer.NONE,
+								Port:     1,
+							},
 						},
 					},
 				},
 			},
 			args: args{
 				o: &Endpoints{
-					BackendIPs: map[string]bool{
-						"172.20.0.2": true,
-					},
-					Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
-						loadbalancer.FEPortName("foo"): {
-							Protocol: loadbalancer.NONE,
-							Port:     1,
+					Backends: map[string]service.PortConfiguration{
+						"172.20.0.2": map[string]*loadbalancer.L4Addr{
+							"foo": {
+								Protocol: loadbalancer.NONE,
+								Port:     1,
+							},
 						},
 					},
 				},
@@ -104,26 +101,24 @@ func TestEndpoints_DeepEqual(t *testing.T) {
 			name: "ports different name",
 			fields: fields{
 				svcEP: &Endpoints{
-					BackendIPs: map[string]bool{
-						"172.20.0.1": true,
-					},
-					Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
-						loadbalancer.FEPortName("foo"): {
-							Protocol: loadbalancer.NONE,
-							Port:     1,
+					Backends: map[string]service.PortConfiguration{
+						"172.20.0.1": map[string]*loadbalancer.L4Addr{
+							"foo": {
+								Protocol: loadbalancer.NONE,
+								Port:     1,
+							},
 						},
 					},
 				},
 			},
 			args: args{
 				o: &Endpoints{
-					BackendIPs: map[string]bool{
-						"172.20.0.1": true,
-					},
-					Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
-						loadbalancer.FEPortName("foz"): {
-							Protocol: loadbalancer.NONE,
-							Port:     1,
+					Backends: map[string]service.PortConfiguration{
+						"172.20.0.1": map[string]*loadbalancer.L4Addr{
+							"foz": {
+								Protocol: loadbalancer.NONE,
+								Port:     1,
+							},
 						},
 					},
 				},
@@ -134,26 +129,24 @@ func TestEndpoints_DeepEqual(t *testing.T) {
 			name: "ports different content",
 			fields: fields{
 				svcEP: &Endpoints{
-					BackendIPs: map[string]bool{
-						"172.20.0.1": true,
-					},
-					Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
-						loadbalancer.FEPortName("foo"): {
-							Protocol: loadbalancer.NONE,
-							Port:     1,
+					Backends: map[string]service.PortConfiguration{
+						"172.20.0.1": map[string]*loadbalancer.L4Addr{
+							"foo": {
+								Protocol: loadbalancer.NONE,
+								Port:     1,
+							},
 						},
 					},
 				},
 			},
 			args: args{
 				o: &Endpoints{
-					BackendIPs: map[string]bool{
-						"172.20.0.1": true,
-					},
-					Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
-						loadbalancer.FEPortName("foo"): {
-							Protocol: loadbalancer.NONE,
-							Port:     2,
+					Backends: map[string]service.PortConfiguration{
+						"172.20.0.1": map[string]*loadbalancer.L4Addr{
+							"foo": {
+								Protocol: loadbalancer.NONE,
+								Port:     2,
+							},
 						},
 					},
 				},
@@ -164,24 +157,28 @@ func TestEndpoints_DeepEqual(t *testing.T) {
 			name: "ports different one is bigger",
 			fields: fields{
 				svcEP: &Endpoints{
-					Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
-						loadbalancer.FEPortName("foo"): {
-							Protocol: loadbalancer.NONE,
-							Port:     1,
+					Backends: map[string]service.PortConfiguration{
+						"172.20.0.1": map[string]*loadbalancer.L4Addr{
+							"foo": {
+								Protocol: loadbalancer.NONE,
+								Port:     1,
+							},
 						},
 					},
 				},
 			},
 			args: args{
 				o: &Endpoints{
-					Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
-						loadbalancer.FEPortName("foo"): {
-							Protocol: loadbalancer.NONE,
-							Port:     1,
-						},
-						loadbalancer.FEPortName("baz"): {
-							Protocol: loadbalancer.NONE,
-							Port:     2,
+					Backends: map[string]service.PortConfiguration{
+						"172.20.0.1": map[string]*loadbalancer.L4Addr{
+							"foo": {
+								Protocol: loadbalancer.NONE,
+								Port:     1,
+							},
+							"baz": {
+								Protocol: loadbalancer.NONE,
+								Port:     2,
+							},
 						},
 					},
 				},
@@ -193,10 +190,12 @@ func TestEndpoints_DeepEqual(t *testing.T) {
 			fields: fields{},
 			args: args{
 				o: &Endpoints{
-					Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
-						loadbalancer.FEPortName("foo"): {
-							Protocol: loadbalancer.NONE,
-							Port:     1,
+					Backends: map[string]service.PortConfiguration{
+						"172.20.0.1": map[string]*loadbalancer.L4Addr{
+							"foo": {
+								Protocol: loadbalancer.NONE,
+								Port:     1,
+							},
 						},
 					},
 				},
@@ -240,7 +239,7 @@ func (s *K8sSuite) Test_parseK8sEPv1(c *check.C) {
 				}
 			},
 			setupWanted: func() *Endpoints {
-				return NewEndpoints()
+				return newEndpoints()
 			},
 		},
 		{
@@ -272,9 +271,10 @@ func (s *K8sSuite) Test_parseK8sEPv1(c *check.C) {
 				}
 			},
 			setupWanted: func() *Endpoints {
-				svcEP := NewEndpoints()
-				svcEP.Ports["http-test-svc"] = loadbalancer.NewL4Addr(loadbalancer.TCP, 8080)
-				svcEP.BackendIPs["172.0.0.1"] = true
+				svcEP := newEndpoints()
+				svcEP.Backends["172.0.0.1"] = service.PortConfiguration{
+					"http-test-svc": loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
+				}
 				return svcEP
 			},
 		},
@@ -312,10 +312,11 @@ func (s *K8sSuite) Test_parseK8sEPv1(c *check.C) {
 				}
 			},
 			setupWanted: func() *Endpoints {
-				svcEP := NewEndpoints()
-				svcEP.Ports["http-test-svc"] = loadbalancer.NewL4Addr(loadbalancer.TCP, 8080)
-				svcEP.Ports["http-test-svc-2"] = loadbalancer.NewL4Addr(loadbalancer.TCP, 8081)
-				svcEP.BackendIPs["172.0.0.1"] = true
+				svcEP := newEndpoints()
+				svcEP.Backends["172.0.0.1"] = service.PortConfiguration{
+					"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
+					"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
+				}
 				return svcEP
 			},
 		},
@@ -356,11 +357,15 @@ func (s *K8sSuite) Test_parseK8sEPv1(c *check.C) {
 				}
 			},
 			setupWanted: func() *Endpoints {
-				svcEP := NewEndpoints()
-				svcEP.Ports["http-test-svc"] = loadbalancer.NewL4Addr(loadbalancer.TCP, 8080)
-				svcEP.Ports["http-test-svc-2"] = loadbalancer.NewL4Addr(loadbalancer.TCP, 8081)
-				svcEP.BackendIPs["172.0.0.1"] = true
-				svcEP.BackendIPs["172.0.0.2"] = true
+				svcEP := newEndpoints()
+				svcEP.Backends["172.0.0.1"] = service.PortConfiguration{
+					"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
+					"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
+				}
+				svcEP.Backends["172.0.0.2"] = service.PortConfiguration{
+					"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
+					"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
+				}
 				return svcEP
 			},
 		},
@@ -406,11 +411,15 @@ func (s *K8sSuite) Test_parseK8sEPv1(c *check.C) {
 				}
 			},
 			setupWanted: func() *Endpoints {
-				svcEP := NewEndpoints()
-				svcEP.Ports["http-test-svc"] = loadbalancer.NewL4Addr(loadbalancer.TCP, 8080)
-				svcEP.Ports["http-test-svc-2"] = loadbalancer.NewL4Addr(loadbalancer.TCP, 8081)
-				svcEP.BackendIPs["172.0.0.1"] = true
-				svcEP.BackendIPs["172.0.0.2"] = true
+				svcEP := newEndpoints()
+				svcEP.Backends["172.0.0.1"] = service.PortConfiguration{
+					"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
+					"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
+				}
+				svcEP.Backends["172.0.0.2"] = service.PortConfiguration{
+					"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
+					"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
+				}
 				return svcEP
 			},
 		},
@@ -456,5 +465,5 @@ func (s *K8sSuite) TestEndpointsString(c *check.C) {
 	}
 
 	_, ep := ParseEndpoints(endpoints)
-	c.Assert(ep.String(), check.Equals, "backends:172.0.0.1,172.0.0.2/ports:http-test-svc,http-test-svc-2")
+	c.Assert(ep.String(), check.Equals, "172.0.0.1:8080/TCP,172.0.0.1:8081/TCP,172.0.0.2:8080/TCP,172.0.0.2:8081/TCP")
 }

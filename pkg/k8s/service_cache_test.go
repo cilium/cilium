@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/versioned"
 
@@ -37,13 +38,12 @@ func (s *K8sSuite) TestGetUniqueServiceFrontends(c *check.C) {
 	svcID2 := ServiceID{Name: "svc2", Namespace: "default"}
 
 	endpoints := Endpoints{
-		BackendIPs: map[string]bool{
-			"3.3.3.3": true,
-		},
-		Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
-			"port": {
-				Protocol: loadbalancer.TCP,
-				Port:     80,
+		Backends: map[string]service.PortConfiguration{
+			"3.3.3.3": map[string]*loadbalancer.L4Addr{
+				"port": {
+					Protocol: loadbalancer.TCP,
+					Port:     80,
+				},
 			},
 		},
 	}
