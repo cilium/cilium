@@ -20,9 +20,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/service"
 
 	"k8s.io/api/core/v1"
 )
@@ -32,43 +32,28 @@ import (
 // (Ports). Each k8s endpoint present in BEIPs share the same list of Ports
 // open.
 type Endpoints struct {
-	// TODO: Replace bool for time.Time so we know last time the service endpoint was seen?
-	BackendIPs map[string]bool
-	Ports      map[loadbalancer.FEPortName]*loadbalancer.L4Addr
+	Backends map[string]service.PortConfiguration
 }
 
 // String returns the string representation of an endpoints resource, with
 // backends and ports sorted.
 func (e *Endpoints) String() string {
-	if e == nil {
-		return "nil"
-	}
-
-	backends := make([]string, len(e.BackendIPs))
-	i := 0
-	for ip := range e.BackendIPs {
-		backends[i] = ip
-		i++
-	}
-
-	ports := make([]string, len(e.Ports))
-	i = 0
-	for p := range e.Ports {
-		ports[i] = string(p)
-		i++
+	backends := []string{}
+	for ip, ports := range e.Backends {
+		for _, port := range ports {
+			backends = append(backends, fmt.Sprintf("%s:%d/%s", ip, port.Port, port.Protocol))
+		}
 	}
 
 	sort.Strings(backends)
-	sort.Strings(ports)
 
-	return fmt.Sprintf("backends:%v/ports:%v", strings.Join(backends, ","), strings.Join(ports, ","))
+	return strings.Join(backends, ",")
 }
 
-// NewEndpoints returns a new Endpoints
-func NewEndpoints() *Endpoints {
+// newEndpoints returns a new Endpoints
+func newEndpoints() *Endpoints {
 	return &Endpoints{
-		BackendIPs: map[string]bool{},
-		Ports:      map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
+		Backends: map[string]service.PortConfiguration{},
 	}
 }
 
@@ -81,18 +66,26 @@ func (e *Endpoints) DeepEquals(o *Endpoints) bool {
 		return true
 	}
 
-	if !comparator.MapBoolEquals(e.BackendIPs, o.BackendIPs) {
+	if len(e.Backends) != len(o.Backends) {
 		return false
 	}
 
-	if len(e.Ports) != len(o.Ports) {
-		return false
-	}
-
-	for k1, v1 := range e.Ports {
-		v2, ok := o.Ports[k1]
-		if !ok || !v1.Equals(v2) {
+	for ip1, ports1 := range e.Backends {
+		ports2, ok := o.Backends[ip1]
+		if !ok {
 			return false
+		}
+
+		if len(ports1) != len(ports2) {
+			return false
+		}
+
+		for portName1, port1 := range ports1 {
+			port2, ok := ports2[portName1]
+
+			if !ok || !port1.Equals(port2) {
+				return false
+			}
 		}
 	}
 
@@ -101,9 +94,11 @@ func (e *Endpoints) DeepEquals(o *Endpoints) bool {
 
 // CIDRPrefixes returns the endpoint's backends as a slice of IPNets.
 func (e *Endpoints) CIDRPrefixes() ([]*net.IPNet, error) {
-	prefixes := make([]string, 0, len(e.BackendIPs))
-	for backend := range e.BackendIPs {
-		prefixes = append(prefixes, backend)
+	prefixes := make([]string, len(e.Backends))
+	index := 0
+	for ip := range e.Backends {
+		prefixes[index] = ip
+		index++
 	}
 
 	valid, invalid := ip.ParseCIDRs(prefixes)
@@ -124,16 +119,20 @@ func ParseEndpointsID(svc *v1.Endpoints) ServiceID {
 
 // ParseEndpoints parses a Kubernetes Endpoints resource
 func ParseEndpoints(ep *v1.Endpoints) (ServiceID, *Endpoints) {
-	endpoints := NewEndpoints()
+	endpoints := newEndpoints()
 
 	for _, sub := range ep.Subsets {
 		for _, addr := range sub.Addresses {
-			endpoints.BackendIPs[addr.IP] = true
-		}
+			backend, ok := endpoints.Backends[addr.IP]
+			if !ok {
+				backend = service.PortConfiguration{}
+				endpoints.Backends[addr.IP] = backend
+			}
 
-		for _, port := range sub.Ports {
-			lbPort := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
-			endpoints.Ports[loadbalancer.FEPortName(port.Name)] = lbPort
+			for _, port := range sub.Ports {
+				lbPort := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
+				backend[port.Name] = lbPort
+			}
 		}
 	}
 

@@ -30,6 +30,9 @@ var (
 	ServiceStorePrefix = path.Join(kvstore.BaseKeyPrefix, "state", "services", "v1")
 )
 
+// PortConfiguration
+type PortConfiguration map[string]*loadbalancer.L4Addr
+
 // ClusterService is the definition of a service in a cluster
 //
 // WARNING - STABLE API: Any change to this structure must be done in a
@@ -45,18 +48,11 @@ type ClusterService struct {
 	// namespace of the cluster
 	Name string `json:"name"`
 
-	// FrontendIP is the frontend/service IP of the service
-	FrontendIP string `json:"frontendIP"`
+	// Frontends is a map indexed by the frontend IP address
+	Frontends map[string]PortConfiguration `json:"frontends"`
 
-	// FrontendPorts is the list of portsgg
-	FrontendPorts map[string]loadbalancer.L4Addr `json:"frontendPorts"`
-
-	// BackendIPs is the list of IPs backing the service in the cluster
-	BackendIPs []string `json:"backendIPs"`
-
-	// BackendPorts is the list of ports for each backend IP. The name has
-	// to map to the FrontendPorts
-	BackendPorts map[string]loadbalancer.L4Addr `json:"backendPorts"`
+	// Backends is is map indexed by the backend IP address
+	Backends map[string]PortConfiguration `json:"backends"`
 
 	// Labels are the labels of the service
 	Labels map[string]string `json:"labels"`
@@ -89,11 +85,11 @@ func (s *ClusterService) Unmarshal(data []byte) error {
 // NewClusterService returns a new cluster service definition
 func NewClusterService(name, namespace string) ClusterService {
 	return ClusterService{
-		Name:          name,
-		Namespace:     namespace,
-		FrontendPorts: map[string]loadbalancer.L4Addr{},
-		BackendPorts:  map[string]loadbalancer.L4Addr{},
-		Labels:        map[string]string{},
-		Selector:      map[string]string{},
+		Name:      name,
+		Namespace: namespace,
+		Frontends: map[string]PortConfiguration{},
+		Backends:  map[string]PortConfiguration{},
+		Labels:    map[string]string{},
+		Selector:  map[string]string{},
 	}
 }
