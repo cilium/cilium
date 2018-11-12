@@ -15,10 +15,8 @@
 package api
 
 import (
-	"bytes"
 	"fmt"
 	"net"
-	"sort"
 	"sync"
 )
 
@@ -59,6 +57,7 @@ func RegisterToGroupsProvider(providerName string, callback GroupProviderFunc) {
 func (group *ToGroups) GetCidrSet() ([]CIDRRule, error) {
 
 	var ips []net.IP
+
 	emptyResult := []CIDRRule{}
 
 	// Get per  provider CIDRSet
@@ -80,10 +79,6 @@ func (group *ToGroups) GetCidrSet() ([]CIDRRule, error) {
 		ips = append(ips, awsIPs...)
 	}
 
-	// Sort IPS to have always the same result and do not update policies if it
-	// is not needed.
-	sort.Slice(ips, func(i, j int) bool {
-		return bytes.Compare(ips[i], ips[j]) < 0
-	})
-	return IPsToCIDRRules(ips), nil
+	resultIps := KeepUniqueIPs(ips)
+	return IPsToCIDRRules(resultIps), nil
 }
