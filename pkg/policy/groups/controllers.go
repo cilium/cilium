@@ -15,8 +15,6 @@
 package groups
 
 import (
-	"time"
-
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
@@ -24,26 +22,19 @@ const (
 	maxConcurrentUpdates = 4
 )
 
-func init() {
-	go UpgradeCNPInformation()
-}
-
 // UpgradeCNPInformation  retrieves all the CNP that has currently a derivative
 // policy and creates the new derivatives policies with the latest information
 // from providers.  To avoid issues with rate-limiting this function will
 // execute the addDerivative function with a max number of concurrent calls,
 // defined on maxConcurrentUpdates.
 func UpgradeCNPInformation() {
-	for {
-		cnpToUpdate := groupsCNPCache.GetAllCNP()
-		sem := make(chan bool, maxConcurrentUpdates)
-		for _, cnp := range cnpToUpdate {
-			sem <- true
-			go func(cnp *cilium_v2.CiliumNetworkPolicy) {
-				defer func() { <-sem }()
-				addDerivativeCNP(cnp)
-			}(cnp)
-		}
-		time.Sleep(10 * time.Second)
+	cnpToUpdate := groupsCNPCache.GetAllCNP()
+	sem := make(chan bool, maxConcurrentUpdates)
+	for _, cnp := range cnpToUpdate {
+		sem <- true
+		go func(cnp *cilium_v2.CiliumNetworkPolicy) {
+			defer func() { <-sem }()
+			addDerivativeCNP(cnp)
+		}(cnp)
 	}
 }
