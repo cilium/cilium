@@ -21,7 +21,6 @@ Component Overview
 ******************
 
 .. image:: images/cilium-arch.png
-    :width: 600px
     :align: center
 
 A deployment of Cilium consists of the following components running on each
