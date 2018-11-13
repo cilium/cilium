@@ -271,7 +271,16 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 	}
 #endif
 
+#ifdef FROM_HOST
+	/* The destination IP address could not be associated with a local
+	 * endpoint or a tunnel destination. It is likely addressed to a
+	 * destination to a local endpoint IP that has disappeard. Given this
+	 * is coming from the host, we can't route it back as it will create a
+	 * routing loop. */
+	return DROP_NON_LOCAL;
+#else
 	return TC_ACT_OK;
+#endif
 }
 
 #ifdef ENABLE_IPV4
@@ -440,7 +449,16 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 	}
 #endif
 
+#ifdef FROM_HOST
+	/* The destination IP address could not be associated with a local
+	 * endpoint or a tunnel destination. It is likely addressed to a
+	 * destination to a local endpoint IP that has disappeard. Given this
+	 * is coming from the host, we can't route it back as it will create a
+	 * routing loop. */
+	return DROP_NON_LOCAL;
+#else
 	return TC_ACT_OK;
+#endif
 }
 
 #define CB_SRC_IDENTITY 0
