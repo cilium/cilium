@@ -6,8 +6,7 @@ import (
 )
 
 const (
-	maxParseBufSize = 100 * math.MaxUint16
-	maxDiscardSize  = 4096
+	maxParseBufSize = math.MaxInt32
 )
 
 func messageSizeError(size int) error {

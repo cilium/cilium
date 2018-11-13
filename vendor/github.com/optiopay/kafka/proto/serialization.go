@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"reflect"
 	"time"
 )
 
@@ -153,16 +152,15 @@ func (d *decoder) DecodeString() string {
 	return string(b)
 }
 
-func (d *decoder) DecodeArrayLen(nullable bool) (int, error) {
+func (d *decoder) DecodeArrayLen() (int, error) {
 	len := int(d.DecodeInt32())
 
-	if len < 0 {
-		if nullable { // null array.
-			return -1, nil
-		} else {
-			return 0, ErrInvalidArrayLen
-		}
-	} else if len > maxParseBufSize {
+	// Sometime kafka may send -1 as size of array.
+	if len == -1 {
+		return 0, nil
+	}
+
+	if len > maxParseBufSize {
 		return 0, ErrInvalidArrayLen
 	}
 
@@ -196,6 +194,85 @@ func (d *decoder) DecodeBytes() []byte {
 		return nil
 	}
 	return b
+}
+
+type byteReader struct {
+	r io.Reader
+}
+
+func (br byteReader) ReadByte() (byte, error) {
+	buf := make([]byte, 1)
+	_, err := io.ReadFull(br.r, buf)
+	return buf[0], err
+}
+
+func (d *decoder) DecodeVarInt() int64 {
+	// have to use wrapper because
+	// ReadVarint require ByteReader
+	res, err := binary.ReadVarint(byteReader{d.r})
+	if err != nil {
+		d.err = err
+	}
+	return res
+}
+
+func (d *decoder) DecodeVarBytes() []byte {
+	slen := d.DecodeVarInt()
+
+	if slen < 1 {
+		return nil
+	}
+
+	b, err := allocParseBuf(int(slen))
+	if err != nil {
+		d.err = err
+		return nil
+	}
+	n, err := io.ReadFull(d.r, b)
+	if err != nil {
+		d.err = err
+		return nil
+	}
+	if n != int(slen) {
+		d.err = ErrNotEnoughData
+		return nil
+	}
+	return b
+}
+
+func (d *decoder) DecodeVarString() string {
+	if d.err != nil {
+		return ""
+	}
+	slen := d.DecodeVarInt()
+	if d.err != nil {
+		return ""
+	}
+	if slen < 1 {
+		return ""
+	}
+
+	var b []byte
+	if int(slen) > len(d.buf) {
+		var err error
+		b, err = allocParseBuf(int(slen))
+		if err != nil {
+			d.err = err
+			return ""
+		}
+	} else {
+		b = d.buf[:int(slen)]
+	}
+	n, err := io.ReadFull(d.r, b)
+	if err != nil {
+		d.err = err
+		return ""
+	}
+	if n != int(slen) {
+		d.err = ErrNotEnoughData
+		return ""
+	}
+	return string(b)
 }
 
 func (d *decoder) Err() error {
@@ -262,7 +339,7 @@ func (e *encoder) Encode(value interface{}) {
 			e.err = writeAll(e.w, val)
 		}
 	case []int32:
-		e.EncodeArrayLen(val)
+		e.EncodeArrayLen(len(val))
 		for _, v := range val {
 			e.Encode(v)
 		}
@@ -380,16 +457,8 @@ func (e *encoder) EncodeError(err error) {
 	e.err = writeAll(e.w, b)
 }
 
-func (e *encoder) EncodeArrayLen(s interface{}) {
-	v := reflect.ValueOf(s)
-	if v.Type().Kind() != reflect.Slice {
-		panic(fmt.Sprintf("EncodeArraylen called with a non-slice argument: %v", s))
-	}
-	if v.IsNil() {
-		e.EncodeInt32(-1)
-	} else {
-		e.EncodeInt32(int32(v.Len()))
-	}
+func (e *encoder) EncodeArrayLen(length int) {
+	e.EncodeInt32(int32(length))
 }
 
 func (e *encoder) Err() error {

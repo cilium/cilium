@@ -3,6 +3,8 @@ package kafka
 import (
 	"bufio"
 	"bytes"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"math"
@@ -27,29 +29,133 @@ type connection struct {
 	respc       map[int32]chan []byte
 	stopErr     error
 	readTimeout time.Duration
+	apiVersions map[int16]proto.SupportedVersion
+}
+
+func newTLSConnection(address string, ca, cert, key []byte, timeout, readTimeout time.Duration) (*connection, error) {
+	var fetchVersions = true
+	for {
+		roots := x509.NewCertPool()
+		ok := roots.AppendCertsFromPEM(ca)
+		if !ok {
+			return nil, fmt.Errorf("Cannot parse root certificate")
+		}
+
+		certificate, err := tls.X509KeyPair(cert, key)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to parse key/cert for TLS: %s", err)
+		}
+
+		conf := &tls.Config{
+			Certificates: []tls.Certificate{certificate},
+			RootCAs:      roots,
+		}
+
+		dialer := net.Dialer{
+			Timeout:   timeout,
+			KeepAlive: 30 * time.Second,
+		}
+		conn, err := tls.DialWithDialer(&dialer, "tcp", address, conf)
+		if err != nil {
+			return nil, err
+		}
+		c := &connection{
+			stop:        make(chan struct{}),
+			nextID:      make(chan int32),
+			rw:          conn,
+			respc:       make(map[int32]chan []byte),
+			logger:      &nullLogger{},
+			readTimeout: readTimeout,
+			apiVersions: make(map[int16]proto.SupportedVersion),
+		}
+		go c.nextIDLoop()
+		go c.readRespLoop()
+		if fetchVersions {
+			if c.cacheApiVersions() != nil {
+				fetchVersions = false
+				//required for errorchk
+				_ = c.Close()
+			}
+		}
+
+		return c, nil
+	}
+
 }
 
 // newConnection returns new, initialized connection or error
 func newTCPConnection(address string, timeout, readTimeout time.Duration) (*connection, error) {
-	dialer := net.Dialer{
-		Timeout:   timeout,
-		KeepAlive: 30 * time.Second,
+	var fetchVersions = true
+	for {
+		dialer := net.Dialer{
+			Timeout:   timeout,
+			KeepAlive: 30 * time.Second,
+		}
+		conn, err := dialer.Dial("tcp", address)
+		if err != nil {
+			return nil, err
+		}
+		c := &connection{
+			stop:        make(chan struct{}),
+			nextID:      make(chan int32),
+			rw:          conn,
+			respc:       make(map[int32]chan []byte),
+			logger:      &nullLogger{},
+			readTimeout: readTimeout,
+			apiVersions: make(map[int16]proto.SupportedVersion),
+		}
+		go c.nextIDLoop()
+		go c.readRespLoop()
+
+		if fetchVersions {
+			if c.cacheApiVersions() != nil {
+				fetchVersions = false
+				//required for errorchk
+				_ = c.Close()
+				continue
+			}
+		}
+		return c, nil
 	}
-	conn, err := dialer.Dial("tcp", address)
+
+}
+
+func (c *connection) cacheApiVersions() error {
+	apiVersions, err := c.APIVersions(&proto.APIVersionsReq{})
 	if err != nil {
-		return nil, err
+		c.logger.Debug("cannot fetch apiversions",
+			"error", err)
+		return err
 	}
-	c := &connection{
-		stop:        make(chan struct{}),
-		nextID:      make(chan int32),
-		rw:          conn,
-		respc:       make(map[int32]chan []byte),
-		logger:      &nullLogger{},
-		readTimeout: readTimeout,
+	for _, api := range apiVersions.APIVersions {
+		c.apiVersions[api.APIKey] = api
 	}
-	go c.nextIDLoop()
-	go c.readRespLoop()
-	return c, nil
+	return nil
+}
+
+//getBestVersion returns version for passed apiKey which best fit server and client requirements
+func (c *connection) getBestVersion(apiKey int16) int16 {
+	if requested, ok := c.apiVersions[apiKey]; ok {
+		supported := proto.SupportedByDriver[apiKey]
+		if min(supported.MaxVersion, requested.MaxVersion) >= max(supported.MinVersion, requested.MinVersion) {
+			return min(supported.MaxVersion, requested.MaxVersion)
+		}
+	}
+	return 0
+}
+
+func min(a int16, b int16) int16 {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func max(a int16, b int16) int16 {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 // nextIDLoop generates correlation IDs, making sure they are always in order
@@ -173,31 +279,77 @@ func (c *connection) Close() error {
 	return c.rw.Close()
 }
 
-// Metadata sends given metadata request to kafka node and returns related
-// metadata response.
-// Calling this method on closed connection will always return ErrClosed.
-func (c *connection) Metadata(req *proto.MetadataReq) (*proto.MetadataResp, error) {
+func (c *connection) sendRequest(req proto.Request) ([]byte, error) {
+	proto.SetVersion(req.GetHeader(), c.getBestVersion(req.Kind()))
 	var ok bool
-	if req.CorrelationID, ok = <-c.nextID; !ok {
+	var correlationID int32
+	if correlationID, ok = <-c.nextID; !ok {
 		return nil, c.stopErr
 	}
+	proto.SetCorrelationID(req.GetHeader(), correlationID)
 
-	respc, err := c.respWaiter(req.CorrelationID)
+	respc, err := c.respWaiter(req.GetCorrelationID())
 	if err != nil {
 		c.logger.Error("msg", "failed waiting for response", "error", err)
 		return nil, fmt.Errorf("wait for response: %s", err)
 	}
 
-	if _, err := req.WriteTo(c.rw, req.Version); err != nil {
+	if _, err := req.WriteTo(c.rw); err != nil {
 		c.logger.Error("msg", "cannot write", "error", err)
-		c.releaseWaiter(req.CorrelationID)
+		c.releaseWaiter(req.GetCorrelationID())
 		return nil, err
 	}
 	b, ok := <-respc
 	if !ok {
 		return nil, c.stopErr
 	}
-	return proto.ReadMetadataResp(bytes.NewReader(b))
+	return b, nil
+}
+
+func (c *connection) sendRequestWithoutAcks(req proto.Request) error {
+	var ok bool
+	var correlationID int32
+	if correlationID, ok = <-c.nextID; !ok {
+		return c.stopErr
+	}
+	proto.SetCorrelationID(req.GetHeader(), correlationID)
+
+	proto.SetVersion(req.GetHeader(), c.getBestVersion(req.Kind()))
+
+	_, err := req.WriteTo(c.rw)
+	return err
+}
+
+// APIVersions sends a request to fetch the supported versions for each API.
+// Versioning is only supported in Kafka versions above 0.10.0.0
+func (c *connection) APIVersions(req *proto.APIVersionsReq) (*proto.APIVersionsResp, error) {
+	b, err := c.sendRequest(req)
+	if err != nil {
+		return nil, err
+	}
+	return proto.ReadVersionedAPIVersionsResp(bytes.NewReader(b), req.GetVersion())
+}
+
+// Metadata sends given metadata request to kafka node and returns related
+// metadata response.
+// Calling this method on closed connection will always return ErrClosed.
+func (c *connection) Metadata(req *proto.MetadataReq) (*proto.MetadataResp, error) {
+	b, err := c.sendRequest(req)
+	if err != nil {
+		return nil, err
+	}
+	return proto.ReadVersionedMetadataResp(bytes.NewReader(b), req.GetVersion())
+}
+
+// CreateTopic sends given createTopic request to kafka node and returns related
+// response.
+// Calling this method on closed connection will always return ErrClosed.
+func (c *connection) CreateTopic(req *proto.CreateTopicsReq) (*proto.CreateTopicsResp, error) {
+	b, err := c.sendRequest(req)
+	if err != nil {
+		return nil, err
+	}
+	return proto.ReadCreateTopicsResp(bytes.NewReader(b))
 }
 
 // Produce sends given produce request to kafka node and returns related
@@ -205,58 +357,28 @@ func (c *connection) Metadata(req *proto.MetadataReq) (*proto.MetadataResp, erro
 // right after sending request, without waiting for response.
 // Calling this method on closed connection will always return ErrClosed.
 func (c *connection) Produce(req *proto.ProduceReq) (*proto.ProduceResp, error) {
-	var ok bool
-	if req.CorrelationID, ok = <-c.nextID; !ok {
-		return nil, c.stopErr
-	}
 
 	if req.RequiredAcks == proto.RequiredAcksNone {
-		_, err := req.WriteTo(c.rw, req.Version)
-		return nil, err
+		return nil, c.sendRequestWithoutAcks(req)
 	}
 
-	respc, err := c.respWaiter(req.CorrelationID)
+	b, err := c.sendRequest(req)
 	if err != nil {
-		c.logger.Error("msg", "failed waiting for response", "error", err)
-		return nil, fmt.Errorf("wait for response: %s", err)
-	}
-
-	if _, err := req.WriteTo(c.rw, req.Version); err != nil {
-		c.logger.Error("msg", "cannot write", "error", err)
-		c.releaseWaiter(req.CorrelationID)
 		return nil, err
 	}
-	b, ok := <-respc
-	if !ok {
-		return nil, c.stopErr
-	}
-	return proto.ReadProduceResp(bytes.NewReader(b))
+
+	return proto.ReadVersionedProduceResp(bytes.NewReader(b), req.GetVersion())
 }
 
 // Fetch sends given fetch request to kafka node and returns related response.
 // Calling this method on closed connection will always return ErrClosed.
 func (c *connection) Fetch(req *proto.FetchReq) (*proto.FetchResp, error) {
-	var ok bool
-	if req.CorrelationID, ok = <-c.nextID; !ok {
-		return nil, c.stopErr
-	}
-
-	respc, err := c.respWaiter(req.CorrelationID)
+	b, err := c.sendRequest(req)
 	if err != nil {
-		c.logger.Error("msg", "failed waiting for response", "error", err)
-		return nil, fmt.Errorf("wait for response: %s", err)
-	}
-
-	if _, err := req.WriteTo(c.rw, req.Version); err != nil {
-		c.logger.Error("msg", "cannot write", "error", err)
-		c.releaseWaiter(req.CorrelationID)
 		return nil, err
 	}
-	b, ok := <-respc
-	if !ok {
-		return nil, c.stopErr
-	}
-	resp, err := proto.ReadFetchResp(bytes.NewReader(b))
+
+	resp, err := proto.ReadVersionedFetchResp(bytes.NewReader(b), req.GetVersion())
 	if err != nil {
 		return nil, err
 	}
@@ -270,15 +392,26 @@ func (c *connection) Fetch(req *proto.FetchReq) (*proto.FetchResp, error) {
 		reqTopic := &req.Topics[ti]
 		for pi := range topic.Partitions {
 			partition := &topic.Partitions[pi]
-			reqPartition := &reqTopic.Partitions[pi]
+			requestedOffset := reqTopic.Partitions[pi].FetchOffset
 			i := 0
-			for _, msg := range partition.Messages {
-				if msg.Offset >= reqPartition.FetchOffset {
-					break
+			if partition.MessageVersion < 2 {
+				for _, msg := range partition.Messages {
+					if msg.Offset >= requestedOffset {
+						break
+					}
+					i++
 				}
-				i++
+				partition.Messages = partition.Messages[i:]
+			} else {
+				firstOffset := partition.RecordBatch.FirstOffset
+				for _, rec := range partition.RecordBatch.Records {
+					if firstOffset+rec.OffsetDelta >= requestedOffset {
+						break
+					}
+					i++
+				}
+				partition.RecordBatch.Records = partition.RecordBatch.Records[i:]
 			}
-			partition.Messages = partition.Messages[i:]
 		}
 	}
 	return resp, nil
@@ -287,94 +420,37 @@ func (c *connection) Fetch(req *proto.FetchReq) (*proto.FetchResp, error) {
 // Offset sends given offset request to kafka node and returns related response.
 // Calling this method on closed connection will always return ErrClosed.
 func (c *connection) Offset(req *proto.OffsetReq) (*proto.OffsetResp, error) {
-	var ok bool
-	if req.CorrelationID, ok = <-c.nextID; !ok {
-		return nil, c.stopErr
-	}
-
-	respc, err := c.respWaiter(req.CorrelationID)
-	if err != nil {
-		c.logger.Error("msg", "failed waiting for response", "error", err)
-		return nil, fmt.Errorf("wait for response: %s", err)
-	}
-
 	// TODO(husio) documentation is not mentioning this directly, but I assume
 	// -1 is for non node clients
 	req.ReplicaID = -1
-	if _, err := req.WriteTo(c.rw, req.Version); err != nil {
-		c.logger.Error("msg", "cannot write", "error", err)
-		c.releaseWaiter(req.CorrelationID)
+
+	b, err := c.sendRequest(req)
+	if err != nil {
 		return nil, err
 	}
-	b, ok := <-respc
-	if !ok {
-		return nil, c.stopErr
-	}
-	return proto.ReadOffsetResp(bytes.NewReader(b))
+	return proto.ReadVersionedOffsetResp(bytes.NewReader(b), req.GetVersion())
 }
 
 func (c *connection) ConsumerMetadata(req *proto.ConsumerMetadataReq) (*proto.ConsumerMetadataResp, error) {
-	var ok bool
-	if req.CorrelationID, ok = <-c.nextID; !ok {
-		return nil, c.stopErr
-	}
-	respc, err := c.respWaiter(req.CorrelationID)
+	b, err := c.sendRequest(req)
 	if err != nil {
-		c.logger.Error("msg", "failed waiting for response", "error", err)
-		return nil, fmt.Errorf("wait for response: %s", err)
-	}
-	if _, err := req.WriteTo(c.rw, req.Version); err != nil {
-		c.logger.Error("msg", "cannot write", "error", err)
-		c.releaseWaiter(req.CorrelationID)
 		return nil, err
 	}
-	b, ok := <-respc
-	if !ok {
-		return nil, c.stopErr
-	}
-	return proto.ReadConsumerMetadataResp(bytes.NewReader(b))
+	return proto.ReadVersionedConsumerMetadataResp(bytes.NewReader(b), req.GetVersion())
 }
 
 func (c *connection) OffsetCommit(req *proto.OffsetCommitReq) (*proto.OffsetCommitResp, error) {
-	var ok bool
-	if req.CorrelationID, ok = <-c.nextID; !ok {
-		return nil, c.stopErr
-	}
-	respc, err := c.respWaiter(req.CorrelationID)
+	b, err := c.sendRequest(req)
 	if err != nil {
-		c.logger.Error("msg", "failed waiting for response", "error", err)
-		return nil, fmt.Errorf("wait for response: %s", err)
-	}
-	if _, err := req.WriteTo(c.rw, req.Version); err != nil {
-		c.logger.Error("msg", "cannot write", "error", err)
-		c.releaseWaiter(req.CorrelationID)
 		return nil, err
 	}
-	b, ok := <-respc
-	if !ok {
-		return nil, c.stopErr
-	}
-	return proto.ReadOffsetCommitResp(bytes.NewReader(b))
+	return proto.ReadVersionedOffsetCommitResp(bytes.NewReader(b), req.GetVersion())
 }
 
 func (c *connection) OffsetFetch(req *proto.OffsetFetchReq) (*proto.OffsetFetchResp, error) {
-	var ok bool
-	if req.CorrelationID, ok = <-c.nextID; !ok {
-		return nil, c.stopErr
-	}
-	respc, err := c.respWaiter(req.CorrelationID)
+	b, err := c.sendRequest(req)
 	if err != nil {
-		c.logger.Error("msg", "failed waiting for response", "error", err)
-		return nil, fmt.Errorf("wait for response: %s", err)
-	}
-	if _, err := req.WriteTo(c.rw, req.Version); err != nil {
-		c.logger.Error("msg", "cannot write", "error", err)
-		c.releaseWaiter(req.CorrelationID)
 		return nil, err
 	}
-	b, ok := <-respc
-	if !ok {
-		return nil, c.stopErr
-	}
-	return proto.ReadOffsetFetchResp(bytes.NewReader(b))
+	return proto.ReadVersionedOffsetFetchResp(bytes.NewReader(b), req.GetVersion())
 }

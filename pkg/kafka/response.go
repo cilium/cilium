@@ -84,7 +84,7 @@ func createProduceResponse(req *proto.ProduceReq, err error) (*ResponseMessage, 
 	}
 
 	resp := &proto.ProduceResp{
-		CorrelationID: req.CorrelationID,
+		CorrelationID: req.RequestHeader.GetCorrelationID(),
 		Topics:        make([]proto.ProduceRespTopic, len(req.Topics)),
 	}
 
@@ -102,7 +102,7 @@ func createProduceResponse(req *proto.ProduceReq, err error) (*ResponseMessage, 
 		}
 	}
 
-	b, err := resp.Bytes(req.Version)
+	b, err := resp.Bytes()
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +119,7 @@ func createFetchResponse(req *proto.FetchReq, err error) (*ResponseMessage, erro
 	}
 
 	resp := &proto.FetchResp{
-		CorrelationID: req.CorrelationID,
+		CorrelationID: req.RequestHeader.GetCorrelationID(),
 		Topics:        make([]proto.FetchRespTopic, len(req.Topics)),
 	}
 
@@ -138,7 +138,7 @@ func createFetchResponse(req *proto.FetchReq, err error) (*ResponseMessage, erro
 		}
 	}
 
-	b, err := resp.Bytes(req.Version)
+	b, err := resp.Bytes()
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +155,7 @@ func createOffsetResponse(req *proto.OffsetReq, err error) (*ResponseMessage, er
 	}
 
 	resp := &proto.OffsetResp{
-		CorrelationID: req.CorrelationID,
+		CorrelationID: req.RequestHeader.GetCorrelationID(),
 		Topics:        make([]proto.OffsetRespTopic, len(req.Topics)),
 	}
 
@@ -174,7 +174,7 @@ func createOffsetResponse(req *proto.OffsetReq, err error) (*ResponseMessage, er
 		}
 	}
 
-	b, err := resp.Bytes(req.Version)
+	b, err := resp.Bytes()
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +195,7 @@ func createMetadataResponse(req *proto.MetadataReq, err error) (*ResponseMessage
 		topics = make([]proto.MetadataRespTopic, len(req.Topics))
 	}
 	resp := &proto.MetadataResp{
-		CorrelationID: req.CorrelationID,
+		CorrelationID: req.RequestHeader.GetCorrelationID(),
 		Brokers:       make([]proto.MetadataRespBroker, 0), // Not nullable, so must never be nil.
 		Topics:        topics,
 	}
@@ -208,7 +208,7 @@ func createMetadataResponse(req *proto.MetadataReq, err error) (*ResponseMessage
 		}
 	}
 
-	b, err := resp.Bytes(req.Version)
+	b, err := resp.Bytes()
 	if err != nil {
 		return nil, err
 	}
@@ -225,11 +225,11 @@ func createConsumerMetadataResponse(req *proto.ConsumerMetadataReq, err error) (
 	}
 
 	resp := &proto.ConsumerMetadataResp{
-		CorrelationID: req.CorrelationID,
+		CorrelationID: req.RequestHeader.GetCorrelationID(),
 		Err:           err,
 	}
 
-	b, err := resp.Bytes(req.Version)
+	b, err := resp.Bytes()
 	if err != nil {
 		return nil, err
 	}
@@ -246,7 +246,7 @@ func createOffsetCommitResponse(req *proto.OffsetCommitReq, err error) (*Respons
 	}
 
 	resp := &proto.OffsetCommitResp{
-		CorrelationID: req.CorrelationID,
+		CorrelationID: req.RequestHeader.GetCorrelationID(),
 		Topics:        make([]proto.OffsetCommitRespTopic, len(req.Topics)),
 	}
 
@@ -264,7 +264,7 @@ func createOffsetCommitResponse(req *proto.OffsetCommitReq, err error) (*Respons
 		}
 	}
 
-	b, err := resp.Bytes(req.Version)
+	b, err := resp.Bytes()
 	if err != nil {
 		return nil, err
 	}
@@ -285,7 +285,7 @@ func createOffsetFetchResponse(req *proto.OffsetFetchReq, err error) (*ResponseM
 		topics = make([]proto.OffsetFetchRespTopic, len(req.Topics))
 	}
 	resp := &proto.OffsetFetchResp{
-		CorrelationID: req.CorrelationID,
+		CorrelationID: req.RequestHeader.GetCorrelationID(),
 		Topics:        topics,
 	}
 
@@ -303,7 +303,7 @@ func createOffsetFetchResponse(req *proto.OffsetFetchReq, err error) (*ResponseM
 		}
 	}
 
-	b, err := resp.Bytes(req.Version)
+	b, err := resp.Bytes()
 	if err != nil {
 		return nil, err
 	}

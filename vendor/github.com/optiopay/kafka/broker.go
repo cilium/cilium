@@ -86,10 +86,11 @@ func (tp topicPartition) String() string {
 }
 
 type clusterMetadata struct {
-	created    time.Time
-	nodes      map[int32]string         // node ID to address
-	endpoints  map[topicPartition]int32 // partition to leader node ID
-	partitions map[string]int32         // topic to number of partitions
+	created      time.Time
+	nodes        map[int32]string         // node ID to address
+	endpoints    map[topicPartition]int32 // partition to leader node ID
+	partitions   map[string]int32         // topic to number of partitions
+	controllerId int32                    // ID node which run cluster controller
 }
 
 // BrokerConf represents the configuration of a broker.
@@ -168,6 +169,20 @@ type BrokerConf struct {
 	// logging frameworks. Used to notify and as replacement for stdlib `log`
 	// package.
 	Logger Logger
+
+	//Settings for TLS encryption.
+	//You need to set all these parameters to enable TLS
+
+	//TLS CA pem
+	TLSCa []byte
+	//TLS certificate
+	TLSCert []byte
+	//TLS key
+	TLSKey []byte
+}
+
+func (conf *BrokerConf) useTLS() bool {
+	return (len(conf.TLSCa) > 0 && len(conf.TLSKey) > 0 && len(conf.TLSCert) > 0)
 }
 
 // NewBrokerConf returns the default broker configuration.
@@ -226,8 +241,10 @@ func Dial(nodeAddresses []string, conf BrokerConf) (*Broker, error) {
 		if err == nil {
 			return broker, nil
 		}
+
+		conf.Logger.Error("Got an error trying to fetch metadata", "error", err)
 	}
-	return nil, errors.New("cannot connect")
+	return nil, fmt.Errorf("cannot connect to: %s. TLS authentication: %t", nodeAddresses, conf.useTLS())
 }
 
 func (b *Broker) getInitialAddresses() []string {
@@ -259,6 +276,24 @@ func (b *Broker) Metadata() (*proto.MetadataResp, error) {
 	return b.fetchMetadata()
 }
 
+// CreateTopic request topic creation
+func (b *Broker) CreateTopic(topics []proto.TopicInfo, timeout time.Duration, validateOnly bool) (*proto.CreateTopicsResp, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	var resp *proto.CreateTopicsResp
+	err := b.callOnClusterController(func(c *connection) error {
+		var err error
+		req := proto.CreateTopicsReq{
+			Timeout:              timeout,
+			CreateTopicsRequests: topics,
+			ValidateOnly:         validateOnly,
+		}
+		resp, err = c.CreateTopic(&req)
+		return err
+	})
+	return resp, err
+}
+
 // refreshMetadata is requesting metadata information from any node and refresh
 // internal cached representation.
 // Because it's changing internal state, this method requires lock protection,
@@ -279,6 +314,103 @@ func (b *Broker) muRefreshMetadata() error {
 	return err
 }
 
+func (b *Broker) callOnClusterController(f func(c *connection) error) error {
+	checkednodes := make(map[int32]bool)
+
+	var err error
+	var conn *connection
+
+	controllerID := b.metadata.controllerId
+
+	// try all existing connections first
+	for nodeID, conn := range b.conns {
+		checkednodes[nodeID] = true
+		if nodeID == controllerID {
+			err = f(conn)
+			if err != nil {
+				continue
+			}
+			return nil
+		}
+	}
+
+	// try all nodes that we know of that we're not connected to
+	for nodeID, addr := range b.metadata.nodes {
+		if nodeID == controllerID {
+			conn, err = b.getConnection(addr)
+			if err != nil {
+				return err
+			}
+			err = f(conn)
+
+			// we had no active connection to this node, so most likely we don't need it
+			_ = conn.Close()
+
+			return err
+		}
+	}
+
+	if err != nil {
+		return err
+	} else {
+		return errors.New("Cannot get connection to controller node")
+	}
+}
+
+func (b *Broker) callOnActiveConnection(f func(c *connection) error) error {
+	checkednodes := make(map[int32]bool)
+
+	var err error
+	var conn *connection
+
+	// try all existing connections first
+	for nodeID, conn := range b.conns {
+		checkednodes[nodeID] = true
+		err = f(conn)
+		if err != nil {
+			continue
+		}
+		return nil
+	}
+
+	// try all nodes that we know of that we're not connected to
+	for nodeID, addr := range b.metadata.nodes {
+		if _, ok := checkednodes[nodeID]; ok {
+			continue
+		}
+		conn, err = b.getConnection(addr)
+		if err != nil {
+			continue
+		}
+		err = f(conn)
+
+		// we had no active connection to this node, so most likely we don't need it
+		_ = conn.Close()
+
+		if err != nil {
+			continue
+		}
+		return nil
+	}
+
+	for _, addr := range b.getInitialAddresses() {
+		conn, err = b.getConnection(addr)
+		if err != nil {
+			b.conf.Logger.Debug("cannot connect to seed node",
+				"address", addr,
+				"error", err)
+			continue
+		}
+		err = f(conn)
+		_ = conn.Close()
+		if err == nil {
+			return nil
+		}
+	}
+
+	return err
+}
+
 // fetchMetadata is requesting metadata information from any node and return
 // protocol response if successful
 //
@@ -294,8 +426,8 @@ func (b *Broker) fetchMetadata(topics ...string) (*proto.MetadataResp, error) {
 	for nodeID, conn := range b.conns {
 		checkednodes[nodeID] = true
 		resp, err := conn.Metadata(&proto.MetadataReq{
-			ClientID: b.conf.ClientID,
-			Topics:   topics,
+			RequestHeader: proto.RequestHeader{ClientID: b.conf.ClientID},
+			Topics:        topics,
 		})
 		if err != nil {
 			b.conf.Logger.Debug("cannot fetch metadata from node",
@@ -311,7 +443,7 @@ func (b *Broker) fetchMetadata(topics ...string) (*proto.MetadataResp, error) {
 		if _, ok := checkednodes[nodeID]; ok {
 			continue
 		}
-		conn, err := newTCPConnection(addr, b.conf.DialTimeout, b.conf.ReadTimeout)
+		conn, err := b.getConnection(addr)
 		if err != nil {
 			b.conf.Logger.Debug("cannot connect",
 				"address", addr,
@@ -319,8 +451,8 @@ func (b *Broker) fetchMetadata(topics ...string) (*proto.MetadataResp, error) {
 			continue
 		}
 		resp, err := conn.Metadata(&proto.MetadataReq{
-			ClientID: b.conf.ClientID,
-			Topics:   topics,
+			RequestHeader: proto.RequestHeader{ClientID: b.conf.ClientID},
+			Topics:        topics,
 		})
 
 		// we had no active connection to this node, so most likely we don't need it
@@ -336,7 +468,7 @@ func (b *Broker) fetchMetadata(topics ...string) (*proto.MetadataResp, error) {
 	}
 
 	for _, addr := range b.getInitialAddresses() {
-		conn, err := newTCPConnection(addr, b.conf.DialTimeout, b.conf.ReadTimeout)
+		conn, err := b.getConnection(addr)
 		if err != nil {
 			b.conf.Logger.Debug("cannot connect to seed node",
 				"address", addr,
@@ -344,8 +476,8 @@ func (b *Broker) fetchMetadata(topics ...string) (*proto.MetadataResp, error) {
 			continue
 		}
 		resp, err := conn.Metadata(&proto.MetadataReq{
-			ClientID: b.conf.ClientID,
-			Topics:   topics,
+			RequestHeader: proto.RequestHeader{ClientID: b.conf.ClientID},
+			Topics:        topics,
 		})
 		_ = conn.Close()
 		if err == nil {
@@ -375,21 +507,19 @@ func (b *Broker) cacheMetadata(resp *proto.MetadataResp) {
 		endpoints:  make(map[topicPartition]int32),
 		partitions: make(map[string]int32),
 	}
-	var debugmsg []interface{}
+	b.metadata.controllerId = resp.ControllerID
 	for _, node := range resp.Brokers {
 		addr := fmt.Sprintf("%s:%d", node.Host, node.Port)
 		b.metadata.nodes[node.NodeID] = addr
-		debugmsg = append(debugmsg, node.NodeID, addr)
 	}
 	for _, topic := range resp.Topics {
 		for _, part := range topic.Partitions {
 			dest := topicPartition{topic.Name, part.ID}
 			b.metadata.endpoints[dest] = part.Leader
-			debugmsg = append(debugmsg, dest, part.Leader)
 		}
 		b.metadata.partitions[topic.Name] = int32(len(topic.Partitions))
 	}
-	b.conf.Logger.Debug("new metadata cached", debugmsg...)
+	b.conf.Logger.Debug("new metadata cached")
 }
 
 // PartitionCount returns how many partitions a given topic has. If a topic
@@ -475,7 +605,7 @@ func (b *Broker) muLeaderConnection(topic string, partition int32) (conn *connec
 				delete(b.metadata.endpoints, tp)
 				continue
 			}
-			conn, err = newTCPConnection(addr, b.conf.DialTimeout, b.conf.ReadTimeout)
+			conn, err = b.getConnection(addr)
 			if err != nil {
 				b.conf.Logger.Info("cannot get leader connection: cannot connect to node",
 					"address", addr,
@@ -488,6 +618,22 @@ func (b *Broker) muLeaderConnection(topic string, partition int32) (conn *connec
 		return conn, nil
 	}
 	return nil, err
+}
+
+func (b *Broker) getConnection(addr string) (*connection, error) {
+	var c *connection
+	var err error
+	if b.conf.useTLS() {
+		c, err = newTLSConnection(addr, b.conf.TLSCa, b.conf.TLSCert, b.conf.TLSKey, b.conf.DialTimeout, b.conf.ReadTimeout)
+	} else {
+		c, err = newTCPConnection(addr, b.conf.DialTimeout, b.conf.ReadTimeout)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return c, nil
 }
 
 // coordinatorConnection returns connection to offset coordinator for given group.
@@ -507,7 +653,7 @@ func (b *Broker) muCoordinatorConnection(consumerGroup string) (conn *connection
 		// first try all already existing connections
 		for _, conn := range b.conns {
 			resp, err := conn.ConsumerMetadata(&proto.ConsumerMetadataReq{
-				ClientID:      b.conf.ClientID,
+				RequestHeader: proto.RequestHeader{ClientID: b.conf.ClientID},
 				ConsumerGroup: consumerGroup,
 			})
 			if err != nil {
@@ -526,7 +672,7 @@ func (b *Broker) muCoordinatorConnection(consumerGroup string) (conn *connection
 			}
 
 			addr := fmt.Sprintf("%s:%d", resp.CoordinatorHost, resp.CoordinatorPort)
-			conn, err := newTCPConnection(addr, b.conf.DialTimeout, b.conf.ReadTimeout)
+			conn, err := b.getConnection(addr)
 			if err != nil {
 				b.conf.Logger.Debug("cannot connect to node",
 					"coordinatorID", resp.CoordinatorID,
@@ -552,7 +698,7 @@ func (b *Broker) muCoordinatorConnection(consumerGroup string) (conn *connection
 				// connection to node is cached so it was already checked
 				continue
 			}
-			conn, err := newTCPConnection(addr, b.conf.DialTimeout, b.conf.ReadTimeout)
+			conn, err := b.getConnection(addr)
 			if err != nil {
 				b.conf.Logger.Debug("cannot connect to node",
 					"nodeID", nodeID,
@@ -564,7 +710,7 @@ func (b *Broker) muCoordinatorConnection(consumerGroup string) (conn *connection
 			b.conns[nodeID] = conn
 
 			resp, err := conn.ConsumerMetadata(&proto.ConsumerMetadataReq{
-				ClientID:      b.conf.ClientID,
+				RequestHeader: proto.RequestHeader{ClientID: b.conf.ClientID},
 				ConsumerGroup: consumerGroup,
 			})
 			if err != nil {
@@ -583,7 +729,7 @@ func (b *Broker) muCoordinatorConnection(consumerGroup string) (conn *connection
 			}
 
 			addr := fmt.Sprintf("%s:%d", resp.CoordinatorHost, resp.CoordinatorPort)
-			conn, err = newTCPConnection(addr, b.conf.DialTimeout, b.conf.ReadTimeout)
+			conn, err = b.getConnection(addr)
 			if err != nil {
 				b.conf.Logger.Debug("cannot connect to node",
 					"coordinatorID", resp.CoordinatorID,
@@ -642,8 +788,8 @@ func (b *Broker) offset(topic string, partition int32, timems int64) (offset int
 		}
 		var resp *proto.OffsetResp
 		resp, err = conn.Offset(&proto.OffsetReq{
-			ClientID:  b.conf.ClientID,
-			ReplicaID: -1, // any client
+			RequestHeader: proto.RequestHeader{ClientID: b.conf.ClientID},
+			ReplicaID:     -1, // any client
 			Topics: []proto.OffsetReqTopic{
 				{
 					Name: topic,
@@ -773,7 +919,6 @@ func (b *Broker) Producer(conf ProducerConf) Producer {
 //
 // Upon a successful call, the message's Offset field is updated.
 func (p *producer) Produce(topic string, partition int32, messages ...*proto.Message) (offset int64, err error) {
-
 	for retry := 0; retry < p.conf.RetryLimit; retry++ {
 		if retry != 0 {
 			time.Sleep(p.conf.RetryWait)
@@ -785,6 +930,11 @@ func (p *producer) Produce(topic string, partition int32, messages ...*proto.Mes
 		case nil:
 			for i, msg := range messages {
 				msg.Offset = int64(i) + offset
+			}
+			if retry != 0 {
+				p.conf.Logger.Debug("Produced message after retry",
+					"retry", retry,
+					"topic", topic)
 			}
 			return offset, err
 		case io.EOF, syscall.EPIPE:
@@ -799,11 +949,14 @@ func (p *producer) Produce(topic string, partition int32, messages ...*proto.Mes
 					"error", err)
 			}
 		}
-		p.conf.Logger.Debug("cannot produce messages",
+		p.conf.Logger.Debug("Cannot produce messages",
 			"retry", retry,
+			"topic", topic,
 			"error", err)
 	}
-
+	p.conf.Logger.Debug("Abort to produce after retrying messages",
+		"retry", p.conf.RetryLimit,
+		"topic", topic)
 	return 0, err
 
 }
@@ -816,10 +969,10 @@ func (p *producer) produce(topic string, partition int32, messages ...*proto.Mes
 	}
 
 	req := proto.ProduceReq{
-		ClientID:     p.broker.conf.ClientID,
-		Compression:  p.conf.Compression,
-		RequiredAcks: p.conf.RequiredAcks,
-		Timeout:      p.conf.RequestTimeout,
+		RequestHeader: proto.RequestHeader{ClientID: p.broker.conf.ClientID},
+		Compression:   p.conf.Compression,
+		RequiredAcks:  p.conf.RequiredAcks,
+		Timeout:       p.conf.RequestTimeout,
 		Topics: []proto.ProduceReqTopic{
 			{
 				Name: topic,
@@ -1085,9 +1238,9 @@ func (c *consumer) ConsumeBatch() ([]*proto.Message, error) {
 // RetryErrLimit and RetryErrWait consumer configuration attributes.
 func (c *consumer) fetch() ([]*proto.Message, error) {
 	req := proto.FetchReq{
-		ClientID:    c.broker.conf.ClientID,
-		MaxWaitTime: c.conf.RequestTimeout,
-		MinBytes:    c.conf.MinFetchSize,
+		RequestHeader: proto.RequestHeader{ClientID: c.broker.conf.ClientID},
+		MaxWaitTime:   c.conf.RequestTimeout,
+		MinBytes:      c.conf.MinFetchSize,
 		Topics: []proto.FetchReqTopic{
 			{
 				Name: c.conf.Topic,
@@ -1175,7 +1328,30 @@ consumeRetryLoop:
 					c.conn = nil
 					continue consumeRetryLoop
 				}
-				return part.Messages, part.Err
+				if part.MessageVersion < 2 {
+					return part.Messages, part.Err
+				} else {
+					// In the kafka > 0.11 MessageSet was replaced
+					// with a new structure called RecordBatch
+					// and Message was replaced with Record
+					// In order to keep API for Consumer
+					// here we repack Records to Messages
+
+					messages := make([]*proto.Message, 0, len(part.RecordBatch.Records))
+					for _, r := range part.RecordBatch.Records {
+						m := &proto.Message{
+							Key:       r.Key,
+							Value:     r.Value,
+							Offset:    part.RecordBatch.FirstOffset + r.OffsetDelta,
+							Topic:     topic.Name,
+							Partition: part.ID,
+							TipOffset: part.TipOffset,
+						}
+						messages = append(messages, m)
+					}
+
+					return messages, part.Err
+				}
 			}
 		}
 		return nil, errors.New("incomplete fetch response")
@@ -1277,7 +1453,7 @@ func (c *offsetCoordinator) commit(topic string, partition int32, offset int64, 
 		}
 
 		resp, err := c.conn.OffsetCommit(&proto.OffsetCommitReq{
-			ClientID:      c.broker.conf.ClientID,
+			RequestHeader: proto.RequestHeader{ClientID: c.broker.conf.ClientID},
 			ConsumerGroup: c.conf.ConsumerGroup,
 			Topics: []proto.OffsetCommitReqTopic{
 				{
