@@ -37,6 +37,14 @@ func getAnnotationIncludeExternal(svc *v1.Service) bool {
 	return false
 }
 
+func getAnnotationShared(svc *v1.Service) bool {
+	if value, ok := svc.ObjectMeta.Annotations[annotation.SharedService]; ok {
+		return strings.ToLower(value) == "true"
+	}
+
+	return getAnnotationIncludeExternal(svc)
+}
+
 // ParseServiceID parses a Kubernetes service and returns the ServiceID
 func ParseServiceID(svc *v1.Service) ServiceID {
 	return ServiceID{
@@ -81,6 +89,7 @@ func ParseService(svc *v1.Service) (ServiceID, *Service) {
 	}
 	svcInfo := NewService(clusterIP, headless, svc.Labels, svc.Spec.Selector)
 	svcInfo.IncludeExternal = getAnnotationIncludeExternal(svc)
+	svcInfo.Shared = getAnnotationShared(svc)
 
 	// FIXME: Add support for
 	//  - NodePort
@@ -114,6 +123,9 @@ type Service struct {
 	// IncludeExternal is true when external endpoints from other clusters
 	// should be included
 	IncludeExternal bool
+
+	// Shared is true when the service should be exposed/shared to other clusters
+	Shared bool
 
 	Ports    map[loadbalancer.FEPortName]*loadbalancer.FEPort
 	Labels   map[string]string
