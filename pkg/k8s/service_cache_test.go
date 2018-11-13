@@ -264,7 +264,7 @@ func (s *K8sSuite) TestServiceCache(c *check.C) {
 func (s *K8sSuite) Test_missingK8sEndpointsV1(c *check.C) {
 	type args struct {
 		m        versioned.Map
-		svcCache ServiceCache
+		svcCache *ServiceCache
 	}
 	tests := []struct {
 		name        string
@@ -274,8 +274,9 @@ func (s *K8sSuite) Test_missingK8sEndpointsV1(c *check.C) {
 		{
 			name: "both equal",
 			setupArgs: func() args {
+				svcCache := NewServiceCache()
 				return args{
-					svcCache: NewServiceCache(),
+					svcCache: &svcCache,
 					m:        versioned.NewMap(),
 				}
 			},
@@ -296,9 +297,10 @@ func (s *K8sSuite) Test_missingK8sEndpointsV1(c *check.C) {
 					},
 				})
 
+				svcCache := NewServiceCache()
 				return args{
 					m:        m,
-					svcCache: NewServiceCache(),
+					svcCache: &svcCache,
 				}
 			},
 			setupWanted: func() versioned.Map {
@@ -337,7 +339,7 @@ func (s *K8sSuite) Test_missingK8sEndpointsV1(c *check.C) {
 
 				return args{
 					m:        m,
-					svcCache: svcCache,
+					svcCache: &svcCache,
 				}
 			},
 			setupWanted: func() versioned.Map {
@@ -356,7 +358,7 @@ func (s *K8sSuite) Test_missingK8sEndpointsV1(c *check.C) {
 func (s *K8sSuite) Test_missingK8sServicesV1(c *check.C) {
 	type args struct {
 		m        versioned.Map
-		svcCache ServiceCache
+		svcCache *ServiceCache
 	}
 
 	k8sSvc := &v1.Service{
@@ -384,8 +386,9 @@ func (s *K8sSuite) Test_missingK8sServicesV1(c *check.C) {
 		{
 			name: "both equal",
 			setupArgs: func() args {
+				svcCache := NewServiceCache()
 				return args{
-					svcCache: NewServiceCache(),
+					svcCache: &svcCache,
 					m:        versioned.NewMap(),
 				}
 			},
@@ -408,10 +411,10 @@ func (s *K8sSuite) Test_missingK8sServicesV1(c *check.C) {
 						},
 					},
 				})
-
+				svcCache := NewServiceCache()
 				return args{
 					m:        m,
-					svcCache: NewServiceCache(),
+					svcCache: &svcCache,
 				}
 			},
 			setupWanted: func() versioned.Map {
@@ -443,7 +446,7 @@ func (s *K8sSuite) Test_missingK8sServicesV1(c *check.C) {
 
 				return args{
 					m:        m,
-					svcCache: svcCache,
+					svcCache: &svcCache,
 				}
 			},
 			setupWanted: func() versioned.Map {
@@ -463,7 +466,7 @@ func (s *K8sSuite) Test_missingK8sIngressV1Beta1(c *check.C) {
 	hostIP := net.ParseIP("172.0.0.1")
 	type args struct {
 		m        versioned.Map
-		svcCache ServiceCache
+		svcCache *ServiceCache
 	}
 
 	k8sIngress := &v1beta1.Ingress{
@@ -487,8 +490,9 @@ func (s *K8sSuite) Test_missingK8sIngressV1Beta1(c *check.C) {
 		{
 			name: "both equal",
 			setupArgs: func() args {
+				svcCache := NewServiceCache()
 				return args{
-					svcCache: NewServiceCache(),
+					svcCache: &svcCache,
 					m:        versioned.NewMap(),
 				}
 			},
@@ -503,10 +507,10 @@ func (s *K8sSuite) Test_missingK8sIngressV1Beta1(c *check.C) {
 				m.Add("", versioned.Object{
 					Data: k8sIngress,
 				})
-
+				svcCache := NewServiceCache()
 				return args{
 					m:        m,
-					svcCache: NewServiceCache(),
+					svcCache: &svcCache,
 				}
 			},
 			setupWanted: func() versioned.Map {
@@ -530,7 +534,7 @@ func (s *K8sSuite) Test_missingK8sIngressV1Beta1(c *check.C) {
 
 				return args{
 					m:        m,
-					svcCache: svcCache,
+					svcCache: &svcCache,
 				}
 			},
 			setupWanted: func() versioned.Map {
@@ -560,7 +564,7 @@ func (s *K8sSuite) Test_missingK8sIngressV1Beta1(c *check.C) {
 				})
 				return args{
 					m:        m,
-					svcCache: svcCache,
+					svcCache: &svcCache,
 				}
 			},
 			setupWanted: func() versioned.Map {
