@@ -53,7 +53,14 @@ func k8sServiceHandler() {
 			"action":               event.Action.String(),
 			"service":              event.Service.String(),
 			"endpoints":            event.Endpoints.String(),
+			"shared":               event.Service.Shared,
 		}).Info("Kubernetes service definition changed")
+
+		if !event.Service.Shared {
+			// The annotation may have been added, delete an eventual existing service
+			servicesStore.DeleteLocalKey(&svc)
+			continue
+		}
 
 		switch event.Action {
 		case k8s.UpdateService, k8s.UpdateIngress:
@@ -89,18 +96,21 @@ func startSynchronizingServices() {
 		utils.ResourceEventHandlerFactory(
 			func(new interface{}) func() error {
 				return func() error {
+					log.Debugf("Received service addition %+v", new)
 					k8sSvcCache.UpdateService(new.(*v1.Service))
 					return nil
 				}
 			},
 			func(old interface{}) func() error {
 				return func() error {
+					log.Debugf("Received service deletion %+v", old)
 					k8sSvcCache.DeleteService(old.(*v1.Service))
 					return nil
 				}
 			},
 			func(old, new interface{}) func() error {
 				return func() error {
+					log.Debugf("Received service update %+v", new)
 					k8sSvcCache.UpdateService(new.(*v1.Service))
 					return nil
 				}

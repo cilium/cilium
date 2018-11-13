@@ -77,6 +77,12 @@ func ParseService(svc *v1.Service) (ServiceID, *Service) {
 		svcInfo.IncludeExternal = strings.ToLower(value) == "true"
 	}
 
+	if value, ok := svc.ObjectMeta.Annotations[annotation.SharedService]; ok {
+		svcInfo.Shared = strings.ToLower(value) == "true"
+	} else {
+		svcInfo.Shared = svcInfo.IncludeExternal
+	}
+
 	// FIXME: Add support for
 	//  - NodePort
 	for _, port := range svc.Spec.Ports {
@@ -109,6 +115,9 @@ type Service struct {
 	// IncludeExternal is true when external endpoints from other clusters
 	// should be included
 	IncludeExternal bool
+
+	// Shared is true when the service should be exposed/shared to other clusters
+	Shared bool
 
 	Ports    map[loadbalancer.FEPortName]*loadbalancer.FEPort
 	Labels   map[string]string
