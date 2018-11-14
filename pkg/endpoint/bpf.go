@@ -515,6 +515,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 		compilationExecuted bool
 	)
 
+	datapathRegenCtxt := regenContext.datapathRegenerationContext
 	stats := &regenContext.Stats
 	stats.waitingForLock.Start()
 
@@ -748,7 +749,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 	e.getLogger().WithField("bpfHeaderfilesChanged", bpfHeaderfilesChanged).Debug("Preparing to compile BPF")
 
 	stats.prepareBuild.End(true)
-	if bpfHeaderfilesChanged || regenContext.ReloadDatapath {
+	if bpfHeaderfilesChanged || datapathRegenCtxt.reloadDatapath {
 		closeChan := loadinfo.LogPeriodicSystemLoad(log.WithFields(logrus.Fields{logfields.EndpointID: epID}).Debugf, time.Second)
 
 		// Compile and install BPF programs for this endpoint
