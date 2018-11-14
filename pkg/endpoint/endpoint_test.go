@@ -17,7 +17,6 @@
 package endpoint
 
 import (
-	"bytes"
 	"context"
 	"reflect"
 	"testing"
@@ -45,18 +44,6 @@ func Test(t *testing.T) { TestingT(t) }
 type EndpointSuite struct{}
 
 var _ = Suite(&EndpointSuite{})
-
-func (s *EndpointSuite) TestEndpointID(c *C) {
-	e := Endpoint{
-		ID:     IPv6Addr.EndpointID(),
-		IPv6:   IPv6Addr,
-		IPv4:   IPv4Addr,
-		Status: NewEndpointStatus(),
-	}
-	c.Assert(e.ID, Equals, uint16(4370)) //"0x1112"
-	c.Assert(bytes.Compare(e.IPv6, IPv6Addr) == 0, Equals, true)
-	c.Assert(bytes.Compare(e.IPv4, IPv4Addr) == 0, Equals, true)
-}
 
 func (s *EndpointSuite) TestOrderEndpointAsc(c *C) {
 	eps := []*models.Endpoint{
@@ -178,7 +165,7 @@ func (s *EndpointSuite) TestEndpointStatus(c *C) {
 
 func (s *EndpointSuite) TestEndpointUpdateLabels(c *C) {
 	e := Endpoint{
-		ID:       IPv6Addr.EndpointID(),
+		ID:       100,
 		IPv6:     IPv6Addr,
 		IPv4:     IPv4Addr,
 		Status:   NewEndpointStatus(),
@@ -211,7 +198,7 @@ func (s *EndpointSuite) TestEndpointUpdateLabels(c *C) {
 
 func (s *EndpointSuite) TestEndpointState(c *C) {
 	e := Endpoint{
-		ID:     IPv6Addr.EndpointID(),
+		ID:     100,
 		IPv6:   IPv6Addr,
 		IPv4:   IPv4Addr,
 		Status: NewEndpointStatus(),
