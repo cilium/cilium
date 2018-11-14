@@ -18,12 +18,11 @@ package main
 
 import (
 	"context"
-	"strconv"
+	"net"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	apiEndpoint "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
-	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/checker"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -42,10 +41,7 @@ func getEPTemplate(c *C) *models.EndpointChangeRequest {
 	c.Assert(ip4, Not(IsNil))
 	c.Assert(ip6, Not(IsNil))
 
-	id := int64(addressing.CiliumIPv6(ip6).EndpointID())
 	return &models.EndpointChangeRequest{
-		ID:            id,
-		ContainerID:   endpointid.NewCiliumID(id),
 		ContainerName: "foo",
 		State:         models.EndpointStateWaitingForIdentity,
 		Addressing: &models.AddressPair{
@@ -78,12 +74,12 @@ func (ds *DaemonSuite) TestEndpointAddNoLabels(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(code, Equals, apiEndpoint.PutEndpointIDCreatedCode)
 
-	// Check that the endpoint has the reserved:init label.
-	ep, err := endpointmanager.Lookup(strconv.FormatInt(epTemplate.ID, 10))
-	c.Assert(err, IsNil)
 	expectedLabels := labels.Labels{
 		labels.IDNameInit: labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved),
 	}
+	// Check that the endpoint has the reserved:init label.
+	ep, err := endpointmanager.Lookup(endpointid.NewIPPrefixID(net.ParseIP(epTemplate.Addressing.IPV4)))
+	c.Assert(err, IsNil)
 	c.Assert(ep.OpLabels.IdentityLabels(), checker.DeepEquals, expectedLabels)
 
 	// If the mode is "default", check that the policy is always enforced for
