@@ -350,21 +350,40 @@ func (d *dockerClient) processEvent(m EventMessage) {
 	}
 }
 
-func (d *dockerClient) getCiliumEndpointID(cont *dTypes.ContainerJSON) uint16 {
+func (d *dockerClient) getEndpointByIP(cont *dTypes.ContainerJSON) *endpoint.Endpoint {
 	scopedLog := log.WithField(logfields.ContainerID, shortContainerID(cont.ID))
 
 	if cont.NetworkSettings == nil {
 		scopedLog.Debug("No network settings included in event")
-		return 0
+		return nil
 	}
 
-	if ciliumIP := d.getCiliumIPv6(cont.NetworkSettings.Networks); ciliumIP != nil {
-		return ciliumIP.EndpointID()
+	for _, contNetwork := range cont.NetworkSettings.Networks {
+		if contNetwork == nil {
+			continue
+		}
+
+		if contNetwork.GlobalIPv6Address != "" {
+			id := endpointid.NewID(endpointid.IPv6Prefix, contNetwork.GlobalIPv6Address)
+			if ep, err := endpointmanager.Lookup(id); err != nil {
+				log.WithError(err).Warningf("Unable to lookup endpoint by IP prefix %s", id)
+			} else if ep != nil {
+				return ep
+			}
+		}
+
+		if contNetwork.IPAddress != "" {
+			id := endpointid.NewID(endpointid.IPv4Prefix, contNetwork.IPAddress)
+			if ep, err := endpointmanager.Lookup(id); err != nil {
+				log.WithError(err).Warningf("Unable to lookup endpoint by IP prefix %s", id)
+			} else if ep != nil {
+				return ep
+			}
+		}
 	}
 
-	scopedLog.Debug("IP address assigned by Cilium could not be derived from container event")
-
-	return 0
+	scopedLog.Debug("IP address assigned by Cilium could not be derived from pod")
+	return nil
 }
 
 func (d *dockerClient) getCiliumIPv6(networks map[string]*dNetwork.EndpointSettings) *addressing.CiliumIPv6 {
@@ -424,11 +443,10 @@ func (d *dockerClient) handleCreateWorkload(id string, retry bool) {
 		if ep == nil {
 			// Container ID is not yet known; try and find endpoint via
 			// the IP address assigned.
-			ciliumID = d.getCiliumEndpointID(dockerContainer)
-			if ciliumID != 0 {
-				ep = endpointmanager.LookupCiliumID(ciliumID)
-			}
-		} else {
+			ep = d.getEndpointByIP(dockerContainer)
+		}
+
+		if ep != nil {
 			ciliumID = ep.ID
 		}
 

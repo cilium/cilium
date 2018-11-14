@@ -19,13 +19,11 @@ import (
 	"time"
 
 	health "github.com/cilium/cilium/cilium-health/launch"
-	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
@@ -88,11 +86,9 @@ func (d *Daemon) cleanupHealthEndpoint() {
 	// Delete the process
 	health.KillEndpoint()
 	// Clean up agent resources
-	ip6 := node.GetIPv6HealthIP()
-	id := addressing.CiliumIPv6(ip6).EndpointID()
-	ep := endpointmanager.LookupCiliumID(id)
+	ep := endpointmanager.LookupIPv4(node.GetIPv4HealthIP().String())
 	if ep == nil {
-		log.WithField(logfields.EndpointID, id).Debug("Didn't find existing cilium-health endpoint to delete")
+		log.Debug("Didn't find existing cilium-health endpoint to delete")
 	} else {
 		log.Debug("Removing existing cilium-health endpoint")
 		errs := d.deleteEndpointQuiet(ep, false)
