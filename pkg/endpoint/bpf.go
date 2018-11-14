@@ -604,15 +604,13 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 	// reverted in case of failure.
 	// Also keep track of the regeneration finalization code that can't be
 	// reverted, and execute it in case of regeneration success.
-	var finalizeList revert.FinalizeList
-	var revertStack revert.RevertStack
 	defer func() {
 		if reterr == nil {
 			// Always execute the finalization code, even if the endpoint is
 			// terminating, in order to properly release resources.
 			e.UnconditionalLock()
 			e.getLogger().Debug("Finalizing successful endpoint regeneration")
-			finalizeList.Finalize()
+			datapathRegenCtxt.finalizeList.Finalize()
 			e.Unlock()
 		} else {
 			if err := e.LockAlive(); err != nil {
@@ -620,7 +618,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 				return
 			}
 			e.getLogger().Error("Restoring endpoint state after BPF regeneration failed")
-			if err := revertStack.Revert(); err != nil {
+			if err := datapathRegenCtxt.revertStack.Revert(); err != nil {
 				e.getLogger().WithError(err).Error("Restoring endpoint state failed")
 			}
 			e.getLogger().Error("Finished restoring endpoint state after BPF regeneration failed")
@@ -665,7 +663,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 			return 0, compilationExecuted, err
 		}
 
-		revertStack.Push(networkPolicyRevertFunc)
+		datapathRegenCtxt.revertStack.Push(networkPolicyRevertFunc)
 	}
 
 	stats.proxyConfiguration.Start()
@@ -681,15 +679,15 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 			e.Unlock()
 			return 0, compilationExecuted, err
 		}
-		finalizeList.Append(finalizeFunc)
-		revertStack.Push(revertFunc)
+		datapathRegenCtxt.finalizeList.Append(finalizeFunc)
+		datapathRegenCtxt.revertStack.Push(revertFunc)
 	}
 	// At this point, traffic is no longer redirected to the proxy for
 	// now-obsolete redirects, since we synced the updated policy map above.
 	// It's now safe to remove the redirects from the proxy's configuration.
 	finalizeFunc, revertFunc = e.removeOldRedirects(owner, desiredRedirects, datapathRegenCtxt.proxyWaitGroup)
-	finalizeList.Append(finalizeFunc)
-	revertStack.Push(revertFunc)
+	datapathRegenCtxt.finalizeList.Append(finalizeFunc)
+	datapathRegenCtxt.revertStack.Push(revertFunc)
 	stats.proxyConfiguration.End(true)
 
 	stats.prepareBuild.Start()
