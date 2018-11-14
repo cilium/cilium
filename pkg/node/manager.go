@@ -216,6 +216,12 @@ func updateTunnelMapping(n *Node, ip *net.IPNet) {
 		return
 	}
 
+	// Skip the local node when inserting to avoid encapsulating to the own
+	// node address
+	if n.IsLocal() {
+		return
+	}
+
 	if err := TunnelDatapath.SetTunnelEndpoint(ip.IP, n.GetNodeIP(false)); err != nil {
 		log.WithError(err).WithFields(logrus.Fields{
 			logfields.IPAddr: ip,
