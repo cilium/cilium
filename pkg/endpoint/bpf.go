@@ -535,8 +535,6 @@ func (e *Endpoint) regenerateBPF(owner Owner, regenContext *regenerationContext)
 	currentDir := datapathRegenCtxt.currentDir
 	nextDir := datapathRegenCtxt.nextDir
 
-	epID := e.StringID()
-
 	// In the first ever regeneration of the endpoint, the conntrack table
 	// is cleaned from the new endpoint IPs as it is guaranteed that any
 	// pre-existing connections using that IP are now invalid.
@@ -724,36 +722,11 @@ func (e *Endpoint) regenerateBPF(owner Owner, regenContext *regenerationContext)
 	<-datapathRegenCtxt.ctCleaned
 	stats.waitingForCTClean.End(true)
 
-	e.getLogger().WithField("bpfHeaderfilesChanged", datapathRegenCtxt.bpfHeaderfilesChanged).Debug("Preparing to compile BPF")
-
 	stats.prepareBuild.End(true)
-	if datapathRegenCtxt.bpfHeaderfilesChanged || datapathRegenCtxt.reloadDatapath {
-		closeChan := loadinfo.LogPeriodicSystemLoad(log.WithFields(logrus.Fields{logfields.EndpointID: epID}).Debugf, time.Second)
 
-		// Compile and install BPF programs for this endpoint
-		ctx, cancel := context.WithTimeout(context.Background(), ExecTimeout)
-		if datapathRegenCtxt.bpfHeaderfilesChanged {
-			stats.bpfCompilation.Start()
-			err = loader.CompileAndLoad(ctx, datapathRegenCtxt.epInfoCache)
-			stats.bpfCompilation.End(err == nil)
-			e.getLogger().WithError(err).
-				WithField(logfields.BPFCompilationTime, stats.bpfCompilation.Total().String()).
-				Info("Recompiled endpoint BPF program")
-			compilationExecuted = true
-		} else {
-			err = loader.ReloadDatapath(ctx, datapathRegenCtxt.epInfoCache)
-			e.getLogger().WithError(err).Info("Reloaded endpoint BPF program")
-		}
-		cancel()
-		close(closeChan)
-
-		if err != nil {
-			return datapathRegenCtxt.epInfoCache.revision, compilationExecuted, err
-		}
-		e.bpfHeaderfileHash = datapathRegenCtxt.bpfHeaderfilesHash
-	} else {
-		e.getLogger().WithField(logfields.BPFHeaderfileHash, datapathRegenCtxt.bpfHeaderfilesHash).
-			Debug("BPF header file unchanged, skipping BPF compilation and installation")
+	compilationExecuted, err = e.realizeBPFState(regenContext)
+	if err != nil {
+		return datapathRegenCtxt.epInfoCache.revision, compilationExecuted, err
 	}
 
 	// Hook the endpoint into the endpoint and endpoint to policy tables then expose it
@@ -806,6 +779,43 @@ func (e *Endpoint) regenerateBPF(owner Owner, regenContext *regenerationContext)
 	}
 
 	return datapathRegenCtxt.epInfoCache.revision, compilationExecuted, err
+}
+
+func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (compilationExecuted bool, err error) {
+	stats := &regenContext.Stats
+	datapathRegenCtxt := regenContext.datapathRegenerationContext
+
+	e.getLogger().WithField("bpfHeaderfilesChanged", datapathRegenCtxt.bpfHeaderfilesChanged).Debug("Preparing to compile BPF")
+	if datapathRegenCtxt.bpfHeaderfilesChanged || datapathRegenCtxt.reloadDatapath {
+		closeChan := loadinfo.LogPeriodicSystemLoad(log.WithFields(logrus.Fields{logfields.EndpointID: e.StringID()}).Debugf, time.Second)
+
+		// Compile and install BPF programs for this endpoint
+		ctx, cancel := context.WithTimeout(context.Background(), ExecTimeout)
+		if datapathRegenCtxt.bpfHeaderfilesChanged {
+			stats.bpfCompilation.Start()
+			err = loader.CompileAndLoad(ctx, datapathRegenCtxt.epInfoCache)
+			stats.bpfCompilation.End(err == nil)
+			e.getLogger().WithError(err).
+				WithField(logfields.BPFCompilationTime, stats.bpfCompilation.Total().String()).
+				Info("Recompiled endpoint BPF program")
+			compilationExecuted = true
+		} else {
+			err = loader.ReloadDatapath(ctx, datapathRegenCtxt.epInfoCache)
+			e.getLogger().WithError(err).Info("Reloaded endpoint BPF program")
+		}
+		cancel()
+		close(closeChan)
+
+		if err != nil {
+			return compilationExecuted, err
+		}
+		e.bpfHeaderfileHash = datapathRegenCtxt.bpfHeaderfilesHash
+	} else {
+		e.getLogger().WithField(logfields.BPFHeaderfileHash, datapathRegenCtxt.bpfHeaderfilesHash).
+			Debug("BPF header file unchanged, skipping BPF compilation and installation")
+	}
+
+	return compilationExecuted, nil
 }
 
 func (e *Endpoint) finalizeProxyState(regenContext *regenerationContext, err error) {
