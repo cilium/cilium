@@ -509,7 +509,7 @@ func (e *Endpoint) removeOldRedirects(owner Owner, desiredRedirects map[string]b
 // Must be called with endpoint.Mutex not held and endpoint.BuildMutex held.
 // Returns the policy revision number when the regeneration has called, a
 // boolean if the BPF compilation was executed and an error in case of an error.
-func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenContext *regenerationContext) (revnum uint64, compiled bool, reterr error) {
+func (e *Endpoint) regenerateBPF(owner Owner, regenContext *regenerationContext) (revnum uint64, compiled bool, reterr error) {
 	var (
 		err                 error
 		compilationExecuted bool
@@ -531,6 +531,9 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 
 	datapathRegenCtxt := regenContext.datapathRegenerationContext
 	datapathRegenCtxt.prepareForDatapathRegeneration()
+
+	currentDir := datapathRegenCtxt.currentDir
+	nextDir := datapathRegenCtxt.nextDir
 
 	epID := e.StringID()
 
