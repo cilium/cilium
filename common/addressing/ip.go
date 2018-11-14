@@ -33,6 +33,7 @@ type CiliumIP interface {
 	String() string
 	IsIPv6() bool
 	GetFamilyString() string
+	IsSet() bool
 }
 
 type CiliumIPv6 []byte
@@ -64,6 +65,11 @@ func DeriveCiliumIPv6(src net.IP) CiliumIPv6 {
 	ip := make(CiliumIPv6, 16)
 	copy(ip, src.To16())
 	return ip
+}
+
+// IsSet returns true if the IP is set
+func (ip CiliumIPv6) IsSet() bool {
+	return ip.String() != ""
 }
 
 func (ip CiliumIPv6) IsIPv6() bool {
@@ -191,6 +197,11 @@ func DeriveCiliumIPv4(src net.IP) CiliumIPv4 {
 	ip := make(CiliumIPv4, 4)
 	copy(ip, src.To4())
 	return ip
+}
+
+// IsSet returns true if the IP is set
+func (ip CiliumIPv4) IsSet() bool {
+	return ip.String() != ""
 }
 
 func (ip CiliumIPv4) IsIPv6() bool {

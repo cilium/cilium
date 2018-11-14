@@ -44,6 +44,7 @@ func (s *AddressingSuite) TestCiliumIPv6(c *C) {
 	c.Assert(ip.NodeIP(), checker.DeepEquals, net.ParseIP("b007::"))
 	c.Assert(ip.HostIP(), checker.DeepEquals, net.ParseIP("b007::ffff"))
 	ip2, _ := NewCiliumIPv6("")
+	c.Assert(ip2.IsSet(), Equals, false)
 	// Lacking a better Equals method, checking if the stringified IP is consistent
 	c.Assert(ip.String() == ip2.String(), Equals, false)
 	marsh, _ := ip.MarshalJSON()
@@ -58,6 +59,7 @@ func (s *AddressingSuite) TestCiliumIPv6(c *C) {
 	c.Assert(ip.NodeID(), Equals, uint32(0xaaaabbbb))
 	c.Assert(ip.String(), Equals, "b007::aaaa:bbbb:0:0")
 	c.Assert(ip.NodeIP(), checker.DeepEquals, net.ParseIP("b007::aaaa:bbbb:0:0"))
+	c.Assert(ip.IsSet(), Equals, true)
 }
 
 func (s *AddressingSuite) TestCiliumIPv4(c *C) {
@@ -68,7 +70,10 @@ func (s *AddressingSuite) TestCiliumIPv4(c *C) {
 	c.Assert(ip.ValidContainerIP(), Equals, false)
 	c.Assert(ip.ValidNodeIP(), Equals, false)
 	c.Assert(ip.NodeIP().String(), Equals, "10.1.0.1")
+	c.Assert(ip.IsSet(), Equals, true)
+
 	ip2, _ := NewCiliumIPv4("")
+	c.Assert(ip2.IsSet(), Equals, false)
 	// Lacking a better Equals method, checking if the stringified IP is consistent
 	c.Assert(ip.String() == ip2.String(), Equals, false)
 	marsh, _ := ip.MarshalJSON()
