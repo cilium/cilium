@@ -23,8 +23,10 @@ import (
 
 func (e *ExternalRegenerationMetadata) toRegenerationContext() *regenerationContext {
 	return &regenerationContext{
-		Reason:         e.Reason,
-		ReloadDatapath: e.ReloadDatapath,
+		Reason: e.Reason,
+		datapathRegenerationContext: &datapathRegenerationContext{
+			reloadDatapath: e.ReloadDatapath,
+		},
 	}
 }
 
@@ -47,10 +49,6 @@ type regenerationContext struct {
 	// Reason provides context to source for the regeneration, which is
 	// used to generate useful log messages.
 	Reason string
-
-	// ReloadDatapath forces the datapath programs to be reloaded. It does
-	// not guarantee recompilation of the programs.
-	ReloadDatapath bool
 
 	// Stats are collected during the endpoint regeneration and provided
 	// back to the caller
@@ -75,7 +73,10 @@ type datapathRegenerationContext struct {
 	completionCancel      context.CancelFunc
 	currentDir            string
 	nextDir               string
-	reloadDatapath        bool
-	finalizeList          revert.FinalizeList
-	revertStack           revert.RevertStack
+
+	// reloadDatapath forces the datapath programs to be reloaded. It does
+	// not guarantee recompilation of the programs.
+	reloadDatapath bool
+	finalizeList   revert.FinalizeList
+	revertStack    revert.RevertStack
 }
