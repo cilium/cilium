@@ -126,6 +126,15 @@ func (p *IDPool) LeaseAvailableID() ID {
 	return p.idCache.leaseAvailableID()
 }
 
+// AllocateID returns a random available ID. Unlike LeaseAvailableID, the ID is
+// immediately marked for use and there is no need to call Use().
+func (p *IDPool) AllocateID() ID {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	return p.idCache.allocateID()
+}
+
 // Release returns a leased ID back to the pool.
 // This operation accounts for IDs that were previously leased
 // from the pool but were unused, e.g if allocation was unsuccessful.
@@ -204,8 +213,8 @@ func newIDCache(minID ID, maxID ID) *idCache {
 	return c
 }
 
-// leaseAvailableID returns a random available ID.
-func (c *idCache) leaseAvailableID() ID {
+// allocateID returns a random available ID without leasing it
+func (c *idCache) allocateID() ID {
 	if len(c.ids) == 0 {
 		return NoID
 	}
@@ -214,11 +223,21 @@ func (c *idCache) leaseAvailableID() ID {
 	id := c.ids[0]
 	c.ids = c.ids[1:]
 
-	// Mark as leased
-	c.leased[id] = struct{}{}
-
 	// Remove from slice of avaiable IDs
 	delete(c.index, id)
+
+	return id
+}
+
+// leaseAvailableID returns a random available ID.
+func (c *idCache) leaseAvailableID() ID {
+	id := c.allocateID()
+	if id == NoID {
+		return NoID
+	}
+
+	// Mark as leased
+	c.leased[id] = struct{}{}
 
 	return id
 }
