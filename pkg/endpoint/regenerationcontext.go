@@ -73,3 +73,7 @@ func (ctx *RegenerationContext) ReloadDatapath() {
 	}
 	ctx.datapathRegenerationContext.reloadDatapath = true
 }
+
+func (ctx *datapathRegenerationContext) prepareForDatapathRegeneration() {
+	ctx.ctCleaned = make(chan struct{})
+}
