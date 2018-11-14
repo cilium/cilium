@@ -597,10 +597,8 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 		e.realizedMapState = make(PolicyMapState)
 	}
 
-	// Set up a context to wait for proxy completions.
-	completionCtx, cancel := context.WithTimeout(context.Background(), EndpointGenerationTimeout)
-	proxyWaitGroup := completion.NewWaitGroup(completionCtx)
-	defer cancel()
+	datapathRegenCtxt.prepareForProxyUpdates()
+	defer datapathRegenCtxt.completionCancel()
 
 	// Keep track of the side-effects of the regeneration that need to be
 	// reverted in case of failure.
@@ -660,7 +658,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 		// Configure the new network policy with the proxies.
 		stats.proxyPolicyCalculation.Start()
 		var networkPolicyRevertFunc revert.RevertFunc
-		err, networkPolicyRevertFunc = e.updateNetworkPolicy(owner, proxyWaitGroup)
+		err, networkPolicyRevertFunc = e.updateNetworkPolicy(owner, datapathRegenCtxt.proxyWaitGroup)
 		stats.proxyPolicyCalculation.End(err == nil)
 		if err != nil {
 			e.Unlock()
@@ -677,7 +675,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 	// state to set the newly allocated proxy ports.
 	var desiredRedirects map[string]bool
 	if e.DesiredL4Policy != nil {
-		desiredRedirects, err, finalizeFunc, revertFunc = e.addNewRedirects(owner, e.DesiredL4Policy, proxyWaitGroup)
+		desiredRedirects, err, finalizeFunc, revertFunc = e.addNewRedirects(owner, e.DesiredL4Policy, datapathRegenCtxt.proxyWaitGroup)
 		if err != nil {
 			stats.proxyConfiguration.End(false)
 			e.Unlock()
@@ -689,7 +687,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 	// At this point, traffic is no longer redirected to the proxy for
 	// now-obsolete redirects, since we synced the updated policy map above.
 	// It's now safe to remove the redirects from the proxy's configuration.
-	finalizeFunc, revertFunc = e.removeOldRedirects(owner, desiredRedirects, proxyWaitGroup)
+	finalizeFunc, revertFunc = e.removeOldRedirects(owner, desiredRedirects, datapathRegenCtxt.proxyWaitGroup)
 	finalizeList.Append(finalizeFunc)
 	revertStack.Push(revertFunc)
 	stats.proxyConfiguration.End(true)
@@ -792,7 +790,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 	e.CloseBPFProgramChannel()
 
 	stats.proxyWaitForAck.Start()
-	err = e.WaitForProxyCompletions(proxyWaitGroup)
+	err = e.WaitForProxyCompletions(datapathRegenCtxt.proxyWaitGroup)
 	stats.proxyWaitForAck.End(err == nil)
 	if err != nil {
 		return 0, compilationExecuted, fmt.Errorf("Error while configuring proxy redirects: %s", err)
