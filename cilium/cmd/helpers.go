@@ -60,7 +60,7 @@ func requireEndpointID(cmd *cobra.Command, args []string) {
 	}
 
 	if id := identity.GetReservedID(args[0]); id == identity.IdentityUnknown {
-		_, _, err := endpointid.ValidateID(args[0])
+		_, _, err := endpointid.Parse(args[0])
 
 		if err != nil {
 			Fatalf("Cannot parse endpoint id \"%s\": %s", args[0], err)
