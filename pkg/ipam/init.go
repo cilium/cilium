@@ -25,7 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 
 	cniTypes "github.com/containernetworking/cni/pkg/types"
-	"github.com/containernetworking/cni/plugins/ipam/host-local/backend/allocator"
+	"github.com/containernetworking/plugins/plugins/ipam/host-local/backend/allocator"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"k8s.io/kubernetes/pkg/registry/core/service/ipallocator"
@@ -105,10 +105,12 @@ func Init() {
 
 	ipamConf = &Config{
 		IPAMConfig: allocator.IPAMConfig{
-			Name:    "cilium-local-IPAM",
-			Subnet:  cniTypes.IPNet(ipamSubnets),
-			Gateway: node.GetIPv6Router(),
-			Routes: []cniTypes.Route{
+			Name: "cilium-local-IPAM",
+			Range: &allocator.Range{
+				Subnet:  cniTypes.IPNet(ipamSubnets),
+				Gateway: node.GetIPv6Router(),
+			},
+			Routes: []*cniTypes.Route{
 				// IPv6
 				{
 					Dst: node.GetIPv6NodeRoute(),
@@ -128,10 +130,10 @@ func Init() {
 	ipamConf.IPv4Allocator = ipallocator.NewCIDRRange(node.GetIPv4AllocRange())
 	ipamConf.IPAMConfig.Routes = append(ipamConf.IPAMConfig.Routes,
 		// IPv4
-		cniTypes.Route{
+		&cniTypes.Route{
 			Dst: node.GetIPv4NodeRoute(),
 		},
-		cniTypes.Route{
+		&cniTypes.Route{
 			Dst: defaults.IPv4DefaultRoute,
 			GW:  node.GetInternalIPv4(),
 		})

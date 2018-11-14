@@ -36,7 +36,11 @@ required = [
 
 [[constraint]]
   name = "github.com/containernetworking/cni"
-  revision = "v0.5.2"
+  revision = "d2836a7b59485b780f49c64c07e8c41c06bde6ab"
+
+[[constraint]]
+  name = "github.com/containernetworking/plugins"
+  revision = "v0.7.4"
 
 [[constraint]]
   name = "github.com/coreos/etcd"

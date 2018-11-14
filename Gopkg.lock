@@ -185,22 +185,30 @@
   revision = "a93fcdb778cd272c6e9b3028b2f42d813e785d40"
 
 [[projects]]
-  digest = "1:76dccc71c0eb5bfa2c849fc15d0e0deef0312c830af3b98761f03839dae2f78c"
+  digest = "1:95312968b2ba23adbf770086f402cb74c8c0b6a373c6056178e446386a4a7e0c"
   name = "github.com/containernetworking/cni"
   packages = [
-    "pkg/ip",
-    "pkg/ns",
     "pkg/skel",
     "pkg/types",
     "pkg/types/020",
     "pkg/types/current",
-    "pkg/utils/hwaddr",
     "pkg/version",
+  ]
+  pruneopts = "NUT"
+  revision = "d2836a7b59485b780f49c64c07e8c41c06bde6ab"
+
+[[projects]]
+  digest = "1:44b861902edb3e917721c4b567ba3ac592f1e135b2271f1d526cb0c32d7aa736"
+  name = "github.com/containernetworking/plugins"
+  packages = [
+    "pkg/ip",
+    "pkg/ns",
+    "pkg/utils/hwaddr",
     "plugins/ipam/host-local/backend",
     "plugins/ipam/host-local/backend/allocator",
   ]
   pruneopts = "NUT"
-  revision = "v0.5.2"
+  revision = "v0.7.4"
 
 [[projects]]
   digest = "1:f704a45f113af247cbcbe72b05f3b59927089a0cb782600e0c4261c106774cdd"
@@ -1683,12 +1691,12 @@
     "github.com/containerd/containerd/namespaces",
     "github.com/containerd/cri/pkg/store",
     "github.com/containerd/typeurl",
-    "github.com/containernetworking/cni/pkg/ns",
     "github.com/containernetworking/cni/pkg/skel",
     "github.com/containernetworking/cni/pkg/types",
     "github.com/containernetworking/cni/pkg/types/current",
     "github.com/containernetworking/cni/pkg/version",
-    "github.com/containernetworking/cni/plugins/ipam/host-local/backend/allocator",
+    "github.com/containernetworking/plugins/pkg/ns",
+    "github.com/containernetworking/plugins/plugins/ipam/host-local/backend/allocator",
     "github.com/coreos/etcd/clientv3",
     "github.com/coreos/etcd/clientv3/concurrency",
     "github.com/coreos/etcd/clientv3/yaml",

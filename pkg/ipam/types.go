@@ -17,7 +17,7 @@ package ipam
 import (
 	"github.com/cilium/cilium/pkg/lock"
 
-	"github.com/containernetworking/cni/plugins/ipam/host-local/backend/allocator"
+	"github.com/containernetworking/plugins/plugins/ipam/host-local/backend/allocator"
 	"k8s.io/kubernetes/pkg/registry/core/service/ipallocator"
 )
 
