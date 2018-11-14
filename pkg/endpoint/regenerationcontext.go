@@ -77,3 +77,11 @@ func (ctx *RegenerationContext) ReloadDatapath() {
 func (ctx *datapathRegenerationContext) prepareForDatapathRegeneration() {
 	ctx.ctCleaned = make(chan struct{})
 }
+
+func (ctx *datapathRegenerationContext) prepareForProxyUpdates() {
+	// Set up a context to wait for proxy completions.
+	completionCtx, completionCancel := context.WithTimeout(context.Background(), EndpointGenerationTimeout)
+	ctx.proxyWaitGroup = completion.NewWaitGroup(completionCtx)
+	ctx.completionCtx = completionCtx
+	ctx.completionCancel = completionCancel
+}
