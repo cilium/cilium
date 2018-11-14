@@ -29,10 +29,6 @@ type RegenerationContext struct {
 	// used to generate useful log messages.
 	Reason string
 
-	// ReloadDatapath forces the datapath programs to be reloaded. It does
-	// not guarantee recompilation of the programs.
-	ReloadDatapath bool
-
 	// Stats are collected during the endpoint regeneration and provided
 	// back to the caller
 	Stats regenerationStatistics
@@ -61,7 +57,19 @@ type datapathRegenerationContext struct {
 	completionCancel      context.CancelFunc
 	currentDir            string
 	nextDir               string
-	reloadDatapath        bool
-	finalizeList          revert.FinalizeList
-	revertStack           revert.RevertStack
+
+	// reloadDatapath forces the datapath programs to be reloaded. It does
+	// not guarantee recompilation of the programs.
+	reloadDatapath bool
+	finalizeList   revert.FinalizeList
+	revertStack    revert.RevertStack
+}
+
+// ReloadDatapath forces the datapath programs to be reloaded. It does not
+// guarantee recompilation of the programs.
+func (ctx *RegenerationContext) ReloadDatapath() {
+	if ctx.datapathRegenerationContext == nil {
+		ctx.datapathRegenerationContext = &datapathRegenerationContext{}
+	}
+	ctx.datapathRegenerationContext.reloadDatapath = true
 }
