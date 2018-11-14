@@ -156,10 +156,25 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 
 	ep.SetDefaultOpts(option.Config.Opts)
 
-	oldEp := endpointmanager.LookupCiliumID(ep.ID)
-	if oldEp != nil {
-		return PutEndpointIDExistsCode, fmt.Errorf("endpoint ID %d exists", ep.ID)
+	checkIDs := []string{ep.ID}
+
+	if ep.IPv4.IsSet() {
+		checkIDs = append(checkIDs, endpointid.NewID(endpointid.IPv4Prefix, ep.IPv4.String()))
 	}
+
+	if ep.IPv6.IsSet() {
+		checkIDs = append(checkIDs, endpointid.NewID(endpointid.IPv6Prefix, ep.IPv6.String()))
+	}
+
+	for _, id := range checkIDs {
+		oldEp, err2 := endpointmanager.Lookup(id)
+		if err2 != nil {
+			return PutEndpointIDInvalidCode, err2
+		} else if oldEp != nil {
+			return PutEndpointIDExistsCode, fmt.Errorf("Endpoint ID %s already exists", id)
+		}
+	}
+
 	if err = endpoint.APICanModify(ep); err != nil {
 		return PutEndpointIDInvalidCode, err
 	}
