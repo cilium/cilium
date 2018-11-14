@@ -1076,6 +1076,7 @@ func (d *Daemon) TriggerReloadWithoutCompile(reason string) (*sync.WaitGroup, er
 	if err := d.compileBase(); err != nil {
 		return nil, fmt.Errorf("Unable to recompile base programs from %s: %s", reason, err)
 	}
+
 	regenRequest := &endpoint.ExternalRegenerationMetadata{
 		Reason:         reason,
 		ReloadDatapath: true,
