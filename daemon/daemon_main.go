@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -115,11 +115,13 @@ func daemonMain() {
 		fmt.Println(errorString)
 		os.Exit(-1)
 	}
-
+	interruptCh := registerSigHandler()
 	if err := RootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(-1)
 	}
+	<-interruptCh
+	os.Exit(0)
 }
 
 func parseKernelVersion(ver string) (*go_version.Version, error) {

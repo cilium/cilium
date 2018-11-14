@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Authors of Cilium
+// Copyright 2017-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,18 +18,22 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/signal"
 	"strconv"
 	"strings"
-	"syscall"
+	"sync"
 
+	"github.com/cilium/cilium/pkg/cleanup"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/sirupsen/logrus"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "pidfile")
+var (
+	log        = logging.DefaultLogger.WithField(logfields.LogSubsys, "pidfile")
+	cleanUPSig = make(chan struct{})
+	cleanUPWg  = &sync.WaitGroup{}
+)
 
 // Remove deletes the pidfile at the specified path. This does not clean up
 // the corresponding process, so should only be used when it is known that the
@@ -48,16 +52,9 @@ func write(path string, pid int) error {
 		return err
 	}
 
-	// Handle the cleanup
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGQUIT, syscall.SIGINT, syscall.SIGHUP, syscall.SIGTERM)
-	go func() {
-		for s := range sig {
-			log.WithField("signal", s).Info("Exiting due to signal")
-			Remove(path)
-			os.Exit(0)
-		}
-	}()
+	cleanup.DeferTerminationCleanupFunction(cleanUPWg, cleanUPSig, func() {
+		Remove(path)
+	})
 
 	return nil
 }
@@ -67,6 +64,12 @@ func write(path string, pid int) error {
 func Write(path string) error {
 	pid := os.Getpid()
 	return write(path, pid)
+}
+
+// Clean cleans up everything created by this package.
+func Clean() {
+	close(cleanUPSig)
+	cleanUPWg.Wait()
 }
 
 // kill parses the PID in the provided slice and attempts to kill the process
