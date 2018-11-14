@@ -180,41 +180,37 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 	if redir, ok = p.redirects[id]; ok {
 		redir.mutex.Lock()
 
-		if redir.parserType != l4.L7Parser {
-			var removeRevertFunc revert.RevertFunc
-			err, finalizeFunc, removeRevertFunc = p.removeRedirect(id, wg)
+		if redir.parserType == l4.L7Parser {
+			updateRevertFunc := redir.updateRules(l4)
+			revertStack.Push(updateRevertFunc)
+
+			redir.lastUpdated = time.Now()
+
+			scopedLog.WithField(logfields.Object, logfields.Repr(redir)).
+				Debug("updated existing ", l4.L7Parser, " proxy instance")
+
 			redir.mutex.Unlock()
-
-			if err != nil {
-				err = fmt.Errorf("unable to remove old redirect: %s", err)
-				return
-			}
-
-			revertStack.Push(removeRevertFunc)
-
-			goto create
+			return
 		}
 
-		updateRevertFunc := redir.updateRules(l4)
-		revertStack.Push(updateRevertFunc)
-
-		redir.lastUpdated = time.Now()
-
-		scopedLog.WithField(logfields.Object, logfields.Repr(redir)).
-			Debug("updated existing ", l4.L7Parser, " proxy instance")
-
+		var removeRevertFunc revert.RevertFunc
+		err, finalizeFunc, removeRevertFunc = p.removeRedirect(id, wg)
 		redir.mutex.Unlock()
-		return
+
+		if err != nil {
+			err = fmt.Errorf("unable to remove old redirect: %s", err)
+			return
+		}
+
+		revertStack.Push(removeRevertFunc)
 	}
 
-create:
 	redir = newRedirect(localEndpoint, id)
 	redir.endpointID = localEndpoint.GetID()
 	redir.ingress = l4.Ingress
 	redir.parserType = l4.L7Parser
 	redir.updateRules(l4)
 
-retryCreatePort:
 	for nRetry := 0; ; nRetry++ {
 		var to uint16
 		to, err = p.allocatePort()
@@ -256,7 +252,7 @@ retryCreatePort:
 				return err
 			})
 
-			break retryCreatePort
+			return
 
 		// an error occurred, and we have no more retries
 		case nRetry >= redirectCreationAttempts:
@@ -270,8 +266,6 @@ retryCreatePort:
 			scopedLog.WithError(err).Warning("Unable to create ", l4.L7Parser, " proxy, will retry")
 		}
 	}
-
-	return
 }
 
 // RemoveRedirect removes an existing redirect.
