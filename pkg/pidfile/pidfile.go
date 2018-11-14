@@ -18,10 +18,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/signal"
 	"strconv"
 	"strings"
-	"syscall"
+	"sync"
 
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -29,7 +28,11 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "pidfile")
+var (
+	log        = logging.DefaultLogger.WithField(logfields.LogSubsys, "pidfile")
+	cleanUPSig = make(chan struct{})
+	cleanUPWg  = &sync.WaitGroup{}
+)
 
 // Remove deletes the pidfile at the specified path. This does not clean up
 // the corresponding process, so should only be used when it is known that the
@@ -48,16 +51,9 @@ func write(path string, pid int) error {
 		return err
 	}
 
-	// Handle the cleanup
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGQUIT, syscall.SIGINT, syscall.SIGHUP, syscall.SIGTERM)
-	go func() {
-		for s := range sig {
-			log.WithField("signal", s).Info("Exiting due to signal")
-			Remove(path)
-			os.Exit(0)
-		}
-	}()
+	HandleCleanup(cleanUPWg, cleanUPSig, func() {
+		Remove(path)
+	})
 
 	return nil
 }
@@ -67,6 +63,18 @@ func write(path string, pid int) error {
 func Write(path string) error {
 	pid := os.Getpid()
 	return write(path, pid)
+}
+
+// Clean cleans up everything created by this package. It closes the returned
+// channel once everything is cleaned up.
+func Clean() <-chan struct{} {
+	close(cleanUPSig)
+	exited := make(chan struct{})
+	go func() {
+		cleanUPWg.Wait()
+		close(exited)
+	}()
+	return exited
 }
 
 // kill parses the PID in the provided slice and attempts to kill the process

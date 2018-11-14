@@ -176,11 +176,12 @@ func daemonMain() {
 		fmt.Println(errorString)
 		os.Exit(-1)
 	}
-
+	interruptCh := handleInterrupt()
 	if err := RootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(-1)
 	}
+	<-interruptCh
 }
 
 func parseKernelVersion(ver string) (*go_version.Version, error) {
