@@ -18,10 +18,8 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"os/exec"
-	"os/signal"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -38,10 +36,6 @@ var BugtoolRootCmd = &cobra.Command{
 	Short: "Collects agent & system information useful for bug reporting",
 	Example: `	# Collect information and create archive file
 	$ cilium-bugtool
-	[...]
-
-	# Collect information and serve via HTTP
-	$ cilium-bugtool --serve
 	[...]
 
 	# Collect and retrieve archive if Cilium is running in a Kubernetes pod
@@ -69,8 +63,6 @@ var (
 	archive        bool
 	archiveType    string
 	k8s            bool
-	serve          bool
-	port           int
 	dumpPath       string
 	host           string
 	k8sNamespace   string
@@ -85,10 +77,8 @@ var (
 func init() {
 	BugtoolRootCmd.Flags().BoolVar(&archive, "archive", true, "Create archive when false skips deletion of the output directory")
 	BugtoolRootCmd.Flags().StringVarP(&archiveType, "archiveType", "o", "tar", "Archive type: tar | gz")
-	BugtoolRootCmd.Flags().BoolVar(&serve, "serve", false, "Start HTTP server to serve static files")
 	BugtoolRootCmd.Flags().BoolVar(&k8s, "k8s-mode", false, "Require Kubernetes pods to be found or fail")
 	BugtoolRootCmd.Flags().BoolVar(&dryRunMode, "dry-run", false, "Create configuration file of all commands that would have been executed")
-	BugtoolRootCmd.Flags().IntVarP(&port, "port", "p", 4444, "Port to use for the HTTP server, (default 4444)")
 	BugtoolRootCmd.Flags().StringVarP(&dumpPath, "tmp", "t", "/tmp", "Path to store extracted files")
 	BugtoolRootCmd.Flags().StringVarP(&host, "host", "H", "", "URI to server-side API")
 	BugtoolRootCmd.Flags().StringVarP(&k8sNamespace, "k8s-namespace", "", "kube-system", "Kubernetes namespace for Cilium pod")
@@ -225,12 +215,6 @@ func runTool() {
 	} else {
 		fmt.Printf("\nDIRECTORY at %s\n", dbgDir)
 	}
-
-	if serve {
-		// Use signal handler to cleanup after serving
-		setupSigHandler(dbgDir)
-		serveStaticFiles(dbgDir)
-	}
 }
 
 // dryRun creates the configuration file to show the user what would have been run.
@@ -264,29 +248,6 @@ func cleanup(dbgDir string) {
 				fmt.Fprintf(os.Stderr, "Failed to cleanup temporary files %s\n", err)
 			}
 		}
-	}
-}
-
-func setupSigHandler(dbgDir string) {
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt)
-	go func() {
-		for range signalChan {
-			printDisclaimer()
-			cleanup(dbgDir)
-			os.Exit(0)
-		}
-	}()
-}
-
-func serveStaticFiles(debugDirectory string) {
-	fs := http.FileServer(http.Dir(debugDirectory))
-	addr := fmt.Sprintf(":%d", port)
-
-	http.Handle("/", fs)
-	fmt.Printf("Serving files at http://localhost%s\n", addr)
-	if err := http.ListenAndServe(addr, nil); err != nil {
-		fmt.Fprintf(os.Stderr, "Could not start server %s\n", err)
 	}
 }
 
