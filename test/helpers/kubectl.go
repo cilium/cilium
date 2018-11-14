@@ -881,6 +881,11 @@ func (kub *Kubectl) ciliumInstall(dsPatchName, cmPatchName string, getK8sDescrip
 		return fmt.Errorf("Cilium ServiceAccount descriptor not found")
 	}
 
+	operatorPathname := getK8sDescriptor("cilium-operator.yaml")
+	if operatorPathname == "" {
+		return fmt.Errorf("Cilium Operator deployment descriptor not found")
+	}
+
 	deployOriginal := func(original string) error {
 		// debugYaml only dumps the full created yaml file to the test output if
 		// the cilium manifest can not be created correctly.
@@ -908,6 +913,10 @@ func (kub *Kubectl) ciliumInstall(dsPatchName, cmPatchName string, getK8sDescrip
 	}
 
 	if err := deployOriginal(rbacPathname); err != nil {
+		return err
+	}
+
+	if err := deployOriginal(operatorPathname); err != nil {
 		return err
 	}
 
