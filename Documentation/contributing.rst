@@ -2058,27 +2058,23 @@ update:
 0. After login, select the tab "builds" on the left menu.
 
 .. image:: images/cilium-quayio-tag-0.png
-    :width: 600px
     :align: center
 
 1. Click on the wheel.
 2. Enable the trigger for that build trigger.
 
 .. image:: images/cilium-quayio-tag-1.png
-    :width: 600px
     :align: center
 
 3. Confirm that you want to enable the trigger.
 
 .. image:: images/cilium-quayio-tag-2.png
-    :width: 600px
     :align: center
 
 4. After enabling the trigger, click again on the wheel.
 5. And click on "Run Trigger Now".
 
 .. image:: images/cilium-quayio-tag-3.png
-    :width: 600px
     :align: center
 
 6. A new pop-up will appear and you can select the branch that contains your
@@ -2086,13 +2082,11 @@ update:
 7. Select the branch that contains the new changes.
 
 .. image:: images/cilium-quayio-tag-4.png
-    :width: 600px
     :align: center
 
 8. After selecting your branch click on "Start Build".
 
 .. image:: images/cilium-quayio-tag-5.png
-    :width: 600px
     :align: center
 
 9. Once the build has started you can disable the Build trigger by clicking on
@@ -2100,13 +2094,11 @@ update:
 10. And click on "Disable Trigger".
 
 .. image:: images/cilium-quayio-tag-6.png
-    :width: 600px
     :align: center
 
 11. Confirm that you want to disable the build trigger.
 
 .. image:: images/cilium-quayio-tag-7.png
-    :width: 600px
     :align: center
 
 12. Once the build is finished click under Tags (on the left menu).
@@ -2114,14 +2106,12 @@ update:
 14. Add a new tag to the image that was built.
 
 .. image:: images/cilium-quayio-tag-8.png
-    :width: 600px
     :align: center
 
 15. Write the name of the tag that you want to give for the newly built image.
 16. Confirm the name is correct and click on "Create Tag".
 
 .. image:: images/cilium-quayio-tag-9.png
-    :width: 600px
     :align: center
 
 17. After the new tag was created you can delete the other tag, which is the
@@ -2130,13 +2120,11 @@ update:
 19. Click in "Delete Tags".
 
 .. image:: images/cilium-quayio-tag-10.png
-    :width: 600px
     :align: center
 
 20. Confirm that you want to delete tag with your branch name.
 
 .. image:: images/cilium-quayio-tag-11.png
-    :width: 600px
     :align: center
 
 You have created a new image build with a new tag. The next steps should be to
