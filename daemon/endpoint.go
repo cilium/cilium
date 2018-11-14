@@ -135,7 +135,7 @@ func NewPutEndpointIDHandler(d *Daemon) PutEndpointIDHandler {
 // createEndpoint attempts to create the endpoint corresponding to the change
 // request that was specified. Returns an HTTP code response code and an
 // error msg (or nil on success).
-func (d *Daemon) createEndpoint(epTemplate *models.EndpointChangeRequest, id string, lbls []string) (int, error) {
+func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.EndpointChangeRequest) (int, error) {
 
 	ep, err := endpoint.NewEndpointFromChangeModel(epTemplate)
 	if err != nil {
@@ -144,25 +144,23 @@ func (d *Daemon) createEndpoint(epTemplate *models.EndpointChangeRequest, id str
 
 	ep.SetDefaultOpts(option.Config.Opts)
 
-	oldEp, err2 := endpointmanager.Lookup(id)
-	if err2 != nil {
-		return PutEndpointIDInvalidCode, err2
-	} else if oldEp != nil {
-		return PutEndpointIDExistsCode, fmt.Errorf("Endpoint ID %s exists", id)
+	oldEp := endpointmanager.LookupCiliumID(ep.ID)
+	if oldEp != nil {
+		return PutEndpointIDExistsCode, fmt.Errorf("endpoint ID %d exists", ep.ID)
 	}
 	if err = endpoint.APICanModify(ep); err != nil {
 		return PutEndpointIDInvalidCode, err
 	}
 
-	addLabels := labels.NewLabelsFromModel(lbls)
+	addLabels := labels.NewLabelsFromModel(epTemplate.Labels)
 
 	if len(addLabels) > 0 {
 		addLabels, _, ok := checkLabels(addLabels, nil)
 		if !ok {
-			return PutEndpointIDInvalidCode, fmt.Errorf("No valid label")
+			return PutEndpointIDInvalidCode, fmt.Errorf("no valid label")
 		}
 		if lbls := addLabels.FindReserved(); lbls != nil {
-			return PutEndpointIDInvalidCode, fmt.Errorf("Not allowed to add reserved labels: %s", lbls)
+			return PutEndpointIDInvalidCode, fmt.Errorf("not allowed to add reserved labels: %s", lbls)
 		}
 	} else {
 		// If the endpoint has no labels, give the endpoint a special identity with
@@ -188,7 +186,67 @@ func (d *Daemon) createEndpoint(epTemplate *models.EndpointChangeRequest, id str
 		}
 	}
 
-	return PutEndpointIDCreatedCode, nil
+	// Wait for endpoint to be in "ready" state if specified in API call.
+	if !epTemplate.SyncBuildEndpoint {
+		return PutEndpointIDCreatedCode, nil
+	}
+
+	log.Debug("Synchronously waiting for endpoint to regenerate")
+
+	// Default timeout for PUT /endpoint/{id} is 60 seconds, so put timeout
+	// in this function a bit below that timeout. If the timeout for clients
+	// in API is below this value, they will get a message containing
+	// "context deadline exceeded" if the operation takes longer than the
+	// client's configured timeout value.
+	ctx, cancel := context.WithTimeout(ctx, endpoint.EndpointGenerationTimeout)
+
+	// Check the endpoint's state and labels periodically.
+	ticker := time.NewTicker(1 * time.Second)
+	defer func() {
+		cancel()
+		ticker.Stop()
+	}()
+
+	// Wait for any successful BPF regeneration, which is indicated by any
+	// positive policy revision (>0). As long as at least one BPF
+	// regeneration is successful, the endpoint has network connectivity
+	// so we can return from the creation API call.
+	revCh := ep.WaitForPolicyRevision(ctx, 1)
+
+	for {
+		select {
+		case <-revCh:
+			if ctx.Err() == nil {
+				// At least one BPF regeneration has successfully completed.
+				return PutEndpointIDCreatedCode, nil
+			}
+
+		case <-ctx.Done():
+
+		case <-ticker.C:
+			if err := ep.RLockAlive(); err != nil {
+				return PutEndpointIDFailedCode, fmt.Errorf("error locking endpoint: %s", err.Error())
+			}
+			hasSidecarProxy := ep.HasSidecarProxy()
+			ep.RUnlock()
+
+			if hasSidecarProxy && ep.HasBPFProgram() {
+				// If the endpoint is determined to have a sidecar proxy,
+				// return immediately to let the sidecar container start,
+				// in case it is required to enforce L7 rules.
+				log.Info("Endpoint has sidecar proxy, returning from synchronous creation request before regeneration has succeeded")
+				return PutEndpointIDCreatedCode, nil
+			}
+		}
+
+		if ctx.Err() != nil {
+			// Delete endpoint because PUT operation fails if timeout is
+			// exceeded.
+			log.Warning("Endpoint did not synchronously regenerate after timeout")
+			d.deleteEndpoint(ep)
+			return PutEndpointIDFailedCode, fmt.Errorf("endpoint %d did not synchronously regenerate after timeout", ep.ID)
+		}
+	}
 }
 
 func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder {
@@ -211,86 +269,12 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 			"endpoint ID cannot be 0")
 	}
 
-	code, err := h.d.createEndpoint(epTemplate, params.ID, params.Endpoint.Labels)
+	code, err := h.d.createEndpoint(params.HTTPRequest.Context(), epTemplate)
 	if err != nil {
 		logger.WithError(err).Error("Endpoint cannot be created")
 		return api.Error(code, err)
 	}
 
-	// Wait for endpoint to be in "ready" state if specified in API call.
-	if params.Endpoint.SyncBuildEndpoint {
-
-		e, err := endpointmanager.Lookup(params.ID)
-		if err != nil {
-			// Delete endpoint if any operation that occurs during PUT, fails,
-			// so that endpoints in an unhealthy state are not left lying around.
-			if e != nil {
-				h.d.deleteEndpoint(e)
-			}
-			return api.Error(PutEndpointIDFailedCode, err)
-		}
-
-		if e == nil {
-			return api.Error(PutEndpointIDFailedCode, fmt.Errorf("error retrieving endpoint"))
-		}
-
-		logger.Debug("Synchronously waiting for endpoint to regenerate")
-
-		// Default timeout for PUT /endpoint/{id} is 60 seconds, so put timeout
-		// in this function a bit below that timeout. If the timeout for clients
-		// in API is below this value, they will get a message containing
-		// "context deadline exceeded" if the operation takes longer than the
-		// client's configured timeout value.
-		ctx, cancel := context.WithTimeout(params.HTTPRequest.Context(), endpoint.EndpointGenerationTimeout)
-
-		// Check the endpoint's state and labels periodically.
-		ticker := time.NewTicker(1 * time.Second)
-		defer func() {
-			cancel()
-			ticker.Stop()
-		}()
-
-		// Wait for any successful BPF regeneration, which is indicated by any
-		// positive policy revision (>0). As long as at least one BPF
-		// regeneration is successful, the endpoint has network connectivity
-		// so we can return from the creation API call.
-		revCh := e.WaitForPolicyRevision(ctx, 1)
-
-		for {
-			select {
-			case <-revCh:
-				if ctx.Err() == nil {
-					// At least one BPF regeneration has successfully completed.
-					return NewPutEndpointIDCreated()
-				}
-
-			case <-ctx.Done():
-
-			case <-ticker.C:
-				if err := e.RLockAlive(); err != nil {
-					return api.Error(PutEndpointIDFailedCode, fmt.Errorf("error locking endpoint: %s", err.Error()))
-				}
-				hasSidecarProxy := e.HasSidecarProxy()
-				e.RUnlock()
-
-				if hasSidecarProxy && e.HasBPFProgram() {
-					// If the endpoint is determined to have a sidecar proxy,
-					// return immediately to let the sidecar container start,
-					// in case it is required to enforce L7 rules.
-					logger.Info("Endpoint has sidecar proxy, returning from synchronous creation request before regeneration has succeeded")
-					return NewPutEndpointIDCreated()
-				}
-			}
-
-			if ctx.Err() != nil {
-				// Delete endpoint because PUT operation fails if timeout is
-				// exceeded.
-				logger.Warning("Endpoint did not synchronously regenerate after timeout")
-				h.d.deleteEndpoint(e)
-				return api.Error(PutEndpointIDFailedCode, fmt.Errorf("endpoint %d did not synchronously regenerate after timeout", e.ID))
-			}
-		}
-	}
 	return NewPutEndpointIDCreated()
 }
 
