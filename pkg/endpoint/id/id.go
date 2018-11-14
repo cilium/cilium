@@ -61,6 +61,9 @@ const (
 	// IPv4Prefix is used to address an endpoint via the endpoint's IPv4
 	// address.
 	IPv4Prefix PrefixType = "ipv4"
+
+	// IPv6Prefix is the prefix used to refer to an endpoint via IPv6 address
+	IPv6Prefix PrefixType = "ipv6"
 )
 
 // NewCiliumID returns a new endpoint identifier of type CiliumLocalIdPrefix
@@ -101,7 +104,7 @@ func ParseCiliumID(id string) (int64, error) {
 func Parse(id string) (PrefixType, string, error) {
 	prefix, id := splitID(id)
 	switch prefix {
-	case CiliumLocalIdPrefix, CiliumGlobalIdPrefix, ContainerIdPrefix, DockerEndpointPrefix, ContainerNamePrefix, PodNamePrefix, IPv4Prefix:
+	case CiliumLocalIdPrefix, CiliumGlobalIdPrefix, ContainerIdPrefix, DockerEndpointPrefix, ContainerNamePrefix, PodNamePrefix, IPv4Prefix, IPv6Prefix:
 		return prefix, id, nil
 	}
 

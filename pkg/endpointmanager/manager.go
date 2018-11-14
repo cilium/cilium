@@ -122,6 +122,9 @@ func Lookup(id string) (*endpoint.Endpoint, error) {
 	case endpointid.IPv4Prefix:
 		return lookupIPv4(eid), nil
 
+	case endpointid.IPv6Prefix:
+		return lookupIPv4(eid), nil
+
 	default:
 		return nil, ErrInvalidPrefix{InvalidPrefix: prefix.String()}
 	}
@@ -183,8 +186,12 @@ func Remove(ep *endpoint.Endpoint) {
 		delete(endpointsAux, endpointid.NewID(endpointid.DockerEndpointPrefix, ep.DockerEndpointID))
 	}
 
-	if ep.IPv4.String() != "" {
+	if ep.IPv4.IsSet() {
 		delete(endpointsAux, endpointid.NewID(endpointid.IPv4Prefix, ep.IPv4.String()))
+	}
+
+	if ep.IPv6.IsSet() {
+		delete(endpointsAux, endpointid.NewID(endpointid.IPv6Prefix, ep.IPv6.String()))
 	}
 
 	if ep.ContainerName != "" {
@@ -240,6 +247,13 @@ func lookupIPv4(ipv4 string) *endpoint.Endpoint {
 	return nil
 }
 
+func lookupIPv6(ipv6 string) *endpoint.Endpoint {
+	if ep, ok := endpointsAux[endpointid.NewID(endpointid.IPv6Prefix, ipv6)]; ok {
+		return ep
+	}
+	return nil
+}
+
 func lookupContainerID(id string) *endpoint.Endpoint {
 	if ep, ok := endpointsAux[endpointid.NewID(endpointid.ContainerIdPrefix, id)]; ok {
 		return ep
@@ -258,8 +272,12 @@ func updateReferences(ep *endpoint.Endpoint) {
 		endpointsAux[endpointid.NewID(endpointid.DockerEndpointPrefix, ep.DockerEndpointID)] = ep
 	}
 
-	if ep.IPv4.String() != "" {
+	if ep.IPv4.IsSet() {
 		endpointsAux[endpointid.NewID(endpointid.IPv4Prefix, ep.IPv4.String())] = ep
+	}
+
+	if ep.IPv6.IsSet() {
+		endpointsAux[endpointid.NewID(endpointid.IPv6Prefix, ep.IPv6.String())] = ep
 	}
 
 	if ep.ContainerName != "" {
