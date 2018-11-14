@@ -706,14 +706,14 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 
 	// Avoid BPF program compilation and installation if the headerfile for the endpoint
 	// or the node have not changed.
-	bpfHeaderfilesHash, err := hashEndpointHeaderfiles(nextDir)
+	datapathRegenCtxt.bpfHeaderfilesHash, err = hashEndpointHeaderfiles(nextDir)
 	if err != nil {
 		e.getLogger().WithError(err).Warn("Unable to hash header file")
-		bpfHeaderfilesHash = ""
+		datapathRegenCtxt.bpfHeaderfilesHash = ""
 		datapathRegenCtxt.bpfHeaderfilesChanged = true
 	} else {
-		datapathRegenCtxt.bpfHeaderfilesChanged = (bpfHeaderfilesHash != e.bpfHeaderfileHash)
-		e.getLogger().WithField(logfields.BPFHeaderfileHash, bpfHeaderfilesHash).
+		datapathRegenCtxt.bpfHeaderfilesChanged = (datapathRegenCtxt.bpfHeaderfilesHash != e.bpfHeaderfileHash)
+		e.getLogger().WithField(logfields.BPFHeaderfileHash, datapathRegenCtxt.bpfHeaderfilesHash).
 			Debugf("BPF header file hashed (was: %q)", e.bpfHeaderfileHash)
 	}
 
@@ -771,9 +771,9 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 		if err != nil {
 			return epInfoCache.revision, compilationExecuted, err
 		}
-		e.bpfHeaderfileHash = bpfHeaderfilesHash
+		e.bpfHeaderfileHash = datapathRegenCtxt.bpfHeaderfilesHash
 	} else {
-		e.getLogger().WithField(logfields.BPFHeaderfileHash, bpfHeaderfilesHash).
+		e.getLogger().WithField(logfields.BPFHeaderfileHash, datapathRegenCtxt.bpfHeaderfilesHash).
 			Debug("BPF header file unchanged, skipping BPF compilation and installation")
 	}
 
