@@ -14,6 +14,13 @@
 
 package endpoint
 
+import (
+	"context"
+
+	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/revert"
+)
+
 func (e *ExternalRegenerationMetadata) toRegenerationContext() *regenerationContext {
 	return &regenerationContext{
 		Reason:         e.Reason,
@@ -48,12 +55,32 @@ type regenerationContext struct {
 	// Stats are collected during the endpoint regeneration and provided
 	// back to the caller
 	Stats regenerationStatistics
+
+	datapathRegenerationContext *datapathRegenerationContext
 }
 
 // NewRegenerationContext returns a new context for regeneration that does not
 // force any recalculation, rebuild or reload of policy.
 func NewRegenerationContext(reason string) *regenerationContext {
 	return &regenerationContext{
-		Reason: reason,
+		Reason:                      reason,
+		datapathRegenerationContext: &datapathRegenerationContext{},
 	}
+}
+
+// datapathRegenerationContext contains information related to regenerating the
+// datapath (BPF, proxy, etc.).
+type datapathRegenerationContext struct {
+	bpfHeaderfilesHash    string
+	epInfoCache           *epInfoCache
+	bpfHeaderfilesChanged bool
+	proxyWaitGroup        *completion.WaitGroup
+	ctCleaned             chan struct{}
+	completionCtx         context.Context
+	completionCancel      context.CancelFunc
+	currentDir            string
+	nextDir               string
+	reloadDatapath        bool
+	finalizeList          revert.FinalizeList
+	revertStack           revert.RevertStack
 }
