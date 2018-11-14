@@ -516,6 +516,8 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 	)
 
 	datapathRegenCtxt := regenContext.datapathRegenerationContext
+	datapathRegenCtxt.prepareForDatapathRegeneration()
+
 	stats := &regenContext.Stats
 	stats.waitingForLock.Start()
 
@@ -523,8 +525,6 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 	// regenerating an endpoint.
 	owner.GetCompilationLock().RLock()
 	defer owner.GetCompilationLock().RUnlock()
-
-	ctCleaned := make(chan struct{})
 
 	err = e.LockAlive()
 	stats.waitingForLock.End(err == nil)
@@ -547,10 +547,10 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 			if created {
 				e.scrubIPsInConntrackTable()
 			}
-			close(ctCleaned)
+			close(datapathRegenCtxt.ctCleaned)
 		}()
 	} else {
-		close(ctCleaned)
+		close(datapathRegenCtxt.ctCleaned)
 	}
 
 	// If dry mode is enabled, no further changes to BPF maps are performed
@@ -743,7 +743,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 
 	// Wait for connection tracking cleaning to complete
 	stats.waitingForCTClean.Start()
-	<-ctCleaned
+	<-datapathRegenCtxt.ctCleaned
 	stats.waitingForCTClean.End(true)
 
 	e.getLogger().WithField("bpfHeaderfilesChanged", bpfHeaderfilesChanged).Debug("Preparing to compile BPF")
