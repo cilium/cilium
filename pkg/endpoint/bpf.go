@@ -605,25 +605,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 	// Also keep track of the regeneration finalization code that can't be
 	// reverted, and execute it in case of regeneration success.
 	defer func() {
-		if reterr == nil {
-			// Always execute the finalization code, even if the endpoint is
-			// terminating, in order to properly release resources.
-			e.UnconditionalLock()
-			e.getLogger().Debug("Finalizing successful endpoint regeneration")
-			datapathRegenCtxt.finalizeList.Finalize()
-			e.Unlock()
-		} else {
-			if err := e.LockAlive(); err != nil {
-				e.getLogger().WithError(err).Debug("Skipping unnecessary restoring endpoint state")
-				return
-			}
-			e.getLogger().Error("Restoring endpoint state after BPF regeneration failed")
-			if err := datapathRegenCtxt.revertStack.Revert(); err != nil {
-				e.getLogger().WithError(err).Error("Restoring endpoint state failed")
-			}
-			e.getLogger().Error("Finished restoring endpoint state after BPF regeneration failed")
-			e.Unlock()
-		}
+		e.finalizeProxyState(regenContext, reterr)
 	}()
 
 	// Only generate & populate policy map if a security identity is set up for
@@ -821,6 +803,29 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 	}
 
 	return datapathRegenCtxt.epInfoCache.revision, compilationExecuted, err
+}
+
+func (e *Endpoint) finalizeProxyState(regenContext *regenerationContext, err error) {
+	datapathRegenCtx := regenContext.datapathRegenerationContext
+	if err == nil {
+		// Always execute the finalization code, even if the endpoint is
+		// terminating, in order to properly release resources.
+		e.UnconditionalLock()
+		e.getLogger().Debug("Finalizing successful endpoint regeneration")
+		datapathRegenCtx.finalizeList.Finalize()
+		e.Unlock()
+	} else {
+		if err := e.LockAlive(); err != nil {
+			e.getLogger().WithError(err).Debug("Skipping unnecessary restoring endpoint state")
+			return
+		}
+		e.getLogger().Error("Restoring endpoint state after BPF regeneration failed")
+		if err := datapathRegenCtx.revertStack.Revert(); err != nil {
+			e.getLogger().WithError(err).Error("Restoring endpoint state failed")
+		}
+		e.getLogger().Error("Finished restoring endpoint state after BPF regeneration failed")
+		e.Unlock()
+	}
 }
 
 // DeleteMapsLocked releases references to all BPF maps associated with this
