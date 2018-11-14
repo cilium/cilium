@@ -703,11 +703,13 @@ func (e *Endpoint) regenerate(owner Owner, context *regenerationContext) (retErr
 
 	stats.prepareBuild.Start()
 	origDir := filepath.Join(option.Config.StateDir, e.StringID())
+	context.datapathRegenerationContext.currentDir = origDir
 
 	// This is the temporary directory to store the generated headers,
 	// the original existing directory is not overwritten until the
 	// entire generation process has succeeded.
 	tmpDir := e.NextDirectoryPath()
+	context.datapathRegenerationContext.nextDir = tmpDir
 
 	// Remove an eventual existing temporary directory that has been left
 	// over to make sure we can start the build from scratch
@@ -748,7 +750,7 @@ func (e *Endpoint) regenerate(owner Owner, context *regenerationContext) (retErr
 		e.Unlock()
 	}()
 
-	revision, compilationExecuted, err = e.regenerateBPF(owner, origDir, tmpDir, context)
+	revision, compilationExecuted, err = e.regenerateBPF(owner, context)
 	if err != nil {
 		failDir := e.FailedDirectoryPath()
 		e.getLogger().WithFields(logrus.Fields{
