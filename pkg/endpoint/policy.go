@@ -62,31 +62,6 @@ var (
 	}
 )
 
-// RegenerationContext provides context to regenerate() calls to determine
-// the caller, and which specific aspects to regeneration are necessary to
-// update the datapath to implement the new behavior.
-type RegenerationContext struct {
-	// Reason provides context to source for the regeneration, which is
-	// used to generate useful log messages.
-	Reason string
-
-	// ReloadDatapath forces the datapath programs to be reloaded. It does
-	// not guarantee recompilation of the programs.
-	ReloadDatapath bool
-
-	// Stats are collected during the endpoint regeneration and provided
-	// back to the caller
-	Stats regenerationStatistics
-}
-
-// NewRegenerationContext returns a new context for regeneration that does not
-// force any recalculation, rebuild or reload of policy.
-func NewRegenerationContext(reason string) *RegenerationContext {
-	return &RegenerationContext{
-		Reason: reason,
-	}
-}
-
 // ProxyID returns a unique string to identify a proxy mapping.
 func (e *Endpoint) ProxyID(l4 *policy.L4Filter) string {
 	return policy.ProxyID(e.ID, l4.Ingress, string(l4.Protocol), uint16(l4.Port))
