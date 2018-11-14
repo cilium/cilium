@@ -50,9 +50,9 @@ func nextIP(ip net.IP) {
 func reserveLocalRoutes(ipam *Config) {
 	log.Debug("Checking local routes for conflicts...")
 
-	link, err := netlink.LinkByName("cilium_host")
+	link, err := netlink.LinkByName(defaults.HostDevice)
 	if err != nil || link == nil {
-		log.WithError(err).Fatal("Unable to find net_device cilium_host")
+		log.WithError(err).Fatalf("Unable to find net_device %s", defaults.HostDevice)
 	}
 
 	routes, err := netlink.RouteList(nil, netlink.FAMILY_V4)
@@ -64,9 +64,9 @@ func reserveLocalRoutes(ipam *Config) {
 	allocRange := node.GetIPv4AllocRange()
 
 	for _, r := range routes {
-		// ignore routes which point to cilium_host
+		// ignore routes which point to defaults.HostDevice
 		if r.LinkIndex == link.Attrs().Index {
-			log.WithField("route", r).Debug("Ignoring route: points to cilium_host")
+			log.WithField("route", r).Debugf("Ignoring route: points to %s", defaults.HostDevice)
 			continue
 		}
 
@@ -163,12 +163,12 @@ func AllocateInternalIPs() error {
 		// environment, cilium was not able to retrieve the node's pod-cidr
 		// which will cause cilium to start with a default IPv4 allocation range
 		// different from the previous running instance.
-		// Since cilium_host IP is always automatically derived from the IPv4
-		// allocation range it is safe to assume cilium_host IP will always
-		// belong to the IPv4AllocationRange.
+		// Since defaults.HostDevice IP is always automatically derived from the
+		// IPv4 allocation range it is safe to assume defaults.HostDevice IP
+		// will always belong to the IPv4AllocationRange.
 		// Unless of course the user manually specifies a different IPv4range
 		// between restarts which he can only solve by deleting the IPv4
-		// address from cilium_host as well deleting the node_config.h.
+		// address from defaults.HostDevice as well deleting the node_config.h.
 		return ErrAllocation(fmt.Errorf("Unable to allocate internal IPv4 node IP %s: %s.",
 			internalIP, err))
 	}

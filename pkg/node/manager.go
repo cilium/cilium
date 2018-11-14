@@ -153,7 +153,7 @@ func (cc *clusterConfiguation) replaceHostRoutes() {
 	if !option.Config.UseSingleClusterRoute {
 		for _, n := range cc.nodes {
 			// Insert node routes in the form of:
-			//   Node-CIDR via GetRouterIP() dev cilium_host
+			//   Node-CIDR via GetRouterIP() dev defaults.HostDevice
 			//
 			// This is always required for the local node.
 			// Otherwise it is only required when running in
@@ -188,8 +188,8 @@ func (cc *clusterConfiguation) installHostRoutes() {
 //  - node CIDR of local and remote nodes
 //  - service CIDR range
 //
-// This may only be called after the cilium_host interface has been initialized
-// for the first time
+// This may only be called after the defaults.HostDevice interface has been
+// initialized for the first time
 func InstallHostRoutes() {
 	clusterConf.installHostRoutes()
 }

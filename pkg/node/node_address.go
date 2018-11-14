@@ -521,8 +521,8 @@ func getCiliumHostIPsFromNetDev(devName string) (ipv4GW, ipv6Router net.IP) {
 }
 
 // getCiliumHostIPs returns the Cilium IPv4 gateway and router IPv6 address from
-// the node_config.h file if is present; or by deriving it from cilium_host
-// interface, on which only the IPv4 is possible to derive.
+// the node_config.h file if is present; or by deriving it from
+// defaults.HostDevice interface, on which only the IPv4 is possible to derive.
 func getCiliumHostIPs() (ipv4GW, ipv6Router net.IP) {
 	nodeConfig := option.Config.GetNodeConfigPath()
 	ipv4GW, ipv6Router = getCiliumHostIPsFromFile(nodeConfig)

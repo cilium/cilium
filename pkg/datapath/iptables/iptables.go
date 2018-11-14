@@ -208,8 +208,8 @@ func InstallRules() error {
 	if err := runProg("iptables", []string{
 		"-t", "mangle",
 		"-A", ciliumPostMangleChain,
-		"-o", "cilium_host",
-		"-m", "comment", "--comment", "cilium: clear masq bit for pkts to cilium_host",
+		"-o", defaults.HostDevice,
+		"-m", "comment", "--comment", "cilium: clear masq bit for pkts to " + defaults.HostDevice,
 		"-j", "MARK", "--set-xmark", clearMasqBit}, false); err != nil {
 		return err
 	}
@@ -220,21 +220,21 @@ func InstallRules() error {
 	// resolved in #52569 and will be fixed in k8s >= 1.8. The following is
 	// a workaround for earlier Kubernetes versions.
 	//
-	// Accept all packets in FORWARD chain that are going to cilium_host.
+	// Accept all packets in FORWARD chain that are going to defaults.HostDevice.
 	// It is safe to ignore the destination IP here as the pre-requisite
-	// for a packet being routed to cilium_host is that a route exists
+	// for a packet being routed to defaults.HostDevice is that a route exists
 	// which is only installed for known node IP CIDR ranges.
 	if err := runProg("iptables", []string{
 		"-A", ciliumForwardChain,
-		"-o", "cilium_host",
-		"-m", "comment", "--comment", "cilium: any->cluster on cilium_host forward accept",
+		"-o", defaults.HostDevice,
+		"-m", "comment", "--comment", "cilium: any->cluster on " + defaults.HostDevice + " forward accept",
 		"-j", "ACCEPT"}, false); err != nil {
 		return err
 	}
 
 	// Accept all packets in the FORWARD chain that are coming from the
-	// cilium_host interface with a source IP in the local node allocation
-	// range.
+	// defaults.HostDevice interface with a source IP in the local node
+	// allocation range.
 	if err := runProg("iptables", []string{
 		"-A", ciliumForwardChain,
 		"-s", node.GetIPv4AllocRange().String(),
@@ -249,7 +249,7 @@ func InstallRules() error {
 	// like it's from the host.
 	//
 	// Originally we set this mark only for traffic destined to the
-	// cilium_host device, to ensure that any traffic directly reaching
+	// defaults.HostDevice device, to ensure that any traffic directly reaching
 	// to a Cilium-managed IP could be classified as from the host.
 	//
 	// However, there's another case where a local process attempts to
@@ -276,11 +276,11 @@ func InstallRules() error {
 			ingressSnatSrcAddrExclusion = node.GetIPv4ClusterRange().String()
 		}
 
-		// Masquerade all traffic from the host into the cilium_host
+		// Masquerade all traffic from the host into the defaults.HostDevice
 		// interface if the source is not the internal IP
 		//
 		// The following conditions must be met:
-		// * Must be targeted for the cilium_host interface
+		// * Must be targeted for the defaults.HostDevice interface
 		// * Must be targeted to an IP that is not local
 		// * Tunnel mode:
 		//   * May not already be originating from the masquerade IP
@@ -291,7 +291,7 @@ func InstallRules() error {
 			"-A", ciliumPostNatChain,
 			"!", "-s", ingressSnatSrcAddrExclusion,
 			"!", "-d", node.GetIPv4AllocRange().String(),
-			"-o", "cilium_host",
+			"-o", defaults.HostDevice,
 			"-m", "comment", "--comment", "cilium host->cluster masquerade",
 			"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String()}, false); err != nil {
 			return err
@@ -304,7 +304,7 @@ func InstallRules() error {
 			"-t", "nat",
 			"-A", ciliumPostNatChain,
 			"-s", node.GetIPv4AllocRange().String(),
-			"-o", "cilium_host",
+			"-o", defaults.HostDevice,
 			"-m", "comment", "--comment", "cilium hostport loopback masquerade",
 			"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String()}, false); err != nil {
 			return err
