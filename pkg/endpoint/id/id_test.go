@@ -151,7 +151,7 @@ func (s *IDSuite) TestSplitID(c *C) {
 		tt.preTestRun()
 		args := tt.setupArgs()
 		want := tt.setupWant()
-		prefixType, id := SplitID(args.id)
+		prefixType, id := splitID(args.id)
 		c.Assert(prefixType, want.prefixTypeCheck, want.prefixType, Commentf("Test Name: %s", tt.name))
 		c.Assert(id, want.idCheck, want.id, Commentf("Test Name: %s", tt.name))
 		tt.postTestRun()
@@ -172,7 +172,7 @@ func BenchmarkSplitID(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		for _, test := range tests {
-			pt, str := SplitID(test.str)
+			pt, str := splitID(test.str)
 			if pt == test.prefixType && str == test.id {
 				count++
 			}
@@ -180,7 +180,34 @@ func BenchmarkSplitID(b *testing.B) {
 	}
 	b.StopTimer()
 	if count != len(tests)*b.N {
-		b.Errorf("SplitID didn't produce correct results")
+		b.Errorf("splitID didn't produce correct results")
 	}
 	b.ReportAllocs()
+}
+
+func (s *IDSuite) TestParse(c *C) {
+	type test struct {
+		input      PrefixType
+		wantPrefix PrefixType
+		wantID     string
+		expectFail bool
+	}
+
+	tests := []test{
+		{DockerEndpointPrefix + ":foo", DockerEndpointPrefix, "foo", false},
+		{DockerEndpointPrefix + ":foo:foo", DockerEndpointPrefix, "foo:foo", false},
+		{"unknown:unknown", "", "", true},
+		{"unknown", CiliumLocalIdPrefix, "unknown", false},
+	}
+
+	for _, t := range tests {
+		prefix, id, err := Parse(string(t.input))
+		c.Assert(prefix, Equals, t.wantPrefix)
+		c.Assert(id, Equals, t.wantID)
+		if t.expectFail {
+			c.Assert(err, Not(IsNil))
+		} else {
+			c.Assert(err, IsNil)
+		}
+	}
 }

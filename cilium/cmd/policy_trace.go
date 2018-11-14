@@ -235,7 +235,7 @@ func parseLabels(slice []string) ([]string, error) {
 
 func getSecIDFromK8s(podName string) (string, error) {
 	fmtdPodName := endpointid.NewID(endpointid.PodNamePrefix, podName)
-	_, _, err := endpointid.ValidateID(fmtdPodName)
+	_, _, err := endpointid.Parse(fmtdPodName)
 	if err != nil {
 		Fatalf("Cannot parse pod name \"%s\": %s", fmtdPodName, err)
 	}

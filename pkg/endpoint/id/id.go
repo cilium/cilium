@@ -20,43 +20,72 @@ import (
 	"strings"
 )
 
+// PrefixType describes the type of endpoint identifier
 type PrefixType string
 
 func (s PrefixType) String() string { return string(s) }
 
 const (
-	CiliumLocalIdPrefix  PrefixType = "cilium-local"
-	CiliumGlobalIdPrefix PrefixType = "cilium-global"
-	ContainerIdPrefix    PrefixType = "container-id"
-	DockerEndpointPrefix PrefixType = "docker-endpoint"
-	ContainerNamePrefix  PrefixType = "container-name"
-	PodNamePrefix        PrefixType = "pod-name"
+	// CiliumLocalIdPrefix is a numeric identifier with local scope. It has
+	// no cluster wide meaning and is only unique in the scope of a single
+	// agent. An endpoint is guaranteed to always have a local scope identifier.
+	CiliumLocalIdPrefix PrefixType = "cilium-local"
 
-	// IPv4Prefix is the prefix used in Cilium IDs when the identifier is
-	// the IPv4 address of the endpoint
+	// CiliumGlobalIdPrefix is an endpoint identifier with global scope.
+	// This addressing mechanism is currently unused.
+	CiliumGlobalIdPrefix PrefixType = "cilium-global"
+
+	// ContainerIdPrefix is used to address an endpoint via its primary
+	// container ID. The container ID is specific to the container runtime
+	// in use. Only the primary container that defines the networking scope
+	// can be used to address an endpoint.
+	ContainerIdPrefix PrefixType = "container-id"
+
+	// DockerEndpointPrefix is used to address an endpoint via the Docker
+	// endpoint ID. This method is only possible if the endpoint was
+	// created via the cilium-docker plugin and the container is backed by
+	// the libnetwork abstraction.
+	DockerEndpointPrefix PrefixType = "docker-endpoint"
+
+	// ContainerNamePrefix is used to address the endpoint via the
+	// container's name. This addressing mechanism depends on the container
+	// runtime. Only the primary container that the networking scope can be
+	// used to address an endpoint.
+	ContainerNamePrefix PrefixType = "container-name"
+
+	// PodNamePrefix is used to address an endpoint via the Kubernetes pod
+	// name. This addressing only works if the endpoint represents as
+	// Kubernetes pod.
+	PodNamePrefix PrefixType = "pod-name"
+
+	// IPv4Prefix is used to address an endpoint via the endpoint's IPv4
+	// address.
 	IPv4Prefix PrefixType = "ipv4"
 )
 
+// NewCiliumID returns a new endpoint identifier of type CiliumLocalIdPrefix
 func NewCiliumID(id int64) string {
 	return fmt.Sprintf("%s:%d", CiliumLocalIdPrefix, id)
 }
 
+// NewID returns a new endpoint identifier
 func NewID(prefix PrefixType, id string) string {
 	return string(prefix) + ":" + id
 }
 
-// SplitID splits ID into prefix and id. No validation is performed on prefix.
-func SplitID(id string) (PrefixType, string) {
+// splitID splits ID into prefix and id. No validation is performed on prefix.
+func splitID(id string) (PrefixType, string) {
 	if idx := strings.Index(id, ":"); idx > -1 {
 		return PrefixType(id[:idx]), id[idx+1:]
 	}
+
 	// default prefix
 	return CiliumLocalIdPrefix, id
 }
 
 // ParseCiliumID parses id as cilium endpoint id and returns numeric portion.
 func ParseCiliumID(id string) (int64, error) {
-	prefix, id := SplitID(id)
+	prefix, id := splitID(id)
 	if prefix != CiliumLocalIdPrefix {
 		return 0, fmt.Errorf("not a cilium identifier")
 	}
@@ -67,24 +96,14 @@ func ParseCiliumID(id string) (int64, error) {
 	return n, nil
 }
 
-// ParsePrefix parses the PrefixType from the given id that contains the prefix
-// and an ID. Returns a PrefixType and the ID. An error is returned if the prefix
-// is not known by the constants of valid prefixes.
-func ParsePrefix(id string) (PrefixType, string, error) {
-	prefix, eid := SplitID(id)
+// Parse parses a string as an endpoint identified consists of an optional
+// prefix [prefix:] followed by the identifier.
+func Parse(id string) (PrefixType, string, error) {
+	prefix, id := splitID(id)
 	switch prefix {
 	case CiliumLocalIdPrefix, CiliumGlobalIdPrefix, ContainerIdPrefix, DockerEndpointPrefix, ContainerNamePrefix, PodNamePrefix, IPv4Prefix:
-		return prefix, eid, nil
+		return prefix, id, nil
 	}
 
 	return "", "", fmt.Errorf("unknown endpoint ID prefix \"%s\"", prefix)
-}
-
-// ValidateID parses specified id and returns normalized id as string.
-func ValidateID(id string) (PrefixType, string, error) {
-	prefix, _, err := ParsePrefix(id)
-	if err != nil {
-		return "", "", err
-	}
-	return prefix, id, nil
 }
