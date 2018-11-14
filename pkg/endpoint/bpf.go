@@ -717,15 +717,13 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 			Debugf("BPF header file hashed (was: %q)", e.bpfHeaderfileHash)
 	}
 
-	// Cache endpoint information
-	// TODO (ianvernon): why do we need to do this?
-	var epInfoCache *epInfoCache
+	// Cache endpoint information so that we can release the endpoint lock.
 	if datapathRegenCtxt.bpfHeaderfilesChanged {
-		epInfoCache = e.createEpInfoCache(nextDir)
+		datapathRegenCtxt.epInfoCache = e.createEpInfoCache(nextDir)
 	} else {
-		epInfoCache = e.createEpInfoCache(currentDir)
+		datapathRegenCtxt.epInfoCache = e.createEpInfoCache(currentDir)
 	}
-	if epInfoCache == nil {
+	if datapathRegenCtxt.epInfoCache == nil {
 		stats.prepareBuild.End(false)
 		e.Unlock()
 		err = fmt.Errorf("Unable to cache endpoint information")
@@ -755,21 +753,21 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 		ctx, cancel := context.WithTimeout(context.Background(), ExecTimeout)
 		if datapathRegenCtxt.bpfHeaderfilesChanged {
 			stats.bpfCompilation.Start()
-			err = loader.CompileAndLoad(ctx, epInfoCache)
+			err = loader.CompileAndLoad(ctx, datapathRegenCtxt.epInfoCache)
 			stats.bpfCompilation.End(err == nil)
 			e.getLogger().WithError(err).
 				WithField(logfields.BPFCompilationTime, stats.bpfCompilation.Total().String()).
 				Info("Recompiled endpoint BPF program")
 			compilationExecuted = true
 		} else {
-			err = loader.ReloadDatapath(ctx, epInfoCache)
+			err = loader.ReloadDatapath(ctx, datapathRegenCtxt.epInfoCache)
 			e.getLogger().WithError(err).Info("Reloaded endpoint BPF program")
 		}
 		cancel()
 		close(closeChan)
 
 		if err != nil {
-			return epInfoCache.revision, compilationExecuted, err
+			return datapathRegenCtxt.epInfoCache.revision, compilationExecuted, err
 		}
 		e.bpfHeaderfileHash = datapathRegenCtxt.bpfHeaderfilesHash
 	} else {
@@ -779,8 +777,8 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 
 	// Hook the endpoint into the endpoint and endpoint to policy tables then expose it
 	stats.mapSync.Start()
-	epErr := eppolicymap.WriteEndpoint(epInfoCache.keys, e.PolicyMap.Fd)
-	err = lxcmap.WriteEndpoint(epInfoCache)
+	epErr := eppolicymap.WriteEndpoint(datapathRegenCtxt.epInfoCache.keys, e.PolicyMap.Fd)
+	err = lxcmap.WriteEndpoint(datapathRegenCtxt.epInfoCache)
 	stats.mapSync.End(err == nil)
 	if epErr != nil {
 		e.logStatusLocked(BPF, Warning, fmt.Sprintf("Unable to sync EpToPolicy Map continue with Sockmap support: %s", err))
@@ -826,7 +824,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 		return 0, compilationExecuted, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %s", err)
 	}
 
-	return epInfoCache.revision, compilationExecuted, err
+	return datapathRegenCtxt.epInfoCache.revision, compilationExecuted, err
 }
 
 // DeleteMapsLocked releases references to all BPF maps associated with this
