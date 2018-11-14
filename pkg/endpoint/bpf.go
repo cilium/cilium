@@ -746,13 +746,12 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 	// Avoid BPF program compilation and installation if the headerfile for the endpoint
 	// or the node have not changed.
 	bpfHeaderfilesHash, err := hashEndpointHeaderfiles(nextDir)
-	var bpfHeaderfilesChanged bool
 	if err != nil {
 		e.getLogger().WithError(err).Warn("Unable to hash header file")
 		bpfHeaderfilesHash = ""
-		bpfHeaderfilesChanged = true
+		datapathRegenCtxt.bpfHeaderfilesChanged = true
 	} else {
-		bpfHeaderfilesChanged = (bpfHeaderfilesHash != e.bpfHeaderfileHash)
+		datapathRegenCtxt.bpfHeaderfilesChanged = (bpfHeaderfilesHash != e.bpfHeaderfileHash)
 		e.getLogger().WithField(logfields.BPFHeaderfileHash, bpfHeaderfilesHash).
 			Debugf("BPF header file hashed (was: %q)", e.bpfHeaderfileHash)
 	}
@@ -760,7 +759,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 	// Cache endpoint information
 	// TODO (ianvernon): why do we need to do this?
 	var epInfoCache *epInfoCache
-	if bpfHeaderfilesChanged {
+	if datapathRegenCtxt.bpfHeaderfilesChanged {
 		epInfoCache = e.createEpInfoCache(nextDir)
 	} else {
 		epInfoCache = e.createEpInfoCache(currentDir)
@@ -785,14 +784,14 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 	<-datapathRegenCtxt.ctCleaned
 	stats.waitingForCTClean.End(true)
 
-	e.getLogger().WithField("bpfHeaderfilesChanged", bpfHeaderfilesChanged).Debug("Preparing to compile BPF")
+	e.getLogger().WithField("bpfHeaderfilesChanged", datapathRegenCtxt.bpfHeaderfilesChanged).Debug("Preparing to compile BPF")
 
 	stats.prepareBuild.End(true)
-	if bpfHeaderfilesChanged || datapathRegenCtxt.reloadDatapath {
+	if datapathRegenCtxt.bpfHeaderfilesChanged || datapathRegenCtxt.reloadDatapath {
 		closeChan := loadinfo.LogPeriodicSystemLoad(log.WithFields(logrus.Fields{logfields.EndpointID: epID}).Debugf, time.Second)
 
 		// Compile and install BPF programs for this endpoint
-		if bpfHeaderfilesChanged {
+		if datapathRegenCtxt.bpfHeaderfilesChanged {
 			stats.bpfCompilation.Start()
 			err = loader.CompileAndLoad(completionCtx, epInfoCache)
 			stats.bpfCompilation.End(err == nil)
