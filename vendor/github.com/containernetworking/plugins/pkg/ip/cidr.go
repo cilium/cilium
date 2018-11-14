@@ -31,6 +31,16 @@ func PrevIP(ip net.IP) net.IP {
 	return intToIP(i.Sub(i, big.NewInt(1)))
 }
 
+// Cmp compares two IPs, returning the usual ordering:
+// a < b : -1
+// a == b : 0
+// a > b : 1
+func Cmp(a, b net.IP) int {
+	aa := ipToInt(a)
+	bb := ipToInt(b)
+	return aa.Cmp(bb)
+}
+
 func ipToInt(ip net.IP) *big.Int {
 	if v := ip.To4(); v != nil {
 		return big.NewInt(0).SetBytes(v)

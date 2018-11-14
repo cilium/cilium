@@ -63,10 +63,15 @@ type NetConf struct {
 	Name         string          `json:"name,omitempty"`
 	Type         string          `json:"type,omitempty"`
 	Capabilities map[string]bool `json:"capabilities,omitempty"`
-	IPAM         struct {
-		Type string `json:"type,omitempty"`
-	} `json:"ipam,omitempty"`
-	DNS DNS `json:"dns"`
+	IPAM         IPAM            `json:"ipam,omitempty"`
+	DNS          DNS             `json:"dns"`
+
+	RawPrevResult map[string]interface{} `json:"prevResult,omitempty"`
+	PrevResult    Result                 `json:"-"`
+}
+
+type IPAM struct {
+	Type string `json:"type,omitempty"`
 }
 
 // NetConfList describes an ordered list of networks.
@@ -136,7 +141,11 @@ type Error struct {
 }
 
 func (e *Error) Error() string {
-	return e.Msg
+	details := ""
+	if e.Details != "" {
+		details = fmt.Sprintf("; %v", e.Details)
+	}
+	return fmt.Sprintf("%v%v", e.Msg, details)
 }
 
 func (e *Error) Print() error {
@@ -163,7 +172,7 @@ func (r *Route) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (r *Route) MarshalJSON() ([]byte, error) {
+func (r Route) MarshalJSON() ([]byte, error) {
 	rt := route{
 		Dst: IPNet(r.Dst),
 		GW:  r.GW,

@@ -12,16 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ip
+package backend
 
-import (
-	"net"
+import "net"
 
-	"github.com/vishvananda/netlink"
-)
-
-// AddDefaultRoute sets the default route on the given gateway.
-func AddDefaultRoute(gw net.IP, dev netlink.Link) error {
-	_, defNet, _ := net.ParseCIDR("0.0.0.0/0")
-	return AddRoute(defNet, gw, dev)
+type Store interface {
+	Lock() error
+	Unlock() error
+	Close() error
+	Reserve(id string, ip net.IP, rangeID string) (bool, error)
+	LastReservedIP(rangeID string) (net.IP, error)
+	Release(ip net.IP) error
+	ReleaseByID(id string) error
 }
