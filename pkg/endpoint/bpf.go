@@ -513,9 +513,6 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 		compilationExecuted bool
 	)
 
-	datapathRegenCtxt := regenContext.datapathRegenerationContext
-	datapathRegenCtxt.prepareForDatapathRegeneration()
-
 	stats := &regenContext.Stats
 	stats.waitingForLock.Start()
 
@@ -529,6 +526,9 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 	if err != nil {
 		return 0, compilationExecuted, err
 	}
+
+	datapathRegenCtxt := regenContext.datapathRegenerationContext
+	datapathRegenCtxt.prepareForDatapathRegeneration()
 
 	epID := e.StringID()
 
