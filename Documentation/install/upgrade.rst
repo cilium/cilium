@@ -235,6 +235,8 @@ latest ``1.1.y`` release before subsequently upgrading to ``1.2.z``.
 +-----------------------+-----------------------+-----------------------+-------------------------+---------------------------+
 | ``1.2.x``             | ``1.3.y``             | Required              | Minimal to None         | Clients must reconnect[1] |
 +-----------------------+-----------------------+-----------------------+-------------------------+---------------------------+
+| ``>=1.2.5``           | ``1.4.y``             | Required              | Minimal to None         | Clients must reconnect[1] |
++-----------------------+-----------------------+-----------------------+-------------------------+---------------------------+
 
 Annotations:
 
@@ -246,6 +248,21 @@ Annotations:
 #. **Temporary disruption**: All traffic may be temporarily disrupted during
    upgrade. Connections should successfully re-establish without requiring
    clients to reconnect.
+
+1.4 Upgrade Notes
+-----------------
+
+Upgrading from >=1.2.5 to 1.4.y
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+#. Follow the standard procedures to perform the upgrade as described in :ref:`upgrade_minor`.
+
+Changes that may require action
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+ * The ``--serve`` option was removed from cilium-bugtool in favour of a much
+   reduced binary size. If you want to continue using the option, please use an
+   older version of the cilium-bugtool binary.
 
 1.3 Upgrade Notes
 -----------------

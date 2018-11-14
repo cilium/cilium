@@ -20,10 +20,6 @@ cilium-bugtool [OPTIONS]
 	$ cilium-bugtool
 	[...]
 
-	# Collect information and serve via HTTP
-	$ cilium-bugtool --serve
-	[...]
-
 	# Collect and retrieve archive if Cilium is running in a Kubernetes pod
 	$ kubectl get pods --namespace kube-system
 	NAME                          READY     STATUS    RESTARTS   AGE
@@ -47,8 +43,6 @@ cilium-bugtool [OPTIONS]
       --k8s-label string        Kubernetes label for Cilium pod (default "k8s-app=cilium")
       --k8s-mode                Require Kubernetes pods to be found or fail
       --k8s-namespace string    Kubernetes namespace for Cilium pod (default "kube-system")
-  -p, --port int                Port to use for the HTTP server, (default 4444) (default 4444)
-      --serve                   Start HTTP server to serve static files
   -t, --tmp string              Path to store extracted files (default "/tmp")
 ```
 
