@@ -156,7 +156,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 
 	ep.SetDefaultOpts(option.Config.Opts)
 
-	checkIDs := []string{ep.ID}
+	checkIDs := []string{}
 
 	if ep.IPv4.IsSet() {
 		checkIDs = append(checkIDs, endpointid.NewID(endpointid.IPv4Prefix, ep.IPv4.String()))
@@ -294,20 +294,9 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 	epTemplate := params.Endpoint
 
 	logger := log.WithFields(logrus.Fields{
-		logfields.EndpointID:  epTemplate.ID,
 		logfields.ContainerID: epTemplate.ContainerID,
 		logfields.EventUUID:   uuid.NewUUID(),
 	})
-
-	if n, err := endpointid.ParseCiliumID(params.ID); err != nil {
-		return api.Error(PutEndpointIDInvalidCode, err)
-	} else if n != epTemplate.ID {
-		return api.New(PutEndpointIDInvalidCode,
-			"ID parameter does not match ID in endpoint parameter")
-	} else if epTemplate.ID == 0 {
-		return api.New(PutEndpointIDInvalidCode,
-			"endpoint ID cannot be 0")
-	}
 
 	code, err := h.d.createEndpoint(params.HTTPRequest.Context(), epTemplate)
 	if err != nil {

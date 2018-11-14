@@ -2064,7 +2064,19 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 
 	e.SetIdentity(identity)
 
-	readyToRegenerate := e.SetStateLocked(StateWaitingToRegenerate, "Triggering regeneration due to new identity")
+	readyToRegenerate := false
+
+	// Regeneration is olny triggered once the endpoint ID has been
+	// assigned. This ensures that on the initial creation, the endpoint is
+	// not generated until the endpoint ID has been assigned. If the
+	// identity is resolved before the endpoint ID is assigned, the
+	// regeneration is deferred into endpointmanager.AddEndpoint(). If the
+	// identity is not allocated yet when endpointmanager.AddEndpoint() is
+	// called, the controller calling identityLabelsChanged() will trigger
+	// the regeneration as soon as the identity is known.
+	if e.ID != 0 {
+		readyToRegenerate = e.SetStateLocked(StateWaitingToRegenerate, "Triggering regeneration due to new identity")
+	}
 
 	// Unconditionally force policy recomputation after a new identity has been
 	// assigned.
