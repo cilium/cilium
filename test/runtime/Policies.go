@@ -1360,6 +1360,8 @@ var _ = Describe("RuntimePolicies", func() {
 
 		It("Tests egress with CIDR+L4 policy to external https service", func() {
 			cloudFlare := "1.1.1.1"
+			proto := "https"
+			retries := 5
 
 			By("Checking connectivity to %q without policy", cloudFlare)
 			res := vm.ContainerExec(helpers.App1, helpers.Ping(cloudFlare))
@@ -1379,7 +1381,43 @@ var _ = Describe("RuntimePolicies", func() {
 				}]
 			}]`, helpers.App1, cloudFlare)
 
-			testCIDRL4Policy(policy, cloudFlare, "https")
+			_, err := vm.PolicyRenderAndImport(policy)
+			Expect(err).To(BeNil(), "Unable to import policy")
+
+			httpd2, err := vm.ContainerInspectNet(helpers.Httpd2)
+			Expect(err).Should(BeNil(),
+				"Unable to get networking information for container %q", helpers.Httpd2)
+
+			By("Accessing /index.html in %q from %q (shouldn't work)", helpers.App2, helpers.App1)
+			res = vm.ContainerExec(helpers.App1, helpers.CurlFail("%s://%s/index.html", proto, httpd2[helpers.IPv4]))
+			res.ExpectFail("unexpectedly able to access %q when access should only be allowed to CIDR", helpers.Httpd2)
+
+			By("Testing egress access to the world")
+			curlFailures := 0
+			for i := 0; i < retries; i++ {
+				By("Accessing index.html using Docker container using host networking from %q (should work)", helpers.App1)
+				res = vm.ContainerExec(helpers.App1, helpers.CurlFail("%s://%s/index.html", proto, cloudFlare))
+				if !res.WasSuccessful() {
+					curlFailures++
+				}
+			}
+			Expect(curlFailures).To(BeNumerically("<=", 1), "Curl to %q have failed more than once")
+
+			By("Pinging %q from %q (should not work)", api.EntityHost, helpers.App1)
+			res = vm.ContainerExec(helpers.App1, helpers.Ping(cloudFlare))
+			res.ExpectFail("expected ping to %q to fail", cloudFlare)
+
+			By("Accessing %q on wrong port from %q should fail", cloudFlare, helpers.App1)
+			res = vm.ContainerExec(helpers.App1, helpers.CurlFail("http://%s:8080/public", cloudFlare))
+			res.ExpectFail("unexpectedly able to access %q when access should only be allowed to CIDR", cloudFlare)
+
+			By("Accessing port 80 on wrong destination from %q should fail", helpers.App1)
+			res = vm.ContainerExec(helpers.App1, helpers.CurlFail("%s://%s/public", proto, hostIP))
+			res.ExpectFail("unexpectedly able to access %q when access should only be allowed to CIDR", hostIP)
+
+			By("Pinging %q from %q (shouldn't work)", helpers.App2, helpers.App1)
+			res = vm.ContainerExec(helpers.App1, helpers.Ping(helpers.App2))
+			res.ExpectFail("expected ping to %q to fail", helpers.App2)
 		})
 
 		It("Tests egress with CIDR+L7 policy", func() {
