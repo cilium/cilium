@@ -120,6 +120,7 @@ dep
 deserialization
 dev
 Devel
+devel
 diff
 Dinan
 disassembly
@@ -178,6 +179,7 @@ gettingstarted
 Github
 github
 githubusercontent
+glibc
 gluecon
 gobpf
 gocheck
