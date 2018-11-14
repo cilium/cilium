@@ -24,8 +24,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/defaults"
-
-	"github.com/sirupsen/logrus"
 )
 
 // BugtoolConfiguration creates and loads the configuration file used to run
@@ -114,8 +112,6 @@ func save(c *BugtoolConfiguration, path string) error {
 func loadConfigFile(path string) (*BugtoolConfiguration, error) {
 	var content []byte
 	var err error
-	logrus.WithField("path", path).Debug("Loading file")
-
 	content, err = ioutil.ReadFile(path)
 
 	if err != nil {
