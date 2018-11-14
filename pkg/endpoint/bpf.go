@@ -97,13 +97,9 @@ func (e *Endpoint) PolicyGlobalMapPathLocked() string {
 	return bpf.MapPath(PolicyGlobalMapName)
 }
 
-func CallsMapPath(id int) string {
-	return bpf.MapPath(CallsMapName + strconv.Itoa(id))
-}
-
 // CallsMapPathLocked returns the path to cilium tail calls map of an endpoint.
 func (e *Endpoint) CallsMapPathLocked() string {
-	return CallsMapPath(int(e.ID))
+	return bpf.MapPath(CallsMapName + strconv.Itoa(int(e.ID)))
 }
 
 type getBPFDataCallback func() (s6, s4 []int)
