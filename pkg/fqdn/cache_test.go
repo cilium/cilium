@@ -36,34 +36,6 @@ func sortByName(entries []*cacheEntry) {
 	})
 }
 
-// TestKeepUniqueIPs tests that KeepUniqueIPs returns a slice with only the unique IPs
-func (ds *DNSCacheTestSuite) TestKeepUniqueIPs(c *C) {
-	// test nil/empty handling
-	ips := keepUniqueIPs(nil)
-	c.Assert(len(ips), Equals, 0, Commentf("Non-empty slice returned with empty input"))
-
-	// test all duplicate
-	ips = keepUniqueIPs([]net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("1.1.1.1"), net.ParseIP("1.1.1.1")})
-	c.Assert(len(ips), Equals, 1, Commentf("Too many IPs returned for only 1 unique"))
-	c.Assert(ips[0].String(), Equals, "1.1.1.1", Commentf("Incorrect unique IP returned"))
-
-	// test all unique
-	ipSource := []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("2.2.2.2"), net.ParseIP("3.3.3.3")}
-	ips = keepUniqueIPs(ipSource)
-	c.Assert(len(ips), Equals, 3, Commentf("Too few IPs returned for only 3 uniques"))
-	for i := range ipSource {
-		c.Assert(ips[i].String(), Equals, ipSource[i].String(), Commentf("Incorrect unique IP returned"))
-	}
-
-	// test mixed
-	ipSource = []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("2.2.2.2"), net.ParseIP("3.3.3.3"), net.ParseIP("2.2.2.2")}
-	ips = keepUniqueIPs(ipSource)
-	c.Assert(len(ips), Equals, 3, Commentf("Too few IPs returned for only 3 uniques"))
-	for i := range ipSource[:3] {
-		c.Assert(ips[i].String(), Equals, ipSource[i].String(), Commentf("Incorrect unique IP returned"))
-	}
-}
-
 // TestUpdateLookup tests that we can insert DNS data and retrieve it. We
 // iterate through time, ensuring that data is expired as appropriate. We also
 // insert redundant DNS entries that should not change the output.
@@ -206,22 +178,6 @@ func (ds *DNSCacheTestSuite) BenchmarkUpdateIPs(c *C) {
 			cache.updateWithEntryIPs(entries, entry)
 			cache.removeExpired(entries, now)
 		}
-	}
-}
-
-// Note: each "op" works on size things
-func (ds *DNSCacheTestSuite) BenchmarkKeepUniqueIPs(c *C) {
-	ips := make([]net.IP, 0, len(ipsOrig))
-
-	copy(ips, ipsOrig)
-	for i := 0; i < c.N; i++ {
-		c.StopTimer()
-		rand.Shuffle(len(ips), func(i, j int) {
-			ips[i], ips[j] = ips[j], ips[i]
-		})
-		c.StartTimer()
-
-		keepUniqueIPs(ips)
 	}
 }
 

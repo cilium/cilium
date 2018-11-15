@@ -15,12 +15,11 @@
 package fqdn
 
 import (
-	"bytes"
 	"net"
 	"regexp"
-	"sort"
 	"time"
 
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
@@ -78,7 +77,7 @@ func (s ipEntries) getIPs(now time.Time) []net.IP {
 		}
 	}
 
-	return keepUniqueIPs(ips) // sorts IPs
+	return ip.KeepUniqueIPs(ips) // sorts IPs
 }
 
 // DNSCache manages DNS data that will expire after a certain TTL. Information
@@ -205,32 +204,4 @@ func (c *DNSCache) removeExpired(entries ipEntries, now time.Time) {
 			delete(entries, ip)
 		}
 	}
-}
-
-// keepUniqueIPs transforms the provided multiset of IPs into a single set,
-// lexicographically sorted via a byte-wise comparison of the IP slices (i.e.
-// IPv4 addresses show up before IPv6).
-// The slice is manipulated in-place destructively.
-//
-// 1- Sort the slice by comparing the IPs as bytes
-// 2- For every unseen unique IP in the sorted slice, move it to the start of
-// the return slice.
-// Note that the slice is always large enough and, because it is sorted, we
-// will not overwrite a valid element with another. To overwrite an element i
-// with j, i must have come before j AND we decided it was a duplicate of the
-// element at i-1.
-func keepUniqueIPs(ips []net.IP) []net.IP {
-	sort.Slice(ips, func(i, j int) bool {
-		return bytes.Compare(ips[i], ips[j]) == -1
-	})
-
-	returnIPs := ips[:0] // len==0 but cap==cap(ips)
-	for readIdx, ip := range ips {
-		if len(returnIPs) == 0 ||
-			bytes.Compare(returnIPs[len(returnIPs)-1], ips[readIdx]) != 0 {
-			returnIPs = append(returnIPs, ip)
-		}
-	}
-
-	return returnIPs
 }
