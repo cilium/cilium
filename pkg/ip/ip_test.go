@@ -17,6 +17,7 @@
 package ip
 
 import (
+	"math/rand"
 	"net"
 	"sort"
 	"testing"
@@ -640,4 +641,53 @@ func (s *IPTestSuite) TestPartitionCIDR(c *C) {
 		createIPNet("fd44:7089:ff32:712b:4000::", 66, int(ipv6BitLen))}
 	s.testIPNetsEqual(expectedCIDRs, right, c)
 	s.testIPNetsEqual([]*net.IPNet{excludeCIDR}, exclude, c)
+}
+
+// TestKeepUniqueIPs tests that KeepUniqueIPs returns a slice with only the unique IPs
+func (s *IPTestSuite) TestKeepUniqueIPs(c *C) {
+	// test nil/empty handling
+	ips := KeepUniqueIPs(nil)
+	c.Assert(len(ips), Equals, 0, Commentf("Non-empty slice returned with empty input"))
+
+	// test all duplicate
+	ips = KeepUniqueIPs([]net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("1.1.1.1"), net.ParseIP("1.1.1.1")})
+	c.Assert(len(ips), Equals, 1, Commentf("Too many IPs returned for only 1 unique"))
+	c.Assert(ips[0].String(), Equals, "1.1.1.1", Commentf("Incorrect unique IP returned"))
+
+	// test all unique
+	ipSource := []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("2.2.2.2"), net.ParseIP("3.3.3.3")}
+	ips = KeepUniqueIPs(ipSource)
+	c.Assert(len(ips), Equals, 3, Commentf("Too few IPs returned for only 3 uniques"))
+	for i := range ipSource {
+		c.Assert(ips[i].String(), Equals, ipSource[i].String(), Commentf("Incorrect unique IP returned"))
+	}
+
+	// test mixed
+	ipSource = []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("2.2.2.2"), net.ParseIP("3.3.3.3"), net.ParseIP("2.2.2.2")}
+	ips = KeepUniqueIPs(ipSource)
+	c.Assert(len(ips), Equals, 3, Commentf("Too few IPs returned for only 3 uniques"))
+	for i := range ipSource[:3] {
+		c.Assert(ips[i].String(), Equals, ipSource[i].String(), Commentf("Incorrect unique IP returned"))
+	}
+}
+
+// Note: each "op" works on size things
+func (s *IPTestSuite) BenchmarkKeepUniqueIPs(c *C) {
+	size := 1000
+	ipsOrig := make([]net.IP, 0, size)
+	for i := 0; i < size; i++ {
+		ipsOrig = append(ipsOrig, net.IPv4(byte(i>>24), byte(i>>16), byte(i>>8), byte(i>>0)))
+	}
+	ips := make([]net.IP, 0, len(ipsOrig))
+
+	copy(ips, ipsOrig)
+	for i := 0; i < c.N; i++ {
+		c.StopTimer()
+		rand.Shuffle(len(ips), func(i, j int) {
+			ips[i], ips[j] = ips[j], ips[i]
+		})
+		c.StartTimer()
+
+		KeepUniqueIPs(ips)
+	}
 }
