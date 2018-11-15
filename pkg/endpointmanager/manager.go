@@ -278,7 +278,7 @@ func updateReferences(ep *endpoint.Endpoint) {
 // each endpoint to avoid issue on endpoint regenerations statistics.
 // Returns a waiting group that can be used to know when all the endpoints are
 // regenerated.
-func RegenerateAllEndpoints(owner endpoint.Owner, regenContext *endpoint.RegenerationContext) *sync.WaitGroup {
+func RegenerateAllEndpoints(owner endpoint.Owner, regenContext *endpoint.RegenerationContext, reloadDatapath bool) *sync.WaitGroup {
 	var wg sync.WaitGroup
 
 	eps := GetEndpoints()
@@ -297,7 +297,7 @@ func RegenerateAllEndpoints(owner endpoint.Owner, regenContext *endpoint.Regener
 					// Regenerate logs status according to the build success/failure
 					// Create a new regenContext to not overwrite the spanStats
 					// values on the endpoint regeneration.
-					<-ep.Regenerate(owner, endpoint.NewRegenerationContext(regenContext.Reason))
+					<-ep.Regenerate(owner, endpoint.NewRegenerationContext(regenContext.Reason), reloadDatapath)
 				}
 			}
 			wg.Done()

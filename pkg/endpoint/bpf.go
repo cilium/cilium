@@ -504,10 +504,12 @@ func (e *Endpoint) removeOldRedirects(owner Owner, desiredRedirects map[string]b
 
 // regenerateBPF rewrites all headers and updates all BPF maps to reflect the
 // specified endpoint.
+// ReloadDatapath forces the datapath programs to be reloaded. It does
+// not guarantee recompilation of the programs.
 // Must be called with endpoint.Mutex not held and endpoint.BuildMutex held.
 // Returns the policy revision number when the regeneration has called, a
 // boolean if the BPF compilation was executed and an error in case of an error.
-func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenContext *RegenerationContext) (revnum uint64, compiled bool, reterr error) {
+func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenContext *RegenerationContext, reloadDatapath bool) (revnum uint64, compiled bool, reterr error) {
 	var (
 		err                 error
 		compilationExecuted bool
@@ -746,7 +748,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 	e.getLogger().WithField("bpfHeaderfilesChanged", bpfHeaderfilesChanged).Debug("Preparing to compile BPF")
 
 	stats.prepareBuild.End(true)
-	if bpfHeaderfilesChanged || regenContext.ReloadDatapath {
+	if bpfHeaderfilesChanged || reloadDatapath {
 		closeChan := loadinfo.LogPeriodicSystemLoad(log.WithFields(logrus.Fields{logfields.EndpointID: epID}).Debugf, time.Second)
 
 		// Compile and install BPF programs for this endpoint

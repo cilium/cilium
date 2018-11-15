@@ -168,7 +168,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	ready := e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
 	e.Unlock()
 	c.Assert(ready, Equals, true)
-	buildSuccess := <-e.Regenerate(ds.d, regenContext)
+	buildSuccess := <-e.Regenerate(ds.d, regenContext, false)
 	c.Assert(buildSuccess, Equals, true)
 	c.Assert(e.Allows(qaBarSecLblsCtx.ID), Equals, false)
 	c.Assert(e.Allows(prodBarSecLblsCtx.ID), Equals, false)
@@ -186,7 +186,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	ready = e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
 	e.Unlock()
 	c.Assert(ready, Equals, true)
-	buildSuccess = <-e.Regenerate(ds.d, regenContext)
+	buildSuccess = <-e.Regenerate(ds.d, regenContext, false)
 	c.Assert(buildSuccess, Equals, true)
 	c.Assert(e.Allows(0), Equals, false)
 	c.Assert(e.Allows(qaBarSecLblsCtx.ID), Equals, false)
@@ -462,7 +462,7 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 	ready := e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
 	e.Unlock()
 	c.Assert(ready, Equals, true)
-	buildSuccess := <-e.Regenerate(ds.d, regenContext)
+	buildSuccess := <-e.Regenerate(ds.d, regenContext, false)
 	c.Assert(buildSuccess, Equals, true)
 
 	// Check that the policy has been updated in the xDS cache for the L7

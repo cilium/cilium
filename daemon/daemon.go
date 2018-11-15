@@ -1080,10 +1080,9 @@ func (d *Daemon) TriggerReloadWithoutCompile(reason string) (*sync.WaitGroup, er
 		return nil, fmt.Errorf("Unable to recompile base programs from %s: %s", reason, err)
 	}
 	regenContext := &endpoint.RegenerationContext{
-		Reason:         reason,
-		ReloadDatapath: true,
+		Reason: reason,
 	}
-	return endpointmanager.RegenerateAllEndpoints(d, regenContext), nil
+	return endpointmanager.RegenerateAllEndpoints(d, regenContext, true), nil
 }
 
 func changedOption(key string, value option.OptionSetting, data interface{}) {
