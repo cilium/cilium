@@ -63,13 +63,15 @@ var (
 	}
 )
 
-// RegenerationContext provides context to regenerate() calls to determine
+// regenerationContext provides context to regenerate() calls to determine
 // the caller, and which specific aspects to regeneration are necessary to
 // update the datapath to implement the new behavior.
-type RegenerationContext struct {
+type regenerationContext struct {
 	// Reason provides context to source for the regeneration, which is
 	// used to generate useful log messages.
 	Reason string
+
+	ReloadDatapath bool
 
 	// Stats are collected during the endpoint regeneration and provided
 	// back to the caller
@@ -78,14 +80,6 @@ type RegenerationContext struct {
 	// DoneFunc must be called when the most resource intensive portion of
 	// the regeneration is done
 	DoneFunc func()
-}
-
-// NewRegenerationContext returns a new context for regeneration that does not
-// force any recalculation, rebuild or reload of policy.
-func NewRegenerationContext(reason string) *RegenerationContext {
-	return &RegenerationContext{
-		Reason: reason,
-	}
 }
 
 // ProxyID returns a unique string to identify a proxy mapping.
@@ -646,7 +640,7 @@ func (e *Endpoint) ComputePolicyEnforcement(repo *policy.Repository) (ingress bo
 }
 
 // Called with e.Mutex UNlocked
-func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext, reloadDatapath bool) (retErr error) {
+func (e *Endpoint) regenerate(owner Owner, context *regenerationContext) (retErr error) {
 	var revision uint64
 	var compilationExecuted bool
 	var err error
@@ -767,7 +761,7 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext, reloadD
 		e.Unlock()
 	}()
 
-	revision, compilationExecuted, err = e.regenerateBPF(owner, origDir, tmpDir, context, reloadDatapath)
+	revision, compilationExecuted, err = e.regenerateBPF(owner, origDir, tmpDir, context)
 	if err != nil {
 		failDir := e.FailedDirectoryPath()
 		e.getLogger().WithFields(logrus.Fields{
@@ -817,13 +811,14 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext, reloadD
 // Regenerate forces the regeneration of endpoint programs & policy
 // Should only be called with e.state == StateWaitingToRegenerate or with
 // e.state == StateWaitingForIdentity
-// ReloadDatapath forces the datapath programs to be reloaded. It does
-// not guarantee recompilation of the programs.
-func (e *Endpoint) Regenerate(owner Owner, context *RegenerationContext, reloadDatapath bool) <-chan bool {
+func (e *Endpoint) Regenerate(owner Owner, regenMetadata *ExternalRegenerationMetadata) <-chan bool {
 	done := make(chan bool, 1)
 
 	go func() {
 		var buildSuccess bool
+
+		regenContext := regenMetadata.toRegenerationContext()
+
 		defer func() {
 			done <- buildSuccess
 			close(done)
@@ -844,8 +839,8 @@ func (e *Endpoint) Regenerate(owner Owner, context *RegenerationContext, reloadD
 		if doneFunc != nil {
 			scopedLog.Debug("Dequeued endpoint from build queue")
 
-			context.DoneFunc = doneFunc
-			err := e.regenerate(owner, context, reloadDatapath)
+			regenContext.DoneFunc = doneFunc
+			err := e.regenerate(owner, regenContext)
 			doneFunc() // in case not called already
 
 			repr, reprerr := monitor.EndpointRegenRepr(e, err)
