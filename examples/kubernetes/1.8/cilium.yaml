@@ -391,6 +391,24 @@ spec:
                 key: cluster-id
                 name: cilium-config
                 optional: true
+          - name: AWS_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                name: cilium-aws
+                key: AWS_ACCESS_KEY_ID
+                optional: true
+          - name: AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: cilium-aws
+                key: AWS_SECRET_ACCESS_KEY
+                optional: true
+          - name: AWS_DEFAULT_REGION
+            valueFrom:
+              secretKeyRef:
+                name: cilium-aws
+                key: AWS_DEFAULT_REGION
+                optional: true
         volumeMounts:
           - name: etcd-config-path
             mountPath: /var/lib/etcd-config
