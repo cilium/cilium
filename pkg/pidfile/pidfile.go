@@ -42,10 +42,7 @@ func Remove(path string) {
 	}
 }
 
-// Write the pid of the process to the specified path, and attach a cleanup
-// handler to the exit of the program so it's removed afterwards.
-func Write(path string) error {
-	pid := os.Getpid()
+func write(path string, pid int) error {
 	pidBytes := []byte(strconv.Itoa(pid) + "\n")
 	if err := ioutil.WriteFile(path, pidBytes, 0660); err != nil {
 		return err
@@ -63,6 +60,13 @@ func Write(path string) error {
 	}()
 
 	return nil
+}
+
+// Write the pid of the process to the specified path, and attach a cleanup
+// handler to the exit of the program so it's removed afterwards.
+func Write(path string) error {
+	pid := os.Getpid()
+	return write(path, pid)
 }
 
 // kill parses the PID in the provided slice and attempts to kill the process
