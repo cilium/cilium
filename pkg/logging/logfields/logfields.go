@@ -108,6 +108,9 @@ const (
 	// StartTime is the start time of an event
 	StartTime = "startTime"
 
+	// EndTime is the end time of an event
+	EndTime = "endTime"
+
 	// Duration is the duration of a measured operation
 	Duration = "duration"
 
@@ -187,6 +190,9 @@ const (
 	// Note: pkg/proxy/accesslog points to this variable so be careful when
 	// changing the value
 	Path = "file-path"
+
+	// Line is a line number within a file
+	Line = "line"
 
 	// Object is used when "%+v" printing Go objects for debug or error handling.
 	// It is often paired with logfields.Repr to render the object.
