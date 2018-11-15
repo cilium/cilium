@@ -33,6 +33,11 @@ var bpfConfigGetCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf config get")
 		requireEndpointID(cmd, args)
+
+		if true {
+			fmt.Printf("directly dumping endpoint config maps is not supported right now; See GH-6228 for more information\n")
+			return
+		}
 		listEndpointConfigMap(args)
 	},
 }
