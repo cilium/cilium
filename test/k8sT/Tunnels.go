@@ -103,7 +103,7 @@ var _ = Describe("K8sTunnelTest", func() {
 			By("Checking that BPF tunnels are in place")
 			status := kubectl.CiliumExec(ciliumPod, "cilium bpf tunnel list | wc -l")
 			status.ExpectSuccess()
-			Expect(status.IntOutput()).Should(Equal(5))
+			Expect(status.IntOutput()).Should(Equal(3))
 
 			By("Checking that BPF tunnels are working correctly")
 			tunnStatus := isNodeNetworkingWorking(kubectl, "zgroup=testDS")
@@ -154,7 +154,7 @@ var _ = Describe("K8sTunnelTest", func() {
 			By("Checking that BPF tunnels are in place")
 			status := kubectl.CiliumExec(ciliumPod, "cilium bpf tunnel list | wc -l")
 			status.ExpectSuccess()
-			Expect(status.IntOutput()).Should(Equal(5))
+			Expect(status.IntOutput()).Should(Equal(3))
 
 			By("Checking that BPF tunnels are working correctly")
 			tunnStatus := isNodeNetworkingWorking(kubectl, "zgroup=testDS")
