@@ -1,5 +1,16 @@
 ---
 apiVersion: v1
+kind: Secret
+metadata:
+  name: cilium-aws
+  namespace: kube-system
+type: Opaque
+data:
+  AWS_ACCESS_KEY_ID: ""
+  AWS_SECRET_ACCESS_KEY: ""
+  AWS_DEFAULT_REGION: ""
+---
+apiVersion: v1
 kind: ConfigMap
 metadata:
   name: cilium-config
@@ -372,6 +383,24 @@ spec:
               configMapKeyRef:
                 key: cluster-id
                 name: cilium-config
+                optional: true
+          - name: AWS_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                name: cilium-aws
+                key: AWS_ACCESS_KEY_ID
+                optional: true
+          - name: AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: cilium-aws
+                key: AWS_SECRET_ACCESS_KEY
+                optional: true
+          - name: AWS_DEFAULT_REGION
+            valueFrom:
+              secretKeyRef:
+                name: cilium-aws
+                key: AWS_DEFAULT_REGION
                 optional: true
         volumeMounts:
           - name: etcd-config-path

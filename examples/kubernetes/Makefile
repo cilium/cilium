@@ -63,6 +63,7 @@ clean:
 
 transform: cilium-rbac.yaml.sed \
     cilium-cm.yaml \
+    cilium-aws-secret.yaml \
     cilium-crio-ds.yaml.sed \
     cilium-ds.yaml.sed \
     cilium-pre-flight.yaml.sed \
