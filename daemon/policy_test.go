@@ -44,7 +44,9 @@ var (
 	ProdIPv6Addr, _ = addressing.NewCiliumIPv6("cafe:cafe:cafe:cafe:aaaa:aaaa:1111:1112")
 	ProdIPv4Addr, _ = addressing.NewCiliumIPv4("10.11.12.14")
 
-	regenContext = endpoint.NewRegenerationContext("test")
+	regenerationMetadata = &endpoint.ExternalRegenerationMetadata{
+		Reason: "test",
+	}
 )
 
 // getXDSNetworkPolicies returns the representation of the xDS network policies
@@ -168,7 +170,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	ready := e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
 	e.Unlock()
 	c.Assert(ready, Equals, true)
-	buildSuccess := <-e.Regenerate(ds.d, regenContext, false)
+	buildSuccess := <-e.Regenerate(ds.d, regenerationMetadata)
 	c.Assert(buildSuccess, Equals, true)
 	c.Assert(e.Allows(qaBarSecLblsCtx.ID), Equals, false)
 	c.Assert(e.Allows(prodBarSecLblsCtx.ID), Equals, false)
@@ -186,7 +188,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	ready = e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
 	e.Unlock()
 	c.Assert(ready, Equals, true)
-	buildSuccess = <-e.Regenerate(ds.d, regenContext, false)
+	buildSuccess = <-e.Regenerate(ds.d, regenerationMetadata)
 	c.Assert(buildSuccess, Equals, true)
 	c.Assert(e.Allows(0), Equals, false)
 	c.Assert(e.Allows(qaBarSecLblsCtx.ID), Equals, false)
@@ -462,7 +464,7 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 	ready := e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
 	e.Unlock()
 	c.Assert(ready, Equals, true)
-	buildSuccess := <-e.Regenerate(ds.d, regenContext, false)
+	buildSuccess := <-e.Regenerate(ds.d, regenerationMetadata)
 	c.Assert(buildSuccess, Equals, true)
 
 	// Check that the policy has been updated in the xDS cache for the L7

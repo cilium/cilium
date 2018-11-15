@@ -274,30 +274,26 @@ func updateReferences(ep *endpoint.Endpoint) {
 // RegenerateAllEndpoints calls a SetStateLocked for each endpoint and
 // regenerates if state transaction is valid. During this process, the endpoint
 // list is locked and cannot be modified.
-// The endpoint.RegenerationContext will be cloned to send a new context to
-// each endpoint to avoid issue on endpoint regenerations statistics.
 // Returns a waiting group that can be used to know when all the endpoints are
 // regenerated.
-func RegenerateAllEndpoints(owner endpoint.Owner, regenContext *endpoint.RegenerationContext, reloadDatapath bool) *sync.WaitGroup {
+func RegenerateAllEndpoints(owner endpoint.Owner, regenMetadata *endpoint.ExternalRegenerationMetadata) *sync.WaitGroup {
 	var wg sync.WaitGroup
 
 	eps := GetEndpoints()
 	wg.Add(len(eps))
 
-	log.Infof("regenerating all endpoints due to %s", regenContext.Reason)
+	log.Infof("regenerating all endpoints due to %s", regenMetadata.Reason)
 	for _, ep := range eps {
 		go func(ep *endpoint.Endpoint, wg *sync.WaitGroup) {
 			if err := ep.LockAlive(); err != nil {
-				log.WithError(err).Warnf("Endpoint disappeared while queued to be regenerated: %s", regenContext.Reason)
+				log.WithError(err).Warnf("Endpoint disappeared while queued to be regenerated: %s", regenMetadata.Reason)
 				ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+err.Error())
 			} else {
-				regen := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenContext.Reason))
+				regen := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenMetadata.Reason))
 				ep.Unlock()
 				if regen {
 					// Regenerate logs status according to the build success/failure
-					// Create a new regenContext to not overwrite the spanStats
-					// values on the endpoint regeneration.
-					<-ep.Regenerate(owner, endpoint.NewRegenerationContext(regenContext.Reason), reloadDatapath)
+					<-ep.Regenerate(owner, regenMetadata)
 				}
 			}
 			wg.Done()

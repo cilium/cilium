@@ -52,8 +52,8 @@ func (d *Daemon) TriggerPolicyUpdates(force bool, reason string) *sync.WaitGroup
 	} else {
 		log.Debugf("Full policy recalculation triggered")
 	}
-	regenContext := endpoint.NewRegenerationContext(reason)
-	return endpointmanager.RegenerateAllEndpoints(d, regenContext, false)
+	regenerationMetadata := &endpoint.ExternalRegenerationMetadata{Reason: reason}
+	return endpointmanager.RegenerateAllEndpoints(d, regenerationMetadata)
 }
 
 type getPolicyResolve struct {
