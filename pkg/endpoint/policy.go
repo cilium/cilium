@@ -804,6 +804,7 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext, reloadD
 		e.syncPolicyMapController()
 	}
 
+	e.realizedBPFConfig = e.desiredBPFConfig
 	e.RealizedL4Policy = e.DesiredL4Policy
 	// Mark the endpoint to be running the policy revision it was
 	// compiled for
