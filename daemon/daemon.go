@@ -1079,10 +1079,11 @@ func (d *Daemon) TriggerReloadWithoutCompile(reason string) (*sync.WaitGroup, er
 	if err := d.compileBase(); err != nil {
 		return nil, fmt.Errorf("Unable to recompile base programs from %s: %s", reason, err)
 	}
-	regenContext := &endpoint.RegenerationContext{
-		Reason: reason,
+	regenRequest := &endpoint.ExternalRegenerationMetadata{
+		Reason:         reason,
+		ReloadDatapath: true,
 	}
-	return endpointmanager.RegenerateAllEndpoints(d, regenContext, true), nil
+	return endpointmanager.RegenerateAllEndpoints(d, regenRequest), nil
 }
 
 func changedOption(key string, value option.OptionSetting, data interface{}) {

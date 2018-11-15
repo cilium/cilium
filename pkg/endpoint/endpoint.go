@@ -1306,7 +1306,7 @@ func (e *Endpoint) Update(owner Owner, cfg *models.EndpointConfigurationSpec) er
 				stateTransitionSucceeded := e.SetStateLocked(StateWaitingToRegenerate, reason)
 				if stateTransitionSucceeded {
 					e.Unlock()
-					e.Regenerate(owner, NewRegenerationContext(reason), false)
+					e.Regenerate(owner, &ExternalRegenerationMetadata{Reason: reason})
 					return nil
 				}
 				e.Unlock()
@@ -1430,7 +1430,7 @@ func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup
 // RegenerateWait should only be called when endpoint's state has successfully
 // been changed to "waiting-to-regenerate"
 func (e *Endpoint) RegenerateWait(owner Owner, reason string) error {
-	if !<-e.Regenerate(owner, NewRegenerationContext(reason), false) {
+	if !<-e.Regenerate(owner, &ExternalRegenerationMetadata{Reason: reason}) {
 		return fmt.Errorf("error while regenerating endpoint."+
 			" For more info run: 'cilium endpoint get %d'", e.ID)
 	}
@@ -2060,7 +2060,7 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 	e.Unlock()
 
 	if readyToRegenerate {
-		e.Regenerate(owner, NewRegenerationContext("updated security labels"), false)
+		e.Regenerate(owner, &ExternalRegenerationMetadata{Reason: "updated security labels"})
 	}
 
 	return nil

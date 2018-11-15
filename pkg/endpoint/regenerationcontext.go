@@ -14,9 +14,21 @@
 
 package endpoint
 
-// RegenerationRequest contains any information about a regeneration that
+// ExternalRegenerationMetadata contains any information about a regeneration that
 // the endpoint subsystem should be made aware of for a given endpoint.
-type RegenerationRequest struct {
-	Reason         string
-	ReloadDatapath string
+type ExternalRegenerationMetadata struct {
+	// Reason provides context to source for the regeneration, which is
+	// used to generate useful log messages.
+	Reason string
+
+	// ReloadDatapath forces the datapath programs to be reloaded. It does
+	// not guarantee recompilation of the programs.
+	ReloadDatapath bool
+}
+
+func (e *ExternalRegenerationMetadata) toRegenerationContext() *regenerationContext {
+	return &regenerationContext{
+		Reason:         e.Reason,
+		ReloadDatapath: e.ReloadDatapath,
+	}
 }
