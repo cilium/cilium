@@ -70,10 +70,6 @@ type RegenerationContext struct {
 	// used to generate useful log messages.
 	Reason string
 
-	// ReloadDatapath forces the datapath programs to be reloaded. It does
-	// not guarantee recompilation of the programs.
-	ReloadDatapath bool
-
 	// Stats are collected during the endpoint regeneration and provided
 	// back to the caller
 	Stats regenerationStatistics
@@ -652,7 +648,7 @@ func (e *Endpoint) ComputePolicyEnforcement(repo *policy.Repository) (ingress bo
 }
 
 // Called with e.Mutex UNlocked
-func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr error) {
+func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext, reloadDatapath bool) (retErr error) {
 	var revision uint64
 	var compilationExecuted bool
 	var err error
@@ -773,7 +769,7 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 		e.Unlock()
 	}()
 
-	revision, compilationExecuted, err = e.regenerateBPF(owner, origDir, tmpDir, context)
+	revision, compilationExecuted, err = e.regenerateBPF(owner, origDir, tmpDir, context, reloadDatapath)
 	if err != nil {
 		failDir := e.FailedDirectoryPath()
 		e.getLogger().WithFields(logrus.Fields{
@@ -822,7 +818,9 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 // Regenerate forces the regeneration of endpoint programs & policy
 // Should only be called with e.state == StateWaitingToRegenerate or with
 // e.state == StateWaitingForIdentity
-func (e *Endpoint) Regenerate(owner Owner, context *RegenerationContext) <-chan bool {
+// ReloadDatapath forces the datapath programs to be reloaded. It does
+// not guarantee recompilation of the programs.
+func (e *Endpoint) Regenerate(owner Owner, context *RegenerationContext, reloadDatapath bool) <-chan bool {
 	newReq := &Request{
 		ID:           uint64(e.ID),
 		MyTurn:       make(chan bool),
@@ -859,7 +857,7 @@ func (e *Endpoint) Regenerate(owner Owner, context *RegenerationContext) <-chan 
 		if isMyTurnChanOK && isMyTurn {
 			scopedLog.Debug("Dequeued endpoint from build queue")
 
-			err := e.regenerate(owner, context)
+			err := e.regenerate(owner, context, reloadDatapath)
 			repr, reprerr := monitor.EndpointRegenRepr(e, err)
 			if reprerr != nil {
 				scopedLog.WithError(reprerr).Warn("Notifying monitor about endpoint regeneration failed")
