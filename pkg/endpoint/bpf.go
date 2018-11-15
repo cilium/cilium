@@ -693,7 +693,10 @@ func (e *Endpoint) regenerateBPF(owner Owner, currentDir, nextDir string, regenC
 			e.Unlock()
 			return 0, compilationExecuted, err
 		}
-		e.realizedBPFConfig = e.desiredBPFConfig
+
+		revertStack.Push(func() error {
+			return e.bpfConfigMap.Update(e.realizedBPFConfig)
+		})
 
 		// Configure the new network policy with the proxies.
 		stats.proxyPolicyCalculation.Start()
