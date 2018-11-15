@@ -135,7 +135,7 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 		ready := ep.SetStateLocked(e.StateWaitingToRegenerate, "test")
 		ep.Unlock()
 		if ready {
-			<-ep.Regenerate(ds, regenContext)
+			<-ep.Regenerate(ds, regenContext, false)
 		}
 
 		switch ep.ID {
@@ -158,7 +158,7 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 				ready := ep.SetStateLocked(e.StateWaitingToRegenerate, "test")
 				ep.Unlock()
 				if ready {
-					<-ep.Regenerate(ds, regenContext)
+					<-ep.Regenerate(ds, regenContext, false)
 				}
 				epsNames = append(epsNames, ep.DirectoryPath())
 			}
