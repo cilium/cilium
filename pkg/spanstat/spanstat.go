@@ -15,11 +15,11 @@
 package spanstat
 
 import (
-	"runtime/debug"
 	"time"
 
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/safetime"
 )
 
 var (
@@ -45,16 +45,13 @@ func (s *SpanStat) Start() {
 // depending on the given success flag
 func (s *SpanStat) End(success bool) {
 	if !s.spanStart.IsZero() {
-		d := time.Since(s.spanStart)
-		if d >= time.Duration(0) {
+		ok, d := safetime.TimeSinceSafe(s.spanStart, log)
+		if ok {
 			if success {
 				s.successDuration += d
 			} else {
 				s.failureDuration += d
 			}
-		} else {
-			log.WithField("duration", d).Warn("Duration is negative on End")
-			debug.PrintStack()
 		}
 	}
 	s.spanStart = time.Time{}
