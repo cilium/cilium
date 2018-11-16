@@ -43,6 +43,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/revert"
+	"github.com/cilium/cilium/pkg/safetime"
 	"github.com/cilium/cilium/pkg/uuid"
 
 	"github.com/sirupsen/logrus"
@@ -573,27 +574,20 @@ func (e *Endpoint) regeneratePolicy(owner Owner) error {
 	// the regeneration of the endpoint to complete.
 	policyChanged := l3PolicyChanged || l4PolicyChanged
 
-	totalRegeneration := time.Since(regenerateStart)
+	logger := e.getLogger().WithFields(logrus.Fields{
+		"policyChanged":      policyChanged,
+		"forcedRegeneration": forceRegeneration,
+	})
 
-	e.getLogger().WithFields(logrus.Fields{
-		"policyChanged":                  policyChanged,
-		"forcedRegeneration":             forceRegeneration,
-		logfields.PolicyRegenerationTime: totalRegeneration.String(),
-	}).Info("Completed endpoint policy recalculation")
+	totalRegeneration, _ := safetime.TimeSinceSafe(regenerateStart, logger)
+
+	logger.WithField(logfields.PolicyRegenerationTime, totalRegeneration.String()).
+		Info("Completed endpoint policy recalculation")
 
 	regenerateTimeSec := totalRegeneration.Seconds()
 	metrics.PolicyRegenerationCount.Inc()
-	if regenerateTimeSec < 0 {
-		e.getLogger().WithFields(logrus.Fields{
-			"policyChanged":                  policyChanged,
-			"forcedRegeneration":             forceRegeneration,
-			logfields.PolicyRegenerationTime: totalRegeneration.String(),
-			"regenerateTimeSec":              regenerateTimeSec,
-		}).Warn("BUG: regenerateTimeSec is less than 0")
-	} else {
-		metrics.PolicyRegenerationTime.Add(regenerateTimeSec)
-		metrics.PolicyRegenerationTimeSquare.Add(math.Pow(regenerateTimeSec, 2))
-	}
+	metrics.PolicyRegenerationTime.Add(regenerateTimeSec)
+	metrics.PolicyRegenerationTimeSquare.Add(math.Pow(regenerateTimeSec, 2))
 
 	return nil
 }
