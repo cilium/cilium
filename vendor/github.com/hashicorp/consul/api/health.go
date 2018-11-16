@@ -2,6 +2,25 @@ package api
 
 import (
 	"fmt"
+	"strings"
+)
+
+const (
+	// HealthAny is special, and is used as a wild card,
+	// not as a specific state.
+	HealthAny      = "any"
+	HealthPassing  = "passing"
+	HealthWarning  = "warning"
+	HealthCritical = "critical"
+	HealthMaint    = "maintenance"
+)
+
+const (
+	// NodeMaint is the special key set by a node in maintenance mode.
+	NodeMaint = "_node_maintenance"
+
+	// ServiceMaintPrefix is the prefix for a service in maintenance mode.
+	ServiceMaintPrefix = "_service_maintenance:"
 )
 
 // HealthCheck is used to represent a single check
@@ -14,13 +33,74 @@ type HealthCheck struct {
 	Output      string
 	ServiceID   string
 	ServiceName string
+	ServiceTags []string
+
+	Definition HealthCheckDefinition
+}
+
+// HealthCheckDefinition is used to store the details about
+// a health check's execution.
+type HealthCheckDefinition struct {
+	HTTP                           string
+	Header                         map[string][]string
+	Method                         string
+	TLSSkipVerify                  bool
+	TCP                            string
+	Interval                       ReadableDuration
+	Timeout                        ReadableDuration
+	DeregisterCriticalServiceAfter ReadableDuration
+}
+
+// HealthChecks is a collection of HealthCheck structs.
+type HealthChecks []*HealthCheck
+
+// AggregatedStatus returns the "best" status for the list of health checks.
+// Because a given entry may have many service and node-level health checks
+// attached, this function determines the best representative of the status as
+// as single string using the following heuristic:
+//
+//  maintenance > critical > warning > passing
+//
+func (c HealthChecks) AggregatedStatus() string {
+	var passing, warning, critical, maintenance bool
+	for _, check := range c {
+		id := string(check.CheckID)
+		if id == NodeMaint || strings.HasPrefix(id, ServiceMaintPrefix) {
+			maintenance = true
+			continue
+		}
+
+		switch check.Status {
+		case HealthPassing:
+			passing = true
+		case HealthWarning:
+			warning = true
+		case HealthCritical:
+			critical = true
+		default:
+			return ""
+		}
+	}
+
+	switch {
+	case maintenance:
+		return HealthMaint
+	case critical:
+		return HealthCritical
+	case warning:
+		return HealthWarning
+	case passing:
+		return HealthPassing
+	default:
+		return HealthPassing
+	}
 }
 
 // ServiceEntry is used for the health service endpoint
 type ServiceEntry struct {
 	Node    *Node
 	Service *AgentService
-	Checks  []*HealthCheck
+	Checks  HealthChecks
 }
 
 // Health can be used to query the Health endpoints
@@ -34,7 +114,7 @@ func (c *Client) Health() *Health {
 }
 
 // Node is used to query for checks belonging to a given node
-func (h *Health) Node(node string, q *QueryOptions) ([]*HealthCheck, *QueryMeta, error) {
+func (h *Health) Node(node string, q *QueryOptions) (HealthChecks, *QueryMeta, error) {
 	r := h.c.newRequest("GET", "/v1/health/node/"+node)
 	r.setQueryOptions(q)
 	rtt, resp, err := requireOK(h.c.doRequest(r))
@@ -47,7 +127,7 @@ func (h *Health) Node(node string, q *QueryOptions) ([]*HealthCheck, *QueryMeta,
 	parseQueryMeta(resp, qm)
 	qm.RequestTime = rtt
 
-	var out []*HealthCheck
+	var out HealthChecks
 	if err := decodeBody(resp, &out); err != nil {
 		return nil, nil, err
 	}
@@ -55,7 +135,7 @@ func (h *Health) Node(node string, q *QueryOptions) ([]*HealthCheck, *QueryMeta,
 }
 
 // Checks is used to return the checks associated with a service
-func (h *Health) Checks(service string, q *QueryOptions) ([]*HealthCheck, *QueryMeta, error) {
+func (h *Health) Checks(service string, q *QueryOptions) (HealthChecks, *QueryMeta, error) {
 	r := h.c.newRequest("GET", "/v1/health/checks/"+service)
 	r.setQueryOptions(q)
 	rtt, resp, err := requireOK(h.c.doRequest(r))
@@ -68,7 +148,7 @@ func (h *Health) Checks(service string, q *QueryOptions) ([]*HealthCheck, *Query
 	parseQueryMeta(resp, qm)
 	qm.RequestTime = rtt
 
-	var out []*HealthCheck
+	var out HealthChecks
 	if err := decodeBody(resp, &out); err != nil {
 		return nil, nil, err
 	}
@@ -79,13 +159,48 @@ func (h *Health) Checks(service string, q *QueryOptions) ([]*HealthCheck, *Query
 // for a given service. It can optionally do server-side filtering on a tag
 // or nodes with passing health checks only.
 func (h *Health) Service(service, tag string, passingOnly bool, q *QueryOptions) ([]*ServiceEntry, *QueryMeta, error) {
-	r := h.c.newRequest("GET", "/v1/health/service/"+service)
-	r.setQueryOptions(q)
+	var tags []string
 	if tag != "" {
-		r.params.Set("tag", tag)
+		tags = []string{tag}
+	}
+	return h.service(service, tags, passingOnly, q, false)
+}
+
+func (h *Health) ServiceMultipleTags(service string, tags []string, passingOnly bool, q *QueryOptions) ([]*ServiceEntry, *QueryMeta, error) {
+	return h.service(service, tags, passingOnly, q, false)
+}
+
+// Connect is equivalent to Service except that it will only return services
+// which are Connect-enabled and will returns the connection address for Connect
+// client's to use which may be a proxy in front of the named service. If
+// passingOnly is true only instances where both the service and any proxy are
+// healthy will be returned.
+func (h *Health) Connect(service, tag string, passingOnly bool, q *QueryOptions) ([]*ServiceEntry, *QueryMeta, error) {
+	var tags []string
+	if tag != "" {
+		tags = []string{tag}
+	}
+	return h.service(service, tags, passingOnly, q, true)
+}
+
+func (h *Health) ConnectMultipleTags(service string, tags []string, passingOnly bool, q *QueryOptions) ([]*ServiceEntry, *QueryMeta, error) {
+	return h.service(service, tags, passingOnly, q, true)
+}
+
+func (h *Health) service(service string, tags []string, passingOnly bool, q *QueryOptions, connect bool) ([]*ServiceEntry, *QueryMeta, error) {
+	path := "/v1/health/service/" + service
+	if connect {
+		path = "/v1/health/connect/" + service
+	}
+	r := h.c.newRequest("GET", path)
+	r.setQueryOptions(q)
+	if len(tags) > 0 {
+		for _, tag := range tags {
+			r.params.Add("tag", tag)
+		}
 	}
 	if passingOnly {
-		r.params.Set("passing", "1")
+		r.params.Set(HealthPassing, "1")
 	}
 	rtt, resp, err := requireOK(h.c.doRequest(r))
 	if err != nil {
@@ -106,13 +221,12 @@ func (h *Health) Service(service, tag string, passingOnly bool, q *QueryOptions)
 
 // State is used to retrieve all the checks in a given state.
 // The wildcard "any" state can also be used for all checks.
-func (h *Health) State(state string, q *QueryOptions) ([]*HealthCheck, *QueryMeta, error) {
+func (h *Health) State(state string, q *QueryOptions) (HealthChecks, *QueryMeta, error) {
 	switch state {
-	case "any":
-	case "warning":
-	case "critical":
-	case "passing":
-	case "unknown":
+	case HealthAny:
+	case HealthWarning:
+	case HealthCritical:
+	case HealthPassing:
 	default:
 		return nil, nil, fmt.Errorf("Unsupported state: %v", state)
 	}
@@ -128,7 +242,7 @@ func (h *Health) State(state string, q *QueryOptions) ([]*HealthCheck, *QueryMet
 	parseQueryMeta(resp, qm)
 	qm.RequestTime = rtt
 
-	var out []*HealthCheck
+	var out HealthChecks
 	if err := decodeBody(resp, &out); err != nil {
 		return nil, nil, err
 	}

@@ -182,7 +182,7 @@ required = [
 
 [[constraint]]
   name = "github.com/hashicorp/consul"
-  revision = "05bc9149a5204b213a61bc410b8cec21f10a23fe"
+  revision = "0bddfa23a2ebe3c0773d917fc104f53d74f7a5ec"
 
 [[constraint]]
   name = "github.com/hashicorp/go-version"
