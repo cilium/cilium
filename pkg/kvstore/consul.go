@@ -18,13 +18,14 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"strings"
+	"io/ioutil"
 	"time"
 
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
+	"github.com/ghodss/yaml"
 	consulAPI "github.com/hashicorp/consul/api"
 	"github.com/sirupsen/logrus"
 )
@@ -34,7 +35,8 @@ const (
 
 	// optAddress is the string representing the key mapping to the value of the
 	// address for Consul.
-	optAddress = "consul.address"
+	optAddress         = "consul.address"
+	ConsulOptionConfig = "consul.config"
 
 	// maxLockRetries is the number of retries attempted when acquiring a lock
 	maxLockRetries = 10
@@ -53,6 +55,9 @@ var (
 		opts: backendOptions{
 			optAddress: &backendOption{
 				description: "Addresses of consul cluster",
+			},
+			ConsulOptionConfig: &backendOption{
+				description: "Path to consul configuration file",
 			},
 		},
 	}
@@ -87,23 +92,30 @@ func (c *consulModule) getConfig() map[string]string {
 
 func (c *consulModule) newClient() (BackendOperations, error) {
 	if c.config == nil {
-		consulAddr, ok := c.opts[optAddress]
-		if !ok {
+		consulAddr, _ := c.opts[optAddress]
+		configPathOpt, _ := c.opts[ConsulOptionConfig]
+		if consulAddr.value == "" {
 			return nil, fmt.Errorf("invalid consul configuration, please specify %s option", optAddress)
 		}
 
 		addr := consulAddr.value
-		consulSplitAddr := strings.Split(addr, "://")
-		if len(consulSplitAddr) == 2 {
-			addr = consulSplitAddr[1]
-		} else if len(consulSplitAddr) == 1 {
-			addr = consulSplitAddr[0]
+		c.config = consulAPI.DefaultConfig()
+		if configPathOpt.value != "" {
+			b, err := ioutil.ReadFile(configPathOpt.value)
+			if err != nil {
+				return nil, fmt.Errorf("unable to read consul configuration file %s", configPathOpt.value)
+			}
+			yc := consulAPI.TLSConfig{}
+			err = yaml.Unmarshal(b, &yc)
+			if err != nil {
+				return nil, fmt.Errorf("invalid consul configuration in %s", configPathOpt.value)
+			}
+			c.config.TLSConfig = yc
 		}
 
-		c.config = consulAPI.DefaultConfig()
 		c.config.Address = addr
-	}
 
+	}
 	client, err := newConsulClient(c.config)
 	if err != nil {
 		return nil, err
