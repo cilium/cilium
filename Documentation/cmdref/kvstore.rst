@@ -22,13 +22,27 @@ consul
 ------
 
 When using consul, the consul agent address needs to be provided with the
-``consul.address``:
+``consul.address``:  ``consul.config`` is optional only required for TLS
+authentication:
 
 +---------------------+---------+---------------------------------------------------+
 | Option              |  Type   | Description                                       |
 +---------------------+---------+---------------------------------------------------+
 | consul.address      | Address | Address of consul agent                           |
 +---------------------+---------+---------------------------------------------------+
+| consul.config       | Path    | Path to a consul configuration file               |
+|                     |         | for client to server authentication               |
++---------------------+---------+---------------------------------------------------+
+
+Example of the consul configuration file:
+
+.. code:: yaml
+
+    ---
+    CAFile: '/home/nirmoy/devel/consul/consul-ca.pem'
+    KeyFile: '/home/nirmoy/devel/consul/client-key.pem'
+    CertFile: '/home/nirmoy/devel/consul/client.pem'
+    #InsecureSkipVerify: true
 
 etcd
 ----
