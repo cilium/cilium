@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	timeout = 1 * time.Millisecond
+	timeout = 250 * time.Millisecond
 )
 
 // Hook up gocheck into the "go test" runner.
