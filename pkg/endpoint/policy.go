@@ -573,24 +573,19 @@ func (e *Endpoint) regeneratePolicy(owner Owner) error {
 	// the regeneration of the endpoint to complete.
 	policyChanged := l3PolicyChanged || l4PolicyChanged
 
-	totalRegeneration := time.Since(regenerateStart)
+	logger := e.getLogger().WithFields(logrus.Fields{
+		"policyChanged":      policyChanged,
+		"forcedRegeneration": forceRegeneration,
+	})
 
-	e.getLogger().WithFields(logrus.Fields{
-		"policyChanged":                  policyChanged,
-		"forcedRegeneration":             forceRegeneration,
-		logfields.PolicyRegenerationTime: totalRegeneration.String(),
-	}).Info("Completed endpoint policy recalculation")
+	ok, totalRegeneration := metrics.TimeSinceSafe(regenerateStart, logger)
 
-	regenerateTimeSec := totalRegeneration.Seconds()
+	logger.WithField(logfields.PolicyRegenerationTime, totalRegeneration.String()).
+		Info("Completed endpoint policy recalculation")
+
 	metrics.PolicyRegenerationCount.Inc()
-	if regenerateTimeSec < 0 {
-		e.getLogger().WithFields(logrus.Fields{
-			"policyChanged":                  policyChanged,
-			"forcedRegeneration":             forceRegeneration,
-			logfields.PolicyRegenerationTime: totalRegeneration.String(),
-			"regenerateTimeSec":              regenerateTimeSec,
-		}).Warn("BUG: regenerateTimeSec is less than 0")
-	} else {
+	if ok {
+		regenerateTimeSec := totalRegeneration.Seconds()
 		metrics.PolicyRegenerationTime.Add(regenerateTimeSec)
 		metrics.PolicyRegenerationTimeSquare.Add(math.Pow(regenerateTimeSec, 2))
 	}
