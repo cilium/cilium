@@ -884,7 +884,7 @@ func runDaemon() {
 
 	d.initHealth()
 
-	initMetrics()
+	metricsErrs := initMetrics()
 
 	api := d.instantiateAPI()
 
@@ -907,7 +907,16 @@ func runDaemon() {
 	log.WithField("bootstrapTime", time.Since(bootstrapTimestamp)).
 		Info("Daemon initialization completed")
 
-	if err := server.Serve(); err != nil {
+	errs := make(chan error, 1)
+
+	go func() {
+		errs <- server.Serve()
+	}()
+
+	select {
+	case err := <-metricsErrs:
+		log.WithError(err).Fatal("Cannot start metrics server")
+	case err := <-errs:
 		log.WithError(err).Fatal("Error returned from non-returning Serve() call")
 	}
 }
