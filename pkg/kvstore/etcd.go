@@ -121,6 +121,11 @@ func (e *etcdModule) newClient() (BackendOperations, error) {
 				EtcdOptionConfig, addrOption)
 		}
 
+		if endpointsOpt.value == "" && configPathOpt.value == "" {
+			return nil, fmt.Errorf("invalid etcd configuration, %s or %s must be specified",
+				EtcdOptionConfig, addrOption)
+		}
+
 		e.config = &client.Config{}
 
 		if endpointsSet {
