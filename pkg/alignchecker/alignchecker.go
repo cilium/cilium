@@ -37,6 +37,7 @@ import (
 	"reflect"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
@@ -140,6 +141,10 @@ var cToGO = map[reflect.Type]valueToCheck{
 	reflect.TypeOf(C.struct_proxy6_tbl_value{}): {
 		sizeOfC:  C.sizeof_struct_proxy6_tbl_value,
 		goStruct: reflect.TypeOf(proxymap.Proxy6Value{}),
+	},
+	reflect.TypeOf(C.struct_ep_config{}): {
+		sizeOfC:  C.sizeof_struct_ep_config,
+		goStruct: reflect.TypeOf(configmap.EndpointConfig{}),
 	},
 }
 
