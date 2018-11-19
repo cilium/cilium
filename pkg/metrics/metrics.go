@@ -30,7 +30,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
-	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -509,15 +508,17 @@ func MustRegister(c prometheus.Collector) {
 
 // Enable begins serving prometheus metrics on the address passed in. Addresses
 // of the form ":8080" will bind the port on all interfaces.
-func Enable(addr string) error {
+func Enable(addr string) <-chan error {
+	errs := make(chan error, 1)
+
 	go func() {
 		// The Handler function provides a default handler to expose metrics
 		// via an HTTP server. "/metrics" is the usual endpoint for that.
 		http.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
-		log.WithError(http.ListenAndServe(addr, nil)).Warnf("Cannot start metrics server on %s", addr)
+		errs <- http.ListenAndServe(addr, nil)
 	}()
 
-	return nil
+	return errs
 }
 
 // GetCounterValue returns the current value
