@@ -120,6 +120,13 @@ func (m *RegexpMap) Remove(reStr, lookupValue string) (deleted bool) {
 	return true
 }
 
+// GetPrecompiledRegexp returns the regexp matching reStr if it is in the map.
+// This is a utility function to avoid recompiling regexps repeatedly, and the
+// RegexpMap keeps the refcount for us.
+func (m *RegexpMap) GetPrecompiledRegexp(reStr string) (re *regexp.Regexp) {
+	return m.rules[reStr]
+}
+
 // keepUniqueStrings deduplicates strings in s. The output is sorted.
 func keepUniqueStrings(s []string) []string {
 	sort.Strings(s)

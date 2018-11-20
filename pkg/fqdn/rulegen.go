@@ -19,13 +19,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/fqdn/regexpmap"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
 
-	"github.com/miekg/dns"
 	"github.com/sirupsen/logrus"
 )
 
@@ -143,7 +143,9 @@ perRule:
 		stripToCIDRSet(sourceRule)
 
 		// update IPs in this rule, best effort, from the cache
-		emitted, _ := injectToCIDRSetRules(sourceRule, gen.cache)
+		// Note: This will cause a needless regexp compile in tihs function,
+		// because the sourceRules RegexpMap hasn't seen the regexp yet
+		emitted, _ := injectToCIDRSetRules(sourceRule, gen.cache, gen.sourceRules)
 		gen.updateEmittedIPs(emitted)
 	}
 }
@@ -338,7 +340,7 @@ func (gen *RuleGen) GenerateRulesFromSources(sourceRules []*api.Rule) (generated
 
 	for _, sourceRule := range sourceRules {
 		newRule := sourceRule.DeepCopy()
-		emittedIPs, namesMissingIPs := injectToCIDRSetRules(newRule, gen.cache)
+		emittedIPs, namesMissingIPs := injectToCIDRSetRules(newRule, gen.cache, gen.sourceRules)
 		for _, missing := range namesMissingIPs {
 			namesMissingMap[missing] = struct{}{}
 		}
@@ -367,8 +369,16 @@ func (gen *RuleGen) addRule(uuid string, sourceRule *api.Rule) (newDNSNames, old
 	if oldRule, exists := gen.allRules[uuid]; exists {
 		for _, egressRule := range oldRule.Egress {
 			for _, ToFQDN := range egressRule.ToFQDNs {
-				matchName := dns.Fqdn(ToFQDN.MatchName)
-				namesToStopManaging[matchName] = struct{}{}
+				if len(ToFQDN.MatchName) > 0 {
+					dnsName := prepareMatchName(ToFQDN.MatchName)
+					dnsNameAsRE := matchpattern.ToRegexp(dnsName)
+					namesToStopManaging[dnsNameAsRE] = struct{}{}
+				}
+				if len(ToFQDN.MatchPattern) > 0 {
+					dnsPattern := prepareMatchPattern(ToFQDN.MatchPattern)
+					dnsPatternAsRE := matchpattern.ToRegexp(dnsPattern)
+					namesToStopManaging[dnsPatternAsRE] = struct{}{}
+				}
 			}
 		}
 	}
@@ -376,28 +386,47 @@ func (gen *RuleGen) addRule(uuid string, sourceRule *api.Rule) (newDNSNames, old
 	// Always add to allRules
 	gen.allRules[uuid] = sourceRule
 
-	// Add a dnsname -> rule reference
+	// Add a dnsname -> rule reference. We track old/new names by the literal
+	// value in matchName/Pattern. They are inserted into the sourceRules
+	// RegexpMap as regexeps, however, so we can match against them later.
 	for _, egressRule := range sourceRule.Egress {
-	perMatchName:
 		for _, ToFQDN := range egressRule.ToFQDNs {
-			dnsName := strings.ToLower(dns.Fqdn(ToFQDN.MatchName))
+			if len(ToFQDN.MatchName) > 0 {
+				dnsName := prepareMatchName(ToFQDN.MatchName)
+				dnsNameAsRE := matchpattern.ToRegexp(dnsName)
+				delete(namesToStopManaging, dnsNameAsRE) // keep this matchName
+				// check if this is already managed or not
+				if sourceUUIDs := gen.sourceRules.LookupValues(dnsNameAsRE); len(sourceUUIDs) > 0 {
+					oldDNSNames = append(oldDNSNames, ToFQDN.MatchName)
+				} else {
+					gen.namesToPoll[dnsName] = struct{}{}
 
-			delete(namesToStopManaging, dnsName) // keep this dnsName
-			_, dnsNameAlreadyExists := gen.namesToPoll[dnsName]
-			if dnsNameAlreadyExists {
-				oldDNSNames = append(oldDNSNames, dnsName)
-				continue perMatchName
+					// This ToFQDN.MatchName has not been seen before
+					newDNSNames = append(newDNSNames, ToFQDN.MatchName)
+					// Add this egress rule as a dependent on dnsName, but fixup the literal
+					// name so it can work as a regex
+					if err = gen.sourceRules.Add(dnsNameAsRE, uuid); err != nil {
+						return nil, nil, err
+					}
+				}
 			}
 
-			// This dnsName has not been seen before
-			newDNSNames = append(newDNSNames, dnsName)
-			// we only want to poll non-regex toFQDNs.MatchName entries
-			if isSimpleFQDN(dnsName) {
-				gen.namesToPoll[dnsName] = struct{}{}
-			}
-			// Add this egress rule as a dependent on dnsName.
-			if err = gen.sourceRules.Add(dnsName, uuid); err != nil {
-				return nil, nil, err
+			if len(ToFQDN.MatchPattern) > 0 {
+				dnsPattern := prepareMatchPattern(ToFQDN.MatchPattern)
+				dnsPatternAsRE := matchpattern.ToRegexp(dnsPattern)
+				delete(namesToStopManaging, dnsPatternAsRE) // keep this matchPattern
+				// check if this is already managed or not
+				if sourceUUIDs := gen.sourceRules.LookupValues(dnsPatternAsRE); len(sourceUUIDs) > 0 {
+					oldDNSNames = append(oldDNSNames, ToFQDN.MatchPattern)
+				} else {
+					// This ToFQDNs.MatchPattern has not been seen before
+					newDNSNames = append(newDNSNames, ToFQDN.MatchPattern)
+					// Add this egress rule as a dependent on ToFQDNs.MatchPattern, but fixup the literal
+					// name so it can work as a regex
+					if err = gen.sourceRules.Add(dnsPatternAsRE, uuid); err != nil {
+						return nil, nil, err
+					}
+				}
 			}
 		}
 	}
@@ -426,15 +455,22 @@ func (gen *RuleGen) removeRule(uuid string, sourceRule *api.Rule) (noLongerManag
 	// Delete dnsname -> rule references
 	for _, egressRule := range sourceRule.Egress {
 		for _, ToFQDN := range egressRule.ToFQDNs {
-			dnsName := strings.ToLower(dns.Fqdn(ToFQDN.MatchName))
-
-			if shouldStopManaging := gen.removeFromDNSName(dnsName, uuid); shouldStopManaging {
-				if isSimpleFQDN(dnsName) {
+			if len(ToFQDN.MatchName) > 0 {
+				dnsName := prepareMatchName(ToFQDN.MatchName)
+				dnsNameAsRE := matchpattern.ToRegexp(dnsName)
+				if shouldStopManaging := gen.removeFromDNSName(dnsNameAsRE, uuid); shouldStopManaging {
 					delete(gen.namesToPoll, dnsName)
+					delete(gen.previousEmittedIPs, dnsName) // also delete from the IP map, no longer managed
+					noLongerManaged = append(noLongerManaged, ToFQDN.MatchName)
 				}
+			}
 
-				delete(gen.previousEmittedIPs, dnsName) // also delete from the IP map, no longer managed
-				noLongerManaged = append(noLongerManaged, dnsName)
+			if len(ToFQDN.MatchPattern) > 0 {
+				dnsPattern := prepareMatchPattern(ToFQDN.MatchPattern)
+				dnsPatternAsRE := matchpattern.ToRegexp(dnsPattern)
+				if shouldStopManaging := gen.removeFromDNSName(dnsPatternAsRE, uuid); shouldStopManaging {
+					noLongerManaged = append(noLongerManaged, ToFQDN.MatchPattern)
+				}
 			}
 		}
 	}
