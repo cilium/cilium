@@ -717,7 +717,11 @@ int handle_ingress(struct __sk_buff *skb)
 
 	case bpf_htons(ETH_P_ARP):
 		ep_tail_call(skb, CILIUM_CALL_ARP);
+#ifndef POLICY_ENFORCEMENT_MODE
 		ret = DROP_MISSED_TAIL_CALL;
+#else
+		ret = 0;
+#endif
 		break;
 
 	default:

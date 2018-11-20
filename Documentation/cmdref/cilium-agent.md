@@ -74,6 +74,7 @@ cilium-agent
       --monitor-aggregation string                  Level of monitor aggregation for traces from the datapath (default "None")
       --mtu int                                     Overwrite auto-detected MTU of underlying network (default 1500)
       --nat46-range string                          IPv6 prefix to map IPv4 addresses to (default "0:0:0:0:0:FFFF::/96")
+      --policy-enforcement-interface string         Install a BPF program to allow for policy enforcement in the given network interface. Allows to run Cilium on top of other CNI plugins that provide networking, e.g. flannel, where for flannel, this value should be set with 'cni0'. [EXPERIMENTAL]
       --pprof                                       Enable serving the pprof debugging API
       --prefilter-device string                     Device facing external network for XDP prefiltering (default "undefined")
       --prefilter-mode string                       Prefilter mode { native | generic } (default: native) (default "native")

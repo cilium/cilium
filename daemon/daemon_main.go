@@ -68,6 +68,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/vishvananda/netlink"
 )
 
 var (
@@ -485,6 +486,9 @@ func init() {
 		"trace-payloadlen", 128, "Length of payload to capture when tracing")
 	flags.Bool(
 		"version", false, "Print version information")
+	flags.StringVar(&option.Config.PolicyEnforcementInterface,
+		"policy-enforcement-interface", "", "Install a BPF program to allow for policy enforcement in the given network interface. Allows to run Cilium on top of other CNI plugins that provide networking, e.g. flannel, where for flannel, this value should be set with 'cni0'. [EXPERIMENTAL]")
+	viper.BindEnv("policy-enforcement-interface", "CILIUM_POLICY_ENFORCEMENT_INTERFACE")
 	flags.Bool(
 		"pprof", false, "Enable serving the pprof debugging API")
 	flags.StringVarP(&option.Config.DevicePreFilter,
@@ -812,6 +816,28 @@ func initEnv(cmd *cobra.Command) {
 
 func runDaemon() {
 	log.Info("Initializing daemon")
+
+	// Since flannel doesn't create the cni0 interface until the first container
+	// is initialized we need to wait until it is initialized so we can attach
+	// the BPF program to it. If Cilium is running as a Kubernetes DaemonSet,
+	// there is also a script waiting for the interface to be created.
+	if option.Config.IsPolicyEnforcementInterfaceSet() {
+		defaults.HostDevice = option.Config.PolicyEnforcementInterface
+		for i := 0; ; i++ {
+			if i%10 == 0 {
+				log.WithField("interface", defaults.HostDevice).
+					Info("Waiting for the underlying interface to be initialized with containers")
+			}
+			_, err := netlink.LinkByName(defaults.HostDevice)
+			if err == nil {
+				log.WithField("interface", defaults.HostDevice).
+					Info("Underlying interface initialized with containers!")
+				break
+			}
+			time.Sleep(time.Second)
+		}
+	}
+
 	d, restoredEndpoints, err := NewDaemon()
 	if err != nil {
 		log.WithError(err).Fatal("Error while creating daemon")
@@ -868,6 +894,28 @@ func runDaemon() {
 		// going to allocate the same IP addresses and we will ignore
 		// these containers from reading.
 		workloads.IgnoreRunningWorkloads()
+	}
+
+	if option.Config.IsPolicyEnforcementInterfaceSet() {
+		d.attachExistingInfraContainers()
+		l, err := netlink.LinkByName(defaults.HostDevice)
+		if err != nil {
+			log.WithError(err).
+				WithField("network-interface", defaults.HostDevice).
+				Fatal("Unable to retrieve interface attributes")
+		}
+		cniV4Addrs, err := netlink.AddrList(l, netlink.FAMILY_V4)
+		if err != nil {
+			log.WithError(err).
+				WithField("network-interface", defaults.HostDevice).
+				Fatal("Unable to retrieve interface IPv4 address")
+		}
+		for _, ip := range cniV4Addrs {
+			if netlink.Scope(ip.Scope) == netlink.SCOPE_UNIVERSE {
+				node.SetInternalIPv4(ip.IP)
+				break
+			}
+		}
 	}
 
 	maps.CollectStaleMapGarbage()

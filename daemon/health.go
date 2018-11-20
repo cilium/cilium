@@ -32,6 +32,13 @@ import (
 )
 
 func (d *Daemon) initHealth() {
+	if option.Config.IsPolicyEnforcementInterfaceSet() {
+		// Do not run health endpoint in policy enforcement mode as we can't
+		// allocate an IP address for this endpoint and the datapath is not
+		// controlled by Cilium.
+		return
+	}
+
 	// Allocate health endpoint IPs after restoring state
 	log.Info("Building health endpoint")
 	health4, health6, err := ipam.AllocateNext("")

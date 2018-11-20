@@ -177,8 +177,11 @@ type daemonConfig struct {
 	HostV4Addr      net.IP     // Host v4 address of the snooping device
 	HostV6Addr      net.IP     // Host v6 address of the snooping device
 	IPv4Disabled    bool       // Disable IPv4 allocation
-	LBInterface     string     // Set with name of the interface to loadbalance packets from
-	Workloads       []string   // List of Workloads set by the user to used by cilium.
+	// PolicyEnforcementInterface installs a BPF program in the given interface
+	// to allow for policy enforcement mode on top of a CNI plugin.
+	PolicyEnforcementInterface string
+	LBInterface                string   // Set with name of the interface to loadbalance packets from
+	Workloads                  []string // List of Workloads set by the user to used by cilium.
 
 	Tunnel string // Tunnel mode
 
@@ -337,6 +340,12 @@ func (c *daemonConfig) AlwaysAllowLocalhost() bool {
 // specific set of labels) is enabled.
 func (c *daemonConfig) TracingEnabled() bool {
 	return c.Opts.IsEnabled(PolicyTracing)
+}
+
+// PolicyEnforcementInterfaceEnabled returns if the policy enforcement mode
+// is set with a interface name.
+func (c *daemonConfig) IsPolicyEnforcementInterfaceSet() bool {
+	return len(c.PolicyEnforcementInterface) != 0
 }
 
 func (c *daemonConfig) validateIPv6ClusterAllocCIDR() error {
