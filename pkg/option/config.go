@@ -218,6 +218,10 @@ const (
 	// flannel, this value should be set with 'cni0'. [EXPERIMENTAL]")
 	PolicyEnforcementInterface = "policy-enforcement-interface"
 
+	// PolicyEnforcementCleanUP should be used along the policy-enforcement-interface flag,
+	// it cleans up all BPF programs installed when Cilium agent is terminated.
+	PolicyEnforcementCleanUP = "policy-enforcement-clean-up"
+
 	// PProf enables serving the pprof debugging API
 	PProf = "pprof"
 
@@ -846,6 +850,7 @@ func (c *DaemonConfig) Populate() {
 	c.MTU = viper.GetInt(MTUName)
 	c.NAT46Range = viper.GetString(NAT46Range)
 	c.PolicyEnforcementInterface = viper.GetString(PolicyEnforcementInterface)
+	c.PolicyEnforcementCleanUp = viper.GetBool(PolicyEnforcementCleanUP)
 	c.PProf = viper.GetBool(PProf)
 	c.PrependIptablesChains = viper.GetBool(PrependIptablesChainsName)
 	c.PrometheusServeAddr = getPrometheusServerAddr()
