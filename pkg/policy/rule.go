@@ -295,9 +295,11 @@ func mergeCIDR(ctx *SearchContext, dir string, ipRules []api.CIDR, ruleLabels la
 // added to result, a nil CIDRPolicy is returned.
 func (r *rule) resolveCIDRPolicy(ctx *SearchContext, state *traceState, result *CIDRPolicy) *CIDRPolicy {
 	// Don't select rule if it doesn't apply to the given context.
-	if !r.EndpointSelector.Matches(ctx.To) {
-		state.unSelectRule(ctx, ctx.To, r)
-		return nil
+	if !ctx.RulesSelect {
+		if !r.EndpointSelector.Matches(ctx.To) {
+			state.unSelectRule(ctx, ctx.To, r)
+			return nil
+		}
 	}
 
 	state.selectRule(ctx, r)
@@ -351,9 +353,11 @@ func (r *rule) resolveCIDRPolicy(ctx *SearchContext, state *traceState, result *
 // contained within r.
 func (r *rule) canReachIngress(ctx *SearchContext, state *traceState) api.Decision {
 
-	if !r.EndpointSelector.Matches(ctx.To) {
-		state.unSelectRule(ctx, ctx.To, r)
-		return api.Undecided
+	if !ctx.RulesSelect {
+		if !r.EndpointSelector.Matches(ctx.To) {
+			state.unSelectRule(ctx, ctx.To, r)
+			return api.Undecided
+		}
 	}
 
 	state.selectRule(ctx, r)
@@ -398,9 +402,11 @@ func (r *rule) canReachIngress(ctx *SearchContext, state *traceState) api.Decisi
 // contained within r.
 func (r *rule) canReachEgress(ctx *SearchContext, state *traceState) api.Decision {
 
-	if !r.EndpointSelector.Matches(ctx.From) {
-		state.unSelectRule(ctx, ctx.From, r)
-		return api.Undecided
+	if !ctx.RulesSelect {
+		if !r.EndpointSelector.Matches(ctx.From) {
+			state.unSelectRule(ctx, ctx.From, r)
+			return api.Undecided
+		}
 	}
 
 	state.selectRule(ctx, r)
