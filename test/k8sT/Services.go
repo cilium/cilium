@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -172,7 +172,7 @@ var _ = Describe("K8sServicesTest", func() {
 			testHTTPRequest(url)
 		})
 
-		It("Tests NodePort", func() {
+		testNodePort := func() {
 			waitPodsDs()
 
 			var data v1.Service
@@ -189,6 +189,27 @@ var _ = Describe("K8sServicesTest", func() {
 			url = fmt.Sprintf("http://%s",
 				net.JoinHostPort(helpers.K8s2Ip, fmt.Sprintf("%d", data.Spec.Ports[0].NodePort)))
 			testHTTPRequest(url)
+		}
+
+		It("Tests NodePort", func() {
+			testNodePort()
+		})
+
+		Context("with L7 policy", func() {
+			var (
+				demoPolicy = helpers.ManifestGet("l7-policy-demo.yaml")
+			)
+
+			AfterAll(func() {
+				// Explicitly ignore result of deletion of resources to avoid incomplete
+				// teardown if any step fails.
+				_ = kubectl.Delete(demoPolicy)
+			})
+
+			It("Tests NodePort with L7 Policy", func() {
+				applyPolicy(demoPolicy)
+				testNodePort()
+			})
 		})
 	})
 
