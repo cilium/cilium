@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -310,6 +311,34 @@ func cmdAdd(args *skel.CmdArgs) error {
 		return fmt.Errorf("failed to open netns %q: %s", args.Netns, err)
 	}
 	defer netNs.Close()
+
+	if len(n.NetConf.RawPrevResult) != 0 {
+		err := cniVersion.ParsePrevResult(&n.NetConf)
+		if err != nil {
+			return fmt.Errorf("unable to understand network config: %s", err)
+		}
+		str := strings.Split(args.Netns, "/")
+		pid, err := strconv.Atoi(str[2])
+		if err != nil {
+			return err
+		}
+		ep := &models.EndpointChangeRequest{
+			ContainerID: args.ContainerID,
+			Pid:         int64(pid),
+			State:       models.EndpointStateWaitingForIdentity,
+		}
+		epID, err := c.EndpointCreateID(ep)
+		if err != nil {
+			logger.WithError(err).WithFields(logrus.Fields{
+				logfields.ContainerID: ep.ContainerID}).Warn("Unable to create endpoint")
+			return fmt.Errorf("Unable to create endpoint: %s", err)
+		}
+
+		logger.WithFields(logrus.Fields{
+			logfields.EndpointID:  epID,
+			logfields.ContainerID: ep.ContainerID}).Debug("Endpoint successfully created")
+		return cniTypes.PrintResult(&cniTypesVer.Result{}, cniVer)
+	}
 
 	if err := removeIfFromNSIfExists(netNs, args.IfName); err != nil {
 		return fmt.Errorf("failed removing interface %q from namespace %q: %s",
