@@ -33,7 +33,7 @@ type EtcdSuite struct {
 var _ = Suite(&EtcdSuite{})
 
 func (e *EtcdSuite) SetUpTest(c *C) {
-	SetupDummy("etcd")
+	SetupDummy("etcd", false)
 }
 
 func (e *EtcdSuite) TearDownTest(c *C) {

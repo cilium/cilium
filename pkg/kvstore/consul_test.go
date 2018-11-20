@@ -34,7 +34,7 @@ type ConsulSuite struct {
 var _ = Suite(&ConsulSuite{})
 
 func (e *ConsulSuite) SetUpTest(c *C) {
-	SetupDummy("consul")
+	SetupDummy("consul", true)
 }
 
 func (e *ConsulSuite) TearDownTest(c *C) {

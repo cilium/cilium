@@ -102,7 +102,7 @@ func (i *identityAllocatorOwnerMock) GetNodeSuffix() string {
 }
 
 func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
-	kvstore.SetupDummy("etcd")
+	kvstore.SetupDummy("etcd", false)
 	defer kvstore.Close()
 
 	logging.DefaultLogger.SetLevel(logrus.DebugLevel)

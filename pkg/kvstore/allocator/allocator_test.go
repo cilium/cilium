@@ -46,7 +46,7 @@ type AllocatorEtcdSuite struct {
 var _ = Suite(&AllocatorEtcdSuite{})
 
 func (e *AllocatorEtcdSuite) SetUpTest(c *C) {
-	kvstore.SetupDummy("etcd")
+	kvstore.SetupDummy("etcd", false)
 }
 
 func (e *AllocatorEtcdSuite) TearDownTest(c *C) {
@@ -61,7 +61,7 @@ type AllocatorConsulSuite struct {
 var _ = Suite(&AllocatorConsulSuite{})
 
 func (e *AllocatorConsulSuite) SetUpTest(c *C) {
-	kvstore.SetupDummy("consul")
+	kvstore.SetupDummy("consul", true)
 }
 
 func (e *AllocatorConsulSuite) TearDownTest(c *C) {

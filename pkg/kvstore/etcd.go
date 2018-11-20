@@ -97,7 +97,7 @@ func (e *etcdModule) getName() string {
 	return EtcdBackendName
 }
 
-func (e *etcdModule) setConfigDummy() {
+func (e *etcdModule) setConfigDummy(tlsSet bool) {
 	e.config = &client.Config{}
 	e.config.Endpoints = []string{etcdDummyAddress}
 }

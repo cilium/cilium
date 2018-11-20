@@ -86,7 +86,7 @@ type IdentityAllocatorEtcdSuite struct {
 var _ = Suite(&IdentityAllocatorEtcdSuite{})
 
 func (e *IdentityAllocatorEtcdSuite) SetUpTest(c *C) {
-	kvstore.SetupDummy("etcd")
+	kvstore.SetupDummy("etcd", false)
 }
 
 type IdentityAllocatorConsulSuite struct {
@@ -96,7 +96,7 @@ type IdentityAllocatorConsulSuite struct {
 var _ = Suite(&IdentityAllocatorConsulSuite{})
 
 func (e *IdentityAllocatorConsulSuite) SetUpTest(c *C) {
-	kvstore.SetupDummy("consul")
+	kvstore.SetupDummy("consul", true)
 }
 
 type dummyOwner struct{}

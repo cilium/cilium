@@ -149,7 +149,7 @@ type DaemonEtcdSuite struct {
 var _ = Suite(&DaemonEtcdSuite{})
 
 func (e *DaemonEtcdSuite) SetUpTest(c *C) {
-	kvstore.SetupDummy("etcd")
+	kvstore.SetupDummy("etcd", false)
 	e.DaemonSuite.SetUpTest(c)
 }
 
@@ -164,7 +164,7 @@ type DaemonConsulSuite struct {
 var _ = Suite(&DaemonConsulSuite{})
 
 func (e *DaemonConsulSuite) SetUpTest(c *C) {
-	kvstore.SetupDummy("consul")
+	kvstore.SetupDummy("consul", true)
 	e.DaemonSuite.SetUpTest(c)
 }
 

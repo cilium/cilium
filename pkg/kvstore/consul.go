@@ -50,6 +50,8 @@ type consulModule struct {
 var (
 	//consulDummyAddress can be overwritten from test invokers using ldflags
 	consulDummyAddress = "127.0.0.1:8501"
+	//consulDummyConfigFile can be overwritten from test invokers using ldflags
+	consulDummyConfigFile = "test/consul/cilium-consul.yaml"
 
 	module = &consulModule{
 		opts: backendOptions{
@@ -77,9 +79,22 @@ func (c *consulModule) getName() string {
 	return consulName
 }
 
-func (c *consulModule) setConfigDummy() {
+func (c *consulModule) setConfigDummy(tlsSet bool) {
 	c.config = consulAPI.DefaultConfig()
 	c.config.Address = consulDummyAddress
+	log.Info(c.config.Address)
+	if tlsSet {
+		yc := consulAPI.TLSConfig{}
+		b, err := ioutil.ReadFile(consulDummyConfigFile)
+		if err != nil {
+			log.Info("unable to read consul configuration file %s: %s", consulDummyConfigFile, err)
+		}
+		err = yaml.Unmarshal(b, &yc)
+		if err != nil {
+			log.Info("invalid consul configuration in %s: %s", consulDummyConfigFile, err)
+		}
+		c.config.TLSConfig = yc
+	}
 }
 
 func (c *consulModule) setConfig(opts map[string]string) error {

@@ -43,7 +43,7 @@ type backendModule interface {
 
 	// setConfigDummy must configure the backend with dummy configuration
 	// for testing purposes. This is a replacement for setConfig().
-	setConfigDummy()
+	setConfigDummy(tlsSet bool)
 
 	// getConfig must return the backend configuration.
 	getConfig() map[string]string

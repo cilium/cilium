@@ -15,13 +15,13 @@
 package kvstore
 
 // SetupDummy sets up kvstore for tests
-func SetupDummy(dummyBackend string) {
+func SetupDummy(dummyBackend string, tlsSet bool) {
 	module := getBackend(dummyBackend)
 	if module == nil {
 		log.Panicf("Unknown dummy kvstore backend %s", dummyBackend)
 	}
 
-	module.setConfigDummy()
+	module.setConfigDummy(tlsSet)
 
 	if err := initClient(module); err != nil {
 		log.WithError(err).Panic("Unable to initialize kvstore client")

@@ -45,7 +45,7 @@ type StoreEtcdSuite struct {
 var _ = Suite(&StoreEtcdSuite{})
 
 func (e *StoreEtcdSuite) SetUpTest(c *C) {
-	kvstore.SetupDummy("etcd")
+	kvstore.SetupDummy("etcd", false)
 }
 
 func (e *StoreEtcdSuite) TearDownTest(c *C) {
@@ -60,7 +60,7 @@ type StoreConsulSuite struct {
 var _ = Suite(&StoreConsulSuite{})
 
 func (e *StoreConsulSuite) SetUpTest(c *C) {
-	kvstore.SetupDummy("consul")
+	kvstore.SetupDummy("consul", true)
 }
 
 func (e *StoreConsulSuite) TearDownTest(c *C) {
