@@ -17,6 +17,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -40,6 +41,23 @@ import (
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/sirupsen/logrus"
 )
+
+var (
+	errEndpointExists = errors.New("endpoint exists")
+)
+
+type errEndpointInvalidParams struct {
+	msg string
+}
+
+func (e errEndpointInvalidParams) Error() string {
+	return e.msg
+}
+
+func isErrEndpointInvalidParams(err error) bool {
+	_, ok := err.(errEndpointInvalidParams)
+	return ok
+}
 
 type getEndpoint struct {
 	d *Daemon
@@ -145,18 +163,25 @@ func fetchK8sLabels(ep *endpoint.Endpoint) (labels.Labels, labels.Labels, error)
 }
 
 // createEndpoint attempts to create the endpoint corresponding to the change
-// request that was specified. Returns an HTTP code response code and an
-// error msg (or nil on success).
-func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.EndpointChangeRequest) (int, error) {
+// request that was specified. Returns the following errors types:
+//  * errEndpointInvalidParams - If the parameters are not valid
+//  * errEndpointExists - If the endpoint already exists
+// All other error types should be treated as an internal error.
+func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.EndpointChangeRequest) error {
 
 	ep, err := endpoint.NewEndpointFromChangeModel(epTemplate)
 	if err != nil {
-		return PutEndpointIDInvalidCode, err
+		return errEndpointInvalidParams{err.Error()}
 	}
 
 	ep.SetDefaultOpts(option.Config.Opts)
 
-	checkIDs := []string{}
+	oldEp := endpointmanager.LookupCiliumID(ep.ID)
+	if oldEp != nil {
+		return errEndpointExists
+	}
+
+	var checkIDs []string
 
 	if ep.IPv4.IsSet() {
 		checkIDs = append(checkIDs, endpointid.NewID(endpointid.IPv4Prefix, ep.IPv4.String()))
@@ -167,16 +192,16 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 	}
 
 	for _, id := range checkIDs {
-		oldEp, err2 := endpointmanager.Lookup(id)
-		if err2 != nil {
-			return PutEndpointIDInvalidCode, err2
+		oldEp, err := endpointmanager.Lookup(id)
+		if err != nil {
+			return errEndpointInvalidParams{err.Error()}
 		} else if oldEp != nil {
-			return PutEndpointIDExistsCode, fmt.Errorf("Endpoint ID %s already exists", id)
+			return errEndpointExists
 		}
 	}
 
 	if err = endpoint.APICanModify(ep); err != nil {
-		return PutEndpointIDInvalidCode, err
+		return errEndpointInvalidParams{err.Error()}
 	}
 
 	addLabels := labels.NewLabelsFromModel(epTemplate.Labels)
@@ -185,10 +210,10 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 	if len(addLabels) > 0 {
 		addLabels, _, ok := checkLabels(addLabels, nil)
 		if !ok {
-			return PutEndpointIDInvalidCode, fmt.Errorf("no valid label")
+			return errEndpointInvalidParams{fmt.Sprintf("no valid label")}
 		}
 		if lbls := addLabels.FindReserved(); lbls != nil {
-			return PutEndpointIDInvalidCode, fmt.Errorf("not allowed to add reserved labels: %s", lbls)
+			return errEndpointInvalidParams{fmt.Sprintf("not allowed to add reserved labels: %s", lbls)}
 		}
 	}
 
@@ -215,7 +240,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 
 	if err := endpointmanager.AddEndpoint(d, ep, "Create endpoint from API PUT"); err != nil {
 		log.WithError(err).Warn("Aborting endpoint join")
-		return PutEndpointIDFailedCode, err
+		return err
 	}
 
 	// Only used for CRI-O since it does not support events.
@@ -228,7 +253,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 
 	// Wait for endpoint to be in "ready" state if specified in API call.
 	if !epTemplate.SyncBuildEndpoint {
-		return PutEndpointIDCreatedCode, nil
+		return nil
 	}
 
 	log.Debug("Synchronously waiting for endpoint to regenerate")
@@ -258,14 +283,14 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		case <-revCh:
 			if ctx.Err() == nil {
 				// At least one BPF regeneration has successfully completed.
-				return PutEndpointIDCreatedCode, nil
+				return nil
 			}
 
 		case <-ctx.Done():
 
 		case <-ticker.C:
 			if err := ep.RLockAlive(); err != nil {
-				return PutEndpointIDFailedCode, fmt.Errorf("error locking endpoint: %s", err.Error())
+				return fmt.Errorf("error locking endpoint: %s", err.Error())
 			}
 			hasSidecarProxy := ep.HasSidecarProxy()
 			ep.RUnlock()
@@ -275,7 +300,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 				// return immediately to let the sidecar container start,
 				// in case it is required to enforce L7 rules.
 				log.Info("Endpoint has sidecar proxy, returning from synchronous creation request before regeneration has succeeded")
-				return PutEndpointIDCreatedCode, nil
+				return nil
 			}
 		}
 
@@ -284,7 +309,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 			// exceeded.
 			log.Warning("Endpoint did not synchronously regenerate after timeout")
 			d.deleteEndpoint(ep)
-			return PutEndpointIDFailedCode, fmt.Errorf("endpoint %d did not synchronously regenerate after timeout", ep.ID)
+			return fmt.Errorf("endpoint %d did not synchronously regenerate after timeout", ep.ID)
 		}
 	}
 }
@@ -298,13 +323,32 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 		logfields.EventUUID:   uuid.NewUUID(),
 	})
 
-	code, err := h.d.createEndpoint(params.HTTPRequest.Context(), epTemplate)
-	if err != nil {
-		logger.WithError(err).Error("Endpoint cannot be created")
-		return api.Error(code, err)
+	n, err := endpointid.ParseCiliumID(params.ID)
+	switch {
+	case err != nil:
+		return api.Error(PutEndpointIDInvalidCode, err)
+	case n != epTemplate.ID:
+		return api.New(PutEndpointIDInvalidCode,
+			"ID parameter does not match ID in endpoint parameter")
+	case epTemplate.ID == 0:
+		return api.New(PutEndpointIDInvalidCode,
+			"endpoint ID cannot be 0")
 	}
 
-	return NewPutEndpointIDCreated()
+	err = h.d.createEndpoint(params.HTTPRequest.Context(), epTemplate)
+	switch {
+	case err == nil:
+		return NewPutEndpointIDCreated()
+	case err == errEndpointExists:
+		logger.WithError(err).Error("Endpoint cannot be created")
+		return api.Error(PutEndpointIDExistsCode, fmt.Errorf("endpoint ID %d exists", epTemplate.ID))
+	case isErrEndpointInvalidParams(err):
+		logger.WithError(err).Error("Endpoint cannot be created")
+		return api.Error(PutEndpointIDInvalidCode, err)
+	default:
+		logger.WithError(err).Error("Endpoint cannot be created")
+		return api.Error(PutEndpointIDFailedCode, err)
+	}
 }
 
 type patchEndpointID struct {
@@ -458,11 +502,11 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 
 func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 	scopedLog := log.WithField(logfields.EndpointID, ep.ID)
-	errors := d.deleteEndpointQuiet(ep, true)
-	for _, err := range errors {
+	errs := d.deleteEndpointQuiet(ep, true)
+	for _, err := range errs {
 		scopedLog.WithError(err).Warn("Ignoring error while deleting endpoint")
 	}
-	return len(errors)
+	return len(errs)
 }
 
 // deleteEndpointQuiet sets the endpoint into disconnecting state and removes
@@ -482,7 +526,7 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []er
 		}
 	}
 
-	errors := []error{}
+	errs := []error{}
 
 	// Wait for existing builds to complete and prevent further builds
 	ep.BuildMutex.Lock()
@@ -514,41 +558,41 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []er
 
 	// If dry mode is enabled, no changes to BPF maps are performed
 	if !option.Config.DryMode {
-		if errs := lxcmap.DeleteElement(ep); errs != nil {
-			errors = append(errors, errs...)
+		if errs2 := lxcmap.DeleteElement(ep); errs2 != nil {
+			errs = append(errs, errs2...)
 		}
 
-		if errs := ep.DeleteMapsLocked(); errs != nil {
-			errors = append(errors, errs...)
+		if errs2 := ep.DeleteMapsLocked(); errs2 != nil {
+			errs = append(errs, errs2...)
 		}
 	}
 
 	if releaseIP {
 		if !option.Config.IPv4Disabled {
 			if err := ipam.ReleaseIP(ep.IPv4.IP()); err != nil {
-				errors = append(errors, fmt.Errorf("unable to release ipv4 address: %s", err))
+				errs = append(errs, fmt.Errorf("unable to release ipv4 address: %s", err))
 			}
 		}
 		if err := ipam.ReleaseIP(ep.IPv6.IP()); err != nil {
-			errors = append(errors, fmt.Errorf("unable to release ipv6 address: %s", err))
+			errs = append(errs, fmt.Errorf("unable to release ipv6 address: %s", err))
 		}
 	}
 
 	completionCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	proxyWaitGroup := completion.NewWaitGroup(completionCtx)
 
-	errors = append(errors, ep.LeaveLocked(d, proxyWaitGroup)...)
+	errs = append(errs, ep.LeaveLocked(d, proxyWaitGroup)...)
 	ep.Unlock()
 
 	err := ep.WaitForProxyCompletions(proxyWaitGroup)
 	if err != nil {
-		errors = append(errors, fmt.Errorf("unable to remove proxy redirects: %s", err))
+		errs = append(errs, fmt.Errorf("unable to remove proxy redirects: %s", err))
 	}
 	cancel()
 
 	ep.BuildMutex.Unlock()
 
-	return errors
+	return errs
 }
 
 func (d *Daemon) DeleteEndpoint(id string) (int, error) {
