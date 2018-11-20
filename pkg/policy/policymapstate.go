@@ -14,7 +14,26 @@
 
 package policy
 
-import "github.com/cilium/cilium/pkg/maps/policymap"
+import (
+	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy/trafficdirection"
+)
+
+var (
+	// localHostKey represents an ingress L3 allow from the local host.
+	localHostKey = policymap.PolicyKey{
+		Identity:         identity.ReservedIdentityHost.Uint32(),
+		TrafficDirection: trafficdirection.Ingress.Uint8(),
+	}
+
+	// worldKey represents an ingress L3 allow from the world.
+	worldKey = policymap.PolicyKey{
+		Identity:         identity.ReservedIdentityWorld.Uint32(),
+		TrafficDirection: trafficdirection.Ingress.Uint8(),
+	}
+)
 
 // PolicyMapState is a state of a policy map.
 type PolicyMapState map[policymap.PolicyKey]PolicyMapStateEntry
@@ -26,4 +45,31 @@ type PolicyMapStateEntry struct {
 	// If 0 (default), there is no proxy redirection for the corresponding
 	// PolicyKey.
 	ProxyPort uint16
+}
+
+// DetermineAllowFromWorld determines whether world should be allowed to
+// communicate with the endpoint, based on legacy Cilium 1.0 behaviour. It
+// inserts the PolicyKey corresponding to the world in the desiredPolicyKeys
+// if the legacy mode is enabled.
+//
+// This must be run after DetermineAllowLocalhost().
+//
+// For more information, see https://cilium.link/host-vs-world
+func (keys PolicyMapState) DetermineAllowFromWorld() {
+
+	_, localHostAllowed := keys[localHostKey]
+	if option.Config.HostAllowsWorld && localHostAllowed {
+		keys[worldKey] = PolicyMapStateEntry{}
+	}
+}
+
+// determineAllowLocalhost determines whether communication should be allowed to
+// the localhost. It inserts the PolicyKey corresponding to the localhost in
+// the desiredPolicyKeys if the endpoint is allowed to communicate with the
+// localhost.
+func (keys PolicyMapState) DetermineAllowLocalhost(l4Policy *L4Policy) {
+
+	if option.Config.AlwaysAllowLocalhost() || (l4Policy != nil && l4Policy.HasRedirect()) {
+		keys[localHostKey] = PolicyMapStateEntry{}
+	}
 }
