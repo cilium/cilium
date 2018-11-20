@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright 2016-2017 Authors of Cilium
+# Copyright 2016-2019 Authors of Cilium
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ RUNDIR=$2
 IP4_HOST=$3
 IP6_HOST=$4
 MODE=$5
-# Only set if MODE = "direct" or "lb"
+# Only set if MODE = "direct" or "lb" or "flannel"
 NATIVE_DEV=$6
 XDP_DEV=$7
 XDP_MODE=$8
@@ -29,7 +29,7 @@ ID_HOST=1
 ID_WORLD=2
 
 # If the value below is changed, be sure to update bugtool/cmd/configuration.go
-# as well when dumping the routing table in bugtool. See GH-5828. 
+# as well when dumping the routing table in bugtool. See GH-5828.
 PROXY_RT_TABLE=2005
 
 set -e
@@ -133,7 +133,7 @@ function move_local_rules()
 		move_local_rules_af "ip -4"
 	fi
 
-	if [ "$IP6_HOST" != "<nil>" ]; then 
+	if [ "$IP6_HOST" != "<nil>" ]; then
 		move_local_rules_af "ip -6"
 	fi
 }
@@ -156,21 +156,28 @@ function setup_proxy_rules()
 		ip -4 rule del $rulespec 2> /dev/null || true
 	fi
 
-	if [ "$IP6_HOST" != "<nil>" ]; then
-		if [ -n "$(ip -6 rule list)" ]; then
-			if [ -z "$(ip -6 rule list $rulespec)" ]; then
-				ip -6 rule add $rulespec
+	# flannel might not have an IPv6 address
+	case "${MODE}" in
+		"flannel")
+			;;
+		*)
+			if [ "$IP6_HOST" != "<nil>" ]; then
+				if [ -n "$(ip -6 rule list)" ]; then
+					if [ -z "$(ip -6 rule list $rulespec)" ]; then
+						ip -6 rule add $rulespec
+					fi
+				fi
+	
+				IP6_LLADDR=$(ip -6 addr show dev $HOST_DEV2 | grep inet6 | head -1 | awk '{print $2}' | awk -F'/' '{print $1}')
+				if [ -n "$IP6_LLADDR" ]; then
+					ip -6 route replace table $PROXY_RT_TABLE ${IP6_LLADDR}/128 dev $HOST_DEV1
+					ip -6 route replace table $PROXY_RT_TABLE default via $IP6_LLADDR dev $HOST_DEV1
+				fi
+			else
+				ip -6 rule del $rulespec 2> /dev/null || true
 			fi
-		fi
-
-		IP6_LLADDR=$(ip -6 addr show dev $HOST_DEV2 | grep inet6 | head -1 | awk '{print $2}' | awk -F'/' '{print $1}')
-		if [ -n "$IP6_LLADDR" ]; then
-			ip -6 route replace table $PROXY_RT_TABLE ${IP6_LLADDR}/128 dev $HOST_DEV1
-			ip -6 route replace table $PROXY_RT_TABLE default via $IP6_LLADDR dev $HOST_DEV1
-		fi
-	else
-		ip -6 rule del $rulespec 2> /dev/null || true
-	fi
+			;;
+	esac
 }
 
 function mac2array()
@@ -254,61 +261,80 @@ function encap_fail()
 	exit 1
 }
 
-if [ "$MODE" != "ipvlan" ]; then
-	HOST_DEV1="cilium_host"
-	HOST_DEV2="cilium_net"
+$LIB/run_probes.sh $LIB $RUNDIR
 
-	$LIB/run_probes.sh $LIB $RUNDIR
+case "${MODE}" in
+	"flannel")
+		HOST_DEV1="${NATIVE_DEV}"
+		HOST_DEV2="${NATIVE_DEV}"
+		setup_veth "${NATIVE_DEV}"
+		;;
+	"ipvlan")
+		# ipvlan is L3 mode, so fill these with dummy vars to make compilation happy.
+		sed -i '/^#.*CILIUM_NET_MAC.*$/d' $RUNDIR/globals/node_config.h
+		echo "#ifndef CILIUM_NET_MAC" >> $RUNDIR/globals/node_config.h
+		echo "#define CILIUM_NET_MAC { .addr = 0 }" >> $RUNDIR/globals/node_config.h
+		echo "#endif /* CILIUM_NET_MAC */" >> $RUNDIR/globals/node_config.h
 
-	setup_veth_pair $HOST_DEV1 $HOST_DEV2
+		sed -i '/^#.*HOST_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
+		echo "#define HOST_IFINDEX 0" >> $RUNDIR/globals/node_config.h
 
-	ip link set $HOST_DEV1 arp off
-	ip link set $HOST_DEV2 arp off
+		sed -i '/^#.*HOST_IFINDEX_MAC.*$/d' $RUNDIR/globals/node_config.h
+		echo "#define HOST_IFINDEX_MAC { .addr = 0 }" >> $RUNDIR/globals/node_config.h
+		;;
+	*)
+		HOST_DEV1="cilium_host"
+		HOST_DEV2="cilium_net"
 
-	ip link set $HOST_DEV1 mtu $MTU
-	ip link set $HOST_DEV2 mtu $MTU
+		setup_veth_pair $HOST_DEV1 $HOST_DEV2
 
-	sed -i '/^#.*CILIUM_NET_MAC.*$/d' $RUNDIR/globals/node_config.h
-	CILIUM_NET_MAC=$(ip link show $HOST_DEV2 | grep ether | awk '{print $2}')
-	CILIUM_NET_MAC=$(mac2array $CILIUM_NET_MAC)
+		ip link set $HOST_DEV1 arp off
+		ip link set $HOST_DEV2 arp off
 
-	# Remove the entire '#ifndef ... #endif block
-	# Each line must contain the string '#.*CILIUM_NET_MAC.*'
-	sed -i '/^#.*CILIUM_NET_MAC.*$/d' $RUNDIR/globals/node_config.h
-	echo "#ifndef CILIUM_NET_MAC" >> $RUNDIR/globals/node_config.h
-	echo "#define CILIUM_NET_MAC { .addr = ${CILIUM_NET_MAC}}" >> $RUNDIR/globals/node_config.h
-	echo "#endif /* CILIUM_NET_MAC */" >> $RUNDIR/globals/node_config.h
+		ip link set $HOST_DEV1 mtu $MTU
+		ip link set $HOST_DEV2 mtu $MTU
+        ;;
+esac
 
-	sed -i '/^#.*HOST_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
-	HOST_IDX=$(cat /sys/class/net/${HOST_DEV2}/ifindex)
-	echo "#define HOST_IFINDEX $HOST_IDX" >> $RUNDIR/globals/node_config.h
+case "${MODE}" in
+	"ipvlan")
+		;;
+	*)
+		sed -i '/^#.*CILIUM_NET_MAC.*$/d' $RUNDIR/globals/node_config.h
+		CILIUM_NET_MAC=$(ip link show $HOST_DEV2 | grep ether | awk '{print $2}')
+		CILIUM_NET_MAC=$(mac2array $CILIUM_NET_MAC)
 
-	sed -i '/^#.*HOST_IFINDEX_MAC.*$/d' $RUNDIR/globals/node_config.h
-	HOST_MAC=$(ip link show $HOST_DEV1 | grep ether | awk '{print $2}')
-	HOST_MAC=$(mac2array $HOST_MAC)
-	echo "#define HOST_IFINDEX_MAC { .addr = ${HOST_MAC}}" >> $RUNDIR/globals/node_config.h
+		# Remove the entire '#ifndef ... #endif block
+		# Each line must contain the string '#.*CILIUM_NET_MAC.*'
+		sed -i '/^#.*CILIUM_NET_MAC.*$/d' $RUNDIR/globals/node_config.h
+		echo "#ifndef CILIUM_NET_MAC" >> $RUNDIR/globals/node_config.h
+		echo "#define CILIUM_NET_MAC { .addr = ${CILIUM_NET_MAC}}" >> $RUNDIR/globals/node_config.h
+		echo "#endif /* CILIUM_NET_MAC */" >> $RUNDIR/globals/node_config.h
 
-	# If the host does not have an IPv6 address assigned, assign our generated host
-	# IP to make the host accessible to endpoints
-	if [ "$IP6_HOST" != "<nil>" ]; then
-		[ -n "$(ip -6 addr show to $IP6_HOST)" ] || ip -6 addr add $IP6_HOST dev $HOST_DEV1
-	fi
-	if [ "$IP4_HOST" != "<nil>" ]; then
-		[ -n "$(ip -4 addr show to $IP4_HOST)" ] || ip -4 addr add $IP4_HOST dev $HOST_DEV1 scope link
-	fi
-else
-	# ipvlan is L3 mode, so fill these with dummy vars to make compilation happy.
-	sed -i '/^#.*CILIUM_NET_MAC.*$/d' $RUNDIR/globals/node_config.h
-	echo "#ifndef CILIUM_NET_MAC" >> $RUNDIR/globals/node_config.h
-	echo "#define CILIUM_NET_MAC { .addr = 0 }" >> $RUNDIR/globals/node_config.h
-	echo "#endif /* CILIUM_NET_MAC */" >> $RUNDIR/globals/node_config.h
+		sed -i '/^#.*HOST_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
+		HOST_IDX=$(cat /sys/class/net/${HOST_DEV2}/ifindex)
+		echo "#define HOST_IFINDEX $HOST_IDX" >> $RUNDIR/globals/node_config.h
 
-	sed -i '/^#.*HOST_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
-	echo "#define HOST_IFINDEX 0" >> $RUNDIR/globals/node_config.h
+		sed -i '/^#.*HOST_IFINDEX_MAC.*$/d' $RUNDIR/globals/node_config.h
+		HOST_MAC=$(ip link show $HOST_DEV1 | grep ether | awk '{print $2}')
+		HOST_MAC=$(mac2array $HOST_MAC)
+		echo "#define HOST_IFINDEX_MAC { .addr = ${HOST_MAC}}" >> $RUNDIR/globals/node_config.h
+esac
 
-	sed -i '/^#.*HOST_IFINDEX_MAC.*$/d' $RUNDIR/globals/node_config.h
-	echo "#define HOST_IFINDEX_MAC { .addr = 0 }" >> $RUNDIR/globals/node_config.h
-fi
+case "${MODE}" in
+	"ipvlan" | "flannel")
+		;;
+	*)
+		# If the host does not have an IPv6 address assigned, assign our generated host
+		# IP to make the host accessible to endpoints
+		if [ "$IP6_HOST" != "<nil>" ]; then
+			[ -n "$(ip -6 addr show to $IP6_HOST)" ] || ip -6 addr add $IP6_HOST dev $HOST_DEV1
+		fi
+		if [ "$IP4_HOST" != "<nil>" ]; then
+			[ -n "$(ip -4 addr show to $IP4_HOST)" ] || ip -4 addr add $IP4_HOST dev $HOST_DEV1 scope link
+		fi
+        ;;
+esac
 
 # Decrease priority of the rule to identify local addresses
 move_local_rules
@@ -387,13 +413,17 @@ else
 	fi
 fi
 
-if [ "$MODE" != "ipvlan" ]; then
-	# bpf_host.o requires to see an updated node_config.h which includes ENCAP_IFINDEX
-	CALLS_MAP="cilium_calls_netdev_ns_${ID_HOST}"
-	POLICY_MAP="cilium_policy_reserved_${ID_HOST}"
-	OPTS="-DFROM_HOST -DFIXED_SRC_SECCTX=${ID_HOST} -DSECLABEL=${ID_HOST} -DPOLICY_MAP=${POLICY_MAP}"
-	bpf_load $HOST_DEV1 "$OPTS" "egress" bpf_netdev.c bpf_host.o from-netdev $CALLS_MAP
-fi
+case "${MODE}" in
+	"ipvlan")
+		;;
+	*)
+		# bpf_host.o requires to see an updated node_config.h which includes ENCAP_IFINDEX
+		CALLS_MAP="cilium_calls_netdev_ns_${ID_HOST}"
+		POLICY_MAP="cilium_policy_reserved_${ID_HOST}"
+		OPTS="-DFROM_HOST -DFIXED_SRC_SECCTX=${ID_HOST} -DSECLABEL=${ID_HOST} -DPOLICY_MAP=${POLICY_MAP}"
+		bpf_load $HOST_DEV1 "$OPTS" "egress" bpf_netdev.c bpf_host.o from-netdev $CALLS_MAP
+		;;
+esac
 
 if [ -n "$XDP_DEV" ]; then
 	CIDR_MAP="cilium_cidr_v*"

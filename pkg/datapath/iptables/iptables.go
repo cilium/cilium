@@ -191,7 +191,7 @@ func RemoveRules() {
 
 // InstallRules installs iptables rules for Cilium in specific use-cases
 // (most specifically, interaction with kube-proxy).
-func InstallRules() error {
+func InstallRules(ifName string) error {
 	for _, c := range ciliumChains {
 		if err := c.add(); err != nil {
 			return fmt.Errorf("cannot add custom chain %s: %s", c.name, err)
@@ -206,9 +206,9 @@ func InstallRules() error {
 	if err := runProg("iptables", []string{
 		"-t", "mangle",
 		"-A", ciliumPostMangleChain,
-		"-o", defaults.HostDevice,
+		"-o", ifName,
 		"!", "-s", "127.0.0.1",
-		"-m", "comment", "--comment", "cilium: clear masq bit for pkts to " + defaults.HostDevice,
+		"-m", "comment", "--comment", "cilium: clear masq bit for pkts to " + ifName,
 		"-j", "MARK", "--set-xmark", clearMasqBit}, false); err != nil {
 		return err
 	}
@@ -219,20 +219,20 @@ func InstallRules() error {
 	// resolved in #52569 and will be fixed in k8s >= 1.8. The following is
 	// a workaround for earlier Kubernetes versions.
 	//
-	// Accept all packets in FORWARD chain that are going to defaults.HostDevice.
+	// Accept all packets in FORWARD chain that are going to ifName.
 	// It is safe to ignore the destination IP here as the pre-requisite
-	// for a packet being routed to defaults.HostDevice is that a route exists
+	// for a packet being routed to ifName is that a route exists
 	// which is only installed for known node IP CIDR ranges.
 	if err := runProg("iptables", []string{
 		"-A", ciliumForwardChain,
-		"-o", defaults.HostDevice,
-		"-m", "comment", "--comment", "cilium: any->cluster on " + defaults.HostDevice + " forward accept",
+		"-o", ifName,
+		"-m", "comment", "--comment", "cilium: any->cluster on " + ifName + " forward accept",
 		"-j", "ACCEPT"}, false); err != nil {
 		return err
 	}
 
 	// Accept all packets in the FORWARD chain that are coming from the
-	// defaults.HostDevice interface with a source IP in the local node
+	// ifName interface with a source IP in the local node
 	// allocation range.
 	if err := runProg("iptables", []string{
 		"-A", ciliumForwardChain,
@@ -248,7 +248,7 @@ func InstallRules() error {
 	// like it's from the host.
 	//
 	// Originally we set this mark only for traffic destined to the
-	// defaults.HostDevice device, to ensure that any traffic directly reaching
+	// ifName device, to ensure that any traffic directly reaching
 	// to a Cilium-managed IP could be classified as from the host.
 	//
 	// However, there's another case where a local process attempts to
@@ -275,11 +275,11 @@ func InstallRules() error {
 			ingressSnatSrcAddrExclusion = node.GetIPv4ClusterRange().String()
 		}
 
-		// Masquerade all traffic from the host into the defaults.HostDevice
+		// Masquerade all traffic from the host into the ifName
 		// interface if the source is not the internal IP
 		//
 		// The following conditions must be met:
-		// * Must be targeted for the defaults.HostDevice interface
+		// * Must be targeted for the ifName interface
 		// * Must be targeted to an IP that is not local
 		// * Tunnel mode:
 		//   * May not already be originating from the masquerade IP
@@ -290,7 +290,7 @@ func InstallRules() error {
 			"-A", ciliumPostNatChain,
 			"!", "-s", ingressSnatSrcAddrExclusion,
 			"!", "-d", node.GetIPv4AllocRange().String(),
-			"-o", defaults.HostDevice,
+			"-o", ifName,
 			"-m", "comment", "--comment", "cilium host->cluster masquerade",
 			"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String()}, false); err != nil {
 			return err
@@ -303,7 +303,7 @@ func InstallRules() error {
 			"-t", "nat",
 			"-A", ciliumPostNatChain,
 			"-s", node.GetIPv4AllocRange().String(),
-			"-o", defaults.HostDevice,
+			"-o", ifName,
 			"-m", "comment", "--comment", "cilium hostport loopback masquerade",
 			"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String()}, false); err != nil {
 			return err
