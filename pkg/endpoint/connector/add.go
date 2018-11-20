@@ -17,6 +17,7 @@ package connector
 import (
 	"crypto/sha256"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 
@@ -24,8 +25,8 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
+	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/vishvananda/netlink"
-
 	"golang.org/x/sys/unix"
 )
 
@@ -155,4 +156,65 @@ func SetupVethWithNames(lxcIfName, tmpIfName string, mtu int, ep *models.Endpoin
 	ep.InterfaceName = lxcIfName
 
 	return veth, &peer, nil
+}
+
+// GetNetInfoFromPID returns the index of the interface parent, the MAC address
+// and IP address of the first interface that contains an IP address with global
+// scope.
+func GetNetInfoFromPID(pid int) (int, string, net.IP, error) {
+	netNs, err := ns.GetNS(fmt.Sprintf("/proc/%d/ns/net", pid))
+	if err != nil {
+		return 0, "", nil, err
+	}
+	defer netNs.Close()
+
+	var (
+		lxcMAC      string
+		parentIndex int
+		ip          net.IP
+	)
+
+	err = netNs.Do(func(_ ns.NetNS) error {
+		links, err := netlink.LinkList()
+		if err != nil {
+			return err
+		}
+		for _, l := range links {
+			addrs, err := netlink.AddrList(l, netlink.FAMILY_V4)
+			if err != nil {
+				return err
+			}
+			for _, addr := range addrs {
+				if addr.IP.IsGlobalUnicast() {
+					ip = addr.IP
+					lxcMAC = l.Attrs().HardwareAddr.String()
+					parentIndex = l.Attrs().ParentIndex
+					log.Debugf("link found: %+v", l.Attrs())
+					return nil
+				}
+			}
+		}
+		return nil
+	})
+	return parentIndex, lxcMAC, ip, err
+}
+
+// GetVethInfo populates the given endpoint with the arguments provided where
+// * nodeIfName - Node Interface Name
+// * parentIdx - Interface Index of the container veth pair in the host side.
+// * netNSMac - MAC address of the veth pair in the container side.
+func GetVethInfo(nodeIfName string, parentIdx int, netNSMac string, ep *models.EndpointChangeRequest) error {
+	nodeVet, err := netlink.LinkByName(nodeIfName)
+	if err != nil {
+		return fmt.Errorf("unable to lookup veth just created: %s", err)
+	}
+	l, err := netlink.LinkByIndex(parentIdx)
+	if err != nil {
+		return err
+	}
+	ep.Mac = netNSMac
+	ep.HostMac = nodeVet.Attrs().HardwareAddr.String()
+	ep.InterfaceIndex = int64(parentIdx)
+	ep.InterfaceName = l.Attrs().Name
+	return nil
 }
