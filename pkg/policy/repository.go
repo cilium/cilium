@@ -18,9 +18,11 @@ import (
 	"encoding/json"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
@@ -464,6 +466,30 @@ func (p *Repository) GetRulesMatching(labels labels.LabelArray) (ingressMatch bo
 	return
 }
 
+// getMatchingRules returns whether any of the rules in a repository contain a
+// rule with labels matching the labels in the provided LabelArray, as well as
+// a slice of all rules which match.
+//
+// Must be called with p.Mutex held
+func (p *Repository) getMatchingRules(labels labels.LabelArray) (ingressMatch bool, egressMatch bool, matchingRules []*rule) {
+	matchingRules = []*rule{}
+	ingressMatch = false
+	egressMatch = false
+	for _, r := range p.rules {
+		rulesMatch := r.EndpointSelector.Matches(labels)
+		if rulesMatch {
+			if len(r.Ingress) > 0 {
+				ingressMatch = true
+			}
+			if len(r.Egress) > 0 {
+				egressMatch = true
+			}
+			matchingRules = append(matchingRules, r)
+		}
+	}
+	return
+}
+
 // NumRules returns the amount of rules in the policy repository.
 //
 // Must be called with p.Mutex held
@@ -526,5 +552,109 @@ func (p *Repository) GetRulesList() *models.Policy {
 	return &models.Policy{
 		Revision: int64(p.GetRevision()),
 		Policy:   JSONMarshalRules(ruleList),
+	}
+}
+
+// ResolvePolicy returns the Policy for the provided set of labels against the
+// set of rules in the repository, and the provided set of identities.
+// If the policy cannot be generated due to conflicts at L4 or L7, returns an
+// error.
+func (p *Repository) ResolvePolicy(id uint16, labels labels.LabelArray, policyOwner PolicyOwner, identityCache cache.IdentityCache) (*Policy, error) {
+
+	calculatedPolicy := &Policy{
+		ID:             id,
+		L4Policy:       NewL4Policy(),
+		CIDRPolicy:     NewCIDRPolicy(),
+		PolicyMapState: make(PolicyMapState),
+	}
+	// First obtain whether policy applies in both traffic directions, as well
+	// as list of rules which actually select this endpoint. This allows us
+	// to not have to iterate through the entire rule list multiple times and
+	// perform the matching decision again when computing policy for each
+	// protocol layer, which is quite costly in terms of performance.
+	ingressEnabled, egressEnabled, matchingRules := p.computePolicyEnforcementAndRules(labels)
+	calculatedPolicy.IngressPolicyEnabled = ingressEnabled
+	calculatedPolicy.EgressPolicyEnabled = egressEnabled
+
+	ingressCtx := SearchContext{
+		To:          labels,
+		rulesSelect: true,
+	}
+
+	egressCtx := SearchContext{
+		From:        labels,
+		rulesSelect: true,
+	}
+
+	if option.Config.TracingEnabled() {
+		ingressCtx.Trace = TRACE_ENABLED
+		egressCtx.Trace = TRACE_ENABLED
+	}
+
+	if ingressEnabled {
+		newL4IngressPolicy, err := matchingRules.resolveL4IngressPolicy(&ingressCtx, p.revision)
+		if err != nil {
+			return nil, err
+		}
+
+		newCIDRIngressPolicy := matchingRules.resolveCIDRPolicy(&ingressCtx)
+		if err := newCIDRIngressPolicy.Validate(); err != nil {
+			return nil, err
+		}
+
+		calculatedPolicy.CIDRPolicy.Ingress = newCIDRIngressPolicy.Ingress
+		calculatedPolicy.L4Policy.Ingress = newL4IngressPolicy.Ingress
+	}
+
+	if egressEnabled {
+		newL4EgressPolicy, err := matchingRules.resolveL4EgressPolicy(&egressCtx, p.revision)
+		if err != nil {
+			return nil, err
+		}
+
+		newCIDREgressPolicy := matchingRules.resolveCIDRPolicy(&egressCtx)
+		if err := newCIDREgressPolicy.Validate(); err != nil {
+			return nil, err
+		}
+
+		calculatedPolicy.CIDRPolicy.Egress = newCIDREgressPolicy.Egress
+		calculatedPolicy.L4Policy.Egress = newL4EgressPolicy.Egress
+	}
+
+	calculatedPolicy.PolicyMapState.DetermineAllowLocalhost(calculatedPolicy.L4Policy)
+	calculatedPolicy.PolicyMapState.DetermineAllowFromWorld()
+
+	return calculatedPolicy, nil
+}
+
+// computePolicyEnforcementAndRules returns whether policy applies at ingress or ingress
+// for the given set of labels, as well as a list of any rules which select
+// the set of labels.
+//
+// Must be called with repo mutex held for reading.
+func (p *Repository) computePolicyEnforcementAndRules(lbls labels.LabelArray) (ingress bool, egress bool, matchingRules ruleSlice) {
+	// Check if policy enforcement should be enabled at the daemon level.
+	switch GetPolicyEnabled() {
+	case option.AlwaysEnforce:
+		_, _, matchingRules = p.getMatchingRules(lbls)
+		// If policy enforcement is enabled for the daemon, then it has to be
+		// enabled for the endpoint.
+		return true, true, matchingRules
+	case option.DefaultEnforcement:
+		ingress, egress, matchingRules = p.getMatchingRules(lbls)
+		// If the endpoint has the reserved:init label, i.e. if it has not yet
+		// received any labels, always enforce policy (default deny).
+		if lbls.Has(labels.IDNameInit) {
+			return true, true, matchingRules
+		}
+
+		// Default mode means that if rules contain labels that match this
+		// endpoint, then enable policy enforcement for this endpoint.
+		return ingress, egress, matchingRules
+	default:
+		// If policy enforcement isn't enabled, we do not enable policy
+		// enforcement for the endpoint. We don't care about returning any
+		// rules that match.
+		return false, false, nil
 	}
 }
