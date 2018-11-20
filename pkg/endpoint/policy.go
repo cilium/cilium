@@ -471,33 +471,16 @@ func (e *Endpoint) regeneratePolicy(owner Owner) error {
 	// policy needs to be enforced for either ingress or egress.
 	e.prevIdentityCache = labelsMap
 
-	// First step when calculating policy is to check whether ingress or egress
-	// policy applies (i.e., if rules select this endpoint). We can use this
-	// information to short-circuit policy generation if enforcement is
-	// disabled for ingress and / or egress.
-	e.ingressPolicyEnabled, e.egressPolicyEnabled = e.ComputePolicyEnforcement(repo)
-
-	l4PolicyChanged, err := e.resolveL4Policy(repo)
+	calculatedPolicy, err := repo.ResolvePolicy(e.ID, e.SecurityIdentity.LabelArray, e, *labelsMap)
 	if err != nil {
 		return err
 	}
 
-	if l4PolicyChanged {
-		e.getLogger().WithField(logfields.Identity, e.SecurityIdentity.ID).Debug("L4 policy changed")
-	}
-
-	// Calculate L3 (CIDR) policy.
-	var l3PolicyChanged bool
-	if l3PolicyChanged, err = e.regenerateL3Policy(repo); err != nil {
-		return err
-	}
-	if l3PolicyChanged {
-		e.getLogger().Debug("regeneration of L3 (CIDR) policy caused policy change")
-	}
-
-	// no failures after this point
-	// Note - endpoint policy enforcement must be determined BEFORE this function!
-	e.computeDesiredPolicyMapState(repo)
+	e.DesiredL4Policy = calculatedPolicy.L4Policy
+	e.L3Policy = calculatedPolicy.CIDRPolicy
+	e.desiredMapState = calculatedPolicy.PolicyMapState
+	e.ingressPolicyEnabled = calculatedPolicy.IngressPolicyEnabled
+	e.egressPolicyEnabled = calculatedPolicy.EgressPolicyEnabled
 
 	if e.forcePolicyCompute {
 		forceRegeneration = true     // Options were changed by the caller.
@@ -509,13 +492,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) error {
 	// repository.
 	e.setNextPolicyRevision(revision)
 
-	// If no policy or options change occurred for this endpoint then the endpoint is
-	// already running the latest revision, otherwise we have to wait for
-	// the regeneration of the endpoint to complete.
-	policyChanged := l3PolicyChanged || l4PolicyChanged
-
 	logger := e.getLogger().WithFields(logrus.Fields{
-		"policyChanged":      policyChanged,
 		"forcedRegeneration": forceRegeneration,
 	})
 
