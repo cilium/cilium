@@ -1082,7 +1082,7 @@ func runDaemon() {
 		if err != nil {
 			log.WithError(err).WithField("device", option.Config.FlannelMasterDevice).Fatal("Unable to set internal IPv4")
 		}
-		d.attachExistingInfraContainers()
+		// d.attachExistingInfraContainers()
 	}
 
 	maps.CollectStaleMapGarbage()
