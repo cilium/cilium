@@ -67,8 +67,8 @@ type traceState struct {
 	ruleID int
 }
 
-func (state *traceState) trace(p *Repository, ctx *SearchContext) {
-	ctx.PolicyTrace("%d/%d rules selected\n", state.selectedRules, len(p.rules))
+func (state *traceState) trace(rules ruleSlice, ctx *SearchContext) {
+	ctx.PolicyTrace("%d/%d rules selected\n", state.selectedRules, len(rules))
 	if state.constrainedRules > 0 {
 		ctx.PolicyTrace("Found unsatisfied FromRequires constraint\n")
 	} else if state.matchedRules > 0 {
@@ -286,7 +286,7 @@ func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (*L4PolicyMap, e
 
 	p.wildcardL3L4Rules(ctx, true, result.Ingress)
 
-	state.trace(p, ctx)
+	state.trace(p.rules, ctx)
 	return &result.Ingress, nil
 }
 
@@ -337,7 +337,7 @@ func (p *Repository) ResolveL4EgressPolicy(ctx *SearchContext) (*L4PolicyMap, er
 
 	p.wildcardL3L4Rules(ctx, false, result.Egress)
 
-	state.trace(p, ctx)
+	state.trace(p.rules, ctx)
 	return &result.Egress, nil
 }
 
@@ -356,7 +356,7 @@ func (p *Repository) ResolveCIDRPolicy(ctx *SearchContext) *CIDRPolicy {
 		state.ruleID++
 	}
 
-	state.trace(p, ctx)
+	state.trace(p.rules, ctx)
 	return result
 }
 
@@ -493,7 +493,7 @@ egressLoop:
 		}
 	}
 
-	egressState.trace(p, egressCtx)
+	egressState.trace(p.rules, egressCtx)
 
 	return egressDecision
 }
