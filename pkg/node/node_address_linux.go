@@ -17,6 +17,7 @@
 package node
 
 import (
+	"errors"
 	"fmt"
 	"net"
 
@@ -121,4 +122,24 @@ func firstLinkWithv6(ip net.IP) (netlink.Link, error) {
 	}
 
 	return nil, fmt.Errorf("No address found")
+}
+
+// SetInternalIPv4From sets the internal IPv4 with the first global address
+// found in that interface.
+func SetInternalIPv4From(ifaceName string) error {
+	l, err := netlink.LinkByName(ifaceName)
+	if err != nil {
+		return errors.New("unable to retrieve interface attributes")
+	}
+	v4Addrs, err := netlink.AddrList(l, netlink.FAMILY_V4)
+	if err != nil {
+		return errors.New("unable to retrieve interface IPv4 address")
+	}
+	for _, ip := range v4Addrs {
+		if netlink.Scope(ip.Scope) == netlink.SCOPE_UNIVERSE {
+			SetInternalIPv4(ip.IP)
+			return nil
+		}
+	}
+	return errors.New("unable to find IP addresses with scope global")
 }

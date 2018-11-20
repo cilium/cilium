@@ -41,3 +41,7 @@ func getCiliumHostIPsFromNetDev(devName string) (ipv4GW, ipv6Router net.IP) {
 func firstLinkWithv6(ip net.IP) (netlink.Link, error) {
 	return nil, nil
 }
+
+func SetInternalIPv4From(_ string) error {
+	return nil
+}

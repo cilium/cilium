@@ -67,6 +67,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 )
 
@@ -561,6 +562,12 @@ func init() {
 	flags.Bool(option.Version, false, "Print version information")
 	option.BindEnv(option.Version)
 
+	flags.String(option.PolicyEnforcementInterface, "",
+		"Installs a BPF program to allow for policy enforcement in the given network interface. "+
+			"Allows to run Cilium on top of other CNI plugins that provide networking, "+
+			"e.g. flannel, where for flannel, this value should be set with 'cni0'. [EXPERIMENTAL]")
+	option.BindEnv(option.PolicyEnforcementInterface)
+
 	flags.Bool(option.PProf, false, "Enable serving the pprof debugging API")
 	option.BindEnv(option.PProf)
 
@@ -901,10 +908,47 @@ func initEnv(cmd *cobra.Command) {
 		log.WithError(err).Fatal("Invalid sidecar-istio-proxy-image regular expression")
 		return
 	}
+
+	if option.Config.PolicyEnforcementInterface == "" {
+		option.Config.PolicyEnforcementInterface = viper.GetString("policy-enforcement-interface")
+	}
+
+	if !option.Config.PolicyEnforcementCleanUp {
+		option.Config.PolicyEnforcementCleanUp = viper.GetBool("policy-enforcement-clean-up")
+	}
+}
+
+// setHostDeviceWhenReady sets the given ifaceName as the HostDevice. If
+// ifaceName is not found, then it will wait forever until the device is
+// created before it assign it to the hostDevice.
+func setHostDeviceWhenReady(ifaceName string) {
+	for i := 0; ; i++ {
+		if i%10 == 0 {
+			log.WithField("interface", ifaceName).
+				Info("Waiting for the underlying interface to be initialized with containers")
+		}
+		_, err := netlink.LinkByName(ifaceName)
+		if err == nil {
+			log.WithField("interface", ifaceName).
+				Info("Underlying interface initialized with containers!")
+			break
+		}
+		time.Sleep(time.Second)
+	}
+	defaults.HostDevice = ifaceName
 }
 
 func runDaemon() {
 	log.Info("Initializing daemon")
+
+	// Since flannel doesn't create the cni0 interface until the first container
+	// is initialized we need to wait until it is initialized so we can attach
+	// the BPF program to it. If Cilium is running as a Kubernetes DaemonSet,
+	// there is also a script waiting for the interface to be created.
+	if option.Config.IsPolicyEnforcementInterfaceSet() {
+		setHostDeviceWhenReady(option.Config.PolicyEnforcementInterface)
+	}
+
 	d, restoredEndpoints, err := NewDaemon()
 	if err != nil {
 		log.WithError(err).Fatal("Error while creating daemon")
@@ -956,6 +1000,14 @@ func runDaemon() {
 		// going to allocate the same IP addresses and we will ignore
 		// these containers from reading.
 		workloads.IgnoreRunningWorkloads()
+	}
+
+	if option.Config.IsPolicyEnforcementInterfaceSet() {
+		err := node.SetInternalIPv4From(defaults.HostDevice)
+		if err != nil {
+			log.WithError(err).WithField("device", defaults.HostDevice).Fatal("Unable to set internal IPv4")
+		}
+		d.attachExistingInfraContainers()
 	}
 
 	maps.CollectStaleMapGarbage()
