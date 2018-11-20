@@ -131,3 +131,9 @@ func (c *criOClient) IgnoreRunningWorkloads() {
 func (c *criOClient) workloadIDsList(ctx context.Context) ([]string, error) {
 	return c.cri.workloadIDsList(ctx)
 }
+
+// GetAllInfraContainersPID returns a map that maps container IDs to the PID
+// of that container.
+func (c *criOClient) GetAllInfraContainersPID() (map[string]int, error) {
+	return c.cri.GetAllInfraContainersPID()
+}

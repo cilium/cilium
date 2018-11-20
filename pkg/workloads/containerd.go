@@ -16,6 +16,7 @@ package workloads
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"time"
@@ -255,4 +256,10 @@ func (c *containerDClient) IgnoreRunningWorkloads() {
 // workloadIDsList returns a list of running workload IDs.
 func (c *containerDClient) workloadIDsList(ctx context.Context) ([]string, error) {
 	return c.cri.workloadIDsList(ctx)
+}
+
+// GetAllInfraContainersPID returns a map that maps container IDs to the PID
+// of that container.
+func (c *containerDClient) GetAllInfraContainersPID() (map[string]int, error) {
+	return nil, errors.New("not implemented")
 }
