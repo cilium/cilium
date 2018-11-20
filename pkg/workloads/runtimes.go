@@ -238,4 +238,7 @@ type WorkloadRuntime interface {
 	// workloadIDsList returns a list of workload IDs running in the workload
 	// runtime.
 	workloadIDsList(ctx context.Context) ([]string, error)
+	// GetAllInfraContainersPID returns a list of workload IDs running in the
+	// workload that represent a infra container.
+	GetAllInfraContainersPID() (map[string]int, error)
 }
