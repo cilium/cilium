@@ -14,20 +14,52 @@
 
 package api
 
-import "regexp"
+import (
+	"fmt"
+	"regexp"
+)
+
+var (
+	// allowedMatchNameChars tests that MatchName contains only valid DNS characters
+	allowedMatchNameChars = regexp.MustCompile("[-a-zA-Z0-9.]+") // the * inside the [] is a literal *
+
+	// allowedPatternChars tests that the MatchPattern field contains only the
+	// characters we want in our wilcard scheme.
+	allowedPatternChars = regexp.MustCompile("[-a-zA-Z0-9.*]+") // the * inside the [] is a literal *
+)
 
 type FQDNSelector struct {
+	// MatchName matches literal DNS names. A trailing "." is automatically added
+	// when missing.
 	MatchName string `json:"matchName,omitempty"`
+
+	// MatchPattern allows using wildcards to match DNS names. All wildcards are
+	// case insensitive. The wildcards are:
+	// - "*" matches 0 or more DNS valid characters, and may occur anywhere in
+	// the pattern. As a special case a "*" as the leftmost character, without a
+	// following "." matches all subdomains as well as the name to the right.
+	// A trailing "." is automatically added when missing
+	//
+	// Examples:
+	// *.cilium.io matches subomains of cilium at that level
+	// *cilium.io matches cilium.io and all subdomains 1 level below
+	// sub*.cilium.io matches subdomains of cilium where the subdomain component
+	// begins with "sub"
+	MatchPattern string `json:"matchPattern,omitempty"`
 }
 
 // sanitize for FQDNSelector is a little wonky. While we do more processing
 // when using MatchName the basic requirement is that is a valid regexp. We
 // test that it can compile here.
 func (s *FQDNSelector) sanitize() error {
-	// All L3 toFQDNs matchNames can be regexes (although we will treat some as
-	// plain strings in the DNS Poller)
-	_, err := regexp.Compile(s.MatchName)
-	return err
+	if !allowedMatchNameChars.MatchString(s.MatchName) {
+		return fmt.Errorf("Invalid characters in MatchName: %s. Only 0-9, a-z, A-Z and . and - characters are allowed", s.MatchName)
+	}
+
+	if !allowedPatternChars.MatchString(s.MatchPattern) {
+		return fmt.Errorf("Invalid characters in MatchPattern: %s. Only 0-9, a-z, A-Z and ., - and * characters are allowed", s.MatchPattern)
+	}
+	return nil
 }
 
 // PortRuleDNS is a list of allowed DNS lookups.
@@ -37,8 +69,6 @@ type PortRuleDNS FQDNSelector
 // regex. It does not check that a DNS name is a valid DNS name.
 func (kr *PortRuleDNS) Sanitize() error {
 	// All L7 toFQDNs matchNames are regexes
-	_, err := regexp.Compile(kr.MatchName)
-	if err != nil {
 		return err
 	}
 	return nil
