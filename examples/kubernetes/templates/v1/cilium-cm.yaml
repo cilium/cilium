@@ -80,3 +80,13 @@ data:
   # Unique ID of the cluster. Must be unique across all conneted clusters and
   # in the range of 1 and 255. Only relevant when building a mesh of clusters.
   #cluster-id: 1
+
+  # Interface to be used when running Cilium on top of a CNI plugin.
+  # For flannel, use "cni0"
+  policy-enforcement-interface: ""
+  # When running Cilium with policy enforcement enabled on top of a CNI plugin
+  # the BPF programs will be installed on the network interface specified in
+  # 'policy-enforcement-interface' and on all network interfaces belonging to
+  # a container. When the Cilium DaemonSet is removed, the BPF programs will
+  # be kept in the interfaces unless this option is set to "true".
+  policy-enforcement-clean-up: "false"

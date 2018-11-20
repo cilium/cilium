@@ -154,6 +154,18 @@ spec:
                   key: ct-global-max-entries-other
                   name: cilium-config
                   optional: true
+            - name: CILIUM_POLICY_ENFORCEMENT_INTERFACE
+              valueFrom:
+                configMapKeyRef:
+                  key: policy-enforcement-interface
+                  name: cilium-config
+                  optional: true
+            - name: CILIUM_POLICY_ENFORCEMENT_CLEAN_UP
+              valueFrom:
+                configMapKeyRef:
+                  key: policy-enforcement-clean-up
+                  name: cilium-config
+                  optional: true
           livenessProbe:
             exec:
               command:
