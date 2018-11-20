@@ -266,7 +266,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	// it won't enforce any separation between results from different endpoints.
 	// This isn't ideal but we are trusting the DNS responses anyway.
 	if !p.CheckAllowed(qname, endpointID) {
-		scopedLog.Info("Rejecting DNS query from endpoint")
+		scopedLog.Debug("Rejecting DNS query from endpoint")
 		return
 	}
 
