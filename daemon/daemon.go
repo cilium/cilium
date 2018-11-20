@@ -1046,39 +1046,12 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 	if err := fqdn.ConfigFromResolvConf(); err != nil {
 		return nil, nil, err
 	}
-	cfg := fqdn.Config{
-		MinTTL:         toFQDNsMinTTL,
-		LookupDNSNames: fqdn.DNSLookupDefaultResolver,
-		AddGeneratedRules: func(generatedRules []*policyApi.Rule) error {
-			// Insert the new rules into the policy repository. We need them to
-			// replace the previous set. This requires the labels to match (including
-			// the ToFQDN-UUID one).
-			_, err := d.PolicyAdd(generatedRules, &AddOptions{Replace: true, Generated: true})
-			return err
-		}}
-	d.dnsRuleGen = fqdn.NewRuleGen(cfg)
-	d.dnsPoller = fqdn.NewDNSPoller(cfg, d.dnsRuleGen)
-	fqdn.StartDNSPoller(d.dnsPoller)
 
-	// If we stop returning errors from StartDNSProxy this should live in
-	// StartProxySupport
-	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", uint16(proxy.DNSProxyPort),
-		// LookupEPByIP
-		func(endpointIP net.IP) (endpointID string, err error) {
-			e := endpointmanager.LookupIPv4(endpointIP.String())
-			if e == nil {
-				return "", fmt.Errorf("Cannot find endpoint with IP %s", endpointIP.String())
-			}
-
-			return e.StringID(), nil
-		},
-		// NotifyOnDNSResponse
-		func(lookupTime time.Time, name string, ips []net.IP, ttl int) error {
-			return d.dnsRuleGen.UpdateGenerateDNS(lookupTime, map[string]*fqdn.DNSIPRecords{name: {IPs: ips, TTL: ttl}})
-		})
+	err = d.bootstrapFQDN()
 	if err != nil {
 		return nil, restoredEndpoints, err
 	}
+
 	return &d, restoredEndpoints, nil
 }
 
@@ -1329,4 +1302,43 @@ func (d *Daemon) GetNodeSuffix() string {
 
 	log.Fatal("Node IP not available yet")
 	return "<nil>"
+}
+
+// bootstrapFQDN initializes the toFQDNs related subsystems: DNSPoller,
+// d.dnsRuleGen, and the DNS proxy.
+// dnsRuleGen and DNSPoller will use the default resolver and, implicitly, the
+// default DNS cache. The proxy binds to all interfaces, and uses the
+// configured DNS proxy port (this may be 0 and so OS-assigned).
+func (d *Daemon) bootstrapFQDN() (err error) {
+	cfg := fqdn.Config{
+		MinTTL:         toFQDNsMinTTL,
+		LookupDNSNames: fqdn.DNSLookupDefaultResolver,
+		AddGeneratedRules: func(generatedRules []*policyApi.Rule) error {
+			// Insert the new rules into the policy repository. We need them to
+			// replace the previous set. This requires the labels to match (including
+			// the ToFQDN-UUID one).
+			_, err := d.PolicyAdd(generatedRules, &AddOptions{Replace: true, Generated: true})
+			return err
+		}}
+	d.dnsRuleGen = fqdn.NewRuleGen(cfg)
+	d.dnsPoller = fqdn.NewDNSPoller(cfg, d.dnsRuleGen)
+	fqdn.StartDNSPoller(d.dnsPoller)
+
+	// Once we stop returning errors from StartDNSProxy this should live in
+	// StartProxySupport
+	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", uint16(proxy.DNSProxyPort),
+		// LookupEPByIP
+		func(endpointIP net.IP) (endpointID string, err error) {
+			e := endpointmanager.LookupIPv4(endpointIP.String())
+			if e == nil {
+				return "", fmt.Errorf("Cannot find endpoint with IP %s", endpointIP.String())
+			}
+
+			return e.StringID(), nil
+		},
+		// NotifyOnDNSResponse
+		func(lookupTime time.Time, name string, ips []net.IP, ttl int) error {
+			return d.dnsRuleGen.UpdateGenerateDNS(lookupTime, map[string]*fqdn.DNSIPRecords{name: {IPs: ips, TTL: ttl}})
+		})
+	return err // filled by StartDNSProxy
 }
