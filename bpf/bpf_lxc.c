@@ -743,7 +743,11 @@ int handle_xgress(struct __sk_buff *skb)
 #ifdef ENABLE_ARP_RESPONDER
 	case bpf_htons(ETH_P_ARP):
 		ep_tail_call(skb, CILIUM_CALL_ARP);
+#ifndef POLICY_ENFORCEMENT_MODE
 		ret = DROP_MISSED_TAIL_CALL;
+#else
+		ret = 0;
+#endif
 		break;
 #endif /* ENABLE_ARP_RESPONDER */
 #endif /* ENABLE_IPV4 */
