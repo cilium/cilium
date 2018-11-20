@@ -57,6 +57,9 @@ type EndpointChangeRequest struct {
 	// MAC address
 	Mac string `json:"mac,omitempty"`
 
+	// Process ID of the workload belonging to this endpoint
+	Pid int64 `json:"pid,omitempty"`
+
 	// Whether policy enforcement is enabled or not
 	PolicyEnabled bool `json:"policy-enabled,omitempty"`
 
@@ -94,6 +97,8 @@ type EndpointChangeRequest struct {
 /* polymorph EndpointChangeRequest labels false */
 
 /* polymorph EndpointChangeRequest mac false */
+
+/* polymorph EndpointChangeRequest pid false */
 
 /* polymorph EndpointChangeRequest policy-enabled false */
 
