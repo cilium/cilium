@@ -24,6 +24,7 @@ NATIVE_DEV=$6
 XDP_DEV=$7
 XDP_MODE=$8
 MTU=$9
+PRE_EXISTING_DEVICE="${10}"
 
 ID_HOST=1
 ID_WORLD=2
@@ -141,17 +142,20 @@ function setup_proxy_rules()
 		ip route replace table $PROXY_RT_TABLE default via $IP4_HOST
 	fi
 
-	if [ -n "$(ip -6 rule list)" ]; then
-		if [ -z "$(ip -6 rule list $rulespec)" ]; then
-			ip -6 rule add $rulespec
-		fi
-	fi
+    # PRE_EXISTING_DEVICE might not have an IPv6 address
+    if [ -z "${PRE_EXISTING_DEVICE}" ]; then
+        if [ -n "$(ip -6 rule list)" ]; then
+            if [ -z "$(ip -6 rule list $rulespec)" ]; then
+                ip -6 rule add $rulespec
+            fi
+        fi
 
-	IP6_LLADDR=$(ip -6 addr show dev $HOST_DEV2 | grep inet6 | head -1 | awk '{print $2}' | awk -F'/' '{print $1}')
-	if [ -n "$IP6_LLADDR" ]; then
-		ip -6 route replace table $PROXY_RT_TABLE ${IP6_LLADDR}/128 dev $HOST_DEV1
-		ip -6 route replace table $PROXY_RT_TABLE default via $IP6_LLADDR dev $HOST_DEV1
-	fi
+        IP6_LLADDR=$(ip -6 addr show dev $HOST_DEV2 | grep inet6 | head -1 | awk '{print $2}' | awk -F'/' '{print $1}')
+        if [ -n "$IP6_LLADDR" ]; then
+            ip -6 route replace table $PROXY_RT_TABLE ${IP6_LLADDR}/128 dev $HOST_DEV1
+            ip -6 route replace table $PROXY_RT_TABLE default via $IP6_LLADDR dev $HOST_DEV1
+        fi
+    fi
 }
 
 function mac2array()
@@ -235,18 +239,23 @@ function encap_fail()
 	exit 1
 }
 
-HOST_DEV1="cilium_host"
-HOST_DEV2="cilium_net"
-
 $LIB/run_probes.sh $LIB $RUNDIR
 
-setup_veth_pair $HOST_DEV1 $HOST_DEV2
+if [ -n "${PRE_EXISTING_DEVICE}" ]; then
+    HOST_DEV1="${PRE_EXISTING_DEVICE}"
+    HOST_DEV2="${PRE_EXISTING_DEVICE}"
+else
+    HOST_DEV1="cilium_host"
+    HOST_DEV2="cilium_net"
 
-ip link set $HOST_DEV1 arp off
-ip link set $HOST_DEV2 arp off
+    setup_veth_pair $HOST_DEV1 $HOST_DEV2
 
-ip link set $HOST_DEV1 mtu $MTU
-ip link set $HOST_DEV2 mtu $MTU
+    ip link set $HOST_DEV1 arp off
+    ip link set $HOST_DEV2 arp off
+
+    ip link set $HOST_DEV1 mtu $MTU
+    ip link set $HOST_DEV2 mtu $MTU
+fi
 
 sed -i '/^#.*CILIUM_NET_MAC.*$/d' $RUNDIR/globals/node_config.h
 CILIUM_NET_MAC=$(ip link show $HOST_DEV2 | grep ether | awk '{print $2}')
@@ -274,10 +283,12 @@ echo "#define HOST_IFINDEX_MAC { .addr = ${HOST_MAC}}" >> $RUNDIR/globals/node_c
 	ip -6 addr add $IP6_HOST dev $HOST_DEV1
 }
 
-if [[ "$IP4_HOST" != "<nil>" ]]; then
-	[ -n "$(ip -4 addr show to $IP4_HOST)" ] || {
-		ip -4 addr add $IP4_HOST dev $HOST_DEV1 scope link
-	}
+if [ -z "${PRE_EXISTING_DEVICE}" ]; then
+    if [[ "$IP4_HOST" != "<nil>" ]]; then
+        [ -n "$(ip -4 addr show to $IP4_HOST)" ] || {
+            ip -4 addr add $IP4_HOST dev $HOST_DEV1 scope link
+        }
+    fi
 fi
 
 # Decrease priority of the rule to identify local addresses
