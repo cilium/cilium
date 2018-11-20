@@ -3,7 +3,15 @@
 set -eu
 
 HOST_PREFIX=${HOST_PREFIX:-/host}
-CNI_CONF_NAME=${CNI_CONF_NAME:-05-cilium.conf}
+if [ -z "${CILIUM_FLANNEL_MASTER_DEVICE}" ]; then
+	CNI_CONF_NAME=${CNI_CONF_NAME:-05-cilium.conf}
+else
+	until ip link show "${CILIUM_FLANNEL_MASTER_DEVICE}" &>/dev/null ; do
+		echo "Waiting for ${CILIUM_FLANNEL_MASTER_DEVICE} to be initialized"
+		sleep 1s
+	done
+	CNI_CONF_NAME=${CNI_CONF_NAME:-04-flannel-cilium-cni.conflist}
+fi
 MTU=${MTU:-1500}
 
 BIN_NAME=cilium-cni
@@ -27,8 +35,8 @@ echo "Installing ${BIN_NAME} to ${CNI_DIR}/bin/ ..."
 # Move an eventual old existing binary out of the way, we can't delete it
 # as it might be in use right now.
 if [ -f "${CNI_DIR}/bin/${BIN_NAME}" ]; then
-        rm -f ${CNI_DIR}/bin/${BIN_NAME}.old || true
-        mv ${CNI_DIR}/bin/${BIN_NAME} ${CNI_DIR}/bin/${BIN_NAME}.old
+	rm -f ${CNI_DIR}/bin/${BIN_NAME}.old || true
+	mv ${CNI_DIR}/bin/${BIN_NAME} ${CNI_DIR}/bin/${BIN_NAME}.old
 fi
 
 cp /opt/cni/bin/${BIN_NAME} ${CNI_DIR}/bin/
@@ -37,12 +45,40 @@ if [ -f "${CILIUM_CNI_CONF}" ]; then
 	echo "Using existing ${CILIUM_CNI_CONF}..."
 else
 	echo "Installing new ${CILIUM_CNI_CONF}..."
-	cat > ${CNI_CONF_NAME} <<EOF
+	if [ -z "${CILIUM_FLANNEL_MASTER_DEVICE}" ]; then
+		cat > ${CNI_CONF_NAME} <<EOF
 {
     "name": "cilium",
     "type": "cilium-cni"
 }
 EOF
+	else
+		cat > ${CNI_CONF_NAME} <<EOF
+{
+  "cniVersion": "0.3.1",
+  "name": "flannel-cilium",
+  "plugins": [
+    {
+      "type": "flannel",
+      "delegate": {
+         "hairpinMode": true,
+         "isDefaultGateway": true
+      }
+    },
+    {
+      "type": "portmap",
+      "capabilities": {
+        "portMappings": true
+      }
+    },
+    {
+       "name": "cilium",
+       "type": "cilium-cni"
+    }
+  ]
+}
+EOF
+	fi
 	if [ ! -d $(dirname $CILIUM_CNI_CONF) ]; then
 		mkdir -p $(dirname $CILIUM_CNI_CONF)
 	fi
