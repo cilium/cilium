@@ -26,12 +26,16 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// ruleSlice is a wrapper around a slice of *rule, which allows for functions
+// to be written with []*rule as a receiver.
+type ruleSlice []*rule
+
 // Repository is a list of policy rules which in combination form the security
 // policy. A policy repository can be
 type Repository struct {
 	// Mutex protects the whole policy tree
 	Mutex lock.RWMutex
-	rules []*rule
+	rules ruleSlice
 
 	// revision is the revision of the policy repository. It will be
 	// incremented whenever the policy repository is changed.
