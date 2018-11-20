@@ -17,6 +17,8 @@ package api
 import (
 	"fmt"
 	"regexp"
+
+	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 )
 
 var (
@@ -52,14 +54,14 @@ type FQDNSelector struct {
 // when using MatchName the basic requirement is that is a valid regexp. We
 // test that it can compile here.
 func (s *FQDNSelector) sanitize() error {
-	if !allowedMatchNameChars.MatchString(s.MatchName) {
-		return fmt.Errorf("Invalid characters in MatchName: %s. Only 0-9, a-z, A-Z and . and - characters are allowed", s.MatchName)
+	if len(s.MatchName) > 0 && !allowedMatchNameChars.MatchString(s.MatchName) {
+		return fmt.Errorf("Invalid characters in MatchName: \"%s\". Only 0-9, a-z, A-Z and . and - characters are allowed", s.MatchName)
 	}
 
-	if !allowedPatternChars.MatchString(s.MatchPattern) {
-		return fmt.Errorf("Invalid characters in MatchPattern: %s. Only 0-9, a-z, A-Z and ., - and * characters are allowed", s.MatchPattern)
+	if len(s.MatchPattern) > 0 && !allowedPatternChars.MatchString(s.MatchPattern) {
+		return fmt.Errorf("Invalid characters in MatchPattern: \"%s\". Only 0-9, a-z, A-Z and ., - and * characters are allowed", s.MatchPattern)
 	}
-	return nil
+	return matchpattern.Validate(s.MatchPattern)
 }
 
 // PortRuleDNS is a list of allowed DNS lookups.
