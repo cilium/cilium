@@ -46,6 +46,7 @@ import (
 	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpoint/connector"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/fqdn"
@@ -1136,7 +1137,7 @@ func (d *Daemon) attachExistingInfraContainers() {
 	}
 	log.Debugf("Containers found %+v", m)
 	for containerID, pid := range m {
-		epModel, err := deriveEndpointFrom(containerID, pid)
+		epModel, err := connector.DeriveEndpointFrom(option.Config.FlannelMasterDevice, containerID, pid)
 		if err != nil {
 			log.WithError(err).WithField(logfields.ContainerID, containerID).
 				Warning("Unable to derive endpoint from existing infra container")
