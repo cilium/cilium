@@ -41,7 +41,7 @@ const (
 
 	// CustomResourceDefinitionSchemaVersion is semver-conformant version of CRD schema
 	// Used to determine if CRD needs to be updated in cluster
-	CustomResourceDefinitionSchemaVersion = "1.10"
+	CustomResourceDefinitionSchemaVersion = "1.11"
 
 	// CustomResourceDefinitionSchemaVersionKey is key to label which holds the CRD schema version
 	CustomResourceDefinitionSchemaVersionKey = "io.cilium.k8s.crd.schema.version"
@@ -540,9 +540,37 @@ var (
 					Schema: &EndpointSelector,
 				},
 			},
+			"toGroups": {
+				Description: `ToGroups is a list of constraints that will
+				gather data from third-party providers and create a new
+				derived policy.`,
+				Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+					"AWS": AWSGroup,
+				},
+			},
 		},
 	}
 
+	AWSGroup = apiextensionsv1beta1.JSONSchemaProps{
+		Description: "",
+		Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+			"SecurityGroupsIds": {
+				Description: `SecurityGroupsIds is the list of AWS security
+				group IDs that will filter the instances IPs from the AWS API`,
+				Type: "array",
+			},
+			"SecurityGroupsNames": {
+				Description: `SecurityGroupsNames is the list of  AWS security
+				group names that will filter the instances IPs from the AWS API`,
+				Type: "array",
+			},
+			"Region": {
+				Description: `Region is the key that will filter the AWS EC2
+				instances in the given region`,
+				Type: "string",
+			},
+		},
+	}
 	EndpointSelector = *LabelSelector.DeepCopy()
 
 	IngressRule = apiextensionsv1beta1.JSONSchemaProps{
