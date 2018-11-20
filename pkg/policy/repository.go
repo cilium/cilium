@@ -504,11 +504,15 @@ func (p *Repository) AllowsEgressLabelAccess(egressCtx *SearchContext) api.Decis
 // policy.
 // The policy repository mutex must be held.
 func (p *Repository) CanReachEgressRLocked(egressCtx *SearchContext) api.Decision {
+	return p.rules.canReachEgressRLocked(egressCtx)
+}
+
+func (rules ruleSlice) canReachEgressRLocked(egressCtx *SearchContext) api.Decision {
 	egressDecision := api.Undecided
 	egressState := traceState{}
 
 egressLoop:
-	for i, r := range p.rules {
+	for i, r := range rules {
 		egressState.ruleID = i
 		switch r.canReachEgress(egressCtx, &egressState) {
 		// The rule contained a constraint which was not met, this
@@ -525,7 +529,7 @@ egressLoop:
 		}
 	}
 
-	egressState.trace(p.rules, egressCtx)
+	egressState.trace(rules, egressCtx)
 
 	return egressDecision
 }
