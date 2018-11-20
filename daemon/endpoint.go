@@ -624,6 +624,11 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []er
 	}
 	cancel()
 
+	if option.Config.IsFlannelMasterDeviceSet() &&
+		option.Config.FlannelUninstallOnExit {
+		ep.DeleteBPFProgramLocked()
+	}
+
 	ep.BuildMutex.Unlock()
 
 	return errs
