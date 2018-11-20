@@ -17,9 +17,20 @@ package main
 import (
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
+	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
+)
+
+var (
+	// cleanUPSig channel that is closed when the daemon agent should be
+	// terminated.
+	cleanUPSig = make(chan struct{})
+	// cleanUPWg all cleanup operations will be marked as Done() when completed.
+	cleanUPWg = &sync.WaitGroup{}
 )
 
 func handleInterrupt() <-chan struct{} {
@@ -31,9 +42,27 @@ func handleInterrupt() <-chan struct{} {
 		for s := range sig {
 			log.WithField("signal", s).Info("Exiting due to signal")
 			<-pidfile.Clean()
+			<-Clean()
+			if option.Config.PolicyEnforcementCleanUp {
+				for _, ep := range endpointmanager.GetEndpoints() {
+					ep.DeleteBPFProgramLocked()
+				}
+			}
 			break
 		}
 		close(interrupt)
 	}()
 	return interrupt
+}
+
+// Clean cleans up everything created by this package. It closes the returned
+// channel once everything is cleaned up.
+func Clean() <-chan struct{} {
+	close(cleanUPSig)
+	exited := make(chan struct{})
+	go func() {
+		cleanUPWg.Wait()
+		close(exited)
+	}()
+	return exited
 }
