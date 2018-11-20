@@ -188,11 +188,7 @@ bindAttempt:
 // AddAllowed adds reStr, a regexp, to the DNS lookups the proxy allows.
 func (p *DNSProxy) AddAllowed(reStr, endpointID string) {
 	log.WithField(logfields.DNSName, reStr).Debug("Adding allowed DNS FQDN pattern")
-	reStr = prepareNameMatch(reStr)
-
-	p.Lock()
-	defer p.Unlock()
-	p.allowed.Add(reStr, endpointID)
+	p.UpdateAllowed([]string{reStr}, nil, endpointID)
 }
 
 // RemoveAllowed removes reStr from the DNS lookups the proxy allows. It must
@@ -200,11 +196,28 @@ func (p *DNSProxy) AddAllowed(reStr, endpointID string) {
 // by direct equivalence).
 func (p *DNSProxy) RemoveAllowed(reStr, endpointID string) {
 	log.WithField(logfields.DNSName, reStr).Debug("Removing allowed DNS FQDN pattern")
-	reStr = prepareNameMatch(reStr)
+	p.UpdateAllowed(nil, []string{reStr}, endpointID)
+}
+
+// UpdateAllowed adds and removes reStr while holding the lock. This is a bit
+// of a hack to ensure atomic updates of rules until we replace the tracking
+// with something better.
+func (p *DNSProxy) UpdateAllowed(reStrToAdd, reStrToRemove []string, endpointID string) {
+	for i := range reStrToAdd {
+		reStrToAdd[i] = prepareNameMatch(reStrToAdd[i])
+	}
+	for i := range reStrToRemove {
+		reStrToRemove[i] = prepareNameMatch(reStrToRemove[i])
+	}
 
 	p.Lock()
 	defer p.Unlock()
-	p.allowed.Remove(reStr, endpointID)
+	for _, reStr := range reStrToRemove {
+		p.allowed.Remove(reStr, endpointID)
+	}
+	for _, reStr := range reStrToAdd {
+		p.allowed.Add(reStr, endpointID)
+	}
 }
 
 // CheckAllowed checks name against the rules added to the proxy, and only
