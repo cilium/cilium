@@ -191,9 +191,13 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 		fmt.Fprintf(fw, "#define LXC_IPV4 %#x\n", byteorder.HostSliceToNetwork(e.IPv4, reflect.Uint32))
 	}
 
-	if !e.HasIpvlanDataPath() {
-		fmt.Fprintf(fw, "#define ENABLE_ARP_RESPONDER 1\n")
-		fmt.Fprintf(fw, "#define ENABLE_HOST_REDIRECT 1\n")
+	switch {
+	case !e.HasIpvlanDataPath():
+		fw.WriteString("#define ENABLE_ARP_RESPONDER 1\n")
+		fw.WriteString("#define ENABLE_HOST_REDIRECT 1\n")
+		if option.Config.IsFlannelMasterDeviceSet() {
+			fw.WriteString("#define HOST_REDIRECT_TO_INGRESS\n")
+		}
 	}
 
 	fw.WriteString(common.FmtDefineAddress("NODE_MAC", e.NodeMAC))
