@@ -110,6 +110,7 @@ const (
 	initArgDevicePreFilter
 	initArgModePreFilter
 	initArgMTU
+	initArgPreExistingDevice
 	initArgMax
 )
 
@@ -318,6 +319,9 @@ func (d *Daemon) writeNetdevHeader(dir string) error {
 	fw.WriteString(option.Config.Opts.GetFmtList())
 	fw.WriteString(d.fmtPolicyEnforcementIngress())
 	fw.WriteString(d.fmtPolicyEnforcementEgress())
+	if option.Config.IsPolicyEnforcementInterfaceSet() {
+		fw.WriteString("#define POLICY_ENFORCEMENT_MODE\n")
+	}
 	endpoint.WriteIPCachePrefixes(fw, d.prefixLengths.ToBPFData)
 
 	return fw.Flush()
@@ -493,6 +497,10 @@ func (d *Daemon) compileBase() error {
 		}
 
 		args[initArgMode] = option.Config.Tunnel
+
+		if option.Config.IsPolicyEnforcementInterfaceSet() {
+			args[initArgPreExistingDevice] = option.Config.PolicyEnforcementInterface
+		}
 	}
 
 	prog := filepath.Join(option.Config.BpfDir, "init.sh")
@@ -504,13 +512,15 @@ func (d *Daemon) compileBase() error {
 		return err
 	}
 
-	ipam.ReserveLocalRoutes()
-	node.InstallHostRoutes(d.mtuConfig)
+	if !option.Config.IsPolicyEnforcementInterfaceSet() {
+		ipam.ReserveLocalRoutes()
+		node.InstallHostRoutes(d.mtuConfig)
+	}
 
 	if option.Config.EnableIPv4 {
 		// Always remove masquerade rule and then re-add it if required
 		iptables.RemoveRules()
-		if err := iptables.InstallRules(); err != nil {
+		if err := iptables.InstallRules(option.Config.HostDevice); err != nil {
 			return err
 		}
 	}
@@ -1115,6 +1125,34 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 func (d *Daemon) Close() {
 	if d.policyTrigger != nil {
 		d.policyTrigger.Shutdown()
+	}
+}
+
+func (d *Daemon) attachExistingInfraContainers() {
+	m, err := workloads.Client().GetAllInfraContainersPID()
+	if err != nil {
+		log.WithError(err).Error("Unable to get all infra containers PIDs")
+		return
+	}
+	log.Debugf("Containers found %+v", m)
+	for containerID, pid := range m {
+		epModel, err := deriveEndpointFrom(containerID, pid)
+		if err != nil {
+			log.WithError(err).WithField(logfields.ContainerID, containerID).
+				Warning("Unable to derive endpoint from existing infra container")
+			continue
+		}
+		log.Debugf("Adding endpoint %+v", epModel)
+		err = d.createEndpoint(context.Background(), epModel)
+		if err != nil {
+			log.WithError(err).WithField(logfields.ContainerID, containerID).
+				Warning("Unable to attach existing infra container")
+			continue
+		}
+		log.WithFields(logrus.Fields{
+			logfields.ContainerID: epModel.ContainerID,
+			logfields.EndpointID:  epModel.ID,
+		}).Info("Attached BPF program to existing container")
 	}
 }
 

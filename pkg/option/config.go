@@ -212,6 +212,12 @@ const (
 	// Version prints the version information
 	Version = "version"
 
+	// PolicyEnforcementInterface installs a BPF program to allow for policy
+	// enforcement in the given network interface. Allows to run Cilium on top
+	// of other CNI plugins that provide networking, e.g. flannel, where for
+	// flannel, this value should be set with 'cni0'. [EXPERIMENTAL]")
+	PolicyEnforcementInterface = "policy-enforcement-interface"
+
 	// PProf enables serving the pprof debugging API
 	PProf = "pprof"
 
@@ -665,6 +671,17 @@ type DaemonConfig struct {
 
 	// FQDNRejectResponse is the dns-proxy response for invalid dns-proxy request
 	FQDNRejectResponse string
+
+	// HostDevice will be device used by Cilium to connect to the outside world.
+	HostDevice string
+
+	// PolicyEnforcementInterface installs a BPF program in the given interface
+	// to allow for policy enforcement mode on top of a CNI plugin.
+	PolicyEnforcementInterface string
+
+	// PolicyEnforcementCleanUp removes the BPF programs that were installed
+	// on all interfaces created by the underlay CNI.
+	PolicyEnforcementCleanUp bool
 }
 
 var (
@@ -725,6 +742,12 @@ func (c *DaemonConfig) AlwaysAllowLocalhost() bool {
 // specific set of labels) is enabled.
 func (c *DaemonConfig) TracingEnabled() bool {
 	return c.Opts.IsEnabled(PolicyTracing)
+}
+
+// IsPolicyEnforcementInterfaceSet returns if the policy enforcement mode
+// is set with a interface name.
+func (c *DaemonConfig) IsPolicyEnforcementInterfaceSet() bool {
+	return len(c.PolicyEnforcementInterface) != 0
 }
 
 func (c *DaemonConfig) validateIPv6ClusterAllocCIDR() error {
@@ -822,6 +845,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnablePolicy = strings.ToLower(viper.GetString(EnablePolicy))
 	c.EnableTracing = viper.GetBool(EnableTracing)
 	c.EnvoyLogPath = viper.GetString(EnvoyLog)
+	c.HostDevice = getHostDevice()
 	c.HTTPIdleTimeout = viper.GetInt(HTTPIdleTimeout)
 	c.HTTPMaxGRPCTimeout = viper.GetInt(HTTPMaxGRPCTimeout)
 	c.HTTPRequestTimeout = viper.GetInt(HTTPRequestTimeout)
@@ -855,6 +879,7 @@ func (c *DaemonConfig) Populate() {
 	c.MonitorQueueSize = viper.GetInt(MonitorQueueSizeName)
 	c.MTU = viper.GetInt(MTUName)
 	c.NAT46Range = viper.GetString(NAT46Range)
+	c.PolicyEnforcementInterface = viper.GetString(PolicyEnforcementInterface)
 	c.PProf = viper.GetBool(PProf)
 	c.PreAllocateMaps = viper.GetBool(PreAllocateMapsName)
 	c.PrependIptablesChains = viper.GetBool(PrependIptablesChainsName)
@@ -930,4 +955,12 @@ func getPrometheusServerAddr() string {
 		return viper.GetString("prometheus-serve-addr-deprecated")
 	}
 	return promAddr
+}
+
+func getHostDevice() string {
+	hostDevice := viper.GetString(PolicyEnforcementInterface)
+	if hostDevice == "" {
+		return defaults.HostDevice
+	}
+	return hostDevice
 }

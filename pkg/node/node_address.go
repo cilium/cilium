@@ -449,5 +449,5 @@ func getCiliumHostIPs() (ipv4GW, ipv6Router net.IP) {
 	if ipv4GW != nil {
 		return ipv4GW, ipv6Router
 	}
-	return getCiliumHostIPsFromNetDev(defaults.HostDevice)
+	return getCiliumHostIPsFromNetDev(option.Config.HostDevice)
 }

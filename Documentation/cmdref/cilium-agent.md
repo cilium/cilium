@@ -78,6 +78,7 @@ cilium-agent [flags]
       --monitor-queue-size int                      Size of the event queue when reading monitor events (default 32768)
       --mtu int                                     Overwrite auto-detected MTU of underlying network
       --nat46-range string                          IPv6 prefix to map IPv4 addresses to (default "0:0:0:0:0:FFFF::/96")
+      --policy-enforcement-interface string         Installs a BPF program to allow for policy enforcement in the given network interface. Allows to run Cilium on top of other CNI plugins that provide networking, e.g. flannel, where for flannel, this value should be set with 'cni0'. [EXPERIMENTAL]
       --pprof                                       Enable serving the pprof debugging API
       --preallocate-bpf-maps                        Enable BPF map pre-allocation (default true)
       --prefilter-device string                     Device facing external network for XDP prefiltering (default "undefined")
