@@ -143,9 +143,9 @@ func (e *Endpoint) lookupRedirectPort(l4Filter *policy.L4Filter) uint16 {
 	return e.realizedRedirects[proxyID]
 }
 
-func (e *Endpoint) computeDesiredL4PolicyMapEntries(keysToAdd PolicyMapState) {
+func (e *Endpoint) computeDesiredL4PolicyMapEntries(keysToAdd policy.PolicyMapState) {
 	if keysToAdd == nil {
-		keysToAdd = PolicyMapState{}
+		keysToAdd = policy.PolicyMapState{}
 	}
 
 	if e.DesiredL4Policy == nil {
@@ -168,7 +168,7 @@ func (e *Endpoint) computeDesiredL4PolicyMapEntries(keysToAdd PolicyMapState) {
 					continue
 				}
 			}
-			keysToAdd[keyFromFilter] = PolicyMapStateEntry{ProxyPort: proxyPort}
+			keysToAdd[keyFromFilter] = policy.PolicyMapStateEntry{ProxyPort: proxyPort}
 		}
 	}
 
@@ -188,7 +188,7 @@ func (e *Endpoint) computeDesiredL4PolicyMapEntries(keysToAdd PolicyMapState) {
 					continue
 				}
 			}
-			keysToAdd[keyFromFilter] = PolicyMapStateEntry{ProxyPort: proxyPort}
+			keysToAdd[keyFromFilter] = policy.PolicyMapStateEntry{ProxyPort: proxyPort}
 		}
 	}
 	return
@@ -254,7 +254,7 @@ func (e *Endpoint) resolveL4Policy(repo *policy.Repository) (policyChanged bool,
 }
 
 func (e *Endpoint) computeDesiredPolicyMapState(repo *policy.Repository) {
-	desiredPolicyKeys := make(PolicyMapState)
+	desiredPolicyKeys := make(policy.PolicyMapState)
 	e.computeDesiredL4PolicyMapEntries(desiredPolicyKeys)
 	e.determineAllowLocalhost(desiredPolicyKeys)
 	e.determineAllowFromWorld(desiredPolicyKeys)
@@ -266,14 +266,14 @@ func (e *Endpoint) computeDesiredPolicyMapState(repo *policy.Repository) {
 // communicate with the localhost. It inserts the PolicyKey corresponding to
 // the localhost in the desiredPolicyKeys if the endpoint is allowed to
 // communicate with the localhost.
-func (e *Endpoint) determineAllowLocalhost(desiredPolicyKeys PolicyMapState) {
+func (e *Endpoint) determineAllowLocalhost(desiredPolicyKeys policy.PolicyMapState) {
 
 	if desiredPolicyKeys == nil {
-		desiredPolicyKeys = PolicyMapState{}
+		desiredPolicyKeys = policy.PolicyMapState{}
 	}
 
 	if option.Config.AlwaysAllowLocalhost() || (e.DesiredL4Policy != nil && e.DesiredL4Policy.HasRedirect()) {
-		desiredPolicyKeys[localHostKey] = PolicyMapStateEntry{}
+		desiredPolicyKeys[localHostKey] = policy.PolicyMapStateEntry{}
 	}
 }
 
@@ -285,22 +285,22 @@ func (e *Endpoint) determineAllowLocalhost(desiredPolicyKeys PolicyMapState) {
 // This must be run after determineAllowLocalhost().
 //
 // For more information, see https://cilium.link/host-vs-world
-func (e *Endpoint) determineAllowFromWorld(desiredPolicyKeys PolicyMapState) {
+func (e *Endpoint) determineAllowFromWorld(desiredPolicyKeys policy.PolicyMapState) {
 
 	if desiredPolicyKeys == nil {
-		desiredPolicyKeys = PolicyMapState{}
+		desiredPolicyKeys = policy.PolicyMapState{}
 	}
 
 	_, localHostAllowed := desiredPolicyKeys[localHostKey]
 	if option.Config.HostAllowsWorld && localHostAllowed {
-		desiredPolicyKeys[worldKey] = PolicyMapStateEntry{}
+		desiredPolicyKeys[worldKey] = policy.PolicyMapStateEntry{}
 	}
 }
 
-func (e *Endpoint) computeDesiredL3PolicyMapEntries(repo *policy.Repository, desiredPolicyKeys PolicyMapState) {
+func (e *Endpoint) computeDesiredL3PolicyMapEntries(repo *policy.Repository, desiredPolicyKeys policy.PolicyMapState) {
 
 	if desiredPolicyKeys == nil {
-		desiredPolicyKeys = PolicyMapState{}
+		desiredPolicyKeys = policy.PolicyMapState{}
 	}
 
 	ingressCtx := policy.SearchContext{
@@ -348,7 +348,7 @@ func (e *Endpoint) computeDesiredL3PolicyMapEntries(repo *policy.Repository, des
 				Identity:         identity.Uint32(),
 				TrafficDirection: trafficdirection.Ingress.Uint8(),
 			}
-			desiredPolicyKeys[keyToAdd] = PolicyMapStateEntry{}
+			desiredPolicyKeys[keyToAdd] = policy.PolicyMapStateEntry{}
 		}
 
 		var egressAccess api.Decision
@@ -367,7 +367,7 @@ func (e *Endpoint) computeDesiredL3PolicyMapEntries(repo *policy.Repository, des
 				Identity:         identity.Uint32(),
 				TrafficDirection: trafficdirection.Egress.Uint8(),
 			}
-			desiredPolicyKeys[keyToAdd] = PolicyMapStateEntry{}
+			desiredPolicyKeys[keyToAdd] = policy.PolicyMapStateEntry{}
 		}
 	}
 }
