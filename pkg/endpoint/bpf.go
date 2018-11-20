@@ -16,6 +16,7 @@ package endpoint
 
 import (
 	"bufio"
+	"context"
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
@@ -906,6 +907,13 @@ func (e *Endpoint) DeleteMapsLocked() []error {
 	}
 
 	return errors
+}
+
+// DeleteBPFProgramLocked delete the BPF program associated with the endpoint's
+// veth interface.
+func (e *Endpoint) DeleteBPFProgramLocked() error {
+	e.getLogger().Debug("deleting bpf program from endpoint")
+	return loader.DeleteDatapath(context.TODO(), e.IfName, "ingress")
 }
 
 // garbageCollectConntrack will run the ctmap.GC() on either the endpoint's
