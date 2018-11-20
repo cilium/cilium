@@ -38,6 +38,10 @@ const (
 
 	// DefaultNAT46Prefix is the IPv6 prefix to represent NATed IPv4 addresses.
 	DefaultNAT46Prefix = "0:0:0:0:0:FFFF::/96"
+
+	// HostDevice is the name of the device that connects the cilium IP
+	// space with the host's networking model
+	HostDevice = "cilium_host"
 )
 
 var (
@@ -70,8 +74,4 @@ var (
 
 	// IPv4DefaultRoute is the default IPv4 route.
 	IPv4DefaultRoute = net.IPNet{IP: net.IPv4zero, Mask: net.CIDRMask(0, 32)}
-
-	// HostDevice is the name of the device that connects the cilium IP
-	// space with the host's networking model
-	HostDevice = "cilium_host"
 )
