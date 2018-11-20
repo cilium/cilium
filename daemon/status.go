@@ -181,14 +181,14 @@ func (d *Daemon) startStatusCollector() {
 				return kvstore.Client().Status()
 			},
 			Status: func(status status.Status) {
-				info := status.Data.(*models.Status)
+				info := status.Data.(string)
 				d.statusCollectMutex.Lock()
 				defer d.statusCollectMutex.Unlock()
 
 				if status.Err != nil {
 					d.statusResponse.Kvstore = &models.Status{State: models.StatusStateFailure, Msg: fmt.Sprintf("Err: %s - %s", status.Err, info)}
 				} else {
-					d.statusResponse.Kvstore = info
+					d.statusResponse.Kvstore = &models.Status{State: models.StatusStateOk, Msg: info}
 				}
 			},
 		},
