@@ -315,6 +315,26 @@ func (rules ruleSlice) resolveL4IngressPolicy(ctx *SearchContext) (*L4Policy, er
 // are merged together. If rules contains overlapping port definitions, the first
 // rule found in the repository takes precedence.
 func (p *Repository) ResolveL4EgressPolicy(ctx *SearchContext) (*L4PolicyMap, error) {
+	result, err := p.rules.resolveL4EgressPolicy(ctx)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if result != nil {
+		result.Revision = p.GetRevision()
+	}
+
+	return &result.Egress, nil
+}
+
+// ResolveL4EgressPolicy resolves the L4 egress policy for a set of endpoints
+// by searching the policy repository for `PortRule` rules that are attached to
+// a `Rule` where the EndpointSelector matches `ctx.From`. `ctx.To` takes no effect and
+// is ignored in the search.  If multiple `PortRule` rules are found, all rules
+// are merged together. If rules contains overlapping port definitions, the first
+// rule found in the repository takes precedence.
+func (rules ruleSlice) resolveL4EgressPolicy(ctx *SearchContext) (*L4Policy, error) {
 	result := NewL4Policy()
 
 	ctx.PolicyTrace("\n")
@@ -326,7 +346,7 @@ func (p *Repository) ResolveL4EgressPolicy(ctx *SearchContext) (*L4PolicyMap, er
 	// be appended to each EndpointSelector's MatchExpressions in each
 	// ToEndpoints for all ingress rules. This ensures that ToRequires is
 	// taken into account when evaluating policy at L4.
-	for _, r := range p.rules {
+	for _, r := range rules {
 		for _, egressRule := range r.Egress {
 			if r.EndpointSelector.Matches(ctx.From) {
 				for _, requirement := range egressRule.ToRequires {
@@ -337,7 +357,7 @@ func (p *Repository) ResolveL4EgressPolicy(ctx *SearchContext) (*L4PolicyMap, er
 	}
 
 	state := traceState{}
-	for i, r := range p.rules {
+	for i, r := range rules {
 		state.ruleID = i
 		found, err := r.resolveL4EgressPolicy(ctx, &state, result, requirements)
 		if err != nil {
@@ -349,14 +369,10 @@ func (p *Repository) ResolveL4EgressPolicy(ctx *SearchContext) (*L4PolicyMap, er
 		}
 	}
 
-	if result != nil {
-		result.Revision = p.GetRevision()
-	}
+	rules.wildcardL3L4Rules(ctx, false, result.Egress)
 
-	p.wildcardL3L4Rules(ctx, false, result.Egress)
-
-	state.trace(p.rules, ctx)
-	return &result.Egress, nil
+	state.trace(rules, ctx)
+	return result, nil
 }
 
 // ResolveCIDRPolicy resolves the L3 policy for a set of endpoints by searching
