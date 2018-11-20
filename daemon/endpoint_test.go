@@ -54,25 +54,22 @@ func getEPTemplate(c *C) *models.EndpointChangeRequest {
 func (ds *DaemonSuite) TestEndpointAddReservedLabel(c *C) {
 	epTemplate := getEPTemplate(c)
 	epTemplate.Labels = []string{"reserved:world"}
-	code, err := ds.d.createEndpoint(context.TODO(), epTemplate)
+	err := ds.d.createEndpoint(context.TODO(), epTemplate)
 	c.Assert(err, Not(IsNil))
-	c.Assert(code, Equals, apiEndpoint.PutEndpointIDInvalidCode)
 }
 
 func (ds *DaemonSuite) TestEndpointAddInvalidLabel(c *C) {
 	epTemplate := getEPTemplate(c)
 	epTemplate.Labels = []string{"reserved:foo"}
-	code, err := ds.d.createEndpoint(context.TODO(), epTemplate)
+	err := ds.d.createEndpoint(context.TODO(), epTemplate)
 	c.Assert(err, Not(IsNil))
-	c.Assert(code, Equals, apiEndpoint.PutEndpointIDInvalidCode)
 }
 
 func (ds *DaemonSuite) TestEndpointAddNoLabels(c *C) {
 	// Create the endpoint without any labels.
 	epTemplate := getEPTemplate(c)
-	code, err := ds.d.createEndpoint(context.TODO(), epTemplate)
+	err := ds.d.createEndpoint(context.TODO(), epTemplate)
 	c.Assert(err, IsNil)
-	c.Assert(code, Equals, apiEndpoint.PutEndpointIDCreatedCode)
 
 	expectedLabels := labels.Labels{
 		labels.IDNameInit: labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved),
