@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -31,8 +32,10 @@ import (
 	"github.com/cilium/cilium/common"
 	_ "github.com/cilium/cilium/pkg/alignchecker"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/cleanup"
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/maps"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -588,6 +591,10 @@ func init() {
 			"e.g. flannel, where for flannel, this value should be set with 'cni0'. [EXPERIMENTAL]")
 	option.BindEnv(option.FlannelMasterDevice)
 
+	flags.Bool(option.FlannelUninstallOnExit, false, fmt.Sprintf("When used along the %s "+
+		"flag, it cleans up all BPF programs installed when Cilium agent is terminated.", option.FlannelMasterDevice))
+	option.BindEnv(option.FlannelUninstallOnExit)
+
 	flags.Bool(option.PProf, false, "Enable serving the pprof debugging API")
 	option.BindEnv(option.PProf)
 
@@ -1028,6 +1035,14 @@ func runDaemon() {
 	if err != nil {
 		log.WithError(err).Fatal("Error while creating daemon")
 		return
+	}
+
+	if option.Config.IsFlannelMasterDeviceSet() && option.Config.FlannelUninstallOnExit {
+		cleanup.DeferTerminationCleanupFunction(cleanUPWg, cleanUPSig, func() {
+			d.compilationMutex.Lock()
+			loader.DeleteDatapath(context.Background(), option.FlannelMasterDevice, "egress")
+			d.compilationMutex.Unlock()
+		})
 	}
 
 	log.Info("Starting connection tracking garbage collector")
