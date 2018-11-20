@@ -23,8 +23,10 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -113,6 +115,28 @@ type L4Filter struct {
 // AllowsAllAtL3 returns whether this L4Filter applies to all endpoints at L3.
 func (l4 *L4Filter) AllowsAllAtL3() bool {
 	return l4.Endpoints.SelectsAllEndpoints()
+}
+
+// ToKeys converts filter into a list of Keys.
+func (l4 *L4Filter) ToKeys(filter *L4Filter, direction trafficdirection.TrafficDirection, identityCache cache.IdentityCache) []Key {
+	keysToAdd := []Key{}
+	port := uint16(filter.Port)
+	proto := uint8(filter.U8Proto)
+
+	for _, sel := range filter.Endpoints {
+		for _, id := range getSecurityIdentities(identityCache, &sel) {
+			srcID := id.Uint32()
+			keyToAdd := Key{
+				Identity: srcID,
+				// NOTE: Port is in host byte-order!
+				DestPort:         port,
+				Nexthdr:          proto,
+				TrafficDirection: direction.Uint8(),
+			}
+			keysToAdd = append(keysToAdd, keyToAdd)
+		}
+	}
+	return keysToAdd
 }
 
 // GetRelevantRules returns the relevant rules based on the source and

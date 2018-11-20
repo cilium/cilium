@@ -14,6 +14,15 @@
 
 package policy
 
+import (
+	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/trafficdirection"
+	"github.com/sirupsen/logrus"
+)
+
 // Policy is a structure which contains the resolved policy across all layers
 // (L3, L4, and L7).
 type Policy struct {
@@ -47,4 +56,69 @@ type Policy struct {
 // PolicyOwner is anything which consumes a Policy.
 type PolicyOwner interface {
 	LookupRedirectPort(l4 *L4Filter) uint16
+}
+
+func getSecurityIdentities(labelsMap cache.IdentityCache, selector *api.EndpointSelector) []identity.NumericIdentity {
+	identities := []identity.NumericIdentity{}
+	for idx, labels := range labelsMap {
+		if selector.Matches(labels) {
+			log.WithFields(logrus.Fields{
+				logfields.IdentityLabels: labels,
+				logfields.L4PolicyID:     idx,
+			}).Debug("L4 Policy matches")
+			identities = append(identities, idx)
+		}
+	}
+
+	return identities
+}
+
+func (p *Policy) computeDesiredL4PolicyMapEntries(identityCache cache.IdentityCache) {
+
+	if p.L4Policy == nil {
+		return
+	}
+
+	policyKeys := p.PolicyMapState
+
+	for _, filter := range p.L4Policy.Ingress {
+		keysFromFilter := filter.ToKeys(&filter, trafficdirection.Ingress, identityCache)
+		for _, keyFromFilter := range keysFromFilter {
+			var proxyPort uint16
+			// Preserve the already-allocated proxy ports for redirects that
+			// already exist.
+			if filter.IsRedirect() {
+				proxyPort = p.PolicyOwner.LookupRedirectPort(&filter)
+				// If the currently allocated proxy port is 0, this is a new
+				// redirect, for which no port has been allocated yet. Ignore
+				// it for now. This will be configured by
+				// e.addNewRedirectsFromMap once the port has been allocated.
+				if proxyPort == 0 {
+					continue
+				}
+			}
+			policyKeys[keyFromFilter] = MapStateEntry{ProxyPort: proxyPort}
+		}
+	}
+
+	for _, filter := range p.L4Policy.Egress {
+		keysFromFilter := filter.ToKeys(&filter, trafficdirection.Egress, identityCache)
+		for _, keyFromFilter := range keysFromFilter {
+			var proxyPort uint16
+			// Preserve the already-allocated proxy ports for redirects that
+			// already exist.
+			if filter.IsRedirect() {
+				proxyPort = p.PolicyOwner.LookupRedirectPort(&filter)
+				// If the currently allocated proxy port is 0, this is a new
+				// redirect, for which no port has been allocated yet. Ignore
+				// it for now. This will be configured by
+				// e.addNewRedirectsFromMap once the port has been allocated.
+				if proxyPort == 0 {
+					continue
+				}
+			}
+			policyKeys[keyFromFilter] = MapStateEntry{ProxyPort: proxyPort}
+		}
+	}
+	return
 }

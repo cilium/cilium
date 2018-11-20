@@ -565,7 +565,8 @@ func (p *Repository) ResolvePolicy(id uint16, labels labels.LabelArray, policyOw
 		ID:             id,
 		L4Policy:       NewL4Policy(),
 		CIDRPolicy:     NewCIDRPolicy(),
-		PolicyMapState: make(PolicyMapState),
+		PolicyMapState: make(MapState),
+		PolicyOwner:    policyOwner,
 	}
 	// First obtain whether policy applies in both traffic directions, as well
 	// as list of rules which actually select this endpoint. This allows us
@@ -621,6 +622,7 @@ func (p *Repository) ResolvePolicy(id uint16, labels labels.LabelArray, policyOw
 		calculatedPolicy.L4Policy.Egress = newL4EgressPolicy.Egress
 	}
 
+	calculatedPolicy.computeDesiredL4PolicyMapEntries(identityCache)
 	calculatedPolicy.PolicyMapState.DetermineAllowLocalhost(calculatedPolicy.L4Policy)
 	calculatedPolicy.PolicyMapState.DetermineAllowFromWorld()
 

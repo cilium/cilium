@@ -111,7 +111,7 @@ func (e *Endpoint) convertL4FilterToPolicyMapKeys(filter *policy.L4Filter, direc
 // policy map key, in host byte order. Returns 0 if not found or the
 // filter doesn't require a redirect.
 // Must be called with Endpoint.Mutex held.
-func (e *Endpoint) lookupRedirectPort(l4Filter *policy.L4Filter) uint16 {
+func (e *Endpoint) LookupRedirectPort(l4Filter *policy.L4Filter) uint16 {
 	if !l4Filter.IsRedirect() {
 		return 0
 	}
@@ -135,7 +135,7 @@ func (e *Endpoint) computeDesiredL4PolicyMapEntries(keysToAdd policy.MapState) {
 			// Preserve the already-allocated proxy ports for redirects that
 			// already exist.
 			if filter.IsRedirect() {
-				proxyPort = e.lookupRedirectPort(&filter)
+				proxyPort = e.LookupRedirectPort(&filter)
 				// If the currently allocated proxy port is 0, this is a new
 				// redirect, for which no port has been allocated yet. Ignore
 				// it for now. This will be configured by
@@ -155,7 +155,7 @@ func (e *Endpoint) computeDesiredL4PolicyMapEntries(keysToAdd policy.MapState) {
 			// Preserve the already-allocated proxy ports for redirects that
 			// already exist.
 			if filter.IsRedirect() {
-				proxyPort = e.lookupRedirectPort(&filter)
+				proxyPort = e.LookupRedirectPort(&filter)
 				// If the currently allocated proxy port is 0, this is a new
 				// redirect, for which no port has been allocated yet. Ignore
 				// it for now. This will be configured by
