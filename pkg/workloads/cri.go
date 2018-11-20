@@ -16,6 +16,7 @@ package workloads
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"time"
@@ -364,4 +365,10 @@ func (c *criClient) workloadIDsList(ctx context.Context) ([]string, error) {
 		}
 	}
 	return cont, nil
+}
+
+// GetAllInfraContainersPID returns a map that maps container IDs to the PID
+// of that container.
+func (c *criClient) GetAllInfraContainersPID() (map[string]int, error) {
+	return nil, errors.New("not implemented")
 }
