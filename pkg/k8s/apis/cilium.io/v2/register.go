@@ -540,9 +540,39 @@ var (
 					Schema: &EndpointSelector,
 				},
 			},
+			"toGroups": {
+				Description: `ToGroups is a list of contraninst that will
+				gather data from third party provieders and create a new
+				derived policy.`,
+				Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+					"AWS": AWSGroup,
+				},
+			},
 		},
 	}
 
+	AWSGroup = apiextensionsv1beta1.JSONSchemaProps{
+		Description: "",
+		Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+			"SecurityGroupsIds": {
+				Description: `SecurityGroupsIds is the list of Amazon aws
+				security groups IDs that will filter the instances IPs from AWS
+				API`,
+				Type: "array",
+			},
+			"SecurityGroupsNames": {
+				Description: `SecurityGroupsNames is the list of Amazon aws
+				security groups names that will filter the instances IPs from
+				AWS API`,
+				Type: "array",
+			},
+			"Region": {
+				Description: `Region is the key that will filter the aws EC2
+				instances in the given region`,
+				Type: "string",
+			},
+		},
+	}
 	EndpointSelector = *LabelSelector.DeepCopy()
 
 	IngressRule = apiextensionsv1beta1.JSONSchemaProps{
