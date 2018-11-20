@@ -44,7 +44,7 @@ var _ = Describe("K8sServicesTest", func() {
 	applyPolicy := func(path string) {
 		By(fmt.Sprintf("Applying policy %s", path))
 		_, err := kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, path, helpers.KubectlApply, helpers.HelperTimeout)
-		Expect(err).Should(BeNil(), fmt.Sprintf("Error creating resource %s: %s", path, err))
+		ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf("Error creating resource %s: %s", path, err))
 	}
 
 	BeforeAll(func() {
