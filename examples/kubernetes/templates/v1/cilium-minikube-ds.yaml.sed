@@ -120,6 +120,18 @@ spec:
               key: ct-global-max-entries-other
               name: cilium-config
               optional: true
+        - name: CILIUM_FLANNEL_MASTER_DEVICE
+          valueFrom:
+            configMapKeyRef:
+              key: flannel-master-device
+              name: cilium-config
+              optional: true
+        - name: CILIUM_FLANNEL_UNINSTALL_ON_EXIT
+          valueFrom:
+            configMapKeyRef:
+              key: flannel-uninstall-on-exit
+              name: cilium-config
+              optional: true
         image: docker.io/cilium/cilium:__CILIUM_VERSION__
         imagePullPolicy: Always
         lifecycle:
