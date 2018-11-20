@@ -1008,7 +1008,7 @@ func runDaemon() {
 		if err != nil {
 			log.WithError(err).WithField("device", option.Config.PolicyEnforcementInterface).Fatal("Unable to set internal IPv4")
 		}
-		d.attachExistingInfraContainers()
+		// d.attachExistingInfraContainers()
 	}
 
 	maps.CollectStaleMapGarbage()
