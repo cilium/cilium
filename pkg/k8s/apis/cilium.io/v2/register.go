@@ -45,6 +45,9 @@ const (
 
 	// CustomResourceDefinitionSchemaVersionKey is key to label which holds the CRD schema version
 	CustomResourceDefinitionSchemaVersionKey = "io.cilium.k8s.crd.schema.version"
+
+	// CNPKindDefinition is the kind name for Cilium Network Policy
+	CNPKindDefinition = "CiliumNetworkPolicy"
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -129,7 +132,7 @@ func createCNPCRD(clientset apiextensionsclient.Interface) error {
 		CustomResourceDefinitionShortNames = []string{"cnp", "ciliumnp"}
 
 		// CustomResourceDefinitionKind is the Kind name of custom resource definition
-		CustomResourceDefinitionKind = "CiliumNetworkPolicy"
+		CustomResourceDefinitionKind = CNPKindDefinition
 
 		CRDName = CustomResourceDefinitionPluralName + "." + SchemeGroupVersion.Group
 	)
