@@ -124,6 +124,18 @@ spec:
               key: preallocate-bpf-maps
               name: cilium-config
               optional: true
+        - name: CILIUM_POLICY_ENFORCEMENT_INTERFACE
+          valueFrom:
+            configMapKeyRef:
+              key: policy-enforcement-interface
+              name: cilium-config
+              optional: true
+        - name: CILIUM_POLICY_ENFORCEMENT_CLEAN_UP
+          valueFrom:
+            configMapKeyRef:
+              key: policy-enforcement-clean-up
+              name: cilium-config
+              optional: true
         image: docker.io/cilium/cilium:__CILIUM_VERSION__
         imagePullPolicy: Always
         lifecycle:
