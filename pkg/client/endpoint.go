@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -50,6 +50,13 @@ func (c *Client) EndpointCreate(ep *models.EndpointChangeRequest) error {
 	params := endpoint.NewPutEndpointIDParams().WithID(id).WithEndpoint(ep).WithTimeout(api.ClientTimeout)
 	_, err := c.Endpoint.PutEndpointID(params)
 	return Hint(err)
+}
+
+// EndpointCreateID creates a new endpoint without an endpoint ID.
+func (c *Client) EndpointCreateID(ep *models.EndpointChangeRequest) (int64, error) {
+	params := endpoint.NewPostEndpointParams().WithEndpoint(ep).WithTimeout(api.ClientTimeout)
+	epID, err := c.Endpoint.PostEndpoint(params)
+	return epID.Payload, Hint(err)
 }
 
 // EndpointPatch modifies the endpoint

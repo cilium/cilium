@@ -142,6 +142,56 @@ func (h *getEndpointID) Handle(params GetEndpointIDParams) middleware.Responder 
 	}
 }
 
+type postEndpoint struct {
+	d *Daemon
+}
+
+func NewPostEndpointHandler(d *Daemon) PostEndpointHandler {
+	return &postEndpoint{d: d}
+}
+
+func (h *postEndpoint) Handle(params PostEndpointParams) middleware.Responder {
+	log.WithField(logfields.Params, logfields.Repr(params)).Debug("POST /endpoint request")
+	epTemplate := params.Endpoint
+
+	logger := log.WithFields(logrus.Fields{
+		logfields.EndpointID:  epTemplate.ID,
+		logfields.ContainerID: epTemplate.ContainerID,
+		logfields.EventUUID:   uuid.NewUUID(),
+	})
+
+	switch {
+	case epTemplate.ID != 0:
+		return api.New(PostEndpointInvalidCode,
+			"ID can't be defined")
+	case epTemplate.ContainerID == "" && epTemplate.Pid == 0:
+		return api.New(PostEndpointInvalidCode,
+			"ContainerID and Pid cannot be empty")
+	default:
+		var err error
+		epTemplate, err = deriveEndpointFrom(epTemplate.ContainerID, int(epTemplate.Pid))
+		if err != nil {
+			logger.WithError(err).Error("Endpoint cannot be created")
+			return api.Error(PostEndpointInvalidCode, err)
+		}
+	}
+
+	err := h.d.createEndpoint(params.HTTPRequest.Context(), epTemplate)
+	switch {
+	case err == nil:
+		return NewPostEndpointCreated().WithPayload(epTemplate.ID)
+	case err == errEndpointExists:
+		logger.WithError(err).Error("Endpoint cannot be created")
+		return api.Error(PostEndpointExistsCode, fmt.Errorf("endpoint ID %d exists", epTemplate.ID))
+	case isErrEndpointInvalidParams(err):
+		logger.WithError(err).Error("Endpoint cannot be created")
+		return api.Error(PostEndpointInvalidCode, err)
+	default:
+		logger.WithError(err).Error("Endpoint cannot be created")
+		return api.Error(PostEndpointFailedCode, err)
+	}
+}
+
 type putEndpointID struct {
 	d *Daemon
 }

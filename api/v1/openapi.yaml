@@ -186,6 +186,33 @@ paths:
               "$ref": "#/definitions/Endpoint"
         '404':
           description: Endpoints with provided parameters not found
+    post:
+      summary: Create endpoint
+      description: |
+        Creates a new endpoint and returns the endpoint ID for the created
+        endpoint.
+      tags:
+      - endpoint
+      parameters:
+      - "$ref": "#/parameters/endpoint-change-request"
+      responses:
+        '201':
+          description: Created
+          schema:
+           type: integer
+        '400':
+          description: Invalid endpoint in request
+          x-go-name: Invalid
+          schema:
+           "$ref": "#/definitions/Error"
+        '409':
+          description: Endpoint already exists
+          x-go-name: Exists
+        '500':
+          description: Endpoint creation failed
+          x-go-name: Failed
+          schema:
+           "$ref": "#/definitions/Error"
   "/endpoint/{id}/config":
     get:
       summary: Retrieve endpoint configuration
