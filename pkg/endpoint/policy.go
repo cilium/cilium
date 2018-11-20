@@ -232,45 +232,10 @@ func (e *Endpoint) resolveL4Policy(repo *policy.Repository) (policyChanged bool,
 func (e *Endpoint) computeDesiredPolicyMapState(repo *policy.Repository) {
 	desiredPolicyKeys := make(policy.MapState)
 	e.computeDesiredL4PolicyMapEntries(desiredPolicyKeys)
-	e.determineAllowLocalhost(desiredPolicyKeys)
-	e.determineAllowFromWorld(desiredPolicyKeys)
+	desiredPolicyKeys.DetermineAllowLocalhost(e.DesiredL4Policy)
+	desiredPolicyKeys.DetermineAllowFromWorld()
 	e.computeDesiredL3PolicyMapEntries(repo, desiredPolicyKeys)
 	e.desiredMapState = desiredPolicyKeys
-}
-
-// determineAllowLocalhost determines whether endpoint should be allowed to
-// communicate with the localhost. It inserts the PolicyKey corresponding to
-// the localhost in the desiredPolicyKeys if the endpoint is allowed to
-// communicate with the localhost.
-func (e *Endpoint) determineAllowLocalhost(desiredPolicyKeys policy.MapState) {
-
-	if desiredPolicyKeys == nil {
-		desiredPolicyKeys = policy.MapState{}
-	}
-
-	if option.Config.AlwaysAllowLocalhost() || (e.DesiredL4Policy != nil && e.DesiredL4Policy.HasRedirect()) {
-		desiredPolicyKeys[localHostKey] = policy.MapStateEntry{}
-	}
-}
-
-// determineAllowFromWorld determines whether world should be allowed to
-// communicate with the endpoint, based on legacy Cilium 1.0 behaviour. It
-// inserts the PolicyKey corresponding to the world in the desiredPolicyKeys
-// if the legacy mode is enabled.
-//
-// This must be run after determineAllowLocalhost().
-//
-// For more information, see https://cilium.link/host-vs-world
-func (e *Endpoint) determineAllowFromWorld(desiredPolicyKeys policy.MapState) {
-
-	if desiredPolicyKeys == nil {
-		desiredPolicyKeys = policy.MapState{}
-	}
-
-	_, localHostAllowed := desiredPolicyKeys[localHostKey]
-	if option.Config.HostAllowsWorld && localHostAllowed {
-		desiredPolicyKeys[worldKey] = policy.MapStateEntry{}
-	}
 }
 
 func (e *Endpoint) computeDesiredL3PolicyMapEntries(repo *policy.Repository, desiredPolicyKeys policy.MapState) {
