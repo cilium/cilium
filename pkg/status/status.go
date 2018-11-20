@@ -83,7 +83,7 @@ func NewCollector(probes []Probe, config Configuration) *Collector {
 	}
 
 	for _, probe := range probes {
-		go c.runBackgroundProbe(&probe)
+		go func(p Probe) { c.runBackgroundProbe(&p) }(probe)
 	}
 
 	return c
