@@ -2330,6 +2330,13 @@ func init() {
         "proxy": {
           "description": "Status of proxy",
           "$ref": "#/definitions/ProxyStatus"
+        },
+        "stale": {
+          "description": "List of stale information in the status",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
         }
       }
     },

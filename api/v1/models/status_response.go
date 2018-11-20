@@ -43,6 +43,9 @@ type StatusResponse struct {
 
 	// Status of proxy
 	Proxy *ProxyStatus `json:"proxy,omitempty"`
+
+	// List of stale information in the status
+	Stale map[string]string `json:"stale,omitempty"`
 }
 
 /* polymorph StatusResponse cilium false */
@@ -62,6 +65,8 @@ type StatusResponse struct {
 /* polymorph StatusResponse nodeMonitor false */
 
 /* polymorph StatusResponse proxy false */
+
+/* polymorph StatusResponse stale false */
 
 // Validate validates this status response
 func (m *StatusResponse) Validate(formats strfmt.Registry) error {
