@@ -82,11 +82,15 @@ func (state *traceState) trace(rules ruleSlice, ctx *SearchContext) {
 // context and returns the verdict or api.Undecided if no rule matches for
 // ingress. The policy repository mutex must be held.
 func (p *Repository) CanReachIngressRLocked(ctx *SearchContext) api.Decision {
+	return p.rules.CanReachIngressRLocked(ctx)
+}
+
+func (rules ruleSlice) CanReachIngressRLocked(ctx *SearchContext) api.Decision {
 	decision := api.Undecided
 	state := traceState{}
 
 loop:
-	for i, r := range p.rules {
+	for i, r := range rules {
 		state.ruleID = i
 		switch r.canReachIngress(ctx, &state) {
 		// The rule contained a constraint which was not met, this
@@ -95,15 +99,15 @@ loop:
 			decision = api.Denied
 			break loop
 
-		// The rule allowed the connection but a later rule may impose
-		// additional constraints, so we store the decision but allow
-		// it to be overwritten by an additional requirement
+			// The rule allowed the connection but a later rule may impose
+			// additional constraints, so we store the decision but allow
+			// it to be overwritten by an additional requirement
 		case api.Allowed:
 			decision = api.Allowed
 		}
 	}
 
-	state.trace(p, ctx)
+	state.trace(rules, ctx)
 
 	return decision
 }
