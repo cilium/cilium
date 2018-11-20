@@ -56,6 +56,9 @@ func (c *Client) EndpointCreate(ep *models.EndpointChangeRequest) error {
 func (c *Client) EndpointCreateID(ep *models.EndpointChangeRequest) (int64, error) {
 	params := endpoint.NewPostEndpointParams().WithEndpoint(ep).WithTimeout(api.ClientTimeout)
 	epID, err := c.Endpoint.PostEndpoint(params)
+	if err != nil {
+		return 0, err
+	}
 	return epID.Payload, Hint(err)
 }
 
