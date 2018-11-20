@@ -169,11 +169,9 @@ func wildcardL3L4Rule(proto api.L4Proto, port int, endpoints api.EndpointSelecto
 	}
 }
 
-// wildcardL3L4Rules updates each ingress L7 rule to allow at L7 all traffic that
-// is allowed at L3-only or L3/L4.
-func (p *Repository) wildcardL3L4Rules(ctx *SearchContext, ingress bool, l4Policy L4PolicyMap) {
+func (rules ruleSlice) wildcardL3L4Rules(ctx *SearchContext, ingress bool, l4Policy L4PolicyMap) {
 	// Duplicate L3-only rules into wildcard L7 rules.
-	for _, r := range p.rules {
+	for _, r := range rules {
 		if ingress {
 			if !r.EndpointSelector.Matches(ctx.To) {
 				continue
@@ -236,6 +234,12 @@ func (p *Repository) wildcardL3L4Rules(ctx *SearchContext, ingress bool, l4Polic
 			}
 		}
 	}
+}
+
+// wildcardL3L4Rules updates each ingress L7 rule to allow at L7 all traffic that
+// is allowed at L3-only or L3/L4.
+func (p *Repository) wildcardL3L4Rules(ctx *SearchContext, ingress bool, l4Policy L4PolicyMap) {
+	p.rules.wildcardL3L4Rules(ctx, ingress, l4Policy)
 }
 
 // ResolveL4IngressPolicy resolves the L4 ingress policy for a set of endpoints
