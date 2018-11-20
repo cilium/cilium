@@ -129,6 +129,44 @@ func init() {
             "description": "Endpoints with provided parameters not found"
           }
         }
+      },
+      "post": {
+        "description": "Creates a new endpoint and returns the endpoint ID for the created\nendpoint.\n",
+        "tags": [
+          "endpoint"
+        ],
+        "summary": "Create endpoint",
+        "parameters": [
+          {
+            "$ref": "#/parameters/endpoint-change-request"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          "400": {
+            "description": "Invalid endpoint in request",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Invalid"
+          },
+          "409": {
+            "description": "Endpoint already exists",
+            "x-go-name": "Exists"
+          },
+          "500": {
+            "description": "Endpoint creation failed",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failed"
+          }
+        }
       }
     },
     "/endpoint/{id}": {

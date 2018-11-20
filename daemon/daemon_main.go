@@ -959,6 +959,7 @@ func (d *Daemon) instantiateAPI() *restapi.CiliumAPI {
 
 	// /endpoint/
 	api.EndpointGetEndpointHandler = NewGetEndpointHandler(d)
+	api.EndpointPostEndpointHandler = NewPostEndpointHandler(d)
 
 	// /endpoint/{id}
 	api.EndpointGetEndpointIDHandler = NewGetEndpointIDHandler(d)
