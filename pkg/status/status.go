@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 const (
@@ -49,8 +51,10 @@ type Probe struct {
 }
 
 type Collector struct {
-	config Configuration
-	stop   chan struct{}
+	config          Configuration
+	stop            chan struct{}
+	staleProbesLock lock.RWMutex
+	staleProbes     map[string]struct{}
 }
 
 type Configuration struct {
@@ -61,8 +65,9 @@ type Configuration struct {
 
 func NewCollector(probes []Probe, config Configuration) *Collector {
 	c := &Collector{
-		config: config,
-		stop:   make(chan struct{}, 0),
+		config:      config,
+		stop:        make(chan struct{}, 0),
+		staleProbes: make(map[string]struct{}),
 	}
 
 	if c.config.Interval == time.Duration(0) {
@@ -85,8 +90,23 @@ func NewCollector(probes []Probe, config Configuration) *Collector {
 }
 
 // Close exits all probes and shuts down the collector
+// TODO(brb): call it when daemon exits.
 func (c *Collector) Close() {
 	close(c.stop)
+}
+
+// GetStaleProbeNames returns a list of stale probe names
+func (c *Collector) GetStaleProbeNames() []string {
+	c.staleProbesLock.RLock()
+	defer c.staleProbesLock.RUnlock()
+
+	// TODO(brb): maybe add a timestamp for each probe.
+	names := make([]string, 0, len(c.staleProbes))
+	for name := range c.staleProbes {
+		names = append(names, name)
+	}
+
+	return names
 }
 
 // runBackgroundProbe continuously calls Probe() and Status(), waiting for the
@@ -150,10 +170,9 @@ func (c *Collector) runProbe(p *Probe) {
 
 		case <-warningThreshold:
 			// Publish warning and continue waiting for probe
-			p.Status(Status{
-				Err:          fmt.Errorf("No response from %s probe within %f seconds", p.Name, c.config.WarningThreshold.Seconds()),
-				StaleWarning: true,
-			})
+			err := fmt.Errorf("No response from %s probe within %f seconds",
+				p.Name, c.config.WarningThreshold.Seconds())
+			c.updateProbeStatus(p, err, true, nil)
 
 		case <-probeReturned:
 			// The probe completed and we can return from runProbe
@@ -163,9 +182,9 @@ func (c *Collector) runProbe(p *Probe) {
 				// reached. Keep the failure error
 				// message
 			case err != nil:
-				p.Status(Status{Err: err})
+				c.updateProbeStatus(p, err, false, nil)
 			default:
-				p.Status(Status{Data: statusData})
+				c.updateProbeStatus(p, nil, false, statusData)
 			}
 
 			cancel()
@@ -174,17 +193,24 @@ func (c *Collector) runProbe(p *Probe) {
 		case <-ctxTimeout:
 			// We have timed out. Report a status and mark that we timed out so we
 			// do not emit status later.
-			p.Status(Status{
-				Err:          fmt.Errorf("No response from %s probe within %f seconds", p.Name, c.config.FailureThreshold.Seconds()),
-				StaleWarning: true,
-			})
+			err := fmt.Errorf("No response from %s probe within %f seconds",
+				p.Name, c.config.FailureThreshold.Seconds())
+			c.updateProbeStatus(p, err, true, nil)
 			hardTimeout = true
 		}
 	}
 }
 
 func (c *Collector) updateProbeStatus(p *Probe, err error, staleWarning bool, data interface{}) {
-	// TODO(brb) add mutex
+	// Update stale status of the probe
+	c.staleProbesLock.Lock()
 	if staleWarning {
+		c.staleProbes[p.Name] = struct{}{}
+	} else {
+		delete(c.staleProbes, p.Name)
 	}
+	c.staleProbesLock.Unlock()
+
+	// Notify the probe about status update
+	p.Status(Status{Err: err, Data: data, StaleWarning: staleWarning})
 }
