@@ -1,0 +1,23 @@
+{
+  "cniVersion": "0.3.1",
+  "name": "flannel-cilium",
+  "plugins": [
+    {
+      "type": "flannel",
+      "delegate": {
+         "hairpinMode": true,
+         "isDefaultGateway": true
+      }
+    },
+    {
+      "type": "portmap",
+      "capabilities": {
+        "portMappings": true
+      }
+    },
+    {
+       "name": "cilium",
+       "type": "cilium-cni"
+    }
+  ]
+}
