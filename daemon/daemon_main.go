@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -31,8 +32,10 @@ import (
 	"github.com/cilium/cilium/common"
 	_ "github.com/cilium/cilium/pkg/alignchecker"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/cleanup"
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/maps"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -568,6 +571,10 @@ func init() {
 			"e.g. flannel, where for flannel, this value should be set with 'cni0'. [EXPERIMENTAL]")
 	option.BindEnv(option.PolicyEnforcementInterface)
 
+	flags.Bool(option.PolicyEnforcementCleanUP, false, "When used along the policy-enforcement-interface "+
+		"flag, it cleans up all BPF programs installed when Cilium agent is terminated.")
+	option.BindEnv(option.PolicyEnforcementCleanUP)
+
 	flags.Bool(option.PProf, false, "Enable serving the pprof debugging API")
 	option.BindEnv(option.PProf)
 
@@ -954,6 +961,14 @@ func runDaemon() {
 	if err != nil {
 		log.WithError(err).Fatal("Error while creating daemon")
 		return
+	}
+
+	if option.Config.IsPolicyEnforcementInterfaceSet() && option.Config.PolicyEnforcementCleanUp {
+		cleanup.DeferTerminationCleanupFunction(cleanUPWg, cleanUPSig, func() {
+			d.compilationMutex.Lock()
+			loader.DeleteDatapath(context.Background(), option.PolicyEnforcementInterface, "egress")
+			d.compilationMutex.Unlock()
+		})
 	}
 
 	log.Info("Starting connection tracking garbage collector")
