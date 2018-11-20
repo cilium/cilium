@@ -255,6 +255,20 @@ func (p *Repository) wildcardL3L4Rules(ctx *SearchContext, ingress bool, l4Polic
 //
 // TODO: Coalesce l7 rules?
 func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (*L4PolicyMap, error) {
+
+	result, err := p.rules.resolveL4IngressPolicy(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if result != nil {
+		result.Revision = p.GetRevision()
+	}
+
+	return &result.Ingress, nil
+}
+
+func (rules ruleSlice) resolveL4IngressPolicy(ctx *SearchContext) (*L4Policy, error) {
 	result := NewL4Policy()
 
 	ctx.PolicyTrace("\n")
@@ -267,7 +281,7 @@ func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (*L4PolicyMap, e
 	// will be appended to each EndpointSelector's MatchExpressions in
 	// each FromEndpoints for all ingress rules. This ensures that FromRequires
 	// is taken into account when evaluating policy at L4.
-	for _, r := range p.rules {
+	for _, r := range rules {
 		for _, ingressRule := range r.Ingress {
 			if r.EndpointSelector.Matches(ctx.To) {
 				for _, requirement := range ingressRule.FromRequires {
@@ -277,7 +291,7 @@ func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (*L4PolicyMap, e
 		}
 	}
 
-	for _, r := range p.rules {
+	for _, r := range rules {
 		found, err := r.resolveL4IngressPolicy(ctx, &state, result, requirements)
 		if err != nil {
 			return nil, err
@@ -288,14 +302,10 @@ func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (*L4PolicyMap, e
 		}
 	}
 
-	if result != nil {
-		result.Revision = p.GetRevision()
-	}
+	rules.wildcardL3L4Rules(ctx, true, result.Ingress)
 
-	p.wildcardL3L4Rules(ctx, true, result.Ingress)
-
-	state.trace(p.rules, ctx)
-	return &result.Ingress, nil
+	state.trace(rules, ctx)
+	return result, nil
 }
 
 // ResolveL4EgressPolicy resolves the L4 egress policy for a set of endpoints
