@@ -1428,6 +1428,10 @@ func init() {
           "description": "MAC address",
           "type": "string"
         },
+        "pid": {
+          "description": "Process ID of the workload belonging to this endpoint",
+          "type": "integer"
+        },
         "policy-enabled": {
           "description": "Whether policy enforcement is enabled or not",
           "type": "boolean"

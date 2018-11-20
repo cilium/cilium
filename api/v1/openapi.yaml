@@ -828,6 +828,9 @@ definitions:
       policy-enabled:
         description: Whether policy enforcement is enabled or not
         type: boolean
+      pid:
+        description: Process ID of the workload belonging to this endpoint
+        type: integer
       sync-build-endpoint:
         description: |
           Whether to build an endpoint synchronously
