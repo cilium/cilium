@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 
@@ -247,12 +248,12 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 
 	scopedLog.Debug("Handling DNS query from endpoint")
 
-	endpointIP, _, _, err := splitPortHostProto(w.RemoteAddr())
+	endpointIPStr, _, err := net.SplitHostPort(w.RemoteAddr().String())
 	if err != nil {
 		scopedLog.WithError(err).Error("cannot extract endpoint IP from DNS request")
 		return
 	}
-	endpointID, err := p.LookupEndpointIDByIP(endpointIP)
+	endpointID, err := p.LookupEndpointIDByIP(net.ParseIP(endpointIPStr))
 	if err != nil {
 		scopedLog.WithError(err).Error("cannot extract endpoint ID from DNS request")
 		return
@@ -371,7 +372,7 @@ func bindToAddr(address string, port uint16) (UDPConn *net.UDPConn, TCPListener 
 		}
 	}()
 
-	bindAddr := fmt.Sprintf("%s:%d", address, port)
+	bindAddr := net.JoinHostPort(address, strconv.Itoa(int(port)))
 
 	TCPAddr, err := net.ResolveTCPAddr("tcp", bindAddr)
 	if err != nil {

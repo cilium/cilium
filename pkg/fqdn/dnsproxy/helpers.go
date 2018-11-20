@@ -15,9 +15,11 @@
 package dnsproxy
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/maps/proxymap"
@@ -78,46 +80,46 @@ func lookupTargetDNSServer(w dns.ResponseWriter) (server string, err error) {
 	return val.HostPort(), nil
 }
 
-// splitPortHostProto returns the IP, port and protocol of a net.Addr in native
-// form.
-func splitPortHostProto(addr net.Addr) (ip net.IP, port uint16, proto string, err error) {
-	if addr == nil {
-		return nil, 0, "", fmt.Errorf("nil address cannot be parsed")
-	}
-
-	switch addr := addr.(type) {
-	case *net.TCPAddr:
-		return addr.IP, uint16(addr.Port), addr.Network(), nil
-	case *net.UDPAddr:
-		return addr.IP, uint16(addr.Port), addr.Network(), nil
-	default:
-		return nil, 0, "", fmt.Errorf("unknown address type %T: %v", addr, addr)
-	}
-}
-
 // createProxyMapKey creates a lookup key from a dns.ResponseWriter, using the
 // .RemoteAddr, .LocalAddr and .Network calls.
 // This function is similar to proxy.createProxyMapKey.
 func createProxyMapKey(w dns.ResponseWriter) (mapKey proxymap.ProxyMapKey, err error) {
-	clientSourceIP, clientSourcePort, _, err := splitPortHostProto(w.RemoteAddr())
+	clientSourceIPStr, clientSourcePortStr, err := net.SplitHostPort(w.RemoteAddr().String())
 	if err != nil {
 		return nil, fmt.Errorf("invalid remote address '%s'", w.RemoteAddr().String())
 	}
 
-	_, proxyListenPort, protocolStr, err := splitPortHostProto(w.LocalAddr())
+	_, proxyListenPortStr, err := net.SplitHostPort(w.LocalAddr().String())
 	if err != nil {
 		return nil, fmt.Errorf("invalid proxy address '%s'", w.LocalAddr().String())
 	}
 
-	protocol, err := u8proto.ParseProtocol(protocolStr)
+	protocol, err := u8proto.ParseProtocol(w.LocalAddr().Network())
 	if err != nil {
 		return nil, err
+	}
+
+	clientSourceIP := net.ParseIP(clientSourceIPStr)
+	clientSourcePort, err := strconv.Atoi(clientSourcePortStr)
+	switch {
+	case err != nil:
+		return nil, fmt.Errorf("Invalid clientSourcePort when creating DNSProxy proxymap key: %s", err)
+	case clientSourcePort < 0 || clientSourcePort > 65535:
+		return nil, errors.New("Invalid clientSourcePort when creating DNSProxy proxymap key")
+	}
+
+	proxyListenPort, err := strconv.Atoi(proxyListenPortStr)
+	switch {
+	case err != nil:
+		return nil, fmt.Errorf("Invalid proxyListenPort when creating DNSProxy proxymap key: %s", err)
+	case proxyListenPort < 0 || clientSourcePort > 65535:
+		return nil, errors.New("Invalid clientSourceIP when creating DNSProxy proxymap key")
 	}
 
 	if clientSourceIP.To4() != nil {
 		key := proxymap.Proxy4Key{
 			SPort:   uint16(clientSourcePort),
-			DPort:   proxyListenPort,
+			DPort:   uint16(proxyListenPort),
 			Nexthdr: uint8(protocol),
 		}
 
@@ -127,7 +129,7 @@ func createProxyMapKey(w dns.ResponseWriter) (mapKey proxymap.ProxyMapKey, err e
 
 	key := proxymap.Proxy6Key{
 		SPort:   uint16(clientSourcePort),
-		DPort:   proxyListenPort,
+		DPort:   uint16(proxyListenPort),
 		Nexthdr: uint8(protocol),
 	}
 
