@@ -19,6 +19,7 @@ import (
 
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/kubernetes/pkg/kubelet/types"
 )
 
 // ExtractNamespace extracts the namespace of ObjectMeta.
@@ -49,4 +50,11 @@ func GetVerStructFrom(objMeta metav1.Object) (versioned.UUID, versioned.Object) 
 		Version: v,
 	}
 	return uuid, vs
+}
+
+// IsInfraContainer returns true if the given set of labels represent a infra
+// container.
+func IsInfraContainer(labels map[string]string) bool {
+	return labels[types.KubernetesContainerNameLabel] == "POD"
+
 }
