@@ -266,7 +266,7 @@ type Endpoint struct {
 	// inserted (realized) in the endpoint's BPF PolicyMap to a proxy port.
 	// Proxy port 0 indicates no proxy redirection.
 	// All fields within the PolicyKey and the proxy port must be in host byte-order.
-	realizedMapState PolicyMapState
+	realizedMapState policy.MapState
 
 	// desiredMapState maps each PolicyKeys which should be synched
 	// with, but may not yet be synched with, the endpoint's BPF PolicyMap, to
@@ -274,7 +274,7 @@ type Endpoint struct {
 	// This map is updated upon regeneration of policy for an endpoint.
 	// Proxy port 0 indicates no proxy redirection.
 	// All fields within the PolicyKey and the proxy port must be in host byte-order.
-	desiredMapState PolicyMapState
+	desiredMapState policy.MapState
 
 	// BPFConfigMap provides access to the endpoint's BPF configuration.
 	bpfConfigMap *bpfconfig.EndpointConfigMap
