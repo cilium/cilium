@@ -342,6 +342,38 @@ func (a *Client) PatchEndpointIDLabels(params *PatchEndpointIDLabelsParams) (*Pa
 }
 
 /*
+PostEndpoint creates endpoint
+
+Creates a new endpoint and returns the endpoint ID for the created
+endpoint.
+
+*/
+func (a *Client) PostEndpoint(params *PostEndpointParams) (*PostEndpointCreated, error) {
+	// TODO: Validate the params before sending
+	if params == nil {
+		params = NewPostEndpointParams()
+	}
+
+	result, err := a.transport.Submit(&runtime.ClientOperation{
+		ID:                 "PostEndpoint",
+		Method:             "POST",
+		PathPattern:        "/endpoint",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http"},
+		Params:             params,
+		Reader:             &PostEndpointReader{formats: a.formats},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.(*PostEndpointCreated), nil
+
+}
+
+/*
 PutEndpointID creates endpoint
 
 Creates a new endpoint

@@ -127,6 +127,9 @@ func NewCiliumAPI(spec *loads.Document) *CiliumAPI {
 		PrefilterPatchPrefilterHandler: prefilter.PatchPrefilterHandlerFunc(func(params prefilter.PatchPrefilterParams) middleware.Responder {
 			return middleware.NotImplemented("operation PrefilterPatchPrefilter has not yet been implemented")
 		}),
+		EndpointPostEndpointHandler: endpoint.PostEndpointHandlerFunc(func(params endpoint.PostEndpointParams) middleware.Responder {
+			return middleware.NotImplemented("operation EndpointPostEndpoint has not yet been implemented")
+		}),
 		IPAMPostIPAMHandler: ipam.PostIPAMHandlerFunc(func(params ipam.PostIPAMParams) middleware.Responder {
 			return middleware.NotImplemented("operation IPAMPostIPAM has not yet been implemented")
 		}),
@@ -227,6 +230,8 @@ type CiliumAPI struct {
 	EndpointPatchEndpointIDLabelsHandler endpoint.PatchEndpointIDLabelsHandler
 	// PrefilterPatchPrefilterHandler sets the operation handler for the patch prefilter operation
 	PrefilterPatchPrefilterHandler prefilter.PatchPrefilterHandler
+	// EndpointPostEndpointHandler sets the operation handler for the post endpoint operation
+	EndpointPostEndpointHandler endpoint.PostEndpointHandler
 	// IPAMPostIPAMHandler sets the operation handler for the post IP a m operation
 	IPAMPostIPAMHandler ipam.PostIPAMHandler
 	// IPAMPostIPAMIPHandler sets the operation handler for the post IP a m IP operation
@@ -410,6 +415,10 @@ func (o *CiliumAPI) Validate() error {
 
 	if o.PrefilterPatchPrefilterHandler == nil {
 		unregistered = append(unregistered, "prefilter.PatchPrefilterHandler")
+	}
+
+	if o.EndpointPostEndpointHandler == nil {
+		unregistered = append(unregistered, "endpoint.PostEndpointHandler")
 	}
 
 	if o.IPAMPostIPAMHandler == nil {
@@ -661,6 +670,11 @@ func (o *CiliumAPI) initHandlerCache() {
 		o.handlers["PATCH"] = make(map[string]http.Handler)
 	}
 	o.handlers["PATCH"]["/prefilter"] = prefilter.NewPatchPrefilter(o.context, o.PrefilterPatchPrefilterHandler)
+
+	if o.handlers["POST"] == nil {
+		o.handlers["POST"] = make(map[string]http.Handler)
+	}
+	o.handlers["POST"]["/endpoint"] = endpoint.NewPostEndpoint(o.context, o.EndpointPostEndpointHandler)
 
 	if o.handlers["POST"] == nil {
 		o.handlers["POST"] = make(map[string]http.Handler)
