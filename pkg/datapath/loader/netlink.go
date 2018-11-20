@@ -129,3 +129,15 @@ func graftDatapath(ctx context.Context, mapPath, objPath, progSec string) error 
 
 	return nil
 }
+
+// DeleteDatapath filter from the given ifName
+func DeleteDatapath(ctx context.Context, ifName, direction string) error {
+	args := []string{"filter", "delete", "dev", ifName, direction, "pref", "1", "handle", "1", "bpf"}
+	cmd := exec.CommandContext(ctx, "tc", args...).WithFilters(libbpfFixupMsg)
+	_, err := cmd.CombinedOutput(log, true)
+	if err != nil {
+		return fmt.Errorf("Failed to remove tc filter: %s", err)
+	}
+
+	return nil
+}
