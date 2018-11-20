@@ -51,22 +51,26 @@ type dnsConfiguration struct {
 
 // UpdateRules replaces old l7 rules of a redirect with new ones.
 func (dr *dnsRedirect) UpdateRules(wg *completion.WaitGroup) error {
+	var toRemove, toAdd []string
+
 	for _, rule := range dr.currentRules {
 		for _, dnsRule := range rule.DNS {
-			DefaultDNSProxy.RemoveAllowed(dnsRule.MatchName, fmt.Sprintf("%d", dr.redirect.endpointID))
+			toRemove = append(toRemove, dnsRule.MatchName)
 		}
 	}
-	dr.currentRules = nil
 
 	for _, rule := range dr.redirect.rules {
 		for _, dnsRule := range rule.DNS {
-			log.WithFields(logrus.Fields{
-				"matchName":          dnsRule.MatchName,
-				logfields.EndpointID: dr.redirect.endpointID,
-			}).Debugf("DNS Proxy adding matchName to allowed list in UpdateRules")
-			DefaultDNSProxy.AddAllowed(dnsRule.MatchName, fmt.Sprintf("%d", dr.redirect.endpointID))
+			toAdd = append(toAdd, dnsRule.MatchName)
 		}
 	}
+
+	log.WithFields(logrus.Fields{
+		"add":                toAdd,
+		"remove":             toRemove,
+		logfields.EndpointID: dr.redirect.endpointID,
+	}).Debug("DNS Proxy updating matchNames in allowed list during UpdateRules")
+	DefaultDNSProxy.UpdateAllowed(toAdd, toRemove, fmt.Sprintf("%d", dr.redirect.endpointID))
 	dr.currentRules = copyRules(dr.redirect.rules)
 
 	return nil
