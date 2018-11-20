@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -569,4 +570,33 @@ func (d *dockerClient) workloadIDsList(ctx context.Context) ([]string, error) {
 		cont = append(cont, c.ID)
 	}
 	return cont, nil
+}
+
+// GetAllInfraContainersPID returns a map that maps container IDs to the PID
+// of that container.
+func (d *dockerClient) GetAllInfraContainersPID() (map[string]int, error) {
+	timeoutCtx, cancel := ctx.WithTimeout(ctx.Background(), 10*time.Second)
+	defer cancel()
+
+	cList, err := Client().workloadIDsList(timeoutCtx)
+	if err != nil {
+		log.WithError(err).Error("Failed to retrieve the container list")
+		return nil, err
+	}
+	pids := map[string]int{}
+	for _, contID := range cList {
+		cJSON, err := d.ContainerInspect(context.Background(), contID)
+		if err != nil {
+			continue
+		}
+		if cJSON.Config == nil || !utils.IsInfraContainer(cJSON.Config.Labels) {
+			continue
+		}
+		if cJSON.State == nil || !cJSON.State.Running {
+			continue
+		}
+		pids[cJSON.ID] = cJSON.State.Pid
+	}
+
+	return pids, nil
 }
