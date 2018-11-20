@@ -873,6 +873,12 @@ func (e *Endpoint) DeleteMapsLocked() []error {
 	return errors
 }
 
+// DeleteBPFProgramLocked delete the BPF program associated with the endpoint's
+// veth interface.
+func (e *Endpoint) DeleteBPFProgramLocked() error {
+	return loader.DeleteDatapath(context.TODO(), e.IfName, "ingress")
+}
+
 // garbageCollectConntrack will run the ctmap.GC() on either the endpoint's
 // local conntrack table or the global conntrack table.
 //

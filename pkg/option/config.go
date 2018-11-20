@@ -180,8 +180,11 @@ type daemonConfig struct {
 	// PolicyEnforcementInterface installs a BPF program in the given interface
 	// to allow for policy enforcement mode on top of a CNI plugin.
 	PolicyEnforcementInterface string
-	LBInterface                string   // Set with name of the interface to loadbalance packets from
-	Workloads                  []string // List of Workloads set by the user to used by cilium.
+	// PolicyEnforcementCleanUp if set the BPF programs attached to all
+	// interfaces should be cleaned up.
+	PolicyEnforcementCleanUp bool
+	LBInterface              string   // Set with name of the interface to loadbalance packets from
+	Workloads                []string // List of Workloads set by the user to used by cilium.
 
 	Tunnel string // Tunnel mode
 

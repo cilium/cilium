@@ -19,6 +19,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
 )
 
@@ -31,6 +33,12 @@ func handleInterrupt() <-chan struct{} {
 		for s := range sig {
 			log.WithField("signal", s).Info("Exiting due to signal")
 			<-pidfile.Clean()
+			<-Clean()
+			if option.Config.PolicyEnforcementCleanUp {
+				for _, ep := range endpointmanager.GetEndpoints() {
+					ep.DeleteBPFProgramLocked()
+				}
+			}
 			break
 		}
 		close(interrupt)

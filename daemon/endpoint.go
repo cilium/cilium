@@ -597,6 +597,11 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []er
 	}
 	cancel()
 
+	if option.Config.IsPolicyEnforcementInterfaceSet() &&
+		option.Config.PolicyEnforcementCleanUp {
+		ep.DeleteBPFProgramLocked()
+	}
+
 	ep.BuildMutex.Unlock()
 
 	return errs

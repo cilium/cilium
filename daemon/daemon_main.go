@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -24,6 +25,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/server"
@@ -34,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
+	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/maps"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -87,6 +90,14 @@ const (
 	argDebugVerboseEnvoy   = "envoy"
 
 	apiTimeout = 60 * time.Second
+)
+
+var (
+	// cleanUPSig channel that is closed when the daemon agent should be
+	// terminated.
+	cleanUPSig = make(chan struct{})
+	// cleanUPWg all cleanup operations will be marked as Done() when completed.
+	cleanUPWg = &sync.WaitGroup{}
 )
 
 var (
@@ -489,6 +500,9 @@ func init() {
 	flags.StringVar(&option.Config.PolicyEnforcementInterface,
 		"policy-enforcement-interface", "", "Install a BPF program to allow for policy enforcement in the given network interface. Allows to run Cilium on top of other CNI plugins that provide networking, e.g. flannel, where for flannel, this value should be set with 'cni0'. [EXPERIMENTAL]")
 	viper.BindEnv("policy-enforcement-interface", "CILIUM_POLICY_ENFORCEMENT_INTERFACE")
+	flags.BoolVar(&option.Config.PolicyEnforcementCleanUp,
+		"policy-enforcement-clean-up", false, "When used along the policy-enforcement-interface flag, it cleans up all BPF programs installed when Cilium agent is terminated. (default: false)")
+	viper.BindEnv("policy-enforcement-clean-up", "CILIUM_POLICY_ENFORCEMENT_CLEAN_UP")
 	flags.Bool(
 		"pprof", false, "Enable serving the pprof debugging API")
 	flags.StringVarP(&option.Config.DevicePreFilter,
@@ -844,6 +858,14 @@ func runDaemon() {
 		return
 	}
 
+	if option.Config.IsPolicyEnforcementInterfaceSet() && option.Config.PolicyEnforcementCleanUp {
+		pidfile.HandleCleanup(cleanUPWg, cleanUPSig, func() {
+			d.compilationMutex.Lock()
+			loader.DeleteDatapath(context.Background(), defaults.HostDevice, "egress")
+			d.compilationMutex.Unlock()
+		})
+	}
+
 	log.Info("Starting connection tracking garbage collector")
 	endpointmanager.EnableConntrackGC(!option.Config.IPv4Disabled, true,
 		viper.GetInt("conntrack-garbage-collector-interval"),
@@ -1044,4 +1066,16 @@ func (d *Daemon) instantiateAPI() *restapi.CiliumAPI {
 	api.MetricsGetMetricsHandler = NewGetMetricsHandler(d)
 
 	return api
+}
+
+// Clean cleans up everything created by this package. It closes the returned
+// channel once everything is cleaned up.
+func Clean() <-chan struct{} {
+	close(cleanUPSig)
+	exited := make(chan struct{})
+	go func() {
+		cleanUPWg.Wait()
+		close(exited)
+	}()
+	return exited
 }
