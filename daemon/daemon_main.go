@@ -582,6 +582,12 @@ func init() {
 	flags.Bool(option.Version, false, "Print version information")
 	option.BindEnv(option.Version)
 
+	flags.String(option.FlannelMasterDevice, "",
+		"Installs a BPF program to allow for policy enforcement in the given network interface. "+
+			"Allows to run Cilium on top of other CNI plugins that provide networking, "+
+			"e.g. flannel, where for flannel, this value should be set with 'cni0'. [EXPERIMENTAL]")
+	option.BindEnv(option.FlannelMasterDevice)
+
 	flags.Bool(option.PProf, false, "Enable serving the pprof debugging API")
 	option.BindEnv(option.PProf)
 
@@ -988,8 +994,36 @@ func initEnv(cmd *cobra.Command) {
 	}
 }
 
+// waitForHostDeviceWhenReady waits the given ifaceName to be up and ready. If
+// ifaceName is not found, then it will wait forever until the device is
+// created.
+func waitForHostDeviceWhenReady(ifaceName string) {
+	for i := 0; ; i++ {
+		if i%10 == 0 {
+			log.WithField("interface", ifaceName).
+				Info("Waiting for the underlying interface to be initialized with containers")
+		}
+		_, err := netlink.LinkByName(ifaceName)
+		if err == nil {
+			log.WithField("interface", ifaceName).
+				Info("Underlying interface initialized with containers!")
+			break
+		}
+		time.Sleep(time.Second)
+	}
+}
+
 func runDaemon() {
 	log.Info("Initializing daemon")
+
+	// Since flannel doesn't create the cni0 interface until the first container
+	// is initialized we need to wait until it is initialized so we can attach
+	// the BPF program to it. If Cilium is running as a Kubernetes DaemonSet,
+	// there is also a script waiting for the interface to be created.
+	if option.Config.IsFlannelMasterDeviceSet() {
+		waitForHostDeviceWhenReady(option.Config.FlannelMasterDevice)
+	}
+
 	d, restoredEndpoints, err := NewDaemon()
 	if err != nil {
 		log.WithError(err).Fatal("Error while creating daemon")
@@ -1041,6 +1075,14 @@ func runDaemon() {
 		// going to allocate the same IP addresses and we will ignore
 		// these containers from reading.
 		workloads.IgnoreRunningWorkloads()
+	}
+
+	if option.Config.IsFlannelMasterDeviceSet() {
+		err := node.SetInternalIPv4From(option.Config.FlannelMasterDevice)
+		if err != nil {
+			log.WithError(err).WithField("device", option.Config.FlannelMasterDevice).Fatal("Unable to set internal IPv4")
+		}
+		d.attachExistingInfraContainers()
 	}
 
 	maps.CollectStaleMapGarbage()
