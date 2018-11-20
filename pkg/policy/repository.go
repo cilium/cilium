@@ -374,17 +374,21 @@ func (rules ruleSlice) resolveL4EgressPolicy(ctx *SearchContext) (*L4Policy, err
 // where the EndpointSelector matches `ctx.To`. `ctx.From` takes no effect and
 // is ignored in the search.
 func (p *Repository) ResolveCIDRPolicy(ctx *SearchContext) *CIDRPolicy {
+	return p.rules.resolveCIDRPolicy(ctx)
+}
+
+func (rules ruleSlice) resolveCIDRPolicy(ctx *SearchContext) *CIDRPolicy {
 	result := NewCIDRPolicy()
 
 	ctx.PolicyTrace("Resolving L3 (CIDR) policy for %+v\n", ctx.To)
 
 	state := traceState{}
-	for _, r := range p.rules {
+	for _, r := range rules {
 		r.resolveCIDRPolicy(ctx, &state, result)
 		state.ruleID++
 	}
 
-	state.trace(p.rules, ctx)
+	state.trace(rules, ctx)
 	return result
 }
 
