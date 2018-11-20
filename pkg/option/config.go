@@ -221,6 +221,10 @@ const (
 	// flannel, this value should be set with 'cni0'. [EXPERIMENTAL]")
 	FlannelMasterDevice = "flannel-master-device"
 
+	// FlannelUninstallOnExit should be used along the flannel-master-device flag,
+	// it cleans up all BPF programs installed when Cilium agent is terminated.
+	FlannelUninstallOnExit = "flannel-uninstall-on-exit"
+
 	// PProf enables serving the pprof debugging API
 	PProf = "pprof"
 
@@ -924,6 +928,7 @@ func (c *DaemonConfig) Populate() {
 	c.MTU = viper.GetInt(MTUName)
 	c.NAT46Range = viper.GetString(NAT46Range)
 	c.FlannelMasterDevice = viper.GetString(FlannelMasterDevice)
+	c.FlannelUninstallOnExit = viper.GetBool(FlannelUninstallOnExit)
 	c.PProf = viper.GetBool(PProf)
 	c.PreAllocateMaps = viper.GetBool(PreAllocateMapsName)
 	c.PrependIptablesChains = viper.GetBool(PrependIptablesChainsName)
