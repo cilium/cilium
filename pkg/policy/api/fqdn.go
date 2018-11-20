@@ -69,6 +69,13 @@ type PortRuleDNS FQDNSelector
 
 // Sanitize checks that the matchName in the portRule can be compiled as a
 // regex. It does not check that a DNS name is a valid DNS name.
-func (kr *PortRuleDNS) Sanitize() error {
-	return nil
+func (r *PortRuleDNS) Sanitize() error {
+	if len(r.MatchName) > 0 && !allowedMatchNameChars.MatchString(r.MatchName) {
+		return fmt.Errorf("Invalid characters in MatchName: \"%s\". Only 0-9, a-z, A-Z and . and - characters are allowed", r.MatchName)
+	}
+
+	if len(r.MatchPattern) > 0 && !allowedPatternChars.MatchString(r.MatchPattern) {
+		return fmt.Errorf("Invalid characters in MatchPattern: \"%s\". Only 0-9, a-z, A-Z and ., - and * characters are allowed", r.MatchPattern)
+	}
+	return matchpattern.Validate(r.MatchPattern)
 }
