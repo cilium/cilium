@@ -88,7 +88,7 @@ func (h *PortRuleL7) Exists(rules L7Rules) bool {
 
 // Equal returns true if both rules are equal
 func (d *PortRuleDNS) Equal(o PortRuleDNS) bool {
-	return d != nil && d.MatchName == o.MatchName
+	return d != nil && d.MatchName == o.MatchName && d.MatchPattern == o.MatchPattern
 }
 
 // Equal returns true if both L7 rules are equal

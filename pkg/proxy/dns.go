@@ -16,13 +16,16 @@ package proxy
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
+	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/revert"
+	"github.com/miekg/dns"
 	"github.com/sirupsen/logrus"
 )
 
@@ -55,13 +58,31 @@ func (dr *dnsRedirect) UpdateRules(wg *completion.WaitGroup) error {
 
 	for _, rule := range dr.currentRules {
 		for _, dnsRule := range rule.DNS {
-			toRemove = append(toRemove, dnsRule.MatchName)
+			if len(dnsRule.MatchName) > 0 {
+				dnsName := strings.ToLower(dns.Fqdn(dnsRule.MatchName))
+				dnsNameAsRE := matchpattern.ToRegexp(dnsName)
+				toRemove = append(toRemove, dnsNameAsRE)
+			}
+			if len(dnsRule.MatchPattern) > 0 {
+				dnsPattern := strings.ToLower(dns.Fqdn(dnsRule.MatchPattern))
+				dnsPatternAsRE := matchpattern.ToRegexp(dnsPattern)
+				toRemove = append(toRemove, dnsPatternAsRE)
+			}
 		}
 	}
 
 	for _, rule := range dr.redirect.rules {
 		for _, dnsRule := range rule.DNS {
-			toAdd = append(toAdd, dnsRule.MatchName)
+			if len(dnsRule.MatchName) > 0 {
+				dnsName := strings.ToLower(dns.Fqdn(dnsRule.MatchName))
+				dnsNameAsRE := matchpattern.ToRegexp(dnsName)
+				toAdd = append(toAdd, dnsNameAsRE)
+			}
+			if len(dnsRule.MatchPattern) > 0 {
+				dnsPattern := strings.ToLower(dns.Fqdn(dnsRule.MatchPattern))
+				dnsPatternAsRE := matchpattern.ToRegexp(dnsPattern)
+				toAdd = append(toAdd, dnsPatternAsRE)
+			}
 		}
 	}
 
@@ -80,7 +101,13 @@ func (dr *dnsRedirect) UpdateRules(wg *completion.WaitGroup) error {
 func (dr *dnsRedirect) Close(wg *completion.WaitGroup) (revert.FinalizeFunc, revert.RevertFunc) {
 	for _, rule := range dr.currentRules {
 		for _, dnsRule := range rule.DNS {
-			DefaultDNSProxy.RemoveAllowed(dnsRule.MatchName, fmt.Sprintf("%d", dr.redirect.endpointID))
+			dnsName := strings.ToLower(dns.Fqdn(dnsRule.MatchName))
+			dnsNameAsRE := matchpattern.ToRegexp(dnsName)
+			DefaultDNSProxy.RemoveAllowed(dnsNameAsRE, fmt.Sprintf("%d", dr.redirect.endpointID))
+
+			dnsPattern := strings.ToLower(dns.Fqdn(dnsRule.MatchPattern))
+			dnsPatternAsRE := matchpattern.ToRegexp(dnsPattern)
+			DefaultDNSProxy.RemoveAllowed(dnsPatternAsRE, fmt.Sprintf("%d", dr.redirect.endpointID))
 		}
 	}
 	dr.currentRules = nil

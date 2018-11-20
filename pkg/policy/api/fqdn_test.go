@@ -47,3 +47,31 @@ func (s *PolicyAPITestSuite) TestFQDNSelectorSanitize(c *C) {
 		c.Assert(err, Not(IsNil), Commentf("FQDNSelector %+v was accepted but it should be invalid", reject))
 	}
 }
+
+// TestPortRuleDNSSanitize tests that the sanitizer correctly catches bad
+// cases, and allows good ones.
+func (s *PolicyAPITestSuite) TestPortRuleDNSSanitize(c *C) {
+	for _, accept := range []PortRuleDNS{
+		{MatchName: "cilium.io."},
+		{MatchName: "get-cilium.io."},
+		{MatchName: "foo.cilium.io."},
+		{MatchName: "cilium.io"},
+		{MatchPattern: "*.cilium.io"},
+		{MatchPattern: "*cilium.io"},
+		{MatchPattern: "cilium.io"},
+		{MatchName: "cilium.io", MatchPattern: "*cilium.io"},
+	} {
+		err := accept.Sanitize()
+		c.Assert(err, IsNil, Commentf("PortRuleDNS %+v was rejected but it should be valid", accept))
+	}
+
+	for _, reject := range []PortRuleDNS{
+		{MatchName: "a{1,2}.cilium.io."},
+		{MatchPattern: "[a-z]*.cilium.io."},
+		{MatchName: "a{1,2}.cilium.io.", MatchPattern: "*cilium.io"},
+		{MatchName: "a{1,2}.cilium.io.", MatchPattern: "[a-z]*.cilium.io."},
+	} {
+		err := reject.Sanitize()
+		c.Assert(err, Not(IsNil), Commentf("PortRuleDNS %+v was accepted but it should be invalid", reject))
+	}
+}

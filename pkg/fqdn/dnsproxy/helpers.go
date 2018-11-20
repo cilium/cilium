@@ -18,7 +18,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -27,29 +26,13 @@ import (
 	"github.com/miekg/dns"
 )
 
-// simpleFQDNCheck matches plain DNS names
-// See https://en.wikipedia.org/wiki/Hostname
-var simpleFQDNCheck = regexp.MustCompile("^[-a-zA-Z0-9.]*[.]$")
-
-// escapeSimpleFQDN escapes the dots in simple DNS names to avoid spurious
-// matches.
-func escapeSimpleFQDN(re string) string {
-	if simpleFQDNCheck.MatchString(re) {
-		// This simple replace is correct because we assert that no "." has other
-		// regex control characters before or after it above.
-		return strings.Replace(re, ".", "[.]", -1)
-	}
-	return re
-}
-
 // prepareNameMatch ensures that a name is an anchored regexp and that names
 // with only "." (aka not a regexp) escape the "." so it does not match any
 // character. DNS expects lowercase lookups (ignoring the highest ascii bit)
 // and we mimic this by lowercasing the name here, and lookups later.
 // Note: The trailing "." in a FQDN is assumed, and isn't added here.
 func prepareNameMatch(name string) string {
-	name = strings.ToLower(name)  // lowercase it
-	name = escapeSimpleFQDN(name) // escape it
+	name = strings.ToLower(name) // lowercase it
 
 	// anchor it
 	out := make([]string, 0, 3)
