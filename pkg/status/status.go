@@ -51,10 +51,11 @@ type Probe struct {
 }
 
 type Collector struct {
-	config          Configuration
-	stop            chan struct{}
-	staleProbesLock lock.RWMutex
-	staleProbes     map[string]struct{}
+	lock.RWMutex   // protects staleProbes and probeStartTime
+	config         Configuration
+	stop           chan struct{}
+	staleProbes    map[string]struct{}
+	probeStartTime map[string]time.Time
 }
 
 type Configuration struct {
@@ -65,9 +66,10 @@ type Configuration struct {
 
 func NewCollector(probes []Probe, config Configuration) *Collector {
 	c := &Collector{
-		config:      config,
-		stop:        make(chan struct{}, 0),
-		staleProbes: make(map[string]struct{}),
+		config:         config,
+		stop:           make(chan struct{}, 0),
+		staleProbes:    make(map[string]struct{}),
+		probeStartTime: make(map[string]time.Time),
 	}
 
 	if c.config.Interval == time.Duration(0) {
@@ -95,18 +97,19 @@ func (c *Collector) Close() {
 	close(c.stop)
 }
 
-// GetStaleProbeNames returns a list of stale probe names
-func (c *Collector) GetStaleProbeNames() []string {
-	c.staleProbesLock.RLock()
-	defer c.staleProbesLock.RUnlock()
+// GetStaleProbes returns a map of stale probes which key is a probe name and
+// which value is a time when the last instance of the probe has been started.
+func (c *Collector) GetStaleProbes() map[string]time.Time {
+	c.RLock()
+	defer c.RUnlock()
 
-	// TODO(brb): maybe add a timestamp for each probe.
-	names := make([]string, 0, len(c.staleProbes))
-	for name := range c.staleProbes {
-		names = append(names, name)
+	probes := make(map[string]time.Time)
+
+	for p := range c.staleProbes {
+		probes[p] = c.probeStartTime[p]
 	}
 
-	return names
+	return probes
 }
 
 // runBackgroundProbe continuously calls Probe() and Status(), waiting for the
@@ -143,6 +146,13 @@ func (c *Collector) runProbe(p *Probe) {
 		ctxTimeout       = make(chan struct{}, 1)
 	)
 
+	c.Lock()
+	// Do not override start time if the probe is stale
+	if _, found := c.staleProbes[p.Name]; !found {
+		c.probeStartTime[p.Name] = time.Now()
+	}
+	c.Unlock()
+
 	go func() {
 		statusData, err = p.Probe(ctx)
 		close(probeReturned)
@@ -170,9 +180,10 @@ func (c *Collector) runProbe(p *Probe) {
 
 		case <-warningThreshold:
 			// Publish warning and continue waiting for probe
-			err := fmt.Errorf("No response from %s probe within %f seconds",
+			// TODO(brb) "within %f seconds" might confuse users
+			staleErr := fmt.Errorf("No response from %s probe within %f seconds",
 				p.Name, c.config.WarningThreshold.Seconds())
-			c.updateProbeStatus(p, err, true, nil)
+			c.updateProbeStatus(p, staleErr, true, nil)
 
 		case <-probeReturned:
 			// The probe completed and we can return from runProbe
@@ -193,9 +204,9 @@ func (c *Collector) runProbe(p *Probe) {
 		case <-ctxTimeout:
 			// We have timed out. Report a status and mark that we timed out so we
 			// do not emit status later.
-			err := fmt.Errorf("No response from %s probe within %f seconds",
+			staleErr := fmt.Errorf("No response from %s probe within %f seconds",
 				p.Name, c.config.FailureThreshold.Seconds())
-			c.updateProbeStatus(p, err, true, nil)
+			c.updateProbeStatus(p, staleErr, true, nil)
 			hardTimeout = true
 		}
 	}
@@ -203,13 +214,13 @@ func (c *Collector) runProbe(p *Probe) {
 
 func (c *Collector) updateProbeStatus(p *Probe, err error, staleWarning bool, data interface{}) {
 	// Update stale status of the probe
-	c.staleProbesLock.Lock()
+	c.Lock()
 	if staleWarning {
 		c.staleProbes[p.Name] = struct{}{}
 	} else {
 		delete(c.staleProbes, p.Name)
 	}
-	c.staleProbesLock.Unlock()
+	c.Unlock()
 
 	// Notify the probe about status update
 	p.Status(Status{Err: err, Data: data, StaleWarning: staleWarning})
