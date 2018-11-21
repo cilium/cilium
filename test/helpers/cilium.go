@@ -891,7 +891,7 @@ func (s *SSHMeta) ServiceDelAll() *CmdRes {
 func (s *SSHMeta) SetUpCilium() error {
 	template := `
 PATH=/usr/lib/llvm-3.8/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
-CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug --pprof=true --log-system-load
+CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug --pprof=true --log-system-load --tofqdns-enable-poller=true
 INITSYSTEM=SYSTEMD`
 
 	err := RenderTemplateToFile("cilium", template, os.ModePerm)
