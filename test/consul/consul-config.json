@@ -1,0 +1,10 @@
+{
+  "ports": {
+    "https": 8443
+  },
+  "verify_incoming": true,
+  "verify_outgoing": true,
+  "key_file": "/cilium-consul/server.key",
+  "cert_file": "/cilium-consul/server.crt",
+  "ca_file": "/cilium-consul/server-ca.crt"
+}

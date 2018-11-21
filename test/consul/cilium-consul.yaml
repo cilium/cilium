@@ -1,0 +1,4 @@
+---
+cafile: '/home/nirmoy/go/src/github.com/cilium/cilium/test/consul/consul-client-ca.crt'
+keyfile: '/home/nirmoy/go/src/github.com/cilium/cilium/test/consul/consul-client.key'
+certfile: '/home/nirmoy/go/src/github.com/cilium/cilium/test/consul/consul-client.crt'
