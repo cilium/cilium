@@ -31,14 +31,20 @@ import (
 	"github.com/miekg/dns"
 )
 
-// ProxyForwardTimeout is the maximum time to wait for DNS responses to
-// forwarded DNS requests. This is needed since UDP queries have no way to
-// indicate that the client has stopped expecting a response.
-const ProxyForwardTimeout = 10 * time.Second
+const (
+	// ProxyForwardTimeout is the maximum time to wait for DNS responses to
+	// forwarded DNS requests. This is needed since UDP queries have no way to
+	// indicate that the client has stopped expecting a response.
+	ProxyForwardTimeout = 10 * time.Second
 
-// ProxyBindTimeout is how long we wait for a successful bind to the bindaddr.
-// Note: This must be divisible by 5 without going to 0
-const ProxyBindTimeout = 20 * time.Second
+	// ProxyBindTimeout is how long we wait for a successful bind to the bindaddr.
+	// Note: This must be divisible by 5 without going to 0
+	ProxyBindTimeout = 20 * time.Second
+
+	// ProxyBindRetryInterval is how long to wait between attempts to bind to the
+	// proxy address:port
+	ProxyBindRetryInterval = ProxyBindTimeout / 5
+)
 
 // DNSProxy is a L7 proxy for DNS traffic. It keeps a list of allowed DNS
 // lookups that can be regexps and blocks lookups that are not allowed.
@@ -145,14 +151,12 @@ func StartDNSProxy(address string, port uint16, lookupEPFunc LookupEndpointIDByI
 	)
 
 	start := time.Now()
-bindAttempt:
 	for time.Since(start) < ProxyBindTimeout {
 		UDPConn, TCPListener, err = bindToAddr(address, port)
-		if err != nil {
-			log.WithError(err).Warn("Attempt to bind DNS Proxy failed")
-			continue bindAttempt
+		if err == nil {
+			break
 		}
-		break bindAttempt
+		log.WithError(err).Warn("Attempt to bind DNS Proxy failed")
 	}
 	if err != nil {
 		return nil, err
@@ -173,7 +177,7 @@ bindAttempt:
 				if err := server.ActivateAndServe(); err != nil {
 					log.WithError(err).Errorf("Failed to start the %s DNS proxy on %s", server.Net, server.Addr)
 				}
-				time.Sleep(ProxyBindTimeout / 5)
+				time.Sleep(ProxyBindRetryInterval)
 			}
 			log.Fatalf("Failed to start %s DNS Proxy on %s", server.Net, server.Addr)
 		}(s)
