@@ -44,14 +44,19 @@ func (c *CtEntry) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(c) }
 
 // String returns the readable format
 func (c *CtEntry) String() string {
-	return fmt.Sprintf("expires=%d RxPackets=%d RxBytes=%d TxPackets=%d TxBytes=%d Flags=%x RevNAT=%d SourceSecurityID=%d\n",
+	return fmt.Sprintf("expires=%d RxPackets=%d RxBytes=%d RxFlagsSeen=%#02x LastRxReport=%d TxPackets=%d TxBytes=%d TxFlagsSeen=%#02x LastTxReport=%d Flags=%#04x RevNAT=%d Slave=%d SourceSecurityID=%d \n",
 		c.Lifetime,
 		c.RxPackets,
 		c.RxBytes,
+		c.RxFlagsSeen,
+		c.LastRxReport,
 		c.TxPackets,
 		c.TxBytes,
+		c.TxFlagsSeen,
+		c.LastTxReport,
 		c.Flags,
 		byteorder.NetworkToHost(c.RevNAT),
+		c.Slave,
 		c.SourceSecurityID)
 }
 
