@@ -513,7 +513,7 @@ func init() {
 	flags.IntVar(&toFQDNsMinTTL,
 		"tofqdns-min-ttl", defaults.ToFQDNsMinTTL, "The minimum time, in seconds, to use DNS data for toFQDNs policies.")
 	flags.IntVar(&proxy.DNSProxyPort,
-		"fqdn-proxy-port", 0, "Global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.")
+		"tofqdns-proxy-port", 0, "Global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.")
 
 	viper.BindPFlags(flags)
 }

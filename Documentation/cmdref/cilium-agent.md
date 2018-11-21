@@ -44,7 +44,6 @@ cilium-agent
       --enable-tracing                              Enable tracing while determining policy (debugging)
       --envoy-log string                            Path to a separate Envoy log file, if any
       --fixed-identity-mapping map                  Key-value for the fixed identity mapping which allows to use reserved label for fixed identities (default map[])
-      --fqdn-proxy-port int                         Global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.
       --ipv4-cluster-cidr-mask-size int             Mask size for the cluster wide CIDR (default 8)
       --ipv4-node string                            IPv4 address of node (default "auto")
       --ipv4-range string                           Per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16 (default "auto")
@@ -87,6 +86,7 @@ cilium-agent
       --sockops-enable                              Enable sockops when kernel supported
       --state-dir string                            Directory path to store runtime state (default "/var/run/cilium")
       --tofqdns-min-ttl int                         The minimum time, in seconds, to use DNS data for toFQDNs policies. (default 3600)
+      --tofqdns-proxy-port int                      Global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.
       --trace-payloadlen int                        Length of payload to capture when tracing (default 128)
   -t, --tunnel string                               Tunnel mode {vxlan, geneve, disabled} (default "vxlan")
       --version                                     Print version information
