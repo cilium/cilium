@@ -2335,7 +2335,9 @@ func init() {
           "description": "List of stale information in the status",
           "type": "object",
           "additionalProperties": {
-            "type": "string"
+            "description": "Timestamp when the probe was started",
+            "type": "string",
+            "format": "date-time"
           }
         }
       }

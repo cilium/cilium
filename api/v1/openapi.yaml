@@ -1250,7 +1250,9 @@ definitions:
         description: List of stale information in the status
         type: object
         additionalProperties:
+          description: Timestamp when the probe was started
           type: string
+          format: date-time
 
   Status:
     description: Status of an individual component

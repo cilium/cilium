@@ -45,7 +45,7 @@ type StatusResponse struct {
 	Proxy *ProxyStatus `json:"proxy,omitempty"`
 
 	// List of stale information in the status
-	Stale map[string]string `json:"stale,omitempty"`
+	Stale map[string]strfmt.DateTime `json:"stale,omitempty"`
 }
 
 /* polymorph StatusResponse cilium false */
