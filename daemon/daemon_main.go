@@ -126,6 +126,7 @@ var (
 	v6ServicePrefix       string
 	validLabels           []string
 	toFQDNsMinTTL         int
+	enableDNSPoller       bool
 )
 
 var (
@@ -515,6 +516,8 @@ func init() {
 		"tofqdns-min-ttl", defaults.ToFQDNsMinTTL, "The minimum time, in seconds, to use DNS data for toFQDNs policies.")
 	flags.IntVar(&proxy.DNSProxyPort,
 		"tofqdns-proxy-port", 0, "Global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.")
+	flags.BoolVar(&enableDNSPoller,
+		"tofqdns-enable-poller", false, "Enable proactive polling of DNS names in toFQDNs.matchName rules.")
 
 	viper.BindPFlags(flags)
 }
