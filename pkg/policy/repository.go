@@ -256,19 +256,15 @@ func (p *Repository) wildcardL3L4Rules(ctx *SearchContext, ingress bool, l4Polic
 // TODO: Coalesce l7 rules?
 func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (*L4PolicyMap, error) {
 
-	result, err := p.rules.resolveL4IngressPolicy(ctx)
+	result, err := p.rules.resolveL4IngressPolicy(ctx, p.revision)
 	if err != nil {
 		return nil, err
-	}
-
-	if result != nil {
-		result.Revision = p.GetRevision()
 	}
 
 	return &result.Ingress, nil
 }
 
-func (rules ruleSlice) resolveL4IngressPolicy(ctx *SearchContext) (*L4Policy, error) {
+func (rules ruleSlice) resolveL4IngressPolicy(ctx *SearchContext, revision uint64) (*L4Policy, error) {
 	result := NewL4Policy()
 
 	ctx.PolicyTrace("\n")
@@ -303,6 +299,7 @@ func (rules ruleSlice) resolveL4IngressPolicy(ctx *SearchContext) (*L4Policy, er
 	}
 
 	rules.wildcardL3L4Rules(ctx, true, result.Ingress)
+	result.Revision = revision
 
 	state.trace(rules, ctx)
 	return result, nil
@@ -315,20 +312,16 @@ func (rules ruleSlice) resolveL4IngressPolicy(ctx *SearchContext) (*L4Policy, er
 // are merged together. If rules contains overlapping port definitions, the first
 // rule found in the repository takes precedence.
 func (p *Repository) ResolveL4EgressPolicy(ctx *SearchContext) (*L4PolicyMap, error) {
-	result, err := p.rules.resolveL4EgressPolicy(ctx)
+	result, err := p.rules.resolveL4EgressPolicy(ctx, p.revision)
 
 	if err != nil {
 		return nil, err
 	}
 
-	if result != nil {
-		result.Revision = p.GetRevision()
-	}
-
 	return &result.Egress, nil
 }
 
-func (rules ruleSlice) resolveL4EgressPolicy(ctx *SearchContext) (*L4Policy, error) {
+func (rules ruleSlice) resolveL4EgressPolicy(ctx *SearchContext, revision uint64) (*L4Policy, error) {
 	result := NewL4Policy()
 
 	ctx.PolicyTrace("\n")
@@ -364,6 +357,7 @@ func (rules ruleSlice) resolveL4EgressPolicy(ctx *SearchContext) (*L4Policy, err
 	}
 
 	rules.wildcardL3L4Rules(ctx, false, result.Egress)
+	result.Revision = revision
 
 	state.trace(rules, ctx)
 	return result, nil
