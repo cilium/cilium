@@ -16,19 +16,13 @@ package policy
 
 import (
 	"encoding/json"
-	"strconv"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-// ruleSlice is a wrapper around a slice of *rule, which allows for functions
-// to be written with []*rule as a receiver.
-type ruleSlice []*rule
 
 // Repository is a list of policy rules which in combination form the security
 // policy. A policy repository can be
@@ -83,33 +77,6 @@ func (state *traceState) trace(rules ruleSlice, ctx *SearchContext) {
 // ingress. The policy repository mutex must be held.
 func (p *Repository) CanReachIngressRLocked(ctx *SearchContext) api.Decision {
 	return p.rules.canReachIngressRLocked(ctx)
-}
-
-func (rules ruleSlice) canReachIngressRLocked(ctx *SearchContext) api.Decision {
-	decision := api.Undecided
-	state := traceState{}
-
-loop:
-	for i, r := range rules {
-		state.ruleID = i
-		switch r.canReachIngress(ctx, &state) {
-		// The rule contained a constraint which was not met, this
-		// connection is not allowed
-		case api.Denied:
-			decision = api.Denied
-			break loop
-
-		// The rule allowed the connection but a later rule may impose
-		// additional constraints, so we store the decision but allow
-		// it to be overwritten by an additional requirement
-		case api.Allowed:
-			decision = api.Allowed
-		}
-	}
-
-	state.trace(rules, ctx)
-
-	return decision
 }
 
 // AllowsIngressLabelAccess evaluates the policy repository for the provided search
@@ -173,73 +140,6 @@ func wildcardL3L4Rule(proto api.L4Proto, port int, endpoints api.EndpointSelecto
 	}
 }
 
-func (rules ruleSlice) wildcardL3L4Rules(ctx *SearchContext, ingress bool, l4Policy L4PolicyMap) {
-	// Duplicate L3-only rules into wildcard L7 rules.
-	for _, r := range rules {
-		if ingress {
-			if !r.EndpointSelector.Matches(ctx.To) {
-				continue
-			}
-			for _, rule := range r.Ingress {
-				// Non-label-based rule. Ignore.
-				if !rule.IsLabelBased() {
-					continue
-				}
-
-				fromEndpoints := rule.GetSourceEndpointSelectors()
-				ruleLabels := r.Rule.Labels.DeepCopy()
-
-				// L3-only rule.
-				if len(rule.ToPorts) == 0 {
-					wildcardL3L4Rule(api.ProtoTCP, 0, fromEndpoints, ruleLabels, l4Policy)
-					wildcardL3L4Rule(api.ProtoUDP, 0, fromEndpoints, ruleLabels, l4Policy)
-				} else {
-					for _, toPort := range rule.ToPorts {
-						// L3/L4-only rule
-						if toPort.Rules.IsEmpty() {
-							for _, p := range toPort.Ports {
-								// Already validated via PortRule.Validate().
-								port, _ := strconv.ParseUint(p.Port, 0, 16)
-								wildcardL3L4Rule(p.Protocol, int(port), fromEndpoints, ruleLabels, l4Policy)
-							}
-						}
-					}
-				}
-			}
-		} else {
-			if !r.EndpointSelector.Matches(ctx.From) {
-				continue
-			}
-			for _, rule := range r.Egress {
-				// Non-label-based rule. Ignore.
-				if !rule.IsLabelBased() {
-					continue
-				}
-
-				toEndpoints := rule.GetDestinationEndpointSelectors()
-				ruleLabels := r.Rule.Labels.DeepCopy()
-
-				// L3-only rule.
-				if len(rule.ToPorts) == 0 {
-					wildcardL3L4Rule(api.ProtoTCP, 0, toEndpoints, ruleLabels, l4Policy)
-					wildcardL3L4Rule(api.ProtoUDP, 0, toEndpoints, ruleLabels, l4Policy)
-				} else {
-					for _, toPort := range rule.ToPorts {
-						// L3/L4-only rule
-						if toPort.Rules.IsEmpty() {
-							for _, p := range toPort.Ports {
-								// Already validated via PortRule.Validate().
-								port, _ := strconv.ParseUint(p.Port, 0, 16)
-								wildcardL3L4Rule(p.Protocol, int(port), toEndpoints, ruleLabels, l4Policy)
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-}
-
 // wildcardL3L4Rules updates each ingress L7 rule to allow at L7 all traffic that
 // is allowed at L3-only or L3/L4.
 func (p *Repository) wildcardL3L4Rules(ctx *SearchContext, ingress bool, l4Policy L4PolicyMap) {
@@ -264,47 +164,6 @@ func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (*L4PolicyMap, e
 	return &result.Ingress, nil
 }
 
-func (rules ruleSlice) resolveL4IngressPolicy(ctx *SearchContext, revision uint64) (*L4Policy, error) {
-	result := NewL4Policy()
-
-	ctx.PolicyTrace("\n")
-	ctx.PolicyTrace("Resolving ingress port policy for %+v\n", ctx.To)
-
-	state := traceState{}
-	var requirements []v1.LabelSelectorRequirement
-
-	// Iterate over all FromRequires which select ctx.To. These requirements
-	// will be appended to each EndpointSelector's MatchExpressions in
-	// each FromEndpoints for all ingress rules. This ensures that FromRequires
-	// is taken into account when evaluating policy at L4.
-	for _, r := range rules {
-		for _, ingressRule := range r.Ingress {
-			if r.EndpointSelector.Matches(ctx.To) {
-				for _, requirement := range ingressRule.FromRequires {
-					requirements = append(requirements, requirement.ConvertToLabelSelectorRequirementSlice()...)
-				}
-			}
-		}
-	}
-
-	for _, r := range rules {
-		found, err := r.resolveL4IngressPolicy(ctx, &state, result, requirements)
-		if err != nil {
-			return nil, err
-		}
-		state.ruleID++
-		if found != nil {
-			state.matchedRules++
-		}
-	}
-
-	rules.wildcardL3L4Rules(ctx, true, result.Ingress)
-	result.Revision = revision
-
-	state.trace(rules, ctx)
-	return result, nil
-}
-
 // ResolveL4EgressPolicy resolves the L4 egress policy for a set of endpoints
 // by searching the policy repository for `PortRule` rules that are attached to
 // a `Rule` where the EndpointSelector matches `ctx.From`. `ctx.To` takes no effect and
@@ -321,69 +180,12 @@ func (p *Repository) ResolveL4EgressPolicy(ctx *SearchContext) (*L4PolicyMap, er
 	return &result.Egress, nil
 }
 
-func (rules ruleSlice) resolveL4EgressPolicy(ctx *SearchContext, revision uint64) (*L4Policy, error) {
-	result := NewL4Policy()
-
-	ctx.PolicyTrace("\n")
-	ctx.PolicyTrace("Resolving egress port policy for %+v\n", ctx.To)
-
-	var requirements []v1.LabelSelectorRequirement
-
-	// Iterate over all ToRequires which select ctx.To. These requirements will
-	// be appended to each EndpointSelector's MatchExpressions in each
-	// ToEndpoints for all ingress rules. This ensures that ToRequires is
-	// taken into account when evaluating policy at L4.
-	for _, r := range rules {
-		for _, egressRule := range r.Egress {
-			if r.EndpointSelector.Matches(ctx.From) {
-				for _, requirement := range egressRule.ToRequires {
-					requirements = append(requirements, requirement.ConvertToLabelSelectorRequirementSlice()...)
-				}
-			}
-		}
-	}
-
-	state := traceState{}
-	for i, r := range rules {
-		state.ruleID = i
-		found, err := r.resolveL4EgressPolicy(ctx, &state, result, requirements)
-		if err != nil {
-			return nil, err
-		}
-		state.ruleID++
-		if found != nil {
-			state.matchedRules++
-		}
-	}
-
-	rules.wildcardL3L4Rules(ctx, false, result.Egress)
-	result.Revision = revision
-
-	state.trace(rules, ctx)
-	return result, nil
-}
-
 // ResolveCIDRPolicy resolves the L3 policy for a set of endpoints by searching
 // the policy repository for `CIDR` rules that are attached to a `Rule`
 // where the EndpointSelector matches `ctx.To`. `ctx.From` takes no effect and
 // is ignored in the search.
 func (p *Repository) ResolveCIDRPolicy(ctx *SearchContext) *CIDRPolicy {
 	return p.rules.resolveCIDRPolicy(ctx)
-}
-
-func (rules ruleSlice) resolveCIDRPolicy(ctx *SearchContext) *CIDRPolicy {
-	result := NewCIDRPolicy()
-
-	ctx.PolicyTrace("Resolving L3 (CIDR) policy for %+v\n", ctx.To)
-
-	state := traceState{}
-	for _, r := range rules {
-		r.resolveCIDRPolicy(ctx, &state, result)
-		state.ruleID++
-	}
-
-	state.trace(rules, ctx)
-	return result
 }
 
 func (p *Repository) allowsL4Egress(ctx *SearchContext) api.Decision {
@@ -499,33 +301,6 @@ func (p *Repository) AllowsEgressLabelAccess(egressCtx *SearchContext) api.Decis
 // The policy repository mutex must be held.
 func (p *Repository) CanReachEgressRLocked(egressCtx *SearchContext) api.Decision {
 	return p.rules.canReachEgressRLocked(egressCtx)
-}
-
-func (rules ruleSlice) canReachEgressRLocked(egressCtx *SearchContext) api.Decision {
-	egressDecision := api.Undecided
-	egressState := traceState{}
-
-egressLoop:
-	for i, r := range rules {
-		egressState.ruleID = i
-		switch r.canReachEgress(egressCtx, &egressState) {
-		// The rule contained a constraint which was not met, this
-		// connection is not allowed
-		case api.Denied:
-			egressDecision = api.Denied
-			break egressLoop
-
-			// The rule allowed the connection but a later rule may impose
-			// additional constraints, so we store the decision but allow
-			// it to be overwritten by an additional requirement
-		case api.Allowed:
-			egressDecision = api.Allowed
-		}
-	}
-
-	egressState.trace(rules, egressCtx)
-
-	return egressDecision
 }
 
 // SearchRLocked searches the policy repository for rules which match the
