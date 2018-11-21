@@ -30,13 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/workloads"
 
 	"github.com/go-openapi/runtime/middleware"
-)
-
-const (
-	collectStatusInterval = 5 * time.Second
-
-	// status data older than staleTimeout triggers the stale warning
-	staleTimeout = 1 * time.Minute
+	"github.com/go-openapi/strfmt"
 )
 
 func (d *Daemon) getK8sStatus() *models.K8sStatus {
@@ -89,21 +83,53 @@ func (d *Daemon) getNodeStatus() *models.ClusterStatus {
 
 func (h *getHealthz) Handle(params GetHealthzParams) middleware.Responder {
 	d := h.daemon
-	d.statusCollectMutex.RLock()
-	sr := d.statusResponse
-	timestamp := d.statusResponseTimestamp
-	d.statusCollectMutex.RUnlock()
 
-	if time.Since(timestamp) > staleTimeout {
+	var stale map[string]strfmt.DateTime
+	staleProbes := d.statusCollector.GetStaleProbes()
+	isStale := len(staleProbes) > 0
+	if isStale {
+		stale = make(map[string]strfmt.DateTime)
+		for probe, startTime := range staleProbes {
+			stale[probe] = strfmt.DateTime(startTime)
+		}
+	}
+
+	d.statusCollectMutex.RLock()
+	defer d.statusCollectMutex.RUnlock()
+
+	sr := d.statusResponse
+
+	if isStale {
+		sr.Stale = stale
 		sr.Cilium = &models.Status{
 			State: models.StatusStateWarning,
-			Msg:   fmt.Sprintf("Stale status data (since %v)", timestamp),
+			Msg:   "Stale status data",
+		}
+	} else {
+		if sr.Kvstore != nil && sr.Kvstore.State != models.StatusStateOk {
+			sr.Cilium = &models.Status{
+				State: sr.Kvstore.State,
+				Msg:   "Kvstore service is not ready",
+			}
+		} else if sr.ContainerRuntime != nil && sr.ContainerRuntime.State != models.StatusStateOk {
+			sr.Cilium = &models.Status{
+				State: sr.ContainerRuntime.State,
+				Msg:   "Container runtime is not ready",
+			}
+		} else if k8s.IsEnabled() && sr.Kubernetes != nil && sr.Kubernetes.State != models.StatusStateOk {
+			sr.Cilium = &models.Status{
+				State: sr.Kubernetes.State,
+				Msg:   "Kubernetes service is not ready",
+			}
+		} else {
+			sr.Cilium = &models.Status{State: models.StatusStateOk, Msg: "OK"}
 		}
 	}
 
 	return NewGetHealthzOK().WithPayload(&sr)
 }
 
+// TODO(brb) rm
 func (d *Daemon) getStatus() models.StatusResponse {
 	sr := models.StatusResponse{
 		Controllers: controller.GetGlobalStatus(),
@@ -181,14 +207,28 @@ func (d *Daemon) startStatusCollector() {
 				return kvstore.Client().Status()
 			},
 			Status: func(status status.Status) {
-				info := status.Data.(string)
+				state := models.StatusStateOk
+				msg := ""
+
+				if status.Err != nil {
+					state = models.StatusStateFailure
+					msg += fmt.Sprintf("Err: %s", status.Err)
+				}
+				// TODO(brb) do we really need this Err %s - %s?
+				if info, ok := status.Data.(string); ok {
+					format := " %s"
+					if status.Err != nil {
+						format = " - %s"
+					}
+					msg += fmt.Sprintf(format, info)
+				}
+
 				d.statusCollectMutex.Lock()
 				defer d.statusCollectMutex.Unlock()
 
-				if status.Err != nil {
-					d.statusResponse.Kvstore = &models.Status{State: models.StatusStateFailure, Msg: fmt.Sprintf("Err: %s - %s", status.Err, info)}
-				} else {
-					d.statusResponse.Kvstore = &models.Status{State: models.StatusStateOk, Msg: info}
+				d.statusResponse.Kvstore = &models.Status{
+					State: state,
+					Msg:   msg,
 				}
 			},
 		},
@@ -202,9 +242,15 @@ func (d *Daemon) startStatusCollector() {
 				defer d.statusCollectMutex.Unlock()
 
 				if status.Err != nil {
-					d.statusResponse.ContainerRuntime = &models.Status{State: models.StatusStateFailure, Msg: status.Err.Error()}
-				} else {
-					d.statusResponse.ContainerRuntime = status.Data.(*models.Status)
+					d.statusResponse.ContainerRuntime = &models.Status{
+						State: models.StatusStateFailure,
+						Msg:   status.Err.Error(),
+					}
+					return
+				}
+
+				if s, ok := status.Data.(*models.Status); ok {
+					d.statusResponse.ContainerRuntime = s
 				}
 			},
 		},
@@ -218,9 +264,14 @@ func (d *Daemon) startStatusCollector() {
 				defer d.statusCollectMutex.Unlock()
 
 				if status.Err != nil {
-					d.statusResponse.Kubernetes = &models.K8sStatus{State: models.StatusStateFailure, Msg: status.Err.Error()}
-				} else {
-					d.statusResponse.Kubernetes = status.Data.(*models.K8sStatus)
+					d.statusResponse.Kubernetes = &models.K8sStatus{
+						State: models.StatusStateFailure,
+						Msg:   status.Err.Error(),
+					}
+					return
+				}
+				if s, ok := status.Data.(*models.K8sStatus); ok {
+					d.statusResponse.Kubernetes = s
 				}
 			},
 		},
@@ -235,7 +286,9 @@ func (d *Daemon) startStatusCollector() {
 
 				// IPAMStatus has no way to show errors
 				if status.Err == nil {
-					d.statusResponse.IPAM = status.Data.(*models.IPAMStatus)
+					if s, ok := status.Data.(*models.IPAMStatus); ok {
+						d.statusResponse.IPAM = s
+					}
 				}
 			},
 		},
@@ -250,7 +303,9 @@ func (d *Daemon) startStatusCollector() {
 
 				// NodeMonitor has no way to show errors
 				if status.Err == nil {
-					d.statusResponse.NodeMonitor = status.Data.(*models.MonitorStatus)
+					if s, ok := status.Data.(*models.MonitorStatus); ok {
+						d.statusResponse.NodeMonitor = s
+					}
 				}
 			},
 		},
@@ -265,7 +320,10 @@ func (d *Daemon) startStatusCollector() {
 
 				// ClusterStatus has no way to report errors
 				if status.Err == nil {
-					d.statusResponse.Cluster = status.Data.(*models.ClusterStatus)
+					if s, ok := status.Data.(*models.ClusterStatus); ok {
+						s.CiliumHealth = d.statusResponse.Cluster.CiliumHealth
+						d.statusResponse.Cluster = s
+					}
 				}
 			},
 		},
@@ -284,10 +342,19 @@ func (d *Daemon) startStatusCollector() {
 
 				d.statusCollectMutex.Lock()
 				defer d.statusCollectMutex.Unlock()
+
+				if d.statusResponse.Cluster == nil {
+					d.statusResponse.Cluster = &models.ClusterStatus{}
+				}
 				if status.Err != nil {
-					d.statusResponse.Cluster.CiliumHealth = &models.Status{State: models.StatusStateFailure, Msg: status.Err.Error()}
-				} else {
-					d.statusResponse.Cluster.CiliumHealth = status.Data.(*models.Status)
+					d.statusResponse.Cluster.CiliumHealth = &models.Status{
+						State: models.StatusStateFailure,
+						Msg:   status.Err.Error(),
+					}
+					return
+				}
+				if s, ok := status.Data.(*models.Status); ok {
+					d.statusResponse.Cluster.CiliumHealth = s
 				}
 			},
 		},
@@ -300,16 +367,14 @@ func (d *Daemon) startStatusCollector() {
 				return d.l7Proxy.GetStatusModel(), nil
 			},
 			Status: func(status status.Status) {
-				if status.Data == nil {
-					return
-				}
-
 				d.statusCollectMutex.Lock()
 				defer d.statusCollectMutex.Unlock()
 
 				// ProxyStatus has no way to report errors
 				if status.Err == nil {
-					d.statusResponse.Proxy = status.Data.(*models.ProxyStatus)
+					if s, ok := status.Data.(*models.ProxyStatus); ok {
+						d.statusResponse.Proxy = s
+					}
 				}
 			},
 		},
