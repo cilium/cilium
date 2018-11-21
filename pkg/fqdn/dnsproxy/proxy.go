@@ -241,6 +241,7 @@ func (p *DNSProxy) CheckAllowed(name, endpointID string) bool {
 //  fqdn/RuleGen instance).
 //  - Write the response to the endpoint.
 func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
+	requestID := r.Id // keep the original request ID
 	qname := string(r.Question[0].Name)
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.DNSName: qname,
@@ -278,6 +279,8 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	}
 	scopedLog.WithField("server", targetServer).Debug("Found target server to forward DNS request to")
 
+	// Keep the same L4 protocol. This handles DNS re-requests over TCP, for
+	// requests that were too large for UDP.
 	var client *dns.Client
 	switch w.LocalAddr().Network() {
 	case "udp":
@@ -289,6 +292,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		return
 	}
 
+	r.Id = dns.Id() // force a random new ID for this request
 	lookupTime := time.Now()
 	response, _, err := client.Exchange(r, targetServer)
 	if err != nil {
@@ -306,6 +310,8 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	}
 
 	scopedLog.Debug("Responding to original DNS query")
+	// restore the ID to the one in the inital request so it matches what the requester expects.
+	response.Id = requestID
 	w.WriteMsg(response)
 }
 
