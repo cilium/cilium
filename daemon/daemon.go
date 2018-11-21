@@ -1324,7 +1324,9 @@ func (d *Daemon) bootstrapFQDN() (err error) {
 		}}
 	d.dnsRuleGen = fqdn.NewRuleGen(cfg)
 	d.dnsPoller = fqdn.NewDNSPoller(cfg, d.dnsRuleGen)
-	fqdn.StartDNSPoller(d.dnsPoller)
+	if enableDNSPoller {
+		fqdn.StartDNSPoller(d.dnsPoller)
+	}
 
 	// Once we stop returning errors from StartDNSProxy this should live in
 	// StartProxySupport
