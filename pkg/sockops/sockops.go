@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -71,7 +72,6 @@ func setCgroupRoot(path string) {
 
 // mountCgroup mounts the Cgroup v2 filesystem into the desired cgroupRoot directory.
 func mountCgroup() error {
-	prog := "mount"
 	cgroupRootStat, err := os.Stat(cgroupRoot)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -85,11 +85,10 @@ func mountCgroup() error {
 		return fmt.Errorf("%s is a file which is not a directory", cgroupRoot)
 	}
 
-	mntArgs := []string{"-t", "cgroup2", "none", cgroupRoot}
-	_, err = exec.Command(prog, mntArgs...).CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("Failed to mount %s: %s", cgroupRoot, err)
+	if err := syscall.Mount("none", cgroupRoot, mountinfo.FilesystemTypeCgroup2, 0, ""); err != nil {
+		return fmt.Errorf("failed to mount %s: %s", cgroupRoot, err)
 	}
+
 	return nil
 }
 
