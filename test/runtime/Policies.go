@@ -1012,6 +1012,54 @@ var _ = Describe("RuntimePolicies", func() {
 		res.ExpectContains("301", "Cannot access %s %s", allowedTarget, res.OutputPrettyPrint())
 	})
 
+	It("Enforces L3 policy even when no IPs are inserted", func() {
+		expectFQDNSareApplied := func() {
+			jqfilter := `jq -c '.[0].egress[]| select(.toFQDNs|length > 0) | select(.toCIDRSet|length > 0)'`
+			body := func() bool {
+				res := vm.Exec(fmt.Sprintf(`cilium policy get -o jsonpath='{.policy}' | %s`, jqfilter))
+				return res.WasSuccessful()
+			}
+			err := helpers.WithTimeout(
+				body,
+				"ToFQDNs did not update any ToCIDRSet",
+				&helpers.TimeoutConfig{Timeout: helpers.HelperTimeout})
+			Expect(err).To(BeNil(), "FQDN policy didn't update correctly the ToCidrSet")
+		}
+
+		By("Importing policy with toFQDNs rules")
+		fqdnPolicy := `
+[
+  {
+    "labels": [{
+	  	"key": "toFQDNs-runtime-test-policy"
+	  }],
+    "endpointSelector": {
+      "matchLabels": {
+        "container:id.app1": ""
+      }
+    },
+    "egress": [
+      {
+        "toFQDNs": [
+          {
+            "matchPattern": "notadomain.cilium.io"
+          }
+        ]
+      }
+    ]
+  }
+]`
+		_, err := vm.PolicyRenderAndImport(fqdnPolicy)
+		Expect(err).To(BeNil(), "Policy cannot be imported")
+		expectFQDNSareApplied()
+
+		By("Denying egress to any IPs or domains")
+		for _, blockedTarget := range []string{"1.1.1.1", "cilium.io", "google.com"} {
+			res := vm.ContainerExec(helpers.App1, helpers.CurlFail(blockedTarget))
+			res.ExpectFail("Curl tp %s succeeded when in deny-all due to toFQDNs" + blockedTarget)
+		}
+	})
+
 	It("Extended HTTP Methods tests", func() {
 		// This also tests L3-dependent L7.
 		httpMethods := []string{"GET", "POST"}
