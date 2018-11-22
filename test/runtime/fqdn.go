@@ -622,6 +622,42 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		res = vm.ContainerExec(helpers.App2, helpers.CurlFail(target))
 		res.ExpectSuccess("Container %q cannot access to %q when should work", helpers.App2, target)
 	})
+
+	It("Enforces L3 policy even when no IPs are inserted", func() {
+		By("Importing policy with toFQDNs rules")
+		fqdnPolicy := `
+[
+  {
+    "labels": [{
+	  	"key": "toFQDNs-runtime-test-policy"
+	  }],
+    "endpointSelector": {
+      "matchLabels": {
+        "container:id.app1": ""
+      }
+    },
+    "egress": [
+      {
+        "toFQDNs": [
+          {
+            "matchPattern": "notadomain.cilium.io"
+          }
+        ]
+      }
+    ]
+  }
+]`
+		_, err := vm.PolicyRenderAndImport(fqdnPolicy)
+		Expect(err).To(BeNil(), "Policy cannot be imported")
+		expectFQDNSareApplied()
+
+		By("Denying egress to any IPs or domains")
+		for _, blockedTarget := range []string{"1.1.1.1", "cilium.io", "google.com"} {
+			res := vm.ContainerExec(helpers.App1, helpers.CurlFail(blockedTarget))
+			res.ExpectFail("Curl tp %s succeeded when in deny-all due to toFQDNs" + blockedTarget)
+		}
+	})
+
 })
 
 func getMapValues(m map[string]string) []interface{} {
