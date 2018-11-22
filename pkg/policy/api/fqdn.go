@@ -83,3 +83,14 @@ func (r *PortRuleDNS) Sanitize() error {
 	}
 	return matchpattern.Validate(r.MatchPattern)
 }
+
+func (s *FQDNSelector) GetDestinationEndpointSelectors() EndpointSelectorSlice {
+	return []EndpointSelector{endpointSelectorNone}
+}
+
+func GetFQDNAsSelectors(fqdns []FQDNSelector) (selectors EndpointSelectorSlice) {
+	if len(fqdns) > 0 {
+		return []EndpointSelector{endpointSelectorNone}
+	}
+	return nil
+}

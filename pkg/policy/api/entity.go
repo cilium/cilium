@@ -41,6 +41,8 @@ const (
 
 	// EntityInit is an entity that represents an initializing endpoint
 	EntityInit Entity = "init"
+
+	EntityNone Entity = "none"
 )
 
 var (
@@ -49,6 +51,8 @@ var (
 	endpointSelectorHost = NewESFromLabels(labels.NewLabel(labels.IDNameHost, "", labels.LabelSourceReserved))
 
 	endpointSelectorInit = NewESFromLabels(labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved))
+
+	endpointSelectorNone = NewESFromLabels(labels.NewLabel("none", "", labels.LabelSourceReserved))
 
 	endpointSelectorUnmanaged = NewESFromLabels(labels.NewLabel(labels.IDNameUnmanaged, "", labels.LabelSourceReserved))
 
@@ -59,6 +63,7 @@ var (
 		EntityWorld: {endpointSelectorWorld},
 		EntityHost:  {endpointSelectorHost},
 		EntityInit:  {endpointSelectorInit},
+		EntityNone:  {endpointSelectorNone},
 
 		// EntityCluster is populated with an empty entry to allow the
 		// cilium client importing this package to perform basic rule
@@ -113,6 +118,7 @@ func InitEntities(clusterName string) {
 	EntitySelectorMapping[EntityCluster] = EndpointSelectorSlice{
 		endpointSelectorHost,
 		endpointSelectorInit,
+		endpointSelectorNone,
 		endpointSelectorUnmanaged,
 		NewESFromLabels(labels.NewLabel(k8sapi.PolicyLabelCluster, clusterName, labels.LabelSourceK8s)),
 	}
