@@ -264,7 +264,7 @@ var ciliumKubCLICommands = map[string]string{
 	"cilium kvstore get cilium --recursive": "kvstore_get.txt",
 }
 
-const ciliumEtcdOperator = "https://raw.githubusercontent.com/cilium/cilium-etcd-operator/1.3/cilium-etcd-operator.yaml"
+const ciliumEtcdOperator = "https://raw.githubusercontent.com/cilium/cilium-etcd-operator/pr/switch-to-a-go-implementation/cilium-etcd-operator.yaml"
 
 //GetFilePath returns the absolute path of the provided filename
 func GetFilePath(filename string) string {
