@@ -68,6 +68,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"golang.org/x/sys/unix"
 )
 
 var (
@@ -206,11 +207,11 @@ func parseKernelVersion(ver string) (*go_version.Version, error) {
 }
 
 func getKernelVersion() (*go_version.Version, error) {
-	verOut, err := exec.Command("uname", "-r").CombinedOutput()
-	if err != nil {
+	var unameBuf unix.Utsname
+	if err := unix.Uname(&unameBuf); err != nil {
 		log.WithError(err).Fatal("kernel version: NOT OK")
 	}
-	return parseKernelVersion(string(verOut))
+	return parseKernelVersion(string(unameBuf.Release[:]))
 }
 
 func getClangVersion(filePath string) (*go_version.Version, error) {
