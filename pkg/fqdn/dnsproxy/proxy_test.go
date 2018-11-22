@@ -65,7 +65,7 @@ func serveDNS(w dns.ResponseWriter, r *dns.Msg) {
 }
 
 func (s *DNSProxyTestSuite) SetUpSuite(c *C) {
-	s.dnsTCPClient = &dns.Client{Net: "tcp", Timeout: time.Second, SingleInflight: true}
+	s.dnsTCPClient = &dns.Client{Net: "tcp", Timeout: 100 * time.Millisecond, SingleInflight: true}
 	s.dnsServer = setupServer()
 
 	proxy, err := StartDNSProxy("", 0,
@@ -94,7 +94,7 @@ func (s *DNSProxyTestSuite) TearDownSuite(c *C) {
 
 func (s *DNSProxyTestSuite) TestRejectMatchingForDifferentEndpoint(c *C) {
 	// Reject a query from not endpoint1
-	s.proxy.AddAllowed("c[il]{3,3}um.io.", "notendpoint1")
+	s.proxy.AddAllowed("c[il]{3,3}um[.]io[.]", "notendpoint1")
 	request := new(dns.Msg)
 	request.SetQuestion("cilium.io.", dns.TypeA)
 	_, _, err := s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
@@ -103,7 +103,7 @@ func (s *DNSProxyTestSuite) TestRejectMatchingForDifferentEndpoint(c *C) {
 
 func (s *DNSProxyTestSuite) TestAcceptMatchingFromEndpoint(c *C) {
 	// accept a query that matches from endpoint1
-	s.proxy.AddAllowed("c[il]{3,3}um.io.", "endpoint1")
+	s.proxy.AddAllowed("c[il]{3,3}um[.]io[.]", "endpoint1")
 	request := new(dns.Msg)
 	request.SetQuestion("cilium.io.", dns.TypeA)
 	_, _, err := s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
@@ -111,7 +111,7 @@ func (s *DNSProxyTestSuite) TestAcceptMatchingFromEndpoint(c *C) {
 }
 
 func (s *DNSProxyTestSuite) TestAcceptNonRegex(c *C) {
-	s.proxy.AddAllowed("simple.io.", "endpoint1")
+	s.proxy.AddAllowed("simple[.]io[.]", "endpoint1")
 	request := new(dns.Msg)
 	request.SetQuestion("simple.io.", dns.TypeA)
 	_, _, err := s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
@@ -120,7 +120,7 @@ func (s *DNSProxyTestSuite) TestAcceptNonRegex(c *C) {
 
 func (s *DNSProxyTestSuite) TestRejectNonRegex(c *C) {
 	// reject a query for a non-regex where a . is different (i.e. ensure simple FQDNs treat . as .)
-	s.proxy.AddAllowed("simple.io.", "endpoint1")
+	s.proxy.AddAllowed("simple[.]io[.]", "endpoint1")
 	request := new(dns.Msg)
 	request.SetQuestion("simpleXio.", dns.TypeA)
 	_, _, err := s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
@@ -137,7 +137,7 @@ func (s *DNSProxyTestSuite) TestRejectNonMatching(c *C) {
 func (s *DNSProxyTestSuite) TestRespondViaCorrectProtocol(c *C) {
 	// respond with an actual answer for the query. This also tests that the
 	// connection was forwarded via the correct protocol (tcp/udp)
-	s.proxy.AddAllowed("c[il]{3,3}um.io.", "endpoint1")
+	s.proxy.AddAllowed("c[il]{3,3}um[.]io[.]", "endpoint1")
 	request := new(dns.Msg)
 	request.SetQuestion("cilium.io.", dns.TypeA)
 	response, _, err := s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
@@ -147,7 +147,7 @@ func (s *DNSProxyTestSuite) TestRespondViaCorrectProtocol(c *C) {
 }
 
 func (s *DNSProxyTestSuite) TestRespondMixedCaseInRequest(c *C) {
-	s.proxy.AddAllowed("c[il]{3,3}um.io.", "endpoint1")
+	s.proxy.AddAllowed("c[il]{3,3}um[.]io[.]", "endpoint1")
 	request := new(dns.Msg)
 	request.SetQuestion("CILIUM.io.", dns.TypeA)
 	response, _, err := s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
@@ -157,7 +157,7 @@ func (s *DNSProxyTestSuite) TestRespondMixedCaseInRequest(c *C) {
 }
 
 func (s *DNSProxyTestSuite) TestRespondMixedCaseInResponse(c *C) {
-	s.proxy.AddAllowed("c[IL]{3,3}um.io.", "endpoint1")
+	s.proxy.AddAllowed("c[IL]{3,3}um[.]io[.]", "endpoint1")
 	request := new(dns.Msg)
 	request.SetQuestion("ciliuM.io.", dns.TypeA)
 	response, _, err := s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
@@ -167,7 +167,7 @@ func (s *DNSProxyTestSuite) TestRespondMixedCaseInResponse(c *C) {
 }
 
 func (s *DNSProxyTestSuite) TestCheckAllowedMixedCaseChecked(c *C) {
-	s.proxy.AddAllowed("c[il]{3,3}um.io.", "endpoint1")
+	s.proxy.AddAllowed("c[il]{3,3}um[.]io[.]", "endpoint1")
 
 	result := s.proxy.CheckAllowed("CILIUM.io.", "endpoint1")
 
@@ -175,7 +175,7 @@ func (s *DNSProxyTestSuite) TestCheckAllowedMixedCaseChecked(c *C) {
 }
 
 func (s *DNSProxyTestSuite) TestCheckAllowedMixedCaseRule(c *C) {
-	s.proxy.AddAllowed("CILIUM.io.", "endpoint1")
+	s.proxy.AddAllowed("CILIUM[.]io[.]", "endpoint1")
 
 	result := s.proxy.CheckAllowed("ciliuM.io.", "endpoint1")
 
