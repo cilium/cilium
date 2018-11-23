@@ -183,7 +183,7 @@ kernel version 4.8.0 or newer (the latest current stable Linux kernel is
 4.14.x).
 
 Many Linux distributions including CoreOS, Debian, Docker's LinuxKit, Fedora,
-and Ubuntu already ship kernel versions >= 4.8.x. You can check your Linux
+openSUSE and Ubuntu already ship kernel versions >= 4.8.x. You can check your Linux
 kernel version by running ``uname -a``. If you are not yet running a recent
 enough kernel, check the Documentation of your Linux distribution on how to run
 Linux kernel 4.9.x or later.
