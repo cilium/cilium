@@ -75,8 +75,8 @@ func (s *GroupsTestSuite) TestDerivativePoliciesAreDeletedIfNoToGroups(c *C) {
 
 	DerivativeCNP, err := createDerivativeCNP(cnp)
 	c.Assert(err, IsNil)
-	c.Assert(DerivativeCNP.Spec.Egress, IsNil)
-	c.Assert(len(DerivativeCNP.Specs), Equals, 0)
+	c.Assert(DerivativeCNP.Specs[0].Egress, DeepEquals, cnp.Spec.Egress)
+	c.Assert(len(DerivativeCNP.Specs), Equals, 1)
 }
 
 func (s *GroupsTestSuite) TestDerivativePoliciesAreInheritCorrectly(c *C) {
@@ -113,7 +113,7 @@ func (s *GroupsTestSuite) TestDerivativePoliciesAreInheritCorrectly(c *C) {
 
 	DerivativeCNP, err := createDerivativeCNP(cnp)
 	c.Assert(err, IsNil)
-	c.Assert(DerivativeCNP.Spec.Egress, IsNil)
+	c.Assert(DerivativeCNP.Spec, IsNil)
 	c.Assert(len(DerivativeCNP.Specs), Equals, 1)
 	c.Assert(DerivativeCNP.Specs[0].Egress[0].ToPorts, DeepEquals, cnp.Spec.Egress[0].ToPorts)
 	c.Assert(len(DerivativeCNP.Specs[0].Egress[0].ToGroups), Equals, 0)

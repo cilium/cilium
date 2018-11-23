@@ -48,7 +48,7 @@ func AddDerivativeCNPIfNeeded(cnp *cilium_v2.CiliumNetworkPolicy) bool {
 		}).Debug("CNP does not have derivative policies, skipped")
 		return true
 	}
-	controllerManager.UpdateController(fmt.Sprintf("CNP-Derivative-add-%s", cnp.ObjectMeta.Name),
+	controllerManager.UpdateController(fmt.Sprintf("add-derivative-cnp-%s", cnp.ObjectMeta.Name),
 		controller.ControllerParams{
 			DoFunc: func() error {
 				return addDerivativeCNP(cnp)
@@ -68,7 +68,7 @@ func UpdateDerivativeCNPIfNeeded(newCNP *cilium_v2.CiliumNetworkPolicy, oldCNP *
 			logfields.K8sNamespace:            newCNP.ObjectMeta.Namespace,
 		}).Info("New CNP does not have derivative policy, but old had. Deleted old policies")
 
-		controllerManager.UpdateController(fmt.Sprintf("CNP-Derivative-delete-%s", oldCNP.ObjectMeta.Name),
+		controllerManager.UpdateController(fmt.Sprintf("delete-derivatve-cnp-%s", oldCNP.ObjectMeta.Name),
 			controller.ControllerParams{
 				DoFunc: func() error {
 					return DeleteDerivativeCNP(oldCNP)
@@ -135,35 +135,41 @@ func addDerivativeCNP(cnp *cilium_v2.CiliumNetworkPolicy) error {
 	})
 
 	var derivativeCNP *cilium_v2.CiliumNetworkPolicy
-	var err error
+	var derivativeErr error
+
+	// The maxNumberOfAttempts is to not hit the limits of cloud providers API.
+	// Also, the derivativeErr is never returned, if not the controller will
+	// hit this function and the cloud providers limit will be raised. This
+	// will cause a disaster, due all other policies will hit the limit as
+	// well.
+	// If the createDerivativeCNP() fails, a new all block rule will be inserted and
+	// the derivative status in the parent policy  will be updated with the
+	// error.
 	for numAttempts := 0; numAttempts <= maxNumberOfAttempts; numAttempts++ {
-		if numAttempts == maxNumberOfAttempts {
-			return fmt.Errorf("Cannot create derivative CNP due failures: %s", err)
-		}
-		derivativeCNP, err = createDerivativeCNP(cnp)
-		if err == nil {
+		derivativeCNP, derivativeErr = createDerivativeCNP(cnp)
+		if derivativeErr == nil {
 			break
 		}
-		scopedLog.WithError(err).Error("Cannot create derivative")
-		statusErr := updateDerivativeStatus(cnp, derivativeCNP.ObjectMeta.Name, err)
+		scopedLog.WithError(derivativeErr).Error("Cannot create derivative rule. Installing deny-all rule.")
+		statusErr := updateDerivativeStatus(cnp, derivativeCNP.ObjectMeta.Name, derivativeErr)
 		if statusErr != nil {
-			log.WithError(err).Error("Cannot update CNP status on invalid derivative")
+			scopedLog.WithError(statusErr).Error("Cannot update CNP status for derivative policy")
 		}
 		time.Sleep(sleepDuration)
 	}
 	groupsCNPCache.UpdateCNP(cnp)
-	_, err = updateOrCreateCNP(derivativeCNP)
+	_, err := updateOrCreateCNP(derivativeCNP)
 	if err != nil {
 		statusErr := updateDerivativeStatus(cnp, derivativeCNP.ObjectMeta.Name, err)
 		if statusErr != nil {
-			scopedLog.WithError(err).Error("Cannot update CNP status on invalid derivative")
+			scopedLog.WithError(err).Error("Cannot update CNP status for derivative policy")
 		}
 		return statusErr
 	}
 
 	err = updateDerivativeStatus(cnp, derivativeCNP.ObjectMeta.Name, nil)
 	if err != nil {
-		scopedLog.WithError(err).Error("Cannot update CNP status on valid derivative policy")
+		scopedLog.WithError(err).Error("Cannot update CNP status for derivative policy")
 	}
 	return err
 }
