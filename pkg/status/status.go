@@ -35,6 +35,7 @@ var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsystem)
 )
 
+// Status is passed to a probe when its state changes
 type Status struct {
 	// Data is non-nil when the probe has completed successfully. Data is
 	// set to the value returned by Probe()
@@ -48,6 +49,7 @@ type Status struct {
 	StaleWarning bool
 }
 
+// Probe is run by the collector at a particular interval between invokations
 type Probe struct {
 	Name string
 
@@ -57,21 +59,26 @@ type Probe struct {
 	OnStatusUpdate func(status Status)
 }
 
+// Collector is a collector of probes used to check status of various subsystems
 type Collector struct {
 	lock.RWMutex   // protects staleProbes and probeStartTime
-	config         Configuration
+	config         Config
 	stop           chan struct{}
 	staleProbes    map[string]struct{}
 	probeStartTime map[string]time.Time
 }
 
-type Configuration struct {
+// Config is the collector configuration used for a particular collector
+type Config struct {
 	WarningThreshold time.Duration
 	FailureThreshold time.Duration
 	Interval         time.Duration
 }
 
-func NewCollector(probes []Probe, config Configuration) *Collector {
+// NewCollector creates a collector and starts the given probes.
+//
+// Each probe runs in a separate goroutine.
+func NewCollector(probes []Probe, config Config) *Collector {
 	c := &Collector{
 		config:         config,
 		stop:           make(chan struct{}, 0),
@@ -105,7 +112,7 @@ func (c *Collector) Close() {
 }
 
 // GetStaleProbes returns a map of stale probes which key is a probe name and
-// which value is a time when the last instance of the probe has been started.
+// value is a time when the last instance of the probe has been started.
 func (c *Collector) GetStaleProbes() map[string]time.Time {
 	c.RLock()
 	defer c.RUnlock()

@@ -30,7 +30,7 @@ import (
 )
 
 type StatusTestSuite struct {
-	config Configuration
+	config Config
 }
 
 var _ = Suite(&StatusTestSuite{})
@@ -40,7 +40,7 @@ func Test(t *testing.T) {
 }
 
 func (s *StatusTestSuite) SetUpTest(c *C) {
-	s.config = Configuration{
+	s.config = Config{
 		Interval:         10 * time.Millisecond,
 		WarningThreshold: 20 * time.Millisecond,
 		FailureThreshold: 80 * time.Millisecond,

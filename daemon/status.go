@@ -345,7 +345,7 @@ func (d *Daemon) startStatusCollector() {
 		},
 	}
 
-	d.statusCollector = status.NewCollector(probes, status.Configuration{
+	d.statusCollector = status.NewCollector(probes, status.Config{
 		Interval:         5 * time.Second,
 		WarningThreshold: 15 * time.Second,
 		FailureThreshold: time.Minute,
