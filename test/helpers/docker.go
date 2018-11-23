@@ -122,7 +122,12 @@ func (s *SSHMeta) execCmd(cmd string) *CmdRes {
 
 // SampleContainersActions creates or deletes various containers used for
 // testing Cilium and adds said containers to the provided Docker network.
-func (s *SSHMeta) SampleContainersActions(mode string, networkName string) {
+func (s *SSHMeta) SampleContainersActions(mode string, networkName string, createOptions ...string) {
+	createOptionsString := ""
+	for _, opt := range createOptions {
+		createOptionsString = fmt.Sprintf("%s %s", createOptionsString, opt)
+	}
+
 	images := map[string]string{
 		Httpd1: HttpdImage,
 		Httpd2: HttpdImage,
@@ -135,7 +140,7 @@ func (s *SSHMeta) SampleContainersActions(mode string, networkName string) {
 	switch mode {
 	case Create:
 		for k, v := range images {
-			s.ContainerCreate(k, v, networkName, fmt.Sprintf("-l id.%s", k))
+			s.ContainerCreate(k, v, networkName, fmt.Sprintf("-l id.%s %s", k, createOptionsString))
 		}
 	case Delete:
 		for k := range images {
