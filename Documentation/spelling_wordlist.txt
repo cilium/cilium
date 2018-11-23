@@ -374,6 +374,7 @@ ons
 onwards
 oolchain
 opcodes
+openSUSE
 orchestrator
 org
 osx
