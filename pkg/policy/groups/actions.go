@@ -135,24 +135,24 @@ func addDerivativeCNP(cnp *cilium_v2.CiliumNetworkPolicy) error {
 	})
 
 	var derivativeCNP *cilium_v2.CiliumNetworkPolicy
-	var err error
+	var derivativeErr error
 	for numAttempts := 0; numAttempts <= maxNumberOfAttempts; numAttempts++ {
 		if numAttempts == maxNumberOfAttempts {
-			return fmt.Errorf("Cannot create derivative CNP due failures: %s", err)
-		}
-		derivativeCNP, err = createDerivativeCNP(cnp)
-		if err == nil {
 			break
 		}
-		scopedLog.WithError(err).Error("Cannot create derivative")
-		statusErr := updateDerivativeStatus(cnp, derivativeCNP.ObjectMeta.Name, err)
+		derivativeCNP, derivativeErr = createDerivativeCNP(cnp)
+		if derivativeErr == nil {
+			break
+		}
+		log.WithError(derivativeErr).Error("Cannot create derivative rule. Installing block all rule.")
+		statusErr := updateDerivativeStatus(cnp, derivativeCNP.ObjectMeta.Name, derivativeErr)
 		if statusErr != nil {
-			log.WithError(err).Error("Cannot update CNP status on invalid derivative")
+			log.WithError(statusErr).Error("Cannot update CNP status on invalid derivative")
 		}
 		time.Sleep(sleepDuration)
 	}
 	groupsCNPCache.UpdateCNP(cnp)
-	_, err = updateOrCreateCNP(derivativeCNP)
+	_, err := updateOrCreateCNP(derivativeCNP)
 	if err != nil {
 		statusErr := updateDerivativeStatus(cnp, derivativeCNP.ObjectMeta.Name, err)
 		if statusErr != nil {

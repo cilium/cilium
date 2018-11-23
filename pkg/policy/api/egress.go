@@ -176,18 +176,13 @@ func (e *EgressRule) CreateDerivative() (*EgressRule, error) {
 	if !e.RequiresDerivative() {
 		return e, nil
 	}
-	blockAll := func() {
-		e = &EgressRule{}
-	}
 	for _, group := range e.ToGroups {
 		cidrSet, err := group.GetCidrSet()
 		if err != nil {
-			blockAll()
-			return nil, err
+			return &EgressRule{}, err
 		}
 		if len(cidrSet) == 0 {
-			blockAll()
-			return e, nil
+			return &EgressRule{}, nil
 		}
 		e.ToCIDRSet = append(e.ToCIDRSet, cidrSet...)
 	}
