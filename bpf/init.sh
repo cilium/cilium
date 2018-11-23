@@ -238,8 +238,6 @@ function encap_fail()
 HOST_DEV1="cilium_host"
 HOST_DEV2="cilium_net"
 
-$LIB/run_probes.sh $LIB $RUNDIR
-
 setup_veth_pair $HOST_DEV1 $HOST_DEV2
 
 ip link set $HOST_DEV1 arp off
