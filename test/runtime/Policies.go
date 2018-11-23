@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/policy/api"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
@@ -939,76 +938,6 @@ var _ = Describe("RuntimePolicies", func() {
 		_, err = vm.PolicyRenderAndImport(script)
 		Expect(err).To(BeNil(), "Unable to import policy: %s", err)
 
-	})
-
-	It("Enforces ToFQDNs policy", func() {
-		By("Importing policy with ToFQDN rules")
-		// notaname.cilium.io never returns IPs, and is there to test that the
-		// other name does get populated.
-		fqdnPolicy := `
-[
-  {
-    "labels": [{
-	  	"key": "toFQDNs-runtime-test-policy"
-	  }],
-    "endpointSelector": {
-      "matchLabels": {
-        "container:id.app1": ""
-      }
-    },
-    "egress": [
-      {
-        "toPorts": [{
-          "ports":[{"port": "53", "protocol": "ANY"}]
-        }]
-      },
-      {
-        "toFQDNs": [
-          {
-            "matchName": "cilium.io"
-          },
-          {
-            "matchName": "notaname.cilium.io"
-          }
-        ]
-      }
-    ]
-  }
-]`
-		preImportPolicyRevision, err := vm.PolicyGetRevision()
-		Expect(err).To(BeNil(), "Unable to get policy revision at start of test", err)
-		_, err = vm.PolicyRenderAndImport(fqdnPolicy)
-		Expect(err).To(BeNil(), "Unable to import policy: %s", err)
-		defer vm.PolicyDel("toFQDNs-runtime-test-policy=")
-
-		// The DNS poll will update the policy and regenerate. We know the initial
-		// import will increment the revision by 1, and the DNS update will
-		// increment it by 1 again. We can wait for two policy revisions to happen.
-		// Once we have an API to expose DNS->IP mappings we can also use that to
-		// ensure the lookup has completed more explicitly
-		timeout_s := int64(3 * fqdn.DNSPollerInterval / time.Second) // convert to seconds
-		dnsWaitBody := func() bool {
-			return vm.PolicyWait(preImportPolicyRevision + 2).WasSuccessful()
-		}
-		err = helpers.WithTimeout(dnsWaitBody, "DNSPoller did not update IPs",
-			&helpers.TimeoutConfig{Ticker: 1, Timeout: timeout_s})
-		Expect(err).To(BeNil(), "Unable to update IPs")
-		Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after ToFQDNs DNS poll triggered a regenerate")
-
-		By("Denying egress to IPs of DNS names not in ToFQDNs, and normal IPs")
-		// www.cilium.io has a different IP than cilium.io (it is CNAMEd as well!),
-		// and so should be blocked.
-		// cilium.io.cilium.io doesn't exist.
-		// 1.1.1.1, amusingly, serves HTTP.
-		for _, blockedTarget := range []string{"www.cilium.io", "cilium.io.cilium.io", "1.1.1.1"} {
-			res := vm.ContainerExec(helpers.App1, helpers.CurlFail(blockedTarget))
-			res.ExpectFail("Curl succeeded against blocked DNS name %s" + blockedTarget)
-		}
-
-		By("Allowing egress to IPs of specified ToFQDN DNS names")
-		allowedTarget := "cilium.io"
-		res := vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode(allowedTarget))
-		res.ExpectContains("301", "Cannot access %s %s", allowedTarget, res.OutputPrettyPrint())
 	})
 
 	It("Extended HTTP Methods tests", func() {
