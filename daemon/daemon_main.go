@@ -206,12 +206,17 @@ func parseKernelVersion(ver string) (*go_version.Version, error) {
 	return go_version.NewVersion(strings.Join(verStrs[:3], "."))
 }
 
-func getKernelVersion() (*go_version.Version, error) {
+func getKernelVersionStr() string {
 	var unameBuf unix.Utsname
 	if err := unix.Uname(&unameBuf); err != nil {
 		log.WithError(err).Fatal("kernel version: NOT OK")
 	}
-	return parseKernelVersion(string(unameBuf.Release[:]))
+	return string(unameBuf.Release[:])
+}
+
+func getKernelVersion() (*go_version.Version, error) {
+	kernelVersionStr := getKernelVersionStr()
+	return parseKernelVersion(kernelVersionStr)
 }
 
 func getClangVersion(filePath string) (*go_version.Version, error) {
@@ -325,9 +330,8 @@ func checkMinRequirements() {
 	if err := os.Chdir(option.Config.LibDir); err != nil {
 		log.WithError(err).WithField(logfields.Path, option.Config.LibDir).Fatal("Could not change to runtime directory")
 	}
-	probeScript := filepath.Join(option.Config.BpfDir, "run_probes.sh")
-	if err := exec.Command(probeScript, option.Config.BpfDir, option.Config.StateDir).Run(); err != nil {
-		log.WithError(err).Fatal("BPF Verifier: NOT OK. Unable to run checker for bpf_features")
+	if err := probe(option.Config.BpfDir, option.Config.StateDir); err != nil {
+		log.WithError(err).Fatal("BPF Verifier: NOT OK")
 	}
 	featuresFilePath := filepath.Join(globalsDir, "bpf_features.h")
 	if _, err := os.Stat(featuresFilePath); os.IsNotExist(err) {
