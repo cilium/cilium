@@ -793,6 +793,16 @@ The following applies to Ubuntu 17.04 or later:
       clang gcc-multilib llvm libncurses5-dev git pkg-config libmnl bison flex \
       graphviz
 
+openSUSE Tumbleweed
+```````````````````
+
+The following applies to openSUSE Tumbleweed and openSUSE Leap 15.0 or later:
+
+::
+
+   $ sudo  zypper install -y git gcc ncurses-devel libelf-devel bc libopenssl-devel \
+   libcap-devel clang llvm graphviz bison flex glibc-devel-static
+
 Compiling the Kernel
 ````````````````````
 
