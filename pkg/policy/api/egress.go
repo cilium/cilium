@@ -171,26 +171,22 @@ func (e *EgressRule) RequiresDerivative() bool {
 // rules that creates a new derivative policy.
 // In the case of ToGroups will call outside using the groups callback and this
 // function can take a bit of time.
-// Important, this call need to happens after call DeepCopy, the egressRule will change
 func (e *EgressRule) CreateDerivative() (*EgressRule, error) {
+	newRule := e.DeepCopy()
 	if !e.RequiresDerivative() {
-		return e, nil
+		return newRule, nil
 	}
-	blockAll := func() {
-		e = &EgressRule{}
-	}
+	newRule.ToCIDRSet = CIDRRuleSlice{}
 	for _, group := range e.ToGroups {
 		cidrSet, err := group.GetCidrSet()
 		if err != nil {
-			blockAll()
-			return nil, err
+			return &EgressRule{}, err
 		}
 		if len(cidrSet) == 0 {
-			blockAll()
-			return e, nil
+			return &EgressRule{}, nil
 		}
-		e.ToCIDRSet = append(e.ToCIDRSet, cidrSet...)
+		newRule.ToCIDRSet = append(e.ToCIDRSet, cidrSet...)
 	}
-	e.ToGroups = nil
-	return e, nil
+	newRule.ToGroups = nil
+	return newRule, nil
 }

@@ -81,7 +81,7 @@ func enableCNPWatcher() error {
 	ciliumV2Controller.AddEventHandler(watcher)
 	si.Start(wait.NeverStop)
 
-	controller.NewManager().UpdateController("cnp-to-groups-controller",
+	controller.NewManager().UpdateController("cnp-to-groups",
 		controller.ControllerParams{
 			DoFunc: func() error {
 				groups.UpdateCNPInformation()

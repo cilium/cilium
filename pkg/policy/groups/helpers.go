@@ -26,9 +26,9 @@ import (
 )
 
 const (
-	parentCNP   = "parentCNP"
-	cnpKindKey  = "CNPKind"
 	cnpKindName = "derivative"
+	parentCNP   = "io.cilium.network.policy.parent.uuid"
+	cnpKindKey  = "io.cilium.network.policy.kind"
 )
 
 var (
@@ -37,48 +37,65 @@ var (
 	blockOwnerDeletionPtr = true
 )
 
+func getDerivativeName(cnp *cilium_v2.CiliumNetworkPolicy) string {
+	return fmt.Sprintf(
+		"%s-togroups-%s",
+		cnp.GetObjectMeta().GetName(),
+		cnp.GetObjectMeta().GetUID())
+}
+
 // createDerivativeCNP will return a new CNP based on the given rule.
 func createDerivativeCNP(cnp *cilium_v2.CiliumNetworkPolicy) (*cilium_v2.CiliumNetworkPolicy, error) {
-	derivativeCNP := cnp.DeepCopy()
-
 	// CNP informer may provide a CNP object without APIVersion or Kind.
 	// Setting manually to make sure that the derivative policy works ok.
-	derivativeCNP.ObjectMeta.OwnerReferences = []v1.OwnerReference{{
-		APIVersion:         cilium_v2.SchemeGroupVersion.String(),
-		Kind:               cilium_v2.CNPKindDefinition,
-		Name:               cnp.ObjectMeta.Name,
-		UID:                cnp.ObjectMeta.UID,
-		BlockOwnerDeletion: &blockOwnerDeletionPtr}}
-	derivativeCNP.ObjectMeta.Name = fmt.Sprintf(
-		"%s-togroups-%s",
-		derivativeCNP.ObjectMeta.Name,
-		cnp.ObjectMeta.UID)
-	derivativeCNP.ObjectMeta.UID = ""
-	derivativeCNP.ObjectMeta.ResourceVersion = ""
-	derivativeCNP.ObjectMeta.Labels = map[string]string{
-		parentCNP:  string(cnp.ObjectMeta.UID),
-		cnpKindKey: cnpKindName,
+	derivativeCNP := &cilium_v2.CiliumNetworkPolicy{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      getDerivativeName(cnp),
+			Namespace: cnp.ObjectMeta.Namespace,
+			OwnerReferences: []v1.OwnerReference{{
+				APIVersion:         cilium_v2.SchemeGroupVersion.String(),
+				Kind:               cilium_v2.CNPKindDefinition,
+				Name:               cnp.ObjectMeta.Name,
+				UID:                cnp.ObjectMeta.UID,
+				BlockOwnerDeletion: &blockOwnerDeletionPtr,
+			}},
+			Labels: map[string]string{
+				parentCNP:  string(cnp.ObjectMeta.UID),
+				cnpKindKey: cnpKindName,
+			},
+		},
 	}
-	derivativeCNP.Spec = &api.Rule{}
-	derivativeCNP.Specs = api.Rules{}
 
 	rules, err := cnp.Parse()
 	if err != nil {
 		return nil, fmt.Errorf("Cannot parse policies: %s", err)
 	}
 
-	for _, rule := range rules {
+	derivativeCNP.Specs = make(api.Rules, len(rules))
+	for i, rule := range rules {
+		if rule.RequiresDerivative() {
+			derivativeCNP.Specs[i] = denyEgressRule()
+		}
+	}
+
+	for i, rule := range rules {
 		if !rule.RequiresDerivative() {
+			derivativeCNP.Specs[i] = rule
 			continue
 		}
 		newRule, err := rule.CreateDerivative()
 		if err != nil {
 			return derivativeCNP, err
 		}
-		derivativeCNP.Specs = append(derivativeCNP.Specs, newRule)
+		derivativeCNP.Specs[i] = newRule
 	}
-
 	return derivativeCNP, nil
+}
+
+func denyEgressRule() *api.Rule {
+	return &api.Rule{
+		Egress: []api.EgressRule{},
+	}
 }
 
 // getK8sClient return the kubernetes apiserver connection
@@ -136,10 +153,9 @@ func updateDerivativeStatus(cnp *cilium_v2.CiliumNetworkPolicy, derivativeName s
 
 	if err != nil {
 		status.OK = false
-		status.Error = fmt.Sprintf("%v", err.Error())
+		status.Error = err.Error()
 	} else {
 		status.OK = true
-		status.Error = ""
 	}
 
 	k8sClient, clientErr := getK8sClient()
@@ -155,6 +171,9 @@ func updateDerivativeStatus(cnp *cilium_v2.CiliumNetworkPolicy, derivativeName s
 		return fmt.Errorf("Cannot get Kubernetes policy: %s", clientErr)
 	}
 	if k8sCNPStatus.ObjectMeta.UID != cnp.ObjectMeta.UID {
+		// This case should not happen, but if the UID does not match make sure
+		// that the new policy is not in the cache to not loop over it. The
+		// kubernetes watcher should take care about that.
 		groupsCNPCache.DeleteCNP(k8sCNPStatus)
 		return fmt.Errorf("Policy UID mistmatch")
 	}
