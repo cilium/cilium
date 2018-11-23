@@ -69,12 +69,12 @@ type DNSProxy struct {
 	// design now.
 	LookupEndpointIDByIP LookupEndpointIDByIPFunc
 
-	// NotifyOnDNSResponse is a provided callback by which the proxy can emit DNS
+	// NotifyOnDNSMsg is a provided callback by which the proxy can emit DNS
 	// response data. It is intended to wire into a DNS cache and a fqdn.RuleGen.
 	// Note: this is a little pointless since this proxy is in-process but it is
 	// intended to allow us to switch to an external proxy process by forcing the
 	// design now.
-	NotifyOnDNSResponse NotifyOnDNSResponseFunc
+	NotifyOnDNSMsg NotifyOnDNSMsgFunc
 
 	// UDPServer, TCPServer are the miekg/dns server instances. They handle DNS
 	// parsing etc. for us.
@@ -112,9 +112,9 @@ type DNSProxy struct {
 // See DNSProxy.LookupEndpointIDByIP for usage.
 type LookupEndpointIDByIPFunc func(ip net.IP) (endpointID string, err error)
 
-// NotifyOnDNSResponseFunc handles propagating DNS response data
+// NotifyOnDNSMsgFunc handles propagating DNS response data
 // See DNSProxy.LookupEndpointIDByIP for usage.
-type NotifyOnDNSResponseFunc func(lookupTime time.Time, name string, ips []net.IP, ttl int) error
+type NotifyOnDNSMsgFunc func(lookupTime time.Time, srcAddr, dstAddr string, msg *dns.Msg, protocol string, allowed bool) error
 
 // StartDNSProxy starts a proxy used for DNS L7 redirects that listens on
 // address and port.
@@ -127,7 +127,7 @@ type NotifyOnDNSResponseFunc func(lookupTime time.Time, name string, ips []net.I
 // notifyFunc will be called with DNS response data that is returned to a
 // requesting endpoint. Note that denied requests will not trigger this
 // callback.
-func StartDNSProxy(address string, port uint16, lookupEPFunc LookupEndpointIDByIPFunc, notifyFunc NotifyOnDNSResponseFunc) (*DNSProxy, error) {
+func StartDNSProxy(address string, port uint16, lookupEPFunc LookupEndpointIDByIPFunc, notifyFunc NotifyOnDNSMsgFunc) (*DNSProxy, error) {
 	if port == 0 {
 		log.Debug("DNS Proxy port is configured to 0. A random port will be assigned by the OS.")
 	}
@@ -138,7 +138,7 @@ func StartDNSProxy(address string, port uint16, lookupEPFunc LookupEndpointIDByI
 
 	p := &DNSProxy{
 		LookupEndpointIDByIP:  lookupEPFunc,
-		NotifyOnDNSResponse:   notifyFunc,
+		NotifyOnDNSMsg:        notifyFunc,
 		lookupTargetDNSServer: lookupTargetDNSServer,
 		allowed:               regexpmap.NewRegexpMap(),
 	}
@@ -241,12 +241,14 @@ func (p *DNSProxy) CheckAllowed(name, endpointID string) bool {
 //  - Check that the endpoint ID is in the set of values associated with the
 //  DNS query (lowercased). If not, the request is dropped.
 //  - The allowed request is forwarded to the originally intended DNS server IP
-//  - The response is shared via NotifyOnDNSResponse (this will go to a
+//  - The response is shared via NotifyOnDNSMsg (this will go to a
 //  fqdn/RuleGen instance).
 //  - Write the response to the endpoint.
-func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
-	requestID := r.Id // keep the original request ID
-	qname := string(r.Question[0].Name)
+func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
+	requestID := request.Id // keep the original request ID
+	qname := string(request.Question[0].Name)
+	protocol := w.LocalAddr().Network()
+	endpointAddr := w.RemoteAddr().String()
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.DNSName: qname,
 		logfields.IPAddr:  w.RemoteAddr()})
@@ -265,6 +267,13 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	}
 	scopedLog = scopedLog.WithField(logfields.EndpointID, endpointID)
 
+	targetServerAddr, err := p.lookupTargetDNSServer(w)
+	if err != nil {
+		scopedLog.WithError(err).Error("Cannot extract target server address to forward DNS request to")
+		return
+	}
+	scopedLog.WithField("server", targetServerAddr).Debug("Found target server to of DNS request")
+
 	// The allowed check is first because we don't want to use DNS responses that
 	// endpoints are not allowed to see.
 	// Note: The cache doesn't know about the source of the DNS data (yet) and so
@@ -272,24 +281,20 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	// This isn't ideal but we are trusting the DNS responses anyway.
 	if !p.CheckAllowed(qname, endpointID) {
 		scopedLog.Debug("Rejecting DNS query from endpoint")
+		p.NotifyOnDNSMsg(time.Now(), endpointAddr, targetServerAddr, request, protocol, false)
 		refused := new(dns.Msg)
-		refused.SetRcode(r, dns.RcodeRefused)
+		refused.SetRcode(request, dns.RcodeRefused)
 		w.WriteMsg(refused)
 		return
 	}
 
 	scopedLog.Debug("Forwarding DNS request for a name that is allowed")
-	targetServer, err := p.lookupTargetDNSServer(w)
-	if err != nil {
-		scopedLog.WithError(err).Error("Cannot extract target server to forward DNS request to")
-		return
-	}
-	scopedLog.WithField("server", targetServer).Debug("Found target server to forward DNS request to")
+	p.NotifyOnDNSMsg(time.Now(), endpointAddr, targetServerAddr, request, protocol, true)
 
 	// Keep the same L4 protocol. This handles DNS re-requests over TCP, for
 	// requests that were too large for UDP.
 	var client *dns.Client
-	switch w.LocalAddr().Network() {
+	switch protocol {
 	case "udp":
 		client = p.UDPClient
 	case "tcp":
@@ -299,22 +304,15 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		return
 	}
 
-	r.Id = dns.Id() // force a random new ID for this request
-	lookupTime := time.Now()
-	response, _, err := client.Exchange(r, targetServer)
+	request.Id = dns.Id() // force a random new ID for this request
+	response, _, err := client.Exchange(request, targetServerAddr)
 	if err != nil {
 		scopedLog.WithError(err).Error("Error forwarding proxied DNS lookup")
 		return
 	}
-	scopedLog.WithField(logfields.Response, response).Debug("Received DNS response to proxied lookup")
 
-	// emit the response data via p.NotifyOnDNSResponse, only if the response is a success!
-	if response.Rcode == dns.RcodeSuccess {
-		scopedLog.Debug("Updating DNS name in cache from response to to query")
-		if err := p.notifyWithResponse(lookupTime, qname, response); err != nil {
-			scopedLog.WithError(err).Error("Error notifying on DNS response in DNSProxy")
-		}
-	}
+	scopedLog.WithField(logfields.Response, response).Debug("Received DNS response to proxied lookup")
+	p.NotifyOnDNSMsg(time.Now(), targetServerAddr, endpointAddr, response, protocol, true)
 
 	scopedLog.Debug("Responding to original DNS query")
 	// restore the ID to the one in the inital request so it matches what the requester expects.
@@ -322,21 +320,25 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	w.WriteMsg(response)
 }
 
-// notifyWithResponse distils a DNS response into a basic name -> IPs/TTL
-// mapping. This usually trivial but when a CNAME is returned we collapse the
-// chain down, keeping the lowest TTL.
-func (p *DNSProxy) notifyWithResponse(lookupTime time.Time, qname string, response *dns.Msg) error {
-	var (
-		// rrName is the name the next RR should include.
-		// This will change when we see CNAMEs.
-		rrName      = strings.ToLower(qname)
-		responseIPs []net.IP
-		TTL         uint32 = math.MaxUint32 // a TTL must exist in the RRs
-	)
-	for _, ans := range response.Answer {
+// ExtractMsgDetails extracts a canonical query name, any IPs in a response and
+// the lowest applicable TTL. When a CNAME is returned the chain is collapsed
+// down, keeping the lowest TTL, and CNAME targets are returned.
+func ExtractMsgDetails(msg *dns.Msg) (qname string, responseIPs []net.IP, TTL uint32, CNAMEs []string, err error) {
+	if len(msg.Question) == 0 {
+		return "", nil, 0, nil, errors.New("Invalid DNS message")
+	}
+	qname = strings.ToLower(string(msg.Question[0].Name))
+
+	// rrName is the name the next RR should include.
+	// This will change when we see CNAMEs.
+	rrName := strings.ToLower(qname)
+
+	TTL = math.MaxUint32 // a TTL must exist in the RRs
+
+	for _, ans := range msg.Answer {
 		// Ensure we have records for DNS names we expect
 		if strings.ToLower(ans.Header().Name) != rrName {
-			return fmt.Errorf("Unexpected name (%s) in RRs for %s (query for %s)", ans, rrName, qname)
+			return qname, nil, 0, nil, fmt.Errorf("Unexpected name (%s) in RRs for %s (query for %s)", ans, rrName, qname)
 		}
 
 		// Handle A, AAAA and CNAME records by accumulating IPs and TTLs
@@ -358,10 +360,11 @@ func (p *DNSProxy) notifyWithResponse(lookupTime time.Time, qname string, respon
 				TTL = ans.Hdr.Ttl
 			}
 			rrName = strings.ToLower(ans.Target)
+			CNAMEs = append(CNAMEs, ans.Target)
 		}
 	}
 
-	return p.NotifyOnDNSResponse(lookupTime, strings.ToLower(qname), responseIPs, int(TTL))
+	return qname, responseIPs, TTL, CNAMEs, nil
 }
 
 // bindToAddr attempts to bind to address and port for both UDP and TCP. If
