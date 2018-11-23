@@ -49,7 +49,9 @@ type consulModule struct {
 
 var (
 	//consulDummyAddress can be overwritten from test invokers using ldflags
-	consulDummyAddress = "127.0.0.1:8501"
+	consulDummyAddress = "https://127.0.0.1:8501"
+	//consulDummyConfigFile can be overwritten from test invokers using ldflags
+	consulDummyConfigFile = "/tmp/cilium-consul-certs/cilium-consul.yaml"
 
 	module = &consulModule{
 		opts: backendOptions{
@@ -80,6 +82,18 @@ func (c *consulModule) getName() string {
 func (c *consulModule) setConfigDummy() {
 	c.config = consulAPI.DefaultConfig()
 	c.config.Address = consulDummyAddress
+	yc := consulAPI.TLSConfig{}
+	b, err := ioutil.ReadFile(consulDummyConfigFile)
+	if err != nil {
+		log.WithError(err).Warnf("unable to read consul tls configuration file %s", consulDummyConfigFile)
+	}
+
+	err = yaml.Unmarshal(b, &yc)
+	if err != nil {
+		log.WithError(err).Warnf("invalid consul tls configuration in %s", consulDummyConfigFile)
+	}
+
+	c.config.TLSConfig = yc
 }
 
 func (c *consulModule) setConfig(opts map[string]string) error {
@@ -167,7 +181,6 @@ func newConsulClient(config *consulAPI.Config) (BackendOperations, error) {
 				err = errors.New("timeout while waiting for leader to be elected")
 			}
 		}
-
 		boff.Wait()
 	}
 
