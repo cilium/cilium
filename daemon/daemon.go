@@ -78,13 +78,16 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	policyApi "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy"
+	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/sockops"
 	"github.com/cilium/cilium/pkg/status"
+	"github.com/cilium/cilium/pkg/u8proto"
 	"github.com/cilium/cilium/pkg/workloads"
 
 	"github.com/go-openapi/runtime/middleware"
+	"github.com/miekg/dns"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/vishvananda/netlink"
@@ -1347,9 +1350,82 @@ func (d *Daemon) bootstrapFQDN() (err error) {
 
 			return e.StringID(), nil
 		},
-		// NotifyOnDNSResponse
-		func(lookupTime time.Time, name string, ips []net.IP, ttl int) error {
-			return d.dnsRuleGen.UpdateGenerateDNS(lookupTime, map[string]*fqdn.DNSIPRecords{name: {IPs: ips, TTL: ttl}})
+		// NotifyOnDNSMsg
+		func(lookupTime time.Time, srcAddr, dstAddr string, msg *dns.Msg, protocol string, allowed bool) error {
+			var protoID = u8proto.ProtoIDs[strings.ToLower(protocol)]
+
+			var verdict accesslog.FlowVerdict
+			if allowed {
+				verdict = accesslog.VerdictForwarded
+			} else {
+				verdict = accesslog.VerdictDenied
+			}
+
+			var ingress = msg.Response
+			var flowType accesslog.FlowType
+			if ingress {
+				flowType = accesslog.TypeResponse
+			} else {
+				flowType = accesslog.TypeRequest
+			}
+
+			var ep *endpoint.Endpoint
+			srcID := uint32(0)
+			srcIP, _, err := net.SplitHostPort(srcAddr)
+			if err != nil {
+				log.WithError(err).Error("cannot extract endpoint IP from DNS request")
+			} else {
+				ep = endpointmanager.LookupIPv4(srcIP)
+				if ep != nil {
+					srcID = ep.GetIdentity().Uint32()
+				}
+			}
+
+			if ep == nil {
+				dstIP, _, err := net.SplitHostPort(dstAddr)
+				if err != nil {
+					log.WithError(err).Error("cannot extract endpoint IP from DNS request")
+				} else {
+					// ep needs to be non-nil for the access log. One of the ends of this connection will be an endpoint.
+					ep = endpointmanager.LookupIPv4(dstIP)
+				}
+			}
+			if ep == nil { // this is a hard fail. We cannot proceed
+				err := fmt.Errorf("Cannot find matching endpoint for IPs %s or %s", srcAddr, dstAddr)
+				log.WithError(err).Error("cannot find matching endpoint")
+				return err
+			}
+
+			qname, responseIPs, TTL, CNAMEs, err := dnsproxy.ExtractMsgDetails(msg)
+			if err != nil {
+				log.WithError(err).Error("cannot extract DNS message details")
+			}
+
+			record := logger.NewLogRecord(proxy.DefaultEndpointInfoRegistry, ep, flowType, ingress,
+				func(lr *logger.LogRecord) { lr.LogRecord.TransportProtocol = accesslog.TransportProtocol(protoID) },
+				logger.LogTags.Verdict(verdict, ""),
+				logger.LogTags.Addressing(logger.AddressingInfo{
+					SrcIPPort:   srcAddr,
+					DstIPPort:   dstAddr,
+					SrcIdentity: srcID,
+				}),
+				logger.LogTags.DNS(&accesslog.LogRecordDNS{
+					Query:  qname,
+					IPs:    responseIPs,
+					TTL:    TTL,
+					CNAMEs: CNAMEs,
+				}),
+			)
+			record.Log()
+
+			if msg.Response && msg.Rcode == dns.RcodeSuccess {
+				log.Debug("Updating DNS name in cache from response to to query")
+				if err := d.dnsRuleGen.UpdateGenerateDNS(lookupTime, map[string]*fqdn.DNSIPRecords{qname: {IPs: responseIPs, TTL: int(TTL)}}); err != nil {
+					log.WithError(err).Error("error updating internal DNS cache for rule generation")
+				}
+			}
+
+			return nil
 		})
 	return err // filled by StartDNSProxy
 }
