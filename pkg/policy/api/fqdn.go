@@ -40,13 +40,17 @@ type FQDNSelector struct {
 	// - "*" matches 0 or more DNS valid characters, and may occur anywhere in
 	// the pattern. As a special case a "*" as the leftmost character, without a
 	// following "." matches all subdomains as well as the name to the right.
-	// A trailing "." is automatically added when missing
+	// A trailing "." is automatically added when missing.
 	//
 	// Examples:
-	// *.cilium.io matches subomains of cilium at that level
-	// *cilium.io matches cilium.io and all subdomains 1 level below
+	// `*.cilium.io` matches subomains of cilium at that level
+	//   www.cilium.io and blog.cilium.io match, cilium.io and google.com do not
+	// `*cilium.io` matches cilium.io and all subdomains 1 level below
+	//   www.cilium.io, blog.cilium.io and cilium.io match, google.com does not
 	// sub*.cilium.io matches subdomains of cilium where the subdomain component
 	// begins with "sub"
+	//   sub.cilium.io and subdomain.cilium.io match, www.cilium.io,
+	//   blog.cilium.io, cilium.io and google.com do not
 	MatchPattern string `json:"matchPattern,omitempty"`
 }
 
