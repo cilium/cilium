@@ -96,6 +96,9 @@ func (m *RegexpMap) LookupContainsValue(lookupKey, expectedValue string) (found 
 		// The double lookup here is safe because it seems to short-circuits when
 		// reStr is not present. The value in that case, which we don't use anyway,
 		// is an empty struct{}.
+		// Note: Lookups on nil maps work, hence the unguarded double lookup here.
+		// If reStr is not in m.lookups, the second lookup for expectedValue is
+		// also found==false.
 		if _, found := m.lookups[reStr][expectedValue]; found {
 			return true
 		}
