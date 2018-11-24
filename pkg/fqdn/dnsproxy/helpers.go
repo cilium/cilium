@@ -15,7 +15,6 @@
 package dnsproxy
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"strconv"
@@ -83,26 +82,20 @@ func createProxyMapKey(w dns.ResponseWriter) (mapKey proxymap.ProxyMapKey, err e
 	}
 
 	clientSourceIP := net.ParseIP(clientSourceIPStr)
-	clientSourcePort, err := strconv.Atoi(clientSourcePortStr)
-	switch {
-	case err != nil:
+	clientSourcePort, err := parsePortString(clientSourcePortStr)
+	if err != nil {
 		return nil, fmt.Errorf("Invalid clientSourcePort when creating DNSProxy proxymap key: %s", err)
-	case clientSourcePort < 0 || clientSourcePort > 65535:
-		return nil, errors.New("Invalid clientSourcePort when creating DNSProxy proxymap key")
 	}
 
-	proxyListenPort, err := strconv.Atoi(proxyListenPortStr)
-	switch {
-	case err != nil:
+	proxyListenPort, err := parsePortString(proxyListenPortStr)
+	if err != nil {
 		return nil, fmt.Errorf("Invalid proxyListenPort when creating DNSProxy proxymap key: %s", err)
-	case proxyListenPort < 0 || clientSourcePort > 65535:
-		return nil, errors.New("Invalid clientSourceIP when creating DNSProxy proxymap key")
 	}
 
 	if clientSourceIP.To4() != nil {
 		key := proxymap.Proxy4Key{
-			SPort:   uint16(clientSourcePort),
-			DPort:   uint16(proxyListenPort),
+			SPort:   clientSourcePort,
+			DPort:   proxyListenPort,
 			Nexthdr: uint8(protocol),
 		}
 
@@ -118,4 +111,17 @@ func createProxyMapKey(w dns.ResponseWriter) (mapKey proxymap.ProxyMapKey, err e
 
 	copy(key.SAddr[:], clientSourceIP.To16())
 	return key, nil
+}
+
+// parsePortString parses a string as a 16-bit port. It will return an error on
+// an unparseable string, or when the numeric value is invalid for a port.
+func parsePortString(portStr string) (port uint16, err error) {
+	portInt, err := strconv.Atoi(portStr)
+	if err != nil {
+		return 0, fmt.Errorf("Cannot parse port %s", portStr)
+	}
+	if portInt < 0 || portInt > 65535 {
+		return 0, fmt.Errorf("Port(%s) is out of possible 0-65535 range", portStr)
+	}
+	return uint16(portInt), nil
 }
