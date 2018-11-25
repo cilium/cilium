@@ -826,17 +826,12 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext, reloadD
 // ReloadDatapath forces the datapath programs to be reloaded. It does
 // not guarantee recompilation of the programs.
 func (e *Endpoint) Regenerate(owner Owner, context *RegenerationContext, reloadDatapath bool) <-chan bool {
-	done := make(chan bool)
+	done := make(chan bool, 1)
 
 	go func() {
 		var buildSuccess bool
 		defer func() {
-			// The external listener can ignore the channel so we need to
-			// make sure we don't block
-			select {
-			case done <- buildSuccess:
-			default:
-			}
+			done <- buildSuccess
 			close(done)
 		}()
 
