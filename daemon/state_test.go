@@ -23,6 +23,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/completion"
@@ -107,12 +108,11 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 
 	ds.OnQueueEndpointBuild = func(epID uint64) func() {
 		builders++
-		done := false
+		var once sync.Once
 		return func() {
-			if !done {
+			once.Do(func() {
 				builders--
-				done = true
-			}
+			})
 		}
 	}
 
