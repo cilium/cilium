@@ -98,12 +98,24 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 
 	ds.d.compilationMutex = new(lock.RWMutex)
 
-	ds.OnQueueEndpointBuild = func(r *e.Request) {
-		go func(*e.Request) {
-			r.MyTurn <- true
-			<-r.Done
-		}(r)
+	builders := 0
+	defer func() {
+		if builders != 0 {
+			log.Fatal("Endpoint Build Queue leaks")
+		}
+	}()
+
+	ds.OnQueueEndpointBuild = func(epID uint64) func() {
+		builders++
+		done := false
+		return func() {
+			if !done {
+				builders--
+				done = true
+			}
+		}
 	}
+
 	ds.OnTracingEnabled = func() bool {
 		return false
 	}
