@@ -73,6 +73,10 @@ type RegenerationContext struct {
 	// Stats are collected during the endpoint regeneration and provided
 	// back to the caller
 	Stats regenerationStatistics
+
+	// DoneFunc must be called when the most resource intensive portion of
+	// the regeneration is done
+	DoneFunc func()
 }
 
 // NewRegenerationContext returns a new context for regeneration that does not
@@ -822,23 +826,18 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext, reloadD
 // ReloadDatapath forces the datapath programs to be reloaded. It does
 // not guarantee recompilation of the programs.
 func (e *Endpoint) Regenerate(owner Owner, context *RegenerationContext, reloadDatapath bool) <-chan bool {
-	newReq := &Request{
-		ID:           uint64(e.ID),
-		MyTurn:       make(chan bool),
-		Done:         make(chan bool),
-		ExternalDone: make(chan bool),
-	}
+	done := make(chan bool)
 
-	go func(owner Owner, req *Request, e *Endpoint) {
+	go func() {
 		var buildSuccess bool
 		defer func() {
 			// The external listener can ignore the channel so we need to
 			// make sure we don't block
 			select {
-			case req.ExternalDone <- buildSuccess:
+			case done <- buildSuccess:
 			default:
 			}
-			close(req.ExternalDone)
+			close(done)
 		}()
 
 		err := e.RLockAlive()
@@ -852,13 +851,14 @@ func (e *Endpoint) Regenerate(owner Owner, context *RegenerationContext, reloadD
 		// We should only queue the request after we use all the endpoint's
 		// lock/unlock. Otherwise this can get a deadlock if the endpoint is
 		// being deleted at the same time. More info PR-1777.
-		owner.QueueEndpointBuild(req)
-
-		isMyTurn, isMyTurnChanOK := <-req.MyTurn
-		if isMyTurnChanOK && isMyTurn {
+		doneFunc := owner.QueueEndpointBuild(uint64(e.ID))
+		if doneFunc != nil {
 			scopedLog.Debug("Dequeued endpoint from build queue")
 
+			context.DoneFunc = doneFunc
 			err := e.regenerate(owner, context, reloadDatapath)
+			doneFunc() // in case not called already
+
 			repr, reprerr := monitor.EndpointRegenRepr(e, err)
 			if reprerr != nil {
 				scopedLog.WithError(reprerr).Warn("Notifying monitor about endpoint regeneration failed")
@@ -875,14 +875,12 @@ func (e *Endpoint) Regenerate(owner Owner, context *RegenerationContext, reloadD
 					owner.SendNotification(monitor.AgentNotifyEndpointRegenerateSuccess, repr)
 				}
 			}
-
-			req.Done <- buildSuccess
 		} else {
 			buildSuccess = false
 			scopedLog.Debug("My request was cancelled because I'm already in line")
 		}
-	}(owner, newReq, e)
-	return newReq.ExternalDone
+	}()
+	return done
 }
 
 func (e *Endpoint) runIdentityToK8sPodSync() {

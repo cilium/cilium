@@ -45,10 +45,10 @@ type Owner interface {
 	// L7 proxies.
 	RemoveNetworkPolicy(e *Endpoint)
 
-	// QueueEndpointBuild puts the given request in the processing queue
-	QueueEndpointBuild(*Request)
+	// QueueEndpointBuild puts the given endpoint in the processing queue
+	QueueEndpointBuild(epID uint64) func()
 
-	// RemoveFromEndpointQueue removes all requests from the working queue
+	// RemoveFromEndpointQueue removes an endpoint from the working queue
 	RemoveFromEndpointQueue(epID uint64)
 
 	// GetCompilationLock returns the mutex responsible for synchronizing compilation
@@ -57,18 +57,4 @@ type Owner interface {
 
 	// SendNotification is called to emit an agent notification
 	SendNotification(typ monitor.AgentNotification, text string) error
-}
-
-// Request is used to create the endpoint's request and send it to the endpoints
-// processor.
-type Request struct {
-	// ID request ID.
-	ID uint64
-	// MyTurn is used to know when is its turn.
-	MyTurn chan bool
-	// Done is used to tell the Processor the request as finished.
-	Done chan bool
-	// ExternalDone is used for external listeners this request as finished
-	// if returns true the build was successful, false otherwise.
-	ExternalDone chan bool
 }

@@ -260,6 +260,10 @@ required = [
   revision = "0744d001aa8470aaa53df28d32e5ceeb8af9bd70"
 
 [[constraint]]
+  name = "golang.org/x/sync"
+  revision = "42b317875d0fa942474b76e1b46a6060d720ae6e"
+
+[[constraint]]
   name = "golang.org/x/sys"
   revision = "14742f9018cd6651ec7364dc6ee08af0baaa1031"
 
