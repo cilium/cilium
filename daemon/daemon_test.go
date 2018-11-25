@@ -60,7 +60,7 @@ type DaemonSuite struct {
 	OnRemoveProxyRedirect     func(e *e.Endpoint, id string, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc)
 	OnUpdateNetworkPolicy     func(e *e.Endpoint, policy *policy.L4Policy, labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc)
 	OnRemoveNetworkPolicy     func(e *e.Endpoint)
-	OnQueueEndpointBuild      func(r *e.Request)
+	OnQueueEndpointBuild      func(epID uint64) func()
 	OnRemoveFromEndpointQueue func(epID uint64)
 	OnDebugEnabled            func() bool
 	OnGetCompilationLock      func() *lock.RWMutex
@@ -224,10 +224,9 @@ func (ds *DaemonSuite) RemoveNetworkPolicy(e *e.Endpoint) {
 	panic("RemoveNetworkPolicy should not have been called")
 }
 
-func (ds *DaemonSuite) QueueEndpointBuild(r *e.Request) {
+func (ds *DaemonSuite) QueueEndpointBuild(epID uint64) func() {
 	if ds.OnQueueEndpointBuild != nil {
-		ds.OnQueueEndpointBuild(r)
-		return
+		return ds.OnQueueEndpointBuild(epID)
 	}
 	panic("QueueEndpointBuild should not have been called")
 }
