@@ -268,8 +268,23 @@ func reportMap(path string, reportCmds map[string]string, node *SSHMeta) {
 // Kubernetes version being tested, if such a manifest exists, if not it
 // returns the global manifest file.
 func ManifestGet(manifestFilename string) string {
-	fullPath := filepath.Join(manifestsPath, GetCurrentK8SEnv(), manifestFilename)
+	// try dependent integration file
+	fullPath := filepath.Join(manifestsPath, GetCurrentIntegration(), manifestFilename)
 	_, err := os.Stat(fullPath)
+	if err == nil {
+		return filepath.Join(BasePath, fullPath)
+	}
+
+	// try dependent k8s version and integration file
+	fullPath = filepath.Join(manifestsPath, GetCurrentK8SEnv(), GetCurrentIntegration(), manifestFilename)
+	_, err = os.Stat(fullPath)
+	if err == nil {
+		return filepath.Join(BasePath, fullPath)
+	}
+
+	// try dependent k8s version
+	fullPath = filepath.Join(manifestsPath, GetCurrentK8SEnv(), manifestFilename)
+	_, err = os.Stat(fullPath)
 	if err == nil {
 		return filepath.Join(BasePath, fullPath)
 	}
