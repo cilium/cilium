@@ -60,7 +60,7 @@ zone "cilium.test" {
 
 var _ = Describe("RuntimeFQDNPolicies", func() {
 	const (
-		bindContainerImage = "eloycoto/docker-bind"
+		bindContainerImage = "docker.io/cilium/docker-bind:v0.1"
 		bindContainerName  = "bind"
 		worldNetwork       = "world"
 		WorldHttpd1        = "WorldHttpd1"
