@@ -91,6 +91,7 @@ Vagrant.configure("2") do |config|
                 sh.args = [
                     "k8s#{i}", "192.168.36.1#{i}", "#{$K8S_VERSION}",
                     "#{$IPv6}", "#{$CONTAINER_RUNTIME}"]
+                sh.env = { "CNI_INTEGRATION" => ENV['CNI_INTEGRATION'] }
             end
         end
     end

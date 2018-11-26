@@ -56,10 +56,22 @@ const (
 
 	// EnableMicroscope is true when microscope should be enabled
 	EnableMicroscope = false
+
+	CIIntegrationFlannel = "flannel"
 )
 
 // GetCurrentK8SEnv returns the value of K8S_VERSION from the OS environment.
 func GetCurrentK8SEnv() string { return os.Getenv("K8S_VERSION") }
+
+// GetCurrentIntegration returns CI integration set up to run against Cilium.
+func GetCurrentIntegration() string {
+	switch os.Getenv("CNI_INTEGRATION") {
+	case "FLANNEL":
+		return CIIntegrationFlannel
+	default:
+		return ""
+	}
+}
 
 // Kubectl is a wrapper around an SSHMeta. It is used to run Kubernetes-specific
 // commands on the node which is accessible via the SSH metadata stored in its
@@ -955,14 +967,32 @@ func (kub *Kubectl) CiliumPreFlightInstall(patchName string) error {
 // found.
 func (kub *Kubectl) CiliumInstallVersion(dsPatchName, cmPatchName, versionTag string) error {
 	getK8sDescriptorPatch := func(filename string) string {
-		// try dependent Cilium and k8s version patch file
-		ginkgoVersionedPath := filepath.Join(manifestsPath, versionTag, GetCurrentK8SEnv(), filename)
+		// try dependent Cilium, k8s and integration version patch file
+		ginkgoVersionedPath := filepath.Join(manifestsPath, versionTag, GetCurrentK8SEnv(), GetCurrentIntegration(), filename)
 		_, err := os.Stat(ginkgoVersionedPath)
+		if err == nil {
+			return filepath.Join(BasePath, ginkgoVersionedPath)
+		}
+		// try dependent Cilium version and integration patch file
+		ginkgoVersionedPath = filepath.Join(manifestsPath, versionTag, GetCurrentIntegration(), filename)
+		_, err = os.Stat(ginkgoVersionedPath)
+		if err == nil {
+			return filepath.Join(BasePath, ginkgoVersionedPath)
+		}
+		// try dependent Cilium and k8s version patch file
+		ginkgoVersionedPath = filepath.Join(manifestsPath, versionTag, GetCurrentK8SEnv(), filename)
+		_, err = os.Stat(ginkgoVersionedPath)
 		if err == nil {
 			return filepath.Join(BasePath, ginkgoVersionedPath)
 		}
 		// try dependent Cilium version patch file
 		ginkgoVersionedPath = filepath.Join(manifestsPath, versionTag, filename)
+		_, err = os.Stat(ginkgoVersionedPath)
+		if err == nil {
+			return filepath.Join(BasePath, ginkgoVersionedPath)
+		}
+		// try dependent integration patch file
+		ginkgoVersionedPath = filepath.Join(manifestsPath, GetCurrentIntegration(), filename)
 		_, err = os.Stat(ginkgoVersionedPath)
 		if err == nil {
 			return filepath.Join(BasePath, ginkgoVersionedPath)

@@ -31,6 +31,10 @@ if [ ! -f "${COREDNS_DEPLOYMENT}" ]; then
     export COREDNS_DEPLOYMENT="${PROVISIONSRC}/manifest/coredns_deployment.yaml"
 fi
 
+if [ -n "${CNI_INTEGRATION}" ]; then
+    export KUBEADM_POD_NETWORK="10.244.0.0"
+fi
+
 source ${PROVISIONSRC}/helpers.bash
 
 sudo bash -c "echo MaxSessions 200 >> /etc/ssh/sshd_config"
