@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -25,16 +26,11 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/workloads"
 
 	"github.com/go-openapi/runtime/middleware"
-)
-
-const (
-	collectStatusInterval = 5 * time.Second
-
-	// status data older than staleTimeout triggers the stale warning
-	staleTimeout = 1 * time.Minute
+	"github.com/go-openapi/strfmt"
 )
 
 func (d *Daemon) getK8sStatus() *models.K8sStatus {
@@ -85,90 +81,275 @@ func (d *Daemon) getNodeStatus() *models.ClusterStatus {
 	return &clusterStatus
 }
 
-func (d *Daemon) collectStatus() {
-	for {
-		response := d.getStatus()
-
-		d.statusCollectMutex.Lock()
-		d.statusResponse = response
-		d.statusResponseTimestamp = time.Now()
-		d.statusCollectMutex.Unlock()
-
-		time.Sleep(collectStatusInterval)
-	}
-}
-
-func (d *Daemon) startStatusCollector() {
-	go d.collectStatus()
-}
-
 func (h *getHealthz) Handle(params GetHealthzParams) middleware.Responder {
-	d := h.daemon
-	d.statusCollectMutex.RLock()
-	sr := d.statusResponse
-	timestamp := d.statusResponseTimestamp
-	d.statusCollectMutex.RUnlock()
-
-	if time.Since(timestamp) > staleTimeout {
-		sr.Cilium = &models.Status{
-			State: models.StatusStateWarning,
-			Msg:   fmt.Sprintf("Stale status data (since %v)", timestamp),
-		}
-	}
+	sr := h.daemon.getStatus()
 
 	return NewGetHealthzOK().WithPayload(&sr)
 }
 
 func (d *Daemon) getStatus() models.StatusResponse {
-	sr := models.StatusResponse{
-		Controllers: controller.GetGlobalStatus(),
+	staleProbes := d.statusCollector.GetStaleProbes()
+	stale := make(map[string]strfmt.DateTime, len(staleProbes))
+	for probe, startTime := range staleProbes {
+		stale[probe] = strfmt.DateTime(startTime)
 	}
 
-	checkLocks(d)
+	d.statusCollectMutex.RLock()
+	defer d.statusCollectMutex.RUnlock()
 
-	if info, err := kvstore.Client().Status(); err != nil {
-		sr.Kvstore = &models.Status{State: models.StatusStateFailure, Msg: fmt.Sprintf("Err: %s - %s", err, info)}
-	} else {
-		sr.Kvstore = &models.Status{State: models.StatusStateOk, Msg: info}
-	}
+	// TODO(brb) we should do a deep copy instead, as statusResponse contains some references
+	sr := d.statusResponse
+	sr.Stale = stale
 
-	sr.ContainerRuntime = workloads.Status()
-
-	sr.Kubernetes = d.getK8sStatus()
-
-	// Note: A final, overriding, check is made in Handle to check the staleness
-	// of this data, and will clobber these messages if set.
-	if sr.Kvstore.State != models.StatusStateOk {
+	switch {
+	case len(sr.Stale) > 0:
+		sr.Cilium = &models.Status{
+			State: models.StatusStateWarning,
+			Msg:   "Stale status data",
+		}
+	case sr.Kvstore != nil && sr.Kvstore.State != models.StatusStateOk:
 		sr.Cilium = &models.Status{
 			State: sr.Kvstore.State,
 			Msg:   "Kvstore service is not ready",
 		}
-	} else if sr.ContainerRuntime.State != models.StatusStateOk {
+	case sr.ContainerRuntime != nil && sr.ContainerRuntime.State != models.StatusStateOk:
 		sr.Cilium = &models.Status{
 			State: sr.ContainerRuntime.State,
 			Msg:   "Container runtime is not ready",
 		}
-	} else if k8s.IsEnabled() && sr.Kubernetes.State != models.StatusStateOk {
+	case k8s.IsEnabled() && sr.Kubernetes != nil && sr.Kubernetes.State != models.StatusStateOk:
 		sr.Cilium = &models.Status{
 			State: sr.Kubernetes.State,
 			Msg:   "Kubernetes service is not ready",
 		}
-	} else {
+	default:
 		sr.Cilium = &models.Status{State: models.StatusStateOk, Msg: "OK"}
 	}
 
-	sr.IPAM = d.DumpIPAM()
-	sr.NodeMonitor = d.nodeMonitor.State()
-
-	sr.Cluster = d.getNodeStatus()
-
-	if d.ciliumHealth != nil {
-		sr.Cluster.CiliumHealth = d.ciliumHealth.GetStatus()
-	}
-
-	if d.l7Proxy != nil {
-		sr.Proxy = d.l7Proxy.GetStatusModel()
-	}
-
 	return sr
+}
+
+func (d *Daemon) startStatusCollector() {
+	probes := []status.Probe{
+		{
+			Name: "check-locks",
+			Probe: func(ctx context.Context) (interface{}, error) {
+				// Try to acquire a couple of global locks to have the status API fail
+				// in case of a deadlock on these locks
+				option.Config.ConfigPatchMutex.Lock()
+				option.Config.ConfigPatchMutex.Unlock()
+				return nil, nil
+			},
+			OnStatusUpdate: func(status status.Status) {
+				d.statusCollectMutex.Lock()
+				defer d.statusCollectMutex.Unlock()
+				// FIXME we have no field for the lock status
+			},
+		},
+		{
+			Name: "kvstore",
+			Probe: func(ctx context.Context) (interface{}, error) {
+				return kvstore.Client().Status()
+			},
+			OnStatusUpdate: func(status status.Status) {
+				var msg string
+				state := models.StatusStateOk
+				info, ok := status.Data.(string)
+
+				switch {
+				case ok && status.Err != nil:
+					state = models.StatusStateFailure
+					msg = fmt.Sprintf("Err: %s - %s", status.Err, info)
+				case status.Err != nil:
+					state = models.StatusStateFailure
+					msg = fmt.Sprintf("Err: %s", status.Err)
+				case ok:
+					msg = fmt.Sprintf("%s", info)
+				}
+
+				d.statusCollectMutex.Lock()
+				defer d.statusCollectMutex.Unlock()
+
+				d.statusResponse.Kvstore = &models.Status{
+					State: state,
+					Msg:   msg,
+				}
+			},
+		},
+		{
+			Name: "container-runtime",
+			Probe: func(ctx context.Context) (interface{}, error) {
+				return workloads.Status(), nil
+			},
+			OnStatusUpdate: func(status status.Status) {
+				d.statusCollectMutex.Lock()
+				defer d.statusCollectMutex.Unlock()
+
+				if status.Err != nil {
+					d.statusResponse.ContainerRuntime = &models.Status{
+						State: models.StatusStateFailure,
+						Msg:   status.Err.Error(),
+					}
+					return
+				}
+
+				if s, ok := status.Data.(*models.Status); ok {
+					d.statusResponse.ContainerRuntime = s
+				}
+			},
+		},
+		{
+			Name: "kubernetes",
+			Probe: func(ctx context.Context) (interface{}, error) {
+				return d.getK8sStatus(), nil
+			},
+			OnStatusUpdate: func(status status.Status) {
+				d.statusCollectMutex.Lock()
+				defer d.statusCollectMutex.Unlock()
+
+				if status.Err != nil {
+					d.statusResponse.Kubernetes = &models.K8sStatus{
+						State: models.StatusStateFailure,
+						Msg:   status.Err.Error(),
+					}
+					return
+				}
+				if s, ok := status.Data.(*models.K8sStatus); ok {
+					d.statusResponse.Kubernetes = s
+				}
+			},
+		},
+		{
+			Name: "ipam",
+			Probe: func(ctx context.Context) (interface{}, error) {
+				return d.DumpIPAM(), nil
+			},
+			OnStatusUpdate: func(status status.Status) {
+				d.statusCollectMutex.Lock()
+				defer d.statusCollectMutex.Unlock()
+
+				// IPAMStatus has no way to show errors
+				if status.Err == nil {
+					if s, ok := status.Data.(*models.IPAMStatus); ok {
+						d.statusResponse.IPAM = s
+					}
+				}
+			},
+		},
+		{
+			Name: "node-monitor",
+			Probe: func(ctx context.Context) (interface{}, error) {
+				return d.nodeMonitor.State(), nil
+			},
+			OnStatusUpdate: func(status status.Status) {
+				d.statusCollectMutex.Lock()
+				defer d.statusCollectMutex.Unlock()
+
+				// NodeMonitor has no way to show errors
+				if status.Err == nil {
+					if s, ok := status.Data.(*models.MonitorStatus); ok {
+						d.statusResponse.NodeMonitor = s
+					}
+				}
+			},
+		},
+		{
+			Name: "cluster",
+			Probe: func(ctx context.Context) (interface{}, error) {
+				return d.getNodeStatus(), nil
+			},
+			OnStatusUpdate: func(status status.Status) {
+				d.statusCollectMutex.Lock()
+				defer d.statusCollectMutex.Unlock()
+
+				// ClusterStatus has no way to report errors
+				if status.Err == nil {
+					if s, ok := status.Data.(*models.ClusterStatus); ok {
+						if d.statusResponse.Cluster != nil {
+							// NB: CiliumHealth is set concurrently by the
+							// "cilium-health" probe, so do not override it
+							s.CiliumHealth = d.statusResponse.Cluster.CiliumHealth
+						}
+						d.statusResponse.Cluster = s
+					}
+				}
+			},
+		},
+		{
+			Name: "cilium-health",
+			Probe: func(ctx context.Context) (interface{}, error) {
+				if d.ciliumHealth == nil {
+					return nil, nil
+				}
+				return d.ciliumHealth.GetStatus(), nil
+			},
+			OnStatusUpdate: func(status status.Status) {
+				if d.ciliumHealth == nil {
+					return
+				}
+
+				d.statusCollectMutex.Lock()
+				defer d.statusCollectMutex.Unlock()
+
+				if d.statusResponse.Cluster == nil {
+					d.statusResponse.Cluster = &models.ClusterStatus{}
+				}
+				if status.Err != nil {
+					d.statusResponse.Cluster.CiliumHealth = &models.Status{
+						State: models.StatusStateFailure,
+						Msg:   status.Err.Error(),
+					}
+					return
+				}
+				if s, ok := status.Data.(*models.Status); ok {
+					d.statusResponse.Cluster.CiliumHealth = s
+				}
+			},
+		},
+		{
+			Name: "l7-proxy",
+			Probe: func(ctx context.Context) (interface{}, error) {
+				if d.l7Proxy == nil {
+					return nil, nil
+				}
+				return d.l7Proxy.GetStatusModel(), nil
+			},
+			OnStatusUpdate: func(status status.Status) {
+				d.statusCollectMutex.Lock()
+				defer d.statusCollectMutex.Unlock()
+
+				// ProxyStatus has no way to report errors
+				if status.Err == nil {
+					if s, ok := status.Data.(*models.ProxyStatus); ok {
+						d.statusResponse.Proxy = s
+					}
+				}
+			},
+		},
+		{
+			Name: "controllers",
+			Probe: func(ctx context.Context) (interface{}, error) {
+				return controller.GetGlobalStatus(), nil
+			},
+			OnStatusUpdate: func(status status.Status) {
+				d.statusCollectMutex.Lock()
+				defer d.statusCollectMutex.Unlock()
+
+				// ControllerStatuses has no way to report errors
+				if status.Err == nil {
+					if s, ok := status.Data.(models.ControllerStatuses); ok {
+						d.statusResponse.Controllers = s
+					}
+				}
+			},
+		},
+	}
+
+	d.statusCollector = status.NewCollector(probes, status.Config{
+		Interval:         5 * time.Second,
+		WarningThreshold: 15 * time.Second,
+		FailureThreshold: time.Minute,
+	})
+
+	return
 }
