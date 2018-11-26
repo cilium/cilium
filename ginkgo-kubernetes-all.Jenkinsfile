@@ -38,6 +38,7 @@ pipeline {
         GOPATH="${WORKSPACE}"
         SERVER_BOX = "cilium/ubuntu"
         FAILFAST=setIfLabel("ci/fail-fast", "true", "false")
+        CNI_INTEGRATION=setIfLabel("integration/cni-flannel", "FLANNEL", "")
     }
 
     options {

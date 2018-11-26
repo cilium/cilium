@@ -37,6 +37,7 @@ pipeline {
         MEMORY = "5120"
         K8S_VERSION="1.12"
         SERVER_BOX = "cilium/ubuntu"
+        CNI_INTEGRATION=setIfLabel("integration/cni-flannel", "FLANNEL", "")
     }
 
     options {

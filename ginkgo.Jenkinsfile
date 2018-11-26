@@ -11,6 +11,7 @@ pipeline {
         MEMORY = "4096"
         SERVER_BOX = "cilium/ubuntu"
         NETNEXT=setIfLabel("ci/net-next", "true", "false")
+        CNI_INTEGRATION=setIfLabel("integration/cni-flannel", "FLANNEL", "")
     }
 
     options {

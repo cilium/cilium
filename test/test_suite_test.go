@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Authors of Cilium
+// Copyright 2017-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -160,6 +160,16 @@ var _ = BeforeAll(func() {
 			err))
 	}
 
+	switch helpers.GetCurrentIntegration() {
+	case helpers.CIIntegrationFlannel:
+		switch helpers.GetCurrentK8SEnv() {
+		case "1.8":
+			log.Infof("Cilium in %q mode is not supported in Kubernets 1.8 due CNI < 0.6.0", helpers.CIIntegrationFlannel)
+			os.Exit(0)
+			return
+		}
+	}
+
 	if config.CiliumTestConfig.SSHConfig != "" {
 		// If we set a different VM that it's not in our test environment
 		// ginkgo cannot provision it, so skip setup below.
@@ -234,6 +244,7 @@ var _ = BeforeAll(func() {
 			}
 		}
 		kubectl := helpers.CreateKubectl(helpers.K8s1VMName(), logger)
+
 		kubectl.Apply(helpers.GetFilePath("../examples/kubernetes/addons/prometheus/prometheus.yaml"))
 
 		// deploy Cilium etcd operator

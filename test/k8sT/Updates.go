@@ -69,6 +69,10 @@ var _ = Describe("K8sUpdates", func() {
 	})
 
 	It("Tests upgrade and downgrade from a Cilium stable image to master", func() {
+		switch helpers.GetCurrentIntegration() {
+		case helpers.CIIntegrationFlannel:
+			return
+		}
 		var assertUpgradeSuccessful func()
 		assertUpgradeSuccessful, cleanupCallback =
 			InstallAndValidateCiliumUpgrades(kubectl, helpers.CiliumStableVersion, helpers.CiliumDeveloperImage)
