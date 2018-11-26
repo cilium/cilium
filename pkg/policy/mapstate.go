@@ -16,40 +16,55 @@ package policy
 
 import (
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 )
 
 var (
 	// localHostKey represents an ingress L3 allow from the local host.
-	localHostKey = policymap.PolicyKey{
+	localHostKey = Key{
 		Identity:         identity.ReservedIdentityHost.Uint32(),
 		TrafficDirection: trafficdirection.Ingress.Uint8(),
 	}
 
 	// worldKey represents an ingress L3 allow from the world.
-	worldKey = policymap.PolicyKey{
+	worldKey = Key{
 		Identity:         identity.ReservedIdentityWorld.Uint32(),
 		TrafficDirection: trafficdirection.Ingress.Uint8(),
 	}
 )
 
 // MapState is a state of a policy map.
-type MapState map[policymap.PolicyKey]MapStateEntry
+type MapState map[Key]MapStateEntry
 
-// MapStateEntry is the configuration associated with a PolicyKey in a
+// Key is the userspace representation of a policy key in BPF. It is
+// intentionally duplicated from pkg/maps/policymap to avoid pulling in the
+// BPF dependency to this package.
+type Key struct {
+	// Identity is the numeric identity to / from which traffic is allowed.
+	Identity uint32
+	// DestPort is the port at L4 to / from which traffic is allowed, in
+	// host-byte order.
+	DestPort uint16
+	// NextHdr is the protocol which is allowed.
+	Nexthdr uint8
+	// TrafficDirection indicates in which direction Identity is allowed
+	// communication (egress or ingress).
+	TrafficDirection uint8
+}
+
+// MapStateEntry is the configuration associated with a Key in a
 // MapState. This is a minimized version of policymap.PolicyEntry.
 type MapStateEntry struct {
 	// The proxy port, in host byte order.
 	// If 0 (default), there is no proxy redirection for the corresponding
-	// PolicyKey.
+	// Key.
 	ProxyPort uint16
 }
 
 // DetermineAllowFromWorld determines whether world should be allowed to
 // communicate with the endpoint, based on legacy Cilium 1.0 behaviour. It
-// inserts the PolicyKey corresponding to the world in the desiredPolicyKeys
+// inserts the Key corresponding to the world in the desiredPolicyKeys
 // if the legacy mode is enabled.
 //
 // This must be run after DetermineAllowLocalhost().
@@ -64,7 +79,7 @@ func (keys MapState) DetermineAllowFromWorld() {
 }
 
 // DetermineAllowLocalhost determines whether communication should be allowed to
-// the localhost. It inserts the PolicyKey corresponding to the localhost in
+// the localhost. It inserts the Key corresponding to the localhost in
 // the desiredPolicyKeys if the endpoint is allowed to communicate with the
 // localhost.
 func (keys MapState) DetermineAllowLocalhost(l4Policy *L4Policy) {

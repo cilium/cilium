@@ -282,7 +282,7 @@ func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, des
 	var finalizeList revert.FinalizeList
 	var revertStack revert.RevertStack
 	var updatedStats []*models.ProxyStatistics
-	insertedDesiredMapState := make(map[policymap.PolicyKey]struct{})
+	insertedDesiredMapState := make(map[policy.Key]struct{})
 	updatedDesiredMapState := make(policy.MapState)
 
 	for _, l4 := range m {
@@ -1056,8 +1056,16 @@ func (e *Endpoint) syncPolicyMap() error {
 		// Convert key to host-byte order for lookup in the desiredMapState.
 		keyHostOrder := entry.Key.ToHost()
 
+		// Convert from policymap.Key to policy.Key
+		policyMapKeyToPolicyKey := policy.Key{
+			Identity:         keyHostOrder.Identity,
+			DestPort:         keyHostOrder.DestPort,
+			Nexthdr:          keyHostOrder.Nexthdr,
+			TrafficDirection: keyHostOrder.TrafficDirection,
+		}
+
 		// If key that is in policy map is not in desired state, just remove it.
-		if _, ok := e.desiredMapState[keyHostOrder]; !ok {
+		if _, ok := e.desiredMapState[policyMapKeyToPolicyKey]; !ok {
 			// Can pass key with host byte-order fields, as it will get
 			// converted to network byte-order.
 			err := e.PolicyMap.DeleteKey(keyHostOrder)
@@ -1066,16 +1074,25 @@ func (e *Endpoint) syncPolicyMap() error {
 				errors = append(errors, err)
 			} else {
 				// Operation was successful, remove from realized state.
-				delete(e.realizedMapState, keyHostOrder)
+				delete(e.realizedMapState, policyMapKeyToPolicyKey)
 			}
 		}
 	}
 
 	for keyToAdd, entry := range e.desiredMapState {
 		if oldEntry, ok := e.realizedMapState[keyToAdd]; !ok || oldEntry != entry {
-			err := e.PolicyMap.AllowKey(keyToAdd, entry.ProxyPort)
+
+			// Convert from policy.Key to policymap.Key
+			policyKeyToPolicyMapKey := policymap.PolicyKey{
+				Identity:         keyToAdd.Identity,
+				DestPort:         keyToAdd.DestPort,
+				Nexthdr:          keyToAdd.Nexthdr,
+				TrafficDirection: keyToAdd.TrafficDirection,
+			}
+
+			err := e.PolicyMap.AllowKey(policyKeyToPolicyMapKey, entry.ProxyPort)
 			if err != nil {
-				e.getLogger().WithError(err).Errorf("Failed to add PolicyMap key %s %d", keyToAdd.String(), entry.ProxyPort)
+				e.getLogger().WithError(err).Errorf("Failed to add PolicyMap key %s %d", policyKeyToPolicyMapKey.String(), entry.ProxyPort)
 				errors = append(errors, err)
 			} else {
 				// Operation was successful, add to realized state.

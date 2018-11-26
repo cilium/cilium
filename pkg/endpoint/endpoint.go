@@ -262,10 +262,10 @@ type Endpoint struct {
 	// You must hold Endpoint.Mutex to read or write it.
 	realizedRedirects map[string]uint16
 
-	// realizedMapState maps each PolicyKey which is presently
+	// realizedMapState maps each Key which is presently
 	// inserted (realized) in the endpoint's BPF PolicyMap to a proxy port.
 	// Proxy port 0 indicates no proxy redirection.
-	// All fields within the PolicyKey and the proxy port must be in host byte-order.
+	// All fields within the Key and the proxy port must be in host byte-order.
 	realizedMapState policy.MapState
 
 	// desiredMapState maps each PolicyKeys which should be synched
@@ -273,7 +273,7 @@ type Endpoint struct {
 	// a proxy port.
 	// This map is updated upon regeneration of policy for an endpoint.
 	// Proxy port 0 indicates no proxy redirection.
-	// All fields within the PolicyKey and the proxy port must be in host byte-order.
+	// All fields within the Key and the proxy port must be in host byte-order.
 	desiredMapState policy.MapState
 
 	// BPFConfigMap provides access to the endpoint's BPF configuration.
@@ -656,7 +656,7 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 
 	for policyMapKey := range e.realizedMapState {
 		if policyMapKey.DestPort != 0 {
-			// If the port is non-zero, then the PolicyKey no longer only applies
+			// If the port is non-zero, then the Key no longer only applies
 			// at L3. AllowedIngressIdentities and AllowedEgressIdentities
 			// contain sets of which identities (i.e., label-based L3 only)
 			// are allowed, so anything which contains L4-related policy should
@@ -678,7 +678,7 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 
 	for policyMapKey := range e.desiredMapState {
 		if policyMapKey.DestPort != 0 {
-			// If the port is non-zero, then the PolicyKey no longer only applies
+			// If the port is non-zero, then the Key no longer only applies
 			// at L3. AllowedIngressIdentities and AllowedEgressIdentities
 			// contain sets of which identities (i.e., label-based L3 only)
 			// are allowed, so anything which contains L4-related policy should
@@ -998,7 +998,7 @@ func (e *Endpoint) Allows(id identityPkg.NumericIdentity) bool {
 	e.UnconditionalRLock()
 	defer e.RUnlock()
 
-	keyToLookup := policymap.PolicyKey{
+	keyToLookup := policy.Key{
 		Identity:         uint32(id),
 		TrafficDirection: trafficdirection.Ingress.Uint8(),
 	}

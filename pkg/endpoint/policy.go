@@ -86,15 +86,15 @@ func getSecurityIdentities(labelsMap cache.IdentityCache, selector *api.Endpoint
 // convertL4FilterToPolicyMapKeys converts filter into a list of PolicyKeys
 // that apply to this endpoint.
 // Must be called with endpoint.Mutex locked.
-func (e *Endpoint) convertL4FilterToPolicyMapKeys(filter *policy.L4Filter, direction trafficdirection.TrafficDirection) []policymap.PolicyKey {
-	keysToAdd := []policymap.PolicyKey{}
+func (e *Endpoint) convertL4FilterToPolicyMapKeys(filter *policy.L4Filter, direction trafficdirection.TrafficDirection) []policy.Key {
+	keysToAdd := []policy.Key{}
 	port := uint16(filter.Port)
 	proto := uint8(filter.U8Proto)
 
 	for _, sel := range filter.Endpoints {
 		for _, id := range getSecurityIdentities(*e.prevIdentityCache, &sel) {
 			srcID := id.Uint32()
-			keyToAdd := policymap.PolicyKey{
+			keyToAdd := policy.Key{
 				Identity: srcID,
 				// NOTE: Port is in host byte-order!
 				DestPort:         port,
@@ -285,7 +285,7 @@ func (e *Endpoint) computeDesiredL3PolicyMapEntries(repo *policy.Repository, des
 			ingressAccess = api.Allowed
 		}
 		if ingressAccess == api.Allowed {
-			keyToAdd := policymap.PolicyKey{
+			keyToAdd := policy.Key{
 				Identity:         identity.Uint32(),
 				TrafficDirection: trafficdirection.Ingress.Uint8(),
 			}
@@ -304,7 +304,7 @@ func (e *Endpoint) computeDesiredL3PolicyMapEntries(repo *policy.Repository, des
 			egressAccess = api.Allowed
 		}
 		if egressAccess == api.Allowed {
-			keyToAdd := policymap.PolicyKey{
+			keyToAdd := policy.Key{
 				Identity:         identity.Uint32(),
 				TrafficDirection: trafficdirection.Egress.Uint8(),
 			}
