@@ -80,6 +80,7 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/sockops"
+	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/workloads"
 
 	"github.com/go-openapi/runtime/middleware"
@@ -118,9 +119,9 @@ type Daemon struct {
 	// Only used for CRI-O since it does not support events.
 	workloadsEventsCh chan<- *workloads.EventMessage
 
-	statusCollectMutex      lock.RWMutex
-	statusResponse          models.StatusResponse
-	statusResponseTimestamp time.Time
+	statusCollectMutex lock.RWMutex
+	statusResponse     models.StatusResponse
+	statusCollector    *status.Collector
 
 	uniqueIDMU lock.Mutex
 	uniqueID   map[uint64]context.CancelFunc
