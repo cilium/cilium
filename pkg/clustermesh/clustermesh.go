@@ -74,12 +74,9 @@ func NewClusterMesh(c Configuration) (*ClusterMesh, error) {
 
 	cm.configWatcher = w
 
-	controllerName := fmt.Sprintf("clustermesh-%s-config-fsnotify", c.Name)
-	cm.controllers.UpdateController(controllerName,
-		controller.ControllerParams{
-			DoFunc: func() error { return cm.configWatcher.watch() },
-		},
-	)
+	if err := cm.configWatcher.watch(); err != nil {
+		return nil, err
+	}
 
 	return cm, nil
 }
