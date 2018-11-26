@@ -55,6 +55,9 @@ func expectNotExist(c *C, cm *ClusterMesh, name string) {
 
 func (s *ClusterMeshTestSuite) TestWatchConfigDirectory(c *C) {
 	skipKvstoreConnection = true
+	defer func() {
+		skipKvstoreConnection = false
+	}()
 
 	dir, err := ioutil.TempDir("", "multicluster")
 	c.Assert(err, IsNil)
