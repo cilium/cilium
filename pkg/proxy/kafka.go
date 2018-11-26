@@ -441,6 +441,12 @@ func (k *kafkaRedirect) handleResponseConnection(pair *connectionPair, correlati
 		}, remoteAddr, remoteIdentity, origDstAddr)
 }
 
+// UpdateRules is a no-op for kafka redirects, as rules are read directly
+// during request processing.
+func (k *kafkaRedirect) UpdateRules(wg *completion.WaitGroup, l4 *policy.L4Filter) (error, revert.RevertFunc) {
+	return nil, func() error { return nil }
+}
+
 // Close the redirect.
 func (k *kafkaRedirect) Close(wg *completion.WaitGroup) (revert.FinalizeFunc, revert.RevertFunc) {
 	return k.socket.Close, nil
