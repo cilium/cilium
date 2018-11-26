@@ -110,6 +110,10 @@ func ProvisionInfraPods(vm *helpers.Kubectl) {
 	err = vm.CiliumInstall(helpers.CiliumDefaultDSPatch, helpers.CiliumConfigMapPatch)
 	Expect(err).To(BeNil(), "Cilium cannot be installed")
 
+	if helpers.GetCurrentIntegration() == helpers.CIIntegrationFlannel {
+		vm.Apply(helpers.GetFilePath("../examples/kubernetes/addons/flannel/flannel.yaml"))
+	}
+
 	ExpectCiliumReady(vm)
 	ExpectETCDOperatorReady(vm)
 	ExpectKubeDNSReady(vm)
