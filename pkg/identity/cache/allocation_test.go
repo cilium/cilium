@@ -111,6 +111,7 @@ func (d dummyOwner) GetNodeSuffix() string {
 
 func (ias *IdentityAllocatorSuite) TestGetIdentityCache(c *C) {
 	InitIdentityAllocator(dummyOwner{})
+	defer Close()
 	defer IdentityAllocator.DeleteAllKeys()
 
 	cache := GetIdentityCache()
@@ -124,6 +125,7 @@ func (ias *IdentityAllocatorSuite) TestAllocator(c *C) {
 	lbls3 := labels.NewLabelsFromSortedList("id=bar;user=susan")
 
 	InitIdentityAllocator(dummyOwner{})
+	defer Close()
 	defer IdentityAllocator.DeleteAllKeys()
 
 	id1a, isNew, err := AllocateIdentity(lbls1)

@@ -87,7 +87,12 @@ func GetIdentities() IdentitiesModel {
 	return identities
 }
 
-func identityWatcher(owner IdentityAllocatorOwner, events allocator.AllocatorEventChan) {
+type identityWatcher struct {
+	stopChan chan bool
+}
+
+// watch starts the identity watcher
+func (w *identityWatcher) watch(owner IdentityAllocatorOwner, events allocator.AllocatorEventChan) {
 	// The event queue handler is kept as lightweight as possible, it uses
 	// a non-blocking trigger to run a background routine which will call
 	// TriggerPolicyUpdates() with an enforced minimum interval of one
@@ -99,17 +104,31 @@ func identityWatcher(owner IdentityAllocatorOwner, events allocator.AllocatorEve
 		},
 	})
 
-	for {
-		event := <-events
+	w.stopChan = make(chan bool)
 
-		switch event.Typ {
-		case kvstore.EventTypeCreate, kvstore.EventTypeDelete:
-			policyTrigger.Trigger()
+	go func() {
+		for {
+			select {
+			case event := <-events:
 
-		case kvstore.EventTypeModify:
-			// Ignore modify events
+				switch event.Typ {
+				case kvstore.EventTypeCreate, kvstore.EventTypeDelete:
+					policyTrigger.Trigger()
+
+				case kvstore.EventTypeModify:
+					// Ignore modify events
+				}
+
+			case <-w.stopChan:
+				return
+			}
 		}
-	}
+	}()
+}
+
+// stop stops the identity watcher
+func (w *identityWatcher) stop() {
+	close(w.stopChan)
 }
 
 // LookupIdentity looks up the identity by its labels but does not create it.

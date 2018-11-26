@@ -108,6 +108,7 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 	logging.DefaultLogger.SetLevel(logrus.DebugLevel)
 
 	cache.InitIdentityAllocator(&identityAllocatorOwnerMock{})
+	defer cache.Close()
 
 	dir, err := ioutil.TempDir("", "multicluster")
 	c.Assert(err, IsNil)
