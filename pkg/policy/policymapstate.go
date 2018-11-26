@@ -16,27 +16,42 @@ package policy
 
 import (
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 )
 
 var (
 	// localHostKey represents an ingress L3 allow from the local host.
-	localHostKey = policymap.PolicyKey{
+	localHostKey = PolicyKey{
 		Identity:         identity.ReservedIdentityHost.Uint32(),
 		TrafficDirection: trafficdirection.Ingress.Uint8(),
 	}
 
 	// worldKey represents an ingress L3 allow from the world.
-	worldKey = policymap.PolicyKey{
+	worldKey = PolicyKey{
 		Identity:         identity.ReservedIdentityWorld.Uint32(),
 		TrafficDirection: trafficdirection.Ingress.Uint8(),
 	}
 )
 
 // PolicyMapState is a state of a policy map.
-type PolicyMapState map[policymap.PolicyKey]PolicyMapStateEntry
+type PolicyMapState map[PolicyKey]PolicyMapStateEntry
+
+// PolicyKey is the userspace representation of a policy key in BPF. It is
+// intentionally duplicated from pkg/maps/policymap to avoid pulling in the
+// BPF dependency to this package.
+type PolicyKey struct {
+	// Identity is the numeric identity to / from which traffic is allowed.
+	Identity uint32
+	// DestPort is the port at L4 to / from which traffic is allowed, in
+	// host-byte order.
+	DestPort uint16
+	// NextHdr is the protocol which is allowed.
+	Nexthdr uint8
+	// TrafficDirection indicates in which direction Identity is allowed
+	// communication (egress or ingress).
+	TrafficDirection uint8
+}
 
 // PolicyMapStateEntry is the configuration associated with a PolicyKey in a
 // PolicyMapState. This is a minimized version of policymap.PolicyEntry.

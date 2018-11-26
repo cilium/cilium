@@ -995,7 +995,7 @@ func (e *Endpoint) Allows(id identityPkg.NumericIdentity) bool {
 	e.UnconditionalRLock()
 	defer e.RUnlock()
 
-	keyToLookup := policymap.PolicyKey{
+	keyToLookup := policy.PolicyKey{
 		Identity:         uint32(id),
 		TrafficDirection: trafficdirection.Ingress.Uint8(),
 	}
