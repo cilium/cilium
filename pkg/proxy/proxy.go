@@ -183,6 +183,13 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 		if redir.parserType == l4.L7Parser {
 			updateRevertFunc := redir.updateRules(l4)
 			revertStack.Push(updateRevertFunc)
+			var implUpdateRevertFunc revert.RevertFunc
+			implUpdateRevertFunc, err = redir.implementation.UpdateRules(wg, l4)
+			if err != nil {
+				err = fmt.Errorf("unable to update existing redirect: %s", err)
+				return
+			}
+			revertStack.Push(implUpdateRevertFunc)
 
 			redir.lastUpdated = time.Now()
 
@@ -210,6 +217,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 	redir.ingress = l4.Ingress
 	redir.parserType = l4.L7Parser
 	redir.updateRules(l4)
+	// Rely on create*Redirect to update rules, unlike the update case above.
 
 	for nRetry := 0; ; nRetry++ {
 		var to uint16

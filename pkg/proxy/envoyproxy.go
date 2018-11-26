@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/revert"
 )
 
@@ -62,6 +63,12 @@ func createEnvoyRedirect(r *Redirect, stateDir string, xdsServer *envoy.XDSServe
 	}
 
 	return nil, fmt.Errorf("%s: Envoy proxy process failed to start, cannot add redirect", r.id)
+}
+
+// UpdateRules is a no-op for envoy, as redirect data is synchronized via the
+// xDS cache.
+func (k *envoyRedirect) UpdateRules(wg *completion.WaitGroup, l4 *policy.L4Filter) (revert.RevertFunc, error) {
+	return func() error { return nil }, nil
 }
 
 // Close the redirect.
