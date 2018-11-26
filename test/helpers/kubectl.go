@@ -56,10 +56,24 @@ const (
 
 	// EnableMicroscope is true when microscope should be enabled
 	EnableMicroscope = false
+
+	// CIIntegrationFlannel contains the constant to be used when flannel is
+	// used in the CI.
+	CIIntegrationFlannel = "flannel"
 )
 
 // GetCurrentK8SEnv returns the value of K8S_VERSION from the OS environment.
 func GetCurrentK8SEnv() string { return os.Getenv("K8S_VERSION") }
+
+// GetCurrentIntegration returns CI integration set up to run against Cilium.
+func GetCurrentIntegration() string {
+	switch strings.ToLower(os.Getenv("CNI_INTEGRATION")) {
+	case CIIntegrationFlannel:
+		return CIIntegrationFlannel
+	default:
+		return ""
+	}
+}
 
 // Kubectl is a wrapper around an SSHMeta. It is used to run Kubernetes-specific
 // commands on the node which is accessible via the SSH metadata stored in its
@@ -569,6 +583,47 @@ func (kub *Kubectl) WaitforPods(namespace string, filter string, timeout time.Du
 	return kub.WaitforNPods(namespace, filter, 0, timeout)
 }
 
+// WaitForPodsRunning waits for all pods of that particular namespace with the
+// given filter to be ready on all nodes.
+func (kub *Kubectl) WaitForPodsRunning(namespace, filter string, minPodsScheduled int, timeout time.Duration) error {
+	body := func() bool {
+
+		podList := &v1.PodList{}
+		err := kub.GetPods("kube-system", "-l k8s-app=cilium").Unmarshal(podList)
+		if err != nil {
+			kub.logger.Infof("Error while getting PodList: %s", err)
+			return false
+		}
+		if len(podList.Items) == 0 {
+			return false
+		}
+		currScheduled := 0
+		for _, pod := range podList.Items {
+			if pod.Status.Phase == v1.PodRunning {
+				currScheduled++
+			}
+		}
+
+		if currScheduled >= minPodsScheduled {
+			return true
+		}
+
+		kub.logger.WithFields(logrus.Fields{
+			"namespace":     namespace,
+			"filter":        filter,
+			"data":          podList,
+			"currScheduled": currScheduled,
+			"minRequired":   minPodsScheduled,
+		}).Info("WaitForPodsRunning: pods are not ready")
+
+		return false
+	}
+	return WithTimeout(
+		body,
+		fmt.Sprintf("timed out waiting for pods of daemon set with filter %q to be scheduled", filter),
+		&TimeoutConfig{Timeout: timeout})
+}
+
 // WaitforNPods waits up until timeout seconds have elapsed for at least
 // minRequired pods in the specified namespace that match the provided JSONPath
 // filter to have their containterStatuses equal to "ready". Returns true if all
@@ -941,14 +996,32 @@ func (kub *Kubectl) CiliumPreFlightInstall(patchName string) error {
 // found.
 func (kub *Kubectl) CiliumInstallVersion(dsPatchName, cmPatchName, versionTag string) error {
 	getK8sDescriptorPatch := func(filename string) string {
-		// try dependent Cilium and k8s version patch file
-		ginkgoVersionedPath := filepath.Join(manifestsPath, versionTag, GetCurrentK8SEnv(), filename)
+		// try dependent Cilium, k8s and integration version patch file
+		ginkgoVersionedPath := filepath.Join(manifestsPath, versionTag, GetCurrentK8SEnv(), GetCurrentIntegration(), filename)
 		_, err := os.Stat(ginkgoVersionedPath)
+		if err == nil {
+			return filepath.Join(BasePath, ginkgoVersionedPath)
+		}
+		// try dependent Cilium version and integration patch file
+		ginkgoVersionedPath = filepath.Join(manifestsPath, versionTag, GetCurrentIntegration(), filename)
+		_, err = os.Stat(ginkgoVersionedPath)
+		if err == nil {
+			return filepath.Join(BasePath, ginkgoVersionedPath)
+		}
+		// try dependent Cilium and k8s version patch file
+		ginkgoVersionedPath = filepath.Join(manifestsPath, versionTag, GetCurrentK8SEnv(), filename)
+		_, err = os.Stat(ginkgoVersionedPath)
 		if err == nil {
 			return filepath.Join(BasePath, ginkgoVersionedPath)
 		}
 		// try dependent Cilium version patch file
 		ginkgoVersionedPath = filepath.Join(manifestsPath, versionTag, filename)
+		_, err = os.Stat(ginkgoVersionedPath)
+		if err == nil {
+			return filepath.Join(BasePath, ginkgoVersionedPath)
+		}
+		// try dependent integration patch file
+		ginkgoVersionedPath = filepath.Join(manifestsPath, GetCurrentIntegration(), filename)
 		_, err = os.Stat(ginkgoVersionedPath)
 		if err == nil {
 			return filepath.Join(BasePath, ginkgoVersionedPath)
@@ -1714,17 +1787,26 @@ func (kub *Kubectl) CiliumPreFlightCheck() error {
 	// nodes cannot be show up yet, and the cilium-health can fail as a false positive.
 	var err error
 	body := func() bool {
-		err = kub.CiliumStatusPreFlightCheck()
-		if err != nil {
-			return false
+		switch GetCurrentIntegration() {
+		case CIIntegrationFlannel:
+		default:
+			err = kub.CiliumStatusPreFlightCheck()
+			if err != nil {
+				return false
+			}
 		}
 		err = kub.CiliumControllersPreFlightCheck()
 		if err != nil {
 			return false
 		}
-		err = kub.CiliumHealthPreFlightCheck()
-		if err != nil {
-			return false
+
+		switch GetCurrentIntegration() {
+		case CIIntegrationFlannel:
+		default:
+			err = kub.CiliumHealthPreFlightCheck()
+			if err != nil {
+				return false
+			}
 		}
 		err = kub.fillServiceCache()
 		if err != nil {
