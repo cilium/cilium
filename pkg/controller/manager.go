@@ -181,17 +181,35 @@ func (m *Manager) TerminationChannel(name string) chan struct{} {
 	return c
 }
 
-// RemoveAll stops and removes all controllers of the manager
-func (m *Manager) RemoveAll() {
+func (m *Manager) removeAll() []*Controller {
+	ctrls := []*Controller{}
+
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
 	if m.controllers == nil {
-		return
+		return ctrls
 	}
 
 	for _, ctrl := range m.controllers {
 		m.removeController(ctrl)
+		ctrls = append(ctrls, ctrl)
+	}
+
+	return ctrls
+}
+
+// RemoveAll stops and removes all controllers of the manager
+func (m *Manager) RemoveAll() {
+	m.removeAll()
+}
+
+// RemoveAllAndWait stops and removes all controllers of the manager and then
+// waits for all controllers to exit
+func (m *Manager) RemoveAllAndWait() {
+	ctrls := m.removeAll()
+	for _, ctrl := range ctrls {
+		<-ctrl.terminated
 	}
 }
 
