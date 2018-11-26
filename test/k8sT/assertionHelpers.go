@@ -45,6 +45,14 @@ func ExpectCiliumReady(vm *helpers.Kubectl) {
 	ExpectWithOffset(1, err).Should(BeNil(), "cilium pre-flight checks failed")
 }
 
+// ExpectCiliumRunning is a wrapper around helpers/WaitForPodsRunning. It
+// asserts the cilium pods are running on all nodes.
+func ExpectCiliumRunning(vm *helpers.Kubectl) {
+	err := vm.WaitForPodsRunning(helpers.KubeSystemNamespace, "-l k8s-app=cilium", vm.GetNumNodes(), longTimeout)
+	ExpectWithOffset(1, err).Should(BeNil(), "cilium was not able to get into ready state")
+
+}
+
 // ExpectAllPodsTerminated is a wrapper around helpers/WaitCleanAllTerminatingPods.
 // It asserts that the error returned by that function is nil.
 func ExpectAllPodsTerminated(vm *helpers.Kubectl) {
@@ -109,6 +117,13 @@ func ProvisionInfraPods(vm *helpers.Kubectl) {
 	By("Installing Cilium")
 	err = vm.CiliumInstall(helpers.CiliumDefaultDSPatch, helpers.CiliumConfigMapPatch)
 	Expect(err).To(BeNil(), "Cilium cannot be installed")
+
+	switch helpers.GetCurrentIntegration() {
+	case helpers.CIIntegrationFlannel:
+		ExpectCiliumRunning(vm)
+		vm.Apply(helpers.GetFilePath("../examples/kubernetes/addons/flannel/flannel.yaml"))
+	default:
+	}
 
 	ExpectCiliumReady(vm)
 	ExpectETCDOperatorReady(vm)
