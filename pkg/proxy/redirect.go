@@ -30,6 +30,18 @@ import (
 // RedirectImplementation is the generic proxy redirect interface that each
 // proxy redirect type must implement
 type RedirectImplementation interface {
+	// UpdateRules notifies the proxy implementation that the new rules in
+	// parameter l4 are to be applied. The implementation should .Add to the
+	// WaitGroup if the update is asynchronous and the update should not return
+	// until it is complete.
+	// The returned RevertFunc must be non-nil.
+	// Note: UpdateRules is not called when a redirect is created.
+	UpdateRules(wg *completion.WaitGroup, l4 *policy.L4Filter) (revert.RevertFunc, error)
+
+	// Close closes and cleans up resources associated with the redirect
+	// implementation. The implementation should .Add to the WaitGroup if the
+	// update is asynchronous and the update should not return until it is
+	// complete.
 	Close(wg *completion.WaitGroup) (revert.FinalizeFunc, revert.RevertFunc)
 }
 

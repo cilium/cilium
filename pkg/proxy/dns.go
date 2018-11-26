@@ -52,8 +52,8 @@ type dnsRedirect struct {
 type dnsConfiguration struct {
 }
 
-// UpdateRules replaces old l7 rules of a redirect with new ones.
-func (dr *dnsRedirect) UpdateRules(wg *completion.WaitGroup) error {
+// setRules replaces old l7 rules of a redirect with new ones.
+func (dr *dnsRedirect) setRules(wg *completion.WaitGroup, newRules policy.L7DataMap) error {
 	var toRemove, toAdd []string
 
 	for _, rule := range dr.currentRules {
@@ -97,6 +97,12 @@ func (dr *dnsRedirect) UpdateRules(wg *completion.WaitGroup) error {
 	return nil
 }
 
+// UpdateRules is a no-op for the DNS proxy as it currently doesn't support
+// updating rules.
+func (dr *dnsRedirect) UpdateRules(wg *completion.WaitGroup, l4 *policy.L4Filter) (revert.RevertFunc, error) {
+	return func() error { return nil }, nil
+}
+
 // Close the redirect.
 func (dr *dnsRedirect) Close(wg *completion.WaitGroup) (revert.FinalizeFunc, revert.RevertFunc) {
 	for _, rule := range dr.currentRules {
@@ -134,7 +140,7 @@ func createDNSRedirect(r *Redirect, conf dnsConfiguration, endpointInfoRegistry 
 		"conf":        conf,
 	}).Debug("Creating DNS Proxy redirect")
 
-	return dr, dr.UpdateRules(nil)
+	return dr, dr.setRules(nil, r.rules)
 }
 
 func copyRules(rules policy.L7DataMap) policy.L7DataMap {
