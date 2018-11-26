@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/allocator"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 
@@ -51,8 +52,6 @@ func (gi globalIdentity) PutKey(v string) (allocator.AllocatorKey, error) {
 }
 
 var (
-	setupOnce sync.Once
-
 	// IdentityAllocator is an allocator for security identities from the
 	// kvstore.
 	IdentityAllocator *allocator.Allocator
@@ -60,6 +59,11 @@ var (
 	// IdentitiesPath is the path to where identities are stored in the key-value
 	// store.
 	IdentitiesPath = path.Join(kvstore.BaseKeyPrefix, "state", "identities", "v1")
+
+	// setupMutex synchronizes InitIdentityAllocator() and Close()
+	setupMutex lock.Mutex
+
+	watcher identityWatcher
 )
 
 // IdentityAllocatorOwner is the interface the owner of an identity allocator
@@ -76,32 +80,52 @@ type IdentityAllocatorOwner interface {
 // InitIdentityAllocator creates the the identity allocator. Only the first
 // invocation of this function will have an effect.
 func InitIdentityAllocator(owner IdentityAllocatorOwner) {
+	setupMutex.Lock()
+	defer setupMutex.Unlock()
+
+	if IdentityAllocator != nil {
+		log.Panic("InitIdentityAllocator() in succession without calling Close()")
+	}
+
 	identity.InitWellKnownIdentities()
 
-	setupOnce.Do(func() {
-		log.Info("Initializing identity allocator")
+	log.Info("Initializing identity allocator")
 
-		minID := idpool.ID(identity.MinimalNumericIdentity)
-		maxID := idpool.ID(^uint16(0))
-		events := make(allocator.AllocatorEventChan, 65536)
+	minID := idpool.ID(identity.MinimalNumericIdentity)
+	maxID := idpool.ID(^uint16(0))
+	events := make(allocator.AllocatorEventChan, 65536)
 
-		// It is important to start listening for events before calling
-		// NewAllocator() as it will emit events while filling the
-		// initial cache
-		go identityWatcher(owner, events)
+	// It is important to start listening for events before calling
+	// NewAllocator() as it will emit events while filling the
+	// initial cache
+	watcher.watch(owner, events)
 
-		a, err := allocator.NewAllocator(IdentitiesPath, globalIdentity{},
-			allocator.WithMax(maxID), allocator.WithMin(minID),
-			allocator.WithSuffix(owner.GetNodeSuffix()),
-			allocator.WithEvents(events),
-			allocator.WithMasterKeyProtection(),
-			allocator.WithPrefixMask(idpool.ID(option.Config.ClusterID<<option.ClusterIDShift)))
-		if err != nil {
-			log.WithError(err).Fatal("Unable to initialize identity allocator")
-		}
+	a, err := allocator.NewAllocator(IdentitiesPath, globalIdentity{},
+		allocator.WithMax(maxID), allocator.WithMin(minID),
+		allocator.WithSuffix(owner.GetNodeSuffix()),
+		allocator.WithEvents(events),
+		allocator.WithMasterKeyProtection(),
+		allocator.WithPrefixMask(idpool.ID(option.Config.ClusterID<<option.ClusterIDShift)))
+	if err != nil {
+		log.WithError(err).Fatal("Unable to initialize identity allocator")
+	}
 
-		IdentityAllocator = a
-	})
+	IdentityAllocator = a
+}
+
+// Close closes the identity allocator and allows to call
+// InitIdentityAllocator() again
+func Close() {
+	setupMutex.Lock()
+	defer setupMutex.Unlock()
+
+	if IdentityAllocator == nil {
+		log.Panic("Close() called without calling InitIdentityAllocator() first")
+	}
+
+	IdentityAllocator.Delete()
+	watcher.stop()
+	IdentityAllocator = nil
 }
 
 // WaitForInitialIdentities waits for the initial set of security identities to

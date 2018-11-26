@@ -108,8 +108,6 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	kvstore.DeletePrefix(common.OperationalPath)
 	kvstore.DeletePrefix(kvstore.BaseKeyPrefix)
 
-	cache.InitIdentityAllocator(d)
-
 	ds.OnTracingEnabled = nil
 	ds.OnAlwaysAllowLocalhost = nil
 	ds.OnGetCachedLabelList = nil
@@ -140,6 +138,10 @@ func (ds *DaemonSuite) TearDownTest(c *C) {
 
 	// Restore the policy enforcement mode.
 	policy.SetPolicyEnabled(ds.oldPolicyEnabled)
+
+	// Release the identity allocator reference created by NewDaemon. This
+	// is done manually here as we have no Close() function daemon
+	cache.Close()
 }
 
 type DaemonEtcdSuite struct {
