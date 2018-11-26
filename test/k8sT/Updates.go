@@ -271,12 +271,12 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		err = kubectl.CiliumInstallVersion(
 			helpers.CiliumDefaultDSPatch,
 			helpers.CiliumConfigMapPatch,
-			helpers.CiliumStableVersion,
+			oldVersion,
 		)
-		ExpectWithOffset(1, err).To(BeNil(), "Cilium %q was not able to be deployed", helpers.CiliumStableVersion)
+		ExpectWithOffset(1, err).To(BeNil(), "Cilium %q was not able to be deployed", oldVersion)
 
 		err = helpers.WithTimeout(
-			waitForUpdateImage(helpers.CiliumStableVersion),
+			waitForUpdateImage(oldVersion),
 			"Cilium Pods are not updating correctly",
 			&helpers.TimeoutConfig{Timeout: timeout})
 		ExpectWithOffset(1, err).To(BeNil(), "Pods are not updating")
@@ -285,7 +285,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 			helpers.KubeSystemNamespace, "-l k8s-app=cilium", timeout)
 		ExpectWithOffset(1, err).Should(BeNil(), "Cilium is not ready after timeout")
 
-		validatedImage(helpers.CiliumStableImageVersion)
+		validatedImage(oldVersion)
 
 		validateEndpointsConnection()
 
