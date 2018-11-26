@@ -94,7 +94,7 @@ func (cm *ClusterMesh) Close() {
 		delete(cm.clusters, name)
 	}
 
-	cm.controllers.RemoveAll()
+	cm.controllers.RemoveAllAndWait()
 }
 
 func (cm *ClusterMesh) newRemoteCluster(name, path string) *remoteCluster {
