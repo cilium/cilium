@@ -194,7 +194,7 @@ func (rc *remoteCluster) onInsert() {
 }
 
 func (rc *remoteCluster) onRemove() {
-	rc.controllers.RemoveAll()
+	rc.controllers.RemoveAllAndWait()
 	close(rc.changed)
 
 	rc.getLogger().Info("Remote cluster disconnected")
