@@ -205,6 +205,21 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, allAddresses, 
 		fmt.Fprintf(w, "Cilium:\t%s\t%s\n", sr.Cilium.State, sr.Cilium.Msg)
 	}
 
+	if sr.Stale != nil {
+		sortedProbes := make([]string, 0, len(sr.Stale))
+		for probe := range sr.Stale {
+			sortedProbes = append(sortedProbes, probe)
+		}
+		sort.Strings(sortedProbes)
+
+		stalesStr := make([]string, 0, len(sr.Stale))
+		for _, probe := range sortedProbes {
+			stalesStr = append(stalesStr, fmt.Sprintf("%q since %s", probe, sr.Stale[probe]))
+		}
+
+		fmt.Fprintf(w, "Stale status:\t%s\n", strings.Join(stalesStr, ", "))
+	}
+
 	if nm := sr.NodeMonitor; nm != nil {
 		fmt.Fprintf(w, "NodeMonitor:\tListening for events on %d CPUs with %dx%d of shared memory\n",
 			nm.Cpus, nm.Npages, nm.Pagesize)
