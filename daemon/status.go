@@ -151,20 +151,19 @@ func (d *Daemon) startStatusCollector() {
 				return kvstore.Client().Status()
 			},
 			OnStatusUpdate: func(status status.Status) {
+				var msg string
 				state := models.StatusStateOk
-				msg := ""
+				info, ok := status.Data.(string)
 
-				if status.Err != nil {
+				switch {
+				case ok && status.Err != nil:
 					state = models.StatusStateFailure
-					msg += fmt.Sprintf("Err: %s", status.Err)
-				}
-				// TODO(brb) do we really need this Err %s - %s?
-				if info, ok := status.Data.(string); ok {
-					format := " %s"
-					if status.Err != nil {
-						format = " - %s"
-					}
-					msg += fmt.Sprintf(format, info)
+					msg = fmt.Sprintf("Err: %s - %s", status.Err, info)
+				case status.Err != nil:
+					state = models.StatusStateFailure
+					msg = fmt.Sprintf("Err: %s", status.Err)
+				case ok:
+					msg = fmt.Sprintf("%s", info)
 				}
 
 				d.statusCollectMutex.Lock()
