@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/mitchellh/hashstructure"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/validation"
 	k8sLbls "k8s.io/apimachinery/pkg/labels"
@@ -51,11 +50,6 @@ func (n *EndpointSelector) LabelSelectorString() string {
 func (n EndpointSelector) String() string {
 	j, _ := n.MarshalJSON()
 	return string(j)
-}
-
-// Hash return hash of the internal json structure that represents the endpoint selector
-func (n *EndpointSelector) Hash() (uint64, error) {
-	return hashstructure.Hash(n.LabelSelector, nil)
 }
 
 // UnmarshalJSON unmarshals the endpoint selector from the byte array.
