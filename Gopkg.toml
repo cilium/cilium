@@ -335,10 +335,10 @@ required = [
 
 [[constraint]]
   name = "github.com/sasha-s/go-deadlock"
-  revision = "master"
+  revision = "d68e2bc52ae3291765881b9056f2c1527f245f1e"
 
   # main-usage = "pkg/lock"
-  # on-revision = ""
+  # on-revision = "last available commit and there is not stable releases"
 
 [[constraint]]
   name = "github.com/servak/go-fastping"
