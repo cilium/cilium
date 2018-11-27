@@ -23,27 +23,8 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mtu"
 
-	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 )
-
-type Route struct {
-	Prefix  net.IPNet
-	Nexthop *net.IP
-	Local   net.IP
-	Device  string
-	MTU     int
-	Scope   netlink.Scope
-}
-
-func (r *Route) getLogger() *logrus.Entry {
-	return log.WithFields(logrus.Fields{
-		"prefix":            r.Prefix,
-		"nexthop":           r.Nexthop,
-		"local":             r.Local,
-		logfields.Interface: r.Device,
-	})
-}
 
 // getNetlinkRoute returns the route configuration as netlink.Route
 func (r *Route) getNetlinkRoute() netlink.Route {
@@ -92,23 +73,6 @@ func (r *Route) ToIPCommand(dev string) []string {
 	}
 	res = append(res, "dev", dev)
 	return res
-}
-
-// ByMask is used to sort an array of routes by mask, narrow first.
-type ByMask []Route
-
-func (a ByMask) Len() int {
-	return len(a)
-}
-
-func (a ByMask) Less(i, j int) bool {
-	lenA, _ := a[i].Prefix.Mask.Size()
-	lenB, _ := a[j].Prefix.Mask.Size()
-	return lenA > lenB
-}
-
-func (a ByMask) Swap(i, j int) {
-	a[i], a[j] = a[j], a[i]
 }
 
 func ipFamily(ip net.IP) int {
