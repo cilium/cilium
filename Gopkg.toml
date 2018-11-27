@@ -51,6 +51,14 @@ required = [
   revision = "v1.1.0"
 
 [[constraint]]
+  name = "github.com/containerd/cri"
+  revision = "v1.0.5"
+
+[[constraint]]
+  name = "github.com/containerd/typeurl"
+  revision = "461401dc8f19d80baa4b70178935e4501286c00b"
+
+[[constraint]]
   name = "github.com/containernetworking/cni"
   revision = "d2836a7b59485b780f49c64c07e8c41c06bde6ab"
 
@@ -195,6 +203,10 @@ required = [
 [[constraint]]
   name = "github.com/prometheus/client_golang"
   revision = "v0.9.0-pre1"
+
+[[constraint]]
+  name = "github.com/prometheus/client_model"
+  revision = "5c3871d89910bfb32f5fcab2aa4b9ec68e65a99f"
 
 [[constraint]]
   name = "github.com/russross/blackfriday"
