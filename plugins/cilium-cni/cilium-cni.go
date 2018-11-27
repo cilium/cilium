@@ -71,6 +71,14 @@ type netConf struct {
 	Args Args `json:"args"`
 }
 
+type cniArgsSpec struct {
+	cniTypes.CommonArgs
+	IP                         net.IP
+	K8S_POD_NAME               cniTypes.UnmarshallableString
+	K8S_POD_NAMESPACE          cniTypes.UnmarshallableString
+	K8S_POD_INFRA_CONTAINER_ID cniTypes.UnmarshallableString
+}
+
 // Args contains arbitrary information a scheduler
 // can pass to the cni plugin
 type Args struct {
@@ -300,6 +308,11 @@ func cmdAdd(args *skel.CmdArgs) error {
 		return err
 	}
 
+	cniArgs := cniArgsSpec{}
+	if err := cniTypes.LoadArgs(args.Args, &cniArgs); err != nil {
+		return fmt.Errorf("unable to extract CNI arguments: %s", err)
+	}
+
 	c, err := client.NewDefaultClient()
 	if err != nil {
 		return fmt.Errorf("unable to connect to Cilium daemon: %s", err)
@@ -334,10 +347,12 @@ func cmdAdd(args *skel.CmdArgs) error {
 	conf := *configResult.Status
 
 	ep := &models.EndpointChangeRequest{
-		ContainerID: args.ContainerID,
-		Labels:      addLabels,
-		State:       models.EndpointStateWaitingForIdentity,
-		Addressing:  &models.AddressPair{},
+		ContainerID:  args.ContainerID,
+		Labels:       addLabels,
+		State:        models.EndpointStateWaitingForIdentity,
+		Addressing:   &models.AddressPair{},
+		K8sPodName:   string(cniArgs.K8S_POD_NAME),
+		K8sNamespace: string(cniArgs.K8S_POD_NAMESPACE),
 	}
 
 	veth, peer, tmpIfName, err := connector.SetupVeth(ep.ContainerID, int(conf.DeviceMTU), ep)

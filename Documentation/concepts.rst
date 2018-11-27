@@ -396,6 +396,10 @@ identities are prefixed with the string ``reserved:``.
 |                     | some of the metadata required to derive the       |
 |                     | security identity is still missing. This is       |
 |                     | typically the case in the bootstrapping phase.    |
+|                     |                                                   |
+|                     | The init identity is only allocated if the labels |
+|                     | of the endpoint are not known at creation time.   |
+|                     | This can be the case for the Docker plugin.       |
 +---------------------+---------------------------------------------------+
 | reserved:unmanaged  | An endpoint that is not managed by Cilium, e.g.   |
 |                     | a Kubernetes pod that was launched before Cilium  |
