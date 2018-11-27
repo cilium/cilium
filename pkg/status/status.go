@@ -19,16 +19,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
-	defaultInterval         = 5 * time.Second
-	defaultFailureThreshold = time.Minute
-	defaultWarningThreshold = 20 * time.Second
-	subsystem               = "status"
+	subsystem = "status"
 )
 
 var (
@@ -87,15 +85,15 @@ func NewCollector(probes []Probe, config Config) *Collector {
 	}
 
 	if c.config.Interval == time.Duration(0) {
-		c.config.Interval = defaultInterval
+		c.config.Interval = defaults.StatusCollectorInterval
 	}
 
 	if c.config.FailureThreshold == time.Duration(0) {
-		c.config.FailureThreshold = defaultFailureThreshold
+		c.config.FailureThreshold = defaults.StatusCollectorFailureThreshold
 	}
 
 	if c.config.WarningThreshold == time.Duration(0) {
-		c.config.WarningThreshold = defaultWarningThreshold
+		c.config.WarningThreshold = defaults.StatusCollectorWarningThreshold
 	}
 
 	for i := range probes {
