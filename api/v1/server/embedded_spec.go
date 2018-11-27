@@ -1420,6 +1420,14 @@ func init() {
           "description": "Name of network device",
           "type": "string"
         },
+        "k8s-namespace": {
+          "description": "Kubernetes namespace name",
+          "type": "string"
+        },
+        "k8s-pod-name": {
+          "description": "Kubernetes pod name",
+          "type": "string"
+        },
         "labels": {
           "description": "Labels describing the identity",
           "$ref": "#/definitions/Labels"
