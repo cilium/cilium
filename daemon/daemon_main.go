@@ -394,7 +394,7 @@ func init() {
 	flags.String("envoy-log", "", "Path to a separate Envoy log file, if any")
 	flags.String(option.HTTP403Message, "", "Message returned in proxy L7 403 body")
 	flags.MarkHidden(option.HTTP403Message)
-	flags.Uint(option.HTTPRequestTimeout, 15, "Time after which a forwarded request is considered failed unless completed (in seconds); use 0 for unlimited")
+	flags.Uint(option.HTTPRequestTimeout, 60*60, "Time after which a forwarded request is considered failed unless completed (in seconds); Use 0 for unlimited")
 	flags.Uint(option.HTTPIdleTimeout, 0, "Time after which a forwarded request is considered failed unless traffic in the stream has been processed (in seconds); defaults to 0 (unlimited)")
 	flags.Uint(option.HTTPMaxGRPCTimeout, 0, "Time after which a forwarded GRPC request is considered failed unless completed (in seconds). A \"grpc-timeout\" header may override this with a shorter value; defaults to 0 (unlimited)")
 	flags.Uint(option.HTTPRetryCount, 3, "Number of retries performed after a forwarded request attempt fails")

@@ -46,7 +46,7 @@ cilium-agent
       --fixed-identity-mapping map                  Key-value for the fixed identity mapping which allows to use reserved label for fixed identities (default map[])
       --http-idle-timeout uint                      Time after which a forwarded request is considered failed unless traffic in the stream has been processed (in seconds); defaults to 0 (unlimited)
       --http-max-grpc-timeout uint                  Time after which a forwarded GRPC request is considered failed unless completed (in seconds). A "grpc-timeout" header may override this with a shorter value; defaults to 0 (unlimited)
-      --http-request-timeout uint                   Time after which a forwarded request is considered failed unless completed (in seconds); use 0 for unlimited (default 15)
+      --http-request-timeout uint                   Time after which a forwarded request is considered failed unless completed (in seconds); Use 0 for unlimited (default 3600)
       --http-retry-count uint                       Number of retries performed after a forwarded request attempt fails (default 3)
       --http-retry-timeout uint                     Time after which a forwarded but uncompleted request is retried (connection failures are retried immediately); defaults to 0 (never)
       --ipv4-cluster-cidr-mask-size int             Mask size for the cluster wide CIDR (default 8)
