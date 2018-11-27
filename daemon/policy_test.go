@@ -32,7 +32,6 @@ import (
 	"github.com/cilium/proxy/go/cilium/api"
 	envoy_api_v2_core "github.com/cilium/proxy/go/envoy/api/v2/core"
 	envoy_api_v2_route "github.com/cilium/proxy/go/envoy/api/v2/route"
-	"github.com/gogo/protobuf/sortkeys"
 	. "gopkg.in/check.v1"
 )
 
@@ -209,7 +208,9 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 		// uint64(prodFooSecLblsCtx.ID),
 		// uint64(prodFooJoeSecLblsCtx.ID),
 	}
-	sortkeys.Uint64s(expectedRemotePolicies)
+	sort.Slice(expectedRemotePolicies, func(i, j int) bool {
+		return expectedRemotePolicies[i] < expectedRemotePolicies[j]
+	})
 	expectedNetworkPolicy := &cilium.NetworkPolicy{
 		Name:   QAIPv4Addr.String(),
 		Policy: uint64(qaBarSecLblsCtx.ID),
@@ -268,11 +269,15 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 		uint64(prodFooSecLblsCtx.ID),
 		uint64(prodFooJoeSecLblsCtx.ID),
 	}
-	sortkeys.Uint64s(expectedRemotePolicies)
+	sort.Slice(expectedRemotePolicies, func(i, j int) bool {
+		return expectedRemotePolicies[i] < expectedRemotePolicies[j]
+	})
 	expectedRemotePolicies2 := []uint64{
 		uint64(prodFooJoeSecLblsCtx.ID),
 	}
-	sortkeys.Uint64s(expectedRemotePolicies2)
+	sort.Slice(expectedRemotePolicies2, func(i, j int) bool {
+		return expectedRemotePolicies2[i] < expectedRemotePolicies2[j]
+	})
 
 	expectedNetworkPolicy = &cilium.NetworkPolicy{
 		Name:   ProdIPv4Addr.String(),
