@@ -10,7 +10,8 @@ package layers
 
 import (
 	"encoding/binary"
-	"fmt"
+	"errors"
+
 	"github.com/google/gopacket"
 )
 
@@ -296,7 +297,7 @@ func (d *NTP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	// If the data block is too short to be a NTP record, then return an error.
 	if len(data) < ntpMinimumRecordSizeInBytes {
 		df.SetTruncated()
-		return fmt.Errorf("NTP packet too short")
+		return errors.New("NTP packet too short")
 	}
 
 	// RFC 5905 does not appear to define a maximum NTP record length.
@@ -320,13 +321,13 @@ func (d *NTP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	// above and the section on endian conventions.
 
 	// The first few fields are all packed into the first 32 bits. Unpack them.
-	f := binary.BigEndian.Uint32(data[0:4])
-	d.LeapIndicator = NTPLeapIndicator((f & 0xC0000000) >> 30)
-	d.Version = NTPVersion((f & 0x38000000) >> 27)
-	d.Mode = NTPMode((f & 0x07000000) >> 24)
-	d.Stratum = NTPStratum((f & 0x00FF0000) >> 16)
-	d.Poll = NTPLog2Seconds((f & 0x0000FF00) >> 8)
-	d.Precision = NTPLog2Seconds((f & 0x000000FF) >> 0)
+	f := data[0]
+	d.LeapIndicator = NTPLeapIndicator((f & 0xC0) >> 6)
+	d.Version = NTPVersion((f & 0x38) >> 3)
+	d.Mode = NTPMode(f & 0x07)
+	d.Stratum = NTPStratum(data[1])
+	d.Poll = NTPLog2Seconds(data[2])
+	d.Precision = NTPLog2Seconds(data[3])
 
 	// The remaining fields can just be copied in big endian order.
 	d.RootDelay = NTPFixed16Seconds(binary.BigEndian.Uint32(data[4:8]))
@@ -343,6 +344,43 @@ func (d *NTP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	d.ExtensionBytes = data[48:]
 
 	// Return no error.
+	return nil
+}
+
+// SerializeTo writes the serialized form of this layer into the
+// SerializationBuffer, implementing gopacket.SerializableLayer.
+// See the docs for gopacket.SerializableLayer for more info.
+func (d *NTP) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOptions) error {
+	data, err := b.PrependBytes(ntpMinimumRecordSizeInBytes)
+	if err != nil {
+		return err
+	}
+
+	// Pack the first few fields into the first 32 bits.
+	h := uint8(0)
+	h |= (uint8(d.LeapIndicator) << 6) & 0xC0
+	h |= (uint8(d.Version) << 3) & 0x38
+	h |= (uint8(d.Mode)) & 0x07
+	data[0] = byte(h)
+	data[1] = byte(d.Stratum)
+	data[2] = byte(d.Poll)
+	data[3] = byte(d.Precision)
+
+	// The remaining fields can just be copied in big endian order.
+	binary.BigEndian.PutUint32(data[4:8], uint32(d.RootDelay))
+	binary.BigEndian.PutUint32(data[8:12], uint32(d.RootDispersion))
+	binary.BigEndian.PutUint32(data[12:16], uint32(d.ReferenceID))
+	binary.BigEndian.PutUint64(data[16:24], uint64(d.ReferenceTimestamp))
+	binary.BigEndian.PutUint64(data[24:32], uint64(d.OriginTimestamp))
+	binary.BigEndian.PutUint64(data[32:40], uint64(d.ReceiveTimestamp))
+	binary.BigEndian.PutUint64(data[40:48], uint64(d.TransmitTimestamp))
+
+	ex, err := b.AppendBytes(len(d.ExtensionBytes))
+	if err != nil {
+		return err
+	}
+	copy(ex, d.ExtensionBytes)
+
 	return nil
 }
 

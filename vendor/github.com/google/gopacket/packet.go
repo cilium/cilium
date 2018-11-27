@@ -31,6 +31,10 @@ type CaptureInfo struct {
 	Length int
 	// InterfaceIndex
 	InterfaceIndex int
+	// The packet source can place ancillary data of various types here.
+	// For example, the afpacket source can report the VLAN of captured
+	// packets this way.
+	AncillaryData []interface{}
 }
 
 // PacketMetadata contains metadata for a packet.
@@ -110,9 +114,7 @@ type packet struct {
 	// metadata is the PacketMetadata for this packet
 	metadata PacketMetadata
 
-	// recoverPanics is true if we should recover from panics we see while
-	// decoding and set a DecodeFailure layer.
-	recoverPanics bool
+	decodeOptions DecodeOptions
 
 	// Pointers to the various important layers
 	link        LinkLayer
@@ -174,6 +176,10 @@ func (p *packet) Data() []byte {
 	return p.data
 }
 
+func (p *packet) DecodeOptions() *DecodeOptions {
+	return &p.decodeOptions
+}
+
 func (p *packet) addFinalDecodeError(err error, stack []byte) {
 	fail := &DecodeFailure{err: err, stack: stack}
 	if p.last == nil {
@@ -186,7 +192,7 @@ func (p *packet) addFinalDecodeError(err error, stack []byte) {
 }
 
 func (p *packet) recoverDecodeError() {
-	if p.recoverPanics {
+	if !p.decodeOptions.SkipDecodeRecovery {
 		if r := recover(); r != nil {
 			p.addFinalDecodeError(fmt.Errorf("%v", r), debug.Stack())
 		}
@@ -359,7 +365,7 @@ func layerGoString(i interface{}, b *bytes.Buffer) {
 		t := v.Type()
 		b.WriteString(t.String())
 		b.WriteByte('{')
-		for i := 0; i < v.NumField(); i += 1 {
+		for i := 0; i < v.NumField(); i++ {
 			if i > 0 {
 				b.WriteString(", ")
 			}
@@ -424,11 +430,11 @@ type eagerPacket struct {
 	packet
 }
 
-var nilDecoderError = errors.New("NextDecoder passed nil decoder, probably an unsupported decode type")
+var errNilDecoder = errors.New("NextDecoder passed nil decoder, probably an unsupported decode type")
 
 func (p *eagerPacket) NextDecoder(next Decoder) error {
 	if next == nil {
-		return nilDecoderError
+		return errNilDecoder
 	}
 	if p.last == nil {
 		return errors.New("NextDecoder called, but no layers added yet")
@@ -495,7 +501,7 @@ type lazyPacket struct {
 
 func (p *lazyPacket) NextDecoder(next Decoder) error {
 	if next == nil {
-		return nilDecoderError
+		return errNilDecoder
 	}
 	p.next = next
 	return nil
@@ -615,6 +621,11 @@ type DecodeOptions struct {
 	// the issue.  If this flag is set, panics are instead allowed to continue up
 	// the stack.
 	SkipDecodeRecovery bool
+	// DecodeStreamsAsDatagrams enables routing of application-level layers in the TCP
+	// decoder. If true, we should try to decode layers after TCP in single packets.
+	// This is disabled by default because the reassembly package drives the decoding
+	// of TCP payload data after reassembly.
+	DecodeStreamsAsDatagrams bool
 }
 
 // Default decoding provides the safest (but slowest) method for decoding
@@ -624,13 +635,16 @@ type DecodeOptions struct {
 // though, so beware.  If you can guarantee that the packet will only be used
 // by one goroutine at a time, set Lazy decoding.  If you can guarantee that
 // the underlying slice won't change, set NoCopy decoding.
-var Default DecodeOptions = DecodeOptions{}
+var Default = DecodeOptions{}
 
 // Lazy is a DecodeOptions with just Lazy set.
-var Lazy DecodeOptions = DecodeOptions{Lazy: true}
+var Lazy = DecodeOptions{Lazy: true}
 
 // NoCopy is a DecodeOptions with just NoCopy set.
-var NoCopy DecodeOptions = DecodeOptions{NoCopy: true}
+var NoCopy = DecodeOptions{NoCopy: true}
+
+// DecodeStreamsAsDatagrams is a DecodeOptions with just DecodeStreamsAsDatagrams set.
+var DecodeStreamsAsDatagrams = DecodeOptions{DecodeStreamsAsDatagrams: true}
 
 // NewPacket creates a new Packet object from a set of bytes.  The
 // firstLayerDecoder tells it how to interpret the first layer from the bytes,
@@ -643,11 +657,10 @@ func NewPacket(data []byte, firstLayerDecoder Decoder, options DecodeOptions) Pa
 	}
 	if options.Lazy {
 		p := &lazyPacket{
-			packet: packet{data: data},
+			packet: packet{data: data, decodeOptions: options},
 			next:   firstLayerDecoder,
 		}
 		p.layers = p.initialLayers[:0]
-		p.recoverPanics = !options.SkipDecodeRecovery
 		// Crazy craziness:
 		// If the following return statemet is REMOVED, and Lazy is FALSE, then
 		// eager packet processing becomes 17% FASTER.  No, there is no logical
@@ -661,10 +674,9 @@ func NewPacket(data []byte, firstLayerDecoder Decoder, options DecodeOptions) Pa
 		return p
 	}
 	p := &eagerPacket{
-		packet: packet{data: data},
+		packet: packet{data: data, decodeOptions: options},
 	}
 	p.layers = p.initialLayers[:0]
-	p.recoverPanics = !options.SkipDecodeRecovery
 	p.initialDecode(firstLayerDecoder)
 	return p
 }
@@ -682,6 +694,31 @@ type PacketDataSource interface {
 	//  err:  An error encountered while reading packet data.  If err != nil,
 	//    then data/ci will be ignored.
 	ReadPacketData() (data []byte, ci CaptureInfo, err error)
+}
+
+// ConcatFinitePacketDataSources returns a PacketDataSource that wraps a set
+// of internal PacketDataSources, each of which will stop with io.EOF after
+// reading a finite number of packets.  The returned PacketDataSource will
+// return all packets from the first finite source, followed by all packets from
+// the second, etc.  Once all finite sources have returned io.EOF, the returned
+// source will as well.
+func ConcatFinitePacketDataSources(pds ...PacketDataSource) PacketDataSource {
+	c := concat(pds)
+	return &c
+}
+
+type concat []PacketDataSource
+
+func (c *concat) ReadPacketData() (data []byte, ci CaptureInfo, err error) {
+	for len(*c) > 0 {
+		data, ci, err = (*c)[0].ReadPacketData()
+		if err == io.EOF {
+			*c = (*c)[1:]
+			continue
+		}
+		return
+	}
+	return nil, CaptureInfo{}, io.EOF
 }
 
 // ZeroCopyPacketDataSource is an interface to pull packet data from sources
@@ -729,7 +766,7 @@ type ZeroCopyPacketDataSource interface {
 // importantly the io.EOF error in cases where packets are being read from
 // a file.
 //  for {
-//    packet, err := packetSource.NextPacket() {
+//    packet, err := packetSource.NextPacket()
 //    if err == io.EOF {
 //      break
 //    } else if err != nil {

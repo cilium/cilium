@@ -188,6 +188,10 @@ func (t *TCP) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOpt
 	return nil
 }
 
+func (t *TCP) ComputeChecksum() (uint16, error) {
+	return t.computeChecksum(append(t.Contents, t.Payload...), IPProtocolTCP)
+}
+
 func (t *TCP) flagsAndOffset() uint16 {
 	f := uint16(t.DataOffset) << 12
 	if t.FIN {
@@ -240,7 +244,12 @@ func (tcp *TCP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	tcp.Window = binary.BigEndian.Uint16(data[14:16])
 	tcp.Checksum = binary.BigEndian.Uint16(data[16:18])
 	tcp.Urgent = binary.BigEndian.Uint16(data[18:20])
-	tcp.Options = tcp.opts[:0]
+	if tcp.Options == nil {
+		// Pre-allocate to avoid allocating a slice.
+		tcp.Options = tcp.opts[:0]
+	} else {
+		tcp.Options = tcp.Options[:0]
+	}
 	if tcp.DataOffset < 5 {
 		return fmt.Errorf("Invalid TCP data offset %d < 5", tcp.DataOffset)
 	}
@@ -256,10 +265,6 @@ func (tcp *TCP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	// From here on, data points just to the header options.
 	data = data[20:dataStart]
 	for len(data) > 0 {
-		if tcp.Options == nil {
-			// Pre-allocate to avoid allocating a slice.
-			tcp.Options = tcp.opts[:0]
-		}
 		tcp.Options = append(tcp.Options, TCPOption{OptionType: TCPOptionKind(data[0])})
 		opt := &tcp.Options[len(tcp.Options)-1]
 		switch opt.OptionType {
@@ -288,7 +293,11 @@ func (t *TCP) CanDecode() gopacket.LayerClass {
 }
 
 func (t *TCP) NextLayerType() gopacket.LayerType {
-	return gopacket.LayerTypePayload
+	lt := t.DstPort.LayerType()
+	if lt == gopacket.LayerTypePayload {
+		lt = t.SrcPort.LayerType()
+	}
+	return lt
 }
 
 func decodeTCP(data []byte, p gopacket.PacketBuilder) error {
@@ -299,9 +308,21 @@ func decodeTCP(data []byte, p gopacket.PacketBuilder) error {
 	if err != nil {
 		return err
 	}
-	return p.NextDecoder(gopacket.LayerTypePayload)
+	if p.DecodeOptions().DecodeStreamsAsDatagrams {
+		return p.NextDecoder(tcp.NextLayerType())
+	} else {
+		return p.NextDecoder(gopacket.LayerTypePayload)
+	}
 }
 
 func (t *TCP) TransportFlow() gopacket.Flow {
 	return gopacket.NewFlow(EndpointTCPPort, t.sPort, t.dPort)
+}
+
+// For testing only
+func (t *TCP) SetInternalPortsForTesting() {
+	t.sPort = make([]byte, 2)
+	t.dPort = make([]byte, 2)
+	binary.BigEndian.PutUint16(t.sPort, uint16(t.SrcPort))
+	binary.BigEndian.PutUint16(t.dPort, uint16(t.DstPort))
 }

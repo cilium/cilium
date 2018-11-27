@@ -9,9 +9,11 @@ package layers
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
-	"github.com/google/gopacket"
 	"reflect"
+
+	"github.com/google/gopacket"
 )
 
 const (
@@ -219,7 +221,7 @@ func (i *ICMPv4) LayerType() gopacket.LayerType { return LayerTypeICMPv4 }
 func (i *ICMPv4) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	if len(data) < 8 {
 		df.SetTruncated()
-		return fmt.Errorf("ICMP layer less then 8 bytes for ICMPv4 packet")
+		return errors.New("ICMP layer less then 8 bytes for ICMPv4 packet")
 	}
 	i.TypeCode = CreateICMPv4TypeCode(data[0], data[1])
 	i.Checksum = binary.BigEndian.Uint16(data[2:4])
