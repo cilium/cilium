@@ -107,7 +107,12 @@ func getXDSPath(stateDir string) string {
 func StartXDSServer(stateDir string) *XDSServer {
 	xdsPath := getXDSPath(stateDir)
 	accessLogPath := getAccessLogPath(stateDir)
-	denied403body := viper.GetString("http-403-msg")
+	denied403body := option.Config.HTTP403Message
+	requestTimeout := option.Config.HTTPRequestTimeout // seconds
+	idleTimeout := option.Config.HTTPIdleTimeout       // seconds
+	maxGRPCTimeout := option.Config.HTTPMaxGRPCTimeout // seconds
+	numRetries := option.Config.HTTPRetryCount
+	retryTimeout := option.Config.HTTPRetryTimeout //seconds
 
 	os.Remove(xdsPath)
 	socketListener, err := net.ListenUnix("unix", &net.UnixAddr{Name: xdsPath, Net: "unix"})
@@ -188,10 +193,21 @@ func StartXDSServer(stateDir string) *XDSServer {
 										}}}},
 										"route": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
 											// "cluster":          {Kind: &structpb.Value_StringValue{StringValue: "cluster1"}},
-											"max_grpc_timeout": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{}}}},
+											"timeout": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+												"seconds": {Kind: &structpb.Value_NumberValue{NumberValue: float64(requestTimeout)}},
+											}}}},
+											// "idle_timeout": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+											// "seconds": {Kind: &structpb.Value_NumberValue{NumberValue: float64(idleTimeout)}},
+											// }}}},
+											"max_grpc_timeout": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+												"seconds": {Kind: &structpb.Value_NumberValue{NumberValue: float64(maxGRPCTimeout)}},
+											}}}},
 											"retry_policy": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
 												"retry_on":    {Kind: &structpb.Value_StringValue{StringValue: "5xx"}},
-												"num_retries": {Kind: &structpb.Value_NumberValue{NumberValue: 3}},
+												"num_retries": {Kind: &structpb.Value_NumberValue{NumberValue: float64(numRetries)}},
+												"per_try_timeout": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+													"seconds": {Kind: &structpb.Value_NumberValue{NumberValue: float64(retryTimeout)}},
+												}}}},
 											}}}},
 										}}}},
 									}}}},
@@ -202,12 +218,44 @@ func StartXDSServer(stateDir string) *XDSServer {
 				}},
 			}},
 		}},
+<<<<<<< HEAD
 		ListenerFilters: []*envoy_api_v2_listener.ListenerFilter{{
 			Name: "cilium.bpf_metadata",
 			Config: &structpb.Struct{Fields: map[string]*structpb.Value{
 				"is_ingress": {Kind: &structpb.Value_BoolValue{BoolValue: false}},
 				"bpf_root":   {Kind: &structpb.Value_StringValue{StringValue: bpf.GetMapRoot()}},
 			}},
+=======
+	}
+
+	// Idle timeout can only be specified if non-zero
+	if idleTimeout > 0 {
+		httpFilterChainProto.Filters[1].ConfigType.(*envoy_api_v2_listener.Filter_Config).Config.Fields["route_config"].GetStructValue().Fields["virtual_hosts"].GetListValue().Values[0].GetStructValue().Fields["routes"].GetListValue().Values[0].GetStructValue().Fields["route"].GetStructValue().Fields["idle_timeout"] = &structpb.Value{Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{"seconds": {Kind: &structpb.Value_NumberValue{NumberValue: float64(idleTimeout)}}}}}}
+	}
+
+	tcpFilterChainProto := &envoy_api_v2_listener.FilterChain{
+		Filters: []*envoy_api_v2_listener.Filter{{
+			Name: "cilium.network",
+			ConfigType: &envoy_api_v2_listener.Filter_Config{
+				Config: &structpb.Struct{Fields: map[string]*structpb.Value{
+					"proxylib": {Kind: &structpb.Value_StringValue{StringValue: "libcilium.so"}},
+					"proxylib_params": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+						"access-log-path": {Kind: &structpb.Value_StringValue{StringValue: accessLogPath}},
+						"xds-path":        {Kind: &structpb.Value_StringValue{StringValue: xdsPath}},
+					}}}},
+					// "l7_proto": {Kind: &structpb.Value_StringValue{StringValue: "parsername"}},
+					// "policy_name": {Kind: &structpb.Value_StringValue{StringValue: "1.2.3.4"}},
+				}},
+			},
+		}, {
+			Name: "envoy.tcp_proxy",
+			ConfigType: &envoy_api_v2_listener.Filter_Config{
+				Config: &structpb.Struct{Fields: map[string]*structpb.Value{
+					"stat_prefix": {Kind: &structpb.Value_StringValue{StringValue: "tcp_proxy"}},
+					// "cluster":     {Kind: &structpb.Value_StringValue{StringValue: "cluster1"}},
+				}},
+			},
+>>>>>>> envoy: Make timeouts user-configurable
 		}},
 	}
 
@@ -349,6 +397,8 @@ func getHTTPRule(h *api.PortRuleHTTP) (headers []*envoy_api_v2_route.HeaderMatch
 }
 
 func createBootstrap(filePath string, name, cluster, version string, xdsSock, egressClusterName, ingressClusterName string, adminPath string) {
+	connectTimeout := int64(option.Config.ProxyConnectTimeout) // in seconds
+
 	bs := &envoy_config_bootstrap_v2.Bootstrap{
 		Node: &envoy_api_v2_core.Node{Id: name, Cluster: cluster, Metadata: nil, Locality: nil, BuildVersion: version},
 		StaticResources: &envoy_config_bootstrap_v2.Bootstrap_StaticResources{
@@ -356,23 +406,23 @@ func createBootstrap(filePath string, name, cluster, version string, xdsSock, eg
 				{
 					Name:              egressClusterName,
 					Type:              envoy_api_v2.Cluster_ORIGINAL_DST,
-					ConnectTimeout:    &duration.Duration{Seconds: 1, Nanos: 0},
-					CleanupInterval:   &duration.Duration{Seconds: 1, Nanos: 500000000},
+					ConnectTimeout:    &duration.Duration{Seconds: connectTimeout, Nanos: 0},
+					CleanupInterval:   &duration.Duration{Seconds: connectTimeout, Nanos: 500000000},
 					LbPolicy:          envoy_api_v2.Cluster_ORIGINAL_DST_LB,
 					ProtocolSelection: envoy_api_v2.Cluster_USE_DOWNSTREAM_PROTOCOL,
 				},
 				{
 					Name:              ingressClusterName,
 					Type:              envoy_api_v2.Cluster_ORIGINAL_DST,
-					ConnectTimeout:    &duration.Duration{Seconds: 1, Nanos: 0},
-					CleanupInterval:   &duration.Duration{Seconds: 1, Nanos: 500000000},
+					ConnectTimeout:    &duration.Duration{Seconds: connectTimeout, Nanos: 0},
+					CleanupInterval:   &duration.Duration{Seconds: connectTimeout, Nanos: 500000000},
 					LbPolicy:          envoy_api_v2.Cluster_ORIGINAL_DST_LB,
 					ProtocolSelection: envoy_api_v2.Cluster_USE_DOWNSTREAM_PROTOCOL,
 				},
 				{
 					Name:           "xds-grpc-cilium",
 					Type:           envoy_api_v2.Cluster_STATIC,
-					ConnectTimeout: &duration.Duration{Seconds: 1, Nanos: 0},
+					ConnectTimeout: &duration.Duration{Seconds: connectTimeout, Nanos: 0},
 					LbPolicy:       envoy_api_v2.Cluster_ROUND_ROBIN,
 					Hosts: []*envoy_api_v2_core.Address{
 						{
