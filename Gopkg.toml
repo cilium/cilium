@@ -31,8 +31,24 @@ required = [
             ]
 
 [[constraint]]
+  name = "github.com/asaskevich/govalidator"
+  revision = "fdf19785fd3558d619ef81212f5edf1d6c2a5911"
+
+[[constraint]]
+  name = "github.com/aws/aws-sdk-go-v2"
+  version = "2.0.0-preview.5"
+
+[[constraint]]
   name = "github.com/c9s/goprocinfo"
   revision = "0010a05ce49fde7f50669bc7ecda7d41dd6ab824"
+
+[[constraint]]
+  name = "github.com/cilium/proxy"
+  revision = "84ee839e1d78ef858a39e390288ad417d35bb1d4"
+
+[[constraint]]
+  name = "github.com/containerd/containerd"
+  revision = "v1.1.0"
 
 [[constraint]]
   name = "github.com/containernetworking/cni"
@@ -47,75 +63,6 @@ required = [
   revision = "v3.3.9"
 
 [[constraint]]
-  name = "github.com/evalphobia/logrus_fluent"
-  revision = "v0.4.0"
-
-[[constraint]]
-  name = "github.com/kr/pretty"
-  revision = "cfb55aafdaf3ec08f0db22699ab822c50091b1c4"
-
-[[constraint]]
-  name = "github.com/mitchellh/hashstructure"
-  revision = "2bca23e0e452137f789efbc8610126fd8b94f73b"
-
-[[constraint]]
-  name = "github.com/optiopay/kafka"
-  source = "https://github.com/cilium/kafka"
-  revision = "01ce283b732b96914f62b1ff1bf5d8b90f7db86c"
-
-[[constraint]]
-  name = "github.com/pmezard/go-difflib"
-  revision = "v1.0.0"
-
-[[constraint]]
-  name = "github.com/prometheus/client_golang"
-  revision = "v0.9.0-pre1"
-
-[[constraint]]
-  name = "github.com/servak/go-fastping"
-  revision = "5718d12e20a0705da242a29ded0482dabae84363"
-
-[[constraint]]
-  name = "github.com/sirupsen/logrus"
-  revision = "v1.0.3"
-
-[[constraint]]
-  name = "google.golang.org/grpc"
-  revision = "v1.11.3"
-
-[[constraint]]
-  name = "gopkg.in/natefinch/lumberjack.v2"
-  revision = "v2.1"
-
-[[constraint]]
-  name = "k8s.io/api"
-  revision = "kubernetes-1.12.1"
-
-[[constraint]]
-  name = "k8s.io/apiextensions-apiserver"
-  revision = "kubernetes-1.12.1"
-
-[[constraint]]
-  name = "k8s.io/apimachinery"
-  revision = "kubernetes-1.12.1"
-
-[[constraint]]
-  name = "k8s.io/client-go"
-  revision = "kubernetes-1.12.1"
-
-[[constraint]]
-  name = "k8s.io/code-generator"
-  revision = "kubernetes-1.12.1"
-
-[[constraint]]
-  name = "k8s.io/kubernetes"
-  revision = "v1.12.1"
-
-[[constraint]]
-  name = "github.com/asaskevich/govalidator"
-  revision = "fdf19785fd3558d619ef81212f5edf1d6c2a5911"
-
-[[constraint]]
   name = "github.com/docker/engine-api"
   revision = "4eca04ae18f4f93f40196a17b9aa6e11262a7269"
 
@@ -124,8 +71,28 @@ required = [
   revision = "82fb373e3eaa4e9bbb5b5ac148b0a3a71f80fca6"
 
 [[constraint]]
+  name = "github.com/evalphobia/logrus_fluent"
+  revision = "v0.4.0"
+
+[[constraint]]
   name = "github.com/fatih/color"
   revision = "533cd7fd8a85905f67a1753afb4deddc85ea174f"
+
+[[constraint]]
+  name = "github.com/gogo/protobuf"
+  revision = "v0.4-3-gc0656ed"
+
+[[constraint]]
+  name = "github.com/golang/protobuf"
+  revision = "5831880292e721c76b58a16ecc60adc27d8e6355"
+
+[[constraint]]
+  name = "github.com/google/gopacket"
+  revision = "632566d585d0456397d2058bd9cb800c48e3230b"
+
+[[constraint]]
+  name = "github.com/google/gops"
+  revision = "25312cafb9a191a6d377c480a4666beec3105e4a"
 
 [[constraint]]
   name = "github.com/go-openapi/errors"
@@ -161,28 +128,16 @@ required = [
   revision = "b11dbf889b64cf815a7e2667412df313f4a3f17b"
 
 [[constraint]]
-  name = "github.com/gogo/protobuf"
-  revision = "v0.4-3-gc0656ed"
-
-[[constraint]]
-  name = "github.com/golang/protobuf"
-  revision = "5831880292e721c76b58a16ecc60adc27d8e6355"
-
-[[constraint]]
-  name = "github.com/google/gopacket"
-  revision = "632566d585d0456397d2058bd9cb800c48e3230b"
-
-[[constraint]]
-  name = "github.com/google/gops"
-  revision = "25312cafb9a191a6d377c480a4666beec3105e4a"
-
-[[constraint]]
   name = "github.com/gorilla/mux"
   revision = "26a6070f849969ba72b72256e9f14cf519751690"
 
 [[constraint]]
   name = "github.com/hashicorp/consul"
   revision = "05bc9149a5204b213a61bc410b8cec21f10a23fe"
+
+[[constraint]]
+  name = "github.com/hashicorp/go-immutable-radix"
+  version = "1.0.0"
 
 [[constraint]]
   name = "github.com/hashicorp/go-version"
@@ -197,12 +152,24 @@ required = [
   revision = "db49ba357de1f26c56dac48a5de39c65785bf24a"
 
 [[constraint]]
+  name = "github.com/kr/pretty"
+  revision = "cfb55aafdaf3ec08f0db22699ab822c50091b1c4"
+
+[[constraint]]
   name = "github.com/lyft/protoc-gen-validate"
   revision = "d75a15c1da0f853ca31399f30c49088ca5716b04"
 
 [[constraint]]
   name = "github.com/mattn/go-shellwords"
   revision = "9858af9cca4c73576f0b8c6609a396eb0878023c"
+
+[[constraint]]
+  name = "github.com/miekg/dns"
+  version = "1.0.8"
+
+[[constraint]]
+  name = "github.com/mitchellh/hashstructure"
+  revision = "2bca23e0e452137f789efbc8610126fd8b94f73b"
 
 [[constraint]]
   name = "github.com/onsi/ginkgo"
@@ -217,8 +184,21 @@ required = [
   revision = "0882c9abce533ab4afbab5677fcef7434dd36d5a"
 
 [[constraint]]
+  name = "github.com/optiopay/kafka"
+  source = "https://github.com/cilium/kafka"
+  revision = "01ce283b732b96914f62b1ff1bf5d8b90f7db86c"
+
+[[constraint]]
   name = "github.com/pborman/uuid"
   revision = "14801136da1260ea57627a3af55873f59f9ee1ea"
+
+[[constraint]]
+  name = "github.com/pmezard/go-difflib"
+  revision = "v1.0.0"
+
+[[constraint]]
+  name = "github.com/prometheus/client_golang"
+  revision = "v0.9.0-pre1"
 
 [[constraint]]
   name = "github.com/russross/blackfriday"
@@ -227,6 +207,18 @@ required = [
 [[constraint]]
   name = "github.com/sasha-s/go-deadlock"
   revision = "master"
+
+[[constraint]]
+  name = "github.com/servak/go-fastping"
+  revision = "5718d12e20a0705da242a29ded0482dabae84363"
+
+[[constraint]]
+  name = "github.com/shirou/gopsutil"
+  revision = "v2.18.07"
+
+[[constraint]]
+  name = "github.com/sirupsen/logrus"
+  revision = "v1.0.3"
 
 [[constraint]]
   name = "github.com/spf13/cobra"
@@ -272,22 +264,46 @@ required = [
   revision = "595979c8a7bf586b2d293fb42246bf91a0b893d9"
 
 [[constraint]]
+  name = "google.golang.org/grpc"
+  revision = "v1.11.3"
+
+[[constraint]]
   name = "gopkg.in/check.v1"
   revision = "4f90aeace3a26ad7021961c297b22c42160c7b25"
-
-[[constraint]]
-  name = "github.com/containerd/containerd"
-  revision = "v1.1.0"
-
-[[constraint]]
-  name = "github.com/shirou/gopsutil"
-  revision = "v2.18.07"
 
 # We need to specify fsnotify source to avoid dep panic
 [[constraint]]
   name = "gopkg.in/fsnotify.v1"
   revision = "v1.4.7"
   source = "gopkg.in/fsnotify/fsnotify.v1"
+
+[[constraint]]
+  name = "gopkg.in/natefinch/lumberjack.v2"
+  revision = "v2.1"
+
+[[constraint]]
+  name = "k8s.io/api"
+  revision = "kubernetes-1.12.1"
+
+[[constraint]]
+  name = "k8s.io/apiextensions-apiserver"
+  revision = "kubernetes-1.12.1"
+
+[[constraint]]
+  name = "k8s.io/apimachinery"
+  revision = "kubernetes-1.12.1"
+
+[[constraint]]
+  name = "k8s.io/client-go"
+  revision = "kubernetes-1.12.1"
+
+[[constraint]]
+  name = "k8s.io/code-generator"
+  revision = "kubernetes-1.12.1"
+
+[[constraint]]
+  name = "k8s.io/kubernetes"
+  revision = "v1.12.1"
 
 [prune]
   non-go = true
@@ -298,19 +314,3 @@ required = [
     name = "k8s.io/code-generator"
     unused-packages = false
     non-go = false
-
-[[constraint]]
-  name = "github.com/miekg/dns"
-  version = "1.0.8"
-
-[[constraint]]
-  name = "github.com/hashicorp/go-immutable-radix"
-  version = "1.0.0"
-
-[[constraint]]
-  name = "github.com/cilium/proxy"
-  revision = "84ee839e1d78ef858a39e390288ad417d35bb1d4"
-
-[[constraint]]
-  name = "github.com/aws/aws-sdk-go-v2"
-  version = "2.0.0-preview.5"
