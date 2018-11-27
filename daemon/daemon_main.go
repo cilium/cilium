@@ -478,7 +478,7 @@ func init() {
 	flags.Bool("sidecar-http-proxy", false, "Disable host HTTP proxy, assuming proxies in sidecar containers")
 	flags.MarkHidden("sidecar-http-proxy")
 	viper.BindEnv("sidecar-http-proxy", "CILIUM_SIDECAR_HTTP_PROXY")
-	flags.String("sidecar-istio-proxy-image", workloads.DefaultSidecarIstioProxyImageRegexp,
+	flags.String("sidecar-istio-proxy-image", k8s.DefaultSidecarIstioProxyImageRegexp,
 		"Regular expression matching compatible Istio sidecar istio-proxy container image names")
 	viper.BindEnv("sidecar-istio-proxy-image", "CILIUM_SIDECAR_ISTIO_PROXY_IMAGE")
 	flags.Bool(option.SingleClusterRouteName, false,
@@ -815,7 +815,7 @@ func initEnv(cmd *cobra.Command) {
 		log.Warn(`"sidecar-http-proxy" flag is deprecated and has no effect`)
 	}
 
-	workloads.SidecarIstioProxyImageRegexp, err = regexp.Compile(viper.GetString("sidecar-istio-proxy-image"))
+	k8s.SidecarIstioProxyImageRegexp, err = regexp.Compile(viper.GetString("sidecar-istio-proxy-image"))
 	if err != nil {
 		log.WithError(err).Fatal("Invalid sidecar-istio-proxy-image regular expression")
 		return
