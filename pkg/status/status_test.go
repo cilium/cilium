@@ -72,7 +72,7 @@ func (s *StatusTestSuite) TestCollectorStaleWarning(c *C) {
 	c.Assert(testutils.WaitUntil(func() bool {
 		return atomic.LoadUint64(&ok) >= 2
 	}, 1*time.Second), IsNil)
-	c.Assert(len(collector.GetStaleProbes()), Equals, 1)
+	c.Assert(collector.GetStaleProbes(), HasLen, 1)
 }
 
 func (s *StatusTestSuite) TestCollectorFailureTimeout(c *C) {
@@ -103,7 +103,7 @@ func (s *StatusTestSuite) TestCollectorFailureTimeout(c *C) {
 	c.Assert(testutils.WaitUntil(func() bool {
 		return atomic.LoadUint64(&ok) >= 1
 	}, 1*time.Second), IsNil)
-	c.Assert(len(collector.GetStaleProbes()), Equals, 1)
+	c.Assert(collector.GetStaleProbes(), HasLen, 1)
 }
 
 func (s *StatusTestSuite) TestCollectorSuccess(c *C) {
@@ -138,7 +138,7 @@ func (s *StatusTestSuite) TestCollectorSuccess(c *C) {
 	c.Assert(testutils.WaitUntil(func() bool {
 		return atomic.LoadUint64(&ok) >= 3 && atomic.LoadUint64(&errors) >= 3
 	}, 1*time.Second), IsNil)
-	c.Assert(len(collector.GetStaleProbes()), Equals, 0)
+	c.Assert(collector.GetStaleProbes(), HasLen, 0)
 }
 
 func (s *StatusTestSuite) TestCollectorSuccessAfterTimeout(c *C) {
@@ -170,5 +170,5 @@ func (s *StatusTestSuite) TestCollectorSuccessAfterTimeout(c *C) {
 	c.Assert(testutils.WaitUntil(func() bool {
 		return atomic.LoadUint64(&timeout) == 2 && atomic.LoadUint64(&ok) > 0
 	}, 1*time.Second), IsNil)
-	c.Assert(len(collector.GetStaleProbes()), Equals, 0)
+	c.Assert(collector.GetStaleProbes(), HasLen, 0)
 }

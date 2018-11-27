@@ -94,4 +94,15 @@ const (
 	// already been allocated and other nodes in the cluster have a chance
 	// to whitelist the new upcoming identity of the endpoint.
 	IdentityChangeGracePeriod = 25 * time.Second
+
+	// StatusCollectorInterval is the interval between a probe invocations
+	StatusCollectorInterval = 5 * time.Second
+
+	// StatusCollectorWarningThreshold is the duration after which a probe
+	// is declared as stale
+	StatusCollectorWarningThreshold = 15 * time.Second
+
+	// StatusCollectorFailureThreshold is the duration after which a probe
+	// is considered failed
+	StatusCollectorFailureThreshold = 1 * time.Minute
 )
