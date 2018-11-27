@@ -569,7 +569,7 @@
   revision = "v1.1.15"
 
 [[projects]]
-  digest = "1:8c5824301211ae803face8d4b8ff1c9ebd2d989e4dc4093d5ab483c031c905d9"
+  digest = "1:aebccac5eae98c77bbdf314428fb06ec1c1b4bee91589c3624d7facba176b8a6"
   name = "github.com/google/gops"
   packages = [
     "agent",
@@ -577,7 +577,7 @@
     "signal",
   ]
   pruneopts = "NUT"
-  revision = "25312cafb9a191a6d377c480a4666beec3105e4a"
+  revision = "v0.3.5"
 
 [[projects]]
   digest = "1:06a7dadb7b760767341ffb6c8d377238d68a1226f2b21b5d497d2e3f6ecf6b4e"

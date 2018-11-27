@@ -32,4 +32,7 @@ const (
 
 	// BinaryDump returns running binary file.
 	BinaryDump = byte(0x9)
+
+	// SetGCPercent sets the garbage collection target percentage.
+	SetGCPercent = byte(0x10)
 )

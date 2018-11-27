@@ -7,6 +7,8 @@
 package agent
 
 import (
+	"bufio"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -14,13 +16,12 @@ import (
 	"os"
 	gosignal "os/signal"
 	"runtime"
+	"runtime/debug"
 	"runtime/pprof"
 	"runtime/trace"
 	"strconv"
 	"sync"
 	"time"
-
-	"bufio"
 
 	"github.com/google/gops/internal"
 	"github.com/google/gops/signal"
@@ -42,6 +43,11 @@ type Options struct {
 	// Addr is the host:port the agent will be listening at.
 	// Optional.
 	Addr string
+
+	// ConfigDir is the directory to store the configuration file,
+	// PID of the gops process, filename, port as well as content.
+	// Optional.
+	ConfigDir string
 
 	// ShutdownCleanup automatically cleans up resources if the
 	// running process receives an interrupt. Otherwise, users
@@ -67,11 +73,17 @@ func Listen(opts Options) error {
 		return fmt.Errorf("gops: agent already listening at: %v", listener.Addr())
 	}
 
-	gopsdir, err := internal.ConfigDir()
-	if err != nil {
-		return err
+	// new
+	gopsdir := opts.ConfigDir
+	if gopsdir == "" {
+		cfgDir, err := internal.ConfigDir()
+		if err != nil {
+			return err
+		}
+		gopsdir = cfgDir
 	}
-	err = os.MkdirAll(gopsdir, os.ModePerm)
+
+	err := os.MkdirAll(gopsdir, os.ModePerm)
 	if err != nil {
 		return err
 	}
@@ -163,7 +175,7 @@ func formatBytes(val uint64) string {
 	return fmt.Sprintf("%d bytes", val)
 }
 
-func handle(conn io.Writer, msg []byte) error {
+func handle(conn io.ReadWriter, msg []byte) error {
 	switch msg[0] {
 	case signal.StackTrace:
 		return pprof.Lookup("goroutine").WriteTo(conn, 2)
@@ -188,13 +200,20 @@ func handle(conn io.Writer, msg []byte) error {
 		fmt.Fprintf(conn, "heap-objects: %v\n", s.HeapObjects)
 		fmt.Fprintf(conn, "stack-in-use: %v\n", formatBytes(s.StackInuse))
 		fmt.Fprintf(conn, "stack-sys: %v\n", formatBytes(s.StackSys))
+		fmt.Fprintf(conn, "stack-mspan-inuse: %v\n", formatBytes(s.MSpanInuse))
+		fmt.Fprintf(conn, "stack-mspan-sys: %v\n", formatBytes(s.MSpanSys))
+		fmt.Fprintf(conn, "stack-mcache-inuse: %v\n", formatBytes(s.MCacheInuse))
+		fmt.Fprintf(conn, "stack-mcache-sys: %v\n", formatBytes(s.MCacheSys))
+		fmt.Fprintf(conn, "other-sys: %v\n", formatBytes(s.OtherSys))
+		fmt.Fprintf(conn, "gc-sys: %v\n", formatBytes(s.GCSys))
 		fmt.Fprintf(conn, "next-gc: when heap-alloc >= %v\n", formatBytes(s.NextGC))
 		lastGC := "-"
 		if s.LastGC != 0 {
 			lastGC = fmt.Sprint(time.Unix(0, int64(s.LastGC)))
 		}
 		fmt.Fprintf(conn, "last-gc: %v\n", lastGC)
-		fmt.Fprintf(conn, "gc-pause: %v\n", time.Duration(s.PauseTotalNs))
+		fmt.Fprintf(conn, "gc-pause-total: %v\n", time.Duration(s.PauseTotalNs))
+		fmt.Fprintf(conn, "gc-pause: %v\n", s.PauseNs[(s.NumGC+255)%256])
 		fmt.Fprintf(conn, "num-gc: %v\n", s.NumGC)
 		fmt.Fprintf(conn, "enable-gc: %v\n", s.EnableGC)
 		fmt.Fprintf(conn, "debug-gc: %v\n", s.DebugGC)
@@ -230,6 +249,12 @@ func handle(conn io.Writer, msg []byte) error {
 		trace.Start(conn)
 		time.Sleep(5 * time.Second)
 		trace.Stop()
+	case signal.SetGCPercent:
+		perc, err := binary.ReadVarint(bufio.NewReader(conn))
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(conn, "New GC percent set to %v. Previous value was %v.\n", perc, debug.SetGCPercent(int(perc)))
 	}
 	return nil
 }
