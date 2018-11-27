@@ -825,6 +825,12 @@ definitions:
         type: string
       addressing:
         "$ref": "#/definitions/AddressPair"
+      k8s-pod-name:
+        description: Kubernetes pod name
+        type: string
+      k8s-namespace:
+        description: Kubernetes namespace name
+        type: string
       policy-enabled:
         description: Whether policy enforcement is enabled or not
         type: boolean

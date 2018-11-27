@@ -45,6 +45,12 @@ type EndpointChangeRequest struct {
 	// Name of network device
 	InterfaceName string `json:"interface-name,omitempty"`
 
+	// Kubernetes namespace name
+	K8sNamespace string `json:"k8s-namespace,omitempty"`
+
+	// Kubernetes pod name
+	K8sPodName string `json:"k8s-pod-name,omitempty"`
+
 	// Labels describing the identity
 	Labels Labels `json:"labels"`
 
@@ -80,6 +86,10 @@ type EndpointChangeRequest struct {
 /* polymorph EndpointChangeRequest interface-index false */
 
 /* polymorph EndpointChangeRequest interface-name false */
+
+/* polymorph EndpointChangeRequest k8s-namespace false */
+
+/* polymorph EndpointChangeRequest k8s-pod-name false */
 
 /* polymorph EndpointChangeRequest labels false */
 
