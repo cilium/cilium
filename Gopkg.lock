@@ -1074,7 +1074,7 @@
   revision = "5718d12e20a0705da242a29ded0482dabae84363"
 
 [[projects]]
-  digest = "1:6e6acd8902e66defe020233670b70c268e37865521e2bf6910e59e05202336b2"
+  digest = "1:c2b8afb7d304da77a9ee469ac843cebca929a1beda03ed8be063340ac92820d1"
   name = "github.com/shirou/gopsutil"
   packages = [
     "cpu",
@@ -1086,7 +1086,7 @@
     "process",
   ]
   pruneopts = "NUT"
-  revision = "v2.18.07"
+  revision = "v2.18.10"
 
 [[projects]]
   branch = "master"
@@ -1262,14 +1262,14 @@
   revision = "42b317875d0fa942474b76e1b46a6060d720ae6e"
 
 [[projects]]
-  digest = "1:21b27f093d86b15a6cb6b63591f664dce78ad3004bee2f649bc01a0f93b37612"
+  digest = "1:710483a12b766fb0e99ab26cbf6f82df2d958e94cb28890fcb2db96f76d39762"
   name = "golang.org/x/sys"
   packages = [
     "unix",
     "windows",
   ]
   pruneopts = "NUT"
-  revision = "14742f9018cd6651ec7364dc6ee08af0baaa1031"
+  revision = "62eef0e2fa9b2c385f7b2778e763486da6880d37"
 
 [[projects]]
   digest = "1:2c4e3b27329379d7b5f889038b48086140ea60708fb92e4b19d6a775926ea30b"

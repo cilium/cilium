@@ -527,34 +527,22 @@ func Processes() ([]*Process, error) {
 }
 
 func ProcessesWithContext(ctx context.Context) ([]*Process, error) {
-	results := []*Process{}
+	out := []*Process{}
 
-	mib := []int32{CTLKern, KernProc, KernProcAll, 0}
-	buf, length, err := common.CallSyscall(mib)
+	pids, err := PidsWithContext(ctx)
 	if err != nil {
-		return results, err
+		return out, err
 	}
 
-	// get kinfo_proc size
-	k := KinfoProc{}
-	procinfoLen := int(unsafe.Sizeof(k))
-	count := int(length / uint64(procinfoLen))
-
-	// parse buf to procs
-	for i := 0; i < count; i++ {
-		b := buf[i*procinfoLen : i*procinfoLen+procinfoLen]
-		k, err := parseKinfoProc(b)
+	for _, pid := range pids {
+		p, err := NewProcess(pid)
 		if err != nil {
 			continue
 		}
-		p, err := NewProcess(int32(k.Proc.P_pid))
-		if err != nil {
-			continue
-		}
-		results = append(results, p)
+		out = append(out, p)
 	}
 
-	return results, nil
+	return out, nil
 }
 
 func parseKinfoProc(buf []byte) (KinfoProc, error) {

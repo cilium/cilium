@@ -19,7 +19,7 @@ func VirtualMemoryWithContext(ctx context.Context) (*VirtualMemoryStat, error) {
 	if err != nil {
 		return nil, err
 	}
-	pageCount, err := unix.SysctlUint32("vm.stats.vm.v_page_count")
+	physmem, err := unix.SysctlUint64("hw.physmem")
 	if err != nil {
 		return nil, err
 	}
@@ -35,10 +35,6 @@ func VirtualMemoryWithContext(ctx context.Context) (*VirtualMemoryStat, error) {
 	if err != nil {
 		return nil, err
 	}
-	cached, err := unix.SysctlUint32("vm.stats.vm.v_cache_count")
-	if err != nil {
-		return nil, err
-	}
 	buffers, err := unix.SysctlUint64("vfs.bufspace")
 	if err != nil {
 		return nil, err
@@ -47,19 +43,33 @@ func VirtualMemoryWithContext(ctx context.Context) (*VirtualMemoryStat, error) {
 	if err != nil {
 		return nil, err
 	}
+	var cached, laundry uint32
+	osreldate, _ := unix.SysctlUint32("kern.osreldate")
+	if osreldate < 1102000 {
+		cached, err = unix.SysctlUint32("vm.stats.vm.v_cache_count")
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		laundry, err = unix.SysctlUint32("vm.stats.vm.v_laundry_count")
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	p := uint64(pageSize)
 	ret := &VirtualMemoryStat{
-		Total:    uint64(pageCount) * p,
+		Total:    uint64(physmem),
 		Free:     uint64(free) * p,
 		Active:   uint64(active) * p,
 		Inactive: uint64(inactive) * p,
 		Cached:   uint64(cached) * p,
 		Buffers:  uint64(buffers),
 		Wired:    uint64(wired) * p,
+		Laundry:  uint64(laundry) * p,
 	}
 
-	ret.Available = ret.Inactive + ret.Cached + ret.Free
+	ret.Available = ret.Inactive + ret.Cached + ret.Free + ret.Laundry
 	ret.Used = ret.Total - ret.Available
 	ret.UsedPercent = float64(ret.Used) / float64(ret.Total) * 100.0
 

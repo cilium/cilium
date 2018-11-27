@@ -25,7 +25,7 @@ const (
 )
 
 var (
-	modpsapi                 = windows.NewLazyDLL("psapi.dll")
+	modpsapi                 = windows.NewLazySystemDLL("psapi.dll")
 	procGetProcessMemoryInfo = modpsapi.NewProc("GetProcessMemoryInfo")
 )
 
@@ -603,21 +603,22 @@ func Processes() ([]*Process, error) {
 }
 
 func ProcessesWithContext(ctx context.Context) ([]*Process, error) {
-	pids, err := Pids()
+	out := []*Process{}
+
+	pids, err := PidsWithContext(ctx)
 	if err != nil {
-		return []*Process{}, fmt.Errorf("could not get Processes %s", err)
+		return out, fmt.Errorf("could not get Processes %s", err)
 	}
 
-	results := []*Process{}
 	for _, pid := range pids {
-		p, err := NewProcess(int32(pid))
+		p, err := NewProcess(pid)
 		if err != nil {
 			continue
 		}
-		results = append(results, p)
+		out = append(out, p)
 	}
 
-	return results, nil
+	return out, nil
 }
 
 func getProcInfo(pid int32) (*SystemProcessInformation, error) {
