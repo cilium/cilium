@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	ipCacheBPF "github.com/cilium/cilium/pkg/maps/ipcache"
@@ -140,6 +141,17 @@ func NewPutEndpointIDHandler(d *Daemon) PutEndpointIDHandler {
 	return &putEndpointID{d: d}
 }
 
+func fetchK8sLabels(ep *endpoint.Endpoint) (labels.Labels, labels.Labels, error) {
+	lbls, err := k8s.GetPodLabels(ep.GetK8sNamespace(), ep.GetK8sPodName())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	k8sLbls := labels.Map2Labels(lbls, labels.LabelSourceK8s)
+	identityLabels, infoLabels := labels.FilterLabels(k8sLbls)
+	return identityLabels, infoLabels, nil
+}
+
 // createEndpoint attempts to create the endpoint corresponding to the change
 // request that was specified. Returns an HTTP code response code and an
 // error msg (or nil on success).
@@ -161,6 +173,7 @@ func (d *Daemon) createEndpoint(epTemplate *models.EndpointChangeRequest, id str
 	}
 
 	addLabels := labels.NewLabelsFromModel(lbls)
+	infoLabels := labels.NewLabelsFromModel([]string{})
 
 	if len(addLabels) > 0 {
 		addLabels, _, ok := checkLabels(addLabels, nil)
@@ -170,7 +183,19 @@ func (d *Daemon) createEndpoint(epTemplate *models.EndpointChangeRequest, id str
 		if lbls := addLabels.FindReserved(); lbls != nil {
 			return PutEndpointIDInvalidCode, fmt.Errorf("Not allowed to add reserved labels: %s", lbls)
 		}
-	} else {
+	}
+
+	if ep.GetK8sNamespaceAndPodNameLocked() != "" && k8s.IsEnabled() {
+		identityLabels, info, err := fetchK8sLabels(ep)
+		if err != nil {
+			log.WithError(err).Warning("Unable to fetch kubernetes labels")
+		} else {
+			addLabels.MergeLabels(identityLabels)
+			infoLabels.MergeLabels(info)
+		}
+	}
+
+	if len(addLabels) == 0 {
 		// If the endpoint has no labels, give the endpoint a special identity with
 		// label reserved:init so we can generate a custom policy for it until we
 		// get its actual identity.
@@ -179,7 +204,7 @@ func (d *Daemon) createEndpoint(epTemplate *models.EndpointChangeRequest, id str
 		}
 	}
 
-	ep.UpdateLabels(d, addLabels, nil)
+	ep.UpdateLabels(d, addLabels, infoLabels)
 
 	if err := endpointmanager.AddEndpoint(d, ep, "Create endpoint from API PUT"); err != nil {
 		log.WithError(err).Warn("Aborting endpoint join")
