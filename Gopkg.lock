@@ -640,11 +640,11 @@
   revision = "v1.0.0"
 
 [[projects]]
-  digest = "1:f7b3db9cb74d13f6a7cf84b3801e68585745eacaf7d40cc10ecc4734c30503d3"
+  digest = "1:0b06ffe0c0764e413a6738e3f045d6bb14117359aef80a09f8c60fbff2ecad6b"
   name = "github.com/hashicorp/go-version"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "03c5bf6be031b6dd45afec16b1cf94fc8938bc77"
+  revision = "v1.0.0"
 
 [[projects]]
   digest = "1:b42cde0e1f3c816dd57f57f7bbcf05ca40263ad96f168714c130c611fc0856a6"

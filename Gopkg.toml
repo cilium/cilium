@@ -229,7 +229,7 @@ required = [
 
 [[constraint]]
   name = "github.com/hashicorp/go-version"
-  revision = "03c5bf6be031b6dd45afec16b1cf94fc8938bc77"
+  revision = "v1.0.0"
 
   # main-usage = "multiple packages"
   # on-revision = ""
