@@ -15,7 +15,13 @@ import (
 	"strings"
 )
 
+const gopsConfigDirEnvKey = "GOPS_CONFIG_DIR"
+
 func ConfigDir() (string, error) {
+	if configDir := os.Getenv(gopsConfigDirEnvKey); configDir != "" {
+		return configDir, nil
+	}
+
 	if runtime.GOOS == "windows" {
 		return filepath.Join(os.Getenv("APPDATA"), "gops"), nil
 	}
