@@ -21,6 +21,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -41,7 +42,6 @@ import (
 	envoy_api_v2_listener "github.com/cilium/proxy/go/envoy/api/v2/listener"
 	envoy_api_v2_route "github.com/cilium/proxy/go/envoy/api/v2/route"
 	envoy_config_bootstrap_v2 "github.com/cilium/proxy/go/envoy/config/bootstrap/v2"
-	"github.com/gogo/protobuf/sortkeys"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/struct"
@@ -523,7 +523,9 @@ func getPortNetworkPolicyRule(sel api.EndpointSelector, l7Parser policy.L7Parser
 			return nil
 		}
 
-		sortkeys.Uint64s(remotePolicies)
+		sort.Slice(remotePolicies, func(i, j int) bool {
+			return remotePolicies[i] < remotePolicies[j]
+		})
 	}
 
 	r := &cilium.PortNetworkPolicyRule{

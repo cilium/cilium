@@ -129,13 +129,6 @@ required = [
   # on-revision = ""
 
 [[constraint]]
-  name = "github.com/gogo/protobuf"
-  revision = "v0.4-3-gc0656ed"
-
-  # main-usage = "consider to remove this dependency"
-  # on-revision = ""
-
-[[constraint]]
   name = "github.com/golang/protobuf"
   revision = "5831880292e721c76b58a16ecc60adc27d8e6355"
 
