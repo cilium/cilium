@@ -702,6 +702,8 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, 
 		DockerNetworkID:  base.DockerNetworkID,
 		DockerEndpointID: base.DockerEndpointID,
 		IfName:           base.InterfaceName,
+		k8sPodName:       base.K8sPodName,
+		k8sNamespace:     base.K8sNamespace,
 		IfIndex:          int(base.InterfaceIndex),
 		OpLabels: pkgLabels.OpLabels{
 			Custom:                pkgLabels.Labels{},
@@ -712,6 +714,7 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, 
 		state:  "",
 		Status: NewEndpointStatus(),
 	}
+
 	ep.UpdateLogger(nil)
 
 	ep.SetStateLocked(string(base.State), "Endpoint creation")
