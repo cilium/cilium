@@ -637,8 +637,7 @@
   name = "github.com/hashicorp/go-immutable-radix"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "27df80928bb34bb1b0d6d0e01b9e679902e7a6b5"
-  version = "v1.0.0"
+  revision = "v1.0.0"
 
 [[projects]]
   digest = "1:f7b3db9cb74d13f6a7cf84b3801e68585745eacaf7d40cc10ecc4734c30503d3"
@@ -815,8 +814,7 @@
   name = "github.com/miekg/dns"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "f4db2ca6edc3af0ee51bf332099cc480bcf3ef9d"
-  version = "v1.0.10"
+  revision = "v1.0.10"
 
 [[projects]]
   digest = "1:e34decedbcec12332c5836d16a6838f864e0b43c5b4f9aa9d9a85101015f87c2"
