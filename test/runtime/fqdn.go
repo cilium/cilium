@@ -373,6 +373,54 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		res.ExpectFail("Connectivity to outside domain successfull when it should be block")
 
 	})
+
+	It("Roundrobin DNS", func() {
+		numberOfTries := 5
+		target := "roundrobin.cilium.test"
+		policy := `
+[
+	{
+		"labels": [{
+			"key": "FQDN test - interaction with other toCIDRSet rules, no poller"
+		}],
+		"endpointSelector": {
+			"matchLabels": {
+				"container:id.app1": "",
+				"container:id.app2": ""
+			}
+		},
+		"egress": [
+			{
+				"toPorts": [{
+					"ports":[{"port": "53", "protocol": "ANY"}],
+					"rules": {
+						"dns": [
+							{"matchPattern": "roundrobin.cilium.test"}
+						]
+					}
+				}]
+			},
+			{
+				"toFQDNs": [{
+					"matchName": "cilium.test"
+				}]
+			}
+		]
+	}
+]`
+		_, err := vm.PolicyRenderAndImport(policy)
+		Expect(err).To(BeNil(), "Policy cannot be imported")
+
+		By("Testing %q and %q containers are allow to work with roundrobin dns", helpers.App1, helpers.App2)
+		for i := 0; i < numberOfTries; i++ {
+			for _, container := range []string{helpers.App1, helpers.App2} {
+				By("Testing connectivity to Cilium.test domain")
+				res := vm.ContainerExec(container, helpers.CurlFail(target))
+				res.ExpectSuccess("Container %q cannot access to %q when should work", container, target)
+			}
+		}
+
+	})
 })
 
 func getMapValues(m map[string]string) []interface{} {
