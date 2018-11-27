@@ -1220,7 +1220,7 @@ func Processes() ([]*Process, error) {
 func ProcessesWithContext(ctx context.Context) ([]*Process, error) {
 	out := []*Process{}
 
-	pids, err := Pids()
+	pids, err := PidsWithContext(ctx)
 	if err != nil {
 		return out, err
 	}

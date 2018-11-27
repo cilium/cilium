@@ -13,7 +13,7 @@ import (
 	"github.com/shirou/gopsutil/internal/common"
 )
 
-var cpu_tick = float64(100)
+var CPUTick = float64(100)
 
 func init() {
 	getconf, err := exec.LookPath("/usr/bin/getconf")
@@ -25,7 +25,7 @@ func init() {
 	if err == nil {
 		i, err := strconv.ParseFloat(strings.TrimSpace(string(out)), 64)
 		if err == nil {
-			cpu_tick = float64(i)
+			CPUTick = i
 		}
 	}
 }
@@ -212,7 +212,6 @@ func parseStatLine(line string) (*TimesStat, error) {
 	}
 
 	if strings.HasPrefix(fields[0], "cpu") == false {
-		//		return CPUTimesStat{}, e
 		return nil, errors.New("not contain cpu")
 	}
 
@@ -251,34 +250,34 @@ func parseStatLine(line string) (*TimesStat, error) {
 
 	ct := &TimesStat{
 		CPU:     cpu,
-		User:    float64(user) / cpu_tick,
-		Nice:    float64(nice) / cpu_tick,
-		System:  float64(system) / cpu_tick,
-		Idle:    float64(idle) / cpu_tick,
-		Iowait:  float64(iowait) / cpu_tick,
-		Irq:     float64(irq) / cpu_tick,
-		Softirq: float64(softirq) / cpu_tick,
+		User:    user / CPUTick,
+		Nice:    nice / CPUTick,
+		System:  system / CPUTick,
+		Idle:    idle / CPUTick,
+		Iowait:  iowait / CPUTick,
+		Irq:     irq / CPUTick,
+		Softirq: softirq / CPUTick,
 	}
 	if len(fields) > 8 { // Linux >= 2.6.11
 		steal, err := strconv.ParseFloat(fields[8], 64)
 		if err != nil {
 			return nil, err
 		}
-		ct.Steal = float64(steal) / cpu_tick
+		ct.Steal = steal / CPUTick
 	}
 	if len(fields) > 9 { // Linux >= 2.6.24
 		guest, err := strconv.ParseFloat(fields[9], 64)
 		if err != nil {
 			return nil, err
 		}
-		ct.Guest = float64(guest) / cpu_tick
+		ct.Guest = guest / CPUTick
 	}
 	if len(fields) > 10 { // Linux >= 3.2.0
 		guestNice, err := strconv.ParseFloat(fields[10], 64)
 		if err != nil {
 			return nil, err
 		}
-		ct.GuestNice = float64(guestNice) / cpu_tick
+		ct.GuestNice = guestNice / CPUTick
 	}
 
 	return ct, nil
