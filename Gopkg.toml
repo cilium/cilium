@@ -277,13 +277,6 @@ required = [
   # on-revision = ""
 
 [[constraint]]
-  name = "github.com/mitchellh/hashstructure"
-  revision = "2bca23e0e452137f789efbc8610126fd8b94f73b"
-
-  # main-usage = "pkg/policy/api"
-  # on-revision = "consider removing"
-
-[[constraint]]
   name = "github.com/onsi/ginkgo"
   revision = "ba8e856bb854d6771a72ddf6497a42dad3a0c971"
 
