@@ -160,6 +160,33 @@ const (
 	TunnelDisabled = "disabled"
 )
 
+// Envoy option names
+const (
+	// HTTP403Message specifies the response body for 403 responses, defaults to "Access denied"
+	HTTP403Message = "http-403-msg"
+
+	// HTTPRequestTimeout specifies the time in seconds after which forwarded requests time out
+	HTTPRequestTimeout = "http-request-timeout"
+
+	// HTTPIdleTimeout spcifies the time in seconds if http stream being idle after which the
+	// request times out
+	HTTPIdleTimeout = "http-idle-timeout"
+
+	// HTTPMaxGRPCTimeout specifies the maximum time in seconds that limits the values of
+	// "grpc-timeout" headers being honored.
+	HTTPMaxGRPCTimeout = "http-max-grpc-timeout"
+
+	// HTTPRetryCount specifies the number of retries performed after a forwarded request fails
+	HTTPRetryCount = "http-retry-count"
+
+	// HTTPRetryTimeout is the time in seconds before an uncompleted request is retried.
+	HTTPRetryTimeout = "http-retry-timeout"
+
+	// ProxyConnectTimeout specifies the time in seconds after which a TCP connection attempt
+	// is considered timed out
+	ProxyConnectTimeout = "proxy-connect-timeout"
+)
+
 // GetTunnelModes returns the list of all tunnel modes
 func GetTunnelModes() string {
 	return fmt.Sprintf("%s, %s, %s", TunnelVXLAN, TunnelGeneve, TunnelDisabled)
@@ -279,6 +306,31 @@ type daemonConfig struct {
 	// HTTP403Message is the error message to return when a HTTP 403 is returned
 	// by the proxy, if L7 policy is configured.
 	HTTP403Message string
+
+	// HTTPRequestTimeout is the time in seconds after which Envoy responds with an
+	// error code on a request that has not yet completed. This needs to be longer
+	// than the HTTPIdleTimeout
+	HTTPRequestTimeout int
+
+	// HTTPIdleTimeout is the time in seconds of a HTTP stream having no traffic after
+	// which Envoy responds with an error code. This needs to be shorter than the
+	// HTTPRequestTimeout
+	HTTPIdleTimeout int
+
+	// HTTPMaxGRPCTimeout is the upper limit to which "grpc-timeout" headers in GRPC
+	// requests are honored by Envoy. If 0 there is no limit. GRPC requests are not
+	// bound by the HTTPRequestTimeout, but ARE affected by the idle timeout!
+	HTTPMaxGRPCTimeout int
+
+	// HTTPRetryCount is the upper limit on how many times Envoy retries failed requests.
+	HTTPRetryCount int
+
+	// HTTPRetryTimeout is the time in seconds before an uncompleted request is retried.
+	HTTPRetryTimeout int
+
+	// ProxyConnectTimeout is the time in seconds after which Envoy considers a TCP
+	// connection attempt to have timed out.
+	ProxyConnectTimeout int
 
 	// BPFCompilationDebug specifies whether to compile BPF programs compilation
 	// debugging enabled.
