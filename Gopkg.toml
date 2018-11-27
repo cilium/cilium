@@ -156,10 +156,6 @@ required = [
   revision = "cfb55aafdaf3ec08f0db22699ab822c50091b1c4"
 
 [[constraint]]
-  name = "github.com/lyft/protoc-gen-validate"
-  revision = "d75a15c1da0f853ca31399f30c49088ca5716b04"
-
-[[constraint]]
   name = "github.com/mattn/go-shellwords"
   revision = "9858af9cca4c73576f0b8c6609a396eb0878023c"
 
