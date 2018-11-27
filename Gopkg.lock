@@ -62,10 +62,9 @@
   revision = "fdf19785fd3558d619ef81212f5edf1d6c2a5911"
 
 [[projects]]
-  digest = "1:c026f5bfc3d7fa48e86a2b0e45f90c555bd4a36d3064224a7581545337f6e867"
+  digest = "1:9599c5a2887d907b5f87339fd3ecfd95403fc6b7b5bbfd14d0bca9692e53407f"
   name = "github.com/aws/aws-sdk-go-v2"
   packages = [
-    ".",
     "aws",
     "aws/awserr",
     "aws/defaults",
@@ -1718,7 +1717,6 @@
   analyzer-version = 1
   input-imports = [
     "github.com/asaskevich/govalidator",
-    "github.com/aws/aws-sdk-go-v2",
     "github.com/aws/aws-sdk-go-v2/aws",
     "github.com/aws/aws-sdk-go-v2/aws/external",
     "github.com/aws/aws-sdk-go-v2/service/ec2",
