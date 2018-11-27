@@ -8,7 +8,7 @@ package layers
 
 import (
 	"encoding/binary"
-	"fmt"
+	"errors"
 	"net"
 
 	"github.com/google/gopacket"
@@ -98,7 +98,7 @@ func (v *VRRPv2) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error 
 	v.Type = VRRPv2Type(data[0] & 0x0F) // low nibble == VRRP type. Expecting 1 (advertisement)
 	if v.Type != 1 {
 		// rfc3768: A packet with unknown type MUST be discarded.
-		return fmt.Errorf("Unrecognized VRRPv2 type field.")
+		return errors.New("Unrecognized VRRPv2 type field.")
 	}
 
 	v.VirtualRtrID = data[1]
@@ -106,7 +106,7 @@ func (v *VRRPv2) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error 
 
 	v.CountIPAddr = data[3]
 	if v.CountIPAddr < 1 {
-		return fmt.Errorf("VRRPv2 number of IP addresses is not valid.")
+		return errors.New("VRRPv2 number of IP addresses is not valid.")
 	}
 
 	v.AuthType = VRRPv2AuthType(data[4])
@@ -149,7 +149,7 @@ func (v *VRRPv2) Payload() []byte {
 // decodeVRRP will parse VRRP v2
 func decodeVRRP(data []byte, p gopacket.PacketBuilder) error {
 	if len(data) < 8 {
-		return fmt.Errorf("Not a valid VRRP packet. Packet length is too small.")
+		return errors.New("Not a valid VRRP packet. Packet length is too small.")
 	}
 	v := &VRRPv2{}
 	return decodingLayerDecoder(v, data, p)

@@ -9,6 +9,7 @@ package layers
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"net"
 	"strings"
@@ -140,7 +141,7 @@ func (ip *IPv4) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeO
 
 			// sanity checking to protect us from buffer overrun
 			if len(opt.OptionData) > int(opt.OptionLength-2) {
-				return fmt.Errorf("option length is smaller than length of option data")
+				return errors.New("option length is smaller than length of option data")
 			}
 			copy(bytes[curLocation+2:curLocation+int(opt.OptionLength)], opt.OptionData)
 			curLocation += int(opt.OptionLength)
@@ -148,19 +149,33 @@ func (ip *IPv4) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeO
 	}
 
 	if opts.ComputeChecksums {
-		// Clear checksum bytes
-		bytes[10] = 0
-		bytes[11] = 0
-		// Compute checksum
-		var csum uint32
-		for i := 0; i < len(bytes); i += 2 {
-			csum += uint32(bytes[i]) << 8
-			csum += uint32(bytes[i+1])
-		}
-		ip.Checksum = ^uint16((csum >> 16) + csum)
+		ip.Checksum = checksum(bytes)
 	}
 	binary.BigEndian.PutUint16(bytes[10:], ip.Checksum)
 	return nil
+}
+
+func checksum(bytes []byte) uint16 {
+	// Clear checksum bytes
+	bytes[10] = 0
+	bytes[11] = 0
+
+	// Compute checksum
+	var csum uint32
+	for i := 0; i < len(bytes); i += 2 {
+		csum += uint32(bytes[i]) << 8
+		csum += uint32(bytes[i+1])
+	}
+	for {
+		// Break when sum is less or equals to 0xFFFF
+		if csum <= 65535 {
+			break
+		}
+		// Add carry to the sum
+		csum = (csum >> 16) + uint32(uint16(csum))
+	}
+	// Flip all the bits
+	return ^uint16(csum)
 }
 
 func (ip *IPv4) flagsfrags() (ff uint16) {
@@ -185,6 +200,7 @@ func (ip *IPv4) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	ip.Checksum = binary.BigEndian.Uint16(data[10:12])
 	ip.SrcIP = data[12:16]
 	ip.DstIP = data[16:20]
+	ip.Options = ip.Options[:0]
 	// Set up an initial guess for contents/payload... we'll reset these soon.
 	ip.BaseLayer = BaseLayer{Contents: data}
 
@@ -208,7 +224,7 @@ func (ip *IPv4) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	} else if cmp < 0 {
 		df.SetTruncated()
 		if int(ip.IHL)*4 > len(data) {
-			return fmt.Errorf("Not all IP header bytes available")
+			return errors.New("Not all IP header bytes available")
 		}
 	}
 	ip.Contents = data[:ip.IHL*4]
@@ -271,7 +287,7 @@ func checkIPv4Address(addr net.IP) (net.IP, error) {
 		return c, nil
 	}
 	if len(addr) == net.IPv6len {
-		return nil, fmt.Errorf("address is IPv6")
+		return nil, errors.New("address is IPv6")
 	}
 	return nil, fmt.Errorf("wrong length of %d bytes instead of %d", len(addr), net.IPv4len)
 }

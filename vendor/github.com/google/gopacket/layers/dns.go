@@ -15,8 +15,11 @@ import (
 	"github.com/google/gopacket"
 )
 
+// DNSClass defines the class associated with a request/response.  Different DNS
+// classes can be thought of as an array of parallel namespace trees.
 type DNSClass uint16
 
+// DNSClass known values.
 const (
 	DNSClassIN  DNSClass = 1   // Internet
 	DNSClassCS  DNSClass = 2   // the CSNET class (Obsolete)
@@ -25,8 +28,28 @@ const (
 	DNSClassAny DNSClass = 255 // AnyClass
 )
 
+func (dc DNSClass) String() string {
+	switch dc {
+	default:
+		return "Unknown"
+	case DNSClassIN:
+		return "IN"
+	case DNSClassCS:
+		return "CS"
+	case DNSClassCH:
+		return "CH"
+	case DNSClassHS:
+		return "HS"
+	case DNSClassAny:
+		return "Any"
+	}
+}
+
+// DNSType defines the type of data being requested/returned in a
+// question/answer.
 type DNSType uint16
 
+// DNSType known values.
 const (
 	DNSTypeA     DNSType = 1  // a host address
 	DNSTypeNS    DNSType = 2  // an authoritative name server
@@ -48,8 +71,53 @@ const (
 	DNSTypeSRV   DNSType = 33 // server discovery [RFC2782] [RFC6195]
 )
 
+func (dt DNSType) String() string {
+	switch dt {
+	default:
+		return "Unknown"
+	case DNSTypeA:
+		return "A"
+	case DNSTypeNS:
+		return "NS"
+	case DNSTypeMD:
+		return "MD"
+	case DNSTypeMF:
+		return "MF"
+	case DNSTypeCNAME:
+		return "CNAME"
+	case DNSTypeSOA:
+		return "SOA"
+	case DNSTypeMB:
+		return "MB"
+	case DNSTypeMG:
+		return "MG"
+	case DNSTypeMR:
+		return "MR"
+	case DNSTypeNULL:
+		return "NULL"
+	case DNSTypeWKS:
+		return "WKS"
+	case DNSTypePTR:
+		return "PTR"
+	case DNSTypeHINFO:
+		return "HINFO"
+	case DNSTypeMINFO:
+		return "MINFO"
+	case DNSTypeMX:
+		return "MX"
+	case DNSTypeTXT:
+		return "TXT"
+	case DNSTypeAAAA:
+		return "AAAA"
+	case DNSTypeSRV:
+		return "SRV"
+	}
+}
+
+// DNSResponseCode provides response codes for question answers.
 type DNSResponseCode uint8
 
+// DNSResponseCode known values.
 const (
 	DNSResponseCodeNoErr    DNSResponseCode = 0  // No error
 	DNSResponseCodeFormErr  DNSResponseCode = 1  // Format Error                       [RFC1035]
@@ -115,8 +183,10 @@ func (drc DNSResponseCode) String() string {
 	}
 }
 
+// DNSOpCode defines a set of different operation types.
 type DNSOpCode uint8
 
+// DNSOpCode known values.
 const (
 	DNSOpCodeQuery  DNSOpCode = 0 // Query                  [RFC1035]
 	DNSOpCodeIQuery DNSOpCode = 1 // Inverse Query Obsolete [RFC3425]
@@ -124,6 +194,23 @@ const (
 	DNSOpCodeNotify DNSOpCode = 4 // Notify                 [RFC1996]
 	DNSOpCodeUpdate DNSOpCode = 5 // Update                 [RFC2136]
 )
+
+func (doc DNSOpCode) String() string {
+	switch doc {
+	default:
+		return "Unknown"
+	case DNSOpCodeQuery:
+		return "Query"
+	case DNSOpCodeIQuery:
+		return "Inverse Query"
+	case DNSOpCodeStatus:
+		return "Status"
+	case DNSOpCodeNotify:
+		return "Notify"
+	case DNSOpCodeUpdate:
+		return "Update"
+	}
+}
 
 // DNS is specified in RFC 1034 / RFC 1035
 // +---------------------+
@@ -167,7 +254,7 @@ type DNS struct {
 	TC bool  // Truncated
 	RD bool  // Recursion desired
 	RA bool  // Recursion available
-	Z  uint8 // Resrved for future use
+	Z  uint8 // Reserved for future use
 
 	ResponseCode DNSResponseCode
 	QDCount      uint16 // Number of questions to expect
@@ -209,7 +296,7 @@ func (d *DNS) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 
 	if len(data) < 12 {
 		df.SetTruncated()
-		return fmt.Errorf("DNS packet too short")
+		return errors.New("DNS packet too short")
 	}
 
 	// since there are no further layers, the baselayer's content is
@@ -290,14 +377,17 @@ func (d *DNS) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	return nil
 }
 
+// CanDecode implements gopacket.DecodingLayer.
 func (d *DNS) CanDecode() gopacket.LayerClass {
 	return LayerTypeDNS
 }
 
+// NextLayerType implements gopacket.DecodingLayer.
 func (d *DNS) NextLayerType() gopacket.LayerType {
 	return gopacket.LayerTypePayload
 }
 
+// Payload returns nil.
 func (d *DNS) Payload() []byte {
 	return nil
 }
@@ -341,7 +431,7 @@ func recSize(rr *DNSResourceRecord) int {
 func computeSize(recs []DNSResourceRecord) int {
 	sz := 0
 	for _, rr := range recs {
-		sz += len(rr.Name) + 14
+		sz += len(rr.Name) + 12
 		sz += recSize(&rr)
 	}
 	return sz
@@ -414,13 +504,17 @@ func (d *DNS) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOpt
 	return nil
 }
 
-var maxRecursion = errors.New("max DNS recursion level hit")
+var errMaxRecursion = errors.New("max DNS recursion level hit")
 
 const maxRecursionLevel = 255
 
 func decodeName(data []byte, offset int, buffer *[]byte, level int) ([]byte, int, error) {
 	if level > maxRecursionLevel {
-		return nil, 0, maxRecursion
+		return nil, 0, errMaxRecursion
+	} else if offset >= len(data) {
+		return nil, 0, errors.New("dns name offset too high")
+	} else if offset < 0 {
+		return nil, 0, errors.New("dns name offset is negative")
 	}
 	start := len(*buffer)
 	index := offset
@@ -441,8 +535,9 @@ loop:
 			*/
 			index2 := index + int(data[index]) + 1
 			if index2-offset > 255 {
-				return nil, 0,
-					fmt.Errorf("dns name is too long")
+				return nil, 0, errors.New("dns name is too long")
+			} else if index2 < index+1 || index2 > len(data) {
+				return nil, 0, errors.New("dns name uncomputable: invalid index")
 			}
 			*buffer = append(*buffer, '.')
 			*buffer = append(*buffer, data[index+1:index2]...)
@@ -468,8 +563,13 @@ loop:
 			      - a pointer
 			      - a sequence of labels ending with a pointer
 			*/
-
+			if index+2 > len(data) {
+				return nil, 0, errors.New("dns offset pointer too high")
+			}
 			offsetp := int(binary.BigEndian.Uint16(data[index:index+2]) & 0x3fff)
+			if offsetp > len(data) {
+				return nil, 0, errors.New("dns offset pointer too high")
+			}
 			// This looks a little tricky, but actually isn't.  Because of how
 			// decodeName is written, calling it appends the decoded name to the
 			// current buffer.  We already have the start of the buffer, then, so
@@ -489,10 +589,17 @@ loop:
 			return nil, 0, fmt.Errorf("qname '0x80' unsupported yet (data=%x index=%d)",
 				data[index], index)
 		}
+		if index >= len(data) {
+			return nil, 0, errors.New("dns index walked out of range")
+		}
+	}
+	if len(*buffer) <= start {
+		return nil, 0, errors.New("no dns data found for name")
 	}
 	return (*buffer)[start+1:], index + 1, nil
 }
 
+// DNSQuestion wraps a single request (question) within a DNS query.
 type DNSQuestion struct {
 	Name  []byte
 	Type  DNSType
@@ -540,6 +647,8 @@ func (q *DNSQuestion) encode(data []byte, offset int) int {
 //  /                                               /
 //  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
 
+// DNSResourceRecord wraps the data from a single DNS resource within a
+// response.
 type DNSResourceRecord struct {
 	// Header
 	Name  []byte
@@ -575,7 +684,11 @@ func (rr *DNSResourceRecord) decode(data []byte, offset int, df gopacket.DecodeF
 	rr.Class = DNSClass(binary.BigEndian.Uint16(data[endq+2 : endq+4]))
 	rr.TTL = binary.BigEndian.Uint32(data[endq+4 : endq+8])
 	rr.DataLength = binary.BigEndian.Uint16(data[endq+8 : endq+10])
-	rr.Data = data[endq+10 : endq+10+int(rr.DataLength)]
+	end := endq + 10 + int(rr.DataLength)
+	if end > len(data) {
+		return 0, fmt.Errorf("resource record length exceeds data")
+	}
+	rr.Data = data[endq+10 : end]
 
 	if err = rr.decodeRData(data, endq+10, buffer); err != nil {
 		return 0, err
@@ -676,7 +789,7 @@ func (rr *DNSResourceRecord) String() string {
 		}
 	}
 
-	return fmt.Sprintf("<%s, %s>", rr.Class, rr.Type)
+	return fmt.Sprintf("<%v, %v>", rr.Class, rr.Type)
 }
 
 func decodeCharacterStrings(data []byte) ([][]byte, error) {
@@ -759,16 +872,22 @@ func (rr *DNSResourceRecord) decodeRData(data []byte, offset int, buffer *[]byte
 	return nil
 }
 
+// DNSSOA is a Start of Authority record.  Each domain requires a SOA record at
+// the cutover where a domain is delegated from its parent.
 type DNSSOA struct {
 	MName, RName                            []byte
 	Serial, Refresh, Retry, Expire, Minimum uint32
 }
 
+// DNSSRV is a Service record, defining a location (hostname/port) of a
+// server/service.
 type DNSSRV struct {
 	Priority, Weight, Port uint16
 	Name                   []byte
 }
 
+// DNSMX is a mail exchange record, defining a mail server for a recipient's
+// domain.
 type DNSMX struct {
 	Preference uint16
 	Name       []byte

@@ -212,7 +212,7 @@ based on endpoint criteria:
 
 For load-balancing purposes, both Flow and Endpoint have FastHash() functions,
 which provide quick, non-cryptographic hashes of their contents.  Of particular
-importance is the fact that Flow FastHash() is symetric: A->B will have the same
+importance is the fact that Flow FastHash() is symmetric: A->B will have the same
 hash as B->A.  An example usage could be:
 
  channels := [8]chan gopacket.Packet
@@ -238,14 +238,14 @@ in a 4-byte header.
 
  // Create a layer type, should be unique and high, so it doesn't conflict,
  // giving it a name and a decoder to use.
- var MyLayerType = gopacket.RegisterLayerType(12345, "MyLayerType", gopacket.DecodeFunc(decodeMyLayer))
+ var MyLayerType = gopacket.RegisterLayerType(12345, gopacket.LayerTypeMetadata{Name: "MyLayerType", Decoder: gopacket.DecodeFunc(decodeMyLayer)})
 
  // Implement my layer
  type MyLayer struct {
    StrangeHeader []byte
    payload []byte
  }
- func (m MyLayer) LayerType() LayerType { return MyLayerType }
+ func (m MyLayer) LayerType() gopacket.LayerType { return MyLayerType }
  func (m MyLayer) LayerContents() []byte { return m.StrangeHeader }
  func (m MyLayer) LayerPayload() []byte { return m.payload }
 
@@ -288,7 +288,7 @@ the packet's information.  A quick example:
    parser := gopacket.NewDecodingLayerParser(layers.LayerTypeEthernet, &eth, &ip4, &ip6, &tcp)
    decoded := []gopacket.LayerType{}
    for packetData := range somehowGetPacketData() {
-     err := parser.DecodeLayers(packetDat, &decoded)
+     err := parser.DecodeLayers(packetData, &decoded)
      for _, layerType := range decoded {
        switch layerType {
          case layers.LayerTypeIPv6:
@@ -329,7 +329,7 @@ the following manner:
   }
   buf := gopacket.NewSerializeBuffer()
   opts := gopacket.SerializeOptions{}  // See SerializeOptions for more details.
-  err := ip.SerializeTo(&buf, opts)
+  err := ip.SerializeTo(buf, opts)
   if err != nil { panic(err) }
   fmt.Println(buf.Bytes())  // prints out a byte slice containing the serialized IPv4 layer.
 

@@ -8,6 +8,7 @@ package layers
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 
 	"github.com/google/gopacket"
@@ -27,7 +28,7 @@ func (l *Loopback) LayerType() gopacket.LayerType { return LayerTypeLoopback }
 // DecodeFromBytes decodes the given bytes into this layer.
 func (l *Loopback) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	if len(data) < 4 {
-		return fmt.Errorf("Loopback packet too small")
+		return errors.New("Loopback packet too small")
 	}
 
 	// The protocol could be either big-endian or little-endian, we're

@@ -9,9 +9,11 @@ package layers
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
-	"github.com/google/gopacket"
 	"reflect"
+
+	"github.com/google/gopacket"
 )
 
 const (
@@ -163,8 +165,10 @@ func CreateICMPv6TypeCode(typ uint8, code uint8) ICMPv6TypeCode {
 // ICMPv6 is the layer for IPv6 ICMP packet data
 type ICMPv6 struct {
 	BaseLayer
-	TypeCode  ICMPv6TypeCode
-	Checksum  uint16
+	TypeCode ICMPv6TypeCode
+	Checksum uint16
+	// TypeBytes is deprecated and always nil. See the different ICMPv6 message types
+	// instead (e.g. ICMPv6TypeRouterSolicitation).
 	TypeBytes []byte
 	tcpipchecksum
 }
@@ -174,14 +178,13 @@ func (i *ICMPv6) LayerType() gopacket.LayerType { return LayerTypeICMPv6 }
 
 // DecodeFromBytes decodes the given bytes into this layer.
 func (i *ICMPv6) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
-	if len(data) < 8 {
+	if len(data) < 4 {
 		df.SetTruncated()
-		return fmt.Errorf("ICMP layer less then 8 bytes for ICMPv6 packet")
+		return errors.New("ICMP layer less then 4 bytes for ICMPv6 packet")
 	}
 	i.TypeCode = CreateICMPv6TypeCode(data[0], data[1])
 	i.Checksum = binary.BigEndian.Uint16(data[2:4])
-	i.TypeBytes = data[4:8]
-	i.BaseLayer = BaseLayer{data[:8], data[8:]}
+	i.BaseLayer = BaseLayer{data[:4], data[4:]}
 	return nil
 }
 
@@ -189,17 +192,12 @@ func (i *ICMPv6) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error 
 // SerializationBuffer, implementing gopacket.SerializableLayer.
 // See the docs for gopacket.SerializableLayer for more info.
 func (i *ICMPv6) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOptions) error {
-	if i.TypeBytes == nil {
-		i.TypeBytes = lotsOfZeros[:4]
-	} else if len(i.TypeBytes) != 4 {
-		return fmt.Errorf("invalid type bytes for ICMPv6 packet: %v", i.TypeBytes)
-	}
-	bytes, err := b.PrependBytes(8)
+	bytes, err := b.PrependBytes(4)
 	if err != nil {
 		return err
 	}
 	i.TypeCode.SerializeTo(bytes)
-	copy(bytes[4:8], i.TypeBytes)
+
 	if opts.ComputeChecksums {
 		bytes[2] = 0
 		bytes[3] = 0
@@ -210,6 +208,7 @@ func (i *ICMPv6) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.Serialize
 		i.Checksum = csum
 	}
 	binary.BigEndian.PutUint16(bytes[2:], i.Checksum)
+
 	return nil
 }
 
@@ -220,6 +219,23 @@ func (i *ICMPv6) CanDecode() gopacket.LayerClass {
 
 // NextLayerType returns the layer type contained by this DecodingLayer.
 func (i *ICMPv6) NextLayerType() gopacket.LayerType {
+	switch i.TypeCode.Type() {
+	case ICMPv6TypeEchoRequest:
+		return LayerTypeICMPv6Echo
+	case ICMPv6TypeEchoReply:
+		return LayerTypeICMPv6Echo
+	case ICMPv6TypeRouterSolicitation:
+		return LayerTypeICMPv6RouterSolicitation
+	case ICMPv6TypeRouterAdvertisement:
+		return LayerTypeICMPv6RouterAdvertisement
+	case ICMPv6TypeNeighborSolicitation:
+		return LayerTypeICMPv6NeighborSolicitation
+	case ICMPv6TypeNeighborAdvertisement:
+		return LayerTypeICMPv6NeighborAdvertisement
+	case ICMPv6TypeRedirect:
+		return LayerTypeICMPv6Redirect
+	}
+
 	return gopacket.LayerTypePayload
 }
 

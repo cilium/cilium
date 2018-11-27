@@ -118,3 +118,11 @@ func decodeUDP(data []byte, p gopacket.PacketBuilder) error {
 func (u *UDP) TransportFlow() gopacket.Flow {
 	return gopacket.NewFlow(EndpointUDPPort, u.sPort, u.dPort)
 }
+
+// For testing only
+func (u *UDP) SetInternalPortsForTesting() {
+	u.sPort = make([]byte, 2)
+	u.dPort = make([]byte, 2)
+	binary.BigEndian.PutUint16(u.sPort, uint16(u.SrcPort))
+	binary.BigEndian.PutUint16(u.dPort, uint16(u.DstPort))
+}
