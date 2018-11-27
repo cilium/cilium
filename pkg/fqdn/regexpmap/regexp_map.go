@@ -20,8 +20,9 @@ import (
 )
 
 // lookupValueSet is a utility type. It is intended as a set of strings
-// inserted into a RegexpMap
-type lookupValueSet map[string]struct{}
+// inserted into a RegexpMap. Lookups are mapped to number of times
+// they were added to map.
+type lookupValueSet map[string]int
 
 // RegexpMap is a map-like type that allows lookups to match regexp keys. These
 // keys are managed internally as strings, and are uniqued by this
@@ -64,7 +65,7 @@ func (m *RegexpMap) Add(reStr string, lookupValue string) error {
 	}
 
 	// add the lookupValue to the set for reStr
-	m.lookups[reStr][lookupValue] = struct{}{}
+	m.lookups[reStr][lookupValue]++
 
 	return nil
 }
@@ -114,7 +115,12 @@ func (m *RegexpMap) Remove(reStr, lookupValue string) (deleted bool) {
 		return false
 	}
 
-	delete(m.lookups[reStr], lookupValue)
+	if m.lookups[reStr][lookupValue] > 0 {
+		m.lookups[reStr][lookupValue]--
+	}
+	if m.lookups[reStr][lookupValue] == 0 {
+		delete(m.lookups[reStr], lookupValue)
+	}
 	if len(m.lookups[reStr]) > 0 {
 		// there are still references to this lookup so we do not clean it up below
 		return false

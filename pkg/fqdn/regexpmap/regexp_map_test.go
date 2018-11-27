@@ -84,6 +84,26 @@ func (ds *RegexpMapTestSuite) TestKeepUniqueStrings(c *C) {
 	}
 }
 
+func (ds *RegexpMapTestSuite) TestRefCount(c *C) {
+	m := NewRegexpMap()
+	domain := "foo.bar.com."
+	endpoint := "ID1"
+
+	m.Add(domain, endpoint)
+	m.Add(domain, endpoint)
+
+	c.Assert(m.lookups[domain][endpoint], Equals, 2)
+
+	m.Remove(domain, endpoint)
+
+	c.Assert(m.lookups[domain][endpoint], Equals, 1)
+
+	m.Remove(domain, endpoint)
+	_, found := m.lookups[domain]
+
+	c.Assert(found, Equals, false)
+}
+
 //  reSize is the number of distinct subpatterns/regexes to benchmark with
 var reSize = 100
 

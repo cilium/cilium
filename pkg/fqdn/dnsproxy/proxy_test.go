@@ -181,3 +181,20 @@ func (s *DNSProxyTestSuite) TestCheckAllowedMixedCaseRule(c *C) {
 
 	c.Assert(result, Equals, true, Commentf("Mixed case dns request should be allowed based on mixed case rule"))
 }
+
+func (s *DNSProxyTestSuite) TestCheckAllowedTwiceRemovedOnce(c *C) {
+	s.proxy.AddAllowed("cilium.io.", "endpoint1")
+	s.proxy.AddAllowed("cilium.io.", "endpoint1")
+
+	result := s.proxy.CheckAllowed("cilium.io.", "endpoint1")
+	c.Assert(result, Equals, true, Commentf("Should allow requests matching duplicate rules"))
+
+	s.proxy.RemoveAllowed("cilium.io.", "endpoint1")
+	result = s.proxy.CheckAllowed("cilium.io.", "endpoint1")
+
+	c.Assert(result, Equals, true, Commentf("Should allow requests matching duplicate rules from which one was deleted"))
+
+	s.proxy.RemoveAllowed("cilium.io.", "endpoint1")
+	result = s.proxy.CheckAllowed("cilium.io.", "endpoint1")
+	c.Assert(result, Equals, false, Commentf("Should not allow requests matching duplicate rules from which both were deleted"))
+}
