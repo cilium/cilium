@@ -18,30 +18,7 @@ package route
 
 import (
 	"fmt"
-	"net"
-
-	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/sirupsen/logrus"
-	"github.com/vishvananda/netlink"
 )
-
-type Route struct {
-	Prefix  net.IPNet
-	Nexthop *net.IP
-	Local   net.IP
-	Device  string
-	MTU     int
-	Scope   netlink.Scope
-}
-
-func (r *Route) getLogger() *logrus.Entry {
-	return log.WithFields(logrus.Fields{
-		"prefix":            r.Prefix,
-		"nexthop":           r.Nexthop,
-		"local":             r.Local,
-		logfields.Interface: r.Device,
-	})
-}
 
 // ToIPCommand converts the route into a full "ip route ..." command
 func (r *Route) ToIPCommand(dev string) []string {
@@ -60,29 +37,13 @@ func (r *Route) ToIPCommand(dev string) []string {
 	return res
 }
 
-// ByMask is used to sort an array of routes by mask, narrow first.
-type ByMask []Route
-
-func (a ByMask) Len() int {
-	return len(a)
-}
-
-func (a ByMask) Less(i, j int) bool {
-	lenA, _ := a[i].Prefix.Mask.Size()
-	lenB, _ := a[j].Prefix.Mask.Size()
-	return lenA > lenB
-}
-
-func (a ByMask) Swap(i, j int) {
-	a[i], a[j] = a[j], a[i]
-}
-
-// ReplaceRoute adds or replaces the specified route if necessary
+// ReplaceRoute adds or replaces the specified route if necessary. Does nothing
+// for Darwin-based builds.
 func ReplaceRoute(route Route) error {
 	return nil
 }
 
-// DeleteRoute removes a route
+// DeleteRoute removes a route. Does nothing for Darwin-based builds.
 func DeleteRoute(route Route) error {
 	return nil
 }
