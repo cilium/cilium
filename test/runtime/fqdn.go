@@ -27,7 +27,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var bindTemplate = `
+var bindCiliumTestTemplate = `
 $TTL 3
 $ORIGIN cilium.test.
 
@@ -51,10 +51,35 @@ roundrobin.cilium.test.    1   IN   A %[2]s
 roundrobin.cilium.test.    1   IN   A %[3]s
 `
 
+var bindOutsideTestTemplate = `
+$TTL 3
+$ORIGIN outside.test.
+
+@       IN      SOA     outside.test. admin.outside.test. (
+                        200608081       ; serial, todays date + todays serial #
+                        8H              ; refresh, seconds
+                        2H              ; retry, seconds
+                        4W              ; expire, seconds
+                        1D )            ; minimum, seconds
+;
+;
+@               IN NS server
+server.outside.test. IN A 127.0.0.1
+
+world1.outside.test. IN A %[1]s
+world2.outside.test. IN A %[2]s
+world3.outside.test. IN A %[3]s
+`
+
 var bind9ZoneConfig = `
 zone "cilium.test" {
         type master;
         file "/etc/bind/db.cilium.test";
+};
+
+zone "outside.test" {
+        type master;
+        file "/etc/bind/db.outside.test";
 };
 `
 
@@ -68,20 +93,30 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		WorldHttpd3        = "WorldHttpd3"
 
 		bindDBCilium     = "db.cilium.test"
+		bindDBOutside    = "db.outside.test"
 		bindNamedConf    = "named.conf.local"
 		bindNamedOptions = "named.conf.options"
 	)
 
 	var (
-		vm     *helpers.SSHMeta
-		images = map[string]string{
+		vm          *helpers.SSHMeta
+		monitorStop = func() error { return nil }
+
+		ciliumTestImages = map[string]string{
 			WorldHttpd1: helpers.HttpdImage,
 			WorldHttpd2: helpers.HttpdImage,
 			WorldHttpd3: helpers.HttpdImage,
 		}
+
+		ciliumOutisdeImages = map[string]string{
+			WorldHttpd1: helpers.HttpdImage,
+			WorldHttpd2: helpers.HttpdImage,
+			WorldHttpd3: helpers.HttpdImage,
+		}
+
 		worldIps       = map[string]string{}
-		templateIps    = []interface{}{}
-		generatedFiles = []string{bindDBCilium, bindNamedConf}
+		outsideIps     = map[string]string{}
+		generatedFiles = []string{bindDBCilium, bindNamedConf, bindDBOutside}
 	)
 
 	BeforeAll(func() {
@@ -92,18 +127,29 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		vm.Exec(fmt.Sprintf("docker network create  %s", worldNetwork)).ExpectSuccess(
 			"%q network cant be created", worldNetwork)
 
-		for name, image := range images {
+		for name, image := range ciliumTestImages {
 			vm.ContainerCreate(name, image, worldNetwork, fmt.Sprintf("-l id.%s", name))
 			res := vm.ContainerInspect(name)
 			res.ExpectSuccess("Container is not ready after create it")
 			ip, err := res.Filter(fmt.Sprintf(`{[0].NetworkSettings.Networks.%s.IPAddress}`, worldNetwork))
 			Expect(err).To(BeNil(), "Cannot retrieve network info for %q", name)
 			worldIps[name] = ip.String()
-			templateIps = append(templateIps, ip.String())
 		}
 
-		bindConfig := fmt.Sprintf(bindTemplate, templateIps...)
+		bindConfig := fmt.Sprintf(bindCiliumTestTemplate, getMapValues(worldIps)...)
 		err := helpers.RenderTemplateToFile(bindDBCilium, bindConfig, os.ModePerm)
+		Expect(err).To(BeNil(), "bind file can't be created")
+
+		for name, image := range ciliumOutisdeImages {
+			vm.ContainerCreate(name, image, worldNetwork, fmt.Sprintf("-l id.%s", name))
+			res := vm.ContainerInspect(name)
+			res.ExpectSuccess("Container is not ready after create it")
+			ip, err := res.Filter(fmt.Sprintf(`{[0].NetworkSettings.Networks.%s.IPAddress}`, worldNetwork))
+			Expect(err).To(BeNil(), "Cannot retrieve network info for %q", name)
+			outsideIps[name] = ip.String()
+		}
+		bindConfig = fmt.Sprintf(bindOutsideTestTemplate, getMapValues(outsideIps)...)
+		err = helpers.RenderTemplateToFile(bindDBOutside, bindConfig, os.ModePerm)
 		Expect(err).To(BeNil(), "bind file can't be created")
 
 		err = helpers.RenderTemplateToFile(bindNamedConf, bind9ZoneConfig, os.ModePerm)
@@ -155,7 +201,11 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 	AfterAll(func() {
 		// @TODO remove this one when DNS proxy is in place.
 		vm.ExecWithSudo(`bash -c 'echo -e "nameserver 8.8.8.8\nnameserver 1.1.1.1" > /etc/resolv.conf'`)
-		for name := range images {
+		for name := range ciliumTestImages {
+			vm.ContainerRm(name)
+		}
+
+		for name := range ciliumOutisdeImages {
 			vm.ContainerRm(name)
 		}
 		vm.SampleContainersActions(helpers.Delete, "")
@@ -163,8 +213,13 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		vm.Exec(fmt.Sprintf("docker network rm  %s", worldNetwork))
 	})
 
+	JustBeforeEach(func() {
+		monitorStop = vm.MonitorStart()
+	})
+
 	JustAfterEach(func() {
 		vm.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
+		monitorStop()
 	})
 
 	AfterEach(func() {
@@ -172,7 +227,11 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 	})
 
 	AfterFailed(func() {
-		vm.ReportFailed("cilium config", "cilium policy get")
+		GinkgoPrint(vm.Exec(
+			`docker ps -q | xargs -n 1 docker inspect --format ` +
+				`'{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}} {{ .Name }}'` +
+				`| sed 's/ \// /'`).Output().String())
+		vm.ReportFailed("cilium policy get")
 	})
 
 	expectFQDNSareApplied := func() {
@@ -259,4 +318,69 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		res := vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode(allowedTarget))
 		res.ExpectSuccess("Cannot access to world1.cilium.test")
 	})
+
+	It("Interaction with other ToCIDR rules", func() {
+		policy := `
+[
+	{
+		"labels": [{
+			"key": "FQDN test - interaction with other toCIDRSet rules, no poller"
+		}],
+		"endpointSelector": {
+			"matchLabels": {
+				"container:id.app1": ""
+			}
+		},
+		"egress": [
+			{
+				"toPorts": [{
+					"ports":[{"port": "53", "protocol": "ANY"}],
+					"rules": {
+						"dns": [
+							{"matchPattern": "*.cilium.test"}
+						]
+					}
+				}]
+			},
+			{
+				"toFQDNs": [{
+					"matchPattern": "*.cilium.test"
+				}]
+			},
+			{
+				"toCIDRSet": [
+					{"cidr": "%s/32"}
+				]
+			}
+		]
+	}
+]`
+		_, err := vm.PolicyRenderAndImport(fmt.Sprintf(policy, outsideIps[WorldHttpd1]))
+		Expect(err).To(BeNil(), "Policy cannot be imported")
+
+		expectFQDNSareApplied()
+
+		By("Testing connectivity to Cilium.test domain")
+		res := vm.ContainerExec(helpers.App1, helpers.CurlFail("http://world1.cilium.test"))
+		res.ExpectSuccess("Cannot access to world1.cilium.test")
+
+		By("Testing connectivity to existing CIDR rule")
+		res = vm.ContainerExec(helpers.App1, helpers.CurlFail(outsideIps[WorldHttpd1]))
+		res.ExpectSuccess("Cannot access to CIDR rule when should work")
+
+		By("Ensure connectivity to other domains is still block")
+		res = vm.ContainerExec(helpers.App1, helpers.CurlFail("http://world2.outside.test"))
+		res.ExpectFail("Connectivity to outside domain successfull when it should be block")
+
+	})
 })
+
+func getMapValues(m map[string]string) []interface{} {
+	values := make([]interface{}, len(m))
+	i := 0
+	for _, v := range m {
+		values[i] = v
+		i++
+	}
+	return values
+}
