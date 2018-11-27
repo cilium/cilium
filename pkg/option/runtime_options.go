@@ -34,6 +34,24 @@ const (
 	AlwaysEnforce       = "always"
 	NeverEnforce        = "never"
 	DefaultEnforcement  = "default"
+
+	// HTTP403Message specifies the response body for 403 responses, defaults to "Access denied"
+	HTTP403Message = "http-403-msg"
+	// HTTPRequestTimeout specifies the time in seconds after which forwarded requests time out
+	HTTPRequestTimeout = "http-request-timeout"
+	// HTTPIdleTimeout spcifies the time in seconds if http stream being idle after which the
+	// request times out
+	HTTPIdleTimeout = "http-idle-timeout"
+	// HTTPMaxGRPCTimeout specifies the maximum time in seconds that limits the values of
+	// "grpc-timeout" headers being honored.
+	HTTPMaxGRPCTimeout = "http-max-grpc-timeout"
+	// HTTPRetryCount specifies the number of retries performed after a forwarded request fails
+	HTTPRetryCount = "http-retry-count"
+	// HTTPRetryTimeout is the time in seconds before an uncompleted request is retried.
+	HTTPRetryTimeout = "http-retry-timeout"
+	// ProxyConnectTimeout specifies the time in seconds after which a TCP connection attempt
+	// is considered timed out
+	ProxyConnectTimeout = "proxy-connect-timeout"
 )
 
 var (
