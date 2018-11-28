@@ -857,6 +857,13 @@
   version = "1.0.1"
 
 [[projects]]
+  digest = "1:048215a208d3f928e14cad3906c2aad4dc8412a81780f9a5260eaf7998c92df6"
+  name = "github.com/mohae/deepcopy"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "c48cc78d482608239f6c4c92a4abd87eb8761c90"
+
+[[projects]]
   digest = "1:3dc39744bbac155b21a79c6b8e250d6985bbab77b71c073a4477071e59fe5e61"
   name = "github.com/onsi/ginkgo"
   packages = [
@@ -1800,6 +1807,7 @@
     "github.com/kr/pretty",
     "github.com/mattn/go-shellwords",
     "github.com/miekg/dns",
+    "github.com/mohae/deepcopy",
     "github.com/onsi/ginkgo",
     "github.com/onsi/ginkgo/config",
     "github.com/onsi/ginkgo/types",

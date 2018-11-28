@@ -272,6 +272,13 @@ required = [
   # on-revision = ""
 
 [[constraint]]
+  name = "github.com/mohae/deepcopy"
+  revision = "c48cc78d482608239f6c4c92a4abd87eb8761c90"
+
+  # main-usage = "daemon"
+  # on-revision = "last available commit and there is not stable releases"
+
+[[constraint]]
   name = "github.com/onsi/ginkgo"
   revision = "ba8e856bb854d6771a72ddf6497a42dad3a0c971"
 
