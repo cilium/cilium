@@ -419,7 +419,92 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 				res.ExpectSuccess("Container %q cannot access to %q when should work", container, target)
 			}
 		}
+	})
 
+	It("Can update L7 DNS policy rules", func() {
+		By("Importing policy with L7 DNS rules")
+		fqdnPolicy := `
+[
+  {
+    "labels": [{
+	  	"key": "toFQDNs-runtime-test-policy"
+	  }],
+    "endpointSelector": {
+      "matchLabels": {
+        "container:id.app1": ""
+      }
+    },
+    "egress": [
+      {
+        "toPorts": [{
+          "ports":[{"port": "53", "protocol": "ANY"}],
+					"rules": {
+						"dns": [{"matchPattern": "world1.cilium.test"}]
+					}
+        }]
+      },
+      {
+        "toFQDNs": [
+          {
+            "matchPattern": "*.cilium.test"
+          }
+        ]
+      }
+    ]
+  }
+]`
+		_, err := vm.PolicyRenderAndImport(fqdnPolicy)
+		Expect(err).To(BeNil(), "Policy cannot be imported")
+		expectFQDNSareApplied()
+
+		By("Allowing egress to IPs of only the specified DNS names")
+		blockedTarget := "world2.cilium.test"
+		res := vm.ContainerExec(helpers.App1, helpers.CurlFail(blockedTarget))
+		res.ExpectFail("Curl succeeded against blocked DNS name " + blockedTarget)
+
+		allowedTarget := "world1.cilium.test"
+		res = vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode(allowedTarget))
+		res.ExpectSuccess("Cannot access  " + allowedTarget)
+
+		By("Updating policy with L7 DNS rules")
+		fqdnPolicy = `
+[
+  {
+    "labels": [{
+	  	"key": "toFQDNs-runtime-test-policy"
+	  }],
+    "endpointSelector": {
+      "matchLabels": {
+        "container:id.app1": ""
+      }
+    },
+    "egress": [
+      {
+        "toPorts": [{
+          "ports":[{"port": "53", "protocol": "ANY"}],
+					"rules": {
+						"dns": [{"matchPattern": "world2.cilium.test"}]
+					}
+        }]
+      },
+      {
+        "toFQDNs": [
+          {
+            "matchPattern": "*.cilium.test"
+          }
+        ]
+      }
+    ]
+  }
+]`
+		_, err = vm.PolicyRenderAndImport(fqdnPolicy)
+		Expect(err).To(BeNil(), "Policy cannot be imported")
+		expectFQDNSareApplied()
+
+		By("Allowing egress to IPs of the new DNS name")
+		allowedTarget = "world2.cilium.test"
+		res = vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode(allowedTarget))
+		res.ExpectSuccess("Cannot access  " + allowedTarget)
 	})
 })
 
