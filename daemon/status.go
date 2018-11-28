@@ -17,7 +17,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
@@ -31,6 +30,7 @@ import (
 
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/strfmt"
+	"github.com/mohae/deepcopy"
 )
 
 func (d *Daemon) getK8sStatus() *models.K8sStatus {
@@ -97,8 +97,15 @@ func (d *Daemon) getStatus() models.StatusResponse {
 	d.statusCollectMutex.RLock()
 	defer d.statusCollectMutex.RUnlock()
 
-	// TODO(brb) we should do a deep copy instead, as statusResponse contains some references
-	sr := d.statusResponse
+	// d.statusResponse contains references, so we do a deep copy to be able to
+	// safely use sr after the method has returned
+	sr, ok := deepcopy.Copy(d.statusResponse).(models.StatusResponse)
+	if !ok {
+		// Shouldn't happen, but just in case...
+		log.Error("Type assertion failed for models.StatusResponse")
+		return models.StatusResponse{}
+	}
+
 	sr.Stale = stale
 
 	switch {
