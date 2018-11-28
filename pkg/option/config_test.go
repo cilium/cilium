@@ -17,6 +17,8 @@
 package option
 
 import (
+	"testing"
+
 	. "gopkg.in/check.v1"
 )
 
@@ -40,6 +42,67 @@ func (s *OptionSuite) TestValidateIPv6ClusterAllocCIDR(c *C) {
 
 	invalid4 := &daemonConfig{}
 	c.Assert(invalid4.validateIPv6ClusterAllocCIDR(), Not(IsNil))
+}
+
+func TestGetEnvName(t *testing.T) {
+	type args struct {
+		option string
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "Normal option",
+			args: args{
+				option: "foo",
+			},
+			want: "CILIUM_FOO",
+		},
+		{
+			name: "Capital option",
+			args: args{
+				option: "FOO",
+			},
+			want: "CILIUM_FOO",
+		},
+		{
+			name: "with numbers",
+			args: args{
+				option: "2222",
+			},
+			want: "CILIUM_2222",
+		},
+		{
+			name: "mix numbers small letters",
+			args: args{
+				option: "22ada22",
+			},
+			want: "CILIUM_22ADA22",
+		},
+		{
+			name: "mix numbers small letters and dashes",
+			args: args{
+				option: "22ada2------2",
+			},
+			want: "CILIUM_22ADA2______2",
+		},
+		{
+			name: "normal option",
+			args: args{
+				option: "conntrack-garbage-collector-interval",
+			},
+			want: "CILIUM_CONNTRACK_GARBAGE_COLLECTOR_INTERVAL",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getEnvName(tt.args.option); got != tt.want {
+				t.Errorf("getEnvName() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
 
 func (s *OptionSuite) TestWorkloadsEnabled(c *C) {
