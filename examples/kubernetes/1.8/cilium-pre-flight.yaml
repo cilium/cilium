@@ -54,6 +54,7 @@ spec:
               - /tmp/ready
             initialDelaySeconds: 5
             periodSeconds: 5
+      hostNetwork: true
       restartPolicy: Always
       tolerations:
         - effect: NoSchedule
