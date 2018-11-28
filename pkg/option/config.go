@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
@@ -79,6 +80,9 @@ const (
 	// MonitorAggregationName specifies the MonitorAggregationLevel on the
 	// comandline.
 	MonitorAggregationName = "monitor-aggregation"
+
+	// ciliumEnvPrefix is the prefix used for environment variables
+	ciliumEnvPrefix = "CILIUM_"
 
 	// ClusterName is the name of the ClusterName option
 	ClusterName = "cluster-name"
@@ -210,6 +214,13 @@ const (
 // GetTunnelModes returns the list of all tunnel modes
 func GetTunnelModes() string {
 	return fmt.Sprintf("%s, %s, %s", TunnelVXLAN, TunnelGeneve, TunnelDisabled)
+}
+
+// getEnvName returns the environment variable to be used for the given option name.
+func getEnvName(option string) string {
+	under := strings.Replace(option, "-", "_", -1)
+	upper := strings.ToUpper(under)
+	return ciliumEnvPrefix + upper
 }
 
 // daemonConfig is the configuration used by Daemon.
