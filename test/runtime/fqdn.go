@@ -175,6 +175,19 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		vm.ReportFailed("cilium config", "cilium policy get")
 	})
 
+	expectFQDNSareApplied := func() {
+		jqfilter := `jq -c '.[0].egress[]| select(.toFQDNs|length > 0) | select(.toCIDRSet|length > 0)'`
+		body := func() bool {
+			res := vm.Exec(fmt.Sprintf(`cilium policy get -o jsonpath='{.policy}' | %s`, jqfilter))
+			return res.WasSuccessful()
+		}
+		err := helpers.WithTimeout(
+			body,
+			"ToFQDNs did not update any ToCIDRSet",
+			&helpers.TimeoutConfig{Timeout: helpers.HelperTimeout})
+		Expect(err).To(BeNil(), "FQDN policy didn't update correctly the ToCidrSet")
+	}
+
 	fqdnPolicyImport := func(fqdnPolicy string) {
 		preImportPolicyRevision, err := vm.PolicyGetRevision()
 		ExpectWithOffset(1, err).To(BeNil(), "Unable to get policy revision at start of test", err)
@@ -229,6 +242,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
   }
 ]`
 		fqdnPolicyImport(fqdnPolicy)
+		expectFQDNSareApplied()
 
 		By("Denying egress to IPs of DNS names not in ToFQDNs, and normal IPs")
 		// www.cilium.io has a different IP than cilium.io (it is CNAMEd as well!),
