@@ -253,14 +253,14 @@ Annotations:
 -----------------
 
 Upgrading from >=1.2.5 to 1.4.y
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 #. Follow the standard procedures to perform the upgrade as described in :ref:`upgrade_minor`.
 
 Changes that may require action
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
- * The ``--serve`` option was removed from cilium-bugtool in favour of a much
+ * The ``--serve`` option was removed from cilium-bugtool in favor of a much
    reduced binary size. If you want to continue using the option, please use an
    older version of the cilium-bugtool binary.
 
