@@ -192,6 +192,10 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 
 	ip4 := node.GetIPv4HealthIP()
 	ip6 := node.GetIPv6HealthIP()
+	ip4MaxMask := net.CIDRMask(32, 32)
+	ip6MaxMask := net.CIDRMask(128, 128)
+	ip4WithMask := net.IPNet{ip4, ip4MaxMask}
+	ip6WithMask := net.IPNet{ip6, ip6MaxMask}
 	cmd := launcher.Launcher{}
 
 	// Prepare the endpoint change request
@@ -214,7 +218,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 	pidfile := filepath.Join(option.Config.StateDir, PidfilePath)
 	healthArgs := fmt.Sprintf("-d --admin=unix --passive --pidfile %s", pidfile)
 	args := []string{info.ContainerName, info.InterfaceName, vethPeerName,
-		ip6.String(), ip4.String(), ciliumHealth, healthArgs}
+		ip6WithMask.String(), ip4WithMask.String(), ciliumHealth, healthArgs}
 	prog := filepath.Join(option.Config.BpfDir, "spawn_netns.sh")
 	cmd.SetTarget(prog)
 	cmd.SetArgs(args)
