@@ -97,10 +97,16 @@ func (dr *dnsRedirect) setRules(wg *completion.WaitGroup, newRules policy.L7Data
 	return nil
 }
 
-// UpdateRules is a no-op for the DNS proxy as it currently doesn't support
-// updating rules.
+// UpdateRules atomically replaces the proxy rules in effect for this redirect.
+// It is not aware of revision number and doesn't account for out-of-order
+// calls to UpdateRules or the returned RevertFunc.
 func (dr *dnsRedirect) UpdateRules(wg *completion.WaitGroup, l4 *policy.L4Filter) (revert.RevertFunc, error) {
-	return func() error { return nil }, nil
+	oldRules := dr.currentRules
+	err := dr.setRules(wg, dr.redirect.rules)
+	revertFunc := func() error {
+		return dr.setRules(nil, oldRules)
+	}
+	return revertFunc, err
 }
 
 // Close the redirect.
