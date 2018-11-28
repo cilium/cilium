@@ -155,22 +155,23 @@ func (s *Semaphore) Acquire(stopCh <-chan struct{}) (<-chan struct{}, error) {
 	// Check if we need to create a session first
 	s.lockSession = s.opts.Session
 	if s.lockSession == "" {
-		if sess, err := s.createSession(); err != nil {
+		sess, err := s.createSession()
+		if err != nil {
 			return nil, fmt.Errorf("failed to create session: %v", err)
-		} else {
-			s.sessionRenew = make(chan struct{})
-			s.lockSession = sess
-			session := s.c.Session()
-			go session.RenewPeriodic(s.opts.SessionTTL, sess, nil, s.sessionRenew)
-
-			// If we fail to acquire the lock, cleanup the session
-			defer func() {
-				if !s.isHeld {
-					close(s.sessionRenew)
-					s.sessionRenew = nil
-				}
-			}()
 		}
+
+		s.sessionRenew = make(chan struct{})
+		s.lockSession = sess
+		session := s.c.Session()
+		go session.RenewPeriodic(s.opts.SessionTTL, sess, nil, s.sessionRenew)
+
+		// If we fail to acquire the lock, cleanup the session
+		defer func() {
+			if !s.isHeld {
+				close(s.sessionRenew)
+				s.sessionRenew = nil
+			}
+		}()
 	}
 
 	// Create the contender entry
@@ -197,12 +198,13 @@ WAIT:
 
 	// Handle the one-shot mode.
 	if s.opts.SemaphoreTryOnce && attempts > 0 {
-		elapsed := time.Now().Sub(start)
-		if elapsed > qOpts.WaitTime {
+		elapsed := time.Since(start)
+		if elapsed > s.opts.SemaphoreWaitTime {
 			return nil, nil
 		}
 
-		qOpts.WaitTime -= elapsed
+		// Query wait time should not exceed the semaphore wait time
+		qOpts.WaitTime = s.opts.SemaphoreWaitTime - elapsed
 	}
 	attempts++
 
@@ -491,7 +493,7 @@ RETRY:
 		// by doing retries. Note that we have to attempt the retry in a non-
 		// blocking fashion so that we have a clean place to reset the retry
 		// counter if service is restored.
-		if retries > 0 && IsServerError(err) {
+		if retries > 0 && IsRetryableError(err) {
 			time.Sleep(s.opts.MonitorRetryTime)
 			retries--
 			opts.WaitIndex = 0
