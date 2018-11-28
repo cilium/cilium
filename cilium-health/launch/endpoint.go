@@ -26,11 +26,12 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/datapath/route"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/connector"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	healthPkg "github.com/cilium/cilium/pkg/health/client"
-	"github.com/cilium/cilium/pkg/health/defaults"
+	healthDefaults "github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/launcher"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -190,6 +191,8 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 
 	ip4 := node.GetIPv4HealthIP()
 	ip6 := node.GetIPv6HealthIP()
+	ip4WithMask := net.IPNet{IP: ip4, Mask: defaults.ContainerIPv4Mask}
+	ip6WithMask := net.IPNet{IP: ip6, Mask: defaults.ContainerIPv6Mask}
 	cmd := launcher.Launcher{}
 
 	// Prepare the endpoint change request
@@ -209,7 +212,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 	pidfile := filepath.Join(option.Config.StateDir, PidfilePath)
 	healthArgs := fmt.Sprintf("-d --admin=unix --passive --pidfile %s", pidfile)
 	args := []string{info.ContainerName, info.InterfaceName, vethPeerName,
-		ip6.String(), ip4.String(), ciliumHealth, healthArgs}
+		ip6WithMask.String(), ip4WithMask.String(), ciliumHealth, healthArgs}
 	prog := filepath.Join(option.Config.BpfDir, "spawn_netns.sh")
 	cmd.SetTarget(prog)
 	cmd.SetArgs(args)
@@ -260,7 +263,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 
 	// Initialize the health client to talk to this instance. This is why
 	// the caller must limit usage of this package to a single goroutine.
-	client, err = healthPkg.NewClient(fmt.Sprintf("tcp://%s:%d", ip4, defaults.HTTPPathPort))
+	client, err = healthPkg.NewClient(fmt.Sprintf("tcp://%s:%d", ip4, healthDefaults.HTTPPathPort))
 	if err != nil {
 		return fmt.Errorf("Cannot establish connection to health endpoint: %s", err)
 	}
