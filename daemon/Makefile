@@ -26,7 +26,7 @@ links:
 	$(foreach link,$(LINKS), ln -f -s $(TARGET) $(link);)
 
 clean:
-	@$(ECHO_CLEAN) $(notdir $(shell pwd))
+	@$(ECHO_CLEAN)
 	$(QUIET)rm -f $(TARGET)
 	$(QUIET)$(GO) clean
 	$(foreach link,$(LINKS), rm $(link);)

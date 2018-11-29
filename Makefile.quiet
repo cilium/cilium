@@ -1,11 +1,11 @@
 ifeq ($(V),0)
 	QUIET=@
-	ECHO_CC=echo "  CC    $(notdir $(shell pwd))/$@"
-	ECHO_GEN=echo "  GEN   $(notdir $(shell pwd))/"
-	ECHO_GO=echo "  GO    $(notdir $(shell pwd))/$@"
-	ECHO_CHECK=echo "  CHECK"
-	ECHO_GINKGO=echo "  GINKG $(notdir $(shell pwd))"
-	ECHO_CLEAN=echo "  CLEAN"
+	ECHO_CC=echo "  CC    $(RELATIVE_DIR)/$@"
+	ECHO_GEN=echo "  GEN   $(RELATIVE_DIR)/"
+	ECHO_GO=echo "  GO    $(RELATIVE_DIR)/$@"
+	ECHO_CHECK=echo "  CHECK $(RELATIVE_DIR)"
+	ECHO_GINKGO=echo "  GINKG $(RELATIVE_DIR)"
+	ECHO_CLEAN=echo "  CLEAN $(RELATIVE_DIR)"
 	SPHINXOPTS+="-q"
 else
 	# The whitespace at below EOLs is required for verbose case!

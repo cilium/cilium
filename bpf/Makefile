@@ -33,7 +33,7 @@ $(BPF_SIMPLE): %.o: %.ll
 	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $(patsubst %.o,%.ll,$@)
 
 check:
-	@$(ECHO_CHECK) bpf/*.c
+	@$(ECHO_CHECK)/*.c
 	$(QUIET) spatch --sp-file ../contrib/coccinelle/null.cocci --dir . --include-headers
 	$(QUIET) sparse -Wsparse-all ${FLAGS} *.c
 	$(QUIET) $(CLANG) ${CLANG_FLAGS} --analyze *.c
@@ -82,7 +82,7 @@ bpf_lxc.o: bpf_lxc.ll
 
 subdirs: $(SUBDIRS)
 $(SUBDIRS):
-	$(MAKE) -C $@
+	@$(MAKE) -C $@
 else
 all: $(TARGET)
 endif
@@ -96,6 +96,8 @@ install:
 	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
 
 clean:
-	@$(ECHO_CLEAN) $(notdir $(shell pwd))
+	@$(ECHO_CLEAN)
+	$(QUIET) $(foreach TARGET,$(SUBDIRS), \
+		$(MAKE) -C $(TARGET) clean)
 	$(QUIET)rm -fr *.o *.ll *.i
 	$(QUIET)rm -f $(TARGET)

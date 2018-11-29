@@ -25,5 +25,5 @@ bpf-event-test.o: bpf-event-test.c
 	$(CLANG) $(FLAGS) -I../../bpf/ $< -o $@
 
 clean:
-	@$(ECHO_CLEAN) $(ROOT_DIR)/test/$(notdir $(shell pwd))
+	@$(ECHO_CLEAN)
 	-$(QUIET)rm -f $(TARGETS)

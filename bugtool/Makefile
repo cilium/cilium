@@ -23,7 +23,7 @@ $(TARGET): $(SOURCES)
 all: $(TARGET)
 
 clean:
-	@$(ECHO_CLEAN) $(notdir $(shell pwd))
+	@$(ECHO_CLEAN)
 	-$(QUIET)rm -f .cilium-bugtool.config $(TARGET)
 	$(QUIET)$(GO) clean
 

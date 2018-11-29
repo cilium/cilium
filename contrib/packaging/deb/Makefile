@@ -13,7 +13,7 @@ build: clean
 	docker run --rm -v $(CURDIR)/output:/output cilium:cilium-bin-deb-$(VERSION)
 
 clean:
-	@$(ECHO_CLEAN) $(notdir $(shell pwd))
+	@$(ECHO_CLEAN)
 	$(QUIET)rm -rf cilium output version_*
 
 release:
