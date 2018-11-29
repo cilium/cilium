@@ -77,6 +77,9 @@ const (
 
 	// ReservedCoreDNS is the reserved identity used for CoreDNS
 	ReservedCoreDNS NumericIdentity = 104
+
+	// ReservedCiliumOperator is the reserved identity used for the Cilium operator
+	ReservedCiliumOperator NumericIdentity = 105
 )
 
 type wellKnownIdentities map[NumericIdentity]wellKnownIdentity
@@ -186,6 +189,20 @@ func InitWellKnownIdentities() {
 		"k8s:k8s-app=kube-dns",
 		fmt.Sprintf("k8s:%s=kube-system", api.PodNamespaceLabel),
 		fmt.Sprintf("k8s:%s=coredns", api.PolicyLabelServiceAccount),
+		fmt.Sprintf("k8s:%s=%s", api.PolicyLabelCluster, option.Config.ClusterName),
+	})
+
+	// CiliumOperator labels
+	//   k8s:io.cilium.k8s.policy.serviceaccount=cilium-operator
+	//   k8s:io.kubernetes.pod.namespace=kube-system
+	//   k8s:name=cilium-operator
+	//   k8s:io.cilium/app=operator
+	//   k8s:io.cilium.k8s.policy.cluster=default
+	WellKnown.add(ReservedCiliumOperator, []string{
+		"k8s:name=cilium-operator",
+		"k8s:io.cilium/app=operator",
+		fmt.Sprintf("k8s:%s=kube-system", api.PodNamespaceLabel),
+		fmt.Sprintf("k8s:%s=cilium-operator", api.PolicyLabelServiceAccount),
 		fmt.Sprintf("k8s:%s=%s", api.PolicyLabelCluster, option.Config.ClusterName),
 	})
 }
