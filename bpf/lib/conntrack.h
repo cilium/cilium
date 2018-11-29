@@ -220,7 +220,7 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 					 __u32 *monitor)
 {
 	struct ct_entry *entry;
-	int ret;
+	int reopen;
 
 	if ((entry = map_lookup_elem(map, tuple))) {
 		cilium_dbg(skb, DBG_CT_MATCH, entry->lifetime, entry->rev_nat_index);
@@ -252,8 +252,9 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 
 		switch (action) {
 		case ACTION_CREATE:
-			ret = entry->rx_closing + entry->tx_closing;
-			if (unlikely(ret >= 1)) {
+			reopen = entry->rx_closing | entry->tx_closing;
+			reopen |= seen_flags.value & TCP_FLAG_SYN;
+			if (unlikely(reopen == (TCP_FLAG_SYN|0x1))) {
 				ct_reset_closing(entry);
 				*monitor = ct_update_timeout(entry, is_tcp, dir, seen_flags);
 			}
