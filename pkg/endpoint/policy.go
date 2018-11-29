@@ -601,38 +601,7 @@ func (e *Endpoint) regenerate(owner Owner, context *regenerationContext) (retErr
 	}).Info("Regenerating endpoint")
 
 	defer func() {
-		success := retErr == nil
-		stats.totalTime.End(success)
-		stats.success = success
-
-		e.mutex.RLock()
-		stats.endpointID = e.ID
-		stats.policyStatus = e.policyStatus()
-		e.RUnlock()
-		stats.SendMetrics()
-
-		scopedLog := e.getLogger().WithFields(logrus.Fields{
-			"waitingForLock":         stats.waitingForLock.Total(),
-			"waitingForCTClean":      stats.waitingForCTClean.Total(),
-			"policyCalculation":      stats.policyCalculation.Total(),
-			"proxyConfiguration":     stats.proxyConfiguration.Total(),
-			"proxyPolicyCalculation": stats.proxyPolicyCalculation.Total(),
-			"proxyWaitForAck":        stats.proxyWaitForAck.Total(),
-			"bpfCompilation":         stats.bpfCompilation.Total(),
-			"mapSync":                stats.mapSync.Total(),
-			"prepareBuild":           stats.prepareBuild.Total(),
-			logfields.BuildDuration:  stats.totalTime.Total(),
-			logfields.Reason:         context.Reason,
-		})
-
-		if retErr != nil {
-			scopedLog.WithError(retErr).Warn("Regeneration of endpoint failed")
-			e.LogStatus(BPF, Failure, "Error regenerating endpoint: "+retErr.Error())
-			return
-		}
-
-		scopedLog.Info("Completed endpoint regeneration")
-		e.LogStatusOK(BPF, "Successfully regenerated endpoint program (Reason: "+context.Reason+")")
+		e.updateRegenerationStatistics(context, retErr)
 	}()
 
 	e.BuildMutex.Lock()
@@ -761,6 +730,43 @@ func (e *Endpoint) updateRealizedState(stats *regenerationStatistics, origDir st
 	e.setPolicyRevision(revision)
 
 	return nil
+}
+
+func (e *Endpoint) updateRegenerationStatistics(context *regenerationContext, err error) {
+	success := err == nil
+	stats := &context.Stats
+
+	stats.totalTime.End(success)
+	stats.success = success
+
+	e.mutex.RLock()
+	stats.endpointID = e.ID
+	stats.policyStatus = e.policyStatus()
+	e.RUnlock()
+	stats.SendMetrics()
+
+	scopedLog := e.getLogger().WithFields(logrus.Fields{
+		"waitingForLock":         stats.waitingForLock.Total(),
+		"waitingForCTClean":      stats.waitingForCTClean.Total(),
+		"policyCalculation":      stats.policyCalculation.Total(),
+		"proxyConfiguration":     stats.proxyConfiguration.Total(),
+		"proxyPolicyCalculation": stats.proxyPolicyCalculation.Total(),
+		"proxyWaitForAck":        stats.proxyWaitForAck.Total(),
+		"bpfCompilation":         stats.bpfCompilation.Total(),
+		"mapSync":                stats.mapSync.Total(),
+		"prepareBuild":           stats.prepareBuild.Total(),
+		logfields.BuildDuration:  stats.totalTime.Total(),
+		logfields.Reason:         context.Reason,
+	})
+
+	if err != nil {
+		scopedLog.WithError(err).Warn("Regeneration of endpoint failed")
+		e.LogStatus(BPF, Failure, "Error regenerating endpoint: "+err.Error())
+		return
+	}
+
+	scopedLog.Info("Completed endpoint regeneration")
+	e.LogStatusOK(BPF, "Successfully regenerated endpoint program (Reason: "+context.Reason+")")
 }
 
 // Regenerate forces the regeneration of endpoint programs & policy
