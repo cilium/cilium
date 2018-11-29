@@ -33,7 +33,7 @@ spec:
       serviceAccountName: cilium
       initContainers:
         - name: clean-cilium-state
-          image: docker.io/cilium/cilium-init:2018-10-16
+          image: docker.io/cilium/cilium-init:__CILIUM_INIT_VERSION__
           imagePullPolicy: IfNotPresent
           command: ["/init-container.sh"]
           securityContext:
