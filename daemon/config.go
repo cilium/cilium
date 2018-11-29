@@ -38,4 +38,5 @@ func populateConfig() {
 	option.Config.EnvoyLogPath = viper.GetString("envoy-log")
 	option.Config.SockopsEnable = viper.GetBool(option.SockopsEnableName)
 	option.Config.PrependIptablesChains = viper.GetBool(option.PrependIptablesChainsName)
+	option.Config.K8sNamespace = viper.GetString(option.K8sNamespaceName)
 }

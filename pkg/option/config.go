@@ -146,6 +146,13 @@ const (
 
 	// SockopsEnableName is the name of the option to enable sockops
 	SockopsEnableName = "sockops-enable"
+
+	// K8sNamespaceName is the name of the K8sNamespace option
+	K8sNamespaceName = "k8s-namespace"
+
+	// K8sNamespaceNameEnv is the name of the K8sNamespace environment
+	// variable
+	K8sNamespaceNameEnv = "CILIUM_K8S_NAMESPACE"
 )
 
 // Available option for daemonConfig.Tunnel
@@ -346,6 +353,10 @@ type daemonConfig struct {
 	// PrependIptablesChains is the name of the option to enable prepending
 	// iptables chains instead of appending
 	PrependIptablesChains bool
+
+	// K8sNamespace is the name of the namespace in which Cilium is
+	// deployed in when running in Kubernetes mode
+	K8sNamespace string
 }
 
 var (
