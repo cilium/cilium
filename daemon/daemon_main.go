@@ -423,6 +423,9 @@ func init() {
 	flags.StringVar(&k8sKubeConfigPath,
 		"k8s-kubeconfig-path", "", "Absolute path of the kubernetes kubeconfig file")
 	viper.BindEnv("k8s-legacy-host-allows-world", "CILIUM_LEGACY_HOST_ALLOWS_WORLD")
+	flags.String(option.K8sNamespaceName, "", "Name of the Kubernetes namespace in which Cilium is deployed in")
+	viper.BindEnv(option.K8sNamespaceName, option.K8sNamespaceNameEnv)
+	flags.MarkHidden(option.K8sNamespaceName)
 	flags.BoolVar(&option.Config.K8sRequireIPv4PodCIDR,
 		option.K8sRequireIPv4PodCIDRName, false, "Require IPv4 PodCIDR to be specified in node resource")
 	flags.BoolVar(&option.Config.K8sRequireIPv6PodCIDR,
