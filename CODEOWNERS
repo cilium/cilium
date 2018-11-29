@@ -117,3 +117,6 @@ tests/ @cilium/ci
 tests/k8s/Vagrantfile @cilium/vagrant
 Vagrantfile @cilium/vagrant
 vendor/ @cilium/vendor
+*/Makefile @cilium/janitors
+*/*/Makefile @cilium/janitors
+*/*/*/Makefile @cilium/janitors
