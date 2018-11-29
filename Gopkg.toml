@@ -229,10 +229,12 @@ required = [
 
 [[constraint]]
   name = "github.com/hashicorp/go-version"
-  revision = "v1.0.0"
+  revision = "4fe82ae3040f80a03d04d2cccb5606a626b8e1ee"
 
   # main-usage = "multiple packages"
-  # on-revision = ""
+  # on-revision = "this revision is the parent revision of the commit removes"
+  #               "comparision between constrains that are not pre-releases and
+  #               "versions that are pre-releases"
 
 [[constraint]]
   name = "github.com/jessevdk/go-flags"

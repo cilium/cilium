@@ -27,11 +27,11 @@ Mozilla Public License, version 2.0
      means
 
      a. that the initial Contributor has attached the notice described in
-	Exhibit B to the Covered Software; or
+        Exhibit B to the Covered Software; or
 
      b. that the Covered Software was made available under the terms of
-	version 1.1 or earlier of the License, but not also under the terms of
-	a Secondary License.
+        version 1.1 or earlier of the License, but not also under the terms of
+        a Secondary License.
 
 1.6. "Executable Form"
 
@@ -57,7 +57,7 @@ Mozilla Public License, version 2.0
      means any of the following:
 
      a. any file in Source Code Form that results from an addition to,
-	deletion from, or modification of the contents of Covered Software; or
+        deletion from, or modification of the contents of Covered Software; or
 
      b. any new file in Source Code Form that contains any Covered Software.
 
@@ -98,14 +98,14 @@ Mozilla Public License, version 2.0
      non-exclusive license:
 
      a. under intellectual property rights (other than patent or trademark)
-	Licensable by such Contributor to use, reproduce, make available,
-	modify, display, perform, distribute, and otherwise exploit its
-	Contributions, either on an unmodified basis, with Modifications, or
-	as part of a Larger Work; and
+        Licensable by such Contributor to use, reproduce, make available,
+        modify, display, perform, distribute, and otherwise exploit its
+        Contributions, either on an unmodified basis, with Modifications, or
+        as part of a Larger Work; and
 
      b. under Patent Claims of such Contributor to make, use, sell, offer for
-	sale, have made, import, and otherwise transfer either its
-	Contributions or its Contributor Version.
+        sale, have made, import, and otherwise transfer either its
+        Contributions or its Contributor Version.
 
 2.2. Effective Date
 
@@ -124,12 +124,12 @@ Mozilla Public License, version 2.0
      a. for any code that a Contributor has removed from Covered Software; or
 
      b. for infringements caused by: (i) Your and any other third party's
-	modifications of Covered Software, or (ii) the combination of its
-	Contributions with other software (except as part of its Contributor
-	Version); or
+        modifications of Covered Software, or (ii) the combination of its
+        Contributions with other software (except as part of its Contributor
+        Version); or
 
      c. under Patent Claims infringed by Covered Software in the absence of
-	its Contributions.
+        its Contributions.
 
      This License does not grant any rights in the trademarks, service marks,
      or logos of any Contributor (except as may be necessary to comply with
@@ -177,15 +177,15 @@ Mozilla Public License, version 2.0
      If You distribute Covered Software in Executable Form then:
 
      a. such Covered Software must also be made available in Source Code Form,
-	as described in Section 3.1, and You must inform recipients of the
-	Executable Form how they can obtain a copy of such Source Code Form by
-	reasonable means in a timely manner, at a charge no more than the cost
-	of distribution to the recipient; and
+        as described in Section 3.1, and You must inform recipients of the
+        Executable Form how they can obtain a copy of such Source Code Form by
+        reasonable means in a timely manner, at a charge no more than the cost
+        of distribution to the recipient; and
 
      b. You may distribute such Executable Form under the terms of this
-	License, or sublicense it under different terms, provided that the
-	license for the Executable Form does not attempt to limit or alter the
-	recipients' rights in the Source Code Form under this License.
+        License, or sublicense it under different terms, provided that the
+        license for the Executable Form does not attempt to limit or alter the
+        recipients' rights in the Source Code Form under this License.
 
 3.3. Distribution of a Larger Work
 
@@ -360,3 +360,4 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
       This Source Code Form is "Incompatible
       With Secondary Licenses", as defined by
       the Mozilla Public License, v. 2.0.
+
