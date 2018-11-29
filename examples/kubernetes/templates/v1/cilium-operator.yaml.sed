@@ -115,6 +115,15 @@ rules:
   - services
   - endpoints
   verbs: ["get","list","watch"]
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumnetworkpolicies
+  - ciliumnetworkpolicies/status
+  - ciliumendpoints
+  - ciliumendpoints/status
+  verbs:
+  - "*"
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
