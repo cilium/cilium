@@ -847,6 +847,9 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 			log.WithError(err).Fatal("Unable to initialize Kubernetes subsystem")
 		}
 
+		log.Info("Kubernetes information:")
+		log.Infof("  Namespace: %s", option.Config.K8sNamespace)
+
 		// Kubernetes demands that the localhost can always reach local
 		// pods. Therefore unless the AllowLocalhost policy is set to a
 		// specific mode, always allow localhost to reach local
