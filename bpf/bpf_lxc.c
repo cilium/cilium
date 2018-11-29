@@ -415,9 +415,11 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_LXC) int tail_handle_ipv6
 	__u32 dstID = 0;
 	int ret = handle_ipv6(skb, &dstID);
 
-	if (IS_ERR(ret))
+	if (IS_ERR(ret)) {
+		relax_verifier();
 		return send_drop_notify(skb, SECLABEL, dstID, 0, 0, ret, TC_ACT_SHOT,
 		                        METRIC_EGRESS);
+	}
 
 	return ret;
 }
