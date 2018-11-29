@@ -90,17 +90,12 @@ static inline bool conn_is_dns(__u16 dport)
 }
 
 union tcp_flags {
-#if defined(__LITTLE_ENDIAN_BITFIELD)
-	__u16	res1:4, doff:4, fin:1, syn:1, rst:1, psh:1, ack:1, urg:1, ece:1, cwr:1;
-#elif defined(__BIG_ENDIAN_BITFIELD)
-	__u16	doff:4, res1:4, cwr:1, ece:1, urg:1, ack:1, psh:1, rst:1, syn:1, fin:1;
-#else
-#error	"Adjust your <asm/byteorder.h> defines"
-#endif
 	struct {
 		__u8 upper_bits;
 		__u8 lower_bits;
+		__u16 pad;
 	};
+	__u32 value;
 };
 
 /**
@@ -193,7 +188,7 @@ static inline __u32 __inline__ ct_update_timeout(struct ct_entry *entry,
 						 union tcp_flags seen_flags)
 {
 	__u32 lifetime = CT_LIFETIME_NONTCP;
-	bool syn = seen_flags.syn;
+	bool syn = seen_flags.value & TCP_FLAG_SYN;
 
 	if (tcp) {
 		entry->seen_non_syn |= !syn;
@@ -313,7 +308,7 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 {
 	int ret = CT_NEW, action = ACTION_UNSPEC;
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
-	union tcp_flags tcp_flags = { 0 };
+	union tcp_flags tcp_flags = { .value = 0 };
 
 	/* The tuple is created in reverse order initially to find a
 	 * potential reverse flow. This is required because the RELATED
@@ -374,7 +369,7 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 			if (skb_load_bytes(skb, l4_off + 12, &tcp_flags, 2) < 0)
 				return DROP_CT_INVALID_HDR;
 
-			if (unlikely(tcp_flags.rst || tcp_flags.fin))
+			if (unlikely(tcp_flags.value & (TCP_FLAG_RST|TCP_FLAG_FIN)))
 				action = ACTION_CLOSE;
 			else
 				action = ACTION_CREATE;
@@ -470,7 +465,7 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 {
 	int ret = CT_NEW, action = ACTION_UNSPEC;
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
-	union tcp_flags tcp_flags = { 0 };
+	union tcp_flags tcp_flags = { .value = 0 };
 
 	/* The tuple is created in reverse order initially to find a
 	 * potential reverse flow. This is required because the RELATED
@@ -530,7 +525,7 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 			if (skb_load_bytes(skb, off + 12, &tcp_flags, 2) < 0)
 				return DROP_CT_INVALID_HDR;
 
-			if (unlikely(tcp_flags.rst || tcp_flags.fin))
+			if (unlikely(tcp_flags.value & (TCP_FLAG_RST|TCP_FLAG_FIN)))
 				action = ACTION_CLOSE;
 			else
 				action = ACTION_CREATE;
@@ -620,12 +615,12 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 	/* Create entry in original direction */
 	struct ct_entry entry = { };
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
-	union tcp_flags seen_flags = { 0 };
+	union tcp_flags seen_flags = { .value = 0 };
 
 	entry.rev_nat_index = ct_state->rev_nat_index;
 	entry.lb_loopback = ct_state->loopback;
 	entry.slave = ct_state->slave;
-	seen_flags.syn = is_tcp;
+	seen_flags.value |= is_tcp ? TCP_FLAG_SYN : 0;
 	ct_update_timeout(&entry, is_tcp, dir, seen_flags);
 
 	if (dir == CT_INGRESS) {
@@ -695,12 +690,12 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 	/* Create entry in original direction */
 	struct ct_entry entry = { };
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
-	union tcp_flags seen_flags = { 0 };
+	union tcp_flags seen_flags = { .value = 0 };
 
 	entry.rev_nat_index = ct_state->rev_nat_index;
 	entry.lb_loopback = ct_state->loopback;
 	entry.slave = ct_state->slave;
-	seen_flags.syn = is_tcp;
+	seen_flags.value |= is_tcp ? TCP_FLAG_SYN : 0;
 	ct_update_timeout(&entry, is_tcp, dir, seen_flags);
 
 	if (dir == CT_INGRESS) {
