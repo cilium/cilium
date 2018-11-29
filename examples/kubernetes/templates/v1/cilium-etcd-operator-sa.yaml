@@ -1,0 +1,12 @@
+---
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: cilium-etcd-operator
+  namespace: kube-system
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cilium-etcd-sa
+  namespace: kube-system

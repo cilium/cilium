@@ -202,6 +202,7 @@ spec:
               add:
                 - "NET_ADMIN"
             privileged: true
+      dnsPolicy: ClusterFirstWithHostNet
       hostNetwork: true
       volumes:
         # To keep state between restarts / upgrades
