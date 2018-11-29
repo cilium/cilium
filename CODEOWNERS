@@ -2,7 +2,6 @@
 # @cilium-janitors      Catch-all for code not otherwise owned
 # @cilium/agent         Cilium Agent
 # @cilium/bpf           BPF Data Path
-# @cilium/bpf-loader    Agent -> Kernel interaction
 # @cilium/ci            Continuous integration, testing
 # @cilium/cli           Commandline interfaces
 # @cilium/contributing  Developer documentation
@@ -29,7 +28,6 @@
 * @cilium/janitors
 api/ @cilium/api
 bpf/ @cilium/bpf
-bpf/*.sh @cilium/bpf-loader
 bugtool/cmd/ @cilium/cli
 cilium/ @cilium/cli
 cilium-health/cmd/ @cilium/cli
@@ -74,7 +72,6 @@ pkg/controller @cilium/agent
 pkg/counter @cilium/bpf
 pkg/datapath @cilium/bpf
 pkg/datapath/ipcache/ @cilium/ipcache
-pkg/datapath/loader/ @cilium/bpf-loader
 pkg/debugdetection @cilium/agent
 pkg/defaults @cilium/agent
 pkg/endpoint/ @cilium/endpoint
