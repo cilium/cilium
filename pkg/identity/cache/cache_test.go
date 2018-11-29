@@ -46,6 +46,10 @@ type IdentityCacheTestSuite struct{}
 
 var _ = Suite(&IdentityCacheTestSuite{})
 
+func (s *IdentityCacheTestSuite) SetUpTest(c *C) {
+	option.Config.K8sNamespace = "kube-system"
+}
+
 func (s *IdentityCacheTestSuite) TestLookupReservedIdentity(c *C) {
 	bak := option.Config.ClusterName
 	option.Config.ClusterName = "default"
@@ -127,6 +131,7 @@ func (s *IdentityCacheTestSuite) TestLookupReservedIdentityByLabels(c *C) {
 			want: identity.NewIdentity(identity.ReservedCiliumKVStore, kvstoreLabels),
 		},
 	}
+
 	for _, tt := range tests {
 		got := LookupReservedIdentityByLabels(tt.args.lbls)
 		switch {
