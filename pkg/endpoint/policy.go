@@ -722,22 +722,30 @@ func (e *Endpoint) regenerate(owner Owner, context *regenerationContext) (retErr
 		return err
 	}
 
+	return e.updateRealizedState(stats, origDir, revision, compilationExecuted)
+}
+
+// updateRealizedState sets any realized state fields within the endpoint to
+// be the desired state of the endpoint. This is only called after a successful
+// regeneration of the endpoint.
+func (e *Endpoint) updateRealizedState(stats *regenerationStatistics, origDir string, revision uint64, compilationExecuted bool) error {
 	// Update desired policy for endpoint because policy has now been realized
 	// in the datapath. PolicyMap state is not updated here, because that is
 	// performed in endpoint.syncPolicyMap().
 	stats.waitingForLock.Start()
-	err = e.LockAlive()
+	err := e.LockAlive()
 	stats.waitingForLock.End(err == nil)
 	if err != nil {
 		return err
 	}
+
+	defer e.Unlock()
 
 	// Depending upon result of BPF regeneration (compilation executed),
 	// shift endpoint directories to match said BPF regeneration
 	// results.
 	err = e.synchronizeDirectories(origDir, compilationExecuted)
 	if err != nil {
-		e.Unlock()
 		return fmt.Errorf("error synchronizing endpoint BPF program directories: %s", err)
 	}
 
@@ -751,7 +759,6 @@ func (e *Endpoint) regenerate(owner Owner, context *regenerationContext) (retErr
 	// Mark the endpoint to be running the policy revision it was
 	// compiled for
 	e.setPolicyRevision(revision)
-	e.Unlock()
 
 	return nil
 }
