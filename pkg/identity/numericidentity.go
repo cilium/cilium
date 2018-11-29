@@ -123,14 +123,17 @@ func (w wellKnownIdentities) lookupByNumericIdentity(identity NumericIdentity) *
 
 // InitWellKnownIdentities establishes all well-known identities
 func InitWellKnownIdentities() {
+	// Derive the namespace in which the Cilium components are running
+	namespace := option.Config.K8sNamespace
+
 	// etcd-operator labels
 	//   k8s:io.cilium.k8s.policy.serviceaccount=cilium-etcd-sa
-	//   k8s:io.kubernetes.pod.namespace=kube-system
+	//   k8s:io.kubernetes.pod.namespace=<NAMESPACE>
 	//   k8s:io.cilium/app=etcd-operator
 	//   k8s:io.cilium.k8s.policy.cluster=default
 	WellKnown.add(ReservedETCDOperator, []string{
 		"k8s:io.cilium/app=etcd-operator",
-		fmt.Sprintf("k8s:%s=kube-system", api.PodNamespaceLabel),
+		fmt.Sprintf("k8s:%s=%s", api.PodNamespaceLabel, namespace),
 		fmt.Sprintf("k8s:%s=cilium-etcd-sa", api.PolicyLabelServiceAccount),
 		fmt.Sprintf("k8s:%s=%s", api.PolicyLabelCluster, option.Config.ClusterName),
 	})
@@ -140,7 +143,7 @@ func InitWellKnownIdentities() {
 	//   k8s:io.cilium/app=etcd-operator
 	//   k8s:etcd_cluster=cilium-etcd
 	//   k8s:io.cilium.k8s.policy.serviceaccount=default
-	//   k8s:io.kubernetes.pod.namespace=kube-system
+	//   k8s:io.kubernetes.pod.namespace=<NAMESPACE>
 	//   k8s:io.cilium.k8s.policy.cluster=default
 	// these 2 labels are ignored by cilium-agent as they can change over time
 	//   container:annotation.etcd.version=3.3.9
@@ -149,7 +152,7 @@ func InitWellKnownIdentities() {
 		"k8s:app=etcd",
 		"k8s:etcd_cluster=cilium-etcd",
 		"k8s:io.cilium/app=etcd-operator",
-		fmt.Sprintf("k8s:%s=kube-system", api.PodNamespaceLabel),
+		fmt.Sprintf("k8s:%s=%s", api.PodNamespaceLabel, namespace),
 		fmt.Sprintf("k8s:%s=default", api.PolicyLabelServiceAccount),
 		fmt.Sprintf("k8s:%s=%s", api.PolicyLabelCluster, option.Config.ClusterName),
 	})
@@ -194,14 +197,14 @@ func InitWellKnownIdentities() {
 
 	// CiliumOperator labels
 	//   k8s:io.cilium.k8s.policy.serviceaccount=cilium-operator
-	//   k8s:io.kubernetes.pod.namespace=kube-system
+	//   k8s:io.kubernetes.pod.namespace=<NAMESPACE>
 	//   k8s:name=cilium-operator
 	//   k8s:io.cilium/app=operator
 	//   k8s:io.cilium.k8s.policy.cluster=default
 	WellKnown.add(ReservedCiliumOperator, []string{
 		"k8s:name=cilium-operator",
 		"k8s:io.cilium/app=operator",
-		fmt.Sprintf("k8s:%s=kube-system", api.PodNamespaceLabel),
+		fmt.Sprintf("k8s:%s=%s", api.PodNamespaceLabel, namespace),
 		fmt.Sprintf("k8s:%s=cilium-operator", api.PolicyLabelServiceAccount),
 		fmt.Sprintf("k8s:%s=%s", api.PolicyLabelCluster, option.Config.ClusterName),
 	})
