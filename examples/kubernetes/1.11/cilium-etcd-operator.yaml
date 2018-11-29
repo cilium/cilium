@@ -52,9 +52,9 @@ spec:
         name: cilium-etcd-operator
       dnsPolicy: ClusterFirst
       hostNetwork: true
-      restartPolicy: Always
       priorityClassName: system-node-critical
-      tolerations:
-        - operator: "Exists"
+      restartPolicy: Always
       serviceAccount: cilium-etcd-operator
       serviceAccountName: cilium-etcd-operator
+      tolerations:
+      - operator: Exists
