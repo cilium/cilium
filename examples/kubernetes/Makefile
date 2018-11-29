@@ -4,7 +4,9 @@ ifeq ($(CILIUM_VERSION),)
     CILIUM_VERSION = "v$(shell cat ../../VERSION)"
 endif
 
+CILIUM_INIT_VERSION = "2018-10-16"
 K8S_VERSIONS = 1.8 1.9 1.10 1.11 1.12 1.13
+
 
 SOURCES = $(wildcard templates/v1/*.yaml*)
 FILENAME_SOURCES = $(patsubst templates/v1/%,%,$(patsubst %.yaml.sed,%.yaml,$(SOURCES)))
@@ -18,7 +20,8 @@ all: transform cilium.yaml cilium-crio.yaml
 	    (mkdir -p $$k8s_version && \
 	    cd $$k8s_version && \
 	    sed -f transforms2sed.sed ../templates/v1/$@ | \
-	    sed s+__CILIUM_VERSION__+$(CILIUM_VERSION)+g > "$*"); \
+	    sed s+__CILIUM_VERSION__+$(CILIUM_VERSION)+g | \
+	    sed s+__CILIUM_INIT_VERSION__+$(CILIUM_INIT_VERSION)+g > "$*"); \
 	done
 
 cilium-crio-ds.yaml.sed:
@@ -28,10 +31,12 @@ cilium-crio-ds.yaml.sed:
 	    if [ -f cilium-crio-transforms2sed.sed ]; then \
 	        sed -f transforms2sed.sed ../templates/v1/$@ | \
 	        sed -f cilium-crio-transforms2sed.sed | \
-	        sed s+__CILIUM_VERSION__+$(CILIUM_VERSION)+g > "cilium-crio-ds.yaml"; \
+	        sed s+__CILIUM_VERSION__+$(CILIUM_VERSION)+g | \
+	        sed s+__CILIUM_INIT_VERSION__+$(CILIUM_INIT_VERSION)+g > "cilium-crio-ds.yaml"; \
 	    else \
 	        sed -f transforms2sed.sed ../templates/v1/$@ | \
-	        sed s+__CILIUM_VERSION__+$(CILIUM_VERSION)+g > "cilium-crio-ds.yaml"; \
+	        sed s+__CILIUM_VERSION__+$(CILIUM_VERSION)+g | \
+	        sed s+__CILIUM_INIT_VERSION__+$(CILIUM_INIT_VERSION)+g > "cilium-crio-ds.yaml"; \
 	    fi); \
 	done
 
