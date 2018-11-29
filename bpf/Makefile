@@ -39,9 +39,9 @@ check:
 	$(QUIET) $(CLANG) ${CLANG_FLAGS} --analyze *.c
 
 preprocess: $(LIB)
-	$(QUIET) $(foreach TARGET,$(shell find ./ -name 'bpf_*.c'), \
-		echo "  GEN   ${TARGET}.generated"; \
-		${CLANG} $(FLAGS) -E -target bpf -c ${TARGET} -o ${TARGET}.generated; )
+	$(QUIET) $(foreach TARGET,$(BPF_C), \
+		echo "  GEN   $(patsubst %.c,%.i,${TARGET})"; \
+		${CLANG} $(FLAGS) -E -target bpf -c ${TARGET} -o $(patsubst %.c,%.i,${TARGET}); )
 
 LB_OPTIONS = \
 	-DSKIP_DEBUG \
@@ -97,5 +97,5 @@ install:
 
 clean:
 	@$(ECHO_CLEAN) $(notdir $(shell pwd))
-	$(QUIET)rm -fr *.o *.ll *.generated
+	$(QUIET)rm -fr *.o *.ll *.i
 	$(QUIET)rm -f $(TARGET)

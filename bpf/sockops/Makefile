@@ -37,13 +37,13 @@ check:
 
 preprocess: $(LIB)
 	$(QUIET) $(foreach TARGET,$(shell find ./ -name 'bpf_*.c'), \
-		echo "  GEN   ${TARGET}.generated"; \
-		${CLANG} $(FLAGS) -E -target bpf -c ${TARGET} -o ${TARGET}.generated; )
+		echo "  GEN   ${TARGET}.i"; \
+		${CLANG} $(FLAGS) -E -target bpf -c ${TARGET} -o ${TARGET}.i; )
 
 install:
 	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
 
 clean:
 	@$(ECHO_CLEAN) $(notdir $(shell pwd))
-	$(QUIET)rm -fr *.o *.ll *.generated
+	$(QUIET)rm -fr *.o *.ll *.i
 	$(QUIET)rm -f $(TARGET)
