@@ -2005,7 +2005,15 @@ func (kub *Kubectl) CiliumServicePreFlightCheck() error {
 // DeployETCDOperator deploys the etcd-operator k8s descriptors into the cluster
 // pointer by kub.
 func (kub *Kubectl) DeployETCDOperator() error {
-	cmdRes := kub.Apply(ciliumEtcdOperator)
+	cmdRes := kub.Apply(GetK8sDescriptor(ciliumEtcdOperatorSA))
+	if !cmdRes.WasSuccessful() {
+		return fmt.Errorf("Unable to deploy descriptor of etcd-operator SA %s: %s", ciliumEtcdOperatorSA, cmdRes.OutputPrettyPrint())
+	}
+	cmdRes = kub.Apply(GetK8sDescriptor(ciliumEtcdOperatorRBAC))
+	if !cmdRes.WasSuccessful() {
+		return fmt.Errorf("Unable to deploy descriptor of etcd-operator RBAC %s: %s", ciliumEtcdOperatorRBAC, cmdRes.OutputPrettyPrint())
+	}
+	cmdRes = kub.Apply(GetK8sDescriptor(ciliumEtcdOperator))
 	if !cmdRes.WasSuccessful() {
 		return fmt.Errorf("Unable to deploy descriptor of etcd-operator %s: %s", ciliumEtcdOperator, cmdRes.OutputPrettyPrint())
 	}
@@ -2015,13 +2023,18 @@ func (kub *Kubectl) DeployETCDOperator() error {
 // DeleteETCDOperator delete the etcd-operator from the cluster pointed by
 // kub.
 func (kub *Kubectl) DeleteETCDOperator() error {
-	cmdRes := kub.Delete(ciliumEtcdOperator)
+	cmdRes := kub.Delete(GetK8sDescriptor(ciliumEtcdOperator))
 	if !cmdRes.WasSuccessful() {
 		return fmt.Errorf("Unable to delete descriptor of etcd-operator %s: %s", ciliumEtcdOperator, cmdRes.OutputPrettyPrint())
 	}
-	kub.Exec("kubectl delete deployment -n kube-system -l io.cilium/app=etcd-operator")
-	kub.Exec("kubectl delete pods -n kube-system -l io.cilium/app=etcd-operator")
-	kub.Exec("kubectl delete etcdclusters.etcd.database.coreos.com -n kube-system -l io.cilium/app=etcd-operator")
+	cmdRes = kub.Delete(GetK8sDescriptor(ciliumEtcdOperatorRBAC))
+	if !cmdRes.WasSuccessful() {
+		return fmt.Errorf("Unable to delete descriptor of etcd-operator RBAC %s: %s", ciliumEtcdOperatorRBAC, cmdRes.OutputPrettyPrint())
+	}
+	cmdRes = kub.Delete(GetK8sDescriptor(ciliumEtcdOperatorSA))
+	if !cmdRes.WasSuccessful() {
+		return fmt.Errorf("Unable to delete descriptor of etcd-operator SA %s: %s", ciliumEtcdOperatorSA, cmdRes.OutputPrettyPrint())
+	}
 	return nil
 }
 
