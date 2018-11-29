@@ -9,7 +9,7 @@ $(TARGET): $(SOURCES)
 all: $(TARGET)
 
 clean:
-	@$(ECHO_CLEAN) $(notdir $(shell pwd))
+	@$(ECHO_CLEAN)
 	-$(QUIET)rm -f $(TARGET)
 	$(QUIET)$(GO) clean
 

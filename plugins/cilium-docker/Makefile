@@ -14,7 +14,7 @@ run:
 	./cilium-docker -d
 
 clean:
-	@$(ECHO_CLEAN) $(notdir $(shell pwd))
+	@$(ECHO_CLEAN)
 	$(QUIET)$(GO) clean
 	-$(QUIET) rm -f $(TARGET)
 

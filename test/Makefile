@@ -30,5 +30,5 @@ k8s:
 	ginkgo --focus " K8s*" -v -- --cilium.provision=$(provision)
 
 clean:
-	@$(ECHO_CLEAN) $(notdir $(shell pwd))
+	@$(ECHO_CLEAN)
 	-$(QUIET) rm -rf $(TEST_ARTIFACTS)

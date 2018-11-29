@@ -20,7 +20,7 @@ build: clean
 	echo -e "\nCilium version $(VERSION) packages are located here:\n$(CURDIR)/output/\n"
 
 clean:
-	@$(ECHO_CLEAN) $(notdir $(shell pwd))
+	@$(ECHO_CLEAN)
 	$(QUIET)rm -rf env cilium output version_* cilium-*.tar.gz
 
 .PHONY: force build clean

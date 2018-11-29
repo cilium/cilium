@@ -27,7 +27,7 @@ all: $(BPF)
 	$(QUIET) ${LLC} ${LLC_FLAGS} -o $@ $(patsubst %.o,%.ll,$@)
 
 check:
-	@$(ECHO_CHECK) bpf/*.c
+	@$(ECHO_CHECK)/*.c
 	$(QUIET) spatch --sp-file ../contrib/coccinelle/null.cocci --dir . --include-headers
 	$(QUIET) sparse -Wsparse-all ${FLAGS} *.c
 	$(QUIET) $(CLANG) ${CLANG_FLAGS} --analyze *.c
@@ -38,5 +38,5 @@ preprocess: $(LIB)
 		${CLANG} $(FLAGS) -E -target bpf -c ${TARGET} -o ${TARGET}.i; )
 
 clean:
-	@$(ECHO_CLEAN) $(notdir $(shell pwd))
+	@$(ECHO_CLEAN)
 	$(QUIET)rm -fr *.o *.ll *.i
