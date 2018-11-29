@@ -53,7 +53,7 @@ spec:
       dnsPolicy: ClusterFirst
       hostNetwork: true
       restartPolicy: Always
-      tolerations:
-        - operator: "Exists"
       serviceAccount: cilium-etcd-operator
       serviceAccountName: cilium-etcd-operator
+      tolerations:
+      - operator: Exists

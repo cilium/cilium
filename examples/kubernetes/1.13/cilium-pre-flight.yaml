@@ -55,8 +55,8 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 5
       hostNetwork: true
-      restartPolicy: Always
       priorityClassName: system-node-critical
+      restartPolicy: Always
       tolerations:
         - effect: NoSchedule
           key: node.kubernetes.io/not-ready
