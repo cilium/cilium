@@ -7,7 +7,9 @@ apt-get upgrade -y && \
 #
 # Prepackaged Cilium runtime dependencies
 #
-apt-get install -y --no-install-recommends gpg gpg-agent libelf-dev libmnl-dev libc6-dev-i386 iptables libgcc-5-dev bash-completion binutils binutils-dev && \
+apt-get install -y --no-install-recommends \
+    gpg gpg-agent libelf-dev libmnl-dev libc6-dev-i386 iptables libgcc-5-dev \
+    bash-completion binutils binutils-dev ca-certificates && \
 apt-get purge --auto-remove && \
 apt-get clean
 
