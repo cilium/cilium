@@ -680,7 +680,6 @@ func (e *Endpoint) runPreCompilationSteps(owner Owner, regenContext *regeneratio
 
 	defer e.Unlock()
 
-	datapathRegenCtxt.prepareForDatapathRegeneration()
 	currentDir := datapathRegenCtxt.currentDir
 	nextDir := datapathRegenCtxt.nextDir
 

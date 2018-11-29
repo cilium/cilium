@@ -26,6 +26,7 @@ func (e *ExternalRegenerationMetadata) toRegenerationContext() *regenerationCont
 		Reason: e.Reason,
 		datapathRegenerationContext: &datapathRegenerationContext{
 			reloadDatapath: e.ReloadDatapath,
+			ctCleaned:      make(chan struct{}),
 		},
 	}
 }
@@ -79,10 +80,6 @@ type datapathRegenerationContext struct {
 	reloadDatapath bool
 	finalizeList   revert.FinalizeList
 	revertStack    revert.RevertStack
-}
-
-func (ctx *datapathRegenerationContext) prepareForDatapathRegeneration() {
-	ctx.ctCleaned = make(chan struct{})
 }
 
 func (ctx *datapathRegenerationContext) prepareForProxyUpdates() {
