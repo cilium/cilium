@@ -52,25 +52,25 @@ $ curl \
 {
     "Valid": true,
     "License": {
-	"license_id": "2afbf681-0d1a-0649-cb6c-333ec9f0989c",
-	"customer_id": "0259271d-8ffc-e85e-0830-c0822c1f5f2b",
-	"installation_id": "*",
-	"issue_time": "2018-05-21T20:03:35.911567355Z",
-	"start_time": "2018-05-21T04:00:00Z",
-	"expiration_time": "2019-05-22T03:59:59.999Z",
-	"product": "consul",
-	"flags": {
-	    "package": "premium"
-	},
-	"features": [
-	    "Automated Backups",
-	    "Automated Upgrades",
-	    "Enhanced Read Scalability",
-	    "Network Segments",
-	    "Redundancy Zone",
-	    "Advanced Network Federation"
-	],
-	"temporary": false
+        "license_id": "2afbf681-0d1a-0649-cb6c-333ec9f0989c",
+        "customer_id": "0259271d-8ffc-e85e-0830-c0822c1f5f2b",
+        "installation_id": "*",
+        "issue_time": "2018-05-21T20:03:35.911567355Z",
+        "start_time": "2018-05-21T04:00:00Z",
+        "expiration_time": "2019-05-22T03:59:59.999Z",
+        "product": "consul",
+        "flags": {
+            "package": "premium"
+        },
+        "features": [
+            "Automated Backups",
+            "Automated Upgrades",
+            "Enhanced Read Scalability",
+            "Network Segments",
+            "Redundancy Zone",
+            "Advanced Network Federation"
+        ],
+        "temporary": false
     },
     "Warnings": []
 }
@@ -120,25 +120,25 @@ $ curl \
 {
     "Valid": true,
     "License": {
-	"license_id": "2afbf681-0d1a-0649-cb6c-333ec9f0989c",
-	"customer_id": "0259271d-8ffc-e85e-0830-c0822c1f5f2b",
-	"installation_id": "*",
-	"issue_time": "2018-05-21T20:03:35.911567355Z",
-	"start_time": "2018-05-21T04:00:00Z",
-	"expiration_time": "2019-05-22T03:59:59.999Z",
-	"product": "consul",
-	"flags": {
-	    "package": "premium"
-	},
-	"features": [
-	    "Automated Backups",
-	    "Automated Upgrades",
-	    "Enhanced Read Scalability",
-	    "Network Segments",
-	    "Redundancy Zone",
-	    "Advanced Network Federation"
-	],
-	"temporary": false
+        "license_id": "2afbf681-0d1a-0649-cb6c-333ec9f0989c",
+        "customer_id": "0259271d-8ffc-e85e-0830-c0822c1f5f2b",
+        "installation_id": "*",
+        "issue_time": "2018-05-21T20:03:35.911567355Z",
+        "start_time": "2018-05-21T04:00:00Z",
+        "expiration_time": "2019-05-22T03:59:59.999Z",
+        "product": "consul",
+        "flags": {
+            "package": "premium"
+        },
+        "features": [
+            "Automated Backups",
+            "Automated Upgrades",
+            "Enhanced Read Scalability",
+            "Network Segments",
+            "Redundancy Zone",
+            "Advanced Network Federation"
+        ],
+        "temporary": false
     },
     "Warnings": []
 }
