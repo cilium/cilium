@@ -1,55 +1,23 @@
 include ../Makefile.defs
 
-FLAGS := -Iinclude -I. -D__NR_CPUS__=$(shell nproc) -O2 -g
-SUBDIRS = sockops
 .PHONY: all subdirs $(SUBDIRS) check preprocess assembly install clean
 
-CLANG_FLAGS :=  ${FLAGS} -target bpf -emit-llvm
-# eBPF verifier enforces unaligned access checks where necessary, so don't
-# let clang complain too early.
-CLANG_FLAGS += -Wall -Werror -Wno-address-of-packed-member -Wno-unknown-warning-option
-LLC_FLAGS   := -march=bpf -mcpu=probe -mattr=dwarfris
+SUBDIRS = sockops
 
 BPF_SIMPLE = bpf_netdev.o bpf_overlay.o bpf_xdp.o
 BPF = bpf_lxc.o bpf_lb.o $(BPF_SIMPLE)
-BPF_C := $(patsubst %.o,%.c,$(BPF))
-BPF_ASM := $(patsubst %.o,%.s,$(BPF))
 SCRIPTS = init.sh join_ep.sh run_probes.sh spawn_netns.sh
-LIB := $(shell find ./ -name '*.h')
 
 TARGET=cilium-map-migrate
 
-CLANG  ?= clang
-LLC    ?= llc
-HOSTCC ?= gcc
+include ./Makefile.bpf
 
 ifeq ("$(PKG_BUILD)","")
 all: $(BPF) $(TARGET) $(SUBDIRS)
 
-%.ll: %.c $(LIB)
-	@$(ECHO_CC)
-	$(QUIET) ${CLANG} ${CLANG_FLAGS} -c $< -o $@
-
 $(BPF_SIMPLE): %.o: %.ll
 	@$(ECHO_CC)
 	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $(patsubst %.o,%.ll,$@)
-
-%.s: %.ll
-	@$(ECHO_CC)
-	$(QUIET) ${LLC} $(LLC_FLAGS) -filetype=asm -o $@ $(patsubst %.s,%.ll,$@)
-
-check:
-	@$(ECHO_CHECK)/*.c
-	$(QUIET) spatch --sp-file ../contrib/coccinelle/null.cocci --dir . --include-headers
-	$(QUIET) sparse -Wsparse-all ${FLAGS} *.c
-	$(QUIET) $(CLANG) ${CLANG_FLAGS} --analyze *.c
-
-preprocess: $(LIB)
-	$(QUIET) $(foreach TARGET,$(BPF_C), \
-		echo "  GEN   $(patsubst %.c,%.i,${TARGET})"; \
-		${CLANG} $(FLAGS) -E -target bpf -c ${TARGET} -o $(patsubst %.c,%.i,${TARGET}); )
-
-assembly: $(BPF_C) $(LIB) $(BPF_ASM)
 
 LB_OPTIONS = \
 	-DSKIP_DEBUG \

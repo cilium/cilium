@@ -1,0 +1,46 @@
+FLAGS := -I$(ROOT_DIR)/bpf/include -I$(ROOT_DIR)/bpf -D__NR_CPUS__=$(shell nproc) -O2 -g
+
+CLANG_FLAGS :=  ${FLAGS} -target bpf -emit-llvm
+# eBPF verifier enforces unaligned access checks where necessary, so don't
+# let clang complain too early.
+CLANG_FLAGS += -Wall -Werror -Wno-address-of-packed-member -Wno-unknown-warning-option
+LLC_FLAGS   := -march=bpf -mcpu=probe -mattr=dwarfris
+
+LIB := $(shell find $(ROOT_DIR)/bpf -name '*.h')
+BPF_C := $(patsubst %.o,%.c,$(BPF))
+BPF_ASM := $(patsubst %.o,%.s,$(BPF))
+
+CLANG  ?= clang
+LLC    ?= llc
+HOSTCC ?= gcc
+
+# Define all at the top here so that Makefiles which include this one will hit
+# the 'all' target first (which we expect to be overridden by the includer).
+all:
+
+%.ll: %.c $(LIB)
+	@$(ECHO_CC)
+	$(QUIET) ${CLANG} ${CLANG_FLAGS} -c $< -o $@
+
+%.s: %.ll
+	@$(ECHO_CC)
+	$(QUIET) ${LLC} $(LLC_FLAGS) -filetype=asm -o $@ $(patsubst %.s,%.ll,$@)
+
+check:
+	@$(ECHO_CHECK)/*.c
+	$(QUIET) spatch --sp-file $(ROOT_DIR)/contrib/coccinelle/null.cocci --dir . --include-headers
+	$(QUIET) sparse -Wsparse-all ${FLAGS} $(ROOT_DIR)/$(RELATIVE_DIR)/*.c
+	$(QUIET) $(CLANG) ${CLANG_FLAGS} --analyze $(ROOT_DIR)/$(RELATIVE_DIR)/*.c
+	$(QUIET) $(foreach SUBDIR,$(SUBDIRS), \
+		$(MAKE) -C $(SUBDIR) $@)
+
+preprocess: $(LIB)
+	$(QUIET) $(foreach TARGET,$(shell find $(ROOT_DIR)/$(RELATIVE_DIR)/ -name 'bpf_*.c'), \
+		echo "  GEN   $(patsubst %.c,%.i,${TARGET})"; \
+		${CLANG} $(FLAGS) -E -target bpf -c ${TARGET} -o $(patsubst %.c,%.i,${TARGET}); )
+	$(QUIET) $(foreach SUBDIR,$(SUBDIRS), \
+		$(MAKE) -C $(SUBDIR) $@)
+
+assembly: $(BPF_C) $(LIB) $(BPF_ASM)
+	$(QUIET) $(foreach SUBDIR,$(SUBDIRS), \
+		$(MAKE) -C $(SUBDIR) $@)
