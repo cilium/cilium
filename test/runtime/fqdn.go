@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/fqdn"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
@@ -190,7 +191,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		vm.SampleContainersActions(
 			helpers.Create,
 			helpers.CiliumDockerNetwork,
-			fmt.Sprintf("--dns=%s", ip))
+			fmt.Sprintf("--dns=%s -l app=test", ip))
 
 		areEndpointsReady := vm.WaitEndpointsReady()
 		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
@@ -394,8 +395,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		}],
 		"endpointSelector": {
 			"matchLabels": {
-				"container:id.app1": "",
-				"container:id.app2": ""
+				"container:app": "test"
 			}
 		},
 		"egress": [
@@ -411,7 +411,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 			},
 			{
 				"toFQDNs": [{
-					"matchName": "cilium.test"
+					"matchName": "roundrobin.cilium.test"
 				}]
 			}
 		]
@@ -419,6 +419,20 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 ]`
 		_, err := vm.PolicyRenderAndImport(policy)
 		Expect(err).To(BeNil(), "Policy cannot be imported")
+
+		endpoints, err := vm.GetEndpointsIds()
+		Expect(err).To(BeNil(), "Endpoints can't be retrieved")
+
+		for _, container := range []string{helpers.App1, helpers.App2} {
+			Expect(endpoints).To(HaveKey(container),
+				"Container %q is not present in the endpoints list", container)
+			ep := vm.EndpointGet(endpoints[container])
+			Expect(ep).ShouldNot(BeNil(),
+				"Endpoint for container %q cannot be retrieved", container)
+			Expect(ep.Status.Policy.Realized.PolicyEnabled).To(
+				Equal(models.EndpointPolicyEnabledEgress),
+				"Endpoint %q does not have policy applied", container)
+		}
 
 		By("Testing %q and %q containers are allow to work with roundrobin dns", helpers.App1, helpers.App2)
 		for i := 0; i < numberOfTries; i++ {
