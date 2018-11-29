@@ -2,7 +2,7 @@ include ../Makefile.defs
 
 FLAGS := -Iinclude -I. -D__NR_CPUS__=$(shell nproc) -O2 -g
 SUBDIRS = sockops
-.PHONY: all subdirs $(SUBDIRS) check preprocess install clean
+.PHONY: all subdirs $(SUBDIRS) check preprocess assembly install clean
 
 CLANG_FLAGS :=  ${FLAGS} -target bpf -emit-llvm
 # eBPF verifier enforces unaligned access checks where necessary, so don't
@@ -12,6 +12,8 @@ LLC_FLAGS   := -march=bpf -mcpu=probe -mattr=dwarfris
 
 BPF_SIMPLE = bpf_netdev.o bpf_overlay.o bpf_xdp.o
 BPF = bpf_lxc.o bpf_lb.o $(BPF_SIMPLE)
+BPF_C := $(patsubst %.o,%.c,$(BPF))
+BPF_ASM := $(patsubst %.o,%.s,$(BPF))
 SCRIPTS = init.sh join_ep.sh run_probes.sh spawn_netns.sh
 LIB := $(shell find ./ -name '*.h')
 
@@ -32,6 +34,10 @@ $(BPF_SIMPLE): %.o: %.ll
 	@$(ECHO_CC)
 	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $(patsubst %.o,%.ll,$@)
 
+%.s: %.ll
+	@$(ECHO_CC)
+	$(QUIET) ${LLC} $(LLC_FLAGS) -filetype=asm -o $@ $(patsubst %.s,%.ll,$@)
+
 check:
 	@$(ECHO_CHECK)/*.c
 	$(QUIET) spatch --sp-file ../contrib/coccinelle/null.cocci --dir . --include-headers
@@ -42,6 +48,8 @@ preprocess: $(LIB)
 	$(QUIET) $(foreach TARGET,$(BPF_C), \
 		echo "  GEN   $(patsubst %.c,%.i,${TARGET})"; \
 		${CLANG} $(FLAGS) -E -target bpf -c ${TARGET} -o $(patsubst %.c,%.i,${TARGET}); )
+
+assembly: $(BPF_C) $(LIB) $(BPF_ASM)
 
 LB_OPTIONS = \
 	-DSKIP_DEBUG \
@@ -99,5 +107,5 @@ clean:
 	@$(ECHO_CLEAN)
 	$(QUIET) $(foreach TARGET,$(SUBDIRS), \
 		$(MAKE) -C $(TARGET) clean)
-	$(QUIET)rm -fr *.o *.ll *.i
+	$(QUIET)rm -fr *.o *.ll *.i *.s
 	$(QUIET)rm -f $(TARGET)
