@@ -203,7 +203,7 @@ function write_k8s_install() {
         k8s_cluster_api_server_ip="FD03::1"
         k8s_cluster_dns_ip="FD03::A"
     fi
-    k8s_cluster_cidr=${k8s_cluster_cidr:-"10.0.0.0/10"}
+    k8s_cluster_cidr=${k8s_cluster_cidr:-"10.16.0.0/12"}
     k8s_node_cidr_mask_size=${k8s_node_cidr_mask_size:-"16"}
     k8s_service_cluster_ip_range=${k8s_service_cluster_ip_range:-"172.20.0.0/24"}
     k8s_cluster_api_server_ip=${k8s_cluster_api_server_ip:-"172.20.0.1"}
