@@ -16,7 +16,6 @@ package endpoint
 
 import (
 	"github.com/cilium/cilium/pkg/completion"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/monitor"
@@ -39,7 +38,7 @@ type Owner interface {
 	// UpdateNetworkPolicy adds or updates a network policy in the set
 	// published to L7 proxies.
 	UpdateNetworkPolicy(e *Endpoint, policy *policy.L4Policy,
-		labelsMap cache.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc)
+		labelsMap, deniedIngressIdentities, deniedEgressIdentities cache.IdentityCache, proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc)
 
 	// RemoveNetworkPolicy removes a network policy from the set published to
 	// L7 proxies.

@@ -506,14 +506,15 @@ func createBootstrap(filePath string, name, cluster, version string, xdsSock, eg
 }
 
 func getPortNetworkPolicyRule(sel api.EndpointSelector, l7Parser policy.L7ParserType, l7Rules api.L7Rules,
-	labelsMap cache.IdentityCache, deniedIdentities map[identity.NumericIdentity]bool) *cilium.PortNetworkPolicyRule {
+	labelsMap, deniedIdentities cache.IdentityCache) *cilium.PortNetworkPolicyRule {
 	// In case the endpoint selector is a wildcard and there are no denied
 	// identities, optimize the policy by setting an empty remote policies list
 	// to match all remote policies.
 	var remotePolicies []uint64
 	if !sel.IsWildcard() || len(deniedIdentities) > 0 {
 		for id, labels := range labelsMap {
-			if !deniedIdentities[id] && sel.Matches(labels) {
+			_, ok := deniedIdentities[id]
+			if !ok && sel.Matches(labels) {
 				remotePolicies = append(remotePolicies, uint64(id))
 			}
 		}
@@ -574,7 +575,7 @@ func getPortNetworkPolicyRule(sel api.EndpointSelector, l7Parser policy.L7Parser
 }
 
 func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool,
-	labelsMap cache.IdentityCache, deniedIdentities map[identity.NumericIdentity]bool) []*cilium.PortNetworkPolicy {
+	labelsMap, deniedIdentities cache.IdentityCache) []*cilium.PortNetworkPolicy {
 	if !policyEnforced {
 		// Return an allow-all policy.
 		return allowAllPortNetworkPolicy
@@ -642,8 +643,8 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool,
 
 // getNetworkPolicy converts a network policy into a cilium.NetworkPolicy.
 func getNetworkPolicy(name string, id identity.NumericIdentity, policy *policy.L4Policy,
-	ingressPolicyEnforced, egressPolicyEnforced bool, labelsMap cache.IdentityCache,
-	deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool) *cilium.NetworkPolicy {
+	ingressPolicyEnforced, egressPolicyEnforced bool, labelsMap,
+	deniedIngressIdentities, deniedEgressIdentities cache.IdentityCache) *cilium.NetworkPolicy {
 	p := &cilium.NetworkPolicy{
 		Name:   name,
 		Policy: uint64(id),
@@ -663,8 +664,8 @@ func getNetworkPolicy(name string, id identity.NumericIdentity, policy *policy.L
 // When the proxy acknowledges the network policy update, it will result in
 // a subsequent call to the endpoint's OnProxyPolicyUpdate() function.
 func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *policy.L4Policy,
-	ingressPolicyEnforced, egressPolicyEnforced bool, labelsMap cache.IdentityCache,
-	deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, wg *completion.WaitGroup) (error, func() error) {
+	ingressPolicyEnforced, egressPolicyEnforced bool, labelsMap,
+	deniedIngressIdentities, deniedEgressIdentities cache.IdentityCache, wg *completion.WaitGroup) (error, func() error) {
 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
