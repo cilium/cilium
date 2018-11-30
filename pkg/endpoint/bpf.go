@@ -204,10 +204,10 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	// Endpoint options
 	fw.WriteString(e.Options.GetFmtList())
 
-	if e.L3Policy == nil {
+	if (e.desiredPolicy == nil) || (e.desiredPolicy != nil && e.desiredPolicy.CIDRPolicy == nil) {
 		WriteIPCachePrefixes(fw, nil)
 	} else {
-		WriteIPCachePrefixes(fw, e.L3Policy.ToBPFData)
+		WriteIPCachePrefixes(fw, e.desiredPolicy.CIDRPolicy.ToBPFData)
 	}
 
 	return fw.Flush()
@@ -334,15 +334,15 @@ func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, des
 			} else {
 				direction = trafficdirection.Egress
 			}
-			keysFromFilter := e.convertL4FilterToPolicyMapKeys(&l4, direction)
+			keysFromFilter := l4.ToKeys(&l4, direction, *e.prevIdentityCache)
 			for _, keyFromFilter := range keysFromFilter {
-				if oldEntry, ok := e.desiredMapState[keyFromFilter]; ok {
+				if oldEntry, ok := e.desiredPolicy.PolicyMapState[keyFromFilter]; ok {
 					updatedDesiredMapState[keyFromFilter] = oldEntry
 				} else {
 					insertedDesiredMapState[keyFromFilter] = struct{}{}
 				}
 
-				e.desiredMapState[keyFromFilter] = policy.MapStateEntry{ProxyPort: redirectPort}
+				e.desiredPolicy.PolicyMapState[keyFromFilter] = policy.MapStateEntry{ProxyPort: redirectPort}
 			}
 
 		}
@@ -358,10 +358,10 @@ func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, des
 
 		// Restore the desired policy map state.
 		for key := range insertedDesiredMapState {
-			delete(e.desiredMapState, key)
+			delete(e.desiredPolicy.PolicyMapState, key)
 		}
 		for key, entry := range updatedDesiredMapState {
-			e.desiredMapState[key] = entry
+			e.desiredPolicy.PolicyMapState[key] = entry
 		}
 		return nil
 	})
@@ -711,7 +711,7 @@ func (e *Endpoint) runPreCompilationSteps(owner Owner, regenContext *regeneratio
 
 		// Also reset the in-memory state of the realized state as the
 		// BPF map content is guaranteed to be empty right now.
-		e.realizedMapState = make(policy.MapState)
+		e.realizedPolicy.PolicyMapState = make(policy.MapState)
 	}
 
 	if e.bpfConfigMap == nil {
@@ -785,8 +785,8 @@ func (e *Endpoint) runPreCompilationSteps(owner Owner, regenContext *regeneratio
 	// Walk the L4Policy to add new redirects and update the desired policy map
 	// state to set the newly allocated proxy ports.
 	var desiredRedirects map[string]bool
-	if e.DesiredL4Policy != nil {
-		desiredRedirects, err, finalizeFunc, revertFunc = e.addNewRedirects(owner, e.DesiredL4Policy, datapathRegenCtxt.proxyWaitGroup)
+	if e.desiredPolicy != nil && e.desiredPolicy.L4Policy != nil {
+		desiredRedirects, err, finalizeFunc, revertFunc = e.addNewRedirects(owner, e.desiredPolicy.L4Policy, datapathRegenCtxt.proxyWaitGroup)
 		if err != nil {
 			stats.proxyConfiguration.End(false)
 			return err
@@ -1011,12 +1011,12 @@ func (e *Endpoint) GetBPFValue() (*lxcmap.EndpointInfo, error) {
 // Must be called with e.Mutex locked.
 func (e *Endpoint) syncPolicyMap() error {
 
-	if e.realizedMapState == nil {
-		e.realizedMapState = make(policy.MapState)
+	if e.realizedPolicy.PolicyMapState == nil {
+		e.realizedPolicy.PolicyMapState = make(policy.MapState)
 	}
 
-	if e.desiredMapState == nil {
-		e.desiredMapState = make(policy.MapState)
+	if e.desiredPolicy.PolicyMapState == nil {
+		e.desiredPolicy.PolicyMapState = make(policy.MapState)
 	}
 
 	if e.PolicyMap == nil {
@@ -1065,7 +1065,7 @@ func (e *Endpoint) syncPolicyMap() error {
 		}
 
 		// If key that is in policy map is not in desired state, just remove it.
-		if _, ok := e.desiredMapState[policyMapKeyToPolicyKey]; !ok {
+		if _, ok := e.desiredPolicy.PolicyMapState[policyMapKeyToPolicyKey]; !ok {
 			// Can pass key with host byte-order fields, as it will get
 			// converted to network byte-order.
 			err := e.PolicyMap.DeleteKey(keyHostOrder)
@@ -1074,13 +1074,13 @@ func (e *Endpoint) syncPolicyMap() error {
 				errors = append(errors, err)
 			} else {
 				// Operation was successful, remove from realized state.
-				delete(e.realizedMapState, policyMapKeyToPolicyKey)
+				delete(e.realizedPolicy.PolicyMapState, policyMapKeyToPolicyKey)
 			}
 		}
 	}
 
-	for keyToAdd, entry := range e.desiredMapState {
-		if oldEntry, ok := e.realizedMapState[keyToAdd]; !ok || oldEntry != entry {
+	for keyToAdd, entry := range e.desiredPolicy.PolicyMapState {
+		if oldEntry, ok := e.realizedPolicy.PolicyMapState[keyToAdd]; !ok || oldEntry != entry {
 
 			// Convert from policy.Key to policymap.Key
 			policyKeyToPolicyMapKey := policymap.PolicyKey{
@@ -1096,7 +1096,7 @@ func (e *Endpoint) syncPolicyMap() error {
 				errors = append(errors, err)
 			} else {
 				// Operation was successful, add to realized state.
-				e.realizedMapState[keyToAdd] = entry
+				e.realizedPolicy.PolicyMapState[keyToAdd] = entry
 			}
 		}
 	}
