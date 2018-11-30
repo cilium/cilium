@@ -180,19 +180,9 @@ type Endpoint struct {
 	// previous policy computation
 	prevIdentityCache *cache.IdentityCache
 
-	// RealizedL4Policy is the L4Policy in effect for the endpoint.
-	RealizedL4Policy *policy.L4Policy `json:"-"`
-
-	// DesiredL4Policy is the desired L4Policy for the endpoint. It is populated
-	// when the policy for this endpoint is generated.
-	DesiredL4Policy *policy.L4Policy `json:"-"`
-
 	// PolicyMap is the policy related state of the datapath including
 	// reference to all policy related BPF
 	PolicyMap *policymap.PolicyMap `json:"-"`
-
-	// CIDRPolicy is the CIDR based policy configuration of the endpoint.
-	L3Policy *policy.CIDRPolicy `json:"-"`
 
 	// Options determine the datapath configuration of the endpoint.
 	Options *option.IntOptions
@@ -262,20 +252,6 @@ type Endpoint struct {
 	// You must hold Endpoint.Mutex to read or write it.
 	realizedRedirects map[string]uint16
 
-	// realizedMapState maps each Key which is presently
-	// inserted (realized) in the endpoint's BPF PolicyMap to a proxy port.
-	// Proxy port 0 indicates no proxy redirection.
-	// All fields within the Key and the proxy port must be in host byte-order.
-	realizedMapState policy.MapState
-
-	// desiredMapState maps each PolicyKeys which should be synched
-	// with, but may not yet be synched with, the endpoint's BPF PolicyMap, to
-	// a proxy port.
-	// This map is updated upon regeneration of policy for an endpoint.
-	// Proxy port 0 indicates no proxy redirection.
-	// All fields within the Key and the proxy port must be in host byte-order.
-	desiredMapState policy.MapState
-
 	// BPFConfigMap provides access to the endpoint's BPF configuration.
 	bpfConfigMap *bpfconfig.EndpointConfigMap
 
@@ -289,15 +265,11 @@ type Endpoint struct {
 	// cleaned when this endpoint was first created
 	ctCleaned bool
 
-	// ingressPolicyEnabled specifies whether policy enforcement on ingress
-	// is enabled for this endpoint.
-	ingressPolicyEnabled bool
-
-	// egressPolicyEnabled specifies whether policy enforcement on egress
-	// is enabled for this endpoint.
-	egressPolicyEnabled bool
-
 	hasBPFProgram chan struct{}
+
+	desiredPolicy *policy.EndpointPolicy
+
+	realizedPolicy *policy.EndpointPolicy
 
 	///////////////////////
 	// DEPRECATED FIELDS //
@@ -341,42 +313,58 @@ func (e *Endpoint) HasBPFProgram() bool {
 // GetIngressPolicyEnabledLocked returns whether ingress policy enforcement is
 // enabled for endpoint or not. The endpoint's mutex must be held.
 func (e *Endpoint) GetIngressPolicyEnabledLocked() bool {
-	return e.ingressPolicyEnabled
+	return e.desiredPolicy.IngressPolicyEnabled
 }
 
 // GetEgressPolicyEnabledLocked returns whether egress policy enforcement is
 // enabled for endpoint or not. The endpoint's mutex must be held.
 func (e *Endpoint) GetEgressPolicyEnabledLocked() bool {
-	return e.egressPolicyEnabled
+	return e.desiredPolicy.EgressPolicyEnabled
 }
 
-// SetIngressPolicyEnabled sets Endpoint's ingress policy enforcement
+// SetDesiredIngressPolicyEnabled sets Endpoint's ingress policy enforcement
 // configuration to the specified value. The endpoint's mutex must not be held.
-func (e *Endpoint) SetIngressPolicyEnabled(ingress bool) {
+func (e *Endpoint) SetDesiredIngressPolicyEnabled(ingress bool) {
 	e.UnconditionalLock()
-	e.ingressPolicyEnabled = ingress
+	e.desiredPolicy.IngressPolicyEnabled = ingress
 	e.Unlock()
 
 }
 
-// SetEgressPolicyEnabled sets Endpoint's egress policy enforcement
+// SetRealizedIngressPolicyEnabled sets Endpoint's ingress policy enforcement
 // configuration to the specified value. The endpoint's mutex must not be held.
-func (e *Endpoint) SetEgressPolicyEnabled(egress bool) {
+func (e *Endpoint) SetRealizedIngressPolicyEnabled(ingress bool) {
 	e.UnconditionalLock()
-	e.egressPolicyEnabled = egress
+	e.realizedPolicy.IngressPolicyEnabled = ingress
 	e.Unlock()
 }
 
-// SetIngressPolicyEnabledLocked sets Endpoint's ingress policy enforcement
-// configuration to the specified value. The endpoint's mutex must be held.
-func (e *Endpoint) SetIngressPolicyEnabledLocked(ingress bool) {
-	e.ingressPolicyEnabled = ingress
+// SetRealizedEgressPolicyEnabled sets Endpoint's egress policy enforcement
+// configuration to the specified value. The endpoint's mutex must not be held.
+func (e *Endpoint) SetRealizedEgressPolicyEnabled(egress bool) {
+	e.UnconditionalLock()
+	e.realizedPolicy.EgressPolicyEnabled = egress
+	e.Unlock()
 }
 
-// SetEgressPolicyEnabledLocked sets Endpoint's egress policy enforcement
+// SetDesiredEgressPolicyEnabled sets Endpoint's egress policy enforcement
+// configuration to the specified value. The endpoint's mutex must not be held.
+func (e *Endpoint) SetDesiredEgressPolicyEnabled(egress bool) {
+	e.UnconditionalLock()
+	e.desiredPolicy.EgressPolicyEnabled = egress
+	e.Unlock()
+}
+
+// SetDesiredIngressPolicyEnabledLocked sets Endpoint's ingress policy enforcement
 // configuration to the specified value. The endpoint's mutex must be held.
-func (e *Endpoint) SetEgressPolicyEnabledLocked(egress bool) {
-	e.egressPolicyEnabled = egress
+func (e *Endpoint) SetDesiredIngressPolicyEnabledLocked(ingress bool) {
+	e.desiredPolicy.IngressPolicyEnabled = ingress
+}
+
+// SetDesiredEgressPolicyEnabledLocked sets Endpoint's egress policy enforcement
+// configuration to the specified value. The endpoint's mutex must be held.
+func (e *Endpoint) SetDesiredEgressPolicyEnabledLocked(egress bool) {
+	e.desiredPolicy.EgressPolicyEnabled = egress
 }
 
 // WaitForProxyCompletions blocks until all proxy changes have been completed.
@@ -437,8 +425,9 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, 
 		state:            "",
 		Status:           NewEndpointStatus(),
 		hasBPFProgram:    make(chan struct{}, 0),
+		desiredPolicy:    &policy.EndpointPolicy{},
+		realizedPolicy:   &policy.EndpointPolicy{},
 	}
-
 	ep.UpdateLogger(nil)
 
 	ep.SetStateLocked(string(base.State), "Endpoint creation")
@@ -654,7 +643,7 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 	realizedIngressIdentities := make([]int64, 0)
 	realizedEgressIdentities := make([]int64, 0)
 
-	for policyMapKey := range e.realizedMapState {
+	for policyMapKey := range e.realizedPolicy.PolicyMapState {
 		if policyMapKey.DestPort != 0 {
 			// If the port is non-zero, then the Key no longer only applies
 			// at L3. AllowedIngressIdentities and AllowedEgressIdentities
@@ -676,7 +665,7 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 	desiredIngressIdentities := make([]int64, 0)
 	desiredEgressIdentities := make([]int64, 0)
 
-	for policyMapKey := range e.desiredMapState {
+	for policyMapKey := range e.desiredPolicy.PolicyMapState {
 		if policyMapKey.DestPort != 0 {
 			// If the port is non-zero, then the Key no longer only applies
 			// at L3. AllowedIngressIdentities and AllowedEgressIdentities
@@ -707,6 +696,18 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 	e.proxyStatisticsMutex.RUnlock()
 	sortProxyStats(proxyStats)
 
+	var (
+		realizedCIDRPolicy *policy.CIDRPolicy
+		realizedL4Policy   *policy.L4Policy
+	)
+	if e.realizedPolicy != nil {
+		realizedL4Policy = e.realizedPolicy.L4Policy
+		realizedCIDRPolicy = e.realizedPolicy.CIDRPolicy
+	} else {
+		realizedL4Policy = &policy.L4Policy{}
+		realizedCIDRPolicy = &policy.CIDRPolicy{}
+	}
+
 	mdl := &models.EndpointPolicy{
 		ID: int64(e.SecurityIdentity.ID),
 		// This field should be removed.
@@ -714,9 +715,21 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 		PolicyRevision:           int64(e.policyRevision),
 		AllowedIngressIdentities: realizedIngressIdentities,
 		AllowedEgressIdentities:  realizedEgressIdentities,
-		CidrPolicy:               e.L3Policy.GetModel(),
-		L4:                       e.RealizedL4Policy.GetModel(),
+		CidrPolicy:               realizedCIDRPolicy.GetModel(),
+		L4:                       realizedL4Policy.GetModel(),
 		PolicyEnabled:            policyEnabled,
+	}
+
+	var (
+		desiredCIDRPolicy *policy.CIDRPolicy
+		desiredL4Policy   *policy.L4Policy
+	)
+	if e.desiredPolicy != nil {
+		desiredL4Policy = e.desiredPolicy.L4Policy
+		desiredCIDRPolicy = e.desiredPolicy.CIDRPolicy
+	} else {
+		desiredL4Policy = &policy.L4Policy{}
+		desiredCIDRPolicy = &policy.CIDRPolicy{}
 	}
 
 	desiredMdl := &models.EndpointPolicy{
@@ -726,8 +739,8 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 		PolicyRevision:           int64(e.nextPolicyRevision),
 		AllowedIngressIdentities: desiredIngressIdentities,
 		AllowedEgressIdentities:  desiredEgressIdentities,
-		CidrPolicy:               e.L3Policy.GetModel(),
-		L4:                       e.DesiredL4Policy.GetModel(),
+		CidrPolicy:               desiredCIDRPolicy.GetModel(),
+		L4:                       desiredL4Policy.GetModel(),
 		PolicyEnabled:            policyEnabled,
 	}
 	// FIXME GH-3280 Once we start returning revisions Realized should be the
@@ -746,11 +759,11 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 func (e *Endpoint) policyStatus() models.EndpointPolicyEnabled {
 	policyEnabled := models.EndpointPolicyEnabledNone
 	switch {
-	case e.ingressPolicyEnabled && e.egressPolicyEnabled:
+	case e.realizedPolicy.IngressPolicyEnabled && e.realizedPolicy.EgressPolicyEnabled:
 		policyEnabled = models.EndpointPolicyEnabledBoth
-	case e.ingressPolicyEnabled:
+	case e.realizedPolicy.IngressPolicyEnabled:
 		policyEnabled = models.EndpointPolicyEnabledIngress
-	case e.egressPolicyEnabled:
+	case e.realizedPolicy.EgressPolicyEnabled:
 		policyEnabled = models.EndpointPolicyEnabledEgress
 	}
 	return policyEnabled
@@ -1003,7 +1016,7 @@ func (e *Endpoint) Allows(id identityPkg.NumericIdentity) bool {
 		TrafficDirection: trafficdirection.Ingress.Uint8(),
 	}
 
-	_, ok := e.desiredMapState[keyToLookup]
+	_, ok := e.desiredPolicy.PolicyMapState[keyToLookup]
 	return ok
 }
 
@@ -1165,6 +1178,8 @@ func ParseEndpoint(strEp string) (*Endpoint, error) {
 
 	// Initialize fields to values which are non-nil that are not serialized.
 	ep.hasBPFProgram = make(chan struct{}, 0)
+	ep.desiredPolicy = &policy.EndpointPolicy{}
+	ep.realizedPolicy = &policy.EndpointPolicy{}
 
 	// We need to check for nil in Status, CurrentStatuses and Log, since in
 	// some use cases, status will be not nil and Cilium will eventually
@@ -1403,7 +1418,7 @@ func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup
 	errors := []error{}
 
 	owner.RemoveFromEndpointQueue(uint64(e.ID))
-	if e.SecurityIdentity != nil && e.RealizedL4Policy != nil {
+	if e.SecurityIdentity != nil && e.realizedPolicy != nil && e.realizedPolicy.L4Policy != nil {
 		// Passing a new map of nil will purge all redirects
 		e.removeOldRedirects(owner, nil, proxyWaitGroup)
 	}
