@@ -398,6 +398,13 @@ required = [
   # main-usage = "all over the code"
   # on-revision = "as it contains the serializing empty TCA_OPTIONS in qdisc messages"
 
+[[constraint]]
+  name = "github.com/vishvananda/netns"
+  revision = "13995c7128ccc8e51e9a6bd2b551020a27180abd"
+
+  # main-usage = "pkg/namespace"
+  # on-revision = "as it contains the serializing empty TCA_OPTIONS in qdisc messages"
+
 [[override]]
   name = "golang.org/x/crypto"
   revision = "5ba7f63082460102a45837dbd1827e10f9479ac0"

@@ -1207,7 +1207,6 @@
   revision = "d3a23fd178f1a0d9cf1f194af62864b1dfe02be5"
 
 [[projects]]
-  branch = "master"
   digest = "1:2a1bbe57bb2602803e0f142d88453b0d9fec89e496aaa2cd8807bcae2e05a4a7"
   name = "github.com/vishvananda/netns"
   packages = ["."]
@@ -1811,6 +1810,7 @@
     "github.com/spf13/viper",
     "github.com/tylerb/graceful",
     "github.com/vishvananda/netlink",
+    "github.com/vishvananda/netns",
     "golang.org/x/crypto/ssh",
     "golang.org/x/crypto/ssh/agent",
     "golang.org/x/net/context",
