@@ -38,7 +38,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/maps/cidrmap"
 	bpfconfig "github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/eppolicymap"
@@ -67,26 +66,6 @@ func (e *Endpoint) mapPath(mapname string) string {
 // PolicyMapPathLocked returns the path to the policy map of endpoint.
 func (e *Endpoint) PolicyMapPathLocked() string {
 	return e.mapPath(policymap.MapName)
-}
-
-// IPv6IngressMapPathLocked returns the path to policy map of endpoint.
-func (e *Endpoint) IPv6IngressMapPathLocked() string {
-	return e.mapPath(cidrmap.MapName + "ingress6_")
-}
-
-// IPv6EgressMapPathLocked returns the path to policy map of endpoint.
-func (e *Endpoint) IPv6EgressMapPathLocked() string {
-	return e.mapPath(cidrmap.MapName + "egress6_")
-}
-
-// IPv4IngressMapPathLocked returns the path to policy map of endpoint.
-func (e *Endpoint) IPv4IngressMapPathLocked() string {
-	return e.mapPath(cidrmap.MapName + "ingress4_")
-}
-
-// IPv4EgressMapPathLocked returns the path to policy map of endpoint.
-func (e *Endpoint) IPv4EgressMapPathLocked() string {
-	return e.mapPath(cidrmap.MapName + "egress4_")
 }
 
 // PolicyGlobalMapPathLocked returns the path to the global policy map.
@@ -175,18 +154,10 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 		" * IPv4 address: %s\n"+
 		" * Identity: %d\n"+
 		" * PolicyMap: %s\n"+
-		" * IPv6 Ingress Map: %s\n"+
-		" * IPv6 Egress Map: %s\n"+
-		" * IPv4 Ingress Map: %s\n"+
-		" * IPv4 Egress Map: %s\n"+
 		" * NodeMAC: %s\n"+
 		" */\n\n",
 		e.IPv6.String(), e.IPv4.String(),
 		e.GetIdentity(), path.Base(e.PolicyMapPathLocked()),
-		path.Base(e.IPv6IngressMapPathLocked()),
-		path.Base(e.IPv6EgressMapPathLocked()),
-		path.Base(e.IPv4IngressMapPathLocked()),
-		path.Base(e.IPv4EgressMapPathLocked()),
 		e.NodeMAC)
 
 	fw.WriteString("/*\n")
@@ -865,12 +836,6 @@ func (e *Endpoint) runPreCompilationSteps(owner Owner, regenContext *regeneratio
 	if datapathRegenCtxt.epInfoCache == nil {
 		return fmt.Errorf("Unable to cache endpoint information")
 	}
-
-	// TODO: In Cilium v1.4 or later cycle, remove this.
-	os.RemoveAll(e.IPv6EgressMapPathLocked())
-	os.RemoveAll(e.IPv4EgressMapPathLocked())
-	os.RemoveAll(e.IPv6IngressMapPathLocked())
-	os.RemoveAll(e.IPv4IngressMapPathLocked())
 
 	return nil
 }
