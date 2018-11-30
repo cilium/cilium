@@ -465,42 +465,56 @@ required = [
 
 [[constraint]]
   name = "k8s.io/api"
-  revision = "kubernetes-1.12.1"
+  revision = "kubernetes-1.13.0-rc.1"
 
   # main-usage = "pkg/k8s"
   # on-revision = ""
 
 [[constraint]]
   name = "k8s.io/apiextensions-apiserver"
-  revision = "kubernetes-1.12.1"
+  revision = "kubernetes-1.13.0-rc.1"
+
+  # main-usage = "pkg/k8s"
+  # on-revision = ""
+
+[[override]]
+  name = "k8s.io/apiserver"
+  revision = "kubernetes-1.13.0-rc.1"
 
   # main-usage = "pkg/k8s"
   # on-revision = ""
 
 [[constraint]]
   name = "k8s.io/apimachinery"
-  revision = "kubernetes-1.12.1"
+  revision = "kubernetes-1.13.0-rc.1"
 
   # main-usage = "pkg/k8s"
   # on-revision = ""
 
 [[constraint]]
   name = "k8s.io/client-go"
-  revision = "kubernetes-1.12.1"
+  revision = "kubernetes-1.13.0-rc.1"
 
   # main-usage = "pkg/k8s"
   # on-revision = ""
 
 [[constraint]]
   name = "k8s.io/code-generator"
-  revision = "kubernetes-1.12.1"
+  revision = "kubernetes-1.13.0-rc.1"
 
   # main-usage = "pkg/k8s"
   # on-revision = ""
 
+[[override]]
+  name = "k8s.io/gengo"
+  revision = "51747d6e00da1fc578d5a333a93bb2abcbce7a95"
+
+  # main-usage = "k8s.io/code-generator"
+  # on-revision = "same revision set in the dependency list of k8s.io/code-generator"
+
 [[constraint]]
   name = "k8s.io/kubernetes"
-  revision = "v1.12.1"
+  revision = "v1.13.0-rc.1"
 
   # main-usage = "pkg/k8s"
   # on-revision = ""
