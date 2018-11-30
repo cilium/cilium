@@ -105,15 +105,15 @@ all ingress traffic to an endpoint may be done as follows:
 
         .. literalinclude:: ../../examples/policies/l3/ingress-allow-all/ingress-allow-all.json
 
-Note that while the above examples allow all ingress traffic to an endpoint, this does not 
-mean that all endpoints are allowed to send traffic to this endpoint per their policies. 
+Note that while the above examples allow all ingress traffic to an endpoint, this does not
+mean that all endpoints are allowed to send traffic to this endpoint per their policies.
 In other words, policy must be configured on both sides (sender and receiver).
 
 Egress
 ~~~~~~
 
 An endpoint is allowed to send traffic to another endpoint if at least one
-egress rule exists which selects the destination endpoint with the 
+egress rule exists which selects the destination endpoint with the
 `EndpointSelector` in the ``endpointSelector`` field. To restrict traffic upon
 egress to the selected endpoint, the rule selects the destination endpoint with
 the `EndpointSelector` in the ``toEndpoints`` field.
@@ -162,7 +162,7 @@ all egress traffic from an endpoint may be done as follows:
 
 
 Note that while the above examples allow all egress traffic from an endpoint, the receivers
-of the egress traffic may have ingress rules that deny the traffic. In other words, 
+of the egress traffic may have ingress rules that deny the traffic. In other words,
 policy must be configured on both sides (sender and receiver).
 
 Ingress/Egress Default Deny
@@ -170,7 +170,7 @@ Ingress/Egress Default Deny
 
 An endpoint can be put into the default deny mode at ingress or egress if a
 rule selects the endpoint and contains the respective rule section ingress or
-egress. 
+egress.
 
 .. note:: Any rule selecting the endpoint will have this effect, this example
           illustrates how to put an endpoint into default deny mode without
@@ -1006,13 +1006,13 @@ to allow bootstrapping Cilium and enable network connectivity with policy
 enforcement in the cluster for essential services without depending on any
 dependencies.
 
-======================== ============ =============== =========== ================================================================
-Deployment               Namespace    ServiceAccount  Numeric ID  Labels
-======================== ============ =============== =========== ================================================================
-etcd-operator            kube-system  default         100         ``io.cilium/app=etcd-operator``
-cilium-etcd              kube-system  default         101         ``app=etcd``, ``etcd_cluster=cilium-etcd``, ``io.cilium/app=etcd-operator``
-kube-dns                 kube-system  kube-dns        102         ``k8s-app=kube-dns``
-kube-dns (EKS)           kube-system  default         103         ``k8s-app=kube-dns``, ``eks.amazonaws.com/component=kube-dns``
-core-dns                 kube-system  coredns         104         ``k8s-app=kube-dns``
-cilium-operator          kube-system  cilium-operator 105         ``name=cilium-operator``, ``io.cilium/app=operator``
-======================== ============ ============== =========== ================================================================
+======================== ============ ================ =========== ============================================================================
+Deployment               Namespace    ServiceAccount   Numeric ID  Labels
+======================== ============ ================ =========== ============================================================================
+etcd-operator            kube-system  default          100         ``io.cilium/app=etcd-operator``
+cilium-etcd              kube-system  default          101         ``app=etcd``, ``etcd_cluster=cilium-etcd``, ``io.cilium/app=etcd-operator``
+kube-dns                 kube-system  kube-dns         102         ``k8s-app=kube-dns``
+kube-dns (EKS)           kube-system  default          103         ``k8s-app=kube-dns``, ``eks.amazonaws.com/component=kube-dns``
+core-dns                 kube-system  coredns          104         ``k8s-app=kube-dns``
+cilium-operator          kube-system  cilium-operator  105         ``name=cilium-operator``, ``io.cilium/app=operator``
+======================== ============ ================ =========== ============================================================================
