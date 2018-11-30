@@ -401,7 +401,7 @@ func (rr *RRSIG) Verify(k *DNSKEY, rrset []RR) error {
 	if rr.Algorithm != k.Algorithm {
 		return ErrKey
 	}
-	if strings.ToLower(rr.SignerName) != strings.ToLower(k.Hdr.Name) {
+	if !strings.EqualFold(rr.SignerName, k.Hdr.Name) {
 		return ErrKey
 	}
 	if k.Protocol != 3 {

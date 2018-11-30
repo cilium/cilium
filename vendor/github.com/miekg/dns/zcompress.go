@@ -2,7 +2,7 @@
 
 package dns
 
-func compressionLenHelperType(c map[string]int, r RR, initLen int) int {
+func compressionLenHelperType(c map[string]struct{}, r RR, initLen int) int {
 	currentLen := initLen
 	switch x := r.(type) {
 	case *AFSDB:
@@ -107,7 +107,7 @@ func compressionLenHelperType(c map[string]int, r RR, initLen int) int {
 	return currentLen - initLen
 }
 
-func compressionLenSearchType(c map[string]int, r RR) (int, bool, int) {
+func compressionLenSearchType(c map[string]struct{}, r RR) (int, bool, int) {
 	switch x := r.(type) {
 	case *CNAME:
 		k1, ok1, sz1 := compressionLenSearch(c, x.Target)
