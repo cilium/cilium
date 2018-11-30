@@ -51,6 +51,16 @@ type EndpointPolicy struct {
 
 	// PolicyOwner describes any type which consumes this EndpointPolicy object.
 	PolicyOwner PolicyOwner
+
+	// DeniedIngressIdentities is the set of identities which are not allowed
+	// by policy on ingress. This field is populated when an identity does not
+	// meet restraints set forth in FromRequires.
+	DeniedIngressIdentities cache.IdentityCache
+
+	// DeniedEgressIdentities is the set of identities which are not allowed
+	// by policy on egress. This field is populated when an identity does not
+	// meet restraints set forth in ToRequires.
+	DeniedEgressIdentities cache.IdentityCache
 }
 
 // PolicyOwner is anything which consumes a EndpointPolicy.
