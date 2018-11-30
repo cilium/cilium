@@ -17,6 +17,8 @@
 package v2
 
 import (
+	"time"
+
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -74,11 +76,16 @@ func (c *ciliumEndpoints) Get(name string, options v1.GetOptions) (result *v2.Ci
 
 // List takes label and field selectors, and returns the list of CiliumEndpoints that match those selectors.
 func (c *ciliumEndpoints) List(opts v1.ListOptions) (result *v2.CiliumEndpointList, err error) {
+	var timeout time.Duration
+	if opts.TimeoutSeconds != nil {
+		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
+	}
 	result = &v2.CiliumEndpointList{}
 	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("ciliumendpoints").
 		VersionedParams(&opts, scheme.ParameterCodec).
+		Timeout(timeout).
 		Do().
 		Into(result)
 	return
@@ -86,11 +93,16 @@ func (c *ciliumEndpoints) List(opts v1.ListOptions) (result *v2.CiliumEndpointLi
 
 // Watch returns a watch.Interface that watches the requested ciliumEndpoints.
 func (c *ciliumEndpoints) Watch(opts v1.ListOptions) (watch.Interface, error) {
+	var timeout time.Duration
+	if opts.TimeoutSeconds != nil {
+		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
+	}
 	opts.Watch = true
 	return c.client.Get().
 		Namespace(c.ns).
 		Resource("ciliumendpoints").
 		VersionedParams(&opts, scheme.ParameterCodec).
+		Timeout(timeout).
 		Watch()
 }
 
@@ -148,10 +160,15 @@ func (c *ciliumEndpoints) Delete(name string, options *v1.DeleteOptions) error {
 
 // DeleteCollection deletes a collection of objects.
 func (c *ciliumEndpoints) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
+	var timeout time.Duration
+	if listOptions.TimeoutSeconds != nil {
+		timeout = time.Duration(*listOptions.TimeoutSeconds) * time.Second
+	}
 	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("ciliumendpoints").
 		VersionedParams(&listOptions, scheme.ParameterCodec).
+		Timeout(timeout).
 		Body(options).
 		Do().
 		Error()

@@ -129,7 +129,7 @@ func (c *FakeCiliumEndpoints) DeleteCollection(options *v1.DeleteOptions, listOp
 // Patch applies the patch and returns the patched ciliumEndpoint.
 func (c *FakeCiliumEndpoints) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v2.CiliumEndpoint, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(ciliumendpointsResource, c.ns, name, data, subresources...), &v2.CiliumEndpoint{})
+		Invokes(testing.NewPatchSubresourceAction(ciliumendpointsResource, c.ns, name, pt, data, subresources...), &v2.CiliumEndpoint{})
 
 	if obj == nil {
 		return nil, err
