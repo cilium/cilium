@@ -21,6 +21,7 @@ complete will help you to get started in your area of choice:
    :glob:
 
    minikube
+   dns 
    istio
    kafka
    grpc

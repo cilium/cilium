@@ -1,0 +1,29 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "to-fqdn"
+specs:
+  - endpointSelector:
+      matchLabels:
+        org: empire
+    egress:
+      - toFQDNs:
+          - matchName: "starwars.covalent.link"  
+        toPorts:
+        - ports:
+          - port: "80"
+            protocol: TCP
+          rules:
+            http:
+            - method: "GET"
+              path: "/naboo/landing-request"
+  - endpointSelector:
+      matchLabels: {}
+    egress:
+      - toEndpoints:
+        - matchLabels:
+            "k8s:io.kubernetes.pod.namespace": kube-system
+        toPorts:
+        - ports:
+          - port: "53"
+            protocol: UDP
