@@ -127,9 +127,9 @@ var IdentityCache = cache.IdentityCache{
 	},
 }
 
-var DeniedIdentitiesNone = make(map[identity.NumericIdentity]bool)
+var DeniedIdentitiesNone = make(cache.IdentityCache)
 
-var DeniedIdentities1001 = map[identity.NumericIdentity]bool{1001: true}
+var DeniedIdentities1001 = cache.IdentityCache{1001: labels.LabelArray{}}
 
 var ExpectedPortNetworkPolicyRule1 = &cilium.PortNetworkPolicyRule{
 	RemotePolicies: []uint64{1001, 1002},
