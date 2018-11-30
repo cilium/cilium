@@ -54,5 +54,7 @@ spec:
       hostNetwork: true
       restartPolicy: Always
       priorityClassName: system-node-critical
+      tolerations:
+        - operator: "Exists"
       serviceAccount: cilium-etcd-operator
       serviceAccountName: cilium-etcd-operator

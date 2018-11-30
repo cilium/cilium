@@ -250,15 +250,4 @@ spec:
             secretName: cilium-clustermesh
       restartPolicy: Always
       tolerations:
-        - effect: NoSchedule
-          key: node.kubernetes.io/not-ready
-          operator: "Exists"
-        - effect: NoSchedule
-          key: node-role.kubernetes.io/master
-          operator: "Exists"
-        - effect: NoSchedule
-          key: node.cloudprovider.kubernetes.io/uninitialized
-          operator: "Exists"
-        # Mark cilium's pod as critical for rescheduling
-        - key: CriticalAddonsOnly
-          operator: "Exists"
+        - operator: "Exists"
