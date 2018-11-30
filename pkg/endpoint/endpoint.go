@@ -2071,8 +2071,8 @@ func (e *Endpoint) SetStateLocked(toState, reason string) bool {
 		e.getLogger().WithFields(logrus.Fields{
 			logfields.EndpointState + ".from": fromState,
 			logfields.EndpointState + ".to":   toState,
-			"file": fileName,
-			"line": fileLine,
+			"file":                            fileName,
+			"line":                            fileLine,
 		}).Info("Invalid state transition skipped")
 	}
 	e.logStatusLocked(Other, Warning, fmt.Sprintf("Skipped invalid state transition to %s due to: %s", toState, reason))
@@ -2330,7 +2330,7 @@ func (e *Endpoint) ModifyIdentityLabels(owner Owner, addLabels, delLabels pkgLab
 
 	e.Unlock()
 
-	e.runLabelsResolver(owner, rev)
+	e.runLabelsResolver(owner, rev, false)
 
 	return nil
 }
@@ -2349,7 +2349,7 @@ func (e *Endpoint) IsInit() bool {
 // If a net label changed was performed, the endpoint will receive a new
 // identity and will be regenerated. Both of these operations will happen in
 // the background.
-func (e *Endpoint) UpdateLabels(owner Owner, identityLabels, infoLabels pkgLabels.Labels) {
+func (e *Endpoint) UpdateLabels(owner Owner, identityLabels, infoLabels pkgLabels.Labels, blocking bool) {
 	log.WithFields(logrus.Fields{
 		logfields.ContainerID:    e.GetShortContainerID(),
 		logfields.EndpointID:     e.StringID(),
@@ -2367,7 +2367,7 @@ func (e *Endpoint) UpdateLabels(owner Owner, identityLabels, infoLabels pkgLabel
 	rev := e.replaceIdentityLabels(identityLabels)
 	e.Unlock()
 	if rev != 0 {
-		e.runLabelsResolver(owner, rev)
+		e.runLabelsResolver(owner, rev, blocking)
 	}
 }
 
@@ -2388,7 +2388,7 @@ func (e *Endpoint) identityResolutionIsObsolete(myChangeRev int) bool {
 }
 
 // Must be called with e.Mutex NOT held.
-func (e *Endpoint) runLabelsResolver(owner Owner, myChangeRev int) {
+func (e *Endpoint) runLabelsResolver(owner Owner, myChangeRev int, blocking bool) {
 	if err := e.RLockAlive(); err != nil {
 		// If a labels update and an endpoint delete API request arrive
 		// in quick succession, this could occur; in that case, there's
@@ -2403,7 +2403,7 @@ func (e *Endpoint) runLabelsResolver(owner Owner, myChangeRev int) {
 	// If we are certain we can resolve the identity without accessing the KV
 	// store, do it first synchronously right now. This can reduce the number
 	// of regenerations for the endpoint during its initialization.
-	if identityPkg.IdentityAllocationIsLocal(newLabels) {
+	if blocking || identityPkg.IdentityAllocationIsLocal(newLabels) {
 		scopedLog.Debug("Endpoint has reserved identity, changing synchronously")
 		err := e.identityLabelsChanged(owner, myChangeRev)
 		if err != nil {
