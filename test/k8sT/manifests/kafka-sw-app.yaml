@@ -12,7 +12,9 @@ spec:
     spec:
       containers:
       - name: kafka
-        image: docker.io/spotify/kafkaproxy
+        # Normally we would specify an exact version of the image instead of
+        # 'latest', but this is the only tagged version on Dockerhub.
+        image: docker.io/spotify/kafkaproxy:latest
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9092
