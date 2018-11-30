@@ -299,6 +299,10 @@ type Endpoint struct {
 
 	hasBPFProgram chan struct{}
 
+	desiredPolicy *policy.Policy
+
+	realizedPolicy *policy.Policy
+
 	///////////////////////
 	// DEPRECATED FIELDS //
 	///////////////////////

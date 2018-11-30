@@ -240,6 +240,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) error {
 		return err
 	}
 
+	e.desiredPolicy = calculatedPolicy
 	e.DesiredL4Policy = calculatedPolicy.L4Policy
 	e.L3Policy = calculatedPolicy.CIDRPolicy
 	e.desiredMapState = calculatedPolicy.PolicyMapState
