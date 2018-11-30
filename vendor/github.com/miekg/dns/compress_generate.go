@@ -101,7 +101,7 @@ Names:
 
 	// compressionLenHelperType - all types that have domain-name/cdomain-name can be used for compressing names
 
-	fmt.Fprint(b, "func compressionLenHelperType(c map[string]int, r RR, initLen int) int {\n")
+	fmt.Fprint(b, "func compressionLenHelperType(c map[string]struct{}, r RR, initLen int) int {\n")
 	fmt.Fprint(b, "currentLen := initLen\n")
 	fmt.Fprint(b, "switch x := r.(type) {\n")
 	for _, name := range domainTypes {
@@ -145,7 +145,7 @@ Names:
 
 	// compressionLenSearchType - search cdomain-tags types for compressible names.
 
-	fmt.Fprint(b, "func compressionLenSearchType(c map[string]int, r RR) (int, bool, int) {\n")
+	fmt.Fprint(b, "func compressionLenSearchType(c map[string]struct{}, r RR) (int, bool, int) {\n")
 	fmt.Fprint(b, "switch x := r.(type) {\n")
 	for _, name := range cdomainTypes {
 		o := scope.Lookup(name)
