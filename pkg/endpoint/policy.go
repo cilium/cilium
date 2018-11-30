@@ -117,50 +117,8 @@ func (e *Endpoint) updateNetworkPolicy(owner Owner, proxyWaitGroup *completion.W
 		return nil, nil
 	}
 
-	// Compute the set of identities explicitly denied by policy.
-	// This loop is similar to the one in computeDesiredPolicyMapState called
-	// above, but this set only contains the identities with "Denied" verdicts.
-	ctx := policy.SearchContext{
-		To: e.SecurityIdentity.LabelArray,
-	}
-	if option.Config.TracingEnabled() {
-		ctx.Trace = policy.TRACE_ENABLED
-	}
-	deniedIngressIdentities := make(map[identityPkg.NumericIdentity]bool)
-	for srcID, srcLabels := range *e.prevIdentityCache {
-		ctx.From = srcLabels
-		e.getLogger().WithFields(logrus.Fields{
-			logfields.PolicyID: srcID,
-			"ctx":              ctx,
-		}).Debug("Evaluating context for source PolicyID")
-		repo := owner.GetPolicyRepository()
-		if repo.CanReachIngressRLocked(&ctx) == api.Denied {
-			// Denied explicitly by fromRequires clause.
-			deniedIngressIdentities[srcID] = true
-		}
-	}
-
-	// Reset SearchContext to reflect change in directionality.
-	ctx = policy.SearchContext{
-		From: e.SecurityIdentity.LabelArray,
-	}
-
-	deniedEgressIdentities := make(map[identityPkg.NumericIdentity]bool)
-	for dstID, dstLabels := range *e.prevIdentityCache {
-		ctx.To = dstLabels
-		e.getLogger().WithFields(logrus.Fields{
-			logfields.PolicyID: dstID,
-			"ctx":              ctx,
-		}).Debug("Evaluating context for destination PolicyID")
-		repo := owner.GetPolicyRepository()
-		if repo.CanReachEgressRLocked(&ctx) == api.Denied {
-			// Denied explicitly by toRequires clause.
-			deniedEgressIdentities[dstID] = true
-		}
-	}
-
 	// Publish the updated policy to L7 proxies.
-	return owner.UpdateNetworkPolicy(e, e.DesiredL4Policy, *e.prevIdentityCache, deniedIngressIdentities, deniedEgressIdentities, proxyWaitGroup)
+	return owner.UpdateNetworkPolicy(e, e.DesiredL4Policy, *e.prevIdentityCache, e.desiredPolicy.DeniedIngressIdentities, e.desiredPolicy.DeniedEgressIdentities, proxyWaitGroup)
 }
 
 // setNextPolicyRevision updates the desired policy revision field

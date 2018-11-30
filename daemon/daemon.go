@@ -195,7 +195,7 @@ func (d *Daemon) RemoveProxyRedirect(e *endpoint.Endpoint, id string, proxyWaitG
 // UpdateNetworkPolicy adds or updates a network policy in the set
 // published to L7 proxies.
 func (d *Daemon) UpdateNetworkPolicy(e *endpoint.Endpoint, policy *policy.L4Policy,
-	labelsMap cache.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc) {
+	labelsMap, deniedIngressIdentities, deniedEgressIdentities cache.IdentityCache, proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc) {
 	if d.l7Proxy == nil {
 		return fmt.Errorf("can't update network policy, proxy disabled"), nil
 	}
