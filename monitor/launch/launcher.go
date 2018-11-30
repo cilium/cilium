@@ -99,7 +99,7 @@ func (nm *NodeMonitor) run(sockPath, bpfRoot string) error {
 	nm.pipeLock.Unlock()
 
 	nm.Launcher.SetArgs([]string{"--bpf-root", bpfRoot})
-	if err := nm.Launcher.Run(); err != nil {
+	if err := nm.Launcher.Run(nil); err != nil {
 		return err
 	}
 	metrics.SubprocessStart.WithLabelValues(targetName).Inc()

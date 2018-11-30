@@ -21,6 +21,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -37,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/mtu"
+	"github.com/cilium/cilium/pkg/namespace"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
@@ -181,6 +183,38 @@ type Annotator interface {
 	AnnotatePod(k8sNamespace, k8sPodName, annotationKey, annotationValue string) error
 }
 
+func launchAgent(ip4, ip6 net.IP, info *models.EndpointChangeRequest, vethPeerName, pidfile string) error {
+	ip4WithMask := net.IPNet{IP: ip4, Mask: defaults.ContainerIPv4Mask}
+	ip6WithMask := net.IPNet{IP: ip6, Mask: defaults.ContainerIPv6Mask}
+
+	cmd := launcher.Launcher{}
+
+	runtime.LockOSThread()
+
+	netns := namespace.HealthNetns{
+		HostDevName:  info.InterfaceName,
+		NetnsDevName: vethPeerName,
+		IPv6Cidr:     ip6WithMask.String(),
+		IPv4Cidr:     ip4WithMask.String(),
+	}
+	if err := netns.Spawn(); err != nil {
+		return fmt.Errorf("could not spawn network namespace: %s", err)
+	}
+
+	args := []string{"-d", "--admin=unix", "--passive", "--pidfile", pidfile}
+	cmd.SetTarget(ciliumHealth)
+	cmd.SetArgs(args)
+	exitCallback := func() {
+		netns.Unspawn()
+		runtime.UnlockOSThread()
+	}
+	if err := cmd.Run(exitCallback); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // LaunchAsEndpoint launches the cilium-health agent in a nested network
 // namespace and attaches it to Cilium the same way as any other endpoint,
 // but with special reserved labels.
@@ -188,12 +222,8 @@ type Annotator interface {
 // CleanupEndpoint() must be called before calling LaunchAsEndpoint() to ensure
 // cleanup of prior cilium-health endpoint instances.
 func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressing) error {
-
 	ip4 := node.GetIPv4HealthIP()
 	ip6 := node.GetIPv6HealthIP()
-	ip4WithMask := net.IPNet{IP: ip4, Mask: defaults.ContainerIPv4Mask}
-	ip6WithMask := net.IPNet{IP: ip6, Mask: defaults.ContainerIPv6Mask}
-	cmd := launcher.Launcher{}
 
 	// Prepare the endpoint change request
 	info := &models.EndpointChangeRequest{
@@ -210,14 +240,9 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 	}
 
 	pidfile := filepath.Join(option.Config.StateDir, PidfilePath)
-	healthArgs := fmt.Sprintf("-d --admin=unix --passive --pidfile %s", pidfile)
-	args := []string{info.ContainerName, info.InterfaceName, vethPeerName,
-		ip6WithMask.String(), ip4WithMask.String(), ciliumHealth, healthArgs}
-	prog := filepath.Join(option.Config.BpfDir, "spawn_netns.sh")
-	cmd.SetTarget(prog)
-	cmd.SetArgs(args)
-	if err := cmd.Run(); err != nil {
-		return err
+
+	if err := launchAgent(ip4, ip6, info, vethPeerName, pidfile); err != nil {
+		return fmt.Errorf("Error while launching cilium-health agent: %s", err)
 	}
 
 	// Create the endpoint

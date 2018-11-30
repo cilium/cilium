@@ -64,7 +64,7 @@ func (ch *CiliumHealth) Run() {
 		var err error
 
 		os.Remove(defaults.SockPath)
-		ch.Launcher.Run()
+		ch.Launcher.Run(nil)
 		ch.client, err = healthPkg.NewDefaultClient()
 		if err != nil {
 			log.WithError(err).Infof("Cannot establish connection to local %s instance", targetName)

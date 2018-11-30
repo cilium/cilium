@@ -39,7 +39,7 @@ type Launcher struct {
 }
 
 // Run starts the daemon.
-func (launcher *Launcher) Run() error {
+func (launcher *Launcher) Run(exitCallback func()) error {
 	targetName := launcher.GetTarget()
 	cmdStr := fmt.Sprintf("%s %s", targetName, launcher.GetArgs())
 	cmd := exec.Command(targetName, launcher.GetArgs()...)
@@ -61,6 +61,7 @@ func (launcher *Launcher) Run() error {
 			"exitCode": err,
 			"cmd":      cmdStr,
 		}).Debug("Process exited")
+		exitCallback()
 	}()
 
 	return nil
