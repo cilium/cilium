@@ -17,6 +17,8 @@
 package v2
 
 import (
+	"time"
+
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -74,11 +76,16 @@ func (c *ciliumNetworkPolicies) Get(name string, options v1.GetOptions) (result 
 
 // List takes label and field selectors, and returns the list of CiliumNetworkPolicies that match those selectors.
 func (c *ciliumNetworkPolicies) List(opts v1.ListOptions) (result *v2.CiliumNetworkPolicyList, err error) {
+	var timeout time.Duration
+	if opts.TimeoutSeconds != nil {
+		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
+	}
 	result = &v2.CiliumNetworkPolicyList{}
 	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("ciliumnetworkpolicies").
 		VersionedParams(&opts, scheme.ParameterCodec).
+		Timeout(timeout).
 		Do().
 		Into(result)
 	return
@@ -86,11 +93,16 @@ func (c *ciliumNetworkPolicies) List(opts v1.ListOptions) (result *v2.CiliumNetw
 
 // Watch returns a watch.Interface that watches the requested ciliumNetworkPolicies.
 func (c *ciliumNetworkPolicies) Watch(opts v1.ListOptions) (watch.Interface, error) {
+	var timeout time.Duration
+	if opts.TimeoutSeconds != nil {
+		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
+	}
 	opts.Watch = true
 	return c.client.Get().
 		Namespace(c.ns).
 		Resource("ciliumnetworkpolicies").
 		VersionedParams(&opts, scheme.ParameterCodec).
+		Timeout(timeout).
 		Watch()
 }
 
@@ -148,10 +160,15 @@ func (c *ciliumNetworkPolicies) Delete(name string, options *v1.DeleteOptions) e
 
 // DeleteCollection deletes a collection of objects.
 func (c *ciliumNetworkPolicies) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
+	var timeout time.Duration
+	if listOptions.TimeoutSeconds != nil {
+		timeout = time.Duration(*listOptions.TimeoutSeconds) * time.Second
+	}
 	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("ciliumnetworkpolicies").
 		VersionedParams(&listOptions, scheme.ParameterCodec).
+		Timeout(timeout).
 		Body(options).
 		Do().
 		Error()

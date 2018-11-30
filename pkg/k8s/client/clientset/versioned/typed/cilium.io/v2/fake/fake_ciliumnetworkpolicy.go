@@ -129,7 +129,7 @@ func (c *FakeCiliumNetworkPolicies) DeleteCollection(options *v1.DeleteOptions, 
 // Patch applies the patch and returns the patched ciliumNetworkPolicy.
 func (c *FakeCiliumNetworkPolicies) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v2.CiliumNetworkPolicy, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(ciliumnetworkpoliciesResource, c.ns, name, data, subresources...), &v2.CiliumNetworkPolicy{})
+		Invokes(testing.NewPatchSubresourceAction(ciliumnetworkpoliciesResource, c.ns, name, pt, data, subresources...), &v2.CiliumNetworkPolicy{})
 
 	if obj == nil {
 		return nil, err
