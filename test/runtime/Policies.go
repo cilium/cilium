@@ -1782,6 +1782,22 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 		Expect(httpd2EndpointModel).To(Not(BeNil()), "Expected non-nil model for endpoint %s", helpers.Httpd2)
 		Expect(httpd2EndpointModel.Status.Identity).To(Not(BeNil()), "Expected non-nil identity for endpoint %s", helpers.Httpd2)
 
+		httpd2ContainerLabel := "container:id.httpd2"
+
+		By("Getting all identities which contain label %s", httpd2ContainerLabel)
+		res = vm.ExecCilium(fmt.Sprintf("identity get --label=%s -o json", httpd2ContainerLabel))
+		var identities []models.Identity
+		err = res.Unmarshal(&identities)
+		Expect(err).Should(BeNil(), "unable to get identities containing label %s", httpd2ContainerLabel)
+
+		// We expect the host to be allowed.
+		expectedIngressIdentitiesHttpd1 := []int64{1}
+
+		// Append all identities which have label container:id.httpd2.
+		for _, id := range identities {
+			expectedIngressIdentitiesHttpd1 = append(expectedIngressIdentitiesHttpd1, id.ID)
+		}
+
 		httpd1EndpointModel := vm.EndpointGet(httpd1EndpointID)
 		Expect(httpd1EndpointModel).To(Not(BeNil()), "Expected non-nil model for endpoint %s", helpers.Httpd1)
 		Expect(httpd1EndpointModel.Status.Identity).To(Not(BeNil()), "Expected non-nil identity for endpoint %s", helpers.Httpd1)
@@ -1792,12 +1808,11 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 
 		// TODO - remove hardcoding of host identity.
 		By("Verifying allowed identities for ingress traffic to %q", helpers.Httpd1)
-		expectedIngressIdentitiesHttpd1 := []int64{1, httpd2SecurityIdentity}
-
 		actualIngressIdentitiesHttpd1 := httpd1EndpointModel.Status.Policy.Realized.AllowedIngressIdentities
 
 		// Sort to ensure that equality check of slice doesn't fail due to ordering being different.
 		sort.Slice(actualIngressIdentitiesHttpd1, func(i, j int) bool { return actualIngressIdentitiesHttpd1[i] < actualIngressIdentitiesHttpd1[j] })
+		sort.Slice(expectedIngressIdentitiesHttpd1, func(i, j int) bool { return expectedIngressIdentitiesHttpd1[i] < expectedIngressIdentitiesHttpd1[j] })
 
 		Expect(expectedIngressIdentitiesHttpd1).Should(Equal(actualIngressIdentitiesHttpd1), "Expected allowed identities %v, but instead got %v", expectedIngressIdentitiesHttpd1, actualIngressIdentitiesHttpd1)
 
