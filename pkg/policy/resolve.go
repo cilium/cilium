@@ -47,6 +47,9 @@ type EndpointPolicy struct {
 	// datapath. In the future, this will be factored out of this object to
 	// decouple the policy as it relates to the datapath vs. its userspace
 	// representation.
+	// It maps each Key to the proxy port if proxy redirection is needed.
+	// Proxy port 0 indicates no proxy redirection.
+	// All fields within the Key and the proxy port must be in host byte-order.
 	PolicyMapState MapState
 
 	// PolicyOwner describes any type which consumes this EndpointPolicy object.
