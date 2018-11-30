@@ -66,26 +66,26 @@ start-kvstores:
 	@echo Starting key-value store containers...
 	-$(DOCKER) rm -f "cilium-etcd-test-container" 2> /dev/null
 	$(DOCKER) run -d \
-	    --name "cilium-etcd-test-container" \
-	    -p 4002:4001 \
-        quay.io/coreos/etcd:v3.2.17 \
-        etcd -name etcd0 \
-        -advertise-client-urls http://0.0.0.0:4001 \
-        -listen-client-urls http://0.0.0.0:4001 \
-        -listen-peer-urls http://0.0.0.0:2380 \
-        -initial-cluster-token etcd-cluster-1 \
-        -initial-cluster-state new
+		--name "cilium-etcd-test-container" \
+		-p 4002:4001 \
+		quay.io/coreos/etcd:v3.2.17 \
+		etcd -name etcd0 \
+		-advertise-client-urls http://0.0.0.0:4001 \
+		-listen-client-urls http://0.0.0.0:4001 \
+		-listen-peer-urls http://0.0.0.0:2380 \
+		-initial-cluster-token etcd-cluster-1 \
+		-initial-cluster-state new
 	-$(DOCKER) rm -f "cilium-consul-test-container" 2> /dev/null
 	rm -rf /tmp/cilium-consul-certs
 	mkdir /tmp/cilium-consul-certs
 	cp $(CURDIR)/test/consul/* /tmp/cilium-consul-certs
 	$(DOCKER) run -d \
-           --name "cilium-consul-test-container" \
-	   -p 8501:8443 \
-           -e 'CONSUL_LOCAL_CONFIG={"skip_leave_on_interrupt": true, "disable_update_check": true}' \
-	   -v /tmp/cilium-consul-certs:/cilium-consul/ \
-           consul:1.1.0 \
-	   agent -client=0.0.0.0 -server -bootstrap-expect 1 -config-file=/cilium-consul/consul-config.json
+		--name "cilium-consul-test-container" \
+		-p 8501:8443 \
+		-e 'CONSUL_LOCAL_CONFIG={"skip_leave_on_interrupt": true, "disable_update_check": true}' \
+		-v /tmp/cilium-consul-certs:/cilium-consul/ \
+		consul:1.1.0 \
+		agent -client=0.0.0.0 -server -bootstrap-expect 1 -config-file=/cilium-consul/consul-config.json
 
 tests: force
 	$(MAKE) unit-tests
