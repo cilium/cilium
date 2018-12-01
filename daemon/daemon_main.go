@@ -570,6 +570,9 @@ func init() {
 	flags.StringP(option.PrefilterMode, "", option.ModePreFilterNative, "Prefilter mode { "+option.ModePreFilterNative+" | "+option.ModePreFilterGeneric+" } (default: "+option.ModePreFilterNative+")")
 	option.BindEnv(option.PrefilterMode)
 
+	flags.Bool(option.PreAllocateMapsName, false, "Enable BPF map pre-allocation")
+	option.BindEnv(option.PreAllocateMapsName)
+
 	// We expect only one of the possible variables to be filled. The evaluation order is:
 	// --prometheus-serve-addr, CILIUM_PROMETHEUS_SERVE_ADDR, then PROMETHEUS_SERVE_ADDR
 	// The second environment variable (without the CILIUM_ prefix) is here to
@@ -711,6 +714,10 @@ func initEnv(cmd *cobra.Command) {
 
 	if option.Config.PProf {
 		pprof.Enable()
+	}
+
+	if option.Config.PreAllocateMaps {
+		bpf.EnableMapPreAllocation()
 	}
 
 	scopedLog := log.WithFields(logrus.Fields{
