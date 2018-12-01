@@ -502,6 +502,7 @@ func init() {
 		"prefilter-device", "", "undefined", "Device facing external network for XDP prefiltering")
 	flags.StringVarP(&option.Config.ModePreFilter,
 		"prefilter-mode", "", option.ModePreFilterNative, "Prefilter mode { "+option.ModePreFilterNative+" | "+option.ModePreFilterGeneric+" } (default: "+option.ModePreFilterNative+")")
+	flags.Bool(option.PreAllocateMapsName, false, "Enable BPF map pre-allocation")
 	// We expect only one of the possible variables to be filled. The evaluation order is:
 	// --prometheus-serve-addr, CILIUM_PROMETHEUS_SERVE_ADDR, then PROMETHEUS_SERVE_ADDR
 	// The second environment variable (without the CILIUM_ prefix) is here to
@@ -575,6 +576,14 @@ func initConfig() {
 	}
 }
 
+func initDefaultMapFlags() {
+	bpfMapFlags := uint32(bpf.BPF_F_NO_PREALLOC)
+	if option.Config.PreAllocateMaps {
+		bpfMapFlags = uint32(0)
+	}
+	bpf.SetDefaultMapFlags(bpfMapFlags)
+}
+
 func initEnv(cmd *cobra.Command) {
 
 	// Logging should always be bootstrapped first. Do not add any code above this!
@@ -631,6 +640,8 @@ func initEnv(cmd *cobra.Command) {
 	if viper.GetBool("pprof") {
 		pprof.Enable()
 	}
+
+	initDefaultMapFlags()
 
 	if configuredMTU := viper.GetInt(option.MTUName); configuredMTU != 0 {
 		mtu.UseMTU(configuredMTU)

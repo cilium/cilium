@@ -153,6 +153,9 @@ const (
 	// K8sNamespaceNameEnv is the name of the K8sNamespace environment
 	// variable
 	K8sNamespaceNameEnv = "CILIUM_K8S_NAMESPACE"
+
+	// PreallocateMapsName is the name of the option PreAllocateMaps
+	PreAllocateMapsName = "preallocate-bpf-maps"
 )
 
 // Available option for daemonConfig.Tunnel
@@ -357,6 +360,10 @@ type daemonConfig struct {
 	// K8sNamespace is the name of the namespace in which Cilium is
 	// deployed in when running in Kubernetes mode
 	K8sNamespace string
+
+	// PreAllocateMaps if enabled, results in BPF maps in the datapath to
+	// be preallocated
+	PreAllocateMaps bool
 }
 
 var (

@@ -36,6 +36,12 @@
 #define EVENT_SOURCE 0
 #endif
 
+#ifdef PREALLOCATE_MAPS
+#define DEFAULT_MAP_FLAGS 0
+#else
+#define DEFAULT_MAP_FLAGS BPF_F_NO_PREALLOC
+#endif
+
 #define __inline__ __attribute__((always_inline))
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))

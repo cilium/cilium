@@ -48,7 +48,7 @@ var (
 		int(unsafe.Sizeof(endpointKey{})),
 		int(unsafe.Sizeof(epPolicyFd{})),
 		MaxEntries,
-		0,
+		bpf.GetDefaultMapFlags(),
 		0,
 		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
 			k := endpointKey{}

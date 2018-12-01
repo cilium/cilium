@@ -685,6 +685,10 @@ func createNodeConfigHeaderfile() error {
 	fmt.Fprintf(fw, "#define POLICY_PROG_MAP_SIZE %d\n", policymap.ProgArrayMaxEntries)
 	fmt.Fprintf(fw, "#define SOCKOPS_MAP_SIZE %d\n", sockmap.MaxEntries)
 
+	if option.Config.PreAllocateMaps {
+		fmt.Fprintf(fw, "#define PREALLOCATE_MAPS")
+	}
+
 	fmt.Fprintf(fw, "#define TRACE_PAYLOAD_LEN %dULL\n", tracePayloadLen)
 	fmt.Fprintf(fw, "#define MTU %d\n", mtu.GetDeviceMTU())
 

@@ -30,6 +30,7 @@ struct bpf_elf_map __section_maps cilium_lxc = {
 	.size_value	= sizeof(struct endpoint_info),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= ENDPOINTS_MAP_SIZE,
+	.flags		= DEFAULT_MAP_FLAGS,
 };
 
 struct bpf_elf_map __section_maps cilium_metrics = {
@@ -38,6 +39,7 @@ struct bpf_elf_map __section_maps cilium_metrics = {
 	.size_value	= sizeof(struct metrics_value),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= METRICS_MAP_SIZE,
+	.flags		= DEFAULT_MAP_FLAGS,
 };
 
 /* Global map to jump into policy enforcement of receiving endpoint */
@@ -48,6 +50,7 @@ struct bpf_elf_map __section_maps cilium_policy = {
 	.size_value	= sizeof(__u32),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= POLICY_PROG_MAP_SIZE,
+	.flags		= DEFAULT_MAP_FLAGS,
 };
 
 /* Map to link endpoint id to per endpoint cilium_policy map */
@@ -58,6 +61,7 @@ struct bpf_elf_map __section_maps cilium_ep_to_policy = {
 	.size_value	= sizeof(int),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= ENDPOINTS_MAP_SIZE,
+	.flags		= DEFAULT_MAP_FLAGS,
 };
 #endif
 
@@ -69,6 +73,7 @@ struct bpf_elf_map __section_maps POLICY_MAP = {
 	.size_value	= sizeof(struct policy_entry),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= POLICY_MAP_SIZE,
+	.flags		= DEFAULT_MAP_FLAGS,
 };
 #endif
 
@@ -85,6 +90,7 @@ struct bpf_elf_map __section_maps cilium_proxy4 = {
 	.size_value	= sizeof(struct proxy4_tbl_value),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= PROXY_MAP_SIZE,
+	.flags		= DEFAULT_MAP_FLAGS,
 };
 
 struct bpf_elf_map __section_maps cilium_proxy6= {
@@ -93,6 +99,7 @@ struct bpf_elf_map __section_maps cilium_proxy6= {
 	.size_value	= sizeof(struct proxy6_tbl_value),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= PROXY_MAP_SIZE,
+	.flags		= DEFAULT_MAP_FLAGS,
 };
 
 #ifndef SKIP_CALLS_MAP
@@ -115,6 +122,7 @@ struct bpf_elf_map __section_maps cilium_tunnel_map = {
 	.size_value	= sizeof(struct endpoint_key),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= TUNNEL_ENDPOINT_MAP_SIZE,
+	.flags		= DEFAULT_MAP_FLAGS,
 };
 
 #endif
@@ -173,7 +181,7 @@ struct bpf_elf_map __section_maps cilium_ipcache = {
 	.size_value	= sizeof(struct remote_endpoint_info),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= IPCACHE_MAP_SIZE,
-	.flags		= BPF_F_NO_PREALLOC,
+	.flags		= DEFAULT_MAP_FLAGS,
 };
 
 #ifndef SKIP_CALLS_MAP

@@ -80,6 +80,7 @@ cilium-agent
       --mtu int                                     Overwrite auto-detected MTU of underlying network (default 1500)
       --nat46-range string                          IPv6 prefix to map IPv4 addresses to (default "0:0:0:0:0:FFFF::/96")
       --pprof                                       Enable serving the pprof debugging API
+      --preallocate-bpf-maps                        Enable BPF map pre-allocation
       --prefilter-device string                     Device facing external network for XDP prefiltering (default "undefined")
       --prefilter-mode string                       Prefilter mode { native | generic } (default: native) (default "native")
       --prepend-iptables-chains                     Prepend custom iptables chains instead of appending (default true)

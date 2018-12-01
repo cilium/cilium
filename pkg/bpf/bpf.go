@@ -22,6 +22,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"syscall"
 	"unsafe"
 
@@ -32,7 +33,10 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "bpf")
+var (
+	log             = logging.DefaultLogger.WithField(logfields.LogSubsys, "bpf")
+	defaultMapFlags uint32
+)
 
 const (
 	// BPF map type constants. Must match enum bpf_map_type from linux/bpf.h
@@ -466,4 +470,12 @@ func GetMtime() (uint64, error) {
 	}
 
 	return uint64(unix.TimespecToNsec(ts)), nil
+}
+
+func SetDefaultMapFlags(flags uint32) {
+	atomic.StoreUint32(&defaultMapFlags, flags)
+}
+
+func GetDefaultMapFlags() uint32 {
+	return atomic.LoadUint32(&defaultMapFlags)
 }
