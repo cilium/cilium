@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,11 +15,17 @@
 package bpf
 
 import (
+	"sync/atomic"
+
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "bpf")
+var (
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "bpf")
+
+	preAllocateMapSetting uint32 = BPF_F_NO_PREALLOC
+)
 
 const (
 	// BPF map type constants. Must match enum bpf_map_type from linux/bpf.h
@@ -88,3 +94,21 @@ const (
 	// Flag for stack_map, store build_id+offset instead of pointer
 	BPF_F_STACK_BUILD_ID = 1 << 5
 )
+
+// EnableMapPreAllocation enables BPF map pre-allocation on map types that
+// support it.
+func EnableMapPreAllocation() {
+	atomic.StoreUint32(&preAllocateMapSetting, 0)
+}
+
+// GetPreAllocateMapFlags returns the map flags for map which use conditional
+// pre-allocation.
+func GetPreAllocateMapFlags(t MapType) uint32 {
+	switch {
+	case !t.allowsPreallocation():
+		return BPF_F_NO_PREALLOC
+	case t.requiresPreallocation():
+		return 0
+	}
+	return atomic.LoadUint32(&preAllocateMapSetting)
+}

@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -328,7 +328,32 @@ const (
 	EnableIPv6Name = "enable-ipv6"
 
 	// MonitorQueueSizeName is the name of the option MonitorQueueSize
-	MonitorQueueSizeName = "monitor-queue-size"
+	MonitorQueueSizeName    = "monitor-queue-size"
+	MonitorQueueSizeNameEnv = "CILIUM_MONITOR_QUEUE_SIZE"
+
+	//FQDNRejectResponseCode is the name for the option for dns-proxy reject response code
+	FQDNRejectResponseCode = "tofqdns-dns-reject-response-code"
+
+	//FQDNRejectResponseCodeEnv is the env name for FQDNRejectResponseCode option
+	FQDNRejectResponseCodeEnv = "CILIUM_TOFQDNS_DNS_REJECT_RESPONSE_CODE"
+
+	// FQDNProxyDenyWithNameError is useful when stub resolvers, like the one
+	// in Alpine Linux's libc (musl), treat a REFUSED as a resolution error.
+	// This happens when trying a DNS search list, as in kubernetes, and breaks
+	// even whitelisted DNS names.
+	FQDNProxyDenyWithNameError = "nameError"
+
+	// FQDNProxyDenyWithRefused is the response code for Domain refused. It is
+	// the default for denied DNS requests.
+	FQDNProxyDenyWithRefused = "refused"
+
+	// PreAllocateMapsName is the name of the option PreAllocateMaps
+	PreAllocateMapsName = "preallocate-bpf-maps"
+)
+
+// FQDNS variables
+var (
+	FQDNRejectOptions = []string{FQDNProxyDenyWithNameError, FQDNProxyDenyWithRefused}
 )
 
 // Available option for DaemonConfig.Tunnel
@@ -618,6 +643,7 @@ type DaemonConfig struct {
 	// leaving the host.
 	Masquerade             bool
 	MonitorAggregation     string
+	PreAllocateMaps        bool
 	IPv6NodeAddr           string
 	IPv4NodeAddr           string
 	SidecarHTTPProxy       bool
@@ -827,6 +853,7 @@ func (c *DaemonConfig) Populate() {
 	c.MTU = viper.GetInt(MTUName)
 	c.NAT46Range = viper.GetString(NAT46Range)
 	c.PProf = viper.GetBool(PProf)
+	c.PreAllocateMaps = viper.GetBool(PreAllocateMapsName)
 	c.PrependIptablesChains = viper.GetBool(PrependIptablesChainsName)
 	c.PrometheusServeAddr = getPrometheusServerAddr()
 	c.ProxyConnectTimeout = viper.GetInt(ProxyConnectTimeout)

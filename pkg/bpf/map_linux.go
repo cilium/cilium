@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -300,7 +300,8 @@ func (m *Map) OpenOrCreate() (bool, error) {
 	}
 
 retry:
-	fd, isNew, err := OpenOrCreateMap(m.path, int(m.MapType), m.KeySize, m.ValueSize, m.MaxEntries, m.Flags, m.InnerID)
+	flags := m.Flags | GetPreAllocateMapFlags(m.MapType)
+	fd, isNew, err := OpenOrCreateMap(m.path, int(m.MapType), m.KeySize, m.ValueSize, m.MaxEntries, flags, m.InnerID)
 	if err != nil && m.MapType == BPF_MAP_TYPE_LPM_TRIE {
 		// If the map type is an LPM, then we can typically fall back
 		// to a hash map. Note that this requires datapath support,
@@ -317,6 +318,7 @@ retry:
 	registerMap(m.path, m)
 
 	m.fd = fd
+	m.Flags = flags
 	return isNew, nil
 }
 

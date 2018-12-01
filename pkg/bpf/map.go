@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -116,6 +116,21 @@ func (t MapType) String() string {
 	}
 
 	return "Unknown"
+}
+
+func (t MapType) allowsPreallocation() bool {
+	if t == MapTypeLPMTrie {
+		return false
+	}
+	return true
+}
+
+func (t MapType) requiresPreallocation() bool {
+	switch t {
+	case MapTypeHash, MapTypePerCPUHash, MapTypeLPMTrie, MapTypeHashOfMaps:
+		return false
+	}
+	return true
 }
 
 // DesiredAction is the action to be performed on the BPF map

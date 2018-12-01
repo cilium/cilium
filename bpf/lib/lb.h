@@ -42,6 +42,7 @@ struct bpf_elf_map __section_maps cilium_lb6_reverse_nat = {
 	.size_value	= sizeof(struct lb6_reverse_nat),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= CILIUM_LB_MAP_MAX_ENTRIES,
+	.flags		= CONDITIONAL_PREALLOC,
 };
 
 struct bpf_elf_map __section_maps cilium_lb6_services = {
@@ -50,6 +51,7 @@ struct bpf_elf_map __section_maps cilium_lb6_services = {
 	.size_value	= sizeof(struct lb6_service),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= CILIUM_LB_MAP_MAX_ENTRIES,
+	.flags		= CONDITIONAL_PREALLOC,
 };
 
 struct bpf_elf_map __section_maps cilium_lb6_rr_seq = {
@@ -58,6 +60,7 @@ struct bpf_elf_map __section_maps cilium_lb6_rr_seq = {
 	.size_value     = sizeof(struct lb_sequence),
 	.pinning        = PIN_GLOBAL_NS,
 	.max_elem       = CILIUM_LB_MAP_MAX_FE,
+	.flags		= CONDITIONAL_PREALLOC,
 };
 #endif /* ENABLE_IPV6 */
 
@@ -68,6 +71,7 @@ struct bpf_elf_map __section_maps cilium_lb4_reverse_nat = {
 	.size_value	= sizeof(struct lb4_reverse_nat),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= CILIUM_LB_MAP_MAX_ENTRIES,
+	.flags		= CONDITIONAL_PREALLOC,
 };
 
 struct bpf_elf_map __section_maps cilium_lb4_services = {
@@ -76,6 +80,7 @@ struct bpf_elf_map __section_maps cilium_lb4_services = {
 	.size_value	= sizeof(struct lb4_service),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= CILIUM_LB_MAP_MAX_ENTRIES,
+	.flags		= CONDITIONAL_PREALLOC,
 };
 
 struct bpf_elf_map __section_maps cilium_lb4_rr_seq = {
@@ -84,6 +89,7 @@ struct bpf_elf_map __section_maps cilium_lb4_rr_seq = {
 	.size_value     = sizeof(struct lb_sequence),
 	.pinning        = PIN_GLOBAL_NS,
 	.max_elem       = CILIUM_LB_MAP_MAX_FE,
+	.flags		= CONDITIONAL_PREALLOC,
 };
 #endif /* ENABLE_IPV4 */
 
