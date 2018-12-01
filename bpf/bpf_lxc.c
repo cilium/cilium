@@ -63,6 +63,9 @@ struct bpf_elf_map __section_maps CT_MAP_TCP6 = {
 	.size_value	= sizeof(struct ct_entry),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= CT_MAP_SIZE_TCP,
+#ifndef HAVE_LRU_MAP_TYPE
+	.flags		= CONDITIONAL_PREALLOC,
+#endif
 };
 
 struct bpf_elf_map __section_maps CT_MAP_ANY6 = {
@@ -71,6 +74,9 @@ struct bpf_elf_map __section_maps CT_MAP_ANY6 = {
 	.size_value	= sizeof(struct ct_entry),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= CT_MAP_SIZE_ANY,
+#ifndef HAVE_LRU_MAP_TYPE
+	.flags		= CONDITIONAL_PREALLOC,
+#endif
 };
 
 static inline struct bpf_elf_map *
@@ -90,6 +96,9 @@ struct bpf_elf_map __section_maps CT_MAP_TCP4 = {
 	.size_value	= sizeof(struct ct_entry),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= CT_MAP_SIZE_TCP,
+#ifndef HAVE_LRU_MAP_TYPE
+	.flags		= CONDITIONAL_PREALLOC,
+#endif
 };
 
 struct bpf_elf_map __section_maps CT_MAP_ANY4 = {
@@ -98,6 +107,9 @@ struct bpf_elf_map __section_maps CT_MAP_ANY4 = {
 	.size_value	= sizeof(struct ct_entry),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= CT_MAP_SIZE_ANY,
+#ifndef HAVE_LRU_MAP_TYPE
+	.flags		= CONDITIONAL_PREALLOC,
+#endif
 };
 
 static inline struct bpf_elf_map *

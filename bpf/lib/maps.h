@@ -30,6 +30,7 @@ struct bpf_elf_map __section_maps cilium_lxc = {
 	.size_value	= sizeof(struct endpoint_info),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= ENDPOINTS_MAP_SIZE,
+	.flags		= CONDITIONAL_PREALLOC,
 };
 
 struct bpf_elf_map __section_maps cilium_metrics = {
@@ -38,6 +39,7 @@ struct bpf_elf_map __section_maps cilium_metrics = {
 	.size_value	= sizeof(struct metrics_value),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= METRICS_MAP_SIZE,
+	.flags		= CONDITIONAL_PREALLOC,
 };
 
 /* Global map to jump into policy enforcement of receiving endpoint */
@@ -69,6 +71,7 @@ struct bpf_elf_map __section_maps POLICY_MAP = {
 	.size_value	= sizeof(struct policy_entry),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= POLICY_MAP_SIZE,
+	.flags		= CONDITIONAL_PREALLOC,
 };
 #endif
 
@@ -89,6 +92,7 @@ struct bpf_elf_map __section_maps cilium_proxy4 = {
 	.size_value	= sizeof(struct proxy4_tbl_value),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= PROXY_MAP_SIZE,
+	.flags		= CONDITIONAL_PREALLOC,
 };
 #endif /* ENABLE_IPV4 */
 
@@ -99,6 +103,7 @@ struct bpf_elf_map __section_maps cilium_proxy6= {
 	.size_value	= sizeof(struct proxy6_tbl_value),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= PROXY_MAP_SIZE,
+	.flags		= CONDITIONAL_PREALLOC,
 };
 #endif /* ENABLE_IPV6 */
 
@@ -122,6 +127,7 @@ struct bpf_elf_map __section_maps cilium_tunnel_map = {
 	.size_value	= sizeof(struct endpoint_key),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= TUNNEL_ENDPOINT_MAP_SIZE,
+	.flags		= CONDITIONAL_PREALLOC,
 };
 
 #endif
