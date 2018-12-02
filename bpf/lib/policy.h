@@ -91,7 +91,7 @@ policy_sk_egress(__u32 identity, __u32 ip,  __u16 dport)
 	return DROP_POLICY;
 get_proxy_port:
 	if (likely(policy)) {
-		return policy->proxy_port;
+		return (policy->proxy_port || policy->ktls << 16);
 	}
 	return TC_ACT_OK;
 }

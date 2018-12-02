@@ -59,7 +59,12 @@ const (
 	oIPC = "bpf_redir.o"
 	eIPC = "bpf_redir"
 
-	sockMap = "sock_ops_map"
+	cKtls = "bpf_ktls.c"
+	oKtls = "bpf_ktls.o"
+	eKtls = "bpf_ktls"
+
+	sockMap     = "sock_ops_map"
+	sockKtlsMap = "sock_ops_ktls"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "sockops")
@@ -155,7 +160,7 @@ func bpftoolMapAttach(progID string, mapID string) error {
 func bpftoolAttach(bpfObject string) error {
 	prog := "bpftool"
 	bpffs := bpf.GetMapRoot() + "/" + bpfObject
-	cgrp := cgroupRoot
+	cgrp := cgroupRoot //+ "/system.slice/docker.service"
 
 	args := []string{"cgroup", "attach", cgrp, "sock_ops", "pinned", bpffs}
 	log.WithFields(logrus.Fields{
@@ -173,7 +178,7 @@ func bpftoolAttach(bpfObject string) error {
 func bpftoolDetach(bpfObject string) error {
 	prog := "bpftool"
 	bpffs := bpf.GetMapRoot() + "/" + bpfObject
-	cgrp := cgroupRoot
+	cgrp := cgroupRoot //+ "/system.slice/docker.service"
 
 	args := []string{"cgroup", "detach", cgrp, "sock_ops", "pinned", bpffs}
 	log.WithFields(logrus.Fields{
@@ -196,6 +201,7 @@ func bpftoolLoad(bpfObject string, bpfFsFile string) error {
 		"cilium_metric",
 		"cilium_events",
 		"sock_ops_map",
+		"sock_ops_ktls",
 		"cilium_ep_to_policy",
 		"cilium_proxy4", "cilium_proxy6",
 		"cilium_lb6_reverse_nat", "cilium_lb4_reverse_nat",
@@ -308,6 +314,7 @@ func bpftoolGetMapID(progName string, mapName string) (int, error) {
 				if err != nil {
 					return 0, err
 				}
+				log.Debugf("mapid(%s): %s", mapName, output)
 
 				if strings.Contains(string(output), mapName) {
 					mapID, _ := strconv.Atoi(id[j])
@@ -355,7 +362,7 @@ func bpfCompileProg(src string, dst string) error {
 	return nil
 }
 
-func bpfLoadMapProg(object string, load string) error {
+func bpfLoadMapProg(object string, load string, sockMap string) error {
 	sockops := object
 	sockopsObj := option.Config.StateDir + "/" + sockops
 	sockopsLoad := load
@@ -370,7 +377,7 @@ func bpfLoadMapProg(object string, load string) error {
 		return err
 	}
 
-	_mapID, err := bpftoolGetMapID("bpf_sockops", sockMap)
+	_mapID, err := bpftoolGetMapID("bpf_redir", sockMap)
 	mapID := strconv.Itoa(_mapID)
 	if err != nil {
 		return err
@@ -383,6 +390,33 @@ func bpfLoadMapProg(object string, load string) error {
 	return nil
 }
 
+// KtlsEnable will compile and attach the SK_MSG programs to the
+// sockmap used to redirect to/from a Ktls enabled proxy. After
+// this all kTLS traffic (as identified by policy map) will be sent
+// to the user space proxy for handling before encryption.
+func KtlsEnable() error {
+	err := bpfCompileProg(cKtls, oKtls)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+
+	err = bpfLoadMapProg(oKtls, eKtls, "sockmap")
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+	log.Info("kTLS sockmsg Enabled, bpf_ktls loaded")
+	return nil
+}
+
+// KtlsDisable "unloads" the SK_MSG program associated with the
+// kTLS proxy. This simply deletes the file associated with the program.
+func KtlsDisable() {
+	bpftoolUnload(eKtls)
+	log.Info("Ktls sockmsg Disabled.")
+}
+
 // SkmsgEnable will compile and attach the SK_MSG programs to the
 // sockmap. After this all sockets added to the sock_ops_map will
 // have sendmsg/sendfile calls running through BPF program.
@@ -393,7 +427,7 @@ func SkmsgEnable() error {
 		return err
 	}
 
-	err = bpfLoadMapProg(oIPC, eIPC)
+	err = bpfLoadMapProg(oIPC, eIPC, sockMap)
 	if err != nil {
 		log.Error(err)
 		return err
@@ -465,4 +499,12 @@ func SockmapDisable() {
 	bpftoolUnload(eSockops)
 	bpftoolUnload(mapName)
 	log.Info("Sockmap disabled.")
+}
+
+func SockmapKtlsDisable() {
+	mapName := mapPrefix + "/" + sockKtlsMap
+	bpftoolUnload(eKtls)
+	bpftoolUnload(mapName)
+	log.Info("kTLS disabled.")
+
 }

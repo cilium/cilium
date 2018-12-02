@@ -198,9 +198,12 @@ static int BPF_FUNC2(skb_event_output, struct __sk_buff *skb, void *map, uint64_
 		     const void *data, uint32_t size) = (void *)BPF_FUNC_perf_event_output;
 
 /* Sockops and SK_MSG helpers */
-static int BPF_FUNC(sock_map_update, struct bpf_sock_ops *skops, void *map, uint32_t key,  uint64_t flags);
+static int BPF_FUNC(sock_map_update, struct bpf_sock_ops *skops, void *map, void *key,  uint64_t flags);
 static int BPF_FUNC(sock_hash_update, struct bpf_sock_ops *skops, void *map, void *key,  uint64_t flags);
 static int BPF_FUNC(msg_redirect_hash, struct sk_msg_md *md, void *map, void *key, uint64_t flags);
+static int BPF_FUNC(msg_redirect_map, struct sk_msg_md *md, void *map, uint32_t key, uint64_t flags);
+static int BPF_FUNC(msg_push_data, struct sk_msg_md *md, uint32_t start, uint32_t len, uint64_t flags);
+static int BPF_FUNC(msg_pop_data, struct sk_msg_md *md, uint32_t start, uint32_t len, uint64_t flags);
 
 /** LLVM built-ins, mem*() routines work for constant size */
 
