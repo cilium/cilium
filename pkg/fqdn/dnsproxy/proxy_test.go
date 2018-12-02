@@ -97,8 +97,9 @@ func (s *DNSProxyTestSuite) TestRejectMatchingForDifferentEndpoint(c *C) {
 	s.proxy.AddAllowed("c[il]{3,3}um[.]io[.]", "notendpoint1")
 	request := new(dns.Msg)
 	request.SetQuestion("cilium.io.", dns.TypeA)
-	_, _, err := s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
-	c.Assert(err, NotNil, Commentf("DNS request from test client succeded when it should be blocked"))
+	response, _, err := s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
+	c.Assert(err, Equals, nil, Commentf("DNS request should not yield error when being rejected"))
+	c.Assert(response.Rcode, Equals, dns.RcodeRefused, Commentf("DNS request from test client was not rejected when it should be blocked"))
 }
 
 func (s *DNSProxyTestSuite) TestAcceptMatchingFromEndpoint(c *C) {
@@ -123,15 +124,17 @@ func (s *DNSProxyTestSuite) TestRejectNonRegex(c *C) {
 	s.proxy.AddAllowed("simple[.]io[.]", "endpoint1")
 	request := new(dns.Msg)
 	request.SetQuestion("simpleXio.", dns.TypeA)
-	_, _, err := s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
-	c.Assert(err, NotNil, Commentf("DNS request from test client succeeded when it should be blocked"))
+	response, _, err := s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
+	c.Assert(err, IsNil, Commentf("DNS request from test client returned error when it should be rejected"))
+	c.Assert(response.Rcode, Equals, dns.RcodeRefused, Commentf("DNS request from test client was not rejected when it should be blocked"))
 }
 
 func (s *DNSProxyTestSuite) TestRejectNonMatching(c *C) {
 	request := new(dns.Msg)
 	request.SetQuestion("notcilium.io.", dns.TypeA)
-	_, _, err := s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
-	c.Assert(err, NotNil, Commentf("DNS request from test client succeeded when it should be blocked"))
+	response, _, err := s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
+	c.Assert(err, IsNil, Commentf("DNS request from test client returned error when it should be rejected"))
+	c.Assert(response.Rcode, Equals, dns.RcodeRefused, Commentf("DNS request from test client was not rejected when it should be blocked"))
 }
 
 func (s *DNSProxyTestSuite) TestRespondViaCorrectProtocol(c *C) {
