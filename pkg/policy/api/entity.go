@@ -41,6 +41,9 @@ const (
 
 	// EntityInit is an entity that represents an initializing endpoint
 	EntityInit Entity = "init"
+
+	// EntityNone is an entity that can be selected but never exist
+	EntityNone Entity = "none"
 )
 
 var (
@@ -62,6 +65,12 @@ var (
 		Source: labels.LabelSourceReserved,
 	})
 
+	endpointSelectorNone = NewESFromLabels(&labels.Label{
+		Key:    labels.IDNameNone,
+		Value:  "",
+		Source: labels.LabelSourceReserved,
+	})
+
 	endpointSelectorUnmanaged = NewESFromLabels(&labels.Label{
 		Key:    labels.IDNameUnmanaged,
 		Value:  "",
@@ -75,6 +84,7 @@ var (
 		EntityWorld: {endpointSelectorWorld},
 		EntityHost:  {endpointSelectorHost},
 		EntityInit:  {endpointSelectorInit},
+		EntityNone:  {endpointSelectorNone},
 
 		// EntityCluster is populated with an empty entry to allow the
 		// cilium client importing this package to perform basic rule
