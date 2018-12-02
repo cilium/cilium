@@ -37,6 +37,12 @@
 #include "../lib/policy.h"
 
 #include "bpf_sockops.h"
+#define bpf_printk(fmt, ...)                                   \
+({                                                             \
+              char ____fmt[] = fmt;                            \
+              trace_printk(____fmt, sizeof(____fmt),   \
+                               ##__VA_ARGS__);                 \
+})
 
 static inline void bpf_sock_ops_ipv4(struct bpf_sock_ops *skops)
 {
@@ -45,7 +51,7 @@ static inline void bpf_sock_ops_ipv4(struct bpf_sock_ops *skops)
 	struct lb4_key lb4_key = {};
 	struct sock_key key = {};
 	struct lb4_service *svc;
-	int verdict;
+	int verdict;//, zero = 0;
 
 	sk_extract4_key(skops, &key);
 	sk_lb4_key(&lb4_key, &key);
@@ -75,7 +81,7 @@ static inline void bpf_sock_ops_ipv4(struct bpf_sock_ops *skops)
 		key.dip4 = key.sip4;
 		key.dport = key.sport;
 		key.sip4 = host_ip;
-		key.sport = verdict;
+		key.sport = verdict & 0xffff;
 
 		sock_hash_update(skops, &SOCK_OPS_MAP, &key, BPF_ANY);
 		return;
@@ -90,7 +96,7 @@ static inline void bpf_sock_ops_ipv4(struct bpf_sock_ops *skops)
 	 * blocks redirect directly to socket.
 	 */
 	exists = __lookup_ip4_endpoint(key.dip4);
-	if (!exists)
+	if (!exists && key.dport != SFD_PORT)
 		return;
 
 	dip4 = key.dip4;
@@ -99,6 +105,14 @@ static inline void bpf_sock_ops_ipv4(struct bpf_sock_ops *skops)
 	key.dport = key.sport;
 	key.sip4 = dip4;
 	key.sport = dport;
+	key.size = 0;
+
+	/* kTLS proxy port is matched by compile time server port */
+	if (dport == SFD_PORT) {
+		bpf_printk("sockops key: %d %d %d\n", key.sport, key.dport, key.family);
+		bpf_printk("sockops pad: %d %d\n", key.pad7, key.pad8);
+		bpf_printk("sockops key: %d %d\n", key.sip4, key.dip4);
+	}
 
 	sock_hash_update(skops, &SOCK_OPS_MAP, &key, BPF_ANY);
 }

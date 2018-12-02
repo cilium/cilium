@@ -1,4 +1,3 @@
-
 FLAGS := -I../include -I. -I.. -D__NR_CPUS__=$(shell nproc) -O2 -g
 CLANG_FLAGS :=  ${FLAGS} -target bpf -emit-llvm
 CLANG_FLAGS += -Wall -Werror -Wno-address-of-packed-member -Wno-unknown-warning-option
@@ -10,7 +9,7 @@ SOCKOPS_OPTIONS = \
 	 -DHAVE_LPM_MAP_TYPE \
 	 -DHAVE_LRU_MAP_TYPE
 
-BPF = bpf_sockops.o bpf_redir.o
+BPF = bpf_sockops.o bpf_redir.o bpf_ktls_up.o bpf_ktls_down.o bpf_redir_ing.o
 LIB := $(shell find ../ -name '*.h')
 
 CLANG  ?= clang
@@ -25,6 +24,26 @@ bpf_sockops.o: bpf_sockops.c $(LIB)
 	$(QUIET) ${LLC} ${LLC_FLAGS} -o $@ $(patsubst %.o,%.ll,$@)
 
 bpf_redir.o: bpf_redir.c $(LIB)
+	@$(ECHO_CC)
+	$(QUIET) ${CLANG} ${CLANG_FLAGS} ${SOCKOPS_OPTIONS} -c $< -o $(patsubst %.o,%.ll,$@)
+	$(QUIET) ${LLC} ${LLC_FLAGS} -o $@ $(patsubst %.o,%.ll,$@)
+
+bpf_redir_ing.o: bpf_redir_ing.c $(LIB)
+	@$(ECHO_CC)
+	$(QUIET) ${CLANG} ${CLANG_FLAGS} ${SOCKOPS_OPTIONS} -c $< -o $(patsubst %.o,%.ll,$@)
+	$(QUIET) ${LLC} ${LLC_FLAGS} -o $@ $(patsubst %.o,%.ll,$@)
+
+bpf_redir_ing.o: bpf_redir_parser.c $(LIB)
+	@$(ECHO_CC)
+	$(QUIET) ${CLANG} ${CLANG_FLAGS} ${SOCKOPS_OPTIONS} -c $< -o $(patsubst %.o,%.ll,$@)
+	$(QUIET) ${LLC} ${LLC_FLAGS} -o $@ $(patsubst %.o,%.ll,$@)
+
+bpf_ktls_up.o: bpf_ktls_up.c $(LIB)
+	@$(ECHO_CC)
+	$(QUIET) ${CLANG} ${CLANG_FLAGS} ${SOCKOPS_OPTIONS} -c $< -o $(patsubst %.o,%.ll,$@)
+	$(QUIET) ${LLC} ${LLC_FLAGS} -o $@ $(patsubst %.o,%.ll,$@)
+
+bpf_ktls_down.o: bpf_ktls_down.c $(LIB)
 	@$(ECHO_CC)
 	$(QUIET) ${CLANG} ${CLANG_FLAGS} ${SOCKOPS_OPTIONS} -c $< -o $(patsubst %.o,%.ll,$@)
 	$(QUIET) ${LLC} ${LLC_FLAGS} -o $@ $(patsubst %.o,%.ll,$@)

@@ -34,6 +34,11 @@ type SockmapKey struct {
 	Pad8   uint16
 	SPort  uint32
 	DPort  uint32
+	Size   uint32
+}
+
+type SockmapKtlsKey struct {
+	entry uint32
 }
 
 // SockmapValue is the fd of a socket
@@ -44,6 +49,11 @@ type SockmapValue struct {
 // String pretty print the 5-tuple as sip:sport->dip:dport
 func (v SockmapKey) String() string {
 	return fmt.Sprintf("%s:%d->%s:%d", v.SIP.String(), v.SPort, v.DIP.String(), v.DPort)
+}
+
+// String pretty print the entry of kTLS key
+func (v SockmapKtlsKey) String() string {
+	return fmt.Sprintf("%d", v.entry)
 }
 
 // String pretty print the file descriptor value, note this is local to agent.
@@ -57,9 +67,15 @@ func (v SockmapValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(&v) }
 // GetKeyPtr returns the unsafe pointer to the BPF key
 func (k SockmapKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(&k) }
 
+func (k SockmapKtlsKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(&k) }
+
 // NewValue returns a new empty instance of the structure representing the BPF
 // map value
 func (k SockmapKey) NewValue() bpf.MapValue { return &SockmapValue{} }
+
+// NewValue returns a new empty instance of the structure representing the BPF
+// map value
+func (k SockmapKtlsKey) NewValue() bpf.MapValue { return &SockmapValue{} }
 
 // NewSockmapKey returns a new key using 5-tuple input.
 func NewSockmapKey(dip, sip net.IP, sport, dport uint32) SockmapKey {
@@ -89,7 +105,9 @@ func NewSockmapKey(dip, sip net.IP, sport, dport uint32) SockmapKey {
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "sockmap")
 
 const (
-	mapName = "sock_ops_map"
+	mapName         = "sock_ops_map"
+	mapKtlsUpName   = "sock_ops_ktls_up"
+	mapKtlsDownName = "sock_ops_ktls_down"
 
 	// MaxEntries represents the maximum number of endpoints in the map
 	MaxEntries = 65535
@@ -113,9 +131,51 @@ var (
 			return k, v, nil
 		},
 	)
+
+	// SockKtlsMap represents the BPF map for kTLS proxy sockets
+	SockKtlsDownMap = bpf.NewMap(mapKtlsDownName,
+		bpf.MapTypeSockMap,
+		int(unsafe.Sizeof(SockmapKtlsKey{})),
+		4,
+		1,
+		0, 0,
+		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
+			k, v := SockmapKtlsKey{}, SockmapValue{}
+
+			if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
+				return nil, nil, err
+			}
+
+			return k, v, nil
+		},
+	)
+
+	// SockKtlsMap represents the BPF map for kTLS proxy sockets
+	SockKtlsUpMap = bpf.NewMap(mapKtlsUpName,
+		bpf.MapTypeSockMap,
+		int(unsafe.Sizeof(SockmapKtlsKey{})),
+		4,
+		1,
+		0, 0,
+		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
+			k, v := SockmapKtlsKey{}, SockmapValue{}
+
+			if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
+				return nil, nil, err
+			}
+
+			return k, v, nil
+		},
+	)
 )
 
 // SockmapCreate will create sockmap map
 func SockmapCreate() {
 	SockMap.OpenOrCreate()
+}
+
+// SockmapKtlsCreate will create the Ktls proxy map
+func SockmapKtlsCreate() {
+	SockKtlsDownMap.OpenOrCreate()
+	SockKtlsUpMap.OpenOrCreate()
 }
