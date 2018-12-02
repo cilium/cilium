@@ -529,13 +529,17 @@ func (d *Daemon) init() error {
 
 		// Remove any old sockops and re-enable with _new_ programs if flag is set
 		sockops.SockmapDisable()
+		sockops.SockmapKtlsDisable()
 		sockops.SkmsgDisable()
+		sockops.KtlsDisable()
 
 		if viper.GetBool(option.SockopsEnableName) == true {
 			eppolicymap.CreateEPPolicyMap()
 			sockops.SockmapEnable()
-			sockops.SkmsgEnable()
 			sockmap.SockmapCreate()
+			sockmap.SockmapKtlsCreate()
+			sockops.SkmsgEnable()
+			sockops.KtlsEnable()
 		}
 
 		// Set up the list of IPCache listeners in the daemon, to be

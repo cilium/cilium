@@ -175,6 +175,10 @@ static int BPF_FUNC(skb_change_proto, struct __sk_buff *skb, uint32_t proto,
 		    uint32_t flags);
 static int BPF_FUNC(skb_change_tail, struct __sk_buff *skb, uint32_t nlen,
 		    uint32_t flags);
+static int BPF_FUNC(skb_change_head, struct __sk_buff *skb, uint32_t nlen,
+		    uint32_t flags);
+static int BPF_FUNC(skb_adjust_room, struct __sk_buff *skb, uint32_t len,
+		    uint32_t mode, uint64_t flags);
 
 /* Packet vlan encap/decap */
 static int BPF_FUNC(skb_vlan_push, struct __sk_buff *skb, uint16_t proto,
@@ -198,9 +202,14 @@ static int BPF_FUNC2(skb_event_output, struct __sk_buff *skb, void *map, uint64_
 		     const void *data, uint32_t size) = (void *)BPF_FUNC_perf_event_output;
 
 /* Sockops and SK_MSG helpers */
-static int BPF_FUNC(sock_map_update, struct bpf_sock_ops *skops, void *map, uint32_t key,  uint64_t flags);
+static int BPF_FUNC(sock_map_update, struct bpf_sock_ops *skops, void *map, void *key,  uint64_t flags);
 static int BPF_FUNC(sock_hash_update, struct bpf_sock_ops *skops, void *map, void *key,  uint64_t flags);
 static int BPF_FUNC(msg_redirect_hash, struct sk_msg_md *md, void *map, void *key, uint64_t flags);
+static int BPF_FUNC(msg_redirect_map, struct sk_msg_md *md, void *map, uint32_t key, uint64_t flags);
+static int BPF_FUNC(msg_push_data, struct sk_msg_md *md, uint32_t start, uint32_t len, uint64_t flags);
+static int BPF_FUNC(msg_pop_data, struct sk_msg_md *md, uint32_t start, uint32_t len, uint64_t flags);
+
+static int BPF_FUNC(sk_redirect_map, struct __sk_buff *skb, void *map, uint32_t key, uint64_t flags);
 
 /** LLVM built-ins, mem*() routines work for constant size */
 

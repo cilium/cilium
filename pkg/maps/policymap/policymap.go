@@ -73,7 +73,7 @@ type PolicyKey struct {
 // match the layout of policy_entry in bpf/lib/common.h.
 type PolicyEntry struct {
 	ProxyPort uint16 // In network byte-order
-	Pad0      uint16
+	Ktls      uint16
 	Pad1      uint16
 	Pad2      uint16
 	Packets   uint64

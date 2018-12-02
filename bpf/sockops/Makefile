@@ -1,6 +1,13 @@
+<<<<<<< current
 include ../../Makefile.defs
 
 .PHONY: all assembly check preprocess clean
+=======
+FLAGS := -I../include -I. -I.. -D__NR_CPUS__=$(shell nproc) -O2 -g
+CLANG_FLAGS :=  ${FLAGS} -target bpf -emit-llvm
+CLANG_FLAGS += -Wall -Werror -Wno-address-of-packed-member -Wno-unknown-warning-option
+LLC_FLAGS   := -march=bpf -mcpu=probe -mattr=dwarfris -filetype=obj
+>>>>>>> patched
 
 BPF = bpf_sockops.o bpf_redir.o
 
@@ -11,6 +18,16 @@ SOCKOPS_OPTIONS = \
 	 -DHAVE_LPM_MAP_TYPE \
 	 -DHAVE_LRU_MAP_TYPE
 
+<<<<<<< current
+=======
+BPF = bpf_sockops.o bpf_redir.o bpf_ktls_up.o bpf_ktls_down.o bpf_redir_ing.o
+LIB := $(shell find ../ -name '*.h')
+
+CLANG  ?= clang
+LLC    ?= llc
+HOSTCC ?= gcc
+
+>>>>>>> patched
 all: $(BPF)
 
 %.ll: %.c $(LIB)
@@ -19,7 +36,42 @@ all: $(BPF)
 
 $(BPF): %.o: %.ll
 	@$(ECHO_CC)
-	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $(patsubst %.o,%.ll,$@)
+	$(QUIET) ${CLANG} ${CLANG_FLAGS} ${SOCKOPS_OPTIONS} -c $< -o $(patsubst %.o,%.ll,$@)
+	$(QUIET) ${LLC} ${LLC_FLAGS} -o $@ $(patsubst %.o,%.ll,$@)
+
+bpf_redir_ing.o: bpf_redir_ing.c $(LIB)
+	@$(ECHO_CC)
+	$(QUIET) ${CLANG} ${CLANG_FLAGS} ${SOCKOPS_OPTIONS} -c $< -o $(patsubst %.o,%.ll,$@)
+	$(QUIET) ${LLC} ${LLC_FLAGS} -o $@ $(patsubst %.o,%.ll,$@)
+
+bpf_redir_ing.o: bpf_redir_parser.c $(LIB)
+	@$(ECHO_CC)
+	$(QUIET) ${CLANG} ${CLANG_FLAGS} ${SOCKOPS_OPTIONS} -c $< -o $(patsubst %.o,%.ll,$@)
+	$(QUIET) ${LLC} ${LLC_FLAGS} -o $@ $(patsubst %.o,%.ll,$@)
+
+bpf_ktls_up.o: bpf_ktls_up.c $(LIB)
+	@$(ECHO_CC)
+	$(QUIET) ${CLANG} ${CLANG_FLAGS} ${SOCKOPS_OPTIONS} -c $< -o $(patsubst %.o,%.ll,$@)
+	$(QUIET) ${LLC} ${LLC_FLAGS} -o $@ $(patsubst %.o,%.ll,$@)
+
+bpf_ktls_down.o: bpf_ktls_down.c $(LIB)
+	@$(ECHO_CC)
+	$(QUIET) ${CLANG} ${CLANG_FLAGS} ${SOCKOPS_OPTIONS} -c $< -o $(patsubst %.o,%.ll,$@)
+	$(QUIET) ${LLC} ${LLC_FLAGS} -o $@ $(patsubst %.o,%.ll,$@)
+
+check:
+	@$(ECHO_CHECK) bpf/*.c
+	$(QUIET) spatch --sp-file ../contrib/coccinelle/null.cocci --dir . --include-headers
+	$(QUIET) sparse -Wsparse-all ${FLAGS} *.c
+	$(QUIET) $(CLANG) ${CLANG_FLAGS} --analyze *.c
+
+preprocess: $(LIB)
+	$(QUIET) $(foreach TARGET,$(shell find ./ -name 'bpf_*.c'), \
+		echo "  GEN   ${TARGET}.generated"; \
+		${CLANG} $(FLAGS) -E -target bpf -c ${TARGET} -o ${TARGET}.generated; )
+
+install:
+	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
 
 clean:
 	@$(ECHO_CLEAN)

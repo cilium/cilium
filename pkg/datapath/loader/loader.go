@@ -143,6 +143,7 @@ func Compile(ctx context.Context, src string, out string) error {
 	dirs := directoryInfo{
 		Library: option.Config.BpfDir,
 		Runtime: option.Config.StateDir,
+		State:   option.Config.StateDir,
 		Output:  option.Config.StateDir,
 	}
 	return compile(ctx, &prog, &dirs, debug)

@@ -52,6 +52,10 @@ var (
 )
 
 const (
+	msgVerdict = "msg_verdict"
+	skbVerdict = "stream_verdict"
+	skbParser  = "stream_parser"
+
 	cSockops = "bpf_sockops.c"
 	oSockops = "bpf_sockops.o"
 	eSockops = "bpf_sockops"
@@ -60,7 +64,25 @@ const (
 	oIPC = "bpf_redir.o"
 	eIPC = "bpf_redir"
 
-	sockMap = "sock_ops_map"
+	cskbIPC = "bpf_redir_ing.c"
+	oskbIPC = "bpf_redir_ing.o"
+	eskbIPC = "bpf_redir_ing"
+
+	cparserIPC = "bpf_redir_parser.c"
+	oparserIPC = "bpf_redir_parser.o"
+	eparserIPC = "bpf_redir_parser"
+
+	cKtlsUp = "bpf_ktls_up.c"
+	oKtlsUp = "bpf_ktls_up.o"
+	eKtlsUp = "bpf_ktls_up"
+
+	cKtlsDown = "bpf_ktls_down.c"
+	oKtlsDown = "bpf_ktls_down.o"
+	eKtlsDown = "bpf_ktls_down"
+
+	sockMap         = "sock_ops_map"
+	sockKtlsUpMap   = "sock_ops_ktls_up"
+	sockKtlsDownMap = "sock_ops_ktls_down"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "sockops")
@@ -135,10 +157,10 @@ func CheckOrMountCgrpFS(mapRoot string) {
 }
 
 // BPF programs and sockmaps working on cgroups
-func bpftoolMapAttach(progID string, mapID string) error {
+func bpftoolMapAttach(progID string, mapID string, attachType string) error {
 	prog := "bpftool"
 
-	args := []string{"prog", "attach", "id", progID, "msg_verdict", "id", mapID}
+	args := []string{"prog", "attach", "id", progID, attachType, "id", mapID}
 	log.WithFields(logrus.Fields{
 		"bpftool": prog,
 		"args":    args,
@@ -154,7 +176,7 @@ func bpftoolMapAttach(progID string, mapID string) error {
 func bpftoolAttach(bpfObject string) error {
 	prog := "bpftool"
 	bpffs := bpf.GetMapRoot() + "/" + bpfObject
-	cgrp := cgroupRoot
+	cgrp := cgroupRoot //+ "/system.slice/docker.service"
 
 	args := []string{"cgroup", "attach", cgrp, "sock_ops", "pinned", bpffs}
 	log.WithFields(logrus.Fields{
@@ -172,7 +194,7 @@ func bpftoolAttach(bpfObject string) error {
 func bpftoolDetach(bpfObject string) error {
 	prog := "bpftool"
 	bpffs := bpf.GetMapRoot() + "/" + bpfObject
-	cgrp := cgroupRoot
+	cgrp := cgroupRoot //+ "/system.slice/docker.service"
 
 	args := []string{"cgroup", "detach", cgrp, "sock_ops", "pinned", bpffs}
 	log.WithFields(logrus.Fields{
@@ -195,6 +217,8 @@ func bpftoolLoad(bpfObject string, bpfFsFile string) error {
 		"cilium_metric",
 		"cilium_events",
 		"sock_ops_map",
+		"sock_ops_ktls_up",
+		"sock_ops_ktls_down",
 		"cilium_ep_to_policy",
 		"cilium_proxy4", "cilium_proxy6",
 		"cilium_lb6_reverse_nat", "cilium_lb4_reverse_nat",
@@ -307,6 +331,7 @@ func bpftoolGetMapID(progName string, mapName string) (int, error) {
 				if err != nil {
 					return 0, err
 				}
+				log.Debugf("mapid(%s): %s", mapName, output)
 
 				if strings.Contains(string(output), mapName) {
 					mapID, _ := strconv.Atoi(id[j])
@@ -354,7 +379,9 @@ func bpfCompileProg(src string, dst string) error {
 	return nil
 }
 
-func bpfLoadMapProg(object string, load string) error {
+func bpfLoadMapProg(object string, load string, sockMap string, attachType string) error {
+	var _mapID int
+
 	sockops := object
 	sockopsObj := option.Config.StateDir + "/" + sockops
 	sockopsLoad := load
@@ -369,17 +396,66 @@ func bpfLoadMapProg(object string, load string) error {
 		return err
 	}
 
-	_mapID, err := bpftoolGetMapID("bpf_sockops", sockMap)
+	// Todo for some reason names are not being attached to
+	// ktls maps so we use this trick to find them for now.
+	if sockMap == "ingress" {
+		_mapID, err = bpftoolGetMapID("bpf_redir_ing", "sockmap")
+	} else if sockMap == "egress" {
+		_mapID, err = bpftoolGetMapID("bpf_redir", "sockmap")
+	} else {
+		_mapID, err = bpftoolGetMapID("bpf_redir", sockMap)
+	}
 	mapID := strconv.Itoa(_mapID)
 	if err != nil {
 		return err
 	}
 
-	err = bpftoolMapAttach(progID, mapID)
+	err = bpftoolMapAttach(progID, mapID, attachType)
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+// KtlsEnable will compile and attach the SK_MSG programs to the
+// sockmap used to redirect to/from a Ktls enabled proxy. After
+// this all kTLS traffic (as identified by policy map) will be sent
+// to the user space proxy for handling before encryption.
+func KtlsEnable() error {
+	err := bpfCompileProg(cKtlsUp, oKtlsUp)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+
+	err = bpfCompileProg(cKtlsDown, oKtlsDown)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+
+	err = bpfLoadMapProg(oKtlsUp, eKtlsUp, "egress", msgVerdict)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+
+	err = bpfLoadMapProg(oKtlsDown, eKtlsDown, "ingress", msgVerdict)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+
+	log.Info("kTLS sockmsg Enabled, bpf_ktls loaded")
+	return nil
+}
+
+// KtlsDisable "unloads" the SK_MSG program associated with the
+// kTLS proxy. This simply deletes the file associated with the program.
+func KtlsDisable() {
+	bpftoolUnload(eKtlsUp)
+	bpftoolUnload(eKtlsDown)
+	log.Info("Ktls sockmsg Disabled.")
 }
 
 // SkmsgEnable will compile and attach the SK_MSG programs to the
@@ -392,11 +468,36 @@ func SkmsgEnable() error {
 		return err
 	}
 
-	err = bpfLoadMapProg(oIPC, eIPC)
+	err = bpfCompileProg(cskbIPC, oskbIPC)
 	if err != nil {
 		log.Error(err)
 		return err
 	}
+
+	err = bpfCompileProg(cparserIPC, oparserIPC)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+
+	err = bpfLoadMapProg(oIPC, eIPC, sockMap, msgVerdict)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+
+	err = bpfLoadMapProg(oskbIPC, eskbIPC, sockMap, skbVerdict)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+
+	err = bpfLoadMapProg(oparserIPC, eparserIPC, sockMap, skbParser)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+
 	log.Info("Sockmsg Enabled, bpf_redir loaded")
 	return nil
 }
@@ -405,6 +506,8 @@ func SkmsgEnable() error {
 // the file associated with the program.
 func SkmsgDisable() {
 	bpftoolUnload(eIPC)
+	bpftoolUnload(eskbIPC)
+	bpftoolUnload(eparserIPC)
 	log.Info("Sockmsg Disabled.")
 }
 
@@ -464,4 +567,15 @@ func SockmapDisable() {
 	bpftoolUnload(eSockops)
 	bpftoolUnload(mapName)
 	log.Info("Sockmap disabled.")
+}
+
+func SockmapKtlsDisable() {
+	downMapName := mapPrefix + "/" + sockKtlsDownMap
+	upMapName := mapPrefix + "/" + sockKtlsUpMap
+	bpftoolUnload(eKtlsUp)
+	bpftoolUnload(eKtlsDown)
+	bpftoolUnload(downMapName)
+	bpftoolUnload(upMapName)
+	log.Info("kTLS disabled.")
+
 }
