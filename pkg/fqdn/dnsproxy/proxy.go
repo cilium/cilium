@@ -272,6 +272,9 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	// This isn't ideal but we are trusting the DNS responses anyway.
 	if !p.CheckAllowed(qname, endpointID) {
 		scopedLog.Debug("Rejecting DNS query from endpoint")
+		refused := new(dns.Msg)
+		refused.SetRcode(r, dns.RcodeRefused)
+		w.WriteMsg(refused)
 		return
 	}
 
