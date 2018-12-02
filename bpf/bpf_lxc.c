@@ -48,6 +48,14 @@
 #include "lib/conntrack.h"
 #include "lib/encap.h"
 
+#define bpf_printk(fmt, ...)					\
+({								\
+	       char ____fmt[] = fmt;				\
+	       trace_printk(____fmt, sizeof(____fmt),	\
+				##__VA_ARGS__);			\
+})
+
+
 #define POLICY_ID ((LXC_ID << 16) | SECLABEL)
 
 #ifdef HAVE_LRU_MAP_TYPE
@@ -415,9 +423,10 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_LXC) int tail_handle_ipv6
 	__u32 dstID = 0;
 	int ret = handle_ipv6(skb, &dstID);
 
-	if (IS_ERR(ret))
+	if (IS_ERR(ret)) {
 		return send_drop_notify(skb, SECLABEL, dstID, 0, 0, ret, TC_ACT_SHOT,
 		                        METRIC_EGRESS);
+	}
 
 	return ret;
 }
@@ -675,9 +684,10 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC) int tail_handle_ipv4
 	__u32 dstID = 0;
 	int ret = handle_ipv4_from_lxc(skb, &dstID);
 
-	if (IS_ERR(ret))
+	if (IS_ERR(ret)) {
 		return send_drop_notify(skb, SECLABEL, dstID, 0, 0, ret, TC_ACT_SHOT,
 		                        METRIC_EGRESS);
+	}
 
 	return ret;
 }
@@ -724,9 +734,10 @@ int handle_ingress(struct __sk_buff *skb)
 		ret = DROP_UNKNOWN_L3;
 	}
 
-	if (IS_ERR(ret))
+	if (IS_ERR(ret)) {
 		return send_drop_notify(skb, SECLABEL, 0, 0, 0, ret, TC_ACT_SHOT,
 					METRIC_EGRESS);
+	}
 	return ret;
 }
 
@@ -1000,9 +1011,10 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_TO_LXC) int tail_ipv4_policy(s
 	int forwarding_reason = 0;
 
 	ret = ipv4_policy(skb, ifindex, src_label, &forwarding_reason);
-	if (IS_ERR(ret))
+	if (IS_ERR(ret)) {
 		return send_drop_notify(skb, src_label, SECLABEL, LXC_ID,
 					ifindex, ret, TC_ACT_SHOT, METRIC_INGRESS);
+	}
 
 	return ret;
 }
@@ -1039,9 +1051,10 @@ __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *sk
 		break;
 	}
 
-	if (IS_ERR(ret))
+	if (IS_ERR(ret)) {
 		return send_drop_notify(skb, src_label, SECLABEL, LXC_ID,
 					ifindex, ret, TC_ACT_SHOT, METRIC_INGRESS);
+	}
 
 	return ret;
 }
@@ -1079,9 +1092,10 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT46) int tail_ipv4_to_ipv6(struct
 {
 	int ret = handle_ipv4_to_ipv6(skb);
 
-	if (IS_ERR(ret))
+	if (IS_ERR(ret)) {
 		return send_drop_notify(skb, SECLABEL, 0, 0, 0, ret, TC_ACT_SHOT,
 				METRIC_INGRESS);
+	}
 
 	cilium_dbg_capture(skb, DBG_CAPTURE_AFTER_V46, skb->ingress_ifindex);
 

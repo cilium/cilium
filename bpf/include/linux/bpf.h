@@ -2141,6 +2141,98 @@ union bpf_attr {
  *		request in the skb.
  *	Return
  *		0 on success, or a negative error in case of failure.
+ *
+ * struct bpf_sock *bpf_sk_lookup_tcp(void *ctx, struct bpf_sock_tuple *tuple, u32 tuple_size, u32 netns, u64 flags)
+ *	Description
+ *		Look for TCP socket matching *tuple*, optionally in a child
+ *		network namespace *netns*. The return value must be checked,
+ *		and if non-NULL, released via **bpf_sk_release**\ ().
+ *
+ *		The *ctx* should point to the context of the program, such as
+ *		the skb or socket (depending on the hook in use). This is used
+ *		to determine the base network namespace for the lookup.
+ *
+ *		*tuple_size* must be one of:
+ *
+ *		**sizeof**\ (*tuple*\ **->ipv4**)
+ *			Look for an IPv4 socket.
+ *		**sizeof**\ (*tuple*\ **->ipv6**)
+ *			Look for an IPv6 socket.
+ *
+ *		If the *netns* is zero, then the socket lookup table in the
+ *		netns associated with the *ctx* will be used. For the TC hooks,
+ *		this in the netns of the device in the skb. For socket hooks,
+ *		this in the netns of the socket. If *netns* is non-zero, then
+ *		it specifies the ID of the netns relative to the netns
+ *		associated with the *ctx*.
+ *
+ *		All values for *flags* are reserved for future usage, and must
+ *		be left at zero.
+ *
+ *		This helper is available only if the kernel was compiled with
+ *		**CONFIG_NET** configuration option.
+ *	Return
+ *		Pointer to *struct bpf_sock*, or NULL in case of failure.
+ *		For sockets with reuseport option, *struct bpf_sock*
+ *		return is from reuse->socks[] using hash of the packet.
+ *
+ * struct bpf_sock *bpf_sk_lookup_udp(void *ctx, struct bpf_sock_tuple *tuple, u32 tuple_size, u32 netns, u64 flags)
+ *	Description
+ *		Look for UDP socket matching *tuple*, optionally in a child
+ *		network namespace *netns*. The return value must be checked,
+ *		and if non-NULL, released via **bpf_sk_release**\ ().
+ *
+ *		The *ctx* should point to the context of the program, such as
+ *		the skb or socket (depending on the hook in use). This is used
+ *		to determine the base network namespace for the lookup.
+ *
+ *		*tuple_size* must be one of:
+ *
+ *		**sizeof**\ (*tuple*\ **->ipv4**)
+ *			Look for an IPv4 socket.
+ *		**sizeof**\ (*tuple*\ **->ipv6**)
+ *			Look for an IPv6 socket.
+ *
+ *		If the *netns* is zero, then the socket lookup table in the
+ *		netns associated with the *ctx* will be used. For the TC hooks,
+ *		this in the netns of the device in the skb. For socket hooks,
+ *		this in the netns of the socket. If *netns* is non-zero, then
+ *		it specifies the ID of the netns relative to the netns
+ *		associated with the *ctx*.
+ *
+ *		All values for *flags* are reserved for future usage, and must
+ *		be left at zero.
+ *
+ *		This helper is available only if the kernel was compiled with
+ *		**CONFIG_NET** configuration option.
+ *	Return
+ *		Pointer to *struct bpf_sock*, or NULL in case of failure.
+ *		For sockets with reuseport option, *struct bpf_sock*
+ *		return is from reuse->socks[] using hash of the packet.
+ *
+ * int bpf_sk_release(struct bpf_sock *sk)
+ *	Description
+ *		Release the reference held by *sock*. *sock* must be a non-NULL
+ *		pointer that was returned from bpf_sk_lookup_xxx\ ().
+ *	Return
+ *		0 on success, or a negative error in case of failure.
+ *
+ * int bpf_msg_push_data(struct sk_buff *skb, u32 start, u32 len, u64 flags)
+ *	Description
+ *		For socket policies, insert *len* bytes into msg at offset
+ *		*start*.
+ *
+ *		If a program of type **BPF_PROG_TYPE_SK_MSG** is run on a
+ *		*msg* it may want to insert metadata or options into the msg.
+ *		This can later be read and used by any of the lower layer BPF
+ *		hooks.
+ *
+ *		This helper may fail if under memory pressure (a malloc
+ *		fails) in these cases BPF programs will get an appropriate
+ *		error and BPF programs will need to handle them.
+ *
+ *	Return
+ *		0 on success, or a negative error in case of failure.
  */
 #define __BPF_FUNC_MAPPER(FN)		\
 	FN(unspec),			\
@@ -2226,7 +2318,15 @@ union bpf_attr {
 	FN(get_current_cgroup_id),	\
 	FN(get_local_storage),		\
 	FN(sk_select_reuseport),	\
-	FN(skb_ancestor_cgroup_id),
+	FN(skb_ancestor_cgroup_id),	\
+	FN(sk_lookup_tcp),		\
+	FN(sk_lookup_udp),		\
+	FN(sk_release),			\
+	FN(map_push_elem),		\
+	FN(map_pop_elem),		\
+	FN(map_peek_elem),		\
+	FN(msg_push_data),		\
+ 	FN(msg_pop_data),
 
 /* integer value in 'imm' field of BPF_CALL instruction selects which helper
  * function eBPF program intends to call
@@ -2441,6 +2541,7 @@ struct sk_msg_md {
 	__u32 local_ip6[4];	/* Stored in network byte order */
 	__u32 remote_port;	/* Stored in network byte order */
 	__u32 local_port;	/* stored in host byte order */
+	__u32 size;		/* Length of sk_msg */
 };
 
 struct sk_reuseport_md {

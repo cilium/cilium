@@ -18,6 +18,8 @@
 
 #include "sockops_config.h"
 
+#define SFD_PORT 47873
+
 /* Structure representing an L7 sock */
 struct sock_key {
 	union {
@@ -43,6 +45,7 @@ struct sock_key {
 	__u16 pad8;
 	__u32 sport;
 	__u32 dport;
+	__u32 size;
 } __attribute__((packed));
 
 struct bpf_elf_map __section_maps SOCK_OPS_MAP = {
@@ -51,6 +54,14 @@ struct bpf_elf_map __section_maps SOCK_OPS_MAP = {
 	.size_value     = sizeof(int),
 	.pinning        = PIN_GLOBAL_NS,
 	.max_elem       = SOCKOPS_MAP_SIZE,
+};
+
+struct bpf_elf_map __section_maps SOCK_OPS_KTLS = {
+	.type           = BPF_MAP_TYPE_SOCKMAP,
+	.size_key       = sizeof(int),
+	.size_value     = sizeof(int),
+	.pinning        = PIN_GLOBAL_NS,
+	.max_elem       = 2,
 };
 
 static inline void sk_extract4_key(struct bpf_sock_ops *ops,
