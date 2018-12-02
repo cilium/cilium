@@ -418,9 +418,11 @@ func getCiliumHostIPsFromFile(nodeConfig string) (ipv4GW, ipv6Router net.IP) {
 				if err != nil {
 					continue
 				}
-				bs := make([]byte, net.IPv4len)
-				byteorder.NetworkToHostPut(bs, uint32(ipv4GWint64))
-				ipv4GW = net.IPv4(bs[0], bs[1], bs[2], bs[3])
+				if ipv4GWint64 != int64(0) {
+					bs := make([]byte, net.IPv4len)
+					byteorder.NetworkToHostPut(bs, uint32(ipv4GWint64))
+					ipv4GW = net.IPv4(bs[0], bs[1], bs[2], bs[3])
+				}
 			case strings.Contains(txt, " ROUTER_IP "):
 				// #define ROUTER_IP 0xf0, 0xd, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xa, 0x0, 0x0, 0x0, 0x0, 0x0, 0x8a, 0xd6
 				defineLine := strings.Split(txt, " ROUTER_IP ")
