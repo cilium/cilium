@@ -67,6 +67,11 @@ func (ep *epInfoCache) InterfaceName() string {
 	return ep.ifName
 }
 
+// MapPath returns tail call map path
+func (ep *epInfoCache) MapPath() string {
+	return ep.endpoint.BPFIpvlanMapPath()
+}
+
 // StringID returns the endpoint's ID in a string.
 func (ep *epInfoCache) StringID() string {
 	return ep.id
@@ -75,6 +80,11 @@ func (ep *epInfoCache) StringID() string {
 // Logger returns the logger for the endpoint that is being cached.
 func (ep *epInfoCache) Logger(subsystem string) *logrus.Entry {
 	return ep.endpoint.Logger(subsystem)
+}
+
+// MustGraft returns whether we need full replacement or grafting of object file.
+func (ep *epInfoCache) MustGraft() bool {
+	return ep.endpoint.HasIpvlanDataPath()
 }
 
 // StateDir returns the directory for the endpoint's (next) state.

@@ -544,4 +544,17 @@ static inline void relax_verifier(void)
 	csum_diff(0, 0, &foo, 1, 0);
 }
 
+static inline int datapath_redirect(int ifindex, uint32_t flags)
+{
+	/* If our datapath has proper redirect support, we make use
+	 * of it here, otherwise we terminate tc processing by letting
+	 * stack handle forwarding e.g. in ipvlan case.
+	 */
+#ifdef ENABLE_HOST_REDIRECT
+	return redirect(ifindex, flags);
+#else
+	return TC_ACT_OK;
+#endif /* ENABLE_HOST_REDIRECT */
+}
+
 #endif

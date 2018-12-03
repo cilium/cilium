@@ -29,6 +29,7 @@
 
 #include "lib/utils.h"
 #include "lib/common.h"
+#include "lib/config.h"
 #include "lib/maps.h"
 #include "lib/arp.h"
 #include "lib/ipv6.h"
@@ -125,7 +126,8 @@ get_ct_map4(struct ipv4_ct_tuple *tuple)
 #if defined ENABLE_IPV4 || defined ENABLE_IPV6
 static inline bool redirect_to_proxy(int verdict, int dir)
 {
-	return verdict > 0 && (dir == CT_NEW || dir == CT_ESTABLISHED);
+	return is_defined(ENABLE_HOST_REDIRECT) && verdict > 0 &&
+	       (dir == CT_NEW || dir == CT_ESTABLISHED);
 }
 #endif
 
@@ -367,7 +369,7 @@ skip_service_lookup:
 	goto pass_to_stack;
 
 to_host:
-	if (1) {
+	if (is_defined(ENABLE_HOST_REDIRECT)) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 
 		cilium_dbg(skb, DBG_TO_HOST, is_policy_skip(skb), 0);
@@ -655,7 +657,7 @@ skip_service_lookup:
 	goto pass_to_stack;
 
 to_host:
-	if (1) {
+	if (is_defined(ENABLE_HOST_REDIRECT)) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 
 		cilium_dbg(skb, DBG_TO_HOST, is_policy_skip(skb), 0);
@@ -702,6 +704,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC) int tail_handle_ipv4
 	return ret;
 }
 
+#ifdef ENABLE_ARP_RESPONDER
 /*
  * ARP responder for ARP requests from container
  * Respond to IPV4_GATEWAY with NODE_MAC
@@ -711,10 +714,12 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_ARP) int tail_handle_arp(struct __s
 	union macaddr mac = NODE_MAC;
 	return arp_respond(skb, &mac);
 }
+#endif /* ENABLE_ARP_RESPONDER */
 #endif /* ENABLE_IPV4 */
 
+/* Attachment/entry point is ingress for veth, egress for ipvlan. */
 __section("from-container")
-int handle_ingress(struct __sk_buff *skb)
+int handle_xgress(struct __sk_buff *skb)
 {
 	int ret;
 
@@ -729,20 +734,19 @@ int handle_ingress(struct __sk_buff *skb)
 		ep_tail_call(skb, CILIUM_CALL_IPV6_FROM_LXC);
 		ret = DROP_MISSED_TAIL_CALL;
 		break;
-#endif
-
+#endif /* ENABLE_IPV6 */
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
 		ep_tail_call(skb, CILIUM_CALL_IPV4_FROM_LXC);
 		ret = DROP_MISSED_TAIL_CALL;
 		break;
-
+#ifdef ENABLE_ARP_RESPONDER
 	case bpf_htons(ETH_P_ARP):
 		ep_tail_call(skb, CILIUM_CALL_ARP);
 		ret = DROP_MISSED_TAIL_CALL;
 		break;
-#endif
-
+#endif /* ENABLE_ARP_RESPONDER */
+#endif /* ENABLE_IPV4 */
 	default:
 		ret = DROP_UNKNOWN_L3;
 	}
@@ -883,7 +887,7 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 
 	ifindex = skb->cb[CB_IFINDEX];
 	if (ifindex)
-		return redirect(ifindex, 0);
+		return datapath_redirect(ifindex, 0);
 
 	return TC_ACT_OK;
 }
@@ -1027,7 +1031,7 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 
 	ifindex = skb->cb[CB_IFINDEX];
 	if (ifindex)
-		return redirect(ifindex, 0);
+		return datapath_redirect(ifindex, 0);
 
 	return TC_ACT_OK;
 }

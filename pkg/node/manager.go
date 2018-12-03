@@ -142,6 +142,11 @@ func (cc *clusterConfiguation) replaceHostRoutes() {
 		log.Debug("Deferring node routes installation, host device not present yet")
 		return
 	}
+	// In ipvlan mode we do not create "cilium_host", so we can skip replacing
+	// of its routes
+	if option.Config.DatapathMode == option.DatapathModeIpvlan {
+		return
+	}
 
 	// We have the option to use per node routes if a control plane is in
 	// place which gives us a list of all nodes and their node CIDRs. This
@@ -250,7 +255,7 @@ func UpdateNode(n *Node, routesTypes RouteType, ownAddr net.IP) {
 		}
 	}
 
-	if (routesTypes & TunnelRoute) != 0 {
+	if option.Config.DatapathMode != option.DatapathModeIpvlan && (routesTypes&TunnelRoute) != 0 {
 		// FIXME if PodCIDR is empty retrieve the CIDR from the KVStore
 		log.WithFields(logrus.Fields{
 			logfields.IPAddr:   n.GetNodeIP(false),
@@ -279,7 +284,7 @@ func UpdateNode(n *Node, routesTypes RouteType, ownAddr net.IP) {
 		}
 	}
 
-	if (routesTypes & DirectRoute) != 0 {
+	if option.Config.DatapathMode != option.DatapathModeIpvlan && (routesTypes&DirectRoute) != 0 {
 		updateIPRoute(oldNode, n, ownAddr)
 	}
 
@@ -294,7 +299,7 @@ func DeleteNode(ni Identity, routesTypes RouteType) {
 	defer clusterConf.Unlock()
 
 	if n, ok := clusterConf.nodes[ni]; ok {
-		if (routesTypes & TunnelRoute) != 0 {
+		if option.Config.DatapathMode != option.DatapathModeIpvlan && (routesTypes&TunnelRoute) != 0 {
 			log.WithFields(logrus.Fields{
 				logfields.IPAddr:   n.GetNodeIP(false),
 				logfields.V4Prefix: n.IPv4AllocCIDR,
@@ -308,7 +313,7 @@ func DeleteNode(ni Identity, routesTypes RouteType) {
 			deleteNodeRoute(n.IPv4AllocCIDR)
 			deleteNodeRoute(n.IPv6AllocCIDR)
 		}
-		if (routesTypes & DirectRoute) != 0 {
+		if option.Config.DatapathMode != option.DatapathModeIpvlan && (routesTypes&DirectRoute) != 0 {
 			deleteIPRoute(n)
 		}
 		delete(clusterConf.nodes, ni)

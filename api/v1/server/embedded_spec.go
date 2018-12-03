@@ -1287,6 +1287,9 @@ func init() {
         "addressing": {
           "$ref": "#/definitions/NodeAddressing"
         },
+        "datapathMode": {
+          "$ref": "#/definitions/DatapathMode"
+        },
         "deviceMTU": {
           "description": "MTU on workload facing devices",
           "type": "integer"
@@ -1294,6 +1297,10 @@ func init() {
         "immutable": {
           "description": "Immutable configuration (read-only)",
           "$ref": "#/definitions/ConfigurationMap"
+        },
+        "ipvlanDeviceIfIndex": {
+          "description": "Workload facing ipvlan master device ifindex. Set if the\ndatapath mode is ipvlan.\n",
+          "type": "integer"
         },
         "k8s-configuration": {
           "type": "string"
@@ -1317,6 +1324,14 @@ func init() {
           "type": "integer"
         }
       }
+    },
+    "DatapathMode": {
+      "description": "Datapath mode",
+      "type": "string",
+      "enum": [
+        "veth",
+        "ipvlan"
+      ]
     },
     "DebugInfo": {
       "description": "groups some debugging related information on the agent",
@@ -1401,6 +1416,10 @@ func init() {
         "container-name": {
           "description": "Name assigned to container",
           "type": "string"
+        },
+        "data-path-map-id": {
+          "description": "ID of datapath tail call map",
+          "type": "integer"
         },
         "docker-endpoint-id": {
           "description": "Docker endpoint ID",

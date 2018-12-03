@@ -237,6 +237,7 @@ ipcache
 iproute
 iptables
 IPv
+ipvlan
 isn
 Istio
 istio

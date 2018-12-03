@@ -52,7 +52,8 @@ func reserveLocalRoutes(ipam *Config) {
 
 	link, err := netlink.LinkByName(defaults.HostDevice)
 	if err != nil || link == nil {
-		log.WithError(err).Fatalf("Unable to find net_device %s", defaults.HostDevice)
+		log.WithError(err).Warnf("Unable to find net_device %s", defaults.HostDevice)
+		return
 	}
 
 	routes, err := netlink.RouteList(nil, netlink.FAMILY_V4)
