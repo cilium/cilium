@@ -153,6 +153,19 @@ const (
 	// K8sNamespaceNameEnv is the name of the K8sNamespace environment
 	// variable
 	K8sNamespaceNameEnv = "CILIUM_K8S_NAMESPACE"
+
+	// EnableIPv4Name is the name of the option to enable IPv4 support
+	EnableIPv4Name    = "enable-ipv4"
+	EnableIPv4NameEnv = "CILIUM_ENABLE_IPV4"
+
+	// LegacyDisableIPv4Name is the name of the legacy option to disable
+	// IPv4 support
+	LegacyDisableIPv4Name    = "disable-ipv4"
+	LegacyDisableIPv4NameEnv = "DISABLE_IPV4"
+
+	// EnableIPv6Name is the name of the option to enable IPv6 support
+	EnableIPv6Name    = "enable-ipv6"
+	EnableIPv6NameEnv = "CILIUM_ENABLE_IPV6"
 )
 
 // Available option for daemonConfig.Tunnel
@@ -210,7 +223,6 @@ type daemonConfig struct {
 	ModePreFilter   string     // XDP mode, values: { native | generic }
 	HostV4Addr      net.IP     // Host v4 address of the snooping device
 	HostV6Addr      net.IP     // Host v6 address of the snooping device
-	IPv4Disabled    bool       // Disable IPv4 allocation
 	LBInterface     string     // Set with name of the interface to loadbalance packets from
 	Workloads       []string   // List of Workloads set by the user to used by cilium.
 
@@ -357,6 +369,12 @@ type daemonConfig struct {
 	// K8sNamespace is the name of the namespace in which Cilium is
 	// deployed in when running in Kubernetes mode
 	K8sNamespace string
+
+	// EnableIPv4 is true when IPv4 is enabled
+	EnableIPv4 bool
+
+	// EnableIPv6 is true when IPv6 is enabled
+	EnableIPv6 bool
 }
 
 var (
@@ -366,6 +384,8 @@ var (
 		IPv6ClusterAllocCIDR:     defaults.IPv6ClusterAllocCIDR,
 		IPv6ClusterAllocCIDRBase: defaults.IPv6ClusterAllocCIDRBase,
 		EnableHostIPRestore:      defaults.EnableHostIPRestore,
+		EnableIPv4:               defaults.EnableIPv4,
+		EnableIPv6:               defaults.EnableIPv6,
 	}
 )
 

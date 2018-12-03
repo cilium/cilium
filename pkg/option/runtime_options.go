@@ -36,7 +36,6 @@ const (
 
 var (
 	ErrNAT46ReqIPv4 = errors.New("NAT46 requires IPv4 to be enabled")
-	IPv4Disabled    = false
 )
 
 var (
@@ -90,7 +89,7 @@ var (
 		Description: "Enable automatic NAT46 translation",
 		Requires:    []string{Conntrack},
 		Verify: func(key string, val string) error {
-			if IPv4Disabled {
+			if !Config.EnableIPv4 {
 				return ErrNAT46ReqIPv4
 			}
 			return nil

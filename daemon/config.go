@@ -19,6 +19,14 @@ import (
 	"github.com/spf13/viper"
 )
 
+func getIPv4Enabled() bool {
+	if viper.GetBool(option.LegacyDisableIPv4Name) {
+		return false
+	}
+
+	return viper.GetBool(option.EnableIPv4Name)
+}
+
 func populateConfig() {
 	option.Config.Tunnel = viper.GetString(option.TunnelName)
 	option.Config.ClusterName = viper.GetString(option.ClusterName)
@@ -39,4 +47,6 @@ func populateConfig() {
 	option.Config.SockopsEnable = viper.GetBool(option.SockopsEnableName)
 	option.Config.PrependIptablesChains = viper.GetBool(option.PrependIptablesChainsName)
 	option.Config.K8sNamespace = viper.GetString(option.K8sNamespaceName)
+	option.Config.EnableIPv4 = getIPv4Enabled()
+	option.Config.EnableIPv6 = viper.GetBool(option.EnableIPv6Name)
 }
