@@ -40,6 +40,8 @@ type endpoint interface {
 	InterfaceName() string
 	Logger(subsystem string) *logrus.Entry
 	StateDir() string
+	MapPath() string
+	MustGraft() bool
 }
 
 // compileDatapath invokes the compiler and linker to create all state files for
@@ -83,13 +85,23 @@ func compileDatapath(ctx context.Context, ep endpoint, dirs *directoryInfo, debu
 func reloadDatapath(ctx context.Context, ep endpoint, dirs *directoryInfo) error {
 	// Replace the current program
 	objPath := path.Join(dirs.Output, endpointObj)
-	if err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint); err != nil {
-		scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
-			logfields.Path: objPath,
-			logfields.Veth: ep.InterfaceName(),
-		})
-		scopedLog.WithError(err).Warn("JoinEP: Failed to load program")
-		return err
+	if ep.MustGraft() {
+		if err := graftDatapath(ctx, ep.MapPath(), objPath, symbolFromEndpoint); err != nil {
+			scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
+				logfields.Path: objPath,
+			})
+			scopedLog.WithError(err).Warn("JoinEP: Failed to load program")
+			return err
+		}
+	} else {
+		if err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint); err != nil {
+			scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
+				logfields.Path: objPath,
+				logfields.Veth: ep.InterfaceName(),
+			})
+			scopedLog.WithError(err).Warn("JoinEP: Failed to load program")
+			return err
+		}
 	}
 
 	return nil

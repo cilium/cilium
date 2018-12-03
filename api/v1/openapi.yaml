@@ -831,6 +831,9 @@ definitions:
       k8s-namespace:
         description: Kubernetes namespace name
         type: string
+      data-path-map-id:
+        description: ID of datapath tail call map
+        type: integer
       policy-enabled:
         description: Whether policy enforcement is enabled or not
         type: boolean
@@ -1410,6 +1413,19 @@ definitions:
       routeMTU:
         description: MTU for network facing routes
         type: integer
+      datapathMode:
+        "$ref": "#/definitions/DatapathMode"
+      ipvlanDeviceIfIndex:
+        description: |
+          Workload facing ipvlan master device ifindex. Set if the
+          datapath mode is ipvlan.
+        type: integer
+  DatapathMode:
+    description: Datapath mode
+    type: string
+    enum:
+      - veth
+      - ipvlan
   EndpointConfigurationSpec:
     description: An endpoint's configuration
     type: object
