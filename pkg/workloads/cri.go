@@ -277,7 +277,7 @@ func (c *criClient) handleCreateWorkload(id string, retry bool) {
 		// attributes with new attributes set on endpoint
 		endpointmanager.UpdateReferences(ep)
 
-		ep.UpdateLabels(Owner(), identityLabels, informationLabels)
+		ep.UpdateLabels(Owner(), identityLabels, informationLabels, false)
 		return
 	}
 
