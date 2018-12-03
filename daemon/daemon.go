@@ -479,7 +479,11 @@ func (d *Daemon) compileBase() error {
 			}
 			mode = "lb"
 		} else {
-			mode = "direct"
+			if option.Config.DatapathMode == option.DatapathModeIpvlan {
+				mode = "ipvlan"
+			} else {
+				mode = "direct"
+			}
 		}
 
 		args[initArgMode] = mode
@@ -1256,9 +1260,11 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 			Type:    option.Config.KVStore,
 			Options: option.Config.KVStoreOpt,
 		},
-		Realized:  spec,
-		DeviceMTU: int64(d.mtuConfig.GetDeviceMTU()),
-		RouteMTU:  int64(d.mtuConfig.GetRouteMTU()),
+		Realized:            spec,
+		DeviceMTU:           int64(d.mtuConfig.GetDeviceMTU()),
+		RouteMTU:            int64(d.mtuConfig.GetRouteMTU()),
+		DatapathMode:        models.DatapathMode(option.Config.DatapathMode),
+		IpvlanDeviceIfIndex: int64(option.Config.IpvlanDeviceIfIndex),
 	}
 
 	cfg := &models.DaemonConfiguration{

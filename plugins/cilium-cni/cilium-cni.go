@@ -27,7 +27,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/client"
-	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/route"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint/connector"
@@ -35,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/uuid"
 	"github.com/cilium/cilium/pkg/version"
 
@@ -45,6 +45,8 @@ import (
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
+
+	"golang.org/x/sys/unix"
 )
 
 var (
@@ -180,6 +182,12 @@ func addIPConfigToLink(ip addressing.CiliumIP, routes []route.Route, link netlin
 		return fmt.Errorf("failed to add addr to %q: %v", ifName, err)
 	}
 
+	// ipvlan needs to be UP before we add routes, and can only be UPed after
+	// we added an IP address.
+	if err := netlink.LinkSetUp(link); err != nil {
+		return fmt.Errorf("failed to set %q UP: %v", ifName, err)
+	}
+
 	// Sort provided routes to make sure we apply any more specific
 	// routes first which may be used as nexthops in wider routes
 	sort.Sort(route.ByMask(routes))
@@ -230,6 +238,10 @@ func configureIface(ipam *models.IPAMResponse, ifName string, state *CmdState) (
 		if err := addIPConfigToLink(state.IP6, state.IP6routes, l, ifName); err != nil {
 			return "", fmt.Errorf("error configuring IPv6: %s", err.Error())
 		}
+	}
+
+	if err := netlink.LinkSetUp(l); err != nil {
+		return "", fmt.Errorf("failed to set %q UP: %v", ifName, err)
 	}
 
 	if l.Attrs() != nil {
@@ -356,31 +368,57 @@ func cmdAdd(args *skel.CmdArgs) error {
 		K8sNamespace: string(cniArgs.K8S_POD_NAMESPACE),
 	}
 
-	veth, peer, tmpIfName, err := connector.SetupVeth(ep.ContainerID, int(conf.DeviceMTU), ep)
-	if err != nil {
-		return err
-	}
-	defer func() {
+	switch conf.DatapathMode {
+	case option.DatapathModeVeth:
+		veth, peer, tmpIfName, err := connector.SetupVeth(ep.ContainerID, int(conf.DeviceMTU), ep)
 		if err != nil {
-			if err = netlink.LinkDel(veth); err != nil {
-				logger.WithError(err).WithField(logfields.Veth, veth.Name).Warn("failed to clean up and delete veth")
+			return err
+		}
+		defer func() {
+			if err != nil {
+				if err = netlink.LinkDel(veth); err != nil {
+					logger.WithError(err).WithField(logfields.Veth, veth.Name).Warn("failed to clean up and delete veth")
+				}
 			}
+		}()
+
+		if err = netlink.LinkSetNsFd(*peer, int(netNs.Fd())); err != nil {
+			return fmt.Errorf("unable to move veth pair '%v' to netns: %s", peer, err)
 		}
-	}()
 
-	if err = netlink.LinkSetNsFd(*peer, int(netNs.Fd())); err != nil {
-		return fmt.Errorf("unable to move veth pair '%v' to netns: %s", peer, err)
-	}
-
-	err = netNs.Do(func(_ ns.NetNS) error {
-		err := link.Rename(tmpIfName, args.IfName)
+		_, _, err = connector.SetupVethRemoteNs(netNs, tmpIfName, args.IfName)
 		if err != nil {
-			return fmt.Errorf("failed to rename %q to %q: %s", tmpIfName, args.IfName, err)
+			return err
 		}
-		return nil
-	})
-	if err != nil {
-		return err
+	case option.DatapathModeIpvlan:
+		index := int(conf.IpvlanDeviceIfIndex)
+
+		ipvlan, link, tmpIfName, err := connector.SetupIpvlan(ep.ContainerID, int(conf.DeviceMTU), index, ep)
+		if err != nil {
+			return err
+		}
+
+		defer func() {
+			if err != nil {
+				if err = netlink.LinkDel(ipvlan); err != nil {
+					logger.WithError(err).WithField(logfields.Ipvlan, ipvlan.Name).Warn("failed to clean up and delete ipvlan")
+				}
+			}
+		}()
+
+		if err = netlink.LinkSetNsFd(*link, int(netNs.Fd())); err != nil {
+			return fmt.Errorf("unable to move ipvlan slave '%v' to netns: %s", link, err)
+		}
+
+		mapFD, mapID, err := connector.SetupIpvlanRemoteNs(netNs, tmpIfName, args.IfName)
+		if err != nil {
+			return err
+		}
+
+		ep.DataPathMapID = int64(mapID)
+		defer func() {
+			unix.Close(mapFD)
+		}()
 	}
 
 	ipam, err := c.IPAMAllocate("")

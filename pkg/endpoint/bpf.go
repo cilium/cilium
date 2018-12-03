@@ -88,6 +88,16 @@ func (e *Endpoint) BPFConfigMapName() string {
 	return bpfconfig.MapNamePrefix + strconv.Itoa(int(e.ID))
 }
 
+// BPFIpvlanMapPath returns the path to the ipvlan tail call map of an endpoint.
+func (e *Endpoint) BPFIpvlanMapPath() string {
+	return bpf.MapPath(e.BPFIpvlanMapName())
+}
+
+// BPFIpvlanMapName returns the name of the ipvlan tail call map of an endpoint.
+func (e *Endpoint) BPFIpvlanMapName() string {
+	return IpvlanMapName + strconv.Itoa(int(e.ID))
+}
+
 type getBPFDataCallback func() (s6, s4 []int)
 
 // WriteIPCachePrefixes fetches the set of prefixes that should be used from
@@ -180,6 +190,12 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	if e.IPv4 != nil {
 		fmt.Fprintf(fw, "#define LXC_IPV4 %#x\n", byteorder.HostSliceToNetwork(e.IPv4, reflect.Uint32))
 	}
+
+	if !e.HasIpvlanDataPath() {
+		fmt.Fprintf(fw, "#define ENABLE_ARP_RESPONDER 1\n")
+		fmt.Fprintf(fw, "#define ENABLE_HOST_REDIRECT 1\n")
+	}
+
 	fw.WriteString(common.FmtDefineAddress("NODE_MAC", e.NodeMAC))
 	fmt.Fprintf(fw, "#define LXC_ID %#x\n", e.ID)
 	fmt.Fprintf(fw, "#define LXC_ID_NB %#x\n", byteorder.HostToNetwork(e.ID))
@@ -887,6 +903,7 @@ func (e *Endpoint) DeleteMapsLocked() []error {
 		"config": e.BPFConfigMapPath(),
 		"policy": e.PolicyMapPathLocked(),
 		"calls":  e.CallsMapPathLocked(),
+		"egress": e.BPFIpvlanMapPath(),
 	}
 	for name, path := range maps {
 		if err := os.RemoveAll(path); err != nil {

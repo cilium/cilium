@@ -36,6 +36,7 @@ const (
 
 var (
 	ErrNAT46ReqIPv4 = errors.New("NAT46 requires IPv4 to be enabled")
+	ErrNAT46ReqVeth = errors.New("NAT46 not supported in ipvlan datapath mode")
 )
 
 var (
@@ -91,6 +92,9 @@ var (
 		Verify: func(key string, val string) error {
 			if !Config.EnableIPv4 {
 				return ErrNAT46ReqIPv4
+			}
+			if Config.DatapathMode == DatapathModeIpvlan {
+				return ErrNAT46ReqVeth
 			}
 			return nil
 		},

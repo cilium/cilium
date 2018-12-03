@@ -134,4 +134,7 @@ const (
 	// ClientConnectTimeout is the time the cilium-agent client is
 	// (optionally) waiting before returning an error.
 	ClientConnectTimeout = 30 * time.Second
+
+	// DatapathMode is the default value for the datapath mode.
+	DatapathMode = "veth"
 )
