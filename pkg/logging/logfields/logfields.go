@@ -147,6 +147,9 @@ const (
 	// Interface is an interface id/name on the system
 	Interface = "interface"
 
+	// Ipvlan is a ipvlan object or ID
+	Ipvlan = "ipvlan"
+
 	// Veth is a veth object or ID
 	Veth = "veth"
 
@@ -182,6 +185,15 @@ const (
 
 	// XDPDevice is the device name
 	XDPDevice = "xdpDevice"
+
+	// Device is the device name
+	Device = "device"
+
+	// DatapathMode is the datapath mode name
+	DatapathMode = "datapathMode"
+
+	// Tunnel is the tunnel name
+	Tunnel = "tunnel"
 
 	// EndpointLabelSelector is a selector for Endpoints by label
 	EndpointLabelSelector = "EndpointLabelSelector"

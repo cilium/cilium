@@ -97,6 +97,14 @@ func (ep *testEP) StateDir() string {
 	return "test_loader"
 }
 
+func (ep *testEP) MapPath() string {
+	return "map_path"
+}
+
+func (ep *testEP) MustGraft() bool {
+	return false
+}
+
 func prepareEnv(ep *testEP) (func() error, error) {
 	link := netlink.Dummy{
 		LinkAttrs: netlink.LinkAttrs{

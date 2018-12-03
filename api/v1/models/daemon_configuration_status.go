@@ -23,11 +23,19 @@ type DaemonConfigurationStatus struct {
 	// addressing
 	Addressing *NodeAddressing `json:"addressing,omitempty"`
 
+	// datapath mode
+	DatapathMode DatapathMode `json:"datapathMode,omitempty"`
+
 	// MTU on workload facing devices
 	DeviceMTU int64 `json:"deviceMTU,omitempty"`
 
 	// Immutable configuration (read-only)
 	Immutable ConfigurationMap `json:"immutable,omitempty"`
+
+	// Workload facing ipvlan master device ifindex. Set if the
+	// datapath mode is ipvlan.
+	//
+	IpvlanDeviceIfIndex int64 `json:"ipvlanDeviceIfIndex,omitempty"`
 
 	// k8s configuration
 	K8sConfiguration string `json:"k8s-configuration,omitempty"`
@@ -50,9 +58,13 @@ type DaemonConfigurationStatus struct {
 
 /* polymorph DaemonConfigurationStatus addressing false */
 
+/* polymorph DaemonConfigurationStatus datapathMode false */
+
 /* polymorph DaemonConfigurationStatus deviceMTU false */
 
 /* polymorph DaemonConfigurationStatus immutable false */
+
+/* polymorph DaemonConfigurationStatus ipvlanDeviceIfIndex false */
 
 /* polymorph DaemonConfigurationStatus k8s-configuration false */
 
@@ -71,6 +83,11 @@ func (m *DaemonConfigurationStatus) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateAddressing(formats); err != nil {
+		// prop
+		res = append(res, err)
+	}
+
+	if err := m.validateDatapathMode(formats); err != nil {
 		// prop
 		res = append(res, err)
 	}
@@ -110,6 +127,22 @@ func (m *DaemonConfigurationStatus) validateAddressing(formats strfmt.Registry) 
 			}
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (m *DaemonConfigurationStatus) validateDatapathMode(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.DatapathMode) { // not required
+		return nil
+	}
+
+	if err := m.DatapathMode.Validate(formats); err != nil {
+		if ve, ok := err.(*errors.Validation); ok {
+			return ve.ValidateName("datapathMode")
+		}
+		return err
 	}
 
 	return nil

@@ -248,6 +248,12 @@ const (
 	// MTUName is the name of the MTU option
 	MTUName = "mtu"
 
+	// DatapathMode is the name of the DatapathMode option
+	DatapathMode = "datapath-mode"
+
+	// IpvlanMasterDevice is the name of the IpvlanMasterDevice option
+	IpvlanMasterDevice = "ipvlan-master-device"
+
 	// TunnelName is the name of the Tunnel option
 	TunnelName = "tunnel"
 
@@ -359,6 +365,16 @@ var (
 	FQDNRejectOptions = []string{FQDNProxyDenyWithNameError, FQDNProxyDenyWithRefused}
 )
 
+// Available option for DaemonConfig.DatapathMode
+const (
+	// DatapathModeVeth specifies veth datapath mode (i.e. containers are
+	// attached to a network via veth pairs)
+	DatapathModeVeth = "veth"
+
+	// DatapathModeIpvlan specifies ipvlan datapath mode
+	DatapathModeIpvlan = "ipvlan"
+)
+
 // Available option for DaemonConfig.Tunnel
 const (
 	// TunnelVXLAN specifies VXLAN encapsulation
@@ -439,19 +455,21 @@ func LogRegisteredOptions(entry *logrus.Entry) {
 
 // DaemonConfig is the configuration used by Daemon.
 type DaemonConfig struct {
-	BpfDir          string     // BPF template files directory
-	LibDir          string     // Cilium library files directory
-	RunDir          string     // Cilium runtime directory
-	NAT46Prefix     *net.IPNet // NAT46 IPv6 Prefix
-	Device          string     // Receive device
-	DevicePreFilter string     // XDP device
-	ModePreFilter   string     // XDP mode, values: { native | generic }
-	HostV4Addr      net.IP     // Host v4 address of the snooping device
-	HostV6Addr      net.IP     // Host v6 address of the snooping device
-	LBInterface     string     // Set with name of the interface to loadbalance packets from
-	Workloads       []string   // List of Workloads set by the user to used by cilium.
+	BpfDir              string     // BPF template files directory
+	LibDir              string     // Cilium library files directory
+	RunDir              string     // Cilium runtime directory
+	NAT46Prefix         *net.IPNet // NAT46 IPv6 Prefix
+	Device              string     // Receive device
+	DevicePreFilter     string     // XDP device
+	ModePreFilter       string     // XDP mode, values: { native | generic }
+	HostV4Addr          net.IP     // Host v4 address of the snooping device
+	HostV6Addr          net.IP     // Host v6 address of the snooping device
+	LBInterface         string     // Set with name of the interface to loadbalance packets from
+	Workloads           []string   // List of Workloads set by the user to used by cilium.
+	IpvlanDeviceIfIndex int        // ipvlan master device interface index
 
-	Tunnel string // Tunnel mode
+	DatapathMode string // Datapath mode
+	Tunnel       string // Tunnel mode
 
 	DryMode bool // Do not create BPF maps, devices, ..
 
@@ -767,7 +785,7 @@ func (c *DaemonConfig) Validate() error {
 	}
 
 	switch c.Tunnel {
-	case TunnelVXLAN, TunnelGeneve:
+	case TunnelVXLAN, TunnelGeneve, "":
 	case TunnelDisabled:
 		if c.UseSingleClusterRoute {
 			return fmt.Errorf("option --%s cannot be used in combination with --%s=%s",
@@ -818,6 +836,7 @@ func (c *DaemonConfig) Populate() {
 	c.ClusterName = viper.GetString(ClusterName)
 	c.ClusterMeshConfig = viper.GetString(ClusterMeshConfigName)
 	c.ConntrackGarbageCollectorInterval = viper.GetInt(ConntrackGarbageCollectorInterval)
+	c.DatapathMode = viper.GetString(DatapathMode)
 	c.Debug = viper.GetBool(DebugArg)
 	c.DebugVerbose = viper.GetStringSlice(DebugVerbose)
 	c.Device = viper.GetString(Device)
