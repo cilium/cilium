@@ -29,6 +29,7 @@
 
 #include "lib/utils.h"
 #include "lib/common.h"
+#include "lib/config.h"
 #include "lib/maps.h"
 #include "lib/arp.h"
 #include "lib/ipv6.h"
@@ -113,7 +114,8 @@ get_ct_map4(struct ipv4_ct_tuple *tuple)
 #if defined ENABLE_IPV4 || defined ENABLE_IPV6
 static inline bool redirect_to_proxy(int verdict, int dir)
 {
-	return verdict > 0 && (dir == CT_NEW || dir == CT_ESTABLISHED);
+	return !is_defined(DATAPATH_IPVLAN) && verdict > 0 &&
+	       (dir == CT_NEW || dir == CT_ESTABLISHED);
 }
 #endif
 
@@ -164,7 +166,7 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	 * entry for destination endpoints where we can't encode the state in the
 	 * address.
 	 */
-	if ((svc = lb6_lookup_service(skb, &key)) != NULL) {
+	if (!is_defined(DATAPATH_IPVLAN) && (svc = lb6_lookup_service(skb, &key)) != NULL) {
 		ret = lb6_local(get_ct_map6(tuple), skb, l3_off, l4_off,
 				&csum_off, &key, tuple, svc, &ct_state_new);
 		if (IS_ERR(ret))
@@ -316,7 +318,7 @@ skip_service_lookup:
 	}
 
 	/* The packet goes to a peer not managed by this agent instance */
-#ifdef ENCAP_IFINDEX
+#if defined(ENCAP_IFINDEX) && !defined(DATAPATH_IPVLAN)
 	if (tunnel_endpoint) {
 		return encap_and_redirect_with_nodeid(skb, tunnel_endpoint,
 						      SECLABEL, monitor);
@@ -346,7 +348,7 @@ skip_service_lookup:
 	}
 #endif
 
-#ifdef ENABLE_NAT46
+#if defined(ENABLE_NAT46) && !defined(DATAPATH_IPVLAN)
 	if (unlikely(ipv6_addr_is_mapped(daddr))) {
 		ep_tail_call(skb, CILIUM_CALL_NAT64);
 		return DROP_MISSED_TAIL_CALL;
@@ -355,7 +357,7 @@ skip_service_lookup:
 	goto pass_to_stack;
 
 to_host:
-	if (1) {
+	if (!is_defined(DATAPATH_IPVLAN)) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 
 		cilium_dbg(skb, DBG_TO_HOST, is_policy_skip(skb), 0);
@@ -472,7 +474,7 @@ static inline int handle_ipv4_from_lxc(struct __sk_buff *skb, __u32 *dstID)
 	}
 
 	ct_state_new.orig_dport = key.dport;
-	if ((svc = lb4_lookup_service(skb, &key)) != NULL) {
+	if (!is_defined(DATAPATH_IPVLAN) && (svc = lb4_lookup_service(skb, &key)) != NULL) {
 		ret = lb4_local(get_ct_map4(&tuple), skb, l3_off, l4_off, &csum_off,
 				&key, &tuple, svc, &ct_state_new, ip4->saddr);
 		if (IS_ERR(ret))
@@ -614,7 +616,7 @@ skip_service_lookup:
 		return ipv4_local_delivery(skb, l3_off, l4_off, SECLABEL, ip4, ep, METRIC_EGRESS);
 	}
 
-#ifdef ENCAP_IFINDEX
+#if defined(ENCAP_IFINDEX) && !defined(DATAPATH_IPVLAN)
 	if (tunnel_endpoint) {
 		return encap_and_redirect_with_nodeid(skb, tunnel_endpoint,
 						      SECLABEL, monitor);
@@ -643,7 +645,7 @@ skip_service_lookup:
 	goto pass_to_stack;
 
 to_host:
-	if (1) {
+	if (!is_defined(DATAPATH_IPVLAN)) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 
 		cilium_dbg(skb, DBG_TO_HOST, is_policy_skip(skb), 0);
@@ -690,6 +692,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC) int tail_handle_ipv4
 	return ret;
 }
 
+#if !defined(DATAPATH_IPVLAN)
 /*
  * ARP responder for ARP requests from container
  * Respond to IPV4_GATEWAY with NODE_MAC
@@ -699,10 +702,12 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_ARP) int tail_handle_arp(struct __s
 	union macaddr mac = NODE_MAC;
 	return arp_respond(skb, &mac);
 }
+#endif /* !defined(DATAPATH_IPVLAN) */
 #endif /* ENABLE_IPV4 */
 
+/* Attachment/entry point is ingress for veth, egress for ipvlan. */
 __section("from-container")
-int handle_ingress(struct __sk_buff *skb)
+int handle_xgress(struct __sk_buff *skb)
 {
 	int ret;
 
@@ -718,19 +723,18 @@ int handle_ingress(struct __sk_buff *skb)
 		ret = DROP_MISSED_TAIL_CALL;
 		break;
 #endif
-
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
 		ep_tail_call(skb, CILIUM_CALL_IPV4_FROM_LXC);
 		ret = DROP_MISSED_TAIL_CALL;
 		break;
-
+#if !defined(DATAPATH_IPVLAN)
 	case bpf_htons(ETH_P_ARP):
 		ep_tail_call(skb, CILIUM_CALL_ARP);
 		ret = DROP_MISSED_TAIL_CALL;
 		break;
+#endif /* !defined(DATAPATH_IPVLAN) */
 #endif
-
 	default:
 		ret = DROP_UNKNOWN_L3;
 	}
@@ -871,7 +875,7 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 
 	ifindex = skb->cb[CB_IFINDEX];
 	if (ifindex)
-		return redirect(ifindex, 0);
+		return datapath_redirect(ifindex, 0);
 
 	return TC_ACT_OK;
 }
@@ -1015,7 +1019,7 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 
 	ifindex = skb->cb[CB_IFINDEX];
 	if (ifindex)
-		return redirect(ifindex, 0);
+		return datapath_redirect(ifindex, 0);
 
 	return TC_ACT_OK;
 }
@@ -1077,7 +1081,7 @@ __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *sk
 	return ret;
 }
 
-#ifdef ENABLE_NAT46
+#if defined(ENABLE_NAT46) && !defined(DATAPATH_IPVLAN)
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT64) int tail_ipv6_to_ipv4(struct __sk_buff *skb)
 {
 	int ret = ipv6_to_ipv4(skb, 14, LXC_IPV4);
@@ -1119,5 +1123,6 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT46) int tail_ipv4_to_ipv6(struct
 	ep_tail_call(skb, CILIUM_CALL_IPV6_TO_LXC);
 	return DROP_MISSED_TAIL_CALL;
 }
-#endif
+#endif /* defined(ENABLE_NAT46) && !defined(DATAPATH_IPVLAN) */
+
 BPF_LICENSE("GPL");

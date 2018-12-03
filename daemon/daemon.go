@@ -477,7 +477,11 @@ func (d *Daemon) compileBase() error {
 			}
 			mode = "lb"
 		} else {
-			mode = "direct"
+			if option.Config.DatapathMode == "ipvlan" {
+				mode = "ipvlan"
+			} else {
+				mode = "direct"
+			}
 		}
 
 		args[initArgMode] = mode

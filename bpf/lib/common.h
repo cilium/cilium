@@ -538,4 +538,13 @@ static inline void relax_verifier(void)
 	csum_diff(0, 0, &foo, 1, 0);
 }
 
+static inline int datapath_redirect(int ifindex, uint32_t flags)
+{
+#ifdef DATAPATH_IPVLAN
+	return TC_ACT_OK;
+#else
+	return redirect(ifindex, flags);
+#endif
+}
+
 #endif

@@ -74,6 +74,7 @@ cilium-agent
       --log-opt map                                 Log driver options for cilium (default map[])
       --log-system-load                             Enable periodic logging of system load
       --masquerade                                  Masquerade packets from endpoints leaving the host (default true)
+      --master-device uint                          Ifindex of master device for ipvlan
       --monitor-aggregation string                  Level of monitor aggregation for traces from the datapath (default "None")
       --monitor-queue-size int                      Size of the event queue when reading monitor events (default 32768)
       --mtu int                                     Overwrite auto-detected MTU of underlying network
