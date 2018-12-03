@@ -81,7 +81,6 @@ var (
 )
 
 const (
-	argDebugVerbose = "debug-verbose"
 	// list of supported verbose debug groups
 	argDebugVerboseFlow    = "flow"
 	argDebugVerboseKvstore = "kvstore"
@@ -339,191 +338,354 @@ func checkMinRequirements() {
 func init() {
 	cobra.OnInitialize(initConfig)
 	flags := RootCmd.Flags()
+
 	flags.StringVar(&option.Config.AccessLog,
-		"access-log", "", "Path to access log of supported L7 requests observed")
-	viper.BindEnv("access-log", "CILIUM_ACCESS_LOG")
+		option.AccessLog, "", "Path to access log of supported L7 requests observed")
+	option.BindEnv(option.AccessLog)
+
 	flags.StringSliceVar(&option.Config.AgentLabels,
-		"agent-labels", []string{}, "Additional labels to identify this agent")
-	viper.BindEnv("access-labels", "CILIUM_ACCESS_LABELS")
+		option.AgentLabels, []string{}, "Additional labels to identify this agent")
+	option.BindEnv(option.AgentLabels)
+
 	flags.StringVar(&option.Config.AllowLocalhost,
-		"allow-localhost", option.AllowLocalhostAuto, "Policy when to allow local stack to reach local endpoints { auto | always | policy } ")
+		option.AllowLocalhost, option.AllowLocalhostAuto, "Policy when to allow local stack to reach local endpoints { auto | always | policy }")
+	option.BindEnv(option.AllowLocalhost)
+
 	flags.BoolVar(&option.Config.AutoIPv6NodeRoutes,
 		option.AutoIPv6NodeRoutesName, false, "Automatically adds IPv6 L3 routes to reach other nodes for non-overlay mode (--device) (BETA)")
+	option.BindEnv(option.AutoIPv6NodeRoutesName)
+
 	flags.StringVar(&bpfRoot,
-		"bpf-root", "", "Path to BPF filesystem")
+		option.BPFRoot, "", "Path to BPF filesystem")
+	option.BindEnv(option.BPFRoot)
+
 	flags.StringVar(&cgroupRoot,
-		"cgroup-root", "", "Path to Cgroup2 filesystem")
+		option.CGroupRoot, "", "Path to Cgroup2 filesystem")
+	option.BindEnv(option.CGroupRoot)
+
 	flags.Bool(option.BPFCompileDebugName, false, "Enable debugging of the BPF compilation process")
+	option.BindEnv(option.BPFCompileDebugName)
+
 	flags.Bool(option.SockopsEnableName, defaults.SockopsEnable, "Enable sockops when kernel supported")
+	option.BindEnv(option.SockopsEnableName)
+
 	flags.Int(option.ClusterIDName, 0, "Unique identifier of the cluster")
-	viper.BindEnv(option.ClusterIDName, option.ClusterIDEnv)
+	option.BindEnv(option.ClusterIDName)
+
 	flags.String(option.ClusterName, defaults.ClusterName, "Name of the cluster")
-	viper.BindEnv(option.ClusterName, option.ClusterNameEnv)
+	option.BindEnv(option.ClusterName)
+
 	flags.String(option.ClusterMeshConfigName, "", "Path to the ClusterMesh configuration directory")
-	viper.BindEnv(option.ClusterMeshConfigName, option.ClusterMeshConfigNameEnv)
+	option.BindEnv(option.ClusterMeshConfigName)
+
 	flags.StringVar(&cfgFile,
-		"config", "", `Configuration file (default "$HOME/ciliumd.yaml")`)
-	flags.Uint("conntrack-garbage-collector-interval", 60, "Garbage collection interval for the connection tracking table (in seconds)")
+		option.ConfigFile, "", `Configuration file (default "$HOME/ciliumd.yaml")`)
+	option.BindEnv(option.ConfigFile)
+
+	flags.Uint(option.ConntrackGarbageCollectorInterval, 60, "Garbage collection interval for the connection tracking table (in seconds)")
+	option.BindEnv(option.ConntrackGarbageCollectorInterval)
+
 	flags.StringSliceVar(&option.Config.Workloads,
-		"container-runtime", []string{"auto"}, `Sets the container runtime(s) used by Cilium { containerd | crio | docker | none | auto } ( "auto" uses the container runtime found in the order: "docker", "containerd", "crio" )`)
+		option.ContainerRuntime, []string{"auto"}, `Sets the container runtime(s) used by Cilium { containerd | crio | docker | none | auto } ( "auto" uses the container runtime found in the order: "docker", "containerd", "crio" )`)
+	option.BindEnv(option.ContainerRuntime)
+
 	flags.Var(option.NewNamedMapOptions("container-runtime-endpoints", &containerRuntimesOpts, nil),
-		"container-runtime-endpoint", `Container runtime(s) endpoint(s). (default: `+workloads.GetDefaultEPOptsStringWithPrefix("--container-runtime-endpoint=")+`)`)
+		option.ContainerRuntimeEndpoint, `Container runtime(s) endpoint(s). (default: `+workloads.GetDefaultEPOptsStringWithPrefix("--container-runtime-endpoint=")+`)`)
+	option.BindEnv(option.ContainerRuntimeEndpoint)
+
 	flags.BoolP(
-		"debug", "D", false, "Enable debugging mode")
-	flags.StringSliceVar(&debugVerboseFlags, argDebugVerbose, []string{}, "List of enabled verbose debug groups")
+		option.DebugArg, "D", false, "Enable debugging mode")
+	option.BindEnv(option.DebugArg)
+
+	flags.StringSliceVar(&debugVerboseFlags, option.DebugVerbose, []string{}, "List of enabled verbose debug groups")
+	option.BindEnv(option.DebugVerbose)
+
 	flags.StringVarP(&option.Config.Device,
-		"device", "d", "undefined", "Device facing cluster/external network for direct L3 (non-overlay mode)")
+		option.Device, "d", "undefined", "Device facing cluster/external network for direct L3 (non-overlay mode)")
+	option.BindEnv(option.Device)
+
 	flags.BoolVar(&disableConntrack,
-		"disable-conntrack", false, "Disable connection tracking")
+		option.DisableConntrack, false, "Disable connection tracking")
+	option.BindEnv(option.DisableConntrack)
+
 	flags.Bool(option.LegacyDisableIPv4Name, false, "Disable IPv4 mode")
-	viper.BindEnv(option.LegacyDisableIPv4Name, option.LegacyDisableIPv4NameEnv)
 	flags.MarkHidden(option.LegacyDisableIPv4Name)
+	option.BindEnv(option.LegacyDisableIPv4Name)
+
 	flags.Bool(option.EnableIPv4Name, true, "Enable IPv4 support")
-	viper.BindEnv(option.EnableIPv4Name, option.EnableIPv4NameEnv)
+	option.BindEnv(option.EnableIPv4Name)
+
 	flags.Bool(option.EnableIPv6Name, true, "Enable IPv6 support")
-	viper.BindEnv(option.EnableIPv6Name, option.EnableIPv6NameEnv)
+	option.BindEnv(option.EnableIPv6Name)
+
 	flags.BoolVar(&option.Config.DisableCiliumEndpointCRD,
 		option.DisableCiliumEndpointCRDName, false, "Disable use of CiliumEndpoint CRD")
-	flags.Bool("disable-k8s-services",
+	option.BindEnv(option.DisableCiliumEndpointCRDName)
+
+	flags.Bool(option.DisableK8sServices,
 		false, "Disable east-west K8s load balancing by cilium")
+	option.BindEnv(option.DisableK8sServices)
+
 	flags.StringVarP(&dockerEndpoint,
-		"docker", "e", workloads.GetRuntimeDefaultOpt(workloads.Docker, "endpoint"), "Path to docker runtime socket (DEPRECATED: use container-runtime-endpoint instead)")
-	flags.String("enable-policy", option.DefaultEnforcement, "Enable policy enforcement")
+		option.Docker, "e", workloads.GetRuntimeDefaultOpt(workloads.Docker, "endpoint"), "Path to docker runtime socket (DEPRECATED: use container-runtime-endpoint instead)")
+	option.BindEnv(option.Docker)
+
+	flags.String(option.EnablePolicy, option.DefaultEnforcement, "Enable policy enforcement")
+	option.BindEnv(option.EnablePolicy)
+
 	flags.BoolVar(&enableTracing,
-		"enable-tracing", false, "Enable tracing while determining policy (debugging)")
-	flags.String("envoy-log", "", "Path to a separate Envoy log file, if any")
+		option.EnableTracing, false, "Enable tracing while determining policy (debugging)")
+	option.BindEnv(option.EnableTracing)
+
+	flags.String(option.EnvoyLog, "", "Path to a separate Envoy log file, if any")
+	option.BindEnv(option.EnvoyLog)
+
 	flags.String(option.HTTP403Message, "", "Message returned in proxy L7 403 body")
 	flags.MarkHidden(option.HTTP403Message)
+	option.BindEnv(option.HTTP403Message)
+
 	flags.Uint(option.HTTPRequestTimeout, 60*60, "Time after which a forwarded HTTP request is considered failed unless completed (in seconds); Use 0 for unlimited")
+	option.BindEnv(option.HTTPRequestTimeout)
+
 	flags.Uint(option.HTTPIdleTimeout, 0, "Time after which a non-gRPC HTTP stream is considered failed unless traffic in the stream has been processed (in seconds); defaults to 0 (unlimited)")
+	option.BindEnv(option.HTTPIdleTimeout)
+
 	flags.Uint(option.HTTPMaxGRPCTimeout, 0, "Time after which a forwarded gRPC request is considered failed unless completed (in seconds). A \"grpc-timeout\" header may override this with a shorter value; defaults to 0 (unlimited)")
+	option.BindEnv(option.HTTPMaxGRPCTimeout)
+
 	flags.Uint(option.HTTPRetryCount, 3, "Number of retries performed after a forwarded request attempt fails")
+	option.BindEnv(option.HTTPRetryCount)
+
 	flags.Uint(option.HTTPRetryTimeout, 0, "Time after which a forwarded but uncompleted request is retried (connection failures are retried immediately); defaults to 0 (never)")
+	option.BindEnv(option.HTTPRetryTimeout)
+
 	flags.Uint(option.ProxyConnectTimeout, 1, "Time after which a TCP connect attempt is considered failed unless completed (in seconds)")
-	flags.Bool("disable-envoy-version-check", false, "Do not perform Envoy binary version check on startup")
-	flags.MarkHidden("disable-envoy-version-check")
+	option.BindEnv(option.ProxyConnectTimeout)
+
+	flags.Bool(option.DisableEnvoyVersionCheck, false, "Do not perform Envoy binary version check on startup")
+	flags.MarkHidden(option.DisableEnvoyVersionCheck)
+	option.BindEnv(option.DisableEnvoyVersionCheck)
 	// Disable version check if Envoy build is disabled
-	viper.BindEnv("disable-envoy-version-check", "CILIUM_DISABLE_ENVOY_BUILD")
-	flags.Var(option.NewNamedMapOptions("fixed-identity-mapping", &fixedIdentity, fixedIdentityValidator),
-		"fixed-identity-mapping", "Key-value for the fixed identity mapping which allows to use reserved label for fixed identities")
+	// This needs to be set manually for backward compatibility
+	viper.BindEnv(option.DisableEnvoyVersionCheck, "CILIUM_DISABLE_ENVOY_BUILD")
+
+	flags.Var(option.NewNamedMapOptions(option.FixedIdentityMapping, &fixedIdentity, fixedIdentityValidator),
+		option.FixedIdentityMapping, "Key-value for the fixed identity mapping which allows to use reserved label for fixed identities")
+	option.BindEnv(option.FixedIdentityMapping)
+
 	flags.IntVar(&v4ClusterCidrMaskSize,
-		"ipv4-cluster-cidr-mask-size", 8, "Mask size for the cluster wide CIDR")
+		option.IPv4ClusterCIDRMaskSize, 8, "Mask size for the cluster wide CIDR")
+	option.BindEnv(option.IPv4ClusterCIDRMaskSize)
+
 	flags.StringVar(&v4Prefix,
-		"ipv4-range", AutoCIDR, "Per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16")
+		option.IPv4Range, AutoCIDR, "Per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16")
+	option.BindEnv(option.IPv4Range)
+
 	flags.StringVar(&v6Prefix,
-		"ipv6-range", AutoCIDR, "Per-node IPv6 endpoint prefix, must be /96, e.g. fd02:1:1::/96")
+		option.IPv6Range, AutoCIDR, "Per-node IPv6 endpoint prefix, must be /96, e.g. fd02:1:1::/96")
+	option.BindEnv(option.IPv6Range)
+
 	flags.StringVar(&option.Config.IPv6ClusterAllocCIDR,
 		option.IPv6ClusterAllocCIDRName, defaults.IPv6ClusterAllocCIDR, "IPv6 /64 CIDR used to allocate per node endpoint /96 CIDR")
+	option.BindEnv(option.IPv6ClusterAllocCIDRName)
+
 	flags.StringVar(&v4ServicePrefix,
-		"ipv4-service-range", AutoCIDR, "Kubernetes IPv4 services CIDR if not inside cluster prefix")
+		option.IPv4ServiceRange, AutoCIDR, "Kubernetes IPv4 services CIDR if not inside cluster prefix")
+	option.BindEnv(option.IPv4ServiceRange)
+
 	flags.StringVar(&v6ServicePrefix,
-		"ipv6-service-range", AutoCIDR, "Kubernetes IPv6 services CIDR if not inside cluster prefix")
+		option.IPv6ServiceRange, AutoCIDR, "Kubernetes IPv6 services CIDR if not inside cluster prefix")
+	option.BindEnv(option.IPv6ServiceRange)
+
 	flags.StringVar(&k8sAPIServer,
-		"k8s-api-server", "", "Kubernetes api address server (for https use --k8s-kubeconfig-path instead)")
+		option.K8sAPIServer, "", "Kubernetes api address server (for https use --k8s-kubeconfig-path instead)")
+	option.BindEnv(option.K8sAPIServer)
+
 	flags.StringVar(&k8sKubeConfigPath,
-		"k8s-kubeconfig-path", "", "Absolute path of the kubernetes kubeconfig file")
+		option.K8sKubeConfigPath, "", "Absolute path of the kubernetes kubeconfig file")
+	option.BindEnv(option.K8sKubeConfigPath)
+
+	// This needs to be set manually for backward compatibility
 	viper.BindEnv("k8s-legacy-host-allows-world", "CILIUM_LEGACY_HOST_ALLOWS_WORLD")
+
 	flags.String(option.K8sNamespaceName, "", "Name of the Kubernetes namespace in which Cilium is deployed in")
-	viper.BindEnv(option.K8sNamespaceName, option.K8sNamespaceNameEnv)
 	flags.MarkHidden(option.K8sNamespaceName)
+	option.BindEnv(option.K8sNamespaceName)
+
 	flags.BoolVar(&option.Config.K8sRequireIPv4PodCIDR,
 		option.K8sRequireIPv4PodCIDRName, false, "Require IPv4 PodCIDR to be specified in node resource")
+	option.BindEnv(option.K8sRequireIPv4PodCIDRName)
+
 	flags.BoolVar(&option.Config.K8sRequireIPv6PodCIDR,
 		option.K8sRequireIPv6PodCIDRName, false, "Require IPv6 PodCIDR to be specified in node resource")
+	option.BindEnv(option.K8sRequireIPv6PodCIDRName)
+
 	flags.BoolVar(&option.Config.KeepConfig,
-		"keep-config", false, "When restoring state, keeps containers' configuration in place")
+		option.KeepConfig, false, "When restoring state, keeps containers' configuration in place")
+	option.BindEnv(option.KeepConfig)
+
 	flags.BoolVar(&option.Config.KeepTemplates,
-		"keep-bpf-templates", false, "Do not restore BPF template files from binary")
+		option.KeepBPFTemplates, false, "Do not restore BPF template files from binary")
+	option.BindEnv(option.KeepBPFTemplates)
+
 	flags.StringVar(&kvStore,
-		"kvstore", "", "Key-value store type")
+		option.KVStore, "", "Key-value store type")
+	option.BindEnv(option.KVStore)
+
 	flags.Var(option.NewNamedMapOptions("kvstore-opts", &kvStoreOpts, nil),
-		"kvstore-opt", "Key-value store options")
+		option.KVStoreOpt, "Key-value store options")
+	option.BindEnv(option.KVStoreOpt)
+
 	flags.StringVar(&labelPrefixFile,
-		"label-prefix-file", "", "Valid label prefixes file path")
+		option.LabelPrefixFile, "", "Valid label prefixes file path")
+	option.BindEnv(option.LabelPrefixFile)
+
 	flags.StringSliceVar(&validLabels,
-		"labels", []string{}, "List of label prefixes used to determine identity of an endpoint")
+		option.Labels, []string{}, "List of label prefixes used to determine identity of an endpoint")
+	option.BindEnv(option.Labels)
+
 	flags.StringVar(&option.Config.LBInterface,
-		"lb", "", "Enables load balancer mode where load balancer bpf program is attached to the given interface")
+		option.LB, "", "Enables load balancer mode where load balancer bpf program is attached to the given interface")
+	option.BindEnv(option.LB)
+
 	flags.StringVar(&option.Config.LibDir,
-		"lib-dir", defaults.LibraryPath, "Directory path to store runtime build environment")
+		option.LibDir, defaults.LibraryPath, "Directory path to store runtime build environment")
+	option.BindEnv(option.LibDir)
+
 	flags.StringSliceVar(&loggers,
-		"log-driver", []string{}, "Logging endpoints to use for example syslog")
+		option.LogDriver, []string{}, "Logging endpoints to use for example syslog")
+	option.BindEnv(option.LogDriver)
+
 	flags.Var(option.NewNamedMapOptions("log-opts", &logOpts, nil),
-		"log-opt", "Log driver options for cilium")
+		option.LogOpt, "Log driver options for cilium")
+	option.BindEnv(option.LogOpt)
+
 	flags.Bool(option.LogSystemLoadConfigName, false, "Enable periodic logging of system load")
+	option.BindEnv(option.LogSystemLoadConfigName)
+
 	flags.StringVar(&nat46prefix,
-		"nat46-range", defaults.DefaultNAT46Prefix, "IPv6 prefix to map IPv4 addresses to")
+		option.NAT46Range, defaults.DefaultNAT46Prefix, "IPv6 prefix to map IPv4 addresses to")
+	option.BindEnv(option.NAT46Range)
+
 	flags.BoolVar(&iptables.Masquerade,
-		"masquerade", true, "Masquerade packets from endpoints leaving the host")
+		option.Masquerade, true, "Masquerade packets from endpoints leaving the host")
+	option.BindEnv(option.Masquerade)
+
 	flags.IntVar(&option.Config.MaxControllerInterval, option.MaxCtrlIntervalName, 0,
 		"Maximum interval (in seconds) between controller runs. Zero is no limit.")
-	viper.BindEnv(option.MaxCtrlIntervalName, option.MaxCtrlIntervalNameEnv)
 	flags.MarkHidden(option.MaxCtrlIntervalName)
+	option.BindEnv(option.MaxCtrlIntervalName)
+
 	flags.String(option.MonitorAggregationName, "None",
 		"Level of monitor aggregation for traces from the datapath")
+	option.BindEnv(option.MonitorAggregationName)
+	// Leave for backwards compatibility
 	viper.BindEnv(option.MonitorAggregationName, "CILIUM_MONITOR_AGGREGATION_LEVEL")
+
 	flags.Int(option.MonitorQueueSizeName, defaults.MonitorQueueSize,
 		"Size of the event queue when reading monitor events")
-	viper.BindEnv(option.MonitorQueueSizeName, option.MonitorQueueSizeNameEnv)
+	option.BindEnv(option.MonitorQueueSizeName)
+
 	flags.IntVar(&option.Config.MTU,
 		option.MTUName, 0, "Overwrite auto-detected MTU of underlying network")
+	option.BindEnv(option.MTUName)
+
 	flags.Bool(option.PrependIptablesChainsName, true, "Prepend custom iptables chains instead of appending")
-	viper.BindEnv(option.PrependIptablesChainsName, option.PrependIptablesChainsNameEnv)
+	// Leave for backwards compatibility
+	viper.BindEnv(option.PrependIptablesChainsName, "CILIUM_PREPEND_IPTABLES_CHAIN")
+	option.BindEnv(option.PrependIptablesChainsName)
+
 	flags.StringVar(&v6Address,
-		"ipv6-node", "auto", "IPv6 address of node")
+		option.IPv6NodeAddr, "auto", "IPv6 address of node")
+	option.BindEnv(option.IPv6NodeAddr)
+
 	flags.StringVar(&v4Address,
-		"ipv4-node", "auto", "IPv4 address of node")
+		option.IPv4NodeAddr, "auto", "IPv4 address of node")
+	option.BindEnv(option.IPv4NodeAddr)
+
 	flags.BoolVar(&option.Config.RestoreState,
-		"restore", true, "Restores state, if possible, from previous daemon")
-	flags.Bool("sidecar-http-proxy", false, "Disable host HTTP proxy, assuming proxies in sidecar containers")
-	flags.MarkHidden("sidecar-http-proxy")
-	viper.BindEnv("sidecar-http-proxy", "CILIUM_SIDECAR_HTTP_PROXY")
-	flags.String("sidecar-istio-proxy-image", k8s.DefaultSidecarIstioProxyImageRegexp,
+		option.Restore, true, "Restores state, if possible, from previous daemon")
+	option.BindEnv(option.Restore)
+
+	flags.Bool(option.SidecarHTTPProxy, false, "Disable host HTTP proxy, assuming proxies in sidecar containers")
+	flags.MarkHidden(option.SidecarHTTPProxy)
+	option.BindEnv(option.SidecarHTTPProxy)
+
+	flags.String(option.SidecarIstioProxyImage, k8s.DefaultSidecarIstioProxyImageRegexp,
 		"Regular expression matching compatible Istio sidecar istio-proxy container image names")
-	viper.BindEnv("sidecar-istio-proxy-image", "CILIUM_SIDECAR_ISTIO_PROXY_IMAGE")
+	option.BindEnv(option.SidecarIstioProxyImage)
+
 	flags.Bool(option.SingleClusterRouteName, false,
 		"Use a single cluster route instead of per node routes")
+	option.BindEnv(option.SingleClusterRouteName)
+
 	flags.StringVar(&socketPath,
-		"socket-path", defaults.SockPath, "Sets daemon's socket path to listen for connections")
+		option.SocketPath, defaults.SockPath, "Sets daemon's socket path to listen for connections")
+	option.BindEnv(option.SocketPath)
+
 	flags.StringVar(&option.Config.RunDir,
-		"state-dir", defaults.RuntimePath, "Directory path to store runtime state")
+		option.StateDir, defaults.RuntimePath, "Directory path to store runtime state")
+	option.BindEnv(option.StateDir)
+
 	flags.StringP(option.TunnelName, "t", option.TunnelVXLAN, fmt.Sprintf("Tunnel mode {%s}", option.GetTunnelModes()))
-	viper.BindEnv(option.TunnelName, option.TunnelNameEnv)
+	option.BindEnv(option.TunnelName)
+
 	flags.IntVar(&tracePayloadLen,
-		"trace-payloadlen", 128, "Length of payload to capture when tracing")
+		option.TracePayloadlen, 128, "Length of payload to capture when tracing")
+	option.BindEnv(option.TracePayloadlen)
+
 	flags.Bool(
-		"version", false, "Print version information")
+		option.Version, false, "Print version information")
+	option.BindEnv(option.Version)
+
 	flags.Bool(
-		"pprof", false, "Enable serving the pprof debugging API")
+		option.PProf, false, "Enable serving the pprof debugging API")
+	option.BindEnv(option.PProf)
+
 	flags.StringVarP(&option.Config.DevicePreFilter,
-		"prefilter-device", "", "undefined", "Device facing external network for XDP prefiltering")
+		option.PrefilterDevice, "", "undefined", "Device facing external network for XDP prefiltering")
+	option.BindEnv(option.PrefilterDevice)
+
 	flags.StringVarP(&option.Config.ModePreFilter,
-		"prefilter-mode", "", option.ModePreFilterNative, "Prefilter mode { "+option.ModePreFilterNative+" | "+option.ModePreFilterGeneric+" } (default: "+option.ModePreFilterNative+")")
+		option.PrefilterMode, "", option.ModePreFilterNative, "Prefilter mode { "+option.ModePreFilterNative+" | "+option.ModePreFilterGeneric+" } (default: "+option.ModePreFilterNative+")")
+	option.BindEnv(option.PrefilterMode)
+
 	// We expect only one of the possible variables to be filled. The evaluation order is:
 	// --prometheus-serve-addr, CILIUM_PROMETHEUS_SERVE_ADDR, then PROMETHEUS_SERVE_ADDR
 	// The second environment variable (without the CILIUM_ prefix) is here to
 	// handle the case where someone uses a new image with an older spec, and the
 	// older spec used the older variable name.
 	flags.StringVar(&prometheusServeAddr,
-		"prometheus-serve-addr", "", "IP:Port on which to serve prometheus metrics (pass \":Port\" to bind on all interfaces, \"\" is off)")
-	viper.BindEnv("prometheus-serve-addr", "CILIUM_PROMETHEUS_SERVE_ADDR")
-	viper.BindEnv("prometheus-serve-addr-deprecated", "PROMETHEUS_SERVE_ADDR")
+		option.PrometheusServeAddr, "", "IP:Port on which to serve prometheus metrics (pass \":Port\" to bind on all interfaces, \"\" is off)")
+	viper.BindEnv(option.PrometheusServeAddrDeprecated, "PROMETHEUS_SERVE_ADDR")
+	option.BindEnv(option.PrometheusServeAddr)
 
 	flags.Int(option.CTMapEntriesGlobalTCPName, option.CTMapEntriesGlobalTCPDefault, "Maximum number of entries in TCP CT table")
-	viper.BindEnv(option.CTMapEntriesGlobalTCPName, option.CTMapEntriesGlobalTCPNameEnv)
+	// Leave for backwards compatibility
+	viper.BindEnv(option.CTMapEntriesGlobalTCPName, "CILIUM_GLOBAL_CT_MAX_TCP")
+	option.BindEnv(option.CTMapEntriesGlobalTCPName)
+
 	flags.Int(option.CTMapEntriesGlobalAnyName, option.CTMapEntriesGlobalAnyDefault, "Maximum number of entries in non-TCP CT table")
-	viper.BindEnv(option.CTMapEntriesGlobalAnyName, option.CTMapEntriesGlobalAnyNameEnv)
+	// Leave for backwards compatibility
+	viper.BindEnv(option.CTMapEntriesGlobalAnyName, "CILIUM_GLOBAL_CT_MAX_ANY")
+	option.BindEnv(option.CTMapEntriesGlobalAnyName)
 
 	flags.StringVar(&cmdRefDir,
-		"cmdref", "", "Path to cmdref output directory")
-	flags.MarkHidden("cmdref")
+		option.CMDRef, "", "Path to cmdref output directory")
+	flags.MarkHidden(option.CMDRef)
+	option.BindEnv(option.CMDRef)
 
 	flags.IntVar(&toFQDNsMinTTL,
-		"tofqdns-min-ttl", defaults.ToFQDNsMinTTL, "The minimum time, in seconds, to use DNS data for toFQDNs policies.")
+		option.ToFQDNsMinTTL, defaults.ToFQDNsMinTTL, "The minimum time, in seconds, to use DNS data for toFQDNs policies.")
+	option.BindEnv(option.ToFQDNsMinTTL)
+
 	flags.IntVar(&proxy.DNSProxyPort,
-		"tofqdns-proxy-port", 0, "Global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.")
+		option.ToFQDNsProxyPort, 0, "Global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.")
+	option.BindEnv(option.ToFQDNsProxyPort)
+
 	flags.BoolVar(&enableDNSPoller,
-		"tofqdns-enable-poller", false, "Enable proactive polling of DNS names in toFQDNs.matchName rules.")
+		option.ToFQDNsEnablePoller, false, "Enable proactive polling of DNS names in toFQDNs.matchName rules.")
+	option.BindEnv(option.ToFQDNsEnablePoller)
 
 	viper.BindPFlags(flags)
 }
