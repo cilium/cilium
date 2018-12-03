@@ -26,9 +26,20 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
+
+	"github.com/spf13/viper"
 )
 
 const (
+	// AccessLog is the path to access log of supported L7 requests observed
+	AccessLog = "access-log"
+
+	// AgentLabels are additional labels to identify this agent
+	AgentLabels = "agent-labels"
+
+	// AllowLocalhost is the policy when to allow local stack to reach local endpoints { auto | always | policy }
+	AllowLocalhost = "allow-localhost"
+
 	// AllowLocalhostAuto defaults to policy except when running in
 	// Kubernetes where it then defaults to "always"
 	AllowLocalhostAuto = "auto"
@@ -41,6 +52,73 @@ const (
 	// to reach particular endpoints or policy enforcement must be
 	// disabled.
 	AllowLocalhostPolicy = "policy"
+
+	// BPFRoot is the Path to BPF filesystem
+	BPFRoot = "bpf-root"
+
+	// CGroupRoot is the path to Cgroup2 filesystem
+	CGroupRoot = "cgroup-root"
+
+	// ConfigFile is the Configuration file (default "$HOME/ciliumd.yaml")
+	ConfigFile = "config"
+
+	// ConntrackGarbageCollectorInterval is the garbage collection interval for
+	// the connection tracking table (in seconds)
+	ConntrackGarbageCollectorInterval = "conntrack-garbage-collector-interval"
+
+	// ContainerRuntime sets the container runtime(s) used by Cilium
+	// { containerd | crio | docker | none | auto } ( "auto" uses the container
+	// runtime found in the order: "docker", "containerd", "crio" )
+	ContainerRuntime = "container-runtime"
+
+	// ContainerRuntimeEndpoint set the container runtime(s) endpoint(s)
+	ContainerRuntimeEndpoint = "container-runtime-endpoint"
+
+	// DebugArg is the argument enables debugging mode
+	DebugArg = "debug"
+
+	// DebugVerbose is the argument enables verbose log message for particular subsystems
+	DebugVerbose = "debug-verbose"
+
+	// Device facing cluster/external network for direct L3 (non-overlay mode)
+	Device = "device"
+
+	// DisableConntrack disables connection tracking
+	DisableConntrack = "disable-conntrack"
+
+	// DisableEnvoyVersionCheck do not perform Envoy binary version check on startup
+	DisableEnvoyVersionCheck = "disable-envoy-version-check"
+
+	// Docker is the path to docker runtime socket (DEPRECATED: use container-runtime-endpoint instead)
+	Docker = "docker"
+
+	// EnablePolicy enables policy enforcement in the agent.
+	EnablePolicy = "enable-policy"
+
+	// EnableTracing enables tracing mode in the agent.
+	EnableTracing = "enable-tracing"
+
+	// EnvoyLog sets the path to a separate Envoy log file, if any
+	EnvoyLog = "envoy-log"
+
+	// FixedIdentityMapping is the key-value for the fixed identity mapping
+	// which allows to use reserved label for fixed identities
+	FixedIdentityMapping = "fixed-identity-mapping"
+
+	// IPv4ClusterCIDRMaskSize is the mask size for the cluster wide CIDR
+	IPv4ClusterCIDRMaskSize = "ipv4-cluster-cidr-mask-size"
+
+	// IPv4Range is the per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16
+	IPv4Range = "ipv4-range"
+
+	// IPv6Range is the per-node IPv6 endpoint prefix, must be /96, e.g. fd02:1:1::/96
+	IPv6Range = "ipv6-range"
+
+	// IPv4ServiceRange is the Kubernetes IPv4 services CIDR if not inside cluster prefix
+	IPv4ServiceRange = "ipv4-service-range"
+
+	// IPv6ServiceRange is the Kubernetes IPv6 services CIDR if not inside cluster prefix
+	IPv6ServiceRange = "ipv6-service-range"
 
 	// ModePreFilterNative for loading progs with xdpdrv
 	ModePreFilterNative = "native"
@@ -57,6 +135,105 @@ const (
 	// K8sRequireIPv6PodCIDRName is the name of the K8sRequireIPv6PodCIDR option
 	K8sRequireIPv6PodCIDRName = "k8s-require-ipv6-pod-cidr"
 
+	// K8sAPIServer is the kubernetes api address server (for https use --k8s-kubeconfig-path instead)
+	K8sAPIServer = "k8s-api-server"
+
+	// K8sKubeConfigPath is the absolute path of the kubernetes kubeconfig file
+	K8sKubeConfigPath = "k8s-kubeconfig-path"
+
+	// KeepConfig when restoring state, keeps containers' configuration in place
+	KeepConfig = "keep-config"
+
+	// KeepBPFTemplates do not restore BPF template files from binary
+	KeepBPFTemplates = "keep-bpf-templates"
+
+	// KVStore key-value store type
+	KVStore = "kvstore"
+
+	// KVStoreOpt key-value store options
+	KVStoreOpt = "kvstore-opt"
+
+	// Labels is the list of label prefixes used to determine identity of an endpoint
+	Labels = "labels"
+
+	// LabelPrefixFile is the valid label prefixes file path
+	LabelPrefixFile = "label-prefix-file"
+
+	// LB enables load balancer mode where load balancer bpf program is attached to the given interface
+	LB = "lb"
+
+	// LibDir enables the directory path to store runtime build environment
+	LibDir = "lib-dir"
+
+	// LogDriver sets logging endpoints to use for example syslog, fluentd
+	LogDriver = "log-driver"
+
+	// LogOpt sets log driver options for cilium
+	LogOpt = "log-opt"
+
+	// Logstash enables logstash integration
+	Logstash = "logstash"
+
+	// NAT46Range is the IPv6 prefix to map IPv4 addresses to
+	NAT46Range = "nat46-range"
+
+	// Masquerade are the packets from endpoints leaving the host
+	Masquerade = "masquerade"
+
+	// IPv6NodeAddr is the IPv6 address of node
+	IPv6NodeAddr = "ipv6-node"
+
+	// IPv4NodeAddr is the IPv4 address of node
+	IPv4NodeAddr = "ipv4-node"
+
+	// Restore restores state, if possible, from previous daemon
+	Restore = "restore"
+
+	// SidecarHTTPProxy disable host HTTP proxy, assuming proxies in sidecar containers
+	SidecarHTTPProxy = "sidecar-http-proxy"
+
+	// SidecarIstioProxyImage regular expression matching compatible Istio sidecar istio-proxy container image names
+	SidecarIstioProxyImage = "sidecar-istio-proxy-image"
+
+	// SocketPath sets daemon's socket path to listen for connections
+	SocketPath = "socket-path"
+
+	// StateDir is the directory path to store runtime state
+	StateDir = "state-dir"
+
+	// TracePayloadlen length of payload to capture when tracing
+	TracePayloadlen = "trace-payloadlen"
+
+	// Version prints the version information
+	Version = "version"
+
+	// PProf enables serving the pprof debugging API
+	PProf = "pprof"
+
+	// PrefilterDevice is the device facing external network for XDP prefiltering
+	PrefilterDevice = "prefilter-device"
+
+	// PrefilterMode { "+ModePreFilterNative+" | "+ModePreFilterGeneric+" } (default: "+option.ModePreFilterNative+")
+	PrefilterMode = "prefilter-mode"
+
+	// PrometheusServeAddr IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
+	PrometheusServeAddr = "prometheus-serve-addr"
+
+	// PrometheusServeAddrDeprecated IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
+	PrometheusServeAddrDeprecated = "prometheus-serve-addr-deprecated"
+
+	// CMDRef is the path to cmdref output directory
+	CMDRef = "cmdref"
+
+	// ToFQDNsMinTTL is the minimum time, in seconds, to use DNS data for toFQDNs policies.
+	ToFQDNsMinTTL = "tofqdns-min-ttl"
+
+	// ToFQDNsProxyPort is the global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.
+	ToFQDNsProxyPort = "tofqdns-proxy-port"
+
+	// ToFQDNsEnablePoller enables proactive polling of DNS names in toFQDNs.matchName rules.
+	ToFQDNsEnablePoller = "tofqdns-enable-poller"
+
 	// AutoIPv6NodeRoutesName is the name of the AutoIPv6NodeRoutes option
 	AutoIPv6NodeRoutesName = "auto-ipv6-node-routes"
 
@@ -65,9 +242,6 @@ const (
 
 	// TunnelName is the name of the Tunnel option
 	TunnelName = "tunnel"
-
-	// TunnelNameEnv is the name of the environment variable for option.TunnelName
-	TunnelNameEnv = "CILIUM_TUNNEL"
 
 	// SingleClusterRouteName is the name of the SingleClusterRoute option
 	//
@@ -94,10 +268,6 @@ const (
 	// ClusterIDName is the name of the ClusterID option
 	ClusterIDName = "cluster-id"
 
-	// ClusterIDEnv is the name of the environment variable of the
-	// ClusterID option
-	ClusterIDEnv = "CILIUM_CLUSTER_ID"
-
 	// ClusterIDMin is the minimum value of the cluster ID
 	ClusterIDMin = 0
 
@@ -106,10 +276,6 @@ const (
 
 	// ClusterMeshConfigName is the name of the ClusterMeshConfig option
 	ClusterMeshConfigName = "clustermesh-config"
-
-	// ClusterMeshConfigNameEnv is the name of the environment variable of
-	// the ClusterMeshConfig option
-	ClusterMeshConfigNameEnv = "CILIUM_CLUSTERMESH_CONFIG"
 
 	// BPFCompileDebugName is the name of the option to enable BPF compiliation debugging
 	BPFCompileDebugName = "bpf-compile-debug"
@@ -120,8 +286,6 @@ const (
 	CTMapEntriesGlobalAnyDefault = 2 << 17 // 256Ki
 	CTMapEntriesGlobalTCPName    = "bpf-ct-global-tcp-max"
 	CTMapEntriesGlobalAnyName    = "bpf-ct-global-any-max"
-	CTMapEntriesGlobalTCPNameEnv = "CILIUM_GLOBAL_CT_MAX_TCP"
-	CTMapEntriesGlobalAnyNameEnv = "CILIUM_GLOBAL_CT_MAX_ANY"
 
 	// LogSystemLoadConfigName is the name of the option to enable system
 	// load loggging
@@ -131,18 +295,16 @@ const (
 	// prepending iptables chains instead of appending
 	PrependIptablesChainsName = "prepend-iptables-chains"
 
-	// PrependIptablesChainsNameEnv is the name of the environment variable
-	// of the PrependIptablesChainsName option
-	PrependIptablesChainsNameEnv = "CILIUM_PREPEND_IPTABLES_CHAIN"
-
 	// DisableCiliumEndpointCRDName is the name of the option to disable
 	// use of the CEP CRD
 	DisableCiliumEndpointCRDName = "disable-endpoint-crd"
 
+	// DisableK8sServices disables east-west K8s load balancing by cilium
+	DisableK8sServices = "disable-k8s-services"
+
 	// MaxCtrlIntervalName and MaxCtrlIntervalNameEnv allow configuration
 	// of MaxControllerInterval.
-	MaxCtrlIntervalName    = "max-controller-interval"
-	MaxCtrlIntervalNameEnv = "CILIUM_MAX_CONTROLLER_INTERVAL"
+	MaxCtrlIntervalName = "max-controller-interval"
 
 	// SockopsEnableName is the name of the option to enable sockops
 	SockopsEnableName = "sockops-enable"
@@ -150,26 +312,18 @@ const (
 	// K8sNamespaceName is the name of the K8sNamespace option
 	K8sNamespaceName = "k8s-namespace"
 
-	// K8sNamespaceNameEnv is the name of the K8sNamespace environment
-	// variable
-	K8sNamespaceNameEnv = "CILIUM_K8S_NAMESPACE"
-
 	// EnableIPv4Name is the name of the option to enable IPv4 support
-	EnableIPv4Name    = "enable-ipv4"
-	EnableIPv4NameEnv = "CILIUM_ENABLE_IPV4"
+	EnableIPv4Name = "enable-ipv4"
 
 	// LegacyDisableIPv4Name is the name of the legacy option to disable
 	// IPv4 support
-	LegacyDisableIPv4Name    = "disable-ipv4"
-	LegacyDisableIPv4NameEnv = "DISABLE_IPV4"
+	LegacyDisableIPv4Name = "disable-ipv4"
 
 	// EnableIPv6Name is the name of the option to enable IPv6 support
-	EnableIPv6Name    = "enable-ipv6"
-	EnableIPv6NameEnv = "CILIUM_ENABLE_IPV6"
+	EnableIPv6Name = "enable-ipv6"
 
 	// MonitorQueueSizeName is the name of the option MonitorQueueSize
-	MonitorQueueSizeName    = "monitor-queue-size"
-	MonitorQueueSizeNameEnv = "CILIUM_MONITOR_QUEUE_SIZE"
+	MonitorQueueSizeName = "monitor-queue-size"
 )
 
 // Available option for daemonConfig.Tunnel
@@ -221,6 +375,21 @@ func getEnvName(option string) string {
 	under := strings.Replace(option, "-", "_", -1)
 	upper := strings.ToUpper(under)
 	return ciliumEnvPrefix + upper
+}
+
+// RegisteredOptions maps all options that are bind to viper.
+var RegisteredOptions = map[string]struct{}{}
+
+// BindEnv binds the option name with an deterministic generated environment
+// variable which s based on the given optName. If the same optName is bind
+// more than 1 time, this function panics.
+func BindEnv(optName string) {
+	_, ok := RegisteredOptions[optName]
+	if ok || optName == "" {
+		panic(fmt.Errorf("option already registered: %s", optName))
+	}
+	RegisteredOptions[optName] = struct{}{}
+	viper.BindEnv(optName, getEnvName(optName))
 }
 
 // daemonConfig is the configuration used by Daemon.
