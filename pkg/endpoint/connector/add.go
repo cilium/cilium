@@ -16,12 +16,14 @@ package connector
 
 import (
 	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
 	"net"
 	"os"
 	"path/filepath"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
@@ -217,4 +219,33 @@ func GetVethInfo(nodeIfName string, parentIdx int, netNSMac string, ep *models.E
 	ep.InterfaceIndex = int64(parentIdx)
 	ep.InterfaceName = l.Attrs().Name
 	return nil
+}
+
+func DeriveEndpointFrom(containerID string, pid int) (*models.EndpointChangeRequest, error) {
+	parentIdx, lxcMAC, ip, err := GetNetInfoFromPID(pid)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get net info from PID %d: %s", pid, err)
+	}
+	if parentIdx == 0 {
+		return nil, fmt.Errorf("unable to find master index interface for %s: %s", ip, err)
+	}
+	// _, ip6, err := ipam.AllocateNext("ipv6")
+	// if err != nil {
+	// 	return nil, fmt.Errorf("unable to allocate IPv6 address: %s", err)
+	// }
+	epModel := &models.EndpointChangeRequest{
+		Addressing: &models.AddressPair{
+			IPV4: ip.String(),
+			// IPV6: ip6.String(),
+		},
+		ContainerID: containerID,
+		ID:          int64(binary.BigEndian.Uint16(ip.To4()[2:])),
+		State:       models.EndpointStateWaitingForIdentity,
+	}
+	err = GetVethInfo(defaults.HostDevice, parentIdx, lxcMAC, epModel)
+	if err != nil {
+		return nil, fmt.Errorf("unable to allocate IPv6 address: %s", err)
+
+	}
+	return epModel, nil
 }
