@@ -398,6 +398,12 @@ func AddEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, reason string) (er
 		return err
 	}
 
+	// Insert generates ep.ID, from this point we can pin the map. This
+	// has to happen before the first build took place.
+	if err = ep.MapPin(); err != nil {
+		return err
+	}
+
 	if build {
 		if err := ep.RegenerateWait(owner, reason); err != nil {
 			Remove(ep)

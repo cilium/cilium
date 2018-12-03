@@ -88,6 +88,16 @@ func (e *Endpoint) BPFConfigMapName() string {
 	return bpfconfig.MapNamePrefix + strconv.Itoa(int(e.ID))
 }
 
+// BPFIpvlanMapPath returns the path to the ipvlan tail call map of an endpoint.
+func (e *Endpoint) BPFIpvlanMapPath() string {
+	return bpf.MapPath(e.BPFIpvlanMapName())
+}
+
+// BPFIpvlanMapName returns the name of the ipvlan tail call map of an endpoint.
+func (e *Endpoint) BPFIpvlanMapName() string {
+	return IpvlanMapName + strconv.Itoa(int(e.ID))
+}
+
 type getBPFDataCallback func() (s6, s4 []int)
 
 // WriteIPCachePrefixes fetches the set of prefixes that should be used from
@@ -877,6 +887,7 @@ func (e *Endpoint) DeleteMapsLocked() []error {
 		"config": e.BPFConfigMapPath(),
 		"policy": e.PolicyMapPathLocked(),
 		"calls":  e.CallsMapPathLocked(),
+		"egress": e.BPFIpvlanMapPath(),
 	}
 	for name, path := range maps {
 		if err := os.RemoveAll(path); err != nil {
