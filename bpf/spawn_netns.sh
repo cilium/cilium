@@ -36,7 +36,9 @@ configure_netns()
 	ip li set dev ${HOSTDEV} up
 	ip li set dev ${NETNSDEV} netns ${NETNS}
 	ip netns exec ${NETNS} ip li set dev ${NETNSDEV} up
-	ip netns exec ${NETNS} ip addr add dev ${NETNSDEV} ${IP6}
+	if [ "${IP6}" != "" ]; then
+		ip netns exec ${NETNS} ip addr add dev ${NETNSDEV} ${IP6}
+	fi
 	if [ "${IP4}" != "" ]; then
 		ip netns exec ${NETNS} ip addr add dev ${NETNSDEV} ${IP4}
 	fi
@@ -46,7 +48,9 @@ configure_netns()
 cleanup()
 {
 	ip netns exec ${NETNS} ip li set dev ${NETNSDEV} down
-	ip netns exec ${NETNS} ip addr del dev ${NETNSDEV} ${IP6}
+	if [ "${IP6}" != "" ]; then
+		ip netns exec ${NETNS} ip addr del dev ${NETNSDEV} ${IP6}
+	fi
 	if [ "${IP4}" != "" ]; then
 		ip netns exec ${NETNS} ip addr del dev ${NETNSDEV} ${IP4}
 	fi
@@ -62,11 +66,6 @@ netns_exists()
 run_target()
 {
 	ip netns exec ${NETNS} ${TARGET} ${TARGET_ARGS}
-}
-
-invalid_ip()
-{
-	! echo $1 | grep -q "[0-9:.]*"
 }
 
 invalid_dev()
@@ -85,10 +84,6 @@ validate_args()
 	fi
 	if invalid_dev "${HOSTDEV}" || invalid_dev "${NETNSDEV}"; then
 		echo "Cannot find interfaces ${HOSTDEV} and ${NETNSDEV}" >&2
-		exit 1
-	fi
-	if invalid_ip "${IP4}" || invalid_ip "${IP6}"; then
-		echo "IP must be specified as 'IP/CIDR', eg '192.168.0.1/24'" >&2
 		exit 1
 	fi
 	if ! which ${TARGET} 2>&1 >/dev/null ; then

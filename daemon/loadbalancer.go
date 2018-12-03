@@ -380,17 +380,19 @@ func (d *Daemon) RevNATDelete(id loadbalancer.ServiceID) error {
 //
 // Must be called with d.loadBalancer.BPFMapMU locked.
 func (d *Daemon) RevNATDeleteAll() error {
-
 	if option.Config.EnableIPv4 {
 		if err := lbmap.RevNat4Map.DeleteAll(); err != nil {
 			return err
 		}
 	}
-	if err := lbmap.RevNat6Map.DeleteAll(); err != nil {
-		return err
-	}
-	// TODO should we delete even if err is != nil?
 
+	if option.Config.EnableIPv6 {
+		if err := lbmap.RevNat6Map.DeleteAll(); err != nil {
+			return err
+		}
+	}
+
+	// TODO should we delete even if err is != nil?
 	d.loadBalancer.RevNATMap = map[loadbalancer.ServiceID]loadbalancer.L3n4Addr{}
 	return nil
 }
@@ -425,7 +427,7 @@ func (d *Daemon) RevNATDump() ([]loadbalancer.L3n4AddrID, error) {
 }
 
 func restoreServiceIDs() {
-	svcMap, _, errors := lbmap.DumpServiceMapsToUserspace(true, false)
+	svcMap, _, errors := lbmap.DumpServiceMapsToUserspace(true)
 	for _, err := range errors {
 		log.WithError(err).Warning("Error occured while dumping service table from datapath")
 	}
@@ -531,11 +533,11 @@ func (d *Daemon) SyncLBMap() error {
 		return nil
 	}
 
-	newSVCMap, newSVCList, lbmapDumpErrors := lbmap.DumpServiceMapsToUserspace(false, !option.Config.EnableIPv4)
+	newSVCMap, newSVCList, lbmapDumpErrors := lbmap.DumpServiceMapsToUserspace(false)
 	for _, err := range lbmapDumpErrors {
 		log.WithError(err).Warn("error dumping BPF map into userspace")
 	}
-	newRevNATMap, revNATMapDumpErrors := lbmap.DumpRevNATMapsToUserspace(!option.Config.EnableIPv4)
+	newRevNATMap, revNATMapDumpErrors := lbmap.DumpRevNATMapsToUserspace()
 	for _, err := range revNATMapDumpErrors {
 		log.WithError(err).Warn("error dumping BPF map into userspace")
 	}
@@ -647,7 +649,7 @@ func (d *Daemon) syncLBMapsWithK8s() error {
 	defer d.loadBalancer.BPFMapMU.Unlock()
 
 	log.Debugf("dumping BPF service maps to userspace")
-	_, newSVCList, lbmapDumpErrors := lbmap.DumpServiceMapsToUserspace(true, !option.Config.EnableIPv4)
+	_, newSVCList, lbmapDumpErrors := lbmap.DumpServiceMapsToUserspace(true)
 	if len(lbmapDumpErrors) > 0 {
 		errorStrings := ""
 		for _, err := range lbmapDumpErrors {
@@ -656,7 +658,7 @@ func (d *Daemon) syncLBMapsWithK8s() error {
 		return fmt.Errorf("error(s): %s", errorStrings)
 	}
 
-	newRevNATMap, revNATMapDumpErrors := lbmap.DumpRevNATMapsToUserspace(!option.Config.EnableIPv4)
+	newRevNATMap, revNATMapDumpErrors := lbmap.DumpRevNATMapsToUserspace()
 	if len(revNATMapDumpErrors) > 0 {
 		errorStrings := ""
 		for _, err := range revNATMapDumpErrors {

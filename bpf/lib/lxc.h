@@ -31,11 +31,15 @@
 #ifndef DISABLE_SIP_VERIFICATION
 static inline int is_valid_lxc_src_ip(struct ipv6hdr *ip6)
 {
+#ifdef LXC_IP
 	union v6addr valid = {};
 
 	BPF_V6(valid, LXC_IP);
 
 	return !ipv6_addrcmp((union v6addr *) &ip6->saddr, &valid);
+#else
+	return 0;
+#endif
 }
 
 static inline int is_valid_lxc_src_ipv4(struct iphdr *ip4)
@@ -59,7 +63,7 @@ static inline int is_valid_lxc_src_ipv4(struct iphdr *ip4)
 }
 #endif
 
-#ifdef LXC_IPV4
+#ifdef ENABLE_IPV4
 static inline void __inline__ proxy4_update_timeout(struct proxy4_tbl_value *value)
 {
 	value->lifetime = bpf_ktime_get_sec() + PROXY_DEFAULT_LIFETIME;
@@ -112,7 +116,9 @@ ipv4_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 
 	return 0;
 }
-#endif /* LXC_IPV4 */
+#endif /* ENABLE_IPV4 */
+
+#ifdef ENABLE_IPV6
 static inline void __inline__ proxy6_update_timeout(struct proxy6_tbl_value *value)
 {
 	value->lifetime = bpf_ktime_get_sec() + PROXY_DEFAULT_LIFETIME;
@@ -161,6 +167,7 @@ ipv6_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 
 	return 0;
 }
+#endif /* ENABLE_IPV6 */
 
 /**
  * tc_index_is_from_proxy - returns true if packet originates from egress proxy

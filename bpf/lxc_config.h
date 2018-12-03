@@ -24,7 +24,6 @@
 #define LXC_IPV4 0x10203040
 #define LXC_ID 0x1010
 #define LXC_ID_NB 0x1010
-#define ENABLE_NAT46
 #ifndef SECLABEL
 #define SECLABEL 0xfffff
 #define SECLABEL_NB 0xfffff
@@ -47,7 +46,6 @@
 #define LB_L4
 #define CONNTRACK
 #define CONNTRACK_ACCOUNTING
-#define ENABLE_IPv4
 #define CONFIG_MAP cilium_ep_config_111
 
 /* It appears that we can support around the below number of prefixes in an
