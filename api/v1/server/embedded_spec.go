@@ -1287,6 +1287,13 @@ func init() {
         "addressing": {
           "$ref": "#/definitions/NodeAddressing"
         },
+        "datapathMode": {
+          "$ref": "#/definitions/DatapathMode"
+        },
+        "deviceIfIndex": {
+          "description": "Device facing cluster/external network interface index",
+          "type": "integer"
+        },
         "deviceMTU": {
           "description": "MTU on workload facing devices",
           "type": "integer"
@@ -1317,6 +1324,14 @@ func init() {
           "type": "integer"
         }
       }
+    },
+    "DatapathMode": {
+      "description": "Datapath mode",
+      "type": "string",
+      "enum": [
+        "veth",
+        "ipvlan"
+      ]
     },
     "DebugInfo": {
       "description": "groups some debugging related information on the agent",
@@ -1441,6 +1456,10 @@ func init() {
         "mac": {
           "description": "MAC address",
           "type": "string"
+        },
+        "map-id": {
+          "description": "ID of policy map",
+          "type": "integer"
         },
         "policy-enabled": {
           "description": "Whether policy enforcement is enabled or not",

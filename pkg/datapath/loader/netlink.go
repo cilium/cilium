@@ -92,3 +92,40 @@ func replaceDatapath(ctx context.Context, ifName string, objPath string, progSec
 
 	return nil
 }
+
+// graftDatapath replaces obj in tail call map
+func graftDatapath(ctx context.Context, mapPath, objPath, progSec string) error {
+	var err error
+
+	// FIXME: Replace cilium-map-migrate with Golang map migration
+	cmd := exec.CommandContext(ctx, "cilium-map-migrate", "-s", objPath)
+	cmd.Env = bpf.Environment()
+	if _, err = cmd.CombinedOutput(log, true); err != nil {
+		return err
+	}
+	defer func() {
+		var retCode string
+		if err == nil {
+			retCode = "0"
+		} else {
+			retCode = "1"
+		}
+		args := []string{"-e", objPath, "-r", retCode}
+		cmd := exec.CommandContext(ctx, "cilium-map-migrate", args...)
+		cmd.Env = bpf.Environment()
+		_, _ = cmd.CombinedOutput(log, true) // ignore errors
+	}()
+
+	// FIXME: replace exec with native call
+	// FIXME: only key 0 right now, could be made more flexible
+	args := []string{"exec", "bpf", "graft", mapPath, "key", "0",
+		"obj", objPath, "sec", progSec,
+	}
+	cmd = exec.CommandContext(ctx, "tc", args...).WithFilters(libbpfFixupMsg)
+	_, err = cmd.CombinedOutput(log, true)
+	if err != nil {
+		return fmt.Errorf("Failed to graft tc object: %s", err)
+	}
+
+	return nil
+}

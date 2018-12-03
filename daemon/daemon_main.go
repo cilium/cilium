@@ -67,6 +67,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 )
 
@@ -358,8 +359,11 @@ func init() {
 	flags.StringSlice(option.DebugVerbose, []string{}, "List of enabled verbose debug groups")
 	option.BindEnv(option.DebugVerbose)
 
-	flags.StringP(option.Device, "d", "undefined", "Device facing cluster/external network for direct L3 (non-overlay mode)")
+	flags.StringP(option.Device, "d", "undefined", "Device facing cluster/external network for direct L3 (non-overlay mode or ipvlan)")
 	option.BindEnv(option.Device)
+
+	flags.String(option.DatapathMode, defaults.DatapathMode, "Datapath mode name")
+	option.BindEnv(option.DatapathMode)
 
 	flags.Bool(option.DisableConntrack, false, "Disable connection tracking")
 	option.BindEnv(option.DisableConntrack)
@@ -846,10 +850,25 @@ func initEnv(cmd *cobra.Command) {
 
 	option.Config.NAT46Prefix = r
 
+	if name := option.Config.Device; name != "undefined" {
+		link, err := netlink.LinkByName(name)
+		if err != nil {
+			log.WithError(err).WithField(logfields.Device, name).Fatal("Cannot find device interface")
+		}
+		option.Config.DeviceIfIndex = link.Attrs().Index
+	}
+
 	// If device has been specified, use it to derive better default
 	// allocation prefixes
 	if option.Config.Device != "undefined" {
 		node.InitDefaultPrefix(option.Config.Device)
+	}
+
+	switch option.Config.DatapathMode {
+	case "veth":
+	case "ipvlan":
+	default:
+		log.WithField(logfields.DatapathMode, option.Config.DatapathMode).Fatal("Invalid datapath mode")
 	}
 
 	if option.Config.IPv6NodeAddr != "auto" {
@@ -982,7 +1001,10 @@ func runDaemon() {
 		d.workloadsEventsCh = eventsCh
 	}
 
-	d.initHealth()
+	// Currently, cilium-health cannot run in ipvlan mode
+	if option.Config.DatapathMode != "ipvlan" {
+		d.initHealth()
+	}
 
 	d.startStatusCollector()
 

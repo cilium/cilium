@@ -245,6 +245,9 @@ const (
 	// MTUName is the name of the MTU option
 	MTUName = "mtu"
 
+	// DatapathMode is the name of the DatapathMode option
+	DatapathMode = "datapath-mode"
+
 	// TunnelName is the name of the Tunnel option
 	TunnelName = "tunnel"
 
@@ -441,6 +444,7 @@ type DaemonConfig struct {
 	RunDir          string     // Cilium runtime directory
 	NAT46Prefix     *net.IPNet // NAT46 IPv6 Prefix
 	Device          string     // Receive device
+	DeviceIfIndex   int        // Device interface index
 	DevicePreFilter string     // XDP device
 	ModePreFilter   string     // XDP mode, values: { native | generic }
 	HostV4Addr      net.IP     // Host v4 address of the snooping device
@@ -449,6 +453,8 @@ type DaemonConfig struct {
 	Workloads       []string   // List of Workloads set by the user to used by cilium.
 
 	Tunnel string // Tunnel mode
+	// TODO(brb) use models.DatapathMode type
+	DatapathMode string // Datapath mode
 
 	DryMode bool // Do not create BPF maps, devices, ..
 
@@ -809,6 +815,7 @@ func (c *DaemonConfig) Populate() {
 	c.ClusterName = viper.GetString(ClusterName)
 	c.ClusterMeshConfig = viper.GetString(ClusterMeshConfigName)
 	c.ConntrackGarbageCollectorInterval = viper.GetInt(ConntrackGarbageCollectorInterval)
+	c.DatapathMode = viper.GetString(DatapathMode)
 	c.Debug = viper.GetBool(DebugArg)
 	c.DebugVerbose = viper.GetStringSlice(DebugVerbose)
 	c.Device = viper.GetString(Device)
