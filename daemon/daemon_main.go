@@ -67,6 +67,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 )
 
@@ -367,8 +368,14 @@ func init() {
 	flags.StringSlice(option.DebugVerbose, []string{}, "List of enabled verbose debug groups")
 	option.BindEnv(option.DebugVerbose)
 
-	flags.StringP(option.Device, "d", "undefined", "Device facing cluster/external network for direct L3 (non-overlay mode)")
+	flags.StringP(option.Device, "d", "undefined", "Device facing cluster/external network for direct L3 (non-overlay mode or ipvlan)")
 	option.BindEnv(option.Device)
+
+	flags.String(option.DatapathMode, defaults.DatapathMode, "Datapath mode name")
+	option.BindEnv(option.DatapathMode)
+
+	flags.StringP(option.IpvlanMasterDevice, "", "undefined", "Device facing external network acting as ipvlan master")
+	option.BindEnv(option.IpvlanMasterDevice)
 
 	flags.Bool(option.DisableConntrack, false, "Disable connection tracking")
 	option.BindEnv(option.DisableConntrack)
@@ -561,7 +568,7 @@ func init() {
 	flags.String(option.StateDir, defaults.RuntimePath, "Directory path to store runtime state")
 	option.BindEnv(option.StateDir)
 
-	flags.StringP(option.TunnelName, "t", option.TunnelVXLAN, fmt.Sprintf("Tunnel mode {%s}", option.GetTunnelModes()))
+	flags.StringP(option.TunnelName, "t", "", fmt.Sprintf("Tunnel mode {%s} (default \"vxlan\" for the \"veth\" datapath mode)", option.GetTunnelModes()))
 	option.BindEnv(option.TunnelName)
 
 	flags.Int(option.TracePayloadlen, 128, "Length of payload to capture when tracing")
@@ -858,6 +865,46 @@ func initEnv(cmd *cobra.Command) {
 
 	option.Config.NAT46Prefix = r
 
+	switch option.Config.DatapathMode {
+	case option.DatapathModeVeth:
+		if option.Config.Tunnel == "" {
+			option.Config.Tunnel = option.TunnelVXLAN
+		}
+	case option.DatapathModeIpvlan:
+		if option.Config.Tunnel != "" && option.Config.Tunnel != option.TunnelDisabled {
+			log.WithField(logfields.Tunnel, option.Config.Tunnel).
+				Fatal("tunnel cannot be set in the 'ipvlan' datapath mode")
+		}
+		if option.Config.Device != "undefined" {
+			log.WithField(logfields.Device, option.Config.Device).
+				Fatal("device cannot be set in the 'ipvlan' datapath mode")
+		}
+
+		option.Config.Tunnel = option.TunnelDisabled
+		// We disallow earlier command line combination of --device with
+		// --datapath-mode ipvlan. But given all the remaining logic is
+		// shared with option.Config.Device, override it here internally
+		// with the specified ipvlan master device. Reason to have a
+		// separate, more specific command line parameter here and in
+		// the swagger API is that in future we might deprecate --device
+		// parameter with e.g. some auto-detection mechanism, thus for
+		// ipvlan it is desired to have a separate one, see PR #6608.
+		option.Config.Device = viper.GetString(option.IpvlanMasterDevice)
+		if option.Config.Device == "undefined" {
+			log.WithField(logfields.Device, option.Config.Device).
+				Fatal("ipvlan master device must be specified in the 'ipvlan' datapath mode")
+		}
+		link, err := netlink.LinkByName(option.Config.Device)
+		if err != nil {
+			log.WithError(err).WithField(logfields.Device, option.Config.Device).
+				Fatal("Cannot find device interface")
+		}
+		option.Config.IpvlanDeviceIfIndex = link.Attrs().Index
+
+	default:
+		log.WithField(logfields.DatapathMode, option.Config.DatapathMode).Fatal("Invalid datapath mode")
+	}
+
 	// If device has been specified, use it to derive better default
 	// allocation prefixes
 	if option.Config.Device != "undefined" {
@@ -994,7 +1041,11 @@ func runDaemon() {
 		d.workloadsEventsCh = eventsCh
 	}
 
-	d.initHealth()
+	// Currently, cilium-health cannot run in ipvlan mode as it tries to connect
+	// to network in veth mode, thus we disable it
+	if option.Config.DatapathMode != option.DatapathModeIpvlan {
+		d.initHealth()
+	}
 
 	d.startStatusCollector()
 
