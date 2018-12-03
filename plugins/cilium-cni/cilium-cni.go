@@ -27,7 +27,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/client"
-	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/route"
 	"github.com/cilium/cilium/pkg/endpoint/connector"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
@@ -44,6 +43,8 @@ import (
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
+
+	"golang.org/x/sys/unix"
 )
 
 var (
@@ -371,16 +372,48 @@ func cmdAdd(args *skel.CmdArgs) error {
 		return fmt.Errorf("unable to move veth pair '%v' to netns: %s", peer, err)
 	}
 
-	err = netNs.Do(func(_ ns.NetNS) error {
-		err := link.Rename(tmpIfName, args.IfName)
-		if err != nil {
-			return fmt.Errorf("failed to rename %q to %q: %s", tmpIfName, args.IfName, err)
-		}
-		return nil
-	})
+	_, _, err = connector.SetupVethRemoteNs(netNs, tmpIfName, args.IfName)
 	if err != nil {
 		return err
 	}
+
+	//XXX/START
+
+	// Just for testing, we add a 2nd device in parallel, make it an
+	// interface in future to select one.
+	index, err := connector.SetupIpvlanMaster()
+	if err != nil {
+		return err
+	}
+
+	ipvlan, link, tmpIfName, err := connector.SetupIpvlan(ep.ContainerID, int(conf.DeviceMTU), index, ep)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			if err = netlink.LinkDel(ipvlan); err != nil {
+				logger.WithError(err).WithField(logfields.Ipvlan, ipvlan.Name).Warn("failed to clean up and delete ipvlan")
+			}
+		}
+	}()
+
+	if err = netlink.LinkSetNsFd(*link, int(netNs.Fd())); err != nil {
+		return fmt.Errorf("unable to move ipvlan slave '%v' to netns: %s", link, err)
+	}
+
+	mapFD, mapID, err := connector.SetupIpvlanRemoteNs(netNs, tmpIfName, "ipvl0" /*args.IfName*/)
+	if err != nil {
+		return err
+	}
+
+	ep.MapID = int64(mapID)
+	defer func() {
+		unix.Close(mapFD)
+	}()
+
+	//XXX/END
 
 	ipam, err := c.IPAMAllocate("")
 	if err != nil {

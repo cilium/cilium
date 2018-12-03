@@ -30,6 +30,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -52,6 +53,8 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 
 	"github.com/sirupsen/logrus"
+
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -92,6 +95,8 @@ const (
 	CallsMapName = "cilium_calls_"
 	// PolicyGlobalMapName specifies the global tail call map for EP handle_policy() lookup.
 	PolicyGlobalMapName = "cilium_policy"
+	// IpvlanMapName specifies the tail call map for EP on egress used with ipvlan.
+	IpvlanMapName = "lxc_ipve_"
 
 	// HealthCEPPrefix is the prefix used to name the cilium health endpoints' CEP
 	HealthCEPPrefix = "cilium-health-"
@@ -134,6 +139,9 @@ type Endpoint struct {
 	// DockerEndpointID is the Docker network endpoint ID if managed by
 	// libnetwork
 	DockerEndpointID string
+
+	// Corresponding BPF map identifier
+	mapID int
 
 	// IfName is the name of the host facing interface (veth pair) which
 	// connects into the endpoint
@@ -432,6 +440,7 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, 
 		IfName:           base.InterfaceName,
 		k8sPodName:       base.K8sPodName,
 		k8sNamespace:     base.K8sNamespace,
+		mapID:            int(base.MapID),
 		IfIndex:          int(base.InterfaceIndex),
 		OpLabels:         pkgLabels.NewOpLabels(),
 		state:            "",
@@ -2196,4 +2205,23 @@ func (e *Endpoint) InsertEvent() {
 // endpoint.mutex must be held in read mode at least
 func (e *Endpoint) IsDisconnecting() bool {
 	return e.state == StateDisconnected || e.state == StateDisconnecting
+}
+
+func (e *Endpoint) MapPin() error {
+	if e.mapID == 0 {
+		return nil
+	}
+
+	mapFd, err := bpf.MapFdFromID(e.mapID)
+	if err != nil {
+		return err
+	}
+
+	err = bpf.ObjPin(mapFd, e.BPFIpvlanMapPath())
+	if err != nil {
+		unix.Close(mapFd)
+		return err
+	}
+
+	return nil
 }

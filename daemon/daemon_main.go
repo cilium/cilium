@@ -467,6 +467,7 @@ func init() {
 	flags.MarkHidden(option.MaxCtrlIntervalName)
 	flags.String(option.MonitorAggregationName, "None",
 		"Level of monitor aggregation for traces from the datapath")
+	flags.Uint("master-device", 0, "Ifindex of master device for ipvlan")
 	viper.BindEnv(option.MonitorAggregationName, "CILIUM_MONITOR_AGGREGATION_LEVEL")
 	flags.IntVar(&option.Config.MTU,
 		option.MTUName, mtu.AutoDetect(), "Overwrite auto-detected MTU of underlying network")

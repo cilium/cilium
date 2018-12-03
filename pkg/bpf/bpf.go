@@ -300,6 +300,32 @@ func ObjGet(pathname string) (int, error) {
 	return int(fd), nil
 }
 
+type bpfAttrFdFromId struct {
+	ID     uint32
+	NextID uint32
+	Flags  uint32
+}
+
+// MapFdFromID retrieves a file descriptor based on a map ID.
+func MapFdFromID(id int) (int, error) {
+	uba := bpfAttrFdFromId{
+		ID: uint32(id),
+	}
+
+	fd, _, err := unix.Syscall(
+		unix.SYS_BPF,
+		BPF_MAP_GET_FD_BY_ID,
+		uintptr(unsafe.Pointer(&uba)),
+		unsafe.Sizeof(uba),
+	)
+
+	if fd == 0 || err != 0 {
+		return 0, fmt.Errorf("Unable to get object fd from id %d: %s", id, err)
+	}
+
+	return int(fd), nil
+}
+
 // ObjClose closes the map's fd.
 func ObjClose(fd int) error {
 	if fd > 0 {

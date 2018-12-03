@@ -25,7 +25,7 @@ UTC_DATE=$(shell date -u "+%Y-%m-%d")
 
 SKIP_DOCS ?= false
 
-all: precheck build postcheck
+all: build postcheck
 	@echo "Build finished."
 
 build: $(SUBDIRS)

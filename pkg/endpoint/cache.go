@@ -67,6 +67,11 @@ func (ep *epInfoCache) InterfaceName() string {
 	return ep.ifName
 }
 
+// MapPath returns tail call map path
+func (ep *epInfoCache) MapPath() string {
+	return ep.endpoint.BPFIpvlanMapPath()
+}
+
 // StringID returns the endpoint's ID in a string.
 func (ep *epInfoCache) StringID() string {
 	return ep.id

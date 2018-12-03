@@ -49,6 +49,7 @@
 #define CONNTRACK_ACCOUNTING
 #define ENABLE_IPv4
 #define CONFIG_MAP cilium_ep_config_111
+#define EGRESS_MAP lxc_ipve_111
 
 /* It appears that we can support around the below number of prefixes in an
  * unrolled loop for LPM CIDR handling in older kernels along with the rest of

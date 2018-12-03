@@ -74,6 +74,10 @@ var (
 	endpointObjDebug = fmt.Sprintf("%s.dbg.o", endpointPrefix)
 	endpointAsm      = fmt.Sprintf("%s.%s", endpointPrefix, outputAssembly)
 
+	ipvePrefix = "bpf_ipve"
+	ipveProg   = fmt.Sprintf("%s.%s", ipvePrefix, outputSource)
+	ipveObj    = fmt.Sprintf("%s.o", ipvePrefix)
+
 	// testIncludes allows the unit tests to inject additional include
 	// paths into the compile command at test time. It is usually nil.
 	testIncludes string
@@ -95,9 +99,16 @@ var (
 			OutputType: outputSource,
 		},
 	}
+
 	datapathProg = &progInfo{
 		Source:     endpointProg,
 		Output:     endpointObj,
+		OutputType: outputObject,
+	}
+
+	ipveDatapathProg = &progInfo{
+		Source:     ipveProg,
+		Output:     ipveObj,
 		OutputType: outputObject,
 	}
 )

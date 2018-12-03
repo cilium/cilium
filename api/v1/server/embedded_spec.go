@@ -1436,6 +1436,10 @@ func init() {
           "description": "MAC address",
           "type": "string"
         },
+        "map-id": {
+          "description": "ID of policy map",
+          "type": "integer"
+        },
         "policy-enabled": {
           "description": "Whether policy enforcement is enabled or not",
           "type": "boolean"

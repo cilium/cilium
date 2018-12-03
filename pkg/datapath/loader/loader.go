@@ -40,6 +40,7 @@ type endpoint interface {
 	InterfaceName() string
 	Logger(subsystem string) *logrus.Entry
 	StateDir() string
+	MapPath() string
 }
 
 // compileDatapath invokes the compiler and linker to create all state files for
@@ -73,7 +74,17 @@ func compileDatapath(ctx context.Context, ep endpoint, dirs *directoryInfo, debu
 			logfields.Params: logfields.Repr(datapathProg),
 			logfields.Debug:  false,
 		})
-		scopedLog.WithError(err).Warn("JoinEP: Failed to compile")
+		scopedLog.WithError(err).Warn("JoinEP/veth: Failed to compile")
+		return err
+	}
+
+	// TODO: generalize this to only compile one variant
+	if err := compile(ctx, ipveDatapathProg, dirs, false); err != nil {
+		scopedLog := epLog.WithFields(logrus.Fields{
+			logfields.Params: logfields.Repr(ipveDatapathProg),
+			logfields.Debug:  false,
+		})
+		scopedLog.WithError(err).Warn("JoinEP/ipvlan: Failed to compile")
 		return err
 	}
 
@@ -88,7 +99,17 @@ func reloadDatapath(ctx context.Context, ep endpoint, dirs *directoryInfo) error
 			logfields.Path: objPath,
 			logfields.Veth: ep.InterfaceName(),
 		})
-		scopedLog.WithError(err).Warn("JoinEP: Failed to load program")
+		scopedLog.WithError(err).Warn("JoinEP/veth: Failed to load program")
+		return err
+	}
+
+	// TODO: generalize this to only do one variant
+	objPath = path.Join(dirs.Output, ipveObj)
+	if err := graftDatapath(ctx, ep.MapPath(), objPath, "entry"); err != nil {
+		scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
+			logfields.Path: objPath,
+		})
+		scopedLog.WithError(err).Warn("JoinEP/ipvlan: Failed to load program")
 		return err
 	}
 
