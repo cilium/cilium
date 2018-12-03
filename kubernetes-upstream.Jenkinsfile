@@ -53,6 +53,7 @@ pipeline {
                 sh 'rm -rf src; mkdir -p src/github.com/cilium'
                 sh 'ln -s $WORKSPACE src/github.com/cilium/cilium'
                 checkout scm
+                sh '/usr/local/bin/cleanup || true'
             }
         }
         stage('Boot VMs'){
