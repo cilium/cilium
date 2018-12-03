@@ -218,3 +218,31 @@ func GetVethInfo(nodeIfName string, parentIdx int, netNSMac string, ep *models.E
 	ep.InterfaceName = l.Attrs().Name
 	return nil
 }
+
+func DeriveEndpointFrom(hostDevice, containerID string, pid int) (*models.EndpointChangeRequest, error) {
+	parentIdx, lxcMAC, ip, err := GetNetInfoFromPID(pid)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get net info from PID %d: %s", pid, err)
+	}
+	if parentIdx == 0 {
+		return nil, fmt.Errorf("unable to find master index interface for %s: %s", ip, err)
+	}
+	// _, ip6, err := ipam.AllocateNext("ipv6")
+	// if err != nil {
+	// 	return nil, fmt.Errorf("unable to allocate IPv6 address: %s", err)
+	// }
+	epModel := &models.EndpointChangeRequest{
+		Addressing: &models.AddressPair{
+			IPV4: ip.String(),
+			// IPV6: ip6.String(),
+		},
+		ContainerID: containerID,
+		State:       models.EndpointStateWaitingForIdentity,
+	}
+	err = GetVethInfo(hostDevice, parentIdx, lxcMAC, epModel)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get veth info: %s", err)
+
+	}
+	return epModel, nil
+}
