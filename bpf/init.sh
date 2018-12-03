@@ -28,6 +28,8 @@ MTU=$9
 ID_HOST=1
 ID_WORLD=2
 
+TUNNEL_OVERHEAD=50
+
 # If the value below is changed, be sure to update bugtool/cmd/configuration.go
 # as well when dumping the routing table in bugtool. See GH-5828. 
 PROXY_RT_TABLE=2005
@@ -301,6 +303,10 @@ if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
 		ip link add $ENCAP_DEV type $MODE external || encap_fail
 	}
 	ip link set $ENCAP_DEV up || encap_fail
+
+    if [ "$MODE" = "vxlan" ]; then
+        ip link set $ENCAP_DEV mtu $(( $MTU - $TUNNEL_OVERHEAD )) || encap_fail
+    fi
 
 	ENCAP_IDX=$(cat /sys/class/net/${ENCAP_DEV}/ifindex)
 	sed -i '/^#.*ENCAP_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
