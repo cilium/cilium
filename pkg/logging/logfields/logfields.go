@@ -147,6 +147,9 @@ const (
 	// Interface is an interface id/name on the system
 	Interface = "interface"
 
+	// Ipvlan is a ipvlan object or ID
+	Ipvlan = "ipvlan"
+
 	// Veth is a veth object or ID
 	Veth = "veth"
 
