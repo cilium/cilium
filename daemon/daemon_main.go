@@ -42,6 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/endpointsynchronizer"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadinfo"
@@ -838,7 +839,7 @@ func runDaemon() {
 		viper.GetInt("conntrack-garbage-collector-interval"),
 		restoredEndpoints.restored)
 
-	endpointmanager.EndpointSynchronizer = &k8s.EndpointSynchronizer{}
+	endpointmanager.EndpointSynchronizer = &endpointsynchronizer.EndpointSynchronizer{}
 
 	if enableLogstash {
 		log.Info("Enabling Logstash")
