@@ -528,3 +528,7 @@ required = [
     name = "k8s.io/code-generator"
     unused-packages = false
     non-go = false
+
+[[constraint]]
+  name = "github.com/davecgh/go-spew"
+  revision = "v1.1.1"
