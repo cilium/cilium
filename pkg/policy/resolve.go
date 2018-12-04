@@ -23,10 +23,10 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Policy is a structure which contains the resolved policy across all layers
+// EndpointPolicy is a structure which contains the resolved policy across all layers
 // (L3, L4, and L7).
-type Policy struct {
-	// ID is the node-local identifier of this Policy.
+type EndpointPolicy struct {
+	// ID is the node-local identifier of this EndpointPolicy.
 	ID uint16
 
 	// L4Policy contains the computed L4 and L7 policy.
@@ -49,11 +49,11 @@ type Policy struct {
 	// representation.
 	PolicyMapState MapState
 
-	// PolicyOwner describes any type which consumes this Policy object.
+	// PolicyOwner describes any type which consumes this EndpointPolicy object.
 	PolicyOwner PolicyOwner
 }
 
-// PolicyOwner is anything which consumes a Policy.
+// PolicyOwner is anything which consumes a EndpointPolicy.
 type PolicyOwner interface {
 	LookupRedirectPort(l4 *L4Filter) uint16
 }
@@ -73,7 +73,7 @@ func getSecurityIdentities(labelsMap cache.IdentityCache, selector *api.Endpoint
 	return identities
 }
 
-func (p *Policy) computeDesiredL4PolicyMapEntries(identityCache cache.IdentityCache) {
+func (p *EndpointPolicy) computeDesiredL4PolicyMapEntries(identityCache cache.IdentityCache) {
 
 	if p.L4Policy == nil {
 		return

@@ -556,13 +556,13 @@ func (p *Repository) GetRulesList() *models.Policy {
 	}
 }
 
-// ResolvePolicy returns the Policy for the provided set of labels against the
+// ResolvePolicy returns the EndpointPolicy for the provided set of labels against the
 // set of rules in the repository, and the provided set of identities.
 // If the policy cannot be generated due to conflicts at L4 or L7, returns an
 // error.
-func (p *Repository) ResolvePolicy(id uint16, labels labels.LabelArray, policyOwner PolicyOwner, identityCache cache.IdentityCache) (*Policy, error) {
+func (p *Repository) ResolvePolicy(id uint16, labels labels.LabelArray, policyOwner PolicyOwner, identityCache cache.IdentityCache) (*EndpointPolicy, error) {
 
-	calculatedPolicy := &Policy{
+	calculatedPolicy := &EndpointPolicy{
 		ID:             id,
 		L4Policy:       NewL4Policy(),
 		CIDRPolicy:     NewCIDRPolicy(),
