@@ -123,22 +123,25 @@ func (l4 *L4Filter) AllowsAllAtL3() bool {
 }
 
 // ToKeys converts filter into a list of Keys.
-func (l4 *L4Filter) ToKeys(direction trafficdirection.TrafficDirection, identityCache cache.IdentityCache) []Key {
+func (l4 *L4Filter) ToKeys(direction trafficdirection.TrafficDirection, identityCache cache.IdentityCache, deniedIdentities cache.IdentityCache) []Key {
 	keysToAdd := []Key{}
 	port := uint16(l4.Port)
 	proto := uint8(l4.U8Proto)
 
 	for _, sel := range l4.Endpoints {
-		for _, id := range getSecurityIdentities(identityCache, &sel) {
-			srcID := id.Uint32()
-			keyToAdd := Key{
-				Identity: srcID,
-				// NOTE: Port is in host byte-order!
-				DestPort:         port,
-				Nexthdr:          proto,
-				TrafficDirection: direction.Uint8(),
+		identities := getSecurityIdentities(identityCache, &sel)
+		for _, id := range identities {
+			if _, identityIsDenied := deniedIdentities[id]; !identityIsDenied {
+				srcID := id.Uint32()
+				keyToAdd := Key{
+					Identity: srcID,
+					// NOTE: Port is in host byte-order!
+					DestPort:         port,
+					Nexthdr:          proto,
+					TrafficDirection: direction.Uint8(),
+				}
+				keysToAdd = append(keysToAdd, keyToAdd)
 			}
-			keysToAdd = append(keysToAdd, keyToAdd)
 		}
 	}
 	return keysToAdd
