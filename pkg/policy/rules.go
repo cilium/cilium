@@ -133,11 +133,13 @@ func (rules ruleSlice) resolveL4IngressPolicy(ctx *SearchContext, revision uint6
 	// will be appended to each EndpointSelector's MatchExpressions in
 	// each FromEndpoints for all ingress rules. This ensures that FromRequires
 	// is taken into account when evaluating policy at L4.
-	for _, r := range rules {
-		for _, ingressRule := range r.Ingress {
-			if r.EndpointSelector.Matches(ctx.To) {
-				for _, requirement := range ingressRule.FromRequires {
-					requirements = append(requirements, requirement.ConvertToLabelSelectorRequirementSlice()...)
+	if !ctx.skipL4RequirementsAggregation {
+		for _, r := range rules {
+			for _, ingressRule := range r.Ingress {
+				if r.EndpointSelector.Matches(ctx.To) {
+					for _, requirement := range ingressRule.FromRequires {
+						requirements = append(requirements, requirement.ConvertToLabelSelectorRequirementSlice()...)
+					}
 				}
 			}
 		}
@@ -173,11 +175,13 @@ func (rules ruleSlice) resolveL4EgressPolicy(ctx *SearchContext, revision uint64
 	// be appended to each EndpointSelector's MatchExpressions in each
 	// ToEndpoints for all ingress rules. This ensures that ToRequires is
 	// taken into account when evaluating policy at L4.
-	for _, r := range rules {
-		for _, egressRule := range r.Egress {
-			if r.EndpointSelector.Matches(ctx.From) {
-				for _, requirement := range egressRule.ToRequires {
-					requirements = append(requirements, requirement.ConvertToLabelSelectorRequirementSlice()...)
+	if !ctx.skipL4RequirementsAggregation {
+		for _, r := range rules {
+			for _, egressRule := range r.Egress {
+				if r.EndpointSelector.Matches(ctx.From) {
+					for _, requirement := range egressRule.ToRequires {
+						requirements = append(requirements, requirement.ConvertToLabelSelectorRequirementSlice()...)
+					}
 				}
 			}
 		}
