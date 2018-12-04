@@ -78,47 +78,29 @@ func (p *EndpointPolicy) computeDesiredL4PolicyMapEntries(identityCache cache.Id
 	if p.L4Policy == nil {
 		return
 	}
-
-	policyKeys := p.PolicyMapState
-
-	for _, filter := range p.L4Policy.Ingress {
-		keysFromFilter := filter.ToKeys(&filter, trafficdirection.Ingress, identityCache)
-		for _, keyFromFilter := range keysFromFilter {
-			var proxyPort uint16
-			// Preserve the already-allocated proxy ports for redirects that
-			// already exist.
-			if filter.IsRedirect() {
-				proxyPort = p.PolicyOwner.LookupRedirectPort(&filter)
-				// If the currently allocated proxy port is 0, this is a new
-				// redirect, for which no port has been allocated yet. Ignore
-				// it for now. This will be configured by
-				// e.addNewRedirectsFromMap once the port has been allocated.
-				if proxyPort == 0 {
-					continue
-				}
-			}
-			policyKeys[keyFromFilter] = MapStateEntry{ProxyPort: proxyPort}
-		}
-	}
-
-	for _, filter := range p.L4Policy.Egress {
-		keysFromFilter := filter.ToKeys(&filter, trafficdirection.Egress, identityCache)
-		for _, keyFromFilter := range keysFromFilter {
-			var proxyPort uint16
-			// Preserve the already-allocated proxy ports for redirects that
-			// already exist.
-			if filter.IsRedirect() {
-				proxyPort = p.PolicyOwner.LookupRedirectPort(&filter)
-				// If the currently allocated proxy port is 0, this is a new
-				// redirect, for which no port has been allocated yet. Ignore
-				// it for now. This will be configured by
-				// e.addNewRedirectsFromMap once the port has been allocated.
-				if proxyPort == 0 {
-					continue
-				}
-			}
-			policyKeys[keyFromFilter] = MapStateEntry{ProxyPort: proxyPort}
-		}
-	}
+	p.computeDirectionL4PolicyMapEntries(identityCache, p.L4Policy.Ingress, trafficdirection.Ingress)
+	p.computeDirectionL4PolicyMapEntries(identityCache, p.L4Policy.Egress, trafficdirection.Egress)
 	return
+}
+
+func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(identityCache cache.IdentityCache, l4PolicyMap L4PolicyMap, direction trafficdirection.TrafficDirection) {
+	for _, filter := range l4PolicyMap {
+		keysFromFilter := filter.ToKeys(&filter, direction, identityCache)
+		for _, keyFromFilter := range keysFromFilter {
+			var proxyPort uint16
+			// Preserve the already-allocated proxy ports for redirects that
+			// already exist.
+			if filter.IsRedirect() {
+				proxyPort = p.PolicyOwner.LookupRedirectPort(&filter)
+				// If the currently allocated proxy port is 0, this is a new
+				// redirect, for which no port has been allocated yet. Ignore
+				// it for now. This will be configured by
+				// e.addNewRedirectsFromMap once the port has been allocated.
+				if proxyPort == 0 {
+					continue
+				}
+			}
+			p.PolicyMapState[keyFromFilter] = MapStateEntry{ProxyPort: proxyPort}
+		}
+	}
 }
