@@ -621,14 +621,7 @@ func (p *Repository) ResolvePolicy(id uint16, labels labels.LabelArray, policyOw
 			}
 		}
 	} else {
-		// Allow all identities
-		for identity := range identityCache {
-			keyToAdd := Key{
-				Identity:         identity.Uint32(),
-				TrafficDirection: trafficdirection.Ingress.Uint8(),
-			}
-			calculatedPolicy.PolicyMapState[keyToAdd] = MapStateEntry{}
-		}
+		calculatedPolicy.PolicyMapState.AllowAllIdentities(identityCache, trafficdirection.Ingress)
 	}
 
 	if egressEnabled {
@@ -659,13 +652,7 @@ func (p *Repository) ResolvePolicy(id uint16, labels labels.LabelArray, policyOw
 		}
 	} else {
 		// Allow all identities
-		for identity := range identityCache {
-			keyToAdd := Key{
-				Identity:         identity.Uint32(),
-				TrafficDirection: trafficdirection.Egress.Uint8(),
-			}
-			calculatedPolicy.PolicyMapState[keyToAdd] = MapStateEntry{}
-		}
+		calculatedPolicy.PolicyMapState.AllowAllIdentities(identityCache, trafficdirection.Egress)
 	}
 
 	calculatedPolicy.computeDesiredL4PolicyMapEntries(identityCache)
