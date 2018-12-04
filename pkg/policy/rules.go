@@ -57,8 +57,10 @@ func (rules ruleSlice) wildcardL3L4Rules(ctx *SearchContext, ingress bool, l4Pol
 	// Duplicate L3-only rules into wildcard L7 rules.
 	for _, r := range rules {
 		if ingress {
-			if !r.EndpointSelector.Matches(ctx.To) {
-				continue
+			if !ctx.rulesSelect {
+				if !r.EndpointSelector.Matches(ctx.To) {
+					continue
+				}
 			}
 			for _, rule := range r.Ingress {
 				// Non-label-based rule. Ignore.
@@ -87,8 +89,10 @@ func (rules ruleSlice) wildcardL3L4Rules(ctx *SearchContext, ingress bool, l4Pol
 				}
 			}
 		} else {
-			if !r.EndpointSelector.Matches(ctx.From) {
-				continue
+			if !ctx.rulesSelect {
+				if !r.EndpointSelector.Matches(ctx.From) {
+					continue
+				}
 			}
 			for _, rule := range r.Egress {
 				// Non-label-based rule. Ignore.
