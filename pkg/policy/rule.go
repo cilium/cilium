@@ -237,9 +237,11 @@ func (state *traceState) unSelectRule(ctx *SearchContext, labels labels.LabelArr
 
 // resolveL4IngressPolicy determines whether (TODO ianvernon)
 func (r *rule) resolveL4IngressPolicy(ctx *SearchContext, state *traceState, result *L4Policy, requirements []v1.LabelSelectorRequirement) (*L4Policy, error) {
-	if !r.EndpointSelector.Matches(ctx.To) {
-		state.unSelectRule(ctx, ctx.To, r)
-		return nil, nil
+	if !ctx.rulesSelect {
+		if !r.EndpointSelector.Matches(ctx.To) {
+			state.unSelectRule(ctx, ctx.To, r)
+			return nil, nil
+		}
 	}
 
 	state.selectRule(ctx, r)
@@ -537,10 +539,11 @@ func mergeL4EgressPort(ctx *SearchContext, endpoints []api.EndpointSelector, r a
 }
 
 func (r *rule) resolveL4EgressPolicy(ctx *SearchContext, state *traceState, result *L4Policy, requirements []v1.LabelSelectorRequirement) (*L4Policy, error) {
-
-	if !r.EndpointSelector.Matches(ctx.From) {
-		state.unSelectRule(ctx, ctx.From, r)
-		return nil, nil
+	if !ctx.rulesSelect {
+		if !r.EndpointSelector.Matches(ctx.From) {
+			state.unSelectRule(ctx, ctx.From, r)
+			return nil, nil
+		}
 	}
 
 	state.selectRule(ctx, r)
