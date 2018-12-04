@@ -375,8 +375,8 @@ func AddEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, reason string) (er
 	ep.SetDesiredEgressPolicyEnabled(alwaysEnforce)
 
 	// TODO (ianvernon) keep???
-	ep.SetRealizedIngressPolicyEnabled(alwaysEnforce)
-	ep.SetRealizedEgressPolicyEnabled(alwaysEnforce)
+	//ep.SetRealizedIngressPolicyEnabled(alwaysEnforce)
+	//ep.SetRealizedEgressPolicyEnabled(alwaysEnforce)
 
 	if ep.ID != 0 {
 		return fmt.Errorf("Endpoint ID is already set to %d", ep.ID)

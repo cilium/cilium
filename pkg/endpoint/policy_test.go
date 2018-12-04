@@ -50,7 +50,7 @@ type EndpointTestOwner struct {
 	OnGetPolicyRepository     func() *policy.Repository
 	OnUpdateProxyRedirect     func(e *Endpoint, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error, revert.FinalizeFunc, revert.RevertFunc)
 	OnRemoveProxyRedirect     func(e *Endpoint, id string, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc)
-	OnUpdateNetworkPolicy     func(e *Endpoint, policy *policy.L4Policy, labelsMap cache.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc)
+	OnUpdateNetworkPolicy     func(e *Endpoint, policy *policy.L4Policy, labelsMap, deniedIngressIdentities, deniedEgressIdentities cache.IdentityCache, proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc)
 	OnRemoveNetworkPolicy     func(e *Endpoint)
 	OnQueueEndpointBuild      func(epID uint64) func()
 	OnRemoveFromEndpointQueue func(epID uint64)
@@ -101,7 +101,7 @@ func (e *EndpointSuite) SetUpSuite(c *C) {
 	policy.SetPolicyEnabled(option.DefaultEnforcement)
 	endpointTestOwner = SetupEndpointTestOwner()
 	ep = endpointCreator(256, identity.NumericIdentity(256))
-	repo.AddList(GenerateNumRules(1000000))
+	repo.AddList(GenerateNumRules(1000))
 
 }
 
@@ -154,7 +154,7 @@ func (owner *EndpointTestOwner) RemoveProxyRedirect(e *Endpoint, id string, prox
 }
 
 func (owner *EndpointTestOwner) UpdateNetworkPolicy(e *Endpoint, policy *policy.L4Policy,
-	labelsMap cache.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc) {
+	labelsMap, deniedIngressIdentities, deniedEgressIdentities cache.IdentityCache, proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc) {
 	if owner.OnUpdateNetworkPolicy != nil {
 		return owner.OnUpdateNetworkPolicy(e, policy, labelsMap, deniedIngressIdentities, deniedEgressIdentities, proxyWaitGroup)
 	}
@@ -261,8 +261,8 @@ func GenerateNumRules(numRules int) api.Rules {
 	// are added into the policy repository.
 	ingRule := api.IngressRule{
 		FromEndpoints: []api.EndpointSelector{barSelector},
-		/*FromRequires:  []api.EndpointSelector{barSelector},
-		ToPorts: []api.PortRule{
+		FromRequires:  []api.EndpointSelector{barSelector},
+		/*ToPorts: []api.PortRule{
 			{
 				Ports: []api.PortProtocol{
 					{
