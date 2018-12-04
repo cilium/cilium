@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/versioned"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
@@ -515,4 +516,13 @@ func (s *ServiceCache) MergeExternalServiceDelete(service *service.ClusterServic
 			s.Events <- event
 		}
 	}
+}
+
+// DebugStatus implements debug.StatusObject to provide debug status collection
+// ability
+func (s *ServiceCache) DebugStatus() string {
+	s.mutex.RLock()
+	str := spew.Sdump(s)
+	s.mutex.RUnlock()
+	return str
 }

@@ -43,6 +43,7 @@ import (
 	bpfIPCache "github.com/cilium/cilium/pkg/datapath/ipcache"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
+	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -830,6 +831,8 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 		buildEndpointSem: semaphore.NewWeighted(int64(numWorkerThreads())),
 		compilationMutex: new(lock.RWMutex),
 	}
+
+	debug.RegisterStatusObject("k8s-service-cache", &d.k8sSvcCache)
 
 	d.runK8sServiceHandler()
 	policyApi.InitEntities(option.Config.ClusterName)

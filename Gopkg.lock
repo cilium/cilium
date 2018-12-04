@@ -276,8 +276,7 @@
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
   pruneopts = "NUT"
-  revision = "8991bc29aa16c548c550c7ff78260e27b9ab7c73"
-  version = "v1.1.1"
+  revision = "v1.1.1"
 
 [[projects]]
   digest = "1:3cabbabc9e0e4aa7e12b882bdc213f41cf8bd2b2ce2a7b5e0aceaf8a6a78049b"
@@ -1771,6 +1770,7 @@
     "github.com/coreos/etcd/clientv3/concurrency",
     "github.com/coreos/etcd/clientv3/yaml",
     "github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes",
+    "github.com/davecgh/go-spew/spew",
     "github.com/docker/engine-api/client",
     "github.com/docker/engine-api/types",
     "github.com/docker/engine-api/types/events",
