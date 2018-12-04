@@ -101,6 +101,13 @@ required = [
   # on-revision = ""
 
 [[constraint]]
+  name = "github.com/davecgh/go-spew"
+  revision = "v1.1.1"
+
+  # main-usage = "pkg/debug"
+  # on-revision = ""
+
+[[constraint]]
   name = "github.com/docker/engine-api"
   revision = "4eca04ae18f4f93f40196a17b9aa6e11262a7269"
 
