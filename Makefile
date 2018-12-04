@@ -1,7 +1,8 @@
 include Makefile.defs
 include daemon/bpf.sha
 
-SUBDIRS = proxylib envoy plugins bpf daemon cilium-health bugtool tools operator
+SUBDIRS_CILIUM_CONTAINER = proxylib envoy plugins/cilium-cni bpf daemon cilium-health bugtool
+SUBDIRS = $(SUBDIRS_CILIUM_CONTAINER) operator plugins tools
 GOFILES ?= $(subst _$(ROOT_DIR)/,,$(shell $(GO) list ./... | grep -v -e /vendor/ -e /contrib/))
 TESTPKGS ?= $(subst _$(ROOT_DIR)/,,$(shell $(GO) list ./... | grep -v -e /api/v1 -e /vendor/ -e /contrib/ -e test))
 GOLANGVERSION = $(shell $(GO) version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
@@ -29,6 +30,9 @@ all: precheck build postcheck
 	@echo "Build finished."
 
 build: $(SUBDIRS)
+
+build-container:
+	for i in $(SUBDIRS_CILIUM_CONTAINER); do $(MAKE) -C $$i all; done
 
 $(SUBDIRS): force
 	@ $(MAKE) -C $@ all
@@ -129,6 +133,10 @@ clean: clean-container
 install:
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	for i in $(SUBDIRS); do $(MAKE) -C $$i install; done
+
+install-container:
+	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
+	for i in $(SUBDIRS_CILIUM_CONTAINER); do $(MAKE) -C $$i install; done
 
 # Workaround for not having git in the build environment
 GIT_VERSION: .git
