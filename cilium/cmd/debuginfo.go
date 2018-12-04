@@ -92,6 +92,7 @@ var sections = map[string]addSection{
 	"cilium-service-list":     addCiliumServiceList,
 	"cilium-policy":           addCiliumPolicy,
 	"cilium-memory-map":       addCiliumMemoryMap,
+	"cilium-subsystems":       addSubsystems,
 }
 
 func init() {
@@ -315,6 +316,12 @@ func addCiliumServiceList(w *tabwriter.Writer, p *models.DebugInfo) {
 
 func addCiliumPolicy(w *tabwriter.Writer, p *models.DebugInfo) {
 	printMD(w, "Policy get", fmt.Sprintf(":\n %s\nRevision: %d\n", p.Policy.Policy, p.Policy.Revision))
+}
+
+func addSubsystems(w *tabwriter.Writer, p *models.DebugInfo) {
+	for name, status := range p.Subsystem {
+		printMD(w, name, status)
+	}
 }
 
 func addCiliumMemoryMap(w *tabwriter.Writer, p *models.DebugInfo) {

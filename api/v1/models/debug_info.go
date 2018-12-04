@@ -45,6 +45,9 @@ type DebugInfo struct {
 
 	// service list
 	ServiceList []*Service `json:"service-list"`
+
+	// subsystem
+	Subsystem map[string]string `json:"subsystem,omitempty"`
 }
 
 /* polymorph DebugInfo cilium-memory-map false */
@@ -64,6 +67,8 @@ type DebugInfo struct {
 /* polymorph DebugInfo policy false */
 
 /* polymorph DebugInfo service-list false */
+
+/* polymorph DebugInfo subsystem false */
 
 // Validate validates this debug info
 func (m *DebugInfo) Validate(formats strfmt.Registry) error {
