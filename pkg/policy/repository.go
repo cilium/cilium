@@ -582,13 +582,15 @@ func (p *Repository) ResolvePolicy(id uint16, labels labels.LabelArray, policyOw
 	calculatedPolicy.EgressPolicyEnabled = egressEnabled
 
 	ingressCtx := SearchContext{
-		To:          labels,
-		rulesSelect: true,
+		To:                            labels,
+		rulesSelect:                   true,
+		skipL4RequirementsAggregation: true,
 	}
 
 	egressCtx := SearchContext{
-		From:        labels,
-		rulesSelect: true,
+		From:                          labels,
+		rulesSelect:                   true,
+		skipL4RequirementsAggregation: true,
 	}
 
 	if option.Config.TracingEnabled() {
