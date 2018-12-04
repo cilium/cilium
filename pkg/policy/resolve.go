@@ -72,7 +72,7 @@ type PolicyOwner interface {
 }
 
 func getSecurityIdentities(labelsMap cache.IdentityCache, selector *api.EndpointSelector) []identity.NumericIdentity {
-	identities := []identity.NumericIdentity{}
+	identities := make([]identity.NumericIdentity, 0, len(labelsMap))
 	for idx, labels := range labelsMap {
 		if selector.Matches(labels) {
 			log.WithFields(logrus.Fields{
@@ -93,14 +93,14 @@ func (p *EndpointPolicy) computeDesiredL4PolicyMapEntries(identityCache cache.Id
 	if p.L4Policy == nil {
 		return
 	}
-	p.computeDirectionL4PolicyMapEntries(identityCache, p.L4Policy.Ingress, trafficdirection.Ingress)
-	p.computeDirectionL4PolicyMapEntries(identityCache, p.L4Policy.Egress, trafficdirection.Egress)
+	p.computeDirectionL4PolicyMapEntries(identityCache, p.L4Policy.Ingress, trafficdirection.Ingress, p.DeniedIngressIdentities)
+	p.computeDirectionL4PolicyMapEntries(identityCache, p.L4Policy.Egress, trafficdirection.Egress, p.DeniedEgressIdentities)
 	return
 }
 
-func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(identityCache cache.IdentityCache, l4PolicyMap L4PolicyMap, direction trafficdirection.TrafficDirection) {
+func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(identityCache cache.IdentityCache, l4PolicyMap L4PolicyMap, direction trafficdirection.TrafficDirection, deniedIdentities cache.IdentityCache) {
 	for _, filter := range l4PolicyMap {
-		keysFromFilter := filter.ToKeys(direction, identityCache)
+		keysFromFilter := filter.ToKeys(direction, identityCache, deniedIdentities)
 		for _, keyFromFilter := range keysFromFilter {
 			var proxyPort uint16
 			// Preserve the already-allocated proxy ports for redirects that
