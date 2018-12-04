@@ -1104,6 +1104,10 @@ definitions:
         type: array
         items:
           type: string
+      subsystem:
+        type: object
+        additionalProperties:
+          type: string
   IPAMResponse:
     description: IPAM configuration of an endpoint
     type: object

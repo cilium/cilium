@@ -1357,6 +1357,12 @@ func init() {
           "items": {
             "$ref": "#/definitions/Service"
           }
+        },
+        "subsystem": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
         }
       }
     },
