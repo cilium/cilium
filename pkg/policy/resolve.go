@@ -73,6 +73,8 @@ func getSecurityIdentities(labelsMap cache.IdentityCache, selector *api.Endpoint
 	return identities
 }
 
+// computeDesiredL4PolicyMapEntries transforms the EndpointPolicy.L4Policy into
+// the datapath-friendly format inside EndpointPolicy.PolicyMapState.
 func (p *EndpointPolicy) computeDesiredL4PolicyMapEntries(identityCache cache.IdentityCache) {
 
 	if p.L4Policy == nil {
