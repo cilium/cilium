@@ -62,6 +62,9 @@ const (
 	// MTUName is the name of the MTU option
 	MTUName = "mtu"
 
+	// DatapathMode is the name of the DatapathMode option
+	DatapathMode = "datapath-mode"
+
 	// TunnelName is the name of the Tunnel option
 	TunnelName = "tunnel"
 
@@ -219,6 +222,7 @@ type daemonConfig struct {
 	RunDir          string     // Cilium runtime directory
 	NAT46Prefix     *net.IPNet // NAT46 IPv6 Prefix
 	Device          string     // Receive device
+	DeviceIfIndex   int        // Device interface index
 	DevicePreFilter string     // XDP device
 	ModePreFilter   string     // XDP mode, values: { native | generic }
 	HostV4Addr      net.IP     // Host v4 address of the snooping device
@@ -227,6 +231,8 @@ type daemonConfig struct {
 	Workloads       []string   // List of Workloads set by the user to used by cilium.
 
 	Tunnel string // Tunnel mode
+	// TODO(brb) use models.DatapathMode type
+	DatapathMode string // Datapath mode
 
 	DryMode bool // Do not create BPF maps, devices, ..
 

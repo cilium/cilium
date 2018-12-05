@@ -32,9 +32,10 @@ cilium-agent
       --conntrack-garbage-collector-interval uint   Garbage collection interval for the connection tracking table (in seconds) (default 60)
       --container-runtime stringSlice               Sets the container runtime(s) used by Cilium { containerd | crio | docker | none | auto } ( "auto" uses the container runtime found in the order: "docker", "containerd", "crio" ) (default [auto])
       --container-runtime-endpoint map              Container runtime(s) endpoint(s). (default: --container-runtime-endpoint=containerd=/var/run/containerd/containerd.sock, --container-runtime-endpoint=crio=/var/run/crio.sock, --container-runtime-endpoint=docker=unix:///var/run/docker.sock) (default map[])
+      --datapath-mode string                        Datapath mode name (default "veth")
   -D, --debug                                       Enable debugging mode
       --debug-verbose stringSlice                   List of enabled verbose debug groups
-  -d, --device string                               Device facing cluster/external network for direct L3 (non-overlay mode) (default "undefined")
+  -d, --device string                               Device facing cluster/external network for direct L3 (non-overlay mode or ipvlan) (default "undefined")
       --disable-conntrack                           Disable connection tracking
       --disable-endpoint-crd                        Disable use of CiliumEndpoint CRD
       --disable-k8s-services                        Disable east-west K8s load balancing by cilium
@@ -74,7 +75,6 @@ cilium-agent
       --log-opt map                                 Log driver options for cilium (default map[])
       --log-system-load                             Enable periodic logging of system load
       --masquerade                                  Masquerade packets from endpoints leaving the host (default true)
-      --master-device uint                          Ifindex of master device for ipvlan
       --monitor-aggregation string                  Level of monitor aggregation for traces from the datapath (default "None")
       --monitor-queue-size int                      Size of the event queue when reading monitor events (default 32768)
       --mtu int                                     Overwrite auto-detected MTU of underlying network

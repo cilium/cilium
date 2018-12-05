@@ -121,4 +121,7 @@ const (
 	// NodeInitTimeout is the time the agent is waiting until giving up to
 	// initialize the local node with the kvstore
 	NodeInitTimeout = 15 * time.Minute
+
+	// DatapathMode is the default value for the datapath mode.
+	DatapathMode = "veth"
 )

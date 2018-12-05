@@ -1270,9 +1270,11 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 			Type:    kvStore,
 			Options: kvStoreOpts,
 		},
-		Realized:  spec,
-		DeviceMTU: int64(d.mtuConfig.GetDeviceMTU()),
-		RouteMTU:  int64(d.mtuConfig.GetRouteMTU()),
+		Realized:      spec,
+		DeviceMTU:     int64(d.mtuConfig.GetDeviceMTU()),
+		RouteMTU:      int64(d.mtuConfig.GetRouteMTU()),
+		DatapathMode:  models.DatapathMode(option.Config.DatapathMode),
+		DeviceIfIndex: int64(option.Config.DeviceIfIndex),
 	}
 
 	cfg := &models.DaemonConfiguration{
