@@ -1466,8 +1466,6 @@ needs to clear the high 32-bit, if the JIT compiler has known the definition of
 one register only has subregister reads, then instructions for setting the high
 32-bit of the destination could be eliminated.
 
-Note inline assembly for BPF is currently unsupported.
-
 When writing C programs for BPF, there are a couple of pitfalls to be aware
 of, compared to usual application development with C. The following items
 describe some of the differences for the BPF model:
@@ -1999,7 +1997,7 @@ describe some of the differences for the BPF model:
 
 9. **Use of BPF inline assembly possible.**
 
-  LLVM also allows to use inline assembly for BPF for the rare cases where it
+  LLVM 6.0 or later allows use of inline assembly for BPF for the rare cases where it
   might be needed. The following (nonsense) toy example shows a 64 bit atomic
   add. Due to lack of documentation, LLVM source code in ``lib/Target/BPF/BPFInstrInfo.td``
   as well as ``test/CodeGen/BPF/`` might be helpful for providing some additional
