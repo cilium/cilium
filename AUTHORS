@@ -7,17 +7,17 @@ Alexei Starovoitov                      alexei.starovoitov@gmail.com
 Amey Bhide                              amey@covalent.io
 Amre Shakimov                           amre@covalent.io
 André Martins                           andre@cilium.io
-andrewsykim                             kim.andrewsy@gmail.com
 Anit Gandhi                             anitgandhi@gmail.com
 Arvind Soni                             arvindsoni@gmail.com
 Ashwin Paranjpe                         ashwin@covalent.io
+Carson A                                ca@carsonoid.net
 ChristopherBiscardi                     chris@christopherbiscardi.com
 Craig Box                               craig.box@gmail.com
 Cynthia Thomas                          cynthia@covalent.io
+Dan Wendlandt                           dan@covalent.io
 Daniel Borkmann                         daniel@iogearbox.net
 Daniel Dao                              dqminh89@gmail.com
 Daniel Qian                             qsj.daniel@gmail.com
-Dan Wendlandt                           dan@covalent.io
 Diego Casati                            diego.casati@gmail.com
 Dom Del Nano                            ddelnano@gmail.com
 Eloy Coto                               eloy.coto@gmail.com
@@ -29,17 +29,16 @@ Fred Hsu                                fredlhsu@gmail.com
 Fulvio Risso                            fulvio.risso@polito.it
 Gianluca Arbezzano                      gianarb92@gmail.com
 Ian Vernon                              ian@cilium.io
-ifeanyi                                 ify1992@yahoo.com
 Ivar Lazzaro                            ivarlazzaro@gmail.com
 Jan-Erik Rediger                        janerik@fnordig.de
 Jarno Rajahalme                         jarno@covalent.io
 Jerry J. Muzsik                         jerrymuzsik@icloud.com
 Jess Frazelle                           acidburn@microsoft.com
 Joe Farrell                             joe2farrell@gmail.com
-Joe Stringer                            joe@covalent.io
+Joe Stringer                            joe@cilium.io
 John Fastabend                          john.fastabend@gmail.com
-Jonathan Davies                         jpds@protonmail.com
 Jon Davies                              jpds@protonmail.com
+Jonathan Davies                         jpds@protonmail.com
 Julien Kassar                           github@kassisol.com
 Junli Ou                                oujunli306@gmail.com
 Katarzyna Borkmann                      kasia@iogearbox.net
@@ -50,8 +49,8 @@ Marcin Skarbek                          git@skarbek.name
 Marius Gerling                          marius.gerling@uniberg.com
 Mark deVilliers                         markdevilliers@gmail.com
 Martin Charles                          martincharles07@gmail.com
-Matthew Gumport                         me@gum.pt
 Matt Layher                             mdlayher@gmail.com
+Matthew Gumport                         me@gum.pt
 Michael Schubert                        michael@kinvolk.io
 Michal Rostecki                         mrostecki@suse.de
 Michi Mutsuzaki                         michi@covalent.io
@@ -78,6 +77,8 @@ Tony Lambiris                           tony@criticalstack.com
 Trevor Roberts Jr                       Trevor.Roberts.Jr@gmail.com
 Zhu Yan                                 hackzhuyan@gmail.com
 Zinin D.A                               admin@kami-no.ru
+andrewsykim                             kim.andrewsy@gmail.com
+ifeanyi                                 ify1992@yahoo.com
 
 The following additional people are mentioned in commit logs as having provided
 helpful bug reports, suggestions or have otherwise provided value to the
