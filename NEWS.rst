@@ -2,6 +2,62 @@
 NEWS
 ******
 
+1.2.6
+=====
+
+::
+
+    André Martins (7):
+          examples/kubernetes: fix cilium tolerations
+          docs: fix CVE-2018-18074
+          docs: add warning in docs for older versions
+          docs: remove user flag when rendering documentation locally
+          docs: remove height for all images
+          cmd: fix documentation links for cmdref
+          docs: use READTHEDOCS version in version warning
+    
+    Carson A (1):
+          Update kube-router.rst
+    
+    Eloy Coto (2):
+          Test: stop background monitor command.
+          Jenkins: Run cleanup script before build.
+    
+    Ian Vernon (2):
+          test: reduce # of expected tunnels
+          identity: Block createEndpoint() while identity is being resolved
+    
+    Jarno Rajahalme (5):
+          fqdn: Make Rule UUIDs random instead of depending on the labels.
+          test: Do not clean during parallel builds.
+          endpoint: Unlock endpoint to prevent deadlocks.
+          envoy: Make timeouts user-configurable
+          envoy: Use datapath timeouts
+    
+    Joe Stringer (4):
+          bpf: Fix node-port access to l7 proxy
+          bpf: Relax verifier in IPv6 drop case
+          bpf: Fix tcp flag access
+          bpf: Don't reset TCP timer on final ACK
+    
+    John Fastabend (1):
+          cilium: spelling: sha is an acronym replace with SHA
+    
+    Ray Bejjani (1):
+          k8s: CEP controller retries k8s version checks
+    
+    Thomas Graf (9):
+          lbmap: Retrieve service ID when dumping BPF map
+          service: Restore service IDs before connecting to Kubernetes apiserver
+          service: Restore bpfservie cache on startup
+          lbmap: Add unit test for getBackends()
+          idpool: Factor out IDPool from allocator into package for reuse
+          idpool: Fix leaseAvailableID() and slice out of bounds
+          node: Don't insert own node into tunnel map
+          bpf: Avoid routing loops for former local endpoint IPs
+          cni: Synchroneous pod label retrieval on CNI add
+
+
 1.2.5
 =====
 
