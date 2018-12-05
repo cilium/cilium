@@ -7,8 +7,9 @@ KUBERNETES_MAJOR_MINOR_VER="$(echo "${k8sVersionJson}" | jq -r '.serverVersion |
 k8sDescriptorsPath="./examples/kubernetes/${KUBERNETES_MAJOR_MINOR_VER}"
 k8sManifestsPath="./test/k8sT/manifests"
 
-kubectl apply --filename="https://raw.githubusercontent.com/cilium/cilium-etcd-operator/1.2/cilium-etcd-operator.yaml"
-kubectl apply --filename="${k8sDescriptorsPath}/cilium-sa.yaml"
+kubectl apply --filename="${k8sDescriptorsPath}/cilium-etcd-operator.yaml"
+kubectl apply --filename="${k8sDescriptorsPath}/cilium-etcd-operator-rbac.yaml"
+kubectl apply --filename="${k8sDescriptorsPath}/cilium-etcd-operator-sa.yaml"
 kubectl apply --filename="${k8sDescriptorsPath}/cilium-rbac.yaml"
 kubectl patch --filename="${k8sDescriptorsPath}/cilium-cm.yaml" --patch "$(cat ${k8sManifestsPath}/cilium-cm-patch.yaml)" --local -o yaml | kubectl apply -f -
 kubectl patch --filename="${k8sDescriptorsPath}/cilium-ds.yaml" --patch "$(cat ${k8sManifestsPath}/cilium-ds-patch.yaml)" --local -o yaml | kubectl apply -f -
