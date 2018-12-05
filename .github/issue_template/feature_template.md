@@ -1,0 +1,21 @@
+---
+name: Feature Request
+about: Suggest a feature to Cilium
+
+---
+
+<!--
+
+If you have usage questions, please try the [slack
+channel](http://cilium.io/slack) and see the [FAQ](https://goo.gl/qG2YmU)
+first.
+
+Choose either "Proposal" or "Bug report"
+
+-->
+
+## Proposal / RFE
+
+**Is your feature request related to a problem?**
+
+**Describe the solution you'd like**
