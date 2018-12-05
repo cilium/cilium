@@ -58,6 +58,7 @@ cilium-agent
       --ipv6-node string                            IPv6 address of node (default "auto")
       --ipv6-range string                           Per-node IPv6 endpoint prefix, must be /96, e.g. fd02:1:1::/96 (default "auto")
       --ipv6-service-range string                   Kubernetes IPv6 services CIDR if not inside cluster prefix (default "auto")
+      --ipvlan-master-device string                 IPvlan master device interface name (forces datapath to run in ipvlan mode
       --k8s-api-server string                       Kubernetes api address server (for https use --k8s-kubeconfig-path instead)
       --k8s-kubeconfig-path string                  Absolute path of the kubernetes kubeconfig file
       --k8s-require-ipv4-pod-cidr                   Require IPv4 PodCIDR to be specified in node resource
@@ -74,7 +75,6 @@ cilium-agent
       --log-opt map                                 Log driver options for cilium (default map[])
       --log-system-load                             Enable periodic logging of system load
       --masquerade                                  Masquerade packets from endpoints leaving the host (default true)
-      --master-device uint                          Ifindex of master device for ipvlan
       --monitor-aggregation string                  Level of monitor aggregation for traces from the datapath (default "None")
       --monitor-queue-size int                      Size of the event queue when reading monitor events (default 32768)
       --mtu int                                     Overwrite auto-detected MTU of underlying network

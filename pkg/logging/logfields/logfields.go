@@ -186,6 +186,9 @@ const (
 	// XDPDevice is the device name
 	XDPDevice = "xdpDevice"
 
+	// Device is the device name
+	Device = "device"
+
 	// EndpointLabelSelector is a selector for Endpoints by label
 	EndpointLabelSelector = "EndpointLabelSelector"
 

@@ -1413,6 +1413,23 @@ definitions:
       routeMTU:
         description: MTU for network facing routes
         type: integer
+      datapathMode:
+        description: Datapath mode
+        type: object
+        properties:
+          name:
+            description: Name
+            type: string
+            enum:
+              - veth
+              - ipvlan
+          attrs:
+            description: Attributes
+            type: object
+            properties:
+              masterDevIfIndex:
+                description: Master device ifindex (only for ipvlan)
+                type: integer
   EndpointConfigurationSpec:
     description: An endpoint's configuration
     type: object
