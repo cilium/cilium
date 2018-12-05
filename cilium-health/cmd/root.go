@@ -170,7 +170,7 @@ func runServer() {
 	common.RequireRootPrivilege(targetName)
 
 	// Wait until Cilium API is available
-	waitForCiliumAPI()
+	// waitForCiliumAPI()
 	// Remove old cilium-health daemon socket
 	os.Remove(defaults.SockPath)
 
