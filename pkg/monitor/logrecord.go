@@ -17,6 +17,7 @@ package monitor
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 )
@@ -46,6 +47,10 @@ func (l *LogRecordNotify) l7Proto() string {
 		return "kafka"
 	}
 
+	if l.DNS != nil {
+		return "dns"
+	}
+
 	if l.L7 != nil {
 		return l.L7.Proto
 	}
@@ -72,6 +77,27 @@ func (l *LogRecordNotify) DumpInfo() {
 
 	if kafka := l.Kafka; kafka != nil {
 		fmt.Printf(" %s topic %s => %d\n", kafka.APIKey, kafka.Topic.Topic, kafka.ErrorCode)
+	}
+
+	if l.DNS != nil {
+		switch {
+		case l.Type == accesslog.TypeRequest:
+			fmt.Printf(" DNS Query: %s", l.DNS.Query)
+
+		case l.Type == accesslog.TypeResponse:
+			fmt.Printf(" DNS Query: %s", l.DNS.Query)
+
+			ips := make([]string, 0, len(l.DNS.IPs))
+			for _, ip := range l.DNS.IPs {
+				ips = append(ips, ip.String())
+			}
+			fmt.Printf(" TTL: %d Answer: '%s'", l.DNS.TTL, strings.Join(ips, ","))
+
+			if len(l.DNS.CNAMEs) > 0 {
+				fmt.Printf(" CNAMEs: %s", strings.Join(l.DNS.CNAMEs, ","))
+			}
+		}
+		fmt.Printf("\n")
 	}
 
 	if l7 := l.L7; l7 != nil {
@@ -120,6 +146,7 @@ type LogRecordNotifyVerbose struct {
 	Verdict          accesslog.FlowVerdict      `json:"verdict"`
 	HTTP             *accesslog.LogRecordHTTP   `json:"http,omitempty"`
 	Kafka            *accesslog.LogRecordKafka  `json:"kafka,omitempty"`
+	DNS              *accesslog.LogRecordDNS    `json:"dns,omitempty"`
 	L7               *accesslog.LogRecordL7     `json:"l7,omitempty"`
 }
 
@@ -139,6 +166,7 @@ func LogRecordNotifyToVerbose(n *LogRecordNotify) LogRecordNotifyVerbose {
 		Verdict:          n.Verdict,
 		HTTP:             n.HTTP,
 		Kafka:            n.Kafka,
+		DNS:              n.DNS,
 		L7:               n.L7,
 	}
 }

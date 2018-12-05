@@ -15,6 +15,7 @@
 package accesslog
 
 import (
+	"net"
 	"net/http"
 	"net/url"
 )
@@ -195,6 +196,9 @@ type LogRecord struct {
 	// Kafka contains information for Kafka request/responses
 	Kafka *LogRecordKafka `json:"Kafka,omitempty"`
 
+	// DNS contains information for DNS request/responses
+	DNS *LogRecordDNS `json:"DNS,omitempty"`
+
 	// L7 contains information about generic L7 protocols
 	L7 *LogRecordL7 `json:"L7,omitempty"`
 }
@@ -242,6 +246,25 @@ type LogRecordKafka struct {
 	// Note that this string can be empty since not all messages use
 	// Topic. example: LeaveGroup, Heartbeat
 	Topic KafkaTopic
+}
+
+// LogRecordDNS contains the DNS specific portion of a log record
+type LogRecordDNS struct {
+	// Query is the name in the original query
+	Query string `json:"Query,omitempty"`
+
+	// IPs are any IPs seen in this response.
+	// This field is filled only for DNS responses with IPs.
+	IPs []net.IP `json:"IPs,omitempty"`
+
+	// TTL is the lowest applicable TTL for this data
+	// This field is filled only for DNS responses.
+	TTL uint32 `json:"TTL,omitempty"`
+
+	// CNAMEs are any CNAME records seen in the response leading from Query
+	// to the IPs.
+	// This field is filled only for DNS responses with CNAMEs to IP data.
+	CNAMEs []string `json:"CNAMEs,omitempty"`
 }
 
 // LogRecordL7 contains the generic L7 portion of a log record
