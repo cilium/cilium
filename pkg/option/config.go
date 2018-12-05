@@ -68,6 +68,9 @@ const (
 	// TunnelNameEnv is the name of the environment variable for option.TunnelName
 	TunnelNameEnv = "CILIUM_TUNNEL"
 
+	// IPVlanMasterDevName is the name of the IPVlanMasterDevName option
+	IPVlanMasterDevName = "ipvlan-master-device"
+
 	// SingleClusterRouteName is the name of the SingleClusterRoute option
 	//
 	// SingleClusterRoute enables use of a single route covering the entire
@@ -214,7 +217,9 @@ type daemonConfig struct {
 	LBInterface     string     // Set with name of the interface to loadbalance packets from
 	Workloads       []string   // List of Workloads set by the user to used by cilium.
 
-	Tunnel string // Tunnel mode
+	Tunnel                 string // Tunnel mode
+	IPVlanMasterDevIfIndex int    // IPvlan master device interface index
+	DatapathMode           string // TODO(brb): enum - "veth", "ipvlan"
 
 	DryMode bool // Do not create BPF maps, devices, ..
 

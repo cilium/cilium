@@ -362,10 +362,50 @@ func cmdAdd(args *skel.CmdArgs) error {
 		K8sNamespace: string(cniArgs.K8S_POD_NAMESPACE),
 	}
 
-	index, err := connector.SetupIpvlanMaster()
+	// TODO(brb): move to a helper function
+	if false {
+		veth, peer, tmpIfName, err := connector.SetupVeth(ep.ContainerID, int(conf.DeviceMTU), ep)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err != nil {
+				if err = netlink.LinkDel(veth); err != nil {
+					logger.WithError(err).WithField(logfields.Veth, veth.Name).Warn("failed to clean up and delete veth")
+				}
+			}
+		}()
+
+		if err = netlink.LinkSetNsFd(*peer, int(netNs.Fd())); err != nil {
+			return fmt.Errorf("unable to move veth pair '%v' to netns: %s", peer, err)
+		}
+
+		_, _, err = connector.SetupVethRemoteNs(netNs, tmpIfName, args.IfName)
+		if err != nil {
+			return err
+		}
+	}
+
+	//XXX/START
+
+	daemonConfig, err := c.ConfigGet()
 	if err != nil {
 		return err
 	}
+
+	if daemonConfig.Status.DatapathMode.Name == "veth" {
+		panic("TODO(brb): let's assume ipvlan-only for now")
+	}
+
+	index := int(daemonConfig.Status.DatapathMode.Attrs.MasterDevIfIndex)
+
+	// TODO(brb): SetupIpvlanMaster is dead code
+	//// Just for testing, we add a 2nd device in parallel, make it an
+	//// interface in future to select one.
+	//index, err := connector.SetupIpvlanMaster()
+	//if err != nil {
+	//	return err
+	//}
 
 	ipvlan, link, tmpIfName, err := connector.SetupIpvlan(ep.ContainerID, int(conf.DeviceMTU), index, ep)
 	if err != nil {

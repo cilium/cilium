@@ -69,6 +69,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 )
 
@@ -467,7 +468,7 @@ func init() {
 	flags.MarkHidden(option.MaxCtrlIntervalName)
 	flags.String(option.MonitorAggregationName, "None",
 		"Level of monitor aggregation for traces from the datapath")
-	flags.Uint("master-device", 0, "Ifindex of master device for ipvlan")
+	flags.String(option.IPVlanMasterDevName, "", "IPvlan master device interface name (forces datapath to run in ipvlan mode")
 	viper.BindEnv(option.MonitorAggregationName, "CILIUM_MONITOR_AGGREGATION_LEVEL")
 	flags.IntVar(&option.Config.MTU,
 		option.MTUName, mtu.AutoDetect(), "Overwrite auto-detected MTU of underlying network")
@@ -823,6 +824,19 @@ func initEnv(cmd *cobra.Command) {
 	if err != nil {
 		log.WithError(err).Fatal("Invalid sidecar-istio-proxy-image regular expression")
 		return
+	}
+
+	// TODO(brb): move to somewhere above
+	if name := viper.GetString(option.IPVlanMasterDevName); name != "" {
+		link, err := netlink.LinkByName(name)
+		if err != nil {
+			log.WithError(err).WithField(logfields.Device, name).Fatal("Cannot find ipvlan master device")
+		}
+		option.Config.IPVlanMasterDevIfIndex = link.Attrs().Index
+		// TODO(brb): use enum for the mode
+		option.Config.DatapathMode = "ipvlan"
+	} else {
+		option.Config.DatapathMode = "veth"
 	}
 }
 
