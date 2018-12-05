@@ -60,13 +60,13 @@ func loadEntryProg(mapFd int) (int, error) {
 	license := []byte{'A', 'S', 'L', '2', '\x00'}
 	bpfAttr := BPFAttrProg{
 		ProgType: 3,
-		InsnCnt:  uint32(len(insns)/8),
+		InsnCnt:  uint32(len(insns) / 8),
 		Insns:    uintptr(unsafe.Pointer(&insns[0])),
 		License:  uintptr(unsafe.Pointer(&license[0])),
 	}
-	fd, _, errno := unix.Syscall(unix.SYS_BPF, 5 /* BPF_PROG_LOAD */,
-				     uintptr(unsafe.Pointer(&bpfAttr)),
-				     unsafe.Sizeof(bpfAttr))
+	fd, _, errno := unix.Syscall(unix.SYS_BPF, 5, /* BPF_PROG_LOAD */
+		uintptr(unsafe.Pointer(&bpfAttr)),
+		unsafe.Sizeof(bpfAttr))
 	if errno != 0 {
 		return 0, errno
 	}
@@ -104,9 +104,9 @@ func createTailCallMap() (int, int, error) {
 		MaxEntries: 1,
 		Flags:      0,
 	}
-	fd, _, errno := unix.Syscall(unix.SYS_BPF, 0 /* BPF_MAP_CREATE */,
-				     uintptr(unsafe.Pointer(&bpfAttr)),
-				     unsafe.Sizeof(bpfAttr))
+	fd, _, errno := unix.Syscall(unix.SYS_BPF, 0, /* BPF_MAP_CREATE */
+		uintptr(unsafe.Pointer(&bpfAttr)),
+		unsafe.Sizeof(bpfAttr))
 	if int(fd) < 0 || errno != 0 {
 		return 0, 0, errno
 	}
@@ -122,9 +122,9 @@ func createTailCallMap() (int, int, error) {
 	}{
 		info: bpfAttrInfo,
 	}
-	ret, _, errno := unix.Syscall(unix.SYS_BPF, 15 /* BPF_OBJ_GET_INFO_BY_FD */,
-				      uintptr(unsafe.Pointer(&bpfAttr2)),
-				      unsafe.Sizeof(bpfAttr2))
+	ret, _, errno := unix.Syscall(unix.SYS_BPF, 15, /* BPF_OBJ_GET_INFO_BY_FD */
+		uintptr(unsafe.Pointer(&bpfAttr2)),
+		unsafe.Sizeof(bpfAttr2))
 	if ret != 0 || errno != 0 {
 		unix.Close(int(fd))
 		return 0, 0, errno
@@ -211,33 +211,6 @@ func getIpvlanMasterName() string {
 	return hostInterfacePrefix + "_master"
 }
 
-func SetupIpvlanMaster() (int, error) {
-	var err error
-
-	masterIfName := getIpvlanMasterName()
-	master := &netlink.Dummy{
-		LinkAttrs: netlink.LinkAttrs{
-			Name: masterIfName,
-		},
-	}
-
-	link, err := netlink.LinkByName(masterIfName)
-	if err == nil {
-		base := link.Attrs()
-		master.Index = base.Index
-	} else {
-		if err = netlink.LinkAdd(master); err != nil {
-			return 0, fmt.Errorf("unable to create ipvlan master device: %s", err)
-		}
-	}
-
-	if err = netlink.LinkSetUp(link); err != nil {
-		return 0, fmt.Errorf("unable to bring up ipvlan: %s", err)
-	}
-
-	return master.Index, nil
-}
-
 func SetupIpvlan(id string, mtu int, masterDev int, ep *models.EndpointChangeRequest) (*netlink.IPVlan, *netlink.Link, string, error) {
 	if id == "" {
 		return nil, nil, "", fmt.Errorf("invalid: empty ID")
@@ -267,6 +240,11 @@ func setupIpvlanWithNames(lxcIfName string, mtu int, masterDev int, ep *models.E
 		return nil, nil, fmt.Errorf("unable to create ipvlan slave device: %s", err)
 	}
 
+	master, err := netlink.LinkByIndex(masterDev)
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to find master device: %s", err)
+	}
+
 	defer func() {
 		if err != nil {
 			if err = netlink.LinkDel(ipvlan); err != nil {
@@ -292,10 +270,11 @@ func setupIpvlanWithNames(lxcIfName string, mtu int, masterDev int, ep *models.E
 		return nil, nil, fmt.Errorf("unable to set MTU to %q: %s", lxcIfName, err)
 	}
 
+	// TODO(brb) check whether the following fields are used only for reporting
 	ep.Mac = link.Attrs().HardwareAddr.String()
-	ep.HostMac = link.Attrs().HardwareAddr.String()
-	ep.InterfaceIndex = int64(masterDev)
-	ep.InterfaceName = lxcIfName
+	ep.HostMac = master.Attrs().HardwareAddr.String()
+	ep.InterfaceIndex = int64(link.Attrs().Index)
+	ep.InterfaceName = link.Attrs().Name
 
 	return ipvlan, &link, nil
 }
