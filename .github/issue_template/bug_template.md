@@ -1,3 +1,9 @@
+---
+name: Bug Report
+about: Report a bug encountered while operating Cilium
+
+---
+
 <!--
 
 If you have usage questions, please try the [slack
@@ -7,12 +13,6 @@ first.
 Choose either "Proposal" or "Bug report"
 
 -->
-
-## Proposal / RFE
-
-**Is your feature request related to a problem?**
-
-**Describe the solution you'd like**
 
 ## Bug report
 
