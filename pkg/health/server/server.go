@@ -16,7 +16,6 @@ package server
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	healthModels "github.com/cilium/cilium/api/v1/health/models"
@@ -84,7 +83,6 @@ type Server struct {
 	*ciliumPkg.Client // Client to "GET /healthz" on cilium daemon
 	Config
 
-	waitgroup  sync.WaitGroup      // Used to synchronize all goroutines
 	tcpServers []*healthApi.Server // Servers for external pings
 	startTime  time.Time
 
@@ -236,21 +234,26 @@ func (s *Server) runActiveServices() error {
 // * Prober: Periodically run pings across the cluster at a configured interval
 //   and update the server's connectivity status cache.
 // * Unix API Server: Handle all health API requests over a unix socket.
+//
+// Callers should first defer the Server.Shutdown(), then call Serve().
 func (s *Server) Serve() (err error) {
+	errors := make(chan error)
+
 	for i := range s.tcpServers {
-		s.waitgroup.Add(1)
 		srv := s.tcpServers[i]
 		go func() {
-			defer s.waitgroup.Done()
-			srv.Serve()
+			errors <- srv.Serve()
 		}()
 	}
 
 	if !s.Config.Passive {
-		err = s.runActiveServices()
+		go func() {
+			errors <- s.runActiveServices()
+		}()
 	}
-	s.waitgroup.Wait()
 
+	// Block for the first error, then return.
+	err = <-errors
 	return err
 }
 
