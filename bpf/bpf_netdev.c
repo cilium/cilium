@@ -34,6 +34,7 @@
 
 #include "lib/utils.h"
 #include "lib/common.h"
+#include "lib/arp.h"
 #include "lib/maps.h"
 #include "lib/ipv6.h"
 #include "lib/ipv4.h"
@@ -399,7 +400,12 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 		/* Let through packets to the node-ip so they are
 		 * processed by the local ip stack */
 		if (ep->flags & ENDPOINT_F_HOST)
+#ifdef HOST_REDIRECT_TO_INGRESS
+			/* This is required for L7 proxy to send packets to the host. */
+			return redirect(HOST_IFINDEX, BPF_F_INGRESS);
+#else
 			return TC_ACT_OK;
+#endif
 
 		return ipv4_local_delivery(skb, ETH_HLEN, l4_off, secctx, ip4, ep, METRIC_INGRESS);
 	}
@@ -424,6 +430,10 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 	}
 #endif
 
+#ifdef HOST_REDIRECT_TO_INGRESS
+    return redirect(HOST_IFINDEX, BPF_F_INGRESS);
+#else
+
 #ifdef FROM_HOST
 	/* The destination IP address could not be associated with a local
 	 * endpoint or a tunnel destination. If it is destined to an IP in
@@ -433,6 +443,7 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 		return DROP_NON_LOCAL;
 #endif
 	return TC_ACT_OK;
+#endif
 }
 
 #define CB_SRC_IDENTITY 0
@@ -489,6 +500,14 @@ int from_netdev(struct __sk_buff *skb)
 
 #ifdef FROM_HOST
 	if (1) {
+
+#ifdef HOST_REDIRECT_TO_INGRESS
+	if (skb->protocol == bpf_htons(ETH_P_ARP)) {
+		union macaddr mac = HOST_IFINDEX_MAC;
+		return arp_respond(skb, &mac, BPF_F_INGRESS);
+	}
+#endif
+
 		int trace = TRACE_FROM_HOST;
 		bool from_proxy;
 
@@ -527,6 +546,7 @@ int from_netdev(struct __sk_buff *skb)
 		 * this notification is unlikely to succeed. */
 		return send_drop_notify_error(skb, DROP_MISSED_TAIL_CALL,
 		                              TC_ACT_OK, METRIC_INGRESS);
+
 #endif
 
 	default:
