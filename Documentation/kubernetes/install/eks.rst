@@ -139,21 +139,21 @@ Verify that everything is up and running:
     Nodes:
       ip-192-168-100-2.us-west-2.compute.internal (localhost):
         Host connectivity to 192.168.100.2:
-          ICMP:          OK, RTT=250.203µs
-          HTTP via L3:   OK, RTT=427.923µs
+          ICMP to stack: OK, RTT=250.203µs
+          HTTP to agent: OK, RTT=427.923µs
         Endpoint connectivity to 10.2.107.177:
-          ICMP:   OK, RTT=257.911µs
+          ICMP to stack: OK, RTT=257.911µs
       ip-192-168-134-237.us-west-2.compute.internal:
         Host connectivity to 192.168.134.237:
-          ICMP:          OK, RTT=831.244µs
-          HTTP via L3:   OK, RTT=1.746408ms
+          ICMP to stack: OK, RTT=831.244µs
+          HTTP to agent: OK, RTT=1.746408ms
         Endpoint connectivity to 10.237.49.249:
-          ICMP:          OK, RTT=860.772µs
-          HTTP via L3:   OK, RTT=1.848061ms
+          ICMP to stack: OK, RTT=860.772µs
+          HTTP to agent: OK, RTT=1.848061ms
       ip-192-168-224-75.us-west-2.compute.internal:
         Host connectivity to 192.168.224.75:
-          ICMP:          OK, RTT=530.695µs
-          HTTP via L3:   OK, RTT=1.234267ms
+          ICMP to stack: OK, RTT=530.695µs
+          HTTP to agent: OK, RTT=1.234267ms
         Endpoint connectivity to 10.75.69.203:
-          ICMP:          OK, RTT=669.397µs
-          HTTP via L3:   OK, RTT=1.273788ms
+          ICMP to stack: OK, RTT=669.397µs
+          HTTP to agent: OK, RTT=1.273788ms
