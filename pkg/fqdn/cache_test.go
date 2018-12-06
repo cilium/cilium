@@ -86,6 +86,73 @@ func (ds *DNSCacheTestSuite) TestUpdateLookup(c *C) {
 	}
 }
 
+func (ds *DNSCacheTestSuite) TestReverseUpdateLookup(c *C) {
+	names := map[string]net.IP{
+		"test1.com": net.ParseIP("2.2.2.1"),
+		"test2.com": net.ParseIP("2.2.2.2"),
+		"test3.com": net.ParseIP("2.2.2.3")}
+	sharedIP := net.ParseIP("1.1.1.1")
+	now := time.Now()
+	cache := NewDNSCache()
+
+	// insert 2 records, with 1 shared IP
+	cache.Update(now, "test1.com", []net.IP{sharedIP, names["test1.com"]}, 2)
+	cache.Update(now, "test2.com", []net.IP{sharedIP, names["test2.com"]}, 4)
+
+	// lookup within the TTL for both names should return 2 names for sharedIPs,
+	// and one name for the 2.2.2.* IPs
+	currentTime := now.Add(time.Second)
+	lookupNames := cache.lookupIPByTime(currentTime, sharedIP)
+	c.Assert(len(lookupNames), Equals, 2, Commentf("Incorrect number of names returned"))
+	for _, name := range lookupNames {
+		_, found := names[name]
+		c.Assert(found, Equals, true, Commentf("Returned a DNS name that doesn't match IP"))
+	}
+
+	lookupNames = cache.lookupIPByTime(currentTime, names["test1.com"])
+	c.Assert(len(lookupNames), Equals, 1, Commentf("Incorrect number of names returned"))
+	c.Assert(lookupNames[0], Equals, "test1.com", Commentf("Returned a DNS name that doesn't match IP"))
+
+	lookupNames = cache.lookupIPByTime(currentTime, names["test2.com"])
+	c.Assert(len(lookupNames), Equals, 1, Commentf("Incorrect number of names returned"))
+	c.Assert(lookupNames[0], Equals, "test2.com", Commentf("Returned a DNS name that doesn't match IP"))
+
+	lookupNames = cache.lookupIPByTime(currentTime, names["test3.com"])
+	c.Assert(len(lookupNames), Equals, 0, Commentf("Returned names for IP not in cache"))
+
+	// lookup between 2-4 seconds later (test1.com has expired) for both names
+	// should return 2 names for sharedIPs, and one name for the 2.2.2.* IPs
+	currentTime = now.Add(3 * time.Second)
+	lookupNames = cache.lookupIPByTime(currentTime, sharedIP)
+	c.Assert(len(lookupNames), Equals, 1, Commentf("Incorrect number of names returned"))
+	c.Assert(lookupNames[0], Equals, "test2.com", Commentf("Returned a DNS name that doesn't match IP"))
+
+	lookupNames = cache.lookupIPByTime(currentTime, names["test1.com"])
+	c.Assert(len(lookupNames), Equals, 0, Commentf("Incorrect number of names returned"))
+
+	lookupNames = cache.lookupIPByTime(currentTime, names["test2.com"])
+	c.Assert(len(lookupNames), Equals, 1, Commentf("Incorrect number of names returned"))
+	c.Assert(lookupNames[0], Equals, "test2.com", Commentf("Returned a DNS name that doesn't match IP"))
+
+	lookupNames = cache.lookupIPByTime(currentTime, names["test3.com"])
+	c.Assert(len(lookupNames), Equals, 0, Commentf("Returned names for IP not in cache"))
+
+	// lookup between after 4 seconds later (all have expired) for both names
+	// should return no names in all cases.
+	currentTime = now.Add(5 * time.Second)
+	lookupNames = cache.lookupIPByTime(currentTime, sharedIP)
+	c.Assert(len(lookupNames), Equals, 0, Commentf("Incorrect number of names returned"))
+
+	lookupNames = cache.lookupIPByTime(currentTime, names["test1.com"])
+	c.Assert(len(lookupNames), Equals, 0, Commentf("Incorrect number of names returned"))
+
+	lookupNames = cache.lookupIPByTime(currentTime, names["test2.com"])
+	c.Assert(len(lookupNames), Equals, 0, Commentf("Incorrect number of names returned"))
+
+	lookupNames = cache.lookupIPByTime(currentTime, names["test3.com"])
+	c.Assert(len(lookupNames), Equals, 0, Commentf("Returned names for IP not in cache"))
+}
+
 /* Benchmarks
  * These are here to help gauge the relative costs of operations in DNSCache.
  * Note: some are on arrays `size` elements, so the benchmark "op time" is too

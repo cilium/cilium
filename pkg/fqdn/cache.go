@@ -17,6 +17,7 @@ package fqdn
 import (
 	"net"
 	"regexp"
+	"sort"
 	"time"
 
 	"github.com/cilium/cilium/pkg/ip"
@@ -67,6 +68,11 @@ func (entry *cacheEntry) isExpiredBy(pointInTime time.Time) bool {
 // Note: They are guarded by the DNSCache mutex.
 type ipEntries map[string]*cacheEntry
 
+// nameEntries maps a DNS name to the cache entry that inserted it into the
+// cache. It used in reverse DNS lookups. It is similar to ipEntries, above,
+// but the key is a DNS name.
+type nameEntries map[string]*cacheEntry
+
 // getIPs returns a sorted list of non-expired unique IPs.
 // This needs a read-lock
 func (s ipEntries) getIPs(now time.Time) []net.IP {
@@ -94,12 +100,18 @@ type DNSCache struct {
 	// forward DNS lookups name -> IPEntries
 	// IPEntries maps IP -> entry that provides it. An entry may provide multiple IPs.
 	forward map[string]ipEntries
+
+	// IP->dnsNames lookup
+	// This map is subordinate to forward, above. An IP inserted into forward, or
+	// expired in forward, should also be added/removed in reverse.
+	reverse map[string]nameEntries
 }
 
 // NewDNSCache returns an initialized DNSCache
 func NewDNSCache() *DNSCache {
 	c := &DNSCache{
 		forward: make(map[string]ipEntries),
+		reverse: make(map[string]nameEntries),
 	}
 
 	return c
@@ -181,6 +193,36 @@ func (c *DNSCache) lookupByRegexpByTime(now time.Time, re *regexp.Regexp) (match
 	return matches
 }
 
+// LookupIP returns all DNS names in entries that include that IP. The cache
+// maintains the latest-expiring entry per-name per-IP. This means that multiple
+// names referrring to the same IP will expire from the cache at different times,
+// and only 1 entry for each name-IP pair is internally retained.
+func (c *DNSCache) LookupIP(ip net.IP) (names []string) {
+	c.RLock()
+	defer c.RUnlock()
+
+	return c.lookupIPByTime(time.Now(), ip)
+}
+
+// lookupIPByTime takes a timestamp for expiration comparisions, and is
+// only intended for testing.
+func (c *DNSCache) lookupIPByTime(now time.Time, ip net.IP) (names []string) {
+	ipKey := ip.String()
+	cacheEntries, found := c.reverse[ipKey]
+	if !found {
+		return nil
+	}
+
+	for name, entry := range cacheEntries {
+		if entry != nil && !entry.isExpiredBy(now) {
+			names = append(names, name)
+		}
+	}
+
+	sort.Strings(names)
+	return names
+}
+
 // updateWithEntry adds a mapping for every IP found in `entry` to `ipEntries`
 // (which maps IP -> cacheEntry). It will replace existing IP->old mappings in
 // `entries` if the current entry expires sooner (or has already expired).
@@ -191,6 +233,7 @@ func (c *DNSCache) updateWithEntryIPs(entries ipEntries, entry *cacheEntry) {
 		old, exists := entries[ipStr]
 		if old == nil || !exists || old.isExpiredBy(entry.ExpirationTime) {
 			entries[ipStr] = entry
+			c.upsertReverse(ipStr, entry)
 		}
 	}
 }
@@ -202,6 +245,36 @@ func (c *DNSCache) removeExpired(entries ipEntries, now time.Time) {
 	for ip, entry := range entries {
 		if entry == nil || entry.isExpiredBy(now) {
 			delete(entries, ip)
+			c.removeReverse(ip, entry)
 		}
+	}
+}
+
+// upsertReverse updates the reverse DNS cache for ip with entry, if it expires
+// later than the already-stored entry.
+// It is assumed that entry includes ip.
+// This needs a write lock
+func (c *DNSCache) upsertReverse(ip string, entry *cacheEntry) {
+	entries, exists := c.reverse[ip]
+	if entries == nil || !exists {
+		entries = make(map[string]*cacheEntry)
+		c.reverse[ip] = entries
+	}
+	entries[entry.Name] = entry
+}
+
+// removeReverse removes the reference between ip and the name stored in entry.
+// When no more refrences from ip to any name exist, the map entry is deleted
+// outright.
+// It is assumed that entry includes ip.
+// This needs a write lock
+func (c *DNSCache) removeReverse(ip string, entry *cacheEntry) {
+	entries, exists := c.reverse[ip]
+	if entries == nil || !exists {
+		return
+	}
+	delete(entries, entry.Name)
+	if len(entries) == 0 {
+		delete(c.reverse, ip)
 	}
 }
