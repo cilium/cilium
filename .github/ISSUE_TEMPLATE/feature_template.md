@@ -1,6 +1,9 @@
 ---
 name: Feature Request
 about: Suggest a feature to Cilium
+title: ''
+labels: kind/feature
+assignees: ''
 
 ---
 
