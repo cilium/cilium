@@ -366,6 +366,9 @@ fi
 CALLS_MAP="cilium_calls_netdev_ns_${ID_HOST}"
 POLICY_MAP="cilium_policy_reserved_${ID_HOST}"
 OPTS="-DFROM_HOST -DFIXED_SRC_SECCTX=${ID_HOST} -DSECLABEL=${ID_HOST} -DPOLICY_MAP=${POLICY_MAP}"
+if [ -n "${PRE_EXISTING_DEVICE}" ]; then
+    OPTS+=" -DPOLICY_ENFORCEMENT_MODE"
+fi
 bpf_load $HOST_DEV1 "$OPTS" "egress" bpf_netdev.c bpf_host.o from-netdev $CALLS_MAP
 
 if [ -n "$XDP_DEV" ]; then

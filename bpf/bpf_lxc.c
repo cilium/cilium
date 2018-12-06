@@ -576,12 +576,21 @@ skip_service_lookup:
 
 		cilium_dbg(skb, DBG_TO_HOST, skb->cb[CB_POLICY], 0);
 
+//#ifdef POLICY_ENFORCEMENT_MODE
+//		ret = ipv4_l3(skb, l3_off, NULL, (__u8 *) &host_mac.addr, ip4);
+//#else
 		ret = ipv4_l3(skb, l3_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr, ip4);
+//#endif
 		if (ret != TC_ACT_OK)
 			return ret;
 
 		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
+
+#ifdef POLICY_ENFORCEMENT_MODE
+		return redirect(HOST_IFINDEX, BPF_F_INGRESS);
+#else
 		return redirect(HOST_IFINDEX, 0);
+#endif
 	}
 
 	/* After L4 write in port mapping: revalidate for direct packet access */
@@ -642,7 +651,11 @@ to_host:
 
 		cilium_dbg(skb, DBG_TO_HOST, is_policy_skip(skb), 0);
 
+//#ifdef POLICY_ENFORCEMENT_MODE
+//		ret = ipv4_l3(skb, l3_off, NULL, (__u8 *) &host_mac.addr, ip4);
+//#else
 		ret = ipv4_l3(skb, l3_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr, ip4);
+//#endif
 		if (ret != TC_ACT_OK)
 			return ret;
 
@@ -650,7 +663,11 @@ to_host:
 				  forwarding_reason, monitor);
 
 		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
+#ifdef POLICY_ENFORCEMENT_MODE
+		return redirect(HOST_IFINDEX, BPF_F_INGRESS);
+#else
 		return redirect(HOST_IFINDEX, 0);
+#endif
 	}
 
 pass_to_stack:
@@ -693,7 +710,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC) int tail_handle_ipv4
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_ARP) int tail_handle_arp(struct __sk_buff *skb)
 {
 	union macaddr mac = NODE_MAC;
-	return arp_respond(skb, &mac);
+	return arp_respond(skb, &mac, 0);
 }
 
 __section("from-container")
@@ -718,10 +735,10 @@ int handle_ingress(struct __sk_buff *skb)
 		break;
 
 	case bpf_htons(ETH_P_ARP):
-		ep_tail_call(skb, CILIUM_CALL_ARP);
 #ifndef POLICY_ENFORCEMENT_MODE
 		ret = DROP_MISSED_TAIL_CALL;
 #else
+		ep_tail_call(skb, CILIUM_CALL_ARP);
 		ret = 0;
 #endif
 		break;
@@ -994,13 +1011,30 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 
 		cilium_dbg(skb, DBG_TO_HOST, is_policy_skip(skb), 0);
 
+//#ifdef POLICY_ENFORCEMENT_MODE
+//        if (eth_load_daddr(skb, host_mac.addr, 0) < 0)
+//            return DROP_INVALID;
+//
+//		if (eth_store_saddr(skb, (__u8 *) &host_mac.addr, 0) < 0)
+//			return DROP_WRITE_ERROR;
+//
+//		if (eth_store_daddr(skb, (__u8 *) &router_mac.addr , 0) < 0)
+//			return DROP_WRITE_ERROR;
+//#else
 		if (eth_store_saddr(skb, (__u8 *) &router_mac.addr, 0) < 0)
 			return DROP_WRITE_ERROR;
 
 		if (eth_store_daddr(skb, (__u8 *) &host_mac.addr, 0) < 0)
 			return DROP_WRITE_ERROR;
+//#endif
 
 		skb->cb[CB_IFINDEX] = HOST_IFINDEX;
+
+#ifdef POLICY_ENFORCEMENT_MODE
+		return redirect(HOST_IFINDEX, BPF_F_INGRESS);
+#else
+		return redirect(HOST_IFINDEX, 0);
+#endif
 	} else { // Not redirected to host / proxy.
 		send_trace_notify(skb, TRACE_TO_LXC, src_label, SECLABEL,
 				  LXC_ID, ifindex, *forwarding_reason, monitor);

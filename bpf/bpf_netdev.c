@@ -34,6 +34,7 @@
 
 #include "lib/utils.h"
 #include "lib/common.h"
+#include "lib/arp.h"
 #include "lib/maps.h"
 #include "lib/ipv6.h"
 #include "lib/ipv4.h"
@@ -449,6 +450,10 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 	}
 #endif
 
+#ifdef POLICY_ENFORCEMENT_MODE
+    return redirect(HOST_IFINDEX, BPF_F_INGRESS);
+#else
+
 #ifdef FROM_HOST
 	/* The destination IP address could not be associated with a local
 	 * endpoint or a tunnel destination. If it is destined to an IP in
@@ -458,6 +463,7 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 		return DROP_NON_LOCAL;
 #endif
 	return TC_ACT_OK;
+#endif
 }
 
 #define CB_SRC_IDENTITY 0
@@ -485,6 +491,14 @@ int from_netdev(struct __sk_buff *skb)
 
 #ifdef FROM_HOST
 	if (1) {
+
+#ifdef POLICY_ENFORCEMENT_MODE
+        if (skb->protocol == bpf_htons(ETH_P_ARP)){
+            union macaddr mac = HOST_IFINDEX_MAC;
+            return arp_respond(skb, &mac, BPF_F_INGRESS);
+        }
+#endif
+
 		int trace = TRACE_FROM_HOST;
 		bool from_proxy;
 
