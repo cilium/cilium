@@ -23,24 +23,24 @@ import (
 )
 
 func (s *OptionSuite) TestValidateIPv6ClusterAllocCIDR(c *C) {
-	valid1 := &daemonConfig{IPv6ClusterAllocCIDR: "fdfd::/64"}
+	valid1 := &DaemonConfig{IPv6ClusterAllocCIDR: "fdfd::/64"}
 	c.Assert(valid1.validateIPv6ClusterAllocCIDR(), IsNil)
 	c.Assert(valid1.IPv6ClusterAllocCIDRBase, Equals, "fdfd::")
 
-	valid2 := &daemonConfig{IPv6ClusterAllocCIDR: "fdfd:fdfd:fdfd:fdfd:aaaa::/64"}
+	valid2 := &DaemonConfig{IPv6ClusterAllocCIDR: "fdfd:fdfd:fdfd:fdfd:aaaa::/64"}
 	c.Assert(valid2.validateIPv6ClusterAllocCIDR(), IsNil)
 	c.Assert(valid2.IPv6ClusterAllocCIDRBase, Equals, "fdfd:fdfd:fdfd:fdfd::")
 
-	invalid1 := &daemonConfig{IPv6ClusterAllocCIDR: "foo"}
+	invalid1 := &DaemonConfig{IPv6ClusterAllocCIDR: "foo"}
 	c.Assert(invalid1.validateIPv6ClusterAllocCIDR(), Not(IsNil))
 
-	invalid2 := &daemonConfig{IPv6ClusterAllocCIDR: "fdfd"}
+	invalid2 := &DaemonConfig{IPv6ClusterAllocCIDR: "fdfd"}
 	c.Assert(invalid2.validateIPv6ClusterAllocCIDR(), Not(IsNil))
 
-	invalid3 := &daemonConfig{IPv6ClusterAllocCIDR: "fdfd::/32"}
+	invalid3 := &DaemonConfig{IPv6ClusterAllocCIDR: "fdfd::/32"}
 	c.Assert(invalid3.validateIPv6ClusterAllocCIDR(), Not(IsNil))
 
-	invalid4 := &daemonConfig{}
+	invalid4 := &DaemonConfig{}
 	c.Assert(invalid4.validateIPv6ClusterAllocCIDR(), Not(IsNil))
 }
 

@@ -147,6 +147,9 @@ const (
 	// KeepBPFTemplates do not restore BPF template files from binary
 	KeepBPFTemplates = "keep-bpf-templates"
 
+	// K8sLegacyHostAllowsWorld
+	K8sLegacyHostAllowsWorld = "k8s-legacy-host-allows-world"
+
 	// KVStore key-value store type
 	KVStore = "kvstore"
 
@@ -222,7 +225,7 @@ const (
 	// PrometheusServeAddrDeprecated IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
 	PrometheusServeAddrDeprecated = "prometheus-serve-addr-deprecated"
 
-	// CMDRef is the path to cmdref output directory
+	// CMDRefDir is the path to cmdref output directory
 	CMDRef = "cmdref"
 
 	// ToFQDNsMinTTL is the minimum time, in seconds, to use DNS data for toFQDNs policies.
@@ -330,7 +333,7 @@ const (
 	MonitorQueueSizeName = "monitor-queue-size"
 )
 
-// Available option for daemonConfig.Tunnel
+// Available option for DaemonConfig.Tunnel
 const (
 	// TunnelVXLAN specifies VXLAN encapsulation
 	TunnelVXLAN = "vxlan"
@@ -396,8 +399,8 @@ func BindEnv(optName string) {
 	viper.BindEnv(optName, getEnv(optName))
 }
 
-// daemonConfig is the configuration used by Daemon.
-type daemonConfig struct {
+// DaemonConfig is the configuration used by Daemon.
+type DaemonConfig struct {
 	BpfDir          string     // BPF template files directory
 	LibDir          string     // Cilium library files directory
 	RunDir          string     // Cilium runtime directory
@@ -458,7 +461,7 @@ type daemonConfig struct {
 	// contains the CIDR without the mask, e.g. "fdfd::1/64" -> "fdfd::"
 	//
 	// This variable should never be written to, it is initialized via
-	// daemonConfig.Validate()
+	// DaemonConfig.Validate()
 	IPv6ClusterAllocCIDRBase string
 
 	// K8sRequireIPv4PodCIDR requires the k8s node resource to specify the
@@ -562,36 +565,99 @@ type daemonConfig struct {
 
 	// MonitorQueueSize is the size of the monitor event queue
 	MonitorQueueSize int
+
+	// CLI options
+
+	BPFRoot                           string
+	CGroupRoot                        string
+	BPFCompileDebug                   string
+	ConfigFile                        string
+	ConfigDir                         string
+	ConntrackGarbageCollectorInterval int
+	ContainerRuntimeEndpoint          map[string]string
+	Debug                             bool
+	DebugVerbose                      []string
+	DisableConntrack                  bool
+	DisableK8sServices                bool
+	DockerEndpoint                    string
+	EnablePolicy                      string
+	EnableTracing                     bool
+	EnvoyLog                          string
+	DisableEnvoyVersionCheck          bool
+	FixedIdentityMapping              map[string]string
+	FixedIdentityMappingValidator     func(val string) (string, error)
+	IPv4ClusterCIDRMaskSize           int
+	IPv4Range                         string
+	IPv6Range                         string
+	IPv4ServiceRange                  string
+	IPv6ServiceRange                  string
+	K8sAPIServer                      string
+	K8sKubeConfigPath                 string
+	K8sLegacyHostAllowsWorld          string
+	KVStore                           string
+	KVStoreOpt                        map[string]string
+	LabelPrefixFile                   string
+	Labels                            []string
+	LogDriver                         []string
+	LogOpt                            map[string]string
+	Logstash                          bool
+	LogSystemLoadConfig               bool
+	NAT46Range                        string
+
+	// Masquerade specifies whether or not to masquerade packets from endpoints
+	// leaving the host.
+	Masquerade             bool
+	MonitorAggregation     string
+	IPv6NodeAddr           string
+	IPv4NodeAddr           string
+	SidecarHTTPProxy       bool
+	SidecarIstioProxyImage string
+	SocketPath             string
+	TracePayloadlen        int
+	Version                string
+	PProf                  bool
+	PrometheusServeAddr    string
+	CMDRefDir              string
+	ToFQDNsMinTTL          int
+
+	// ToFQDNsProxyPort is the user-configured global, shared, DNS listen port used
+	// by the DNS Proxy. Both UDP and TCP are handled on the same port. When it
+	// is 0 a random port will be assigned, and can be obtained from
+	// DefaultDNSProxy below.
+	ToFQDNsProxyPort    int
+	ToFQDNsEnablePoller bool
 }
 
 var (
-	Config = &daemonConfig{
+	Config = &DaemonConfig{
 		Opts:                     NewIntOptions(&DaemonOptionLibrary),
 		Monitor:                  &models.MonitorStatus{Cpus: int64(runtime.NumCPU()), Npages: 64, Pagesize: int64(os.Getpagesize()), Lost: 0, Unknown: 0},
 		IPv6ClusterAllocCIDR:     defaults.IPv6ClusterAllocCIDR,
 		IPv6ClusterAllocCIDRBase: defaults.IPv6ClusterAllocCIDRBase,
 		EnableHostIPRestore:      defaults.EnableHostIPRestore,
-		EnableIPv4:               defaults.EnableIPv4,
-		EnableIPv6:               defaults.EnableIPv6,
+		ContainerRuntimeEndpoint: make(map[string]string),
+		FixedIdentityMapping:     make(map[string]string),
+		KVStoreOpt:               make(map[string]string),
+		LogOpt:                   make(map[string]string),
 	}
 )
 
-func (c *daemonConfig) IsLBEnabled() bool {
+func (c *DaemonConfig) IsLBEnabled() bool {
 	return c.LBInterface != ""
 }
 
 // GetNodeConfigPath returns the full path of the NodeConfigFile.
-func (c *daemonConfig) GetNodeConfigPath() string {
+func (c *DaemonConfig) GetNodeConfigPath() string {
 	return filepath.Join(c.GetGlobalsDir(), common.NodeConfigFile)
 }
 
 // GetGlobalsDir returns the path for the globals directory.
-func (c *daemonConfig) GetGlobalsDir() string {
+func (c *DaemonConfig) GetGlobalsDir() string {
 	return filepath.Join(c.StateDir, "globals")
 }
 
 // WorkloadsEnabled returns true if any workload runtimes are enabled
-func (c *daemonConfig) WorkloadsEnabled() bool {
+func (c *DaemonConfig) WorkloadsEnabled() bool {
 	for _, w := range c.Workloads {
 		if w == "none" {
 			return false
@@ -603,7 +669,7 @@ func (c *daemonConfig) WorkloadsEnabled() bool {
 
 // AlwaysAllowLocalhost returns true if the daemon has the option set that
 // localhost can always reach local endpoints
-func (c *daemonConfig) AlwaysAllowLocalhost() bool {
+func (c *DaemonConfig) AlwaysAllowLocalhost() bool {
 	switch c.AllowLocalhost {
 	case AllowLocalhostAlways:
 		return true
@@ -616,11 +682,11 @@ func (c *daemonConfig) AlwaysAllowLocalhost() bool {
 
 // TracingEnabled returns if tracing policy (outlining which rules apply to a
 // specific set of labels) is enabled.
-func (c *daemonConfig) TracingEnabled() bool {
+func (c *DaemonConfig) TracingEnabled() bool {
 	return c.Opts.IsEnabled(PolicyTracing)
 }
 
-func (c *daemonConfig) validateIPv6ClusterAllocCIDR() error {
+func (c *DaemonConfig) validateIPv6ClusterAllocCIDR() error {
 	ip, cidr, err := net.ParseCIDR(c.IPv6ClusterAllocCIDR)
 	if err != nil {
 		return err
@@ -640,7 +706,7 @@ func (c *daemonConfig) validateIPv6ClusterAllocCIDR() error {
 }
 
 // Validate validates the daemon configuration
-func (c *daemonConfig) Validate() error {
+func (c *DaemonConfig) Validate() error {
 	if err := c.validateIPv6ClusterAllocCIDR(); err != nil {
 		return fmt.Errorf("unable to parse CIDR value '%s' of option --%s: %s",
 			c.IPv6ClusterAllocCIDR, IPv6ClusterAllocCIDRName, err)
