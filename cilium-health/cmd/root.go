@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -144,16 +144,15 @@ func runServer() {
 	// Write the pidfile (if specified)
 	if path := viper.GetString("pidfile"); path != "" {
 		if err := pidfile.Write(path); err != nil {
-			fmt.Printf("Failed to write pidfile %s: %s\n", path, err.Error())
-			os.Exit(-1)
+			log.WithError(err).WithField(
+				logfields.Path, path,
+			).Fatal("Failed to write pidfile")
 		}
 	}
 
 	// Open socket for using gops to get stacktraces of the daemon.
 	if err := gops.Listen(gops.Options{}); err != nil {
-		errorString := fmt.Sprintf("unable to start gops: %s", err)
-		fmt.Println(errorString)
-		os.Exit(-1)
+		log.WithError(err).Fatal("unable to start gops")
 	}
 
 	// When the unix socket is made available, set its permissions.
@@ -174,7 +173,7 @@ func runServer() {
 
 	defer server.Shutdown()
 	if err := server.Serve(); err != nil {
-		log.WithError(err).Fatal("Failed to serve cilium-health API")
+		log.WithError(err).Error("Failed to serve cilium-health API")
 	}
 }
 
