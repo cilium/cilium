@@ -300,7 +300,7 @@ func prepareIP(ipAddr string, isIPv6 bool, state *CmdState, mtu int) (*cniTypesV
 	}, rt, nil
 }
 
-func cmdAdd(args *skel.CmdArgs) error {
+func cmdAdd(args *skel.CmdArgs) (err error) {
 	logger := log.WithField("eventUUID", uuid.NewUUID())
 	logger.WithField("args", args).Debug("Processing CNI ADD request")
 
@@ -335,11 +335,25 @@ func cmdAdd(args *skel.CmdArgs) error {
 		if err != nil {
 			return err
 		}
-		ep := &models.EndpointChangeRequest{
-			ContainerID: args.ContainerID,
-			Pid:         int64(pid),
-			State:       models.EndpointStateWaitingForIdentity,
+		v6, err := c.IPAMAllocate("ipv6")
+		if err != nil {
+			logger.WithError(err).Warn("unable to allocate IPv6 address")
+			return fmt.Errorf("unable to allocate IPv6 address: %s", err)
 		}
+		defer func() {
+			if err != nil {
+				c.IPAMReleaseIP(v6.Address.IPV6)
+			}
+		}()
+
+		ep, err := connector.DeriveEndpointFrom("cni0", args.ContainerID, pid)
+		if err != nil {
+			logger.WithError(err).WithFields(logrus.Fields{
+				logfields.ContainerID: args.ContainerID}).Warn("Unable to derive endpoint")
+			return fmt.Errorf("unable to derive endpoint: %s", err)
+		}
+		ep.Addressing.IPV6 = v6.Address.IPV6
+
 		epID, err := c.EndpointCreateID(ep)
 		if err != nil {
 			logger.WithError(err).WithFields(logrus.Fields{

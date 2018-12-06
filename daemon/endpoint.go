@@ -17,7 +17,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"sync"
@@ -27,9 +26,7 @@ import (
 	. "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/completion"
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/endpoint/connector"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/ipam"
@@ -171,13 +168,13 @@ func (h *postEndpoint) Handle(params PostEndpointParams) middleware.Responder {
 	case epTemplate.ContainerID == "" && epTemplate.Pid == 0:
 		return api.New(PostEndpointInvalidCode,
 			"ContainerID and Pid cannot be empty")
-	default:
-		var err error
-		epTemplate, err = deriveEndpointFrom(epTemplate.ContainerID, int(epTemplate.Pid))
-		if err != nil {
-			logger.WithError(err).Error("Endpoint cannot be created")
-			return api.Error(PostEndpointInvalidCode, err)
-		}
+		// default:
+		// var err error
+		// epTemplate, err = connector.DeriveEndpointFrom(epTemplate.ContainerID, int(epTemplate.Pid))
+		// if err != nil {
+		// 	logger.WithError(err).Error("Endpoint cannot be created")
+		// 	return api.Error(PostEndpointInvalidCode, err)
+		// }
 	}
 
 	err := h.d.createEndpoint(params.HTTPRequest.Context(), epTemplate)
@@ -935,37 +932,4 @@ func (h *putEndpointIDLabels) Handle(params PatchEndpointIDLabelsParams) middlew
 		return api.Error(code, err)
 	}
 	return NewPatchEndpointIDLabelsOK()
-}
-
-func deriveEndpointFrom(containerID string, pid int) (*models.EndpointChangeRequest, error) {
-	parentIdx, lxcMAC, ip, err := connector.GetNetInfoFromPID(pid)
-	if err != nil {
-		return nil, fmt.Errorf("unable to get net info from PID %d: %s", pid, err)
-	}
-	if parentIdx == 0 {
-		return nil, fmt.Errorf("unable to find master index interface for %s: %s", ip, err)
-	}
-	ep := endpointmanager.LookupIPv4(ip.To4().String())
-	if ep != nil {
-		return nil, errors.New("endpoint already being managed by Cilium")
-	}
-	_, ip6, err := ipam.AllocateNext("ipv6")
-	if err != nil {
-		return nil, fmt.Errorf("unable to allocate IPv6 address: %s", err)
-	}
-	epModel := &models.EndpointChangeRequest{
-		Addressing: &models.AddressPair{
-			IPV4: ip.String(),
-			IPV6: ip6.String(),
-		},
-		ContainerID: containerID,
-		ID:          int64(binary.BigEndian.Uint16(ip.To4()[2:])),
-		State:       models.EndpointStateWaitingForIdentity,
-	}
-	err = connector.GetVethInfo(defaults.HostDevice, parentIdx, lxcMAC, epModel)
-	if err != nil {
-		return nil, fmt.Errorf("unable to allocate IPv6 address: %s", err)
-
-	}
-	return epModel, nil
 }
