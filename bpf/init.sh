@@ -265,6 +265,7 @@ case "${MODE}" in
 	"flannel")
 		HOST_DEV1="${PRE_EXISTING_DEVICE}"
 		HOST_DEV2="${PRE_EXISTING_DEVICE}"
+		setup_veth "${PRE_EXISTING_DEVICE}"
 		;;
 	"ipvlan")
 		# ipvlan is L3 mode, so fill these with dummy vars to make compilation happy.
