@@ -51,8 +51,8 @@ __section("sk_msg")
 int bpf_redir_ktls(struct sk_msg_md *msg)
 {
 	struct sock_key *pkey, key;
+	__u32 dport, dip4;
 	__u64 flags = 0;
-	__u32 dip4, dport;
 	int err;
 
 	if (msg->data + sizeof(struct sock_key) > msg->data_end) {
@@ -82,8 +82,8 @@ int bpf_redir_ktls(struct sk_msg_md *msg)
 	bpf_printk("ktls down key: %d %d %d\n", key.sport, key.dport, key.family);
 	bpf_printk("ktls down pad: %d %d\n", key.pad7, key.pad8);
 	bpf_printk("ktls down key: %d %d\n", key.sip4, key.dip4);
-	bpf_printk("ktls down key: pad(%d %d %d)", key.pad1, key.pad2, key.pad3);
-	bpf_printk("ktls down key: pad(%d %d %d)", key.pad4, key.pad5, key.pad6);
+	bpf_printk("ktls down key: pad(%d %d %d)\n", key.pad1, key.pad2, key.pad3);
+	bpf_printk("ktls down key: pad(%d %d %d)\n", key.pad4, key.pad5, key.pad6);
 	bpf_printk("ktls down: redirect flags(%d) %d\n", flags, err);
 	return err;
 }

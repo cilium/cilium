@@ -50,11 +50,12 @@
 __section("sk_msg")
 int bpf_redir_proxy(struct sk_msg_md *msg)
 {
-	struct remote_endpoint_info *info;
+//	struct remote_endpoint_info *info;
 	__u64 flags = BPF_F_INGRESS;
 	struct sock_key key = {.sip4=0};
-	__u32 srcID, dstID = 0;
-	int verdict, err;
+//	__u32 srcID, dstID = 0;
+	//int verdict, err, zero = 0;
+	struct sock_key zero  = {};
 
 	sk_msg_extract4_key(msg, &key);
 
@@ -94,11 +95,14 @@ int bpf_redir_proxy(struct sk_msg_md *msg)
 		return SK_PASS;
 	}
 
+	msg_redirect_hash(msg, &SOCK_OPS_MAP, &zero, flags);
+	return SK_PASS;
 	/* Currently, pulling proxy port and dstIP out of policy and endpoint
 	 * tables. This can be simplified by caching this information with the
 	 * socket to avoid extra overhead. This would require the agent though
 	 * to flush the sock ops map on policy changes.
 	 */
+#if 0
 	info = lookup_ip4_remote_endpoint(key.dip4);
 	if (info != NULL && info->sec_label)
 		dstID = info->sec_label;
@@ -161,6 +165,7 @@ int bpf_redir_proxy(struct sk_msg_md *msg)
 	}
 
 	return SK_PASS;
+#endif
 }
 
 BPF_LICENSE("GPL");
