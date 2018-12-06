@@ -1,6 +1,9 @@
 ---
 name: Bug Report
 about: Report a bug encountered while operating Cilium
+title: ''
+labels: ''
+assignees: ''
 
 ---
 

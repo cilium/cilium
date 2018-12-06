@@ -1,6 +1,9 @@
 ---
 name: Support Request
 about: Support request or question related to Cilium
+title: ''
+labels: ''
+assignees: ''
 
 ---
 
