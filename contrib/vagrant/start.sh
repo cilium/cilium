@@ -203,8 +203,8 @@ function write_k8s_install() {
         k8s_cluster_api_server_ip="FD03::1"
         k8s_cluster_dns_ip="FD03::A"
     fi
-    k8s_cluster_cidr=${k8s_cluster_cidr:-"10.16.0.0/12"}
-    k8s_node_cidr_mask_size=${k8s_node_cidr_mask_size:-"16"}
+    k8s_cluster_cidr=${k8s_cluster_cidr:-"10.244.0.0/16"}
+    k8s_node_cidr_mask_size=${k8s_node_cidr_mask_size:-"24"}
     k8s_service_cluster_ip_range=${k8s_service_cluster_ip_range:-"172.20.0.0/24"}
     k8s_cluster_api_server_ip=${k8s_cluster_api_server_ip:-"172.20.0.1"}
     k8s_cluster_dns_ip=${k8s_cluster_dns_ip:-"172.20.0.10"}
@@ -278,7 +278,7 @@ function write_cilium_cfg() {
     ipv6_addr="${3}"
     filename="${4}"
 
-    cilium_options="--auto-ipv6-node-routes"
+    cilium_options="--policy-enforcement-interface=cni0 --auto-ipv6-node-routes"
 
     if [[ "${IPV4}" -eq "1" ]]; then
         if [[ -z "${K8S}" ]]; then
@@ -356,14 +356,20 @@ service cilium restart
 
 cilium_started=false
 
-for ((i = 0 ; i < 24; i++)); do
-    if cilium status > /dev/null 2>&1; then
-        cilium_started=true
-        break
-    fi
-    sleep 5s
-    echo "Waiting for Cilium daemon to come up..."
-done
+if [[ "${cilium_options}" =~ "policy-enforcement-interface" ]]; then
+    cilium_started=true
+    echo "As Cilium is running in visibility-mode we can't wait for it to start"
+    echo "as it might be waiting for cni0 to be created."
+else
+    for ((i = 0 ; i < 24; i++)); do
+        if cilium status > /dev/null 2>&1; then
+            cilium_started=true
+            break
+        fi
+        sleep 5s
+        echo "Waiting for Cilium daemon to come up..."
+    done
+fi
 
 if [ "\$cilium_started" = true ] ; then
     echo 'Cilium successfully started!'
