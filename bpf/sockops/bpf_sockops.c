@@ -46,7 +46,7 @@
 
 static inline void bpf_sock_ops_ipv4(struct bpf_sock_ops *skops)
 {
-	__u32 dip4, dport, dstID = 0;
+	__u32 dip4, dport, sport, dstID = 0;
 	struct endpoint_info *exists;
 	struct lb4_key lb4_key = {};
 	struct sock_key key = {};
@@ -96,11 +96,12 @@ static inline void bpf_sock_ops_ipv4(struct bpf_sock_ops *skops)
 	 * blocks redirect directly to socket.
 	 */
 	exists = __lookup_ip4_endpoint(key.dip4);
-	if (!exists && key.dport != SFD_PORT)
+	if (!exists)
 		return;
 
 	dip4 = key.dip4;
 	dport = key.dport;
+	sport = key.sport;
 	key.dip4 = key.sip4;
 	key.dport = key.sport;
 	key.sip4 = dip4;
@@ -108,13 +109,14 @@ static inline void bpf_sock_ops_ipv4(struct bpf_sock_ops *skops)
 	key.size = 0;
 
 	/* kTLS proxy port is matched by compile time server port */
-	if (dport == SFD_PORT) {
+	if (dport == SFD_PORT || sport == SFD_PORT) {
 		bpf_printk("sockops key: %d %d %d\n", key.sport, key.dport, key.family);
 		bpf_printk("sockops pad: %d %d\n", key.pad7, key.pad8);
 		bpf_printk("sockops key: %d %d\n", key.sip4, key.dip4);
 	}
 
-	sock_hash_update(skops, &SOCK_OPS_MAP, &key, BPF_ANY);
+	if (sport != SFD_PORT)
+		sock_hash_update(skops, &SOCK_OPS_MAP, &key, BPF_ANY);
 }
 
 static inline void bpf_sock_ops_ipv6(struct bpf_sock_ops *skops)

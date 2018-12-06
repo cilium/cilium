@@ -18,7 +18,7 @@
 
 #include "sockops_config.h"
 
-#define SFD_PORT 47873
+#define SFD_PORT 8077
 
 /* Structure representing an L7 sock */
 struct sock_key {
@@ -79,8 +79,8 @@ static inline void sk_extract4_key(struct bpf_sock_ops *ops,
 	key->sip4 = ops->local_ip4;
 	key->family = ENDPOINT_KEY_IPV4;
 
-	key->sport = (bpf_ntohl(ops->local_port) >> 16);
-	key->dport = ops->remote_port >> 16;
+	key->sport = ops->local_port;
+	key->dport = bpf_ntohl(ops->remote_port);
 }
 
 static inline void sk_msg_extract4_key(struct sk_msg_md *msg,
@@ -90,8 +90,8 @@ static inline void sk_msg_extract4_key(struct sk_msg_md *msg,
 	key->sip4 = msg->local_ip4;
 	key->family = ENDPOINT_KEY_IPV4;
 
-	key->sport = (bpf_ntohl(msg->local_port) >> 16);
-	key->dport = msg->remote_port >> 16;
+	key->sport = msg->local_port;
+	key->dport = bpf_ntohl(msg->remote_port);
 }
 
 static inline void sk_skb_extract4_key(struct __sk_buff *skb,
@@ -101,8 +101,8 @@ static inline void sk_skb_extract4_key(struct __sk_buff *skb,
 	key->sip4 = skb->local_ip4;
 	key->family = ENDPOINT_KEY_IPV4;
 
-	key->sport = (bpf_ntohl(skb->local_port) >> 16);
-	key->dport = skb->remote_port >> 16;
+	key->sport = skb->local_port;
+	key->dport = bpf_ntohl(skb->remote_port);
 }
 
 static inline void sk_lb4_key(struct lb4_key *lb4, struct sock_key *key)

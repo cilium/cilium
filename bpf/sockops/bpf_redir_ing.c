@@ -50,14 +50,23 @@
 __section("sk_skb2")
 int bpf_prog2(struct __sk_buff *skb)
 {
-	struct sock_key *pkey, key = {.sip4 = 0};
+	struct sock_key *pkey, key = {};
+	struct endpoint_info *exists;
 	__u64 flags = BPF_F_INGRESS;
 	void *data, *data_end;
 	int err = 0;
 
 	sk_skb_extract4_key(skb, &key);
 
-	if (key.dport != SFD_PORT) {
+
+	exists = __lookup_ip4_endpoint(key.sip4);
+	if (!exists) {
+		bpf_printk("ing drop: !exists key sipe %u dip4 %u\n", key.sip4, key.dip4);
+		return SK_PASS;
+	}
+
+	if (key.dport != SFD_PORT) {// && key.sport != SFD_PORT ) {
+		bpf_printk("ing drop: sport %u dport %u len %u\n", key.sport, key.dport);
 		return SK_PASS;
 	}
 
@@ -75,18 +84,19 @@ int bpf_prog2(struct __sk_buff *skb)
 	}
 
 	pkey = (struct sock_key *)data;
-	memset(pkey, 0, sizeof(*pkey));
-	pkey->dip4 = key.dip4;
-	pkey->dport = key.dport;
-	pkey->sip4 = key.sip4;
-	pkey->sport = key.sport;
+	pkey->dip4 = key.sip4;
+	pkey->sip4 = key.dip4;
+	pkey->dport = key.sport;
+	pkey->sport = key.dport;
 	pkey->family = key.family;
 	pkey->size = skb->len;
 
-	bpf_printk("sk_skb key: %d %d %d\n", key.sport, key.dport, key.family);
+	bpf_printk("sk_skb key: %u %u %d\n", key.sport, key.dport, key.family);
 	bpf_printk("sk_skb key: %d %d\n", key.sip4, key.dip4);
+	bpf_printk("sk_skb pad: %d %d %d\n", key.pad1, key.pad2, key.pad3);
+	bpf_printk("sk_skb pad: %d %d %d\n", key.pad4, key.pad5, key.pad6);
 	bpf_printk("sk_skb pad: %d %d\n", key.pad7, key.pad8);
-	bpf_printk("sk_skb length: %d\n", skb->len);
+	bpf_printk("sk_skb length: %d\n", key.size);
 	err =  sk_redirect_map(skb, &SOCK_OPS_KTLS_UP, 0, flags);
 	bpf_printk("sk_skb data pushed: %i\n", err);
 	return SK_PASS;

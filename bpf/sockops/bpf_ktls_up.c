@@ -52,7 +52,6 @@ int bpf_redir_ktls(struct sk_msg_md *msg)
 {
 	struct sock_key *pkey, key;
 	__u64 flags = BPF_F_INGRESS;
-	__u32 dip4, dport;
 	int err;
 
 	if (msg->data + sizeof(struct sock_key) > msg->data_end) {
@@ -69,16 +68,9 @@ int bpf_redir_ktls(struct sk_msg_md *msg)
 		printk("ktl_up: pop data error sk_drop\n");
 		return SK_DROP;
 	}
-
-	dip4 = key.dip4;
-	dport = key.dport;
-	key.dip4 = key.sip4;
-	key.dport = key.sport;
-	key.sip4 = dip4;
-	key.sport = dport;
 	key.size = 0;
-
 	err = msg_redirect_hash(msg, &SOCK_OPS_MAP, &key, flags);
+
 	bpf_printk("ktls up key: %d %d %d\n", key.sport, key.dport, key.family);
 	bpf_printk("ktls up pad: %d %d\n", key.pad7, key.pad8);
 	bpf_printk("ktls up key: %d %d\n", key.sip4, key.dip4);
