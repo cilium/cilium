@@ -601,7 +601,12 @@ skip_service_lookup:
 			return ret;
 
 		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
+
+#ifdef HOST_REDIRECT_TO_INGRESS
+		return redirect(HOST_IFINDEX, BPF_F_INGRESS);
+#else
 		return redirect(HOST_IFINDEX, 0);
+#endif
 	}
 
 	/* After L4 write in port mapping: revalidate for direct packet access */
@@ -670,7 +675,11 @@ to_host:
 				  forwarding_reason, monitor);
 
 		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
+#ifdef HOST_REDIRECT_TO_INGRESS
+		return redirect(HOST_IFINDEX, BPF_F_INGRESS);
+#else
 		return redirect(HOST_IFINDEX, 0);
+#endif
 	}
 
 pass_to_stack:
@@ -712,7 +721,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC) int tail_handle_ipv4
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_ARP) int tail_handle_arp(struct __sk_buff *skb)
 {
 	union macaddr mac = NODE_MAC;
-	return arp_respond(skb, &mac);
+	return arp_respond(skb, &mac, 0);
 }
 #endif /* ENABLE_ARP_RESPONDER */
 #endif /* ENABLE_IPV4 */
@@ -1024,6 +1033,12 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 			return DROP_WRITE_ERROR;
 
 		skb->cb[CB_IFINDEX] = HOST_IFINDEX;
+
+#ifdef HOST_REDIRECT_TO_INGRESS
+		return redirect(HOST_IFINDEX, BPF_F_INGRESS);
+#else
+		return redirect(HOST_IFINDEX, 0);
+#endif
 	} else { // Not redirected to host / proxy.
 		send_trace_notify(skb, TRACE_TO_LXC, src_label, SECLABEL,
 				  LXC_ID, ifindex, *forwarding_reason, monitor);
