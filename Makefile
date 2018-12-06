@@ -24,7 +24,7 @@ JOB_BASE_NAME ?= cilium_test
 
 UTC_DATE=$(shell date -u "+%Y-%m-%d")
 
-SKIP_DOCS ?= false
+SKIP_DOCS ?= true
 
 all: precheck build postcheck
 	@echo "Build finished."
@@ -238,7 +238,7 @@ logging-subsys-field:
 	@$(ECHO_CHECK) contrib/scripts/check-logging-subsys-field.sh
 	$(QUIET) contrib/scripts/check-logging-subsys-field.sh
 
-precheck: govet ineffassign logging-subsys-field
+precheck: ineffassign logging-subsys-field
 	@$(ECHO_CHECK) contrib/scripts/check-fmt.sh
 	$(QUIET) contrib/scripts/check-fmt.sh
 	@$(ECHO_CHECK) contrib/scripts/check-log-newlines.sh
