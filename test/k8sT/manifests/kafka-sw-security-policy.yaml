@@ -22,6 +22,7 @@ specs:
     - toEndpoints:
       - matchLabels:
           k8s-app: kube-dns
+          "k8s:io.kubernetes.pod.namespace": kube-system
   - endpointSelector:
       matchLabels:
         app: kafka
