@@ -17,9 +17,6 @@ package connector
 import (
 	"fmt"
 	"math"
-	"math/rand"
-	"net"
-	"time"
 	"path/filepath"
 	"unsafe"
 
@@ -152,12 +149,7 @@ func SetupIpvlanRemoteNs(netNs ns.NetNS, srcIfName, dstIfName string) (int, int,
 		return 0, 0, fmt.Errorf("failed to create root BPF map for %q: %s", dstIfName, err)
 	}
 
-	rand.Seed(time.Now().UTC().UnixNano())
-
 	err = netNs.Do(func(_ ns.NetNS) error {
-		// FIXME: Ugly hack for testing till we get IPAM to switch over, needed to UP the dev
-		var address = &net.IPNet{IP: net.IPv4(10, 8, 1, 1 + byte(rand.Intn(128))), Mask: net.CIDRMask(24, 32)}
-		var addr = &netlink.Addr{IPNet: address}
 		var err error
 
 		err = link.Rename(srcIfName, dstIfName)
@@ -168,14 +160,6 @@ func SetupIpvlanRemoteNs(netNs ns.NetNS, srcIfName, dstIfName string) (int, int,
 		ipvlan, err := netlink.LinkByName(dstIfName)
 		if err != nil {
 			return fmt.Errorf("failed to lookup ipvlan device %q: %s", dstIfName, err)
-		}
-
-		if err = netlink.AddrAdd(ipvlan, addr); err != nil {
-			return fmt.Errorf("failed to set ipvlan device %q IP addr: %s", dstIfName, err)
-		}
-
-		if err = netlink.LinkSetUp(ipvlan); err != nil {
-			return fmt.Errorf("unable to bring up ipvlan device %q: %s", dstIfName, err)
 		}
 
 		qdiscAttrs := netlink.QdiscAttrs{
@@ -307,6 +291,11 @@ func setupIpvlanWithNames(lxcIfName string, mtu int, masterDev int, ep *models.E
 	if err = netlink.LinkSetMTU(link, mtu); err != nil {
 		return nil, nil, fmt.Errorf("unable to set MTU to %q: %s", lxcIfName, err)
 	}
+
+	ep.Mac = link.Attrs().HardwareAddr.String()
+	ep.HostMac = link.Attrs().HardwareAddr.String()
+	ep.InterfaceIndex = int64(masterDev)
+	ep.InterfaceName = lxcIfName
 
 	return ipvlan, &link, nil
 }

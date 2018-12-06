@@ -180,6 +180,12 @@ func addIPConfigToLink(ip addressing.CiliumIP, routes []route.Route, link netlin
 		return fmt.Errorf("failed to add addr to %q: %v", ifName, err)
 	}
 
+	// ipvlan needs to be UP before we add routes, and can only be UPed after
+	// we added an IP address.
+	if err := netlink.LinkSetUp(link); err != nil {
+		return fmt.Errorf("failed to set %q UP: %v", ifName, err)
+	}
+
 	// Sort provided routes to make sure we apply any more specific
 	// routes first which may be used as nexthops in wider routes
 	sort.Sort(route.ByMask(routes))
@@ -216,10 +222,6 @@ func configureIface(ipam *models.IPAMResponse, ifName string, state *CmdState) (
 		return "", fmt.Errorf("failed to lookup %q: %v", ifName, err)
 	}
 
-	if err := netlink.LinkSetUp(l); err != nil {
-		return "", fmt.Errorf("failed to set %q UP: %v", ifName, err)
-	}
-
 	if IPv4IsEnabled(ipam) {
 		if err := addIPConfigToLink(state.IP4, state.IP4routes, l, ifName); err != nil {
 			return "", fmt.Errorf("error configuring IPv4: %s", err.Error())
@@ -230,6 +232,10 @@ func configureIface(ipam *models.IPAMResponse, ifName string, state *CmdState) (
 		if err := addIPConfigToLink(state.IP6, state.IP6routes, l, ifName); err != nil {
 			return "", fmt.Errorf("error configuring IPv6: %s", err.Error())
 		}
+	}
+
+	if err := netlink.LinkSetUp(l); err != nil {
+		return "", fmt.Errorf("failed to set %q UP: %v", ifName, err)
 	}
 
 	if l.Attrs() != nil {
@@ -356,31 +362,6 @@ func cmdAdd(args *skel.CmdArgs) error {
 		K8sNamespace: string(cniArgs.K8S_POD_NAMESPACE),
 	}
 
-	veth, peer, tmpIfName, err := connector.SetupVeth(ep.ContainerID, int(conf.DeviceMTU), ep)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err != nil {
-			if err = netlink.LinkDel(veth); err != nil {
-				logger.WithError(err).WithField(logfields.Veth, veth.Name).Warn("failed to clean up and delete veth")
-			}
-		}
-	}()
-
-	if err = netlink.LinkSetNsFd(*peer, int(netNs.Fd())); err != nil {
-		return fmt.Errorf("unable to move veth pair '%v' to netns: %s", peer, err)
-	}
-
-	_, _, err = connector.SetupVethRemoteNs(netNs, tmpIfName, args.IfName)
-	if err != nil {
-		return err
-	}
-
-	//XXX/START
-
-	// Just for testing, we add a 2nd device in parallel, make it an
-	// interface in future to select one.
 	index, err := connector.SetupIpvlanMaster()
 	if err != nil {
 		return err
@@ -403,7 +384,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 		return fmt.Errorf("unable to move ipvlan slave '%v' to netns: %s", link, err)
 	}
 
-	mapFD, mapID, err := connector.SetupIpvlanRemoteNs(netNs, tmpIfName, "ipvl0" /*args.IfName*/)
+	mapFD, mapID, err := connector.SetupIpvlanRemoteNs(netNs, tmpIfName, args.IfName)
 	if err != nil {
 		return err
 	}
@@ -412,8 +393,6 @@ func cmdAdd(args *skel.CmdArgs) error {
 	defer func() {
 		unix.Close(mapFD)
 	}()
-
-	//XXX/END
 
 	ipam, err := c.IPAMAllocate("")
 	if err != nil {
