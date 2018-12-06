@@ -94,62 +94,6 @@ var (
 
 	bootstrapTimestamp = time.Now()
 
-	// Arguments variables keep in alphabetical order
-
-	bpfRoot               string
-	cgroupRoot            string
-	cmdRefDir             string
-	debugVerboseFlags     []string
-	disableConntrack      bool
-	dockerEndpoint        string
-	enableTracing         bool
-	k8sAPIServer          string
-	k8sKubeConfigPath     string
-	kvStore               string
-	labelPrefixFile       string
-	loggers               []string
-	masquerade            bool
-	nat46prefix           string
-	prometheusServeAddr   string
-	socketPath            string
-	tracePayloadLen       int
-	v4Address             string
-	v4ClusterCidrMaskSize int
-	v4Prefix              string
-	v4ServicePrefix       string
-	v6Address             string
-	v6Prefix              string
-	v6ServicePrefix       string
-	validLabels           []string
-	toFQDNsMinTTL         int
-	enableDNSPoller       bool
-
-	logOpts                = make(map[string]string)
-	kvStoreOpts            = make(map[string]string)
-	fixedIdentity          = make(map[string]string)
-	fixedIdentityValidator = option.Validator(func(val string) (string, error) {
-		vals := strings.Split(val, "=")
-		if len(vals) != 2 {
-			return "", fmt.Errorf(`invalid fixed identity: expecting "<numeric-identity>=<identity-name>" got %q`, val)
-		}
-		ni, err := identity.ParseNumericIdentity(vals[0])
-		if err != nil {
-			return "", fmt.Errorf(`invalid numeric identity %q: %s`, val, err)
-		}
-		if !identity.IsUserReservedIdentity(ni) {
-			return "", fmt.Errorf(`invalid numeric identity %q: valid numeric identity is between %d and %d`,
-				val, identity.UserReservedNumericIdentity.Uint32(), identity.MinimalNumericIdentity.Uint32())
-		}
-		lblStr := vals[1]
-		lbl := labels.ParseLabel(lblStr)
-		if lbl.IsReservedSource() {
-			return "", fmt.Errorf(`invalid source %q for label: %s`, labels.LabelSourceReserved, lblStr)
-		}
-		return val, nil
-	})
-	containerRuntimesOpts = make(map[string]string)
-	cfgFile               string
-
 	// RootCmd represents the base command when called without any subcommands
 	RootCmd = &cobra.Command{
 		Use:   "cilium-agent",
@@ -339,6 +283,29 @@ func init() {
 	cobra.OnInitialize(initConfig)
 	flags := RootCmd.Flags()
 
+	// Validators
+	option.Config.FixedIdentityMappingValidator = option.Validator(func(val string) (string, error) {
+		vals := strings.Split(val, "=")
+		if len(vals) != 2 {
+			return "", fmt.Errorf(`invalid fixed identity: expecting "<numeric-identity>=<identity-name>" got %q`, val)
+		}
+		ni, err := identity.ParseNumericIdentity(vals[0])
+		if err != nil {
+			return "", fmt.Errorf(`invalid numeric identity %q: %s`, val, err)
+		}
+		if !identity.IsUserReservedIdentity(ni) {
+			return "", fmt.Errorf(`invalid numeric identity %q: valid numeric identity is between %d and %d`,
+				val, identity.UserReservedNumericIdentity.Uint32(), identity.MinimalNumericIdentity.Uint32())
+		}
+		lblStr := vals[1]
+		lbl := labels.ParseLabel(lblStr)
+		if lbl.IsReservedSource() {
+			return "", fmt.Errorf(`invalid source %q for label: %s`, labels.LabelSourceReserved, lblStr)
+		}
+		return val, nil
+	})
+
+	// Env bindings
 	flags.StringVar(&option.Config.AccessLog,
 		option.AccessLog, "", "Path to access log of supported L7 requests observed")
 	option.BindEnv(option.AccessLog)
@@ -355,11 +322,11 @@ func init() {
 		option.AutoIPv6NodeRoutesName, false, "Automatically adds IPv6 L3 routes to reach other nodes for non-overlay mode (--device) (BETA)")
 	option.BindEnv(option.AutoIPv6NodeRoutesName)
 
-	flags.StringVar(&bpfRoot,
+	flags.StringVar(&option.Config.BPFRoot,
 		option.BPFRoot, "", "Path to BPF filesystem")
 	option.BindEnv(option.BPFRoot)
 
-	flags.StringVar(&cgroupRoot,
+	flags.StringVar(&option.Config.CGroupRoot,
 		option.CGroupRoot, "", "Path to Cgroup2 filesystem")
 	option.BindEnv(option.CGroupRoot)
 
@@ -378,7 +345,7 @@ func init() {
 	flags.String(option.ClusterMeshConfigName, "", "Path to the ClusterMesh configuration directory")
 	option.BindEnv(option.ClusterMeshConfigName)
 
-	flags.StringVar(&cfgFile,
+	flags.StringVar(&option.Config.ConfigFile,
 		option.ConfigFile, "", `Configuration file (default "$HOME/ciliumd.yaml")`)
 	option.BindEnv(option.ConfigFile)
 
@@ -389,7 +356,7 @@ func init() {
 		option.ContainerRuntime, []string{"auto"}, `Sets the container runtime(s) used by Cilium { containerd | crio | docker | none | auto } ( "auto" uses the container runtime found in the order: "docker", "containerd", "crio" )`)
 	option.BindEnv(option.ContainerRuntime)
 
-	flags.Var(option.NewNamedMapOptions("container-runtime-endpoints", &containerRuntimesOpts, nil),
+	flags.Var(option.NewNamedMapOptions(option.ContainerRuntimeEndpoint, &option.Config.ContainerRuntimeEndpoint, nil),
 		option.ContainerRuntimeEndpoint, `Container runtime(s) endpoint(s). (default: `+workloads.GetDefaultEPOptsStringWithPrefix("--container-runtime-endpoint=")+`)`)
 	option.BindEnv(option.ContainerRuntimeEndpoint)
 
@@ -397,14 +364,14 @@ func init() {
 		option.DebugArg, "D", false, "Enable debugging mode")
 	option.BindEnv(option.DebugArg)
 
-	flags.StringSliceVar(&debugVerboseFlags, option.DebugVerbose, []string{}, "List of enabled verbose debug groups")
+	flags.StringSliceVar(&option.Config.DebugVerbose, option.DebugVerbose, []string{}, "List of enabled verbose debug groups")
 	option.BindEnv(option.DebugVerbose)
 
 	flags.StringVarP(&option.Config.Device,
 		option.Device, "d", "undefined", "Device facing cluster/external network for direct L3 (non-overlay mode)")
 	option.BindEnv(option.Device)
 
-	flags.BoolVar(&disableConntrack,
+	flags.BoolVar(&option.Config.DisableConntrack,
 		option.DisableConntrack, false, "Disable connection tracking")
 	option.BindEnv(option.DisableConntrack)
 
@@ -412,10 +379,10 @@ func init() {
 	flags.MarkHidden(option.LegacyDisableIPv4Name)
 	option.BindEnv(option.LegacyDisableIPv4Name)
 
-	flags.Bool(option.EnableIPv4Name, true, "Enable IPv4 support")
+	flags.Bool(option.EnableIPv4Name, defaults.EnableIPv4, "Enable IPv4 support")
 	option.BindEnv(option.EnableIPv4Name)
 
-	flags.Bool(option.EnableIPv6Name, true, "Enable IPv6 support")
+	flags.Bool(option.EnableIPv6Name, defaults.EnableIPv6, "Enable IPv6 support")
 	option.BindEnv(option.EnableIPv6Name)
 
 	flags.BoolVar(&option.Config.DisableCiliumEndpointCRD,
@@ -426,14 +393,14 @@ func init() {
 		false, "Disable east-west K8s load balancing by cilium")
 	option.BindEnv(option.DisableK8sServices)
 
-	flags.StringVarP(&dockerEndpoint,
+	flags.StringVarP(&option.Config.DockerEndpoint,
 		option.Docker, "e", workloads.GetRuntimeDefaultOpt(workloads.Docker, "endpoint"), "Path to docker runtime socket (DEPRECATED: use container-runtime-endpoint instead)")
 	option.BindEnv(option.Docker)
 
 	flags.String(option.EnablePolicy, option.DefaultEnforcement, "Enable policy enforcement")
 	option.BindEnv(option.EnablePolicy)
 
-	flags.BoolVar(&enableTracing,
+	flags.BoolVar(&option.Config.EnableTracing,
 		option.EnableTracing, false, "Enable tracing while determining policy (debugging)")
 	option.BindEnv(option.EnableTracing)
 
@@ -469,19 +436,19 @@ func init() {
 	// This needs to be set manually for backward compatibility
 	viper.BindEnv(option.DisableEnvoyVersionCheck, "CILIUM_DISABLE_ENVOY_BUILD")
 
-	flags.Var(option.NewNamedMapOptions(option.FixedIdentityMapping, &fixedIdentity, fixedIdentityValidator),
+	flags.Var(option.NewNamedMapOptions(option.FixedIdentityMapping, &option.Config.FixedIdentityMapping, option.Config.FixedIdentityMappingValidator),
 		option.FixedIdentityMapping, "Key-value for the fixed identity mapping which allows to use reserved label for fixed identities")
 	option.BindEnv(option.FixedIdentityMapping)
 
-	flags.IntVar(&v4ClusterCidrMaskSize,
+	flags.IntVar(&option.Config.IPv4ClusterCIDRMaskSize,
 		option.IPv4ClusterCIDRMaskSize, 8, "Mask size for the cluster wide CIDR")
 	option.BindEnv(option.IPv4ClusterCIDRMaskSize)
 
-	flags.StringVar(&v4Prefix,
+	flags.StringVar(&option.Config.IPv4Range,
 		option.IPv4Range, AutoCIDR, "Per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16")
 	option.BindEnv(option.IPv4Range)
 
-	flags.StringVar(&v6Prefix,
+	flags.StringVar(&option.Config.IPv6Range,
 		option.IPv6Range, AutoCIDR, "Per-node IPv6 endpoint prefix, must be /96, e.g. fd02:1:1::/96")
 	option.BindEnv(option.IPv6Range)
 
@@ -489,19 +456,19 @@ func init() {
 		option.IPv6ClusterAllocCIDRName, defaults.IPv6ClusterAllocCIDR, "IPv6 /64 CIDR used to allocate per node endpoint /96 CIDR")
 	option.BindEnv(option.IPv6ClusterAllocCIDRName)
 
-	flags.StringVar(&v4ServicePrefix,
+	flags.StringVar(&option.Config.IPv4ServiceRange,
 		option.IPv4ServiceRange, AutoCIDR, "Kubernetes IPv4 services CIDR if not inside cluster prefix")
 	option.BindEnv(option.IPv4ServiceRange)
 
-	flags.StringVar(&v6ServicePrefix,
+	flags.StringVar(&option.Config.IPv6ServiceRange,
 		option.IPv6ServiceRange, AutoCIDR, "Kubernetes IPv6 services CIDR if not inside cluster prefix")
 	option.BindEnv(option.IPv6ServiceRange)
 
-	flags.StringVar(&k8sAPIServer,
+	flags.StringVar(&option.Config.K8sAPIServer,
 		option.K8sAPIServer, "", "Kubernetes api address server (for https use --k8s-kubeconfig-path instead)")
 	option.BindEnv(option.K8sAPIServer)
 
-	flags.StringVar(&k8sKubeConfigPath,
+	flags.StringVar(&option.Config.K8sKubeConfigPath,
 		option.K8sKubeConfigPath, "", "Absolute path of the kubernetes kubeconfig file")
 	option.BindEnv(option.K8sKubeConfigPath)
 
@@ -528,19 +495,19 @@ func init() {
 		option.KeepBPFTemplates, false, "Do not restore BPF template files from binary")
 	option.BindEnv(option.KeepBPFTemplates)
 
-	flags.StringVar(&kvStore,
+	flags.StringVar(&option.Config.KVStore,
 		option.KVStore, "", "Key-value store type")
 	option.BindEnv(option.KVStore)
 
-	flags.Var(option.NewNamedMapOptions("kvstore-opts", &kvStoreOpts, nil),
+	flags.Var(option.NewNamedMapOptions(option.KVStoreOpt, &option.Config.KVStoreOpt, nil),
 		option.KVStoreOpt, "Key-value store options")
 	option.BindEnv(option.KVStoreOpt)
 
-	flags.StringVar(&labelPrefixFile,
+	flags.StringVar(&option.Config.LabelPrefixFile,
 		option.LabelPrefixFile, "", "Valid label prefixes file path")
 	option.BindEnv(option.LabelPrefixFile)
 
-	flags.StringSliceVar(&validLabels,
+	flags.StringSliceVar(&option.Config.Labels,
 		option.Labels, []string{}, "List of label prefixes used to determine identity of an endpoint")
 	option.BindEnv(option.Labels)
 
@@ -552,18 +519,18 @@ func init() {
 		option.LibDir, defaults.LibraryPath, "Directory path to store runtime build environment")
 	option.BindEnv(option.LibDir)
 
-	flags.StringSliceVar(&loggers,
+	flags.StringSliceVar(&option.Config.LogDriver,
 		option.LogDriver, []string{}, "Logging endpoints to use for example syslog")
 	option.BindEnv(option.LogDriver)
 
-	flags.Var(option.NewNamedMapOptions("log-opts", &logOpts, nil),
+	flags.Var(option.NewNamedMapOptions(option.LogOpt, &option.Config.LogOpt, nil),
 		option.LogOpt, "Log driver options for cilium")
 	option.BindEnv(option.LogOpt)
 
 	flags.Bool(option.LogSystemLoadConfigName, false, "Enable periodic logging of system load")
 	option.BindEnv(option.LogSystemLoadConfigName)
 
-	flags.StringVar(&nat46prefix,
+	flags.StringVar(&option.Config.NAT46Range,
 		option.NAT46Range, defaults.DefaultNAT46Prefix, "IPv6 prefix to map IPv4 addresses to")
 	option.BindEnv(option.NAT46Range)
 
@@ -595,11 +562,11 @@ func init() {
 	viper.BindEnv(option.PrependIptablesChainsName, "CILIUM_PREPEND_IPTABLES_CHAIN")
 	option.BindEnv(option.PrependIptablesChainsName)
 
-	flags.StringVar(&v6Address,
+	flags.StringVar(&option.Config.IPv6NodeAddr,
 		option.IPv6NodeAddr, "auto", "IPv6 address of node")
 	option.BindEnv(option.IPv6NodeAddr)
 
-	flags.StringVar(&v4Address,
+	flags.StringVar(&option.Config.IPv4NodeAddr,
 		option.IPv4NodeAddr, "auto", "IPv4 address of node")
 	option.BindEnv(option.IPv4NodeAddr)
 
@@ -619,7 +586,7 @@ func init() {
 		"Use a single cluster route instead of per node routes")
 	option.BindEnv(option.SingleClusterRouteName)
 
-	flags.StringVar(&socketPath,
+	flags.StringVar(&option.Config.SocketPath,
 		option.SocketPath, defaults.SockPath, "Sets daemon's socket path to listen for connections")
 	option.BindEnv(option.SocketPath)
 
@@ -630,7 +597,7 @@ func init() {
 	flags.StringP(option.TunnelName, "t", option.TunnelVXLAN, fmt.Sprintf("Tunnel mode {%s}", option.GetTunnelModes()))
 	option.BindEnv(option.TunnelName)
 
-	flags.IntVar(&tracePayloadLen,
+	flags.IntVar(&option.Config.TracePayloadlen,
 		option.TracePayloadlen, 128, "Length of payload to capture when tracing")
 	option.BindEnv(option.TracePayloadlen)
 
@@ -655,7 +622,7 @@ func init() {
 	// The second environment variable (without the CILIUM_ prefix) is here to
 	// handle the case where someone uses a new image with an older spec, and the
 	// older spec used the older variable name.
-	flags.StringVar(&prometheusServeAddr,
+	flags.StringVar(&option.Config.PrometheusServeAddr,
 		option.PrometheusServeAddr, "", "IP:Port on which to serve prometheus metrics (pass \":Port\" to bind on all interfaces, \"\" is off)")
 	viper.BindEnv(option.PrometheusServeAddrDeprecated, "PROMETHEUS_SERVE_ADDR")
 	option.BindEnv(option.PrometheusServeAddr)
@@ -670,12 +637,12 @@ func init() {
 	viper.BindEnv(option.CTMapEntriesGlobalAnyName, "CILIUM_GLOBAL_CT_MAX_ANY")
 	option.BindEnv(option.CTMapEntriesGlobalAnyName)
 
-	flags.StringVar(&cmdRefDir,
+	flags.StringVar(&option.Config.CMDRefDir,
 		option.CMDRef, "", "Path to cmdref output directory")
 	flags.MarkHidden(option.CMDRef)
 	option.BindEnv(option.CMDRef)
 
-	flags.IntVar(&toFQDNsMinTTL,
+	flags.IntVar(&option.Config.ToFQDNsMinTTL,
 		option.ToFQDNsMinTTL, defaults.ToFQDNsMinTTL, "The minimum time, in seconds, to use DNS data for toFQDNs policies.")
 	option.BindEnv(option.ToFQDNsMinTTL)
 
@@ -683,7 +650,7 @@ func init() {
 		option.ToFQDNsProxyPort, 0, "Global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.")
 	option.BindEnv(option.ToFQDNsProxyPort)
 
-	flags.BoolVar(&enableDNSPoller,
+	flags.BoolVar(&option.Config.ToFQDNsEnablePoller,
 		option.ToFQDNsEnablePoller, false, "Enable proactive polling of DNS names in toFQDNs.matchName rules.")
 	option.BindEnv(option.ToFQDNsEnablePoller)
 
@@ -721,8 +688,8 @@ func initConfig() {
 		os.Exit(0)
 	}
 
-	if cfgFile != "" { // enable ability to specify config file via flag
-		viper.SetConfigFile(cfgFile)
+	if option.Config.ConfigFile != "" { // enable ability to specify config file via flag
+		viper.SetConfigFile(option.Config.ConfigFile)
 	}
 
 	viper.SetEnvPrefix("cilium")
@@ -735,11 +702,15 @@ func initConfig() {
 }
 
 func initEnv(cmd *cobra.Command) {
+	// Prepopulate option.Config with options from CLI.
+	populateConfig()
 
 	// Logging should always be bootstrapped first. Do not add any code above this!
-	logging.SetupLogging(loggers, logOpts, "cilium-agent", viper.GetBool("debug"))
+	logging.SetupLogging(option.Config.LogDriver, option.Config.LogOpt, "cilium-agent", option.Config.Debug)
 
-	for _, grp := range debugVerboseFlags {
+	option.LogRegisteredOptions(log)
+
+	for _, grp := range option.Config.DebugVerbose {
 		switch grp {
 		case argDebugVerboseFlow:
 			log.Debugf("Enabling flow debug")
@@ -754,7 +725,7 @@ func initEnv(cmd *cobra.Command) {
 		}
 	}
 
-	if cmdRefDir != "" {
+	if option.Config.CMDRefDir != "" {
 		genMarkdown(cmd)
 	}
 
@@ -855,13 +826,13 @@ func initEnv(cmd *cobra.Command) {
 			option.ModePreFilterNative, option.ModePreFilterGeneric)
 	}
 
-	scopedLog = log.WithField(logfields.Path, socketPath)
-	socketDir := path.Dir(socketPath)
+	scopedLog = log.WithField(logfields.Path, option.Config.SocketPath)
+	socketDir := path.Dir(option.Config.SocketPath)
 	if err := os.MkdirAll(socketDir, defaults.RuntimePathRights); err != nil {
 		scopedLog.WithError(err).Fatal("Cannot mkdir directory for cilium socket")
 	}
 
-	if err := os.Remove(socketPath); !os.IsNotExist(err) && err != nil {
+	if err := os.Remove(option.Config.SocketPath); !os.IsNotExist(err) && err != nil {
 		scopedLog.WithError(err).Fatal("Cannot remove existing Cilium sock")
 	}
 
@@ -870,16 +841,16 @@ func initEnv(cmd *cobra.Command) {
 	// the path to an already mounted filesystem instead. This is
 	// useful if the daemon is being round inside a namespace and the
 	// BPF filesystem is mapped into the slave namespace.
-	bpf.CheckOrMountFS(bpfRoot)
-	sockops.CheckOrMountCgrpFS(cgroupRoot)
+	bpf.CheckOrMountFS(option.Config.BPFRoot)
+	sockops.CheckOrMountCgrpFS(option.Config.CGroupRoot)
 
 	option.Config.Opts.SetBool(option.Debug, viper.GetBool("debug"))
 
 	option.Config.Opts.SetBool(option.DropNotify, true)
 	option.Config.Opts.SetBool(option.TraceNotify, true)
-	option.Config.Opts.SetBool(option.PolicyTracing, enableTracing)
-	option.Config.Opts.SetBool(option.Conntrack, !disableConntrack)
-	option.Config.Opts.SetBool(option.ConntrackAccounting, !disableConntrack)
+	option.Config.Opts.SetBool(option.PolicyTracing, option.Config.EnableTracing)
+	option.Config.Opts.SetBool(option.Conntrack, !option.Config.DisableConntrack)
+	option.Config.Opts.SetBool(option.ConntrackAccounting, !option.Config.DisableConntrack)
 	option.Config.Opts.SetBool(option.ConntrackLocal, false)
 
 	monitorAggregationLevel, err := option.ParseMonitorAggregationLevel(viper.GetString(option.MonitorAggregationName))
@@ -891,30 +862,30 @@ func initEnv(cmd *cobra.Command) {
 
 	policy.SetPolicyEnabled(strings.ToLower(viper.GetString("enable-policy")))
 
-	if err := cache.AddUserDefinedNumericIdentitySet(fixedIdentity); err != nil {
+	if err := cache.AddUserDefinedNumericIdentitySet(option.Config.FixedIdentityMapping); err != nil {
 		log.Fatalf("Invalid fixed identities provided: %s", err)
 	}
 
 	if !option.Config.EnableIPv4 && !option.Config.EnableIPv6 {
 		log.Fatal("Either IPv4 or IPv6 addressing must be enabled")
 	}
+	if err := kvstore.Setup(option.Config.KVStore, option.Config.KVStoreOpt); err != nil {
+		addrkey := fmt.Sprintf("%s.address", option.Config.KVStore)
+		addr := option.Config.KVStoreOpt[addrkey]
 
-	if err := kvstore.Setup(kvStore, kvStoreOpts); err != nil {
-		addrkey := fmt.Sprintf("%s.address", kvStore)
-		addr := kvStoreOpts[addrkey]
 		log.WithError(err).WithFields(logrus.Fields{
-			"kvstore": kvStore,
+			"kvstore": option.Config.KVStore,
 			"address": addr,
 		}).Fatal("Unable to setup kvstore")
 	}
 
-	if err := labels.ParseLabelPrefixCfg(validLabels, labelPrefixFile); err != nil {
+	if err := labels.ParseLabelPrefixCfg(option.Config.Labels, option.Config.LabelPrefixFile); err != nil {
 		log.WithError(err).Fatal("Unable to parse Label prefix configuration")
 	}
 
-	_, r, err := net.ParseCIDR(nat46prefix)
+	_, r, err := net.ParseCIDR(option.Config.NAT46Range)
 	if err != nil {
-		log.WithError(err).WithField(logfields.V6Prefix, nat46prefix).Fatal("Invalid NAT46 prefix")
+		log.WithError(err).WithField(logfields.V6Prefix, option.Config.NAT46Range).Fatal("Invalid NAT46 prefix")
 	}
 
 	option.Config.NAT46Prefix = r
@@ -925,9 +896,9 @@ func initEnv(cmd *cobra.Command) {
 		node.InitDefaultPrefix(option.Config.Device)
 	}
 
-	if v6Address != "auto" {
-		if ip := net.ParseIP(v6Address); ip == nil {
-			log.WithField(logfields.IPAddr, v6Address).Fatal("Invalid IPv6 node address")
+	if option.Config.IPv6NodeAddr != "auto" {
+		if ip := net.ParseIP(option.Config.IPv6NodeAddr); ip == nil {
+			log.WithField(logfields.IPAddr, option.Config.IPv6NodeAddr).Fatal("Invalid IPv6 node address")
 		} else {
 			if !ip.IsGlobalUnicast() {
 				log.WithField(logfields.IPAddr, ip).Fatal("Invalid IPv6 node address: not a global unicast address")
@@ -937,9 +908,9 @@ func initEnv(cmd *cobra.Command) {
 		}
 	}
 
-	if v4Address != "auto" {
-		if ip := net.ParseIP(v4Address); ip == nil {
-			log.WithField(logfields.IPAddr, v4Address).Fatal("Invalid IPv4 node address")
+	if option.Config.IPv4NodeAddr != "auto" {
+		if ip := net.ParseIP(option.Config.IPv4NodeAddr); ip == nil {
+			log.WithField(logfields.IPAddr, option.Config.IPv4NodeAddr).Fatal("Invalid IPv4 node address")
 		} else {
 			node.SetExternalIPv4(ip)
 		}
@@ -954,19 +925,19 @@ func initEnv(cmd *cobra.Command) {
 		restoreServiceIDs()
 	}
 
-	k8s.Configure(k8sAPIServer, k8sKubeConfigPath)
+	k8s.Configure(option.Config.K8sAPIServer, option.Config.K8sKubeConfigPath)
 
 	if option.Config.WorkloadsEnabled() {
 		// workaround for to use the values of the deprecated dockerEndpoint
 		// variable if it is set with a different value than defaults.
 		defaultDockerEndpoint := workloads.GetRuntimeDefaultOpt(workloads.Docker, "endpoint")
-		if defaultDockerEndpoint != dockerEndpoint {
-			containerRuntimesOpts[string(workloads.Docker)] = dockerEndpoint
+		if defaultDockerEndpoint != option.Config.DockerEndpoint {
+			option.Config.ContainerRuntimeEndpoint[string(workloads.Docker)] = option.Config.DockerEndpoint
 			log.Warn(`"docker" flag is deprecated.` +
 				`Please use "--container-runtime-endpoint=docker=` + defaultDockerEndpoint + `" instead`)
 		}
 
-		err = workloads.ParseConfigEndpoint(option.Config.Workloads, containerRuntimesOpts)
+		err = workloads.ParseConfigEndpoint(option.Config.Workloads, option.Config.ContainerRuntimeEndpoint)
 		if err != nil {
 			log.WithError(err).Fatal("Unable to initialize policy container runtimes")
 			return
@@ -1065,7 +1036,7 @@ func runDaemon() {
 
 	server := server.NewServer(api)
 	server.EnabledListeners = []string{"unix"}
-	server.SocketPath = flags.Filename(socketPath)
+	server.SocketPath = flags.Filename(option.Config.SocketPath)
 	server.ReadTimeout = apiTimeout
 	server.WriteTimeout = apiTimeout
 	defer server.Shutdown()

@@ -727,7 +727,7 @@ func (d *Daemon) createNodeConfigHeaderfile() error {
 	fmt.Fprintf(fw, "#define POLICY_PROG_MAP_SIZE %d\n", policymap.ProgArrayMaxEntries)
 	fmt.Fprintf(fw, "#define SOCKOPS_MAP_SIZE %d\n", sockmap.MaxEntries)
 
-	fmt.Fprintf(fw, "#define TRACE_PAYLOAD_LEN %dULL\n", tracePayloadLen)
+	fmt.Fprintf(fw, "#define TRACE_PAYLOAD_LEN %dULL\n", option.Config.TracePayloadlen)
 	fmt.Fprintf(fw, "#define MTU %d\n", d.mtuConfig.GetDeviceMTU())
 
 	if option.Config.EnableIPv4 {
@@ -865,9 +865,6 @@ func createPrefixLengthCounter() *counter.PrefixLengthCounter {
 
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
 func NewDaemon() (*Daemon, *endpointRestoreState, error) {
-	// Prepopulate option.Config with options from CLI.
-	populateConfig()
-
 	// Validate the daemon-specific global options.
 	if err := option.Config.Validate(); err != nil {
 		return nil, nil, fmt.Errorf("invalid daemon configuration: %s", err)
@@ -955,29 +952,29 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 		log.WithError(err).Fatal("Cannot autocomplete node addresses")
 	}
 
-	node.SetIPv4ClusterCidrMaskSize(v4ClusterCidrMaskSize)
+	node.SetIPv4ClusterCidrMaskSize(option.Config.IPv4ClusterCIDRMaskSize)
 
-	if v4Prefix != AutoCIDR {
-		_, net, err := net.ParseCIDR(v4Prefix)
+	if option.Config.IPv4Range != AutoCIDR {
+		_, net, err := net.ParseCIDR(option.Config.IPv4Range)
 		if err != nil {
-			log.WithError(err).WithField(logfields.V4Prefix, v4Prefix).Fatal("Invalid IPv4 allocation prefix")
+			log.WithError(err).WithField(logfields.V4Prefix, option.Config.IPv4Range).Fatal("Invalid IPv4 allocation prefix")
 		}
 		node.SetIPv4AllocRange(net)
 	}
 
-	if v4ServicePrefix != AutoCIDR {
-		_, ipnet, err := net.ParseCIDR(v4ServicePrefix)
+	if option.Config.IPv4ServiceRange != AutoCIDR {
+		_, ipnet, err := net.ParseCIDR(option.Config.IPv4ServiceRange)
 		if err != nil {
-			log.WithError(err).WithField(logfields.V4Prefix, v4ServicePrefix).Fatal("Invalid IPv4 service prefix")
+			log.WithError(err).WithField(logfields.V4Prefix, option.Config.IPv4ServiceRange).Fatal("Invalid IPv4 service prefix")
 		}
 
 		node.AddAuxPrefix(ipnet)
 	}
 
-	if v6Prefix != AutoCIDR {
-		_, net, err := net.ParseCIDR(v6Prefix)
+	if option.Config.IPv6Range != AutoCIDR {
+		_, net, err := net.ParseCIDR(option.Config.IPv6Range)
 		if err != nil {
-			log.WithError(err).WithField(logfields.V6Prefix, v6ServicePrefix).Fatal("Invalid IPv6 allocation prefix")
+			log.WithError(err).WithField(logfields.V6Prefix, option.Config.IPv6Range).Fatal("Invalid IPv6 allocation prefix")
 		}
 
 		if err := node.SetIPv6NodeRange(net); err != nil {
@@ -985,10 +982,10 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 		}
 	}
 
-	if v6ServicePrefix != AutoCIDR {
-		_, ipnet, err := net.ParseCIDR(v6ServicePrefix)
+	if option.Config.IPv6ServiceRange != AutoCIDR {
+		_, ipnet, err := net.ParseCIDR(option.Config.IPv6ServiceRange)
 		if err != nil {
-			log.WithError(err).WithField(logfields.V6Prefix, v6ServicePrefix).Fatal("Invalid IPv6 service prefix")
+			log.WithError(err).WithField(logfields.V6Prefix, option.Config.IPv6ServiceRange).Fatal("Invalid IPv6 service prefix")
 		}
 
 		node.AddAuxPrefix(ipnet)
@@ -1008,7 +1005,7 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 
 	switch err := ipam.AllocateInternalIPs(); err.(type) {
 	case ipam.ErrAllocation:
-		if v4Prefix == AutoCIDR || v6Prefix == AutoCIDR {
+		if option.Config.IPv4Range == AutoCIDR || option.Config.IPv6ServiceRange == AutoCIDR {
 			log.WithError(err).Fatalf(
 				"The allocation CIDR is different from the previous cilium instance. " +
 					"This error is most likely caused by a temporary network disruption to the kube-apiserver " +
@@ -1262,8 +1259,8 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 		K8sEndpoint:      k8s.GetAPIServer(),
 		NodeMonitor:      d.nodeMonitor.State(),
 		KvstoreConfiguration: &models.KVstoreConfiguration{
-			Type:    kvStore,
-			Options: kvStoreOpts,
+			Type:    option.Config.KVStore,
+			Options: option.Config.KVStoreOpt,
 		},
 		Realized:  spec,
 		DeviceMTU: int64(d.mtuConfig.GetDeviceMTU()),
@@ -1378,7 +1375,7 @@ func (d *Daemon) GetNodeSuffix() string {
 // configured DNS proxy port (this may be 0 and so OS-assigned).
 func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err error) {
 	cfg := fqdn.Config{
-		MinTTL:         toFQDNsMinTTL,
+		MinTTL:         option.Config.ToFQDNsMinTTL,
 		Cache:          fqdn.DefaultDNSCache,
 		LookupDNSNames: fqdn.DNSLookupDefaultResolver,
 		AddGeneratedRules: func(generatedRules []*policyApi.Rule) error {
@@ -1390,7 +1387,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 		}}
 	d.dnsRuleGen = fqdn.NewRuleGen(cfg)
 	d.dnsPoller = fqdn.NewDNSPoller(cfg, d.dnsRuleGen)
-	if enableDNSPoller {
+	if option.Config.ToFQDNsEnablePoller {
 		fqdn.StartDNSPoller(d.dnsPoller)
 	}
 
@@ -1523,8 +1520,8 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 				// TTL if we reboot twice.
 				log.WithField(logfields.EndpointID, ep.ID).Debug("Recording DNS lookup in endpoint specific cache")
 				effectiveTTL := int(TTL)
-				if effectiveTTL < toFQDNsMinTTL {
-					effectiveTTL = toFQDNsMinTTL
+				if effectiveTTL < option.Config.ToFQDNsMinTTL {
+					effectiveTTL = option.Config.ToFQDNsMinTTL
 				}
 				ep.DNSHistory.Update(lookupTime, qname, responseIPs, effectiveTTL)
 				log.Debug("Updating DNS name in cache from response to to query")
