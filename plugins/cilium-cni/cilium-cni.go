@@ -299,7 +299,7 @@ func prepareIP(ipAddr string, isIPv6 bool, state *CmdState, mtu int) (*cniTypesV
 	}, rt, nil
 }
 
-func cmdAdd(args *skel.CmdArgs) error {
+func cmdAdd(args *skel.CmdArgs) (err error) {
 	logger := log.WithField("eventUUID", uuid.NewUUID())
 	logger.WithField("args", args).Debug("Processing CNI ADD request")
 
@@ -341,6 +341,13 @@ func cmdAdd(args *skel.CmdArgs) error {
 		}
 		// err = c.EndpointCreateID(ep)
 		err = c.EndpointCreate(ep)
+		// ep, err := connector.DeriveEndpointFrom("cni0", args.ContainerID, pid)
+		// if err != nil {
+		// 	logger.WithError(err).WithFields(logrus.Fields{
+		// 		logfields.ContainerID: args.ContainerID}).Warn("Unable to derive endpoint")
+		// 	return fmt.Errorf("unable to derive endpoint: %s", err)
+		// }
+		// epID, err := c.EndpointCreateID(ep)
 		if err != nil {
 			logger.WithError(err).WithFields(logrus.Fields{
 				logfields.ContainerID: ep.ContainerID}).Warn("Unable to create endpoint")
