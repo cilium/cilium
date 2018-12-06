@@ -135,10 +135,10 @@ func formatPathStatus(w io.Writer, name string, cp *models.PathStatus, indent st
 	indent = fmt.Sprintf("%s  ", indent)
 
 	if cp.Icmp != nil {
-		formatConnectivityStatus(w, cp.Icmp, "ICMP", indent)
+		formatConnectivityStatus(w, cp.Icmp, "ICMP to stack", indent)
 	}
 	if cp.HTTP != nil {
-		formatConnectivityStatus(w, cp.HTTP, "HTTP via L3", indent)
+		formatConnectivityStatus(w, cp.HTTP, "HTTP to agent", indent)
 	}
 }
 

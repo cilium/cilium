@@ -156,23 +156,25 @@ queried for the connectivity status of the last probe.
     Nodes:
       ip-172-0-52-116.us-west-2.compute.internal (localhost):
         Host connectivity to 172.0.52.116:
-          ICMP:          OK, RTT=315.254µs
-          HTTP via L3:   OK, RTT=368.579µs
+          ICMP to stack: OK, RTT=315.254µs
+          HTTP to agent: OK, RTT=368.579µs
         Endpoint connectivity to 10.2.0.183:
-          ICMP:          OK, RTT=190.658µs
-          HTTP via L3:   OK, RTT=536.665µs
+          ICMP to stack: OK, RTT=190.658µs
+          HTTP to agent: OK, RTT=536.665µs
       ip-172-0-117-198.us-west-2.compute.internal:
         Host connectivity to 172.0.117.198:
-          ICMP:          OK, RTT=1.009679ms
-          HTTP via L3:   OK, RTT=1.808628ms
+          ICMP to stack: OK, RTT=1.009679ms
+          HTTP to agent: OK, RTT=1.808628ms
         Endpoint connectivity to 10.2.1.234:
-          ICMP:          OK, RTT=1.016365ms
-          HTTP via L3:   OK, RTT=2.29877ms
+          ICMP to stack: OK, RTT=1.016365ms
+          HTTP to agent: OK, RTT=2.29877ms
 
 For each node, the connectivity will be displayed for each protocol and path,
 both to the node itself and to an endpoint on that node. The latency specified
 is a snapshot at the last time a probe was run, which is typically once per
-minute.
+minute. The ICMP connectivity row represents Layer 3 connectivity to the
+networking stack, while the HTTP connectivity row represents connection to an
+instance of the ``cilium-health`` agent running on the host or as an endpoint.
 
 Monitoring Packet Drops
 -----------------------
