@@ -56,6 +56,16 @@ func createConfigDirectoryWatcher(path string, lifecycle clusterLifecycle) (*con
 	}, nil
 }
 
+func isEtcdConfigFile(path string) bool {
+	b, err := ioutil.ReadFile(path)
+	if err != nil {
+		return false
+	}
+
+	// search for the "endpoints:" string
+	return strings.Contains(string(b), "endpoints:")
+}
+
 func (cdw *configDirectoryWatcher) watch() error {
 	log.WithField(fieldConfig, cdw.path).Debug("Starting config directory watcher")
 
@@ -74,8 +84,13 @@ func (cdw *configDirectoryWatcher) watch() error {
 			continue
 		}
 
+		absolutePath := path.Join(cdw.path, f.Name())
+		if !isEtcdConfigFile(absolutePath) {
+			continue
+		}
+
 		log.WithField(fieldClusterName, f.Name()).WithField("mode", f.Mode()).Debugf("Found configuration in initial scan")
-		cdw.lifecycle.add(f.Name(), path.Join(cdw.path, f.Name()))
+		cdw.lifecycle.add(f.Name(), absolutePath)
 	}
 
 	go func() {
