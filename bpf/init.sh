@@ -244,6 +244,7 @@ $LIB/run_probes.sh $LIB $RUNDIR
 if [ -n "${PRE_EXISTING_DEVICE}" ]; then
     HOST_DEV1="${PRE_EXISTING_DEVICE}"
     HOST_DEV2="${PRE_EXISTING_DEVICE}"
+    echo 0 > "/proc/sys/net/ipv4/conf/${PRE_EXISTING_DEVICE}/rp_filter"
 else
     HOST_DEV1="cilium_host"
     HOST_DEV2="cilium_net"
