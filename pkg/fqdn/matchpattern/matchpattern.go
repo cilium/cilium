@@ -28,8 +28,8 @@ func Validate(pattern string) error {
 	pattern = strings.ToLower(pattern)
 
 	// error check
-	if strings.Contains(pattern, "**") || strings.ContainsAny(pattern, "[]+{},") {
-		return errors.New("** is not allowed in matchPattern")
+	if strings.ContainsAny(pattern, "[]+{},") {
+		return errors.New(`Only alphanumeric ASCII characters, the hyphen "-", "." and "*" are allowed in a matchPattern`)
 	}
 
 	_, err := regexp.Compile(ToRegexp(pattern))
@@ -49,6 +49,11 @@ func ToRegexp(pattern string) string {
 	pattern = strings.TrimSpace(pattern)
 	pattern = strings.ToLower(pattern)
 
+	// handle the * match-all case. This will filter down to the end.
+	if pattern == "*" {
+		pattern = "(" + allowedDNSCharsREGroup + "+.)+"
+	}
+
 	// handle *domain.com case
 	if isSubAndDomainSpecial.MatchString(pattern) {
 		// the + at the start of the string affect the allowed chars
@@ -59,8 +64,10 @@ func ToRegexp(pattern string) string {
 	// base case. * becomes .*, but only for DNS valid characters
 	// NOTE: this only works because the case above does not leave the *
 	pattern = strings.Replace(pattern, "*", allowedDNSCharsREGroup+"*", -1)
+
 	// base case. "." becomes a literal .
 	pattern = strings.Replace(pattern, ".", "[.]", -1)
 
+	// Anchor the match to require the whole string to match this expression
 	return "^" + pattern + "$"
 }
