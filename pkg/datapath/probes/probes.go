@@ -52,6 +52,10 @@ type fileWithCleanup struct {
 	*os.File
 }
 
+// Close closes the File, rendering it unusable for I/O. On files that support
+// SetDeadline, any pending I/O operations will be canceled and return
+// immediately with an error. If no bytes were written to the file, it will be
+// removed after closing.
 func (f *fileWithCleanup) Close() error {
 	if err := f.File.Close(); err != nil {
 		return fmt.Errorf("could not close file %s: %s", f.path, err)
@@ -64,6 +68,9 @@ func (f *fileWithCleanup) Close() error {
 	return nil
 }
 
+// Sync commits the current contents of the file to stable storage. Typically,
+// this means flushing the file system's in-memory copy of recently written
+// data to disk.
 func (f *fileWithCleanup) Sync() error {
 	if err := f.File.Sync(); err != nil {
 		return fmt.Errorf("could not sync file %s: %s", f.path, err)
@@ -71,6 +78,8 @@ func (f *fileWithCleanup) Sync() error {
 	return nil
 }
 
+// Write writes len(b) bytes to the File. It returns the number of bytes
+// written and an error, if any. Write returns a non-nil error when n != len(b).
 func (f *fileWithCleanup) Write(data []byte) (int, error) {
 	n, err := f.File.Write(data)
 	if err != nil {
@@ -89,7 +98,7 @@ func openOrCreate(path string) (*fileWithCleanup, error) {
 }
 
 // readKernelConfig finds the file with kernel configuration and returns its
-// content, number of bytes written to warningFile and error.
+// content.
 func readKernelConfig(warningFile io.Writer) ([]byte, error) {
 	for _, localConfigLocation := range localConfigLocations {
 		if _, err := os.Stat(localConfigLocation); err == nil {
@@ -128,8 +137,7 @@ func readKernelConfig(warningFile io.Writer) ([]byte, error) {
 }
 
 // probeKernelConfig checks whether the kernel configuration contains required
-// and optional parameters. It returns number of bytes written to infoFile,
-// number of bytes written to warningFile and error.
+// and optional parameters.
 func probeKernelConfig(infoFile, warningFile io.Writer) (err error) {
 	optionalParams := []string{
 		"CONFIG_CGROUP_BPF=y",
@@ -195,9 +203,7 @@ func copyFile(src, dest string) error {
 	return err
 }
 
-// probeRunLl runs the probe for compiling the program with clang. It returns
-// number of bytes written to infoFile, number of bytes written to warningFile
-// and error.
+// probeRunLl runs the probe for compiling the program with clang.
 func probeRunLl(featureFile, infoFile io.Writer, probesDir, libIncludeDir, outDir string) (err error) {
 	outFilename := path.Join(outDir, "raw_probe.t")
 
@@ -284,7 +290,6 @@ func RunProbes(bpfDir, stateDir string) error {
 	os.Remove(infoFilePath)
 	os.Remove(warningFilePath)
 
-	// File descriptors for feature, info and warning file.
 	featureFile, err = openOrCreate(featureFilePath)
 	if err != nil {
 		errs = append(errs, err)
@@ -301,7 +306,6 @@ func RunProbes(bpfDir, stateDir string) error {
 		goto cleanup
 	}
 
-	// Create tempotary dir for probes.
 	outDir, err = ioutil.TempDir("", "cilium-probes-out")
 	if err != nil {
 		err = fmt.Errorf("could not create temporary directory for probes: %s", err)
@@ -310,8 +314,6 @@ func RunProbes(bpfDir, stateDir string) error {
 	}
 	defer os.RemoveAll(outDir)
 
-	// Generate the content of features files, get count of bytes written
-	// to info and warning file.
 	if err = writeFeatures(featureFile, infoFile, warningFile, probesDir, libIncludeDir, outDir); err != nil {
 		errs = append(errs, err)
 		goto cleanup
