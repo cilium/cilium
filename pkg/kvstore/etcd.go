@@ -20,7 +20,6 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/cilium/cilium/common"
@@ -151,9 +150,8 @@ type etcdClient struct {
 	// is set up in the etcd Client.
 	firstSession chan struct{}
 
-	client               *client.Client
-	controllers          *controller.Manager
-	statusCheckerStarted sync.Once
+	client      *client.Client
+	controllers *controller.Manager
 
 	// config and configPath are initialized once and never written to again, they can be accessed without locking
 	config     *client.Config
@@ -301,10 +299,7 @@ func newEtcdClient(config *client.Config, cfgPath string) (BackendOperations, er
 		close(ec.firstSession)
 	}()
 
-	ec.statusCheckerStarted.Do(func() {
-		go ec.statusChecker()
-	})
-
+	go ec.statusChecker()
 	go ec.checkMinVersion()
 
 	ec.controllers.UpdateController("kvstore-etcd-session-renew",
