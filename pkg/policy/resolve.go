@@ -90,7 +90,7 @@ func (p *EndpointPolicy) computeDesiredL4PolicyMapEntries(identityCache cache.Id
 
 func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(identityCache cache.IdentityCache, l4PolicyMap L4PolicyMap, direction trafficdirection.TrafficDirection) {
 	for _, filter := range l4PolicyMap {
-		keysFromFilter := filter.ToKeys(&filter, direction, identityCache)
+		keysFromFilter := filter.ToKeys(direction, identityCache)
 		for _, keyFromFilter := range keysFromFilter {
 			var proxyPort uint16
 			// Preserve the already-allocated proxy ports for redirects that
