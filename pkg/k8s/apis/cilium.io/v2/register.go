@@ -41,13 +41,17 @@ const (
 
 	// CustomResourceDefinitionSchemaVersion is semver-conformant version of CRD schema
 	// Used to determine if CRD needs to be updated in cluster
-	CustomResourceDefinitionSchemaVersion = "1.11"
+	CustomResourceDefinitionSchemaVersion = "1.12"
 
 	// CustomResourceDefinitionSchemaVersionKey is key to label which holds the CRD schema version
 	CustomResourceDefinitionSchemaVersionKey = "io.cilium.k8s.crd.schema.version"
 
 	// CNPKindDefinition is the kind name for Cilium Network Policy
 	CNPKindDefinition = "CiliumNetworkPolicy"
+
+	fqdnNameRegex = `^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])\.?$`
+
+	fqdnPatternRegex = `^(([a-zA-Z0-9\*]|[a-zA-Z0-9\*][a-zA-Z0-9\-\*]*[a-zA-Z0-9\*])\.)*([A-Za-z0-9\*]|[A-Za-z0-9\*][A-Za-z0-9\-\*]*[A-Za-z0-9\*])\.?$`
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -548,7 +552,35 @@ var (
 					"AWS": AWSGroup,
 				},
 			},
+			"toFQDNs": {
+				Description: `ToFQDNs is a list of rules matching fqdns that endpoint
+				is allowed to communicate with`,
+				Type: "array",
+				Items: &apiextensionsv1beta1.JSONSchemaPropsOrArray{
+					Schema: &FQDNRule,
+				},
+			},
 		},
+	}
+
+	FQDNRule = apiextensionsv1beta1.JSONSchemaProps{
+		Description: `FQDNRule is a rule that specifies an fully qualified domain name to which outside communication is allowed`,
+		Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+			"matchName":    MatchFQDNName,
+			"matchPattern": MatchFQDNPattern,
+		},
+	}
+
+	MatchFQDNName = apiextensionsv1beta1.JSONSchemaProps{
+		Description: `MatchName matches fqdn name`,
+		Type:        "string",
+		Pattern:     fqdnNameRegex,
+	}
+
+	MatchFQDNPattern = apiextensionsv1beta1.JSONSchemaProps{
+		Description: `MatchPattern matches fqdn by pattern`,
+		Type:        "string",
+		Pattern:     fqdnPatternRegex,
 	}
 
 	AWSGroup = apiextensionsv1beta1.JSONSchemaProps{
@@ -707,6 +739,21 @@ var (
 					Schema: &PortRuleL7,
 				},
 			},
+			"dns": {
+				Description: "DNS specific rules",
+				Type:        "array",
+				Items: &apiextensionsv1beta1.JSONSchemaPropsOrArray{
+					Schema: &PortRuleDNS,
+				},
+			},
+		},
+	}
+
+	PortRuleDNS = apiextensionsv1beta1.JSONSchemaProps{
+		Description: `FQDNRule is a rule that specifies an fully qualified domain name to which outside communication is allowed`,
+		Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+			"matchName":    MatchFQDNName,
+			"matchPattern": MatchFQDNPattern,
 		},
 	}
 

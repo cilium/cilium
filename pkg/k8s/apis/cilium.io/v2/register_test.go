@@ -151,3 +151,52 @@ continueTest:
 		}
 	}
 }
+
+func (s *CiliumV2RegisterSuite) TestFQDNNameRegex(c *C) {
+	nameRegex := regexp.MustCompile(fqdnNameRegex)
+	patternRegex := regexp.MustCompile(fqdnPatternRegex)
+
+	badFqdns := []string{
+		"%%",
+		"",
+		"😀.com",
+	}
+
+	goodFqdns := []string{
+		"cilium.io",
+		"cilium.io.",
+		"www.xn--e28h.com",
+	}
+
+	badFqdnPatterns := []string{
+		"%$*.*",
+		"",
+	}
+
+	goodFqdnPatterns := []string{
+		"*.cilium.io",
+		"*.cilium.io.*",
+		"*.cilium.io.*.",
+		"*.xn--e28h.com",
+	}
+
+	for _, f := range badFqdns {
+		c.Assert(nameRegex.MatchString(f), Equals, false, Commentf(f))
+		c.Assert(patternRegex.MatchString(f), Equals, false, Commentf(f))
+	}
+
+	for _, f := range goodFqdns {
+		c.Assert(nameRegex.MatchString(f), Equals, true, Commentf(f))
+		c.Assert(patternRegex.MatchString(f), Equals, true, Commentf(f))
+	}
+
+	for _, f := range badFqdnPatterns {
+		c.Assert(nameRegex.MatchString(f), Equals, false, Commentf(f))
+		c.Assert(patternRegex.MatchString(f), Equals, false, Commentf(f))
+	}
+
+	for _, f := range goodFqdnPatterns {
+		c.Assert(nameRegex.MatchString(f), Equals, false, Commentf(f))
+		c.Assert(patternRegex.MatchString(f), Equals, true, Commentf(f))
+	}
+}
