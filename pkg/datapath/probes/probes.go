@@ -29,6 +29,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/multierror"
 )
 
 var (
@@ -43,53 +44,93 @@ var (
 	}
 )
 
+// fileWithCleanup is a wrapper for os.File which removes the file on closing
+// when no bytes were written.
+type fileWithCleanup struct {
+	path string
+	n    int
+	*os.File
+}
+
+func (f *fileWithCleanup) Close() error {
+	if err := f.File.Close(); err != nil {
+		return fmt.Errorf("could not close file %s: %s", f.path, err)
+	}
+	if f.n > 0 {
+		if err := os.Remove(f.path); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("could not remove file %s: %s", f.path, err)
+		}
+	}
+	return nil
+}
+
+func (f *fileWithCleanup) Sync() error {
+	if err := f.File.Sync(); err != nil {
+		return fmt.Errorf("could not sync file %s: %s", f.path, err)
+	}
+	return nil
+}
+
+func (f *fileWithCleanup) Write(data []byte) (int, error) {
+	n, err := f.File.Write(data)
+	if err != nil {
+		return n, fmt.Errorf("could not write to file %s: %s", f.path, err)
+	}
+	f.n += n
+	return n, nil
+}
+
+func openOrCreate(path string) (*fileWithCleanup, error) {
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		return nil, err
+	}
+	return &fileWithCleanup{path: path, n: 0, File: f}, nil
+}
+
 // readKernelConfig finds the file with kernel configuration and returns its
 // content, number of bytes written to warningFile and error.
-func readKernelConfig(warningFile io.Writer) (content []byte, warningFileBytes int, err error) {
+func readKernelConfig(warningFile io.Writer) ([]byte, error) {
 	for _, localConfigLocation := range localConfigLocations {
-		if _, err = os.Stat(localConfigLocation); err == nil {
-			var fConfig *os.File
-			fConfig, err = os.Open(localConfigLocation)
+		if _, err := os.Stat(localConfigLocation); err == nil {
+			fConfig, err := os.Open(localConfigLocation)
 			if err != nil {
-				return
+				return nil, err
 			}
-			content, err = ioutil.ReadAll(fConfig)
-			return
+			return ioutil.ReadAll(fConfig)
 		} else if !os.IsNotExist(err) {
 			log.WithError(err).Warnf("error when getting stat of file %s", localConfigLocation)
 		}
 	}
 
 	for _, localConfigLocation := range localConfigLocationsGz {
-		if _, err = os.Stat(localConfigLocation); err == nil {
-			var fConfig *os.File
-			fConfig, err = os.Open(localConfigLocation)
+		if _, err := os.Stat(localConfigLocation); err == nil {
+			fConfig, err := os.Open(localConfigLocation)
 			if err != nil {
-				return
+				return nil, err
 			}
 
-			var gConfig io.Reader
-			gConfig, err = gzip.NewReader(fConfig)
+			gConfig, err := gzip.NewReader(fConfig)
 			if err != nil {
-				return
+				return nil, err
 			}
 
-			content, err = ioutil.ReadAll(gConfig)
-			return
+			return ioutil.ReadAll(gConfig)
 		} else if !os.IsNotExist(err) {
 			log.WithError(err).Warnf("error when getting stat of file %s", localConfigLocation)
 		}
 	}
 
-	warningFileBytes, _ = io.WriteString(warningFile, "BPF/probes: Missing kernel configuration\n")
-	err = fmt.Errorf("missing kernel configuration")
-	return
+	if _, err := io.WriteString(warningFile, "BPF/probes: Missing kernel configuration\n"); err != nil {
+		return nil, err
+	}
+	return nil, fmt.Errorf("missing kernel configuration")
 }
 
 // probeKernelConfig checks whether the kernel configuration contains required
 // and optional parameters. It returns number of bytes written to infoFile,
 // number of bytes written to warningFile and error.
-func probeKernelConfig(infoFile, warningFile io.Writer) (infoFileBytes int, warningFileBytes int, err error) {
+func probeKernelConfig(infoFile, warningFile io.Writer) (err error) {
 	optionalParams := []string{
 		"CONFIG_CGROUP_BPF=y",
 		"CONFIG_LWTUNNEL_BPF=y",
@@ -105,30 +146,30 @@ func probeKernelConfig(infoFile, warningFile io.Writer) (infoFileBytes int, warn
 		"CONFIG_HAVE_EBPF_JIT=y",
 	}
 
-	var n int
 	var config []byte
-	config, n, err = readKernelConfig(warningFile)
-	warningFileBytes += n
+	config, err = readKernelConfig(warningFile)
 	if err != nil {
-		n, _ = io.WriteString(infoFile, "BPF/probes: Kernel config not found.\n")
-		infoFileBytes += n
-		return
+		if _, err := io.WriteString(infoFile, "BPF/probes: Kernel config not found.\n"); err != nil {
+			return err
+		}
+		return err
 	}
 
 	for _, param := range optionalParams {
 		re := regexp.MustCompile(param)
 		if !re.Match(config) {
-			n, _ := io.WriteString(infoFile, fmt.Sprintf("BPF/probes: %s is not in kernel configuration\n", param))
-			infoFileBytes += n
+			if _, err := io.WriteString(infoFile, fmt.Sprintf("BPF/probes: %s is not in kernel configuration\n", param)); err != nil {
+				return err
+			}
 		}
 	}
 	for _, param := range requiredParams {
 		re := regexp.MustCompile(param)
 		if !re.Match(config) {
-			n, _ := io.WriteString(warningFile, fmt.Sprintf("BPF/probes: %s is not in kernel configuration\n", param))
-			warningFileBytes += n
-			err = fmt.Errorf("%s is not in kernel configuration", param)
-			return
+			if _, err := io.WriteString(warningFile, fmt.Sprintf("BPF/probes: %s is not in kernel configuration\n", param)); err != nil {
+				return err
+			}
+			return fmt.Errorf("%s is not in kernel configuration", param)
 		}
 	}
 
@@ -157,7 +198,7 @@ func copyFile(src, dest string) error {
 // probeRunLl runs the probe for compiling the program with clang. It returns
 // number of bytes written to infoFile, number of bytes written to warningFile
 // and error.
-func probeRunLl(featureFile, infoFile io.Writer, probesDir, libIncludeDir, outDir string) (infoFileBytes int, err error) {
+func probeRunLl(featureFile, infoFile io.Writer, probesDir, libIncludeDir, outDir string) (err error) {
 	outFilename := path.Join(outDir, "raw_probe.t")
 
 	err = filepath.Walk(probesDir, func(probePath string, info os.FileInfo, err error) error {
@@ -196,11 +237,10 @@ func probeRunLl(featureFile, infoFile io.Writer, probesDir, libIncludeDir, outDi
 			if _, err := stdoutBuf.WriteTo(featureFile); err != nil {
 				return err
 			}
-			n, err := stderrBuf.WriteTo(infoFile)
+			_, err = stderrBuf.WriteTo(infoFile)
 			if err != nil {
 				return err
 			}
-			infoFileBytes += int(n)
 		}
 		return nil
 	})
@@ -209,36 +249,32 @@ func probeRunLl(featureFile, infoFile io.Writer, probesDir, libIncludeDir, outDi
 
 // writeFeatures wrtites definitions of features into the header file which is
 // going to be used by BPF programs.
-func writeFeatures(featureFile, infoFile, warningFile io.Writer, probesDir, libIncludeDir, outDir string) (infoFileBytes int, warningFileBytes int, err error) {
-	io.WriteString(featureFile, `#ifndef BPF_FEATURES_H_
+func writeFeatures(featureFile, infoFile, warningFile io.Writer, probesDir, libIncludeDir, outDir string) error {
+	if _, err := io.WriteString(featureFile, `#ifndef BPF_FEATURES_H_
 #define BPF_FEATURES_H_
-`)
-
-	var ni, nw int
-	ni, nw, err = probeKernelConfig(infoFile, warningFile)
-	if err != nil {
-		err := fmt.Errorf("kernel config probe failed: %s", err)
-		return infoFileBytes, warningFileBytes, err
+`); err != nil {
+		return err
 	}
-	infoFileBytes += ni
-	warningFileBytes += nw
-
-	var n int
-	n, err = probeRunLl(featureFile, infoFile, probesDir, libIncludeDir, outDir)
-	if err != nil {
-		err := fmt.Errorf("ll probe failed: %s", err)
-		return infoFileBytes, warningFileBytes, err
+	if err := probeKernelConfig(infoFile, warningFile); err != nil {
+		return fmt.Errorf("kernel config probe failed: %s", err)
 	}
-	infoFileBytes += n
-
-	io.WriteString(featureFile, "#endif /* BPF_FEATURES_H_ */\n")
-
-	return
+	if err := probeRunLl(featureFile, infoFile, probesDir, libIncludeDir, outDir); err != nil {
+		return fmt.Errorf("ll probe failed: %s", err)
+	}
+	if _, err := io.WriteString(featureFile, "#endif /* BPF_FEATURES_H_ */\n"); err != nil {
+		return err
+	}
+	return nil
 }
 
 // RunProbes runs probes for BPF features. It generates a header file for BPF
 // programs and log files.
 func RunProbes(bpfDir, stateDir string) error {
+	var featureFile, infoFile, warningFile *fileWithCleanup
+	var outDir string
+	var errs multierror.Multierror
+	var err error
+
 	probesDir := path.Join(bpfDir, "probes")
 	libIncludeDir := path.Join(bpfDir, "include")
 	featureFilePath := path.Join(stateDir, "globals", "bpf_features.h")
@@ -249,47 +285,61 @@ func RunProbes(bpfDir, stateDir string) error {
 	os.Remove(warningFilePath)
 
 	// File descriptors for feature, info and warning file.
-	featureFile, err := os.OpenFile(featureFilePath, os.O_RDWR|os.O_CREATE, 0644)
+	featureFile, err = openOrCreate(featureFilePath)
 	if err != nil {
-		return err
+		errs = append(errs, err)
+		goto cleanup
 	}
-	defer featureFile.Close()
-	infoFile, err := os.OpenFile(infoFilePath, os.O_RDWR|os.O_CREATE, 0644)
+	infoFile, err = openOrCreate(infoFilePath)
 	if err != nil {
-		return err
+		errs = append(errs, err)
+		goto cleanup
 	}
-	warningFile, err := os.OpenFile(warningFilePath, os.O_RDWR|os.O_CREATE, 0644)
+	warningFile, err = openOrCreate(warningFilePath)
 	if err != nil {
-		return err
+		errs = append(errs, err)
+		goto cleanup
 	}
 
 	// Create tempotary dir for probes.
-	outDir, err := ioutil.TempDir("", "cilium-probes-out")
+	outDir, err = ioutil.TempDir("", "cilium-probes-out")
 	if err != nil {
-		return fmt.Errorf("could not create temporary directory for probes: %s", err)
+		err = fmt.Errorf("could not create temporary directory for probes: %s", err)
+		errs = append(errs, err)
+		goto cleanup
 	}
 	defer os.RemoveAll(outDir)
 
 	// Generate the content of features files, get count of bytes written
 	// to info and warning file.
-	infoFileBytes, warningFileBytes, err := writeFeatures(featureFile, infoFile, warningFile, probesDir, libIncludeDir, outDir)
-	if err != nil {
-		return err
+	if err = writeFeatures(featureFile, infoFile, warningFile, probesDir, libIncludeDir, outDir); err != nil {
+		errs = append(errs, err)
+		goto cleanup
 	}
 
-	// Remove info and warning files if nothing was written there.
-	infoFile.Close()
-	warningFile.Close()
-	if infoFileBytes == 0 {
-		os.Remove(infoFilePath)
+	if err = featureFile.Sync(); err != nil {
+		errs = append(errs, err)
+		goto cleanup
 	}
-	if warningFileBytes == 0 {
-		os.Remove(warningFilePath)
+	if err = infoFile.Sync(); err != nil {
+		errs = append(errs, err)
+		goto cleanup
+	}
+	if err = warningFile.Sync(); err != nil {
+		errs = append(errs, err)
+		goto cleanup
 	}
 
-	featureFile.Sync()
-	infoFile.Sync()
-	warningFile.Sync()
+cleanup:
+	if err = featureFile.Close(); err != nil {
+		errs = append(errs, err)
+	}
+	if err = infoFile.Close(); err != nil {
+		errs = append(errs, err)
+	}
+	if err = warningFile.Close(); err != nil {
+		errs = append(errs, err)
+	}
 
-	return nil
+	return errs
 }
