@@ -144,6 +144,7 @@ func Compile(ctx context.Context, src string, out string) error {
 		Library: option.Config.BpfDir,
 		Runtime: option.Config.StateDir,
 		Output:  option.Config.StateDir,
+		State:   option.Config.StateDir,
 	}
 	return compile(ctx, &prog, &dirs, debug)
 }
