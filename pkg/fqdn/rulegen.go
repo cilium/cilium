@@ -375,7 +375,7 @@ func (gen *RuleGen) addRule(uuid string, sourceRule *api.Rule) (newDNSNames, old
 					namesToStopManaging[dnsNameAsRE] = struct{}{}
 				}
 				if len(ToFQDN.MatchPattern) > 0 {
-					dnsPattern := prepareMatchPattern(ToFQDN.MatchPattern)
+					dnsPattern := matchpattern.Sanitize(ToFQDN.MatchPattern)
 					dnsPatternAsRE := matchpattern.ToRegexp(dnsPattern)
 					namesToStopManaging[dnsPatternAsRE] = struct{}{}
 				}
@@ -412,7 +412,7 @@ func (gen *RuleGen) addRule(uuid string, sourceRule *api.Rule) (newDNSNames, old
 			}
 
 			if len(ToFQDN.MatchPattern) > 0 {
-				dnsPattern := prepareMatchPattern(ToFQDN.MatchPattern)
+				dnsPattern := matchpattern.Sanitize(ToFQDN.MatchPattern)
 				dnsPatternAsRE := matchpattern.ToRegexp(dnsPattern)
 				delete(namesToStopManaging, dnsPatternAsRE) // keep this matchPattern
 				// check if this is already managed or not
@@ -466,7 +466,7 @@ func (gen *RuleGen) removeRule(uuid string, sourceRule *api.Rule) (noLongerManag
 			}
 
 			if len(ToFQDN.MatchPattern) > 0 {
-				dnsPattern := prepareMatchPattern(ToFQDN.MatchPattern)
+				dnsPattern := matchpattern.Sanitize(ToFQDN.MatchPattern)
 				dnsPatternAsRE := matchpattern.ToRegexp(dnsPattern)
 				if shouldStopManaging := gen.removeFromDNSName(dnsPatternAsRE, uuid); shouldStopManaging {
 					noLongerManaged = append(noLongerManaged, ToFQDN.MatchPattern)

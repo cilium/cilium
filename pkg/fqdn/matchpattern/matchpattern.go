@@ -18,6 +18,8 @@ import (
 	"errors"
 	"regexp"
 	"strings"
+
+	"github.com/miekg/dns"
 )
 
 const allowedDNSCharsREGroup = "[-a-zA-Z0-9]"
@@ -39,6 +41,15 @@ func Validate(pattern string) error {
 // isSubAndDomainSpecial checks that the first two characters are * followed by
 // a valid DNS character that isn't a .
 var isSubAndDomainSpecial = regexp.MustCompile("^[*]" + allowedDNSCharsREGroup)
+
+// Sanitize canonicalized the pattern for use by ToRegexp
+func Sanitize(pattern string) string {
+	if pattern == "*" {
+		return pattern
+	}
+
+	return strings.ToLower(dns.Fqdn(pattern))
+}
 
 // ToRegexp converts a MatchPattern field into a regexp string. It does not
 // validate the pattern.
