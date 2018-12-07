@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -120,6 +120,9 @@ const (
 
 	// EnableIPv6 is the default value for IPv6 enablement
 	EnableIPv6 = true
+
+	// PreAllocateMaps is the default value for BPF map preallocation
+	PreAllocateMaps = true
 
 	// MonitorQueueSize is the default value for the monitor queue size
 	MonitorQueueSize = 32768
