@@ -118,6 +118,12 @@ spec:
               key: ct-global-max-entries-other
               name: cilium-config
               optional: true
+        - name: CILIUM_PREALLOCATE_BPF_MAPS
+          valueFrom:
+            configMapKeyRef:
+              key: preallocate-bpf-maps
+              name: cilium-config
+              optional: true
         image: docker.io/cilium/cilium:latest
         imagePullPolicy: Always
         lifecycle:
