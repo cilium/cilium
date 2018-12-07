@@ -30,12 +30,6 @@ import (
 )
 
 var (
-	// DNSProxyPort is the user-configured global, shared, DNS listen port used
-	// by the DNS Proxy. Both UDP and TCP are handled on the same port. When it
-	// is 0 a random port will be assigned, and can be obtained from
-	// DefaultDNSProxy below.
-	DNSProxyPort int
-
 	// DefaultDNSProxy is the global, shared, DNS Proxy singleton.
 	DefaultDNSProxy *dnsproxy.DNSProxy
 )
