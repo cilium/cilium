@@ -220,7 +220,9 @@ func (e *etcdClient) renewSession() error {
 
 	e.getLogger().WithField(fieldSession, newSession).Debug("Renewing etcd session")
 
-	go e.checkMinVersion()
+	if err := e.checkMinVersion(); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -298,10 +300,13 @@ func newEtcdClient(config *client.Config, cfgPath string) (BackendOperations, er
 			return
 		}
 		close(ec.firstSession)
+
+		if err := ec.checkMinVersion(); err != nil {
+			log.Fatalf("Unable to validate etcd version: %s", err)
+		}
 	}()
 
 	go ec.statusChecker()
-	go ec.checkMinVersion()
 
 	ec.controllers.UpdateController("kvstore-etcd-session-renew",
 		controller.ControllerParams{
@@ -329,12 +334,10 @@ func getEPVersion(c client.Maintenance, etcdEP string, timeout time.Duration) (*
 	return v, nil
 }
 
-// checkMinVersion checks the minimal version running on etcd cluster. If the
-// minimal version running doesn't meet cilium minimal requirements, a fatal
-// log message is printed which terminates the agent. This function should be
-// run whenever the etcd client is connected for the first time and whenever
-// the session is renewed.
-func (e *etcdClient) checkMinVersion() bool {
+// checkMinVersion checks the minimal version running on etcd cluster.  This
+// function should be run whenever the etcd client is connected for the first
+// time and whenever the session is renewed.
+func (e *etcdClient) checkMinVersion() error {
 	eps := e.client.Endpoints()
 
 	for _, ep := range eps {
@@ -346,13 +349,8 @@ func (e *etcdClient) checkMinVersion() bool {
 		}
 
 		if !minRequiredVersion.Check(v) {
-			// FIXME: after we rework the refetching IDs for a connection lost
-			// remove this Errorf and replace it with a warning
-			if etcdVersionMismatchFatal {
-				log.Fatalf("Minimal etcd version not met in %q, required: %s, found: %s",
-					ep, minRequiredVersion.String(), v.String())
-			}
-			return false
+			return fmt.Errorf("Minimal etcd version not met in %q, required: %s, found: %s",
+				ep, minRequiredVersion.String(), v.String())
 		}
 
 		e.getLogger().WithFields(logrus.Fields{
@@ -365,7 +363,7 @@ func (e *etcdClient) checkMinVersion() bool {
 		e.getLogger().Warn("Minimal etcd version unknown: No etcd endpoints available")
 	}
 
-	return true
+	return nil
 }
 
 func (e *etcdClient) LockPath(path string) (kvLocker, error) {
