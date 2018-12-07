@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package probes
 
 import (
 	"bytes"
@@ -26,9 +26,14 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 var (
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "probes")
+
 	localConfigLocations = []string{
 		"/proc/config",
 		fmt.Sprintf("/boot/config-%s", getKernelVersionStr()),
@@ -231,9 +236,9 @@ func writeFeatures(featureFile, infoFile, warningFile io.Writer, probesDir, libI
 	return
 }
 
-// runProbes runs probes for BPF features. It generates a header file for BPF
+// RunProbes runs probes for BPF features. It generates a header file for BPF
 // programs and log files.
-func runProbes(bpfDir, stateDir string) error {
+func RunProbes(bpfDir, stateDir string) error {
 	probesDir := path.Join(bpfDir, "probes")
 	libIncludeDir := path.Join(bpfDir, "include")
 	featureFilePath := path.Join(stateDir, "globals", "bpf_features.h")
