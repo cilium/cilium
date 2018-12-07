@@ -190,15 +190,18 @@ func progCFlags(prog *progInfo, dir *directoryInfo) []string {
 	} else {
 		output = "-" // stdout
 	}
-
-	return []string{
+	flags := []string{
 		testIncludes,
 		fmt.Sprintf("-I%s", path.Join(dir.Runtime, "globals")),
-		fmt.Sprintf("-I%s", dir.State),
 		fmt.Sprintf("-I%s", path.Join(dir.Library, "include")),
 		"-c", path.Join(dir.Library, prog.Source),
 		"-o", output,
 	}
+	if dir.State != "" {
+		flags = append([]string{fmt.Sprintf("-I%s", dir.State)}, flags...)
+	}
+
+	return flags
 }
 
 // compile and link a program.
