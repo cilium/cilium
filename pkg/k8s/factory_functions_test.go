@@ -883,3 +883,38 @@ func (s *K8sSuite) Test_equalV1beta1Ingress(c *C) {
 		c.Assert(got, Equals, tt.want, Commentf("Test Name: %s", tt.name))
 	}
 }
+
+func (s *K8sSuite) Test_equalV1Service(c *C) {
+	type args struct {
+		o1 interface{}
+		o2 interface{}
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "Service with different annotations",
+			args: args{
+				o1: &core_v1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{},
+					},
+				},
+				o2: &core_v1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"io.cilium/shared-service": "true",
+						},
+					},
+				},
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		got := equalV1Services(tt.args.o1, tt.args.o2)
+		c.Assert(got, Equals, tt.want, Commentf("Test Name: %s", tt.name))
+	}
+}
