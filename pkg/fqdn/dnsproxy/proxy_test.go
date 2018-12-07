@@ -40,11 +40,21 @@ type DNSProxyTestSuite struct {
 
 var _ = Suite(&DNSProxyTestSuite{})
 
-func setupServer() (dnsServer *dns.Server) {
-	dnsServer = &dns.Server{Addr: ":0", Net: "tcp"}
+func setupServer(c *C) (dnsServer *dns.Server) {
+	waitOnListen := make(chan struct{})
+	dnsServer = &dns.Server{Addr: ":0", Net: "tcp", NotifyStartedFunc: func() { close(waitOnListen) }}
 	go dnsServer.ListenAndServe()
 	dns.HandleFunc(".", serveDNS)
-	return dnsServer
+
+	select {
+	case <-waitOnListen:
+		return dnsServer
+
+	case <-time.After(10 * time.Second):
+		c.Error("DNS server did not start listening")
+	}
+
+	return nil
 }
 
 func teardown(dnsServer *dns.Server) {
@@ -66,7 +76,8 @@ func serveDNS(w dns.ResponseWriter, r *dns.Msg) {
 
 func (s *DNSProxyTestSuite) SetUpSuite(c *C) {
 	s.dnsTCPClient = &dns.Client{Net: "tcp", Timeout: 100 * time.Millisecond, SingleInflight: true}
-	s.dnsServer = setupServer()
+	s.dnsServer = setupServer(c)
+	c.Assert(s.dnsServer, Not(IsNil), Commentf("unable to setup DNS server"))
 
 	proxy, err := StartDNSProxy("", 0,
 		func(ip net.IP) (endpointID string, err error) {
@@ -77,8 +88,15 @@ func (s *DNSProxyTestSuite) SetUpSuite(c *C) {
 		})
 	c.Assert(err, IsNil, Commentf("error starting DNS Proxy"))
 	s.proxy = proxy
+
+	// This is here because Listener or Listeer.Addr() was nil. The
+	// lookupTargetDNSServer function doesn't need to change the target.
+	c.Assert(s.dnsServer.Listener, Not(IsNil), Commentf("DNS server missing a Listener"))
+	DNSServerListenerAddr := s.dnsServer.Listener.Addr()
+	c.Assert(DNSServerListenerAddr, Not(IsNil), Commentf("DNS server missing a Listener address"))
+	DNSServerListenerAddrString := DNSServerListenerAddr.String()
 	s.proxy.lookupTargetDNSServer = func(w dns.ResponseWriter) (server string, err error) {
-		return s.dnsServer.Listener.Addr().String(), nil
+		return DNSServerListenerAddrString, nil
 	}
 }
 
