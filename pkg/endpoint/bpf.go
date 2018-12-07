@@ -204,7 +204,7 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	// Endpoint options
 	fw.WriteString(e.Options.GetFmtList())
 
-	if (e.desiredPolicy == nil) || (e.desiredPolicy != nil && e.desiredPolicy.CIDRPolicy == nil) {
+	if e.desiredPolicy == nil || e.desiredPolicy.CIDRPolicy == nil {
 		WriteIPCachePrefixes(fw, nil)
 	} else {
 		WriteIPCachePrefixes(fw, e.desiredPolicy.CIDRPolicy.ToBPFData)
