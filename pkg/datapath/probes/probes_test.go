@@ -49,6 +49,13 @@ func (s *ProbesSuite) TestReadKernelConfigurationNotFound(c *C) {
 	c.Assert(buf.String(), Equals, "BPF/probes: Missing kernel configuration\n")
 }
 
+func (s *ProbesSuite) TestProbeKernelConfig(c *C) {
+	var infoBuf, warningBuf bytes.Buffer
+
+	err := probeKernelConfig(&infoBuf, &warningBuf)
+	c.Assert(err, IsNil)
+}
+
 func (s *ProbesSuite) TestProbeRunLl(c *C) {
 	var featureBuf, infoBuf bytes.Buffer
 
