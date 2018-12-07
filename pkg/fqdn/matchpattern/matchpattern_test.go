@@ -100,3 +100,16 @@ func (ts *MatchPatternTestSuite) TestMatchPatternMatching(c *C) {
 		}
 	}
 }
+
+// TestMatchPatternSanitize tests that Sanitize handles any special cases
+func (ts *MatchPatternTestSuite) TestMatchPatternSanitize(c *C) {
+	for source, target := range map[string]string{
+		"*":          "*",
+		"*.":         "*.",
+		"*cilium.io": "*cilium.io.",
+		"*.com":      "*.com.",
+	} {
+		sanitized := Sanitize(source)
+		c.Assert(sanitized, Equals, target, Commentf("matchPattern: %s not sanitized correctly", source))
+	}
+}

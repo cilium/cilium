@@ -76,7 +76,7 @@ func injectToCIDRSetRules(rule *api.Rule, cache *DNSCache, reMap *regexpmap.Rege
 
 			if len(ToFQDN.MatchPattern) > 0 {
 				// lookup matching DNS names
-				dnsPattern := prepareMatchPattern(ToFQDN.MatchPattern)
+				dnsPattern := matchpattern.Sanitize(ToFQDN.MatchPattern)
 				patternREStr := matchpattern.ToRegexp(dnsPattern)
 				patternRE := reMap.GetPrecompiledRegexp(patternREStr)
 				var err error
@@ -156,9 +156,4 @@ func sortedIPsAreEqual(a, b []net.IP) bool {
 // prepareMatchName ensures a ToFQDNs.matchName field is used consistently.
 func prepareMatchName(matchName string) string {
 	return strings.ToLower(dns.Fqdn(matchName))
-}
-
-// prepareMatchPattern ensures a ToFQDNs.matchPattern field is used consistently.
-func prepareMatchPattern(matchPattern string) string {
-	return strings.ToLower(dns.Fqdn(matchPattern))
 }

@@ -64,7 +64,7 @@ func (dr *dnsRedirect) setRules(wg *completion.WaitGroup, newRules policy.L7Data
 				toRemove = append(toRemove, dnsNameAsRE)
 			}
 			if len(dnsRule.MatchPattern) > 0 {
-				dnsPattern := strings.ToLower(dns.Fqdn(dnsRule.MatchPattern))
+				dnsPattern := matchpattern.Sanitize(dnsRule.MatchPattern)
 				dnsPatternAsRE := matchpattern.ToRegexp(dnsPattern)
 				toRemove = append(toRemove, dnsPatternAsRE)
 			}
@@ -79,7 +79,7 @@ func (dr *dnsRedirect) setRules(wg *completion.WaitGroup, newRules policy.L7Data
 				toAdd = append(toAdd, dnsNameAsRE)
 			}
 			if len(dnsRule.MatchPattern) > 0 {
-				dnsPattern := strings.ToLower(dns.Fqdn(dnsRule.MatchPattern))
+				dnsPattern := matchpattern.Sanitize(dnsRule.MatchPattern)
 				dnsPatternAsRE := matchpattern.ToRegexp(dnsPattern)
 				toAdd = append(toAdd, dnsPatternAsRE)
 			}
@@ -117,7 +117,7 @@ func (dr *dnsRedirect) Close(wg *completion.WaitGroup) (revert.FinalizeFunc, rev
 			dnsNameAsRE := matchpattern.ToRegexp(dnsName)
 			DefaultDNSProxy.RemoveAllowed(dnsNameAsRE, fmt.Sprintf("%d", dr.redirect.endpointID))
 
-			dnsPattern := strings.ToLower(dns.Fqdn(dnsRule.MatchPattern))
+			dnsPattern := matchpattern.Sanitize(dnsRule.MatchPattern)
 			dnsPatternAsRE := matchpattern.ToRegexp(dnsPattern)
 			DefaultDNSProxy.RemoveAllowed(dnsPatternAsRE, fmt.Sprintf("%d", dr.redirect.endpointID))
 		}
