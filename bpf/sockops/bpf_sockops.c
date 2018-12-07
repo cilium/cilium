@@ -95,7 +95,7 @@ static inline void bpf_sock_ops_ipv4(struct bpf_sock_ops *skops)
 	 * Then because these are local IPs that have passed LB/Policy/NAT
 	 * blocks redirect directly to socket.
 	 */
-	exists = __lookup_ip4_endpoint(key.dip4);
+	exists = __lookup_ip4_endpoint(key.sip4);
 	if (!exists)
 		return;
 
