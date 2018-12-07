@@ -51,7 +51,6 @@ import (
 
 	go_version "github.com/hashicorp/go-version"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	"k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -892,7 +891,7 @@ func (d *Daemon) deleteK8sEndpointV1(ep *v1.Endpoints) error {
 func (d *Daemon) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service, se *k8s.Endpoints) error {
 	// If east-west load balancing is disabled, we should not sync(add or delete)
 	// K8s service to a cilium service.
-	if lb := viper.GetBool("disable-k8s-services"); lb == true {
+	if option.Config.DisableK8sServices {
 		return nil
 	}
 
@@ -941,7 +940,7 @@ func (d *Daemon) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service, se *k8s.End
 func (d *Daemon) addK8sSVCs(svcID k8s.ServiceID, svc *k8s.Service, endpoints *k8s.Endpoints) error {
 	// If east-west load balancing is disabled, we should not sync(add or delete)
 	// K8s service to a cilium service.
-	if lb := viper.GetBool("disable-k8s-services"); lb == true {
+	if option.Config.DisableK8sServices {
 		return nil
 	}
 

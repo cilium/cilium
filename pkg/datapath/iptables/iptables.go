@@ -45,12 +45,6 @@ type customChain struct {
 	feederArgs []string
 }
 
-var (
-	// Masquerade specifies whether or not to masquerade packets from endpoints
-	// leaving the host.
-	Masquerade bool
-)
-
 func runProg(prog string, args []string, quiet bool) error {
 	_, err := exec.WithTimeout(defaults.ExecTimeout, prog, args...).CombinedOutput(log, !quiet)
 	return err
@@ -275,7 +269,7 @@ func InstallRules() error {
 		return err
 	}
 
-	if Masquerade {
+	if option.Config.Masquerade {
 		ingressSnatSrcAddrExclusion := node.GetHostMasqueradeIPv4().String()
 		if option.Config.Tunnel == option.TunnelDisabled {
 			ingressSnatSrcAddrExclusion = node.GetIPv4ClusterRange().String()

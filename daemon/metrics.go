@@ -20,9 +20,9 @@ import (
 	restapi "github.com/cilium/cilium/api/v1/server/restapi/metrics"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/go-openapi/runtime/middleware"
-	"github.com/spf13/viper"
 )
 
 type getMetrics struct {
@@ -48,13 +48,9 @@ func (h *getMetrics) Handle(params restapi.GetMetricsParams) middleware.Responde
 func initMetrics() <-chan error {
 	var errs <-chan error
 
-	promAddr := viper.GetString("prometheus-serve-addr")
-	if promAddr == "" {
-		promAddr = viper.GetString("prometheus-serve-addr-deprecated")
-	}
-	if promAddr != "" {
-		log.Infof("Serving prometheus metrics on %s", promAddr)
-		errs = metrics.Enable(promAddr)
+	if option.Config.PrometheusServeAddr != "" {
+		log.Infof("Serving prometheus metrics on %s", option.Config.PrometheusServeAddr)
+		errs = metrics.Enable(option.Config.PrometheusServeAddr)
 	}
 
 	return errs
