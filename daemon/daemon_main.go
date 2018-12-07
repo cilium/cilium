@@ -15,7 +15,6 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -36,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/maps"
+	"github.com/cilium/cilium/pkg/datapath/probes"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -71,7 +71,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"golang.org/x/sys/unix"
 )
 
 var (
@@ -188,41 +187,6 @@ func daemonMain() {
 	}
 }
 
-func parseKernelVersion(ver string) (*go_version.Version, error) {
-	verStrs := strings.Split(ver, ".")
-	switch {
-	case len(verStrs) < 2:
-		return nil, fmt.Errorf("unable to get kernel version from %q", ver)
-	case len(verStrs) < 3:
-		verStrs = append(verStrs, "0")
-	}
-	// We are assuming the kernel version will be something as:
-	// 4.9.17-040917-generic
-
-	// If verStrs is []string{ "4", "9", "17-040917-generic" }
-	// then we need to retrieve patch number.
-	patch := regexp.MustCompilePOSIX(`^[0-9]+`).FindString(verStrs[2])
-	if patch == "" {
-		verStrs[2] = "0"
-	} else {
-		verStrs[2] = patch
-	}
-	return go_version.NewVersion(strings.Join(verStrs[:3], "."))
-}
-
-func getKernelVersionStr() string {
-	var unameBuf unix.Utsname
-	if err := unix.Uname(&unameBuf); err != nil {
-		log.WithError(err).Fatal("kernel version: NOT OK")
-	}
-	return string(bytes.Trim(unameBuf.Release[:], "\x00"))
-}
-
-func getKernelVersion() (*go_version.Version, error) {
-	kernelVersionStr := getKernelVersionStr()
-	return parseKernelVersion(kernelVersionStr)
-}
-
 func getClangVersion(filePath string) (*go_version.Version, error) {
 	verOut, err := exec.Command(filePath, "--version").CombinedOutput()
 	if err != nil {
@@ -276,7 +240,7 @@ func checkBPFLogs(logType string, fatal bool) {
 }
 
 func checkMinRequirements() {
-	kernelVersion, err := getKernelVersion()
+	kernelVersion, err := probes.GetKernelVersion()
 	if err != nil {
 		log.WithError(err).Fatal("kernel version: NOT OK")
 	}
@@ -334,7 +298,7 @@ func checkMinRequirements() {
 	if err := os.Chdir(option.Config.LibDir); err != nil {
 		log.WithError(err).WithField(logfields.Path, option.Config.LibDir).Fatal("Could not change to runtime directory")
 	}
-	if err := runProbes(option.Config.BpfDir, option.Config.StateDir); err != nil {
+	if err := probes.RunProbes(option.Config.BpfDir, option.Config.StateDir); err != nil {
 		log.WithError(err).Fatal("BPF Verifier: NOT OK")
 	}
 	featuresFilePath := filepath.Join(globalsDir, "bpf_features.h")
