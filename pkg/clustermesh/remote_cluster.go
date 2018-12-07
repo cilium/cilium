@@ -104,10 +104,40 @@ func (rc *remoteCluster) getLogger() *logrus.Entry {
 	})
 }
 
+func (rc *remoteCluster) releaseOldConnection() {
+	if rc.ipCacheWatcher != nil {
+		rc.ipCacheWatcher.Close()
+		rc.ipCacheWatcher = nil
+	}
+
+	if rc.remoteNodes != nil {
+		rc.remoteNodes.Close()
+		rc.remoteNodes = nil
+	}
+	if rc.remoteIdentityCache != nil {
+		rc.remoteIdentityCache.Close()
+		rc.remoteIdentityCache = nil
+	}
+	if rc.remoteServices != nil {
+		rc.remoteServices.Close()
+		rc.remoteServices = nil
+	}
+	if rc.backend != nil {
+		rc.backend.Close()
+		rc.backend = nil
+	}
+}
+
 func (rc *remoteCluster) restartRemoteConnection() {
 	rc.controllers.UpdateController(rc.remoteConnectionControllerName,
 		controller.ControllerParams{
 			DoFunc: func() error {
+				rc.mutex.Lock()
+				if rc.backend != nil {
+					rc.releaseOldConnection()
+				}
+				rc.mutex.Unlock()
+
 				backend, err := kvstore.NewClient(kvstore.EtcdBackendName,
 					map[string]string{
 						kvstore.EtcdOptionConfig: rc.configPath,
@@ -165,22 +195,7 @@ func (rc *remoteCluster) restartRemoteConnection() {
 			},
 			StopFunc: func() error {
 				rc.mutex.Lock()
-				if rc.ipCacheWatcher != nil {
-					rc.ipCacheWatcher.Close()
-				}
-
-				if rc.remoteNodes != nil {
-					rc.remoteNodes.Close()
-				}
-				if rc.remoteIdentityCache != nil {
-					rc.remoteIdentityCache.Close()
-				}
-				if rc.remoteServices != nil {
-					rc.remoteServices.Close()
-				}
-				if rc.backend != nil {
-					rc.backend.Close()
-				}
+				rc.releaseOldConnection()
 				rc.mutex.Unlock()
 
 				rc.getLogger().Info("All resources of remote cluster cleaned up")
