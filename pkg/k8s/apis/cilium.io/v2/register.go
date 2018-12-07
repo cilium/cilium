@@ -548,7 +548,35 @@ var (
 					"AWS": AWSGroup,
 				},
 			},
+			"toFQDNs": {
+				Description: `ToFQDNs is a list of rules matching fqdns that endpoint
+				is allowed to communicate with`,
+				Type: "array",
+				Items: &apiextensionsv1beta1.JSONSchemaPropsOrArray{
+					Schema: &FQDNRule,
+				},
+			},
 		},
+	}
+
+	FQDNRule = apiextensionsv1beta1.JSONSchemaProps{
+		Description: `FQDNRule is a rule that specifies an fully qualified domain name to which outside communication is allowed`,
+		Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+			"matchName":    MatchFQDNName,
+			"matchPattern": MatchFQDNPattern,
+		},
+	}
+
+	MatchFQDNName = apiextensionsv1beta1.JSONSchemaProps{
+		Description: `MatchName matches fqdn name`,
+		Type:        "string",
+		Pattern:     `^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$`,
+	}
+
+	MatchFQDNPattern = apiextensionsv1beta1.JSONSchemaProps{
+		Description: `MatchPattern matches fqdn by pattern`,
+		Type:        "string",
+		Pattern:     `^(([a-zA-Z0-9\*]|[a-zA-Z0-9\*][a-zA-Z0-9\-\*]*[a-zA-Z0-9\*])\.)*([A-Za-z0-9\*]|[A-Za-z0-9\*][A-Za-z0-9\-\*]*[A-Za-z0-9\*])$`,
 	}
 
 	AWSGroup = apiextensionsv1beta1.JSONSchemaProps{
@@ -707,6 +735,21 @@ var (
 					Schema: &PortRuleL7,
 				},
 			},
+			"dns": {
+				Description: "DNS specific rules",
+				Type:        "array",
+				Items: &apiextensionsv1beta1.JSONSchemaPropsOrArray{
+					Schema: &PortRuleDNS,
+				},
+			},
+		},
+	}
+
+	PortRuleDNS = apiextensionsv1beta1.JSONSchemaProps{
+		Description: `FQDNRule is a rule that specifies an fully qualified domain name to which outside communication is allowed`,
+		Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+			"matchName":    MatchFQDNName,
+			"matchPattern": MatchFQDNPattern,
 		},
 	}
 
