@@ -50,7 +50,7 @@ type backendModule interface {
 
 	// newClient must initializes the backend and create a new kvstore
 	// client which implements the BackendOperations interface
-	newClient() (BackendOperations, error)
+	newClient() (BackendOperations, chan error)
 
 	// createInstance creates a new instance of the module
 	createInstance() backendModule

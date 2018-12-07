@@ -22,13 +22,17 @@ var (
 )
 
 func initClient(module backendModule) error {
-	c, err := module.newClient()
-	if err != nil {
-		return err
-	}
+	c, errChan := module.newClient()
+	go func() {
+		err, isErr := <-errChan
+		if isErr {
+			log.WithError(err).Fatalf("Unable to connect to kvstore")
+		}
+
+		deleteLegacyPrefixes()
+	}()
 
 	defaultClient = c
-	go deleteLegacyPrefixes()
 
 	return nil
 }
@@ -39,20 +43,22 @@ func Client() BackendOperations {
 }
 
 // NewClient returns a new kvstore client based on the configuration
-func NewClient(selectedBackend string, opts map[string]string) (BackendOperations, error) {
+func NewClient(selectedBackend string, opts map[string]string) (BackendOperations, chan error) {
+	// Channel used to report immediate errors, module.newClient will
+	// create and return a different channel, caller doesn't need to know
+	errChan := make(chan error, 1)
+	defer close(errChan)
+
 	module := getBackend(selectedBackend)
 	if module == nil {
-		return nil, fmt.Errorf("unknown key-value store type %q. See cilium.link/err-kvstore for details", selectedBackend)
+		errChan <- fmt.Errorf("unknown key-value store type %q. See cilium.link/err-kvstore for details", selectedBackend)
+		return nil, errChan
 	}
 
 	if err := module.setConfig(opts); err != nil {
-		return nil, err
+		errChan <- err
+		return nil, errChan
 	}
 
-	c, err := module.newClient()
-	if err != nil {
-		return nil, err
-	}
-
-	return c, nil
+	return module.newClient()
 }

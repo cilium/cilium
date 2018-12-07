@@ -45,11 +45,6 @@ type etcdModule struct {
 }
 
 var (
-	// etcdVersionMismatchFatal defines whether the agent should die
-	// immediately if an etcd not matching the minimal version is
-	// encountered.
-	etcdVersionMismatchFatal = true
-
 	// versionCheckTimeout is the time we wait trying to verify the version
 	// of an etcd endpoint. The timeout can be encountered on network
 	// connectivity problems.
@@ -109,20 +104,25 @@ func (e *etcdModule) getConfig() map[string]string {
 	return getOpts(e.opts)
 }
 
-func (e *etcdModule) newClient() (BackendOperations, error) {
+func (e *etcdModule) newClient() (BackendOperations, chan error) {
+	errChan := make(chan error, 10)
+
 	endpointsOpt, endpointsSet := e.opts[addrOption]
 	configPathOpt, configSet := e.opts[EtcdOptionConfig]
 	configPath := ""
 
 	if e.config == nil {
 		if !endpointsSet && !configSet {
-			return nil, fmt.Errorf("invalid etcd configuration, %s or %s must be specified",
-				EtcdOptionConfig, addrOption)
+			errChan <- fmt.Errorf("invalid etcd configuration, %s or %s must be specified", EtcdOptionConfig, addrOption)
+			close(errChan)
+			return nil, errChan
 		}
 
 		if endpointsOpt.value == "" && configPathOpt.value == "" {
-			return nil, fmt.Errorf("invalid etcd configuration, %s or %s must be specified",
+			errChan <- fmt.Errorf("invalid etcd configuration, %s or %s must be specified",
 				EtcdOptionConfig, addrOption)
+			close(errChan)
+			return nil, errChan
 		}
 
 		e.config = &client.Config{}
@@ -136,7 +136,15 @@ func (e *etcdModule) newClient() (BackendOperations, error) {
 		}
 	}
 
-	return newEtcdClient(e.config, configPath)
+	// connectEtcdClient will close errChan when the connection attempt has
+	// been successful
+	backend, err := connectEtcdClient(e.config, configPath, errChan)
+	if err != nil {
+		errChan <- err
+		close(errChan)
+	}
+
+	return backend, errChan
 }
 
 func init() {
@@ -227,7 +235,7 @@ func (e *etcdClient) renewSession() error {
 	return nil
 }
 
-func newEtcdClient(config *client.Config, cfgPath string) (BackendOperations, error) {
+func connectEtcdClient(config *client.Config, cfgPath string, errChan chan error) (BackendOperations, error) {
 	if cfgPath != "" {
 		cfg, err := clientyaml.NewConfig(cfgPath)
 		if err != nil {
@@ -248,7 +256,7 @@ func newEtcdClient(config *client.Config, cfgPath string) (BackendOperations, er
 	log.WithFields(logrus.Fields{
 		"endpoints": config.Endpoints,
 		"config":    cfgPath,
-	}).Info("Waiting for etcd client to be ready")
+	}).Info("Connecting to etcd server...")
 
 	var s concurrency.Session
 	firstSession := make(chan struct{})
@@ -277,6 +285,8 @@ func newEtcdClient(config *client.Config, cfgPath string) (BackendOperations, er
 
 	// wait for session to be created also in parallel
 	go func() {
+		defer close(errChan)
+
 		var session concurrency.Session
 		select {
 		case err = <-errorChan:
@@ -287,7 +297,7 @@ func newEtcdClient(config *client.Config, cfgPath string) (BackendOperations, er
 			err = fmt.Errorf("timed out while waiting for etcd session. Ensure that etcd is running on %s", config.Endpoints)
 		}
 		if err != nil {
-			log.Fatal(err)
+			errChan <- err
 			return
 		}
 
@@ -295,14 +305,13 @@ func newEtcdClient(config *client.Config, cfgPath string) (BackendOperations, er
 		s = session
 		if err != nil {
 			c.Close()
-			err = fmt.Errorf("unable to create default lease: %s", err)
-			log.Fatal(err)
+			errChan <- fmt.Errorf("unable to create default lease: %s", err)
 			return
 		}
 		close(ec.firstSession)
 
 		if err := ec.checkMinVersion(); err != nil {
-			log.Fatalf("Unable to validate etcd version: %s", err)
+			errChan <- fmt.Errorf("Unable to validate etcd version: %s", err)
 		}
 	}()
 
