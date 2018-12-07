@@ -75,6 +75,14 @@ var _ = Describe("K8sTunnelTest", func() {
 		})
 
 		It("Check VXLAN mode", func() {
+			switch helpers.GetCurrentIntegration() {
+			case helpers.CIIntegrationFlannel:
+				Skip(fmt.Sprintf(
+					"Cilium in %q mode is not supported with VxLAN. Skipping VxLAN tests.",
+					helpers.CIIntegrationFlannel))
+				return
+			}
+
 			ProvisionInfraPods(kubectl)
 			err := kubectl.WaitforPods(helpers.DefaultNamespace, "", helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Pods are not ready after timeout")
@@ -114,6 +122,13 @@ var _ = Describe("K8sTunnelTest", func() {
 		})
 
 		It("Check Geneve mode", func() {
+			switch helpers.GetCurrentIntegration() {
+			case helpers.CIIntegrationFlannel:
+				Skip(fmt.Sprintf(
+					"Cilium in %q mode is not supported in K8s %q. Skipping Geneve mode tests.",
+					helpers.CIIntegrationFlannel, helpers.GetCurrentK8SEnv()))
+				return
+			}
 			_ = kubectl.Apply(helpers.DNSDeployment())
 
 			// Deploy the etcd operator
