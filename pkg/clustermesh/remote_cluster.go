@@ -138,11 +138,21 @@ func (rc *remoteCluster) restartRemoteConnection() {
 				}
 				rc.mutex.Unlock()
 
-				backend, err := kvstore.NewClient(kvstore.EtcdBackendName,
+				backend, errChan := kvstore.NewClient(kvstore.EtcdBackendName,
 					map[string]string{
 						kvstore.EtcdOptionConfig: rc.configPath,
 					})
-				if err != nil {
+
+				// Block until either an error is returned or
+				// the channel is closed due to success of the
+				// connection
+				rc.getLogger().Debugf("Waiting for connection to be established")
+				err, isErr := <-errChan
+				if isErr {
+					if backend != nil {
+						backend.Close()
+					}
+					rc.getLogger().WithError(err).Warning("Unable to establish etcd connection to remote cluser")
 					return err
 				}
 

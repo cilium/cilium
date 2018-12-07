@@ -104,7 +104,17 @@ func (c *consulModule) getConfig() map[string]string {
 	return getOpts(c.opts)
 }
 
-func (c *consulModule) newClient() (BackendOperations, error) {
+func (c *consulModule) newClient() (BackendOperations, chan error) {
+	errChan := make(chan error, 1)
+	backend, err := c.connectConsulClient()
+	if err != nil {
+		errChan <- err
+	}
+	close(errChan)
+	return backend, errChan
+}
+
+func (c *consulModule) connectConsulClient() (BackendOperations, error) {
 	if c.config == nil {
 		consulAddr, consulAddrSet := c.opts[optAddress]
 		configPathOpt, configPathOptSet := c.opts[consulOptionConfig]
