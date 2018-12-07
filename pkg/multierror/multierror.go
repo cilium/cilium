@@ -15,24 +15,38 @@
 package multierror
 
 // Multierror is the error implementation which stores multiple errors.
-type Multierror []error
+type Multierror struct {
+	errors []error
+}
 
 // Error merges all error messages into one string with semicolon as a
 // separator.
-func (m Multierror) Error() string {
+func (m *Multierror) Error() string {
 	// path.Join accepts only slices of strings as an argument. It's easier
 	// to implement its simplier version here than to bother with type
 	// conversion.
-	switch len(m) {
+	switch len(m.errors) {
 	case 0:
 		return ""
 	case 1:
-		return m[0].Error()
+		return m.errors[0].Error()
 	}
-	msg := m[0].Error()
-	for _, err := range m[1:] {
+	msg := m.errors[0].Error()
+	for _, err := range m.errors[1:] {
 		msg += "; "
 		msg += err.Error()
 	}
 	return msg
+}
+
+// Append adds the error to the slice. It takes care of initialization of the
+// slice if it's nil.
+func Append(m *Multierror, err error) *Multierror {
+	if m == nil {
+		errors := make([]error, 0, 1)
+		m = &Multierror{errors: errors}
+
+	}
+	m.errors = append(m.errors, err)
+	return m
 }
