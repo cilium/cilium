@@ -28,10 +28,8 @@ import (
 )
 
 func createFile(c *C, name string) {
-	f, err := os.OpenFile(name, os.O_WRONLY|os.O_CREATE, 0666)
+	err := ioutil.WriteFile(name, []byte("endpoints:\n- https://cluster1.cilium-etcd.cilium.svc:2379\n"), 0644)
 	c.Assert(err, IsNil)
-	f.Sync()
-	f.Close()
 }
 
 func expectExists(c *C, cm *ClusterMesh, name string) {
@@ -127,4 +125,20 @@ func (s *ClusterMeshTestSuite) TestWatchConfigDirectory(c *C) {
 	expectNotExist(c, cm, "cluster2")
 	expectNotExist(c, cm, "cluster3")
 
+}
+
+func (s *ClusterMeshTestSuite) TestIsEtcdConfigFile(c *C) {
+	dir, err := ioutil.TempDir("", "etcdconfig")
+	c.Assert(err, IsNil)
+	defer os.RemoveAll(dir)
+
+	validPath := path.Join(dir, "valid")
+	err = ioutil.WriteFile(validPath, []byte("endpoints:\n- https://cluster1.cilium-etcd.cilium.svc:2379\n"), 0644)
+	c.Assert(err, IsNil)
+	c.Assert(isEtcdConfigFile(validPath), Equals, true)
+
+	invalidPath := path.Join(dir, "valid")
+	err = ioutil.WriteFile(invalidPath, []byte("sf324kj234lkjsdvl\nwl34kj23l4k\nendpoints"), 0644)
+	c.Assert(err, IsNil)
+	c.Assert(isEtcdConfigFile(invalidPath), Equals, false)
 }
