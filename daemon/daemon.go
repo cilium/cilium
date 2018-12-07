@@ -90,7 +90,6 @@ import (
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/miekg/dns"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sync/semaphore"
 )
@@ -593,7 +592,7 @@ func (d *Daemon) init() error {
 		sockops.SockmapDisable()
 		sockops.SkmsgDisable()
 
-		if viper.GetBool(option.SockopsEnableName) == true {
+		if option.Config.SockopsEnable {
 			eppolicymap.CreateEPPolicyMap()
 			sockops.SockmapEnable()
 			sockops.SkmsgEnable()
@@ -886,7 +885,7 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 
 		buildEndpointSem: semaphore.NewWeighted(int64(numWorkerThreads())),
 		compilationMutex: new(lock.RWMutex),
-		mtuConfig:        mtu.NewConfiguration(option.Config.Tunnel != option.TunnelDisabled, viper.GetInt(option.MTUName)),
+		mtuConfig:        mtu.NewConfiguration(option.Config.Tunnel != option.TunnelDisabled, option.Config.MTU),
 	}
 
 	debug.RegisterStatusObject("k8s-service-cache", &d.k8sSvcCache)
@@ -924,7 +923,7 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 		// from the outside world on ingress was treated as though it
 		// was from the host for policy purposes. In order to not break
 		// existing policies, this option retains the behavior.
-		if viper.GetString("k8s-legacy-host-allows-world") != "false" {
+		if option.Config.K8sLegacyHostAllowsWorld != "false" {
 			option.Config.HostAllowsWorld = true
 			log.Warn("k8s mode: Configuring ingress policy for host to also allow from world. For more information, see https://cilium.link/host-vs-world")
 		}
@@ -1404,7 +1403,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 
 	// Once we stop returning errors from StartDNSProxy this should live in
 	// StartProxySupport
-	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", uint16(proxy.DNSProxyPort),
+	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", uint16(option.Config.ToFQDNsProxyPort),
 		// LookupEPByIP
 		func(endpointIP net.IP) (endpointID string, err error) {
 			e := endpointmanager.LookupIPv4(endpointIP.String())
