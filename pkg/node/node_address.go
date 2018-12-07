@@ -28,6 +28,8 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+
+	"github.com/vishvananda/netlink"
 )
 
 var (
@@ -260,6 +262,11 @@ func ValidatePostInit() error {
 			return fmt.Errorf("IPv4 per node allocation prefix (%s) must be inside cluster prefix (%s)",
 				ipv4AllocRange, GetIPv4ClusterRange())
 		}
+
+		if notOk, ip, ifName := checkHostIPCollision(ipv4AllocRange); notOk {
+			return fmt.Errorf("podCIDR(internal ipv4 range)(%s) collides with external IPv4(%s:%s)",
+				ipv4AllocRange, ifName, ip)
+		}
 	}
 
 	return nil
@@ -397,6 +404,24 @@ func GetNodeAddressing(enableIPv4 bool) *models.NodeAddressing {
 	}
 }
 
+func checkHostIPCollision(podCIDR *net.IPNet) (bool, net.IP, string) {
+	var link netlink.Link
+	addr, err := netlink.AddrList(link, netlink.FAMILY_V4)
+	if err != nil {
+		return false, nil, ""
+	}
+	for _, a := range addr {
+		if podCIDR.Contains(a.IP) {
+			//skip on self collide
+			if a.Label == defaults.HostDevice {
+				continue
+			}
+			return true, a.IP, a.Label
+		}
+	}
+
+	return false, nil, ""
+}
 func getCiliumHostIPsFromFile(nodeConfig string) (ipv4GW, ipv6Router net.IP) {
 	f, err := os.Open(nodeConfig)
 	switch {
