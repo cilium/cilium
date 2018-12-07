@@ -24,7 +24,7 @@
             "spec":{
                 "containers":[{
                     "name":"redis-master",
-                    "image":"redis:4.0.1",
+                    "image":"docker.io/library/redis:4.0.1",
                     "ports":[{
                         "name":"redis-server",
                         "containerPort":6379

@@ -22,7 +22,9 @@ deb http://ppa.launchpad.net/projectatomic/ppa/ubuntu xenial main
 deb-src http://ppa.launchpad.net/projectatomic/ppa/ubuntu artful main
 EOF
    sudo apt-get update
-   sudo apt-get install cri-o-1.10 -y
+   sudo apt-get remove cri-o-1.*
+   sudo apt-get install cri-o-1.12 -y
+   sudo ln -s /usr/sbin/runc /usr/local/sbin/runc
 }
 
 function install_containerd() {
@@ -58,6 +60,23 @@ if [ -n "${INSTALL}" ]; then
     chmod +x kubelet kubectl kube-proxy
 
     sudo cp kubelet kubectl kube-proxy /usr/bin/
+
+    case "${RUNTIME}" in
+    "containerd" | "containerD")
+        cat <<EOF > /etc/crictl.yaml
+runtime-endpoint: unix:///var/run/containerd/containerd.sock
+EOF
+        ;;
+    "crio" | "cri-o")
+        install_crio
+        cat <<EOF > /etc/crictl.yaml
+runtime-endpoint: /var/run/crio/crio.sock
+EOF
+        ;;
+    *)
+        ;;
+    esac
+
 fi
 
 case "${RUNTIME}" in
