@@ -331,22 +331,6 @@ func (e *Endpoint) SetDesiredIngressPolicyEnabled(ingress bool) {
 
 }
 
-// SetRealizedIngressPolicyEnabled sets Endpoint's ingress policy enforcement
-// configuration to the specified value. The endpoint's mutex must not be held.
-func (e *Endpoint) SetRealizedIngressPolicyEnabled(ingress bool) {
-	e.UnconditionalLock()
-	e.realizedPolicy.IngressPolicyEnabled = ingress
-	e.Unlock()
-}
-
-// SetRealizedEgressPolicyEnabled sets Endpoint's egress policy enforcement
-// configuration to the specified value. The endpoint's mutex must not be held.
-func (e *Endpoint) SetRealizedEgressPolicyEnabled(egress bool) {
-	e.UnconditionalLock()
-	e.realizedPolicy.EgressPolicyEnabled = egress
-	e.Unlock()
-}
-
 // SetDesiredEgressPolicyEnabled sets Endpoint's egress policy enforcement
 // configuration to the specified value. The endpoint's mutex must not be held.
 func (e *Endpoint) SetDesiredEgressPolicyEnabled(egress bool) {
