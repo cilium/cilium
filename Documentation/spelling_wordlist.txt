@@ -93,6 +93,7 @@ containerd
 contributing
 coord
 CoreOS
+coredns
 cpuma
 cpumap
 cqlsh
