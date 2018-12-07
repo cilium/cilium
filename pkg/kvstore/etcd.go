@@ -544,8 +544,6 @@ func (e *etcdClient) statusChecker() {
 		newStatus := []string{}
 		ok := 0
 
-		e.getLogger().Debugf("Performing status check to etcd")
-
 		endpoints := e.client.Endpoints()
 		for _, ep := range endpoints {
 			st, err := e.determineEndpointStatus(ep)
