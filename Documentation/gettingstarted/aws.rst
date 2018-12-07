@@ -18,16 +18,16 @@ single-node Cilium environment running on your machine. It is designed to take
 Step 1: Create AWS secrets
 ===========================
 
-Before install Cilium, a new Kubernetes Secret with the AWS Tokens needs to be
-in place, that secret will allow Cilium to gather the info from the Amazon AWS
-API.
+Before installing Cilium, a new Kubernetes Secret with the AWS Tokens needs to
+be added to your Kubernetes cluster. This Secret will allow Cilium to gather
+information from the AWS API which is needed to implement ToGroups policies.
 
 AWS Access keys and IAM role
 ------------------------------
 
 To create a new access token the `following guide can be used
 <https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html#cli-quick-configuration>`_.
-These keys need to have certain permission set:
+These keys need to have certain permissions set:
 
 .. code-block:: javascript
 
@@ -110,7 +110,7 @@ for debugging purposes:
                 key: AWS_DEFAULT_REGION
                 optional: true
 
-To list all the AWS instances available the following command can be used:
+To list all of the available AWS instances, the following command can be used:
 
 .. parsed-literal::
 
@@ -136,7 +136,7 @@ Deploy a demo application:
 ----------------------------
 
 In this case we're going to use a demo application that is used in other guides.
-These manifest will create three microservices applications: *deathstar*,
+These manifests will create three microservices applications: *deathstar*,
 *tiefighter*, and *xwing*. In this case, we are only going to use our *xwing*
 microservice to secure communications to existing AWS instances.
 
@@ -201,11 +201,11 @@ the security group with ID ``sg-0fef46100a88d03c3``.
 Validate that derived policy is in place
 ----------------------------------------
 
-Every time that a new policy with ToGroups rules is added,an equivalent policy
+Every time that a new policy with ToGroups rules is added, an equivalent policy
 (also called "derivative policy"), will be created. This policy will contain the
 set of CIDRs that correspond to the specification in ToGroups, e.g., the IPs of
-all instances that are part of a specified security group. Also the list of IPs
-will be updated periodically.
+all instances that are part of a specified security group. The list of IPs will
+be updated periodically.
 
 .. parsed-literal::
 
