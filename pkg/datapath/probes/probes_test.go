@@ -34,9 +34,8 @@ func Test(t *testing.T) { TestingT(t) }
 
 func (s *ProbesSuite) TestReadKernelConfiguration(c *C) {
 	var buf bytes.Buffer
-	_, warningFileBytes, err := readKernelConfig(&buf)
+	_, err := readKernelConfig(&buf)
 	c.Assert(err, IsNil)
-	c.Assert(warningFileBytes, Equals, 0)
 }
 
 func (s *ProbesSuite) TestReadKernelConfigurationNotFound(c *C) {
@@ -45,9 +44,8 @@ func (s *ProbesSuite) TestReadKernelConfigurationNotFound(c *C) {
 	localConfigLocations = []string{"/foo/bar"}
 	localConfigLocationsGz = []string{"/ayy/lmao.gz"}
 
-	_, warningFileBytes, err := readKernelConfig(&buf)
+	_, err := readKernelConfig(&buf)
 	c.Assert(err, ErrorMatches, "missing kernel configuration")
-	c.Assert(warningFileBytes > 0, Equals, true)
 	c.Assert(buf.String(), Equals, "BPF/probes: Missing kernel configuration\n")
 }
 
@@ -59,6 +57,6 @@ func (s *ProbesSuite) TestProbeRunLl(c *C) {
 	c.Assert(err, IsNil)
 	defer os.RemoveAll(outDir)
 
-	_, err = probeRunLl(&featureBuf, &infoBuf, "../bpf/probes", "../bpf/include", outDir)
+	err = probeRunLl(&featureBuf, &infoBuf, "../../../bpf/probes", "../../../bpf/include", outDir)
 	c.Assert(err, IsNil)
 }

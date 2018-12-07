@@ -60,7 +60,7 @@ func (f *fileWithCleanup) Close() error {
 	if err := f.File.Close(); err != nil {
 		return fmt.Errorf("could not close file %s: %s", f.path, err)
 	}
-	if f.n > 0 {
+	if f.n == 0 {
 		if err := os.Remove(f.path); err != nil && !os.IsNotExist(err) {
 			return fmt.Errorf("could not remove file %s: %s", f.path, err)
 		}
@@ -278,7 +278,7 @@ func writeFeatures(featureFile, infoFile, warningFile io.Writer, probesDir, libI
 func RunProbes(bpfDir, stateDir string) error {
 	var featureFile, infoFile, warningFile *fileWithCleanup
 	var outDir string
-	var errs multierror.Multierror
+	var errs *multierror.Multierror
 	var err error
 
 	probesDir := path.Join(bpfDir, "probes")
@@ -292,56 +292,59 @@ func RunProbes(bpfDir, stateDir string) error {
 
 	featureFile, err = openOrCreate(featureFilePath)
 	if err != nil {
-		errs = append(errs, err)
+		errs = multierror.Append(errs, err)
 		goto cleanup
 	}
 	infoFile, err = openOrCreate(infoFilePath)
 	if err != nil {
-		errs = append(errs, err)
+		errs = multierror.Append(errs, err)
 		goto cleanup
 	}
 	warningFile, err = openOrCreate(warningFilePath)
 	if err != nil {
-		errs = append(errs, err)
+		errs = multierror.Append(errs, err)
 		goto cleanup
 	}
 
 	outDir, err = ioutil.TempDir("", "cilium-probes-out")
 	if err != nil {
 		err = fmt.Errorf("could not create temporary directory for probes: %s", err)
-		errs = append(errs, err)
+		errs = multierror.Append(errs, err)
 		goto cleanup
 	}
 	defer os.RemoveAll(outDir)
 
-	if err = writeFeatures(featureFile, infoFile, warningFile, probesDir, libIncludeDir, outDir); err != nil {
-		errs = append(errs, err)
+	if err := writeFeatures(featureFile, infoFile, warningFile, probesDir, libIncludeDir, outDir); err != nil {
+		errs = multierror.Append(errs, err)
 		goto cleanup
 	}
 
-	if err = featureFile.Sync(); err != nil {
-		errs = append(errs, err)
+	if err := featureFile.Sync(); err != nil {
+		errs = multierror.Append(errs, err)
 		goto cleanup
 	}
-	if err = infoFile.Sync(); err != nil {
-		errs = append(errs, err)
+	if err := infoFile.Sync(); err != nil {
+		errs = multierror.Append(errs, err)
 		goto cleanup
 	}
-	if err = warningFile.Sync(); err != nil {
-		errs = append(errs, err)
+	if err := warningFile.Sync(); err != nil {
+		errs = multierror.Append(errs, err)
 		goto cleanup
 	}
 
 cleanup:
-	if err = featureFile.Close(); err != nil {
-		errs = append(errs, err)
+	if err := featureFile.Close(); err != nil {
+		errs = multierror.Append(errs, err)
 	}
-	if err = infoFile.Close(); err != nil {
-		errs = append(errs, err)
+	if err := infoFile.Close(); err != nil {
+		errs = multierror.Append(errs, err)
 	}
-	if err = warningFile.Close(); err != nil {
-		errs = append(errs, err)
+	if err := warningFile.Close(); err != nil {
+		errs = multierror.Append(errs, err)
 	}
 
-	return errs
+	if errs != nil {
+		return errs
+	}
+	return nil
 }
