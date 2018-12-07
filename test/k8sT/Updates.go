@@ -69,10 +69,6 @@ var _ = Describe("K8sUpdates", func() {
 	})
 
 	It("Tests upgrade and downgrade from a Cilium stable image to master", func() {
-		switch helpers.GetCurrentIntegration() {
-		case helpers.CIIntegrationFlannel:
-			return
-		}
 		var assertUpgradeSuccessful func()
 		assertUpgradeSuccessful, cleanupCallback =
 			InstallAndValidateCiliumUpgrades(kubectl, helpers.CiliumStableVersion, helpers.CiliumDeveloperImage)
@@ -91,6 +87,13 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		Skip(fmt.Sprintf(
 			"Cilium %q is not supported in K8s %q. Skipping upgrade/downgrade tests.",
 			oldVersion, helpers.GetCurrentK8SEnv()))
+		return func() {}, func() {}
+	}
+	switch helpers.GetCurrentIntegration() {
+	case helpers.CIIntegrationFlannel:
+		Skip(fmt.Sprintf(
+			"Cilium %q and %q mode are not supported in K8s %q. Skipping upgrade/downgrade tests.",
+			oldVersion, helpers.CIIntegrationFlannel, helpers.GetCurrentK8SEnv()))
 		return func() {}, func() {}
 	}
 
