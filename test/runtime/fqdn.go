@@ -654,7 +654,56 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		By("Denying egress to any IPs or domains")
 		for _, blockedTarget := range []string{"1.1.1.1", "cilium.io", "google.com"} {
 			res := vm.ContainerExec(helpers.App1, helpers.CurlFail(blockedTarget))
-			res.ExpectFail("Curl tp %s succeeded when in deny-all due to toFQDNs" + blockedTarget)
+			res.ExpectFail("Curl to %s succeeded when in deny-all due to toFQDNs" + blockedTarget)
+		}
+	})
+
+	It("Implements matchPattern: \"*\"", func() {
+		By("Importing policy with matchPattern: \"*\" rule")
+		fqdnPolicy := `
+[
+  {
+    "labels": [{
+	  	"key": "toFQDNs-runtime-test-policy"
+	  }],
+    "endpointSelector": {
+      "matchLabels": {
+        "container:id.app1": ""
+      }
+    },
+		"egress": [
+			{
+				"toPorts": [{
+					"ports":[{"port": "53", "protocol": "ANY"}],
+					"rules": {
+						"dns": [
+							{"matchPattern": "*"}
+						]
+					}
+				}]
+			},
+			{
+				"toFQDNs": [
+				  {"matchPattern": "world1.cilium.test"},
+				  {"matchPattern": "world*.cilium.test"},
+				  {"matchPattern": "level*CNAME.cilium.test"}
+				]
+			}
+    ]
+  }
+]`
+		_, err := vm.PolicyRenderAndImport(fqdnPolicy)
+		Expect(err).To(BeNil(), "Policy cannot be imported")
+		expectFQDNSareApplied()
+
+		By("Denying egress to any IPs or domains")
+		for _, allowedTarget := range []string{"world1.cilium.test", "world2.cilium.test", "world3.cilium.test", "level1CNAME.cilium.test", "level2CNAME.cilium.test"} {
+			res := vm.ContainerExec(helpers.App1, helpers.CurlFail(allowedTarget))
+			res.ExpectSuccess("Curl to %s failed when in deny-all due to toFQDNs", allowedTarget)
+		}
+		for _, blockedTarget := range []string{"1.1.1.1", "cilium.io", "google.com"} {
+			res := vm.ContainerExec(helpers.App1, helpers.CurlFail(blockedTarget))
+			res.ExpectFail("Curl to %s succeeded when in allow-all DNS but limited toFQDNs", blockedTarget)
 		}
 	})
 
