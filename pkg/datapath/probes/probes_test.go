@@ -25,6 +25,11 @@ import (
 	. "gopkg.in/check.v1"
 )
 
+const (
+	testFileName = "/tmp/cilium-test-file"
+	copyFileName = "/tmp/cilium-test-copy"
+)
+
 // Hook up gocheck into the "go test" runner.
 type ProbesSuite struct{}
 
@@ -54,6 +59,18 @@ func (s *ProbesSuite) TestProbeKernelConfig(c *C) {
 
 	err := probeKernelConfig(&infoBuf, &warningBuf)
 	c.Assert(err, IsNil)
+}
+
+func (s *ProbesSuite) TestCopyFile(c *C) {
+	err := ioutil.WriteFile(testFileName, []byte("foobar"), 0644)
+	c.Assert(err, IsNil)
+	err = copyFile(testFileName, copyFileName)
+	c.Assert(err, IsNil)
+	_, err = os.Stat(copyFileName)
+	c.Assert(err, IsNil)
+
+	os.Remove(testFileName)
+	os.Remove(copyFileName)
 }
 
 func (s *ProbesSuite) TestProbeRunLl(c *C) {
