@@ -160,6 +160,17 @@ var _ = BeforeAll(func() {
 			err))
 	}
 
+	switch helpers.GetCurrentIntegration() {
+	case helpers.CIIntegrationFlannel:
+		switch helpers.GetCurrentK8SEnv() {
+		case "1.8":
+			Skip(fmt.Sprintf(
+				"Cilium in %q mode is not supported in Kubernets 1.8 due CNI < 0.6.0",
+				helpers.CIIntegrationFlannel))
+			return
+		}
+	}
+
 	if config.CiliumTestConfig.SSHConfig != "" {
 		// If we set a different VM that it's not in our test environment
 		// ginkgo cannot provision it, so skip setup below.
