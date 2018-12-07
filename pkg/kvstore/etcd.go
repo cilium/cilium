@@ -149,6 +149,9 @@ type etcdClient struct {
 	// is set up in the etcd Client.
 	firstSession chan struct{}
 
+	// stopStatusChecker is closed when the status checker can be terminated
+	stopStatusChecker chan struct{}
+
 	client      *client.Client
 	controllers *controller.Manager
 
@@ -267,6 +270,7 @@ func newEtcdClient(config *client.Config, cfgPath string) (BackendOperations, er
 		firstSession:         firstSession,
 		controllers:          controller.NewManager(),
 		latestStatusSnapshot: "No connection to etcd",
+		stopStatusChecker:    make(chan struct{}),
 	}
 
 	// wait for session to be created also in parallel
@@ -535,7 +539,7 @@ func (e *etcdClient) determineEndpointStatus(endpointAddress string) (string, er
 	return str, nil
 }
 
-func (e *etcdClient) statusChecker() error {
+func (e *etcdClient) statusChecker() {
 	for {
 		newStatus := []string{}
 		ok := 0
@@ -564,7 +568,11 @@ func (e *etcdClient) statusChecker() error {
 
 		e.statusLock.Unlock()
 
-		time.Sleep(statusCheckInterval)
+		select {
+		case <-e.stopStatusChecker:
+			return
+		case <-time.After(statusCheckInterval):
+		}
 	}
 }
 
@@ -712,6 +720,7 @@ func (e *etcdClient) ListPrefix(prefix string) (KeyValuePairs, error) {
 
 // Close closes the etcd session
 func (e *etcdClient) Close() {
+	close(e.stopStatusChecker)
 	<-e.firstSession
 	if e.controllers != nil {
 		e.controllers.RemoveAll()
