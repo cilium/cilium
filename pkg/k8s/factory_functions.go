@@ -419,6 +419,11 @@ func equalV1Services(o1, o2 interface{}) bool {
 		return false
 	}
 
+	// Service annotations are used to mark services as global, shared, etc.
+	if !comparator.MapStringEquals(svc1.GetAnnotations(), svc2.GetAnnotations()) {
+		return false
+	}
+
 	clusterIP := net.ParseIP(svc1.Spec.ClusterIP)
 	headless := false
 	if strings.ToLower(svc1.Spec.ClusterIP) == "none" {
