@@ -54,6 +54,7 @@ func parseKernelVersion(ver string) (*go_version.Version, error) {
 	return go_version.NewVersion(strings.Join(verStrs[:3], "."))
 }
 
+// GetKernelVersion returns the version of currently used Linux kernel.
 func GetKernelVersion() (*go_version.Version, error) {
 	kernelVersionStr := getKernelVersionStr()
 	return parseKernelVersion(kernelVersionStr)
