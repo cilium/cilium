@@ -21,15 +21,21 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
+	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/multierror"
+)
+
+const (
+	clangTimeout  = 15 * time.Second
+	outBinTimeout = 15 * time.Second
 )
 
 var (
@@ -217,7 +223,8 @@ func probeRunLl(featureFile, infoFile io.Writer, probesDir, libIncludeDir, outDi
 			if err := copyFile(probePath, outFilename); err != nil {
 				return err
 			}
-			out, err := exec.Command(
+			out, err := exec.WithTimeout(
+				clangTimeout,
 				"clang",
 				"-O2",
 				"-Wall",
@@ -227,13 +234,13 @@ func probeRunLl(featureFile, infoFile io.Writer, probesDir, libIncludeDir, outDi
 				path.Join(probesDir, "raw_main.c"),
 				"-o",
 				outBin,
-			).CombinedOutput()
+			).CombinedOutput(log, true)
 			if err != nil {
 				return fmt.Errorf("clang failed: %s: %s", err, out)
 			}
 
 			var stdoutBuf, stderrBuf bytes.Buffer
-			cmd := exec.Command(outBin)
+			cmd := exec.WithTimeout(outBinTimeout, outBin)
 			cmd.Stdout = &stdoutBuf
 			cmd.Stderr = &stderrBuf
 			if err := cmd.Run(); err != nil {
