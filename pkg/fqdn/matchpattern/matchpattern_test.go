@@ -43,6 +43,7 @@ func (ts *MatchPatternTestSuite) TestMatchPatternREConversion(c *C) {
 		"cilium.io.":   "^cilium[.]io[.]$",
 		"*.cilium.io.": "^" + allowedDNSCharsREGroup + "*[.]cilium[.]io[.]$",
 		"*cilium.io.":  "^(" + allowedDNSCharsREGroup + "+[.])?cilium[.]io[.]$",
+		"*":            "^(" + allowedDNSCharsREGroup + "+[.])+$",
 	} {
 		reStr := ToRegexp(source)
 		_, err := regexp.Compile(reStr)
@@ -65,22 +66,27 @@ func (ts *MatchPatternTestSuite) TestMatchPatternMatching(c *C) {
 		{
 			pattern: "cilium.io.",
 			accept:  []string{"cilium.io."},
-			reject:  []string{"anysub.cilium.io.", "anysub.ci.io.", "anysub.ciliumandmore.io."},
+			reject:  []string{"", "anysub.cilium.io.", "anysub.ci.io.", "anysub.ciliumandmore.io."},
 		},
 		{
 			pattern: "*.cilium.io.",
 			accept:  []string{"anysub.cilium.io."},
-			reject:  []string{"cilium.io.", "anysub.ci.io.", "anysub.ciliumandmore.io."},
+			reject:  []string{"", "cilium.io.", "anysub.ci.io.", "anysub.ciliumandmore.io."},
 		},
 		{
 			pattern: "*cilium.io.",
 			accept:  []string{"anysub.cilium.io.", "cilium.io."},
-			reject:  []string{"anysub.ci.io.", "anysub.ciliumandmore.io."},
+			reject:  []string{"", "anysub.ci.io.", "anysub.ciliumandmore.io."},
 		},
 		{
 			pattern: "*.ci*.io.",
 			accept:  []string{"anysub.cilium.io.", "anysub.ci.io.", "anysub.ciliumandmore.io."},
-			reject:  []string{"cilium.io."},
+			reject:  []string{"", "cilium.io."},
+		},
+		{
+			pattern: "*",
+			accept:  []string{"io.", "cilium.io.", "svc.cluster.local.", "service.namesace.svc.cluster.local."},
+			reject:  []string{"", ".", ".io.", ".cilium.io.", ".svc.cluster.local.", "cilium.io"}, // note no final . on this last one
 		},
 	} {
 		reStr := ToRegexp(testCase.pattern)
