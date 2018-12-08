@@ -249,3 +249,38 @@ func (s *StoreSuite) TestStoreCollaboration(c *C) {
 		return len(keys1) == totalKeys && len(keys1) == len(keys2)
 	}), IsNil)
 }
+
+type updateTest struct {
+	Items map[string]string
+}
+
+func (u *updateTest) GetKeyName() string       { return "" }
+func (s *updateTest) Marshal() ([]byte, error) { return json.Marshal(s) }
+func (s *updateTest) Unmarshal(data []byte) error {
+	// FIXME: This demonstrates the need to re-initialize. A better
+	// long-term fix should be found. See. GH-6422
+	*s = updateTest{}
+	return json.Unmarshal(data, s)
+}
+
+func (s *StoreSuite) TestUpdateKey(c *C) {
+	store := &SharedStore{
+		conf: Configuration{
+			KeyCreator: func() Key { return &updateTest{} },
+		},
+		localKeys:  map[string]LocalKey{},
+		sharedKeys: map[string]Key{},
+	}
+
+	v1 := &updateTest{Items: map[string]string{"foo": "bar"}}
+	json, err := v1.Marshal()
+	c.Assert(err, IsNil)
+	store.updateKey("foo", json)
+	c.Assert(store.sharedKeys["foo"], DeepEquals, v1)
+
+	v2 := &updateTest{Items: map[string]string{}}
+	json, err = v2.Marshal()
+	c.Assert(err, IsNil)
+	store.updateKey("foo", json)
+	c.Assert(store.sharedKeys["foo"], DeepEquals, v2)
+}
