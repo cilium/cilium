@@ -69,23 +69,10 @@ var clusterConf = &clusterConfiguation{
 	auxPrefixes: []*net.IPNet{},
 }
 
-func (cc *clusterConfiguation) getNode(ni Identity) *Node {
-	cc.RLock()
-	n := cc.nodes[ni]
-	cc.RUnlock()
-	return n
-}
-
 func (cc *clusterConfiguation) addAuxPrefix(prefix *net.IPNet) {
 	cc.Lock()
 	cc.auxPrefixes = append(cc.auxPrefixes, prefix)
 	cc.Unlock()
-}
-
-// GetNode returns the node with the given identity, if exists, from the nodes
-// map.
-func GetNode(ni Identity) *Node {
-	return clusterConf.getNode(ni)
 }
 
 func deleteTunnelMapping(ip *net.IPNet) {
