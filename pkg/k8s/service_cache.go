@@ -438,9 +438,11 @@ func (s *ServiceCache) correlateEndpoints(id ServiceID) (*Endpoints, bool) {
 // and are correlated on demand with local services via correlateEndpoints().
 func (s *ServiceCache) MergeExternalServiceUpdate(service *service.ClusterService) {
 	id := ServiceID{Name: service.Name, Namespace: service.Namespace}
+	scopedLog := log.WithFields(logrus.Fields{logfields.ServiceName: service.String()})
 
 	// Ignore updates of own cluster
 	if service.Cluster == option.Config.ClusterName {
+		scopedLog.Debug("Not merging external service. Own cluster")
 		return
 	}
 
@@ -453,6 +455,7 @@ func (s *ServiceCache) MergeExternalServiceUpdate(service *service.ClusterServic
 		s.externalEndpoints[id] = externalEndpoints
 	}
 
+	scopedLog.Debugf("Updating backends to %+v", service.Backends)
 	externalEndpoints.endpoints[service.Cluster] = &Endpoints{
 		Backends: service.Backends,
 	}
@@ -479,10 +482,12 @@ func (s *ServiceCache) MergeExternalServiceUpdate(service *service.ClusterServic
 // stored as external endpoints and are correlated on demand with local
 // services via correlateEndpoints().
 func (s *ServiceCache) MergeExternalServiceDelete(service *service.ClusterService) {
+	scopedLog := log.WithFields(logrus.Fields{logfields.ServiceName: service.String()})
 	id := ServiceID{Name: service.Name, Namespace: service.Namespace}
 
 	// Ignore updates of own cluster
 	if service.Cluster == option.Config.ClusterName {
+		scopedLog.Debug("Not merging external service. Own cluster")
 		return
 	}
 
@@ -491,6 +496,7 @@ func (s *ServiceCache) MergeExternalServiceDelete(service *service.ClusterServic
 
 	externalEndpoints, ok := s.externalEndpoints[id]
 	if ok {
+		scopedLog.Debug("Deleting external endpoints")
 
 		delete(externalEndpoints.endpoints, service.Cluster)
 
@@ -515,6 +521,8 @@ func (s *ServiceCache) MergeExternalServiceDelete(service *service.ClusterServic
 
 			s.Events <- event
 		}
+	} else {
+		scopedLog.Debug("Received delete event for non-existing endpoints")
 	}
 }
 

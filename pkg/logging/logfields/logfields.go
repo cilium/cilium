@@ -159,6 +159,9 @@ const (
 	// ServiceName is the orchestration framework name for a service
 	ServiceName = "serviceName"
 
+	// ClusterName is the name of the cluster
+	ClusterName = "clusterName"
+
 	// ServiceID is the orchestration unique ID of a service
 	ServiceID = "serviceID"
 
