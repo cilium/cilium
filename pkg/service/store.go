@@ -103,7 +103,15 @@ func (s *ClusterService) Marshal() ([]byte, error) {
 
 // Unmarshal parses the JSON byte slice and updates the global service receiver
 func (s *ClusterService) Unmarshal(data []byte) error {
-	return json.Unmarshal(data, s)
+	newService := NewClusterService("", "")
+
+	if err := json.Unmarshal(data, &newService); err != nil {
+		return err
+	}
+
+	*s = newService
+
+	return nil
 }
 
 // NewClusterService returns a new cluster service definition
