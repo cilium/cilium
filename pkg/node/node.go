@@ -309,5 +309,20 @@ func (n *Node) Marshal() ([]byte, error) {
 
 // Unmarshal parses the JSON byte slice and updates the node receiver
 func (n *Node) Unmarshal(data []byte) error {
-	return json.Unmarshal(data, n)
+	// Backup private fields
+	cluster := n.cluster
+	dev := n.dev
+
+	newNode := Node{}
+	if err := json.Unmarshal(data, &newNode); err != nil {
+		return err
+	}
+
+	*n = newNode
+
+	// Restore private fields
+	n.cluster = cluster
+	n.dev = dev
+
+	return nil
 }
