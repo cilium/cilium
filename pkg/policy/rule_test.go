@@ -162,24 +162,30 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 
 	expected := NewL4Policy()
 	expected.Ingress["80/TCP"] = L4Filter{
-		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6, Endpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
-		L7Parser: "http", L7RulesPerEp: l7map, Ingress: true,
+		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
+		allowsAllAtL3: true,
+		Endpoints:     api.EndpointSelectorSlice{api.WildcardEndpointSelector},
+		L7Parser:      "http", L7RulesPerEp: l7map, Ingress: true,
 		DerivedFromRules: labels.LabelArrayList{nil},
 	}
 	expected.Ingress["8080/TCP"] = L4Filter{
-		Port: 8080, Protocol: api.ProtoTCP, U8Proto: 6, Endpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
-		L7Parser: "http", L7RulesPerEp: l7map, Ingress: true,
+		Port: 8080, Protocol: api.ProtoTCP, U8Proto: 6,
+		allowsAllAtL3: true,
+		Endpoints:     api.EndpointSelectorSlice{api.WildcardEndpointSelector},
+		L7Parser:      "http", L7RulesPerEp: l7map, Ingress: true,
 		DerivedFromRules: labels.LabelArrayList{nil},
 	}
 
 	expected.Egress["3000/TCP"] = L4Filter{
 		Port: 3000, Protocol: api.ProtoTCP, U8Proto: 6, Ingress: false,
+		allowsAllAtL3:    true,
 		Endpoints:        api.EndpointSelectorSlice{api.WildcardEndpointSelector},
 		L7RulesPerEp:     L7DataMap{},
 		DerivedFromRules: labels.LabelArrayList{nil},
 	}
 	expected.Egress["3000/UDP"] = L4Filter{
 		Port: 3000, Protocol: api.ProtoUDP, U8Proto: 17, Ingress: false,
+		allowsAllAtL3:    true,
 		Endpoints:        api.EndpointSelectorSlice{api.WildcardEndpointSelector},
 		L7RulesPerEp:     L7DataMap{},
 		DerivedFromRules: labels.LabelArrayList{nil},
@@ -260,11 +266,12 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 
 	expected = NewL4Policy()
 	expected.Ingress["80/TCP"] = L4Filter{
-		Port:      80,
-		Protocol:  api.ProtoTCP,
-		U8Proto:   6,
-		Endpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
-		L7Parser:  ParserTypeHTTP,
+		Port:          80,
+		Protocol:      api.ProtoTCP,
+		U8Proto:       6,
+		allowsAllAtL3: true,
+		Endpoints:     api.EndpointSelectorSlice{api.WildcardEndpointSelector},
+		L7Parser:      ParserTypeHTTP,
 		L7RulesPerEp: L7DataMap{
 			api.WildcardEndpointSelector: api.L7Rules{
 				HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
@@ -275,12 +282,14 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	}
 	expected.Egress["3000/TCP"] = L4Filter{
 		Port: 3000, Protocol: api.ProtoTCP, U8Proto: 6, Ingress: false,
+		allowsAllAtL3:    true,
 		Endpoints:        api.EndpointSelectorSlice{api.WildcardEndpointSelector},
 		L7RulesPerEp:     L7DataMap{},
 		DerivedFromRules: labels.LabelArrayList{nil},
 	}
 	expected.Egress["3000/UDP"] = L4Filter{
 		Port: 3000, Protocol: api.ProtoUDP, U8Proto: 17, Ingress: false,
+		allowsAllAtL3:    true,
 		Endpoints:        api.EndpointSelectorSlice{api.WildcardEndpointSelector},
 		L7RulesPerEp:     L7DataMap{},
 		DerivedFromRules: labels.LabelArrayList{nil},
@@ -476,11 +485,12 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 
 	expected := NewL4Policy()
 	expected.Ingress["80/TCP"] = L4Filter{
-		Port:      80,
-		Protocol:  api.ProtoTCP,
-		U8Proto:   6,
-		Endpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
-		L7Parser:  ParserTypeHTTP,
+		Port:          80,
+		Protocol:      api.ProtoTCP,
+		U8Proto:       6,
+		allowsAllAtL3: true,
+		Endpoints:     api.EndpointSelectorSlice{api.WildcardEndpointSelector},
+		L7Parser:      ParserTypeHTTP,
 		L7RulesPerEp: L7DataMap{
 			api.WildcardEndpointSelector: api.L7Rules{
 				HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
@@ -551,8 +561,10 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 
 	expected = NewL4Policy()
 	expected.Ingress["80/TCP"] = L4Filter{
-		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6, Endpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
-		L7Parser: "kafka", L7RulesPerEp: l7map, Ingress: true,
+		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
+		allowsAllAtL3: true,
+		Endpoints:     api.EndpointSelectorSlice{api.WildcardEndpointSelector},
+		L7Parser:      "kafka", L7RulesPerEp: l7map, Ingress: true,
 		DerivedFromRules: labels.LabelArrayList{nil, nil},
 	}
 
@@ -633,8 +645,10 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 	expected = NewL4Policy()
 
 	expected.Ingress["80/TCP"] = L4Filter{
-		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6, Endpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
-		L7Parser: "kafka", L7RulesPerEp: l7map, Ingress: true,
+		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
+		allowsAllAtL3: true,
+		Endpoints:     api.EndpointSelectorSlice{api.WildcardEndpointSelector},
+		L7Parser:      "kafka", L7RulesPerEp: l7map, Ingress: true,
 		DerivedFromRules: labels.LabelArrayList{nil, nil},
 	}
 
@@ -697,8 +711,10 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 
 	expected := NewL4Policy()
 	expected.Egress["80/TCP"] = L4Filter{
-		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6, Endpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
-		L7Parser: ParserTypeHTTP,
+		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
+		allowsAllAtL3: true,
+		Endpoints:     []api.EndpointSelector{api.WildcardEndpointSelector},
+		L7Parser:      ParserTypeHTTP,
 		L7RulesPerEp: L7DataMap{
 			api.WildcardEndpointSelector: api.L7Rules{
 				HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
@@ -768,8 +784,10 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 
 	expected = NewL4Policy()
 	expected.Egress["80/TCP"] = L4Filter{
-		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6, Endpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
-		L7Parser: ParserTypeKafka,
+		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
+		allowsAllAtL3: true,
+		Endpoints:     api.EndpointSelectorSlice{api.WildcardEndpointSelector},
+		L7Parser:      ParserTypeKafka,
 		L7RulesPerEp: L7DataMap{
 			api.WildcardEndpointSelector: api.L7Rules{
 				Kafka: []api.PortRuleKafka{{Topic: "foo"}},
@@ -851,8 +869,10 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 	}
 	expected = NewL4Policy()
 	expected.Egress["80/TCP"] = L4Filter{
-		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6, Endpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
-		L7Parser: "kafka", L7RulesPerEp: l7map, Ingress: false,
+		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
+		allowsAllAtL3: true,
+		Endpoints:     api.EndpointSelectorSlice{api.WildcardEndpointSelector},
+		L7Parser:      "kafka", L7RulesPerEp: l7map, Ingress: false,
 		DerivedFromRules: labels.LabelArrayList{nil, nil},
 	}
 
