@@ -20,7 +20,6 @@ import (
 
 	health "github.com/cilium/cilium/cilium-health/launch"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -72,7 +71,6 @@ func (d *Daemon) initHealth() {
 		pidfile.Remove(filepath.Join(option.Config.StateDir, health.PidfilePath))
 
 		// Inject K8s dependency into packages which need to annotate K8s resources.
-		endpoint.EpAnnotator = k8s.Client()
 		health.NodeEpAnnotator = k8s.Client()
 	}
 	controller.NewManager().UpdateController("cilium-health-ep",
