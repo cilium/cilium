@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/maps"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
@@ -1112,6 +1113,11 @@ func runDaemon() {
 		log.WithError(err).Fatal("Error while enabling workload event watcher")
 	} else {
 		d.workloadsEventsCh = eventsCh
+	}
+
+	if k8s.IsEnabled() {
+		// Inject K8s dependency into packages which need to annotate K8s resources.
+		endpoint.EpAnnotator = k8s.Client()
 	}
 
 	// Currently, cilium-health cannot run in ipvlan mode as it tries to connect
