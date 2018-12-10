@@ -83,6 +83,7 @@ start-kvstores:
 	rm -rf /tmp/cilium-consul-certs
 	mkdir /tmp/cilium-consul-certs
 	cp $(CURDIR)/test/consul/* /tmp/cilium-consul-certs
+	chmod -R a+rX /tmp/cilium-consul-certs
 	$(DOCKER) run -d \
 		--name "cilium-consul-test-container" \
 		-p 8501:8443 \
