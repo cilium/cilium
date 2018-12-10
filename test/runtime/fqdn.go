@@ -106,6 +106,9 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		bindDBOutside    = "db.outside.test"
 		bindNamedConf    = "named.conf.local"
 		bindNamedOptions = "named.conf.options"
+
+		world1Target = "http://world1.cilium.test"
+		world2Target = "http://world2.cilium.test"
 	)
 
 	var (
@@ -324,9 +327,8 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		}
 
 		By("Allowing egress to IPs of specified ToFQDN DNS names")
-		allowedTarget := "world1.cilium.test"
-		res := vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode(allowedTarget))
-		res.ExpectSuccess("Cannot access to world1.cilium.test")
+		res := vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode(world1Target))
+		res.ExpectSuccess("Cannot access to allowed DNS name %q", world1Target)
 	})
 
 	It("Interaction with other ToCIDR rules", func() {
@@ -371,8 +373,8 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		expectFQDNSareApplied()
 
 		By("Testing connectivity to Cilium.test domain")
-		res := vm.ContainerExec(helpers.App1, helpers.CurlFail("http://world1.cilium.test"))
-		res.ExpectSuccess("Cannot access to world1.cilium.test")
+		res := vm.ContainerExec(helpers.App1, helpers.CurlFail(world1Target))
+		res.ExpectSuccess("Cannot access toCIDRSet allowed IP of DNS name %q", world1Target)
 
 		By("Testing connectivity to existing CIDR rule")
 		res = vm.ContainerExec(helpers.App1, helpers.CurlFail(outsideIps[WorldHttpd1]))
@@ -481,13 +483,11 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		expectFQDNSareApplied()
 
 		By("Allowing egress to IPs of only the specified DNS names")
-		blockedTarget := "world2.cilium.test"
-		res := vm.ContainerExec(helpers.App1, helpers.CurlFail(blockedTarget))
-		res.ExpectFail("Curl succeeded against blocked DNS name " + blockedTarget)
+		res := vm.ContainerExec(helpers.App1, helpers.CurlFail(world2Target))
+		res.ExpectFail("Curl succeeded against blocked DNS name %q", world2Target)
 
-		allowedTarget := "world1.cilium.test"
-		res = vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode(allowedTarget))
-		res.ExpectSuccess("Cannot access  " + allowedTarget)
+		res = vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode(world1Target))
+		res.ExpectSuccess("Cannot access  %q", world1Target)
 
 		By("Updating policy with L7 DNS rules")
 		fqdnPolicy = `
@@ -525,9 +525,8 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		expectFQDNSareApplied()
 
 		By("Allowing egress to IPs of the new DNS name")
-		allowedTarget = "world2.cilium.test"
-		res = vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode(allowedTarget))
-		res.ExpectSuccess("Cannot access  " + allowedTarget)
+		res = vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode(world2Target))
+		res.ExpectSuccess("Cannot access  %q", world2Target)
 	})
 
 	It("CNAME follow", func() {
@@ -705,6 +704,78 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 			res := vm.ContainerExec(helpers.App1, helpers.CurlFail(blockedTarget))
 			res.ExpectFail("Curl to %s succeeded when in allow-all DNS but limited toFQDNs", blockedTarget)
 		}
+	})
+
+	Context("toFQDNs populates toCIDRSet when poller is disabled (data from proxy)", func() {
+		var config = `
+PATH=/usr/lib/llvm-3.8/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
+CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug --pprof=true --log-system-load --tofqdns-enable-poller=false
+INITSYSTEM=SYSTEMD`
+		BeforeAll(func() {
+			vm.SetUpCiliumWithOptions(config)
+
+			ExpectCiliumReady(vm)
+			areEndpointsReady := vm.WaitEndpointsReady()
+			Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+		})
+
+		AfterAll(func() {
+			vm.SetUpCilium()
+			_ = vm.WaitEndpointsReady() // Don't assert because don't want to block all AfterAll.
+		})
+
+		It("Policy addition after DNS lookup", func() {
+			policy := `
+[
+       {
+               "labels": [{
+                       "key": "Policy addition after DNS lookup"
+               }],
+               "endpointSelector": {
+                       "matchLabels": {
+                               "container:id.app1": ""
+                       }
+               },
+               "egress": [
+                       {
+                               "toPorts": [{
+                                       "ports":[{"port": "53", "protocol": "ANY"}],
+                                       "rules": {
+                                               "dns": [
+                                                       {"matchName": "world1.cilium.test"},
+                                                       {"matchPattern": "*.cilium.test"}
+                                               ]
+                                       }
+                               }]
+                       },
+                       {
+                               "toFQDNs": [
+                                       {"matchName": "world1.cilium.test"},
+                                       {"matchPattern": "*.cilium.test"}
+                               ]
+                       }
+               ]
+       }
+]`
+
+			By("Testing connectivity to %q", world1Target)
+			res := vm.ContainerExec(helpers.App1, helpers.CurlFail(world1Target))
+			res.ExpectSuccess("Cannot access %q", world1Target)
+
+			By("Importing the policy")
+			_, err := vm.PolicyRenderAndImport(policy)
+			Expect(err).To(BeNil(), "Policy cannot be imported")
+
+			By("Trying curl connection to %q without DNS request", world1Target)
+			// The --resolve below suppresses further lookups
+			curlCmd := helpers.CurlFail(fmt.Sprintf("--resolve %s:%s", world1Target, worldIps[WorldHttpd1]))
+			res = vm.ContainerExec(helpers.App1, curlCmd)
+			res.ExpectFail("Can access to %q when should not (No DNS request to allow the IP)", world1Target)
+
+			By("Testing connectivity to %q", world1Target)
+			res = vm.ContainerExec(helpers.App1, helpers.CurlFail(world1Target))
+			res.ExpectSuccess("Cannot access to %q when it should work", world1Target)
+		})
 	})
 
 })
