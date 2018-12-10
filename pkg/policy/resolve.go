@@ -109,3 +109,16 @@ func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(identityCache cache.
 		}
 	}
 }
+
+// Realizes copies the fields from desired into p. It assumes that the fields in
+// desired are not modified after this function is called.
+func (p *EndpointPolicy) Realizes(desired *EndpointPolicy) {
+	if p == nil {
+		p = &EndpointPolicy{}
+	}
+
+	p.IngressPolicyEnabled = desired.IngressPolicyEnabled
+	p.EgressPolicyEnabled = desired.EgressPolicyEnabled
+	p.L4Policy = desired.L4Policy
+	p.CIDRPolicy = desired.CIDRPolicy
+}
