@@ -41,6 +41,7 @@ func mergeL4Port(ctx *SearchContext, endpoints []api.EndpointSelector, existingF
 	// can now simply select all endpoints.
 	if existingFilter.AllowsAllAtL3() || filterToMerge.AllowsAllAtL3() {
 		existingFilter.Endpoints = api.EndpointSelectorSlice{api.WildcardEndpointSelector}
+		existingFilter.allowsAllAtL3 = true
 	} else {
 		// Case 2: no wildcard endpoint selectors in existing filter or in filter
 		// to merge, so just append endpoints.
