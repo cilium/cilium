@@ -893,7 +893,12 @@ func (s *SSHMeta) SetUpCilium() error {
 PATH=/usr/lib/llvm-3.8/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
 CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug --pprof=true --log-system-load --tofqdns-enable-poller=true
 INITSYSTEM=SYSTEMD`
+	return s.SetUpCiliumWithOptions(template)
+}
 
+// SetUpCiliumWithOptions sets up Cilium as a systemd service with a given set of options. It
+// returns an error if any of the operations needed to start Cilium fail.
+func (s *SSHMeta) SetUpCiliumWithOptions(template string) error {
 	err := RenderTemplateToFile("cilium", template, os.ModePerm)
 	if err != nil {
 		return err
