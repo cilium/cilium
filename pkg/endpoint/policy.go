@@ -121,9 +121,7 @@ func (e *Endpoint) updateNetworkPolicy(owner Owner, proxyWaitGroup *completion.W
 
 	// Publish the updated policy to L7 proxies.
 	var desiredL4Policy *policy.L4Policy
-	if e.desiredPolicy == nil {
-		desiredL4Policy = &policy.L4Policy{}
-	} else {
+	if e.desiredPolicy != nil {
 		desiredL4Policy = e.desiredPolicy.L4Policy
 	}
 	return owner.UpdateNetworkPolicy(e, desiredL4Policy, *e.prevIdentityCache, deniedIngressIdentities, deniedEgressIdentities, proxyWaitGroup)
