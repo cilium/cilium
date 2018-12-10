@@ -51,6 +51,27 @@ func (s *NodeSuite) TestMaskCheck(c *C) {
 	c.Assert(IsHostIPv6(GetIPv6()), Equals, true)
 }
 
+func (s *NodeSuite) TestHostIPCollision(c *C) {
+	InitDefaultPrefix("")
+	SetIPv4ClusterCidrMaskSize(8)
+
+	_, cidr, _ := net.ParseCIDR("127.0.0.1/8")
+	SetIPv4AllocRange(cidr)
+	SetInternalIPv4(cidr.IP)
+
+	// Must fail, as lo contains 127.0.0.1
+	c.Assert(ValidatePostInit(), Not(IsNil))
+
+	_, cidr, _ = net.ParseCIDR("1.1.1.1/8")
+
+	SetIPv4AllocRange(cidr)
+	SetInternalIPv4(cidr.IP)
+
+	// OK, 127.0.0.1 removed
+	c.Assert(ValidatePostInit(), IsNil)
+
+}
+
 func (s *NodeSuite) Test_getCiliumHostIPsFromFile(c *C) {
 	tmpDir := c.MkDir()
 	allIPsCorrect := filepath.Join(tmpDir, "node_config.h")
