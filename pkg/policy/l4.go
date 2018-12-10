@@ -97,6 +97,11 @@ type L4Filter struct {
 	Protocol api.L4Proto `json:"protocol"`
 	// U8Proto is the Protocol in numeric format, or 0 for NONE
 	U8Proto u8proto.U8proto `json:"-"`
+	// allowsAllAtL3 indicates whether this filter allows all traffic at L3.
+	// This can be determined by checking whether Endpoints contains
+	// api.WildcardEndpointSelector, but caching this information instead is
+	// much more performant.
+	allowsAllAtL3 bool
 	// Endpoints limits the labels for allowing traffic (to / from).
 	// This includes selectors for destinations affected by entity-based
 	// and CIDR-based policy.
@@ -114,7 +119,7 @@ type L4Filter struct {
 
 // AllowsAllAtL3 returns whether this L4Filter applies to all endpoints at L3.
 func (l4 *L4Filter) AllowsAllAtL3() bool {
-	return l4.Endpoints.SelectsAllEndpoints()
+	return l4.allowsAllAtL3
 }
 
 // ToKeys converts filter into a list of Keys.
@@ -196,8 +201,10 @@ func CreateL4Filter(peerEndpoints api.EndpointSelectorSlice, rule api.PortRule, 
 	u8p, _ := u8proto.ParseProtocol(string(protocol))
 
 	filterEndpoints := peerEndpoints
+	allowsAllL3 := false
 	if peerEndpoints.SelectsAllEndpoints() {
 		filterEndpoints = api.EndpointSelectorSlice{api.WildcardEndpointSelector}
+		allowsAllL3 = true
 	}
 
 	l4 := L4Filter{
@@ -205,6 +212,7 @@ func CreateL4Filter(peerEndpoints api.EndpointSelectorSlice, rule api.PortRule, 
 		Protocol:         protocol,
 		U8Proto:          u8p,
 		L7RulesPerEp:     make(L7DataMap),
+		allowsAllAtL3:    allowsAllL3,
 		Endpoints:        filterEndpoints,
 		DerivedFromRules: labels.LabelArrayList{ruleLabels},
 		Ingress:          ingress,
