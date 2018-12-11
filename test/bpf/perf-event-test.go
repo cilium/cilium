@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -41,6 +41,10 @@ func lostEvent(lost *bpf.PerfEventLost, cpu int) {
 	fmt.Printf("Lost %d\n", lost.Lost)
 }
 
+func errEvent(err *bpf.PerfEvent) {
+	fmt.Printf("Error\n")
+}
+
 var RootCmd = &cobra.Command{
 	Use:   "perf-event-test",
 	Short: "Test utility for perf events",
@@ -56,7 +60,7 @@ var RootCmd = &cobra.Command{
 				panic(err)
 			}
 			if todo > 0 {
-				events.ReadAll(receiveEvent, lostEvent)
+				events.ReadAll(receiveEvent, lostEvent, errEvent)
 			}
 		}
 
