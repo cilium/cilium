@@ -196,8 +196,8 @@ spec:
               key: ct-global-max-entries-other
               name: cilium-config
               optional: true
-        image: docker.io/cilium/cilium:latest
-        imagePullPolicy: Always
+        image: docker.io/cilium/cilium:v1.4.0-rc1
+        imagePullPolicy: IfNotPresent
         lifecycle:
           postStart:
             exec:
@@ -655,8 +655,8 @@ spec:
               key: AWS_DEFAULT_REGION
               name: cilium-aws
               optional: true
-        image: docker.io/cilium/operator:latest
-        imagePullPolicy: Always
+        image: docker.io/cilium/operator:v1.4.0-rc1
+        imagePullPolicy: IfNotPresent
         name: cilium-operator
         volumeMounts:
         - mountPath: /var/lib/etcd-config

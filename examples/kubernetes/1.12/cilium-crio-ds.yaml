@@ -115,8 +115,8 @@ spec:
               key: ct-global-max-entries-other
               name: cilium-config
               optional: true
-        image: docker.io/cilium/cilium:latest
-        imagePullPolicy: Always
+        image: docker.io/cilium/cilium:v1.4.0-rc1
+        imagePullPolicy: IfNotPresent
         lifecycle:
           postStart:
             exec:

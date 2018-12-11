@@ -116,7 +116,7 @@ spec:
               name: cilium-config
               optional: true
         image: docker.io/cilium/cilium:__CILIUM_VERSION__
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         lifecycle:
           postStart:
             exec:
