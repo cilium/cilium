@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -108,7 +108,7 @@ const (
 // When mapType is the type HASH_OF_MAPS an innerID is required to point at a
 // map fd which has the same type/keySize/valueSize/maxEntries as expected map
 // entries. For all other mapTypes innerID is ignored and should be zeroed.
-func CreateMap(mapType int, keySize, valueSize, maxEntries, flags, innerID uint32) (int, error) {
+func CreateMap(mapType int, keySize, valueSize, maxEntries, flags, innerID uint32, path string) (int, error) {
 	// This struct must be in sync with union bpf_attr's anonymous struct
 	// used by the BPF_MAP_CREATE command
 	uba := struct {
@@ -135,7 +135,11 @@ func CreateMap(mapType int, keySize, valueSize, maxEntries, flags, innerID uint3
 	)
 
 	if err != 0 {
-		return 0, fmt.Errorf("Unable to create map: %s", err)
+		return 0, &os.PathError{
+			Op:   "Unable to create map",
+			Path: path,
+			Err:  err,
+		}
 	}
 	return int(ret), nil
 }
@@ -294,7 +298,11 @@ func ObjGet(pathname string) (int, error) {
 	)
 
 	if fd == 0 || err != 0 {
-		return 0, fmt.Errorf("Unable to get object %s: %s", pathname, err)
+		return 0, &os.PathError{
+			Op:   "Unable to get object",
+			Err:  err,
+			Path: pathname,
+		}
 	}
 
 	return int(fd), nil
@@ -397,7 +405,11 @@ recreate:
 		mapDir := filepath.Dir(path)
 		if _, err = os.Stat(mapDir); os.IsNotExist(err) {
 			if err = os.MkdirAll(mapDir, 0755); err != nil {
-				return 0, isNewMap, fmt.Errorf("Unable create map base directory: %s", err)
+				return 0, isNewMap, &os.PathError{
+					Op:   "Unable create map base directory",
+					Path: path,
+					Err:  err,
+				}
 			}
 		}
 
@@ -408,6 +420,7 @@ recreate:
 			maxEntries,
 			flags,
 			innerID,
+			path,
 		)
 
 		defer func() {
