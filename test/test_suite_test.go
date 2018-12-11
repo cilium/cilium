@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -85,7 +85,7 @@ func ShowCommands() {
 func TestTest(t *testing.T) {
 	if config.CiliumTestConfig.TestScope != "" {
 		helpers.UserDefinedScope = config.CiliumTestConfig.TestScope
-		fmt.Printf("User specified the scope:  %q", config.CiliumTestConfig.TestScope)
+		fmt.Printf("User specified the scope:  %q\n", config.CiliumTestConfig.TestScope)
 	}
 
 	configLogsOutput()
