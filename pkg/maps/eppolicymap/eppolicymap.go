@@ -72,7 +72,7 @@ func CreateEPPolicyMap() {
 			uint32(unsafe.Sizeof(policymap.PolicyKey{})),
 			uint32(unsafe.Sizeof(policymap.PolicyEntry{})),
 			policymap.MaxEntries,
-			0, 0)
+			0, 0, "ep-policy-inner-map")
 
 		if err != nil {
 			log.WithError(err).Warning("unable to create EP to policy map")
