@@ -1,0 +1,1 @@
+./config --prefix=/usr/local/ssl --openssldir=/usr/local/ssl/ enable-ktls

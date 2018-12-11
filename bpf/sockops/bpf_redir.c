@@ -58,6 +58,7 @@ int bpf_redir_proxy(struct sk_msg_md *msg)
 	struct sock_key zero  = {};
 
 	sk_msg_extract4_key(msg, &key);
+	bpf_printk("redir proxy size %i\n", msg->size);
 
 	if (key.dport == SFD_PORT) {
 		void *data, *data_end;

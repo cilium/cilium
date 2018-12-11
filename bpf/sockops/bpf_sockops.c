@@ -51,7 +51,7 @@ static inline void bpf_sock_ops_ipv4(struct bpf_sock_ops *skops)
 	struct lb4_key lb4_key = {};
 	struct sock_key key = {};
 	struct lb4_service *svc;
-	int verdict;//, zero = 0;
+	int err, verdict;//, zero = 0;
 
 	sk_extract4_key(skops, &key);
 	sk_lb4_key(&lb4_key, &key);
@@ -108,15 +108,20 @@ static inline void bpf_sock_ops_ipv4(struct bpf_sock_ops *skops)
 	key.sport = dport;
 	key.size = 0;
 
+#if 0
+	if (sport != SFD_PORT)
+		err = sock_hash_update(skops, &SOCK_OPS_MAP, &key, BPF_ANY);
+#endif
+	if (dport == SFD_PORT)
+		err = sock_hash_update(skops, &SOCK_OPS_MAP, &key, BPF_ANY);
+
 	/* kTLS proxy port is matched by compile time server port */
 	if (dport == SFD_PORT || sport == SFD_PORT) {
 		bpf_printk("sockops key: %d %d %d\n", key.sport, key.dport, key.family);
 		bpf_printk("sockops pad: %d %d\n", key.pad7, key.pad8);
 		bpf_printk("sockops key: %d %d\n", key.sip4, key.dip4);
+		bpf_printk("sockops err: %d\n", err);
 	}
-
-	if (sport != SFD_PORT)
-		sock_hash_update(skops, &SOCK_OPS_MAP, &key, BPF_ANY);
 }
 
 static inline void bpf_sock_ops_ipv6(struct bpf_sock_ops *skops)
@@ -134,6 +139,7 @@ int bpf_sockmap(struct bpf_sock_ops *skops)
 	op = skops->op;
 
 	switch (op) {
+	case BPF_SOCK_OPS_TCP_CONNECT_CB:
 	case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
 	case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
 		if (family == AF_INET6)

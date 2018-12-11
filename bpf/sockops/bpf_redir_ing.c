@@ -65,8 +65,7 @@ int bpf_prog2(struct __sk_buff *skb)
 		return SK_PASS;
 	}
 
-	if (key.dport != SFD_PORT) {// && key.sport != SFD_PORT ) {
-		bpf_printk("ing drop: sport %u dport %u len %u\n", key.sport, key.dport);
+	if (key.dport != SFD_PORT && key.sport != SFD_PORT ) {
 		return SK_PASS;
 	}
 
@@ -96,7 +95,7 @@ int bpf_prog2(struct __sk_buff *skb)
 	bpf_printk("sk_skb pad: %d %d %d\n", key.pad1, key.pad2, key.pad3);
 	bpf_printk("sk_skb pad: %d %d %d\n", key.pad4, key.pad5, key.pad6);
 	bpf_printk("sk_skb pad: %d %d\n", key.pad7, key.pad8);
-	bpf_printk("sk_skb length: %d\n", key.size);
+	bpf_printk("sk_skb length: %d\n", pkey->size);
 	err =  sk_redirect_map(skb, &SOCK_OPS_KTLS_UP, 0, flags);
 	bpf_printk("sk_skb data pushed: %i\n", err);
 	return SK_PASS;
