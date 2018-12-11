@@ -75,3 +75,28 @@ func (s *BPFTestSuite) TestGetMapInfo(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(&testMap.MapInfo, checker.DeepEquals, mi)
 }
+
+func (s *BPFTestSuite) TestOpen(c *C) {
+	// Ensure that os.IsNotExist() can be used with Map.Open()
+	noSuchMap := NewMap("cilium_test_no_exist",
+		MapTypeHash, 4, 4, maxEntries, 0, 0, nil)
+	err := noSuchMap.Open()
+	c.Assert(os.IsNotExist(err), Equals, true)
+	c.Assert(err, ErrorMatches, ".*cilium_test_no_exist.*")
+
+	// existingMap is the same as testMap. Opening should succeed.
+	existingMap := NewMap("cilium_test",
+		MapTypeHash,
+		4,
+		4,
+		maxEntries,
+		BPF_F_NO_PREALLOC,
+		0,
+		nil)
+	err = existingMap.Open()
+	c.Check(err, IsNil)      // Avoid assert to ensure Close() is called below.
+	err = existingMap.Open() // Reopen should be no-op.
+	c.Check(err, IsNil)
+	err = existingMap.Close()
+	c.Assert(err, IsNil)
+}
