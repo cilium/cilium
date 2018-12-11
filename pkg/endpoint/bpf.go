@@ -929,11 +929,13 @@ func (e *Endpoint) garbageCollectConntrack(filter *ctmap.GCFilter) {
 	}
 	for _, m := range maps {
 		if err := m.Open(); err != nil {
-			filepath, err2 := m.Path()
-			if err2 != nil {
-				log.WithError(err2).Warn("Unable to get CT map path")
+			// If the CT table doesn't exist, there's nothing to GC.
+			scopedLog := log.WithError(err).WithField(logfields.EndpointID, e.ID)
+			if os.IsNotExist(err) {
+				scopedLog.WithError(err).Debug("Skipping GC for endpoint")
+			} else {
+				scopedLog.WithError(err).Warn("Unable to open map")
 			}
-			log.WithError(err).WithField(logfields.Path, filepath).Warn("Unable to open map")
 			continue
 		}
 		defer m.Close()
