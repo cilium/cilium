@@ -16,6 +16,7 @@ package endpointmanager
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -52,9 +53,15 @@ func runGC(e *endpoint.Endpoint, ipv4, ipv6 bool, filter *ctmap.GCFilter) {
 			err = m.Open()
 		}
 		if err != nil {
-			log.WithError(err).WithField(logfields.Path, path).Warn("Unable to open map")
+			msg := "Skipping CT garbage collection"
+			scopedLog := log.WithError(err).WithField(logfields.Path, path)
+			if os.IsNotExist(err) {
+				scopedLog.Info(msg)
+			} else {
+				scopedLog.Warn(msg)
+			}
 			if e != nil {
-				e.LogStatus(endpoint.BPF, endpoint.Warning, fmt.Sprintf("Unable to open CT map %s: %s", path, err))
+				e.LogStatus(endpoint.BPF, endpoint.Warning, fmt.Sprintf("%s: %s", msg, err))
 			}
 			continue
 		}
