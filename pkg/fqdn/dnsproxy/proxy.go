@@ -341,22 +341,22 @@ func ExtractMsgDetails(msg *dns.Msg) (qname string, responseIPs []net.IP, TTL ui
 			return qname, nil, 0, nil, fmt.Errorf("Unexpected name (%s) in RRs for %s (query for %s)", ans, rrName, qname)
 		}
 
-		// Handle A, AAAA and CNAME records by accumulating IPs and TTLs
+		// Handle A, AAAA and CNAME records by accumulating IPs and lowest TTL
 		switch ans := ans.(type) {
 		case *dns.A:
 			responseIPs = append(responseIPs, ans.A)
-			if TTL < ans.Hdr.Ttl {
+			if TTL > ans.Hdr.Ttl {
 				TTL = ans.Hdr.Ttl
 			}
 		case *dns.AAAA:
 			responseIPs = append(responseIPs, ans.AAAA)
-			if TTL < ans.Hdr.Ttl {
+			if TTL > ans.Hdr.Ttl {
 				TTL = ans.Hdr.Ttl
 			}
 		case *dns.CNAME:
 			// We still track the TTL because the lowest TTL in the chain
 			// determines the valid caching time for the whole response.
-			if TTL < ans.Hdr.Ttl {
+			if TTL > ans.Hdr.Ttl {
 				TTL = ans.Hdr.Ttl
 			}
 			rrName = strings.ToLower(ans.Target)
