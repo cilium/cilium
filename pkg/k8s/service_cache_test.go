@@ -364,7 +364,7 @@ func (s *K8sSuite) Test_missingK8sEndpointsV1(c *check.C) {
 		args := tt.setupArgs()
 		want := tt.setupWanted()
 		got := args.svcCache.ListMissingEndpoints(args.m)
-		c.Assert(got, check.DeepEquals, want, check.Commentf("Test name: %q", tt.name))
+		c.Assert(got, checker.DeepEquals, want, check.Commentf("Test name: %q", tt.name))
 	}
 }
 
@@ -471,7 +471,7 @@ func (s *K8sSuite) Test_missingK8sServicesV1(c *check.C) {
 		args := tt.setupArgs()
 		want := tt.setupWanted()
 		got := args.svcCache.ListMissingServices(args.m)
-		c.Assert(got, check.DeepEquals, want, check.Commentf("Test name: %q", tt.name))
+		c.Assert(got, checker.DeepEquals, want, check.Commentf("Test name: %q", tt.name))
 	}
 }
 
@@ -593,7 +593,7 @@ func (s *K8sSuite) Test_missingK8sIngressV1Beta1(c *check.C) {
 		args := tt.setupArgs()
 		want := tt.setupWanted()
 		got := args.svcCache.ListMissingIngresses(args.m, hostIP)
-		c.Assert(got, check.DeepEquals, want, check.Commentf("Test name: %q", tt.name))
+		c.Assert(got, checker.DeepEquals, want, check.Commentf("Test name: %q", tt.name))
 	}
 }
 
