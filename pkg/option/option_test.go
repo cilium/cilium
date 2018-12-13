@@ -21,6 +21,8 @@ import (
 	"testing"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/checker"
+
 	. "gopkg.in/check.v1"
 )
 
@@ -305,7 +307,7 @@ func (s *OptionSuite) TestGetImmutableModel(c *C) {
 
 	cfg := o.GetImmutableModel()
 	c.Assert(cfg, NotNil)
-	c.Assert(cfg, DeepEquals, &models.ConfigurationMap{})
+	c.Assert(cfg, checker.DeepEquals, &models.ConfigurationMap{})
 }
 
 func (s *OptionSuite) TestGetMutableModel(c *C) {
@@ -338,7 +340,7 @@ func (s *OptionSuite) TestGetMutableModel(c *C) {
 
 	cfg := o.GetMutableModel()
 	c.Assert(cfg, NotNil)
-	c.Assert(cfg, DeepEquals, &models.ConfigurationMap{
+	c.Assert(cfg, checker.DeepEquals, &models.ConfigurationMap{
 		k1: "Enabled",
 		k2: "Disabled",
 		k3: "ok",
@@ -347,7 +349,7 @@ func (s *OptionSuite) TestGetMutableModel(c *C) {
 	o2 := IntOptions{}
 	cfg2 := o2.GetMutableModel()
 	c.Assert(cfg2, NotNil)
-	c.Assert(cfg2, DeepEquals, &models.ConfigurationMap{})
+	c.Assert(cfg2, checker.DeepEquals, &models.ConfigurationMap{})
 }
 
 func (s *OptionSuite) TestValidate(c *C) {
@@ -451,7 +453,7 @@ func (s *OptionSuite) TestApplyValidated(c *C) {
 	om, err := o.Library.ValidateConfigurationMap(cfg)
 	c.Assert(err, IsNil)
 	c.Assert(o.ApplyValidated(om, changed, &cfg), Equals, len(expectedChanges))
-	c.Assert(actualChanges, DeepEquals, expectedChanges)
+	c.Assert(actualChanges, checker.DeepEquals, expectedChanges)
 
 	expectedOpts := OptionMap{
 		k1: OptionDisabled,
