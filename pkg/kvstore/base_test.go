@@ -76,11 +76,11 @@ func (s *BaseTests) TestGetSet(c *C) {
 
 		val, err = Get(testKey(prefix, i))
 		c.Assert(err, IsNil)
-		c.Assert(val, DeepEquals, testValue(i))
+		c.Assert(val, checker.DeepEquals, testValue(i))
 
 		val, err = Get(testKey(prefix, i))
 		c.Assert(err, IsNil)
-		c.Assert(val, DeepEquals, testValue(i))
+		c.Assert(val, checker.DeepEquals, testValue(i))
 	}
 
 	for i := 0; i < maxID; i++ {
@@ -141,14 +141,14 @@ func (s *BaseTests) TestUpdate(c *C) {
 
 	val, err = Get(testKey(prefix, 0))
 	c.Assert(err, IsNil)
-	c.Assert(val, DeepEquals, testValue(0))
+	c.Assert(val, checker.DeepEquals, testValue(0))
 
 	// update
 	c.Assert(Update(testKey(prefix, 0), testValue(0), true), IsNil)
 
 	val, err = Get(testKey(prefix, 0))
 	c.Assert(err, IsNil)
-	c.Assert(val, DeepEquals, testValue(0))
+	c.Assert(val, checker.DeepEquals, testValue(0))
 }
 
 func (s *BaseTests) TestCreateOnly(c *C) {
@@ -165,13 +165,13 @@ func (s *BaseTests) TestCreateOnly(c *C) {
 
 	val, err = Get(testKey(prefix, 0))
 	c.Assert(err, IsNil)
-	c.Assert(val, DeepEquals, testValue(0))
+	c.Assert(val, checker.DeepEquals, testValue(0))
 
 	c.Assert(CreateOnly(testKey(prefix, 0), testValue(1), false), Not(IsNil))
 
 	val, err = Get(testKey(prefix, 0))
 	c.Assert(err, IsNil)
-	c.Assert(val, DeepEquals, testValue(0))
+	c.Assert(val, checker.DeepEquals, testValue(0))
 
 	// key 1 does not exist so CreateIfExists should fail
 	c.Assert(CreateIfExists(testKey(prefix, 1), testKey(prefix, 2), testValue(2), false), Not(IsNil))
@@ -185,7 +185,7 @@ func (s *BaseTests) TestCreateOnly(c *C) {
 
 	val, err = Get(testKey(prefix, 2))
 	c.Assert(err, IsNil)
-	c.Assert(val, DeepEquals, testValue(2))
+	c.Assert(val, checker.DeepEquals, testValue(2))
 }
 
 func drainEvents(w *Watcher) {
