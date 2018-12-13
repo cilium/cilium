@@ -673,10 +673,6 @@ func (e *Endpoint) runPreCompilationSteps(owner Owner, regenContext *regeneratio
 		close(datapathRegenCtxt.ctCleaned)
 	}
 
-	if e.realizedPolicy == nil {
-		e.realizedPolicy = &policy.EndpointPolicy{}
-	}
-
 	// If dry mode is enabled, no further changes to BPF maps are performed
 	if option.Config.DryMode {
 

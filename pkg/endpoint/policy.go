@@ -396,8 +396,14 @@ func (e *Endpoint) updateRealizedState(stats *regenerationStatistics, origDir st
 
 	e.realizedBPFConfig = e.desiredBPFConfig
 
-	// Set realized state to desired state fields.
-	e.realizedPolicy.Realizes(e.desiredPolicy)
+	if e.realizedPolicy == nil {
+		e.realizedPolicy = &policy.EndpointPolicy{}
+	}
+
+	e.realizedPolicy.IngressPolicyEnabled = e.desiredPolicy.IngressPolicyEnabled
+	e.realizedPolicy.EgressPolicyEnabled = e.desiredPolicy.EgressPolicyEnabled
+	e.realizedPolicy.L4Policy = e.desiredPolicy.L4Policy
+	e.realizedPolicy.CIDRPolicy = e.desiredPolicy.CIDRPolicy
 
 	// Mark the endpoint to be running the policy revision it was
 	// compiled for
