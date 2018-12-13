@@ -23,6 +23,8 @@ import (
 	"path/filepath"
 	"reflect"
 
+	"github.com/cilium/cilium/pkg/checker"
+
 	. "gopkg.in/check.v1"
 )
 
@@ -122,10 +124,10 @@ func (s *NodeSuite) Test_getCiliumHostIPsFromFile(c *C) {
 	for _, tt := range tests {
 		gotIpv4GW, gotIpv6Router := getCiliumHostIPsFromFile(tt.args.nodeConfig)
 		if !reflect.DeepEqual(gotIpv4GW, tt.wantIpv4GW) {
-			c.Assert(gotIpv4GW, DeepEquals, tt.wantIpv4GW)
+			c.Assert(gotIpv4GW, checker.DeepEquals, tt.wantIpv4GW)
 		}
 		if !reflect.DeepEqual(gotIpv6Router, tt.wantIpv6Router) {
-			c.Assert(gotIpv6Router, DeepEquals, tt.wantIpv6Router)
+			c.Assert(gotIpv6Router, checker.DeepEquals, tt.wantIpv6Router)
 		}
 	}
 }
