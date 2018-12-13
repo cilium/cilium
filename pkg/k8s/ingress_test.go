@@ -144,8 +144,8 @@ func (s *K8sSuite) Test_parsingV1beta1(c *check.C) {
 		args := tt.setupArgs()
 		wantK8sSvcInfo, wantError := tt.setupWanted()
 		_, gotK8sSvcInfo, gotError := ParseIngress(args.i, args.host)
-		c.Assert(gotError, check.DeepEquals, wantError, check.Commentf("Test name: %q", tt.name))
-		c.Assert(gotK8sSvcInfo, check.DeepEquals, wantK8sSvcInfo, check.Commentf("Test name: %q", tt.name))
+		c.Assert(gotError, checker.DeepEquals, wantError, check.Commentf("Test name: %q", tt.name))
+		c.Assert(gotK8sSvcInfo, checker.DeepEquals, wantK8sSvcInfo, check.Commentf("Test name: %q", tt.name))
 	}
 }
 
@@ -195,6 +195,6 @@ func (s *K8sSuite) Test_supportV1beta1(c *check.C) {
 		args := tt.setupArgs()
 		want := tt.want
 		got := supportV1beta1(args.i)
-		c.Assert(got, check.DeepEquals, want, check.Commentf("Test name: %q", tt.name))
+		c.Assert(got, checker.DeepEquals, want, check.Commentf("Test name: %q", tt.name))
 	}
 }

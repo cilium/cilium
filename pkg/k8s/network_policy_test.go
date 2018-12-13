@@ -1674,7 +1674,7 @@ func (s *K8sSuite) TestIPBlockToCIDRRule(c *C) {
 		if block.Except == nil || len(block.Except) == 0 {
 			c.Assert(cidrRule.ExceptCIDRs, IsNil)
 		} else {
-			c.Assert(cidrRule.ExceptCIDRs, DeepEquals, exceptCIDRs)
+			c.Assert(cidrRule.ExceptCIDRs, checker.DeepEquals, exceptCIDRs)
 		}
 	}
 }

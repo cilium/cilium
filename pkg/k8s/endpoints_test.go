@@ -19,6 +19,7 @@ package k8s
 import (
 	"testing"
 
+	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/service"
 
@@ -428,7 +429,7 @@ func (s *K8sSuite) Test_parseK8sEPv1(c *check.C) {
 		args := tt.setupArgs()
 		want := tt.setupWanted()
 		_, got := ParseEndpoints(args.eps)
-		c.Assert(got, check.DeepEquals, want, check.Commentf("Test name: %q", tt.name))
+		c.Assert(got, checker.DeepEquals, want, check.Commentf("Test name: %q", tt.name))
 	}
 }
 
