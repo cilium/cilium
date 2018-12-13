@@ -20,12 +20,13 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/cilium/cilium/pkg/checker"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"k8s.io/apimachinery/pkg/types"
 
 	. "gopkg.in/check.v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 func getSamplePolicy(name, ns string) *cilium_v2.CiliumNetworkPolicy {
@@ -75,7 +76,7 @@ func (s *GroupsTestSuite) TestDerivativePoliciesAreDeletedIfNoToGroups(c *C) {
 
 	DerivativeCNP, err := createDerivativeCNP(cnp)
 	c.Assert(err, IsNil)
-	c.Assert(DerivativeCNP.Specs[0].Egress, DeepEquals, cnp.Spec.Egress)
+	c.Assert(DerivativeCNP.Specs[0].Egress, checker.DeepEquals, cnp.Spec.Egress)
 	c.Assert(len(DerivativeCNP.Specs), Equals, 1)
 }
 
@@ -115,6 +116,6 @@ func (s *GroupsTestSuite) TestDerivativePoliciesAreInheritCorrectly(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(DerivativeCNP.Spec, IsNil)
 	c.Assert(len(DerivativeCNP.Specs), Equals, 1)
-	c.Assert(DerivativeCNP.Specs[0].Egress[0].ToPorts, DeepEquals, cnp.Spec.Egress[0].ToPorts)
+	c.Assert(DerivativeCNP.Specs[0].Egress[0].ToPorts, checker.DeepEquals, cnp.Spec.Egress[0].ToPorts)
 	c.Assert(len(DerivativeCNP.Specs[0].Egress[0].ToGroups), Equals, 0)
 }
