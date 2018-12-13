@@ -19,6 +19,7 @@ package cache
 import (
 	"sync"
 
+	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
@@ -154,7 +155,7 @@ func (ias *IdentityAllocatorSuite) TestAllocator(c *C) {
 
 	identity := LookupIdentityByID(id1b.ID)
 	c.Assert(identity, Not(IsNil))
-	c.Assert(lbls1, DeepEquals, identity.Labels)
+	c.Assert(lbls1, checker.DeepEquals, identity.Labels)
 
 	id2, isNew, err := AllocateIdentity(lbls2)
 	c.Assert(id2, Not(IsNil))
