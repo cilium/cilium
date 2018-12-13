@@ -19,6 +19,8 @@ package common
 import (
 	"testing"
 
+	"github.com/cilium/cilium/pkg/checker"
+
 	"gopkg.in/check.v1"
 	"io/ioutil"
 	"os"
@@ -43,11 +45,11 @@ func (s *CommonSuite) TestGoArray2C(c *check.C) {
 }
 
 func (s *CommonSuite) TestC2GoArray(c *check.C) {
-	c.Assert(C2GoArray("0x0, 0x1, 0x2, 0x3"), check.DeepEquals, []byte{0, 0x01, 0x02, 0x03})
-	c.Assert(C2GoArray("0x0, 0xff, 0xff, 0xff"), check.DeepEquals, []byte{0, 0xFF, 0xFF, 0xFF})
-	c.Assert(C2GoArray("0xa, 0xbc, 0xde, 0xf1"), check.DeepEquals, []byte{0xa, 0xbc, 0xde, 0xf1})
-	c.Assert(C2GoArray("0x0"), check.DeepEquals, []byte{0})
-	c.Assert(C2GoArray(""), check.DeepEquals, []byte{})
+	c.Assert(C2GoArray("0x0, 0x1, 0x2, 0x3"), checker.DeepEquals, []byte{0, 0x01, 0x02, 0x03})
+	c.Assert(C2GoArray("0x0, 0xff, 0xff, 0xff"), checker.DeepEquals, []byte{0, 0xFF, 0xFF, 0xFF})
+	c.Assert(C2GoArray("0xa, 0xbc, 0xde, 0xf1"), checker.DeepEquals, []byte{0xa, 0xbc, 0xde, 0xf1})
+	c.Assert(C2GoArray("0x0"), checker.DeepEquals, []byte{0})
+	c.Assert(C2GoArray(""), checker.DeepEquals, []byte{})
 }
 
 func (s *CommonSuite) TestFmtDefineComma(c *check.C) {
@@ -89,7 +91,7 @@ func (s *CommonSuite) TestMoveNewFilesTo(c *check.C) {
 		for _, file := range files {
 			filesNames = append(filesNames, file.Name())
 		}
-		c.Assert(wantedFiles, check.DeepEquals, filesNames)
+		c.Assert(wantedFiles, checker.DeepEquals, filesNames)
 	}
 
 	type args struct {
