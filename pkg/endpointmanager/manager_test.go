@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/option"
@@ -277,7 +278,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 		want := tt.setupWant()
 		got, err := Lookup(args.id)
 		c.Assert(err, want.errCheck, want.err, Commentf("Test Name: %s", tt.name))
-		c.Assert(got, DeepEquals, want.ep, Commentf("Test Name: %s", tt.name))
+		c.Assert(got, checker.DeepEquals, want.ep, Commentf("Test Name: %s", tt.name))
 		tt.postTestRun()
 	}
 }
@@ -344,7 +345,7 @@ func (s *EndpointManagerSuite) TestLookupCiliumID(c *C) {
 		args := tt.setupArgs()
 		want := tt.setupWant()
 		got := LookupCiliumID(args.id)
-		c.Assert(got, DeepEquals, want.ep, Commentf("Test Name: %s", tt.name))
+		c.Assert(got, checker.DeepEquals, want.ep, Commentf("Test Name: %s", tt.name))
 		tt.postTestRun()
 	}
 }
@@ -411,7 +412,7 @@ func (s *EndpointManagerSuite) TestLookupContainerID(c *C) {
 		args := tt.setupArgs()
 		want := tt.setupWant()
 		got := LookupContainerID(args.id)
-		c.Assert(got, DeepEquals, want.ep, Commentf("Test Name: %s", tt.name))
+		c.Assert(got, checker.DeepEquals, want.ep, Commentf("Test Name: %s", tt.name))
 		tt.postTestRun()
 	}
 }
@@ -480,7 +481,7 @@ func (s *EndpointManagerSuite) TestLookupIPv4(c *C) {
 		args := tt.setupArgs()
 		want := tt.setupWant()
 		got := LookupIPv4(args.ip)
-		c.Assert(got, DeepEquals, want.ep, Commentf("Test Name: %s", tt.name))
+		c.Assert(got, checker.DeepEquals, want.ep, Commentf("Test Name: %s", tt.name))
 		tt.postTestRun()
 	}
 }
@@ -548,7 +549,7 @@ func (s *EndpointManagerSuite) TestLookupPodName(c *C) {
 		args := tt.setupArgs()
 		want := tt.setupWant()
 		got := LookupPodName(args.podName)
-		c.Assert(got, DeepEquals, want.ep, Commentf("Test Name: %s", tt.name))
+		c.Assert(got, checker.DeepEquals, want.ep, Commentf("Test Name: %s", tt.name))
 		tt.postTestRun()
 	}
 }
@@ -614,21 +615,21 @@ func (s *EndpointManagerSuite) TestUpdateReferences(c *C) {
 		UpdateReferences(args.ep)
 
 		ep = LookupContainerID(want.ep.GetContainerID())
-		c.Assert(ep, DeepEquals, want.ep, Commentf("Test Name: %s", tt.name))
+		c.Assert(ep, checker.DeepEquals, want.ep, Commentf("Test Name: %s", tt.name))
 
 		ep = lookupDockerEndpoint(want.ep.DockerEndpointID)
-		c.Assert(ep, DeepEquals, want.ep, Commentf("Test Name: %s", tt.name))
+		c.Assert(ep, checker.DeepEquals, want.ep, Commentf("Test Name: %s", tt.name))
 
 		ep = LookupIPv4(want.ep.IPv4.String())
-		c.Assert(ep, DeepEquals, want.ep, Commentf("Test Name: %s", tt.name))
+		c.Assert(ep, checker.DeepEquals, want.ep, Commentf("Test Name: %s", tt.name))
 
 		ep = lookupDockerContainerName(want.ep.ContainerName)
-		c.Assert(ep, DeepEquals, want.ep, Commentf("Test Name: %s", tt.name))
+		c.Assert(ep, checker.DeepEquals, want.ep, Commentf("Test Name: %s", tt.name))
 
 		want.ep.UnconditionalRLock()
 		ep = LookupPodName(want.ep.GetK8sNamespaceAndPodNameLocked())
 		want.ep.RUnlock()
-		c.Assert(ep, DeepEquals, want.ep, Commentf("Test Name: %s", tt.name))
+		c.Assert(ep, checker.DeepEquals, want.ep, Commentf("Test Name: %s", tt.name))
 		tt.postTestRun()
 	}
 }
@@ -731,7 +732,7 @@ func (s *EndpointManagerSuite) TestHasGlobalCT(c *C) {
 		tt.preTestRun()
 		want := tt.setupWant()
 		got := HasGlobalCT()
-		c.Assert(got, DeepEquals, want.result, Commentf("Test Name: %s", tt.name))
+		c.Assert(got, checker.DeepEquals, want.result, Commentf("Test Name: %s", tt.name))
 		tt.postTestRun()
 	}
 }
