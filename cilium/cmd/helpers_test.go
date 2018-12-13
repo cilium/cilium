@@ -23,6 +23,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
@@ -165,7 +166,7 @@ func (s *CMDHelpersSuite) TestParsePolicyUpdateArgsHelper(c *C) {
 
 			sortProtos(args.protocols)
 			sortProtos(tt.protos)
-			c.Assert(args.protocols, DeepEquals, tt.protos)
+			c.Assert(args.protocols, checker.DeepEquals, tt.protos)
 		}
 	}
 }
