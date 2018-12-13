@@ -40,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/safetime"
 	"github.com/cilium/cilium/pkg/uuid"
@@ -50,6 +51,45 @@ import (
 // ProxyID returns a unique string to identify a proxy mapping.
 func (e *Endpoint) ProxyID(l4 *policy.L4Filter) string {
 	return policy.ProxyID(e.ID, l4.Ingress, string(l4.Protocol), uint16(l4.Port))
+}
+
+func getSecurityIdentities(labelsMap cache.IdentityCache, selector *api.EndpointSelector) []identityPkg.NumericIdentity {
+	identities := []identityPkg.NumericIdentity{}
+	for idx, labels := range labelsMap {
+		if selector.Matches(labels) {
+			log.WithFields(logrus.Fields{
+				logfields.IdentityLabels: labels,
+				logfields.L4PolicyID:     idx,
+			}).Debug("L4 Policy matches")
+			identities = append(identities, idx)
+		}
+	}
+
+	return identities
+}
+
+// convertL4FilterToPolicyMapKeys converts filter into a list of PolicyKeys
+// that apply to this endpoint.
+// Must be called with endpoint.Mutex locked.
+func (e *Endpoint) convertL4FilterToPolicyMapKeys(filter *policy.L4Filter, direction trafficdirection.TrafficDirection) []policy.Key {
+	keysToAdd := []policy.Key{}
+	port := uint16(filter.Port)
+	proto := uint8(filter.U8Proto)
+
+	for _, sel := range filter.Endpoints {
+		for _, id := range getSecurityIdentities(*e.prevIdentityCache, &sel) {
+			srcID := id.Uint32()
+			keyToAdd := policy.Key{
+				Identity: srcID,
+				// NOTE: Port is in host byte-order!
+				DestPort:         port,
+				Nexthdr:          proto,
+				TrafficDirection: direction.Uint8(),
+			}
+			keysToAdd = append(keysToAdd, keyToAdd)
+		}
+	}
+	return keysToAdd
 }
 
 // lookupRedirectPort returns the redirect L4 proxy port for the given L4
@@ -120,13 +160,7 @@ func (e *Endpoint) updateNetworkPolicy(owner Owner, proxyWaitGroup *completion.W
 	}
 
 	// Publish the updated policy to L7 proxies.
-	var desiredL4Policy *policy.L4Policy
-	if e.desiredPolicy == nil {
-		desiredL4Policy = &policy.L4Policy{}
-	} else {
-		desiredL4Policy = e.desiredPolicy.L4Policy
-	}
-	return owner.UpdateNetworkPolicy(e, desiredL4Policy, *e.prevIdentityCache, deniedIngressIdentities, deniedEgressIdentities, proxyWaitGroup)
+	return owner.UpdateNetworkPolicy(e, e.DesiredL4Policy, *e.prevIdentityCache, deniedIngressIdentities, deniedEgressIdentities, proxyWaitGroup)
 }
 
 // setNextPolicyRevision updates the desired policy revision field
@@ -206,7 +240,11 @@ func (e *Endpoint) regeneratePolicy(owner Owner) error {
 		return err
 	}
 
-	e.desiredPolicy = calculatedPolicy
+	e.DesiredL4Policy = calculatedPolicy.L4Policy
+	e.L3Policy = calculatedPolicy.CIDRPolicy
+	e.desiredMapState = calculatedPolicy.PolicyMapState
+	e.ingressPolicyEnabled = calculatedPolicy.IngressPolicyEnabled
+	e.egressPolicyEnabled = calculatedPolicy.EgressPolicyEnabled
 
 	if e.forcePolicyCompute {
 		forceRegeneration = true     // Options were changed by the caller.
@@ -248,8 +286,8 @@ func (e *Endpoint) updateAndOverrideEndpointOptions(opts option.OptionMap) (opts
 	}
 	// Apply possible option changes before regenerating maps, as map regeneration
 	// depends on the conntrack options
-	if e.desiredPolicy != nil && e.desiredPolicy.L4Policy != nil {
-		if e.desiredPolicy.L4Policy.RequiresConntrack() {
+	if e.DesiredL4Policy != nil {
+		if e.DesiredL4Policy.RequiresConntrack() {
 			opts[option.Conntrack] = option.OptionEnabled
 		}
 	}
@@ -397,16 +435,7 @@ func (e *Endpoint) updateRealizedState(stats *regenerationStatistics, origDir st
 	}
 
 	e.realizedBPFConfig = e.desiredBPFConfig
-
-	if e.realizedPolicy == nil {
-		e.realizedPolicy = &policy.EndpointPolicy{}
-	}
-
-	e.realizedPolicy.IngressPolicyEnabled = e.desiredPolicy.IngressPolicyEnabled
-	e.realizedPolicy.EgressPolicyEnabled = e.desiredPolicy.EgressPolicyEnabled
-	e.realizedPolicy.L4Policy = e.desiredPolicy.L4Policy
-	e.realizedPolicy.CIDRPolicy = e.desiredPolicy.CIDRPolicy
-
+	e.RealizedL4Policy = e.DesiredL4Policy
 	// Mark the endpoint to be running the policy revision it was
 	// compiled for
 	e.setPolicyRevision(revision)
