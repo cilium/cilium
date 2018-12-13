@@ -22,6 +22,8 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/cilium/cilium/pkg/checker"
+
 	. "gopkg.in/check.v1"
 )
 
@@ -462,48 +464,48 @@ func (s *IPTestSuite) TestNextIP(c *C) {
 	expectedNext := net.ParseIP("10.0.0.0")
 	ip := net.ParseIP("9.255.255.255")
 	nextIP := GetNextIP(ip)
-	c.Assert(nextIP, DeepEquals, expectedNext)
+	c.Assert(nextIP, checker.DeepEquals, expectedNext)
 
 	// Check that overflow does not occur.
 	ip = net.ParseIP("255.255.255.255")
 	nextIP = GetNextIP(ip)
 	expectedNext = ip
-	c.Assert(nextIP, DeepEquals, expectedNext)
+	c.Assert(nextIP, checker.DeepEquals, expectedNext)
 
 	ip = net.ParseIP("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff")
 	nextIP = GetNextIP(ip)
 	expectedNext = ip
-	c.Assert(nextIP, DeepEquals, expectedNext)
+	c.Assert(nextIP, checker.DeepEquals, expectedNext)
 
 	ip = net.IP([]byte{0xa, 0, 0, 0})
 	nextIP = GetNextIP(ip)
 	expectedNext = net.IP([]byte{0xa, 0, 0, 1})
-	c.Assert(nextIP, DeepEquals, expectedNext)
+	c.Assert(nextIP, checker.DeepEquals, expectedNext)
 
 	ip = net.IP([]byte{0xff, 0xff, 0xff, 0xff})
 	nextIP = GetNextIP(ip)
 	expectedNext = net.IP([]byte{0xff, 0xff, 0xff, 0xff})
-	c.Assert(nextIP, DeepEquals, expectedNext)
+	c.Assert(nextIP, checker.DeepEquals, expectedNext)
 
 	ip = net.ParseIP("10.0.0.0")
 	nextIP = GetNextIP(ip)
 	expectedNext = net.ParseIP("10.0.0.1")
-	c.Assert(nextIP, DeepEquals, expectedNext)
+	c.Assert(nextIP, checker.DeepEquals, expectedNext)
 
 	ip = net.ParseIP("0:0:0:0:ffff:ffff:ffff:ffff")
 	nextIP = GetNextIP(ip)
 	expectedNext = net.ParseIP("0:0:0:1:0:0:0:0")
-	c.Assert(nextIP, DeepEquals, expectedNext)
+	c.Assert(nextIP, checker.DeepEquals, expectedNext)
 
 	ip = net.ParseIP("ffff:ffff:ffff:fffe:ffff:ffff:ffff:ffff")
 	nextIP = GetNextIP(ip)
 	expectedNext = net.ParseIP("ffff:ffff:ffff:ffff:0:0:0:0")
-	c.Assert(nextIP, DeepEquals, expectedNext)
+	c.Assert(nextIP, checker.DeepEquals, expectedNext)
 
 	ip = net.ParseIP("ffff:ffff:ffff:ffff:ffff:ffff:ffff:fffe")
 	nextIP = GetNextIP(ip)
 	expectedNext = net.ParseIP("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff")
-	c.Assert(nextIP, DeepEquals, expectedNext)
+	c.Assert(nextIP, checker.DeepEquals, expectedNext)
 }
 
 func (s *IPTestSuite) TestCreateSpanningCIDR(c *C) {
