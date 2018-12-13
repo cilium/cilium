@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/cilium/cilium/pkg/checker"
+
 	. "gopkg.in/check.v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -49,7 +51,7 @@ func (s *PolicyAPITestSuite) TestCreateDerivativeRuleWithoutToGroups(c *C) {
 		},
 	}
 	newRule, err := eg.CreateDerivative()
-	c.Assert(eg, DeepEquals, newRule)
+	c.Assert(eg, checker.DeepEquals, newRule)
 	c.Assert(err, IsNil)
 }
 
@@ -104,5 +106,5 @@ func (s *PolicyAPITestSuite) TestCreateDerivativeWithoutErrorAndNoIPs(c *C) {
 
 	newRule, err := eg.CreateDerivative()
 	c.Assert(err, IsNil)
-	c.Assert(newRule, DeepEquals, &EgressRule{})
+	c.Assert(newRule, checker.DeepEquals, &EgressRule{})
 }

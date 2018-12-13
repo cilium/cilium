@@ -1397,7 +1397,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
 	c.Assert(len(*policy), Equals, 2)
 	c.Assert(len((*policy)["80/TCP"].Endpoints), Equals, 2)
 	selWorld := (*policy)["80/TCP"].Endpoints[1]
-	c.Assert(api.EndpointSelectorSlice{selWorld}, DeepEquals, api.EntitySelectorMapping[api.EntityWorld])
+	c.Assert(api.EndpointSelectorSlice{selWorld}, checker.DeepEquals, api.EntitySelectorMapping[api.EntityWorld])
 
 	expectedPolicy := L4PolicyMap{
 		"9092/TCP": {
@@ -1519,7 +1519,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 	c.Assert(len(*policy), Equals, 2)
 	c.Assert(len((*policy)["80/TCP"].Endpoints), Equals, 2)
 	selWorld := (*policy)["80/TCP"].Endpoints[1]
-	c.Assert(api.EndpointSelectorSlice{selWorld}, DeepEquals, api.EntitySelectorMapping[api.EntityWorld])
+	c.Assert(api.EndpointSelectorSlice{selWorld}, checker.DeepEquals, api.EntitySelectorMapping[api.EntityWorld])
 
 	expectedPolicy := L4PolicyMap{
 		"9092/TCP": {

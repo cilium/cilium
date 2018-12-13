@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/cilium/cilium/pkg/checker"
+
 	. "gopkg.in/check.v1"
 )
 
@@ -59,7 +61,7 @@ func (s *PolicyAPITestSuite) TestGetCIDRSetWithValidValue(c *C) {
 		{Cidr: "192.168.1.1/32", ExceptCIDRs: []CIDR{}, Generated: true}}
 	group := GetToGroupsRule()
 	cidr, err := group.GetCidrSet()
-	c.Assert(cidr, DeepEquals, expectedCidrRule)
+	c.Assert(cidr, checker.DeepEquals, expectedCidrRule)
 	c.Assert(err, IsNil)
 }
 
@@ -72,7 +74,7 @@ func (s *PolicyAPITestSuite) TestGetCIDRSetWithMultipleSorted(c *C) {
 		{Cidr: "192.168.10.10/32", ExceptCIDRs: []CIDR{}, Generated: true}}
 	group := GetToGroupsRule()
 	cidr, err := group.GetCidrSet()
-	c.Assert(cidr, DeepEquals, expectedCidrRule)
+	c.Assert(cidr, checker.DeepEquals, expectedCidrRule)
 	c.Assert(err, IsNil)
 }
 
@@ -86,7 +88,7 @@ func (s *PolicyAPITestSuite) TestGetCIDRSetWithUniqueCIDRRule(c *C) {
 
 	group := GetToGroupsRule()
 	cidr, err := group.GetCidrSet()
-	c.Assert(cidr, DeepEquals, cidrRule)
+	c.Assert(cidr, checker.DeepEquals, cidrRule)
 	c.Assert(err, IsNil)
 }
 
