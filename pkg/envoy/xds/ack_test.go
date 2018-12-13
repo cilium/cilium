@@ -20,6 +20,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/completion"
 	envoy_api_v2_core "github.com/cilium/proxy/go/envoy/api/v2/core"
 
@@ -183,7 +184,7 @@ func (s *AckSuite) TestUpsertMoreRecentVersionNack(c *C) {
 	// IsCompleted is true only for completions without error
 	c.Assert(comp, Not(IsCompleted))
 	c.Assert(comp.Err(), Not(Equals), nil)
-	c.Assert(comp.Err(), DeepEquals, &ProxyError{Err: ErrNackReceived, Detail: "Detail"})
+	c.Assert(comp.Err(), checker.DeepEquals, &ProxyError{Err: ErrNackReceived, Detail: "Detail"})
 }
 
 func (s *AckSuite) TestDeleteSingleNode(c *C) {
