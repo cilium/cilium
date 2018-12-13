@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/testutils"
 
@@ -276,11 +277,11 @@ func (s *StoreSuite) TestUpdateKey(c *C) {
 	json, err := v1.Marshal()
 	c.Assert(err, IsNil)
 	store.updateKey("foo", json)
-	c.Assert(store.sharedKeys["foo"], DeepEquals, v1)
+	c.Assert(store.sharedKeys["foo"], checker.DeepEquals, v1)
 
 	v2 := &updateTest{Items: map[string]string{}}
 	json, err = v2.Marshal()
 	c.Assert(err, IsNil)
 	store.updateKey("foo", json)
-	c.Assert(store.sharedKeys["foo"], DeepEquals, v2)
+	c.Assert(store.sharedKeys["foo"], checker.DeepEquals, v2)
 }
