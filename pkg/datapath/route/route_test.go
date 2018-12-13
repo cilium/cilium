@@ -22,6 +22,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cilium/cilium/pkg/checker"
+
 	. "gopkg.in/check.v1"
 )
 
@@ -64,12 +66,12 @@ func (p *RouteSuite) TestToIPCommand(c *C) {
 		expRes := fmt.Sprintf("ip %sroute add %s/%d via %s dev %s", v6,
 			r.Prefix.IP.String(), masklen, r.Nexthop.String(), dev)
 		result := strings.Join(r.ToIPCommand(dev), " ")
-		c.Assert(result, DeepEquals, expRes)
+		c.Assert(result, checker.DeepEquals, expRes)
 
 		r.Nexthop = nil
 		expRes = fmt.Sprintf("ip %sroute add %s/%d dev %s", v6,
 			r.Prefix.IP.String(), masklen, dev)
 		result = strings.Join(r.ToIPCommand(dev), " ")
-		c.Assert(result, DeepEquals, expRes)
+		c.Assert(result, checker.DeepEquals, expRes)
 	}
 }
