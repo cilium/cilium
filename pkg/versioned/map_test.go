@@ -19,6 +19,7 @@ package versioned
 import (
 	"testing"
 
+	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/lock"
 
 	"gopkg.in/check.v1"
@@ -160,7 +161,7 @@ func (s *VersionedSuite) TestComparableMap_AddEqual(c *check.C) {
 			DeepEquals: tt.fields.deepEquals,
 		}
 		if got := m.AddEqual(tt.args.uuid, tt.args.obj); got != tt.want {
-			c.Assert(got, check.DeepEquals, tt.want, check.Commentf("Test name: %q", tt.name))
+			c.Assert(got, checker.DeepEquals, tt.want, check.Commentf("Test name: %q", tt.name))
 		}
 	}
 }
@@ -212,12 +213,12 @@ func (s *VersionedSuite) TestSyncComparableMap_DoLocked(c *check.C) {
 			cm:    tt.fields.cm,
 		}
 		if err := sm.Replace(tt.args.replace); (err != nil) != tt.wantErr {
-			c.Assert(err, check.DeepEquals, tt.wantErr, check.Commentf("Test name: %q", tt.name))
+			c.Assert(err, checker.DeepEquals, tt.wantErr, check.Commentf("Test name: %q", tt.name))
 		}
 		for _, v := range tt.functionsCalled {
 			switch v {
 			case "replace":
-				c.Assert(sm.cm, check.DeepEquals, m,
+				c.Assert(sm.cm, checker.DeepEquals, m,
 					check.Commentf("%s", "replace function was not called, otherwise the maps would be the same"))
 			}
 		}
