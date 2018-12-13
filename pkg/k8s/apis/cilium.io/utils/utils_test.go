@@ -353,6 +353,6 @@ func (s *CiliumUtilsSuite) TestParseToCiliumLabels(c *C) {
 	}
 	for _, tt := range tests {
 		got := ParseToCiliumLabels(tt.args.namespace, tt.args.name, tt.args.uid, tt.args.ruleLbs)
-		c.Assert(got, DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
 	}
 }
