@@ -17,6 +17,7 @@
 package service
 
 import (
+	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 
 	"gopkg.in/check.v1"
@@ -41,7 +42,7 @@ func (s *ServiceGenericSuite) TestClusterService(c *check.C) {
 	unmarshal := ClusterService{}
 	err = unmarshal.Unmarshal(b)
 	c.Assert(err, check.IsNil)
-	c.Assert(svc, check.DeepEquals, unmarshal)
+	c.Assert(svc, checker.DeepEquals, unmarshal)
 
 	c.Assert(svc.GetKeyName(), check.Equals, "default/bar/foo")
 }
