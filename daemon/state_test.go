@@ -26,6 +26,7 @@ import (
 	"sync"
 
 	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/completion"
 	e "github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/identity"
@@ -209,7 +210,7 @@ func (ds *DaemonSuite) TestReadEPsFromDirNames(c *C) {
 		if ep.ID == 256 {
 			// Make sure the NodeMac equals to the one we set for the endpoint
 			// regeneration that should take priority. (The non-failed one)
-			c.Assert(ep.NodeMAC, DeepEquals, mac.MAC([]byte{0x02, 0xff, 0xf2, 0x12, 0xc1, 0xc1}))
+			c.Assert(ep.NodeMAC, checker.DeepEquals, mac.MAC([]byte{0x02, 0xff, 0xf2, 0x12, 0xc1, 0xc1}))
 		}
 	}
 }

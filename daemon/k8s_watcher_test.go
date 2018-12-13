@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/annotation"
+	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -156,7 +157,7 @@ func (ds *DaemonSuite) Test_missingK8sNetworkPolicyV1(c *C) {
 		want := tt.setupWanted()
 		ds.d.policy = args.repo
 		got := ds.d.missingK8sNetworkPolicyV1(args.m)
-		c.Assert(got, DeepEquals, want, Commentf("Test name: %q", tt.name))
+		c.Assert(got, checker.DeepEquals, want, Commentf("Test name: %q", tt.name))
 	}
 }
 
@@ -260,7 +261,7 @@ func (ds *DaemonSuite) Test_missingCNPv2(c *C) {
 		want := tt.setupWanted()
 		ds.d.policy = args.repo
 		got := ds.d.missingCNPv2(args.m)
-		c.Assert(got, DeepEquals, want, Commentf("Test name: %q", tt.name))
+		c.Assert(got, checker.DeepEquals, want, Commentf("Test name: %q", tt.name))
 	}
 }
 
@@ -520,7 +521,7 @@ func (ds *DaemonSuite) Test_missingK8sPodV1(c *C) {
 		want := tt.setupWanted()
 		ipcache.IPIdentityCache = args.cache
 		got := missingK8sPodV1(args.m)
-		c.Assert(got, DeepEquals, want, Commentf("Test name: %q", tt.name))
+		c.Assert(got, checker.DeepEquals, want, Commentf("Test name: %q", tt.name))
 	}
 }
 
@@ -715,7 +716,7 @@ func (ds *DaemonSuite) Test_missingK8sNodeV1(c *C) {
 		want := tt.setupWanted()
 		ipcache.IPIdentityCache = args.cache
 		got := ds.d.missingK8sNodeV1(args.m)
-		c.Assert(got, DeepEquals, want, Commentf("Test name: %q", tt.name))
+		c.Assert(got, checker.DeepEquals, want, Commentf("Test name: %q", tt.name))
 	}
 }
 
@@ -842,7 +843,7 @@ func (ds *DaemonSuite) Test_missingK8sNamespaceV1(c *C) {
 		args := tt.setupArgs()
 		want := tt.setupWanted()
 		got := ds.d.missingK8sNamespaceV1(args.m)
-		c.Assert(got, DeepEquals, want, Commentf("Test name: %q", tt.name))
+		c.Assert(got, checker.DeepEquals, want, Commentf("Test name: %q", tt.name))
 	}
 }
 
@@ -1107,7 +1108,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 		want := tt.setupWanted()
 		ds.d.policy = args.repo
 		err := ds.d.addCiliumNetworkPolicyV2(args.ciliumV2Store, args.cnp)
-		c.Assert(err, DeepEquals, want.err, Commentf("Test name: %q", tt.name))
-		c.Assert(ds.d.policy.GetRulesList().Policy, DeepEquals, want.repo.GetRulesList().Policy, Commentf("Test name: %q", tt.name))
+		c.Assert(err, checker.DeepEquals, want.err, Commentf("Test name: %q", tt.name))
+		c.Assert(ds.d.policy.GetRulesList().Policy, checker.DeepEquals, want.repo.GetRulesList().Policy, Commentf("Test name: %q", tt.name))
 	}
 }
