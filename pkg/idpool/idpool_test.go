@@ -20,6 +20,8 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/cilium/cilium/pkg/checker"
+
 	. "gopkg.in/check.v1"
 )
 
@@ -93,7 +95,7 @@ func (s *IDPoolTestSuite) TestInsertRemoveIDs(c *C) {
 	c.Assert(id, Equals, NoID)
 
 	sort.Ints(actualIDs)
-	c.Assert(actualIDs, DeepEquals, evenIDs)
+	c.Assert(actualIDs, checker.DeepEquals, evenIDs)
 }
 
 func (s *IDPoolTestSuite) TestRefresh(c *C) {
@@ -138,7 +140,7 @@ func (s *IDPoolTestSuite) TestRefresh(c *C) {
 	c.Assert(id, Equals, NoID)
 
 	sort.Ints(actual)
-	c.Assert(actual, DeepEquals, expected)
+	c.Assert(actual, checker.DeepEquals, expected)
 }
 
 func (s *IDPoolTestSuite) TestReleaseID(c *C) {
@@ -322,5 +324,5 @@ func leaseAllIDs(p *IDPool, minID int, maxID int, c *C) {
 
 	// Unique ids must have been leased.
 	sort.Ints(actual)
-	c.Assert(actual, DeepEquals, expected)
+	c.Assert(actual, checker.DeepEquals, expected)
 }
