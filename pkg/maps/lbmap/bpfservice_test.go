@@ -20,6 +20,8 @@ import (
 	"net"
 	"testing"
 
+	"github.com/cilium/cilium/pkg/checker"
+
 	. "gopkg.in/check.v1"
 )
 
@@ -129,46 +131,46 @@ func (b *LBMapTestSuite) TestPrepareUpdate(c *C) {
 	b3 := createBackend(c, "4.4.4.4", 80, 1)
 
 	bpfSvc := cache.prepareUpdate(frontend, []ServiceValue{b1, b2})
-	c.Assert(bpfSvc.backendsByMapIndex[1].bpfValue, DeepEquals, b1)
-	c.Assert(bpfSvc.backendsByMapIndex[2].bpfValue, DeepEquals, b2)
+	c.Assert(bpfSvc.backendsByMapIndex[1].bpfValue, checker.DeepEquals, b1)
+	c.Assert(bpfSvc.backendsByMapIndex[2].bpfValue, checker.DeepEquals, b2)
 
 	backends := bpfSvc.getBackends()
 	c.Assert(len(backends), Equals, 2)
-	c.Assert(backends[0], DeepEquals, b1)
-	c.Assert(backends[1], DeepEquals, b2)
+	c.Assert(backends[0], checker.DeepEquals, b1)
+	c.Assert(backends[1], checker.DeepEquals, b2)
 
 	bpfSvc = cache.prepareUpdate(frontend, []ServiceValue{b1, b2, b3})
-	c.Assert(bpfSvc.backendsByMapIndex[1].bpfValue, DeepEquals, b1)
-	c.Assert(bpfSvc.backendsByMapIndex[2].bpfValue, DeepEquals, b2)
-	c.Assert(bpfSvc.backendsByMapIndex[3].bpfValue, DeepEquals, b3)
+	c.Assert(bpfSvc.backendsByMapIndex[1].bpfValue, checker.DeepEquals, b1)
+	c.Assert(bpfSvc.backendsByMapIndex[2].bpfValue, checker.DeepEquals, b2)
+	c.Assert(bpfSvc.backendsByMapIndex[3].bpfValue, checker.DeepEquals, b3)
 
 	backends = bpfSvc.getBackends()
 	c.Assert(len(backends), Equals, 3)
-	c.Assert(backends[0], DeepEquals, b1)
-	c.Assert(backends[1], DeepEquals, b2)
-	c.Assert(backends[2], DeepEquals, b3)
+	c.Assert(backends[0], checker.DeepEquals, b1)
+	c.Assert(backends[1], checker.DeepEquals, b2)
+	c.Assert(backends[2], checker.DeepEquals, b3)
 
 	bpfSvc = cache.prepareUpdate(frontend, []ServiceValue{b2, b3})
 	c.Assert(bpfSvc.backendsByMapIndex[2].bpfValue, Not(DeepEquals), b1)
-	c.Assert(bpfSvc.backendsByMapIndex[2].bpfValue, DeepEquals, b2)
-	c.Assert(bpfSvc.backendsByMapIndex[3].bpfValue, DeepEquals, b3)
+	c.Assert(bpfSvc.backendsByMapIndex[2].bpfValue, checker.DeepEquals, b2)
+	c.Assert(bpfSvc.backendsByMapIndex[3].bpfValue, checker.DeepEquals, b3)
 
 	backends = bpfSvc.getBackends()
 	c.Assert(len(backends), Equals, 3)
 	c.Assert(backends[0], Not(DeepEquals), b1)
-	c.Assert(backends[1], DeepEquals, b2)
-	c.Assert(backends[2], DeepEquals, b3)
+	c.Assert(backends[1], checker.DeepEquals, b2)
+	c.Assert(backends[2], checker.DeepEquals, b3)
 
 	bpfSvc = cache.prepareUpdate(frontend, []ServiceValue{b1, b2, b3})
-	c.Assert(bpfSvc.backendsByMapIndex[1].bpfValue, DeepEquals, b1)
-	c.Assert(bpfSvc.backendsByMapIndex[2].bpfValue, DeepEquals, b2)
-	c.Assert(bpfSvc.backendsByMapIndex[3].bpfValue, DeepEquals, b3)
+	c.Assert(bpfSvc.backendsByMapIndex[1].bpfValue, checker.DeepEquals, b1)
+	c.Assert(bpfSvc.backendsByMapIndex[2].bpfValue, checker.DeepEquals, b2)
+	c.Assert(bpfSvc.backendsByMapIndex[3].bpfValue, checker.DeepEquals, b3)
 
 	backends = bpfSvc.getBackends()
 	c.Assert(len(backends), Equals, 3)
-	c.Assert(backends[0], DeepEquals, b1)
-	c.Assert(backends[1], DeepEquals, b2)
-	c.Assert(backends[2], DeepEquals, b3)
+	c.Assert(backends[0], checker.DeepEquals, b1)
+	c.Assert(backends[1], checker.DeepEquals, b2)
+	c.Assert(backends[2], checker.DeepEquals, b3)
 
 	bpfSvc = cache.prepareUpdate(frontend, []ServiceValue{})
 	c.Assert(len(bpfSvc.backendsByMapIndex), Equals, 0)
@@ -192,7 +194,7 @@ func (b *LBMapTestSuite) TestGetBackends(c *C) {
 
 	backends := svc.getBackends()
 	c.Assert(len(backends), Equals, 1)
-	c.Assert(backends[0], DeepEquals, b1)
+	c.Assert(backends[0], checker.DeepEquals, b1)
 
 	svc = bpfService{
 		backendsByMapIndex: map[int]*bpfBackend{
@@ -203,6 +205,6 @@ func (b *LBMapTestSuite) TestGetBackends(c *C) {
 
 	backends = svc.getBackends()
 	c.Assert(len(backends), Equals, 2)
-	c.Assert(backends[0], DeepEquals, b1)
-	c.Assert(backends[1], DeepEquals, b2)
+	c.Assert(backends[0], checker.DeepEquals, b1)
+	c.Assert(backends[1], checker.DeepEquals, b2)
 }
