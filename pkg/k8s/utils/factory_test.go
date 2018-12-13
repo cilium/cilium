@@ -21,6 +21,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/serializer"
 	"github.com/cilium/cilium/pkg/versioned"
 
@@ -156,7 +157,7 @@ func (s *FactorySuite) Test_replaceFuncFactory(c *C) {
 							ResourceVersion: "12",
 						},
 					}
-					c.Assert(obj, DeepEquals, wanted, Commentf("NetworkPolicy added should be exactly the same from kube-apiserver"))
+					c.Assert(obj, checker.DeepEquals, wanted, Commentf("NetworkPolicy added should be exactly the same from kube-apiserver"))
 					addFuncCalls++
 					return func() error {
 						return nil
@@ -248,7 +249,7 @@ func (s *FactorySuite) Test_replaceFuncFactory(c *C) {
 							ResourceVersion: "12",
 						},
 					}
-					c.Assert(obj, DeepEquals, wanted, Commentf("NetworkPolicy deleted should be exactly that is missing from kube-apiserver"))
+					c.Assert(obj, checker.DeepEquals, wanted, Commentf("NetworkPolicy deleted should be exactly that is missing from kube-apiserver"))
 					delFuncCalls++
 					return func() error {
 						return nil
@@ -265,7 +266,7 @@ func (s *FactorySuite) Test_replaceFuncFactory(c *C) {
 				missingFunc := func(m versioned.Map) versioned.Map {
 					// missingFunc will be called with all objects that should
 					// exist locally.
-					c.Assert(m, DeepEquals, versioned.NewMap())
+					c.Assert(m, checker.DeepEquals, versioned.NewMap())
 					return m
 				}
 
@@ -367,7 +368,7 @@ func (s *FactorySuite) Test_replaceFuncFactory(c *C) {
 					})
 					// missingFunc will be called with all objects that should
 					// exist locally.
-					c.Assert(m, DeepEquals, newMap)
+					c.Assert(m, checker.DeepEquals, newMap)
 					return nil
 				}
 
@@ -491,7 +492,7 @@ func (s *FactorySuite) Test_replaceFuncFactory(c *C) {
 							},
 						},
 					}
-					c.Assert(objNew, DeepEquals, wantedNew, Commentf("The new NetworkPolicy added should be exactly the one that is missing from kube-apiserver"))
+					c.Assert(objNew, checker.DeepEquals, wantedNew, Commentf("The new NetworkPolicy added should be exactly the one that is missing from kube-apiserver"))
 
 					objOld, ok := old.(*v1.NetworkPolicy)
 					c.Assert(ok, Equals, true)
@@ -503,7 +504,7 @@ func (s *FactorySuite) Test_replaceFuncFactory(c *C) {
 							ResourceVersion: "12",
 						},
 					}
-					c.Assert(objOld, DeepEquals, wantedOld, Commentf("The old NetworkPolicy should be the previous know object"))
+					c.Assert(objOld, checker.DeepEquals, wantedOld, Commentf("The old NetworkPolicy should be the previous know object"))
 
 					updateFuncCalls++
 					return func() error {
@@ -537,7 +538,7 @@ func (s *FactorySuite) Test_replaceFuncFactory(c *C) {
 					})
 					// missingFunc will be called with all objects that should
 					// exist locally.
-					c.Assert(m, DeepEquals, newMap)
+					c.Assert(m, checker.DeepEquals, newMap)
 					return nil
 				}
 
@@ -668,7 +669,7 @@ func (s *FactorySuite) Test_replaceFuncFactory(c *C) {
 					})
 					// missingFunc will be called with all objects that should
 					// exist locally.
-					c.Assert(m, DeepEquals, wanted)
+					c.Assert(m, checker.DeepEquals, wanted)
 					return nil
 				}
 
@@ -727,7 +728,7 @@ func (s *FactorySuite) Test_replaceFuncFactory(c *C) {
 		replaceFunc := replaceFuncFactory(args.listerClient, args.resourceObj, args.addFunc, args.delFunc, args.updateFunc, args.missingFunc, args.fqueue)
 		newMap, err := replaceFunc(want.oldMap)
 		c.Assert(err, IsNil, Commentf("Test Name: %s", tt.name))
-		c.Assert(newMap.Map, DeepEquals, want.newMap.Map, Commentf("Test Name: %s", tt.name))
+		c.Assert(newMap.Map, checker.DeepEquals, want.newMap.Map, Commentf("Test Name: %s", tt.name))
 		c.Assert(*args.addFuncCalls, Equals, want.addFuncCalls, Commentf("Test Name: %s", tt.name))
 		c.Assert(*args.delFuncCalls, Equals, want.delFuncCalls, Commentf("Test Name: %s", tt.name))
 	}
