@@ -19,6 +19,8 @@ package debug
 import (
 	"testing"
 
+	"github.com/cilium/cilium/pkg/checker"
+
 	. "gopkg.in/check.v1"
 )
 
@@ -39,28 +41,28 @@ func (d *debugObj) DebugStatus() string {
 
 func (s *DebugTestSuite) TestSubsystem(c *C) {
 	sf := newStatusFunctions()
-	c.Assert(sf.collectStatus(), DeepEquals, StatusMap{})
+	c.Assert(sf.collectStatus(), checker.DeepEquals, StatusMap{})
 
 	sf = newStatusFunctions()
 	sf.register("foo", func() string { return "test1" })
-	c.Assert(sf.collectStatus(), DeepEquals, StatusMap{
+	c.Assert(sf.collectStatus(), checker.DeepEquals, StatusMap{
 		"foo": "test1",
 	})
 
 	sf.register("bar", func() string { return "test2" })
-	c.Assert(sf.collectStatus(), DeepEquals, StatusMap{
+	c.Assert(sf.collectStatus(), checker.DeepEquals, StatusMap{
 		"foo": "test1",
 		"bar": "test2",
 	})
 
 	sf.register("bar", func() string { return "test2" })
-	c.Assert(sf.collectStatus(), DeepEquals, StatusMap{
+	c.Assert(sf.collectStatus(), checker.DeepEquals, StatusMap{
 		"foo": "test1",
 		"bar": "test2",
 	})
 
 	sf.registerStatusObject("baz", &debugObj{})
-	c.Assert(sf.collectStatus(), DeepEquals, StatusMap{
+	c.Assert(sf.collectStatus(), checker.DeepEquals, StatusMap{
 		"foo": "test1",
 		"bar": "test2",
 		"baz": "test3",
