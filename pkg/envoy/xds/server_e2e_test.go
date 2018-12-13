@@ -909,7 +909,7 @@ func (s *ServerSuite) TestNAck(c *C) {
 
 	// Version 2 was NACKed by the last request, so comp1 must NOT be completed ever.
 	c.Assert(comp1, Not(IsCompleted))
-	c.Assert(comp1.Err(), DeepEquals, &ProxyError{Err: ErrNackReceived, Detail: "FAILFAIL"})
+	c.Assert(comp1.Err(), checker.DeepEquals, &ProxyError{Err: ErrNackReceived, Detail: "FAILFAIL"})
 
 	// Expecting a response with both resources.
 	// Note that the stream should not have a message that repeats the previous one!
@@ -1038,7 +1038,7 @@ func (s *ServerSuite) TestNAckFromTheStart(c *C) {
 	c.Assert(comp1, Not(IsCompleted))
 	// Version 2 did not have a callback, so the completion was completed with an error
 	c.Assert(comp1.Err(), Not(IsNil))
-	c.Assert(comp1.Err(), DeepEquals, &ProxyError{Err: ErrNackReceived})
+	c.Assert(comp1.Err(), checker.DeepEquals, &ProxyError{Err: ErrNackReceived})
 
 	// NACK canceled the WaitGroup, create new one
 	wg = completion.NewWaitGroup(ctx)
