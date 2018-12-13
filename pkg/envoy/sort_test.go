@@ -17,10 +17,11 @@
 package envoy
 
 import (
+	"github.com/cilium/cilium/pkg/checker"
+
 	"github.com/cilium/proxy/go/cilium/api"
 	envoy_api_v2_core "github.com/cilium/proxy/go/envoy/api/v2/core"
 	envoy_api_v2_route "github.com/cilium/proxy/go/envoy/api/v2/route"
-
 	. "gopkg.in/check.v1"
 )
 
@@ -64,7 +65,7 @@ func (s *SortSuite) TestSortHeaderMatchers(c *C) {
 		HeaderMatcher4,
 	}
 	SortHeaderMatchers(slice)
-	c.Assert(slice, DeepEquals, expected)
+	c.Assert(slice, checker.DeepEquals, expected)
 }
 
 var HTTPNetworkPolicyRule1 = &cilium.HttpNetworkPolicyRule{}
@@ -97,7 +98,7 @@ func (s *SortSuite) TestSortHttpNetworkPolicyRules(c *C) {
 		HTTPNetworkPolicyRule4,
 	}
 	SortHTTPNetworkPolicyRules(slice)
-	c.Assert(slice, DeepEquals, expected)
+	c.Assert(slice, checker.DeepEquals, expected)
 }
 
 var PortNetworkPolicyRule1 = &cilium.PortNetworkPolicyRule{
@@ -185,7 +186,7 @@ func (s *SortSuite) TestSortPortNetworkPolicyRules(c *C) {
 		PortNetworkPolicyRule7,
 	}
 	SortPortNetworkPolicyRules(slice)
-	c.Assert(slice, DeepEquals, expected)
+	c.Assert(slice, checker.DeepEquals, expected)
 }
 
 var PortNetworkPolicy1 = &cilium.PortNetworkPolicy{
@@ -252,5 +253,5 @@ func (s *SortSuite) TestSortPortNetworkPolicies(c *C) {
 		PortNetworkPolicy6,
 	}
 	SortPortNetworkPolicies(slice)
-	c.Assert(slice, DeepEquals, expected)
+	c.Assert(slice, checker.DeepEquals, expected)
 }

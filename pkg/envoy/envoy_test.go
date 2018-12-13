@@ -25,6 +25,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/flowdebug"
@@ -170,7 +171,7 @@ func (s *EnvoySuite) TestEnvoyNACK(c *C) {
 
 	err = s.waitForProxyCompletion()
 	c.Assert(err, Not(IsNil))
-	c.Assert(err, DeepEquals, &xds.ProxyError{Err: xds.ErrNackReceived, Detail: "Error adding/updating listener listener:22: cannot bind '[::]:22': Address already in use"})
+	c.Assert(err, checker.DeepEquals, &xds.ProxyError{Err: xds.ErrNackReceived, Detail: "Error adding/updating listener listener:22: cannot bind '[::]:22': Address already in use"})
 
 	s.waitGroup = completion.NewWaitGroup(ctx)
 	// Remove listener1
