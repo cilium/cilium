@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/cilium/cilium/pkg/checker"
+
 	. "gopkg.in/check.v1"
 )
 
@@ -48,7 +50,7 @@ func (s *BPFIPCacheGetSuite) TestGetPrefix(c *C) {
 	for _, tt := range tests {
 		prefix := toBits(tt.prefix)
 		for maskSize := 0; maskSize <= tt.length; maskSize++ {
-			c.Assert(getPrefix(tt.ip, maskSize), DeepEquals, prefix[:maskSize], Commentf("invalid prefix for %v/%v", tt.ip, maskSize))
+			c.Assert(getPrefix(tt.ip, maskSize), checker.DeepEquals, prefix[:maskSize], Commentf("invalid prefix for %v/%v", tt.ip, maskSize))
 		}
 	}
 }
@@ -86,7 +88,7 @@ func (s *BPFIPCacheGetSuite) TestGetLPMValue(c *C) {
 
 		if exists {
 			identity := v.([]string)
-			c.Assert(identity, DeepEquals, tt.identity, Commentf("Wrong identity was retrieved for ip %s", tt.ip))
+			c.Assert(identity, checker.DeepEquals, tt.identity, Commentf("Wrong identity was retrieved for ip %s", tt.ip))
 		}
 	}
 }
