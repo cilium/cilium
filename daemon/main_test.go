@@ -14,7 +14,7 @@
 
 // +build !privileged_tests
 
-package main
+package daemon
 
 import (
 	go_version "github.com/hashicorp/go-version"

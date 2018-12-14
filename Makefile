@@ -1,7 +1,7 @@
 include Makefile.defs
-include daemon/bpf.sha
+include cmd/cilium/bpf.sha
 
-SUBDIRS_CILIUM_CONTAINER = proxylib envoy plugins/cilium-cni bpf daemon cilium-health bugtool
+SUBDIRS_CILIUM_CONTAINER = proxylib envoy plugins/cilium-cni bpf cilium-health bugtool cmd/cilium
 SUBDIRS = $(SUBDIRS_CILIUM_CONTAINER) operator plugins tools
 GOFILES ?= $(subst _$(ROOT_DIR)/,,$(shell $(GO) list ./... | grep -v -e /vendor/ -e /contrib/))
 TESTPKGS ?= $(subst _$(ROOT_DIR)/,,$(shell $(GO) list ./... | grep -v -e /api/v1 -e /vendor/ -e /contrib/ -e test))
