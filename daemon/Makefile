@@ -7,50 +7,17 @@ include bpf.sha
 include ../Makefile.defs
 
 
-TARGET=cilium-agent
-LINKS=cilium cilium-node-monitor
-SOURCES := $(shell find ../api ../common ../daemon ../pkg ../monitor . \( -name '*.go'  ! -name '*_test.go' \))
-$(TARGET): $(SOURCES) check-bindata
-	@$(ECHO_GO)
-	$(QUIET)$(GO) build $(GOBUILD) -o $(TARGET)
-
 GO_BINDATA := $(QUIET) go-bindata -prefix ../ -mode 0640 -modtime 1450269211 \
 	-ignore Makefile -ignore bpf_features.h -ignore lxc_config.h \
 	-ignore netdev_config.h -ignore node_config.h -ignore filter_config.h \
 	-ignore '.+\.o$$' -ignore '.+\.orig$$' -ignore '.+~$$' \
-	-ignore '\.DS_Store'
+	-ignore '\.DS_Store' -pkg daemon
 
-all: $(TARGET) links
-
-links:
-	$(foreach link,$(LINKS), ln -f -s $(TARGET) $(link);)
-
-clean:
-	@$(ECHO_CLEAN)
-	$(QUIET)rm -f $(TARGET)
-	$(QUIET)$(GO) clean
-	$(foreach link,$(LINKS), rm $(link);)
-
-ifeq ("$(PKG_BUILD)","")
-
-install:
-	groupadd -f cilium
-	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
-	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
-	$(foreach link,$(LINKS), ln -f -s $(TARGET) $(DESTDIR)$(BINDIR)/$(link);)
-
-else
-
-install:
-	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
-	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
-	$(foreach link,$(LINKS), ln -f -s $(TARGET) $(DESTDIR)$(BINDIR)/$(link);)
-
-endif
+all: check-bindata
 
 .PHONY: check-bindata
 check-bindata: bindata.go
-	@$(ECHO_CHECK) contrib/scripts/bindata.sh
+	@$(ECHO_CHECK) ../contrib/scripts/bindata.sh
 	$(QUIET) ../contrib/scripts/bindata.sh $(GO_BINDATA_SHA1SUM)
 
 apply-bindata: go-bindata

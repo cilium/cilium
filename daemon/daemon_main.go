@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package daemon
 
 import (
 	"fmt"
@@ -172,7 +172,8 @@ func init() {
 	logging.DefaultLogger.Hooks.Add(metrics.NewLoggingHook(components.CiliumAgentName))
 }
 
-func daemonMain() {
+// DaemonMain entry point for cilium-agent daemon
+func DaemonMain() {
 
 	// Open socket for using gops to get stacktraces of the agent.
 	if err := gops.Listen(gops.Options{}); err != nil {

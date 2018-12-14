@@ -1,7 +1,7 @@
 include Makefile.defs
 include daemon/bpf.sha
 
-SUBDIRS_CILIUM_CONTAINER = proxylib envoy plugins/cilium-cni bpf daemon cilium-health bugtool
+SUBDIRS_CILIUM_CONTAINER = proxylib envoy plugins/cilium-cni bpf daemon cilium-health bugtool cmd/cilium
 SUBDIRS = $(SUBDIRS_CILIUM_CONTAINER) operator plugins tools
 GOFILES ?= $(subst _$(ROOT_DIR)/,,$(shell $(GO) list ./... | grep -v -e /vendor/ -e /contrib/))
 TESTPKGS ?= $(subst _$(ROOT_DIR)/,,$(shell $(GO) list ./... | grep -v -e /api/v1 -e /vendor/ -e /contrib/ -e test))
@@ -98,7 +98,7 @@ tests: force
 TEST_UNITTEST_LDFLAGS= -ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyConfigFile=/tmp/cilium-consul-certs/cilium-consul.yaml"
 
 unit-tests: start-kvstores
-	$(QUIET) $(MAKE) -C daemon/ check-bindata
+	$(QUIET) $(MAKE) -C daemon check-bindata
 	$(QUIET) echo "mode: count" > coverage-all-tmp.out
 	$(QUIET) echo "mode: count" > coverage.out
 	$(QUIET)$(foreach pkg,$(TESTPKGS),\

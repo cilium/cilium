@@ -14,7 +14,7 @@
 
 // +build !privileged_tests
 
-package main
+package daemon
 
 import (
 	"encoding/binary"

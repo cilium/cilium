@@ -19,6 +19,7 @@ import (
 	"path"
 
 	"github.com/cilium/cilium/cilium/cmd"
+	"github.com/cilium/cilium/daemon"
 	"github.com/cilium/cilium/monitor"
 )
 
@@ -27,7 +28,7 @@ func main() {
 
 	switch base {
 	case "cilium-agent":
-		daemonMain()
+		daemon.DaemonMain()
 	case "cilium":
 		cmd.Execute()
 	case "cilium-node-monitor":
