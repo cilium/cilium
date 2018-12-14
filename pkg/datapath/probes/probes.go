@@ -144,7 +144,7 @@ func readKernelConfig(warningFile io.Writer) ([]byte, error) {
 
 // probeKernelConfig checks whether the kernel configuration contains required
 // and optional parameters.
-func probeKernelConfig(infoFile, warningFile io.Writer) (err error) {
+func probeKernelConfig(infoFile, warningFile io.Writer) error {
 	optionalParams := []string{
 		"CONFIG_CGROUP_BPF=y",
 		"CONFIG_LWTUNNEL_BPF=y",
@@ -160,8 +160,7 @@ func probeKernelConfig(infoFile, warningFile io.Writer) (err error) {
 		"CONFIG_HAVE_EBPF_JIT=y",
 	}
 
-	var config []byte
-	config, err = readKernelConfig(warningFile)
+	config, err := readKernelConfig(warningFile)
 	if err != nil {
 		if _, err := io.WriteString(infoFile, "BPF/probes: Kernel config not found.\n"); err != nil {
 			return err
@@ -187,7 +186,7 @@ func probeKernelConfig(infoFile, warningFile io.Writer) (err error) {
 		}
 	}
 
-	return
+	return nil
 }
 
 // copyFile copies the file from source to destination. Before calling this
@@ -250,8 +249,7 @@ func probeRunLl(featureFile, infoFile io.Writer, probesDir, libIncludeDir, outDi
 			if _, err := stdoutBuf.WriteTo(featureFile); err != nil {
 				return err
 			}
-			_, err = stderrBuf.WriteTo(infoFile)
-			if err != nil {
+			if _, err = stderrBuf.WriteTo(infoFile); err != nil {
 				return err
 			}
 		}
