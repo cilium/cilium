@@ -40,6 +40,15 @@ func Test(t *testing.T) { TestingT(t) }
 func (s *ProbesSuite) TestReadKernelConfiguration(c *C) {
 	var buf bytes.Buffer
 	_, err := readKernelConfig(&buf)
+	if err != nil {
+		// Test should not fail in that case. Some environments do not
+		// provide kernel configuration, i.e. Travis CI. In that case
+		// the example config should be used instead.
+		localConfigLocations = []string{"../../../bpf/examples/config"}
+		localConfigLocationsGz = nil
+
+		_, err = readKernelConfig(&buf)
+	}
 	c.Assert(err, IsNil)
 }
 
