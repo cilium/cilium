@@ -1901,7 +1901,7 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 		httpd2ContainerLabel := "container:id.httpd2"
 
 		By("Getting all identities which contain label %s", httpd2ContainerLabel)
-		res = vm.ExecCilium(fmt.Sprintf("identity get --label=%s -o json", httpd2ContainerLabel))
+		res = vm.ExecCilium(fmt.Sprintf(`identity list -o json | jq 'map(select(.labels[] | contains("%s")))'`, httpd2ContainerLabel))
 		var identities []models.Identity
 		err = res.Unmarshal(&identities)
 		Expect(err).Should(BeNil(), "unable to get identities containing label %s", httpd2ContainerLabel)
@@ -1969,10 +1969,21 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 		Expect(httpd1EndpointModel.Status.Identity).To(Not(BeNil()), "Expected non-nil identity for endpoint %s", helpers.Httpd1)
 		Expect(httpd1EndpointModel.Status.Policy).To(Not(BeNil()), "Expected non-nil policy for endpoint %s", helpers.Httpd1)
 
-		httpd2SecurityIdentity = httpd2EndpointModel.Status.Identity.ID
+		By("Getting all identities which contain label %s", httpd2ContainerLabel)
+		res = vm.ExecCilium(fmt.Sprintf(`identity list -o json | jq 'map(select(.labels[] | contains("%s")))'`, httpd2ContainerLabel))
+		identities = []models.Identity{}
+		err = res.Unmarshal(&identities)
+		Expect(err).Should(BeNil(), "unable to get identities containing label %s", httpd2ContainerLabel)
+
+		// Reset slice of expected identities since host is no longer allowed.
+		expectedIngressIdentitiesHttpd1 = []int64{}
+
+		// Append all identities which have label container:id.httpd2.
+		for _, id := range identities {
+			expectedIngressIdentitiesHttpd1 = append(expectedIngressIdentitiesHttpd1, id.ID)
+		}
 
 		By("Verifying allowed identities for ingress traffic to %q", helpers.Httpd1)
-		expectedIngressIdentitiesHttpd1 = []int64{httpd2SecurityIdentity}
 		actualIngressIdentitiesHttpd1 = httpd1EndpointModel.Status.Policy.Realized.AllowedIngressIdentities
 		Expect(expectedIngressIdentitiesHttpd1).Should(Equal(actualIngressIdentitiesHttpd1), "Expected allowed identities %v, but instead got %v", expectedIngressIdentitiesHttpd1, actualIngressIdentitiesHttpd1)
 
