@@ -746,6 +746,10 @@ func initEnv(cmd *cobra.Command) {
 		log.Fatalf("Invalid fixed identities provided: %s", err)
 	}
 
+	if !option.Config.EnableIPv4 && !option.Config.EnableIPv6 {
+		log.Fatal("Either IPv4 or IPv6 addressing must be enabled")
+	}
+
 	if err := kvstore.Setup(kvStore, kvStoreOpts); err != nil {
 		addrkey := fmt.Sprintf("%s.address", kvStore)
 		addr := kvStoreOpts[addrkey]
