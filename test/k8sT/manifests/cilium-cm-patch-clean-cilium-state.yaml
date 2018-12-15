@@ -20,3 +20,6 @@ data:
 
   debug: "true"
   clean-cilium-state: "true"
+
+  enable-ipv4: "true"
+  enable-ipv6: "true"
