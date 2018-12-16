@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
 )
@@ -591,7 +592,7 @@ func DeleteRevNATBPF(id loadbalancer.ServiceID, isIPv6 bool) error {
 // includeMasterBackend is true, the returned values will also include services
 // which correspond to "master" backend values in the BPF maps. Returns the
 // errors that occurred while dumping the maps.
-func DumpServiceMapsToUserspace(includeMasterBackend, skipIPv4 bool) (loadbalancer.SVCMap, []*loadbalancer.LBSVC, []error) {
+func DumpServiceMapsToUserspace(includeMasterBackend bool) (loadbalancer.SVCMap, []*loadbalancer.LBSVC, []error) {
 
 	newSVCMap := loadbalancer.SVCMap{}
 	newSVCList := []*loadbalancer.LBSVC{}
@@ -628,16 +629,18 @@ func DumpServiceMapsToUserspace(includeMasterBackend, skipIPv4 bool) (loadbalanc
 	mutex.RLock()
 	defer mutex.RUnlock()
 
-	if !skipIPv4 {
+	if option.Config.EnableIPv4 {
 		err := Service4Map.DumpWithCallback(parseSVCEntries)
 		if err != nil {
 			errors = append(errors, err)
 		}
 	}
 
-	err := Service6Map.DumpWithCallback(parseSVCEntries)
-	if err != nil {
-		errors = append(errors, err)
+	if option.Config.EnableIPv6 {
+		err := Service6Map.DumpWithCallback(parseSVCEntries)
+		if err != nil {
+			errors = append(errors, err)
+		}
 	}
 
 	// serviceKeynValue2FEnBE() cannot fill in the service ID reliably as
@@ -656,11 +659,10 @@ func DumpServiceMapsToUserspace(includeMasterBackend, skipIPv4 bool) (loadbalanc
 	return newSVCMap, newSVCList, errors
 }
 
-// DumpRevNATMapsToUserspace dumps the contents of both the IPv6 and IPv4 revNAT
-// BPF maps, and stores the contents of said dumps in a RevNATMap. IPv4 maps may
-// not be dumped depending on if skipIPv4 is enabled. Returns the errors that
-// occurred while dumping the maps.
-func DumpRevNATMapsToUserspace(skipIPv4 bool) (loadbalancer.RevNATMap, []error) {
+// DumpRevNATMapsToUserspace dumps the contents of both the IPv6 and IPv4
+// revNAT BPF maps, and stores the contents of said dumps in a RevNATMap.
+// Returns the errors that occurred while dumping the maps.
+func DumpRevNATMapsToUserspace() (loadbalancer.RevNATMap, []error) {
 
 	newRevNATMap := loadbalancer.RevNATMap{}
 	errors := []error{}
@@ -681,16 +683,18 @@ func DumpRevNATMapsToUserspace(skipIPv4 bool) (loadbalancer.RevNATMap, []error) 
 	mutex.RLock()
 	defer mutex.RUnlock()
 
-	if !skipIPv4 {
+	if option.Config.EnableIPv4 {
 		if err := RevNat4Map.DumpWithCallback(parseRevNATEntries); err != nil {
 			err = fmt.Errorf("error dumping RevNat4Map: %s", err)
 			errors = append(errors, err)
 		}
 	}
 
-	if err := RevNat6Map.DumpWithCallback(parseRevNATEntries); err != nil {
-		err = fmt.Errorf("error dumping RevNat6Map: %s", err)
-		errors = append(errors, err)
+	if option.Config.EnableIPv6 {
+		if err := RevNat6Map.DumpWithCallback(parseRevNATEntries); err != nil {
+			err = fmt.Errorf("error dumping RevNat6Map: %s", err)
+			errors = append(errors, err)
+		}
 	}
 
 	return newRevNATMap, errors

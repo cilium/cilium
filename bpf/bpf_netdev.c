@@ -47,6 +47,25 @@
 #include "lib/drop.h"
 #include "lib/encap.h"
 
+
+#if defined FROM_HOST && (defined ENABLE_IPV4 || defined ENABLE_IPV6)
+static inline int rewrite_dmac_to_host(struct __sk_buff *skb)
+{
+	/* When attached to cilium_host, we rewrite the DMAC to the mac of
+	 * cilium_host (peer) to ensure the packet is being considered to be
+	 * addressed to the host (PACKET_HOST) */
+	union macaddr cilium_net_mac = CILIUM_NET_MAC;
+
+	/* Rewrite to destination MAC of cilium_net (remote peer) */
+	if (eth_store_daddr(skb, (__u8 *) &cilium_net_mac.addr, 0) < 0)
+		return send_drop_notify_error(skb, DROP_WRITE_ERROR, TC_ACT_OK, METRIC_INGRESS);
+
+	return TC_ACT_OK;
+}
+#endif
+
+
+#ifdef ENABLE_IPV6
 static inline __u32 derive_sec_ctx(struct __sk_buff *skb, const union v6addr *node_ip,
 				   struct ipv6hdr *ip6)
 {
@@ -121,51 +140,6 @@ reverse_proxy6(struct __sk_buff *skb, int l4_off, struct ipv6hdr *ip6, __u8 nh)
 	skb->tc_index |= TC_INDEX_F_SKIP_PROXY;
 
 	return 0;
-}
-#endif
-
-#ifdef FROM_HOST
-static inline bool __inline__ handle_identity_from_host(struct __sk_buff *skb, __u32 *identity)
-{
-	__u32 magic = skb->mark & MARK_MAGIC_HOST_MASK;
-	bool from_proxy = false;
-
-	/* Packets from the ingress proxy must skip the proxy when the
-	 * destination endpoint evaluates the policy. As the packet
-	 * would loop otherwise. */
-	if (magic == MARK_MAGIC_PROXY_INGRESS) {
-		*identity = get_identity_via_proxy(skb);
-		skb->tc_index |= TC_INDEX_F_SKIP_PROXY;
-		from_proxy = true;
-	} else if (magic == MARK_MAGIC_PROXY_EGRESS) {
-		*identity = get_identity_via_proxy(skb);
-		from_proxy = true;
-	} else if (magic == MARK_MAGIC_HOST) {
-		*identity = HOST_ID;
-	} else {
-		*identity = WORLD_ID;
-	}
-
-	/* Reset packet mark to avoid hitting routing rules again */
-	skb->mark = 0;
-
-	return from_proxy;
-}
-#endif
-
-#ifdef FROM_HOST
-static inline int rewrite_dmac_to_host(struct __sk_buff *skb)
-{
-	/* When attached to cilium_host, we rewrite the DMAC to the mac of
-	 * cilium_host (peer) to ensure the packet is being considered to be
-	 * addressed to the host (PACKET_HOST) */
-	union macaddr cilium_net_mac = CILIUM_NET_MAC;
-
-	/* Rewrite to destination MAC of cilium_net (remote peer) */
-	if (eth_store_daddr(skb, (__u8 *) &cilium_net_mac.addr, 0) < 0)
-		return send_drop_notify_error(skb, DROP_WRITE_ERROR, TC_ACT_OK, METRIC_INGRESS);
-
-	return TC_ACT_OK;
 }
 #endif
 
@@ -282,6 +256,7 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 #endif
 	return TC_ACT_OK;
 }
+#endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
 static inline __u32 derive_ipv4_sec_ctx(struct __sk_buff *skb, struct iphdr *ip4)
@@ -473,6 +448,35 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC) int tail_handle_ipv4
 	return ret;
 }
 
+#endif /* ENABLE_IPV4 */
+
+#ifdef FROM_HOST
+static inline bool __inline__ handle_identity_from_host(struct __sk_buff *skb, __u32 *identity)
+{
+	__u32 magic = skb->mark & MARK_MAGIC_HOST_MASK;
+	bool from_proxy = false;
+
+	/* Packets from the ingress proxy must skip the proxy when the
+	 * destination endpoint evaluates the policy. As the packet
+	 * would loop otherwise. */
+	if (magic == MARK_MAGIC_PROXY_INGRESS) {
+		*identity = get_identity_via_proxy(skb);
+		skb->tc_index |= TC_INDEX_F_SKIP_PROXY;
+		from_proxy = true;
+	} else if (magic == MARK_MAGIC_PROXY_EGRESS) {
+		*identity = get_identity_via_proxy(skb);
+		from_proxy = true;
+	} else if (magic == MARK_MAGIC_HOST) {
+		*identity = HOST_ID;
+	} else {
+		*identity = WORLD_ID;
+	}
+
+	/* Reset packet mark to avoid hitting routing rules again */
+	skb->mark = 0;
+
+	return from_proxy;
+}
 #endif
 
 __section("from-netdev")
@@ -500,6 +504,7 @@ int from_netdev(struct __sk_buff *skb)
 #endif
 
 	switch (skb->protocol) {
+#ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
 		/* This is considered the fast path, no tail call */
 		ret = handle_ipv6(skb, identity);
@@ -509,6 +514,7 @@ int from_netdev(struct __sk_buff *skb)
 		if (IS_ERR(ret))
 			return send_drop_notify_error(skb, ret, TC_ACT_SHOT, METRIC_INGRESS);
 		break;
+#endif
 
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
