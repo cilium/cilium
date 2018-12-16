@@ -37,8 +37,8 @@ extensions = ['sphinx.ext.ifconfig',
     'sphinx.ext.extlinks',
     'sphinxcontrib.openapi',
     'sphinx_tabs.tabs',
-    'sphinxcontrib.spelling',
-    'versionwarning.extension' ]
+    'sphinxcontrib.spelling']
+#    'versionwarning.extension' ] <--- build is currently broken, see GH-6460
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
