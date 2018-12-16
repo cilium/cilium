@@ -16,6 +16,7 @@ package maps
 
 import (
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -105,4 +106,38 @@ func staleMapWalker(path string) error {
 	}
 
 	return nil
+}
+
+// RemoveDisabledMaps removes BPF maps in the filesystem for features that have
+// been disabled. The maps may still be in use in which case they will continue
+// to live until the BPF program using them is being replaced.
+func RemoveDisabledMaps() {
+	maps := []string{}
+
+	if !option.Config.EnableIPv6 {
+		maps = append(maps, []string{
+			"cilium_ct6_global",
+			"cilium_ct_any6_global",
+			"cilium_lb6_reverse_nat",
+			"cilium_lb6_rr_seq",
+			"cilium_lb6_services",
+			"cilium_proxy6"}...)
+	}
+
+	if !option.Config.EnableIPv4 {
+		maps = append(maps, []string{
+			"cilium_ct4_global",
+			"cilium_ct_any4_global",
+			"cilium_lb4_reverse_nat",
+			"cilium_lb4_rr_seq",
+			"cilium_lb4_services",
+			"cilium_proxy4"}...)
+	}
+
+	for _, m := range maps {
+		p := path.Join(bpf.MapPrefixPath(), m)
+		if _, err := os.Stat(p); !os.IsNotExist(err) {
+			removeStaleMap(p)
+		}
+	}
 }
