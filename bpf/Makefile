@@ -23,7 +23,11 @@ LB_OPTIONS = \
 	-DSKIP_DEBUG \
 	-DLB_L3 \
 	-DLB_L4 \
-	-DLB_L3 -DLB_L4
+	"-DLB_L3 -DLB_L4" \
+	"-DENABLE_IPV4 -DLB_L3 -DLB_L4" \
+	"-DENABLE_IPV6 -DLB_L3 -DLB_L4" \
+	"-DENABLE_IPV4 -DENABLE_IPV6 -DLB_L3 -DLB_L4"
+
 
 bpf_lb.ll: bpf_lb.c $(LIB)
 	$(QUIET) set -e; \
@@ -41,7 +45,11 @@ bpf_lb.o: bpf_lb.ll
 LXC_OPTIONS = \
 	 -DSKIP_DEBUG \
 	 -DHAVE_LPM_MAP_TYPE \
-	 -DHAVE_LRU_MAP_TYPE
+	 -DHAVE_LRU_MAP_TYPE \
+	 -DENABLE_IPV4 \
+	 -DENABLE_IPV6 \
+	 "-DENABLE_IPV6 -DENABLE_IPV4" \
+	 "-DENABLE_IPV4 -DENABLE_NAT46"
 
 bpf_lxc.ll: bpf_lxc.c $(LIB)
 	$(QUIET) set -e; \

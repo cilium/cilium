@@ -109,7 +109,7 @@ func main() {
 		"Cilium CNI plugin "+version.Version)
 }
 
-func IPv6IsEnabled(ipam *models.IPAMResponse) bool {
+func ipv6IsEnabled(ipam *models.IPAMResponse) bool {
 	if ipam == nil || ipam.Address.IPV6 == "" {
 		return false
 	}
@@ -121,7 +121,7 @@ func IPv6IsEnabled(ipam *models.IPAMResponse) bool {
 	return true
 }
 
-func IPv4IsEnabled(ipam *models.IPAMResponse) bool {
+func ipv4IsEnabled(ipam *models.IPAMResponse) bool {
 	if ipam == nil || ipam.Address.IPV4 == "" {
 		return false
 	}
@@ -219,13 +219,13 @@ func configureIface(ipam *models.IPAMResponse, ifName string, state *CmdState) (
 		return "", fmt.Errorf("failed to set %q UP: %v", ifName, err)
 	}
 
-	if IPv4IsEnabled(ipam) {
+	if ipv4IsEnabled(ipam) {
 		if err := addIPConfigToLink(state.IP4, state.IP4routes, l, ifName); err != nil {
 			return "", fmt.Errorf("error configuring IPv4: %s", err.Error())
 		}
 	}
 
-	if IPv6IsEnabled(ipam) {
+	if ipv6IsEnabled(ipam) {
 		if err := addIPConfigToLink(state.IP6, state.IP6routes, l, ifName); err != nil {
 			return "", fmt.Errorf("error configuring IPv6: %s", err.Error())
 		}
@@ -391,9 +391,6 @@ func cmdAdd(args *skel.CmdArgs) error {
 		return fmt.Errorf("Invalid IPAM response, missing addressing")
 	}
 
-	ep.Addressing.IPV6 = ipam.Address.IPV6
-	ep.Addressing.IPV4 = ipam.Address.IPV4
-
 	// release addresses on failure
 	defer func() {
 		if err != nil {
@@ -413,11 +410,13 @@ func cmdAdd(args *skel.CmdArgs) error {
 
 	res := &cniTypesVer.Result{}
 
-	if !IPv6IsEnabled(ipam) && !IPv4IsEnabled(ipam) {
+	if !ipv6IsEnabled(ipam) && !ipv4IsEnabled(ipam) {
 		return fmt.Errorf("IPAM did not provide IPv4 or IPv6 address")
 	}
 
-	if IPv6IsEnabled(ipam) {
+	if ipv6IsEnabled(ipam) {
+		ep.Addressing.IPV6 = ipam.Address.IPV6
+
 		ipConfig, routes, err := prepareIP(ep.Addressing.IPV6, true, &state, int(conf.RouteMTU))
 		if err != nil {
 			return err
@@ -426,7 +425,9 @@ func cmdAdd(args *skel.CmdArgs) error {
 		res.Routes = append(res.Routes, routes...)
 	}
 
-	if IPv4IsEnabled(ipam) {
+	if ipv4IsEnabled(ipam) {
+		ep.Addressing.IPV4 = ipam.Address.IPV4
+
 		ipConfig, routes, err := prepareIP(ep.Addressing.IPV4, false, &state, int(conf.RouteMTU))
 		if err != nil {
 			return err

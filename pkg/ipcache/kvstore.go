@@ -377,6 +377,12 @@ restart:
 					scopedLog.WithError(err).Errorf("Not adding entry to ip cache; error unmarshaling data from key-value store")
 					continue
 				}
+				ip := ipIDPair.PrefixString()
+				if ip == "<nil>" {
+					scopedLog.Debug("Ignoring entry with nil IP")
+					continue
+				}
+
 				IPIdentityCache.Upsert(ipIDPair.PrefixString(), ipIDPair.HostIP, Identity{
 					ID:     ipIDPair.ID,
 					Source: FromKVStore,

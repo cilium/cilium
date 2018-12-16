@@ -35,6 +35,7 @@
 
 #define CILIUM_LB_MAP_MAX_FE		256
 
+#ifdef ENABLE_IPV6
 struct bpf_elf_map __section_maps cilium_lb6_reverse_nat = {
 	.type		= BPF_MAP_TYPE_HASH,
 	.size_key	= sizeof(__u16),
@@ -58,7 +59,9 @@ struct bpf_elf_map __section_maps cilium_lb6_rr_seq = {
 	.pinning        = PIN_GLOBAL_NS,
 	.max_elem       = CILIUM_LB_MAP_MAX_FE,
 };
+#endif /* ENABLE_IPV6 */
 
+#ifdef ENABLE_IPV4
 struct bpf_elf_map __section_maps cilium_lb4_reverse_nat = {
 	.type		= BPF_MAP_TYPE_HASH,
 	.size_key	= sizeof(__u16),
@@ -82,6 +85,9 @@ struct bpf_elf_map __section_maps cilium_lb4_rr_seq = {
 	.pinning        = PIN_GLOBAL_NS,
 	.max_elem       = CILIUM_LB_MAP_MAX_FE,
 };
+#endif /* ENABLE_IPV4 */
+
+
 #define REV_NAT_F_TUPLE_SADDR 1
 #ifdef LB_DEBUG
 #define cilium_dbg_lb cilium_dbg
@@ -251,6 +257,7 @@ static inline int __inline__ reverse_map_l4_port(struct __sk_buff *skb, __u8 nex
 	return 0;
 }
 
+#ifdef ENABLE_IPV6
 static inline int __inline__ __lb6_rev_nat(struct __sk_buff *skb, int l4_off,
 					 struct csum_offset *csum_off,
 					 struct ipv6_ct_tuple *tuple, int flags,
@@ -481,7 +488,9 @@ static inline int __inline__ lb6_local(void *map, struct __sk_buff *skb, int l3_
 	return lb6_xlate(skb, addr, tuple->nexthdr, l3_off, l4_off,
 			 csum_off, key, svc);
 }
+#endif /* ENABLE_IPV6 */
 
+#ifdef ENABLE_IPV4
 static inline int __inline__ __lb4_rev_nat(struct __sk_buff *skb, int l3_off, int l4_off,
 					 struct csum_offset *csum_off,
 					 struct ipv4_ct_tuple *tuple, int flags,
@@ -703,7 +712,6 @@ lb4_xlate(struct __sk_buff *skb, __be32 *new_daddr, __be32 *new_saddr,
 	return TC_ACT_OK;
 }
 
-#ifdef ENABLE_IPV4
 static inline int __inline__ lb4_local(void *map, struct __sk_buff *skb,
 				       int l3_off, int l4_off,
 				       struct csum_offset *csum_off, struct lb4_key *key,
@@ -780,6 +788,6 @@ static inline int __inline__ lb4_local(void *map, struct __sk_buff *skb,
 			 tuple->nexthdr, l3_off, l4_off, csum_off, key,
 			 svc);
 }
-#endif
+#endif /* ENABLE_IPV4 */
 
 #endif /* __LB_H_ */
