@@ -529,8 +529,10 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []er
 				errors = append(errors, fmt.Errorf("unable to release ipv4 address: %s", err))
 			}
 		}
-		if err := ipam.ReleaseIP(ep.IPv6.IP()); err != nil {
-			errors = append(errors, fmt.Errorf("unable to release ipv6 address: %s", err))
+		if option.Config.EnableIPv6 {
+			if err := ipam.ReleaseIP(ep.IPv6.IP()); err != nil {
+				errors = append(errors, fmt.Errorf("unable to release ipv6 address: %s", err))
+			}
 		}
 	}
 
