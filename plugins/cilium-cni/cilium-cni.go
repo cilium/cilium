@@ -413,6 +413,10 @@ func cmdAdd(args *skel.CmdArgs) error {
 
 	res := &cniTypesVer.Result{}
 
+	if !IPv6IsEnabled(ipam) && !IPv4IsEnabled(ipam) {
+		return fmt.Errorf("IPAM did not provide IPv4 or IPv6 address")
+	}
+
 	if IPv6IsEnabled(ipam) {
 		ipConfig, routes, err := prepareIP(ep.Addressing.IPV6, true, &state, int(conf.RouteMTU))
 		if err != nil {
@@ -420,8 +424,6 @@ func cmdAdd(args *skel.CmdArgs) error {
 		}
 		res.IPs = append(res.IPs, ipConfig)
 		res.Routes = append(res.Routes, routes...)
-	} else {
-		return fmt.Errorf("IPAM did not provide required IPv6 address")
 	}
 
 	if IPv4IsEnabled(ipam) {
