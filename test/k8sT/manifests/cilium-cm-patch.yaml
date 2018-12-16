@@ -20,3 +20,6 @@ data:
 
   # If you want to run cilium in debug mode change this value to true
   debug: "true"
+
+  enable-ipv4: "true"
+  enable-ipv6: "true"
