@@ -21,6 +21,7 @@ import (
 	ipamapi "github.com/cilium/cilium/api/v1/server/restapi/ipam"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/ipam"
+	"github.com/cilium/cilium/pkg/node"
 
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/swag"
@@ -38,7 +39,7 @@ func NewPostIPAMHandler(d *Daemon) ipamapi.PostIPAMHandler {
 // Handle incoming requests address allocation requests for the daemon.
 func (h *postIPAM) Handle(params ipamapi.PostIPAMParams) middleware.Responder {
 	resp := &models.IPAMResponse{
-		HostAddressing: h.daemon.getNodeAddressing(),
+		HostAddressing: node.GetNodeAddressing(),
 		Address:        &models.AddressPair{},
 	}
 
