@@ -21,7 +21,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/cilium/cilium/api/v1/client/endpoint"
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/datapath/link"
@@ -284,20 +283,6 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	if create.Interface.Address == "" && create.Interface.AddressIPv6 == "" {
 		sendError(w, "No IPv4 or IPv6 address provided (required)", http.StatusBadRequest)
-		return
-	}
-
-	_, err := driver.client.EndpointGet(endpointID(create.EndpointID))
-	if err != nil {
-		switch err.(type) {
-		case *endpoint.GetEndpointIDNotFound:
-			// Expected result
-		default:
-			sendError(w, fmt.Sprintf("Error retrieving endpoint %s", err), http.StatusBadRequest)
-			return
-		}
-	} else {
-		sendError(w, "Endpoint already exists", http.StatusBadRequest)
 		return
 	}
 
