@@ -108,4 +108,10 @@ const (
 	// StatusCollectorFailureThreshold is the duration after which a probe
 	// is considered failed
 	StatusCollectorFailureThreshold = 1 * time.Minute
+
+	// EnableIPv4 is the default value for IPv4 enablement
+	EnableIPv4 = true
+
+	// EnableIPv6 is the default value for IPv6 enablement
+	EnableIPv6 = true
 )
