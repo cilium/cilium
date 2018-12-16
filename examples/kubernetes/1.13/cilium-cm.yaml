@@ -25,7 +25,10 @@ data:
 
   # If you want to run cilium in debug mode change this value to true
   debug: "false"
-  disable-ipv4: "false"
+
+  # Enable IPv4 addressing. If enabled, all endpoints are allocated an IPv4
+  # address.
+  enable-ipv4: "true"
 
   # If a serious issue occurs during Cilium startup, this
   # invasive option may be set to true to remove all persistent
