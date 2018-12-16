@@ -52,10 +52,12 @@ echo 0 > /proc/sys/net/ipv4/conf/all/rp_filter
 # Disable unprivileged BPF
 echo 1 > /proc/sys/kernel/unprivileged_bpf_disabled || true
 
+if [ "$IP6_HOST" != "<nil>" ]; then
 # Docker <17.05 has an issue which causes IPv6 to be disabled in the initns for all
 # interface (https://github.com/docker/libnetwork/issues/1720)
 # Enable IPv6 for now
-echo 0 > /proc/sys/net/ipv6/conf/all/disable_ipv6
+	echo 0 > /proc/sys/net/ipv6/conf/all/disable_ipv6 || true
+fi
 
 # This directory was created by the daemon and contains the per container header file
 DIR="$PWD/globals"
@@ -65,11 +67,17 @@ function setup_veth()
 	local -r NAME=$1
 
 	ip link set $NAME up
-	echo 1 > /proc/sys/net/ipv4/conf/${NAME}/forwarding
-	echo 1 > /proc/sys/net/ipv6/conf/${NAME}/forwarding
-	echo 0 > /proc/sys/net/ipv4/conf/${NAME}/rp_filter
-	echo 1 > /proc/sys/net/ipv4/conf/${NAME}/accept_local
-	echo 0 > /proc/sys/net/ipv4/conf/${NAME}/send_redirects
+
+	if [ "$IP6_HOST" != "<nil>" ]; then
+		echo 1 > /proc/sys/net/ipv6/conf/${NAME}/forwarding
+	fi
+
+	if [ "$IP4_HOST" != "<nil>" ]; then
+		echo 1 > /proc/sys/net/ipv4/conf/${NAME}/forwarding
+		echo 0 > /proc/sys/net/ipv4/conf/${NAME}/rp_filter
+		echo 1 > /proc/sys/net/ipv4/conf/${NAME}/accept_local
+		echo 0 > /proc/sys/net/ipv4/conf/${NAME}/send_redirects
+	fi
 }
 
 function setup_veth_pair()
@@ -121,8 +129,13 @@ function move_local_rules_af()
 
 function move_local_rules()
 {
-	move_local_rules_af "ip -4"
-	move_local_rules_af "ip -6"
+	if [ "$IP4_HOST" != "<nil>" ]; then
+		move_local_rules_af "ip -4"
+	fi
+
+	if [ "$IP6_HOST" != "<nil>" ]; then 
+		move_local_rules_af "ip -6"
+	fi
 }
 
 function setup_proxy_rules()
@@ -130,27 +143,33 @@ function setup_proxy_rules()
 	# Any packet from a local process uses a separate routing table
 	rulespec="fwmark 0xA00/0xF00 pref 10 lookup $PROXY_RT_TABLE"
 
-	if [ -n "$(ip -4 rule list)" ]; then
-		if [ -z "$(ip -4 rule list $rulespec)" ]; then
-			ip -4 rule add $rulespec
+	if [ "$IP4_HOST" != "<nil>" ]; then
+		if [ -n "$(ip -4 rule list)" ]; then
+			if [ -z "$(ip -4 rule list $rulespec)" ]; then
+				ip -4 rule add $rulespec
+			fi
 		fi
-	fi
 
-	if [ -n "$IP4_HOST" ]; then
 		ip route replace table $PROXY_RT_TABLE $IP4_HOST/32 dev $HOST_DEV1
 		ip route replace table $PROXY_RT_TABLE default via $IP4_HOST
+	else
+		ip -4 rule del $rulespec 2> /dev/null || true
 	fi
 
-	if [ -n "$(ip -6 rule list)" ]; then
-		if [ -z "$(ip -6 rule list $rulespec)" ]; then
-			ip -6 rule add $rulespec
+	if [ "$IP6_HOST" != "<nil>" ]; then
+		if [ -n "$(ip -6 rule list)" ]; then
+			if [ -z "$(ip -6 rule list $rulespec)" ]; then
+				ip -6 rule add $rulespec
+			fi
 		fi
-	fi
 
-	IP6_LLADDR=$(ip -6 addr show dev $HOST_DEV2 | grep inet6 | head -1 | awk '{print $2}' | awk -F'/' '{print $1}')
-	if [ -n "$IP6_LLADDR" ]; then
-		ip -6 route replace table $PROXY_RT_TABLE ${IP6_LLADDR}/128 dev $HOST_DEV1
-		ip -6 route replace table $PROXY_RT_TABLE default via $IP6_LLADDR dev $HOST_DEV1
+		IP6_LLADDR=$(ip -6 addr show dev $HOST_DEV2 | grep inet6 | head -1 | awk '{print $2}' | awk -F'/' '{print $1}')
+		if [ -n "$IP6_LLADDR" ]; then
+			ip -6 route replace table $PROXY_RT_TABLE ${IP6_LLADDR}/128 dev $HOST_DEV1
+			ip -6 route replace table $PROXY_RT_TABLE default via $IP6_LLADDR dev $HOST_DEV1
+		fi
+	else
+		ip -6 rule del $rulespec 2> /dev/null || true
 	fi
 }
 
@@ -270,14 +289,12 @@ echo "#define HOST_IFINDEX_MAC { .addr = ${HOST_MAC}}" >> $RUNDIR/globals/node_c
 
 # If the host does not have an IPv6 address assigned, assign our generated host
 # IP to make the host accessible to endpoints
-[ -n "$(ip -6 addr show to $IP6_HOST)" ] || {
-	ip -6 addr add $IP6_HOST dev $HOST_DEV1
-}
+if [ "$IP6_HOST" != "<nil>" ]; then
+	[ -n "$(ip -6 addr show to $IP6_HOST)" ] || ip -6 addr add $IP6_HOST dev $HOST_DEV1
+fi
 
-if [[ "$IP4_HOST" != "<nil>" ]]; then
-	[ -n "$(ip -4 addr show to $IP4_HOST)" ] || {
-		ip -4 addr add $IP4_HOST dev $HOST_DEV1 scope link
-	}
+if [ "$IP4_HOST" != "<nil>" ]; then
+	[ -n "$(ip -4 addr show to $IP4_HOST)" ] || ip -4 addr add $IP4_HOST dev $HOST_DEV1 scope link
 fi
 
 # Decrease priority of the rule to identify local addresses
@@ -320,7 +337,9 @@ if [ "$MODE" = "direct" ]; then
 	if [ -z "$NATIVE_DEV" ]; then
 		echo "No device specified for $MODE mode, ignoring..."
 	else
-		echo 1 > /proc/sys/net/ipv6/conf/all/forwarding
+		if [ "$IP6_HOST" != "<nil>" ]; then
+			echo 1 > /proc/sys/net/ipv6/conf/all/forwarding
+		fi
 
 		CALLS_MAP=cilium_calls_netdev_${ID_WORLD}
 		POLICY_MAP="cilium_policy_reserved_${ID_WORLD}"
@@ -333,7 +352,9 @@ elif [ "$MODE" = "lb" ]; then
 	if [ -z "$NATIVE_DEV" ]; then
 		echo "No device specified for $MODE mode, ignoring..."
 	else
-		echo 1 > /proc/sys/net/ipv6/conf/all/forwarding
+		if [ "$IP6_HOST" != "<nil>" ]; then
+			echo 1 > /proc/sys/net/ipv6/conf/all/forwarding
+		fi
 
 		CALLS_MAP="cilium_calls_lb"
 		OPTS="-DLB_L3 -DLB_L4"

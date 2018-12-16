@@ -94,17 +94,23 @@ func logFromCommand(cmd *exec.Cmd, netns string) error {
 
 func configureHealthRouting(netns, dev string, addressing *models.NodeAddressing) error {
 	routes := []route.Route{}
-	v4Routes, err := connector.IPv4Routes(addressing, mtu.GetRouteMTU())
-	if err == nil {
-		routes = append(routes, v4Routes...)
-	} else {
-		log.Debugf("Couldn't get IPv4 routes for health routing")
+
+	if option.Config.EnableIPv4 {
+		v4Routes, err := connector.IPv4Routes(addressing, mtu.GetRouteMTU())
+		if err == nil {
+			routes = append(routes, v4Routes...)
+		} else {
+			log.Debugf("Couldn't get IPv4 routes for health routing")
+		}
 	}
-	v6Routes, err := connector.IPv6Routes(addressing, mtu.GetRouteMTU())
-	if err != nil {
-		return fmt.Errorf("Failed to get IPv6 routes")
+
+	if option.Config.EnableIPv6 {
+		v6Routes, err := connector.IPv6Routes(addressing, mtu.GetRouteMTU())
+		if err != nil {
+			return fmt.Errorf("Failed to get IPv6 routes")
+		}
+		routes = append(routes, v6Routes...)
 	}
-	routes = append(routes, v6Routes...)
 
 	prog := "ip"
 	args := []string{"netns", "exec", netns, "bash", "-c"}
@@ -188,21 +194,29 @@ type Annotator interface {
 // CleanupEndpoint() must be called before calling LaunchAsEndpoint() to ensure
 // cleanup of prior cilium-health endpoint instances.
 func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressing) error {
+	var (
+		cmd  = launcher.Launcher{}
+		info = &models.EndpointChangeRequest{
+			ContainerName: ciliumHealth,
+			State:         models.EndpointStateWaitingForIdentity,
+			Addressing:    &models.AddressPair{},
+		}
+		ip4, ip6               net.IP
+		ip4Address, ip6Address string
+	)
 
-	ip4 := node.GetIPv4HealthIP()
-	ip6 := node.GetIPv6HealthIP()
-	ip4WithMask := net.IPNet{IP: ip4, Mask: defaults.ContainerIPv4Mask}
-	ip6WithMask := net.IPNet{IP: ip6, Mask: defaults.ContainerIPv6Mask}
-	cmd := launcher.Launcher{}
+	if option.Config.EnableIPv4 {
+		ip4 = node.GetIPv4HealthIP()
+		info.Addressing.IPV4 = ip4.String()
+		ip4WithMask := net.IPNet{IP: ip4, Mask: defaults.ContainerIPv4Mask}
+		ip4Address = ip4WithMask.String()
+	}
 
-	// Prepare the endpoint change request
-	info := &models.EndpointChangeRequest{
-		ContainerName: ciliumHealth,
-		State:         models.EndpointStateWaitingForIdentity,
-		Addressing: &models.AddressPair{
-			IPV6: ip6.String(),
-			IPV4: ip4.String(),
-		},
+	if option.Config.EnableIPv6 {
+		ip6 = node.GetIPv6HealthIP()
+		info.Addressing.IPV6 = ip6.String()
+		ip6WithMask := net.IPNet{IP: ip6, Mask: defaults.ContainerIPv6Mask}
+		ip6Address = ip6WithMask.String()
 	}
 
 	if _, _, err := connector.SetupVethWithNames(vethName, vethPeerName, mtu.GetDeviceMTU(), info); err != nil {
@@ -212,7 +226,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 	pidfile := filepath.Join(option.Config.StateDir, PidfilePath)
 	healthArgs := fmt.Sprintf("-d --admin=unix --passive --pidfile %s", pidfile)
 	args := []string{info.ContainerName, info.InterfaceName, vethPeerName,
-		ip6WithMask.String(), ip4WithMask.String(), ciliumHealth, healthArgs}
+		ip6Address, ip4Address, ciliumHealth, healthArgs}
 	prog := filepath.Join(option.Config.BpfDir, "spawn_netns.sh")
 	cmd.SetTarget(prog)
 	cmd.SetArgs(args)

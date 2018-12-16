@@ -56,6 +56,7 @@
 #define CT_MAP_TYPE BPF_MAP_TYPE_HASH
 #endif
 
+#ifdef ENABLE_IPV6
 struct bpf_elf_map __section_maps CT_MAP_TCP6 = {
 	.type		= CT_MAP_TYPE,
 	.size_key	= sizeof(struct ipv6_ct_tuple),
@@ -72,6 +73,17 @@ struct bpf_elf_map __section_maps CT_MAP_ANY6 = {
 	.max_elem	= CT_MAP_SIZE_ANY,
 };
 
+static inline struct bpf_elf_map *
+get_ct_map6(struct ipv6_ct_tuple *tuple)
+{
+	if (tuple->nexthdr == IPPROTO_TCP) {
+		return &CT_MAP_TCP6;
+	}
+	return &CT_MAP_ANY6;
+}
+#endif
+
+#ifdef ENABLE_IPV4
 struct bpf_elf_map __section_maps CT_MAP_TCP4 = {
 	.type		= CT_MAP_TYPE,
 	.size_key	= sizeof(struct ipv4_ct_tuple),
@@ -89,15 +101,6 @@ struct bpf_elf_map __section_maps CT_MAP_ANY4 = {
 };
 
 static inline struct bpf_elf_map *
-get_ct_map6(struct ipv6_ct_tuple *tuple)
-{
-	if (tuple->nexthdr == IPPROTO_TCP) {
-		return &CT_MAP_TCP6;
-	}
-	return &CT_MAP_ANY6;
-}
-
-static inline struct bpf_elf_map *
 get_ct_map4(struct ipv4_ct_tuple *tuple)
 {
 	if (tuple->nexthdr == IPPROTO_TCP) {
@@ -105,12 +108,16 @@ get_ct_map4(struct ipv4_ct_tuple *tuple)
 	}
 	return &CT_MAP_ANY4;
 }
+#endif
 
+#if defined ENABLE_IPV4 || defined ENABLE_IPV6
 static inline bool redirect_to_proxy(int verdict, int dir)
 {
 	return verdict > 0 && (dir == CT_NEW || dir == CT_ESTABLISHED);
 }
+#endif
 
+#ifdef ENABLE_IPV6
 static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 				   struct ipv6_ct_tuple *tuple, int l3_off,
 				   struct ipv6hdr *ip6, __u32 *dstID)
@@ -339,7 +346,7 @@ skip_service_lookup:
 	}
 #endif
 
-#ifdef LXC_NAT46
+#ifdef ENABLE_NAT46
 	if (unlikely(ipv6_addr_is_mapped(daddr))) {
 		ep_tail_call(skb, CILIUM_CALL_NAT64);
 		return DROP_MISSED_TAIL_CALL;
@@ -423,9 +430,9 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_LXC) int tail_handle_ipv6
 
 	return ret;
 }
+#endif /* ENABLE_IPV6 */
 
-#ifdef LXC_IPV4
-
+#ifdef ENABLE_IPV4
 static inline int handle_ipv4_from_lxc(struct __sk_buff *skb, __u32 *dstID)
 {
 	struct ipv4_ct_tuple tuple = {};
@@ -465,14 +472,13 @@ static inline int handle_ipv4_from_lxc(struct __sk_buff *skb, __u32 *dstID)
 	}
 
 	ct_state_new.orig_dport = key.dport;
-#ifdef ENABLE_IPV4
 	if ((svc = lb4_lookup_service(skb, &key)) != NULL) {
 		ret = lb4_local(get_ct_map4(&tuple), skb, l3_off, l4_off, &csum_off,
 				&key, &tuple, svc, &ct_state_new, ip4->saddr);
 		if (IS_ERR(ret))
 			return ret;
 	}
-#endif
+
 skip_service_lookup:
 	/* The verifier wants to see this assignment here in case the above goto
 	 * skip_service_lookup is hit. However, in the case the packet
@@ -684,8 +690,6 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC) int tail_handle_ipv4
 	return ret;
 }
 
-#endif
-
 /*
  * ARP responder for ARP requests from container
  * Respond to IPV4_GATEWAY with NODE_MAC
@@ -695,6 +699,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_ARP) int tail_handle_arp(struct __s
 	union macaddr mac = NODE_MAC;
 	return arp_respond(skb, &mac);
 }
+#endif /* ENABLE_IPV4 */
 
 __section("from-container")
 int handle_ingress(struct __sk_buff *skb)
@@ -707,11 +712,14 @@ int handle_ingress(struct __sk_buff *skb)
 			  TRACE_PAYLOAD_LEN);
 
 	switch (skb->protocol) {
+#ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
 		ep_tail_call(skb, CILIUM_CALL_IPV6_FROM_LXC);
 		ret = DROP_MISSED_TAIL_CALL;
 		break;
+#endif
 
+#ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
 		ep_tail_call(skb, CILIUM_CALL_IPV4_FROM_LXC);
 		ret = DROP_MISSED_TAIL_CALL;
@@ -721,6 +729,7 @@ int handle_ingress(struct __sk_buff *skb)
 		ep_tail_call(skb, CILIUM_CALL_ARP);
 		ret = DROP_MISSED_TAIL_CALL;
 		break;
+#endif
 
 	default:
 		ret = DROP_UNKNOWN_L3;
@@ -732,6 +741,7 @@ int handle_ingress(struct __sk_buff *skb)
 	return ret;
 }
 
+#ifdef ENABLE_IPV6
 static inline int __inline__
 ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding_reason, struct ep_config *cfg)
 {
@@ -884,8 +894,9 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_TO_LXC) int tail_ipv6_policy(s
 
 	return ret;
 }
+#endif /* ENABLE_IPV6 */
 
-#ifdef LXC_IPV4
+#ifdef ENABLE_IPV4
 static inline int __inline__
 ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding_reason, struct ep_config *cfg)
 {
@@ -927,7 +938,7 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 
 	*forwarding_reason = ret;
 
-#ifdef LXC_NAT46
+#ifdef ENABLE_NAT46
 	if (skb->cb[CB_NAT46_STATE] == NAT46) {
 		ep_tail_call(skb, CILIUM_CALL_NAT46);
 		return DROP_MISSED_TAIL_CALL;
@@ -1025,8 +1036,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_TO_LXC) int tail_ipv4_policy(s
 
 	return ret;
 }
-
-#endif
+#endif /* ENABLE_IPV4 */
 
 /* Handle policy decisions as the packet makes its way towards the endpoint.
  * Previously, the packet may have come from another local endpoint, another
@@ -1041,17 +1051,19 @@ __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *sk
 	__u32 src_label = skb->cb[CB_SRC_LABEL];
 
 	switch (skb->protocol) {
+#ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
 		ep_tail_call(skb, CILIUM_CALL_IPV6_TO_LXC);
 		ret = DROP_MISSED_TAIL_CALL;
 		break;
+#endif /* ENABLE_IPV6 */
 
-#ifdef LXC_IPV4
+#ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
 		ep_tail_call(skb, CILIUM_CALL_IPV4_TO_LXC);
 		ret = DROP_MISSED_TAIL_CALL;
 		break;
-#endif
+#endif /* ENABLE_IPV4 */
 
 	default:
 		ret = DROP_UNKNOWN_L3;
@@ -1065,7 +1077,7 @@ __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *sk
 	return ret;
 }
 
-#ifdef LXC_NAT46
+#ifdef ENABLE_NAT46
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT64) int tail_ipv6_to_ipv4(struct __sk_buff *skb)
 {
 	int ret = ipv6_to_ipv4(skb, 14, LXC_IPV4);
