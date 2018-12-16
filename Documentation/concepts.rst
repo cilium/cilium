@@ -265,7 +265,7 @@ without causing any conflicts.
 
 The default behavior of Cilium is to assign both an IPv6 and IPv4 address to
 every endpoint. However, this behavior can be configured to only allocate an
-IPv6 address with the ``--disable-ipv4`` option. If both an IPv6 and IPv4
+IPv6 address with the ``--enable-ipv4=false`` option. If both an IPv6 and IPv4
 address are assigned, either address can be used to reach the endpoint. The
 same behavior will apply with regard to policy rules, load-balancing, etc. See
 :ref:`address_management` for more details.

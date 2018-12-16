@@ -381,8 +381,13 @@ func init() {
 		"device", "d", "undefined", "Device facing cluster/external network for direct L3 (non-overlay mode)")
 	flags.BoolVar(&disableConntrack,
 		"disable-conntrack", false, "Disable connection tracking")
-	flags.BoolVar(&option.Config.IPv4Disabled,
-		"disable-ipv4", false, "Disable IPv4 mode")
+	flags.Bool(option.LegacyDisableIPv4Name, false, "Disable IPv4 mode")
+	viper.BindEnv(option.LegacyDisableIPv4Name, option.LegacyDisableIPv4NameEnv)
+	flags.MarkHidden(option.LegacyDisableIPv4Name)
+	flags.Bool(option.EnableIPv4Name, true, "Enable IPv4 support")
+	viper.BindEnv(option.EnableIPv4Name, option.EnableIPv4NameEnv)
+	flags.Bool(option.EnableIPv6Name, true, "Enable IPv6 support")
+	viper.BindEnv(option.EnableIPv6Name, option.EnableIPv6NameEnv)
 	flags.BoolVar(&option.Config.DisableCiliumEndpointCRD,
 		option.DisableCiliumEndpointCRDName, false, "Disable use of CiliumEndpoint CRD")
 	flags.Bool("disable-k8s-services",
@@ -835,7 +840,7 @@ func runDaemon() {
 	}
 
 	log.Info("Starting connection tracking garbage collector")
-	endpointmanager.EnableConntrackGC(!option.Config.IPv4Disabled, true,
+	endpointmanager.EnableConntrackGC(option.Config.EnableIPv4, option.Config.EnableIPv6,
 		viper.GetInt("conntrack-garbage-collector-interval"),
 		restoredEndpoints.restored)
 
