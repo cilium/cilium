@@ -32,7 +32,6 @@ spec:
         - --debug=$(CILIUM_DEBUG)
         - --kvstore=etcd
         - --kvstore-opt=etcd.config=/var/lib/etcd-config/etcd.config
-        - --disable-ipv4=$(DISABLE_IPV4)
         - --container-runtime=crio
         command:
         - cilium-agent
@@ -52,10 +51,15 @@ spec:
             configMapKeyRef:
               key: debug
               name: cilium-config
-        - name: DISABLE_IPV4
+        - name: CILIUM_ENABLE_IPV4
           valueFrom:
             configMapKeyRef:
-              key: disable-ipv4
+              key: enable-ipv4
+              name: cilium-config
+        - name: CILIUM_ENABLE_IPV6
+          valueFrom:
+            configMapKeyRef:
+              key: enable-ipv6
               name: cilium-config
           # Note: this variable is a no-op if not defined, and is used in the
           # prometheus examples.

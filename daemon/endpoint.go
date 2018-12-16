@@ -524,7 +524,7 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []er
 	}
 
 	if releaseIP {
-		if !option.Config.IPv4Disabled {
+		if option.Config.EnableIPv4 {
 			if err := ipam.ReleaseIP(ep.IPv4.IP()); err != nil {
 				errors = append(errors, fmt.Errorf("unable to release ipv4 address: %s", err))
 			}

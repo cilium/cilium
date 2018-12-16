@@ -381,7 +381,7 @@ func (d *Daemon) RevNATDelete(id loadbalancer.ServiceID) error {
 // Must be called with d.loadBalancer.BPFMapMU locked.
 func (d *Daemon) RevNATDeleteAll() error {
 
-	if !option.Config.IPv4Disabled {
+	if option.Config.EnableIPv4 {
 		if err := lbmap.RevNat4Map.DeleteAll(); err != nil {
 			return err
 		}
@@ -531,11 +531,11 @@ func (d *Daemon) SyncLBMap() error {
 		return nil
 	}
 
-	newSVCMap, newSVCList, lbmapDumpErrors := lbmap.DumpServiceMapsToUserspace(false, option.Config.IPv4Disabled)
+	newSVCMap, newSVCList, lbmapDumpErrors := lbmap.DumpServiceMapsToUserspace(false, !option.Config.EnableIPv4)
 	for _, err := range lbmapDumpErrors {
 		log.WithError(err).Warn("error dumping BPF map into userspace")
 	}
-	newRevNATMap, revNATMapDumpErrors := lbmap.DumpRevNATMapsToUserspace(option.Config.IPv4Disabled)
+	newRevNATMap, revNATMapDumpErrors := lbmap.DumpRevNATMapsToUserspace(!option.Config.EnableIPv4)
 	for _, err := range revNATMapDumpErrors {
 		log.WithError(err).Warn("error dumping BPF map into userspace")
 	}
@@ -647,7 +647,7 @@ func (d *Daemon) syncLBMapsWithK8s() error {
 	defer d.loadBalancer.BPFMapMU.Unlock()
 
 	log.Debugf("dumping BPF service maps to userspace")
-	_, newSVCList, lbmapDumpErrors := lbmap.DumpServiceMapsToUserspace(true, option.Config.IPv4Disabled)
+	_, newSVCList, lbmapDumpErrors := lbmap.DumpServiceMapsToUserspace(true, !option.Config.EnableIPv4)
 	if len(lbmapDumpErrors) > 0 {
 		errorStrings := ""
 		for _, err := range lbmapDumpErrors {
@@ -656,7 +656,7 @@ func (d *Daemon) syncLBMapsWithK8s() error {
 		return fmt.Errorf("error(s): %s", errorStrings)
 	}
 
-	newRevNATMap, revNATMapDumpErrors := lbmap.DumpRevNATMapsToUserspace(option.Config.IPv4Disabled)
+	newRevNATMap, revNATMapDumpErrors := lbmap.DumpRevNATMapsToUserspace(!option.Config.EnableIPv4)
 	if len(revNATMapDumpErrors) > 0 {
 		errorStrings := ""
 		for _, err := range revNATMapDumpErrors {
