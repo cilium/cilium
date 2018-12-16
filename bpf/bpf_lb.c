@@ -27,8 +27,6 @@
  *              then passed back to the stack.
  *
  * Configuration:
- *  - LB_DISABLE_IPV4 - Ignore IPv4 packets
- *  - LB_DISABLE_IPV6 - Ignore IPv6 packets
  *  - LB_REDIRECT     - Redirect to an ifindex
  *  - LB_L4           - Enable L4 matching and mapping
  */
@@ -54,7 +52,7 @@
 #include "lib/drop.h"
 #include "lib/lb.h"
 
-#ifndef LB_DISABLE_IPV6
+#ifdef ENABLE_IPV6
 static inline int handle_ipv6(struct __sk_buff *skb)
 {
 	void *data, *data_end;
@@ -113,9 +111,9 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 
 	return TC_ACT_REDIRECT;
 }
-#endif
+#endif /* ENABLE_IPV6 */
 
-#ifndef LB_DISABLE_IPV4
+#ifdef ENABLE_IPV4
 static inline int handle_ipv4(struct __sk_buff *skb)
 {
 	void *data;
@@ -168,7 +166,7 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 
 	return TC_ACT_REDIRECT;
 }
-#endif
+#endif /* ENABLE_IPV4 */
 
 __section("from-netdev")
 int from_netdev(struct __sk_buff *skb)
@@ -178,13 +176,13 @@ int from_netdev(struct __sk_buff *skb)
 	bpf_clear_cb(skb);
 
 	switch (skb->protocol) {
-#ifndef LB_DISABLE_IPV6
+#ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
 		ret = handle_ipv6(skb);
 		break;
 #endif
 
-#ifndef LB_DISABLE_IPV4
+#ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
 		ret = handle_ipv4(skb);
 		break;

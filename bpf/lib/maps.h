@@ -79,6 +79,7 @@ struct bpf_elf_map __section_maps CONFIG_MAP = {
 	.max_elem	= 1,
 };
 
+#ifdef ENABLE_IPV4
 struct bpf_elf_map __section_maps cilium_proxy4 = {
 	.type		= BPF_MAP_TYPE_HASH,
 	.size_key	= sizeof(struct proxy4_tbl_key),
@@ -86,7 +87,9 @@ struct bpf_elf_map __section_maps cilium_proxy4 = {
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= PROXY_MAP_SIZE,
 };
+#endif /* ENABLE_IPV4 */
 
+#ifdef ENABLE_IPV6
 struct bpf_elf_map __section_maps cilium_proxy6= {
 	.type		= BPF_MAP_TYPE_HASH,
 	.size_key	= sizeof(struct proxy6_tbl_key),
@@ -94,6 +97,7 @@ struct bpf_elf_map __section_maps cilium_proxy6= {
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= PROXY_MAP_SIZE,
 };
+#endif /* ENABLE_IPV6 */
 
 #ifndef SKIP_CALLS_MAP
 /* Private per EP map for internal tail calls */
