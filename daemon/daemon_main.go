@@ -896,6 +896,7 @@ func runDaemon() {
 	}
 
 	maps.CollectStaleMapGarbage()
+	maps.RemoveDisabledMaps()
 
 	// The workload event listener *must* be enabled *after* restored endpoints
 	// are added into the endpoint manager; otherwise, updates to important
