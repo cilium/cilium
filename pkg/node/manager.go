@@ -113,6 +113,16 @@ func replaceNodeRoute(ip *net.IPNet) {
 		return
 	}
 
+	if ip.IP.To4() != nil {
+		if !option.Config.EnableIPv4 {
+			return
+		}
+	} else {
+		if !option.Config.EnableIPv6 {
+			return
+		}
+	}
+
 	routeUtils.ReplaceRoute(createNodeRoute(ip))
 }
 

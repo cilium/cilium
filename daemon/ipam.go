@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/swag"
@@ -94,8 +95,15 @@ func (h *deleteIPAMIP) Handle(params ipamapi.DeleteIPAMIPParams) middleware.Resp
 // reserved IPv4 and IPv6 addresses.
 func (d *Daemon) DumpIPAM() *models.IPAMStatus {
 	allocv4, allocv6 := ipam.Dump()
-	return &models.IPAMStatus{
-		IPV4: allocv4,
-		IPV6: allocv6,
+	status := &models.IPAMStatus{}
+
+	if option.Config.EnableIPv4 {
+		status.IPV4 = allocv4
 	}
+
+	if option.Config.EnableIPv6 {
+		status.IPV6 = allocv6
+	}
+
+	return status
 }

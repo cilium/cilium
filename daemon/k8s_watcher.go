@@ -1014,10 +1014,13 @@ func (d *Daemon) addIngressV1beta1(ingress *v1beta1.Ingress) error {
 	scopedLog.Info("Kubernetes ingress added")
 
 	var host net.IP
-	if !option.Config.EnableIPv4 {
-		host = option.Config.HostV6Addr
-	} else {
+	switch {
+	case option.Config.EnableIPv4:
 		host = option.Config.HostV4Addr
+	case option.Config.EnableIPv6:
+		host = option.Config.HostV6Addr
+	default:
+		return fmt.Errorf("either IPv4 or IPv6 must be enabled")
 	}
 
 	_, err := d.k8sSvcCache.UpdateIngress(ingress, host)
@@ -1141,10 +1144,11 @@ func (d *Daemon) deleteIngressV1beta1(ingress *v1beta1.Ingress) error {
 
 func (d *Daemon) missingK8sIngressV1Beta1(m versioned.Map) versioned.Map {
 	var host net.IP
-	if !option.Config.EnableIPv4 {
-		host = option.Config.HostV6Addr
-	} else {
+	switch {
+	case option.Config.EnableIPv4:
 		host = option.Config.HostV4Addr
+	case option.Config.EnableIPv6:
+		host = option.Config.HostV6Addr
 	}
 
 	return d.k8sSvcCache.ListMissingIngresses(m, host)

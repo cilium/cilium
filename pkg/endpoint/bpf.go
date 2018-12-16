@@ -173,7 +173,10 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	}
 	fw.WriteString(" */\n\n")
 
-	fw.WriteString(common.FmtDefineComma("LXC_IP", e.IPv6))
+	if e.IPv6 != nil {
+		fw.WriteString(common.FmtDefineComma("LXC_IP", e.IPv6))
+	}
+
 	if e.IPv4 != nil {
 		fmt.Fprintf(fw, "#define LXC_IPV4 %#x\n", byteorder.HostSliceToNetwork(e.IPv4, reflect.Uint32))
 	}
@@ -660,9 +663,10 @@ func (e *Endpoint) runPreCompilationSteps(owner Owner, regenContext *regeneratio
 	if !e.ctCleaned {
 		go func() {
 			ipv4 := option.Config.EnableIPv4
-			created := ctmap.Exists(nil, ipv4, true)
+			ipv6 := option.Config.EnableIPv6
+			created := ctmap.Exists(nil, ipv4, ipv6)
 			if e.ConntrackLocal() {
-				created = ctmap.Exists(e, ipv4, true)
+				created = ctmap.Exists(e, ipv4, ipv6)
 			}
 			if created {
 				e.scrubIPsInConntrackTable()
@@ -886,7 +890,7 @@ func (e *Endpoint) DeleteMapsLocked() []error {
 
 	if e.ConntrackLocalLocked() {
 		// Remove local connection tracking maps
-		for _, m := range ctmap.LocalMaps(e, option.Config.EnableIPv4, true) {
+		for _, m := range ctmap.LocalMaps(e, option.Config.EnableIPv4, option.Config.EnableIPv6) {
 			ctPath, err := m.Path()
 			if err == nil {
 				err = os.RemoveAll(ctPath)
@@ -963,14 +967,16 @@ func (e *Endpoint) SkipStateClean() {
 // GetBPFKeys returns all keys which should represent this endpoint in the BPF
 // endpoints map
 func (e *Endpoint) GetBPFKeys() []*lxcmap.EndpointKey {
-	key := lxcmap.NewEndpointKey(e.IPv6.IP())
-
-	if e.IPv4 != nil {
-		key4 := lxcmap.NewEndpointKey(e.IPv4.IP())
-		return []*lxcmap.EndpointKey{key, key4}
+	keys := []*lxcmap.EndpointKey{}
+	if e.IPv6 != nil {
+		keys = append(keys, lxcmap.NewEndpointKey(e.IPv6.IP()))
 	}
 
-	return []*lxcmap.EndpointKey{key}
+	if e.IPv4 != nil {
+		keys = append(keys, lxcmap.NewEndpointKey(e.IPv4.IP()))
+	}
+
+	return keys
 }
 
 // GetBPFValue returns the value which should represent this endpoint in the
