@@ -91,8 +91,8 @@ func InitIdentityAllocator(owner IdentityAllocatorOwner) {
 
 	log.Info("Initializing identity allocator")
 
-	minID := idpool.ID(identity.MinimalNumericIdentity)
-	maxID := idpool.ID(^uint16(0))
+	minID := idpool.ID(identity.MinimalAllocationIdentity)
+	maxID := idpool.ID(identity.MaximumAllocationIdentity)
 	events := make(allocator.AllocatorEventChan, 1024)
 
 	// It is important to start listening for events before calling
@@ -105,7 +105,7 @@ func InitIdentityAllocator(owner IdentityAllocatorOwner) {
 		allocator.WithSuffix(owner.GetNodeSuffix()),
 		allocator.WithEvents(events),
 		allocator.WithMasterKeyProtection(),
-		allocator.WithPrefixMask(idpool.ID(option.Config.ClusterID<<option.ClusterIDShift)))
+		allocator.WithPrefixMask(idpool.ID(option.Config.ClusterID<<identity.ClusterIDShift)))
 	if err != nil {
 		log.WithError(err).Fatal("Unable to initialize identity allocator")
 	}
