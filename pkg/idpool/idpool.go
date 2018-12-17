@@ -199,7 +199,7 @@ func newIDCache(minID ID, maxID ID) *idCache {
 	c := &idCache{
 		ids:    make([]ID, n),
 		index:  make(map[ID]int, n),
-		leased: make(map[ID]struct{}, n),
+		leased: make(map[ID]struct{}),
 	}
 
 	random := rand.New(rand.NewSource(time.Now().UnixNano()))
