@@ -56,6 +56,8 @@ var (
 	// kvstore.
 	IdentityAllocator *allocator.Allocator
 
+	localIdentities *localIdentityCache
+
 	// IdentitiesPath is the path to where identities are stored in the key-value
 	// store.
 	IdentitiesPath = path.Join(kvstore.BaseKeyPrefix, "state", "identities", "v1")
@@ -111,6 +113,8 @@ func InitIdentityAllocator(owner IdentityAllocatorOwner) {
 	}
 
 	IdentityAllocator = a
+	localIdentities = newLocalIdentityCache(1, 0xFFFFFF, events)
+
 }
 
 // Close closes the identity allocator and allows to call
@@ -126,6 +130,7 @@ func Close() {
 	IdentityAllocator.Delete()
 	watcher.stop()
 	IdentityAllocator = nil
+	localIdentities = nil
 }
 
 // WaitForInitialIdentities waits for the initial set of security identities to
@@ -166,6 +171,10 @@ func AllocateIdentity(lbls labels.Labels) (*identity.Identity, bool, error) {
 		return reservedIdentity, false, nil
 	}
 
+	if !identity.RequiresGlobalIdentity(lbls) && localIdentities != nil {
+		return localIdentities.lookupOrCreate(lbls)
+	}
+
 	if IdentityAllocator == nil {
 		return nil, false, fmt.Errorf("allocator not initialized")
 	}
@@ -187,14 +196,19 @@ func AllocateIdentity(lbls labels.Labels) (*identity.Identity, bool, error) {
 // Release is the reverse operation of AllocateIdentity() and releases the
 // identity again. This function may result in kvstore operations.
 // After the last user has released the ID, the returned lastUse value is true.
-func Release(id *identity.Identity) error {
+func Release(id *identity.Identity) (bool, error) {
+	if id.IsReserved() {
+		return false, nil
+	}
+
 	// Ignore reserved identities.
-	if identity.LookupReservedIdentity(id.ID) != nil {
-		return nil
+	if !identity.RequiresGlobalIdentity(id.Labels) && localIdentities != nil {
+		released := localIdentities.release(id)
+		return released, nil
 	}
 
 	if IdentityAllocator == nil {
-		return fmt.Errorf("allocator not initialized")
+		return false, fmt.Errorf("allocator not initialized")
 	}
 
 	return IdentityAllocator.Release(globalIdentity{id.Labels})
@@ -210,7 +224,7 @@ func ReleaseSlice(identities []*identity.Identity) error {
 		if id == nil {
 			continue
 		}
-		if err2 := Release(id); err2 != nil {
+		if _, err2 := Release(id); err2 != nil {
 			log.WithError(err2).WithFields(logrus.Fields{
 				logfields.Identity: id,
 			}).Error("Failed to release identity")

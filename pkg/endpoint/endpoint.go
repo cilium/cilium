@@ -1414,7 +1414,7 @@ func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup
 	}
 
 	if e.SecurityIdentity != nil {
-		err := cache.Release(e.SecurityIdentity)
+		_, err := cache.Release(e.SecurityIdentity)
 		if err != nil {
 			errors = append(errors, fmt.Errorf("unable to release identity: %s", err))
 		}
@@ -1996,7 +1996,7 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 	}
 
 	releaseNewlyAllocatedIdentity := func() {
-		err := cache.Release(identity)
+		_, err := cache.Release(identity)
 		if err != nil {
 			// non fatal error as keys will expire after lease expires but log it
 			elog.WithFields(logrus.Fields{logfields.Identity: identity.ID}).
@@ -2023,7 +2023,7 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 	if e.SecurityIdentity != nil {
 		oldIdentity := e.SecurityIdentity
 		defer func() {
-			err := cache.Release(oldIdentity)
+			_, err := cache.Release(oldIdentity)
 			if err != nil {
 				elog.WithFields(logrus.Fields{logfields.Identity: oldIdentity.ID}).
 					WithError(err).Warn("BUG: Unable to release old endpoint identity")

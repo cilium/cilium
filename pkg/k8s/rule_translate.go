@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
@@ -201,13 +200,7 @@ func deleteToCidrFromEndpoint(
 	egress.ToCIDRSet = newToCIDR
 	if impl != nil {
 		prefixes := policy.GetPrefixesFromCIDRSet(deleted)
-		if err := ipcache.ReleaseCIDRs(prefixes); err != nil {
-			// Don't pass this up to the caller, as it would prevent the
-			// deletion of other services or the setup of new ones!
-			log.WithError(err).WithFields(logrus.Fields{
-				"prefixes": prefixes,
-			}).Debugf("Failed to release prefixes while deleting k8s backend")
-		}
+		ipcache.ReleaseCIDRs(prefixes)
 	}
 
 	return nil

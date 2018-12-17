@@ -48,6 +48,10 @@ const (
 	// FromAgentLocal is the source used for identities derived during the
 	// agent bootup process. This includes identities for endpoint IPs.
 	FromAgentLocal Source = "agent-local"
+
+	// FromCIDR is the source used for identities that have been derived
+	// from local CIDR representations
+	FromCIDR Source = "cidr"
 )
 
 // Identity is the identity representation of an IP<->Identity cache.
@@ -183,12 +187,14 @@ func unrefPrefixLength(prefixLengths map[int]int, length int) {
 func allowOverwrite(existing, new Source) bool {
 	switch existing {
 	case FromKubernetes:
-		// k8s entries can be overwritten by everyone else
-		return true
+		return new != FromCIDR
 	case FromKVStore:
 		return new == FromKVStore || new == FromAgentLocal
 	case FromAgentLocal:
 		return new == FromAgentLocal
+
+	case FromCIDR:
+		return new == FromCIDR
 	}
 
 	return true

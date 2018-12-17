@@ -134,16 +134,19 @@ func (ias *IdentityAllocatorSuite) TestAllocator(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(isNew, Equals, true)
 
+	// reuse the same identity
 	id1b, isNew, err := AllocateIdentity(lbls1)
 	c.Assert(id1b, Not(IsNil))
 	c.Assert(isNew, Equals, false)
 	c.Assert(err, IsNil)
 	c.Assert(id1a.ID, Equals, id1b.ID)
 
-	err = Release(id1a)
+	released, err := Release(id1a)
 	c.Assert(err, IsNil)
-	err = Release(id1b)
+	c.Assert(released, Equals, false)
+	released, err = Release(id1b)
 	c.Assert(err, IsNil)
+	c.Assert(released, Equals, true)
 
 	id1b, isNew, err = AllocateIdentity(lbls1)
 	c.Assert(id1b, Not(IsNil))
@@ -170,10 +173,56 @@ func (ias *IdentityAllocatorSuite) TestAllocator(c *C) {
 	c.Assert(id1a.ID, Not(Equals), id3.ID)
 	c.Assert(id2.ID, Not(Equals), id3.ID)
 
-	err = Release(id1b)
+	released, err = Release(id1b)
 	c.Assert(err, IsNil)
-	err = Release(id2)
+	c.Assert(released, Equals, true)
+	released, err = Release(id2)
 	c.Assert(err, IsNil)
-	err = Release(id3)
+	c.Assert(released, Equals, true)
+	released, err = Release(id3)
 	c.Assert(err, IsNil)
+	c.Assert(released, Equals, true)
+}
+
+func (ias *IdentityAllocatorSuite) TestLocalAllocationr(c *C) {
+	lbls1 := labels.NewLabelsFromSortedList("cidr:192.0.2.3/32")
+
+	InitIdentityAllocator(dummyOwner{})
+	defer Close()
+	defer IdentityAllocator.DeleteAllKeys()
+
+	id, isNew, err := AllocateIdentity(lbls1)
+	c.Assert(id, Not(IsNil))
+	c.Assert(err, IsNil)
+	c.Assert(isNew, Equals, true)
+	c.Assert(id.ID.HasLocalScope(), Equals, true)
+
+	// reuse the same identity
+	id, isNew, err = AllocateIdentity(lbls1)
+	c.Assert(id, Not(IsNil))
+	c.Assert(err, IsNil)
+	c.Assert(isNew, Equals, false)
+
+	cache := GetIdentityCache()
+	c.Assert(cache[id.ID], Not(IsNil))
+
+	released, err := Release(id)
+	c.Assert(err, IsNil)
+	c.Assert(released, Equals, false)
+	released, err = Release(id)
+	c.Assert(err, IsNil)
+	c.Assert(released, Equals, true)
+
+	cache = GetIdentityCache()
+	c.Assert(cache[id.ID], IsNil)
+
+	id, isNew, err = AllocateIdentity(lbls1)
+	c.Assert(id, Not(IsNil))
+	c.Assert(err, IsNil)
+	c.Assert(isNew, Equals, true)
+	c.Assert(id.ID.HasLocalScope(), Equals, true)
+
+	released, err = Release(id)
+	c.Assert(err, IsNil)
+	c.Assert(released, Equals, true)
 }
