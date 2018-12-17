@@ -474,6 +474,9 @@ func init() {
 	flags.String(option.MonitorAggregationName, "None",
 		"Level of monitor aggregation for traces from the datapath")
 	viper.BindEnv(option.MonitorAggregationName, "CILIUM_MONITOR_AGGREGATION_LEVEL")
+	flags.Int(option.MonitorQueueSizeName, defaults.MonitorQueueSize,
+		"Size of the event queue when reading monitor events")
+	viper.BindEnv(option.MonitorQueueSizeName, option.MonitorQueueSizeNameEnv)
 	flags.IntVar(&option.Config.MTU,
 		option.MTUName, mtu.AutoDetect(), "Overwrite auto-detected MTU of underlying network")
 	flags.Bool(option.PrependIptablesChainsName, true, "Prepend custom iptables chains instead of appending")

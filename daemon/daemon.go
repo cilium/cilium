@@ -859,7 +859,7 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 		k8sSvcCache:   k8s.NewServiceCache(),
 		policy:        policy.NewPolicyRepository(),
 		uniqueID:      map[uint64]context.CancelFunc{},
-		nodeMonitor:   monitorLaunch.NewNodeMonitor(),
+		nodeMonitor:   monitorLaunch.NewNodeMonitor(option.Config.MonitorQueueSize),
 		prefixLengths: createPrefixLengthCounter(),
 
 		buildEndpointSem: semaphore.NewWeighted(int64(numWorkerThreads())),
