@@ -131,3 +131,20 @@ func (s *CIDRLabelsSuite) TestGetCIDRLabelsInCluster(c *C) {
 	lblArray = lbls.LabelArray()
 	c.Assert(lblArray.Lacks(expected), checker.DeepEquals, labels.LabelArray{})
 }
+
+func (s *CIDRLabelsSuite) TestIPStringToLabel(c *C) {
+	ipToLabels := map[string]string{
+		"0.0.0.0/0":    "cidr:0.0.0.0/0",
+		"192.0.2.3":    "cidr:192.0.2.3/32",
+		"192.0.2.3/32": "cidr:192.0.2.3/32",
+		"192.0.2.3/24": "cidr:192.0.2.0/24",
+		"192.0.2.0/24": "cidr:192.0.2.0/24",
+		"::/0":         "cidr:0--0/0",
+		"fdff::ff":     "cidr:fdff--ff/128",
+	}
+	for ip, labelStr := range ipToLabels {
+		lbl, err := IPStringToLabel(ip)
+		c.Assert(err, IsNil)
+		c.Assert(lbl.String(), checker.DeepEquals, labelStr)
+	}
+}

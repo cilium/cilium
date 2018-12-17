@@ -19,6 +19,7 @@ package api
 import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/labels"
+	cidrpkg "github.com/cilium/cilium/pkg/labels/cidr"
 
 	. "gopkg.in/check.v1"
 )
@@ -42,15 +43,15 @@ func (s *PolicyAPITestSuite) TestGetAsEndpointSelectors(c *C) {
 	labelWorld := labels.ParseSelectLabel("reserved:world")
 	esWorld := NewESFromLabels(labelWorld)
 
-	labelAllV4, err := labels.IPStringToLabel("0.0.0.0/0")
+	labelAllV4, err := cidrpkg.IPStringToLabel("0.0.0.0/0")
 	c.Assert(err, IsNil)
 	v4World := NewESFromLabels(labelAllV4)
 
-	labelAllV6, err := labels.IPStringToLabel("::/0")
+	labelAllV6, err := cidrpkg.IPStringToLabel("::/0")
 	c.Assert(err, IsNil)
 	v6World := NewESFromLabels(labelAllV6)
 
-	labelOtherCIDR, err := labels.IPStringToLabel("192.168.128.0/24")
+	labelOtherCIDR, err := cidrpkg.IPStringToLabel("192.168.128.0/24")
 	c.Assert(err, IsNil)
 	esOtherCIDR := NewESFromLabels(labelOtherCIDR)
 
