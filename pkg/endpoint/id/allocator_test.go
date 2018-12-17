@@ -43,6 +43,12 @@ func (s *IDSuite) TestAllocation(c *C) {
 func (s *IDSuite) TestReuse(c *C) {
 	ReallocatePool()
 
+	// Reusing IDs greater than the maxID is allowed
+	c.Assert(Reuse(uint16(maxID+10)), IsNil)
+
+	// Reusing IDs lesser than the minID is not allowed
+	c.Assert(Reuse(uint16(minID-1)), Not(IsNil))
+
 	idsReturned := map[uint16]struct{}{}
 
 	c.Assert(Reuse(uint16(2)), IsNil)
@@ -71,11 +77,11 @@ func (s *IDSuite) TestReuse(c *C) {
 	// reuse of allocated id should fail
 	c.Assert(Reuse(uint16(3)), Not(IsNil))
 
-	// relese 5
+	// release 5
 	c.Assert(Release(uint16(5)), IsNil)
 	delete(idsReturned, uint16(5))
 
-	// relese 6
+	// release 6
 	c.Assert(Release(uint16(6)), IsNil)
 	delete(idsReturned, uint16(6))
 
