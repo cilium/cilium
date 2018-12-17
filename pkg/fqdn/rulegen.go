@@ -66,14 +66,6 @@ type RuleGen struct {
 	// include regexes, as those are not polled directly.
 	namesToPoll map[string]struct{}
 
-	// previousEmittedIPs are the IPs most recently emitted in generated rules
-	// for a DNS name. This map is used to check whether a specific DNS name has
-	// IPs different than those already in generated rules.
-	// Note: The IP slice is sorted on insert, in updateIPsForName, and should
-	// not be reshuffled.
-	// Note: Names are turned into FQDNs when stored
-	previousEmittedIPs map[string][]net.IP
-
 	// sourceRules maps dnsNames to a set of rule UUIDs that depend on
 	// that dnsName, and drives CIDR rule generation.
 	// A lookup on sourceRules is looking for all rule UUIDs that have an exact
@@ -102,12 +94,11 @@ func NewRuleGen(config Config) *RuleGen {
 	}
 
 	return &RuleGen{
-		config:             config,
-		namesToPoll:        make(map[string]struct{}),
-		previousEmittedIPs: make(map[string][]net.IP),
-		sourceRules:        regexpmap.NewRegexpMap(),
-		allRules:           make(map[string]*api.Rule),
-		cache:              config.Cache,
+		config:      config,
+		namesToPoll: make(map[string]struct{}),
+		sourceRules: regexpmap.NewRegexpMap(),
+		allRules:    make(map[string]*api.Rule),
+		cache:       config.Cache,
 	}
 
 }
@@ -142,11 +133,15 @@ perRule:
 		// function is called. This avoids accumulating generated toCIDRSet entries.
 		stripToCIDRSet(sourceRule)
 
-		// update IPs in this rule, best effort, from the cache
-		// Note: This will cause a needless regexp compile in tihs function,
+		// Insert any IPs for this rule from the cache. This is critical to do
+		// here, because we only update the rules on a DNS change later.
+		// Note: This will cause a needless regexp compile in this function,
 		// because the sourceRules RegexpMap hasn't seen the regexp yet
-		emitted, _ := injectToCIDRSetRules(sourceRule, gen.cache, gen.sourceRules)
-		gen.updateEmittedIPs(emitted)
+		_, namesMissingIPs := injectToCIDRSetRules(sourceRule, gen.cache, gen.sourceRules)
+		if len(namesMissingIPs) != 0 {
+			log.WithField(logfields.DNSName, strings.Join(namesMissingIPs, ",")).
+				Debug("No IPs to inject on initial rule insert")
+		}
 	}
 }
 
@@ -340,11 +335,10 @@ func (gen *RuleGen) GenerateRulesFromSources(sourceRules []*api.Rule) (generated
 
 	for _, sourceRule := range sourceRules {
 		newRule := sourceRule.DeepCopy()
-		emittedIPs, namesMissingIPs := injectToCIDRSetRules(newRule, gen.cache, gen.sourceRules)
+		_, namesMissingIPs := injectToCIDRSetRules(newRule, gen.cache, gen.sourceRules)
 		for _, missing := range namesMissingIPs {
 			namesMissingMap[missing] = struct{}{}
 		}
-		gen.updateEmittedIPs(emittedIPs)
 
 		generatedRules = append(generatedRules, newRule)
 	}
@@ -460,7 +454,6 @@ func (gen *RuleGen) removeRule(uuid string, sourceRule *api.Rule) (noLongerManag
 				dnsNameAsRE := matchpattern.ToRegexp(dnsName)
 				if shouldStopManaging := gen.removeFromDNSName(dnsNameAsRE, uuid); shouldStopManaging {
 					delete(gen.namesToPoll, dnsName)
-					delete(gen.previousEmittedIPs, dnsName) // also delete from the IP map, no longer managed
 					noLongerManaged = append(noLongerManaged, ToFQDN.MatchName)
 				}
 			}
@@ -493,7 +486,6 @@ func (gen *RuleGen) removeFromDNSName(dnsName, uuid string) (shouldStopManaging 
 // updated is true when the new IPs differ from the old IPs
 func (gen *RuleGen) updateIPsForName(lookupTime time.Time, dnsName string, newIPs []net.IP, ttl int) (updated bool) {
 	cacheIPs := gen.cache.Lookup(dnsName)
-	oldIPs := gen.previousEmittedIPs[dnsName]
 
 	if gen.config.MinTTL > ttl {
 		ttl = gen.config.MinTTL
@@ -501,14 +493,5 @@ func (gen *RuleGen) updateIPsForName(lookupTime time.Time, dnsName string, newIP
 
 	gen.cache.Update(lookupTime, dnsName, newIPs, ttl)
 	sortedNewIPs := gen.cache.Lookup(dnsName) // DNSCache returns IPs sorted
-	return !sortedIPsAreEqual(sortedNewIPs, oldIPs) || !sortedIPsAreEqual(sortedNewIPs, cacheIPs)
-}
-
-// updateEmittedIPss stores the IPs per DNS name in previousEmittedIPs. These
-// can later be used to check whether IPs have changed and need to be emitted
-// again.
-func (gen *RuleGen) updateEmittedIPs(emitted map[string][]net.IP) {
-	for name, ips := range emitted {
-		gen.previousEmittedIPs[name] = ips
-	}
+	return !sortedIPsAreEqual(sortedNewIPs, cacheIPs)
 }
