@@ -15,95 +15,20 @@
 package monitor
 
 import (
-	"fmt"
 	"sort"
-	"strconv"
-	"strings"
+
+	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 
 	"github.com/spf13/pflag"
 )
 
-// Must be synchronized with <bpf/lib/common.h>
-const (
-	// 0-128 are reserved for BPF datapath events
-	MessageTypeUnspec = iota
-	MessageTypeDrop
-	MessageTypeDebug
-	MessageTypeCapture
-	MessageTypeTrace
-
-	// 129-255 are reserved for agent level events
-
-	// MessageTypeAccessLog contains a pkg/proxy/accesslog.LogRecord
-	MessageTypeAccessLog = 129
-
-	// MessageTypeAgent is an agent notification carrying a AgentNotify
-	MessageTypeAgent = 130
-)
-
-var (
-	names = map[string]int{
-		"drop":    MessageTypeDrop,
-		"debug":   MessageTypeDebug,
-		"capture": MessageTypeCapture,
-		"trace":   MessageTypeTrace,
-		"l7":      MessageTypeAccessLog,
-		"agent":   MessageTypeAgent,
-	}
-)
-
-func type2name(typ int) string {
-	for name, value := range names {
-		if value == typ {
-			return name
-		}
-	}
-
-	return strconv.Itoa(typ)
-}
-
-type MessageTypeFilter []int
-
-var _ pflag.Value = &MessageTypeFilter{}
-
-func (m *MessageTypeFilter) String() string {
-	pieces := make([]string, 0, len(*m))
-	for _, typ := range *m {
-		pieces = append(pieces, type2name(typ))
-	}
-
-	return strings.Join(pieces, ",")
-}
-
-func (m *MessageTypeFilter) Set(value string) error {
-	i, err := names[value]
-	if !err {
-		return fmt.Errorf("Unknown type (%s). Please use one of the following ones %v", value, GetAllTypes())
-	}
-
-	*m = append(*m, i)
-	return nil
-}
-
-func (m *MessageTypeFilter) Type() string {
-	return "[]string"
-}
-
-func (m *MessageTypeFilter) Contains(typ int) bool {
-	for _, v := range *m {
-		if v == typ {
-			return true
-		}
-	}
-
-	return false
-}
+var _ pflag.Value = &monitorAPI.MessageTypeFilter{}
 
 // GetAllTypes returns a slice of all known message types, sorted
 func GetAllTypes() []string {
-	types := make([]string, len(names))
+	types := make([]string, len(monitorAPI.MessageTypeNames))
 	i := 0
-	for k := range names {
+	for k := range monitorAPI.MessageTypeNames {
 		types[i] = k
 		i++
 	}

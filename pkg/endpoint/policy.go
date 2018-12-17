@@ -35,7 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/monitor"
+	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -515,7 +515,7 @@ func (e *Endpoint) Regenerate(owner Owner, regenMetadata *ExternalRegenerationMe
 			err := e.regenerate(owner, regenContext)
 			doneFunc() // in case not called already
 
-			repr, reprerr := monitor.EndpointRegenRepr(e, err)
+			repr, reprerr := monitorAPI.EndpointRegenRepr(e, err)
 			if reprerr != nil {
 				scopedLog.WithError(reprerr).Warn("Notifying monitor about endpoint regeneration failed")
 			}
@@ -523,12 +523,12 @@ func (e *Endpoint) Regenerate(owner Owner, regenMetadata *ExternalRegenerationMe
 			if err != nil {
 				buildSuccess = false
 				if reprerr == nil && !option.Config.DryMode {
-					owner.SendNotification(monitor.AgentNotifyEndpointRegenerateFail, repr)
+					owner.SendNotification(monitorAPI.AgentNotifyEndpointRegenerateFail, repr)
 				}
 			} else {
 				buildSuccess = true
 				if reprerr == nil && !option.Config.DryMode {
-					owner.SendNotification(monitor.AgentNotifyEndpointRegenerateSuccess, repr)
+					owner.SendNotification(monitorAPI.AgentNotifyEndpointRegenerateSuccess, repr)
 				}
 			}
 		} else {

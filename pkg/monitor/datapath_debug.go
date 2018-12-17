@@ -20,6 +20,7 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/monitor/api"
 )
 
 // must be in sync with <bpf/lib/dbg.h>
@@ -127,7 +128,7 @@ func ctState(state uint32) string {
 		return txt
 	}
 
-	return DropReason(uint8(state))
+	return api.DropReason(uint8(state))
 }
 
 var tupleFlags = map[int16]string{

@@ -25,7 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/monitor"
+	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -96,7 +96,7 @@ func (k *Key) Direction() string {
 
 // DropForwardReason gets the forwarded/dropped reason in human readable string format
 func (k *Key) DropForwardReason() string {
-	return monitor.DropReason(k.Reason)
+	return monitorAPI.DropReason(k.Reason)
 }
 
 // GetKeyPtr returns the unsafe pointer to the BPF key

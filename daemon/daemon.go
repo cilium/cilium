@@ -70,7 +70,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/proxymap"
 	"github.com/cilium/cilium/pkg/maps/sockmap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
-	"github.com/cilium/cilium/pkg/monitor"
+	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
@@ -1326,14 +1326,14 @@ func (d *Daemon) GetServiceList() []*models.Service {
 }
 
 // SendNotification sends an agent notification to the monitor
-func (d *Daemon) SendNotification(typ monitor.AgentNotification, text string) error {
-	event := monitor.AgentNotify{Type: typ, Text: text}
-	return d.nodeMonitor.SendEvent(monitor.MessageTypeAgent, event)
+func (d *Daemon) SendNotification(typ monitorAPI.AgentNotification, text string) error {
+	event := monitorAPI.AgentNotify{Type: typ, Text: text}
+	return d.nodeMonitor.SendEvent(monitorAPI.MessageTypeAgent, event)
 }
 
 // NewProxyLogRecord is invoked by the proxy accesslog on each new access log entry
 func (d *Daemon) NewProxyLogRecord(l *logger.LogRecord) error {
-	return d.nodeMonitor.SendEvent(monitor.MessageTypeAccessLog, l.LogRecord)
+	return d.nodeMonitor.SendEvent(monitorAPI.MessageTypeAccessLog, l.LogRecord)
 }
 
 // GetNodeSuffix returns the suffix to be appended to kvstore keys of this
