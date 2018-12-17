@@ -37,6 +37,21 @@ var _ = Suite(&ProbesSuite{})
 
 func Test(t *testing.T) { TestingT(t) }
 
+// changeConfigLocations changes lists of possible kernel config locations. It
+// returns a function which restores old values.
+func changeConfigLocations(configLocations, configLocationsGz []string) func() {
+	oldLocalConfigLocations := localConfigLocations
+	oldLocalConfigLocationsGz := localConfigLocationsGz
+
+	localConfigLocations = configLocations
+	localConfigLocationsGz = configLocationsGz
+
+	return func() {
+		localConfigLocations = oldLocalConfigLocations
+		localConfigLocationsGz = oldLocalConfigLocationsGz
+	}
+}
+
 func (s *ProbesSuite) TestReadKernelConfiguration(c *C) {
 	var buf bytes.Buffer
 	_, err := readKernelConfig(&buf)
@@ -44,8 +59,12 @@ func (s *ProbesSuite) TestReadKernelConfiguration(c *C) {
 		// Test should not fail in that case. Some environments do not
 		// provide kernel configuration, i.e. Travis CI. In that case
 		// the example config should be used instead.
-		localConfigLocations = []string{"../../../bpf/examples/config"}
-		localConfigLocationsGz = nil
+
+		finalizeFn := changeConfigLocations(
+			[]string{"../../../bpf/examples/config"},
+			nil,
+		)
+		defer finalizeFn()
 
 		_, err = readKernelConfig(&buf)
 	}
@@ -55,8 +74,11 @@ func (s *ProbesSuite) TestReadKernelConfiguration(c *C) {
 func (s *ProbesSuite) TestReadKernelConfigurationNotFound(c *C) {
 	var buf bytes.Buffer
 
-	localConfigLocations = []string{"/foo/bar"}
-	localConfigLocationsGz = []string{"/ayy/lmao.gz"}
+	finalizeFn := changeConfigLocations(
+		[]string{"/foo/bar"},
+		[]string{"/ayy/lmao.gz"},
+	)
+	defer finalizeFn()
 
 	_, err := readKernelConfig(&buf)
 	c.Assert(err, ErrorMatches, "missing kernel configuration")
