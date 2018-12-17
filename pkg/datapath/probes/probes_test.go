@@ -55,7 +55,7 @@ func changeConfigLocations(configLocations, configLocationsGz []string) func() {
 func (s *ProbesSuite) TestReadKernelConfiguration(c *C) {
 	var buf bytes.Buffer
 	_, err := readKernelConfig(&buf)
-	if err != nil {
+	if err != nil && IsErrMissingKernelConfig(err) {
 		// Test should not fail in that case. Some environments do not
 		// provide kernel configuration, i.e. Travis CI. In that case
 		// the example config should be used instead.
@@ -89,6 +89,19 @@ func (s *ProbesSuite) TestProbeKernelConfig(c *C) {
 	var infoBuf, warningBuf bytes.Buffer
 
 	err := probeKernelConfig(&infoBuf, &warningBuf)
+	if err != nil && IsErrMissingKernelConfig(err) {
+		// Test should not fail in that case. Some environments do not
+		// provide kernel configuration, i.e. Travis CI. In that case
+		// the example config should be used instead.
+
+		finalizeFn := changeConfigLocations(
+			[]string{"../../../bpf/examples/config"},
+			nil,
+		)
+		defer finalizeFn()
+
+		_, err = readKernelConfig(&buf)
+	}
 	c.Assert(err, IsNil)
 }
 

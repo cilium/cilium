@@ -139,7 +139,7 @@ func readKernelConfig(warningFile io.Writer) ([]byte, error) {
 	if _, err := io.WriteString(warningFile, "BPF/probes: Missing kernel configuration\n"); err != nil {
 		return nil, err
 	}
-	return nil, fmt.Errorf("missing kernel configuration")
+	return nil, ErrMissingKernelConfig
 }
 
 // probeKernelConfig checks whether the kernel configuration contains required
