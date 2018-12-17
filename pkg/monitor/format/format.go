@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/monitor"
+	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/monitor/payload"
 )
 
@@ -50,7 +51,7 @@ const (
 
 // MonitorFormatter filters and formats monitor messages from a buffer.
 type MonitorFormatter struct {
-	EventTypes monitor.MessageTypeFilter
+	EventTypes monitorAPI.MessageTypeFilter
 	FromSource Uint16Flags
 	ToDst      Uint16Flags
 	Related    Uint16Flags
@@ -64,7 +65,7 @@ type MonitorFormatter struct {
 func NewMonitorFormatter(verbosity Verbosity) *MonitorFormatter {
 	return &MonitorFormatter{
 		Hex:        false,
-		EventTypes: monitor.MessageTypeFilter{},
+		EventTypes: monitorAPI.MessageTypeFilter{},
 		FromSource: Uint16Flags{},
 		ToDst:      Uint16Flags{},
 		Related:    Uint16Flags{},
@@ -99,7 +100,7 @@ func (m *MonitorFormatter) dropEvents(prefix string, data []byte) {
 	if err := binary.Read(bytes.NewReader(data), byteorder.Native, &dn); err != nil {
 		fmt.Printf("Error while parsing drop notification message: %s\n", err)
 	}
-	if m.match(monitor.MessageTypeDrop, dn.Source, uint16(dn.DstID)) {
+	if m.match(monitorAPI.MessageTypeDrop, dn.Source, uint16(dn.DstID)) {
 		switch m.Verbosity {
 		case INFO:
 			dn.DumpInfo(data)
@@ -119,7 +120,7 @@ func (m *MonitorFormatter) traceEvents(prefix string, data []byte) {
 	if err := binary.Read(bytes.NewReader(data), byteorder.Native, &tn); err != nil {
 		fmt.Printf("Error while parsing trace notification message: %s\n", err)
 	}
-	if m.match(monitor.MessageTypeTrace, tn.Source, tn.DstID) {
+	if m.match(monitorAPI.MessageTypeTrace, tn.Source, tn.DstID) {
 		switch m.Verbosity {
 		case INFO:
 			tn.DumpInfo(data)
@@ -139,7 +140,7 @@ func (m *MonitorFormatter) debugEvents(prefix string, data []byte) {
 	if err := binary.Read(bytes.NewReader(data), byteorder.Native, &dm); err != nil {
 		fmt.Printf("Error while parsing debug message: %s\n", err)
 	}
-	if m.match(monitor.MessageTypeDebug, dm.Source, 0) {
+	if m.match(monitorAPI.MessageTypeDebug, dm.Source, 0) {
 		switch m.Verbosity {
 		case INFO:
 			dm.DumpInfo(data)
@@ -158,7 +159,7 @@ func (m *MonitorFormatter) captureEvents(prefix string, data []byte) {
 	if err := binary.Read(bytes.NewReader(data), byteorder.Native, &dc); err != nil {
 		fmt.Printf("Error while parsing debug capture message: %s\n", err)
 	}
-	if m.match(monitor.MessageTypeCapture, dc.Source, 0) {
+	if m.match(monitorAPI.MessageTypeCapture, dc.Source, 0) {
 		switch m.Verbosity {
 		case INFO:
 			dc.DumpInfo(data)
@@ -181,7 +182,7 @@ func (m *MonitorFormatter) logRecordEvents(prefix string, data []byte) {
 		fmt.Printf("Error while decoding LogRecord notification message: %s\n", err)
 	}
 
-	if m.match(monitor.MessageTypeAccessLog, uint16(lr.SourceEndpoint.ID), uint16(lr.DestinationEndpoint.ID)) {
+	if m.match(monitorAPI.MessageTypeAccessLog, uint16(lr.SourceEndpoint.ID), uint16(lr.DestinationEndpoint.ID)) {
 		if m.Verbosity == JSON {
 			lr.DumpJSON()
 		} else {
@@ -195,12 +196,12 @@ func (m *MonitorFormatter) agentEvents(prefix string, data []byte) {
 	buf := bytes.NewBuffer(data[1:])
 	dec := gob.NewDecoder(buf)
 
-	an := monitor.AgentNotify{}
+	an := monitorAPI.AgentNotify{}
 	if err := dec.Decode(&an); err != nil {
 		fmt.Printf("Error while decoding agent notification message: %s\n", err)
 	}
 
-	if m.match(monitor.MessageTypeAgent, 0, 0) {
+	if m.match(monitorAPI.MessageTypeAgent, 0, 0) {
 		if m.Verbosity == JSON {
 			an.DumpJSON()
 		} else {
@@ -219,17 +220,17 @@ func (m *MonitorFormatter) FormatSample(data []byte, cpu int) {
 	messageType := data[0]
 
 	switch messageType {
-	case monitor.MessageTypeDrop:
+	case monitorAPI.MessageTypeDrop:
 		m.dropEvents(prefix, data)
-	case monitor.MessageTypeDebug:
+	case monitorAPI.MessageTypeDebug:
 		m.debugEvents(prefix, data)
-	case monitor.MessageTypeCapture:
+	case monitorAPI.MessageTypeCapture:
 		m.captureEvents(prefix, data)
-	case monitor.MessageTypeTrace:
+	case monitorAPI.MessageTypeTrace:
 		m.traceEvents(prefix, data)
-	case monitor.MessageTypeAccessLog:
+	case monitorAPI.MessageTypeAccessLog:
 		m.logRecordEvents(prefix, data)
-	case monitor.MessageTypeAgent:
+	case monitorAPI.MessageTypeAgent:
 		m.agentEvents(prefix, data)
 	default:
 		fmt.Printf("%s Unknown event: %+v\n", prefix, data)
