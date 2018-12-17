@@ -100,10 +100,6 @@ const (
 	// ClusterIDMax is the maximum value of the cluster ID
 	ClusterIDMax = 255
 
-	// ClusterIDShift specifies the number of bits the cluster ID will be
-	// shifted
-	ClusterIDShift = 16
-
 	// ClusterMeshConfigName is the name of the ClusterMeshConfig option
 	ClusterMeshConfigName = "clustermesh-config"
 
