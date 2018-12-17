@@ -15,72 +15,76 @@
 package ipcache
 
 import (
+	"fmt"
 	"net"
 
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
-	"github.com/cilium/cilium/pkg/identity/cidr"
-
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/cilium/pkg/labels/cidr"
 )
 
-// AllocateCIDRs attempts to allocate identities and IP<->Identity mappings for
-// the specified CIDR prefixes. If any allocation fails, all allocations are
-// rolled back and the error is returned. Returns nil on success.
+// AllocateCIDRs attempts to allocate identities for a list of CIDRs. If any
+// allocation fails, all allocations are rolled back and the error is returned.
+// When an identity is freshly allocated for a CIDR, it is added to the
+// ipcache.
 func AllocateCIDRs(impl Implementation, prefixes []*net.IPNet) error {
 	// First, if the implementation will complain, exit early.
 	if err := checkPrefixes(impl, prefixes); err != nil {
 		return err
 	}
 
-	// Next, allocate labels -> ID mappings in KVstore (for policy)
-	prefixIdentities, err := cidr.AllocateCIDRIdentities(prefixes)
-	if err != nil {
-		return err
-	}
+	// maintain list of used identities to undo on error
+	usedIdentities := []*identity.Identity{}
 
-	// Finally, allocate CIDR -> ID mappings in KVstore (for ipcache)
-	err = upsertIPNetsToKVStore(prefixes, prefixIdentities)
-	if err != nil {
-		if err2 := cache.ReleaseSlice(prefixIdentities); err2 != nil {
-			log.WithError(err2).WithFields(logrus.Fields{
-				fieldIdentities: prefixIdentities,
-			}).Warn("Failed to release CIDRs during CIDR->ID mapping")
+	// maintain list of newly allocated identities to update ipcache
+	allocatedIdentities := map[string]*identity.Identity{}
+
+	for _, prefix := range prefixes {
+		if prefix == nil {
+			continue
+		}
+
+		id, isNew, err := cache.AllocateIdentity(cidr.GetCIDRLabels(prefix))
+		if err != nil {
+			cache.ReleaseSlice(usedIdentities)
+			return fmt.Errorf("failed to allocate identity for cidr %s: %s", prefix.String(), err)
+		}
+
+		usedIdentities = append(usedIdentities, id)
+		if isNew {
+			allocatedIdentities[prefix.String()] = id
 		}
 	}
 
-	return err
+	for prefixString, id := range allocatedIdentities {
+		IPIdentityCache.Upsert(prefixString, nil, Identity{
+			ID:     id.ID,
+			Source: FromCIDR,
+		})
+	}
+
+	return nil
 }
 
-// ReleaseCIDRs attempts to release identities and IP<->Identity mappings for
-// the specified CIDR prefixes. If any release fails, all remaining prefixes
-// will be attempted to be rolled back and an error is returned representing
-// the most recent error. Returns nil if no errors occur.
-func ReleaseCIDRs(prefixes []*net.IPNet) (err error) {
-	scopedLog := log.WithField("prefixes", prefixes)
-	if prefixes != nil {
-		if err = deleteIPNetsFromKVStore(prefixes); err != nil {
-			scopedLog.WithError(err).Debug(
-				"Failed to release CIDR->Identity mappings")
+// ReleaseCIDRs releases the identities of a list of CIDRs. When the last use
+// of the identity is released, the ipcache entry is deleted.
+func ReleaseCIDRs(prefixes []*net.IPNet) {
+	for _, prefix := range prefixes {
+		if prefix == nil {
+			continue
 		}
-	}
 
-	prefixIdentities, err2 := cidr.LookupCIDRIdentities(prefixes)
-	if err2 != nil {
-		if err == nil {
-			err = err2
-		}
-		scopedLog.WithError(err2).Warning("Could not find identities for CIDRs during release")
-	}
-	if prefixIdentities != nil {
-		if err2 = cache.ReleaseSlice(prefixIdentities); err2 != nil {
-			if err == nil {
-				err = err2
+		if id := cache.LookupIdentity(cidr.GetCIDRLabels(prefix)); id != nil {
+			released, err := cache.Release(id)
+			if err != nil {
+				log.WithError(err).Warningf("Unable to release identity for CIDR %s. Ignoring error. Identity may be leaked", prefix.String())
 			}
-			log.WithError(err2).WithFields(logrus.Fields{
-				fieldIdentities: prefixIdentities,
-			}).Warning("Failed to release Identities for CIDRs")
+
+			if released {
+				IPIdentityCache.Delete(prefix.String(), FromCIDR)
+			}
+		} else {
+			log.Errorf("Unable to find identity of previously used CIDR %s", prefix.String())
 		}
 	}
-
-	return err
 }

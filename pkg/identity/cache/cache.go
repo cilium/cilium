@@ -65,6 +65,10 @@ func GetIdentityCache() IdentityCache {
 		cache[key] = identity.Labels.LabelArray()
 	}
 
+	for _, identity := range localIdentities.GetIdentities() {
+		cache[identity.ID] = identity.Labels.LabelArray()
+	}
+
 	return cache
 }
 
@@ -81,6 +85,10 @@ func GetIdentities() IdentitiesModel {
 	})
 	// append user reserved identities
 	for _, v := range identity.ReservedIdentityCache {
+		identities = append(identities, v.GetModel())
+	}
+
+	for _, v := range localIdentities.GetIdentities() {
 		identities = append(identities, v.GetModel())
 	}
 
@@ -137,6 +145,10 @@ func (w *identityWatcher) stop() {
 func LookupIdentity(lbls labels.Labels) *identity.Identity {
 	if reservedIdentity := LookupReservedIdentityByLabels(lbls); reservedIdentity != nil {
 		return reservedIdentity
+	}
+
+	if identity := localIdentities.lookup(lbls); identity != nil {
+		return identity
 	}
 
 	if IdentityAllocator == nil {
@@ -206,6 +218,10 @@ func LookupIdentityByID(id identity.NumericIdentity) *identity.Identity {
 
 	if IdentityAllocator == nil {
 		return nil
+	}
+
+	if identity := localIdentities.lookupByID(id); identity != nil {
+		return identity
 	}
 
 	allocatorKey, err := IdentityAllocator.GetByID(idpool.ID(id))

@@ -35,6 +35,10 @@ type Identity struct {
 	// LabelArray contains the same labels as Labels in a form of a list, used
 	// for faster lookup.
 	LabelArray labels.LabelArray `json:"-"`
+
+	// ReferenceCount counts the number of references pointing to this
+	// identity. This field is used by the owning cache of the identity.
+	ReferenceCount int
 }
 
 // IPIdentityPair is a pairing of an IP and the security identity to which that
@@ -159,4 +163,18 @@ func (pair *IPIdentityPair) PrefixString() string {
 		suffix = fmt.Sprintf("/%d", ones)
 	}
 	return fmt.Sprintf("%s%s", pair.IP.String(), suffix)
+}
+
+// RequiresGlobalIdentity returns true if the label combination requires a
+// global identity
+func RequiresGlobalIdentity(lbls labels.Labels) bool {
+	for _, label := range lbls {
+		switch label.Source {
+		case labels.LabelSourceCIDR, labels.LabelSourceReserved:
+		default:
+			return true
+		}
+	}
+
+	return false
 }
