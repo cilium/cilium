@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/labels"
+	cidrpkg "github.com/cilium/cilium/pkg/labels/cidr"
 )
 
 // CIDR specifies a block of IP addresses.
@@ -78,7 +79,7 @@ func (s CIDRSlice) GetAsEndpointSelectors() EndpointSelectorSlice {
 			hasWorldBeenAdded = true
 			slice = append(slice, ReservedEndpointSelectors[labels.IDNameWorld])
 		}
-		lbl, err := labels.IPStringToLabel(string(cidr))
+		lbl, err := cidrpkg.IPStringToLabel(string(cidr))
 		if err == nil {
 			slice = append(slice, NewESFromLabels(lbl))
 		}
