@@ -49,7 +49,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/monitor"
+	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -924,11 +924,11 @@ func runDaemon() {
 
 	server.ConfigureAPI()
 
-	repr, err := monitor.TimeRepr(time.Now())
+	repr, err := monitorAPI.TimeRepr(time.Now())
 	if err != nil {
 		log.WithError(err).Warn("Failed to generate agent start monitor message")
 	} else {
-		d.SendNotification(monitor.AgentNotifyStart, repr)
+		d.SendNotification(monitorAPI.AgentNotifyStart, repr)
 	}
 
 	log.WithField("bootstrapTime", time.Since(bootstrapTimestamp)).

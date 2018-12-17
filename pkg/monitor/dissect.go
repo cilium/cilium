@@ -20,26 +20,48 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"strconv"
 )
 
+type parserCache struct {
+	eth     layers.Ethernet
+	ip4     layers.IPv4
+	ip6     layers.IPv6
+	icmp4   layers.ICMPv4
+	icmp6   layers.ICMPv6
+	tcp     layers.TCP
+	udp     layers.UDP
+	decoded []gopacket.LayerType
+}
+
 var (
-	eth    layers.Ethernet
-	ip4    layers.IPv4
-	ip6    layers.IPv6
-	icmp4  layers.ICMPv4
-	icmp6  layers.ICMPv6
-	tcp    layers.TCP
-	udp    layers.UDP
-	parser = gopacket.NewDecodingLayerParser(
-		layers.LayerTypeEthernet,
-		&eth, &ip4, &ip6, &icmp4, &icmp6, &tcp, &udp)
-	decoded     = []gopacket.LayerType{}
+	cache       *parserCache
 	dissectLock lock.Mutex
+	parser      *gopacket.DecodingLayerParser
+
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "monitor")
 )
+
+// getParser must be called with dissectLock held
+func initParser() {
+	if cache == nil {
+		log.Info("Initializing dissection cache...")
+
+		cache = &parserCache{
+			decoded: []gopacket.LayerType{},
+		}
+
+		parser = gopacket.NewDecodingLayerParser(
+			layers.LayerTypeEthernet,
+			&cache.eth, &cache.ip4, &cache.ip6,
+			&cache.icmp4, &cache.icmp6, &cache.tcp, &cache.udp)
+	}
+}
 
 func getTCPInfo() string {
 	info := ""
@@ -50,19 +72,19 @@ func getTCPInfo() string {
 		return flag + ", " + new
 	}
 
-	if tcp.SYN {
+	if cache.tcp.SYN {
 		info = addTCPFlag(info, "SYN")
 	}
 
-	if tcp.ACK {
+	if cache.tcp.ACK {
 		info = addTCPFlag(info, "ACK")
 	}
 
-	if tcp.RST {
+	if cache.tcp.RST {
 		info = addTCPFlag(info, "RST")
 	}
 
-	if tcp.FIN {
+	if cache.tcp.FIN {
 		info = addTCPFlag(info, "FIN")
 	}
 
@@ -78,7 +100,8 @@ func GetConnectionSummary(data []byte) string {
 	dissectLock.Lock()
 	defer dissectLock.Unlock()
 
-	parser.DecodeLayers(data, &decoded)
+	initParser()
+	parser.DecodeLayers(data, &cache.decoded)
 
 	var (
 		srcIP, dstIP     net.IP
@@ -87,26 +110,26 @@ func GetConnectionSummary(data []byte) string {
 		hasIP, hasEth    bool
 	)
 
-	for _, typ := range decoded {
+	for _, typ := range cache.decoded {
 		switch typ {
 		case layers.LayerTypeEthernet:
 			hasEth = true
 		case layers.LayerTypeIPv4:
 			hasIP = true
-			srcIP, dstIP = ip4.SrcIP, ip4.DstIP
+			srcIP, dstIP = cache.ip4.SrcIP, cache.ip4.DstIP
 		case layers.LayerTypeIPv6:
 			hasIP = true
-			srcIP, dstIP = ip6.SrcIP, ip6.DstIP
+			srcIP, dstIP = cache.ip6.SrcIP, cache.ip6.DstIP
 		case layers.LayerTypeTCP:
 			proto = "tcp"
-			srcPort, dstPort = strconv.Itoa(int(tcp.SrcPort)), strconv.Itoa(int(tcp.DstPort))
+			srcPort, dstPort = strconv.Itoa(int(cache.tcp.SrcPort)), strconv.Itoa(int(cache.tcp.DstPort))
 		case layers.LayerTypeUDP:
 			proto = "udp"
-			srcPort, dstPort = strconv.Itoa(int(udp.SrcPort)), strconv.Itoa(int(udp.DstPort))
+			srcPort, dstPort = strconv.Itoa(int(cache.udp.SrcPort)), strconv.Itoa(int(cache.udp.DstPort))
 		case layers.LayerTypeICMPv4:
-			icmpCode = icmp4.TypeCode.String()
+			icmpCode = cache.icmp4.TypeCode.String()
 		case layers.LayerTypeICMPv6:
-			icmpCode = icmp6.TypeCode.String()
+			icmpCode = cache.icmp6.TypeCode.String()
 		}
 	}
 
@@ -125,7 +148,7 @@ func GetConnectionSummary(data []byte) string {
 	case hasIP:
 		return fmt.Sprintf("%s -> %s", srcIP, dstIP)
 	case hasEth:
-		return fmt.Sprintf("%s -> %s %s", eth.SrcMAC, eth.DstMAC, eth.EthernetType.String())
+		return fmt.Sprintf("%s -> %s %s", cache.eth.SrcMAC, cache.eth.DstMAC, cache.eth.EthernetType.String())
 	}
 
 	return "[unknown]"
@@ -138,24 +161,25 @@ func Dissect(dissect bool, data []byte) {
 		dissectLock.Lock()
 		defer dissectLock.Unlock()
 
-		parser.DecodeLayers(data, &decoded)
+		initParser()
+		parser.DecodeLayers(data, &cache.decoded)
 
-		for _, typ := range decoded {
+		for _, typ := range cache.decoded {
 			switch typ {
 			case layers.LayerTypeEthernet:
-				fmt.Println(gopacket.LayerString(&eth))
+				fmt.Println(gopacket.LayerString(&cache.eth))
 			case layers.LayerTypeIPv4:
-				fmt.Println(gopacket.LayerString(&ip4))
+				fmt.Println(gopacket.LayerString(&cache.ip4))
 			case layers.LayerTypeIPv6:
-				fmt.Println(gopacket.LayerString(&ip6))
+				fmt.Println(gopacket.LayerString(&cache.ip6))
 			case layers.LayerTypeTCP:
-				fmt.Println(gopacket.LayerString(&tcp))
+				fmt.Println(gopacket.LayerString(&cache.tcp))
 			case layers.LayerTypeUDP:
-				fmt.Println(gopacket.LayerString(&udp))
+				fmt.Println(gopacket.LayerString(&cache.udp))
 			case layers.LayerTypeICMPv4:
-				fmt.Println(gopacket.LayerString(&icmp4))
+				fmt.Println(gopacket.LayerString(&cache.icmp4))
 			case layers.LayerTypeICMPv6:
-				fmt.Println(gopacket.LayerString(&icmp6))
+				fmt.Println(gopacket.LayerString(&cache.icmp6))
 			default:
 				fmt.Println("Unknown layer")
 			}
@@ -194,36 +218,37 @@ func GetDissectSummary(data []byte) *DissectSummary {
 	dissectLock.Lock()
 	defer dissectLock.Unlock()
 
-	parser.DecodeLayers(data, &decoded)
+	initParser()
+	parser.DecodeLayers(data, &cache.decoded)
 
 	ret := &DissectSummary{}
 
-	for _, typ := range decoded {
+	for _, typ := range cache.decoded {
 		switch typ {
 		case layers.LayerTypeEthernet:
-			ret.Ethernet = gopacket.LayerString(&eth)
-			src, dst := eth.LinkFlow().Endpoints()
+			ret.Ethernet = gopacket.LayerString(&cache.eth)
+			src, dst := cache.eth.LinkFlow().Endpoints()
 			ret.L2 = &Flow{Src: src.String(), Dst: dst.String()}
 		case layers.LayerTypeIPv4:
-			ret.IPv4 = gopacket.LayerString(&ip4)
-			src, dst := ip4.NetworkFlow().Endpoints()
+			ret.IPv4 = gopacket.LayerString(&cache.ip4)
+			src, dst := cache.ip4.NetworkFlow().Endpoints()
 			ret.L3 = &Flow{Src: src.String(), Dst: dst.String()}
 		case layers.LayerTypeIPv6:
-			ret.IPv6 = gopacket.LayerString(&ip6)
-			src, dst := ip6.NetworkFlow().Endpoints()
+			ret.IPv6 = gopacket.LayerString(&cache.ip6)
+			src, dst := cache.ip6.NetworkFlow().Endpoints()
 			ret.L3 = &Flow{Src: src.String(), Dst: dst.String()}
 		case layers.LayerTypeTCP:
-			ret.TCP = gopacket.LayerString(&tcp)
-			src, dst := tcp.TransportFlow().Endpoints()
+			ret.TCP = gopacket.LayerString(&cache.tcp)
+			src, dst := cache.tcp.TransportFlow().Endpoints()
 			ret.L4 = &Flow{Src: src.String(), Dst: dst.String()}
 		case layers.LayerTypeUDP:
-			ret.UDP = gopacket.LayerString(&udp)
-			src, dst := udp.TransportFlow().Endpoints()
+			ret.UDP = gopacket.LayerString(&cache.udp)
+			src, dst := cache.udp.TransportFlow().Endpoints()
 			ret.L4 = &Flow{Src: src.String(), Dst: dst.String()}
 		case layers.LayerTypeICMPv4:
-			ret.ICMPv4 = gopacket.LayerString(&icmp4)
+			ret.ICMPv4 = gopacket.LayerString(&cache.icmp4)
 		case layers.LayerTypeICMPv6:
-			ret.ICMPv6 = gopacket.LayerString(&icmp6)
+			ret.ICMPv6 = gopacket.LayerString(&cache.icmp6)
 		}
 	}
 	return ret
