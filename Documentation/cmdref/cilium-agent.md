@@ -78,6 +78,7 @@ cilium-agent
       --logstash-probe-timer uint32                 Logstash probe timer (seconds) (default 10)
       --masquerade                                  Masquerade packets from endpoints leaving the host (default true)
       --monitor-aggregation string                  Level of monitor aggregation for traces from the datapath (default "None")
+      --monitor-queue-size int                      Size of the event queue when reading monitor events (default 32768)
       --mtu int                                     Overwrite auto-detected MTU of underlying network (default 1500)
       --nat46-range string                          IPv6 prefix to map IPv4 addresses to (default "0:0:0:0:0:FFFF::/96")
       --pprof                                       Enable serving the pprof debugging API

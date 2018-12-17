@@ -166,6 +166,10 @@ const (
 	// EnableIPv6Name is the name of the option to enable IPv6 support
 	EnableIPv6Name    = "enable-ipv6"
 	EnableIPv6NameEnv = "CILIUM_ENABLE_IPV6"
+
+	// MonitorQueueSizeName is the name of the option MonitorQueueSize
+	MonitorQueueSizeName    = "monitor-queue-size"
+	MonitorQueueSizeNameEnv = "CILIUM_MONITOR_QUEUE_SIZE"
 )
 
 // Available option for daemonConfig.Tunnel
@@ -375,6 +379,9 @@ type daemonConfig struct {
 
 	// EnableIPv6 is true when IPv6 is enabled
 	EnableIPv6 bool
+
+	// MonitorQueueSize is the size of the monitor event queue
+	MonitorQueueSize int
 }
 
 var (

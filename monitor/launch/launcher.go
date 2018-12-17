@@ -38,9 +38,6 @@ var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "monitor-launcher
 
 const (
 	targetName = "cilium-node-monitor"
-
-	// queueSize is the size of the message queue
-	queueSize = 524288
 )
 
 // NodeMonitor is used to wrap the node executable binary.
@@ -59,7 +56,7 @@ type NodeMonitor struct {
 }
 
 // NewNodeMonitor returns a new node monitor
-func NewNodeMonitor() *NodeMonitor {
+func NewNodeMonitor(queueSize int) *NodeMonitor {
 	nm := &NodeMonitor{
 		queue: make(chan []byte, queueSize),
 	}
