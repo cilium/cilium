@@ -188,26 +188,6 @@ func UpsertIPToKVStore(IP, hostIP net.IP, ID identity.NumericIdentity, metadata 
 	return globalMap.store.upsert(ipKey, marshaledIPIDPair, true)
 }
 
-// upsertIPNetToKVStore updates / inserts the provided CIDR->Identity mapping
-// into the kvstore, which will subsequently trigger an event in
-// NewIPIdentityWatcher().
-func upsertIPNetToKVStore(prefix *net.IPNet, ID *identity.Identity) error {
-	// Reserved identities are handled locally, don't push them to kvstore.
-	if ID.IsReserved() {
-		return nil
-	}
-
-	ipKey := path.Join(IPIdentitiesPath, AddressSpace, prefix.String())
-	ipIDPair := identity.IPIdentityPair{
-		IP:       prefix.IP,
-		Mask:     prefix.Mask,
-		ID:       ID.ID,
-		Metadata: AddressSpace, // XXX: Should we associate more metadata?
-	}
-
-	return globalMap.upsert(ipKey, ipIDPair)
-}
-
 // keyToIPNet returns the IPNet describing the key, whether it is a host, and
 // an error (if one occurs)
 func keyToIPNet(key string) (parsedPrefix *net.IPNet, host bool, err error) {
@@ -242,66 +222,12 @@ func keyToIPNet(key string) (parsedPrefix *net.IPNet, host bool, err error) {
 	return
 }
 
-// upsertIPNetsToKVStore inserts a CIDR->Identity mapping into the kvstore
-// ipcache for each of the specified prefixes and identities. That is to say,
-// prefixes[0] is mapped to identities[0].
-//
-// If any Prefix->Identity mapping cannot be created, it will not create any
-// of the mappings and returns an error.
-//
-// The caller should check the prefix lengths against the underlying IPCache
-// implementation using CheckPrefixLengths prior to upserting to the kvstore.
-func upsertIPNetsToKVStore(prefixes []*net.IPNet, identities []*identity.Identity) (err error) {
-	if len(prefixes) != len(identities) {
-		return fmt.Errorf("Invalid []Prefix->[]Identity ipcache mapping requested: prefixes=%d identities=%d", len(prefixes), len(identities))
-	}
-	for i, prefix := range prefixes {
-		id := identities[i]
-		if id == nil {
-			continue
-		}
-		err = upsertIPNetToKVStore(prefix, id)
-		if err != nil {
-			for j := 0; j < i; j++ {
-				ipKey := path.Join(IPIdentitiesPath, AddressSpace, prefix.String())
-				err2 := globalMap.release(ipKey)
-				if err2 != nil {
-					log.WithFields(logrus.Fields{
-						"prefix": prefix.String(),
-					}).Error("Failed to clean up CIDR->ID mappings")
-				}
-			}
-
-			return
-		}
-	}
-
-	return
-}
-
 // DeleteIPFromKVStore removes the IP->Identity mapping for the specified ip
 // from the kvstore, which will subsequently trigger an event in
 // NewIPIdentityWatcher().
 func DeleteIPFromKVStore(ip string) error {
 	ipKey := path.Join(IPIdentitiesPath, AddressSpace, ip)
 	return globalMap.store.release(ipKey)
-}
-
-// deleteIPNetsFromKVStore removes the Prefix->Identity mappings for the
-// specified slice of prefixes from the kvstore, which will subsequently
-// trigger an event in NewIPIdentityWatcher().
-func deleteIPNetsFromKVStore(prefixes []*net.IPNet) (err error) {
-	for _, prefix := range prefixes {
-		ipKey := path.Join(IPIdentitiesPath, AddressSpace, prefix.String())
-		if err2 := globalMap.release(ipKey); err2 != nil {
-			err = err2
-			log.WithFields(logrus.Fields{
-				"prefix": prefix.String(),
-			}).Error("Failed to delete CIDR->ID mappings")
-		}
-	}
-
-	return
 }
 
 // IPIdentityWatcher is a watcher that will notify when IP<->identity mappings
