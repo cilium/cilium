@@ -246,12 +246,8 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 	// used.
 	if len(removedPrefixes) > 0 {
 		log.WithField("prefixes", removedPrefixes).Debug("Decrementing replaced CIDR refcounts when adding rules")
-		if err := ipcache.ReleaseCIDRs(removedPrefixes); err != nil {
-			log.WithError(err).WithField("prefixes", removedPrefixes).Error(
-				"Failed to release CIDRs in replaced rules during policy add with replace. These may never be released.")
-		} else {
-			_ = d.prefixLengths.Delete(removedPrefixes)
-		}
+		ipcache.ReleaseCIDRs(removedPrefixes)
+		d.prefixLengths.Delete(removedPrefixes)
 	}
 
 	// The rules are added, we can begin ToFQDN DNS polling for them
@@ -313,10 +309,7 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
 	// not appropriately performing garbage collection.
 	prefixes := policy.GetCIDRPrefixes(rules)
 	log.WithField("prefixes", prefixes).Debug("Policy deleted via API, found prefixes...")
-	if err := ipcache.ReleaseCIDRs(prefixes); err != nil {
-		log.WithError(err).WithField("prefixes", prefixes).Warn(
-			"Failed to release CIDRs during policy delete")
-	}
+	ipcache.ReleaseCIDRs(prefixes)
 
 	prefixesChanged := d.prefixLengths.Delete(prefixes)
 	if !bpfIPCache.BackedByLPM() && prefixesChanged {

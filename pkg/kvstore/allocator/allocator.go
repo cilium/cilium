@@ -625,11 +625,11 @@ func (a *Allocator) GetByID(id idpool.ID) (AllocatorKey, error) {
 // Release releases the use of an ID associated with the provided key. After
 // the last user has released the ID, the key is removed in the KVstore and
 // the returned lastUse value is true.
-func (a *Allocator) Release(key AllocatorKey) (err error) {
+func (a *Allocator) Release(key AllocatorKey) (lastUse bool, err error) {
 	k := key.GetKey()
 	// release the key locally, if it was the last use, remove the node
 	// specific value key to remove the global reference mark
-	lastUse, err := a.localKeys.release(k)
+	lastUse, err = a.localKeys.release(k)
 	if err != nil {
 		return
 	}
