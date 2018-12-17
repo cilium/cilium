@@ -12,16 +12,93 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package monitor
+package api
 
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/cilium/cilium/pkg/monitor/notifications"
-	"github.com/cilium/cilium/pkg/policy/api"
 )
+
+// Must be synchronized with <bpf/lib/common.h>
+const (
+	// 0-128 are reserved for BPF datapath events
+	MessageTypeUnspec = iota
+	MessageTypeDrop
+	MessageTypeDebug
+	MessageTypeCapture
+	MessageTypeTrace
+
+	// 129-255 are reserved for agent level events
+
+	// MessageTypeAccessLog contains a pkg/proxy/accesslog.LogRecord
+	MessageTypeAccessLog = 129
+
+	// MessageTypeAgent is an agent notification carrying a AgentNotify
+	MessageTypeAgent = 130
+)
+
+type MessageTypeFilter []int
+
+var (
+	// MessageTypeNames is a map of all type names
+	MessageTypeNames = map[string]int{
+		"drop":    MessageTypeDrop,
+		"debug":   MessageTypeDebug,
+		"capture": MessageTypeCapture,
+		"trace":   MessageTypeTrace,
+		"l7":      MessageTypeAccessLog,
+		"agent":   MessageTypeAgent,
+	}
+)
+
+func type2name(typ int) string {
+	for name, value := range MessageTypeNames {
+		if value == typ {
+			return name
+		}
+	}
+
+	return strconv.Itoa(typ)
+}
+
+func (m *MessageTypeFilter) String() string {
+	pieces := make([]string, 0, len(*m))
+	for _, typ := range *m {
+		pieces = append(pieces, type2name(typ))
+	}
+
+	return strings.Join(pieces, ",")
+}
+
+func (m *MessageTypeFilter) Set(value string) error {
+	i, err := MessageTypeNames[value]
+	if !err {
+		return fmt.Errorf("Unknown type (%s). Please use one of the following ones %v",
+			value, MessageTypeNames)
+	}
+
+	*m = append(*m, i)
+	return nil
+}
+
+func (m *MessageTypeFilter) Type() string {
+	return "[]string"
+}
+
+func (m *MessageTypeFilter) Contains(typ int) bool {
+	for _, v := range *m {
+		if v == typ {
+			return true
+		}
+	}
+
+	return false
+}
 
 // AgentNotify is a notification from the agent
 type AgentNotify struct {
@@ -82,16 +159,11 @@ type PolicyUpdateNotification struct {
 }
 
 // PolicyUpdateRepr returns string representation of monitor notification
-func PolicyUpdateRepr(rules api.Rules, revision uint64) (string, error) {
-	labels := make([]string, 0, len(rules))
-	for _, r := range rules {
-		labels = append(labels, r.Labels.GetModel()...)
-	}
-
+func PolicyUpdateRepr(numRules int, labels []string, revision uint64) (string, error) {
 	notification := PolicyUpdateNotification{
 		Labels:    labels,
 		Revision:  revision,
-		RuleCount: len(rules),
+		RuleCount: numRules,
 	}
 
 	repr, err := json.Marshal(notification)

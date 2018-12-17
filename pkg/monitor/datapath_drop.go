@@ -17,6 +17,8 @@ package monitor
 import (
 	"encoding/json"
 	"fmt"
+
+	"github.com/cilium/cilium/pkg/monitor/api"
 )
 
 const (
@@ -39,66 +41,17 @@ type DropNotify struct {
 	// data
 }
 
-var errors = map[uint8]string{
-	0:   "Success",
-	2:   "Invalid packet",
-	130: "Invalid source mac",
-	131: "Invalid destination mac",
-	132: "Invalid source ip",
-	133: "Policy denied (L3)",
-	134: "Invalid packet",
-	135: "CT: Truncated or invalid header",
-	136: "CT: Missing TCP ACK flag",
-	137: "CT: Unknown L4 protocol",
-	138: "CT: Can't create entry from packet",
-	139: "Unsupported L3 protocol",
-	140: "Missed tail call",
-	141: "Error writing to packet",
-	142: "Unknown L4 protocol",
-	143: "Unknown ICMPv4 code",
-	144: "Unknown ICMPv4 type",
-	145: "Unknown ICMPv6 code",
-	146: "Unknown ICMPv6 type",
-	147: "Error retrieving tunnel key",
-	148: "Error retrieving tunnel options",
-	149: "Invalid Geneve option",
-	150: "Unknown L3 target address",
-	151: "Not a local target address",
-	152: "No matching local container found",
-	153: "Error while correcting L3 checksum",
-	154: "Error while correcting L4 checksum",
-	155: "CT: Map insertion failed",
-	156: "Invalid IPv6 extension header",
-	157: "IP fragmentation not supported",
-	158: "Service backend not found",
-	159: "Policy denied (L4)",
-	160: "No tunnel/encapsulation endpoint (datapath BUG!)",
-	161: "Failed to insert into proxymap",
-	162: "Policy denied (CIDR)",
-	163: "Unknown connection tracking state",
-	164: "Local host is unreachable",
-	165: "No configuration available to perform policy decision",
-}
-
-// DropReason prints the drop reason in a human readable string
-func DropReason(reason uint8) string {
-	if err, ok := errors[reason]; ok {
-		return err
-	}
-	return fmt.Sprintf("%d", reason)
-}
-
 // DumpInfo prints a summary of the drop messages.
 func (n *DropNotify) DumpInfo(data []byte) {
 	fmt.Printf("xx drop (%s) flow %#x to endpoint %d, identity %d->%d: %s\n",
-		DropReason(n.SubType), n.Hash, n.DstID, n.SrcLabel, n.DstLabel,
+		api.DropReason(n.SubType), n.Hash, n.DstID, n.SrcLabel, n.DstLabel,
 		GetConnectionSummary(data[DropNotifyLen:]))
 }
 
 // DumpVerbose prints the drop notification in human readable form
 func (n *DropNotify) DumpVerbose(dissect bool, data []byte, prefix string) {
 	fmt.Printf("%s MARK %#x FROM %d DROP: %d bytes, reason %s, to ifindex %s",
-		prefix, n.Hash, n.Source, n.OrigLen, DropReason(n.SubType), ifname(int(n.Ifindex)))
+		prefix, n.Hash, n.Source, n.OrigLen, api.DropReason(n.SubType), ifname(int(n.Ifindex)))
 
 	if n.SrcLabel != 0 || n.DstLabel != 0 {
 		fmt.Printf(", identity %d->%d", n.SrcLabel, n.DstLabel)
@@ -158,7 +111,7 @@ func DropNotifyToVerbose(n *DropNotify) DropNotifyVerbose {
 		Type:     "drop",
 		Mark:     fmt.Sprintf("%#x", n.Hash),
 		Ifindex:  ifname(int(n.Ifindex)),
-		Reason:   DropReason(n.SubType),
+		Reason:   api.DropReason(n.SubType),
 		Source:   n.Source,
 		Bytes:    n.OrigLen,
 		SrcLabel: n.SrcLabel,

@@ -18,7 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/monitor"
+	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/revert"
 )
@@ -55,5 +55,5 @@ type Owner interface {
 	GetCompilationLock() *lock.RWMutex
 
 	// SendNotification is called to emit an agent notification
-	SendNotification(typ monitor.AgentNotification, text string) error
+	SendNotification(typ monitorAPI.AgentNotification, text string) error
 }

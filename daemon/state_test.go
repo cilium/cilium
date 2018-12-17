@@ -34,7 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/mac"
-	"github.com/cilium/cilium/pkg/monitor"
+	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/revert"
@@ -131,7 +131,7 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 		return ds.d.compilationMutex
 	}
 
-	ds.OnSendNotification = func(typ monitor.AgentNotification, text string) error {
+	ds.OnSendNotification = func(typ monitorAPI.AgentNotification, text string) error {
 		return nil
 	}
 

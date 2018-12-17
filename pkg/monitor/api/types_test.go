@@ -14,7 +14,7 @@
 
 // +build !privileged_tests
 
-package monitor
+package api
 
 import (
 	"encoding/json"
@@ -35,9 +35,9 @@ func Test(t *testing.T) {
 	TestingT(t)
 }
 
-type MonitorSuite struct{}
+type MonitorAPISuite struct{}
 
-var _ = Suite(&MonitorSuite{})
+var _ = Suite(&MonitorAPISuite{})
 
 func testEqualityRules(got, expected string, c *C) {
 	gotStruct := &PolicyUpdateNotification{}
@@ -64,7 +64,7 @@ func testEqualityEndpoint(got, expected string, c *C) {
 	c.Assert(gotStruct, checker.DeepEquals, expectedStruct)
 }
 
-func (s *MonitorSuite) TestRulesRepr(c *C) {
+func (s *MonitorAPISuite) TestRulesRepr(c *C) {
 	rules := api.Rules{
 		&api.Rule{
 			Labels: labels.LabelArray{
@@ -78,22 +78,24 @@ func (s *MonitorSuite) TestRulesRepr(c *C) {
 		},
 	}
 
-	repr, err := PolicyUpdateRepr(rules, 1)
+	labels := make([]string, 0, len(rules))
+	for _, r := range rules {
+		labels = append(labels, r.Labels.GetModel()...)
+	}
+	repr, err := PolicyUpdateRepr(len(rules), labels, 1)
 
 	c.Assert(err, IsNil)
 	testEqualityRules(repr, `{"labels":["unspec:key1=value1","unspec:key2=value2"],"revision":1,"rule_count":2}`, c)
 }
 
-func (s *MonitorSuite) TestRulesReprEmpty(c *C) {
-	rules := api.Rules{}
-
-	repr, err := PolicyUpdateRepr(rules, 1)
+func (s *MonitorAPISuite) TestRulesReprEmpty(c *C) {
+	repr, err := PolicyUpdateRepr(0, []string{}, 1)
 
 	c.Assert(err, IsNil)
 	testEqualityRules(repr, `{"revision":1,"rule_count":0}`, c)
 }
 
-func (s *MonitorSuite) TestPolicyDeleteRepr(c *C) {
+func (s *MonitorAPISuite) TestPolicyDeleteRepr(c *C) {
 	lab := labels.LabelArray{
 		labels.NewLabel("key1", "value1", labels.LabelSourceUnspec),
 	}
@@ -121,7 +123,7 @@ func (MockEndpoint) GetOpLabels() []string {
 	}.GetModel()
 }
 
-func (s *MonitorSuite) TestEndpointRegenRepr(c *C) {
+func (s *MonitorAPISuite) TestEndpointRegenRepr(c *C) {
 	e := MockEndpoint{}
 	rerr := RegenError{}
 
@@ -134,7 +136,7 @@ func (s *MonitorSuite) TestEndpointRegenRepr(c *C) {
 	testEqualityEndpoint(repr, `{"id":10,"labels":["unspec:key1=value1","unspec:key2=value2"]}`, c)
 }
 
-func (s *MonitorSuite) TestTimeRepr(c *C) {
+func (s *MonitorAPISuite) TestTimeRepr(c *C) {
 	t := time.Now()
 
 	repr, err := TimeRepr(t)

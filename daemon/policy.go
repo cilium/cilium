@@ -31,7 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	bpfIPCache "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/monitor"
+	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
@@ -265,11 +265,15 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 
 	d.TriggerPolicyUpdates(false, "policy rules added")
 
-	repr, err := monitor.PolicyUpdateRepr(rules, rev)
+	labels := make([]string, 0, len(rules))
+	for _, r := range rules {
+		labels = append(labels, r.Labels.GetModel()...)
+	}
+	repr, err := monitorAPI.PolicyUpdateRepr(len(rules), labels, rev)
 	if err != nil {
 		log.WithField(logfields.PolicyRevision, rev).Warn("Failed to represent policy update as monitor notification")
 	} else {
-		d.SendNotification(monitor.AgentNotifyPolicyUpdated, repr)
+		d.SendNotification(monitorAPI.AgentNotifyPolicyUpdated, repr)
 	}
 
 	return rev, nil
@@ -328,11 +332,11 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
 
 	d.TriggerPolicyUpdates(false, "policy rules deleted")
 
-	repr, err := monitor.PolicyDeleteRepr(deleted, labels.GetModel(), rev)
+	repr, err := monitorAPI.PolicyDeleteRepr(deleted, labels.GetModel(), rev)
 	if err != nil {
 		log.WithField(logfields.PolicyRevision, rev).Warn("Failed to represent policy update as monitor notification")
 	} else {
-		d.SendNotification(monitor.AgentNotifyPolicyDeleted, repr)
+		d.SendNotification(monitorAPI.AgentNotifyPolicyDeleted, repr)
 	}
 
 	return rev, nil
