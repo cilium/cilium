@@ -34,7 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/monitor"
+	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
@@ -67,7 +67,7 @@ type DaemonSuite struct {
 	OnRemoveFromEndpointQueue func(epID uint64)
 	OnDebugEnabled            func() bool
 	OnGetCompilationLock      func() *lock.RWMutex
-	OnSendNotification        func(typ monitor.AgentNotification, text string) error
+	OnSendNotification        func(typ monitorAPI.AgentNotification, text string) error
 	OnNewProxyLogRecord       func(l *accesslog.LogRecord) error
 }
 
@@ -258,7 +258,7 @@ func (ds *DaemonSuite) GetCompilationLock() *lock.RWMutex {
 	panic("GetCompilationLock should not have been called")
 }
 
-func (ds *DaemonSuite) SendNotification(typ monitor.AgentNotification, text string) error {
+func (ds *DaemonSuite) SendNotification(typ monitorAPI.AgentNotification, text string) error {
 	if ds.OnSendNotification != nil {
 		return ds.OnSendNotification(typ, text)
 	}
