@@ -17,7 +17,11 @@
 package identity
 
 import (
+	"net"
 	"testing"
+
+	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/labels/cidr"
 
 	. "gopkg.in/check.v1"
 )
@@ -70,4 +74,16 @@ func (s *IdentityTestSuite) TestIsReservedIdentity(c *C) {
 	c.Assert(ReservedIdentityUnmanaged.IsReservedIdentity(), Equals, true)
 
 	c.Assert(NumericIdentity(123456).IsReservedIdentity(), Equals, false)
+}
+
+func (s *IdentityTestSuite) TestRequiresGlobalIdentity(c *C) {
+	_, ipnet, err := net.ParseCIDR("0.0.0.0/0")
+	c.Assert(err, IsNil)
+	c.Assert(RequiresGlobalIdentity(cidr.GetCIDRLabels(ipnet)), Equals, false)
+
+	_, ipnet, err = net.ParseCIDR("192.168.23.0/24")
+	c.Assert(err, IsNil)
+	c.Assert(RequiresGlobalIdentity(cidr.GetCIDRLabels(ipnet)), Equals, false)
+
+	c.Assert(RequiresGlobalIdentity(labels.NewLabelsFromModel([]string{"k8s:foo=bar"})), Equals, true)
 }
