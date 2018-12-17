@@ -93,7 +93,7 @@ func InitIdentityAllocator(owner IdentityAllocatorOwner) {
 
 	minID := idpool.ID(identity.MinimalNumericIdentity)
 	maxID := idpool.ID(^uint16(0))
-	events := make(allocator.AllocatorEventChan, 65536)
+	events := make(allocator.AllocatorEventChan, 1024)
 
 	// It is important to start listening for events before calling
 	// NewAllocator() as it will emit events while filling the
