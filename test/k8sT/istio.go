@@ -271,7 +271,7 @@ var _ = Describe("K8sIstioTest", func() {
 			// next resources to reduce the load on the next pod creations,
 			// in order to reduce the probability of regeneration timeout.
 			By("Waiting for Bookinfo pods to be ready")
-			err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=bookinfo", helpers.HelperTimeout)
+			err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=bookinfo", helpers.HelperTimeout*2)
 			Expect(err).Should(BeNil(), "Pods are not ready after timeout")
 
 			By("Waiting for Bookinfo endpoints to be ready")

@@ -575,6 +575,12 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) {
 		istioSidecarProxyLabel.Source == labels.LabelSourceK8s &&
 		strings.ToLower(istioSidecarProxyLabel.Value) == "true"
 
+	if e.hasSidecarProxy {
+		e.getLogger().Infof("endpoint has Istio sidecar proxy")
+	} else {
+		e.getLogger().Info("endpoint does not have Istio sidecar proxy")
+	}
+
 	oldIdentity := "no identity"
 	if e.SecurityIdentity != nil {
 		oldIdentity = e.SecurityIdentity.StringID()
