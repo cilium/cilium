@@ -69,11 +69,6 @@ func (e *Endpoint) PolicyMapPathLocked() string {
 	return e.mapPath(policymap.MapName)
 }
 
-// PolicyGlobalMapPathLocked returns the path to the global policy map.
-func (e *Endpoint) PolicyGlobalMapPathLocked() string {
-	return bpf.MapPath(PolicyGlobalMapName)
-}
-
 // CallsMapPathLocked returns the path to cilium tail calls map of an endpoint.
 func (e *Endpoint) CallsMapPathLocked() string {
 	return bpf.MapPath(CallsMapName + strconv.Itoa(int(e.ID)))
@@ -932,7 +927,7 @@ func (e *Endpoint) DeleteMapsLocked() []error {
 	}
 
 	// Remove handle_policy() tail call entry for EP
-	if err := e.RemoveFromGlobalPolicyMap(); err != nil {
+	if err := policymap.RemoveGlobalMapping(uint32(e.ID)); err != nil {
 		errors = append(errors, fmt.Errorf("unable to remove endpoint from global policy map: %s", err))
 	}
 

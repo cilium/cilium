@@ -52,7 +52,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/trigger"
-	"github.com/cilium/cilium/pkg/u8proto"
 
 	"github.com/sirupsen/logrus"
 
@@ -95,8 +94,6 @@ const (
 
 	// CallsMapName specifies the base prefix for EP specific call map.
 	CallsMapName = "cilium_calls_"
-	// PolicyGlobalMapName specifies the global tail call map for EP handle_policy() lookup.
-	PolicyGlobalMapName = "cilium_policy"
 	// IpvlanMapName specifies the tail call map for EP on egress used with ipvlan.
 	IpvlanMapName = "cilium_lxc_ipve_"
 
@@ -1037,19 +1034,6 @@ func ParseEndpoint(strEp string) (*Endpoint, error) {
 	ep.SetStateLocked(StateRestoring, "Endpoint restoring")
 
 	return &ep, nil
-}
-
-func (e *Endpoint) RemoveFromGlobalPolicyMap() error {
-	gpm, err := policymap.OpenGlobalMap(e.PolicyGlobalMapPathLocked())
-	if err == nil {
-		// We need to remove ourselves from global map, so that
-		// resources (prog/map reference counts) can be released.
-		gpm.Delete(uint32(e.ID), policymap.AllPorts, u8proto.All, trafficdirection.Ingress)
-		gpm.Delete(uint32(e.ID), policymap.AllPorts, u8proto.All, trafficdirection.Egress)
-		gpm.Close()
-	}
-
-	return err
 }
 
 func (e *Endpoint) LogStatus(typ StatusType, code StatusCode, msg string) {
