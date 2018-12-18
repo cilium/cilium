@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,8 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/policy/trafficdirection"
-	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 var (
@@ -60,19 +58,13 @@ func removeStaleMap(path string) {
 	}
 }
 
-func removeStaleIDFromPolicyMap(id uint32) {
-	gpm, err := policymap.OpenGlobalMap(bpf.MapPath(endpoint.PolicyGlobalMapName))
-	if err == nil {
-		gpm.Delete(id, policymap.AllPorts, u8proto.All, trafficdirection.Ingress)
-		gpm.Delete(id, policymap.AllPorts, u8proto.All, trafficdirection.Egress)
-		gpm.Close()
-	}
-}
-
 func checkStaleMap(path string, filename string, id string) {
 	if tmp, err := strconv.ParseUint(id, 0, 16); err == nil {
 		if ep := endpointmanager.LookupCiliumID(uint16(tmp)); ep == nil {
-			removeStaleIDFromPolicyMap(uint32(tmp))
+			err2 := policymap.RemoveGlobalMapping(uint32(tmp))
+			if err2 != nil {
+				log.WithError(err2).Debugf("Failed to remove ID %d from global policy map", tmp)
+			}
 			removeStaleMap(path)
 		}
 	}

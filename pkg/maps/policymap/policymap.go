@@ -332,13 +332,3 @@ func OpenMap(path string) (*PolicyMap, bool, error) {
 
 	return m, isNewMap, nil
 }
-
-func OpenGlobalMap(path string) (*PolicyMap, error) {
-	fd, err := bpf.ObjGet(path)
-	if err != nil {
-		return nil, err
-	}
-
-	m := &PolicyMap{path: path, Fd: fd}
-	return m, nil
-}
