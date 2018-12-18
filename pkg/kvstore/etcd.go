@@ -59,7 +59,7 @@ var (
 
 	// initialConnectionTimeout  is the timeout for the initial connection to
 	// the etcd server
-	initialConnectionTimeout = 3 * time.Minute
+	initialConnectionTimeout = 15 * time.Minute
 
 	minRequiredVersion, _ = version.NewConstraint(">= 3.1.0")
 
