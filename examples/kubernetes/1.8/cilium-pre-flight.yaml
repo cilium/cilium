@@ -33,7 +33,7 @@ spec:
           args:
           - "hello"
       containers:
-        - image: docker.io/cilium/cilium:v1.3.0
+        - image: docker.io/cilium/cilium:v1.3.1
           imagePullPolicy: IfNotPresent
           name: cilium-pre-flight-check
           command: ["/bin/sh"]

@@ -2,6 +2,107 @@
 NEWS
 ******
 
+1.3.1
+=====
+
+::
+
+    André Martins (22):
+          pkg/datapath/ipcache: stop leaking FD
+          examples/kubernetes: fix cilium tolerations
+          pkg/fqdn: make any operation in the sourceRuleCopy
+          addons/etcd-operator: update cilium descriptor to v1.3.0
+          addons/etcd-operator: update cilium descriptor from examples/kubernetes
+          docs: fix CVE-2018-18074
+          docs: add warning in docs for older versions
+          docs: ignore documentation warnings
+          docs: remove user flag when rendering documentation locally
+          daemon: change policyAdd message type from Info to Debug for dns policies
+          docs: remove height for all images
+          cmd: fix documentation links for cmdref
+          pkg/endpoint: do not leak go routines if endpoint is disconnected
+          docs: use READTHEDOCS version in version warning
+          examples/kubernetes: simplify makefile
+          examples/kubernetes: add cilium-pre-flight DaemonSet
+          docs: add pre-flight check instructions
+          test: add tests for cilium pre-flight daemonset
+          pkg/endpoint: ignore negative time durations in metrics
+          examples/kubernetes: Change imagePullPolicy to IfNotPresent
+          set reloadDatapath flag as a function parameter
+          examples/kubernetes: make cilium-pre-flight to run in hostNetwork
+    
+    Eloy Coto (5):
+          1.3: Remove the Codeowners file.
+          Endpoint: set a new context per endpoint regeneration
+          Test: stop background monitor command.
+          Test: Nightly disable kubernetes 1.8
+          Test: Fix envoy tests on Nightly
+    
+    Ian Vernon (5):
+          test: reduce # of expected tunnels
+          cmd: add `cilium bpf config get` command
+          cmd: disable `cilium bpf config get` for now
+          endpoint: revert endpoint BPF config map update if regenerateBPF fails
+          alignchecker: add EndpointConfig validation
+    
+    Jarno Rajahalme (8):
+          test: Do not clean during parallel builds.
+          endpoint: Unlock endpoint to prevent deadlocks.
+          envoy: Make timeouts user-configurable
+          envoy: Use datapath timeouts
+          daemon: Allow releasing builder while waiting for proxy ACKs
+          endpoint: Make regenaration timeout greater than ExecTimeout
+          endpoint: Eliminate ExecTimeout, ctx.
+          daemon: Use sync.Once, rewamp comments.
+    
+    Joe Stringer (7):
+          bpf: Fix node-port access to l7 proxy
+          bpf: Templatize endpoint configuration
+          maps: Add BPFConfigMap for endpoint configuration
+          endpoint: Support dynamic BPF configuration
+          bpf: Relax verifier in IPv6 drop case
+          bpf: Fix tcp flag access
+          bpf: Don't reset TCP timer on final ACK
+    
+    John Fastabend (1):
+          cilium: spelling: sha is an acronym replace with SHA
+    
+    Kiran Bondalapati (1):
+          Update extensions.rst
+    
+    Maciej Kwiek (1):
+          Tune microscope readiness probe in ci
+    
+    Martynas Pumputis (2):
+          docs: Update build dependencies
+          docs: remove width from images in contrib page
+    
+    Ray Bejjani (1):
+          k8s: CEP controller retries k8s version checks
+    
+    Thomas Graf (20):
+          bpf: Provide more specific drop reasons
+          proxylib: Update proxylib.h with go 1.11
+          agent: Fix invalid printf style invocations
+          gitignore: Ingore cilium-ring-dump binary
+          lbmap: Retrieve service ID when dumping BPF map
+          service: Restore service IDs before connecting to Kubernetes apiserver
+          service: Restore bpfservie cache on startup
+          lbmap: Add unit test for getBackends()
+          idpool: Factor out IDPool from allocator into package for reuse
+          idpool: Fix leaseAvailableID() and slice out of bounds
+          node: Don't insert own node into tunnel map
+          bpf: Avoid routing loops for former local endpoint IPs
+          test: Use cilium-etcd-operator
+          clustermesh: Fix race when shutting down clustermesh
+          clustermesh: Wait for controllers to be shutdown when closing
+          cni: Synchroneous pod label retrieval on CNI add
+          identity: Block createEndpoint() while identity is being resolved
+          bpf: Remove source MAC address validation
+          bpf: Remove destination MAC address verification
+          agent: Ignore IPV4_GATEWAY=0x0 when restoring
+    
+
 1.3.0
 =====
 
