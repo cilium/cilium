@@ -209,6 +209,7 @@ func InstallRules() error {
 		"-t", "mangle",
 		"-A", ciliumPostMangleChain,
 		"-o", defaults.HostDevice,
+		"!", "-s", "127.0.0.1",
 		"-m", "comment", "--comment", "cilium: clear masq bit for pkts to " + defaults.HostDevice,
 		"-j", "MARK", "--set-xmark", clearMasqBit}, false); err != nil {
 		return err
