@@ -107,7 +107,7 @@ var _ = Describe("K8sServicesTest", func() {
 		}
 	}
 
-	Context("Checks ClusterIP Connectivity", func() {
+	Context("K8sFoo Checks ClusterIP Connectivity", func() {
 
 		var (
 			demoYAML = helpers.ManifestGet("demo.yaml")
