@@ -567,7 +567,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, regenContext *regenerationContext)
 
 	// Hook the endpoint into the endpoint and endpoint to policy tables then expose it
 	stats.mapSync.Start()
-	epErr := eppolicymap.WriteEndpoint(datapathRegenCtxt.epInfoCache.keys, e.PolicyMap.Fd)
+	epErr := eppolicymap.WriteEndpoint(datapathRegenCtxt.epInfoCache.keys, e.PolicyMap.GetFd())
 	err = lxcmap.WriteEndpoint(datapathRegenCtxt.epInfoCache)
 	stats.mapSync.End(err == nil)
 	if epErr != nil {
@@ -726,13 +726,13 @@ func (e *Endpoint) runPreCompilationSteps(owner Owner, regenContext *regeneratio
 	}
 
 	if e.PolicyMap == nil {
-		e.PolicyMap, _, err = policymap.OpenMap(e.PolicyMapPathLocked())
+		e.PolicyMap, _, err = policymap.OpenOrCreate(e.PolicyMapPathLocked())
 		if err != nil {
 			return err
 		}
 		// Clean up map contents
 		e.getLogger().Debug("flushing old PolicyMap")
-		err = e.PolicyMap.Flush()
+		err = e.PolicyMap.DeleteAll()
 		if err != nil {
 			return err
 		}
@@ -1077,7 +1077,7 @@ func (e *Endpoint) syncPolicyMap() error {
 			e.getLogger().WithError(err).Error("unable to close PolicyMap which was not able to be dumped")
 		}
 
-		e.PolicyMap, _, err = policymap.OpenMap(e.PolicyMapPathLocked())
+		e.PolicyMap, _, err = policymap.OpenOrCreate(e.PolicyMapPathLocked())
 		if err != nil {
 			return fmt.Errorf("unable to open PolicyMap for endpoint: %s", err)
 		}
