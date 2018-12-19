@@ -90,7 +90,7 @@ func (s *ProbesSuite) TestProbeKernelConfig(c *C) {
 	)
 	defer finalizeFn()
 
-	_, err := probeKernelConfig(&infoBuf, &warningBuf)
+	err := probeKernelConfig(&infoBuf, &warningBuf)
 	c.Assert(err, IsNil)
 }
 
