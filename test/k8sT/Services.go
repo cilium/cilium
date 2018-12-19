@@ -131,6 +131,7 @@ var _ = Describe("K8sServicesTest", func() {
 			Expect(err).Should(BeNil(), "Cannot get service %s", serviceName)
 			Expect(govalidator.IsIP(clusterIP)).Should(BeTrue(), "ClusterIP is not an IP")
 
+			By("testing connectivity via cluster IP %s", clusterIP)
 			status := kubectl.Exec(helpers.CurlFail("http://%s/", clusterIP))
 			status.ExpectSuccess("cannot curl to service IP from host")
 			ciliumPods, err := kubectl.GetCiliumPods(helpers.KubeSystemNamespace)
@@ -140,6 +141,10 @@ var _ = Describe("K8sServicesTest", func() {
 				service.ExpectSuccess("Cannot retrieve services on cilium Pod")
 				service.ExpectContains(clusterIP, "ClusterIP is not present in the cilium service list")
 			}
+
+			By("testing connectivity via localhost")
+			status = kubectl.Exec(helpers.CurlFail("http://localhost/"))
+			status.ExpectSuccess("cannot curl to localhost nodeport from host")
 		}, 300)
 	})
 
