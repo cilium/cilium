@@ -43,7 +43,7 @@ func (s *IPCacheTestSuite) TestIPCache(c *C) {
 	c.Assert(len(IPIdentityCache.identityToIPCache), Equals, 0)
 
 	// Deletion of key that doesn't exist doesn't cause panic.
-	IPIdentityCache.Delete(endpointIP)
+	IPIdentityCache.Delete(endpointIP, FromKVStore)
 
 	IPIdentityCache.Upsert(endpointIP, nil, Identity{
 		ID:     identity,
@@ -75,7 +75,7 @@ func (s *IPCacheTestSuite) TestIPCache(c *C) {
 	c.Assert(len(IPIdentityCache.ipToIdentityCache), Equals, 1)
 	c.Assert(len(IPIdentityCache.identityToIPCache), Equals, 1)
 
-	IPIdentityCache.Delete(endpointIP)
+	IPIdentityCache.Delete(endpointIP, FromKVStore)
 
 	// Assure deletion occurs across both mappings.
 	c.Assert(len(IPIdentityCache.ipToIdentityCache), Equals, 0)
@@ -107,7 +107,7 @@ func (s *IPCacheTestSuite) TestIPCache(c *C) {
 		c.Assert(cachedIP, Equals, endpointIP)
 	}
 
-	IPIdentityCache.Delete(endpointIP)
+	IPIdentityCache.Delete(endpointIP, FromKVStore)
 
 	// Assure deletion occurs across both mappings.
 	c.Assert(len(IPIdentityCache.ipToIdentityCache), Equals, 0)
@@ -134,7 +134,7 @@ func (s *IPCacheTestSuite) TestIPCache(c *C) {
 	cachedEndpointIPs, _ := IPIdentityCache.LookupByIdentity(29)
 	c.Assert(reflect.DeepEqual(cachedEndpointIPs, expectedIPList), Equals, true)
 
-	IPIdentityCache.Delete("27.2.2.2")
+	IPIdentityCache.Delete("27.2.2.2", FromKVStore)
 
 	expectedIPList = map[string]struct{}{
 		"127.0.0.1": {},
@@ -152,7 +152,7 @@ func (s *IPCacheTestSuite) TestIPCache(c *C) {
 	c.Assert(exists, Equals, true)
 	c.Assert(cachedIdentity.ID, Equals, identityPkg.NumericIdentity(29))
 
-	IPIdentityCache.Delete("127.0.0.1")
+	IPIdentityCache.Delete("127.0.0.1", FromKVStore)
 
 	_, exists = IPIdentityCache.LookupByIdentity(29)
 	c.Assert(exists, Equals, false)
@@ -162,7 +162,7 @@ func (s *IPCacheTestSuite) TestIPCache(c *C) {
 
 	// Clean up.
 	for index := range endpointIPs {
-		IPIdentityCache.Delete(endpointIPs[index])
+		IPIdentityCache.Delete(endpointIPs[index], FromKVStore)
 		_, exists = IPIdentityCache.LookupByIP(endpointIPs[index])
 		c.Assert(exists, Equals, false)
 
