@@ -1515,7 +1515,7 @@ func (d *Daemon) deletePodHostIP(pod *v1.Pod) (bool, error) {
 		return true, fmt.Errorf("ipcache entry not owned by kubernetes source")
 	}
 
-	ipcache.IPIdentityCache.Delete(pod.Status.PodIP)
+	ipcache.IPIdentityCache.Delete(pod.Status.PodIP, ipcache.FromKubernetes)
 
 	return false, nil
 }
@@ -1848,7 +1848,7 @@ func (d *Daemon) deleteK8sNodeV1(k8sNode *v1.Node) error {
 		return nil
 	}
 
-	ipcache.IPIdentityCache.Delete(ip)
+	ipcache.IPIdentityCache.Delete(ip, ipcache.FromKubernetes)
 
 	ciliumIP := net.ParseIP(ip)
 	if ciliumIP == nil {

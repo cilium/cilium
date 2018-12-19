@@ -417,7 +417,7 @@ restart:
 					// The key no longer exists in the
 					// local cache, it is safe to remove
 					// from the datapath ipcache.
-					IPIdentityCache.Delete(ip)
+					IPIdentityCache.Delete(ip, FromKVStore)
 				}
 			}
 
