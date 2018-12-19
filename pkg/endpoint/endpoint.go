@@ -1268,7 +1268,7 @@ func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup
 
 	if e.PolicyMap != nil {
 		if err := e.PolicyMap.Close(); err != nil {
-			errors = append(errors, fmt.Errorf("unable to close policymap %s: %s", e.PolicyGlobalMapPathLocked(), err))
+			errors = append(errors, fmt.Errorf("unable to close policymap %s: %s", e.PolicyMap.String(), err))
 		}
 	}
 
