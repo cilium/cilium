@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Authors of Cilium
+// Copyright 2017-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -97,14 +97,12 @@ func listMap(args []string) {
 }
 
 func dumpMap(file string) {
-
-	fd, err := bpf.ObjGet(file)
+	m, err := policymap.Open(file)
 	if err != nil {
-		Fatalf("%s\n", err)
+		Fatalf("Failed to open map: %s\n", err)
 	}
-	defer bpf.ObjClose(fd)
+	defer m.Close()
 
-	m := policymap.PolicyMap{Fd: fd}
 	statsMap, err := m.DumpToSlice()
 	if err != nil {
 		Fatalf("Error while opening bpf Map: %s\n", err)
