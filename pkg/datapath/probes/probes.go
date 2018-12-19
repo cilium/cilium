@@ -30,12 +30,13 @@ import (
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/multierror"
 )
 
 const (
 	clangTimeout  = 15 * time.Second
 	outBinTimeout = 15 * time.Second
+
+	tempDirName = "cilium-probes-out"
 )
 
 var (
@@ -284,7 +285,6 @@ func writeFeatures(featureFile, infoFile, warningFile io.Writer, probesDir, libI
 func RunProbes(bpfDir, stateDir string) error {
 	var featureFile, infoFile, warningFile *fileWithCleanup
 	var outDir string
-	var errs *multierror.Multierror
 	var err error
 
 	probesDir := path.Join(bpfDir, "probes")
@@ -298,59 +298,62 @@ func RunProbes(bpfDir, stateDir string) error {
 
 	featureFile, err = openOrCreate(featureFilePath)
 	if err != nil {
-		errs = multierror.Append(errs, err)
+		log.WithError(err).Errorf("failed to open file %s", featureFilePath)
 		goto cleanup
 	}
 	infoFile, err = openOrCreate(infoFilePath)
 	if err != nil {
-		errs = multierror.Append(errs, err)
+		log.WithError(err).Errorf("failed to open file %s", infoFilePath)
 		goto cleanup
 	}
 	warningFile, err = openOrCreate(warningFilePath)
 	if err != nil {
-		errs = multierror.Append(errs, err)
+		log.WithError(err).Errorf("failed to open file %s", warningFilePath)
 		goto cleanup
 	}
 
-	outDir, err = ioutil.TempDir("", "cilium-probes-out")
+	outDir, err = ioutil.TempDir("", tempDirName)
 	if err != nil {
-		err = fmt.Errorf("could not create temporary directory for probes: %s", err)
-		errs = multierror.Append(errs, err)
+		log.WithError(err).Errorf("could not create temporary directory for probes: %s", err)
 		goto cleanup
 	}
 	defer os.RemoveAll(outDir)
 
-	if err := writeFeatures(featureFile, infoFile, warningFile, probesDir, libIncludeDir, outDir); err != nil {
-		errs = multierror.Append(errs, err)
+	err = writeFeatures(featureFile, infoFile, warningFile, probesDir, libIncludeDir, outDir)
+	if err != nil {
+		log.WithError(err).Errorf("could not write probe results to feature file %s", featureFilePath)
 		goto cleanup
 	}
 
-	if err := featureFile.Sync(); err != nil {
-		errs = multierror.Append(errs, err)
+	err = featureFile.Sync()
+	if err != nil {
+		log.WithError(err).Errorf("could not sync the content of feature file %s", featureFilePath)
 		goto cleanup
 	}
-	if err := infoFile.Sync(); err != nil {
-		errs = multierror.Append(errs, err)
+	err = infoFile.Sync()
+	if err != nil {
+		log.WithError(err).Errorf("could not sync the content of info file %s", infoFilePath)
 		goto cleanup
 	}
-	if err := warningFile.Sync(); err != nil {
-		errs = multierror.Append(errs, err)
+	err = warningFile.Sync()
+	if err != nil {
+		log.WithError(err).Errorf("could not sync the content of warning file %s", warningFilePath)
 		goto cleanup
 	}
 
 cleanup:
-	if err := featureFile.Close(); err != nil {
-		errs = multierror.Append(errs, err)
+	err = featureFile.Close()
+	if err != nil {
+		log.WithError(err).Errorf("failed to close file %s", featureFilePath)
 	}
-	if err := infoFile.Close(); err != nil {
-		errs = multierror.Append(errs, err)
+	err = infoFile.Close()
+	if err != nil {
+		log.WithError(err).Errorf("failed to close file %s", infoFilePath)
 	}
-	if err := warningFile.Close(); err != nil {
-		errs = multierror.Append(errs, err)
+	err = warningFile.Close()
+	if err != nil {
+		log.WithError(err).Errorf("failed to close file %s", warningFilePath)
 	}
 
-	if errs != nil {
-		return errs
-	}
-	return nil
+	return err
 }
