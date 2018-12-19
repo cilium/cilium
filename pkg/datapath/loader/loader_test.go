@@ -35,7 +35,7 @@ type LoaderTestSuite struct{}
 
 var (
 	_              = Suite(&LoaderTestSuite{})
-	contextTimeout = 5 * time.Minute
+	contextTimeout = 10 * time.Second
 
 	dirInfo *directoryInfo
 	ep      = &testEP{}
@@ -175,7 +175,11 @@ func (s *LoaderTestSuite) TestCompileFailure(c *C) {
 		}
 	}()
 
-	err := compileAndLoad(ctx, ep, dirInfo)
+	timeout := time.Now().Add(contextTimeout)
+	var err error
+	for err == nil && time.Now().Before(timeout) {
+		err = compileAndLoad(ctx, ep, dirInfo)
+	}
 	c.Assert(err, NotNil)
 }
 
