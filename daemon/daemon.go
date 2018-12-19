@@ -552,6 +552,7 @@ func (d *Daemon) installIptablesRules() error {
 		"-t", "mangle",
 		"-A", ciliumPostMangleChain,
 		"-o", "cilium_host",
+		"!", "-s", "127.0.0.1",
 		"-m", "comment", "--comment", "cilium: clear masq bit for pkts to cilium_host",
 		"-j", "MARK", "--set-xmark", clearMasqBit}, false); err != nil {
 		return err
