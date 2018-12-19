@@ -131,6 +131,7 @@ var _ = Describe("K8sServicesTest", func() {
 			Expect(err).Should(BeNil(), "Cannot get service %s", serviceName)
 			Expect(govalidator.IsIP(clusterIP)).Should(BeTrue(), "ClusterIP is not an IP")
 
+			By("testing connectivity via cluster IP %s", clusterIP)
 			status := kubectl.Exec(helpers.CurlFail("http://%s/", clusterIP))
 			status.ExpectSuccess("cannot curl to service IP from host")
 			ciliumPods, err := kubectl.GetCiliumPods(helpers.KubeSystemNamespace)
@@ -182,10 +183,21 @@ var _ = Describe("K8sServicesTest", func() {
 				net.JoinHostPort(data.Spec.ClusterIP, fmt.Sprintf("%d", data.Spec.Ports[0].Port)))
 			testHTTPRequest(url)
 
+			// From host via localhost IP
+			// TODO: IPv6
+			url = fmt.Sprintf("http://%s",
+				net.JoinHostPort("127.0.0.1", fmt.Sprintf("%d", data.Spec.Ports[0].NodePort)))
+			By("Making ten HTTP requests from k8s1 to %q", url)
+			for i := 1; i <= 10; i++ {
+				res := kubectl.Exec(helpers.CurlFail(url))
+				ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
+					"k8s1 host can not connect to service %q", url)
+			}
+
+			// From pod via node IPs
 			url = fmt.Sprintf("http://%s",
 				net.JoinHostPort(helpers.K8s1Ip, fmt.Sprintf("%d", data.Spec.Ports[0].NodePort)))
 			testHTTPRequest(url)
-
 			url = fmt.Sprintf("http://%s",
 				net.JoinHostPort(helpers.K8s2Ip, fmt.Sprintf("%d", data.Spec.Ports[0].NodePort)))
 			testHTTPRequest(url)
