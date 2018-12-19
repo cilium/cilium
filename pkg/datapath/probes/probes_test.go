@@ -54,20 +54,15 @@ func changeConfigLocations(configLocations, configLocationsGz []string) func() {
 
 func (s *ProbesSuite) TestReadKernelConfiguration(c *C) {
 	var buf bytes.Buffer
+
+	// Use example kernel config.
+	finalizeFn := changeConfigLocations(
+		[]string{"../../../bpf/examples/config"},
+		nil,
+	)
+	defer finalizeFn()
+
 	_, err := readKernelConfig(&buf)
-	if err != nil && IsErrMissingKernelConfig(err) {
-		// Test should not fail in that case. Some environments do not
-		// provide kernel configuration, i.e. Travis CI. In that case
-		// the example config should be used instead.
-
-		finalizeFn := changeConfigLocations(
-			[]string{"../../../bpf/examples/config"},
-			nil,
-		)
-		defer finalizeFn()
-
-		_, err = readKernelConfig(&buf)
-	}
 	c.Assert(err, IsNil)
 }
 
@@ -81,27 +76,21 @@ func (s *ProbesSuite) TestReadKernelConfigurationNotFound(c *C) {
 	defer finalizeFn()
 
 	_, err := readKernelConfig(&buf)
-	c.Assert(err, ErrorMatches, "missing kernel configuration")
+	c.Assert(err, IsNil)
 	c.Assert(buf.String(), Equals, "BPF/probes: Missing kernel configuration\n")
 }
 
 func (s *ProbesSuite) TestProbeKernelConfig(c *C) {
 	var infoBuf, warningBuf bytes.Buffer
 
-	err := probeKernelConfig(&infoBuf, &warningBuf)
-	if err != nil && IsErrMissingKernelConfig(err) {
-		// Test should not fail in that case. Some environments do not
-		// provide kernel configuration, i.e. Travis CI. In that case
-		// the example config should be used instead.
+	// Use example kernel config.
+	finalizeFn := changeConfigLocations(
+		[]string{"../../../bpf/examples/config"},
+		nil,
+	)
+	defer finalizeFn()
 
-		finalizeFn := changeConfigLocations(
-			[]string{"../../../bpf/examples/config"},
-			nil,
-		)
-		defer finalizeFn()
-
-		_, err = probeKernelConfig(&infoBuf, &warningBuf)
-	}
+	_, err := probeKernelConfig(&infoBuf, &warningBuf)
 	c.Assert(err, IsNil)
 }
 

@@ -299,7 +299,7 @@ func checkMinRequirements() {
 		log.WithError(err).WithField(logfields.Path, option.Config.LibDir).Fatal("Could not change to runtime directory")
 	}
 	if err := probes.RunProbes(option.Config.BpfDir, option.Config.StateDir); err != nil {
-		log.WithError(err).Warn("BPF Verifier: NOT OK")
+		log.WithError(err).Fatal("BPF Verifier: NOT OK")
 	}
 	featuresFilePath := filepath.Join(globalsDir, "bpf_features.h")
 	if _, err := os.Stat(featuresFilePath); os.IsNotExist(err) {
