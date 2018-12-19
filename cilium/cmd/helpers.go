@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -309,7 +309,7 @@ func parsePolicyUpdateArgsHelper(args []string) (*PolicyUpdateArgs, error) {
 // deleted.
 func updatePolicyKey(pa *PolicyUpdateArgs, add bool) {
 	policyMapPath := bpf.MapPath(policymap.MapName + pa.endpointID)
-	policyMap, _, err := policymap.OpenMap(policyMapPath)
+	policyMap, _, err := policymap.OpenOrCreate(policyMapPath)
 	if err != nil {
 		Fatalf("Cannot open policymap '%s' : %s", policyMapPath, err)
 	}
