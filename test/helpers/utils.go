@@ -184,6 +184,21 @@ func GetAppPods(apps []string, namespace string, kubectl *Kubectl, appFmt string
 	return appPods
 }
 
+// HoldEnvironment prints the current test status, then pauses the test
+// execution. Developers who are writing tests may wish to invoke this function
+// directly from test code to assist troubleshooting and test development.
+func HoldEnvironment(description ...string) {
+	test := ginkgo.CurrentGinkgoTestDescription()
+	pid := syscall.Getpid()
+
+	fmt.Fprintf(os.Stdout, "\n---\n%s", test.FullTestText)
+	fmt.Fprintf(os.Stdout, "\nat %s:%d", test.FileName, test.LineNumber)
+	fmt.Fprintf(os.Stdout, "\n\n%s", description)
+	fmt.Fprintf(os.Stdout, "\n\nPausing test for debug, use vagrant to access test setup.")
+	fmt.Fprintf(os.Stdout, "\nRun \"kill -SIGCONT %d\" to continue.\n", pid)
+	syscall.Kill(pid, syscall.SIGSTOP)
+}
+
 // Fail is a Ginkgo failure handler which raises a SIGSTOP for the test process
 // when there is a failure, so that developers can debug the live environment.
 // It is only triggered if the developer provides a commandline flag.
@@ -195,15 +210,7 @@ func Fail(description string, callerSkip ...int) {
 	}
 
 	if config.CiliumTestConfig.HoldEnvironment {
-		test := ginkgo.CurrentGinkgoTestDescription()
-		pid := syscall.Getpid()
-
-		fmt.Fprintf(os.Stdout, "\n---\n%s", test.FullTestText)
-		fmt.Fprintf(os.Stdout, "\nat %s:%d", test.FileName, test.LineNumber)
-		fmt.Fprintf(os.Stdout, "\n\n%s", description)
-		fmt.Fprintf(os.Stdout, "\n\nPausing test for debug, use vagrant to access test setup.")
-		fmt.Fprintf(os.Stdout, "\nRun \"kill -SIGCONT %d\" to continue.\n", pid)
-		syscall.Kill(pid, syscall.SIGSTOP)
+		HoldEnvironment(description)
 	}
 	ginkgoext.Fail(description, callerSkip...)
 }
