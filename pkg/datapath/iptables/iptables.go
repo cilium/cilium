@@ -208,6 +208,7 @@ func InstallRules() error {
 	if err := runProg("iptables", []string{
 		"-t", "mangle",
 		"-A", ciliumPostMangleChain,
+		"!", "-s", "127.0.0.1/32",
 		"-o", defaults.HostDevice,
 		"-m", "comment", "--comment", "cilium: clear masq bit for pkts to " + defaults.HostDevice,
 		"-j", "MARK", "--set-xmark", clearMasqBit}, false); err != nil {
