@@ -77,3 +77,9 @@ rules:
       - ciliumendpoints/status
     verbs:
       - "*"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cilium
+  namespace: kube-system
