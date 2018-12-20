@@ -8,11 +8,25 @@ CILIUM_INIT_VERSION = "2018-10-16"
 CILIUM_ETCD_OPERATOR_VERSION = "v2.0.3"
 K8S_VERSIONS = 1.8 1.9 1.10 1.11 1.12 1.13
 
+COMMON = \
+  cilium-cm.yaml \
+  cilium-operator.yaml \
+  cilium-rbac.yaml
 
-SOURCES = $(wildcard templates/v1/*.yaml*)
-FILENAME_SOURCES = $(patsubst templates/v1/%,%,$(patsubst %.yaml.sed,%.yaml,$(SOURCES)))
-CILIUM_CRIO_SOURCES = $(sort $(filter-out cilium-pre-flight.yaml cilium-ds.yaml,$(FILENAME_SOURCES)))
-CILIUM_DOCKER_SOURCES = $(sort $(filter-out cilium-pre-flight.yaml cilium-crio-ds.yaml,$(FILENAME_SOURCES)))
+ETCD_OPERATOR= \
+  cilium-etcd-operator-rbac.yaml \
+  cilium-etcd-operator-sa.yaml \
+  cilium-etcd-operator.yaml
+
+CILIUM_DEFAULT= \
+  cilium-ds.yaml \
+  $(COMMON) \
+  $(ETCD_OPERATOR)
+
+CILIUM_CRIO= \
+  cilium-crio-ds.yaml \
+  $(COMMON) \
+  $(ETCD_OPERATOR)
 
 all: transform cilium.yaml cilium-crio.yaml
 
@@ -55,14 +69,14 @@ cilium.yaml:
 	for k8s_version in $(K8S_VERSIONS); do \
         (cd $$k8s_version && \
             rm -f ./$@ && \
-            for f in $(CILIUM_DOCKER_SOURCES); do (cat "$${f}") >> $@; done); \
+            for f in $(CILIUM_DEFAULT); do (cat "$${f}") >> $@; done); \
 	done
 
 cilium-crio.yaml:
 	for k8s_version in $(K8S_VERSIONS); do \
         (cd $$k8s_version && \
             rm -f ./$@ && \
-            for f in $(CILIUM_CRIO_SOURCES); do (cat "$${f}") >> $@; done); \
+            for f in $(CILIUM_CRIO); do (cat "$${f}") >> $@; done); \
 	done
 
 clean:
@@ -70,15 +84,6 @@ clean:
         rm ./$$k8s_version/*.yaml; \
 	done
 
-transform: cilium-rbac.yaml.sed \
-    cilium-cm.yaml \
-    cilium-crio-ds.yaml.sed \
-    cilium-ds.yaml.sed \
-    cilium-pre-flight.yaml.sed \
-    cilium-rbac.yaml.sed \
-    cilium-operator.yaml.sed \
-    cilium-etcd-operator.yaml.sed \
-    cilium-etcd-operator-rbac.yaml.sed \
-    cilium-etcd-operator-sa.yaml
+transform: $(notdir $(wildcard templates/v1/*.sed) $(wildcard templates/v1/*.yaml))
 
 .PHONY: transform cilium.yaml
