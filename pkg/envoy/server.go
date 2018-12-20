@@ -211,6 +211,28 @@ func StartXDSServer(stateDir string) *XDSServer {
 									{Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
 										"match": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
 											"prefix": {Kind: &structpb.Value_StringValue{StringValue: "/"}},
+											"grpc":   {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{}}}},
+										}}}},
+										"route": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+											// "cluster":          {Kind: &structpb.Value_StringValue{StringValue: "cluster1"}},
+											"timeout": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+												"seconds": {Kind: &structpb.Value_NumberValue{NumberValue: float64(requestTimeout)}},
+											}}}},
+											"max_grpc_timeout": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+												"seconds": {Kind: &structpb.Value_NumberValue{NumberValue: float64(maxGRPCTimeout)}},
+											}}}},
+											"retry_policy": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+												"retry_on":    {Kind: &structpb.Value_StringValue{StringValue: "5xx"}},
+												"num_retries": {Kind: &structpb.Value_NumberValue{NumberValue: float64(numRetries)}},
+												"per_try_timeout": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+													"seconds": {Kind: &structpb.Value_NumberValue{NumberValue: float64(retryTimeout)}},
+												}}}},
+											}}}},
+										}}}},
+									}}}},
+									{Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+										"match": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+											"prefix": {Kind: &structpb.Value_StringValue{StringValue: "/"}},
 										}}}},
 										"route": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
 											// "cluster":          {Kind: &structpb.Value_StringValue{StringValue: "cluster1"}},
@@ -220,9 +242,6 @@ func StartXDSServer(stateDir string) *XDSServer {
 											// "idle_timeout": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
 											// "seconds": {Kind: &structpb.Value_NumberValue{NumberValue: float64(idleTimeout)}},
 											// }}}},
-											"max_grpc_timeout": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
-												"seconds": {Kind: &structpb.Value_NumberValue{NumberValue: float64(maxGRPCTimeout)}},
-											}}}},
 											"retry_policy": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
 												"retry_on":    {Kind: &structpb.Value_StringValue{StringValue: "5xx"}},
 												"num_retries": {Kind: &structpb.Value_NumberValue{NumberValue: float64(numRetries)}},
@@ -243,7 +262,7 @@ func StartXDSServer(stateDir string) *XDSServer {
 
 	// Idle timeout can only be specified if non-zero
 	if idleTimeout > 0 {
-		httpFilterChainProto.Filters[1].ConfigType.(*envoy_api_v2_listener.Filter_Config).Config.Fields["route_config"].GetStructValue().Fields["virtual_hosts"].GetListValue().Values[0].GetStructValue().Fields["routes"].GetListValue().Values[0].GetStructValue().Fields["route"].GetStructValue().Fields["idle_timeout"] = &structpb.Value{Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{"seconds": {Kind: &structpb.Value_NumberValue{NumberValue: float64(idleTimeout)}}}}}}
+		httpFilterChainProto.Filters[1].ConfigType.(*envoy_api_v2_listener.Filter_Config).Config.Fields["route_config"].GetStructValue().Fields["virtual_hosts"].GetListValue().Values[0].GetStructValue().Fields["routes"].GetListValue().Values[1].GetStructValue().Fields["route"].GetStructValue().Fields["idle_timeout"] = &structpb.Value{Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{"seconds": {Kind: &structpb.Value_NumberValue{NumberValue: float64(idleTimeout)}}}}}}
 	}
 
 	tcpFilterChainProto := &envoy_api_v2_listener.FilterChain{
@@ -309,7 +328,9 @@ func (s *XDSServer) AddListener(name string, kind policy.L7ParserType, endpointP
 	if kind == policy.ParserTypeHTTP {
 		listenerConf.FilterChains = append(listenerConf.FilterChains, proto.Clone(s.httpFilterChainProto).(*envoy_api_v2_listener.FilterChain))
 		listenerConf.FilterChains[0].Filters[1].ConfigType.(*envoy_api_v2_listener.Filter_Config).Config.Fields["http_filters"].GetListValue().Values[0].GetStructValue().Fields["config"].GetStructValue().Fields["policy_name"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: endpointPolicyName}}
-		listenerConf.FilterChains[0].Filters[1].ConfigType.(*envoy_api_v2_listener.Filter_Config).Config.Fields["route_config"].GetStructValue().Fields["virtual_hosts"].GetListValue().Values[0].GetStructValue().Fields["routes"].GetListValue().Values[0].GetStructValue().Fields["route"].GetStructValue().Fields["cluster"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: clusterName}}
+		routes := listenerConf.FilterChains[0].Filters[1].ConfigType.(*envoy_api_v2_listener.Filter_Config).Config.Fields["route_config"].GetStructValue().Fields["virtual_hosts"].GetListValue().Values[0].GetStructValue().Fields["routes"].GetListValue().Values
+		routes[0].GetStructValue().Fields["route"].GetStructValue().Fields["cluster"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: clusterName}}
+		routes[1].GetStructValue().Fields["route"].GetStructValue().Fields["cluster"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: clusterName}}
 	} else {
 		listenerConf.FilterChains = append(listenerConf.FilterChains, proto.Clone(s.tcpFilterChainProto).(*envoy_api_v2_listener.FilterChain))
 		listenerConf.FilterChains[0].Filters[0].ConfigType.(*envoy_api_v2_listener.Filter_Config).Config.Fields["policy_name"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: endpointPolicyName}}
