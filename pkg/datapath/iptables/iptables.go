@@ -208,7 +208,6 @@ func InstallRules() error {
 	if err := runProg("iptables", []string{
 		"-t", "mangle",
 		"-A", ciliumPostMangleChain,
-		"!", "-s", "127.0.0.1/32",
 		"-o", defaults.HostDevice,
 		"-m", "comment", "--comment", "cilium: clear masq bit for pkts to " + defaults.HostDevice,
 		"-j", "MARK", "--set-xmark", clearMasqBit}, false); err != nil {
@@ -305,6 +304,19 @@ func InstallRules() error {
 			"-t", "nat",
 			"-A", ciliumPostNatChain,
 			"-s", node.GetIPv4AllocRange().String(),
+			"-o", defaults.HostDevice,
+			"-m", "comment", "--comment", "cilium hostport loopback masquerade",
+			"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String()}, false); err != nil {
+			return err
+		}
+
+		// Masquerade all traffic from the local node that is routed
+		// back to an endpoint on the same node. This happens if the
+		// local host talks to a Kubernetes NodePort or HostPort.
+		if err := runProg("iptables", []string{
+			"-t", "nat",
+			"-A", ciliumPostNatChain,
+			"-s", "127.0.0.1/32",
 			"-o", defaults.HostDevice,
 			"-m", "comment", "--comment", "cilium hostport loopback masquerade",
 			"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String()}, false); err != nil {
