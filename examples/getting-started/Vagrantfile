@@ -3,14 +3,14 @@
 
 Vagrant.require_version ">= 2.0.0"
 
-cilium_version = (ENV['CILIUM_VERSION'] || "v1.2.0")
-cilium_opts = (ENV['CILIUM_OPTS'] || "--kvstore consul --kvstore-opt consul.address 192.168.33.11:8500 -t vxlan")
-cilium_tag = (ENV['CILIUM_TAG'] || "v1.2.0")
+cilium_version = (ENV['CILIUM_VERSION'] || "v1.3.1")
+cilium_opts = (ENV['CILIUM_OPTS'] || "--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 -t vxlan")
+cilium_tag = (ENV['CILIUM_TAG'] || "v1.3.1")
 
 # This runs only once when vagrant box is provisioned for the first time
 $bootstrap = <<SCRIPT
 # install docker-compose
-curl -sS -L "https://github.com/docker/compose/releases/download/1.11.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+curl -sS -L "https://github.com/docker/compose/releases/download/1.23.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
 chmod +x /usr/local/bin/docker-compose
 
 # install cilium client
@@ -35,7 +35,7 @@ sudo -E docker-compose up -d --remove-orphans
 SCRIPT
 
 Vagrant.configure(2) do |config|
-    config.vm.box = "bento/ubuntu-17.10"
+    config.vm.box = "bento/ubuntu-18.04"
 
     # http://foo-o-rama.com/vagrant--stdin-is-not-a-tty--fix.html
     config.vm.provision "fix-no-tty", type: "shell" do |s|
@@ -49,6 +49,7 @@ Vagrant.configure(2) do |config|
         # Do not inherit DNS server from host, use proxy
         vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
         vb.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
+        vb.memory = 2048
     end
 
     # install docker runtime
