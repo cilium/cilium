@@ -80,6 +80,9 @@ const (
 
 	// ReservedCiliumOperator is the reserved identity used for the Cilium operator
 	ReservedCiliumOperator NumericIdentity = 105
+
+	// ReservedEKSCoreDNS is the reserved identity used for CoreDNS on EKS
+	ReservedEKSCoreDNS NumericIdentity = 106
 )
 
 type wellKnownIdentities map[NumericIdentity]wellKnownIdentity
@@ -180,6 +183,20 @@ func InitWellKnownIdentities() {
 		"k8s:eks.amazonaws.com/component=kube-dns",
 		fmt.Sprintf("k8s:%s=kube-system", api.PodNamespaceLabel),
 		fmt.Sprintf("k8s:%s=kube-dns", api.PolicyLabelServiceAccount),
+		fmt.Sprintf("k8s:%s=%s", api.PolicyLabelCluster, option.Config.ClusterName),
+	})
+
+	// kube-dns EKS labels
+	//   k8s:io.cilium.k8s.policy.serviceaccount=coredns
+	//   k8s:io.kubernetes.pod.namespace=kube-system
+	//   k8s:k8s-app=kube-dns
+	//   k8s:io.cilium.k8s.policy.cluster=default
+	//   k8s:eks.amazonaws.com/component=coredns
+	WellKnown.add(ReservedEKSCoreDNS, []string{
+		"k8s:k8s-app=kube-dns",
+		"k8s:eks.amazonaws.com/component=coredns",
+		fmt.Sprintf("k8s:%s=kube-system", api.PodNamespaceLabel),
+		fmt.Sprintf("k8s:%s=coredns", api.PolicyLabelServiceAccount),
 		fmt.Sprintf("k8s:%s=%s", api.PolicyLabelCluster, option.Config.ClusterName),
 	})
 
