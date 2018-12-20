@@ -23,12 +23,17 @@ CILIUM_DEFAULT= \
   $(COMMON) \
   $(ETCD_OPERATOR)
 
+CILIUM_DOCKER= \
+  cilium-docker-ds.yaml \
+  $(COMMON) \
+  $(ETCD_OPERATOR)
+
 CILIUM_CRIO= \
   cilium-crio-ds.yaml \
   $(COMMON) \
   $(ETCD_OPERATOR)
 
-all: transform cilium.yaml cilium-crio.yaml
+all: transform cilium.yaml cilium-crio.yaml cilium-docker.yaml
 
 %.sed:
 	for k8s_version in $(K8S_VERSIONS); do \
@@ -72,11 +77,20 @@ cilium.yaml:
             for f in $(CILIUM_DEFAULT); do (cat "$${f}") >> $@; done); \
 	done
 
+cilium-docker.yaml:
+	for k8s_version in $(K8S_VERSIONS); do \
+        (cd $$k8s_version && \
+            rm -f ./$@ && \
+            for f in $(CILIUM_DOCKER); do (cat "$${f}") >> $@; done; \
+	sed -i 's/container-runtime: none/container-runtime: auto/' cilium-docker.yaml); \
+	done
+
 cilium-crio.yaml:
 	for k8s_version in $(K8S_VERSIONS); do \
         (cd $$k8s_version && \
             rm -f ./$@ && \
-            for f in $(CILIUM_CRIO); do (cat "$${f}") >> $@; done); \
+            for f in $(CILIUM_CRIO); do (cat "$${f}") >> $@; done; \
+	sed -i 's/container-runtime: none/container-runtime: auto/' cilium-crio.yaml); \
 	done
 
 clean:

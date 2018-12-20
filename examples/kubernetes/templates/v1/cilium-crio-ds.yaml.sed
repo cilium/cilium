@@ -1,3 +1,7 @@
+# This is an example DaemonSet file that shows how to enable CRIO specific
+# container label retrieval. This is an optional extension and only required if
+# container label retrieval in addition to Kuberentes pod label retrieval is
+# desired.
 ---
 apiVersion: __DS_API_VERSION__
 kind: DaemonSet
@@ -117,6 +121,12 @@ spec:
           valueFrom:
             configMapKeyRef:
               key: ct-global-max-entries-other
+              name: cilium-config
+              optional: true
+        - name: CILIUM_CONTAINER_RUNTIME
+          valueFrom:
+            configMapKeyRef:
+              key: container-runtime
               name: cilium-config
               optional: true
         image: docker.io/cilium/cilium:__CILIUM_VERSION__

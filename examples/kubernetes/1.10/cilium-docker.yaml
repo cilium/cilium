@@ -1,9 +1,9 @@
-# This is an example DaemonSet file that shows how to enable CRIO specific
+# This is an example DaemonSet file that shows how to enable Docker specific
 # container label retrieval. This is an optional extension and only required if
 # container label retrieval in addition to Kuberentes pod label retrieval is
 # desired.
 ---
-apiVersion: apps/v1beta2
+apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   labels:
@@ -36,7 +36,6 @@ spec:
         - --debug=$(CILIUM_DEBUG)
         - --kvstore=etcd
         - --kvstore-opt=etcd.config=/var/lib/etcd-config/etcd.config
-        - --container-runtime=crio
         command:
         - cilium-agent
         env:
@@ -183,8 +182,8 @@ spec:
           name: cni-path
         - mountPath: /host/etc/cni/net.d
           name: etc-cni-netd
-        - mountPath: /var/run/crio.sock
-          name: crio-socket
+        - mountPath: /var/run/docker.sock
+          name: docker-socket
           readOnly: true
         - mountPath: /var/lib/etcd-config
           name: etcd-config-path
@@ -243,11 +242,11 @@ spec:
           path: /sys/fs/bpf
           type: DirectoryOrCreate
         name: bpf-maps
-        # To read labels from CRI-O containers running in the host
+        # To read docker events from the node
       - hostPath:
-          path: /var/run/crio/crio.sock
+          path: /var/run/docker.sock
           type: Socket
-        name: crio-socket
+        name: docker-socket
         # To install cilium cni plugin in the host
       - hostPath:
           path: /opt/cni/bin
@@ -385,7 +384,7 @@ data:
   # in the range of 1 and 255. Only relevant when building a mesh of clusters.
   #cluster-id: 1
 ---
-apiVersion: apps/v1beta2
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
@@ -548,7 +547,7 @@ subjects:
   name: cilium-operator
   namespace: kube-system
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: cilium
@@ -564,7 +563,7 @@ subjects:
   kind: Group
   name: system:nodes
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: cilium
@@ -634,7 +633,7 @@ metadata:
   name: cilium
   namespace: kube-system
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: cilium-etcd-operator
@@ -704,7 +703,7 @@ rules:
   - create
   - delete
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: cilium-etcd-operator
@@ -718,7 +717,7 @@ subjects:
   name: cilium-etcd-operator
   namespace: kube-system
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: etcd-operator
@@ -772,7 +771,7 @@ rules:
   verbs:
   - get
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: etcd-operator
@@ -798,7 +797,7 @@ metadata:
   name: cilium-etcd-sa
   namespace: kube-system
 ---
-apiVersion: apps/v1beta2
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
