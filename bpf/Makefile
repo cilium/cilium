@@ -19,46 +19,67 @@ $(BPF_SIMPLE): %.o: %.ll
 	@$(ECHO_CC)
 	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $(patsubst %.o,%.ll,$@)
 
+# Hack to get make to replace : with a space
+space :=
+space += 
+
+# The following option combinations are compile tested
 LB_OPTIONS = \
 	-DSKIP_DEBUG \
-	-DLB_L3 \
-	-DLB_L4 \
-	"-DLB_L3 -DLB_L4" \
-	"-DDISABLE_IPV4 -DLB_L3 -DLB_L4" \
-	"-DDISABLE_IPV6 -DLB_L3 -DLB_L4" \
-	"-DDISABLE_IPV4 -DDISABLE_IPV6 -DLB_L3 -DLB_L4"
+	-DENABLE_IPV4:-DLB_L3 \
+	-DENABLE_IPV4:-DLB_L4 \
+	-DENABLE_IPV4:-DLB_L3:-DLB_L4 \
+	-DENABLE_IPV6:-DLB_L3 \
+	-DENABLE_IPV6:-DLB_L4 \
+	-DENABLE_IPV6:-DLB_L3:-DLB_L4 \
+	-DENABLE_IPV4:-DENABLE_IPV6:-DLB_L3 \
+	-DENABLE_IPV4:-DENABLE_IPV6:-DLB_L4 \
+	-DENABLE_IPV4:-DENABLE_IPV6:-DLB_L3:-DLB_L4
 
+# These options are intended to max out the BPF program complexity. it is load
+# tested as well.
+MAX_LB_OPTIONS = -DENABLE_IPV4 -DENABLE_IPV6 -DLB_L3 -DLB_L4
 
 bpf_lb.ll: bpf_lb.c $(LIB)
 	$(QUIET) set -e; \
 	$(foreach OPTS,$(LB_OPTIONS), \
-		$(ECHO_CC) " [$(OPTS)]"; \
-		${CLANG} ${OPTS} ${CLANG_FLAGS} -c $< -o $@; \
+		$(ECHO_CC) " [$(subst :,$(space),$(OPTS))]"; \
+		${CLANG} $(subst :,$(space),$(OPTS)) ${CLANG_FLAGS} -c $< -o $@; \
 		${LLC} ${LLC_FLAGS} -o /dev/null $@; )
 	@$(ECHO_CC)
-	$(QUIET) ${CLANG} ${CLANG_FLAGS} -c $< -o $@
+	$(QUIET) ${CLANG} ${MAX_LB_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
 
 bpf_lb.o: bpf_lb.ll
 	@$(ECHO_CC)
 	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $(patsubst %.o,%.ll,$@)
 
+# The following option combinations are compile tested
 LXC_OPTIONS = \
 	 -DSKIP_DEBUG \
 	 -DHAVE_LPM_MAP_TYPE \
 	 -DHAVE_LRU_MAP_TYPE \
-	 -DDISABLE_IPV4 \
-	 -DDISABLE_IPV6 \
-	 "-DDISABLE_IPV6 -DDISABLE_IPV4" \
-	 "-DDISABLE_IPV4 -DDISABLE_NAT46"
+	 -DENABLE_IPV4 \
+	 -DENABLE_IPV4:-DHAVE_LPM_MAP_TYPE \
+	 -DENABLE_IPV4:-DHAVE_LPM_MAP_TYPE:-DHAVE_LRU_MAP_TYPE \
+	 -DENABLE_IPV6 \
+	 -DENABLE_IPV6:-DHAVE_LPM_MAP_TYPE \
+	 -DENABLE_IPV6:-DHAVE_LPM_MAP_TYPE:-DHAVE_LRU_MAP_TYPE \
+	 -DENABLE_IPV6:-DENABLE_IPV4 \
+	 -DENABLE_IPV4:-DENABLE_IPV6:-DHAVE_LPM_MAP_TYPE:-DHAVE_LRU_MAP_TYPE \
+	 -DENABLE_IPV4:-DENABLE_NAT46
+
+# These options are intended to max out the BPF program complexity. it is load
+# tested as well.
+MAX_LXC_OPTIONS = "-DENABLE_IPV4 -DENABLE_IPV6"
 
 bpf_lxc.ll: bpf_lxc.c $(LIB)
 	$(QUIET) set -e; \
 	$(foreach OPTS,$(LXC_OPTIONS), \
-		$(ECHO_CC) " [$(OPTS)]"; \
-		${CLANG} ${OPTS} ${CLANG_FLAGS} -c $< -o $@; \
+		$(ECHO_CC) " [$(subst :,$(space),$(OPTS))]"; \
+		${CLANG} $(subst :,$(space),$(OPTS)) ${CLANG_FLAGS} -c $< -o $@; \
 		${LLC} ${LLC_FLAGS} -o /dev/null $@; )
 	@$(ECHO_CC)
-	$(QUIET) ${CLANG} ${CLANG_FLAGS} -c $< -o $@
+	$(QUIET) ${CLANG} ${MAX_LXC_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
 
 bpf_lxc.o: bpf_lxc.ll
 	@$(ECHO_CC)
