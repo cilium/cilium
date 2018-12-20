@@ -41,9 +41,8 @@ are 5 files:
   the Kubernetes cluster in combination with Istio, some advanced options can
   be changed here.
 
-- :code:`cilium-rbac.yaml` - The Cilium's RBAC for the Kubernetes cluster.
-
-- :code:`cilium-sa.yaml` - The Cilium's Kubernetes :code:`ServiceAccount`.
+- :code:`cilium-rbac.yaml` - The RBAC rules and ServiceAcccount to grant Cilium
+  the required access to the Kubernetes apiserver.
 
 - :code:`cilium.yaml` - All previous files concatenated into a single file,
   useful to deploy Cilium in a minikube environment with a "single line" command.
