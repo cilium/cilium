@@ -65,7 +65,6 @@ transform: cilium-rbac.yaml.sed \
     cilium-cm.yaml \
     cilium-crio-ds.yaml.sed \
     cilium-ds.yaml.sed \
-    cilium-pre-flight.yaml.sed \
-    cilium-rbac.yaml.sed
+    cilium-pre-flight.yaml.sed
 
 .PHONY: transform cilium.yaml
