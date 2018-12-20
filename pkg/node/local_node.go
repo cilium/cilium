@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -76,7 +77,7 @@ func configureLocalNode() {
 	go func() {
 		select {
 		case <-nodeRegistered:
-		case <-time.NewTimer(3 * time.Minute).C:
+		case <-time.NewTimer(defaults.NodeInitTimeout).C:
 			log.Fatalf("Unable to initialize local node due timeout")
 		}
 	}()
