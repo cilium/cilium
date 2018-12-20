@@ -6,23 +6,31 @@ simply run ``vagrant up`` and then log into the VM with ``vagrant ssh``.
 
 For further instructions, please see the `Getting started guide`_.
 
-.. _Getting started guide: http://cilium.readthedocs.io/en/doc-1.0/gettingstarted/docker
+.. _Getting started guide: https://cilium.readthedocs.io/en/latest/gettingstarted/docker
 
 ::
 
     $ vagrant up
-    Bringing machine 'cilium-1' up with 'virtualbox' provider...
+    Bringing machine 'default' up with 'virtualbox' provider...
     [...]
-    ==> cilium-1: cilium-kvstore is up-to-date
-    ==> cilium-1: Recreating cilium
-    ==> cilium-1: Recreating cilium-docker-plugin
+    ==> default: cilium-kvstore is up-to-date
+    ==> default: Recreating cilium
+    ==> default: Recreating cilium-docker-plugin
 
     $ vagrant ssh
-    Welcome to Ubuntu 16.10 (GNU/Linux 4.8.0-41-generic x86_64)
+    Welcome to Ubuntu 18.04.1 LTS (GNU/Linux 4.15.0-29-generic x86_64)
     [...]
 
-    vagrant@cilium-1:~/cilium/examples/getting-started$ cilium status
-    KVStore:            Ok
-    ContainerRuntime:   Ok
-    Kubernetes:         Disabled
-    Cilium:             Ok
+    vagrant@vagrant:~/cilium/examples/getting-started$ cilium status
+    KVStore:                Ok         Consul: 172.18.0.2:8300
+    ContainerRuntime:       Ok         docker daemon: OK
+    Kubernetes:             Disabled
+    Cilium:                 Ok         OK
+    NodeMonitor:            Disabled
+    Cilium health daemon:   Ok
+    IPv4 address pool:      3/65535 allocated
+    IPv6 address pool:      2/65535 allocated
+    Controller Status:      13/13 healthy
+    Proxy Status:           OK, ip 10.15.0.1, port-range 10000-20000
+    Cluster health:   1/1 reachable   (2018-12-20T15:06:09Z)
+
