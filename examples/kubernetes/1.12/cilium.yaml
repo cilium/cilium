@@ -32,7 +32,7 @@ data:
 
   # Enable IPv6 addressing. If enabled, all endpoints are allocated an IPv6
   # address.
-  enable-ipv6: "true"
+  enable-ipv6: "false"
 
   # If a serious issue occurs during Cilium startup, this
   # invasive option may be set to true to remove all persistent
