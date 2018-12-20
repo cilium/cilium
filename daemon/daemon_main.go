@@ -913,7 +913,7 @@ func runDaemon() {
 		d.workloadsEventsCh = eventsCh
 	}
 
-	d.initHealth()
+	//d.initHealth()
 
 	metricsErrs := initMetrics()
 
