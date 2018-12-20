@@ -76,7 +76,6 @@ transform: cilium-rbac.yaml.sed \
     cilium-ds.yaml.sed \
     cilium-pre-flight.yaml.sed \
     cilium-rbac.yaml.sed \
-    cilium-sa.yaml \
     cilium-operator.yaml.sed \
     cilium-etcd-operator.yaml.sed \
     cilium-etcd-operator-rbac.yaml.sed \

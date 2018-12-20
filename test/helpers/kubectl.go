@@ -876,10 +876,6 @@ func (kub *Kubectl) ciliumInstall(dsPatchName, cmPatchName string, getK8sDescrip
 	if rbacPathname == "" {
 		return fmt.Errorf("Cilium RBAC descriptor not found")
 	}
-	saPathname := getK8sDescriptor("cilium-sa.yaml")
-	if saPathname == "" {
-		return fmt.Errorf("Cilium ServiceAccount descriptor not found")
-	}
 
 	deployOriginal := func(original string) error {
 		// debugYaml only dumps the full created yaml file to the test output if
@@ -901,10 +897,6 @@ func (kub *Kubectl) ciliumInstall(dsPatchName, cmPatchName string, getK8sDescrip
 			return res.GetErr("Cannot apply Cilium manifest")
 		}
 		return nil
-	}
-
-	if err := deployOriginal(saPathname); err != nil {
-		return err
 	}
 
 	if err := deployOriginal(rbacPathname); err != nil {
