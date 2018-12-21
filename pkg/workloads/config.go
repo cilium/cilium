@@ -91,8 +91,10 @@ func setup(workloadRuntime workloadRuntimeType, opts map[string]string) error {
 
 // Setup sets up the workload runtime specified in workloadRuntime and configures it
 // with the options provided in opts
-func Setup(workloadRuntimes []string, opts map[string]string) error {
+func Setup(o WorkloadOwner, workloadRuntimes []string, opts map[string]string) error {
 	var err error
+
+	owner = o
 
 	setupOnce.Do(
 		func() {

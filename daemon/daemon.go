@@ -850,10 +850,6 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 
 	ctmap.InitMapInfo(option.Config.CTMapEntriesGlobalTCP, option.Config.CTMapEntriesGlobalAny)
 
-	if err := workloads.Setup(option.Config.Workloads, map[string]string{}); err != nil {
-		return nil, nil, fmt.Errorf("unable to setup workload: %s", err)
-	}
-
 	d := Daemon{
 		loadBalancer:  loadbalancer.NewLoadBalancer(),
 		k8sSvcCache:   k8s.NewServiceCache(),
@@ -866,12 +862,14 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 		compilationMutex: new(lock.RWMutex),
 	}
 
+	if err := workloads.Setup(&d, option.Config.Workloads, map[string]string{}); err != nil {
+		return nil, nil, fmt.Errorf("unable to setup workload: %s", err)
+	}
+
 	debug.RegisterStatusObject("k8s-service-cache", &d.k8sSvcCache)
 
 	d.runK8sServiceHandler()
 	policyApi.InitEntities(option.Config.ClusterName)
-
-	workloads.Init(&d)
 
 	// Clear previous leftovers before listening for new requests
 	log.Info("Clearing leftover Cilium veths")

@@ -41,11 +41,6 @@ func Owner() WorkloadOwner {
 	return owner
 }
 
-// Init initializes the workloads package
-func Init(o WorkloadOwner) {
-	owner = o
-}
-
 const (
 	None workloadRuntimeType = "none"
 	Auto workloadRuntimeType = "auto"
