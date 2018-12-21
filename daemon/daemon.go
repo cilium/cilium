@@ -1385,14 +1385,21 @@ func (d *Daemon) bootstrapFQDN() (err error) {
 			return e.StringID(), nil
 		},
 		// NotifyOnDNSMsg
-		func(lookupTime time.Time, srcAddr, dstAddr string, msg *dns.Msg, protocol string, allowed bool) error {
+		func(lookupTime time.Time, srcAddr, dstAddr string, msg *dns.Msg, protocol string, allowed bool, proxyErr error) error {
 			var protoID = u8proto.ProtoIDs[strings.ToLower(protocol)]
 
 			var verdict accesslog.FlowVerdict
-			if allowed {
+			var reason string
+			switch {
+			case proxyErr != nil:
+				verdict = accesslog.VerdictError
+				reason = "Error: " + proxyErr.Error()
+			case allowed:
 				verdict = accesslog.VerdictForwarded
-			} else {
+				reason = "Allowed by policy"
+			case !allowed:
 				verdict = accesslog.VerdictDenied
+				reason = "Denied by policy"
 			}
 
 			var ingress = msg.Response
@@ -1437,7 +1444,7 @@ func (d *Daemon) bootstrapFQDN() (err error) {
 
 			record := logger.NewLogRecord(proxy.DefaultEndpointInfoRegistry, ep, flowType, ingress,
 				func(lr *logger.LogRecord) { lr.LogRecord.TransportProtocol = accesslog.TransportProtocol(protoID) },
-				logger.LogTags.Verdict(verdict, ""),
+				logger.LogTags.Verdict(verdict, reason),
 				logger.LogTags.Addressing(logger.AddressingInfo{
 					SrcIPPort:   srcAddr,
 					DstIPPort:   dstAddr,
