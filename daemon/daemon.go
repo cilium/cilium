@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -1422,13 +1423,14 @@ func (d *Daemon) bootstrapFQDN() (err error) {
 				}
 			}
 
+			var dstIPStr, dstPortStr string
 			if ep == nil {
-				dstIP, _, err := net.SplitHostPort(dstAddr)
+				dstIPStr, dstPortStr, err = net.SplitHostPort(dstAddr)
 				if err != nil {
 					log.WithError(err).Error("cannot extract endpoint IP from DNS request")
 				} else {
 					// ep needs to be non-nil for the access log. One of the ends of this connection will be an endpoint.
-					ep = endpointmanager.LookupIPv4(dstIP)
+					ep = endpointmanager.LookupIPv4(dstIPStr)
 				}
 			}
 			if ep == nil { // this is a hard fail. We cannot proceed
@@ -1436,12 +1438,17 @@ func (d *Daemon) bootstrapFQDN() (err error) {
 				log.WithError(err).Error("cannot find matching endpoint")
 				return err
 			}
+			dstPort, err := strconv.Atoi(dstPortStr)
+			if err != nil {
+				log.WithError(err).WithField(logfields.Port, dstPortStr).Error("cannot parse destination port")
+			}
 
 			qname, responseIPs, TTL, CNAMEs, err := dnsproxy.ExtractMsgDetails(msg)
 			if err != nil {
 				log.WithError(err).Error("cannot extract DNS message details")
 			}
 
+			ep.UpdateProxyStatistics("dns", uint16(dstPort), ingress, !ingress, verdict)
 			record := logger.NewLogRecord(proxy.DefaultEndpointInfoRegistry, ep, flowType, ingress,
 				func(lr *logger.LogRecord) { lr.LogRecord.TransportProtocol = accesslog.TransportProtocol(protoID) },
 				logger.LogTags.Verdict(verdict, reason),
