@@ -371,7 +371,8 @@ func init() {
 		"config", "", `Configuration file (default "$HOME/ciliumd.yaml")`)
 	flags.Uint("conntrack-garbage-collector-interval", 60, "Garbage collection interval for the connection tracking table (in seconds)")
 	flags.StringSliceVar(&option.Config.Workloads,
-		"container-runtime", []string{"auto"}, `Sets the container runtime(s) used by Cilium { containerd | crio | docker | none | auto } ( "auto" uses the container runtime found in the order: "docker", "containerd", "crio" )`)
+		option.ContainerRuntimeName, []string{"auto"}, `Sets the container runtime(s) used by Cilium { containerd | crio | docker | none | auto } ( "auto" uses the container runtime found in the order: "docker", "containerd", "crio" )`)
+	viper.BindEnv(option.ContainerRuntimeName, option.ContainerRuntimeNameEnv)
 	flags.Var(option.NewNamedMapOptions("container-runtime-endpoints", &containerRuntimesOpts, nil),
 		"container-runtime-endpoint", `Container runtime(s) endpoint(s). (default: `+workloads.GetDefaultEPOptsStringWithPrefix("--container-runtime-endpoint=")+`)`)
 	flags.BoolP(

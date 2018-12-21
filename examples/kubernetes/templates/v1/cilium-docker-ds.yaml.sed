@@ -1,3 +1,7 @@
+# This is an example DaemonSet file that shows how to enable Docker specific
+# container label retrieval. This is an optional extension and only required if
+# container label retrieval in addition to Kuberentes pod label retrieval is
+# desired.
 ---
 apiVersion: __DS_API_VERSION__
 kind: DaemonSet
@@ -178,6 +182,9 @@ spec:
           name: cni-path
         - mountPath: /host/etc/cni/net.d
           name: etc-cni-netd
+        - mountPath: /var/run/docker.sock
+          name: docker-socket
+          readOnly: true
         - mountPath: /var/lib/etcd-config
           name: etcd-config-path
           readOnly: true
@@ -235,6 +242,11 @@ spec:
           path: /sys/fs/bpf
           type: DirectoryOrCreate
         name: bpf-maps
+        # To read docker events from the node
+      - hostPath:
+          path: /var/run/docker.sock
+          type: Socket
+        name: docker-socket
         # To install cilium cni plugin in the host
       - hostPath:
           path: /opt/cni/bin

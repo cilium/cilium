@@ -1,3 +1,7 @@
+# This is an example DaemonSet file that shows how to enable CRIO specific
+# container label retrieval. This is an optional extension and only required if
+# container label retrieval in addition to Kuberentes pod label retrieval is
+# desired.
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -117,6 +121,12 @@ spec:
           valueFrom:
             configMapKeyRef:
               key: ct-global-max-entries-other
+              name: cilium-config
+              optional: true
+        - name: CILIUM_CONTAINER_RUNTIME
+          valueFrom:
+            configMapKeyRef:
+              key: container-runtime
               name: cilium-config
               optional: true
         image: docker.io/cilium/cilium:latest
@@ -308,6 +318,18 @@ data:
   # Enable IPv6 addressing. If enabled, all endpoints are allocated an IPv6
   # address.
   enable-ipv6: "false"
+
+  # Connect to a container runtime to retrieve container labels in addition
+  # to the standard pod, namespace and serviceAccount metadata retrieved via
+  # the Kubernetes apiserver.
+  #
+  # Possible values:
+  #  - none
+  #  - auto
+  #  - containerd
+  #  - crio
+  #  - docker
+  container-runtime: auto
 
   # If a serious issue occurs during Cilium startup, this
   # invasive option may be set to true to remove all persistent

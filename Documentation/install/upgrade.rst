@@ -270,6 +270,19 @@ Upgrading from >=1.2.5 to 1.4.y
 
 #. Follow the standard procedures to perform the upgrade as described in :ref:`upgrade_minor`.
 
+New ConfigMap Options
+~~~~~~~~~~~~~~~~~~~~~
+
+ * The container runtime specific metadata retrieval is being disabled in the
+   new default ConfigMap. This means that in Kubernetes mode, only the pod,
+   namespace and service account metadata is used as label information.  This
+   results in a reduced memory and CPU footprint due to not requiring to
+   interact with the container runtime. It also no longer requires the
+   container runtime UNIX domain socket to be mounted. If you are using an
+   existing ConfigMap and want to disable the container runtime specific
+   metadata retrieval, add the option ``container-runtime: none`` to the
+   ``cilium-config`` ConfigMap.
+
 Changes that may require action
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

@@ -34,6 +34,18 @@ data:
   # address.
   enable-ipv6: "false"
 
+  # Connect to a container runtime to retrieve container labels in addition
+  # to the standard pod, namespace and serviceAccount metadata retrieved via
+  # the Kubernetes apiserver.
+  #
+  # Possible values:
+  #  - none
+  #  - auto
+  #  - containerd
+  #  - crio
+  #  - docker
+  container-runtime: none
+
   # If a serious issue occurs during Cilium startup, this
   # invasive option may be set to true to remove all persistent
   # state. Endpoints will not be restored using knowledge from a

@@ -170,6 +170,10 @@ const (
 	// MonitorQueueSizeName is the name of the option MonitorQueueSize
 	MonitorQueueSizeName    = "monitor-queue-size"
 	MonitorQueueSizeNameEnv = "CILIUM_MONITOR_QUEUE_SIZE"
+
+	// ContainerRuntimeName is the name of the option for the Workloads option
+	ContainerRuntimeName    = "container-runtime"
+	ContainerRuntimeNameEnv = "CILIUM_CONTAINER_RUNTIME"
 )
 
 // Available option for daemonConfig.Tunnel
