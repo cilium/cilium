@@ -35,12 +35,14 @@ const (
 	// EtcdBackendName is the backend name fo etcd
 	EtcdBackendName = "etcd"
 
-	addrOption                = "etcd.address"
-	EtcdOptionConfig          = "etcd.config"
+	addrOption = "etcd.address"
+	// EtcdOptionConfig is the settings etcd config
+	EtcdOptionConfig = "etcd.config"
+	// EtcdInitConnectionTimeout  is the timeout for the initial connection to
+	// the etcd server
 	EtcdInitConnectionTimeout = "etcd.initconnectiontimeout"
 
-	// initialConnectionTimeout  is the timeout for the initial connection to
-	// the etcd server
+	// defaultInitialConnectionTimeout is  the default timeout initial connection etcd server
 	defaultInitialConnectionTimeout = 15 * time.Minute
 )
 
