@@ -26,7 +26,7 @@ import (
 	"github.com/coreos/etcd/clientv3/concurrency"
 	clientyaml "github.com/coreos/etcd/clientv3/yaml"
 	v3rpcErrors "github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes"
-	"github.com/hashicorp/go-version"
+	version "github.com/hashicorp/go-version"
 	"github.com/sirupsen/logrus"
 	ctx "golang.org/x/net/context"
 )
@@ -35,8 +35,13 @@ const (
 	// EtcdBackendName is the backend name fo etcd
 	EtcdBackendName = "etcd"
 
-	addrOption       = "etcd.address"
-	EtcdOptionConfig = "etcd.config"
+	addrOption                = "etcd.address"
+	EtcdOptionConfig          = "etcd.config"
+	EtcdInitConnectionTimeout = "etcd.initconnectiontimeout"
+
+	// initialConnectionTimeout  is the timeout for the initial connection to
+	// the etcd server
+	defaultInitialConnectionTimeout = 15 * time.Minute
 )
 
 type etcdModule struct {
@@ -57,10 +62,6 @@ var (
 	// statusCheckInterval is the interval in which the status is checked
 	statusCheckInterval = 5 * time.Second
 
-	// initialConnectionTimeout  is the timeout for the initial connection to
-	// the etcd server
-	initialConnectionTimeout = 15 * time.Minute
-
 	minRequiredVersion, _ = version.NewConstraint(">= 3.1.0")
 
 	// etcdDummyAddress can be overwritten from test invokers using ldflags
@@ -73,6 +74,9 @@ var (
 			},
 			EtcdOptionConfig: &backendOption{
 				description: "Path to etcd configuration file",
+			},
+			EtcdInitConnectionTimeout: &backendOption{
+				description: "Init Etcd connection timeout",
 			},
 		},
 	}
@@ -109,6 +113,7 @@ func (e *etcdModule) newClient() (BackendOperations, chan error) {
 
 	endpointsOpt, endpointsSet := e.opts[addrOption]
 	configPathOpt, configSet := e.opts[EtcdOptionConfig]
+	initConnetionTimeoutOpt, initConnectionTimeoutSet := e.opts[EtcdInitConnectionTimeout]
 	configPath := ""
 
 	if e.config == nil {
@@ -135,10 +140,20 @@ func (e *etcdModule) newClient() (BackendOperations, chan error) {
 			configPath = configPathOpt.value
 		}
 	}
+	initialConnectionTimeout := defaultInitialConnectionTimeout
+	if initConnectionTimeoutSet {
+		tp, err := time.ParseDuration(initConnetionTimeoutOpt.value)
+		if err != nil {
+			errChan <- fmt.Errorf("invalid init etcd connetion timeout")
+			close(errChan)
+			return nil, errChan
+		}
+		initialConnectionTimeout = tp
+	}
 
 	// connectEtcdClient will close errChan when the connection attempt has
 	// been successful
-	backend, err := connectEtcdClient(e.config, configPath, errChan)
+	backend, err := connectEtcdClient(e.config, configPath, initialConnectionTimeout, errChan)
 	if err != nil {
 		errChan <- err
 		close(errChan)
@@ -235,7 +250,7 @@ func (e *etcdClient) renewSession() error {
 	return nil
 }
 
-func connectEtcdClient(config *client.Config, cfgPath string, errChan chan error) (BackendOperations, error) {
+func connectEtcdClient(config *client.Config, cfgPath string, initialConnectionTimeout time.Duration, errChan chan error) (BackendOperations, error) {
 	if cfgPath != "" {
 		cfg, err := clientyaml.NewConfig(cfgPath)
 		if err != nil {
