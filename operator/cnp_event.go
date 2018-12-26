@@ -15,13 +15,10 @@
 package main
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	informer "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -35,16 +32,6 @@ const (
 )
 
 func enableCNPWatcher() error {
-	restConfig, err := k8s.CreateConfig()
-	if err != nil {
-		return fmt.Errorf("Unable to create rest configuration: %s", err)
-	}
-
-	ciliumNPClient, err := clientset.NewForConfig(restConfig)
-	if err != nil {
-		return fmt.Errorf("Unable to create cilium network policy client: %s", err)
-	}
-
 	watcher := k8sUtils.ResourceEventHandlerFactory(
 		func(i interface{}) func() error {
 			return func() error {
@@ -71,12 +58,12 @@ func enableCNPWatcher() error {
 		},
 		nil,
 		&cilium_v2.CiliumNetworkPolicy{},
-		ciliumNPClient,
+		ciliumK8sClient,
 		reSyncPeriod,
 		metrics.EventTSK8s,
 	)
 
-	si := informer.NewSharedInformerFactory(ciliumNPClient, reSyncPeriod)
+	si := informer.NewSharedInformerFactory(ciliumK8sClient, reSyncPeriod)
 	ciliumV2Controller := si.Cilium().V2().CiliumNetworkPolicies().Informer()
 	ciliumV2Controller.AddEventHandler(watcher)
 	si.Start(wait.NeverStop)

@@ -23,6 +23,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/k8s"
+	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -52,6 +53,9 @@ var (
 	kvStoreOpts         = make(map[string]string)
 	shutdownSignal      = make(chan bool, 1)
 	synchronizeServices bool
+	enableCepGC         bool
+
+	ciliumK8sClient clientset.Interface
 )
 
 func main() {
@@ -92,6 +96,7 @@ func init() {
 	flags.Var(option.NewNamedMapOptions("kvstore-opts", &kvStoreOpts, nil), "kvstore-opt", "Key-value store options")
 
 	flags.BoolVar(&synchronizeServices, "synchronize-k8s-services", true, "Synchronize Kubernetes services to kvstore")
+	flags.BoolVar(&enableCepGC, "cilium-endpoint-gc", true, "Enable CiliumEndpoint garbage collector")
 
 	viper.BindPFlags(flags)
 }
@@ -127,11 +132,25 @@ func runOperator(cmd *cobra.Command) {
 		log.WithError(err).Fatal("Unable to connect to Kubernetes apiserver")
 	}
 
+	restConfig, err := k8s.CreateConfig()
+	if err != nil {
+		log.WithError(err).Fatal("Unable to create rest configuration")
+	}
+
+	ciliumK8sClient, err = clientset.NewForConfig(restConfig)
+	if err != nil {
+		log.WithError(err).Fatal("Unable to create cilium network policy client")
+	}
+
 	if synchronizeServices {
 		startSynchronizingServices()
 	}
 
-	err := enableCNPWatcher()
+	if enableCepGC {
+		enableCiliumEndpointSyncGC()
+	}
+
+	err = enableCNPWatcher()
 	if err != nil {
 		log.WithError(err).WithField("subsys", "CNPWatcher").Fatal(
 			"Cannot connect to Kubernetes apiserver ")
