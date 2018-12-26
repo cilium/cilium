@@ -35,7 +35,6 @@ import (
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	informer "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions"
-	"github.com/cilium/cilium/pkg/k8s/endpointsynchronizer"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -605,7 +604,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 
 	si.Start(wait.NeverStop)
 
-	podsStore, podsController := k8sUtils.ControllerFactory(
+	_, podsController := k8sUtils.ControllerFactory(
 		k8s.Client().CoreV1().RESTClient(),
 		&v1.Pod{},
 		k8sUtils.ResourceEventHandlerFactory(
@@ -707,8 +706,6 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 
 	go namespaceController.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupNamespaceV1Core)
-
-	endpointsynchronizer.CiliumEndpointSyncGC(podsStore)
 
 	return nil
 }
