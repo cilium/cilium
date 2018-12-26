@@ -471,7 +471,11 @@ func removeCiliumRules(table string) {
 		rule := scanner.Text()
 		log.WithField(logfields.Object, logfields.Repr(rule)).Debug("Considering removing iptables rule")
 
-		if strings.Contains(strings.ToLower(rule), "cilium") &&
+		// All rules installed by cilium either belong to a chain with
+		// the name CILIUM_ or call a chain with the name CILIUM_:
+		// -A CILIUM_FORWARD -o cilium_host -m comment --comment "cilium: any->cluster on cilium_host forward accept" -j ACCEPT
+		// -A POSTROUTING -m comment --comment "cilium-feeder: CILIUM_POST" -j CILIUM_POST
+		if strings.Contains(rule, "CILIUM_") &&
 			(strings.HasPrefix(rule, "-A") || strings.HasPrefix(rule, "-I")) {
 			// From: -A POSTROUTING -m comment [...]
 			// To:   -D POSTROUTING -m comment [...]
