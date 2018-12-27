@@ -30,6 +30,19 @@ func (s *SSHMeta) ContainerExec(name string, cmd string, optionalArgs ...string)
 	return s.Exec(dockerCmd)
 }
 
+// ContainerRun is a wrapper to a one execution docker run container. It runs
+// an instance of the specific Docker image with the provided network, name and
+// options.
+func (s *SSHMeta) ContainerRun(name, image, net, options string, cmdParams ...string) *CmdRes {
+	cmdOnStart := ""
+	if len(cmdParams) > 0 {
+		cmdOnStart = strings.Join(cmdParams, " ")
+	}
+	cmd := fmt.Sprintf(
+		"docker run --name %s --net %s %s %s %s", name, net, options, image, cmdOnStart)
+	return s.ExecWithSudo(cmd)
+}
+
 // ContainerCreate is a wrapper for `docker run`. It runs an instance of the
 // specified Docker image with the provided network, name, options and container
 // startup commands.
