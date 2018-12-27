@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -1901,18 +1900,14 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 		httpd2ContainerLabel := "container:id.httpd2"
 
 		By("Getting all identities which contain label %s", httpd2ContainerLabel)
-		res = vm.ExecCilium(fmt.Sprintf(`identity list -o json | jq 'map(select(.labels[] | contains("%s")))'`, httpd2ContainerLabel))
-		var identities []models.Identity
+		res = vm.ExecCilium(fmt.Sprintf(
+			`identity list -o json | jq 'map(select(.labels[] | contains("%s")).id) | sort'`,
+			httpd2ContainerLabel))
+		var identities []int64
 		err = res.Unmarshal(&identities)
 		Expect(err).Should(BeNil(), "unable to get identities containing label %s", httpd2ContainerLabel)
-
 		// We expect the host to be allowed.
-		expectedIngressIdentitiesHttpd1 := []int64{1}
-
-		// Append all identities which have label container:id.httpd2.
-		for _, id := range identities {
-			expectedIngressIdentitiesHttpd1 = append(expectedIngressIdentitiesHttpd1, id.ID)
-		}
+		identities = append([]int64{1}, identities...)
 
 		httpd1EndpointModel := vm.EndpointGet(httpd1EndpointID)
 		Expect(httpd1EndpointModel).To(Not(BeNil()), "Expected non-nil model for endpoint %s", helpers.Httpd1)
@@ -1925,12 +1920,9 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 		// TODO - remove hardcoding of host identity.
 		By("Verifying allowed identities for ingress traffic to %q", helpers.Httpd1)
 		actualIngressIdentitiesHttpd1 := httpd1EndpointModel.Status.Policy.Realized.AllowedIngressIdentities
-
-		// Sort to ensure that equality check of slice doesn't fail due to ordering being different.
-		sort.Slice(actualIngressIdentitiesHttpd1, func(i, j int) bool { return actualIngressIdentitiesHttpd1[i] < actualIngressIdentitiesHttpd1[j] })
-		sort.Slice(expectedIngressIdentitiesHttpd1, func(i, j int) bool { return expectedIngressIdentitiesHttpd1[i] < expectedIngressIdentitiesHttpd1[j] })
-
-		Expect(expectedIngressIdentitiesHttpd1).Should(Equal(actualIngressIdentitiesHttpd1), "Expected allowed identities %v, but instead got %v", expectedIngressIdentitiesHttpd1, actualIngressIdentitiesHttpd1)
+		Expect(identities).Should(ConsistOf(actualIngressIdentitiesHttpd1),
+			"Expected allowed identities %v, but instead got %v",
+			identities, actualIngressIdentitiesHttpd1)
 
 		By("Deleting all policies and adding a new policy to ensure that endpoint policy is updated accordingly")
 		res = vm.PolicyDelAll()
@@ -1950,15 +1942,18 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 		Expect(err).Should(BeNil(), "Error importing policy: %s", err)
 
 		By("Verifying verbose trace for expected output using security identities")
-		res = vm.Exec(fmt.Sprintf(`cilium policy trace --src-identity %d --dst-identity %d`, httpd2SecurityIdentity, httpd1SecurityIdentity))
-		Expect(res.Output().String()).Should(ContainSubstring(allowedVerdict), "Policy trace did not contain %s", allowedVerdict)
+		res = vm.Exec(fmt.Sprintf(
+			`cilium policy trace --src-identity %d --dst-identity %d`,
+			httpd2SecurityIdentity, httpd1SecurityIdentity))
+		res.ExpectContains(allowedVerdict, "Policy trace did not contain %s", allowedVerdict)
 
 		By("Verifying verbose trace for expected output using endpoint IDs")
-		res = vm.Exec(fmt.Sprintf(`cilium policy trace --src-endpoint %s --dst-endpoint %s`, httpd2EndpointID, httpd1EndpointID))
-		Expect(res.Output().String()).Should(ContainSubstring(allowedVerdict), "Policy trace did not contain %s", allowedVerdict)
+		res = vm.Exec(fmt.Sprintf(
+			`cilium policy trace --src-endpoint %s --dst-endpoint %s`,
+			httpd2EndpointID, httpd1EndpointID))
+		res.ExpectContains(allowedVerdict, "Policy trace did not contain %s", allowedVerdict)
 
 		// Have to get models of endpoints again because policy has been updated.
-
 		By("Getting models of endpoints to access policy-related metadata")
 		httpd2EndpointModel = vm.EndpointGet(httpd2EndpointID)
 		Expect(httpd2EndpointModel).To(Not(BeNil()), "Expected non-nil model for endpoint %s", helpers.Httpd2)
@@ -1970,22 +1965,18 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 		Expect(httpd1EndpointModel.Status.Policy).To(Not(BeNil()), "Expected non-nil policy for endpoint %s", helpers.Httpd1)
 
 		By("Getting all identities which contain label %s", httpd2ContainerLabel)
-		res = vm.ExecCilium(fmt.Sprintf(`identity list -o json | jq 'map(select(.labels[] | contains("%s")))'`, httpd2ContainerLabel))
-		identities = []models.Identity{}
+		res = vm.ExecCilium(fmt.Sprintf(
+			`identity list -o json | jq 'map(select(.labels[] | contains("%s")).id) | sort'`,
+			httpd2ContainerLabel))
+		identities = []int64{}
 		err = res.Unmarshal(&identities)
 		Expect(err).Should(BeNil(), "unable to get identities containing label %s", httpd2ContainerLabel)
 
-		// Reset slice of expected identities since host is no longer allowed.
-		expectedIngressIdentitiesHttpd1 = []int64{}
-
-		// Append all identities which have label container:id.httpd2.
-		for _, id := range identities {
-			expectedIngressIdentitiesHttpd1 = append(expectedIngressIdentitiesHttpd1, id.ID)
-		}
-
 		By("Verifying allowed identities for ingress traffic to %q", helpers.Httpd1)
 		actualIngressIdentitiesHttpd1 = httpd1EndpointModel.Status.Policy.Realized.AllowedIngressIdentities
-		Expect(expectedIngressIdentitiesHttpd1).Should(Equal(actualIngressIdentitiesHttpd1), "Expected allowed identities %v, but instead got %v", expectedIngressIdentitiesHttpd1, actualIngressIdentitiesHttpd1)
+		Expect(identities).Should(ConsistOf(actualIngressIdentitiesHttpd1),
+			"Expected allowed identities %v, but instead got %v",
+			identities, actualIngressIdentitiesHttpd1)
 
 		res = vm.PolicyDelAll()
 		res.ExpectSuccess("Unable to delete all policies")
@@ -1994,6 +1985,6 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 
 		By("Checking that policy trace returns allowed verdict without any policies imported")
 		res = vm.Exec(fmt.Sprintf(`cilium policy trace --src-endpoint %s --dst-endpoint %s`, httpd2EndpointID, httpd1EndpointID))
-		Expect(res.Output().String()).Should(ContainSubstring(allowedVerdict), "Policy trace did not contain %s", allowedVerdict)
+		res.ExpectContains(allowedVerdict, "Policy trace did not contain %s", allowedVerdict)
 	})
 })
