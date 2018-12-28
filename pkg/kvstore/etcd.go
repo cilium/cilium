@@ -143,7 +143,7 @@ func (e *etcdModule) newClient() (BackendOperations, chan error) {
 		}
 	}
 	initialConnectionTimeout := defaultInitialConnectionTimeout
-	if initConnectionTimeoutSet {
+	if initConnectionTimeoutSet && initConnetionTimeoutOpt.value != "" {
 		tp, err := time.ParseDuration(initConnetionTimeoutOpt.value)
 		if err != nil {
 			errChan <- fmt.Errorf("invalid init etcd connetion timeout")
