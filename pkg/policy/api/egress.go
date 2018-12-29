@@ -165,7 +165,7 @@ func (e *EgressRule) IsLabelBased() bool {
 // RequiresDerivative returns true when the EgressRule contains sections that
 // need a derivative policy created in order to be enforced (e.g. ToGroups).
 func (e *EgressRule) RequiresDerivative() bool {
-	return len(e.ToGroups) > 0
+	return len(e.ToGroups) > 0 || len(e.ToServices) > 0
 }
 
 // CreateDerivative will return a new rule based on the data gathered by the
@@ -183,11 +183,23 @@ func (e *EgressRule) CreateDerivative() (*EgressRule, error) {
 		if err != nil {
 			return &EgressRule{}, err
 		}
-		if len(cidrSet) == 0 {
-			return &EgressRule{}, nil
+		if len(cidrSet) > 0 {
+			newRule.ToCIDRSet = append(e.ToCIDRSet, cidrSet...)
 		}
-		newRule.ToCIDRSet = append(e.ToCIDRSet, cidrSet...)
 	}
 	newRule.ToGroups = nil
+
+	for _, svc := range e.ToServices {
+		cidrSet := svc.GetCidrSet()
+		if len(cidrSet) > 0 {
+			newRule.ToCIDRSet = append(e.ToCIDRSet, cidrSet...)
+		}
+	}
+	newRule.ToServices = nil
+
+	if len(newRule.ToCIDRSet) == 0 {
+		return &EgressRule{}, nil
+	}
+
 	return newRule, nil
 }

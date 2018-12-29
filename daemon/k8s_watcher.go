@@ -41,7 +41,6 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	bpfIPCache "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -109,11 +108,6 @@ var (
 	importMetadataCache = ruleImportMetadataCache{
 		ruleImportMetadataMap: make(map[string]policyImportMetadata),
 	}
-
-	// local cache of Kubernetes Endpoints which relate to external services.
-	endpointMetadataCache = endpointImportMetadataCache{
-		endpointImportMetadataMap: make(map[string]endpointImportMetadata),
-	}
 )
 
 // ruleImportMetadataCache maps the unique identifier of a CiliumNetworkPolicy
@@ -166,43 +160,6 @@ func (r *ruleImportMetadataCache) get(cnp *cilium_v2.CiliumNetworkPolicy) (polic
 	policyImportMeta, ok := r.ruleImportMetadataMap[podNSName]
 	r.mutex.RUnlock()
 	return policyImportMeta, ok
-}
-
-// endpointImportMetadataCache maps the unique identifier of a Kubernetes
-// Endpoint (namespace and name) to metadata about whether translation of the
-// rules involving services that the endpoint corresponds to into the
-// agent's policy repository at the time said rule was imported (if any error
-// occurred while importing).
-type endpointImportMetadataCache struct {
-	mutex                     lock.RWMutex
-	endpointImportMetadataMap map[string]endpointImportMetadata
-}
-
-type endpointImportMetadata struct {
-	ruleTranslationError error
-}
-
-func (r *endpointImportMetadataCache) upsert(id k8s.ServiceID, ruleTranslationErr error) {
-	meta := endpointImportMetadata{
-		ruleTranslationError: ruleTranslationErr,
-	}
-
-	r.mutex.Lock()
-	r.endpointImportMetadataMap[id.String()] = meta
-	r.mutex.Unlock()
-}
-
-func (r *endpointImportMetadataCache) delete(id k8s.ServiceID) {
-	r.mutex.Lock()
-	delete(r.endpointImportMetadataMap, id.String())
-	r.mutex.Unlock()
-}
-
-func (r *endpointImportMetadataCache) get(id k8s.ServiceID) (endpointImportMetadata, bool) {
-	r.mutex.RLock()
-	endpointImportMeta, ok := r.endpointImportMetadataMap[id.String()]
-	r.mutex.RUnlock()
-	return endpointImportMeta, ok
 }
 
 // k8sAPIGroupsUsed is a lockable map to hold which k8s API Groups we have
@@ -810,50 +767,9 @@ func (d *Daemon) k8sServiceHandler() {
 				scopedLog.WithError(err).Error("Unable to add/update service to implement k8s event")
 			}
 
-			if !svc.IsExternal() {
-				continue
-			}
-
-			serviceImportMeta, cacheOK := endpointMetadataCache.get(event.ID)
-
-			// If this is the first time adding this Endpoint, or there was an error
-			// adding it last time, then try to add translate it and its
-			// corresponding external service for any toServices rules which
-			// select said service.
-			if !cacheOK || (cacheOK && serviceImportMeta.ruleTranslationError != nil) {
-				translator := k8s.NewK8sTranslator(event.ID, *event.Endpoints, false, svc.Labels, bpfIPCache.IPCache)
-				result, err := d.policy.TranslateRules(translator)
-				endpointMetadataCache.upsert(event.ID, err)
-				if err != nil {
-					log.Errorf("Unable to repopulate egress policies from ToService rules: %v", err)
-					break
-				} else if result.NumToServicesRules > 0 {
-					// Only trigger policy updates if ToServices rules are in effect
-					d.TriggerPolicyUpdates(true, "Kubernetes service endpoint added")
-				}
-			} else if serviceImportMeta.ruleTranslationError == nil {
-				d.TriggerPolicyUpdates(true, "Kubernetes service endpoint updated")
-			}
-
 		case k8s.DeleteService, k8s.DeleteIngress:
 			if err := d.delK8sSVCs(event.ID, event.Service, event.Endpoints); err != nil {
 				scopedLog.WithError(err).Error("Unable to delete service to implement k8s event")
-			}
-
-			if !svc.IsExternal() {
-				continue
-			}
-
-			endpointMetadataCache.delete(event.ID)
-
-			translator := k8s.NewK8sTranslator(event.ID, *event.Endpoints, true, svc.Labels, bpfIPCache.IPCache)
-			result, err := d.policy.TranslateRules(translator)
-			if err != nil {
-				log.Errorf("Unable to depopulate egress policies from ToService rules: %v", err)
-				break
-			} else if result.NumToServicesRules > 0 {
-				// Only trigger policy updates if ToServices rules are in effect
-				d.TriggerPolicyUpdates(true, "Kubernetes service endpoint deleted")
 			}
 		}
 	}
@@ -1218,7 +1134,6 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumV2Store cache.Store, cnp *cilium
 
 	rules, policyImportErr := cnp.Parse()
 	if policyImportErr == nil {
-		policyImportErr = k8s.PreprocessRules(rules, &d.k8sSvcCache)
 		// Replace all rules with the same name, namespace and
 		// resourceTypeCiliumNetworkPolicy
 		rev, policyImportErr = d.PolicyAdd(rules, &AddOptions{
