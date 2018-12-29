@@ -18,10 +18,12 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/k8s"
+	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/versioned"
 
@@ -44,9 +46,6 @@ func k8sServiceHandler() {
 			return
 		}
 
-		svc := k8s.NewClusterService(event.ID, event.Service, event.Endpoints)
-		svc.Cluster = option.Config.ClusterName
-
 		log.WithFields(logrus.Fields{
 			logfields.K8sSvcName:   event.ID.Name,
 			logfields.K8sNamespace: event.ID.Namespace,
@@ -56,7 +55,19 @@ func k8sServiceHandler() {
 			"shared":               event.Service.Shared,
 		}).Info("Kubernetes service definition changed")
 
+		svcID := api.NewK8sServiceIdentifier(event.ID.Name, event.ID.Namespace, event.Service.Labels)
+
+		cnpCache.Range(func(k, v interface{}) bool {
+			cnp := v.(*cilium_v2.CiliumNetworkPolicy)
+			if cnp.MatchesServiceIdentifier(svcID) {
+				addDerivativeCNP(cnp)
+			}
+			return true
+		})
+
 		if synchronizeServices {
+			svc := k8s.NewClusterService(event.ID, event.Service, event.Endpoints)
+			svc.Cluster = option.Config.ClusterName
 
 			if !event.Service.Shared {
 				// The annotation may have been added, delete an eventual existing service
