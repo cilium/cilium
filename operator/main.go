@@ -127,9 +127,7 @@ func runOperator(cmd *cobra.Command) {
 		log.WithError(err).Fatal("Unable to connect to Kubernetes apiserver")
 	}
 
-	if synchronizeServices {
-		startSynchronizingServices()
-	}
+	startSynchronizingServices()
 
 	err := enableCNPWatcher()
 	if err != nil {

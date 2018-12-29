@@ -56,18 +56,21 @@ func k8sServiceHandler() {
 			"shared":               event.Service.Shared,
 		}).Info("Kubernetes service definition changed")
 
-		if !event.Service.Shared {
-			// The annotation may have been added, delete an eventual existing service
-			servicesStore.DeleteLocalKey(&svc)
-			continue
-		}
+		if synchronizeServices {
 
-		switch event.Action {
-		case k8s.UpdateService, k8s.UpdateIngress:
-			servicesStore.UpdateLocalKeySync(&svc)
+			if !event.Service.Shared {
+				// The annotation may have been added, delete an eventual existing service
+				servicesStore.DeleteLocalKey(&svc)
+				continue
+			}
 
-		case k8s.DeleteService, k8s.DeleteIngress:
-			servicesStore.DeleteLocalKey(&svc)
+			switch event.Action {
+			case k8s.UpdateService, k8s.UpdateIngress:
+				servicesStore.UpdateLocalKeySync(&svc)
+
+			case k8s.DeleteService, k8s.DeleteIngress:
+				servicesStore.DeleteLocalKey(&svc)
+			}
 		}
 	}
 }
