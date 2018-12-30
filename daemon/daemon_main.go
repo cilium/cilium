@@ -128,9 +128,9 @@ var (
 	validLabels           []string
 	toFQDNsMinTTL         int
 	enableDNSPoller       bool
-)
 
-var (
+	mtuConfig mtu.Configuration
+
 	logOpts                = make(map[string]string)
 	kvStoreOpts            = make(map[string]string)
 	fixedIdentity          = make(map[string]string)
@@ -478,7 +478,7 @@ func init() {
 		"Size of the event queue when reading monitor events")
 	viper.BindEnv(option.MonitorQueueSizeName, option.MonitorQueueSizeNameEnv)
 	flags.IntVar(&option.Config.MTU,
-		option.MTUName, mtu.AutoDetect(), "Overwrite auto-detected MTU of underlying network")
+		option.MTUName, 0, "Overwrite auto-detected MTU of underlying network")
 	flags.Bool(option.PrependIptablesChainsName, true, "Prepend custom iptables chains instead of appending")
 	viper.BindEnv(option.PrependIptablesChainsName, option.PrependIptablesChainsNameEnv)
 	flags.StringVar(&v6Address,
@@ -639,10 +639,6 @@ func initEnv(cmd *cobra.Command) {
 
 	if viper.GetBool("pprof") {
 		pprof.Enable()
-	}
-
-	if configuredMTU := viper.GetInt(option.MTUName); configuredMTU != 0 {
-		mtu.UseMTU(configuredMTU)
 	}
 
 	scopedLog := log.WithFields(logrus.Fields{

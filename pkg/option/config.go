@@ -455,8 +455,8 @@ func (c *daemonConfig) Validate() error {
 			c.IPv6ClusterAllocCIDR, IPv6ClusterAllocCIDRName, err)
 	}
 
-	if c.MTU <= 0 {
-		return fmt.Errorf("MTU '%d' cannot be 0 or negative", c.MTU)
+	if c.MTU < 0 {
+		return fmt.Errorf("MTU '%d' cannot be negative", c.MTU)
 	}
 
 	switch c.Tunnel {

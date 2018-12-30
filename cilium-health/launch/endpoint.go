@@ -92,11 +92,11 @@ func logFromCommand(cmd *exec.Cmd, netns string) error {
 	return nil
 }
 
-func configureHealthRouting(netns, dev string, addressing *models.NodeAddressing) error {
+func configureHealthRouting(netns, dev string, addressing *models.NodeAddressing, mtuConfig mtu.Configuration) error {
 	routes := []route.Route{}
 
 	if option.Config.EnableIPv4 {
-		v4Routes, err := connector.IPv4Routes(addressing, mtu.GetRouteMTU())
+		v4Routes, err := connector.IPv4Routes(addressing, mtuConfig.GetRouteMTU())
 		if err == nil {
 			routes = append(routes, v4Routes...)
 		} else {
@@ -105,7 +105,7 @@ func configureHealthRouting(netns, dev string, addressing *models.NodeAddressing
 	}
 
 	if option.Config.EnableIPv6 {
-		v6Routes, err := connector.IPv6Routes(addressing, mtu.GetRouteMTU())
+		v6Routes, err := connector.IPv6Routes(addressing, mtuConfig.GetRouteMTU())
 		if err != nil {
 			return fmt.Errorf("Failed to get IPv6 routes")
 		}
@@ -193,7 +193,7 @@ type Annotator interface {
 //
 // CleanupEndpoint() must be called before calling LaunchAsEndpoint() to ensure
 // cleanup of prior cilium-health endpoint instances.
-func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressing) error {
+func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressing, mtuConfig mtu.Configuration) error {
 	var (
 		cmd  = launcher.Launcher{}
 		info = &models.EndpointChangeRequest{
@@ -219,7 +219,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 		ip6Address = ip6WithMask.String()
 	}
 
-	if _, _, err := connector.SetupVethWithNames(vethName, vethPeerName, mtu.GetDeviceMTU(), info); err != nil {
+	if _, _, err := connector.SetupVethWithNames(vethName, vethPeerName, mtuConfig.GetDeviceMTU(), info); err != nil {
 		return fmt.Errorf("Error while creating veth: %s", err)
 	}
 
@@ -258,7 +258,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 	}
 
 	// Set up the endpoint routes
-	if err = configureHealthRouting(info.ContainerName, vethPeerName, hostAddressing); err != nil {
+	if err = configureHealthRouting(info.ContainerName, vethPeerName, hostAddressing, mtuConfig); err != nil {
 		return fmt.Errorf("Error while configuring routes: %s", err)
 	}
 

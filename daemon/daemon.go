@@ -166,6 +166,8 @@ type Daemon struct {
 
 	// k8sSvcCache is a cache of all Kubernetes services and endpoints
 	k8sSvcCache k8s.ServiceCache
+
+	mtuConfig mtu.Configuration
 }
 
 // UpdateProxyRedirect updates the redirect rules in the proxy for a particular
@@ -456,7 +458,7 @@ func (d *Daemon) compileBase() error {
 		args[initArgIPv6NodeIP] = "<nil>"
 	}
 
-	args[initArgMTU] = fmt.Sprintf("%d", mtu.GetDeviceMTU())
+	args[initArgMTU] = fmt.Sprintf("%d", d.mtuConfig.GetDeviceMTU())
 
 	if option.Config.Device != "undefined" {
 		_, err := netlink.LinkByName(option.Config.Device)
@@ -501,7 +503,7 @@ func (d *Daemon) compileBase() error {
 	}
 
 	ipam.ReserveLocalRoutes()
-	node.InstallHostRoutes()
+	node.InstallHostRoutes(d.mtuConfig)
 
 	if option.Config.EnableIPv4 {
 		// Always remove masquerade rule and then re-add it if required
@@ -531,7 +533,7 @@ func (d *Daemon) init() error {
 		log.WithError(err).WithField(logfields.Path, option.Config.StateDir).Fatal("Could not change to runtime directory")
 	}
 
-	if err = createNodeConfigHeaderfile(); err != nil {
+	if err = d.createNodeConfigHeaderfile(); err != nil {
 		return nil
 	}
 
@@ -643,7 +645,7 @@ func (d *Daemon) init() error {
 	return nil
 }
 
-func createNodeConfigHeaderfile() error {
+func (d *Daemon) createNodeConfigHeaderfile() error {
 	nodeConfigPath := option.Config.GetNodeConfigPath()
 	f, err := os.Create(nodeConfigPath)
 	if err != nil {
@@ -703,7 +705,7 @@ func createNodeConfigHeaderfile() error {
 	fmt.Fprintf(fw, "#define SOCKOPS_MAP_SIZE %d\n", sockmap.MaxEntries)
 
 	fmt.Fprintf(fw, "#define TRACE_PAYLOAD_LEN %dULL\n", tracePayloadLen)
-	fmt.Fprintf(fw, "#define MTU %d\n", mtu.GetDeviceMTU())
+	fmt.Fprintf(fw, "#define MTU %d\n", d.mtuConfig.GetDeviceMTU())
 
 	if option.Config.EnableIPv4 {
 		fmt.Fprintf(fw, "#define ENABLE_IPV4\n")
@@ -864,6 +866,7 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 
 		buildEndpointSem: semaphore.NewWeighted(int64(numWorkerThreads())),
 		compilationMutex: new(lock.RWMutex),
+		mtuConfig:        mtu.NewConfiguration(option.Config.Tunnel != option.TunnelDisabled, viper.GetInt(option.MTUName)),
 	}
 
 	debug.RegisterStatusObject("k8s-service-cache", &d.k8sSvcCache)
@@ -1242,8 +1245,8 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 			Options: kvStoreOpts,
 		},
 		Realized:  spec,
-		DeviceMTU: int64(mtu.GetDeviceMTU()),
-		RouteMTU:  int64(mtu.GetRouteMTU()),
+		DeviceMTU: int64(mtuConfig.GetDeviceMTU()),
+		RouteMTU:  int64(mtuConfig.GetRouteMTU()),
 	}
 
 	cfg := &models.DaemonConfiguration{

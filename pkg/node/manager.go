@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
@@ -62,6 +63,7 @@ type clusterConfiguation struct {
 	nodes                 map[Identity]*Node
 	ciliumHostInitialized bool
 	auxPrefixes           []*net.IPNet
+	mtuConfig             mtu.Configuration
 }
 
 var clusterConf = &clusterConfiguation{
@@ -108,7 +110,7 @@ func createNodeRoute(ip *net.IPNet) routeUtils.Route {
 // replaceNodeRoute verifies whether the node route is properly covered by a
 // route installed in the host's routing table. If unavailable, the route is
 // installed on the host.
-func replaceNodeRoute(ip *net.IPNet) {
+func replaceNodeRoute(ip *net.IPNet, mtuConfig mtu.Configuration) {
 	if ip == nil {
 		return
 	}
@@ -123,7 +125,7 @@ func replaceNodeRoute(ip *net.IPNet) {
 		}
 	}
 
-	routeUtils.ReplaceRoute(createNodeRoute(ip))
+	routeUtils.ReplaceRoute(createNodeRoute(ip), mtuConfig)
 }
 
 // deleteNodeRoute removes a node route of a particular CIDR
@@ -155,25 +157,26 @@ func (cc *clusterConfiguation) replaceHostRoutes() {
 			// Otherwise it is only required when running in
 			// tunneling mode
 			if n.IsLocal() || option.Config.Tunnel != option.TunnelDisabled {
-				replaceNodeRoute(n.IPv4AllocCIDR)
-				replaceNodeRoute(n.IPv6AllocCIDR)
+				replaceNodeRoute(n.IPv4AllocCIDR, cc.mtuConfig)
+				replaceNodeRoute(n.IPv6AllocCIDR, cc.mtuConfig)
 			} else {
 				deleteNodeRoute(n.IPv4AllocCIDR)
 				deleteNodeRoute(n.IPv6AllocCIDR)
 			}
 		}
 	} else {
-		replaceNodeRoute(GetIPv4AllocRange())
-		replaceNodeRoute(GetIPv6AllocRange())
+		replaceNodeRoute(GetIPv4AllocRange(), cc.mtuConfig)
+		replaceNodeRoute(GetIPv6AllocRange(), cc.mtuConfig)
 	}
 
 	for _, prefix := range cc.auxPrefixes {
-		replaceNodeRoute(prefix)
+		replaceNodeRoute(prefix, cc.mtuConfig)
 	}
 }
 
-func (cc *clusterConfiguation) installHostRoutes() {
+func (cc *clusterConfiguation) installHostRoutes(mtuConfig mtu.Configuration) {
 	cc.Lock()
+	cc.mtuConfig = mtuConfig
 	cc.ciliumHostInitialized = true
 	cc.replaceHostRoutes()
 	cc.Unlock()
@@ -186,8 +189,8 @@ func (cc *clusterConfiguation) installHostRoutes() {
 //
 // This may only be called after the defaults.HostDevice interface has been
 // initialized for the first time
-func InstallHostRoutes() {
-	clusterConf.installHostRoutes()
+func InstallHostRoutes(mtuConfig mtu.Configuration) {
+	clusterConf.installHostRoutes(mtuConfig)
 }
 
 // AddAuxPrefix adds additional prefixes for which routes should be installed

@@ -20,9 +20,10 @@ import (
 	"net"
 	"testing"
 
-	. "gopkg.in/check.v1"
+	"github.com/cilium/cilium/pkg/mtu"
 
 	"github.com/vishvananda/netlink"
+	. "gopkg.in/check.v1"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -96,7 +97,7 @@ func testReplaceRoute(c *C, prefixStr, nexthopStr string) {
 		Scope:  netlink.SCOPE_LINK,
 	})
 
-	err = ReplaceRoute(rt)
+	err = ReplaceRoute(rt, mtu.NewConfiguration(false, 0))
 	c.Assert(err, IsNil)
 
 	err = DeleteRoute(rt)

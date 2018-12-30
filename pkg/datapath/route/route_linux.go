@@ -164,7 +164,7 @@ func deleteNexthopRoute(link netlink.Link, routerNet *net.IPNet) error {
 	return nil
 }
 
-func replaceRoute(route Route) (bool, error) {
+func replaceRoute(route Route, mtuConfig mtu.Configuration) (bool, error) {
 	link, err := netlink.LinkByName(route.Device)
 	if err != nil {
 		return false, fmt.Errorf("unable to lookup interface %s: %s", route.Device, err)
@@ -183,9 +183,9 @@ func replaceRoute(route Route) (bool, error) {
 		// local containers and we can use a high MTU for transmit. Otherwise,
 		// it needs to be able to fit within the MTU of tunnel devices.
 		if route.Prefix.Contains(route.Local) {
-			routeSpec.MTU = mtu.GetDeviceMTU()
+			routeSpec.MTU = mtuConfig.GetDeviceMTU()
 		} else {
-			routeSpec.MTU = mtu.GetRouteMTU()
+			routeSpec.MTU = mtuConfig.GetRouteMTU()
 		}
 	}
 
@@ -201,8 +201,8 @@ func replaceRoute(route Route) (bool, error) {
 }
 
 // ReplaceRoute adds or replaces the specified route if necessary
-func ReplaceRoute(route Route) error {
-	replaced, err := replaceRoute(route)
+func ReplaceRoute(route Route, mtuConfig mtu.Configuration) error {
+	replaced, err := replaceRoute(route, mtuConfig)
 	if err != nil {
 		route.getLogger().WithError(err).Error("Unable to add route")
 		return err

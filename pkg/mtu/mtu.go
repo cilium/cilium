@@ -14,10 +14,6 @@
 
 package mtu
 
-import (
-	"github.com/cilium/cilium/pkg/option"
-)
-
 const (
 	// MaxMTU is the highest MTU that can be used for devices and routes
 	// handled by Cilium. It will typically be used to configure inbound
@@ -44,41 +40,73 @@ const (
 	TunnelOverhead = 50
 )
 
-var (
-	// StandardMTU is the regular MTU used for configuring devices and
+// Configuration is an MTU configuration as returned by NewConfiguration
+type Configuration struct {
+	// standardMTU is the regular MTU used for configuring devices and
 	// routes where packets are expected to be delivered outside the node.
 	//
 	// Note that this is a singleton for the process including this
 	// package. This means, for instance, that when using this from the
 	// ``pkg/plugins/*`` sources, it will not respect the settings
 	// configured inside the ``daemon/``.
-	StandardMTU = EthernetMTU
+	standardMTU int
 
-	// TunnelMTU is the MTU used for configuring a tunnel mesh for
+	// tunnelMTU is the MTU used for configuring a tunnel mesh for
 	// inter-node connectivity.
 	//
 	// Similar to StandardMTU, this is a singleton for the process.
-	TunnelMTU = EthernetMTU - TunnelOverhead
-)
+	tunnelMTU int
 
-// UseMTU modifies StandardMTU so that all subsequent link and route MTU
-// modifications will make use of this MTU.
-func UseMTU(mtu int) {
-	StandardMTU = mtu
-	TunnelMTU = mtu - TunnelOverhead
+	encapEnabled bool
+}
+
+// NewConfiguration returns a new MTU configuration. The MTU can be manually
+// specified, otherwise it will be automatically detected. if encapEnabled is
+// true, the MTU is adjusted to account for encapsulation overhead for all
+// routes involved in node to node communication.
+func NewConfiguration(encapEnabled bool, mtu int) Configuration {
+	if mtu == 0 {
+		var err error
+
+		mtu, err = autoDetect()
+		if err != nil {
+			log.WithError(err).Warning("Unable to automatically detect MTU")
+			mtu = EthernetMTU
+		}
+	}
+
+	conf := Configuration{
+		standardMTU:  mtu,
+		tunnelMTU:    mtu - TunnelOverhead,
+		encapEnabled: encapEnabled,
+	}
+
+	if conf.tunnelMTU < 0 {
+		conf.tunnelMTU = 0
+	}
+
+	return conf
 }
 
 // GetRouteMTU returns the MTU to be used on the network. When running in
 // tunneling mode, this will have tunnel overhead accounted for.
-func GetRouteMTU() int {
-	if option.Config.Tunnel == option.TunnelDisabled {
-		return StandardMTU
+func (c *Configuration) GetRouteMTU() int {
+	if !c.encapEnabled {
+		return c.GetDeviceMTU()
 	}
 
-	return TunnelMTU
+	if c.tunnelMTU == 0 {
+		return EthernetMTU - TunnelOverhead
+	}
+
+	return c.tunnelMTU
 }
 
 // GetDeviceMTU returns the MTU to be used on workload facing devices.
-func GetDeviceMTU() int {
-	return StandardMTU
+func (c *Configuration) GetDeviceMTU() int {
+	if c.standardMTU == 0 {
+		return EthernetMTU
+	}
+
+	return c.standardMTU
 }
