@@ -11,12 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
+// +build darwin
 
 package mtu
 
-import (
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
-)
-
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "mtu")
+func autoDetect() (int, error) {
+	return EthernetMTU, nil
+}

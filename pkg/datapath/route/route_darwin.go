@@ -18,6 +18,8 @@ package route
 
 import (
 	"fmt"
+
+	"github.com/cilium/cilium/pkg/mtu"
 )
 
 // ToIPCommand converts the route into a full "ip route ..." command
@@ -39,7 +41,7 @@ func (r *Route) ToIPCommand(dev string) []string {
 
 // ReplaceRoute adds or replaces the specified route if necessary. Does nothing
 // for Darwin-based builds.
-func ReplaceRoute(route Route) error {
+func ReplaceRoute(route Route, mtuConfig mtu.Configuration) error {
 	return nil
 }
 
