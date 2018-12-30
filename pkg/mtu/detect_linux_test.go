@@ -12,11 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// +build privileged_tests
+
 package mtu
 
 import (
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
+	"testing"
+
+	. "gopkg.in/check.v1"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "mtu")
+func Test(t *testing.T) { TestingT(t) }
+
+type MTUSuite struct{}
+
+var _ = Suite(&MTUSuite{})
+
+func (m *MTUSuite) TestAutoDetect(c *C) {
+	mtu, err := autoDetect()
+	c.Assert(err, IsNil)
+	c.Assert(mtu, Not(Equals), 0)
+}
