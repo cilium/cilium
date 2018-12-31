@@ -96,7 +96,6 @@ var _ = Describe("K8sPolicyTest", func() {
 				helpers.KubeSystemNamespace, file, helpers.KubectlApply, helpers.HelperTimeout)
 			ExpectWithOffset(1, err).Should(BeNil(),
 				"policy %s cannot be applied in %q namespace", file, helpers.DefaultNamespace)
-			ExpectWithOffset(1, kubectl.WaitForEnforcingCNP(name, "default")).To(BeNil(), "CNP is not in enforcing mode after timeout")
 		}
 
 		// getMatcher returns a helper.CMDSucess() matcher for success or
@@ -196,8 +195,6 @@ var _ = Describe("K8sPolicyTest", func() {
 				helpers.KubeSystemNamespace, l3Policy, helpers.KubectlApply, 300)
 			Expect(err).Should(BeNil())
 
-			Expect(kubectl.WaitForEnforcingCNP("l3-l4-policy", "default")).To(BeNil(), "CNP is not in enforcing mode after timeout")
-
 			trace := kubectl.CiliumExec(ciliumPod, fmt.Sprintf(
 				"cilium policy trace --src-k8s-pod default:%s --dst-k8s-pod default:%s --dport 80",
 				appPods[helpers.App2], appPods[helpers.App1]))
@@ -231,8 +228,6 @@ var _ = Describe("K8sPolicyTest", func() {
 				helpers.KubeSystemNamespace, l7Policy, helpers.KubectlApply, 300)
 			Expect(err).Should(BeNil(), "Cannot install %q policy", l7Policy)
 
-			Expect(kubectl.WaitForEnforcingCNP("l7-policy", "default")).To(BeNil(), "CNP is not in enforcing mode after timeout")
-
 			res = kubectl.ExecPodCmd(
 				helpers.DefaultNamespace, appPods[helpers.App2],
 				helpers.CurlFail("http://%s/public", clusterIP))
@@ -264,8 +259,6 @@ var _ = Describe("K8sPolicyTest", func() {
 			_, err := kubectl.CiliumPolicyAction(
 				helpers.KubeSystemNamespace, serviceAccountPolicy, helpers.KubectlApply, 300)
 			Expect(err).Should(BeNil())
-
-			Expect(kubectl.WaitForEnforcingCNP("service-account", "default")).To(BeNil(), "CNP is not in enforcing mode after timeout")
 
 			trace := kubectl.CiliumExec(ciliumPod, fmt.Sprintf(
 				"cilium policy trace --src-k8s-pod default:%s --dst-k8s-pod default:%s --dport 80",
@@ -449,8 +442,6 @@ var _ = Describe("K8sPolicyTest", func() {
 			Expect(err).Should(BeNil(),
 				"L3 deny-ingress Policy cannot be applied in %q namespace", helpers.DefaultNamespace)
 
-			Expect(kubectl.WaitForEnforcingCNP("cnp-default-deny-ingress", "default")).To(BeNil(), "CNP is not in enforcing mode after timeout")
-
 			By("Testing connectivity with ingress default-deny policy loaded")
 
 			res := kubectl.ExecPodCmd(
@@ -472,10 +463,6 @@ var _ = Describe("K8sPolicyTest", func() {
 				helpers.KubeSystemNamespace, cnpDenyEgress, helpers.KubectlApply, 300)
 			Expect(err).Should(BeNil(),
 				"L3 deny-egress Policy cannot be applied in %q namespace", helpers.DefaultNamespace)
-
-			By("Testing if egress policy enforcement is enabled on the endpoint")
-
-			Expect(kubectl.WaitForEnforcingCNP("cnp-default-deny-egress", "default")).To(BeNil(), "CNP is not in enforcing mode after timeout")
 
 			for _, pod := range apps {
 				res := kubectl.ExecPodCmd(
@@ -622,7 +609,6 @@ var _ = Describe("K8sPolicyTest", func() {
 			)
 
 			var (
-				policyName            = "cnp-update"
 				cnpUpdateAllow        = helpers.ManifestGet("cnp-update-allow-all.yaml")
 				cnpUpdateDeny         = helpers.ManifestGet("cnp-update-deny-ingress.yaml")
 				cnpUpdateNoSpecs      = helpers.ManifestGet("cnp-update-no-specs.yaml")
@@ -651,8 +637,6 @@ var _ = Describe("K8sPolicyTest", func() {
 					helpers.KubeSystemNamespace, cnpUpdateAllow, helpers.KubectlApply, 300)
 				Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpUpdateAllow)
 
-				Expect(kubectl.WaitForEnforcingCNP(policyName, "default")).To(BeNil(),
-					"CNP is not in enforcing mode after timeout")
 				validateL3L4(allowAll)
 
 				By("Applying l3-l4 policy")
@@ -660,8 +644,6 @@ var _ = Describe("K8sPolicyTest", func() {
 					helpers.KubeSystemNamespace, cnpUpdateDeny, helpers.KubectlApply, 300)
 				Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpUpdateDeny)
 
-				Expect(kubectl.WaitForEnforcingCNP(policyName, "default")).To(BeNil(),
-					"CNP is not in enforcing mode after timeout")
 				validateL3L4(denyFromApp3)
 
 				By("Applying no-specs policy")
@@ -669,8 +651,6 @@ var _ = Describe("K8sPolicyTest", func() {
 					helpers.KubeSystemNamespace, cnpUpdateNoSpecs, helpers.KubectlApply, 300)
 				Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpUpdateAllow)
 
-				Expect(kubectl.WaitForEnforcingCNP(policyName, "default")).To(BeNil(),
-					"CNP is not in enforcing mode after timeout")
 				validateL3L4(allowAll)
 
 				By("Applying l3-l4 policy with user-specified labels")
@@ -678,8 +658,6 @@ var _ = Describe("K8sPolicyTest", func() {
 					helpers.KubeSystemNamespace, cnpUpdateDenyLabelled, helpers.KubectlApply, 300)
 				Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpUpdateDeny)
 
-				Expect(kubectl.WaitForEnforcingCNP(policyName, "default")).To(BeNil(),
-					"CNP is not in enforcing mode after timeout")
 				validateL3L4(denyFromApp3)
 
 				By("Applying default allow policy (should remove policy with user labels)")
@@ -687,8 +665,6 @@ var _ = Describe("K8sPolicyTest", func() {
 					helpers.KubeSystemNamespace, cnpUpdateAllow, helpers.KubectlApply, 300)
 				Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpUpdateAllow)
 
-				Expect(kubectl.WaitForEnforcingCNP(policyName, "default")).To(BeNil(),
-					"CNP is not in enforcing mode after timeout")
 				validateL3L4(allowAll)
 			})
 
@@ -702,9 +678,6 @@ var _ = Describe("K8sPolicyTest", func() {
 					helpers.KubeSystemNamespace, l7Policy, helpers.KubectlApply, 300)
 				Expect(err).Should(BeNil(), "Cannot install %q policy", l7Policy)
 
-				Expect(kubectl.WaitForEnforcingCNP("l7-policy", "default")).To(BeNil(),
-					"CNP is not in enforcing mode after timeout")
-
 				// Update existing policy on port 80 from http to kafka
 				// to test ability to change L7 parser type of a port.
 				// Traffic cannot flow but policy must be able to be
@@ -712,9 +685,6 @@ var _ = Describe("K8sPolicyTest", func() {
 				_, err = kubectl.CiliumPolicyAction(
 					helpers.KubeSystemNamespace, l7PolicyKafka, helpers.KubectlApply, 300)
 				Expect(err).Should(BeNil(), "Cannot update L7 policy (%q) from parser http to kafka", l7PolicyKafka)
-
-				Expect(kubectl.WaitForEnforcingCNP("l7-policy", "default")).To(BeNil(),
-					"CNP is not in enforcing mode after timeout")
 
 				res := kubectl.ExecPodCmd(
 					helpers.DefaultNamespace, appPods[helpers.App3],
