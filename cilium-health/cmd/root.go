@@ -83,7 +83,7 @@ func init() {
 	flags.StringP("host", "H", "", "URI to cilium-health server API")
 	flags.StringP("cilium", "c", "", "URI to Cilium server API")
 	flags.UintP("interval", "i", 60, "Interval (in seconds) for periodic connectivity probes")
-	flags.StringSlice("log-driver", []string{}, "Logging endpoints to use for example syslog, fluentd")
+	flags.StringSlice("log-driver", []string{}, "Logging endpoints to use for example syslog")
 	flags.Var(option.NewNamedMapOptions("log-opts", &logOpts, nil),
 		"log-opt", "Log driver options for cilium-health")
 	viper.BindPFlags(flags)
