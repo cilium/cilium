@@ -122,13 +122,6 @@ required = [
   # on-revision = ""
 
 [[constraint]]
-  name = "github.com/evalphobia/logrus_fluent"
-  revision = "v0.4.0"
-
-  # main-usage = "pkg/logging"
-  # on-revision = ""
-
-[[constraint]]
   name = "github.com/fatih/color"
   revision = "533cd7fd8a85905f67a1753afb4deddc85ea174f"
 
