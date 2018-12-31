@@ -744,17 +744,14 @@ var _ = Describe("K8sPolicyTest", func() {
 			webPolicyName             = "guestbook-policy-web"
 		)
 
-		var ciliumPod, ciliumPod2 string
+		var ciliumPods []string
 		var err error
 
 		BeforeEach(func() {
 			kubectl.Apply(helpers.ManifestGet(deployment))
-
-			ciliumPod, err = kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
-			Expect(err).Should(BeNil())
-
-			ciliumPod2, err = kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s2)
-			Expect(err).Should(BeNil())
+			ciliumPods, err := kubectl.GetCiliumPods(helpers.KubeSystemNamespace)
+			Expect(err).To(BeNil(), "cannot retrieve Cilium Pods")
+			Expect(ciliumPods).ShouldNot(BeEmpty(), "cannot retrieve Cilium pods")
 		})
 
 		getPolicyCmd := func(policy string) string {
@@ -775,15 +772,15 @@ var _ = Describe("K8sPolicyTest", func() {
 			// This policy shouldn't be there, but test can fail before delete
 			// the policy and we want to make sure that it's deleted
 			kubectl.Delete(helpers.ManifestGet(redisPolicy))
+			for _, ciliumPod := range ciliumPods {
+				err := kubectl.WaitPolicyDeleted(ciliumPod, getPolicyCmd(webPolicyName))
+				Expect(err).To(
+					BeNil(), "WebPolicy is not deleted")
 
-			err := kubectl.WaitPolicyDeleted(ciliumPod, getPolicyCmd(webPolicyName))
-			Expect(err).To(
-				BeNil(), "WebPolicy is not deleted")
-
-			err = kubectl.WaitPolicyDeleted(ciliumPod, getPolicyCmd(redisPolicyName))
-			Expect(err).To(
-				BeNil(), "RedisPolicy is not deleted")
-
+				err = kubectl.WaitPolicyDeleted(ciliumPod, getPolicyCmd(redisPolicyName))
+				Expect(err).To(
+					BeNil(), "RedisPolicy is not deleted")
+			}
 			ExpectAllPodsTerminated(kubectl)
 		})
 
@@ -802,6 +799,13 @@ var _ = Describe("K8sPolicyTest", func() {
 				helpers.DefaultNamespace, "", "redis-slave", helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "error waiting for redis-slave service to be ready")
 
+		}
+
+		policyCheckStatus := func(policyCheck string) {
+			for _, ciliumPod := range ciliumPods {
+				ExpectWithOffset(1, kubectl.CiliumIsPolicyLoaded(ciliumPod, policyCheck)).To(BeTrue(),
+					"Policy %q is not in cilium pod %s", policyCheck, ciliumPod)
+			}
 		}
 
 		testConnectivitytoRedis := func() {
@@ -838,13 +842,10 @@ EOF`, k, v)
 				helpers.KubectlApply, 300)
 			Expect(err).Should(BeNil(), "Cannot apply web-policy")
 
-			policyCheck := fmt.Sprintf("cilium policy get %s=%s %s=%s",
+			policyCheck := fmt.Sprintf("%s=%s %s=%s",
 				helpers.KubectlPolicyNameLabel, webPolicyName,
 				helpers.KubectlPolicyNameSpaceLabel, helpers.DefaultNamespace)
-			kubectl.CiliumExec(ciliumPod, policyCheck).ExpectSuccess(
-				"Policy %q is not in cilium", webPolicyName)
-			kubectl.CiliumExec(ciliumPod2, policyCheck).ExpectSuccess(
-				"Policy %q is not in cilium", webPolicyName)
+			policyCheckStatus(policyCheck)
 
 			By("Apply policy to Redis")
 			_, err = kubectl.CiliumPolicyAction(
@@ -856,10 +857,7 @@ EOF`, k, v)
 			policyCheck = fmt.Sprintf("%s=%s %s=%s",
 				helpers.KubectlPolicyNameLabel, redisPolicyName,
 				helpers.KubectlPolicyNameSpaceLabel, helpers.DefaultNamespace)
-			Expect(kubectl.CiliumIsPolicyLoaded(ciliumPod, policyCheck)).To(BeTrue(),
-				"Policy %q is not in cilium", redisPolicyName)
-			Expect(kubectl.CiliumIsPolicyLoaded(ciliumPod2, policyCheck)).To(BeTrue(),
-				"Policy %q is not in cilium", redisPolicyName)
+			policyCheckStatus(policyCheck)
 
 			testConnectivitytoRedis()
 
@@ -878,10 +876,7 @@ EOF`, k, v)
 			policyCheck = fmt.Sprintf("%s=%s %s=%s",
 				helpers.KubectlPolicyNameLabel, redisPolicyDeprecatedName,
 				helpers.KubectlPolicyNameSpaceLabel, helpers.DefaultNamespace)
-			Expect(kubectl.CiliumIsPolicyLoaded(ciliumPod, policyCheck)).To(BeTrue(),
-				"Policy %q is not in cilium", redisPolicyName)
-			Expect(kubectl.CiliumIsPolicyLoaded(ciliumPod2, policyCheck)).To(BeTrue(),
-				"Policy %q is not in cilium", redisPolicyName)
+			policyCheckStatus(policyCheck)
 
 			testConnectivitytoRedis()
 		})
