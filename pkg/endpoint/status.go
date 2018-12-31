@@ -89,7 +89,6 @@ type StatusResponse struct {
 	KVStore    Status              `json:"kvstore"`
 	Docker     Status              `json:"docker"`
 	Kubernetes Status              `json:"kubernetes"`
-	Logstash   Status              `json:"logstash"`
 	Cilium     Status              `json:"cilium"`
 	IPAMStatus map[string][]string `json:",omitempty"`
 }

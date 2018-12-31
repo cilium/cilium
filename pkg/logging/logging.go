@@ -19,32 +19,19 @@ import (
 	"bytes"
 	"fmt"
 	"log/syslog"
-	"net"
 	"os"
 	"regexp"
-	"strconv"
+	"sync/atomic"
 	"time"
 
-	"github.com/evalphobia/logrus_fluent"
 	"github.com/sirupsen/logrus"
 	logrus_syslog "github.com/sirupsen/logrus/hooks/syslog"
-	"sync/atomic"
 )
 
 const (
-	fAddr  = "fluentd.address"
-	fTag   = "fluentd.tag"
-	fLevel = "fluentd.level"
-
 	SLevel = "syslog.level"
 
-	lAddr     = "logstash.address"
-	lLevel    = "logstash.level"
-	lProtocol = "logstash.protocol"
-
-	Syslog   = "syslog"
-	Fluentd  = "fluentd"
-	Logstash = "logstash"
+	Syslog = "syslog"
 )
 
 var (
@@ -58,20 +45,6 @@ var (
 	// syslogOpts is the set of supported options for syslog configuration.
 	syslogOpts = map[string]bool{
 		"syslog.level": true,
-	}
-
-	// fluentDOpts is the set of supported options for fluentD configuration.
-	fluentDOpts = map[string]bool{
-		fAddr:  true,
-		fTag:   true,
-		fLevel: true,
-	}
-
-	// logstashOpts is the set of supported options for logstash configuration.
-	logstashOpts = map[string]bool{
-		lAddr:     true,
-		lLevel:    true,
-		lProtocol: true,
 	}
 
 	// syslogLevelMap maps logrus.Level values to syslog.Priority levels.
@@ -132,7 +105,6 @@ func SetupLogging(loggers []string, logOpts map[string]string, tag string, debug
 	// Iterate through all provided loggers and configure them according
 	// to user-provided settings.
 	for _, logger := range loggers {
-		valuesToValidate := getLogDriverConfig(logger, logOpts)
 		switch logger {
 		case Syslog:
 			valuesToValidate := getLogDriverConfig(Syslog, logOpts)
@@ -141,24 +113,6 @@ func SetupLogging(loggers []string, logOpts map[string]string, tag string, debug
 				return err
 			}
 			setupSyslog(valuesToValidate, tag, debug)
-		case Fluentd:
-			err := validateOpts(logger, valuesToValidate, fluentDOpts)
-			if err != nil {
-				return err
-			}
-			setupFluentD(valuesToValidate, debug)
-			//TODO - need to finish logstash integration.
-		/*case Logstash:
-		fmt.Printf("SetupLogging: in logstash case\n")
-		err := validateOpts(logger, valuesToValidate, logstashOpts)
-		fmt.Printf("SetupLogging: validating options for logstash complete\n")
-		if err != nil {
-			fmt.Printf("SetupLogging: error validating logstash opts %v\n", err.Error())
-			return err
-		}
-		fmt.Printf("SetupLogging: about to setup logstash\n")
-		setupLogstash(valuesToValidate)
-		*/
 		default:
 			return fmt.Errorf("provided log driver %q is not a supported log driver", logger)
 		}
@@ -230,77 +184,6 @@ func setupFormatter() logrus.Formatter {
 	// TODO: switch to a per-logger version when we upgrade to logrus >1.0.3
 	return fileFormat
 }
-
-// setupFluentD sets up and configures FluentD with the provided options in
-// logOpts. If some options are not provided, sensible defaults are used.
-func setupFluentD(logOpts map[string]string, debug bool) {
-	//If no logging level set for fluentd, use debug value if it is set.
-	// Logging level set for fluentd takes precedence over debug flag
-	// fluent.level provided.
-	logLevel, ok := logOpts[fLevel]
-	if !ok {
-		if debug {
-			logLevel = "debug"
-		} else {
-			logLevel = "info"
-		}
-	}
-	level, err := logrus.ParseLevel(logLevel)
-	if err != nil {
-		DefaultLogger.Fatal(err)
-	}
-
-	hostAndPort, ok := logOpts[fAddr]
-	if !ok {
-		hostAndPort = "localhost:24224"
-	}
-
-	host, strPort, err := net.SplitHostPort(hostAndPort)
-	if err != nil {
-		DefaultLogger.Fatal(err)
-	}
-	port, err := strconv.Atoi(strPort)
-	if err != nil {
-		DefaultLogger.Fatal(err)
-	}
-
-	h, err := logrus_fluent.New(host, port)
-	if err != nil {
-		DefaultLogger.Fatal(err)
-	}
-
-	tag, ok := logOpts[fTag]
-	if ok {
-		h.SetTag(tag)
-	}
-
-	// set custom fire level
-	h.SetLevels(setFireLevels(level))
-	// TODO: switch to a per-logger version when we upgrade to logrus >1.0.3
-	logrus.AddHook(h)
-}
-
-// setupLogstash sets up and configures Logstash with the provided options in
-// logOpts. If some options are not provided, sensible defaults are used.
-/// FIXME GH-1578 - needs to be tested with a working logstash setup.
-//func setupLogstash(logOpts map[string]string) {
-//	hostAndPort, ok := logOpts[lAddr]
-//	if !ok {
-//		hostAndPort = "172.17.0.2:999"
-//	}
-//
-//	protocol, ok := logOpts[lProtocol]
-//	if !ok {
-//		protocol = "tcp"
-//	}
-//
-//	h, err := logrustash.NewHook(protocol, hostAndPort, "cilium")
-//	if err != nil {
-//		DefaultLogger.Fatal(err)
-//	}
-//
-//	DefaultLogger.AddHook(h)
-//}
 
 // validateOpts iterates through all of the keys in logOpts, and errors out if
 // the key in logOpts is not a key in supportedOpts.

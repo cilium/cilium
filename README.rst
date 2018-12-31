@@ -136,7 +136,6 @@ Integrations
 * Network plugin integrations: CNI_, libnetwork_
 * Container runtime events: containerd_
 * Kubernetes: NetworkPolicy_, Labels_, Ingress_, Service_
-* Logging: syslog, fluentd_
 
 .. _CNI: https://github.com/containernetworking/cni
 .. _libnetwork: https://github.com/docker/libnetwork
@@ -145,7 +144,6 @@ Integrations
 .. _Ingress: https://kubernetes.io/docs/concepts/services-networking/ingress/
 .. _NetworkPolicy: https://kubernetes.io/docs/concepts/services-networking/network-policies/
 .. _Labels: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
-.. _fluentd: http://www.fluentd.org/
 .. _`Layer 7 Policy`: http://docs.cilium.io/en/stable/policy/#layer-7
 
 .. end-functionality-overview
