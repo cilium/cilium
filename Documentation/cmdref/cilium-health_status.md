@@ -31,7 +31,7 @@ cilium-health status
   -D, --debug                    Enable debug messages
   -H, --host string              URI to cilium-health server API
   -i, --interval uint            Interval (in seconds) for periodic connectivity probes (default 60)
-      --log-driver stringSlice   Logging endpoints to use for example syslog, fluentd
+      --log-driver stringSlice   Logging endpoints to use for example syslog
       --log-opt map              Log driver options for cilium-health (default map[])
   -p, --passive                  Only respond to HTTP health checks
       --pidfile string           Write the PID to the specified file

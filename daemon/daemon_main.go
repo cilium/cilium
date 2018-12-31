@@ -104,15 +104,12 @@ var (
 	debugVerboseFlags     []string
 	disableConntrack      bool
 	dockerEndpoint        string
-	enableLogstash        bool
 	enableTracing         bool
 	k8sAPIServer          string
 	k8sKubeConfigPath     string
 	kvStore               string
 	labelPrefixFile       string
 	loggers               []string
-	logstashAddr          string
-	logstashProbeTimer    uint32
 	masquerade            bool
 	nat46prefix           string
 	prometheusServeAddr   string
@@ -453,15 +450,9 @@ func init() {
 	flags.StringVar(&option.Config.LibDir,
 		"lib-dir", defaults.LibraryPath, "Directory path to store runtime build environment")
 	flags.StringSliceVar(&loggers,
-		"log-driver", []string{}, "Logging endpoints to use for example syslog, fluentd")
+		"log-driver", []string{}, "Logging endpoints to use for example syslog")
 	flags.Var(option.NewNamedMapOptions("log-opts", &logOpts, nil),
 		"log-opt", "Log driver options for cilium")
-	flags.BoolVar(&enableLogstash,
-		"logstash", false, "Enable logstash integration")
-	flags.StringVar(&logstashAddr,
-		"logstash-agent", "127.0.0.1:8080", "Logstash agent address")
-	flags.Uint32Var(&logstashProbeTimer,
-		"logstash-probe-timer", 10, "Logstash probe timer (seconds)")
 	flags.Bool(option.LogSystemLoadConfigName, false, "Enable periodic logging of system load")
 	flags.StringVar(&nat46prefix,
 		"nat46-range", defaults.DefaultNAT46Prefix, "IPv6 prefix to map IPv4 addresses to")
@@ -848,11 +839,6 @@ func runDaemon() {
 		restoredEndpoints.restored)
 
 	endpointmanager.EndpointSynchronizer = &endpointsynchronizer.EndpointSynchronizer{}
-
-	if enableLogstash {
-		log.Info("Enabling Logstash")
-		go EnableLogstash(logstashAddr, int(logstashProbeTimer))
-	}
 
 	log.Info("Launching node monitor daemon")
 	go d.nodeMonitor.Run(path.Join(defaults.RuntimePath, defaults.EventsPipe), bpf.GetMapRoot())

@@ -355,13 +355,6 @@
   revision = "82fb373e3eaa4e9bbb5b5ac148b0a3a71f80fca6"
 
 [[projects]]
-  digest = "1:11233cc46c89b30602ce683997dca8f4d5b9476041f38e79ac035cdc5da344ea"
-  name = "github.com/evalphobia/logrus_fluent"
-  packages = ["."]
-  pruneopts = "NUT"
-  revision = "v0.4.0"
-
-[[projects]]
   digest = "1:32598368f409bbee79deb9d43569fcd92b9fb27f39155f5e166b3371217f051f"
   name = "github.com/evanphx/json-patch"
   packages = ["."]
@@ -375,14 +368,6 @@
   packages = ["."]
   pruneopts = "NUT"
   revision = "533cd7fd8a85905f67a1753afb4deddc85ea174f"
-
-[[projects]]
-  digest = "1:1a1fda2eefc60b9b047b3812b26be4779352aa80cab966b77e6fe77b157a7a4b"
-  name = "github.com/fluent/fluent-logger-golang"
-  packages = ["fluent"]
-  pruneopts = "NUT"
-  revision = "8bbc2356beaf021b04c9bd5cdc76ea5a7ccb40ec"
-  version = "v1.3.0"
 
 [[projects]]
   digest = "1:1b91ae0dc69a41d4c2ed23ea5cffb721ea63f5037ca4b81e6d6771fbb8f45129"
@@ -1010,14 +995,6 @@
   revision = "b0b1615b78e5ee59739545bb38426383b2cda4c9"
 
 [[projects]]
-  digest = "1:44c66ad69563dbe3f8e76d7d6cad21a03626e53f1875b5ab163ded419e01ca7a"
-  name = "github.com/philhofer/fwd"
-  packages = ["."]
-  pruneopts = "NUT"
-  revision = "bb6d471dc95d4fe11e432687f8b70ff496cf3136"
-  version = "v1.0.0"
-
-[[projects]]
   digest = "1:5cf3f025cbee5951a4ee961de067c8a89fc95a5adabead774f82822efabab121"
   name = "github.com/pkg/errors"
   packages = ["."]
@@ -1186,14 +1163,6 @@
   packages = ["capability"]
   pruneopts = "NUT"
   revision = "d98352740cb2c55f81556b63d4a1ec64c5a319c2"
-
-[[projects]]
-  digest = "1:eaa6698f44de8f2977e93c9b946e60a8af75f565058658aad2df8032b55c84e5"
-  name = "github.com/tinylib/msgp"
-  packages = ["msgp"]
-  pruneopts = "NUT"
-  revision = "b2b6a672cf1e5b90748f79b8b81fc8c5cf0571a1"
-  version = "1.0.2"
 
 [[projects]]
   digest = "1:49fe0137c9f8623cb88500da6ee2a5c59469e1ead2d95a4225a6c5936f5d0b75"
@@ -1778,7 +1747,6 @@
     "github.com/docker/libnetwork/drivers/remote/api",
     "github.com/docker/libnetwork/ipams/remote/api",
     "github.com/docker/libnetwork/types",
-    "github.com/evalphobia/logrus_fluent",
     "github.com/fatih/color",
     "github.com/go-openapi/errors",
     "github.com/go-openapi/loads",
