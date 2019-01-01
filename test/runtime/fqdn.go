@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -101,6 +102,9 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		WorldHttpd1        = "WorldHttpd1"
 		WorldHttpd2        = "WorldHttpd2"
 		WorldHttpd3        = "WorldHttpd3"
+		OutsideHttpd1      = "OutsideHttpd1"
+		OutsideHttpd2      = "OutsideHttpd2"
+		OutsideHttpd3      = "OutsideHttpd3"
 
 		bindDBCilium     = "db.cilium.test"
 		bindDBOutside    = "db.outside.test"
@@ -121,10 +125,10 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 			WorldHttpd3: helpers.HttpdImage,
 		}
 
-		ciliumOutisdeImages = map[string]string{
-			WorldHttpd1: helpers.HttpdImage,
-			WorldHttpd2: helpers.HttpdImage,
-			WorldHttpd3: helpers.HttpdImage,
+		ciliumOutsideImages = map[string]string{
+			OutsideHttpd1: helpers.HttpdImage,
+			OutsideHttpd2: helpers.HttpdImage,
+			OutsideHttpd3: helpers.HttpdImage,
 		}
 
 		worldIps       = map[string]string{}
@@ -153,7 +157,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		err := helpers.RenderTemplateToFile(bindDBCilium, bindConfig, os.ModePerm)
 		Expect(err).To(BeNil(), "bind file can't be created")
 
-		for name, image := range ciliumOutisdeImages {
+		for name, image := range ciliumOutsideImages {
 			vm.ContainerCreate(name, image, worldNetwork, fmt.Sprintf("-l id.%s", name))
 			res := vm.ContainerInspect(name)
 			res.ExpectSuccess("Container is not ready after create it")
@@ -218,7 +222,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 			vm.ContainerRm(name)
 		}
 
-		for name := range ciliumOutisdeImages {
+		for name := range ciliumOutsideImages {
 			vm.ContainerRm(name)
 		}
 		vm.SampleContainersActions(helpers.Delete, "")
@@ -367,7 +371,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		]
 	}
 ]`
-		_, err := vm.PolicyRenderAndImport(fmt.Sprintf(policy, outsideIps[WorldHttpd1]))
+		_, err := vm.PolicyRenderAndImport(fmt.Sprintf(policy, outsideIps[OutsideHttpd1]))
 		Expect(err).To(BeNil(), "Policy cannot be imported")
 
 		expectFQDNSareApplied()
@@ -377,7 +381,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		res.ExpectSuccess("Cannot access toCIDRSet allowed IP of DNS name %q", world1Target)
 
 		By("Testing connectivity to existing CIDR rule")
-		res = vm.ContainerExec(helpers.App1, helpers.CurlFail(outsideIps[WorldHttpd1]))
+		res = vm.ContainerExec(helpers.App1, helpers.CurlFail(outsideIps[OutsideHttpd1]))
 		res.ExpectSuccess("Cannot access to CIDR rule when should work")
 
 		By("Ensure connectivity to other domains is still block")
@@ -778,14 +782,103 @@ INITSYSTEM=SYSTEMD`
 		})
 	})
 
+	It("DNS proxy policy works if Cilium stops", func() {
+		targetURL := "http://world1.cilium.test"
+		targetIP := worldIps[WorldHttpd1]
+		invalidURL := "http://world1.outside.test"
+		invalidIP := outsideIps[OutsideHttpd1]
+
+		policy := `
+[
+	{
+		"labels": [{
+			"key": "dns-proxy"
+		}],
+		"endpointSelector": {
+			"matchLabels": {
+				"container:id.app1": ""
+			}
+		},
+		"egress": [
+			{
+				"toPorts": [{
+					"ports":[{"port": "53", "protocol": "ANY"}],
+					"rules": {
+						"dns": [
+							{"matchPattern": "*.cilium.test"}
+						]
+					}
+				}]
+			},
+			{
+				"toFQDNs": [{
+					"matchName": "world1.cilium.test"
+				}]
+			}
+		]
+	}
+]`
+		_, err := vm.PolicyRenderAndImport(policy)
+		Expect(err).To(BeNil(), "Policy cannot be imported")
+
+		expectFQDNSareApplied()
+
+		By("Curl from %q to %q", helpers.App1, targetURL)
+		res := vm.ContainerExec(helpers.App1, helpers.CurlFail(targetURL))
+		res.ExpectSuccess("Cannot connect from app1")
+
+		By("Curl from %q to %q should fail", helpers.App1, invalidURL)
+		res = vm.ContainerExec(helpers.App1, helpers.CurlFail(invalidURL))
+		res.ExpectFail("Can connect from app1 when it should not work")
+
+		By("Stopping Cilium")
+
+		defer func() {
+			// Defer a Cilium restart to make sure that keep started when test finished.
+			_ = vm.ExecWithSudo("systemctl start cilium")
+			vm.WaitEndpointsReady()
+		}()
+
+		res = vm.ExecWithSudo("systemctl stop cilium")
+		res.ExpectSuccess("Failed trying to stop cilium via systemctl")
+
+		By("Testing connectivity from %q to the IP %q without DNS request", helpers.App1, targetIP)
+		res = vm.ContainerExec(helpers.App1, helpers.CurlFail("http://%s", targetIP))
+		res.ExpectSuccess("Cannot connect to %q", targetIP)
+
+		By("Curl from %q to %q with Cilium down", helpers.App1, targetURL)
+		// When Cilium is down the DNS-proxy is also down. The Endpoint has a
+		// redirect to use the DNS-proxy, so new DNS request are redirected
+		// incorrectly.
+		// Future Cilium versions will fix this behaviour
+		res = vm.ContainerExec(helpers.App1, helpers.CurlFail(targetURL))
+		res.ExpectFail("This request should fail because no dns-proxy when cilium is stopped")
+
+		By("Testing that invalid traffic is still block when Cilium is down", helpers.App1, invalidIP)
+		res = vm.ContainerExec(helpers.App1, helpers.CurlFail("http://%s", invalidIP))
+		res.ExpectFail("Can connect from app1 when it should not work")
+
+		By("Starting Cilium again")
+		Expect(vm.RestartCilium()).To(BeNil(), "Cilium cannot be started correctly")
+
+		// Policies on docker are not persistant, so the restart connectivity is not tested at all
+	})
 })
 
+// getMapValues retuns an array of interfaces with the map values.
+// returned array will be sorted by map keys, the reason is that Golang does
+// not support ordered maps and for DNS-config the values need to be always
+// sorted.
 func getMapValues(m map[string]string) []interface{} {
+
 	values := make([]interface{}, len(m))
-	i := 0
-	for _, v := range m {
-		values[i] = v
-		i++
+	var keys []string
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for i, k := range keys {
+		values[i] = m[k]
 	}
 	return values
 }
