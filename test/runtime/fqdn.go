@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -101,6 +102,9 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		WorldHttpd1        = "WorldHttpd1"
 		WorldHttpd2        = "WorldHttpd2"
 		WorldHttpd3        = "WorldHttpd3"
+		OutsideHttpd1      = "OutsideHttpd1"
+		OutsideHttpd2      = "OutsideHttpd2"
+		OutsideHttpd3      = "OutsideHttpd3"
 
 		bindDBCilium     = "db.cilium.test"
 		bindDBOutside    = "db.outside.test"
@@ -122,9 +126,9 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		}
 
 		ciliumOutisdeImages = map[string]string{
-			WorldHttpd1: helpers.HttpdImage,
-			WorldHttpd2: helpers.HttpdImage,
-			WorldHttpd3: helpers.HttpdImage,
+			OutsideHttpd1: helpers.HttpdImage,
+			OutsideHttpd2: helpers.HttpdImage,
+			OutsideHttpd3: helpers.HttpdImage,
 		}
 
 		worldIps       = map[string]string{}
@@ -367,7 +371,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		]
 	}
 ]`
-		_, err := vm.PolicyRenderAndImport(fmt.Sprintf(policy, outsideIps[WorldHttpd1]))
+		_, err := vm.PolicyRenderAndImport(fmt.Sprintf(policy, outsideIps[OutsideHttpd1]))
 		Expect(err).To(BeNil(), "Policy cannot be imported")
 
 		expectFQDNSareApplied()
@@ -377,7 +381,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		res.ExpectSuccess("Cannot access toCIDRSet allowed IP of DNS name %q", world1Target)
 
 		By("Testing connectivity to existing CIDR rule")
-		res = vm.ContainerExec(helpers.App1, helpers.CurlFail(outsideIps[WorldHttpd1]))
+		res = vm.ContainerExec(helpers.App1, helpers.CurlFail(outsideIps[OutsideHttpd1]))
 		res.ExpectSuccess("Cannot access to CIDR rule when should work")
 
 		By("Ensure connectivity to other domains is still block")
@@ -778,14 +782,94 @@ INITSYSTEM=SYSTEMD`
 		})
 	})
 
+	It("DNS proxy policy works if Cilium stops", func() {
+		targetURL := "http://world1.cilium.test"
+		targetIP := worldIps[WorldHttpd1]
+		invalidURL := "http://world1.outside.test"
+		invalidIP := outsideIps[OutsideHttpd1]
+
+		policy := `
+[
+	{
+		"labels": [{
+			"key": "dns-proxy"
+		}],
+		"endpointSelector": {
+			"matchLabels": {
+				"container:id.app1": ""
+			}
+		},
+		"egress": [
+			{
+				"toPorts": [{
+					"ports":[{"port": "53", "protocol": "ANY"}],
+					"rules": {
+						"dns": [
+							{"matchPattern": "*.cilium.test"}
+						]
+					}
+				}]
+			},
+			{
+				"toFQDNs": [{
+					"matchName": "world1.cilium.test"
+				}]
+			}
+		]
+	}
+]`
+		_, err := vm.PolicyRenderAndImport(policy)
+		Expect(err).To(BeNil(), "Policy cannot be imported")
+
+		expectFQDNSareApplied()
+
+		By("Curl from %q to %q", helpers.App1, targetURL)
+		res := vm.ContainerExec(helpers.App1, helpers.CurlFail(targetURL))
+		res.ExpectSuccess("Cannot connect from app1")
+
+		By("Curl from %q to %q should fail", helpers.App1, invalidURL)
+		res = vm.ContainerExec(helpers.App1, helpers.CurlFail(invalidURL))
+		res.ExpectFail("Can connect from app1 when it should not work")
+
+		By("Stopping Cilium")
+
+		defer func() {
+			// Defer a Cilium restart to make sure that keep started when test finished.
+			_ = vm.ExecWithSudo("systemctl start cilium")
+			vm.WaitEndpointsReady()
+		}()
+
+		res = vm.ExecWithSudo("systemctl stop cilium")
+		res.ExpectSuccess("Failed trying to stop cilium via systemctl")
+
+		By("Testing connectivity to the IP %q without DNS request", targetIP)
+		res = vm.ContainerExec(helpers.App1, helpers.CurlFail("http://%s", targetIP))
+		res.ExpectSuccess("Cannot connect app1")
+
+		By("Curl from %q to %q with Cilium down", helpers.App1, targetURL)
+		res = vm.ContainerExec(helpers.App1, helpers.CurlFail(targetURL))
+		res.ExpectFail("This request should fail because no dns-proxy")
+
+		By("Testing invalid connectivity to the IP %q without DNS request", invalidIP)
+		res = vm.ContainerExec(helpers.App1, helpers.CurlFail("http://%s", invalidIP))
+		res.ExpectFail("Can connect from app1 when it should not work")
+
+		By("Starting Cilium again")
+		Expect(vm.RestartCilium()).To(BeNil(), "Cilium cannot be started correctly")
+
+		// Policies on docker are not persistant, so the restart connectivity is not tested at all
+	})
 })
 
 func getMapValues(m map[string]string) []interface{} {
 	values := make([]interface{}, len(m))
-	i := 0
-	for _, v := range m {
-		values[i] = v
-		i++
+	var keys []string
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for i, k := range keys {
+		values[i] = m[k]
 	}
 	return values
 }
