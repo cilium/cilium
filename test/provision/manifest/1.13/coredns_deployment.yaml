@@ -72,6 +72,7 @@ data:
             fallthrough in-addr.arpa ip6.arpa
         }
         prometheus :9153
+        proxy cilium.test 10.96.0.100:53
         proxy . /etc/resolv.conf
         cache 30
         loop
