@@ -39,6 +39,9 @@ metadata:
   namespace: kube-system
   labels:
     addonmanager.kubernetes.io/mode: EnsureExists
+data:
+  stubDomains: |
+    {"cilium.test": ["10.96.0.100"]}
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
