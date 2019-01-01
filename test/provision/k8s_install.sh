@@ -265,4 +265,9 @@ else
     sudo iptables -t nat -A POSTROUTING -o enp0s8 ! -s 192.168.36.12 -j MASQUERADE
 fi
 
+# Create world network
+docker network create --subnet=192.168.9.0/24 outside
+docker run --net outside --ip 192.168.9.10 --restart=always -d docker.io/cilium/demo-httpd:latest
+docker run --net outside --ip 192.168.9.11 --restart=always -d docker.io/cilium/demo-httpd:latest
+
 sudo touch /etc/provision_finished
