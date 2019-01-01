@@ -1,0 +1,115 @@
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: bind-config
+  namespace: default
+data:
+  db.cilium.test: |
+    $TTL 300
+    $ORIGIN cilium.test.
+    @       IN      SOA     cilium.test. admin.cilium.test. (
+                            200608081       ; serial, todays date + todays serial #
+                            8H              ; refresh, seconds
+                            2H              ; retry, seconds
+                            4W              ; expire, seconds
+                            1D )            ; minimum, seconds
+    ;
+    ;
+    @               IN NS server
+
+    server.cilium.test. IN A 127.0.0.1
+    world1.cilium.test. IN A 192.168.9.10
+    world2.cilium.test. IN A 192.168.9.11
+
+  named.conf: |
+    options {
+      directory "/var/cache/bind";
+      dnssec-validation auto;
+
+      auth-nxdomain no;    # conform to RFC1035
+      listen-on-v6 { any; };
+    };
+
+    logging {
+      category default { default_stderr; };
+      category queries { default_stderr; };
+    };
+
+    zone "cilium.test" {
+            type master;
+            file "/data/db.cilium.test";
+    };
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    zgroup: bind
+  name: bind
+  namespace: default
+spec:
+  replicas: 1
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        zgroup: bind
+    spec:
+      containers:
+      - image: docker.io/cilium/docker-bind:v0.1
+        command: [ "/usr/sbin/named"]
+        args:
+          - "-c"
+          - "/data/named.conf.local"
+          - "-u"
+          - "bind"
+          - "-f"
+          - "-d"
+          - "8"
+        imagePullPolicy: IfNotPresent
+        name: bind
+        ports:
+        - containerPort: 53
+          name: dns
+          protocol: UDP
+        - containerPort: 53
+          name: dns-tcp
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /data/
+          name: config-volume
+        securityContext:
+          privileged: true
+      dnsPolicy: Default
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 0
+      volumes:
+      - name: config-volume
+        configMap:
+          defaultMode: 0777
+          items:
+          - key: db.cilium.test
+            path: db.cilium.test
+          - key: named.conf
+            path: named.conf.local
+          name: bind-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bind
+  namespace: default
+  labels:
+    zgroup: bind
+spec:
+  selector:
+    zgroup: bind
+  clusterIP: 10.96.0.100
+  ports:
+  - name: dns
+    port: 53
+    protocol: UDP
+  - name: dns-tcp
+    port: 53
+    protocol: TCP
