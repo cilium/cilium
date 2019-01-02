@@ -72,6 +72,7 @@ struct bpf_elf_map __section_maps POLICY_MAP = {
 };
 #endif
 
+#ifdef CONFIG_MAP
 struct bpf_elf_map __section_maps CONFIG_MAP = {
 	.type		= BPF_MAP_TYPE_ARRAY,
 	.size_key	= sizeof(__u32),
@@ -79,6 +80,7 @@ struct bpf_elf_map __section_maps CONFIG_MAP = {
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= 1,
 };
+#endif
 
 #ifdef ENABLE_IPV4
 struct bpf_elf_map __section_maps cilium_proxy4 = {
