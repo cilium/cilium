@@ -797,22 +797,24 @@ func initEnv(cmd *cobra.Command) {
 
 	k8s.Configure(k8sAPIServer, k8sKubeConfigPath)
 
-	// workaround for to use the values of the deprecated dockerEndpoint
-	// variable if it is set with a different value than defaults.
-	defaultDockerEndpoint := workloads.GetRuntimeDefaultOpt(workloads.Docker, "endpoint")
-	if defaultDockerEndpoint != dockerEndpoint {
-		containerRuntimesOpts[string(workloads.Docker)] = dockerEndpoint
-		log.Warn(`"docker" flag is deprecated.` +
-			`Please use "--container-runtime-endpoint=docker=` + defaultDockerEndpoint + `" instead`)
-	}
+	if option.Config.WorkloadsEnabled() {
+		// workaround for to use the values of the deprecated dockerEndpoint
+		// variable if it is set with a different value than defaults.
+		defaultDockerEndpoint := workloads.GetRuntimeDefaultOpt(workloads.Docker, "endpoint")
+		if defaultDockerEndpoint != dockerEndpoint {
+			containerRuntimesOpts[string(workloads.Docker)] = dockerEndpoint
+			log.Warn(`"docker" flag is deprecated.` +
+				`Please use "--container-runtime-endpoint=docker=` + defaultDockerEndpoint + `" instead`)
+		}
 
-	err = workloads.ParseConfigEndpoint(option.Config.Workloads, containerRuntimesOpts)
-	if err != nil {
-		log.WithError(err).Fatal("Unable to initialize policy container runtimes")
-		return
-	}
+		err = workloads.ParseConfigEndpoint(option.Config.Workloads, containerRuntimesOpts)
+		if err != nil {
+			log.WithError(err).Fatal("Unable to initialize policy container runtimes")
+			return
+		}
 
-	log.Infof("Container runtime options set: %s", workloads.GetRuntimeOptions())
+		log.Infof("Container runtime options set: %s", workloads.GetRuntimeOptions())
+	}
 
 	if viper.GetBool("sidecar-http-proxy") {
 		log.Warn(`"sidecar-http-proxy" flag is deprecated and has no effect`)
