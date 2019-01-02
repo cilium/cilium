@@ -65,7 +65,6 @@ type Map struct {
 
 func init() {
 	TunnelMap.NonPersistent = true
-	bpf.OpenAfterMount(TunnelMap.Map)
 
 	// Remove old map and ignore errors; this is the "normal" case.
 	// BPFFS map root in older versions of Cilium wasn't dynamic, so the

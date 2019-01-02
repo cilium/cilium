@@ -56,10 +56,6 @@ var (
 	).WithCache()
 )
 
-func init() {
-	bpf.OpenAfterMount(LXCMap)
-}
-
 // MAC is the __u64 representation of a MAC address.
 type MAC uint64
 
