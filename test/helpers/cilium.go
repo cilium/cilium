@@ -916,6 +916,15 @@ func (s *SSHMeta) SetUpCiliumWithOptions(template string) error {
 	return nil
 }
 
+func (s *SSHMeta) SetUpCiliumWithSockops() error {
+	var config = `
++PATH=/usr/lib/llvm-3.8/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
++CILIUM_OPTS=--sockops-enable --kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug --pprof=true --log-system-load --tofqdns-enable-poller=true
++INITSYSTEM=SYSTEMD`
+
+	return s.SetUpCiliumWithOptions(config)
+}
+
 // WaitUntilReady waits until the output of `cilium status` returns with code
 // zero. Returns an error if the output of `cilium status` returns a nonzero
 // return code after the specified timeout duration has elapsed.
