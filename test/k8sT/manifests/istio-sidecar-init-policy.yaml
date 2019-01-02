@@ -5,7 +5,7 @@ metadata:
 specs:
   - endpointSelector:
       matchLabels:
-        "reserved:init": ""
+        "zgroup": "bookinfo"
     ingress:
     - fromEntities:
       - host

@@ -767,6 +767,7 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 		}
 		nodeIDs := make([]string, 0, 1)
 		if ep.HasSidecarProxy() {
+			log.Infof("ep.HasSideCarProxy() == true; sidecar proxy IP = %s", ep.GetIPv4Address())
 			if ep.GetIPv4Address() == "" {
 				log.Fatal("Envoy: Sidecar proxy has no IPv4 address")
 			}

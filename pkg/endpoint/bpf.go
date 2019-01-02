@@ -780,7 +780,9 @@ func (e *Endpoint) runPreCompilationSteps(owner Owner, regenContext *regeneratio
 		// Configure the new network policy with the proxies.
 		stats.proxyPolicyCalculation.Start()
 		var networkPolicyRevertFunc revert.RevertFunc
+		e.getLogger().Info("calling updateNetworkPolicy")
 		err, networkPolicyRevertFunc = e.updateNetworkPolicy(owner, datapathRegenCtxt.proxyWaitGroup)
+		e.getLogger().Info("done calling updateNetworkPolicy")
 		stats.proxyPolicyCalculation.End(err == nil)
 		if err != nil {
 			return err
@@ -796,7 +798,9 @@ func (e *Endpoint) runPreCompilationSteps(owner Owner, regenContext *regeneratio
 	// state to set the newly allocated proxy ports.
 	var desiredRedirects map[string]bool
 	if e.desiredPolicy != nil && e.desiredPolicy.L4Policy != nil {
+		e.getLogger().Info("calling addNewRedirects")
 		desiredRedirects, err, finalizeFunc, revertFunc = e.addNewRedirects(owner, e.desiredPolicy.L4Policy, datapathRegenCtxt.proxyWaitGroup)
+		e.getLogger().Info("done calling addNewRedirects")
 		if err != nil {
 			stats.proxyConfiguration.End(false)
 			return err
@@ -808,7 +812,9 @@ func (e *Endpoint) runPreCompilationSteps(owner Owner, regenContext *regeneratio
 	// At this point, traffic is no longer redirected to the proxy for
 	// now-obsolete redirects, since we synced the updated policy map above.
 	// It's now safe to remove the redirects from the proxy's configuration.
+	e.getLogger().Info("calling removeOldRedirects")
 	finalizeFunc, revertFunc = e.removeOldRedirects(owner, desiredRedirects, datapathRegenCtxt.proxyWaitGroup)
+	e.getLogger().Info("done calling removeOldRedirects")
 	datapathRegenCtxt.finalizeList.Append(finalizeFunc)
 	datapathRegenCtxt.revertStack.Push(revertFunc)
 	stats.proxyConfiguration.End(true)
