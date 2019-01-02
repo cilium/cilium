@@ -471,7 +471,6 @@ spec:
           defaultMode: 420
           optional: true
           secretName: cilium-etcd-secrets
-
 ---
 kind: ServiceAccount
 apiVersion: v1

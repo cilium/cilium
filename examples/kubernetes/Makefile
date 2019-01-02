@@ -11,6 +11,7 @@ K8S_VERSIONS = 1.8 1.9 1.10 1.11 1.12 1.13
 COMMON = \
   cilium-cm.yaml \
   cilium-operator.yaml \
+  cilium-operator-rbac.yaml \
   cilium-rbac.yaml
 
 ETCD_OPERATOR= \
