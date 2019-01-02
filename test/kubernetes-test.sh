@@ -1,8 +1,6 @@
 #!/bin/bash
 
-k8sVersionJson=$(kubectl version -o json)
-
-KUBERNETES_MAJOR_MINOR_VER="$(echo "${k8sVersionJson}" | jq -r '.serverVersion | .major').$(echo "${k8sVersionJson}" | jq -r '.serverVersion | .minor')"
+KUBERNETES_MAJOR_MINOR_VER=$(kubectl version -o json | jq -r '(.serverVersion.major + "." + .serverVersion.minor)')
 
 k8sDescriptorsPath="./examples/kubernetes/${KUBERNETES_MAJOR_MINOR_VER}"
 k8sManifestsPath="./test/k8sT/manifests"
