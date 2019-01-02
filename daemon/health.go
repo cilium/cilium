@@ -106,7 +106,7 @@ func (d *Daemon) runCiliumHealthEndpoint() error {
 	if err := health.PingEndpoint(); err != nil {
 		d.cleanupHealthEndpoint()
 		addressing := node.GetNodeAddressing()
-		return health.LaunchAsEndpoint(d, addressing, mtuConfig)
+		return health.LaunchAsEndpoint(d, addressing, d.mtuConfig)
 	}
 	return nil
 }
