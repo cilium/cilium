@@ -129,47 +129,73 @@ func (kub *Kubectl) GetNumNodes() int {
 }
 
 // WaitCEPReady waits until all Cilium endpoints are sync in Kubernetes resource.
+// WaitCEPReady waits until a CEP exists for all currently existing endpoints
+// except for the health endpoint and ensures that the policy-revision reported
+// by the CEP is greater or equal than the policy revision reported in the
+// endpoint itself.
 func (kub *Kubectl) WaitCEPReady() error {
 	pods, err := kub.GetCiliumPods(KubeSystemNamespace)
 	if err != nil {
 		return err
 	}
-	body := func() bool {
-		// Created a map of .id and IPv4 because endpoint id can be the same in different nodes.
-		// Note: endpointFilter ignores the health endpoint because we don't create
-		// CEPs for them (via `?(@.status.identity.id != 4)`).
-		endpointFilter := `{range [?(@.status.identity.id != 4)]}{@.id}{"_"}{@.status.networking.addressing[0].ipv4}{"="}{@.status.policy.spec.policy-revision}{"\n"}{end}`
-		cepFilter := `{range .items[*]}{@.status.id}{"_"}{@.status.status.networking.addressing[0].ipv4}{"="}{@.status.status.policy.spec.policy-revision}{"\n"}{end}`
-		endpoints := map[string]string{}
-		for _, ciliumPod := range pods {
-			res := kub.ExecPodCmd(
-				KubeSystemNamespace,
-				ciliumPod,
-				fmt.Sprintf("cilium endpoint list -o jsonpath='%s'", endpointFilter))
-			for k, v := range res.KVOutput() {
-				endpoints[k] = v
-			}
+
+	// Created a map of .id and IPv4 because endpoint id can be the same in different nodes.
+	// Note: endpointFilter ignores the health endpoint because we don't create
+	// CEPs for them (via `?(@.status.identity.id != 4)`).
+	endpointFilter := `{range [?(@.status.identity.id != 4)]}{@.id}{"_"}{@.status.networking.addressing[0].ipv4}{"="}{@.status.policy.spec.policy-revision}{"\n"}{end}`
+	cepFilter := `{range .items[*]}{@.status.id}{"_"}{@.status.status.networking.addressing[0].ipv4}{"="}{@.status.status.policy.spec.policy-revision}{"\n"}{end}`
+	endpoints := map[string]int{}
+	for _, ciliumPod := range pods {
+		res := kub.ExecPodCmd(
+			KubeSystemNamespace,
+			ciliumPod,
+			fmt.Sprintf("cilium endpoint list -o jsonpath='%s'", endpointFilter))
+		if !res.WasSuccessful() {
+			return fmt.Errorf("unable to run '%s': %s", res.GetCmd(), res.OutputPrettyPrint())
 		}
+
+		for k, v := range res.KVOutput() {
+			policyRevision, err := strconv.Atoi(v)
+			if err != nil {
+				return fmt.Errorf("unable to parse policy revision '%s': %s", v, err)
+			}
+
+			endpoints[k] = policyRevision
+		}
+	}
+
+	// Wait for the CEPs to implement the desired policy revision for each endpoint
+	body := func() bool {
 		cepCMD := fmt.Sprintf("%s get cep --all-namespaces -o jsonpath='%s'", KubectlCmd, cepFilter)
 		res := kub.Exec(cepCMD)
 		if !res.WasSuccessful() {
 			return false
 		}
 		cepValues := res.KVOutput()
-		for k, v := range endpoints {
-			cepPolicy, ok := cepValues[k]
+		for k, requiredRevision := range endpoints {
+			cepRevisionString, ok := cepValues[k]
 			if !ok {
 				kub.logger.Infof("Endpoint '%s' is not present in cep", k)
 				return false
 			}
-			if cepPolicy != v {
-				kub.logger.Infof("Endpoint '%s' policies mismatch '%s'='%s'", k, cepPolicy, v)
-				return false
+
+			if requiredRevision > 0 {
+				cepRevision, err := strconv.Atoi(cepRevisionString)
+				if err != nil {
+					kub.logger.Infof("unable to parse policy revision '%s': %s", cepRevisionString, err)
+					return false
+				}
+
+				if cepRevision < requiredRevision {
+					kub.logger.Infof("Endpoint '%s' revision not met yet: '%d'<'%d'", k, cepRevision, requiredRevision)
+					return false
+				}
 			}
 		}
 		return true
 	}
-	return WithTimeout(body, "CEP not ready after timeout", &TimeoutConfig{Timeout: HelperTimeout})
+
+	return WithTimeout(body, "CEP don't implement required policy revisions after timeout", &TimeoutConfig{Timeout: HelperTimeout})
 }
 
 // ExecKafkaPodCmd executes shell command with arguments arg in the specified pod residing in the specified
