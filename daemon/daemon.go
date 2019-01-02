@@ -1245,8 +1245,8 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 			Options: kvStoreOpts,
 		},
 		Realized:  spec,
-		DeviceMTU: int64(mtuConfig.GetDeviceMTU()),
-		RouteMTU:  int64(mtuConfig.GetRouteMTU()),
+		DeviceMTU: int64(d.mtuConfig.GetDeviceMTU()),
+		RouteMTU:  int64(d.mtuConfig.GetRouteMTU()),
 	}
 
 	cfg := &models.DaemonConfiguration{
