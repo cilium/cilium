@@ -1365,7 +1365,14 @@ func (kub *Kubectl) CiliumReport(namespace string, commands ...string) {
 		kub.logger.WithError(err).Error("cannot retrieve cilium pods on ReportDump")
 		return
 	}
+
 	res := kub.Exec(fmt.Sprintf("%s get pods -o wide --all-namespaces", KubectlCmd))
+	ginkgoext.GinkgoPrint(res.GetDebugMessage())
+
+	res = kub.Exec(fmt.Sprintf("%s get cep -o wide --all-namespaces", KubectlCmd))
+	ginkgoext.GinkgoPrint(res.GetDebugMessage())
+
+	res = kub.Exec(fmt.Sprintf("%s get cnp -o wide --all-namespaces", KubectlCmd))
 	ginkgoext.GinkgoPrint(res.GetDebugMessage())
 
 	for _, pod := range pods {
