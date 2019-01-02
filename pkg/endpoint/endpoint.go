@@ -197,8 +197,11 @@ type Endpoint struct {
 	// compiled and installed.
 	bpfHeaderfileHash string
 
-	k8sPodName   string
-	k8sNamespace string
+	// K8sPodName is the Kubernetes pod name of the endpoint
+	K8sPodName string
+
+	// K8sNamespace is the Kubernetes namespace of the endpoint
+	K8sNamespace string
 
 	// policyRevision is the policy revision this endpoint is currently on
 	// to modify this field please use endpoint.setPolicyRevision instead
@@ -402,8 +405,8 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, 
 		DockerNetworkID:  base.DockerNetworkID,
 		DockerEndpointID: base.DockerEndpointID,
 		IfName:           base.InterfaceName,
-		k8sPodName:       base.K8sPodName,
-		k8sNamespace:     base.K8sNamespace,
+		K8sPodName:       base.K8sPodName,
+		K8sNamespace:     base.K8sNamespace,
 		IfIndex:          int(base.InterfaceIndex),
 		OpLabels:         pkgLabels.NewOpLabels(),
 		state:            "",
@@ -1457,7 +1460,7 @@ func (e *Endpoint) SetContainerName(name string) {
 // Kubernetes pod
 func (e *Endpoint) GetK8sNamespace() string {
 	e.UnconditionalRLock()
-	ns := e.k8sNamespace
+	ns := e.K8sNamespace
 	e.RUnlock()
 	return ns
 }
@@ -1465,7 +1468,7 @@ func (e *Endpoint) GetK8sNamespace() string {
 // SetK8sNamespace modifies the endpoint's pod name
 func (e *Endpoint) SetK8sNamespace(name string) {
 	e.UnconditionalLock()
-	e.k8sNamespace = name
+	e.K8sNamespace = name
 	e.UpdateLogger(map[string]interface{}{
 		logfields.K8sPodName: e.GetK8sNamespaceAndPodNameLocked(),
 	})
@@ -1476,7 +1479,7 @@ func (e *Endpoint) SetK8sNamespace(name string) {
 // Kubernetes pod
 func (e *Endpoint) GetK8sPodName() string {
 	e.UnconditionalRLock()
-	k8sPodName := e.k8sPodName
+	k8sPodName := e.K8sPodName
 	e.RUnlock()
 
 	return k8sPodName
@@ -1485,13 +1488,13 @@ func (e *Endpoint) GetK8sPodName() string {
 // GetK8sNamespaceAndPodNameLocked returns the namespace and pod name.  This
 // function requires e.Mutex to be held.
 func (e *Endpoint) GetK8sNamespaceAndPodNameLocked() string {
-	return e.k8sNamespace + "/" + e.k8sPodName
+	return e.K8sNamespace + "/" + e.K8sPodName
 }
 
 // SetK8sPodName modifies the endpoint's pod name
 func (e *Endpoint) SetK8sPodName(name string) {
 	e.UnconditionalLock()
-	e.k8sPodName = name
+	e.K8sPodName = name
 	e.UpdateLogger(map[string]interface{}{
 		logfields.K8sPodName: e.GetK8sNamespaceAndPodNameLocked(),
 	})
