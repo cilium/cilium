@@ -41,3 +41,26 @@ func (s *OptionSuite) TestValidateIPv6ClusterAllocCIDR(c *C) {
 	invalid4 := &daemonConfig{}
 	c.Assert(invalid4.validateIPv6ClusterAllocCIDR(), Not(IsNil))
 }
+
+func (s *OptionSuite) TestWorkloadsEnabled(c *C) {
+	type testDefinition struct {
+		config   *daemonConfig
+		expected bool
+	}
+
+	tests := []testDefinition{
+		{&daemonConfig{Workloads: []string{}}, false},
+		{&daemonConfig{Workloads: []string{"none"}}, false},
+		{&daemonConfig{Workloads: []string{"none"}}, false},
+		{&daemonConfig{Workloads: []string{"docker", "none"}}, false},
+		{&daemonConfig{Workloads: []string{"docker"}}, true},
+		{&daemonConfig{Workloads: []string{"docker", "crio"}}, true},
+		{&daemonConfig{Workloads: []string{"docker", "nonefalse"}}, true},
+	}
+
+	for _, test := range tests {
+		if test.config.WorkloadsEnabled() != test.expected {
+			c.Errorf("%#v != %#v", test.config.Workloads, test.expected)
+		}
+	}
+}

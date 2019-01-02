@@ -410,6 +410,17 @@ func (c *daemonConfig) GetGlobalsDir() string {
 	return filepath.Join(c.StateDir, "globals")
 }
 
+// WorkloadsEnabled returns true if any workload runtimes are enabled
+func (c *daemonConfig) WorkloadsEnabled() bool {
+	for _, w := range c.Workloads {
+		if w == "none" {
+			return false
+		}
+	}
+
+	return len(c.Workloads) > 0
+}
+
 // AlwaysAllowLocalhost returns true if the daemon has the option set that
 // localhost can always reach local endpoints
 func (c *daemonConfig) AlwaysAllowLocalhost() bool {
