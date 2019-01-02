@@ -270,11 +270,7 @@ func (c *criClient) handleCreateWorkload(id string, retry bool) {
 
 		ep.SetContainerID(id)
 
-		// In Kubernetes mode, attempt to retrieve pod name stored in
-		// pod runtime label
-		//
-		// FIXME: Abstract via interface so other workload types can
-		// implement this
+		// FIXME: Remove this in 2019-06: GH-6526
 		if k8s.IsEnabled() {
 			ep.SetK8sNamespace(k8sLbls.GetPodNamespace(pod.Labels))
 			ep.SetK8sPodName(k8sLbls.GetPodName(pod.Labels))
