@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipam"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -38,6 +39,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type endpointRestoreState struct {
@@ -94,6 +96,13 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 		if ep.HasLabels(labels.LabelHealth) {
 			skipRestore = true
 		} else {
+			if ep.K8sPodName != "" && ep.K8sNamespace != "" {
+				_, err := k8s.Client().CoreV1().Pods(ep.K8sNamespace).Get(ep.K8sPodName, meta_v1.GetOptions{})
+				if err != nil {
+					skipRestore = true
+				}
+			}
+
 			if _, err := netlink.LinkByName(ep.IfName); err != nil {
 				scopedLog.Infof("Interface %s could not be found for endpoint being restored, ignoring", ep.IfName)
 				skipRestore = true
