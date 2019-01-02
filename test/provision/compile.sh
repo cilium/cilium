@@ -22,6 +22,9 @@ then
         docker tag cilium/cilium k8s1:5000/cilium/cilium-dev
         docker rmi cilium/cilium:latest
         docker push k8s1:5000/cilium/cilium-dev
+        echo "building cilium/operator-dev container image..."
+        docker build -t k8s1:5000/cilium/operator-dev -f ./cilium-operator.Dockerfile .
+        docker push k8s1:5000/cilium/operator-dev
         echo "Executing: $KUBECTL delete pods -n $KUBE_SYSTEM_NAMESPACE -l $CILIUM_DS_TAG"
         $KUBECTL delete pods -n $KUBE_SYSTEM_NAMESPACE -l $CILIUM_DS_TAG
     else
