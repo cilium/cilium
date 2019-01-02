@@ -295,6 +295,7 @@ func (e *Endpoint) CloseBPFProgramChannel() {
 	select {
 	case <-e.hasBPFProgram:
 	default:
+		e.getLogger().Debug("closing BPF program channel")
 		close(e.hasBPFProgram)
 	}
 }

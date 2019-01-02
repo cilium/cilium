@@ -270,12 +270,16 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 			hasSidecarProxy := ep.HasSidecarProxy()
 			ep.RUnlock()
 
+			ep.Logger("daemon").WithField("has-sidecar-proxy", hasSidecarProxy).Debug("checking if endpoint has sidecar proxy")
+
 			if hasSidecarProxy && ep.HasBPFProgram() {
 				// If the endpoint is determined to have a sidecar proxy,
 				// return immediately to let the sidecar container start,
 				// in case it is required to enforce L7 rules.
-				log.Info("Endpoint has sidecar proxy, returning from synchronous creation request before regeneration has succeeded")
+				ep.Logger("daemon").Info("Endpoint has sidecar proxy, returning from synchronous creation request before regeneration has succeeded")
 				return PutEndpointIDCreatedCode, nil
+			} else {
+				ep.Logger("daemon").WithFields(logrus.Fields{"has-sidecar-proxy": hasSidecarProxy, "has-bpf-program": ep.HasBPFProgram()}).Debug("else check for synchronous endpoint regeneration")
 			}
 		}
 
