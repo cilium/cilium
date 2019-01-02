@@ -12,14 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package groups
+// +build !privileged_tests
+
+package main
 
 import (
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
+	. "gopkg.in/check.v1"
 )
 
-var (
-	subsystem = "Groups"
-	log       = logging.DefaultLogger.WithField(logfields.LogSubsys, subsystem)
-)
+func (s *OperatorTestSuite) TestCacheWorkingCorrectly(c *C) {
+	cnps := cnpCache.GetAllCNP()
+	c.Assert(len(cnps), Equals, 0)
+
+	cnp := getSamplePolicy("test", "test")
+	cnpCache.UpdateCNP(cnp)
+
+	cnps = cnpCache.GetAllCNP()
+	c.Assert(len(cnps), Equals, 1)
+
+	cnpCache.DeleteCNP(cnp)
+
+	cnps = cnpCache.GetAllCNP()
+	c.Assert(len(cnps), Equals, 0)
+}

@@ -14,7 +14,7 @@
 
 // +build !privileged_tests
 
-package groups
+package main
 
 import (
 	"fmt"
@@ -47,7 +47,7 @@ func getSamplePolicy(name, ns string) *cilium_v2.CiliumNetworkPolicy {
 	return cnp
 }
 
-func (s *GroupsTestSuite) TestCorrectDerivativeName(c *C) {
+func (s *OperatorTestSuite) TestCorrectDerivativeName(c *C) {
 	name := "test"
 	cnp := getSamplePolicy(name, "testns")
 	DerivativeCNP, err := createDerivativeCNP(cnp)
@@ -58,7 +58,7 @@ func (s *GroupsTestSuite) TestCorrectDerivativeName(c *C) {
 		fmt.Sprintf("%s-togroups-%s", name, cnp.ObjectMeta.UID))
 }
 
-func (s *GroupsTestSuite) TestDerivativePoliciesAreDeletedIfNoToGroups(c *C) {
+func (s *OperatorTestSuite) TestDerivativePoliciesAreDeletedIfNoToGroups(c *C) {
 	name := "test"
 	cnp := getSamplePolicy(name, "testns")
 
@@ -80,7 +80,7 @@ func (s *GroupsTestSuite) TestDerivativePoliciesAreDeletedIfNoToGroups(c *C) {
 	c.Assert(len(DerivativeCNP.Specs), Equals, 1)
 }
 
-func (s *GroupsTestSuite) TestDerivativePoliciesAreInheritCorrectly(c *C) {
+func (s *OperatorTestSuite) TestDerivativePoliciesAreInheritCorrectly(c *C) {
 
 	cb := func(group *api.ToGroups) ([]net.IP, error) {
 		return []net.IP{net.ParseIP("192.168.1.1")}, nil
