@@ -263,9 +263,4 @@ func init() {
 			}
 			return &k, &v, nil
 		})
-
-	err := bpf.OpenAfterMount(Metrics)
-	if err != nil {
-		log.WithError(err).Error("unable to open metrics map")
-	}
 }

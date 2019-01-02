@@ -83,10 +83,6 @@ var (
 		}).WithNonPersistent()
 )
 
-func init() {
-	bpf.OpenAfterMount(Proxy4Map)
-}
-
 func (k Proxy4Key) NewValue() bpf.MapValue {
 	return &Proxy4Value{}
 }

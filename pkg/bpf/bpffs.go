@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,8 +23,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mountinfo"
 )
 
@@ -115,30 +113,8 @@ func Environment() []string {
 }
 
 var (
-	mountOnce  sync.Once
-	mountMutex lock.Mutex
-	// List of BPF maps which are scheduled to be opened/created after the
-	// BPF filesystem has been mounted.
-	delayedOpens = []*Map{}
-	mounted      bool
+	mountOnce sync.Once
 )
-
-// OpenAfterMount schedules a map to be opened/created after the BPF filesystem
-// has been mounted. If the filesystem is already mounted, the map is
-// opened/created immediately.
-func OpenAfterMount(m *Map) error {
-	mountMutex.Lock()
-	defer mountMutex.Unlock()
-
-	if mounted {
-		_, err := m.OpenOrCreate()
-		return err
-	}
-
-	log.WithField(logfields.BPFMapName, m.name).Debug("bpffs is not mounted yet; adding to list of maps to open once it is mounted")
-	delayedOpens = append(delayedOpens, m)
-	return nil
-}
 
 // mountFS mounts the BPFFS filesystem into the desired mapRoot directory.
 func mountFS() error {
@@ -285,17 +261,6 @@ func checkOrMountFS(bpfRoot string) error {
 	if multipleMounts {
 		return fmt.Errorf("multiple mount points detected at %s", mapRoot)
 	}
-
-	mountMutex.Lock()
-	for _, m := range delayedOpens {
-		if _, err := m.OpenOrCreate(); err != nil {
-			log.WithError(err).WithField(logfields.BPFMapName, m.name).Error("error opening map after bpffs was mounted")
-		}
-	}
-
-	mounted = true
-	delayedOpens = []*Map{}
-	mountMutex.Unlock()
 
 	return nil
 }
