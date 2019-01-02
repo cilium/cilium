@@ -97,7 +97,7 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 			if _, err := netlink.LinkByName(ep.IfName); err != nil {
 				scopedLog.Infof("Interface %s could not be found for endpoint being restored, ignoring", ep.IfName)
 				skipRestore = true
-			} else if !workloads.IsRunning(ep) {
+			} else if option.Config.WorkloadsEnabled() && !workloads.IsRunning(ep) {
 				scopedLog.Info("No workload could be associated with endpoint being restored, ignoring")
 				skipRestore = true
 			}
