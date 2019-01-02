@@ -478,11 +478,7 @@ func (d *dockerClient) handleCreateWorkload(id string, retry bool) {
 		// Docker appends '/' to container names.
 		ep.SetContainerName(strings.Trim(containerName, "/"))
 
-		// In Kubernetes mode, attempt to retrieve pod name stored in
-		// container runtime label
-		//
-		// FIXME: Abstract via interface so other workload types can
-		// implement this
+		// FIXME: Remove this in 2019-06: GH-6526
 		if k8s.IsEnabled() {
 			if dockerContainer.Config != nil {
 				ep.SetK8sNamespace(k8sDockerLbls.GetPodNamespace(dockerContainer.Config.Labels))
