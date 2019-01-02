@@ -82,7 +82,9 @@ func CreateEPPolicyMap() {
 		EpPolicyMap.InnerID = uint32(fd)
 	})
 
-	bpf.OpenAfterMount(EpPolicyMap)
+	if _, err := EpPolicyMap.OpenOrCreate(); err != nil {
+		log.WithError(err).Warning("Unable to open or create endpoint policy map")
+	}
 }
 
 func (v epPolicyFd) String() string { return fmt.Sprintf("fd=%d", v.Fd) }

@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -538,6 +538,51 @@ func (d *Daemon) init() error {
 	}
 
 	if !option.Config.DryMode {
+		if _, err := lxcmap.LXCMap.OpenOrCreate(); err != nil {
+			return err
+		}
+
+		if _, err := ipcachemap.IPCache.OpenOrCreate(); err != nil {
+			return err
+		}
+
+		if _, err := metricsmap.Metrics.OpenOrCreate(); err != nil {
+			return err
+		}
+
+		if _, err := tunnel.TunnelMap.OpenOrCreate(); err != nil {
+			return err
+		}
+
+		if option.Config.EnableIPv6 {
+			if _, err := lbmap.Service6Map.OpenOrCreate(); err != nil {
+				return err
+			}
+			if _, err := lbmap.RevNat6Map.OpenOrCreate(); err != nil {
+				return err
+			}
+			if _, err := lbmap.RRSeq6Map.OpenOrCreate(); err != nil {
+				return err
+			}
+			if _, err := proxymap.Proxy6Map.OpenOrCreate(); err != nil {
+				return err
+			}
+		}
+
+		if option.Config.EnableIPv4 {
+			if _, err := lbmap.Service4Map.OpenOrCreate(); err != nil {
+				return err
+			}
+			if _, err := lbmap.RevNat4Map.OpenOrCreate(); err != nil {
+				return err
+			}
+			if _, err := lbmap.RRSeq4Map.OpenOrCreate(); err != nil {
+				return err
+			}
+			if _, err := proxymap.Proxy4Map.OpenOrCreate(); err != nil {
+				return err
+			}
+		}
 
 		if err := d.compileBase(); err != nil {
 			return err
@@ -585,29 +630,6 @@ func (d *Daemon) init() error {
 				RunInterval: 5 * time.Second,
 			})
 
-		if option.Config.EnableIPv6 {
-			if _, err := lbmap.Service6Map.OpenOrCreate(); err != nil {
-				return err
-			}
-			if _, err := lbmap.RevNat6Map.OpenOrCreate(); err != nil {
-				return err
-			}
-			if _, err := lbmap.RRSeq6Map.OpenOrCreate(); err != nil {
-				return err
-			}
-		}
-
-		if option.Config.EnableIPv4 {
-			if _, err := lbmap.Service4Map.OpenOrCreate(); err != nil {
-				return err
-			}
-			if _, err := lbmap.RevNat4Map.OpenOrCreate(); err != nil {
-				return err
-			}
-			if _, err := lbmap.RRSeq4Map.OpenOrCreate(); err != nil {
-				return err
-			}
-		}
 		// Clean all lb entries
 		if !option.Config.RestoreState {
 			log.Debug("cleaning up all BPF LB maps")

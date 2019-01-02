@@ -247,13 +247,6 @@ var (
 	IPCache = NewMap(Name)
 )
 
-func init() {
-	err := bpf.OpenAfterMount(&IPCache.Map)
-	if err != nil {
-		log.WithError(err).Error("unable to open map")
-	}
-}
-
 // Reopen attempts to close and re-open the IPCache map at the standard path
 // on the filesystem.
 func Reopen() error {
