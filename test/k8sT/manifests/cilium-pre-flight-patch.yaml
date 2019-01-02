@@ -6,5 +6,5 @@ spec:
     spec:
       containers:
       - image: k8s1:5000/cilium/cilium-dev:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         name: cilium-pre-flight-check
