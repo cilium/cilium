@@ -50,7 +50,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
-	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
@@ -125,8 +124,6 @@ var (
 	validLabels           []string
 	toFQDNsMinTTL         int
 	enableDNSPoller       bool
-
-	mtuConfig mtu.Configuration
 
 	logOpts                = make(map[string]string)
 	kvStoreOpts            = make(map[string]string)
