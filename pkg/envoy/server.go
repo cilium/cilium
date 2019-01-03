@@ -87,7 +87,8 @@ type XDSServer struct {
 	// listeners is the set of names of listeners that have been added by
 	// calling AddListener.
 	// mutex must be held when accessing this.
-	listeners map[string]struct{}
+	// Value hold the number of redirects using this listener.
+	listeners map[string]uint
 
 	// networkPolicyCache publishes network policy configuration updates to
 	// Envoy proxies.
@@ -296,7 +297,7 @@ func StartXDSServer(stateDir string) *XDSServer {
 		httpFilterChainProto:   httpFilterChainProto,
 		tcpFilterChainProto:    tcpFilterChainProto,
 		listenerMutator:        ldsMutator,
-		listeners:              make(map[string]struct{}),
+		listeners:              make(map[string]uint),
 		networkPolicyCache:     npdsCache,
 		NetworkPolicyMutator:   npdsMutator,
 		networkPolicyEndpoints: make(map[string]logger.EndpointUpdater),
@@ -309,13 +310,13 @@ func (s *XDSServer) AddListener(name string, kind policy.L7ParserType, port uint
 	log.Debugf("Envoy: %s AddListener %s", kind, name)
 
 	s.mutex.Lock()
-
-	// Bail out if this listener already exists
-	if _, ok := s.listeners[name]; ok {
-		log.Fatalf("Envoy: Attempt to add existing listener: %s", name)
+	count, ok := s.listeners[name]
+	s.listeners[name] = count + 1
+	if ok && count > 0 {
+		log.Debugf("Envoy: Reusing listener: %s", name)
+		s.mutex.Unlock()
+		return
 	}
-	s.listeners[name] = struct{}{}
-
 	s.mutex.Unlock()
 
 	clusterName := egressClusterName
@@ -350,22 +351,31 @@ func (s *XDSServer) AddListener(name string, kind policy.L7ParserType, port uint
 // RemoveListener removes an existing Envoy Listener.
 func (s *XDSServer) RemoveListener(name string, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
 	s.mutex.Lock()
+
+	var listenerRevertFunc func(*completion.Completion)
+
 	log.Debugf("Envoy: removeListener %s", name)
-	if _, ok := s.listeners[name]; !ok {
+	if count, ok := s.listeners[name]; ok && count > 0 {
+		if count == 1 {
+			delete(s.listeners, name)
+			listenerRevertFunc = s.listenerMutator.Delete(ListenerTypeURL, name, []string{"127.0.0.1"}, wg.AddCompletion())
+		} else {
+			s.listeners[name] = count - 1
+		}
+	} else {
 		// Bail out if this listener does not exist
 		log.Fatalf("Envoy: Attempt to remove non-existent listener: %s", name)
 	}
-	delete(s.listeners, name)
 	s.mutex.Unlock()
-
-	listenerRevertFunc := s.listenerMutator.Delete(ListenerTypeURL, name, []string{"127.0.0.1"}, wg.AddCompletion())
 
 	return func(completion *completion.Completion) {
 		s.mutex.Lock()
-		s.listeners[name] = struct{}{}
+		s.listeners[name] = s.listeners[name] + 1
 		s.mutex.Unlock()
 
-		listenerRevertFunc(completion)
+		if listenerRevertFunc != nil {
+			listenerRevertFunc(completion)
+		}
 	}
 }
 
