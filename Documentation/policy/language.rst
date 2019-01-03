@@ -12,36 +12,36 @@ Layer 3 Examples
 The layer 3 policy establishes the base connectivity rules regarding which endpoints
 can talk to each other. Layer 3 policies can be specified using the following methods:
 
-* `Labels based`: This is used to describe the relationship if both endpoints
+* `Labels-based`: This is used to describe the relationship if both endpoints
   are managed by Cilium and are thus assigned labels. The big advantage of this
   method is that IP addresses are not encoded into the policies and the policy is
   completely decoupled from the addressing.
 
-* `Services based`: This is an intermediate form between Labels and CIDR and
+* `Services-based`: This is an intermediate form between Labels and CIDR and
   makes use of the services concept in the orchestration system. A good example
   of this is the Kubernetes concept of Service endpoints which are
   automatically maintained to contain all backend IP addresses of a service.
   This allows to avoid hardcoding IP addresses into the policy even if the
   destination endpoint is not controlled by Cilium.
 
-* `Entities based`: Entities are used to describe remote peers which can be
+* `Entities-based`: Entities are used to describe remote peers which can be
   categorized without knowing their IP addresses. This includes connectivity
   to the local host serving the endpoints or all connectivity to outside of
   the cluster.
 
-* `CIDR based`: This is used to describe the relationship to or from external
+* `CIDR-based`: This is used to describe the relationship to or from external
   services if the remote peer is not an endpoint. This requires to hardcode either
   IP addresses or subnets into the policies. This construct should be used as a
   last resort as it requires stable IP or subnet assignments.
 
-* `DNS based`: Selects remote, non-cluster, peers using DNS names converted to
-  IPs via DNS lookups. It shares all limitations of the `CIDR based` rules
+* `DNS-based (Tech Preview)`: Selects remote, non-cluster, peers using DNS names converted to
+  IPs via DNS lookups. It shares all limitations of the `CIDR-based` rules
   above. The current implementation simply polls the listed DNS targets without
   regard for TTLs, and allows traffics from IPs listed in the DNS responses.
 
-.. _Labels based:
+.. _Labels-based:
 
-Labels Based
+Labels-based
 ------------
 
 Label-based L3 policy is used to establish policy between endpoints inside the
@@ -105,15 +105,15 @@ all ingress traffic to an endpoint may be done as follows:
 
         .. literalinclude:: ../../examples/policies/l3/ingress-allow-all/ingress-allow-all.json
 
-Note that while the above examples allow all ingress traffic to an endpoint, this does not 
-mean that all endpoints are allowed to send traffic to this endpoint per their policies. 
+Note that while the above examples allow all ingress traffic to an endpoint, this does not
+mean that all endpoints are allowed to send traffic to this endpoint per their policies.
 In other words, policy must be configured on both sides (sender and receiver).
 
 Egress
 ~~~~~~
 
 An endpoint is allowed to send traffic to another endpoint if at least one
-egress rule exists which selects the destination endpoint with the 
+egress rule exists which selects the destination endpoint with the
 `EndpointSelector` in the ``endpointSelector`` field. To restrict traffic upon
 egress to the selected endpoint, the rule selects the destination endpoint with
 the `EndpointSelector` in the ``toEndpoints`` field.
@@ -162,7 +162,7 @@ all egress traffic from an endpoint may be done as follows:
 
 
 Note that while the above examples allow all egress traffic from an endpoint, the receivers
-of the egress traffic may have ingress rules that deny the traffic. In other words, 
+of the egress traffic may have ingress rules that deny the traffic. In other words,
 policy must be configured on both sides (sender and receiver).
 
 Ingress/Egress Default Deny
@@ -170,7 +170,7 @@ Ingress/Egress Default Deny
 
 An endpoint can be put into the default deny mode at ingress or egress if a
 rule selects the endpoint and contains the respective rule section ingress or
-egress. 
+egress.
 
 .. note:: Any rule selecting the endpoint will have this effect, this example
           illustrates how to put an endpoint into default deny mode without
@@ -226,9 +226,9 @@ be only accessible if the source endpoint also has the label ``env=prod``.
 
         .. literalinclude:: ../../examples/policies/l3/requires/requires.json
 
-.. _Services based:
+.. _Services-based:
 
-Services based
+Services-based
 --------------
 
 Services running in your cluster can be whitelisted in Egress rules.
@@ -280,9 +280,9 @@ have ``head:none`` set as the label.
         .. literalinclude:: ../../examples/policies/l3/service/service-labels.json
 
 
-.. _Entities based:
+.. _Entities-based:
 
-Entities Based
+Entities-based
 --------------
 
 ``fromEntities`` is used to describe the entities that can access the selected
@@ -306,7 +306,7 @@ init
 world
     The world entity corresponds to all endpoints outside of the cluster.
     Allowing to world is identical to allowing to CIDR 0/0. An alternative
-    to allowing from and to world is to define fine grained DNS or CIDR based
+    to allowing from and to world is to define fine grained DNS or CIDR-based
     policies.
 all
     The all entity represents the combination of all known clusters as well
@@ -363,9 +363,9 @@ endpoints that have the label ``role=public``.
         .. literalinclude:: ../../examples/policies/l3/entities/world.json
 
 .. _policy_cidr:
-.. _CIDR based:
+.. _CIDR-based:
 
-IP/CIDR based
+IP/CIDR-based
 -------------
 
 CIDR policies are used to define policies to and from endpoints which are not
@@ -436,10 +436,10 @@ but not CIDR prefix ``10.96.0.0/12``
 
         .. literalinclude:: ../../examples/policies/l3/cidr/cidr.json
 
-.. _DNS based:
+.. _DNS-based (Tech Preview):
 
-DNS based
----------
+DNS-based (Tech Preview)
+------------------------
 
 ``toFQDNs`` simplifies specifying egress policy to IPs of remote, external,
 peers. The DNS lookup for each ``matchName`` is done periodically by
@@ -458,7 +458,7 @@ policy for each endpoint, and the updated IPs can be seen in the response from
 policy repository revision.
 
 ``toFQDNs`` rules cannot contain any other L3 rules, such as ``toEndpoints``
-(under `Labels Based`_) and ``toCIDRs`` (under `CIDR Based`_). They can contain
+(under `Labels-based`_) and ``toCIDRs`` (under `CIDR-based`_). They can contain
 L4/L7 rules, such as ``toPorts`` (see `Layer 4 Examples`_)  and, optionally,
 with ``HTTP`` and ``Kafka`` sections (see `Layer 7 Examples`_).
 
