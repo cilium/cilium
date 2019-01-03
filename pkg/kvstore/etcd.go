@@ -20,7 +20,6 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/cilium/cilium/common"
@@ -52,11 +51,6 @@ type etcdModule struct {
 }
 
 var (
-	// etcdVersionMismatchFatal defines whether the agent should die
-	// immediately if an etcd not matching the minimal version is
-	// encountered.
-	etcdVersionMismatchFatal = true
-
 	// versionCheckTimeout is the time we wait trying to verify the version
 	// of an etcd endpoint. The timeout can be encountered on network
 	// connectivity problems.
@@ -116,15 +110,25 @@ func (e *etcdModule) getConfig() map[string]string {
 	return getOpts(e.opts)
 }
 
-func (e *etcdModule) newClient() (BackendOperations, error) {
+func (e *etcdModule) newClient() (BackendOperations, chan error) {
+	errChan := make(chan error, 10)
+
 	endpointsOpt, endpointsSet := e.opts[addrOption]
 	configPathOpt, configSet := e.opts[EtcdOptionConfig]
 	configPath := ""
 
 	if e.config == nil {
 		if !endpointsSet && !configSet {
-			return nil, fmt.Errorf("invalid etcd configuration, %s or %s must be specified",
+			errChan <- fmt.Errorf("invalid etcd configuration, %s or %s must be specified", EtcdOptionConfig, addrOption)
+			close(errChan)
+			return nil, errChan
+		}
+
+		if endpointsOpt.value == "" && configPathOpt.value == "" {
+			errChan <- fmt.Errorf("invalid etcd configuration, %s or %s must be specified",
 				EtcdOptionConfig, addrOption)
+			close(errChan)
+			return nil, errChan
 		}
 
 		e.config = &client.Config{}
@@ -138,7 +142,15 @@ func (e *etcdModule) newClient() (BackendOperations, error) {
 		}
 	}
 
-	return newEtcdClient(e.config, configPath)
+	// connectEtcdClient will close errChan when the connection attempt has
+	// been successful
+	backend, err := connectEtcdClient(e.config, configPath, errChan)
+	if err != nil {
+		errChan <- err
+		close(errChan)
+	}
+
+	return backend, errChan
 }
 
 func init() {
@@ -151,9 +163,15 @@ type etcdClient struct {
 	// is set up in the etcd Client.
 	firstSession chan struct{}
 
-	client               *client.Client
-	controllers          *controller.Manager
-	statusCheckerStarted sync.Once
+	// stopStatusChecker is closed when the status checker can be terminated
+	stopStatusChecker chan struct{}
+
+	client      *client.Client
+	controllers *controller.Manager
+
+	// config and configPath are initialized once and never written to again, they can be accessed without locking
+	config     *client.Config
+	configPath string
 
 	// protects session from concurrent access
 	lock.RWMutex
@@ -168,6 +186,21 @@ type etcdClient struct {
 
 	// latestErrorStatus is the latest error condition of the etcd connection
 	latestErrorStatus error
+}
+
+func (e *etcdClient) getLogger() *logrus.Entry {
+	endpoints, path := []string{""}, ""
+	if e != nil {
+		if e.config != nil {
+			endpoints = e.config.Endpoints
+		}
+		path = e.configPath
+	}
+
+	return log.WithFields(logrus.Fields{
+		"endpoints": endpoints,
+		"config":    path,
+	})
 }
 
 type etcdMutex struct {
@@ -199,14 +232,16 @@ func (e *etcdClient) renewSession() error {
 	e.session = newSession
 	e.Unlock()
 
-	log.WithField(fieldSession, newSession).Debug("Renewing etcd session")
+	e.getLogger().WithField(fieldSession, newSession).Debug("Renewing etcd session")
 
-	go e.checkMinVersion()
+	if err := e.checkMinVersion(); err != nil {
+		return err
+	}
 
 	return nil
 }
 
-func newEtcdClient(config *client.Config, cfgPath string) (BackendOperations, error) {
+func connectEtcdClient(config *client.Config, cfgPath string, errChan chan error) (BackendOperations, error) {
 	var (
 		c   *client.Client
 		err error
@@ -229,7 +264,11 @@ func newEtcdClient(config *client.Config, cfgPath string) (BackendOperations, er
 	if err != nil {
 		return nil, err
 	}
-	log.Info("Waiting for etcd client to be ready")
+
+	log.WithFields(logrus.Fields{
+		"endpoints": config.Endpoints,
+		"config":    cfgPath,
+	}).Info("Connecting to etcd server...")
 
 	var s concurrency.Session
 	firstSession := make(chan struct{})
@@ -247,14 +286,19 @@ func newEtcdClient(config *client.Config, cfgPath string) (BackendOperations, er
 
 	ec := &etcdClient{
 		client:               c,
+		config:               config,
+		configPath:           cfgPath,
 		session:              &s,
 		firstSession:         firstSession,
 		controllers:          controller.NewManager(),
 		latestStatusSnapshot: "No connection to etcd",
+		stopStatusChecker:    make(chan struct{}),
 	}
 
 	// wait for session to be created also in parallel
 	go func() {
+		defer close(errChan)
+
 		var session concurrency.Session
 		select {
 		case err = <-errorChan:
@@ -265,26 +309,25 @@ func newEtcdClient(config *client.Config, cfgPath string) (BackendOperations, er
 			err = fmt.Errorf("timed out while waiting for etcd session. Ensure that etcd is running on %s", config.Endpoints)
 		}
 		if err != nil {
-			log.Fatal(err)
+			errChan <- err
 			return
 		}
 
-		log.Debugf("Session received")
+		ec.getLogger().Debugf("Session received")
 		s = session
 		if err != nil {
 			c.Close()
-			err = fmt.Errorf("unable to create default lease: %s", err)
-			log.Fatal(err)
+			errChan <- fmt.Errorf("unable to create default lease: %s", err)
 			return
 		}
 		close(ec.firstSession)
+
+		if err := ec.checkMinVersion(); err != nil {
+			errChan <- fmt.Errorf("Unable to validate etcd version: %s", err)
+		}
 	}()
 
-	ec.statusCheckerStarted.Do(func() {
-		go ec.statusChecker()
-	})
-
-	go ec.checkMinVersion()
+	go ec.statusChecker()
 
 	ec.controllers.UpdateController("kvstore-etcd-session-renew",
 		controller.ControllerParams{
@@ -312,43 +355,36 @@ func getEPVersion(c client.Maintenance, etcdEP string, timeout time.Duration) (*
 	return v, nil
 }
 
-// checkMinVersion checks the minimal version running on etcd cluster. If the
-// minimal version running doesn't meet cilium minimal requirements, a fatal
-// log message is printed which terminates the agent. This function should be
-// run whenever the etcd client is connected for the first time and whenever
-// the session is renewed.
-func (e *etcdClient) checkMinVersion() bool {
+// checkMinVersion checks the minimal version running on etcd cluster.  This
+// function should be run whenever the etcd client is connected for the first
+// time and whenever the session is renewed.
+func (e *etcdClient) checkMinVersion() error {
 	eps := e.client.Endpoints()
 
 	for _, ep := range eps {
 		v, err := getEPVersion(e.client.Maintenance, ep, versionCheckTimeout)
 		if err != nil {
-			log.WithError(err).WithField(fieldEtcdEndpoint, ep).
+			e.getLogger().WithError(err).WithField(fieldEtcdEndpoint, ep).
 				Warn("Unable to verify version of etcd endpoint")
 			continue
 		}
 
 		if !minRequiredVersion.Check(v) {
-			// FIXME: after we rework the refetching IDs for a connection lost
-			// remove this Errorf and replace it with a warning
-			if etcdVersionMismatchFatal {
-				log.Fatalf("Minimal etcd version not met in %q, required: %s, found: %s",
-					ep, minRequiredVersion.String(), v.String())
-			}
-			return false
+			return fmt.Errorf("Minimal etcd version not met in %q, required: %s, found: %s",
+				ep, minRequiredVersion.String(), v.String())
 		}
 
-		log.WithFields(logrus.Fields{
+		e.getLogger().WithFields(logrus.Fields{
 			fieldEtcdEndpoint: ep,
 			"version":         v,
 		}).Debug("Successfully verified version of etcd endpoint")
 	}
 
 	if len(eps) == 0 {
-		log.Warn("Minimal etcd version unknown: No etcd endpoints available")
+		e.getLogger().Warn("Minimal etcd version unknown: No etcd endpoints available")
 	}
 
-	return true
+	return nil
 }
 
 func (e *etcdClient) LockPath(path string) (kvLocker, error) {
@@ -546,7 +582,7 @@ func (e *etcdClient) Watch(w *Watcher) {
 	localCache := watcherCache{}
 	listSignalSent := false
 
-	scopedLog := log.WithFields(logrus.Fields{
+	scopedLog := e.getLogger().WithFields(logrus.Fields{
 		fieldWatcher: w,
 		fieldPrefix:  w.prefix,
 	})
@@ -675,7 +711,7 @@ func (e *etcdClient) determineEndpointStatus(endpointAddress string) (string, er
 	ctxTimeout, cancel := ctx.WithTimeout(ctx.Background(), statusCheckTimeout)
 	defer cancel()
 
-	log.Debugf("Checking status to etcd endpoint %s", endpointAddress)
+	e.getLogger().Debugf("Checking status to etcd endpoint %s", endpointAddress)
 
 	status, err := e.client.Status(ctxTimeout, endpointAddress)
 	if err != nil {
@@ -690,12 +726,10 @@ func (e *etcdClient) determineEndpointStatus(endpointAddress string) (string, er
 	return str, nil
 }
 
-func (e *etcdClient) statusChecker() error {
+func (e *etcdClient) statusChecker() {
 	for {
 		newStatus := []string{}
 		ok := 0
-
-		log.Debugf("Performing status check to etcd")
 
 		endpoints := e.client.Endpoints()
 		for _, ep := range endpoints {
@@ -719,7 +753,11 @@ func (e *etcdClient) statusChecker() error {
 
 		e.statusLock.Unlock()
 
-		time.Sleep(statusCheckInterval)
+		select {
+		case <-e.stopStatusChecker:
+			return
+		case <-time.After(statusCheckInterval):
+		}
 	}
 }
 
@@ -859,6 +897,7 @@ func (e *etcdClient) ListPrefix(prefix string) (KeyValuePairs, error) {
 
 // Close closes the etcd session
 func (e *etcdClient) Close() {
+	close(e.stopStatusChecker)
 	<-e.firstSession
 	if e.controllers != nil {
 		e.controllers.RemoveAll()
@@ -888,7 +927,7 @@ func (e *etcdClient) Decode(in string) ([]byte, error) {
 func (e *etcdClient) ListAndWatch(name, prefix string, chanSize int) *Watcher {
 	w := newWatcher(name, prefix, chanSize)
 
-	log.WithField(fieldWatcher, w).Debug("Starting watcher...")
+	e.getLogger().WithField(fieldWatcher, w).Debug("Starting watcher...")
 
 	go e.Watch(w)
 

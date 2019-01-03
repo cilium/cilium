@@ -48,6 +48,11 @@ const (
 	// received any labels yet.
 	IDNameInit = "init"
 
+	// IDNameNone is the label used to identify no endpoint or other L3 entity.
+	// It will never be assigned and this "label" is here for consistency with
+	// other Entities.
+	IDNameNone = "none"
+
 	// IDNameUnmanaged is the label used to identify unmanaged endpoints
 	IDNameUnmanaged = "unmanaged"
 

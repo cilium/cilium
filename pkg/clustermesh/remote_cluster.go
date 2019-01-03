@@ -99,15 +99,51 @@ func (rc *remoteCluster) getLogger() *logrus.Entry {
 	})
 }
 
+func (rc *remoteCluster) releaseOldConnection() {
+	if rc.ipCacheWatcher != nil {
+		rc.ipCacheWatcher.Close()
+		rc.ipCacheWatcher = nil
+	}
+
+	if rc.remoteNodes != nil {
+		rc.remoteNodes.Close()
+		rc.remoteNodes = nil
+	}
+	if rc.remoteIdentityCache != nil {
+		rc.remoteIdentityCache.Close()
+		rc.remoteIdentityCache = nil
+	}
+	if rc.backend != nil {
+		rc.backend.Close()
+		rc.backend = nil
+	}
+}
+
 func (rc *remoteCluster) restartRemoteConnection() {
 	rc.controllers.UpdateController(rc.remoteConnectionControllerName,
 		controller.ControllerParams{
 			DoFunc: func() error {
-				backend, err := kvstore.NewClient(kvstore.EtcdBackendName,
+				rc.mutex.Lock()
+				if rc.backend != nil {
+					rc.releaseOldConnection()
+				}
+				rc.mutex.Unlock()
+
+				backend, errChan := kvstore.NewClient(kvstore.EtcdBackendName,
 					map[string]string{
 						kvstore.EtcdOptionConfig: rc.configPath,
 					})
-				if err != nil {
+
+				// Block until either an error is returned or
+				// the channel is closed due to success of the
+				// connection
+				rc.getLogger().Debugf("Waiting for connection to be established")
+				err, isErr := <-errChan
+				if isErr {
+					if backend != nil {
+						backend.Close()
+					}
+					rc.getLogger().WithError(err).Warning("Unable to establish etcd connection to remote cluser")
 					return err
 				}
 
@@ -140,19 +176,7 @@ func (rc *remoteCluster) restartRemoteConnection() {
 			},
 			StopFunc: func() error {
 				rc.mutex.Lock()
-				if rc.ipCacheWatcher != nil {
-					rc.ipCacheWatcher.Close()
-				}
-
-				if rc.remoteNodes != nil {
-					rc.remoteNodes.Close()
-				}
-				if rc.backend != nil {
-					rc.backend.Close()
-				}
-				if rc.remoteIdentityCache != nil {
-					rc.remoteIdentityCache.Close()
-				}
+				rc.releaseOldConnection()
 				rc.mutex.Unlock()
 
 				rc.getLogger().Info("All resources of remote cluster cleaned up")
@@ -188,7 +212,7 @@ func (rc *remoteCluster) onInsert() {
 }
 
 func (rc *remoteCluster) onRemove() {
-	rc.controllers.RemoveAll()
+	rc.controllers.RemoveAllAndWait()
 	close(rc.changed)
 
 	rc.getLogger().Info("Remote cluster disconnected")

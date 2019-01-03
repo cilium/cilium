@@ -17,8 +17,10 @@ package metricsmap
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"strconv"
+	"strings"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -49,10 +51,7 @@ const (
 	dirEgress  = 2
 	dirUnknown = 0
 
-	// possibleCPUsFileLength matches the buffer size for CPUs.
-	// Reference bpf_num_possible_cpus from
-	// https://git.kernel.org/pub/scm/linux/kernel/git/bpf/bpf.git/tree/tools/testing/selftests/bpf/bpf_util.h
-	possibleCPUsFileLength = 128
+	possibleCPUSysfsPath = "/sys/devices/system/cpu/possible"
 )
 
 // direction is the metrics direction i.e ingress (to an endpoint)
@@ -200,49 +199,53 @@ func SyncMetricsMap() error {
 	return nil
 }
 
-// calculateNumCpus replicates the bpf linux helper equivalent `bpf_num_possible_cpus`
-// to find total number of possible CPUs i.e CPUs that have been allocated
-// resources and can be brought online if they are present.
-// Reference bpf_num_possible_cpus from
-// https://git.kernel.org/pub/scm/linux/kernel/git/bpf/bpf.git/tree/tools/testing/selftests/bpf/bpf_util.h
-func calculateNumCpus() {
-	var start, end int
-
-	file, err := os.Open("/sys/devices/system/cpu/possible")
+// getNumPossibleCPUs returns a total number of possible CPUS, i.e. CPUs that
+// have been allocated resources and can be brought online if they are present.
+// The number is retrieved by parsing /sys/device/system/cpu/possible.
+//
+// See https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/linux/cpumask.h?h=v4.19#n50
+// for more details.
+func getNumPossibleCPUs() int {
+	f, err := os.Open(possibleCPUSysfsPath)
 	if err != nil {
-		log.WithError(err).Error("unable to open sysfs to get CPU count")
+		log.WithError(err).Errorf("unable to open %q", possibleCPUSysfsPath)
 	}
-	defer file.Close()
+	defer f.Close()
 
-	data := make([]byte, possibleCPUsFileLength)
-	for {
-		_, err := file.Read(data)
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			log.WithError(err).Error("unable to read sysfs to get CPU count")
-		}
-		n, err := fmt.Sscanf(string(data), "%d-%d", &start, &end)
-		if err != nil {
-			log.WithError(err).Error("unable to parse sysfs to get CPU count")
-		}
-		if n == 0 {
-			log.WithError(err).Error("failed to retrieve number of possible CPUs!")
-		} else if n == 1 {
-			end = start
-		}
-		if start == 0 {
-			possibleCpus = end + 1
-		} else {
-			possibleCpus = 0
-		}
-		break
+	return getNumPossibleCPUsFromReader(f)
+}
+
+func getNumPossibleCPUsFromReader(r io.Reader) int {
+	out, err := ioutil.ReadAll(r)
+	if err != nil {
+		log.WithError(err).Errorf("unable to read %q to get CPU count", possibleCPUSysfsPath)
+		return 0
 	}
+
+	var start, end int
+	count := 0
+	for _, s := range strings.Split(string(out), ",") {
+		// Go's scanf will return an error if a format cannot be fully matched.
+		// So, just ignore it, as a partial match (e.g. when there is only one
+		// CPU) is expected.
+		n, err := fmt.Sscanf(s, "%d-%d", &start, &end)
+
+		switch n {
+		case 0:
+			log.WithError(err).Errorf("failed to scan %q to retrieve number of possible CPUs!", s)
+			return 0
+		case 1:
+			count++
+		default:
+			count += (end - start + 1)
+		}
+	}
+
+	return count
 }
 
 func init() {
-	calculateNumCpus()
+	possibleCpus = getNumPossibleCPUs()
 	// Metrics is a mapping of all packet drops and forwards associated with
 	// the node on ingress/egress direction
 	Metrics = bpf.NewMap(

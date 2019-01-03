@@ -105,6 +105,8 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 
 		kubectl.DeleteETCDOperator()
 
+		ExpectAllPodsTerminated(kubectl)
+
 		// make sure we clean everything up before doing any other test
 		err := kubectl.CiliumInstall(
 			helpers.CiliumDefaultDSPatch,
@@ -238,6 +240,15 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 				return false
 			}
 		}
+
+		By("Install Cilium pre-flight check DaemonSet")
+		err = kubectl.CiliumPreFlightInstall(helpers.CiliumDefaultPreFlightPatch)
+		ExpectWithOffset(1, err).To(BeNil(), "Cilium pre-flight %q was not able to be deployed", newVersion)
+		ExpectCiliumPreFlightInstallReady(kubectl)
+
+		// Once they are installed we can remove it
+		By("Removing Cilium pre-flight check DaemonSet")
+		kubectl.Delete(helpers.GetK8sDescriptor(helpers.CiliumDefaultPreFlight))
 
 		err = kubectl.CiliumInstall(helpers.CiliumDefaultDSPatch, helpers.CiliumConfigMapPatch)
 		ExpectWithOffset(1, err).To(BeNil(), "Cilium %q was not able to be deployed", newVersion)

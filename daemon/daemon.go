@@ -82,6 +82,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/vishvananda/netlink"
+	"golang.org/x/sync/semaphore"
 )
 
 const (
@@ -108,11 +109,11 @@ const (
 // Daemon is the cilium daemon that is in charge of perform all necessary plumbing,
 // monitoring when a LXC starts.
 type Daemon struct {
-	buildEndpointChan chan *endpoint.Request
-	l7Proxy           *proxy.Proxy
-	loadBalancer      *loadbalancer.LoadBalancer
-	policy            *policy.Repository
-	preFilter         *policy.PreFilter
+	buildEndpointSem *semaphore.Weighted
+	l7Proxy          *proxy.Proxy
+	loadBalancer     *loadbalancer.LoadBalancer
+	policy           *policy.Repository
+	preFilter        *policy.PreFilter
 	// Only used for CRI-O since it does not support events.
 	workloadsEventsCh chan<- *workloads.EventMessage
 
@@ -121,7 +122,7 @@ type Daemon struct {
 	statusResponseTimestamp time.Time
 
 	uniqueIDMU lock.Mutex
-	uniqueID   map[uint64]bool
+	uniqueID   map[uint64]context.CancelFunc
 
 	nodeMonitor  *monitorLaunch.NodeMonitor
 	ciliumHealth *health.CiliumHealth
@@ -205,68 +206,73 @@ func (d *Daemon) RemoveNetworkPolicy(e *endpoint.Endpoint) {
 	d.l7Proxy.RemoveNetworkPolicy(e)
 }
 
-// QueueEndpointBuild puts the given request in the endpoints queue for
-// processing. The given request will receive 'true' in the MyTurn channel
-// whenever it's its turn or false if the request was denied/canceled.
-func (d *Daemon) QueueEndpointBuild(req *endpoint.Request) {
-	go func(req *endpoint.Request) {
-		d.uniqueIDMU.Lock()
-		// We are skipping new requests, but only if the endpoint has not
-		// started its build process, since the endpoint is already in queue.
-		if isBuilding, exists := d.uniqueID[req.ID]; !isBuilding && exists {
-			req.MyTurn <- false
-		} else {
-			// We mark the request "not building" state and send it to
-			// the building queue.
-			d.uniqueID[req.ID] = false
-			d.buildEndpointChan <- req
-		}
+// QueueEndpointBuild waits for a "build permit" for the endpoint
+// identified by 'epID'. This function blocks until the endpoint can
+// start building.  The returned function must then be called to
+// release the "build permit" when the most resource intensive parts
+// of the build are done. The returned function is idempotent, so it
+// may be called more than once. Returns nil if the caller should NOT
+// start building the endpoint. This may happen due to a build being
+// queued for the endpoint already, or due to the wait for the build
+// permit being canceled. The latter case happens when the endpoint is
+// being deleted.
+func (d *Daemon) QueueEndpointBuild(epID uint64) func() {
+	d.uniqueIDMU.Lock()
+	// Skip new build requests if the endpoint is already in the queue
+	// waiting. In this case the queued build will pick up any changes
+	// made so far, so there is no need to queue another build now.
+	if _, queued := d.uniqueID[epID]; queued {
 		d.uniqueIDMU.Unlock()
-	}(req)
-}
+		return nil
+	}
+	// Store a cancel function to the 'uniqueID' map so that we can
+	// cancel the wait when the endpoint is being deleted.
+	ctx, cancel := context.WithCancel(context.Background())
+	d.uniqueID[epID] = cancel
+	d.uniqueIDMU.Unlock()
 
-// RemoveFromEndpointQueue removes the endpoint from the queue.
-func (d *Daemon) RemoveFromEndpointQueue(epID uint64) {
+	// Acquire build permit. This may block.
+	err := d.buildEndpointSem.Acquire(ctx, 1)
+
+	// Not queueing any more, so remove the cancel func from 'uniqueID' map.
+	// The caller may still cancel the build by calling the cancel func\
+	// after we return it. After this point another build may be queued for
+	// this endpoint.
 	d.uniqueIDMU.Lock()
 	delete(d.uniqueID, epID)
 	d.uniqueIDMU.Unlock()
+
+	if err != nil {
+		return nil // Acquire failed
+	}
+
+	// Acquire succeeded, but the context was canceled after?
+	if ctx.Err() == context.Canceled {
+		d.buildEndpointSem.Release(1)
+		return nil
+	}
+
+	// At this point the build permit has been acquired. It must
+	// be released by the caller by calling the returned function
+	// when the heavy lifting of the build is done.
+	// Using sync.Once to make the returned function idempotent.
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			d.buildEndpointSem.Release(1)
+		})
+	}
 }
 
-// StartEndpointBuilders creates `nRoutines` go routines that listen on the
-// `d.buildEndpointChan` for new endpoints.
-func (d *Daemon) StartEndpointBuilders(nRoutines int) {
-	log.WithField("count", nRoutines).Debug("Creating worker threads")
-	for w := 0; w < nRoutines; w++ {
-		go func() {
-			for e := range d.buildEndpointChan {
-				d.uniqueIDMU.Lock()
-				if _, ok := d.uniqueID[e.ID]; !ok {
-					// If the request is not present in the uniqueID,
-					// it means the request was deleted from the queue
-					// so we deny the request's turn.
-					e.MyTurn <- false
-					d.uniqueIDMU.Unlock()
-					continue
-				}
-				// Set the endpoint to "building" state
-				d.uniqueID[e.ID] = true
-				e.MyTurn <- true
-				d.uniqueIDMU.Unlock()
-				// Wait for the endpoint to build
-				<-e.Done
-				d.uniqueIDMU.Lock()
-				// In a case where the same endpoint enters the
-				// building queue, while it was still being build,
-				// it will be marked as `false`/"not building",
-				// thus, we only delete the endpoint from the
-				// queue only if it is marked as isBuilding.
-				if isBuilding := d.uniqueID[e.ID]; isBuilding {
-					delete(d.uniqueID, e.ID)
-				}
-				d.uniqueIDMU.Unlock()
-			}
-		}()
+// RemoveFromEndpointQueue removes the endpoint from the "build permit" queue,
+// canceling the wait for the build permit if still waiting.
+func (d *Daemon) RemoveFromEndpointQueue(epID uint64) {
+	d.uniqueIDMU.Lock()
+	if cancel, queued := d.uniqueID[epID]; queued && cancel != nil {
+		delete(d.uniqueID, epID)
+		cancel()
 	}
+	d.uniqueIDMU.Unlock()
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
@@ -1103,16 +1109,12 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 	d := Daemon{
 		loadBalancer:  lb,
 		policy:        policy.NewPolicyRepository(),
-		uniqueID:      map[uint64]bool{},
+		uniqueID:      map[uint64]context.CancelFunc{},
 		nodeMonitor:   monitorLaunch.NewNodeMonitor(),
 		prefixLengths: createPrefixLengthCounter(),
 
-		// FIXME
-		// The channel size has to be set to the maximum number of
-		// possible endpoints to guarantee that enqueueing into the
-		// build queue never blocks.
-		buildEndpointChan: make(chan *endpoint.Request, lxcmap.MaxEntries),
-		compilationMutex:  new(lock.RWMutex),
+		buildEndpointSem: semaphore.NewWeighted(int64(numWorkerThreads())),
+		compilationMutex: new(lock.RWMutex),
 	}
 
 	policyApi.InitEntities(option.Config.ClusterName)
@@ -1125,11 +1127,6 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 	if err != nil {
 		log.WithError(err).Debug("Unable to clean leftover veths")
 	}
-
-	// Create at least 4 worker threads or the same amount as there are
-	// CPUs.
-	log.Info("Launching endpoint builder workers")
-	d.StartEndpointBuilders(numWorkerThreads())
 
 	if k8s.IsEnabled() {
 		if err := k8s.Init(); err != nil {
@@ -1337,7 +1334,7 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 			// Insert the new rules into the policy repository. We need them to
 			// replace the previous set. This requires the labels to match (including
 			// the ToFQDN-UUID one).
-			_, err := d.PolicyAdd(generatedRules, &AddOptions{Replace: true})
+			_, err := d.PolicyAdd(generatedRules, &AddOptions{Replace: true, Generated: true})
 			return err
 		}})
 	fqdn.StartDNSPoller(d.dnsPoller)
@@ -1430,10 +1427,9 @@ func (d *Daemon) TriggerReloadWithoutCompile(reason string) (*sync.WaitGroup, er
 		return nil, fmt.Errorf("Unable to recompile base programs from %s: %s", reason, err)
 	}
 	regenContext := &endpoint.RegenerationContext{
-		Reason:         reason,
-		ReloadDatapath: true,
+		Reason: reason,
 	}
-	return endpointmanager.RegenerateAllEndpoints(d, regenContext), nil
+	return endpointmanager.RegenerateAllEndpoints(d, regenContext, true), nil
 }
 
 func changedOption(key string, value option.OptionSetting, data interface{}) {

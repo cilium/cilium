@@ -48,6 +48,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
+	bpfconfig "github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
@@ -60,6 +61,7 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 	"github.com/cilium/cilium/pkg/versioncheck"
 
+	go_version "github.com/hashicorp/go-version"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
@@ -459,6 +461,15 @@ type Endpoint struct {
 	// All fields within the PolicyKey and the proxy port must be in host byte-order.
 	desiredMapState PolicyMapState
 
+	// BPFConfigMap provides access to the endpoint's BPF configuration.
+	bpfConfigMap *bpfconfig.EndpointConfigMap
+
+	// desiredBPFConfig is the BPF Configuration computed from the endpoint.
+	desiredBPFConfig *bpfconfig.EndpointConfig
+
+	// realizedBPFConfig is the config currently active in the BPF datapath.
+	realizedBPFConfig *bpfconfig.EndpointConfig
+
 	// ctCleaned indicates whether the conntrack table has already been
 	// cleaned when this endpoint was first created
 	ctCleaned bool
@@ -567,18 +578,6 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 		scopedLog.Debug("Not starting controller because k8s is disabled")
 		return
 	}
-	k8sServerVer, err := k8s.GetServerVersion()
-	if err != nil {
-		scopedLog.WithError(err).Error("unable to retrieve kubernetes serverversion")
-		return
-	}
-	if !ciliumEPControllerLimit.Check(k8sServerVer) {
-		scopedLog.WithFields(logrus.Fields{
-			"expected": k8sServerVer,
-			"found":    ciliumEPControllerLimit,
-		}).Warn("cannot run with this k8s version")
-		return
-	}
 
 	ciliumClient, err := getCiliumClient()
 	if err != nil {
@@ -594,8 +593,9 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 	}
 
 	var (
-		lastMdl  *models.Endpoint
-		firstRun = true
+		lastMdl      *models.Endpoint
+		firstRun     = true
+		k8sServerVer *go_version.Version // CEPs are not supported with certain versions
 	)
 
 	// NOTE: The controller functions do NOT hold the endpoint locks
@@ -606,6 +606,27 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 				// Update logger as scopeLog might not have the podName when it
 				// was created.
 				scopedLog = e.getLogger().WithField("controller", controllerName)
+
+				// This lookup can fail but once we do it once, we no longer want to try again.
+				if k8sServerVer == nil {
+					var err error
+					k8sServerVer, err = k8s.GetServerVersion()
+					switch {
+					case err != nil:
+						scopedLog.WithError(err).Error("Unable to retrieve kubernetes server version")
+						return err
+
+					case !ciliumEPControllerLimit.Check(k8sServerVer):
+						scopedLog.WithFields(logrus.Fields{
+							"found":    k8sServerVer,
+							"expected": ciliumEPControllerLimit,
+						}).Warn("Cannot run with this k8s version")
+						return nil
+					}
+				}
+				if k8sServerVer == nil || !ciliumEPControllerLimit.Check(k8sServerVer) {
+					return nil // silently return when k8s is incompatible
+				}
 
 				podName := e.GetK8sPodName()
 				if podName == "" {
@@ -729,6 +750,8 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, 
 		DockerNetworkID:  base.DockerNetworkID,
 		DockerEndpointID: base.DockerEndpointID,
 		IfName:           base.InterfaceName,
+		k8sPodName:       base.K8sPodName,
+		k8sNamespace:     base.K8sNamespace,
 		IfIndex:          int(base.InterfaceIndex),
 		OpLabels: pkgLabels.OpLabels{
 			Custom:                pkgLabels.Labels{},
@@ -739,6 +762,7 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, 
 		state:  "",
 		Status: NewEndpointStatus(),
 	}
+
 	ep.UpdateLogger(nil)
 
 	ep.SetStateLocked(string(base.State), "Endpoint creation")
@@ -1706,7 +1730,7 @@ func (e *Endpoint) Update(owner Owner, cfg *models.EndpointConfigurationSpec) er
 				stateTransitionSucceeded := e.SetStateLocked(StateWaitingToRegenerate, reason)
 				if stateTransitionSucceeded {
 					e.Unlock()
-					e.Regenerate(owner, NewRegenerationContext(reason))
+					e.Regenerate(owner, NewRegenerationContext(reason), false)
 					return nil
 				}
 				e.Unlock()
@@ -1859,7 +1883,7 @@ func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup
 // RegenerateWait should only be called when endpoint's state has successfully
 // been changed to "waiting-to-regenerate"
 func (e *Endpoint) RegenerateWait(owner Owner, reason string) error {
-	if !<-e.Regenerate(owner, NewRegenerationContext(reason)) {
+	if !<-e.Regenerate(owner, NewRegenerationContext(reason), false) {
 		return fmt.Errorf("error while regenerating endpoint."+
 			" For more info run: 'cilium endpoint get %d'", e.ID)
 	}
@@ -2268,6 +2292,7 @@ func (e *Endpoint) ModifyIdentityLabels(owner Owner, addLabels, delLabels pkgLab
 
 	switch e.GetStateLocked() {
 	case StateDisconnected, StateDisconnecting:
+		e.Unlock()
 		return nil
 	}
 
@@ -2315,7 +2340,7 @@ func (e *Endpoint) ModifyIdentityLabels(owner Owner, addLabels, delLabels pkgLab
 
 	e.Unlock()
 
-	e.runLabelsResolver(owner, rev)
+	e.runLabelsResolver(owner, rev, false)
 
 	return nil
 }
@@ -2334,7 +2359,7 @@ func (e *Endpoint) IsInit() bool {
 // If a net label changed was performed, the endpoint will receive a new
 // identity and will be regenerated. Both of these operations will happen in
 // the background.
-func (e *Endpoint) UpdateLabels(owner Owner, identityLabels, infoLabels pkgLabels.Labels) {
+func (e *Endpoint) UpdateLabels(owner Owner, identityLabels, infoLabels pkgLabels.Labels, blocking bool) {
 	log.WithFields(logrus.Fields{
 		logfields.ContainerID:    e.GetShortContainerID(),
 		logfields.EndpointID:     e.StringID(),
@@ -2352,7 +2377,7 @@ func (e *Endpoint) UpdateLabels(owner Owner, identityLabels, infoLabels pkgLabel
 	rev := e.replaceIdentityLabels(identityLabels)
 	e.Unlock()
 	if rev != 0 {
-		e.runLabelsResolver(owner, rev)
+		e.runLabelsResolver(owner, rev, blocking)
 	}
 }
 
@@ -2373,7 +2398,7 @@ func (e *Endpoint) identityResolutionIsObsolete(myChangeRev int) bool {
 }
 
 // Must be called with e.Mutex NOT held.
-func (e *Endpoint) runLabelsResolver(owner Owner, myChangeRev int) {
+func (e *Endpoint) runLabelsResolver(owner Owner, myChangeRev int, blocking bool) {
 	if err := e.RLockAlive(); err != nil {
 		// If a labels update and an endpoint delete API request arrive
 		// in quick succession, this could occur; in that case, there's
@@ -2388,7 +2413,7 @@ func (e *Endpoint) runLabelsResolver(owner Owner, myChangeRev int) {
 	// If we are certain we can resolve the identity without accessing the KV
 	// store, do it first synchronously right now. This can reduce the number
 	// of regenerations for the endpoint during its initialization.
-	if identityPkg.IdentityAllocationIsLocal(newLabels) {
+	if blocking || identityPkg.IdentityAllocationIsLocal(newLabels) {
 		scopedLog.Debug("Endpoint has reserved identity, changing synchronously")
 		err := e.identityLabelsChanged(owner, myChangeRev)
 		if err != nil {
@@ -2522,7 +2547,7 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 	e.Unlock()
 
 	if readyToRegenerate {
-		e.Regenerate(owner, NewRegenerationContext("updated security labels"))
+		e.Regenerate(owner, NewRegenerationContext("updated security labels"), false)
 	}
 
 	return nil

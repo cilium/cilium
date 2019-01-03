@@ -756,6 +756,49 @@ func (kub *Kubectl) WaitCleanAllTerminatingPods(timeout int64) error {
 	return err
 }
 
+// DeployPatch deploys the original kubernetes descriptor with the given patch.
+func (kub *Kubectl) DeployPatch(original, patch string) error {
+	// debugYaml only dumps the full created yaml file to the test output if
+	// the cilium manifest can not be created correctly.
+	debugYaml := func(original, patch string) {
+		// dry-run is only available since k8s 1.11
+		switch GetCurrentK8SEnv() {
+		case "1.8", "1.9", "1.10":
+			_ = kub.Exec(fmt.Sprintf(
+				`%s patch --filename='%s' --patch "$(cat '%s')" --local -o yaml`,
+				KubectlCmd, original, patch))
+		default:
+			_ = kub.Exec(fmt.Sprintf(
+				`%s patch --filename='%s' --patch "$(cat '%s')" --local --dry-run -o yaml`,
+				KubectlCmd, original, patch))
+		}
+	}
+
+	var res *CmdRes
+	// validation 1st
+	// dry-run is only available since k8s 1.11
+	switch GetCurrentK8SEnv() {
+	case "1.8", "1.9", "1.10":
+	default:
+		res = kub.Exec(fmt.Sprintf(
+			`%s patch --filename='%s' --patch "$(cat '%s')" --local --dry-run`,
+			KubectlCmd, original, patch))
+		if !res.WasSuccessful() {
+			debugYaml(original, patch)
+			return res.GetErr("Cilium patch validation failed")
+		}
+	}
+
+	res = kub.Exec(fmt.Sprintf(
+		`%s patch --filename='%s' --patch "$(cat '%s')" --local -o yaml | kubectl apply -f -`,
+		KubectlCmd, original, patch))
+	if !res.WasSuccessful() {
+		debugYaml(original, patch)
+		return res.GetErr("Cilium manifest patch instalation failed")
+	}
+	return nil
+}
+
 // ciliumInstall installs all Cilium descriptors into kubernetes.
 // dsPatchName corresponds to the DaemonSet patch, found by
 // getK8sDescriptorPatch, that will be applied to the original Cilium DaemonSet
@@ -777,51 +820,6 @@ func (kub *Kubectl) ciliumInstall(dsPatchName, cmPatchName string, getK8sDescrip
 	rbacPathname := getK8sDescriptor("cilium-rbac.yaml")
 	if rbacPathname == "" {
 		return fmt.Errorf("Cilium RBAC descriptor not found")
-	}
-	saPathname := getK8sDescriptor("cilium-sa.yaml")
-	if saPathname == "" {
-		return fmt.Errorf("Cilium ServiceAccount descriptor not found")
-	}
-	deployPatch := func(original, patch string) error {
-		// debugYaml only dumps the full created yaml file to the test output if
-		// the cilium manifest can not be created correctly.
-		debugYaml := func(original, patch string) {
-			// dry-run is only available since k8s 1.11
-			switch GetCurrentK8SEnv() {
-			case "1.8", "1.9", "1.10":
-				_ = kub.Exec(fmt.Sprintf(
-					`%s patch --filename='%s' --patch "$(cat '%s')" --local -o yaml`,
-					KubectlCmd, original, patch))
-			default:
-				_ = kub.Exec(fmt.Sprintf(
-					`%s patch --filename='%s' --patch "$(cat '%s')" --local --dry-run -o yaml`,
-					KubectlCmd, original, patch))
-			}
-		}
-
-		var res *CmdRes
-		// validation 1st
-		// dry-run is only available since k8s 1.11
-		switch GetCurrentK8SEnv() {
-		case "1.8", "1.9", "1.10":
-		default:
-			res = kub.Exec(fmt.Sprintf(
-				`%s patch --filename='%s' --patch "$(cat '%s')" --local --dry-run`,
-				KubectlCmd, original, patch))
-			if !res.WasSuccessful() {
-				debugYaml(original, patch)
-				return res.GetErr("Cilium patch validation failed")
-			}
-		}
-
-		res = kub.Exec(fmt.Sprintf(
-			`%s patch --filename='%s' --patch "$(cat '%s')" --local -o yaml | kubectl apply -f -`,
-			KubectlCmd, original, patch))
-		if !res.WasSuccessful() {
-			debugYaml(original, patch)
-			return res.GetErr("Cilium manifest patch instalation failed")
-		}
-		return nil
 	}
 
 	deployOriginal := func(original string) error {
@@ -846,19 +844,15 @@ func (kub *Kubectl) ciliumInstall(dsPatchName, cmPatchName string, getK8sDescrip
 		return nil
 	}
 
-	if err := deployOriginal(saPathname); err != nil {
-		return err
-	}
-
 	if err := deployOriginal(rbacPathname); err != nil {
 		return err
 	}
 
-	if err := deployPatch(cmPathname, getK8sDescriptorPatch(cmPatchName)); err != nil {
+	if err := kub.DeployPatch(cmPathname, getK8sDescriptorPatch(cmPatchName)); err != nil {
 		return err
 	}
 
-	if err := deployPatch(dsPathname, getK8sDescriptorPatch(dsPatchName)); err != nil {
+	if err := kub.DeployPatch(dsPathname, getK8sDescriptorPatch(dsPatchName)); err != nil {
 		return err
 	}
 	return nil
@@ -873,6 +867,19 @@ func (kub *Kubectl) ciliumInstall(dsPatchName, cmPatchName string, getK8sDescrip
 // found.
 func (kub *Kubectl) CiliumInstall(dsPatchName, cmPatchName string) error {
 	return kub.ciliumInstall(dsPatchName, cmPatchName, GetK8sDescriptor, ManifestGet)
+}
+
+// CiliumPreFlightInstall install Cilium pre-flight DaemonSet.
+func (kub *Kubectl) CiliumPreFlightInstall(patchName string) error {
+	dsPathname := GetK8sDescriptor(CiliumDefaultPreFlight)
+	if dsPathname == "" {
+		return fmt.Errorf("Cilium Pre-flight DaemonSet descriptor not found")
+	}
+	patchFilepath := ManifestGet(patchName)
+	if patchFilepath == "" {
+		return fmt.Errorf("Cilium pre-flight DaemonSet patch not found")
+	}
+	return kub.DeployPatch(dsPathname, patchFilepath)
 }
 
 // CiliumInstallVersion installs all Cilium descriptors into kubernetes for
@@ -1912,30 +1919,9 @@ func (kub *Kubectl) CiliumServicePreFlightCheck() error {
 // DeployETCDOperator deploys the etcd-operator k8s descriptors into the cluster
 // pointer by kub.
 func (kub *Kubectl) DeployETCDOperator() error {
-	const etcdOperatorPath = "../examples/kubernetes/addons/etcd-operator/"
-	deployFile := func(filename string) error {
-		cmdRes := kub.Apply(GetFilePath(etcdOperatorPath + filename))
-		if !cmdRes.WasSuccessful() {
-			return fmt.Errorf("Unable to deploy descriptor of etcd-operator %s: %s", filename, cmdRes.OutputPrettyPrint())
-		}
-		return nil
-	}
-
-	cmdRes := kub.Exec(fmt.Sprintf("%s '%s'", GetFilePath(etcdOperatorPath+"tls/certs/gen-cert.sh"), "cluster.local"))
+	cmdRes := kub.Apply(ciliumEtcdOperator)
 	if !cmdRes.WasSuccessful() {
-		return fmt.Errorf("unable to generate tls certificates for etcd-operator: %s", cmdRes.OutputPrettyPrint())
-	}
-	// deploy-certs.sh can be called multiple times so it will fail if a
-	// certificate is already created, we will rely in the deployment
-	// of etcd-operator descriptors to check if something is wrong with
-	// the deployment.
-	_ = kub.Exec(GetFilePath(etcdOperatorPath + "tls/deploy-certs.sh"))
-
-	for _, manifest := range etcdDeploymentFiles {
-		err := deployFile(manifest)
-		if err != nil {
-			return err
-		}
+		return fmt.Errorf("Unable to deploy descriptor of etcd-operator %s: %s", ciliumEtcdOperator, cmdRes.OutputPrettyPrint())
 	}
 	return nil
 }
@@ -1943,24 +1929,14 @@ func (kub *Kubectl) DeployETCDOperator() error {
 // DeleteETCDOperator delete the etcd-operator from the cluster pointed by
 // kub.
 func (kub *Kubectl) DeleteETCDOperator() error {
-	const etcdOperatorPath = "../examples/kubernetes/addons/etcd-operator/"
-	deleteFile := func(filename string) error {
-		cmdRes := kub.Delete(GetFilePath(etcdOperatorPath + filename))
-		if !cmdRes.WasSuccessful() {
-			return fmt.Errorf("Unable to delete descriptor of etcd-operator %s: %s", filename, cmdRes.OutputPrettyPrint())
-		}
-		return nil
+	cmdRes := kub.Delete(ciliumEtcdOperator)
+	if !cmdRes.WasSuccessful() {
+		return fmt.Errorf("Unable to delete descriptor of etcd-operator %s: %s", ciliumEtcdOperator, cmdRes.OutputPrettyPrint())
 	}
-
-	var retErr error
-	for i := len(etcdDeploymentFiles) - 1; i > 0; i-- {
-		err := deleteFile(etcdDeploymentFiles[i])
-		if err != nil {
-			// delete all files regardless of the returned error.
-			retErr = err
-		}
-	}
-	return retErr
+	kub.Exec("kubectl delete deployment -n kube-system -l io.cilium/app=etcd-operator")
+	kub.Exec("kubectl delete pods -n kube-system -l io.cilium/app=etcd-operator")
+	kub.Exec("kubectl delete etcdclusters.etcd.database.coreos.com -n kube-system -l io.cilium/app=etcd-operator")
+	return nil
 }
 
 func serviceKey(s v1.Service) string {

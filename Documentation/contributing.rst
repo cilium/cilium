@@ -1,9 +1,3 @@
-.. only:: not (epub or latex or html)
-
-    WARNING: You are looking at unreleased Cilium documentation.
-    Please use the official rendered version released here:
-    http://docs.cilium.io
-
 .. _dev_guide:
 
 Developer / Contributor Guide
@@ -31,7 +25,9 @@ contribute to Cilium:
 +==================================================================================+==========================+===============================================================================+
 | git                                                                              | latest                   | N/A (OS-specific)                                                             |
 +----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
-| `go <https://golang.org/dl/>`_                                                   | 1.10                      | N/A (OS-specific)                                                            |
+|  glibc-devel (32-bit)                                                            | latest                   | N/A (OS-specific)                                                             |
++----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
+| `go <https://golang.org/dl/>`_                                                   | 1.11                     | N/A (OS-specific)                                                             |
 +----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
 | `dep <https://github.com/golang/dep/>`_                                          | >= v0.4.1                | ``curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh``  |
 +----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
@@ -44,6 +40,8 @@ contribute to Cilium:
 | `protoc-gen-go <https://github.com/golang/protobuf/tree/master/protoc-gen-go>`_  | latest                   | ``go get -u github.com/golang/protobuf/protoc-gen-go``                        |
 +----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
 | `protoc-gen-validate <https://github.com/lyft/protoc-gen-validate>`_             | latest                   | ``go get -u github.com/lyft/protoc-gen-validate``                             |
++----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
+| `ineffassign <https://github.com/gordonklaus/ineffassign>`_                      | >= ``1003c8b``           | ``go get -u github.com/gordonklaus/ineffassign``                              |
 +----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
 + `Docker <https://docs.docker.com/engine/installation/>`_                         | OS-Dependent             | N/A (OS-specific)                                                             |
 +----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
@@ -2063,81 +2061,61 @@ update:
 0. After login, select the tab "builds" on the left menu.
 
 .. image:: images/cilium-quayio-tag-0.png
-    :width: 600px
     :align: center
-    :height: 300px
 
 1. Click on the wheel.
 2. Enable the trigger for that build trigger.
 
 .. image:: images/cilium-quayio-tag-1.png
-    :width: 600px
     :align: center
-    :height: 300px
 
 3. Confirm that you want to enable the trigger.
 
 .. image:: images/cilium-quayio-tag-2.png
-    :width: 600px
     :align: center
-    :height: 300px
 
 4. After enabling the trigger, click again on the wheel.
 5. And click on "Run Trigger Now".
 
 .. image:: images/cilium-quayio-tag-3.png
-    :width: 600px
     :align: center
-    :height: 300px
 
 6. A new pop-up will appear and you can select the branch that contains your
    changes.
 7. Select the branch that contains the new changes.
 
 .. image:: images/cilium-quayio-tag-4.png
-    :width: 600px
     :align: center
-    :height: 300px
 
 8. After selecting your branch click on "Start Build".
 
 .. image:: images/cilium-quayio-tag-5.png
-    :width: 600px
     :align: center
-    :height: 300px
 
 9. Once the build has started you can disable the Build trigger by clicking on
    the wheel.
 10. And click on "Disable Trigger".
 
 .. image:: images/cilium-quayio-tag-6.png
-    :width: 600px
     :align: center
-    :height: 300px
 
 11. Confirm that you want to disable the build trigger.
 
 .. image:: images/cilium-quayio-tag-7.png
-    :width: 600px
     :align: center
-    :height: 300px
 
 12. Once the build is finished click under Tags (on the left menu).
 13. Click on the wheel and;
 14. Add a new tag to the image that was built.
 
 .. image:: images/cilium-quayio-tag-8.png
-    :width: 600px
     :align: center
-    :height: 300px
 
 15. Write the name of the tag that you want to give for the newly built image.
 16. Confirm the name is correct and click on "Create Tag".
 
 .. image:: images/cilium-quayio-tag-9.png
-    :width: 600px
     :align: center
-    :height: 300px
 
 17. After the new tag was created you can delete the other tag, which is the
     name of your branch. Select the tag name.
@@ -2145,16 +2123,12 @@ update:
 19. Click in "Delete Tags".
 
 .. image:: images/cilium-quayio-tag-10.png
-    :width: 600px
     :align: center
-    :height: 300px
 
 20. Confirm that you want to delete tag with your branch name.
 
 .. image:: images/cilium-quayio-tag-11.png
-    :width: 600px
     :align: center
-    :height: 300px
 
 You have created a new image build with a new tag. The next steps should be to
 update the repository root's Dockerfile so that it points to the new

@@ -28,5 +28,5 @@ cilium bpf proxy list
 ```
 
 ### SEE ALSO
-* [cilium bpf proxy](cilium_bpf_proxy.html)	 - Proxy configuration
+* [cilium bpf proxy](../cilium_bpf_proxy)	 - Proxy configuration
 

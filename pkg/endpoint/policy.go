@@ -68,13 +68,13 @@ type RegenerationContext struct {
 	// used to generate useful log messages.
 	Reason string
 
-	// ReloadDatapath forces the datapath programs to be reloaded. It does
-	// not guarantee recompilation of the programs.
-	ReloadDatapath bool
-
 	// Stats are collected during the endpoint regeneration and provided
 	// back to the caller
 	Stats regenerationStatistics
+
+	// DoneFunc must be called when the most resource intensive portion of
+	// the regeneration is done
+	DoneFunc func()
 }
 
 // NewRegenerationContext returns a new context for regeneration that does not
@@ -571,16 +571,27 @@ func (e *Endpoint) regeneratePolicy(owner Owner) error {
 	// the regeneration of the endpoint to complete.
 	policyChanged := l3PolicyChanged || l4PolicyChanged
 
+	totalRegeneration := time.Since(regenerateStart)
+
 	e.getLogger().WithFields(logrus.Fields{
 		"policyChanged":                  policyChanged,
 		"forcedRegeneration":             forceRegeneration,
-		logfields.PolicyRegenerationTime: time.Since(regenerateStart).String(),
+		logfields.PolicyRegenerationTime: totalRegeneration.String(),
 	}).Info("Completed endpoint policy recalculation")
 
-	regenerateTimeSec := float64(time.Since(regenerateStart)) / float64(time.Second)
+	regenerateTimeSec := totalRegeneration.Seconds()
 	metrics.PolicyRegenerationCount.Inc()
-	metrics.PolicyRegenerationTime.Add(regenerateTimeSec)
-	metrics.PolicyRegenerationTimeSquare.Add(math.Pow(regenerateTimeSec, 2))
+	if regenerateTimeSec < 0 {
+		e.getLogger().WithFields(logrus.Fields{
+			"policyChanged":                  policyChanged,
+			"forcedRegeneration":             forceRegeneration,
+			logfields.PolicyRegenerationTime: totalRegeneration.String(),
+			"regenerateTimeSec":              regenerateTimeSec,
+		}).Warn("BUG: regenerateTimeSec is less than 0")
+	} else {
+		metrics.PolicyRegenerationTime.Add(regenerateTimeSec)
+		metrics.PolicyRegenerationTimeSquare.Add(math.Pow(regenerateTimeSec, 2))
+	}
 
 	return nil
 }
@@ -639,7 +650,7 @@ func (e *Endpoint) ComputePolicyEnforcement(repo *policy.Repository) (ingress bo
 }
 
 // Called with e.Mutex UNlocked
-func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr error) {
+func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext, reloadDatapath bool) (retErr error) {
 	var revision uint64
 	var compilationExecuted bool
 	var err error
@@ -760,7 +771,7 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 		e.Unlock()
 	}()
 
-	revision, compilationExecuted, err = e.regenerateBPF(owner, origDir, tmpDir, context)
+	revision, compilationExecuted, err = e.regenerateBPF(owner, origDir, tmpDir, context, reloadDatapath)
 	if err != nil {
 		failDir := e.FailedDirectoryPath()
 		e.getLogger().WithFields(logrus.Fields{
@@ -797,6 +808,7 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 		e.syncPolicyMapController()
 	}
 
+	e.realizedBPFConfig = e.desiredBPFConfig
 	e.RealizedL4Policy = e.DesiredL4Policy
 	// Mark the endpoint to be running the policy revision it was
 	// compiled for
@@ -809,22 +821,21 @@ func (e *Endpoint) regenerate(owner Owner, context *RegenerationContext) (retErr
 // Regenerate forces the regeneration of endpoint programs & policy
 // Should only be called with e.state == StateWaitingToRegenerate or with
 // e.state == StateWaitingForIdentity
-func (e *Endpoint) Regenerate(owner Owner, context *RegenerationContext) <-chan bool {
-	newReq := &Request{
-		ID:           uint64(e.ID),
-		MyTurn:       make(chan bool),
-		Done:         make(chan bool),
-		ExternalDone: make(chan bool),
-	}
+// ReloadDatapath forces the datapath programs to be reloaded. It does
+// not guarantee recompilation of the programs.
+func (e *Endpoint) Regenerate(owner Owner, context *RegenerationContext, reloadDatapath bool) <-chan bool {
+	done := make(chan bool, 1)
 
-	go func(owner Owner, req *Request, e *Endpoint) {
+	go func() {
 		var buildSuccess bool
+		defer func() {
+			done <- buildSuccess
+			close(done)
+		}()
 
 		err := e.RLockAlive()
 		if err != nil {
 			e.LogDisconnectedMutexAction(err, "before regeneration")
-			req.ExternalDone <- false
-			close(req.ExternalDone)
 			return
 		}
 		e.RUnlock()
@@ -833,13 +844,14 @@ func (e *Endpoint) Regenerate(owner Owner, context *RegenerationContext) <-chan 
 		// We should only queue the request after we use all the endpoint's
 		// lock/unlock. Otherwise this can get a deadlock if the endpoint is
 		// being deleted at the same time. More info PR-1777.
-		owner.QueueEndpointBuild(req)
-
-		isMyTurn, isMyTurnChanOK := <-req.MyTurn
-		if isMyTurnChanOK && isMyTurn {
+		doneFunc := owner.QueueEndpointBuild(uint64(e.ID))
+		if doneFunc != nil {
 			scopedLog.Debug("Dequeued endpoint from build queue")
 
-			err := e.regenerate(owner, context)
+			context.DoneFunc = doneFunc
+			err := e.regenerate(owner, context, reloadDatapath)
+			doneFunc() // in case not called already
+
 			repr, reprerr := monitor.EndpointRegenRepr(e, err)
 			if reprerr != nil {
 				scopedLog.WithError(reprerr).Warn("Notifying monitor about endpoint regeneration failed")
@@ -856,22 +868,12 @@ func (e *Endpoint) Regenerate(owner Owner, context *RegenerationContext) <-chan 
 					owner.SendNotification(monitor.AgentNotifyEndpointRegenerateSuccess, repr)
 				}
 			}
-
-			req.Done <- buildSuccess
 		} else {
 			buildSuccess = false
-
 			scopedLog.Debug("My request was cancelled because I'm already in line")
 		}
-		// The external listener can ignore the channel so we need to
-		// make sure we don't block
-		select {
-		case req.ExternalDone <- buildSuccess:
-		default:
-		}
-		close(req.ExternalDone)
-	}(owner, newReq, e)
-	return newReq.ExternalDone
+	}()
+	return done
 }
 
 func (e *Endpoint) runIdentityToK8sPodSync() {

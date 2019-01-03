@@ -1,9 +1,3 @@
-.. only:: not (epub or latex or html)
-
-    WARNING: You are looking at unreleased Cilium documentation.
-    Please use the official rendered version released here:
-    http://docs.cilium.io
-
 .. _gs_guide:
 
 Getting Started Guides
@@ -26,6 +20,7 @@ complete will help you to get started in your area of choice:
    grpc
    elasticsearch
    cassandra
+   memcached
    mesos
    docker
 

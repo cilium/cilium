@@ -56,6 +56,16 @@ func createConfigDirectoryWatcher(path string, lifecycle clusterLifecycle) (*con
 	}, nil
 }
 
+func isEtcdConfigFile(path string) bool {
+	b, err := ioutil.ReadFile(path)
+	if err != nil {
+		return false
+	}
+
+	// search for the "endpoints:" string
+	return strings.Contains(string(b), "endpoints:")
+}
+
 func (cdw *configDirectoryWatcher) watch() error {
 	log.WithField(fieldConfig, cdw.path).Debug("Starting config directory watcher")
 
@@ -74,29 +84,38 @@ func (cdw *configDirectoryWatcher) watch() error {
 			continue
 		}
 
-		log.WithField(fieldClusterName, f.Name()).WithField("mode", f.Mode()).Debugf("Found configuration in initial scan")
-		cdw.lifecycle.add(f.Name(), path.Join(cdw.path, f.Name()))
-	}
-
-	for {
-		select {
-		case event := <-cdw.watcher.Events:
-			name := filepath.Base(event.Name)
-			log.WithField(fieldClusterName, name).Debugf("Received fsnotify event: %+v", event)
-			switch event.Op {
-			case fsnotify.Create, fsnotify.Write, fsnotify.Chmod:
-				cdw.lifecycle.add(name, event.Name)
-			case fsnotify.Remove, fsnotify.Rename:
-				cdw.lifecycle.remove(name)
-			}
-
-		case err := <-cdw.watcher.Errors:
-			return err
-
-		case <-cdw.stop:
-			return nil
+		absolutePath := path.Join(cdw.path, f.Name())
+		if !isEtcdConfigFile(absolutePath) {
+			continue
 		}
+
+		log.WithField(fieldClusterName, f.Name()).WithField("mode", f.Mode()).Debugf("Found configuration in initial scan")
+		cdw.lifecycle.add(f.Name(), absolutePath)
 	}
+
+	go func() {
+		for {
+			select {
+			case event := <-cdw.watcher.Events:
+				name := filepath.Base(event.Name)
+				log.WithField(fieldClusterName, name).Debugf("Received fsnotify event: %+v", event)
+				switch event.Op {
+				case fsnotify.Create, fsnotify.Write, fsnotify.Chmod:
+					cdw.lifecycle.add(name, event.Name)
+				case fsnotify.Remove, fsnotify.Rename:
+					cdw.lifecycle.remove(name)
+				}
+
+			case err := <-cdw.watcher.Errors:
+				log.WithError(err).WithField("path", cdw.path).Warning("error encountered while watching directory with fsnotify")
+
+			case <-cdw.stop:
+				return
+			}
+		}
+	}()
+
+	return nil
 }
 
 func (cdw *configDirectoryWatcher) close() {

@@ -95,7 +95,7 @@ func (c *criClient) IsRunning(ep *endpoint.Endpoint) bool {
 		return false
 	}
 	if err != nil {
-		log.WithError(err).Debugf("unable to get pod sandbox status of %s", pssr)
+		log.WithError(err).Debugf("unable to get pod sandbox status of %v", pssr)
 		return false
 	}
 
@@ -277,7 +277,7 @@ func (c *criClient) handleCreateWorkload(id string, retry bool) {
 		// attributes with new attributes set on endpoint
 		endpointmanager.UpdateReferences(ep)
 
-		ep.UpdateLabels(Owner(), identityLabels, informationLabels)
+		ep.UpdateLabels(Owner(), identityLabels, informationLabels, false)
 		return
 	}
 

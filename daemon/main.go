@@ -388,8 +388,14 @@ func init() {
 	flags.BoolVar(&enableTracing,
 		"enable-tracing", false, "Enable tracing while determining policy (debugging)")
 	flags.String("envoy-log", "", "Path to a separate Envoy log file, if any")
-	flags.String("http-403-msg", "", "Message returned in proxy L7 403 body")
-	flags.MarkHidden("http-403-msg")
+	flags.String(option.HTTP403Message, "", "Message returned in proxy L7 403 body")
+	flags.MarkHidden(option.HTTP403Message)
+	flags.Uint(option.HTTPRequestTimeout, 60*60, "Time after which a forwarded request is considered failed unless completed (in seconds); Use 0 for unlimited")
+	flags.Uint(option.HTTPIdleTimeout, 0, "Time after which a forwarded request is considered failed unless traffic in the stream has been processed (in seconds); defaults to 0 (unlimited)")
+	flags.Uint(option.HTTPMaxGRPCTimeout, 0, "Time after which a forwarded GRPC request is considered failed unless completed (in seconds). A \"grpc-timeout\" header may override this with a shorter value; defaults to 0 (unlimited)")
+	flags.Uint(option.HTTPRetryCount, 3, "Number of retries performed after a forwarded request attempt fails")
+	flags.Uint(option.HTTPRetryTimeout, 0, "Time after which a forwarded but uncompleted request is retried (connection failures are retried immediately); defaults to 0 (never)")
+	flags.Uint(option.ProxyConnectTimeout, 1, "Time after which a TCP connect attempt is considered failed unless completed (in seconds)")
 	flags.Bool("disable-envoy-version-check", false, "Do not perform Envoy binary version check on startup")
 	flags.MarkHidden("disable-envoy-version-check")
 	// Disable version check if Envoy build is disabled
@@ -464,7 +470,7 @@ func init() {
 	flags.Bool("sidecar-http-proxy", false, "Disable host HTTP proxy, assuming proxies in sidecar containers")
 	flags.MarkHidden("sidecar-http-proxy")
 	viper.BindEnv("sidecar-http-proxy", "CILIUM_SIDECAR_HTTP_PROXY")
-	flags.String("sidecar-istio-proxy-image", workloads.DefaultSidecarIstioProxyImageRegexp,
+	flags.String("sidecar-istio-proxy-image", k8s.DefaultSidecarIstioProxyImageRegexp,
 		"Regular expression matching compatible Istio sidecar istio-proxy container image names")
 	viper.BindEnv("sidecar-istio-proxy-image", "CILIUM_SIDECAR_ISTIO_PROXY_IMAGE")
 	flags.Bool(option.SingleClusterRouteName, false,
@@ -764,6 +770,15 @@ func initEnv(cmd *cobra.Command) {
 		}
 	}
 
+	// Read the service IDs of existing services from the BPF map and
+	// reserve them. This must be done *before* connecting to the
+	// Kubernetes apiserver and serving the API to ensure service IDs are
+	// not changing across restarts or that a new service could accidentally
+	// use an existing service ID.
+	if option.Config.RestoreState {
+		restoreServiceIDs()
+	}
+
 	k8s.Configure(k8sAPIServer, k8sKubeConfigPath)
 
 	// workaround for to use the values of the deprecated dockerEndpoint
@@ -787,7 +802,7 @@ func initEnv(cmd *cobra.Command) {
 		log.Warn(`"sidecar-http-proxy" flag is deprecated and has no effect`)
 	}
 
-	workloads.SidecarIstioProxyImageRegexp, err = regexp.Compile(viper.GetString("sidecar-istio-proxy-image"))
+	k8s.SidecarIstioProxyImageRegexp, err = regexp.Compile(viper.GetString("sidecar-istio-proxy-image"))
 	if err != nil {
 		log.WithError(err).Fatal("Invalid sidecar-istio-proxy-image regular expression")
 		return

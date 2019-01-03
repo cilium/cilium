@@ -1,9 +1,3 @@
-.. only:: not (epub or latex or html)
-
-    WARNING: You are looking at unreleased Cilium documentation.
-    Please use the official rendered version released here:
-    http://docs.cilium.io
-
 .. _arch_guide:
 
 ########
@@ -23,7 +17,6 @@ Component Overview
 .. image:: images/cilium-arch.png
     :width: 600px
     :align: center
-    :height: 300px
 
 A deployment of Cilium consists of the following components running on each
 Linux container node in the container cluster:
@@ -398,6 +391,10 @@ identities are prefixed with the string ``reserved:``.
 |                     | some of the metadata required to derive the       |
 |                     | security identity is still missing. This is       |
 |                     | typically the case in the bootstrapping phase.    |
+|                     |                                                   |
+|                     | The init identity is only allocated if the labels |
+|                     | of the endpoint are not known at creation time.   |
+|                     | This can be the case for the Docker plugin.       |
 +---------------------+---------------------------------------------------+
 | reserved:unmanaged  | An endpoint that is not managed by Cilium, e.g.   |
 |                     | a Kubernetes pod that was launched before Cilium  |

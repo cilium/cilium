@@ -1,9 +1,3 @@
-.. only:: not (epub or latex or html)
-
-    WARNING: You are looking at unreleased Cilium documentation.
-    Please use the official rendered version released here:
-    http://docs.cilium.io
-
 **********************************
 Getting Started Securing Cassandra
 **********************************
@@ -13,7 +7,7 @@ security policies.  It is a detailed walk-through of getting a single-node
 Cilium environment running on your machine. It is designed to take 15-30
 minutes.
 
-**NOTE:** Cassandra-aware policy support is still "experimental".  It is not yet ready for
+**NOTE:** Cassandra-aware policy support is still in beta phase.  It is not yet ready for
 production use.   Additionally, the Cassandra-specific policy language is highly likely to
 change in a future Cilium version.
 
@@ -97,7 +91,7 @@ First, we'll create the keyspaces and tables mentioned above, and populate them 
 
 .. parsed-literal::
 
-   $  curl -s \ |SCM_WEB|\/examples/cass-populate-tables.sh | bash
+   $  curl -s \ |SCM_WEB|\/examples/kubernetes-cassandra/cass-populate-tables.sh | bash
 
 Next, create two environment variables that refer to the *empire-hq* and *empire-outpost* pods:
 

@@ -61,7 +61,7 @@ spec:
                   key: clean-cilium-bpf-state
       containers:
         - image: docker.io/cilium/cilium:__CILIUM_VERSION__
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           name: cilium-agent
           command: ["cilium-agent"]
           args:
@@ -247,11 +247,13 @@ spec:
       tolerations:
         - effect: NoSchedule
           key: node.kubernetes.io/not-ready
+          operator: "Exists"
         - effect: NoSchedule
           key: node-role.kubernetes.io/master
+          operator: "Exists"
         - effect: NoSchedule
           key: node.cloudprovider.kubernetes.io/uninitialized
-          value: "true"
+          operator: "Exists"
         # Mark cilium's pod as critical for rescheduling
         - key: CriticalAddonsOnly
           operator: "Exists"

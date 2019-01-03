@@ -2,6 +2,1975 @@
 NEWS
 ******
 
+1.3.0
+=====
+
+::
+
+	Amey Bhide (1):
+	      Run initContainer in privileged mode for cilium cleanup
+
+	André Martins (167):
+	      kubernetes: set maxUnavailable to pods to 2 on upgrade
+	      examples/kubernetes: remove execution permission of Makefile
+	      examples/kubernetes: add volume types
+	      k8s: watch for namespace changes
+	      kubernetes/addons: add Cilium development spec file to test etcd-operator
+	      etcd-operator: add instructions how to install cfssl utilities
+	      etcd-operator: add developer README to deploy etcd-operator
+	      pkg/node: re-add k8s node watcher until kvstore is connected
+	      etcd-operator/tls/certs: do some minor cleanups
+	      pkg/k8s: set node cluster with the option.Config.ClusterName
+	      examples/kubernetes-ingress: fix development VM setup
+	      pkg/envoy: update generated files
+	      examples/kubernetes: remove unmaintained k8s deployment files
+	      envoy/Dockerfile: upgrade ubuntu to 18.04
+	      envoy/Dockerfile: replace realpath with coreutils
+	      Dockerfile: update cilium-builder to 2018-08-09
+	      pkg/node: add Public Equalness checker
+	      daemon/k8s_watcher: ignore irrelevant node updates
+	      update development VM to use k8s 1.11.2
+	      vendor: update k8s dependencies to 1.11.2
+	      pkg/endpoint: update scopeLog in controller
+	      pkg/k8s: allow namespace specification in FromEndpoints without k8s source
+	      cni: Change default configuration filename to 05-cilium.conf
+	      daemon: drop support for k8s <1.8
+	      examples/kubernetes: remove deployment files for k8s 1.7
+	      docs: remove documentation support for k8s 1.7
+	      test: drop test coverage for k8s 1.7
+	      gingko: bump min. k8s test version to 1.8
+	      Nightly tests: remove test set up for k8s 1.7
+	      pkg/option: fix race in IntOptions GetValue method
+	      pkg/lock: use Mutex instead of RWMutex for internalMutex
+	      pkg/endpoint: attempt to restore failed endpoints regenerations from previous life
+	      pkg/endpoint: check ingress/egress enforcement outside of for-loop
+	      pkg/endpoint: check endpoint SecurityIdentity before holding repo mutex
+	      pkg/endpoint: add Labels.GetIdentityLabel() for IsInit()
+	      fix missing ineffassign warnings
+	      test: use specific docker image tag in all tests
+	      test: use constant for cilium/demo-httpd image
+	      test: check image name tag
+	      test: use tgraf/netperf:v1.0 image
+	      examples/kubernetes-grpc: update grpc image
+	      do not regenerate policy on TriggerPolicyUpdates
+	      pkg/endpoint replace logger atomically
+	      refactored dockerID to containerID
+	      pkg/endpoint: only update logger fields when changed
+	      pkg/endpoint: use e.getLogger() on all log messages
+	      pkg/lock: add detector if a lock was held for more than n seconds
+	      test: add SelfishThresholdMsg to countLogsMessages
+	      test: use original k8s descriptors to deploy Cilium in tests
+	      docs: remove kubecfg from required dev dependencies
+	      test: remove cilium.dsManifest option
+	      test: run patch --dry-run since k8s 1.11
+	      Revert "test/k8sT: use specific commit for cilium/star-wars-demo YAMLs"
+	      test: fix star wars demo to run star-wars v1.0
+	      docs: fix microscope link
+	      docs: fix prometheus 404 links
+	      test: update k8s versions to 1.9.10 1.10.7 1.11.2 and 1.12.0-beta.0
+	      test: re-add k8s 1.12 to CI
+	      examples/kubernetes: add node.kubernetes.io/not-ready toleration
+	      pkg/identity: Wait For Initial Identities for endpoints without fixed identity
+	      pkg/option: refator OptionMap map[string]int to map[string]OptionSetting
+	      validate OptionMap at the API layer for daemon and endpoint options
+	      pkg/identity: remove unnecessary mutex around reservedIdentity map
+	      pkg/endpoint: check for regenerateBPF error earlier
+	      pkg/endpoint: move directory related functions to directory.go
+	      k8s: annotate k8s node after IP address allocation
+	      pkg/logging: move pkg/debugdetection to pkg/logging
+	      k8s: stop watching for kubernetes management endpoints
+	      test: move kube-dns pre-flight check to ExpectKubeDNSReady
+	      test: ignore headless services in precheck
+	      k8s: use k8s mocker client for unit tests
+	      pkg/k8s: remove Values for LabelSelectorRequirement with Operator=Exists
+	      k8s: ignore service updates if they are the same
+	      pkg/serializer: made FunctionQueue struct public
+	      daemon: block endpoints addition until all policies are processed from k8s
+	      test/helpers: add CiliumInstallVersion to install specific cilium version
+	      test: test an upgrade and a downgrade of a particular Cilium version
+	      test: test against branches and not tags
+	      test: check for pods marked to be deleted in helpers
+	      test: remove cilium/cilium:latest after building it
+	      test: add specific k8s manifests for each Cilium version
+	      test: prevent upgrade / downgrade test in unsupported k8s versions
+	      k8s: refactored some k8s code out of the Cilium utils pkg
+	      pkg/k8s: add k8s Controller and ResourceEventHandler Factories
+	      daemon: make use of Controller and ResourceEventHandler in k8s watcher
+	      pkg/lock: make time of internalRWMutex private
+	      deps: remove unused gabs dependency
+	      pkg/bpf: send currentKey and not nextKey in the callback func
+	      fix alignment in Go structs
+	      cilium-runtime: update image to 2018-09-13
+	      pkg/identity: fix log warning to be correctly formatted
+	      pkg/identity: return user fixed identities with cilium identity list
+	      pkg/identity: return identities ordered by ID
+	      vendor: update k8s deps to 1.11.3
+	      test: bump k8s testing version from 1.11.2 to 1.11.3
+	      dev: bump k8s developer version from 1.11.2 to 1.11.3
+	      cmd: sort identity list at the user side
+	      etcd-operator: update cilium-developer descriptor
+	      etcd-operator: update etcd-operator cilium-deployment
+	      pkg/k8s: fix k8s unit tests
+	      examples/kubernetes: fix etcd-operator descriptor
+	      etcd-operator: update cilium image to 1.2.2 in etcd-operator guide
+	      dep: avoid dep panic for fsnotify repository
+	      cmd: order bpf policy get by DIRECTION and IDENTITY
+	      pkg/kvstore: use leaseID from etcd session
+	      vendor: update etcd client lib that contains bugfixes
+	      pkg/kvstore: clean up mutex ordering and comments
+	      pkg/versioned: introducing versioned maps
+	      k8s: use self implementation of reSync
+	      examples/kubernetes: add better comment for bpf-maps volume
+	      crio: don't mount bpf path for k8s >= 1.11
+	      pkg/policy: add Repository.ContainsAllRLocked method
+	      pkg/k8s: use dedicated function to get labels from CNP
+	      k8s: create Equalness and Missing Functions for CNP and NP
+	      k8s: add parseK8sEPv1 function
+	      pkg/comparator: add MapBoolEquals
+	      pkg/loadbalancer: create DeepEqual function for K8sServiceEndpoint
+	      pkg/k8s: implement equalV1Endpoints function
+	      k8s: create Missing Function for K8sServiceEndpoint
+	      k8s: create Missing Function for K8sService
+	      k8s: add Pods Equalness function
+	      pkg/labels: add labels.GetFromSource method
+	      pkg/endpoint: add GetK8sPodLabels to retrieve labels generated from pod
+	      k8s: create Missing Function for K8sPod
+	      k8s: add Nodes Equalness function
+	      pkg/node: add delete DeleteAllNodes() function
+	      k8s: create Missing Function for K8sNode
+	      k8s: add Namespace Equalness function
+	      k8s: create Missing Function for K8sNamespace
+	      dep: update k8s dependencies to v1.12.0-rc.2
+	      k8s: update k8s client generated code with v1.12.0-rc.2 libs
+	      pkg/k8s: add equalness function for v1beta1.Ingress
+	      k8s: create Missing Function for K8sIngress
+	      Revert "Test: Fix kubetcl patch installation issue."
+	      test: add kube-system namespace for k8s descriptor patches
+	      pkg/k8s: delete old policies installed if new policy contains 0 rules
+	      deps: update kubernetes dependencies to 1.12.0
+	      policy: do policy modifications based on the CNP identifiable labels
+	      test: add etcd-operator to CI
+	      test: install cfssl in test VMs
+	      test: use cilium_version/k8s_version path instead k8s_version/cilium_version
+	      etcd-operator: update etcd-operator to 3.3.9
+	      pkg/node: propagate local node change to kv-store in a controller
+	      test: bump k8s 1.12 version to v1.12.0
+	      dev: bump default k8s development version to v1.12.0
+	      test: update CoreDNS descriptor for 1.12
+	      contrib/vagrant: deploy CoreDNS in development cluster
+	      Jenkinsfile: run k8s 1.12 for k8s upstream tests
+	      Jenkinsfile: run k8s 1.12 for k8s nightly tests
+	      Jenkinsfile: run k8s 1.12 for k8s integration tests
+	      Jenkinsfile: add k8s 1.11 to missed-k8s-tests
+	      test: add fixed identity to coredns for k8s 1.12
+	      dev: add missing CoreDns k8s descriptor files
+	      test: modify k8s_install script to allow installation from binaries
+	      test: ignore FileExisting-crictl preflight error
+	      pkg/k8s: perform all CNP operations based CNP IdentityLabels
+	      k8s: move deletion of an empty CNP in the addCiliumNetworkPolicyV2
+	      test: update to kubernetes 1.12.1
+	      deps: update kubernetes libraries to 1.12.1
+	      k8s/factory: use updates for unsync objects
+	      pkg/{identity,ipcache}: check for nil identity in slice of identities
+	      test: install Cilium before creating any pods in upgrade test
+	      test: deploy etcd-operator deployment last
+	      pkg/endpoint: fix global k8sServerVer variable assignment
+	      test: add helper to wait N pods to be running
+	      test: wait for all etcd pods to be ready before upgrading cilium
+	      test: wait for all etcd pods to be ready in VXLAN test
+
+	Anit Gandhi (4):
+	      examples: fix L7 policies for k8s 1.11 case sensitivity issue
+	      Documentation: add minimum firewall rules, examples
+	      Documentation: minor fixes
+	      Documentation: note that firewall rules for health information are optional but recommended
+
+	Arvind Soni (2):
+	      Updated to included dependencies for cert generation scripts and updated step to modify kube-dns deployment for fixed identity
+	      Kubespray install guide
+
+	Cynthia Thomas (3):
+	      Update prereqs to install dependencies
+	      Update dns pod label modification
+	      Added formatting
+
+	Dan Wendlandt (7):
+	      docs: Add overview of upgrade
+	      Initial cassandra L7 parser in envoy golang parser framework.
+	      Getting Started Guide for Cassandra
+	      Address additional post-merge review feedback on Cassandra, fix one key bug
+	      Initial tutorial for adding envoy golang proxy extension.
+	      Adding two diagrams for the proxylib getting started guide
+	      Correct use of 'upstream' and 'downstream' in image for proxylib docs
+
+	Daniel Borkmann (11):
+	      bpf, doc: further improvements on the BTF related section
+	      bpf: enable use with pahole for debugging obj file's structures
+	      bpf, doc: add note on loading from .text for iproute2
+	      docker, bpf: add iproute2 version which works around missing af_alg
+	      docker, bpf: add bpftool for debugging and introspection
+	      Dockerfile: update base build images to version 2018-08-06
+	      docs: update authors
+	      daemon: fix potential nil pointer dereference
+	      bpf, perf: refine barriers, tail pointer update and buffers
+	      bpf, perf: use more lightweight barriers
+	      bpf, perf: optimize x86 barriers for walking rb further
+
+	Eloy Coto (82):
+	      Test: Delete Kube-dns on upgrade test
+	      Test: Added RunInit problems on post checks.
+	      Test: Fix issues on false positive controllers
+	      CNI: Set correctly the log level.
+	      Test: extend validate on errors on Runtime
+	      Test: Cleanup ValidateNoErrorsOnLog helper function.
+	      Test: Upgrade test update stable image to v1.1
+	      CI: Added PProf report each five minutes.
+	      Test: Add PProf cpu on runtime test
+	      Test: Delete all with Timeout.
+	      Test: Added duration field on CMDRes
+	      Daemon: Update Health endpoints IP on localNode.
+	      Test: KafkaExec to use node.Exec
+	      Test: Nightly fix test name on upgrade test
+	      Test: Nigthly wait until all endpoints are ready
+	      CEP: Added custom columns on list
+	      Test: Update kubernetes upstream test to 1.11
+	      Test: Fix typo on kafka policy
+	      Test: Allow traffic from reserved:host to kafka
+	      Test: Fix Upgrade clean callbacks
+	      Daemon: PolicyAdd refactoring
+	      Jenkins: Increase timeouts for stages
+	      Daemon: Add cilium metrics list command.
+	      Bugtool: Added cilium metrics dump
+	      Test: Add curlFail with statistics
+	      Test: Fix issues with CurlWithHTTPCode
+	      Test: Service never get deleted.
+	      Test: Make ciliumPolicyAction parallel
+	      Test: CiliumEndpointsReady in parallel.
+	      Test: Using locks on read/write operations
+	      Test: CurlWithHTTPCode using -D output
+	      Test: Add remoteIP on Curl statistics.
+	      Test: Update Vagrant image to 107.
+	      Revert "Test: Update Vagrant image to 107."
+	      Envoy: Fix Makefile KEEP_BAZEL_RUNNING option
+	      Vagrant: Update images to 108.
+	      Metrics: Add metrics for the conntrack garbage collector
+	      Metrics: Add endpoint regeneration metrics
+	      Bugtool: Fix format in dump files.
+	      Test: Cleanup asserts on Upgrade/Downgrade test
+	      Test: Fix Nightly test
+	      Test: Upgrade test nightly from 1.1
+	      Test: Refactor ValidaCiliumUpgrades
+	      Test: Refactor CmdRes.GetErr function
+	      Test: Re-Enable kafka
+	      Test: Bump upgrade test from 1.2 to master
+	      Test: WaitForPods fail if pods are schedulled to be deleted.
+	      Test: Avoid linked clone in Vagrant
+	      Jenkins: Run cleanups on node when Jenkins starts
+	      Vagrant: Enable linked clones to make deploy faster
+	      Jenkins: Do the VM cleanup in sequential mode
+	      Metrics: Add proxy redirects statistics
+	      Test/Demos: Make assert more robust.
+	      Metrics: Add Controllers metrics
+	      Metrics: Add services metrics
+	      Metrics: Add endpoint policy enforcement status
+	      Test: Vagrant print vagrant status when a vm fail to connect.
+	      Test: Use AfterSuite to clean the VMs at the end.
+	      Metrics: Add subprocesss metrics
+	      Test: Cleanup CIDR test on AfterEach
+	      Metrics: Add Kubernetes events metrics
+	      Jenkins: Adjust timeouts to be more precise.
+	      Daemon: Do not clean policy maps on startup
+	      Metrics: Add IPAM actions metrics.
+	      Test: Fix kubetcl patch installation issue.
+	      Test: Improve WaitEndpointsReady report function.
+	      Test: Run AfterFailed if AfterEach Failed.
+	      Test: Add runtime test to validate no traffic drops when a Policy is installed.
+	      Test: Add restart test in Cilium with L4 policy to validate no traffic drops.
+	      Test: Report exitcode correctly on vm.ExecContext
+	      Test: Run netperf in background while Cilium pod is being deleted
+	      Test: Disable to-entities test
+	      Ginkgo: avoid trigger AfterFailed two times.
+	      Test: Multiple monitors Wait until monitor finish.
+	      Added go vet in test folder.
+	      Test: Add debug verbose in CoreDNS 1.12
+	      Test: To-Entities refactor to get explicit errors.
+	      Test: Fix Nightly timeouts
+	      Test: Disable istio test
+	      Test: Fix failing upgrade test from 1.0 and 1.1 versions.
+	      Test: Delete nightly jobs to use kubernetes example.
+	      Spanstat: Validate that the duration is not negative when call End.
+
+	Ian Vernon (75):
+	      Documentation: add "diff" to spelling wordlist
+	      Documentation: add step to bump version of Cilium used in upgrade tests
+	      common/types: remove unused files
+	      move types.Loadbalancer to pkg/loadbalancer
+	      CODEOWNERS: add pkg/loadbalancer CODEOWNERS
+	      test/k8sT: add more logs to narrate progress of ChaosTest
+	      test/helpers: change parameters for WaitForKubeDNSEntry
+	      test: add additional WaitForKubeDNSEntry checks
+	      test/k8sT: move DNS checks outside of loop
+	      daemon: move restoring of endpoints to start after Kubernetes watcher starts
+	      daemon: block until initial policy list
+	      daemon: always use same sync func for CNPNS
+	      daemon: cache error on policy import for CNP
+	      pkg/health: remove dereferences of members within pointers
+	      move pkg/node/defaults.go to pkg/defaults/node.go
+	      vendor: update netlink and unix deps
+	      cilium-cni: disable cgo when compiling cilium-cni
+	      test/k8sT: use specific commit for cilium/star-wars-demo YAMLs
+	      pkg/k8s: properly handle empty NamespaceSelector
+	      pkg/endpoint: move lock functions to lock.go
+	      pkg/loadbalancer: add StringWithProtocol to L3n4Addr
+	      daemon: factor K8s waitGroup synchronization into function
+	      lbmap: add DeleteRevNATBPF function
+	      refactor dump to userspace representation from daemon to lbmap
+	      daemon: sync BPF maps with in-memory K8s service maps
+	      daemon: add parameter indicating why TriggerPolicyUpdates is called
+	      endpoint: move directory-moving into separate function
+	      test/runtime: remove disabled connection-tracking test
+	      endpoint: remove POLICY_*GRESS ifdefs
+	      endpoint: check if DryModeEnabled before sending monitor notification
+	      endpoint: move PolicyMap sync controller outside of regeneratePolicy
+	      endpoint: remove nil PolicyMap check for endpoint
+	      endpoint: remove updating of configuration from regeneratePolicy
+	      endpoint: update misc. documentation around regeneratePolicy
+	      option: fix nil-pointer dereference
+	      option: remove IngressPolicy and EgressPolicy endpoint options
+	      test/k8sT: External Services test fixes
+	      daemon: detect if K8s Endpoint has changed
+	      test: fix `go vet` errors in Ginkgo tests
+	      endpoint: log when allow-all is being synthesized
+	      endpoint: remove Owner from config update function
+	      endpoint: do not recalculate endpoint policy upon configuration update
+	      endpoint: do not compute L4Policy when enforcement disabled
+	      endpoint: cleanup regenerateL3Policy
+	      remove DryModeEnabled requirement for endpoint Owner
+	      remove GetStateDir from Owner interface
+	      remove GetBpfDir from Owner interface
+	      daemon: move EnablePolicyEnforcement to endpoint package
+	      endpoint: remove policyCalculated field from endpoint
+	      endpoint: check whether endpoint has Identity right before policy is regenerated
+	      endpoint: remove boolean return value from `regeneratePolicy`
+	      endpoint: remove Iteration field
+	      daemon: add copyright header to metrics.go
+	      endpoint: remove revision check around L4 policy calculation
+	      test: add CI test for endpoint with already-allocated identity
+	      add more logs to developer VM K8s worker provisioning
+	      contrib/release: extract binaries from image
+	      Documentation: add step to update VMs with new cilium images
+	      Documentation: describe default allow localhost ingress
+	      Documentations: document using hostPort in tandem with Cilium
+	      daemon: add naive retry logic if Update operation fails for CNP
+	      daemon: always dump IPAM pool information
+	      daemon: do not return error if v1.Node does not have CiliumHostIP annotation
+	      vendor: add K8s API validation package
+	      policy/api: validate EndpointSelectors at import time
+	      policy/api: add String function for Rules type
+	      log content of CNP that is retrieved from K8s store
+	      test: add timeout function for checking if policy is deleted
+	      pkg/node: delete tunnel routes when remote nodes are removed
+	      test: remove more containers in AfterAll for RuntimeChaos
+	      test: add error descriptions / narration to kvstore test
+	      endpoint: add wrapper around directory deletion
+	      endpoint: move removeDirectories to directory.go
+	      daemon: move CNP store error to debug level
+	      update Istio to v1.0.2
+
+	Ifeanyi Ubah (9):
+	      kvstore/allocator: Optimize ID allocation
+	      kvstore/allocator: Optimize idpool refresh locking
+	      pkg/comparator: Remove runtime dependency on gocheck
+	      doc: Typo fixes
+	      pkg/k8s: increase unit test coverage
+	      cilium/cmd: Refactor updatePolicyKey
+	      cilium/cmd: Add pretty print to bpf metrics list
+	      cilium/cmd: Add cilium bpf ipcache get
+	      cilium-health: Fix status cmd nil pointer derefence
+
+	Jarno Rajahalme (52):
+	      envoy: Filter out unhelpful warnings
+	      Makefile: Fix go list output when not it a valid Go path.
+	      envoy: Sanitize HTTP headers
+	      envoy: Generalize access logging.
+	      envoy: Disable http connection manager stream idle timeout.
+	      envoy: Set route reply policy to retry on "5xx"
+	      envoy_test: Better logging for Envoy.
+	      envoy: Use POST for admin interface
+	      envoy: Unix domain socket for Envoy admin.
+	      envoy: Remove deprecated Bazel option '--batch'.
+	      envoy: Increase Memory available to Bazel to 4GB, limit jobs to 4
+	      envoy: Update BUILD_DEPS
+	      envoy: Update generated protobufs.
+	      envoy: Upstream rebase
+	      envoy: Upstream generated protobufs
+	      envoy: Use new accesslogging format
+	      envoy: Add config to Cilium network filter
+	      envoy: WriteFilter support
+	      proxylib: Golang L7 filter infrastructure
+	      envoy: Support configuration of non-http Envoy redirects
+	      envoy: Key-value policy support
+	      envoy: Generic L7 Access logging record
+	      proxylib: Do not remove libcilium.so when cleaning
+	      proxylib: Use ParseError() instead of panic()
+	      k8s: Do not use AdditionalProperties
+	      proxylib/npds: Use pkg/backoff
+	      proxylib/npds: Recognize io.ErrUnexpectedEOF
+	      proxylib: Flatten 'Direction' to a 'InjectBuf' type.
+	      k8s: Loosen the language on PortRuleL7 description.
+	      api: Allow missing L7 rules
+	      policy/api: Add PortRuleL7 unit tests.
+	      pkg/policy: Fix L7 policy merging.
+	      proxylib: Factor out logic scanning the input slices.
+	      .gitignore: Ignore envoy/proxylib
+	      proxylib: Recover from datapath panics, accesslog them as drops
+	      proxylib: Make xDS node-id configurable.
+	      envoy: Make NACK cancel the WaitGroup
+	      xds: Start versioning at 1.
+	      envoy: Pass error detail when NACK
+	      proxylib: Simplify Parser interface and document it.
+	      envoy: Use separate clusters for egress and ingress redirects.
+	      proxylib: Enable parser tests in their own package
+	      bpf: Fix setting IPv6 proxy rule
+	      test: Add L7 ingress tests from the host.
+	      envoy: Add debug logging to SO_MARK setting
+	      bpf: Do not redirect replies from a pod to a proxyport.
+	      test: Show IP version if runtime policy test output.
+	      test: Add policy test with server egress policy
+	      bpf: Use 'forwarding_reason' instead of potentially overwritten 'ret'
+	      fqdn: Make Rule UUIDs random instead of depending on the labels.
+	      envoy: Pass nil completion if Acks are not expected.
+	      proxylib: Allow missing rules in addition to empty rules.
+
+	Jiong Wang (1):
+	      bpf, doc: updates to assembler support and 32-bit subregisters support
+
+	Joe Stringer (132):
+	      test/bpf: Add verbose mode
+	      test/bpf: Add check-complexity script
+	      daemon: Don't tunnel locally destined traffic
+	      backporting: Make set-labels executable
+	      docs: Streamline and tidy backporting docs
+	      docs: Fix namespace isolation links
+	      docs: Fix header indentation for out-of-date link
+	      docs: Fix contributing guide sphinx warnings
+	      docs: Fix toctree links
+	      docs: Fix up broken links
+	      docs: Fix duplicate links in upgrade page
+	      client: Add API timeout to endpoint requests
+	      check-complexity: Print individual prog insn count
+	      bpf: Reduce the number of supported prefix lengths
+	      bpf: Relax verifier in CT lookup drop case
+	      ipcache: Split prefix length limits by protocol
+	      bpf: Report dst identity in drop notifications
+	      daemon: Refactor health endpoint cleanup code
+	      daemon: Remove health-ep on controller stop
+	      daemon: Remove health-ep before deleting its devices
+	      bpf: Pack ipv6_ct_tuple to match Golang
+	      ctmap: Add accessor method for path per endpoint
+	      daemon: Upgrade CT map properties on startup
+	      docs: Add outline for DaemonSet upgrade
+	      docs: Create specific upgrade notes
+	      docs: Describe monitor aggregation downgrade impact
+	      docs: Split upgrade rollback into its own section
+	      docs: Point upgrade specifics to latest versions
+	      docs: Document downgrade for Cilium 1.1 and 1.0.
+	      docs: Document CIDR policy restrictions
+	      docs: Document l3-dependent l4 policy downgrade
+	      bpf: Explicitly drop unhandled IP fragments
+	      bpf: Read feature probes from filesystem
+	      ctmap: Detect support for LRU before upgrading
+	      test/bpf: Fix verifier verbose failures
+	      bpf: Add target to generate preprocessed source
+	      bpf: Use proper definition for NAT46
+	      bpf: Increase complexity of lxc_config.h
+	      VERSION: Bump to 1.2.90.
+	      docs: Fix theme paths so RTD picks up in-tree theme
+	      docs: Update sphinx theme to print version for stable
+	      docs: Expand the "v:" to "version:" in the nav bar
+	      health: Split node out into its own structure
+	      prober: Simplify locking patterns for results
+	      health: Mark and sweep nodes
+	      endpointmanager: Fix conntrack GC
+	      vagrant: Indent detection of IPv6 public address
+	      contrib: Fix detection of v6 address during reload
+	      lxcmap: Improve error messages in DeleteElement()
+	      lxcmap: Fix always returning an error on delete
+	      ctmap: Mark IPv6 CT GC as completed on success
+	      endpoint: Fix endpoint regeneration failure metric
+	      bpf: Allow IP fragments via ingress L3 policy
+	      Makefiles: Make docker respect V=0
+	      scripts: Make ineffassign check quiet
+	      cilium-cni: Fix build target with "make V=0"
+	      daemon: Refactor ipcache interaction
+	      datapath/ipcache: Refactor garbage collection
+	      datapath/ipcache: Support non-static map paths
+	      maps/ipcache: Refactor path name for map
+	      bpf: Get rid of HAVE_L4_POLICY
+	      endpoint: Refactor regeneration context
+	      daemon: Add support for datapath reload
+	      ipcache: Add function to dump contents of IPCache
+	      maps/ipcache: Add map Reopen() function
+	      maps/ipcache: Add mechanism to detect delete support
+	      datapath/ipcache: Indent GC code
+	      datapath/ipcache: GC maps when delete is unsupported
+	      endpoint: Remove unnecessary locks around logging
+	      endpoint: Export Logger accessor
+	      endpoint: Shift join_ep.sh access to loader package
+	      endpoint: Split endpoint cache into cache.go
+	      loader: replace join endpoint script with loader
+	      loader: Add benchmarks
+	      loader: Pipe compiler into linker
+	      ctmap: Factor out metrics handling code into file
+	      ctmap: Factor out entry into separate file
+	      ctmap: Remove redundant key definitions
+	      ctmap: Export CtKey fields
+	      ctmap: Convert ctmap over to bpf.Map
+	      endpoint: Skip compilation if unneeded
+	      pkg: Add 'exec' package for wrapping std exec
+	      exec: Add string filtering support
+	      endpoint: Refactor CTMAP macro definition to ctmap
+	      endpoint: Combine checks for local CT map option
+	      ctmap: Simplify garbage collection
+	      daemon: Refactor map deletion into endpoint
+	      cilium: Refactor ct list to use new APIs
+	      ctmap: Use CtEntry.String() in DumpEntries()
+	      bpf: Add generic map dump stats structure
+	      bpf: Add DumpReliablyWithCallback
+	      ctmap: Refactor dump to use DumpReliablyWithCallback
+	      examples/kubernetes: Add clean-cilium-bpf-state option
+	      docs: Fix build
+	      docs: Document safe downgrade to Cilium 1.0.
+	      bpf: Rework monitor tracing to specify capture len
+	      daemon: Define MTU in node_config.h
+	      bpf: Monitor DNS with MTU-sized payload len
+	      test/bpf: Set pipefail to fail verification checks
+	      ctmap: Refactor mapType into separate file
+	      metrics: Add L4 protocol to CT/GC metrics
+	      bpf: Relax verifier in error cases
+	      bpf: Split connection tracking for TCP and non-TCP
+	      ctmap: Split CT entry sizes by protocol
+	      daemon: Allow configuration of CT max entries
+	      lxcmap: Don't format 0 seclabel
+	      monitor: Print capture length in verbose mode
+	      Makefile: Set SPHINXOPTS "-q" on make V=0
+	      Makefile: Add SKIP_DOCS option
+	      docs: Shift $(QUIET) to each sphinx invocation
+	      docs: Fix inability to fail on bad docs changes
+	      bpf: Fix CGO import warning
+	      bpf: Fix only monitoring one byte of packets
+	      endpoint: Reload using existing compiled prog path
+	      endpoint: Don't scrub local ct map on leave
+	      loader: Remove fixed todo
+	      endpoint: Fix debug logging hook
+	      endpoint: Force Logger() users to specify subsystem
+	      kafka: Improve log when removing proxymap entries
+	      daemon: Improve IPAM range full message
+	      endpoint: Only scrub CT when map already exists
+	      endpoint: Don't set compilationExecuted on Reload
+	      lxcmap: Fix invalid dumping of IPv4 entries
+	      daemon: Improve syncLXCMap failure log
+	      bpf: Add basic endpointKey.ToIP() test
+	      bpf: Fix some remaining monitor truncation issues
+	      pidfile: Log when killing a process
+	      examples/kubernetes: Clean up pidfiles on startup
+	      examples/kubernetes: Synchronize CRIO init YAMLs
+	      loader: Cancel compiler context if linker fails
+	      pidfile: Add 'Remove' to provide pidfile deletion
+	      daemon: Clean up k8s health EP pidfile on startup
+
+	John Fastabend (2):
+	      cilium: check-looging-subsys-field.sh remove trailing '/'
+	      cilium: config fails without MonitorAggregationLevel specified
+
+	Maciej Kwiek (23):
+	      Increase timeout on endpoint generations
+	      Add client timeout for Cilium API
+	      Get kubectl config file from k8s vagrant dev vm
+	      Add docs for using vagrant cluster kubectl
+	      Consistently check for liveness of endpoint when re-locking (#5116)
+	      Re-enable microscope in CI
+	      Add service preflight check to tests
+	      Check bpf lb map in pre flight check
+	      Add kubectl.serviceCache and k8s service check
+	      Fix two typos in etcd operator README
+	      Add documentation on v1.0-stable Docker tag
+	      Block locked code in TriggerPolicyUpdates
+	      Ignore non-existing link error in cni del
+	      Binary memcached Envoy parser
+	      Binary memcache e2e tests
+	      Comment out go clean in proxylib Makefile
+	      Bump microscope version in CI
+	      Bump microscope version used in CI
+	      protect bpf.PerfEvent.Read from infinite loop
+	      Text memcached commands parser as envoy plugin
+	      Unified memcache parser
+	      Unified memcache parser e2e tests
+	      Empty memcache rules allow all traffic
+
+	Michal Rostecki (18):
+	      cilium-builder: Add ineffassign
+	      endpoint: Fix ineffassign error
+	      kvstore: Fix inefassign error
+	      option: Fix ineffassign error
+	      test: Fix ineffassign errors
+	      vagrant: Add ineffassign tool
+	      make: Add ineffassign as a part of precheck
+	      Dockerfile: Update cilium-builder to 2018-08-17
+	      test: Update cilium-builder to 2018-08-17
+	      cmd: Fix `go vet` error in `metrics list` command
+	      endpoint: Fix `go vet` errors on PolicyKey instances
+	      daemon: Fix `go vet` errors
+	      scripts: Ignore validate modules modules in gofmt check
+	      gitignore: Add vagrant.kubeconfig file
+	      make: Don't use git in check-ineffassign.sh
+	      metrics: Represent errors and warnings as a counter
+	      make: Check LogSubsys field in logging entry instances
+	      proxylib: Fix `go vet` errors
+
+	Nirmoy Das (5):
+	      allocator: nextCache can hold a nil value for a id/key
+	      bpf: print map name and errno instead of nil
+	      cni: fix typo
+	      cni: use right network NS while removing link
+	      cni: use hash to generate host-side veth name
+
+	Ray Bejjani (35):
+	      policy: Add runtime tests for ToFQDN rules
+	      docs: Mention LB -> conntrack dependency
+	      doc: Ensure no old k8s CEPs in kops install
+	      doc: Add toFQDNs documentation and example
+	      daemon: Correct toFQDNs to update all IPs on change
+	      daemon: fqdn.DNSPoller interval exposed as a const
+	      Test: Fixup formatting in ToFQDNs test Expects
+	      Test: Ensure ToFQDNs test waits for DNS poll
+	      pkg/endpoint: Factor out Endpoint.HasLabelsRLocked
+	      kubernetes: No CEP CRD for cilium-health EP
+	      daemon: Use pkg/versioncheck to expose compile errors
+	      monitor: separate monitor and listener code
+	      monitor: Switch to versioned listener type
+	      monitor: move message encoding to listener class
+	      monitor: Abstract listeners behind an interface
+	      monitor: new listener v1.2 with reusing en/decoder
+	      monitor: revert agent -> monitor encoding
+	      test: Do not treat log lines as format strings
+	      fqdn: Strip toCIDRSet rules to be more resilient
+	      fqdn: Use UUIDs to manage rules
+	      fqdn: Inject IPs on initial rule insert
+	      fqdn: Strip ToCIDRSet on poll start
+	      metrics: Use built-in Gauge.SetToCurrentTime function
+	      api: Use pkg/api in api server.go autogen
+	      ci: Fix date normalization in jenkins-failures.sh
+	      fqdn: Introduce TTL-aware cache for DNS retention
+	      fqdn: DNSPoller uses DNSCache with TTL option
+	      daemon: Add tofqdns-min-ttl option
+	      vendor: Add github.com/miekg/dns
+	      fqdn: Always convert toFQDNs.matchNames to FQDNs
+	      fqdn: Add TTL aware DNS lookups
+	      policy: Decrement CIDR refcount on rule replace
+	      k8s: Simpler CEP GC should-run logic
+	      k8s: Increase CEP GC interval to 30 minutes
+	      daemon: Lower default tofqdns-min-ttl to 1 hour
+
+	Romain Lenglet (39):
+	      daemon: Exit synced endpoint creation if in sidecar proxy mode
+	      Update to Istio 1.0.0
+	      envoy: Disable unused ADS protocol support
+	      envoy: Adapt Envoy route generation to updated HeaderMatcher API
+	      docs: Update the Istio GSG to Istio 1.0.0
+	      docs: Enable mTLS in the Istio GSG
+	      kafka: Update parser to pull "Fix de/serialization of null arrays"
+	      kafka: Properly set (non-)nullable arrays in synthesized responses
+	      test/runtime/kvstore: Wait for Cilium to be ready after restarting
+	      test: Add a description to every Cilium restart check
+	      controller: Log the DoFunc and update times
+	      envoy: Make the log level computation thread-safe
+	      policy: Handle empty L7Rules in ToPorts
+	      policy: Start the repository policy revision from 1 instead of 0
+	      daemon: Return from sync endpoint creation after 1st regeneration
+	      daemon: Remove the explicit state check in sync endpoint create
+	      endpointmanager: Fix WaitForEndpointsAtPolicyRev's timeout handling
+	      xds: Ignore completion timeouts on resource upsert and delete
+	      endpoint: Log when BPF regeneration times out not because of Envoy
+	      endpoint: In BPF regeneration, create/remove listeners early
+	      test: Fix the semantics of WithTimeout's Timeout
+	      docker: Fix logging of endpoint ID in handleCreateWorkload
+	      proxy: Remove port binding check on redirect creation
+	      envoy: Update Bazel to 0.16.1
+	      envoy: Upgrade Envoy to same version as Istio 1.0.2
+	      Update the cilium-builder image and Vagrant box version
+	      proxy: Check whether a port is already open before allocating
+	      monitor: Fix logging statements
+	      xds: Return a revert function on every cache update
+	      endpoint: Implement stack of endpoint state revert functions
+	      endpoint: Revert xDS network policy changes on regeneration failure
+	      endpoint: Revert listener addition/removal on configuration failure
+	      endpoint: Move the revert types and logic into pkg/revert
+	      endpoint: In revert, only delete from realizedRedirects if necessary
+	      endpoint: Add proxy revert logging
+	      endpoint: Correctly collect stats in case of error in regenerateBPF
+	      test: Fix WaitForServiceEndpoints to support multi-port services
+	      test: Test Bookinfo with Istio + mTLS + L7 policy
+	      endpoint: Wait for CT cleanup to complete before BPF compilation
+
+	Scott Albertson (1):
+	      Add a "Reviewed by Hound" badge
+
+	Shantanu Deshpande (1):
+	      Add new service entry (TUPLE_F_SERVICE) in CLI for ipv4/ipv6
+
+	Taeung Song (1):
+	      docs, bpf: Add BTF (BPF Type Format) description
+
+	Thomas Graf (122):
+	      bpffs: Cache mountinfo result
+	      monitor: Fix spin loop when reading stdout from monitor fails
+	      endpoint: Fix locking while calling endpoint.getLogger()
+	      node: Fix panic when node store is not initialized yet
+	      launcher: Wait for process to exit and release resources
+	      k8s: Use server version instead of ComponentStatus to check health
+	      agent: Do not replace node routes if they already exist
+	      route: Fix route replacement logic for IPv6
+	      conntrack: Mark RunGC() private
+	      ctmap: Log fatal message on unsupported ct map type
+	      ctmap: Provide conntrack gc statistics
+	      conntrack: Scrub all entries that cannot be associated with restored endpoints
+	      conntrack: Remove GCFilterType
+	      endpoint: Remove conntrack entries on endpoint removal
+	      endpoint: Clear conntrack on initial endpoint build
+	      doc: Restructure and simplify upgrade guide
+	      doc: Remove old builder containers
+	      doc: Restructure installation guides
+	      doc: AWS EKS installation guide
+	      doc: Update cilium version in Docker compose guide to 1.2.0
+	      identity: Wait for initial set of security identities before restoring endpoints
+	      test: Disable Kafka test for now
+	      endpoint: Better name for policyRevision log messages
+	      proxy: Re-create redirect if L7 type has changed
+	      envoy: Shutdown bazel after building unless KEEP_BAZEL_RUNNING is set
+	      agent: Require --bpf-compile-debug to enable keeping BPF compilation resources
+	      test: Disable --verbose-debug flow by default
+	      endpoint: Fix logger when updating DatapathPolicyRevision
+	      vendor: github.com/shirou/gopsutil/
+	      agent: New --log-system-load option to log system load periodically in the background
+	      test: Enable system load logging
+	      endpoint: Provide load information during the BPF compilation process
+	      endpoint: Avoid policy sync error in log when endpoint disconnects
+	      bpf: Do not invoke clang with -g unless --bpf-compile-debug is enabled
+	      controller: Optimize locking when updating or getting status
+	      loadinfo: Provide the cmdline arguments of high CPU processes
+	      test: 1.1.4 is required to up- and downgrade from 1.2.0
+	      endpoint: Ignore delete requests if endpoint is already deleted
+	      bpf: Remove DROP_ALL define
+	      endpoint: Make PolicyCalculated private
+	      agent: Fix periodic agent unhealthiness due to CompilationLock contention
+	      test: Increase curl --max-time timeout
+	      alloactor: Log allocator garbage collection events
+	      allocator: Periodically re-create master keys for local allocations
+	      policy: Fix policy unit tests in context of new identity garbage collector
+	      endpoint: Set Regenerating state in regenerate()
+	      endpoint: Add DesiredPolicyRevision to endpoint logger
+	      endpoint: Rework regeneration logging with detailed duration times
+	      endpoint: Do not hold manager and endpoint lock during RunK8sCiliumEndpointSync()
+	      endpoint: Correctly remove directory on endpoint add failure
+	      agent: Initialize local identity allocator before clustermesh
+	      allocator: Only re-create verified local keys
+	      endpoint: Fix realized state corruption when initial policy regeneration fails
+	      lbmap: Mark internal APIs as private
+	      lbmap: Introduce lock to allow for transactional operations
+	      lbmap: Support transactional updates
+	      spanstat: Ignore End() without Start()
+	      lbmap: Guarantee order of backends while scaling service
+	      k8s: Include type of derived k8s resource in policy rule
+	      k8s: Fix CNP delete handling to not rely on rules being embedded
+	      endpoint: Verify whether the endpoint still exists after BPF compilation
+	      buildqueue: Introduce a generic object buildqueue
+	      agent: Don't masquerade ingress traffic to local endpoints
+	      agent: Fix temporary corruption of BPF endpoint map on restart
+	      bpf: Do not delete and re-add ip rules and routes in the proxy table
+	      bpf: Only attempt to install ip rules if address family is available
+	      bpf: Avoid additional cgo call per perf read
+	      endpoint: Leave endpoint directory lifecycle to regeneration
+	      endpoint: Remove eventual old backup directory
+	      endpoint: Guarantee removal of backup directory on end of regeneration
+	      endpoint: Remove eventual existing old failure directory
+	      endpoint: Only remove failure directory after successful build
+	      endpoint: Guarantee removal of temporary directory
+	      endpoint: Ensure that a build can always start with a fresh temporary directory
+	      endpoint: Remove all build related directories on endpoint delete
+	      doc: Document requirement to run Cilium as a privileged container
+	      state: Fix TestReadEPsFromDirNames unit test
+	      controller: Add TerminationChannel() to wait for controller stop
+	      k8s: Wait for CNP status controller to exit when handling CNP delete
+	      k8s: Do not rely on store to update status of CiliumNetworkPolicy
+	      Revert "k8s: Do not rely on store to update status of CiliumNetworkPolicy"
+	      k8s: Avoid printing warning when fast retries of CNP status updates fail
+	      endpoint: Establish grace period when endpoint changes identity
+	      bpf: Remove cluster identity
+	      agent: Don't rely on cluster-range for ACCEPT rule for FORWARD chain
+	      policy: Allow an entity to map to EndpointSelectorSlice
+	      policy: Define well-known endpoint selectors
+	      test: Runtime policy test for entity "all" to allow to any external IP
+	      endpoint: Always include cluster label in endpoint
+	      policy: Fix behavior of cluster entity
+	      doc: Document all reserved identities
+	      doc: Fix and improve entity documentation
+	      test: Add k8s runtime tests for toEntities { all | world | cluster | host }
+	      endpoint: Fix missing identity release in error path
+	      ipcache: Re-create keys when necessary
+	      agent: Support removal of rules that were added using -I
+	      agent: Prepend custom chains instead of appending
+	      identity: Guarantee 1:1 prefix <-> identity slices
+	      ipcache: Fix multiple key deletions if upsertIPNetsToKVStore() fails
+	      identity: Reports CIDR lookup failures during policy removal as warnings
+	      ipcache: Avoid refcnt underflow and print error when attempted
+	      k8s: Avoid TriggerPolicyUpdates when no ToServices rules are loaded
+	      k8s: Fix policy compatibility for well-known deployments such as kube-dns and etcd-operator
+	      endpoint: Skip conntrack clean on endpoint restore
+	      doc: List Kubernetes 1.12 as official supported
+	      doc: Fix sidebar corruption for getting started guides
+	      doc: 1.3 upgrade instructions
+	      identity: Introduce reserved:unmanaged identity
+	      allocator: Lock master key prefix when reusing existing cluster identity
+	      allocator: Re-create slave keys when master key is missing
+	      allocator: test: Disable GC in GC unit tests
+	      k8s: Add --disable-endpoint-crd to disable use of the CEP CRD
+	      doc: Improve security reporting steps
+	      doc: Improve GitHub issue reporting template
+	      doc: Improve pull request template
+	      doc: Replace hound badge with more generic CII best practices
+	      doc: Add cilium/cilium pulls badge
+	      proxylib: Simplify R2-D2 example
+	      make: Silence error on `make render-docs`
+	      doc: Add SIG process and reference
+	      doc: Move Envoy Go extension to Documentation/envoy/
+	      doc: Fix up remaining missing beta declarations
+
+	Tobias Klauser (1):
+	      pkg/bpf: update BPF constants and structs as of Linux kernel 4.19-rc2
+
+
+1.2.0
+=====
+
+Major Changes
+-------------
+
+* Add periodic aggregation of datapath notifications (4936_, @joestringer)
+* Provide cached visibility + retries of BPF maps via API (4854_, @tgraf)
+* Add support for etcd-operator to ease Cilium deployment. (4826_, @aanm)
+* Agent aware user-defined reserved identities (4775_, @aanm)
+* Add toFQDNs rules that support DNS based egress policy (4750_, @raybejjani)
+* Inter cluster connectivity (ClusterMesh) (4738_, @tgraf)
+* Tunneling mode without kvstore dependency (4732_, @tgraf)
+* Push nightly container image to container registry (4731_, @nebril)
+* Automatically detect MTU of network (4687_, @tgraf)
+* Use local service ID allocation when DSR is disabled (4664_, @tgraf)
+* Allow running Cilium with kube-router for BGP routing (4547_, @tgraf)
+* Add kvstore based node discovery (4270_, @tgraf)
+
+Bugfixes Changes
+----------------
+
+* daemon: always re-add CNP when receiving an update from Kubernetes (5024_, @aanm)
+* pkg/endpoint: annotate pod with the numeric representation of an identity (5019_, @aanm)
+* kvstore: Wait for kvstore watcher to exit  (4945_, @tgraf)
+* Count references to CIDR prefix lengths and generate bpf_netdev config based on it (4910_, @joestringer)
+* makefile: Run go tool vet on the api and pkg subdirs (4909_, @rlenglet)
+* Don't perform IPCache lookup when identity is health/init/fixed-identity (4889_, @joestringer)
+* pkg/kvstore: fix high-cpu usage when Cilium loses Consul connectivity (4888_, @aanm)
+* correctly convert CIDRs within a single CIDR policy rule which allow access to the world to reserved:world identity when rule contains multiple CIDRs (4846_, @ianvernon)
+* Fix deadlock for endpoint state when endpoint is in StateWaitingForIdentity when no labels were changed (4840_, @aanm)
+* Fix bug where traffic from a host to a service IP was classified as from the world, not from the host (4830_, @joestringer)
+* cni: Check if directories exist before creating them (4799_, @tgraf)
+* Prevent Cilium from deadlock when interacting with etcd (4788_, @aanm)
+* bpf: Fix ipcache lookup for kernels with HAVE_LPM_MAP_TYPE (4773_, @tgraf)
+* Watch for Kubernetes Namespace label changes (4756_, @aanm)
+* Change default "CRI-o" mounting path to "/var/run/crio/crio.sock" (4753_, @aanm)
+* Check endpoint status before modifying identity labels (4739_, @aanm)
+* cilium-docker: fix gatewayIPv4 assignment (4709_, @nirmoy)
+* Support updating controllers instead of requiring to re-create them (4683_, @rlenglet)
+* pkg/policy: take into account To / FromRequires when computing L4 policy (4682_, @ianvernon)
+* endpoint: Fix restored endpoints not showing up in ipcache (4678_, @tgraf)
+* stop logging conflicting errors as errors when modifying kubernetes objects (4676_, @aanm)
+* change the minimal number of BPF regeneration builders from 4 to 2 (4670_, @aanm)
+* Service backends may now be added without potentially disturbing existing TCP sessions. (4667_, @jrfastab)
+* Fix PolicyRevision of endpoint bumped prematurely (4636_, @aanm)
+* metricsmap: Fix index out of range error (4623_, @joestringer)
+* Fix bug where inserting the same CIDR in multiple rules, then removing one rule, would result in traffic not being allowed based on the rule that remains in the policy. (4611_, @joestringer)
+* Fix sidecar proxy deadlock during BPF generation (4610_, @rlenglet)
+* Fix regression that caused policies with `ToServices` rules to not allow traffic to services with external backends (4587_, @joestringer)
+* Fix endpoint restore log regarding health endpoint (4561_, @manalibhutiyani)
+
+Other Changes
+-------------
+
+* allocator: Support watching allocations in arbitrary kvstore connections (4934_, @tgraf)
+* Use UpdateStatus for Cilium Endpoint Status in k8s 1.11 (4877_, @aanm)
+* bpf: Shift ingress ipcache source lookup to netdev (4874_, @joestringer)
+* Split BPF ingress program into IPv4 and IPv6 handlers (4867_, @joestringer)
+* bpf: Allow to use 24 bits for security identities (4858_, @tgraf)
+* Implement datapath trace notification aggregation (4828_, @joestringer)
+* pkg/policy/api: allow ToPorts coupled with ToServices (4805_, @ianvernon)
+* Maintain ipcache entries for Cilium host IPs based on k8s node annotations (4797_, @aanm)
+* Speed up regeneration of endpoints with a large number of rules (4790_, @ianvernon)
+* Watch for Kubernetes Namespace label changes (4756_, @aanm)
+* Watch for kubernetes pod labels changes (4730_, @aanm)
+* kvstore: Support creation of multiple clients (4725_, @tgraf)
+* Changed the prometheus yaml to deploy in monitoring namespace (4699_, @ackerman80)
+* set Cilium DaemonSet priorityClass to "system-node-critical" (4690_, @aanm)
+* Expose endpoint and policy computation time metrics (4684_, @manalibhutiyani)
+* contrib: add sysconfig file headers (4671_, @nirmoy)
+* Add opensuse to Distribution Compatibility Matrix (4665_, @nirmoy)
+* agent: Require go 1.10 for safe namespace operations (4599_, @tgraf)
+* cilium-health: accept only positive interval (4593_, @nirmoy)
+* Refactor EndpointSelector usage into helper functions (4548_, @joestringer)
+* Don't remove old (pre-1.0) cilium-envoy.log on startup (4518_, @manalibhutiyani)
+* Add metric "cilium_datapath_errors_total" for tracking errors in the datapath. (4507_, @joestringer)
+* Add Kafka specific CI test checks to make sure kafka cluster is up correctly. (4488_, @manalibhutiyani)
+* Metrics to report count of current endpoints tagged by endpoint states (4376_, @manalibhutiyani)
+* Use UpdateStatus for Cilium Network Policy Status in k8s 1.11 (2972_, @aanm)
+
+
+1.1.0
+=====
+
+::
+
+    Amey Bhide (2):
+          contrib: Script to figure cilium pod for a given pod
+          Adds flag to clean up cilium state before startup
+
+    André Martins (114):
+          vendor: update k8s dependencies to 1.10.0
+          docs: update k8s dependencies to 1.10.0
+          examples/kubernetes: add k8s spec file auto-generator
+          examples/kubernetes: add k8s spec files for master (:latest)
+          docs/conf.py: Update copyright date to 2018
+          docs: add global var SCM_BRANCH for branch name
+          docs: update docs with tabs for multiple k8s versions
+          test: use generate k8s spec files for testing
+          tests: disabling K8sValidatedUpdates test
+          README: change jenkins badge links
+          fix misspelled comments in the code
+          docs: fix l4 policy examples
+          docs: review kafka GSG
+          docs: update minikube GSG
+          examples/k8s: fix 1.8 spec files
+          docs: add sphinx-spelling to documentation
+          docs: add custom worldlist for spellcheck
+          docs: fix spelling in documentation
+          pkg/node: fix nil pointer dereference
+          packaging/docker: update docker runtime to 17.10
+          Dockerfile: point dockerfile to quay.io base images
+          envoy: move Dockerfile.builder to envoy directory
+          Makefile: remove docker-image push instructions
+          docs: fix titles formatting
+          docs: add quay.io tutorial
+          docs: add misspell words checker
+          docs: fix some misspelled words
+          docs: review troubleshooting guide
+          examples/kubernetes: keep file order when catenating all files into one
+          examples/kubernetes: avoid port conflict for running etcd
+          examples/kubernetes: change etcd default port
+          docs: use common minikube setup for all GSG
+          examples/kubernetes: move standalone-etcd.yaml to addons/
+          docs: GSG add instructions to install standalone etcd
+          docs: add istio GSG to the list of GSGs
+          docs: fix misspelled words
+          test: update kubedns to 1.14.9
+          test: fix star wars demo
+          test: use cilium exec helper
+          ctmap: remove debug message
+          test: fix wrong IPv6 assignment
+          Revert "CI: Temporarily add retry 3 times logic in connectivity.go"
+          test: change archive type to zip
+          k8s: remove unused code for KNP extensions/v1beta1
+          test: change k8s 1.7 manifests to extensions/v1beta1
+          development: add cache to k8s components
+          k8s: add some fixes to the kubernetes spec file
+          k8s: only watch for ingress changes if LB is enabled
+          Vagrantfile: re-add workaround for kube-proxy in node-2
+          start.sh: add routes based on VM name
+          test: update k8s tests for 1.8, 1.9, 1.10 and 1.11
+          pkg/ip: fix getNextIP for IPv4
+          pkg/option: move pkg/option/config to pkg/option/map_options.go
+          pkg/option: move endpoint library options to option package
+          daemon: move daemon's libray option to pkg/option
+          endpoint: move endpoint's library option to pkg/option
+          daemon: move daemon's config to option/config
+          vendor.conf to golang/dep
+          docs: list dep in dependencies list
+          pkg/endpoint: fix owner merge conflict
+          docs: fix typos
+          docs: change minikube GSG to have necessary flags to run CNI
+          docs: remove duplicated cilium installation instructions from GSG
+          docs: layout fixes in GSG
+          pkg/bpf: Use pointer receivers for MapKeys types
+          test: update k8s versions to 1.7.15, 1.8.13, 1.9.8, 1.10.3 and 1.11.0-beta.0
+          vendor: update k8s dependencies to 1.10.2
+          common: add C2GoArray function
+          pkg/ip: add GetNextIP
+          pkg: allocate first IP in IPv4 allocation range
+          daemon: in k8s mode always allow localhost traffic
+          test: download exact k8s version of k8s upstream e2e
+          contrib/vagrant: add container-d-integration
+          pkg rename containerd to docker
+          pkg/workloads: add containerd integration
+          daemon: add containerd integration
+          vendor: add containerd
+          contrib/vagrant: fix container-d-integration
+          workloads/containerd: add 10 second timeout for Status()
+          pkg/workloads: show docker messages
+          Revert "common/files: Add fileScanner struct"
+          Revert "pkg/bpf: Use the other directory when /sys/fs/bpf is not BPFFS"
+          add cri-o support
+          docs: document runtime integration for developer VMs
+          Revert "Contrib: Add Systemd parameters"
+          docs: document dep usage for developers
+          examples: add registry address to all container images
+          workloads: cri allow grpc reconnectivity after failure
+          workloads/crio: set default path to /var/run/crio.sock
+          test/helpers: Fix WaitForKubeDNSEntry function on timeout
+          daemon/k8s: remove .new in log messages when updating values
+          pkg/endpoint: Keep BPF object files if compilation is skipped.
+          examples/minikube: remove unused cilium-ds.yaml
+          docs: add cri-o minikube guide
+          pkg/k8s: allow from both namespace and pod selector in KNP
+          kubernetes/templates: add DaemonSet file for CRI-o
+          daemon: return error if createEndpoint fails
+          daemon: use endpoint RLock in HandleEndpoint
+          daemon: return NewPutEndpointIDCreated if endpoint is StateReady
+          examples/kubernetes: remove etcd Secrets from the ConfigMap
+          docs: document how to set up config map with etcd certificates
+          docker/Dockerfile: update base image to ubuntu 18.04
+          docker/Dockerfile: update iproute2 to 4.16
+          docker/Dockerfile: update loopback cni to 0.6.0
+          docker/Dockerfile: add gpg
+          Dockerfile: update cilium-runtime with 2018-06-04
+          docs: add documentation to upgrade ConfigMap
+          docs: typo fix
+          examples/kubernetes: use POSIX regex for CILIUM_VERSION checker
+          docs: fix broken links
+          docs: use Documentation context to avoid longer image builds
+          docs: add checklinks target
+          docs: fix mesos guide
+          daemon: skip health endpoint on restore
+
+    Arvind Soni (8):
+          doc: Star Wars theme HTTP Getting Started Guide
+          Text edits based on the reviews
+          Fix image formatting and simplifies app yaml
+          Elasticsearch Getting Started Guide
+          revised elasticsearch getting started guide
+          Added example for the policy trace Added kubectl exec ... part to the cilium monitor command
+          expanded install guide for kops with complete steps from scratch
+          Fixed a reference that was to localhost Changed the clustername to include a username to avoid stepping on multiple clusters
+
+    Ashwin Paranjpe (3):
+          Update docs related to cluster-diagnosis
+          GH4164 Append rule labels while parsing api.Rule
+          GH-4339 Add k8s label source in GetPolicyLabels
+
+    ChristopherBiscardi (1):
+          cilium/cmd: add ls alias for list commands
+
+    Cynthia Thomas (1):
+          Upgrade Note edit
+
+    Daniel Borkmann (11):
+          docs: update mailmap and authors
+          bpf: further work on bpf reference guide
+          docs, bpf: complete iproute2 section and add llvm inline asm example
+          docs, bpf: initial xdp section and improved projects section
+          docs, bpf: finalize initial round on xdp section
+          docs, bpf: initial tc bpf section
+          docs: update mailmap and authors
+          docs, bpf: fix typo in overview graphic
+          docs, bpf: minor follow-up fixes in the ref guide
+          docs, bpf: improve llvm6.0 dependency note
+          bpf: remove geneve TLV options
+
+    Diego Casati (1):
+          add '[bB]log and Ubuntu to the spelling list. This fixes the issue when creating an ePub out of the docs
+
+    Eloy Coto (107):
+          Test: Trigger `vm.ReportFailed` in the global AfterAll
+          Test: Enable egress-deny
+          Test: Fix hack in `SetAndWaitForEndpointConfiguration`
+          Nightly: Change Ping behaviour on egress rules
+          Nightly: Add listening check on TCP KeepAlive
+          Test: Add cilium monitor in GuestBook Examples
+          Test: Do not gather envoy.log
+          Bugtool: Add gops output
+          Test: Enable Cilium Update test
+          Test: trigger AfterFailed before AfterEach when is in Context
+          Test: Add separate logs per each cilium pod
+          Test: Fix issue with Kubectl describe
+          Test: Enabled K8sUpdates correctly.
+          DOC: Cheatsheet change structure
+          Test: Validate DNS before trying to connect on curl
+          Test: CNP use full FQDN
+          DOC: Update cilium contributing docs:
+          Docs: Add a new `test-docs-please` phrase to test only docs
+          Docs: review GRPC GSG
+          DOC: Review Getting help section
+          Documentation: Address PR comments
+          Test: Added new Jenkins jon to run Kubernetes official e2e tests
+          Test: Increase logs for Kube-dns issues
+          Jenkins: Fix timeout on docs.
+          CI: Add colors to builds.
+          Ginkgo: Run monitor on test
+          Test: Fix typos
+          Test: Update Kafka Env variable.
+          Test: Fix issues with Updates and Kube-dns
+          Nightly: Fix issues with Kubectl exec
+          CI: Update packer-ci job and documentation
+          Docs: Fix spelling wordlist and sphinx warnings
+          Test: Archive in quiet mode
+          Test: Fix recursion issue with Kubectl.CiliumExec
+          Test: Check that after restart cilium still return 403 messages
+          Test: Import Network Policy and ensure that it is applied in all Cilium Pods.
+          Vagrantfile: Update Vagrant version to 68
+          Jenkins: Add automatic trigger if a label is present
+          Ginkgo: Add segmentation fault check on `ValidateErrorsOnLogs`
+          Test: Gather core dumps in test if are present.
+          Test: Gather core dumps from cilium kubernetes pods
+          Nightly: Exclude connectivity test on invalid policies
+          Test: Fix Bookinfo issues
+          Test: Updating Kube-dns manifest to get more verbose
+          Test: Fix issues on `kubectl.CiliumReport`
+          Bugtool: Fix gops commands
+          Test: Simplified Kafka K8S test
+          Test: Add NACK message in log checks.
+          Test/K8s: Added debug logs in cilium DS
+          Test: K8s Policies did not wait for all endpoints to be ready.
+          Contrib: Add a jenkins status script.
+          Test: Update Vagrant boxes
+          Test: CMDSuccess Matcher
+          Test: Use helpers.CMDSuccess in ExpectWithOffset
+          Test: Clean all res.CombineOutput in all ResCmd asserts
+          Test: CMDSuccess fix typos
+          Test: Improved Ginkgo logs
+          Test: Append the AfterFailed commands to the Jenkins Output.
+          Test: Add more context commands on AfterFailed commands
+          Test: Dump vagrant provision logs to Jenkins console.
+          Test: Add test result in Jenkins Junit
+          Jenkins: Fix issues with downstreams Jobs
+          Test: Improved Kubectl CEP helpers
+          Test: Enable containerd on Jenkins builds.
+          Test: Fix issues with Ginkgo Kubernetes Job
+          Test: Ginkgo fix AfterFailed when fail on JustAfterEach.
+          Test: Do not log cilium logs in test-output.log
+          Vagrantfiles: Update base image to 77
+          Test: K8st update how cilium is installed.
+          Contrib: Add Systemd parameters
+          Test: Dump Vagrant output to Jenkins console
+          Test: Fix assert line on CMDRes.Expect*
+          Test: Kubernetes upstream fix Cilium installation.
+          Test: re-enable debug on Cilium
+          Test: Fix PodCIDR on Kubeadm init.
+          Test: Add cep output on Kubernetes report
+          Test: Fix PodCIDR issues on Kubernetes 1.7
+          Ginkgo-ext: Fix Codelocation on asserts
+          Test: Refactoring how policies are applied.
+          Test: Delete helper.ApplyNetworkPolicyUsingAPI
+          Test: Use Kubecfg native options.
+          Test: Refactor CiliumEndpointWait
+          Test: CurlFail wrapper log HTTP response headers
+          Test: Cmd.SendToLog change format
+          Nightly: Fix issues on test.
+          Test: Wait for kubedns to be ready after cilium upgrade
+          Test: Demo tests waiting to policies to be applied.
+          Test: K8st Tunnels delete services before delete Cilium
+          Test: Fix panic on Microscope callback
+          Test: Skip Kube-dns if the Kubernetes version is 1.11
+          Test: Bugtool dump in a folder, not in tar format.
+          Test: Avoid long json in test-output
+          Test: Do not dump Cilium logs on test-output.log
+          Test: Update Vagrant box to version 83
+          Revert "Revert to working Vagrant box and cilium-builder image"
+          Test: provision uninstall crio cni interface
+          Test: Add prometheus deployment on Kubernetes test
+          Test: Move RuntimeKafka test to use BeforeAll
+          Test: Helpers update some ginkgo.By messages
+          Test: Update monitorStop func to not panic.
+          Contrib: Backport script to use different versions
+          Endpoint: Log policyRevision on endpoint log.
+          Test:Guestbook wait for pods to be ready
+          apipanic: Log stack as string
+          Documentation: Update docs to minimun 4.9.17 kernel version
+          Docs: Update minikube GSG.
+          Test: Wait until all pods are ready
+
+    Eohyung Lee (1):
+          Fix broken kubernetes-ingress example
+
+    Ian Vernon (176):
+          pkg/policy/api: add SelectsAllEndpoints function
+          pkg/policy: fix merging of L4-related policy
+          examples/minikube: convert L3-L4 policy to CiliumNetworkPolicy
+          Documentation/gettingstarted: update Minikube GSG to reflect how we handle L4-only and L4-L7 policy on the same port
+          Documentation/gettingstarted: update `cilium status` output in Docker GSG
+          pkg/k8s: add TODO for cleaning up unit tests
+          pkg/maps/ipcache: log if map unable to be opened
+          pkg/logging/logfields: add log field for BPF map name
+          pkg/bpf: add additional logging and error handling
+          bpf/lib: unconditionally create ipcache bpf map in datapath
+          .gitignore: ignore test/test_results directory
+          test/helpers: gather more K8s metadata
+          test/k8sT: query both service IP and hostname of redis master
+          test/k8sT: add wait for service endpoints to be ready in guestbook test
+          test/k8sT: add more descriptive error messages to Guestbook test
+          pkg/endpoint: log what caused policy changes
+          pkg/ip: add functionality to coalesce CIDR list
+          test/k8sT: do not access redis-master via hostname, only service IP
+          test/helpers: add previous Cilium pod logs to kubectl.GatherLogs()
+          test/k8sT: do not defer deletion of resources within It
+          pkg/policy: remove redundant length check in AllowsAllAtL3
+          pkg/policy: do not use length checks on L4Filter.Endpoints
+          pkg/policy: change parser type logic for merging L4Filter
+          Documentation/policy: add label-based egress documentation
+          test/helpers: add helper function for adding IP addresses to VM loopback device
+          test: factor out IPs which represent the host
+          test/helpers: add helper function for flushing global connection tracking table
+          test/helpers: add HostDockerNetwork constant
+          test/runtime: add test for egress to host
+          test/helpers: change `ip addr` commands to use `ExecWithSudo`
+          test/runtime: misc. cleanups for host egress test
+          pkg/policy: change string "l3" --> "L4" in tests
+          pkg/policy: misc. cleanup in merging port functions
+          pkg/envoy: always use dport in proxy statistics
+          debuginfo: remove unneeded per-endpoint calls to some bpf commands
+          debuginfo: run `cilium endpoint health` for each endpoint
+          cmd: update misc. command Short descriptions
+          test/helpers: validate policy before importing in `PolicyImportAndWait`
+          test/runtime: add L3-dependent L7 egress tests
+          test/helpers: use rsync to copy files instead of cp (#3826)
+          test/k8sT: wrap CNP Specs test in Context
+          test/k8sT: do not defer resources in CNP Specs test
+          test/helpers: make sure that key is non-empty for running `docker logs`
+          k8sT: test default-deny ingress and egress policy
+          ginkgo-kubernetes-all.Jenkinsfile: increase timeouts
+          test/helpers: remove unnecessary logs for creating / deleting Docker containers
+          test/helpers: log to console when report generation begins / ends
+          Documentation: remove bash-test framework references
+          test/k8sT: move cleanupNetworkPolicy to AfterEach within test
+          test/k8sT: wrap policy across namespaces test in Context
+          test/k8sT: move creation and deletion of resources
+          test/k8sT: wrap Checks Service test in `Context`
+          test/k8sT: move creation of resources outside of `It`
+          test/k8sT: move cross-node service test within `Context`
+          test/k8sT: move creation of resources
+          test/k8sT: move NodePort test to within across nodes `Context`
+          test/k8sT: fix deletions in AfterEach to not have assertions
+          test/k8sT: fix instantiation of variables
+          test/k8sT: change "Checks service across nodes" to use "BeforeAll" and "AfterAll"
+          test: add helper PolicyEnforcement assertion to avoid boilerplate code
+          test/runtime: convert RuntimeValidatedPolicyImportTests to use BeforeAll / AfterAll
+          test/runtime: remove unused constants
+          test/runtime: add ExpectEndpointSummary helper
+          test/runtime: cleanup RuntimeValidatedChaos test
+          pkg/policy/api: reject rules which use non-TCP protocols in conduit with L7 rules
+          pkg/policy: remove L3L4Policy field from Consumable
+          pkg/policy: remove SecurityIDContexts and associated types
+          test/k8sT: wrap Geneve test in `Context`
+          test/k8sT: move creation / deletion of resources outside `It`
+          test/k8sT: wrap vxlan test in `Context`
+          test/k8sT: move creation / deletion of resources outside `It`
+          pkg/endpoint: do not link created Consumables to ConsumableCache
+          pkg/policy: remove Remove for ConsumableCache
+          pkg/identity: add GetAllReservedIdentities function
+          pkg/policy: remove ConsumableCache
+          pkg/u8proto: add constant to represent all protocols being allowed
+          pkg/maps/policymap: coalesce Allow and AllowL4 functions
+          pkg/maps/policymap: merge IdentityExists and L4Exists functions
+          pkg/maps/policymap: merge Deletion functions
+          pkg/endpoint: remove WaitGroup return value from TriggerPolicyUpdatesLocked
+          pkg/identity: move LabelArray from Consumable to SecurityIdentity
+          pkg/policy: remove \"changed\" return value from regenerateConsumable
+          test/helpers: disable microscope in K8s tests
+          pkg/endpoint: remove PortMap field
+          test/k8sT: do not set Debug=False during tests
+          test/k8sT: rename variable to be more descriptive
+          test: add helper to wait for CEP revision update in K8s
+          test/helpers: check whether cep is nil before trying to access its fields
+          test/helpers: add WaitForCEPToExist function
+          test/k8sT: wait for CEP to exist before getting policy revision
+          vagrant: configure journald to allow for large amounts of logs
+          test/helpers: fix ManifestGet to use filepath.Join
+          test/helpers: remove Kubectl receiver from ManifestGet
+          test/k8sT: group var declarations in var( ... )
+          test/k8sT: move instantiation of vars to when they are declared
+          test/k8sT: move K8s chaos test to use BeforeAll
+          test/k8sT: add some assertion helpers
+          test/k8sT: get manifests in var declarations
+          test/k8sT: have KafkaPolicies test use assertion helpers
+          test/k8sT: add wrapper for expecting all pods to be deleted
+          test/k8sT: replace WaitKubeDNS with ExpectKubeDNSReady
+          test/k8sT: refactor WaitForPods to return only an error
+          test/k8sT: use ExpectCiliumReady in more helpers
+          test/k8sT: remove unused demoPath var
+          test/k8sT: move instanation of var to its declaration
+          test/k8sT: move initialize function for demo test into BeforeAll
+          test/k8sT: group var declarations
+          test/k8sT: move Health.go initialization into BeforeAll
+          test/k8sT: change WaitForServiceEndpoints to only return an error
+          test/k8sT: move instantiation of manifest variables in declarations
+          test/k8sT: remove unneeded type declarations for vars
+          test/k8sT: move instantiation of vars to declaration
+          test/k8sT: move initialize function to BeforeAll
+          test/helpers: move ManifestGet to utils.go
+          test/runtime: add output of command if curl to Google fails in test
+          pkg/policy: remove debugging Println calls in unit test
+          pkg/policy/api: add basic HTTP Rule sanitization
+          pkg/maps/policymap: export PolicyKey type
+          policy: factor out endpoint PolicyMap updates into controller
+          pkg/endpoint: refactor label-based L3 policy determination
+          pkg/bpf: update comment to reflect current behavior
+          pkg/endpoint: rename L4Policy field to RealizedL4Policy
+          pkg/endpoint: add DesiredL4Policy field for endpoint
+          endpoint: remove consumable checks
+          pkg/endpoint: check SecurityIdentity directly in regenerateBPF
+          pkg/endpoint: check if endpoint SecurityIdentity is nil in TriggerPolicyUpdatesLocked
+          pkg/endpoint: add Iteration to Endpoint
+          pkg/endpoint: remove use of Consumable in regeneratePolicy
+          pkg/endpoint: do not populate endpoint policy model with Consumable info
+          pkg/endpoint: check SecurityIdentity instead of Consumable ID
+          pkg/endpoint: remove Consumable from Endpoint
+          pkg/policy: remove Consumable
+          pkg/endpoint: specify why local copy of DesiredL4Policy is made
+          test: fix Policy cmd test resource deletion
+          test/runtime: move initialize func into BeforeAll
+          test: fix CLI resource creation / deletion
+          test/runtime: move policy deletion to AfterEach
+          test/k8sT: fix deletion of policy in external services test
+          test/k8sT: use ExpectWithOffset in helper function
+          test/k8sT: add faliure messages to assertions in validateEgress
+          test/k8sT/manifests: re-add l3_l4_policy.yaml
+          pkg/endpoint: release lock if syncPolicyMap fails
+          configuration: move TracingEnabled to pkg/option
+          Revert "Re-enable microscsope in CI"
+          cmd: specify JSON format for `cilium policy import`
+          cleanup: remove refs to Consumable in comments
+          pkg/endpoint: check if PolicyMap is nil in syncPolicyMap
+          pkg/endpoint: include node headerfile hash
+          daemon: factor out node config headerfile into separate function
+          pkg/node: move IPv4Loopback address from daemon to node package
+          daemon: remove loopbackIPv4 from Daemon type
+          pkg/option: sort options in GetFmtList
+          tests: remove unmaintained / unused tests
+          pkg/endpointmanager: always regenerate if policy forcibly computed
+          daemon: trigger policy updates upon daemon configuration update
+          test/k8sT: add k8s default-allow tests
+          Documentation/cmdref: update cilium-agent cmdref
+          pkg/bpf: include map file descriptor in error messages
+          bugtool: get list of open file descriptors
+          test/runtime: add connectivity test after daemon configuration update
+          pkg/endpoint: close and reopen policy map if dump fails
+          pkg/logging/logfields: add new BPF map logfields
+          pkg/maps/policymap: set fd to 0 after close
+          pkg/endpoint: always ForcePolicyCompute if endpoint assigned new identity
+          pkg/endpoint: log clearing maps upon regen failure
+          examples/kubernetes-ingress/scripts: factor out cri-o installation into function
+          daemon: change when restored endpoints are inserted into endpoint manager
+          api/v1: add "sync-build-endpoint" to EndpointChangeRequest
+          pkg/endpointmanager: update comment to remove reference to endpoint creating state
+          plugins/cilium-cni: specify that endpoints should synchronously be regenerated via API
+          daemon: wait for endpoint to be in ready state if specified via EndpointChangeRequest
+          GH-4248: Return Annotations in CNP NodeStatus
+          test/k8sT: wrap KafkaPolicies test within Context
+          daemon: synchronously add endpoints to endpointmanager in \`regenerateRestoredEndpoints\`
+          test/helpers: gather logs from all pods
+          Makefile: add jenkins-precheck Makefile target
+
+    Jarno Rajahalme (46):
+          envoy: Update generated go-files for Cilium HTTP filter.
+          envoy: Set SO_LINGER and SO_KEEPALIVE on accepted sockets.
+          envoy: Fix integration test
+          docs: Document the backporting process.
+          daemon: Fix Envoy version check and add hidden option to skip it
+          daemon: Remove deprecated '--envoy-proxy' option
+          envoy: Pass 'non-redirect' http traffic through.
+          endpoint: Fix label replacement.
+          daemon: Regenerate endpoint in PATCH handler also when endpoint is in waiting-for-identity state.
+          envoy: Remove assert, reduce logging.
+          bpf: Honor DROP_ALL also in ingress to a container.
+          bpf: Make all funtions in lib/policy.h conditional on DROP_ALL
+          Makefile: Fix the name of the builder Dockerfile in envoy.
+          envoy: Fix integration test setting of original dst address.
+          envoy: Use network byte-order addresses in host map.
+          envoy: Support CIDRs in NPHDS.
+          envoy: Add host map to cilium integration test
+          envoy: Egress intergation tests.
+          docs: Refine backporting instructions.
+          envoy: Manage life-cycles of singleton maps properly.
+          envoy: Initialize thread local host map with an empty map.
+          envoy: Minor cleanup.
+          envoy: Use distinct Stats stores for each instance of a xDS client.
+          envoy: Fix handling of zero length CIDR prefixes.
+          systemd: Enable core dumps.
+          envoy: Make policy direction configurable for Istio.
+          maps: Use pointer receivers for MapValue types.
+          daemon: Sync local IPs to lxcmap periodically.
+          envoy: Configure gRPC service explicitly to get rid of deprecation warning in the logs.
+          test: Change DROP_ALL to install a dummy policy.
+          policy: Do not enable DROP_ALL mode if not needed.
+          docs: Fix ginkgo command line.
+          ctmap: Make GC bpf map dumps more robust.
+          envoy: Log CIDR->ID mappings at debug level.
+          proxy: Test if port is available before allocating it for a proxy.
+          proxy: Release redirect sooner.
+          docs: Remove repetition from Istio GSG.
+          bugtool: Add '-a' option to netstat.
+          Gopkg: Update golang/protobuf
+          envoy: Rebase to get gRPC proxy responses.
+          bpf: Only create veth pair if it does not already exist.
+          envoy: Update generated Cilium protobufs.
+          envoy: Update integration test.
+          init.sh: Use 'ip route replace' instead of 'ip route add'
+          Docs: Troubleshooting updates.
+          Docs: Remove CoreOS Installation Guide
+
+    Jess Frazelle (1):
+          pkg/bpf: add function wrappers for prog syscalls.
+
+    Joe Stringer (174):
+          daemon: Sync loadbalancer BPF maps from goroutine
+          k8s: Gather timestamps in cilium_logs on failure
+          docs: Update kubernetes policy page
+          docs: Update policy intro page
+          docs: Fix contributing guide warnings
+          docs: Improve L3 policy section
+          docs: Improve L4-L7 (+HTTP) policy section
+          docs: Improve kafka policy wording
+          docs: Document per-endpoint policy configuration
+          docs: Document the guiding policy principles
+          docs: Add GH links for future roadmap features
+          bpf: Fix conntrack entries for ICMP
+          bpf: Derive proxy_port from policy rather than CT
+          bpf: Only apply CIDR ingress to reserved identities
+          bpf: Apply egress CIDR policy to reserved identities
+          docs: Document consistent CIDR policy
+          cidrmap: Allow insert of any length of CIDR
+          policy: Log errors inserting CIDR entries
+          bpf: Rename tunnel_endpoint_map -> cilium_tunnel_map
+          tunnel: Remove old tunnel map upon upgrade.
+          bpf: Only create conntrack entries for SYN packets
+          Revert "bpf: Allow CT creation on FIN"
+          bpf: Fix log message about not supporting CIDR
+          docs: Pass sphinx options to spellcheck make target
+          docs: Split spellcheck check from main builds
+          docs: Print spelling list upon failure
+          ipcache: Shift NPHDS logic to envoy
+          envoy: Handle IP->ID deletes inside cache
+          daemon: Push reserved IP->Identity mappings to XDS
+          xds: Add tests for cache.Lookup
+          monitor: Fix CT entry dst port printing
+          policy: Support reserved:cluster entity
+          bpf: Fix tracing message for egress policy
+          bpf: Fix default build config
+          ipcache: Avoid issuing delete for identity=0
+          xds: Validate NPHDS updates before upserting
+          docs: Update concepts for egress policy
+          docs: Fix bpf spelling complaint
+          docs: Describe namespace selector behaviour in k8s
+          endpoint: Remove unnecessary l3 wildcard expansion
+          ipcache: Reuse existing function for lookup
+          endpoint: Refactor some IPID handling code to ipcache
+          ipcache: Log inserts/removes from map
+          runtime: Refactor egress before/after functions
+          monitor: Fix IPv6 string formatting in CT messages
+          policy: Refactor L4Filter creation
+          policy: Create L7 rules with wildcard selector
+          policy: Expand comments for policy objects
+          policy: Move computeResultantCIDRSet() to api
+          policy: Use typed CIDRSlice / CIDRRuleSlice
+          policy: Shift error checking comment to function doc
+          bpf: Rework ipcache to support LPM lookups.
+          k8sT: Make health test more robust
+          Makefile: Fix quiet target for make unit-tests
+          labels: Add CIDR to labels libraries
+          labels: Format only one CIDR label
+          policy: Add rule CIDR->*net.IPNet conversion libraries
+          Makefile: Start etcd test container with -listen-peer-urls
+          daemon: Check if device exists on endpoint restore
+          contrib: Remove KVstore containers in systemd scripts
+          k8sT/Services: Fix URL for bookinfo tests
+          k8sT/Services: Remove fetch http://details:9080/
+          ipcache: Support CIDR prefix to ID mappings
+          daemon: Populate BPF ipcache with CIDR prefixes
+          daemon: Allocate identities for CIDRs
+          policy: Resolve CIDRs in rule GetAsEndpointSelectors()
+          daemon: Fix ipcache conflict between hosts and prefixes
+          daemon: Refactor ipcache initialization.
+          daemon: Push reserved CIDR ranges into ipcache
+          api: Allow egress CIDR+L4 rules
+          runtime: Add CIDR + L4/L7 egress tests.
+          ipcache: Reject policies with too many CIDRs.
+          CODEOWNERS: Shift ownership of ipcache to a team
+          identity: Fix pair.PrefixString() arguments
+          manifests: Pin bookinfo container image versions
+          k8s: Support IPv6 addresses in CIDR policy
+          k8s: Add CRD IP address validation unit tests
+          docs: Describe downgrade impact of IPv6 CRD validation
+          k8s: CIDR: Expand v6 regex to make it more readable
+          k8s: CIDR: Disallow IPv4-mapped IPv6 addresses
+          k8s: CIDR: Format IPv6 CIDR regex
+          policy: Remove CIDR L3 egress plumbing
+          k8s: Bump CRD schema version.
+          bpf: Ensure maps are restored on load failure
+          bpf: Fix failure handling in CreateMap
+          bpf: Respond to all ARP requests
+          cmd: Fix `cilium bpf ipcache`
+          test: Refactor policy labels name for common usage
+          test: Fix no-op checks in CT tests
+          test: Handle endpoint list errors in helper
+          bpf: Improve logging output for map creation
+          ipcache: Refactor ipcache limitations check to map
+          bpf: Remove egress CIDR lookup
+          bpf: Support LPM for ipcache on newer kernels
+          ipcache: Loosen CIDR configuration restrictions
+          cmd: Fix import ordering for bpf ipcache
+          cmd: Describe LPM limitation of IPCache
+          Remove upstart artifacts.
+          test: Don't gather logs in -holdEnvironment
+          bpf: Fix lxc header guard
+          endpoint: Fix detection of L4 policy changes
+          ipcache: Rename ipIDPair parameter
+          ipcache: Provide old mapping to listeners on change
+          docs: Attempt to use RTD version for GH URLs
+          daemon: Install rules to mark local applications
+          bpf: Mark traffic from outside local host as world
+          daemon: Reuse proxy magic marker variables
+          daemon: Format packet marks as 32bit hexits
+          docs: Update dependencies for latest Envoy
+          metricsmap: Set the key size properly
+          policy: Express egress CIDRs in endpoint model
+          endpoint: Use policy for IP LPM, not IPCache
+          policy: Add test for default CIDR prefix lengths
+          test: Add bpf/verifier-test.sh to ginkgo
+          chaos: Use JSON output for endpoint restore check
+          pkg: Add MTU package
+          vendor: Update netlink library for route MTU
+          node: Configure route MTUs depending on destination
+          cni: Configure default route MTU in endpoints
+          daemon: Configure MTU for devices using pkg/mtu
+          docs: Describe MTU changes from v1.0 to v1.1
+          daemon: Add --k8s-legacy-host-allows-world option
+          k8s: Regenerate example YAMLs for host-allows-world
+          docs: Document the v1.1 host vs world policy
+          docs: Improve formatting of upgrade notes
+          docs: Use absolute paths for iptables diagram
+          docs: Update k8s iptables diagram for Cilium 1.1
+          endpoint: Initialize ProxyWaitGroup later
+          test: Bump journald log ratelimit to 10000
+          identity: Return errors from ReleaseSlice()
+          policy: Expose EndpointSelectors for reserved labels
+          policy: Wildcard L7 for AllowsLocalhost, HostAllowsWorld
+          policy: Don't remove L4+ policies for host/world
+          labels: Fix source for existing cidr tests
+          labels: Resolve CIDR 0.0.0.0/0 to reserved:world
+          ipcache: Don't push reserved identities to kvstore
+          policy: Make CIDRRule error more consistent
+          policy: Allow 0/0 CIDR to match reserved:world
+          policy: Support CIDRs in rules with zero length prefix
+          test: Add runtime policy test for 0.0.0.0/0
+          docs: Document downgrade for /0 CIDR rules
+          policy: Use common kafka port for tests
+          policy: Improve unit test descriptions
+          policy: Fix l4filter test 1 to adhere to comments
+          policy: Document l4filter test cases
+          policy: Add l4filter l7rules generation comment
+          health: Measure timestamp at start of probe
+          health: Only overwrite probes with newer reports
+          health-ep: Depend on option package for config
+          health-ep: Add health EP to manager later
+          health-ep: Refactor cleanup logic
+          health-ep: Rely on pidfile for deferred cleanup
+          pidfile: Refactor kill by pidfile into pidfile
+          health-ep: Refactor error handling to caller
+          daemon: Allow endpoint to be freed without releasing IP
+          daemon: Controllerize cilium-health endpoint
+          health-ep: Bump timeouts for endpoint readiness
+          health-ep: Document threadsafety
+          endpointmanager: Simplify CT GC launch code
+          apipanic: Log stack at debug level
+          metrics: Add datapath management metrics
+          ctmap: Add metrics for conntrack dump resets
+          k8s: Fix auto-generated deepycopy functions
+          ipcache: Split into multiple files
+          ipcache: Set logging subsys to 'ipcache'
+          ipcache: Count references to ipcache mappings
+          daemon: Release ipcache entries on policy add failure
+          daemon: Release identities in failure condition
+          daemon: Refactor ipcache CIDR allocations to ipcache
+          policy: Refactor getting CIDR prefixes from CIDR strings
+          k8s: Allocate ipcache mappings for service backends
+          ipcache: Improve comments for reference counter
+          treewide: Avoid go build `-i`
+          metricsmap: Fix index out of range error
+
+    Julien Kassar (2):
+          Replace ADD with COPY instruction in Dockerfile
+          Update envoy Dockerfile
+
+    Junli Ou (1):
+          docs: Specify the instruction format on little-endian machine.
+
+    Maciej Kwiek (18):
+          Clear logging in state.go
+          Recover from panics in Cilium API
+          Add pkg/apipanic to API codeowners
+          [DOCS] Edit API compatibility guarantees section
+          Remove combine flag from microscope call
+          Log monitor client disconnect nicely
+          Notify monitor about policy changes
+          Wrap monitor policy event information is json
+          Structure ep regen monitor notifications
+          Structure agent start monitor notification
+          Add docstrings to agent monitor notification code
+          GetLabels -> GetOpLabels in monitor messages
+          Unflake monitor agent notifications tests
+          Move endpoint interface from endpoint to monitor
+          [Docs] Kops installation guide stub
+          `cilium monitor` json mode
+          Re-enable microscsope in CI
+          [Monitor] add src and dst data to json output
+
+    Manali Bhutiyani (39):
+          test: Make the Kafka CI errors more descriptive. Fixes: #3503 Related to: #3502 Signed-Off-By: Manali Bhutiyani <manali@covalent.io>
+          test: Move topic creation in the BeforeEach function Fixes: #3503 Related to: #3502 Signed-Off-By: Manali Bhutiyani <manali@covalent.io>
+          docs: Correct spelling mistakes in the docs Fixes: #3523 Signed-Off-By: Manali Bhutiyani <manali@covalent.io>
+          CI: Temporarily add retry 3 times logic in connectivity.go Fixes: #3596 Related to: #3393 Related to: #3595 Related to: #3558
+          docs: Minikube audit. Add reference links wherever required. Improve docs wherever required. Part of the 1.0 Documentation Review. Fixes: #3669 Related to: #3597
+          CI: Add ingress/egress default deny tests for CNP Fixes :#3343 Signed-Off-By: Manali Bhutiyani <manali@covalent.io>
+          CI: Remove call to WaitUntilEndpointUpdates, if CiliumPolicyAction is present. CiliumPolicyAction takes care of waiting till endpoints get updated correctly. Remove the unnecessary calling of WaitUntilEndpointUpdates, in addition to CiliumPolicyAction.
+          docs: Correct backport label in docs from stable/needs-backporting to stable/needs-backport Fixes: #3738 Signed-Off-By: Manali Bhutiyani <manali@covalent.io>
+          Kafka : remove noise from logging EOF messages in Kafka parser We keep seeing a lot of these on normal client (produce/consume) connection close. We should not be logging valid EOF as errors.
+          CI: add Runtime default DROP_ALL test This test adds the runtime DROP_ALL tests and does 3 checks to make sure DROP_ALL is applied properly
+          CI: Move RuntimeValidatedPolicyDropAllTests to RuntimeValidatedPolicies Make the DROP_ALL gingko test more time-efficient and resource effecient, by grouping it with RuntimeValidatedPolicies
+          endpoint: Remove endpoint state directories left behind after build failure Failed regeneration files `XXXXX_next_fail` may stick around after regeneration. We are correctly deleting these files on regeneration, but not on deletion of endpoint. This commit deletes the endpoint XXX_next_fail files on endpoint deletion.
+          docs: Fix the gsg to point to the correct prometheus yaml The path examples/kubernetes/plugins/prometheus/prometheus.yaml has changed to examples/kubernetes/addons/prometheus/prometheus.yaml Fix this in the GSG docs.
+          docs: Fix spellchecker to include word Jenkinsfiles
+          metrics: Add new L7 proxy based metrics This commit declares new proxy based metrics to be exposed via the prometheus framework namely:
+          docs:  Update docs with new L7 proxy based prometheus metrics
+          linux/bpf.h: Add reference link to in-kernel sk_buff structure.
+          cmd: Add a CLI command to access the bpf L3-L4 metrics map
+          bpf: Add BPF map cilium_metrics for L3-l4 packet drops/forwards
+          pkg/maps/metricsmap: Add a new userspace pkg/maps/metricsmap to access BPF metrics maps.
+          pkg/maps/metricsmap/: Add a doc.go in the metricsmap pkg
+          bpf: Add metricsmap helper funcs and controller metricsmap-bpf-prom-sync
+          daemon: Remove unnecessary explicit conversion of time
+          pkg/metrics: Add prometheus counterVectors for Drops and Forwards
+          pkg/monitor: Export DropReason to be consistent with cilium monitor
+          docs: update docs with L3/L4 drop/forward metrics
+          bpf: Change BPF metrics map to type BPF_PER_CPU_HASH_MAP.
+          pkg/maps/metricsmap: userspace aggregation of BPF_PER_CPU_HASH_MAP metrics map.
+          docs: Change kafka image to point to a more stable tag 1.1.0 instead of latest
+          CI/k8s: Change kafka image to point to a more stable tag 1.1.0 instead of latest
+          docs: Correct spelling in ServiceAccount documentation
+          test/manifest: Remove automatic topic creation on container start
+          test/runtime: Remove hardcoded timeouts in the kafka runtime test
+          test/runtime: Change check from listTopics to createTopics to check if Kafka broker is up.
+          test/K8s: Wait for kafka broker to be up correctly.
+          test/k8s: Increase kafka-zookeeper session/connection timeout to 60 sec
+          test/runtime: Increase kafka-zookeeper session/connection timeout to 60 sec
+          docs/examples: Increase kafka-zookeeper session/connection timeout to 60 sec
+          daemon: Fix endpoint restore log regarding health endpoint
+
+    Marius Gerling (2):
+          Dependency to LLVM >= 6.0 in Documentation added
+          Dependency to LLVM >= 6.0 in Documentation modified
+
+    Mark deVilliers (1):
+          Check for nil before accessing Status
+
+    Matt Layher (3):
+          pkg/labels: fix go vet issues
+          pkg/policy: fix go vet issues
+          test/runtime: fix go vet issues
+
+    Michael Schubert (1):
+          docs: fix shown command in minikube guide
+
+    Michal Rostecki (24):
+          daemon/endpoint: Handle DeleteElement error properly
+          pkg/endpoint: Don't declare errs variable in function scope
+          pkg/envoy/xds: Assign value to ip variable only if it's used
+          pkg/ip: Assign value to allowedCIDRs variable only if it's used
+          pkg/policy: Don't assingn unused variables
+          pkg/k8s: Remove unused `node` variable assignment
+          pkg/k8s: Assign value to `rules` variable only if it's used
+          pkg/kvstore: Handler error from Get method properly
+          common/files: Add fileScanner struct
+          pkg/bpf: Use the other directory when /sys/fs/bpf is not BPFFS
+          pkg/identity: Fix ineffassign errors
+          pkg/workloads: Fix ineffassign errors
+          pkg/mountinfo: Add utility for getting mountinfo
+          bpf: Allow to define BPF map root via env variable
+          pkg/envoy: Don't hardcode BPFFS mount path
+          pkg/default: Add defaults for pkg/bpffs package
+          pkg/bpf: Use the other directory when /sys/fs/bpf is not BPFFS
+          pkg/health/client: PathIsHealthy as a public function
+          pkg/endpoint/id: New package to avoid import cycle
+          pkg/metrics: Define Prometheus metrics for `cilium status` data
+          pkg/kvstore: Fix ineffassign error
+          pkg/bpf: Fix ineffassign error
+          pidfile: Fix error message formatting
+          cmd: Detect BPF map root properly
+
+    Nirmoy Das (5):
+          daemon: exit if tunnel is not supported
+          cilium status: fix --brief to print less when cilium isn't running
+          bpf: drop incase of unsupported IPv6 headers
+          bpf: monitor drops in NAT64/NAT46 tail calls
+          cilium-docker: pass default cilium url when cilium-api is not provided
+
+    Patrice Peterson (1):
+          Various link fixes in documentation.
+
+    Peter Slovak (1):
+          app3 -> app1 in stateful conntrack paragraph
+
+    Ray Bejjani (30):
+          k8s: Fix bug with CEP cross-version delete
+          api: Switch API version from v1beta to v1
+          cli: protect against API nils
+          daemon: Add more info logs on startup
+          docs: Update system requirements
+          doc: Update metrics documentation & list exported metrics
+          doc: system requirements mention meltdown
+          doc: Reword docker integration text
+          k8s: CEP GC controller logs errors at debug level
+          doc: Update spelling list and fix misspellings
+          scripts: contrib/backports/check_stable handles backports-done label
+          scripts: contrib/backports/check_stable prints PR link
+          doc: Add a section about CiliumEndpoint CRDs
+          docs: Correct RBAC urls in upgrade guide
+          test: CmdRes.CombineOutput does not clobber stdout
+          test: Star Wars demo checks HTTP status in stdout
+          test: Switch Kafka runtime test to use CombineOutput
+          monitor: Don't spinloop on node-monitor crashes
+          monitor: pass payload objects by reference
+          monitor: only read perf buffer on listener connect
+          monitor: refactor globals into an object
+          controller: Cleanup global manager on UpdateController
+          monitor: Fatal on critical errors instead of panic
+          monitor: More correctly cancel contexts on exit
+          endpoint: Force regeneration when there are underlying errors
+          monitor: cilium-agent passes along BPF mount path
+          test: report collection prints error from ssh.RunCommand
+          test: Do not print nil errors in ssh.Exec
+          test: Increase kubedns timeouts above 5 minutes
+          daemon: Warn on too-old status data
+
+    Romain Lenglet (76):
+          npds: Properly translate L4-only rules
+          envoy: Rename the xDS cluster into xds-grpc-cilium
+          proxy: Create access log file and setup notifier at startup
+          docs: Use go-swagger Docker container to generate APIs
+          daemon: Clean up access log setup
+          test: Fix K8s demos to not use TTYs with kubectl exec
+          doc: Update Istio GSG for Istio 0.7.0
+          examples/kubernetes: Generate daemon sets defs for sidecar mode
+          doc: Use K8s-version-specific YAML files in Istio GSG
+          doc: Replace cilium-sidecar.yaml with a config map setting
+          doc: Fix spelling
+          test: Fix Star Wars demo test
+          test: Always execute "cilium endpoint get" with -o json
+          test: Force using IPv4 for egress connections to google.com
+          policy: Synthesize wildcard L7 rules for L3-only rules
+          policy: Replace adding L3-only rules into L4PolicyMap with extra loop
+          envoy: Optimize lookup in allowed remote policies ordered list
+          daemon: Define CILIUM_ACCESS_LOG and CILIUM_ACCESS_LABELS env vars
+          daemon: Stop calling viper.AutomaticEnv() in daemon and cilium-health
+          endpoint: Skip BPF compilation if headerfile is unchanged
+          endpoint: Support hashing C headers with very long lines
+          etcd: Clear the etcd status error when connectivity is OK
+          Revert "etcd: Clear the etcd status error when connectivity is OK"
+          etcd: Clear the etcd status error when connectivity is OK
+          npds: Don't update NetworkPolicy if none has been calculated
+          npds: Don't wait for ACK from sidecar proxy with no L7 rules
+          ipcache: Fix ipcache deletion of old identities on update
+          envoy: Fix dynamic casts that remove constness
+          envoy: Update to same Envoy version as Istio master
+          build: Fix builder image tag; fix tag used by ginkgo
+          vagrant: Update box version to use updated Bazel cache
+          envoy: Remove obsolete Envoy V2 API protobuf generated files
+          Makefile: Remove instructions to push the -builder Docker image
+          envoy: Build Istio Docker images
+          tests: Fix old 10-proxy.sh test
+          labels: Replace ParseStringLabels with NewLabelsFromModel
+          controller: Skip StopFunc when stopping controller for update
+          k8s: Consistently check for namespace labels in endpoint selectors
+          endpoint: Allow traffic in BPF map when transitioning to allow-all
+          ipcache: Update NPHDS cache before updating BPF maps
+          ipcache: Create copies of NPHDS cache resources when updating
+          xds: Match the client's version if higher than the server's
+          ipcache: Create copies of NPHDS cache resources when deleting
+          daemon: Define reserved:init label and set it on endpoints with no labels
+          policy: Always enable policy for reserved:init endpoints in default mode
+          api: Add "init" as supported entity
+          identity: Allocate reserved identities for entity reserved labels
+          cilium-docker: Remove constraint on endpoint state after creation
+          cilium-docker: Create veth pair on endpoint creation
+          cilium-docker: Remove now-unnecessary PATCH /endpoint/{id} API call
+          endpoint: Fix state machine to support changing endpoint's labels
+          daemon: Fix identity label update APIs
+          test: Handle initializing endpoints with the reserved:init identity
+          k8s: Don't add namespace labels into reserved:init endpoint selectors
+          endpointmanager: Don't generate new endpoints waiting-for-identity
+          envoy: Update Istio to the latest 0.8 RC version
+          doc: Document the endpoint lifecycle and reserved:init identity
+          docs: Update Istio GSG to Istio 0.8.0 pre-release
+          daemon: Delete old ID mapping when updating the IP for a reserved ID
+          Update to Istio 0.8 release
+          docs: In GSGs, create the etcd-cilium deployment in kube-system
+          docs: Add Istio injection annotations into all Istio examples
+          docs: Remove the unnecessary init policy to Kafka in Istio example
+          docs: Move the Istio GSG to use Helm
+          vagrant: Revert updating the Vagrant box and cilium-builder tag
+          Revert "vagrant: Revert updating the Vagrant box and cilium-builder tag"
+          Revert to working Vagrant box and cilium-builder image
+          Revert "Revert to working Vagrant box and cilium-builder image"
+          Revert to working Vagrant box and cilium-builder image (#4430)
+          k8s: Add label to endpoints injected with Istio + Cilium sidecar
+          endpoint: Remove unused LabelsHash field from Endpoint
+          endpoint: Replace sidecar-http-proxy flag with per-endpoint setting
+          examples/kubernetes: Remove sidecar-http-proxy setting from examples
+          docs: Remove use of the sidecar-http-proxy flag in the Istio GSG
+          test: Remove sidecar-http-proxy setting from template
+          docs: Remove sidecar-http-proxy config from upgrade instructions
+
+    Shantanu Deshpande (7):
+          Miscellaneous typo fixes in documentation.
+          Change logging of new connections from warn to info level
+          Sorting controller output by name (alphabetical) in status command
+          Fix weird indentation for rules
+          Add org to spellcheck wordlist
+          Fixes 'any' reference target not found warning
+          Misc fixes for kops installation guide
+
+    Steven Ceuppens (5):
+          Add "cilium identity list" output to bugtool
+          Fix: `cilium monitor` allows invalid arguments
+          Add "docker info" output to bugtool
+          bugtool: make archive output configurable
+          Split debuginfo into separate files
+
+    Tasdik Rahman (2):
+          docs: k8s: updating docs for k8s v1.9, 1.10 and 1.11 support
+          docs: k8s: updating formatting
+
+    Thomas Graf (97):
+          labels: Ignore istio sidecar annotation labels
+          etcd: Move etcd status check into the background
+          cilium: Make cilium endpoint list resilient
+          policy: Apply wildcarded source L7 rules to all sources
+          bpf: Remove proxy_port from conntrack table
+          policy: Remove logic to reset proxy port
+          policy: Do not make initial endpoint DROP_ALL mode dependent on policy option
+          bpf: Remove connection tracking entries on policy deny
+          policy: Remove connection tracking cleanup on policy change
+          agent: Provide non-blocking agent status
+          health: Do sanity checking on health response
+          policy: Do not wildcard CIDR 0/0 for world and all entity
+          Revert "Revert "bpf: Allow CT creation on FIN""
+          Revert "bpf: Only create conntrack entries for SYN packets"
+          policy: Add TestWildcardL4RulesIngress and TestWildcardL4RulesEgress
+          contrib: Provide script to show unmanaged Kubernetes pods
+          workloads: Silence noisy harmless warning
+          Bump version in master tree to 1.0.90
+          endpoint: Improve logging of endpoint lifecycle events
+          tunnel: Add debug messages on tunnel map manipulation
+          bpf: Avoid unnecessary debug output on policy map open
+          testutils: Factor our random rune generator
+          agent: Fix panic when node.GetNodes() is empty
+          agent: Fix indentation of loopback address
+          kvstore: Introduce shared store type
+          store: Cast event.Value to string
+          policy: Overwrite eventual L4 localhost policies when AllowLocalhost=true
+          Update NEWS
+          Prepare for 1.1.0-rc1
+          Merge branch 'master' into v1.1
+          Prepare for 1.1.0-rc2 release
+          identity: Ignore nil identity when generating IdentityCache
+          Documentation: Fix warnings
+          identity: Resolve unknown identity to label reserved:unknown
+          defaults: Move defaults into pkg/defaults
+          agent: Add --ipv6-cluster-alloc-cidr option to specify IPv6 cluster prefix
+          agent: Reserve existing endpoint IPs before allocating auxiliary IPs
+          identity: Make API resilient if allocator is not initialized yet
+          node: Undo default IPv6 prefix change
+          Merge branch 'master' into v1.1
+          Prepare 1.1.0-rc3 release
+          Merge branch 'master' into v1.1
+          Prepare for 1.1.0-rc3 release #2
+          agent: Correctly restore router IPs from cilium_host interface
+          Merge branch 'master' into v1.1
+          Preparae for 1.1.0-rc3 #3
+          test: Be verbose about VM provision failures
+          bpf: Separate conntrack timeouts for TCP and non-TCP
+          conntrack: Increase conntrack interval to 1 minute
+          doc: Add missing indices to spelling list
+          allocator: Use DefaultLogger
+          test: Print status message while building & installing cilium
+          test: Do not compile non container build with PKG_BUILD=1
+          byteorder: Do not depend on external Linux only library
+          test: Hardcode identity for health endpoint
+          maps/tunnel: Use DefaultLogger
+          tunnel: Make BPF tunnel map updates atomic
+          k8s: Add --k8s-require-ipv4-pod-cidr and --k8s-require-ipv6-pod-cidr option
+          test: Require IPv4 PodCIDR to be specified in the node resource
+          Merge branch 'master' into v1.1
+          bpffs: Fix panic when root directory does not exist
+          Merge branch 'master' into v1.1
+          Prepare for 1.1.0-rc4 release
+          test: Wait for DNS entry of kafka and zookeeper service
+          kubernetes: Fix generation of DaemonSet files to include v image tag prefix
+          Merge branch 'master' into v1.1
+          kubernetes: Fix image tag references
+          k8s: Updated LastUpdated after waiting for endpoint status
+          metrics: Correctly abort on errors and check for Payload to be non-nil
+          metrics: Fail with Fatal() when client creation fails
+          metrics: Check IPAM field for nil
+          kubernetes: Add missing parenthesis to only fail on invalid version
+          k8s: Represent ServiceAccountName as endpoint label
+          test: ServiceAccount integration tests
+          doc: Add documentation and example for service account matching
+          doc: Document exposing pods across namespaces
+          allocator: Increase allocator list timeout to 2 minutes
+          Merge branch 'master' into v1.1
+          Merge branch 'master' into v1.1
+          docker/Dockerfile: update golang to 1.10.2
+          doc: Document k8s troubleshooting scripts
+          doc: Restructure troubleshooting section
+          doc: Provide egress example to kube-dns across namespaces
+          test: Use latest stable etcd and consul images
+          allocator: benchmark: Reserve ID space for reserved identities
+          trigger: New trigger package
+          identity: Process identity events in batches
+          identity: Fix allocator init with more than pre-existing 1024 keys
+          allocator: Avoid scanning sequentual list when allocating
+          Prepare for 1.1.0 release
+          AUTHORS: Update to latest list
+          allocator: Re-use randomly generated ID sequence between allocations
+          cni: Change default configuration filename to 00-cilium.conf
+          agent: Require go 1.10 for safe namespace operations
+          identity: Move CIDR identity code into pkg/identity/cidr
+          k8s: Simplify EndpointSelector creation in tests
+          NEWS: Update after latest backports
+
+    Tobias Klauser (1):
+          pkg/bpf: update BPF_* constants as of Linux kernel 4.17-rc3
+
+    ackerman80 (3):
+          Update minikube.rst
+          examples/minikube: update http-sw-app.yaml
+          examples/minikube: delete unused yamls
+
+    
 v1.0.0-rc9
 ==========
 
@@ -1344,3 +3313,69 @@ Fixes
 .. _3238: https://github.com/cilium/cilium/pull/3238
 .. _3234: https://github.com/cilium/cilium/pull/3234
 .. _3037: https://github.com/cilium/cilium/pull/3037
+.. _4936: https://github.com/cilium/cilium/pull/4936
+.. _4854: https://github.com/cilium/cilium/pull/4854
+.. _4826: https://github.com/cilium/cilium/pull/4826
+.. _4775: https://github.com/cilium/cilium/pull/4775
+.. _4750: https://github.com/cilium/cilium/pull/4750
+.. _4738: https://github.com/cilium/cilium/pull/4738
+.. _4732: https://github.com/cilium/cilium/pull/4732
+.. _4731: https://github.com/cilium/cilium/pull/4731
+.. _4687: https://github.com/cilium/cilium/pull/4687
+.. _4664: https://github.com/cilium/cilium/pull/4664
+.. _4547: https://github.com/cilium/cilium/pull/4547
+.. _4270: https://github.com/cilium/cilium/pull/4270
+.. _5024: https://github.com/cilium/cilium/pull/5024
+.. _5019: https://github.com/cilium/cilium/pull/5019
+.. _4945: https://github.com/cilium/cilium/pull/4945
+.. _4910: https://github.com/cilium/cilium/pull/4910
+.. _4909: https://github.com/cilium/cilium/pull/4909
+.. _4889: https://github.com/cilium/cilium/pull/4889
+.. _4888: https://github.com/cilium/cilium/pull/4888
+.. _4846: https://github.com/cilium/cilium/pull/4846
+.. _4840: https://github.com/cilium/cilium/pull/4840
+.. _4830: https://github.com/cilium/cilium/pull/4830
+.. _4799: https://github.com/cilium/cilium/pull/4799
+.. _4788: https://github.com/cilium/cilium/pull/4788
+.. _4773: https://github.com/cilium/cilium/pull/4773
+.. _4756: https://github.com/cilium/cilium/pull/4756
+.. _4753: https://github.com/cilium/cilium/pull/4753
+.. _4739: https://github.com/cilium/cilium/pull/4739
+.. _4709: https://github.com/cilium/cilium/pull/4709
+.. _4683: https://github.com/cilium/cilium/pull/4683
+.. _4682: https://github.com/cilium/cilium/pull/4682
+.. _4678: https://github.com/cilium/cilium/pull/4678
+.. _4676: https://github.com/cilium/cilium/pull/4676
+.. _4670: https://github.com/cilium/cilium/pull/4670
+.. _4667: https://github.com/cilium/cilium/pull/4667
+.. _4636: https://github.com/cilium/cilium/pull/4636
+.. _4623: https://github.com/cilium/cilium/pull/4623
+.. _4611: https://github.com/cilium/cilium/pull/4611
+.. _4610: https://github.com/cilium/cilium/pull/4610
+.. _4587: https://github.com/cilium/cilium/pull/4587
+.. _4561: https://github.com/cilium/cilium/pull/4561
+.. _4934: https://github.com/cilium/cilium/pull/4934
+.. _4877: https://github.com/cilium/cilium/pull/4877
+.. _4874: https://github.com/cilium/cilium/pull/4874
+.. _4867: https://github.com/cilium/cilium/pull/4867
+.. _4858: https://github.com/cilium/cilium/pull/4858
+.. _4828: https://github.com/cilium/cilium/pull/4828
+.. _4805: https://github.com/cilium/cilium/pull/4805
+.. _4797: https://github.com/cilium/cilium/pull/4797
+.. _4790: https://github.com/cilium/cilium/pull/4790
+.. _4756: https://github.com/cilium/cilium/pull/4756
+.. _4730: https://github.com/cilium/cilium/pull/4730
+.. _4725: https://github.com/cilium/cilium/pull/4725
+.. _4699: https://github.com/cilium/cilium/pull/4699
+.. _4690: https://github.com/cilium/cilium/pull/4690
+.. _4684: https://github.com/cilium/cilium/pull/4684
+.. _4671: https://github.com/cilium/cilium/pull/4671
+.. _4665: https://github.com/cilium/cilium/pull/4665
+.. _4599: https://github.com/cilium/cilium/pull/4599
+.. _4593: https://github.com/cilium/cilium/pull/4593
+.. _4548: https://github.com/cilium/cilium/pull/4548
+.. _4518: https://github.com/cilium/cilium/pull/4518
+.. _4507: https://github.com/cilium/cilium/pull/4507
+.. _4488: https://github.com/cilium/cilium/pull/4488
+.. _4376: https://github.com/cilium/cilium/pull/4376
+.. _2972: https://github.com/cilium/cilium/pull/2972

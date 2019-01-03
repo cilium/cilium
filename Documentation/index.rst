@@ -1,9 +1,3 @@
-.. only:: not (epub or latex or html)
-
-    WARNING: You are looking at unreleased Cilium documentation.
-    Please use the official rendered version released here:
-    http://docs.cilium.io
-
 Welcome to Cilium's documentation!
 ==================================
 
@@ -55,6 +49,7 @@ The documentation is divided into the following sections:
    istio/index
    docker/index
    mesos/index
+   envoy/index
 
 .. toctree::
    :maxdepth: 2
@@ -72,6 +67,12 @@ The documentation is divided into the following sections:
    policy/index
    configuration/*
    troubleshooting
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Community
+
+   community
 
 .. toctree::
    :maxdepth: 2

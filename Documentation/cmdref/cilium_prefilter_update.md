@@ -29,5 +29,5 @@ cilium prefilter update
 ```
 
 ### SEE ALSO
-* [cilium prefilter](cilium_prefilter.html)	 - Manage XDP CIDR filters
+* [cilium prefilter](../cilium_prefilter)	 - Manage XDP CIDR filters
 

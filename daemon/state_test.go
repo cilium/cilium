@@ -21,6 +21,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/completion"
@@ -94,12 +95,23 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 
 	ds.d.compilationMutex = new(lock.RWMutex)
 
-	ds.OnQueueEndpointBuild = func(r *e.Request) {
-		go func(*e.Request) {
-			r.MyTurn <- true
-			<-r.Done
-		}(r)
+	builders := 0
+	defer func() {
+		if builders != 0 {
+			log.Fatal("Endpoint Build Queue leaks")
+		}
+	}()
+
+	ds.OnQueueEndpointBuild = func(epID uint64) func() {
+		builders++
+		var once sync.Once
+		return func() {
+			once.Do(func() {
+				builders--
+			})
+		}
 	}
+
 	ds.OnTracingEnabled = func() bool {
 		return false
 	}
@@ -135,7 +147,7 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 		ready := ep.SetStateLocked(e.StateWaitingToRegenerate, "test")
 		ep.Unlock()
 		if ready {
-			<-ep.Regenerate(ds, regenContext)
+			<-ep.Regenerate(ds, regenContext, false)
 		}
 
 		switch ep.ID {
@@ -158,7 +170,7 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 				ready := ep.SetStateLocked(e.StateWaitingToRegenerate, "test")
 				ep.Unlock()
 				if ready {
-					<-ep.Regenerate(ds, regenContext)
+					<-ep.Regenerate(ds, regenContext, false)
 				}
 				epsNames = append(epsNames, ep.DirectoryPath())
 			}

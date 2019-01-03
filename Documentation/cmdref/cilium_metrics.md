@@ -18,6 +18,6 @@ Access metric status
 ```
 
 ### SEE ALSO
-* [cilium](cilium.html)	 - CLI
-* [cilium metrics list](cilium_metrics_list.html)	 - List all metrics
+* [cilium](../cilium)	 - CLI
+* [cilium metrics list](../cilium_metrics_list)	 - List all metrics
 

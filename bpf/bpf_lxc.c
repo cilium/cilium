@@ -113,8 +113,7 @@ static inline bool redirect_to_proxy(int verdict, int dir)
 
 static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 				   struct ipv6_ct_tuple *tuple, int l3_off,
-				   struct ethhdr *eth, struct ipv6hdr *ip6,
-				   __u32 *dstID)
+				   struct ipv6hdr *ip6, __u32 *dstID)
 {
 	union macaddr router_mac = NODE_MAC;
 	int ret, verdict, l4_off, forwarding_reason, hdrlen;
@@ -129,11 +128,7 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	__u32 tunnel_endpoint = 0;
 	__u32 monitor = 0;
 
-	if (unlikely(!is_valid_lxc_src_mac(eth)))
-		return DROP_INVALID_SMAC;
-	else if (unlikely(!is_valid_gw_dst_mac(eth)))
-		return DROP_INVALID_DMAC;
-	else if (unlikely(!is_valid_lxc_src_ip(ip6)))
+	if (unlikely(!is_valid_lxc_src_ip(ip6)))
 		return DROP_INVALID_SIP;
 
 	ipv6_addr_copy(&tuple->daddr, (union v6addr *) &ip6->daddr);
@@ -180,7 +175,7 @@ skip_service_lookup:
 	ipv6_addr_copy(&orig_dip, (union v6addr *) &tuple->daddr);
 
 
-	/* WARNING: eth and ip6 offset check invalidated, revalidate before use */
+	/* WARNING: ip6 offset check invalidated, revalidate before use */
 
 	/* Pass all outgoing packets through conntrack. This will create an
 	 * entry to allow reverse packets and return set cb[CB_POLICY] to
@@ -262,7 +257,7 @@ skip_service_lookup:
 		break;
 
 	default:
-		return DROP_POLICY;
+		return DROP_UNKNOWN_CT;
 	}
 
 	if (redirect_to_proxy(verdict, forwarding_reason)) {
@@ -305,7 +300,7 @@ skip_service_lookup:
 #ifdef HOST_IFINDEX
 			goto to_host;
 #else
-			return DROP_NO_LXC;
+			return DROP_HOST_UNREACHABLE;
 #endif
 		}
 
@@ -412,7 +407,7 @@ static inline int __inline__ handle_ipv6(struct __sk_buff *skb, __u32 *dstID)
 
 	/* Perform L3 action on the frame */
 	tuple.nexthdr = ip6->nexthdr;
-	return ipv6_l3_from_lxc(skb, &tuple, ETH_HLEN, data, ip6, dstID);
+	return ipv6_l3_from_lxc(skb, &tuple, ETH_HLEN, ip6, dstID);
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_LXC) int tail_handle_ipv6(struct __sk_buff *skb)
@@ -420,9 +415,11 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_LXC) int tail_handle_ipv6
 	__u32 dstID = 0;
 	int ret = handle_ipv6(skb, &dstID);
 
-	if (IS_ERR(ret))
+	if (IS_ERR(ret)) {
+		relax_verifier();
 		return send_drop_notify(skb, SECLABEL, dstID, 0, 0, ret, TC_ACT_SHOT,
 		                        METRIC_EGRESS);
+	}
 
 	return ret;
 }
@@ -435,7 +432,6 @@ static inline int handle_ipv4_from_lxc(struct __sk_buff *skb, __u32 *dstID)
 	union macaddr router_mac = NODE_MAC;
 	void *data, *data_end;
 	struct iphdr *ip4;
-	struct ethhdr *eth;
 	int ret, verdict, l3_off = ETH_HLEN, l4_off, forwarding_reason;
 	struct csum_offset csum_off = {};
 	struct endpoint_info *ep;
@@ -452,12 +448,7 @@ static inline int handle_ipv4_from_lxc(struct __sk_buff *skb, __u32 *dstID)
 
 	tuple.nexthdr = ip4->protocol;
 
-	eth = data;
-	if (unlikely(!is_valid_lxc_src_mac(eth)))
-		return DROP_INVALID_SMAC;
-	else if (unlikely(!is_valid_gw_dst_mac(eth)))
-		return DROP_INVALID_DMAC;
-	else if (unlikely(!is_valid_lxc_src_ipv4(ip4)))
+	if (unlikely(!is_valid_lxc_src_ipv4(ip4)))
 		return DROP_INVALID_SIP;
 
 	tuple.daddr = ip4->daddr;
@@ -492,7 +483,7 @@ skip_service_lookup:
 	 */
 	orig_dip = tuple.daddr;
 
-	/* WARNING: eth and ip4 offset check invalidated, revalidate before use */
+	/* WARNING: ip4 offset check invalidated, revalidate before use */
 
 	/* Pass all outgoing packets through conntrack. This will create an
 	 * entry to allow reverse packets and return set cb[CB_POLICY] to
@@ -566,7 +557,7 @@ skip_service_lookup:
 		break;
 
 	default:
-		return DROP_POLICY;
+		return DROP_UNKNOWN_CT;
 	}
 
 	if (redirect_to_proxy(verdict, forwarding_reason)) {
@@ -610,7 +601,7 @@ skip_service_lookup:
 #ifdef HOST_IFINDEX
 			goto to_host;
 #else
-			return DROP_NO_LXC;
+			return DROP_HOST_UNREACHABLE;
 #endif
 		}
 		policy_clear_mark(skb);
@@ -742,7 +733,7 @@ int handle_ingress(struct __sk_buff *skb)
 }
 
 static inline int __inline__
-ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding_reason)
+ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding_reason, struct ep_config *cfg)
 {
 	struct ipv6_ct_tuple tuple = {};
 	void *data, *data_end;
@@ -811,9 +802,12 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 			return ret2;
 	}
 
-	verdict = policy_can_access_ingress(skb, src_label, tuple.dport,
-					    tuple.nexthdr, sizeof(tuple.saddr),
-					    &tuple.saddr, false);
+	if (!(cfg->flags & EP_F_SKIP_POLICY_INGRESS))
+		verdict = policy_can_access_ingress(skb, src_label, tuple.dport,
+				tuple.nexthdr, sizeof(tuple.saddr),
+				&tuple.saddr, false);
+	else
+		verdict = TC_ACT_OK;
 
 	/* Reply packets and related packets are allowed, all others must be
 	 * permitted by policy */
@@ -823,7 +817,7 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 		if (ret == CT_ESTABLISHED)
 			ct_delete6(get_ct_map6(&tuple), &tuple, skb);
 
-		return DROP_POLICY;
+		return verdict;
 	}
 
 	if (skip_proxy)
@@ -877,7 +871,13 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_TO_LXC) int tail_ipv6_policy(s
 	__u32 src_label = skb->cb[CB_SRC_LABEL];
 	int forwarding_reason = 0;
 
-	ret = ipv6_policy(skb, ifindex, src_label, &forwarding_reason);
+	struct ep_config *cfg = lookup_ep_config();
+
+	if (cfg)
+		ret = ipv6_policy(skb, ifindex, src_label, &forwarding_reason, cfg);
+	else
+		ret = DROP_NO_CONFIG;
+
 	if (IS_ERR(ret))
 		return send_drop_notify(skb, src_label, SECLABEL, LXC_ID,
 					ifindex, ret, TC_ACT_SHOT, METRIC_INGRESS);
@@ -887,7 +887,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_TO_LXC) int tail_ipv6_policy(s
 
 #ifdef LXC_IPV4
 static inline int __inline__
-ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding_reason)
+ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding_reason, struct ep_config *cfg)
 {
 	struct ipv4_ct_tuple tuple = {};
 	void *data, *data_end;
@@ -945,9 +945,13 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 			return ret2;
 	}
 
-	verdict = policy_can_access_ingress(skb, src_label, tuple.dport,
-					    tuple.nexthdr, sizeof(orig_sip),
-					    &orig_sip, is_fragment);
+	if (!(cfg->flags & EP_F_SKIP_POLICY_INGRESS))
+		verdict = policy_can_access_ingress(skb, src_label, tuple.dport,
+						    tuple.nexthdr,
+						    sizeof(orig_sip),
+						    &orig_sip, is_fragment);
+	else
+		verdict = TC_ACT_OK;
 
 	/* Reply packets and related packets are allowed, all others must be
 	 * permitted by policy */
@@ -957,7 +961,7 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 		if (ret == CT_ESTABLISHED)
 			ct_delete4(get_ct_map4(&tuple), &tuple, skb);
 
-		return DROP_POLICY;
+		return verdict;
 	}
 
 	if (skip_proxy)
@@ -1006,11 +1010,15 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_TO_LXC) int tail_ipv4_policy(struct __sk_buff *skb) {
+	struct ep_config *cfg = lookup_ep_config();
 	int ret, ifindex = skb->cb[CB_IFINDEX];
 	__u32 src_label = skb->cb[CB_SRC_LABEL];
 	int forwarding_reason = 0;
 
-	ret = ipv4_policy(skb, ifindex, src_label, &forwarding_reason);
+	if (cfg)
+		ret = ipv4_policy(skb, ifindex, src_label, &forwarding_reason, cfg);
+	else
+		ret = DROP_NO_CONFIG;
 	if (IS_ERR(ret))
 		return send_drop_notify(skb, src_label, SECLABEL, LXC_ID,
 					ifindex, ret, TC_ACT_SHOT, METRIC_INGRESS);

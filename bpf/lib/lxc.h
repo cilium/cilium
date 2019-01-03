@@ -28,20 +28,6 @@
 #include "csum.h"
 #include "l4.h"
 
-#ifndef DISABLE_SMAC_VERIFICATION
-static inline int is_valid_lxc_src_mac(struct ethhdr *eth)
-{
-	union macaddr valid = LXC_MAC;
-
-	return !eth_addrcmp(&valid, (union macaddr *) &eth->h_source);
-}
-#else
-static inline int is_valid_lxc_src_mac(struct ethhdr *eth)
-{
-	return 1;
-}
-#endif
-
 #ifndef DISABLE_SIP_VERIFICATION
 static inline int is_valid_lxc_src_ip(struct ipv6hdr *ip6)
 {
@@ -68,20 +54,6 @@ static inline int is_valid_lxc_src_ip(struct ipv6hdr *ip6)
 }
 
 static inline int is_valid_lxc_src_ipv4(struct iphdr *ip4)
-{
-	return 1;
-}
-#endif
-
-#ifndef DISABLE_DMAC_VERIFICATION
-static inline int is_valid_gw_dst_mac(struct ethhdr *eth)
-{
-	union macaddr valid = NODE_MAC;
-
-	return !eth_addrcmp(&valid, (union macaddr *) &eth->h_dest);
-}
-#else
-static inline int is_valid_gw_dst_mac(struct ethhdr *eth)
 {
 	return 1;
 }

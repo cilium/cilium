@@ -12,16 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package allocator
+package idpool
 
 import (
+	"fmt"
 	"math/rand"
+	"strconv"
 	"time"
 
 	"github.com/cilium/cilium/pkg/lock"
 )
 
-// idPool represents a pool of IDs that can be managed concurrently
+// ID is a numeric identifier
+type ID uint64
+
+// NoID is a special ID that represents "no ID available"
+const NoID ID = 0
+
+// String returns the string representation of an allocated ID
+func (i ID) String() string {
+	return strconv.FormatUint(uint64(i), 10)
+}
+
+// IDPool represents a pool of IDs that can be managed concurrently
 // via local usage and external events.
 //
 // An intermediate state (leased) is introduced to the life cycle
@@ -49,8 +62,8 @@ import (
 *  The event has no effect.
 ** This is guaranteed never to occur.
 */
-type idPool struct {
-	// mutex protects all idPool data structures
+type IDPool struct {
+	// mutex protects all IDPool data structures
 	mutex lock.Mutex
 
 	// min is the lower limit when leasing IDs. The pool will never
@@ -69,8 +82,9 @@ type idPool struct {
 	nextIDCache *idCache
 }
 
-func newIDPool(minID ID, maxID ID) *idPool {
-	p := &idPool{
+// NewIDPool returns a new ID pool
+func NewIDPool(minID ID, maxID ID) *IDPool {
+	p := &IDPool{
 		minID: minID,
 		maxID: maxID,
 	}
@@ -80,9 +94,14 @@ func newIDPool(minID ID, maxID ID) *idPool {
 	return p
 }
 
+// Dump returns the IDPool as formatted structure for debugging
+func (p *IDPool) Dump() string {
+	return fmt.Sprintf("pool: %+v, cache: %+v", p, p.nextIDCache)
+}
+
 // StartRefresh creates a new cache backing the pool.
 // This cache becomes live when FinishRefresh() is called.
-func (p *idPool) StartRefresh() {
+func (p *IDPool) StartRefresh() {
 	c := newIDCache(p.minID, p.maxID)
 
 	p.mutex.Lock()
@@ -91,7 +110,7 @@ func (p *idPool) StartRefresh() {
 }
 
 // FinishRefresh makes the most recent cache created by the pool live.
-func (p *idPool) FinishRefresh() {
+func (p *IDPool) FinishRefresh() {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
@@ -99,8 +118,8 @@ func (p *idPool) FinishRefresh() {
 }
 
 // LeaseAvailableID returns an available ID at random from the pool.
-// Returns an ID of NoID if no there is no available ID in the pool.
-func (p *idPool) LeaseAvailableID() ID {
+// Returns an ID or NoID if no there is no available ID in the pool.
+func (p *IDPool) LeaseAvailableID() ID {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
@@ -115,7 +134,7 @@ func (p *idPool) LeaseAvailableID() ID {
 //
 // Returns true if the ID was returned back to the pool as
 // a result of this call.
-func (p *idPool) Release(id ID) bool {
+func (p *IDPool) Release(id ID) bool {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
@@ -125,7 +144,7 @@ func (p *idPool) Release(id ID) bool {
 // Use makes a leased ID unavailable in the pool and has no effect
 // otherwise. Returns true if the ID was made unavailable
 // as a result of this call.
-func (p *idPool) Use(id ID) bool {
+func (p *IDPool) Use(id ID) bool {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
@@ -135,7 +154,7 @@ func (p *idPool) Use(id ID) bool {
 // Insert makes an unavailable ID available in the pool
 // and has no effect otherwise. Returns true if the ID
 // was added back to the pool.
-func (p *idPool) Insert(id ID) bool {
+func (p *IDPool) Insert(id ID) bool {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
@@ -144,7 +163,7 @@ func (p *idPool) Insert(id ID) bool {
 
 // Remove makes an ID unavailable in the pool.
 // Returns true if the ID was previously available in the pool.
-func (p *idPool) Remove(id ID) bool {
+func (p *IDPool) Remove(id ID) bool {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
@@ -174,8 +193,10 @@ func newIDCache(minID ID, maxID ID) *idCache {
 		leased: make(map[ID]struct{}, n),
 	}
 
+	random := rand.New(rand.NewSource(time.Now().UnixNano()))
+	seq := random.Perm(n)
 	for i := 0; i < n; i++ {
-		id := ID(i) + minID
+		id := ID(seq[i]) + minID
 		c.ids[i] = id
 		c.index[id] = i
 	}
@@ -183,18 +204,21 @@ func newIDCache(minID ID, maxID ID) *idCache {
 	return c
 }
 
-var random = rand.New(rand.NewSource(time.Now().UnixNano()))
-
 // leaseAvailableID returns a random available ID.
 func (c *idCache) leaseAvailableID() ID {
 	if len(c.ids) == 0 {
 		return NoID
 	}
 
-	id := c.ids[random.Intn(len(c.ids))]
-	c.doRemove(id)
-	// Mark the ID as leased.
+	// Dequeue the next available ID from the random sequence
+	id := c.ids[0]
+	c.ids = c.ids[1:]
+
+	// Mark as leased
 	c.leased[id] = struct{}{}
+
+	// Remove from slice of avaiable IDs
+	delete(c.index, id)
 
 	return id
 }
@@ -261,6 +285,10 @@ func (c *idCache) doRemove(id ID) bool {
 	delete(c.index, id)
 
 	N := len(c.ids)
+	if N == 0 {
+		return false
+	}
+
 	tmp := c.ids[N-1]
 	c.ids[i] = tmp
 	if N > 1 {

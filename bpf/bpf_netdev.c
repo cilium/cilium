@@ -271,6 +271,15 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 	}
 #endif
 
+#ifdef FROM_HOST
+	/* The destination IP address could not be associated with a local
+	 * endpoint or a tunnel destination. If it is destined to an IP in
+	 * the local range, then we can't route it back to the host as it
+	 * will create a routing loop. Drop it. */
+	dst = (union v6addr *) &ip6->daddr;
+	if (ipv6_match_prefix_96(dst, &node_ip))
+		return DROP_NON_LOCAL;
+#endif
 	return TC_ACT_OK;
 }
 
@@ -440,6 +449,14 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 	}
 #endif
 
+#ifdef FROM_HOST
+	/* The destination IP address could not be associated with a local
+	 * endpoint or a tunnel destination. If it is destined to an IP in
+	 * the local range, then we can't route it back to the host as it
+	 * will create a routing loop. Drop it. */
+	if ((ip4->daddr & IPV4_MASK) == (IPV4_GATEWAY & IPV4_MASK))
+		return DROP_NON_LOCAL;
+#endif
 	return TC_ACT_OK;
 }
 

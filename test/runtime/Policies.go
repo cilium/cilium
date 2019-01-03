@@ -1012,6 +1012,54 @@ var _ = Describe("RuntimePolicies", func() {
 		res.ExpectContains("301", "Cannot access %s %s", allowedTarget, res.OutputPrettyPrint())
 	})
 
+	It("Enforces L3 policy even when no IPs are inserted", func() {
+		expectFQDNSareApplied := func() {
+			jqfilter := `jq -c '.[0].egress[]| select(.toFQDNs|length > 0) | select(.toCIDRSet|length > 0)'`
+			body := func() bool {
+				res := vm.Exec(fmt.Sprintf(`cilium policy get -o jsonpath='{.policy}' | %s`, jqfilter))
+				return res.WasSuccessful()
+			}
+			err := helpers.WithTimeout(
+				body,
+				"ToFQDNs did not update any ToCIDRSet",
+				&helpers.TimeoutConfig{Timeout: helpers.HelperTimeout})
+			Expect(err).To(BeNil(), "FQDN policy didn't update correctly the ToCidrSet")
+		}
+
+		By("Importing policy with toFQDNs rules")
+		fqdnPolicy := `
+[
+  {
+    "labels": [{
+	  	"key": "toFQDNs-runtime-test-policy"
+	  }],
+    "endpointSelector": {
+      "matchLabels": {
+        "container:id.app1": ""
+      }
+    },
+    "egress": [
+      {
+        "toFQDNs": [
+          {
+            "matchPattern": "notadomain.cilium.io"
+          }
+        ]
+      }
+    ]
+  }
+]`
+		_, err := vm.PolicyRenderAndImport(fqdnPolicy)
+		Expect(err).To(BeNil(), "Policy cannot be imported")
+		expectFQDNSareApplied()
+
+		By("Denying egress to any IPs or domains")
+		for _, blockedTarget := range []string{"1.1.1.1", "cilium.io", "google.com"} {
+			res := vm.ContainerExec(helpers.App1, helpers.CurlFail(blockedTarget))
+			res.ExpectFail("Curl tp %s succeeded when in deny-all due to toFQDNs" + blockedTarget)
+		}
+	})
+
 	It("Extended HTTP Methods tests", func() {
 		// This also tests L3-dependent L7.
 		httpMethods := []string{"GET", "POST"}
@@ -1187,6 +1235,122 @@ var _ = Describe("RuntimePolicies", func() {
 		}]`, app1Label, api.EntityWorld, app2Label)
 
 		setupPolicyAndTestEgressToWorld(policy)
+
+		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
+	})
+
+	It("Tests EntityNone as a deny-all", func() {
+		worldIP := "1.1.1.1"
+
+		httpd1Label := "id.httpd1"
+		http1IP, err := vm.ContainerInspectNet(helpers.Httpd1)
+		Expect(err).Should(BeNil(), "Cannot get httpd1 server address")
+
+		setupPolicy := func(policy string) {
+			_, err := vm.PolicyRenderAndImport(policy)
+			ExpectWithOffset(1, err).To(BeNil(), "Unable to import policy: %s\n%s", err, policy)
+
+			areEndpointsReady := vm.WaitEndpointsReady()
+			ExpectWithOffset(1, areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+		}
+
+		// curlWithRetry retries the curl, to make sure that allowed curls don't
+		// flake on bad connectivity
+		curlWithRetry := func(name string, cmd string, optionalArgs ...interface{}) (res *helpers.CmdRes) {
+			for try := 0; try < 5; try++ {
+				res = vm.ContainerExec(name, helpers.CurlFail(cmd, optionalArgs...))
+				if res.WasSuccessful() {
+					return res
+				}
+			}
+			return res
+		}
+
+		By("Setting policy enforcement to default so that EntityNone is the source of deny-all")
+		ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementDefault)
+		app1Label := fmt.Sprintf("id.%s", helpers.App1)
+		policy := fmt.Sprintf(`
+		[{
+			"endpointSelector": {"matchLabels":{"%s":""}},
+			"egress": [{
+				"toEntities": [
+					"%s"
+				]
+			}]
+		}]`, app1Label, api.EntityNone)
+		setupPolicy(policy)
+
+		app2Label := fmt.Sprintf("id.%s", helpers.App2)
+		policy = fmt.Sprintf(`
+		[{
+			"endpointSelector": {"matchLabels":{"%s":""}},
+			"egress": [{
+				"toEntities": [
+					"%s"
+				]
+			}]
+		}]`, app2Label, api.EntityNone)
+		setupPolicy(policy)
+
+		By("Testing that EntityNone is denying all egress for app1 and app2")
+		vm.ContainerExec(helpers.App1, helpers.CurlFail("http://%s/public", http1IP[helpers.IPv4])).ExpectFail("%q can make http request to pod", helpers.App1)
+		vm.ContainerExec(helpers.App1, helpers.CurlFail("-4 http://%s", worldIP)).ExpectFail("%q can make http request to %s", helpers.App1, worldIP)
+		vm.ContainerExec(helpers.App2, helpers.CurlFail("http://%s/public", http1IP[helpers.IPv4])).ExpectFail("%q can make http request to pod", helpers.App1)
+		vm.ContainerExec(helpers.App2, helpers.CurlFail("-4 http://%s", worldIP)).ExpectFail("%q can make http request to %s", helpers.App1, worldIP)
+
+		By("Testing basic egress between endpoints (app1->app2)")
+		policy = fmt.Sprintf(`
+		[{
+			"endpointSelector": {"matchLabels":{"%s":""}},
+			"egress": [{
+				"toEndpoints": [{"matchLabels": {"%s": ""}}]
+			}]
+		}]`, app1Label, httpd1Label)
+		setupPolicy(policy)
+		curlWithRetry(helpers.App1, "http://%s/public", http1IP[helpers.IPv4]).ExpectSuccess("%q cannot make http request to pod", helpers.App1)
+		vm.ContainerExec(helpers.App1, helpers.CurlFail("-4 http://%s", worldIP)).ExpectFail("%q can make http request to %s", helpers.App1, worldIP)
+
+		By("Testing basic egress to 1.1.1.1/32")
+		policy = fmt.Sprintf(`
+		[{
+			"endpointSelector": {"matchLabels":{"%s":""}},
+			"egress": [{
+				"toCIDR": [
+					"1.1.1.1/32"
+				]
+			}]
+		}]`, app1Label)
+		setupPolicy(policy)
+		curlWithRetry(helpers.App1, "http://%s/public", http1IP[helpers.IPv4]).ExpectSuccess("%q cannot make http request to pod", helpers.App1)
+		curlWithRetry(helpers.App1, "-4 http://%s", worldIP).ExpectSuccess("%q cannot make http request to pod", helpers.App1)
+
+		By("Testing egress toEntity: world in combination with previous rules (app1)")
+		policy = fmt.Sprintf(`
+		[{
+			"endpointSelector": {"matchLabels":{"%s":""}},
+			"egress": [{
+				"toEntities": [
+					"%s"
+				]
+			}]
+		}]`, app1Label, api.EntityWorld)
+		setupPolicy(policy)
+		curlWithRetry(helpers.App1, "http://%s/public", http1IP[helpers.IPv4]).ExpectSuccess("%q cannot make http request to pod", helpers.App1)
+		curlWithRetry(helpers.App1, "-4 http://%s", worldIP).ExpectSuccess("%q cannot make http request to pod", helpers.App1)
+
+		By("Testing egress toEntity: all alone with EntityNone")
+		policy = fmt.Sprintf(`
+		[{
+			"endpointSelector": {"matchLabels":{"%s":""}},
+			"egress": [{
+				"toEntities": [
+					"%s"
+				]
+			}]
+		}]`, app2Label, api.EntityAll)
+		setupPolicy(policy)
+		curlWithRetry(helpers.App2, "http://%s/public", http1IP[helpers.IPv4]).ExpectSuccess("%q cannot make http request to pod", helpers.App2)
+		curlWithRetry(helpers.App2, "-4 http://%s", worldIP).ExpectSuccess("%q cannot make http request to pod", helpers.App2)
 
 		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
 	})

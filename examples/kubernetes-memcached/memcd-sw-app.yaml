@@ -1,0 +1,84 @@
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: memcached-server
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: memcd-server
+    spec:
+      containers:
+      - name: memcached
+        image: memcached
+        ports:
+        - containerPort: 11211
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: memcached-server
+  labels:
+    app: memcd-server
+spec:
+  ports:
+  - port: 11211
+    name: memcached-port
+    targetPort: 11211
+    protocol: TCP
+  selector:
+    app: memcd-server
+  clusterIP: None
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: a-wing
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: a-wing
+    spec:
+      containers:
+      - name: starfighter
+        image: cilium/python-bmemcached
+        command: ["sleep"]
+        args: ["30000"]
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: x-wing
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: x-wing
+    spec:
+      containers:
+      - name: starfigher
+        image: alpine
+        command: ["sleep"]
+        args: ["30000"]
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: alliance-tracker
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: fleet-tracker
+    spec:
+      containers:
+      - name: starfigher
+        image: cilium/python-bmemcached
+        command: ["sleep"]
+        args: ["30000"]

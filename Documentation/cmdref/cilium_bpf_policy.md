@@ -18,8 +18,8 @@ Manage policy related BPF maps
 ```
 
 ### SEE ALSO
-* [cilium bpf](cilium_bpf.html)	 - Direct access to local BPF maps
-* [cilium bpf policy add](cilium_bpf_policy_add.html)	 - Add/update policy entry
-* [cilium bpf policy delete](cilium_bpf_policy_delete.html)	 - Delete a policy entry
-* [cilium bpf policy get](cilium_bpf_policy_get.html)	 - List contents of a policy BPF map
+* [cilium bpf](../cilium_bpf)	 - Direct access to local BPF maps
+* [cilium bpf policy add](../cilium_bpf_policy_add)	 - Add/update policy entry
+* [cilium bpf policy delete](../cilium_bpf_policy_delete)	 - Delete a policy entry
+* [cilium bpf policy get](../cilium_bpf_policy_get)	 - List contents of a policy BPF map
 

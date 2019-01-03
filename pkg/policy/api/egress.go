@@ -131,7 +131,7 @@ type EgressRule struct {
 	// endpoint when the data changes often or the system is under load.
 	//
 	// +optional
-	ToFQDNs []FQDNSelector `json:"toFQDNs,omitempty"`
+	ToFQDNs FQDNSelectorSlice `json:"toFQDNs,omitempty"`
 }
 
 // GetDestinationEndpointSelectors returns a slice of endpoints selectors
@@ -139,12 +139,13 @@ type EgressRule struct {
 func (e *EgressRule) GetDestinationEndpointSelectors() EndpointSelectorSlice {
 	res := append(e.ToEndpoints, e.ToEntities.GetAsEndpointSelectors()...)
 	res = append(res, e.ToCIDR.GetAsEndpointSelectors()...)
-	return append(res, e.ToCIDRSet.GetAsEndpointSelectors()...)
+	res = append(res, e.ToCIDRSet.GetAsEndpointSelectors()...)
+	return append(res, e.ToFQDNs.GetAsEndpointSelectors()...)
 }
 
 // IsLabelBased returns true whether the L3 destination endpoints are selected
 // based on labels, i.e. either by setting ToEndpoints or ToEntities, or not
 // setting any To field.
 func (e *EgressRule) IsLabelBased() bool {
-	return len(e.ToRequires)+len(e.ToCIDR)+len(e.ToCIDRSet)+len(e.ToServices) == 0
+	return len(e.ToRequires)+len(e.ToCIDR)+len(e.ToCIDRSet)+len(e.ToServices)+len(e.ToFQDNs) == 0
 }
