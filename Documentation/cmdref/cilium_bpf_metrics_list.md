@@ -6,16 +6,16 @@ List BPF datapath traffic metrics
 
 ### Synopsis
 
-
 List BPF datapath traffic metrics
 
 ```
-cilium bpf metrics list
+cilium bpf metrics list [flags]
 ```
 
 ### Options
 
 ```
+  -h, --help            help for list
   -o, --output string   json| jsonpath='{}'
 ```
 
@@ -28,5 +28,6 @@ cilium bpf metrics list
 ```
 
 ### SEE ALSO
+
 * [cilium bpf metrics](../cilium_bpf_metrics)	 - BPF datapath traffic metrics
 

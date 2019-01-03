@@ -6,7 +6,6 @@ List endpoint IPs (local and remote) and their corresponding security identities
 
 ### Synopsis
 
-
 List endpoint IPs (local and remote) and their corresponding security identities.
 
 Note that for Linux kernel versions between 4.11 and 4.15 inclusive, the native
@@ -16,12 +15,13 @@ return any entries, even if entries exist in the map.
 
 
 ```
-cilium bpf ipcache list
+cilium bpf ipcache list [flags]
 ```
 
 ### Options
 
 ```
+  -h, --help            help for list
   -o, --output string   json| jsonpath='{}'
 ```
 
@@ -34,5 +34,6 @@ cilium bpf ipcache list
 ```
 
 ### SEE ALSO
+
 * [cilium bpf ipcache](../cilium_bpf_ipcache)	 - Manage the IPCache mappings for IP/CIDR <-> Identity
 

@@ -6,11 +6,10 @@ View endpoint health
 
 ### Synopsis
 
-
 View endpoint health
 
 ```
-cilium endpoint health <endpoint id>
+cilium endpoint health <endpoint id> [flags]
 ```
 
 ### Examples
@@ -22,6 +21,7 @@ cilium endpoint health 5421
 ### Options
 
 ```
+  -h, --help            help for health
   -o, --output string   json| jsonpath='{}'
 ```
 
@@ -34,5 +34,6 @@ cilium endpoint health 5421
 ```
 
 ### SEE ALSO
+
 * [cilium endpoint](../cilium_endpoint)	 - Manage endpoints
 

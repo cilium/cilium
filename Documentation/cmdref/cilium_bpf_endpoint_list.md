@@ -6,16 +6,16 @@ List local endpoint entries
 
 ### Synopsis
 
-
 List local endpoint entries
 
 ```
-cilium bpf endpoint list
+cilium bpf endpoint list [flags]
 ```
 
 ### Options
 
 ```
+  -h, --help            help for list
   -o, --output string   json| jsonpath='{}'
 ```
 
@@ -28,5 +28,6 @@ cilium bpf endpoint list
 ```
 
 ### SEE ALSO
+
 * [cilium bpf endpoint](../cilium_bpf_endpoint)	 - Local endpoint map
 

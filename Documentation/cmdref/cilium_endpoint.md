@@ -6,8 +6,13 @@ Manage endpoints
 
 ### Synopsis
 
-
 Manage endpoints
+
+### Options
+
+```
+  -h, --help   help for endpoint
+```
 
 ### Options inherited from parent commands
 
@@ -18,6 +23,7 @@ Manage endpoints
 ```
 
 ### SEE ALSO
+
 * [cilium](../cilium)	 - CLI
 * [cilium endpoint config](../cilium_endpoint_config)	 - View & modify endpoint configuration
 * [cilium endpoint disconnect](../cilium_endpoint_disconnect)	 - Disconnect an endpoint from the network

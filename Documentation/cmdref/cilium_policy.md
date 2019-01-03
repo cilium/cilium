@@ -6,8 +6,13 @@ Manage security policies
 
 ### Synopsis
 
-
 Manage security policies
+
+### Options
+
+```
+  -h, --help   help for policy
+```
 
 ### Options inherited from parent commands
 
@@ -18,6 +23,7 @@ Manage security policies
 ```
 
 ### SEE ALSO
+
 * [cilium](../cilium)	 - CLI
 * [cilium policy delete](../cilium_policy_delete)	 - Delete policy rules
 * [cilium policy get](../cilium_policy_get)	 - Display policy node information

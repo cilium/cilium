@@ -6,16 +6,16 @@ Display policy node information
 
 ### Synopsis
 
-
 Display policy node information
 
 ```
-cilium policy get [<labels>]
+cilium policy get [<labels>] [flags]
 ```
 
 ### Options
 
 ```
+  -h, --help            help for get
   -o, --output string   json| jsonpath='{}'
 ```
 
@@ -28,5 +28,6 @@ cilium policy get [<labels>]
 ```
 
 ### SEE ALSO
+
 * [cilium policy](../cilium_policy)	 - Manage security policies
 
