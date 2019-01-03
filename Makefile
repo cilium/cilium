@@ -24,7 +24,10 @@ JOB_BASE_NAME ?= cilium_test
 
 UTC_DATE=$(shell date -u "+%Y-%m-%d")
 
-SKIP_DOCS ?= false
+# Since there's a bug with NFS or the kernel, the flock syscall hangs the documentation
+# build in the developer VM. For this reason the documentation build is skipped if NFS
+# is running in the developer VM.
+SKIP_DOCS ?= $(shell if mount | grep -q "/home/vagrant/go/src/github.com/cilium/cilium type nfs"; then echo "true"; else echo "false"; fi)
 
 all: precheck build postcheck
 	@echo "Build finished."
@@ -288,15 +291,12 @@ docs-container:
 	$(DOCKER) image build -t cilium/docs-builder -f Documentation/Dockerfile ./Documentation; \
 	  (ret=$$?; rm -r ./Documentation/_api && exit $$ret)
 
-
-render-docs: docs-container
-	-$(DOCKER) container rm -f docs-cilium >/dev/null 2>&1 || true
-	$(DOCKER) container run --rm -ti -v $$(pwd):/srv/ cilium/docs-builder /bin/bash -c 'make html'
+render-docs: test-docs
 	$(DOCKER) container run --rm -dit --name docs-cilium -p 8080:80 -v $$(pwd)/Documentation/_build/html/:/usr/local/apache2/htdocs/ httpd:2.4
 	@echo "$$(tput setaf 2)Running at http://localhost:8080$$(tput sgr0)"
 
 test-docs: docs-container
-	-$(DOCKER) container rm -f docs-cilium >/dev/null
+	-$(DOCKER) container rm -f docs-cilium >/dev/null 2>&1 || true
 	$(DOCKER) container run --rm -v $$(pwd):/srv/ cilium/docs-builder /bin/bash -c 'make html'
 
 manpages:
