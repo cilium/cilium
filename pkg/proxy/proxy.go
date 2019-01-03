@@ -212,7 +212,17 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 		revertStack.Push(removeRevertFunc)
 	}
 
-	redir = newRedirect(localEndpoint, id)
+	var to uint16
+	fixedProxyPort := false
+	listenerName := id
+	// Detect the need for a reusable listener here and override the defaults, e.g.:
+	// if <need reusable listener> {
+	//         listenerName = "cilium-xxxx-yyyy" // unique name for the reusable listener
+	//         to = <port> // listener port to use
+	//         fixedProxyPort = true // needed if `to` was overridden above
+	// }
+
+	redir = newRedirect(localEndpoint, listenerName)
 	redir.endpointID = localEndpoint.GetID()
 	redir.ingress = l4.Ingress
 	redir.parserType = l4.L7Parser
@@ -220,11 +230,12 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 	// Rely on create*Redirect to update rules, unlike the update case above.
 
 	for nRetry := 0; ; nRetry++ {
-		var to uint16
-		to, err = p.allocatePort()
-		if err != nil {
-			revertFunc() // Ignore errors while reverting. This is best-effort.
-			return
+		if fixedProxyPort == false {
+			to, err = p.allocatePort()
+			if err != nil {
+				revertFunc() // Ignore errors while reverting. This is best-effort.
+				return
+			}
 		}
 
 		redir.ProxyPort = to
