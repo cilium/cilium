@@ -277,7 +277,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		return PutEndpointIDCreatedCode, nil
 	}
 
-	log.Debug("Synchronously waiting for endpoint to regenerate")
+	ep.Logger(daemonSubsys).Debug("Synchronously waiting for endpoint to regenerate")
 
 	// Default timeout for PUT /endpoint/{id} is 60 seconds, so put timeout
 	// in this function a bit below that timeout. If the timeout for clients
@@ -308,19 +308,17 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 			}
 
 		case <-ctx.Done():
-
 		case <-ticker.C:
 			if err := ep.RLockAlive(); err != nil {
 				return PutEndpointIDFailedCode, fmt.Errorf("error locking endpoint: %s", err.Error())
 			}
 			hasSidecarProxy := ep.HasSidecarProxy()
 			ep.RUnlock()
-
 			if hasSidecarProxy && ep.HasBPFProgram() {
 				// If the endpoint is determined to have a sidecar proxy,
 				// return immediately to let the sidecar container start,
 				// in case it is required to enforce L7 rules.
-				log.Info("Endpoint has sidecar proxy, returning from synchronous creation request before regeneration has succeeded")
+				ep.Logger(daemonSubsys).Info("Endpoint has sidecar proxy, returning from synchronous creation request before regeneration has succeeded")
 				return PutEndpointIDCreatedCode, nil
 			}
 		}
@@ -328,7 +326,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		if ctx.Err() != nil {
 			// Delete endpoint because PUT operation fails if timeout is
 			// exceeded.
-			log.Warning("Endpoint did not synchronously regenerate after timeout")
+			ep.Logger(daemonSubsys).Warning("Endpoint did not synchronously regenerate after timeout")
 			d.deleteEndpoint(ep)
 			return PutEndpointIDFailedCode, fmt.Errorf("endpoint %d did not synchronously regenerate after timeout", ep.ID)
 		}
