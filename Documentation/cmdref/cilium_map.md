@@ -6,8 +6,13 @@ Access BPF maps
 
 ### Synopsis
 
-
 Access BPF maps
+
+### Options
+
+```
+  -h, --help   help for map
+```
 
 ### Options inherited from parent commands
 
@@ -18,6 +23,7 @@ Access BPF maps
 ```
 
 ### SEE ALSO
+
 * [cilium](../cilium)	 - CLI
 * [cilium map get](../cilium_map_get)	 - Display BPF map information
 * [cilium map list](../cilium_map_list)	 - List all open BPF maps

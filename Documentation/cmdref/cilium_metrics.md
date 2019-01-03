@@ -6,8 +6,13 @@ Access metric status
 
 ### Synopsis
 
-
 Access metric status
+
+### Options
+
+```
+  -h, --help   help for metrics
+```
 
 ### Options inherited from parent commands
 
@@ -18,6 +23,7 @@ Access metric status
 ```
 
 ### SEE ALSO
+
 * [cilium](../cilium)	 - CLI
 * [cilium metrics list](../cilium_metrics_list)	 - List all metrics
 

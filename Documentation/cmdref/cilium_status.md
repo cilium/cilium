@@ -6,11 +6,10 @@ Display status of daemon
 
 ### Synopsis
 
-
 Display status of daemon
 
 ```
-cilium status
+cilium status [flags]
 ```
 
 ### Options
@@ -22,6 +21,7 @@ cilium status
       --all-nodes         Show all nodes, not just localhost
       --all-redirects     Show all redirects
       --brief             Only print a one-line status message
+  -h, --help              help for status
   -o, --output string     json| jsonpath='{}'
       --verbose           Equivalent to --all-addresses --all-controllers --all-nodes --all-health
 ```
@@ -35,5 +35,6 @@ cilium status
 ```
 
 ### SEE ALSO
+
 * [cilium](../cilium)	 - CLI
 

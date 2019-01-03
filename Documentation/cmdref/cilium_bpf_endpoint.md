@@ -6,8 +6,13 @@ Local endpoint map
 
 ### Synopsis
 
-
 Local endpoint map
+
+### Options
+
+```
+  -h, --help   help for endpoint
+```
 
 ### Options inherited from parent commands
 
@@ -18,6 +23,7 @@ Local endpoint map
 ```
 
 ### SEE ALSO
+
 * [cilium bpf](../cilium_bpf)	 - Direct access to local BPF maps
 * [cilium bpf endpoint delete](../cilium_bpf_endpoint_delete)	 - Delete local endpoint entries
 * [cilium bpf endpoint list](../cilium_bpf_endpoint_list)	 - List local endpoint entries

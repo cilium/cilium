@@ -6,11 +6,10 @@ Delete a key
 
 ### Synopsis
 
-
 Delete a key
 
 ```
-cilium kvstore delete [options] <key>
+cilium kvstore delete [options] <key> [flags]
 ```
 
 ### Examples
@@ -22,6 +21,7 @@ cilium kvstore delete --recursive foo
 ### Options
 
 ```
+  -h, --help        help for delete
       --recursive   Recursive lookup
 ```
 
@@ -36,5 +36,6 @@ cilium kvstore delete --recursive foo
 ```
 
 ### SEE ALSO
+
 * [cilium kvstore](../cilium_kvstore)	 - Direct access to the kvstore
 

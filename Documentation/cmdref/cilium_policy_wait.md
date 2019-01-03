@@ -6,17 +6,17 @@ Wait for all endpoints to have updated to a given policy revision
 
 ### Synopsis
 
-
 Wait for all endpoints to have updated to a given policy revision
 
 ```
-cilium policy wait <revision>
+cilium policy wait <revision> [flags]
 ```
 
 ### Options
 
 ```
       --fail-wait-time int   Wait time after which command fails if endpoint regeration fails (seconds) (default 60)
+  -h, --help                 help for wait
       --max-wait-time int    Wait time after which command fails (seconds) (default 360)
       --sleep-time int       Sleep interval between checks (seconds) (default 1)
 ```
@@ -30,5 +30,6 @@ cilium policy wait <revision>
 ```
 
 ### SEE ALSO
+
 * [cilium policy](../cilium_policy)	 - Manage security policies
 

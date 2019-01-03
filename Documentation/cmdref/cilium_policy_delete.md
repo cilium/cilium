@@ -6,17 +6,17 @@ Delete policy rules
 
 ### Synopsis
 
-
 Delete policy rules
 
 ```
-cilium policy delete [<labels>]
+cilium policy delete [<labels>] [flags]
 ```
 
 ### Options
 
 ```
       --all             Delete all policies
+  -h, --help            help for delete
   -o, --output string   json| jsonpath='{}'
 ```
 
@@ -29,5 +29,6 @@ cilium policy delete [<labels>]
 ```
 
 ### SEE ALSO
+
 * [cilium policy](../cilium_policy)	 - Manage security policies
 

@@ -6,11 +6,16 @@ Retrieve identity for an ip
 
 ### Synopsis
 
-
 Retrieve identity for an ip
 
 ```
-cilium bpf ipcache get
+cilium bpf ipcache get [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for get
 ```
 
 ### Options inherited from parent commands
@@ -22,5 +27,6 @@ cilium bpf ipcache get
 ```
 
 ### SEE ALSO
+
 * [cilium bpf ipcache](../cilium_bpf_ipcache)	 - Manage the IPCache mappings for IP/CIDR <-> Identity
 

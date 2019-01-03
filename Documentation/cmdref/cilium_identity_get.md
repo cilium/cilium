@@ -6,18 +6,18 @@ Retrieve information about an identity
 
 ### Synopsis
 
-
 Retrieve information about an identity
 
 ```
-cilium identity get
+cilium identity get [flags]
 ```
 
 ### Options
 
 ```
-      --label stringSlice   Label to lookup
-  -o, --output string       json| jsonpath='{}'
+  -h, --help            help for get
+      --label strings   Label to lookup
+  -o, --output string   json| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands
@@ -29,5 +29,6 @@ cilium identity get
 ```
 
 ### SEE ALSO
+
 * [cilium identity](../cilium_identity)	 - Manage security identities
 

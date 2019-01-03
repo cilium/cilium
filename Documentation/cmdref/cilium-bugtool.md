@@ -6,11 +6,10 @@ Collects agent & system information useful for bug reporting
 
 ### Synopsis
 
-
 Collects agent & system information useful for bug reporting
 
 ```
-cilium-bugtool [OPTIONS]
+cilium-bugtool [OPTIONS] [flags]
 ```
 
 ### Examples
@@ -39,6 +38,7 @@ cilium-bugtool [OPTIONS]
       --dry-run                 Create configuration file of all commands that would have been executed
       --enable-markdown         Dump output of commands in markdown format
       --exec-timeout duration   The default timeout for any cmd execution in seconds (default 30s)
+  -h, --help                    help for cilium-bugtool
   -H, --host string             URI to server-side API
       --k8s-label string        Kubernetes label for Cilium pod (default "k8s-app=cilium")
       --k8s-mode                Require Kubernetes pods to be found or fail
