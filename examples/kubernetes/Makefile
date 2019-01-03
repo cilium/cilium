@@ -8,30 +8,29 @@ CILIUM_INIT_VERSION = "2018-10-16"
 CILIUM_ETCD_OPERATOR_VERSION = "v2.0.3"
 K8S_VERSIONS = 1.8 1.9 1.10 1.11 1.12 1.13
 
-COMMON = \
-  cilium-cm.yaml \
-  cilium-operator.yaml \
-  cilium-rbac.yaml
-
 ETCD_OPERATOR= \
   cilium-etcd-operator-rbac.yaml \
   cilium-etcd-operator-sa.yaml \
   cilium-etcd-operator.yaml
 
 CILIUM_DEFAULT= \
+  cilium-cm.yaml \
   cilium-ds.yaml \
-  $(COMMON) \
-  $(ETCD_OPERATOR)
+  cilium-operator.yaml \
+  $(ETCD_OPERATOR) \
+  cilium-rbac.yaml
 
 CILIUM_MINIKUBE= \
-  cilium-minikube-ds.yaml \
   cilium-cm.yaml \
+  cilium-minikube-ds.yaml \
   cilium-rbac.yaml
 
 CILIUM_CRIO= \
+  cilium-cm.yaml \
   cilium-crio-ds.yaml \
-  $(COMMON) \
-  $(ETCD_OPERATOR)
+  cilium-operator.yaml \
+  $(ETCD_OPERATOR) \
+  cilium-rbac.yaml
 
 all: transform cilium.yaml cilium-crio.yaml cilium-minikube.yaml
 
