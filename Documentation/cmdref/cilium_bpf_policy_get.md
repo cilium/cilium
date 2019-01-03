@@ -6,17 +6,17 @@ List contents of a policy BPF map
 
 ### Synopsis
 
-
 List contents of a policy BPF map
 
 ```
-cilium bpf policy get
+cilium bpf policy get [flags]
 ```
 
 ### Options
 
 ```
       --all             Dump all policy maps
+  -h, --help            help for get
   -n, --numeric         Do not resolve IDs
   -o, --output string   json| jsonpath='{}'
 ```
@@ -30,5 +30,6 @@ cilium bpf policy get
 ```
 
 ### SEE ALSO
+
 * [cilium bpf policy](../cilium_bpf_policy)	 - Manage policy related BPF maps
 

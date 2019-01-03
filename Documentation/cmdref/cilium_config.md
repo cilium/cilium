@@ -6,16 +6,16 @@ Cilium configuration options
 
 ### Synopsis
 
-
 Cilium configuration options
 
 ```
-cilium config [<option>=(enable|disable) ...]
+cilium config [<option>=(enable|disable) ...] [flags]
 ```
 
 ### Options
 
 ```
+  -h, --help            help for config
       --list-options    List available options
   -n, --num-pages int   Number of pages for perf ring buffer. New values have to be > 0
   -o, --output string   json| jsonpath='{}'
@@ -30,5 +30,6 @@ cilium config [<option>=(enable|disable) ...]
 ```
 
 ### SEE ALSO
+
 * [cilium](../cilium)	 - CLI
 

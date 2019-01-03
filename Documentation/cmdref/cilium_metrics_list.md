@@ -6,16 +6,16 @@ List all metrics
 
 ### Synopsis
 
-
 List all metrics
 
 ```
-cilium metrics list
+cilium metrics list [flags]
 ```
 
 ### Options
 
 ```
+  -h, --help            help for list
   -o, --output string   json| jsonpath='{}'
 ```
 
@@ -28,5 +28,6 @@ cilium metrics list
 ```
 
 ### SEE ALSO
+
 * [cilium metrics](../cilium_metrics)	 - Access metric status
 

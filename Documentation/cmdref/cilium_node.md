@@ -6,8 +6,13 @@ Manage cluster nodes
 
 ### Synopsis
 
-
 Manage cluster nodes
+
+### Options
+
+```
+  -h, --help   help for node
+```
 
 ### Options inherited from parent commands
 
@@ -18,6 +23,7 @@ Manage cluster nodes
 ```
 
 ### SEE ALSO
+
 * [cilium](../cilium)	 - CLI
 * [cilium node list](../cilium_node_list)	 - List nodes
 

@@ -6,11 +6,16 @@ Disconnect an endpoint from the network
 
 ### Synopsis
 
-
 Disconnect an endpoint from the network
 
 ```
-cilium endpoint disconnect <endpoint-id>
+cilium endpoint disconnect <endpoint-id> [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for disconnect
 ```
 
 ### Options inherited from parent commands
@@ -22,5 +27,6 @@ cilium endpoint disconnect <endpoint-id>
 ```
 
 ### SEE ALSO
+
 * [cilium endpoint](../cilium_endpoint)	 - Manage endpoints
 

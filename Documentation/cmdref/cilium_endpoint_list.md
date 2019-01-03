@@ -6,16 +6,16 @@ List all endpoints
 
 ### Synopsis
 
-
 List all endpoints
 
 ```
-cilium endpoint list
+cilium endpoint list [flags]
 ```
 
 ### Options
 
 ```
+  -h, --help            help for list
       --no-headers      Do not print headers
   -o, --output string   json| jsonpath='{}'
 ```
@@ -29,5 +29,6 @@ cilium endpoint list
 ```
 
 ### SEE ALSO
+
 * [cilium endpoint](../cilium_endpoint)	 - Manage endpoints
 

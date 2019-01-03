@@ -6,7 +6,6 @@ CLI
 
 ### Synopsis
 
-
 CLI for interacting with the local Cilium Agent
 
 ### Options
@@ -14,10 +13,12 @@ CLI for interacting with the local Cilium Agent
 ```
       --config string   config file (default is $HOME/.cilium.yaml)
   -D, --debug           Enable debug messages
+  -h, --help            help for cilium
   -H, --host string     URI to server-side API
 ```
 
 ### SEE ALSO
+
 * [cilium bpf](../cilium_bpf)	 - Direct access to local BPF maps
 * [cilium cleanup](../cilium_cleanup)	 - Reset the agent state
 * [cilium completion](../cilium_completion)	 - Output shell completion code for bash

@@ -6,11 +6,10 @@ List all open BPF maps
 
 ### Synopsis
 
-
 List all open BPF maps
 
 ```
-cilium map list
+cilium map list [flags]
 ```
 
 ### Examples
@@ -22,6 +21,7 @@ cilium map list
 ### Options
 
 ```
+  -h, --help            help for list
   -o, --output string   json| jsonpath='{}'
       --verbose         Print cache contents of all maps
 ```
@@ -35,5 +35,6 @@ cilium map list
 ```
 
 ### SEE ALSO
+
 * [cilium map](../cilium_map)	 - Access BPF maps
 
