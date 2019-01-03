@@ -24,11 +24,11 @@ PIP_REQUIREMENTS = $(shell cat requirements.txt | sed -e 's/==.*//g' -e 's/\n/ /
 check-requirements:
 	@set -e;								\
 	$(ECHO_CHECK) documentation dependencies...;				\
-	PYPKGS=$$(pip freeze);							\
+	PYPKGS=$$(pip3 freeze);							\
 	for pkg in ${PIP_REQUIREMENTS}; do					\
 		echo $${PYPKGS} | grep -q $${pkg}				\
 		|| (echo "Documentation dependency '$${pkg}' not found.";	\
-		    echo "Run 'pip install -r Documentation/requirements.txt'";	\
+		    echo "Run 'pip3 install --user -r Documentation/requirements.txt'";	\
 		    exit 2);							\
 	done
 
