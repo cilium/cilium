@@ -79,8 +79,11 @@ func Insert(ep *endpoint.Endpoint) error {
 		if id == uint16(0) {
 			return fmt.Errorf("no more endpoint IDs available")
 		}
-
 		ep.ID = id
+
+		ep.UpdateLogger(map[string]interface{}{
+			logfields.EndpointID: ep.ID,
+		})
 	}
 
 	// No need to check liveness as an endpoint can only be deleted via the

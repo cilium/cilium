@@ -95,5 +95,9 @@ func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
 		logfields.K8sPodName:             e.GetK8sNamespaceAndPodNameLocked(),
 	})
 
+	if e.SecurityIdentity != nil {
+		l = l.WithField(logfields.Identity, e.SecurityIdentity.ID.StringID())
+	}
+
 	atomic.StorePointer(&e.logger, unsafe.Pointer(l))
 }
