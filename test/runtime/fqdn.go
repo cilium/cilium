@@ -15,6 +15,7 @@
 package RuntimeTest
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -375,6 +376,65 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		By("Allowing egress to IPs of specified ToFQDN DNS names")
 		res := vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode(world1Target))
 		res.ExpectSuccess("Cannot access to allowed DNS name %q", world1Target)
+	})
+
+	It("Validate dns-proxy monitor information", func() {
+
+		ctx, cancel := context.WithCancel(context.Background())
+		monitorCMD := vm.ExecInBackground(ctx, "cilium monitor --type=l7")
+		defer cancel()
+
+		policy := `
+[
+	{
+		"labels": [{
+			"key": "monitor"
+		}],
+		"endpointSelector": {
+			"matchLabels": {
+				"container:id.app1": ""
+			}
+		},
+		"egress": [
+			{
+				"toPorts": [{
+					"ports":[{"port": "53", "protocol": "ANY"}],
+					"rules": {
+						"dns": [
+							{"matchPattern": "world1.cilium.test"}
+						]
+					}
+				}]
+			},
+			{
+				"toFQDNs": [{
+					"matchPattern": "world1.cilium.test"
+				}]
+			}
+		]
+	}
+]`
+		_, err := vm.PolicyRenderAndImport(policy)
+		Expect(err).To(BeNil(), "Policy cannot be imported")
+
+		expectFQDNSareApplied()
+
+		allowVerdict := "verdict Forwarded DNS Query: world1.cilium.test"
+		deniedVerdict := "verdict Denied DNS Query: world2.cilium.test"
+
+		By("Testing connectivity to Cilium.test domain")
+		res := vm.ContainerExec(helpers.App1, helpers.CurlFail(world1Target))
+		res.ExpectSuccess("Cannot access to %q", world1Target)
+
+		_ = monitorCMD.WaitUntilMatch(allowVerdict)
+		monitorCMD.ExpectContains(allowVerdict)
+		monitorCMD.Reset()
+
+		By("Ensure connectivity to world2 is block")
+		res = vm.ContainerExec(helpers.App1, helpers.CurlFail(world2Target))
+		res.ExpectFail("Can access to %q when it should block", world1Target)
+		monitorCMD.WaitUntilMatch(deniedVerdict)
+		monitorCMD.ExpectContains(deniedVerdict)
 	})
 
 	It("Interaction with other ToCIDR rules", func() {
