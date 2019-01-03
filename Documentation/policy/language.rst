@@ -12,36 +12,36 @@ Layer 3 Examples
 The layer 3 policy establishes the base connectivity rules regarding which endpoints
 can talk to each other. Layer 3 policies can be specified using the following methods:
 
-* `Labels based`: This is used to describe the relationship if both endpoints
+* `Labels-based`: This is used to describe the relationship if both endpoints
   are managed by Cilium and are thus assigned labels. The big advantage of this
   method is that IP addresses are not encoded into the policies and the policy is
   completely decoupled from the addressing.
 
-* `Services based`: This is an intermediate form between Labels and CIDR and
+* `Services-based`: This is an intermediate form between Labels and CIDR and
   makes use of the services concept in the orchestration system. A good example
   of this is the Kubernetes concept of Service endpoints which are
   automatically maintained to contain all backend IP addresses of a service.
   This allows to avoid hardcoding IP addresses into the policy even if the
   destination endpoint is not controlled by Cilium.
 
-* `Entities based`: Entities are used to describe remote peers which can be
+* `Entities-based`: Entities are used to describe remote peers which can be
   categorized without knowing their IP addresses. This includes connectivity
   to the local host serving the endpoints or all connectivity to outside of
   the cluster.
 
-* `CIDR based`: This is used to describe the relationship to or from external
+* `CIDR-based`: This is used to describe the relationship to or from external
   services if the remote peer is not an endpoint. This requires to hardcode either
   IP addresses or subnets into the policies. This construct should be used as a
   last resort as it requires stable IP or subnet assignments.
 
-* `DNS based` (Tech Preview): Selects remote, non-cluster, peers using DNS names converted to
-  IPs via DNS lookups. It shares all limitations of the `CIDR based` rules
+* `DNS-based (Tech Preview)`: Selects remote, non-cluster, peers using DNS names converted to
+  IPs via DNS lookups. It shares all limitations of the `CIDR-based` rules
   above. The current implementation simply polls the listed DNS targets without
   regard for TTLs, and allows traffics from IPs listed in the DNS responses.
 
-.. _Labels based:
+.. _Labels-based:
 
-Labels Based
+Labels-based
 ------------
 
 Label-based L3 policy is used to establish policy between endpoints inside the
@@ -226,9 +226,9 @@ be only accessible if the source endpoint also has the label ``env=prod``.
 
         .. literalinclude:: ../../examples/policies/l3/requires/requires.json
 
-.. _Services based:
+.. _Services-based:
 
-Services based
+Services-based
 --------------
 
 Services running in your cluster can be whitelisted in Egress rules.
@@ -280,9 +280,9 @@ have ``head:none`` set as the label.
         .. literalinclude:: ../../examples/policies/l3/service/service-labels.json
 
 
-.. _Entities based:
+.. _Entities-based:
 
-Entities Based
+Entities-based
 --------------
 
 ``fromEntities`` is used to describe the entities that can access the selected
@@ -350,9 +350,9 @@ endpoints that have the label ``role=public``.
         .. literalinclude:: ../../examples/policies/l3/entities/world.json
 
 .. _policy_cidr:
-.. _CIDR based:
+.. _CIDR-based:
 
-IP/CIDR based
+IP/CIDR-based
 -------------
 
 CIDR policies are used to define policies to and from endpoints which are not
@@ -423,9 +423,9 @@ but not CIDR prefix ``10.96.0.0/12``
 
         .. literalinclude:: ../../examples/policies/l3/cidr/cidr.json
 
-.. _DNS based:
+.. _DNS-based (Tech Preview):
 
-DNS based (Tech Preview)
+DNS-based (Tech Preview)
 ------------------------
 
 ``toFQDNs`` simplifies specifying egress policy to IPs of remote, external,
@@ -445,7 +445,7 @@ policy for each endpoint, and the updated IPs can be seen in the response from
 policy repository revision.
 
 ``toFQDNs`` rules cannot contain any other L3 rules, such as ``toEndpoints``
-(under `Labels Based`_) and ``toCIDRs`` (under `CIDR Based`_). They can contain
+(under `Labels-based`_) and ``toCIDRs`` (under `CIDR-based`_). They can contain
 L4/L7 rules, such as ``toPorts`` (see `Layer 4 Examples`_)  and, optionally,
 with ``HTTP`` and ``Kafka`` sections (see `Layer 7 Examples`_).
 
