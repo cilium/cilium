@@ -6,11 +6,16 @@ Add/update policy entry
 
 ### Synopsis
 
-
 Add/update policy entry
 
 ```
-cilium bpf policy add <endpoint id> <traffic-direction> <identity> [port/proto]
+cilium bpf policy add <endpoint id> <traffic-direction> <identity> [port/proto] [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for add
 ```
 
 ### Options inherited from parent commands
@@ -22,5 +27,6 @@ cilium bpf policy add <endpoint id> <traffic-direction> <identity> [port/proto]
 ```
 
 ### SEE ALSO
+
 * [cilium bpf policy](../cilium_bpf_policy)	 - Manage policy related BPF maps
 

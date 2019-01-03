@@ -6,11 +6,10 @@ Retrieve a key
 
 ### Synopsis
 
-
 Retrieve a key
 
 ```
-cilium kvstore get [options] <key>
+cilium kvstore get [options] <key> [flags]
 ```
 
 ### Examples
@@ -22,6 +21,7 @@ cilium kvstore get --recursive foo
 ### Options
 
 ```
+  -h, --help            help for get
   -o, --output string   json| jsonpath='{}'
       --recursive       Recursive lookup
 ```
@@ -37,5 +37,6 @@ cilium kvstore get --recursive foo
 ```
 
 ### SEE ALSO
+
 * [cilium kvstore](../cilium_kvstore)	 - Direct access to the kvstore
 

@@ -6,16 +6,16 @@ List tunnel endpoint entries
 
 ### Synopsis
 
-
 List tunnel endpoint entries
 
 ```
-cilium bpf tunnel list
+cilium bpf tunnel list [flags]
 ```
 
 ### Options
 
 ```
+  -h, --help            help for list
   -o, --output string   json| jsonpath='{}'
 ```
 
@@ -28,5 +28,6 @@ cilium bpf tunnel list
 ```
 
 ### SEE ALSO
+
 * [cilium bpf tunnel](../cilium_bpf_tunnel)	 - Tunnel endpoint map
 

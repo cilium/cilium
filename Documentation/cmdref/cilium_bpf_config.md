@@ -6,12 +6,12 @@ Manage endpoint configuration BPF maps
 
 ### Synopsis
 
-
 Manage endpoint configuration BPF maps
 
 ### Options
 
 ```
+  -h, --help            help for config
   -o, --output string   json| jsonpath='{}'
 ```
 
@@ -24,6 +24,7 @@ Manage endpoint configuration BPF maps
 ```
 
 ### SEE ALSO
+
 * [cilium bpf](../cilium_bpf)	 - Direct access to local BPF maps
 * [cilium bpf config get](../cilium_bpf_config_get)	 - List contents of an endpoint config BPF map
 

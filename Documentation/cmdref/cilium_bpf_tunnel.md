@@ -6,8 +6,13 @@ Tunnel endpoint map
 
 ### Synopsis
 
-
 Tunnel endpoint map
+
+### Options
+
+```
+  -h, --help   help for tunnel
+```
 
 ### Options inherited from parent commands
 
@@ -18,6 +23,7 @@ Tunnel endpoint map
 ```
 
 ### SEE ALSO
+
 * [cilium bpf](../cilium_bpf)	 - Direct access to local BPF maps
 * [cilium bpf tunnel list](../cilium_bpf_tunnel_list)	 - List tunnel endpoint entries
 

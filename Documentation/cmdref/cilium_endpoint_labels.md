@@ -6,18 +6,18 @@ Manage label configuration of endpoint
 
 ### Synopsis
 
-
 Manage label configuration of endpoint
 
 ```
-cilium endpoint labels
+cilium endpoint labels [flags]
 ```
 
 ### Options
 
 ```
-  -a, --add stringSlice      Add/enable labels
-  -d, --delete stringSlice   Delete/disable labels
+  -a, --add strings      Add/enable labels
+  -d, --delete strings   Delete/disable labels
+  -h, --help             help for labels
 ```
 
 ### Options inherited from parent commands
@@ -29,5 +29,6 @@ cilium endpoint labels
 ```
 
 ### SEE ALSO
+
 * [cilium endpoint](../cilium_endpoint)	 - Manage endpoints
 

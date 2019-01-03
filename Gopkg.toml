@@ -372,21 +372,21 @@ required = [
 
 [[constraint]]
   name = "github.com/spf13/cobra"
-  revision = "92ea23a837e66f46ac9e7d04fa826602b7b0a42d"
+  revision = "d2d81d9a96e23f0255397222bb0b4e3165e492dc"
 
   # main-usage = "mainly CLI packages"
   # on-revision = ""
 
 [[constraint]]
   name = "github.com/spf13/pflag"
-  revision = "9ff6c6923cfffbcd502984b8e0c80539a94968b7"
+  revision = "24fa6976df40757dce6aea913e7b81ade90530e1"
 
   # main-usage = "mainly CLI packages"
   # on-revision = ""
 
 [[constraint]]
   name = "github.com/spf13/viper"
-  revision = "7538d73b4eb9511d85a9f1dfef202eeb8ac260f4"
+  revision = "v1.3.1"
 
   # main-usage = "mainly CLI packages"
   # on-revision = ""

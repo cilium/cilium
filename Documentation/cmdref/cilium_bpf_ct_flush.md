@@ -6,11 +6,16 @@ Flush all connection tracking entries
 
 ### Synopsis
 
-
 Flush all connection tracking entries
 
 ```
-cilium bpf ct flush ( <endpoint identifier> | global )
+cilium bpf ct flush ( <endpoint identifier> | global ) [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for flush
 ```
 
 ### Options inherited from parent commands
@@ -22,5 +27,6 @@ cilium bpf ct flush ( <endpoint identifier> | global )
 ```
 
 ### SEE ALSO
+
 * [cilium bpf ct](../cilium_bpf_ct)	 - Connection tracking tables
 

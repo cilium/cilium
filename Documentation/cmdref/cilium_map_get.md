@@ -6,11 +6,10 @@ Display BPF map information
 
 ### Synopsis
 
-
 Display BPF map information
 
 ```
-cilium map get <name>
+cilium map get <name> [flags]
 ```
 
 ### Examples
@@ -22,6 +21,7 @@ cilium map get cilium_ipcache
 ### Options
 
 ```
+  -h, --help            help for get
   -o, --output string   json| jsonpath='{}'
 ```
 
@@ -34,5 +34,6 @@ cilium map get cilium_ipcache
 ```
 
 ### SEE ALSO
+
 * [cilium map](../cilium_map)	 - Access BPF maps
 

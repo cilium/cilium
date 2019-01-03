@@ -650,12 +650,13 @@
   version = "v0.5.0"
 
 [[projects]]
-  digest = "1:39f543569bf189e228c84a294c50aca8ea56c82b3d9df5c9b788249907d7049a"
+  digest = "1:11c6c696067d3127ecf332b10f89394d386d9083f82baf71f40f2da31841a009"
   name = "github.com/hashicorp/hcl"
   packages = [
     ".",
     "hcl/ast",
     "hcl/parser",
+    "hcl/printer",
     "hcl/scanner",
     "hcl/strconv",
     "hcl/token",
@@ -1125,14 +1126,14 @@
   version = "v1.2.0"
 
 [[projects]]
-  digest = "1:db6f8df63cc6b64be8e6a1df637690e2963b632a82c1ccda7cf21c0cd2fca176"
+  digest = "1:5290f8a5a8684523ee36ac44eedcb2ebac4131f042822b9021f9cadea891e588"
   name = "github.com/spf13/cobra"
   packages = [
     ".",
     "doc",
   ]
   pruneopts = "NUT"
-  revision = "92ea23a837e66f46ac9e7d04fa826602b7b0a42d"
+  revision = "d2d81d9a96e23f0255397222bb0b4e3165e492dc"
 
 [[projects]]
   digest = "1:f29f83301ed096daed24a90f4af591b7560cb14b9cc3e1827abbf04db7269ab5"
@@ -1143,18 +1144,18 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:ed545897e7363038a3e467e8b24c12e7f540f6a114c08a7dca7746a3fe291358"
+  digest = "1:b9f43f77a826911e6a1babe58512d7a36ced90d82db6d7184830bb8ba2f45759"
   name = "github.com/spf13/pflag"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "9ff6c6923cfffbcd502984b8e0c80539a94968b7"
+  revision = "24fa6976df40757dce6aea913e7b81ade90530e1"
 
 [[projects]]
-  digest = "1:60a9c0de0c7ebddf40461261b6f8f767c61b27cf2b6b31c1735459563df83ff9"
+  digest = "1:e11ca20a245c80885b5777d7918a2a57d464556f3f1a61be5524e3972eea7ca2"
   name = "github.com/spf13/viper"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "7538d73b4eb9511d85a9f1dfef202eeb8ac260f4"
+  revision = "v1.3.1"
 
 [[projects]]
   branch = "master"

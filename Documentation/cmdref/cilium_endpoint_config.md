@@ -6,11 +6,10 @@ View & modify endpoint configuration
 
 ### Synopsis
 
-
 View & modify endpoint configuration
 
 ```
-cilium endpoint config <endpoint id> [<option>=(enable|disable) ...]
+cilium endpoint config <endpoint id> [<option>=(enable|disable) ...] [flags]
 ```
 
 ### Examples
@@ -22,6 +21,7 @@ endpoint config 5421 DropNotification=false TraceNotification=false
 ### Options
 
 ```
+  -h, --help            help for config
       --list-options    List available options
   -o, --output string   json| jsonpath='{}'
 ```
@@ -35,5 +35,6 @@ endpoint config 5421 DropNotification=false TraceNotification=false
 ```
 
 ### SEE ALSO
+
 * [cilium endpoint](../cilium_endpoint)	 - Manage endpoints
 
