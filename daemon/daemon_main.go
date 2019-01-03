@@ -85,11 +85,12 @@ const (
 	argDebugVerboseKvstore = "kvstore"
 	argDebugVerboseEnvoy   = "envoy"
 
-	apiTimeout = 60 * time.Second
+	apiTimeout   = 60 * time.Second
+	daemonSubsys = "daemon"
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "daemon")
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, daemonSubsys)
 
 	bootstrapTimestamp = time.Now()
 

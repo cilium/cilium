@@ -422,14 +422,13 @@ func (e *Endpoint) Regenerate(owner Owner, regenMetadata *ExternalRegenerationMe
 			return
 		}
 		e.RUnlock()
-		scopedLog := e.getLogger()
 
 		// We should only queue the request after we use all the endpoint's
 		// lock/unlock. Otherwise this can get a deadlock if the endpoint is
 		// being deleted at the same time. More info PR-1777.
 		doneFunc := owner.QueueEndpointBuild(uint64(e.ID))
 		if doneFunc != nil {
-			scopedLog.Debug("Dequeued endpoint from build queue")
+			e.getLogger().Debug("Dequeued endpoint from build queue")
 
 			regenContext.DoneFunc = doneFunc
 			err := e.regenerate(owner, regenContext)
@@ -437,7 +436,7 @@ func (e *Endpoint) Regenerate(owner Owner, regenMetadata *ExternalRegenerationMe
 
 			repr, reprerr := monitorAPI.EndpointRegenRepr(e, err)
 			if reprerr != nil {
-				scopedLog.WithError(reprerr).Warn("Notifying monitor about endpoint regeneration failed")
+				e.getLogger().WithError(reprerr).Warn("Notifying monitor about endpoint regeneration failed")
 			}
 
 			if err != nil {
@@ -453,9 +452,10 @@ func (e *Endpoint) Regenerate(owner Owner, regenMetadata *ExternalRegenerationMe
 			}
 		} else {
 			buildSuccess = false
-			scopedLog.Debug("My request was cancelled because I'm already in line")
+			e.getLogger().Debug("My request was cancelled because I'm already in line")
 		}
 	}()
+
 	return done
 }
 
@@ -599,4 +599,8 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) {
 		logfields.OldIdentity:    oldIdentity,
 		logfields.IdentityLabels: identity.Labels.String(),
 	}).Info("Identity of endpoint changed")
+
+	e.UpdateLogger(map[string]interface{}{
+		logfields.Identity: identity.StringID(),
+	})
 }
