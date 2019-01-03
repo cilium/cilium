@@ -1,4 +1,93 @@
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cilium-config
+  namespace: kube-system
+data:
+  # This etcd-config contains the etcd endpoints of your cluster. If you use
+  # TLS please make sure you follow the tutorial in https://cilium.link/etcd-config
+  etcd-config: |-
+    ---
+    endpoints:
+      - https://cilium-etcd-client.kube-system.svc:2379
+    #
+    # In case you want to use TLS in etcd, uncomment the 'ca-file' line
+    # and create a kubernetes secret by following the tutorial in
+    # https://cilium.link/etcd-config
+    ca-file: '/var/lib/etcd-secrets/etcd-client-ca.crt'
+    #
+    # In case you want client to server authentication, uncomment the following
+    # lines and create a kubernetes secret by following the tutorial in
+    # https://cilium.link/etcd-config
+    key-file: '/var/lib/etcd-secrets/etcd-client.key'
+    cert-file: '/var/lib/etcd-secrets/etcd-client.crt'
+
+  # If you want to run cilium in debug mode change this value to true
+  debug: "false"
+
+  # Enable IPv4 addressing. If enabled, all endpoints are allocated an IPv4
+  # address.
+  enable-ipv4: "true"
+
+  # Enable IPv6 addressing. If enabled, all endpoints are allocated an IPv6
+  # address.
+  enable-ipv6: "false"
+
+  # If a serious issue occurs during Cilium startup, this
+  # invasive option may be set to true to remove all persistent
+  # state. Endpoints will not be restored using knowledge from a
+  # prior Cilium run, so they may receive new IP addresses upon
+  # restart. This also triggers clean-cilium-bpf-state.
+  clean-cilium-state: "false"
+  # If you want to clean cilium BPF state, set this to true;
+  # Removes all BPF maps from the filesystem. Upon restart,
+  # endpoints are restored with the same IP addresses, however
+  # any ongoing connections may be disrupted briefly.
+  # Loadbalancing decisions will be reset, so any ongoing
+  # connections via a service may be loadbalanced to a different
+  # backend after restart.
+  clean-cilium-bpf-state: "false"
+
+  legacy-host-allows-world: "false"
+
+  # If you want cilium monitor to aggregate tracing for packets, set this level
+  # to "low", "medium", or "maximum". The higher the level, the less packets
+  # that will be seen in monitor output.
+  monitor-aggregation-level: "none"
+
+  # ct-global-max-entries-* specifies the maximum number of connections
+  # supported across all endpoints, split by protocol: tcp or other. One pair
+  # of maps uses these values for IPv4 connections, and another pair of maps
+  # use these values for IPv6 connections.
+  #
+  # If these values are modified, then during the next Cilium startup the
+  # tracking of ongoing connections may be disrupted. This may lead to brief
+  # policy drops or a change in loadbalancing decisions for a connection.
+  #
+  # For users upgrading from Cilium 1.2 or earlier, to minimize disruption
+  # during the upgrade process, comment out these options.
+  ct-global-max-entries-tcp: "524288"
+  ct-global-max-entries-other: "262144"
+
+  # Regular expression matching compatible Istio sidecar istio-proxy
+  # container image names
+  sidecar-istio-proxy-image: "cilium/istio_proxy"
+
+  # Encapsulation mode for communication between nodes
+  # Possible values:
+  #   - disabled
+  #   - vxlan (default)
+  #   - geneve
+  tunnel: "vxlan"
+
+  # Name of the cluster. Only relevant when building a mesh of clusters.
+  cluster-name: default
+
+  # Unique ID of the cluster. Must be unique across all conneted clusters and
+  # in the range of 1 and 255. Only relevant when building a mesh of clusters.
+  #cluster-id: 1
+---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -274,95 +363,6 @@ spec:
       maxUnavailable: 2
     type: RollingUpdate
 ---
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: cilium-config
-  namespace: kube-system
-data:
-  # This etcd-config contains the etcd endpoints of your cluster. If you use
-  # TLS please make sure you follow the tutorial in https://cilium.link/etcd-config
-  etcd-config: |-
-    ---
-    endpoints:
-      - https://cilium-etcd-client.kube-system.svc:2379
-    #
-    # In case you want to use TLS in etcd, uncomment the 'ca-file' line
-    # and create a kubernetes secret by following the tutorial in
-    # https://cilium.link/etcd-config
-    ca-file: '/var/lib/etcd-secrets/etcd-client-ca.crt'
-    #
-    # In case you want client to server authentication, uncomment the following
-    # lines and create a kubernetes secret by following the tutorial in
-    # https://cilium.link/etcd-config
-    key-file: '/var/lib/etcd-secrets/etcd-client.key'
-    cert-file: '/var/lib/etcd-secrets/etcd-client.crt'
-
-  # If you want to run cilium in debug mode change this value to true
-  debug: "false"
-
-  # Enable IPv4 addressing. If enabled, all endpoints are allocated an IPv4
-  # address.
-  enable-ipv4: "true"
-
-  # Enable IPv6 addressing. If enabled, all endpoints are allocated an IPv6
-  # address.
-  enable-ipv6: "false"
-
-  # If a serious issue occurs during Cilium startup, this
-  # invasive option may be set to true to remove all persistent
-  # state. Endpoints will not be restored using knowledge from a
-  # prior Cilium run, so they may receive new IP addresses upon
-  # restart. This also triggers clean-cilium-bpf-state.
-  clean-cilium-state: "false"
-  # If you want to clean cilium BPF state, set this to true;
-  # Removes all BPF maps from the filesystem. Upon restart,
-  # endpoints are restored with the same IP addresses, however
-  # any ongoing connections may be disrupted briefly.
-  # Loadbalancing decisions will be reset, so any ongoing
-  # connections via a service may be loadbalanced to a different
-  # backend after restart.
-  clean-cilium-bpf-state: "false"
-
-  legacy-host-allows-world: "false"
-
-  # If you want cilium monitor to aggregate tracing for packets, set this level
-  # to "low", "medium", or "maximum". The higher the level, the less packets
-  # that will be seen in monitor output.
-  monitor-aggregation-level: "none"
-
-  # ct-global-max-entries-* specifies the maximum number of connections
-  # supported across all endpoints, split by protocol: tcp or other. One pair
-  # of maps uses these values for IPv4 connections, and another pair of maps
-  # use these values for IPv6 connections.
-  #
-  # If these values are modified, then during the next Cilium startup the
-  # tracking of ongoing connections may be disrupted. This may lead to brief
-  # policy drops or a change in loadbalancing decisions for a connection.
-  #
-  # For users upgrading from Cilium 1.2 or earlier, to minimize disruption
-  # during the upgrade process, comment out these options.
-  ct-global-max-entries-tcp: "524288"
-  ct-global-max-entries-other: "262144"
-
-  # Regular expression matching compatible Istio sidecar istio-proxy
-  # container image names
-  sidecar-istio-proxy-image: "cilium/istio_proxy"
-
-  # Encapsulation mode for communication between nodes
-  # Possible values:
-  #   - disabled
-  #   - vxlan (default)
-  #   - geneve
-  tunnel: "vxlan"
-
-  # Name of the cluster. Only relevant when building a mesh of clusters.
-  cluster-name: default
-
-  # Unique ID of the cluster. Must be unique across all conneted clusters and
-  # in the range of 1 and 255. Only relevant when building a mesh of clusters.
-  #cluster-id: 1
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -525,92 +525,6 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: cilium-operator
-  namespace: kube-system
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: cilium
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: cilium
-subjects:
-- kind: ServiceAccount
-  name: cilium
-  namespace: kube-system
-- apiGroup: rbac.authorization.k8s.io
-  kind: Group
-  name: system:nodes
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: cilium
-rules:
-- apiGroups:
-  - networking.k8s.io
-  resources:
-  - networkpolicies
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - namespaces
-  - services
-  - nodes
-  - endpoints
-  - componentstatuses
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - pods
-  - nodes
-  verbs:
-  - get
-  - list
-  - watch
-  - update
-- apiGroups:
-  - extensions
-  resources:
-  - ingresses
-  verbs:
-  - create
-  - get
-  - list
-  - watch
-- apiGroups:
-  - apiextensions.k8s.io
-  resources:
-  - customresourcedefinitions
-  verbs:
-  - create
-  - get
-  - list
-  - watch
-  - update
-- apiGroups:
-  - cilium.io
-  resources:
-  - ciliumnetworkpolicies
-  - ciliumnetworkpolicies/status
-  - ciliumendpoints
-  - ciliumendpoints/status
-  verbs:
-  - '*'
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: cilium
   namespace: kube-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -836,3 +750,89 @@ spec:
       serviceAccountName: cilium-etcd-operator
       tolerations:
       - operator: Exists
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cilium
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cilium
+subjects:
+- kind: ServiceAccount
+  name: cilium
+  namespace: kube-system
+- apiGroup: rbac.authorization.k8s.io
+  kind: Group
+  name: system:nodes
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cilium
+rules:
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - networkpolicies
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  - services
+  - nodes
+  - endpoints
+  - componentstatuses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - nodes
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+- apiGroups:
+  - extensions
+  resources:
+  - ingresses
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+  - update
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumnetworkpolicies
+  - ciliumnetworkpolicies/status
+  - ciliumendpoints
+  - ciliumendpoints/status
+  verbs:
+  - '*'
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cilium
+  namespace: kube-system
