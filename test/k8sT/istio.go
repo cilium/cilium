@@ -76,7 +76,6 @@ var _ = Describe("K8sIstioTest", func() {
 	)
 
 	BeforeAll(func() {
-		Skip("Test disabled due issues GH-5859")
 		k8sVersion := helpers.GetCurrentK8SEnv()
 		switch k8sVersion {
 		case "1.7", "1.8", "1.9":
@@ -163,17 +162,12 @@ var _ = Describe("K8sIstioTest", func() {
 			// istioctl kube-inject -f bookinfo-v2.yaml > bookinfo-v2-istio.yaml
 			bookinfoV1YAML := helpers.ManifestGet("bookinfo-v1-istio.yaml")
 			bookinfoV2YAML := helpers.ManifestGet("bookinfo-v2-istio.yaml")
-
-			// This YAML is copied from examples/kubernetes-istio.
-			initPolicyPath := helpers.ManifestGet("istio-sidecar-init-policy.yaml")
 			l7PolicyPath := helpers.ManifestGet("cnp-specs.yaml")
 
 			// Create the L7 policy before creating the pods, in order to test
 			// that the sidecar proxy mode doesn't deadlock on endpoint
 			// creation in this case.
-			// Also create an init policy that allows traffic to Istio services
-			// to ease pod creation.
-			policyPaths = []string{initPolicyPath, l7PolicyPath}
+			policyPaths = []string{l7PolicyPath}
 			for _, policyPath := range policyPaths {
 				By("Creating policy in file %q", policyPath)
 				_, err := kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, policyPath, helpers.KubectlApply, helpers.HelperTimeout)
