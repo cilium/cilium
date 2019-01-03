@@ -6,16 +6,16 @@ List load-balancing configuration
 
 ### Synopsis
 
-
 List load-balancing configuration
 
 ```
-cilium bpf lb list
+cilium bpf lb list [flags]
 ```
 
 ### Options
 
 ```
+  -h, --help            help for list
   -o, --output string   json| jsonpath='{}'
       --revnat          List reverse NAT entries
 ```
@@ -29,5 +29,6 @@ cilium bpf lb list
 ```
 
 ### SEE ALSO
+
 * [cilium bpf lb](../cilium_bpf_lb)	 - Load-balancing configuration
 

@@ -6,8 +6,13 @@ Connection tracking tables
 
 ### Synopsis
 
-
 Connection tracking tables
+
+### Options
+
+```
+  -h, --help   help for ct
+```
 
 ### Options inherited from parent commands
 
@@ -18,6 +23,7 @@ Connection tracking tables
 ```
 
 ### SEE ALSO
+
 * [cilium bpf](../cilium_bpf)	 - Direct access to local BPF maps
 * [cilium bpf ct flush](../cilium_bpf_ct_flush)	 - Flush all connection tracking entries
 * [cilium bpf ct list](../cilium_bpf_ct_list)	 - List connection tracking entries

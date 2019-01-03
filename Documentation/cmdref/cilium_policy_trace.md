@@ -6,7 +6,6 @@ Trace a policy decision
 
 ### Synopsis
 
-
 Verifies if the source is allowed to consume
 destination. Source / destination can be provided as endpoint ID, security ID, Kubernetes Pod, YAML file, set of LABELs. LABEL is represented as
 SOURCE:KEY[=VALUE].
@@ -14,20 +13,21 @@ dports can be can be for example: 80/tcp, 53 or 23/udp.
 If multiple sources and / or destinations are provided, each source is tested whether there is a policy allowing traffic between it and each destination
 
 ```
-cilium policy trace ( -s <label context> | --src-identity <security identity> | --src-endpoint <endpoint ID> | --src-k8s-pod <namespace:pod-name> | --src-k8s-yaml <path to YAML file> ) ( -d <label context> | --dst-identity <security identity> | --dst-endpoint <endpoint ID> | --dst-k8s-pod <namespace:pod-name> | --dst-k8s-yaml <path to YAML file>) [--dport <port>[/<protocol>]
+cilium policy trace ( -s <label context> | --src-identity <security identity> | --src-endpoint <endpoint ID> | --src-k8s-pod <namespace:pod-name> | --src-k8s-yaml <path to YAML file> ) ( -d <label context> | --dst-identity <security identity> | --dst-endpoint <endpoint ID> | --dst-k8s-pod <namespace:pod-name> | --dst-k8s-yaml <path to YAML file>) [--dport <port>[/<protocol>] [flags]
 ```
 
 ### Options
 
 ```
-      --dport stringSlice     L4 destination port to search on outgoing traffic of the source label context and on incoming traffic of the destination label context
-  -d, --dst stringSlice       Destination label context
+      --dport strings         L4 destination port to search on outgoing traffic of the source label context and on incoming traffic of the destination label context
+  -d, --dst strings           Destination label context
       --dst-endpoint string   Destination endpoint
       --dst-identity int      Destination identity (default -1)
       --dst-k8s-pod string    Destination k8s pod ([namespace:]podname)
       --dst-k8s-yaml string   Path to YAML file for destination
+  -h, --help                  help for trace
   -o, --output string         json| jsonpath='{}'
-  -s, --src stringSlice       Source label context
+  -s, --src strings           Source label context
       --src-endpoint string   Source endpoint
       --src-identity int      Source identity (default -1)
       --src-k8s-pod string    Source k8s pod ([namespace:]podname)
@@ -44,5 +44,6 @@ cilium policy trace ( -s <label context> | --src-identity <security identity> | 
 ```
 
 ### SEE ALSO
+
 * [cilium policy](../cilium_policy)	 - Manage security policies
 

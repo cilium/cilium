@@ -6,16 +6,16 @@ Validate a policy
 
 ### Synopsis
 
-
 Validate a policy
 
 ```
-cilium policy validate <path>
+cilium policy validate <path> [flags]
 ```
 
 ### Options
 
 ```
+  -h, --help    help for validate
       --print   Print policy after validation
 ```
 
@@ -28,5 +28,6 @@ cilium policy validate <path>
 ```
 
 ### SEE ALSO
+
 * [cilium policy](../cilium_policy)	 - Manage security policies
 

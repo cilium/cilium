@@ -6,11 +6,16 @@ Force regeneration of endpoint program
 
 ### Synopsis
 
-
 Force regeneration of endpoint program
 
 ```
-cilium endpoint regenerate <endpoint-id>
+cilium endpoint regenerate <endpoint-id> [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for regenerate
 ```
 
 ### Options inherited from parent commands
@@ -22,5 +27,6 @@ cilium endpoint regenerate <endpoint-id>
 ```
 
 ### SEE ALSO
+
 * [cilium endpoint](../cilium_endpoint)	 - Manage endpoints
 

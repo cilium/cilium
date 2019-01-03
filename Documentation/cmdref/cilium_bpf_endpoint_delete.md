@@ -6,11 +6,16 @@ Delete local endpoint entries
 
 ### Synopsis
 
-
 Delete local endpoint entries
 
 ```
-cilium bpf endpoint delete
+cilium bpf endpoint delete [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for delete
 ```
 
 ### Options inherited from parent commands
@@ -22,5 +27,6 @@ cilium bpf endpoint delete
 ```
 
 ### SEE ALSO
+
 * [cilium bpf endpoint](../cilium_bpf_endpoint)	 - Local endpoint map
 

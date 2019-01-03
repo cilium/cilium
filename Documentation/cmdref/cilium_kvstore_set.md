@@ -6,11 +6,10 @@ Set a key and value
 
 ### Synopsis
 
-
 Set a key and value
 
 ```
-cilium kvstore set [options] <key>
+cilium kvstore set [options] <key> [flags]
 ```
 
 ### Examples
@@ -22,6 +21,7 @@ cilium kvstore set foo=bar
 ### Options
 
 ```
+  -h, --help           help for set
       --key string     Key
       --value string   Value
 ```
@@ -37,5 +37,6 @@ cilium kvstore set foo=bar
 ```
 
 ### SEE ALSO
+
 * [cilium kvstore](../cilium_kvstore)	 - Direct access to the kvstore
 

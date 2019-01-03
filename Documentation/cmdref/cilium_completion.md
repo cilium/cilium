@@ -6,11 +6,10 @@ Output shell completion code for bash
 
 ### Synopsis
 
-
 Output shell completion code for bash
 
 ```
-cilium completion [bash]
+cilium completion [bash] [flags]
 ```
 
 ### Examples
@@ -38,6 +37,12 @@ cilium completion [bash]
 	source $HOME/.bash_profile
 ```
 
+### Options
+
+```
+  -h, --help   help for completion
+```
+
 ### Options inherited from parent commands
 
 ```
@@ -47,5 +52,6 @@ cilium completion [bash]
 ```
 
 ### SEE ALSO
+
 * [cilium](../cilium)	 - CLI
 

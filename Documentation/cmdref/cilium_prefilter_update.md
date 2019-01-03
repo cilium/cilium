@@ -6,18 +6,18 @@ Update CIDR filters
 
 ### Synopsis
 
-
 Update CIDR filters
 
 ```
-cilium prefilter update
+cilium prefilter update [flags]
 ```
 
 ### Options
 
 ```
-      --cidr stringSlice   List of CIDR prefixes to block
-      --revision uint      Update revision
+      --cidr strings    List of CIDR prefixes to block
+  -h, --help            help for update
+      --revision uint   Update revision
 ```
 
 ### Options inherited from parent commands
@@ -29,5 +29,6 @@ cilium prefilter update
 ```
 
 ### SEE ALSO
+
 * [cilium prefilter](../cilium_prefilter)	 - Manage XDP CIDR filters
 

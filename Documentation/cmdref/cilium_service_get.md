@@ -6,16 +6,16 @@ Display service information
 
 ### Synopsis
 
-
 Display service information
 
 ```
-cilium service get <service id>
+cilium service get <service id> [flags]
 ```
 
 ### Options
 
 ```
+  -h, --help            help for get
   -o, --output string   json| jsonpath='{}'
 ```
 
@@ -28,5 +28,6 @@ cilium service get <service id>
 ```
 
 ### SEE ALSO
+
 * [cilium service](../cilium_service)	 - Manage services & loadbalancers
 

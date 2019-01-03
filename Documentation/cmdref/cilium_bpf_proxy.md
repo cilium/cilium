@@ -6,8 +6,13 @@ Proxy configuration
 
 ### Synopsis
 
-
 Proxy configuration
+
+### Options
+
+```
+  -h, --help   help for proxy
+```
 
 ### Options inherited from parent commands
 
@@ -18,6 +23,7 @@ Proxy configuration
 ```
 
 ### SEE ALSO
+
 * [cilium bpf](../cilium_bpf)	 - Direct access to local BPF maps
 * [cilium bpf proxy flush](../cilium_bpf_proxy_flush)	 - Flush all proxy entries
 * [cilium bpf proxy list](../cilium_bpf_proxy_list)	 - List proxy configuration

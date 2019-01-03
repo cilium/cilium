@@ -6,17 +6,17 @@ Reset the agent state
 
 ### Synopsis
 
-
 Reset the agent state
 
 ```
-cilium cleanup
+cilium cleanup [flags]
 ```
 
 ### Options
 
 ```
   -f, --force   Skip confirmation
+  -h, --help    help for cleanup
 ```
 
 ### Options inherited from parent commands
@@ -28,5 +28,6 @@ cilium cleanup
 ```
 
 ### SEE ALSO
+
 * [cilium](../cilium)	 - CLI
 

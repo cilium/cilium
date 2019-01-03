@@ -6,8 +6,13 @@ Manage policy related BPF maps
 
 ### Synopsis
 
-
 Manage policy related BPF maps
+
+### Options
+
+```
+  -h, --help   help for policy
+```
 
 ### Options inherited from parent commands
 
@@ -18,6 +23,7 @@ Manage policy related BPF maps
 ```
 
 ### SEE ALSO
+
 * [cilium bpf](../cilium_bpf)	 - Direct access to local BPF maps
 * [cilium bpf policy add](../cilium_bpf_policy_add)	 - Add/update policy entry
 * [cilium bpf policy delete](../cilium_bpf_policy_delete)	 - Delete a policy entry

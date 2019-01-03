@@ -6,17 +6,17 @@ Delete a service
 
 ### Synopsis
 
-
 Delete a service
 
 ```
-cilium service delete { <service id> | --all }
+cilium service delete { <service id> | --all } [flags]
 ```
 
 ### Options
 
 ```
-      --all   Delete all services
+      --all    Delete all services
+  -h, --help   help for delete
 ```
 
 ### Options inherited from parent commands
@@ -28,5 +28,6 @@ cilium service delete { <service id> | --all }
 ```
 
 ### SEE ALSO
+
 * [cilium service](../cilium_service)	 - Manage services & loadbalancers
 

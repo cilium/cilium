@@ -6,16 +6,16 @@ List services
 
 ### Synopsis
 
-
 List services
 
 ```
-cilium service list
+cilium service list [flags]
 ```
 
 ### Options
 
 ```
+  -h, --help            help for list
   -o, --output string   json| jsonpath='{}'
 ```
 
@@ -28,5 +28,6 @@ cilium service list
 ```
 
 ### SEE ALSO
+
 * [cilium service](../cilium_service)	 - Manage services & loadbalancers
 

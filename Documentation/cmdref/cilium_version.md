@@ -6,16 +6,16 @@ Print version information
 
 ### Synopsis
 
-
 Print version information
 
 ```
-cilium version
+cilium version [flags]
 ```
 
 ### Options
 
 ```
+  -h, --help            help for version
   -o, --output string   json| jsonpath='{}'
 ```
 
@@ -28,5 +28,6 @@ cilium version
 ```
 
 ### SEE ALSO
+
 * [cilium](../cilium)	 - CLI
 

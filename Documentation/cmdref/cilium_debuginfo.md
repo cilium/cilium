@@ -6,11 +6,10 @@ Request available debugging information from agent
 
 ### Synopsis
 
-
 Request available debugging information from agent
 
 ```
-cilium debuginfo
+cilium debuginfo [flags]
 ```
 
 ### Options
@@ -18,7 +17,8 @@ cilium debuginfo
 ```
   -f, --file                      Redirect output to file(s)
       --file-per-command          Generate a single file per command
-      --output stringSlice        markdown| html| json| jsonpath='{}'
+  -h, --help                      help for debuginfo
+      --output strings            markdown| html| json| jsonpath='{}'
       --output-directory string   directory for files (if specified will use directory in which this command was ran)
 ```
 
@@ -31,5 +31,6 @@ cilium debuginfo
 ```
 
 ### SEE ALSO
+
 * [cilium](../cilium)	 - CLI
 

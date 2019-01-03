@@ -6,16 +6,16 @@ List CIDR filters
 
 ### Synopsis
 
-
 List CIDR filters
 
 ```
-cilium prefilter list
+cilium prefilter list [flags]
 ```
 
 ### Options
 
 ```
+  -h, --help            help for list
   -o, --output string   json| jsonpath='{}'
 ```
 
@@ -28,5 +28,6 @@ cilium prefilter list
 ```
 
 ### SEE ALSO
+
 * [cilium prefilter](../cilium_prefilter)	 - Manage XDP CIDR filters
 

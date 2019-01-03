@@ -6,11 +6,16 @@ Delete a policy entry
 
 ### Synopsis
 
-
 Delete a policy entry
 
 ```
-cilium bpf policy delete <endpoint id> <identity> [port/proto]
+cilium bpf policy delete <endpoint id> <identity> [port/proto] [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for delete
 ```
 
 ### Options inherited from parent commands
@@ -22,5 +27,6 @@ cilium bpf policy delete <endpoint id> <identity> [port/proto]
 ```
 
 ### SEE ALSO
+
 * [cilium bpf policy](../cilium_bpf_policy)	 - Manage policy related BPF maps
 

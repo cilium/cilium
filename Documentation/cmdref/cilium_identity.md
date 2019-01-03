@@ -6,8 +6,13 @@ Manage security identities
 
 ### Synopsis
 
-
 Manage security identities
+
+### Options
+
+```
+  -h, --help   help for identity
+```
 
 ### Options inherited from parent commands
 
@@ -18,6 +23,7 @@ Manage security identities
 ```
 
 ### SEE ALSO
+
 * [cilium](../cilium)	 - CLI
 * [cilium identity get](../cilium_identity_get)	 - Retrieve information about an identity
 * [cilium identity list](../cilium_identity_list)	 - List identities

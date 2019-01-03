@@ -6,8 +6,13 @@ Manage the IPCache mappings for IP/CIDR <-> Identity
 
 ### Synopsis
 
-
 Manage the IPCache mappings for IP/CIDR <-> Identity
+
+### Options
+
+```
+  -h, --help   help for ipcache
+```
 
 ### Options inherited from parent commands
 
@@ -18,6 +23,7 @@ Manage the IPCache mappings for IP/CIDR <-> Identity
 ```
 
 ### SEE ALSO
+
 * [cilium bpf](../cilium_bpf)	 - Direct access to local BPF maps
 * [cilium bpf ipcache get](../cilium_bpf_ipcache_get)	 - Retrieve identity for an ip
 * [cilium bpf ipcache list](../cilium_bpf_ipcache_list)	 - List endpoint IPs (local and remote) and their corresponding security identities

@@ -6,11 +6,10 @@ Display endpoint information
 
 ### Synopsis
 
-
 Display endpoint information
 
 ```
-cilium endpoint get ( <endpoint identifier> | -l <endpoint labels> ) 
+cilium endpoint get ( <endpoint identifier> | -l <endpoint labels> )  [flags]
 ```
 
 ### Examples
@@ -22,8 +21,9 @@ cilium endpoint get 4598, cilium endpoint get pod-name:default:foobar, cilium en
 ### Options
 
 ```
-  -l, --labels stringSlice   list of labels
-  -o, --output string        json| jsonpath='{}'
+  -h, --help             help for get
+  -l, --labels strings   list of labels
+  -o, --output string    json| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands
@@ -35,5 +35,6 @@ cilium endpoint get 4598, cilium endpoint get pod-name:default:foobar, cilium en
 ```
 
 ### SEE ALSO
+
 * [cilium endpoint](../cilium_endpoint)	 - Manage endpoints
 

@@ -6,16 +6,16 @@ List nodes
 
 ### Synopsis
 
-
 List nodes
 
 ```
-cilium node list
+cilium node list [flags]
 ```
 
 ### Options
 
 ```
+  -h, --help            help for list
   -o, --output string   json| jsonpath='{}'
 ```
 
@@ -28,5 +28,6 @@ cilium node list
 ```
 
 ### SEE ALSO
+
 * [cilium node](../cilium_node)	 - Manage cluster nodes
 

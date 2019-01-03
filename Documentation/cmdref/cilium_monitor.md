@@ -6,7 +6,6 @@ Display BPF program events
 
 ### Synopsis
 
-
 The monitor displays notifications and events emitted by the BPF
 programs attached to endpoints and devices. This includes:
   * Dropped packet notifications
@@ -14,13 +13,14 @@ programs attached to endpoints and devices. This includes:
   * Debugging information
 
 ```
-cilium monitor
+cilium monitor [flags]
 ```
 
 ### Options
 
 ```
       --from []uint16         Filter by source endpoint id
+  -h, --help                  help for monitor
       --hex                   Do not dissect, print payload in HEX
   -j, --json                  Enable json output. Shadows -v flag
       --related-to []uint16   Filter by either source or destination endpoint id
@@ -38,5 +38,6 @@ cilium monitor
 ```
 
 ### SEE ALSO
+
 * [cilium](../cilium)	 - CLI
 

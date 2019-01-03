@@ -6,12 +6,12 @@ Direct access to the kvstore
 
 ### Synopsis
 
-
 Direct access to the kvstore
 
 ### Options
 
 ```
+  -h, --help              help for kvstore
       --kvstore string    kvstore type
       --kvstore-opt map   kvstore options (default map[])
 ```
@@ -25,6 +25,7 @@ Direct access to the kvstore
 ```
 
 ### SEE ALSO
+
 * [cilium](../cilium)	 - CLI
 * [cilium kvstore delete](../cilium_kvstore_delete)	 - Delete a key
 * [cilium kvstore get](../cilium_kvstore_get)	 - Retrieve a key

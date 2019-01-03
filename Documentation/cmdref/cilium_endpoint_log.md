@@ -6,11 +6,10 @@ View endpoint status log
 
 ### Synopsis
 
-
 View endpoint status log
 
 ```
-cilium endpoint log <endpoint id>
+cilium endpoint log <endpoint id> [flags]
 ```
 
 ### Examples
@@ -22,6 +21,7 @@ cilium endpoint log 5421
 ### Options
 
 ```
+  -h, --help            help for log
   -o, --output string   json| jsonpath='{}'
 ```
 
@@ -34,5 +34,6 @@ cilium endpoint log 5421
 ```
 
 ### SEE ALSO
+
 * [cilium endpoint](../cilium_endpoint)	 - Manage endpoints
 

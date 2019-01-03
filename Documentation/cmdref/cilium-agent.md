@@ -6,18 +6,17 @@ Run the cilium agent
 
 ### Synopsis
 
-
 Run the cilium agent
 
 ```
-cilium-agent
+cilium-agent [flags]
 ```
 
 ### Options
 
 ```
       --access-log string                           Path to access log of supported L7 requests observed
-      --agent-labels stringSlice                    Additional labels to identify this agent
+      --agent-labels strings                        Additional labels to identify this agent
       --allow-localhost string                      Policy when to allow local stack to reach local endpoints { auto | always | policy } (default "auto")
       --auto-ipv6-node-routes                       Automatically adds IPv6 L3 routes to reach other nodes for non-overlay mode (--device) (BETA)
       --bpf-compile-debug                           Enable debugging of the BPF compilation process
@@ -30,10 +29,10 @@ cilium-agent
       --clustermesh-config string                   Path to the ClusterMesh configuration directory
       --config string                               Configuration file (default "$HOME/ciliumd.yaml")
       --conntrack-garbage-collector-interval uint   Garbage collection interval for the connection tracking table (in seconds) (default 60)
-      --container-runtime stringSlice               Sets the container runtime(s) used by Cilium { containerd | crio | docker | none | auto } ( "auto" uses the container runtime found in the order: "docker", "containerd", "crio" ) (default [auto])
+      --container-runtime strings                   Sets the container runtime(s) used by Cilium { containerd | crio | docker | none | auto } ( "auto" uses the container runtime found in the order: "docker", "containerd", "crio" ) (default [auto])
       --container-runtime-endpoint map              Container runtime(s) endpoint(s). (default: --container-runtime-endpoint=containerd=/var/run/containerd/containerd.sock, --container-runtime-endpoint=crio=/var/run/crio.sock, --container-runtime-endpoint=docker=unix:///var/run/docker.sock) (default map[])
   -D, --debug                                       Enable debugging mode
-      --debug-verbose stringSlice                   List of enabled verbose debug groups
+      --debug-verbose strings                       List of enabled verbose debug groups
   -d, --device string                               Device facing cluster/external network for direct L3 (non-overlay mode) (default "undefined")
       --disable-conntrack                           Disable connection tracking
       --disable-endpoint-crd                        Disable use of CiliumEndpoint CRD
@@ -45,6 +44,7 @@ cilium-agent
       --enable-tracing                              Enable tracing while determining policy (debugging)
       --envoy-log string                            Path to a separate Envoy log file, if any
       --fixed-identity-mapping map                  Key-value for the fixed identity mapping which allows to use reserved label for fixed identities (default map[])
+  -h, --help                                        help for cilium-agent
       --http-idle-timeout uint                      Time after which a non-gRPC HTTP stream is considered failed unless traffic in the stream has been processed (in seconds); defaults to 0 (unlimited)
       --http-max-grpc-timeout uint                  Time after which a forwarded gRPC request is considered failed unless completed (in seconds). A "grpc-timeout" header may override this with a shorter value; defaults to 0 (unlimited)
       --http-request-timeout uint                   Time after which a forwarded HTTP request is considered failed unless completed (in seconds); Use 0 for unlimited (default 3600)
@@ -67,10 +67,10 @@ cilium-agent
       --kvstore string                              Key-value store type
       --kvstore-opt map                             Key-value store options (default map[])
       --label-prefix-file string                    Valid label prefixes file path
-      --labels stringSlice                          List of label prefixes used to determine identity of an endpoint
+      --labels strings                              List of label prefixes used to determine identity of an endpoint
       --lb string                                   Enables load balancer mode where load balancer bpf program is attached to the given interface
       --lib-dir string                              Directory path to store runtime build environment (default "/var/lib/cilium")
-      --log-driver stringSlice                      Logging endpoints to use for example syslog
+      --log-driver strings                          Logging endpoints to use for example syslog
       --log-opt map                                 Log driver options for cilium (default map[])
       --log-system-load                             Enable periodic logging of system load
       --masquerade                                  Masquerade packets from endpoints leaving the host (default true)

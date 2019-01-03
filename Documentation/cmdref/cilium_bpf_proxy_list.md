@@ -6,16 +6,16 @@ List proxy configuration
 
 ### Synopsis
 
-
 List proxy configuration
 
 ```
-cilium bpf proxy list
+cilium bpf proxy list [flags]
 ```
 
 ### Options
 
 ```
+  -h, --help            help for list
   -o, --output string   json| jsonpath='{}'
 ```
 
@@ -28,5 +28,6 @@ cilium bpf proxy list
 ```
 
 ### SEE ALSO
+
 * [cilium bpf proxy](../cilium_bpf_proxy)	 - Proxy configuration
 

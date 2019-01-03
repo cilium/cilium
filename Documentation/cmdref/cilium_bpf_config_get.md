@@ -6,11 +6,16 @@ List contents of an endpoint config BPF map
 
 ### Synopsis
 
-
 List contents of an endpoint config BPF map
 
 ```
-cilium bpf config get
+cilium bpf config get [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for get
 ```
 
 ### Options inherited from parent commands
@@ -22,5 +27,6 @@ cilium bpf config get
 ```
 
 ### SEE ALSO
+
 * [cilium bpf config](../cilium_bpf_config)	 - Manage endpoint configuration BPF maps
 

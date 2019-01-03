@@ -6,16 +6,16 @@ List identities
 
 ### Synopsis
 
-
 List identities
 
 ```
-cilium identity list [LABELS]
+cilium identity list [LABELS] [flags]
 ```
 
 ### Options
 
 ```
+  -h, --help            help for list
   -o, --output string   json| jsonpath='{}'
 ```
 
@@ -28,5 +28,6 @@ cilium identity list [LABELS]
 ```
 
 ### SEE ALSO
+
 * [cilium identity](../cilium_identity)	 - Manage security identities
 

@@ -6,18 +6,18 @@ Delete CIDR filters
 
 ### Synopsis
 
-
 Delete CIDR filters
 
 ```
-cilium prefilter delete
+cilium prefilter delete [flags]
 ```
 
 ### Options
 
 ```
-      --cidr stringSlice   List of CIDR prefixes to delete
-      --revision uint      Update revision
+      --cidr strings    List of CIDR prefixes to delete
+  -h, --help            help for delete
+      --revision uint   Update revision
 ```
 
 ### Options inherited from parent commands
@@ -29,5 +29,6 @@ cilium prefilter delete
 ```
 
 ### SEE ALSO
+
 * [cilium prefilter](../cilium_prefilter)	 - Manage XDP CIDR filters
 

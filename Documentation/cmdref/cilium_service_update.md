@@ -6,20 +6,20 @@ Update a service
 
 ### Synopsis
 
-
 Update a service
 
 ```
-cilium service update
+cilium service update [flags]
 ```
 
 ### Options
 
 ```
-      --backends stringSlice   Backend address or addresses followed by optional weight (<IP:Port>[/weight])
-      --frontend string        Frontend address
-      --id uint                Identifier
-      --rev                    Add reverse translation (default true)
+      --backends strings   Backend address or addresses followed by optional weight (<IP:Port>[/weight])
+      --frontend string    Frontend address
+  -h, --help               help for update
+      --id uint            Identifier
+      --rev                Add reverse translation (default true)
 ```
 
 ### Options inherited from parent commands
@@ -31,5 +31,6 @@ cilium service update
 ```
 
 ### SEE ALSO
+
 * [cilium service](../cilium_service)	 - Manage services & loadbalancers
 

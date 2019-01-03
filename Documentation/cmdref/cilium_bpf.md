@@ -6,8 +6,13 @@ Direct access to local BPF maps
 
 ### Synopsis
 
-
 Direct access to local BPF maps
+
+### Options
+
+```
+  -h, --help   help for bpf
+```
 
 ### Options inherited from parent commands
 
@@ -18,6 +23,7 @@ Direct access to local BPF maps
 ```
 
 ### SEE ALSO
+
 * [cilium](../cilium)	 - CLI
 * [cilium bpf config](../cilium_bpf_config)	 - Manage endpoint configuration BPF maps
 * [cilium bpf ct](../cilium_bpf_ct)	 - Connection tracking tables

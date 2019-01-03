@@ -6,11 +6,16 @@ Flush all proxy entries
 
 ### Synopsis
 
-
 Flush all proxy entries
 
 ```
-cilium bpf proxy flush
+cilium bpf proxy flush [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for flush
 ```
 
 ### Options inherited from parent commands
@@ -22,5 +27,6 @@ cilium bpf proxy flush
 ```
 
 ### SEE ALSO
+
 * [cilium bpf proxy](../cilium_bpf_proxy)	 - Proxy configuration
 
