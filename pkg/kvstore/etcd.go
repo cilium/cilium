@@ -78,7 +78,7 @@ var (
 				description: "Path to etcd configuration file",
 			},
 			EtcdInitConnectionTimeout: &backendOption{
-				description: "Init Etcd connection timeout",
+				description: "Init etcd connection timeout",
 			},
 		},
 	}
@@ -115,7 +115,7 @@ func (e *etcdModule) newClient() (BackendOperations, chan error) {
 
 	endpointsOpt, endpointsSet := e.opts[addrOption]
 	configPathOpt, configSet := e.opts[EtcdOptionConfig]
-	initConnetionTimeoutOpt, initConnectionTimeoutSet := e.opts[EtcdInitConnectionTimeout]
+	initConnectionTimeoutOpt, initConnectionTimeoutSet := e.opts[EtcdInitConnectionTimeout]
 	configPath := ""
 
 	if e.config == nil {
@@ -143,8 +143,8 @@ func (e *etcdModule) newClient() (BackendOperations, chan error) {
 		}
 	}
 	initialConnectionTimeout := defaultInitialConnectionTimeout
-	if initConnectionTimeoutSet && initConnetionTimeoutOpt.value != "" {
-		tp, err := time.ParseDuration(initConnetionTimeoutOpt.value)
+	if initConnectionTimeoutSet && initConnectionTimeoutOpt.value != "" {
+		tp, err := time.ParseDuration(initConnectionTimeoutOpt.value)
 		if err != nil {
 			errChan <- fmt.Errorf("invalid init etcd connetion timeout")
 			close(errChan)

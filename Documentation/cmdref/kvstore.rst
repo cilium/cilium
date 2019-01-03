@@ -57,7 +57,12 @@ etcd endpoints:
 +------------------------------------+---------+------------------------------------------------------+
 | etcd.config                        | Path    | Path to an etcd configuration file.                  |
 +------------------------------------+---------+------------------------------------------------------+
-| etcd.initconnectiontimeout         | Time    | Initial connection etcd timeout(Default: 15minutes ).|
+
+init etcd connection parmas:
++------------------------------------+---------+------------------------------------------------------+
+| Option                             |  Type   | Description                                          |
++------------------------------------+---------+------------------------------------------------------+
+| etcd.initconnectiontimeout         |  Time   | Initial connection etcd timeout(Default: 15minutes ).|
 +------------------------------------+---------+------------------------------------------------------+
 
 Example of the etcd configuration file:
