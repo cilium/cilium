@@ -165,9 +165,7 @@ func runOperator(cmd *cobra.Command) {
 			k8sversion.Version(), k8sversion.MinimalVersionConstraint)
 	}
 
-	if synchronizeServices {
-		startSynchronizingServices()
-	}
+	startSynchronizingServices()
 
 	if enableCepGC {
 		enableCiliumEndpointSyncGC()
