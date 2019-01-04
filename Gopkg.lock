@@ -1454,7 +1454,7 @@
     "storage/v1beta1",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.13.0"
+  revision = "kubernetes-1.13.1"
 
 [[projects]]
   digest = "1:09949d3a2ceff9874863e6dd454f553696fdfac4a8d35b931cc7fd8556f7b5ca"
@@ -1468,7 +1468,7 @@
     "pkg/features",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.13.0"
+  revision = "kubernetes-1.13.1"
 
 [[projects]]
   digest = "1:52a579e96d069afbfd74625e069ec6b358a59a9b2fc152dee50bba331f9b0642"
@@ -1519,7 +1519,7 @@
     "third_party/forked/golang/reflect",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.13.0"
+  revision = "kubernetes-1.13.1"
 
 [[projects]]
   digest = "1:13847ede3df9156c46282356dcf8b2cba7c8ebde98ff88ee52849b44beab8902"
@@ -1529,10 +1529,10 @@
     "pkg/util/feature",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.13.0"
+  revision = "kubernetes-1.13.1"
 
 [[projects]]
-  digest = "1:b89839dcc3535fac9a949dc1d33caa3168159836f5c9d1990107b90a27737723"
+  digest = "1:52dbf8c5b48572b4a4c4e924ad3d438944b1bc9e99aa0d490849348c4af62560"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -1633,7 +1633,7 @@
     "util/retry",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.13.0"
+  revision = "kubernetes-1.13.1"
 
 [[projects]]
   digest = "1:dc1ae99dcab96913d81ae970b1f7a7411a54199b14bfb17a7e86f9a56979c720"
@@ -1650,7 +1650,7 @@
     "pkg/util",
   ]
   pruneopts = "T"
-  revision = "kubernetes-1.13.0"
+  revision = "kubernetes-1.13.1"
 
 [[projects]]
   digest = "1:da31d8be5af84b69ef83b212d833d8e10930cd9e8a876780a20099ea306c4c13"
@@ -1698,7 +1698,7 @@
     "pkg/registry/core/service/ipallocator",
   ]
   pruneopts = "NUT"
-  revision = "v1.13.0"
+  revision = "v1.13.1"
 
 [[projects]]
   digest = "1:8730e0150dfb2b7e173890c8b9868e7a273082ef8e39f4940e3506a481cf895c"
