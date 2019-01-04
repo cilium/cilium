@@ -62,6 +62,20 @@ type Rule struct {
 	Description string `json:"description,omitempty"`
 }
 
+// MatchesServiceIdentifier returns true if the policy rules matches the
+// specified service identifier
+func (r *Rule) MatchesServiceIdentifier(id K8sServiceIdentifier) bool {
+	for _, rule := range r.Egress {
+		for _, svcRule := range rule.ToServices {
+			if svcRule.Matches(id) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
 // RequiresDerivative it return true if the rule has a derivative rule.
 func (r *Rule) RequiresDerivative() bool {
 	for _, rule := range r.Egress {

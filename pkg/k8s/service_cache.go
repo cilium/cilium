@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/versioned"
 
@@ -533,4 +534,21 @@ func (s *ServiceCache) DebugStatus() string {
 	str := spew.Sdump(s)
 	s.mutex.RUnlock()
 	return str
+}
+
+// LookupEndpoints returns all Endpoints which match the service selector
+func (s *ServiceCache) LookupEndpoints(svcSelector *api.Service) []*Endpoints {
+	endpoints := []*Endpoints{}
+
+	s.mutex.RLock()
+	for id, svc := range s.services {
+		svcID := api.NewK8sServiceIdentifier(id.Name, id.Namespace, svc.Labels)
+		if svcSelector.Matches(svcID) {
+			e, _ := s.correlateEndpoints(ServiceID{Name: id.Name, Namespace: id.Namespace})
+			endpoints = append(endpoints, e)
+		}
+	}
+	s.mutex.RUnlock()
+
+	return endpoints
 }

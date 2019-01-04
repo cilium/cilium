@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/versioned"
@@ -853,4 +854,53 @@ func (s *K8sSuite) TestNonSharedServie(c *check.C) {
 		c.Error("Unexpected service event received")
 	default:
 	}
+}
+
+func (s *K8sSuite) TestServiceCacheLookupEndpoints(c *check.C) {
+	svcCache := NewServiceCache()
+	labels := map[string]string{"foo": "bar"}
+
+	svcSelector := &api.Service{
+		K8sServiceSelector: &api.K8sServiceSelectorNamespace{
+			Namespace: "bar",
+			Selector:  api.NewServiceSelectorFromMatchLabels(labels),
+		},
+	}
+
+	endpoints := svcCache.LookupEndpoints(svcSelector)
+	c.Assert(len(endpoints), check.Equals, 0)
+
+	svcCache.UpdateService(&v1.Service{
+		ObjectMeta: metav1.ObjectMeta{Name: "foo1", Namespace: "bar", Labels: labels},
+		Spec:       v1.ServiceSpec{ClusterIP: "127.0.0.1", Type: v1.ServiceTypeClusterIP},
+	})
+	svcCache.UpdateEndpoints(&v1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{Name: "foo1", Namespace: "bar"},
+		Subsets: []v1.EndpointSubset{{
+			Addresses: []v1.EndpointAddress{{IP: "2.2.2.2"}},
+		}},
+	})
+
+	endpoints = svcCache.LookupEndpoints(svcSelector)
+	c.Assert(endpoints, checker.DeepEquals, []*Endpoints{
+		{
+			Backends: map[string]service.PortConfiguration{
+				"2.2.2.2": map[string]*loadbalancer.L4Addr{},
+			},
+		},
+	})
+
+	svcCache.UpdateService(&v1.Service{
+		ObjectMeta: metav1.ObjectMeta{Name: "foo2", Namespace: "bar", Labels: labels},
+		Spec:       v1.ServiceSpec{ClusterIP: "127.0.0.2", Type: v1.ServiceTypeClusterIP},
+	})
+	svcCache.UpdateEndpoints(&v1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{Name: "foo2", Namespace: "bar"},
+		Subsets: []v1.EndpointSubset{{
+			Addresses: []v1.EndpointAddress{{IP: "3.3.3.3"}},
+		}},
+	})
+
+	endpoints = svcCache.LookupEndpoints(svcSelector)
+	c.Assert(len(endpoints), check.Equals, 2)
 }

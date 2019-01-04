@@ -233,6 +233,26 @@ func (r *CiliumNetworkPolicy) GetIdentityLabels() labels.LabelArray {
 		k8sCiliumUtils.ResourceTypeCiliumNetworkPolicy)
 }
 
+// MatchesServiceIdentifier returns true if the CNP matches the specified
+// service identifier
+func (r *CiliumNetworkPolicy) MatchesServiceIdentifier(id api.K8sServiceIdentifier) bool {
+	if r.Spec != nil {
+		if r.Spec.MatchesServiceIdentifier(id) {
+			return true
+		}
+	}
+
+	if r.Specs != nil {
+		for _, rule := range r.Specs {
+			if rule.MatchesServiceIdentifier(id) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
 // RequiresDerivative return true if the CNP has any rule that will create a new
 // derivative rule.
 func (r *CiliumNetworkPolicy) RequiresDerivative() bool {
