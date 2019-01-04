@@ -72,7 +72,7 @@ type DaemonSuite struct {
 }
 
 func (ds *DaemonSuite) SetUpTest(c *C) {
-	populateConfig()
+	option.Config.Populate()
 	ds.oldPolicyEnabled = policy.GetPolicyEnabled()
 	policy.SetPolicyEnabled(option.DefaultEnforcement)
 
