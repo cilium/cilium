@@ -39,6 +39,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -96,9 +97,9 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 		if ep.HasLabels(labels.LabelHealth) {
 			skipRestore = true
 		} else {
-			if ep.K8sPodName != "" && ep.K8sNamespace != "" {
+			if ep.K8sPodName != "" && ep.K8sNamespace != "" && k8s.IsEnabled() {
 				_, err := k8s.Client().CoreV1().Pods(ep.K8sNamespace).Get(ep.K8sPodName, meta_v1.GetOptions{})
-				if err != nil {
+				if err != nil && k8serrors.IsNotFound(err) {
 					skipRestore = true
 				}
 			}
