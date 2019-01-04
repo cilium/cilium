@@ -142,9 +142,7 @@ func runOperator(cmd *cobra.Command) {
 		log.WithError(err).Fatal("Unable to create cilium network policy client")
 	}
 
-	if synchronizeServices {
-		startSynchronizingServices()
-	}
+	startSynchronizingServices()
 
 	if enableCepGC {
 		enableCiliumEndpointSyncGC()
