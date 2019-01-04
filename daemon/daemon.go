@@ -84,6 +84,7 @@ import (
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/sockops"
 	"github.com/cilium/cilium/pkg/status"
+	"github.com/cilium/cilium/pkg/trigger"
 	"github.com/cilium/cilium/pkg/u8proto"
 	"github.com/cilium/cilium/pkg/workloads"
 
@@ -167,7 +168,8 @@ type Daemon struct {
 	// k8sSvcCache is a cache of all Kubernetes services and endpoints
 	k8sSvcCache k8s.ServiceCache
 
-	mtuConfig mtu.Configuration
+	mtuConfig     mtu.Configuration
+	policyTrigger *trigger.Trigger
 }
 
 // UpdateProxyRedirect updates the redirect rules in the proxy for a particular
@@ -888,6 +890,17 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 		mtuConfig:        mtu.NewConfiguration(option.Config.Tunnel != option.TunnelDisabled, option.Config.MTU),
 	}
 
+	t, err := trigger.NewTrigger(trigger.Parameters{
+		Name:              "policy_update",
+		PrometheusMetrics: true,
+		MinInterval:       time.Second,
+		TriggerFunc:       d.policyUpdateTrigger,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	d.policyTrigger = t
+
 	debug.RegisterStatusObject("k8s-service-cache", &d.k8sSvcCache)
 
 	d.runK8sServiceHandler()
@@ -897,7 +910,7 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 
 	// Clear previous leftovers before listening for new requests
 	log.Info("Clearing leftover Cilium veths")
-	err := d.clearCiliumVeths()
+	err = d.clearCiliumVeths()
 	if err != nil {
 		log.WithError(err).Debug("Unable to clean leftover veths")
 	}
@@ -1118,6 +1131,13 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 	}
 
 	return &d, restoredEndpoints, nil
+}
+
+// Close shuts down a daemon
+func (d *Daemon) Close() {
+	if d.policyTrigger != nil {
+		d.policyTrigger.Shutdown()
+	}
 }
 
 // TriggerReloadWithoutCompile causes all BPF programs and maps to be reloaded,
