@@ -16,7 +16,6 @@ package cache
 
 import (
 	"reflect"
-	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/identity"
@@ -26,7 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/trigger"
 )
 
 var (
@@ -101,17 +99,6 @@ type identityWatcher struct {
 
 // watch starts the identity watcher
 func (w *identityWatcher) watch(owner IdentityAllocatorOwner, events allocator.AllocatorEventChan) {
-	// The event queue handler is kept as lightweight as possible, it uses
-	// a non-blocking trigger to run a background routine which will call
-	// TriggerPolicyUpdates() with an enforced minimum interval of one
-	// second.
-	policyTrigger := trigger.NewTrigger(trigger.Parameters{
-		MinInterval: time.Second,
-		TriggerFunc: func() {
-			owner.TriggerPolicyUpdates(true, "one or more identities created or deleted")
-		},
-	})
-
 	w.stopChan = make(chan bool)
 
 	go func() {
@@ -121,7 +108,7 @@ func (w *identityWatcher) watch(owner IdentityAllocatorOwner, events allocator.A
 
 				switch event.Typ {
 				case kvstore.EventTypeCreate, kvstore.EventTypeDelete:
-					policyTrigger.Trigger()
+					owner.TriggerPolicyUpdates(true, "one or more identities created or deleted")
 
 				case kvstore.EventTypeModify:
 					// Ignore modify events

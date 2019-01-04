@@ -61,8 +61,8 @@ func (s *TriggerTestSuite) TestMinInterval(c *C) {
 		triggered int
 	)
 
-	t := NewTrigger(Parameters{
-		TriggerFunc: func() {
+	t, err := NewTrigger(Parameters{
+		TriggerFunc: func(reasons []string) {
 			mutex.Lock()
 			triggered++
 			mutex.Unlock()
@@ -70,6 +70,7 @@ func (s *TriggerTestSuite) TestMinInterval(c *C) {
 		MinInterval:   time.Millisecond * 500,
 		sleepInterval: time.Millisecond,
 	})
+	c.Assert(err, IsNil)
 	c.Assert(t, Not(IsNil))
 
 	// Trigger multiple times and sleep in between to guarantee that the
@@ -95,8 +96,8 @@ func (s *TriggerTestSuite) TestLongTrigger(c *C) {
 		triggered int
 	)
 
-	t := NewTrigger(Parameters{
-		TriggerFunc: func() {
+	t, err := NewTrigger(Parameters{
+		TriggerFunc: func(reasons []string) {
 			mutex.Lock()
 			triggered++
 			mutex.Unlock()
@@ -104,6 +105,7 @@ func (s *TriggerTestSuite) TestLongTrigger(c *C) {
 		},
 		sleepInterval: time.Millisecond,
 	})
+	c.Assert(err, IsNil)
 	c.Assert(t, Not(IsNil))
 
 	// Trigger multiple times and sleep in between to guarantee that the

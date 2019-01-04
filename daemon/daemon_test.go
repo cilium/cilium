@@ -143,6 +143,8 @@ func (ds *DaemonSuite) TearDownTest(c *C) {
 	// Release the identity allocator reference created by NewDaemon. This
 	// is done manually here as we have no Close() function daemon
 	cache.Close()
+
+	ds.d.Close()
 }
 
 type DaemonEtcdSuite struct {

@@ -19,7 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"sync"
+	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
@@ -40,19 +40,25 @@ import (
 	"github.com/op/go-logging"
 )
 
+func (d *Daemon) policyUpdateTrigger(reasons []string) {
+	log.Debugf("Regenerating all endpoints")
+	reason := strings.Join(reasons, ", ")
+
+	regenerationMetadata := &endpoint.ExternalRegenerationMetadata{Reason: reason}
+	endpointmanager.RegenerateAllEndpoints(d, regenerationMetadata)
+}
+
 // TriggerPolicyUpdates triggers policy updates for every daemon's endpoint.
 // This may be called in a variety of situations: after policy changes, changes
 // in agent configuration, changes in endpoint labels, and change of security
 // identities.
 func (d *Daemon) TriggerPolicyUpdates(force bool, reason string) {
 	if force {
-		d.policy.BumpRevision() // force policy recalculation
-		log.Debugf("Forced policy recalculation triggered")
-	} else {
-		log.Debugf("Full policy recalculation triggered")
+		log.Debugf("Artifically increasing policy revision to enforce policy recalculation")
+		d.policy.BumpRevision()
 	}
-	regenerationMetadata := &endpoint.ExternalRegenerationMetadata{Reason: reason}
-	endpointmanager.RegenerateAllEndpoints(d, regenerationMetadata)
+
+	d.policyTrigger.TriggerWithReason(reason)
 }
 
 type getPolicyResolve struct {

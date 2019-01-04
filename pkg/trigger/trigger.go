@@ -15,9 +15,17 @@
 package trigger
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/metrics"
+
+	"github.com/prometheus/client_golang/prometheus"
+)
+
+const (
+	metricLabelReason = "reason"
 )
 
 // Parameters are the user specified parameters
@@ -28,11 +36,38 @@ type Parameters struct {
 
 	// TriggerFunc is the function to be called when Trigger() is called
 	// while respecting MinInterval and serialization
-	TriggerFunc func()
+	TriggerFunc func(reasons []string)
+
+	// PrometheusMetrics enables use of a prometheus metric. Name must be set
+	PrometheusMetrics bool
+
+	// Name is the unique name of the trigger. It must be provided in a
+	// format compatible to be used as prometheus name string.
+	Name string
 
 	// sleepInterval controls the waiter sleep duration. This parameter is
 	// only exposed to tests
 	sleepInterval time.Duration
+}
+
+type reasonStack map[string]struct{}
+
+func newReasonStack() reasonStack {
+	return map[string]struct{}{}
+}
+
+func (r reasonStack) add(reason string) {
+	r[reason] = struct{}{}
+}
+
+func (r reasonStack) slice() []string {
+	result := make([]string, len(r))
+	i := 0
+	for reason := range r {
+		result[i] = reason
+		i++
+	}
+	return result
 }
 
 // Trigger represents an active trigger logic. Use NewTrigger() to create a
@@ -53,23 +88,88 @@ type Trigger struct {
 
 	// closeChan is used to stop the background trigger routine
 	closeChan chan struct{}
+
+	triggerReasons *prometheus.CounterVec
+	triggerFolds   prometheus.Gauge
+	callDurations  *prometheus.HistogramVec
+
+	// numFolds is the current count of folds that happened into the
+	// currently scheduled trigger
+	numFolds int
+
+	// foldedReasons is the sum of all unique reasons folded together.
+	foldedReasons reasonStack
+
+	waitStart time.Time
 }
 
 // NewTrigger returns a new trigger based on the provided parameters
-func NewTrigger(p Parameters) *Trigger {
+func NewTrigger(p Parameters) (*Trigger, error) {
 	if p.sleepInterval == 0 {
 		p.sleepInterval = time.Second
 	}
 
+	if p.TriggerFunc == nil {
+		return nil, fmt.Errorf("trigger function is nil")
+	}
+
+	if p.PrometheusMetrics && p.Name == "" {
+		return nil, fmt.Errorf("trigger name must be provided when enabling metrics")
+	}
+
 	t := &Trigger{
-		params:     p,
-		wakeupChan: make(chan bool, 1),
-		closeChan:  make(chan struct{}, 1),
+		params:        p,
+		wakeupChan:    make(chan bool, 1),
+		closeChan:     make(chan struct{}, 1),
+		foldedReasons: newReasonStack(),
+	}
+
+	// Guarantee that initial trigger has no delay
+	if p.MinInterval > time.Duration(0) {
+		t.lastTrigger = time.Now().Add(-1 * p.MinInterval)
+	}
+
+	if p.PrometheusMetrics {
+		t.triggerReasons = prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: metrics.Namespace,
+			Subsystem: "triggers",
+			Name:      p.Name + "_total",
+			Help:      "Total number of trigger invocations labelled by reason",
+		}, []string{metricLabelReason})
+
+		if err := metrics.Register(t.triggerReasons); err != nil {
+			return nil, fmt.Errorf("unable to register prometheus collector: %s", err)
+		}
+
+		t.triggerFolds = prometheus.NewGauge(prometheus.GaugeOpts{
+			Namespace: metrics.Namespace,
+			Subsystem: "triggers",
+			Name:      p.Name + "_folds",
+			Help:      "Current level of trigger folds",
+		})
+
+		if err := metrics.Register(t.triggerFolds); err != nil {
+			metrics.Unregister(t.triggerReasons)
+			return nil, fmt.Errorf("unable to register prometheus collector: %s", err)
+		}
+
+		t.callDurations = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+			Namespace: metrics.Namespace,
+			Subsystem: "triggers",
+			Name:      p.Name + "_call_duration_seconds",
+			Help:      "Length of duration trigger used to execute",
+		}, []string{"type"})
+
+		if err := metrics.Register(t.callDurations); err != nil {
+			metrics.Unregister(t.triggerReasons)
+			metrics.Unregister(t.triggerFolds)
+			return nil, err
+		}
 	}
 
 	go t.waiter()
 
-	return t
+	return t, nil
 }
 
 // needsDelay returns whether and how long of a delay is required to fullfil
@@ -87,10 +187,19 @@ func (t *Trigger) needsDelay() (bool, time.Duration) {
 // provided to NewTrigger(). It respects MinInterval and ensures that calls to
 // TriggerFunc are serialized. This function is non-blocking and will return
 // immediately before TriggerFunc is potentially triggered and has completed.
-func (t *Trigger) Trigger() {
+func (t *Trigger) TriggerWithReason(reason string) {
 	t.mutex.Lock()
 	t.trigger = true
+	if t.numFolds == 0 {
+		t.waitStart = time.Now()
+	}
+	t.numFolds++
+	t.foldedReasons.add(reason)
 	t.mutex.Unlock()
+
+	if t.params.PrometheusMetrics {
+		t.triggerReasons.WithLabelValues(reason).Inc()
+	}
 
 	select {
 	case t.wakeupChan <- true:
@@ -98,9 +207,22 @@ func (t *Trigger) Trigger() {
 	}
 }
 
+// Trigger triggers the call to TriggerFunc as specified in the parameters
+// provided to NewTrigger(). It respects MinInterval and ensures that calls to
+// TriggerFunc are serialized. This function is non-blocking and will return
+// immediately before TriggerFunc is potentially triggered and has completed.
+func (t *Trigger) Trigger() {
+	t.TriggerWithReason("")
+}
+
 // Shutdown stops the trigger mechanism
 func (t *Trigger) Shutdown() {
 	close(t.closeChan)
+	if t.params.PrometheusMetrics {
+		metrics.Unregister(t.triggerReasons)
+		metrics.Unregister(t.triggerFolds)
+		metrics.Unregister(t.callDurations)
+	}
 }
 
 func (t *Trigger) waiter() {
@@ -117,10 +239,24 @@ func (t *Trigger) waiter() {
 				time.Sleep(delay)
 			}
 
-			if t.params.TriggerFunc != nil {
-				t.params.TriggerFunc()
-			}
+			t.mutex.Lock()
 			t.lastTrigger = time.Now()
+			numFolds := t.numFolds
+			t.numFolds = 0
+			reasons := t.foldedReasons.slice()
+			t.foldedReasons = newReasonStack()
+			callLatency := time.Since(t.waitStart)
+			t.mutex.Unlock()
+
+			beforeTrigger := time.Now()
+			t.params.TriggerFunc(reasons)
+
+			if t.params.PrometheusMetrics {
+				callDuration := time.Since(beforeTrigger)
+				t.callDurations.WithLabelValues("duration").Observe(callDuration.Seconds())
+				t.callDurations.WithLabelValues("latency").Observe(callLatency.Seconds())
+				t.triggerFolds.Set(float64(numFolds))
+			}
 		}
 
 		select {
