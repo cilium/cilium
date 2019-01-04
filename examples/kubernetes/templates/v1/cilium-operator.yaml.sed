@@ -115,7 +115,7 @@ metadata:
   name: cilium-operator
   namespace: kube-system
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: __RBAC_API_VERSION__
 kind: ClusterRole
 metadata:
   name: cilium-operator
@@ -148,7 +148,7 @@ rules:
   verbs:
   - '*'
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: __RBAC_API_VERSION__
 kind: ClusterRoleBinding
 metadata:
   name: cilium-operator
