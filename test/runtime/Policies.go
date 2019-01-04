@@ -158,6 +158,8 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 
 			By("Create a new container")
 			vm.ContainerCreate("new", helpers.HttpdImage, helpers.CiliumDockerNetwork, "-l id.new")
+			areEndpointsReady := vm.WaitEndpointsReady()
+			Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
 			ExpectEndpointSummary(vm, helpers.Enabled, 2)
 			ExpectEndpointSummary(vm, helpers.Disabled, 0)
 			vm.ContainerRm("new")
@@ -202,7 +204,8 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 			ExpectEndpointSummary(vm, helpers.Disabled, 1)
 
 			vm.ContainerCreate("new", helpers.HttpdImage, helpers.CiliumDockerNetwork, "-l id.new")
-			vm.WaitEndpointsReady()
+			areEndpointsReady := vm.WaitEndpointsReady()
+			Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
 
 			ExpectEndpointSummary(vm, helpers.Enabled, 0)
 			ExpectEndpointSummary(vm, helpers.Disabled, 2)
