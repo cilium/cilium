@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/fqdn/regexpmap"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/uuid"
@@ -52,6 +53,9 @@ func injectToCIDRSetRules(rule *api.Rule, cache *DNSCache, reMap *regexpmap.Rege
 	for egressIdx := range rule.Egress {
 		egressRule := &rule.Egress[egressIdx]
 
+		// Build an IP collection to remove all duplicates
+		allIPs := ip.NewCollection()
+
 		// Generate CIDR rules for each FQDN
 		for _, ToFQDN := range egressRule.ToFQDNs {
 			// lookup matching DNS names
@@ -71,7 +75,7 @@ func injectToCIDRSetRules(rule *api.Rule, cache *DNSCache, reMap *regexpmap.Rege
 					"matchName": ToFQDN.MatchName,
 				}).Debug("Emitting matching DNS Name -> IPs for ToFQDNs Rule")
 				emitted[dnsName] = append(emitted[dnsName], lookupIPs...)
-				egressRule.ToCIDRSet = append(egressRule.ToCIDRSet, api.IPsToCIDRRules(lookupIPs)...)
+				allIPs.Add(lookupIPs...)
 			}
 
 			if len(ToFQDN.MatchPattern) > 0 {
@@ -99,10 +103,12 @@ func injectToCIDRSetRules(rule *api.Rule, cache *DNSCache, reMap *regexpmap.Rege
 					}).Debug("Emitting matching DNS Name -> IPs for ToFQDNs Rule")
 					delete(missing, ToFQDN.MatchPattern)
 					emitted[name] = append(emitted[name], ips...)
-					egressRule.ToCIDRSet = append(egressRule.ToCIDRSet, api.IPsToCIDRRules(ips)...)
+					allIPs.Add(ips...)
 				}
 			}
 		}
+
+		egressRule.ToCIDRSet = append(egressRule.ToCIDRSet, api.IPsToCIDRRules(allIPs.IPs())...)
 	}
 
 	for dnsName := range missing {

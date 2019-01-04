@@ -742,3 +742,36 @@ func KeepUniqueIPs(ips []net.IP) []net.IP {
 
 	return returnIPs
 }
+
+// Collection is a collection of IP addresses. It can be used to create
+// duplicate free lists of IPs
+type Collection map[string]net.IP
+
+// NewCollection returns a new collection
+func NewCollection() Collection {
+	return map[string]net.IP{}
+}
+
+// Add adds a list of IPs to the collection. Duplicates are removed
+func (c Collection) Add(ips ...net.IP) {
+	for _, ip := range ips {
+		c[ip.String()] = ip
+	}
+}
+
+// Remove removes an IP from the collection
+func (c Collection) Remove(ips ...net.IP) {
+	for _, ip := range ips {
+		delete(c, ip.String())
+	}
+}
+
+// IPs returns all IPs in the collection
+func (c Collection) IPs() []net.IP {
+	ips := make([]net.IP, len(c))
+	i := 0
+	for _, ip := range c {
+		ips[i] = ip
+	}
+	return ips
+}

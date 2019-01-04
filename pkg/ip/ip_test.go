@@ -693,3 +693,13 @@ func (s *IPTestSuite) BenchmarkKeepUniqueIPs(c *C) {
 		KeepUniqueIPs(ips)
 	}
 }
+
+func (s *IPTestSuite) TestCollection(c *C) {
+	col := NewCollection()
+	col.Add(net.ParseIP("1.1.1.1"), net.ParseIP("2.2.2.2"))
+	col.Add(net.ParseIP("1.1.1.1"))
+	c.Assert(len(col.IPs()), Equals, 2)
+
+	col.Remove(net.ParseIP("1.1.1.1"))
+	c.Assert(len(col.IPs()), Equals, 1)
+}
