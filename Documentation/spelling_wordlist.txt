@@ -220,6 +220,7 @@ imm
 incrementing
 indices
 init
+initconnectiontimeout
 injectConfigFile
 inline
 inlined
@@ -604,4 +605,3 @@ Zannoni
 Zhou
 Zookeeper
 zsh
-initconnectiontimeout
