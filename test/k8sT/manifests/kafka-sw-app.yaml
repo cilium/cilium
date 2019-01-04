@@ -10,6 +10,7 @@ spec:
         app: kafka
         zgroup: kafkaTestApp
     spec:
+      terminationGracePeriodSeconds: 0
       containers:
       - name: kafka
         # Normally we would specify an exact version of the image instead of
@@ -63,6 +64,7 @@ spec:
         app: empire-hq
         zgroup: kafkaTestApp
     spec:
+      terminationGracePeriodSeconds: 0
       containers:
       - name: empire-hq
         image: docker.io/cilium/kafkaclient:latest
@@ -83,6 +85,7 @@ spec:
         outpostid: "8888"
         zgroup: kafkaTestApp
     spec:
+      terminationGracePeriodSeconds: 0
       containers:
       - name: empire-outpost-8888
         image: docker.io/cilium/kafkaclient:latest
@@ -101,6 +104,7 @@ spec:
         outpostid: "9999"
         zgroup: kafkaTestApp
     spec:
+      terminationGracePeriodSeconds: 0
       containers:
       - name: empire-outpost-9999
         image: docker.io/cilium/kafkaclient:latest
@@ -118,6 +122,7 @@ spec:
         app: empire-backup
         zgroup: kafkaTestApp
     spec:
+      terminationGracePeriodSeconds: 0
       containers:
       - name: empire-backup
         image: docker.io/cilium/kafkaclient:latest

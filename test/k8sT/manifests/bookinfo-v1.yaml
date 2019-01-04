@@ -42,6 +42,7 @@ spec:
         track: stable
         zgroup: bookinfo
     spec:
+      terminationGracePeriodSeconds: 0
       containers:
       - name: details
         image: docker.io/istio/examples-bookinfo-details-v1:1.6.0
@@ -79,6 +80,7 @@ spec:
         track: stable
         zgroup: bookinfo
     spec:
+      terminationGracePeriodSeconds: 0
       containers:
       - name: reviews
         image: docker.io/istio/examples-bookinfo-reviews-v1:1.6.0
@@ -116,6 +118,7 @@ spec:
         track: stable
         zgroup: bookinfo
     spec:
+      terminationGracePeriodSeconds: 0
       containers:
       # Use v0.2.3 because it still contains 'wget', necessary for tests.
       - name: productpage
