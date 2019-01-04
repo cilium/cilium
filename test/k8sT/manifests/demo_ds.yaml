@@ -16,6 +16,7 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
+      terminationGracePeriodSeconds: 0
       tolerations:
       - effect: NoSchedule
         key: node-role.kubernetes.io/master
@@ -34,6 +35,7 @@ spec:
       labels:
         zgroup: testDSClient
     spec:
+      terminationGracePeriodSeconds: 0
       containers:
       - name: web
         image: docker.io/cilium/demo-client:latest

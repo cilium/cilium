@@ -23,6 +23,7 @@
                 }
             },
             "spec":{
+                "terminationGracePeriodSeconds": 0,
                 "containers":[{
                     "name":"redis-master",
                     "image":"docker.io/library/redis:4.0.11",
@@ -86,6 +87,7 @@
                 }
             },
             "spec":{
+                "terminationGracePeriodSeconds": 0,
                 "containers":[{
                     "name":"redis-slave",
                     "image":"gcr.io/google_samples/gb-redisslave:v1",
@@ -145,6 +147,7 @@
                 }
             },
             "spec":{
+                "terminationGracePeriodSeconds": 0,
                 "containers":[{
                     "name":"guestbook",
                     "image":"docker.io/kubernetes/guestbook:v2",

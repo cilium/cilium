@@ -31,6 +31,7 @@ spec:
         zgroup: testapp
     spec:
       serviceAccountName: app1-account
+      terminationGracePeriodSeconds: 0
       containers:
       - name: web
         image: docker.io/cilium/demo-httpd:latest
@@ -54,6 +55,7 @@ spec:
         appSecond: "true"
     spec:
       serviceAccountName: app2-account
+      terminationGracePeriodSeconds: 0
       containers:
       - name: app-frontend
         image: docker.io/cilium/demo-client:latest
@@ -76,6 +78,7 @@ spec:
         id: app3
         zgroup: testapp
     spec:
+      terminationGracePeriodSeconds: 0
       containers:
       - name: app-frontend
         image: docker.io/cilium/demo-client:latest

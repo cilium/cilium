@@ -10,6 +10,7 @@ spec:
       labels:
         zgroup: netcatds
     spec:
+      terminationGracePeriodSeconds: 0
       containers:
       - name: netcat
         image: docker.io/cilium/demo-client:latest
