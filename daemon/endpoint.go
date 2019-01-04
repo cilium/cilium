@@ -155,7 +155,7 @@ func fetchK8sLabels(ep *endpoint.Endpoint) (labels.Labels, labels.Labels, error)
 // createEndpoint attempts to create the endpoint corresponding to the change
 // request that was specified. Returns an HTTP code response code and an
 // error msg (or nil on success).
-func (d *Daemon) createEndpoint(epTemplate *models.EndpointChangeRequest, id string, lbls []string) (int, error) {
+func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.EndpointChangeRequest, id string, lbls []string) (int, error) {
 	ep, err := endpoint.NewEndpointFromChangeModel(epTemplate)
 	if err != nil {
 		return PutEndpointIDInvalidCode, err
@@ -206,6 +206,14 @@ func (d *Daemon) createEndpoint(epTemplate *models.EndpointChangeRequest, id str
 
 	ep.UpdateLabels(d, addLabels, infoLabels, true)
 
+	// Do not add endpoint to the endpoint manager if client abort connection
+	select {
+	case <-ctx.Done():
+		log.WithError(ctx.Err()).Warn("Aborting endpoint join due client connection closed")
+		return PutEndpointIDFailedCode, fmt.Errorf("aborting endpoint %d join due client connection closed", ep.ID)
+	default:
+	}
+
 	if err := endpointmanager.AddEndpoint(d, ep, "Create endpoint from API PUT"); err != nil {
 		log.WithError(err).Warn("Aborting endpoint join")
 		return PutEndpointIDFailedCode, err
@@ -242,7 +250,7 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 			"endpoint ID cannot be 0")
 	}
 
-	code, err := h.d.createEndpoint(epTemplate, params.ID, params.Endpoint.Labels)
+	code, err := h.d.createEndpoint(params.HTTPRequest.Context(), epTemplate, params.ID, params.Endpoint.Labels)
 	if err != nil {
 		logger.WithError(err).Error("Endpoint cannot be created")
 		return api.Error(code, err)
