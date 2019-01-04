@@ -649,7 +649,7 @@ func initConfig() {
 
 func initEnv(cmd *cobra.Command) {
 	// Prepopulate option.Config with options from CLI.
-	populateConfig()
+	option.Config.Populate()
 
 	// Logging should always be bootstrapped first. Do not add any code above this!
 	logging.SetupLogging(option.Config.LogDriver, option.Config.LogOpt, "cilium-agent", option.Config.Debug)
