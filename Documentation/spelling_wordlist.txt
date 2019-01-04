@@ -418,6 +418,7 @@ qdisc
 qdiscs
 qede
 queueing
+queryable
 readelf
 rebase
 rebased
@@ -521,6 +522,7 @@ timestamps
 tlsconfig
 toCIDR
 toCIDRSet
+toFQDNs
 Toolchain
 toolchain
 tracepoint

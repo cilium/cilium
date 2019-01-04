@@ -36,9 +36,9 @@ can talk to each other. Layer 3 policies can be specified using the following me
 
 * `DNS based`: Selects remote, non-cluster, peers using DNS names converted to
   IPs via DNS lookups. It shares all limitations of the `CIDR based` rules
-  above. The current implementation simply polls the listed DNS targets without
-  regard for TTLs, and allows traffics from IPs listed in the DNS responses.
-
+  above. DNS information is acquired by routing DNS traffic via a proxy, or
+  polling for listed DNS targets. DNS TTLs are respected.
+ 
 .. _Labels based:
 
 Labels Based
@@ -441,34 +441,55 @@ but not CIDR prefix ``10.96.0.0/12``
 DNS based
 ---------
 
-``toFQDNs`` simplifies specifying egress policy to IPs of remote, external,
-peers. The DNS lookup for each ``matchName`` is done periodically by
-``cilium-agent`` and the result is used to regenerate endpoint policy. This
-allows tracking changing IPs or sets of IPs that may not be known a priori.
-Despite the naming, the ``matchName`` field does not have to be a
-fully-qualified domain name. In cases where search domains are configured, the
-DNS lookups from ``cilium`` will not be qualified and will utilize the search
-list.
+DNS policies are used to define Layer 3 policies to endpoints that are not
+managed by cilium, but have DNS queryable domain names. The IP addresses
+provided in DNS responses are allowed by Cilium in a similar manner to IPs in
+`CIDR based`_ policies. They are an alternative when the remote IPs may change
+or are not know a priori, or when DNS is more convenient. To enforce policy on
+DNS requests themselves, see `Layer 7 Examples`_.
 
-The DNS lookups are repeated with an interval of 5 seconds, and are made for
-A(IPv4) and AAAA(IPv6) addresses. Should a lookup fail, the most recent IP data
-is used instead. An IP change will trigger a regeneration of the ``cilium``
-policy for each endpoint, and the updated IPs can be seen in the response from
-``cilium policy get``. Each update will also increment the per ``cilium-agent``
-policy repository revision.
+IP information is captured from DNS responses per-Endpoint via `_DNS Proxy`_ or
+`DNS Polling`_ may be used. A generated L3 `CIDR based`_ rule is generated for
+every ``toFQDNs`` rule and applies to the same endpoints. The IP information is
+selected for insertion by ``matchName`` or ``matchPattern`` rules, and is
+collected from all DNS responses seen by Cilium on the node. Multiple selectors
+may be included in a single egress rule.
 
-``toFQDNs`` rules cannot contain any other L3 rules, such as ``toEndpoints``
-(under `Labels Based`_) and ``toCIDRs`` (under `CIDR Based`_). They can contain
-L4/L7 rules, such as ``toPorts`` (see `Layer 4 Examples`_)  and, optionally,
-with ``HTTP`` and ``Kafka`` sections (see `Layer 7 Examples`_).
+``toFQDNs`` egress rules cannot contain any other L3 rules, such as
+``toEndpoints`` (under `Labels Based`_) and ``toCIDRs`` (under `CIDR Based`_).
+They can contain L4/L7 rules, such as ``toPorts`` (see `Layer 4 Examples`_)
+with, optionally, ``HTTP`` and ``Kafka`` sections (see `Layer 7 Examples`_).
 
-.. note:: ``toFQDNs`` rules are marked on import with a
-          ``cilium-generated:ToFQDN-UUID`` label. This is for internal
-          bookkeeping and can be safely ignored.
+.. note:: DNS based rules are intended for external connections and behave
+          similarly to `CIDR based`_ rules. See `Services based`_ and
+          `Labels based`_ for cluster-internal traffic.
 
+IPs to be allowed are selected via:
 
-.. note:: The DNS resolver must be explicitly whitelisted to allow cilium-agent
-          to send the DNS polls. This is illustrated in the example below.
+``toFQDNs.matchName``
+  Inserts IPs of domains that match ``matchName`` exactly. Multiple distinct
+  names may be included in separate ``matchName`` entries and IPs for domains
+  that match any ``matchName`` will be inserted.
+
+``toFQDNs.matchPattern``
+  Inserts IPs of domains that match the pattern in ``matchPattern``, accounting
+  for wildcards. Patterns are composed of literal characters that that are
+  allowed in domain names: a-z, 0-9, ``.`` and ``-``.
+
+  ``*`` is allowed as a wildcard with a number of convenience behaviors:
+
+  * ``*`` within a domain allows 0 or more valid DNS characters, except for the
+    ``.`` separator. ``*.cilium.io`` will match ``sub.cilium.io`` but not
+    ``cilium.io``. ``part*ial.com`` will match ``partial.com`` and
+    ``part-extra-ial.com``.
+  * ``*`` at the start of a pattern, with no trailing ``.``, matches a domain
+    and all subdomains. For example, ``*cilium.io`` matches ``sub.cilium.io``
+    and ``cilium.io`` but not ``another.sub.cilium.io``.
+  * ``*`` alone matches all names, and inserts all cached DNS IPs into this
+    rule.
+
+.. note:: `DNS Polling`_ will not poll ``matchPattern`` entries even if they
+          are literal DNS names.
 
 Example
 ~~~~~~~
@@ -487,25 +508,109 @@ Example
 
         .. literalinclude:: ../../examples/policies/l3/fqdn/fqdn.json
 
-Limitations
-~~~~~~~~~~~
 
-The current ``toFQDNs`` implementation is very limited. It may not behave as expected.
+Managing Long-Lived Connections
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Often, an application may keep a connection open for longer than the configured
+DNS TTL. Without further DNS queries the remote IP used in the long-lived
+connection may expire out of the DNS cache. When this occurs, existing
+connections will become disallowed by policy and will be blocked. In cases
+where an application retries the connection, a new DNS query is issued and the
+IP is added to the policy.
 
-#. The DNS polling is done from the ``cilium-agent`` process. This may result
-   in different IPs being returned in the DNS response than those seen by an
-   endpoint or pod.
+A minimum TTL is used to ensure a lower bound to DNS data expiration, and DNS
+data in the Cilium DNS cache will not expire sooner than this minimum. It
+can be configured with the ``--tofqdns-min-ttl`` CLI option. The value is in
+integer seconds and must be 1 or more. The default is 1 hour.
 
-#. The IP response is used as-is. For DNS responses that return a new IP on
-   every query this may result in a different IP being whitelisted than the one
-   used for current connections.
+.. note:: It is recommended that ``--tofqdns-min-ttl`` be set to the minimum
+          time a connection must be maintained.
 
-#. The lookups from ``cilium`` follow the configuration of the environment it
-   is in via ``/etc/resolv.conf``. When running as a pod, the contents of
-   ``resolv.conf`` are controlled via the ``dnsPolicy`` field of a spec. When
-   running directly on a host, it will use the host's file.  Irrespective of
-   how the DNS lookups are configured, TTLs and caches on the resolver will
-   impact the IPs seen by the ``cilium-agent`` lookups.
+
+Obtaining DNS Data
+~~~~~~~~~~~~~~~~~~
+IPs are obtained via intercepting DNS requests via a proxy or DNS polling, and
+matching names are inserted irrespective of how the data is obtained. These IPs
+can be selected with ``toFQDN`` rules. DNS responses are cached within cilium
+agent respecting TTL.  
+
+.. _DNS Proxy:
+
+DNS Proxy
+  A DNS Proxy intercepts DNS traffic and records IPs seen in the responses.
+  This interception is itself a separate policy rule governing the DNS
+  requests, and must be specified separately. For details on how to enforce
+  policy on DNS requests and configuring the DNS proxy, see `Layer 7
+  Examples`_.
+
+  Only IPs in intercepted DNS responses to an application will be allowed in
+  the cilium policy rules. For a given domain name, IPs from responses to all
+  pods managed by a Cilium instance are allowed by policy (respecting TTLs).
+  This ensures that allowed IPs are consistent with those returned to
+  applications. The DNS Proxy is the only method to allow IPs from responses
+  allowed by wildcard L7 DNS ``matchPattern`` rules for use in ``toFQDNs``
+  rules.
+
+  The following example obtains DNS data by interception without blocking any
+  DNS requests. It allows L3 connections to ``cilium.io``, ``sub.cilium.io``
+  and any subdomains of ``sub.cilium.io``.
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../examples/policies/l7/dns/dns-visibility.yaml
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../../examples/policies/l7/dns/dns-visibility.json
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../examples/policies/l7/dns/dns-visibility.json
+
+.. _DNS Polling:
+
+DNS Polling
+  DNS Polling periodically issues a DNS lookup for each ``matchName`` from
+  cilium-agent. The result is used to regenerate endpoint policy.  Despite the
+  name, the ``matchName`` field does not have to be a fully-qualified domain
+  name. In cases where search domains are configured for cilium-agent, the DNS
+  lookups from Cilium will not be qualified and will utilize the search list.
+  Unqualified names must be matched as-is by ``matchPattern`` in order to
+  insert related IPs.
+
+  DNS lookups are repeated with an interval of 5 seconds, and are made for
+  A(IPv4) and AAAA(IPv6) addresses. Should a lookup fail, the most recent IP
+  data is used instead. An IP change will trigger a regeneration of the Cilium
+  policy for each endpoint and increment the per cilium-agent policy repository
+  revision.
+
+  Polling can be enabled by the ``--tofqdns-enable-poller`` cilium-agent
+  CLI option.
+
+  The DNS polling implementation is very limited. It may not behave as expected.
+
+  #. The DNS polling is done from the cilium-agent process. This may result in
+     different IPs being returned in the DNS response than those seen by an
+     application.
+  
+  #. When using DNS Polling with DNS responses that return a new IP on every
+     query, the IP being whitelisted may differ from the one used for
+     connections by applications. This is because the application will make
+     a DNS query independent from the poll.
+  
+  #. The lookups from Cilium follow the configuration of the environment it
+     is in via ``/etc/resolv.conf``. When running as a kubernetes pod, the
+     contents of ``resolv.conf`` are controlled via the ``dnsPolicy`` field of a
+     spec. When running directly on a host, it will use the host's file.
+     Irrespective of how the DNS lookups are configured, TTLs and caches on the
+     resolver will impact the IPs seen by the cilium-agent lookups.
+
+.. note:: Connections to the DNS resolver must be explicitly whitelisted to
+          allow DNS queries. This is independent of the source of DNS 
+          information, whether from polling or the DNS proxy.
+
 
 .. _l4_policy:
 
@@ -639,6 +744,11 @@ enumeration of protocol specific fields.
                 //
                 // +optional
                 Kafka []PortRuleKafka `json:"kafka,omitempty"`
+
+                // DNS-specific rules.
+                //
+                // +optional
+                DNS []PortRuleDNS `json:"dns,omitempty"`
         }
 
 The structure is implemented as a union, i.e. only one member field can be used
@@ -658,7 +768,7 @@ latter rule will have no effect.
           not result in packet drops. Instead, if possible, an application
           protocol specific access denied message is crafted and returned, e.g.
           an *HTTP 403 access denied* is sent back for HTTP requests which
-          violate the policy.
+          violate the policy, or a *DNS REFUSED* response for DNS requests.
 
 .. note:: There is currently a max limit of 40 ports with layer 7 policies per
           endpoint. This might change in the future when support for ranges is
@@ -836,6 +946,80 @@ Allow producing to topic empire-announce using apiKeys
 .. only:: epub or latex
 
         .. literalinclude:: ../../examples/policies/l7/kafka/kafka.json
+
+DNS Policy and IP Discovery
+---------------------------
+
+Policy may be applied to DNS traffic, allowing or disallowing specific DNS
+query names or patterns of names (other DNS fields, such as query type, are not
+considered). This policy is effected via a DNS proxy, which is also used to
+collect IPs used to populate L3 `DNS based`_ ``toFQDNs`` rules.
+
+.. note::  While Layer 7 DNS policy can be applied without any other Layer 3
+           rules, the presence of a Layer 7 rule (with its Layer 3 and 4
+           components) will block other traffic.
+
+DNS policy may be applied via:
+
+``matchName``
+  Allows queries for domains that match ``matchName`` exactly. Multiple
+  distinct names may be included in separate ``matchName`` entries and queries
+  for domains that match any ``matchName`` will be allowed.
+
+``matchPattern``
+  Allows queries for domains that match the pattern in ``matchPattern``,
+  accounting for wildcards. Patterns are composed of literal characters that
+  that are allowed in domain names: a-z, 0-9, ``.`` and ``-``.
+
+  ``*`` is allowed as a wildcard with a number of convenience behaviors:
+
+  * ``*`` within a domain allows 0 or more valid DNS characters, except for the
+    ``.`` separator. ``*.cilium.io`` will match ``sub.cilium.io`` but not
+    ``cilium.io``. ``part*ial.com`` will match ``partial.com`` and
+    ``part-extra-ial.com``.
+  * ``*`` at the start of a pattern, with no trailing ``.``, matches a domain
+    and all subdomains. For example, ``*cilium.io`` matches ``sub.cilium.io``
+    and ``cilium.io`` but not ``another.sub.cilium.io``.
+  * ``*`` alone matches all names, and inserts all IPs in DNS responses into
+    the cilium-agent DNS cache.
+
+In this example, L7 DNS policy allows queries for ``cilium.io`` and any
+subdomains of ``cilium.io`` and ``api.cilium.io``. No other DNS queries will be
+allowed.
+
+The separate L3 ``toFQDNs`` egress rule allows connections to any IPs returned
+in DNS queries for ``cilium.io``, ``sub.cilium.io``, ``service1.api.cilium.io``
+and any matches of ``special*service.api.cilium.io``, such as
+``special-region1-service.api.cilium.io`` but not
+``region1-service.api.cilium.io``. DNS queries to ``anothersub.cilium.io`` are
+allowed but connections to the returned IPs are not, as there is no L3
+``toFQDNs`` rule selecting them. L4 and L7 policy may also be applied (see 
+`DNS based`_), restricting connections to TCP port 80 in this case.
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../examples/policies/l7/dns/dns.yaml
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../../examples/policies/l7/dns/dns.json
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../examples/policies/l7/dns/dns.json
+
+
+.. note:: When applying DNS policy in kubernetes, queries for
+          service.namespace.svc.cluster.local. must be explicitly allowed
+          with ``matchPattern: *.*.svc.cluster.local.``.
+          
+          Similarly, queries that rely on the DNS search list to complete the
+          FQDN must be allowed in their entirety. e.g. A query for
+          ``servicename`` that succeeds with
+          ``servicename.namespace.svc.cluster.local.`` must have the latter
+          allowed with ``matchName`` or ``matchPattern``.
 
 Kubernetes
 ==========
