@@ -9,7 +9,6 @@ spec:
   egress:
     - toEndpoints:
       - matchLabels:
-          "k8s:io.cilium.k8s.policy.serviceaccount": kube-dns
           "k8s:io.kubernetes.pod.namespace": kube-system
           "k8s:k8s-app": kube-dns
     - toFQDNs:
