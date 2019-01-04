@@ -17,8 +17,6 @@
 package cache
 
 import (
-	"sync"
-
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -102,8 +100,7 @@ func (e *IdentityAllocatorConsulSuite) SetUpTest(c *C) {
 
 type dummyOwner struct{}
 
-func (d dummyOwner) TriggerPolicyUpdates(force bool, reason string) *sync.WaitGroup {
-	return nil
+func (d dummyOwner) TriggerPolicyUpdates(force bool, reason string) {
 }
 
 func (d dummyOwner) GetNodeSuffix() string {

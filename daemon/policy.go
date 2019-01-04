@@ -44,8 +44,7 @@ import (
 // This may be called in a variety of situations: after policy changes, changes
 // in agent configuration, changes in endpoint labels, and change of security
 // identities.
-// Returns a waiting group which signals when all endpoints are regenerated.
-func (d *Daemon) TriggerPolicyUpdates(force bool, reason string) *sync.WaitGroup {
+func (d *Daemon) TriggerPolicyUpdates(force bool, reason string) {
 	if force {
 		d.policy.BumpRevision() // force policy recalculation
 		log.Debugf("Forced policy recalculation triggered")
@@ -53,7 +52,7 @@ func (d *Daemon) TriggerPolicyUpdates(force bool, reason string) *sync.WaitGroup
 		log.Debugf("Full policy recalculation triggered")
 	}
 	regenerationMetadata := &endpoint.ExternalRegenerationMetadata{Reason: reason}
-	return endpointmanager.RegenerateAllEndpoints(d, regenerationMetadata)
+	endpointmanager.RegenerateAllEndpoints(d, regenerationMetadata)
 }
 
 type getPolicyResolve struct {

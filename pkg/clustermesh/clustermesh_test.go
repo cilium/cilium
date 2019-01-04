@@ -22,7 +22,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"sync"
 	"testing"
 	"time"
 
@@ -93,8 +92,7 @@ func (o *testObserver) OnDelete(k store.Key) {
 
 type identityAllocatorOwnerMock struct{}
 
-func (i *identityAllocatorOwnerMock) TriggerPolicyUpdates(force bool, reason string) *sync.WaitGroup {
-	return nil
+func (i *identityAllocatorOwnerMock) TriggerPolicyUpdates(force bool, reason string) {
 }
 
 func (i *identityAllocatorOwnerMock) GetNodeSuffix() string {
