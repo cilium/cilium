@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"strconv"
 	"time"
 
@@ -55,7 +56,7 @@ func getEPTemplate(c *C) *models.EndpointChangeRequest {
 func (ds *DaemonSuite) TestEndpointAddReservedLabel(c *C) {
 	epTemplate := getEPTemplate(c)
 	lbls := []string{"reserved:world"}
-	code, err := ds.d.createEndpoint(epTemplate, strconv.FormatInt(epTemplate.ID, 10), lbls)
+	code, err := ds.d.createEndpoint(context.TODO(), epTemplate, strconv.FormatInt(epTemplate.ID, 10), lbls)
 	c.Assert(err, Not(IsNil))
 	c.Assert(code, Equals, apiEndpoint.PutEndpointIDInvalidCode)
 }
@@ -63,7 +64,7 @@ func (ds *DaemonSuite) TestEndpointAddReservedLabel(c *C) {
 func (ds *DaemonSuite) TestEndpointAddInvalidLabel(c *C) {
 	epTemplate := getEPTemplate(c)
 	lbls := []string{"reserved:foo"}
-	code, err := ds.d.createEndpoint(epTemplate, strconv.FormatInt(epTemplate.ID, 10), lbls)
+	code, err := ds.d.createEndpoint(context.TODO(), epTemplate, strconv.FormatInt(epTemplate.ID, 10), lbls)
 	c.Assert(err, Not(IsNil))
 	c.Assert(code, Equals, apiEndpoint.PutEndpointIDInvalidCode)
 }
@@ -71,7 +72,7 @@ func (ds *DaemonSuite) TestEndpointAddInvalidLabel(c *C) {
 func (ds *DaemonSuite) TestEndpointAddNoLabels(c *C) {
 	// Create the endpoint without any labels.
 	epTemplate := getEPTemplate(c)
-	code, err := ds.d.createEndpoint(epTemplate, strconv.FormatInt(epTemplate.ID, 10), nil)
+	code, err := ds.d.createEndpoint(context.TODO(), epTemplate, strconv.FormatInt(epTemplate.ID, 10), nil)
 	c.Assert(err, IsNil)
 	c.Assert(code, Equals, apiEndpoint.PutEndpointIDCreatedCode)
 
