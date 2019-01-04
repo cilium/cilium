@@ -506,6 +506,16 @@ func MustRegister(c prometheus.Collector) {
 	registry.MustRegister(c)
 }
 
+// Register registers a collector
+func Register(c prometheus.Collector) error {
+	return registry.Register(c)
+}
+
+// Unregister unregisters a collector
+func Unregister(c prometheus.Collector) bool {
+	return registry.Unregister(c)
+}
+
 // Enable begins serving prometheus metrics on the address passed in. Addresses
 // of the form ":8080" will bind the port on all interfaces.
 func Enable(addr string) <-chan error {
