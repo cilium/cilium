@@ -155,20 +155,20 @@ case $K8S_VERSION in
         ;;
     "1.10")
         KUBERNETES_CNI_VERSION="0.6.0"
-        K8S_FULL_VERSION="1.10.11"
+        K8S_FULL_VERSION="1.10.12"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri,SystemVerification"
         ;;
     "1.11")
         KUBERNETES_CNI_VERSION="0.6.0"
-        K8S_FULL_VERSION="1.11.5"
+        K8S_FULL_VERSION="1.11.6"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri,FileExisting-crictl,SystemVerification"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,FileExisting-crictl,SystemVerification"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
         ;;
     "1.12")
         KUBERNETES_CNI_VERSION="0.6.0"
-        K8S_FULL_VERSION="1.12.3"
+        K8S_FULL_VERSION="1.12.4"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri,SystemVerification"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
@@ -176,7 +176,7 @@ case $K8S_VERSION in
         ;;
     "1.13")
         KUBERNETES_CNI_VERSION="0.6.0"
-        K8S_FULL_VERSION="1.13.0"
+        K8S_FULL_VERSION="1.13.1"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
