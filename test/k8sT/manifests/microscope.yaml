@@ -65,6 +65,7 @@ metadata:
     k8s-app: microscope
 spec:
   serviceAccountName: microscope
+  terminationGracePeriodSeconds: 0
   containers:
   - args:
     - sleep
