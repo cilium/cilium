@@ -7,6 +7,7 @@ metadata:
     id: netperf-server
     zgroup: testapp
 spec:
+  terminationGracePeriodSeconds: 0
   containers:
   - name: netperf
     image: tgraf/netperf
@@ -19,6 +20,7 @@ metadata:
     id: netperf-client
     zgroup: testapp
 spec:
+  terminationGracePeriodSeconds: 0
   containers:
   - name: netperf
     image: tgraf/netperf

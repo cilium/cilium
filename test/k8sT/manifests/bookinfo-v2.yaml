@@ -41,6 +41,7 @@ spec:
         version: v1
         zgroup: bookinfo
     spec:
+      terminationGracePeriodSeconds: 0
       containers:
       - name: ratings
         image: docker.io/istio/examples-bookinfo-ratings-v1:1.6.0
@@ -64,6 +65,7 @@ spec:
         version: v2
         zgroup: bookinfo
     spec:
+      terminationGracePeriodSeconds: 0
       containers:
       - name: reviews
         image: docker.io/istio/examples-bookinfo-reviews-v2:1.6.0
