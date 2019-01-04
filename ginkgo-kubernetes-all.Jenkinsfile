@@ -66,8 +66,8 @@ pipeline {
                 timeout(time: 30, unit: 'MINUTES')
             }
             steps {
-                sh 'cd ${TESTDIR}; K8S_VERSION=1.8 vagrant up --no-provision'
                 sh 'cd ${TESTDIR}; K8S_VERSION=1.9 vagrant up --no-provision'
+                sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant up --no-provision'
             }
         }
         stage('BDD-Test-k8s-1.9-and-1.10') {
