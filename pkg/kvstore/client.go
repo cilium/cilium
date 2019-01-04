@@ -23,6 +23,9 @@ var (
 
 func initClient(module backendModule) error {
 	c, errChan := module.newClient()
+
+	defaultClient = c
+
 	go func() {
 		err, isErr := <-errChan
 		if isErr {
@@ -31,8 +34,6 @@ func initClient(module backendModule) error {
 
 		deleteLegacyPrefixes()
 	}()
-
-	defaultClient = c
 
 	return nil
 }
