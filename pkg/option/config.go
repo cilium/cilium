@@ -764,3 +764,126 @@ func (c *DaemonConfig) Validate() error {
 
 	return nil
 }
+
+// Populate sets all options with the values from viper
+func (c *DaemonConfig) Populate() {
+	c.AccessLog = viper.GetString(AccessLog)
+	c.AgentLabels = viper.GetStringSlice(AgentLabels)
+	c.AllowLocalhost = viper.GetString(AllowLocalhost)
+	c.AutoIPv6NodeRoutes = viper.GetBool(AutoIPv6NodeRoutesName)
+	c.BPFCompilationDebug = viper.GetBool(BPFCompileDebugName)
+	c.CTMapEntriesGlobalTCP = viper.GetInt(CTMapEntriesGlobalTCPName)
+	c.CTMapEntriesGlobalAny = viper.GetInt(CTMapEntriesGlobalAnyName)
+	c.BPFRoot = viper.GetString(BPFRoot)
+	c.CGroupRoot = viper.GetString(CGroupRoot)
+	c.ClusterID = viper.GetInt(ClusterIDName)
+	c.ClusterName = viper.GetString(ClusterName)
+	c.ClusterMeshConfig = viper.GetString(ClusterMeshConfigName)
+	c.ConntrackGarbageCollectorInterval = viper.GetInt(ConntrackGarbageCollectorInterval)
+	c.Debug = viper.GetBool(DebugArg)
+	c.DebugVerbose = viper.GetStringSlice(DebugVerbose)
+	c.Device = viper.GetString(Device)
+	c.DisableConntrack = viper.GetBool(DisableConntrack)
+	c.EnableIPv4 = getIPv4Enabled()
+	c.EnableIPv6 = viper.GetBool(EnableIPv6Name)
+	c.DevicePreFilter = viper.GetString(PrefilterDevice)
+	c.DisableCiliumEndpointCRD = viper.GetBool(DisableCiliumEndpointCRDName)
+	c.DisableK8sServices = viper.GetBool(DisableK8sServices)
+	c.DockerEndpoint = viper.GetString(Docker)
+	c.EnablePolicy = strings.ToLower(viper.GetString(EnablePolicy))
+	c.EnableTracing = viper.GetBool(EnableTracing)
+	c.EnvoyLogPath = viper.GetString(EnvoyLog)
+	c.HTTPIdleTimeout = viper.GetInt(HTTPIdleTimeout)
+	c.HTTPMaxGRPCTimeout = viper.GetInt(HTTPMaxGRPCTimeout)
+	c.HTTPRequestTimeout = viper.GetInt(HTTPRequestTimeout)
+	c.HTTPRetryCount = viper.GetInt(HTTPRetryCount)
+	c.HTTPRetryTimeout = viper.GetInt(HTTPRetryTimeout)
+	c.IPv4ClusterCIDRMaskSize = viper.GetInt(IPv4ClusterCIDRMaskSize)
+	c.IPv4Range = viper.GetString(IPv4Range)
+	c.IPv4NodeAddr = viper.GetString(IPv4NodeAddr)
+	c.IPv4ServiceRange = viper.GetString(IPv4ServiceRange)
+	c.IPv6ClusterAllocCIDR = viper.GetString(IPv6ClusterAllocCIDRName)
+	c.IPv6NodeAddr = viper.GetString(IPv6NodeAddr)
+	c.IPv6Range = viper.GetString(IPv6Range)
+	c.IPv6ServiceRange = viper.GetString(IPv6ServiceRange)
+	c.K8sAPIServer = viper.GetString(K8sAPIServer)
+	c.K8sKubeConfigPath = viper.GetString(K8sKubeConfigPath)
+	c.K8sRequireIPv4PodCIDR = viper.GetBool(K8sRequireIPv4PodCIDRName)
+	c.K8sRequireIPv6PodCIDR = viper.GetBool(K8sRequireIPv6PodCIDRName)
+	c.KeepTemplates = viper.GetBool(KeepBPFTemplates)
+	c.KeepConfig = viper.GetBool(KeepConfig)
+	c.KVStore = viper.GetString(KVStore)
+	c.LabelPrefixFile = viper.GetString(LabelPrefixFile)
+	c.Labels = viper.GetStringSlice(Labels)
+	c.LBInterface = viper.GetString(LB)
+	c.LibDir = viper.GetString(LibDir)
+	c.LogDriver = viper.GetStringSlice(LogDriver)
+	c.LogSystemLoadConfig = viper.GetBool(LogSystemLoadConfigName)
+	c.Logstash = viper.GetBool(Logstash)
+	c.Masquerade = viper.GetBool(Masquerade)
+	c.ModePreFilter = viper.GetString(PrefilterMode)
+	c.MonitorAggregation = viper.GetString(MonitorAggregationName)
+	c.MonitorQueueSize = viper.GetInt(MonitorQueueSizeName)
+	c.MTU = viper.GetInt(MTUName)
+	c.NAT46Range = viper.GetString(NAT46Range)
+	c.PProf = viper.GetBool(PProf)
+	c.PrependIptablesChains = viper.GetBool(PrependIptablesChainsName)
+	c.PrometheusServeAddr = getPrometheusServerAddr()
+	c.ProxyConnectTimeout = viper.GetInt(ProxyConnectTimeout)
+	c.RestoreState = viper.GetBool(Restore)
+	c.RunDir = viper.GetString(StateDir)
+	c.SidecarIstioProxyImage = viper.GetString(SidecarIstioProxyImage)
+	c.UseSingleClusterRoute = viper.GetBool(SingleClusterRouteName)
+	c.SocketPath = viper.GetString(SocketPath)
+	c.SockopsEnable = viper.GetBool(SockopsEnableName)
+	c.ToFQDNsEnablePoller = viper.GetBool(ToFQDNsEnablePoller)
+	c.ToFQDNsMinTTL = viper.GetInt(ToFQDNsMinTTL)
+	c.ToFQDNsProxyPort = viper.GetInt(ToFQDNsProxyPort)
+	c.TracePayloadlen = viper.GetInt(TracePayloadlen)
+	c.Tunnel = viper.GetString(TunnelName)
+	c.Version = viper.GetString(Version)
+	c.Workloads = viper.GetStringSlice(ContainerRuntime)
+
+	// Map options
+	if m := viper.GetStringMapString(ContainerRuntimeEndpoint); len(m) != 0 {
+		c.ContainerRuntimeEndpoint = m
+	}
+
+	if m := viper.GetStringMapString(FixedIdentityMapping); len(m) != 0 {
+		c.FixedIdentityMapping = m
+	}
+
+	if m := viper.GetStringMapString(KVStoreOpt); len(m) != 0 {
+		c.KVStoreOpt = m
+	}
+
+	if m := viper.GetStringMapString(LogOpt); len(m) != 0 {
+		c.LogOpt = m
+	}
+
+	// Hidden options
+	c.ConfigFile = viper.GetString(ConfigFile)
+	c.HTTP403Message = viper.GetString(HTTP403Message)
+	c.DisableEnvoyVersionCheck = viper.GetBool(DisableEnvoyVersionCheck)
+	c.K8sNamespace = viper.GetString(K8sNamespaceName)
+	c.K8sLegacyHostAllowsWorld = viper.GetString(K8sLegacyHostAllowsWorld)
+	c.MaxControllerInterval = viper.GetInt(MaxCtrlIntervalName)
+	c.SidecarHTTPProxy = viper.GetBool(SidecarHTTPProxy)
+	c.CMDRefDir = viper.GetString(CMDRef)
+}
+
+func getIPv4Enabled() bool {
+	if viper.GetBool(LegacyDisableIPv4Name) {
+		return false
+	}
+
+	return viper.GetBool(EnableIPv4Name)
+}
+
+func getPrometheusServerAddr() string {
+	promAddr := viper.GetString(PrometheusServeAddr)
+	if promAddr == "" {
+		return viper.GetString("prometheus-serve-addr-deprecated")
+	}
+	return promAddr
+}
