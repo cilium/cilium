@@ -180,3 +180,97 @@ In the above example, for one of the ``deathstar`` pods the endpoint id is 568. 
     $ cilium endpoint get 568 -o jsonpath='{range ..status.policy.realized.l4.egress[*].derived-from-rules}{@}{"\n"}{end}' | tr -d '][' | xargs -I{} bash -c 'echo "Labels: {}"; cilium policy get {}'
     $ cilium endpoint get 568 -o jsonpath='{range ..status.policy.realized.cidr-policy.ingress[*].derived-from-rules}{@}{"\n"}{end}' | tr -d '][' | xargs -I{} bash -c 'echo "Labels: {}"; cilium policy get {}'
     $ cilium endpoint get 568 -o jsonpath='{range ..status.policy.realized.cidr-policy.egress[*].derived-from-rules}{@}{"\n"}{end}' | tr -d '][' | xargs -I{} bash -c 'echo "Labels: {}"; cilium policy get {}'
+
+Troubleshooting ``toFQDNs`` rules
+=================================
+
+The effect of ``toFQDNs`` may change long after a policy is applied, as DNS
+data changes. This can make it difficult to debug unexpectedly blocked
+connections, or transient failures. Cilium amends the internal policy as it
+sees DNS IP information and this can be obtained with via ``cilium policy
+get``. In every rule with a ``toFQDNs`` a corresponding ``toCIDRSet`` rule is
+present with the derived IPs that Cilium will allow.
+
+.. code-block:: json
+
+        {
+          "toCIDRSet": [
+            {
+              "cidr": "104.198.14.52/32"
+            }
+          ],
+          "toFQDNs": [
+            {
+              "matchPattern": "cilium.io"
+            }
+          ]
+        }
+
+The per-Endpoint status from cilium includes the labels of the
+original rules that caused the ``toCIDRSet`` to be generated. This can be
+obtained with ``cilium endpoint get <endpoint ID>``, or ``kubectl get cep
+podname`` when running in kubernetes.
+
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. code-block:: yaml
+
+                cidr-policy:
+                  egress:
+                  - derived-from-rules:
+                    - - k8s:io.cilium.k8s.policy.name=rebel-escape
+                      - k8s:io.cilium.k8s.policy.uid=c96f66a8-135e-11e9-babd-080027d2d952
+                      - k8s:io.cilium.k8s.policy.namespace=default
+                      - k8s:io.cilium.k8s.policy.derived-from=CiliumNetworkPolicy
+                      - cilium-generated:ToFQDN-UUID=4cee1da1-1361-11e9-a6d4-080027d2d952
+                    rule: 104.198.14.52/32
+                  ingress: []
+
+     .. group-tab:: JSON
+
+        .. code-block:: json
+
+                "cidr-policy": {
+                  "egress": [
+                    {
+                      "derived-from-rules": [
+                        [
+                          "k8s:io.cilium.k8s.policy.name=rebel-escape",
+                          "k8s:io.cilium.k8s.policy.uid=c96f66a8-135e-11e9-babd-080027d2d952",
+                          "k8s:io.cilium.k8s.policy.namespace=default",
+                          "k8s:io.cilium.k8s.policy.derived-from=CiliumNetworkPolicy",
+                          "cilium-generated:ToFQDN-UUID=9a1d4006-1360-11e9-a6d4-080027d2d952"
+                        ]
+                      ],
+                      "rule": "104.198.14.52/32"
+                    }
+                  ],
+                  "ingress": []
+                },
+
+.. only:: epub or latex
+
+        .. code-block:: json
+
+                "cidr-policy": {
+                  "egress": [
+                    {
+                      "derived-from-rules": [
+                        [
+                          "k8s:io.cilium.k8s.policy.name=rebel-escape",
+                          "k8s:io.cilium.k8s.policy.uid=c96f66a8-135e-11e9-babd-080027d2d952",
+                          "k8s:io.cilium.k8s.policy.namespace=default",
+                          "k8s:io.cilium.k8s.policy.derived-from=CiliumNetworkPolicy",
+                          "cilium-generated:ToFQDN-UUID=9a1d4006-1360-11e9-a6d4-080027d2d952"
+                        ]
+                      ],
+                      "rule": "104.198.14.52/32"
+                    }
+                  ],
+                  "ingress": []
+                },
+
