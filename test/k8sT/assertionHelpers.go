@@ -38,6 +38,14 @@ func ExpectCiliumReady(vm *helpers.Kubectl) {
 	err := vm.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
 	ExpectWithOffset(1, err).Should(BeNil(), "cilium was not able to get into ready state")
 
+	// Check if the cilium-operator was deployed, not all versions of
+	// Cilium deploy it. If it was deployed, it must be ready.
+	res := vm.Exec(fmt.Sprintf("%s -n %s get deployment cilium-operator", helpers.KubectlCmd, helpers.KubeSystemNamespace))
+	if res.WasSuccessful() {
+		err := vm.WaitforPods(helpers.KubeSystemNamespace, "-l io.cilium/app=operator", 600)
+		ExpectWithOffset(1, err).Should(BeNil(), "cilium was not able to get into ready state")
+	}
+
 	err = vm.CiliumPreFlightCheck()
 	ExpectWithOffset(1, err).Should(BeNil(), "cilium pre-flight checks failed")
 }
