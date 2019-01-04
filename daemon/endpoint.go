@@ -213,6 +213,14 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 
 	ep.UpdateLabels(d, addLabels, infoLabels, true)
 
+	// Do not add endpoint to the endpoint manager if client abort connection
+	select {
+	case <-ctx.Done():
+		log.WithError(ctx.Err()).Warn("Aborting endpoint join due client connection closed")
+		return PutEndpointIDFailedCode, fmt.Errorf("aborting endpoint %d join due client connection closed", ep.ID)
+	default:
+	}
+
 	if err := endpointmanager.AddEndpoint(d, ep, "Create endpoint from API PUT"); err != nil {
 		log.WithError(err).Warn("Aborting endpoint join")
 		return PutEndpointIDFailedCode, err
