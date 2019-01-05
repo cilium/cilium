@@ -20,4 +20,5 @@ spec:
       - name: etcd-secrets
         secret:
           secretName: cilium-etcd-client-tls
+          optional: false
       dnsPolicy: ClusterFirstWithHostNet
