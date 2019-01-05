@@ -22,7 +22,6 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -196,7 +195,7 @@ func (t *Target) GetManifestName(spec *TestSpec) string {
 // GetManifestPath returns the manifest path for the target using the spec
 // parameter
 func (t *Target) GetManifestPath(spec *TestSpec) string {
-	return fmt.Sprintf("%s/%s", helpers.BasePath, t.GetManifestName(spec))
+	return helpers.SharedGuestPath(t.GetManifestName(spec))
 }
 
 // CreateApplyManifest creates the manifest for the type of the target and
@@ -247,7 +246,7 @@ func (t *Target) CreateApplyManifest(spec *TestSpec) error {
 		if err != nil {
 			return fmt.Errorf("cannot render template: %s", err)
 		}
-		err = helpers.RenderTemplateToFile(t.GetManifestName(spec), data.String(), os.ModePerm)
+		err = helpers.RenderTemplateToFile(helpers.SharedHostPath(t.GetManifestName(spec)), data.String(), os.ModePerm)
 		if err != nil {
 			return err
 		}
@@ -283,7 +282,7 @@ func (t *Target) CreateApplyManifest(spec *TestSpec) error {
 			return fmt.Errorf("cannot render template: %s", err)
 		}
 
-		err = helpers.RenderTemplateToFile(t.GetManifestName(spec), data.String(), os.ModePerm)
+		err = helpers.RenderTemplateToFile(helpers.SharedHostPath(t.GetManifestName(spec)), data.String(), os.ModePerm)
 		if err != nil {
 			return err
 		}
@@ -398,8 +397,8 @@ func (t *TestSpec) IsPolicyInvalid() bool {
 func (t *TestSpec) Destroy(delay time.Duration) error {
 	manifestToDestroy := []string{
 		t.GetManifestsPath(),
-		fmt.Sprintf("%s/%s", helpers.BasePath, t.NetworkPolicyName()),
-		fmt.Sprintf("%s", t.Destination.GetManifestPath(t)),
+		helpers.SharedGuestPath(t.NetworkPolicyName()),
+		t.Destination.GetManifestPath(t),
 	}
 
 	done := time.After(delay)
@@ -421,7 +420,7 @@ func (t *TestSpec) GetManifestName() string {
 
 // GetManifestsPath returns the `TestSpec` manifest path
 func (t *TestSpec) GetManifestsPath() string {
-	return fmt.Sprintf("%s/%s", helpers.BasePath, t.GetManifestName())
+	return helpers.SharedGuestPath(t.GetManifestName())
 }
 
 // CreateManifests creates a new pod manifest. It sets a random prefix for the
@@ -468,7 +467,7 @@ spec:
       - containerPort: 80`
 
 	err := helpers.RenderTemplateToFile(
-		t.GetManifestName(),
+		helpers.SharedHostPath(t.GetManifestName()),
 		fmt.Sprintf(manifest, t.Prefix, t.SrcPod, t.DestPod),
 		os.ModePerm)
 	if err != nil {
@@ -663,14 +662,14 @@ func (t *TestSpec) NetworkPolicyApply() error {
 		return nil
 	}
 
-	err = ioutil.WriteFile(t.NetworkPolicyName(), []byte(policy), os.ModePerm)
+	err = ioutil.WriteFile(helpers.SharedHostPath(t.NetworkPolicyName()), []byte(policy), os.ModePerm)
 	if err != nil {
 		return fmt.Errorf("Network policy cannot be written prefix=%s: %s", t.Prefix, err)
 	}
 
 	_, err = t.Kub.CiliumPolicyAction(
 		helpers.KubeSystemNamespace,
-		fmt.Sprintf("%s/%s", helpers.BasePath, t.NetworkPolicyName()),
+		helpers.SharedGuestPath(t.NetworkPolicyName()),
 		helpers.KubectlApply,
 		helpers.HelperTimeout)
 
@@ -690,12 +689,12 @@ func (t *TestSpec) InvalidNetworkPolicyApply() (*cnpv2.CiliumNetworkPolicy, erro
 		return nil, fmt.Errorf("Network policy cannot be created prefix=%s: %s", t.Prefix, err)
 	}
 
-	err = ioutil.WriteFile(t.NetworkPolicyName(), []byte(policy), os.ModePerm)
+	err = ioutil.WriteFile(helpers.SharedHostPath(t.NetworkPolicyName()), []byte(policy), os.ModePerm)
 	if err != nil {
 		return nil, fmt.Errorf("Network policy cannot be written prefix=%s: %s", t.Prefix, err)
 	}
 
-	res := t.Kub.Apply(filepath.Join(helpers.BasePath, t.NetworkPolicyName()))
+	res := t.Kub.Apply(helpers.SharedGuestPath(t.NetworkPolicyName()))
 	if !res.WasSuccessful() {
 		return nil, fmt.Errorf("%s", res.CombineOutput())
 	}

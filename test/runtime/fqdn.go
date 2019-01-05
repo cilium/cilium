@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 	"time"
 
@@ -191,12 +190,12 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		}
 
 		bindConfig := fmt.Sprintf(bindCiliumTestTemplate, getMapValues(worldIps)...)
-		err := helpers.RenderTemplateToFile(bindDBCilium, bindConfig, os.ModePerm)
+		err := helpers.RenderTemplateToFile(helpers.SharedHostPath(bindDBCilium), bindConfig, os.ModePerm)
 		Expect(err).To(BeNil(), "bind file can't be created")
 
 		// // Installed DNSSEC domain
 		bindConfig = fmt.Sprintf(bindDNSSECTestTemplate, getMapValues(worldIps)...)
-		err = helpers.RenderTemplateToFile(bindDBDNSSSEC, bindConfig, os.ModePerm)
+		err = helpers.RenderTemplateToFile(helpers.SharedHostPath(bindDBDNSSSEC), bindConfig, os.ModePerm)
 		Expect(err).To(BeNil(), "bind file can't be created")
 
 		for name, image := range ciliumOutsideImages {
@@ -208,16 +207,16 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 			outsideIps[name] = ip.String()
 		}
 		bindConfig = fmt.Sprintf(bindOutsideTestTemplate, getMapValues(outsideIps)...)
-		err = helpers.RenderTemplateToFile(bindDBOutside, bindConfig, os.ModePerm)
+		err = helpers.RenderTemplateToFile(helpers.SharedHostPath(bindDBOutside), bindConfig, os.ModePerm)
 		Expect(err).To(BeNil(), "bind file can't be created")
 
-		err = helpers.RenderTemplateToFile(bindNamedConf, bind9ZoneConfig, os.ModePerm)
+		err = helpers.RenderTemplateToFile(helpers.SharedHostPath(bindNamedConf), bind9ZoneConfig, os.ModePerm)
 		Expect(err).To(BeNil(), "Bind named.conf  local file can't be created")
 
 		vm.ExecWithSudo("mkdir -m777 -p /data")
 		for _, file := range generatedFiles {
 			vm.Exec(fmt.Sprintf("mv %s /data/%s",
-				filepath.Join(helpers.BasePath, file), file)).ExpectSuccess(
+				helpers.SharedGuestPath(file), file)).ExpectSuccess(
 				"Cannot copy %q to bind container", file)
 		}
 

@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -34,6 +35,14 @@ var (
 	// BasePath is the path in the Vagrant VMs to which the test directory
 	// is mounted
 	BasePath = "/home/vagrant/go/src/github.com/cilium/cilium/test"
+
+	// SharedDirectory is the directory name of the shared directory
+	SharedDirectory = "shared"
+
+	// GuestSharedDirectory is the directory inside of the VMs in which
+	// generated files are written to from the host
+	GuestSharedDirectory = filepath.Join(BasePath, SharedDirectory)
+
 	// CheckLogs newtes a new buffer where all the warnings and checks that
 	// happens during the test are saved. This buffer will be printed in the
 	// test output inside <checks> labels.
@@ -274,6 +283,18 @@ const (
 //GetFilePath returns the absolute path of the provided filename
 func GetFilePath(filename string) string {
 	return fmt.Sprintf("%s/%s", BasePath, filename)
+}
+
+// SharedGuestPath returns the absolute path of the provided filename as shared
+// into the guest VM
+func SharedGuestPath(filename string) string {
+	return filepath.Join(GuestSharedDirectory, filename)
+}
+
+// SharedHostPath returns the relative path to share a file via the shared
+// directory
+func SharedHostPath(filename string) string {
+	return filepath.Join(SharedDirectory, filename)
 }
 
 // K8s1VMName is the name of the Kubernetes master node when running K8s tests.

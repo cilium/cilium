@@ -591,14 +591,15 @@ func (s *SSHMeta) PolicyImport(path string) error {
 func (s *SSHMeta) PolicyRenderAndImport(policy string) (int, error) {
 	filename := fmt.Sprintf("policy_%s.json", MakeUID())
 	s.logger.Debugf("PolicyRenderAndImport: render policy to '%s'", filename)
-	err := RenderTemplateToFile(filename, policy, os.ModePerm)
+	sharedFile := SharedHostPath(filename)
+	err := RenderTemplateToFile(sharedFile, policy, os.ModePerm)
 	if err != nil {
 		s.logger.Errorf("PolicyRenderAndImport: cannot create policy file on '%s'", filename)
 		return 0, fmt.Errorf("cannot render the policy:  %s", err)
 	}
-	path := GetFilePath(filename)
+	path := SharedGuestPath(filename)
 	s.logger.Debugf("PolicyRenderAndImport: import policy from '%s'", path)
-	defer os.Remove(filename)
+	defer os.Remove(sharedFile)
 	return s.PolicyImportAndWait(path, HelperTimeout)
 }
 
@@ -899,13 +900,15 @@ INITSYSTEM=SYSTEMD`
 // SetUpCiliumWithOptions sets up Cilium as a systemd service with a given set of options. It
 // returns an error if any of the operations needed to start Cilium fail.
 func (s *SSHMeta) SetUpCiliumWithOptions(template string) error {
-	err := RenderTemplateToFile("cilium", template, os.ModePerm)
+	filename := "cilium"
+	sharedFile := SharedHostPath(filename)
+	err := RenderTemplateToFile(sharedFile, template, os.ModePerm)
 	if err != nil {
 		return err
 	}
-	defer os.Remove("cilium")
+	defer os.Remove(sharedFile)
 
-	res := s.Exec("sudo cp /vagrant/cilium /etc/sysconfig/cilium")
+	res := s.Exec(fmt.Sprintf("sudo cp %s /etc/sysconfig/cilium", SharedGuestPath(filename)))
 	if !res.WasSuccessful() {
 		return fmt.Errorf("%s", res.CombineOutput())
 	}

@@ -1,0 +1,18 @@
+
+zone "cilium.test" {
+	type master;
+	file "/etc/bind/db.cilium.test";
+};
+
+zone "outside.test" {
+	type master;
+	file "/etc/bind/db.outside.test";
+};
+
+zone "dnssec.test" {
+	type master;
+	file "/etc/bind/db.dnssec.test";
+	auto-dnssec maintain;
+	inline-signing yes;
+	key-directory "/etc/bind/keys";
+};

@@ -6,7 +6,6 @@ $BUILD_NUMBER = ENV['BUILD_NUMBER'] || "0"
 $JOB_NAME = ENV['JOB_BASE_NAME'] || "LOCAL"
 $K8S_VERSION = ENV['K8S_VERSION'] || "1.13"
 $K8S_NODES = (ENV['K8S_NODES'] || "2").to_i
-$NFS = ENV['NFS']=="1"? true : false
 $SERVER_BOX = (ENV['SERVER_BOX'] || "cilium/ubuntu-dev")
 $SERVER_VERSION= "126"
 $NETNEXT_SERVER_BOX= "cilium/ubuntu-next"
@@ -40,10 +39,15 @@ Vagrant.configure("2") do |config|
         server.vm.boot_timeout = 600
         server.vm.hostname = "runtime"
 
-        # This network is only used by NFS
         server.vm.network "private_network", type: "dhcp"
-        server.vm.synced_folder "../", "/home/vagrant/go/src/github.com/cilium/cilium",
-            nfs: $NFS
+
+        # Sync main repository once for fast file system access
+        server.vm.synced_folder "../", "/home/vagrant/go/src/github.com/cilium/cilium", type: "rsync",
+            rsync__args: ["--verbose", "--archive", "--delete", "-z"]
+
+        # Continously shared directory for generated files and log files
+        server.vm.synced_folder "shared", "/home/vagrant/go/src/github.com/cilium/cilium/test/shared"
+        server.vm.synced_folder '.', '/vagrant', disabled: true
 
         # Provision section
         server.vm.provision :shell,
@@ -78,10 +82,16 @@ Vagrant.configure("2") do |config|
                 run: "always",
                 inline: "ip -6 a a fd04::1#{i}/96 dev enp0s8 || true"
 
-            # This network is only used by NFS
             server.vm.network "private_network", type: "dhcp"
-            server.vm.synced_folder "../", "/home/vagrant/go/src/github.com/cilium/cilium",
-                nfs: $NFS
+
+            # Sync main repository once for fast file system access
+            server.vm.synced_folder "../", "/home/vagrant/go/src/github.com/cilium/cilium", type: "rsync",
+                rsync__args: ["--verbose", "--archive", "--delete", "-z"]
+
+            # Continously shared directory for generated files and log files
+            server.vm.synced_folder "shared", "/home/vagrant/go/src/github.com/cilium/cilium/test/shared"
+            server.vm.synced_folder '.', '/vagrant', disabled: true
+
             # Provision section
             server.vm.provision :shell,
                 :inline => "sed -i 's/^mesg n$/tty -s \\&\\& mesg n/g' /root/.profile"

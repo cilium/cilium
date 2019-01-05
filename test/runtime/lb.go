@@ -505,13 +505,13 @@ tc filter add dev lbtest2 ingress bpf da obj tmp_lb.o sec from-netdev
 	By("Creating LB device to handle service requests")
 	scriptName := "create_veth_interface"
 	log.Infof("generating veth script: %s", scriptName)
-	err := helpers.RenderTemplateToFile(scriptName, script, os.ModePerm)
+	sharedFile := helpers.SharedHostPath(scriptName)
+	err := helpers.RenderTemplateToFile(sharedFile, script, os.ModePerm)
 	if err != nil {
 		return err
 	}
 
-	// filesystem is mounted at path /vagrant on VM
-	scriptPath := fmt.Sprintf("%s/%s", helpers.BasePath, scriptName)
+	scriptPath := helpers.SharedGuestPath(scriptName)
 
 	ipAddrCmd := "sudo ip addr add fd02:1:1:1:1:1:1:1 dev cilium_host"
 	res := node.Exec(ipAddrCmd)
@@ -521,8 +521,8 @@ tc filter add dev lbtest2 ingress bpf da obj tmp_lb.o sec from-netdev
 	runScriptCmd := fmt.Sprintf("sudo %s", scriptPath)
 	res = node.Exec(runScriptCmd)
 	log.Infof("output of %q: %s", runScriptCmd, res.CombineOutput())
-	log.Infof("removing file %q", scriptName)
-	err = os.Remove(scriptName)
+	log.Infof("removing file %q", sharedFile)
+	err = os.Remove(sharedFile)
 	return err
 }
 

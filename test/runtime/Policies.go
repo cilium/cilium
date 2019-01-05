@@ -1715,13 +1715,12 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 	It("Invalid Policies", func() {
 
 		testInvalidPolicy := func(data string) {
-			err := helpers.RenderTemplateToFile(invalidJSON, data, 0777)
+			err := helpers.RenderTemplateToFile(helpers.SharedHostPath(invalidJSON), data, 0777)
 			Expect(err).Should(BeNil())
 
-			path := helpers.GetFilePath(invalidJSON)
-			_, err = vm.PolicyImportAndWait(path, helpers.HelperTimeout)
+			_, err = vm.PolicyImportAndWait(helpers.SharedGuestPath(invalidJSON), helpers.HelperTimeout)
 			Expect(err).Should(HaveOccurred())
-			defer os.Remove(invalidJSON)
+			defer os.Remove(helpers.SharedHostPath(invalidJSON))
 		}
 		By("Invalid Json")
 
@@ -1778,17 +1777,16 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 		)
 
 		BeforeEach(func() {
-			err := helpers.RenderTemplateToFile(policyJSON, policy, 0777)
+			err := helpers.RenderTemplateToFile(helpers.SharedHostPath(policyJSON), policy, 0777)
 			Expect(err).Should(BeNil())
 
-			path := helpers.GetFilePath(policyJSON)
-			_, err = vm.PolicyImportAndWait(path, helpers.HelperTimeout)
+			_, err = vm.PolicyImportAndWait(helpers.SharedGuestPath(policyJSON), helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
 		})
 
 		AfterEach(func() {
 			_ = vm.PolicyDelAll()
-			_ = os.Remove(policyJSON)
+			_ = os.Remove(helpers.SharedHostPath(policyJSON))
 		})
 
 		It("Tests getting policy by labels", func() {

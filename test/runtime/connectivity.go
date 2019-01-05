@@ -232,11 +232,11 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 			filename := "05-cilium-cni.conf"
 			cniConf := `{"name": "cilium",
 				"type": "cilium-cni"}`
-			err := helpers.RenderTemplateToFile(filename, cniConf, os.ModePerm)
+			err := helpers.RenderTemplateToFile(helpers.SharedHostPath(filename), cniConf, os.ModePerm)
 			Expect(err).To(BeNil())
 
 			cmd := vm.ExecWithSudo(fmt.Sprintf("mv %s %s",
-				helpers.GetFilePath(filename),
+				helpers.SharedGuestPath(filename),
 				filepath.Join(netDPath, filename)))
 			cmd.ExpectSuccess("cannot install cilium cni plugin conf")
 			script := fmt.Sprintf(`
@@ -260,10 +260,10 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 					]
 					}]
 				}]`
-			err = helpers.RenderTemplateToFile(policyFileName, policy, os.ModePerm)
+			err = helpers.RenderTemplateToFile(helpers.SharedHostPath(policyFileName), policy, os.ModePerm)
 			Expect(err).Should(BeNil())
-			_, err = vm.PolicyImportAndWait(helpers.GetFilePath(policyFileName), helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), fmt.Sprintf("Cannot import policy %s", policyFileName))
+			_, err = vm.PolicyImportAndWait(helpers.SharedGuestPath(policyFileName), helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), fmt.Sprintf("Cannot import policy %s", helpers.SharedGuestPath(policyFileName)))
 
 			By("Adding containers")
 
