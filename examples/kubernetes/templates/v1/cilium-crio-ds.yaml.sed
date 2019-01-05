@@ -228,6 +228,7 @@ spec:
             optional: true
             secretName: cilium-clustermesh
       restartPolicy: Always
+      terminationGracePeriodSeconds: 1
       tolerations:
         - effect: NoSchedule
           key: node.kubernetes.io/not-ready

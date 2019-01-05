@@ -221,6 +221,7 @@ spec:
             secretName: cilium-clustermesh
       restartPolicy: Always
       priorityClassName: system-node-critical
+      terminationGracePeriodSeconds: 1
       tolerations:
         - effect: NoSchedule
           key: node.kubernetes.io/not-ready
