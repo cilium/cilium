@@ -1116,7 +1116,7 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 		return nil, nil, err
 	}
 
-	err = d.bootstrapFQDN()
+	err = d.bootstrapFQDN(restoredEndpoints)
 	if err != nil {
 		return nil, restoredEndpoints, err
 	}
@@ -1376,9 +1376,10 @@ func (d *Daemon) GetNodeSuffix() string {
 // dnsRuleGen and DNSPoller will use the default resolver and, implicitly, the
 // default DNS cache. The proxy binds to all interfaces, and uses the
 // configured DNS proxy port (this may be 0 and so OS-assigned).
-func (d *Daemon) bootstrapFQDN() (err error) {
+func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err error) {
 	cfg := fqdn.Config{
 		MinTTL:         toFQDNsMinTTL,
+		Cache:          fqdn.DefaultDNSCache,
 		LookupDNSNames: fqdn.DNSLookupDefaultResolver,
 		AddGeneratedRules: func(generatedRules []*policyApi.Rule) error {
 			// Insert the new rules into the policy repository. We need them to
@@ -1391,6 +1392,17 @@ func (d *Daemon) bootstrapFQDN() (err error) {
 	d.dnsPoller = fqdn.NewDNSPoller(cfg, d.dnsRuleGen)
 	if enableDNSPoller {
 		fqdn.StartDNSPoller(d.dnsPoller)
+	}
+
+	// Prefill the cache with DNS lookups from restored endpoints. This is needed
+	// to maintain continuity of which IPs are allowed.
+	// Note: This is TTL aware, and expired data will not be used (e.g. when
+	// restoring after a long delay).
+	for _, restoredEP := range restoredEndpoints.restored {
+		// Upgrades from old ciliums have this nil
+		if restoredEP.DNSHistory != nil {
+			fqdn.DefaultDNSCache.UpdateFromCache(restoredEP.DNSHistory)
+		}
 	}
 
 	// Once we stop returning errors from StartDNSProxy this should live in
@@ -1504,6 +1516,17 @@ func (d *Daemon) bootstrapFQDN() (err error) {
 			record.Log()
 
 			if msg.Response && msg.Rcode == dns.RcodeSuccess {
+				// This must happen before the ruleGen update below, to ensure that
+				// this data is included in the serialized Endpoint object.
+				// Note: We need to fixup minTTL to be consistent with how we insert it
+				// elsewhere i.e. we don't want to lose the lower bound for DNS data
+				// TTL if we reboot twice.
+				log.WithField(logfields.EndpointID, ep.ID).Debug("Recording DNS lookup in endpoint specific cache")
+				effectiveTTL := int(TTL)
+				if effectiveTTL < toFQDNsMinTTL {
+					effectiveTTL = toFQDNsMinTTL
+				}
+				ep.DNSHistory.Update(lookupTime, qname, responseIPs, effectiveTTL)
 				log.Debug("Updating DNS name in cache from response to to query")
 				if err := d.dnsRuleGen.UpdateGenerateDNS(lookupTime, map[string]*fqdn.DNSIPRecords{qname: {IPs: responseIPs, TTL: int(TTL)}}); err != nil {
 					log.WithError(err).Error("error updating internal DNS cache for rule generation")
