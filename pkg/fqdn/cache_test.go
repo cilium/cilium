@@ -17,6 +17,7 @@
 package fqdn
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"net"
@@ -153,6 +154,57 @@ func (ds *DNSCacheTestSuite) TestReverseUpdateLookup(c *C) {
 	c.Assert(len(lookupNames), Equals, 0, Commentf("Returned names for IP not in cache"))
 }
 
+func (ds *DNSCacheTestSuite) TestJSONMarshal(c *C) {
+	names := map[string]net.IP{
+		"test1.com": net.ParseIP("2.2.2.1"),
+		"test2.com": net.ParseIP("2.2.2.2"),
+		"test3.com": net.ParseIP("2.2.2.3")}
+	sharedIP := net.ParseIP("1.1.1.1")
+	now := time.Now()
+	cache := NewDNSCache()
+
+	// insert 3 records with 1 shared IP and 3 with different IPs
+	cache.Update(now, "test1.com", []net.IP{sharedIP}, 5)
+	cache.Update(now, "test2.com", []net.IP{sharedIP}, 5)
+	cache.Update(now, "test3.com", []net.IP{sharedIP}, 5)
+	cache.Update(now, "test1.com", []net.IP{names["test1.com"]}, 5)
+	cache.Update(now, "test2.com", []net.IP{names["test2.com"]}, 5)
+	cache.Update(now, "test3.com", []net.IP{names["test3.com"]}, 5)
+
+	// Marshal and unmarshal
+	data, err := cache.MarshalJSON()
+	c.Assert(err, IsNil)
+
+	newCache := NewDNSCache()
+	err = newCache.UnmarshalJSON(data)
+	c.Assert(err, IsNil)
+
+	// Marshalled data should have no duplicate entries Note: this is tightly
+	// coupled with the implementation of DNSCache.MarshalJSON because the
+	// unmarshalled instance will hide duplicates. We simply check the length
+	// since we control the inserted data, and we test its correctness below.
+	rawList := make([]*cacheEntry, 0)
+	err = json.Unmarshal(data, &rawList)
+	c.Assert(err, IsNil)
+	c.Assert(len(rawList), Equals, 6)
+
+	// Check that the unmarshalled instance contains all the data at now
+	currentTime := now
+	for name := range names {
+		IPs := cache.lookupByTime(currentTime, name)
+		c.Assert(len(IPs), Equals, 2, Commentf("Incorrect number of IPs returned for %s", name))
+		c.Assert(IPs[0].String(), Equals, sharedIP.String(), Commentf("Returned an IP that doesn't match %s", name))
+		c.Assert(IPs[1].String(), Equals, names[name].String(), Commentf("Returned an IP name that doesn't match %s", name))
+	}
+
+	// Check that the unmarshalled data expires correctly
+	currentTime = now.Add(10 * time.Second)
+	for name := range names {
+		IPs := cache.lookupByTime(currentTime, name)
+		c.Assert(len(IPs), Equals, 0, Commentf("Returned IPs that should be expired for %s", name))
+	}
+}
+
 /* Benchmarks
  * These are here to help gauge the relative costs of operations in DNSCache.
  * Note: some are on arrays `size` elements, so the benchmark "op time" is too
@@ -277,5 +329,80 @@ func (ds *DNSCacheTestSuite) BenchmarkParseIP(c *C) {
 		for _, ipStr := range ips {
 			_ = net.ParseIP(ipStr)
 		}
+	}
+}
+
+// JSON Marshal/Unmarshal benchmarks
+var numIPsPerEntry = 10 // number of IPs to generate in each entry
+
+func (ds *DNSCacheTestSuite) BenchmarkMarshalJSON10(c *C)    { benchmarkMarshalJSON(c, 10) }
+func (ds *DNSCacheTestSuite) BenchmarkMarshalJSON100(c *C)   { benchmarkMarshalJSON(c, 100) }
+func (ds *DNSCacheTestSuite) BenchmarkMarshalJSON1000(c *C)  { benchmarkMarshalJSON(c, 1000) }
+func (ds *DNSCacheTestSuite) BenchmarkMarshalJSON10000(c *C) { benchmarkMarshalJSON(c, 10000) }
+
+func (ds *DNSCacheTestSuite) BenchmarkUnmarshalJSON10(c *C)    { benchmarkUnmarshalJSON(c, 10) }
+func (ds *DNSCacheTestSuite) BenchmarkUnmarshalJSON100(c *C)   { benchmarkUnmarshalJSON(c, 100) }
+func (ds *DNSCacheTestSuite) BenchmarkUnmarshalJSON1000(c *C)  { benchmarkUnmarshalJSON(c, 1000) }
+func (ds *DNSCacheTestSuite) BenchmarkUnmarshalJSON10000(c *C) { benchmarkUnmarshalJSON(c, 10000) }
+
+// BenchmarkMarshalJSON100Repeat2 tests whether repeating the whole
+// serialization is notably slower than a single run.
+func (ds *DNSCacheTestSuite) BenchmarkMarshalJSON100Repeat2(c *C) {
+	benchmarkMarshalJSON(c, 50)
+	benchmarkMarshalJSON(c, 50)
+}
+
+func (ds *DNSCacheTestSuite) BenchmarkMarshalJSON1000Repeat2(c *C) {
+	benchmarkMarshalJSON(c, 500)
+	benchmarkMarshalJSON(c, 500)
+}
+
+// benchmarkMarshalJSON benchmarks the cost of creating a json representation
+// of DNSCache. Each benchmark "op" is on numDNSEntries.
+// Note: It assumes the JSON only uses data in DNSCache.forward when generating
+// the data. Changes to the implementation need to also change this benchmark.
+func benchmarkMarshalJSON(c *C, numDNSEntries int) {
+	c.StopTimer()
+	ips := makeIPs(uint32(numIPsPerEntry))
+
+	cache := NewDNSCache()
+	for i := 0; i < numDNSEntries; i++ {
+		// TTL needs to be far enough in the future that the entry is serialized
+		cache.Update(time.Now(), fmt.Sprintf("domain-%v.com", i), ips, 86400)
+	}
+	c.StartTimer()
+
+	for i := 0; i < c.N; i++ {
+		_, err := cache.MarshalJSON()
+		c.Assert(err, IsNil)
+	}
+}
+
+// benchmarkUnmarshalJSON benchmarks the cost of parsing a json representation
+// of DNSCache. Each benchmark "op" is on numDNSEntries.
+// Note: It assumes the JSON only uses data in DNSCache.forward when generating
+// the data. Changes to the implementation need to also change this benchmark.
+func benchmarkUnmarshalJSON(c *C, numDNSEntries int) {
+	c.StopTimer()
+	ips := makeIPs(uint32(numIPsPerEntry))
+
+	cache := NewDNSCache()
+	for i := 0; i < numDNSEntries; i++ {
+		// TTL needs to be far enough in the future that the entry is serialized
+		cache.Update(time.Now(), fmt.Sprintf("domain-%v.com", i), ips, 86400)
+	}
+
+	data, err := cache.MarshalJSON()
+	c.Assert(err, IsNil)
+
+	emptyCaches := make([]*DNSCache, c.N)
+	for i := 0; i < c.N; i++ {
+		emptyCaches[i] = NewDNSCache()
+	}
+	c.StartTimer()
+
+	for i := 0; i < c.N; i++ {
+		err := emptyCaches[i].UnmarshalJSON(data)
+		c.Assert(err, IsNil)
 	}
 }
