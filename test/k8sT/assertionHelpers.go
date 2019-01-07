@@ -61,13 +61,12 @@ func ExpectCEPUpdates(vm *helpers.Kubectl) {
 func ExpectETCDOperatorReady(vm *helpers.Kubectl) {
 	// Etcd operator creates 5 nodes (1 cilium-etcd-operator + 1 etcd-operator + 3 etcd nodes),
 	// the new pods are added when the previous is ready,
-	// At a minimum, we need to wait for 3 pods:
-	//  - cilium-etcd-operator
-	//  - etcd-operator
-	//  - 1st etcd node
+	// so we need to wait until 5 pods are in ready state.
+	// This is to avoid cases where a few pods are ready, but the
+	// new one is not created yet.
 	By("Waiting for all etcd-operator pods are ready")
 
-	err := vm.WaitforNPods(helpers.KubeSystemNamespace, "-l io.cilium/app=etcd-operator", 3, 600)
+	err := vm.WaitforNPods(helpers.KubeSystemNamespace, "-l io.cilium/app=etcd-operator", 5, 600)
 	warningMessage := ""
 	if err != nil {
 		res := vm.Exec(fmt.Sprintf(
