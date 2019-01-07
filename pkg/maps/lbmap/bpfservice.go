@@ -16,6 +16,7 @@ package lbmap
 
 import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 type serviceValueMap map[string]ServiceValue
@@ -27,6 +28,9 @@ type bpfBackend struct {
 }
 
 type bpfService struct {
+	// mutex protects access to all members of bpfService
+	mutex lock.RWMutex
+
 	// holes lists all backend indices that are currently filling in as
 	// hole
 	holes []int
@@ -55,6 +59,9 @@ func newBpfService(key ServiceKey) *bpfService {
 }
 
 func (b *bpfService) addBackend(backend ServiceValue) {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+
 	if len(b.holes) > 0 {
 		// Retrieve map index of next hole and remove it from the list
 		index := b.holes[0]
@@ -78,6 +85,9 @@ func (b *bpfService) addBackend(backend ServiceValue) {
 }
 
 func (b *bpfService) deleteBackend(backend ServiceValue) {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+
 	idToRemove := backend.String()
 	indicesToRemove := []int{}
 	duplicateCount := map[string]int{}
@@ -124,14 +134,17 @@ func (b *bpfService) deleteBackend(backend ServiceValue) {
 }
 
 func (b *bpfService) getBackends() []ServiceValue {
+	b.mutex.RLock()
 	backends := make([]ServiceValue, len(b.backendsByMapIndex))
 	for i := 1; i <= len(b.backendsByMapIndex); i++ {
 		backends[i-1] = b.backendsByMapIndex[i].bpfValue
 	}
+	b.mutex.RUnlock()
 	return backends
 }
 
 type lbmapCache struct {
+	mutex   lock.Mutex
 	entries map[string]*bpfService
 }
 
@@ -150,6 +163,9 @@ func createBackendsMap(backends []ServiceValue) serviceValueMap {
 }
 
 func (l *lbmapCache) restoreService(svc loadbalancer.LBSVC) error {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
 	frontendID := svc.FE.String()
 
 	serviceKey, serviceValues, err := LBSVC2ServiceKeynValue(svc)
@@ -182,6 +198,9 @@ func (l *lbmapCache) restoreService(svc loadbalancer.LBSVC) error {
 }
 
 func (l *lbmapCache) prepareUpdate(fe ServiceKey, backends []ServiceValue) *bpfService {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
 	frontendID := fe.String()
 
 	bpfSvc, ok := l.entries[frontendID]
@@ -215,5 +234,7 @@ func (l *lbmapCache) prepareUpdate(fe ServiceKey, backends []ServiceValue) *bpfS
 }
 
 func (l *lbmapCache) delete(fe ServiceKey) {
+	l.mutex.Lock()
 	delete(l.entries, fe.String())
+	l.mutex.Unlock()
 }
