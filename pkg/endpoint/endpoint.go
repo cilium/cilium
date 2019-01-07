@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/fqdn"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -189,6 +190,10 @@ type Endpoint struct {
 
 	// Status are the last n state transitions this endpoint went through
 	Status *EndpointStatus
+
+	// DNSHistory is the collection of still-valid DNS responses intercepted for
+	// this endpoint.
+	DNSHistory *fqdn.DNSCache
 
 	// state is the state the endpoint is in. See SetStateLocked()
 	state string
@@ -385,6 +390,7 @@ func NewEndpointWithState(ID uint16, state string) *Endpoint {
 		Options:       option.NewIntOptions(&EndpointMutableOptionLibrary),
 		OpLabels:      pkgLabels.NewOpLabels(),
 		Status:        NewEndpointStatus(),
+		DNSHistory:    fqdn.NewDNSCache(),
 		state:         state,
 		hasBPFProgram: make(chan struct{}, 0),
 	}
@@ -409,6 +415,7 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, 
 		K8sNamespace:     base.K8sNamespace,
 		IfIndex:          int(base.InterfaceIndex),
 		OpLabels:         pkgLabels.NewOpLabels(),
+		DNSHistory:       fqdn.NewDNSCache(),
 		state:            "",
 		Status:           NewEndpointStatus(),
 		hasBPFProgram:    make(chan struct{}, 0),
@@ -1153,7 +1160,7 @@ func ParseEndpoint(strEp string) (*Endpoint, error) {
 	if len(strEpSlice) != 2 {
 		return nil, fmt.Errorf("invalid format %q. Should contain a single ':'", strEp)
 	}
-	ep := Endpoint{OpLabels: pkgLabels.NewOpLabels()}
+	ep := Endpoint{OpLabels: pkgLabels.NewOpLabels(), DNSHistory: fqdn.NewDNSCache()}
 	if err := parseBase64ToEndpoint(strEpSlice[1], &ep); err != nil {
 		return nil, fmt.Errorf("failed to parse base64toendpoint: %s", err)
 	}
