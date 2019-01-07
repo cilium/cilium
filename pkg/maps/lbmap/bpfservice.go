@@ -74,7 +74,7 @@ func (b *bpfService) addBackend(backend ServiceValue) {
 		b.backendsByMapIndex[index].isHole = false
 	} else {
 		// No holes, we need to allocate a new backend slot
-		nextSlot := len(b.uniqueBackends) + 1
+		nextSlot := len(b.backendsByMapIndex) + 1
 		b.backendsByMapIndex[nextSlot] = &bpfBackend{
 			bpfValue: backend,
 			id:       backend.String(),
