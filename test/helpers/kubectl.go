@@ -1366,11 +1366,20 @@ func (kub *Kubectl) CiliumReport(namespace string, commands ...string) {
 		ginkgoext.GinkgoPrint("Skipped gathering logs (-cilium.skipLogs=true)\n")
 		return
 	}
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+		kub.DumpCiliumCommandOutput(namespace)
+		kub.GatherLogs()
+	}()
+
 	kub.CiliumCheckReport()
+
 	pods, err := kub.GetCiliumPods(namespace)
 	if err != nil {
 		kub.logger.WithError(err).Error("cannot retrieve cilium pods on ReportDump")
-		return
 	}
 	res := kub.Exec(fmt.Sprintf("%s get pods -o wide --all-namespaces", KubectlCmd))
 	ginkgoext.GinkgoPrint(res.GetDebugMessage())
@@ -1382,8 +1391,7 @@ func (kub *Kubectl) CiliumReport(namespace string, commands ...string) {
 		}
 	}
 
-	kub.DumpCiliumCommandOutput(namespace)
-	kub.GatherLogs()
+	wg.Wait()
 }
 
 // CiliumCheckReport prints a few checks on the Junit output to provide more
@@ -1425,12 +1433,21 @@ func (kub *Kubectl) CiliumCheckReport() {
 	for _, pod := range pods {
 		var prefix = ""
 		status := kub.CiliumExec(pod, "cilium status --all-controllers -o json")
-		result, _ := status.Filter(controllersFilter)
+		result, err := status.Filter(controllersFilter)
+		if err != nil {
+			kub.logger.WithError(err).Error("Cannot filter controller status output")
+			continue
+		}
 		var total = 0
 		var failed = 0
 		for name, data := range result.KVOutput() {
 			total++
-			status := strings.Split(data, "::")
+			status := strings.SplitN(data, "::", 2)
+			if len(status) != 2 {
+				// Just make sure that the the len of the output is 2 to not
+				// fail on index error in the following lines.
+				continue
+			}
 			if status[0] != "" {
 				failed++
 				prefix = "⚠️  "
