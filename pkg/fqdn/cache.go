@@ -15,10 +15,12 @@
 package fqdn
 
 import (
+	"encoding/json"
 	"net"
 	"regexp"
 	"sort"
 	"time"
+	"unsafe"
 
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
@@ -32,24 +34,25 @@ var DefaultDNSCache = NewDNSCache()
 // cacheEntry objects hold data passed in via DNSCache.Update, nominally
 // equating to a DNS lookup. They are internal to DNSCache and should not be
 // returned.
-// cacheEntry objects are immutable once created.
+// cacheEntry objects are immutable once created; the address of an instance is
+// a unique identifier.
 type cacheEntry struct {
 	// Name is a DNS name, it my be not fully qualified (e.g. myservice.namespace)
-	Name string
+	Name string `json:"name,omitempty"`
 
 	// LookupTime is when the data begins being valid
-	LookupTime time.Time
+	LookupTime time.Time `json:"lookuptime,omitempty"`
 
 	// ExpirationTime is a calcutated time when the DNS data stops being valid.
 	// It is simply LookupTime + TTL
-	ExpirationTime time.Time
+	ExpirationTime time.Time `json:"expirationtime,omitempty"`
 
 	// TTL represents the number of seconds past LookupTime that this data is
 	// valid.
-	TTL int
+	TTL int `json:"ttl,omitempty"`
 
 	// IPs are the IPs associated with Name for this cacheEntry.
-	IPs []net.IP
+	IPs []net.IP `json:"ips,omitempty"`
 }
 
 // isExpiredBy returns true if entry is no longer valid at pointInTime
@@ -138,15 +141,44 @@ func (c *DNSCache) Update(lookupTime time.Time, name string, ips []net.IP, ttl i
 	c.Lock()
 	defer c.Unlock()
 
-	entries, exists := c.forward[name]
+	c.updateWithEntry(entry)
+}
+
+// updateWithEntry implements the insertion of a cacheEntry. It is used by
+// DNSCache.Update and DNSCache.UpdateWithEntry.
+// This needs a write lock
+func (c *DNSCache) updateWithEntry(entry *cacheEntry) {
+	entries, exists := c.forward[entry.Name]
 	if !exists {
 		entries = make(map[string]*cacheEntry)
-		c.forward[name] = entries
+		c.forward[entry.Name] = entries
 	}
 	c.updateWithEntryIPs(entries, entry)
 	// When lookupTime is much earlier than time.Now(), we may not expire all
 	// entries that should be expired, leaving more work for .Lookup.
 	c.removeExpired(entries, time.Now())
+}
+
+// UpdateFromCache is a utility function that allows updating a DNSCache
+// instance with all the internal entries of another. Latest-Expiration still
+// applies, thus the merged outcome is consistent with adding the entries
+// individually.
+func (c *DNSCache) UpdateFromCache(update *DNSCache) {
+	if update == nil {
+		return
+	}
+
+	update.RLock()
+	defer update.RUnlock()
+
+	c.Lock()
+	defer c.Unlock()
+
+	for _, newEntries := range update.forward {
+		for _, newEntry := range newEntries {
+			c.updateWithEntry(newEntry)
+		}
+	}
 }
 
 // Lookup returns a set of unique IPs that are currently unexpired for name, if
@@ -277,4 +309,66 @@ func (c *DNSCache) removeReverse(ip string, entry *cacheEntry) {
 	if len(entries) == 0 {
 		delete(c.reverse, ip)
 	}
+}
+
+// MarshalJSON serialises the set of DNS lookup cacheEntries needed to
+// reconstruct this cache instance.
+// Note: Expiration times are honored and the reconstructed cache instance is
+// expected to return the same values as the original at that point in time.
+func (c *DNSCache) MarshalJSON() ([]byte, error) {
+	c.RLock()
+	defer c.RUnlock()
+
+	now := time.Now()
+
+	// Collect all the still-valid entries
+	lookups := make([]*cacheEntry, 0, len(c.forward))
+	for _, entries := range c.forward {
+		for _, entry := range entries {
+			if !entry.isExpiredBy(now) {
+				lookups = append(lookups, entry)
+			}
+		}
+	}
+
+	// Dedup the entries. They are created once and are immutable so the address
+	// is a unique identifier.
+	// We iterate through the list, keeping unique pointers. This is correct
+	// because the list is sorted and, if two consecutive entries are the same,
+	// it is safe to overwrite the second duplicate.
+	sort.Slice(lookups, func(i, j int) bool {
+		return uintptr(unsafe.Pointer(lookups[i])) < uintptr(unsafe.Pointer(lookups[j]))
+	})
+
+	deduped := lookups[:0] // len==0 but cap==cap(lookups)
+	for readIdx, lookup := range lookups {
+		if readIdx == 0 || deduped[len(deduped)-1] != lookups[readIdx] {
+			deduped = append(deduped, lookup)
+		}
+	}
+
+	// serialise into a JSON object array
+	return json.Marshal(deduped)
+}
+
+// UnmarshalJSON rebuilds a DNSCache from serialized JSON.
+// Note: This is destructive to any currect data. Use UpdateFromCache for bulk
+// updates.
+func (c *DNSCache) UnmarshalJSON(raw []byte) error {
+	lookups := make([]*cacheEntry, 0)
+	if err := json.Unmarshal(raw, &lookups); err != nil {
+		return err
+	}
+
+	c.Lock()
+	defer c.Unlock()
+
+	c.forward = make(map[string]ipEntries)
+	c.reverse = make(map[string]nameEntries)
+
+	for _, newLookup := range lookups {
+		c.updateWithEntry(newLookup)
+	}
+
+	return nil
 }
