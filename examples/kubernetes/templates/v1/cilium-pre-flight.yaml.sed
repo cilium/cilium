@@ -56,6 +56,7 @@ spec:
             periodSeconds: 5
       hostNetwork: true
       restartPolicy: Always
+      terminationGracePeriodSeconds: 1
       tolerations:
         - effect: NoSchedule
           key: node.kubernetes.io/not-ready
