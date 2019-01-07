@@ -136,8 +136,15 @@ func (b *bpfService) deleteBackend(backend ServiceValue) {
 func (b *bpfService) getBackends() []ServiceValue {
 	b.mutex.RLock()
 	backends := make([]ServiceValue, len(b.backendsByMapIndex))
+	dstIndex := 0
 	for i := 1; i <= len(b.backendsByMapIndex); i++ {
-		backends[i-1] = b.backendsByMapIndex[i].bpfValue
+		if b.backendsByMapIndex[i] == nil {
+			log.Errorf("BUG: hole found in backendsByMapIndex: %#v", b.backendsByMapIndex)
+			continue
+		}
+
+		backends[dstIndex] = b.backendsByMapIndex[i].bpfValue
+		dstIndex++
 	}
 	b.mutex.RUnlock()
 	return backends
