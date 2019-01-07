@@ -19,3 +19,4 @@ spec:
       - name: etcd-secrets
         secret:
           optional: false
+      dnsPolicy: ClusterFirstWithHostNet
