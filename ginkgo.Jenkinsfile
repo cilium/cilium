@@ -36,7 +36,7 @@ pipeline {
                 sh '/usr/local/bin/cleanup || true'
             }
         }
-        stage('Precheck') {
+        stage('Prechecks+unittesting') {
             options {
                 timeout(time: 20, unit: 'MINUTES')
             }
@@ -44,47 +44,19 @@ pipeline {
             environment {
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/"
             }
+
             steps {
                sh "cd ${TESTDIR}; make jenkins-precheck"
+               sh "cd ${TESTDIR}; make tests-ginkgo"
             }
+
             post {
                always {
                    sh "cd ${TESTDIR}; make clean-ginkgo-tests || true"
                }
             }
         }
-        // We run privileged tests in Jenkins to work around privilege
-        // limitations in the Travis environment that prevents running tests.
-        stage('PrivilegedUnitTesting') {
-            options {
-                timeout(time: 20, unit: 'MINUTES')
-            }
 
-            environment {
-                GOPATH="${WORKSPACE}"
-                TESTDIR="${WORKSPACE}/${PROJ_PATH}/"
-            }
-            steps {
-                sh "cd ${TESTDIR}; make tests-ginkgo"
-            }
-            post {
-                always {
-                    sh "cd ${TESTDIR}; make clean-ginkgo-tests || true"
-                }
-            }
-        }
-        stage('Boot VMs'){
-            options {
-                timeout(time: 30, unit: 'MINUTES')
-            }
-            environment {
-                TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
-            }
-            steps {
-                sh 'cd ${TESTDIR}; K8S_VERSION=1.8 vagrant up --no-provision'
-                sh 'cd ${TESTDIR}; K8S_VERSION=1.13 vagrant up --no-provision'
-            }
-        }
         stage('BDD-Test-PR') {
             environment {
                 GOPATH="${WORKSPACE}"
@@ -93,46 +65,62 @@ pipeline {
                 CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
             }
 
-            options {
-                timeout(time: 75, unit: 'MINUTES')
-            }
+            stages {
+                stage("Boot VMs") {
+                    steps {
+                        sh 'cd ${TESTDIR}; K8S_VERSION=1.8 vagrant up --no-provision'
+                        sh 'cd ${TESTDIR}; K8S_VERSION=1.13 vagrant up --no-provision'
+                    }
+                }
+                stage("Tests") {
+                    options {
+                        timeout(time: 75, unit: 'MINUTES')
+                    }
 
-            steps {
-                script {
-                    parallel(
-                        "Runtime":{
-                            sh 'cd ${TESTDIR}; vagrant provision runtime' 
-                            sh 'cd ${TESTDIR}; ginkgo --focus=" Runtime*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
-                        },
-                        "K8s-1.8":{
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.8 vagrant provision k8s1-1.8; K8S_VERSION=1.8 vagrant provision k8s2-1.8' 
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.8 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
-                        },
-                        "K8s-1.13":{
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.13 vagrant provision k8s1-1.13; K8S_VERSION=1.13 vagrant provision k8s2-1.13'
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.13 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
-                        },
-                        failFast: "${FAILFAST}".toBoolean()
-                    )
+                    steps{
+                        script {
+                            failfast "${FAILFAST}".toBoolean()
+                            parallel {
+                                stage("Runtime"){
+                                    steps {
+                                        sh 'cd ${TESTDIR}; vagrant provision runtime'
+                                        sh 'cd ${TESTDIR}; ginkgo --focus=" Runtime*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
+                                    }
+                                }
+                                stage("K8s-1.8"){
+                                    when{
+                                        not {
+                                            environment name: 'CNI_INTEGRATION', value: 'FLANNEL'
+                                        }
+                                    }
+                                    steps {
+                                        sh 'cd ${TESTDIR}; K8S_VERSION=1.8 vagrant provision k8s1-1.8; K8S_VERSION=1.8 vagrant provision k8s2-1.8'
+                                        sh 'cd ${TESTDIR}; K8S_VERSION=1.8 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
+                                    }
+                                }
+
+                                stage("K8s-1.13"){
+                                    steps {
+                                        sh 'cd ${TESTDIR}; K8S_VERSION=1.13 vagrant provision k8s1-1.13; K8S_VERSION=1.13 vagrant provision k8s2-1.13'
+                                        sh 'cd ${TESTDIR}; K8S_VERSION=1.13 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    post {
+                        always {
+                            sh 'cd test/; ./post_build_agent.sh || true'
+                            sh 'cd test/; ./archive_test_results.sh || true'
+                            archiveArtifacts artifacts: '*.zip'
+                            junit testDataPublishers: [[$class: 'AttachmentPublisher']], testResults: 'test/*.xml'
+                            sh 'cd ${TESTDIR}/test/; K8S_VERSION=1.8 vagrant destroy -f || true'
+                            sh 'cd ${TESTDIR}/test/; K8S_VERSION=1.13 vagrant destroy -f || true'
+                        }
+                    }
                 }
             }
-            post {
-                always {
-                    // Temporary workaround to test cleanup
-                    // rm -rf ${GOPATH}/src/github.com/cilium/cilium
-                    sh 'cd test/; ./post_build_agent.sh || true'
-                    sh 'cd test/; ./archive_test_results.sh || true'
-                    archiveArtifacts artifacts: '*.zip'
-                    junit testDataPublishers: [[$class: 'AttachmentPublisher']], testResults: 'test/*.xml'
-                }
-            }
-        }
-    }
-    post {
-        always {
-            sh 'cd ${TESTDIR}/test/; K8S_VERSION=1.8 vagrant destroy -f || true'
-            sh 'cd ${TESTDIR}/test/; K8S_VERSION=1.13 vagrant destroy -f || true'
-            cleanWs()
         }
     }
 }
