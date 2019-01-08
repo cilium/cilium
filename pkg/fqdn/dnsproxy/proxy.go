@@ -44,6 +44,19 @@ const (
 	// ProxyBindRetryInterval is how long to wait between attempts to bind to the
 	// proxy address:port
 	ProxyBindRetryInterval = ProxyBindTimeout / 5
+
+	// ProxyDenyWithNameError is the response code for Domain does not exists.
+	// It is only used when musl libc library is in place (Alpine Linux) due
+	// the queries include the search domain from resolv.conf
+	ProxyDenyWithNameError = dns.RcodeNameError
+
+	// ProxyDenyWithRefused is the response code for Domain refused. It is the
+	// default for denied DNS requests.
+	ProxyDenyWithRefused = dns.RcodeRefused
+)
+
+var (
+	rejectReply = dns.RcodeRefused
 )
 
 // DNSProxy is a L7 proxy for DNS traffic. It keeps a list of allowed DNS
@@ -431,12 +444,32 @@ func bindToAddr(address string, port uint16) (UDPConn *net.UDPConn, TCPListener 
 // sendRefused creates and sends a REFUSED response for request to w
 // The returned error is logged with scopedLog and is returned for convenience
 func sendRefused(scopedLog *logrus.Entry, w dns.ResponseWriter, request *dns.Msg) (err error) {
-	refused := new(dns.Msg)
-	refused.SetRcode(request, dns.RcodeRefused)
+	refused := getRejectReply(request)
 
 	if err = w.WriteMsg(refused); err != nil {
 		scopedLog.WithError(err).Error("Cannot send REFUSED response")
 		err = fmt.Errorf("cannot send REFUSED response: %s", err)
 	}
 	return err
+}
+
+// SetRejectReply sets the default reject reply on denied dns responses.
+func SetRejectReply(option int) {
+	switch option {
+	case ProxyDenyWithNameError:
+		rejectReply = option
+	case ProxyDenyWithRefused:
+		rejectReply = option
+	default:
+		log.Infof("DNS reject response '%d' is not valid, available options are [%d, %d]",
+			option, ProxyDenyWithRefused, ProxyDenyWithNameError)
+		return
+	}
+}
+
+// getRegectReply returns a DNS message with the correct response code.
+func getRejectReply(request *dns.Msg) *dns.Msg {
+	reply := new(dns.Msg)
+	reply.SetRcode(request, rejectReply)
+	return reply
 }
