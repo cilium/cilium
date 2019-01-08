@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Authors of Cilium
+// Copyright 2017-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,9 +31,9 @@ import (
 )
 
 var (
-	endpointTimeout  int64 = 60
-	timeout          int64 = 300
-	netcatDsManifest       = "netcat-ds.yaml"
+	endpointTimeout  = 1 * time.Minute
+	timeout          = 5 * time.Minute
+	netcatDsManifest = "netcat-ds.yaml"
 )
 
 var _ = Describe("NightlyEpsMeasurement", func() {
@@ -41,7 +41,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 	var kubectl *helpers.Kubectl
 
 	endpointCount := 45
-	endpointsTimeout := endpointTimeout * int64(endpointCount)
+	endpointsTimeout := endpointTimeout * time.Duration(endpointCount)
 	manifestPath := "tmp.yaml"
 	vagrantManifestPath := path.Join(helpers.BasePath, manifestPath)
 	var err error
@@ -51,7 +51,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 		ProvisionInfraPods(kubectl)
 	})
 	deleteAll := func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), helpers.HelperTimeout)
 		defer cancel()
 		kubectl.ExecInBackground(ctx, fmt.Sprintf(
 			"%s delete --all pods,svc,cnp -n %s --grace-period=0 --force",
@@ -59,7 +59,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 
 		select {
 		case <-ctx.Done():
-			logger.Error("DeleteAll: delete all pods,services failed after 300 seconds")
+			logger.Error("DeleteAll: delete all pods,services failed after %s", helpers.HelperTimeout)
 		}
 	}
 	AfterAll(func() {
@@ -148,7 +148,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 		pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, "zgroup=testapp")
 		Expect(err).To(BeNil(), "cannot retrieve pods names")
 
-		err = kubectl.WaitforPods(helpers.DefaultNamespace, "", 300)
+		err = kubectl.WaitforPods(helpers.DefaultNamespace, "", helpers.HelperTimeout)
 		Expect(err).Should(BeNil(), "Pods are not ready after timeout")
 
 		By("Testing if http requests to multiple endpoints do not timeout")
@@ -194,7 +194,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 
 				endpoints := b.Time("Runtime", func() {
 					testSpecGroup.CreateAndApplyManifests(kubectl)
-					err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l test=policygen", 600)
+					err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l test=policygen", longTimeout)
 					Expect(err).To(BeNil(), "Pods are not ready after timeout")
 				})
 
@@ -247,7 +247,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 			pipePath := "/tmp/nc_pipe.txt"
 			listeningString := "listening on [::]:8888"
 
-			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=netcatds", 600)
+			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=netcatds", helpers.HelperTimeout)
 			Expect(err).To(BeNil(), "Pods are not ready after timeout")
 
 			netcatPods, err := kubectl.GetPodNames(helpers.DefaultNamespace, "zgroup=netcatds")
@@ -404,7 +404,7 @@ var _ = Describe("NightlyExamples", func() {
 			By("Testing the example config")
 			kubectl.Apply(AppManifest).ExpectSuccess("cannot install the GRPC application")
 
-			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=grpcExample", 300)
+			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=grpcExample", helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Pods are not ready after timeout")
 
 			res := kubectl.ExecPodCmd(
@@ -425,7 +425,7 @@ var _ = Describe("NightlyExamples", func() {
 			By("Testing with L7 policy")
 			_, err = kubectl.CiliumPolicyAction(
 				helpers.KubeSystemNamespace, PolicyManifest,
-				helpers.KubectlApply, 300)
+				helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).To(BeNil(), "Cannot import GPRC policy")
 
 			res = kubectl.ExecPodCmd(

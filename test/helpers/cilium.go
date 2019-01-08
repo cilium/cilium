@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -518,7 +518,7 @@ func (s *SSHMeta) PolicyGetRevision() (int, error) {
 // PolicyImportAndWait validates and imports a new policy into Cilium and waits
 // until the policy revision number increments. Returns an error if the policy
 // is invalid or could not be imported.
-func (s *SSHMeta) PolicyImportAndWait(path string, timeout int64) (int, error) {
+func (s *SSHMeta) PolicyImportAndWait(path string, timeout time.Duration) (int, error) {
 	ginkgoext.By(fmt.Sprintf("Setting up policy: %s", path))
 
 	revision, err := s.PolicyGetRevision()
@@ -919,7 +919,7 @@ func (s *SSHMeta) SetUpCiliumWithOptions(template string) error {
 // WaitUntilReady waits until the output of `cilium status` returns with code
 // zero. Returns an error if the output of `cilium status` returns a nonzero
 // return code after the specified timeout duration has elapsed.
-func (s *SSHMeta) WaitUntilReady(timeout int64) error {
+func (s *SSHMeta) WaitUntilReady(timeout time.Duration) error {
 
 	body := func() bool {
 		res := s.ExecCilium("status")
@@ -939,7 +939,7 @@ func (s *SSHMeta) RestartCilium() error {
 	if !res.WasSuccessful() {
 		return fmt.Errorf("%s", res.CombineOutput())
 	}
-	if err := s.WaitUntilReady(100); err != nil {
+	if err := s.WaitUntilReady(CiliumStartTimeout); err != nil {
 		return err
 	}
 	if !s.WaitEndpointsReady() {

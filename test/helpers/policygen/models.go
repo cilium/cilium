@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -36,6 +36,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+var timeout = 10 * time.Minute
 
 // ConnTestSpec Connectivity Test Specification. This structs contains the
 // mapping of all protocols tested and the expected result based on the context
@@ -491,7 +493,7 @@ func (t *TestSpec) ApplyManifest() (string, error) {
 	err = t.Kub.WaitforPods(
 		helpers.DefaultNamespace,
 		fmt.Sprintf("-l zgroup=%s", t.Prefix),
-		600)
+		timeout)
 	if err != nil {
 		return "", err
 	}
