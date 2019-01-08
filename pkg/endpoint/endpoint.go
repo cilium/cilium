@@ -673,12 +673,10 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 
 	policyEnabled := e.policyStatus()
 
-	// Make a shallow copy of the stats.
 	e.proxyStatisticsMutex.RLock()
 	proxyStats := make([]*models.ProxyStatistics, 0, len(e.proxyStatistics))
 	for _, stats := range e.proxyStatistics {
-		statsCopy := *stats
-		proxyStats = append(proxyStats, &statsCopy)
+		proxyStats = append(proxyStats, stats.DeepCopy())
 	}
 	e.proxyStatisticsMutex.RUnlock()
 	sortProxyStats(proxyStats)

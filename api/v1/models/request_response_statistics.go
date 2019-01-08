@@ -14,7 +14,7 @@ import (
 
 // RequestResponseStatistics Statistics of a proxy redirect
 // swagger:model RequestResponseStatistics
-
+// +k8s:deepcopy-gen=true
 type RequestResponseStatistics struct {
 
 	// requests
