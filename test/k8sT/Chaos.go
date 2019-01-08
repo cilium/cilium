@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Authors of Cilium
+// Copyright 2017-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -56,7 +56,7 @@ var _ = Describe("K8sChaosTest", func() {
 			kubectl.Apply(demoDSPath).ExpectSuccess("DS deployment cannot be applied")
 
 			err := kubectl.WaitforPods(
-				helpers.DefaultNamespace, fmt.Sprintf("-l zgroup=testDS"), 300)
+				helpers.DefaultNamespace, fmt.Sprintf("-l zgroup=testDS"), helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Pods are not ready after timeout")
 		})
 
@@ -116,7 +116,7 @@ var _ = Describe("K8sChaosTest", func() {
 			By("Waiting for deployed pods to be ready")
 			err := kubectl.WaitforPods(
 				helpers.DefaultNamespace,
-				fmt.Sprintf("-l zgroup=testDSClient"), 300)
+				fmt.Sprintf("-l zgroup=testDSClient"), helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Pods are not ready after timeout")
 
 			err = kubectl.CiliumEndpointWaitReady()
@@ -181,7 +181,7 @@ var _ = Describe("K8sChaosTest", func() {
 
 			err := kubectl.WaitforPods(
 				helpers.DefaultNamespace,
-				fmt.Sprintf("-l zgroup=testapp"), 300)
+				fmt.Sprintf("-l zgroup=testapp"), helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Pods are not ready after timeout")
 
 			podsIps, err = kubectl.GetPodsIPs(helpers.DefaultNamespace, "zgroup=testapp")
@@ -213,7 +213,7 @@ var _ = Describe("K8sChaosTest", func() {
 
 			By("Waiting for cilium pods to be ready")
 			err := kubectl.WaitforPods(
-				helpers.KubeSystemNamespace, fmt.Sprintf("-l %s", ciliumFilter), 300)
+				helpers.KubeSystemNamespace, fmt.Sprintf("-l %s", ciliumFilter), helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Pods are not ready after timeout")
 
 			err = kubectl.CiliumEndpointWaitReady()
@@ -249,7 +249,7 @@ var _ = Describe("K8sChaosTest", func() {
 
 			By("Installing the L3-L4 Policy")
 			_, err := kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, netperfPolicy, helpers.KubectlApply, 300)
+				helpers.KubeSystemNamespace, netperfPolicy, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Cannot install %q policy", netperfPolicy)
 
 			restartCilium()
