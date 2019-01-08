@@ -166,6 +166,12 @@ const (
 	// MonitorQueueSizeName is the name of the option MonitorQueueSize
 	MonitorQueueSizeName    = "monitor-queue-size"
 	MonitorQueueSizeNameEnv = "CILIUM_MONITOR_QUEUE_SIZE"
+
+	//FQDNRejectResponseCode is the name for the option for dns-proxy reject response code
+	FQDNRejectResponseCode = "tofqdns-dns-response-code"
+
+	//FQDNRejectResponseCodeEnv is the env name for FQDNRejectResponseCode option
+	FQDNRejectResponseCodeEnv = "CILIUM_TOFQDNS_DNS_RESPONSE_CODE"
 )
 
 // Available option for daemonConfig.Tunnel
@@ -378,6 +384,9 @@ type daemonConfig struct {
 
 	// MonitorQueueSize is the size of the monitor event queue
 	MonitorQueueSize int
+
+	// FQDNRejectResponse is the dns-proxy response for invalid dns-proxy request
+	FQDNRejectResponse string
 }
 
 var (

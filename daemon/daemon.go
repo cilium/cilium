@@ -1394,6 +1394,7 @@ func (d *Daemon) bootstrapFQDN() (err error) {
 	if enableDNSPoller {
 		fqdn.StartDNSPoller(d.dnsPoller)
 	}
+	dnsproxy.SetRejectReply(option.Config.FQDNRejectResponse)
 
 	// Once we stop returning errors from StartDNSProxy this should live in
 	// StartProxySupport

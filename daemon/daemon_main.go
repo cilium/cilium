@@ -39,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
+	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -124,6 +125,7 @@ var (
 	validLabels           []string
 	toFQDNsMinTTL         int
 	enableDNSPoller       bool
+	rejectDNSResponseCode int
 
 	logOpts                = make(map[string]string)
 	kvStoreOpts            = make(map[string]string)
@@ -524,6 +526,8 @@ func init() {
 		"tofqdns-proxy-port", 0, "Global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.")
 	flags.BoolVar(&enableDNSPoller,
 		"tofqdns-enable-poller", false, "Enable proactive polling of DNS names in toFQDNs.matchName rules.")
+	flags.StringVar(&option.Config.FQDNRejectResponse, option.FQDNRejectResponseCode, dnsproxy.ProxyDenyWithRefused, fmt.Sprintf("DNS response code for rejecting DNS request, available options are '%v'", dnsproxy.RejectOptions))
+	viper.BindEnv(option.FQDNRejectResponseCode, option.FQDNRejectResponseCodeEnv)
 
 	viper.BindPFlags(flags)
 }
