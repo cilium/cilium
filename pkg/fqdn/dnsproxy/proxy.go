@@ -26,9 +26,10 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/regexpmap"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/miekg/dns"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -44,6 +45,10 @@ const (
 	// ProxyBindRetryInterval is how long to wait between attempts to bind to the
 	// proxy address:port
 	ProxyBindRetryInterval = ProxyBindTimeout / 5
+)
+
+var (
+	rejectReply = dns.RcodeRefused
 )
 
 // DNSProxy is a L7 proxy for DNS traffic. It keeps a list of allowed DNS
@@ -431,12 +436,32 @@ func bindToAddr(address string, port uint16) (UDPConn *net.UDPConn, TCPListener 
 // sendRefused creates and sends a REFUSED response for request to w
 // The returned error is logged with scopedLog and is returned for convenience
 func sendRefused(scopedLog *logrus.Entry, w dns.ResponseWriter, request *dns.Msg) (err error) {
-	refused := new(dns.Msg)
-	refused.SetRcode(request, dns.RcodeRefused)
+	refused := generateRejectReply(request)
 
 	if err = w.WriteMsg(refused); err != nil {
 		scopedLog.WithError(err).Error("Cannot send REFUSED response")
 		err = fmt.Errorf("cannot send REFUSED response: %s", err)
 	}
 	return err
+}
+
+// SetRejectReply sets the default reject reply on denied dns responses.
+func SetRejectReply(opt string) {
+	switch strings.ToLower(opt) {
+	case strings.ToLower(option.FQDNProxyDenyWithNameError):
+		rejectReply = dns.RcodeNameError
+	case strings.ToLower(option.FQDNProxyDenyWithRefused):
+		rejectReply = dns.RcodeRefused
+	default:
+		log.Infof("DNS reject response '%s' is not valid, available options are '%v'",
+			opt, option.FQDNRejectOptions)
+		return
+	}
+}
+
+// getRegectReply returns a DNS message with the correct response code.
+func generateRejectReply(request *dns.Msg) *dns.Msg {
+	reply := new(dns.Msg)
+	reply.SetRcode(request, rejectReply)
+	return reply
 }

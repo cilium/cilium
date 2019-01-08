@@ -90,6 +90,7 @@ cilium-agent [flags]
       --socket-path string                          Sets daemon's socket path to listen for connections (default "/var/run/cilium/cilium.sock")
       --sockops-enable                              Enable sockops when kernel supported
       --state-dir string                            Directory path to store runtime state (default "/var/run/cilium")
+      --tofqdns-dns-reject-response-code string     DNS response code for rejecting DNS requests, available options are '[nameError refused]' (default "refused")
       --tofqdns-enable-poller                       Enable proactive polling of DNS names in toFQDNs.matchName rules.
       --tofqdns-min-ttl int                         The minimum time, in seconds, to use DNS data for toFQDNs policies. (default 3600)
       --tofqdns-proxy-port int                      Global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.
