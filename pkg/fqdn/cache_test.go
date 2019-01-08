@@ -161,18 +161,21 @@ func (ds *DNSCacheTestSuite) TestReverseUpdateLookup(c *C) {
 
 var (
 	now         = time.Now()
-	size        = 1000 // size of array to operate on
+	size        = uint32(1000) // size of array to operate on
 	entriesOrig = makeEntries(now, 1+size/3, 1+size/3, 1+size/3)
-	ipsOrig     = func() []net.IP {
-		ips := make([]net.IP, 0, size)
-		for i := 0; i < size; i++ {
-			ips = append(ips, net.IPv4(byte(i>>24), byte(i>>16), byte(i>>8), byte(i>>0)))
-		}
-		return ips
-	}()
+	ipsOrig     = makeIPs(size)
 )
 
-func makeEntries(now time.Time, live, redundant, expired int) (entries []*cacheEntry) {
+// makeIPs generates count sequential IPv4 IPs
+func makeIPs(count uint32) []net.IP {
+	ips := make([]net.IP, 0, count)
+	for i := uint32(0); i < count; i++ {
+		ips = append(ips, net.IPv4(byte(i>>24), byte(i>>16), byte(i>>8), byte(i>>0)))
+	}
+	return ips
+}
+
+func makeEntries(now time.Time, live, redundant, expired uint32) (entries []*cacheEntry) {
 	liveTTL := 120
 	redundantTTL := 60
 
