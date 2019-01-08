@@ -198,6 +198,7 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, allAddresses, 
 	if sr.Kubernetes != nil {
 		fmt.Fprintf(w, "Kubernetes:\t%s\t%s\n", sr.Kubernetes.State, sr.Kubernetes.Msg)
 		if sr.Kubernetes.State != models.K8sStatusStateDisabled {
+			sort.Strings(sr.Kubernetes.K8sAPIVersions)
 			fmt.Fprintf(w, "Kubernetes APIs:\t[\"%s\"]\n", strings.Join(sr.Kubernetes.K8sAPIVersions, "\", \""))
 		}
 	}
