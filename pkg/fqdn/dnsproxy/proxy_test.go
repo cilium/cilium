@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/fqdn/regexpmap"
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/miekg/dns"
 	. "gopkg.in/check.v1"
@@ -147,12 +148,22 @@ func (s *DNSProxyTestSuite) TestRejectNonRegex(c *C) {
 	c.Assert(response.Rcode, Equals, dns.RcodeRefused, Commentf("DNS request from test client was not rejected when it should be blocked"))
 }
 
-func (s *DNSProxyTestSuite) TestRejectNonMatching(c *C) {
+func (s *DNSProxyTestSuite) TestRejectNonMatchingRefusedResponse(c *C) {
+	s.proxy.SetRejectReply(option.FQDNProxyDenyWithRefused)
 	request := new(dns.Msg)
 	request.SetQuestion("notcilium.io.", dns.TypeA)
 	response, _, err := s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
 	c.Assert(err, IsNil, Commentf("DNS request from test client returned error when it should be rejected"))
-	c.Assert(response.Rcode, Equals, dns.RcodeRefused, Commentf("DNS request from test client was not rejected when it should be blocked"))
+	c.Assert(response.Rcode, Equals, dns.RcodeRefused, Commentf("DNS request from test client was not rejected with the rigth response code"))
+}
+
+func (s *DNSProxyTestSuite) TestRejectNonMatchingNoDomainResponse(c *C) {
+	s.proxy.SetRejectReply(option.FQDNProxyDenyWithNameError)
+	request := new(dns.Msg)
+	request.SetQuestion("notcilium.io.", dns.TypeA)
+	response, _, err := s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
+	c.Assert(err, IsNil, Commentf("DNS request from test client returned error when it should be rejected"))
+	c.Assert(response.Rcode, Equals, dns.RcodeNameError, Commentf("DNS request from test client was not rejected with the rigth response code"))
 }
 
 func (s *DNSProxyTestSuite) TestRespondViaCorrectProtocol(c *C) {
@@ -218,4 +229,13 @@ func (s *DNSProxyTestSuite) TestCheckAllowedTwiceRemovedOnce(c *C) {
 	s.proxy.RemoveAllowed("cilium.io.", "endpoint1")
 	result = s.proxy.CheckAllowed("cilium.io.", "endpoint1")
 	c.Assert(result, Equals, false, Commentf("Should not allow requests matching duplicate rules from which both were deleted"))
+}
+
+func (s *DNSProxyTestSuite) TestSetRejectReplyNoValidData(c *C) {
+	s.proxy.SetRejectReply("banana")
+	request := new(dns.Msg)
+	request.SetQuestion("notcilium.io.", dns.TypeA)
+	response, _, err := s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
+	c.Assert(err, IsNil, Commentf("DNS request from test client returned error when it should be rejected"))
+	c.Assert(response.Rcode, Not(Equals), 100, Commentf("DNS request from test client has an invalid response code"))
 }

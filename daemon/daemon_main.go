@@ -602,6 +602,9 @@ func init() {
 	flags.Bool(option.ToFQDNsEnablePoller, false, "Enable proactive polling of DNS names in toFQDNs.matchName rules.")
 	option.BindEnv(option.ToFQDNsEnablePoller)
 
+	flags.StringVar(&option.Config.FQDNRejectResponse, option.FQDNRejectResponseCode, option.FQDNProxyDenyWithRefused, fmt.Sprintf("DNS response code for rejecting DNS requests, available options are '%v'", option.FQDNRejectOptions))
+	viper.BindEnv(option.FQDNRejectResponseCode, option.FQDNRejectResponseCodeEnv)
+
 	viper.BindPFlags(flags)
 }
 
