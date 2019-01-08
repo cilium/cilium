@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/fqdn"
@@ -318,12 +317,12 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		// increment it by 1 again. We can wait for two policy revisions to happen.
 		// Once we have an API to expose DNS->IP mappings we can also use that to
 		// ensure the lookup has completed more explicitly
-		timeout_s := int64(3 * fqdn.DNSPollerInterval / time.Second) // convert to seconds
+		timeout := 3 * fqdn.DNSPollerInterval
 		dnsWaitBody := func() bool {
 			return vm.PolicyWait(preImportPolicyRevision + 2).WasSuccessful()
 		}
 		err = helpers.WithTimeout(dnsWaitBody, "DNSPoller did not update IPs",
-			&helpers.TimeoutConfig{Ticker: 1, Timeout: timeout_s})
+			&helpers.TimeoutConfig{Ticker: 1, Timeout: timeout})
 		ExpectWithOffset(1, err).To(BeNil(), "Unable to update IPs")
 		ExpectWithOffset(1, vm.WaitEndpointsReady()).Should(BeTrue(),
 			"Endpoints are not ready after ToFQDNs DNS poll triggered a regenerate")

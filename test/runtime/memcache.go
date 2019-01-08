@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -138,7 +138,7 @@ var _ = Describe("RuntimeMemcache", func() {
 		})
 
 		It("Tests policy allowing all actions", func() {
-			_, err := vm.PolicyImportAndWait(vm.GetFullPath("Policies-memcache-allow.json"), 300)
+			_, err := vm.PolicyImportAndWait(vm.GetFullPath("Policies-memcache-allow.json"), helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Failed to import policy")
 
 			key := "test2"
@@ -161,7 +161,7 @@ var _ = Describe("RuntimeMemcache", func() {
 			r.ExpectSuccess("Unable to set key %q without policy loaded", keyBeforePolicy)
 
 			By("Importing policy disallowing set")
-			_, err := vm.PolicyImportAndWait(vm.GetFullPath("Policies-memcache-disallow-set.json"), 300)
+			_, err := vm.PolicyImportAndWait(vm.GetFullPath("Policies-memcache-disallow-set.json"), helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Failed to import policy")
 
 			By("Trying to set new key")
@@ -180,7 +180,7 @@ var _ = Describe("RuntimeMemcache", func() {
 
 		It("Tests policy allowing actions only for key", func() {
 			By("Importing key-specific policy")
-			_, err := vm.PolicyImportAndWait(vm.GetFullPath("Policies-memcache-allow-key.json"), 300)
+			_, err := vm.PolicyImportAndWait(vm.GetFullPath("Policies-memcache-allow-key.json"), helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Failed to import policy")
 
 			key := "allowed"
@@ -206,7 +206,7 @@ var _ = Describe("RuntimeMemcache", func() {
 			r.ExpectSuccess("Unable to set disallowed value")
 
 			By("Importing key-specific policy")
-			_, err := vm.PolicyImportAndWait(vm.GetFullPath("Policies-memcache-allow-key-get.json"), 300)
+			_, err := vm.PolicyImportAndWait(vm.GetFullPath("Policies-memcache-allow-key-get.json"), helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Failed to import policy")
 
 			By("Getting multiple keys")
@@ -249,7 +249,7 @@ var _ = Describe("RuntimeMemcache", func() {
 		})
 
 		It("Tests policy allowing all actions", func() {
-			_, err := vm.PolicyImportAndWait(vm.GetFullPath("Policies-memcache-allow.json"), 300)
+			_, err := vm.PolicyImportAndWait(vm.GetFullPath("Policies-memcache-allow.json"), helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Failed to import policy")
 
 			key := "test2"
@@ -275,7 +275,7 @@ var _ = Describe("RuntimeMemcache", func() {
 			r.ExpectContains("STORED", "value not stored")
 
 			By("Importing policy disallowing set")
-			_, err := vm.PolicyImportAndWait(vm.GetFullPath("Policies-memcache-disallow-set.json"), 300)
+			_, err := vm.PolicyImportAndWait(vm.GetFullPath("Policies-memcache-disallow-set.json"), helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Failed to import policy")
 
 			By("Trying to set new key")
@@ -295,7 +295,7 @@ var _ = Describe("RuntimeMemcache", func() {
 
 		It("Tests policy allowing actions only for allowed key", func() {
 			By("Importing key-specific policy")
-			_, err := vm.PolicyImportAndWait(vm.GetFullPath("Policies-memcache-allow-key.json"), 300)
+			_, err := vm.PolicyImportAndWait(vm.GetFullPath("Policies-memcache-allow-key.json"), helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Failed to import policy")
 
 			key := "allowed"

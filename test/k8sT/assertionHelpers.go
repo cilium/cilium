@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,11 +16,14 @@ package k8sTest
 
 import (
 	"fmt"
+	"time"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 	. "github.com/onsi/gomega"
 )
+
+var longTimeout = 10 * time.Minute
 
 // ExpectKubeDNSReady is a wrapper around helpers/WaitKubeDNS. It asserts that
 // the error returned by that function is nil.
@@ -35,7 +38,7 @@ func ExpectKubeDNSReady(vm *helpers.Kubectl) {
 // ExpectCiliumReady is a wrapper around helpers/WaitForPods. It asserts that
 // the error returned by that function is nil.
 func ExpectCiliumReady(vm *helpers.Kubectl) {
-	err := vm.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
+	err := vm.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", longTimeout)
 	ExpectWithOffset(1, err).Should(BeNil(), "cilium was not able to get into ready state")
 
 	err = vm.CiliumPreFlightCheck()
@@ -66,7 +69,7 @@ func ExpectETCDOperatorReady(vm *helpers.Kubectl) {
 	// new one is not created yet.
 	By("Waiting for all etcd-operator pods are ready")
 
-	err := vm.WaitforNPods(helpers.KubeSystemNamespace, "-l io.cilium/app=etcd-operator", 5, 600)
+	err := vm.WaitforNPods(helpers.KubeSystemNamespace, "-l io.cilium/app=etcd-operator", 5, longTimeout)
 	warningMessage := ""
 	if err != nil {
 		res := vm.Exec(fmt.Sprintf(
@@ -82,7 +85,7 @@ func ExpectETCDOperatorReady(vm *helpers.Kubectl) {
 func ExpectCiliumPreFlightInstallReady(vm *helpers.Kubectl) {
 	By("Waiting for all cilium pre-flight pods to be ready")
 
-	err := vm.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium-pre-flight-check", 600)
+	err := vm.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium-pre-flight-check", longTimeout)
 	warningMessage := ""
 	if err != nil {
 		res := vm.Exec(fmt.Sprintf(

@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -69,7 +69,7 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 		vm.ExecInBackground(
 			ctx,
 			"sudo cilium-agent --kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug")
-		err := vm.WaitUntilReady(150)
+		err := vm.WaitUntilReady(helpers.CiliumStartTimeout)
 		Expect(err).Should(BeNil())
 
 		By("Restarting cilium-docker service")
@@ -89,7 +89,7 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 		vm.ExecInBackground(
 			ctx,
 			"sudo cilium-agent --kvstore etcd --kvstore-opt etcd.address=127.0.0.1:4001 2>&1 | logger -t cilium")
-		err := vm.WaitUntilReady(150)
+		err := vm.WaitUntilReady(helpers.CiliumStartTimeout)
 		Expect(err).Should(BeNil(), "Timed out waiting for VM to be ready after restarting Cilium")
 
 		By("Restarting cilium-docker service")

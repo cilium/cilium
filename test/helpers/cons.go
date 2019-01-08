@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Authors of Cilium
+// Copyright 2017-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,10 +26,11 @@ import (
 )
 
 var (
-	// HelperTimeout is a predefined timeout value for commands, in seconds.
-	HelperTimeout int64 = 300
-	// HelperTimeoutDuration is a predefined timeout value for commands.
-	HelperTimeoutDuration = time.Duration(HelperTimeout) * time.Second
+	// HelperTimeout is a predefined timeout value for commands.
+	HelperTimeout = 5 * time.Minute
+
+	// CiliumStartTimeout is a predefined timeout value for Cilium startup.
+	CiliumStartTimeout = 100 * time.Second
 
 	// BasePath is the path in the Vagrant VMs to which the test directory
 	// is mounted

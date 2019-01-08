@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -76,7 +76,7 @@ var _ = Describe("K8sTunnelTest", func() {
 
 		It("Check VXLAN mode", func() {
 			ProvisionInfraPods(kubectl)
-			err := kubectl.WaitforPods(helpers.DefaultNamespace, "", 300)
+			err := kubectl.WaitforPods(helpers.DefaultNamespace, "", helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Pods are not ready after timeout")
 
 			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
@@ -126,7 +126,7 @@ var _ = Describe("K8sTunnelTest", func() {
 			ExpectCiliumReady(kubectl)
 			ExpectETCDOperatorReady(kubectl)
 
-			err = kubectl.WaitforPods(helpers.DefaultNamespace, "", 300)
+			err = kubectl.WaitforPods(helpers.DefaultNamespace, "", helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Pods are not ready after timeout")
 
 			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
@@ -151,14 +151,14 @@ var _ = Describe("K8sTunnelTest", func() {
 
 			// FIXME GH-4456
 			cleanService()
-		}, 600)
+		})
 
 	})
 
 })
 
 func isNodeNetworkingWorking(kubectl *helpers.Kubectl, filter string) bool {
-	err := kubectl.WaitforPods(helpers.DefaultNamespace, fmt.Sprintf("-l %s", filter), 3000)
+	err := kubectl.WaitforPods(helpers.DefaultNamespace, fmt.Sprintf("-l %s", filter), helpers.HelperTimeout)
 	Expect(err).Should(BeNil())
 	pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, filter)
 	Expect(err).Should(BeNil())
