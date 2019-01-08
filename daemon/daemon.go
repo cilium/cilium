@@ -1328,8 +1328,6 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 	d.l7Proxy = proxy.StartProxySupport(10000, 20000, option.Config.RunDir,
 		option.Config.AccessLog, &d, option.Config.AgentLabels)
 
-	d.startStatusCollector()
-
 	if err := fqdn.ConfigFromResolvConf(); err != nil {
 		return nil, nil, err
 	}

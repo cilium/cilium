@@ -844,11 +844,14 @@ func runCiliumHealthEndpoint(d *Daemon) error {
 
 func runDaemon() {
 	log.Info("Initializing daemon")
+
 	d, restoredEndpoints, err := NewDaemon()
 	if err != nil {
 		log.WithError(err).Fatal("Error while creating daemon")
 		return
 	}
+
+	d.startStatusCollector()
 
 	log.Info("Starting connection tracking garbage collector")
 	endpointmanager.EnableConntrackGC(!option.Config.IPv4Disabled, true,
