@@ -14,7 +14,7 @@ import (
 
 // MessageForwardingStatistics Statistics of a message forwarding entity
 // swagger:model MessageForwardingStatistics
-
+// +k8s:deepcopy-gen=true
 type MessageForwardingStatistics struct {
 
 	// Number of messages denied
