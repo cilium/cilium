@@ -205,6 +205,12 @@ generate-k8s-api:
 	    github.com/cilium/cilium/pkg \
 	    "policy:api" \
 	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
+	cd "./vendor/k8s.io/code-generator" && \
+	./generate-groups.sh deepcopy \
+	    github.com/cilium/cilium/pkg/k8s/client \
+	    github.com/cilium/cilium/api \
+	    "v1:models" \
+	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
 
 vps:
 	VBoxManage list runningvms
