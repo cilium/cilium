@@ -895,6 +895,8 @@ func runDaemon() {
 
 	d.initHealth()
 
+	d.startStatusCollector()
+
 	metricsErrs := initMetrics()
 
 	api := d.instantiateAPI()
