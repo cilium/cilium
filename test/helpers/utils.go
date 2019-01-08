@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Authors of Cilium
+// Copyright 2017-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -107,8 +107,8 @@ func RenderTemplateToFile(filename string, tmplt string, perm os.FileMode) error
 
 // TimeoutConfig represents the configuration for the timeout of a command.
 type TimeoutConfig struct {
-	Ticker  int64 // Check interval in duration, in seconds.
-	Timeout int64 // Timeout definition, in seconds.
+	Ticker  time.Duration // Check interval
+	Timeout time.Duration // Limit for how long to spend in the command
 }
 
 // WithTimeout executes body using the time interval specified in config until
@@ -119,8 +119,8 @@ func WithTimeout(body func() bool, msg string, config *TimeoutConfig) error {
 		config.Ticker = 5
 	}
 
-	done := time.After(time.Duration(config.Timeout) * time.Second)
-	ticker := time.NewTicker(time.Duration(config.Ticker) * time.Second)
+	done := time.After(config.Timeout)
+	ticker := time.NewTicker(config.Ticker)
 	defer ticker.Stop()
 	if body() {
 		return nil

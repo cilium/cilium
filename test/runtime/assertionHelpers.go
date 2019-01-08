@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ func ExpectEndpointSummary(vm *helpers.SSHMeta, policyEnforcementType string, nu
 
 // ExpectCiliumReady asserts that cilium status is ready
 func ExpectCiliumReady(vm *helpers.SSHMeta) {
-	err := vm.WaitUntilReady(100)
+	err := vm.WaitUntilReady(helpers.CiliumStartTimeout)
 	ExpectWithOffset(1, err).To(BeNil(), "Cilium-agent cannot be started")
 
 	vm.NetworkCreate(helpers.CiliumDockerNetwork, "")
