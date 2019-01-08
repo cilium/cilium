@@ -93,6 +93,10 @@ if ENV['K8S'] then
 else
     $vm_base_name = "runtime"
 end
+	
+# Set locate to en_US.UTF-8
+ENV["LC_ALL"] = "en_US.UTF-8"
+ENV["LC_CTYPE"] = "en_US.UTF-8"
 
 # We need this workaround since kube-proxy is not aware of multiple network
 # interfaces. If we send a packet to a service IP that packet is sent
