@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -1064,12 +1064,13 @@ func (kub *Kubectl) CiliumEndpointWaitReady() error {
 	}
 
 	callback := func() string {
+		ctx, cancel := context.WithTimeout(context.Background(), HelperTimeoutDuration)
+		defer cancel()
+
 		var errorMessage string
 		for _, pod := range ciliumPods {
 			var endpoints []models.Endpoint
-			ctx, cancel := context.WithTimeout(context.Background(), HelperTimeoutDuration)
 			cmdRes := kub.CiliumEndpointsList(ctx, pod)
-			cancel()
 			if !cmdRes.WasSuccessful() {
 				return fmt.Sprintf("unable to get cilium endpoint list from pod %s: %s", pod, cmdRes.err)
 			}
