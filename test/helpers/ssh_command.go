@@ -195,7 +195,7 @@ func (client *SSHClient) RunCommand(cmd *SSHCommand) error {
 // returned instead the context error.
 func (client *SSHClient) RunCommandInBackground(ctx context.Context, cmd *SSHCommand) error {
 	if ctx == nil {
-		panic("nil context provided to RunCommandContext()")
+		panic("nil context provided to RunCommandInBackground()")
 	}
 
 	session, err := client.newSession()
