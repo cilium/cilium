@@ -52,7 +52,7 @@ const (
 	// needed this time to recover from a connection problem to kube-apiserver.
 	// The kubedns resyncPeriod is defined at
 	// https://github.com/kubernetes/dns/blob/80fdd88276adba36a87c4f424b66fdf37cd7c9a8/pkg/dns/dns.go#L53
-	DNSHelperTimeout int64 = 420
+	DNSHelperTimeout = 7 * time.Minute
 
 	// EnableMicroscope is true when microscope should be enabled
 	EnableMicroscope = false
@@ -409,7 +409,7 @@ func (kub *Kubectl) MicroscopeStart(microscopeOptions ...string) (error, func() 
 	err := kub.WaitforPods(
 		KubeSystemNamespace,
 		fmt.Sprintf("-l k8s-app=%s", microscope),
-		300)
+		HelperTimeout)
 	if err != nil {
 		return err, cb
 	}
@@ -565,7 +565,7 @@ func (kub *Kubectl) NamespaceDelete(name string) *CmdRes {
 // containterStatuses equal to "ready". Returns true if all pods achieve
 // the aforementioned desired state within timeout seconds. Returns false and
 // an error if the command failed or the timeout was exceeded.
-func (kub *Kubectl) WaitforPods(namespace string, filter string, timeout int64) error {
+func (kub *Kubectl) WaitforPods(namespace string, filter string, timeout time.Duration) error {
 	return kub.WaitforNPods(namespace, filter, 0, timeout)
 }
 
@@ -574,7 +574,7 @@ func (kub *Kubectl) WaitforPods(namespace string, filter string, timeout int64) 
 // filter to have their containterStatuses equal to "ready". Returns true if all
 // pods achieve the aforementioned desired state within timeout seconds. Returns
 // false and an error if the command failed or the timeout was exceeded.
-func (kub *Kubectl) WaitforNPods(namespace string, filter string, podsRunning int, timeout int64) error {
+func (kub *Kubectl) WaitforNPods(namespace string, filter string, podsRunning int, timeout time.Duration) error {
 	data, err := kub.GetPods(namespace, filter).Filter("{.items[*].metadata.deletionTimestamp}")
 	if err != nil {
 		return fmt.Errorf("Cannot get pods with filter '%s': %s", filter, err)
@@ -629,7 +629,7 @@ func (kub *Kubectl) WaitforNPods(namespace string, filter string, podsRunning in
 // filter. Returns true if all pods achieve the aforementioned desired state
 // within timeout seconds. Returns false and an error if the command failed or
 // the timeout was exceeded.
-func (kub *Kubectl) WaitForServiceEndpoints(namespace string, filter string, service string, timeout int64) error {
+func (kub *Kubectl) WaitForServiceEndpoints(namespace string, filter string, service string, timeout time.Duration) error {
 	body := func() bool {
 		var jsonPath = fmt.Sprintf("{.items[?(@.metadata.name == '%s')].subsets[0].ports[0].port}", service)
 		data, err := kub.GetEndpoints(namespace, filter).Filter(jsonPath)
@@ -776,7 +776,7 @@ func (kub *Kubectl) WaitForKubeDNSEntry(serviceName, serviceNamespace string) er
 // WaitCleanAllTerminatingPods waits until all nodes that are in `Terminating`
 // state are deleted correctly in the platform. In case of excedding the
 // given timeout (in seconds) it returns an error
-func (kub *Kubectl) WaitCleanAllTerminatingPods(timeout int64) error {
+func (kub *Kubectl) WaitCleanAllTerminatingPods(timeout time.Duration) error {
 	body := func() bool {
 		res := kub.Exec(fmt.Sprintf(
 			"%s get pods --all-namespaces -o jsonpath='{.items[*].metadata.deletionTimestamp}'",
@@ -1056,7 +1056,7 @@ func (kub *Kubectl) CiliumEndpointWaitReady() error {
 		return true, nil
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), HelperTimeoutDuration)
+	ctx, cancel := context.WithTimeout(context.Background(), HelperTimeout)
 	defer cancel()
 	err = WithContext(ctx, body, 1*time.Second)
 	if err == nil {
@@ -1064,7 +1064,7 @@ func (kub *Kubectl) CiliumEndpointWaitReady() error {
 	}
 
 	callback := func() string {
-		ctx, cancel := context.WithTimeout(context.Background(), HelperTimeoutDuration)
+		ctx, cancel := context.WithTimeout(context.Background(), HelperTimeout)
 		defer cancel()
 
 		var errorMessage string
@@ -1271,7 +1271,7 @@ type ResourceLifeCycleAction string
 // to be applied in all Cilium endpoints. Returns an error if the policy is not
 // imported before the timeout is
 // exceeded.
-func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action ResourceLifeCycleAction, timeout int64) (string, error) {
+func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action ResourceLifeCycleAction, timeout time.Duration) (string, error) {
 	numNodes := kub.GetNumNodes()
 
 	// Test filter: https://jqplay.org/s/TPpljDm7XP

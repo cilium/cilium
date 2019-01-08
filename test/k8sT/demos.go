@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -102,7 +102,7 @@ var _ = Describe("K8sDemosTest", func() {
 		res.ExpectSuccess("unable to apply %s: %s", xwingYAMLLink, res.CombineOutput())
 
 		By("Waiting for pods to be ready")
-		err := kubectl.WaitforPods(helpers.DefaultNamespace, "", 300)
+		err := kubectl.WaitforPods(helpers.DefaultNamespace, "", helpers.HelperTimeout)
 		Expect(err).Should(BeNil(), "Pods are not ready after timeout")
 
 		By("Getting xwing pod names")
@@ -128,7 +128,7 @@ var _ = Describe("K8sDemosTest", func() {
 
 		By("Importing L7 Policy which restricts access to %q", exhaustPortPath)
 		_, err = kubectl.CiliumPolicyAction(
-			helpers.KubeSystemNamespace, l7PolicyYAMLLink, helpers.KubectlApply, 300)
+			helpers.KubeSystemNamespace, l7PolicyYAMLLink, helpers.KubectlApply, helpers.HelperTimeout)
 		Expect(err).Should(BeNil(), "Unable to apply %s", l7PolicyYAMLLink)
 
 		By("Waiting for endpoints to be ready after importing policy")

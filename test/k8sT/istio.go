@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ package k8sTest
 import (
 	"context"
 	"fmt"
+	"time"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
@@ -70,6 +71,8 @@ var _ = Describe("K8sIstioTest", func() {
 		kubectl          *helpers.Kubectl
 		microscopeCancel = func() error { return nil }
 		uptimeCancel     context.CancelFunc
+
+		teardownTimeout = 10 * time.Minute
 	)
 
 	BeforeAll(func() {
@@ -94,7 +97,7 @@ var _ = Describe("K8sIstioTest", func() {
 		// Ignore one-time jobs and Prometheus. All other pods in the
 		// namespaces have an "istio" label.
 		By("Waiting for Istio pods to be ready")
-		err := kubectl.WaitforPods(istioSystemNamespace, "-l istio", 300)
+		err := kubectl.WaitforPods(istioSystemNamespace, "-l istio", helpers.HelperTimeout)
 		Expect(err).To(BeNil(),
 			"Istio pods are not ready after timeout in namespace %q", istioSystemNamespace)
 
@@ -119,7 +122,7 @@ var _ = Describe("K8sIstioTest", func() {
 		By("Deleting the istio-system namespace")
 		_ = kubectl.NamespaceDelete(istioSystemNamespace)
 
-		kubectl.WaitCleanAllTerminatingPods(600)
+		kubectl.WaitCleanAllTerminatingPods(teardownTimeout)
 	})
 
 	JustBeforeEach(func() {
@@ -316,7 +319,7 @@ var _ = Describe("K8sIstioTest", func() {
 				allGood = shouldNotConnect(productpagePodV1.String(), formatAPI(ratings, apiPort, ratingsPath)) && allGood
 
 				return allGood
-			}, "Istio sidecar proxies are not configured", &helpers.TimeoutConfig{Timeout: 300})
+			}, "Istio sidecar proxies are not configured", &helpers.TimeoutConfig{Timeout: helpers.HelperTimeout})
 			Expect(err).Should(BeNil(), "Cannot configure Istio sidecar proxies")
 		})
 	})

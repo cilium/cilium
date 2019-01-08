@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -125,7 +125,7 @@ var _ = Describe("RuntimeCassandra", func() {
 	})
 
 	It("Tests policy allowing all actions", func() {
-		_, err := vm.PolicyImportAndWait(vm.GetFullPath("Policies-cassandra-allow-all.json"), 300)
+		_, err := vm.PolicyImportAndWait(vm.GetFullPath("Policies-cassandra-allow-all.json"), helpers.HelperTimeout)
 		Expect(err).Should(BeNil(), "Failed to import policy")
 
 		endPoints, err := vm.PolicyEndpointsSummary()
@@ -147,7 +147,7 @@ var _ = Describe("RuntimeCassandra", func() {
 
 	It("Tests policy disallowing Insert action", func() {
 
-		_, err := vm.PolicyImportAndWait(vm.GetFullPath("Policies-cassandra-no-insert-posts.json"), 300)
+		_, err := vm.PolicyImportAndWait(vm.GetFullPath("Policies-cassandra-no-insert-posts.json"), helpers.HelperTimeout)
 		Expect(err).Should(BeNil(), "Failed to import policy")
 
 		endPoints, err := vm.PolicyEndpointsSummary()

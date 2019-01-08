@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Authors of Cilium
+// Copyright 2017-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -147,7 +147,7 @@ var _ = Describe("K8sPolicyTest", func() {
 		BeforeAll(func() {
 			kubectl.Apply(demoPath)
 
-			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", 300)
+			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Test pods are not ready after timeout")
 
 			ciliumPod, err = kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
@@ -175,7 +175,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			err := kubectl.CiliumEndpointWaitReady()
 			Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
 
-			err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", 300)
+			err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
 
 		})
@@ -192,7 +192,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			By("Testing L3/L4 rules")
 
 			_, err := kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, l3Policy, helpers.KubectlApply, 300)
+				helpers.KubeSystemNamespace, l3Policy, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
 
 			trace := kubectl.CiliumExec(ciliumPod, fmt.Sprintf(
@@ -225,7 +225,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			By("Testing L7 Policy")
 
 			_, err = kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, l7Policy, helpers.KubectlApply, 300)
+				helpers.KubeSystemNamespace, l7Policy, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Cannot install %q policy", l7Policy)
 
 			res = kubectl.ExecPodCmd(
@@ -257,7 +257,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			// Load policy allowing serviceAccount of app2 to talk
 			// to app1 on port 80 TCP
 			_, err := kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, serviceAccountPolicy, helpers.KubectlApply, 300)
+				helpers.KubeSystemNamespace, serviceAccountPolicy, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
 
 			trace := kubectl.CiliumExec(ciliumPod, fmt.Sprintf(
@@ -286,7 +286,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 		It("CNP test MatchExpressions key", func() {
 			_, err := kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, cnpMatchExpression, helpers.KubectlApply, 300)
+				helpers.KubeSystemNamespace, cnpMatchExpression, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "cannot install policy %s", cnpMatchExpression)
 
 			res := kubectl.ExecPodCmd(
@@ -316,7 +316,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			By("Installing knp ingress default-deny")
 
 			_, err := kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, knpDenyIngress, helpers.KubectlApply, 300)
+				helpers.KubeSystemNamespace, knpDenyIngress, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(),
 				"L3 deny-ingress Policy cannot be applied in %q namespace", helpers.DefaultNamespace)
 
@@ -348,7 +348,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			By("Installing knp egress default-deny")
 
 			_, err := kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, knpDenyEgress, helpers.KubectlApply, 300)
+				helpers.KubeSystemNamespace, knpDenyEgress, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(),
 				"L3 deny-egress Policy cannot be applied in %q namespace", helpers.DefaultNamespace)
 
@@ -387,7 +387,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			By("Installing knp ingress-egress default-deny")
 
 			_, err := kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, knpDenyIngressEgress, helpers.KubectlApply, 300)
+				helpers.KubeSystemNamespace, knpDenyIngressEgress, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(),
 				"L3 deny-ingress-egress policy cannot be applied in %q namespace", helpers.DefaultNamespace)
 
@@ -438,7 +438,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			By("Installing cnp ingress default-deny")
 
 			_, err := kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, cnpDenyIngress, helpers.KubectlApply, 300)
+				helpers.KubeSystemNamespace, cnpDenyIngress, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(),
 				"L3 deny-ingress Policy cannot be applied in %q namespace", helpers.DefaultNamespace)
 
@@ -460,7 +460,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 			By("Installing cnp egress default-deny")
 			_, err := kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, cnpDenyEgress, helpers.KubectlApply, 300)
+				helpers.KubeSystemNamespace, cnpDenyEgress, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(),
 				"L3 deny-egress Policy cannot be applied in %q namespace", helpers.DefaultNamespace)
 
@@ -634,35 +634,35 @@ var _ = Describe("K8sPolicyTest", func() {
 			It("Enforces connectivity correctly when the same L3/L4 CNP is updated", func() {
 				By("Applying default allow policy")
 				_, err := kubectl.CiliumPolicyAction(
-					helpers.KubeSystemNamespace, cnpUpdateAllow, helpers.KubectlApply, 300)
+					helpers.KubeSystemNamespace, cnpUpdateAllow, helpers.KubectlApply, helpers.HelperTimeout)
 				Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpUpdateAllow)
 
 				validateL3L4(allowAll)
 
 				By("Applying l3-l4 policy")
 				_, err = kubectl.CiliumPolicyAction(
-					helpers.KubeSystemNamespace, cnpUpdateDeny, helpers.KubectlApply, 300)
+					helpers.KubeSystemNamespace, cnpUpdateDeny, helpers.KubectlApply, helpers.HelperTimeout)
 				Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpUpdateDeny)
 
 				validateL3L4(denyFromApp3)
 
 				By("Applying no-specs policy")
 				_, err = kubectl.CiliumPolicyAction(
-					helpers.KubeSystemNamespace, cnpUpdateNoSpecs, helpers.KubectlApply, 300)
+					helpers.KubeSystemNamespace, cnpUpdateNoSpecs, helpers.KubectlApply, helpers.HelperTimeout)
 				Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpUpdateAllow)
 
 				validateL3L4(allowAll)
 
 				By("Applying l3-l4 policy with user-specified labels")
 				_, err = kubectl.CiliumPolicyAction(
-					helpers.KubeSystemNamespace, cnpUpdateDenyLabelled, helpers.KubectlApply, 300)
+					helpers.KubeSystemNamespace, cnpUpdateDenyLabelled, helpers.KubectlApply, helpers.HelperTimeout)
 				Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpUpdateDeny)
 
 				validateL3L4(denyFromApp3)
 
 				By("Applying default allow policy (should remove policy with user labels)")
 				_, err = kubectl.CiliumPolicyAction(
-					helpers.KubeSystemNamespace, cnpUpdateAllow, helpers.KubectlApply, 300)
+					helpers.KubeSystemNamespace, cnpUpdateAllow, helpers.KubectlApply, helpers.HelperTimeout)
 				Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpUpdateAllow)
 
 				validateL3L4(allowAll)
@@ -675,7 +675,7 @@ var _ = Describe("K8sPolicyTest", func() {
 				// test "checks all kind of Kubernetes policies".
 				// Install it then move on.
 				_, err := kubectl.CiliumPolicyAction(
-					helpers.KubeSystemNamespace, l7Policy, helpers.KubectlApply, 300)
+					helpers.KubeSystemNamespace, l7Policy, helpers.KubectlApply, helpers.HelperTimeout)
 				Expect(err).Should(BeNil(), "Cannot install %q policy", l7Policy)
 
 				// Update existing policy on port 80 from http to kafka
@@ -683,7 +683,7 @@ var _ = Describe("K8sPolicyTest", func() {
 				// Traffic cannot flow but policy must be able to be
 				// imported and applied to the endpoints.
 				_, err = kubectl.CiliumPolicyAction(
-					helpers.KubeSystemNamespace, l7PolicyKafka, helpers.KubectlApply, 300)
+					helpers.KubeSystemNamespace, l7PolicyKafka, helpers.KubectlApply, helpers.HelperTimeout)
 				Expect(err).Should(BeNil(), "Cannot update L7 policy (%q) from parser http to kafka", l7PolicyKafka)
 
 				res := kubectl.ExecPodCmd(
@@ -758,7 +758,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 			err = kubectl.WaitforPods(
 				helpers.DefaultNamespace,
-				fmt.Sprintf("-l %s", groupLabel), 300)
+				fmt.Sprintf("-l %s", groupLabel), helpers.HelperTimeout)
 			ExpectWithOffset(1, err).Should(BeNil(), "Bookinfo pods are not ready after timeout")
 
 			err := kubectl.WaitForServiceEndpoints(
@@ -809,7 +809,7 @@ EOF`, k, v)
 			By("Apply policy to web")
 			_, err = kubectl.CiliumPolicyAction(
 				helpers.KubeSystemNamespace, helpers.ManifestGet(webPolicy),
-				helpers.KubectlApply, 300)
+				helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Cannot apply web-policy")
 
 			policyCheck := fmt.Sprintf("%s=%s %s=%s",
@@ -820,7 +820,7 @@ EOF`, k, v)
 			By("Apply policy to Redis")
 			_, err = kubectl.CiliumPolicyAction(
 				helpers.KubeSystemNamespace, helpers.ManifestGet(redisPolicy),
-				helpers.KubectlApply, 300)
+				helpers.KubectlApply, helpers.HelperTimeout)
 
 			Expect(err).Should(BeNil(), "Cannot apply redis policy")
 
@@ -833,14 +833,14 @@ EOF`, k, v)
 
 			_, err = kubectl.CiliumPolicyAction(
 				helpers.KubeSystemNamespace, helpers.ManifestGet(redisPolicy),
-				helpers.KubectlDelete, 300)
+				helpers.KubectlDelete, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Cannot apply redis policy")
 
 			By("Apply deprecated policy to Redis")
 
 			_, err = kubectl.CiliumPolicyAction(
 				helpers.KubeSystemNamespace, helpers.ManifestGet(redisPolicyDeprecated),
-				helpers.KubectlApply, 300)
+				helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Cannot apply redis deprecated policy err: %q", err)
 
 			policyCheck = fmt.Sprintf("%s=%s %s=%s",
@@ -884,11 +884,11 @@ EOF`, k, v)
 			res = kubectl.Apply(demoPath)
 			res.ExpectSuccess("unable to apply manifest")
 
-			err := kubectl.WaitforPods(secondNS, "-l zgroup=testapp", 300)
+			err := kubectl.WaitforPods(secondNS, "-l zgroup=testapp", helpers.HelperTimeout)
 			Expect(err).To(BeNil(),
 				"testapp pods are not ready after timeout in namspace %q", secondNS)
 
-			err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", 300)
+			err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", helpers.HelperTimeout)
 			Expect(err).To(BeNil(),
 				"testapp pods are not ready after timeout in %q namespace", helpers.DefaultNamespace)
 
@@ -923,13 +923,13 @@ EOF`, k, v)
 			// namespace and all works as expected.
 			By("Applying Policy in %q namespace", secondNS)
 			_, err = kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, l3l4PolicySecondNS, helpers.KubectlApply, 300)
+				helpers.KubeSystemNamespace, l3l4PolicySecondNS, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(),
 				"%q Policy cannot be applied in %q namespace", l3l4PolicySecondNS, secondNS)
 
 			By("Applying Policy in default namespace")
 			_, err = kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, l3L4Policy, helpers.KubectlApply, 300)
+				helpers.KubeSystemNamespace, l3L4Policy, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(),
 				"%q Policy cannot be applied in %q namespace", l3L4Policy, helpers.DefaultNamespace)
 
@@ -979,7 +979,7 @@ EOF`, k, v)
 
 			By("Applying Policy in %q namespace", secondNS)
 			_, err = kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, netpolNsSelector, helpers.KubectlApply, 300)
+				helpers.KubeSystemNamespace, netpolNsSelector, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Policy cannot be applied")
 
 			for _, pod := range []string{helpers.App2, helpers.App3} {
@@ -1000,7 +1000,7 @@ EOF`, k, v)
 
 			By("Delete Kubernetes Network Policies in %q namespace", secondNS)
 			_, err = kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, netpolNsSelector, helpers.KubectlDelete, 300)
+				helpers.KubeSystemNamespace, netpolNsSelector, helpers.KubectlDelete, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Policy %q cannot be deleted", netpolNsSelector)
 
 			for _, pod := range []string{helpers.App2, helpers.App3} {
@@ -1019,7 +1019,7 @@ EOF`, k, v)
 		It("Cilium Network policy using namespace label and L7", func() {
 
 			_, err := kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, cnpSecondNS, helpers.KubectlApply, 300)
+				helpers.KubeSystemNamespace, cnpSecondNS, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpSecondNS)
 
 			By("Testing connectivity in %q namespace", secondNS)
