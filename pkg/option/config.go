@@ -662,6 +662,9 @@ type DaemonConfig struct {
 	// DefaultDNSProxy below.
 	ToFQDNsProxyPort    int
 	ToFQDNsEnablePoller bool
+
+	// FQDNRejectResponse is the dns-proxy response for invalid dns-proxy request
+	FQDNRejectResponse string
 }
 
 var (
