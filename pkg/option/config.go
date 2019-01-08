@@ -328,7 +328,28 @@ const (
 	EnableIPv6Name = "enable-ipv6"
 
 	// MonitorQueueSizeName is the name of the option MonitorQueueSize
-	MonitorQueueSizeName = "monitor-queue-size"
+	MonitorQueueSizeName    = "monitor-queue-size"
+	MonitorQueueSizeNameEnv = "CILIUM_MONITOR_QUEUE_SIZE"
+
+	//FQDNRejectResponseCode is the name for the option for dns-proxy reject response code
+	FQDNRejectResponseCode = "tofqdns-dns-response-code"
+
+	//FQDNRejectResponseCodeEnv is the env name for FQDNRejectResponseCode option
+	FQDNRejectResponseCodeEnv = "CILIUM_TOFQDNS_DNS_RESPONSE_CODE"
+
+	// FQDNProxyDenyWithNameError is the response code for Domain does not
+	// exists.  It is only used when musl libc library is in place (Alpine
+	// Linux) due the queries include the search domain from resolv.conf
+	FQDNProxyDenyWithNameError = "nameError"
+
+	// FQDNProxyDenyWithRefused is the response code for Domain refused. It is
+	// the default for denied DNS requests.
+	FQDNProxyDenyWithRefused = "refused"
+)
+
+// FQDNS variables
+var (
+	FQDNRejectOptions = []string{FQDNProxyDenyWithNameError, FQDNProxyDenyWithRefused}
 )
 
 // Available option for DaemonConfig.Tunnel
@@ -636,6 +657,9 @@ type DaemonConfig struct {
 	// DefaultDNSProxy below.
 	ToFQDNsProxyPort    int
 	ToFQDNsEnablePoller bool
+
+	// FQDNRejectResponse is the dns-proxy response for invalid dns-proxy request
+	FQDNRejectResponse string
 }
 
 var (

@@ -1389,6 +1389,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 	if option.Config.ToFQDNsEnablePoller {
 		fqdn.StartDNSPoller(d.dnsPoller)
 	}
+	dnsproxy.SetRejectReply(option.Config.FQDNRejectResponse)
 
 	// Prefill the cache with DNS lookups from restored endpoints. This is needed
 	// to maintain continuity of which IPs are allowed.
