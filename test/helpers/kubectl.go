@@ -1072,11 +1072,17 @@ func (kub *Kubectl) CiliumEndpointWaitReady() error {
 			var endpoints []models.Endpoint
 			cmdRes := kub.CiliumEndpointsList(ctx, pod)
 			if !cmdRes.WasSuccessful() {
-				return fmt.Sprintf("unable to get cilium endpoint list from pod %s: %s", pod, cmdRes.err)
+				errorMessage += fmt.Sprintf(
+					"\tCilium Pod: %s \terror: unable to get endpoint list: %s",
+					pod, cmdRes.err)
+				continue
 			}
 			err := cmdRes.Unmarshal(&endpoints)
 			if err != nil {
-				return fmt.Sprintf("error parsing endpoint list for pod %s: %s", pod, err)
+				errorMessage += fmt.Sprintf(
+					"\tCilium Pod: %s \terror: unable to parse endpoint list: %s",
+					pod, err)
+				continue
 			}
 			for _, ep := range endpoints {
 				errorMessage += fmt.Sprintf(
