@@ -31,10 +31,6 @@ type bpfService struct {
 	// mutex protects access to all members of bpfService
 	mutex lock.RWMutex
 
-	// holes lists all backend indices that are currently filling in as
-	// hole
-	holes []int
-
 	frontendKey ServiceKey
 
 	// backendsByMapIndex is the 1:1 representation of service backends as
@@ -62,23 +58,10 @@ func (b *bpfService) addBackend(backend ServiceValue) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
-	if len(b.holes) > 0 {
-		// Retrieve map index of next hole and remove it from the list
-		index := b.holes[0]
-		b.holes = b.holes[1:]
-
-		// Fill in backend in already existing hole that currently
-		// holds a duplicate
-		b.backendsByMapIndex[index].bpfValue = backend
-		b.backendsByMapIndex[index].id = backend.String()
-		b.backendsByMapIndex[index].isHole = false
-	} else {
-		// No holes, we need to allocate a new backend slot
-		nextSlot := len(b.backendsByMapIndex) + 1
-		b.backendsByMapIndex[nextSlot] = &bpfBackend{
-			bpfValue: backend,
-			id:       backend.String(),
-		}
+	nextSlot := len(b.backendsByMapIndex) + 1
+	b.backendsByMapIndex[nextSlot] = &bpfBackend{
+		bpfValue: backend,
+		id:       backend.String(),
 	}
 
 	b.uniqueBackends[backend.String()] = backend
@@ -114,7 +97,6 @@ func (b *bpfService) deleteBackend(backend ServiceValue) {
 
 	if fillBackendID == "" {
 		// No more entries to fill in, we can remove all backend slots
-		b.holes = []int{}
 		b.backendsByMapIndex = map[int]*bpfBackend{}
 	} else {
 		fillBackend := &bpfBackend{
@@ -123,9 +105,6 @@ func (b *bpfService) deleteBackend(backend ServiceValue) {
 			bpfValue: b.uniqueBackends[fillBackendID],
 		}
 		for _, removeIndex := range indicesToRemove {
-			if !b.backendsByMapIndex[removeIndex].isHole {
-				b.holes = append(b.holes, removeIndex)
-			}
 			b.backendsByMapIndex[removeIndex] = fillBackend
 		}
 	}
@@ -193,7 +172,6 @@ func (l *lbmapCache) restoreService(svc loadbalancer.LBSVC) error {
 		}
 		if _, ok := bpfSvc.uniqueBackends[backend.String()]; ok {
 			b.isHole = true
-			bpfSvc.holes = append(bpfSvc.holes, index+1)
 		} else {
 			bpfSvc.uniqueBackends[backend.String()] = backend
 		}
@@ -228,9 +206,7 @@ func (l *lbmapCache) prepareUpdate(fe ServiceKey, backends []ServiceValue) *bpfS
 		}
 	}
 
-	// Step 2: Add all backends that don't exist yet. This will use up
-	// holes that have been created by deleteBackend() first before adding
-	// new slave slots.
+	// Step 2: Add all backends that don't exist yet.
 	for _, b := range backends {
 		if _, ok := bpfSvc.uniqueBackends[b.String()]; !ok {
 			bpfSvc.addBackend(b)
