@@ -2201,3 +2201,33 @@ func (e *Endpoint) InsertEvent() {
 func (e *Endpoint) IsDisconnecting() bool {
 	return e.state == StateDisconnected || e.state == StateDisconnecting
 }
+
+func RunHeaderSync(e *Endpoint, owner Owner) {
+	controllerName := fmt.Sprintf("sync-lxc-header (%v)", e.ID)
+	scopedLog := e.Logger("lxc-header-sync").WithField("controller", controllerName)
+
+	// Disable the controller for health endpoints.
+	if isHealthEP := e.HasLabels(pkgLabels.LabelHealth); isHealthEP {
+		scopedLog.Debug("Not starting unnecessary lxc header sync controller for cilium-health endpoint")
+		return
+	}
+
+	e.UpdateController(controllerName,
+		controller.ControllerParams{
+			RunInterval: 10 * time.Second,
+			DoFunc: func() (err error) {
+				// Update logger as scopeLog might not have the podName when it
+				// was created.
+				scopedLog = e.Logger("lxc-header-sync").WithField("controller", controllerName)
+				if err := e.LockAlive(); err != nil {
+					return err
+				}
+				defer e.Unlock()
+				e.writeHeaderfile(e.DirectoryPath(), owner)
+				return nil
+			},
+			StopFunc: func() error {
+				return nil
+			},
+		})
+}
