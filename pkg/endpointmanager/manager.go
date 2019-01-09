@@ -98,6 +98,8 @@ func Insert(ep *endpoint.Endpoint) error {
 		EndpointSynchronizer.RunK8sCiliumEndpointSync(ep)
 	}
 
+	ep.InsertEvent()
+
 	return nil
 }
 
@@ -378,36 +380,7 @@ func AddEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, reason string) (er
 		return fmt.Errorf("Endpoint ID is already set to %d", ep.ID)
 	}
 
-	// Regenerate immediately if ready or waiting for identity
-	if err := ep.LockAlive(); err != nil {
-		return err
-	}
-	build := false
-	state := ep.GetStateLocked()
-
-	// We can only trigger regeneration of endpoints if the endpoint is in a
-	// state where it can regenerate. See endpoint.SetStateLocked().
-	if state == endpoint.StateReady {
-		ep.SetStateLocked(endpoint.StateWaitingToRegenerate, reason)
-		build = true
-	}
-
-	ep.Unlock()
-
-	if err := Insert(ep); err != nil {
-		return err
-	}
-
-	if build {
-		if err := ep.RegenerateWait(owner, reason); err != nil {
-			Remove(ep)
-			return err
-		}
-	}
-
-	ep.InsertEvent()
-
-	return nil
+	return Insert(ep)
 }
 
 // WaitForEndpointsAtPolicyRev waits for all endpoints which existed at the time
