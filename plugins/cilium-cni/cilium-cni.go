@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/route"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint/connector"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/labels"
@@ -313,7 +314,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 		return fmt.Errorf("unable to extract CNI arguments: %s", err)
 	}
 
-	c, err := client.NewDefaultClient()
+	c, err := client.NewDefaultClientWithTimeout(defaults.ClientConnectTimeout)
 	if err != nil {
 		return fmt.Errorf("unable to connect to Cilium daemon: %s", err)
 	}
@@ -471,7 +472,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 func cmdDel(args *skel.CmdArgs) error {
 	log.WithField("args", args).Debug("Processing CNI DEL request")
 
-	c, err := client.NewDefaultClient()
+	c, err := client.NewDefaultClientWithTimeout(defaults.ClientConnectTimeout)
 	if err != nil {
 		return fmt.Errorf("unable to connect to Cilium daemon: %s", err)
 	}
