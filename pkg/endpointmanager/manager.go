@@ -397,6 +397,7 @@ func AddEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, reason string) (er
 	if err := Insert(ep); err != nil {
 		return err
 	}
+	endpoint.RunHeaderSync(ep, owner)
 
 	if build {
 		if err := ep.RegenerateWait(owner, reason); err != nil {
