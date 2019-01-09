@@ -262,9 +262,21 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 		return fmt.Errorf("Error while configuring routes: %s", err)
 	}
 
-	// Add the endpoint
 	if err := endpointmanager.AddEndpoint(owner, ep, "Create cilium-health endpoint"); err != nil {
 		return fmt.Errorf("Error while adding endpoint: %s", err)
+	}
+
+	if !ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "initial build of health endpoint") {
+		endpointmanager.Remove(ep)
+		return fmt.Errorf("unable to transition health endpoint to WaitingToRegenerate state")
+	}
+
+	buildSuccessful := <-ep.Regenerate(owner, &endpoint.ExternalRegenerationMetadata{
+		Reason: "health daemon bootstrap",
+	})
+	if !buildSuccessful {
+		endpointmanager.Remove(ep)
+		return fmt.Errorf("unable to build health endpoint")
 	}
 
 	// Propagate health IPs to all other nodes via annotations

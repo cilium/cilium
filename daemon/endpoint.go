@@ -211,19 +211,37 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		}
 	}
 
+	if err := endpointmanager.AddEndpoint(d, ep, "Create endpoint from API PUT"); err != nil {
+		log.WithError(err).Warn("Aborting endpoint join")
+		return PutEndpointIDFailedCode, err
+	}
+
 	ep.UpdateLabels(d, addLabels, infoLabels, true)
 
-	// Do not add endpoint to the endpoint manager if client abort connection
 	select {
 	case <-ctx.Done():
 		log.WithError(ctx.Err()).Warn("Aborting endpoint join due client connection closed")
+		d.deleteEndpoint(ep)
 		return PutEndpointIDFailedCode, fmt.Errorf("aborting endpoint %d join due client connection closed", ep.ID)
 	default:
 	}
 
-	if err := endpointmanager.AddEndpoint(d, ep, "Create endpoint from API PUT"); err != nil {
-		log.WithError(err).Warn("Aborting endpoint join")
-		return PutEndpointIDFailedCode, err
+	if err := ep.LockAlive(); err != nil {
+		d.deleteEndpoint(ep)
+		return PutEndpointIDFailedCode, fmt.Errorf("endpoint was deleted while waiting for the identity")
+	}
+
+	build := ep.GetStateLocked() == endpoint.StateReady
+	if build {
+		ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Identity is known at endpoint creation time")
+	}
+	ep.Unlock()
+
+	if build {
+		if err := ep.RegenerateWait(d, "Initial build on endpoint creation"); err != nil {
+			d.deleteEndpoint(ep)
+			return PutEndpointIDFailedCode, fmt.Errorf("failed to build the endpoint: %s", err)
+		}
 	}
 
 	// Only used for CRI-O since it does not support events.
