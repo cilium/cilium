@@ -448,7 +448,7 @@ provided in DNS responses are allowed by Cilium in a similar manner to IPs in
 or are not know a priori, or when DNS is more convenient. To enforce policy on
 DNS requests themselves, see `Layer 7 Examples`_.
 
-IP information is captured from DNS responses per-Endpoint via `_DNS Proxy`_ or
+IP information is captured from DNS responses per-Endpoint via `DNS Proxy`_ or
 `DNS Polling`_ may be used. A generated L3 `CIDR based`_ rule is generated for
 every ``toFQDNs`` rule and applies to the same endpoints. The IP information is
 selected for insertion by ``matchName`` or ``matchPattern`` rules, and is
