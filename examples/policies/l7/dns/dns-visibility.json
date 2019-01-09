@@ -24,7 +24,7 @@
             ],
             "rules": {
               "dns": [
-                { "matchName": "*" }
+                { "matchPattern": "*" }
               ]
             }
           }
