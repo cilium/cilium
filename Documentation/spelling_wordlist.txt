@@ -488,6 +488,8 @@ subclasses
 subcommand
 subcommands
 subdirectories
+subdomain
+subdomains
 subnet
 subnets
 subregister
@@ -585,6 +587,8 @@ whitelisted
 whitelisting
 whitelists
 whitespace
+wildcard
+wildcards
 wip
 Wireshark
 workflow
