@@ -313,7 +313,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 		return fmt.Errorf("unable to extract CNI arguments: %s", err)
 	}
 
-	c, err := client.NewDefaultClient()
+	c, err := client.NewDefaultClientWithTimeout()
 	if err != nil {
 		return fmt.Errorf("unable to connect to Cilium daemon: %s", err)
 	}
@@ -471,7 +471,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 func cmdDel(args *skel.CmdArgs) error {
 	log.WithField("args", args).Debug("Processing CNI DEL request")
 
-	c, err := client.NewDefaultClient()
+	c, err := client.NewDefaultClientWithTimeout()
 	if err != nil {
 		return fmt.Errorf("unable to connect to Cilium daemon: %s", err)
 	}
