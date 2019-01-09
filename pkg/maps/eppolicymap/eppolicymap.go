@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -104,11 +104,7 @@ func newEndpointKey(ip net.IP) *endpointKey {
 	}
 }
 
-// WriteEndpoint writes the policy map file descriptor into the map so that
-// the datapath side can do a lookup from endpointKey->PolicyMap. Locking is
-// handled in the usual way via Map lock. If sockops is disabled this will be
-// a nop.
-func WriteEndpoint(keys []*lxcmap.EndpointKey, fd int) error {
+func writeEndpoint(keys []*lxcmap.EndpointKey, fd int) error {
 	if option.Config.SockopsEnable == false {
 		return nil
 	}
@@ -126,4 +122,12 @@ func WriteEndpoint(keys []*lxcmap.EndpointKey, fd int) error {
 		}
 	}
 	return nil
+}
+
+// WriteEndpoint writes the policy map file descriptor into the map so that
+// the datapath side can do a lookup from endpointKey->PolicyMap. Locking is
+// handled in the usual way via Map lock. If sockops is disabled this will be
+// a nop.
+func WriteEndpoint(keys []*lxcmap.EndpointKey, pm *policymap.PolicyMap) error {
+	return writeEndpoint(keys, pm.GetFd())
 }

@@ -567,7 +567,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, regenContext *regenerationContext)
 
 	// Hook the endpoint into the endpoint and endpoint to policy tables then expose it
 	stats.mapSync.Start()
-	epErr := eppolicymap.WriteEndpoint(datapathRegenCtxt.epInfoCache.keys, e.PolicyMap.GetFd())
+	epErr := eppolicymap.WriteEndpoint(datapathRegenCtxt.epInfoCache.keys, e.PolicyMap)
 	err = lxcmap.WriteEndpoint(datapathRegenCtxt.epInfoCache)
 	stats.mapSync.End(err == nil)
 	if epErr != nil {
