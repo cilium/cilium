@@ -76,6 +76,28 @@ func NewDefaultClient() (*Client, error) {
 	return NewClient("")
 }
 
+// NewDefaultClientWithTimeout creates a client with default parameters connecting to UNIX
+// domain socket and waits for cilium-agent availability.
+func NewDefaultClientWithTimeout(timeout time.Duration) (*Client, error) {
+	timeoutAfter := time.After(timeout)
+	var c *Client
+	var err error
+	for {
+		select {
+		case <-timeoutAfter:
+			return c, fmt.Errorf("Failed to create cilium agent client after %f seconds timeout: %s", timeout.Seconds(), err)
+		default:
+		}
+
+		c, err = NewDefaultClient()
+		if err == nil {
+			break
+		}
+	}
+
+	return c, nil
+}
+
 // NewClient creates a client for the given `host`.
 // If host is nil then use SockPath provided by CILIUM_SOCK
 // or the cilium default SockPath
