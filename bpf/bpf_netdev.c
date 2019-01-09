@@ -500,6 +500,14 @@ int from_netdev(struct __sk_buff *skb)
 
 #ifdef FROM_HOST
 	if (1) {
+
+#ifdef POLICY_ENFORCEMENT_MODE
+	if (skb->protocol == bpf_htons(ETH_P_ARP)) {
+		union macaddr mac = HOST_IFINDEX_MAC;
+		return arp_respond(skb, &mac, BPF_F_INGRESS);
+	}
+#endif
+
 		int trace = TRACE_FROM_HOST;
 		bool from_proxy;
 
@@ -538,11 +546,7 @@ int from_netdev(struct __sk_buff *skb)
 		 * this notification is unlikely to succeed. */
 		return send_drop_notify_error(skb, DROP_MISSED_TAIL_CALL,
 		                              TC_ACT_OK, METRIC_INGRESS);
-#ifdef POLICY_ENFORCEMENT_MODE
-	case bpf_htons(ETH_P_ARP):
-		union macaddr mac = HOST_IFINDEX_MAC;
-		return arp_respond(skb, &mac, BPF_F_INGRESS);
-#endif
+
 #endif
 
 	default:
