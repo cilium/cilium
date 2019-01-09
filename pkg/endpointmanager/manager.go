@@ -72,6 +72,7 @@ func Insert(ep *endpoint.Endpoint) {
 	ep.RUnlock()
 
 	ep.RunK8sCiliumEndpointSync()
+	ep.InsertEvent()
 }
 
 // Lookup looks up the endpoint by prefix id
@@ -326,31 +327,7 @@ func AddEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, reason string) (er
 	alwaysEnforce := policy.GetPolicyEnabled() == option.AlwaysEnforce
 	ep.SetIngressPolicyEnabled(alwaysEnforce)
 	ep.SetEgressPolicyEnabled(alwaysEnforce)
-
-	// Regenerate immediately if ready or waiting for identity
-	if err := ep.LockAlive(); err != nil {
-		return err
-	}
-	build := false
-	state := ep.GetStateLocked()
-
-	// We can only trigger regeneration of endpoints if the endpoint is in a
-	// state where it can regenerate. See endpoint.SetStateLocked().
-	if state == endpoint.StateReady {
-		ep.SetStateLocked(endpoint.StateWaitingToRegenerate, reason)
-		build = true
-	}
-	ep.Unlock()
-
-	if build {
-		if err := ep.RegenerateWait(owner, reason); err != nil {
-			return err
-		}
-	}
-
 	Insert(ep)
-	ep.InsertEvent()
-
 	return nil
 }
 
