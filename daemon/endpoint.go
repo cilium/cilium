@@ -246,6 +246,19 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 	ep.Unlock()
 
 	if build {
+		// Do not synchronously regenerate the endpoint when first creating it.
+		// We have custom logic later for waiting for specific checkpoints to be
+		// reached upon regeneration later (checking for when BPF programs have
+		// been compiled), as opposed to waiting for the entire regeneration to
+		// be complete (including proxies being configured). This is done to
+		// avoid a chicken-and-egg problem with L7 policies are imported which
+		// select the endpoint being generated, as when such policies are
+		// imported, regeneration blocks on waiting for proxies to be
+		// configured. When Cilium is used with Istio, though, the proxy is
+		// started as a sidecar, and is not launched yet when this specific code
+		// is executed; if we waited for regeneration to be complete, including
+		// proxy configuration, this code would effectively deadlock addition
+		// of endpoints.
 		ep.Regenerate(d, &endpoint.ExternalRegenerationMetadata{
 			Reason: "Initial build on endpoint creation",
 		})
