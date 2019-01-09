@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Authors of Cilium
+// Copyright 2017-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -158,6 +158,16 @@ var _ = BeforeAll(func() {
 		Fail(fmt.Sprintf(
 			"Cannot get the scope for running test, please use --cilium.testScope option: %s",
 			err))
+	}
+
+	switch helpers.GetCurrentIntegration() {
+	case helpers.CIIntegrationFlannel:
+		switch helpers.GetCurrentK8SEnv() {
+		case "1.8":
+			log.Infof("Cilium in %q mode is not supported in Kubernets 1.8 due CNI < 0.6.0", helpers.CIIntegrationFlannel)
+			os.Exit(0)
+			return
+		}
 	}
 
 	if config.CiliumTestConfig.SSHConfig != "" {
