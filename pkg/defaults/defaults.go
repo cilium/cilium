@@ -121,4 +121,8 @@ const (
 	// NodeInitTimeout is the time the agent is waiting until giving up to
 	// initialize the local node with the kvstore
 	NodeInitTimeout = 15 * time.Minute
+
+	// ClientConnectTimeout is the time the cilium-agent client is
+	// (optionally) waiting before returning an error.
+	ClientConnectTimeout = 30 * time.Second
 )
