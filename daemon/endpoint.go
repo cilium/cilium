@@ -223,10 +223,9 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 	ep.Unlock()
 
 	if build {
-		if err := ep.RegenerateWait(d, "Initial build on endpoint creation"); err != nil {
-			d.deleteEndpoint(ep)
-			return PutEndpointIDFailedCode, fmt.Errorf("failed to build the endpoint: %s", err)
-		}
+		ep.Regenerate(d, &endpoint.RegenerationContext{
+			Reason: "Initial build on endpoint creation",
+		}, false)
 	}
 
 	// Only used for CRI-O since it does not support events.
