@@ -43,7 +43,8 @@ Vagrant.configure("2") do |config|
         # This network is only used by NFS
         server.vm.network "private_network", type: "dhcp"
         server.vm.synced_folder "../", "/home/vagrant/go/src/github.com/cilium/cilium",
-            nfs: $NFS
+            type: "rsync",
+            rsync__exclude: ".git/"
 
         # Provision section
         server.vm.provision :shell,
@@ -81,7 +82,8 @@ Vagrant.configure("2") do |config|
             # This network is only used by NFS
             server.vm.network "private_network", type: "dhcp"
             server.vm.synced_folder "../", "/home/vagrant/go/src/github.com/cilium/cilium",
-                nfs: $NFS
+                type: "rsync",
+                rsync__exclude: ".git/"
             # Provision section
             server.vm.provision :shell,
                 :inline => "sed -i 's/^mesg n$/tty -s \\&\\& mesg n/g' /root/.profile"
