@@ -35,6 +35,11 @@ import (
 	"github.com/go-openapi/strfmt"
 )
 
+var (
+	// ciliumAgentTimeout is a for timeout cilium-agent readiness.
+	ciliumAgentTimeout = 30 * time.Second
+)
+
 type Client struct {
 	clientapi.Cilium
 }
@@ -74,6 +79,28 @@ func configureTransport(tr *http.Transport, proto, addr string) *http.Transport 
 // NewDefaultClient creates a client with default parameters connecting to UNIX domain socket.
 func NewDefaultClient() (*Client, error) {
 	return NewClient("")
+}
+
+// NewDefaultClient creates a client with default parameters connecting to UNIX domain socket
+// and waits for cilium-agent availability at most 30 seconds.
+func NewDefaultClientWithTimeout() (*Client, error) {
+	timeout := time.After(ciliumAgentTimeout)
+	var c *Client
+	var err error
+	for {
+		select {
+		case <-timeout:
+			return c, err
+		default:
+		}
+
+		c, err = NewDefaultClient()
+		if err == nil {
+			break
+		}
+	}
+
+	return c, nil
 }
 
 // NewClient creates a client for the given `host`.
