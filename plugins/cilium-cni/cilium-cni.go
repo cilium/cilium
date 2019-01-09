@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -329,25 +330,19 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		if err != nil {
 			return fmt.Errorf("unable to understand network config: %s", err)
 		}
-		// str := strings.Split(args.Netns, "/")
-		// pid, err := strconv.Atoi(str[2])
-		// if err != nil {
-		// 	return err
-		// }
-		ep := &models.EndpointChangeRequest{
-			ContainerID: args.ContainerID,
-			// Pid:         int64(pid),
-			State: models.EndpointStateWaitingForIdentity,
+		str := strings.Split(args.Netns, "/")
+		pid, err := strconv.Atoi(str[2])
+		if err != nil {
+			return err
 		}
-		// err = c.EndpointCreateID(ep)
+		// TODO: detect host device from flannel result
+		ep, err := connector.DeriveEndpointFrom("cni0", args.ContainerID, pid)
+		if err != nil {
+			logger.WithError(err).WithFields(logrus.Fields{
+				logfields.ContainerID: args.ContainerID}).Warn("Unable to derive endpoint")
+			return fmt.Errorf("unable to derive endpoint: %s", err)
+		}
 		err = c.EndpointCreate(ep)
-		// ep, err := connector.DeriveEndpointFrom("cni0", args.ContainerID, pid)
-		// if err != nil {
-		// 	logger.WithError(err).WithFields(logrus.Fields{
-		// 		logfields.ContainerID: args.ContainerID}).Warn("Unable to derive endpoint")
-		// 	return fmt.Errorf("unable to derive endpoint: %s", err)
-		// }
-		// epID, err := c.EndpointCreateID(ep)
 		if err != nil {
 			logger.WithError(err).WithFields(logrus.Fields{
 				logfields.ContainerID: ep.ContainerID}).Warn("Unable to create endpoint")
