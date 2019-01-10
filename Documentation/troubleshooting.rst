@@ -237,6 +237,47 @@ Cilium:
 See section :ref:`policy_tracing` for details and examples on how to use the
 policy tracing feature.
 
+Understand the rendering of your policy
+---------------------------------------
+
+There are always multiple ways to approach a problem. Cilium can provide the
+rendering of the aggregate policy provided to it, leaving you to simply compare
+with what you expect the policy to actually be rather than search (and potentially
+overlook) every policy. At the expense of reading a very large dump of an endpoint,
+this is often a faster path to discovering errant policy requests in the Kubernetes
+API.
+
+Start by finding the endpoint you are debugging from the following list. There are
+several cross references for you to use in this list, including the IP address and
+pod labels:
+
+.. code:: bash
+
+    kubectl -n kube-system exec -ti cilium-q8wvt -- cilium endpoint list
+
+When you find the correct endpoint, the first column of every row is the endpoint ID.
+Use that to dump the full endpoint information:
+
+.. code:: bash
+
+    kubectl -n kube-system exec -ti cilium-q8wvt -- cilium endpoint get 59084
+
+.. image:: images/troubleshooting_policy.png
+    :align: center
+
+Importing this dump into a JSON-friendly editor can help browse and navigate the
+information here. At the top level of the dump, there are two nodes of note:
+
+* ``spec``: The desired state of the endpoint
+* ``status``: The current state of the endpoint
+
+This is the standard Kubernetes control loop pattern. Cilium is the controller here,
+and it is iteratively working to bring the ``status`` in line with the ``spec``.
+
+Opening the ``status``, we can drill down through ``policy.realized.l4``. Do your
+``ingress`` and ``egress`` rules match what you expect? If not, the reference to the errant
+rules can be found in the ``derived-from-rules`` node.
+
 Automatic Diagnosis
 ===================
 
