@@ -111,6 +111,10 @@ type DNSProxy struct {
 	// case will be these simple literals.
 	// To insert a wildcard ".", use .{1} to indicate a single wildcard character.
 	allowed *regexpmap.RegexpMap
+
+	// rejectReply is the OPCode send from the DNS-proxy to the endpoint if the
+	// DNS request is invalid
+	rejectReply int
 }
 
 // LookupEndpointIDByIPFunc wraps logic to lookup an endpoint with any backend.
@@ -146,6 +150,7 @@ func StartDNSProxy(address string, port uint16, lookupEPFunc LookupEndpointIDByI
 		NotifyOnDNSMsg:        notifyFunc,
 		lookupTargetDNSServer: lookupTargetDNSServer,
 		allowed:               regexpmap.NewRegexpMap(),
+		rejectReply:           dns.RcodeRefused,
 	}
 
 	// Start the DNS listeners on UDP and TCP
@@ -265,7 +270,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		scopedLog.WithError(err).Error("cannot extract endpoint IP from DNS request")
 		p.NotifyOnDNSMsg(time.Now(), endpointAddr, "", request, protocol, false,
 			fmt.Errorf("Cannot extract endpoint IP from DNS request: %s", err))
-		sendRefused(scopedLog, w, request)
+		p.sendRefused(scopedLog, w, request)
 		return
 	}
 	endpointID, err := p.LookupEndpointIDByIP(net.ParseIP(endpointIPStr))
@@ -273,7 +278,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		scopedLog.WithError(err).Error("cannot extract endpoint ID from DNS request")
 		p.NotifyOnDNSMsg(time.Now(), endpointAddr, "", request, protocol, false,
 			fmt.Errorf("Cannot extract endpoint ID from DNS request: %s", err))
-		sendRefused(scopedLog, w, request)
+		p.sendRefused(scopedLog, w, request)
 		return
 	}
 	scopedLog = scopedLog.WithField(logfields.EndpointID, endpointID)
@@ -283,7 +288,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		scopedLog.WithError(err).Error("Cannot extract target server address to forward DNS request to")
 		p.NotifyOnDNSMsg(time.Now(), endpointAddr, targetServerAddr, request, protocol, false,
 			fmt.Errorf("Cannot extract target server address to forward DNS request to: %s", err))
-		sendRefused(scopedLog, w, request)
+		p.sendRefused(scopedLog, w, request)
 		return
 	}
 	scopedLog.WithField("server", targetServerAddr).Debug("Found target server to of DNS request")
@@ -295,7 +300,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	// This isn't ideal but we are trusting the DNS responses anyway.
 	if !p.CheckAllowed(qname, endpointID) {
 		scopedLog.Debug("Rejecting DNS query from endpoint due to policy")
-		err = sendRefused(scopedLog, w, request)
+		err = p.sendRefused(scopedLog, w, request)
 		p.NotifyOnDNSMsg(time.Now(), endpointAddr, targetServerAddr, request, protocol, false, err)
 		return
 	}
@@ -315,7 +320,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		scopedLog.Error("Cannot parse DNS proxy client network to select forward client")
 		p.NotifyOnDNSMsg(time.Now(), endpointAddr, targetServerAddr, request, protocol, false,
 			fmt.Errorf("Cannot parse DNS proxy client network to select forward client: %s", err))
-		sendRefused(scopedLog, w, request)
+		p.sendRefused(scopedLog, w, request)
 		return
 	}
 
@@ -325,7 +330,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		scopedLog.WithError(err).Error("Cannot forward proxied DNS lookup")
 		p.NotifyOnDNSMsg(time.Now(), endpointAddr, targetServerAddr, request, protocol, false,
 			fmt.Errorf("Cannot forward proxied DNS lookup: %s", err))
-		sendRefused(scopedLog, w, request)
+		p.sendRefused(scopedLog, w, request)
 		return
 	}
 
@@ -340,6 +345,33 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		scopedLog.WithError(err).Error("Cannot forward proxied DNS response")
 		p.NotifyOnDNSMsg(time.Now(), targetServerAddr, endpointAddr, response, protocol, true,
 			fmt.Errorf("Cannot forward proxied DNS response: %s", err))
+	}
+}
+
+// sendRefused creates and sends a REFUSED response for request to w
+// The returned error is logged with scopedLog and is returned for convenience
+func (p *DNSProxy) sendRefused(scopedLog *logrus.Entry, w dns.ResponseWriter, request *dns.Msg) (err error) {
+	refused := new(dns.Msg)
+	refused.SetRcode(request, p.rejectReply)
+
+	if err = w.WriteMsg(refused); err != nil {
+		scopedLog.WithError(err).Error("Cannot send REFUSED response")
+		err = fmt.Errorf("cannot send REFUSED response: %s", err)
+	}
+	return err
+}
+
+// SetRejectReply sets the default reject reply on denied dns responses.
+func (p *DNSProxy) SetRejectReply(opt string) {
+	switch strings.ToLower(opt) {
+	case strings.ToLower(option.FQDNProxyDenyWithNameError):
+		p.rejectReply = dns.RcodeNameError
+	case strings.ToLower(option.FQDNProxyDenyWithRefused):
+		p.rejectReply = dns.RcodeRefused
+	default:
+		log.Infof("DNS reject response '%s' is not valid, available options are '%v'",
+			opt, option.FQDNRejectOptions)
+		return
 	}
 }
 
@@ -431,37 +463,4 @@ func bindToAddr(address string, port uint16) (UDPConn *net.UDPConn, TCPListener 
 	}
 
 	return UDPConn, TCPListener, nil
-}
-
-// sendRefused creates and sends a REFUSED response for request to w
-// The returned error is logged with scopedLog and is returned for convenience
-func sendRefused(scopedLog *logrus.Entry, w dns.ResponseWriter, request *dns.Msg) (err error) {
-	refused := generateRejectReply(request)
-
-	if err = w.WriteMsg(refused); err != nil {
-		scopedLog.WithError(err).Error("Cannot send REFUSED response")
-		err = fmt.Errorf("cannot send REFUSED response: %s", err)
-	}
-	return err
-}
-
-// SetRejectReply sets the default reject reply on denied dns responses.
-func SetRejectReply(opt string) {
-	switch strings.ToLower(opt) {
-	case strings.ToLower(option.FQDNProxyDenyWithNameError):
-		rejectReply = dns.RcodeNameError
-	case strings.ToLower(option.FQDNProxyDenyWithRefused):
-		rejectReply = dns.RcodeRefused
-	default:
-		log.Infof("DNS reject response '%s' is not valid, available options are '%v'",
-			opt, option.FQDNRejectOptions)
-		return
-	}
-}
-
-// getRegectReply returns a DNS message with the correct response code.
-func generateRejectReply(request *dns.Msg) *dns.Msg {
-	reply := new(dns.Msg)
-	reply.SetRcode(request, rejectReply)
-	return reply
 }

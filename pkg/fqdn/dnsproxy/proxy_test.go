@@ -149,7 +149,7 @@ func (s *DNSProxyTestSuite) TestRejectNonRegex(c *C) {
 }
 
 func (s *DNSProxyTestSuite) TestRejectNonMatchingRefusedResponse(c *C) {
-	SetRejectReply(option.FQDNProxyDenyWithRefused)
+	s.proxy.SetRejectReply(option.FQDNProxyDenyWithRefused)
 	request := new(dns.Msg)
 	request.SetQuestion("notcilium.io.", dns.TypeA)
 	response, _, err := s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
@@ -158,7 +158,7 @@ func (s *DNSProxyTestSuite) TestRejectNonMatchingRefusedResponse(c *C) {
 }
 
 func (s *DNSProxyTestSuite) TestRejectNonMatchingNoDomainResponse(c *C) {
-	SetRejectReply(option.FQDNProxyDenyWithNameError)
+	s.proxy.SetRejectReply(option.FQDNProxyDenyWithNameError)
 	request := new(dns.Msg)
 	request.SetQuestion("notcilium.io.", dns.TypeA)
 	response, _, err := s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
@@ -232,9 +232,10 @@ func (s *DNSProxyTestSuite) TestCheckAllowedTwiceRemovedOnce(c *C) {
 }
 
 func (s *DNSProxyTestSuite) TestSetRejectReplyNoValidData(c *C) {
-	SetRejectReply("banana")
+	s.proxy.SetRejectReply("banana")
 	request := new(dns.Msg)
 	request.SetQuestion("notcilium.io.", dns.TypeA)
-	response := generateRejectReply(request)
+	response, _, err := s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
+	c.Assert(err, IsNil, Commentf("DNS request from test client returned error when it should be rejected"))
 	c.Assert(response.Rcode, Not(Equals), 100, Commentf("DNS request from test client has an invalid response code"))
 }

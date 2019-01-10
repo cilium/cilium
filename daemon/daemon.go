@@ -1401,7 +1401,6 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 		}
 	}
 
-	dnsproxy.SetRejectReply(option.Config.FQDNRejectResponse)
 	// Once we stop returning errors from StartDNSProxy this should live in
 	// StartProxySupport
 	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", uint16(option.Config.ToFQDNsProxyPort),
@@ -1532,5 +1531,6 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 
 			return nil
 		})
+	proxy.DefaultDNSProxy.SetRejectReply(option.Config.FQDNRejectResponse)
 	return err // filled by StartDNSProxy
 }
