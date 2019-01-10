@@ -47,7 +47,7 @@ func (e *Endpoint) Logger(subsystem string) *logrus.Entry {
 // create a custom Debug logger for this endpoint when the option on it is set.
 // If fields is not nil only the those specific fields will be updated in the
 // endpoint's logger, otherwise a full update of those fields is executed.
-// Note: You must hold Endpoint.Mutex for reading.
+// Note: You must hold Endpoint.Mutex for reading if fields is nil.
 func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
 	v := atomic.LoadPointer(&e.logger)
 	epLogger := (*logrus.Entry)(v)
