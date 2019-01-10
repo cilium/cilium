@@ -86,7 +86,12 @@ const (
 	DefaultMapPrefix = "tc/globals"
 
 	// ToFQDNsMinTTL is the default lower bound for TTLs used with ToFQDNs rules.
-	ToFQDNsMinTTL = 3600 // 1 hour in seconds
+	ToFQDNsMinTTL = 604800 // 1 week in seconds
+
+	// ToFQDNsMinTTL is the default lower bound for TTLs used with ToFQDNs rules
+	// when the poller is enabled.
+	// This is fixed up in DaemonConfig.Populate
+	ToFQDNsMinTTLPoller = 3600 // 1 hour in seconds
 
 	// IdentityChangeGracePeriod is the grace period that needs to pass
 	// before an endpoint that has changed its identity will start using
