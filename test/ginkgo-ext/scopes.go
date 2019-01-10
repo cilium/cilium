@@ -216,6 +216,27 @@ func runAllJustAfterEach(cs *scope, testName string) {
 	}
 }
 
+// afterEachStatus map to store what `AfterEach` functions have been
+// already executed for the given test
+var afterEachStatus map[string]bool = map[string]bool{}
+
+// runAllAfterEach runs all the `scope.AfterEach` functions for the
+// given scope and parent scopes. This function make sure that all the
+// `AfterEach` functions are called before AfterAll functions.
+func runAllAfterEach(cs *scope, testName string) {
+	if _, ok := afterEachStatus[testName]; ok {
+		// AfterEach calls are already executed in the children
+		return
+	}
+
+	for _, body := range cs.afterEach {
+		body()
+	}
+	if cs.parent != nil {
+		runAllAfterEach(cs.parent, testName)
+	}
+}
+
 // afterFailedStatus map to store what `AfterFail` functions have been
 // already executed for the given test.
 var afterFailedStatus map[string]bool = map[string]bool{}
@@ -250,6 +271,9 @@ func RunAfterEach(cs *scope) {
 		return
 	}
 
+	// Decrement the test number due test or BeforeEach has been run.
+	atomic.AddInt32(&cs.counter, -1)
+
 	// Disabling the `ginkgo.Fail` function to avoid the panic and be able to
 	// gather all the logs.
 	failEnabled = false
@@ -270,9 +294,10 @@ func RunAfterEach(cs *scope) {
 	afterFailedStatus[testName] = true
 
 	hasFailed := afterEachFailed[testName] || ginkgo.CurrentGinkgoTestDescription().Failed
-	for _, body := range cs.afterEach {
-		body()
-	}
+
+	runAllAfterEach(cs, testName)
+	afterEachStatus[testName] = true
+
 	// Run the afterFailed in case that something fails on afterEach
 	if hasFailed == false && afterEachFailed[testName] {
 		GinkgoPrint("Something has failed on AfterEach, running AfterFailed functions")
@@ -414,7 +439,6 @@ func wrapTest(f interface{}) interface{} {
 	cs := currentScope
 	after := func() {
 		for cs != nil {
-			atomic.AddInt32(&cs.counter, -1)
 			cs = cs.parent
 		}
 		GinkgoPrint("=== Test Finished at %s====", time.Now().Format(time.RFC3339))
