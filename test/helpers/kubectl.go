@@ -1769,9 +1769,11 @@ func (kub *Kubectl) CiliumHealthPreFlightCheck() error {
 	for _, pod := range ciliumPods {
 		status := kub.CiliumExec(pod, "cilium-health status -o json --probe")
 		if !status.WasSuccessful() {
+			subStatus := kub.CiliumExec(pod, "cilium status --all-health --all-nodes")
+
 			return fmt.Errorf(
-				"Cluster connectivity is unhealthy on '%s': %s",
-				pod, status.OutputPrettyPrint())
+				"Cluster connectivity is unhealthy on '%s': %s | %s",
+				pod, status.OutputPrettyPrint(), subStatus.OutputPrettyPrint())
 		}
 
 		// By Checking that the node list is the same
