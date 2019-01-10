@@ -1697,6 +1697,10 @@ func (kub *Kubectl) CiliumPreFlightCheck() error {
 	// nodes cannot be show up yet, and the cilium-health can fail as a false positive.
 	var err error
 	body := func() bool {
+		err = kub.CiliumStatusPreFlightCheck()
+		if err != nil {
+			return false
+		}
 		err = kub.CiliumControllersPreFlightCheck()
 		if err != nil {
 			return false
@@ -1723,6 +1727,26 @@ func (kub *Kubectl) CiliumPreFlightCheck() error {
 	if timeoutErr != nil {
 		return fmt.Errorf("CiliumPreFlightCheck error: %s: %s", timeoutErr, err)
 	}
+	return nil
+}
+
+// CiliumStatusPreFlightCheck validates the cilium status of all cilium pods
+// and returns an error if any of the pods report an unhealthy status
+func (kub *Kubectl) CiliumStatusPreFlightCheck() error {
+	ginkgoext.By("Checking that cilium status is healthy")
+
+	ciliumPods, err := kub.GetCiliumPods(KubeSystemNamespace)
+	if err != nil {
+		return err
+	}
+
+	for _, pod := range ciliumPods {
+		status := kub.CiliumExec(pod, "cilium status --all-health --all-nodes")
+		if !status.WasSuccessful() {
+			return fmt.Errorf("cilium-agent '%s' is unhealthy: %s", pod, status.OutputPrettyPrint())
+		}
+	}
+
 	return nil
 }
 
