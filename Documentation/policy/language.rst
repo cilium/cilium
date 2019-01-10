@@ -509,8 +509,10 @@ Example
         .. literalinclude:: ../../examples/policies/l3/fqdn/fqdn.json
 
 
-Managing Long-Lived Connections
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. _DNS and Long-Lived Connections:
+
+Managing Long-Lived Connections & Minimum DNS Cache Times
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Often, an application may keep a connection open for longer than the configured
 DNS TTL. Without further DNS queries the remote IP used in the long-lived
 connection may expire out of the DNS cache. When this occurs, existing
@@ -521,7 +523,16 @@ IP is added to the policy.
 A minimum TTL is used to ensure a lower bound to DNS data expiration, and DNS
 data in the Cilium DNS cache will not expire sooner than this minimum. It
 can be configured with the ``--tofqdns-min-ttl`` CLI option. The value is in
-integer seconds and must be 1 or more. The default is 1 hour.
+integer seconds and must be 1 or more. The default is 1 week, or 1 hour when
+`DNS Polling`_ is enabled.
+
+Some care needs to be taken when setting ``--tofqdns-min-ttl`` with DNS data
+that returns many distinct IPs over time. A long TTL will keep each IP cached
+long after the related connections may have terminated. Large numbers of IPs
+have corresponding Security Identities and too many may slow down Cilium policy
+regeneration. This can be especially pronounced when using `DNS Polling`_ to
+obtain DNS data. In such cases a shorter minimum TTL is recommended, as
+`DNS Polling`_ will recover up-do-date IPs regularly.
 
 .. note:: It is recommended that ``--tofqdns-min-ttl`` be set to the minimum
           time a connection must be maintained.
@@ -599,7 +610,11 @@ DNS Polling
      query, the IP being whitelisted may differ from the one used for
      connections by applications. This is because the application will make
      a DNS query independent from the poll.
-  
+ 
+  #. When DNS lookups return many distinct IPs over time, large values of
+     ``--tofqdns-min-ttl`` may result in unacceptably slow policy
+     regeneration. See `DNS and Long-Lived Connections`_ for details.
+
   #. The lookups from Cilium follow the configuration of the environment it
      is in via ``/etc/resolv.conf``. When running as a kubernetes pod, the
      contents of ``resolv.conf`` are controlled via the ``dnsPolicy`` field of a
