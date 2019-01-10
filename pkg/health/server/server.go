@@ -119,11 +119,9 @@ func (s *Server) getNodes() (nodeMap, error) {
 	}
 
 	if resp.Payload.Cluster.Self != "" {
-		s.RWMutex.Lock()
 		s.localStatus = &healthModels.SelfStatus{
 			Name: resp.Payload.Cluster.Self,
 		}
-		s.RWMutex.Unlock()
 	}
 
 	nodes := make(nodeMap)
