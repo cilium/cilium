@@ -323,6 +323,14 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	request.Id = dns.Id() // force a random new ID for this request
 	response, _, err := client.Exchange(request, targetServerAddr)
 	if err != nil {
+		// Timeouts are a special case. They are "normal operation" from our
+		// perspective and we pass them on by not responding.
+		netErr, isNetErr := err.(net.Error)
+		if isNetErr && netErr.Timeout() {
+			scopedLog.WithError(err).Warn("Timeout waiting for response to forwarded proxied DNS lookup")
+			return
+		}
+
 		scopedLog.WithError(err).Error("Cannot forward proxied DNS lookup")
 		p.NotifyOnDNSMsg(time.Now(), endpointAddr, targetServerAddr, request, protocol, false,
 			fmt.Errorf("Cannot forward proxied DNS lookup: %s", err))
