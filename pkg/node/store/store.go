@@ -39,17 +39,23 @@ var (
 
 // NodeObserver implements the store.Observer interface and delegates update
 // and deletion events to the node object itself.
-type NodeObserver struct{}
+type NodeObserver struct {
+	manager NodeManager
+}
 
 func (o *NodeObserver) OnUpdate(k store.Key) {
 	if n, ok := k.(*node.Node); ok {
-		n.OnUpdate()
+		nodeCopy := n.DeepCopy()
+		nodeCopy.Source = node.FromKVStore
+		o.manager.NodeUpdated(*nodeCopy)
 	}
 }
 
 func (o *NodeObserver) OnDelete(k store.Key) {
 	if n, ok := k.(*node.Node); ok {
-		n.OnDelete()
+		nodeCopy := n.DeepCopy()
+		nodeCopy.Source = node.FromKVStore
+		o.manager.NodeDeleted(*nodeCopy)
 	}
 }
 
@@ -58,15 +64,25 @@ type NodeRegistrar struct {
 	*store.SharedStore
 }
 
+// NodeManager is the interface that the manager of nodes has to implement
+type NodeManager interface {
+	// NodeUpdated is called when the store detects a change in node
+	// information
+	NodeUpdated(n node.Node)
+
+	// NodeDeleted is called when the store detects a deletion of a node
+	NodeDeleted(n node.Node)
+}
+
 // RegisterNode registers the local node in the cluster
-func (nr *NodeRegistrar) RegisterNode(n *node.Node) error {
+func (nr *NodeRegistrar) RegisterNode(n *node.Node, manager NodeManager) error {
 
 	// Join the shared store holding node information of entire cluster
 	store, err := store.JoinSharedStore(store.Configuration{
 		Prefix:                  NodeStorePrefix,
 		KeyCreator:              KeyCreator,
 		SynchronizationInterval: time.Minute,
-		Observer:                &NodeObserver{},
+		Observer:                &NodeObserver{manager: manager},
 	})
 
 	if err != nil {

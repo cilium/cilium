@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,11 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package node
+// +build !privileged_tests
+
+package linux
 
 import (
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
+	"testing"
+
+	"gopkg.in/check.v1"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "node")
+func Test(t *testing.T) {
+	check.TestingT(t)
+}
+
+type linuxTestSuite struct{}
+
+var _ = check.Suite(&linuxTestSuite{})
+
+func (s *linuxTestSuite) TestNewDatapath(c *check.C) {
+	dp := NewDatapath(DatapathConfiguration{})
+	c.Assert(dp, check.Not(check.IsNil))
+
+	c.Assert(dp.Node(), check.Not(check.IsNil))
+	c.Assert(dp.LocalNodeAddressing(), check.Not(check.IsNil))
+}
