@@ -281,6 +281,15 @@ func checkMinRequirements() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
+
+	// Reset the help function to also exit, as we block elsewhere in interrupts
+	// and would not exit when called with -h.
+	oldHelpFunc := RootCmd.HelpFunc()
+	RootCmd.SetHelpFunc(func(c *cobra.Command, a []string) {
+		oldHelpFunc(c, a)
+		os.Exit(0)
+	})
+
 	flags := RootCmd.Flags()
 
 	// Validators
