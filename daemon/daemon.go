@@ -41,6 +41,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/counter"
+	"github.com/cilium/cilium/pkg/datapath"
 	bpfIPCache "github.com/cilium/cilium/pkg/datapath/ipcache"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
@@ -74,6 +75,7 @@ import (
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
+	nodemanager "github.com/cilium/cilium/pkg/node/manager"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -168,8 +170,14 @@ type Daemon struct {
 	// k8sSvcCache is a cache of all Kubernetes services and endpoints
 	k8sSvcCache k8s.ServiceCache
 
-	mtuConfig     mtu.Configuration
-	policyTrigger *trigger.Trigger
+	mtuConfig      mtu.Configuration
+	policyTrigger  *trigger.Trigger
+	nodeManager    *nodemanager.Manager
+	datapath       datapath.Datapath
+	nodeConfig     datapath.LocalNodeConfiguration
+	nodeRegistrar  nodeStore.NodeRegistrar
+	localNode      node.Node
+	nodeRegistered chan struct{}
 }
 
 // UpdateProxyRedirect updates the redirect rules in the proxy for a particular
@@ -505,7 +513,10 @@ func (d *Daemon) compileBase() error {
 	}
 
 	ipam.ReserveLocalRoutes()
-	node.InstallHostRoutes(d.mtuConfig)
+
+	if err := d.datapath.Node().NodeConfigurationChanged(d.nodeConfig); err != nil {
+		return err
+	}
 
 	if option.Config.EnableIPv4 {
 		// Always remove masquerade rule and then re-add it if required
@@ -840,7 +851,7 @@ func createPrefixLengthCounter() *counter.PrefixLengthCounter {
 }
 
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
-func NewDaemon() (*Daemon, *endpointRestoreState, error) {
+func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	// Validate the daemon-specific global options.
 	if err := option.Config.Validate(); err != nil {
 		return nil, nil, fmt.Errorf("invalid daemon configuration: %s", err)
@@ -850,6 +861,13 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 
 	if err := workloads.Setup(option.Config.Workloads, map[string]string{}); err != nil {
 		return nil, nil, fmt.Errorf("unable to setup workload: %s", err)
+	}
+
+	mtuConfig := mtu.NewConfiguration(option.Config.Tunnel != option.TunnelDisabled, option.Config.MTU)
+
+	nodeMngr, err := nodemanager.NewManager("all", dp.Node())
+	if err != nil {
+		return nil, nil, err
 	}
 
 	d := Daemon{
@@ -862,7 +880,21 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 
 		buildEndpointSem: semaphore.NewWeighted(int64(numWorkerThreads())),
 		compilationMutex: new(lock.RWMutex),
-		mtuConfig:        mtu.NewConfiguration(option.Config.Tunnel != option.TunnelDisabled, option.Config.MTU),
+		mtuConfig:        mtuConfig,
+		nodeManager:      nodeMngr,
+		datapath:         dp,
+		nodeConfig: datapath.LocalNodeConfiguration{
+			MtuConfig:               mtuConfig,
+			UseSingleClusterRoute:   option.Config.UseSingleClusterRoute,
+			EnableIPv4:              option.Config.EnableIPv4,
+			EnableIPv6:              option.Config.EnableIPv6,
+			EnableEncapsulation:     option.Config.Tunnel != option.TunnelDisabled,
+			EnableAutoDirectRouting: option.Config.EnableAutoDirectRouting,
+		},
+		localNode: node.Node{
+			Source: node.FromLocalNode,
+		},
+		nodeRegistered: make(chan struct{}),
 	}
 
 	t, err := trigger.NewTrigger(trigger.Parameters{
@@ -931,15 +963,13 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 	// or IPv4 alloc prefix, respectively, retrieved by k8s node annotations.
 	log.Info("Initializing node addressing")
 
-	// Inject BPF dependency, kvstore dependency into node package.
-	node.TunnelDatapath = tunnel.TunnelMap
-	node.NodeReg = &nodeStore.NodeRegistrar{}
-
 	if err := node.AutoComplete(); err != nil {
 		log.WithError(err).Fatal("Cannot autocomplete node addresses")
 	}
 
 	node.SetIPv4ClusterCidrMaskSize(option.Config.IPv4ClusterCIDRMaskSize)
+
+	auxPrefixes := []*net.IPNet{}
 
 	if option.Config.IPv4Range != AutoCIDR {
 		_, net, err := net.ParseCIDR(option.Config.IPv4Range)
@@ -955,7 +985,7 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 			log.WithError(err).WithField(logfields.V4Prefix, option.Config.IPv4ServiceRange).Fatal("Invalid IPv4 service prefix")
 		}
 
-		node.AddAuxPrefix(ipnet)
+		auxPrefixes = append(auxPrefixes, ipnet)
 	}
 
 	if option.Config.IPv6Range != AutoCIDR {
@@ -975,8 +1005,10 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 			log.WithError(err).WithField(logfields.V6Prefix, option.Config.IPv6ServiceRange).Fatal("Invalid IPv6 service prefix")
 		}
 
-		node.AddAuxPrefix(ipnet)
+		auxPrefixes = append(auxPrefixes, ipnet)
 	}
+
+	d.nodeConfig.AuxiliaryPrefixes = auxPrefixes
 
 	// Set up ipam conf after init() because we might be running d.conf.KVStoreIPv4Registration
 	log.Info("Initializing IPAM")
@@ -1055,9 +1087,7 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 		log.Infof("  Loopback IPv4: %s", node.GetIPv4Loopback().String())
 	}
 
-	if err := node.ConfigureLocalNode(); err != nil {
-		log.WithError(err).Fatal("Unable to initialize local node")
-	}
+	d.configureLocalNode()
 
 	// This needs to be done after the node addressing has been configured
 	// as the node address is required as suffix.
@@ -1113,6 +1143,7 @@ func (d *Daemon) Close() {
 	if d.policyTrigger != nil {
 		d.policyTrigger.Shutdown()
 	}
+	d.nodeManager.Close()
 }
 
 // TriggerReloadWithoutCompile causes all BPF programs and maps to be reloaded,

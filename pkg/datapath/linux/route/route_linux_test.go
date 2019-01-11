@@ -87,20 +87,20 @@ func testReplaceRoute(c *C, prefixStr, nexthopStr string) {
 	}
 
 	// delete route in case it exists from a previous failed run
-	DeleteRoute(rt)
+	Delete(rt)
 
 	// Defer deletion of route and nexthop route to cleanup in case of failure
-	defer DeleteRoute(rt)
-	defer DeleteRoute(Route{
+	defer Delete(rt)
+	defer Delete(Route{
 		Device: "lo",
 		Prefix: *rt.getNexthopAsIPNet(),
 		Scope:  netlink.SCOPE_LINK,
 	})
 
-	err = ReplaceRoute(rt, mtu.NewConfiguration(false, 0))
+	err = Replace(rt, mtu.NewConfiguration(false, 0))
 	c.Assert(err, IsNil)
 
-	err = DeleteRoute(rt)
+	err = Delete(rt)
 	c.Assert(err, IsNil)
 }
 

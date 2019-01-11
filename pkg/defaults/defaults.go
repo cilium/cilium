@@ -134,4 +134,7 @@ const (
 	// ClientConnectTimeout is the time the cilium-agent client is
 	// (optionally) waiting before returning an error.
 	ClientConnectTimeout = 30 * time.Second
+
+	// EnableAutoDirectRouting is the default value for EnableAutoDirectRouting
+	EnableAutoDirectRouting = false
 )
