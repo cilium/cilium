@@ -807,9 +807,6 @@ func (d *Daemon) compileBase() error {
 }
 
 func (d *Daemon) init() error {
-
-	var err error
-
 	globalsDir := option.Config.GetGlobalsDir()
 	if err := os.MkdirAll(globalsDir, defaults.RuntimePathRights); err != nil {
 		log.WithError(err).WithField(logfields.Path, globalsDir).Fatal("Could not create runtime directory")
@@ -819,8 +816,8 @@ func (d *Daemon) init() error {
 		log.WithError(err).WithField(logfields.Path, option.Config.StateDir).Fatal("Could not change to runtime directory")
 	}
 
-	if err = createNodeConfigHeaderfile(); err != nil {
-		return nil
+	if err := createNodeConfigHeaderfile(); err != nil {
+		return err
 	}
 
 	if !option.Config.DryMode {
