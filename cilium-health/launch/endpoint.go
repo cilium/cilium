@@ -247,10 +247,15 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 		return fmt.Errorf("Error while adding endpoint: %s", err)
 	}
 
+	if err := ep.LockAlive(); err != nil {
+		return err
+	}
 	if !ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "initial build of health endpoint") {
 		endpointmanager.Remove(ep)
+		ep.Unlock()
 		return fmt.Errorf("unable to transition health endpoint to WaitingToRegenerate state")
 	}
+	ep.Unlock()
 
 	buildSuccessful := <-ep.Regenerate(owner, &endpoint.RegenerationContext{
 		Reason: "health daemon bootstrap",
