@@ -122,6 +122,11 @@ zone "dnssec.test" {
 };
 `
 
+type nameIP struct {
+	name string
+	ip   string
+}
+
 var _ = Describe("RuntimeFQDNPolicies", func() {
 	const (
 		bindContainerImage = "docker.io/cilium/docker-bind:v0.3"
@@ -180,14 +185,27 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		vm.Exec(fmt.Sprintf("docker network create  %s", worldNetwork)).ExpectSuccess(
 			"%q network cant be created", worldNetwork)
 
+		ips := make(chan nameIP)
+
 		for name, image := range ciliumTestImages {
-			vm.ContainerCreate(name, image, worldNetwork, fmt.Sprintf("-l id.%s", name))
-			res := vm.ContainerInspect(name)
-			res.ExpectSuccess("Container is not ready after create it")
-			ip, err := res.Filter(fmt.Sprintf(`{[0].NetworkSettings.Networks.%s.IPAddress}`, worldNetwork))
-			Expect(err).To(BeNil(), "Cannot retrieve network info for %q", name)
-			worldIps[name] = ip.String()
+			go func(name, image string) {
+				defer GinkgoRecover()
+				vm.ContainerCreate(name, image, worldNetwork, fmt.Sprintf("-l id.%s", name))
+				res := vm.ContainerInspect(name)
+				res.ExpectSuccess("Container is not ready after create it")
+				ip, err := res.Filter(fmt.Sprintf(`{[0].NetworkSettings.Networks.%s.IPAddress}`, worldNetwork))
+				Expect(err).To(BeNil(), "Cannot retrieve network info for %q", name)
+				//worldIps[name] = ip.String()
+				ips <- nameIP{name, ip.String()}
+			}(name, image)
 		}
+
+		for range ciliumTestImages {
+			ip := <-ips
+			worldIps[ip.name] = ip.ip
+		}
+
+		close(ips)
 
 		bindConfig := fmt.Sprintf(bindCiliumTestTemplate, getMapValues(worldIps)...)
 		err := helpers.RenderTemplateToFile(bindDBCilium, bindConfig, os.ModePerm)
