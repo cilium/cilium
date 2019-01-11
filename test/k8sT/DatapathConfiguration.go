@@ -25,7 +25,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var _ = Describe("K8sTunnelTest", func() {
+var _ = Describe("K8sDatapathConfig", func() {
 
 	var kubectl *helpers.Kubectl
 	var demoDSPath string
@@ -47,6 +47,12 @@ var _ = Describe("K8sTunnelTest", func() {
 	AfterEach(func() {
 		kubectl.Delete(demoDSPath)
 		ExpectAllPodsTerminated(kubectl)
+
+		// Do not assert on success in AfterEach intentionally to avoid
+		// incomplete teardown.
+		_ = kubectl.DeleteResource(
+			"ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
+		waitToDeleteCilium(kubectl, logger)
 	})
 
 	AfterFailed(func() {
@@ -65,99 +71,69 @@ var _ = Describe("K8sTunnelTest", func() {
 			"Service is deleted")
 	}
 
-	Context("VXLan", func() {
-		AfterEach(func() {
-			// Do not assert on success in AfterEach intentionally to avoid
-			// incomplete teardown.
-			_ = kubectl.DeleteResource(
-				"ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
-			waitToDeleteCilium(kubectl, logger)
-		})
+	deployCilium := func(ciliumDaemonSetPatchFile string) {
+		_ = kubectl.Apply(helpers.DNSDeployment())
 
-		It("Check VXLAN mode", func() {
-			ProvisionInfraPods(kubectl)
-			err := kubectl.WaitforPods(helpers.DefaultNamespace, "", helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), "Pods are not ready after timeout")
+		err := kubectl.DeployETCDOperator()
+		ExpectWithOffset(1, err).To(BeNil(), "Unable to deploy etcd operator")
 
-			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
-			Expect(err).Should(BeNil())
+		err = kubectl.CiliumInstall(ciliumDaemonSetPatchFile, helpers.CiliumConfigMapPatch)
+		ExpectWithOffset(1, err).To(BeNil(), "Cilium cannot be installed")
 
-			By("Making sure all endpoints are in ready state")
-			err = kubectl.CiliumEndpointWaitReady()
-			Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
+		ExpectCiliumReady(kubectl)
+		ExpectETCDOperatorReady(kubectl)
 
-			_, err = kubectl.CiliumNodesWait()
-			Expect(err).Should(BeNil())
+		err = kubectl.WaitforPods(helpers.DefaultNamespace, "", helpers.HelperTimeout)
+		ExpectWithOffset(1, err).Should(BeNil(), "Pods are not ready after timeout")
 
+		_, err = kubectl.CiliumNodesWait()
+		ExpectWithOffset(1, err).Should(BeNil())
+
+		By("Making sure all endpoints are in ready state")
+		err = kubectl.CiliumEndpointWaitReady()
+		ExpectWithOffset(1, err).To(BeNil(), "Endpoints are not ready after timeout")
+	}
+
+	Context("Encapsulation", func() {
+		validateBPFTunnelMap := func() {
 			By("Checking that BPF tunnels are in place")
+			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
+			ExpectWithOffset(1, err).Should(BeNil())
 			status := kubectl.CiliumExec(ciliumPod, "cilium bpf tunnel list | wc -l")
 			status.ExpectSuccess()
 			Expect(status.IntOutput()).Should(Equal(3))
+		}
 
-			By("Checking that BPF tunnels are working correctly")
-			tunnStatus := isNodeNetworkingWorking(kubectl, "zgroup=testDS")
-			Expect(tunnStatus).Should(BeTrue())
-
-			// FIXME GH-4456
+		It("Check connectivity with VXLAN encapsulation", func() {
+			deployCilium("cilium-ds-patch-vxlan.yaml")
+			validateBPFTunnelMap()
+			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue())
 			cleanService()
 		}, 600)
+
+		It("Check connectivity with Geneve encapsulation", func() {
+			deployCilium("cilium-ds-patch-geneve.yaml")
+			validateBPFTunnelMap()
+			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue())
+			cleanService()
+		})
 	})
 
-	Context("Geneve", func() {
-
-		AfterEach(func() {
-			// Do not assert on success in AfterEach intentionally to avoid
-			// incomplete teardown.
-			_ = kubectl.DeleteResource(
-				"ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
-			waitToDeleteCilium(kubectl, logger)
-		})
-
-		It("Check Geneve mode", func() {
-			_ = kubectl.Apply(helpers.DNSDeployment())
-
-			// Deploy the etcd operator
-			err := kubectl.DeployETCDOperator()
-			Expect(err).To(BeNil(), "Unable to deploy etcd operator")
-
-			err = kubectl.CiliumInstall("cilium-ds-patch-geneve.yaml", helpers.CiliumConfigMapPatch)
-			Expect(err).To(BeNil(), "Cilium cannot be installed")
-
-			ExpectCiliumReady(kubectl)
-			ExpectETCDOperatorReady(kubectl)
-
-			err = kubectl.WaitforPods(helpers.DefaultNamespace, "", helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), "Pods are not ready after timeout")
-
-			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
-			Expect(err).Should(BeNil())
-
-			_, err = kubectl.CiliumNodesWait()
-			Expect(err).Should(BeNil())
-
-			By("Making sure all endpoints are in ready state")
-			err = kubectl.CiliumEndpointWaitReady()
-			Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
-
-			//Check that cilium detects a
-			By("Checking that BPF tunnels are in place")
-			status := kubectl.CiliumExec(ciliumPod, "cilium bpf tunnel list | wc -l")
-			status.ExpectSuccess()
-			Expect(status.IntOutput()).Should(Equal(3))
-
-			By("Checking that BPF tunnels are working correctly")
-			tunnStatus := isNodeNetworkingWorking(kubectl, "zgroup=testDS")
-			Expect(tunnStatus).Should(BeTrue())
-
-			// FIXME GH-4456
+	Context("DirectRouting", func() {
+		It("Check connectivity with automatic direct nodes routes", func() {
+			deployCilium("cilium-ds-patch-auto-node-routes.yaml")
+			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue())
 			cleanService()
 		})
 
 	})
-
 })
 
-func isNodeNetworkingWorking(kubectl *helpers.Kubectl, filter string) bool {
+func testPodConnectivityAcrossNodes(kubectl *helpers.Kubectl) bool {
+	By("Checking pod connectivity between nodes")
+
+	filter := "zgroup=testDS"
+
 	err := kubectl.WaitforPods(helpers.DefaultNamespace, fmt.Sprintf("-l %s", filter), helpers.HelperTimeout)
 	Expect(err).Should(BeNil())
 	pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, filter)
