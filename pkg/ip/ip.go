@@ -742,3 +742,32 @@ func KeepUniqueIPs(ips []net.IP) []net.IP {
 
 	return returnIPs
 }
+
+func createIPNetMap(list []*net.IPNet) map[string]*net.IPNet {
+	m := map[string]*net.IPNet{}
+	for _, ipnet := range list {
+		if ipnet != nil {
+			m[ipnet.String()] = ipnet
+		}
+	}
+	return m
+}
+
+func listMissingIPNets(existing map[string]*net.IPNet, new []*net.IPNet) (missing []*net.IPNet) {
+	for _, ipnet := range new {
+		if ipnet != nil {
+			if _, ok := existing[ipnet.String()]; !ok {
+				missing = append(missing, ipnet)
+			}
+		}
+	}
+	return
+}
+
+// DiffIPNetLists compares an old and new list of prefixes and returns the list
+// of removed and added prefixes
+func DiffIPNetLists(old, new []*net.IPNet) (add, remove []*net.IPNet) {
+	add = listMissingIPNets(createIPNetMap(old), new)
+	remove = listMissingIPNets(createIPNetMap(new), old)
+	return
+}

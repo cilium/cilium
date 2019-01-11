@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,11 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package node
-
-import (
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
-)
-
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "node")
+// Package datapath defines the interfaces to abstract all platform specific
+// datapath components.
+//
+// Current datapath implementations:
+//   pkg/datapath/linux
+//   pkg/datapath/fake
+package datapath
