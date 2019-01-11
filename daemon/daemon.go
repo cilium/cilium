@@ -1522,7 +1522,12 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 				}
 				ep.DNSHistory.Update(lookupTime, qname, responseIPs, effectiveTTL)
 				log.Debug("Updating DNS name in cache from response to to query")
-				if err := d.dnsRuleGen.UpdateGenerateDNS(lookupTime, map[string]*fqdn.DNSIPRecords{qname: {IPs: responseIPs, TTL: int(TTL)}}); err != nil {
+				err = d.dnsRuleGen.UpdateGenerateDNS(lookupTime, map[string]*fqdn.DNSIPRecords{
+					qname: {
+						IPs: responseIPs,
+						TTL: int(effectiveTTL),
+					}})
+				if err != nil {
 					log.WithError(err).Error("error updating internal DNS cache for rule generation")
 				}
 			}
