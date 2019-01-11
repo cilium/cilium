@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/fqdn"
@@ -60,6 +61,9 @@ level3CNAME.cilium.test. 1 IN CNAME level2CNAME.cilium.test.
 world1CNAME.cilium.test. 1 IN CNAME world1
 world2CNAME.cilium.test. 1 IN CNAME world2
 world3CNAME.cilium.test. 1 IN CNAME world3
+
+
+smallTTL.cilium.test. 5 IN A %[1]s
 `
 
 var bindOutsideTestTemplate = `
@@ -866,10 +870,72 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		res.ExpectFail("Can connect to %q when it should not work", DNSSECContainerName)
 	})
 
+	It("Validate TTL expires", func() {
+
+		policy := `
+[
+	{
+		"labels": [{
+			"key": "TTL expires"
+		}],
+		"endpointSelector": {
+			"matchLabels": {
+				"container:id.app1": ""
+			}
+		},
+		"egress": [
+			{
+				"toPorts": [{
+					"ports":[{"port": "53", "protocol": "ANY"}],
+					"rules": {
+						"dns": [
+							{"matchPattern": "*.cilium.test"}
+						]
+					}
+				}]
+			},
+			{
+				"toFQDNs": [{
+					"matchName": "smallTTL.cilium.test"
+				}]
+			}
+		]
+	}
+]`
+
+		_, err := vm.PolicyRenderAndImport(policy)
+		Expect(err).To(BeNil(), "Policy cannot be imported")
+
+		expectFQDNSareApplied()
+
+		target := "http://smallTTL.cilium.test"
+		targetIP := worldIps[WorldHttpd1]
+		sleepDuration := 50 * time.Second
+
+		By("Making a HTTP request from %q using DNS to add the IP in the cache", helpers.App1)
+		res := vm.ContainerExec(helpers.App1, helpers.CurlFail(target))
+		res.ExpectSuccess("Container %q cannot access to %q when should work", helpers.App1, target)
+
+		By("Making a HTTP request from %q using IP %q to validate that is working", targetIP)
+		res = vm.ContainerExec(helpers.App1, helpers.CurlFail(targetIP))
+		res.ExpectSuccess("Container %q cannot access to %q when should work", helpers.App1, targetIP)
+
+		By("Sleep the test for %q to validate the cleanup of the TTL", sleepDuration)
+		time.Sleep(sleepDuration)
+
+		By("Making a HTTP request using IP from %q to validate that TTL cleanup happens")
+		res = vm.ContainerExec(helpers.App1, helpers.CurlFail(targetIP))
+		res.ExpectFail("Container %q can access to %q when shouldn't work", helpers.App1, targetIP)
+
+		By("Validate that a new HTTP request with DNS Request will work")
+		res = vm.ContainerExec(helpers.App1, helpers.CurlFail(target))
+		res.ExpectSuccess("Container %q cannot access to %q when should work", helpers.App1, target)
+	})
+
 	Context("toFQDNs populates toCIDRSet when poller is disabled (data from proxy)", func() {
 		var config = `
 PATH=/usr/lib/llvm-3.8/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
-CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug --pprof=true --log-system-load --tofqdns-enable-poller=false
+CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug --pprof=true --log-system-load --tofqdns-enable-poller=false --tofqdns-min-ttl=1
 INITSYSTEM=SYSTEMD`
 		BeforeAll(func() {
 			vm.SetUpCiliumWithOptions(config)
