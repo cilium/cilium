@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -270,21 +270,23 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, allAddresses, 
 
 	if sr.IPAM != nil {
 		var v4CIDR, v6CIDR string
+		v4AllocRange := localNode.PrimaryAddress.IPV4.AllocRange
+		v6AllocRange := localNode.PrimaryAddress.IPV6.AllocRange
 		if localNode != nil {
-			if nIPs := ip.CountIPsInCIDR(localNode.PrimaryAddress.IPV4.AllocRange); nIPs > 0 {
+			if nIPs := ip.CountIPsInCIDR(v4AllocRange); nIPs > 0 {
 				v4CIDR = fmt.Sprintf("/%d", nIPs)
 			}
-			if nIPs := ip.CountIPsInCIDR(localNode.PrimaryAddress.IPV6.AllocRange); nIPs > 0 {
+			if nIPs := ip.CountIPsInCIDR(v6AllocRange); nIPs > 0 {
 				v6CIDR = fmt.Sprintf("/%d", nIPs)
 			}
 		}
-		fmt.Fprintf(w, "IPv4 address pool:\t%d%s allocated\n", len(sr.IPAM.IPV4), v4CIDR)
+		fmt.Fprintf(w, "IPv4 address pool:\t%d%s allocated from %s\n", len(sr.IPAM.IPV4), v4CIDR, v4AllocRange)
 		if allAddresses {
 			for _, ipv4 := range sr.IPAM.IPV4 {
 				fmt.Fprintf(w, "  %s\n", ipv4)
 			}
 		}
-		fmt.Fprintf(w, "IPv6 address pool:\t%d%s allocated\n", len(sr.IPAM.IPV6), v6CIDR)
+		fmt.Fprintf(w, "IPv6 address pool:\t%d%s allocated from %s\n", len(sr.IPAM.IPV6), v6CIDR, v6AllocRange)
 		if allAddresses {
 			for _, ipv6 := range sr.IPAM.IPV6 {
 				fmt.Fprintf(w, "  %s\n", ipv6)
