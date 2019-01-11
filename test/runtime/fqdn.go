@@ -64,6 +64,7 @@ world3CNAME.cilium.test. 1 IN CNAME world3
 
 
 smallTTL.cilium.test. 5 IN A %[1]s
+smallTTLNetperf.cilium.test. 5 IN a %[4]s
 `
 
 var bindOutsideTestTemplate = `
@@ -134,6 +135,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		WorldHttpd1        = "WorldHttpd1"
 		WorldHttpd2        = "WorldHttpd2"
 		WorldHttpd3        = "WorldHttpd3"
+		WorldNetperf       = "WorldNetperf"
 		OutsideHttpd1      = "OutsideHttpd1"
 		OutsideHttpd2      = "OutsideHttpd2"
 		OutsideHttpd3      = "OutsideHttpd3"
@@ -159,9 +161,10 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		monitorStop = func() error { return nil }
 
 		ciliumTestImages = map[string]string{
-			WorldHttpd1: helpers.HttpdImage,
-			WorldHttpd2: helpers.HttpdImage,
-			WorldHttpd3: helpers.HttpdImage,
+			WorldHttpd1:  helpers.HttpdImage,
+			WorldHttpd2:  helpers.HttpdImage,
+			WorldHttpd3:  helpers.HttpdImage,
+			WorldNetperf: helpers.NetperfImage,
 		}
 
 		ciliumOutsideImages = map[string]string{
@@ -930,6 +933,101 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		By("Validate that a new HTTP request with DNS Request will work")
 		res = vm.ContainerExec(helpers.App1, helpers.CurlFail(target))
 		res.ExpectSuccess("Container %q cannot access to %q when should work", helpers.App1, target)
+	})
+
+	It("Validate TTL with ongoing connections", func() {
+
+		policy := `
+[
+	{
+		"labels": [{
+			"key": "TTL ongoing connection"
+		}],
+		"endpointSelector": {
+			"matchLabels": {
+				"container:id.app1": ""
+			}
+		},
+		"egress": [
+			{
+				"toPorts": [{
+					"ports":[{"port": "53", "protocol": "ANY"}],
+					"rules": {
+						"dns": [
+							{"matchPattern": "*.cilium.test"}
+						]
+					}
+				}]
+			},
+			{
+				"toFQDNs": [{
+					"matchName": "smallTTLNetperf.cilium.test"
+				}]
+			}
+		]
+	}
+]`
+
+		policydisallow := `
+[
+	{
+		"labels": [{
+			"key": "TTL ongoing connection"
+		}],
+		"endpointSelector": {
+			"matchLabels": {
+				"container:id.app1": ""
+			}
+		},
+		"egress": [
+			{
+				"toPorts": [{
+					"ports":[{"port": "53", "protocol": "ANY"}],
+					"rules": {
+						"dns": [
+							{"matchPattern": "*.cilium.test"}
+						]
+					}
+				}]
+			},
+			{
+				"toFQDNs": [{
+					"matchName": "invalidDNS.cilium.test"
+				}]
+			}
+		]
+	}
+]`
+		target := "smallTTLNetperf.cilium.test"
+
+		By("Installing a valid policy to %q endpoint", helpers.App1)
+		_, err := vm.PolicyRenderAndImport(policy)
+		Expect(err).To(BeNil(), "Policy cannot be imported")
+
+		expectFQDNSareApplied()
+
+		By("Making a new netperf connection from %q to validate that is working", helpers.App1)
+		ctx, cancel := context.WithCancel(context.Background())
+		res := vm.ExecInBackground(ctx, fmt.Sprintf(
+			"docker exec -ti %s netperf -l 300 -t TCP_STREAM -H %s",
+			helpers.App1, target))
+
+		By("Updating the policy to disallow the traffic from %q to %s", helpers.App1, target)
+
+		By("Deleting all the traffic")
+		vm.PolicyDelAll()
+
+		_, err = vm.PolicyRenderAndImport(policydisallow)
+		Expect(err).To(BeNil(), "Policy cannot be imported")
+		expectFQDNSareApplied()
+
+		By("Sleeping until TTL happens")
+		time.Sleep(10 * time.Second)
+
+		By("Validate that connection is still alive during policy changes")
+		cancel()
+		res.WaitUntilFinish()
+		res.ExpectSuccess("Container %q cannot access to %q when it should work", helpers.App1, target)
 	})
 
 	Context("toFQDNs populates toCIDRSet when poller is disabled (data from proxy)", func() {
