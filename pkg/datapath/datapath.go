@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,11 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package node
+package datapath
 
-import (
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
-)
+// Datapath is the interface to abstract all datapath interactions. The
+// abstraction allows to implement the datapath requirements with multiple
+// implementations
+type Datapath interface {
+	// Node must return the handler for node events
+	Node() NodeHandler
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "node")
+	// LocalNodeAddressing must return the node addressing implementation
+	// of the local node
+	LocalNodeAddressing() NodeAddressing
+}

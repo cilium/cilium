@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/controller"
+	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/maps"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -325,8 +326,9 @@ func init() {
 	flags.String(option.AllowLocalhost, option.AllowLocalhostAuto, "Policy when to allow local stack to reach local endpoints { auto | always | policy }")
 	option.BindEnv(option.AllowLocalhost)
 
-	flags.Bool(option.AutoIPv6NodeRoutesName, false, "Automatically adds IPv6 L3 routes to reach other nodes for non-overlay mode (--device) (BETA)")
-	option.BindEnv(option.AutoIPv6NodeRoutesName)
+	flags.Bool(option.LegacyAutoIPv6NodeRoutesName, false, "Automatically adds IPv6 L3 routes to reach other nodes for non-overlay mode (--device) (BETA)")
+	option.BindEnv(option.LegacyAutoIPv6NodeRoutesName)
+	flags.MarkDeprecated(option.LegacyAutoIPv6NodeRoutesName, fmt.Sprintf("This option is deprecated, please use %s", option.EnableAutoDirectRoutingName))
 
 	flags.String(option.BPFRoot, "", "Path to BPF filesystem")
 	option.BindEnv(option.BPFRoot)
@@ -398,6 +400,9 @@ func init() {
 
 	flags.StringP(option.Docker, "e", workloads.GetRuntimeDefaultOpt(workloads.Docker, "endpoint"), "Path to docker runtime socket (DEPRECATED: use container-runtime-endpoint instead)")
 	option.BindEnv(option.Docker)
+
+	flags.Bool(option.EnableAutoDirectRoutingName, defaults.EnableAutoDirectRouting, "Enable automatic L2 routing between nodes")
+	option.BindEnv(option.EnableAutoDirectRoutingName)
 
 	flags.String(option.EnablePolicy, option.DefaultEnforcement, "Enable policy enforcement")
 	option.BindEnv(option.EnablePolicy)
@@ -978,8 +983,12 @@ func initEnv(cmd *cobra.Command) {
 }
 
 func runDaemon() {
+	datapathConfig := linuxdatapath.DatapathConfiguration{
+		HostDevice: defaults.HostDevice,
+	}
+
 	log.Info("Initializing daemon")
-	d, restoredEndpoints, err := NewDaemon()
+	d, restoredEndpoints, err := NewDaemon(linuxdatapath.NewDatapath(datapathConfig))
 	if err != nil {
 		log.WithError(err).Fatal("Error while creating daemon")
 		return

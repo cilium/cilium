@@ -37,19 +37,11 @@ func (d *Daemon) initHealth() {
 		log.WithError(err).Fatal("IPAM allocation failed. For more detail, see https://cilium.link/ipam-range-full")
 	}
 
-	err = node.SetIPv4HealthIP(health4)
-	if err != nil {
-		log.WithError(err).Fatal("Error while set health IPv4 ip on the local node.")
-	}
+	d.setIPv4HealthIP(health4)
+	log.Debugf("IPv4 health endpoint address: %s", health4)
 
-	err = node.SetIPv6HealthIP(health6)
-	if err != nil {
-		log.WithError(err).Fatal("Error while set health IPv6 ip on the local node.")
-	}
-
-	log.Debugf("IPv4 health endpoint address: %s", node.GetIPv4HealthIP())
-	log.Debugf("IPv6 health endpoint address: %s", node.GetIPv6HealthIP())
-	node.NotifyLocalNodeUpdated()
+	d.setIPv6HealthIP(health6)
+	log.Debugf("IPv6 health endpoint address: %s", health6)
 
 	// Launch cilium-health in the same namespace as cilium.
 	log.Info("Launching Cilium health daemon")
@@ -86,7 +78,7 @@ func (d *Daemon) cleanupHealthEndpoint() {
 	// Delete the process
 	health.KillEndpoint()
 	// Clean up agent resources
-	ep := endpointmanager.LookupIPv4(node.GetIPv4HealthIP().String())
+	ep := endpointmanager.LookupIPv4(d.localNode.IPv4HealthIP.String())
 	if ep == nil {
 		log.Debug("Didn't find existing cilium-health endpoint to delete")
 	} else {
@@ -106,7 +98,7 @@ func (d *Daemon) runCiliumHealthEndpoint() error {
 	if err := health.PingEndpoint(); err != nil {
 		d.cleanupHealthEndpoint()
 		addressing := node.GetNodeAddressing()
-		return health.LaunchAsEndpoint(d, addressing, d.mtuConfig)
+		return health.LaunchAsEndpoint(d, addressing, d.mtuConfig, d.localNode.IPv4HealthIP, d.localNode.IPv6HealthIP)
 	}
 	return nil
 }

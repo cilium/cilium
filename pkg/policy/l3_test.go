@@ -20,6 +20,7 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/node"
 
@@ -29,8 +30,7 @@ import (
 func (ds *PolicyTestSuite) SetUpTest(c *C) {
 	_, v6node, err := net.ParseCIDR("2001:DB8::/96")
 	c.Assert(err, IsNil)
-	_, v4node, err := net.ParseCIDR("192.0.2.3/24")
-	c.Assert(err, IsNil)
+	v4node := cidr.MustParseCIDR("192.0.2.3/24")
 	err = node.SetIPv6NodeRange(v6node)
 	c.Assert(err, IsNil)
 	node.SetIPv4AllocRange(v4node)
