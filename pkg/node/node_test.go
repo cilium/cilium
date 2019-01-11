@@ -86,11 +86,9 @@ func (s *NodeSuite) TestPublicAttrEquals(c *C) {
 		IPAddresses   []Address
 		IPv4AllocCIDR *net.IPNet
 		IPv6AllocCIDR *net.IPNet
-		dev           string
 		IPv4HealthIP  net.IP
 		IPv6HealthIP  net.IP
 		ClusterID     int
-		cluster       *clusterConfiguation
 		Source        Source
 	}
 	type args struct {
@@ -252,11 +250,9 @@ func (s *NodeSuite) TestPublicAttrEquals(c *C) {
 			IPAddresses:   tt.fields.IPAddresses,
 			IPv4AllocCIDR: tt.fields.IPv4AllocCIDR,
 			IPv6AllocCIDR: tt.fields.IPv6AllocCIDR,
-			dev:           tt.fields.dev,
 			IPv4HealthIP:  tt.fields.IPv4HealthIP,
 			IPv6HealthIP:  tt.fields.IPv6HealthIP,
 			ClusterID:     tt.fields.ClusterID,
-			cluster:       tt.fields.cluster,
 			Source:        tt.fields.Source,
 		}
 		c.Logf(tt.name)

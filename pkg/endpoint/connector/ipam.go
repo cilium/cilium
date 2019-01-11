@@ -19,7 +19,7 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/datapath/route"
+	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/defaults"
 )
 
