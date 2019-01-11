@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,12 +11,24 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
+// +build darwin
 
-package node
+package route
 
 import (
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
+	"fmt"
+
+	"github.com/cilium/cilium/pkg/mtu"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "node")
+// Replace adds or replaces the specified route if necessary. Does nothing
+// for Darwin-based builds.
+func Replace(route Route, mtuConfig mtu.Configuration) error {
+	return fmt.Errorf("Operation not supported ")
+}
+
+// Delete removes a route. Does nothing for Darwin-based builds.
+func Delete(route Route) error {
+	return fmt.Errorf("Operation not supported ")
+}

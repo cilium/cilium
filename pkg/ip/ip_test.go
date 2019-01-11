@@ -693,3 +693,36 @@ func (s *IPTestSuite) BenchmarkKeepUniqueIPs(c *C) {
 		KeepUniqueIPs(ips)
 	}
 }
+
+func (s *IPTestSuite) TestDiffIPNetLists(c *C) {
+	_, net1, err := net.ParseCIDR("1.1.1.1/32")
+	c.Assert(err, IsNil)
+	_, net2, err := net.ParseCIDR("1.1.1.1/24")
+	c.Assert(err, IsNil)
+	_, net3, err := net.ParseCIDR("cafe::1/128")
+	c.Assert(err, IsNil)
+	_, net4, err := net.ParseCIDR("cafe::2/16")
+	c.Assert(err, IsNil)
+
+	type testExpectation struct {
+		old    []*net.IPNet
+		new    []*net.IPNet
+		add    []*net.IPNet
+		remove []*net.IPNet
+	}
+
+	expectations := []testExpectation{
+		{old: []*net.IPNet{nil}, new: []*net.IPNet{net1, net2, net3, net4}, add: []*net.IPNet{net1, net2, net3, net4}, remove: nil},
+		{old: []*net.IPNet{}, new: []*net.IPNet{net1, net2, net3, net4}, add: []*net.IPNet{net1, net2, net3, net4}, remove: nil},
+		{old: []*net.IPNet{net1, net2, net3, net4}, new: []*net.IPNet{}, add: nil, remove: []*net.IPNet{net1, net2, net3, net4}},
+		{old: []*net.IPNet{net1, net2}, new: []*net.IPNet{net3, net4}, add: []*net.IPNet{net3, net4}, remove: []*net.IPNet{net1, net2}},
+		{old: []*net.IPNet{net1, net2}, new: []*net.IPNet{net2, net3}, add: []*net.IPNet{net3}, remove: []*net.IPNet{net1}},
+		{old: []*net.IPNet{net1, net2, net3, net4}, new: []*net.IPNet{net1, net2, net3, net4}, add: nil, remove: nil},
+	}
+
+	for _, t := range expectations {
+		add, remove := DiffIPNetLists(t.old, t.new)
+		c.Assert(add, checker.DeepEquals, t.add)
+		c.Assert(remove, checker.DeepEquals, t.remove)
+	}
+}

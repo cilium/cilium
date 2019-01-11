@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/node"
+	nodemanager "github.com/cilium/cilium/pkg/node/manager"
 )
 
 var (
@@ -39,17 +40,23 @@ var (
 
 // NodeObserver implements the store.Observer interface and delegates update
 // and deletion events to the node object itself.
-type NodeObserver struct{}
+type NodeObserver struct {
+	manager *nodemanager.Manager
+}
 
 func (o *NodeObserver) OnUpdate(k store.Key) {
 	if n, ok := k.(*node.Node); ok {
-		n.OnUpdate()
+		nodeCopy := *n
+		nodeCopy.Source = node.FromKVStore
+		o.manager.NodeUpdated(nodeCopy)
 	}
 }
 
 func (o *NodeObserver) OnDelete(k store.Key) {
 	if n, ok := k.(*node.Node); ok {
-		n.OnDelete()
+		nodeCopy := *n
+		nodeCopy.Source = node.FromKVStore
+		o.manager.NodeDeleted(nodeCopy)
 	}
 }
 
@@ -59,14 +66,14 @@ type NodeRegistrar struct {
 }
 
 // RegisterNode registers the local node in the cluster
-func (nr *NodeRegistrar) RegisterNode(n *node.Node) error {
+func (nr *NodeRegistrar) RegisterNode(n *node.Node, manager *nodemanager.Manager) error {
 
 	// Join the shared store holding node information of entire cluster
 	store, err := store.JoinSharedStore(store.Configuration{
 		Prefix:                  NodeStorePrefix,
 		KeyCreator:              KeyCreator,
 		SynchronizationInterval: time.Minute,
-		Observer:                &NodeObserver{},
+		Observer:                &NodeObserver{manager: manager},
 	})
 
 	if err != nil {
