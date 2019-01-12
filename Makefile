@@ -61,14 +61,6 @@ clean-ginkgo-tests:
 
 TEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyAddress=https://consul:8443 -X github.com/cilium/cilium/pkg/kvstore.etcdDummyAddress=http://etcd:4002"
 
-# invoked from ginkgo compose file after starting kvstore backends
-tests-privileged:
-	# cilium-map-migrate is a dependency of some unit tests.
-	$(MAKE) -C bpf cilium-map-migrate
-	$(QUIET)$(foreach pkg,$(TESTPKGS),\
-		$(GO) test $(TEST_LDFLAGS) $(pkg) $(GOTEST_PRIV_OPTS) || exit 1;)
-	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
-
 start-kvstores:
 	@echo Starting key-value store containers...
 	-$(DOCKER) rm -f "cilium-etcd-test-container" 2> /dev/null
@@ -109,6 +101,10 @@ unit-tests: start-kvstores
 	$(QUIET) echo "mode: count" > coverage.out
 	$(QUIET)$(foreach pkg,$(TESTPKGS),\
 		$(GO) test $(TEST_UNITTEST_LDFLAGS) $(pkg) $(GOTEST_BASE) $(GOTEST_COVER_OPTS) || exit 1; \
+		tail -n +2 coverage.out >> coverage-all-tmp.out;)
+	$(MAKE) -C bpf cilium-map-migrate
+	$(QUIET)$(foreach pkg,$(TESTPKGS),\
+		sudo -E $(GO) test $(TEST_LDFLAGS) $(pkg) $(GOTEST_PRIV_OPTS) $(GOTEST_COVER_OPTS) || exit 1; \
 		tail -n +2 coverage.out >> coverage-all-tmp.out;)
 	# Remove generated code from coverage
 	$(QUIET) grep -Ev '(^github.com/cilium/cilium/api/v1)|(generated.deepcopy.go)|(^github.com/cilium/cilium/pkg/k8s/client/)' \
