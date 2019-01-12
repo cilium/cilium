@@ -14,7 +14,7 @@ branches:
 addons:
   apt:
     packages:
-      - kernel-package libc6-dev-i386
+      - kernel-package libc6-dev-i386 libelf1 libelf-dev
 
 before_install: ./.travis/prepare.sh
 
