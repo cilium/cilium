@@ -93,6 +93,7 @@ cilium-agent [flags]
       --state-dir string                            Directory path to store runtime state (default "/var/run/cilium")
       --tofqdns-dns-reject-response-code string     DNS response code for rejecting DNS requests, available options are '[nameError refused]' (default "refused")
       --tofqdns-enable-poller                       Enable proactive polling of DNS names in toFQDNs.matchName rules.
+      --tofqdns-enable-poller-events                Emit DNS responses seen by the DNS poller as Monitor events, if the poller is enabled. (default true)
       --tofqdns-min-ttl int                         The minimum time, in seconds, to use DNS data for toFQDNs policies. (default 3600 when --tofqdns-enable-poller, 604800 otherwise)
       --tofqdns-proxy-port int                      Global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.
       --trace-payloadlen int                        Length of payload to capture when tracing (default 128)

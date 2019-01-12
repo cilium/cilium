@@ -1378,7 +1378,41 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 			// the ToFQDN-UUID one).
 			_, err := d.PolicyAdd(generatedRules, &AddOptions{Replace: true, Generated: true})
 			return err
+		},
+		PollerResponseNotify: func(lookupTime time.Time, qname string, response *fqdn.DNSIPRecords) {
+			// Do nothing if this option is off
+			if !option.Config.ToFQDNsEnablePollerEvents {
+				return
+			}
+
+			// FIXME: Not always true but we don't have the protocol information here
+			protocol := accesslog.TransportProtocol(u8proto.ProtoIDs["udp"])
+
+			record := logger.LogRecord{
+				LogRecord: accesslog.LogRecord{
+					Type:              accesslog.TypeResponse,
+					ObservationPoint:  accesslog.Ingress,
+					IPVersion:         accesslog.VersionIPv4,
+					TransportProtocol: protocol,
+					Timestamp:         time.Now().UTC().Format(time.RFC3339Nano),
+					NodeAddressInfo: accesslog.NodeAddressInfo{
+						IPv4: node.GetExternalIPv4().String(),
+						IPv6: node.GetIPv6().String(),
+					},
+				},
+			}
+
+			logger.LogTags.Verdict(accesslog.VerdictForwarded, "DNSPoller")(&record)
+			logger.LogTags.DNS(&accesslog.LogRecordDNS{
+				Query:             qname,
+				IPs:               response.IPs,
+				TTL:               uint32(response.TTL),
+				CNAMEs:            nil,
+				ObservationSource: accesslog.DNSSourceAgentPoller,
+			})(&record)
+			record.Log()
 		}}
+
 	d.dnsRuleGen = fqdn.NewRuleGen(cfg)
 	d.dnsPoller = fqdn.NewDNSPoller(cfg, d.dnsRuleGen)
 	if option.Config.ToFQDNsEnablePoller {
@@ -1498,10 +1532,11 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 					SrcIdentity: srcID,
 				}),
 				logger.LogTags.DNS(&accesslog.LogRecordDNS{
-					Query:  qname,
-					IPs:    responseIPs,
-					TTL:    TTL,
-					CNAMEs: CNAMEs,
+					Query:             qname,
+					IPs:               responseIPs,
+					TTL:               TTL,
+					CNAMEs:            CNAMEs,
+					ObservationSource: accesslog.DNSSourceProxy,
 				}),
 			)
 			record.Log()

@@ -85,7 +85,11 @@ func (l *LogRecordNotify) DumpInfo() {
 			fmt.Printf(" DNS Query: %s", l.DNS.Query)
 
 		case l.Type == accesslog.TypeResponse:
-			fmt.Printf(" DNS Query: %s", l.DNS.Query)
+			sourceType := "Query"
+			if l.DNS.ObservationSource == accesslog.DNSSourceAgentPoller {
+				sourceType = "Poll"
+			}
+			fmt.Printf(" DNS %s: %s", sourceType, l.DNS.Query)
 
 			ips := make([]string, 0, len(l.DNS.IPs))
 			for _, ip := range l.DNS.IPs {
