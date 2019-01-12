@@ -239,6 +239,9 @@ const (
 	// ToFQDNsEnablePoller enables proactive polling of DNS names in toFQDNs.matchName rules.
 	ToFQDNsEnablePoller = "tofqdns-enable-poller"
 
+	// ToFQDNsEmitPollerEvents controls if poller lookups are sent as monitor events
+	ToFQDNsEnablePollerEvents = "tofqdns-enable-poller-events"
+
 	// AutoIPv6NodeRoutesName is the name of the AutoIPv6NodeRoutes option
 	AutoIPv6NodeRoutesName = "auto-ipv6-node-routes"
 
@@ -660,8 +663,14 @@ type DaemonConfig struct {
 	// by the DNS Proxy. Both UDP and TCP are handled on the same port. When it
 	// is 0 a random port will be assigned, and can be obtained from
 	// DefaultDNSProxy below.
-	ToFQDNsProxyPort    int
+	ToFQDNsProxyPort int
+
+	// ToFQDNsEnablePoller enables the DNS poller that polls toFQDNs.matchName
 	ToFQDNsEnablePoller bool
+
+	// ToFQDNsEnablePollerEvents controls sending a monitor event for each DNS
+	// response the DNS poller sees
+	ToFQDNsEnablePollerEvents bool
 
 	// FQDNRejectResponse is the dns-proxy response for invalid dns-proxy request
 	FQDNRejectResponse string
@@ -877,6 +886,7 @@ func (c *DaemonConfig) Populate() {
 	// every 5s). Without the poller, a longer default is better because it
 	// avoids confusion about dropped connections.
 	c.ToFQDNsEnablePoller = viper.GetBool(ToFQDNsEnablePoller)
+	c.ToFQDNsEnablePollerEvents = viper.GetBool(ToFQDNsEnablePollerEvents)
 	userSetMinTTL := viper.GetInt(ToFQDNsMinTTL)
 	switch {
 	case userSetMinTTL != 0: // set by user
