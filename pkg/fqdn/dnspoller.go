@@ -71,6 +71,10 @@ func NewDNSPoller(config Config, ruleManager *RuleGen) *DNSPoller {
 		config.LookupDNSNames = DNSLookupDefaultResolver
 	}
 
+	if config.PollerResponseNotify == nil {
+		config.PollerResponseNotify = noopPollerResponseNotify
+	}
+
 	return &DNSPoller{
 		config:      config,
 		ruleManager: ruleManager,
@@ -97,6 +101,12 @@ func (poller *DNSPoller) LookupUpdateDNS() error {
 		log.WithError(err).WithField("matchName", dnsName).
 			Warn("Cannot resolve FQDN. Traffic egressing to this destination may be incorrectly dropped due to stale data.")
 	}
+	for qname, response := range updatedDNSIPs {
+		poller.config.PollerResponseNotify(lookupTime, qname, response)
+	}
 
 	return poller.ruleManager.UpdateGenerateDNS(lookupTime, updatedDNSIPs)
 }
+
+// noopPollerResponseNotify is used when no PollerResponseNotify is set.
+func noopPollerResponseNotify(lookupTime time.Time, qname string, response *DNSIPRecords) {}
