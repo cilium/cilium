@@ -38,10 +38,6 @@ func Validate(pattern string) error {
 	return err
 }
 
-// isSubAndDomainSpecial checks that the first two characters are * followed by
-// a valid DNS character that isn't a .
-var isSubAndDomainSpecial = regexp.MustCompile("^[*]" + allowedDNSCharsREGroup)
-
 // Sanitize canonicalized the pattern for use by ToRegexp
 func Sanitize(pattern string) string {
 	if pattern == "*" {
@@ -55,7 +51,6 @@ func Sanitize(pattern string) string {
 // validate the pattern.
 // It supports:
 // * to select 0 or more DNS valid characters
-// *domain.com to select the domain and it's subdomains
 func ToRegexp(pattern string) string {
 	pattern = strings.TrimSpace(pattern)
 	pattern = strings.ToLower(pattern)
@@ -63,13 +58,6 @@ func ToRegexp(pattern string) string {
 	// handle the * match-all case. This will filter down to the end.
 	if pattern == "*" {
 		pattern = "(" + allowedDNSCharsREGroup + "+.)+"
-	}
-
-	// handle *domain.com case
-	if isSubAndDomainSpecial.MatchString(pattern) {
-		// the + at the start of the string affect the allowed chars
-		// the . will be turned into [.] in the base case below
-		pattern = "(" + allowedDNSCharsREGroup + "+.)?" + pattern[1:]
 	}
 
 	// base case. * becomes .*, but only for DNS valid characters
