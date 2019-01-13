@@ -482,9 +482,6 @@ IPs to be allowed are selected via:
     ``.`` separator. ``*.cilium.io`` will match ``sub.cilium.io`` but not
     ``cilium.io``. ``part*ial.com`` will match ``partial.com`` and
     ``part-extra-ial.com``.
-  * ``*`` at the start of a pattern, with no trailing ``.``, matches a domain
-    and all subdomains. For example, ``*cilium.io`` matches ``sub.cilium.io``
-    and ``cilium.io`` but not ``another.sub.cilium.io``.
   * ``*`` alone matches all names, and inserts all cached DNS IPs into this
     rule.
 
@@ -992,9 +989,6 @@ DNS policy may be applied via:
     ``.`` separator. ``*.cilium.io`` will match ``sub.cilium.io`` but not
     ``cilium.io``. ``part*ial.com`` will match ``partial.com`` and
     ``part-extra-ial.com``.
-  * ``*`` at the start of a pattern, with no trailing ``.``, matches a domain
-    and all subdomains. For example, ``*cilium.io`` matches ``sub.cilium.io``
-    and ``cilium.io`` but not ``another.sub.cilium.io``.
   * ``*`` alone matches all names, and inserts all IPs in DNS responses into
     the cilium-agent DNS cache.
 
