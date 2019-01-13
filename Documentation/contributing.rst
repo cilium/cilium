@@ -1236,6 +1236,46 @@ Pull request review process
    +--------------------------+---------------------------------------------------------------------------+
 
 
+Building Container Images
+-------------------------
+
+Two make targets exists to build container images automatically based on the
+locally checked out branch:
+
+Developer images
+~~~~~~~~~~~~~~~~
+
+::
+
+    DOCKER_IMAGE_TAG=jane-developer-my-fix make dev-docker-image
+
+You can then push the image tag to the registry for development builds:
+
+::
+
+    docker push cilium/cilium-dev:jane-developer-my-fix
+
+Access to the developer builds registry is restricted but access is granted
+liberally. Join the #development channel in Slack and ask for permission to
+push builds.
+
+Official release images
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Anyone can build official release images using the make target below but
+pushing to the official registries is restricted to Cilium maintainers. Ask in
+the #launchpad Slack channels for the exact details.
+
+::
+
+    DOCKER_IMAGE_TAG=v1.4.0 make docker-image
+
+You can then push the image tag to the registry:
+
+::
+
+    docker push cilium/cilium:v1.4.0
+
 Documentation
 -------------
 
