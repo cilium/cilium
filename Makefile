@@ -149,13 +149,14 @@ GIT_VERSION: .git
 docker-image: clean docker-image-no-clean
 
 docker-image-no-clean: GIT_VERSION
-	$(QUIET)grep -v -E "GIT_VERSION" .gitignore >.dockerignore
-	$(QUIET)echo ".*" >>.dockerignore # .git pruned out
-	$(QUIET)echo "Documentation" >>.dockerignore # Not needed
-	@$(ECHO_GEN) docker-image
 	$(DOCKER) build --build-arg LOCKDEBUG=${LOCKDEBUG} --build-arg V=${V} -t "cilium/cilium:$(DOCKER_IMAGE_TAG)" .
 	$(QUIET)echo "Push like this when ready:"
 	$(QUIET)echo "docker push cilium/cilium:$(DOCKER_IMAGE_TAG)"
+
+dev-docker-image: GIT_VERSION
+	$(DOCKER) build --build-arg LOCKDEBUG=${LOCKDEBUG} --build-arg V=${V} -t "cilium/cilium-dev:$(DOCKER_IMAGE_TAG)" .
+	$(QUIET)echo "Push like this when ready:"
+	$(QUIET)echo "docker push cilium/cilium-dev:$(DOCKER_IMAGE_TAG)"
 
 docker-image-init:
 	$(QUIET)cd contrib/packaging/docker && docker build -t "cilium/cilium-init:$(UTC_DATE)" -f Dockerfile.init .
@@ -291,8 +292,6 @@ update-authors:
 	@cat .authors.aux >> AUTHORS
 
 docs-container:
-	$(QUIET)grep -v -E "(SOURCE|GIT)_VERSION" .gitignore >.dockerignore
-	$(QUIET)echo ".*" >>.dockerignore # .git pruned out
 	$(QUIET)cp -r ./api ./Documentation/_api
 	$(DOCKER) image build -t cilium/docs-builder -f Documentation/Dockerfile ./Documentation; \
 	  (ret=$$?; rm -r ./Documentation/_api && exit $$ret)
