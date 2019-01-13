@@ -42,7 +42,6 @@ func (ts *MatchPatternTestSuite) TestMatchPatternREConversion(c *C) {
 	for source, target := range map[string]string{
 		"cilium.io.":   "^cilium[.]io[.]$",
 		"*.cilium.io.": "^" + allowedDNSCharsREGroup + "*[.]cilium[.]io[.]$",
-		"*cilium.io.":  "^(" + allowedDNSCharsREGroup + "+[.])?cilium[.]io[.]$",
 		"*":            "^(" + allowedDNSCharsREGroup + "+[.])+$",
 	} {
 		reStr := ToRegexp(source)
@@ -74,11 +73,6 @@ func (ts *MatchPatternTestSuite) TestMatchPatternMatching(c *C) {
 			reject:  []string{"", "cilium.io.", "anysub.ci.io.", "anysub.ciliumandmore.io."},
 		},
 		{
-			pattern: "*cilium.io.",
-			accept:  []string{"anysub.cilium.io.", "cilium.io."},
-			reject:  []string{"", "anysub.ci.io.", "anysub.ciliumandmore.io."},
-		},
-		{
 			pattern: "*.ci*.io.",
 			accept:  []string{"anysub.cilium.io.", "anysub.ci.io.", "anysub.ciliumandmore.io."},
 			reject:  []string{"", "cilium.io."},
@@ -104,10 +98,9 @@ func (ts *MatchPatternTestSuite) TestMatchPatternMatching(c *C) {
 // TestMatchPatternSanitize tests that Sanitize handles any special cases
 func (ts *MatchPatternTestSuite) TestMatchPatternSanitize(c *C) {
 	for source, target := range map[string]string{
-		"*":          "*",
-		"*.":         "*.",
-		"*cilium.io": "*cilium.io.",
-		"*.com":      "*.com.",
+		"*":     "*",
+		"*.":    "*.",
+		"*.com": "*.com.",
 	} {
 		sanitized := Sanitize(source)
 		c.Assert(sanitized, Equals, target, Commentf("matchPattern: %s not sanitized correctly", source))
