@@ -220,7 +220,7 @@ func DumpToMap() (map[string]*EndpointInfo, error) {
 	}
 
 	if err := LXCMap.DumpWithCallback(callback); err != nil {
-		return m, fmt.Errorf("unable to read BPF endpoint list: %s", err)
+		return nil, fmt.Errorf("unable to read BPF endpoint list: %s", err)
 	}
 
 	return m, nil

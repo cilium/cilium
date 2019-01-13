@@ -72,7 +72,7 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 
 	existingEndpoints, err := lxcmap.DumpToMap()
 	if err != nil {
-		return state, err
+		log.WithError(err).Warning("Unable to open endpoint map while restoring. Skipping cleanup of endpoint map on startup")
 	}
 
 	dirFiles, err := ioutil.ReadDir(dir)
@@ -144,8 +144,10 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 
 		state.restored = append(state.restored, ep)
 
-		delete(existingEndpoints, ep.IPv4.String())
-		delete(existingEndpoints, ep.IPv6.String())
+		if existingEndpoints != nil {
+			delete(existingEndpoints, ep.IPv4.String())
+			delete(existingEndpoints, ep.IPv6.String())
+		}
 	}
 
 	log.WithFields(logrus.Fields{
@@ -153,12 +155,14 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 		"count.total":    len(possibleEPs),
 	}).Info("Endpoints restored")
 
-	for hostIP, info := range existingEndpoints {
-		if ip := net.ParseIP(hostIP); !info.IsHost() && ip != nil {
-			if err := lxcmap.DeleteEntry(ip); err != nil {
-				log.WithError(err).Warn("Unable to delete obsolete endpoint from BPF map")
-			} else {
-				log.Debugf("Removed outdated endpoint %d from endpoint map", info.LxcID)
+	if existingEndpoints != nil {
+		for hostIP, info := range existingEndpoints {
+			if ip := net.ParseIP(hostIP); !info.IsHost() && ip != nil {
+				if err := lxcmap.DeleteEntry(ip); err != nil {
+					log.WithError(err).Warn("Unable to delete obsolete endpoint from BPF map")
+				} else {
+					log.Debugf("Removed outdated endpoint %d from endpoint map", info.LxcID)
+				}
 			}
 		}
 	}
