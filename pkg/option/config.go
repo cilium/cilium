@@ -15,7 +15,9 @@
 package option
 
 import (
+	"bytes"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -27,9 +29,15 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+)
+
+var (
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "config")
 )
 
 const (
@@ -63,6 +71,8 @@ const (
 
 	// ConfigFile is the Configuration file (default "$HOME/ciliumd.yaml")
 	ConfigFile = "config"
+
+	ConfigDir = "config-dir"
 
 	// ConntrackGarbageCollectorInterval is the garbage collection interval for
 	// the connection tracking table (in seconds)
@@ -819,6 +829,73 @@ func (c *DaemonConfig) Validate() error {
 	}
 
 	return nil
+}
+
+func ReadDirConfig(dirName string) (map[string]interface{}, error) {
+	m := map[string]interface{}{}
+	fi, err := ioutil.ReadDir(dirName)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, fmt.Errorf("unable to read configuration directory: %s", err)
+	}
+	for _, f := range fi {
+		if f.Mode().IsDir() {
+			continue
+		}
+		fName := filepath.Join(dirName, f.Name())
+
+		// the file can still be a symlink to a directory
+		if f.Mode()&os.ModeSymlink == 0 {
+			absFileName, err := filepath.EvalSymlinks(fName)
+			if err != nil {
+				log.Warnf("Unable to read configuration file %q: %s", absFileName, err)
+				continue
+			}
+			fName = absFileName
+		}
+
+		f, err = os.Stat(fName)
+		if err != nil {
+			log.Warnf("Unable to read configuration file %q: %s", fName, err)
+			continue
+		}
+		if f.Mode().IsDir() {
+			continue
+		}
+
+		b, err := ioutil.ReadFile(fName)
+		if err != nil {
+			log.Warnf("Unable to read configuration file %q: %s", fName, err)
+			continue
+		}
+		m[f.Name()] = string(bytes.TrimSpace(b))
+	}
+	return m, nil
+}
+
+func MergeConfig(m map[string]interface{}) error {
+	err := viper.MergeConfigMap(m)
+	if err != nil {
+		return fmt.Errorf("unable to read merge directory configuration: %s", err)
+	}
+	return nil
+}
+
+// ReplaceDeprecatedFields replaces the deprecated options set with the new set
+// of options that overwrite the deprecated ones.
+func ReplaceDeprecatedFields(m map[string]interface{}) {
+	deprecatedFields := map[string]string{
+		"monitor-aggregation-level":   "monitor-aggregation",
+		"ct-global-max-entries-tcp":   "bpf-ct-global-tcp-max",
+		"ct-global-max-entries-other": "bpf-ct-global-any-max",
+		"legacy-host-allows-world":    "k8s-legacy-host-allows-world",
+	}
+	for deprecatedOption, newOption := range deprecatedFields {
+		if deprecatedValue, ok := m[deprecatedOption]; ok {
+			if _, ok := m[newOption]; !ok {
+				m[newOption] = deprecatedValue
+			}
+		}
+	}
 }
 
 // Populate sets all options with the values from viper

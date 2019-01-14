@@ -29,7 +29,8 @@ func init() {
 
 	debug := flags.Bool("debug", false, "")
 	flags.Parse(os.Args)
-
+	// #FIXME because you won't read this flag from directory at the time
+	// when this field is set. you need to check the environment variable
 	if *debug {
 		DefaultLogger.SetLevel(logrus.DebugLevel)
 	}

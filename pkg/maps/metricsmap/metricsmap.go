@@ -209,6 +209,7 @@ func getNumPossibleCPUs() int {
 	f, err := os.Open(possibleCPUSysfsPath)
 	if err != nil {
 		log.WithError(err).Errorf("unable to open %q", possibleCPUSysfsPath)
+		return 0
 	}
 	defer f.Close()
 
