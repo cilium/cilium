@@ -93,7 +93,7 @@ var (
 			if !Config.EnableIPv4 {
 				return ErrNAT46ReqIPv4
 			}
-			if Config.DatapathMode == "ipvlan" {
+			if Config.DatapathMode == DatapathModeIpvlan {
 				return ErrNAT46ReqVeth
 			}
 			return nil

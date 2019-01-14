@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/uuid"
 	"github.com/cilium/cilium/pkg/version"
 
@@ -368,7 +369,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 	}
 
 	switch conf.DatapathMode {
-	case "veth":
+	case option.DatapathModeVeth:
 		veth, peer, tmpIfName, err := connector.SetupVeth(ep.ContainerID, int(conf.DeviceMTU), ep)
 		if err != nil {
 			return err
@@ -389,7 +390,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 		if err != nil {
 			return err
 		}
-	case "ipvlan":
+	case option.DatapathModeIpvlan:
 		index := int(conf.DeviceIfIndex)
 
 		ipvlan, link, tmpIfName, err := connector.SetupIpvlan(ep.ContainerID, int(conf.DeviceMTU), index, ep)

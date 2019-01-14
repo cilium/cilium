@@ -359,6 +359,16 @@ var (
 	FQDNRejectOptions = []string{FQDNProxyDenyWithNameError, FQDNProxyDenyWithRefused}
 )
 
+// Available option for DaemonConfig.DatapathMode
+const (
+	// DatapathModeVeth specifies veth datapath mode (i.e. containers are
+	// attached to a network via veth pairs)
+	DatapathModeVeth = "veth"
+
+	// DatapathModeIpvlan specifies ipvlan datapath mode
+	DatapathModeIpvlan = "ipvlan"
+)
+
 // Available option for DaemonConfig.Tunnel
 const (
 	// TunnelVXLAN specifies VXLAN encapsulation
@@ -452,9 +462,8 @@ type DaemonConfig struct {
 	LBInterface     string     // Set with name of the interface to loadbalance packets from
 	Workloads       []string   // List of Workloads set by the user to used by cilium.
 
-	Tunnel string // Tunnel mode
-	// TODO(brb) use models.DatapathMode type
 	DatapathMode string // Datapath mode
+	Tunnel       string // Tunnel mode
 
 	DryMode bool // Do not create BPF maps, devices, ..
 

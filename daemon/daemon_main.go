@@ -865,11 +865,11 @@ func initEnv(cmd *cobra.Command) {
 	}
 
 	switch option.Config.DatapathMode {
-	case "veth":
+	case option.DatapathModeVeth:
 		if option.Config.Tunnel == "" {
 			option.Config.Tunnel = option.TunnelVXLAN
 		}
-	case "ipvlan":
+	case option.DatapathModeIpvlan:
 		if option.Config.Tunnel != "" && option.Config.Tunnel != option.TunnelDisabled {
 			log.WithField(logfields.Tunnel, option.Config.Tunnel).
 				Fatal("tunnel cannot be set in the 'ipvlan' datapath mode")
@@ -1009,8 +1009,9 @@ func runDaemon() {
 		d.workloadsEventsCh = eventsCh
 	}
 
-	// Currently, cilium-health cannot run in ipvlan mode
-	if option.Config.DatapathMode != "ipvlan" {
+	// Currently, cilium-health cannot run in ipvlan mode as it tries to connect
+	// to network in veth mode, thus we disable it
+	if option.Config.DatapathMode != option.DatapathModeIpvlan {
 		d.initHealth()
 	}
 
