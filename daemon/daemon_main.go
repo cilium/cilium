@@ -365,6 +365,9 @@ func init() {
 	flags.String(option.ConfigFile, "", `Configuration file (default "$HOME/ciliumd.yaml")`)
 	option.BindEnv(option.ConfigFile)
 
+	flags.String(option.ConfigDir, "", `Configuration directory that contains a file for each option`)
+	option.BindEnv(option.ConfigDir)
+
 	flags.Uint(option.ConntrackGarbageCollectorInterval, 60, "Garbage collection interval for the connection tracking table (in seconds)")
 	option.BindEnv(option.ConntrackGarbageCollectorInterval)
 
@@ -713,6 +716,20 @@ func initConfig() {
 
 	viper.SetEnvPrefix("cilium")
 	viper.SetConfigName("ciliumd") // name of config file (without extension)
+	option.Config.ConfigDir = viper.GetString(option.ConfigDir)
+	if option.Config.ConfigDir != "" {
+		m, err := option.ReadDirConfig(option.Config.ConfigDir)
+		if err != nil {
+			log.Warnf("Unable to read configuration directory: %s", err)
+		} else {
+			// replace deprecated fields with new fields
+			option.ReplaceDeprecatedFields(m)
+			err := option.MergeConfig(m)
+			if err != nil {
+				log.Fatalf("Unable to merge configuration: %s", err)
+			}
+		}
+	}
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
