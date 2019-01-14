@@ -248,6 +248,18 @@ type LogRecordKafka struct {
 	Topic KafkaTopic
 }
 
+type DNSDataSource string
+
+const (
+	// DNSSourceAgentPoller indicates that the DNS record was created by a poll
+	// from cilium-agent.
+	DNSSourceAgentPoller DNSDataSource = "agent-poller"
+
+	// DNSSourceProxy indicates that the DNS record was created by a proxy
+	// intercepting a DNS request/response.
+	DNSSourceProxy DNSDataSource = "proxy"
+)
+
 // LogRecordDNS contains the DNS specific portion of a log record
 type LogRecordDNS struct {
 	// Query is the name in the original query
@@ -265,6 +277,11 @@ type LogRecordDNS struct {
 	// to the IPs.
 	// This field is filled only for DNS responses with CNAMEs to IP data.
 	CNAMEs []string `json:"CNAMEs,omitempty"`
+
+	// ObservationSource represents the source of the data in this LogRecordDNS.
+	// Empty or undefined may indicate older cilium versions, as it is expected
+	// to be filled in.
+	ObservationSource DNSDataSource `json:"ObservationSource,omitempty"`
 }
 
 // LogRecordL7 contains the generic L7 portion of a log record
