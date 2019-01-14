@@ -1168,5 +1168,9 @@ func (d *Daemon) instantiateAPI() *restapi.CiliumAPI {
 	// metrics
 	api.MetricsGetMetricsHandler = NewGetMetricsHandler(d)
 
+	// /discovery/fqdn
+	api.PolicyGetDiscoveryFqdnHandler = NewGetDiscoveryFqdnHandler(d)
+	api.PolicyGetDiscoveryFqdnIDHandler = NewGetDiscoveryFqdnIDHandler(d)
+
 	return api
 }
