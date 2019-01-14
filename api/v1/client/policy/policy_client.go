@@ -53,6 +53,68 @@ func (a *Client) DeletePolicy(params *DeletePolicyParams) (*DeletePolicyOK, erro
 }
 
 /*
+GetDiscoveryFqdn retrieves the list of DNS lookups intercepted from all endpoints
+
+Retrieves the list of DNS lookups intercepted from endpoints, optionally filtered by endpoint id, dns name, or CIDR IP range.
+
+*/
+func (a *Client) GetDiscoveryFqdn(params *GetDiscoveryFqdnParams) (*GetDiscoveryFqdnOK, error) {
+	// TODO: Validate the params before sending
+	if params == nil {
+		params = NewGetDiscoveryFqdnParams()
+	}
+
+	result, err := a.transport.Submit(&runtime.ClientOperation{
+		ID:                 "GetDiscoveryFqdn",
+		Method:             "GET",
+		PathPattern:        "/discovery/fqdn",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http"},
+		Params:             params,
+		Reader:             &GetDiscoveryFqdnReader{formats: a.formats},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.(*GetDiscoveryFqdnOK), nil
+
+}
+
+/*
+GetDiscoveryFqdnID retrieves the list of DNS lookups intercepted from an endpoint
+
+Retrieves the list of DNS lookups intercepted from endpoints, optionally filtered by endpoint id, dns name, or CIDR IP range.
+
+*/
+func (a *Client) GetDiscoveryFqdnID(params *GetDiscoveryFqdnIDParams) (*GetDiscoveryFqdnIDOK, error) {
+	// TODO: Validate the params before sending
+	if params == nil {
+		params = NewGetDiscoveryFqdnIDParams()
+	}
+
+	result, err := a.transport.Submit(&runtime.ClientOperation{
+		ID:                 "GetDiscoveryFqdnID",
+		Method:             "GET",
+		PathPattern:        "/discovery/fqdn/{id}",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http"},
+		Params:             params,
+		Reader:             &GetDiscoveryFqdnIDReader{formats: a.formats},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.(*GetDiscoveryFqdnIDOK), nil
+
+}
+
+/*
 GetIdentity retrieves a list of identities that have metadata matching the provided parameters
 
 Retrieves a list of identities that have metadata matching the provided parameters, or all identities if no parameters are provided.

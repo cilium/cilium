@@ -61,6 +61,12 @@ func NewCiliumAPI(spec *loads.Document) *CiliumAPI {
 		DaemonGetDebuginfoHandler: daemon.GetDebuginfoHandlerFunc(func(params daemon.GetDebuginfoParams) middleware.Responder {
 			return middleware.NotImplemented("operation DaemonGetDebuginfo has not yet been implemented")
 		}),
+		PolicyGetDiscoveryFqdnHandler: policy.GetDiscoveryFqdnHandlerFunc(func(params policy.GetDiscoveryFqdnParams) middleware.Responder {
+			return middleware.NotImplemented("operation PolicyGetDiscoveryFqdn has not yet been implemented")
+		}),
+		PolicyGetDiscoveryFqdnIDHandler: policy.GetDiscoveryFqdnIDHandlerFunc(func(params policy.GetDiscoveryFqdnIDParams) middleware.Responder {
+			return middleware.NotImplemented("operation PolicyGetDiscoveryFqdnID has not yet been implemented")
+		}),
 		EndpointGetEndpointHandler: endpoint.GetEndpointHandlerFunc(func(params endpoint.GetEndpointParams) middleware.Responder {
 			return middleware.NotImplemented("operation EndpointGetEndpoint has not yet been implemented")
 		}),
@@ -183,6 +189,10 @@ type CiliumAPI struct {
 	DaemonGetConfigHandler daemon.GetConfigHandler
 	// DaemonGetDebuginfoHandler sets the operation handler for the get debuginfo operation
 	DaemonGetDebuginfoHandler daemon.GetDebuginfoHandler
+	// PolicyGetDiscoveryFqdnHandler sets the operation handler for the get discovery fqdn operation
+	PolicyGetDiscoveryFqdnHandler policy.GetDiscoveryFqdnHandler
+	// PolicyGetDiscoveryFqdnIDHandler sets the operation handler for the get discovery fqdn ID operation
+	PolicyGetDiscoveryFqdnIDHandler policy.GetDiscoveryFqdnIDHandler
 	// EndpointGetEndpointHandler sets the operation handler for the get endpoint operation
 	EndpointGetEndpointHandler endpoint.GetEndpointHandler
 	// EndpointGetEndpointIDHandler sets the operation handler for the get endpoint ID operation
@@ -322,6 +332,14 @@ func (o *CiliumAPI) Validate() error {
 
 	if o.DaemonGetDebuginfoHandler == nil {
 		unregistered = append(unregistered, "daemon.GetDebuginfoHandler")
+	}
+
+	if o.PolicyGetDiscoveryFqdnHandler == nil {
+		unregistered = append(unregistered, "policy.GetDiscoveryFqdnHandler")
+	}
+
+	if o.PolicyGetDiscoveryFqdnIDHandler == nil {
+		unregistered = append(unregistered, "policy.GetDiscoveryFqdnIDHandler")
 	}
 
 	if o.EndpointGetEndpointHandler == nil {
@@ -551,6 +569,16 @@ func (o *CiliumAPI) initHandlerCache() {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
 	o.handlers["GET"]["/debuginfo"] = daemon.NewGetDebuginfo(o.context, o.DaemonGetDebuginfoHandler)
+
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/discovery/fqdn"] = policy.NewGetDiscoveryFqdn(o.context, o.PolicyGetDiscoveryFqdnHandler)
+
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/discovery/fqdn/{id}"] = policy.NewGetDiscoveryFqdnID(o.context, o.PolicyGetDiscoveryFqdnIDHandler)
 
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)
