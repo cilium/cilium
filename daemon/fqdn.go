@@ -21,10 +21,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cilium/cilium/api/v1/models"
+	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
+	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
+	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -33,6 +37,8 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/u8proto"
+	"github.com/go-openapi/runtime/middleware"
+	"github.com/go-openapi/strfmt"
 
 	"github.com/miekg/dns"
 )
@@ -241,4 +247,135 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 		})
 	proxy.DefaultDNSProxy.SetRejectReply(option.Config.FQDNRejectResponse)
 	return err // filled by StartDNSProxy
+}
+
+type getFqdnCache struct {
+	daemon *Daemon
+}
+
+func NewGetFqdnCacheHandler(d *Daemon) GetFqdnCacheHandler {
+	return &getFqdnCache{daemon: d}
+}
+
+func (h *getFqdnCache) Handle(params GetFqdnCacheParams) middleware.Responder {
+	// endpoints we want data from
+	endpoints := endpointmanager.GetEndpoints()
+
+	CIDRStr := ""
+	if params.Cidr != nil {
+		CIDRStr = *params.Cidr
+	}
+
+	matchPatternStr := ""
+	if params.Matchpattern != nil {
+		matchPatternStr = *params.Matchpattern
+	}
+
+	lookups, err := extractDNSLookups(endpoints, CIDRStr, matchPatternStr)
+	switch {
+	case err != nil:
+		return api.Error(GetFqdnCacheBadRequestCode, err)
+	case len(lookups) == 0:
+		return NewGetFqdnCacheIDNotFound()
+	}
+
+	return NewGetFqdnCacheIDOK().WithPayload(lookups)
+}
+
+type getFqdnCacheID struct {
+	daemon *Daemon
+}
+
+func NewGetFqdnCacheIDHandler(d *Daemon) GetFqdnCacheIDHandler {
+	return &getFqdnCacheID{daemon: d}
+}
+
+func (h *getFqdnCacheID) Handle(params GetFqdnCacheIDParams) middleware.Responder {
+	var endpoints []*endpoint.Endpoint
+	if params.ID != "" {
+		ep, err := endpointmanager.Lookup(params.ID)
+		switch {
+		case err != nil:
+			return api.Error(GetFqdnCacheIDBadRequestCode, err)
+		case ep == nil:
+			return api.Error(GetFqdnCacheIDNotFoundCode, fmt.Errorf("Cannot find endpoint %s", params.ID))
+		default:
+			endpoints = []*endpoint.Endpoint{ep}
+		}
+	}
+
+	CIDRStr := ""
+	if params.Cidr != nil {
+		CIDRStr = *params.Cidr
+	}
+
+	matchPatternStr := ""
+	if params.Matchpattern != nil {
+		matchPatternStr = *params.Matchpattern
+	}
+
+	lookups, err := extractDNSLookups(endpoints, CIDRStr, matchPatternStr)
+	switch {
+	case err != nil:
+		return api.Error(GetFqdnCacheBadRequestCode, err)
+	case len(lookups) == 0:
+		return NewGetFqdnCacheIDNotFound()
+	}
+
+	return NewGetFqdnCacheIDOK().WithPayload(lookups)
+}
+
+// extractDNSLookups returns API models.DNSLookup copies of DNS data in each
+// endpoint's DNSHistory. These are filtered by CIDRStr and matchPatternStr if
+// they are non-empty.
+func extractDNSLookups(endpoints []*endpoint.Endpoint, CIDRStr, matchPatternStr string) (lookups []*models.DNSLookup, err error) {
+	cidrMatcher := func(ip net.IP) bool { return true }
+	if CIDRStr != "" {
+		_, cidr, err := net.ParseCIDR(CIDRStr)
+		if err != nil {
+			return nil, err
+		}
+		cidrMatcher = func(ip net.IP) bool { return cidr.Contains(ip) }
+	}
+
+	nameMatcher := func(name string) bool { return true }
+	if matchPatternStr != "" {
+		matcher, err := matchpattern.Validate(matchPatternStr)
+		if err != nil {
+			return nil, err
+		}
+		nameMatcher = func(name string) bool { return matcher.MatchString(name) }
+	}
+
+	for _, ep := range endpoints {
+		for _, lookup := range ep.DNSHistory.Dump() {
+			if !nameMatcher(lookup.Name) {
+				continue
+			}
+
+			// The API model needs strings
+			IPStrings := make([]string, 0, len(lookup.IPs))
+
+			// only proceed if any IP matches the cidr selector
+			anIPMatches := false
+			for _, ip := range lookup.IPs {
+				anIPMatches = anIPMatches || cidrMatcher(ip)
+				IPStrings = append(IPStrings, ip.String())
+			}
+			if !anIPMatches {
+				continue
+			}
+
+			lookups = append(lookups, &models.DNSLookup{
+				Fqdn:           lookup.Name,
+				Ips:            IPStrings,
+				LookupTime:     strfmt.DateTime(lookup.LookupTime),
+				TTL:            int64(lookup.TTL),
+				ExpirationTime: strfmt.DateTime(lookup.ExpirationTime),
+				EndpointID:     int64(ep.ID),
+			})
+		}
+	}
+
+	return lookups, nil
 }
