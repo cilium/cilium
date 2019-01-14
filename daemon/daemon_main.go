@@ -1172,5 +1172,9 @@ func (d *Daemon) instantiateAPI() *restapi.CiliumAPI {
 	// metrics
 	api.MetricsGetMetricsHandler = NewGetMetricsHandler(d)
 
+	// /tofqdns
+	api.PolicyGetTofqdnsHandler = NewGetTofqdnsHandler(d)
+	api.PolicyGetTofqdnsIDHandler = NewGetTofqdnsIDHandler(d)
+
 	return api
 }
