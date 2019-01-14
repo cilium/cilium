@@ -311,18 +311,16 @@ func (c *DNSCache) removeReverse(ip string, entry *cacheEntry) {
 	}
 }
 
-// MarshalJSON serialises the set of DNS lookup cacheEntries needed to
-// reconstruct this cache instance.
-// Note: Expiration times are honored and the reconstructed cache instance is
-// expected to return the same values as the original at that point in time.
-func (c *DNSCache) MarshalJSON() ([]byte, error) {
+// Dump returns unexpired cache entries in the cache. They are deduplicated,
+// but not usefully sorted. These objects should not be modified.
+func (c *DNSCache) Dump() (lookups []*cacheEntry) {
 	c.RLock()
 	defer c.RUnlock()
 
 	now := time.Now()
 
 	// Collect all the still-valid entries
-	lookups := make([]*cacheEntry, 0, len(c.forward))
+	lookups = make([]*cacheEntry, 0, len(c.forward))
 	for _, entries := range c.forward {
 		for _, entry := range entries {
 			if !entry.isExpiredBy(now) {
@@ -347,8 +345,18 @@ func (c *DNSCache) MarshalJSON() ([]byte, error) {
 		}
 	}
 
+	return deduped
+}
+
+// MarshalJSON serialises the set of DNS lookup cacheEntries needed to
+// reconstruct this cache instance.
+// Note: Expiration times are honored and the reconstructed cache instance is
+// expected to return the same values as the original at that point in time.
+func (c *DNSCache) MarshalJSON() ([]byte, error) {
+	lookups := c.Dump()
+
 	// serialise into a JSON object array
-	return json.Marshal(deduped)
+	return json.Marshal(lookups)
 }
 
 // UnmarshalJSON rebuilds a DNSCache from serialized JSON.
