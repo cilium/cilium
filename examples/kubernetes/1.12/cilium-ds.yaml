@@ -124,7 +124,7 @@ spec:
               key: preallocate-bpf-maps
               name: cilium-config
               optional: true
-        image: docker.io/cilium/cilium:v1.4.0-rc2
+        image: docker.io/cilium/cilium:v1.4.0-rc3
         imagePullPolicy: IfNotPresent
         lifecycle:
           postStart:

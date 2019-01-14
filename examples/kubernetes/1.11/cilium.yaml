@@ -231,7 +231,7 @@ spec:
               key: preallocate-bpf-maps
               name: cilium-config
               optional: true
-        image: docker.io/cilium/cilium:v1.4.0-rc2
+        image: docker.io/cilium/cilium:v1.4.0-rc3
         imagePullPolicy: IfNotPresent
         lifecycle:
           postStart:
@@ -466,7 +466,7 @@ spec:
               key: AWS_DEFAULT_REGION
               name: cilium-aws
               optional: true
-        image: docker.io/cilium/operator:v1.4.0-rc2
+        image: docker.io/cilium/operator:v1.4.0-rc3
         imagePullPolicy: IfNotPresent
         name: cilium-operator
         volumeMounts:
