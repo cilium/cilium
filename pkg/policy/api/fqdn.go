@@ -65,7 +65,8 @@ func (s *FQDNSelector) sanitize() error {
 	if len(s.MatchPattern) > 0 && !allowedPatternChars.MatchString(s.MatchPattern) {
 		return fmt.Errorf("Invalid characters in MatchPattern: \"%s\". Only 0-9, a-z, A-Z and ., - and * characters are allowed", s.MatchPattern)
 	}
-	return matchpattern.Validate(s.MatchPattern)
+	_, err := matchpattern.Validate(s.MatchPattern)
+	return err
 }
 
 // PortRuleDNS is a list of allowed DNS lookups.
@@ -81,7 +82,8 @@ func (r *PortRuleDNS) Sanitize() error {
 	if len(r.MatchPattern) > 0 && !allowedPatternChars.MatchString(r.MatchPattern) {
 		return fmt.Errorf("Invalid characters in MatchPattern: \"%s\". Only 0-9, a-z, A-Z and ., - and * characters are allowed", r.MatchPattern)
 	}
-	return matchpattern.Validate(r.MatchPattern)
+	_, err := matchpattern.Validate(r.MatchPattern)
+	return err
 }
 
 // GetAsEndpointSelectors returns a FQDNSelector as a single EntityNone
