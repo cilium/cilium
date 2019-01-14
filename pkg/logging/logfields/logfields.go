@@ -192,6 +192,9 @@ const (
 	// DatapathMode is the datapath mode name
 	DatapathMode = "datapathMode"
 
+	// Tunnel is the tunnel name
+	Tunnel = "tunnel"
+
 	// EndpointLabelSelector is a selector for Endpoints by label
 	EndpointLabelSelector = "EndpointLabelSelector"
 

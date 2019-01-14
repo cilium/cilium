@@ -556,7 +556,7 @@ func init() {
 	flags.String(option.StateDir, defaults.RuntimePath, "Directory path to store runtime state")
 	option.BindEnv(option.StateDir)
 
-	flags.StringP(option.TunnelName, "t", option.TunnelVXLAN, fmt.Sprintf("Tunnel mode {%s}", option.GetTunnelModes()))
+	flags.StringP(option.TunnelName, "t", "", fmt.Sprintf("Tunnel mode {%s} (default \"vxlan\" for the \"veth\" datapath mode)", option.GetTunnelModes()))
 	option.BindEnv(option.TunnelName)
 
 	flags.Int(option.TracePayloadlen, 128, "Length of payload to capture when tracing")
@@ -866,7 +866,15 @@ func initEnv(cmd *cobra.Command) {
 
 	switch option.Config.DatapathMode {
 	case "veth":
+		if option.Config.Tunnel == "" {
+			option.Config.Tunnel = option.TunnelVXLAN
+		}
 	case "ipvlan":
+		if option.Config.Tunnel != "" && option.Config.Tunnel != option.TunnelDisabled {
+			log.WithField(logfields.Tunnel, option.Config.Tunnel).
+				Fatal("tunnel cannot be set in the 'ipvlan' datapath mode")
+		}
+		option.Config.Tunnel = option.TunnelDisabled
 	default:
 		log.WithField(logfields.DatapathMode, option.Config.DatapathMode).Fatal("Invalid datapath mode")
 	}

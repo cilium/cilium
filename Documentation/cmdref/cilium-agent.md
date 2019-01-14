@@ -97,7 +97,7 @@ cilium-agent [flags]
       --tofqdns-min-ttl int                         The minimum time, in seconds, to use DNS data for toFQDNs policies. (default 3600 when --tofqdns-enable-poller, 604800 otherwise)
       --tofqdns-proxy-port int                      Global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.
       --trace-payloadlen int                        Length of payload to capture when tracing (default 128)
-  -t, --tunnel string                               Tunnel mode {vxlan, geneve, disabled} (default "vxlan")
+  -t, --tunnel string                               Tunnel mode {vxlan, geneve, disabled} (default "vxlan" for the "veth" datapath mode)
       --version                                     Print version information
 ```
 
