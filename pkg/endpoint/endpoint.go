@@ -141,8 +141,8 @@ type Endpoint struct {
 	// libnetwork
 	DockerEndpointID string
 
-	// Corresponding BPF map identifier
-	mapID int
+	// Corresponding BPF map identifier for tail call map of ipvlan datapath
+	dataPathMapID int
 
 	// IfName is the name of the host facing interface (veth pair) which
 	// connects into the endpoint
@@ -328,7 +328,7 @@ func (e *Endpoint) HasBPFProgram() bool {
 
 // HasIpvlanDataPath returns whether the daemon is running in ipvlan mode.
 func (e *Endpoint) HasIpvlanDataPath() bool {
-	if e.mapID > 0 {
+	if e.dataPathMapID > 0 {
 		return true
 	}
 	return false
@@ -429,7 +429,7 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, 
 		IfName:           base.InterfaceName,
 		K8sPodName:       base.K8sPodName,
 		K8sNamespace:     base.K8sNamespace,
-		mapID:            int(base.DataPathMapID),
+		dataPathMapID:    int(base.DataPathMapID),
 		IfIndex:          int(base.InterfaceIndex),
 		OpLabels:         pkgLabels.NewOpLabels(),
 		DNSHistory:       fqdn.NewDNSCache(),
@@ -2222,11 +2222,11 @@ func (e *Endpoint) IsDisconnecting() bool {
 // MapPin retrieves a file descriptor from the map ID from the API call
 // and pins the corresponding map into the BPF file system.
 func (e *Endpoint) MapPin() error {
-	if e.mapID == 0 {
+	if e.dataPathMapID == 0 {
 		return nil
 	}
 
-	mapFd, err := bpf.MapFdFromID(e.mapID)
+	mapFd, err := bpf.MapFdFromID(e.dataPathMapID)
 	if err != nil {
 		return err
 	}
