@@ -24,18 +24,18 @@ import (
 
 const allowedDNSCharsREGroup = "[-a-zA-Z0-9]"
 
-// Validate ensures that pattern is a parseable matchPattern.
-func Validate(pattern string) error {
+// Validate ensures that pattern is a parseable matchPattern. It returns the
+// regexp generated when validating.
+func Validate(pattern string) (matcher *regexp.Regexp, err error) {
 	pattern = strings.TrimSpace(pattern)
 	pattern = strings.ToLower(pattern)
 
 	// error check
 	if strings.ContainsAny(pattern, "[]+{},") {
-		return errors.New(`Only alphanumeric ASCII characters, the hyphen "-", "." and "*" are allowed in a matchPattern`)
+		return nil, errors.New(`Only alphanumeric ASCII characters, the hyphen "-", "." and "*" are allowed in a matchPattern`)
 	}
 
-	_, err := regexp.Compile(ToRegexp(pattern))
-	return err
+	return regexp.Compile(ToRegexp(pattern))
 }
 
 // Sanitize canonicalized the pattern for use by ToRegexp
