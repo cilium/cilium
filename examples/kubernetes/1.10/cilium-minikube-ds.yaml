@@ -218,7 +218,7 @@ spec:
       restartPolicy: Always
       serviceAccount: cilium
       serviceAccountName: cilium
-      terminationGracePeriodSeconds: 30
+      terminationGracePeriodSeconds: 1
       tolerations:
       - operator: Exists
       volumes:
