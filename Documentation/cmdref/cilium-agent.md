@@ -28,6 +28,7 @@ cilium-agent [flags]
       --cluster-name string                         Name of the cluster (default "default")
       --clustermesh-config string                   Path to the ClusterMesh configuration directory
       --config string                               Configuration file (default "$HOME/ciliumd.yaml")
+      --config-dir string                           Configuration directory that contains a file for each option
       --conntrack-garbage-collector-interval uint   Garbage collection interval for the connection tracking table (in seconds) (default 60)
       --container-runtime strings                   Sets the container runtime(s) used by Cilium { containerd | crio | docker | none | auto } ( "auto" uses the container runtime found in the order: "docker", "containerd", "crio" ) (default [auto])
       --container-runtime-endpoint map              Container runtime(s) endpoint(s). (default: --container-runtime-endpoint=containerd=/var/run/containerd/containerd.sock, --container-runtime-endpoint=crio=/var/run/crio/crio.sock, --container-runtime-endpoint=docker=unix:///var/run/docker.sock) (default map[])
