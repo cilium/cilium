@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
+	"github.com/spf13/viper"
 )
 
 func init() {
@@ -30,7 +31,7 @@ func init() {
 	debug := flags.Bool("debug", false, "")
 	flags.Parse(os.Args)
 
-	if *debug {
+	if *debug || viper.GetBool("debug") {
 		DefaultLogger.SetLevel(logrus.DebugLevel)
 	}
 }

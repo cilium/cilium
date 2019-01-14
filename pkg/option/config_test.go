@@ -17,8 +17,14 @@
 package option
 
 import (
+	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"testing"
 
+	flag "github.com/spf13/pflag"
+	"github.com/spf13/viper"
 	. "gopkg.in/check.v1"
 )
 
@@ -102,6 +108,96 @@ func TestGetEnvName(t *testing.T) {
 				t.Errorf("getEnvName() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func (s *OptionSuite) TestReadDirConfig(c *C) {
+	var dirName string
+	type args struct {
+		dirName string
+	}
+	type want struct {
+		allSettings        map[string]interface{}
+		allSettingsChecker Checker
+		err                error
+		errChecker         Checker
+	}
+	tests := []struct {
+		name        string
+		setupArgs   func() args
+		setupWant   func() want
+		preTestRun  func()
+		postTestRun func()
+	}{
+		{
+			name: "empty configuration",
+			preTestRun: func() {
+				dirName = c.MkDir()
+
+				fs := flag.NewFlagSet("empty configuration", flag.ContinueOnError)
+				viper.BindPFlags(fs)
+			},
+			setupArgs: func() args {
+				return args{
+					dirName: dirName,
+				}
+			},
+			setupWant: func() want {
+				return want{
+					allSettings:        map[string]interface{}{},
+					allSettingsChecker: DeepEquals,
+					err:                nil,
+					errChecker:         Equals,
+				}
+			},
+			postTestRun: func() {
+				os.RemoveAll(dirName)
+			},
+		},
+		{
+			name: "single file configuration",
+			preTestRun: func() {
+				dirName = c.MkDir()
+
+				fullPath := filepath.Join(dirName, "test")
+				err := ioutil.WriteFile(fullPath, []byte(`"1"
+`), os.FileMode(0644))
+				c.Assert(err, IsNil)
+				fs := flag.NewFlagSet("single file configuration", flag.ContinueOnError)
+				fs.String("test", "", "")
+				BindEnv("test")
+				viper.BindPFlags(fs)
+
+				fmt.Println(fullPath)
+			},
+			setupArgs: func() args {
+				return args{
+					dirName: dirName,
+				}
+			},
+			setupWant: func() want {
+				return want{
+					allSettings:        map[string]interface{}{"test": `"1"`},
+					allSettingsChecker: DeepEquals,
+					err:                nil,
+					errChecker:         Equals,
+				}
+			},
+			postTestRun: func() {
+				os.RemoveAll(dirName)
+			},
+		},
+	}
+	for _, tt := range tests {
+		tt.preTestRun()
+		args := tt.setupArgs()
+		want := tt.setupWant()
+		m, err := ReadDirConfig(args.dirName)
+		c.Assert(err, want.errChecker, want.err, Commentf("Test Name: %s", tt.name))
+		err = MergeConfig(m)
+		c.Assert(err, IsNil)
+		c.Assert(viper.AllSettings(), want.allSettingsChecker, want.allSettings, Commentf("Test Name: %s", tt.name))
+		tt.postTestRun()
 	}
 }
 
