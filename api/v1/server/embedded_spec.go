@@ -1417,6 +1417,10 @@ func init() {
           "description": "Name assigned to container",
           "type": "string"
         },
+        "data-path-map-id": {
+          "description": "ID of datapath tail call map",
+          "type": "integer"
+        },
         "docker-endpoint-id": {
           "description": "Docker endpoint ID",
           "type": "string"
@@ -1456,10 +1460,6 @@ func init() {
         "mac": {
           "description": "MAC address",
           "type": "string"
-        },
-        "map-id": {
-          "description": "ID of policy map",
-          "type": "integer"
         },
         "policy-enabled": {
           "description": "Whether policy enforcement is enabled or not",

@@ -414,7 +414,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 			return err
 		}
 
-		ep.MapID = int64(mapID)
+		ep.DataPathMapID = int64(mapID)
 		defer func() {
 			unix.Close(mapFD)
 		}()

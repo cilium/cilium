@@ -27,6 +27,9 @@ type EndpointChangeRequest struct {
 	// Name assigned to container
 	ContainerName string `json:"container-name,omitempty"`
 
+	// ID of datapath tail call map
+	DataPathMapID int64 `json:"data-path-map-id,omitempty"`
+
 	// Docker endpoint ID
 	DockerEndpointID string `json:"docker-endpoint-id,omitempty"`
 
@@ -57,9 +60,6 @@ type EndpointChangeRequest struct {
 	// MAC address
 	Mac string `json:"mac,omitempty"`
 
-	// ID of policy map
-	MapID int64 `json:"map-id,omitempty"`
-
 	// Whether policy enforcement is enabled or not
 	PolicyEnabled bool `json:"policy-enabled,omitempty"`
 
@@ -77,6 +77,8 @@ type EndpointChangeRequest struct {
 /* polymorph EndpointChangeRequest container-id false */
 
 /* polymorph EndpointChangeRequest container-name false */
+
+/* polymorph EndpointChangeRequest data-path-map-id false */
 
 /* polymorph EndpointChangeRequest docker-endpoint-id false */
 
@@ -97,8 +99,6 @@ type EndpointChangeRequest struct {
 /* polymorph EndpointChangeRequest labels false */
 
 /* polymorph EndpointChangeRequest mac false */
-
-/* polymorph EndpointChangeRequest map-id false */
 
 /* polymorph EndpointChangeRequest policy-enabled false */
 

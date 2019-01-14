@@ -190,9 +190,12 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	if e.IPv4 != nil {
 		fmt.Fprintf(fw, "#define LXC_IPV4 %#x\n", byteorder.HostSliceToNetwork(e.IPv4, reflect.Uint32))
 	}
-	if e.HasIpvlanDataPath() {
-		fmt.Fprintf(fw, "#define DATAPATH_IPVLAN 1\n")
+
+	if !e.HasIpvlanDataPath() {
+		fmt.Fprintf(fw, "#define ENABLE_ARP_RESPONDER 1\n")
+		fmt.Fprintf(fw, "#define ENABLE_HOST_REDIRECT 1\n")
 	}
+
 	fw.WriteString(common.FmtDefineAddress("NODE_MAC", e.NodeMAC))
 	fmt.Fprintf(fw, "#define LXC_ID %#x\n", e.ID)
 	fmt.Fprintf(fw, "#define LXC_ID_NB %#x\n", byteorder.HostToNetwork(e.ID))

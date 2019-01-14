@@ -546,11 +546,15 @@ static inline void relax_verifier(void)
 
 static inline int datapath_redirect(int ifindex, uint32_t flags)
 {
-#ifdef DATAPATH_IPVLAN
-	return TC_ACT_OK;
-#else
+	/* If our datapath has proper redirect support, we make use
+	 * of it here, otherwise we terminate tc processing by letting
+	 * stack handle forwarding e.g. in ipvlan case.
+	 */
+#ifdef ENABLE_HOST_REDIRECT
 	return redirect(ifindex, flags);
-#endif
+#else
+	return TC_ACT_OK;
+#endif /* ENABLE_HOST_REDIRECT */
 }
 
 #endif

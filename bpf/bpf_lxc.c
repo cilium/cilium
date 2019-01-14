@@ -126,7 +126,7 @@ get_ct_map4(struct ipv4_ct_tuple *tuple)
 #if defined ENABLE_IPV4 || defined ENABLE_IPV6
 static inline bool redirect_to_proxy(int verdict, int dir)
 {
-	return !is_defined(DATAPATH_IPVLAN) && verdict > 0 &&
+	return is_defined(ENABLE_HOST_REDIRECT) && verdict > 0 &&
 	       (dir == CT_NEW || dir == CT_ESTABLISHED);
 }
 #endif
@@ -178,7 +178,7 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	 * entry for destination endpoints where we can't encode the state in the
 	 * address.
 	 */
-	if (!is_defined(DATAPATH_IPVLAN) && (svc = lb6_lookup_service(skb, &key)) != NULL) {
+	if ((svc = lb6_lookup_service(skb, &key)) != NULL) {
 		ret = lb6_local(get_ct_map6(tuple), skb, l3_off, l4_off,
 				&csum_off, &key, tuple, svc, &ct_state_new);
 		if (IS_ERR(ret))
@@ -330,7 +330,7 @@ skip_service_lookup:
 	}
 
 	/* The packet goes to a peer not managed by this agent instance */
-#if defined(ENCAP_IFINDEX) && !defined(DATAPATH_IPVLAN)
+#ifdef ENCAP_IFINDEX
 	if (tunnel_endpoint) {
 		return encap_and_redirect_with_nodeid(skb, tunnel_endpoint,
 						      SECLABEL, monitor);
@@ -360,7 +360,7 @@ skip_service_lookup:
 	}
 #endif
 
-#if defined(ENABLE_NAT46) && !defined(DATAPATH_IPVLAN)
+#ifdef ENABLE_NAT46
 	if (unlikely(ipv6_addr_is_mapped(daddr))) {
 		ep_tail_call(skb, CILIUM_CALL_NAT64);
 		return DROP_MISSED_TAIL_CALL;
@@ -369,7 +369,7 @@ skip_service_lookup:
 	goto pass_to_stack;
 
 to_host:
-	if (!is_defined(DATAPATH_IPVLAN)) {
+	if (is_defined(ENABLE_HOST_REDIRECT)) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 
 		cilium_dbg(skb, DBG_TO_HOST, is_policy_skip(skb), 0);
@@ -486,7 +486,7 @@ static inline int handle_ipv4_from_lxc(struct __sk_buff *skb, __u32 *dstID)
 	}
 
 	ct_state_new.orig_dport = key.dport;
-	if (!is_defined(DATAPATH_IPVLAN) && (svc = lb4_lookup_service(skb, &key)) != NULL) {
+	if ((svc = lb4_lookup_service(skb, &key)) != NULL) {
 		ret = lb4_local(get_ct_map4(&tuple), skb, l3_off, l4_off, &csum_off,
 				&key, &tuple, svc, &ct_state_new, ip4->saddr);
 		if (IS_ERR(ret))
@@ -628,7 +628,7 @@ skip_service_lookup:
 		return ipv4_local_delivery(skb, l3_off, l4_off, SECLABEL, ip4, ep, METRIC_EGRESS);
 	}
 
-#if defined(ENCAP_IFINDEX) && !defined(DATAPATH_IPVLAN)
+#ifdef ENCAP_IFINDEX
 	if (tunnel_endpoint) {
 		return encap_and_redirect_with_nodeid(skb, tunnel_endpoint,
 						      SECLABEL, monitor);
@@ -657,7 +657,7 @@ skip_service_lookup:
 	goto pass_to_stack;
 
 to_host:
-	if (!is_defined(DATAPATH_IPVLAN)) {
+	if (is_defined(ENABLE_HOST_REDIRECT)) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 
 		cilium_dbg(skb, DBG_TO_HOST, is_policy_skip(skb), 0);
@@ -704,7 +704,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC) int tail_handle_ipv4
 	return ret;
 }
 
-#if !defined(DATAPATH_IPVLAN)
+#ifdef ENABLE_ARP_RESPONDER
 /*
  * ARP responder for ARP requests from container
  * Respond to IPV4_GATEWAY with NODE_MAC
@@ -714,7 +714,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_ARP) int tail_handle_arp(struct __s
 	union macaddr mac = NODE_MAC;
 	return arp_respond(skb, &mac);
 }
-#endif /* !defined(DATAPATH_IPVLAN) */
+#endif /* ENABLE_ARP_RESPONDER */
 #endif /* ENABLE_IPV4 */
 
 /* Attachment/entry point is ingress for veth, egress for ipvlan. */
@@ -734,19 +734,19 @@ int handle_xgress(struct __sk_buff *skb)
 		ep_tail_call(skb, CILIUM_CALL_IPV6_FROM_LXC);
 		ret = DROP_MISSED_TAIL_CALL;
 		break;
-#endif
+#endif /* ENABLE_IPV6 */
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
 		ep_tail_call(skb, CILIUM_CALL_IPV4_FROM_LXC);
 		ret = DROP_MISSED_TAIL_CALL;
 		break;
-#if !defined(DATAPATH_IPVLAN)
+#ifdef ENABLE_ARP_RESPONDER
 	case bpf_htons(ETH_P_ARP):
 		ep_tail_call(skb, CILIUM_CALL_ARP);
 		ret = DROP_MISSED_TAIL_CALL;
 		break;
-#endif /* !defined(DATAPATH_IPVLAN) */
-#endif
+#endif /* ENABLE_ARP_RESPONDER */
+#endif /* ENABLE_IPV4 */
 	default:
 		ret = DROP_UNKNOWN_L3;
 	}
@@ -1093,7 +1093,7 @@ __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *sk
 	return ret;
 }
 
-#if defined(ENABLE_NAT46) && !defined(DATAPATH_IPVLAN)
+#ifdef ENABLE_NAT46
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT64) int tail_ipv6_to_ipv4(struct __sk_buff *skb)
 {
 	int ret = ipv6_to_ipv4(skb, 14, LXC_IPV4);
@@ -1135,6 +1135,5 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT46) int tail_ipv4_to_ipv6(struct
 	ep_tail_call(skb, CILIUM_CALL_IPV6_TO_LXC);
 	return DROP_MISSED_TAIL_CALL;
 }
-#endif /* defined(ENABLE_NAT46) && !defined(DATAPATH_IPVLAN) */
-
+#endif
 BPF_LICENSE("GPL");
