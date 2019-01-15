@@ -581,10 +581,10 @@ func init() {
 	flags.Bool(option.PProf, false, "Enable serving the pprof debugging API")
 	option.BindEnv(option.PProf)
 
-	flags.StringP(option.PrefilterDevice, "", "undefined", "Device facing external network for XDP prefiltering")
+	flags.String(option.PrefilterDevice, "undefined", "Device facing external network for XDP prefiltering")
 	option.BindEnv(option.PrefilterDevice)
 
-	flags.StringP(option.PrefilterMode, "", option.ModePreFilterNative, "Prefilter mode { "+option.ModePreFilterNative+" | "+option.ModePreFilterGeneric+" } (default: "+option.ModePreFilterNative+")")
+	flags.String(option.PrefilterMode, option.ModePreFilterNative, "Prefilter mode { "+option.ModePreFilterNative+" | "+option.ModePreFilterGeneric+" } (default: "+option.ModePreFilterNative+")")
 	option.BindEnv(option.PrefilterMode)
 
 	flags.Bool(option.PreAllocateMapsName, defaults.PreAllocateMaps, "Enable BPF map pre-allocation")
@@ -626,7 +626,7 @@ func init() {
 	option.BindEnv(option.ToFQDNsEnablePollerEvents)
 
 	flags.StringVar(&option.Config.FQDNRejectResponse, option.FQDNRejectResponseCode, option.FQDNProxyDenyWithRefused, fmt.Sprintf("DNS response code for rejecting DNS requests, available options are '%v'", option.FQDNRejectOptions))
-	viper.BindEnv(option.FQDNRejectResponseCode, option.FQDNRejectResponseCodeEnv)
+	option.BindEnv(option.FQDNRejectResponseCode)
 
 	viper.BindPFlags(flags)
 }
