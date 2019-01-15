@@ -95,6 +95,7 @@ tests: force
 TEST_UNITTEST_LDFLAGS= -ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyConfigFile=/tmp/cilium-consul-certs/cilium-consul.yaml"
 
 unit-tests: start-kvstores
+	$(QUIET) $(MAKE) -C test/bpf/
 	$(QUIET) $(MAKE) -C daemon/ check-bindata
 	$(QUIET) echo "mode: count" > coverage-all-tmp.out
 	$(QUIET) echo "mode: count" > coverage.out
