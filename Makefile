@@ -78,6 +78,11 @@ start-kvstores:
 		consul:1.1.0 \
 		agent -client=0.0.0.0 -server -bootstrap-expect 1 -config-file=/cilium-consul/consul-config.json
 
+stop-kvstores:
+	$(DOCKER) rm -f "cilium-etcd-test-container"
+	$(DOCKER) rm -f "cilium-consul-test-container"
+	rm -rf /tmp/cilium-consul-certs
+
 tests: force
 	$(MAKE) unit-tests
 
@@ -96,9 +101,7 @@ unit-tests: start-kvstores
 	$(QUIET)$(GO) tool cover -html=coverage-all.out -o=coverage-all.html
 	$(QUIET) rm coverage.out coverage-all-tmp.out
 	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
-	$(DOCKER) rm -f "cilium-etcd-test-container"
-	$(DOCKER) rm -f "cilium-consul-test-container"
-	rm -rf /tmp/cilium-consul-certs
+	$(MAKE) stop-kvstores
 
 clean-tags:
 	@$(ECHO_CLEAN) tags
