@@ -48,23 +48,28 @@ func (s IdentitiesModel) Less(i, j int) bool {
 func GetIdentityCache() IdentityCache {
 	cache := IdentityCache{}
 
-	IdentityAllocator.ForeachCache(func(id idpool.ID, val allocator.AllocatorKey) {
-		if val != nil {
-			if gi, ok := val.(globalIdentity); ok {
-				cache[identity.NumericIdentity(id)] = gi.LabelArray()
-			} else {
-				log.Warningf("Ignoring unknown identity type '%s': %+v",
-					reflect.TypeOf(val), val)
+	if IdentityAllocator != nil {
+
+		IdentityAllocator.ForeachCache(func(id idpool.ID, val allocator.AllocatorKey) {
+			if val != nil {
+				if gi, ok := val.(globalIdentity); ok {
+					cache[identity.NumericIdentity(id)] = gi.LabelArray()
+				} else {
+					log.Warningf("Ignoring unknown identity type '%s': %+v",
+						reflect.TypeOf(val), val)
+				}
 			}
-		}
-	})
+		})
+	}
 
 	for key, identity := range identity.ReservedIdentityCache {
 		cache[key] = identity.Labels.LabelArray()
 	}
 
-	for _, identity := range localIdentities.GetIdentities() {
-		cache[identity.ID] = identity.Labels.LabelArray()
+	if localIdentities != nil {
+		for _, identity := range localIdentities.GetIdentities() {
+			cache[identity.ID] = identity.Labels.LabelArray()
+		}
 	}
 
 	return cache
