@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -144,19 +144,31 @@ func ReloadDatapath(ctx context.Context, ep endpoint) error {
 	return reloadDatapath(ctx, ep, &dirs)
 }
 
-// Compile compiles a BPF program generating an object file.
-func Compile(ctx context.Context, src string, out string) error {
+func compileWithPath(ctx context.Context, src, outDir, outBase string) error {
 	debug := option.Config.BPFCompilationDebug
 	prog := progInfo{
 		Source:     src,
-		Output:     out,
+		Output:     outBase,
 		OutputType: outputObject,
 	}
 	dirs := directoryInfo{
 		Library: option.Config.BpfDir,
 		Runtime: option.Config.StateDir,
-		Output:  option.Config.StateDir,
+		Output:  outDir,
 		State:   option.Config.StateDir,
 	}
 	return compile(ctx, &prog, &dirs, debug)
+}
+
+// Compile compiles a BPF program generating an object file.
+func Compile(ctx context.Context, src string, out string) error {
+	return compileWithPath(ctx, src, option.Config.StateDir, out)
+}
+
+// CompileToFullPath compiles a BPF program generating an object file, placing
+// it at the fully specified path 'out'.
+func CompileToFullPath(ctx context.Context, src, out string) error {
+	dir := path.Dir(out)
+	base := path.Base(out)
+	return compileWithPath(ctx, src, dir, base)
 }
