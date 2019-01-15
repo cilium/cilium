@@ -1457,6 +1457,8 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 		// - Report the verdict in a monitor event and emit proxy metrics
 		// - Insert the DNS data into the cache when msg is a DNS response and we
 		//   can lookup the endpoint related to it
+		// srcAddr and dstAddr should match the packet reported on (i.e. the
+		// endpoint is srcAddr for requests, and dstAddr for responses).
 		func(lookupTime time.Time, srcAddr, dstAddr string, msg *dns.Msg, protocol string, allowed bool, proxyErr error) error {
 			var protoID = u8proto.ProtoIDs[strings.ToLower(protocol)]
 
@@ -1474,42 +1476,38 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 				reason = "Denied by policy"
 			}
 
+			var epAddr string     // the address of the endpoint that originated the request
+			var serverAddr string // the address of the DNS target
 			var ingress = msg.Response
 			var flowType accesslog.FlowType
 			if ingress {
 				flowType = accesslog.TypeResponse
+				epAddr = dstAddr
+				serverAddr = srcAddr
 			} else {
 				flowType = accesslog.TypeRequest
+				epAddr = srcAddr
+				serverAddr = dstAddr
+			}
+
+			var serverPort int
+			_, serverPortStr, err := net.SplitHostPort(serverAddr)
+			if err != nil {
+				log.WithError(err).Error("cannot extract endpoint IP from DNS request")
+			} else {
+				if serverPort, err = strconv.Atoi(serverPortStr); err != nil {
+					log.WithError(err).WithField(logfields.Port, serverPortStr).Error("cannot parse destination port")
+				}
 			}
 
 			var ep *endpoint.Endpoint
-			srcID := uint32(0)
-			srcIP, _, err := net.SplitHostPort(srcAddr)
+			epIP, _, err := net.SplitHostPort(epAddr)
 			if err != nil {
-				// dstAddr is used instead, below
 				log.WithError(err).Error("cannot extract endpoint IP from DNS request")
-			} else {
-				ep = endpointmanager.LookupIPv4(srcIP)
-				if ep != nil {
-					srcID = ep.GetIdentity().Uint32()
-				}
+				ep.UpdateProxyStatistics("dns", uint16(serverPort), ingress, !ingress, accesslog.VerdictError)
+				return err
 			}
-
-			var dstPort int
-			dstIPStr, dstPortStr, err := net.SplitHostPort(dstAddr)
-			if err != nil {
-				// This may be fatal, but we handle that case below, if ep == nil
-				log.WithError(err).Error("cannot extract endpoint IP from DNS request")
-			} else {
-				if dstPort, err = strconv.Atoi(dstPortStr); err != nil {
-					log.WithError(err).WithField(logfields.Port, dstPortStr).Error("cannot parse destination port")
-				}
-			}
-
-			if ep == nil {
-				// ep needs to be non-nil for the access log. One of the ends of this connection will be an endpoint.
-				ep = endpointmanager.LookupIPv4(dstIPStr)
-			}
+			ep = endpointmanager.LookupIPv4(epIP)
 			if ep == nil {
 				// This is a hard fail. We cannot proceed because record.Log requires a
 				// non-nil ep, and we also don't want to insert this data into the
@@ -1518,7 +1516,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 				// dns.RcodeSuccess below).
 				err := fmt.Errorf("Cannot find matching endpoint for IPs %s or %s", srcAddr, dstAddr)
 				log.WithError(err).Error("cannot find matching endpoint")
-				ep.UpdateProxyStatistics("dns", uint16(dstPort), ingress, !ingress, accesslog.VerdictError)
+				ep.UpdateProxyStatistics("dns", uint16(serverPort), ingress, !ingress, accesslog.VerdictError)
 				return err
 			}
 
@@ -1528,14 +1526,14 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 				log.WithError(err).Error("cannot extract DNS message details")
 			}
 
-			ep.UpdateProxyStatistics("dns", uint16(dstPort), ingress, !ingress, verdict)
+			ep.UpdateProxyStatistics("dns", uint16(serverPort), ingress, !ingress, verdict)
 			record := logger.NewLogRecord(proxy.DefaultEndpointInfoRegistry, ep, flowType, ingress,
 				func(lr *logger.LogRecord) { lr.LogRecord.TransportProtocol = accesslog.TransportProtocol(protoID) },
 				logger.LogTags.Verdict(verdict, reason),
 				logger.LogTags.Addressing(logger.AddressingInfo{
 					SrcIPPort:   srcAddr,
 					DstIPPort:   dstAddr,
-					SrcIdentity: srcID,
+					SrcIdentity: 0, // 0 more correctly finds src and dst EP data
 				}),
 				logger.LogTags.DNS(&accesslog.LogRecordDNS{
 					Query:             qname,
