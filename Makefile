@@ -107,6 +107,7 @@ generate-cov:
 	$(QUIET) rm coverage.out coverage-all-tmp.out
 
 unit-tests: start-kvstores
+	$(QUIET) $(MAKE) -C test/bpf/
 	$(QUIET) $(MAKE) -C daemon/ check-bindata
 	$(QUIET) echo "mode: count" > coverage-all-tmp.out
 	$(QUIET) echo "mode: count" > coverage.out
