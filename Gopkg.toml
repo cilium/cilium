@@ -185,9 +185,11 @@ required = [
   # main-usage = "api/v1"
   # on-revision = ""
 
+# TODO(mrostecki): Switch to releases when they will include:
+# https://github.com/go-openapi/strfmt/commit/dd2bd34dedb77725bec3b8e941ad06daf32a935a
 [[constraint]]
   name = "github.com/go-openapi/strfmt"
-  revision = "0cb3db44c13bad3b3f567b762a66751972a310cc"
+  revision = "dd2bd34dedb77725bec3b8e941ad06daf32a935a"
 
   # main-usage = "swagger and pkg/controllers"
   # on-revision = ""
@@ -270,13 +272,6 @@ required = [
 
   # main-usage = "pkg/fqdn"
   # on-revision = ""
-
-[[constraint]]
-  name = "github.com/mohae/deepcopy"
-  revision = "c48cc78d482608239f6c4c92a4abd87eb8761c90"
-
-  # main-usage = "daemon"
-  # on-revision = "last available commit and there is not stable releases"
 
 [[constraint]]
   name = "github.com/onsi/ginkgo"

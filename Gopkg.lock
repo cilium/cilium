@@ -386,6 +386,17 @@
   version = "v1.0.0"
 
 [[projects]]
+  branch = "master"
+  digest = "1:ce0cdcf4a121add67d3c6f7cc08e6233275d0f417852f025b790d35da88fab10"
+  name = "github.com/globalsign/mgo"
+  packages = [
+    "bson",
+    "internal/json",
+  ]
+  pruneopts = "NUT"
+  revision = "eeefdecb41b842af6dc652aaea4026e8403e62df"
+
+[[projects]]
   digest = "1:cb4e216bd9f58866f42dc65893455b24f879b026fdaa1ecc3aafff625fdb5a66"
   name = "github.com/go-ole/go-ole"
   packages = [
@@ -460,11 +471,11 @@
   revision = "3a0434164aa36744c7ba29b822d36894a1e5ec96"
 
 [[projects]]
-  digest = "1:92d0a87fc62ffd2c7da0e4619923dd28b563ccf2c2247cef8e271a27966f5999"
+  digest = "1:1497713763a3c8623a77484edad997aa6dbc6b713e4c6a8532592b4824b49e8e"
   name = "github.com/go-openapi/strfmt"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "0cb3db44c13bad3b3f567b762a66751972a310cc"
+  revision = "dd2bd34dedb77725bec3b8e941ad06daf32a935a"
 
 [[projects]]
   digest = "1:6e5a718679890d1ec2015824fe27c8580f02a273675a324e708fcb033592c684"
@@ -840,13 +851,6 @@
   pruneopts = "NUT"
   revision = "4b7aa43c6742a2c18fdef89dd197aaae7dac7ccd"
   version = "1.0.1"
-
-[[projects]]
-  digest = "1:048215a208d3f928e14cad3906c2aad4dc8412a81780f9a5260eaf7998c92df6"
-  name = "github.com/mohae/deepcopy"
-  packages = ["."]
-  pruneopts = "NUT"
-  revision = "c48cc78d482608239f6c4c92a4abd87eb8761c90"
 
 [[projects]]
   digest = "1:3dc39744bbac155b21a79c6b8e250d6985bbab77b71c073a4477071e59fe5e61"
@@ -1776,7 +1780,6 @@
     "github.com/kr/pretty",
     "github.com/mattn/go-shellwords",
     "github.com/miekg/dns",
-    "github.com/mohae/deepcopy",
     "github.com/onsi/ginkgo",
     "github.com/onsi/ginkgo/config",
     "github.com/onsi/ginkgo/types",
