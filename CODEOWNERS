@@ -74,6 +74,7 @@ pkg/datapath @cilium/bpf
 pkg/datapath/ipcache/ @cilium/ipcache
 pkg/debugdetection @cilium/agent
 pkg/defaults @cilium/agent
+pkg/elf @cilium/bpf
 pkg/endpoint/ @cilium/endpoint
 pkg/endpointmanager/ @cilium/endpoint
 pkg/envoy/ @cilium/proxy
