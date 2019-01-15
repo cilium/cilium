@@ -9,7 +9,6 @@ spec:
         imagePullPolicy: Always
         name: cilium-agent
         args:
-        - "--debug=$(CILIUM_DEBUG)"
         - "--tunnel=geneve"
         - "--kvstore=etcd"
         - "--kvstore-opt=etcd.config=/var/lib/etcd-config/etcd.config"
