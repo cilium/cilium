@@ -17,7 +17,7 @@ import (
 
 // K8sStatus Status of Kubernetes integration
 // swagger:model K8sStatus
-
+// +k8s:deepcopy-gen=true
 type K8sStatus struct {
 
 	// k8s api versions

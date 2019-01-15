@@ -16,7 +16,7 @@ import (
 
 // NodeElement Known node in the cluster
 // swagger:model NodeElement
-
+// +k8s:deepcopy-gen=true
 type NodeElement struct {
 
 	// Address used for probing cluster connectivity
