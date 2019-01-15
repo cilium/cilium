@@ -9,7 +9,6 @@ spec:
         imagePullPolicy: Always
         name: cilium-agent
         args:
-        - "--debug=$(CILIUM_DEBUG)"
         - "--tunnel=disabled"
         - "--auto-direct-node-routes"
         - "--kvstore=etcd"
