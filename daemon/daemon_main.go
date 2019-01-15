@@ -368,7 +368,7 @@ func init() {
 	flags.StringSlice(option.DebugVerbose, []string{}, "List of enabled verbose debug groups")
 	option.BindEnv(option.DebugVerbose)
 
-	flags.StringP(option.Device, "d", "undefined", "Device facing cluster/external network for direct L3 (non-overlay mode or ipvlan)")
+	flags.StringP(option.Device, "d", "undefined", "Device facing cluster/external network for direct L3 (non-overlay mode)")
 	option.BindEnv(option.Device)
 
 	flags.String(option.DatapathMode, defaults.DatapathMode, "Datapath mode name")
