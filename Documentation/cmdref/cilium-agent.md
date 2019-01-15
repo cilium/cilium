@@ -34,7 +34,7 @@ cilium-agent [flags]
       --datapath-mode string                        Datapath mode name (default "veth")
   -D, --debug                                       Enable debugging mode
       --debug-verbose strings                       List of enabled verbose debug groups
-  -d, --device string                               Device facing cluster/external network for direct L3 (non-overlay mode or ipvlan) (default "undefined")
+  -d, --device string                               Device facing cluster/external network for direct L3 (non-overlay mode) (default "undefined")
       --disable-conntrack                           Disable connection tracking
       --disable-endpoint-crd                        Disable use of CiliumEndpoint CRD
       --disable-k8s-services                        Disable east-west K8s load balancing by cilium
