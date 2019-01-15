@@ -17,11 +17,13 @@
 package policy
 
 import (
+	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+
 	. "gopkg.in/check.v1"
 )
 
@@ -96,4 +98,152 @@ func (ds *PolicyTestSuite) BenchmarkRegeneratePolicyRules(c *C) {
 	for i := 0; i < c.N; i++ {
 		repo.ResolvePolicy(1, lblsArray, DummyOwner{}, identityCache)
 	}
+}
+
+func (ds *PolicyTestSuite) TestL7WithIngressWildcard(c *C) {
+	repo := NewPolicyRepository()
+
+	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
+	rule1 := api.Rule{
+		EndpointSelector: selFoo,
+		Ingress: []api.IngressRule{
+			{
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{
+						HTTP: []api.PortRuleHTTP{
+							{Method: "GET", Path: "/good"},
+						},
+					},
+				}},
+			},
+		},
+	}
+
+	rule1.Sanitize()
+	_, err := repo.Add(rule1)
+	c.Assert(err, IsNil)
+
+	repo.Mutex.RLock()
+	defer repo.Mutex.RUnlock()
+
+	identityCache = cache.GetIdentityCache()
+	policy, err := repo.ResolvePolicy(10, labels.ParseSelectLabelArray("id=foo"), DummyOwner{}, identityCache)
+	c.Assert(err, IsNil)
+
+	expectedEndpointPolicy := EndpointPolicy{
+		ID: 10,
+		L4Policy: &L4Policy{
+			Ingress: L4PolicyMap{
+				"80/TCP": {
+					Port:     80,
+					Protocol: api.ProtoTCP,
+					U8Proto:  0x6,
+					Endpoints: []api.EndpointSelector{
+						api.WildcardEndpointSelector,
+					},
+					allowsAllAtL3: true,
+					L7Parser:      ParserTypeHTTP,
+					Ingress:       true,
+					L7RulesPerEp: L7DataMap{
+						api.WildcardEndpointSelector: api.L7Rules{
+							HTTP: []api.PortRuleHTTP{{Method: "GET", Path: "/good"}},
+						},
+					},
+					DerivedFromRules: labels.LabelArrayList{nil},
+				},
+			},
+			Egress: L4PolicyMap{},
+		},
+		IngressPolicyEnabled:    true,
+		EgressPolicyEnabled:     false,
+		PolicyOwner:             DummyOwner{},
+		DeniedIngressIdentities: cache.IdentityCache{},
+		DeniedEgressIdentities:  cache.IdentityCache{},
+		// inherit this from the result as it is outside of the scope
+		// of this test
+		CIDRPolicy:     policy.CIDRPolicy,
+		PolicyMapState: policy.PolicyMapState,
+	}
+
+	c.Assert(policy, checker.DeepEquals, &expectedEndpointPolicy)
+}
+
+func (ds *PolicyTestSuite) TestL7WithLocalHostWildcardd(c *C) {
+	// Emulate Kubernetes mode with allow from localhost
+	oldLocalhostOpt := option.Config.AllowLocalhost
+	option.Config.AllowLocalhost = option.AllowLocalhostAlways
+	defer func() { option.Config.AllowLocalhost = oldLocalhostOpt }()
+
+	repo := NewPolicyRepository()
+
+	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
+	rule1 := api.Rule{
+		EndpointSelector: selFoo,
+		Ingress: []api.IngressRule{
+			{
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{
+						HTTP: []api.PortRuleHTTP{
+							{Method: "GET", Path: "/good"},
+						},
+					},
+				}},
+			},
+		},
+	}
+
+	rule1.Sanitize()
+	_, err := repo.Add(rule1)
+	c.Assert(err, IsNil)
+
+	repo.Mutex.RLock()
+	defer repo.Mutex.RUnlock()
+
+	identityCache = cache.GetIdentityCache()
+	policy, err := repo.ResolvePolicy(10, labels.ParseSelectLabelArray("id=foo"), DummyOwner{}, identityCache)
+	c.Assert(err, IsNil)
+
+	expectedEndpointPolicy := EndpointPolicy{
+		ID: 10,
+		L4Policy: &L4Policy{
+			Ingress: L4PolicyMap{
+				"80/TCP": {
+					Port:     80,
+					Protocol: api.ProtoTCP,
+					U8Proto:  0x6,
+					Endpoints: []api.EndpointSelector{
+						api.WildcardEndpointSelector,
+					},
+					allowsAllAtL3: true,
+					L7Parser:      ParserTypeHTTP,
+					Ingress:       true,
+					L7RulesPerEp: L7DataMap{
+						api.WildcardEndpointSelector: api.L7Rules{
+							HTTP: []api.PortRuleHTTP{{Method: "GET", Path: "/good"}},
+						},
+						api.ReservedEndpointSelectors[labels.IDNameHost]: api.L7Rules{},
+					},
+					DerivedFromRules: labels.LabelArrayList{nil},
+				},
+			},
+			Egress: L4PolicyMap{},
+		},
+		IngressPolicyEnabled:    true,
+		EgressPolicyEnabled:     false,
+		PolicyOwner:             DummyOwner{},
+		DeniedIngressIdentities: cache.IdentityCache{},
+		DeniedEgressIdentities:  cache.IdentityCache{},
+		// inherit this from the result as it is outside of the scope
+		// of this test
+		CIDRPolicy:     policy.CIDRPolicy,
+		PolicyMapState: policy.PolicyMapState,
+	}
+
+	c.Assert(policy, checker.DeepEquals, &expectedEndpointPolicy)
 }
