@@ -29,10 +29,10 @@ spec:
     spec:
       containers:
       - args:
-        - --debug=$(CILIUM_DEBUG)
         - --kvstore=etcd
         - --kvstore-opt=etcd.config=/var/lib/etcd-config/etcd.config
         - --container-runtime=crio
+        - --config-dir=/tmp/cilium/config-map
         command:
         - cilium-agent
         env:
@@ -46,87 +46,6 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
-        - name: CILIUM_DEBUG
-          valueFrom:
-            configMapKeyRef:
-              key: debug
-              name: cilium-config
-        - name: CILIUM_ENABLE_IPV4
-          valueFrom:
-            configMapKeyRef:
-              key: enable-ipv4
-              name: cilium-config
-              optional: true
-        - name: CILIUM_ENABLE_IPV6
-          valueFrom:
-            configMapKeyRef:
-              key: enable-ipv6
-              name: cilium-config
-              optional: true
-          # Note: this variable is a no-op if not defined, and is used in the
-          # prometheus examples.
-        - name: CILIUM_PROMETHEUS_SERVE_ADDR
-          valueFrom:
-            configMapKeyRef:
-              key: prometheus-serve-addr
-              name: cilium-metrics-config
-              optional: true
-        - name: CILIUM_LEGACY_HOST_ALLOWS_WORLD
-          valueFrom:
-            configMapKeyRef:
-              key: legacy-host-allows-world
-              name: cilium-config
-              optional: true
-        - name: CILIUM_SIDECAR_ISTIO_PROXY_IMAGE
-          valueFrom:
-            configMapKeyRef:
-              key: sidecar-istio-proxy-image
-              name: cilium-config
-              optional: true
-        - name: CILIUM_TUNNEL
-          valueFrom:
-            configMapKeyRef:
-              key: tunnel
-              name: cilium-config
-              optional: true
-        - name: CILIUM_MONITOR_AGGREGATION_LEVEL
-          valueFrom:
-            configMapKeyRef:
-              key: monitor-aggregation-level
-              name: cilium-config
-              optional: true
-        - name: CILIUM_CLUSTERMESH_CONFIG
-          value: /var/lib/cilium/clustermesh/
-        - name: CILIUM_CLUSTER_NAME
-          valueFrom:
-            configMapKeyRef:
-              key: cluster-name
-              name: cilium-config
-              optional: true
-        - name: CILIUM_CLUSTER_ID
-          valueFrom:
-            configMapKeyRef:
-              key: cluster-id
-              name: cilium-config
-              optional: true
-        - name: CILIUM_GLOBAL_CT_MAX_TCP
-          valueFrom:
-            configMapKeyRef:
-              key: ct-global-max-entries-tcp
-              name: cilium-config
-              optional: true
-        - name: CILIUM_GLOBAL_CT_MAX_ANY
-          valueFrom:
-            configMapKeyRef:
-              key: ct-global-max-entries-other
-              name: cilium-config
-              optional: true
-        - name: CILIUM_PREALLOCATE_BPF_MAPS
-          valueFrom:
-            configMapKeyRef:
-              key: preallocate-bpf-maps
-              name: cilium-config
-              optional: true
         - name: CILIUM_FLANNEL_MASTER_DEVICE
           valueFrom:
             configMapKeyRef:
@@ -139,42 +58,8 @@ spec:
               key: flannel-uninstall-on-exit
               name: cilium-config
               optional: true
-        - name: CILIUM_FLANNEL_MANAGE_EXISTING_CONTAINERS
-          valueFrom:
-            configMapKeyRef:
-              key: flannel-manage-existing-containers
-              name: cilium-config
-              optional: true
-        - name: CILIUM_DATAPATH_MODE
-          valueFrom:
-            configMapKeyRef:
-              key: datapath-mode
-              name: cilium-config
-              optional: true
-        - name: CILIUM_IPVLAN_MASTER_DEVICE
-          valueFrom:
-            configMapKeyRef:
-              key: ipvlan-master-device
-              name: cilium-config
-              optional: true
-        - name: CILIUM_INSTALL_IPTABLES_RULES
-          valueFrom:
-            configMapKeyRef:
-              key: install-iptables-rules
-              name: cilium-config
-              optional: true
-        - name: CILIUM_MASQUERADE
-          valueFrom:
-            configMapKeyRef:
-              key: masquerade
-              name: cilium-config
-              optional: true
-        - name: CILIUM_AUTO_DIRECT_NODE_ROUTES
-          valueFrom:
-            configMapKeyRef:
-              key: auto-direct-node-routes
-              name: cilium-config
-              optional: true
+        - name: CILIUM_CLUSTERMESH_CONFIG
+          value: /var/lib/cilium/clustermesh/
         image: docker.io/cilium/cilium:latest
         imagePullPolicy: Always
         lifecycle:
@@ -240,6 +125,9 @@ spec:
           readOnly: true
         - mountPath: /var/lib/cilium/clustermesh
           name: clustermesh-secrets
+          readOnly: true
+        - mountPath: /tmp/cilium/config-map
+          name: cilium-config-path
           readOnly: true
       dnsPolicy: ClusterFirstWithHostNet
       hostNetwork: true
@@ -325,6 +213,10 @@ spec:
           defaultMode: 420
           optional: true
           secretName: cilium-clustermesh
+        # To read the configuration from the config map
+      - configMap:
+          name: cilium-config
+        name: cilium-config-path
   updateStrategy:
     rollingUpdate:
       # Specifies the maximum number of Pods that can be unavailable during the update process.
