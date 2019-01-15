@@ -1,6 +1,6 @@
 include ../../Makefile.defs
 
-FLAGS := -I../../bpf/include -I. -D__NR_CPUS__=$(shell nproc) -O2
+FLAGS := -I../../bpf/ -I../../bpf/include -I. -D__NR_CPUS__=$(shell nproc) -O2
 BPF_CC_FLAGS :=  ${FLAGS} -target bpf -emit-llvm
 BPF_LLC_FLAGS   := -march=bpf -mcpu=probe -filetype=obj
 
@@ -9,7 +9,8 @@ LIB := $(shell find ../../bpf/ -name '*.h')
 CLANG ?= $(QUIET) clang
 LLC ?= llc
 
-TARGETS := perf-event-test bpf-event-test.o unit-test
+BPF_TARGETS := bpf-event-test.o elf-demo.o
+TARGETS := $(BPF_TARGETS) perf-event-test unit-test
 all: $(TARGETS)
 
 perf-event-test: perf-event-test.go
@@ -17,6 +18,10 @@ perf-event-test: perf-event-test.go
 	$(QUIET)$(GO) build $(GOBUILD) -o $@ $<
 
 bpf-event-test.o: bpf-event-test.c
+	@$(ECHO_CC)
+	$(CLANG) ${BPF_CC_FLAGS} -c $< -o - | $(LLC) ${BPF_LLC_FLAGS} -o $@
+
+elf-demo.o: elf-demo.c
 	@$(ECHO_CC)
 	$(CLANG) ${BPF_CC_FLAGS} -c $< -o - | $(LLC) ${BPF_LLC_FLAGS} -o $@
 
