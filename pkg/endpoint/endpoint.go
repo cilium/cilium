@@ -97,7 +97,7 @@ const (
 	// PolicyGlobalMapName specifies the global tail call map for EP handle_policy() lookup.
 	PolicyGlobalMapName = "cilium_policy"
 	// IpvlanMapName specifies the tail call map for EP on egress used with ipvlan.
-	IpvlanMapName = "lxc_ipve_"
+	IpvlanMapName = "cilium_lxc_ipve_"
 
 	// HealthCEPPrefix is the prefix used to name the cilium health endpoints' CEP
 	HealthCEPPrefix = "cilium-health-"
