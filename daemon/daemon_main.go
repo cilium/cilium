@@ -868,6 +868,10 @@ func initEnv(cmd *cobra.Command) {
 
 	switch option.Config.DatapathMode {
 	case option.DatapathModeVeth:
+		if name := viper.GetString(option.IpvlanMasterDevice); name != "undefined" {
+			log.WithField(logfields.Device, name).
+				Fatal("ipvlan master device cannot be set in the 'veth' datapath mode")
+		}
 		if option.Config.Tunnel == "" {
 			option.Config.Tunnel = option.TunnelVXLAN
 		}
