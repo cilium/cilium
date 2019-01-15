@@ -816,13 +816,13 @@ Furthermore, to allow Kubernetes agents to perform health checks over IP into
 the endpoints, the host is allowed by default. This means that all traffic from
 the outside world is also allowed by default, regardless of security policy.
 
+This behaviour was disabled in Cilium 1.1 or later.
+
 Affected versions
 ~~~~~~~~~~~~~~~~~
 
 * Cilium 1.0 or earlier deployed using the DaemonSet and ConfigMap YAMLs
-  provided with that release, or
-* Later versions of Cilium deployed using the YAMLs provided with Cilium 1.0 or
-  earlier.
+  provided with that release.
 
 Affected environments will see no output for one or more of the below commands:
 
