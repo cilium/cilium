@@ -2,6 +2,44 @@
 NEWS
 ******
 
+1.2.7
+=====
+
+::
+
+    André Martins (3):
+          daemon: do not add endpoint if client connection closes during add operation
+          pkg/endpoint: do DeepCopy for proxy stats
+          pkg/health: protect local variable against concurrent writes
+    
+    Cynthia Thomas (2):
+          doc update dns title tech-preview
+          dns tech preview title update
+    
+    Ian Vernon (2):
+          health: acquire lock to set state to WaitingToRegenerate in LaunchAsEndpoint
+          endpoint: do not regenerate health endpoint after identity change
+
+    Joe Stringer (2):
+          bpf: Add unit test for map info reading
+          bpf: Fix reading flags attributes from /proc
+    
+    Martynas Pumputis (2):
+          metricsmap: fix retrieval of possible CPU count
+          daemon: Do not omit any error of createNodeConfigHeaderfile
+    
+    Thomas Graf (10):
+          iptables: Fix iptables removal logic on bootstrap
+          doc: Fix non-critical CVE-2017-18342:
+          kubernetes: Change terminationGracePeriodSeconds to 1
+          lbmap: Add locking to bpfService and lbmapCache
+          lbmap: Avoid panic in case backendsByMapIndex contains holes
+          lbmap: Use length of backend map index instead of uniqueBackends map when growing
+          lbmap: Fix consistent load balancing when reusing backend holes
+          agent: Fix endpoint removal when createEndpoint() fails
+          endpoint: Require SyncBuildEndpoint flag to wait for endpoint build to complete
+          agent: Fix endpoint restore with unmounted BPF filesystem
+    
 1.2.6
 =====
 
