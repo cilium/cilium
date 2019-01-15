@@ -337,14 +337,10 @@ const (
 	EnableIPv6Name = "enable-ipv6"
 
 	// MonitorQueueSizeName is the name of the option MonitorQueueSize
-	MonitorQueueSizeName    = "monitor-queue-size"
-	MonitorQueueSizeNameEnv = "CILIUM_MONITOR_QUEUE_SIZE"
+	MonitorQueueSizeName = "monitor-queue-size"
 
 	//FQDNRejectResponseCode is the name for the option for dns-proxy reject response code
 	FQDNRejectResponseCode = "tofqdns-dns-reject-response-code"
-
-	//FQDNRejectResponseCodeEnv is the env name for FQDNRejectResponseCode option
-	FQDNRejectResponseCodeEnv = "CILIUM_TOFQDNS_DNS_REJECT_RESPONSE_CODE"
 
 	// FQDNProxyDenyWithNameError is useful when stub resolvers, like the one
 	// in Alpine Linux's libc (musl), treat a REFUSED as a resolution error.
