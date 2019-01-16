@@ -61,6 +61,11 @@ const (
 	eIPC = "bpf_redir"
 
 	sockMap = "cilium_sock_ops_map"
+
+	// Cilium version 1.4 used this map name, we remove it on
+	// cilium-agent startup. In a future release, we should remove
+	// this upgrade handling code
+	oldSockMap = "sock_ops_map"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "sockops")
@@ -459,9 +464,12 @@ func SockmapEnable() error {
 // all the programs and maps associated with it. Here "unload" just means
 // deleting the file associated with the map.
 func SockmapDisable() {
-	mapName := mapPrefix + "/" + sockMap
+	mapName := filepath.Join(mapPrefix, sockMap)
+	oldMapName := filepath.Join(mapPrefix, oldSockMap)
 	bpftoolDetach(eSockops)
 	bpftoolUnload(eSockops)
 	bpftoolUnload(mapName)
+	// remove old sock_ops_map
+	bpftoolUnload(oldMapName)
 	log.Info("Sockmap disabled.")
 }
