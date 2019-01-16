@@ -2539,11 +2539,17 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 
 	e.SetIdentity(identity)
 
-	readyToRegenerate := e.SetStateLocked(StateWaitingToRegenerate, "Triggering regeneration due to new identity")
-
 	// Unconditionally force policy recomputation after a new identity has been
 	// assigned.
 	e.ForcePolicyCompute()
+
+	if e.SecurityIdentity.ID == identityPkg.ReservedIdentityHealth {
+		e.getLogger().Debug("skipping health endpoint regeneration after identity change")
+		e.Unlock()
+		return nil
+	}
+
+	readyToRegenerate := e.SetStateLocked(StateWaitingToRegenerate, "Triggering regeneration due to new identity")
 
 	e.Unlock()
 
