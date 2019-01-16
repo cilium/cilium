@@ -51,7 +51,6 @@ spec:
         imagePullPolicy: IfNotPresent
         name: cilium-etcd-operator
       dnsPolicy: ClusterFirst
-      hostNetwork: true
       priorityClassName: system-node-critical
       restartPolicy: Always
       serviceAccount: cilium-etcd-operator
