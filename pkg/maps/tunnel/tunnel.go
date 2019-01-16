@@ -16,23 +16,15 @@ package tunnel
 
 import (
 	"net"
-	"os"
-	"path/filepath"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/defaults"
 
 	"github.com/sirupsen/logrus"
 )
 
 const (
 	MapName = "cilium_tunnel_map"
-
-	// Cilium versions < 1.0 used this tunnel map name, we remove it when
-	// we open the new tunnel map. In a future release, we should remove
-	// this downgrade handling code
-	oldMapName = "tunnel_endpoint_map"
 
 	// MaxEntries is the maximum entries in the tunnel endpoint map
 	MaxEntries = 65536
@@ -65,12 +57,6 @@ type Map struct {
 
 func init() {
 	TunnelMap.NonPersistent = true
-
-	// Remove old map and ignore errors; this is the "normal" case.
-	// BPFFS map root in older versions of Cilium wasn't dynamic, so the
-	// path of this old map will be always
-	// /sys/fs/bpf/tc/globals/tunnel_endpoint_map
-	os.Remove(filepath.Join(defaults.DefaultMapRoot, defaults.DefaultMapPrefix, oldMapName))
 }
 
 type tunnelEndpoint struct {
