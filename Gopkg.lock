@@ -253,7 +253,7 @@
     "pkg/types",
   ]
   pruneopts = "NUT"
-  revision = "v3.3.10"
+  revision = "v3.3.11"
 
 [[projects]]
   digest = "1:536efb6849eb903912acbec0183e1b34e31cc75217b44988aedde59ad249c693"
