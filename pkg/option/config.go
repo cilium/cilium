@@ -185,6 +185,9 @@ const (
 	// Masquerade are the packets from endpoints leaving the host
 	Masquerade = "masquerade"
 
+	// InstallIptRules sets whether Cilium should install any iptables in general
+	InstallIptRules = "install-iptables-rules"
+
 	// IPv6NodeAddr is the IPv6 address of node
 	IPv6NodeAddr = "ipv6-node"
 
@@ -383,6 +386,15 @@ const (
 	TunnelDisabled = "disabled"
 )
 
+// Available option for DaemonConfig.Ipvlan.OperationMode
+const (
+	// OperationModeL3S will respect iptables rules e.g. set up for masquerading
+	OperationModeL3S = "L3S"
+
+	// OperationModeL3 will bypass iptables rules on the host
+	OperationModeL3 = "L3"
+)
+
 // Envoy option names
 const (
 	// HTTP403Message specifies the response body for 403 responses, defaults to "Access denied"
@@ -449,20 +461,27 @@ func LogRegisteredOptions(entry *logrus.Entry) {
 	}
 }
 
+// IpvlanConfig is the configuration used by Daemon when in ipvlan mode.
+type IpvlanConfig struct {
+	MasterDeviceIndex int
+	OperationMode     string
+}
+
 // DaemonConfig is the configuration used by Daemon.
 type DaemonConfig struct {
-	BpfDir              string     // BPF template files directory
-	LibDir              string     // Cilium library files directory
-	RunDir              string     // Cilium runtime directory
-	NAT46Prefix         *net.IPNet // NAT46 IPv6 Prefix
-	Device              string     // Receive device
-	DevicePreFilter     string     // XDP device
-	ModePreFilter       string     // XDP mode, values: { native | generic }
-	HostV4Addr          net.IP     // Host v4 address of the snooping device
-	HostV6Addr          net.IP     // Host v6 address of the snooping device
-	LBInterface         string     // Set with name of the interface to loadbalance packets from
-	Workloads           []string   // List of Workloads set by the user to used by cilium.
-	IpvlanDeviceIfIndex int        // ipvlan master device interface index
+	BpfDir          string     // BPF template files directory
+	LibDir          string     // Cilium library files directory
+	RunDir          string     // Cilium runtime directory
+	NAT46Prefix     *net.IPNet // NAT46 IPv6 Prefix
+	Device          string     // Receive device
+	DevicePreFilter string     // XDP device
+	ModePreFilter   string     // XDP mode, values: { native | generic }
+	HostV4Addr      net.IP     // Host v4 address of the snooping device
+	HostV6Addr      net.IP     // Host v6 address of the snooping device
+	LBInterface     string     // Set with name of the interface to loadbalance packets from
+	Workloads       []string   // List of Workloads set by the user to used by cilium.
+
+	Ipvlan IpvlanConfig // Ipvlan related configuration
 
 	DatapathMode string // Datapath mode
 	Tunnel       string // Tunnel mode
@@ -659,6 +678,7 @@ type DaemonConfig struct {
 	// Masquerade specifies whether or not to masquerade packets from endpoints
 	// leaving the host.
 	Masquerade             bool
+	InstallIptRules        bool
 	MonitorAggregation     string
 	PreAllocateMaps        bool
 	IPv6NodeAddr           string
@@ -874,6 +894,7 @@ func (c *DaemonConfig) Populate() {
 	c.LogSystemLoadConfig = viper.GetBool(LogSystemLoadConfigName)
 	c.Logstash = viper.GetBool(Logstash)
 	c.Masquerade = viper.GetBool(Masquerade)
+	c.InstallIptRules = viper.GetBool(InstallIptRules)
 	c.ModePreFilter = viper.GetString(PrefilterMode)
 	c.MonitorAggregation = viper.GetString(MonitorAggregationName)
 	c.MonitorQueueSize = viper.GetInt(MonitorQueueSizeName)
