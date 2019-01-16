@@ -514,8 +514,10 @@ func (d *Daemon) compileBase() error {
 	if option.Config.EnableIPv4 {
 		// Always remove masquerade rule and then re-add it if required
 		iptables.RemoveRules()
-		if err := iptables.InstallRules(); err != nil {
-			return err
+		if option.Config.InstallIptRules {
+			if err := iptables.InstallRules(); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -1262,11 +1264,14 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 			Type:    option.Config.KVStore,
 			Options: option.Config.KVStoreOpt,
 		},
-		Realized:            spec,
-		DeviceMTU:           int64(d.mtuConfig.GetDeviceMTU()),
-		RouteMTU:            int64(d.mtuConfig.GetRouteMTU()),
-		DatapathMode:        models.DatapathMode(option.Config.DatapathMode),
-		IpvlanDeviceIfIndex: int64(option.Config.IpvlanDeviceIfIndex),
+		Realized:     spec,
+		DeviceMTU:    int64(d.mtuConfig.GetDeviceMTU()),
+		RouteMTU:     int64(d.mtuConfig.GetRouteMTU()),
+		DatapathMode: models.DatapathMode(option.Config.DatapathMode),
+		IpvlanConfiguration: &models.IpvlanConfiguration{
+			MasterDeviceIndex: int64(option.Config.Ipvlan.MasterDeviceIndex),
+			OperationMode:     option.Config.Ipvlan.OperationMode,
+		},
 	}
 
 	cfg := &models.DaemonConfiguration{

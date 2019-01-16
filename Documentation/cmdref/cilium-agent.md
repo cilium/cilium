@@ -51,6 +51,7 @@ cilium-agent [flags]
       --http-request-timeout uint                   Time after which a forwarded HTTP request is considered failed unless completed (in seconds); Use 0 for unlimited (default 3600)
       --http-retry-count uint                       Number of retries performed after a forwarded request attempt fails (default 3)
       --http-retry-timeout uint                     Time after which a forwarded but uncompleted request is retried (connection failures are retried immediately); defaults to 0 (never)
+      --install-iptables-rules                      Install base iptables rules for cilium to mainly interact with kube-proxy (and masquerading) (default true)
       --ipv4-cluster-cidr-mask-size int             Mask size for the cluster wide CIDR (default 8)
       --ipv4-node string                            IPv4 address of node (default "auto")
       --ipv4-range string                           Per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16 (default "auto")

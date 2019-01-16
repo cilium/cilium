@@ -1415,17 +1415,27 @@ definitions:
         type: integer
       datapathMode:
         "$ref": "#/definitions/DatapathMode"
-      ipvlanDeviceIfIndex:
-        description: |
-          Workload facing ipvlan master device ifindex. Set if the
-          datapath mode is ipvlan.
-        type: integer
+      ipvlanConfiguration:
+        "$ref": "#/definitions/IpvlanConfiguration"
   DatapathMode:
     description: Datapath mode
     type: string
     enum:
       - veth
       - ipvlan
+  IpvlanConfiguration:
+    description: Setup for datapath when operating in ipvlan mode.
+    type: object
+    properties:
+      masterDeviceIndex:
+        description: Workload facing ipvlan master device ifindex.
+        type: integer
+      operationMode:
+        description: Mode in which ipvlan setup operates.
+        type: string
+        enum:
+          - L3
+          - L3S
   EndpointConfigurationSpec:
     description: An endpoint's configuration
     type: object
