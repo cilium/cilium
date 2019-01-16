@@ -16,6 +16,8 @@ package datapath
 
 import (
 	"net"
+
+	"github.com/cilium/cilium/pkg/cidr"
 )
 
 // NodeAddressingFamily is the node addressing information for a particular
@@ -32,7 +34,7 @@ type NodeAddressingFamily interface {
 
 	// AllocationCIDR is the CIDR used for IP allocation of all endpoints
 	// on the node
-	AllocationCIDR() *net.IPNet
+	AllocationCIDR() *cidr.CIDR
 }
 
 // NodeAddressing implements addressing of a node

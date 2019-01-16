@@ -17,6 +17,7 @@ package linux
 import (
 	"net"
 
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/node"
 )
@@ -34,7 +35,7 @@ func (a *addressFamilyIPv4) PrimaryExternal() net.IP {
 	return node.GetExternalIPv4()
 }
 
-func (a *addressFamilyIPv4) AllocationCIDR() *net.IPNet {
+func (a *addressFamilyIPv4) AllocationCIDR() *cidr.CIDR {
 	return node.GetIPv4AllocRange()
 }
 
@@ -48,7 +49,7 @@ func (a *addressFamilyIPv6) PrimaryExternal() net.IP {
 	return node.GetIPv6()
 }
 
-func (a *addressFamilyIPv6) AllocationCIDR() *net.IPNet {
+func (a *addressFamilyIPv6) AllocationCIDR() *cidr.CIDR {
 	return node.GetIPv6AllocRange()
 }
 

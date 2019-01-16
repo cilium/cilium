@@ -17,6 +17,7 @@ package fake
 import (
 	"net"
 
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath"
 )
 
@@ -27,19 +28,16 @@ type fakeNodeAddressing struct {
 
 // NewNodeAddressing returns a new fake node addressing
 func NewNodeAddressing() datapath.NodeAddressing {
-	_, ip4AllocCIDR, _ := net.ParseCIDR("1.1.1.0/24")
-	_, ip6AllocCIDR, _ := net.ParseCIDR("cafe::/96")
-
 	return &fakeNodeAddressing{
 		ipv4: addressFamily{
 			router:          net.ParseIP("1.1.1.2"),
 			primaryExternal: net.ParseIP("1.1.1.1"),
-			allocCIDR:       ip4AllocCIDR,
+			allocCIDR:       cidr.MustParseCIDR("1.1.1.0/24"),
 		},
 		ipv6: addressFamily{
 			router:          net.ParseIP("cafe::2"),
 			primaryExternal: net.ParseIP("cafe::1"),
-			allocCIDR:       ip6AllocCIDR,
+			allocCIDR:       cidr.MustParseCIDR("cafe::/96"),
 		},
 	}
 }
@@ -47,7 +45,7 @@ func NewNodeAddressing() datapath.NodeAddressing {
 type addressFamily struct {
 	router          net.IP
 	primaryExternal net.IP
-	allocCIDR       *net.IPNet
+	allocCIDR       *cidr.CIDR
 }
 
 func (a *addressFamily) Router() net.IP {
@@ -58,7 +56,7 @@ func (a *addressFamily) PrimaryExternal() net.IP {
 	return a.primaryExternal
 }
 
-func (a *addressFamily) AllocationCIDR() *net.IPNet {
+func (a *addressFamily) AllocationCIDR() *cidr.CIDR {
 	return a.allocCIDR
 }
 

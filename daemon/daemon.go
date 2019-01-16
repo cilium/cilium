@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/completion"
@@ -976,14 +977,14 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 
 	node.SetIPv4ClusterCidrMaskSize(option.Config.IPv4ClusterCIDRMaskSize)
 
-	auxPrefixes := []*net.IPNet{}
+	auxPrefixes := []*cidr.CIDR{}
 
 	if option.Config.IPv4Range != AutoCIDR {
 		_, net, err := net.ParseCIDR(option.Config.IPv4Range)
 		if err != nil {
 			log.WithError(err).WithField(logfields.V4Prefix, option.Config.IPv4Range).Fatal("Invalid IPv4 allocation prefix")
 		}
-		node.SetIPv4AllocRange(net)
+		node.SetIPv4AllocRange(cidr.NewCIDR(net))
 	}
 
 	if option.Config.IPv4ServiceRange != AutoCIDR {
@@ -992,7 +993,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 			log.WithError(err).WithField(logfields.V4Prefix, option.Config.IPv4ServiceRange).Fatal("Invalid IPv4 service prefix")
 		}
 
-		auxPrefixes = append(auxPrefixes, ipnet)
+		auxPrefixes = append(auxPrefixes, cidr.NewCIDR(ipnet))
 	}
 
 	if option.Config.IPv6Range != AutoCIDR {
@@ -1012,7 +1013,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 			log.WithError(err).WithField(logfields.V6Prefix, option.Config.IPv6ServiceRange).Fatal("Invalid IPv6 service prefix")
 		}
 
-		auxPrefixes = append(auxPrefixes, ipnet)
+		auxPrefixes = append(auxPrefixes, cidr.NewCIDR(ipnet))
 	}
 
 	d.nodeConfig.AuxiliaryPrefixes = auxPrefixes

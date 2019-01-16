@@ -15,8 +15,7 @@
 package datapath
 
 import (
-	"net"
-
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 )
@@ -34,7 +33,7 @@ type LocalNodeConfiguration struct {
 	//
 	// This field is mutable. The implementation of
 	// NodeConfigurationChanged() must adjust the routes accordingly.
-	AuxiliaryPrefixes []*net.IPNet
+	AuxiliaryPrefixes []*cidr.CIDR
 
 	// EnableIPv4 enables use of IPv4. Routing to the IPv4 allocation CIDR
 	// of other nodes must be enabled.

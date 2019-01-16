@@ -18,9 +18,9 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
-	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
@@ -53,8 +53,8 @@ func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing datapat
 // with encapsulation mode enabled. The CIDR and IP of both the old and new
 // node are provided as context. The caller expects the tunnel mapping in the
 // datapath to be updated.
-func updateTunnelMapping(oldCIDR, newCIDR *net.IPNet, oldIP, newIP net.IP, firstAddition, enabled bool) {
-	if !enabled {
+func updateTunnelMapping(oldCIDR, newCIDR *cidr.CIDR, oldIP, newIP net.IP, firstAddition, encapEnabled bool) {
+	if !encapEnabled {
 		// When the protocol family is disabled, the initial node addition will
 		// trigger a deletion to clean up leftover entries. The deletion happens
 		// in quiet mode as we don't know whether it exists or not
@@ -94,7 +94,7 @@ func updateTunnelMapping(oldCIDR, newCIDR *net.IPNet, oldIP, newIP net.IP, first
 // cidrNodeMappingUpdateRequired returns true if the change from an old node
 // CIDR and node IP to a new node CIDR and node IP requires to insert/update
 // the new node CIDR.
-func cidrNodeMappingUpdateRequired(oldCIDR, newCIDR *net.IPNet, oldIP, newIP net.IP) bool {
+func cidrNodeMappingUpdateRequired(oldCIDR, newCIDR *cidr.CIDR, oldIP, newIP net.IP) bool {
 	// Newly announced CIDR
 	if newCIDR != nil && oldCIDR == nil {
 		return true
@@ -109,7 +109,7 @@ func cidrNodeMappingUpdateRequired(oldCIDR, newCIDR *net.IPNet, oldIP, newIP net
 	return oldCIDR != nil && newCIDR != nil && !oldCIDR.IP.Equal(newCIDR.IP)
 }
 
-func deleteTunnelMapping(oldCIDR *net.IPNet, quietMode bool) {
+func deleteTunnelMapping(oldCIDR *cidr.CIDR, quietMode bool) {
 	if oldCIDR == nil {
 		return
 	}
@@ -125,11 +125,11 @@ func deleteTunnelMapping(oldCIDR *net.IPNet, quietMode bool) {
 	}
 }
 
-func createDirectRouteSpec(CIDR *net.IPNet, nodeIP net.IP) (routeSpec *netlink.Route, err error) {
+func createDirectRouteSpec(CIDR *cidr.CIDR, nodeIP net.IP) (routeSpec *netlink.Route, err error) {
 	var routes []netlink.Route
 
 	routeSpec = &netlink.Route{
-		Dst: CIDR,
+		Dst: CIDR.IPNet,
 		Gw:  nodeIP,
 	}
 
@@ -186,7 +186,7 @@ func createDirectRouteSpec(CIDR *net.IPNet, nodeIP net.IP) (routeSpec *netlink.R
 	return
 }
 
-func installDirectRoute(CIDR *net.IPNet, nodeIP net.IP) (routeSpec *netlink.Route, err error) {
+func installDirectRoute(CIDR *cidr.CIDR, nodeIP net.IP) (routeSpec *netlink.Route, err error) {
 	routeSpec, err = createDirectRouteSpec(CIDR, nodeIP)
 	if err != nil {
 		return
@@ -196,7 +196,7 @@ func installDirectRoute(CIDR *net.IPNet, nodeIP net.IP) (routeSpec *netlink.Rout
 	return
 }
 
-func (n *linuxNodeHandler) lookupDirectRoute(CIDR *net.IPNet, nodeIP net.IP) ([]netlink.Route, error) {
+func (n *linuxNodeHandler) lookupDirectRoute(CIDR *cidr.CIDR, nodeIP net.IP) ([]netlink.Route, error) {
 	routeSpec, err := createDirectRouteSpec(CIDR, nodeIP)
 	if err != nil {
 		return nil, err
@@ -209,8 +209,8 @@ func (n *linuxNodeHandler) lookupDirectRoute(CIDR *net.IPNet, nodeIP net.IP) ([]
 	return netlink.RouteListFiltered(family, routeSpec, netlink.RT_FILTER_DST|netlink.RT_FILTER_GW|netlink.RT_FILTER_OIF)
 }
 
-func (n *linuxNodeHandler) updateDirectRoute(oldCIDR, newCIDR *net.IPNet, oldIP, newIP net.IP, firstAddition, enabled bool) error {
-	if !enabled {
+func (n *linuxNodeHandler) updateDirectRoute(oldCIDR, newCIDR *cidr.CIDR, oldIP, newIP net.IP, firstAddition, directRouteEnabled bool) error {
+	if !directRouteEnabled {
 		// When the protocol family is disabled, the initial node addition will
 		// trigger a deletion to clean up leftover entries. The deletion happens
 		// in quiet mode as we don't know whether it exists or not
@@ -250,7 +250,7 @@ func (n *linuxNodeHandler) updateDirectRoute(oldCIDR, newCIDR *net.IPNet, oldIP,
 	return nil
 }
 
-func (n *linuxNodeHandler) deleteDirectRoute(CIDR *net.IPNet, nodeIP net.IP) {
+func (n *linuxNodeHandler) deleteDirectRoute(CIDR *cidr.CIDR, nodeIP net.IP) {
 	if CIDR == nil {
 		return
 	}
@@ -261,7 +261,7 @@ func (n *linuxNodeHandler) deleteDirectRoute(CIDR *net.IPNet, nodeIP net.IP) {
 	}
 
 	filter := &netlink.Route{
-		Dst: CIDR,
+		Dst: CIDR.IPNet,
 		Gw:  nodeIP,
 	}
 
@@ -285,7 +285,7 @@ func (n *linuxNodeHandler) deleteDirectRoute(CIDR *net.IPNet, nodeIP net.IP) {
 // 10.10.0.0/24 via 10.10.0.1 dev cilium_host src 10.10.0.1
 // f00d::a0a:0:0:0/112 via f00d::a0a:0:0:1 dev cilium_host src fd04::11 metric 1024 pref medium
 //
-func (n *linuxNodeHandler) createNodeRoute(prefix *net.IPNet) route.Route {
+func (n *linuxNodeHandler) createNodeRoute(prefix *cidr.CIDR) route.Route {
 	var local, nexthop net.IP
 	if prefix.IP.To4() != nil {
 		nexthop = n.nodeAddressing.IPv4().Router()
@@ -299,16 +299,16 @@ func (n *linuxNodeHandler) createNodeRoute(prefix *net.IPNet) route.Route {
 		Nexthop: &nexthop,
 		Local:   local,
 		Device:  n.datapathConfig.HostDevice,
-		Prefix:  *prefix,
+		Prefix:  *prefix.IPNet,
 	}
 }
 
-func (n *linuxNodeHandler) lookupNodeRoute(prefix *net.IPNet) (*route.Route, error) {
+func (n *linuxNodeHandler) lookupNodeRoute(prefix *cidr.CIDR) (*route.Route, error) {
 	return route.Lookup(n.createNodeRoute(prefix))
 }
 
-func (n *linuxNodeHandler) updateNodeRoute(prefix *net.IPNet, enabled bool) error {
-	if prefix == nil || !enabled {
+func (n *linuxNodeHandler) updateNodeRoute(prefix *cidr.CIDR, addressFamilyEnabled bool) error {
+	if prefix == nil || !addressFamilyEnabled {
 		return nil
 	}
 
@@ -321,7 +321,7 @@ func (n *linuxNodeHandler) updateNodeRoute(prefix *net.IPNet, enabled bool) erro
 	return nil
 }
 
-func (n *linuxNodeHandler) deleteNodeRoute(prefix *net.IPNet) error {
+func (n *linuxNodeHandler) deleteNodeRoute(prefix *cidr.CIDR) error {
 	if prefix == nil {
 		return nil
 	}
@@ -335,12 +335,12 @@ func (n *linuxNodeHandler) deleteNodeRoute(prefix *net.IPNet) error {
 	return nil
 }
 
-func (n *linuxNodeHandler) familyEnabled(ipnet *net.IPNet) bool {
-	return (ipnet.IP.To4() != nil && n.nodeConfig.EnableIPv4) || (ipnet.IP.To4() == nil && n.nodeConfig.EnableIPv6)
+func (n *linuxNodeHandler) familyEnabled(c *cidr.CIDR) bool {
+	return (c.IP.To4() != nil && n.nodeConfig.EnableIPv4) || (c.IP.To4() == nil && n.nodeConfig.EnableIPv6)
 }
 
-func (n *linuxNodeHandler) updateOrRemoveNodeRoutes(old, new []*net.IPNet) {
-	addedAuxRoutes, removedAuxRoutes := ip.DiffIPNetLists(old, new)
+func (n *linuxNodeHandler) updateOrRemoveNodeRoutes(old, new []*cidr.CIDR) {
+	addedAuxRoutes, removedAuxRoutes := cidr.DiffCIDRLists(old, new)
 	for _, prefix := range addedAuxRoutes {
 		n.updateNodeRoute(prefix, n.familyEnabled(prefix))
 	}
@@ -379,7 +379,7 @@ func (n *linuxNodeHandler) NodeUpdate(oldNode, newNode node.Node) error {
 
 func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *node.Node) error {
 	var (
-		oldIP4Cidr, oldIP6Cidr *net.IPNet
+		oldIP4Cidr, oldIP6Cidr *cidr.CIDR
 		oldIP4, oldIP6         net.IP
 		newIP4                 = newNode.GetNodeIP(false)
 		newIP6                 = newNode.GetNodeIP(true)
@@ -395,8 +395,8 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *node.Node) error {
 
 	if newNode.IsLocal() {
 		if !n.nodeConfig.DisableLocalNodeRoute {
-			n.updateOrRemoveNodeRoutes([]*net.IPNet{oldIP4Cidr}, []*net.IPNet{newNode.IPv4AllocCIDR})
-			n.updateOrRemoveNodeRoutes([]*net.IPNet{oldIP6Cidr}, []*net.IPNet{newNode.IPv6AllocCIDR})
+			n.updateOrRemoveNodeRoutes([]*cidr.CIDR{oldIP4Cidr}, []*cidr.CIDR{newNode.IPv4AllocCIDR})
+			n.updateOrRemoveNodeRoutes([]*cidr.CIDR{oldIP6Cidr}, []*cidr.CIDR{newNode.IPv6AllocCIDR})
 		}
 		return nil
 	}
@@ -422,8 +422,8 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *node.Node) error {
 		updateTunnelMapping(oldIP6Cidr, newNode.IPv6AllocCIDR, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv6)
 
 		if !n.nodeConfig.UseSingleClusterRoute {
-			n.updateOrRemoveNodeRoutes([]*net.IPNet{oldIP4Cidr}, []*net.IPNet{newNode.IPv4AllocCIDR})
-			n.updateOrRemoveNodeRoutes([]*net.IPNet{oldIP6Cidr}, []*net.IPNet{newNode.IPv6AllocCIDR})
+			n.updateOrRemoveNodeRoutes([]*cidr.CIDR{oldIP4Cidr}, []*cidr.CIDR{newNode.IPv4AllocCIDR})
+			n.updateOrRemoveNodeRoutes([]*cidr.CIDR{oldIP6Cidr}, []*cidr.CIDR{newNode.IPv6AllocCIDR})
 		}
 
 		return nil
@@ -448,10 +448,13 @@ func (n *linuxNodeHandler) NodeDelete(oldNode node.Node) error {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 
-	delete(n.nodes, oldNode.Identity())
+	nodeIdentity := oldNode.Identity()
+	if oldCachedNode, nodeExists := n.nodes[nodeIdentity]; nodeExists {
+		delete(n.nodes, nodeIdentity)
 
-	if n.isInitialized {
-		return n.nodeDelete(&oldNode)
+		if n.isInitialized {
+			return n.nodeDelete(oldCachedNode)
+		}
 	}
 
 	return nil
@@ -483,10 +486,10 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *node.Node) error {
 	return nil
 }
 
-func (n *linuxNodeHandler) updateOrRemoveClusterRoute(addressing datapath.NodeAddressingFamily, enabled bool) {
+func (n *linuxNodeHandler) updateOrRemoveClusterRoute(addressing datapath.NodeAddressingFamily, addressFamilyEnabled bool) {
 	allocCIDR := addressing.AllocationCIDR()
-	if enabled {
-		n.updateNodeRoute(allocCIDR, enabled)
+	if addressFamilyEnabled {
+		n.updateNodeRoute(allocCIDR, addressFamilyEnabled)
 	} else if rt, _ := n.lookupNodeRoute(allocCIDR); rt != nil {
 		n.deleteNodeRoute(allocCIDR)
 	}

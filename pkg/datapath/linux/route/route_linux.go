@@ -115,7 +115,6 @@ func Lookup(route Route) (*Route, error) {
 func lookup(link netlink.Link, route *netlink.Route) *netlink.Route {
 	routes, err := netlink.RouteList(link, ipFamily(route.Dst.IP))
 	if err != nil {
-		fmt.Printf("NO LINK\n")
 		return nil
 	}
 

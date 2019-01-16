@@ -20,16 +20,15 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/fake"
 
 	"gopkg.in/check.v1"
 )
 
 func (s *linuxTestSuite) TestTunnelCIDRUpdateRequired(c *check.C) {
-	_, c1, err := net.ParseCIDR("10.1.0.0/16")
-	c.Assert(err, check.IsNil)
-	_, c2, err := net.ParseCIDR("10.2.0.0/16")
-	c.Assert(err, check.IsNil)
+	c1 := cidr.MustParseCIDR("10.1.0.0/16")
+	c2 := cidr.MustParseCIDR("10.2.0.0/16")
 	ip1 := net.ParseIP("1.1.1.1")
 	ip2 := net.ParseIP("2.2.2.2")
 
@@ -40,10 +39,8 @@ func (s *linuxTestSuite) TestTunnelCIDRUpdateRequired(c *check.C) {
 	c.Assert(cidrNodeMappingUpdateRequired(c1, c2, ip2, ip2), check.Equals, true)    // c1 -> c2
 	c.Assert(cidrNodeMappingUpdateRequired(c2, nil, ip2, ip2), check.Equals, false)  // c2 -> disabled
 
-	_, c1, err = net.ParseCIDR("f00d::a0a:0:0:0/96")
-	c.Assert(err, check.IsNil)
-	_, c2, err = net.ParseCIDR("f00d::b0b:0:0:0/96")
-	c.Assert(err, check.IsNil)
+	c1 = cidr.MustParseCIDR("f00d::a0a:0:0:0/96")
+	c2 = cidr.MustParseCIDR("f00d::b0b:0:0:0/96")
 	ip1 = net.ParseIP("cafe::1")
 	ip2 = net.ParseIP("cafe::2")
 
@@ -64,18 +61,16 @@ func (s *linuxTestSuite) TestCreateNodeRoute(c *check.C) {
 
 	nodeHandler := NewNodeHandler(dpConfig, fakeNodeAddressing)
 
-	_, ipnet, err := net.ParseCIDR("10.10.0.0/16")
-	c.Assert(err, check.IsNil)
-	generatedRoute := nodeHandler.(*linuxNodeHandler).createNodeRoute(ipnet)
-	c.Assert(generatedRoute.Prefix, checker.DeepEquals, *ipnet)
+	c1 := cidr.MustParseCIDR("10.10.0.0/16")
+	generatedRoute := nodeHandler.(*linuxNodeHandler).createNodeRoute(c1)
+	c.Assert(generatedRoute.Prefix, checker.DeepEquals, *c1.IPNet)
 	c.Assert(generatedRoute.Device, check.Equals, dpConfig.HostDevice)
 	c.Assert(*generatedRoute.Nexthop, checker.DeepEquals, fakeNodeAddressing.IPv4().Router())
 	c.Assert(generatedRoute.Local, checker.DeepEquals, fakeNodeAddressing.IPv4().Router())
 
-	_, ipnet, err = net.ParseCIDR("beef:beef::/48")
-	c.Assert(err, check.IsNil)
-	generatedRoute = nodeHandler.(*linuxNodeHandler).createNodeRoute(ipnet)
-	c.Assert(generatedRoute.Prefix, checker.DeepEquals, *ipnet)
+	c1 = cidr.MustParseCIDR("beef:beef::/48")
+	generatedRoute = nodeHandler.(*linuxNodeHandler).createNodeRoute(c1)
+	c.Assert(generatedRoute.Prefix, checker.DeepEquals, *c1.IPNet)
 	c.Assert(generatedRoute.Device, check.Equals, dpConfig.HostDevice)
 	c.Assert(*generatedRoute.Nexthop, checker.DeepEquals, fakeNodeAddressing.IPv6().Router())
 	c.Assert(generatedRoute.Local, checker.DeepEquals, fakeNodeAddressing.IPv6().PrimaryExternal())

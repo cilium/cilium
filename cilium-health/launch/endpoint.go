@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -183,7 +184,7 @@ func CleanupEndpoint() {
 // Annotator is an interface which describes anything which annotates a node
 // with cilium-health metadata.
 type Annotator interface {
-	AnnotateNode(nodeName string, v4CIDR, v6CIDR *net.IPNet, v4HealthIP, v6HealthIP, v4CiliumHostIP net.IP) error
+	AnnotateNode(nodeName string, v4CIDR, v6CIDR *cidr.CIDR, v4HealthIP, v6HealthIP, v4CiliumHostIP net.IP) error
 	AnnotatePod(k8sNamespace, k8sPodName, annotationKey, annotationValue string) error
 }
 

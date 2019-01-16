@@ -327,8 +327,8 @@ func init() {
 	option.BindEnv(option.AllowLocalhost)
 
 	flags.Bool(option.LegacyAutoIPv6NodeRoutesName, false, "Automatically adds IPv6 L3 routes to reach other nodes for non-overlay mode (--device) (BETA)")
-	flags.MarkHidden(option.LegacyAutoIPv6NodeRoutesName)
 	option.BindEnv(option.LegacyAutoIPv6NodeRoutesName)
+	flags.MarkDeprecated(option.LegacyAutoIPv6NodeRoutesName, fmt.Sprintf("This option is deprecated, please use %s", option.EnableAutoDirectRoutingName))
 
 	flags.String(option.BPFRoot, "", "Path to BPF filesystem")
 	option.BindEnv(option.BPFRoot)
