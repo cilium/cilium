@@ -1459,7 +1459,7 @@
     "storage/v1beta1",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.13.1"
+  revision = "kubernetes-1.13.2"
 
 [[projects]]
   digest = "1:09949d3a2ceff9874863e6dd454f553696fdfac4a8d35b931cc7fd8556f7b5ca"
@@ -1473,7 +1473,7 @@
     "pkg/features",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.13.1"
+  revision = "kubernetes-1.13.2"
 
 [[projects]]
   digest = "1:52a579e96d069afbfd74625e069ec6b358a59a9b2fc152dee50bba331f9b0642"
@@ -1524,7 +1524,7 @@
     "third_party/forked/golang/reflect",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.13.1"
+  revision = "kubernetes-1.13.2"
 
 [[projects]]
   digest = "1:13847ede3df9156c46282356dcf8b2cba7c8ebde98ff88ee52849b44beab8902"
@@ -1534,10 +1534,10 @@
     "pkg/util/feature",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.13.1"
+  revision = "kubernetes-1.13.2"
 
 [[projects]]
-  digest = "1:52dbf8c5b48572b4a4c4e924ad3d438944b1bc9e99aa0d490849348c4af62560"
+  digest = "1:e00a2f6e9516b21e01cf2878e2926fee4cf8ec1be1b4b36f201d7c31ccc1ce4d"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -1638,7 +1638,7 @@
     "util/retry",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.13.1"
+  revision = "kubernetes-1.13.2"
 
 [[projects]]
   digest = "1:dc1ae99dcab96913d81ae970b1f7a7411a54199b14bfb17a7e86f9a56979c720"
@@ -1655,7 +1655,7 @@
     "pkg/util",
   ]
   pruneopts = "T"
-  revision = "kubernetes-1.13.1"
+  revision = "kubernetes-1.13.2"
 
 [[projects]]
   digest = "1:da31d8be5af84b69ef83b212d833d8e10930cd9e8a876780a20099ea306c4c13"
@@ -1690,7 +1690,7 @@
   revision = "c01ed926f1243ac17a23a66f67da7fbdb2e2e298"
 
 [[projects]]
-  digest = "1:d6855a76eb317d7577093eaf4894a4113ebe9819377b0639ec7b8d46084ea57f"
+  digest = "1:26f8ce615c9871b76f7102dfc547faf32606f61895ea446fc34b19f8446c74a6"
   name = "k8s.io/kubernetes"
   packages = [
     "pkg/apis/core",
@@ -1703,7 +1703,7 @@
     "pkg/registry/core/service/ipallocator",
   ]
   pruneopts = "NUT"
-  revision = "v1.13.1"
+  revision = "v1.13.2"
 
 [[projects]]
   digest = "1:8730e0150dfb2b7e173890c8b9868e7a273082ef8e39f4940e3506a481cf895c"
