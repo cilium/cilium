@@ -197,6 +197,7 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 		fw.WriteString("#define ENABLE_ARP_RESPONDER 1\n")
 		fw.WriteString("#define ENABLE_HOST_REDIRECT 1\n")
 	case option.Config.IsFlannelMasterDeviceSet():
+		fw.WriteString("#define ENABLE_ARP_RESPONDER 1\n")
 		fw.WriteString("#define HOST_REDIRECT_TO_INGRESS\n")
 	}
 
