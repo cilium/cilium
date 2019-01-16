@@ -14,7 +14,7 @@ import (
 
 // NodeAddressing Addressing information of a node for all address families
 // swagger:model NodeAddressing
-
+// +k8s:deepcopy-gen=true
 type NodeAddressing struct {
 
 	// ipv4
