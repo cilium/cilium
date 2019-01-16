@@ -2539,11 +2539,28 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 
 	e.SetIdentity(identity)
 
-	readyToRegenerate := e.SetStateLocked(StateWaitingToRegenerate, "Triggering regeneration due to new identity")
-
 	// Unconditionally force policy recomputation after a new identity has been
 	// assigned.
 	e.ForcePolicyCompute()
+
+	/* This is a workaround to ensure that the health endpoint is not regenerated
+	before it is added into the endpointmanager, as the health endpoint is
+	treated differently than all other endpoints in how it is added. If
+	we try to regenerate upon identity change (which occurs whenever the
+	health endpoint is started), then there is a possibility that the endpoint
+	will be regenerating while it is being added into the endpoint manager,
+	which results in subsequent state changes failing in
+	cilium-health/launch/endpoint.go:LaunchAsEndpoint . So, we leave regeneration
+	of the health endpoint to be the responsibility of that function instead of
+	this function, since the health endpoint's identity should never change.
+	*/
+	if e.SecurityIdentity.ID == identityPkg.ReservedIdentityHealth {
+		e.getLogger().Debug("skipping health endpoint regeneration after identity change")
+		e.Unlock()
+		return nil
+	}
+
+	readyToRegenerate := e.SetStateLocked(StateWaitingToRegenerate, "Triggering regeneration due to new identity")
 
 	e.Unlock()
 
