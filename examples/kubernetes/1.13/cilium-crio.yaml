@@ -288,8 +288,6 @@ spec:
             - NET_ADMIN
           privileged: true
         volumeMounts:
-        - mountPath: /sys/fs/bpf
-          name: bpf-maps
         - mountPath: /var/run/cilium
           name: cilium-run
         - mountPath: /host/opt/cni/bin
@@ -335,8 +333,6 @@ spec:
             - NET_ADMIN
           privileged: true
         volumeMounts:
-        - mountPath: /sys/fs/bpf
-          name: bpf-maps
         - mountPath: /var/run/cilium
           name: cilium-run
       priorityClassName: system-node-critical
