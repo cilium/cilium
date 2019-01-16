@@ -1209,7 +1209,8 @@
     "storage/v1alpha1",
     "storage/v1beta1"
   ]
-  revision = "kubernetes-1.13.0"
+  pruneopts = "NUT"
+  revision = "kubernetes-1.13.2"
 
 [[projects]]
   name = "k8s.io/apiextensions-apiserver"
@@ -1221,7 +1222,8 @@
     "pkg/client/clientset/clientset/typed/apiextensions/v1beta1",
     "pkg/features"
   ]
-  revision = "kubernetes-1.13.0"
+  pruneopts = "NUT"
+  revision = "kubernetes-1.13.2"
 
 [[projects]]
   name = "k8s.io/apimachinery"
@@ -1270,7 +1272,8 @@
     "third_party/forked/golang/json",
     "third_party/forked/golang/reflect"
   ]
-  revision = "kubernetes-1.13.0"
+  pruneopts = "NUT"
+  revision = "kubernetes-1.13.2"
 
 [[projects]]
   name = "k8s.io/apiserver"
@@ -1278,9 +1281,12 @@
     "pkg/features",
     "pkg/util/feature"
   ]
-  revision = "kubernetes-1.13.0"
+  pruneopts = "NUT"
+  revision = "kubernetes-1.13.2"
 
 [[projects]]
+  digest = "1:e00a2f6e9516b21e01cf2878e2926fee4cf8ec1be1b4b36f201d7c31ccc1ce4d"
+>>>>>>> vendor: bump k8s version to v1.13.2
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -1380,7 +1386,8 @@
     "util/jsonpath",
     "util/retry"
   ]
-  revision = "kubernetes-1.13.0"
+  pruneopts = "NUT"
+  revision = "kubernetes-1.13.2"
 
 [[projects]]
   name = "k8s.io/code-generator"
@@ -1395,7 +1402,8 @@
     "cmd/client-gen/types",
     "pkg/util"
   ]
-  revision = "kubernetes-1.13.0"
+  pruneopts = "T"
+  revision = "kubernetes-1.13.2"
 
 [[projects]]
   name = "k8s.io/gengo"
@@ -1424,6 +1432,7 @@
   revision = "c01ed926f1243ac17a23a66f67da7fbdb2e2e298"
 
 [[projects]]
+  digest = "1:26f8ce615c9871b76f7102dfc547faf32606f61895ea446fc34b19f8446c74a6"
   name = "k8s.io/kubernetes"
   packages = [
     "pkg/apis/core",
@@ -1435,7 +1444,8 @@
     "pkg/registry/core/service/allocator",
     "pkg/registry/core/service/ipallocator"
   ]
-  revision = "v1.13.0"
+  pruneopts = "NUT"
+  revision = "v1.13.2"
 
 [[projects]]
   name = "sigs.k8s.io/yaml"
