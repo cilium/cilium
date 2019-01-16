@@ -1298,9 +1298,8 @@ func init() {
           "description": "Immutable configuration (read-only)",
           "$ref": "#/definitions/ConfigurationMap"
         },
-        "ipvlanDeviceIfIndex": {
-          "description": "Workload facing ipvlan master device ifindex. Set if the\ndatapath mode is ipvlan.\n",
-          "type": "integer"
+        "ipvlanConfiguration": {
+          "$ref": "#/definitions/IpvlanConfiguration"
         },
         "k8s-configuration": {
           "type": "string"
@@ -1844,6 +1843,24 @@ func init() {
         "labelsSHA256": {
           "description": "SHA256 of labels",
           "type": "string"
+        }
+      }
+    },
+    "IpvlanConfiguration": {
+      "description": "Setup for datapath when operating in ipvlan mode.",
+      "type": "object",
+      "properties": {
+        "masterDeviceIndex": {
+          "description": "Workload facing ipvlan master device ifindex.",
+          "type": "integer"
+        },
+        "operationMode": {
+          "description": "Mode in which ipvlan setup operates.",
+          "type": "string",
+          "enum": [
+            "L3",
+            "L3S"
+          ]
         }
       }
     },

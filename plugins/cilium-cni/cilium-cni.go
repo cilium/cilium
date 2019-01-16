@@ -391,9 +391,20 @@ func cmdAdd(args *skel.CmdArgs) error {
 			return err
 		}
 	case option.DatapathModeIpvlan:
-		index := int(conf.IpvlanDeviceIfIndex)
+		var mode netlink.IPVlanMode
 
-		ipvlan, link, tmpIfName, err := connector.SetupIpvlan(ep.ContainerID, int(conf.DeviceMTU), index, ep)
+		ipvlanConf := *conf.IpvlanConfiguration
+		index := int(ipvlanConf.MasterDeviceIndex)
+		switch ipvlanConf.OperationMode {
+		case option.OperationModeL3:
+			mode = netlink.IPVLAN_MODE_L3
+		case option.OperationModeL3S:
+			mode = netlink.IPVLAN_MODE_L3S
+		default:
+			return fmt.Errorf("invalid or unsupported ipvlan operation mode: %s", ipvlanConf.OperationMode)
+		}
+
+		ipvlan, link, tmpIfName, err := connector.SetupIpvlan(ep.ContainerID, int(conf.DeviceMTU), index, mode, ep)
 		if err != nil {
 			return err
 		}

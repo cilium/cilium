@@ -215,21 +215,24 @@ func getIpvlanMasterName() string {
 }
 
 // SetupIpvlan creates an ipvlan slave in L3 based on the master device.
-func SetupIpvlan(id string, mtu int, masterDev int, ep *models.EndpointChangeRequest) (*netlink.IPVlan, *netlink.Link, string, error) {
+func SetupIpvlan(id string, mtu, masterDev int, mode netlink.IPVlanMode, ep *models.EndpointChangeRequest) (*netlink.IPVlan, *netlink.Link, string, error) {
 	if id == "" {
 		return nil, nil, "", fmt.Errorf("invalid: empty ID")
 	}
 	if masterDev == 0 {
 		return nil, nil, "", fmt.Errorf("invalid: master device ifindex")
 	}
+	if mode != netlink.IPVLAN_MODE_L3 && mode != netlink.IPVLAN_MODE_L3S {
+		return nil, nil, "", fmt.Errorf("invalid: ipvlan operation mode")
+	}
 
 	tmpIfName := Endpoint2TempRandIfName()
-	ipvlan, link, err := setupIpvlanWithNames(tmpIfName, mtu, masterDev, ep)
+	ipvlan, link, err := setupIpvlanWithNames(tmpIfName, mtu, masterDev, mode, ep)
 
 	return ipvlan, link, tmpIfName, err
 }
 
-func setupIpvlanWithNames(lxcIfName string, mtu int, masterDev int, ep *models.EndpointChangeRequest) (*netlink.IPVlan, *netlink.Link, error) {
+func setupIpvlanWithNames(lxcIfName string, mtu, masterDev int, mode netlink.IPVlanMode, ep *models.EndpointChangeRequest) (*netlink.IPVlan, *netlink.Link, error) {
 	var err error
 
 	ipvlan := &netlink.IPVlan{
@@ -237,7 +240,7 @@ func setupIpvlanWithNames(lxcIfName string, mtu int, masterDev int, ep *models.E
 			Name:        lxcIfName,
 			ParentIndex: masterDev,
 		},
-		Mode: netlink.IPVLAN_MODE_L3,
+		Mode: mode,
 	}
 
 	if err = netlink.LinkAdd(ipvlan); err != nil {

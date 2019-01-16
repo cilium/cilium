@@ -520,6 +520,9 @@ func init() {
 	flags.Bool(option.Masquerade, true, "Masquerade packets from endpoints leaving the host")
 	option.BindEnv(option.Masquerade)
 
+	flags.Bool(option.InstallIptRules, true, "Install base iptables rules for cilium to mainly interact with kube-proxy (and masquerading)")
+	option.BindEnv(option.InstallIptRules)
+
 	flags.Int(option.MaxCtrlIntervalName, 0, "Maximum interval (in seconds) between controller runs. Zero is no limit.")
 	flags.MarkHidden(option.MaxCtrlIntervalName)
 	option.BindEnv(option.MaxCtrlIntervalName)
@@ -715,6 +718,10 @@ func initEnv(cmd *cobra.Command) {
 		loadinfo.StartBackgroundLogger()
 	}
 
+	if !option.Config.InstallIptRules {
+		option.Config.Masquerade = false
+	}
+
 	if option.Config.DisableEnvoyVersionCheck {
 		log.Info("Envoy version check disabled")
 	} else {
@@ -904,8 +911,11 @@ func initEnv(cmd *cobra.Command) {
 			log.WithError(err).WithField(logfields.Device, option.Config.Device).
 				Fatal("Cannot find device interface")
 		}
-		option.Config.IpvlanDeviceIfIndex = link.Attrs().Index
-
+		option.Config.Ipvlan.MasterDeviceIndex = link.Attrs().Index
+		option.Config.Ipvlan.OperationMode = option.OperationModeL3
+		if option.Config.InstallIptRules {
+			option.Config.Ipvlan.OperationMode = option.OperationModeL3S
+		}
 	default:
 		log.WithField(logfields.DatapathMode, option.Config.DatapathMode).Fatal("Invalid datapath mode")
 	}
