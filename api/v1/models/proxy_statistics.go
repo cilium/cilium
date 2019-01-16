@@ -17,7 +17,7 @@ import (
 
 // ProxyStatistics Statistics of a set of proxy redirects for an endpoint
 // swagger:model ProxyStatistics
-
+// +k8s:deepcopy-gen=true
 type ProxyStatistics struct {
 
 	// The port the proxy is listening on
