@@ -351,7 +351,7 @@ skip_service_lookup:
 		key.ip6.p4 = 0;
 		key.family = ENDPOINT_KEY_IPV6;
 
-		ret = encap_and_redirect(skb, &key, SECLABEL, monitor);
+		ret = encap_and_redirect(skb, &key, SECLABEL, monitor, true);
 
 		/* Fall through if remote prefix was not found
 		 * (DROP_NO_TUNNEL_ENDPOINT) */
@@ -635,8 +635,18 @@ skip_service_lookup:
 
 #ifdef ENCAP_IFINDEX
 	if (tunnel_endpoint) {
-		return encap_and_redirect_with_nodeid(skb, tunnel_endpoint,
-						      SECLABEL, monitor);
+		int ret = encap_and_redirect_with_nodeid_from_lxc(skb, tunnel_endpoint,
+								  SECLABEL, monitor);
+		/* If not redirected noteably due to IPSEC then pass up to stack
+		 * for further processing.
+		 */
+		if (ret == IPSEC_ENDPOINT)
+			goto pass_to_stack;
+		/* This is either redirect by encap code or an error has occured
+		 * either way return and stack will consume skb.
+		 */
+		else
+			return ret;
 	} else {
 		/* FIXME GH-1391: Get rid of the initializer */
 		struct endpoint_key key = {};
@@ -651,11 +661,18 @@ skip_service_lookup:
 		key.ip4 = orig_dip & IPV4_MASK;
 		key.family = ENDPOINT_KEY_IPV4;
 
-		ret = encap_and_redirect(skb, &key, SECLABEL, monitor);
-
-		/* Fall through if remote prefix was not found
-		 * (DROP_NO_TUNNEL_ENDPOINT) */
-		if (ret != DROP_NO_TUNNEL_ENDPOINT)
+		/* Three cases exist here either (a) the encap and redirect could
+		 * not find the tunnel so pass to host for further processing, (b)
+		 * the packet needs further stack processing likely due to IPSec so
+		 * pass up to stack or (c) packet was redirected to tunnel device
+		 * so return.
+		 */
+		ret = encap_and_redirect(skb, &key, SECLABEL, monitor, false);
+		if (ret == DROP_NO_TUNNEL_ENDPOINT)
+			goto pass_to_stack;
+		else if (ret == IPSEC_ENDPOINT)
+			goto pass_to_stack;
+		else
 			return ret;
 	}
 #endif
