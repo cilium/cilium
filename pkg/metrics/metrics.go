@@ -305,12 +305,13 @@ var (
 		Help:      "Number of total L7 received requests/responses",
 	})
 
-	// ProxyUpstreamTime is how long the upstream server took to reply
+	// ProxyUpstreamTime is how long the upstream server took to reply labeled
+	// by error, protocol and span time
 	ProxyUpstreamTime = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: Namespace,
 		Name:      "proxy_upstream_reply_seconds",
-		Help:      "Seconds waited for upstream server to reply to a request",
-	}, []string{"error", LabelProtocolL7})
+		Help:      "Seconds waited to get a reply from a upstream server",
+	}, []string{"error", LabelProtocolL7, LabelScope})
 
 	// L3-L4 statistics
 
