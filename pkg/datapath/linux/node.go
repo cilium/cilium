@@ -20,6 +20,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -393,6 +394,12 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *node.Node) error {
 		oldIP6 = oldNode.GetNodeIP(true)
 	}
 
+	if n.nodeConfig.EnableIPSec {
+		if newNode.IsLocal() {
+			n.replaceHostRules()
+		}
+	}
+
 	if newNode.IsLocal() {
 		if n.nodeConfig.EnableLocalNodeRoute {
 			n.updateOrRemoveNodeRoutes([]*cidr.CIDR{oldIP4Cidr}, []*cidr.CIDR{newNode.IPv4AllocCIDR})
@@ -493,6 +500,19 @@ func (n *linuxNodeHandler) updateOrRemoveClusterRoute(addressing datapath.NodeAd
 	} else if rt, _ := n.lookupNodeRoute(allocCIDR); rt != nil {
 		n.deleteNodeRoute(allocCIDR)
 	}
+}
+
+func (n *linuxNodeHandler) replaceHostRules() error {
+	err := route.ReplaceRule(linux_defaults.RouteMarkDecrypt, linux_defaults.RouteTableIPSec)
+	if err != nil {
+		log.WithError(err).Error("Replace route rule failed")
+		return err
+	}
+	err = route.ReplaceRule(linux_defaults.RouteMarkEncrypt, linux_defaults.RouteTableIPSec)
+	if err != nil {
+		log.WithError(err).Error("Replace route rule failed")
+	}
+	return err
 }
 
 // NodeConfigurationChanged is called when the LocalNodeConfiguration has changed
