@@ -31,7 +31,7 @@
 #ifndef DISABLE_SIP_VERIFICATION
 static inline int is_valid_lxc_src_ip(struct ipv6hdr *ip6)
 {
-#ifdef LXC_IP
+#ifdef ENABLE_IPV6
 	union v6addr valid = {};
 
 	BPF_V6(valid, LXC_IP);
@@ -44,7 +44,7 @@ static inline int is_valid_lxc_src_ip(struct ipv6hdr *ip6)
 
 static inline int is_valid_lxc_src_ipv4(struct iphdr *ip4)
 {
-#ifdef LXC_IPV4
+#ifdef ENABLE_IPV4
 	return ip4->saddr == LXC_IPV4;
 #else
 	/* Can't send IPv4 if no IPv4 address is configured */
