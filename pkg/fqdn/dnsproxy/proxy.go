@@ -276,8 +276,9 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	protocol := w.LocalAddr().Network()
 	endpointAddr := w.RemoteAddr().String()
 	scopedLog := log.WithFields(logrus.Fields{
-		logfields.DNSName: qname,
-		logfields.IPAddr:  w.RemoteAddr()})
+		logfields.DNSName:      qname,
+		logfields.IPAddr:       w.RemoteAddr(),
+		logfields.DNSRequestID: request.Id})
 
 	scopedLog.Debug("Handling DNS query from endpoint")
 
