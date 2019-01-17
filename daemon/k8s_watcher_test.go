@@ -337,10 +337,12 @@ func (ds *DaemonSuite) Test_missingK8sPodV1(c *C) {
 					panic(err)
 				}
 				cache := ipcache.NewIPCache()
-				cache.Upsert("127.0.0.1", net.ParseIP("127.0.0.2"), ipcache.Identity{
-					ID:     identity.ReservedIdentityInit,
-					Source: ipcache.FromKubernetes,
-				})
+				cache.Upsert("127.0.0.1",
+					net.ParseIP("127.0.0.2"), net.ParseIP("127.0.0.3"),
+					ipcache.Identity{
+						ID:     identity.ReservedIdentityInit,
+						Source: ipcache.FromKubernetes,
+					})
 				m := versioned.NewMap()
 				m.Add("", versioned.Object{
 					Data: &core_v1.Pod{
@@ -375,10 +377,12 @@ func (ds *DaemonSuite) Test_missingK8sPodV1(c *C) {
 					panic(err)
 				}
 				cache := ipcache.NewIPCache()
-				cache.Upsert("127.0.0.1", net.ParseIP("127.0.0.2"), ipcache.Identity{
-					ID:     identity.ReservedIdentityInit,
-					Source: ipcache.FromKubernetes,
-				})
+				cache.Upsert("127.0.0.1",
+					net.ParseIP("127.0.0.2"), net.ParseIP("127.0.0.3"),
+					ipcache.Identity{
+						ID:     identity.ReservedIdentityInit,
+						Source: ipcache.FromKubernetes,
+					})
 				m := versioned.NewMap()
 				m.Add("", versioned.Object{
 					Data: &core_v1.Pod{
@@ -433,10 +437,12 @@ func (ds *DaemonSuite) Test_missingK8sPodV1(c *C) {
 					panic(err)
 				}
 				cache := ipcache.NewIPCache()
-				cache.Upsert("127.0.0.1", net.ParseIP("127.0.0.2"), ipcache.Identity{
-					ID:     identity.ReservedIdentityInit,
-					Source: ipcache.FromKubernetes,
-				})
+				cache.Upsert("127.0.0.1",
+					net.ParseIP("127.0.0.2"), net.ParseIP("127.0.0.3"),
+					ipcache.Identity{
+						ID:     identity.ReservedIdentityInit,
+						Source: ipcache.FromKubernetes,
+					})
 				m := versioned.NewMap()
 				m.Add("", versioned.Object{
 					Data: &core_v1.Pod{
@@ -475,10 +481,12 @@ func (ds *DaemonSuite) Test_missingK8sPodV1(c *C) {
 					panic(err)
 				}
 				cache := ipcache.NewIPCache()
-				cache.Upsert("127.0.0.1", net.ParseIP("127.0.0.2"), ipcache.Identity{
-					ID:     identity.ReservedIdentityInit,
-					Source: ipcache.FromKubernetes,
-				})
+				cache.Upsert("127.0.0.1",
+					net.ParseIP("127.0.0.2"), net.ParseIP("127.0.0.3"),
+					ipcache.Identity{
+						ID:     identity.ReservedIdentityInit,
+						Source: ipcache.FromKubernetes,
+					})
 				m := versioned.NewMap()
 				m.Add("", versioned.Object{
 					Data: &core_v1.Pod{
@@ -593,10 +601,12 @@ func (ds *DaemonSuite) Test_missingK8sNodeV1(c *C) {
 			setupArgs: func() args {
 				node.DeleteAllNodes()
 				cache := ipcache.NewIPCache()
-				cache.Upsert("172.20.0.1", net.ParseIP("172.20.0.2"), ipcache.Identity{
-					ID:     identity.ReservedIdentityInit,
-					Source: ipcache.FromKubernetes,
-				})
+				cache.Upsert("172.20.0.1",
+					net.ParseIP("172.20.0.2"), net.ParseIP("172.20.0.3"),
+					ipcache.Identity{
+						ID:     identity.ReservedIdentityInit,
+						Source: ipcache.FromKubernetes,
+					})
 				node.UpdateNode(&node.Node{
 					Name:    "foo",
 					Cluster: "default",
@@ -634,10 +644,12 @@ func (ds *DaemonSuite) Test_missingK8sNodeV1(c *C) {
 			setupArgs: func() args {
 				node.DeleteAllNodes()
 				cache := ipcache.NewIPCache()
-				cache.Upsert("127.0.0.1", net.ParseIP("127.0.0.2"), ipcache.Identity{
-					ID:     identity.ReservedIdentityInit,
-					Source: ipcache.FromKubernetes,
-				})
+				cache.Upsert("127.0.0.1",
+					net.ParseIP("127.0.0.2"), net.ParseIP("127.0.0.3"),
+					ipcache.Identity{
+						ID:     identity.ReservedIdentityInit,
+						Source: ipcache.FromKubernetes,
+					})
 				m := versioned.NewMap()
 				m.Add("", versioned.Object{
 					Data: &core_v1.Node{
@@ -664,10 +676,12 @@ func (ds *DaemonSuite) Test_missingK8sNodeV1(c *C) {
 			setupArgs: func() args {
 				node.DeleteAllNodes()
 				cache := ipcache.NewIPCache()
-				cache.Upsert("172.20.9.1", net.ParseIP("172.20.1.1"), ipcache.Identity{
-					ID:     identity.ReservedIdentityInit,
-					Source: ipcache.FromKubernetes,
-				})
+				cache.Upsert("172.20.9.1",
+					net.ParseIP("172.20.1.1"), net.ParseIP("172.20.1.1"),
+					ipcache.Identity{
+						ID:     identity.ReservedIdentityInit,
+						Source: ipcache.FromKubernetes,
+					})
 				node.UpdateNode(&node.Node{
 					Name:    "bar",
 					Cluster: "default",
