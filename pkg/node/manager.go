@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
 )
 
 // RouteType represents the route type to be configured when adding the node
@@ -107,6 +108,76 @@ func createNodeRoute(ip *net.IPNet) routeUtils.Route {
 	}
 }
 
+func createNodeIPSecInRoute(ip *net.IPNet) routeUtils.Route {
+	return routeUtils.Route{
+		Nexthop: nil,
+		Device:  defaults.TunnelDeviceName,
+		Prefix:  *ip,
+		Table:   defaults.RouteTableIPSec,
+		Proto:   defaults.IPSecProtocolID,
+		Type:    unix.RTN_LOCAL,
+	}
+}
+
+func createNodeIPSecOutRoute(ip *net.IPNet) routeUtils.Route {
+	var nexthop net.IP
+
+	if ip.IP.To4() != nil {
+		nexthop = GetInternalIPv4()
+	} else {
+		nexthop = GetIPv6Router()
+	}
+
+	return routeUtils.Route{
+		Nexthop: &nexthop,
+		Device:  defaults.HostDevice,
+		Prefix:  *ip,
+		Table:   defaults.RouteTableIPSec,
+	}
+}
+
+// replaceNodeIPSecoOutRoute verifies whether the node route is properly covered by a
+// route installed in the host's routing table. If unavailable, the route is
+// installed on the host.
+func replaceNodeIPSecOutRoute(ip *net.IPNet, mtuConfig mtu.Configuration) {
+	if ip == nil {
+		return
+	}
+
+	if ip.IP.To4() != nil {
+		if !option.Config.EnableIPv4 {
+			return
+		}
+	} else {
+		if !option.Config.EnableIPv6 {
+			return
+		}
+	}
+
+	routeUtils.ReplaceRoute(createNodeIPSecOutRoute(ip), mtuConfig)
+}
+
+// replaceNodeIPSecoInRoute verifies whether the node route is properly covered by a
+// route installed in the host's routing table. If unavailable, the route is
+// installed on the host.
+func replaceNodeIPSecInRoute(ip *net.IPNet, mtuConfig mtu.Configuration) {
+	if ip == nil {
+		return
+	}
+
+	if ip.IP.To4() != nil {
+		if !option.Config.EnableIPv4 {
+			return
+		}
+	} else {
+		if !option.Config.EnableIPv6 {
+			return
+		}
+	}
+
+	routeUtils.ReplaceRoute(createNodeIPSecInRoute(ip), mtuConfig)
+}
+
 // replaceNodeRoute verifies whether the node route is properly covered by a
 // route installed in the host's routing table. If unavailable, the route is
 // installed on the host.
@@ -162,6 +233,13 @@ func (cc *clusterConfiguation) replaceHostRoutes() {
 			} else {
 				deleteNodeRoute(n.IPv4AllocCIDR)
 				deleteNodeRoute(n.IPv6AllocCIDR)
+			}
+			if n.IsLocal() {
+				replaceNodeIPSecInRoute(n.IPv4AllocCIDR, cc.mtuConfig)
+				replaceNodeIPSecInRoute(n.IPv6AllocCIDR, cc.mtuConfig)
+			} else {
+				replaceNodeIPSecOutRoute(n.IPv4AllocCIDR, cc.mtuConfig)
+				replaceNodeIPSecOutRoute(n.IPv6AllocCIDR, cc.mtuConfig)
 			}
 		}
 	} else {
