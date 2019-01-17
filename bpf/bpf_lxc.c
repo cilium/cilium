@@ -50,8 +50,6 @@
 #include "lib/conntrack.h"
 #include "lib/encap.h"
 
-#define POLICY_ID ((LXC_ID << 16) | SECLABEL)
-
 #ifdef HAVE_LRU_MAP_TYPE
 #define CT_MAP_TYPE BPF_MAP_TYPE_LRU_HASH
 #else
