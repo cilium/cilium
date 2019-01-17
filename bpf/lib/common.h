@@ -286,15 +286,16 @@ enum {
 #define METRIC_INGRESS  1
 #define METRIC_EGRESS   2
 
-/* Magic skb->mark markers which identify packets originating from the host
+/* Magic skb->mark identifies packets origination and encryption status.
  *
- * The upper 16 bits contain
+ * The upper 16 bits plus lower 8 bits (e.g. mask 0XFFFF00FF) contain the
+ * packets security identity. The lower/upper halves are swapped to recover
+ * the identity.
+ *
+ * The 4 bits at 0XF00 provide
  *  - the magic marker values which indicate whether the packet is coming from
- *    an ingress or egress proxy, or a local process.
- *  - the cluster id
- *
- * The lower 16 bits may contain the security identity of the original source
- * endpoint.
+ *    an ingress or egress proxy, a local process and its current encryption
+ *    status.
  */
 #define MARK_MAGIC_HOST_MASK		0xF00
 #define MARK_MAGIC_PROXY_INGRESS	0xA00
@@ -302,9 +303,9 @@ enum {
 #define MARK_MAGIC_HOST			0xC00
 
 /**
- * get_identity_via_proxy - returns source identity as specified by the proxy
+ * get_identity - returns source identity from the mark field
  */
-static inline int __inline__ get_identity_via_proxy(struct __sk_buff *skb)
+static inline int __inline__ get_identity(struct __sk_buff *skb)
 {
 	return ((skb->mark & 0xFF) << 16) | skb->mark >> 16;
 }
