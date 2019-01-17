@@ -39,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 
 	"context"
 	"github.com/docker/engine-api/client"
@@ -60,6 +61,10 @@ var (
 			epOpt: &workloadRuntimeOpt{
 				description: "Addresses of docker endpoint",
 				value:       "unix:///var/run/docker.sock",
+			},
+			DatapathModeOpt: &workloadRuntimeOpt{
+				description: "Cilium datapath mode",
+				value:       option.DatapathModeVeth,
 			},
 		},
 	}
@@ -94,6 +99,7 @@ func (c *dockerModule) newClient() (WorkloadRuntime, error) {
 
 type dockerClient struct {
 	*client.Client
+	datapathMode string
 }
 
 func newDockerClient(opts workloadRuntimeOpts) (WorkloadRuntime, error) {
@@ -103,8 +109,12 @@ func newDockerClient(opts workloadRuntimeOpts) (WorkloadRuntime, error) {
 	if err != nil {
 		return nil, err
 	}
+	dpMode, found := opts[DatapathModeOpt]
+	if !found {
+		return nil, fmt.Errorf("'%s' option not found", DatapathModeOpt)
+	}
 
-	return &dockerClient{Client: c}, nil
+	return &dockerClient{Client: c, datapathMode: dpMode.value}, nil
 }
 
 func newDockerClientMock(opts workloadRuntimeOpts) (WorkloadRuntime, error) {
