@@ -46,7 +46,8 @@ func (s *WorkloadsTestSuite) TestParseConfigEndpoint(c *C) {
 		epOpt: "unix:///foo.sock",
 	}
 	dockerOpts := map[string]string{
-		epOpt: "unix:///docker.sock",
+		epOpt:           "unix:///docker.sock",
+		DatapathModeOpt: "veth",
 	}
 
 	type args struct {
@@ -270,6 +271,7 @@ func (s *WorkloadsTestSuite) TestGetRuntimeOptions(c *C) {
 			name: "default options",
 			want: epOpt + "=" + containerDInstance.opts[epOpt].value + "," +
 				epOpt + "=" + criOInstance.opts[epOpt].value + "," +
+				DatapathModeOpt + "=" + dockerInstance.opts[DatapathModeOpt].value + "," +
 				epOpt + "=" + dockerInstance.opts[epOpt].value,
 		},
 	}
