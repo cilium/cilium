@@ -144,6 +144,9 @@ type Endpoint struct {
 	// Corresponding BPF map identifier for tail call map of ipvlan datapath
 	dataPathMapID int
 
+	// isDatapathMapPinned denotes whether the datapath map has been pinned.
+	isDatapathMapPinned bool
+
 	// IfName is the name of the host facing interface (veth pair) which
 	// connects into the endpoint
 	IfName string
@@ -2236,6 +2239,8 @@ func (e *Endpoint) MapPin() error {
 		unix.Close(mapFd)
 		return err
 	}
+
+	e.isDatapathMapPinned = true
 
 	return nil
 }
