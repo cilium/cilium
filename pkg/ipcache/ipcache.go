@@ -220,7 +220,7 @@ func endpointIPToCIDR(ip net.IP) *net.IPNet {
 // managed by the kvstore layer. See allowOverwrite() for rules on ownership.
 // hostIP is the location of the given IP. It is optional (may be nil) and is
 // propagated to the listeners.
-func (ipc *IPCache) Upsert(ip string, hostIP net.IP, newIdentity Identity) bool {
+func (ipc *IPCache) Upsert(ip string, hostIP, ciliumIP net.IP, newIdentity Identity) bool {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.IPAddr:   ip,
 		logfields.Identity: newIdentity,
@@ -322,7 +322,7 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, newIdentity Identity) bool 
 
 	if callbackListeners {
 		for _, listener := range ipc.listeners {
-			listener.OnIPIdentityCacheChange(Upsert, *cidr, oldHostIP, hostIP, oldIdentity, newIdentity.ID)
+			listener.OnIPIdentityCacheChange(Upsert, *cidr, oldHostIP, hostIP, ciliumIP, oldIdentity, newIdentity.ID)
 		}
 	}
 
@@ -339,7 +339,7 @@ func (ipc *IPCache) DumpToListenerLocked(listener IPIdentityMappingListener) {
 			endpointIP := net.ParseIP(ip)
 			cidr = endpointIPToCIDR(endpointIP)
 		}
-		listener.OnIPIdentityCacheChange(Upsert, *cidr, nil, hostIP, nil, identity.ID)
+		listener.OnIPIdentityCacheChange(Upsert, *cidr, nil, hostIP, nil, nil, identity.ID)
 	}
 }
 
@@ -431,7 +431,7 @@ func (ipc *IPCache) deleteLocked(ip string, source Source) {
 
 	if callbackListeners {
 		for _, listener := range ipc.listeners {
-			listener.OnIPIdentityCacheChange(cacheModification, *cidr, oldHostIP, newHostIP,
+			listener.OnIPIdentityCacheChange(cacheModification, *cidr, oldHostIP, newHostIP, nil,
 				oldIdentity, newIdentity.ID)
 		}
 	}

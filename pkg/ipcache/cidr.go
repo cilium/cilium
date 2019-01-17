@@ -57,7 +57,7 @@ func AllocateCIDRs(impl Implementation, prefixes []*net.IPNet) error {
 	}
 
 	for prefixString, id := range allocatedIdentities {
-		IPIdentityCache.Upsert(prefixString, nil, Identity{
+		IPIdentityCache.Upsert(prefixString, nil, nil, Identity{
 			ID:     id.ID,
 			Source: FromCIDR,
 		})
