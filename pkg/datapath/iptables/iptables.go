@@ -198,6 +198,9 @@ func InstallRules(ifName string) error {
 		}
 	}
 
+	matchFromIPSecEncrypt := fmt.Sprintf("%#08x/%#08x", defaults.RouteMarkDecrypt, defaults.RouteMarkMask)
+	matchFromIPSecDecrypt := fmt.Sprintf("%#08x/%#08x", defaults.RouteMarkEncrypt, defaults.RouteMarkMask)
+
 	// Clear the Kubernetes masquerading mark bit to skip source PAT
 	// performed by kube-proxy for all packets destined for Cilium. Cilium
 	// installs a dedicated rule which does the source PAT to the right
@@ -207,6 +210,8 @@ func InstallRules(ifName string) error {
 		"-t", "mangle",
 		"-A", ciliumPostMangleChain,
 		"-o", ifName,
+		"-m", "mark", "!", "--mark", matchFromIPSecDecrypt, // Don't match ipsec traffic
+		"-m", "mark", "!", "--mark", matchFromIPSecEncrypt, // Don't match ipsec traffic
 		"!", "-s", "127.0.0.1",
 		"-m", "comment", "--comment", "cilium: clear masq bit for pkts to " + ifName,
 		"-j", "MARK", "--set-xmark", clearMasqBit}, false); err != nil {
@@ -263,6 +268,8 @@ func InstallRules(ifName string) error {
 	if err := runProg("iptables", []string{
 		"-t", "filter",
 		"-A", ciliumOutputChain,
+		"-m", "mark", "!", "--mark", matchFromIPSecDecrypt, // Don't match ipsec traffic
+		"-m", "mark", "!", "--mark", matchFromIPSecEncrypt, // Don't match ipsec traffic
 		"-m", "mark", "!", "--mark", matchFromProxy, // Don't match proxy traffic
 		"-m", "comment", "--comment", "cilium: host->any mark as from host",
 		"-j", "MARK", "--set-xmark", markAsFromHost}, false); err != nil {
@@ -290,7 +297,9 @@ func InstallRules(ifName string) error {
 			"-A", ciliumPostNatChain,
 			"!", "-s", ingressSnatSrcAddrExclusion,
 			"!", "-d", node.GetIPv4AllocRange().String(),
-			"-o", ifName,
+			"-m", "mark", "!", "--mark", matchFromIPSecDecrypt, // Don't match ipsec traffic
+			"-m", "mark", "!", "--mark", matchFromIPSecEncrypt, // Don't match ipsec traffic
+			"-o", defaults.HostDevice,
 			"-m", "comment", "--comment", "cilium host->cluster masquerade",
 			"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String()}, false); err != nil {
 			return err
@@ -303,7 +312,9 @@ func InstallRules(ifName string) error {
 			"-t", "nat",
 			"-A", ciliumPostNatChain,
 			"-s", node.GetIPv4AllocRange().String(),
-			"-o", ifName,
+			"-m", "mark", "!", "--mark", matchFromIPSecDecrypt, // Don't match ipsec traffic
+			"-m", "mark", "!", "--mark", matchFromIPSecEncrypt, // Don't match ipsec traffic
+			"-o", defaults.HostDevice,
 			"-m", "comment", "--comment", "cilium hostport loopback masquerade",
 			"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String()}, false); err != nil {
 			return err
