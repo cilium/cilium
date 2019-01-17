@@ -1,4 +1,4 @@
-// +build !appengine
+// +build !purego,!appengine
 
 package msgp
 
@@ -24,7 +24,8 @@ const (
 // THIS IS EVIL CODE.
 // YOU HAVE BEEN WARNED.
 func UnsafeString(b []byte) string {
-	return *(*string)(unsafe.Pointer(&reflect.StringHeader{Data: uintptr(unsafe.Pointer(&b[0])), Len: len(b)}))
+	sh := (*reflect.SliceHeader)(unsafe.Pointer(&b))
+	return *(*string)(unsafe.Pointer(&reflect.StringHeader{Data: sh.Data, Len: sh.Len}))
 }
 
 // UnsafeBytes returns the string as a byte slice
