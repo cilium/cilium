@@ -44,6 +44,7 @@
 #define CALLS_MAP test_cilium_calls_111
 #define LB_L3
 #define LB_L4
+#define LOCAL_DELIVERY_METRICS
 #define CONNTRACK
 #define CONNTRACK_ACCOUNTING
 #define CONFIG_MAP test_cilium_ep_config_111
