@@ -91,7 +91,7 @@ static inline int ipv6_local_delivery(struct __sk_buff *skb, int l3_off, int l4_
 	skb->cb[CB_SRC_LABEL] = seclabel;
 	skb->cb[CB_IFINDEX] = ep->ifindex;
 
-#if defined LXC_ID
+#if defined LOCAL_DELIVERY_METRICS
 	/*
 	 * Special LXC case for updating egress forwarding metrics.
 	 * Note that the packet could still be dropped but it would show up
@@ -123,7 +123,7 @@ static inline int __inline__ ipv4_local_delivery(struct __sk_buff *skb, int l3_o
 	skb->cb[CB_SRC_LABEL] = seclabel;
 	skb->cb[CB_IFINDEX] = ep->ifindex;
 
-#if defined LXC_ID
+#if defined LOCAL_DELIVERY_METRICS
 	/*
 	 * Special LXC case for updating egress forwarding metrics.
 	 * Note that the packet could still be dropped but it would show up
