@@ -485,6 +485,21 @@ int from_netdev(struct __sk_buff *skb)
 	__u32 identity = 0;
 	int ret;
 
+#ifdef ENABLE_IPSEC
+	if (1) {
+		__u32 magic = skb->mark & MARK_MAGIC_HOST_MASK;
+
+		if (magic == MARK_MAGIC_ENCRYPT) {
+			__u32 seclabel, tunnel_endpoint = 0;
+
+			seclabel = get_identity(skb);
+			tunnel_endpoint = skb->cb[4];
+			skb->mark = 123;
+			bpf_clear_cb(skb);
+			return encap_and_redirect_with_nodeid(skb, tunnel_endpoint, seclabel, TRACE_PAYLOAD_LEN);
+		}
+	}
+#endif
 	bpf_clear_cb(skb);
 
 #ifdef FROM_HOST
