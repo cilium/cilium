@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@ const (
 
 var (
 	ErrNAT46ReqIPv4 = errors.New("NAT46 requires IPv4 to be enabled")
+	ErrNAT46ReqIPv6 = errors.New("NAT46 requires IPv6 to be enabled")
 	ErrNAT46ReqVeth = errors.New("NAT46 not supported in ipvlan datapath mode")
 )
 
@@ -92,6 +93,9 @@ var (
 		Verify: func(key string, val string) error {
 			if !Config.EnableIPv4 {
 				return ErrNAT46ReqIPv4
+			}
+			if !Config.EnableIPv6 {
+				return ErrNAT46ReqIPv6
 			}
 			if Config.DatapathMode == DatapathModeIpvlan {
 				return ErrNAT46ReqVeth

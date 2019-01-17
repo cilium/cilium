@@ -233,7 +233,7 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 			ct_state->slave = entry->slave;
 		}
 
-#ifdef LXC_NAT46
+#ifdef ENABLE_NAT46
 		/* This packet needs nat46 translation */
 		if (entry->nat46 && !skb->cb[CB_NAT46_STATE])
 			skb->cb[CB_NAT46_STATE] = NAT46;
@@ -422,7 +422,7 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 				  is_tcp, tcp_flags, monitor);
 	}
 
-#ifdef LXC_NAT46
+#ifdef ENABLE_NAT46
 	skb->cb[CB_NAT46_STATE] = NAT46_CLEAR;
 #endif
 out:
@@ -707,7 +707,7 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 		entry.tx_bytes = skb->len;
 	}
 
-#ifdef LXC_NAT46
+#ifdef ENABLE_NAT46
 	if (skb->cb[CB_NAT46_STATE] == NAT64)
 		entry.nat46 = dir == CT_EGRESS;
 #endif
