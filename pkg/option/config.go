@@ -373,6 +373,9 @@ const (
 
 	// EnableAutoDirectRoutingName is the name for the EnableAutoDirectRouting option
 	EnableAutoDirectRoutingName = "auto-direct-node-routes"
+
+	// EnableIPSecName is the name of the option to enable IPSec
+	EnableIPSecName = "enable-ipsec"
 )
 
 // FQDNS variables
@@ -646,6 +649,9 @@ type DaemonConfig struct {
 	// EnableIPv6 is true when IPv6 is enabled
 	EnableIPv6 bool
 
+	// EnableIPSec is true when IPSec is enabled
+	EnableIPSec bool
+
 	// MonitorQueueSize is the size of the monitor event queue
 	MonitorQueueSize int
 
@@ -895,6 +901,7 @@ func (c *DaemonConfig) Populate() {
 	c.DisableConntrack = viper.GetBool(DisableConntrack)
 	c.EnableIPv4 = getIPv4Enabled()
 	c.EnableIPv6 = viper.GetBool(EnableIPv6Name)
+	c.EnableIPSec = viper.GetBool(EnableIPSecName)
 	c.DevicePreFilter = viper.GetString(PrefilterDevice)
 	c.DisableCiliumEndpointCRD = viper.GetBool(DisableCiliumEndpointCRDName)
 	c.DisableK8sServices = viper.GetBool(DisableK8sServices)
