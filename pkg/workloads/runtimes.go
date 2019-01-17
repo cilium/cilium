@@ -52,7 +52,8 @@ const (
 )
 
 const (
-	epOpt = "endpoint"
+	epOpt           = "endpoint"
+	DatapathModeOpt = "datapath-mode"
 )
 
 type workloadRuntimeOpt struct {
