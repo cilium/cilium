@@ -22,6 +22,25 @@
 #include "dbg.h"
 
 #ifdef ENCAP_IFINDEX
+#ifdef ENABLE_IPSEC
+static inline int __inline__
+encap_and_redirect_ipsec(struct __sk_buff *skb, __u32 tunnel_endpoint,
+			 __u32 seclabel, __u32 monitor)
+{
+	/* IPSec is performed by the stack on any packets with the
+	 * MARK_MAGIC_ENCRYPT bit set. During the process though we
+	 * lose the lxc context (seclabel and tunnel endpoint). The
+	 * tunnel endpoint can be looked up from daddr but the sec
+	 * label is stashed in the mark and extracted in bpf_netdev
+	 * to send skb onto tunnel for encap.
+	 */
+	skb->mark = MARK_MAGIC_ENCRYPT;
+	set_identity(skb, seclabel);
+	skb->cb[4] = tunnel_endpoint;
+	return 0;
+}
+#endif
+
 static inline int __inline__
 encap_and_redirect_with_nodeid(struct __sk_buff *skb, __u32 tunnel_endpoint,
 			       __u32 seclabel, __u32 monitor)
@@ -47,8 +66,19 @@ encap_and_redirect_with_nodeid(struct __sk_buff *skb, __u32 tunnel_endpoint,
 }
 
 static inline int __inline__
+encap_and_redirect_with_nodeid_from_lxc(struct __sk_buff *skb, __u32 tunnel_endpoint,
+					__u32 seclabel, __u32 monitor)
+{
+#ifdef ENABLE_IPSEC
+	return encap_and_redirect_ipsec(skb, tunnel_endpoint, seclabel, monitor);
+#else
+	return encap_and_redirect_with_nodeid(skb, tunnel_endpoint, seclabel, monitor);
+#endif
+}
+
+static inline int __inline__
 encap_and_redirect(struct __sk_buff *skb, struct endpoint_key *k,
-		   __u32 seclabel, __u32 monitor)
+		   __u32 seclabel, __u32 monitor, bool host)
 {
 	struct endpoint_key *tunnel;
 
@@ -56,6 +86,10 @@ encap_and_redirect(struct __sk_buff *skb, struct endpoint_key *k,
 		return DROP_NO_TUNNEL_ENDPOINT;
 	}
 
+#ifdef ENABLE_IPSEC
+	if (!host)
+		return encap_and_redirect_ipsec(skb, tunnel->ip4, seclabel, monitor);
+#endif
 	return encap_and_redirect_with_nodeid(skb, tunnel->ip4, seclabel, monitor);
 }
 #endif /* ENCAP_IFINDEX */
