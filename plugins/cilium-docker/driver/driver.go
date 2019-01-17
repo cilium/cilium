@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/docker/libnetwork/drivers/remote/api"
 	lnTypes "github.com/docker/libnetwork/types"
@@ -275,6 +276,7 @@ type CreateEndpointRequest struct {
 
 func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 	var create CreateEndpointRequest
+	var err error
 	if err := json.NewDecoder(r.Body).Decode(&create); err != nil {
 		sendError(w, "Unable to decode JSON payload: "+err.Error(), http.StatusBadRequest)
 		return
@@ -297,18 +299,38 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	veth, _, _, err := connector.SetupVeth(create.EndpointID, int(driver.conf.DeviceMTU), endpoint)
-	if err != nil {
-		sendError(w, "Error while setting up veth pair: "+err.Error(), http.StatusBadRequest)
-		return
-	}
-	defer func() {
+	switch driver.conf.DatapathMode {
+	case option.DatapathModeVeth:
+		veth, _, _, err := connector.SetupVeth(create.EndpointID, int(driver.conf.DeviceMTU), endpoint)
 		if err != nil {
-			if err = netlink.LinkDel(veth); err != nil {
-				log.WithError(err).WithField(logfields.Veth, veth.Name).Warn("failed to clean up veth")
-			}
+			sendError(w, "Error while setting up veth pair: "+err.Error(), http.StatusBadRequest)
+			return
 		}
-	}()
+		defer func() {
+			if err != nil {
+				if err = netlink.LinkDel(veth); err != nil {
+					log.WithError(err).WithField(logfields.Veth, veth.Name).Warn("failed to clean up veth")
+				}
+			}
+		}()
+	case option.DatapathModeIpvlan:
+		ipvlan, _, _, err := connector.SetupIpvlan(
+			create.EndpointID, int(driver.conf.DeviceMTU),
+			int(driver.conf.IpvlanConfiguration.MasterDeviceIndex),
+			driver.conf.IpvlanConfiguration.OperationMode, endpoint,
+		)
+		if err != nil {
+			sendError(w, "Error while setting up ipvlan: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		defer func() {
+			if err != nil {
+				if err = netlink.LinkDel(ipvlan); err != nil {
+					log.WithError(err).WithField(logfields.Ipvlan, ipvlan.Name).Warn("failed to clean up ipvlan")
+				}
+			}
+		}()
+	}
 
 	// FIXME: Translate port mappings to RuleL4 policy elements
 
@@ -339,6 +361,8 @@ func (driver *driver) deleteEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.WithField(logfields.Request, logfields.Repr(&del)).Debug("Delete endpoint request")
+
+	// TODO(brb): check whether removal of netns actually removes ipvlan slave device
 
 	if err := link.DeleteByName(connector.Endpoint2IfName(del.EndpointID)); err != nil {
 		log.WithError(err).Warn("Error while deleting link")

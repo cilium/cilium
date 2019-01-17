@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpoint/connector"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/ipam"
@@ -39,14 +40,18 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/plugins/cilium-docker/driver"
 
 	"context"
+	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/docker/engine-api/client"
 	dTypes "github.com/docker/engine-api/types"
 	dTypesEvents "github.com/docker/engine-api/types/events"
 	dNetwork "github.com/docker/engine-api/types/network"
 	"github.com/sirupsen/logrus"
+	"github.com/vishvananda/netlink"
 	ctx "golang.org/x/net/context"
+	"golang.org/x/sys/unix"
 	k8sDockerLbls "k8s.io/kubernetes/pkg/kubelet/types"
 )
 
@@ -493,6 +498,72 @@ func (d *dockerClient) handleCreateWorkload(id string, retry bool) {
 			if dockerContainer.Config != nil {
 				ep.SetK8sNamespace(k8sDockerLbls.GetPodNamespace(dockerContainer.Config.Labels))
 				ep.SetK8sPodName(k8sDockerLbls.GetPodName(dockerContainer.Config.Labels))
+			}
+		}
+
+		// Ipvlan post-initialization for Docker libnetwork.
+		//
+		// Unfortunately, libnetwork itself moves a netdev to netns of a container
+		// (after we respond to a `JoinEndpoint` request), so qdisc's of the netdev
+		// get flushed, thus this complexity below.
+		//
+		// To make this part idempotent (we have to, because `handleCreateWorkload`
+		// can be called many times for the same container), we can check whether
+		// the datapath map has been pinned which indicates previous successful
+		// invocation of the function for the same container.
+		if ep.GetDockerNetworkID() != "" &&
+			d.datapathMode == option.DatapathModeIpvlan &&
+			!ep.IsDatapathMapPinned() {
+
+			var ipvlanIface string
+
+			// We could determine netns from `SandboxKey`, but this would require
+			// bind mounting `/var/run/docker/netns` into the plugin container.
+			// TODO(brb) check existing bind mounts in the guides
+			nsPath := fmt.Sprintf("/proc/%d/ns/net", dockerContainer.State.Pid)
+			netNs, err := ns.GetNS(nsPath)
+			if err != nil {
+				retryLog.WithError(err).Warn("Unable to open container netns")
+				continue
+			}
+
+			err = netNs.Do(func(ns.NetNS) error {
+				links, err := netlink.LinkList()
+				if err != nil {
+					return err
+				}
+				for _, link := range links {
+					if link.Type() == "ipvlan" &&
+						strings.HasPrefix(link.Attrs().Name,
+							driver.ContainerInterfacePrefix) {
+						ipvlanIface = link.Attrs().Name
+					}
+				}
+				if ipvlanIface == "" {
+					return fmt.Errorf("no ipvlan link not found")
+				}
+				return nil
+			})
+			if err != nil {
+				retryLog.WithError(err).Warn("Unable to find ipvlan slave in container netns")
+				continue
+			}
+
+			mapFD, mapID, err := connector.SetupIpvlanRemoteNs(netNs,
+				ipvlanIface, ipvlanIface)
+			if err != nil {
+				retryLog.WithError(err).Warn("Unable to setup ipvlan slave")
+				continue
+			}
+			// Do not close the fd too early, as the subsequent pinning would
+			// fail due to the map being removed by the kernel
+			defer func() {
+				unix.Close(mapFD)
+			}()
+
+			if err = ep.SetDatapathMapIDAndPinMap(mapID); err != nil {
+				retryLog.WithError(err).Warn("Unable to pin datapath map")
+				continue
 			}
 		}
 

@@ -1588,6 +1588,23 @@ func (e *Endpoint) GetDockerNetworkID() string {
 	return e.DockerNetworkID
 }
 
+// SetDatapathMapId modifies the endpoint's datapath map ID
+func (e *Endpoint) SetDatapathMapIDAndPinMap(id int) error {
+	e.UnconditionalLock()
+	defer e.Unlock()
+
+	e.dataPathMapID = id
+	return e.MapPin()
+}
+
+// IsDatapathMapPinned returns whether the endpoint's datapath map has been pinned
+func (e *Endpoint) IsDatapathMapPinned() bool {
+	e.UnconditionalRLock()
+	defer e.RUnlock()
+
+	return e.isDatapathMapPinned
+}
+
 // GetState returns the endpoint's state
 // endpoint.Mutex may only be.RLockAlive()ed
 func (e *Endpoint) GetStateLocked() string {
