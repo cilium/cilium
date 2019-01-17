@@ -299,6 +299,7 @@ enum {
 #define MARK_MAGIC_PROXY_INGRESS	0xA00
 #define MARK_MAGIC_PROXY_EGRESS		0xB00
 #define MARK_MAGIC_HOST			0xC00
+#define MARK_MAGIC_ENCRYPT		0xE00
 
 /**
  * get_identity - returns source identity from the mark field
@@ -306,6 +307,15 @@ enum {
 static inline int __inline__ get_identity(struct __sk_buff *skb)
 {
 	return ((skb->mark & 0xFF) << 16) | skb->mark >> 16;
+}
+
+/**
+ * set_identity - pushes 24 bit identity into skb mark value.
+ */
+static inline void __inline__ set_identity(struct __sk_buff *skb, __u32 identity)
+{
+	skb->mark = skb->mark & MARK_MAGIC_HOST_MASK;
+	skb->mark |= ((identity & 0xFFFF) << 16) | ((identity & 0xFF0000) >> 16);
 }
 
 /*
