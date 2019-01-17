@@ -115,6 +115,9 @@ const (
 	// EnableIPv6 is the default value for IPv6 enablement
 	EnableIPv6 = true
 
+	// EnableIPSec is the default value for IPSec enablement
+	EnableIPSec = false
+
 	// MonitorQueueSize is the default value for the monitor queue size
 	MonitorQueueSize = 32768
 

@@ -715,6 +715,10 @@ func (d *Daemon) createNodeConfigHeaderfile() error {
 		fmt.Fprintf(fw, "#define ENABLE_IPV6\n")
 	}
 
+	if viper.GetBool(option.EnableIPSecName) == true {
+		fmt.Fprintf(fw, "#define ENABLE_IPSEC\n")
+	}
+
 	fw.Flush()
 	f.Close()
 

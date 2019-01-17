@@ -382,6 +382,8 @@ func init() {
 	viper.BindEnv(option.EnableIPv4Name, option.EnableIPv4NameEnv)
 	flags.Bool(option.EnableIPv6Name, true, "Enable IPv6 support")
 	viper.BindEnv(option.EnableIPv6Name, option.EnableIPv6NameEnv)
+	flags.Bool(option.EnableIPSecName, defaults.EnableIPSec, "Enable IPSec support")
+	viper.BindEnv(option.EnableIPSecName, option.EnableIPSecNameEnv)
 	flags.BoolVar(&option.Config.DisableCiliumEndpointCRD,
 		option.DisableCiliumEndpointCRDName, false, "Disable use of CiliumEndpoint CRD")
 	flags.Bool("disable-k8s-services",

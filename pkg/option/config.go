@@ -170,6 +170,10 @@ const (
 	// MonitorQueueSizeName is the name of the option MonitorQueueSize
 	MonitorQueueSizeName    = "monitor-queue-size"
 	MonitorQueueSizeNameEnv = "CILIUM_MONITOR_QUEUE_SIZE"
+
+	// EnableIPSec is the name of the option to enable IPSec
+	EnableIPSecName    = "enable-ipsec"
+	EnableIPSecNameEnv = "CILIUM_ENABLE_IPSEC"
 )
 
 // Available option for daemonConfig.Tunnel
@@ -379,6 +383,9 @@ type daemonConfig struct {
 
 	// EnableIPv6 is true when IPv6 is enabled
 	EnableIPv6 bool
+
+	// EnableIPSec is true when IPSec is enabled
+	EnableIPSec bool
 
 	// MonitorQueueSize is the size of the monitor event queue
 	MonitorQueueSize int
