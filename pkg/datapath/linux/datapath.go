@@ -33,6 +33,12 @@ const (
 
 	// RouteMarkMask is the mask required for the route mark value
 	RouteMarkMask = 0xF00
+
+	// IPSecProtocolID IP protocol ID for IPSec defined in RFC4303
+	RouteProtocolIPSec = 50
+
+	// TunnelDeviceName the default name of the tunnel device when using vxlan
+	TunnelDeviceName = "cilium_vxlan"
 )
 
 // DatapathConfiguration is the static configuration of the datapath. The
