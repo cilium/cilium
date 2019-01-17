@@ -1937,7 +1937,7 @@ func (e *Endpoint) UpdateLabels(owner Owner, identityLabels, infoLabels pkgLabel
 	}).Debug("Refreshing labels of endpoint")
 
 	if err := e.LockAlive(); err != nil {
-		e.LogDisconnectedMutexAction(err, "when trying to refresh endpint labels")
+		e.LogDisconnectedMutexAction(err, "when trying to refresh endpoint labels")
 		return
 	}
 
