@@ -341,3 +341,40 @@ func DeleteRoute(route Route) error {
 
 	return nil
 }
+
+func lookupRule(fwmark int, table int) (bool, error) {
+	rules, err := netlink.RuleList(0)
+	if err != nil {
+		return false, err
+	}
+	for _, r := range rules {
+		if r.Mark == fwmark && r.Table == table {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// ReplaceRule
+func ReplaceRule(fwmark int, table int) error {
+	exists, err := lookupRule(fwmark, table)
+	if err != nil {
+		return err
+	}
+	if exists == true {
+		return nil
+	}
+	rule := netlink.NewRule()
+	rule.Mark = fwmark
+	rule.Table = table
+	rule.Priority = 1
+	return netlink.RuleAdd(rule)
+}
+
+// DeleteRule
+func DeleteRule(fwmark int, table int) error {
+	rule := netlink.NewRule()
+	rule.Mark = fwmark
+	rule.Table = table
+	return netlink.RuleDel(rule)
+}
