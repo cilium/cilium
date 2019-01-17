@@ -482,9 +482,12 @@ type IpvlanConfig struct {
 }
 
 type IPSecConfig struct {
-	RouteEncrypt int
-	RouteDecrypt int
-	RouteTable   int
+	RouteEncrypt  int
+	RouteDecrypt  int
+	RouteTable    int
+	RouteProtocol int
+	TunnelDevice  string
+	HostDevice    string
 }
 
 // DaemonConfig is the configuration used by Daemon.
@@ -762,9 +765,12 @@ var (
 	}
 
 	IPSecRouteConfig = &IPSecConfig{
-		RouteEncrypt: defaults.RouteMarkEncrypt,
-		RouteDecrypt: defaults.RouteMarkDecrypt,
-		RouteTable:   defaults.RouteTableIPSec,
+		RouteEncrypt:  defaults.RouteMarkEncrypt,
+		RouteDecrypt:  defaults.RouteMarkDecrypt,
+		RouteTable:    defaults.RouteTableIPSec,
+		RouteProtocol: defaults.IPSecProtocolID,
+		TunnelDevice:  defaults.TunnelDeviceName,
+		HostDevice:    defaults.HostDevice,
 	}
 )
 

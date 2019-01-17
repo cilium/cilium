@@ -150,4 +150,10 @@ const (
 	// RouteMarkEncrypt is the default route mark to use to indicate datapath
 	// needs to encrypt a packet.
 	RouteMarkEncrypt = 0x0E00
+
+	// IPSecProtocolID IP protocol ID for IPSec
+	IPSecProtocolID = 50
+
+	// TunnelDeviceName the default name of the tunnel device when using vxlan
+	TunnelDeviceName = "cilium_vxlan"
 )
