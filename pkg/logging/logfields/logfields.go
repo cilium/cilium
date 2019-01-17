@@ -81,6 +81,9 @@ const (
 	// DNSName is a FQDN or not fully qualified name intended for DNS lookups
 	DNSName = "dnsName"
 
+	// DNSRequestID is the DNS request id used by dns-proxy
+	DNSRequestID = "DNSRequestID"
+
 	// IPAddr is an IPV4 or IPv6 address
 	IPAddr = "ipAddr"
 
