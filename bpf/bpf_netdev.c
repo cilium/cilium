@@ -255,7 +255,7 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 		key.ip6.p4 = 0;
 		key.family = ENDPOINT_KEY_IPV6;
 
-		ret = encap_and_redirect(skb, &key, secctx, TRACE_PAYLOAD_LEN);
+		ret = encap_and_redirect(skb, &key, secctx, TRACE_PAYLOAD_LEN, true);
 		if (ret != DROP_NO_TUNNEL_ENDPOINT)
 			return ret;
 	}
@@ -442,7 +442,7 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 		key.family = ENDPOINT_KEY_IPV4;
 
 		cilium_dbg(skb, DBG_NETDEV_ENCAP4, key.ip4, secctx);
-		ret = encap_and_redirect(skb, &key, secctx, TRACE_PAYLOAD_LEN);
+		ret = encap_and_redirect(skb, &key, secctx, TRACE_PAYLOAD_LEN, true);
 		if (ret != DROP_NO_TUNNEL_ENDPOINT)
 			return ret;
 	}
@@ -514,6 +514,21 @@ int from_netdev(struct __sk_buff *skb)
 	__u32 identity = 0;
 	int ret;
 
+#ifdef ENABLE_IPSEC
+	if (1) {
+		__u32 magic = skb->mark & MARK_MAGIC_HOST_MASK;
+
+		if (magic == MARK_MAGIC_ENCRYPT) {
+			__u32 seclabel, tunnel_endpoint = 0;
+
+			seclabel = get_identity(skb);
+			tunnel_endpoint = skb->cb[4];
+			skb->mark = 123;
+			bpf_clear_cb(skb);
+			return encap_and_redirect_with_nodeid(skb, tunnel_endpoint, seclabel, TRACE_PAYLOAD_LEN);
+		}
+	}
+#endif
 	bpf_clear_cb(skb);
 
 #ifdef FROM_HOST
