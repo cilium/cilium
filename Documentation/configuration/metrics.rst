@@ -88,10 +88,12 @@ Policy L7 (HTTP/Kafka)
 ----------------------
 
 * ``proxy_redirects``: Number of redirects installed for endpoints, labeled by protocol
+* ``proxy_upstream_reply_seconds``: Seconds waited for upstream server to reply to a request
 * ``policy_l7_parse_errors_total``: Number of total L7 parse errors
 * ``policy_l7_forwarded_total``: Number of total L7 forwarded requests/responses
 * ``policy_l7_denied_total``: Number of total L7 denied requests/responses due to policy
 * ``policy_l7_received_total``: Number of total L7 received requests/responses
+
 
 Events external to Cilium
 -------------------------
