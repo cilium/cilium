@@ -48,6 +48,7 @@ type IPIdentityPair struct {
 	IP       net.IP          `json:"IP"`
 	Mask     net.IPMask      `json:"Mask"`
 	HostIP   net.IP          `json:"HostIP"`
+	CiliumIP net.IP          `json:"CiliumIP"`
 	ID       NumericIdentity `json:"ID"`
 	Metadata string          `json:"Metadata"`
 }

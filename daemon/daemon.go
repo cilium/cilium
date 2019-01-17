@@ -788,7 +788,7 @@ func (d *Daemon) syncLXCMap() error {
 
 		// Upsert will not propagate (reserved:foo->ID) mappings across the cluster,
 		// and we specifically don't want to do so.
-		ipcache.IPIdentityCache.Upsert(ipIDPair.PrefixString(), nil, ipcache.Identity{
+		ipcache.IPIdentityCache.Upsert(ipIDPair.PrefixString(), nil, nil, ipcache.Identity{
 			ID:     ipIDPair.ID,
 			Source: ipcache.FromAgentLocal,
 		})

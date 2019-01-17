@@ -76,7 +76,7 @@ func NewListener(d datapath) *BPFListener {
 // IP->ID mapping will replace any existing contents; knowledge of the old pair
 // is not required to upsert the new pair.
 func (l *BPFListener) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidr net.IPNet,
-	oldHostIP, newHostIP net.IP, oldID *identity.NumericIdentity, newID identity.NumericIdentity) {
+	oldHostIP, newHostIP, ciliumIP net.IP, oldID *identity.NumericIdentity, newID identity.NumericIdentity) {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.IPAddr:       cidr,
 		logfields.Identity:     newID,

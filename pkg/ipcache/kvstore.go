@@ -165,13 +165,14 @@ func (r *kvReferenceCounter) release(key string) (err error) {
 
 // UpsertIPToKVStore updates / inserts the provided IP->Identity mapping into the
 // kvstore, which will subsequently trigger an event in NewIPIdentityWatcher().
-func UpsertIPToKVStore(IP, hostIP net.IP, ID identity.NumericIdentity, metadata string) error {
+func UpsertIPToKVStore(IP, hostIP, ciliumIP net.IP, ID identity.NumericIdentity, metadata string) error {
 	ipKey := path.Join(IPIdentitiesPath, AddressSpace, IP.String())
 	ipIDPair := identity.IPIdentityPair{
 		IP:       IP,
 		ID:       ID,
 		Metadata: metadata,
 		HostIP:   hostIP,
+		CiliumIP: ciliumIP,
 	}
 
 	marshaledIPIDPair, err := json.Marshal(ipIDPair)
@@ -383,7 +384,7 @@ restart:
 					continue
 				}
 
-				IPIdentityCache.Upsert(ipIDPair.PrefixString(), ipIDPair.HostIP, Identity{
+				IPIdentityCache.Upsert(ipIDPair.PrefixString(), ipIDPair.HostIP, ipIDPair.CiliumIP, Identity{
 					ID:     ipIDPair.ID,
 					Source: FromKVStore,
 				})
