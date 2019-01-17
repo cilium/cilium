@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	policyApi "github.com/cilium/cilium/pkg/policy/api"
@@ -140,15 +141,21 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 		//   can lookup the endpoint related to it
 		// srcAddr and dstAddr should match the packet reported on (i.e. the
 		// endpoint is srcAddr for requests, and dstAddr for responses).
-		func(lookupTime time.Time, srcAddr, dstAddr string, msg *dns.Msg, protocol string, allowed bool, proxyErr error) error {
+		func(lookupTime time.Time, srcAddr, dstAddr string, msg *dns.Msg, protocol string, allowed bool, stat dnsproxy.ProxyRequestContext) error {
 			var protoID = u8proto.ProtoIDs[strings.ToLower(protocol)]
 
 			var verdict accesslog.FlowVerdict
 			var reason string
 			switch {
-			case proxyErr != nil:
+
+			case stat.IsTimeout():
+				metrics.ProxyUpstreamTime.WithLabelValues(metrics.ErrorTimeout, metrics.L7DNS).Observe(
+					stat.UpstreamTime.Total().Seconds())
+			case stat.Err != nil:
 				verdict = accesslog.VerdictError
-				reason = "Error: " + proxyErr.Error()
+				metrics.ProxyUpstreamTime.WithLabelValues(metrics.ErrorProxy, metrics.L7DNS).Observe(
+					stat.UpstreamTime.Total().Seconds())
+				reason = "Error: " + stat.Err.Error()
 			case allowed:
 				verdict = accesslog.VerdictForwarded
 				reason = "Allowed by policy"
@@ -246,6 +253,9 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 				if err != nil {
 					log.WithError(err).Error("error updating internal DNS cache for rule generation")
 				}
+
+				metrics.ProxyUpstreamTime.WithLabelValues("", metrics.L7DNS).Observe(
+					stat.UpstreamTime.Total().Seconds())
 			}
 
 			return nil
