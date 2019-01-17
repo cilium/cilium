@@ -489,11 +489,11 @@ static inline bool __inline__ handle_identity_from_host(struct __sk_buff *skb, _
 	 * destination endpoint evaluates the policy. As the packet
 	 * would loop otherwise. */
 	if (magic == MARK_MAGIC_PROXY_INGRESS) {
-		*identity = get_identity_via_proxy(skb);
+		*identity = get_identity(skb);
 		skb->tc_index |= TC_INDEX_F_SKIP_PROXY;
 		from_proxy = true;
 	} else if (magic == MARK_MAGIC_PROXY_EGRESS) {
-		*identity = get_identity_via_proxy(skb);
+		*identity = get_identity(skb);
 		from_proxy = true;
 	} else if (magic == MARK_MAGIC_HOST) {
 		*identity = HOST_ID;
