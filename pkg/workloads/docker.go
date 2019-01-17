@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpoint/connector"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/ipam"
@@ -40,14 +41,18 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/plugins/cilium-docker/driver"
 
 	"context"
+	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/docker/engine-api/client"
 	dTypes "github.com/docker/engine-api/types"
 	dTypesEvents "github.com/docker/engine-api/types/events"
 	dNetwork "github.com/docker/engine-api/types/network"
 	"github.com/sirupsen/logrus"
+	"github.com/vishvananda/netlink"
 	ctx "golang.org/x/net/context"
+	"golang.org/x/sys/unix"
 	k8sDockerLbls "k8s.io/kubernetes/pkg/kubelet/types"
 )
 
@@ -419,6 +424,8 @@ func (d *dockerClient) getCiliumIPv6(networks map[string]*dNetwork.EndpointSetti
 }
 
 func (d *dockerClient) handleCreateWorkload(id string, retry bool) {
+	var sandboxKey string // path to the container network namespace
+
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.ContainerID: shortContainerID(id),
 		fieldMaxRetry:         EndpointCorrelationMaxRetries,
@@ -480,6 +487,7 @@ func (d *dockerClient) handleCreateWorkload(id string, retry bool) {
 		ep.SetContainerID(id)
 
 		if dockerContainer.NetworkSettings != nil {
+			sandboxKey = dockerContainer.NetworkSettings.SandboxKey
 			id := dockerContainer.NetworkSettings.EndpointID
 			if id != "" {
 				ep.SetDockerEndpointID(id)
@@ -494,6 +502,83 @@ func (d *dockerClient) handleCreateWorkload(id string, retry bool) {
 			if dockerContainer.Config != nil {
 				ep.SetK8sNamespace(k8sDockerLbls.GetPodNamespace(dockerContainer.Config.Labels))
 				ep.SetK8sPodName(k8sDockerLbls.GetPodName(dockerContainer.Config.Labels))
+			}
+		}
+
+		// Ipvlan post-initialization for Docker libnetwork.
+		//
+		// Unfortunately, libnetwork itself moves a netdev to netns of a container
+		// (after we respond to a `JoinEndpoint` request), so qdisc's of the netdev
+		// get flushed, thus this complexity below.
+		//
+		// To make this part idempotent (we have to, because `handleCreateWorkload`
+		// can be called many times for the same container in parallel), we can
+		// check whether the datapath map has been pinned which indicates previous
+		// successful invocation of the function for the same container.
+		if ep.GetDockerNetworkID() != "" && d.datapathMode == option.DatapathModeIpvlan {
+			if sandboxKey == "" {
+				retryLog.Warn("Unable to determine netns - SandboxKey is not set")
+				continue
+			}
+			if err := ep.LockAlive(); err == nil {
+				if !ep.IsDatapathMapPinnedLocked() {
+					var ipvlanIface string
+
+					// To access the netns, `/var/run/docker/netns` has to
+					// be bind mounted into the cilium-agent container with
+					// `rshared` option to prevent from leaking netns
+					netNs, err := ns.GetNS(sandboxKey)
+					if err != nil {
+						retryLog.WithError(err).Warn("Unable to open container netns")
+						ep.Unlock()
+						continue
+					}
+
+					// Docker doesn't report about interface used to connect to
+					// the network, so we need to scan all
+					err = netNs.Do(func(ns.NetNS) error {
+						links, err := netlink.LinkList()
+						if err != nil {
+							return err
+						}
+						for _, link := range links {
+							if link.Type() == "ipvlan" &&
+								strings.HasPrefix(link.Attrs().Name,
+									driver.ContainerInterfacePrefix) {
+								ipvlanIface = link.Attrs().Name
+							}
+						}
+						if ipvlanIface == "" {
+							return fmt.Errorf("no ipvlan link not found")
+						}
+						return nil
+					})
+					if err != nil {
+						retryLog.WithError(err).Warn("Unable to find ipvlan slave in container netns")
+						ep.Unlock()
+						continue
+					}
+
+					mapFD, mapID, err := connector.SetupIpvlanRemoteNs(netNs,
+						ipvlanIface, ipvlanIface)
+					if err != nil {
+						retryLog.WithError(err).Warn("Unable to setup ipvlan slave")
+						ep.Unlock()
+						continue
+					}
+					// Do not close the fd too early, as the subsequent pinning would
+					// fail due to the map being removed by the kernel
+					defer func() {
+						unix.Close(mapFD)
+					}()
+
+					if err = ep.SetDatapathMapIDAndPinMapLocked(mapID); err != nil {
+						retryLog.WithError(err).Warn("Unable to pin datapath map")
+						ep.Unlock()
+						continue
+					}
+				}
+				ep.Unlock()
 			}
 		}
 

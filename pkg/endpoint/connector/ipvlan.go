@@ -244,7 +244,10 @@ func SetupIpvlan(id string, mtu, masterDev int, mode string, ep *models.Endpoint
 }
 
 func setupIpvlanWithNames(lxcIfName string, mtu, masterDev int, mode netlink.IPVlanMode, ep *models.EndpointChangeRequest) (*netlink.IPVlan, *netlink.Link, error) {
-	var err error
+	var (
+		link netlink.Link
+		err  error
+	)
 
 	ipvlan := &netlink.IPVlan{
 		LinkAttrs: netlink.LinkAttrs{
@@ -279,7 +282,7 @@ func setupIpvlanWithNames(lxcIfName string, mtu, masterDev int, mode netlink.IPV
 		return nil, nil, fmt.Errorf("unable to disable %s: %s", rpFilterPath, err)
 	}
 
-	link, err := netlink.LinkByName(lxcIfName)
+	link, err = netlink.LinkByName(lxcIfName)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to lookup ipvlan slave just created: %s", err)
 	}
