@@ -156,9 +156,11 @@ func SetupIpvlanRemoteNs(netNs ns.NetNS, srcIfName, dstIfName string) (int, int,
 	err = netNs.Do(func(_ ns.NetNS) error {
 		var err error
 
-		err = link.Rename(srcIfName, dstIfName)
-		if err != nil {
-			return fmt.Errorf("failed to rename ipvlan from %q to %q: %s", srcIfName, dstIfName, err)
+		if srcIfName != dstIfName {
+			err = link.Rename(srcIfName, dstIfName)
+			if err != nil {
+				return fmt.Errorf("failed to rename ipvlan from %q to %q: %s", srcIfName, dstIfName, err)
+			}
 		}
 
 		ipvlan, err := netlink.LinkByName(dstIfName)
