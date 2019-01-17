@@ -18,6 +18,20 @@ import (
 	"github.com/cilium/cilium/pkg/datapath"
 )
 
+// Linux specific constants used in datapath to manage IPSec routing when enabled
+const (
+	// RouteTableIPSec is the default table ID to use for IPSec routing rules
+	RouteTableIPSec = 200
+
+	// RouteMarkDecrypt is the default route mark to use to indicate datapath
+	// needs to decrypt a packet.
+	RouteMarkDecrypt = 0x0D00
+
+	// RouteMarkEncrypt is the default route mark to use to indicate datapath
+	// needs to encrypt a packet.
+	RouteMarkEncrypt = 0x0E00
+)
+
 // DatapathConfiguration is the static configuration of the datapath. The
 // configuration cannot change throughout the lifetime of a datapath object.
 type DatapathConfiguration struct {
