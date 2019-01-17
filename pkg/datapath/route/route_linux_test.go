@@ -18,10 +18,12 @@ package route
 
 import (
 	"net"
+	"time"
 
-	. "gopkg.in/check.v1"
+	"github.com/cilium/cilium/pkg/testutils"
 
 	"github.com/vishvananda/netlink"
+	. "gopkg.in/check.v1"
 )
 
 func testReplaceNexthopRoute(c *C, link netlink.Link, routerNet *net.IPNet) {
@@ -58,7 +60,7 @@ func (p *RouteSuite) TestReplaceNexthopRoute(c *C) {
 	testReplaceNexthopRoute(c, link, routerNet)
 }
 
-func testReplaceRoute(c *C, prefixStr, nexthopStr string) {
+func testReplaceRoute(c *C, prefixStr, nexthopStr string, lookupTest bool) {
 	_, prefix, err := net.ParseCIDR(prefixStr)
 	c.Assert(err, IsNil)
 	c.Assert(prefix, Not(IsNil))
@@ -86,11 +88,22 @@ func testReplaceRoute(c *C, prefixStr, nexthopStr string) {
 	err = ReplaceRoute(rt)
 	c.Assert(err, IsNil)
 
+	if lookupTest {
+		// Account for minimal kernel race condition where route is not
+		// yet available
+		c.Assert(testutils.WaitUntil(func() bool {
+			installedRoute, err := Lookup(rt)
+			c.Assert(err, IsNil)
+			return installedRoute != nil
+		}, 5*time.Second), IsNil)
+	}
+
 	err = DeleteRoute(rt)
 	c.Assert(err, IsNil)
 }
 
 func (p *RouteSuite) TestReplaceRoute(c *C) {
-	testReplaceRoute(c, "2.2.0.0/16", "1.2.3.4")
-	testReplaceRoute(c, "f00d::a02:200:0:0/96", "f00d::a02:100:0:815b")
+	testReplaceRoute(c, "2.2.0.0/16", "1.2.3.4", true)
+	// lookup test broken for IPv6 as long as use lo as device
+	testReplaceRoute(c, "f00d::a02:200:0:0/96", "f00d::a02:100:0:815b", false)
 }
