@@ -45,6 +45,15 @@ const (
 	// BuildStateRunning is the value of LabelBuildState to describe
 	// the number of builds currently running
 	BuildStateRunning = "running"
+
+	// ErrorTimeout is the value used to notify timeout errors.
+	ErrorTimeout = "timeout"
+
+	// ErrorProxy is the value used to notify errors on Proxy.
+	ErrorProxy = "proxy"
+
+	//L7DNS is the value used to report DNS label on metrics
+	L7DNS = "dns"
 )
 
 var (
@@ -296,6 +305,13 @@ var (
 		Help:      "Number of total L7 received requests/responses",
 	})
 
+	// ProxyUpstreamTime is how long the upstream server took to reply
+	ProxyUpstreamTime = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: Namespace,
+		Name:      "proxy_upstream_reply_seconds",
+		Help:      "Seconds waited for upstream server to reply to a request",
+	}, []string{"error", LabelProtocolL7})
+
 	// L3-L4 statistics
 
 	// DropCount is the total drop requests,
@@ -469,6 +485,7 @@ func init() {
 	MustRegister(ProxyForwarded)
 	MustRegister(ProxyDenied)
 	MustRegister(ProxyReceived)
+	MustRegister(ProxyUpstreamTime)
 
 	MustRegister(DropCount)
 	MustRegister(ForwardCount)
