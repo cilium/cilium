@@ -296,6 +296,13 @@ var (
 		Help:      "Number of total L7 received requests/responses",
 	})
 
+	// ProxyUpstreamTime is how long the upstream server took to reply
+	ProxyUpstreamTime = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: Namespace,
+		Name:      "proxy_upstream_reply_seconds",
+		Help:      "Seconds that take to upstream server to reply to a request",
+	}, []string{"error", LabelProtocolL7})
+
 	// L3-L4 statistics
 
 	// DropCount is the total drop requests,
@@ -469,6 +476,7 @@ func init() {
 	MustRegister(ProxyForwarded)
 	MustRegister(ProxyDenied)
 	MustRegister(ProxyReceived)
+	MustRegister(ProxyUpstreamTime)
 
 	MustRegister(DropCount)
 	MustRegister(ForwardCount)

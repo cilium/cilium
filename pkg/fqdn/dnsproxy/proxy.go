@@ -26,7 +26,9 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/regexpmap"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/spanstat"
 
 	"github.com/miekg/dns"
 	"github.com/sirupsen/logrus"
@@ -45,6 +47,7 @@ const (
 	// ProxyBindRetryInterval is how long to wait between attempts to bind to the
 	// proxy address:port
 	ProxyBindRetryInterval = ProxyBindTimeout / 5
+	metricsL7Proto         = "dns"
 )
 
 // DNSProxy is a L7 proxy for DNS traffic. It keeps a list of allowed DNS
@@ -289,6 +292,8 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	}
 	scopedLog.WithField("server", targetServerAddr).Debug("Found target server to of DNS request")
 
+	stat := spanstat.SpanStat{}
+	stat.Start()
 	// The allowed check is first because we don't want to use DNS responses that
 	// endpoints are not allowed to see.
 	// Note: The cache doesn't know about the source of the DNS data (yet) and so
@@ -323,24 +328,28 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	request.Id = dns.Id() // force a random new ID for this request
 	response, _, err := client.Exchange(request, targetServerAddr)
 	if err != nil {
+		stat.End(false)
+		metricError := "networkError"
 		// Timeouts are a special case. They are "normal operation" from our
 		// perspective and we pass them on by not responding.
 		netErr, isNetErr := err.(net.Error)
 		if isNetErr && netErr.Timeout() {
 			scopedLog.WithError(err).Warn("Timeout waiting for response to forwarded proxied DNS lookup")
-			return
+			metricError = "timeout"
+		} else {
+			scopedLog.WithError(err).Error("Cannot forward proxied DNS lookup")
+			p.NotifyOnDNSMsg(time.Now(), endpointAddr, targetServerAddr, request, protocol, false,
+				fmt.Errorf("Cannot forward proxied DNS lookup: %s", err))
+			p.sendRefused(scopedLog, w, request)
 		}
-
-		scopedLog.WithError(err).Error("Cannot forward proxied DNS lookup")
-		p.NotifyOnDNSMsg(time.Now(), endpointAddr, targetServerAddr, request, protocol, false,
-			fmt.Errorf("Cannot forward proxied DNS lookup: %s", err))
-		p.sendRefused(scopedLog, w, request)
+		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metricsL7Proto).Observe(stat.Total().Seconds())
 		return
 	}
 
 	scopedLog.WithField(logfields.Response, response).Debug("Received DNS response to proxied lookup")
 	p.NotifyOnDNSMsg(time.Now(), targetServerAddr, endpointAddr, response, protocol, true, nil)
-
+	stat.End(true)
+	metrics.ProxyUpstreamTime.WithLabelValues("", metricsL7Proto).Observe(stat.Total().Seconds())
 	scopedLog.Debug("Responding to original DNS query")
 	// restore the ID to the one in the inital request so it matches what the requester expects.
 	response.Id = requestID
