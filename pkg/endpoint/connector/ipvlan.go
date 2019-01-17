@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/containernetworking/plugins/pkg/ns"
 
@@ -215,19 +216,27 @@ func getIpvlanMasterName() string {
 }
 
 // SetupIpvlan creates an ipvlan slave in L3 based on the master device.
-func SetupIpvlan(id string, mtu, masterDev int, mode netlink.IPVlanMode, ep *models.EndpointChangeRequest) (*netlink.IPVlan, *netlink.Link, string, error) {
+func SetupIpvlan(id string, mtu, masterDev int, mode string, ep *models.EndpointChangeRequest) (*netlink.IPVlan, *netlink.Link, string, error) {
+	var ipvlanMode netlink.IPVlanMode
+
 	if id == "" {
 		return nil, nil, "", fmt.Errorf("invalid: empty ID")
 	}
 	if masterDev == 0 {
 		return nil, nil, "", fmt.Errorf("invalid: master device ifindex")
 	}
-	if mode != netlink.IPVLAN_MODE_L3 && mode != netlink.IPVLAN_MODE_L3S {
-		return nil, nil, "", fmt.Errorf("invalid: ipvlan operation mode")
+
+	switch mode {
+	case option.OperationModeL3:
+		ipvlanMode = netlink.IPVLAN_MODE_L3
+	case option.OperationModeL3S:
+		ipvlanMode = netlink.IPVLAN_MODE_L3S
+	default:
+		return nil, nil, "", fmt.Errorf("invalid or unsupported ipvlan operation mode: %s", mode)
 	}
 
 	tmpIfName := Endpoint2TempRandIfName()
-	ipvlan, link, err := setupIpvlanWithNames(tmpIfName, mtu, masterDev, mode, ep)
+	ipvlan, link, err := setupIpvlanWithNames(tmpIfName, mtu, masterDev, ipvlanMode, ep)
 
 	return ipvlan, link, tmpIfName, err
 }
