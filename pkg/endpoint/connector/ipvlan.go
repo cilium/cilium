@@ -237,7 +237,7 @@ func SetupIpvlan(id string, mtu, masterDev int, mode string, ep *models.Endpoint
 		return nil, nil, "", fmt.Errorf("invalid or unsupported ipvlan operation mode: %s", mode)
 	}
 
-	tmpIfName := Endpoint2TempRandIfName()
+	tmpIfName := Endpoint2TempIfName(id)
 	ipvlan, link, err := setupIpvlanWithNames(tmpIfName, mtu, masterDev, ipvlanMode, ep)
 
 	return ipvlan, link, tmpIfName, err
