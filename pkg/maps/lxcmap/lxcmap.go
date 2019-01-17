@@ -143,8 +143,9 @@ func (v *EndpointInfo) String() string {
 		return fmt.Sprintf("(localhost)")
 	}
 
-	return fmt.Sprintf("id=%-5d ifindex=%-3d mac=%s nodemac=%s",
+	return fmt.Sprintf("id=%-5d flags=0x%04X ifindex=%-3d mac=%s nodemac=%s",
 		v.LxcID,
+		v.Flags,
 		v.IfIndex,
 		v.MAC,
 		v.NodeMAC,
