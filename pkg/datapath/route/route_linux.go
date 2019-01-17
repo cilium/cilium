@@ -83,6 +83,36 @@ func ipFamily(ip net.IP) int {
 	return netlink.FAMILY_V4
 }
 
+// Lookup attempts to find the linux route based on the route specification.
+// If the route exists, the route is returned, otherwise an error is returned.
+func Lookup(route Route) (*Route, error) {
+	link, err := netlink.LinkByName(route.Device)
+	if err != nil {
+		return nil, fmt.Errorf("unable to find interface '%s' of route: %s", route.Device, err)
+	}
+
+	routeSpec := route.getNetlinkRoute()
+
+	nlRoute := lookup(link, &routeSpec)
+	if nlRoute == nil {
+		return nil, nil
+	}
+
+	result := &Route{
+		Local:   nlRoute.Src,
+		Device:  link.Attrs().Name,
+		MTU:     nlRoute.MTU,
+		Scope:   nlRoute.Scope,
+		Nexthop: &nlRoute.Gw,
+	}
+
+	if nlRoute.Dst != nil {
+		result.Prefix = *nlRoute.Dst
+	}
+
+	return result, nil
+}
+
 // lookup finds a particular route as specified by the filter which points
 // to the specified device. The filter route can have the following fields set:
 //  - Dst
@@ -106,7 +136,7 @@ func lookup(link netlink.Link, route *netlink.Route) *netlink.Route {
 
 		aMaskLen, aMaskBits := r.Dst.Mask.Size()
 		bMaskLen, bMaskBits := route.Dst.Mask.Size()
-		if r.LinkIndex == route.LinkIndex && r.Scope == route.Scope &&
+		if r.Scope == route.Scope &&
 			aMaskLen == bMaskLen && aMaskBits == bMaskBits &&
 			r.Dst.IP.Equal(route.Dst.IP) && r.Gw.Equal(route.Gw) {
 			return &r
