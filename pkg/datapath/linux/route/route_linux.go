@@ -56,9 +56,9 @@ func (r *Route) getNetlinkRoute() netlink.Route {
 		rt.Gw = *r.Nexthop
 	}
 
-	if r.Scope != 0 {
+	if r.Scope != netlink.SCOPE_UNIVERSE {
 		rt.Scope = r.Scope
-	} else if r.Scope == 0 && r.Type == RTN_LOCAL {
+	} else if r.Scope == netlink.SCOPE_UNIVERSE && r.Type == RTN_LOCAL {
 		rt.Scope = netlink.SCOPE_HOST
 	}
 
@@ -301,4 +301,42 @@ func Delete(route Route) error {
 	}
 
 	return nil
+}
+
+func lookupRule(fwmark int, table int) (bool, error) {
+	rules, err := netlink.RuleList(0)
+	if err != nil {
+		return false, err
+	}
+	for _, r := range rules {
+		if r.Mark == fwmark && r.Table == table {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// ReplaceRule add or replace rule in the routing table using a mark to indicate
+// table. Used with BPF datapath to set mark and direct packets to route table.
+func ReplaceRule(fwmark int, table int) error {
+	exists, err := lookupRule(fwmark, table)
+	if err != nil {
+		return err
+	}
+	if exists == true {
+		return nil
+	}
+	rule := netlink.NewRule()
+	rule.Mark = fwmark
+	rule.Table = table
+	rule.Priority = 1
+	return netlink.RuleAdd(rule)
+}
+
+// DeleteRule delete a mark based rule from the routing table.
+func DeleteRule(fwmark int, table int) error {
+	rule := netlink.NewRule()
+	rule.Mark = fwmark
+	rule.Table = table
+	return netlink.RuleDel(rule)
 }
