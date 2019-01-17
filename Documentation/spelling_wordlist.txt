@@ -324,6 +324,7 @@ lwt
 macOS
 Majkowski
 Marek
+matchPattern
 mattr
 mc
 Meetup
