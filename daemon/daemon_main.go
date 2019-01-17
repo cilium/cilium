@@ -417,6 +417,9 @@ func init() {
 	flags.String(option.EnvoyLog, "", "Path to a separate Envoy log file, if any")
 	option.BindEnv(option.EnvoyLog)
 
+	flags.Bool(option.EnableIPSecName, defaults.EnableIPSec, "Enable IPSec support")
+	option.BindEnv(option.EnableIPSecName)
+
 	flags.String(option.HTTP403Message, "", "Message returned in proxy L7 403 body")
 	flags.MarkHidden(option.HTTP403Message)
 	option.BindEnv(option.HTTP403Message)
