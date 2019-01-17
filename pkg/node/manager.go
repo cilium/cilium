@@ -174,11 +174,25 @@ func (cc *clusterConfiguation) replaceHostRoutes() {
 	}
 }
 
+func (cc *clusterConfiguation) replaceHostRules() error {
+	err := routeUtils.ReplaceRule(defaults.RouteMarkDecrypt, defaults.RouteTableIPSec)
+	if err != nil {
+		log.WithError(err).Error("Replace route rule failed")
+		return err
+	}
+	err = routeUtils.ReplaceRule(defaults.RouteMarkEncrypt, defaults.RouteTableIPSec)
+	if err != nil {
+		log.WithError(err).Error("Replace route rule failed")
+	}
+	return err
+}
+
 func (cc *clusterConfiguation) installHostRoutes(mtuConfig mtu.Configuration) {
 	cc.Lock()
 	cc.mtuConfig = mtuConfig
 	cc.ciliumHostInitialized = true
 	cc.replaceHostRoutes()
+	cc.replaceHostRules()
 	cc.Unlock()
 }
 

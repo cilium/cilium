@@ -121,4 +121,15 @@ const (
 	// NodeInitTimeout is the time the agent is waiting until giving up to
 	// initialize the local node with the kvstore
 	NodeInitTimeout = 15 * time.Minute
+
+	// RouteTableIPSec is the default table ID to use for IPSec routing rules
+	RouteTableIPSec = 200
+
+	// RouteMarkDecrypt is the default route mark to use to indicate datapath
+	// needs to decrypt a packet.
+	RouteMarkDecrypt = 0x0D00
+
+	// RouteMarkEncrypt is the default route mark to use to indicate datapath
+	// needs to encrypt a packet.
+	RouteMarkEncrypt = 0x0E00
 )
