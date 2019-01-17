@@ -39,6 +39,10 @@ type linuxNodeHandler struct {
 	nodes          map[node.Identity]*node.Node
 }
 
+var (
+	RTN_LOCAL = 0x2 // Define RTN_LOCAL to avoid another import
+)
+
 // NewNodeHandler returns a new node handler to handle node events and
 // implement the implications in the Linux datapath
 func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing datapath.NodeAddressing) datapath.NodeHandler {
@@ -414,7 +418,16 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *node.Node) error {
 	}
 
 	if n.nodeConfig.EnableIPSec {
+		new4Net := &net.IPNet{IP: newIP4, Mask: newNode.IPv4AllocCIDR.Mask}
+		new6Net := &net.IPNet{IP: newIP6, Mask: newNode.IPv6AllocCIDR.Mask}
 		n.replaceHostRules()
+		if newNode.IsLocal() {
+			n.replaceNodeIPSecInRoute(new4Net)
+			n.replaceNodeIPSecInRoute(new6Net)
+		} else {
+			n.replaceNodeIPSecOutRoute(new4Net)
+			n.replaceNodeIPSecOutRoute(new6Net)
+		}
 	}
 
 	if n.nodeConfig.EnableEncapsulation {
@@ -510,6 +523,76 @@ func (n *linuxNodeHandler) replaceHostRules() error {
 		log.WithError(err).Error("Replace route rule failed")
 	}
 	return err
+}
+
+func (n *linuxNodeHandler) createNodeIPSecInRoute(ip *net.IPNet) route.Route {
+	return route.Route{
+		Nexthop: nil,
+		Device:  TunnelDeviceName,
+		Prefix:  *ip,
+		Table:   RouteTableIPSec,
+		Proto:   RouteProtocolIPSec,
+		Type:    RTN_LOCAL,
+	}
+}
+
+func (n *linuxNodeHandler) createNodeIPSecOutRoute(ip *net.IPNet) route.Route {
+	var nexthop net.IP
+
+	if ip.IP.To4() != nil {
+		nexthop = n.nodeAddressing.IPv4().Router()
+	} else {
+		nexthop = n.nodeAddressing.IPv6().Router()
+	}
+
+	return route.Route{
+		Nexthop: &nexthop,
+		Device:  n.datapathConfig.HostDevice,
+		Prefix:  *ip,
+		Table:   RouteTableIPSec,
+	}
+}
+
+// replaceNodeIPSecoOutRoute verifies whether the node route is properly covered by a
+// route installed in the host's routing table. If unavailable, the route is
+// installed on the host.
+func (n *linuxNodeHandler) replaceNodeIPSecOutRoute(ip *net.IPNet) {
+	if ip == nil {
+		return
+	}
+
+	if ip.IP.To4() != nil {
+		if !n.nodeConfig.EnableIPv4 {
+			return
+		}
+	} else {
+		if !n.nodeConfig.EnableIPv6 {
+			return
+		}
+	}
+
+	route.Upsert(n.createNodeIPSecOutRoute(ip), n.nodeConfig.MtuConfig)
+}
+
+// replaceNodeIPSecoInRoute verifies whether the node route is properly covered by a
+// route installed in the host's routing table. If unavailable, the route is
+// installed on the host.
+func (n *linuxNodeHandler) replaceNodeIPSecInRoute(ip *net.IPNet) {
+	if ip == nil {
+		return
+	}
+
+	if ip.IP.To4() != nil {
+		if !n.nodeConfig.EnableIPv4 {
+			return
+		}
+	} else {
+		if !n.nodeConfig.EnableIPv6 {
+			return
+		}
+	}
+
+	route.Upsert(n.createNodeIPSecInRoute(ip), n.nodeConfig.MtuConfig)
 }
 
 // NodeConfigurationChanged is called when the LocalNodeConfiguration has changed
