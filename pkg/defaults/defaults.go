@@ -140,4 +140,14 @@ const (
 
 	// DatapathMode is the default value for the datapath mode.
 	DatapathMode = "veth"
+	// RouteTableIPSec is the default table ID to use for IPSec routing rules
+	RouteTableIPSec = 200
+
+	// RouteMarkDecrypt is the default route mark to use to indicate datapath
+	// needs to decrypt a packet.
+	RouteMarkDecrypt = 0x0D00
+
+	// RouteMarkEncrypt is the default route mark to use to indicate datapath
+	// needs to encrypt a packet.
+	RouteMarkEncrypt = 0x0E00
 )

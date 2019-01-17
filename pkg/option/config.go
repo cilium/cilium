@@ -481,6 +481,12 @@ type IpvlanConfig struct {
 	OperationMode     string
 }
 
+type IPSecConfig struct {
+	RouteEncrypt int
+	RouteDecrypt int
+	RouteTable   int
+}
+
 // DaemonConfig is the configuration used by Daemon.
 type DaemonConfig struct {
 	BpfDir          string     // BPF template files directory
@@ -753,6 +759,12 @@ var (
 		FixedIdentityMapping:     make(map[string]string),
 		KVStoreOpt:               make(map[string]string),
 		LogOpt:                   make(map[string]string),
+	}
+
+	IPSecRouteConfig = &IPSecConfig{
+		RouteEncrypt: defaults.RouteMarkEncrypt,
+		RouteDecrypt: defaults.RouteMarkDecrypt,
+		RouteTable:   defaults.RouteTableIPSec,
 	}
 )
 
