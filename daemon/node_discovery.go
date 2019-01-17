@@ -78,6 +78,7 @@ func newNodeDiscovery(manager *nodemanager.Manager, mtuConfig mtu.Configuration)
 			EnableAutoDirectRouting: option.Config.EnableAutoDirectRouting,
 			EnableLocalNodeRoute:    enableLocalNodeRoute(),
 			AuxiliaryPrefixes:       auxPrefixes,
+			EnableIPSec:             option.Config.EnableIPSec,
 		},
 		localNode: node.Node{
 			Source: node.FromLocalNode,
