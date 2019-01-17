@@ -124,6 +124,9 @@ const (
 	// PreAllocateMaps is the default value for BPF map preallocation
 	PreAllocateMaps = true
 
+	// EnableIPSec is the default value for IPSec enablement
+	EnableIPSec = false
+
 	// MonitorQueueSize is the default value for the monitor queue size
 	MonitorQueueSize = 32768
 
