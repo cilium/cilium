@@ -79,3 +79,4 @@
 #endif
 #define MONITOR_AGGREGATION 5
 #define MTU 1500
+#define ENABLE_IPSEC
