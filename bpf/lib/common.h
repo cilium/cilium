@@ -236,6 +236,11 @@ enum {
 
 #define IS_ERR(x) (unlikely((x < 0) || (x == TC_ACT_SHOT)))
 
+/* Cilium IPSec code to indicate packet needs to be handled
+ * by IPSec stack. Maps to TC_ACT_OK.
+ */
+#define IPSEC_ENDPOINT TC_ACT_OK
+
 /* Cilium error codes, must NOT overlap with TC return codes.
  * These also serve as drop reasons for metrics,
  * where reason > 0 corresponds to -(DROP_*)
@@ -301,6 +306,7 @@ enum {
 #define MARK_MAGIC_PROXY_INGRESS	0xA00
 #define MARK_MAGIC_PROXY_EGRESS		0xB00
 #define MARK_MAGIC_HOST			0xC00
+#define MARK_MAGIC_ENCRYPT		0xE00
 
 /**
  * get_identity - returns source identity from the mark field
@@ -308,6 +314,15 @@ enum {
 static inline int __inline__ get_identity(struct __sk_buff *skb)
 {
 	return ((skb->mark & 0xFF) << 16) | skb->mark >> 16;
+}
+
+/**
+ * set_identity - pushes 24 bit identity into skb mark value.
+ */
+static inline void __inline__ set_identity(struct __sk_buff *skb, __u32 identity)
+{
+	skb->mark = skb->mark & MARK_MAGIC_HOST_MASK;
+	skb->mark |= ((identity & 0xFFFF) << 16) | ((identity & 0xFF0000) >> 16);
 }
 
 /*
