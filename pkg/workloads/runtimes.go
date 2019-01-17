@@ -53,6 +53,8 @@ const (
 
 const (
 	epOpt = "endpoint"
+	// DatapathModeOpt is the option name for datapath mode
+	DatapathModeOpt = "datapath-mode"
 )
 
 type workloadRuntimeOpt struct {
@@ -188,8 +190,14 @@ func GetRuntimeOptions() string {
 
 	for _, cr := range crs {
 		rb := registeredWorkloads[workloadRuntimeType(cr)]
-		for k, v := range rb.getConfig() {
-			crtStr = append(crtStr, fmt.Sprintf("%s=%s", k, v))
+		cfg := rb.getConfig()
+		keys := make([]string, 0, len(cfg))
+		for k := range cfg {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			crtStr = append(crtStr, fmt.Sprintf("%s=%s", k, cfg[k]))
 		}
 	}
 	return strings.Join(crtStr, ",")

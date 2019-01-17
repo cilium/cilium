@@ -904,7 +904,10 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 
 	ctmap.InitMapInfo(option.Config.CTMapEntriesGlobalTCP, option.Config.CTMapEntriesGlobalAny)
 
-	if err := workloads.Setup(option.Config.Workloads, map[string]string{}); err != nil {
+	wOpts := map[string]string{
+		workloads.DatapathModeOpt: option.Config.DatapathMode,
+	}
+	if err := workloads.Setup(option.Config.Workloads, wOpts); err != nil {
 		return nil, nil, fmt.Errorf("unable to setup workload: %s", err)
 	}
 
