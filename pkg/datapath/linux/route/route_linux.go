@@ -34,14 +34,22 @@ const (
 	// RouteReplaceRetryInterval is the interval in which
 	// RouteReplaceMaxTries attempts are attempted
 	RouteReplaceRetryInterval = 100 * time.Millisecond
+
+	// RTN_LOCAL is a route type used to indicate packet should be "routed"
+	// locally and passed up the stack. Is used by IPSec to force encrypted
+	// packets to pass through XFRM layer.
+	RTN_LOCAL = 0x2
 )
 
 // getNetlinkRoute returns the route configuration as netlink.Route
 func (r *Route) getNetlinkRoute() netlink.Route {
 	rt := netlink.Route{
-		Dst: &r.Prefix,
-		Src: r.Local,
-		MTU: r.MTU,
+		Dst:      &r.Prefix,
+		Src:      r.Local,
+		MTU:      r.MTU,
+		Protocol: r.Proto,
+		Table:    r.Table,
+		Type:     r.Type,
 	}
 
 	if r.Nexthop != nil {
@@ -50,6 +58,8 @@ func (r *Route) getNetlinkRoute() netlink.Route {
 
 	if r.Scope != 0 {
 		rt.Scope = r.Scope
+	} else if r.Scope == 0 && r.Type == RTN_LOCAL {
+		rt.Scope = netlink.SCOPE_HOST
 	}
 
 	return rt
@@ -124,6 +134,10 @@ func lookup(link netlink.Link, route *netlink.Route) *netlink.Route {
 		}
 
 		if route.Dst != nil && r.Dst == nil {
+			continue
+		}
+
+		if route.Table != 0 && route.Table != r.Table {
 			continue
 		}
 
