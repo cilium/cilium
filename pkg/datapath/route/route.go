@@ -29,7 +29,10 @@ type Route struct {
 	Local   net.IP
 	Device  string
 	MTU     int
+	Proto   int
 	Scope   netlink.Scope
+	Table   int
+	Type    int
 }
 
 func (r *Route) getLogger() *logrus.Entry {
