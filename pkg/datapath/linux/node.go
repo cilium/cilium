@@ -413,6 +413,10 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *node.Node) error {
 		n.deleteDirectRoute(newNode.IPv6AllocCIDR, newIP6)
 	}
 
+	if n.nodeConfig.EnableIPSec {
+		n.replaceHostRules()
+	}
+
 	if n.nodeConfig.EnableEncapsulation {
 		// Update the tunnel mapping of the node. In case the
 		// node has changed its CIDR range, a new entry in the
@@ -493,6 +497,19 @@ func (n *linuxNodeHandler) updateOrRemoveClusterRoute(addressing datapath.NodeAd
 	} else if rt, _ := n.lookupNodeRoute(allocCIDR); rt != nil {
 		n.deleteNodeRoute(allocCIDR)
 	}
+}
+
+func (n *linuxNodeHandler) replaceHostRules() error {
+	err := route.ReplaceRule(RouteMarkDecrypt, RouteTableIPSec)
+	if err != nil {
+		log.WithError(err).Error("Replace route rule failed")
+		return err
+	}
+	err = route.ReplaceRule(RouteMarkEncrypt, RouteTableIPSec)
+	if err != nil {
+		log.WithError(err).Error("Replace route rule failed")
+	}
+	return err
 }
 
 // NodeConfigurationChanged is called when the LocalNodeConfiguration has changed
