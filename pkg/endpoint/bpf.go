@@ -203,7 +203,6 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 
 	fw.WriteString(common.FmtDefineAddress("NODE_MAC", e.NodeMAC))
 	fmt.Fprintf(fw, "#define LXC_ID %#x\n", e.ID)
-	fmt.Fprintf(fw, "#define LXC_ID_NB %#x\n", byteorder.HostToNetwork(e.ID))
 	if e.SecurityIdentity != nil {
 		fmt.Fprintf(fw, "#define SECLABEL %s\n", e.SecurityIdentity.ID.StringID())
 		fmt.Fprintf(fw, "#define SECLABEL_NB %#x\n", byteorder.HostToNetwork(e.SecurityIdentity.ID.Uint32()))

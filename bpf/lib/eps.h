@@ -98,7 +98,6 @@ ipcache_lookup4(struct bpf_elf_map *map, __be32 addr, __u32 prefix)
 	return map_lookup_elem(map, &key);
 }
 
-#if defined LXC_ID || defined SOCKMAP
 #ifndef HAVE_LPM_MAP_TYPE
 /* Define a function with the following NAME which iterates through PREFIXES
  * (a list of integers ordered from high to low representing prefix length),
@@ -121,10 +120,14 @@ _Pragma("unroll")							\
 									\
 	return NULL;							\
 }
+#ifdef IPCACHE6_PREFIXES
 LPM_LOOKUP_FN(lookup_ip6_remote_endpoint, union v6addr *, IPCACHE6_PREFIXES,
 	      IPCACHE_MAP, ipcache_lookup6)
+#endif
+#ifdef IPCACHE4_PREFIXES
 LPM_LOOKUP_FN(lookup_ip4_remote_endpoint, __be32, IPCACHE4_PREFIXES,
 	      IPCACHE_MAP, ipcache_lookup4)
+#endif
 #undef LPM_LOOKUP_FN
 #else /* HAVE_LPM_MAP_TYPE */
 #define lookup_ip6_remote_endpoint(addr) \
@@ -132,7 +135,6 @@ LPM_LOOKUP_FN(lookup_ip4_remote_endpoint, __be32, IPCACHE4_PREFIXES,
 #define lookup_ip4_remote_endpoint(addr) \
 	ipcache_lookup4(&IPCACHE_MAP, addr, V4_CACHE_KEY_LEN)
 #endif /* HAVE_LPM_MAP_TYPE */
-#endif /* LXC_ID */
 
 enum ep_cfg_flag {
 	EP_F_SKIP_POLICY_INGRESS = 1<<0,

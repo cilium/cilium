@@ -23,7 +23,6 @@
 #define LXC_IP 0xbe, 0xef, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x1, 0x1, 0x65, 0x82, 0xbc
 #define LXC_IPV4 0x10203040
 #define LXC_ID 0x1010
-#define LXC_ID_NB 0x1010
 #ifndef SECLABEL
 #define SECLABEL 0xfffff
 #define SECLABEL_NB 0xfffff
