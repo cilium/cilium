@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -224,6 +224,9 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	// Always enable L4 and L3 load balancer for now
 	fw.WriteString("#define LB_L3 1\n")
 	fw.WriteString("#define LB_L4 1\n")
+
+	// Local delivery metrics should always be set for endpoint programs.
+	fw.WriteString("#define LOCAL_DELIVERY_METRICS\n")
 
 	// Endpoint options
 	fw.WriteString(e.Options.GetFmtList())
