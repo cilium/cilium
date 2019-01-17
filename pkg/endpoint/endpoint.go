@@ -2232,10 +2232,6 @@ func (e *Endpoint) MapPin() error {
 	}
 
 	err = bpf.ObjPin(mapFd, e.BPFIpvlanMapPath())
-	if err != nil {
-		unix.Close(mapFd)
-		return err
-	}
-
-	return nil
+	unix.Close(mapFd)
+	return err
 }
