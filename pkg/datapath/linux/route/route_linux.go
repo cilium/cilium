@@ -39,9 +39,12 @@ const (
 // getNetlinkRoute returns the route configuration as netlink.Route
 func (r *Route) getNetlinkRoute() netlink.Route {
 	rt := netlink.Route{
-		Dst: &r.Prefix,
-		Src: r.Local,
-		MTU: r.MTU,
+		Dst:      &r.Prefix,
+		Src:      r.Local,
+		MTU:      r.MTU,
+		Protocol: r.Proto,
+		Table:    r.Table,
+		Type:     r.Type,
 	}
 
 	if r.Nexthop != nil {
@@ -50,6 +53,8 @@ func (r *Route) getNetlinkRoute() netlink.Route {
 
 	if r.Scope != 0 {
 		rt.Scope = r.Scope
+	} else if r.Scope == 0 && r.Type == 2 {
+		rt.Scope = netlink.SCOPE_HOST
 	}
 
 	return rt
@@ -124,6 +129,10 @@ func lookup(link netlink.Link, route *netlink.Route) *netlink.Route {
 		}
 
 		if route.Dst != nil && r.Dst == nil {
+			continue
+		}
+
+		if route.Table != r.Table {
 			continue
 		}
 
