@@ -395,8 +395,15 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *node.Node) error {
 	}
 
 	if n.nodeConfig.EnableIPSec {
+		new4Net := &net.IPNet{IP: newIP4, Mask: newNode.IPv4AllocCIDR.Mask}
+		new6Net := &net.IPNet{IP: newIP6, Mask: newNode.IPv6AllocCIDR.Mask}
 		if newNode.IsLocal() {
 			n.replaceHostRules()
+			n.replaceNodeIPSecInRoute(new4Net)
+			n.replaceNodeIPSecInRoute(new6Net)
+		} else {
+			n.replaceNodeIPSecOutRoute(new4Net)
+			n.replaceNodeIPSecOutRoute(new6Net)
 		}
 	}
 
@@ -513,6 +520,74 @@ func (n *linuxNodeHandler) replaceHostRules() error {
 		log.WithError(err).Error("Replace route rule failed")
 	}
 	return err
+}
+
+func (n *linuxNodeHandler) createNodeIPSecInRoute(ip *net.IPNet) route.Route {
+	return route.Route{
+		Nexthop: nil,
+		Device:  linux_defaults.TunnelDeviceName,
+		Prefix:  *ip,
+		Table:   linux_defaults.RouteTableIPSec,
+		Proto:   linux_defaults.RouteProtocolIPSec,
+		Type:    route.RTN_LOCAL,
+	}
+}
+
+func (n *linuxNodeHandler) createNodeIPSecOutRoute(ip *net.IPNet) route.Route {
+	var nexthop net.IP
+
+	if ip.IP.To4() != nil {
+		nexthop = n.nodeAddressing.IPv4().Router()
+	} else {
+		nexthop = n.nodeAddressing.IPv6().Router()
+	}
+
+	return route.Route{
+		Nexthop: &nexthop,
+		Device:  n.datapathConfig.HostDevice,
+		Prefix:  *ip,
+		Table:   linux_defaults.RouteTableIPSec,
+	}
+}
+
+// replaceNodeIPSecOutRoute replace the out IPSec route in the host routing table
+// with the new route. If no route exists the route is installed on the host.
+func (n *linuxNodeHandler) replaceNodeIPSecOutRoute(ip *net.IPNet) {
+	if ip == nil {
+		return
+	}
+
+	if ip.IP.To4() != nil {
+		if !n.nodeConfig.EnableIPv4 {
+			return
+		}
+	} else {
+		if !n.nodeConfig.EnableIPv6 {
+			return
+		}
+	}
+
+	route.Upsert(n.createNodeIPSecOutRoute(ip), n.nodeConfig.MtuConfig)
+}
+
+// replaceNodeIPSecoInRoute replace the in IPSec routes in the host routing table
+// with the new route. If no route exists the route is installed on the host.
+func (n *linuxNodeHandler) replaceNodeIPSecInRoute(ip *net.IPNet) {
+	if ip == nil {
+		return
+	}
+
+	if ip.IP.To4() != nil {
+		if !n.nodeConfig.EnableIPv4 {
+			return
+		}
+	} else {
+		if !n.nodeConfig.EnableIPv6 {
+			return
+		}
+	}
+
+	route.Upsert(n.createNodeIPSecInRoute(ip), n.nodeConfig.MtuConfig)
 }
 
 // NodeConfigurationChanged is called when the LocalNodeConfiguration has changed
