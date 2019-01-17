@@ -352,6 +352,11 @@ spec:
           path: /var/run/cilium
           type: DirectoryOrCreate
         name: cilium-run
+        # To keep state between restarts / upgrades for bpf maps
+      - hostPath:
+          path: /sys/fs/bpf
+          type: DirectoryOrCreate
+        name: bpf-maps
         # To read labels from CRI-O containers running in the host
       - hostPath:
           path: /var/run/crio/crio.sock
