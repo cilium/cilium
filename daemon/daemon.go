@@ -770,6 +770,10 @@ func (d *Daemon) createNodeConfigHeaderfile() error {
 		fmt.Fprintf(fw, "#define ENABLE_IPV6\n")
 	}
 
+	if option.Config.EnableIPSec {
+		fmt.Fprintf(fw, "#define ENABLE_IPSEC\n")
+	}
+
 	fw.Flush()
 	f.Close()
 
