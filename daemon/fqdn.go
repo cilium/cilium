@@ -45,6 +45,16 @@ import (
 	"github.com/miekg/dns"
 )
 
+const (
+	upstream       = "upstreamTime"
+	processingTime = "processingTime"
+
+	metricErrorTimeout = "timeout"
+	metricErrorProxy   = "proxyErr"
+	metricErrorDenied  = "denied"
+	metricErrorAllow   = "allow"
+)
+
 // bootstrapFQDN initializes the toFQDNs related subsystems: DNSPoller,
 // d.dnsRuleGen, and the DNS proxy.
 // dnsRuleGen and DNSPoller will use the default resolver and, implicitly, the
@@ -146,20 +156,31 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 
 			var verdict accesslog.FlowVerdict
 			var reason string
-			switch {
+			metricError := metricErrorAllow
+			stat.ProcessingTime.Start()
 
+			endMetric := func() {
+				stat.ProcessingTime.End(true)
+				metrics.ProxyUpstreamTime.WithLabelValues(metrics.ErrorTimeout, metrics.L7DNS, upstream).Observe(
+					stat.UpstreamTime.Total().Seconds())
+				metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, processingTime).Observe(
+					stat.ProcessingTime.Total().Seconds())
+			}
+
+			switch {
 			case stat.IsTimeout():
-				metrics.ProxyUpstreamTime.WithLabelValues(metrics.ErrorTimeout, metrics.L7DNS).Observe(
-					stat.UpstreamTime.Total().Seconds())
+				metricError = metricErrorTimeout
+				endMetric()
+				return nil
 			case stat.Err != nil:
+				metricError = metricErrorProxy
 				verdict = accesslog.VerdictError
-				metrics.ProxyUpstreamTime.WithLabelValues(metrics.ErrorProxy, metrics.L7DNS).Observe(
-					stat.UpstreamTime.Total().Seconds())
 				reason = "Error: " + stat.Err.Error()
 			case allowed:
 				verdict = accesslog.VerdictForwarded
 				reason = "Allowed by policy"
 			case !allowed:
+				metricError = metricErrorDenied
 				verdict = accesslog.VerdictDenied
 				reason = "Denied by policy"
 			}
@@ -193,6 +214,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 			if err != nil {
 				log.WithError(err).Error("cannot extract endpoint IP from DNS request")
 				ep.UpdateProxyStatistics("dns", uint16(serverPort), ingress, !ingress, accesslog.VerdictError)
+				endMetric()
 				return err
 			}
 			ep = endpointmanager.LookupIPv4(epIP)
@@ -204,6 +226,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 				// dns.RcodeSuccess below).
 				err := fmt.Errorf("Cannot find matching endpoint for IPs %s or %s", srcAddr, dstAddr)
 				log.WithError(err).Error("cannot find matching endpoint")
+				endMetric()
 				return err
 			}
 
@@ -253,11 +276,10 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 				if err != nil {
 					log.WithError(err).Error("error updating internal DNS cache for rule generation")
 				}
-
-				metrics.ProxyUpstreamTime.WithLabelValues("", metrics.L7DNS).Observe(
-					stat.UpstreamTime.Total().Seconds())
+				endMetric()
 			}
 
+			stat.ProcessingTime.End(true)
 			return nil
 		})
 	proxy.DefaultDNSProxy.SetRejectReply(option.Config.FQDNRejectResponse)
