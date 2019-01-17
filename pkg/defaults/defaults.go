@@ -133,6 +133,9 @@ const (
 	// needs to encrypt a packet.
 	RouteMarkEncrypt = 0x0E00
 
+	// RouteMarkMask is the default mask to use when reading RouteMark
+	RouteMarkMask = 0x0F00
+
 	// IPSecProtocolID IP protocol ID for IPSec
 	IPSecProtocolID = 50
 
