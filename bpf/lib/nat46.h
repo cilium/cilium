@@ -27,15 +27,10 @@
 #include "eth.h"
 #include "dbg.h"
 
-#if defined ENABLE_NAT46
-#if defined ENABLE_IPV4 && defined CONNTRACK
-#define LXC_NAT46
-#else
-#error "ENABLE_NAT46 requires ENABLE_IPV4 and CONNTRACK"
-#undef LXC_NAT46
-#endif
-#else
-#undef LXC_NAT46
+#if defined ENABLE_NAT46 && \
+    (!defined ENABLE_IPV4 || !defined ENABLE_IPV6 || \
+     !defined CONNTRACK || !defined ENABLE_HOST_REDIRECT)
+#error "ENABLE_NAT46 requisite options are not configured, see lib/nat46.h."
 #endif
 
 static inline int get_csum_offset(__u8 protocol)
