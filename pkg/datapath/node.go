@@ -88,6 +88,9 @@ type LocalNodeConfiguration struct {
 	// useful when another component is responsible for the routing of the
 	// allocation CIDR IPs into Cilium endpoints.
 	EnableLocalNodeRoute bool
+
+	// EnableIPSec enables IPSec routes
+	EnableIPSec bool
 }
 
 // NodeHandler handles node related events such as addition, update or deletion
