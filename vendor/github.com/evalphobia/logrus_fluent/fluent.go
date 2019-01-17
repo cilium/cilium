@@ -67,9 +67,11 @@ func NewWithConfig(conf Config) (*FluentHook, error) {
 	}
 
 	hook := &FluentHook{
-		Fluent: fd,
-		conf:   conf,
-		levels: conf.LogLevels,
+		Fluent:       fd,
+		conf:         conf,
+		levels:       conf.LogLevels,
+		ignoreFields: make(map[string]struct{}),
+		filters:      make(map[string]func(interface{}) interface{}),
 	}
 	// set default values
 	if len(hook.levels) == 0 {
@@ -82,12 +84,13 @@ func NewWithConfig(conf Config) (*FluentHook, error) {
 	if conf.DefaultMessageField != "" {
 		hook.messageField = conf.DefaultMessageField
 	}
-	if hook.ignoreFields == nil {
-		hook.ignoreFields = make(map[string]struct{})
+	for k, v := range conf.DefaultIgnoreFields {
+		hook.ignoreFields[k] = v
 	}
-	if hook.filters == nil {
-		hook.filters = make(map[string]func(interface{}) interface{})
+	for k, v := range conf.DefaultFilters {
+		hook.filters[k] = v
 	}
+
 	return hook, nil
 }
 
