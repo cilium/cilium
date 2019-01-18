@@ -44,6 +44,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath"
 	bpfIPCache "github.com/cilium/cilium/pkg/datapath/ipcache"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
+	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -916,6 +917,12 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	}
 
 	mtuConfig := mtu.NewConfiguration(option.Config.Tunnel != option.TunnelDisabled, option.Config.MTU)
+
+	if option.Config.EnableIPSec {
+		if err := ipsec.LoadIPSecKeysFile(option.Config.IPSecKeyFile); err != nil {
+			return nil, nil, err
+		}
+	}
 
 	nodeMngr, err := nodemanager.NewManager("all", dp.Node())
 	if err != nil {
