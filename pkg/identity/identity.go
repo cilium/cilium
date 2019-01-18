@@ -36,6 +36,17 @@ type Identity struct {
 	// for faster lookup.
 	LabelArray labels.LabelArray `json:"-"`
 
+	// CIDRLabel is the primary identity label when the identity represents
+	// a CIDR. The Labels field will consist of all matching prefixes, e.g.
+	// 10.0.0.0/8
+	// 10.0.0.0/7
+	// 10.0.0.0/6
+	// [...]
+	// reserverd:world
+	//
+	// The CIDRLabel field will only contain 10.0.0.0/8
+	CIDRLabel labels.Labels `json:"-"`
+
 	// ReferenceCount counts the number of references pointing to this
 	// identity. This field is used by the owning cache of the identity.
 	ReferenceCount int

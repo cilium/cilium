@@ -513,7 +513,10 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 
 	spec := &models.EndpointConfigurationSpec{
 		LabelConfiguration: lblMdl.Realized,
-		Options:            *e.Options.GetMutableModel(),
+	}
+
+	if e.Options != nil {
+		spec.Options = *e.Options.GetMutableModel()
 	}
 
 	mdl := &models.Endpoint{

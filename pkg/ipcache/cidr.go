@@ -20,6 +20,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labels/cidr"
 )
 
@@ -49,6 +50,8 @@ func AllocateCIDRs(impl Implementation, prefixes []*net.IPNet) error {
 			cache.ReleaseSlice(usedIdentities)
 			return fmt.Errorf("failed to allocate identity for cidr %s: %s", prefix.String(), err)
 		}
+
+		id.CIDRLabel = labels.NewLabelsFromModel([]string{labels.LabelSourceCIDR + ":" + prefix.String()})
 
 		usedIdentities = append(usedIdentities, id)
 		if isNew {

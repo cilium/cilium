@@ -17,6 +17,7 @@ package v2
 import (
 	"fmt"
 	"reflect"
+	"sort"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -28,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
 
+	"github.com/go-openapi/swag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -274,31 +276,251 @@ type CiliumEndpoint struct {
 	// +k8s:openapi-gen=false
 	metav1.ObjectMeta `json:"metadata"`
 
-	Status CiliumEndpointDetail `json:"status"`
+	Status EndpointStatus `json:"status"`
 }
 
-// CiliumEndpointDetail is the status of a Cilium policy rule
+// EndpointStatus is the status of a Cilium endpoint
 // The custom deepcopy function below is a workaround. We can generate a
-// deepcopy for CiliumEndpointDetail but not for the various models.* types it
+// deepcopy for EndpointStatus but not for the various models.* types it
 // includes. We can't generate functions for classes in other packages, nor can
 // we change the models.Endpoint type to use proxy types we define here.
 // +k8s:deepcopy-gen=false
-type CiliumEndpointDetail models.Endpoint
+type EndpointStatus struct {
+	// The cilium-agent-local ID of the endpoint
+	ID int64 `json:"id,omitempty"`
+
+	// Controllers is the list of failing controllers for this endpoint
+	Controllers ControllerList `json:"controllers,omitempty"`
+
+	// ExternalIdentifiers is a set of identifiers to identify the endpoint
+	// apart from the pod name. This includes container runtime IDs.
+	ExternalIdentifiers *models.EndpointIdentifiers `json:"external-identifiers,omitempty"`
+
+	// Summary overall endpoint & subcomponent health
+	Health *models.EndpointHealth `json:"health,omitempty"`
+
+	// Identity is the security identity associated with the endpoint
+	Identity *EndpointIdentity `json:"identity,omitempty"`
+
+	// Log is the list of the last few warning and error log entries
+	Log []*models.EndpointStatusChange `json:"log,omitempty"`
+
+	// Networking properties of the endpoint
+	Networking *EndpointNetworking `json:"networking,omitempty"`
+
+	Policy *EndpointPolicy `json:"policy,omitempty"`
+
+	// State is the state of the endpoint
+	//
+	// States are:
+	// - creating
+	// - waiting-for-identity
+	// - not-ready
+	// - waiting-to-regenerate
+	// - regenerating
+	// - restoring
+	// - ready
+	// - disconnecting
+	// - disconnected
+	State string `json:"state,omitempty"`
+
+	// Deprecated fields
+	Spec   deprecatedEndpointConfigurationSpec `json:"spec,omitempty"`
+	Status DeprecatedEndpointStatus            `json:"status,omitempty"`
+}
+
+// EndpointStatusLogEntries is the maximum number of log entries in EndpointStatus.Log
+const EndpointStatusLogEntries = 5
+
+// ControllerList is a list of ControllerStatus
+type ControllerList []ControllerStatus
+
+// Sort sorts the ControllerList by controller name
+func (c ControllerList) Sort() {
+	sort.Slice(c, func(i, j int) bool { return c[i].Name < c[j].Name })
+}
+
+// ControllerStatus is the status of a failing controller
+type ControllerStatus struct {
+	// Name is the name of the controller
+	Name string `json:"name,omitempty"`
+
+	// Configuration is the controller configuration
+	Configuration *models.ControllerStatusConfiguration `json:"configuration,omitempty"`
+
+	// Status is the status of the controller
+	Status ControllerStatusStatus `json:"status,omitempty"`
+
+	// UUID is the UUID of the controller
+	UUID string `json:"uuid,omitempty"`
+}
+
+// ControllerStatusStatus is the detailed status section of a controller
+type ControllerStatusStatus struct {
+	ConsecutiveFailureCount int64  `json:"consecutive-failure-count,omitempty"`
+	FailureCount            int64  `json:"failure-count,omitempty"`
+	LastFailureMsg          string `json:"last-failure-msg,omitempty"`
+	LastFailureTimestamp    string `json:"last-failure-timestamp,omitempty"`
+	LastSuccessTimestamp    string `json:"last-success-timestamp,omitempty"`
+	SuccessCount            int64  `json:"success-count,omitempty"`
+}
+
+// EndpointPolicy represents the endpoint's policy by listing all allowed
+// ingress and egress identities in combination with L4 port and protocol
+type EndpointPolicy struct {
+	Ingress *EndpointPolicyDirection `json:"ingress,omitempty"`
+	Egress  *EndpointPolicyDirection `json:"egress,omitempty"`
+}
+
+// EndpointPolicyDirection is the list of allowed identities per direction
+type EndpointPolicyDirection struct {
+	Enforcing bool                `json:"enforcing,omitempty"`
+	Allowed   AllowedIdentityList `json:"allowed,omitempty"`
+	Removing  AllowedIdentityList `json:"removing,omitempty"`
+	Adding    AllowedIdentityList `json:"adding,omitempty"`
+}
+
+// AllowedIdentityTuple specifies an allowed peer by identity, destination port
+// and protocol
+type AllowedIdentityTuple struct {
+	Identity       uint64            `json:"identity,omitempty"`
+	IdentityLabels map[string]string `json:"identityLabels,omitempty"`
+	DestPort       uint16            `json:"destPort,omitempty"`
+	Protocol       uint8             `json:"protocol,omitempty"`
+}
+
+// AllowedIdentityList is a list of AllowedIdentityTuple
+type AllowedIdentityList []AllowedIdentityTuple
+
+// Sort sorts a list AllowedIdentityTuple by numeric identity, port and protocol
+func (a AllowedIdentityList) Sort() {
+	sort.Slice(a, func(i, j int) bool {
+		if a[i].Identity < a[j].Identity {
+			return true
+		} else if a[i].Identity == a[j].Identity {
+			if a[i].DestPort < a[j].DestPort {
+				return true
+			} else if a[i].DestPort == a[j].DestPort {
+				return a[i].Protocol < a[j].Protocol
+			}
+		}
+		return false
+	})
+}
+
+type deprecatedEndpointConfigurationSpec struct {
+	LabelConfiguration *deprecatedLabelConfigurationSpec `json:"label-configuration,omitempty"`
+	Options            map[string]string                 `json:"options,omitempty"`
+}
+
+type deprecatedLabelConfigurationSpec struct {
+	User []string `json:"user"`
+}
+
+// DeprecatedEndpointStatus is the original endpoint status provided for
+// backwards compatibility.
+//
+// See EndpointStatus for descriptions of fields
+type DeprecatedEndpointStatus struct {
+	Controllers ControllerList                 `json:"controllers,omitempty"`
+	Identity    *EndpointIdentity              `json:"identity,omitempty"`
+	Log         []*models.EndpointStatusChange `json:"log,omitempty"`
+	Networking  *EndpointNetworking            `json:"networking,omitempty"`
+	State       string                         `json:"state,omitempty"`
+
+	// These fields are no longer populated
+	Realized            *deprecatedEndpointConfigurationSpec `json:"realized,omitempty"`
+	Labels              *deprecatedLabelConfigurationStatus  `json:"labels,omitempty"`
+	Policy              *models.EndpointPolicyStatus         `json:"policy,omitempty"`
+	ExternalIdentifiers *models.EndpointIdentifiers          `json:"external-identifiers,omitempty"`
+	Health              *models.EndpointHealth               `json:"health,omitempty"`
+}
+
+// EndpointIdentity is the identity information of an endpoint
+type EndpointIdentity struct {
+	// ID is the numeric identity of the endpoint
+	ID int64 `json:"id,omitempty"`
+
+	// Labels is the list of labels associated with the identity
+	Labels []string `json:"labels"`
+
+	// Deprecated fields
+	LabelsSHA256 string `json:"labelsSHA256,omitempty"`
+}
+
+// AddressPair is is a par of IPv4 and/or IPv6 address
+type AddressPair struct {
+	IPV4 string `json:"ipv4,omitempty"`
+	IPV6 string `json:"ipv6,omitempty"`
+}
+
+// AddressPairList is a list of address pairs
+type AddressPairList []*AddressPair
+
+// Sort sorts an AddressPairList by IPv4 and IPv6 address
+func (a AddressPairList) Sort() {
+	sort.Slice(a, func(i, j int) bool {
+		if a[i].IPV4 < a[j].IPV4 {
+			return true
+		} else if a[i].IPV4 == a[j].IPV4 {
+			return a[i].IPV6 < a[j].IPV6
+		}
+		return false
+	})
+}
+
+// EndpointNetworking is the addressing information of an endpoint
+type EndpointNetworking struct {
+	// IP4/6 addresses assigned to this Endpoint
+	Addressing AddressPairList `json:"addressing"`
+
+	// Deprecated fields
+	HostAddressing *models.NodeAddressing `json:"host-addressing,omitempty"`
+	HostMac        string                 `json:"host-mac,omitempty"`
+	InterfaceIndex int64                  `json:"interface-index,omitempty"`
+	InterfaceName  string                 `json:"interface-name,omitempty"`
+	Mac            string                 `json:"mac,omitempty"`
+}
+
+type deprecatedLabelConfigurationStatus struct {
+	Derived          []string                         `json:"derived"`
+	Disabled         []string                         `json:"disabled"`
+	Realized         deprecatedLabelConfigurationSpec `json:"realized,omitempty"`
+	SecurityRelevant []string                         `json:"security-relevant"`
+}
 
 // DeepCopyInto is an inefficient hack to allow reusing models.Endpoint in the
 // CiliumEndpoint CRD.
-func (in *CiliumEndpointDetail) DeepCopyInto(out *CiliumEndpointDetail) {
-	*out = *in
-	b, err := (*models.Endpoint)(in).MarshalBinary()
+func (m *EndpointStatus) DeepCopyInto(out *EndpointStatus) {
+	*out = *m
+	b, err := (*EndpointStatus)(m).MarshalBinary()
 	if err != nil {
-		log.WithError(err).Error("Cannot marshal models.Endpoint during CiliumEndpoitnDetail deepcopy")
+		log.WithError(err).Error("Cannot marshal EndpointStatus during EndpointStatus deepcopy")
 		return
 	}
-	err = (*models.Endpoint)(out).UnmarshalBinary(b)
+	err = (*EndpointStatus)(out).UnmarshalBinary(b)
 	if err != nil {
-		log.WithError(err).Error("Cannot unmarshal models.Endpoint during CiliumEndpoitnDetail deepcopy")
+		log.WithError(err).Error("Cannot unmarshal EndpointStatus during EndpointStatus deepcopy")
 		return
 	}
+}
+
+// MarshalBinary interface implementation
+func (m *EndpointStatus) MarshalBinary() ([]byte, error) {
+	if m == nil {
+		return nil, nil
+	}
+	return swag.WriteJSON(m)
+}
+
+// UnmarshalBinary interface implementation
+func (m *EndpointStatus) UnmarshalBinary(b []byte) error {
+	var res EndpointStatus
+	if err := swag.ReadJSON(b, &res); err != nil {
+		return err
+	}
+	*m = res
+	return nil
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

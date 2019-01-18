@@ -358,6 +358,15 @@ func Map2Labels(m map[string]string, source string) Labels {
 	return o
 }
 
+// StringMap converts Labels into map[string]string
+func (l Labels) StringMap() map[string]string {
+	o := map[string]string{}
+	for _, v := range l {
+		o[v.Source+":"+v.Key] = v.Value
+	}
+	return o
+}
+
 // NewLabelsFromModel creates labels from string array.
 func NewLabelsFromModel(base []string) Labels {
 	lbls := make(Labels, len(base))
