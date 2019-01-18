@@ -17,14 +17,6 @@ package node
 import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-
-	"github.com/sirupsen/logrus"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "node")
-
-func (n *Node) getLogger() *logrus.Entry {
-	return log.WithFields(logrus.Fields{
-		logfields.NodeName: n.Fullname(),
-	})
-}

@@ -36,12 +36,6 @@ func getCiliumHostIPsFromNetDev(devName string) (ipv4GW, ipv6Router net.IP) {
 	return net.IP{}, net.IP{}
 }
 
-// firstLinkWithv6 returns the first network interface that contains the given
-// IPv6 address.
-func firstLinkWithv6(ip net.IP) (netlink.Link, error) {
-	return nil, nil
-}
-
 func SetInternalIPv4From(_ string) error {
 	return nil
 }

@@ -36,7 +36,7 @@ func (a *addressFamilyIPv4) PrimaryExternal() net.IP {
 }
 
 func (a *addressFamilyIPv4) AllocationCIDR() *cidr.CIDR {
-	return cidr.NewCIDR(node.GetIPv4AllocRange())
+	return node.GetIPv4AllocRange()
 }
 
 type addressFamilyIPv6 struct{}
@@ -50,7 +50,7 @@ func (a *addressFamilyIPv6) PrimaryExternal() net.IP {
 }
 
 func (a *addressFamilyIPv6) AllocationCIDR() *cidr.CIDR {
-	return cidr.NewCIDR(node.GetIPv6AllocRange())
+	return node.GetIPv6AllocRange()
 }
 
 type linuxNodeAddressing struct {

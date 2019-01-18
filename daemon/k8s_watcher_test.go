@@ -526,7 +526,7 @@ func (ds *DaemonSuite) Test_missingK8sPodV1(c *C) {
 }
 
 func (ds *DaemonSuite) Test_missingK8sNodeV1(c *C) {
-	defer node.DeleteAllNodes()
+	defer ds.d.nodeDiscovery.manager.DeleteAllNodes()
 	prevClusterName := option.Config.ClusterName
 	option.Config.ClusterName = "default"
 	defer func() {
@@ -591,22 +591,23 @@ func (ds *DaemonSuite) Test_missingK8sNodeV1(c *C) {
 		{
 			name: "ipcache and the node package contains the node. Should be no-op",
 			setupArgs: func() args {
-				node.DeleteAllNodes()
+				ds.d.nodeDiscovery.manager.DeleteAllNodes()
 				cache := ipcache.NewIPCache()
 				cache.Upsert("172.20.0.1", net.ParseIP("172.20.0.2"), ipcache.Identity{
 					ID:     identity.ReservedIdentityInit,
 					Source: ipcache.FromKubernetes,
 				})
-				node.UpdateNode(&node.Node{
+				ds.d.nodeDiscovery.manager.NodeUpdated(node.Node{
 					Name:    "foo",
 					Cluster: "default",
+					Source:  node.FromKubernetes,
 					IPAddresses: []node.Address{
 						{
 							Type: nodeAddressing.NodeInternalIP,
 							IP:   net.ParseIP("172.20.0.1"),
 						},
 					},
-				}, 0, net.ParseIP("172.20.0.2"))
+				})
 
 				m := versioned.NewMap()
 				m.Add("", versioned.Object{
@@ -632,7 +633,7 @@ func (ds *DaemonSuite) Test_missingK8sNodeV1(c *C) {
 		{
 			name: "node doesn't contain any cilium host IP. should be no-op",
 			setupArgs: func() args {
-				node.DeleteAllNodes()
+				ds.d.nodeDiscovery.manager.DeleteAllNodes()
 				cache := ipcache.NewIPCache()
 				cache.Upsert("127.0.0.1", net.ParseIP("127.0.0.2"), ipcache.Identity{
 					ID:     identity.ReservedIdentityInit,
@@ -662,14 +663,15 @@ func (ds *DaemonSuite) Test_missingK8sNodeV1(c *C) {
 		{
 			name: "ipcache contains the node but the CiliumHostIP is not the right one for the given nodeIP",
 			setupArgs: func() args {
-				node.DeleteAllNodes()
+				ds.d.nodeDiscovery.manager.DeleteAllNodes()
 				cache := ipcache.NewIPCache()
 				cache.Upsert("172.20.9.1", net.ParseIP("172.20.1.1"), ipcache.Identity{
 					ID:     identity.ReservedIdentityInit,
 					Source: ipcache.FromKubernetes,
 				})
-				node.UpdateNode(&node.Node{
+				ds.d.nodeDiscovery.manager.NodeUpdated(node.Node{
 					Name:    "bar",
+					Source:  node.FromAgentLocal,
 					Cluster: "default",
 					IPAddresses: []node.Address{
 						{
@@ -677,7 +679,7 @@ func (ds *DaemonSuite) Test_missingK8sNodeV1(c *C) {
 							IP:   net.ParseIP("172.20.0.1"),
 						},
 					},
-				}, 0, net.ParseIP("172.20.2.1"))
+				})
 				m := versioned.NewMap()
 				m.Add("", versioned.Object{
 					Data: &core_v1.Node{

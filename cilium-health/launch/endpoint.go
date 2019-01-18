@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -37,7 +38,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/mtu"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
 
@@ -60,10 +60,6 @@ var (
 
 	// client is used to ping the cilium-health endpoint as a health check.
 	client *healthPkg.Client
-
-	// NodeEpAnnotator is used to annotate nodes and pods in a cluster with
-	// information about this cilium-health instance.
-	NodeEpAnnotator Annotator
 )
 
 func logFromCommand(cmd *exec.Cmd, netns string) error {
@@ -183,7 +179,7 @@ func CleanupEndpoint() {
 // Annotator is an interface which describes anything which annotates a node
 // with cilium-health metadata.
 type Annotator interface {
-	AnnotateNode(nodeName string, v4CIDR, v6CIDR *net.IPNet, v4HealthIP, v6HealthIP, v4CiliumHostIP net.IP) error
+	AnnotateNode(nodeName string, v4CIDR, v6CIDR *cidr.CIDR, v4HealthIP, v6HealthIP, v4CiliumHostIP net.IP) error
 	AnnotatePod(k8sNamespace, k8sPodName, annotationKey, annotationValue string) error
 }
 
@@ -193,7 +189,7 @@ type Annotator interface {
 //
 // CleanupEndpoint() must be called before calling LaunchAsEndpoint() to ensure
 // cleanup of prior cilium-health endpoint instances.
-func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressing, mtuConfig mtu.Configuration) error {
+func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressing, mtuConfig mtu.Configuration, ip4health, ip6health net.IP) error {
 	var (
 		cmd  = launcher.Launcher{}
 		info = &models.EndpointChangeRequest{
@@ -201,21 +197,19 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 			State:         models.EndpointStateWaitingForIdentity,
 			Addressing:    &models.AddressPair{},
 		}
-		ip4, ip6               net.IP
+		ip4                    net.IP
 		ip4Address, ip6Address string
 	)
 
 	if option.Config.EnableIPv4 {
-		ip4 = node.GetIPv4HealthIP()
-		info.Addressing.IPV4 = ip4.String()
-		ip4WithMask := net.IPNet{IP: ip4, Mask: defaults.ContainerIPv4Mask}
+		info.Addressing.IPV4 = ip4health.String()
+		ip4WithMask := net.IPNet{IP: ip4health, Mask: defaults.ContainerIPv4Mask}
 		ip4Address = ip4WithMask.String()
 	}
 
 	if option.Config.EnableIPv6 {
-		ip6 = node.GetIPv6HealthIP()
-		info.Addressing.IPV6 = ip6.String()
-		ip6WithMask := net.IPNet{IP: ip6, Mask: defaults.ContainerIPv6Mask}
+		info.Addressing.IPV6 = ip6health.String()
+		ip6WithMask := net.IPNet{IP: ip6health, Mask: defaults.ContainerIPv6Mask}
 		ip6Address = ip6WithMask.String()
 	}
 
@@ -282,14 +276,6 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 	if !buildSuccessful {
 		endpointmanager.Remove(ep)
 		return fmt.Errorf("unable to build health endpoint")
-	}
-
-	// Propagate health IPs to all other nodes via annotations
-	if NodeEpAnnotator != nil {
-		err = NodeEpAnnotator.AnnotateNode(node.GetName(), nil, nil, ip4, ip6, nil)
-		if err != nil {
-			return fmt.Errorf("Cannot annotate node CIDR range data: %s", err)
-		}
 	}
 
 	// Initialize the health client to talk to this instance. This is why

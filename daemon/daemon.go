@@ -35,11 +35,13 @@ import (
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/counter"
+	"github.com/cilium/cilium/pkg/datapath"
 	bpfIPCache "github.com/cilium/cilium/pkg/datapath/ipcache"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
@@ -73,6 +75,7 @@ import (
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
+	nodemanager "github.com/cilium/cilium/pkg/node/manager"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -166,6 +169,13 @@ type Daemon struct {
 
 	mtuConfig     mtu.Configuration
 	policyTrigger *trigger.Trigger
+
+	// datapath is the underlying datapath implementation to use to
+	// implement all aspects of an agent
+	datapath datapath.Datapath
+
+	// nodeDiscovery defines the node discovery logic of the agent
+	nodeDiscovery *nodeDiscovery
 }
 
 // UpdateProxyRedirect updates the redirect rules in the proxy for a particular
@@ -514,7 +524,10 @@ func (d *Daemon) compileBase() error {
 
 	if !option.Config.IsFlannelMasterDeviceSet() {
 		ipam.ReserveLocalRoutes()
-		node.InstallHostRoutes(d.mtuConfig)
+	}
+
+	if err := d.datapath.Node().NodeConfigurationChanged(d.nodeDiscovery.localConfig); err != nil {
+		return err
 	}
 
 	if option.Config.EnableIPv4 {
@@ -852,7 +865,7 @@ func createPrefixLengthCounter() *counter.PrefixLengthCounter {
 }
 
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
-func NewDaemon() (*Daemon, *endpointRestoreState, error) {
+func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	// Validate the daemon-specific global options.
 	if err := option.Config.Validate(); err != nil {
 		return nil, nil, fmt.Errorf("invalid daemon configuration: %s", err)
@@ -862,6 +875,13 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 
 	if err := workloads.Setup(option.Config.Workloads, map[string]string{}); err != nil {
 		return nil, nil, fmt.Errorf("unable to setup workload: %s", err)
+	}
+
+	mtuConfig := mtu.NewConfiguration(option.Config.Tunnel != option.TunnelDisabled, option.Config.MTU)
+
+	nodeMngr, err := nodemanager.NewManager("all", dp.Node())
+	if err != nil {
+		return nil, nil, err
 	}
 
 	d := Daemon{
@@ -874,7 +894,9 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 
 		buildEndpointSem: semaphore.NewWeighted(int64(numWorkerThreads())),
 		compilationMutex: new(lock.RWMutex),
-		mtuConfig:        mtu.NewConfiguration(option.Config.Tunnel != option.TunnelDisabled, option.Config.MTU),
+		mtuConfig:        mtuConfig,
+		datapath:         dp,
+		nodeDiscovery:    newNodeDiscovery(nodeMngr, mtuConfig),
 	}
 
 	t, err := trigger.NewTrigger(trigger.Parameters{
@@ -929,6 +951,9 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 		} else {
 			option.Config.HostAllowsWorld = false
 		}
+
+		// Inject K8s dependency into packages which need to annotate K8s resources.
+		endpoint.EpAnnotator = k8s.Client()
 	}
 
 	// If the device has been specified, the IPv4AllocPrefix and the
@@ -945,10 +970,6 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 	// or IPv4 alloc prefix, respectively, retrieved by k8s node annotations.
 	log.Info("Initializing node addressing")
 
-	// Inject BPF dependency, kvstore dependency into node package.
-	node.TunnelDatapath = tunnel.TunnelMap
-	node.NodeReg = &nodeStore.NodeRegistrar{}
-
 	if err := node.AutoComplete(); err != nil {
 		log.WithError(err).Fatal("Cannot autocomplete node addresses")
 	}
@@ -956,20 +977,11 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 	node.SetIPv4ClusterCidrMaskSize(option.Config.IPv4ClusterCIDRMaskSize)
 
 	if option.Config.IPv4Range != AutoCIDR {
-		_, net, err := net.ParseCIDR(option.Config.IPv4Range)
+		allocCIDR, err := cidr.ParseCIDR(option.Config.IPv4Range)
 		if err != nil {
 			log.WithError(err).WithField(logfields.V4Prefix, option.Config.IPv4Range).Fatal("Invalid IPv4 allocation prefix")
 		}
-		node.SetIPv4AllocRange(net)
-	}
-
-	if option.Config.IPv4ServiceRange != AutoCIDR {
-		_, ipnet, err := net.ParseCIDR(option.Config.IPv4ServiceRange)
-		if err != nil {
-			log.WithError(err).WithField(logfields.V4Prefix, option.Config.IPv4ServiceRange).Fatal("Invalid IPv4 service prefix")
-		}
-
-		node.AddAuxPrefix(ipnet)
+		node.SetIPv4AllocRange(allocCIDR)
 	}
 
 	if option.Config.IPv6Range != AutoCIDR {
@@ -981,15 +993,6 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 		if err := node.SetIPv6NodeRange(net); err != nil {
 			log.WithError(err).WithField(logfields.V6Prefix, net).Fatal("Invalid per node IPv6 allocation prefix")
 		}
-	}
-
-	if option.Config.IPv6ServiceRange != AutoCIDR {
-		_, ipnet, err := net.ParseCIDR(option.Config.IPv6ServiceRange)
-		if err != nil {
-			log.WithError(err).WithField(logfields.V6Prefix, option.Config.IPv6ServiceRange).Fatal("Invalid IPv6 service prefix")
-		}
-
-		node.AddAuxPrefix(ipnet)
 	}
 
 	// Set up ipam conf after init() because we might be running d.conf.KVStoreIPv4Registration
@@ -1069,9 +1072,20 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 		log.Infof("  Loopback IPv4: %s", node.GetIPv4Loopback().String())
 	}
 
-	if err := node.ConfigureLocalNode(); err != nil {
-		log.WithError(err).Fatal("Unable to initialize local node")
+	if option.Config.EnableHealthChecking {
+		health4, health6, err := ipam.AllocateNext("")
+		if err != nil {
+			return nil, restoredEndpoints, fmt.Errorf("unable to allocate health IPs: %s,see https://cilium.link/ipam-range-full", err)
+		}
+
+		d.nodeDiscovery.localNode.IPv4HealthIP = health4
+		log.Debugf("IPv4 health endpoint address: %s", health4)
+
+		d.nodeDiscovery.localNode.IPv6HealthIP = health6
+		log.Debugf("IPv6 health endpoint address: %s", health6)
 	}
+
+	d.nodeDiscovery.startDiscovery()
 
 	// This needs to be done after the node addressing has been configured
 	// as the node address is required as suffix.
@@ -1127,6 +1141,7 @@ func (d *Daemon) Close() {
 	if d.policyTrigger != nil {
 		d.policyTrigger.Shutdown()
 	}
+	d.nodeDiscovery.Close()
 }
 
 func (d *Daemon) attachExistingInfraContainers() {
