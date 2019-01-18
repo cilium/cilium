@@ -21,7 +21,6 @@ import (
 	"net"
 	"time"
 
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mtu"
 
 	"github.com/vishvananda/netlink"
@@ -67,23 +66,6 @@ func (r *Route) getNexthopAsIPNet() *net.IPNet {
 	}
 
 	return &net.IPNet{IP: *r.Nexthop, Mask: net.CIDRMask(128, 128)}
-}
-
-// ToIPCommand converts the route into a full "ip route ..." command
-func (r *Route) ToIPCommand(dev string) []string {
-	res := []string{"ip"}
-	if r.Prefix.IP.To4() == nil {
-		res = append(res, "-6")
-	}
-	res = append(res, "route", "add", r.Prefix.String())
-	if r.Nexthop != nil {
-		res = append(res, "via", r.Nexthop.String())
-	}
-	if r.MTU != 0 {
-		res = append(res, "mtu", fmt.Sprintf("%d", r.MTU))
-	}
-	res = append(res, "dev", dev)
-	return res
 }
 
 func ipFamily(ip net.IP) int {
@@ -181,14 +163,10 @@ func createNexthopRoute(link netlink.Link, routerNet *net.IPNet) *netlink.Route 
 func replaceNexthopRoute(link netlink.Link, routerNet *net.IPNet) (bool, error) {
 	route := createNexthopRoute(link, routerNet)
 	if lookup(link, route) == nil {
-		scopedLog := log.WithField(logfields.Route, route)
-
 		if err := netlink.RouteReplace(route); err != nil {
-			scopedLog.WithError(err).Error("Unable to add L2 nexthop route")
 			return false, fmt.Errorf("unable to add L2 nexthop route: %s", err)
 		}
 
-		scopedLog.Info("Added L2 nexthop route")
 		return true, nil
 	}
 
@@ -205,7 +183,30 @@ func deleteNexthopRoute(link netlink.Link, routerNet *net.IPNet) error {
 	return nil
 }
 
-func replaceRoute(route Route, mtuConfig mtu.Configuration) (bool, error) {
+// Upsert adds or updates a Linux kernel route. The route described can be in
+// the following two forms:
+//
+// direct:
+//   prefix dev foo
+//
+// nexthop:
+//   prefix via nexthop dev foo
+//
+// If a nexthop route is specified, this function will check whether a direct
+// route to the nexthop exists and add if required. This means that the
+// following two routes will exist afterwards:
+//
+//   nexthop dev foo
+//   prefix via nexthop dev foo
+//
+// Due to a bug in the Linux kernel, the prefix route is attempted to be
+// updated RouteReplaceMaxTries with an interval of RouteReplaceRetryInterval.
+// This is a workaround for a race condition in which the direct route to the
+// nexthop is not available immediately and the prefix route can fail with
+// EINVAL if the Netlink calls are issued in short order.
+//
+// An error is returned if the route can not be added or updated.
+func Upsert(route Route, mtuConfig mtu.Configuration) (bool, error) {
 	var nexthopRouteCreated bool
 
 	link, err := netlink.LinkByName(route.Device)
@@ -261,42 +262,9 @@ func replaceRoute(route Route, mtuConfig mtu.Configuration) (bool, error) {
 	return false, nil
 }
 
-// ReplaceRoute adds or updates a Linux kernel route. The route described can be in
-// the following two forms:
-//
-// direct:
-//   prefix dev foo
-//
-// nexthop:
-//   prefix via nexthop dev foo
-//
-// If a nexthop route is specified, this function will check whether a direct
-// route to the nexthop exists and add if required. This means that the
-// following two routes will exist afterwards:
-//
-//   nexthop dev foo
-//   prefix via nexthop dev foo
-//
-// Due to a bug in the Linux kernel, the prefix route is attempted to be
-// updated RouteReplaceMaxTries with an interval of RouteReplaceRetryInterval.
-// This is a workaround for a race condition in which the direct route to the
-// nexthop is not available immediately and the prefix route can fail with
-// EINVAL if the Netlink calls are issued in short order.
-//
-// An error is returned if the route can not be added or updated.
-func ReplaceRoute(route Route, mtuConfig mtu.Configuration) error {
-	replaced, err := replaceRoute(route, mtuConfig)
-	if err != nil {
-		route.getLogger().WithError(err).Error("Unable to add route")
-		return err
-	} else if replaced {
-		route.getLogger().Info("Updated route")
-	}
-
-	return nil
-}
-
-func deleteRoute(route Route) error {
+// Delete deletes a Linux route. An error is returned if the route does not
+// exist or if the route could not be deleted.
+func Delete(route Route) error {
 	link, err := netlink.LinkByName(route.Device)
 	if err != nil {
 		return fmt.Errorf("unable to lookup interface %s: %s", route.Device, err)
@@ -316,18 +284,6 @@ func deleteRoute(route Route) error {
 
 	if err := netlink.RouteDel(&routeSpec); err != nil {
 		return err
-	}
-
-	return nil
-}
-
-// DeleteRoute removes a route
-func DeleteRoute(route Route) error {
-	if err := deleteRoute(route); err != nil {
-		route.getLogger().WithError(err).Error("Unable to delete route")
-		return err
-	} else {
-		route.getLogger().Info("Deleted route")
 	}
 
 	return nil
