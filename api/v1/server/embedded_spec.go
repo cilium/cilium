@@ -487,6 +487,32 @@ func init() {
             "description": "No DNS data with provided parameters found"
           }
         }
+      },
+      "delete": {
+        "description": "Deletes matching DNS lookups from the cache, optionally filtered by\nendpoint id, dns name, or CIDR IP range. The IP data will no longer be\nused in generated policies.\n",
+        "tags": [
+          "policy"
+        ],
+        "summary": "Deletes matching DNS lookups from the cache.",
+        "parameters": [
+          {
+            "$ref": "#/parameters/matchpattern"
+          },
+          {
+            "$ref": "#/parameters/cidr"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request (error parsing parameters)",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          }
+        }
       }
     },
     "/fqdn/cache/{id}": {
