@@ -1260,6 +1260,7 @@ func (d *Daemon) instantiateAPI() *restapi.CiliumAPI {
 
 	// /fqdn/cache
 	api.PolicyGetFqdnCacheHandler = NewGetFqdnCacheHandler(d)
+	api.PolicyDeleteFqdnCacheHandler = NewDeleteFqdnCacheHandler(d)
 	api.PolicyGetFqdnCacheIDHandler = NewGetFqdnCacheIDHandler(d)
 
 	return api
