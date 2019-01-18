@@ -79,7 +79,7 @@ var (
 
 	// testIncludes allows the unit tests to inject additional include
 	// paths into the compile command at test time. It is usually nil.
-	testIncludes string
+	testIncludes []string
 
 	debugProgs = []*progInfo{
 		{
@@ -202,14 +202,13 @@ func progCFlags(prog *progInfo, dir *directoryInfo) []string {
 		output = "-" // stdout
 	}
 
-	return []string{
-		testIncludes,
+	return append(testIncludes,
 		fmt.Sprintf("-I%s", path.Join(dir.Runtime, "globals")),
 		fmt.Sprintf("-I%s", dir.State),
 		fmt.Sprintf("-I%s", path.Join(dir.Library, "include")),
 		"-c", path.Join(dir.Library, prog.Source),
 		"-o", output,
-	}
+	)
 }
 
 // compile and link a program.

@@ -44,6 +44,11 @@ var (
 	bpfDir  = filepath.Join(testutils.CiliumRootDir, "bpf")
 )
 
+// SetTestIncludes allows test files to configure additional include flags.
+func SetTestIncludes(includes []string) {
+	testIncludes = includes
+}
+
 func Test(t *testing.T) {
 	TestingT(t)
 }
@@ -72,7 +77,8 @@ func (s *LoaderTestSuite) TearDownTest(c *C) {
 // cleanups and pass the exit code of the test run to the caller which can run
 // os.Exit() with the result.
 func runTests(m *testing.M) (int, error) {
-	testIncludes = "-I/usr/include/x86_64-linux-gnu/"
+	SetTestIncludes([]string{"-I/usr/include/x86_64-linux-gnu/"})
+	defer SetTestIncludes(nil)
 
 	tmpDir, err := ioutil.TempDir("/tmp/", "cilium_")
 	if err != nil {
