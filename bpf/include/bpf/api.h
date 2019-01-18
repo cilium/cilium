@@ -158,6 +158,8 @@ static int BPF_FUNC(clone_redirect, struct __sk_buff *skb, int ifindex,
 		    uint32_t flags);
 
 /* Packet manipulation */
+static int BPF_FUNC(skb_load_bytes_relative, struct __sk_buff *skb, uint32_t off,
+		    void *to, uint32_t len, uint32_t hdr);
 static int BPF_FUNC(skb_load_bytes, struct __sk_buff *skb, uint32_t off,
 		    void *to, uint32_t len);
 static int BPF_FUNC(skb_store_bytes, struct __sk_buff *skb, uint32_t off,
