@@ -95,18 +95,48 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	struct iphdr *ip4;
 	struct endpoint_info *ep;
 	struct bpf_tunnel_key key = {};
+	bool decrypted;
+	__u32 daddr;
 	int l4_off;
 
+	decrypted = ((skb->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
-	if (unlikely(skb_get_tunnel_key(skb, &key, sizeof(key), 0) < 0))
-		return DROP_NO_TUNNEL_KEY;
+	/* If packets are decrypted the key has already been pushed into metadata. */
+	if (!decrypted) {
+		if (unlikely(skb_get_tunnel_key(skb, &key, sizeof(key), 0) < 0))
+			return DROP_NO_TUNNEL_KEY;
+	}
+
+	/* Unfortunately, finding the exact location of daddr involves padding
+	 * and specifics of ipsec enabled/disabled now. We may get clever in
+	 * the future for now use fool-proof method telling stack to find it for
+	 * us.
+	 */
+	skb_load_bytes_relative(skb, offsetof(struct iphdr, daddr), &daddr, 4, BPF_HDR_START_NET);
 
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 
 	/* Lookup IPv4 address in list of local endpoints */
-	if ((ep = lookup_ip4_endpoint(ip4)) != NULL) {
+	if ((ep = __lookup_ip4_endpoint(daddr)) != NULL) {
+#ifdef ENABLE_IPSEC
+		if (!decrypted) {
+			/* IPSec is not currently enforce (feature coming soon)
+			 * so for now just handle normally
+			 */
+			if (ip4->protocol != IPPROTO_ESP)
+				goto not_esp;
+			skb->mark = MARK_MAGIC_DECRYPT;
+			set_identity(skb, key.tunnel_id);
+			skb_change_type(skb, 0);
+			return TC_ACT_OK;
+		} else {
+			key.tunnel_id = get_identity(skb);
+			skb->mark = 0;
+		}
+#endif
+not_esp:
 		/* Let through packets to the node-ip so they are
 		 * processed by the local ip stack */
 		if (ep->flags & ENDPOINT_F_HOST)
