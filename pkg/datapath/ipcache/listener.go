@@ -23,6 +23,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/datapath/ipsec"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging"
@@ -114,6 +115,16 @@ func (l *BPFListener) OnIPIdentityCacheChange(modType ipcache.CacheModification,
 			scopedLog.WithError(err).WithFields(logrus.Fields{"key": key.String(),
 				"value": value.String()}).
 				Warning("unable to update bpf map")
+		}
+
+		if value.SecurityIdentity > identity.ReservedIdentityUnmanaged.Uint32() {
+			err = ipsec.UpsertIPSecEndpoint(cidr, ciliumIP)
+			if err != nil {
+				scopedLog.WithError(err).WithFields(logrus.Fields{
+					"key":   key.String(),
+					"value": value.String()}).
+					Warning("unable to create IPSec context")
+			}
 		}
 	case ipcache.Delete:
 		err := l.bpfMap.Delete(&key)
