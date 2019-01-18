@@ -25,6 +25,39 @@ type Client struct {
 }
 
 /*
+DeleteFqdnCache deletes matching DNS lookups from the policy generation cache
+
+Deletes matching DNS lookups from the cache, optionally restricted by
+DNS name. The removed IP data will no longer be used in generated
+policies.
+
+*/
+func (a *Client) DeleteFqdnCache(params *DeleteFqdnCacheParams) (*DeleteFqdnCacheOK, error) {
+	// TODO: Validate the params before sending
+	if params == nil {
+		params = NewDeleteFqdnCacheParams()
+	}
+
+	result, err := a.transport.Submit(&runtime.ClientOperation{
+		ID:                 "DeleteFqdnCache",
+		Method:             "DELETE",
+		PathPattern:        "/fqdn/cache",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http"},
+		Params:             params,
+		Reader:             &DeleteFqdnCacheReader{formats: a.formats},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.(*DeleteFqdnCacheOK), nil
+
+}
+
+/*
 DeletePolicy deletes a policy sub tree
 */
 func (a *Client) DeletePolicy(params *DeletePolicyParams) (*DeletePolicyOK, error) {
@@ -55,7 +88,8 @@ func (a *Client) DeletePolicy(params *DeletePolicyParams) (*DeletePolicyOK, erro
 /*
 GetFqdnCache retrieves the list of DNS lookups intercepted from all endpoints
 
-Retrieves the list of DNS lookups intercepted from endpoints, optionally filtered by endpoint id, dns name, or CIDR IP range.
+Retrieves the list of DNS lookups intercepted from endpoints,
+optionally filtered by endpoint id, DNS name, or CIDR IP range.
 
 */
 func (a *Client) GetFqdnCache(params *GetFqdnCacheParams) (*GetFqdnCacheOK, error) {
@@ -86,7 +120,8 @@ func (a *Client) GetFqdnCache(params *GetFqdnCacheParams) (*GetFqdnCacheOK, erro
 /*
 GetFqdnCacheID retrieves the list of DNS lookups intercepted from an endpoint
 
-Retrieves the list of DNS lookups intercepted from endpoints, optionally filtered by endpoint id, dns name, or CIDR IP range.
+Retrieves the list of DNS lookups intercepted from endpoints,
+optionally filtered by endpoint id, DNS name, or CIDR IP range.
 
 */
 func (a *Client) GetFqdnCacheID(params *GetFqdnCacheIDParams) (*GetFqdnCacheIDOK, error) {
