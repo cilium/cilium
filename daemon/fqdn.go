@@ -17,6 +17,7 @@ package main
 import (
 	"fmt"
 	"net"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -281,6 +282,36 @@ func (h *getFqdnCache) Handle(params GetFqdnCacheParams) middleware.Responder {
 	return NewGetFqdnCacheIDOK().WithPayload(lookups)
 }
 
+type deleteFqdnCache struct {
+	daemon *Daemon
+}
+
+func NewDeleteFqdnCacheHandler(d *Daemon) DeleteFqdnCacheHandler {
+	return &deleteFqdnCache{daemon: d}
+}
+
+func (h *deleteFqdnCache) Handle(params DeleteFqdnCacheParams) middleware.Responder {
+	// endpoints we want to modify
+	endpoints := endpointmanager.GetEndpoints()
+
+	CIDRStr := ""
+	if params.Cidr != nil {
+		CIDRStr = *params.Cidr
+	}
+
+	matchPatternStr := ""
+	if params.Matchpattern != nil {
+		matchPatternStr = *params.Matchpattern
+	}
+
+	namesToRegen, err := deleteDNSLookups(endpoints, time.Now(), CIDRStr, matchPatternStr)
+	if err != nil {
+		return api.Error(DeleteFqdnCacheBadRequestCode, err)
+	}
+	h.daemon.dnsRuleGen.ForceGenerateDNS(namesToRegen)
+	return NewDeleteFqdnCacheOK()
+}
+
 type getFqdnCacheID struct {
 	daemon *Daemon
 }
@@ -377,4 +408,34 @@ func extractDNSLookups(endpoints []*endpoint.Endpoint, CIDRStr, matchPatternStr 
 	}
 
 	return lookups, nil
+}
+
+func deleteDNSLookups(endpoints []*endpoint.Endpoint, expireLookupsBefore time.Time, CIDRStr, matchPatternStr string) (namesToRegen []string, err error) {
+	var cidrMatcher *net.IPNet // nil matches all in our implementation
+	if CIDRStr != "" {
+		_, cidrMatcher, err = net.ParseCIDR(CIDRStr)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var nameMatcher *regexp.Regexp
+	if matchPatternStr != "" {
+		nameMatcher, err = matchpattern.Validate(matchPatternStr)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// clear any to-delete entries globally
+	// clear any to-delete entries in each endpoint, then update globally to
+	// record any entries that now should be in the global cache
+	// TODO Actually use now here?
+	namesToRegen = append(namesToRegen, fqdn.DefaultDNSCache.ForceExpire(expireLookupsBefore, nameMatcher, cidrMatcher)...)
+	for _, ep := range endpoints {
+		namesToRegen = append(namesToRegen, ep.DNSHistory.ForceExpire(expireLookupsBefore, nameMatcher, cidrMatcher)...)
+		fqdn.DefaultDNSCache.UpdateFromCache(ep.DNSHistory)
+	}
+
+	return namesToRegen, nil
 }
