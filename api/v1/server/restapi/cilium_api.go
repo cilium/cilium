@@ -46,6 +46,9 @@ func NewCiliumAPI(spec *loads.Document) *CiliumAPI {
 		EndpointDeleteEndpointIDHandler: endpoint.DeleteEndpointIDHandlerFunc(func(params endpoint.DeleteEndpointIDParams) middleware.Responder {
 			return middleware.NotImplemented("operation EndpointDeleteEndpointID has not yet been implemented")
 		}),
+		PolicyDeleteFqdnCacheHandler: policy.DeleteFqdnCacheHandlerFunc(func(params policy.DeleteFqdnCacheParams) middleware.Responder {
+			return middleware.NotImplemented("operation PolicyDeleteFqdnCache has not yet been implemented")
+		}),
 		IPAMDeleteIPAMIPHandler: ipam.DeleteIPAMIPHandlerFunc(func(params ipam.DeleteIPAMIPParams) middleware.Responder {
 			return middleware.NotImplemented("operation IPAMDeleteIPAMIP has not yet been implemented")
 		}),
@@ -179,6 +182,8 @@ type CiliumAPI struct {
 
 	// EndpointDeleteEndpointIDHandler sets the operation handler for the delete endpoint ID operation
 	EndpointDeleteEndpointIDHandler endpoint.DeleteEndpointIDHandler
+	// PolicyDeleteFqdnCacheHandler sets the operation handler for the delete fqdn cache operation
+	PolicyDeleteFqdnCacheHandler policy.DeleteFqdnCacheHandler
 	// IPAMDeleteIPAMIPHandler sets the operation handler for the delete IP a m IP operation
 	IPAMDeleteIPAMIPHandler ipam.DeleteIPAMIPHandler
 	// PolicyDeletePolicyHandler sets the operation handler for the delete policy operation
@@ -312,6 +317,10 @@ func (o *CiliumAPI) Validate() error {
 
 	if o.EndpointDeleteEndpointIDHandler == nil {
 		unregistered = append(unregistered, "endpoint.DeleteEndpointIDHandler")
+	}
+
+	if o.PolicyDeleteFqdnCacheHandler == nil {
+		unregistered = append(unregistered, "policy.DeleteFqdnCacheHandler")
 	}
 
 	if o.IPAMDeleteIPAMIPHandler == nil {
@@ -544,6 +553,11 @@ func (o *CiliumAPI) initHandlerCache() {
 		o.handlers["DELETE"] = make(map[string]http.Handler)
 	}
 	o.handlers["DELETE"]["/endpoint/{id}"] = endpoint.NewDeleteEndpointID(o.context, o.EndpointDeleteEndpointIDHandler)
+
+	if o.handlers["DELETE"] == nil {
+		o.handlers["DELETE"] = make(map[string]http.Handler)
+	}
+	o.handlers["DELETE"]["/fqdn/cache"] = policy.NewDeleteFqdnCache(o.context, o.PolicyDeleteFqdnCacheHandler)
 
 	if o.handlers["DELETE"] == nil {
 		o.handlers["DELETE"] = make(map[string]http.Handler)

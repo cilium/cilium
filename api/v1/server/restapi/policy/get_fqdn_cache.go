@@ -33,7 +33,8 @@ func NewGetFqdnCache(ctx *middleware.Context, handler GetFqdnCacheHandler) *GetF
 
 Retrieves the list of DNS lookups intercepted from all endpoints.
 
-Retrieves the list of DNS lookups intercepted from endpoints, optionally filtered by endpoint id, dns name, or CIDR IP range.
+Retrieves the list of DNS lookups intercepted from endpoints,
+optionally filtered by endpoint id, DNS name, or CIDR IP range.
 
 
 */
