@@ -454,7 +454,7 @@ func init() {
     },
     "/fqdn/cache": {
       "get": {
-        "description": "Retrieves the list of DNS lookups intercepted from endpoints, optionally filtered by endpoint id, dns name, or CIDR IP range.\n",
+        "description": "Retrieves the list of DNS lookups intercepted from endpoints,\noptionally filtered by endpoint id, DNS name, or CIDR IP range.\n",
         "tags": [
           "policy"
         ],
@@ -487,11 +487,34 @@ func init() {
             "description": "No DNS data with provided parameters found"
           }
         }
+      },
+      "delete": {
+        "description": "Deletes matching DNS lookups from the cache, optionally restricted by\nDNS name. The removed IP data will no longer be used in generated\npolicies.\n",
+        "tags": [
+          "policy"
+        ],
+        "summary": "Deletes matching DNS lookups from the policy-generation cache.",
+        "parameters": [
+          {
+            "$ref": "#/parameters/matchpattern"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request (error parsing parameters)",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          }
+        }
       }
     },
     "/fqdn/cache/{id}": {
       "get": {
-        "description": "Retrieves the list of DNS lookups intercepted from endpoints, optionally filtered by endpoint id, dns name, or CIDR IP range.\n",
+        "description": "Retrieves the list of DNS lookups intercepted from endpoints,\noptionally filtered by endpoint id, DNS name, or CIDR IP range.\n",
         "tags": [
           "policy"
         ],

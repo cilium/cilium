@@ -668,7 +668,8 @@ paths:
     get:
       summary: Retrieves the list of DNS lookups intercepted from all endpoints.
       description: |
-        Retrieves the list of DNS lookups intercepted from endpoints, optionally filtered by endpoint id, dns name, or CIDR IP range.
+        Retrieves the list of DNS lookups intercepted from endpoints,
+        optionally filtered by endpoint id, DNS name, or CIDR IP range.
       tags:
       - policy
       parameters:
@@ -687,12 +688,30 @@ paths:
             "$ref": "#/definitions/Error"
         '404':
           description: No DNS data with provided parameters found
+    delete:
+      summary: Deletes matching DNS lookups from the policy-generation cache.
+      description: |
+        Deletes matching DNS lookups from the cache, optionally restricted by
+        DNS name. The removed IP data will no longer be used in generated
+        policies.
+      tags:
+      - policy
+      parameters:
+      - "$ref": "#/parameters/matchpattern"
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Invalid request (error parsing parameters)
+          schema:
+            "$ref": "#/definitions/Error"
 
   "/fqdn/cache/{id}":
     get:
       summary: Retrieves the list of DNS lookups intercepted from an endpoint.
       description: |
-        Retrieves the list of DNS lookups intercepted from endpoints, optionally filtered by endpoint id, dns name, or CIDR IP range.
+        Retrieves the list of DNS lookups intercepted from endpoints,
+        optionally filtered by endpoint id, DNS name, or CIDR IP range.
       tags:
       - policy
       parameters:
