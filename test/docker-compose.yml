@@ -19,13 +19,6 @@ services:
     volumes:
       - "./../:/go/src/github.com/cilium/cilium/"
     privileged: true
-  test:
-    extends:
-      service: base_image
-    depends_on:
-      - consul
-      - etcd
-    command: "bash -c 'cd /go/src/github.com/cilium/cilium/; export PATH=$$PATH:$$PWD/bpf; make tests-privileged'"
   precheck:
     extends:
       service: base_image
