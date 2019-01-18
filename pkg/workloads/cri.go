@@ -116,8 +116,13 @@ func (c *criClient) Status() *models.Status {
 	if err != nil {
 		return &models.Status{State: models.StatusStateFailure, Msg: err.Error()}
 	}
+	for _, runtimeCondition := range sresp.Status.Conditions {
+		if !runtimeCondition.Status {
+			return &models.Status{State: models.StatusStateFailure, Msg: runtimeCondition.Message}
+		}
 
-	return &models.Status{State: models.StatusStateOk, Msg: sresp.String()}
+	}
+	return &models.Status{State: models.StatusStateOk, Msg: "cri daemon: Ok"}
 }
 
 // EnableEventListener watches for containerD events. Performs the plumbing for the

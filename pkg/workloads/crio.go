@@ -101,8 +101,8 @@ func (c *criOClient) Status() *models.Status {
 	criStatusMsg := fmt.Sprintf("cri-o client: %s - %s", criStatus.State, criStatus.Msg)
 
 	return &models.Status{
-		State: models.StatusStateOk,
-		Msg:   fmt.Sprintf(criStatusMsg, models.StatusStateOk),
+		State: criStatus.State,
+		Msg:   criStatusMsg,
 	}
 }
 
