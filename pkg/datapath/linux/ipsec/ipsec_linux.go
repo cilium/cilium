@@ -17,7 +17,11 @@
 package ipsec
 
 import (
+	"bufio"
+	"fmt"
 	"net"
+	"os"
+	"strings"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -26,24 +30,23 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type ipSecKeys struct {
+type ipSecKey struct {
 	Spi   int
 	ReqID int
 	Auth  *netlink.XfrmStateAlgo
 	Crypt *netlink.XfrmStateAlgo
 }
 
-var ipSecKeysGlobal = &ipSecKeys{
-	Spi:   1,
-	ReqID: 1,
-	Auth: &netlink.XfrmStateAlgo{
-		Name: "hmac(sha256)",
-		Key:  []byte("abcdefghijklmnopqrstuvwzyzABCDEF"),
-	},
-	Crypt: &netlink.XfrmStateAlgo{
-		Name: "cbc(aes)",
-		Key:  []byte("abcdefghijklmnopqrstuvwzyzABCDEF"),
-	},
+// ipSecKeysGlobal is safe to read unlocked because the only writers are from
+// daemon init time before any readers will be online.
+var ipSecKeysGlobal = make(map[string]*ipSecKey)
+
+func getIPSecKeys(ip net.IP) *ipSecKey {
+	key, scoped := ipSecKeysGlobal[ip.String()]
+	if scoped == false {
+		key, _ = ipSecKeysGlobal[""]
+	}
+	return key
 }
 
 func ipSecNewState() *netlink.XfrmState {
@@ -60,7 +63,7 @@ func ipSecNewPolicy() *netlink.XfrmPolicy {
 	return &policy
 }
 
-func ipSecAttachPolicyTempl(policy *netlink.XfrmPolicy, keys *ipSecKeys, srcIP, dstIP net.IP) {
+func ipSecAttachPolicyTempl(policy *netlink.XfrmPolicy, keys *ipSecKey, srcIP, dstIP net.IP) {
 	tmpl := netlink.XfrmPolicyTmpl{
 		Proto: netlink.XFRM_PROTO_ESP,
 		Mode:  netlink.XFRM_MODE_TUNNEL,
@@ -73,7 +76,7 @@ func ipSecAttachPolicyTempl(policy *netlink.XfrmPolicy, keys *ipSecKeys, srcIP, 
 	policy.Tmpls = append(policy.Tmpls, tmpl)
 }
 
-func ipSecJoinState(state *netlink.XfrmState, keys *ipSecKeys) {
+func ipSecJoinState(state *netlink.XfrmState, keys *ipSecKey) {
 	state.Auth = keys.Auth
 	state.Crypt = keys.Crypt
 	state.Spi = keys.Spi
@@ -83,7 +86,7 @@ func ipSecJoinState(state *netlink.XfrmState, keys *ipSecKeys) {
 func ipSecReplaceState(remoteIP, localIP net.IP) error {
 	state := ipSecNewState()
 
-	ipSecJoinState(state, ipSecKeysGlobal)
+	ipSecJoinState(state, getIPSecKeys(localIP))
 	state.Src = localIP
 	state.Dst = remoteIP
 	return netlink.XfrmStateAdd(state)
@@ -107,7 +110,7 @@ func ipSecReplacePolicyInFwd(src, dst *net.IPNet, dir netlink.Dir) error {
 		Value: linux_defaults.RouteMarkDecrypt,
 		Mask:  linux_defaults.RouteMarkMask,
 	}
-	ipSecAttachPolicyTempl(policy, ipSecKeysGlobal, src, dst)
+	ipSecAttachPolicyTempl(policy, getIPSecKeys(dst.IP), src.IP, dst.IP)
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
@@ -120,7 +123,7 @@ func ipSecReplacePolicyOut(src, dst *net.IPNet) error {
 		Value: linux_defaults.RouteMarkEncrypt,
 		Mask:  linux_defaults.RouteMarkMask,
 	}
-	ipSecAttachPolicyTempl(policy, ipSecKeysGlobal, src, dst)
+	ipSecAttachPolicyTempl(policy, getIPSecKeys(dst.IP), src.IP, dst.IP)
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
@@ -240,6 +243,50 @@ func DeleteIPSecEndpoint(src, local net.IP) error {
 	err = ipSecDeletePolicy(src, local)
 	if err != nil {
 		scopedLog.WithError(err).Warning("unable to delete IPSec (policy) context\n")
+	}
+	return nil
+}
+
+// LoadIPSecKeysFile imports IPSec auth and crypt keys from a file. The format
+// is to put a key per line as follows, (auth-algo auth-key enc-algo enc-key)
+func LoadIPSecKeysFile(path string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	scanner.Split(bufio.ScanLines)
+	for scanner.Scan() {
+		ipSecKey := &ipSecKey{
+			Spi:   1,
+			ReqID: 1,
+		}
+
+		// Scanning IPsec keys formatted as follows,
+		//    auth-algo auth-key enc-algo enc-key
+		s := strings.Split(scanner.Text(), " ")
+		if len(s) < 4 {
+			return fmt.Errorf("missing IPSec keys or invalid format")
+		}
+
+		authname, authkey := s[0], []byte(s[1])
+		encname, enckey := s[2], []byte(s[3])
+
+		ipSecKey.Auth = &netlink.XfrmStateAlgo{
+			Name: authname,
+			Key:  authkey,
+		}
+		ipSecKey.Crypt = &netlink.XfrmStateAlgo{
+			Name: encname,
+			Key:  enckey,
+		}
+		if len(s) == 5 {
+			ipSecKeysGlobal[s[4]] = ipSecKey
+		} else {
+			ipSecKeysGlobal[""] = ipSecKey
+		}
 	}
 	return nil
 }
