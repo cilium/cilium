@@ -23,6 +23,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include <linux/if_packet.h>
+
 #include "lib/utils.h"
 #include "lib/common.h"
 #include "lib/maps.h"
@@ -95,18 +97,46 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	struct iphdr *ip4;
 	struct endpoint_info *ep;
 	struct bpf_tunnel_key key = {};
+	bool decrypted;
 	int l4_off;
 
+	decrypted = ((skb->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
-	if (unlikely(skb_get_tunnel_key(skb, &key, sizeof(key), 0) < 0))
-		return DROP_NO_TUNNEL_KEY;
+	/* If packets are decrypted the key has already been pushed into metadata. */
+	if (!decrypted) {
+		if (unlikely(skb_get_tunnel_key(skb, &key, sizeof(key), 0) < 0))
+			return DROP_NO_TUNNEL_KEY;
+	}
 
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 
 	/* Lookup IPv4 address in list of local endpoints */
 	if ((ep = lookup_ip4_endpoint(ip4)) != NULL) {
+#ifdef ENABLE_IPSEC
+		if (!decrypted) {
+			/* IPSec is not currently enforce (feature coming soon)
+			 * so for now just handle normally
+			 */
+			if (ip4->protocol != IPPROTO_ESP)
+				goto not_esp;
+			skb->mark = MARK_MAGIC_DECRYPT;
+			set_identity(skb, key.tunnel_id);
+			/* To IPSec stack on cilium_vxlan we are going to pass
+			 * this up the stack but eth_type_trans has already labeled
+			 * this as an OTHERHOST type packet. To avoid being dropped
+			 * by IP stack before IPSec can be processed mark as a HOST
+			 * packet.
+			 */
+			skb_change_type(skb, PACKET_HOST);
+			return TC_ACT_OK;
+		} else {
+			key.tunnel_id = get_identity(skb);
+			skb->mark = 0;
+		}
+not_esp:
+#endif
 		/* Let through packets to the node-ip so they are
 		 * processed by the local ip stack */
 		if (ep->flags & ENDPOINT_F_HOST)
