@@ -961,17 +961,6 @@ func initEnv(cmd *cobra.Command) {
 		}
 	}
 
-	// Read the service IDs of existing services from the BPF map and
-	// reserve them. This must be done *before* connecting to the
-	// Kubernetes apiserver and serving the API to ensure service IDs are
-	// not changing across restarts or that a new service could accidentally
-	// use an existing service ID.
-	if option.Config.RestoreState {
-		restoreServiceIDs()
-	}
-
-	k8s.Configure(option.Config.K8sAPIServer, option.Config.K8sKubeConfigPath)
-
 	if option.Config.WorkloadsEnabled() {
 		// workaround for to use the values of the deprecated dockerEndpoint
 		// variable if it is set with a different value than defaults.

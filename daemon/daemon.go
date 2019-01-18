@@ -534,6 +534,112 @@ func (d *Daemon) compileBase() error {
 	return nil
 }
 
+// initMaps opens all BPF maps (and creates them if they do not exist). This
+// must be done *before* any operations which read BPF maps, especially
+// restoring endpoints and services.
+func (d *Daemon) initMaps() error {
+	if option.Config.DryMode {
+		return nil
+	}
+
+	if _, err := lxcmap.LXCMap.OpenOrCreate(); err != nil {
+		return err
+	}
+
+	if _, err := ipcachemap.IPCache.OpenOrCreate(); err != nil {
+		return err
+	}
+
+	if _, err := metricsmap.Metrics.OpenOrCreate(); err != nil {
+		return err
+	}
+
+	if _, err := tunnel.TunnelMap.OpenOrCreate(); err != nil {
+		return err
+	}
+
+	if err := openServiceMaps(); err != nil {
+		log.WithError(err).Fatal("Unable to open service maps")
+	}
+
+	// Remove any old sockops and re-enable with _new_ programs if flag is set
+	sockops.SockmapDisable()
+	sockops.SkmsgDisable()
+
+	if option.Config.SockopsEnable {
+		eppolicymap.CreateEPPolicyMap()
+		sockops.SockmapEnable()
+		sockops.SkmsgEnable()
+		sockmap.SockmapCreate()
+	}
+
+	// Set up the list of IPCache listeners in the daemon, to be
+	// used by syncLXCMap().
+	ipcache.IPIdentityCache.SetListeners([]ipcache.IPIdentityMappingListener{
+		&envoy.NetworkPolicyHostsCache,
+		bpfIPCache.NewListener(d),
+	})
+
+	// Insert local host entries to bpf maps
+	if err := d.syncLXCMap(); err != nil {
+		return err
+	}
+
+	// Start the controller for periodic sync
+	// The purpose of the controller is to ensure that the host entries are
+	// reinserted to the bpf maps if they are ever removed from them.
+	// TODO: Determine if we can get rid of this when we have more rigorous
+	//       desired/realized state implementation for the bpf maps.
+	controller.NewManager().UpdateController("lxcmap-bpf-host-sync",
+		controller.ControllerParams{
+			DoFunc:      func() error { return d.syncLXCMap() },
+			RunInterval: 5 * time.Second,
+		})
+
+	// Start the controller for periodic sync of the metrics map with
+	// the prometheus server.
+	controller.NewManager().UpdateController("metricsmap-bpf-prom-sync",
+		controller.ControllerParams{
+			DoFunc:      metricsmap.SyncMetricsMap,
+			RunInterval: 5 * time.Second,
+		})
+
+	// Clean all lb entries
+	if !option.Config.RestoreState {
+		log.Debug("cleaning up all BPF LB maps")
+
+		d.loadBalancer.BPFMapMU.Lock()
+		defer d.loadBalancer.BPFMapMU.Unlock()
+
+		if option.Config.EnableIPv6 {
+			if err := lbmap.Service6Map.DeleteAll(); err != nil {
+				return err
+			}
+			if err := lbmap.RRSeq6Map.DeleteAll(); err != nil {
+				return err
+			}
+		}
+		if err := d.RevNATDeleteAll(); err != nil {
+			return err
+		}
+
+		if option.Config.EnableIPv4 {
+			if err := lbmap.Service4Map.DeleteAll(); err != nil {
+				return err
+			}
+			if err := lbmap.RRSeq4Map.DeleteAll(); err != nil {
+				return err
+			}
+		}
+
+		// If we are not restoring state, all endpoints can be
+		// deleted. Entries will be re-populated.
+		lxcmap.LXCMap.DeleteAll()
+	}
+
+	return nil
+}
+
 func (d *Daemon) init() error {
 	globalsDir := option.Config.GetGlobalsDir()
 	if err := os.MkdirAll(globalsDir, defaults.RuntimePathRights); err != nil {
@@ -549,103 +655,8 @@ func (d *Daemon) init() error {
 	}
 
 	if !option.Config.DryMode {
-		if _, err := lxcmap.LXCMap.OpenOrCreate(); err != nil {
-			return err
-		}
-
-		if _, err := ipcachemap.IPCache.OpenOrCreate(); err != nil {
-			return err
-		}
-
-		if _, err := metricsmap.Metrics.OpenOrCreate(); err != nil {
-			return err
-		}
-
-		if _, err := tunnel.TunnelMap.OpenOrCreate(); err != nil {
-			return err
-		}
-
-		if err := openServiceMaps(); err != nil {
-			log.WithError(err).Fatal("Unable to open service maps")
-		}
-
 		if err := d.compileBase(); err != nil {
 			return err
-		}
-
-		// Remove any old sockops and re-enable with _new_ programs if flag is set
-		sockops.SockmapDisable()
-		sockops.SkmsgDisable()
-
-		if option.Config.SockopsEnable {
-			eppolicymap.CreateEPPolicyMap()
-			sockops.SockmapEnable()
-			sockops.SkmsgEnable()
-			sockmap.SockmapCreate()
-		}
-
-		// Set up the list of IPCache listeners in the daemon, to be
-		// used by syncLXCMap().
-		ipcache.IPIdentityCache.SetListeners([]ipcache.IPIdentityMappingListener{
-			&envoy.NetworkPolicyHostsCache,
-			bpfIPCache.NewListener(d),
-		})
-
-		// Insert local host entries to bpf maps
-		if err := d.syncLXCMap(); err != nil {
-			return err
-		}
-
-		// Start the controller for periodic sync
-		// The purpose of the controller is to ensure that the host entries are
-		// reinserted to the bpf maps if they are ever removed from them.
-		// TODO: Determine if we can get rid of this when we have more rigorous
-		//       desired/realized state implementation for the bpf maps.
-		controller.NewManager().UpdateController("lxcmap-bpf-host-sync",
-			controller.ControllerParams{
-				DoFunc:      func() error { return d.syncLXCMap() },
-				RunInterval: 5 * time.Second,
-			})
-
-		// Start the controller for periodic sync of the metrics map with
-		// the prometheus server.
-		controller.NewManager().UpdateController("metricsmap-bpf-prom-sync",
-			controller.ControllerParams{
-				DoFunc:      metricsmap.SyncMetricsMap,
-				RunInterval: 5 * time.Second,
-			})
-
-		// Clean all lb entries
-		if !option.Config.RestoreState {
-			log.Debug("cleaning up all BPF LB maps")
-
-			d.loadBalancer.BPFMapMU.Lock()
-			defer d.loadBalancer.BPFMapMU.Unlock()
-
-			if option.Config.EnableIPv6 {
-				if err := lbmap.Service6Map.DeleteAll(); err != nil {
-					return err
-				}
-				if err := lbmap.RRSeq6Map.DeleteAll(); err != nil {
-					return err
-				}
-			}
-			if err := d.RevNATDeleteAll(); err != nil {
-				return err
-			}
-
-			if option.Config.EnableIPv4 {
-				if err := lbmap.Service4Map.DeleteAll(); err != nil {
-					return err
-				}
-				if err := lbmap.RRSeq4Map.DeleteAll(); err != nil {
-					return err
-				}
-			}
-
-			// If we are not restoring state, all endpoints can be
-			// deleted. Entries will be re-populated.
-			lxcmap.LXCMap.DeleteAll()
 		}
 	}
 
@@ -877,6 +888,21 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 		mtuConfig:        mtu.NewConfiguration(option.Config.Tunnel != option.TunnelDisabled, option.Config.MTU),
 	}
 
+	// Open or create BPF maps.
+	if err := d.initMaps(); err != nil {
+		log.WithError(err).Error("Error while opening/creating BPF maps")
+		return nil, nil, err
+	}
+
+	// Read the service IDs of existing services from the BPF map and
+	// reserve them. This must be done *before* connecting to the
+	// Kubernetes apiserver and serving the API to ensure service IDs are
+	// not changing across restarts or that a new service could accidentally
+	// use an existing service ID.
+	if option.Config.RestoreState {
+		restoreServiceIDs()
+	}
+
 	t, err := trigger.NewTrigger(trigger.Parameters{
 		Name:              "policy_update",
 		PrometheusMetrics: true,
@@ -890,6 +916,7 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 
 	debug.RegisterStatusObject("k8s-service-cache", &d.k8sSvcCache)
 
+	k8s.Configure(option.Config.K8sAPIServer, option.Config.K8sKubeConfigPath)
 	d.runK8sServiceHandler()
 	policyApi.InitEntities(option.Config.ClusterName)
 
