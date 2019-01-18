@@ -1,6 +1,6 @@
 #!/bin/sh
 
-set -eu
+set -e
 
 HOST_PREFIX=${HOST_PREFIX:-/host}
 if [ -z "${CILIUM_FLANNEL_MASTER_DEVICE}" ]; then
