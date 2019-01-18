@@ -43,6 +43,7 @@ import (
 	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/datapath"
 	bpfIPCache "github.com/cilium/cilium/pkg/datapath/ipcache"
+	"github.com/cilium/cilium/pkg/datapath/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/debug"
@@ -537,6 +538,12 @@ func (d *Daemon) compileBase() error {
 			if err := iptables.InstallRules(option.Config.HostDevice); err != nil {
 				return err
 			}
+		}
+	}
+
+	if option.Config.EnableIPSec {
+		if err := ipsec.LoadIPSecKeysFile(option.Config.IPSecKeyFile); err != nil {
+			return err
 		}
 	}
 
