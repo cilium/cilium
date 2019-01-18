@@ -420,6 +420,8 @@ func init() {
 	flags.Bool(option.EnableIPSecName, defaults.EnableIPSec, "Enable IPSec support")
 	option.BindEnv(option.EnableIPSecName)
 
+	flags.StringVar(&option.Config.IPSecKeyFile, "ipsec-key-file", "", "Path to IPSec key file")
+
 	flags.String(option.HTTP403Message, "", "Message returned in proxy L7 403 body")
 	flags.MarkHidden(option.HTTP403Message)
 	option.BindEnv(option.HTTP403Message)
