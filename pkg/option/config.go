@@ -387,6 +387,9 @@ type daemonConfig struct {
 	// EnableIPSec is true when IPSec is enabled
 	EnableIPSec bool
 
+	// IPSec key file for stored keys
+	IPSecKeyFile string
+
 	// MonitorQueueSize is the size of the monitor event queue
 	MonitorQueueSize int
 }

@@ -51,4 +51,5 @@ func populateConfig() {
 	option.Config.EnableIPv6 = viper.GetBool(option.EnableIPv6Name)
 	option.Config.EnableIPSec = viper.GetBool(option.EnableIPv4Name)
 	option.Config.MonitorQueueSize = viper.GetInt(option.MonitorQueueSizeName)
+	option.Config.IPSecKeyFile = viper.GetString("ipsec-key-file")
 }

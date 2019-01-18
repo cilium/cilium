@@ -17,7 +17,11 @@
 package ipsec
 
 import (
+	"bufio"
+	"fmt"
 	"net"
+	"os"
+	"strings"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
@@ -26,24 +30,21 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type ipSecKeys struct {
+type ipSecKey struct {
 	Spi   int
 	ReqID int
 	Auth  *netlink.XfrmStateAlgo
 	Crypt *netlink.XfrmStateAlgo
 }
 
-var ipSecKeysGlobal = &ipSecKeys{
-	Spi:   1,
-	ReqID: 1,
-	Auth: &netlink.XfrmStateAlgo{
-		Name: "hmac(sha256)",
-		Key:  []byte("abcdefghijklmnopqrstuvwzyzABCDEF"),
-	},
-	Crypt: &netlink.XfrmStateAlgo{
-		Name: "cbc(aes)",
-		Key:  []byte("abcdefghijklmnopqrstuvwzyzABCDEF"),
-	},
+var ipSecKeysGlobal = make(map[string]*ipSecKey)
+
+func getIpSecKeys(ip net.IP) *ipSecKey {
+	key, scoped := ipSecKeysGlobal[ip.String()]
+	if scoped == false {
+		key, _ = ipSecKeysGlobal[""]
+	}
+	return key
 }
 
 func ipSecNewState() *netlink.XfrmState {
@@ -60,7 +61,7 @@ func ipSecNewPolicy() *netlink.XfrmPolicy {
 	return &policy
 }
 
-func ipSecAttachPolicyTempl(policy *netlink.XfrmPolicy, keys *ipSecKeys, srcIP net.IP, dstIP net.IP) {
+func ipSecAttachPolicyTempl(policy *netlink.XfrmPolicy, keys *ipSecKey, srcIP net.IP, dstIP net.IP) {
 	tmpl := netlink.XfrmPolicyTmpl{
 		Proto: netlink.XFRM_PROTO_ESP,
 		Mode:  netlink.XFRM_MODE_TUNNEL,
@@ -73,7 +74,7 @@ func ipSecAttachPolicyTempl(policy *netlink.XfrmPolicy, keys *ipSecKeys, srcIP n
 	policy.Tmpls = append(policy.Tmpls, tmpl)
 }
 
-func ipSecJoinState(state *netlink.XfrmState, keys *ipSecKeys) {
+func ipSecJoinState(state *netlink.XfrmState, keys *ipSecKey) {
 	state.Auth = keys.Auth
 	state.Crypt = keys.Crypt
 	state.Spi = keys.Spi
@@ -90,7 +91,7 @@ func ipSecGetLocalIP(endpointIP net.IP) net.IP {
 func ipSecReplaceState(remoteIP, localIP net.IP) error {
 	state := ipSecNewState()
 
-	ipSecJoinState(state, ipSecKeysGlobal)
+	ipSecJoinState(state, getIpSecKeys(localIP))
 	state.Src = localIP
 	state.Dst = remoteIP
 	err := netlink.XfrmStateAdd(state)
@@ -123,7 +124,7 @@ func ipSecReplacePolicyInFwd(endpoint, remoteCilium, localCilium net.IP, dir net
 		Value: 0x0D00,
 		Mask:  0x0F00,
 	}
-	ipSecAttachPolicyTempl(policy, ipSecKeysGlobal, remoteCilium, localCilium)
+	ipSecAttachPolicyTempl(policy, getIpSecKeys(remoteCilium), remoteCilium, localCilium)
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
@@ -142,7 +143,7 @@ func ipSecReplacePolicyOut(endpoint, remoteCilium, localCilium net.IP) error {
 		Value: 0x0E00,
 		Mask:  0x0F00,
 	}
-	ipSecAttachPolicyTempl(policy, ipSecKeysGlobal, localCilium, remoteCilium)
+	ipSecAttachPolicyTempl(policy, getIpSecKeys(localCilium), localCilium, remoteCilium)
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
@@ -150,7 +151,6 @@ func ipSecDeleteStateOut(endpointIP net.IP) error {
 	state := ipSecNewState()
 	local := ipSecGetLocalIP(endpointIP)
 
-	ipSecJoinState(state, ipSecKeysGlobal)
 	state.Src = endpointIP
 	state.Dst = local
 	err := netlink.XfrmStateDel(state)
@@ -161,7 +161,6 @@ func ipSecDeleteStateIn(endpointIP net.IP) error {
 	state := ipSecNewState()
 	local := ipSecGetLocalIP(endpointIP)
 
-	ipSecJoinState(state, ipSecKeysGlobal)
 	state.Src = endpointIP
 	state.Dst = local
 	err := netlink.XfrmStateDel(state)
@@ -264,6 +263,48 @@ func DeleteIPSecEndpoint(endpointIP net.IP) error {
 	err = ipSecDeletePolicy(endpointIP)
 	if err != nil {
 		scopedLog.WithError(err).Warning("unable to delete IPSec (policy) context\n")
+	}
+	return nil
+}
+
+func LoadIPSecKeysFile(path string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	scanner.Split(bufio.ScanLines)
+	for scanner.Scan() {
+		ipSecKey := &ipSecKey{
+			Spi:   1,
+			ReqID: 1,
+		}
+
+		s := strings.Split(scanner.Text(), " ")
+		if len(s) < 4 {
+			return fmt.Errorf("missing IPSec keys or invalid format")
+		}
+
+		authname, authkey := s[0], []byte(s[1])
+		encname, enckey := s[2], []byte(s[3])
+
+		ipSecKey.Auth = &netlink.XfrmStateAlgo{
+			Name: authname,
+			Key:  authkey,
+		}
+		ipSecKey.Crypt = &netlink.XfrmStateAlgo{
+			Name: encname,
+			Key:  enckey,
+		}
+		if len(s) == 5 {
+			fmt.Printf("auth %s %s enc %s %s scope %s\n", authname, authkey, encname, enckey, s[4])
+			ipSecKeysGlobal[s[4]] = ipSecKey
+		} else {
+			fmt.Printf("auth %s %s enc %s %s scope <default>\n", authname, authkey, encname, enckey)
+			ipSecKeysGlobal[""] = ipSecKey
+		}
 	}
 	return nil
 }
