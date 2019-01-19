@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -59,10 +59,15 @@ func (pl *pathLocks) lock(path string) {
 		}
 
 		if time.Since(started) > lockTimeout {
-			log.WithField("path", path).Warningf("WARNING: Timeout (%s) while waiting for lock, ignoring lock")
-			pl.lockPaths[path] = 1
+			log.WithField("path", path).Warning("Timeout while waiting for lock, forcefully unlocking...")
+			pl.lockPaths[path] = 0
 			pl.mutex.Unlock()
-			return
+
+			// The lock was forcefully released, restart a new
+			// timeout period as we will attempt to acquire the
+			// local lock again
+			started = time.Now()
+			continue
 		}
 
 		pl.mutex.Unlock()
