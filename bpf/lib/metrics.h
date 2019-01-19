@@ -49,13 +49,13 @@ static inline void update_metrics(__u32 bytes, __u8 direction, __u8 reason)
     key.dir    = direction;
 
 
-    if ((entry = map_lookup_elem(&cilium_metrics, &key))) {
+    if ((entry = map_lookup_elem(&METRICS_MAP, &key))) {
             entry->count += 1;
             entry->bytes += (__u64)bytes;
     } else {
             newEntry.count = 1;
             newEntry.bytes = (__u64)bytes;
-            map_update_elem(&cilium_metrics, &key, &newEntry, 0);
+            map_update_elem(&METRICS_MAP, &key, &newEntry, 0);
     }
 }
 

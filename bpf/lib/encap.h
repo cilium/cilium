@@ -52,7 +52,7 @@ encap_and_redirect(struct __sk_buff *skb, struct endpoint_key *k,
 {
 	struct endpoint_key *tunnel;
 
-	if ((tunnel = map_lookup_elem(&cilium_tunnel_map, k)) == NULL) {
+	if ((tunnel = map_lookup_elem(&TUNNEL_MAP, k)) == NULL) {
 		return DROP_NO_TUNNEL_ENDPOINT;
 	}
 

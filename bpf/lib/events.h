@@ -20,7 +20,7 @@
 
 #include <bpf/api.h>
 
-struct bpf_elf_map __section_maps cilium_events = {
+struct bpf_elf_map __section_maps EVENTS_MAP = {
 	.type		= BPF_MAP_TYPE_PERF_EVENT_ARRAY,
 	.size_key	= sizeof(__u32),
 	.size_value	= sizeof(__u32),

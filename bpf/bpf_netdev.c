@@ -112,7 +112,7 @@ reverse_proxy6(struct __sk_buff *skb, int l4_off, struct ipv6hdr *ip6, __u8 nh)
 	ipv6_addr_copy(&old_saddr, (union v6addr *) &ip6->saddr);
 	csum_l4_offset_and_flags(nh, &csum);
 
-	val = map_lookup_elem(&cilium_proxy6, &key);
+	val = map_lookup_elem(&PROXY6_MAP, &key);
 	if (!val)
 		return 0;
 
@@ -177,7 +177,7 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 	/* Packets from the proxy will already have a real identity. */
 	if (identity_is_reserved(src_identity)) {
 		union v6addr *src = (union v6addr *) &ip6->saddr;
-		info = ipcache_lookup6(&cilium_ipcache, src, V6_CACHE_KEY_LEN);
+		info = ipcache_lookup6(&IPCACHE_MAP, src, V6_CACHE_KEY_LEN);
 		if (info != NULL) {
 			__u32 sec_label = info->sec_label;
 			if (sec_label)
@@ -224,7 +224,7 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 
 #ifdef ENCAP_IFINDEX
 	dst = (union v6addr *) &ip6->daddr;
-	info = ipcache_lookup6(&cilium_ipcache, dst, V6_CACHE_KEY_LEN);
+	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
 	if (info != NULL && info->tunnel_endpoint != 0) {
 		return encap_and_redirect_with_nodeid(skb, info->tunnel_endpoint,
 						      flowlabel, TRACE_PAYLOAD_LEN);
@@ -299,7 +299,7 @@ reverse_proxy(struct __sk_buff *skb, int l4_off, struct iphdr *ip4, __u8 nh)
 	cilium_dbg3(skb, DBG_REV_PROXY_LOOKUP, key.sport << 16 | key.dport,
 		      key.saddr, key.nexthdr);
 
-	val = map_lookup_elem(&cilium_proxy4, &key);
+	val = map_lookup_elem(&PROXY4_MAP, &key);
 	if (!val)
 		return 0;
 
@@ -353,7 +353,7 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 
 	/* Packets from the proxy will already have a real identity. */
 	if (identity_is_reserved(src_identity)) {
-		info = ipcache_lookup4(&cilium_ipcache, ip4->saddr, V4_CACHE_KEY_LEN);
+		info = ipcache_lookup4(&IPCACHE_MAP, ip4->saddr, V4_CACHE_KEY_LEN);
 		if (info != NULL) {
 			__u32 sec_label = info->sec_label;
 			if (sec_label) {
@@ -411,7 +411,7 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 	}
 
 #ifdef ENCAP_IFINDEX
-	info = ipcache_lookup4(&cilium_ipcache, ip4->daddr, V4_CACHE_KEY_LEN);
+	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
 	if (info != NULL && info->tunnel_endpoint != 0) {
 		return encap_and_redirect_with_nodeid(skb, info->tunnel_endpoint,
 						      secctx, TRACE_PAYLOAD_LEN);
