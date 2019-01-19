@@ -160,7 +160,7 @@ static inline void cilium_dbg(struct __sk_buff *skb, __u8 type, __u32 arg1, __u3
 		.arg2 = arg2,
 	};
 
-	skb_event_output(skb, &cilium_events, BPF_F_CURRENT_CPU, &msg, sizeof(msg));
+	skb_event_output(skb, &EVENTS_MAP, BPF_F_CURRENT_CPU, &msg, sizeof(msg));
 }
 
 static inline void cilium_dbg3(struct __sk_buff *skb, __u8 type, __u32 arg1,
@@ -177,7 +177,7 @@ static inline void cilium_dbg3(struct __sk_buff *skb, __u8 type, __u32 arg1,
 		.arg3 = arg3,
 	};
 
-	skb_event_output(skb, &cilium_events, BPF_F_CURRENT_CPU, &msg, sizeof(msg));
+	skb_event_output(skb, &EVENTS_MAP, BPF_F_CURRENT_CPU, &msg, sizeof(msg));
 }
 
 struct debug_capture_msg {
@@ -203,7 +203,7 @@ static inline void cilium_dbg_capture2(struct __sk_buff *skb, __u8 type, __u32 a
 		.arg2 = arg2,
 	};
 
-	skb_event_output(skb, &cilium_events,
+	skb_event_output(skb, &EVENTS_MAP,
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));
 }

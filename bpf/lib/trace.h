@@ -149,7 +149,7 @@ send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst,
 		.pad = 0,
 		.ifindex = ifindex,
 	};
-	skb_event_output(skb, &cilium_events,
+	skb_event_output(skb, &EVENTS_MAP,
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));
 }

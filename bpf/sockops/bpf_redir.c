@@ -88,7 +88,7 @@ int bpf_redir_proxy(struct sk_msg_md *msg)
 		key.dport = verdict;
 		key.dip4 = host_ip;
 
-		if (map_update_elem(&cilium_proxy4, &proxy_key, &value, 0) < 0)
+		if (map_update_elem(&PROXY4_MAP, &proxy_key, &value, 0) < 0)
 			return SK_PASS;
 		err = msg_redirect_hash(msg, &SOCK_OPS_MAP, &key, flags);
 	} else if (!verdict) {

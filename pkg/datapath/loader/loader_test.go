@@ -45,6 +45,18 @@ func Test(t *testing.T) {
 	TestingT(t)
 }
 
+func (s *LoaderTestSuite) TearDownTest(c *C) {
+	files, err := filepath.Glob("/sys/fs/bpf/tc/globals/test_*")
+	if err != nil {
+		panic(err)
+	}
+	for _, f := range files {
+		if err := os.Remove(f); err != nil {
+			panic(err)
+		}
+	}
+}
+
 // runTests configures devices for running the whole testsuite, and runs the
 // tests. It is kept separate from TestMain() so that this function can defer
 // cleanups and pass the exit code of the test run to the caller which can run
