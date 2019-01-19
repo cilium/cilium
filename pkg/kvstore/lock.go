@@ -59,10 +59,15 @@ func (pl *pathLocks) lock(path string) {
 		}
 
 		if time.Since(started) > lockTimeout {
-			log.WithField("path", path).Warning("WARNING: Timeout while waiting for lock, ignoring lock")
-			pl.lockPaths[path] = 1
+			log.WithField("path", path).Warning("Timeout while waiting for lock, forcefully unlocking...")
+			pl.lockPaths[path] = 0
 			pl.mutex.Unlock()
-			return
+
+			// The lock was forcefully released, restart a new
+			// timeout period as we will attempt to acquire the
+			// local lock again
+			started = time.Now()
+			continue
 		}
 
 		pl.mutex.Unlock()
