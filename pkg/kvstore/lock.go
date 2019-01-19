@@ -28,7 +28,14 @@ var (
 )
 
 const (
-	lockTimeout = time.Duration(2) * time.Minute
+	// staleLockTimeout is the timeout after which waiting for a believed
+	// other local lock user for the same key is given up on and etcd is
+	// asked directly. It is still highly unlikely that concurrent access
+	// occurs as only one consumer will manage to acquire the newly
+	// released lock. The only possibility of concurrent access is if a
+	// consumer is *still* holding the lock but this is highly unlikely
+	// given the duration of this timeout.
+	staleLockTimeout = time.Duration(30) * time.Second
 )
 
 type kvLocker interface {
@@ -58,7 +65,7 @@ func (pl *pathLocks) lock(path string) {
 			return
 		}
 
-		if time.Since(started) > lockTimeout {
+		if time.Since(started) > staleLockTimeout {
 			log.WithField("path", path).Warning("Timeout while waiting for lock, forcefully unlocking...")
 			pl.lockPaths[path] = 0
 			pl.mutex.Unlock()
