@@ -137,4 +137,10 @@ const (
 
 	// DatapathMode is the default value for the datapath mode.
 	DatapathMode = "veth"
+
+	// EnableAutoDirectRouting is the default value for EnableAutoDirectRouting
+	EnableAutoDirectRouting = false
+
+	// EnableHealthChecking is the default value for EnableHealthChecking
+	EnableHealthChecking = true
 )

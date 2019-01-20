@@ -258,6 +258,9 @@ const (
 	// AutoIPv6NodeRoutesName is the name of the AutoIPv6NodeRoutes option
 	AutoIPv6NodeRoutesName = "auto-ipv6-node-routes"
 
+	// LegacyAutoIPv6NodeRoutesName is the name of the AutoIPv6NodeRoutes option
+	LegacyAutoIPv6NodeRoutesName = "auto-ipv6-node-routes"
+
 	// MTUName is the name of the MTU option
 	MTUName = "mtu"
 
@@ -367,6 +370,9 @@ const (
 
 	// PreAllocateMapsName is the name of the option PreAllocateMaps
 	PreAllocateMapsName = "preallocate-bpf-maps"
+
+	// EnableAutoDirectRoutingName is the name for the EnableAutoDirectRouting option
+	EnableAutoDirectRoutingName = "auto-direct-node-routes"
 )
 
 // FQDNS variables
@@ -555,10 +561,6 @@ type DaemonConfig struct {
 	// is available.
 	K8sRequireIPv6PodCIDR bool
 
-	// AutoIPv6NodeRoutes enables automatic route injection of IPv6
-	// endpoint routes based on node discovery information
-	AutoIPv6NodeRoutes bool
-
 	// MTU is the maximum transmission unit of the underlying network
 	MTU int
 
@@ -729,6 +731,14 @@ type DaemonConfig struct {
 	// FlannelUninstallOnExit removes the BPF programs that were installed by
 	// Cilium on all interfaces created by the flannel.
 	FlannelUninstallOnExit bool
+
+	// EnableAutoDirectRouting enables installation of direct routes to
+	// other nodes when available
+	EnableAutoDirectRouting bool
+
+	// EnableHealthChecking enables health checking between nodes and
+	// health endpoints
+	EnableHealthChecking bool
 }
 
 var (
@@ -739,6 +749,7 @@ var (
 		IPv6ClusterAllocCIDR:     defaults.IPv6ClusterAllocCIDR,
 		IPv6ClusterAllocCIDRBase: defaults.IPv6ClusterAllocCIDRBase,
 		EnableHostIPRestore:      defaults.EnableHostIPRestore,
+		EnableHealthChecking:     defaults.EnableHealthChecking,
 		ContainerRuntimeEndpoint: make(map[string]string),
 		FixedIdentityMapping:     make(map[string]string),
 		KVStoreOpt:               make(map[string]string),
@@ -868,7 +879,6 @@ func (c *DaemonConfig) Populate() {
 	c.AccessLog = viper.GetString(AccessLog)
 	c.AgentLabels = viper.GetStringSlice(AgentLabels)
 	c.AllowLocalhost = viper.GetString(AllowLocalhost)
-	c.AutoIPv6NodeRoutes = viper.GetBool(AutoIPv6NodeRoutesName)
 	c.BPFCompilationDebug = viper.GetBool(BPFCompileDebugName)
 	c.CTMapEntriesGlobalTCP = viper.GetInt(CTMapEntriesGlobalTCPName)
 	c.CTMapEntriesGlobalAny = viper.GetInt(CTMapEntriesGlobalAnyName)
@@ -889,6 +899,7 @@ func (c *DaemonConfig) Populate() {
 	c.DisableCiliumEndpointCRD = viper.GetBool(DisableCiliumEndpointCRDName)
 	c.DisableK8sServices = viper.GetBool(DisableK8sServices)
 	c.DockerEndpoint = viper.GetString(Docker)
+	c.EnableAutoDirectRouting = viper.GetBool(EnableAutoDirectRoutingName)
 	c.EnablePolicy = strings.ToLower(viper.GetString(EnablePolicy))
 	c.EnableTracing = viper.GetBool(EnableTracing)
 	c.EnvoyLogPath = viper.GetString(EnvoyLog)
@@ -944,6 +955,14 @@ func (c *DaemonConfig) Populate() {
 	c.Tunnel = viper.GetString(TunnelName)
 	c.Version = viper.GetString(Version)
 	c.Workloads = viper.GetStringSlice(ContainerRuntime)
+
+	// This is a legacy option. Provide backward compatibility by enabling
+	// automatic direct routing. Unlike the old option, it will also enable
+	// direct routing for IPv4. Better than breaking the option. The old
+	// option was not frequently used so this addition in scope is fine.
+	if viper.GetBool(LegacyAutoIPv6NodeRoutesName) {
+		c.EnableAutoDirectRouting = true
+	}
 
 	// toFQDNs options
 	// When the poller is enabled, the default MinTTL is lowered. This is to

@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/workloads"
@@ -72,9 +71,9 @@ func (d *Daemon) getNodeStatus() *models.ClusterStatus {
 	ipv4 := option.Config.EnableIPv4
 
 	clusterStatus := models.ClusterStatus{
-		Self: node.GetLocalNode().Fullname(),
+		Self: d.nodeDiscovery.localNode.Fullname(),
 	}
-	for _, node := range node.GetNodes() {
+	for _, node := range d.nodeDiscovery.manager.GetNodes() {
 		clusterStatus.Nodes = append(clusterStatus.Nodes, node.GetModel(ipv4))
 	}
 	return &clusterStatus

@@ -295,8 +295,8 @@ func (s *linuxPrivilegedTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 		IPAddresses: []node.Address{
 			{IP: externalNodeIP1, Type: nodeaddressing.NodeInternalIP},
 		},
-		IPv4AllocCIDR: ip4Alloc1.IPNet,
-		IPv6AllocCIDR: ip6Alloc1.IPNet,
+		IPv4AllocCIDR: ip4Alloc1,
+		IPv6AllocCIDR: ip6Alloc1,
 	}
 	err = linuxNodeHandler.NodeAdd(nodev1)
 	c.Assert(err, check.IsNil)
@@ -323,8 +323,8 @@ func (s *linuxPrivilegedTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 		IPAddresses: []node.Address{
 			{IP: externalNodeIP2, Type: nodeaddressing.NodeInternalIP},
 		},
-		IPv4AllocCIDR: ip4Alloc1.IPNet,
-		IPv6AllocCIDR: ip6Alloc1.IPNet,
+		IPv4AllocCIDR: ip4Alloc1,
+		IPv6AllocCIDR: ip6Alloc1,
 	}
 	err = linuxNodeHandler.NodeUpdate(nodev1, nodev2)
 	c.Assert(err, check.IsNil)
@@ -352,8 +352,8 @@ func (s *linuxPrivilegedTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 		IPAddresses: []node.Address{
 			{IP: externalNodeIP1, Type: nodeaddressing.NodeInternalIP},
 		},
-		IPv4AllocCIDR: ip4Alloc2.IPNet,
-		IPv6AllocCIDR: ip6Alloc2.IPNet,
+		IPv4AllocCIDR: ip4Alloc2,
+		IPv6AllocCIDR: ip6Alloc2,
 	}
 	err = linuxNodeHandler.NodeUpdate(nodev2, nodev3)
 	c.Assert(err, check.IsNil)
@@ -424,8 +424,8 @@ func (s *linuxPrivilegedTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 		IPAddresses: []node.Address{
 			{IP: externalNodeIP1, Type: nodeaddressing.NodeInternalIP},
 		},
-		IPv4AllocCIDR: ip4Alloc2.IPNet,
-		IPv6AllocCIDR: ip6Alloc2.IPNet,
+		IPv4AllocCIDR: ip4Alloc2,
+		IPv6AllocCIDR: ip6Alloc2,
 	}
 	err = linuxNodeHandler.NodeUpdate(nodev4, nodev5)
 	c.Assert(err, check.IsNil)
@@ -512,7 +512,7 @@ func (s *linuxPrivilegedTestSuite) TestNodeUpdateDirectRouting(c *check.C) {
 		IPAddresses: []node.Address{
 			{IP: externalNode1IP4v1, Type: nodeaddressing.NodeInternalIP},
 		},
-		IPv4AllocCIDR: ip4Alloc1.IPNet,
+		IPv4AllocCIDR: ip4Alloc1,
 	}
 	err = linuxNodeHandler.NodeAdd(nodev1)
 	c.Assert(err, check.IsNil)
@@ -527,7 +527,7 @@ func (s *linuxPrivilegedTestSuite) TestNodeUpdateDirectRouting(c *check.C) {
 		IPAddresses: []node.Address{
 			{IP: externalNode1IP4v2, Type: nodeaddressing.NodeInternalIP},
 		},
-		IPv4AllocCIDR: ip4Alloc1.IPNet,
+		IPv4AllocCIDR: ip4Alloc1,
 	}
 	err = linuxNodeHandler.NodeUpdate(nodev1, nodev2)
 	c.Assert(err, check.IsNil)
@@ -542,7 +542,7 @@ func (s *linuxPrivilegedTestSuite) TestNodeUpdateDirectRouting(c *check.C) {
 		IPAddresses: []node.Address{
 			{IP: externalNode1IP4v2, Type: nodeaddressing.NodeInternalIP},
 		},
-		IPv4AllocCIDR: ip4Alloc2.IPNet,
+		IPv4AllocCIDR: ip4Alloc2,
 	}
 	err = linuxNodeHandler.NodeUpdate(nodev2, nodev3)
 	c.Assert(err, check.IsNil)
@@ -578,7 +578,7 @@ func (s *linuxPrivilegedTestSuite) TestNodeUpdateDirectRouting(c *check.C) {
 		IPAddresses: []node.Address{
 			{IP: externalNode1IP4v2, Type: nodeaddressing.NodeInternalIP},
 		},
-		IPv4AllocCIDR: ip4Alloc2.IPNet,
+		IPv4AllocCIDR: ip4Alloc2,
 	}
 	err = linuxNodeHandler.NodeUpdate(nodev4, nodev5)
 	c.Assert(err, check.IsNil)
@@ -620,8 +620,8 @@ func (s *linuxPrivilegedTestSuite) TestAgentRestartOptionChanges(c *check.C) {
 		IPAddresses: []node.Address{
 			{IP: underlayIP, Type: nodeaddressing.NodeInternalIP},
 		},
-		IPv4AllocCIDR: ip4Alloc1.IPNet,
-		IPv6AllocCIDR: ip6Alloc1.IPNet,
+		IPv4AllocCIDR: ip4Alloc1,
+		IPv6AllocCIDR: ip6Alloc1,
 	}
 	err = linuxNodeHandler.NodeAdd(nodev1)
 	c.Assert(err, check.IsNil)
@@ -691,8 +691,8 @@ func (s *linuxPrivilegedTestSuite) benchmarkNodeUpdate(c *check.C, config datapa
 			{IP: s.nodeAddressing.IPv4().PrimaryExternal(), Type: nodeaddressing.NodeInternalIP},
 			{IP: s.nodeAddressing.IPv6().PrimaryExternal(), Type: nodeaddressing.NodeInternalIP},
 		},
-		IPv4AllocCIDR: ip4Alloc1.IPNet,
-		IPv6AllocCIDR: ip6Alloc1.IPNet,
+		IPv4AllocCIDR: ip4Alloc1,
+		IPv6AllocCIDR: ip6Alloc1,
 	}
 	nodev2 := node.Node{
 		Name: "node1",
@@ -700,8 +700,8 @@ func (s *linuxPrivilegedTestSuite) benchmarkNodeUpdate(c *check.C, config datapa
 			{IP: s.nodeAddressing.IPv4().PrimaryExternal(), Type: nodeaddressing.NodeInternalIP},
 			{IP: s.nodeAddressing.IPv6().PrimaryExternal(), Type: nodeaddressing.NodeInternalIP},
 		},
-		IPv4AllocCIDR: ip4Alloc2.IPNet,
-		IPv6AllocCIDR: ip6Alloc2.IPNet,
+		IPv4AllocCIDR: ip4Alloc2,
+		IPv6AllocCIDR: ip6Alloc2,
 	}
 
 	err = linuxNodeHandler.NodeAdd(nodev1)
@@ -830,8 +830,8 @@ func (s *linuxPrivilegedTestSuite) benchmarkNodeUpdateNOP(c *check.C, config dat
 			{IP: s.nodeAddressing.IPv4().PrimaryExternal(), Type: nodeaddressing.NodeInternalIP},
 			{IP: s.nodeAddressing.IPv6().PrimaryExternal(), Type: nodeaddressing.NodeInternalIP},
 		},
-		IPv4AllocCIDR: ip4Alloc1.IPNet,
-		IPv6AllocCIDR: ip6Alloc1.IPNet,
+		IPv4AllocCIDR: ip4Alloc1,
+		IPv6AllocCIDR: ip6Alloc1,
 	}
 
 	err = linuxNodeHandler.NodeAdd(nodev1)
@@ -888,8 +888,8 @@ func (s *linuxPrivilegedTestSuite) benchmarkNodeValidateImplementation(c *check.
 			{IP: s.nodeAddressing.IPv4().PrimaryExternal(), Type: nodeaddressing.NodeInternalIP},
 			{IP: s.nodeAddressing.IPv6().PrimaryExternal(), Type: nodeaddressing.NodeInternalIP},
 		},
-		IPv4AllocCIDR: ip4Alloc1.IPNet,
-		IPv6AllocCIDR: ip6Alloc1.IPNet,
+		IPv4AllocCIDR: ip4Alloc1,
+		IPv6AllocCIDR: ip6Alloc1,
 	}
 
 	err = linuxNodeHandler.NodeAdd(nodev1)
