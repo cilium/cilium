@@ -36,7 +36,7 @@
 #define CILIUM_LB_MAP_MAX_FE		256
 
 #ifdef ENABLE_IPV6
-struct bpf_elf_map __section_maps cilium_lb6_reverse_nat = {
+struct bpf_elf_map __section_maps LB6_REVERSE_NAT_MAP = {
 	.type		= BPF_MAP_TYPE_HASH,
 	.size_key	= sizeof(__u16),
 	.size_value	= sizeof(struct lb6_reverse_nat),
@@ -45,7 +45,7 @@ struct bpf_elf_map __section_maps cilium_lb6_reverse_nat = {
 	.flags		= CONDITIONAL_PREALLOC,
 };
 
-struct bpf_elf_map __section_maps cilium_lb6_services = {
+struct bpf_elf_map __section_maps LB6_SERVICES_MAP = {
 	.type		= BPF_MAP_TYPE_HASH,
 	.size_key	= sizeof(struct lb6_key),
 	.size_value	= sizeof(struct lb6_service),
@@ -54,7 +54,7 @@ struct bpf_elf_map __section_maps cilium_lb6_services = {
 	.flags		= CONDITIONAL_PREALLOC,
 };
 
-struct bpf_elf_map __section_maps cilium_lb6_rr_seq = {
+struct bpf_elf_map __section_maps LB6_RR_SEQ_MAP = {
 	.type           = BPF_MAP_TYPE_HASH,
 	.size_key       = sizeof(struct lb6_key),
 	.size_value     = sizeof(struct lb_sequence),
@@ -65,7 +65,7 @@ struct bpf_elf_map __section_maps cilium_lb6_rr_seq = {
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
-struct bpf_elf_map __section_maps cilium_lb4_reverse_nat = {
+struct bpf_elf_map __section_maps LB4_REVERSE_NAT_MAP = {
 	.type		= BPF_MAP_TYPE_HASH,
 	.size_key	= sizeof(__u16),
 	.size_value	= sizeof(struct lb4_reverse_nat),
@@ -74,7 +74,7 @@ struct bpf_elf_map __section_maps cilium_lb4_reverse_nat = {
 	.flags		= CONDITIONAL_PREALLOC,
 };
 
-struct bpf_elf_map __section_maps cilium_lb4_services = {
+struct bpf_elf_map __section_maps LB4_SERVICES_MAP = {
 	.type		= BPF_MAP_TYPE_HASH,
 	.size_key	= sizeof(struct lb4_key),
 	.size_value	= sizeof(struct lb4_service),
@@ -83,7 +83,7 @@ struct bpf_elf_map __section_maps cilium_lb4_services = {
 	.flags		= CONDITIONAL_PREALLOC,
 };
 
-struct bpf_elf_map __section_maps cilium_lb4_rr_seq = {
+struct bpf_elf_map __section_maps LB4_RR_SEQ_MAP = {
 	.type           = BPF_MAP_TYPE_HASH,
 	.size_key       = sizeof(struct lb4_key),
 	.size_value     = sizeof(struct lb_sequence),
@@ -322,7 +322,7 @@ static inline int __inline__ lb6_rev_nat(struct __sk_buff *skb, int l4_off,
 	struct lb6_reverse_nat *nat;
 
 	cilium_dbg_lb(skb, DBG_LB6_REVERSE_NAT_LOOKUP, index, 0);
-	nat = map_lookup_elem(&cilium_lb6_reverse_nat, &index);
+	nat = map_lookup_elem(&LB6_REVERSE_NAT_MAP, &index);
 	if (nat == NULL)
 		return 0;
 
@@ -369,7 +369,7 @@ static inline struct lb6_service *lb6_lookup_service(struct __sk_buff *skb,
 		struct lb6_service *svc;
 
 		cilium_dbg_lb(skb, DBG_LB6_LOOKUP_MASTER, key->address.p4, key->dport);
-		svc = map_lookup_elem(&cilium_lb6_services, key);
+		svc = map_lookup_elem(&LB6_SERVICES_MAP, key);
 		if (svc && svc->count != 0)
 			return svc;
 
@@ -382,7 +382,7 @@ static inline struct lb6_service *lb6_lookup_service(struct __sk_buff *skb,
 		struct lb6_service *svc;
 
 		cilium_dbg_lb(skb, DBG_LB6_LOOKUP_MASTER, key->address.p4, key->dport);
-		svc = map_lookup_elem(&cilium_lb6_services, key);
+		svc = map_lookup_elem(&LB6_SERVICES_MAP, key);
 		if (svc && svc->count != 0)
 			return svc;
 	}
@@ -399,7 +399,7 @@ static inline struct lb6_service *lb6_lookup_slave(struct __sk_buff *skb,
 
 	key->slave = slave;
 	cilium_dbg_lb(skb, DBG_LB6_LOOKUP_SLAVE, key->slave, key->dport);
-	svc = map_lookup_elem(&cilium_lb6_services, key);
+	svc = map_lookup_elem(&LB6_SERVICES_MAP, key);
 	if (svc != NULL) {
 		cilium_dbg_lb(skb, DBG_LB6_LOOKUP_SLAVE_SUCCESS, svc->target.p4, svc->port);
 		return svc;
@@ -582,7 +582,7 @@ static inline int __inline__ lb4_rev_nat(struct __sk_buff *skb, int l3_off, int 
 	struct lb4_reverse_nat *nat;
 
 	cilium_dbg_lb(skb, DBG_LB4_REVERSE_NAT_LOOKUP, ct_state->rev_nat_index, 0);
-	nat = map_lookup_elem(&cilium_lb4_reverse_nat, &ct_state->rev_nat_index);
+	nat = map_lookup_elem(&LB4_REVERSE_NAT_MAP, &ct_state->rev_nat_index);
 	if (nat == NULL)
 		return 0;
 
@@ -624,7 +624,7 @@ static inline struct lb4_service *__lb4_lookup_service(struct lb4_key *key)
 
 		/* FIXME: The verifier barks on these calls right now for some reason */
 		/* cilium_dbg_lb(skb, DBG_LB4_LOOKUP_MASTER, key->address, key->dport); */
-		svc = map_lookup_elem(&cilium_lb4_services, key);
+		svc = map_lookup_elem(&LB4_SERVICES_MAP, key);
 		if (svc && svc->count != 0)
 			return svc;
 
@@ -638,7 +638,7 @@ static inline struct lb4_service *__lb4_lookup_service(struct lb4_key *key)
 
 		/* FIXME: The verifier barks on these calls right now for some reason */
 		/* cilium_dbg_lb(skb, DBG_LB4_LOOKUP_MASTER, key->address, key->dport); */
-		svc = map_lookup_elem(&cilium_lb4_services, key);
+		svc = map_lookup_elem(&LB4_SERVICES_MAP, key);
 		if (svc && svc->count != 0)
 			return svc;
 	}
@@ -663,7 +663,7 @@ static inline struct lb4_service *lb4_lookup_slave(struct __sk_buff *skb,
 
 	key->slave = slave;
 	cilium_dbg_lb(skb, DBG_LB4_LOOKUP_SLAVE, key->slave, key->dport);
-	svc = map_lookup_elem(&cilium_lb4_services, key);
+	svc = map_lookup_elem(&LB4_SERVICES_MAP, key);
 	if (svc != NULL) {
 		cilium_dbg_lb(skb, DBG_LB4_LOOKUP_SLAVE_SUCCESS, svc->target, svc->port);
 		return svc;

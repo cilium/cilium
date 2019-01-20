@@ -18,6 +18,7 @@ package eppolicymap
 
 import (
 	"net"
+	"os"
 	"testing"
 	"unsafe"
 
@@ -37,6 +38,16 @@ func Test(t *testing.T) {
 type EPPolicyMapTestSuite struct{}
 
 var _ = Suite(&EPPolicyMapTestSuite{})
+
+func (e *EPPolicyMapTestSuite) SetUpTest(c *C) {
+	MapName = "unit_test_ep_to_policy"
+	innerMapName = "unit_test_ep_policy_inner_map"
+}
+
+func (e *EPPolicyMapTestSuite) TearDownTest(c *C) {
+	os.Remove(MapName)
+	os.Remove(innerMapName)
+}
 
 func (e *EPPolicyMapTestSuite) TestCreateEPPolicy(c *C) {
 	bpf.CheckOrMountFS("")

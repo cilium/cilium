@@ -31,6 +31,10 @@ import (
 )
 
 const (
+	// CallMapName is the name of the map to do tail calls into policy
+	// enforcement programs
+	CallMapName = "cilium_policy"
+
 	MapName = "cilium_policy_"
 
 	// MaxEntries is the upper limit of entries in the per endpoint policy

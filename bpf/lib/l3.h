@@ -96,7 +96,7 @@ static inline int ipv6_local_delivery(struct __sk_buff *skb, int l3_off, int l4_
 	 */
 	update_metrics(skb->len, direction, REASON_FORWARDED);
 #endif
-	tail_call(skb, &cilium_policy, ep->lxc_id);
+	tail_call(skb, &POLICY_CALL_MAP, ep->lxc_id);
 	return DROP_MISSED_TAIL_CALL;
 }
 
@@ -127,7 +127,7 @@ static inline int __inline__ ipv4_local_delivery(struct __sk_buff *skb, int l3_o
 	 */
 	update_metrics(skb->len, direction, REASON_FORWARDED);
 #endif
-	tail_call(skb, &cilium_policy, ep->lxc_id);
+	tail_call(skb, &POLICY_CALL_MAP, ep->lxc_id);
 	return DROP_MISSED_TAIL_CALL;
 }
 
