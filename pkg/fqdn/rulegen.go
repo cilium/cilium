@@ -260,6 +260,44 @@ func (gen *RuleGen) UpdateGenerateDNS(lookupTime time.Time, updatedDNSIPs map[st
 	return gen.config.AddGeneratedRules(generatedRules)
 }
 
+// ForceGenerateDNS unconditionally regenerates all rules that refer to DNS
+// names in namesToRegen. These names are FQDNs and toFQDNs.matchPatterns or
+// matchNames that match them will cause these rules to regenerate.
+func (gen *RuleGen) ForceGenerateDNS(namesToRegen []string) error {
+	affectedRulesSet := make(map[string]struct{}, 0)
+	for _, dnsName := range namesToRegen {
+		for _, uuid := range gen.sourceRules.LookupValues(dnsName) {
+			affectedRulesSet[uuid] = struct{}{}
+		}
+	}
+
+	// Convert the set to a list
+	var uuidsToUpdate []string
+	for uuid := range affectedRulesSet {
+		uuidsToUpdate = append(uuidsToUpdate, uuid)
+	}
+
+	// Generate a new rule for each sourceRule that needs an update.
+	rulesToUpdate, notFoundUUIDs := gen.GetRulesByUUID(uuidsToUpdate)
+	if len(notFoundUUIDs) != 0 {
+		log.WithField("uuid", strings.Join(notFoundUUIDs, ",")).
+			Debug("Did not find all rules during update")
+	}
+	generatedRules, namesMissingIPs := gen.GenerateRulesFromSources(rulesToUpdate)
+	if len(namesMissingIPs) != 0 {
+		log.WithField(logfields.DNSName, strings.Join(namesMissingIPs, ",")).
+			Warn("Missing IPs for ToFQDN rule")
+	}
+
+	// no new rules to add, do not call AddGeneratedRules below
+	if len(generatedRules) == 0 {
+		return nil
+	}
+
+	// emit the new rules
+	return gen.config.AddGeneratedRules(generatedRules)
+}
+
 // UpdateDNSIPs updates the IPs for each DNS name in updatedDNSIPs.
 // It returns:
 // affectedRules: a list of rule UUIDs that were affected by the new IPs (lookup in .allRules)
