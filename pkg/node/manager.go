@@ -21,7 +21,7 @@ import (
 	"os/exec"
 	"strings"
 
-	routeUtils "github.com/cilium/cilium/pkg/datapath/route"
+	routeUtils "github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -124,7 +124,7 @@ func replaceNodeRoute(ip *net.IPNet, mtuConfig mtu.Configuration) {
 		}
 	}
 
-	routeUtils.ReplaceRoute(createNodeRoute(ip), mtuConfig)
+	routeUtils.Upsert(createNodeRoute(ip), mtuConfig)
 }
 
 // deleteNodeRoute removes a node route of a particular CIDR
@@ -133,7 +133,7 @@ func deleteNodeRoute(ip *net.IPNet) {
 		return
 	}
 
-	routeUtils.DeleteRoute(createNodeRoute(ip))
+	routeUtils.Delete(createNodeRoute(ip))
 }
 
 func (cc *clusterConfiguation) replaceHostRoutes() {

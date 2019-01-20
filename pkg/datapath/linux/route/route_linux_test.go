@@ -63,14 +63,12 @@ func (p *RouteSuitePrivileged) TestReplaceNexthopRoute(c *C) {
 	link, err := netlink.LinkByName("lo")
 	c.Assert(err, IsNil)
 
-	ip := net.ParseIP("1.2.3.4")
-	c.Assert(ip, Not(IsNil))
-	routerNet := &net.IPNet{IP: ip, Mask: net.CIDRMask(32, 32)}
+	_, routerNet, err := net.ParseCIDR("1.2.3.4/32")
+	c.Assert(err, IsNil)
 	testReplaceNexthopRoute(c, link, routerNet)
 
-	ip = net.ParseIP("f00d::a02:100:0:815b")
-	c.Assert(ip, Not(IsNil))
-	routerNet = &net.IPNet{IP: ip, Mask: net.CIDRMask(128, 128)}
+	_, routerNet, err = net.ParseCIDR("f00d::a02:100:0:815b/128")
+	c.Assert(err, IsNil)
 	testReplaceNexthopRoute(c, link, routerNet)
 }
 
@@ -89,17 +87,17 @@ func testReplaceRoute(c *C, prefixStr, nexthopStr string, lookupTest bool) {
 	}
 
 	// delete route in case it exists from a previous failed run
-	DeleteRoute(rt)
+	Delete(rt)
 
 	// Defer deletion of route and nexthop route to cleanup in case of failure
-	defer DeleteRoute(rt)
-	defer DeleteRoute(Route{
+	defer Delete(rt)
+	defer Delete(Route{
 		Device: "lo",
 		Prefix: *rt.getNexthopAsIPNet(),
 		Scope:  netlink.SCOPE_LINK,
 	})
 
-	err = ReplaceRoute(rt, mtu.NewConfiguration(false, 0))
+	_, err = Upsert(rt, mtu.NewConfiguration(false, 0))
 	c.Assert(err, IsNil)
 
 	if lookupTest {
@@ -112,7 +110,7 @@ func testReplaceRoute(c *C, prefixStr, nexthopStr string, lookupTest bool) {
 		}, 5*time.Second), IsNil)
 	}
 
-	err = DeleteRoute(rt)
+	err = Delete(rt)
 	c.Assert(err, IsNil)
 }
 
