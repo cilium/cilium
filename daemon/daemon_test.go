@@ -17,8 +17,6 @@
 package main
 
 import (
-	"github.com/cilium/cilium/pkg/identity/cache"
-	"github.com/cilium/cilium/pkg/revert"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -28,9 +26,11 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/completion"
+	fakedatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	e "github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
+	"github.com/cilium/cilium/pkg/revert"
 
 	. "gopkg.in/check.v1"
 )
@@ -102,7 +103,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	// state left on disk.
 	option.Config.EnableHostIPRestore = false
 
-	d, _, err := NewDaemon()
+	d, _, err := NewDaemon(fakedatapath.NewDatapath())
 	c.Assert(err, IsNil)
 	ds.d = d
 

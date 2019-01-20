@@ -35,10 +35,10 @@ import (
 	"github.com/cilium/cilium/pkg/cleanup"
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/controller"
+	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/maps"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
@@ -330,8 +330,9 @@ func init() {
 	flags.String(option.AllowLocalhost, option.AllowLocalhostAuto, "Policy when to allow local stack to reach local endpoints { auto | always | policy }")
 	option.BindEnv(option.AllowLocalhost)
 
-	flags.Bool(option.AutoIPv6NodeRoutesName, false, "Automatically adds IPv6 L3 routes to reach other nodes for non-overlay mode (--device) (BETA)")
-	option.BindEnv(option.AutoIPv6NodeRoutesName)
+	flags.Bool(option.LegacyAutoIPv6NodeRoutesName, false, "Deprecatd, use --auto-direct-node-routes")
+	option.BindEnv(option.LegacyAutoIPv6NodeRoutesName)
+	flags.MarkDeprecated(option.LegacyAutoIPv6NodeRoutesName, fmt.Sprintf("please use %s", option.EnableAutoDirectRoutingName))
 
 	flags.String(option.BPFRoot, "", "Path to BPF filesystem")
 	option.BindEnv(option.BPFRoot)
@@ -403,6 +404,9 @@ func init() {
 
 	flags.StringP(option.Docker, "e", workloads.GetRuntimeDefaultOpt(workloads.Docker, "endpoint"), "Path to docker runtime socket (DEPRECATED: use container-runtime-endpoint instead)")
 	option.BindEnv(option.Docker)
+
+	flags.Bool(option.EnableAutoDirectRoutingName, defaults.EnableAutoDirectRouting, "Enable automatic L2 routing between nodes")
+	option.BindEnv(option.EnableAutoDirectRoutingName)
 
 	flags.String(option.EnablePolicy, option.DefaultEnforcement, "Enable policy enforcement")
 	option.BindEnv(option.EnablePolicy)
@@ -931,6 +935,10 @@ func initEnv(cmd *cobra.Command) {
 		if option.Config.InstallIptRules {
 			option.Config.Ipvlan.OperationMode = option.OperationModeL3S
 		}
+
+		// Currently, cilium-health cannot run in ipvlan mode as it
+		// tries to connect to network in veth mode, thus we disable it
+		option.Config.EnableHealthChecking = false
 	default:
 		log.WithField(logfields.DatapathMode, option.Config.DatapathMode).Fatal("Invalid datapath mode")
 	}
@@ -1022,6 +1030,10 @@ func waitForHostDeviceWhenReady(ifaceName string) {
 }
 
 func runDaemon() {
+	datapathConfig := linuxdatapath.DatapathConfiguration{
+		HostDevice: option.Config.HostDevice,
+	}
+
 	log.Info("Initializing daemon")
 
 	// Since flannel doesn't create the cni0 interface until the first container
@@ -1032,7 +1044,7 @@ func runDaemon() {
 		waitForHostDeviceWhenReady(option.Config.FlannelMasterDevice)
 	}
 
-	d, restoredEndpoints, err := NewDaemon()
+	d, restoredEndpoints, err := NewDaemon(linuxdatapath.NewDatapath(datapathConfig))
 	if err != nil {
 		log.WithError(err).Fatal("Error while creating daemon")
 		return
@@ -1094,6 +1106,9 @@ func runDaemon() {
 	}
 
 	if option.Config.IsFlannelMasterDeviceSet() {
+		// health checking is not supported by flannel
+		option.Config.EnableHealthChecking = false
+
 		err := node.SetInternalIPv4From(option.Config.FlannelMasterDevice)
 		if err != nil {
 			log.WithError(err).WithField("device", option.Config.FlannelMasterDevice).Fatal("Unable to set internal IPv4")
@@ -1115,14 +1130,7 @@ func runDaemon() {
 		d.workloadsEventsCh = eventsCh
 	}
 
-	if k8s.IsEnabled() {
-		// Inject K8s dependency into packages which need to annotate K8s resources.
-		endpoint.EpAnnotator = k8s.Client()
-	}
-
-	// Currently, cilium-health cannot run in ipvlan mode as it tries to connect
-	// to network in veth mode, thus we disable it
-	if option.Config.DatapathMode != option.DatapathModeIpvlan {
+	if option.Config.EnableHealthChecking {
 		d.initHealth()
 	}
 
