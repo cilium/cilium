@@ -24,6 +24,7 @@ import (
 	"reflect"
 
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/cidr"
 
 	. "gopkg.in/check.v1"
 )
@@ -32,13 +33,13 @@ func (s *NodeSuite) TestMaskCheck(c *C) {
 	InitDefaultPrefix("")
 	SetIPv4ClusterCidrMaskSize(24)
 
-	_, cidr, _ := net.ParseCIDR("1.1.1.1/16")
-	SetIPv4AllocRange(cidr)
+	allocCIDR := cidr.MustParseCIDR("1.1.1.1/16")
+	SetIPv4AllocRange(allocCIDR)
 
 	// must fail, cluster /24 > per node alloc prefix /16
 	c.Assert(ValidatePostInit(), Not(IsNil))
 
-	SetInternalIPv4(cidr.IP)
+	SetInternalIPv4(allocCIDR.IP)
 
 	// OK, cluster /16 == per node alloc prefix /16
 	SetIPv4ClusterCidrMaskSize(16)

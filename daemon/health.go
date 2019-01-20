@@ -15,13 +15,13 @@
 package main
 
 import (
+	"net"
 	"path/filepath"
 	"time"
 
 	health "github.com/cilium/cilium/cilium-health/launch"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -38,24 +38,6 @@ func (d *Daemon) initHealth() {
 
 	// Allocate health endpoint IPs after restoring state
 	log.Info("Building health endpoint")
-	health4, health6, err := ipam.AllocateNext("")
-	if err != nil {
-		log.WithError(err).Fatal("IPAM allocation failed. For more detail, see https://cilium.link/ipam-range-full")
-	}
-
-	err = node.SetIPv4HealthIP(health4)
-	if err != nil {
-		log.WithError(err).Fatal("Error while set health IPv4 ip on the local node.")
-	}
-
-	err = node.SetIPv6HealthIP(health6)
-	if err != nil {
-		log.WithError(err).Fatal("Error while set health IPv6 ip on the local node.")
-	}
-
-	log.Debugf("IPv4 health endpoint address: %s", node.GetIPv4HealthIP())
-	log.Debugf("IPv6 health endpoint address: %s", node.GetIPv6HealthIP())
-	node.NotifyLocalNodeUpdated()
 
 	// Launch cilium-health in the same namespace as cilium.
 	log.Info("Launching Cilium health daemon")
@@ -69,29 +51,27 @@ func (d *Daemon) initHealth() {
 		// running inside a new PID namespace which means that existing
 		// PIDfiles are referring to PIDs that may be reused. Clean up.
 		pidfile.Remove(filepath.Join(option.Config.StateDir, health.PidfilePath))
-
-		// Inject K8s dependency into packages which need to annotate K8s resources.
-		health.NodeEpAnnotator = k8s.Client()
 	}
 	controller.NewManager().UpdateController("cilium-health-ep",
 		controller.ControllerParams{
 			DoFunc: func() error {
-				return d.runCiliumHealthEndpoint()
+				return d.runCiliumHealthEndpoint(d.nodeDiscovery.localNode.IPv4HealthIP, d.nodeDiscovery.localNode.IPv6HealthIP)
 			},
 			StopFunc: func() error {
 				err := health.PingEndpoint()
-				d.cleanupHealthEndpoint()
+				d.cleanupHealthEndpoint(d.nodeDiscovery.localNode.IPv4HealthIP)
+
 				return err
 			},
 			RunInterval: 30 * time.Second,
 		})
 }
 
-func (d *Daemon) cleanupHealthEndpoint() {
+func (d *Daemon) cleanupHealthEndpoint(healthIPv4 net.IP) {
 	// Delete the process
 	health.KillEndpoint()
 	// Clean up agent resources
-	ep := endpointmanager.LookupIPv4(node.GetIPv4HealthIP().String())
+	ep := endpointmanager.LookupIPv4(healthIPv4.String())
 	if ep == nil {
 		log.Debug("Didn't find existing cilium-health endpoint to delete")
 	} else {
@@ -106,12 +86,12 @@ func (d *Daemon) cleanupHealthEndpoint() {
 
 // runCiliumHealthEndpoint attempts to contact the cilium-health endpoint, and
 // if it cannot be reached, restarts it.
-func (d *Daemon) runCiliumHealthEndpoint() error {
+func (d *Daemon) runCiliumHealthEndpoint(healthIPv4, healthIPv6 net.IP) error {
 	// PingEndpoint will always fail the first time (initialization).
 	if err := health.PingEndpoint(); err != nil {
-		d.cleanupHealthEndpoint()
+		d.cleanupHealthEndpoint(healthIPv4)
 		addressing := node.GetNodeAddressing()
-		return health.LaunchAsEndpoint(d, addressing, d.mtuConfig)
+		return health.LaunchAsEndpoint(d, addressing, d.mtuConfig, healthIPv4, healthIPv6)
 	}
 	return nil
 }

@@ -387,60 +387,57 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *node.Node) error {
 	)
 
 	if oldNode != nil {
-		oldIP4Cidr = cidr.NewCIDR(oldNode.IPv4AllocCIDR)
-		oldIP6Cidr = cidr.NewCIDR(oldNode.IPv6AllocCIDR)
+		oldIP4Cidr = oldNode.IPv4AllocCIDR
+		oldIP6Cidr = oldNode.IPv6AllocCIDR
 		oldIP4 = oldNode.GetNodeIP(false)
 		oldIP6 = oldNode.GetNodeIP(true)
 	}
 
 	if newNode.IsLocal() {
 		if n.nodeConfig.EnableLocalNodeRoute {
-			n.updateOrRemoveNodeRoutes([]*cidr.CIDR{oldIP4Cidr}, []*cidr.CIDR{cidr.NewCIDR(newNode.IPv4AllocCIDR)})
-			n.updateOrRemoveNodeRoutes([]*cidr.CIDR{oldIP6Cidr}, []*cidr.CIDR{cidr.NewCIDR(newNode.IPv6AllocCIDR)})
+			n.updateOrRemoveNodeRoutes([]*cidr.CIDR{oldIP4Cidr}, []*cidr.CIDR{newNode.IPv4AllocCIDR})
+			n.updateOrRemoveNodeRoutes([]*cidr.CIDR{oldIP6Cidr}, []*cidr.CIDR{newNode.IPv6AllocCIDR})
 		}
 		return nil
 	}
 
 	if n.nodeConfig.EnableAutoDirectRouting {
-		n.updateDirectRoute(oldIP4Cidr, cidr.NewCIDR(newNode.IPv4AllocCIDR), oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv4)
-		n.updateDirectRoute(oldIP6Cidr, cidr.NewCIDR(newNode.IPv6AllocCIDR), oldIP6, newIP6, firstAddition, n.nodeConfig.EnableIPv6)
+		n.updateDirectRoute(oldIP4Cidr, newNode.IPv4AllocCIDR, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv4)
+		n.updateDirectRoute(oldIP6Cidr, newNode.IPv6AllocCIDR, oldIP6, newIP6, firstAddition, n.nodeConfig.EnableIPv6)
 		return nil
 	} else if oldNode == nil {
 		// When direct routing is disabled, then the initial node
 		// addition triggers a removal of eventual old tunnel map
 		// entries.
-		n.deleteDirectRoute(cidr.NewCIDR(newNode.IPv4AllocCIDR), newIP4)
-		n.deleteDirectRoute(cidr.NewCIDR(newNode.IPv6AllocCIDR), newIP6)
+		n.deleteDirectRoute(newNode.IPv4AllocCIDR, newIP4)
+		n.deleteDirectRoute(newNode.IPv6AllocCIDR, newIP6)
 	}
 
 	if n.nodeConfig.EnableEncapsulation {
 		// Update the tunnel mapping of the node. In case the
 		// node has changed its CIDR range, a new entry in the
 		// map is created and the old entry is removed.
-		updateTunnelMapping(oldIP4Cidr, cidr.NewCIDR(newNode.IPv4AllocCIDR), oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv4)
+		updateTunnelMapping(oldIP4Cidr, newNode.IPv4AllocCIDR, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv4)
 		// Not a typo, the IPv4 host IP is used to build the IPv6 overlay
-		updateTunnelMapping(oldIP6Cidr, cidr.NewCIDR(newNode.IPv6AllocCIDR), oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv6)
+		updateTunnelMapping(oldIP6Cidr, newNode.IPv6AllocCIDR, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv6)
 
 		if !n.nodeConfig.UseSingleClusterRoute {
-			n.updateOrRemoveNodeRoutes([]*cidr.CIDR{oldIP4Cidr}, []*cidr.CIDR{cidr.NewCIDR(newNode.IPv4AllocCIDR)})
-			n.updateOrRemoveNodeRoutes([]*cidr.CIDR{oldIP6Cidr}, []*cidr.CIDR{cidr.NewCIDR(newNode.IPv6AllocCIDR)})
+			n.updateOrRemoveNodeRoutes([]*cidr.CIDR{oldIP4Cidr}, []*cidr.CIDR{newNode.IPv4AllocCIDR})
+			n.updateOrRemoveNodeRoutes([]*cidr.CIDR{oldIP6Cidr}, []*cidr.CIDR{newNode.IPv6AllocCIDR})
 		}
 
 		return nil
 	} else if oldNode == nil {
-		ip4CIDR := cidr.NewCIDR(newNode.IPv4AllocCIDR)
-		ip6CIDR := cidr.NewCIDR(newNode.IPv6AllocCIDR)
-
 		// When encapsulation is disabled, then the initial node addition
 		// triggers a removal of eventual old tunnel map entries.
-		deleteTunnelMapping(ip4CIDR, true)
-		deleteTunnelMapping(ip6CIDR, true)
+		deleteTunnelMapping(newNode.IPv4AllocCIDR, true)
+		deleteTunnelMapping(newNode.IPv6AllocCIDR, true)
 
-		if rt, _ := n.lookupNodeRoute(ip4CIDR); rt != nil {
-			n.deleteNodeRoute(ip4CIDR)
+		if rt, _ := n.lookupNodeRoute(newNode.IPv4AllocCIDR); rt != nil {
+			n.deleteNodeRoute(newNode.IPv4AllocCIDR)
 		}
-		if rt, _ := n.lookupNodeRoute(ip6CIDR); rt != nil {
-			n.deleteNodeRoute(ip6CIDR)
+		if rt, _ := n.lookupNodeRoute(newNode.IPv6AllocCIDR); rt != nil {
+			n.deleteNodeRoute(newNode.IPv6AllocCIDR)
 		}
 	}
 
@@ -472,17 +469,17 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *node.Node) error {
 	oldIP6 := oldNode.GetNodeIP(true)
 
 	if n.nodeConfig.EnableAutoDirectRouting {
-		n.deleteDirectRoute(cidr.NewCIDR(oldNode.IPv4AllocCIDR), oldIP4)
-		n.deleteDirectRoute(cidr.NewCIDR(oldNode.IPv6AllocCIDR), oldIP6)
+		n.deleteDirectRoute(oldNode.IPv4AllocCIDR, oldIP4)
+		n.deleteDirectRoute(oldNode.IPv6AllocCIDR, oldIP6)
 	}
 
 	if n.nodeConfig.EnableEncapsulation {
-		deleteTunnelMapping(cidr.NewCIDR(oldNode.IPv4AllocCIDR), false)
-		deleteTunnelMapping(cidr.NewCIDR(oldNode.IPv6AllocCIDR), false)
+		deleteTunnelMapping(oldNode.IPv4AllocCIDR, false)
+		deleteTunnelMapping(oldNode.IPv6AllocCIDR, false)
 
 		if !n.nodeConfig.UseSingleClusterRoute {
-			n.deleteNodeRoute(cidr.NewCIDR(oldNode.IPv4AllocCIDR))
-			n.deleteNodeRoute(cidr.NewCIDR(oldNode.IPv6AllocCIDR))
+			n.deleteNodeRoute(oldNode.IPv4AllocCIDR)
+			n.deleteNodeRoute(oldNode.IPv6AllocCIDR)
 		}
 	}
 

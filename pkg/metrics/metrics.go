@@ -511,6 +511,25 @@ func Register(c prometheus.Collector) error {
 	return registry.Register(c)
 }
 
+// RegisterList registers a list of collectors. If registration of one
+// collector fails, no collector is registered.
+func RegisterList(list []prometheus.Collector) error {
+	registered := []prometheus.Collector{}
+
+	for _, c := range list {
+		if err := Register(c); err != nil {
+			for _, c := range registered {
+				Unregister(c)
+			}
+			return err
+		}
+
+		registered = append(registered, c)
+	}
+
+	return nil
+}
+
 // Unregister unregisters a collector
 func Unregister(c prometheus.Collector) bool {
 	return registry.Unregister(c)
