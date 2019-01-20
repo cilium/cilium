@@ -31,7 +31,7 @@ lookup_ip6_endpoint(struct ipv6hdr *ip6)
 	key.ip6 = *((union v6addr *) &ip6->daddr);
 	key.family = ENDPOINT_KEY_IPV6;
 
-	return map_lookup_elem(&cilium_lxc, &key);
+	return map_lookup_elem(&ENDPOINTS_MAP, &key);
 }
 
 static __always_inline struct endpoint_info *
@@ -42,7 +42,7 @@ __lookup_ip4_endpoint(uint32_t ip)
 	key.ip4 = ip;
 	key.family = ENDPOINT_KEY_IPV4;
 
-	return map_lookup_elem(&cilium_lxc, &key);
+	return map_lookup_elem(&ENDPOINTS_MAP, &key);
 }
 
 static __always_inline struct endpoint_info *
@@ -60,7 +60,7 @@ lookup_ip4_endpoint_policy_map(uint32_t ip)
 	key.ip4 = ip;
 	key.family = ENDPOINT_KEY_IPV4;
 
-	return map_lookup_elem(&cilium_ep_to_policy, &key);
+	return map_lookup_elem(&EP_POLICY_MAP, &key);
 }
 #endif
 
@@ -122,15 +122,15 @@ _Pragma("unroll")							\
 	return NULL;							\
 }
 LPM_LOOKUP_FN(lookup_ip6_remote_endpoint, union v6addr *, IPCACHE6_PREFIXES,
-	      cilium_ipcache, ipcache_lookup6)
+	      IPCACHE_MAP, ipcache_lookup6)
 LPM_LOOKUP_FN(lookup_ip4_remote_endpoint, __be32, IPCACHE4_PREFIXES,
-	      cilium_ipcache, ipcache_lookup4)
+	      IPCACHE_MAP, ipcache_lookup4)
 #undef LPM_LOOKUP_FN
 #else /* HAVE_LPM_MAP_TYPE */
 #define lookup_ip6_remote_endpoint(addr) \
-	ipcache_lookup6(&cilium_ipcache, addr, V6_CACHE_KEY_LEN)
+	ipcache_lookup6(&IPCACHE_MAP, addr, V6_CACHE_KEY_LEN)
 #define lookup_ip4_remote_endpoint(addr) \
-	ipcache_lookup4(&cilium_ipcache, addr, V4_CACHE_KEY_LEN)
+	ipcache_lookup4(&IPCACHE_MAP, addr, V4_CACHE_KEY_LEN)
 #endif /* HAVE_LPM_MAP_TYPE */
 #endif /* LXC_ID */
 
