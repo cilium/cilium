@@ -156,7 +156,7 @@ func (c *DNSCache) updateWithEntry(entry *cacheEntry) {
 	c.updateWithEntryIPs(entries, entry)
 	// When lookupTime is much earlier than time.Now(), we may not expire all
 	// entries that should be expired, leaving more work for .Lookup.
-	c.removeExpired(entries, time.Now())
+	c.removeExpired(entries, time.Now(), time.Time{})
 }
 
 // UpdateFromCache is a utility function that allows updating a DNSCache
@@ -271,15 +271,25 @@ func (c *DNSCache) updateWithEntryIPs(entries ipEntries, entry *cacheEntry) {
 }
 
 // removeExpired removes expired (or nil) cacheEntry pointers from entries, an
-// ipEntries for a specific name.
+// ipEntries instance for a specific name. It returns a boolean if any entry is
+// removed.
+// now is the "current time" and entries with ExpirationTime before then are
+// removed.
+// expireLookupsBefore is an optional parameter. It causes any entry with a
+// LookupTime before it to be expired. It is intended for use with cache
+// clearing functions like ForceExpire, and does not maintain the cache's
+// guarantees.
 // This needs a write lock
-func (c *DNSCache) removeExpired(entries ipEntries, now time.Time) {
+func (c *DNSCache) removeExpired(entries ipEntries, now time.Time, expireLookupsBefore time.Time) (removed bool) {
 	for ip, entry := range entries {
-		if entry == nil || entry.isExpiredBy(now) {
+		if entry == nil || entry.isExpiredBy(now) || entry.LookupTime.Before(expireLookupsBefore) {
 			delete(entries, ip)
 			c.removeReverse(ip, entry)
+			removed = true
 		}
 	}
+
+	return removed
 }
 
 // upsertReverse updates the reverse DNS cache for ip with entry, if it expires
@@ -309,6 +319,36 @@ func (c *DNSCache) removeReverse(ip string, entry *cacheEntry) {
 	if len(entries) == 0 {
 		delete(c.reverse, ip)
 	}
+}
+
+// ForceExpire is used to clear entries from the cache before their TTL is
+// over. This operation does not keep previous guarantees that, for each IP,
+// the most recent lookup to provide that IP is used.
+// Note that all parameters must match, if provided. `time.Time{}` is
+// considered not-provided for time parameters.
+// expireLookupsBefore requires a lookup to have a LookupTime before it in
+// order to remove it.
+// nameMatch will remove any DNS names that match.
+func (c *DNSCache) ForceExpire(expireLookupsBefore time.Time, nameMatch *regexp.Regexp) (namesAffected []string) {
+	c.Lock()
+	defer c.Unlock()
+
+	for name, entries := range c.forward {
+		// If nameMatch was passed in, we must match it. Otherwise, "match all".
+		if nameMatch != nil && !nameMatch.MatchString(name) {
+			continue
+		}
+		// We pass expireLookupsBefore as the `now` parameter but it is redundant
+		// because LookupTime must be before ExpirationTime.
+		// The second expireLookupsBefore actually matches lookup times, and will
+		// delete the entries completely.
+		nameNeedsRegen := c.removeExpired(entries, expireLookupsBefore, expireLookupsBefore)
+		if nameNeedsRegen {
+			namesAffected = append(namesAffected, name)
+		}
+	}
+
+	return namesAffected
 }
 
 // Dump returns unexpired cache entries in the cache. They are deduplicated,
