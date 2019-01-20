@@ -105,25 +105,6 @@ func getCiliumHostIPsFromNetDev(devName string) (ipv4GW, ipv6Router net.IP) {
 	return ipv4GW, ipv6Router
 }
 
-// firstLinkWithv6 returns the first network interface that contains the given
-// IPv6 address.
-func firstLinkWithv6(ip net.IP) (netlink.Link, error) {
-	links, err := netlink.LinkList()
-	if err != nil {
-		return nil, err
-	}
-	for _, l := range links {
-		addrs, _ := netlink.AddrList(l, netlink.FAMILY_V6)
-		for _, a := range addrs {
-			if ip.Equal(a.IP) {
-				return l, nil
-			}
-		}
-	}
-
-	return nil, fmt.Errorf("No address found")
-}
-
 // SetInternalIPv4From sets the internal IPv4 with the first global address
 // found in that interface.
 func SetInternalIPv4From(ifaceName string) error {

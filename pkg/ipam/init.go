@@ -122,13 +122,13 @@ func Init() {
 				},
 			},
 		},
-		IPv6Allocator: ipallocator.NewCIDRRange(node.GetIPv6AllocRange()),
+		IPv6Allocator: ipallocator.NewCIDRRange(node.GetIPv6AllocRange().IPNet),
 	}
 
 	// Since docker doesn't support IPv6 only and there's always an IPv4
 	// address we can set up ipam for IPv4. More info:
 	// https://github.com/docker/libnetwork/pull/826
-	ipamConf.IPv4Allocator = ipallocator.NewCIDRRange(node.GetIPv4AllocRange())
+	ipamConf.IPv4Allocator = ipallocator.NewCIDRRange(node.GetIPv4AllocRange().IPNet)
 	ipamConf.IPAMConfig.Routes = append(ipamConf.IPAMConfig.Routes,
 		// IPv4
 		&cniTypes.Route{
