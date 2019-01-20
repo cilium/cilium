@@ -54,26 +54,6 @@ pipeline {
                }
             }
         }
-        // We run privileged tests in Jenkins to work around privilege
-        // limitations in the Travis environment that prevents running tests.
-        stage('PrivilegedUnitTesting') {
-            options {
-                timeout(time: 20, unit: 'MINUTES')
-            }
-
-            environment {
-                GOPATH="${WORKSPACE}"
-                TESTDIR="${WORKSPACE}/${PROJ_PATH}/"
-            }
-            steps {
-                sh "cd ${TESTDIR}; make tests-ginkgo"
-            }
-            post {
-                always {
-                    sh "cd ${TESTDIR}; make clean-ginkgo-tests || true"
-                }
-            }
-        }
         stage('Boot VMs'){
             options {
                 timeout(time: 30, unit: 'MINUTES')
