@@ -114,7 +114,12 @@ func (s *SSHMeta) NetworkCreate(name string, subnet string) *CmdRes {
 	cmd := fmt.Sprintf(
 		"docker network create --ipv6 --subnet %s --driver cilium --ipam-driver cilium %s",
 		subnet, name)
-	return s.ExecWithSudo(cmd)
+	res := s.ExecWithSudo(cmd)
+	if !res.WasSuccessful() {
+		s.logger.Warningf("Unable to create docker network %s: %s", name, res.CombineOutput().String())
+	}
+
+	return res
 }
 
 // NetworkDelete deletes the Docker network of the provided name. It is a wrapper
