@@ -83,6 +83,16 @@ func (m *Map) SetTunnelEndpoint(prefix net.IP, endpoint net.IP) error {
 	return TunnelMap.Update(key, val)
 }
 
+// GetTunnelEndpoint removes a prefix => tunnel-endpoint mapping
+func (m *Map) GetTunnelEndpoint(prefix net.IP) (net.IP, error) {
+	val, err := TunnelMap.Lookup(newTunnelEndpoint(prefix))
+	if err != nil {
+		return net.IP{}, err
+	}
+
+	return val.(*tunnelEndpoint).ToIP(), nil
+}
+
 // DeleteTunnelEndpoint removes a prefix => tunnel-endpoint mapping
 func (m *Map) DeleteTunnelEndpoint(prefix net.IP) error {
 	log.WithField(fieldPrefix, prefix).Debug("Deleting tunnel map entry")
