@@ -20,9 +20,29 @@ import (
 	"path"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/node/addressing"
-	"github.com/cilium/cilium/pkg/option"
+)
+
+// Source is the description of the source of an identity
+type Source string
+
+const (
+	// FromKubernetes is the source used for identities derived from k8s
+	// resources (pods)
+	FromKubernetes Source = "k8s"
+
+	// FromKVStore is the source used for identities derived from the
+	// kvstore
+	FromKVStore Source = "kvstore"
+
+	// FromAgentLocal is the source used for identities derived during the
+	// agent bootup process. This includes identities for endpoint IPs.
+	FromAgentLocal Source = "agent-local"
+
+	// FromLocalNode is the source used for the local node
+	FromLocalNode Source = "local-node"
 )
 
 // Identity represents the node identity of a node.
@@ -37,6 +57,8 @@ func (nn Identity) String() string {
 }
 
 // Node contains the nodes name, the list of addresses to this address
+//
+// +k8s:deepcopy-gen=true
 type Node struct {
 	// Name is the name of the node. This is typically the hostname of the node.
 	Name string
@@ -48,14 +70,11 @@ type Node struct {
 
 	// IPv4AllocCIDR if set, is the IPv4 address pool out of which the node
 	// allocates IPs for local endpoints from
-	IPv4AllocCIDR *net.IPNet
+	IPv4AllocCIDR *cidr.CIDR
 
 	// IPv6AllocCIDR if set, is the IPv6 address pool out of which the node
 	// allocates IPs for local endpoints from
-	IPv6AllocCIDR *net.IPNet
-
-	// dev contains the device name to where the IPv6 traffic should be send
-	dev string
+	IPv6AllocCIDR *cidr.CIDR
 
 	// IPv4HealthIP if not nil, this is the IPv4 address of the
 	// cilium-health endpoint located on the node.
@@ -67,9 +86,6 @@ type Node struct {
 
 	// ClusterID is the unique identifier of the cluster
 	ClusterID int
-
-	// cluster membership
-	cluster *clusterConfiguation
 
 	// Source is the source where the node configuration was generated / created.
 	Source Source
@@ -86,6 +102,8 @@ func (n *Node) Fullname() string {
 }
 
 // Address is a node address which contains an IP and the address type.
+//
+// +k8s:deepcopy-gen=true
 type Address struct {
 	Type addressing.AddressType
 	IP   net.IP
@@ -212,38 +230,6 @@ func (n *Node) Identity() Identity {
 	}
 }
 
-// OnUpdate is called each time the node information is updated
-//
-// Updates the new node in the nodes' map with the given identity. This also
-// updates the local routing tables and tunnel lookup maps according to the
-// node's preferred way of being reached.
-func (n *Node) OnUpdate() {
-	n.getLogger().Debug("Updated node information received")
-
-	routeTypes := TunnelRoute
-
-	// Add IPv6 routing only in non encap. With encap we do it with bpf tunnel
-	// FIXME create a function to know on which mode is the daemon running on
-	var ownAddr net.IP
-	if option.Config.AutoIPv6NodeRoutes && option.Config.Device != "undefined" {
-		// ignore own node
-		if n.Cluster != option.Config.ClusterName && n.Name != GetName() {
-			ownAddr = GetIPv6()
-			routeTypes |= DirectRoute
-		}
-	}
-
-	// As the OnUpdate() function is only called by the kv-store
-	// We can safely set its source to "kvstore"
-	n.Source = FromKVStore
-	UpdateNode(n, routeTypes, ownAddr)
-}
-
-// OnDelete is called when a node has been deleted from the cluster
-func (n *Node) OnDelete() {
-	DeleteNode(n.Identity(), TunnelRoute|DirectRoute)
-}
-
 // IsLocal returns true if this is the node on which the agent itself is
 // running on
 func (n *Node) IsLocal() bool {
@@ -309,20 +295,12 @@ func (n *Node) Marshal() ([]byte, error) {
 
 // Unmarshal parses the JSON byte slice and updates the node receiver
 func (n *Node) Unmarshal(data []byte) error {
-	// Backup private fields
-	cluster := n.cluster
-	dev := n.dev
-
 	newNode := Node{}
 	if err := json.Unmarshal(data, &newNode); err != nil {
 		return err
 	}
 
 	*n = newNode
-
-	// Restore private fields
-	n.cluster = cluster
-	n.dev = dev
 
 	return nil
 }

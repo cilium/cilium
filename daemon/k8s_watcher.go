@@ -1784,17 +1784,7 @@ func (d *Daemon) updateK8sNodeTunneling(k8sNodeOld, k8sNodeNew *v1.Node) error {
 		return fmt.Errorf("ipcache entry owned by kvstore or agent")
 	}
 
-	routeTypes := node.TunnelRoute
-
-	// Add IPv6 routing only in non encap. With encap we do it with bpf tunnel
-	// FIXME create a function to know on which mode is the daemon running on
-	var ownAddr net.IP
-	if option.Config.AutoIPv6NodeRoutes && option.Config.Device != "undefined" {
-		ownAddr = node.GetIPv6()
-		routeTypes |= node.DirectRoute
-	}
-
-	node.UpdateNode(nodeNew, routeTypes, ownAddr)
+	d.nodeDiscovery.manager.NodeUpdated(*nodeNew)
 
 	return nil
 }
@@ -1816,6 +1806,12 @@ func (d *Daemon) updateK8sNodeV1(k8sNodeOld, k8sNodeNew *v1.Node) error {
 }
 
 func (d *Daemon) deleteK8sNodeV1(k8sNode *v1.Node) error {
+	oldNode := k8s.ParseNode(k8sNode, node.FromKubernetes)
+	// Ignore own node
+	if oldNode.Name == node.GetName() {
+		return nil
+	}
+
 	ip := k8sNode.GetAnnotations()[annotation.CiliumHostIP]
 
 	logger := log.WithFields(logrus.Fields{
@@ -1823,12 +1819,7 @@ func (d *Daemon) deleteK8sNodeV1(k8sNode *v1.Node) error {
 		logfields.IPAddr: ip,
 	})
 
-	ni := node.Identity{
-		Name:    k8sNode.ObjectMeta.Name,
-		Cluster: option.Config.ClusterName,
-	}
-
-	node.DeleteNode(ni, node.TunnelRoute|node.DirectRoute)
+	d.nodeDiscovery.manager.NodeDeleted(*oldNode)
 
 	id, exists := ipcache.IPIdentityCache.LookupByIP(ip)
 	if !exists {
@@ -1870,7 +1861,7 @@ func updateK8sEventMetric(scope string, action string, status bool) {
 // associated with the right node.
 func (d *Daemon) missingK8sNodeV1(m versioned.Map) versioned.Map {
 	missing := versioned.NewMap()
-	nodes := node.GetNodes()
+	nodes := d.nodeDiscovery.manager.GetNodes()
 	for k, v := range m {
 		n := v.Data.(*v1.Node)
 		ciliumHostIPStr := n.GetAnnotations()[annotation.CiliumHostIP]
