@@ -43,31 +43,14 @@ $(SUBDIRS): force
 jenkins-precheck:
 	docker-compose -f test/docker-compose.yml -p $(JOB_BASE_NAME)-$$BUILD_NUMBER run --rm precheck
 
-# invoked from ginkgo Jenkinsfile
-tests-ginkgo: force
-	# Make the bindata to run the unittest
-	$(MAKE) -C daemon go-bindata
-	rm -rf /tmp/cilium-consul-certs
-	mkdir /tmp/cilium-consul-certs
-	cp $(CURDIR)/test/consul/* /tmp/cilium-consul-certs
-	docker-compose -f test/docker-compose.yml -p $(JOB_BASE_NAME)-$$BUILD_NUMBER run --rm test
-	# Remove the networks
-	docker-compose -f test/docker-compose.yml -p $(JOB_BASE_NAME)-$$BUILD_NUMBER down
-
-clean-ginkgo-tests:
-	rm -rf /tmp/cilium-consul-certs
-	docker-compose -f test/docker-compose.yml -p $(JOB_BASE_NAME)-$$BUILD_NUMBER down
-	docker-compose -f test/docker-compose.yml -p $(JOB_BASE_NAME)-$$BUILD_NUMBER rm
-
 TEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyAddress=https://consul:8443 -X github.com/cilium/cilium/pkg/kvstore.etcdDummyAddress=http://etcd:4002"
 
-# invoked from ginkgo compose file after starting kvstore backends
+PRIV_TEST_PKGS = $(shell grep --include='*.go' -ril '+build privileged_tests' | xargs dirname | sort | uniq)
 tests-privileged:
 	# cilium-map-migrate is a dependency of some unit tests.
 	$(MAKE) -C bpf cilium-map-migrate
-	$(QUIET)$(foreach pkg,$(TESTPKGS),\
-		$(GO) test $(TEST_LDFLAGS) $(pkg) $(GOTEST_PRIV_OPTS) || exit 1;)
-	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
+	$(QUIET)$(foreach pkg,$(PRIV_TEST_PKGS),\
+		$(GO) test $(TEST_LDFLAGS) github.com/cilium/cilium/$(pkg) $(GOTEST_PRIV_OPTS) || exit 1;)
 
 start-kvstores:
 	@echo Starting key-value store containers...
