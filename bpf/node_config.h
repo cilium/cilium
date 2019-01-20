@@ -42,7 +42,22 @@
 #define IPV4_GATEWAY 0xfffff50a
 #define IPV4_LOOPBACK 0x1ffff50a
 #define ENCAP_GENEVE 1
-#define CALLS_MAP cilium_calls_111
+#define ENDPOINTS_MAP test_cilium_lxc
+#define EVENTS_MAP test_cilium_events
+#define METRICS_MAP test_cilium_metrics
+#define POLICY_CALL_MAP test_cilium_policy
+#define SOCK_OPS_MAP test_sock_ops_map
+#define IPCACHE_MAP test_cilium_ipcache
+#define PROXY4_MAP test_cilium_proxy4
+#define PROXY6_MAP test_cilium_proxy6
+#define TUNNEL_MAP test_cilium_tunnel_map
+#define EP_POLICY_MAP test_cilium_ep_to_policy
+#define LB6_REVERSE_NAT_MAP test_cilium_lb6_reverse_nat
+#define LB6_SERVICES_MAP test_cilium_lb6_services
+#define LB6_RR_SEQ_MAP test_cilium_lb6_rr_seq
+#define LB4_REVERSE_NAT_MAP test_cilium_lb4_reverse_nat
+#define LB4_SERVICES_MAP test_cilium_lb4_services
+#define LB4_RR_SEQ_MAP test_cilium_lb4_rr_seq
 #define SECLABEL 2
 #define SECLABEL_NB 0xfffff
 #define ENABLE_ARP_RESPONDER

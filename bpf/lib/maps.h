@@ -24,7 +24,7 @@
 #define CILIUM_MAP_POLICY	1
 #define CILIUM_MAP_CALLS	2
 
-struct bpf_elf_map __section_maps cilium_lxc = {
+struct bpf_elf_map __section_maps ENDPOINTS_MAP = {
 	.type		= BPF_MAP_TYPE_HASH,
 	.size_key	= sizeof(struct endpoint_key),
 	.size_value	= sizeof(struct endpoint_info),
@@ -33,7 +33,7 @@ struct bpf_elf_map __section_maps cilium_lxc = {
 	.flags		= CONDITIONAL_PREALLOC,
 };
 
-struct bpf_elf_map __section_maps cilium_metrics = {
+struct bpf_elf_map __section_maps METRICS_MAP = {
 	.type		= BPF_MAP_TYPE_PERCPU_HASH,
 	.size_key	= sizeof(struct metrics_key),
 	.size_value	= sizeof(struct metrics_value),
@@ -43,7 +43,7 @@ struct bpf_elf_map __section_maps cilium_metrics = {
 };
 
 /* Global map to jump into policy enforcement of receiving endpoint */
-struct bpf_elf_map __section_maps cilium_policy = {
+struct bpf_elf_map __section_maps POLICY_CALL_MAP = {
 	.type		= BPF_MAP_TYPE_PROG_ARRAY,
 	.id		= CILIUM_MAP_POLICY,
 	.size_key	= sizeof(__u32),
@@ -54,7 +54,7 @@ struct bpf_elf_map __section_maps cilium_policy = {
 
 /* Map to link endpoint id to per endpoint cilium_policy map */
 #ifdef SOCKMAP
-struct bpf_elf_map __section_maps cilium_ep_to_policy = {
+struct bpf_elf_map __section_maps EP_POLICY_MAP = {
 	.type		= BPF_MAP_TYPE_HASH_OF_MAPS,
 	.size_key	= sizeof(struct endpoint_key),
 	.size_value	= sizeof(int),
@@ -86,7 +86,7 @@ struct bpf_elf_map __section_maps CONFIG_MAP = {
 #endif
 
 #ifdef ENABLE_IPV4
-struct bpf_elf_map __section_maps cilium_proxy4 = {
+struct bpf_elf_map __section_maps PROXY4_MAP = {
 	.type		= BPF_MAP_TYPE_HASH,
 	.size_key	= sizeof(struct proxy4_tbl_key),
 	.size_value	= sizeof(struct proxy4_tbl_value),
@@ -97,7 +97,7 @@ struct bpf_elf_map __section_maps cilium_proxy4 = {
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
-struct bpf_elf_map __section_maps cilium_proxy6= {
+struct bpf_elf_map __section_maps PROXY6_MAP = {
 	.type		= BPF_MAP_TYPE_HASH,
 	.size_key	= sizeof(struct proxy6_tbl_key),
 	.size_value	= sizeof(struct proxy6_tbl_value),
@@ -121,7 +121,7 @@ struct bpf_elf_map __section_maps CALLS_MAP = {
 
 #ifdef ENCAP_IFINDEX
 
-struct bpf_elf_map __section_maps cilium_tunnel_map = {
+struct bpf_elf_map __section_maps TUNNEL_MAP = {
 	.type		= BPF_MAP_TYPE_HASH,
 	.size_key	= sizeof(struct endpoint_key),
 	.size_value	= sizeof(struct endpoint_key),
@@ -180,7 +180,7 @@ struct ipcache_key {
 } __attribute__((packed));
 
 /* Global IP -> Identity map for applying egress label-based policy */
-struct bpf_elf_map __section_maps cilium_ipcache = {
+struct bpf_elf_map __section_maps IPCACHE_MAP = {
 	.type		= LPM_MAP_TYPE,
 	.size_key	= sizeof(struct ipcache_key),
 	.size_value	= sizeof(struct remote_endpoint_info),
