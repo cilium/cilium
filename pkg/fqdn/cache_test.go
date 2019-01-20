@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"regexp"
 	"sort"
 	"time"
 
@@ -83,7 +84,48 @@ func (ds *DNSCacheTestSuite) TestUpdateLookup(c *C) {
 			c.Assert(ip.String(), Equals, fmt.Sprintf("2.2.2.%d", j), Commentf("Incorrect IP returned (j=%d, secondsPastNow=%d)", j, secondsPastNow))
 			j++
 		}
+	}
+}
 
+// TestDelete tests that we can forcibly clear parts of the cache.
+func (ds *DNSCacheTestSuite) TestDelete(c *C) {
+	names := map[string]net.IP{
+		"test1.com": net.ParseIP("2.2.2.1"),
+		"test2.com": net.ParseIP("2.2.2.2"),
+		"test3.com": net.ParseIP("2.2.2.3")}
+	sharedIP := net.ParseIP("1.1.1.1")
+	now := time.Now()
+	cache := NewDNSCache()
+
+	// insert 3 records with 1 shared IP and 3 with different IPs
+	cache.Update(now, "test1.com", []net.IP{sharedIP, names["test1.com"]}, 5)
+	cache.Update(now, "test2.com", []net.IP{sharedIP, names["test2.com"]}, 5)
+	cache.Update(now, "test3.com", []net.IP{sharedIP, names["test3.com"]}, 5)
+
+	// Delete a single name and check that it is not returned, but the others
+	// are.
+	nameMatch, err := regexp.Compile("^test1.com$")
+	c.Assert(err, IsNil)
+	namesAffected := cache.ForceExpire(now.Add(time.Second), nameMatch, nil)
+	c.Assert(len(namesAffected), Equals, 1, Commentf("Incorrect count of names removed %v", namesAffected))
+	ips := cache.lookupByTime(now.Add(time.Second), "test1.com")
+	c.Assert(len(ips), Equals, 0, Commentf("IPs returned (%v) for deleted name 'test1.com'", ips))
+	for _, name := range []string{"test2.com", "test3.com"} {
+		ips = cache.lookupByTime(now.Add(time.Second), name)
+		c.Assert(len(ips), Equals, 2, Commentf("Wrong count of IPs returned (%v) for non-deleted name '%s'", ips, name))
+	}
+
+	// Delete a single IP and check that both IPs we inserted for that name are
+	// not returned.
+	_, cidr, err := net.ParseCIDR("2.2.2.2/32")
+	c.Assert(err, IsNil)
+	namesAffected = cache.ForceExpire(now.Add(time.Second), nil, cidr)
+	c.Assert(len(namesAffected), Equals, 1, Commentf("Incorrect count of names removed %v", namesAffected))
+	ips = cache.lookupByTime(now.Add(time.Second), "test2.com")
+	c.Assert(len(ips), Equals, 0, Commentf("IPs returned (%v) for deleted name 'test1.com'", ips))
+	for _, name := range []string{"test3.com"} {
+		ips = cache.lookupByTime(now.Add(time.Second), name)
+		c.Assert(len(ips), Equals, 2, Commentf("Wrong count of IPs returned (%v) for non-deleted name '%s'", ips, name))
 	}
 }
 
@@ -298,7 +340,7 @@ func (ds *DNSCacheTestSuite) BenchmarkUpdateIPs(c *C) {
 
 		for _, entry := range entriesOrig {
 			cache.updateWithEntryIPs(entries, entry)
-			cache.removeExpired(entries, now)
+			cache.removeExpired(entries, now, time.Time{}, nil)
 		}
 	}
 }

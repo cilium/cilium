@@ -156,7 +156,7 @@ func (c *DNSCache) updateWithEntry(entry *cacheEntry) {
 	c.updateWithEntryIPs(entries, entry)
 	// When lookupTime is much earlier than time.Now(), we may not expire all
 	// entries that should be expired, leaving more work for .Lookup.
-	c.removeExpired(entries, time.Now())
+	c.removeExpired(entries, time.Now(), time.Time{}, nil)
 }
 
 // UpdateFromCache is a utility function that allows updating a DNSCache
@@ -272,14 +272,31 @@ func (c *DNSCache) updateWithEntryIPs(entries ipEntries, entry *cacheEntry) {
 
 // removeExpired removes expired (or nil) cacheEntry pointers from entries, an
 // ipEntries for a specific name.
+// expireLookupsBefore and expireCIDR are optional selectors to further
+// restrict which cacheEntry objects are expired. They must both match when
+// passed in.
+// Note: When an IP is in expireCIDR the whole DNS lookup will be deleted.
 // This needs a write lock
-func (c *DNSCache) removeExpired(entries ipEntries, now time.Time) {
+func (c *DNSCache) removeExpired(entries ipEntries, now time.Time, expireLookupsBefore time.Time, expireCIDR *net.IPNet) (removed bool) {
+	// When the CIDR matcher includes an IP, we need to remove the whole entry and
+	// all the IPs in it. Check for this first.
+	IPInCIDR := false
+	for ip := range entries {
+		IPInCIDR = IPInCIDR || (expireCIDR == nil || expireCIDR.Contains(net.ParseIP(ip)))
+	}
+
 	for ip, entry := range entries {
-		if entry == nil || entry.isExpiredBy(now) {
+		if entry == nil ||
+			entry.isExpiredBy(now) ||
+			entry.LookupTime.Before(expireLookupsBefore) && IPInCIDR {
+
 			delete(entries, ip)
 			c.removeReverse(ip, entry)
+			removed = true
 		}
 	}
+
+	return removed
 }
 
 // upsertReverse updates the reverse DNS cache for ip with entry, if it expires
@@ -309,6 +326,35 @@ func (c *DNSCache) removeReverse(ip string, entry *cacheEntry) {
 	if len(entries) == 0 {
 		delete(c.reverse, ip)
 	}
+}
+
+// ForceExpire is used to clear entries from the cache before their TTL is
+// over. This operation does not keep previous guarantees that for each IP, the
+// most recent lookup to provide that IP is used. History can be lost when
+// removing an IP, or the lookup entry that contains it. This is likely to
+// happen when clearing using the expireCIDR parameter. Note that all
+// parameters must match, if provided. `time.Time{} is considered not-provided
+// for time parameters.
+// expireLookupsBefore requires a lookup to have a LookupTime before it in order to remove it.
+// nameMatch will match any DNS names that match.
+// expireCIDR restricts expiration to IPs within the CIDR. Note: If a matching
+// IP is part of a larger lookup, the entire entry is cleared. This is not
+// consistent with the normal operation of the cache.
+func (c *DNSCache) ForceExpire(expireLookupsBefore time.Time, nameMatch *regexp.Regexp, expireCIDR *net.IPNet) (namesAffected []string) {
+	c.Lock()
+	defer c.Unlock()
+
+	for name, entries := range c.forward {
+		// If nameMatch was passed in, we must match it. Otherwise, "match all".
+		if nameMatch != nil && !nameMatch.MatchString(name) {
+			continue
+		}
+		if nameNeedsRegen := c.removeExpired(entries, expireLookupsBefore, expireLookupsBefore, expireCIDR); nameNeedsRegen {
+			namesAffected = append(namesAffected, name)
+		}
+	}
+
+	return namesAffected
 }
 
 // Dump returns unexpired cache entries in the cache. They are deduplicated,
