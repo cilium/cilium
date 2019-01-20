@@ -28,11 +28,13 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-ep-policy")
+var (
+	log          = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-ep-policy")
+	MapName      = "cilium_ep_to_policy"
+	innerMapName = "ep-policy-inner-map"
+)
 
 const (
-	mapName = "cilium_ep_to_policy"
-
 	// MaxEntries represents the maximum number of endpoints in the map
 	MaxEntries = 65535
 )
@@ -43,7 +45,7 @@ type epPolicyFd struct{ Fd uint32 }
 var (
 	buildMap sync.Once
 
-	EpPolicyMap = bpf.NewMap(mapName,
+	EpPolicyMap = bpf.NewMap(MapName,
 		bpf.MapTypeHashOfMaps,
 		int(unsafe.Sizeof(endpointKey{})),
 		int(unsafe.Sizeof(epPolicyFd{})),
@@ -72,7 +74,7 @@ func CreateEPPolicyMap() {
 			uint32(unsafe.Sizeof(policymap.PolicyKey{})),
 			uint32(unsafe.Sizeof(policymap.PolicyEntry{})),
 			policymap.MaxEntries,
-			0, 0, "ep-policy-inner-map")
+			0, 0, innerMapName)
 
 		if err != nil {
 			log.WithError(err).Warning("unable to create EP to policy map")
