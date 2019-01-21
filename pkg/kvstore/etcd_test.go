@@ -17,6 +17,7 @@
 package kvstore
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"time"
@@ -97,6 +98,32 @@ func (m MaintenanceMocker) MoveLeader(ctx context.Context, transfereeID uint64) 
 		return m.OnMoveLeader(ctx, transfereeID)
 	}
 	return nil, fmt.Errorf("Method MoveLeader should not have been called")
+}
+
+func (s *EtcdSuite) TestHint(c *C) {
+	var err error
+
+	err = nil
+	c.Assert(Hint(err), IsNil)
+
+	err = errors.New("foo bar")
+	c.Assert(Hint(err), ErrorMatches, "foo bar")
+
+	err = fmt.Errorf("ayy lmao")
+	c.Assert(Hint(err), ErrorMatches, "ayy lmao")
+
+	err = context.DeadlineExceeded
+	c.Assert(Hint(err), ErrorMatches, "etcd client timeout exceeded")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
+	defer cancel()
+
+	select {
+	case <-ctx.Done():
+		err = ctx.Err()
+	}
+
+	c.Assert(Hint(err), ErrorMatches, "etcd client timeout exceeded")
 }
 
 func (s *EtcdSuite) TestETCDVersionCheck(c *C) {
