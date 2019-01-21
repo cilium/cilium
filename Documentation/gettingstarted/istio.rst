@@ -13,9 +13,7 @@ security policies in Kubernetes micro-services managed with Istio.  It
 is a detailed walk-through of getting a single-node Cilium + Istio
 environment running on your machine.
 
-.. include:: gsg_intro.rst
-.. include:: minikube_intro.rst
-.. include:: cilium_install.rst
+.. include:: gsg_requirements.rst
 
 Step 2: Install Istio
 =====================

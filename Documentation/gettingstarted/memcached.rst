@@ -13,8 +13,6 @@ security policies. It walks through a single-node
 Cilium environment running on your machine. It is designed to take 15-30
 minutes.
 
-.. include:: gsg_intro.rst
-
 **NOTE:** memcached-aware policy support is still in beta.  It is not yet ready for
 production use. Additionally, the memcached-specific policy language is highly likely to
 change in a future Cilium version.
@@ -25,8 +23,7 @@ than the overhead of reopening TCP connections every time they need to store or 
 There are two kinds of data sent in the memcache protocol: text lines
 and unstructured (binary) data.  We will demonstrate clients using both types of protocols to communicate with a memcached server.
 
-.. include:: minikube_intro.rst
-.. include:: cilium_install.rst
+.. include:: gsg_requirements.rst
 
 Step 2: Deploy the Demo Application
 ===================================

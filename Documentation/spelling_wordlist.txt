@@ -29,8 +29,8 @@ barebones
 battlestation
 bazel
 bcc
-Bertin
 behaviour
+Bertin
 bgpd
 bindata
 Blanco
@@ -72,9 +72,9 @@ Chun
 ci
 CIDR
 CIDRs
+cilium_vxlan
 CiliumEndpoint
 ciliumnetworkpolicy
-cilium_vxlan
 classful
 classid
 cli
@@ -93,8 +93,8 @@ conntrack
 containerd
 contributing
 coord
-CoreOS
 coredns
+CoreOS
 cpuma
 cpumap
 cqlsh
@@ -143,6 +143,7 @@ dwarfris
 eBPF
 ebpf
 ec
+eksctl
 Elasticsearch
 elasticsearch
 elfutils
@@ -169,6 +170,7 @@ flowlabel
 followup
 foobar
 foundational
+fqdn
 fromCIDR
 fromCIDRSet
 fromEndpoints
@@ -277,6 +279,7 @@ kretprobes
 ksonnet
 kTLS
 kube
+kubeadm
 kubecfg
 Kubeconfig
 kubeconfig
@@ -380,6 +383,7 @@ oolchain
 opcodes
 openSUSE
 orchestrator
+Orchestrators
 org
 osx
 pahole
@@ -420,8 +424,8 @@ proxylib
 qdisc
 qdiscs
 qede
-queueing
 queryable
+queueing
 readelf
 rebase
 rebased
@@ -468,8 +472,8 @@ Sharma
 Shirokov
 Sidious
 sidious
-sig
 SIG
+sig
 Sith
 skb
 sockmap
@@ -524,6 +528,7 @@ tiefighter
 Tierney
 timestamp
 timestamps
+TLS
 tlsconfig
 toCIDR
 toCIDRSet
@@ -544,6 +549,7 @@ ui
 Uncomment
 underrepresents
 uninline
+Uninstallation
 Uninstalling
 Unix
 unix

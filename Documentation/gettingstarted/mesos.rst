@@ -6,9 +6,9 @@
 
 .. _gsg_mesos:
 
-************************************
-Getting Started Using Mesos/Marathon
-************************************
+**************************
+Cilium with Mesos/Marathon
+**************************
 
 This tutorial leverages Vagrant and VirtualBox to deploy Apache Mesos, Marathon
 and Cilium. You will run Cilium to apply a simple policy between a simulated
@@ -19,8 +19,6 @@ For more information on Apache Mesos and Marathon orchestration, check out the
 `Mesos <https://github.com/apache/mesos>`_ and `Marathon
 <https://mesosphere.github.io/marathon/>`_ GitHub pages, respectively.
 
-.. include:: gsg_intro.rst
- 
 Step 0: Install Vagrant
 =======================
 

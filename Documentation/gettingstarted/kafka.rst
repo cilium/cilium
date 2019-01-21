@@ -6,21 +6,19 @@
 
 .. _gs_kafka:
 
-******************************
-Getting Started Securing Kafka 
-******************************
+************************
+Securing a Kafka cluster
+************************
 
 This document serves as an introduction to using Cilium to enforce Kafka-aware
 security policies.  It is a detailed walk-through of getting a single-node
 Cilium environment running on your machine. It is designed to take 15-30
 minutes.
 
-.. include:: gsg_intro.rst
-.. include:: minikube_intro.rst
-.. include:: cilium_install.rst
+.. include:: gsg_requirements.rst
 
-Step 2: Deploy the Demo Application
-===================================
+Deploy the Demo Application
+===========================
 
 Now that we have Cilium deployed and ``kube-dns`` operating correctly we can
 deploy our demo Kafka application.  Since our first demo of Cilium + HTTP-aware security
@@ -96,8 +94,8 @@ point the setup is ready.
     kafka-broker-b874c78fd-jdwqf           1/1       Running   0          2m
     zookeeper-85f64b8cd4-nprck             1/1       Running   0          2m
 
-Step 3: Setup Client Terminals
-==============================
+Setup Client Terminals
+======================
 
 First we will open a set of windows to represent the different Kafka clients discussed above.
 For consistency, we recommend opening them in the pattern shown in the image below, but this is optional.
@@ -127,8 +125,8 @@ outpost-9999 terminal:
    $ OUTPOST_9999_POD=$(kubectl get pods -l outpostid=9999 -o jsonpath='{.items[0].metadata.name}') && kubectl exec -it $OUTPOST_9999_POD -- sh -c "PS1=\"outpost-9999 $\" /bin/bash"
 
 
-Step 4: Test Basic Kafka Produce & Consume
-==========================================
+Test Basic Kafka Produce & Consume
+==================================
 
 First, let's start the consumer clients listening to their respective Kafka topics.  All of the consumer
 commands below will hang intentionally, waiting to print data they consume from the Kafka topic:
@@ -170,8 +168,8 @@ This message shows up in the *empire-backup* window, but not for the outposts.
 
 Congratulations, Kafka is working as expected :)
 
-Step 5:  The Danger of a Compromised Kafka Client
-=================================================
+The Danger of a Compromised Kafka Client
+========================================
 
 But what if a rebel spy gains access to any of the remote outposts that act as Kafka clients?
 Since every client has access to the Kafka broker on port 9092, it can do some bad stuff.
@@ -200,8 +198,8 @@ In the outpost-9999 container, run:
 We see that any outpost can actually access the secret deathstar plans.  Now we know how the rebels got
 access to them!
 
-Step 6: Securing Access to Kafka with Cilium
-============================================
+Securing Access to Kafka with Cilium
+====================================
 
 Obviously, it would be much more secure to limit each pod's access to the Kafka broker to be
 least privilege (i.e., only what is needed for the app to operate correctly and nothing more).
@@ -270,8 +268,8 @@ To test, from the outpost-9999 terminal, run:
 This is blocked as well, thanks to the Cilium network policy. Imagine how different things would have been if the empire had been using
 Cilium from the beginning!
 
-Step 6: Clean Up
-================
+Clean Up
+========
 
 You have now installed Cilium, deployed a demo app, and tested both
 L7 Kafka-aware network security policies.  To clean up, run:

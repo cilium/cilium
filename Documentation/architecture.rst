@@ -203,7 +203,7 @@ as container to host-local communication. If one of these features are needed,
 then the default veth-based datapath mode is recommended instead.
 
 The ipvlan mode in Cilium's CNI can be enabled by running the Cilium daemon
-with e.g. `--datapath-mode=ipvlan --ipvlan-master-device=bond0` where the latter
+with e.g. ``--datapath-mode=ipvlan --ipvlan-master-device=bond0`` where the latter
 typically specifies the physical networking device which then also acts as the
 ipvlan master device.
 

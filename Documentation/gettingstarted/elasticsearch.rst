@@ -13,12 +13,10 @@ security policies.  It is a detailed walk-through of getting a single-node
 Cilium environment running on your machine. It is designed to take 15-30
 minutes.
 
-.. include:: gsg_intro.rst
-.. include:: minikube_intro.rst
-.. include:: cilium_install.rst
+.. include:: gsg_requirements.rst
 
-Step 2: Deploy the Demo Application
-===================================
+Deploy the Demo Application
+===========================
 
 Following the Cilium tradition, we will use a Star Wars-inspired example. The Empire has a large scale Elasticsearch cluster which is used for storing a variety of data including: 
 
@@ -60,8 +58,8 @@ Deploy the app using command below, which will create
     po/spaceship       1/1       Running   0          2d
 
 
-Step 3: Security Risks for Elasticsearch Access
-===============================================
+Security Risks for Elasticsearch Access
+=======================================
 
 For Elasticsearch clusters the **least privilege security** challenge is to give clients access only to particular indices, and to limit the operations each client is allowed to perform on each index. In this example, the ``outpost`` Elasticsearch clients only need access to upload troop logs; and the ``empire-hq`` client only needs search access to both the indices.  From the security perspective, the outposts are weak spots and susceptible to be captured by the rebels. Once compromised, the clients can be used to search and manipulate the critical data in Elasticsearch. We can simulate this attack, but first let's run the commands for legitimate behavior for all the client services. 
 
@@ -126,8 +124,8 @@ Rebels manipulate spaceship diagnostics data so that the spaceship defects are n
                  'stats': '[OK] [ENGINE OK @SPEED 5000 km/s]'}}
 
 
-Step 4: Securing Elasticsearch Using Cilium
-===========================================
+Securing Elasticsearch Using Cilium
+====================================
 
 
 .. image:: images/cilium_es_gsg_topology.png
@@ -190,8 +188,8 @@ We can re-run any of the below commands to show that the security policy still a
     ...
 
 
-Step 6: Clean Up
-================
+Clean Up
+========
 
 You have now installed Cilium, deployed a demo app, and finally deployed & tested Elasticsearch-aware network security policies. To clean up, run:
 

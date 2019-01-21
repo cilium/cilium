@@ -13,8 +13,7 @@ Concepts
 The goal of this document is to describe the components of the Cilium
 architecture, and the different models for deploying Cilium within your
 datacenter or cloud environment.  It focuses on the higher-level understanding
-required to run a full Cilium deployment.  You can then use the more detailed
-`install_guide` to understand the details of setting up Cilium.
+required to run a full Cilium deployment.
 
 ******************
 Component Overview
