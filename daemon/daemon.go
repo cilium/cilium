@@ -904,13 +904,6 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 
 	ctmap.InitMapInfo(option.Config.CTMapEntriesGlobalTCP, option.Config.CTMapEntriesGlobalAny)
 
-	wOpts := map[string]string{
-		workloads.DatapathModeOpt: option.Config.DatapathMode,
-	}
-	if err := workloads.Setup(option.Config.Workloads, wOpts); err != nil {
-		return nil, nil, fmt.Errorf("unable to setup workload: %s", err)
-	}
-
 	mtuConfig := mtu.NewConfiguration(option.Config.Tunnel != option.TunnelDisabled, option.Config.MTU)
 
 	nodeMngr, err := nodemanager.NewManager("all", dp.Node())
@@ -1048,6 +1041,15 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	// Set up ipam conf after init() because we might be running d.conf.KVStoreIPv4Registration
 	log.Info("Initializing IPAM")
 	ipam.Init()
+
+	// Workloads must be initialized after IPAM has started as it requires
+	// to allocate IPs.
+	wOpts := map[string]string{
+		workloads.DatapathModeOpt: option.Config.DatapathMode,
+	}
+	if err := workloads.Setup(option.Config.Workloads, wOpts); err != nil {
+		return nil, nil, fmt.Errorf("unable to setup workload: %s", err)
+	}
 
 	// restore endpoints before any IPs are allocated to avoid eventual IP
 	// conflicts later on, otherwise any IP conflict will result in the
