@@ -166,18 +166,18 @@ func fetchK8sLabels(ep *endpoint.Endpoint) (labels.Labels, labels.Labels, error)
 //  * errEndpointInvalidParams - If the parameters are not valid
 //  * errEndpointExists - If the endpoint already exists
 // All other error types should be treated as an internal error.
-func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.EndpointChangeRequest) error {
+func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.EndpointChangeRequest) (*endpoint.Endpoint, error) {
 
 	ep, err := endpoint.NewEndpointFromChangeModel(epTemplate)
 	if err != nil {
-		return errEndpointInvalidParams{err.Error()}
+		return nil, errEndpointInvalidParams{err.Error()}
 	}
 
 	ep.SetDefaultOpts(option.Config.Opts)
 
 	oldEp := endpointmanager.LookupCiliumID(ep.ID)
 	if oldEp != nil {
-		return errEndpointExists
+		return nil, errEndpointExists
 	}
 
 	var checkIDs []string
@@ -193,14 +193,14 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 	for _, id := range checkIDs {
 		oldEp, err := endpointmanager.Lookup(id)
 		if err != nil {
-			return errEndpointInvalidParams{err.Error()}
+			return nil, errEndpointInvalidParams{err.Error()}
 		} else if oldEp != nil {
-			return errEndpointExists
+			return nil, errEndpointExists
 		}
 	}
 
 	if err = endpoint.APICanModify(ep); err != nil {
-		return errEndpointInvalidParams{err.Error()}
+		return nil, errEndpointInvalidParams{err.Error()}
 	}
 
 	addLabels := labels.NewLabelsFromModel(epTemplate.Labels)
@@ -209,10 +209,10 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 	if len(addLabels) > 0 {
 		addLabels, _, ok := checkLabels(addLabels, nil)
 		if !ok {
-			return errEndpointInvalidParams{fmt.Sprintf("no valid label")}
+			return nil, errEndpointInvalidParams{fmt.Sprintf("no valid label")}
 		}
 		if lbls := addLabels.FindReserved(); lbls != nil {
-			return errEndpointInvalidParams{fmt.Sprintf("not allowed to add reserved labels: %s", lbls)}
+			return nil, errEndpointInvalidParams{fmt.Sprintf("not allowed to add reserved labels: %s", lbls)}
 		}
 	}
 
@@ -237,7 +237,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 
 	if err := endpointmanager.AddEndpoint(d, ep, "Create endpoint from API PUT"); err != nil {
 		log.WithError(err).Warn("Aborting endpoint join")
-		return err
+		return nil, err
 	}
 
 	ep.UpdateLabels(d, addLabels, infoLabels, true)
@@ -246,13 +246,13 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 	case <-ctx.Done():
 		log.WithError(ctx.Err()).Warn("Aborting endpoint join due client connection closed")
 		d.deleteEndpoint(ep)
-		return fmt.Errorf("aborting endpoint %d join due client connection closed", ep.ID)
+		return nil, fmt.Errorf("aborting endpoint %d join due client connection closed", ep.ID)
 	default:
 	}
 
 	if err := ep.LockAlive(); err != nil {
 		d.deleteEndpoint(ep)
-		return fmt.Errorf("endpoint was deleted while waiting for the identity")
+		return nil, fmt.Errorf("endpoint was deleted while waiting for the identity")
 	}
 
 	// Now that we have ep.ID we can pin the map from this point. This
@@ -260,7 +260,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 	if err = ep.MapPinLocked(); err != nil {
 		d.deleteEndpoint(ep)
 		log.WithError(err).Warn("Aborting endpoint tail call map pin")
-		return err
+		return nil, err
 	}
 
 	build := ep.GetStateLocked() == endpoint.StateReady
@@ -298,7 +298,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 
 	// Wait for endpoint to be in "ready" state if specified in API call.
 	if !epTemplate.SyncBuildEndpoint {
-		return nil
+		return ep, nil
 	}
 
 	ep.Logger(daemonSubsys).Debug("Synchronously waiting for endpoint to regenerate")
@@ -328,13 +328,13 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		case <-revCh:
 			if ctx.Err() == nil {
 				// At least one BPF regeneration has successfully completed.
-				return nil
+				return ep, nil
 			}
 
 		case <-ctx.Done():
 		case <-ticker.C:
 			if err := ep.RLockAlive(); err != nil {
-				return fmt.Errorf("error locking endpoint: %s", err.Error())
+				return nil, fmt.Errorf("error locking endpoint: %s", err.Error())
 			}
 			hasSidecarProxy := ep.HasSidecarProxy()
 			ep.RUnlock()
@@ -343,7 +343,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 				// return immediately to let the sidecar container start,
 				// in case it is required to enforce L7 rules.
 				ep.Logger(daemonSubsys).Info("Endpoint has sidecar proxy, returning from synchronous creation request before regeneration has succeeded")
-				return nil
+				return ep, nil
 			}
 		}
 
@@ -352,7 +352,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 			// exceeded.
 			ep.Logger(daemonSubsys).Warning("Endpoint did not synchronously regenerate after timeout")
 			d.deleteEndpoint(ep)
-			return fmt.Errorf("endpoint %d did not synchronously regenerate after timeout", ep.ID)
+			return nil, fmt.Errorf("endpoint %d did not synchronously regenerate after timeout", ep.ID)
 		}
 	}
 }
@@ -366,7 +366,7 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 		logfields.EventUUID:   uuid.NewUUID(),
 	})
 
-	err := h.d.createEndpoint(params.HTTPRequest.Context(), epTemplate)
+	_, err := h.d.createEndpoint(params.HTTPRequest.Context(), epTemplate)
 	switch {
 	case err == nil:
 		return NewPutEndpointIDCreated()

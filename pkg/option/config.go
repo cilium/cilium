@@ -225,6 +225,11 @@ const (
 	// it cleans up all BPF programs installed when Cilium agent is terminated.
 	FlannelUninstallOnExit = "flannel-uninstall-on-exit"
 
+	// FlannelManageExistingContainers sets if Cilium should install the BPF
+	// programs on already running interfaces created by flannel. Require
+	// Cilium to be running in the hostPID.
+	FlannelManageExistingContainers = "flannel-manage-existing-containers"
+
 	// PProf enables serving the pprof debugging API
 	PProf = "pprof"
 
@@ -741,6 +746,11 @@ type DaemonConfig struct {
 	// Cilium on all interfaces created by the flannel.
 	FlannelUninstallOnExit bool
 
+	// FlannelManageExistingContainers sets if Cilium should install the BPF
+	// programs on already running interfaces created by flannel. Require
+	// Cilium to be running in the hostPID.
+	FlannelManageExistingContainers bool
+
 	// EnableAutoDirectRouting enables installation of direct routes to
 	// other nodes when available
 	EnableAutoDirectRouting bool
@@ -950,6 +960,7 @@ func (c *DaemonConfig) Populate() {
 	c.NAT46Range = viper.GetString(NAT46Range)
 	c.FlannelMasterDevice = viper.GetString(FlannelMasterDevice)
 	c.FlannelUninstallOnExit = viper.GetBool(FlannelUninstallOnExit)
+	c.FlannelManageExistingContainers = viper.GetBool(FlannelManageExistingContainers)
 	c.PProf = viper.GetBool(PProf)
 	c.PreAllocateMaps = viper.GetBool(PreAllocateMapsName)
 	c.PrependIptablesChains = viper.GetBool(PrependIptablesChainsName)
