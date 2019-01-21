@@ -380,7 +380,9 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 				 * as the host. So we can ignore the ipcache
 				 * if it reports the source as HOST_ID.
 				 */
+#ifndef ENABLE_EXTRA_HOST_DEV
 				if (sec_label != HOST_ID)
+#endif
 					src_identity = sec_label;
 			}
 		}
