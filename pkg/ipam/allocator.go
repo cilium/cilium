@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 
 	k8sAPI "k8s.io/kubernetes/pkg/apis/core"
+	"k8s.io/kubernetes/pkg/registry/core/service/ipallocator"
 )
 
 const (
@@ -79,37 +80,57 @@ func (ipam *IPAM) AllocateIPString(ipAddr string) error {
 	return ipam.AllocateIP(ip)
 }
 
+func allocateNextFamily(family Family, allocator *ipallocator.Range) (ip net.IP, err error) {
+	if allocator == nil {
+		return nil, fmt.Errorf("%s allocator not available", family)
+	}
+
+	ip, err = allocator.AllocateNext()
+	if err == nil {
+		metrics.IpamEvent.WithLabelValues(metricAllocate, string(family)).Inc()
+	}
+
+	return
+}
+
+// AllocateNextFamily allocates the next IP of the requested address family
+func (ipam *IPAM) AllocateNextFamily(family Family) (ip net.IP, err error) {
+	switch family {
+	case IPv6:
+		ip, err = allocateNextFamily(family, ipam.IPv6Allocator)
+	case IPv4:
+		ip, err = allocateNextFamily(family, ipam.IPv4Allocator)
+
+	default:
+		err = fmt.Errorf("unknown address \"%s\" family requested", family)
+	}
+	return
+}
+
 // AllocateNext allocates the next available IPv4 and IPv6 address out of the
 // configured address pool. If family is set to "ipv4" or "ipv6", then
 // allocation is limited to the specified address family. If the pool has been
 // drained of addresses, an error will be returned.
-func (ipam *IPAM) AllocateNext(family string) (net.IP, net.IP, error) {
-	var ipv4, ipv6 net.IP
-
+func (ipam *IPAM) AllocateNext(family string) (ipv4 net.IP, ipv6 net.IP, err error) {
 	if (family == "ipv6" || family == "") && ipam.IPv6Allocator != nil {
-		ipConf, err := ipam.IPv6Allocator.AllocateNext()
+		ipv6, err = ipam.AllocateNextFamily(IPv6)
 		if err != nil {
-			return nil, nil, err
+			return
 		}
 
-		ipv6 = ipConf
-		metrics.IpamEvent.WithLabelValues(metricAllocate, familyIPv6).Inc()
 	}
 
 	if (family == "ipv4" || family == "") && ipam.IPv4Allocator != nil {
-		ipConf, err := ipam.IPv4Allocator.AllocateNext()
+		ipv4, err = ipam.AllocateNextFamily(IPv4)
 		if err != nil {
 			if ipv6 != nil {
 				ipam.IPv6Allocator.Release(ipv6)
 			}
-			return nil, nil, err
+			return
 		}
-
-		ipv4 = ipConf
-		metrics.IpamEvent.WithLabelValues(metricAllocate, familyIPv4).Inc()
 	}
 
-	return ipv4, ipv6, nil
+	return
 }
 
 // ReleaseIP release a IP address.
