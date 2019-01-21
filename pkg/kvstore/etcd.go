@@ -152,6 +152,16 @@ func init() {
 	registerBackend(EtcdBackendName, etcdInstance)
 }
 
+// Hint tries to improve the error message displayed to te user.
+func Hint(err error) error {
+	switch err {
+	case ctx.DeadlineExceeded:
+		return fmt.Errorf("etcd client timeout exceeded")
+	default:
+		return err
+	}
+}
+
 type etcdClient struct {
 	// firstSession is a channel that will be closed once the first session
 	// is set up in the etcd Client.
@@ -334,11 +344,11 @@ func getEPVersion(c client.Maintenance, etcdEP string, timeout time.Duration) (*
 	defer cancel()
 	sr, err := c.Status(ctxTimeout, etcdEP)
 	if err != nil {
-		return nil, err
+		return nil, Hint(err)
 	}
 	v, err := version.NewVersion(sr.Version)
 	if err != nil {
-		return nil, fmt.Errorf("error parsing server version %q: %s", sr.Version, err)
+		return nil, fmt.Errorf("error parsing server version %q: %s", sr.Version, Hint(err))
 	}
 	return v, nil
 }
@@ -352,7 +362,7 @@ func (e *etcdClient) checkMinVersion() error {
 	for _, ep := range eps {
 		v, err := getEPVersion(e.client.Maintenance, ep, versionCheckTimeout)
 		if err != nil {
-			e.getLogger().WithError(err).WithField(fieldEtcdEndpoint, ep).
+			e.getLogger().WithError(Hint(err)).WithField(fieldEtcdEndpoint, ep).
 				Warn("Unable to verify version of etcd endpoint")
 			continue
 		}
@@ -385,7 +395,7 @@ func (e *etcdClient) LockPath(path string) (kvLocker, error) {
 	defer cancel()
 	err := mu.Lock(ctx)
 	if err != nil {
-		return nil, err
+		return nil, Hint(err)
 	}
 
 	return &etcdMutex{mutex: mu}, nil
@@ -394,7 +404,7 @@ func (e *etcdClient) LockPath(path string) (kvLocker, error) {
 func (e *etcdClient) DeletePrefix(path string) error {
 	increaseMetric(path, metricDelete, "DeletePrefix")
 	_, err := e.client.Delete(ctx.Background(), path, client.WithPrefix())
-	return err
+	return Hint(err)
 }
 
 // Watch starts watching for changes in a prefix
@@ -412,7 +422,7 @@ reList:
 		res, err := e.client.Get(ctx.Background(), w.prefix, client.WithPrefix(),
 			client.WithSerializable())
 		if err != nil {
-			scopedLog.WithError(err).Warn("Unable to list keys before starting watcher")
+			scopedLog.WithError(Hint(err)).Warn("Unable to list keys before starting watcher")
 			continue
 		}
 
@@ -486,7 +496,7 @@ reList:
 					// recreate the watcher and try to
 					// watch on the next possible revision
 					if err == v3rpcErrors.ErrCompacted {
-						scopedLog.WithError(err).Debug("Tried watching on compacted revision")
+						scopedLog.WithError(Hint(err)).Debug("Tried watching on compacted revision")
 					}
 
 					// mark all local keys in state for
@@ -535,7 +545,7 @@ func (e *etcdClient) determineEndpointStatus(endpointAddress string) (string, er
 
 	status, err := e.client.Status(ctxTimeout, endpointAddress)
 	if err != nil {
-		return fmt.Sprintf("%s - %s", endpointAddress, err), err
+		return fmt.Sprintf("%s - %s", endpointAddress, err), Hint(err)
 	}
 
 	str := fmt.Sprintf("%s - %s", endpointAddress, status.Version)
@@ -585,7 +595,7 @@ func (e *etcdClient) Status() (string, error) {
 	e.statusLock.RLock()
 	defer e.statusLock.RUnlock()
 
-	return e.latestStatusSnapshot, e.latestErrorStatus
+	return e.latestStatusSnapshot, Hint(e.latestErrorStatus)
 }
 
 // Get returns value of key
@@ -593,7 +603,7 @@ func (e *etcdClient) Get(key string) ([]byte, error) {
 	increaseMetric(key, metricRead, "Get")
 	getR, err := e.client.Get(ctx.Background(), key)
 	if err != nil {
-		return nil, err
+		return nil, Hint(err)
 	}
 
 	if getR.Count == 0 {
@@ -607,7 +617,7 @@ func (e *etcdClient) GetPrefix(prefix string) ([]byte, error) {
 	increaseMetric(prefix, metricRead, "GetPrefix")
 	getR, err := e.client.Get(ctx.Background(), prefix, client.WithPrefix())
 	if err != nil {
-		return nil, err
+		return nil, Hint(err)
 	}
 
 	if getR.Count == 0 {
@@ -620,14 +630,14 @@ func (e *etcdClient) GetPrefix(prefix string) ([]byte, error) {
 func (e *etcdClient) Set(key string, value []byte) error {
 	increaseMetric(key, metricSet, "Set")
 	_, err := e.client.Put(ctx.Background(), key, string(value))
-	return err
+	return Hint(err)
 }
 
 // Delete deletes a key
 func (e *etcdClient) Delete(key string) error {
 	increaseMetric(key, metricDelete, "Delete")
 	_, err := e.client.Delete(ctx.Background(), key)
-	return err
+	return Hint(err)
 }
 
 func (e *etcdClient) createOpPut(key string, value []byte, lease bool) *client.Op {
@@ -646,11 +656,11 @@ func (e *etcdClient) Update(key string, value []byte, lease bool) error {
 	<-e.firstSession
 	if lease {
 		_, err := e.client.Put(ctx.Background(), key, string(value), client.WithLease(e.GetLeaseID()))
-		return err
+		return Hint(err)
 	}
 
 	_, err := e.client.Put(ctx.Background(), key, string(value))
-	return err
+	return Hint(err)
 }
 
 // CreateOnly creates a key with the value and will fail if the key already exists
@@ -660,7 +670,7 @@ func (e *etcdClient) CreateOnly(key string, value []byte, lease bool) error {
 	cond := client.Compare(client.Version(key), "=", 0)
 	txnresp, err := e.client.Txn(ctx.TODO()).If(cond).Then(*req).Commit()
 	if err != nil {
-		return err
+		return Hint(err)
 	}
 
 	if txnresp.Succeeded == false {
@@ -677,7 +687,7 @@ func (e *etcdClient) CreateIfExists(condKey, key string, value []byte, lease boo
 	cond := client.Compare(client.Version(condKey), "!=", 0)
 	txnresp, err := e.client.Txn(ctx.TODO()).If(cond).Then(*req).Commit()
 	if err != nil {
-		return err
+		return Hint(err)
 	}
 
 	if txnresp.Succeeded == false {
@@ -711,7 +721,7 @@ func (e *etcdClient) ListPrefix(prefix string) (KeyValuePairs, error) {
 	increaseMetric(prefix, metricRead, "ListPrefix")
 	getR, err := e.client.Get(ctx.Background(), prefix, client.WithPrefix())
 	if err != nil {
-		return nil, err
+		return nil, Hint(err)
 	}
 
 	pairs := KeyValuePairs{}
