@@ -176,6 +176,9 @@ type Daemon struct {
 
 	// nodeDiscovery defines the node discovery logic of the agent
 	nodeDiscovery *nodeDiscovery
+
+	// ipam is the IP address manager of the agent
+	ipam *ipam.IPAM
 }
 
 // UpdateProxyRedirect updates the redirect rules in the proxy for a particular
@@ -523,7 +526,7 @@ func (d *Daemon) compileBase() error {
 	}
 
 	if !option.Config.IsFlannelMasterDeviceSet() {
-		ipam.ReserveLocalRoutes()
+		d.ipam.ReserveLocalRoutes()
 	}
 
 	if err := d.datapath.Node().NodeConfigurationChanged(d.nodeDiscovery.localConfig); err != nil {
@@ -1040,12 +1043,12 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 
 	// Set up ipam conf after init() because we might be running d.conf.KVStoreIPv4Registration
 	log.Info("Initializing IPAM")
-	ipam.Init()
+	d.ipam = ipam.NewIPAM(dp.LocalNodeAddressing())
 
 	wOpts := map[string]string{
 		workloads.DatapathModeOpt: option.Config.DatapathMode,
 	}
-	if err := workloads.Setup(option.Config.Workloads, wOpts); err != nil {
+	if err := workloads.Setup(d.ipam, option.Config.Workloads, wOpts); err != nil {
 		return nil, nil, fmt.Errorf("unable to setup workload: %s", err)
 	}
 
@@ -1057,7 +1060,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		log.WithError(err).Error("Unable to restore existing endpoints")
 	}
 
-	switch err := ipam.AllocateInternalIPs(); err.(type) {
+	switch err := d.ipam.AllocateInternalIPs(); err.(type) {
 	case ipam.ErrAllocation:
 		if option.Config.IPv4Range == AutoCIDR || option.Config.IPv6ServiceRange == AutoCIDR {
 			log.WithError(err).Fatalf(
@@ -1114,7 +1117,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		log.Infof("  IPv4 allocation prefix: %s", node.GetIPv4AllocRange())
 
 		// Allocate IPv4 service loopback IP
-		loopbackIPv4, _, err := ipam.AllocateNext("ipv4")
+		loopbackIPv4, _, err := d.ipam.AllocateNext("ipv4")
 		if err != nil {
 			return nil, restoredEndpoints, fmt.Errorf("Unable to reserve IPv4 loopback address: %s", err)
 		}
@@ -1123,7 +1126,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	}
 
 	if option.Config.EnableHealthChecking {
-		health4, health6, err := ipam.AllocateNext("")
+		health4, health6, err := d.ipam.AllocateNext("")
 		if err != nil {
 			return nil, restoredEndpoints, fmt.Errorf("unable to allocate health IPs: %s,see https://cilium.link/ipam-range-full", err)
 		}

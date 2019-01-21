@@ -16,6 +16,7 @@ package workloads
 
 import (
 	"fmt"
+	"net"
 	"sync"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -74,6 +75,7 @@ func getOpts(opts workloadRuntimeOpts) map[string]string {
 
 var (
 	setupOnce sync.Once
+	allocator allocatorInterface
 )
 
 func setup(workloadRuntime workloadRuntimeType, opts map[string]string) error {
@@ -89,13 +91,19 @@ func setup(workloadRuntime workloadRuntimeType, opts map[string]string) error {
 	return initClient(workloadMod)
 }
 
+type allocatorInterface interface {
+	AllocateIP(ip net.IP) error
+}
+
 // Setup sets up the workload runtime specified in workloadRuntime and configures it
 // with the options provided in opts
-func Setup(workloadRuntimes []string, opts map[string]string) error {
+func Setup(a allocatorInterface, workloadRuntimes []string, opts map[string]string) error {
 	var err error
 
 	setupOnce.Do(
 		func() {
+			allocator = a
+
 			var crt workloadRuntimeType
 			for _, runtime := range workloadRuntimes {
 				crt, err = parseRuntimeType(runtime)
