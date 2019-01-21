@@ -174,6 +174,14 @@ func LookupIPv4(ipv4 string) *endpoint.Endpoint {
 	return ep
 }
 
+// LookupIPv6 looks up endpoint by IPv6 address
+func LookupIPv6(ipv6 string) *endpoint.Endpoint {
+	mutex.RLock()
+	ep := lookupIPv6(ipv6)
+	mutex.RUnlock()
+	return ep
+}
+
 // LookupPodName looks up endpoint by namespace + pod name
 func LookupPodName(name string) *endpoint.Endpoint {
 	mutex.RLock()
