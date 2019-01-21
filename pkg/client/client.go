@@ -33,6 +33,7 @@ import (
 
 	runtime_client "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
+	"golang.org/x/net/context"
 )
 
 type Client struct {
@@ -132,6 +133,11 @@ func Hint(err error) error {
 	if err == nil {
 		return err
 	}
+
+	if err == context.DeadlineExceeded {
+		return fmt.Errorf("Cilium API client timeout exceeded")
+	}
+
 	e, _ := url.PathUnescape(err.Error())
 	if strings.Contains(err.Error(), defaults.SockPath) {
 		return fmt.Errorf("%s\nIs the agent running?", e)
