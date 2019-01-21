@@ -128,7 +128,7 @@ Cilium as a Kubernetes pod
 ==========================
 The Cilium Prometheus reference configuration configures jobs that automatically
 collect pod metrics marked with the appropriate two labels can be found
-in :git-tree:`examples/kubernetes/addons/prometheus/prometheus.yaml`
+in :git-tree:`examples/kubernetes/addons/prometheus/templates/04-prometheus.yaml`
 
 Your Cilium spec will need these annotations:
 
@@ -151,7 +151,8 @@ contact the Kubernetes API server for these lists and must have permissions to
 do so.
 
 An example of a Prometheus configuration can be found alongside the reference
-Cilium Kubernetes DaemonSet spec in :git-tree:`examples/kubernetes/addons/prometheus/prometheus.yaml`
+Cilium Kubernetes DaemonSet spec in
+:git-tree:`examples/kubernetes/addons/prometheus/templates/04-prometheus.yaml`
 
 The critical discovery section is:
 
