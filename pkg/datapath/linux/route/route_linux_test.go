@@ -119,3 +119,36 @@ func (p *RouteSuitePrivileged) TestReplaceRoute(c *C) {
 	// lookup test broken for IPv6 as long as use lo as device
 	testReplaceRoute(c, "f00d::a02:200:0:0/96", "f00d::a02:100:0:815b", false)
 }
+
+func testReplaceRule(c *C, mark, table int) {
+	// delete rule in case it exists from a previous failed run
+	DeleteRule(mark, table)
+	err := ReplaceRule(mark, table)
+	c.Assert(err, IsNil)
+	exists, err := lookupRule(mark, table, netlink.FAMILY_V4)
+	c.Assert(err, IsNil)
+	c.Assert(exists, Equals, true)
+	err = DeleteRule(mark, table)
+	c.Assert(err, IsNil)
+	exists, err = lookupRule(mark, table, netlink.FAMILY_V4)
+	c.Assert(err, IsNil)
+	c.Assert(exists, Equals, false)
+}
+
+func testReplaceRuleIPv6(c *C, mark, table int) {
+	// delete rule in case it exists from a previous failed run
+	DeleteRuleIPv6(mark, table)
+	err := ReplaceRuleIPv6(mark, table)
+	c.Assert(err, IsNil)
+	exists, err := lookupRule(mark, table, netlink.FAMILY_V6)
+	c.Assert(err, IsNil)
+	c.Assert(exists, Equals, true)
+	err = DeleteRuleIPv6(mark, table)
+	c.Assert(err, IsNil)
+	exists, err = lookupRule(mark, table, netlink.FAMILY_V6)
+	c.Assert(err, IsNil)
+	c.Assert(exists, Equals, false)
+}
+func (p *RouteSuitePrivileged) TestReplaceRule(c *C) {
+	testReplaceRule(c, 0xf00, 123)
+}
