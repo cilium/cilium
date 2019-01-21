@@ -138,6 +138,12 @@ spec:
               key: flannel-uninstall-on-exit
               name: cilium-config
               optional: true
+        - name: CILIUM_FLANNEL_MANAGE_EXISTING_CONTAINERS
+          valueFrom:
+            configMapKeyRef:
+              key: flannel-manage-existing-containers
+              name: cilium-config
+              optional: true
         image: docker.io/cilium/cilium:__CILIUM_VERSION__
         imagePullPolicy: Always
         lifecycle:
@@ -206,6 +212,7 @@ spec:
           readOnly: true
       dnsPolicy: ClusterFirstWithHostNet
       hostNetwork: true
+      hostPID: false
       initContainers:
       - command:
         - /init-container.sh

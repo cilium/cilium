@@ -605,6 +605,11 @@ func init() {
 		"flag, it cleans up all BPF programs installed when Cilium agent is terminated.", option.FlannelMasterDevice))
 	option.BindEnv(option.FlannelUninstallOnExit)
 
+	flags.Bool(option.FlannelManageExistingContainers, false,
+		fmt.Sprintf("Installs a BPF program to allow for policy enforcement in already running containers managed by Flannel."+
+			" Require Cilium to be running in the hostPID."))
+	option.BindEnv(option.FlannelManageExistingContainers)
+
 	flags.Bool(option.PProf, false, "Enable serving the pprof debugging API")
 	option.BindEnv(option.PProf)
 
@@ -1117,7 +1122,10 @@ func runDaemon() {
 		if err != nil {
 			log.WithError(err).WithField("device", option.Config.FlannelMasterDevice).Fatal("Unable to set internal IPv4")
 		}
-		// d.attachExistingInfraContainers()
+		if option.Config.FlannelManageExistingContainers {
+			log.Info("Searching for existing containers...")
+			d.attachExistingInfraContainers()
+		}
 	}
 
 	maps.CollectStaleMapGarbage()
