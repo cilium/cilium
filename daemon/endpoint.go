@@ -241,14 +241,6 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		return err
 	}
 
-	// Now that we have ep.ID we can pin the map from this point. This
-	// also has to happen before the first build took place.
-	if err = ep.MapPin(); err != nil {
-		d.deleteEndpoint(ep)
-		log.WithError(err).Warn("Aborting endpoint tail call map pin")
-		return err
-	}
-
 	ep.UpdateLabels(d, addLabels, infoLabels, true)
 
 	select {
@@ -262,6 +254,14 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 	if err := ep.LockAlive(); err != nil {
 		d.deleteEndpoint(ep)
 		return fmt.Errorf("endpoint was deleted while waiting for the identity")
+	}
+
+	// Now that we have ep.ID we can pin the map from this point. This
+	// also has to happen before the first build took place.
+	if err = ep.MapPinLocked(); err != nil {
+		d.deleteEndpoint(ep)
+		log.WithError(err).Warn("Aborting endpoint tail call map pin")
+		return err
 	}
 
 	build := ep.GetStateLocked() == endpoint.StateReady
