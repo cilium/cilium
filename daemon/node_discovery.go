@@ -39,10 +39,6 @@ type nodeDiscovery struct {
 }
 
 func enableLocalNodeRoute() bool {
-	if option.Config.DatapathMode == option.DatapathModeIpvlan {
-		return false
-	}
-
 	if option.Config.IsFlannelMasterDeviceSet() {
 		return false
 	}
