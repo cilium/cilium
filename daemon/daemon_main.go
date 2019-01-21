@@ -910,6 +910,9 @@ func initEnv(cmd *cobra.Command) {
 			log.WithField(logfields.Device, option.Config.Device).
 				Fatal("device cannot be set in the 'ipvlan' datapath mode")
 		}
+		if option.Config.Masquerade {
+			log.Fatalf("daemon cannot run with masquerade option in the 'ipvlan' datapath mode")
+		}
 
 		option.Config.Tunnel = option.TunnelDisabled
 		// We disallow earlier command line combination of --device with
