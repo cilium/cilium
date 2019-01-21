@@ -20,6 +20,12 @@ CILIUM_DEFAULT= \
   $(ETCD_OPERATOR) \
   cilium-rbac.yaml
 
+CILIUM_EXTERNAL_ETCD= \
+  cilium-cm.yaml \
+  cilium-ds.yaml \
+  cilium-operator.yaml \
+  cilium-rbac.yaml
+
 CILIUM_MINIKUBE= \
   cilium-cm.yaml \
   cilium-minikube-ds.yaml \
@@ -32,7 +38,7 @@ CILIUM_CRIO= \
   $(ETCD_OPERATOR) \
   cilium-rbac.yaml
 
-all: transform cilium.yaml cilium-crio.yaml cilium-minikube.yaml
+all: transform cilium.yaml cilium-crio.yaml cilium-minikube.yaml cilium-external-etcd.yaml
 
 %.sed:
 	for k8s_version in $(K8S_VERSIONS); do \
@@ -74,6 +80,18 @@ cilium.yaml:
         (cd $$k8s_version && \
             rm -f ./$@ && \
             for f in $(CILIUM_DEFAULT); do (cat "$${f}") >> $@; done); \
+	done
+
+cilium-external-etcd.yaml:
+	export __CILIUM_CONTAINER_RUNTIME__=auto
+	for k8s_version in $(K8S_VERSIONS); do \
+        (cd $$k8s_version && \
+            rm -f ./$@ && \
+            for f in $(CILIUM_EXTERNAL_ETCD); do (cat "$${f}") >> $@; done; \
+	sed -i 's+https://cilium-etcd-client.kube-system.svc:2379+http://EDIT-ME-ETCD-ADDRESS:2379+' cilium-external-etcd.yaml; \
+	sed -i "s+ca-file: '/var/lib/etcd-secrets/etcd-client-ca.crt'+# ca-file: '/var/lib/etcd-secrets/etcd-client-ca.crt'+" cilium-external-etcd.yaml; \
+	sed -i "s+key-file: '/var/lib/etcd-secrets/etcd-client.key'+# key-file: '/var/lib/etcd-secrets/etcd-client.key'+" cilium-external-etcd.yaml; \
+	sed -i "s+cert-file: '/var/lib/etcd-secrets/etcd-client.crt'+# cert-file: '/var/lib/etcd-secrets/etcd-client.crt'+" cilium-external-etcd.yaml); \
 	done
 
 cilium-crio.yaml:
