@@ -739,6 +739,10 @@ func (d *Daemon) createNodeConfigHeaderfile() error {
 	fmt.Fprintf(fw, "#define POLICY_PROG_MAP_SIZE %d\n", policymap.ProgArrayMaxEntries)
 	fmt.Fprintf(fw, "#define SOCKOPS_MAP_SIZE %d\n", sockmap.MaxEntries)
 
+	if option.Config.DatapathMode == option.DatapathModeIpvlan {
+		fmt.Fprintf(fw, "#define ENABLE_SECCTX_FROM_IPCACHE 1\n")
+	}
+
 	if option.Config.PreAllocateMaps {
 		fmt.Fprintf(fw, "#define PREALLOCATE_MAPS\n")
 	}

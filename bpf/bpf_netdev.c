@@ -65,6 +65,20 @@ static inline int rewrite_dmac_to_host(struct __sk_buff *skb)
 }
 #endif
 
+#if defined ENABLE_IPV4 || defined ENABLE_IPV6
+static inline __u32 finalize_sec_ctx(__u32 secctx, __u32 src_identity)
+{
+#ifdef ENABLE_SECCTX_FROM_IPCACHE
+	/* If we could not derive the secctx from the packet itself but
+	 * from the ipcache instead, then use the ipcache identity. E.g.
+	 * used in ipvlan master device's datapath on ingress.
+	 */
+	if (secctx == WORLD_ID && !identity_is_reserved(src_identity))
+		secctx = src_identity;
+#endif /* ENABLE_SECCTX_FROM_IPCACHE */
+	return secctx;
+}
+#endif
 
 #ifdef ENABLE_IPV6
 static inline __u32 derive_sec_ctx(struct __sk_buff *skb, const union v6addr *node_ip,
@@ -154,7 +168,7 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 	int l4_off, l3_off = ETH_HLEN, hdrlen;
 	struct endpoint_info *ep;
 	__u8 nexthdr;
-	__u32 flowlabel;
+	__u32 secctx;
 
 	if (!revalidate_data(skb, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -174,6 +188,9 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 	}
 #endif
 
+	BPF_V6(node_ip, ROUTER_IP);
+	secctx = derive_sec_ctx(skb, &node_ip, ip6);
+
 	/* Packets from the proxy will already have a real identity. */
 	if (identity_is_reserved(src_identity)) {
 		union v6addr *src = (union v6addr *) &ip6->saddr;
@@ -187,14 +204,12 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 			   ((__u32 *) src)[3], src_identity);
 	}
 
-	BPF_V6(node_ip, ROUTER_IP);
-	flowlabel = derive_sec_ctx(skb, &node_ip, ip6);
-
+	secctx = finalize_sec_ctx(secctx, src_identity);
 #ifdef FROM_HOST
 	if (1) {
 		int ret;
 
-		flowlabel = src_identity;
+		secctx = src_identity;
 		ret = reverse_proxy6(skb, l4_off, ip6, ip6->nexthdr);
 		/* DIRECT PACKET READ INVALID */
 		if (IS_ERR(ret))
@@ -219,7 +234,7 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 		if (ep->flags & ENDPOINT_F_HOST)
 			return TC_ACT_OK;
 
-		return ipv6_local_delivery(skb, l3_off, l4_off, flowlabel, ip6, nexthdr, ep, METRIC_INGRESS);
+		return ipv6_local_delivery(skb, l3_off, l4_off, secctx, ip6, nexthdr, ep, METRIC_INGRESS);
 	}
 
 #ifdef ENCAP_IFINDEX
@@ -227,7 +242,7 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
 	if (info != NULL && info->tunnel_endpoint != 0) {
 		return encap_and_redirect_with_nodeid(skb, info->tunnel_endpoint,
-						      flowlabel, TRACE_PAYLOAD_LEN);
+						      secctx, TRACE_PAYLOAD_LEN);
 	} else if (likely(ipv6_match_prefix_96(dst, &node_ip))) {
 		struct endpoint_key key = {};
 		int ret;
@@ -240,7 +255,7 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 		key.ip6.p4 = 0;
 		key.family = ENDPOINT_KEY_IPV6;
 
-		ret = encap_and_redirect(skb, &key, flowlabel, TRACE_PAYLOAD_LEN);
+		ret = encap_and_redirect(skb, &key, secctx, TRACE_PAYLOAD_LEN);
 		if (ret != DROP_NO_TUNNEL_ENDPOINT)
 			return ret;
 	}
@@ -373,6 +388,7 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 			   ip4->saddr, src_identity);
 	}
 
+	secctx = finalize_sec_ctx(secctx, src_identity);
 #ifdef FROM_HOST
 	if (1) {
 		int ret;
