@@ -50,7 +50,7 @@ endif
 
 .PHONY: check-bindata
 check-bindata: bindata.go
-	@$(ECHO_CHECK) contrib/scripts/bindata.sh
+	@echo "  CHECK contrib/scripts/bindata.sh"
 	$(QUIET) ../contrib/scripts/bindata.sh $(GO_BINDATA_SHA1SUM)
 
 apply-bindata: go-bindata
