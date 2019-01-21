@@ -1,0 +1,56 @@
+---
+kind: ConfigMap
+metadata:
+  creationTimestamp: null
+  name: grafana-config
+  namespace: monitoring
+  labels:
+    app: grafana
+apiVersion: v1
+data:
+  GF_AUTH_BASIC_ENABLED: "false"
+  GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+  GF_AUTH_ANONYMOUS_ENABLED: "true"
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: monitoring
+  labels:
+    app: grafana
+    component: core
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      terminationGracePeriodSeconds: 0
+      containers:
+      - image: docker.io/grafana/grafana:5.4.3
+        name: grafana-core
+        imagePullPolicy: IfNotPresent
+        envFrom:
+          - configMapRef:
+              name: grafana-config
+        readinessProbe:
+          httpGet:
+            path: /login
+            port: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: monitoring
+  labels:
+    app: grafana
+spec:
+  type: NodePort
+  ports:
+    - port: 3000
+      nodePort: 31000
+  selector:
+    app: grafana
