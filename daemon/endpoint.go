@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -601,12 +600,12 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []er
 
 	if releaseIP {
 		if option.Config.EnableIPv4 {
-			if err := ipam.ReleaseIP(ep.IPv4.IP()); err != nil {
+			if err := d.ipam.ReleaseIP(ep.IPv4.IP()); err != nil {
 				errs = append(errs, fmt.Errorf("unable to release ipv4 address: %s", err))
 			}
 		}
 		if option.Config.EnableIPv6 {
-			if err := ipam.ReleaseIP(ep.IPv6.IP()); err != nil {
+			if err := d.ipam.ReleaseIP(ep.IPv6.IP()); err != nil {
 				errs = append(errs, fmt.Errorf("unable to release ipv6 address: %s", err))
 			}
 		}

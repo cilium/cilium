@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	ipamapi "github.com/cilium/cilium/api/v1/server/restapi/ipam"
 	"github.com/cilium/cilium/pkg/api"
-	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 
@@ -44,7 +43,7 @@ func (h *postIPAM) Handle(params ipamapi.PostIPAMParams) middleware.Responder {
 		Address:        &models.AddressPair{},
 	}
 
-	ipv4, ipv6, err := ipam.AllocateNext(strings.ToLower(swag.StringValue(params.Family)))
+	ipv4, ipv6, err := h.daemon.ipam.AllocateNext(strings.ToLower(swag.StringValue(params.Family)))
 	if err != nil {
 		return api.Error(ipamapi.PostIPAMFailureCode, err)
 	}
@@ -60,31 +59,37 @@ func (h *postIPAM) Handle(params ipamapi.PostIPAMParams) middleware.Responder {
 	return ipamapi.NewPostIPAMCreated().WithPayload(resp)
 }
 
-type postIPAMIP struct{}
+type postIPAMIP struct {
+	daemon *Daemon
+}
 
 // NewPostIPAMIPHandler creates a new postIPAM from the daemon.
 func NewPostIPAMIPHandler(d *Daemon) ipamapi.PostIPAMIPHandler {
-	return &postIPAMIP{}
+	return &postIPAMIP{
+		daemon: d,
+	}
 }
 
 // Handle incoming requests address allocation requests for the daemon.
 func (h *postIPAMIP) Handle(params ipamapi.PostIPAMIPParams) middleware.Responder {
-	if err := ipam.AllocateIPString(params.IP); err != nil {
+	if err := h.daemon.ipam.AllocateIPString(params.IP); err != nil {
 		return api.Error(ipamapi.PostIPAMIPFailureCode, err)
 	}
 
 	return ipamapi.NewPostIPAMIPOK()
 }
 
-type deleteIPAMIP struct{}
+type deleteIPAMIP struct {
+	daemon *Daemon
+}
 
 // NewDeleteIPAMIPHandler handle incoming requests to delete addresses.
 func NewDeleteIPAMIPHandler(d *Daemon) ipamapi.DeleteIPAMIPHandler {
-	return &deleteIPAMIP{}
+	return &deleteIPAMIP{daemon: d}
 }
 
 func (h *deleteIPAMIP) Handle(params ipamapi.DeleteIPAMIPParams) middleware.Responder {
-	if err := ipam.ReleaseIPString(params.IP); err != nil {
+	if err := h.daemon.ipam.ReleaseIPString(params.IP); err != nil {
 		return api.Error(ipamapi.DeleteIPAMIPFailureCode, err)
 	}
 
@@ -94,7 +99,7 @@ func (h *deleteIPAMIP) Handle(params ipamapi.DeleteIPAMIPParams) middleware.Resp
 // DumpIPAM dumps in the form of a map, the list of
 // reserved IPv4 and IPv6 addresses.
 func (d *Daemon) DumpIPAM() *models.IPAMStatus {
-	allocv4, allocv6 := ipam.Dump()
+	allocv4, allocv6 := d.ipam.Dump()
 	status := &models.IPAMStatus{}
 
 	if option.Config.EnableIPv4 {
