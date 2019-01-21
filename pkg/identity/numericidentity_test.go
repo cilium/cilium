@@ -31,3 +31,39 @@ func (s *IdentityTestSuite) TestLocalIdentity(c *C) {
 
 	c.Assert(ReservedIdentityWorld.HasLocalScope(), Equals, false)
 }
+
+func (s *IdentityTestSuite) TestClusterID(c *C) {
+	tbl := []struct {
+		identity  uint32
+		clusterID int
+	}{
+		{
+			identity:  0x000000,
+			clusterID: 0,
+		},
+		{
+			identity:  0x010000,
+			clusterID: 1,
+		},
+		{
+			identity:  0x2A0000,
+			clusterID: 42,
+		},
+		{
+			identity:  0xFF0000,
+			clusterID: 255,
+		},
+		{ // make sure we support min/max configuration values
+			identity:  option.ClusterIDMin << 16,
+			clusterID: option.ClusterIDMin,
+		},
+		{
+			identity:  option.ClusterIDMax << 16,
+			clusterID: option.ClusterIDMax,
+		},
+	}
+
+	for _, item := range tbl {
+		c.Assert(NumericIdentity(item.identity).ClusterID(), Equals, item.clusterID)
+	}
+}
