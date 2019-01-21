@@ -19,7 +19,7 @@ RUNDIR=$2
 IP4_HOST=$3
 IP6_HOST=$4
 MODE=$5
-# Only set if MODE = "direct" or "lb" or "flannel"
+# Only set if MODE = "direct", "ipvlan", "lb" or "flannel"
 NATIVE_DEV=$6
 XDP_DEV=$7
 XDP_MODE=$8
@@ -62,7 +62,7 @@ fi
 # This directory was created by the daemon and contains the per container header file
 DIR="$PWD/globals"
 
-function setup_veth()
+function setup_dev()
 {
 	local -r NAME=$1
 
@@ -92,8 +92,22 @@ function setup_veth_pair()
 		ip link add $NAME1 type veth peer name $NAME2
 	fi
 
-	setup_veth $NAME1
-	setup_veth $NAME2
+	setup_dev $NAME1
+	setup_dev $NAME2
+}
+
+function setup_ipvlan_slave()
+{
+	local -r NATIVE_DEV=$1
+	local -r HOST_DEV=$2
+
+	# No issues with changing MAC addresses since all ipvlan
+	# slaves always inherits MAC from native device.
+	ip link del $HOST_DEV 2> /dev/null || true
+
+	ip link add link $NATIVE_DEV name $HOST_DEV type ipvlan mode l3
+
+	setup_dev $HOST_DEV
 }
 
 function move_local_rules_af()
@@ -263,24 +277,21 @@ function encap_fail()
 
 $LIB/run_probes.sh $LIB $RUNDIR
 
+# Base device setup
 case "${MODE}" in
 	"flannel")
 		HOST_DEV1="${NATIVE_DEV}"
 		HOST_DEV2="${NATIVE_DEV}"
-		setup_veth "${NATIVE_DEV}"
+
+		setup_dev "${NATIVE_DEV}"
 		;;
 	"ipvlan")
-		# ipvlan is L3 mode, so fill these with dummy vars to make compilation happy.
-		sed -i '/^#.*CILIUM_NET_MAC.*$/d' $RUNDIR/globals/node_config.h
-		echo "#ifndef CILIUM_NET_MAC" >> $RUNDIR/globals/node_config.h
-		echo "#define CILIUM_NET_MAC { .addr = 0 }" >> $RUNDIR/globals/node_config.h
-		echo "#endif /* CILIUM_NET_MAC */" >> $RUNDIR/globals/node_config.h
+		HOST_DEV1="cilium_host"
+		HOST_DEV2="${HOST_DEV1}"
 
-		sed -i '/^#.*HOST_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
-		echo "#define HOST_IFINDEX 0" >> $RUNDIR/globals/node_config.h
+		setup_ipvlan_slave $NATIVE_DEV $HOST_DEV1
 
-		sed -i '/^#.*HOST_IFINDEX_MAC.*$/d' $RUNDIR/globals/node_config.h
-		echo "#define HOST_IFINDEX_MAC { .addr = 0 }" >> $RUNDIR/globals/node_config.h
+		ip link set $HOST_DEV1 mtu $MTU
 		;;
 	*)
 		HOST_DEV1="cilium_host"
@@ -296,9 +307,8 @@ case "${MODE}" in
         ;;
 esac
 
+# node_config.h header generation
 case "${MODE}" in
-	"ipvlan")
-		;;
 	*)
 		sed -i '/^#.*CILIUM_NET_MAC.*$/d' $RUNDIR/globals/node_config.h
 		CILIUM_NET_MAC=$(ip link show $HOST_DEV2 | grep ether | awk '{print $2}')
@@ -321,8 +331,9 @@ case "${MODE}" in
 		echo "#define HOST_IFINDEX_MAC { .addr = ${HOST_MAC}}" >> $RUNDIR/globals/node_config.h
 esac
 
+# Address management
 case "${MODE}" in
-	"ipvlan" | "flannel")
+	"flannel")
 		;;
 	*)
 		# If the host does not have an IPv6 address assigned, assign our generated host
@@ -413,17 +424,14 @@ else
 	fi
 fi
 
-case "${MODE}" in
-	"ipvlan")
-		;;
-	*)
-		# bpf_host.o requires to see an updated node_config.h which includes ENCAP_IFINDEX
-		CALLS_MAP="cilium_calls_netdev_ns_${ID_HOST}"
-		POLICY_MAP="cilium_policy_reserved_${ID_HOST}"
-		OPTS="-DFROM_HOST -DFIXED_SRC_SECCTX=${ID_HOST} -DSECLABEL=${ID_HOST} -DPOLICY_MAP=${POLICY_MAP}"
-		bpf_load $HOST_DEV1 "$OPTS" "egress" bpf_netdev.c bpf_host.o from-netdev $CALLS_MAP
-		;;
-esac
+# bpf_host.o requires to see an updated node_config.h which includes ENCAP_IFINDEX
+CALLS_MAP="cilium_calls_netdev_ns_${ID_HOST}"
+POLICY_MAP="cilium_policy_reserved_${ID_HOST}"
+OPTS="-DFROM_HOST -DFIXED_SRC_SECCTX=${ID_HOST} -DSECLABEL=${ID_HOST} -DPOLICY_MAP=${POLICY_MAP}"
+if [ "$MODE" == "ipvlan" ]; then
+	OPTS+=" -DENABLE_EXTRA_HOST_DEV"
+fi
+bpf_load $HOST_DEV1 "$OPTS" "egress" bpf_netdev.c bpf_host.o from-netdev $CALLS_MAP
 
 if [ -n "$XDP_DEV" ]; then
 	CIDR_MAP="cilium_cidr_v*"
