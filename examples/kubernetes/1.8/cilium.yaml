@@ -131,6 +131,12 @@ data:
   # a container. When the Cilium DaemonSet is removed, the BPF programs will
   # be kept in the interfaces unless this option is set to "true".
   flannel-uninstall-on-exit: "false"
+  # Installs a BPF program to allow for policy enforcement in already running
+  # containers managed by Flannel.
+  # NOTE: This requires Cilium DaemonSet to be running in the hostPID.
+  # To run in this mode in Kubernetes change the value of the hostPID from
+  # false to true. Can be found under the path `spec.spec.hostPID`
+  flannel-manage-existing-containers: "false"
 ---
 apiVersion: apps/v1beta2
 kind: DaemonSet
@@ -271,6 +277,12 @@ spec:
               key: flannel-uninstall-on-exit
               name: cilium-config
               optional: true
+        - name: CILIUM_FLANNEL_MANAGE_EXISTING_CONTAINERS
+          valueFrom:
+            configMapKeyRef:
+              key: flannel-manage-existing-containers
+              name: cilium-config
+              optional: true
         image: docker.io/cilium/cilium:latest
         imagePullPolicy: Always
         lifecycle:
@@ -339,6 +351,7 @@ spec:
           readOnly: true
       dnsPolicy: ClusterFirstWithHostNet
       hostNetwork: true
+      hostPID: false
       initContainers:
       - command:
         - /init-container.sh
