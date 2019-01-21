@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -203,4 +203,25 @@ func (cs *CounterTestSuite) TestToBPFData(c *C) {
 	s6, s4 := result.ToBPFData()
 	c.Assert(s6, checker.DeepEquals, []int{})
 	c.Assert(s4, checker.DeepEquals, []int{32, 24, 20})
+}
+
+type testLimitations struct {}
+
+func (t *testLimitations) GetMaxPrefixLengths(ipv6 bool) {
+	if ipv6 {
+		return net.IPv6len*8
+	}
+	return net.IPv4len*8
+}
+
+func (cs *CounterTestSuite) TestDefaultPrefixLengthCounter(c *C) {
+	defer func() {
+		r := recover()
+		c.Assert(r, IsNil)
+	}
+	result := DefaultPrefixLengthCounter(&testLimitations{})
+	c.Assert(result.v4[0], Equals, 1)
+	c.Assert(result.v6[0], Equals, 1)
+	c.Assert(result.v4[net.IPv4len*8], Equals, 1)
+	c.Assert(result.v6[net.IPv6len*8], Equals, 1)
 }

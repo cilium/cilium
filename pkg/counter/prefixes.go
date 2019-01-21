@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -43,6 +43,44 @@ func NewPrefixLengthCounter(maxUniquePrefixes6, maxUniquePrefixes4 int) *PrefixL
 		maxUniquePrefixes4: maxUniquePrefixes4,
 		maxUniquePrefixes6: maxUniquePrefixes6,
 	}
+}
+
+// This is a bit ugly, but there's not a great way to define an IPNet without
+// parsing strings, etc.
+func createIPNet(ones, bits int) *net.IPNet {
+	return &net.IPNet{
+		Mask: net.CIDRMask(ones, bits),
+	}
+}
+
+type prefixTracker interface {
+	// GetMaxPrefixLengths returns the maximum number of unique prefix
+	// lengths that may be supported in the implementation.
+	GetMaxPrefixLengths(ipv6 bool) int
+}
+
+// DefaultPrefixLengthCounter creates a default prefix length counter that
+// already counts the minimum and maximum prefix lengths for IP hosts and
+// default routes (ie, /32 and /0)
+func DefaultPrefixLengthCounter(pt prefixTracker) *PrefixLengthCounter {
+	prefixLengths4 := pt.GetMaxPrefixLengths(false)
+	prefixLengths6 := pt.GetMaxPrefixLengths(true)
+	counter := NewPrefixLengthCounter(prefixLengths6, prefixLengths4)
+
+	defaultPrefixes := []*net.IPNet{
+		// IPv4
+		createIPNet(0, net.IPv4len*8),             // world
+		createIPNet(net.IPv4len*8, net.IPv4len*8), // hosts
+
+		// IPv6
+		createIPNet(0, net.IPv6len*8),             // world
+		createIPNet(net.IPv6len*8, net.IPv6len*8), // hosts
+	}
+	if _, err := counter.Add(defaultPrefixes); err != nil {
+		panic(fmt.Errorf("Failed to create default prefix lengths: %s", err))
+	}
+
+	return counter
 }
 
 // checkLimits checks whether the specified new count of prefixes would exceed

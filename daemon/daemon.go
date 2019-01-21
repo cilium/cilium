@@ -658,37 +658,6 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 	return nil
 }
 
-func createIPNet(ones, bits int) *net.IPNet {
-	return &net.IPNet{
-		Mask: net.CIDRMask(ones, bits),
-	}
-}
-
-// createPrefixLengthCounter wraps around the counter library, providing
-// references to prefix lengths that will always be present.
-func createPrefixLengthCounter() *counter.PrefixLengthCounter {
-	prefixLengths4 := ipcachemap.IPCache.GetMaxPrefixLengths(false)
-	prefixLengths6 := ipcachemap.IPCache.GetMaxPrefixLengths(true)
-	counter := counter.NewPrefixLengthCounter(prefixLengths6, prefixLengths4)
-
-	// This is a bit ugly, but there's not a great way to define an IPNet
-	// without parsing strings, etc.
-	defaultPrefixes := []*net.IPNet{
-		// IPv4
-		createIPNet(0, net.IPv4len*8),             // world
-		createIPNet(net.IPv4len*8, net.IPv4len*8), // hosts
-
-		// IPv6
-		createIPNet(0, net.IPv6len*8),             // world
-		createIPNet(net.IPv6len*8, net.IPv6len*8), // hosts
-	}
-	_, err := counter.Add(defaultPrefixes)
-	if err != nil {
-		log.WithError(err).Fatal("Failed to create default prefix lengths")
-	}
-	return counter
-}
-
 type rulesManager interface {
 	RemoveRules()
 	InstallRules(ifName string) error
@@ -761,7 +730,7 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 		k8sSvcCache:       k8s.NewServiceCache(),
 		policy:            policy.NewPolicyRepository(),
 		uniqueID:          map[uint64]context.CancelFunc{},
-		prefixLengths:     createPrefixLengthCounter(),
+		prefixLengths:     counter.DefaultPrefixLengthCounter(ipcachemap.IPCache),
 		k8sResourceSynced: map[string]chan struct{}{},
 		buildEndpointSem:  semaphore.NewWeighted(int64(numWorkerThreads())),
 		compilationMutex:  new(lock.RWMutex),
