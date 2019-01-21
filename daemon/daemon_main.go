@@ -704,6 +704,10 @@ func initEnv(cmd *cobra.Command) {
 	// Logging should always be bootstrapped first. Do not add any code above this!
 	logging.SetupLogging(option.Config.LogDriver, option.Config.LogOpt, "cilium-agent", option.Config.Debug)
 
+	if option.Config.CMDRefDir != "" {
+		genMarkdown(cmd)
+	}
+
 	option.LogRegisteredOptions(log)
 
 	for _, grp := range option.Config.DebugVerbose {
@@ -719,10 +723,6 @@ func initEnv(cmd *cobra.Command) {
 		default:
 			log.Warningf("Unknown verbose debug group: %s", grp)
 		}
-	}
-
-	if option.Config.CMDRefDir != "" {
-		genMarkdown(cmd)
 	}
 
 	common.RequireRootPrivilege("cilium-agent")
