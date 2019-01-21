@@ -358,7 +358,7 @@ func (s *managerTestSuite) TestBackgroundSync(c *check.C) {
 					allNodeValidateCallsReceived.Done()
 					return
 				}
-			case <-time.After(time.Second * 5):
+			case <-time.After(time.Second * 25):
 				c.Errorf("Timeout while waiting for NodeValidateImplementation() to be called")
 			}
 		}
