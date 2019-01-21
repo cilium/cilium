@@ -1,4 +1,4 @@
-# Copyright 2017 Authors of Cilium
+# Copyright 2017-2019 Authors of Cilium
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,17 +18,19 @@ include ../Makefile.defs
 ifdef PKG_BUILD
 
 all:
-	echo "cilium-envoy has been moved to github.com/cilium/proxy"
+	@echo "  SKIP  $(RELATIVE_DIR)/"
+	@echo "cilium-envoy has been moved to github.com/cilium/proxy"
 
 install:
-	echo "cilium-envoy must be installed separately"
+	@echo "cilium-envoy must be installed separately"
 
 clean:
 
 else
 
 all:
-	echo "cilium-envoy has been moved to github.com/cilium/proxy"
+	@echo "  SKIP  $(RELATIVE_DIR)/"
+	@echo "cilium-envoy has been moved to github.com/cilium/proxy"
 
 install:
 ifndef DISABLE_ENVOY_INSTALLATION
