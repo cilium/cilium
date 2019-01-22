@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/loadinfo"
@@ -94,21 +95,14 @@ func (e *Endpoint) BPFIpvlanMapName() string {
 	return IpvlanMapName + strconv.Itoa(int(e.ID))
 }
 
-type getBPFDataCallback func() (s6, s4 []int)
-
 // WriteIPCachePrefixes fetches the set of prefixes that should be used from
 // the specified getBPFData function, and writes the IPCache prefixes to the
 // given writer in the format that the datapath expects.
-func WriteIPCachePrefixes(fw *bufio.Writer, getBPFData getBPFDataCallback) {
+func WriteIPCachePrefixes(fw *bufio.Writer, cfg datapath.DeviceConfiguration) {
 	// In case the Linux kernel doesn't support LPM map type, pass the set of
 	// prefix length for the datapath to lookup the map.
 	if ipcache.IPCache.MapType != bpf.BPF_MAP_TYPE_LPM_TRIE {
-		ipcachePrefixes6, ipcachePrefixes4 := policy.GetDefaultPrefixLengths()
-		if getBPFData != nil {
-			// This will include the default prefix lengths from above.
-			ipcachePrefixes6, ipcachePrefixes4 = getBPFData()
-		}
-
+		ipcachePrefixes6, ipcachePrefixes4 := cfg.GetCIDRPrefixLengths()
 		fw.WriteString("#define IPCACHE6_PREFIXES ")
 		for _, prefix := range ipcachePrefixes6 {
 			fmt.Fprintf(fw, "%d,", prefix)
@@ -224,12 +218,7 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 
 	// Endpoint options
 	fw.WriteString(e.Options.GetFmtList())
-
-	if e.desiredPolicy == nil || e.desiredPolicy.CIDRPolicy == nil {
-		WriteIPCachePrefixes(fw, nil)
-	} else {
-		WriteIPCachePrefixes(fw, e.desiredPolicy.CIDRPolicy.ToBPFData)
-	}
+	WriteIPCachePrefixes(fw, e)
 
 	return fw.Flush()
 }
