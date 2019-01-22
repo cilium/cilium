@@ -17,10 +17,11 @@ It is assuming that Cilium has been deployed using standard procedures as
 described in the :ref:`k8s_concepts_deployment`. If you have installed Cilium
 using the guide :ref:`ds_deploy`, then this is automatically the case.
 
+.. _pre_flight:
+
 Running a pre-flight DaemonSet
 ==============================
 
-.. _pre_flight:
 
 When rolling out an upgrade with Kubernetes, Kubernetes will first terminate the
 pod followed by pulling the new image version and then finally spin up the new
@@ -284,6 +285,15 @@ Changes that may require action
  * The ``--serve`` option was removed from cilium-bugtool in favor of a much
    reduced binary size. If you want to continue using the option, please use an
    older version of the cilium-bugtool binary.
+
+ * The :ref:`DNS Polling` option used by ``toFQDNs.matchName`` rules is
+   disabled by default in 1.4.x due to :ref:`limitations in the implementation
+   <DNS Polling>`. It has been replaced by :ref:`DNS Proxy <DNS Proxy>` support, which must
+   be explicitly enabled via changes to the policy described below. To ease
+   upgrade, users may opt to enable the :ref:`DNS Polling` in v1.4.x by adding
+   the ``--tofqdns-enable-poller`` option to cilium-agent without changing
+   policies. For instructions on how to safely upgrade see
+   :ref:`dns_upgrade_poller`. 
 
  * The DaemonSet now uses ``dnsPolicy: ClusterFirstWithHostNet`` in order for
    Cilium to look up Kubernetes service names via DNS. This in turn requires
@@ -980,3 +990,108 @@ Upgrade steps
 #. (Optional) Update the Cilium Network Policies to allow specific traffic from
    the outside world. For more information, see :ref:`network_policy`.
 
+.. _dns_upgrade_poller:
+
+Upgrading :ref:`DNS Polling` deployments to :ref:`DNS Proxy`
+---------------------------------------------------------------------
+
+In cilium versions 1.2 and 1.3 :ref:`DNS Polling` was automatically used to
+obtain IP information for use in ``toFQDNs.matchName`` rules in :ref:`DNS Based`
+policies. 
+Cilium 1.4 and later have switched to a :ref:`DNS Proxy <DNS Proxy>` scheme - the
+:ref:`DNS Polling` behaviour may be enabled via the a CLI option - and expect a
+pod to make a DNS request that can be intercepted. Existing pods may have
+already-cached DNS lookups that the proxy cannot intercept and thus cilium will
+block these on upgrade. New connections with DNS requests that can be
+intercepted will be allowed per-policy without special action.
+Cilium deployments already configured with :ref:`DNS Proxy <DNS Proxy>` rules are not
+impacted and will retain DNS data when restarted or upgraded.
+
+Affected versions
+~~~~~~~~~~~~~~~~~
+
+* Cilium 1.2 and 1.3 when using :ref:`DNS Polling` with ``toFQDNs.matchName``
+  policy rules and upgrading to cilium 1.4.0 or later.
+* Cilium 1.4 or later that do not yet have L7 :ref:`DNS Proxy` policy rules.
+
+Mitigation
+~~~~~~~~~~
+
+Deployments that require a seamless transition to :ref:`DNS Proxy <DNS Proxy>`
+may use :ref:`pre_flight` to create a copy of DNS information on each cilium
+node for use by the upgraded cilium-agent at startup. This data is used to
+allow L3 connections (via ``toFQDNs.matchName`` and ``toFQDNs.matchPattern``
+rules) without a DNS request from pods.
+:ref:`pre_flight` accomplishes this via the ``--tofqdns-pre-cache`` CLI option,
+which reads DNS cache data for use on startup.
+
+Solution
+~~~~~~~~
+
+DNS data obtained via polling must be recorded for use on startup and rules
+added to intercept DNS lookups. The steps are split into a section on
+seamlessly upgrading :ref:`DNS Polling` and then further beginning to intercept
+DNS data via a :ref:`DNS Proxy <DNS Proxy>`.
+
+Policy rules may be prepared to use the :ref:`DNS Proxy <DNS Proxy>` before an
+upgrade to 1.4. The new policy rule fields ``toFQDNs.matchPattern`` and
+``toPorts.rules.dns.matchName/matchPattern`` will be ignored by older cilium
+versions and can be safely implemented prior to an upgrade.
+
+The following example allows DNS access to ``kube-dns`` via the :ref:`DNS Proxy
+<DNS Proxy>` and allows all DNS requests to ``kube-dns``. For completeness,
+``toFQDNs`` rules are included for examples of the syntax for those L3 policies
+as well. Existing ``toFQDNs`` rules do not need to be modified but will now use
+IPs seen by DNS requests and allowed by the ``toFQDNs.matchPattern`` rule.
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../examples/policies/l7/dns/dns-upgrade.yaml
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../../examples/policies/l7/dns/dns-upgrade.json
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../examples/policies/l7/dns/dns-upgrade.json
+
+
+Upgrade steps - :ref:`DNS Polling`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+#. Set the ``tofqdns-enable-poller`` field to true in the cilium ConfigMap used
+   in the upgrade. Alternatively, pass ``--tofqdns-enable-poller=true`` to
+   the upgraded cilium-agent.
+
+#. Add ``tofqdns-pre-cache: "/var/run/cilium/dns-precache-upgrade.json"``
+   to the ConfigMap. Alternatively, pass
+   ``tofqdns-pre-cache="/var/run/cilium/dns-precache-upgrade.json"`` to
+   cilium-agent.
+
+#. Deploy the cilium :ref:`pre_flight` helper. This will download the cilium
+   container image and also create DNS pre-cache data at
+   ``/var/run/cilium/dns-precache-upgrade.json``. This data will have a TTL of
+   1 week.
+
+#. Deploy the new cilium DaemonSet
+
+#. (optional) Remove ``tofqdns-pre-cache: "/var/run/cilium/dns-precache-upgrade.json"``
+   from the cilium ConfigMap. The data will automatically age-out after 1 week.
+
+Conversion steps - :ref:`DNS Proxy`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#. Update existing policies to intercept DNS requests.
+   See :ref:`dns_discovery` or the example above
+
+#. Allow pods to make DNS requests to populate the cilium-agent cache. To check
+   which exact queries are in the DNS cache and when they will expire use
+   ``cilium fqdn cache list``
+
+#. Set the ``tofqdns-enable-poller`` field to false in the cilium ConfigMap
+
+#. Restart the cilium pods with the new ConfigMap. They will restore Endpoint
+   policy with DNS information from intercepted DNS requests stored in the
+   cache
