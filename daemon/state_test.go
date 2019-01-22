@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/completion"
+	linuxDatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	e "github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -187,6 +188,12 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 }
 
 func (ds *DaemonSuite) TestReadEPsFromDirNames(c *C) {
+	oldDatapath := ds.d.datapath
+	defer func() {
+		ds.d.datapath = oldDatapath
+	}()
+	ds.d.datapath = linuxDatapath.NewDatapath(linuxDatapath.DatapathConfiguration{})
+
 	epsWanted, epsMap := createEndpoints()
 	tmpDir, err := ioutil.TempDir("", "cilium-tests")
 	defer func() {

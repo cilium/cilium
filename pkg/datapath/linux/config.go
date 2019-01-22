@@ -17,7 +17,9 @@ package linux
 import (
 	"fmt"
 	"io"
+	"path"
 	"reflect"
+	"strconv"
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -25,6 +27,8 @@ import (
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
+	bpfconfig "github.com/cilium/cilium/pkg/maps/configmap"
+	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/eppolicymap"
 	"github.com/cilium/cilium/pkg/maps/ipcache"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
@@ -157,6 +161,53 @@ func (l *linuxDatapath) WriteNetdevConfig(w io.Writer, cfg datapath.DeviceConfig
 		fmt.Fprint(w, "#define HOST_REDIRECT_TO_INGRESS\n")
 	}
 	WriteIPCachePrefixes(w, cfg)
+
+	return nil
+}
+
+func mapPath(mapname string, e datapath.EndpointConfiguration) string {
+	return path.Base(bpf.MapPath(mapname + strconv.Itoa(int(e.GetID()))))
+}
+
+// WriteEndpointConfig writes the BPF configuration for the endpoint to a writer.
+func (l *linuxDatapath) WriteEndpointConfig(w io.Writer, e datapath.EndpointConfiguration) error {
+	fmt.Fprint(w, common.FmtDefineComma("LXC_IP", e.IPv6Address()))
+	fmt.Fprintf(w, "#define LXC_IPV4 %#x\n", byteorder.HostSliceToNetwork(e.IPv4Address(), reflect.Uint32))
+
+	switch {
+	case !e.HasIpvlanDataPath():
+		fmt.Fprint(w, "#define ENABLE_ARP_RESPONDER 1\n")
+		fmt.Fprint(w, "#define ENABLE_HOST_REDIRECT 1\n")
+		if option.Config.IsFlannelMasterDeviceSet() {
+			fmt.Fprint(w, "#define HOST_REDIRECT_TO_INGRESS\n")
+		}
+	}
+
+	fmt.Fprint(w, common.FmtDefineAddress("NODE_MAC", e.GetNodeMAC()))
+	fmt.Fprintf(w, "#define LXC_ID %#x\n", e.GetID())
+
+	secID := e.GetIdentity()
+	fmt.Fprintf(w, "#define SECLABEL %s\n", secID.StringID())
+	fmt.Fprintf(w, "#define SECLABEL_NB %#x\n", byteorder.HostToNetwork(secID.Uint32()))
+
+	fmt.Fprintf(w, "#define POLICY_MAP %s\n", mapPath(policymap.MapName, e))
+	fmt.Fprintf(w, "#define CALLS_MAP %s\n", mapPath("cilium_calls_", e))
+	fmt.Fprintf(w, "#define CONFIG_MAP %s\n", mapPath(bpfconfig.MapNamePrefix, e))
+
+	if e.ConntrackLocalLocked() {
+		ctmap.WriteBPFMacros(w, e)
+	} else {
+		ctmap.WriteBPFMacros(w, nil)
+	}
+
+	// Always enable L4 and L3 load balancer for now
+	fmt.Fprint(w, "#define LB_L3\n")
+	fmt.Fprint(w, "#define LB_L4\n")
+
+	// Local delivery metrics should always be set for endpoint programs.
+	fmt.Fprint(w, "#define LOCAL_DELIVERY_METRICS\n")
+
+	l.WriteNetdevConfig(w, e)
 
 	return nil
 }
