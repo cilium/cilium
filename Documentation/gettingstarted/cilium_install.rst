@@ -7,6 +7,8 @@
 Step 1: Install Cilium
 ======================
 
+Before installing Cilium, make sure that the Linux kernel version >= 4.8
+
 The next step is to install Cilium into your Kubernetes cluster.
 Cilium installation leverages the `Kubernetes Daemon Set
 <https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/>`_
