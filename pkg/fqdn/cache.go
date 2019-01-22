@@ -108,15 +108,23 @@ type DNSCache struct {
 	// This map is subordinate to forward, above. An IP inserted into forward, or
 	// expired in forward, should also be added/removed in reverse.
 	reverse map[string]nameEntries
+
+	// LastCleanup is the last time that the cleanup happens.
+	lastCleanup time.Time
+
+	// cleanup is the map of TTL expiration time and the entries that are going
+	// to expire will be deleted by CleanupExpiredEntries.
+	cleanup map[int64][]string
 }
 
 // NewDNSCache returns an initialized DNSCache
 func NewDNSCache() *DNSCache {
 	c := &DNSCache{
-		forward: make(map[string]ipEntries),
-		reverse: make(map[string]nameEntries),
+		forward:     make(map[string]ipEntries),
+		reverse:     make(map[string]nameEntries),
+		lastCleanup: time.Now(),
+		cleanup:     map[int64][]string{},
 	}
-
 	return c
 }
 
@@ -154,9 +162,65 @@ func (c *DNSCache) updateWithEntry(entry *cacheEntry) {
 		c.forward[entry.Name] = entries
 	}
 	c.updateWithEntryIPs(entries, entry)
+
 	// When lookupTime is much earlier than time.Now(), we may not expire all
 	// entries that should be expired, leaving more work for .Lookup.
 	c.removeExpired(entries, time.Now(), time.Time{})
+}
+
+// AddNameToCleanup adds the IP with the given TTL to the the cleanup map to
+// delete the entry from the policy when it expires.
+// Need to be called with the lock
+func (c *DNSCache) addNameToCleanup(entry *cacheEntry) {
+	if entry.ExpirationTime.Before(c.lastCleanup) {
+		// ExpirationTime can be before the lastCleanup don't add that value to
+		// prevent leaks on the map.
+		return
+	}
+	expiration := entry.ExpirationTime.Unix()
+	expiredEntries, exists := c.cleanup[expiration]
+	if !exists {
+		expiredEntries = []string{}
+	}
+	c.cleanup[expiration] = append(expiredEntries, entry.Name)
+}
+
+// CleanupExpiredEntries cleans all the expired entries from the lastTime that
+// runs to the give time. It will lock the struct until retrieves all the data.
+// It returns the list of names that need to be deleted from the policies.
+func (c *DNSCache) CleanupExpiredEntries(expires time.Time) ([]string, time.Time) {
+	c.Lock()
+	defer c.Unlock()
+	timediff := int(expires.Sub(c.lastCleanup).Seconds())
+	startTime := c.lastCleanup
+	expiredEntries := []string{}
+
+	for i := 0; i < int(timediff); i++ {
+		expiredTime := c.lastCleanup.Add(time.Second)
+		key := expiredTime.Unix()
+		c.lastCleanup = expiredTime
+		entries, exists := c.cleanup[key]
+		if !exists {
+			continue
+		}
+		expiredEntries = append(expiredEntries, entries...)
+		delete(c.cleanup, key)
+	}
+	uniqMap := make(map[string]bool)
+	for _, v := range expiredEntries {
+		uniqMap[v] = true
+	}
+
+	uniqExpires := make([]string, 0, len(uniqMap))
+	for v := range uniqMap {
+		uniqExpires = append(uniqExpires, v)
+	}
+	for _, name := range uniqExpires {
+		if entries, exists := c.forward[name]; exists {
+			c.removeExpired(entries, c.lastCleanup, time.Time{})
+		}
+	}
+	return uniqExpires, startTime
 }
 
 // UpdateFromCache is a utility function that allows updating a DNSCache
@@ -255,7 +319,7 @@ func (c *DNSCache) lookupIPByTime(now time.Time, ip net.IP) (names []string) {
 	return names
 }
 
-// updateWithEntry adds a mapping for every IP found in `entry` to `ipEntries`
+// updateWithEntryIPs adds a mapping for every IP found in `entry` to `ipEntries`
 // (which maps IP -> cacheEntry). It will replace existing IP->old mappings in
 // `entries` if the current entry expires sooner (or has already expired).
 // This needs a write lock
@@ -266,8 +330,10 @@ func (c *DNSCache) updateWithEntryIPs(entries ipEntries, entry *cacheEntry) {
 		if old == nil || !exists || old.isExpiredBy(entry.ExpirationTime) {
 			entries[ipStr] = entry
 			c.upsertReverse(ipStr, entry)
+			c.addNameToCleanup(entry)
 		}
 	}
+
 }
 
 // removeExpired removes expired (or nil) cacheEntry pointers from entries, an

@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/api"
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/fqdn"
@@ -116,6 +117,17 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 	if option.Config.ToFQDNsEnablePoller {
 		fqdn.StartDNSPoller(d.dnsPoller)
 	}
+
+	// Controller to cleanup TTL expired entries from the DNS policies.
+	controller.NewManager().UpdateController("dns-ttl-cleanup-job", controller.ControllerParams{
+		RunInterval: time.Second,
+		DoFunc: func() error {
+			namesToClean, _ := cfg.Cache.CleanupExpiredEntries(time.Now())
+			d.dnsRuleGen.ForceGenerateDNS(namesToClean)
+			return nil
+		},
+		StopFunc: func() error { return nil },
+	})
 
 	// Prefill the cache with DNS lookups from restored endpoints. This is needed
 	// to maintain continuity of which IPs are allowed.
