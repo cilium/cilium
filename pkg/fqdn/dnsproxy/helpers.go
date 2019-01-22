@@ -15,13 +15,8 @@
 package dnsproxy
 
 import (
-	"fmt"
-	"net"
-	"strconv"
 	"strings"
 
-	"github.com/cilium/cilium/pkg/maps/proxymap"
-	"github.com/cilium/cilium/pkg/u8proto"
 	"github.com/cilium/dns"
 )
 
@@ -49,79 +44,5 @@ func prepareNameMatch(name string) string {
 // request (passed in via ServeDNS) in proxymap. The IP:port combination is
 // returned.
 func lookupTargetDNSServer(w dns.ResponseWriter) (server string, err error) {
-	key, err := createProxyMapKey(w)
-	if err != nil {
-		return "", fmt.Errorf("cannot create proxymap key: %s", err)
-	}
-
-	val, err := proxymap.Lookup(key)
-	if err != nil {
-		return "", fmt.Errorf("proxymap lookup failed: %s", err)
-	}
-
-	return val.HostPort(), nil
-}
-
-// createProxyMapKey creates a lookup key from a dns.ResponseWriter, using the
-// .RemoteAddr, .LocalAddr and .Network calls.
-// This function is similar to proxy.createProxyMapKey.
-func createProxyMapKey(w dns.ResponseWriter) (mapKey proxymap.ProxyMapKey, err error) {
-	clientSourceIPStr, clientSourcePortStr, err := net.SplitHostPort(w.RemoteAddr().String())
-	if err != nil {
-		return nil, fmt.Errorf("invalid remote address '%s'", w.RemoteAddr().String())
-	}
-
-	_, proxyListenPortStr, err := net.SplitHostPort(w.LocalAddr().String())
-	if err != nil {
-		return nil, fmt.Errorf("invalid proxy address '%s'", w.LocalAddr().String())
-	}
-
-	protocol, err := u8proto.ParseProtocol(w.LocalAddr().Network())
-	if err != nil {
-		return nil, err
-	}
-
-	clientSourceIP := net.ParseIP(clientSourceIPStr)
-	clientSourcePort, err := parsePortString(clientSourcePortStr)
-	if err != nil {
-		return nil, fmt.Errorf("Invalid clientSourcePort when creating DNSProxy proxymap key: %s", err)
-	}
-
-	proxyListenPort, err := parsePortString(proxyListenPortStr)
-	if err != nil {
-		return nil, fmt.Errorf("Invalid proxyListenPort when creating DNSProxy proxymap key: %s", err)
-	}
-
-	if clientSourceIP.To4() != nil {
-		key := proxymap.Proxy4Key{
-			SPort:   clientSourcePort,
-			DPort:   proxyListenPort,
-			Nexthdr: uint8(protocol),
-		}
-
-		copy(key.SAddr[:], clientSourceIP.To4())
-		return key, nil
-	}
-
-	key := proxymap.Proxy6Key{
-		SPort:   uint16(clientSourcePort),
-		DPort:   uint16(proxyListenPort),
-		Nexthdr: uint8(protocol),
-	}
-
-	copy(key.SAddr[:], clientSourceIP.To16())
-	return key, nil
-}
-
-// parsePortString parses a string as a 16-bit port. It will return an error on
-// an unparseable string, or when the numeric value is invalid for a port.
-func parsePortString(portStr string) (port uint16, err error) {
-	portInt, err := strconv.Atoi(portStr)
-	if err != nil {
-		return 0, fmt.Errorf("Cannot parse port %s", portStr)
-	}
-	if portInt < 0 || portInt > 65535 {
-		return 0, fmt.Errorf("Port(%s) is out of possible 0-65535 range", portStr)
-	}
-	return uint16(portInt), nil
+	return w.LocalAddr().String(), nil
 }

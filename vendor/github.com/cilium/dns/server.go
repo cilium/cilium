@@ -55,7 +55,7 @@ func (f HandlerFunc) ServeDNS(w ResponseWriter, r *Msg) {
 // A ResponseWriter interface is used by an DNS handler to
 // construct an DNS response.
 type ResponseWriter interface {
-	// LocalAddr returns the net.Addr of the server
+	// LocalAddr returns the net.Addr of the server for the current request.
 	LocalAddr() net.Addr
 	// RemoteAddr returns the net.Addr of the client that sent the current request.
 	RemoteAddr() net.Addr
@@ -809,7 +809,7 @@ func (w *response) Write(m []byte) (int, error) {
 func (w *response) LocalAddr() net.Addr {
 	switch {
 	case w.udp != nil:
-		return w.udp.LocalAddr()
+		return w.udpSession.LocalAddr()
 	case w.tcp != nil:
 		return w.tcp.LocalAddr()
 	default:
