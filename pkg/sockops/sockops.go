@@ -60,7 +60,7 @@ const (
 	oIPC = "bpf_redir.o"
 	eIPC = "bpf_redir"
 
-	sockMap = "sock_ops_map"
+	sockMap = "cilium_sock_ops_map"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "sockops")
@@ -194,7 +194,7 @@ func bpftoolLoad(bpfObject string, bpfFsFile string) error {
 		"cilium_ipcache",
 		"cilium_metric",
 		"cilium_events",
-		"sock_ops_map",
+		"cilium_sock_ops_map",
 		"cilium_ep_to_policy",
 		"cilium_proxy4", "cilium_proxy6",
 		"cilium_lb6_reverse_nat", "cilium_lb4_reverse_nat",
@@ -383,7 +383,7 @@ func bpfLoadMapProg(object string, load string) error {
 }
 
 // SkmsgEnable will compile and attach the SK_MSG programs to the
-// sockmap. After this all sockets added to the sock_ops_map will
+// sockmap. After this all sockets added to the cilium_sock_ops_map will
 // have sendmsg/sendfile calls running through BPF program.
 func SkmsgEnable() error {
 	err := bpfCompileProg(cIPC, oIPC)
