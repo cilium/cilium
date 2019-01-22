@@ -469,8 +469,8 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 		changed = true
 	}
 
-	if epTemplate.HostMac != "" && bytes.Compare(ep.NodeMAC, newEp.NodeMAC) != 0 {
-		ep.NodeMAC = newEp.NodeMAC
+	if epTemplate.HostMac != "" && bytes.Compare(ep.GetNodeMAC(), newEp.NodeMAC) != 0 {
+		ep.SetNodeMACLocked(newEp.NodeMAC)
 		changed = true
 	}
 

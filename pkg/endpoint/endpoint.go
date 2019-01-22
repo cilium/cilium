@@ -861,6 +861,16 @@ func (e *Endpoint) GetIPv6Address() string {
 	return e.IPv6.String()
 }
 
+// GetNodeMAC returns the MAC address of the node from this endpoint's perspective.
+func (e *Endpoint) GetNodeMAC() mac.MAC {
+	return e.NodeMAC
+}
+
+// SetNodeMACLocked updates the node MAC inside the endpoint.
+func (e *Endpoint) SetNodeMACLocked(m mac.MAC) {
+	e.NodeMAC = m
+}
+
 func (e *Endpoint) HasSidecarProxy() bool {
 	return e.hasSidecarProxy
 }
