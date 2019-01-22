@@ -76,7 +76,7 @@ func endpointCreator(id uint16, secID identity.NumericIdentity) *e.Endpoint {
 	ep.IPv4 = addressing.DeriveCiliumIPv4(net.IP{0xc0, 0xa8, b[0], b[1]})
 	ep.IPv6 = addressing.DeriveCiliumIPv6(net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x00, 0x00, b[0], b[1]})
 	ep.IfIndex = 1
-	ep.NodeMAC = mac.MAC([]byte{0x02, 0xff, 0xf2, 0x12, 0x0, 0x0})
+	ep.SetNodeMACLocked(mac.MAC([]byte{0x02, 0xff, 0xf2, 0x12, 0x0, 0x0}))
 	ep.SecurityIdentity = &identity.Identity{
 		ID: secID,
 		Labels: labels.Labels{
@@ -171,7 +171,7 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 				ep.UnconditionalLock()
 				// Change endpoint a little bit so we know which endpoint is in
 				// "256_next_fail" and with one is in the "256" directory.
-				ep.NodeMAC = mac.MAC([]byte{0x02, 0xff, 0xf2, 0x12, 0xc1, 0xc1})
+				ep.SetNodeMACLocked(mac.MAC([]byte{0x02, 0xff, 0xf2, 0x12, 0xc1, 0xc1}))
 				ready := ep.SetStateLocked(e.StateWaitingToRegenerate, "test")
 				ep.Unlock()
 				if ready {
