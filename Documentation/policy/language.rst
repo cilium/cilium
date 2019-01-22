@@ -448,16 +448,17 @@ provided in DNS responses are allowed by Cilium in a similar manner to IPs in
 or are not know a priori, or when DNS is more convenient. To enforce policy on
 DNS requests themselves, see `Layer 7 Examples`_.
 
-IP information is captured from DNS responses per-Endpoint via `DNS Proxy`_ or
-`DNS Polling`_ may be used. A generated L3 `CIDR based`_ rule is generated for
-every ``toFQDNs`` rule and applies to the same endpoints. The IP information is
-selected for insertion by ``matchName`` or ``matchPattern`` rules, and is
-collected from all DNS responses seen by Cilium on the node. Multiple selectors
-may be included in a single egress rule.
+IP information is captured from DNS responses per-Endpoint via a `DNS Proxy`_
+or `DNS Polling`_. An L3 `CIDR based`_ rule is generated for every ``toFQDNs``
+rule and applies to the same endpoints. The IP information is selected for
+insertion by ``matchName`` or ``matchPattern`` rules, and is collected from all
+DNS responses seen by Cilium on the node. Multiple selectors may be included in
+a single egress rule. See :ref:`DNS Obtaining Data` for information on
+collecting this IP data.
 
 ``toFQDNs`` egress rules cannot contain any other L3 rules, such as
 ``toEndpoints`` (under `Labels Based`_) and ``toCIDRs`` (under `CIDR Based`_).
-They can contain L4/L7 rules, such as ``toPorts`` (see `Layer 4 Examples`_)
+They may contain L4/L7 rules, such as ``toPorts`` (see `Layer 4 Examples`_)
 with, optionally, ``HTTP`` and ``Kafka`` sections (see `Layer 7 Examples`_).
 
 .. note:: DNS based rules are intended for external connections and behave
@@ -955,19 +956,22 @@ allowed but connections to the returned IPs are not, as there is no L3
           ``servicename.namespace.svc.cluster.local.`` must have the latter
           allowed with ``matchName`` or ``matchPattern``.
 
-Obtaining DNS Data
-~~~~~~~~~~~~~~~~~~
-IPs are obtained via intercepting DNS requests via a proxy or DNS polling, and
+.. _DNS Obtaining Data:
+
+Obtaining DNS Data for use by ``toFQDNs``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+IPs are obtained via intercepting DNS requests with a proxy or DNS polling, and
 matching names are inserted irrespective of how the data is obtained. These IPs
 can be selected with ``toFQDN`` rules. DNS responses are cached within cilium
 agent respecting TTL.
 
 .. _DNS Proxy:
 
-DNS Proxy
-  A DNS Proxy intercepts DNS traffic and records IPs seen in the responses.
-  This interception is itself a separate policy rule governing the DNS
-  requests, and must be specified separately. For details on how to enforce
+DNS Proxy (preferred)
+"""""""""""""""""""""
+  A DNS Proxy intercepts egress DNS traffic and records IPs seen in the
+  responses. This interception is, itself, a separate policy rule governing the
+  DNS requests, and must be specified separately. For details on how to enforce
   policy on DNS requests and configuring the DNS proxy, see `Layer 7
   Examples`_.
 
@@ -1000,6 +1004,7 @@ DNS Proxy
 .. _DNS Polling:
 
 DNS Polling
+"""""""""""
   DNS Polling periodically issues a DNS lookup for each ``matchName`` from
   cilium-agent. The result is used to regenerate endpoint policy.  Despite the
   name, the ``matchName`` field does not have to be a fully-qualified domain
@@ -1014,8 +1019,8 @@ DNS Polling
   policy for each endpoint and increment the per cilium-agent policy repository
   revision.
 
-  Polling can be enabled by the ``--tofqdns-enable-poller`` cilium-agent
-  CLI option.
+  Polling may be enabled by the ``--tofqdns-enable-poller`` cilium-agent
+  CLI option. It is disabled by default.
 
   The DNS polling implementation is very limited. It may not behave as expected.
 
