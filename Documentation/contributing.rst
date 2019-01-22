@@ -1419,7 +1419,8 @@ illustrating which subset of tests the job runs.
 +----------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 | `Cilium-PR-Kubernetes-Upstream </https://jenkins.cilium.io/view/PR/job/Cilium-PR-Kubernetes-Upstream/>`_ | test-upstream-k8s | No                 |
 +----------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-
+| `Cilium-PR-Flannel <https://jenkins.cilium.io/job/Cilium-PR-Flannel/>`_                                  | test-flannel      | No                 |
++----------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 
 There are some feature flags based on Pull Requests labels, the list of labels
 are the following:
@@ -1612,7 +1613,7 @@ Triage process
       PR and the changes it introduced. When creating an issue for a PR flake,
       include a description of the code change, the PR, or the diff. If it
       isn't related to the PR, then it should already happen in master, and a
-      new issue isn't needed. 
+      new issue isn't needed.
 
 #. Edit the description of the Jenkins build to mark it as triaged. This will
    exclude it from future jenkins-failures.sh output.
@@ -1802,8 +1803,8 @@ If you intent to release a new minor release, see the
        make update-authors
 
 
-   .. note:: 
-       
+   .. note::
+
        Check to see if the ``AUTHORS`` file has any formatting errors (for
        instance, indentation mismatches) as well as duplicate contributor
        names, and correct them accordingly.
@@ -1840,7 +1841,7 @@ If you intent to release a new minor release, see the
        case ``v1.0``
 
 
-#. Follow standard procedures to get the aforementioned PR merged into the 
+#. Follow standard procedures to get the aforementioned PR merged into the
    desired stable branch. See :ref:`submit_pr` for more information about this
    process.
 
@@ -2175,7 +2176,7 @@ update the repository root's Dockerfile so that it points to the new
 21. Update the versions of the images that are pulled into the CI VMs.
 
 * Open a PR against the :ref:`packer_ci` with an update to said image versions. Once your PR is merged, a new version of the VM will be ready for consumption in the CI.
-* Update the ``SERVER_VERSION``  field in ``test/Vagrantfile`` to contain the new version, which is the build number from the `Jenkins Job for the VMs <https://jenkins.cilium.io/job/Vagrant-Master-Boxes-Packer-Build/>`_. For example, build 119 from the pipeline would be the value to set for ``SERVER_VERSION``. 
+* Update the ``SERVER_VERSION``  field in ``test/Vagrantfile`` to contain the new version, which is the build number from the `Jenkins Job for the VMs <https://jenkins.cilium.io/job/Vagrant-Master-Boxes-Packer-Build/>`_. For example, build 119 from the pipeline would be the value to set for ``SERVER_VERSION``.
 * Open a pull request with this version change in the cilium repository.
 
 
