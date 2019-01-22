@@ -323,30 +323,12 @@ func (d *Daemon) writeNetdevHeader(dir string) error {
 
 	fw := bufio.NewWriter(f)
 	fw.WriteString(option.Config.Opts.GetFmtList())
-	fw.WriteString(d.fmtPolicyEnforcementIngress())
-	fw.WriteString(d.fmtPolicyEnforcementEgress())
 	if option.Config.IsFlannelMasterDeviceSet() {
 		fw.WriteString("#define HOST_REDIRECT_TO_INGRESS 1\n")
 	}
 	endpoint.WriteIPCachePrefixes(fw, d.prefixLengths.ToBPFData)
 
 	return fw.Flush()
-}
-
-// returns #define for PolicyIngress based on the configuration of the daemon.
-func (d *Daemon) fmtPolicyEnforcementIngress() string {
-	if policy.GetPolicyEnabled() == option.AlwaysEnforce {
-		return fmt.Sprintf("#define %s 1\n", option.IngressSpecPolicy.Define)
-	}
-	return fmt.Sprintf("#undef %s\n", option.IngressSpecPolicy.Define)
-}
-
-// returns #define for PolicyEgress based on the configuration of the daemon.
-func (d *Daemon) fmtPolicyEnforcementEgress() string {
-	if policy.GetPolicyEnabled() == option.AlwaysEnforce {
-		return fmt.Sprintf("#define %s 1\n", option.EgressSpecPolicy.Define)
-	}
-	return fmt.Sprintf("#undef %s\n", option.EgressSpecPolicy.Define)
 }
 
 // Must be called with option.Config.EnablePolicyMU locked.
