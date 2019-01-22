@@ -20,6 +20,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/lock"
@@ -395,15 +396,20 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *node.Node) error {
 	}
 
 	if n.nodeConfig.EnableIPSec {
-		new4Net := &net.IPNet{IP: newIP4, Mask: newNode.IPv4AllocCIDR.Mask}
-		new6Net := &net.IPNet{IP: newIP6, Mask: newNode.IPv6AllocCIDR.Mask}
+		new4Net := &net.IPNet{IP: newNode.IPv4AllocCIDR.IP, Mask: newNode.IPv4AllocCIDR.Mask}
+		new6Net := &net.IPNet{IP: newNode.IPv6AllocCIDR.IP, Mask: newNode.IPv6AllocCIDR.Mask}
 		if newNode.IsLocal() {
 			n.replaceHostRules()
 			n.replaceNodeIPSecInRoute(new4Net)
 			n.replaceNodeIPSecInRoute(new6Net)
 		} else {
+			ipsecLocal := &net.IPNet{IP: n.nodeAddressing.IPv4().Router(), Mask: n.nodeAddressing.IPv4().AllocationCIDR().Mask}
+			ipsecRemote := &net.IPNet{IP: newNode.IPv4GW, Mask: newNode.IPv4AllocCIDR.Mask}
 			n.replaceNodeIPSecOutRoute(new4Net)
 			n.replaceNodeIPSecOutRoute(new6Net)
+			if ipsecRemote.IP != nil {
+				ipsec.UpsertIPSecEndpoint(ipsecLocal, ipsecRemote)
+			}
 		}
 	}
 
