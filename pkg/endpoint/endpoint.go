@@ -2244,9 +2244,9 @@ func (e *Endpoint) MapPinLocked() error {
 	if err != nil {
 		return err
 	}
+	defer unix.Close(mapFd)
 
 	err = bpf.ObjPin(mapFd, e.BPFIpvlanMapPath())
-	defer unix.Close(mapFd)
 
 	if err == nil {
 		e.isDatapathMapPinned = true
