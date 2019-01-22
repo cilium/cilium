@@ -1,0 +1,72 @@
+// Copyright 2019 Authors of Cilium
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package linux
+
+import (
+	"fmt"
+	"net"
+	"reflect"
+
+	"github.com/cilium/cilium/pkg/byteorder"
+)
+
+// goArray2C transforms a byte slice into its hexadecimal string representation.
+// Example:
+// array := []byte{0x12, 0xFF, 0x0, 0x01}
+// fmt.Print(GoArray2C(array)) // "{ 0x12, 0xff, 0x0, 0x1 }"
+func goArray2C(array []byte) string {
+	ret := ""
+
+	for i, e := range array {
+		if i == 0 {
+			ret = ret + fmt.Sprintf("%#x", e)
+		} else {
+			ret = ret + fmt.Sprintf(", %#x", e)
+		}
+	}
+	return ret
+}
+
+// FmtDefineAddress returns the a define string from the given name and addr.
+// Example:
+// fmt.Print(FmtDefineAddress("foo", []byte{1, 2, 3})) // "#define foo { .addr = { 0x1, 0x2, 0x3 } }\n"
+func FmtDefineAddress(name string, addr []byte) string {
+	return fmt.Sprintf("#define %s { .addr = { %s } }\n", name, goArray2C(addr))
+}
+
+// defineUint32 writes the C definition for an unsigned 32-bit value.
+func defineUint32(name string, value uint32) string {
+	return fmt.Sprintf("#define %s %#08x\t/* %d */\n",
+		name, value, value)
+}
+
+// defineIPv4 writes the C definition for the given IPv4 address.
+func defineIPv4(name string, addr []byte) string {
+	if len(addr) != net.IPv4len {
+		return fmt.Sprintf("/* BUG: bad ip define %s %s */\n", name, goArray2C(addr))
+	}
+	nboAddr := byteorder.HostSliceToNetwork(addr, reflect.Uint32).(uint32)
+	return defineUint32(name, nboAddr)
+}
+
+// defineIPv6 writes the C definition for the given IPv6 address.
+func defineIPv6(name string, addr []byte) string {
+	return fmt.Sprintf("#define %s %s\n", name, goArray2C(addr))
+}
+
+// defineMAC writes the C definition for the given MAC name and addr.
+func defineMAC(name string, addr []byte) string {
+	return fmt.Sprintf("#define %s { .addr = { %s } }\n", name, goArray2C(addr))
+}
