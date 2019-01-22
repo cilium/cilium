@@ -16,6 +16,6 @@
  *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 #ifndef SOCK_OPS_MAP
-#define SOCK_OPS_MAP sock_ops_map
+#define SOCK_OPS_MAP test_cilium_sock_ops_map
 #endif
 #define SOCKOPS_MAP_SIZE 65535
