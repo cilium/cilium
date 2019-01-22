@@ -846,6 +846,11 @@ func (e *Endpoint) GetOpLabels() []string {
 	return e.OpLabels.IdentityLabels().GetModel()
 }
 
+// GetOptions returns the datapath configuration options of the endpoint.
+func (e *Endpoint) GetOptions() *option.IntOptions {
+	return e.Options
+}
+
 // GetIPv4Address returns the IPv4 address of the endpoint
 func (e *Endpoint) GetIPv4Address() string {
 	return e.IPv4.String()

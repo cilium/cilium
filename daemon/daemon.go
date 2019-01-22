@@ -326,9 +326,15 @@ func (d *Daemon) writeNetdevHeader(dir string) error {
 	if option.Config.IsFlannelMasterDeviceSet() {
 		fw.WriteString("#define HOST_REDIRECT_TO_INGRESS 1\n")
 	}
-	endpoint.WriteIPCachePrefixes(fw, d.prefixLengths.ToBPFData)
+	endpoint.WriteIPCachePrefixes(fw, d)
 
 	return fw.Flush()
+}
+
+// GetCIDRPrefixLengths returns the sorted list of unique prefix lengths used
+// by CIDR policies.
+func (d *Daemon) GetCIDRPrefixLengths() (s6, s4 []int) {
+	return d.prefixLengths.ToBPFData()
 }
 
 // Must be called with option.Config.EnablePolicyMU locked.
@@ -348,6 +354,11 @@ func (d *Daemon) writePreFilterHeader(dir string) error {
 	fmt.Fprint(fw, " */\n\n")
 	d.preFilter.WriteConfig(fw)
 	return fw.Flush()
+}
+
+// GetOptions returns the datapath configuration options of the daemon.
+func (d *Daemon) GetOptions() *option.IntOptions {
+	return option.Config.Opts
 }
 
 func (d *Daemon) setHostAddresses() error {
