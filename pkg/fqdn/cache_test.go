@@ -406,3 +406,13 @@ func benchmarkUnmarshalJSON(c *C, numDNSEntries int) {
 		c.Assert(err, IsNil)
 	}
 }
+
+func (ds *DNSCacheTestSuite) TestCleanupEntries(c *C) {
+	cache := NewDNSCache()
+	cache.Update(now, "test.com", []net.IP{net.ParseIP("1.2.3.4")}, 3)
+	c.Assert(len(cache.cleanup), Equals, 1)
+	// Sleep to make sure that it's deleted
+	time.Sleep(5 * time.Second)
+	c.Assert(len(cache.CleanupExpiredEntries(time.Now())), Equals, 1)
+	c.Assert(len(cache.cleanup), Equals, 0)
+}
