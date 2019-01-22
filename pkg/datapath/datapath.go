@@ -14,6 +14,10 @@
 
 package datapath
 
+import (
+	"io"
+)
+
 // Datapath is the interface to abstract all datapath interactions. The
 // abstraction allows to implement the datapath requirements with multiple
 // implementations
@@ -24,4 +28,8 @@ type Datapath interface {
 	// LocalNodeAddressing must return the node addressing implementation
 	// of the local node
 	LocalNodeAddressing() NodeAddressing
+
+	// WriteNodeConfig writes the implementation-specific configuration of
+	// node-wide options into the specified writer.
+	WriteNodeConfig(io.Writer, *LocalNodeConfiguration) error
 }
