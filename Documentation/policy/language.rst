@@ -885,6 +885,9 @@ Allow producing to topic empire-announce using apiKeys
 
         .. literalinclude:: ../../examples/policies/l7/kafka/kafka.json
 
+
+.. _dns_discovery:
+
 DNS Policy and IP Discovery
 ---------------------------
 
