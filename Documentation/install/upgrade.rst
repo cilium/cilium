@@ -278,6 +278,35 @@ Changes that may require action
  * The ``--serve`` option was removed from cilium-bugtool in favor of a much
    reduced binary size. If you want to continue using the option, please use an
    older version of the cilium-bugtool binary.
+ * The always-on :ref:`DNS Polling` used by ``toFQDNs.matchName`` rules is
+   disabled by default in 1.4.x. Pass ``--tofqdns-enable-poller`` to
+   cilium-agent to enable it. It has been replaced by :ref:`DNS Proxy` support
+   but this requires policy changes. The :ref:`DNS Proxy` provides DNS IP
+   information to the toFQDNs rules, similar to :ref:`DNS Polling`, but
+   restricted to actual DNS traffic seen by Endpoints.
+
+   It is possible to prepare policy rules to use the :ref:`DNS Proxy` before an
+   upgrade to 1.4. Then newly added ``toFQDNs.matchPattern`` and L7
+   ``toPorts.rules.dns.matchName/matchPattern`` fields will be ignored by older
+   cilium versions and can be in-place prior to an upgrade.
+
+   In the following example egress rules to allow DNS access to kube-dns in
+   added, including a L7 DNS rule to allow interception of DNS traffic without
+   blocking any. The ``toFQDNs`` rules do not need to be modified. 
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../examples/policies/l7/dns/dns-upgrade.yaml
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../../examples/policies/l7/dns/dns-upgrade.json
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../examples/policies/l7/dns/dns-upgrade.json
 
 .. _1.4_new_options:
 
