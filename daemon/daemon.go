@@ -89,6 +89,7 @@ import (
 	"github.com/cilium/cilium/pkg/trigger"
 	"github.com/cilium/cilium/pkg/workloads"
 
+	"github.com/cilium/dns"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
