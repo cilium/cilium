@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"reflect"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -299,37 +300,36 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
+	removeLinkOnErr := func(link netlink.Link) {
+		if err != nil && link != nil && !reflect.ValueOf(link).IsNil() {
+			if err := netlink.LinkDel(link); err != nil {
+				log.WithError(err).WithFields(logrus.Fields{
+					logfields.DatapathMode: driver.conf.DatapathMode,
+					logfields.Device:       link.Attrs().Name,
+				}).Warn("failed to clean up")
+			}
+		}
+	}
+
 	switch driver.conf.DatapathMode {
 	case option.DatapathModeVeth:
-		veth, _, _, err := connector.SetupVeth(create.EndpointID, int(driver.conf.DeviceMTU), endpoint)
-		if err != nil {
-			sendError(w, "Error while setting up veth pair: "+err.Error(), http.StatusBadRequest)
-			return
-		}
-		defer func() {
-			if err != nil {
-				if err = netlink.LinkDel(veth); err != nil {
-					log.WithError(err).WithField(logfields.Veth, veth.Name).Warn("failed to clean up veth")
-				}
-			}
-		}()
+		var veth *netlink.Veth
+		veth, _, _, err = connector.SetupVeth(create.EndpointID, int(driver.conf.DeviceMTU), endpoint)
+		defer removeLinkOnErr(veth)
 	case option.DatapathModeIpvlan:
-		ipvlan, _, _, err := connector.SetupIpvlan(
+		var ipvlan *netlink.IPVlan
+		ipvlan, _, _, err = connector.SetupIpvlan(
 			create.EndpointID, int(driver.conf.DeviceMTU),
 			int(driver.conf.IpvlanConfiguration.MasterDeviceIndex),
 			driver.conf.IpvlanConfiguration.OperationMode, endpoint,
 		)
-		if err != nil {
-			sendError(w, "Error while setting up ipvlan: "+err.Error(), http.StatusBadRequest)
-			return
-		}
-		defer func() {
-			if err != nil {
-				if err = netlink.LinkDel(ipvlan); err != nil {
-					log.WithError(err).WithField(logfields.Ipvlan, ipvlan.Name).Warn("failed to clean up ipvlan")
-				}
-			}
-		}()
+		defer removeLinkOnErr(ipvlan)
+	}
+	if err != nil {
+		sendError(w,
+			fmt.Sprintf("Error while setting up %s mode: %s", driver.conf.DatapathMode, err),
+			http.StatusBadRequest)
+		return
 	}
 
 	// FIXME: Translate port mappings to RuleL4 policy elements
