@@ -659,10 +659,6 @@ func (d *Daemon) init() error {
 		log.WithError(err).WithField(logfields.Path, option.Config.StateDir).Fatal("Could not change to runtime directory")
 	}
 
-	if err := d.createNodeConfigHeaderfile(); err != nil {
-		return err
-	}
-
 	// Remove any old sockops and re-enable with _new_ programs if flag is set
 	sockops.SockmapDisable()
 	sockops.SkmsgDisable()
@@ -675,6 +671,10 @@ func (d *Daemon) init() error {
 	}
 
 	if !option.Config.DryMode {
+		if err := d.createNodeConfigHeaderfile(); err != nil {
+			return err
+		}
+
 		if err := d.compileBase(); err != nil {
 			return err
 		}
