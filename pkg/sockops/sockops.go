@@ -153,7 +153,7 @@ func bpftoolMapAttach(progID string, mapID string) error {
 // #bpftool cgroup attach $cgrp sock_ops /sys/fs/bpf/$bpfObject
 func bpftoolAttach(bpfObject string) error {
 	prog := "bpftool"
-	bpffs := bpf.GetMapRoot() + "/" + bpfObject
+	bpffs := filepath.Join(bpf.GetMapRoot(), bpfObject)
 	cgrp := cgroupRoot
 
 	args := []string{"cgroup", "attach", cgrp, "sock_ops", "pinned", bpffs}
@@ -171,7 +171,7 @@ func bpftoolAttach(bpfObject string) error {
 // #bpftool cgroup detach $cgrp sock_ops /sys/fs/bpf/$bpfObject
 func bpftoolDetach(bpfObject string) error {
 	prog := "bpftool"
-	bpffs := bpf.GetMapRoot() + "/" + bpfObject
+	bpffs := filepath.Join(bpf.GetMapRoot(), bpfObject)
 	cgrp := cgroupRoot
 
 	args := []string{"cgroup", "detach", cgrp, "sock_ops", "pinned", bpffs}
@@ -205,9 +205,9 @@ func bpftoolLoad(bpfObject string, bpfFsFile string) error {
 
 	prog := "bpftool"
 	var mapArgList []string
-	bpffs := bpf.GetMapRoot() + "/" + bpfFsFile
+	bpffs := filepath.Join(bpf.GetMapRoot(), bpfFsFile)
 
-	maps, err := ioutil.ReadDir(bpf.GetMapRoot() + "/tc/globals/")
+	maps, err := ioutil.ReadDir(filepath.Join(bpf.GetMapRoot(), "/tc/globals/"))
 	if err != nil {
 		return err
 	}
@@ -231,7 +231,7 @@ func bpftoolLoad(bpfObject string, bpfFsFile string) error {
 			continue
 		}
 
-		mapString := []string{"map", "name", f.Name(), "pinned", bpf.GetMapRoot() + "/tc/globals/" + f.Name()}
+		mapString := []string{"map", "name", f.Name(), "pinned", filepath.Join(bpf.GetMapRoot(), "/tc/globals/", f.Name())}
 		mapArgList = append(mapArgList, mapString...)
 	}
 
@@ -250,14 +250,14 @@ func bpftoolLoad(bpfObject string, bpfFsFile string) error {
 
 // #rm $bpfObject
 func bpftoolUnload(bpfObject string) {
-	bpffs := bpf.GetMapRoot() + "/" + bpfObject
+	bpffs := filepath.Join(bpf.GetMapRoot(), bpfObject)
 
 	os.Remove(bpffs)
 }
 
 // #bpftool prog show pinned /sys/fs/bpf/
 func bpftoolGetProgID(progName string) (string, error) {
-	bpffs := bpf.GetMapRoot() + "/" + progName
+	bpffs := filepath.Join(bpf.GetMapRoot(), progName)
 	prog := "bpftool"
 
 	args := []string{"prog", "show", "pinned", bpffs}
@@ -283,7 +283,7 @@ func bpftoolGetProgID(progName string) (string, error) {
 // #bpftool prog show pinned /sys/fs/bpf/bpf_sockops
 // #bpftool map show id 21
 func bpftoolGetMapID(progName string, mapName string) (int, error) {
-	bpffs := bpf.GetMapRoot() + "/" + progName
+	bpffs := filepath.Join(bpf.GetMapRoot(), progName)
 	prog := "bpftool"
 
 	args := []string{"prog", "show", "pinned", bpffs}
@@ -321,9 +321,7 @@ func bpftoolGetMapID(progName string, mapName string) (int, error) {
 
 // #bpftool map pin id map_id /sys/fs/bpf/tc/globals
 func bpftoolPinMapID(mapName string, mapID int) error {
-	bpffs := bpf.GetMapRoot()
-	globals := bpffs + "/" + mapPrefix + "/"
-	mapFile := globals + mapName
+	mapFile := filepath.Join(bpf.GetMapRoot(), mapPrefix, mapName)
 	prog := "bpftool"
 
 	args := []string{"map", "pin", "id", strconv.Itoa(mapID), mapFile}
@@ -356,7 +354,7 @@ func bpfCompileProg(src string, dst string) error {
 
 func bpfLoadMapProg(object string, load string) error {
 	sockops := object
-	sockopsObj := option.Config.StateDir + "/" + sockops
+	sockopsObj := filepath.Join(option.Config.StateDir, sockops)
 	sockopsLoad := load
 
 	err := bpftoolLoad(sockopsObj, sockopsLoad)
@@ -411,7 +409,7 @@ func SkmsgDisable() {
 // First user of sockops root is sockops load programs so we ensure the sockops
 // root path no longer changes.
 func bpfLoadAttachProg(object string, load string, mapName string) (int, int, error) {
-	sockopsObj := option.Config.StateDir + "/" + object
+	sockopsObj := filepath.Join(option.Config.StateDir, object)
 	mapID := 0
 
 	err := bpftoolLoad(sockopsObj, load)
@@ -459,7 +457,7 @@ func SockmapEnable() error {
 // all the programs and maps associated with it. Here "unload" just means
 // deleting the file associated with the map.
 func SockmapDisable() {
-	mapName := mapPrefix + "/" + sockMap
+	mapName := filepath.Join(mapPrefix, sockMap)
 	bpftoolDetach(eSockops)
 	bpftoolUnload(eSockops)
 	bpftoolUnload(mapName)
