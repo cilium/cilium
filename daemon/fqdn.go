@@ -191,7 +191,6 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 				// dns.RcodeSuccess below).
 				err := fmt.Errorf("Cannot find matching endpoint for IPs %s or %s", srcAddr, dstAddr)
 				log.WithError(err).Error("cannot find matching endpoint")
-				ep.UpdateProxyStatistics("dns", uint16(serverPort), ingress, !ingress, accesslog.VerdictError)
 				return err
 			}
 
