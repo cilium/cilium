@@ -100,6 +100,9 @@ func AllocateNext(family string) (net.IP, net.IP, error) {
 	if (family == "ipv4" || family == "") && ipamConf.IPv4Allocator != nil {
 		ipConf, err := ipamConf.IPv4Allocator.AllocateNext()
 		if err != nil {
+			if ipv6 != nil {
+				ipamConf.IPv6Allocator.Release(ipv6)
+			}
 			return nil, nil, err
 		}
 
