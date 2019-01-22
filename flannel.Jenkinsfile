@@ -11,6 +11,7 @@ pipeline {
         MEMORY = "4096"
         SERVER_BOX = "cilium/ubuntu"
         NETNEXT=setIfLabel("ci/net-next", "true", "false")
+        CNI_INTEGRATION="flannel"
     }
 
     options {
@@ -26,32 +27,11 @@ pipeline {
             }
 
             steps {
-                BuildIfLabel('area/k8s', 'Cilium-PR-Kubernetes-Upstream')
-                BuildIfLabel('integration/cni-flannel', 'Cilium-PR-Flannel')
-                BuildIfLabel('area/k8s', 'Cilium-PR-Ginkgo-Tests-K8s')
-                BuildIfLabel('area/documentation', 'Cilium-PR-Doc-Tests')
                 sh 'env'
                 sh 'rm -rf src; mkdir -p src/github.com/cilium'
                 sh 'ln -s $WORKSPACE src/github.com/cilium/cilium'
                 checkout scm
                 sh '/usr/local/bin/cleanup || true'
-            }
-        }
-        stage('Precheck') {
-            options {
-                timeout(time: 20, unit: 'MINUTES')
-            }
-
-            environment {
-                TESTDIR="${WORKSPACE}/${PROJ_PATH}/"
-            }
-            steps {
-               sh "cd ${TESTDIR}; make jenkins-precheck"
-            }
-            post {
-               always {
-                   sh "cd ${TESTDIR}; make clean-ginkgo-tests || true"
-               }
             }
         }
         stage('Boot VMs'){
@@ -72,6 +52,7 @@ pipeline {
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
                 FAILFAST=setIfLabel("ci/fail-fast", "true", "false")
                 CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
+
             }
 
             options {
@@ -81,10 +62,6 @@ pipeline {
             steps {
                 script {
                     parallel(
-                        "Runtime":{
-                            sh 'cd ${TESTDIR}; vagrant provision runtime'
-                            sh 'cd ${TESTDIR}; ginkgo --focus=" Runtime*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
-                        },
                         "K8s-1.8":{
                             sh 'cd ${TESTDIR}; K8S_VERSION=1.8 vagrant provision k8s1-1.8; K8S_VERSION=1.8 vagrant provision k8s2-1.8'
                             sh 'cd ${TESTDIR}; K8S_VERSION=1.8 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
