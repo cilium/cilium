@@ -20,7 +20,6 @@ import (
 	"io"
 	"reflect"
 
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/datapath"
@@ -59,7 +58,7 @@ func (l *linuxDatapath) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConf
 		node.GetInternalIPv4().String())
 
 	if option.Config.EnableIPv6 {
-		fw.WriteString(common.FmtDefineComma("ROUTER_IP", routerIP))
+		fw.WriteString(defineIPv6("ROUTER_IP", routerIP))
 	}
 
 	if option.Config.EnableIPv4 {
@@ -72,10 +71,10 @@ func (l *linuxDatapath) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConf
 	}
 
 	if nat46Range := option.Config.NAT46Prefix; nat46Range != nil {
-		fw.WriteString(common.FmtDefineAddress("NAT46_PREFIX", nat46Range.IP))
+		fw.WriteString(FmtDefineAddress("NAT46_PREFIX", nat46Range.IP))
 	}
 
-	fw.WriteString(common.FmtDefineComma("HOST_IP", hostIP))
+	fw.WriteString(defineIPv6("HOST_IP", hostIP))
 	fmt.Fprintf(fw, "#define HOST_ID %d\n", identity.GetReservedID(labels.IDNameHost))
 	fmt.Fprintf(fw, "#define WORLD_ID %d\n", identity.GetReservedID(labels.IDNameWorld))
 	fmt.Fprintf(fw, "#define HEALTH_ID %d\n", identity.GetReservedID(labels.IDNameHealth))
@@ -167,8 +166,8 @@ func (l *linuxDatapath) WriteNetdevConfig(w io.Writer, cfg datapath.DeviceConfig
 func (l *linuxDatapath) WriteEndpointConfig(w io.Writer, e datapath.EndpointConfiguration) error {
 	fw := bufio.NewWriter(w)
 
-	fmt.Fprint(fw, common.FmtDefineComma("LXC_IP", e.IPv6Address()))
-	fmt.Fprintf(fw, "#define LXC_IPV4 %#x\n", byteorder.HostSliceToNetwork(e.IPv4Address(), reflect.Uint32))
+	fmt.Fprint(fw, defineIPv6("LXC_IP", e.IPv6Address()))
+	fmt.Fprintf(fw, defineIPv4("LXC_IPV4", e.IPv4Address()))
 
 	if !e.HasIpvlanDataPath() {
 		fmt.Fprint(fw, "#define ENABLE_ARP_RESPONDER 1\n")
@@ -178,12 +177,12 @@ func (l *linuxDatapath) WriteEndpointConfig(w io.Writer, e datapath.EndpointConf
 		}
 	}
 
-	fmt.Fprint(fw, common.FmtDefineAddress("NODE_MAC", e.GetNodeMAC()))
-	fmt.Fprintf(fw, "#define LXC_ID %#x\n", e.GetID())
+	fmt.Fprint(fw, defineMAC("NODE_MAC", e.GetNodeMAC()))
+	fmt.Fprintf(fw, defineUint32("LXC_ID", uint32(e.GetID())))
 
-	secID := e.GetIdentity()
-	fmt.Fprintf(fw, "#define SECLABEL %s\n", secID.StringID())
-	fmt.Fprintf(fw, "#define SECLABEL_NB %#x\n", byteorder.HostToNetwork(secID.Uint32()))
+	secID := e.GetIdentity().Uint32()
+	fmt.Fprintf(fw, defineUint32("SECLABEL", secID))
+	fmt.Fprintf(fw, defineUint32("SECLABEL_NB", byteorder.HostToNetwork(secID).(uint32)))
 
 	epID := uint16(e.GetID())
 	fmt.Fprintf(fw, "#define POLICY_MAP %s\n", bpf.LocalMapName(policymap.MapName, epID))
