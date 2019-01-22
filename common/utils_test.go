@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -36,35 +36,12 @@ type CommonSuite struct{}
 
 var _ = check.Suite(&CommonSuite{})
 
-func (s *CommonSuite) TestGoArray2C(c *check.C) {
-	c.Assert(goArray2C([]byte{0, 0x01, 0x02, 0x03}), check.Equals, "0x0, 0x1, 0x2, 0x3")
-	c.Assert(goArray2C([]byte{0, 0xFF, 0xFF, 0xFF}), check.Equals, "0x0, 0xff, 0xff, 0xff")
-	c.Assert(goArray2C([]byte{0xa, 0xbc, 0xde, 0xf1}), check.Equals, "0xa, 0xbc, 0xde, 0xf1")
-	c.Assert(goArray2C([]byte{0}), check.Equals, "0x0")
-	c.Assert(goArray2C([]byte{}), check.Equals, "")
-}
-
 func (s *CommonSuite) TestC2GoArray(c *check.C) {
 	c.Assert(C2GoArray("0x0, 0x1, 0x2, 0x3"), checker.DeepEquals, []byte{0, 0x01, 0x02, 0x03})
 	c.Assert(C2GoArray("0x0, 0xff, 0xff, 0xff"), checker.DeepEquals, []byte{0, 0xFF, 0xFF, 0xFF})
 	c.Assert(C2GoArray("0xa, 0xbc, 0xde, 0xf1"), checker.DeepEquals, []byte{0xa, 0xbc, 0xde, 0xf1})
 	c.Assert(C2GoArray("0x0"), checker.DeepEquals, []byte{0})
 	c.Assert(C2GoArray(""), checker.DeepEquals, []byte{})
-}
-
-func (s *CommonSuite) TestFmtDefineComma(c *check.C) {
-	c.Assert(FmtDefineComma("foo", []byte{1, 2, 3}), check.Equals, "#define foo 0x1, 0x2, 0x3\n")
-	c.Assert(FmtDefineComma("foo", []byte{}), check.Equals, "#define foo \n")
-}
-
-func (s *CommonSuite) TestFmtDefineAddress(c *check.C) {
-	c.Assert(FmtDefineAddress("foo", []byte{1, 2, 3}), check.Equals, "#define foo { .addr = { 0x1, 0x2, 0x3 } }\n")
-	c.Assert(FmtDefineAddress("foo", []byte{}), check.Equals, "#define foo { .addr = {  } }\n")
-}
-
-func (s *CommonSuite) TestFmtDefineArray(c *check.C) {
-	c.Assert(FmtDefineArray("foo", []byte{1, 2, 3}), check.Equals, "#define foo { 0x1, 0x2, 0x3 }\n")
-	c.Assert(FmtDefineArray("foo", []byte{}), check.Equals, "#define foo {  }\n")
 }
 
 func (s *CommonSuite) TestMoveNewFilesTo(c *check.C) {
