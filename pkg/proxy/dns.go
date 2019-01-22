@@ -25,7 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/revert"
-	"github.com/miekg/dns"
+	"github.com/cilium/dns"
 	"github.com/sirupsen/logrus"
 )
 

@@ -18,7 +18,7 @@ package fqdn
 
 import (
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/miekg/dns"
+	"github.com/cilium/dns"
 
 	. "gopkg.in/check.v1"
 )

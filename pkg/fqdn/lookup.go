@@ -21,7 +21,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/miekg/dns"
+	"github.com/cilium/dns"
 )
 
 func init() {

@@ -19,7 +19,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/miekg/dns"
+	"github.com/cilium/dns"
 )
 
 const allowedDNSCharsREGroup = "[-a-zA-Z0-9]"

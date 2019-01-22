@@ -22,7 +22,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/maps/proxymap"
 	"github.com/cilium/cilium/pkg/u8proto"
-	"github.com/miekg/dns"
+	"github.com/cilium/dns"
 )
 
 // prepareNameMatch ensures that a name is an anchored regexp and that names

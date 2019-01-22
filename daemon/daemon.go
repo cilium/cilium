@@ -86,8 +86,8 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 	"github.com/cilium/cilium/pkg/workloads"
 
+	"github.com/cilium/dns"
 	"github.com/go-openapi/runtime/middleware"
-	"github.com/miekg/dns"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/vishvananda/netlink"

@@ -28,7 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/sirupsen/logrus"
 
-	"github.com/miekg/dns"
+	"github.com/cilium/dns"
 )
 
 const (
