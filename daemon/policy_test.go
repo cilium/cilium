@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -154,7 +154,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	e.IPv6 = QAIPv6Addr
 	e.IPv4 = QAIPv4Addr
 	e.LXCMAC = QAHardAddr
-	e.NodeMAC = QAHardAddr
+	e.SetNodeMACLocked(QAHardAddr)
 
 	err2 := os.Mkdir("1", 755)
 	c.Assert(err2, IsNil)
@@ -181,7 +181,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	e.IPv6 = ProdIPv6Addr
 	e.IPv4 = ProdIPv4Addr
 	e.LXCMAC = ProdHardAddr
-	e.NodeMAC = ProdHardAddr
+	e.SetNodeMACLocked(ProdHardAddr)
 	e.SetIdentity(prodBarSecLblsCtx)
 	e.UnconditionalLock()
 	ready = e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
@@ -455,7 +455,7 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 	e.IPv6 = QAIPv6Addr
 	e.IPv4 = QAIPv4Addr
 	e.LXCMAC = QAHardAddr
-	e.NodeMAC = QAHardAddr
+	e.SetNodeMACLocked(QAHardAddr)
 	err2 := os.Mkdir("1", 755)
 	c.Assert(err2, IsNil)
 	defer func() {
