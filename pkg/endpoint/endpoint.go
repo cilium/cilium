@@ -851,14 +851,24 @@ func (e *Endpoint) GetOptions() *option.IntOptions {
 	return e.Options
 }
 
-// GetIPv4Address returns the IPv4 address of the endpoint
+// GetIPv4Address returns the IPv4 address of the endpoint as a string
 func (e *Endpoint) GetIPv4Address() string {
 	return e.IPv4.String()
 }
 
-// GetIPv6Address returns the IPv6 address of the endpoint
+// GetIPv6Address returns the IPv6 address of the endpoint as a string
 func (e *Endpoint) GetIPv6Address() string {
 	return e.IPv6.String()
+}
+
+// IPv4Address returns the IPv4 address of the endpoint
+func (e *Endpoint) IPv4Address() addressing.CiliumIPv4 {
+	return e.IPv4
+}
+
+// IPv6Address returns the IPv6 address of the endpoint
+func (e *Endpoint) IPv6Address() addressing.CiliumIPv6 {
+	return e.IPv6
 }
 
 // GetNodeMAC returns the MAC address of the node from this endpoint's perspective.
