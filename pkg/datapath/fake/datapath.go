@@ -15,6 +15,8 @@
 package fake
 
 import (
+	"io"
+
 	"github.com/cilium/cilium/pkg/datapath"
 )
 
@@ -40,4 +42,9 @@ func (f *fakeDatapath) Node() datapath.NodeHandler {
 // local node
 func (f *fakeDatapath) LocalNodeAddressing() datapath.NodeAddressing {
 	return f.nodeAddressing
+}
+
+// WriteNodeConfig pretends to write the datapath configuration to the writer.
+func (f *fakeDatapath) WriteNodeConfig(io.Writer, *datapath.LocalNodeConfiguration) error {
+	return nil
 }
