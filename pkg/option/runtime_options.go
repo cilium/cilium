@@ -103,14 +103,4 @@ var (
 			return nil
 		},
 	}
-
-	IngressSpecPolicy = Option{
-		Define:      "POLICY_INGRESS",
-		Description: "Enable ingress policy enforcement",
-	}
-
-	EgressSpecPolicy = Option{
-		Define:      "POLICY_EGRESS",
-		Description: "Enable egress policy enforcement",
-	}
 )

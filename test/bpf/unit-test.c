@@ -10,7 +10,6 @@
 #include "lib/common.h"
 #include "lib/ipv6.h"
 
-#define POLICY_EGRESS
 #define SKIP_UNDEF_LPM_LOOKUP_FN
 #include "lib/maps.h"
 
