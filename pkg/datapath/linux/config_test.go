@@ -96,6 +96,6 @@ func (s *DatapathSuite) TestWriteNetdevConfig(c *C) {
 
 func (s *DatapathSuite) TestWriteEndpointConfig(c *C) {
 	writeConfig(c, "endpoint", func(w io.Writer, dp datapath.Datapath) error {
-		return dp.WriteEndpointConfig(w, &dummyEPCfg)
+		return dp.WriteEndpointConfig(w, &dummyEPCfg, true)
 	})
 }
