@@ -231,3 +231,29 @@ func (m *Manager) GetStatusModel() models.ControllerStatuses {
 
 	return statuses
 }
+
+// FakeManager returns a fake controller manager with the specified number of
+// failing controllers. The returned manager is identical in any regard except
+// for internal pointers.
+func FakeManager(failingControllers int) Manager {
+	m := Manager{
+		controllers: controllerMap{},
+	}
+
+	for i := 0; i < failingControllers; i++ {
+		ctrl := &Controller{
+			name:              fmt.Sprintf("controller-%d", i),
+			uuid:              fmt.Sprintf("%d", i),
+			stop:              make(chan struct{}, 0),
+			update:            make(chan struct{}, 1),
+			terminated:        make(chan struct{}, 0),
+			lastError:         fmt.Errorf("controller failed"),
+			failureCount:      1,
+			consecutiveErrors: 1,
+		}
+
+		m.controllers[ctrl.name] = ctrl
+	}
+
+	return m
+}
