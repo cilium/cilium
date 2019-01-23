@@ -48,3 +48,8 @@ func (f *fakeDatapath) LocalNodeAddressing() datapath.NodeAddressing {
 func (f *fakeDatapath) WriteNodeConfig(io.Writer, *datapath.LocalNodeConfiguration) error {
 	return nil
 }
+
+// WriteNetdevConfig pretends to write the netdev configuration to a writer.
+func (f *fakeDatapath) WriteNetdevConfig(io.Writer, datapath.DeviceConfiguration) error {
+	return nil
+}

@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@ package endpoint
 
 import (
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/lock"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -56,4 +57,7 @@ type Owner interface {
 
 	// SendNotification is called to emit an agent notification
 	SendNotification(typ monitorAPI.AgentNotification, text string) error
+
+	// Datapath returns a reference to the datapath implementation.
+	Datapath() datapath.Datapath
 }

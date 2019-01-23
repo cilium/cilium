@@ -20,11 +20,13 @@ import (
 	"reflect"
 
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/maps/eppolicymap"
+	"github.com/cilium/cilium/pkg/maps/ipcache"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
@@ -122,6 +124,39 @@ func (l *linuxDatapath) WriteNodeConfig(fw io.Writer, cfg *datapath.LocalNodeCon
 	if option.Config.EnableIPv6 {
 		fmt.Fprintf(fw, "#define ENABLE_IPV6\n")
 	}
+
+	return nil
+}
+
+// WriteIPCachePrefixes fetches the set of prefixes that should be used from
+// the specified getBPFData function, and writes the IPCache prefixes to the
+// given writer in the format that the datapath expects.
+func WriteIPCachePrefixes(w io.Writer, cfg datapath.DeviceConfiguration) {
+	// In case the Linux kernel doesn't support LPM map type, pass the set of
+	// prefix length for the datapath to lookup the map.
+	if ipcache.IPCache.MapType != bpf.BPF_MAP_TYPE_LPM_TRIE {
+		ipcachePrefixes6, ipcachePrefixes4 := cfg.GetCIDRPrefixLengths()
+
+		fmt.Fprint(w, "#define IPCACHE6_PREFIXES ")
+		for _, prefix := range ipcachePrefixes6 {
+			fmt.Fprintf(w, "%d,", prefix)
+		}
+		fmt.Fprint(w, "\n")
+		fmt.Fprint(w, "#define IPCACHE4_PREFIXES ")
+		for _, prefix := range ipcachePrefixes4 {
+			fmt.Fprintf(w, "%d,", prefix)
+		}
+		fmt.Fprint(w, "\n")
+	}
+}
+
+// WriteNetdevConfig writes the BPF configuration for the endpoint to a writer.
+func (l *linuxDatapath) WriteNetdevConfig(w io.Writer, cfg datapath.DeviceConfiguration) error {
+	fmt.Fprint(w, cfg.GetOptions().GetFmtList())
+	if option.Config.IsFlannelMasterDeviceSet() {
+		fmt.Fprint(w, "#define HOST_REDIRECT_TO_INGRESS\n")
+	}
+	WriteIPCachePrefixes(w, cfg)
 
 	return nil
 }

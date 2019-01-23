@@ -173,6 +173,11 @@ type Daemon struct {
 	nodeDiscovery *nodeDiscovery
 }
 
+// Datapath returns a reference to the datapath implementation.
+func (d *Daemon) Datapath() datapath.Datapath {
+	return d.datapath
+}
+
 // UpdateProxyRedirect updates the redirect rules in the proxy for a particular
 // endpoint using the provided L4 filter. Returns the allocated proxy port
 func (d *Daemon) UpdateProxyRedirect(e *endpoint.Endpoint, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error, revert.FinalizeFunc, revert.RevertFunc) {
@@ -316,11 +321,7 @@ func (d *Daemon) writeNetdevHeader(dir string) error {
 	defer f.Close()
 
 	fw := bufio.NewWriter(f)
-	fw.WriteString(option.Config.Opts.GetFmtList())
-	if option.Config.IsFlannelMasterDeviceSet() {
-		fw.WriteString("#define HOST_REDIRECT_TO_INGRESS\n")
-	}
-	endpoint.WriteIPCachePrefixes(fw, d)
+	d.datapath.WriteNetdevConfig(fw, d)
 
 	return fw.Flush()
 }
