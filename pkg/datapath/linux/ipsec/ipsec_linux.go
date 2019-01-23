@@ -86,7 +86,11 @@ func ipSecJoinState(state *netlink.XfrmState, keys *ipSecKey) {
 func ipSecReplaceState(remoteIP, localIP net.IP) error {
 	state := ipSecNewState()
 
-	ipSecJoinState(state, getIPSecKeys(localIP))
+	key := getIPSecKeys(localIP)
+	if key == nil {
+		return fmt.Errorf("IPSec key missing")
+	}
+	ipSecJoinState(state, key)
 	state.Src = localIP
 	state.Dst = remoteIP
 	return netlink.XfrmStateAdd(state)
@@ -110,7 +114,12 @@ func ipSecReplacePolicyInFwd(src, dst *net.IPNet, dir netlink.Dir) error {
 		Value: linux_defaults.RouteMarkDecrypt,
 		Mask:  linux_defaults.RouteMarkMask,
 	}
-	ipSecAttachPolicyTempl(policy, getIPSecKeys(dst.IP), src.IP, dst.IP)
+
+	key := getIPSecKeys(dst.IP)
+	if key == nil {
+		return fmt.Errorf("IPSec key missing")
+	}
+	ipSecAttachPolicyTempl(policy, key, src.IP, dst.IP)
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
@@ -123,7 +132,11 @@ func ipSecReplacePolicyOut(src, dst *net.IPNet) error {
 		Value: linux_defaults.RouteMarkEncrypt,
 		Mask:  linux_defaults.RouteMarkMask,
 	}
-	ipSecAttachPolicyTempl(policy, getIPSecKeys(dst.IP), src.IP, dst.IP)
+	key := getIPSecKeys(dst.IP)
+	if key == nil {
+		return fmt.Errorf("IPSec key missing")
+	}
+	ipSecAttachPolicyTempl(policy, key, src.IP, dst.IP)
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
