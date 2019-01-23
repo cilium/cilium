@@ -41,5 +41,9 @@ type Datapath interface {
 
 	// WriteEndpointConfig writes the implementation-specific configuration
 	// of configurable options to the specified writer.
-	WriteEndpointConfig(io.Writer, EndpointConfiguration) error
+	//
+	// If 'staticData' is true, all static data and conditional branching
+	// configuration will be written to 'w'; otherwise, only conditional
+	// branching configuration will be written.
+	WriteEndpointConfig(w io.Writer, cfg EndpointConfiguration, staticData bool) error
 }
