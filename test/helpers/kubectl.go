@@ -1347,9 +1347,9 @@ type ResourceLifeCycleAction string
 func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action ResourceLifeCycleAction, timeout time.Duration) (string, error) {
 	numNodes := kub.GetNumNodes()
 
-	// Test filter: https://jqplay.org/s/TPpljDm7XP
+	// Test filter: https://jqplay.org/s/EgNzc06Cgn
 	jqFilter := fmt.Sprintf(
-		`[.items[]|select(.status.nodes)|{name:.metadata.name, enforcing: ([.status.nodes|to_entries[]|.value.enforcing] + [(.status.nodes|length >= %d)])|all|tostring}]`,
+		`[.items[]|{name:.metadata.name, enforcing: (.status|if has("nodes") then .nodes |to_entries|map_values(.value.enforcing) + [(.|length >= %d)]|all else true end)|tostring, status: has("status")|tostring}]`,
 		numNodes)
 	npFilter := fmt.Sprintf(
 		`{range .items[*]}{"%s="}{.metadata.name}{" %s="}{.metadata.namespace}{"\n"}{end}`,
@@ -1384,7 +1384,7 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 		}
 
 		for _, item := range data {
-			if item["enforcing"] != "true" {
+			if item["enforcing"] != "true" || item["status"] != "true" {
 				kub.logger.Errorf("Policy '%s' is not enforcing yet", item["name"])
 				return false
 			}
