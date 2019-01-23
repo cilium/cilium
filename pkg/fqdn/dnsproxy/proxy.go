@@ -120,7 +120,7 @@ type LookupEndpointIDByIPFunc func(ip net.IP) (endpointID string, err error)
 
 // NotifyOnDNSMsgFunc handles propagating DNS response data
 // See DNSProxy.LookupEndpointIDByIP for usage.
-type NotifyOnDNSMsgFunc func(lookupTime time.Time, srcAddr, dstAddr string, msg *dns.Msg, protocol string, allowed bool, stat ProxyRequestContext) error
+type NotifyOnDNSMsgFunc func(lookupTime time.Time, epAddr, serverAddr string, msg *dns.Msg, protocol string, allowed bool, stat ProxyRequestContext) error
 
 // ProxyRequestContext proxy dns request context struct to send in the callback
 type ProxyRequestContext struct {
@@ -367,7 +367,8 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 
 	scopedLog.WithField(logfields.Response, response).Debug("Received DNS response to proxied lookup")
 	stat.Success = true
-	p.NotifyOnDNSMsg(time.Now(), targetServerAddr, endpointAddr, response, protocol, true, stat)
+	p.NotifyOnDNSMsg(time.Now(), endpointAddr, targetServerAddr, response, protocol, true, stat)
+
 	scopedLog.Debug("Responding to original DNS query")
 	// restore the ID to the one in the inital request so it matches what the requester expects.
 	response.Id = requestID
@@ -375,8 +376,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	if err != nil {
 		scopedLog.WithError(err).Error("Cannot forward proxied DNS response")
 		stat.Err = fmt.Errorf("Cannot forward proxied DNS response: %s", err)
-		p.NotifyOnDNSMsg(time.Now(), targetServerAddr, endpointAddr, response, protocol, true, stat)
-
+		p.NotifyOnDNSMsg(time.Now(), endpointAddr, targetServerAddr, response, protocol, true, stat)
 	}
 }
 
