@@ -169,13 +169,29 @@ func (l *linuxDatapath) WriteNetdevConfig(w io.Writer, cfg datapath.DeviceConfig
 }
 
 // WriteEndpointConfig writes the BPF configuration for the endpoint to a writer.
-func (l *linuxDatapath) WriteEndpointConfig(w io.Writer, e datapath.EndpointConfiguration) error {
+func (l *linuxDatapath) WriteEndpointConfig(w io.Writer, e datapath.EndpointConfiguration, staticData bool) error {
 	fw := bufio.NewWriter(w)
 
 	writeIncludes(w)
 
-	fmt.Fprint(fw, defineIPv6("LXC_IP", e.IPv6Address()))
-	fmt.Fprintf(fw, defineIPv4("LXC_IPV4", e.IPv4Address()))
+	// XXX: These should be consistent with the endpoint package's
+	//      variable substitution
+	if staticData {
+		fmt.Fprint(fw, defineIPv6("LXC_IP", e.IPv6Address()))
+		fmt.Fprint(fw, defineIPv4("LXC_IPV4", e.IPv4Address()))
+
+		fmt.Fprint(fw, defineMAC("NODE_MAC", e.GetNodeMAC()))
+		fmt.Fprint(fw, defineUint32("LXC_ID", uint32(e.GetID())))
+
+		secID := e.GetIdentity().Uint32()
+		fmt.Fprintf(fw, defineUint32("SECLABEL", secID))
+		fmt.Fprintf(fw, defineUint32("SECLABEL_NB", byteorder.HostToNetwork(secID).(uint32)))
+
+		epID := uint16(e.GetID())
+		fmt.Fprintf(fw, "#define POLICY_MAP %s\n", bpf.LocalMapName(policymap.MapName, epID))
+		fmt.Fprintf(fw, "#define CALLS_MAP %s\n", bpf.LocalMapName("cilium_calls_", epID))
+		fmt.Fprintf(fw, "#define CONFIG_MAP %s\n", bpf.LocalMapName(bpfconfig.MapNamePrefix, epID))
+	}
 
 	if !e.HasIpvlanDataPath() {
 		fmt.Fprint(fw, "#define ENABLE_ARP_RESPONDER 1\n")
@@ -184,18 +200,6 @@ func (l *linuxDatapath) WriteEndpointConfig(w io.Writer, e datapath.EndpointConf
 			fmt.Fprint(fw, "#define HOST_REDIRECT_TO_INGRESS 1\n")
 		}
 	}
-
-	fmt.Fprint(fw, defineMAC("NODE_MAC", e.GetNodeMAC()))
-	fmt.Fprintf(fw, defineUint32("LXC_ID", uint32(e.GetID())))
-
-	secID := e.GetIdentity().Uint32()
-	fmt.Fprintf(fw, defineUint32("SECLABEL", secID))
-	fmt.Fprintf(fw, defineUint32("SECLABEL_NB", byteorder.HostToNetwork(secID).(uint32)))
-
-	epID := uint16(e.GetID())
-	fmt.Fprintf(fw, "#define POLICY_MAP %s\n", bpf.LocalMapName(policymap.MapName, epID))
-	fmt.Fprintf(fw, "#define CALLS_MAP %s\n", bpf.LocalMapName("cilium_calls_", epID))
-	fmt.Fprintf(fw, "#define CONFIG_MAP %s\n", bpf.LocalMapName(bpfconfig.MapNamePrefix, epID))
 
 	if e.ConntrackLocalLocked() {
 		ctmap.WriteBPFMacros(fw, e)
