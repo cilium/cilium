@@ -166,7 +166,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 			}
 
 			var serverPort int
-			_, serverPortStr, err := net.SplitHostPort(serverAddr)
+			serverIP, serverPortStr, err := net.SplitHostPort(serverAddr)
 			if err != nil {
 				log.WithError(err).Error("cannot extract endpoint IP from DNS request")
 			} else {
@@ -205,10 +205,30 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 				func(lr *logger.LogRecord) { lr.LogRecord.TransportProtocol = accesslog.TransportProtocol(protoID) },
 				logger.LogTags.Verdict(verdict, reason),
 				logger.LogTags.Addressing(logger.AddressingInfo{
-					SrcIPPort:   srcAddr,
-					DstIPPort:   dstAddr,
-					SrcIdentity: 0, // 0 more correctly finds src and dst EP data
+					SrcIPPort:   epAddr,
+					DstIPPort:   serverAddr,
+					SrcIdentity: ep.GetIdentity().Uint32(),
 				}),
+				func(lr *logger.LogRecord) {
+					lr.LogRecord.SourceEndpoint = accesslog.EndpointInfo{
+						ID:           ep.GetID(),
+						IPv4:         ep.GetIPv4Address(),
+						IPv6:         ep.GetIPv6Address(),
+						Labels:       ep.GetLabels(),
+						LabelsSHA256: ep.GetLabelsSHA(),
+						Identity:     uint64(ep.GetIdentity()),
+					}
+					if serverEP := endpointmanager.LookupIPv4(serverIP); serverEP != nil {
+						lr.LogRecord.DestinationEndpoint = accesslog.EndpointInfo{
+							ID:           serverEP.GetID(),
+							IPv4:         serverEP.GetIPv4Address(),
+							IPv6:         serverEP.GetIPv6Address(),
+							Labels:       serverEP.GetLabels(),
+							LabelsSHA256: serverEP.GetLabelsSHA(),
+							Identity:     uint64(serverEP.GetIdentity()),
+						}
+					}
+				},
 				logger.LogTags.DNS(&accesslog.LogRecordDNS{
 					Query:             qname,
 					IPs:               responseIPs,
