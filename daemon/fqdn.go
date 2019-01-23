@@ -156,13 +156,10 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 			var epAddr string     // the address of the endpoint that originated the request
 			var serverAddr string // the address of the DNS target
 			var ingress = msg.Response
-			var flowType accesslog.FlowType
 			if ingress {
-				flowType = accesslog.TypeResponse
 				epAddr = dstAddr
 				serverAddr = srcAddr
 			} else {
-				flowType = accesslog.TypeRequest
 				epAddr = srcAddr
 				serverAddr = dstAddr
 			}
@@ -203,7 +200,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 			}
 
 			ep.UpdateProxyStatistics("dns", uint16(serverPort), ingress, !ingress, verdict)
-			record := logger.NewLogRecord(proxy.DefaultEndpointInfoRegistry, ep, flowType, ingress,
+			record := logger.NewLogRecord(proxy.DefaultEndpointInfoRegistry, ep, accesslog.TypeRequest, ingress,
 				func(lr *logger.LogRecord) { lr.LogRecord.TransportProtocol = accesslog.TransportProtocol(protoID) },
 				logger.LogTags.Verdict(verdict, reason),
 				logger.LogTags.Addressing(logger.AddressingInfo{
