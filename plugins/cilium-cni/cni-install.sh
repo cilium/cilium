@@ -56,7 +56,7 @@ EOF
 		cat > ${CNI_CONF_NAME} <<EOF
 {
   "cniVersion": "0.3.1",
-  "name": "flannel-cilium",
+  "name": "cbr0",
   "plugins": [
     {
       "type": "flannel",
