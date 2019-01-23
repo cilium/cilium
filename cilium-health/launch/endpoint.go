@@ -201,14 +201,14 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 		healthIP               net.IP
 	)
 
-	if option.Config.EnableIPv4 {
+	if ip4health != nil {
 		info.Addressing.IPV4 = ip4health.String()
 		ip4WithMask := net.IPNet{IP: ip4health, Mask: defaults.ContainerIPv4Mask}
 		ip4Address = ip4WithMask.String()
 		healthIP = ip4health
 	}
 
-	if option.Config.EnableIPv6 {
+	if ip6health != nil {
 		info.Addressing.IPV6 = ip6health.String()
 		ip6WithMask := net.IPNet{IP: ip6health, Mask: defaults.ContainerIPv6Mask}
 		ip6Address = ip6WithMask.String()
