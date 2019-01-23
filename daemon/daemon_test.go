@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/datapath"
 	fakedatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	e "github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -274,4 +275,8 @@ func (ds *DaemonSuite) NewProxyLogRecord(l *accesslog.LogRecord) error {
 		return ds.OnNewProxyLogRecord(l)
 	}
 	panic("NewProxyLogRecord should not have been called")
+}
+
+func (ds *DaemonSuite) Datapath() datapath.Datapath {
+	return ds.d.datapath
 }

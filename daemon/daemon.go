@@ -179,6 +179,11 @@ type Daemon struct {
 	ipam *ipam.IPAM
 }
 
+// Datapath returns a reference to the datapath implementation.
+func (d *Daemon) Datapath() datapath.Datapath {
+	return d.datapath
+}
+
 // UpdateProxyRedirect updates the redirect rules in the proxy for a particular
 // endpoint using the provided L4 filter. Returns the allocated proxy port
 func (d *Daemon) UpdateProxyRedirect(e *endpoint.Endpoint, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error, revert.FinalizeFunc, revert.RevertFunc) {
@@ -309,9 +314,7 @@ func (d *Daemon) DebugEnabled() bool {
 }
 
 func (d *Daemon) writeNetdevHeader(dir string) error {
-
 	headerPath := filepath.Join(dir, common.NetdevHeaderFileName)
-
 	log.WithField(logfields.Path, headerPath).Debug("writing configuration")
 
 	f, err := os.Create(headerPath)
@@ -321,14 +324,10 @@ func (d *Daemon) writeNetdevHeader(dir string) error {
 	}
 	defer f.Close()
 
-	fw := bufio.NewWriter(f)
-	fw.WriteString(option.Config.Opts.GetFmtList())
-	if option.Config.IsFlannelMasterDeviceSet() {
-		fw.WriteString("#define HOST_REDIRECT_TO_INGRESS 1\n")
+	if err := d.datapath.WriteNetdevConfig(f, d); err != nil {
+		return err
 	}
-	endpoint.WriteIPCachePrefixes(fw, d)
-
-	return fw.Flush()
+	return nil
 }
 
 // GetCIDRPrefixLengths returns the sorted list of unique prefix lengths used
