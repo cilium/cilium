@@ -1113,7 +1113,7 @@ int tail_ipv4_policy(struct __sk_buff *skb)
  * passed into the endpoint or if it needs further inspection by a userspace
  * proxy.
  */
-__section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *skb)
+__section_tail(CILIUM_MAP_POLICY, TEMPLATE_LXC_ID) int handle_policy(struct __sk_buff *skb)
 {
 	int ret;
 	__u32 src_label = skb->cb[CB_SRC_LABEL];
