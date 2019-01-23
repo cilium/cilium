@@ -29,6 +29,8 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
+	secIDCache "github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -218,6 +220,9 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 						LabelsSHA256: ep.GetLabelsSHA(),
 						Identity:     uint64(ep.GetIdentity()),
 					}
+
+					// When the server is an endpoint, get all the data for it.
+					// When external, use the ipcache to fill in the SecID
 					if serverEP := endpointmanager.LookupIPv4(serverIP); serverEP != nil {
 						lr.LogRecord.DestinationEndpoint = accesslog.EndpointInfo{
 							ID:           serverEP.GetID(),
@@ -226,6 +231,16 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 							Labels:       serverEP.GetLabels(),
 							LabelsSHA256: serverEP.GetLabelsSHA(),
 							Identity:     uint64(serverEP.GetIdentity()),
+						}
+					} else if serverSecID, exists := ipcache.IPIdentityCache.LookupByIP(serverIP); exists {
+						secID := secIDCache.LookupIdentityByID(serverSecID.ID)
+						// TODO: handle IPv6
+						lr.LogRecord.DestinationEndpoint = accesslog.EndpointInfo{
+							IPv4: serverIP,
+							// IPv6:         serverEP.GetIPv6Address(),
+							Labels:       secID.Labels.GetModel(),
+							LabelsSHA256: secID.GetLabelsSHA256(),
+							Identity:     uint64(serverSecID.ID.Uint32()),
 						}
 					}
 				},
