@@ -164,7 +164,7 @@ Each pod will be represented in Cilium as an :ref:`endpoint`. We can invoke the
                                                                k8s:io.cilium.k8s.policy.cluster=default
                                                                k8s:io.cilium.k8s.policy.serviceaccount=default
                                                                k8s:io.kubernetes.pod.namespace=default
-                                                               k8s:org=empire                              f00d::a0f:0:0:ceb9   10.15.126.89    ready
+                                                               k8s:org=empire
 
 
 Both ingress and egress policy enforcement is still disabled on all of these pods because no network
