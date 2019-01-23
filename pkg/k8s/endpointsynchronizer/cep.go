@@ -22,7 +22,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -133,7 +132,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 	}
 
 	var (
-		lastMdl      *models.Endpoint
+		lastMdl      *cilium_v2.EndpointStatus
 		firstRun     = true
 		k8sServerVer *go_version.Version // CEPs are not supported with certain versions
 	)
@@ -180,12 +179,11 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 					return nil
 				}
 
-				mdl := e.GetModel()
+				mdl := e.GetCiliumEndpointStatus()
 				if reflect.DeepEqual(mdl, lastMdl) {
 					scopedLog.Debug("Skipping CiliumEndpoint update because it has not changed")
 					return nil
 				}
-				k8sMdl := (*cilium_v2.CiliumEndpointDetail)(mdl)
 
 				cep, err := ciliumClient.CiliumEndpoints(namespace).Get(podName, meta_v1.GetOptions{})
 				switch {
@@ -220,7 +218,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 				// do an update
 				case err == nil:
 					// Update the copy of the cep
-					k8sMdl.DeepCopyInto(&cep.Status)
+					mdl.DeepCopyInto(&cep.Status)
 					var err2 error
 					switch {
 					case ciliumUpdateStatusVerConstr.Check(k8sServerVer):
@@ -242,7 +240,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 					ObjectMeta: meta_v1.ObjectMeta{
 						Name: podName,
 					},
-					Status: *k8sMdl,
+					Status: *mdl,
 				}
 
 				_, err = ciliumClient.CiliumEndpoints(namespace).Create(cep)
