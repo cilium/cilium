@@ -54,29 +54,24 @@ const (
 	EndpointGenerationTimeout = 330 * time.Second
 )
 
-// mapPath returns the path to a map for endpoint ID.
-func (e *Endpoint) mapPath(mapname string) string {
-	return bpf.MapPath(mapname + strconv.Itoa(int(e.ID)))
-}
-
 // PolicyMapPathLocked returns the path to the policy map of endpoint.
 func (e *Endpoint) PolicyMapPathLocked() string {
-	return e.mapPath(policymap.MapName)
+	return bpf.LocalMapPath(policymap.MapName, e.ID)
 }
 
 // CallsMapPathLocked returns the path to cilium tail calls map of an endpoint.
 func (e *Endpoint) CallsMapPathLocked() string {
-	return e.mapPath(CallsMapName)
+	return bpf.LocalMapPath(CallsMapName, e.ID)
 }
 
 // BPFConfigMapPath returns the path to the BPF config map of endpoint.
 func (e *Endpoint) BPFConfigMapPath() string {
-	return e.mapPath(bpfconfig.MapNamePrefix)
+	return bpf.LocalMapPath(bpfconfig.MapNamePrefix, e.ID)
 }
 
 // BPFIpvlanMapPath returns the path to the ipvlan tail call map of an endpoint.
 func (e *Endpoint) BPFIpvlanMapPath() string {
-	return e.mapPath(IpvlanMapName)
+	return bpf.LocalMapPath(IpvlanMapName, e.ID)
 }
 
 // writeInformationalComments writes annotations to the specified writer,
