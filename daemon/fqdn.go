@@ -31,6 +31,8 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
+	secIDCache "github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
@@ -225,7 +227,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 			}
 
 			var serverPort int
-			_, serverPortStr, err := net.SplitHostPort(serverAddr)
+			serverIP, serverPortStr, err := net.SplitHostPort(serverAddr)
 			if err != nil {
 				log.WithError(err).Error("cannot extract endpoint IP from DNS request")
 			} else {
@@ -268,10 +270,43 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 				func(lr *logger.LogRecord) { lr.LogRecord.TransportProtocol = accesslog.TransportProtocol(protoID) },
 				logger.LogTags.Verdict(verdict, reason),
 				logger.LogTags.Addressing(logger.AddressingInfo{
-					SrcIPPort:   srcAddr,
-					DstIPPort:   dstAddr,
-					SrcIdentity: 0, // 0 more correctly finds src and dst EP data
+					SrcIPPort:   epAddr,
+					DstIPPort:   serverAddr,
+					SrcIdentity: ep.GetIdentity().Uint32(),
 				}),
+				func(lr *logger.LogRecord) {
+					lr.LogRecord.SourceEndpoint = accesslog.EndpointInfo{
+						ID:           ep.GetID(),
+						IPv4:         ep.GetIPv4Address(),
+						IPv6:         ep.GetIPv6Address(),
+						Labels:       ep.GetLabels(),
+						LabelsSHA256: ep.GetLabelsSHA(),
+						Identity:     uint64(ep.GetIdentity()),
+					}
+
+					// When the server is an endpoint, get all the data for it.
+					// When external, use the ipcache to fill in the SecID
+					if serverEP := endpointmanager.LookupIPv4(serverIP); serverEP != nil {
+						lr.LogRecord.DestinationEndpoint = accesslog.EndpointInfo{
+							ID:           serverEP.GetID(),
+							IPv4:         serverEP.GetIPv4Address(),
+							IPv6:         serverEP.GetIPv6Address(),
+							Labels:       serverEP.GetLabels(),
+							LabelsSHA256: serverEP.GetLabelsSHA(),
+							Identity:     uint64(serverEP.GetIdentity()),
+						}
+					} else if serverSecID, exists := ipcache.IPIdentityCache.LookupByIP(serverIP); exists {
+						secID := secIDCache.LookupIdentityByID(serverSecID.ID)
+						// TODO: handle IPv6
+						lr.LogRecord.DestinationEndpoint = accesslog.EndpointInfo{
+							IPv4: serverIP,
+							// IPv6:         serverEP.GetIPv6Address(),
+							Labels:       secID.Labels.GetModel(),
+							LabelsSHA256: secID.GetLabelsSHA256(),
+							Identity:     uint64(serverSecID.ID.Uint32()),
+						}
+					}
+				},
 				logger.LogTags.DNS(&accesslog.LogRecordDNS{
 					Query:             qname,
 					IPs:               responseIPs,
