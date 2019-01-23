@@ -277,7 +277,7 @@ func InstallRules(ifName string) error {
 		return err
 	}
 
-	if option.Config.Masquerade {
+	if option.Config.Masquerade && !option.Config.IsFlannelMasterDeviceSet() {
 		ingressSnatSrcAddrExclusion := node.GetHostMasqueradeIPv4().String()
 		if option.Config.Tunnel == option.TunnelDisabled {
 			ingressSnatSrcAddrExclusion = node.GetIPv4ClusterRange().String()
