@@ -102,6 +102,7 @@ func (n *nodeDiscovery) startDiscovery() {
 	n.localNode.IPv4AllocCIDR = node.GetIPv4AllocRange()
 	n.localNode.IPv6AllocCIDR = node.GetIPv6AllocRange()
 	n.localNode.ClusterID = option.Config.ClusterID
+	n.localNode.IPv4GW = node.GetInternalIPv4()
 
 	n.manager.NodeUpdated(n.localNode)
 
