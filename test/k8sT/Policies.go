@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 	. "github.com/onsi/gomega"
@@ -315,6 +314,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 			By("Installing knp ingress default-deny")
 
+			// Import the policy and wait for all required endpoints to enforce the policy
 			_, err := kubectl.CiliumPolicyAction(
 				helpers.KubeSystemNamespace, knpDenyIngress, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(),
@@ -331,17 +331,6 @@ var _ = Describe("K8sPolicyTest", func() {
 				helpers.DefaultNamespace, appPods[helpers.App3],
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
 			res.ExpectFail("Ingress connectivity should be denied by policy")
-
-			Expect(kubectl.WaitCEPReady()).To(BeNil(), "Cep is not ready after a specified timeout")
-			for _, app := range apps {
-				pod := appPods[app]
-				cep := kubectl.CepGet(helpers.DefaultNamespace, pod)
-				Expect(cep).NotTo(BeNil(), "Endpoint %q does not exist", pod)
-
-				Expect(cep.Status.Policy.Realized.PolicyEnabled).To(
-					Equal(models.EndpointPolicyEnabledIngress),
-					"Policy status does not match for endpoint %s", pod)
-			}
 		})
 
 		It("Denies traffic with k8s default-deny egress policy", func() {
@@ -351,18 +340,6 @@ var _ = Describe("K8sPolicyTest", func() {
 				helpers.KubeSystemNamespace, knpDenyEgress, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(),
 				"L3 deny-egress Policy cannot be applied in %q namespace", helpers.DefaultNamespace)
-
-			By("Checking that ingress policy enforcement is enabled on app pods")
-			Expect(kubectl.WaitCEPReady()).To(BeNil(), "Cep is not ready after a specified timeout")
-			for _, app := range apps {
-				pod := appPods[app]
-				cep := kubectl.CepGet(helpers.DefaultNamespace, pod)
-				Expect(cep).NotTo(BeNil(), "Endpoint %q does not exist", pod)
-
-				Expect(cep.Status.Policy.Realized.PolicyEnabled).To(
-					Equal(models.EndpointPolicyEnabledEgress),
-					"Policy status does not match for endpoint %s", pod)
-			}
 
 			By("Testing if egress policy enforcement is enabled on the endpoint")
 			for _, pod := range []string{appPods[helpers.App2], appPods[helpers.App3]} {
@@ -390,18 +367,6 @@ var _ = Describe("K8sPolicyTest", func() {
 				helpers.KubeSystemNamespace, knpDenyIngressEgress, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(),
 				"L3 deny-ingress-egress policy cannot be applied in %q namespace", helpers.DefaultNamespace)
-
-			By("Checking that policy enforcement is enabled on app pods")
-			Expect(kubectl.WaitCEPReady()).To(BeNil(), "Cep is not ready after a specified timeout")
-			for _, app := range apps {
-				pod := appPods[app]
-				cep := kubectl.CepGet(helpers.DefaultNamespace, pod)
-				Expect(cep).NotTo(BeNil(), "Endpoint %q does not exist", pod)
-
-				Expect(cep.Status.Policy.Realized.PolicyEnabled).To(
-					Equal(models.EndpointPolicyEnabledBoth),
-					"Policy status does not match for endpoint %s", pod)
-			}
 
 			By("Testing if egress and ingress policy enforcement is enabled on the endpoint")
 			for _, pod := range []string{appPods[helpers.App2], appPods[helpers.App3]} {
@@ -489,18 +454,6 @@ var _ = Describe("K8sPolicyTest", func() {
 			Expect(err).Should(BeNil(),
 				"L3 allow-ingress Policy cannot be applied in %q namespace", helpers.DefaultNamespace)
 
-			By("Checking that all endpoints have ingress enforcement enabled")
-			Expect(kubectl.WaitCEPReady()).To(BeNil(), "Cep is not ready after a specified timeout")
-			for _, app := range apps {
-				pod := appPods[app]
-				cep := kubectl.CepGet(helpers.DefaultNamespace, pod)
-				Expect(cep).NotTo(BeNil(), "Endpoint %q does not exist", pod)
-
-				Expect(cep.Status.Policy.Realized.PolicyEnabled).To(
-					Equal(models.EndpointPolicyEnabledIngress),
-					"Policy status does not match for endpoint %s", pod)
-			}
-
 			By("Testing connectivity with ingress default-allow policy loaded")
 			res := kubectl.ExecPodCmd(
 				helpers.DefaultNamespace, appPods[helpers.App2],
@@ -520,18 +473,6 @@ var _ = Describe("K8sPolicyTest", func() {
 			Expect(err).Should(BeNil(),
 				"L3 allow-egress Policy cannot be applied in %q namespace", helpers.DefaultNamespace)
 
-			By("Checking that all endpoints have egress enforcement enabled")
-
-			Expect(kubectl.WaitCEPReady()).To(BeNil(), "Cep is not ready after a specified timeout")
-			for _, app := range apps {
-				pod := appPods[app]
-				cep := kubectl.CepGet(helpers.DefaultNamespace, pod)
-				Expect(cep).NotTo(BeNil(), "Endpoint %q does not exist", pod)
-
-				Expect(cep.Status.Policy.Realized.PolicyEnabled).To(
-					Equal(models.EndpointPolicyEnabledEgress),
-					"Policy status does not match for endpoint %s", pod)
-			}
 			By("Checking connectivity between pods and external services after installing egress policy")
 
 			for _, pod := range []string{appPods[helpers.App2], appPods[helpers.App3]} {
