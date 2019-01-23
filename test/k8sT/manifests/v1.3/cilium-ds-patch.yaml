@@ -5,7 +5,7 @@ spec:
   template:
     spec:
       containers:
-      - image: docker.io/cilium/cilium:v1.3.0
+      - image: docker.io/cilium/cilium:v1.3
         imagePullPolicy: IfNotPresent
         name: cilium-agent
         args:
