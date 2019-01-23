@@ -436,7 +436,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 	if len(n.NetConf.RawPrevResult) != 0 {
 		switch n.Name {
-		case "flannel-cilium":
+		case "cbr0":
 			err := setUPWithFlannel(logger, args, n, cniVer, c)
 			if err != nil {
 				return err
