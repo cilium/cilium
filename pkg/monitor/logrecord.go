@@ -60,11 +60,21 @@ func (l *LogRecordNotify) l7Proto() string {
 
 // DumpInfo dumps an access log notification
 func (l *LogRecordNotify) DumpInfo() {
-	fmt.Printf("%s %s %s from %d (%s) to %d (%s), identity %d->%d, verdict %s",
-		l.direction(), l.Type, l.l7Proto(), l.SourceEndpoint.ID, l.SourceEndpoint.Labels,
-		l.DestinationEndpoint.ID, l.DestinationEndpoint.Labels,
-		l.SourceEndpoint.Identity, l.DestinationEndpoint.Identity,
-		l.Verdict)
+	switch l.Type {
+	case accesslog.TypeRequest:
+		fmt.Printf("%s %s %s from %d (%s) to %d (%s), identity %d->%d, verdict %s",
+			l.direction(), l.Type, l.l7Proto(), l.SourceEndpoint.ID, l.SourceEndpoint.Labels,
+			l.DestinationEndpoint.ID, l.DestinationEndpoint.Labels,
+			l.SourceEndpoint.Identity, l.DestinationEndpoint.Identity,
+			l.Verdict)
+
+	case accesslog.TypeResponse:
+		fmt.Printf("%s %s %s to %d (%s) from %d (%s), identity %d->%d, verdict %s",
+			l.direction(), l.Type, l.l7Proto(), l.SourceEndpoint.ID, l.SourceEndpoint.Labels,
+			l.DestinationEndpoint.ID, l.DestinationEndpoint.Labels,
+			l.SourceEndpoint.Identity, l.DestinationEndpoint.Identity,
+			l.Verdict)
+	}
 
 	if http := l.HTTP; http != nil {
 		url := ""
