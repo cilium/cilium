@@ -41,5 +41,5 @@ type Datapath interface {
 
 	// WriteEndpointConfig writes the implementation-specific configuration
 	// of configurable options to the specified writer.
-	WriteEndpointConfig(io.Writer, EndpointConfiguration) error
+	WriteEndpointConfig(w io.Writer, cfg EndpointConfiguration) error
 }
