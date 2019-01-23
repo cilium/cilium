@@ -15,12 +15,12 @@
 package main
 
 import (
-	"net"
 	"path/filepath"
 	"time"
 
 	health "github.com/cilium/cilium/cilium-health/launch"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/node"
@@ -55,24 +55,30 @@ func (d *Daemon) initHealth() {
 	controller.NewManager().UpdateController("cilium-health-ep",
 		controller.ControllerParams{
 			DoFunc: func() error {
-				return d.runCiliumHealthEndpoint(d.nodeDiscovery.localNode.IPv4HealthIP, d.nodeDiscovery.localNode.IPv6HealthIP)
+				return d.runCiliumHealthEndpoint(d.nodeDiscovery.localNode)
 			},
 			StopFunc: func() error {
 				log.Info("Stopping health endpoint")
 				err := health.PingEndpoint()
-				d.cleanupHealthEndpoint(d.nodeDiscovery.localNode.IPv4HealthIP)
-
+				d.cleanupHealthEndpoint(d.nodeDiscovery.localNode)
 				return err
 			},
 			RunInterval: 30 * time.Second,
 		})
 }
 
-func (d *Daemon) cleanupHealthEndpoint(healthIPv4 net.IP) {
+func (d *Daemon) cleanupHealthEndpoint(localNode node.Node) {
 	// Delete the process
 	health.KillEndpoint()
+
 	// Clean up agent resources
-	ep := endpointmanager.LookupIPv4(healthIPv4.String())
+	var ep *endpoint.Endpoint
+	if localNode.IPv4HealthIP != nil {
+		ep = endpointmanager.LookupIPv4(localNode.IPv4HealthIP.String())
+	}
+	if ep == nil && localNode.IPv6HealthIP != nil {
+		ep = endpointmanager.LookupIPv6(localNode.IPv6HealthIP.String())
+	}
 	if ep == nil {
 		log.Debug("Didn't find existing cilium-health endpoint to delete")
 	} else {
@@ -87,13 +93,14 @@ func (d *Daemon) cleanupHealthEndpoint(healthIPv4 net.IP) {
 
 // runCiliumHealthEndpoint attempts to contact the cilium-health endpoint, and
 // if it cannot be reached, restarts it.
-func (d *Daemon) runCiliumHealthEndpoint(healthIPv4, healthIPv6 net.IP) error {
+func (d *Daemon) runCiliumHealthEndpoint(localNode node.Node) error {
 	// PingEndpoint will always fail the first time (initialization).
 	if err := health.PingEndpoint(); err != nil {
 		log.WithError(err).Warning("health endpoint is unreachable, restarting health endpoint")
-		d.cleanupHealthEndpoint(healthIPv4)
+		d.cleanupHealthEndpoint(localNode)
 		addressing := node.GetNodeAddressing()
-		return health.LaunchAsEndpoint(d, addressing, d.mtuConfig, healthIPv4, healthIPv6)
+		return health.LaunchAsEndpoint(d, addressing, d.mtuConfig,
+			localNode.IPv4HealthIP, localNode.IPv6HealthIP)
 	}
 	return nil
 }
