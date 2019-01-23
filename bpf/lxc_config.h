@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2016-2018 Authors of Cilium
+ *  Copyright (C) 2016-2019 Authors of Cilium
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -19,16 +19,24 @@
  * This is just a dummy header with dummy values to allow for test
  * compilation without the full code generation engine backend.
  */
+#include "lib/utils.h"
 
-#define LXC_IP 0xbe, 0xef, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x1, 0x1, 0x65, 0x82, 0xbc
-#define LXC_IPV4 0x10203040
-#define LXC_ID 0x1010
+DEFINE_IPV6(LXC_IP, 0xbe, 0xef, 0, 0, 0, 0, 0, 0x1, 0, 0, 0, 0x1, 0x01, 0x65, 0x82, 0xbc);
+DEFINE_U32(LXC_IPV4, 0x10203040);
+#define LXC_IPV4 fetch_u32(LXC_IPV4)
+DEFINE_U32(LXC_ID, 0x2A);
+#define LXC_ID fetch_u32(LXC_ID)
 #ifndef SECLABEL
-#define SECLABEL 0xfffff
-#define SECLABEL_NB 0xfffff
+DEFINE_U32(SECLABEL, 0xfffff);
+#define SECLABEL fetch_u32(SECLABEL)
+DEFINE_U32(SECLABEL_NB, 0xfffff);
+#define SECLABEL_NB fetch_u32(SECLABEL_NB)
 #endif
+
 #define POLICY_MAP cilium_policy_foo
-#define NODE_MAC { .addr = { 0xde, 0xad, 0xbe, 0xef, 0xc0, 0xde } }
+DEFINE_MAC(NODE_MAC, 0xde, 0xad, 0xbe, 0xef, 0xc0, 0xde);
+#define NODE_MAC fetch_mac(NODE_MAC)
+
 #ifndef SKIP_DEBUG
 #define DEBUG
 #endif
