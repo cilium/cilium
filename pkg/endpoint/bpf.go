@@ -542,7 +542,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, regenContext *regenerationContext)
 	// reverted, and execute it in case of regeneration success.
 	defer func() {
 		// Ignore finalizing of proxy state in dry mode.
-		if option.Config.DryMode {
+		if !option.Config.DryMode {
 			e.finalizeProxyState(regenContext, reterr)
 		}
 	}()
