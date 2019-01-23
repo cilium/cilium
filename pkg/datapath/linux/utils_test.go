@@ -61,9 +61,20 @@ func (s *DatapathSuite) TestGoArray2C(c *C) {
 }
 
 func (s *DatapathSuite) TestdefineIPv6(c *C) {
-	input := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
-	expOut := "#define foo 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf, 0x10\n"
-	c.Assert(defineIPv6("foo", input), Equals, expOut)
+	tests := []formatTestCase{
+		{
+			input:  nil,
+			output: "/* BUG: bad ip define foo  */\n",
+		},
+		{
+			input:  []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
+			output: "DEFINE_IPV6(foo, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf, 0x10);\n",
+		},
+	}
+
+	for _, test := range tests {
+		c.Assert(defineIPv6("foo", test.input), Equals, test.output)
+	}
 }
 
 func (s *DatapathSuite) TestdefineMAC(c *C) {
