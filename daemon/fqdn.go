@@ -188,9 +188,9 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 		// - Report the verdict in a monitor event and emit proxy metrics
 		// - Insert the DNS data into the cache when msg is a DNS response and we
 		//   can lookup the endpoint related to it
-		// srcAddr and dstAddr should match the packet reported on (i.e. the
-		// endpoint is srcAddr for requests, and dstAddr for responses).
-		func(lookupTime time.Time, srcAddr, dstAddr string, msg *dns.Msg, protocol string, allowed bool, stat dnsproxy.ProxyRequestContext) error {
+		// epAddr and serverAddr should match the original request, where epAddr is
+		// the source for egress (the only case current).
+		func(lookupTime time.Time, epAddr, serverAddr string, msg *dns.Msg, protocol string, allowed bool, stat dnsproxy.ProxyRequestContext) error {
 			var protoID = u8proto.ProtoIDs[strings.ToLower(protocol)]
 
 			var verdict accesslog.FlowVerdict
@@ -224,20 +224,6 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 				reason = "Denied by policy"
 			}
 
-			var epAddr string     // the address of the endpoint that originated the request
-			var serverAddr string // the address of the DNS target
-			var ingress = msg.Response
-			var flowType accesslog.FlowType
-			if ingress {
-				flowType = accesslog.TypeResponse
-				epAddr = dstAddr
-				serverAddr = srcAddr
-			} else {
-				flowType = accesslog.TypeRequest
-				epAddr = srcAddr
-				serverAddr = dstAddr
-			}
-
 			var serverPort int
 			_, serverPortStr, err := net.SplitHostPort(serverAddr)
 			if err != nil {
@@ -252,7 +238,8 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 			epIP, _, err := net.SplitHostPort(epAddr)
 			if err != nil {
 				log.WithError(err).Error("cannot extract endpoint IP from DNS request")
-				ep.UpdateProxyStatistics("dns", uint16(serverPort), ingress, !ingress, accesslog.VerdictError)
+				// We are always egress
+				ep.UpdateProxyStatistics("dns", uint16(serverPort), false, !msg.Response, accesslog.VerdictError)
 				endMetric()
 				return err
 			}
@@ -263,7 +250,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 				// cache if we don't know that an endpoint asked for it (this is
 				// asserted via ep != nil here and msg.Response && msg.Rcode ==
 				// dns.RcodeSuccess below).
-				err := fmt.Errorf("Cannot find matching endpoint for IPs %s or %s", srcAddr, dstAddr)
+				err := fmt.Errorf("Cannot find matching endpoint for IP %s", epAddr)
 				log.WithError(err).Error("cannot find matching endpoint")
 				endMetric()
 				return err
@@ -275,8 +262,9 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 				log.WithError(err).Error("cannot extract DNS message details")
 			}
 
-			ep.UpdateProxyStatistics("dns", uint16(serverPort), ingress, !ingress, verdict)
-			record := logger.NewLogRecord(proxy.DefaultEndpointInfoRegistry, ep, flowType, ingress,
+			// We are always egress
+			ep.UpdateProxyStatistics("dns", uint16(serverPort), false, !msg.Response, verdict)
+			record := logger.NewLogRecord(proxy.DefaultEndpointInfoRegistry, ep, accesslog.TypeRequest, false,
 				func(lr *logger.LogRecord) { lr.LogRecord.TransportProtocol = accesslog.TransportProtocol(protoID) },
 				logger.LogTags.Verdict(verdict, reason),
 				logger.LogTags.Addressing(logger.AddressingInfo{
