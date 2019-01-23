@@ -48,8 +48,8 @@ func FmtDefineAddress(name string, addr []byte) string {
 
 // defineUint32 writes the C definition for an unsigned 32-bit value.
 func defineUint32(name string, value uint32) string {
-	return fmt.Sprintf("#define %s %#08x\t/* %d */\n",
-		name, value, value)
+	return fmt.Sprintf("DEFINE_U32(%s, %#08x);\t/* %d */\n#define %s fetch_u32(%s)\n",
+		name, value, value, name, name)
 }
 
 // defineIPv4 writes the C definition for the given IPv4 address.
@@ -63,10 +63,17 @@ func defineIPv4(name string, addr []byte) string {
 
 // defineIPv6 writes the C definition for the given IPv6 address.
 func defineIPv6(name string, addr []byte) string {
-	return fmt.Sprintf("#define %s %s\n", name, goArray2C(addr))
+	if len(addr) != net.IPv6len {
+		return fmt.Sprintf("/* BUG: bad ip define %s %s */\n", name, goArray2C(addr))
+	}
+	return fmt.Sprintf("DEFINE_IPV6(%s, %s);\n", name, goArray2C(addr))
 }
 
 // defineMAC writes the C definition for the given MAC name and addr.
 func defineMAC(name string, addr []byte) string {
-	return fmt.Sprintf("#define %s { .addr = { %s } }\n", name, goArray2C(addr))
+	if len(addr) != 6 { /* MAC len */
+		return fmt.Sprintf("/* BUG: bad mac define %s %s */\n", name, goArray2C(addr))
+	}
+	return fmt.Sprintf("DEFINE_MAC(%s, %s);\n#define %s fetch_mac(%s)\n",
+		name, goArray2C(addr), name, name)
 }

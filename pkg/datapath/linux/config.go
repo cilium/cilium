@@ -41,9 +41,15 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
+func writeIncludes(w io.Writer) (int, error) {
+	return fmt.Fprintf(w, "#include \"lib/utils.h\"\n\n")
+}
+
 // WriteNodeConfig writes the local node configuration to the specified writer.
 func (l *linuxDatapath) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConfiguration) error {
 	fw := bufio.NewWriter(w)
+
+	writeIncludes(w)
 
 	routerIP := node.GetIPv6Router()
 	hostIP := node.GetIPv6()
@@ -165,6 +171,8 @@ func (l *linuxDatapath) WriteNetdevConfig(w io.Writer, cfg datapath.DeviceConfig
 // WriteEndpointConfig writes the BPF configuration for the endpoint to a writer.
 func (l *linuxDatapath) WriteEndpointConfig(w io.Writer, e datapath.EndpointConfiguration) error {
 	fw := bufio.NewWriter(w)
+
+	writeIncludes(w)
 
 	fmt.Fprint(fw, defineIPv6("LXC_IP", e.IPv6Address()))
 	fmt.Fprintf(fw, defineIPv4("LXC_IPV4", e.IPv4Address()))

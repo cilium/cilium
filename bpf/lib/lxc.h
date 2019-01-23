@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2016-2018 Authors of Cilium
+ *  Copyright (C) 2016-2019 Authors of Cilium
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -27,6 +27,8 @@
 #include "trace.h"
 #include "csum.h"
 #include "l4.h"
+
+#define TEMPLATE_LXC_ID 0xffff
 
 #ifndef DISABLE_SIP_VERIFICATION
 static inline int is_valid_lxc_src_ip(struct ipv6hdr *ip6)
