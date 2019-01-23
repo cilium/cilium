@@ -76,6 +76,9 @@ type Node struct {
 	// allocates IPs for local endpoints from
 	IPv6AllocCIDR *cidr.CIDR
 
+	// IPv4GW if set, is the internalIP (GW) address.
+	IPv4GW net.IP
+
 	// IPv4HealthIP if not nil, this is the IPv4 address of the
 	// cilium-health endpoint located on the node.
 	IPv4HealthIP net.IP
