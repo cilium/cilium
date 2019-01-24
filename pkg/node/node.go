@@ -79,6 +79,9 @@ type Node struct {
 	// IPv4GW if set, is the internalIP (GW) address.
 	IPv4GW net.IP
 
+	// IPv6Router if set, is the internalIP (Router) address.
+	IPv6Router net.IP
+
 	// IPv4HealthIP if not nil, this is the IPv4 address of the
 	// cilium-health endpoint located on the node.
 	IPv4HealthIP net.IP
