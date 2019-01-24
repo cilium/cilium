@@ -70,7 +70,7 @@ LXC_OPTIONS = \
 
 # These options are intended to max out the BPF program complexity. it is load
 # tested as well.
-MAX_LXC_OPTIONS = "-DENABLE_IPV4 -DENABLE_IPV6"
+MAX_LXC_OPTIONS = -DENABLE_IPV4 -DENABLE_IPV6
 
 bpf_lxc.ll: bpf_lxc.c $(LIB)
 	$(QUIET) set -e; \
