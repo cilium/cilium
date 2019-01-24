@@ -197,7 +197,7 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 		fw.WriteString("#define ENABLE_ARP_RESPONDER 1\n")
 		fw.WriteString("#define ENABLE_HOST_REDIRECT 1\n")
 		if option.Config.IsFlannelMasterDeviceSet() {
-			fw.WriteString("#define HOST_REDIRECT_TO_INGRESS\n")
+			fw.WriteString("#define HOST_REDIRECT_TO_INGRESS 1\n")
 		}
 	}
 
@@ -222,8 +222,8 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	}
 
 	// Always enable L4 and L3 load balancer for now
-	fw.WriteString("#define LB_L3\n")
-	fw.WriteString("#define LB_L4\n")
+	fw.WriteString("#define LB_L3 1\n")
+	fw.WriteString("#define LB_L4 1\n")
 
 	// Endpoint options
 	fw.WriteString(e.Options.GetFmtList())
