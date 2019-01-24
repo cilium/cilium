@@ -104,7 +104,10 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 				}
 			}
 
-			if _, err := netlink.LinkByName(ep.IfName); err != nil {
+			// FIXME: ignore the check for ipvlan slave because it requires
+			//        entering container netns which is not always accessible
+			//        (e.g. in k8s case "/proc" has to be bind mounted)
+			if _, err := netlink.LinkByName(ep.IfName); option.Config.DatapathMode != option.DatapathModeIpvlan && err != nil {
 				scopedLog.Infof("Interface %s could not be found for endpoint being restored, ignoring", ep.IfName)
 				skipRestore = true
 			} else if option.Config.WorkloadsEnabled() && !workloads.IsRunning(ep) {
