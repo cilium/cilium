@@ -41,8 +41,6 @@ var (
 	ipv6RouterAddress   net.IP
 	ipv4AllocRange      *cidr.CIDR
 	ipv6AllocRange      *cidr.CIDR
-	ipv4HealthAddress   net.IP
-	ipv6HealthAddress   net.IP
 )
 
 func makeIPv6HostIP() net.IP {
