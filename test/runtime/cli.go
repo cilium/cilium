@@ -112,4 +112,26 @@ var _ = Describe("RuntimeCLI", func() {
 		})
 	})
 
+	Context("stdout stderr testing", func() {
+
+		It("root command help should print to stderr", func() {
+			res := vm.ExecCilium("help")
+			Expect(res.GetStdOut()).Should(BeEmpty())
+			Expect(res.GetStdErr()).Should(ContainSubstring("Use \"cilium [command] --help\" for more information about a command."))
+		})
+
+		It("subcommand help should print to stderr", func() {
+			res := vm.ExecCilium("help bpf")
+			Expect(res.GetStdOut()).Should(BeEmpty())
+			Expect(res.GetStdErr()).Should(ContainSubstring("Use \"cilium bpf [command] --help\" for more information about a command."))
+		})
+
+		It("failed subcommand should print help to stderr", func() {
+			res := vm.ExecCilium("endpoint confi 173")
+			Expect(res.GetStdOut()).Should(BeEmpty())
+			Expect(res.GetStdErr()).Should(ContainSubstring("Use \"cilium endpoint [command] --help\" for more information about a command."))
+		})
+
+	})
+
 })
