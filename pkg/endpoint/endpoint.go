@@ -19,8 +19,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strconv"
@@ -2269,4 +2271,28 @@ func (e *Endpoint) MapPinLocked() error {
 	}
 
 	return err
+}
+
+// InitSysctl configures sysctl settings
+func (e *Endpoint) InitSysctl() error {
+	ip4_conf_path := "/proc/sys/net/ipv4/conf/"
+	ip6_conf_path := "/proc/sys/net/ipv6/conf/"
+
+	rp_filter := "rp_filter"
+	rp_filter_off := "0"
+	path := filepath.Join(ip4_conf_path, e.IfName, rp_filter)
+	err := ioutil.WriteFile(path, []byte(rp_filter_off), 0644)
+	if err != nil {
+		return err
+	}
+
+	forwarding := "forwarding"
+	forwarding_on := "1"
+	path = filepath.Join(ip6_conf_path, e.IfName, forwarding)
+	err = ioutil.WriteFile(path, []byte(forwarding_on), 0644)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
