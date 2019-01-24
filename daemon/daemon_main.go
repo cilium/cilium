@@ -16,6 +16,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -1015,20 +1016,26 @@ func initEnv(cmd *cobra.Command) {
 // waitForHostDeviceWhenReady waits the given ifaceName to be up and ready. If
 // ifaceName is not found, then it will wait forever until the device is
 // created.
-func waitForHostDeviceWhenReady(ifaceName string) {
+func waitForHostDeviceWhenReady(ifaceName string) error {
 	for i := 0; ; i++ {
 		if i%10 == 0 {
-			log.WithField("interface", ifaceName).
+			log.WithField(logfields.Interface, ifaceName).
 				Info("Waiting for the underlying interface to be initialized with containers")
 		}
 		_, err := netlink.LinkByName(ifaceName)
 		if err == nil {
-			log.WithField("interface", ifaceName).
+			log.WithField(logfields.Interface, ifaceName).
 				Info("Underlying interface initialized with containers!")
 			break
 		}
-		time.Sleep(time.Second)
+		select {
+		case <-cleanUPSig:
+			return errors.New("clean up signal triggered")
+		default:
+			time.Sleep(time.Second)
+		}
 	}
+	return nil
 }
 
 func runDaemon() {
@@ -1043,7 +1050,13 @@ func runDaemon() {
 	// the BPF program to it. If Cilium is running as a Kubernetes DaemonSet,
 	// there is also a script waiting for the interface to be created.
 	if option.Config.IsFlannelMasterDeviceSet() {
-		waitForHostDeviceWhenReady(option.Config.FlannelMasterDevice)
+		err := waitForHostDeviceWhenReady(option.Config.FlannelMasterDevice)
+		if err != nil {
+			log.WithError(err).WithFields(logrus.Fields{
+				logfields.Interface: option.Config.FlannelMasterDevice,
+			}).Error("unable to check for host device")
+			return
+		}
 	}
 
 	d, restoredEndpoints, err := NewDaemon(linuxdatapath.NewDatapath(datapathConfig))
