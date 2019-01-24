@@ -19,8 +19,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strconv"
@@ -105,6 +107,9 @@ const (
 
 // compile time interface check
 var _ notifications.RegenNotificationInfo = &Endpoint{}
+
+// only enable forwarding once to avoid needless file writes
+var ipv6ForwardAll = false
 
 // Endpoint represents a container or similar which can be individually
 // addresses on L3 with its own IP addresses. This structured is managed by the
@@ -2274,4 +2279,36 @@ func (e *Endpoint) MapPinLocked() error {
 	}
 
 	return err
+}
+
+// InitSysctl configures sysctl settings needed for IPSec
+func (e *Endpoint) InitSysctl() error {
+	if option.Config.EnableIPSec == false {
+		return nil
+	}
+
+	ip4ConfPath := "/proc/sys/net/ipv4/conf/"
+	ip6ConfPath := "/proc/sys/net/ipv6/conf/"
+
+	rpFilter := "rp_filter"
+	rpFilterOff := "0"
+	path := filepath.Join(ip4ConfPath, e.IfName, rpFilter)
+	err := ioutil.WriteFile(path, []byte(rpFilterOff), 0644)
+	if err != nil {
+		return err
+	}
+
+	// Its OK to race here if multiple endpoints get created at the same
+	// time and each enables forwarding that doesn't hurt anything.
+	if ipv6ForwardAll != true {
+		forwarding := "forwarding"
+		forwardingOn := "1"
+		path = filepath.Join(ip6ConfPath, "all", forwarding)
+		err = ioutil.WriteFile(path, []byte(forwardingOn), 0644)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
