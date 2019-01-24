@@ -25,8 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 
-	cniTypes "github.com/containernetworking/cni/pkg/types"
-	"github.com/containernetworking/plugins/plugins/ipam/host-local/backend/allocator"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"k8s.io/kubernetes/pkg/registry/core/service/ipallocator"
@@ -49,52 +47,15 @@ const (
 
 // NewIPAM returns a new IP address manager
 func NewIPAM(nodeAddressing datapath.NodeAddressing) *IPAM {
-	ipamSubnets := net.IPNet{
-		IP:   nodeAddressing.IPv6().Router(),
-		Mask: defaults.StateIPv6Mask,
-	}
-
 	ipam := &IPAM{
 		nodeAddressing: nodeAddressing,
-		IPAMConfig: allocator.IPAMConfig{
-			Name: "cilium-local-IPAM",
-			Range: &allocator.Range{
-				Subnet:  cniTypes.IPNet(ipamSubnets),
-				Gateway: nodeAddressing.IPv6().Router(),
-			},
-			Routes: []*cniTypes.Route{
-				// IPv6
-				{
-					Dst: net.IPNet{
-						IP:   nodeAddressing.IPv6().Router(),
-						Mask: net.CIDRMask(128, 128),
-					},
-				},
-				{
-					Dst: defaults.IPv6DefaultRoute,
-					GW:  nodeAddressing.IPv6().Router(),
-				},
-			},
-		},
-		IPv6Allocator: ipallocator.NewCIDRRange(nodeAddressing.IPv6().AllocationCIDR().IPNet),
+		IPv6Allocator:  ipallocator.NewCIDRRange(nodeAddressing.IPv6().AllocationCIDR().IPNet),
 	}
 
 	// Since docker doesn't support IPv6 only and there's always an IPv4
 	// address we can set up ipam for IPv4. More info:
 	// https://github.com/docker/libnetwork/pull/826
 	ipam.IPv4Allocator = ipallocator.NewCIDRRange(nodeAddressing.IPv4().AllocationCIDR().IPNet)
-	ipam.IPAMConfig.Routes = append(ipam.IPAMConfig.Routes,
-		// IPv4
-		&cniTypes.Route{
-			Dst: net.IPNet{
-				IP:   nodeAddressing.IPv4().Router(),
-				Mask: net.CIDRMask(32, 32),
-			},
-		},
-		&cniTypes.Route{
-			Dst: defaults.IPv4DefaultRoute,
-			GW:  nodeAddressing.IPv4().Router(),
-		})
 
 	return ipam
 }
