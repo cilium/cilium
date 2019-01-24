@@ -263,6 +263,12 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		return nil, err
 	}
 
+	// Set sysctl options required for Cilium
+	if err = ep.InitSysctl(); err != nil {
+		d.deleteEndpoint(ep)
+		return nil, fmt.Errorf("endpoint %d was deleted syctl init failed", ep.ID)
+	}
+
 	build := ep.GetStateLocked() == endpoint.StateReady
 	if build {
 		ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Identity is known at endpoint creation time")
