@@ -25,7 +25,7 @@ import (
 )
 
 func (s *IPAMSuite) TestAllocatedIPDump(c *C) {
-	ipam := NewIPAM(fake.NewNodeAddressing())
+	ipam := NewIPAM(fake.NewNodeAddressing(), Configuration{EnableIPv4: true, EnableIPv6: true})
 
 	err := ipam.AllocateInternalIPs()
 	c.Assert(err, IsNil)
