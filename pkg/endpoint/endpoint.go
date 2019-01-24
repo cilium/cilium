@@ -19,8 +19,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strconv"
@@ -2274,4 +2276,17 @@ func (e *Endpoint) MapPinLocked() error {
 	}
 
 	return err
+}
+
+// InitSysctl configures sysctl settings needed for IPSec
+func (e *Endpoint) InitSysctl() error {
+	if option.Config.EnableIPSec == false {
+		return nil
+	}
+
+	ip4ConfPath := "/proc/sys/net/ipv4/conf/"
+	rpFilter := "rp_filter"
+	rpFilterOff := "0"
+	path := filepath.Join(ip4ConfPath, e.IfName, rpFilter)
+	return ioutil.WriteFile(path, []byte(rpFilterOff), 0644)
 }
