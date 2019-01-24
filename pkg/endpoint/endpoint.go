@@ -2446,8 +2446,14 @@ func (e *Endpoint) runLabelsResolver(owner Owner, myChangeRev int, blocking bool
 	if blocking || identityPkg.IdentityAllocationIsLocal(newLabels) {
 		scopedLog.Debug("Endpoint has reserved identity, changing synchronously")
 		err := e.identityLabelsChanged(owner, myChangeRev)
-		if err != nil {
-			scopedLog.WithError(err).Warn("Error changing endpoint identity")
+		switch err {
+		case ErrNotAlive:
+			scopedLog.Debug("not changing endpoint identity because endpoint is in process of being removed")
+			return
+		default:
+			if err != nil {
+				scopedLog.WithError(err).Warn("Error changing endpoint identity")
+			}
 		}
 	}
 
@@ -2455,7 +2461,14 @@ func (e *Endpoint) runLabelsResolver(owner Owner, myChangeRev int, blocking bool
 	e.controllers.UpdateController(ctrlName,
 		controller.ControllerParams{
 			DoFunc: func() error {
-				return e.identityLabelsChanged(owner, myChangeRev)
+				err := e.identityLabelsChanged(owner, myChangeRev)
+				switch err {
+				case ErrNotAlive:
+					e.getLogger().Debug("not changing endpoint identity because endpoint is in process of being removed")
+					return nil
+				default:
+					return err
+				}
 			},
 			RunInterval: 5 * time.Minute,
 		},
@@ -2464,7 +2477,7 @@ func (e *Endpoint) runLabelsResolver(owner Owner, myChangeRev int, blocking bool
 
 func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 	if err := e.RLockAlive(); err != nil {
-		return err
+		return ErrNotAlive
 	}
 	newLabels := e.OpLabels.IdentityLabels()
 	elog := e.getLogger().WithFields(logrus.Fields{
