@@ -17,12 +17,16 @@ echo "Removing ${CNI_DIR}/bin/cilium-cni..."
 rm -f ${CNI_DIR}/bin/${BIN_NAME}
 rm -f ${CNI_DIR}/bin/${BIN_NAME}.old
 
-echo "Removing ${CILIUM_CNI_CONF} ..."
-rm -f ${CILIUM_CNI_CONF}
 
-if [ -z "${CILIUM_FLANNEL_UNINSTALL_ON_EXIT}" ]; then
-	echo "Removing BPF programs from all containers and from ${CILIUM_FLANNEL_MASTER_DEVICE}"
-	tc filter delete dev cni0 egress pref 1 handle 1 bpf || true
-	# TODO create script to detect all interfaces that have bpf programs
-	# installed
+if [ -z "${CILIUM_FLANNEL_MASTER_DEVICE}" ]; then
+    echo "Removing ${CILIUM_CNI_CONF} ..."
+    rm -f ${CILIUM_CNI_CONF}
+elif [ -z "${CILIUM_FLANNEL_UNINSTALL_ON_EXIT}" ]; then
+    echo "Removing ${CILIUM_CNI_CONF} ..."
+    rm -f ${CILIUM_CNI_CONF}
+
+    echo "Removing BPF programs from all containers and from ${CILIUM_FLANNEL_MASTER_DEVICE}"
+    tc filter delete dev cni0 egress pref 1 handle 1 bpf || true
+    # TODO create script to detect all interfaces that have bpf programs
+    # installed
 fi
