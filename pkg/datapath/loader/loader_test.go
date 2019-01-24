@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,7 +25,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/cilium/pkg/testutils"
+
 	"github.com/vishvananda/netlink"
 	. "gopkg.in/check.v1"
 )
@@ -38,7 +39,7 @@ var (
 	contextTimeout = 10 * time.Second
 
 	dirInfo *directoryInfo
-	ep      = &testEP{}
+	ep      = testutils.NewTestEndpoint()
 )
 
 func Test(t *testing.T) {
@@ -80,7 +81,7 @@ func runTests(m *testing.M) (int, error) {
 		return 1, err
 	}
 
-	cleanup, err := prepareEnv(ep)
+	cleanup, err := prepareEnv(&ep)
 	if err != nil {
 		return 1, fmt.Errorf("Failed to prepare environment: %s", err)
 	}
@@ -101,30 +102,7 @@ func TestMain(m *testing.M) {
 	os.Exit(exitCode)
 }
 
-type testEP struct {
-}
-
-func (ep *testEP) InterfaceName() string {
-	return "cilium_test"
-}
-
-func (ep *testEP) Logger(subsystem string) *logrus.Entry {
-	return log
-}
-
-func (ep *testEP) StateDir() string {
-	return "test_loader"
-}
-
-func (ep *testEP) MapPath() string {
-	return "map_path"
-}
-
-func (ep *testEP) MustGraftDatapathMap() bool {
-	return false
-}
-
-func prepareEnv(ep *testEP) (func() error, error) {
+func prepareEnv(ep *testutils.TestEndpoint) (func() error, error) {
 	link := netlink.Dummy{
 		LinkAttrs: netlink.LinkAttrs{
 			Name: ep.InterfaceName(),
@@ -165,7 +143,7 @@ func (s *LoaderTestSuite) TestCompileAndLoad(c *C) {
 	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 	defer cancel()
 
-	err := compileAndLoad(ctx, ep, dirInfo)
+	err := compileAndLoad(ctx, &ep, dirInfo)
 	c.Assert(err, IsNil)
 }
 
@@ -174,7 +152,7 @@ func (s *LoaderTestSuite) TestReload(c *C) {
 	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 	defer cancel()
 
-	err := compileDatapath(ctx, ep, dirInfo, true)
+	err := compileDatapath(ctx, &ep, dirInfo, true)
 	c.Assert(err, IsNil)
 
 	objPath := fmt.Sprintf("%s/%s", dirInfo.Output, endpointObj)
@@ -205,7 +183,7 @@ func (s *LoaderTestSuite) TestCompileFailure(c *C) {
 	timeout := time.Now().Add(contextTimeout)
 	var err error
 	for err == nil && time.Now().Before(timeout) {
-		err = compileAndLoad(ctx, ep, dirInfo)
+		err = compileAndLoad(ctx, &ep, dirInfo)
 	}
 	c.Assert(err, NotNil)
 }
@@ -217,7 +195,7 @@ func BenchmarkCompileAndLoad(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if err := compileAndLoad(ctx, ep, dirInfo); err != nil {
+		if err := compileAndLoad(ctx, &ep, dirInfo); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -229,7 +207,7 @@ func BenchmarkReplaceDatapath(b *testing.B) {
 	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 	defer cancel()
 
-	if err := compileDatapath(ctx, ep, dirInfo, false); err != nil {
+	if err := compileDatapath(ctx, &ep, dirInfo, false); err != nil {
 		b.Fatal(err)
 	}
 	objPath := fmt.Sprintf("%s/%s", dirInfo.Output, endpointObj)
