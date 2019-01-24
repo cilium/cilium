@@ -1998,7 +1998,7 @@ func (e *Endpoint) runLabelsResolver(owner Owner, myChangeRev int, blocking bool
 
 func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 	if err := e.RLockAlive(); err != nil {
-		return err
+		return nil
 	}
 	newLabels := e.OpLabels.IdentityLabels()
 	elog := e.getLogger().WithFields(logrus.Fields{
