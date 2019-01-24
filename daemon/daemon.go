@@ -1099,16 +1099,6 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		log.WithError(err).Fatal("IPAM init failed")
 	}
 
-	if k8s.IsEnabled() {
-		log.Info("Annotating k8s node with CIDR ranges")
-		err := k8s.Client().AnnotateNode(node.GetName(),
-			node.GetIPv4AllocRange(), node.GetIPv6NodeRange(),
-			nil, nil, node.GetInternalIPv4())
-		if err != nil {
-			log.WithError(err).Warning("Cannot annotate k8s node with CIDR range")
-		}
-	}
-
 	log.Info("Addressing information:")
 	log.Infof("  Cluster-Name: %s", option.Config.ClusterName)
 	log.Infof("  Cluster-ID: %d", option.Config.ClusterID)
@@ -1158,6 +1148,19 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 
 			d.nodeDiscovery.localNode.IPv6HealthIP = health6
 			log.Debugf("IPv6 health endpoint address: %s", health6)
+		}
+	}
+
+	// Annotation of the k8s node must happen after discovery of the
+	// PodCIDR range and allocation of the health IPs.
+	if k8s.IsEnabled() {
+		log.Info("Annotating k8s node with CIDR ranges")
+		err := k8s.Client().AnnotateNode(node.GetName(),
+			node.GetIPv4AllocRange(), node.GetIPv6NodeRange(),
+			d.nodeDiscovery.localNode.IPv4HealthIP, d.nodeDiscovery.localNode.IPv6HealthIP,
+			node.GetInternalIPv4())
+		if err != nil {
+			log.WithError(err).Warning("Cannot annotate k8s node with CIDR range")
 		}
 	}
 
