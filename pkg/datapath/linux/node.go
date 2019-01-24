@@ -410,6 +410,11 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *node.Node) error {
 			if ipsecRemote.IP != nil {
 				ipsec.UpsertIPSecEndpoint(ipsecLocal, ipsecRemote)
 			}
+			ipsecLocal = &net.IPNet{IP: n.nodeAddressing.IPv6().Router(), Mask: n.nodeAddressing.IPv6().AllocationCIDR().Mask}
+			ipsecRemote = &net.IPNet{IP: newNode.IPv6Router, Mask: newNode.IPv6AllocCIDR.Mask}
+			if ipsecRemote.IP != nil {
+				ipsec.UpsertIPSecEndpoint(ipsecLocal, ipsecRemote)
+			}
 		}
 	}
 
