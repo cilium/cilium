@@ -58,6 +58,7 @@ func (d *Daemon) initHealth() {
 				return d.runCiliumHealthEndpoint(d.nodeDiscovery.localNode.IPv4HealthIP, d.nodeDiscovery.localNode.IPv6HealthIP)
 			},
 			StopFunc: func() error {
+				log.Info("Stopping health endpoint")
 				err := health.PingEndpoint()
 				d.cleanupHealthEndpoint(d.nodeDiscovery.localNode.IPv4HealthIP)
 
@@ -89,6 +90,7 @@ func (d *Daemon) cleanupHealthEndpoint(healthIPv4 net.IP) {
 func (d *Daemon) runCiliumHealthEndpoint(healthIPv4, healthIPv6 net.IP) error {
 	// PingEndpoint will always fail the first time (initialization).
 	if err := health.PingEndpoint(); err != nil {
+		log.WithError(err).Warning("health endpoint is unreachable, restarting health endpoint")
 		d.cleanupHealthEndpoint(healthIPv4)
 		addressing := node.GetNodeAddressing()
 		return health.LaunchAsEndpoint(d, addressing, d.mtuConfig, healthIPv4, healthIPv6)

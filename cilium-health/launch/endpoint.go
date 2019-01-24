@@ -197,20 +197,22 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 			State:         models.EndpointStateWaitingForIdentity,
 			Addressing:    &models.AddressPair{},
 		}
-		ip4                    net.IP
 		ip4Address, ip6Address string
+		healthIP               net.IP
 	)
 
 	if option.Config.EnableIPv4 {
 		info.Addressing.IPV4 = ip4health.String()
 		ip4WithMask := net.IPNet{IP: ip4health, Mask: defaults.ContainerIPv4Mask}
 		ip4Address = ip4WithMask.String()
+		healthIP = ip4health
 	}
 
 	if option.Config.EnableIPv6 {
 		info.Addressing.IPV6 = ip6health.String()
 		ip6WithMask := net.IPNet{IP: ip6health, Mask: defaults.ContainerIPv6Mask}
 		ip6Address = ip6WithMask.String()
+		healthIP = ip6health
 	}
 
 	if _, _, err := connector.SetupVethWithNames(vethName, vethPeerName, mtuConfig.GetDeviceMTU(), info); err != nil {
@@ -224,6 +226,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 	prog := filepath.Join(option.Config.BpfDir, "spawn_netns.sh")
 	cmd.SetTarget(prog)
 	cmd.SetArgs(args)
+	log.Infof("Spawning health endpoint with arguments %#v", args)
 	if err := cmd.Run(); err != nil {
 		return err
 	}
@@ -280,7 +283,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 
 	// Initialize the health client to talk to this instance. This is why
 	// the caller must limit usage of this package to a single goroutine.
-	client, err = healthPkg.NewClient(fmt.Sprintf("tcp://%s:%d", ip4, healthDefaults.HTTPPathPort))
+	client, err = healthPkg.NewClient("tcp://" + net.JoinHostPort(healthIP.String(), fmt.Sprintf("%d", healthDefaults.HTTPPathPort)))
 	if err != nil {
 		return fmt.Errorf("Cannot establish connection to health endpoint: %s", err)
 	}
