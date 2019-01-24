@@ -142,7 +142,7 @@ type Endpoint struct {
 	DockerEndpointID string
 
 	// Corresponding BPF map identifier for tail call map of ipvlan datapath
-	dataPathMapID int
+	DataPathMapID int
 
 	// isDatapathMapPinned denotes whether the datapath map has been pinned.
 	isDatapathMapPinned bool
@@ -331,7 +331,7 @@ func (e *Endpoint) HasBPFProgram() bool {
 
 // HasIpvlanDataPath returns whether the daemon is running in ipvlan mode.
 func (e *Endpoint) HasIpvlanDataPath() bool {
-	if e.dataPathMapID > 0 {
+	if e.DataPathMapID > 0 {
 		return true
 	}
 	return false
@@ -432,7 +432,7 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, 
 		IfName:           base.InterfaceName,
 		K8sPodName:       base.K8sPodName,
 		K8sNamespace:     base.K8sNamespace,
-		dataPathMapID:    int(base.DataPathMapID),
+		DataPathMapID:    int(base.DataPathMapID),
 		IfIndex:          int(base.InterfaceIndex),
 		OpLabels:         pkgLabels.NewOpLabels(),
 		DNSHistory:       fqdn.NewDNSCache(),
@@ -1593,7 +1593,7 @@ func (e *Endpoint) GetDockerNetworkID() string {
 
 // SetDatapathMapIDAndPinMapLocked modifies the endpoint's datapath map ID
 func (e *Endpoint) SetDatapathMapIDAndPinMapLocked(id int) error {
-	e.dataPathMapID = id
+	e.DataPathMapID = id
 	return e.MapPinLocked()
 }
 
@@ -2239,11 +2239,11 @@ func (e *Endpoint) IsDisconnecting() bool {
 // MapPinLocked retrieves a file descriptor from the map ID from the API call
 // and pins the corresponding map into the BPF file system.
 func (e *Endpoint) MapPinLocked() error {
-	if e.dataPathMapID == 0 {
+	if e.DataPathMapID == 0 {
 		return nil
 	}
 
-	mapFd, err := bpf.MapFdFromID(e.dataPathMapID)
+	mapFd, err := bpf.MapFdFromID(e.DataPathMapID)
 	if err != nil {
 		return err
 	}
