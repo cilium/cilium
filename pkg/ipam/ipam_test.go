@@ -35,7 +35,7 @@ var _ = Suite(&IPAMSuite{})
 
 func (s *IPAMSuite) TestLock(c *C) {
 	fakeAddressing := fake.NewNodeAddressing()
-	ipam := NewIPAM(fakeAddressing)
+	ipam := NewIPAM(fakeAddressing, Configuration{EnableIPv4: true, EnableIPv6: true})
 
 	err := ipam.AllocateInternalIPs()
 	c.Assert(err, IsNil)

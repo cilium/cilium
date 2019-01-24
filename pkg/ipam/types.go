@@ -24,6 +24,7 @@ import (
 // Config is the IPAM configuration used for a particular IPAM type.
 type IPAM struct {
 	nodeAddressing datapath.NodeAddressing
+	config         Configuration
 
 	IPv6Allocator *ipallocator.Range
 	IPv4Allocator *ipallocator.Range

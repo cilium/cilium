@@ -1054,7 +1054,10 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 
 	// Set up ipam conf after init() because we might be running d.conf.KVStoreIPv4Registration
 	log.Info("Initializing IPAM")
-	d.ipam = ipam.NewIPAM(dp.LocalNodeAddressing())
+	d.ipam = ipam.NewIPAM(dp.LocalNodeAddressing(), ipam.Configuration{
+		EnableIPv4: option.Config.EnableIPv4,
+		EnableIPv6: option.Config.EnableIPv6,
+	})
 
 	// Workloads must be initialized after IPAM has started as it requires
 	// to allocate IPs.
@@ -1147,6 +1150,9 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		if option.Config.EnableIPv6 {
 			health6, err := d.ipam.AllocateNextFamily(ipam.IPv6)
 			if err != nil {
+				if d.nodeDiscovery.localNode.IPv4HealthIP != nil {
+					d.ipam.ReleaseIP(d.nodeDiscovery.localNode.IPv4HealthIP)
+				}
 				return nil, restoredEndpoints, fmt.Errorf("unable to allocate health IPs: %s,see https://cilium.link/ipam-range-full", err)
 			}
 
