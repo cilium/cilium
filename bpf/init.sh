@@ -369,6 +369,8 @@ if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
 	ip link show $ENCAP_DEV || {
 		ip link add $ENCAP_DEV type $MODE external || encap_fail
 	}
+
+	setup_dev $ENCAP_DEV
 	ip link set $ENCAP_DEV up || encap_fail
 
 	ENCAP_IDX=$(cat /sys/class/net/${ENCAP_DEV}/ifindex)
