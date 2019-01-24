@@ -332,8 +332,17 @@ skip_service_lookup:
 	/* The packet goes to a peer not managed by this agent instance */
 #ifdef ENCAP_IFINDEX
 	if (tunnel_endpoint) {
-		return encap_and_redirect_with_nodeid(skb, tunnel_endpoint,
-						      SECLABEL, monitor);
+		ret = encap_and_redirect_with_nodeid_from_lxc(skb, tunnel_endpoint, SECLABEL, monitor);
+		/* If not redirected noteable due to IPSEC then pass up to stack
+		 * for further processing.
+		 */
+		if (ret == IPSEC_ENDPOINT)
+			goto pass_to_stack;
+		/* This is either redirect by encap code or an error has occured
+		 * either way return and stack will consume skb.
+		 */
+		else
+			return ret;
 	} else {
 		/* FIXME GH-1391: Get rid of the initializer */
 		struct endpoint_key key = {};
@@ -351,11 +360,15 @@ skip_service_lookup:
 		key.ip6.p4 = 0;
 		key.family = ENDPOINT_KEY_IPV6;
 
-		ret = encap_and_redirect(skb, &key, SECLABEL, monitor, true);
-
-		/* Fall through if remote prefix was not found
-		 * (DROP_NO_TUNNEL_ENDPOINT) */
-		if (ret != DROP_NO_TUNNEL_ENDPOINT)
+		/* Three cases exist here either (a) the encap and redirect could
+		 * not find the tunnel so fallthrough to nat46 and stack, (b)
+		 * the packet needs IPSec encap so push skb to stack for encap, or
+		 * (c) packet was redirected to tunnel device so return.
+		 */
+		ret = encap_and_redirect(skb, &key, SECLABEL, monitor, false);
+		if (ret == IPSEC_ENDPOINT)
+			goto pass_to_stack;
+		else if (ret != DROP_NO_TUNNEL_ENDPOINT)
 			return ret;
 	}
 #endif
