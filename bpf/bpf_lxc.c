@@ -27,6 +27,7 @@
 
 #include <linux/icmpv6.h>
 
+#include "lib/tailcall.h"
 #include "lib/utils.h"
 #include "lib/common.h"
 #include "lib/config.h"
@@ -431,7 +432,8 @@ static inline int __inline__ handle_ipv6(struct __sk_buff *skb, __u32 *dstID)
 	return ipv6_l3_from_lxc(skb, &tuple, ETH_HLEN, ip6, dstID);
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_LXC) int tail_handle_ipv6(struct __sk_buff *skb)
+declare_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)), CILIUM_CALL_IPV6_FROM_LXC)
+int tail_handle_ipv6(struct __sk_buff *skb)
 {
 	__u32 dstID = 0;
 	int ret = handle_ipv6(skb, &dstID);
@@ -701,7 +703,8 @@ pass_to_stack:
 	return TC_ACT_OK;
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC) int tail_handle_ipv4(struct __sk_buff *skb)
+declare_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)), CILIUM_CALL_IPV4_FROM_LXC)
+int tail_handle_ipv4(struct __sk_buff *skb)
 {
 	__u32 dstID = 0;
 	int ret = handle_ipv4_from_lxc(skb, &dstID);
@@ -740,14 +743,14 @@ int handle_xgress(struct __sk_buff *skb)
 	switch (skb->protocol) {
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		ep_tail_call(skb, CILIUM_CALL_IPV6_FROM_LXC);
-		ret = DROP_MISSED_TAIL_CALL;
+		invoke_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
+				   CILIUM_CALL_IPV6_FROM_LXC, tail_handle_ipv6);
 		break;
 #endif /* ENABLE_IPV6 */
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
-		ep_tail_call(skb, CILIUM_CALL_IPV4_FROM_LXC);
-		ret = DROP_MISSED_TAIL_CALL;
+		invoke_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
+				   CILIUM_CALL_IPV4_FROM_LXC, tail_handle_ipv4);
 		break;
 #ifdef ENABLE_ARP_RESPONDER
 	case bpf_htons(ETH_P_ARP):
@@ -1120,8 +1123,9 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT64) int tail_ipv6_to_ipv4(struct
 
 	skb->cb[CB_NAT46_STATE] = NAT64;
 
-	ep_tail_call(skb, CILIUM_CALL_IPV4_FROM_LXC);
-	return DROP_MISSED_TAIL_CALL;
+	invoke_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
+			   CILIUM_CALL_IPV4_FROM_LXC, tail_handle_ipv4);
+	return ret;
 }
 
 static inline int __inline__ handle_ipv4_to_ipv6(struct __sk_buff *skb)
