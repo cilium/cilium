@@ -44,17 +44,44 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 	struct bpf_tunnel_key key = {};
 	struct endpoint_info *ep;
 	int l4_off, l3_off = ETH_HLEN, hdrlen;
+	bool decrypted;
 
+	decrypted = ((skb->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
 	if (!revalidate_data(skb, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	if (unlikely(skb_get_tunnel_key(skb, &key, sizeof(key), 0) < 0))
-		return DROP_NO_TUNNEL_KEY;
+	if (!decrypted) {
+		if (unlikely(skb_get_tunnel_key(skb, &key, sizeof(key), 0) < 0))
+			return DROP_NO_TUNNEL_KEY;
+	}
 
 	cilium_dbg(skb, DBG_DECAP, key.tunnel_id, key.tunnel_label);
 
 	/* Lookup IPv6 address in list of local endpoints */
 	if ((ep = lookup_ip6_endpoint(ip6)) != NULL) {
+#ifdef ENABLE_IPSEC
+		if (!decrypted) {
+			/* IPSec is not currently enforce (feature coming soon)
+			 * so for now just handle normally
+			 */
+			if (ip6->nexthdr != IPPROTO_ESP)
+				goto not_esp;
+			skb->mark = MARK_MAGIC_DECRYPT;
+			set_identity(skb, key.tunnel_id);
+			/* To IPSec stack on cilium_vxlan we are going to pass
+			 * this up the stack but eth_type_trans has already labeled
+			 * this as an OTHERHOST type packet. To avoid being dropped
+			 * by IP stack before IPSec can be processed mark as a HOST
+			 * packet.
+			 */
+			skb_change_type(skb, PACKET_HOST);
+			return TC_ACT_OK;
+		} else {
+			key.tunnel_id = get_identity(skb);
+			skb->mark = 0;
+		}
+not_esp:
+#endif
 		/* Let through packets to the node-ip so they are
 		 * processed by the local ip stack */
 		if (ep->flags & ENDPOINT_F_HOST)
