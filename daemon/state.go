@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -104,10 +105,23 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 				}
 			}
 
-			if _, err := netlink.LinkByName(ep.IfName); err != nil {
+			if ep.HasIpvlanDataPath() {
+				// FIXME: We cannot check whether ipvlan slave netdev exists,
+				// because it requires entering container netns which is not
+				// always accessible (e.g. in k8s case "/proc" has to be bind
+				// mounted). Instead, we check whether the tail call map exists.
+				if _, err := os.Stat(ep.BPFIpvlanMapPath()); err != nil {
+					scopedLog.Infof(
+						"Ipvlan tail call map %s could not be found for endpoint being restored, ignoring",
+						ep.BPFIpvlanMapPath())
+					skipRestore = true
+				}
+			} else if _, err := netlink.LinkByName(ep.IfName); err != nil {
 				scopedLog.Infof("Interface %s could not be found for endpoint being restored, ignoring", ep.IfName)
 				skipRestore = true
-			} else if option.Config.WorkloadsEnabled() && !workloads.IsRunning(ep) {
+			}
+
+			if !skipRestore && option.Config.WorkloadsEnabled() && !workloads.IsRunning(ep) {
 				scopedLog.Info("No workload could be associated with endpoint being restored, ignoring")
 				skipRestore = true
 			}
