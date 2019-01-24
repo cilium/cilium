@@ -15,6 +15,7 @@
 package ipam
 
 import (
+	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/lock"
 
 	"github.com/containernetworking/plugins/plugins/ipam/host-local/backend/allocator"
@@ -22,7 +23,9 @@ import (
 )
 
 // Config is the IPAM configuration used for a particular IPAM type.
-type Config struct {
+type IPAM struct {
+	nodeAddressing datapath.NodeAddressing
+
 	IPAMConfig    allocator.IPAMConfig
 	IPv6Allocator *ipallocator.Range
 	IPv4Allocator *ipallocator.Range

@@ -19,22 +19,18 @@ package ipam
 import (
 	"net"
 
-	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/datapath/fake"
 
 	. "gopkg.in/check.v1"
 )
 
-type AllocatorSuite struct{}
+func (s *IPAMSuite) TestAllocatedIPDump(c *C) {
+	ipam := NewIPAM(fake.NewNodeAddressing())
 
-var _ = Suite(&AllocatorSuite{})
-
-func (s *AllocatorSuite) TestAllocatedIPDump(c *C) {
-	node.InitDefaultPrefix("")
-	Init()
-	err := AllocateInternalIPs()
+	err := ipam.AllocateInternalIPs()
 	c.Assert(err, IsNil)
 
-	allocv4, allocv6 := Dump()
+	allocv4, allocv6 := ipam.Dump()
 	// Test the format of the dumped ip addresses
 	for i := 0; i < len(allocv4); i++ {
 		c.Assert(net.ParseIP(allocv4[i]), NotNil)
