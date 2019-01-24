@@ -441,11 +441,19 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *node.Node) error {
 			n.replaceNodeIPSecInRoute(new6Net)
 		} else {
 			ciliumInternalIPv4 := newNode.GetCiliumInternalIP(false)
+			ciliumInternalIPv6 := newNode.GetCiliumInternalIP(true)
 
 			if ciliumInternalIPv4 != nil {
 				ipsecLocal := &net.IPNet{IP: n.nodeAddressing.IPv4().Router(), Mask: n.nodeAddressing.IPv4().AllocationCIDR().Mask}
 				ipsecRemote := &net.IPNet{IP: ciliumInternalIPv4, Mask: newNode.IPv4AllocCIDR.Mask}
 				n.replaceNodeIPSecOutRoute(new4Net)
+				ipsec.UpsertIPSecEndpoint(ipsecLocal, ipsecRemote)
+			}
+
+			if ciliumInternalIPv6 != nil {
+				ipsecLocal := &net.IPNet{IP: n.nodeAddressing.IPv6().Router(), Mask: n.nodeAddressing.IPv6().AllocationCIDR().Mask}
+				ipsecRemote := &net.IPNet{IP: ciliumInternalIPv6, Mask: newNode.IPv6AllocCIDR.Mask}
+				n.replaceNodeIPSecOutRoute(new6Net)
 				ipsec.UpsertIPSecEndpoint(ipsecLocal, ipsecRemote)
 			}
 		}
