@@ -36,7 +36,7 @@ func (e *Endpoint) RLockAlive() error {
 	e.mutex.RLock()
 	if e.IsDisconnecting() {
 		e.mutex.RUnlock()
-		return fmt.Errorf("rlock failed: endpoint is in the process of being removed")
+		return ErrNotAlive
 	}
 	return nil
 }
