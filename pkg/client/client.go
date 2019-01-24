@@ -92,6 +92,8 @@ func NewDefaultClientWithTimeout(timeout time.Duration) (*Client, error) {
 
 		c, err = NewDefaultClient()
 		if err == nil {
+			// This is an API call that we do to the cilium-agent to check
+			// if it is up and running.
 			_, err = c.Daemon.GetConfig(nil)
 			if err == nil {
 				break
