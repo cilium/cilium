@@ -331,6 +331,8 @@ func (s *managerTestSuite) TestBackgroundSyncInterval(c *check.C) {
 }
 
 func (s *managerTestSuite) TestBackgroundSync(c *check.C) {
+	c.Skip("GH-6751 Test is disabled due to being unstable")
+
 	// set the base background sync interval to a very low value so the
 	// background sync runs aggressively
 	baseBackgroundSyncIntervalBackup := baseBackgroundSyncInterval
