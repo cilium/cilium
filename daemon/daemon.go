@@ -1134,16 +1134,25 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	}
 
 	if option.Config.EnableHealthChecking {
-		health4, health6, err := d.ipam.AllocateNext("")
-		if err != nil {
-			return nil, restoredEndpoints, fmt.Errorf("unable to allocate health IPs: %s,see https://cilium.link/ipam-range-full", err)
+		if option.Config.EnableIPv4 {
+			health4, err := d.ipam.AllocateNextFamily(ipam.IPv4)
+			if err != nil {
+				return nil, restoredEndpoints, fmt.Errorf("unable to allocate health IPs: %s,see https://cilium.link/ipam-range-full", err)
+			}
+
+			d.nodeDiscovery.localNode.IPv4HealthIP = health4
+			log.Debugf("IPv4 health endpoint address: %s", health4)
 		}
 
-		d.nodeDiscovery.localNode.IPv4HealthIP = health4
-		log.Debugf("IPv4 health endpoint address: %s", health4)
+		if option.Config.EnableIPv6 {
+			health6, err := d.ipam.AllocateNextFamily(ipam.IPv6)
+			if err != nil {
+				return nil, restoredEndpoints, fmt.Errorf("unable to allocate health IPs: %s,see https://cilium.link/ipam-range-full", err)
+			}
 
-		d.nodeDiscovery.localNode.IPv6HealthIP = health6
-		log.Debugf("IPv6 health endpoint address: %s", health6)
+			d.nodeDiscovery.localNode.IPv6HealthIP = health6
+			log.Debugf("IPv6 health endpoint address: %s", health6)
+		}
 	}
 
 	d.nodeDiscovery.startDiscovery()
