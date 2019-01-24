@@ -194,14 +194,10 @@
   revision = "d2836a7b59485b780f49c64c07e8c41c06bde6ab"
 
 [[projects]]
+  digest = "1:c76a35a17c17bc067b506dc24afb353ecb207087c079ef62a73febefbb20ed0b"
   name = "github.com/containernetworking/plugins"
-  packages = [
-    "pkg/ip",
-    "pkg/ns",
-    "pkg/utils/hwaddr",
-    "plugins/ipam/host-local/backend",
-    "plugins/ipam/host-local/backend/allocator"
-  ]
+  packages = ["pkg/ns"]
+  pruneopts = "NUT"
   revision = "v0.7.4"
 
 [[projects]]
@@ -218,12 +214,6 @@
     "pkg/types"
   ]
   revision = "v3.3.10"
-
-[[projects]]
-  name = "github.com/coreos/go-iptables"
-  packages = ["iptables"]
-  revision = "47f22b0dd3355c0ba570ba12b0b8a36bf214c04b"
-  version = "v0.4.0"
 
 [[projects]]
   name = "github.com/cpuguy83/go-md2man"
