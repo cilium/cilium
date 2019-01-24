@@ -90,16 +90,14 @@ func (e *Endpoint) BPFIpvlanMapName() string {
 	return IpvlanMapName + strconv.Itoa(int(e.ID))
 }
 
-func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
-	headerPath := filepath.Join(prefix, common.CHeaderFileName)
-	f, err := os.Create(headerPath)
-	if err != nil {
-		return fmt.Errorf("failed to open file %s for writing: %s", headerPath, err)
+// writeInformationalComments writes annotations to the specified writer,
+// including a base64 encoding of the endpoint object, and human-readable
+// strings describing the configuration of the datapath.
+//
+// For configuration of actual datapath behavior, see WriteEndpointConfig().
+func (e *Endpoint) writeInformationalComments(w io.Writer, owner Owner) error {
+	fw := bufio.NewWriter(w)
 
-	}
-	defer f.Close()
-
-	fw := bufio.NewWriter(f)
 	fmt.Fprint(fw, "/*\n")
 
 	epStr64, err := e.base64()
@@ -146,7 +144,19 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	}
 	fw.WriteString(" */\n\n")
 
-	if err = fw.Flush(); err != nil {
+	return fw.Flush()
+}
+
+func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
+	headerPath := filepath.Join(prefix, common.CHeaderFileName)
+	f, err := os.Create(headerPath)
+	if err != nil {
+		return fmt.Errorf("failed to open file %s for writing: %s", headerPath, err)
+
+	}
+	defer f.Close()
+
+	if err = e.writeInformationalComments(f, owner); err != nil {
 		return err
 	}
 	return owner.Datapath().WriteEndpointConfig(f, e)
