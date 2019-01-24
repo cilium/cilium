@@ -150,7 +150,7 @@ const (
 
 	// CurlConnectTimeout is the timeout for the connect() call that curl
 	// invokes
-	CurlConnectTimeout = 3
+	CurlConnectTimeout = 5
 
 	// CurlMaxTimeout is the hard timeout. It starts when curl is invoked
 	// and interrupts curl regardless of whether curl is currently
