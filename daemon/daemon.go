@@ -1125,7 +1125,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		log.Infof("  IPv4 allocation prefix: %s", node.GetIPv4AllocRange())
 
 		// Allocate IPv4 service loopback IP
-		loopbackIPv4, _, err := d.ipam.AllocateNext("ipv4")
+		loopbackIPv4, err := d.ipam.AllocateNextFamily(ipam.IPv4)
 		if err != nil {
 			return nil, restoredEndpoints, fmt.Errorf("Unable to reserve IPv4 loopback address: %s", err)
 		}
