@@ -170,7 +170,7 @@ func (s *SSHMeta) SampleContainersActions(mode string, networkName string, creat
 // GatherDockerLogs dumps docker containers logs output to the directory
 // testResultsPath
 func (s *SSHMeta) GatherDockerLogs() {
-	res := s.Exec("docker ps -aq")
+	res := s.Exec("docker ps -a --format {{.Names}}")
 	if !res.WasSuccessful() {
 		log.WithField("error", res.CombineOutput()).Errorf("cannot get docker logs")
 		return
