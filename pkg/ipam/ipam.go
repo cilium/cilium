@@ -38,6 +38,15 @@ var (
 
 type ErrAllocation error
 
+// Family is the type describing all address families support by the IP
+// allocation manager
+type Family string
+
+const (
+	IPv6 Family = "ipv6"
+	IPv4 Family = "ipv4"
+)
+
 // NewIPAM returns a new IP address manager
 func NewIPAM(nodeAddressing datapath.NodeAddressing) *IPAM {
 	ipamSubnets := net.IPNet{
