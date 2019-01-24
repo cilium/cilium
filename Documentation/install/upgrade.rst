@@ -248,7 +248,7 @@ latest ``1.1.y`` release before subsequently upgrading to ``1.2.z``.
 +-----------------------+-----------------------+-----------------------+-------------------------+---------------------------+
 | ``1.2.x``             | ``1.3.y``             | Required              | Minimal to None         | Clients must reconnect[1] |
 +-----------------------+-----------------------+-----------------------+-------------------------+---------------------------+
-| ``>=1.2.5``           | ``1.4.y``             | Required              | Minimal to None         | Clients must reconnect[1] |
+| ``>=1.2.5``           | ``1.4.y``             | Action Required       | Minimal to None         | Clients must reconnect[1] |
 +-----------------------+-----------------------+-----------------------+-------------------------+---------------------------+
 
 Annotations:
@@ -267,6 +267,23 @@ Annotations:
 
 Upgrading from >=1.2.5 to 1.4.y
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+#. **Action required:** With Cilium 1.4.0 the ``cilium-etcd-secrets`` secrets
+   are marked as required in the DaemonSet. This is done to simplify the
+   default installation with the etcd-operator. If you are already using the
+   ``cilium-etcd-secrets`` to access etcd using TLS, no action is required. If
+   you have not been using TLS yet or if you are not sure whether you are using
+   TLS to access etcd, run the following command:
+
+   .. parsed-literal::
+
+      kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.11/etcd-secrets.yaml
+
+   It will either succeed and create an empty secrets or it will fail with:
+
+   .. parsed-literal::
+
+      Error from server (AlreadyExists): error when creating
 
 #. Follow the standard procedures to perform the upgrade as described in :ref:`upgrade_minor`.
 

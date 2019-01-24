@@ -279,7 +279,7 @@ spec:
       - name: etcd-secrets
         secret:
           defaultMode: 420
-          optional: true
+          optional: false
           secretName: cilium-etcd-secrets
         # To read the clustermesh configuration
       - name: clustermesh-secrets
