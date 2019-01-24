@@ -329,7 +329,7 @@ func (d *Daemon) writeNetdevHeader(dir string) error {
 	fw.WriteString(d.fmtPolicyEnforcementIngress())
 	fw.WriteString(d.fmtPolicyEnforcementEgress())
 	if option.Config.IsFlannelMasterDeviceSet() {
-		fw.WriteString("#define HOST_REDIRECT_TO_INGRESS\n")
+		fw.WriteString("#define HOST_REDIRECT_TO_INGRESS 1\n")
 	}
 	endpoint.WriteIPCachePrefixes(fw, d.prefixLengths.ToBPFData)
 
@@ -339,7 +339,7 @@ func (d *Daemon) writeNetdevHeader(dir string) error {
 // returns #define for PolicyIngress based on the configuration of the daemon.
 func (d *Daemon) fmtPolicyEnforcementIngress() string {
 	if policy.GetPolicyEnabled() == option.AlwaysEnforce {
-		return fmt.Sprintf("#define %s\n", option.IngressSpecPolicy.Define)
+		return fmt.Sprintf("#define %s 1\n", option.IngressSpecPolicy.Define)
 	}
 	return fmt.Sprintf("#undef %s\n", option.IngressSpecPolicy.Define)
 }
@@ -347,7 +347,7 @@ func (d *Daemon) fmtPolicyEnforcementIngress() string {
 // returns #define for PolicyEgress based on the configuration of the daemon.
 func (d *Daemon) fmtPolicyEnforcementEgress() string {
 	if policy.GetPolicyEnabled() == option.AlwaysEnforce {
-		return fmt.Sprintf("#define %s\n", option.EgressSpecPolicy.Define)
+		return fmt.Sprintf("#define %s 1\n", option.EgressSpecPolicy.Define)
 	}
 	return fmt.Sprintf("#undef %s\n", option.EgressSpecPolicy.Define)
 }
@@ -745,7 +745,7 @@ func (d *Daemon) createNodeConfigHeaderfile() error {
 	}
 
 	if option.Config.PreAllocateMaps {
-		fmt.Fprintf(fw, "#define PREALLOCATE_MAPS\n")
+		fmt.Fprintf(fw, "#define PREALLOCATE_MAPS 1\n")
 	}
 
 	fmt.Fprintf(fw, "#define EVENTS_MAP %s\n", "cilium_events")
@@ -764,15 +764,15 @@ func (d *Daemon) createNodeConfigHeaderfile() error {
 	fmt.Fprintf(fw, "#define MTU %d\n", d.mtuConfig.GetDeviceMTU())
 
 	if option.Config.EnableIPv4 {
-		fmt.Fprintf(fw, "#define ENABLE_IPV4\n")
+		fmt.Fprintf(fw, "#define ENABLE_IPV4 1\n")
 	}
 
 	if option.Config.EnableIPv6 {
-		fmt.Fprintf(fw, "#define ENABLE_IPV6\n")
+		fmt.Fprintf(fw, "#define ENABLE_IPV6 1\n")
 	}
 
 	if option.Config.EnableIPSec {
-		fmt.Fprintf(fw, "#define ENABLE_IPSEC\n")
+		fmt.Fprintf(fw, "#define ENABLE_IPSEC 1\n")
 	}
 
 	fw.Flush()
