@@ -25,6 +25,7 @@ CLI for interacting with the local Cilium Agent
 * [cilium config](../cilium_config)	 - Cilium configuration options
 * [cilium debuginfo](../cilium_debuginfo)	 - Request available debugging information from agent
 * [cilium endpoint](../cilium_endpoint)	 - Manage endpoints
+* [cilium fqdn](../cilium_fqdn)	 - Manage fqdn proxy
 * [cilium identity](../cilium_identity)	 - Manage security identities
 * [cilium kvstore](../cilium_kvstore)	 - Direct access to the kvstore
 * [cilium map](../cilium_map)	 - Access BPF maps
