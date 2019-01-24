@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/logging"
@@ -32,11 +33,62 @@ import (
 )
 
 var (
-	log      = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipam")
-	ipamConf *Config
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipam")
 )
 
 type ErrAllocation error
+
+// NewIPAM returns a new IP address manager
+func NewIPAM(nodeAddressing datapath.NodeAddressing) *IPAM {
+	ipamSubnets := net.IPNet{
+		IP:   nodeAddressing.IPv6().Router(),
+		Mask: defaults.StateIPv6Mask,
+	}
+
+	ipam := &IPAM{
+		nodeAddressing: nodeAddressing,
+		IPAMConfig: allocator.IPAMConfig{
+			Name: "cilium-local-IPAM",
+			Range: &allocator.Range{
+				Subnet:  cniTypes.IPNet(ipamSubnets),
+				Gateway: nodeAddressing.IPv6().Router(),
+			},
+			Routes: []*cniTypes.Route{
+				// IPv6
+				{
+					Dst: net.IPNet{
+						IP:   nodeAddressing.IPv6().Router(),
+						Mask: net.CIDRMask(128, 128),
+					},
+				},
+				{
+					Dst: defaults.IPv6DefaultRoute,
+					GW:  nodeAddressing.IPv6().Router(),
+				},
+			},
+		},
+		IPv6Allocator: ipallocator.NewCIDRRange(nodeAddressing.IPv6().AllocationCIDR().IPNet),
+	}
+
+	// Since docker doesn't support IPv6 only and there's always an IPv4
+	// address we can set up ipam for IPv4. More info:
+	// https://github.com/docker/libnetwork/pull/826
+	ipam.IPv4Allocator = ipallocator.NewCIDRRange(nodeAddressing.IPv4().AllocationCIDR().IPNet)
+	ipam.IPAMConfig.Routes = append(ipam.IPAMConfig.Routes,
+		// IPv4
+		&cniTypes.Route{
+			Dst: net.IPNet{
+				IP:   nodeAddressing.IPv4().Router(),
+				Mask: net.CIDRMask(32, 32),
+			},
+		},
+		&cniTypes.Route{
+			Dst: defaults.IPv4DefaultRoute,
+			GW:  nodeAddressing.IPv4().Router(),
+		})
+
+	return ipam
+}
 
 func nextIP(ip net.IP) {
 	for j := len(ip) - 1; j >= 0; j-- {
@@ -47,7 +99,7 @@ func nextIP(ip net.IP) {
 	}
 }
 
-func reserveLocalRoutes(ipam *Config) {
+func (ipam *IPAM) reserveLocalRoutes() {
 	log.Debug("Checking local routes for conflicts...")
 
 	link, err := netlink.LinkByName(defaults.HostDevice)
@@ -62,7 +114,7 @@ func reserveLocalRoutes(ipam *Config) {
 		return
 	}
 
-	allocRange := node.GetIPv4AllocRange()
+	allocRange := ipam.nodeAddressing.IPv4().AllocationCIDR()
 
 	for _, r := range routes {
 		// ignore routes which point to defaults.HostDevice
@@ -93,74 +145,31 @@ func reserveLocalRoutes(ipam *Config) {
 
 // ReserveLocalRoutes walks through local routes/subnets and reserves them in
 // the allocator pool in case of overlap
-func ReserveLocalRoutes() {
-	reserveLocalRoutes(ipamConf)
-}
-
-// Init initializes the IPAM package
-func Init() {
-	ipamSubnets := net.IPNet{
-		IP:   node.GetIPv6Router(),
-		Mask: defaults.StateIPv6Mask,
-	}
-
-	ipamConf = &Config{
-		IPAMConfig: allocator.IPAMConfig{
-			Name: "cilium-local-IPAM",
-			Range: &allocator.Range{
-				Subnet:  cniTypes.IPNet(ipamSubnets),
-				Gateway: node.GetIPv6Router(),
-			},
-			Routes: []*cniTypes.Route{
-				// IPv6
-				{
-					Dst: node.GetIPv6NodeRoute(),
-				},
-				{
-					Dst: defaults.IPv6DefaultRoute,
-					GW:  node.GetIPv6Router(),
-				},
-			},
-		},
-		IPv6Allocator: ipallocator.NewCIDRRange(node.GetIPv6AllocRange().IPNet),
-	}
-
-	// Since docker doesn't support IPv6 only and there's always an IPv4
-	// address we can set up ipam for IPv4. More info:
-	// https://github.com/docker/libnetwork/pull/826
-	ipamConf.IPv4Allocator = ipallocator.NewCIDRRange(node.GetIPv4AllocRange().IPNet)
-	ipamConf.IPAMConfig.Routes = append(ipamConf.IPAMConfig.Routes,
-		// IPv4
-		&cniTypes.Route{
-			Dst: node.GetIPv4NodeRoute(),
-		},
-		&cniTypes.Route{
-			Dst: defaults.IPv4DefaultRoute,
-			GW:  node.GetInternalIPv4(),
-		})
+func (ipam *IPAM) ReserveLocalRoutes() {
+	ipam.reserveLocalRoutes()
 }
 
 // AllocateInternalIPs allocates all non endpoint IPs in the CIDR required for
 // operation. This mustbe called *after* endpoints have been restored to avoid
 // allocation conflicts
-func AllocateInternalIPs() error {
+func (ipam *IPAM) AllocateInternalIPs() error {
 	// Reserve the IPv4 router IP if it is part of the IPv4
 	// allocation range to ensure that we do not hand out the
 	// router IP to a container.
-	allocRange := node.GetIPv4AllocRange()
-	nodeIP := node.GetExternalIPv4()
+	allocRange := ipam.nodeAddressing.IPv4().AllocationCIDR()
+	nodeIP := ipam.nodeAddressing.IPv4().PrimaryExternal()
 	if allocRange.Contains(nodeIP) {
-		err := ipamConf.IPv4Allocator.Allocate(nodeIP)
+		err := ipam.IPv4Allocator.Allocate(nodeIP)
 		if err != nil {
 			log.WithError(err).WithField(logfields.IPAddr, nodeIP).Debug("Unable to reserve IPv4 router address")
 		}
 	}
 
-	internalIP := node.GetInternalIPv4()
+	internalIP := ipam.nodeAddressing.IPv4().Router()
 	if internalIP == nil {
-		internalIP = ip.GetNextIP(node.GetIPv4AllocRange().IP)
+		internalIP = ip.GetNextIP(ipam.nodeAddressing.IPv4().AllocationCIDR().IP)
 	}
-	err := ipamConf.IPv4Allocator.Allocate(internalIP)
+	err := ipam.IPv4Allocator.Allocate(internalIP)
 	if err != nil {
 		// If the allocation fails here it is likely that, in a kubernetes
 		// environment, cilium was not able to retrieve the node's pod-cidr
@@ -180,22 +189,23 @@ func AllocateInternalIPs() error {
 	// Reserve the IPv6 router and node IP if it is part of the IPv6
 	// allocation range to ensure that we do not hand out the router IP to
 	// a container.
-	allocRange = node.GetIPv6AllocRange()
-	for _, ip6 := range []net.IP{node.GetIPv6()} {
+	allocRange = ipam.nodeAddressing.IPv6().AllocationCIDR()
+	nodeIP = ipam.nodeAddressing.IPv6().PrimaryExternal()
+	for _, ip6 := range []net.IP{nodeIP} {
 		if allocRange.Contains(ip6) {
-			err := ipamConf.IPv6Allocator.Allocate(ip6)
+			err := ipam.IPv6Allocator.Allocate(ip6)
 			if err != nil {
 				log.WithError(err).WithField(logfields.IPAddr, ip6).Debug("Unable to reserve IPv6 address")
 			}
 		}
 	}
 
-	routerIP := node.GetIPv6Router()
+	routerIP := ipam.nodeAddressing.IPv6().Router()
 	if routerIP == nil {
-		routerIP = ip.GetNextIP(node.GetIPv6AllocRange().IP)
+		routerIP = ip.GetNextIP(ipam.nodeAddressing.IPv6().AllocationCIDR().IP)
 	}
-	if !routerIP.Equal(node.GetIPv6()) {
-		err = ipamConf.IPv6Allocator.Allocate(routerIP)
+	if !routerIP.Equal(nodeIP) {
+		err = ipam.IPv6Allocator.Allocate(routerIP)
 		if err != nil {
 			return ErrAllocation(fmt.Errorf("Unable to allocate internal IPv6 router IP %s: %s.",
 				routerIP, err))
