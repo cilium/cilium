@@ -27,14 +27,13 @@ import (
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/labels"
 
 	. "gopkg.in/check.v1"
 )
 
-func getEPTemplate(c *C) *models.EndpointChangeRequest {
-	ip4, ip6, err := ipam.AllocateNext("")
+func getEPTemplate(c *C, d *Daemon) *models.EndpointChangeRequest {
+	ip4, ip6, err := d.ipam.AllocateNext("")
 	c.Assert(err, Equals, nil)
 	c.Assert(ip4, Not(IsNil))
 	c.Assert(ip6, Not(IsNil))
@@ -50,14 +49,14 @@ func getEPTemplate(c *C) *models.EndpointChangeRequest {
 }
 
 func (ds *DaemonSuite) TestEndpointAddReservedLabel(c *C) {
-	epTemplate := getEPTemplate(c)
+	epTemplate := getEPTemplate(c, ds.d)
 	epTemplate.Labels = []string{"reserved:world"}
 	err := ds.d.createEndpoint(context.TODO(), epTemplate)
 	c.Assert(err, Not(IsNil))
 }
 
 func (ds *DaemonSuite) TestEndpointAddInvalidLabel(c *C) {
-	epTemplate := getEPTemplate(c)
+	epTemplate := getEPTemplate(c, ds.d)
 	epTemplate.Labels = []string{"reserved:foo"}
 	err := ds.d.createEndpoint(context.TODO(), epTemplate)
 	c.Assert(err, Not(IsNil))
@@ -65,7 +64,7 @@ func (ds *DaemonSuite) TestEndpointAddInvalidLabel(c *C) {
 
 func (ds *DaemonSuite) TestEndpointAddNoLabels(c *C) {
 	// Create the endpoint without any labels.
-	epTemplate := getEPTemplate(c)
+	epTemplate := getEPTemplate(c, ds.d)
 	err := ds.d.createEndpoint(context.TODO(), epTemplate)
 	c.Assert(err, IsNil)
 

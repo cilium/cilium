@@ -286,22 +286,6 @@ func SetIPv6Router(ip net.IP) {
 	ipv6RouterAddress = ip
 }
 
-// GetIPv6NodeRoute returns a route pointing to the IPv6 node address
-func GetIPv6NodeRoute() net.IPNet {
-	return net.IPNet{
-		IP:   ipv6RouterAddress,
-		Mask: net.CIDRMask(128, 128),
-	}
-}
-
-// GetIPv4NodeRoute returns a route pointing to the IPv4 node address
-func GetIPv4NodeRoute() net.IPNet {
-	return net.IPNet{
-		IP:   ipv4InternalAddress,
-		Mask: net.CIDRMask(32, 32),
-	}
-}
-
 // UseNodeCIDR sets the ipv4-range and ipv6-range values values from the
 // addresses defined in the given node.
 func UseNodeCIDR(node *Node) error {

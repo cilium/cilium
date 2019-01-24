@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	"github.com/cilium/cilium/common/addressing"
-	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/datapath/fake"
 
 	. "gopkg.in/check.v1"
 )
@@ -34,34 +34,35 @@ type IPAMSuite struct{}
 var _ = Suite(&IPAMSuite{})
 
 func (s *IPAMSuite) TestLock(c *C) {
-	node.InitDefaultPrefix("")
-	Init()
-	err := AllocateInternalIPs()
+	fakeAddressing := fake.NewNodeAddressing()
+	ipam := NewIPAM(fakeAddressing)
+
+	err := ipam.AllocateInternalIPs()
 	c.Assert(err, IsNil)
 
 	// Since the IPs we have allocated to the endpoints might or might not
 	// be in the allocrange specified in cilium, we need to specify them
 	// manually on the endpoint based on the alloc range.
-	ipv4 := node.GetIPv4AllocRange().IP
+	ipv4 := fakeAddressing.IPv4().AllocationCIDR().IP
 	nextIP(ipv4)
 	epipv4, err := addressing.NewCiliumIPv4(ipv4.String())
 	c.Assert(err, IsNil)
 
-	ipv6 := node.GetIPv6AllocRange().IP
+	ipv6 := fakeAddressing.IPv6().AllocationCIDR().IP
 	nextIP(ipv6)
 	epipv6, err := addressing.NewCiliumIPv6(ipv6.String())
 	c.Assert(err, IsNil)
 
 	// Forcefully release possible allocated IPs
-	err = ipamConf.IPv4Allocator.Release(epipv4.IP())
+	err = ipam.IPv4Allocator.Release(epipv4.IP())
 	c.Assert(err, IsNil)
-	err = ipamConf.IPv6Allocator.Release(epipv6.IP())
+	err = ipam.IPv6Allocator.Release(epipv6.IP())
 	c.Assert(err, IsNil)
 
 	// Let's allocate the IP first so we can see the tests failing
-	err = ipamConf.IPv4Allocator.Allocate(epipv4.IP())
+	err = ipam.IPv4Allocator.Allocate(epipv4.IP())
 	c.Assert(err, IsNil)
 
-	err = ipamConf.IPv4Allocator.Release(epipv4.IP())
+	err = ipam.IPv4Allocator.Release(epipv4.IP())
 	c.Assert(err, IsNil)
 }

@@ -33,7 +33,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/connector"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/labels"
@@ -568,7 +567,7 @@ func (d *dockerClient) IgnoreRunningWorkloads() {
 		if cIP == nil {
 			continue
 		}
-		if err := ipam.AllocateIP(cIP.IP()); err != nil {
+		if err := allocator.AllocateIP(cIP.IP()); err != nil {
 			continue
 		}
 		// TODO Release this address when the ignored container leaves
