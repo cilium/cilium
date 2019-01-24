@@ -955,10 +955,6 @@ func initEnv(cmd *cobra.Command) {
 		if option.Config.InstallIptRules {
 			option.Config.Ipvlan.OperationMode = option.OperationModeL3S
 		}
-
-		// Currently, cilium-health cannot run in ipvlan mode as it
-		// tries to connect to network in veth mode, thus we disable it
-		option.Config.EnableHealthChecking = false
 	default:
 		log.WithField(logfields.DatapathMode, option.Config.DatapathMode).Fatal("Invalid datapath mode")
 	}
