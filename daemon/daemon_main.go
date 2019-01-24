@@ -1047,6 +1047,13 @@ func runDaemon() {
 		return
 	}
 
+	// This validation needs to be done outside of the agent until
+	// datapath.NodeAddressing is used consistently across the code base.
+	log.Info("Validating configured node address ranges")
+	if err := node.ValidatePostInit(); err != nil {
+		log.WithError(err).Fatal("postinit failed")
+	}
+
 	if option.Config.IsFlannelMasterDeviceSet() && option.Config.FlannelUninstallOnExit {
 		cleanup.DeferTerminationCleanupFunction(cleanUPWg, cleanUPSig, func() {
 			d.compilationMutex.Lock()
