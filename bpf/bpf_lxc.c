@@ -27,6 +27,7 @@
 
 #include <linux/icmpv6.h>
 
+#include "lib/tailcall.h"
 #include "lib/utils.h"
 #include "lib/common.h"
 #include "lib/config.h"
@@ -444,7 +445,8 @@ static inline int __inline__ handle_ipv6(struct __sk_buff *skb, __u32 *dstID)
 	return ipv6_l3_from_lxc(skb, &tuple, ETH_HLEN, ip6, dstID);
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_LXC) int tail_handle_ipv6(struct __sk_buff *skb)
+declare_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)), CILIUM_CALL_IPV6_FROM_LXC)
+int tail_handle_ipv6(struct __sk_buff *skb)
 {
 	__u32 dstID = 0;
 	int ret = handle_ipv6(skb, &dstID);
@@ -731,7 +733,8 @@ pass_to_stack:
 	return TC_ACT_OK;
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC) int tail_handle_ipv4(struct __sk_buff *skb)
+declare_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)), CILIUM_CALL_IPV4_FROM_LXC)
+int tail_handle_ipv4(struct __sk_buff *skb)
 {
 	__u32 dstID = 0;
 	int ret = handle_ipv4_from_lxc(skb, &dstID);
@@ -770,14 +773,14 @@ int handle_xgress(struct __sk_buff *skb)
 	switch (skb->protocol) {
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		ep_tail_call(skb, CILIUM_CALL_IPV6_FROM_LXC);
-		ret = DROP_MISSED_TAIL_CALL;
+		invoke_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
+				   CILIUM_CALL_IPV6_FROM_LXC, tail_handle_ipv6);
 		break;
 #endif /* ENABLE_IPV6 */
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
-		ep_tail_call(skb, CILIUM_CALL_IPV4_FROM_LXC);
-		ret = DROP_MISSED_TAIL_CALL;
+		invoke_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
+				   CILIUM_CALL_IPV4_FROM_LXC, tail_handle_ipv4);
 		break;
 #ifdef ENABLE_ARP_RESPONDER
 	case bpf_htons(ETH_P_ARP):
@@ -931,7 +934,9 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 	return TC_ACT_OK;
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_TO_LXC) int tail_ipv6_policy(struct __sk_buff *skb) {
+declare_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)), CILIUM_CALL_IPV6_TO_LXC)
+int tail_ipv6_policy(struct __sk_buff *skb)
+{
 	int ret, ifindex = skb->cb[CB_IFINDEX];
 	__u32 src_label = skb->cb[CB_SRC_LABEL];
 	int forwarding_reason = 0;
@@ -1081,7 +1086,9 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 	return TC_ACT_OK;
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_TO_LXC) int tail_ipv4_policy(struct __sk_buff *skb) {
+declare_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)), CILIUM_CALL_IPV4_TO_LXC)
+int tail_ipv4_policy(struct __sk_buff *skb)
+{
 	struct ep_config *cfg = lookup_ep_config();
 	int ret, ifindex = skb->cb[CB_IFINDEX];
 	__u32 src_label = skb->cb[CB_SRC_LABEL];
@@ -1114,18 +1121,16 @@ __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *sk
 	switch (skb->protocol) {
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		ep_tail_call(skb, CILIUM_CALL_IPV6_TO_LXC);
-		ret = DROP_MISSED_TAIL_CALL;
+		invoke_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
+				   CILIUM_CALL_IPV6_TO_LXC, tail_ipv6_policy);
 		break;
 #endif /* ENABLE_IPV6 */
-
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
-		ep_tail_call(skb, CILIUM_CALL_IPV4_TO_LXC);
-		ret = DROP_MISSED_TAIL_CALL;
+		invoke_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
+				   CILIUM_CALL_IPV4_TO_LXC, tail_ipv4_policy);
 		break;
 #endif /* ENABLE_IPV4 */
-
 	default:
 		ret = DROP_UNKNOWN_L3;
 		break;
@@ -1150,8 +1155,9 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT64) int tail_ipv6_to_ipv4(struct
 
 	skb->cb[CB_NAT46_STATE] = NAT64;
 
-	ep_tail_call(skb, CILIUM_CALL_IPV4_FROM_LXC);
-	return DROP_MISSED_TAIL_CALL;
+	invoke_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
+			   CILIUM_CALL_IPV4_FROM_LXC, tail_handle_ipv4);
+	return ret;
 }
 
 static inline int __inline__ handle_ipv4_to_ipv6(struct __sk_buff *skb)
@@ -1167,6 +1173,7 @@ static inline int __inline__ handle_ipv4_to_ipv6(struct __sk_buff *skb)
 	return ipv4_to_ipv6(skb, ip4, 14, &dp);
 
 }
+
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT46) int tail_ipv4_to_ipv6(struct __sk_buff *skb)
 {
 	int ret = handle_ipv4_to_ipv6(skb);
@@ -1177,8 +1184,9 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT46) int tail_ipv4_to_ipv6(struct
 
 	cilium_dbg_capture(skb, DBG_CAPTURE_AFTER_V46, skb->ingress_ifindex);
 
-	ep_tail_call(skb, CILIUM_CALL_IPV6_TO_LXC);
-	return DROP_MISSED_TAIL_CALL;
+	invoke_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
+			   CILIUM_CALL_IPV6_TO_LXC, tail_ipv6_policy);
+	return ret;
 }
 #endif
 BPF_LICENSE("GPL");
