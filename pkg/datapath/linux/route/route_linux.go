@@ -330,6 +330,19 @@ func ReplaceRule(fwmark int, table int) error {
 	return replaceRule(fwmark, table, netlink.FAMILY_V4)
 }
 
+// ReplaceRuleIPv6 add or replace IPv6 rule in the routing table using a mark to
+// indicate table.
+func ReplaceRuleIPv6(fwmark, table int) error {
+	exists, err := lookupRule(fwmark, table, netlink.FAMILY_V6)
+	if err != nil {
+		return err
+	}
+	if exists == true {
+		return nil
+	}
+	return replaceRule(fwmark, table, netlink.FAMILY_V6)
+}
+
 func replaceRule(fwmark, table, family int) error {
 	rule := netlink.NewRule()
 	rule.Mark = fwmark
