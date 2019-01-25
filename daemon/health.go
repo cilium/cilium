@@ -51,19 +51,35 @@ func (d *Daemon) initHealth() {
 		// PIDfiles are referring to PIDs that may be reused. Clean up.
 		pidfile.Remove(filepath.Join(option.Config.StateDir, health.PidfilePath))
 	}
+
+	// Wait for the API, then launch the controller
+	var client *health.Client
+
 	controller.NewManager().UpdateController("cilium-health-ep",
 		controller.ControllerParams{
 			DoFunc: func() error {
-				return d.runCiliumHealthEndpoint()
+				var err error
+
+				if client != nil {
+					err = client.PingEndpoint()
+				}
+				// On the first initialization, or on
+				// error, restart the health EP.
+				if client == nil || err != nil {
+					d.cleanupHealthEndpoint()
+					client, err = health.LaunchAsEndpoint(d, &d.nodeDiscovery.localNode, d.mtuConfig)
+				}
+				return err
 			},
 			StopFunc: func() error {
 				log.Info("Stopping health endpoint")
-				err := health.PingEndpoint()
+				err := client.PingEndpoint()
 				d.cleanupHealthEndpoint()
 				return err
 			},
 			RunInterval: 30 * time.Second,
-		})
+		},
+	)
 }
 
 func (d *Daemon) cleanupHealthEndpoint() {
@@ -90,16 +106,4 @@ func (d *Daemon) cleanupHealthEndpoint() {
 		}
 	}
 	health.CleanupEndpoint()
-}
-
-// runCiliumHealthEndpoint attempts to contact the cilium-health endpoint, and
-// if it cannot be reached, restarts it.
-func (d *Daemon) runCiliumHealthEndpoint() error {
-	// PingEndpoint will always fail the first time (initialization).
-	if err := health.PingEndpoint(); err != nil {
-		log.WithError(err).Warning("health endpoint is unreachable, restarting health endpoint")
-		d.cleanupHealthEndpoint()
-		return health.LaunchAsEndpoint(d, &d.nodeDiscovery.localNode, d.mtuConfig)
-	}
-	return nil
 }
