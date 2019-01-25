@@ -41,7 +41,7 @@ const (
 
 	// CustomResourceDefinitionSchemaVersion is semver-conformant version of CRD schema
 	// Used to determine if CRD needs to be updated in cluster
-	CustomResourceDefinitionSchemaVersion = "1.13"
+	CustomResourceDefinitionSchemaVersion = "1.14"
 
 	// CustomResourceDefinitionSchemaVersionKey is key to label which holds the CRD schema version
 	CustomResourceDefinitionSchemaVersionKey = "io.cilium.k8s.crd.schema.version"
@@ -211,31 +211,37 @@ func createCEPCRD(clientset apiextensionsclient.Interface) error {
 					Name:        "Identity ID",
 					Type:        "integer",
 					Description: "Cilium identity id",
-					JSONPath:    ".status.status.identity.id",
+					JSONPath:    ".status.identity.id",
 				},
 				{
-					Name:        "Policy Enforcement",
-					Type:        "string",
-					Description: "Policy enforcement in the endpoint",
-					JSONPath:    ".status.status.policy.realized.policy-enabled",
+					Name:        "Ingress Enforcement",
+					Type:        "boolean",
+					Description: "Ingress enforcement in the endpoint",
+					JSONPath:    ".status.policy.ingress.enforcing",
+				},
+				{
+					Name:        "Egress Enforcement",
+					Type:        "boolean",
+					Description: "Egress enforcement in the endpoint",
+					JSONPath:    ".status.policy.egress.enforcing",
 				},
 				{
 					Name:        "Endpoint State",
 					Type:        "string",
 					Description: "Endpoint current state",
-					JSONPath:    ".status.status.state",
+					JSONPath:    ".status.state",
 				},
 				{
 					Name:        "IPv4",
 					Type:        "string",
 					Description: "Endpoint IPv4 address",
-					JSONPath:    ".status.status.networking.addressing[0].ipv4",
+					JSONPath:    ".status.networking.addressing[0].ipv4",
 				},
 				{
 					Name:        "IPv6",
 					Type:        "string",
 					Description: "Endpoint IPv6 address",
-					JSONPath:    ".status.status.networking.addressing[0].ipv6",
+					JSONPath:    ".status.networking.addressing[0].ipv6",
 				},
 			},
 			Subresources: &apiextensionsv1beta1.CustomResourceSubresources{

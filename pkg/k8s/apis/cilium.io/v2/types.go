@@ -374,7 +374,7 @@ type EndpointPolicy struct {
 
 // EndpointPolicyDirection is the list of allowed identities per direction
 type EndpointPolicyDirection struct {
-	Enforcing bool                `json:"enforcing,omitempty"`
+	Enforcing bool                `json:"enforcing"`
 	Allowed   AllowedIdentityList `json:"allowed,omitempty"`
 	Removing  AllowedIdentityList `json:"removing,omitempty"`
 	Adding    AllowedIdentityList `json:"adding,omitempty"`
