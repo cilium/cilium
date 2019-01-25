@@ -709,16 +709,11 @@ func (d *Daemon) createNodeConfigHeaderfile() error {
 	if option.Config.EnableIPv4 {
 		ipv4GW := node.GetInternalIPv4()
 		loopbackIPv4 := node.GetIPv4Loopback()
+		ipv4Range := node.GetIPv4AllocRange()
 		fmt.Fprintf(fw, "#define IPV4_GATEWAY %#x\n", byteorder.HostSliceToNetwork(ipv4GW, reflect.Uint32).(uint32))
 		fmt.Fprintf(fw, "#define IPV4_LOOPBACK %#x\n", byteorder.HostSliceToNetwork(loopbackIPv4, reflect.Uint32).(uint32))
-	} else {
-		// FIXME: Workaround so the bpf program compiles
-		fmt.Fprintf(fw, "#define IPV4_GATEWAY %#x\n", 0)
-		fmt.Fprintf(fw, "#define IPV4_LOOPBACK %#x\n", 0)
+		fmt.Fprintf(fw, "#define IPV4_MASK %#x\n", byteorder.HostSliceToNetwork(ipv4Range.Mask, reflect.Uint32).(uint32))
 	}
-
-	ipv4Range := node.GetIPv4AllocRange()
-	fmt.Fprintf(fw, "#define IPV4_MASK %#x\n", byteorder.HostSliceToNetwork(ipv4Range.Mask, reflect.Uint32).(uint32))
 
 	if nat46Range := option.Config.NAT46Prefix; nat46Range != nil {
 		fw.WriteString(common.FmtDefineAddress("NAT46_PREFIX", nat46Range.IP))
