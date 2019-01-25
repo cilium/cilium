@@ -36,6 +36,7 @@
 #include "lib/drop.h"
 #include "lib/policy.h"
 
+#ifdef ENABLE_IPV6
 static inline int handle_ipv6(struct __sk_buff *skb)
 {
 	void *data_end, *data;
@@ -88,6 +89,7 @@ to_host:
 	return TC_ACT_OK;
 #endif
 }
+#endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
 
@@ -190,8 +192,12 @@ int from_overlay(struct __sk_buff *skb)
 
 	switch (skb->protocol) {
 	case bpf_htons(ETH_P_IPV6):
+#ifdef ENABLE_IPV6
 		/* This is considered the fast path, no tail call */
 		ret = handle_ipv6(skb);
+#else
+		ret = DROP_UNKNOWN_L3;
+#endif
 		break;
 
 	case bpf_htons(ETH_P_IP):

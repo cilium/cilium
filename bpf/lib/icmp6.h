@@ -15,7 +15,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
-#ifndef __LIB_ICMP6__
+#if !defined __LIB_ICMP6__ && defined ENABLE_IPV6
 #define __LIB_ICMP6__
 
 #include <linux/icmpv6.h>
