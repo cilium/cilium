@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/node/addressing"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // Source is the description of the source of an identity
@@ -153,7 +154,7 @@ func (n *Node) GetNodeIP(ipv6 bool) net.IP {
 	return result
 }
 
-func (n *Node) getPrimaryAddress(ipv4 bool) *models.NodeAddressing {
+func (n *Node) getPrimaryAddress() *models.NodeAddressing {
 	v4, v4Type := n.getNodeIP(false)
 	v6, v6Type := n.getNodeIP(true)
 
@@ -166,13 +167,13 @@ func (n *Node) getPrimaryAddress(ipv4 bool) *models.NodeAddressing {
 	}
 	return &models.NodeAddressing{
 		IPV4: &models.NodeAddressingElement{
-			Enabled:     ipv4,
+			Enabled:     option.Config.EnableIPv4,
 			IP:          v4.String(),
 			AllocRange:  ipv4AllocStr,
 			AddressType: string(v4Type),
 		},
 		IPV6: &models.NodeAddressingElement{
-			Enabled:     !ipv4,
+			Enabled:     option.Config.EnableIPv6,
 			IP:          v6.String(),
 			AllocRange:  ipv6AllocStr,
 			AddressType: string(v6Type),
@@ -184,10 +185,14 @@ func (n *Node) isPrimaryAddress(addr Address, ipv4 bool) bool {
 	return addr.IP.String() == n.GetNodeIP(!ipv4).String()
 }
 
-func (n *Node) getSecondaryAddresses(ipv4 bool) []*models.NodeAddressingElement {
+func (n *Node) getSecondaryAddresses() []*models.NodeAddressingElement {
 	result := []*models.NodeAddressingElement{}
 
 	for _, addr := range n.IPAddresses {
+		ipv4 := false
+		if addr.IP.To4() != nil {
+			ipv4 = true
+		}
 		if !n.isPrimaryAddress(addr, ipv4) {
 			result = append(result, &models.NodeAddressingElement{
 				IP:          addr.IP.String(),
@@ -199,29 +204,29 @@ func (n *Node) getSecondaryAddresses(ipv4 bool) []*models.NodeAddressingElement 
 	return result
 }
 
-func (n *Node) getHealthAddresses(ipv4 bool) *models.NodeAddressing {
+func (n *Node) getHealthAddresses() *models.NodeAddressing {
 	if n.IPv4HealthIP == nil || n.IPv6HealthIP == nil {
 		return nil
 	}
 	return &models.NodeAddressing{
 		IPV4: &models.NodeAddressingElement{
-			Enabled: ipv4,
+			Enabled: option.Config.EnableIPv4,
 			IP:      n.IPv4HealthIP.String(),
 		},
 		IPV6: &models.NodeAddressingElement{
-			Enabled: !ipv4,
+			Enabled: option.Config.EnableIPv6,
 			IP:      n.IPv6HealthIP.String(),
 		},
 	}
 }
 
 // GetModel returns the API model representation of a node.
-func (n *Node) GetModel(ipv4 bool) *models.NodeElement {
+func (n *Node) GetModel() *models.NodeElement {
 	return &models.NodeElement{
 		Name:                  n.Fullname(),
-		PrimaryAddress:        n.getPrimaryAddress(ipv4),
-		SecondaryAddresses:    n.getSecondaryAddresses(ipv4),
-		HealthEndpointAddress: n.getHealthAddresses(ipv4),
+		PrimaryAddress:        n.getPrimaryAddress(),
+		SecondaryAddresses:    n.getSecondaryAddresses(),
+		HealthEndpointAddress: n.getHealthAddresses(),
 	}
 }
 
