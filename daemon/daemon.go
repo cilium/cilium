@@ -534,13 +534,9 @@ func (d *Daemon) compileBase() error {
 		return err
 	}
 
-	if option.Config.EnableIPv4 {
-		// Always remove masquerade rule and then re-add it if required
-		iptables.RemoveRules()
-		if option.Config.InstallIptRules {
-			if err := iptables.InstallRules(d.datapath.LocalNodeAddressing(), option.Config.HostDevice); err != nil {
-				return err
-			}
+	if option.Config.EnableIPv4 && option.Config.InstallIptRules {
+		if err := iptables.ReplaceRules(d.datapath.LocalNodeAddressing(), option.Config.HostDevice); err != nil {
+			return err
 		}
 	}
 
