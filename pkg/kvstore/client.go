@@ -23,17 +23,17 @@ var (
 
 func initClient(module backendModule) error {
 	c, errChan := module.newClient()
-
-	defaultClient = c
-
-	go func() {
-		err, isErr := <-errChan
+	select {
+	case err, isErr := <-errChan:
 		if isErr {
 			log.WithError(err).Fatalf("Unable to connect to kvstore")
 		}
+	default:
+	}
 
-		deleteLegacyPrefixes()
-	}()
+	defaultClient = c
+
+	go deleteLegacyPrefixes()
 
 	return nil
 }
