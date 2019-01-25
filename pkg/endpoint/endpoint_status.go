@@ -24,7 +24,6 @@ import (
 	identitycache "github.com/cilium/cilium/pkg/identity/cache"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 )
 
 func getEndpointStatusControllers(status *models.EndpointStatus) (controllers cilium_v2.ControllerList) {
@@ -155,6 +154,14 @@ func (e *Endpoint) getEndpointPolicy() (policy *cilium_v2.EndpointPolicy) {
 				Identity: uint64(policyKey.Identity),
 			}
 
+			// Skip listing identities if enforcement is disabled in direction
+			switch {
+			case policyKey.IsIngress() && !e.desiredPolicy.IngressPolicyEnabled:
+				continue
+			case policyKey.IsEgress() && !e.desiredPolicy.EgressPolicyEnabled:
+				continue
+			}
+
 			identity := identitycache.LookupIdentityByID(identity.NumericIdentity(policyKey.Identity))
 			if identity != nil {
 				var l labels.Labels
@@ -167,14 +174,14 @@ func (e *Endpoint) getEndpointPolicy() (policy *cilium_v2.EndpointPolicy) {
 				allowedIdentityTuple.IdentityLabels = l.StringMap()
 			}
 
-			switch policyKey.TrafficDirection {
-			case trafficdirection.Ingress.Uint8():
+			switch {
+			case policyKey.IsIngress():
 				if policy.Ingress.Allowed == nil {
 					policy.Ingress.Allowed = cilium_v2.AllowedIdentityList{allowedIdentityTuple}
 				} else {
 					policy.Ingress.Allowed = append(policy.Ingress.Allowed, allowedIdentityTuple)
 				}
-			case trafficdirection.Egress.Uint8():
+			case policyKey.IsEgress():
 				if policy.Egress.Allowed == nil {
 					policy.Egress.Allowed = cilium_v2.AllowedIdentityList{allowedIdentityTuple}
 				} else {
