@@ -562,16 +562,23 @@ func (n *linuxNodeHandler) updateOrRemoveClusterRoute(addressing datapath.NodeAd
 }
 
 func (n *linuxNodeHandler) replaceHostRules() error {
-	err := route.ReplaceRule(linux_defaults.RouteMarkDecrypt, linux_defaults.RouteTableIPSec)
-	if err != nil {
-		log.WithError(err).Error("Replace route rule failed")
+	if err := route.ReplaceRule(linux_defaults.RouteMarkDecrypt, linux_defaults.RouteTableIPSec); err != nil {
+		log.WithError(err).Error("Replace IPv4 route decrypt rule failed")
 		return err
 	}
-	err = route.ReplaceRule(linux_defaults.RouteMarkEncrypt, linux_defaults.RouteTableIPSec)
-	if err != nil {
-		log.WithError(err).Error("Replace route rule failed")
+	if err := route.ReplaceRule(linux_defaults.RouteMarkEncrypt, linux_defaults.RouteTableIPSec); err != nil {
+		log.WithError(err).Error("Replace IPv4 route encrypt rule failed")
+		return err
 	}
-	return err
+	if err := route.ReplaceRuleIPv6(linux_defaults.RouteMarkDecrypt, linux_defaults.RouteTableIPSec); err != nil {
+		log.WithError(err).Error("Replace IPv6 route decrypt rule failed")
+		return err
+	}
+	if err := route.ReplaceRuleIPv6(linux_defaults.RouteMarkEncrypt, linux_defaults.RouteTableIPSec); err != nil {
+		log.WithError(err).Error("Replace IPv6 route ecrypt rule failed")
+		return err
+	}
+	return nil
 }
 
 func (n *linuxNodeHandler) createNodeIPSecInRoute(ip *net.IPNet) route.Route {
