@@ -47,8 +47,8 @@ func Init(o WorkloadOwner) {
 }
 
 const (
-	None workloadRuntimeType = "none"
-	Auto workloadRuntimeType = "auto"
+	None WorkloadRuntimeType = "none"
+	Auto WorkloadRuntimeType = "auto"
 )
 
 const (
@@ -91,16 +91,17 @@ type workloadModule interface {
 	newClient() (WorkloadRuntime, error)
 }
 
-type workloadRuntimeType string
+// WorkloadRuntimeType is the type of a container runtime
+type WorkloadRuntimeType string
 
 var (
 	// registeredWorkloads is a slice of all workloads that have registered
 	// itself via registerWorkload()
-	registeredWorkloads = map[workloadRuntimeType]workloadModule{}
+	registeredWorkloads = map[WorkloadRuntimeType]workloadModule{}
 )
 
 func unregisterWorkloads() {
-	registeredWorkloads = map[workloadRuntimeType]workloadModule{}
+	registeredWorkloads = map[WorkloadRuntimeType]workloadModule{}
 }
 
 // ParseConfigEndpoint parses the containerRuntimes and the containerRuntime
@@ -136,8 +137,8 @@ func ParseConfigEndpoint(containerRuntimes []string, containerRuntimesEPOpts map
 	return nil
 }
 
-func parseRuntimeType(str string) (workloadRuntimeType, error) {
-	switch crt := workloadRuntimeType(strings.ToLower(str)); crt {
+func parseRuntimeType(str string) (WorkloadRuntimeType, error) {
+	switch crt := WorkloadRuntimeType(strings.ToLower(str)); crt {
 	case None, Auto:
 		return crt, nil
 	default:
@@ -150,7 +151,7 @@ func parseRuntimeType(str string) (workloadRuntimeType, error) {
 }
 
 // registerWorkload must be called by container runtimes to register themselves
-func registerWorkload(name workloadRuntimeType, module workloadModule) {
+func registerWorkload(name WorkloadRuntimeType, module workloadModule) {
 	if _, ok := registeredWorkloads[name]; ok {
 		log.Panicf("workload with name '%s' already registered", name)
 	}
@@ -159,7 +160,7 @@ func registerWorkload(name workloadRuntimeType, module workloadModule) {
 }
 
 // getWorkload finds a registered workload by name
-func getWorkload(name workloadRuntimeType) workloadModule {
+func getWorkload(name WorkloadRuntimeType) workloadModule {
 	if workload, ok := registeredWorkloads[name]; ok {
 		return workload
 	}
@@ -169,7 +170,7 @@ func getWorkload(name workloadRuntimeType) workloadModule {
 
 // GetRuntimeDefaultOpt returns the default options for the given container
 // runtime.
-func GetRuntimeDefaultOpt(crt workloadRuntimeType, opt string) string {
+func GetRuntimeDefaultOpt(crt WorkloadRuntimeType, opt string) string {
 	opts, ok := registeredWorkloads[crt]
 	if !ok {
 		return ""
@@ -189,7 +190,7 @@ func GetRuntimeOptions() string {
 	sort.Strings(crs)
 
 	for _, cr := range crs {
-		rb := registeredWorkloads[workloadRuntimeType(cr)]
+		rb := registeredWorkloads[WorkloadRuntimeType(cr)]
 		cfg := rb.getConfig()
 		keys := make([]string, 0, len(cfg))
 		for k := range cfg {
@@ -215,7 +216,7 @@ func GetDefaultEPOptsStringWithPrefix(prefix string) string {
 	sort.Strings(crs)
 
 	for _, cr := range crs {
-		v := registeredWorkloads[workloadRuntimeType(cr)].getConfig()
+		v := registeredWorkloads[WorkloadRuntimeType(cr)].getConfig()
 		strs = append(strs, fmt.Sprintf("%s%s=%s", prefix, cr, v[epOpt]))
 	}
 
