@@ -230,7 +230,7 @@ func AutoComplete() error {
 		InitDefaultPrefix("")
 	}
 
-	if ipv6AllocRange == nil {
+	if option.Config.EnableIPv6 && ipv6AllocRange == nil {
 		return fmt.Errorf("IPv6 per node allocation prefix is not configured. Please specificy --ipv6-range")
 	}
 
