@@ -1499,10 +1499,18 @@ func (d *Daemon) NewProxyLogRecord(l *logger.LogRecord) error {
 // GetNodeSuffix returns the suffix to be appended to kvstore keys of this
 // agent
 func (d *Daemon) GetNodeSuffix() string {
-	if ip := node.GetExternalIPv4(); ip != nil {
-		return ip.String()
+	var ip net.IP
+
+	switch {
+	case option.Config.EnableIPv4:
+		ip = node.GetExternalIPv4()
+	case option.Config.EnableIPv6:
+		ip = node.GetIPv6()
 	}
 
-	log.Fatal("Node IP not available yet")
-	return "<nil>"
+	if ip == nil {
+		log.Fatal("Node IP not available yet")
+	}
+
+	return ip.String()
 }
