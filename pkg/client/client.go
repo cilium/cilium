@@ -281,27 +281,36 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, allAddresses, 
 	if sr.IPAM != nil {
 		var v4CIDR, v6CIDR, v4AllocRangeFmt, v6AllocRangeFmt string
 		if localNode != nil {
-			v4AllocRange := localNode.PrimaryAddress.IPV4.AllocRange
-			v6AllocRange := localNode.PrimaryAddress.IPV6.AllocRange
-			v4AllocRangeFmt = fmt.Sprintf(" allocated from %s", v4AllocRange)
-			v6AllocRangeFmt = fmt.Sprintf(" allocated from %s", v6AllocRange)
-			if nIPs := ip.CountIPsInCIDR(v4AllocRange); nIPs > 0 {
-				v4CIDR = fmt.Sprintf("/%d", nIPs)
+			if v4AllocRange := localNode.PrimaryAddress.IPV4.AllocRange; v4AllocRange != "" {
+				v4AllocRangeFmt = fmt.Sprintf(" allocated from %s", v4AllocRange)
+				if nIPs := ip.CountIPsInCIDR(v4AllocRange); nIPs > 0 {
+					v4CIDR = fmt.Sprintf("/%d", nIPs)
+				}
 			}
-			if nIPs := ip.CountIPsInCIDR(v6AllocRange); nIPs > 0 {
-				v6CIDR = fmt.Sprintf("/%d", nIPs)
-			}
-		}
-		fmt.Fprintf(w, "IPv4 address pool:\t%d%s%s\n", len(sr.IPAM.IPV4), v4CIDR, v4AllocRangeFmt)
-		if allAddresses {
-			for _, ipv4 := range sr.IPAM.IPV4 {
-				fmt.Fprintf(w, "  %s\n", ipv4)
+
+			if v6AllocRange := localNode.PrimaryAddress.IPV6.AllocRange; v6AllocRange != "" {
+				v6AllocRangeFmt = fmt.Sprintf(" allocated from %s", v6AllocRange)
+				if nIPs := ip.CountIPsInCIDR(v6AllocRange); nIPs > 0 {
+					v6CIDR = fmt.Sprintf("/%d", nIPs)
+				}
 			}
 		}
-		fmt.Fprintf(w, "IPv6 address pool:\t%d%s%s\n", len(sr.IPAM.IPV6), v6CIDR, v6AllocRangeFmt)
-		if allAddresses {
-			for _, ipv6 := range sr.IPAM.IPV6 {
-				fmt.Fprintf(w, "  %s\n", ipv6)
+
+		if v4AllocRangeFmt != "" {
+			fmt.Fprintf(w, "IPv4 address pool:\t%d%s%s\n", len(sr.IPAM.IPV4), v4CIDR, v4AllocRangeFmt)
+			if allAddresses {
+				for _, ipv4 := range sr.IPAM.IPV4 {
+					fmt.Fprintf(w, "  %s\n", ipv4)
+				}
+			}
+		}
+
+		if v6AllocRangeFmt != "" {
+			fmt.Fprintf(w, "IPv6 address pool:\t%d%s%s\n", len(sr.IPAM.IPV6), v6CIDR, v6AllocRangeFmt)
+			if allAddresses {
+				for _, ipv6 := range sr.IPAM.IPV6 {
+					fmt.Fprintf(w, "  %s\n", ipv6)
+				}
 			}
 		}
 	}
