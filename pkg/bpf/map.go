@@ -220,3 +220,19 @@ func GetLRUMapType() MapType {
 	}
 	return MapTypeHash
 }
+
+// GetMapType determines whether the specified map type is supported by the
+// kernel (as determined by ReadFeatureProbes()), and if the map type is not
+// supported, returns a more primitive map type that may be used to implement
+// the map on older implementations. Otherwise, returns the specified map type.
+func GetMapType(t MapType) MapType {
+	switch t {
+	case MapTypeLPMTrie:
+		fallthrough
+	case MapTypeLRUHash:
+		if !supportedMapTypes[t] {
+			return MapTypeHash
+		}
+	}
+	return t
+}

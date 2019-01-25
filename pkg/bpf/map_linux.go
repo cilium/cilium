@@ -281,6 +281,27 @@ func (m *Map) setPathIfUnset() error {
 	return nil
 }
 
+// OpenOrCreate attempts to open the Map, or if it does not yet exist, create
+// the Map. If the existing map's attributes such as map type, key/value size,
+// capacity, etc. do not match the Map's attributes, then the map will be
+// deleted and reopened without any attempt to retain its previous contents.
+// If the map is marked as non-persistent, it will always be recreated.
+//
+// If the map type is MapTypeLRUHash or MapTypeLPMTrie and the kernel lacks
+// support for this map type, then the map will be opened as MapTypeHash
+// instead. Note that the BPF code that interacts with this map *MUST* be
+// structured in such a way that the map is declared as the same type based on
+// the same probe logic (eg HAVE_LRU_MAP_TYPE, HAVE_LPM_MAP_TYPE).
+//
+// For code that uses an LPMTrie, the BPF code must also use macros to retain
+// the "longest prefix match" behaviour on top of the hash maps, for example
+// via LPM_LOOKUP_FN() (see bpf/lib/maps.h).
+//
+// To detect map type support properly, this function must be called after
+// a call to ReadFeatureProbes(); failure to do so will result in LPM or LRU
+// map types being unconditionally opened as hash maps.
+//
+// Returns whether the map was deleted and recreated, or an optional error.
 func (m *Map) OpenOrCreate() (bool, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
@@ -299,18 +320,9 @@ func (m *Map) OpenOrCreate() (bool, error) {
 		os.Remove(m.path)
 	}
 
-retry:
-	flags := m.Flags | GetPreAllocateMapFlags(m.MapType)
-	fd, isNew, err := OpenOrCreateMap(m.path, int(m.MapType), m.KeySize, m.ValueSize, m.MaxEntries, flags, m.InnerID)
-	if err != nil && m.MapType == BPF_MAP_TYPE_LPM_TRIE {
-		// If the map type is an LPM, then we can typically fall back
-		// to a hash map. Note that this requires datapath support,
-		// such as an unrolled loop performing repeated lookups with
-		// a defined set of prefixes.
-		log.WithError(err).Debugf("Kernel does not support LPM maps, creating hash table for %s instead.", m.name)
-		m.MapType = BPF_MAP_TYPE_HASH
-		goto retry
-	}
+	mapType := GetMapType(m.MapType)
+	flags := m.Flags | GetPreAllocateMapFlags(mapType)
+	fd, isNew, err := OpenOrCreateMap(m.path, int(mapType), m.KeySize, m.ValueSize, m.MaxEntries, flags, m.InnerID)
 	if err != nil {
 		return false, err
 	}
@@ -318,6 +330,7 @@ retry:
 	registerMap(m.path, m)
 
 	m.fd = fd
+	m.MapType = mapType
 	m.Flags = flags
 	return isNew, nil
 }
@@ -342,6 +355,7 @@ func (m *Map) Open() error {
 	registerMap(m.path, m)
 
 	m.fd = fd
+	m.MapType = GetMapType(m.MapType)
 	return nil
 }
 
@@ -880,10 +894,11 @@ func (m *Map) resolveErrors() error {
 //
 // Returns true if the map was upgraded.
 func (m *Map) CheckAndUpgrade(desired *MapInfo) bool {
+	desiredMapType := GetMapType(desired.MapType)
 	return objCheck(
 		m.fd,
 		m.path,
-		int(desired.MapType),
+		int(desiredMapType),
 		desired.KeySize,
 		desired.ValueSize,
 		desired.MaxEntries,
