@@ -205,6 +205,7 @@ func progCFlags(prog *progInfo, dir *directoryInfo) []string {
 	return append(testIncludes,
 		fmt.Sprintf("-I%s", path.Join(dir.Runtime, "globals")),
 		fmt.Sprintf("-I%s", dir.State),
+		fmt.Sprintf("-I%s", dir.Library),
 		fmt.Sprintf("-I%s", path.Join(dir.Library, "include")),
 		"-c", path.Join(dir.Library, prog.Source),
 		"-o", output,
