@@ -702,7 +702,9 @@ func (d *Daemon) createNodeConfigHeaderfile() error {
 		hostIP.String(), routerIP.String(),
 		node.GetInternalIPv4().String())
 
-	fw.WriteString(common.FmtDefineComma("ROUTER_IP", routerIP))
+	if option.Config.EnableIPv6 {
+		fw.WriteString(common.FmtDefineComma("ROUTER_IP", routerIP))
+	}
 
 	if option.Config.EnableIPv4 {
 		ipv4GW := node.GetInternalIPv4()
