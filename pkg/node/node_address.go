@@ -349,18 +349,25 @@ func IsHostIPv6(ip net.IP) bool {
 
 // GetNodeAddressing returns the NodeAddressing model for the local IPs.
 func GetNodeAddressing() *models.NodeAddressing {
-	return &models.NodeAddressing{
-		IPV6: &models.NodeAddressingElement{
+	a := &models.NodeAddressing{}
+
+	if option.Config.EnableIPv6 {
+		a.IPV6 = &models.NodeAddressingElement{
 			Enabled:    option.Config.EnableIPv6,
 			IP:         GetIPv6Router().String(),
 			AllocRange: GetIPv6AllocRange().String(),
-		},
-		IPV4: &models.NodeAddressingElement{
+		}
+	}
+
+	if option.Config.EnableIPv4 {
+		a.IPV4 = &models.NodeAddressingElement{
 			Enabled:    option.Config.EnableIPv4,
 			IP:         GetInternalIPv4().String(),
 			AllocRange: GetIPv4AllocRange().String(),
-		},
+		}
 	}
+
+	return a
 }
 
 func getCiliumHostIPsFromFile(nodeConfig string) (ipv4GW, ipv6Router net.IP) {
