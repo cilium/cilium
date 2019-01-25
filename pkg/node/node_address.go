@@ -215,12 +215,12 @@ func AutoComplete() error {
 		// compatibility
 		ipv4GW, ipv6Router := getCiliumHostIPs()
 
-		if ipv4GW != nil {
+		if ipv4GW != nil && option.Config.EnableIPv4 {
 			log.Infof("Restored IPv4 internal node IP: %s", ipv4GW.String())
 			SetInternalIPv4(ipv4GW)
 		}
 
-		if ipv6Router != nil {
+		if ipv6Router != nil && option.Config.EnableIPv6 {
 			log.Infof("Restored IPv6 router IP: %s", ipv6Router.String())
 			SetIPv6Router(ipv6Router)
 		}
