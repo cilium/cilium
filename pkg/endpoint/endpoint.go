@@ -337,6 +337,10 @@ func (e *Endpoint) HasIpvlanDataPath() bool {
 	return false
 }
 
+func (e *Endpoint) MustGraft() bool {
+	return e.HasIpvlanDataPath()
+}
+
 // GetIngressPolicyEnabledLocked returns whether ingress policy enforcement is
 // enabled for endpoint or not. The endpoint's mutex must be held.
 func (e *Endpoint) GetIngressPolicyEnabledLocked() bool {

@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,21 +35,30 @@ type epInfoCache struct {
 	value *lxcmap.EndpointInfo
 
 	// For datapath.loader.endpoint
-	epdir    string
-	id       string
-	ifName   string
-	endpoint *Endpoint // Used to get the endpoint's logger.
+	epdir       string
+	id          string
+	ifName      string
+	graftToLoad bool
+
+	// endpoint is used to get the endpoint's logger.
+	//
+	// Do NOT use this for fetching endpoint data directly; this structure
+	// is intended as a safe cache of endpoint data that is assembled while
+	// holding the endpoint lock, for use beyond the holding of that lock.
+	// Dereferencing fields in this endpoint is not guaranteed to be safe.
+	endpoint *Endpoint
 }
 
 // Must be called when endpoint is still locked.
 func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 	ep := &epInfoCache{
-		revision: e.nextPolicyRevision,
-		endpoint: e,
-		epdir:    epdir,
-		id:       e.StringID(),
-		ifName:   e.IfName,
-		keys:     e.GetBPFKeys(),
+		revision:    e.nextPolicyRevision,
+		endpoint:    e,
+		epdir:       epdir,
+		id:          e.StringID(),
+		ifName:      e.IfName,
+		keys:        e.GetBPFKeys(),
+		graftToLoad: e.MustGraft(),
 	}
 
 	var err error
@@ -84,7 +93,7 @@ func (ep *epInfoCache) Logger(subsystem string) *logrus.Entry {
 
 // MustGraft returns whether we need full replacement or grafting of object file.
 func (ep *epInfoCache) MustGraft() bool {
-	return ep.endpoint.HasIpvlanDataPath()
+	return ep.graftToLoad
 }
 
 // StateDir returns the directory for the endpoint's (next) state.
