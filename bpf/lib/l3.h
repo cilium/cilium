@@ -28,6 +28,7 @@
 #include "icmp6.h"
 #include "csum.h"
 
+#ifdef ENABLE_IPV6
 static inline int __inline__ ipv6_l3(struct __sk_buff *skb, int l3_off,
 				     __u8 *smac, __u8 *dmac, __u8 direction)
 {
@@ -50,6 +51,7 @@ static inline int __inline__ ipv6_l3(struct __sk_buff *skb, int l3_off,
 
 	return TC_ACT_OK;
 }
+#endif /* ENABLE_IPV6 */
 
 static inline int __inline__ ipv4_l3(struct __sk_buff *skb, int l3_off,
 				     __u8 *smac, __u8 *dmac, struct iphdr *ip4)
@@ -68,6 +70,7 @@ static inline int __inline__ ipv4_l3(struct __sk_buff *skb, int l3_off,
 	return TC_ACT_OK;
 }
 
+#ifdef ENABLE_IPV6
 static inline int ipv6_local_delivery(struct __sk_buff *skb, int l3_off, int l4_off,
 				      __u32 seclabel, struct ipv6hdr *ip6, __u8 nexthdr,
 				      struct endpoint_info *ep, __u8 direction)
@@ -99,6 +102,7 @@ static inline int ipv6_local_delivery(struct __sk_buff *skb, int l3_off, int l4_
 	tail_call(skb, &POLICY_CALL_MAP, ep->lxc_id);
 	return DROP_MISSED_TAIL_CALL;
 }
+#endif /* ENABLE_IPV6 */
 
 static inline int __inline__ ipv4_local_delivery(struct __sk_buff *skb, int l3_off, int l4_off,
 						 __u32 seclabel, struct iphdr *ip4,
