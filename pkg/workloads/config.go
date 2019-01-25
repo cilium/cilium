@@ -91,7 +91,7 @@ func setup(workloadRuntime WorkloadRuntimeType, opts map[string]string) error {
 
 // Setup sets up the workload runtime specified in workloadRuntime and configures it
 // with the options provided in opts
-func Setup(workloadRuntimes []string, opts map[string]string) error {
+func Setup(workloadRuntimes []string, opts map[WorkloadRuntimeType]map[string]string) error {
 	var err error
 
 	setupOnce.Do(
@@ -116,17 +116,17 @@ func Setup(workloadRuntimes []string, opts map[string]string) error {
 				}
 				switch crt {
 				case Auto:
-					err1 := setup(Docker, opts)
+					err1 := setup(Docker, opts[Docker])
 					st := Status()
 					if err1 == nil && st.State == models.StatusStateOk {
 						return
 					}
-					err2 := setup(ContainerD, opts)
+					err2 := setup(ContainerD, opts[ContainerD])
 					st = Status()
 					if err2 == nil && st.State == models.StatusStateOk {
 						return
 					}
-					err3 := setup(CRIO, opts)
+					err3 := setup(CRIO, opts[CRIO])
 					st = Status()
 					if err3 == nil && st.State == models.StatusStateOk {
 						return
@@ -134,7 +134,7 @@ func Setup(workloadRuntimes []string, opts map[string]string) error {
 					err = err1
 					return
 				default:
-					err = setup(crt, opts)
+					err = setup(crt, opts[crt])
 					return
 				}
 			}

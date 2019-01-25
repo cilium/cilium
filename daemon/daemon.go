@@ -904,8 +904,12 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 
 	ctmap.InitMapInfo(option.Config.CTMapEntriesGlobalTCP, option.Config.CTMapEntriesGlobalAny)
 
-	wOpts := map[string]string{
-		workloads.DatapathModeOpt: option.Config.DatapathMode,
+	wOpts := map[workloads.WorkloadRuntimeType]map[string]string{
+		workloads.Docker: {
+			workloads.DatapathModeOpt: option.Config.DatapathMode,
+		},
+		workloads.ContainerD: make(map[string]string),
+		workloads.CRIO:       make(map[string]string),
 	}
 	if err := workloads.Setup(option.Config.Workloads, wOpts); err != nil {
 		return nil, nil, fmt.Errorf("unable to setup workload: %s", err)
