@@ -54,6 +54,16 @@ type Key struct {
 	TrafficDirection uint8
 }
 
+// IsIngress returns true if the key refers to an ingress policy key
+func (k Key) IsIngress() bool {
+	return k.TrafficDirection == trafficdirection.Ingress.Uint8()
+}
+
+// IsEgress returns true if the key refers to an egress policy key
+func (k Key) IsEgress() bool {
+	return k.TrafficDirection == trafficdirection.Egress.Uint8()
+}
+
 // MapStateEntry is the configuration associated with a Key in a
 // MapState. This is a minimized version of policymap.PolicyEntry.
 type MapStateEntry struct {
