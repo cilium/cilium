@@ -1061,8 +1061,10 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 
 	// Workloads must be initialized after IPAM has started as it requires
 	// to allocate IPs.
-	wOpts := map[string]string{
-		workloads.DatapathModeOpt: option.Config.DatapathMode,
+	wOpts := map[workloads.WorkloadRuntimeType]map[string]string{
+		workloads.Docker:     {workloads.DatapathModeOpt: option.Config.DatapathMode},
+		workloads.ContainerD: make(map[string]string),
+		workloads.CRIO:       make(map[string]string),
 	}
 	if err := workloads.Setup(d.ipam, option.Config.Workloads, wOpts); err != nil {
 		return nil, nil, fmt.Errorf("unable to setup workload: %s", err)
