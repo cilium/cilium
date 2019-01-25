@@ -96,13 +96,18 @@ func NewLogRecord(endpointInfoRegistry EndpointInfoRegistry, localEndpointInfoSo
 			IPVersion:         accesslog.VersionIPv4,
 			TransportProtocol: 6,
 			Timestamp:         time.Now().UTC().Format(time.RFC3339Nano),
-			NodeAddressInfo: accesslog.NodeAddressInfo{
-				IPv4: node.GetExternalIPv4().String(),
-				IPv6: node.GetIPv6().String(),
-			},
+			NodeAddressInfo:   accesslog.NodeAddressInfo{},
 		},
 		endpointInfoRegistry: endpointInfoRegistry,
 		localEndpointInfo:    getEndpointInfo(localEndpointInfoSource),
+	}
+
+	if ip := node.GetExternalIPv4(); ip != nil {
+		lr.LogRecord.NodeAddressInfo.IPv4 = ip.String()
+	}
+
+	if ip := node.GetIPv6(); ip != nil {
+		lr.LogRecord.NodeAddressInfo.IPv6 = ip.String()
 	}
 
 	for _, tagFn := range tags {
