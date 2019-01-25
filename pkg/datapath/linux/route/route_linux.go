@@ -21,6 +21,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/mtu"
 
 	"github.com/vishvananda/netlink"
@@ -303,13 +304,13 @@ func Delete(route Route) error {
 	return nil
 }
 
-func lookupRule(fwmark int, table int) (bool, error) {
+func lookupRule(fwmark, table, family int) (bool, error) {
 	rules, err := netlink.RuleList(0)
 	if err != nil {
 		return false, err
 	}
 	for _, r := range rules {
-		if r.Mark == fwmark && r.Table == table {
+		if r.Mark == fwmark && r.Table == table && r.Family == family {
 			return true, nil
 		}
 	}
@@ -319,16 +320,22 @@ func lookupRule(fwmark int, table int) (bool, error) {
 // ReplaceRule add or replace rule in the routing table using a mark to indicate
 // table. Used with BPF datapath to set mark and direct packets to route table.
 func ReplaceRule(fwmark int, table int) error {
-	exists, err := lookupRule(fwmark, table)
+	exists, err := lookupRule(fwmark, table, netlink.FAMILY_V4)
 	if err != nil {
 		return err
 	}
 	if exists == true {
 		return nil
 	}
+	return replaceRule(fwmark, table, netlink.FAMILY_V4)
+}
+
+func replaceRule(fwmark, table, family int) error {
 	rule := netlink.NewRule()
 	rule.Mark = fwmark
+	rule.Mask = linux_defaults.RouteMarkMask
 	rule.Table = table
+	rule.Family = family
 	rule.Priority = 1
 	return netlink.RuleAdd(rule)
 }
