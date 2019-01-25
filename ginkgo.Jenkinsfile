@@ -50,7 +50,7 @@ pipeline {
             }
             post {
                always {
-                   sh "cd ${TESTDIR}; make clean-ginkgo-tests || true"
+                   sh "cd ${TESTDIR}; make clean-jenkins-precheck || true"
                }
             }
         }
@@ -82,7 +82,7 @@ pipeline {
                 script {
                     parallel(
                         "Runtime":{
-                            sh 'cd ${TESTDIR}; vagrant provision runtime' 
+                            sh 'cd ${TESTDIR}; vagrant provision runtime'
                             sh 'cd ${TESTDIR}; ginkgo --focus=" Runtime*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
                         },
                         "K8s-1.8":{
