@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -155,7 +155,7 @@ func NewMap(name string) *Map {
 	return &Map{
 		Map: *bpf.NewMap(
 			name,
-			bpf.BPF_MAP_TYPE_LPM_TRIE,
+			bpf.GetLPMMapType(),
 			int(unsafe.Sizeof(Key{})),
 			int(unsafe.Sizeof(RemoteEndpointInfo{})),
 			MaxEntries,
@@ -171,6 +171,16 @@ func NewMap(name string) *Map {
 		).WithCache(),
 		deleteSupport: true,
 	}
+}
+
+// OpenOrCreate wraps the general BPF version to do a probe of LPM support
+// first. Typically NewMap() above is triggered from an init function before
+// the bpf probes map is populated from the BPF probes, so we check it again
+// here. Users should ensure that this OpenOrCreate is invoked after a call
+// to bpf.ReadFeatureProbes().
+func (m *Map) OpenOrCreate() (bool, error) {
+	m.MapType = bpf.GetLPMMapType()
+	return m.Map.OpenOrCreate()
 }
 
 // delete removes a key from the ipcache BPF map, and returns whether the

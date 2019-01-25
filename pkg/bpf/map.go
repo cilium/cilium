@@ -220,3 +220,17 @@ func GetLRUMapType() MapType {
 	}
 	return MapTypeHash
 }
+
+// GetLPMMapType determines whether the kernel supports LPM tries, and if
+// so returns the LPM map type, otherwise returns the hash map type.
+//
+// Must only be used when the datapath also performs best-effort attempts at
+// defining a map's type to be LPM via HAVE_LPM_MAP_TYPE. BPF code that
+// interacts with this map must work around the lack of actual "longest prefix
+// match" logic via eg macro hacks like LPM_LOOKUP_FN() (see bpf/lib/maps.h).
+func GetLPMMapType() MapType {
+	if supportedMapTypes[MapTypeLPMTrie] {
+		return MapTypeLPMTrie
+	}
+	return MapTypeHash
+}
