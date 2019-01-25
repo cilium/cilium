@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Authors of Cilium
+// Copyright 2017-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -174,13 +173,6 @@ func CleanupEndpoint() {
 	} else {
 		scopedLog.WithError(err).Debug("Didn't find existing device")
 	}
-}
-
-// Annotator is an interface which describes anything which annotates a node
-// with cilium-health metadata.
-type Annotator interface {
-	AnnotateNode(nodeName string, v4CIDR, v6CIDR *cidr.CIDR, v4HealthIP, v6HealthIP, v4CiliumHostIP net.IP) error
-	AnnotatePod(k8sNamespace, k8sPodName, annotationKey, annotationValue string) error
 }
 
 // LaunchAsEndpoint launches the cilium-health agent in a nested network
