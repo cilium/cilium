@@ -287,12 +287,17 @@ func SetIPv6Router(ip net.IP) {
 // UseNodeCIDR sets the ipv4-range and ipv6-range values values from the
 // addresses defined in the given node.
 func UseNodeCIDR(node *Node) error {
+	// Note: Node IPs are derived regardless of option.Config.EnableIPv4
+	// and option.Config.EnableIPv6. This is done to enable underlay
+	// addressing to be different from overlay addressing, e.g. an IPv6
+	// only PodCIDR running over IPv4 encapsulation.
+
 	scopedLog := log.WithField(logfields.Node, node.Name)
-	if node.IPv4AllocCIDR != nil {
+	if node.IPv4AllocCIDR != nil && option.Config.EnableIPv4 {
 		scopedLog.WithField(logfields.V4Prefix, node.IPv4AllocCIDR).Info("Retrieved IPv4 allocation range for node. Using it for ipv4-range")
 		SetIPv4AllocRange(node.IPv4AllocCIDR)
 	}
-	if node.IPv6AllocCIDR != nil {
+	if node.IPv6AllocCIDR != nil && option.Config.EnableIPv6 {
 		scopedLog.WithField(logfields.V6Prefix, node.IPv6AllocCIDR).Info("Retrieved IPv6 allocation range for node. Using it for ipv6-range")
 		if err := SetIPv6NodeRange(node.IPv6AllocCIDR.IPNet); err != nil {
 			scopedLog.WithError(err).WithField(logfields.V6Prefix, node.IPv6AllocCIDR).Warn("k8s: Can't use IPv6 CIDR range from k8s")
