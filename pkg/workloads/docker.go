@@ -57,7 +57,7 @@ import (
 )
 
 const (
-	Docker workloadRuntimeType = "docker"
+	Docker WorkloadRuntimeType = "docker"
 )
 
 var (

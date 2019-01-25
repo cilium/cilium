@@ -76,7 +76,7 @@ var (
 	setupOnce sync.Once
 )
 
-func setup(workloadRuntime workloadRuntimeType, opts map[string]string) error {
+func setup(workloadRuntime WorkloadRuntimeType, opts map[string]string) error {
 	workloadMod := getWorkload(workloadRuntime)
 	if workloadMod == nil {
 		return fmt.Errorf("unknown workloadRuntime runtime type %s", workloadRuntime)
@@ -96,7 +96,7 @@ func Setup(workloadRuntimes []string, opts map[string]string) error {
 
 	setupOnce.Do(
 		func() {
-			var crt workloadRuntimeType
+			var crt WorkloadRuntimeType
 			for _, runtime := range workloadRuntimes {
 				crt, err = parseRuntimeType(runtime)
 				if err != nil {

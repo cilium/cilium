@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	ContainerD workloadRuntimeType = "containerd"
+	ContainerD WorkloadRuntimeType = "containerd"
 
 	// criContainerdPrefix is common prefix for cri-containerd
 	criContainerdPrefix = "io.cri-containerd"

@@ -34,7 +34,7 @@ var _ = Suite(&WorkloadsTestSuite{})
 
 func (s *WorkloadsTestSuite) TestParseConfigEndpoint(c *C) {
 	// backup registered workload since None will unregister them all
-	bakRegisteredWorkloads := map[workloadRuntimeType]workloadModule{}
+	bakRegisteredWorkloads := map[WorkloadRuntimeType]workloadModule{}
 	for k, v := range registeredWorkloads {
 		bakRegisteredWorkloads[k] = v
 	}
@@ -123,7 +123,7 @@ func (s *WorkloadsTestSuite) Test_parseRuntimeType(c *C) {
 	tests := []struct {
 		name    string
 		args    args
-		want    workloadRuntimeType
+		want    WorkloadRuntimeType
 		wantErr bool
 	}{
 		{
@@ -189,7 +189,7 @@ func (s *WorkloadsTestSuite) Test_parseRuntimeType(c *C) {
 
 func (s *WorkloadsTestSuite) Test_unregisterWorkloads(c *C) {
 	// backup registered workloads since they will unregistered
-	bakRegisteredWorkloads := map[workloadRuntimeType]workloadModule{}
+	bakRegisteredWorkloads := map[WorkloadRuntimeType]workloadModule{}
 	for k, v := range registeredWorkloads {
 		bakRegisteredWorkloads[k] = v
 	}
@@ -208,7 +208,7 @@ func (s *WorkloadsTestSuite) Test_unregisterWorkloads(c *C) {
 
 func (s *WorkloadsTestSuite) Test_getWorkload(c *C) {
 	type args struct {
-		name workloadRuntimeType
+		name WorkloadRuntimeType
 	}
 	tests := []struct {
 		name string
@@ -232,7 +232,7 @@ func (s *WorkloadsTestSuite) Test_getWorkload(c *C) {
 
 func (s *WorkloadsTestSuite) TestGetRuntimeDefaultOpt(c *C) {
 	type args struct {
-		crt workloadRuntimeType
+		crt WorkloadRuntimeType
 		opt string
 	}
 	tests := []struct {

@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	CRIO workloadRuntimeType = "crio"
+	CRIO WorkloadRuntimeType = "crio"
 
 	// criOEndpoint is the default value for the crio socket
 	criOEndpoint = "/var/run/crio.sock"
