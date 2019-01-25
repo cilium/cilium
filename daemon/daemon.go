@@ -538,7 +538,7 @@ func (d *Daemon) compileBase() error {
 		// Always remove masquerade rule and then re-add it if required
 		iptables.RemoveRules()
 		if option.Config.InstallIptRules {
-			if err := iptables.InstallRules(option.Config.HostDevice); err != nil {
+			if err := iptables.InstallRules(d.datapath.LocalNodeAddressing(), option.Config.HostDevice); err != nil {
 				return err
 			}
 		}

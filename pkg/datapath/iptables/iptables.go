@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/command/exec"
+	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -192,7 +193,7 @@ func RemoveRules() {
 
 // InstallRules installs iptables rules for Cilium in specific use-cases
 // (most specifically, interaction with kube-proxy).
-func InstallRules(ifName string) error {
+func InstallRules(nodeAddressing datapath.NodeAddressing, ifName string) error {
 	for _, c := range ciliumChains {
 		if err := c.add(); err != nil {
 			return fmt.Errorf("cannot add custom chain %s: %s", c.name, err)
@@ -242,7 +243,7 @@ func InstallRules(ifName string) error {
 	// allocation range.
 	if err := runProg("iptables", []string{
 		"-A", ciliumForwardChain,
-		"-s", node.GetIPv4AllocRange().String(),
+		"-s", nodeAddressing.IPv4().AllocationCIDR().String(),
 		"-m", "comment", "--comment", "cilium: cluster->any forward accept",
 		"-j", "ACCEPT"}, false); err != nil {
 		return err
@@ -298,6 +299,7 @@ func InstallRules(ifName string) error {
 			"-A", ciliumPostNatChain,
 			"!", "-s", ingressSnatSrcAddrExclusion,
 			"!", "-d", node.GetIPv4AllocRange().String(),
+			"!", "-d", nodeAddressing.IPv4().AllocationCIDR().String(),
 			"-m", "mark", "!", "--mark", matchFromIPSecDecrypt, // Don't match ipsec traffic
 			"-m", "mark", "!", "--mark", matchFromIPSecEncrypt, // Don't match ipsec traffic
 			"-o", ifName,
@@ -312,7 +314,7 @@ func InstallRules(ifName string) error {
 		if err := runProg("iptables", []string{
 			"-t", "nat",
 			"-A", ciliumPostNatChain,
-			"-s", node.GetIPv4AllocRange().String(),
+			"-s", nodeAddressing.IPv4().AllocationCIDR().String(),
 			"-m", "mark", "!", "--mark", matchFromIPSecDecrypt, // Don't match ipsec traffic
 			"-m", "mark", "!", "--mark", matchFromIPSecEncrypt, // Don't match ipsec traffic
 			"-o", ifName,
@@ -321,7 +323,7 @@ func InstallRules(ifName string) error {
 			return err
 		}
 
-		egressSnatDstAddrExclusion := node.GetIPv4AllocRange().String()
+		egressSnatDstAddrExclusion := nodeAddressing.IPv4().AllocationCIDR().String()
 		if option.Config.Tunnel == option.TunnelDisabled {
 			egressSnatDstAddrExclusion = node.GetIPv4ClusterRange().String()
 		}
@@ -340,7 +342,7 @@ func InstallRules(ifName string) error {
 		if err := runProg("iptables", []string{
 			"-t", "nat",
 			"-A", "CILIUM_POST",
-			"-s", node.GetIPv4AllocRange().String(),
+			"-s", nodeAddressing.IPv4().AllocationCIDR().String(),
 			"!", "-d", egressSnatDstAddrExclusion,
 			"!", "-o", "cilium_+",
 			"-m", "comment", "--comment", "cilium masquerade non-cluster",
