@@ -1417,7 +1417,7 @@ func (kub *Kubectl) CiliumCheckReport() {
 		KubectlCmd, policiesFilter))
 	fmt.Fprintf(CheckLogs, "CiliumNetworkPolicies loaded: %v\n", cnp.Output())
 
-	cepFilter := `{range .items[*]}{.metadata.name}{"=ingress:"}{.status.policy.ingress.enforcing}{"/egress:"}{.status.policy.egress.enforcing}{"\n"}{end}`
+	cepFilter := `{range .items[*]}{.metadata.name}{"="}{.status.policy.ingress.enforcing}{":"}{.status.policy.egress.enforcing}{"\n"}{end}`
 	cepStatus := kub.Exec(fmt.Sprintf(
 		"%s get cep -o jsonpath='%s' --all-namespaces",
 		KubectlCmd, cepFilter))
@@ -1425,9 +1425,14 @@ func (kub *Kubectl) CiliumCheckReport() {
 	fmt.Fprintf(CheckLogs, "Endpoint Policy Enforcement:\n")
 
 	table := tabwriter.NewWriter(CheckLogs, 5, 0, 3, ' ', 0)
+	fmt.Fprintf(table, "Pod\tIngress\tEgress\n")
 	for pod, policy := range cepStatus.KVOutput() {
-		fmt.Println(pod, "=>", policy)
-		fmt.Fprintf(table, "\t%s\t=>\t%s\n", pod, policy)
+		data := strings.SplitN(policy, ":", 2)
+		if len(data) != 2 {
+			data[0] = "invalid value"
+			data[1] = "invalid value"
+		}
+		fmt.Fprintf(table, "%s\t%s\t%s\n", pod, data[0], data[1])
 	}
 	table.Flush()
 
