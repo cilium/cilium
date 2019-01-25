@@ -25,6 +25,8 @@ import (
 	"sort"
 	"time"
 
+	"github.com/cilium/cilium/pkg/option"
+
 	. "gopkg.in/check.v1"
 )
 
@@ -143,6 +145,34 @@ func (ds *DNSCacheTestSuite) TestDelete(c *C) {
 	}
 	dump := cache.Dump()
 	c.Assert(len(dump), Equals, 0, Commentf("Returned cache entries from cache dump after the cache was fully cleared: %v", dump))
+}
+
+func (ds *DNSCacheTestSuite) TestIPsPerHostNameLimit(c *C) {
+	numUpdates := 200
+
+	cache := NewDNSCache()
+	for i := 1; i <= numUpdates; i++ {
+		cache.Update(time.Now(), "test.com", []net.IP{net.ParseIP(fmt.Sprintf("1.1.1.%d", i)), net.ParseIP(fmt.Sprintf("2.2.2.%d", i))}, 10000+i)
+	}
+
+	// Validate that the ToFQDNsMaxIPsPerHost cap was respected
+	c.Assert(len(cache.forward["test.com"]), Equals, option.Config.ToFQDNsMaxIPsPerHost)
+
+	// Each update inserted 2 IP addresses so all IPs except for the last
+	// (option.Config.ToFQDNsMaxIPsPerHost/2) updates should have been
+	// cleared again
+	for i := 1; i <= numUpdates-(option.Config.ToFQDNsMaxIPsPerHost/2); i++ {
+		for ip := range cache.forward["test.com"] {
+			expiredIP := fmt.Sprintf("1.1.1.%d", i)
+			if ip == expiredIP {
+				c.Errorf("Found ip %s which should have been expired via cap", expiredIP)
+			}
+			expiredIP = fmt.Sprintf("2.2.2.%d", i)
+			if ip == expiredIP {
+				c.Errorf("Found ip %s which should have been expired via cap", expiredIP)
+			}
+		}
+	}
 }
 
 func (ds *DNSCacheTestSuite) TestReverseUpdateLookup(c *C) {

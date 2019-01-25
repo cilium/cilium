@@ -652,6 +652,9 @@ func init() {
 	flags.Bool(option.ToFQDNsEnablePollerEvents, true, "Emit DNS responses seen by the DNS poller as Monitor events, if the poller is enabled.")
 	option.BindEnv(option.ToFQDNsEnablePollerEvents)
 
+	flags.Int(option.ToFQDNsMaxIPsPerHost, defaults.ToFQDNsMaxIPsPerHost, "Maximum number of IPs to maintain per FQDN name for each endpoint")
+	option.BindEnv(option.ToFQDNsMaxIPsPerHost)
+
 	flags.StringVar(&option.Config.FQDNRejectResponse, option.FQDNRejectResponseCode, option.FQDNProxyDenyWithRefused, fmt.Sprintf("DNS response code for rejecting DNS requests, available options are '%v'", option.FQDNRejectOptions))
 	option.BindEnv(option.FQDNRejectResponseCode)
 

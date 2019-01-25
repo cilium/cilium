@@ -534,6 +534,19 @@ obtain DNS data. In such cases a shorter minimum TTL is recommended, as
 .. note:: It is recommended that ``--tofqdns-min-ttl`` be set to the minimum
           time a connection must be maintained.
 
+Managing Short-Lived Connections & Maximum IPs per FQDN/endpoint
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The minimal TTL for DNS entries in the cache is deliberately long with 1 week
+per default. This is done to accommodate long-lived, persistent connections.
+On the other end of the spectrum are workloads which perform short-lived
+connections in repetition to FQDNs which are backed by a large number of IP
+addresses (e.g. AWS S3). Such workloads can grow the number of IPs mapping to
+an FQDN quickly. In order to limit the number of IP addresses that map a
+particular FQDN, each FQDN per endpoint has a max capacity of IPs that are
+being maintained (default: 50). Once the capacity is exceeded, the oldest
+entries are automatically expired from the cache. This capacity can be changed
+using the ``--tofqdn-max-ip-per-hostname`` option.
 
 Obtaining DNS Data
 ~~~~~~~~~~~~~~~~~~

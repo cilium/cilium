@@ -98,6 +98,7 @@ cilium-agent [flags]
       --socket-path string                          Sets daemon's socket path to listen for connections (default "/var/run/cilium/cilium.sock")
       --sockops-enable                              Enable sockops when kernel supported
       --state-dir string                            Directory path to store runtime state (default "/var/run/cilium")
+      --tofqdn-max-ip-per-hostname int              Maximum number of IPs to maintain per FQDN name for each endpoint (default 50)
       --tofqdns-dns-reject-response-code string     DNS response code for rejecting DNS requests, available options are '[nameError refused]' (default "refused")
       --tofqdns-enable-poller                       Enable proactive polling of DNS names in toFQDNs.matchName rules.
       --tofqdns-enable-poller-events                Emit DNS responses seen by the DNS poller as Monitor events, if the poller is enabled. (default true)

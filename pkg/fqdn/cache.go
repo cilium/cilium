@@ -24,6 +24,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // DefaultDNSCache is a global, shared, DNS cache. It is the default cache used
@@ -279,6 +280,8 @@ func (c *DNSCache) updateWithEntryIPs(entries ipEntries, entry *cacheEntry) {
 // LookupTime before it to be expired. It is intended for use with cache
 // clearing functions like ForceExpire, and does not maintain the cache's
 // guarantees.
+// Running this function will also always ensure that the ipEntries adhere to
+// option.Config.ToFQDNsMaxIPsPerHost
 // This needs a write lock
 func (c *DNSCache) removeExpired(entries ipEntries, now time.Time, expireLookupsBefore time.Time) (removed bool) {
 	for ip, entry := range entries {
@@ -286,6 +289,24 @@ func (c *DNSCache) removeExpired(entries ipEntries, now time.Time, expireLookups
 			delete(entries, ip)
 			c.removeReverse(ip, entry)
 			removed = true
+		}
+	}
+
+	if overLimit := len(entries) - option.Config.ToFQDNsMaxIPsPerHost; overLimit > 0 {
+		for i := 0; i < overLimit; i++ {
+			var oldestEntry *cacheEntry
+			var oldestIP string
+			for ip, entry := range entries {
+				if oldestEntry == nil || entry.LookupTime.Before(oldestEntry.LookupTime) {
+					oldestEntry = entry
+					oldestIP = ip
+				}
+			}
+			if oldestEntry != nil {
+				delete(entries, oldestIP)
+				c.removeReverse(oldestIP, oldestEntry)
+				removed = true
+			}
 		}
 	}
 
