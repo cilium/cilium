@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
 )
@@ -55,19 +54,21 @@ func (d *Daemon) initHealth() {
 	controller.NewManager().UpdateController("cilium-health-ep",
 		controller.ControllerParams{
 			DoFunc: func() error {
-				return d.runCiliumHealthEndpoint(d.nodeDiscovery.localNode)
+				return d.runCiliumHealthEndpoint()
 			},
 			StopFunc: func() error {
 				log.Info("Stopping health endpoint")
 				err := health.PingEndpoint()
-				d.cleanupHealthEndpoint(d.nodeDiscovery.localNode)
+				d.cleanupHealthEndpoint()
 				return err
 			},
 			RunInterval: 30 * time.Second,
 		})
 }
 
-func (d *Daemon) cleanupHealthEndpoint(localNode node.Node) {
+func (d *Daemon) cleanupHealthEndpoint() {
+	localNode := d.nodeDiscovery.localNode
+
 	// Delete the process
 	health.KillEndpoint()
 
@@ -93,14 +94,12 @@ func (d *Daemon) cleanupHealthEndpoint(localNode node.Node) {
 
 // runCiliumHealthEndpoint attempts to contact the cilium-health endpoint, and
 // if it cannot be reached, restarts it.
-func (d *Daemon) runCiliumHealthEndpoint(localNode node.Node) error {
+func (d *Daemon) runCiliumHealthEndpoint() error {
 	// PingEndpoint will always fail the first time (initialization).
 	if err := health.PingEndpoint(); err != nil {
 		log.WithError(err).Warning("health endpoint is unreachable, restarting health endpoint")
-		d.cleanupHealthEndpoint(localNode)
-		addressing := node.GetNodeAddressing()
-		return health.LaunchAsEndpoint(d, addressing, d.mtuConfig,
-			localNode.IPv4HealthIP, localNode.IPv6HealthIP)
+		d.cleanupHealthEndpoint()
+		return health.LaunchAsEndpoint(d, &d.nodeDiscovery.localNode, d.mtuConfig)
 	}
 	return nil
 }

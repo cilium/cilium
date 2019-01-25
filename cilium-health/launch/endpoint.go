@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/mtu"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
 
@@ -181,7 +182,7 @@ func CleanupEndpoint() {
 //
 // CleanupEndpoint() must be called before calling LaunchAsEndpoint() to ensure
 // cleanup of prior cilium-health endpoint instances.
-func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressing, mtuConfig mtu.Configuration, ip4health, ip6health net.IP) error {
+func LaunchAsEndpoint(owner endpoint.Owner, n *node.Node, mtuConfig mtu.Configuration) error {
 	var (
 		cmd  = launcher.Launcher{}
 		info = &models.EndpointChangeRequest{
@@ -193,18 +194,18 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 		healthIP               net.IP
 	)
 
-	if ip4health != nil {
-		info.Addressing.IPV4 = ip4health.String()
-		ip4WithMask := net.IPNet{IP: ip4health, Mask: defaults.ContainerIPv4Mask}
+	if n.IPv4HealthIP != nil {
+		healthIP = n.IPv4HealthIP
+		info.Addressing.IPV4 = healthIP.String()
+		ip4WithMask := net.IPNet{IP: healthIP, Mask: defaults.ContainerIPv4Mask}
 		ip4Address = ip4WithMask.String()
-		healthIP = ip4health
 	}
 
-	if ip6health != nil {
-		info.Addressing.IPV6 = ip6health.String()
-		ip6WithMask := net.IPNet{IP: ip6health, Mask: defaults.ContainerIPv6Mask}
+	if n.IPv6HealthIP != nil {
+		healthIP = n.IPv6HealthIP
+		info.Addressing.IPV6 = healthIP.String()
+		ip6WithMask := net.IPNet{IP: healthIP, Mask: defaults.ContainerIPv6Mask}
 		ip6Address = ip6WithMask.String()
-		healthIP = ip6health
 	}
 
 	if _, _, err := connector.SetupVethWithNames(vethName, vethPeerName, mtuConfig.GetDeviceMTU(), info); err != nil {
@@ -247,6 +248,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 	}
 
 	// Set up the endpoint routes
+	hostAddressing := node.GetNodeAddressing()
 	if err = configureHealthRouting(info.ContainerName, vethPeerName, hostAddressing, mtuConfig); err != nil {
 		return fmt.Errorf("Error while configuring routes: %s", err)
 	}
