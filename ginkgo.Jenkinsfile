@@ -50,7 +50,7 @@ pipeline {
             }
             post {
                always {
-                   sh "cd ${TESTDIR}; make clean-ginkgo-tests || true"
+                   sh "cd ${TESTDIR}; make clean-jenkins-precheck || true"
                }
             }
         }
