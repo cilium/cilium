@@ -118,7 +118,7 @@ func ipv6IsEnabled(ipam *models.IPAMResponse) bool {
 		return false
 	}
 
-	if ipam.HostAddressing != nil {
+	if ipam.HostAddressing != nil && ipam.HostAddressing.IPV6 != nil {
 		return ipam.HostAddressing.IPV6.Enabled
 	}
 
@@ -130,7 +130,7 @@ func ipv4IsEnabled(ipam *models.IPAMResponse) bool {
 		return false
 	}
 
-	if ipam.HostAddressing != nil {
+	if ipam.HostAddressing != nil && ipam.HostAddressing.IPV4 != nil {
 		return ipam.HostAddressing.IPV4.Enabled
 	}
 
