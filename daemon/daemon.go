@@ -579,17 +579,6 @@ func (d *Daemon) initMaps() error {
 		log.WithError(err).Fatal("Unable to open service maps")
 	}
 
-	// Remove any old sockops and re-enable with _new_ programs if flag is set
-	sockops.SockmapDisable()
-	sockops.SkmsgDisable()
-
-	if option.Config.SockopsEnable {
-		eppolicymap.CreateEPPolicyMap()
-		sockops.SockmapEnable()
-		sockops.SkmsgEnable()
-		sockmap.SockmapCreate()
-	}
-
 	// Set up the list of IPCache listeners in the daemon, to be
 	// used by syncLXCMap().
 	ipcache.IPIdentityCache.SetListeners([]ipcache.IPIdentityMappingListener{
@@ -669,6 +658,17 @@ func (d *Daemon) init() error {
 
 	if err := d.createNodeConfigHeaderfile(); err != nil {
 		return err
+	}
+
+	// Remove any old sockops and re-enable with _new_ programs if flag is set
+	sockops.SockmapDisable()
+	sockops.SkmsgDisable()
+
+	if option.Config.SockopsEnable {
+		eppolicymap.CreateEPPolicyMap()
+		sockops.SockmapEnable()
+		sockops.SkmsgEnable()
+		sockmap.SockmapCreate()
 	}
 
 	if !option.Config.DryMode {
