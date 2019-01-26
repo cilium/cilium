@@ -111,7 +111,7 @@ var _ = Describe("BenchmarkNetperfPerformance", func() {
 		By("create Server containers")
 		vm.ContainerCreate(helpers.Server, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.server")
 		vm.PolicyDelAll()
-		Expect( vm.WaitEndpointsReady() ).To(BeNil(), "Endpoints are not ready")
+		Expect(vm.WaitEndpointsReady()).To(BeNil(), "Endpoints are not ready")
 	}
 
 	removeContainers := func(containerName string) {
