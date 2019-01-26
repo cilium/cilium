@@ -1171,7 +1171,7 @@ func FilterEPDir(dirFiles []os.FileInfo) []string {
 	for _, file := range dirFiles {
 		if file.IsDir() {
 			_, err := strconv.ParseUint(file.Name(), 10, 16)
-			if err == nil || strings.HasSuffix(file.Name(), "_next_fail") {
+			if err == nil || strings.HasSuffix(file.Name(), "_next") || strings.HasSuffix(file.Name(), "_next_fail") {
 				eptsID = append(eptsID, file.Name())
 			}
 		}
