@@ -229,20 +229,20 @@ func (d *Daemon) svcDeleteByFrontend(frontend *loadbalancer.L3n4Addr) error {
 }
 
 func (d *Daemon) svcDelete(svc *loadbalancer.LBSVC) error {
-	if err := d.svcDeleteBPF(svc); err != nil {
+	if err := d.svcDeleteBPF(svc.FE); err != nil {
 		return err
 	}
 	d.loadBalancer.DeleteService(svc)
 	return nil
 }
 
-func (d *Daemon) svcDeleteBPF(svc *loadbalancer.LBSVC) error {
-	log.WithField(logfields.ServiceName, svc.FE.String()).Debug("deleting service from BPF maps")
+func (d *Daemon) svcDeleteBPF(svc loadbalancer.L3n4AddrID) error {
+	log.WithField(logfields.ServiceName, svc.String()).Debug("deleting service from BPF maps")
 	var svcKey lbmap.ServiceKey
-	if !svc.FE.IsIPv6() {
-		svcKey = lbmap.NewService4Key(svc.FE.IP, svc.FE.Port, 0)
+	if !svc.IsIPv6() {
+		svcKey = lbmap.NewService4Key(svc.IP, svc.Port, 0)
 	} else {
-		svcKey = lbmap.NewService6Key(svc.FE.IP, svc.FE.Port, 0)
+		svcKey = lbmap.NewService6Key(svc.IP, svc.Port, 0)
 	}
 
 	svcKey.SetBackend(0)
@@ -259,10 +259,10 @@ func (d *Daemon) svcDeleteBPF(svc *loadbalancer.LBSVC) error {
 	// ServiceKeys are unique by their slave number, which corresponds to the number of backends. Delete each of these.
 	for i := numBackends; i > 0; i-- {
 		var slaveKey lbmap.ServiceKey
-		if !svc.FE.IsIPv6() {
-			slaveKey = lbmap.NewService4Key(svc.FE.IP, svc.FE.Port, i)
+		if !svc.IsIPv6() {
+			slaveKey = lbmap.NewService4Key(svc.IP, svc.Port, i)
 		} else {
-			slaveKey = lbmap.NewService6Key(svc.FE.IP, svc.FE.Port, i)
+			slaveKey = lbmap.NewService6Key(svc.IP, svc.Port, i)
 		}
 		log.WithFields(logrus.Fields{
 			"idx.backend": i,
@@ -274,7 +274,7 @@ func (d *Daemon) svcDeleteBPF(svc *loadbalancer.LBSVC) error {
 		}
 	}
 
-	log.WithField(logfields.ServiceID, svc.FE.ID).Debug("done deleting service slaves, now deleting master service")
+	log.WithField(logfields.ServiceID, svc.ID).Debug("done deleting service slaves, now deleting master service")
 	if err := lbmap.DeleteService(svcKey); err != nil {
 		return fmt.Errorf("deleting service failed for %s: %s", svcKey, err)
 	}
@@ -595,7 +595,7 @@ func (d *Daemon) SyncLBMap() error {
 	// Clean services and rev nats from BPF maps that failed to be restored.
 	for _, svc := range failedSyncSVC {
 		log.WithField(logfields.Object, logfields.Repr(svc.FE)).Debug("Unable to restore, so removing service")
-		if err := d.svcDeleteBPF(&svc); err != nil {
+		if err := d.svcDeleteBPF(svc.FE); err != nil {
 			log.WithError(err).WithField(logfields.Object, logfields.Repr(svc.FE)).Warn("Unable to clean service from BPF map")
 		}
 	}
@@ -637,7 +637,7 @@ func (d *Daemon) SyncLBMap() error {
 func (d *Daemon) syncLBMapsWithK8s() error {
 	// Set of L3n4Addrs in string form for storage as a key in map.
 	k8sServicesFrontendAddresses := make(map[string]struct{})
-	k8sDeletedServices := []loadbalancer.LBSVC{}
+	k8sDeletedServices := map[string]loadbalancer.L3n4AddrID{}
 
 	// Maps service IDs to whether they are IPv6 (true) or IPv4 (false).
 	k8sDeletedRevNATS := make(map[loadbalancer.ServiceID]bool)
@@ -697,7 +697,7 @@ func (d *Daemon) syncLBMapsWithK8s() error {
 		frontendAddress := svc.FE.L3n4Addr.StringWithProtocol()
 		if _, ok := k8sServicesFrontendAddresses[frontendAddress]; !ok {
 			scopedLog.Debug("service in BPF maps is not managed by K8s; will delete it from BPF maps")
-			k8sDeletedServices = append(k8sDeletedServices, *svc)
+			k8sDeletedServices[frontendAddress] = svc.FE
 			continue
 		}
 		scopedLog.Debug("service from BPF maps is managed by K8s; will not delete it from BPF maps")
@@ -722,9 +722,9 @@ func (d *Daemon) syncLBMapsWithK8s() error {
 	// Delete map entries from BPF which don't exist in list of Kubernetes
 	// services.
 	for _, svc := range k8sDeletedServices {
-		svcLogger := log.WithField(logfields.Object, logfields.Repr(svc.FE))
+		svcLogger := log.WithField(logfields.Object, logfields.Repr(svc))
 		svcLogger.Debug("removing service because it was not synced from Kubernetes")
-		if err := d.svcDeleteBPF(&svc); err != nil {
+		if err := d.svcDeleteBPF(svc); err != nil {
 			bpfDeleteErrors = append(bpfDeleteErrors, err)
 		}
 	}
