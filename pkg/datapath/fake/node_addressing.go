@@ -26,6 +26,32 @@ type fakeNodeAddressing struct {
 	ipv4 addressFamily
 }
 
+// NewIPv6OnlyNodeAddressing returns a new fake node addressing where IPv4 is
+// disabled
+func NewIPv6OnlyNodeAddressing() datapath.NodeAddressing {
+	return &fakeNodeAddressing{
+		ipv4: addressFamily{},
+		ipv6: addressFamily{
+			router:          net.ParseIP("cafe::2"),
+			primaryExternal: net.ParseIP("cafe::1"),
+			allocCIDR:       cidr.MustParseCIDR("cafe::/96"),
+		},
+	}
+}
+
+// NewIPv4OnlyNodeAddressing returns a new fake node addressing where IPv6 is
+// disabled
+func NewIPv4OnlyNodeAddressing() datapath.NodeAddressing {
+	return &fakeNodeAddressing{
+		ipv4: addressFamily{
+			router:          net.ParseIP("1.1.1.2"),
+			primaryExternal: net.ParseIP("1.1.1.1"),
+			allocCIDR:       cidr.MustParseCIDR("1.1.1.0/24"),
+		},
+		ipv6: addressFamily{},
+	}
+}
+
 // NewNodeAddressing returns a new fake node addressing
 func NewNodeAddressing() datapath.NodeAddressing {
 	return &fakeNodeAddressing{
