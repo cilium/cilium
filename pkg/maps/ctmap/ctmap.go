@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -222,7 +222,7 @@ func ct6DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
 func NewMap(mapName string, mapType MapType) *Map {
 	result := &Map{
 		Map: *bpf.NewMap(mapName,
-			bpf.GetLRUMapType(),
+			bpf.MapTypeLRUHash,
 			mapInfo[mapType].keySize,
 			int(unsafe.Sizeof(CtEntry{})),
 			mapInfo[mapType].maxEntries,
