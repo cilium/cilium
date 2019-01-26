@@ -209,18 +209,6 @@ func ReadFeatureProbes(filename string) {
 	}
 }
 
-// GetLRUMapType determines whether the kernel supports LRU hash maps, and if
-// so returns the LRU map type, otherwise returns the hash map type.
-//
-// Must only be used when the datapath also performs best-effort attempts at
-// defining a map's type to be LRU via HAVE_LRU_MAP_TYPE.
-func GetLRUMapType() MapType {
-	if supportedMapTypes[MapTypeLRUHash] {
-		return MapTypeLRUHash
-	}
-	return MapTypeHash
-}
-
 // GetMapType determines whether the specified map type is supported by the
 // kernel (as determined by ReadFeatureProbes()), and if the map type is not
 // supported, returns a more primitive map type that may be used to implement
