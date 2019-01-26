@@ -6,11 +6,12 @@ Alexander Alemayhu                      alexander@alemayhu.com
 Alexei Starovoitov                      alexei.starovoitov@gmail.com
 Amey Bhide                              amey@covalent.io
 Amre Shakimov                           amre@covalent.io
-André Martins                           andre@cilium.io
+André Martins                          andre@cilium.io
 Andrew Sy Kim                           kim.andrewsy@gmail.com
 Anit Gandhi                             anitgandhi@gmail.com
 Arvind Soni                             arvindsoni@gmail.com
 Ashwin Paranjpe                         ashwin@covalent.io
+Brian Topping                           brian@coglative.com
 Christopher Biscardi                    chris@christopherbiscardi.com
 Craig Box                               craig.box@gmail.com
 Cynthia Thomas                          cynthia@covalent.io
@@ -37,13 +38,14 @@ Jerry J. Muzsik                         jerrymuzsik@icloud.com
 Jess Frazelle                           acidburn@microsoft.com
 Jiong Wang                              jiong.wang@netronome.com
 Joe Farrell                             joe2farrell@gmail.com
-Joe Stringer                            joe@covalent.io
+Joe Stringer                            joe@cilium.io
 John Fastabend                          john.fastabend@gmail.com
 Jonathan Davies                         jpds@protonmail.com
 Jon Davies                              jpds@protonmail.com
 Julien Kassar                           github@kassisol.com
 Junli Ou                                oujunli306@gmail.com
 Katarzyna Borkmann                      kasia@iogearbox.net
+Kiran Bondalapati                       kiran@bondalapati.com
 Maciej Kwiek                            maciej.iai@gmail.com
 Madhu Challa                            madhu@cilium.io
 Manali Bhutiyani                        manali@covalent.io
@@ -51,11 +53,13 @@ Marcin Skarbek                          git@skarbek.name
 Marius Gerling                          marius.gerling@uniberg.com
 Mark deVilliers                         markdevilliers@gmail.com
 Martin Charles                          martincharles07@gmail.com
+Martynas Pumputis                       martynas@covalent.io
 Matthew Gumport                         me@gum.pt
 Matt Layher                             mdlayher@gmail.com
 Michael Schubert                        michael@kinvolk.io
 Michal Rostecki                         mrostecki@suse.de
 Michi Mutsuzaki                         michi@covalent.io
+Moritz Johner                           beller.moritz@googlemail.com
 Nathan Taylor                           ntaylor1781@gmail.com
 Nirmoy Das                              ndas@suse.de
 Patrice Peterson                        patrice.peterson@mailbox.org
@@ -65,6 +69,7 @@ Raghu Gyambavantha                      raghug@bld-ml-loan4.olympus.f5net.com
 Ray Bejjani                             ray@covalent.io
 Romain Lenglet                          romain@covalent.io
 Ross Guarino                            rssguar@gmail.com
+Rui Gu                                  rui@covalent.io
 Russell Bryant                          russell@russellbryant.net
 Scott Albertson                         ascottalbertson@gmail.com
 Sergey Generalov                        sergey@genbit.ru

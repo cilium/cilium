@@ -271,7 +271,7 @@ spec:
               key: flannel-uninstall-on-exit
               name: cilium-config
               optional: true
-        image: docker.io/cilium/cilium:v1.4.0-rc4
+        image: docker.io/cilium/cilium:v1.4.0-rc5
         imagePullPolicy: IfNotPresent
         lifecycle:
           postStart:
@@ -506,7 +506,7 @@ spec:
               key: AWS_DEFAULT_REGION
               name: cilium-aws
               optional: true
-        image: docker.io/cilium/operator:v1.4.0-rc4
+        image: docker.io/cilium/operator:v1.4.0-rc5
         imagePullPolicy: IfNotPresent
         name: cilium-operator
         volumeMounts:
