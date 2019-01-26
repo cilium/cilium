@@ -287,12 +287,32 @@ func (n *linuxNodeHandler) deleteDirectRoute(CIDR *cidr.CIDR, nodeIP net.IP) {
 // 10.10.0.0/24 via 10.10.0.1 dev cilium_host src 10.10.0.1
 // f00d::a0a:0:0:0/112 via f00d::a0a:0:0:1 dev cilium_host src fd04::11 metric 1024 pref medium
 //
-func (n *linuxNodeHandler) createNodeRoute(prefix *cidr.CIDR) route.Route {
+func (n *linuxNodeHandler) createNodeRoute(prefix *cidr.CIDR) (route.Route, error) {
 	var local, nexthop net.IP
 	if prefix.IP.To4() != nil {
+		if n.nodeAddressing.IPv4() == nil {
+			return route.Route{}, fmt.Errorf("IPv4 addressing unavailable")
+		}
+
+		if n.nodeAddressing.IPv4().Router() == nil {
+			return route.Route{}, fmt.Errorf("IPv4 router address unavailable")
+		}
+
 		nexthop = n.nodeAddressing.IPv4().Router()
 		local = nexthop
 	} else {
+		if n.nodeAddressing.IPv6() == nil {
+			return route.Route{}, fmt.Errorf("IPv6 addressing unavailable")
+		}
+
+		if n.nodeAddressing.IPv6().Router() == nil {
+			return route.Route{}, fmt.Errorf("IPv6 router address unavailable")
+		}
+
+		if n.nodeAddressing.IPv6().PrimaryExternal() == nil {
+			return route.Route{}, fmt.Errorf("External IPv6 address unavailable")
+		}
+
 		nexthop = n.nodeAddressing.IPv6().Router()
 		local = n.nodeAddressing.IPv6().PrimaryExternal()
 	}
@@ -302,11 +322,20 @@ func (n *linuxNodeHandler) createNodeRoute(prefix *cidr.CIDR) route.Route {
 		Local:   local,
 		Device:  n.datapathConfig.HostDevice,
 		Prefix:  *prefix.IPNet,
-	}
+	}, nil
 }
 
 func (n *linuxNodeHandler) lookupNodeRoute(prefix *cidr.CIDR) (*route.Route, error) {
-	return route.Lookup(n.createNodeRoute(prefix))
+	if prefix == nil {
+		return nil, nil
+	}
+
+	routeSpec, err := n.createNodeRoute(prefix)
+	if err != nil {
+		return nil, err
+	}
+
+	return route.Lookup(routeSpec)
 }
 
 func (n *linuxNodeHandler) updateNodeRoute(prefix *cidr.CIDR, addressFamilyEnabled bool) error {
@@ -314,7 +343,10 @@ func (n *linuxNodeHandler) updateNodeRoute(prefix *cidr.CIDR, addressFamilyEnabl
 		return nil
 	}
 
-	nodeRoute := n.createNodeRoute(prefix)
+	nodeRoute, err := n.createNodeRoute(prefix)
+	if err != nil {
+		return err
+	}
 	if _, err := route.Upsert(nodeRoute, n.nodeConfig.MtuConfig); err != nil {
 		log.WithError(err).WithFields(nodeRoute.LogFields()).Warning("Unable to update route")
 		return err
@@ -328,7 +360,10 @@ func (n *linuxNodeHandler) deleteNodeRoute(prefix *cidr.CIDR) error {
 		return nil
 	}
 
-	nodeRoute := n.createNodeRoute(prefix)
+	nodeRoute, err := n.createNodeRoute(prefix)
+	if err != nil {
+		return err
+	}
 	if err := route.Delete(nodeRoute); err != nil {
 		log.WithError(err).WithFields(nodeRoute.LogFields()).Warning("Unable to delete route")
 		return err
@@ -344,7 +379,9 @@ func (n *linuxNodeHandler) familyEnabled(c *cidr.CIDR) bool {
 func (n *linuxNodeHandler) updateOrRemoveNodeRoutes(old, new []*cidr.CIDR) {
 	addedAuxRoutes, removedAuxRoutes := cidr.DiffCIDRLists(old, new)
 	for _, prefix := range addedAuxRoutes {
-		n.updateNodeRoute(prefix, n.familyEnabled(prefix))
+		if prefix != nil {
+			n.updateNodeRoute(prefix, n.familyEnabled(prefix))
+		}
 	}
 	for _, prefix := range removedAuxRoutes {
 		if rt, _ := n.lookupNodeRoute(prefix); rt != nil {
