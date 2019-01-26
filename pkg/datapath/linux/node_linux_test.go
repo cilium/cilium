@@ -36,21 +36,71 @@ func Test(t *testing.T) {
 	check.TestingT(t)
 }
 
-type linuxPrivilegedTestSuite struct {
+type linuxPrivilegedBaseTestSuite struct {
 	nodeAddressing datapath.NodeAddressing
 	mtuConfig      mtu.Configuration
+	enableIPv4     bool
+	enableIPv6     bool
 }
 
-var _ = check.Suite(&linuxPrivilegedTestSuite{})
+type linuxPrivilegedIPv6OnlyTestSuite struct {
+	linuxPrivilegedBaseTestSuite
+}
+
+var _ = check.Suite(&linuxPrivilegedIPv6OnlyTestSuite{})
+
+type linuxPrivilegedIPv4OnlyTestSuite struct {
+	linuxPrivilegedBaseTestSuite
+}
+
+var _ = check.Suite(&linuxPrivilegedIPv4OnlyTestSuite{})
+
+type linuxPrivilegedIPv4AndIPv6TestSuite struct {
+	linuxPrivilegedBaseTestSuite
+}
+
+var _ = check.Suite(&linuxPrivilegedIPv4AndIPv6TestSuite{})
 
 const (
 	dummyHostDeviceName     = "dummy_host"
 	dummyExternalDeviceName = "dummy_external"
 )
 
-func (s *linuxPrivilegedTestSuite) SetUpTest(c *check.C) {
+func (s *linuxPrivilegedIPv6OnlyTestSuite) SetUpTest(c *check.C) {
+	s.nodeAddressing = fake.NewIPv6OnlyNodeAddressing()
+	s.mtuConfig = mtu.NewConfiguration(false, 1500)
+	s.enableIPv6 = true
+
+	removeDevice(dummyHostDeviceName)
+	removeDevice(dummyExternalDeviceName)
+
+	err := setupDummyDevice(dummyExternalDeviceName, s.nodeAddressing.IPv6().PrimaryExternal())
+	c.Assert(err, check.IsNil)
+
+	err = setupDummyDevice(dummyHostDeviceName)
+	c.Assert(err, check.IsNil)
+}
+
+func (s *linuxPrivilegedIPv4OnlyTestSuite) SetUpTest(c *check.C) {
+	s.nodeAddressing = fake.NewIPv4OnlyNodeAddressing()
+	s.mtuConfig = mtu.NewConfiguration(false, 1500)
+	s.enableIPv4 = true
+
+	removeDevice(dummyHostDeviceName)
+	removeDevice(dummyExternalDeviceName)
+
+	err := setupDummyDevice(dummyExternalDeviceName, s.nodeAddressing.IPv4().PrimaryExternal())
+	c.Assert(err, check.IsNil)
+
+	err = setupDummyDevice(dummyHostDeviceName, s.nodeAddressing.IPv4().Router())
+	c.Assert(err, check.IsNil)
+}
+
+func (s *linuxPrivilegedIPv4AndIPv6TestSuite) SetUpTest(c *check.C) {
 	s.nodeAddressing = fake.NewNodeAddressing()
 	s.mtuConfig = mtu.NewConfiguration(false, 1500)
+	s.enableIPv6 = true
+	s.enableIPv4 = true
 
 	removeDevice(dummyHostDeviceName)
 	removeDevice(dummyExternalDeviceName)
@@ -60,12 +110,23 @@ func (s *linuxPrivilegedTestSuite) SetUpTest(c *check.C) {
 
 	err = setupDummyDevice(dummyHostDeviceName, s.nodeAddressing.IPv4().Router())
 	c.Assert(err, check.IsNil)
-
 }
 
-func (s *linuxPrivilegedTestSuite) TearDownTest(c *check.C) {
+func tearDownTest(c *check.C) {
 	removeDevice(dummyHostDeviceName)
 	removeDevice(dummyExternalDeviceName)
+}
+
+func (s *linuxPrivilegedIPv6OnlyTestSuite) TearDownTest(c *check.C) {
+	tearDownTest(c)
+}
+
+func (s *linuxPrivilegedIPv4OnlyTestSuite) TearDownTest(c *check.C) {
+	tearDownTest(c)
+}
+
+func (s *linuxPrivilegedIPv4AndIPv6TestSuite) TearDownTest(c *check.C) {
+	tearDownTest(c)
 }
 
 func setupDummyDevice(name string, ips ...net.IP) error {
@@ -108,7 +169,7 @@ func removeDevice(name string) {
 	}
 }
 
-func (s *linuxPrivilegedTestSuite) TestUpdateNodeRoute(c *check.C) {
+func (s *linuxPrivilegedBaseTestSuite) TestUpdateNodeRoute(c *check.C) {
 	ip4CIDR := cidr.MustParseCIDR("254.254.254.0/24")
 	c.Assert(ip4CIDR, check.Not(check.IsNil))
 
@@ -120,81 +181,92 @@ func (s *linuxPrivilegedTestSuite) TestUpdateNodeRoute(c *check.C) {
 	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing).(*linuxNodeHandler)
 	c.Assert(linuxNodeHandler, check.Not(check.IsNil))
 	nodeConfig := datapath.LocalNodeConfiguration{
-		EnableIPv4: true,
-		EnableIPv6: true,
+		EnableIPv4: s.enableIPv4,
+		EnableIPv6: s.enableIPv6,
 	}
 
 	err := linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
 	c.Assert(err, check.IsNil)
 
-	// add & remove IPv4 node route
-	err = linuxNodeHandler.updateNodeRoute(ip4CIDR, true)
-	c.Assert(err, check.IsNil)
+	if s.enableIPv4 {
+		// add & remove IPv4 node route
+		err = linuxNodeHandler.updateNodeRoute(ip4CIDR, true)
+		c.Assert(err, check.IsNil)
 
-	foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4CIDR)
-	c.Assert(err, check.IsNil)
-	c.Assert(foundRoute, check.Not(check.IsNil))
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4CIDR)
+		c.Assert(err, check.IsNil)
+		c.Assert(foundRoute, check.Not(check.IsNil))
 
-	err = linuxNodeHandler.deleteNodeRoute(ip4CIDR)
-	c.Assert(err, check.IsNil)
+		err = linuxNodeHandler.deleteNodeRoute(ip4CIDR)
+		c.Assert(err, check.IsNil)
 
-	foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip4CIDR)
-	c.Assert(err, check.IsNil)
-	c.Assert(foundRoute, check.IsNil)
+		foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip4CIDR)
+		c.Assert(err, check.IsNil)
+		c.Assert(foundRoute, check.IsNil)
+	}
 
-	// add & remove IPv6 node route
-	err = linuxNodeHandler.updateNodeRoute(ip6CIDR, true)
-	c.Assert(err, check.IsNil)
+	if s.enableIPv6 {
+		// add & remove IPv6 node route
+		err = linuxNodeHandler.updateNodeRoute(ip6CIDR, true)
+		c.Assert(err, check.IsNil)
 
-	foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip6CIDR)
-	c.Assert(err, check.IsNil)
-	c.Assert(foundRoute, check.Not(check.IsNil))
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6CIDR)
+		c.Assert(err, check.IsNil)
+		c.Assert(foundRoute, check.Not(check.IsNil))
 
-	err = linuxNodeHandler.deleteNodeRoute(ip6CIDR)
-	c.Assert(err, check.IsNil)
+		err = linuxNodeHandler.deleteNodeRoute(ip6CIDR)
+		c.Assert(err, check.IsNil)
 
-	foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip6CIDR)
-	c.Assert(err, check.IsNil)
-	c.Assert(foundRoute, check.IsNil)
+		foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip6CIDR)
+		c.Assert(err, check.IsNil)
+		c.Assert(foundRoute, check.IsNil)
+	}
 }
 
-func (s *linuxPrivilegedTestSuite) TestSingleClusterPrefixIPv4(c *check.C) {
+func (s *linuxPrivilegedBaseTestSuite) TestSingleClusterPrefix(c *check.C) {
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
 
 	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing).(*linuxNodeHandler)
 	c.Assert(linuxNodeHandler, check.Not(check.IsNil))
 
-	// enable ipv4
+	// enable as per test definition
 	err := linuxNodeHandler.NodeConfigurationChanged(datapath.LocalNodeConfiguration{
 		UseSingleClusterRoute: true,
-		EnableIPv4:            true,
+		EnableIPv4:            s.enableIPv4,
+		EnableIPv6:            s.enableIPv6,
+	})
+	c.Assert(err, check.IsNil)
+
+	if s.enableIPv4 {
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv4().AllocationCIDR())
+		c.Assert(err, check.IsNil)
+		c.Assert(foundRoute, check.Not(check.IsNil))
+	}
+
+	if s.enableIPv6 {
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv6().AllocationCIDR())
+		c.Assert(err, check.IsNil)
+		c.Assert(foundRoute, check.Not(check.IsNil))
+	}
+
+	// disable ipv4, enable ipv6. addressing may not be available for IPv6
+	err = linuxNodeHandler.NodeConfigurationChanged(datapath.LocalNodeConfiguration{
+		UseSingleClusterRoute: true,
+		EnableIPv6:            true,
 	})
 	c.Assert(err, check.IsNil)
 
 	foundRoute, err := linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv4().AllocationCIDR())
 	c.Assert(err, check.IsNil)
-	c.Assert(foundRoute, check.Not(check.IsNil))
-
-	foundRoute, err = linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv6().AllocationCIDR())
-	c.Assert(err, check.IsNil)
 	c.Assert(foundRoute, check.IsNil)
 
-	// disable ipv4, enable ipv6
-	err = linuxNodeHandler.NodeConfigurationChanged(datapath.LocalNodeConfiguration{
-		UseSingleClusterRoute: true,
-		EnableIPv6:            true,
-	})
-	c.Assert(err, check.IsNil)
+	if s.enableIPv6 {
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv6().AllocationCIDR())
+		c.Assert(err, check.IsNil)
+		c.Assert(foundRoute, check.Not(check.IsNil))
+	}
 
-	foundRoute, err = linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv4().AllocationCIDR())
-	c.Assert(err, check.IsNil)
-	c.Assert(foundRoute, check.IsNil)
-
-	foundRoute, err = linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv6().AllocationCIDR())
-	c.Assert(err, check.IsNil)
-	c.Assert(foundRoute, check.Not(check.IsNil))
-
-	// enable ipv4, enable ipv6
+	// enable ipv4, enable ipv6, addressing may not be available
 	err = linuxNodeHandler.NodeConfigurationChanged(datapath.LocalNodeConfiguration{
 		UseSingleClusterRoute: true,
 		EnableIPv6:            true,
@@ -202,16 +274,20 @@ func (s *linuxPrivilegedTestSuite) TestSingleClusterPrefixIPv4(c *check.C) {
 	})
 	c.Assert(err, check.IsNil)
 
-	foundRoute, err = linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv4().AllocationCIDR())
-	c.Assert(err, check.IsNil)
-	c.Assert(foundRoute, check.Not(check.IsNil))
+	if s.enableIPv4 {
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv4().AllocationCIDR())
+		c.Assert(err, check.IsNil)
+		c.Assert(foundRoute, check.Not(check.IsNil))
+	}
 
-	foundRoute, err = linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv6().AllocationCIDR())
-	c.Assert(err, check.IsNil)
-	c.Assert(foundRoute, check.Not(check.IsNil))
+	if s.enableIPv6 {
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv6().AllocationCIDR())
+		c.Assert(err, check.IsNil)
+		c.Assert(foundRoute, check.Not(check.IsNil))
+	}
 }
 
-func (s *linuxPrivilegedTestSuite) TestAuxiliaryPrefixes(c *check.C) {
+func (s *linuxPrivilegedBaseTestSuite) TestAuxiliaryPrefixes(c *check.C) {
 	net1 := cidr.MustParseCIDR("30.30.0.0/24")
 	net2 := cidr.MustParseCIDR("cafe:f00d::/112")
 
@@ -219,56 +295,68 @@ func (s *linuxPrivilegedTestSuite) TestAuxiliaryPrefixes(c *check.C) {
 	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing).(*linuxNodeHandler)
 	c.Assert(linuxNodeHandler, check.Not(check.IsNil))
 	nodeConfig := datapath.LocalNodeConfiguration{
-		EnableIPv6:        true,
-		EnableIPv4:        true,
+		EnableIPv4:        s.enableIPv4,
+		EnableIPv6:        s.enableIPv6,
 		AuxiliaryPrefixes: []*cidr.CIDR{net1, net2},
 	}
 
 	err := linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
 	c.Assert(err, check.IsNil)
 
-	foundRoute, err := linuxNodeHandler.lookupNodeRoute(net1)
-	c.Assert(err, check.IsNil)
-	c.Assert(foundRoute, check.Not(check.IsNil))
+	if s.enableIPv4 {
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(net1)
+		c.Assert(err, check.IsNil)
+		c.Assert(foundRoute, check.Not(check.IsNil))
+	}
 
-	foundRoute, err = linuxNodeHandler.lookupNodeRoute(net2)
-	c.Assert(err, check.IsNil)
-	c.Assert(foundRoute, check.Not(check.IsNil))
+	if s.enableIPv6 {
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(net2)
+		c.Assert(err, check.IsNil)
+		c.Assert(foundRoute, check.Not(check.IsNil))
+	}
 
 	// remove aux prefix net2
 	err = linuxNodeHandler.NodeConfigurationChanged(datapath.LocalNodeConfiguration{
-		EnableIPv6:        true,
-		EnableIPv4:        true,
+		EnableIPv4:        s.enableIPv4,
+		EnableIPv6:        s.enableIPv6,
 		AuxiliaryPrefixes: []*cidr.CIDR{net1},
 	})
 	c.Assert(err, check.IsNil)
 
-	foundRoute, err = linuxNodeHandler.lookupNodeRoute(net1)
-	c.Assert(err, check.IsNil)
-	c.Assert(foundRoute, check.Not(check.IsNil))
+	if s.enableIPv4 {
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(net1)
+		c.Assert(err, check.IsNil)
+		c.Assert(foundRoute, check.Not(check.IsNil))
+	}
 
-	foundRoute, err = linuxNodeHandler.lookupNodeRoute(net2)
-	c.Assert(err, check.IsNil)
-	c.Assert(foundRoute, check.IsNil)
+	if s.enableIPv6 {
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(net2)
+		c.Assert(err, check.IsNil)
+		c.Assert(foundRoute, check.IsNil)
+	}
 
 	// remove aux prefix net1, re-add net2
 	err = linuxNodeHandler.NodeConfigurationChanged(datapath.LocalNodeConfiguration{
-		EnableIPv6:        true,
-		EnableIPv4:        true,
+		EnableIPv4:        s.enableIPv4,
+		EnableIPv6:        s.enableIPv6,
 		AuxiliaryPrefixes: []*cidr.CIDR{net2},
 	})
 	c.Assert(err, check.IsNil)
 
-	foundRoute, err = linuxNodeHandler.lookupNodeRoute(net1)
-	c.Assert(err, check.IsNil)
-	c.Assert(foundRoute, check.IsNil)
+	if s.enableIPv4 {
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(net1)
+		c.Assert(err, check.IsNil)
+		c.Assert(foundRoute, check.IsNil)
+	}
 
-	foundRoute, err = linuxNodeHandler.lookupNodeRoute(net2)
-	c.Assert(err, check.IsNil)
-	c.Assert(foundRoute, check.Not(check.IsNil))
+	if s.enableIPv6 {
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(net2)
+		c.Assert(err, check.IsNil)
+		c.Assert(foundRoute, check.Not(check.IsNil))
+	}
 }
 
-func (s *linuxPrivilegedTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
+func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 	ip4Alloc1 := cidr.MustParseCIDR("5.5.5.0/24")
 	ip4Alloc2 := cidr.MustParseCIDR("6.6.6.0/24")
 	ip6Alloc1 := cidr.MustParseCIDR("2001:aaaa::/96")
@@ -281,8 +369,8 @@ func (s *linuxPrivilegedTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing).(*linuxNodeHandler)
 	c.Assert(linuxNodeHandler, check.Not(check.IsNil))
 	nodeConfig := datapath.LocalNodeConfiguration{
-		EnableIPv6:          true,
-		EnableIPv4:          true,
+		EnableIPv4:          s.enableIPv4,
+		EnableIPv6:          s.enableIPv6,
 		EnableEncapsulation: true,
 	}
 
@@ -295,27 +383,37 @@ func (s *linuxPrivilegedTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 		IPAddresses: []node.Address{
 			{IP: externalNodeIP1, Type: nodeaddressing.NodeInternalIP},
 		},
-		IPv4AllocCIDR: ip4Alloc1,
-		IPv6AllocCIDR: ip6Alloc1,
 	}
+
+	if s.enableIPv4 {
+		nodev1.IPv4AllocCIDR = ip4Alloc1
+	}
+	if s.enableIPv6 {
+		nodev1.IPv6AllocCIDR = ip6Alloc1
+	}
+
 	err = linuxNodeHandler.NodeAdd(nodev1)
 	c.Assert(err, check.IsNil)
 
-	underlayIP, err := tunnel.TunnelMap.GetTunnelEndpoint(ip4Alloc1.IP)
-	c.Assert(err, check.IsNil)
-	c.Assert(underlayIP.Equal(externalNodeIP1), check.Equals, true)
+	if s.enableIPv4 {
+		underlayIP, err := tunnel.TunnelMap.GetTunnelEndpoint(ip4Alloc1.IP)
+		c.Assert(err, check.IsNil)
+		c.Assert(underlayIP.Equal(externalNodeIP1), check.Equals, true)
 
-	underlayIP, err = tunnel.TunnelMap.GetTunnelEndpoint(ip6Alloc1.IP)
-	c.Assert(err, check.IsNil)
-	c.Assert(underlayIP.Equal(externalNodeIP1), check.Equals, true)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc1)
+		c.Assert(err, check.IsNil)
+		c.Assert(foundRoute, check.Not(check.IsNil))
+	}
 
-	foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc1)
-	c.Assert(err, check.IsNil)
-	c.Assert(foundRoute, check.Not(check.IsNil))
+	if s.enableIPv6 {
+		underlayIP, err := tunnel.TunnelMap.GetTunnelEndpoint(ip6Alloc1.IP)
+		c.Assert(err, check.IsNil)
+		c.Assert(underlayIP.Equal(externalNodeIP1), check.Equals, true)
 
-	foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip6Alloc1)
-	c.Assert(err, check.IsNil)
-	c.Assert(foundRoute, check.Not(check.IsNil))
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc1)
+		c.Assert(err, check.IsNil)
+		c.Assert(foundRoute, check.Not(check.IsNil))
+	}
 
 	// nodev2: ip4Alloc1, ip6alloc1 => externalNodeIP2
 	nodev2 := node.Node{
@@ -323,28 +421,38 @@ func (s *linuxPrivilegedTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 		IPAddresses: []node.Address{
 			{IP: externalNodeIP2, Type: nodeaddressing.NodeInternalIP},
 		},
-		IPv4AllocCIDR: ip4Alloc1,
-		IPv6AllocCIDR: ip6Alloc1,
 	}
+
+	if s.enableIPv4 {
+		nodev2.IPv4AllocCIDR = ip4Alloc1
+	}
+	if s.enableIPv6 {
+		nodev2.IPv6AllocCIDR = ip6Alloc1
+	}
+
 	err = linuxNodeHandler.NodeUpdate(nodev1, nodev2)
 	c.Assert(err, check.IsNil)
 
 	// alloc range v1 should map to underlay2
-	underlayIP, err = tunnel.TunnelMap.GetTunnelEndpoint(ip4Alloc1.IP)
-	c.Assert(err, check.IsNil)
-	c.Assert(underlayIP.Equal(externalNodeIP2), check.Equals, true)
+	if s.enableIPv4 {
+		underlayIP, err := tunnel.TunnelMap.GetTunnelEndpoint(ip4Alloc1.IP)
+		c.Assert(err, check.IsNil)
+		c.Assert(underlayIP.Equal(externalNodeIP2), check.Equals, true)
 
-	underlayIP, err = tunnel.TunnelMap.GetTunnelEndpoint(ip6Alloc1.IP)
-	c.Assert(err, check.IsNil)
-	c.Assert(underlayIP.Equal(externalNodeIP2), check.Equals, true)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc1)
+		c.Assert(err, check.IsNil)
+		c.Assert(foundRoute, check.Not(check.IsNil))
+	}
 
-	foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip4Alloc1)
-	c.Assert(err, check.IsNil)
-	c.Assert(foundRoute, check.Not(check.IsNil))
+	if s.enableIPv6 {
+		underlayIP, err := tunnel.TunnelMap.GetTunnelEndpoint(ip6Alloc1.IP)
+		c.Assert(err, check.IsNil)
+		c.Assert(underlayIP.Equal(externalNodeIP2), check.Equals, true)
 
-	foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip6Alloc1)
-	c.Assert(err, check.IsNil)
-	c.Assert(foundRoute, check.Not(check.IsNil))
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc1)
+		c.Assert(err, check.IsNil)
+		c.Assert(foundRoute, check.Not(check.IsNil))
+	}
 
 	// nodev3: ip4Alloc2, ip6alloc2 => externalNodeIP1
 	nodev3 := node.Node{
@@ -352,45 +460,58 @@ func (s *linuxPrivilegedTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 		IPAddresses: []node.Address{
 			{IP: externalNodeIP1, Type: nodeaddressing.NodeInternalIP},
 		},
-		IPv4AllocCIDR: ip4Alloc2,
-		IPv6AllocCIDR: ip6Alloc2,
 	}
+
+	if s.enableIPv4 {
+		nodev3.IPv4AllocCIDR = ip4Alloc2
+	}
+	if s.enableIPv6 {
+		nodev3.IPv6AllocCIDR = ip6Alloc2
+	}
+
 	err = linuxNodeHandler.NodeUpdate(nodev2, nodev3)
 	c.Assert(err, check.IsNil)
 
 	// alloc range v1 should fail
-	underlayIP, err = tunnel.TunnelMap.GetTunnelEndpoint(ip4Alloc1.IP)
+	underlayIP, err := tunnel.TunnelMap.GetTunnelEndpoint(ip4Alloc1.IP)
 	c.Assert(err, check.Not(check.IsNil))
 
 	underlayIP, err = tunnel.TunnelMap.GetTunnelEndpoint(ip6Alloc1.IP)
 	c.Assert(err, check.Not(check.IsNil))
 
-	// alloc range v2 should map to underlay1
-	underlayIP, err = tunnel.TunnelMap.GetTunnelEndpoint(ip4Alloc2.IP)
-	c.Assert(err, check.IsNil)
-	c.Assert(underlayIP.Equal(externalNodeIP1), check.Equals, true)
+	if s.enableIPv4 {
+		// alloc range v2 should map to underlay1
+		underlayIP, err := tunnel.TunnelMap.GetTunnelEndpoint(ip4Alloc2.IP)
+		c.Assert(err, check.IsNil)
+		c.Assert(underlayIP.Equal(externalNodeIP1), check.Equals, true)
 
-	underlayIP, err = tunnel.TunnelMap.GetTunnelEndpoint(ip6Alloc2.IP)
-	c.Assert(err, check.IsNil)
-	c.Assert(underlayIP.Equal(externalNodeIP1), check.Equals, true)
+		// node routes for alloc1 ranges should be gone
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc1)
+		c.Assert(err, check.IsNil)
+		c.Assert(foundRoute, check.IsNil)
 
-	// node routes for alloc1 ranges should be gone
-	foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip4Alloc1)
-	c.Assert(err, check.IsNil)
-	c.Assert(foundRoute, check.IsNil)
+		// node routes for alloc2 ranges should have been installed
+		foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip4Alloc2)
+		c.Assert(err, check.IsNil)
+		c.Assert(foundRoute, check.Not(check.IsNil))
+	}
 
-	foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip6Alloc1)
-	c.Assert(err, check.IsNil)
-	c.Assert(foundRoute, check.IsNil)
+	if s.enableIPv6 {
+		// alloc range v2 should map to underlay1
+		underlayIP, err = tunnel.TunnelMap.GetTunnelEndpoint(ip6Alloc2.IP)
+		c.Assert(err, check.IsNil)
+		c.Assert(underlayIP.Equal(externalNodeIP1), check.Equals, true)
 
-	// node routes for alloc2 ranges should have been installed
-	foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip4Alloc2)
-	c.Assert(err, check.IsNil)
-	c.Assert(foundRoute, check.Not(check.IsNil))
+		// node routes for alloc1 ranges should be gone
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc1)
+		c.Assert(err, check.IsNil)
+		c.Assert(foundRoute, check.IsNil)
 
-	foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip6Alloc2)
-	c.Assert(err, check.IsNil)
-	c.Assert(foundRoute, check.Not(check.IsNil))
+		// node routes for alloc2 ranges should have been installed
+		foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip6Alloc2)
+		c.Assert(err, check.IsNil)
+		c.Assert(foundRoute, check.Not(check.IsNil))
+	}
 
 	// nodev4: stop announcing CIDRs
 	nodev4 := node.Node{
@@ -409,14 +530,19 @@ func (s *linuxPrivilegedTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 	underlayIP, err = tunnel.TunnelMap.GetTunnelEndpoint(ip6Alloc2.IP)
 	c.Assert(err, check.Not(check.IsNil))
 
-	// node routes for alloc2 ranges should be gone
-	foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip4Alloc2)
-	c.Assert(err, check.IsNil)
-	c.Assert(foundRoute, check.IsNil)
+	if s.enableIPv4 {
+		// node routes for alloc2 ranges should be gone
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc2)
+		c.Assert(err, check.IsNil)
+		c.Assert(foundRoute, check.IsNil)
+	}
 
-	foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip6Alloc2)
-	c.Assert(err, check.IsNil)
-	c.Assert(foundRoute, check.IsNil)
+	if s.enableIPv6 {
+		// node routes for alloc2 ranges should be gone
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc2)
+		c.Assert(err, check.IsNil)
+		c.Assert(foundRoute, check.IsNil)
+	}
 
 	// nodev5: re-announce CIDRs
 	nodev5 := node.Node{
@@ -424,29 +550,41 @@ func (s *linuxPrivilegedTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 		IPAddresses: []node.Address{
 			{IP: externalNodeIP1, Type: nodeaddressing.NodeInternalIP},
 		},
-		IPv4AllocCIDR: ip4Alloc2,
-		IPv6AllocCIDR: ip6Alloc2,
 	}
+
+	if s.enableIPv4 {
+		nodev5.IPv4AllocCIDR = ip4Alloc2
+	}
+	if s.enableIPv6 {
+		nodev5.IPv6AllocCIDR = ip6Alloc2
+	}
+
 	err = linuxNodeHandler.NodeUpdate(nodev4, nodev5)
 	c.Assert(err, check.IsNil)
 
-	// alloc range v2 should map to underlay1
-	underlayIP, err = tunnel.TunnelMap.GetTunnelEndpoint(ip4Alloc2.IP)
-	c.Assert(err, check.IsNil)
-	c.Assert(underlayIP.Equal(externalNodeIP1), check.Equals, true)
+	if s.enableIPv4 {
+		// alloc range v2 should map to underlay1
+		underlayIP, err := tunnel.TunnelMap.GetTunnelEndpoint(ip4Alloc2.IP)
+		c.Assert(err, check.IsNil)
+		c.Assert(underlayIP.Equal(externalNodeIP1), check.Equals, true)
 
-	underlayIP, err = tunnel.TunnelMap.GetTunnelEndpoint(ip6Alloc2.IP)
-	c.Assert(err, check.IsNil)
-	c.Assert(underlayIP.Equal(externalNodeIP1), check.Equals, true)
+		// node routes for alloc2 ranges should have been installed
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc2)
+		c.Assert(err, check.IsNil)
+		c.Assert(foundRoute, check.Not(check.IsNil))
+	}
 
-	// node routes for alloc2 ranges should have been installed
-	foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip4Alloc2)
-	c.Assert(err, check.IsNil)
-	c.Assert(foundRoute, check.Not(check.IsNil))
+	if s.enableIPv6 {
+		// alloc range v2 should map to underlay1
+		underlayIP, err := tunnel.TunnelMap.GetTunnelEndpoint(ip6Alloc2.IP)
+		c.Assert(err, check.IsNil)
+		c.Assert(underlayIP.Equal(externalNodeIP1), check.Equals, true)
 
-	foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip6Alloc2)
-	c.Assert(err, check.IsNil)
-	c.Assert(foundRoute, check.Not(check.IsNil))
+		// node routes for alloc2 ranges should have been installed
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc2)
+		c.Assert(err, check.IsNil)
+		c.Assert(foundRoute, check.Not(check.IsNil))
+	}
 
 	// delete nodev5
 	err = linuxNodeHandler.NodeDelete(nodev5)
@@ -466,17 +604,22 @@ func (s *linuxPrivilegedTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 	underlayIP, err = tunnel.TunnelMap.GetTunnelEndpoint(ip6Alloc2.IP)
 	c.Assert(err, check.Not(check.IsNil))
 
-	// node routes for alloc2 ranges should be gone
-	foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip4Alloc2)
-	c.Assert(err, check.IsNil)
-	c.Assert(foundRoute, check.IsNil)
+	if s.enableIPv4 {
+		// node routes for alloc2 ranges should be gone
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc2)
+		c.Assert(err, check.IsNil)
+		c.Assert(foundRoute, check.IsNil)
+	}
 
-	foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip6Alloc2)
-	c.Assert(err, check.IsNil)
-	c.Assert(foundRoute, check.IsNil)
+	if s.enableIPv6 {
+		// node routes for alloc2 ranges should be gone
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc2)
+		c.Assert(err, check.IsNil)
+		c.Assert(foundRoute, check.IsNil)
+	}
 }
 
-func (s *linuxPrivilegedTestSuite) TestNodeUpdateDirectRouting(c *check.C) {
+func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(c *check.C) {
 	ip4Alloc1 := cidr.MustParseCIDR("5.5.5.0/24")
 	ip4Alloc2 := cidr.MustParseCIDR("6.6.6.0/24")
 
@@ -499,7 +642,8 @@ func (s *linuxPrivilegedTestSuite) TestNodeUpdateDirectRouting(c *check.C) {
 	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing).(*linuxNodeHandler)
 	c.Assert(linuxNodeHandler, check.Not(check.IsNil))
 	nodeConfig := datapath.LocalNodeConfiguration{
-		EnableIPv4:              true,
+		EnableIPv4:              s.enableIPv4,
+		EnableIPv6:              s.enableIPv6,
 		EnableAutoDirectRouting: true,
 	}
 
@@ -519,7 +663,11 @@ func (s *linuxPrivilegedTestSuite) TestNodeUpdateDirectRouting(c *check.C) {
 
 	foundRoutes, err := linuxNodeHandler.lookupDirectRoute(ip4Alloc1, externalNode1IP4v1)
 	c.Assert(err, check.IsNil)
-	c.Assert(len(foundRoutes), check.Equals, 1)
+	if s.enableIPv4 {
+		c.Assert(len(foundRoutes), check.Equals, 1)
+	} else {
+		c.Assert(len(foundRoutes), check.Equals, 0)
+	}
 
 	// nodev2: ip4Alloc1 => externalNodeIP2
 	nodev2 := node.Node{
@@ -534,7 +682,11 @@ func (s *linuxPrivilegedTestSuite) TestNodeUpdateDirectRouting(c *check.C) {
 
 	foundRoutes, err = linuxNodeHandler.lookupDirectRoute(ip4Alloc1, externalNode1IP4v2)
 	c.Assert(err, check.IsNil)
-	c.Assert(len(foundRoutes), check.Equals, 1)
+	if s.enableIPv4 {
+		c.Assert(len(foundRoutes), check.Equals, 1)
+	} else {
+		c.Assert(len(foundRoutes), check.Equals, 0)
+	}
 
 	// nodev3: ip4Alloc2 => externalNodeIP2
 	nodev3 := node.Node{
@@ -550,12 +702,16 @@ func (s *linuxPrivilegedTestSuite) TestNodeUpdateDirectRouting(c *check.C) {
 	// node routes for alloc1 ranges should be gone
 	foundRoutes, err = linuxNodeHandler.lookupDirectRoute(ip4Alloc1, externalNode1IP4v2)
 	c.Assert(err, check.IsNil)
-	c.Assert(len(foundRoutes), check.Equals, 0)
+	c.Assert(len(foundRoutes), check.Equals, 0) // route should not exist regardless whether ipv4 is enabled or not
 
 	// node routes for alloc2 ranges should have been installed
 	foundRoutes, err = linuxNodeHandler.lookupDirectRoute(ip4Alloc2, externalNode1IP4v2)
 	c.Assert(err, check.IsNil)
-	c.Assert(len(foundRoutes), check.Equals, 1)
+	if s.enableIPv4 {
+		c.Assert(len(foundRoutes), check.Equals, 1)
+	} else {
+		c.Assert(len(foundRoutes), check.Equals, 0)
+	}
 
 	// nodev4: no longer announce CIDR
 	nodev4 := node.Node{
@@ -586,7 +742,11 @@ func (s *linuxPrivilegedTestSuite) TestNodeUpdateDirectRouting(c *check.C) {
 	// node routes for alloc2 ranges should have been removed
 	foundRoutes, err = linuxNodeHandler.lookupDirectRoute(ip4Alloc2, externalNode1IP4v2)
 	c.Assert(err, check.IsNil)
-	c.Assert(len(foundRoutes), check.Equals, 1)
+	if s.enableIPv4 {
+		c.Assert(len(foundRoutes), check.Equals, 1)
+	} else {
+		c.Assert(len(foundRoutes), check.Equals, 0)
+	}
 
 	// delete nodev5
 	err = linuxNodeHandler.NodeDelete(nodev5)
@@ -595,10 +755,10 @@ func (s *linuxPrivilegedTestSuite) TestNodeUpdateDirectRouting(c *check.C) {
 	// node routes for alloc2 ranges should be gone
 	foundRoutes, err = linuxNodeHandler.lookupDirectRoute(ip4Alloc2, externalNode1IP4v2)
 	c.Assert(err, check.IsNil)
-	c.Assert(len(foundRoutes), check.Equals, 0)
+	c.Assert(len(foundRoutes), check.Equals, 0) // route should not exist regardless whether ipv4 is enabled or not
 }
 
-func (s *linuxPrivilegedTestSuite) TestAgentRestartOptionChanges(c *check.C) {
+func (s *linuxPrivilegedBaseTestSuite) TestAgentRestartOptionChanges(c *check.C) {
 	ip4Alloc1 := cidr.MustParseCIDR("5.5.5.0/24")
 	ip6Alloc1 := cidr.MustParseCIDR("2001:aaaa::/96")
 	underlayIP := net.ParseIP("4.4.4.4")
@@ -607,8 +767,8 @@ func (s *linuxPrivilegedTestSuite) TestAgentRestartOptionChanges(c *check.C) {
 	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing).(*linuxNodeHandler)
 	c.Assert(linuxNodeHandler, check.Not(check.IsNil))
 	nodeConfig := datapath.LocalNodeConfiguration{
-		EnableIPv6:          true,
-		EnableIPv4:          true,
+		EnableIPv4:          s.enableIPv4,
+		EnableIPv6:          s.enableIPv6,
 		EnableEncapsulation: true,
 	}
 
@@ -620,17 +780,28 @@ func (s *linuxPrivilegedTestSuite) TestAgentRestartOptionChanges(c *check.C) {
 		IPAddresses: []node.Address{
 			{IP: underlayIP, Type: nodeaddressing.NodeInternalIP},
 		},
-		IPv4AllocCIDR: ip4Alloc1,
-		IPv6AllocCIDR: ip6Alloc1,
 	}
+
+	if s.enableIPv6 {
+		nodev1.IPv6AllocCIDR = ip6Alloc1
+	}
+
+	if s.enableIPv4 {
+		nodev1.IPv4AllocCIDR = ip4Alloc1
+	}
+
 	err = linuxNodeHandler.NodeAdd(nodev1)
 	c.Assert(err, check.IsNil)
 
 	// tunnel map entries must exist
-	_, err = tunnel.TunnelMap.GetTunnelEndpoint(ip4Alloc1.IP)
-	c.Assert(err, check.IsNil)
-	_, err = tunnel.TunnelMap.GetTunnelEndpoint(ip6Alloc1.IP)
-	c.Assert(err, check.IsNil)
+	if s.enableIPv4 {
+		_, err = tunnel.TunnelMap.GetTunnelEndpoint(ip4Alloc1.IP)
+		c.Assert(err, check.IsNil)
+	}
+	if s.enableIPv6 {
+		_, err = tunnel.TunnelMap.GetTunnelEndpoint(ip6Alloc1.IP)
+		c.Assert(err, check.IsNil)
+	}
 
 	// Simulate agent restart with address families disables
 	err = linuxNodeHandler.NodeConfigurationChanged(datapath.LocalNodeConfiguration{
@@ -652,8 +823,8 @@ func (s *linuxPrivilegedTestSuite) TestAgentRestartOptionChanges(c *check.C) {
 
 	// Simulate agent restart with address families enabled again
 	err = linuxNodeHandler.NodeConfigurationChanged(datapath.LocalNodeConfiguration{
-		EnableIPv6:          true,
-		EnableIPv4:          true,
+		EnableIPv4:          s.enableIPv4,
+		EnableIPv6:          s.enableIPv6,
 		EnableEncapsulation: true,
 	})
 	c.Assert(err, check.IsNil)
@@ -663,16 +834,20 @@ func (s *linuxPrivilegedTestSuite) TestAgentRestartOptionChanges(c *check.C) {
 	c.Assert(err, check.IsNil)
 
 	// tunnel map entries must exist
-	_, err = tunnel.TunnelMap.GetTunnelEndpoint(ip4Alloc1.IP)
-	c.Assert(err, check.IsNil)
-	_, err = tunnel.TunnelMap.GetTunnelEndpoint(ip6Alloc1.IP)
-	c.Assert(err, check.IsNil)
+	if s.enableIPv4 {
+		_, err = tunnel.TunnelMap.GetTunnelEndpoint(ip4Alloc1.IP)
+		c.Assert(err, check.IsNil)
+	}
+	if s.enableIPv6 {
+		_, err = tunnel.TunnelMap.GetTunnelEndpoint(ip6Alloc1.IP)
+		c.Assert(err, check.IsNil)
+	}
 
 	err = linuxNodeHandler.NodeDelete(nodev1)
 	c.Assert(err, check.IsNil)
 }
 
-func (s *linuxPrivilegedTestSuite) benchmarkNodeUpdate(c *check.C, config datapath.LocalNodeConfiguration) {
+func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeUpdate(c *check.C, config datapath.LocalNodeConfiguration) {
 	ip4Alloc1 := cidr.MustParseCIDR("5.5.5.0/24")
 	ip4Alloc2 := cidr.MustParseCIDR("6.6.6.0/24")
 	ip6Alloc1 := cidr.MustParseCIDR("2001:aaaa::/96")
@@ -686,22 +861,45 @@ func (s *linuxPrivilegedTestSuite) benchmarkNodeUpdate(c *check.C, config datapa
 	c.Assert(err, check.IsNil)
 
 	nodev1 := node.Node{
-		Name: "node1",
-		IPAddresses: []node.Address{
-			{IP: s.nodeAddressing.IPv4().PrimaryExternal(), Type: nodeaddressing.NodeInternalIP},
-			{IP: s.nodeAddressing.IPv6().PrimaryExternal(), Type: nodeaddressing.NodeInternalIP},
-		},
-		IPv4AllocCIDR: ip4Alloc1,
-		IPv6AllocCIDR: ip6Alloc1,
+		Name:        "node1",
+		IPAddresses: []node.Address{},
 	}
+
+	if s.enableIPv4 {
+		nodev1.IPAddresses = append(nodev1.IPAddresses, node.Address{
+			IP:   s.nodeAddressing.IPv4().PrimaryExternal(),
+			Type: nodeaddressing.NodeInternalIP,
+		})
+		nodev1.IPv4AllocCIDR = ip4Alloc1
+	}
+
+	if s.enableIPv6 {
+		nodev1.IPAddresses = append(nodev1.IPAddresses, node.Address{
+			IP:   s.nodeAddressing.IPv6().PrimaryExternal(),
+			Type: nodeaddressing.NodeInternalIP,
+		})
+		nodev1.IPv6AllocCIDR = ip6Alloc1
+	}
+
 	nodev2 := node.Node{
-		Name: "node1",
-		IPAddresses: []node.Address{
-			{IP: s.nodeAddressing.IPv4().PrimaryExternal(), Type: nodeaddressing.NodeInternalIP},
-			{IP: s.nodeAddressing.IPv6().PrimaryExternal(), Type: nodeaddressing.NodeInternalIP},
-		},
-		IPv4AllocCIDR: ip4Alloc2,
-		IPv6AllocCIDR: ip6Alloc2,
+		Name:        "node1",
+		IPAddresses: []node.Address{},
+	}
+
+	if s.enableIPv4 {
+		nodev2.IPAddresses = append(nodev2.IPAddresses, node.Address{
+			IP:   s.nodeAddressing.IPv4().PrimaryExternal(),
+			Type: nodeaddressing.NodeInternalIP,
+		})
+		nodev2.IPv4AllocCIDR = ip4Alloc2
+	}
+
+	if s.enableIPv6 {
+		nodev2.IPAddresses = append(nodev2.IPAddresses, node.Address{
+			IP:   s.nodeAddressing.IPv6().PrimaryExternal(),
+			Type: nodeaddressing.NodeInternalIP,
+		})
+		nodev2.IPv6AllocCIDR = ip6Alloc2
 	}
 
 	err = linuxNodeHandler.NodeAdd(nodev1)
@@ -725,95 +923,39 @@ func (s *linuxPrivilegedTestSuite) benchmarkNodeUpdate(c *check.C, config datapa
 	c.Assert(err, check.IsNil)
 }
 
-func (s *linuxPrivilegedTestSuite) BenchmarkNodeUpdateAll(c *check.C) {
+func (s *linuxPrivilegedBaseTestSuite) BenchmarkNodeUpdate(c *check.C) {
 	s.benchmarkNodeUpdate(c, datapath.LocalNodeConfiguration{
-		EnableIPv6: true,
-		EnableIPv4: true,
+		EnableIPv4: s.enableIPv4,
+		EnableIPv6: s.enableIPv6,
 	})
 }
 
-func (s *linuxPrivilegedTestSuite) BenchmarkNodeUpdateIPv4(c *check.C) {
+func (s *linuxPrivilegedBaseTestSuite) BenchmarkNodeUpdateEncap(c *check.C) {
 	s.benchmarkNodeUpdate(c, datapath.LocalNodeConfiguration{
-		EnableIPv4: true,
-	})
-}
-
-func (s *linuxPrivilegedTestSuite) BenchmarkNodeUpdateIPv6(c *check.C) {
-	s.benchmarkNodeUpdate(c, datapath.LocalNodeConfiguration{
-		EnableIPv6: true,
-	})
-}
-
-func (s *linuxPrivilegedTestSuite) BenchmarkNodeUpdateEncapAll(c *check.C) {
-	s.benchmarkNodeUpdate(c, datapath.LocalNodeConfiguration{
-		EnableIPv6:          true,
-		EnableIPv4:          true,
+		EnableIPv4:          s.enableIPv4,
+		EnableIPv6:          s.enableIPv6,
 		EnableEncapsulation: true,
 	})
 }
 
-func (s *linuxPrivilegedTestSuite) BenchmarkNodeUpdateEncapIPv4(c *check.C) {
+func (s *linuxPrivilegedBaseTestSuite) BenchmarkNodeUpdateEncapSingleClusterRoute(c *check.C) {
 	s.benchmarkNodeUpdate(c, datapath.LocalNodeConfiguration{
-		EnableIPv4:          true,
-		EnableEncapsulation: true,
-	})
-}
-
-func (s *linuxPrivilegedTestSuite) BenchmarkNodeUpdateEncapIPv6(c *check.C) {
-	s.benchmarkNodeUpdate(c, datapath.LocalNodeConfiguration{
-		EnableIPv6:          true,
-		EnableEncapsulation: true,
-	})
-}
-
-func (s *linuxPrivilegedTestSuite) BenchmarkNodeUpdateEncapSingleClusterRouteAll(c *check.C) {
-	s.benchmarkNodeUpdate(c, datapath.LocalNodeConfiguration{
-		EnableIPv6:            true,
-		EnableIPv4:            true,
+		EnableIPv4:            s.enableIPv4,
+		EnableIPv6:            s.enableIPv6,
 		EnableEncapsulation:   true,
 		UseSingleClusterRoute: true,
 	})
 }
 
-func (s *linuxPrivilegedTestSuite) BenchmarkNodeUpdateEncapSingleClusterRouteIPv4(c *check.C) {
+func (s *linuxPrivilegedBaseTestSuite) BenchmarkNodeUpdateDirectRoute(c *check.C) {
 	s.benchmarkNodeUpdate(c, datapath.LocalNodeConfiguration{
-		EnableIPv4:            true,
-		EnableEncapsulation:   true,
-		UseSingleClusterRoute: true,
-	})
-}
-
-func (s *linuxPrivilegedTestSuite) BenchmarkNodeUpdateEncapSingleClusterRouteIPv6(c *check.C) {
-	s.benchmarkNodeUpdate(c, datapath.LocalNodeConfiguration{
-		EnableIPv6:            true,
-		EnableEncapsulation:   true,
-		UseSingleClusterRoute: true,
-	})
-}
-
-func (s *linuxPrivilegedTestSuite) BenchmarkNodeUpdateDirectRouteAll(c *check.C) {
-	s.benchmarkNodeUpdate(c, datapath.LocalNodeConfiguration{
-		EnableIPv6:              true,
-		EnableIPv4:              true,
+		EnableIPv4:              s.enableIPv4,
+		EnableIPv6:              s.enableIPv6,
 		EnableAutoDirectRouting: true,
 	})
 }
 
-func (s *linuxPrivilegedTestSuite) BenchmarkNodeUpdateDirectRouteIPv4(c *check.C) {
-	s.benchmarkNodeUpdate(c, datapath.LocalNodeConfiguration{
-		EnableIPv4:              true,
-		EnableAutoDirectRouting: true,
-	})
-}
-
-func (s *linuxPrivilegedTestSuite) BenchmarkNodeUpdateDirectRouteIPv6(c *check.C) {
-	s.benchmarkNodeUpdate(c, datapath.LocalNodeConfiguration{
-		EnableIPv6:              true,
-		EnableAutoDirectRouting: true,
-	})
-}
-
-func (s *linuxPrivilegedTestSuite) benchmarkNodeUpdateNOP(c *check.C, config datapath.LocalNodeConfiguration) {
+func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeUpdateNOP(c *check.C, config datapath.LocalNodeConfiguration) {
 	ip4Alloc1 := cidr.MustParseCIDR("5.5.5.0/24")
 	ip6Alloc1 := cidr.MustParseCIDR("2001:aaaa::/96")
 
@@ -825,13 +967,24 @@ func (s *linuxPrivilegedTestSuite) benchmarkNodeUpdateNOP(c *check.C, config dat
 	c.Assert(err, check.IsNil)
 
 	nodev1 := node.Node{
-		Name: "node1",
-		IPAddresses: []node.Address{
-			{IP: s.nodeAddressing.IPv4().PrimaryExternal(), Type: nodeaddressing.NodeInternalIP},
-			{IP: s.nodeAddressing.IPv6().PrimaryExternal(), Type: nodeaddressing.NodeInternalIP},
-		},
-		IPv4AllocCIDR: ip4Alloc1,
-		IPv6AllocCIDR: ip6Alloc1,
+		Name:        "node1",
+		IPAddresses: []node.Address{},
+	}
+
+	if s.enableIPv4 {
+		nodev1.IPAddresses = append(nodev1.IPAddresses, node.Address{
+			IP:   s.nodeAddressing.IPv4().PrimaryExternal(),
+			Type: nodeaddressing.NodeInternalIP,
+		})
+		nodev1.IPv4AllocCIDR = ip4Alloc1
+	}
+
+	if s.enableIPv6 {
+		nodev1.IPAddresses = append(nodev1.IPAddresses, node.Address{
+			IP:   s.nodeAddressing.IPv6().PrimaryExternal(),
+			Type: nodeaddressing.NodeInternalIP,
+		})
+		nodev1.IPv6AllocCIDR = ip6Alloc1
 	}
 
 	err = linuxNodeHandler.NodeAdd(nodev1)
@@ -848,30 +1001,30 @@ func (s *linuxPrivilegedTestSuite) benchmarkNodeUpdateNOP(c *check.C, config dat
 	c.Assert(err, check.IsNil)
 }
 
-func (s *linuxPrivilegedTestSuite) BenchmarkNoChangeNodeUpdate(c *check.C) {
+func (s *linuxPrivilegedBaseTestSuite) BenchmarkNoChangeNodeUpdate(c *check.C) {
 	s.benchmarkNodeUpdateNOP(c, datapath.LocalNodeConfiguration{
-		EnableIPv6: true,
-		EnableIPv4: true,
+		EnableIPv4: s.enableIPv4,
+		EnableIPv6: s.enableIPv6,
 	})
 }
 
-func (s *linuxPrivilegedTestSuite) BenchmarkNoChangeNodeUpdateEncapAll(c *check.C) {
+func (s *linuxPrivilegedBaseTestSuite) BenchmarkNoChangeNodeUpdateEncapAll(c *check.C) {
 	s.benchmarkNodeUpdateNOP(c, datapath.LocalNodeConfiguration{
-		EnableIPv6:          true,
-		EnableIPv4:          true,
+		EnableIPv4:          s.enableIPv4,
+		EnableIPv6:          s.enableIPv6,
 		EnableEncapsulation: true,
 	})
 }
 
-func (s *linuxPrivilegedTestSuite) BenchmarkNoChangeNodeUpdateDirectRouteAll(c *check.C) {
+func (s *linuxPrivilegedBaseTestSuite) BenchmarkNoChangeNodeUpdateDirectRouteAll(c *check.C) {
 	s.benchmarkNodeUpdateNOP(c, datapath.LocalNodeConfiguration{
-		EnableIPv6:              true,
-		EnableIPv4:              true,
+		EnableIPv4:              s.enableIPv4,
+		EnableIPv6:              s.enableIPv6,
 		EnableAutoDirectRouting: true,
 	})
 }
 
-func (s *linuxPrivilegedTestSuite) benchmarkNodeValidateImplementation(c *check.C, config datapath.LocalNodeConfiguration) {
+func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeValidateImplementation(c *check.C, config datapath.LocalNodeConfiguration) {
 	ip4Alloc1 := cidr.MustParseCIDR("5.5.5.0/24")
 	ip6Alloc1 := cidr.MustParseCIDR("2001:aaaa::/96")
 
@@ -883,13 +1036,24 @@ func (s *linuxPrivilegedTestSuite) benchmarkNodeValidateImplementation(c *check.
 	c.Assert(err, check.IsNil)
 
 	nodev1 := node.Node{
-		Name: "node1",
-		IPAddresses: []node.Address{
-			{IP: s.nodeAddressing.IPv4().PrimaryExternal(), Type: nodeaddressing.NodeInternalIP},
-			{IP: s.nodeAddressing.IPv6().PrimaryExternal(), Type: nodeaddressing.NodeInternalIP},
-		},
-		IPv4AllocCIDR: ip4Alloc1,
-		IPv6AllocCIDR: ip6Alloc1,
+		Name:        "node1",
+		IPAddresses: []node.Address{},
+	}
+
+	if s.enableIPv4 {
+		nodev1.IPAddresses = append(nodev1.IPAddresses, node.Address{
+			IP:   s.nodeAddressing.IPv4().PrimaryExternal(),
+			Type: nodeaddressing.NodeInternalIP,
+		})
+		nodev1.IPv4AllocCIDR = ip4Alloc1
+	}
+
+	if s.enableIPv6 {
+		nodev1.IPAddresses = append(nodev1.IPAddresses, node.Address{
+			IP:   s.nodeAddressing.IPv6().PrimaryExternal(),
+			Type: nodeaddressing.NodeInternalIP,
+		})
+		nodev1.IPv6AllocCIDR = ip6Alloc1
 	}
 
 	err = linuxNodeHandler.NodeAdd(nodev1)
@@ -906,92 +1070,34 @@ func (s *linuxPrivilegedTestSuite) benchmarkNodeValidateImplementation(c *check.
 	c.Assert(err, check.IsNil)
 }
 
-func (s *linuxPrivilegedTestSuite) BenchmarkNodeValidateImplementationAll(c *check.C) {
+func (s *linuxPrivilegedBaseTestSuite) BenchmarkNodeValidateImplementation(c *check.C) {
 	s.benchmarkNodeValidateImplementation(c, datapath.LocalNodeConfiguration{
-		EnableIPv6: true,
-		EnableIPv4: true,
+		EnableIPv4: s.enableIPv4,
+		EnableIPv6: s.enableIPv6,
 	})
 }
 
-func (s *linuxPrivilegedTestSuite) BenchmarkNodeValidateImplementationIPv4(c *check.C) {
+func (s *linuxPrivilegedBaseTestSuite) BenchmarkNodeValidateImplementationEncap(c *check.C) {
 	s.benchmarkNodeValidateImplementation(c, datapath.LocalNodeConfiguration{
-		EnableIPv6: true,
-		EnableIPv4: true,
-	})
-}
-
-func (s *linuxPrivilegedTestSuite) BenchmarkNodeValidateImplementationIPv6(c *check.C) {
-	s.benchmarkNodeValidateImplementation(c, datapath.LocalNodeConfiguration{
-		EnableIPv6: true,
-		EnableIPv4: true,
-	})
-}
-
-func (s *linuxPrivilegedTestSuite) BenchmarkNodeValidateImplementationEncapAll(c *check.C) {
-	s.benchmarkNodeValidateImplementation(c, datapath.LocalNodeConfiguration{
-		EnableIPv6:          true,
-		EnableIPv4:          true,
+		EnableIPv4:          s.enableIPv4,
+		EnableIPv6:          s.enableIPv6,
 		EnableEncapsulation: true,
 	})
 }
 
-func (s *linuxPrivilegedTestSuite) BenchmarkNodeValidateImplementationEncapIPv4(c *check.C) {
+func (s *linuxPrivilegedBaseTestSuite) BenchmarkNodeValidateImplementationEncapSingleCluster(c *check.C) {
 	s.benchmarkNodeValidateImplementation(c, datapath.LocalNodeConfiguration{
-		EnableIPv4:          true,
-		EnableEncapsulation: true,
-	})
-}
-
-func (s *linuxPrivilegedTestSuite) BenchmarkNodeValidateImplementationEncapIPv6(c *check.C) {
-	s.benchmarkNodeValidateImplementation(c, datapath.LocalNodeConfiguration{
-		EnableIPv6:          true,
-		EnableEncapsulation: true,
-	})
-}
-
-func (s *linuxPrivilegedTestSuite) BenchmarkNodeValidateImplementationEncapSingleClusterxAll(c *check.C) {
-	s.benchmarkNodeValidateImplementation(c, datapath.LocalNodeConfiguration{
-		EnableIPv6:            true,
-		EnableIPv4:            true,
+		EnableIPv4:            s.enableIPv4,
+		EnableIPv6:            s.enableIPv6,
 		EnableEncapsulation:   true,
 		UseSingleClusterRoute: true,
 	})
 }
 
-func (s *linuxPrivilegedTestSuite) BenchmarkNodeValidateImplementationEncapSingleClusterxIPv4(c *check.C) {
+func (s *linuxPrivilegedBaseTestSuite) BenchmarkNodeValidateImplementationDirectRoute(c *check.C) {
 	s.benchmarkNodeValidateImplementation(c, datapath.LocalNodeConfiguration{
-		EnableIPv4:            true,
-		EnableEncapsulation:   true,
-		UseSingleClusterRoute: true,
-	})
-}
-
-func (s *linuxPrivilegedTestSuite) BenchmarkNodeValidateImplementationEncapSingleClusterxIPv6(c *check.C) {
-	s.benchmarkNodeValidateImplementation(c, datapath.LocalNodeConfiguration{
-		EnableIPv6:            true,
-		EnableEncapsulation:   true,
-		UseSingleClusterRoute: true,
-	})
-}
-
-func (s *linuxPrivilegedTestSuite) BenchmarkNodeValidateImplementationDirectRouteAll(c *check.C) {
-	s.benchmarkNodeValidateImplementation(c, datapath.LocalNodeConfiguration{
-		EnableIPv6:              true,
-		EnableIPv4:              true,
-		EnableAutoDirectRouting: true,
-	})
-}
-
-func (s *linuxPrivilegedTestSuite) BenchmarkNodeValidateImplementationDirectRouteIPv4(c *check.C) {
-	s.benchmarkNodeValidateImplementation(c, datapath.LocalNodeConfiguration{
-		EnableIPv4:              true,
-		EnableAutoDirectRouting: true,
-	})
-}
-
-func (s *linuxPrivilegedTestSuite) BenchmarkNodeValidateImplementationDirectRouteIPv6(c *check.C) {
-	s.benchmarkNodeValidateImplementation(c, datapath.LocalNodeConfiguration{
-		EnableIPv6:              true,
+		EnableIPv4:              s.enableIPv4,
+		EnableIPv6:              s.enableIPv6,
 		EnableAutoDirectRouting: true,
 	})
 }
