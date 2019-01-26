@@ -93,16 +93,25 @@ func newNodeDiscovery(manager *nodemanager.Manager, mtuConfig mtu.Configuration)
 func (n *nodeDiscovery) startDiscovery() {
 	n.localNode.Name = node.GetName()
 	n.localNode.Cluster = option.Config.ClusterName
-	n.localNode.IPAddresses = []node.Address{
-		{
-			Type: addressing.NodeInternalIP,
-			IP:   node.GetExternalIPv4(),
-		},
-	}
+	n.localNode.IPAddresses = []node.Address{}
 	n.localNode.IPv4AllocCIDR = node.GetIPv4AllocRange()
 	n.localNode.IPv6AllocCIDR = node.GetIPv6AllocRange()
 	n.localNode.ClusterID = option.Config.ClusterID
 	n.localNode.IPv4GW = node.GetInternalIPv4()
+
+	if node.GetExternalIPv4() != nil {
+		n.localNode.IPAddresses = append(n.localNode.IPAddresses, node.Address{
+			Type: addressing.NodeInternalIP,
+			IP:   node.GetExternalIPv4(),
+		})
+	}
+
+	if node.GetIPv6() != nil {
+		n.localNode.IPAddresses = append(n.localNode.IPAddresses, node.Address{
+			Type: addressing.NodeInternalIP,
+			IP:   node.GetIPv6(),
+		})
+	}
 
 	n.manager.NodeUpdated(n.localNode)
 

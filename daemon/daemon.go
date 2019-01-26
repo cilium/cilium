@@ -709,16 +709,11 @@ func (d *Daemon) createNodeConfigHeaderfile() error {
 	if option.Config.EnableIPv4 {
 		ipv4GW := node.GetInternalIPv4()
 		loopbackIPv4 := node.GetIPv4Loopback()
+		ipv4Range := node.GetIPv4AllocRange()
 		fmt.Fprintf(fw, "#define IPV4_GATEWAY %#x\n", byteorder.HostSliceToNetwork(ipv4GW, reflect.Uint32).(uint32))
 		fmt.Fprintf(fw, "#define IPV4_LOOPBACK %#x\n", byteorder.HostSliceToNetwork(loopbackIPv4, reflect.Uint32).(uint32))
-	} else {
-		// FIXME: Workaround so the bpf program compiles
-		fmt.Fprintf(fw, "#define IPV4_GATEWAY %#x\n", 0)
-		fmt.Fprintf(fw, "#define IPV4_LOOPBACK %#x\n", 0)
+		fmt.Fprintf(fw, "#define IPV4_MASK %#x\n", byteorder.HostSliceToNetwork(ipv4Range.Mask, reflect.Uint32).(uint32))
 	}
-
-	ipv4Range := node.GetIPv4AllocRange()
-	fmt.Fprintf(fw, "#define IPV4_MASK %#x\n", byteorder.HostSliceToNetwork(ipv4Range.Mask, reflect.Uint32).(uint32))
 
 	if nat46Range := option.Config.NAT46Prefix; nat46Range != nil {
 		fw.WriteString(common.FmtDefineAddress("NAT46_PREFIX", nat46Range.IP))
@@ -1242,7 +1237,7 @@ func (d *Daemon) attachExistingInfraContainers() {
 			continue
 		}
 		log.Debugf("Adding endpoint %+v", epModel)
-		err = d.createEndpoint(context.Background(), epModel)
+		ep, err := d.createEndpoint(context.Background(), epModel)
 		if err != nil {
 			log.WithError(err).WithField(logfields.ContainerID, containerID).
 				Warning("Unable to attach existing infra container")
@@ -1250,7 +1245,7 @@ func (d *Daemon) attachExistingInfraContainers() {
 		}
 		log.WithFields(logrus.Fields{
 			logfields.ContainerID: epModel.ContainerID,
-			logfields.EndpointID:  epModel.ID,
+			logfields.EndpointID:  ep.ID,
 		}).Info("Attached BPF program to existing container")
 	}
 }
@@ -1499,10 +1494,18 @@ func (d *Daemon) NewProxyLogRecord(l *logger.LogRecord) error {
 // GetNodeSuffix returns the suffix to be appended to kvstore keys of this
 // agent
 func (d *Daemon) GetNodeSuffix() string {
-	if ip := node.GetExternalIPv4(); ip != nil {
-		return ip.String()
+	var ip net.IP
+
+	switch {
+	case option.Config.EnableIPv4:
+		ip = node.GetExternalIPv4()
+	case option.Config.EnableIPv6:
+		ip = node.GetIPv6()
 	}
 
-	log.Fatal("Node IP not available yet")
-	return "<nil>"
+	if ip == nil {
+		log.Fatal("Node IP not available yet")
+	}
+
+	return ip.String()
 }

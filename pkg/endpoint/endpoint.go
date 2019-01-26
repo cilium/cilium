@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -335,6 +335,11 @@ func (e *Endpoint) HasIpvlanDataPath() bool {
 		return true
 	}
 	return false
+}
+
+// MustGraft returns whether we need full replacement or grafting of object file.
+func (e *Endpoint) MustGraft() bool {
+	return e.HasIpvlanDataPath()
 }
 
 // GetIngressPolicyEnabledLocked returns whether ingress policy enforcement is

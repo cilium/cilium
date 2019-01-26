@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Authors of Cilium
+// Copyright 2017-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -38,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/mtu"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
 
@@ -57,9 +57,6 @@ var (
 
 	// PidfilePath
 	PidfilePath = "health-endpoint.pid"
-
-	// client is used to ping the cilium-health endpoint as a health check.
-	client *healthPkg.Client
 )
 
 func logFromCommand(cmd *exec.Cmd, netns string) error {
@@ -128,18 +125,16 @@ func configureHealthRouting(netns, dev string, addressing *models.NodeAddressing
 	return err
 }
 
+// Client wraps a client to a specific cilium-health endpoint instance, to
+// provide convenience methods such as PingEndpoint().
+type Client struct {
+	*healthPkg.Client
+}
+
 // PingEndpoint attempts to make an API ping request to the local cilium-health
 // endpoint, and returns whether this was successful.
-//
-// This function must only be used from the same goroutine as LaunchAsEndpoint().
-// It is safe to call PingEndpoint() before LaunchAsEndpoint() so long as the
-// goroutine is the same for both calls.
-func PingEndpoint() error {
-	// client is shared with LaunchAsEndpoint().
-	if client == nil {
-		return fmt.Errorf("cilium-health endpoint hasn't yet been initialized")
-	}
-	_, err := client.Restapi.GetHello(nil)
+func (c *Client) PingEndpoint() error {
+	_, err := c.Restapi.GetHello(nil)
 	return err
 }
 
@@ -176,20 +171,13 @@ func CleanupEndpoint() {
 	}
 }
 
-// Annotator is an interface which describes anything which annotates a node
-// with cilium-health metadata.
-type Annotator interface {
-	AnnotateNode(nodeName string, v4CIDR, v6CIDR *cidr.CIDR, v4HealthIP, v6HealthIP, v4CiliumHostIP net.IP) error
-	AnnotatePod(k8sNamespace, k8sPodName, annotationKey, annotationValue string) error
-}
-
 // LaunchAsEndpoint launches the cilium-health agent in a nested network
 // namespace and attaches it to Cilium the same way as any other endpoint,
 // but with special reserved labels.
 //
 // CleanupEndpoint() must be called before calling LaunchAsEndpoint() to ensure
 // cleanup of prior cilium-health endpoint instances.
-func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressing, mtuConfig mtu.Configuration, ip4health, ip6health net.IP) error {
+func LaunchAsEndpoint(owner endpoint.Owner, n *node.Node, mtuConfig mtu.Configuration) (*Client, error) {
 	var (
 		cmd  = launcher.Launcher{}
 		info = &models.EndpointChangeRequest{
@@ -201,22 +189,22 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 		healthIP               net.IP
 	)
 
-	if ip4health != nil {
-		info.Addressing.IPV4 = ip4health.String()
-		ip4WithMask := net.IPNet{IP: ip4health, Mask: defaults.ContainerIPv4Mask}
+	if n.IPv4HealthIP != nil {
+		healthIP = n.IPv4HealthIP
+		info.Addressing.IPV4 = healthIP.String()
+		ip4WithMask := net.IPNet{IP: healthIP, Mask: defaults.ContainerIPv4Mask}
 		ip4Address = ip4WithMask.String()
-		healthIP = ip4health
 	}
 
-	if ip6health != nil {
-		info.Addressing.IPV6 = ip6health.String()
-		ip6WithMask := net.IPNet{IP: ip6health, Mask: defaults.ContainerIPv6Mask}
+	if n.IPv6HealthIP != nil {
+		healthIP = n.IPv6HealthIP
+		info.Addressing.IPV6 = healthIP.String()
+		ip6WithMask := net.IPNet{IP: healthIP, Mask: defaults.ContainerIPv6Mask}
 		ip6Address = ip6WithMask.String()
-		healthIP = ip6health
 	}
 
 	if _, _, err := connector.SetupVethWithNames(vethName, vethPeerName, mtuConfig.GetDeviceMTU(), info); err != nil {
-		return fmt.Errorf("Error while creating veth: %s", err)
+		return nil, fmt.Errorf("Error while creating veth: %s", err)
 	}
 
 	pidfile := filepath.Join(option.Config.StateDir, PidfilePath)
@@ -228,13 +216,13 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 	cmd.SetArgs(args)
 	log.Infof("Spawning health endpoint with arguments %#v", args)
 	if err := cmd.Run(); err != nil {
-		return err
+		return nil, err
 	}
 
 	// Create the endpoint
 	ep, err := endpoint.NewEndpointFromChangeModel(info)
 	if err != nil {
-		return fmt.Errorf("Error while creating endpoint model: %s", err)
+		return nil, fmt.Errorf("Error while creating endpoint model: %s", err)
 	}
 	ep.SetDefaultOpts(option.Config.Opts)
 
@@ -248,28 +236,29 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 			log.WithField("pidfile", pidfile).Debug("cilium-health agent running")
 			break
 		} else if time.Now().After(deadline) {
-			return fmt.Errorf("Endpoint failed to run: %s", err)
+			return nil, fmt.Errorf("Endpoint failed to run: %s", err)
 		} else {
 			time.Sleep(1 * time.Second)
 		}
 	}
 
 	// Set up the endpoint routes
+	hostAddressing := node.GetNodeAddressing()
 	if err = configureHealthRouting(info.ContainerName, vethPeerName, hostAddressing, mtuConfig); err != nil {
-		return fmt.Errorf("Error while configuring routes: %s", err)
+		return nil, fmt.Errorf("Error while configuring routes: %s", err)
 	}
 
 	if err := endpointmanager.AddEndpoint(owner, ep, "Create cilium-health endpoint"); err != nil {
-		return fmt.Errorf("Error while adding endpoint: %s", err)
+		return nil, fmt.Errorf("Error while adding endpoint: %s", err)
 	}
 
 	if err := ep.LockAlive(); err != nil {
-		return err
+		return nil, err
 	}
 	if !ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "initial build of health endpoint") {
 		endpointmanager.Remove(ep)
 		ep.Unlock()
-		return fmt.Errorf("unable to transition health endpoint to WaitingToRegenerate state")
+		return nil, fmt.Errorf("unable to transition health endpoint to WaitingToRegenerate state")
 	}
 	ep.Unlock()
 
@@ -278,15 +267,16 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 	})
 	if !buildSuccessful {
 		endpointmanager.Remove(ep)
-		return fmt.Errorf("unable to build health endpoint")
+		return nil, fmt.Errorf("unable to build health endpoint")
 	}
 
 	// Initialize the health client to talk to this instance. This is why
 	// the caller must limit usage of this package to a single goroutine.
-	client, err = healthPkg.NewClient("tcp://" + net.JoinHostPort(healthIP.String(), fmt.Sprintf("%d", healthDefaults.HTTPPathPort)))
+	client, err := healthPkg.NewClient("tcp://" + net.JoinHostPort(healthIP.String(), fmt.Sprintf("%d", healthDefaults.HTTPPathPort)))
 	if err != nil {
-		return fmt.Errorf("Cannot establish connection to health endpoint: %s", err)
+		return nil, fmt.Errorf("Cannot establish connection to health endpoint: %s", err)
 	}
 	metrics.SubprocessStart.WithLabelValues(ciliumHealth).Inc()
-	return nil
+
+	return &Client{Client: client}, nil
 }

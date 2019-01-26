@@ -77,11 +77,16 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 					IPVersion:         accesslog.VersionIPv4,
 					TransportProtocol: protocol,
 					Timestamp:         time.Now().UTC().Format(time.RFC3339Nano),
-					NodeAddressInfo: accesslog.NodeAddressInfo{
-						IPv4: node.GetExternalIPv4().String(),
-						IPv6: node.GetIPv6().String(),
-					},
+					NodeAddressInfo:   accesslog.NodeAddressInfo{},
 				},
+			}
+
+			if ip := node.GetExternalIPv4(); ip != nil {
+				record.LogRecord.NodeAddressInfo.IPv4 = ip.String()
+			}
+
+			if ip := node.GetIPv6(); ip != nil {
+				record.LogRecord.NodeAddressInfo.IPv6 = ip.String()
 			}
 
 			logger.LogTags.Verdict(accesslog.VerdictForwarded, "DNSPoller")(&record)

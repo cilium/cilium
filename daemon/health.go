@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
 )
@@ -52,22 +51,40 @@ func (d *Daemon) initHealth() {
 		// PIDfiles are referring to PIDs that may be reused. Clean up.
 		pidfile.Remove(filepath.Join(option.Config.StateDir, health.PidfilePath))
 	}
+
+	// Wait for the API, then launch the controller
+	var client *health.Client
+
 	controller.NewManager().UpdateController("cilium-health-ep",
 		controller.ControllerParams{
 			DoFunc: func() error {
-				return d.runCiliumHealthEndpoint(d.nodeDiscovery.localNode)
+				var err error
+
+				if client != nil {
+					err = client.PingEndpoint()
+				}
+				// On the first initialization, or on
+				// error, restart the health EP.
+				if client == nil || err != nil {
+					d.cleanupHealthEndpoint()
+					client, err = health.LaunchAsEndpoint(d, &d.nodeDiscovery.localNode, d.mtuConfig)
+				}
+				return err
 			},
 			StopFunc: func() error {
 				log.Info("Stopping health endpoint")
-				err := health.PingEndpoint()
-				d.cleanupHealthEndpoint(d.nodeDiscovery.localNode)
+				err := client.PingEndpoint()
+				d.cleanupHealthEndpoint()
 				return err
 			},
 			RunInterval: 30 * time.Second,
-		})
+		},
+	)
 }
 
-func (d *Daemon) cleanupHealthEndpoint(localNode node.Node) {
+func (d *Daemon) cleanupHealthEndpoint() {
+	localNode := d.nodeDiscovery.localNode
+
 	// Delete the process
 	health.KillEndpoint()
 
@@ -89,18 +106,4 @@ func (d *Daemon) cleanupHealthEndpoint(localNode node.Node) {
 		}
 	}
 	health.CleanupEndpoint()
-}
-
-// runCiliumHealthEndpoint attempts to contact the cilium-health endpoint, and
-// if it cannot be reached, restarts it.
-func (d *Daemon) runCiliumHealthEndpoint(localNode node.Node) error {
-	// PingEndpoint will always fail the first time (initialization).
-	if err := health.PingEndpoint(); err != nil {
-		log.WithError(err).Warning("health endpoint is unreachable, restarting health endpoint")
-		d.cleanupHealthEndpoint(localNode)
-		addressing := node.GetNodeAddressing()
-		return health.LaunchAsEndpoint(d, addressing, d.mtuConfig,
-			localNode.IPv4HealthIP, localNode.IPv6HealthIP)
-	}
-	return nil
 }

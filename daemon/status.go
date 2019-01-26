@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -68,13 +68,11 @@ func checkLocks(d *Daemon) {
 }
 
 func (d *Daemon) getNodeStatus() *models.ClusterStatus {
-	ipv4 := option.Config.EnableIPv4
-
 	clusterStatus := models.ClusterStatus{
 		Self: d.nodeDiscovery.localNode.Fullname(),
 	}
 	for _, node := range d.nodeDiscovery.manager.GetNodes() {
-		clusterStatus.Nodes = append(clusterStatus.Nodes, node.GetModel(ipv4))
+		clusterStatus.Nodes = append(clusterStatus.Nodes, node.GetModel())
 	}
 	return &clusterStatus
 }
