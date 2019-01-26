@@ -62,14 +62,16 @@ func (s *linuxTestSuite) TestCreateNodeRoute(c *check.C) {
 	nodeHandler := NewNodeHandler(dpConfig, fakeNodeAddressing)
 
 	c1 := cidr.MustParseCIDR("10.10.0.0/16")
-	generatedRoute := nodeHandler.(*linuxNodeHandler).createNodeRoute(c1)
+	generatedRoute, err := nodeHandler.(*linuxNodeHandler).createNodeRoute(c1)
+	c.Assert(err, check.IsNil)
 	c.Assert(generatedRoute.Prefix, checker.DeepEquals, *c1.IPNet)
 	c.Assert(generatedRoute.Device, check.Equals, dpConfig.HostDevice)
 	c.Assert(*generatedRoute.Nexthop, checker.DeepEquals, fakeNodeAddressing.IPv4().Router())
 	c.Assert(generatedRoute.Local, checker.DeepEquals, fakeNodeAddressing.IPv4().Router())
 
 	c1 = cidr.MustParseCIDR("beef:beef::/48")
-	generatedRoute = nodeHandler.(*linuxNodeHandler).createNodeRoute(c1)
+	generatedRoute, err = nodeHandler.(*linuxNodeHandler).createNodeRoute(c1)
+	c.Assert(err, check.IsNil)
 	c.Assert(generatedRoute.Prefix, checker.DeepEquals, *c1.IPNet)
 	c.Assert(generatedRoute.Device, check.Equals, dpConfig.HostDevice)
 	c.Assert(*generatedRoute.Nexthop, checker.DeepEquals, fakeNodeAddressing.IPv6().Router())
