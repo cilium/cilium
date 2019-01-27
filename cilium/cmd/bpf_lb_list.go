@@ -15,8 +15,6 @@
 package cmd
 
 import (
-	"os"
-
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
@@ -44,25 +42,25 @@ var bpfLBListCmd = &cobra.Command{
 		serviceList := make(map[string][]string)
 		if listRevNAT {
 			firstTitle = idTitle
-			if err := lbmap.RevNat4Map.Dump(serviceList); err != nil {
-				os.Exit(1)
+			if err := lbmap.RevNat4Map.DumpIfExists(serviceList); err != nil {
+				Fatalf("Unable to dump IPv4 reverse NAT table: %s", err)
 			}
-			if err := lbmap.RevNat6Map.Dump(serviceList); err != nil {
-				os.Exit(1)
+			if err := lbmap.RevNat6Map.DumpIfExists(serviceList); err != nil {
+				Fatalf("Unable to dump IPv6 reverse NAT table: %s", err)
 			}
 		} else {
 			firstTitle = serviceAddressTitle
-			if err := lbmap.Service4Map.Dump(serviceList); err != nil {
-				os.Exit(1)
+			if err := lbmap.Service4Map.DumpIfExists(serviceList); err != nil {
+				Fatalf("Unable to dump IPv4 services table: %s", err)
 			}
-			if err := lbmap.Service6Map.Dump(serviceList); err != nil {
-				os.Exit(1)
+			if err := lbmap.Service6Map.DumpIfExists(serviceList); err != nil {
+				Fatalf("Unable to dump IPv6 services table: %s", err)
 			}
 		}
 
 		if command.OutputJSON() {
 			if err := command.PrintOutput(serviceList); err != nil {
-				os.Exit(1)
+				Fatalf("Unable to generate JSON output: %s", err)
 			}
 			return
 		}
