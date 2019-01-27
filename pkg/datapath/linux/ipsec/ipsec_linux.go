@@ -19,8 +19,10 @@ package ipsec
 import (
 	"bufio"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
@@ -299,4 +301,14 @@ func LoadIPSecKeysFile(path string) error {
 		}
 	}
 	return nil
+}
+
+func EnableIPv6Forwarding() error {
+	ip6ConfPath := "/proc/sys/net/ipv6/conf/"
+	device := "all"
+	forwarding := "forwarding"
+	forwardingOn := "1"
+	path := filepath.Join(ip6ConfPath, device, forwarding)
+	err := ioutil.WriteFile(path, []byte(forwardingOn), 0644)
+	return err
 }
