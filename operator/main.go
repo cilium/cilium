@@ -98,6 +98,8 @@ func init() {
 	flags.BoolVar(&synchronizeServices, "synchronize-k8s-services", true, "Synchronize Kubernetes services to kvstore")
 	flags.BoolVar(&enableCepGC, "cilium-endpoint-gc", true, "Enable CiliumEndpoint garbage collector")
 
+	flags.IntVar(&unmanagedKubeDnsWatcherInterval, "unmanaged-pod-watcher-interval", 15, "Interval to check for unmanaged kube-dns pods (0 to disable)")
+
 	viper.BindPFlags(flags)
 }
 
@@ -149,6 +151,8 @@ func runOperator(cmd *cobra.Command) {
 	if enableCepGC {
 		enableCiliumEndpointSyncGC()
 	}
+
+	enableUnmanagedKubeDNSController()
 
 	err = enableCNPWatcher()
 	if err != nil {
