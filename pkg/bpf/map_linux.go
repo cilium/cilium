@@ -536,6 +536,21 @@ func (m *Map) Dump(hash map[string][]string) error {
 	return nil
 }
 
+// DumpIfExists dumps the contents of the map into hash via Dump() if the map
+// file exists
+func (m *Map) DumpIfExists(hash map[string][]string) error {
+	path, err := m.Path()
+	if err != nil {
+		return err
+	}
+
+	if _, err := os.Stat(path); err == nil {
+		return m.Dump(hash)
+	}
+
+	return nil
+}
+
 // containsEntries returns true if the map contains at least one entry
 // must hold map mutex
 func (m *Map) containsEntries() (bool, error) {
