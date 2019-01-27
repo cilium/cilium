@@ -395,12 +395,13 @@ func setUPWithFlannel(logger *logrus.Entry, args *skel.CmdArgs, n *netConf, cniV
 		Addressing: &models.AddressPair{
 			IPV4: vethIP,
 		},
-		ContainerID:    args.ContainerID,
-		State:          models.EndpointStateWaitingForIdentity,
-		HostMac:        hostMac,
-		InterfaceIndex: int64(vethHostIdx),
-		Mac:            vethLXCMac,
-		InterfaceName:  vethHostName,
+		ContainerID:       args.ContainerID,
+		State:             models.EndpointStateWaitingForIdentity,
+		HostMac:           hostMac,
+		InterfaceIndex:    int64(vethHostIdx),
+		Mac:               vethLXCMac,
+		InterfaceName:     vethHostName,
+		SyncBuildEndpoint: true,
 	}
 
 	err = c.EndpointCreate(ep)
