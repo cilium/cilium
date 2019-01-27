@@ -915,6 +915,9 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		if err := ipsec.LoadIPSecKeysFile(option.Config.IPSecKeyFile); err != nil {
 			return nil, nil, err
 		}
+		if err := ipsec.EnableIPv6Forwarding(); err != nil {
+			return nil, nil, err
+		}
 	}
 
 	nodeMngr, err := nodemanager.NewManager("all", dp.Node())
