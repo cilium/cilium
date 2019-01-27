@@ -1,0 +1,24 @@
+---
+metadata:
+  namespace: kube-system
+spec:
+  template:
+    spec:
+      containers:
+      - image: k8s1:5000/cilium/cilium-dev:latest
+        imagePullPolicy: Always
+        name: cilium-agent
+        args:
+        - "--debug=$(CILIUM_DEBUG)"
+        - "--kvstore=etcd"
+        - "--kvstore-opt=etcd.config=/var/lib/etcd-config/etcd.config"
+        - "--k8s-require-ipv4-pod-cidr"
+        - "--pprof=true"
+        - "--log-system-load"
+        - "--enable-ipv4=true"
+        - "--enable-ipv6=false"
+      volumes:
+      - name: etcd-secrets
+        secret:
+          secretName: cilium-etcd-client-tls
+      dnsPolicy: ClusterFirstWithHostNet

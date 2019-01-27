@@ -149,7 +149,14 @@ var _ = Describe("K8sDatapathConfig", func() {
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 			cleanService()
 		})
+	})
 
+	Context("IPv4Only", func() {
+		It("Check connectivity with IPv6 disabled", func() {
+			deployCilium("cilium-ds-patch-ipv4-only.yaml")
+			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
+			cleanService()
+		})
 	})
 })
 
