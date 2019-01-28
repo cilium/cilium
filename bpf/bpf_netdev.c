@@ -241,8 +241,17 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 	dst = (union v6addr *) &ip6->daddr;
 	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
 	if (info != NULL && info->tunnel_endpoint != 0) {
-		return encap_and_redirect_with_nodeid(skb, info->tunnel_endpoint,
-						      secctx, TRACE_PAYLOAD_LEN);
+		int ret = encap_and_redirect_with_nodeid(skb, info->tunnel_endpoint,
+							 secctx, TRACE_PAYLOAD_LEN);
+
+		/* If IPSEC is needed recirc through ingress to use xfrm stack
+		 * and then result will routed back through bpf_netdev on egress
+		 * but with encrypt marks.
+		 */
+		if (ret == IPSEC_ENDPOINT)
+			return TC_ACT_OK;
+		else
+			return ret;
 	} else if (likely(ipv6_match_prefix_96(dst, &node_ip))) {
 		struct endpoint_key key = {};
 		int ret;
@@ -256,7 +265,9 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 		key.family = ENDPOINT_KEY_IPV6;
 
 		ret = encap_and_redirect(skb, &key, secctx, TRACE_PAYLOAD_LEN, true);
-		if (ret != DROP_NO_TUNNEL_ENDPOINT)
+		if (ret == IPSEC_ENDPOINT)
+			return TC_ACT_OK;
+		else if (ret != DROP_NO_TUNNEL_ENDPOINT)
 			return ret;
 	}
 #endif
@@ -431,8 +442,13 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 #ifdef ENCAP_IFINDEX
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
 	if (info != NULL && info->tunnel_endpoint != 0) {
-		return encap_and_redirect_with_nodeid(skb, info->tunnel_endpoint,
-						      secctx, TRACE_PAYLOAD_LEN);
+		int ret = encap_and_redirect_with_nodeid(skb, info->tunnel_endpoint,
+							 secctx, TRACE_PAYLOAD_LEN);
+
+		if (ret == IPSEC_ENDPOINT)
+			return TC_ACT_OK;
+		else
+			return ret;
 	} else {
 		/* IPv4 lookup key: daddr & IPV4_MASK */
 		struct endpoint_key key = {};
@@ -443,7 +459,9 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 
 		cilium_dbg(skb, DBG_NETDEV_ENCAP4, key.ip4, secctx);
 		ret = encap_and_redirect(skb, &key, secctx, TRACE_PAYLOAD_LEN, true);
-		if (ret != DROP_NO_TUNNEL_ENDPOINT)
+		if (ret == IPSEC_ENDPOINT)
+			return TC_ACT_OK;
+		else if (ret != DROP_NO_TUNNEL_ENDPOINT)
 			return ret;
 	}
 #endif
@@ -525,7 +543,7 @@ int from_netdev(struct __sk_buff *skb)
 			tunnel_endpoint = skb->cb[4];
 			skb->mark = 123;
 			bpf_clear_cb(skb);
-			return encap_and_redirect_with_nodeid(skb, tunnel_endpoint, seclabel, TRACE_PAYLOAD_LEN);
+			return __encap_and_redirect_with_nodeid(skb, tunnel_endpoint, seclabel, TRACE_PAYLOAD_LEN);
 		}
 	}
 #endif
