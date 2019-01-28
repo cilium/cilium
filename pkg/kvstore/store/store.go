@@ -171,7 +171,12 @@ type Key interface {
 }
 
 // LocalKey is a Key owned by the local store instance
-type LocalKey Key
+type LocalKey interface {
+	Key
+
+	// DeepKeyCopy must return a deep copy of the key
+	DeepKeyCopy() LocalKey
+}
 
 // JoinSharedStore creates a new shared store based on the provided
 // configuration. An error is returned if the configuration is invalid. The
@@ -291,7 +296,7 @@ func (s *SharedStore) syncLocalKeys() error {
 // UpdateLocalKey adds a key to be synchronized with the kvstore
 func (s *SharedStore) UpdateLocalKey(key LocalKey) {
 	s.mutex.Lock()
-	s.localKeys[key.GetKeyName()] = key
+	s.localKeys[key.GetKeyName()] = key.DeepKeyCopy()
 	s.mutex.Unlock()
 }
 
@@ -365,27 +370,16 @@ func (s *SharedStore) getLogger() *logrus.Entry {
 }
 
 func (s *SharedStore) updateKey(name string, value []byte) error {
-	s.mutex.Lock()
-	key, ok := s.sharedKeys[name]
-
-	// shared key is seen for the first time
-	if !ok {
-		if s.localKeys[name] != nil {
-			// if local key, reuse key instance
-			s.sharedKeys[name] = s.localKeys[name]
-		} else {
-			// allocate key for keys from collaborators
-			s.sharedKeys[name] = s.conf.KeyCreator()
-		}
-		key = s.sharedKeys[name]
-	}
-	s.mutex.Unlock()
-
-	if err := key.Unmarshal(value); err != nil {
+	newKey := s.conf.KeyCreator()
+	if err := newKey.Unmarshal(value); err != nil {
 		return err
 	}
 
-	s.onUpdate(key)
+	s.mutex.Lock()
+	s.sharedKeys[name] = newKey
+	s.mutex.Unlock()
+
+	s.onUpdate(newKey)
 	return nil
 }
 
