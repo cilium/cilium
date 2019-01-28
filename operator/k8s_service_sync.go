@@ -73,21 +73,24 @@ func k8sServiceHandler() {
 }
 
 func startSynchronizingServices() {
-	log.Info("Starting to synchronize Kubernetes services to kvstore")
+	readyChan := make(chan struct{}, 0)
 
-	store, err := store.JoinSharedStore(store.Configuration{
-		Prefix: service.ServiceStorePrefix,
-		KeyCreator: func() store.Key {
-			return &service.ClusterService{}
-		},
-		SynchronizationInterval: 5 * time.Minute,
-	})
+	go func() {
+		store, err := store.JoinSharedStore(store.Configuration{
+			Prefix: service.ServiceStorePrefix,
+			KeyCreator: func() store.Key {
+				return &service.ClusterService{}
+			},
+			SynchronizationInterval: 5 * time.Minute,
+		})
 
-	if err != nil {
-		log.WithError(err).Fatal("Unable to join kvstore store to announce services")
-	}
+		if err != nil {
+			log.WithError(err).Fatal("Unable to join kvstore store to announce services")
+		}
 
-	servicesStore = store
+		servicesStore = store
+		close(readyChan)
+	}()
 
 	// Watch for v1.Service changes and push changes into ServiceCache
 	_, svcController := utils.ControllerFactory(
@@ -164,5 +167,9 @@ func startSynchronizingServices() {
 	)
 
 	go endpointController.Run(wait.NeverStop)
-	go k8sServiceHandler()
+	go func() {
+		<-readyChan
+		log.Info("Starting to synchronize Kubernetes services to kvstore")
+		k8sServiceHandler()
+	}()
 }
