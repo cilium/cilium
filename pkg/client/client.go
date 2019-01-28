@@ -92,7 +92,7 @@ func NewDefaultClientWithTimeout(timeout time.Duration) (*Client, error) {
 
 		c, err = NewDefaultClient()
 		if err == nil {
-			_, err := c.Daemon.GetConfig(nil)
+			_, err = c.Daemon.GetConfig(nil)
 			if err == nil {
 				break
 			}
