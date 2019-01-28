@@ -99,51 +99,6 @@ func (s *IDPoolTestSuite) TestInsertRemoveIDs(c *C) {
 	c.Assert(actualIDs, checker.DeepEquals, evenIDs)
 }
 
-func (s *IDPoolTestSuite) TestRefresh(c *C) {
-	minID, maxID := 1, 5
-	p := NewIDPool(ID(minID), ID(maxID))
-
-	p.StartRefresh()
-
-	// Lease all ids from the current cache.
-	for i := minID; i <= maxID; i++ {
-		id := p.LeaseAvailableID()
-		c.Assert(id, Not(Equals), NoID)
-	}
-
-	// Delete even-numbered ids from the next cache.
-	for i := minID; i <= maxID; i++ {
-		if i%2 == 0 {
-			c.Assert(p.Remove(ID(i)), Equals, true)
-		}
-	}
-
-	// We should be out of IDs until we finish the refresh.
-	id := p.LeaseAvailableID()
-	c.Assert(id, Equals, NoID)
-
-	p.FinishRefresh()
-
-	// Check we can only lease the remaining
-	// odd-numbered ids from the current cache.
-	expected := make([]int, 0)
-	actual := make([]int, 0)
-	for i := minID; i <= maxID; i++ {
-		if i%2 != 0 {
-			id := p.LeaseAvailableID()
-			c.Assert(id, Not(Equals), NoID)
-			actual = append(actual, int(id))
-			expected = append(expected, int(i))
-		}
-	}
-	// We should be out of IDs.
-	id = p.LeaseAvailableID()
-	c.Assert(id, Equals, NoID)
-
-	sort.Ints(actual)
-	c.Assert(actual, checker.DeepEquals, expected)
-}
-
 func (s *IDPoolTestSuite) TestReleaseID(c *C) {
 	minID, maxID := 1, 5
 	p := NewIDPool(ID(minID), ID(maxID))

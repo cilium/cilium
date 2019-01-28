@@ -93,11 +93,6 @@ func (c *cache) getLogger() *logrus.Entry {
 	})
 }
 
-func (c *cache) restart(a *Allocator) error {
-	c.stop()
-	return c.startAndWait(a)
-}
-
 func (c *cache) keyToID(key string, deleteInvalid bool) idpool.ID {
 	if !strings.HasPrefix(key, c.prefix) {
 		invalidKey(key, c.prefix, deleteInvalid)
@@ -132,7 +127,6 @@ func (c *cache) start(a *Allocator) waitChan {
 	c.nextCache = idMap{}
 	c.nextKeyCache = keyMap{}
 	c.mutex.Unlock()
-	a.idPool.StartRefresh()
 
 	c.stopWatchWg.Add(1)
 
@@ -151,7 +145,6 @@ func (c *cache) start(a *Allocator) waitChan {
 					c.cache = c.nextCache
 					c.keyCache = c.nextKeyCache
 					c.mutex.Unlock()
-					a.idPool.FinishRefresh()
 
 					// report that the list operation has
 					// been completed and the allocator is
