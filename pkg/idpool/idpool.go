@@ -75,10 +75,6 @@ type IDPool struct {
 
 	// idCache is a cache of IDs backing the pool.
 	idCache *idCache
-
-	// Upon a refresh of the pool, idCache will be pointed to
-	// nextIDCache.
-	nextIDCache *idCache
 }
 
 // NewIDPool returns a new ID pool
@@ -87,28 +83,10 @@ func NewIDPool(minID ID, maxID ID) *IDPool {
 		minID: minID,
 		maxID: maxID,
 	}
-	p.StartRefresh()
-	p.FinishRefresh()
+
+	p.idCache = newIDCache(p.minID, p.maxID)
 
 	return p
-}
-
-// StartRefresh creates a new cache backing the pool.
-// This cache becomes live when FinishRefresh() is called.
-func (p *IDPool) StartRefresh() {
-	c := newIDCache(p.minID, p.maxID)
-
-	p.mutex.Lock()
-	p.nextIDCache = c
-	p.mutex.Unlock()
-}
-
-// FinishRefresh makes the most recent cache created by the pool live.
-func (p *IDPool) FinishRefresh() {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
-
-	p.idCache = p.nextIDCache
 }
 
 // LeaseAvailableID returns an available ID at random from the pool.
@@ -161,7 +139,7 @@ func (p *IDPool) Insert(id ID) bool {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
-	return p.nextIDCache.insert(id)
+	return p.idCache.insert(id)
 }
 
 // Remove makes an ID unavailable in the pool.
@@ -170,7 +148,7 @@ func (p *IDPool) Remove(id ID) bool {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
-	return p.nextIDCache.remove(id)
+	return p.idCache.remove(id)
 }
 
 type idCache struct {
