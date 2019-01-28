@@ -118,7 +118,8 @@ func ProvisionInfraPods(vm *helpers.Kubectl) {
 	default:
 	}
 
-	ExpectCiliumReady(vm)
 	ExpectETCDOperatorReady(vm)
+	Expect(vm.WaitKubeDNS()).To(BeNil(), "KubeDNS is not ready after timeout")
+	ExpectCiliumReady(vm)
 	ExpectKubeDNSReady(vm)
 }
