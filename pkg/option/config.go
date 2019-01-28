@@ -913,7 +913,7 @@ func (c *DaemonConfig) Populate() {
 	c.Device = viper.GetString(Device)
 	c.DisableConntrack = viper.GetBool(DisableConntrack)
 	c.EnableIPv4 = getIPv4Enabled()
-	c.EnableIPv6 = viper.GetBool(EnableIPv6Name)
+	c.EnableIPv6 = getIPv6Enabled()
 	c.EnableIPSec = viper.GetBool(EnableIPSecName)
 	c.DevicePreFilter = viper.GetString(PrefilterDevice)
 	c.DisableCiliumEndpointCRD = viper.GetBool(DisableCiliumEndpointCRDName)
@@ -1037,6 +1037,17 @@ func getIPv4Enabled() bool {
 	}
 
 	return viper.GetBool(EnableIPv4Name)
+}
+
+func getIPv6Enabled() bool {
+	enableIPv6 := viper.GetBool(EnableIPv6Name)
+	if enableIPv6 {
+		if _, err := os.Stat("/proc/net/if_inet6"); os.IsNotExist(err) {
+			return false
+		}
+	}
+
+	return enableIPv6
 }
 
 func getPrometheusServerAddr() string {
