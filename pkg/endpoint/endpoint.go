@@ -2538,16 +2538,8 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 
 	// If endpoint has an old identity, defer release of it to the end of
 	// the function after the endpoint structured has been unlocked again
-	if e.SecurityIdentity != nil {
-		oldIdentity := e.SecurityIdentity
-		defer func() {
-			err := oldIdentity.Release()
-			if err != nil {
-				elog.WithFields(logrus.Fields{logfields.Identity: oldIdentity.ID}).
-					WithError(err).Warn("BUG: Unable to release old endpoint identity")
-			}
-		}()
-
+	oldIdentity := e.SecurityIdentity
+	if oldIdentity != nil {
 		// The identity of the endpoint is changing, delay the use of
 		// the identity by a grace period to give all other cluster
 		// nodes a chance to adjust their policies first. This requires
@@ -2580,6 +2572,13 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 		Debug("Assigned new identity to endpoint")
 
 	e.SetIdentity(identity)
+
+	if oldIdentity != nil {
+		if err := oldIdentity.Release(); err != nil {
+			elog.WithFields(logrus.Fields{logfields.Identity: oldIdentity.ID}).
+				WithError(err).Warn("Unable to release old endpoint identity")
+		}
+	}
 
 	// Unconditionally force policy recomputation after a new identity has been
 	// assigned.
