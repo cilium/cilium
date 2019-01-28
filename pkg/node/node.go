@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -294,6 +295,11 @@ func (n *Node) GetKeyName() string {
 	// WARNING - STABLE API: Changing the structure of the key may break
 	// backwards compatibility
 	return path.Join(n.Cluster, n.Name)
+}
+
+// DeepKeyCopy creates a deep copy of the LocalKey
+func (n *Node) DeepKeyCopy() store.LocalKey {
+	return n.DeepCopy()
 }
 
 // Marshal returns the node object as JSON byte slice

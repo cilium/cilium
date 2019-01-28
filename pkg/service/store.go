@@ -19,6 +19,7 @@ import (
 	"path"
 
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 )
 
@@ -96,6 +97,11 @@ func (s *ClusterService) GetKeyName() string {
 	// WARNING - STABLE API: Changing the structure of the key may break
 	// backwards compatibility
 	return path.Join(s.Cluster, s.Namespace, s.Name)
+}
+
+// DeepKeyCopy creates a deep copy of the LocalKey
+func (s *ClusterService) DeepKeyCopy() store.LocalKey {
+	return s.DeepCopy()
 }
 
 // Marshal returns the global service object as JSON byte slice
