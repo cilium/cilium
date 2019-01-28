@@ -111,6 +111,7 @@ const (
 	initArgDevicePreFilter
 	initArgModePreFilter
 	initArgMTU
+	initArgIPSec
 	initArgMax
 )
 
@@ -475,6 +476,12 @@ func (d *Daemon) compileBase() error {
 	}
 
 	args[initArgMTU] = fmt.Sprintf("%d", d.mtuConfig.GetDeviceMTU())
+
+	if option.Config.EnableIPSec {
+		args[initArgIPSec] = "true"
+	} else {
+		args[initArgIPSec] = "false"
+	}
 
 	if option.Config.Device != "undefined" {
 		_, err := netlink.LinkByName(option.Config.Device)

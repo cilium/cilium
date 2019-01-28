@@ -24,6 +24,7 @@ NATIVE_DEV=$6
 XDP_DEV=$7
 XDP_MODE=$8
 MTU=$9
+IPSEC=${10}
 
 ID_HOST=1
 ID_WORLD=2
@@ -434,6 +435,10 @@ if [ "$MODE" == "ipvlan" ]; then
 	OPTS+=" -DENABLE_EXTRA_HOST_DEV"
 fi
 bpf_load $HOST_DEV1 "$OPTS" "egress" bpf_netdev.c bpf_host.o from-netdev $CALLS_MAP
+
+if [ "$IPSEC" == "true" ]; then
+	bpf_load $HOST_DEV2 "" "ingress" bpf_ipsec.c bpf_ipsec.o from-netdev $CALLS_MAP
+fi
 
 if [ -n "$XDP_DEV" ]; then
 	CIDR_MAP="cilium_cidr_v*"
