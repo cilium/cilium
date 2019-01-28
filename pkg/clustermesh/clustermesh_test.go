@@ -72,6 +72,13 @@ func (n *testNode) OnDelete() {
 	nodesMutex.Unlock()
 }
 
+func (n *testNode) DeepKeyCopy() store.LocalKey {
+	return &testNode{
+		Name:    n.Name,
+		Cluster: n.Cluster,
+	}
+}
+
 func (n *testNode) Marshal() ([]byte, error) {
 	return json.Marshal(n)
 }

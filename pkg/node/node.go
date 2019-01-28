@@ -20,6 +20,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/option"
 
 	"k8s.io/api/core/v1"
@@ -297,4 +298,9 @@ func (n *Node) PublicAttrEquals(o *Node) bool {
 	}
 
 	return false
+}
+
+// DeepKeyCopy creates a deep copy of the LocalKey
+func (n *Node) DeepKeyCopy() store.LocalKey {
+	return n.DeepCopy()
 }

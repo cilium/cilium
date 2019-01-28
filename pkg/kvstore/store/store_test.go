@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/testutils"
 
 	. "gopkg.in/check.v1"
@@ -78,8 +79,55 @@ var testType = TestType{}
 func (t *TestType) OnUpdate()                   { t.updated++ }
 func (t *TestType) OnDelete()                   { t.deleted++ }
 func (t *TestType) GetKeyName() string          { return t.Name }
+func (t *TestType) DeepKeyCopy() LocalKey       { return &TestType{Name: t.Name} }
 func (t *TestType) Marshal() ([]byte, error)    { return json.Marshal(t) }
 func (t *TestType) Unmarshal(data []byte) error { return json.Unmarshal(data, t) }
+
+type opCounter struct {
+	deleted int
+	updated int
+}
+
+var (
+	counter     = map[string]*opCounter{}
+	counterLock lock.RWMutex
+)
+
+func (t *TestType) deleted() int {
+	counterLock.RLock()
+	defer counterLock.RUnlock()
+	return counter[t.Name].deleted
+}
+
+func (t *TestType) updated() int {
+	counterLock.RLock()
+	defer counterLock.RUnlock()
+	return counter[t.Name].updated
+}
+
+func initTestType(name string) TestType {
+	t := TestType{}
+	t.Name = name
+	counterLock.Lock()
+	counter[name] = &opCounter{}
+	counterLock.Unlock()
+	return t
+}
+
+type observer struct{}
+
+func (o *observer) OnUpdate(k Key) {
+	counterLock.Lock()
+	if c, ok := counter[k.(*TestType).Name]; ok {
+		c.updated++
+	}
+	counterLock.Unlock()
+}
+func (o *observer) OnDelete(k Key) {
+	counterLock.Lock()
+	counter[k.(*TestType).Name].deleted++
+	counterLock.Unlock()
+}
 
 func newTestType() Key {
 	t := TestType{}
@@ -134,9 +182,9 @@ func (s *StoreSuite) TestStoreOperations(c *C) {
 	c.Assert(store, Not(IsNil))
 	defer store.Close()
 
-	localKey1 := TestType{Name: "local1"}
-	localKey2 := TestType{Name: "local2"}
-	localKey3 := TestType{Name: "local3"}
+	localKey1 := initTestType("local1")
+	localKey2 := initTestType("local2")
+	localKey3 := initTestType("local3")
 
 	err = store.UpdateLocalKeySync(&localKey1)
 	c.Assert(err, IsNil)
@@ -146,22 +194,22 @@ func (s *StoreSuite) TestStoreOperations(c *C) {
 	// due to the short sync interval, it is possible that multiple updates
 	// have occurred, make the test reliable by succeeding on at lest one
 	// update
-	c.Assert(expect(func() bool { return localKey1.updated >= 1 }), IsNil)
-	c.Assert(expect(func() bool { return localKey2.updated >= 1 }), IsNil)
-	c.Assert(expect(func() bool { return localKey3.updated == 0 }), IsNil)
+	c.Assert(expect(func() bool { return localKey1.updated() >= 1 }), IsNil)
+	c.Assert(expect(func() bool { return localKey2.updated() >= 1 }), IsNil)
+	c.Assert(expect(func() bool { return localKey3.updated() == 0 }), IsNil)
 
 	store.DeleteLocalKey(&localKey1)
-	c.Assert(expect(func() bool { return localKey1.deleted >= 1 }), IsNil)
-	c.Assert(expect(func() bool { return localKey2.deleted == 0 }), IsNil)
-	c.Assert(expect(func() bool { return localKey3.deleted == 0 }), IsNil)
+	c.Assert(expect(func() bool { return localKey1.deleted() >= 1 }), IsNil)
+	c.Assert(expect(func() bool { return localKey2.deleted() == 0 }), IsNil)
+	c.Assert(expect(func() bool { return localKey3.deleted() == 0 }), IsNil)
 
 	store.DeleteLocalKey(&localKey3)
-	c.Assert(expect(func() bool { return localKey3.deleted == 0 }), IsNil)
+	c.Assert(expect(func() bool { return localKey3.deleted() == 0 }), IsNil)
 
 	store.DeleteLocalKey(&localKey2)
-	c.Assert(expect(func() bool { return localKey1.deleted == 2 }), IsNil)
-	c.Assert(expect(func() bool { return localKey2.deleted == 2 }), IsNil)
-	c.Assert(expect(func() bool { return localKey3.deleted == 0 }), IsNil)
+	c.Assert(expect(func() bool { return localKey1.deleted() == 2 }), IsNil)
+	c.Assert(expect(func() bool { return localKey2.deleted() == 2 }), IsNil)
+	c.Assert(expect(func() bool { return localKey3.deleted() == 0 }), IsNil)
 }
 
 func (s *StoreSuite) TestStorePeriodicSync(c *C) {
@@ -175,8 +223,8 @@ func (s *StoreSuite) TestStorePeriodicSync(c *C) {
 	c.Assert(store, Not(IsNil))
 	defer store.Close()
 
-	localKey1 := TestType{Name: "local1"}
-	localKey2 := TestType{Name: "local2"}
+	localKey1 := initTestType("local1")
+	localKey2 := initTestType("local2")
 
 	err = store.UpdateLocalKeySync(&localKey1)
 	c.Assert(err, IsNil)
@@ -185,14 +233,14 @@ func (s *StoreSuite) TestStorePeriodicSync(c *C) {
 
 	// the sync interval occurs every 10 millisecond, wait until 3 updates
 	// have occurred
-	c.Assert(expect(func() bool { return localKey1.updated >= 3 }), IsNil)
-	c.Assert(expect(func() bool { return localKey2.updated >= 3 }), IsNil)
+	c.Assert(expect(func() bool { return localKey1.updated() >= 3 }), IsNil)
+	c.Assert(expect(func() bool { return localKey2.updated() >= 3 }), IsNil)
 
 	store.DeleteLocalKey(&localKey1)
 	store.DeleteLocalKey(&localKey2)
 
-	c.Assert(expect(func() bool { return localKey1.deleted >= 1 }), IsNil)
-	c.Assert(expect(func() bool { return localKey2.deleted >= 1 }), IsNil)
+	c.Assert(expect(func() bool { return localKey1.deleted() >= 1 }), IsNil)
+	c.Assert(expect(func() bool { return localKey2.deleted() >= 1 }), IsNil)
 }
 
 func setupStoreCollaboration(c *C, storePrefix, keyPrefix string) *SharedStore {
@@ -204,17 +252,17 @@ func setupStoreCollaboration(c *C, storePrefix, keyPrefix string) *SharedStore {
 	c.Assert(err, IsNil)
 	c.Assert(store, Not(IsNil))
 
-	localKey1 := TestType{Name: keyPrefix + "-local1"}
-	localKey2 := TestType{Name: keyPrefix + "-local2"}
-
+	localKey1 := initTestType(keyPrefix + "-local1")
 	err = store.UpdateLocalKeySync(&localKey1)
 	c.Assert(err, IsNil)
+
+	localKey2 := initTestType(keyPrefix + "-local2")
 	err = store.UpdateLocalKeySync(&localKey2)
 	c.Assert(err, IsNil)
 
 	// wait until local keys was inserted and until the kvstore has confirmed the
-	c.Assert(expect(func() bool { return localKey1.updated == 2 }), IsNil)
-	c.Assert(expect(func() bool { return localKey2.updated == 2 }), IsNil)
+	c.Assert(expect(func() bool { return localKey1.updated() >= 2 }), IsNil)
+	c.Assert(expect(func() bool { return localKey2.updated() >= 2 }), IsNil)
 
 	c.Assert(len(store.getLocalKeys()), Equals, 2)
 
