@@ -119,6 +119,9 @@ Vagrant.configure(2) do |config|
         vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
         vb.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
 
+        # Prevent VirtualBox from interfering with host audio stack
+        vb.customize ["modifyvm", :id, "--audio", "none"]
+
         config.vm.box = "cilium/ubuntu-dev"
         config.vm.box_version = "126"
         vb.memory = ENV['VM_MEMORY'].to_i
