@@ -18,6 +18,7 @@ package idpool
 
 import (
 	"sort"
+	"sync"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/checker"
@@ -325,4 +326,75 @@ func leaseAllIDs(p *IDPool, minID int, maxID int, c *C) {
 	// Unique ids must have been leased.
 	sort.Ints(actual)
 	c.Assert(actual, checker.DeepEquals, expected)
+}
+
+func (s *IDPoolTestSuite) BenchmarkRemoveIDs(c *C) {
+	minID, maxID := 1, c.N
+	p := NewIDPool(ID(minID), ID(maxID))
+
+	c.ResetTimer()
+	for i := minID; i <= maxID; i++ {
+		c.Assert(p.Remove(ID(i)), Equals, true)
+	}
+}
+
+func (s *IDPoolTestSuite) BenchmarkLeaseIDs(c *C) {
+	minID, maxID := 1, c.N
+	p := NewIDPool(ID(minID), ID(maxID))
+
+	c.ResetTimer()
+	for i := 1; i <= c.N; i++ {
+		id := p.LeaseAvailableID()
+		c.Assert(p.Release(ID(id)), Equals, true)
+	}
+}
+
+func (s *IDPoolTestSuite) BenchmarkUseAndRelease(c *C) {
+	minID, maxID := 1, c.N
+	p := NewIDPool(ID(minID), ID(maxID))
+
+	c.ResetTimer()
+	for i := 1; i <= c.N; i++ {
+		id := p.LeaseAvailableID()
+		c.Assert(p.Use(ID(id)), Equals, true)
+	}
+
+	for i := 1; i <= c.N; i++ {
+		c.Assert(p.Insert(ID(i)), Equals, true)
+	}
+}
+
+func (s *IDPoolTestSuite) TestAllocateID(c *C) {
+	minID, maxID := 1, 6000
+	p := NewIDPool(ID(minID), ID(maxID))
+
+	allocated := make(chan ID, 100)
+	var allocators sync.WaitGroup
+
+	for i := 0; i < 256; i++ {
+		allocators.Add(1)
+		go func() {
+			for i := 1; i <= maxID; i++ {
+				id := p.AllocateID()
+				c.Assert(id, Not(Equals), NoID)
+				allocated <- id
+			}
+			allocators.Done()
+		}()
+	}
+
+	go func() {
+		allocators.Wait()
+		close(allocated)
+	}()
+
+	for {
+		select {
+		case id, ok := <-allocated:
+			if !ok {
+				return
+			}
+			c.Assert(p.Insert(id), Equals, true)
+		}
+	}
 }
