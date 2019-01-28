@@ -24,6 +24,29 @@
 #ifdef ENCAP_IFINDEX
 #ifdef ENABLE_IPSEC
 static inline int __inline__
+enacap_and_redirect_nomark_ipsec(struct __sk_buff *skb, __u32 tunnel_endpoint,
+			 __u32 seclabel, __u32 monitor)
+{
+	/* Traffic from local host in tunnel mode will be passed to
+	 * cilium_host. In non-IPSec case traffic with non-local dst
+	 * will then be redirected to tunnel device. In IPSec case
+	 * though we need to traverse xfrm path still. The mark +
+	 * cb[4] hints will not survive a veth pair xmit to ingress
+	 * however so below encap_and_redirect_ipsec will not work.
+	 * Instead pass hints via cb[0], cb[4] (cb is not cleared
+	 * by dev_skb_forward) and catch hints with bpf_ipsec prog
+	 * that will populate mark/cb as expected by xfrm and 2nd
+	 * traversal into bpf_netdev. Remember we can't use cb[0-3]
+	 * in both cases because xfrm layer would overwrite them. We
+	 * use cb[4] here so it doesn't need to be reset by bpf_ipsec.
+	 */
+	skb->cb[0] = MARK_MAGIC_ENCRYPT;
+	skb->cb[1] = seclabel;
+	skb->cb[4] = tunnel_endpoint;
+	return IPSEC_ENDPOINT;
+}
+
+static inline int __inline__
 encap_and_redirect_ipsec(struct __sk_buff *skb, __u32 tunnel_endpoint,
 			 __u32 seclabel, __u32 monitor)
 {
@@ -42,8 +65,8 @@ encap_and_redirect_ipsec(struct __sk_buff *skb, __u32 tunnel_endpoint,
 #endif
 
 static inline int __inline__
-encap_and_redirect_with_nodeid(struct __sk_buff *skb, __u32 tunnel_endpoint,
-			       __u32 seclabel, __u32 monitor)
+__encap_and_redirect_with_nodeid(struct __sk_buff *skb, __u32 tunnel_endpoint,
+				 __u32 seclabel, __u32 monitor)
 {
 	struct bpf_tunnel_key key = {};
 	__u32 node_id;
@@ -72,13 +95,24 @@ encap_and_redirect_with_nodeid(struct __sk_buff *skb, __u32 tunnel_endpoint,
  * DROP_WRITE_ERROR.
  */
 static inline int __inline__
+encap_and_redirect_with_nodeid(struct __sk_buff *skb, __u32 tunnel_endpoint,
+			        __u32 seclabel, __u32 monitor)
+{
+#ifdef ENABLE_IPSEC
+	return enacap_and_redirect_nomark_ipsec(skb, tunnel_endpoint, seclabel, monitor);
+#else
+	return __encap_and_redirect_with_nodeid(skb, tunnel_endpoint, seclabel, monitor);
+#endif
+}
+
+static inline int __inline__
 encap_and_redirect_with_nodeid_from_lxc(struct __sk_buff *skb, __u32 tunnel_endpoint,
-					__u32 seclabel, __u32 monitor)
+				        __u32 seclabel, __u32 monitor)
 {
 #ifdef ENABLE_IPSEC
 	return encap_and_redirect_ipsec(skb, tunnel_endpoint, seclabel, monitor);
 #else
-	return encap_and_redirect_with_nodeid(skb, tunnel_endpoint, seclabel, monitor);
+	return __encap_and_redirect_with_nodeid(skb, tunnel_endpoint, seclabel, monitor);
 #endif
 }
 
@@ -103,10 +137,14 @@ encap_and_redirect(struct __sk_buff *skb, struct endpoint_key *k,
 	}
 
 #ifdef ENABLE_IPSEC
-	if (!from_host)
+	if (from_host)
+		return enacap_and_redirect_nomark_ipsec(skb, tunnel->ip4,
+						        seclabel, monitor);
+	else
 		return encap_and_redirect_ipsec(skb, tunnel->ip4, seclabel, monitor);
+#else
+	return __encap_and_redirect_with_nodeid(skb, tunnel->ip4, seclabel, monitor);
 #endif
-	return encap_and_redirect_with_nodeid(skb, tunnel->ip4, seclabel, monitor);
 }
 #endif /* ENCAP_IFINDEX */
 #endif /* __LIB_ENCAP_H_ */
