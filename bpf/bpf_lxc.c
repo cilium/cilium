@@ -333,7 +333,7 @@ skip_service_lookup:
 	/* The packet goes to a peer not managed by this agent instance */
 #ifdef ENCAP_IFINDEX
 	if (tunnel_endpoint) {
-		ret = encap_and_redirect_with_nodeid_from_lxc(skb, tunnel_endpoint, SECLABEL, monitor);
+		ret = encap_and_redirect_with_nodeid(skb, tunnel_endpoint, SECLABEL, monitor);
 		/* If not redirected noteable due to IPSEC then pass up to stack
 		 * for further processing.
 		 */
@@ -366,7 +366,7 @@ skip_service_lookup:
 		 * the packet needs IPSec encap so push skb to stack for encap, or
 		 * (c) packet was redirected to tunnel device so return.
 		 */
-		ret = encap_and_redirect(skb, &key, SECLABEL, monitor, false);
+		ret = encap_and_redirect(skb, &key, SECLABEL, monitor);
 		if (ret == IPSEC_ENDPOINT)
 			goto pass_to_stack;
 		else if (ret != DROP_NO_TUNNEL_ENDPOINT)
@@ -650,8 +650,8 @@ skip_service_lookup:
 
 #ifdef ENCAP_IFINDEX
 	if (tunnel_endpoint) {
-		int ret = encap_and_redirect_with_nodeid_from_lxc(skb, tunnel_endpoint,
-								  SECLABEL, monitor);
+		int ret = encap_and_redirect_with_nodeid(skb, tunnel_endpoint,
+							 SECLABEL, monitor);
 		/* If not redirected noteably due to IPSEC then pass up to stack
 		 * for further processing.
 		 */
@@ -682,7 +682,7 @@ skip_service_lookup:
 		 * pass up to stack or (c) packet was redirected to tunnel device
 		 * so return.
 		 */
-		ret = encap_and_redirect(skb, &key, SECLABEL, monitor, false);
+		ret = encap_and_redirect(skb, &key, SECLABEL, monitor);
 		if (ret == DROP_NO_TUNNEL_ENDPOINT)
 			goto pass_to_stack;
 		else if (ret == IPSEC_ENDPOINT)
