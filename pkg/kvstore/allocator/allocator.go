@@ -42,10 +42,6 @@ const (
 	// performed before failing.
 	maxAllocAttempts = 16
 
-	// allocAttemptsWatermark defines the watermark at what point we will
-	// attempt to clear the cache before re-attempting to allocate
-	allocAttemptsWatermark = 12
-
 	// listTimeout is the time to wait for the initial list operation to
 	// succeed when creating a new allocator
 	listTimeout = 3 * time.Minute
@@ -559,20 +555,6 @@ func (a *Allocator) Allocate(key AllocatorKey) (idpool.ID, bool, error) {
 		}
 
 		kvstore.Trace("Allocation attempt failed", err, logrus.Fields{fieldKey: key, logfields.Attempt: attempt})
-
-		// We have reached a watermark in allocation attempts. The
-		// failure is somewhat persistent. There are multiple reasons
-		// including:
-		// - continued connectivity problem to kvstore
-		// - stale local cache due to backlog in processing of kvstore
-		//   events
-		//
-		// To prevent the stale local ache
-		if attempt == allocAttemptsWatermark {
-			if err := a.mainCache.restart(a); err != nil {
-				log.WithError(err).Warning("Unable to clear and refill allocator cache")
-			}
-		}
 
 		boff.Wait()
 	}
