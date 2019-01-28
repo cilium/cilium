@@ -34,6 +34,9 @@ Vagrant.configure("2") do |config|
             vb.cpus = $CPU
             vb.memory= $MEMORY
             vb.linked_clone = true
+
+            # Prevent VirtualBox from interfering with host audio stack
+            vb.customize ["modifyvm", :id, "--audio", "none"]
         end
 
         server.vm.box =  "#{$SERVER_BOX}"
@@ -63,6 +66,9 @@ Vagrant.configure("2") do |config|
                 vb.cpus = $CPU
                 vb.memory= $MEMORY
                 vb.linked_clone = true
+
+                # Prevent VirtualBox from interfering with host audio stack
+                vb.customize ["modifyvm", :id, "--audio", "none"]
             end
 
             server.vm.box =  "#{$SERVER_BOX}"
