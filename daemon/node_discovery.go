@@ -97,7 +97,6 @@ func (n *nodeDiscovery) startDiscovery() {
 	n.localNode.IPv4AllocCIDR = node.GetIPv4AllocRange()
 	n.localNode.IPv6AllocCIDR = node.GetIPv6AllocRange()
 	n.localNode.ClusterID = option.Config.ClusterID
-	n.localNode.IPv4GW = node.GetInternalIPv4()
 
 	if node.GetExternalIPv4() != nil {
 		n.localNode.IPAddresses = append(n.localNode.IPAddresses, node.Address{
@@ -110,6 +109,20 @@ func (n *nodeDiscovery) startDiscovery() {
 		n.localNode.IPAddresses = append(n.localNode.IPAddresses, node.Address{
 			Type: addressing.NodeInternalIP,
 			IP:   node.GetIPv6(),
+		})
+	}
+
+	if node.GetInternalIPv4() != nil {
+		n.localNode.IPAddresses = append(n.localNode.IPAddresses, node.Address{
+			Type: addressing.NodeCiliumInternalIP,
+			IP:   node.GetInternalIPv4(),
+		})
+	}
+
+	if node.GetIPv6Router() != nil {
+		n.localNode.IPAddresses = append(n.localNode.IPAddresses, node.Address{
+			Type: addressing.NodeCiliumInternalIP,
+			IP:   node.GetIPv6Router(),
 		})
 	}
 

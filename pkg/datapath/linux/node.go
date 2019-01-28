@@ -440,11 +440,12 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *node.Node) error {
 			n.replaceNodeIPSecInRoute(new4Net)
 			n.replaceNodeIPSecInRoute(new6Net)
 		} else {
-			ipsecLocal := &net.IPNet{IP: n.nodeAddressing.IPv4().Router(), Mask: n.nodeAddressing.IPv4().AllocationCIDR().Mask}
-			ipsecRemote := &net.IPNet{IP: newNode.IPv4GW, Mask: newNode.IPv4AllocCIDR.Mask}
-			n.replaceNodeIPSecOutRoute(new4Net)
-			n.replaceNodeIPSecOutRoute(new6Net)
-			if ipsecRemote.IP != nil {
+			ciliumInternalIPv4 := newNode.GetCiliumInternalIP(false)
+
+			if ciliumInternalIPv4 != nil {
+				ipsecLocal := &net.IPNet{IP: n.nodeAddressing.IPv4().Router(), Mask: n.nodeAddressing.IPv4().AllocationCIDR().Mask}
+				ipsecRemote := &net.IPNet{IP: ciliumInternalIPv4, Mask: newNode.IPv4AllocCIDR.Mask}
+				n.replaceNodeIPSecOutRoute(new4Net)
 				ipsec.UpsertIPSecEndpoint(ipsecLocal, ipsecRemote)
 			}
 		}

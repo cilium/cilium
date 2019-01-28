@@ -20,9 +20,10 @@ package addressing
 type AddressType string
 
 const (
-	NodeHostName    AddressType = "Hostname"
-	NodeExternalIP  AddressType = "ExternalIP"
-	NodeInternalIP  AddressType = "InternalIP"
-	NodeExternalDNS AddressType = "ExternalDNS"
-	NodeInternalDNS AddressType = "InternalDNS"
+	NodeHostName         AddressType = "Hostname"
+	NodeExternalIP       AddressType = "ExternalIP"
+	NodeInternalIP       AddressType = "InternalIP"
+	NodeExternalDNS      AddressType = "ExternalDNS"
+	NodeInternalDNS      AddressType = "InternalDNS"
+	NodeCiliumInternalIP AddressType = "CiliumInternalIP"
 )
