@@ -56,6 +56,8 @@ func (p PortConfiguration) DeepEquals(o PortConfiguration) bool {
 //
 // WARNING - STABLE API: Any change to this structure must be done in a
 // backwards compatible way.
+//
+// +k8s:deepcopy-gen=true
 type ClusterService struct {
 	// Cluster is the cluster name the service is configured in
 	Cluster string `json:"cluster"`
