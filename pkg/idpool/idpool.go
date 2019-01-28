@@ -175,10 +175,7 @@ func (p *IDPool) Remove(id ID) bool {
 
 type idCache struct {
 	// ids is a slice of IDs available in this idCache.
-	ids []ID
-
-	// index tracks the position of IDs in the above ids slice.
-	index map[ID]int
+	ids map[ID]struct{}
 
 	// leased is the set of IDs that are leased in this idCache.
 	leased map[ID]struct{}
@@ -191,8 +188,7 @@ func newIDCache(minID ID, maxID ID) *idCache {
 	}
 
 	c := &idCache{
-		ids:    make([]ID, n),
-		index:  make(map[ID]int, n),
+		ids:    make(map[ID]struct{}, n),
 		leased: make(map[ID]struct{}),
 	}
 
@@ -200,8 +196,7 @@ func newIDCache(minID ID, maxID ID) *idCache {
 	seq := random.Perm(n)
 	for i := 0; i < n; i++ {
 		id := ID(seq[i]) + minID
-		c.ids[i] = id
-		c.index[id] = i
+		c.ids[id] = struct{}{}
 	}
 
 	return c
@@ -209,18 +204,12 @@ func newIDCache(minID ID, maxID ID) *idCache {
 
 // allocateID returns a random available ID without leasing it
 func (c *idCache) allocateID() ID {
-	if len(c.ids) == 0 {
-		return NoID
+	for id := range c.ids {
+		delete(c.ids, id)
+		return id
 	}
 
-	// Dequeue the next available ID from the random sequence
-	id := c.ids[0]
-	c.ids = c.ids[1:]
-
-	// Remove from slice of avaiable IDs
-	delete(c.index, id)
-
-	return id
+	return NoID
 }
 
 // leaseAvailableID returns a random available ID.
@@ -265,7 +254,7 @@ func (c *idCache) use(id ID) bool {
 // insert adds the ID into the cache if it is currently unavailable.
 // Returns true if the ID was added to the cache.
 func (c *idCache) insert(id ID) bool {
-	if _, exists := c.index[id]; exists {
+	if _, ok := c.ids[id]; ok {
 		return false
 	}
 
@@ -273,46 +262,19 @@ func (c *idCache) insert(id ID) bool {
 		return false
 	}
 
-	c.ids = append(c.ids, id)
-	c.index[id] = len(c.ids) - 1
-
+	c.ids[id] = struct{}{}
 	return true
 }
 
 // remove removes the ID from the cache.
 // Returns true if the ID was available in the cache.
 func (c *idCache) remove(id ID) bool {
-	removed := c.doRemove(id)
-	// If the id is leased, update it.
 	delete(c.leased, id)
 
-	return removed
-}
-
-func (c *idCache) doRemove(id ID) bool {
-	i, exists := c.index[id]
-	if !exists {
-		return false
+	if _, ok := c.ids[id]; ok {
+		delete(c.ids, id)
+		return true
 	}
 
-	delete(c.index, id)
-
-	N := len(c.ids)
-	if N == 0 {
-		return false
-	}
-
-	tmp := c.ids[N-1]
-	c.ids[i] = tmp
-	if N > 1 {
-		c.ids = c.ids[:N-1]
-	} else {
-		c.ids = c.ids[:0]
-	}
-
-	if id != tmp {
-		c.index[tmp] = i
-	}
-
-	return true
+	return false
 }
