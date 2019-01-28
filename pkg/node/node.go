@@ -78,9 +78,6 @@ type Node struct {
 	// allocates IPs for local endpoints from
 	IPv6AllocCIDR *cidr.CIDR
 
-	// IPv4GW if set, is the internalIP (GW) address.
-	IPv4GW net.IP
-
 	// IPv4HealthIP if not nil, this is the IPv4 address of the
 	// cilium-health endpoint located on the node.
 	IPv4HealthIP net.IP
@@ -153,6 +150,21 @@ func (n *Node) getNodeIP(ipv6 bool) (net.IP, addressing.AddressType) {
 func (n *Node) GetNodeIP(ipv6 bool) net.IP {
 	result, _ := n.getNodeIP(ipv6)
 	return result
+}
+
+// GetCiliumInternalIP returns the CiliumInternalIP e.g. the IP associated
+// with cilium_host on the node.
+func (n *Node) GetCiliumInternalIP(ipv6 bool) net.IP {
+	for _, addr := range n.IPAddresses {
+		if (ipv6 && addr.IP.To4() != nil) ||
+			(!ipv6 && addr.IP.To4() == nil) {
+			continue
+		}
+		if addr.Type == addressing.NodeCiliumInternalIP {
+			return addr.IP
+		}
+	}
+	return nil
 }
 
 func (n *Node) getPrimaryAddress() *models.NodeAddressing {
