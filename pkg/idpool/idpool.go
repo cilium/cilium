@@ -15,7 +15,6 @@
 package idpool
 
 import (
-	"fmt"
 	"math/rand"
 	"strconv"
 	"time"
@@ -92,11 +91,6 @@ func NewIDPool(minID ID, maxID ID) *IDPool {
 	p.FinishRefresh()
 
 	return p
-}
-
-// Dump returns the IDPool as formatted structure for debugging
-func (p *IDPool) Dump() string {
-	return fmt.Sprintf("pool: %+v, cache: %+v", p, p.nextIDCache)
 }
 
 // StartRefresh creates a new cache backing the pool.
