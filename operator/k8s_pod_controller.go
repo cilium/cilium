@@ -46,7 +46,7 @@ func enableUnmanagedKubeDNSController() {
 					id, podHasIdentity := pod.Annotations[ciliumio.CiliumK8sAnnotationPrefix+"identity"]
 					if podHasIdentity {
 						log.Debugf("Found kube-dns pod %s/%s with identity %s", pod.Namespace, pod.Name, id)
-					} else {
+					} else if !pod.Spec.HostNetwork {
 						log.Debugf("Found unmanaged kube-dns pod %s/%s", pod.Namespace, pod.Name)
 						if startTime := pod.Status.StartTime; startTime != nil {
 							if age := time.Since((*startTime).Time); age > unmanagedKubeDnsMinimalAge {
