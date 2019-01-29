@@ -912,6 +912,10 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	mtuConfig := mtu.NewConfiguration(option.Config.Tunnel != option.TunnelDisabled, option.Config.MTU)
 
 	if option.Config.EnableIPSec {
+		if len(option.Config.IPSecKeyFile) == 0 {
+			return nil, nil, fmt.Errorf("invalid %s option, ipsec key file is missing", option.EnableIPSecName)
+		}
+
 		if err := ipsec.LoadIPSecKeysFile(option.Config.IPSecKeyFile); err != nil {
 			return nil, nil, err
 		}
