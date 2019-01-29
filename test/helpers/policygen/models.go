@@ -445,6 +445,7 @@ metadata:
     zgroup: "%[1]s"
     test: "policygen"
 spec:
+  terminationGracePeriodSeconds: 0
   containers:
   - name: app-frontend
     image: docker.io/byrnedo/alpine-curl:0.1.7
@@ -462,6 +463,7 @@ metadata:
     zgroup: "%[1]s"
     test: "policygen"
 spec:
+  terminationGracePeriodSeconds: 0
   containers:
   - name: web
     image: docker.io/cilium/demo-httpd:latest
