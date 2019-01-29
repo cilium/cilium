@@ -1326,7 +1326,7 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 		body,
 		"cannot change state of resource correctly; command timed out",
 		&TimeoutConfig{Timeout: timeout})
-
+	ginkgoext.GinkgoPrint(kub.Exec("kubectl get cnp --all-namespaces -o yaml").Output().String())
 	if err != nil {
 		return "", err
 	}
