@@ -223,6 +223,12 @@ func checkMinRequirements() {
 			"version is %s; kernel version that is running is: %s", minKernelVer, kernelVersion)
 	}
 
+	if option.Config.EnableIPv6 {
+		if _, err := os.Stat("/proc/net/if_inet6"); os.IsNotExist(err) {
+			log.Fatalf("kernel: ipv6 is enabled in agent but ipv6 is either disabled or not compiled in the kernel")
+		}
+	}
+
 	if filePath, err := exec.LookPath("clang"); err != nil {
 		log.WithError(err).Fatal("clang: NOT OK")
 	} else {
