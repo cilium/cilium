@@ -381,6 +381,9 @@ const (
 
 	// EnableIPSecName is the name of the option to enable IPSec
 	EnableIPSecName = "enable-ipsec"
+
+	// IPSecKeyFileName is the name of the option for ipsec key file
+	IPSecKeyFileName = "ipsec-key-file"
 )
 
 // FQDNS variables
