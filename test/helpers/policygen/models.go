@@ -357,6 +357,7 @@ func (t *TestSpec) RunTest(kub *helpers.Kubectl) {
 		// rules. This code makes sure that the status of the policy has a error
 		// in the status.
 		cnp, err := t.InvalidNetworkPolicyApply()
+		kub.Exec(fmt.Sprintf("%s delete cnp %s", helpers.KubectlCmd, t.Prefix))
 		gomega.Expect(err).To(gomega.BeNil(), "Cannot apply network policy")
 		gomega.Expect(cnp).NotTo(gomega.BeNil(), "CNP is not a valid struct")
 		gomega.Expect(cnp.Status.Nodes).NotTo(gomega.BeEmpty(), "CNP Status is empty")
@@ -705,7 +706,7 @@ func (t *TestSpec) InvalidNetworkPolicyApply() (*cnpv2.CiliumNetworkPolicy, erro
 	}
 	body := func() bool {
 		cnp := t.Kub.GetCNP(helpers.DefaultNamespace, t.Prefix)
-		if cnp != nil {
+		if cnp != nil && len(cnp.Status.Nodes) > 0 {
 			return true
 		}
 		return false
