@@ -690,7 +690,7 @@ func finishIpvlanInit(ep *endpoint.Endpoint, netNsPath string) error {
 		return fmt.Errorf("Unable to find ipvlan slave in container netns: %s", err)
 	}
 
-	mapFD, mapID, err := connector.SetupIpvlanRemoteNs(netNs,
+	mapFD, mapID, err := connector.SetupIpvlanInRemoteNs(netNs,
 		ipvlanIface, ipvlanIface)
 	if err != nil {
 		return fmt.Errorf("Unable to setup ipvlan slave: %s", err)
