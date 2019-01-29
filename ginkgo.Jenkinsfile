@@ -27,7 +27,7 @@ pipeline {
 
             steps {
                 BuildIfLabel('area/k8s', 'Cilium-PR-Kubernetes-Upstream')
-                BuildIfLabel('integration/cni-flannel', 'Cilium-PR-Flannel')
+                BuildIfLabel('integration/cni-flannel', 'Cilium-PR-K8s-Flannel')
                 BuildIfLabel('area/k8s', 'Cilium-PR-Ginkgo-Tests-K8s')
                 BuildIfLabel('area/documentation', 'Cilium-PR-Doc-Tests')
                 sh 'env'
