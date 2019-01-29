@@ -190,6 +190,12 @@ generate-k8s-api:
 	./generate-groups.sh deepcopy \
 	    github.com/cilium/cilium/pkg/k8s/client \
 	    github.com/cilium/cilium \
+	    "pkg:node" \
+	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
+	cd "./vendor/k8s.io/code-generator" && \
+	./generate-groups.sh deepcopy \
+	    github.com/cilium/cilium/pkg/k8s/client \
+	    github.com/cilium/cilium \
 	    "pkg:labels" \
 	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
 	cd "./vendor/k8s.io/code-generator" && \

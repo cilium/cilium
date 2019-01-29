@@ -37,6 +37,8 @@ func (nn Identity) String() string {
 }
 
 // Node contains the nodes name, the list of addresses to this address
+//
+// +k8s:deepcopy-gen=true
 type Node struct {
 	// Name is the name of the node. This is typically the hostname of the node.
 	Name string
@@ -86,6 +88,8 @@ func (n *Node) Fullname() string {
 }
 
 // Address is a node address which contains an IP and the address type.
+//
+// +k8s:deepcopy-gen=true
 type Address struct {
 	AddressType v1.NodeAddressType
 	IP          net.IP
