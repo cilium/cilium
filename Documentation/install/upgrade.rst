@@ -262,6 +262,8 @@ Annotations:
    upgrade. Connections should successfully re-establish without requiring
    clients to reconnect.
 
+.. _1.4_upgrade_notes:
+
 1.4 Upgrade Notes
 -----------------
 
@@ -276,6 +278,55 @@ Changes that may require action
  * The ``--serve`` option was removed from cilium-bugtool in favor of a much
    reduced binary size. If you want to continue using the option, please use an
    older version of the cilium-bugtool binary.
+
+.. _1.4_new_options:
+
+New ConfigMap Options
+~~~~~~~~~~~~~~~~~~~~~
+
+  * ``enable-ipv4``: If enabled, all endpoints are allocated an IPv4 address.
+
+  * ``enable-ipv6``: If enabled, all endpoints are allocated an IPv6 address.
+
+  * ``preallocate-bpf-maps``: If true, reduce per-packet latency at the expense
+    of up-front memory allocation for entries in BPF maps. If this value is
+    modified, then during the next Cilium startup the restore of existing
+    endpoints and tracking of ongoing connections may be disrupted. This may
+    lead to policy drops or a change in loadbalancing decisions for a
+    connection for some time. Endpoints may need to be recreated to restore
+    connectivity. If this option is set to ``false`` during an upgrade to 1.4.0
+    or later, then it may cause one-time disruptions during the upgrade.
+
+  * New flannel CNI integration mode options (tech preview):
+
+    * ``flannel-master-device``: When running Cilium with policy enforcement
+      enabled on top of Flannel, the BPF programs will be installed on the
+      network interface specified in this option and on each network interface
+      belonging to a pod.
+
+    * ``flannel-uninstall-on-exit``: If ``flannel-master-device`` is specified,
+      this determines whether Cilium should remove BPF programs from the master
+      device and interfaces belonging to pods when the Cilium `DaemonSet` is
+      deleted. If true, Cilium will remove programs from the pods.
+
+    * ``flannel-manage-existing-containers``: On startup, install a BPF
+      programs to allow for policy enforcement on pods that are currently
+      managed by Flannel. This also requires the Cilium `DaemonSet` to be
+      running with ``hostPID: true``, which is not enabled by default.
+
+Deprecated ConfigMap Options
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* ``disable-ipv4``: Superseded by ``enable-ipv4``, with the logic reversed.
+
+* ``legacy-host-allows-world``: This option allowed users to specify Cilium
+  1.0-style policies that treated traffic that is masqueraded from the outside
+  world as though it arrived from the local host. As of Cilium 1.4, the option
+  is disabled by default if not specified in the ConfigMap, and the option is
+  scheduled to be removed in Cilium 1.5 or later. For more information, see
+  :ref:`host_vs_world`.
+
+.. _1.3_upgrade_notes:
 
 1.3 Upgrade Notes
 -----------------
