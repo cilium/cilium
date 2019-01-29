@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -142,9 +142,7 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 			continue
 		}
 
-		if option.Config.KeepConfig {
-			ep.SetDefaultOpts(nil)
-		} else {
+		if !option.Config.KeepConfig {
 			ep.SetDefaultOpts(option.Config.Opts)
 			alwaysEnforce := policy.GetPolicyEnabled() == option.AlwaysEnforce
 			ep.SetDesiredIngressPolicyEnabledLocked(alwaysEnforce)
