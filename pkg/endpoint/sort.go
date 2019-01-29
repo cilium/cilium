@@ -54,3 +54,22 @@ func (epS *epModelSorter) Swap(i, j int) {
 func (epS *epModelSorter) Less(i, j int) bool {
 	return epS.by(epS.eps[i], epS.eps[j])
 }
+
+type endpointSlice []*Endpoint
+
+func (es endpointSlice) Len() int {
+	return len(es)
+}
+
+func (es endpointSlice) Swap(i, j int) {
+	es[i], es[j] = es[j], es[i]
+}
+
+func (es endpointSlice) Less(i, j int) bool {
+	return es[i].ID < es[j].ID
+}
+
+// OrderEndpointAsc orders the slice of Endpoint in ascending ID order.
+func OrderEndpointAsc(eps []*Endpoint) {
+	sort.Sort(endpointSlice(eps))
+}
