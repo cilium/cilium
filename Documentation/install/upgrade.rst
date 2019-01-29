@@ -277,6 +277,52 @@ Changes that may require action
    reduced binary size. If you want to continue using the option, please use an
    older version of the cilium-bugtool binary.
 
+.. _1.4_new_options:
+
+New ConfigMap Options
+~~~~~~~~~~~~~~~~~~~~~
+
+  * ``enable-ipv4``: replaces ``disable-ipv4``. If enabled, all endpoints are
+    allocated an IPv4 address.
+
+  * ``enable-ipv6``: If enabled, all endpoints are allocated an IPv6 address.
+
+  * ``preallocate-bpf-maps``: If true, reduce per-packet latency at the expense
+    of up-front memory allocation for entries in BPF maps. If this value is
+    modified, then during the next Cilium startup the restore of existing
+    endpoints and tracking of ongoing connections may be disrupted.This may
+    lead to policy drops or a change in loadbalancing decisions for a
+    connection for some time. Endpoints may need to be recreated to restore
+    connectivity. If this option is set to "false" during an upgrade from 1.3
+    or earlier to 1.4 or later, then it may cause one-time disruptions during
+    the upgrade.
+
+  * ``flannel-master-device``: When running Cilium with policy enforcement
+    enabled on top of a CNI plugin, the BPF programs will be installed on the
+    network interface specified in this option and on each network interface
+    belonging to a pod.
+
+  * ``flannel-uninstall-on-exit``: If ``flannel-master-device`` is specified,
+    this determines whether Cilium should remove BPF programs from the master
+    device and interfaces belonging to pods when the Cilium `DaemonSet` is
+    deleted. If true, Cilium will remove programs from the pods.
+
+  * ``flannel-manage-existing-containers``: On startup, installs a BPF program
+    to allow for policy enforcement on pods that are currently managed by
+    Flannel. This also requires the Cilium `DaemonSet` to be running with
+    ``hostPID: true``, which is not enabled by default.
+
+Deprecated ConfigMap Options
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* ``legacy-host-allows-world``: This option allowed users to specify Cilium
+  1.0-style policies that treated traffic that is masqueraded from the outside
+  world as though it arrived from the local host. As of Cilium 1.4, the option
+  is disabled by default if not specified in the ConfigMap, and the option is
+  scheduled to be removed in Cilium 1.5 or later. For more information, see
+  :ref:`host_vs_world`.
+
+
 1.3 Upgrade Notes
 -----------------
 
