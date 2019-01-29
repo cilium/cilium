@@ -27,6 +27,7 @@ pipeline {
             }
 
             steps {
+                Status("PENDING", "${env.JOB_NAME}")
                 sh 'env'
                 sh 'rm -rf src; mkdir -p src/github.com/cilium'
                 sh 'ln -s $WORKSPACE src/github.com/cilium/cilium'
@@ -91,6 +92,12 @@ pipeline {
             sh 'cd ${TESTDIR}/test/; K8S_VERSION=1.9 vagrant destroy -f || true'
             sh 'cd ${TESTDIR}/test/; K8S_VERSION=1.13 vagrant destroy -f || true'
             cleanWs()
+        }
+        success {
+            Status("SUCCESS", "$JOB_BASE_NAME")
+        }
+        failure {
+            Status("FAILURE", "$JOB_BASE_NAME")
         }
     }
 }
