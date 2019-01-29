@@ -97,6 +97,10 @@ func updateTunnelMapping(oldCIDR, newCIDR *cidr.CIDR, oldIP, newIP net.IP, first
 // CIDR and node IP to a new node CIDR and node IP requires to insert/update
 // the new node CIDR.
 func cidrNodeMappingUpdateRequired(oldCIDR, newCIDR *cidr.CIDR, oldIP, newIP net.IP) bool {
+	// node with single IP stack could have nil old and new CIDR
+	if oldCIDR == nil && newCIDR == nil {
+		return false
+	}
 	// Newly announced CIDR
 	if newCIDR != nil && oldCIDR == nil {
 		return true
