@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -143,16 +143,7 @@ func (s *EndpointSuite) TestEndpointStatus(c *C) {
 }
 
 func (s *EndpointSuite) TestEndpointUpdateLabels(c *C) {
-	e := Endpoint{
-		ID:       100,
-		IPv6:     IPv6Addr,
-		IPv4:     IPv4Addr,
-		Status:   NewEndpointStatus(),
-		OpLabels: pkgLabels.NewOpLabels(),
-	}
-	e.UnconditionalLock()
-	e.SetDefaultOpts(nil)
-	e.Unlock()
+	e := NewEndpointWithState(100, StateCreating)
 
 	// Test that inserting identity labels works
 	rev := e.replaceIdentityLabels(pkgLabels.Map2Labels(map[string]string{"foo": "bar", "zip": "zop"}, "cilium"))
@@ -176,14 +167,8 @@ func (s *EndpointSuite) TestEndpointUpdateLabels(c *C) {
 }
 
 func (s *EndpointSuite) TestEndpointState(c *C) {
-	e := Endpoint{
-		ID:     100,
-		IPv6:   IPv6Addr,
-		IPv4:   IPv4Addr,
-		Status: NewEndpointStatus(),
-	}
+	e := NewEndpointWithState(100, StateCreating)
 	e.UnconditionalLock()
-	e.SetDefaultOpts(nil)
 	defer e.Unlock()
 
 	e.state = StateCreating

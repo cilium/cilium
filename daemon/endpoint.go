@@ -173,8 +173,6 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		return nil, errEndpointInvalidParams{err.Error()}
 	}
 
-	ep.SetDefaultOpts(option.Config.Opts)
-
 	oldEp := endpointmanager.LookupCiliumID(ep.ID)
 	if oldEp != nil {
 		return nil, errEndpointExists
