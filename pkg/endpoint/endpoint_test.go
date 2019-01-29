@@ -22,9 +22,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common/addressing"
-	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -44,25 +42,6 @@ func Test(t *testing.T) { TestingT(t) }
 type EndpointSuite struct{}
 
 var _ = Suite(&EndpointSuite{})
-
-func (s *EndpointSuite) TestOrderEndpointAsc(c *C) {
-	eps := []*models.Endpoint{
-		{ID: 5},
-		{ID: 1000},
-		{ID: 1},
-		{ID: 3},
-		{ID: 2},
-	}
-	epsWant := []*models.Endpoint{
-		{ID: 1},
-		{ID: 2},
-		{ID: 3},
-		{ID: 5},
-		{ID: 1000},
-	}
-	OrderEndpointAsc(eps)
-	c.Assert(eps, checker.DeepEquals, epsWant)
-}
 
 func (s *EndpointSuite) TestEndpointStatus(c *C) {
 	eps := NewEndpointStatus()
