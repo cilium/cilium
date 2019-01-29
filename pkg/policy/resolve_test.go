@@ -17,6 +17,8 @@
 package policy
 
 import (
+	"fmt"
+
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -44,12 +46,36 @@ var (
 
 func (ds *PolicyTestSuite) SetUpSuite(c *C) {
 	SetPolicyEnabled(option.DefaultEnforcement)
-	repo.AddList(GenerateNumRules(1000000))
-
+	GenerateNumIdentities(3000)
+	repo.AddList(GenerateNumRules(1000))
 }
 
 func (ds *PolicyTestSuite) TearDownSuite(c *C) {
 	repo = &Repository{}
+}
+
+func GenerateNumIdentities(numIdentities int) {
+	for i := 0; i < numIdentities; i++ {
+
+		identityLabel := labels.NewLabel(fmt.Sprintf("k8s:foo%d", i), "", "")
+		clusterLabel := labels.NewLabel("io.cilium.k8s.policy.cluster=default", "", labels.LabelSourceK8s)
+		serviceAccountLabel := labels.NewLabel("io.cilium.k8s.policy.serviceaccount=default", "", labels.LabelSourceK8s)
+		namespaceLabel := labels.NewLabel("io.kubernetes.pod.namespace=monitoring", "", labels.LabelSourceK8s)
+		funLabel := labels.NewLabel("app=analytics-erneh", "", labels.LabelSourceK8s)
+
+		identityLabels := labels.Labels{
+			fmt.Sprintf("foo%d", i):                           identityLabel,
+			"k8s:io.cilium.k8s.policy.cluster=default":        clusterLabel,
+			"k8s:io.cilium.k8s.policy.serviceaccount=default": serviceAccountLabel,
+			"k8s:io.kubernetes.pod.namespace=monitoring":      namespaceLabel,
+			"k8s:app=analytics-erneh":                         funLabel,
+		}
+
+		bumpedIdentity := i + 1000
+		numericIdentity := identity.NumericIdentity(bumpedIdentity)
+
+		identityCache[numericIdentity] = identityLabels.LabelArray()
+	}
 }
 
 func GenerateNumRules(numRules int) api.Rules {
