@@ -193,7 +193,7 @@ type AddOptions struct {
 	ReplaceWithLabels labels.LabelArray
 }
 
-func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions, prefixes []*net.IPNet) (uint64, error) {
+func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions, prefixes []*net.IPNet) (uint64, policyAPI.Rules, error) {
 	d.policy.Mutex.Lock()
 	defer d.policy.Mutex.Unlock()
 
@@ -204,16 +204,16 @@ func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions, prefixes []*
 			for _, r := range rules {
 				tmp := d.policy.SearchRLocked(r.Labels)
 				if len(tmp) > 0 {
-					d.dnsPoller.StopPollForDNSName(tmp)
 					d.policy.DeleteByLabelsLocked(r.Labels)
+					oldRules = append(oldRules, tmp...)
 				}
 			}
 		}
 		if len(opts.ReplaceWithLabels) > 0 {
 			tmp := d.policy.SearchRLocked(opts.ReplaceWithLabels)
 			if len(tmp) > 0 {
-				d.dnsPoller.StopPollForDNSName(tmp)
 				d.policy.DeleteByLabelsLocked(opts.ReplaceWithLabels)
+				oldRules = append(oldRules, tmp...)
 			}
 		}
 	}
@@ -226,14 +226,14 @@ func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions, prefixes []*
 			if rev, err2 := d.policy.AddListLocked(oldRules); err2 != nil {
 				log.WithError(err2).Error("Error while restoring old rules after adding of new rules failed")
 				log.Error("--- INCONSISTENT STATE OF POLICY ---")
-				return rev, err
+				return rev, oldRules, err
 			}
 		}
 
-		return rev, err
+		return rev, oldRules, err
 	}
 
-	return rev, nil
+	return rev, oldRules, nil
 }
 
 // PolicyAdd adds a slice of rules to the policy repository owned by the
@@ -279,7 +279,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 		return d.policy.GetRevision(), err
 	}
 
-	rev, err := d.policyAdd(rules, opts, prefixes)
+	rev, oldRules, err := d.policyAdd(rules, opts, prefixes)
 	if err != nil {
 		// Don't leak identities allocated above.
 		_ = d.prefixLengths.Delete(prefixes)
@@ -292,7 +292,10 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 	}
 
 	// The rules are added, we can begin ToFQDN DNS polling for them
+	// We also need to stop polling for any rules we replaced. This will happen
+	// every time we add a new IP and re-insert the policy.
 	d.dnsPoller.StartPollForDNSName(rules)
+	d.dnsPoller.StopPollForDNSName(oldRules)
 
 	log.WithField(logfields.PolicyRevision, rev).Info("Policy imported via API, recalculating...")
 

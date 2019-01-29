@@ -95,11 +95,15 @@ type DNSPoller struct {
 	// The data here is map[dnsName][rule uuid]struct{} where the inner map acts
 	// as a refcount of rules that depend on this dnsName.
 	// The UUID -> rule mapping is allRules below.
-	sourceRules map[string]map[string]struct{}
+	sourceRules map[string]map[string]int
 
 	// allRules is the global source of truth for rules we are managing. It maps
 	// UUID to the rule copy.
 	allRules map[string]*api.Rule
+
+	// allRulesRefCnt is the refcount for each uuid key in allRules. This is used
+	// to guard against different order Start/StopPollDNSName in daemon.PolicyAdd
+	allRulesRefCnt map[string]int
 }
 
 // DNSPollerConfig is a simple configuration structure to set how DNSPoller
@@ -123,10 +127,11 @@ func NewDNSPoller(config DNSPollerConfig) *DNSPoller {
 	}
 
 	return &DNSPoller{
-		config:      config,
-		IPs:         make(map[string][]net.IP),
-		sourceRules: make(map[string]map[string]struct{}),
-		allRules:    make(map[string]*api.Rule),
+		config:         config,
+		IPs:            make(map[string][]net.IP),
+		sourceRules:    make(map[string]map[string]int),
+		allRules:       make(map[string]*api.Rule),
+		allRulesRefCnt: make(map[string]int),
 	}
 }
 
@@ -397,6 +402,7 @@ func (poller *DNSPoller) addRule(uuid string, sourceRule *api.Rule) (newDNSNames
 
 	// Always add to allRules
 	poller.allRules[uuid] = sourceRule
+	poller.allRulesRefCnt[uuid] += 1
 
 	// Add a dnsname -> rule reference
 	for _, egressRule := range sourceRule.Egress {
@@ -410,9 +416,9 @@ func (poller *DNSPoller) addRule(uuid string, sourceRule *api.Rule) (newDNSNames
 				oldDNSNames = append(oldDNSNames, dnsName)
 			} else {
 				newDNSNames = append(newDNSNames, dnsName)
-				// Add this egress rule as a dependent on dnsName.
-				poller.sourceRules[dnsName][uuid] = struct{}{}
 			}
+			// Add this egress rule as a dependent on dnsName.
+			poller.sourceRules[dnsName][uuid] += 1
 		}
 	}
 
@@ -435,7 +441,11 @@ func (poller *DNSPoller) addRule(uuid string, sourceRule *api.Rule) (newDNSNames
 // noLongerPolled indicates that no more rules rely on this DNS target
 func (poller *DNSPoller) removeRule(uuid string, sourceRule *api.Rule) (noLongerPolled []string) {
 	// Always delete from allRules
-	delete(poller.allRules, uuid)
+	poller.allRulesRefCnt[uuid] -= 1
+	if poller.allRulesRefCnt[uuid] <= 0 {
+		delete(poller.allRulesRefCnt, uuid)
+		delete(poller.allRules, uuid)
+	}
 
 	// Delete dnsname -> rule references
 	for _, egressRule := range sourceRule.Egress {
@@ -460,8 +470,10 @@ func (poller *DNSPoller) removeFromDNSName(dnsName, uuid string) (shouldStopPoll
 	// remove the rule from the set of rules that rely on dnsName.
 	// Note: this isn't removing dnsName from poller.sourceRules, that is just
 	// below.
-	delete(poller.sourceRules[dnsName], uuid)
-
+	poller.sourceRules[dnsName][uuid] -= 1
+	if poller.sourceRules[dnsName][uuid] <= 0 {
+		delete(poller.sourceRules[dnsName], uuid)
+	}
 	// Check if any rules remain that rely on this dnsName by checking
 	// if the inner map[rule uuid]struct{} set is empty. If none do we
 	// can delete it so we no longer poll it.
@@ -480,7 +492,7 @@ func (poller *DNSPoller) ensureExists(dnsName string) (exists bool) {
 	_, exists = poller.IPs[dnsName]
 	if !exists {
 		poller.IPs[dnsName] = make([]net.IP, 0)
-		poller.sourceRules[dnsName] = make(map[string]struct{})
+		poller.sourceRules[dnsName] = make(map[string]int)
 	}
 
 	return exists
