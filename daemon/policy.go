@@ -213,26 +213,33 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 	}
 
 	d.policy.Mutex.Lock()
+
+	// oldRules tracks rules the we replace. We stop DNS polling for them after
+	// we start polling for the new rules. This avoids ref-counting to 0 on DNS
+	// names that have only 1 rule referring to them. This would cause us to
+	// regenerate on every poll.
+	oldRules := policyAPI.Rules{}
+
 	// removedPrefixes tracks prefixes that we replace in the rules. It is used
 	// after we release the policy repository lock.
 	var removedPrefixes []*net.IPNet
 	if opts != nil {
 		if opts.Replace {
 			for _, r := range rules {
-				oldRules := d.policy.SearchRLocked(r.Labels)
-				removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(oldRules)...)
-				if len(oldRules) > 0 {
-					d.dnsPoller.StopPollForDNSName(oldRules)
+				tmp := d.policy.SearchRLocked(r.Labels)
+				removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(tmp)...)
+				if len(tmp) > 0 {
 					d.policy.DeleteByLabelsLocked(r.Labels)
+					oldRules = append(oldRules, tmp...)
 				}
 			}
 		}
 		if len(opts.ReplaceWithLabels) > 0 {
-			oldRules := d.policy.SearchRLocked(opts.ReplaceWithLabels)
-			removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(oldRules)...)
-			if len(oldRules) > 0 {
-				d.dnsPoller.StopPollForDNSName(oldRules)
+			tmp := d.policy.SearchRLocked(opts.ReplaceWithLabels)
+			removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(tmp)...)
+			if len(tmp) > 0 {
 				d.policy.DeleteByLabelsLocked(opts.ReplaceWithLabels)
+				oldRules = append(oldRules, tmp...)
 			}
 		}
 	}
@@ -255,7 +262,10 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 	}
 
 	// The rules are added, we can begin ToFQDN DNS polling for them
+	// We also need to stop polling for any rules we replaced. This will happen
+	// every time we add a new IP and re-insert the policy.
 	d.dnsPoller.StartPollForDNSName(rules)
+	d.dnsPoller.StopPollForDNSName(oldRules)
 
 	log.WithField(logfields.PolicyRevision, rev).Info("Policy imported via API, recalculating...")
 
