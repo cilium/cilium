@@ -18,8 +18,6 @@ package node
 
 import (
 	"net"
-
-	"github.com/vishvananda/netlink"
 )
 
 func firstGlobalV4Addr(intf string) (net.IP, error) {
