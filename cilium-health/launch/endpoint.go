@@ -263,7 +263,6 @@ func LaunchAsEndpoint(owner endpoint.Owner, n *node.Node, mtuConfig mtu.Configur
 	if err != nil {
 		return nil, fmt.Errorf("Error while creating endpoint model: %s", err)
 	}
-	ep.SetDefaultOpts(option.Config.Opts)
 
 	// Give the endpoint a security identity
 	ep.UpdateLabels(owner, labels.LabelHealth, nil, true)

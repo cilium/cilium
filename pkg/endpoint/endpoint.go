@@ -417,7 +417,6 @@ func (e *Endpoint) WaitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 func NewEndpointWithState(ID uint16, state string) *Endpoint {
 	ep := &Endpoint{
 		ID:            ID,
-		Options:       option.NewIntOptions(&EndpointMutableOptionLibrary),
 		OpLabels:      pkgLabels.NewOpLabels(),
 		Status:        NewEndpointStatus(),
 		DNSHistory:    fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMaxIPsPerHost),
@@ -425,6 +424,7 @@ func NewEndpointWithState(ID uint16, state string) *Endpoint {
 		hasBPFProgram: make(chan struct{}, 0),
 		controllers:   controller.NewManager(),
 	}
+	ep.SetDefaultOpts(option.Config.Opts)
 	ep.UpdateLogger(nil)
 	return ep
 }
@@ -491,6 +491,8 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, 
 			ep.IPv4 = ip4
 		}
 	}
+
+	ep.SetDefaultOpts(option.Config.Opts)
 
 	return ep, nil
 }
@@ -919,6 +921,8 @@ func (e *Endpoint) ForcePolicyCompute() {
 	e.forcePolicyCompute = true
 }
 
+// SetDefaultOpts initializes the endpoint Options and configures the specified
+// options.
 func (e *Endpoint) SetDefaultOpts(opts *option.IntOptions) {
 	if e.Options == nil {
 		e.Options = option.NewIntOptions(&EndpointMutableOptionLibrary)
@@ -1010,6 +1014,9 @@ func ParseEndpoint(strEp string) (*Endpoint, error) {
 	if err := parseBase64ToEndpoint(strEpSlice[1], &ep); err != nil {
 		return nil, fmt.Errorf("failed to parse base64toendpoint: %s", err)
 	}
+
+	// Validate the options that were parsed
+	ep.SetDefaultOpts(ep.Options)
 
 	// Initialize fields to values which are non-nil that are not serialized.
 	ep.hasBPFProgram = make(chan struct{}, 0)
