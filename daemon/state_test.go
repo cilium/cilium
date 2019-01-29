@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -206,11 +206,23 @@ func (ds *DaemonSuite) TestReadEPsFromDirNames(c *C) {
 	c.Assert(err, IsNil)
 	eps := readEPsFromDirNames(tmpDir, epsNames)
 	c.Assert(len(eps), Equals, len(epsWanted))
+
+	e.OrderEndpointAsc(epsWanted)
+	var restoredEPs []*e.Endpoint
 	for _, ep := range eps {
-		if ep.ID == 256 {
-			// Make sure the NodeMac equals to the one we set for the endpoint
-			// regeneration that should take priority. (The non-failed one)
-			c.Assert(ep.NodeMAC, checker.DeepEquals, mac.MAC([]byte{0x02, 0xff, 0xf2, 0x12, 0xc1, 0xc1}))
-		}
+		restoredEPs = append(restoredEPs, ep)
+	}
+	e.OrderEndpointAsc(restoredEPs)
+
+	c.Assert(len(restoredEPs), Equals, len(epsWanted))
+	for i, restoredEP := range restoredEPs {
+		// We probably shouldn't modify these, but the status will
+		// naturally differ between the wanted endpoint and the version
+		// that's restored, because the restored version has log
+		// messages relating to the restore.
+		restoredEP.Status = nil
+		wanted := epsWanted[i]
+		wanted.Status = nil
+		c.Assert(restoredEP.String(), checker.DeepEquals, wanted.String())
 	}
 }
