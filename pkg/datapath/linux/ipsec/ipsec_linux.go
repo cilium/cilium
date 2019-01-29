@@ -267,7 +267,7 @@ func DeleteIPSecEndpoint(src, local net.IP) error {
 func LoadIPSecKeysFile(path string) error {
 	file, err := os.Open(path)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to load IPSec Keys File %s: %v", path, err)
 	}
 	defer file.Close()
 
