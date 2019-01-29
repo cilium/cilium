@@ -610,6 +610,15 @@ This is typically achieved using two methods:
 There are two possible approaches to performing network forwarding for
 container-to-container traffic:
 
+Cluster Mesh
+============
+
+Cluster mesh extends the networking datapath across multiple clusters. It
+allows endpoints in all connected clusters to communicate while providing full
+policy enforcement. Load-balancing is available via Kubernetes annotations.
+
+See :ref:`gs_clustermesh` for instructions on how to set up cluster mesh.
+
 Container Communication with External Hosts
 ===========================================
 

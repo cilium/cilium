@@ -150,6 +150,8 @@ The minimum version of iproute2_ must be >= 4.8.0. Please see
 https://www.kernel.org/pub/linux/utils/net/iproute2/ for documentation on how
 to install iproute2.
 
+.. _firewall_requirements:
+
 Firewall Rules
 ==============
 
@@ -159,7 +161,7 @@ It is recommended but optional that all nodes running Cilium in a given cluster 
 
 If you are using VXLAN overlay network mode, Cilium uses Linux's default VXLAN port 8472 over UDP, unless Linux has been configured otherwise. In this case, UDP 8472 must be open among all nodes to enable VXLAN overlay mode. The same applies to Geneve overlay network mode, except the port is UDP 6081.
 
-If you are running in direct routing mode, you effectively need to allow all traffic among nodes. Since there's no distinction between the pods' network and the underlying network, all nodes must be able to freely talk to each other.
+If you are running in direct routing mode, your network must allow routing of pod IPs.
 
 As an example, if you are running on AWS with VXLAN overlay networking, here is a minimum set of AWS Security Group (SG) rules. It assumes a separation between the SG on the master nodes, ``master-sg``, and the worker nodes, ``worker-sg``. It also assumes ``etcd`` is running on the master nodes.
 
