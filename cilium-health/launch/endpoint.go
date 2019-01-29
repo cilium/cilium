@@ -41,7 +41,9 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
 
+	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -49,11 +51,11 @@ const (
 )
 
 var (
-	// vethName is the host-side link device name for cilium-health EP.
+	// vethName is the host-side veth link device name for cilium-health EP.
 	vethName = "cilium_health"
 
-	// vethPeerName is the endpoint-side link device name for cilium-health.
-	vethPeerName = "cilium"
+	// epIfaceName is the endpoint-side link device name for cilium-health.
+	epIfaceName = "cilium"
 
 	// PidfilePath
 	PidfilePath = "health-endpoint.pid"
@@ -161,6 +163,7 @@ func KillEndpoint() {
 // is removed from the endpointmanager.
 func CleanupEndpoint() {
 	scopedLog := log.WithField(logfields.Veth, vethName)
+	// TODO(brb): only for the "veth" datapath mode
 	if link, err := netlink.LinkByName(vethName); err == nil {
 		err = netlink.LinkDel(link)
 		if err != nil {
@@ -187,6 +190,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, n *node.Node, mtuConfig mtu.Configur
 		}
 		ip4Address, ip6Address string
 		healthIP               net.IP
+		hostIfaceName          string
 	)
 
 	if n.IPv4HealthIP != nil {
@@ -203,14 +207,44 @@ func LaunchAsEndpoint(owner endpoint.Owner, n *node.Node, mtuConfig mtu.Configur
 		ip6Address = ip6WithMask.String()
 	}
 
-	if _, _, err := connector.SetupVethWithNames(vethName, vethPeerName, mtuConfig.GetDeviceMTU(), info); err != nil {
-		return nil, fmt.Errorf("Error while creating veth: %s", err)
+	netNsName := info.ContainerName
+
+	switch option.Config.DatapathMode {
+	case option.DatapathModeVeth:
+		if _, _, err := connector.SetupVethWithNames(vethName, epIfaceName, mtuConfig.GetDeviceMTU(), info); err != nil {
+			return nil, fmt.Errorf("Error while creating veth: %s", err)
+		}
+		hostIfaceName = vethName
+
+	case option.DatapathModeIpvlan:
+		netNs, err := replaceNetNSWithName(netNsName)
+		if err != nil {
+			return nil, err
+		}
+
+		index := option.Config.Ipvlan.MasterDeviceIndex
+		mode := option.Config.Ipvlan.OperationMode
+
+		mapFD, err := connector.CreateAndSetupIpvlanSlave(
+			"", epIfaceName, netNs,
+			mtuConfig.GetDeviceMTU(), index, mode, info,
+		)
+		if err != nil {
+			// TODO(brb): remove named netns
+			return nil, err
+		}
+		defer unix.Close(mapFD)
+
+		hostIfaceName = option.Config.Device
 	}
 
 	pidfile := filepath.Join(option.Config.StateDir, PidfilePath)
 	healthArgs := fmt.Sprintf("-d --admin=unix --passive --pidfile %s", pidfile)
-	args := []string{info.ContainerName, info.InterfaceName, vethPeerName,
+	args := []string{info.ContainerName, hostIfaceName, epIfaceName,
 		ip6Address, ip4Address, ciliumHealth, healthArgs}
+	if option.Config.DatapathMode == option.DatapathModeIpvlan {
+		args = append(args, "--skip-netns-init")
+	}
 	prog := filepath.Join(option.Config.BpfDir, "spawn_netns.sh")
 	cmd.SetTarget(prog)
 	cmd.SetArgs(args)
@@ -244,7 +278,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, n *node.Node, mtuConfig mtu.Configur
 
 	// Set up the endpoint routes
 	hostAddressing := node.GetNodeAddressing()
-	if err = configureHealthRouting(info.ContainerName, vethPeerName, hostAddressing, mtuConfig); err != nil {
+	if err = configureHealthRouting(info.ContainerName, epIfaceName, hostAddressing, mtuConfig); err != nil {
 		return nil, fmt.Errorf("Error while configuring routes: %s", err)
 	}
 
@@ -260,6 +294,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, n *node.Node, mtuConfig mtu.Configur
 		ep.Unlock()
 		return nil, fmt.Errorf("unable to transition health endpoint to WaitingToRegenerate state")
 	}
+	ep.MapPinLocked()
 	ep.Unlock()
 
 	buildSuccessful := <-ep.Regenerate(owner, &endpoint.ExternalRegenerationMetadata{
@@ -279,4 +314,30 @@ func LaunchAsEndpoint(owner endpoint.Owner, n *node.Node, mtuConfig mtu.Configur
 	metrics.SubprocessStart.WithLabelValues(ciliumHealth).Inc()
 
 	return &Client{Client: client}, nil
+}
+
+// replaceNetNSWithName creates a network namespace with the given name.
+// If such netns already exists from a previous run, it will be removed
+// and then re-created.
+//
+// FIXME: replace "ip-netns" invocations with native Go code
+func replaceNetNSWithName(name string) (ns.NetNS, error) {
+	netNSPath := filepath.Join("/var/run/netns", name)
+
+	if err := ns.IsNSorErr(netNSPath); err == nil {
+		if err := exec.Command("ip", "netns", "del", name).Run(); err != nil {
+			return nil, fmt.Errorf("Failed to delete named netns %s: %s", name, err)
+		}
+	}
+
+	if err := exec.Command("ip", "netns", "add", name).Run(); err != nil {
+		return nil, fmt.Errorf("Failed to create named netns %s: %s", name, err)
+	}
+
+	ns, err := ns.GetNS(netNSPath)
+	if err != nil {
+		return nil, fmt.Errorf("Unable to open netns %s: %s", netNSPath, err)
+	}
+
+	return ns, nil
 }
