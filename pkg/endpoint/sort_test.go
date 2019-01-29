@@ -41,3 +41,22 @@ func (s *EndpointSuite) TestOrderEndpointModelAsc(c *C) {
 	OrderEndpointModelAsc(eps)
 	c.Assert(eps, checker.DeepEquals, epsWant)
 }
+
+func (s *EndpointSuite) TestOrderEndpointAsc(c *C) {
+	eps := []*Endpoint{
+		{ID: 5},
+		{ID: 1000},
+		{ID: 1},
+		{ID: 3},
+		{ID: 2},
+	}
+	epsWant := []*Endpoint{
+		{ID: 1},
+		{ID: 2},
+		{ID: 3},
+		{ID: 5},
+		{ID: 1000},
+	}
+	OrderEndpointAsc(eps)
+	c.Assert(eps, checker.DeepEquals, epsWant)
+}
