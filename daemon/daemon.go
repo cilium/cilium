@@ -790,41 +790,57 @@ func (d *Daemon) syncLXCMap() error {
 	specialIdentities := []identity.IPIdentityPair{}
 
 	if option.Config.EnableIPv4 {
+		ip := node.GetInternalIPv4()
+		if len(ip) > 0 {
+			specialIdentities = append(specialIdentities,
+				identity.IPIdentityPair{
+					IP: ip,
+					ID: identity.ReservedIdentityHost,
+				})
+		}
+
+		ip = node.GetExternalIPv4()
+		if len(ip) > 0 {
+			specialIdentities = append(specialIdentities,
+				identity.IPIdentityPair{
+					IP: ip,
+					ID: identity.ReservedIdentityHost,
+				})
+		}
+
 		specialIdentities = append(specialIdentities,
-			[]identity.IPIdentityPair{
-				{
-					IP: node.GetInternalIPv4(),
-					ID: identity.ReservedIdentityHost,
-				},
-				{
-					IP: node.GetExternalIPv4(),
-					ID: identity.ReservedIdentityHost,
-				},
-				{
-					IP:   net.IPv4zero,
-					Mask: net.CIDRMask(0, net.IPv4len*8),
-					ID:   identity.ReservedIdentityWorld,
-				},
-			}...)
+			identity.IPIdentityPair{
+				IP:   net.IPv4zero,
+				Mask: net.CIDRMask(0, net.IPv4len*8),
+				ID:   identity.ReservedIdentityWorld,
+			})
 	}
 
 	if option.Config.EnableIPv6 {
+		ip := node.GetIPv6()
+		if len(ip) > 0 {
+			specialIdentities = append(specialIdentities,
+				identity.IPIdentityPair{
+					IP: ip,
+					ID: identity.ReservedIdentityHost,
+				})
+		}
+
+		ip = node.GetIPv6Router()
+		if len(ip) > 0 {
+			specialIdentities = append(specialIdentities,
+				identity.IPIdentityPair{
+					IP: ip,
+					ID: identity.ReservedIdentityHost,
+				})
+		}
+
 		specialIdentities = append(specialIdentities,
-			[]identity.IPIdentityPair{
-				{
-					IP: node.GetIPv6(),
-					ID: identity.ReservedIdentityHost,
-				},
-				{
-					IP: node.GetIPv6Router(),
-					ID: identity.ReservedIdentityHost,
-				},
-				{
-					IP:   net.IPv6zero,
-					Mask: net.CIDRMask(0, net.IPv6len*8),
-					ID:   identity.ReservedIdentityWorld,
-				},
-			}...)
+			identity.IPIdentityPair{
+				IP:   net.IPv6zero,
+				Mask: net.CIDRMask(0, net.IPv6len*8),
+				ID:   identity.ReservedIdentityWorld,
+			})
 	}
 
 	existingEndpoints, err := lxcmap.DumpToMap()
