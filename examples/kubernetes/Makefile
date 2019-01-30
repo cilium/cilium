@@ -20,6 +20,13 @@ CILIUM_DEFAULT= \
   $(ETCD_OPERATOR) \
   cilium-rbac.yaml
 
+CILIUM_NODE_INIT= \
+  cilium-cm.yaml \
+  cilium-ds.yaml \
+  cilium-operator.yaml \
+  $(ETCD_OPERATOR) \
+  cilium-rbac.yaml
+
 CILIUM_EXTERNAL_ETCD= \
   cilium-cm.yaml \
   cilium-ds.yaml \
@@ -38,7 +45,7 @@ CILIUM_CRIO= \
   $(ETCD_OPERATOR) \
   cilium-rbac.yaml
 
-all: transform cilium.yaml cilium-crio.yaml cilium-minikube.yaml cilium-external-etcd.yaml
+all: transform cilium.yaml cilium-crio.yaml cilium-minikube.yaml cilium-external-etcd.yaml cilium-with-node-init.yaml
 
 %.sed:
 	for k8s_version in $(K8S_VERSIONS); do \
@@ -80,6 +87,18 @@ cilium.yaml:
         (cd $$k8s_version && \
             rm -f ./$@ && \
             for f in $(CILIUM_DEFAULT); do (cat "$${f}") >> $@; done); \
+	done
+
+cilium-with-node-init.yaml:
+	export __CILIUM_CONTAINER_RUNTIME__=auto
+	for k8s_version in $(K8S_VERSIONS); do \
+        (cd $$k8s_version && \
+            rm -f ./$@ && \
+            for f in $(CILIUM_NODE_INIT); do (cat "$${f}") >> $@; done; \
+	    sed -i 's+namespace: kube-system+namespace: cilium+' cilium-with-node-init.yaml; \
+	    sed -i '/priorityClassName: system-node-critical/d' cilium-with-node-init.yaml; \
+	    sed -i 's+path: /opt/cni/bin+path: /home/kubernetes/bin+' cilium-with-node-init.yaml; \
+	    sed -i 's+https://cilium-etcd-client.kube-system.svc:2379+https://cilium-etcd-client.cilium.svc:2379+' cilium-with-node-init.yaml); \
 	done
 
 cilium-external-etcd.yaml:
