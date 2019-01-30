@@ -94,6 +94,10 @@ const (
 	// This or ToFQDNsMinTTL is used in DaemonConfig.Populate
 	ToFQDNsMinTTLPoller = 3600 // 1 hour in seconds
 
+	// ToFQDNsMaxIPsPerHost defines the maximum number of IPs to maintain
+	// for each FQDN name in an endpoint's FQDN cache
+	ToFQDNsMaxIPsPerHost = 50
+
 	// IdentityChangeGracePeriod is the grace period that needs to pass
 	// before an endpoint that has changed its identity will start using
 	// that new identity. During the grace period, the new identity has
