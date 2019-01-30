@@ -222,6 +222,8 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 		}
 	}
 
+	d.policy.UpdateLocalConsumers(endpointmanager.EndpointIdentityMapping())
+
 	for _, ep := range state.restored {
 		go func(ep *endpoint.Endpoint, epRegenerated chan<- bool) {
 			if err := ep.RLockAlive(); err != nil {

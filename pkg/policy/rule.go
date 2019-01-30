@@ -17,7 +17,9 @@ package policy
 import (
 	"fmt"
 
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
@@ -27,6 +29,13 @@ import (
 
 type rule struct {
 	api.Rule
+
+	// mutex protects everything below it (i.e., not the rule itself).
+	mutex lock.RWMutex
+
+	// localRuleConsumers is the set of the numeric identifiers which this rule
+	// selects which are node-local (e.g., Endpoint).
+	localRuleConsumers map[uint16]*identity.Identity
 }
 
 func (r *rule) String() string {

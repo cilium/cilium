@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -351,7 +352,7 @@ nextLabel:
 // This is just a helper function for unit testing.
 // TODO: this should be in a test_helpers.go file or something similar
 // so we can clearly delineate what helpers are for testing.
-func (p *Repository) Add(r api.Rule) (uint64, error) {
+func (p *Repository) Add(r api.Rule, localRuleConsumers map[uint16]*identity.Identity) (uint64, error) {
 	p.Mutex.Lock()
 	defer p.Mutex.Unlock()
 
@@ -361,16 +362,20 @@ func (p *Repository) Add(r api.Rule) (uint64, error) {
 
 	newList := make([]*api.Rule, 1)
 	newList[0] = &r
-	return p.AddListLocked(newList), nil
+	return p.AddListLocked(newList, localRuleConsumers), nil
 }
 
 // AddListLocked inserts a rule into the policy repository with the repository already locked
 // Expects that the entire rule list has already been sanitized.
-func (p *Repository) AddListLocked(rules api.Rules) uint64 {
+func (p *Repository) AddListLocked(rules api.Rules, localRuleConsumers map[uint16]*identity.Identity) uint64 {
 	newList := make([]*rule, len(rules))
 	for i := range rules {
-		newList[i] = &rule{Rule: *rules[i]}
+		newRule := &rule{Rule: *rules[i]}
+		newRule.updateLocalConsumers(localRuleConsumers)
+		newList[i] = newRule
+		// TODO spawn goroutines for matching? might not be worth it due to mutex in selection
 	}
+
 	p.rules = append(p.rules, newList...)
 	p.revision++
 	metrics.PolicyCount.Add(float64(len(newList)))
@@ -379,11 +384,37 @@ func (p *Repository) AddListLocked(rules api.Rules) uint64 {
 	return p.revision
 }
 
+func (p *Repository) UpdateLocalConsumers(identifiers map[uint16]*identity.Identity) {
+	for _, r := range p.rules {
+		r.updateLocalConsumers(identifiers)
+	}
+}
+
+func (r *rule) updateLocalConsumers(identifiers map[uint16]*identity.Identity) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	log.Infof("updateLocalConsumers: identifiers provided: %s", identifiers)
+
+	for id, securityIdentity := range identifiers {
+		ruleMatches := r.EndpointSelector.Matches(securityIdentity.LabelArray)
+		log.Infof("updateLocalConsumers: ruleMatches identifier %d --> %s ? : %v", id, securityIdentity, ruleMatches)
+		if ruleMatches {
+			if r.localRuleConsumers == nil {
+				r.localRuleConsumers = map[uint16]*identity.Identity{}
+			}
+			r.localRuleConsumers[id] = securityIdentity
+		}
+	}
+	log.Infof("updateLocalConsumers: rule %s: localConsumers: %s", r.Rule, r.localRuleConsumers)
+}
+
 // AddList inserts a rule into the policy repository.
 func (p *Repository) AddList(rules api.Rules) uint64 {
 	p.Mutex.Lock()
 	defer p.Mutex.Unlock()
-	return p.AddListLocked(rules)
+	// TODO (ianvernon) plumbing
+	return p.AddListLocked(rules, map[uint16]*identity.Identity{})
 }
 
 // DeleteByLabelsLocked deletes all rules in the policy repository which

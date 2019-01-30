@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -297,6 +298,18 @@ func lookupContainerID(id string) *endpoint.Endpoint {
 		return ep
 	}
 	return nil
+}
+
+// GetAllEndpointIDs returns the set of IDs of all endpoints being managed by
+// the endpointmanager.
+func EndpointIdentityMapping() map[uint16]*identity.Identity {
+	mutex.RLock()
+	defer mutex.RUnlock()
+	endpointIDs := make(map[uint16]*identity.Identity, len(endpoints))
+	for id, ep := range endpoints {
+		endpointIDs[id] = ep.SecurityIdentity
+	}
+	return endpointIDs
 }
 
 // UpdateReferences updates the mappings of various values to their corresponding

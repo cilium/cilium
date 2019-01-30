@@ -241,7 +241,8 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 			}
 		}
 	}
-	rev := d.policy.AddListLocked(rules)
+	endpointIDs := endpointmanager.EndpointIdentityMapping()
+	rev := d.policy.AddListLocked(rules, endpointIDs)
 	d.policy.Mutex.Unlock()
 
 	// remove prefixes of replaced rules above. This potentially blocks on the
