@@ -26,6 +26,9 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 )
 
+// defines the maximum number of IPs to maintain for each FQDN name
+var FQDNMaxIPperHost = 50
+
 // DefaultDNSCache is a global, shared, DNS cache. It is the default cache used
 // by DNSPoller instances, unless initialized to use another.
 // Note: The DNSCache type returns all DNS information, regardless of source.
@@ -115,6 +118,13 @@ type DNSCache struct {
 	// cleanup is the map of TTL expiration time and the entries that are going
 	// to expire will be deleted by CleanupExpiredEntries.
 	cleanup map[int64][]string
+
+	// overLimit is a map with the host names that has reached the ips limits
+	// defined by the DNSCache
+	overLimit map[string]bool
+
+	// limit is the number of maximum number of IP per host.
+	limit int
 }
 
 // NewDNSCache returns an initialized DNSCache
@@ -124,7 +134,16 @@ func NewDNSCache() *DNSCache {
 		reverse:     make(map[string]nameEntries),
 		lastCleanup: time.Now(),
 		cleanup:     map[int64][]string{},
+		overLimit:   map[string]bool{},
 	}
+	return c
+}
+
+// NewDNSCache returns an initialized DNSCache and set the max host limit to
+// the given argument
+func NewDNSCacheWithLimit(limit int) *DNSCache {
+	c := NewDNSCache()
+	c.limit = limit
 	return c
 }
 
@@ -162,6 +181,9 @@ func (c *DNSCache) updateWithEntry(entry *cacheEntry) {
 		c.forward[entry.Name] = entries
 	}
 	c.updateWithEntryIPs(entries, entry)
+	if len(entries) > FQDNMaxIPperHost {
+		c.overLimit[entry.Name] = true
+	}
 
 	// When lookupTime is much earlier than time.Now(), we may not expire all
 	// entries that should be expired, leaving more work for .Lookup.
@@ -185,16 +207,13 @@ func (c *DNSCache) addNameToCleanup(entry *cacheEntry) {
 	c.cleanup[expiration] = append(expiredEntries, entry.Name)
 }
 
-// CleanupExpiredEntries cleans all the expired entries from the lastTime that
+// cleanupExpiredEntries cleans all the expired entries from the lastTime that
 // runs to the give time. It will lock the struct until retrieves all the data.
 // It returns the list of names that need to be deleted from the policies.
-func (c *DNSCache) CleanupExpiredEntries(expires time.Time) ([]string, time.Time) {
-	c.Lock()
-	defer c.Unlock()
+func (c *DNSCache) cleanupExpiredEntries(expires time.Time) ([]string, time.Time) {
 	timediff := int(expires.Sub(c.lastCleanup).Seconds())
 	startTime := c.lastCleanup
 	expiredEntries := []string{}
-
 	for i := 0; i < int(timediff); i++ {
 		expiredTime := c.lastCleanup.Add(time.Second)
 		key := expiredTime.Unix()
@@ -206,28 +225,80 @@ func (c *DNSCache) CleanupExpiredEntries(expires time.Time) ([]string, time.Time
 		expiredEntries = append(expiredEntries, entries...)
 		delete(c.cleanup, key)
 	}
-	uniqMap := make(map[string]bool)
-	for _, v := range expiredEntries {
-		uniqMap[v] = true
-	}
 
-	uniqExpires := make([]string, 0, len(uniqMap))
-	for v := range uniqMap {
-		uniqExpires = append(uniqExpires, v)
-	}
-	for _, name := range uniqExpires {
+	result := []string{}
+	for _, name := range KeepUniqueNames(expiredEntries) {
 		if entries, exists := c.forward[name]; exists {
-			c.removeExpired(entries, c.lastCleanup, time.Time{})
+			if !c.removeExpired(entries, c.lastCleanup, time.Time{}) {
+				continue
+			}
+			result = append(result, name)
 		}
 	}
-	return uniqExpires, startTime
+	return result, startTime
+}
+
+// cleanupOverLimitEntries returns the names that has reached the max number of
+// IP per host.
+// Internally the function sort the entries by the TTL.
+func (c *DNSCache) cleanupOverLimitEntries() []string {
+	type IPEntry struct {
+		ip    string
+		entry *cacheEntry
+	}
+	toClean := []string{}
+
+	// For global cache the limit maybe is not used at all.
+	if c.limit == 0 {
+		return toClean
+	}
+
+	for dnsName := range c.overLimit {
+		entries, ok := c.forward[dnsName]
+		if !ok {
+			continue
+		}
+		overlimit := len(entries) - FQDNMaxIPperHost
+		if overlimit <= 0 {
+			continue
+		}
+
+		sortedEntries := []IPEntry{}
+		for ip, entry := range entries {
+			sortedEntries = append(sortedEntries, IPEntry{ip, entry})
+		}
+
+		sort.Slice(sortedEntries, func(i, j int) bool {
+			return sortedEntries[i].entry.ExpirationTime.Unix() < sortedEntries[j].entry.ExpirationTime.Unix()
+		})
+
+		for i := 0; i <= overlimit; i++ {
+			key := sortedEntries[i]
+			delete(entries, key.ip)
+			c.removeReverse(key.ip, key.entry)
+		}
+		toClean = append(toClean, dnsName)
+	}
+	c.overLimit = map[string]bool{}
+	return toClean
+}
+
+// GC garbage collector function that clean expired entries and return the
+// entries that are deleted.
+func (c *DNSCache) GC() []string {
+	c.Lock()
+	expiredEntries, _ := c.cleanupExpiredEntries(time.Now())
+	overLimitEntries := c.cleanupOverLimitEntries()
+	c.Unlock()
+	return KeepUniqueNames(append(expiredEntries, overLimitEntries...))
 }
 
 // UpdateFromCache is a utility function that allows updating a DNSCache
 // instance with all the internal entries of another. Latest-Expiration still
 // applies, thus the merged outcome is consistent with adding the entries
-// individually.
-func (c *DNSCache) UpdateFromCache(update *DNSCache) {
+// individually. If any item in the names slice will only update that names.
+// If the clean argument is set to true, all entries will be clean.
+func (c *DNSCache) UpdateFromCache(update *DNSCache, names []string, clean bool) {
 	if update == nil {
 		return
 	}
@@ -237,8 +308,19 @@ func (c *DNSCache) UpdateFromCache(update *DNSCache) {
 
 	c.Lock()
 	defer c.Unlock()
-
-	for _, newEntries := range update.forward {
+	if len(names) == 0 {
+		for name := range update.forward {
+			names = append(names, name)
+		}
+	}
+	for _, name := range names {
+		newEntries, exists := update.forward[name]
+		if !exists {
+			continue
+		}
+		if clean {
+			c.removeExpired(newEntries, time.Now(), time.Now())
+		}
 		for _, newEntry := range newEntries {
 			c.updateWithEntry(newEntry)
 		}
