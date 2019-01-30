@@ -300,8 +300,8 @@ docs-container:
 	  (ret=$$?; rm -r ./Documentation/_api && exit $$ret)
 
 render-docs: test-docs
-	$(DOCKER) container run --rm -dit --name docs-cilium -p 8080:80 -v $$(pwd)/Documentation/_build/html/:/usr/local/apache2/htdocs/ httpd:2.4
-	@echo "$$(tput setaf 2)Running at http://localhost:8080$$(tput sgr0)"
+	$(DOCKER) container run --rm -dit --name docs-cilium -p 9080:80 -v $$(pwd)/Documentation/_build/html/:/usr/local/apache2/htdocs/ httpd:2.4
+	@echo "$$(tput setaf 2)Running at http://localhost:9080$$(tput sgr0)"
 
 test-docs: docs-container
 	-$(DOCKER) container rm -f docs-cilium >/dev/null 2>&1 || true
