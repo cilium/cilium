@@ -1,6 +1,7 @@
 #!/bin/bash
 #
 # Copyright 2016 The Kubernetes Authors All rights reserved.
+# Copyright 2019 Authors of Cilium
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,14 +17,19 @@
 #
 # Set PROGram name
 PROG=${0##*/}
-STABLE_BRANCH=${1:-1.0}
-echo "Checking for backports on branch '${STABLE_BRANCH}'"
+STABLE_BRANCH=${1:-}
+SUMMARY_LOG=${2:-}
 
 source $(dirname $(readlink -ne $BASH_SOURCE))/../release/lib/common.sh
 source $TOOL_LIB_PATH/gitlib.sh
 
 # Validate command-line
-common::argc_validate 1
+common::argc_validate 2
+
+if [[ -z $STABLE_BRANCH ]]; then
+  logecho "usage: $0 <branch> [summary-file]" >&2
+  common::exit 1
+fi
 
 ###############################################################################
 # FUNCTIONS
@@ -167,12 +173,18 @@ MYLOG=/tmp/$PROG.log
 # Check token
 gitlib::github_api_token
 
+echo "Checking for backports on branch '${STABLE_BRANCH}'"
+
 stable_prs=($(get_prs "needs-backport/${STABLE_BRANCH}" "backport-done/${STABLE_BRANCH}"))
+echo -e "v$STABLE_BRANCH backports $(date +%Y-%m-%d)\n" | tee $SUMMARY_LOG
 echo -e "PRs for stable backporting: ${#stable_prs[@]}\n"
 if [[ ${#stable_prs[@]} > 0 ]]; then
   for pr in "${stable_prs[@]}"; do
     title=$(extract_pr_title "$pr")
     echo " * PR: $pr -- $title -- https://github.com/cilium/cilium/pull/$pr"
+    if [[ ! -z $SUMMARY_LOG ]]; then
+      echo " * #$pr -- $title" >> $SUMMARY_LOG
+    fi
     generate_commit_list_for_pr $pr
     echo ""
   done
