@@ -165,3 +165,19 @@ func sortedIPsAreEqual(a, b []net.IP) bool {
 func prepareMatchName(matchName string) string {
 	return strings.ToLower(dns.Fqdn(matchName))
 }
+
+// KeepUniqueNames it gets a array of strings and return a new array of strings
+// with the unique names.
+func KeepUniqueNames(names []string) []string {
+	result := []string{}
+	entries := map[string]bool{}
+
+	for _, item := range names {
+		if _, ok := entries[item]; ok {
+			continue
+		}
+		entries[item] = true
+		result = append(result, item)
+	}
+	return result
+}
