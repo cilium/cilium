@@ -9,28 +9,69 @@
 Getting Started Guides
 ======================
 
-This document serves as the easiest introduction to using Cilium.  If you are
-new to Cilium it is recommended to read the :ref:`intro` section first to learn
-about the basic concepts and motivation.
+The following is a list of guides that help you get started with Cilium. The
+guides cover the installation and then dive into more detailed topics such as
+securing clusters, connecting multiple clusters, monitoring, and
+troubleshooting. If you are new to Cilium it is recommended to read the
+:ref:`intro` section first to learn about the basic concepts and motivation.
 
-The following guides which each takes an estimated time of 10-15 minutes to
-complete will help you to get started in your area of choice:
+.. _gs_install:
 
+Installation
+------------
 .. toctree::
    :maxdepth: 1
    :glob:
 
    minikube
+   k8s-install-self-managed
+   k8s-install-managed
+   k8s-installers
+
+Security Tutorials
+------------------
+
+.. toctree::
+   :maxdepth: 1
+   :glob:
+
+   http
    dns 
-   istio
    kafka
    grpc
    elasticsearch
    cassandra
    memcached
-   mesos
-   docker
    aws
+
+Advanced Networking
+-------------------
+.. toctree::
+   :maxdepth: 1
+   :glob:
+
+   kube-router
+   clustermesh
+
+
+Istio
+-----
+
+.. toctree::
+   :maxdepth: 1
+   :glob:
+
+   istio
+
+Other Orchestrators
+-------------------
+
+.. toctree::
+   :maxdepth: 1
+   :glob:
+
+   docker
+   mesos
 
 The best way to get help if you get stuck is to ask a question on the `Cilium
 Slack channel <https://cilium.herokuapp.com>`_.  With Cilium contributors

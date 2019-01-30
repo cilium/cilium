@@ -4,9 +4,9 @@
     Please use the official rendered version released here:
     http://docs.cilium.io
 
-******************************************
-Cilium Endpoint Custom Resource Definition
-******************************************
+************
+Endpoint CRD
+************
 
 When managing pods in Kubernetes, Cilium will create a Custom Resource
 Definition (CRD) of Kind ``CiliumEndpoint``. One ``CiliumEndpoint`` is created
@@ -21,7 +21,7 @@ For example:
 
 ::
 
-    $ kubectl get ciliumendpoints --all-namespaces
+    kubectl get ciliumendpoints --all-namespaces
     NAMESPACE     NAME                     AGE
     default       app1-55d7944bdd-l7c8j    1h
     default       app1-55d7944bdd-sn9xj    1h
