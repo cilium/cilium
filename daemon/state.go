@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	identity2 "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
@@ -302,12 +303,20 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 			// the identity even if has not changed.
 			ep.SetIdentity(identity)
 
+			// We don't need to hold the policy repository mutex here because
+			// the content of the rules themselves are not being changed.
+			wg := d.policy.UpdateLocalConsumers(map[uint16]*identity2.Identity{ep.ID: ep.SecurityIdentity})
+			ep.Logger("daemon").Info("waiting for rules to update consumers for endpoint")
+			wg.Wait()
+			ep.Logger("daemon").Info("done waiting for rules to update consumers for endpoint")
+
 			if ep.GetStateLocked() == endpoint.StateWaitingToRegenerate {
 				ep.Unlock()
 				// EP is already waiting to regenerate. This is no error so no logging.
 				epRegenerated <- false
 				return
 			}
+
 			ready := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Triggering synchronous endpoint regeneration while syncing state to host")
 			ep.Unlock()
 

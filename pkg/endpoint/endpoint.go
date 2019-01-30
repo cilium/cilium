@@ -25,6 +25,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unsafe"
 
@@ -292,6 +293,10 @@ type Endpoint struct {
 
 	realizedPolicy *policy.EndpointPolicy
 
+	eventQueueOnce sync.Once
+
+	eventQueue *EventQueue
+
 	///////////////////////
 	// DEPRECATED FIELDS //
 	///////////////////////
@@ -420,9 +425,12 @@ func NewEndpointWithState(ID uint16, state string) *Endpoint {
 		state:         state,
 		hasBPFProgram: make(chan struct{}, 0),
 		controllers:   controller.NewManager(),
+		eventQueue:    newEventQueue(),
 	}
 	ep.SetDefaultOpts(option.Config.Opts)
 	ep.UpdateLogger(nil)
+	ep.initializeEventQueue()
+
 	return ep
 }
 
@@ -451,6 +459,7 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, 
 		desiredPolicy:    &policy.EndpointPolicy{},
 		realizedPolicy:   &policy.EndpointPolicy{},
 		controllers:      controller.NewManager(),
+		eventQueue:       newEventQueue(),
 	}
 	ep.UpdateLogger(nil)
 
@@ -490,6 +499,7 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, 
 	}
 
 	ep.SetDefaultOpts(option.Config.Opts)
+	ep.initializeEventQueue()
 
 	return ep, nil
 }
@@ -1045,6 +1055,7 @@ func ParseEndpoint(strEp string) (*Endpoint, error) {
 	ep.desiredPolicy = &policy.EndpointPolicy{}
 	ep.realizedPolicy = &policy.EndpointPolicy{}
 	ep.controllers = controller.NewManager()
+	ep.eventQueue = newEventQueue()
 
 	// We need to check for nil in Status, CurrentStatuses and Log, since in
 	// some use cases, status will be not nil and Cilium will eventually
@@ -1057,6 +1068,7 @@ func ParseEndpoint(strEp string) (*Endpoint, error) {
 	ep.UpdateLogger(nil)
 
 	ep.SetStateLocked(StateRestoring, "Endpoint restoring")
+	ep.initializeEventQueue()
 
 	return &ep, nil
 }
@@ -1312,6 +1324,7 @@ func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup
 	e.SetStateLocked(StateDisconnected, "Endpoint removed")
 
 	endpointPolicyStatus.Remove(e.ID)
+
 	e.getLogger().Info("Removed endpoint")
 
 	return errors
@@ -1962,6 +1975,11 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 	elog.WithFields(logrus.Fields{logfields.Identity: identity.StringID()}).
 		Debug("Assigned new identity to endpoint")
 
+	identityChangedWG := owner.ClearPolicyConsumers(e.ID)
+	log.Infof("removing %d from consumers of policy rules", e.ID)
+	identityChangedWG.Wait()
+	log.Infof("done removing %d from consumers of policy rules", e.ID)
+
 	e.SetIdentity(identity)
 
 	if oldIdentity != nil {
@@ -2000,12 +2018,15 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 }
 
 // SetPolicyRevision sets the endpoint's policy revision with the given
-// revision.
+// revision, but only if the endpoint is in 'Ready' state.
 func (e *Endpoint) SetPolicyRevision(rev uint64) {
 	if err := e.LockAlive(); err != nil {
 		return
 	}
-	e.setPolicyRevision(rev)
+
+	if e.state == StateReady {
+		e.setPolicyRevision(rev)
+	}
 	e.Unlock()
 }
 

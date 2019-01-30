@@ -16,7 +16,9 @@ package policy
 
 import (
 	"strconv"
+	"sync"
 
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -251,4 +253,35 @@ egressLoop:
 	egressState.trace(rules, egressCtx)
 
 	return egressDecision
+}
+
+// AnalyzeWhetherRulesSelectEndpoints iterates over a given list of rules to
+// update the cache within the rule which determines whether or not the given
+// identity is selected by that rule. If a rule in the list does select said
+// identity, it is added to epIDSet. Signals to the given WaitGroup that
+// all rules have been parsed in relation to said identity.
+func (rules ruleSlice) AnalyzeWhetherRulesSelectEndpoint(id uint16, securityIdentity *identity.Identity, epIDSet *EndpointIDSet, wg *sync.WaitGroup) {
+	for _, r := range rules {
+		r.mutex.Lock()
+		var ruleMatches bool
+
+		if _, ok := r.processedConsumers[id]; ok {
+			if _, ok := r.localRuleConsumers[id]; ok {
+				ruleMatches = true
+			}
+		} else {
+			ruleMatches = r.EndpointSelector.Matches(securityIdentity.LabelArray)
+		}
+		if ruleMatches {
+			epIDSet.Mutex.Lock()
+			epIDSet.Eps[id] = struct{}{}
+			epIDSet.Mutex.Unlock()
+			r.localRuleConsumers[id] = securityIdentity
+		}
+		r.processedConsumers[id] = struct{}{}
+		r.mutex.Unlock()
+	}
+	// Work done for calculating change for this endpoint in relation to list of
+	// rules.
+	wg.Done()
 }

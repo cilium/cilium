@@ -154,7 +154,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) error {
 	// policy needs to be enforced for either ingress or egress.
 	e.prevIdentityCache = labelsMap
 
-	calculatedPolicy, err := repo.ResolvePolicy(e.ID, e.SecurityIdentity.LabelArray, e, *labelsMap)
+	calculatedPolicy, err := repo.ResolvePolicy(e.ID, e.SecurityIdentity, e, *labelsMap)
 	if err != nil {
 		return err
 	}
@@ -429,24 +429,30 @@ func (e *Endpoint) Regenerate(owner Owner, regenMetadata *ExternalRegenerationMe
 			e.getLogger().Debug("Dequeued endpoint from build queue")
 
 			regenContext.DoneFunc = doneFunc
-			err := e.regenerate(owner, regenContext)
-			doneFunc() // in case not called already
 
-			repr, reprerr := monitorAPI.EndpointRegenRepr(e, err)
-			if reprerr != nil {
-				e.getLogger().WithError(reprerr).Warn("Notifying monitor about endpoint regeneration failed")
-			}
+			epEvent := NewEndpointEvent(EndpointRegenerationEvent{
+				owner:        owner,
+				regenContext: regenContext,
+			})
 
-			if err != nil {
-				buildSuccess = false
-				if reprerr == nil && !option.Config.DryMode {
-					owner.SendNotification(monitorAPI.AgentNotifyEndpointRegenerateFail, repr)
-				}
-			} else {
-				buildSuccess = true
-				if reprerr == nil && !option.Config.DryMode {
-					owner.SendNotification(monitorAPI.AgentNotifyEndpointRegenerateSuccess, repr)
-				}
+			e.QueueEvent(epEvent)
+
+			select {
+			case result := <-epEvent.EventResults:
+				// Regeneration is done, allow other builds to occur.
+				doneFunc()
+				regenResult := result.(EndpointRegenerationResult)
+				err = regenResult.err
+
+				// Build was successful whether regeneration errored out of not.
+				buildSuccess = err == nil
+
+				// Notify monitor of result of regeneration.
+				e.notifyEndpointRegeneration(owner, err)
+			case <-epEvent.Cancelled:
+				e.getLogger().Info("event was not ran for endpoint due to event queue being closed")
+				// Still call doneFunc to allow other endpoint builds to occur.
+				doneFunc()
 			}
 		} else {
 			buildSuccess = false
@@ -455,6 +461,23 @@ func (e *Endpoint) Regenerate(owner Owner, regenMetadata *ExternalRegenerationMe
 	}()
 
 	return done
+}
+
+func (e *Endpoint) notifyEndpointRegeneration(owner Owner, err error) {
+	repr, reprerr := monitorAPI.EndpointRegenRepr(e, err)
+	if reprerr != nil {
+		e.getLogger().WithError(reprerr).Warn("Notifying monitor about endpoint regeneration failed")
+	}
+
+	if err != nil {
+		if reprerr == nil && !option.Config.DryMode {
+			owner.SendNotification(monitorAPI.AgentNotifyEndpointRegenerateFail, repr)
+		}
+	} else {
+		if reprerr == nil && !option.Config.DryMode {
+			owner.SendNotification(monitorAPI.AgentNotifyEndpointRegenerateSuccess, repr)
+		}
+	}
 }
 
 // FormatGlobalEndpointID returns the global ID of endpoint in the format
@@ -516,6 +539,7 @@ func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
 // SetIdentity resets endpoint's policy identity to 'id'.
 // Caller triggers policy regeneration if needed.
 // Called with e.Mutex Locked
+// TODO dirty caches in rules upon identity change??
 func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) {
 
 	// Set a boolean flag to indicate whether the endpoint has been injected by

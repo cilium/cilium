@@ -114,8 +114,8 @@ func listEndpoint(w *tabwriter.Writer, ep *models.Endpoint, id string, label str
 	policyIngress, policyEgress := endpointPolicyMode(ep)
 	ipv6, ipv4 := endpointAddressPair(ep)
 
-	fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n", ep.ID,
-		policyIngress, policyEgress, id, label, ipv6, ipv4, endpointState(ep))
+	fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\t\n", ep.ID,
+		policyIngress, policyEgress, id, label, ipv6, ipv4, endpointState(ep), ep.Status.Policy.Realized.PolicyRevision)
 }
 
 func listEndpoints() {
@@ -140,11 +140,12 @@ func printEndpointList(w *tabwriter.Writer, eps []*models.Endpoint) {
 		policyIngressTitle = "POLICY (ingress)"
 		policyEgressTitle  = "POLICY (egress)"
 		enforcementTitle   = "ENFORCEMENT"
+		revisionTitle      = "POLICY REVISION"
 	)
 
 	if !noHeaders {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
-			endpointTitle, policyIngressTitle, policyEgressTitle, labelsIDTitle, labelsDesTitle, ipv6Title, ipv4Title, statusTitle)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
+			endpointTitle, policyIngressTitle, policyEgressTitle, labelsIDTitle, labelsDesTitle, ipv6Title, ipv4Title, statusTitle, revisionTitle)
 		fmt.Fprintf(w, "\t%s\t%s\t\t\t\t\t\n", enforcementTitle, enforcementTitle)
 	}
 

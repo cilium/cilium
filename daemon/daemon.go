@@ -1546,3 +1546,7 @@ func (d *Daemon) GetNodeSuffix() string {
 
 	return ip.String()
 }
+
+func (d *Daemon) ClearPolicyConsumers(id uint16) *sync.WaitGroup {
+	return d.policy.RemoveIdentifierFromRuleCaches(id)
+}
