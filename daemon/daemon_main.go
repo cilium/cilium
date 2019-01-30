@@ -667,6 +667,9 @@ func init() {
 	flags.StringVar(&option.Config.FQDNRejectResponse, option.FQDNRejectResponseCode, option.FQDNProxyDenyWithRefused, fmt.Sprintf("DNS response code for rejecting DNS requests, available options are '%v'", option.FQDNRejectOptions))
 	option.BindEnv(option.FQDNRejectResponseCode)
 
+	flags.Int(option.ToFQDNsMaxIPsPerHost, defaults.ToFQDNsMaxIPsPerHost, "Maximum number of IPs to maintain per FQDN name for each endpoint")
+	option.BindEnv(option.ToFQDNsMaxIPsPerHost)
+
 	viper.BindPFlags(flags)
 }
 

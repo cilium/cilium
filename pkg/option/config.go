@@ -260,6 +260,10 @@ const (
 	// ToFQDNsEmitPollerEvents controls if poller lookups are sent as monitor events
 	ToFQDNsEnablePollerEvents = "tofqdns-enable-poller-events"
 
+	// ToFQDNsMaxIPsPerHost defines the maximum number of IPs to maintain
+	// for each FQDN name in an endpoint's FQDN cache
+	ToFQDNsMaxIPsPerHost = "tofqdns-endpoint-max-ip-per-hostname"
+
 	// AutoIPv6NodeRoutesName is the name of the AutoIPv6NodeRoutes option
 	AutoIPv6NodeRoutesName = "auto-ipv6-node-routes"
 
@@ -731,6 +735,10 @@ type DaemonConfig struct {
 	// response the DNS poller sees
 	ToFQDNsEnablePollerEvents bool
 
+	// ToFQDNsMaxIPsPerHost defines the maximum number of IPs to maintain
+	// for each FQDN name in an endpoint's FQDN cache
+	ToFQDNsMaxIPsPerHost int
+
 	// FQDNRejectResponse is the dns-proxy response for invalid dns-proxy request
 	FQDNRejectResponse string
 
@@ -770,6 +778,7 @@ var (
 		EnableHealthChecking:     defaults.EnableHealthChecking,
 		EnableIPv4:               defaults.EnableIPv4,
 		EnableIPv6:               defaults.EnableIPv6,
+		ToFQDNsMaxIPsPerHost:     defaults.ToFQDNsMaxIPsPerHost,
 		ContainerRuntimeEndpoint: make(map[string]string),
 		FixedIdentityMapping:     make(map[string]string),
 		KVStoreOpt:               make(map[string]string),
@@ -993,6 +1002,7 @@ func (c *DaemonConfig) Populate() {
 	// avoids confusion about dropped connections.
 	c.ToFQDNsEnablePoller = viper.GetBool(ToFQDNsEnablePoller)
 	c.ToFQDNsEnablePollerEvents = viper.GetBool(ToFQDNsEnablePollerEvents)
+	c.ToFQDNsMaxIPsPerHost = viper.GetInt(ToFQDNsMaxIPsPerHost)
 	userSetMinTTL := viper.GetInt(ToFQDNsMinTTL)
 	switch {
 	case userSetMinTTL != 0: // set by user

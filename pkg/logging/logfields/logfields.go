@@ -50,6 +50,9 @@ const (
 	// Labels are any label, they may not be relevant to the security identity.
 	Labels = "labels"
 
+	// Controller is the name of the controller to log it.
+	Controller = "controller"
+
 	// Identity is the identifier of a security identity
 	Identity = "identity"
 
