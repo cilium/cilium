@@ -119,14 +119,42 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 	}
 
 	// Controller to cleanup TTL expired entries from the DNS policies.
-	controller.NewManager().UpdateController("dns-ttl-cleanup-job", controller.ControllerParams{
-		RunInterval: time.Second,
+	dnsGCJobName := "dns-garbage-collector-job"
+	controller.NewManager().UpdateController(dnsGCJobName, controller.ControllerParams{
+		RunInterval: 1 * time.Minute,
 		DoFunc: func() error {
-			namesToClean, _ := cfg.Cache.CleanupExpiredEntries(time.Now())
-			d.dnsRuleGen.ForceGenerateDNS(namesToClean)
-			return nil
+
+			namesToClean := []string{}
+			endpoints := endpointmanager.GetEndpoints()
+			for _, ep := range endpoints {
+				namesToClean = append(namesToClean, ep.DNSHistory.GC()...)
+			}
+
+			namesToClean = fqdn.KeepUniqueNames(namesToClean)
+			if len(namesToClean) == 0 {
+				return nil
+			}
+
+			//Before doing the loop the DNS names to clean will be removed from
+			//cfg.Cache, to make sure that data is persistant across cache.
+			namesRegex, err := regexp.Compile("^" + strings.Join(namesToClean, ".|") + ".$")
+			if err != nil {
+				return err
+			}
+			cfg.Cache.ForceExpire(time.Now(), namesRegex)
+
+			// A second loop is needed to update the global cache from the
+			// endpoints cache. Looping this way is generally safe despite not
+			// locking; If a new lookup happens during these updates the new
+			// DNS data will be reinserted from the endpoint.DNSHistory cache
+			// that made the request.
+			for _, ep := range endpoints {
+				cfg.Cache.UpdateFromCache(ep.DNSHistory, namesToClean)
+			}
+			log.WithField(logfields.Controller, dnsGCJobName).Infof(
+				"FQDN garbage collector work deleted %d name entries", len(namesToClean))
+			return d.dnsRuleGen.ForceGenerateDNS(namesToClean)
 		},
-		StopFunc: func() error { return nil },
 	})
 
 	// Prefill the cache with DNS lookups from restored endpoints. This is needed
@@ -136,10 +164,9 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 	for _, restoredEP := range restoredEndpoints.restored {
 		// Upgrades from old ciliums have this nil
 		if restoredEP.DNSHistory != nil {
-			fqdn.DefaultDNSCache.UpdateFromCache(restoredEP.DNSHistory)
+			fqdn.DefaultDNSCache.UpdateFromCache(restoredEP.DNSHistory, []string{})
 		}
 	}
-
 	// Once we stop returning errors from StartDNSProxy this should live in
 	// StartProxySupport
 	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", uint16(option.Config.ToFQDNsProxyPort),
@@ -470,7 +497,7 @@ func deleteDNSLookups(endpoints []*endpoint.Endpoint, expireLookupsBefore time.T
 	namesToRegen = append(namesToRegen, fqdn.DefaultDNSCache.ForceExpire(expireLookupsBefore, nameMatcher)...)
 	for _, ep := range endpoints {
 		namesToRegen = append(namesToRegen, ep.DNSHistory.ForceExpire(expireLookupsBefore, nameMatcher)...)
-		fqdn.DefaultDNSCache.UpdateFromCache(ep.DNSHistory)
+		fqdn.DefaultDNSCache.UpdateFromCache(ep.DNSHistory, nil)
 	}
 
 	return namesToRegen, nil
