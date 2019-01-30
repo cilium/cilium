@@ -4,19 +4,19 @@
     Please use the official rendered version released here:
     http://docs.cilium.io
 
-****************************************
-Getting Started Using DNS-Based Policies
-****************************************
+.. _gs_dns:
+
+****************************************************
+Locking down external access with DNS-based policies
+****************************************************
 
 This document serves as an introduction for using Cilium to enforce DNS-based
 security policies for Kubernetes pods.
 
-.. include:: gsg_intro.rst
-.. include:: minikube_intro.rst
-.. include:: cilium_install.rst
+.. include:: gsg_requirements.rst
 
-Step 2: Deploy the Demo Application
-===================================
+Deploy the Demo Application
+===========================
 
 DNS-based policies are very useful for controlling access to services running outside the Kubernetes cluster. DNS acts as a persistent service identifier for both external services provided by AWS, Google, Twilio, Stripe, etc., and internal services such as database clusters running in private subnets outside Kubernetes. CIDR or IP-based policies are cumbersome and hard to maintain as the IPs associated with external services can change frequently. The Cilium DNS-based policies provide an easy mechanism to specify access control while Cilium manages the harder aspects of tracking DNS to IP mapping.
 
@@ -36,8 +36,8 @@ In line with our Star Wars theme examples, we will use a simple scenario where t
     pod/mediabot                     1/1     Running   0          14s  
 
 
-Step 3: Apply DNS Egress Policy
-===============================
+Apply DNS Egress Policy
+=======================
 
 The following Cilium network policy allows ``mediabot`` pods to only access ``api.twitter.com``. 
 
@@ -67,8 +67,8 @@ Testing the policy, we see that ``mediabot`` has access to ``api.twitter.com`` b
     $ kubectl exec -it mediabot -- curl -sL https://help.twitter.com
     ^C  
 
-Step 4: DNS Policies Using Patterns 
-===================================
+DNS Policies Using Patterns 
+===========================
 
 The above policy controlled DNS access based on exact match of the DNS domain name. Often, it is required to allow access to a subset of domains. Let's say, in the above example, ``mediabot`` pods need access to any Twitter sub-domain, e.g., the pattern ``*.twitter.com``. We can achieve this easily by changing the ``toFQDN`` rule to use ``matchPattern`` instead of ``matchName``.
 
@@ -92,8 +92,8 @@ Test that ``mediabot`` has access to multiple Twitter services for which the DNS
    $ kubectl exec -it mediabot -- curl -sL https://twitter.com
    ^C 
  
-Step 5: Combining DNS, Port and L7 Rules
-========================================
+Combining DNS, Port and L7 Rules
+================================
 
 The DNS-based policies can be combined with port (L4) and API (L7) rules to further restrict the access. In our example, we will restrict ``mediabot`` pods to access Twitter services only on ports ``443``. The ``toPorts`` section in the policy below achieves the port-based restrictions along with the DNS-based policies. 
 
@@ -115,8 +115,8 @@ Testing, the access to ``https://help.twitter.com`` on port ``443`` will succeed
 
 Refer to :ref:`l4_policy` and :ref:`l7_policy` to learn more about Cilium L4 and L7 network policies.  
 
-Step 6: Clean-up
-================
+Clean-up
+========
 
 .. parsed-literal::
 

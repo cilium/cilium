@@ -11,7 +11,11 @@
 Installation using Kops
 ***********************
 
-As of ``kops`` 1.9 release, Cilium can be plugged into ``kops``-deployed clusters as the CNI plugin. This guide provides steps to create a Kubernetes cluster on AWS using ``kops`` and Cilium as the CNI plugin. Note, the ``kops`` deployment will automate several deployment features in AWS by default, including AutoScaling, Volumes, VPCs, etc.
+As of ``kops`` 1.9 release, Cilium can be plugged into ``kops``-deployed
+clusters as the CNI plugin. This guide provides steps to create a Kubernetes
+cluster on AWS using ``kops`` and Cilium as the CNI plugin. Note, the ``kops``
+deployment will automate several deployment features in AWS by default,
+including AutoScaling, Volumes, VPCs, etc.
 
 Prerequisites
 =============
@@ -19,34 +23,37 @@ Prerequisites
 * `aws cli <https://aws.amazon.com/cli/>`_
 * `kubectl <https://kubernetes.io/docs/tasks/tools/install-kubectl>`_
 * aws account with permissions:
-
-.. code:: bash
-
-  AmazonEC2FullAccess
-  AmazonRoute53FullAccess
-  AmazonS3FullAccess
-  IAMFullAccess
-  AmazonVPCFullAccess
+  * AmazonEC2FullAccess
+  * AmazonRoute53FullAccess
+  * AmazonS3FullAccess
+  * IAMFullAccess
+  * AmazonVPCFullAccess
 
 
 Installing kops
 ===============
 
-.. code:: bash
+.. tabs::
+  .. group-tab:: Linux
+
+    .. parsed-literal::
 
         curl -LO https://github.com/kubernetes/kops/releases/download/$(curl -s https://api.github.com/repos/kubernetes/kops/releases/latest | grep tag_name | cut -d '"' -f 4)/kops-linux-amd64
         chmod +x kops-linux-amd64
         sudo mv kops-linux-amd64 /usr/local/bin/kops
 
-        # If you are on MacOS, you can use:
-        brew update && brew install kops
+  .. group-tab:: MacOS
 
+    .. parsed-literal::
+
+        brew update && brew install kops
 
 
 Setting up IAM Group and User
 =============================
 
-Assuming you have all the prerequisites, run the following commands to create the ``kops`` user and group:
+Assuming you have all the prerequisites, run the following commands to create
+the ``kops`` user and group:
 
 .. code:: bash
 
@@ -62,23 +69,32 @@ Assuming you have all the prerequisites, run the following commands to create th
         aws iam create-access-key --user-name kops
 
 
-``kops`` requires the creation of a dedicated s3 bucket in order to store the state and representation of the cluster. You will need to change the bucket name and provide your unique bucket name (for example a reverse of FQDN added with short description of the cluster). Also make sure to use the region where you will be deploying the cluster.
+``kops`` requires the creation of a dedicated S3 bucket in order to store the
+state and representation of the cluster. You will need to change the bucket
+name and provide your unique bucket name (for example a reverse of FQDN added
+with short description of the cluster). Also make sure to use the region where
+you will be deploying the cluster.
 
 .. code:: bash
 
         aws s3api create-bucket --bucket prefix-example-com-state-store --region us-west-2 --create-bucket-configuration LocationConstraint=us-west-2
         export KOPS_STATE_STORE=s3://prefix-example-com-state-store
 
-The above steps are sufficient for getting a working cluster installed. Please consult `kops aws documentation <https://github.com/kubernetes/kops/blob/master/docs/aws.md>`_ for more detailed setup instructions.
-
+The above steps are sufficient for getting a working cluster installed. Please
+consult `kops aws documentation
+<https://github.com/kubernetes/kops/blob/master/docs/aws.md>`_ for more
+detailed setup instructions.
 
 Cilium Prerequisites
 ====================
 
-* Ensure the :ref:`admin_system_reqs` are met, particularly the Linux kernel and key-value store versions.
-* (Recommended) Kubernetes with `CRD validation <https://kubernetes.io/docs/tasks/access-kubernetes-api/extend-api-custom-resource-definitions/>`_ (more on this after initial setup of the cluster)
+* Ensure the :ref:`admin_system_reqs` are met, particularly the Linux kernel
+  and key-value store versions.
 
-In this guide, we will use etcd version 3.1.11 and the latest CoreOS stable image which satisfies the minimum kernel version requirement of Cilium. To get the latest CoreOS ``ami`` image, you can change the region value to your choice in the command below.
+In this guide, we will use etcd version 3.1.11 and the latest CoreOS stable
+image which satisfies the minimum kernel version requirement of Cilium. To get
+the latest CoreOS ``ami`` image, you can change the region value to your choice
+in the command below.
 
 .. code:: bash
 
@@ -94,8 +110,12 @@ In this guide, we will use etcd version 3.1.11 and the latest CoreOS stable imag
 Creating a Cluster
 ====================
 
-* Note that you will need to specify the ``--master-zones`` and ``--zones`` for creating the master and worker nodes. The number of master zones should be odd (1, 3, ...) for HA. For simplicity, you can just use 1 region.
-* The cluster ``NAME`` variable should end with ``k8s.local`` to use the gossip protocol. If creating multiple clusters using the same kops user, then make cluster name unique by adding a prefix such as ``com-company-emailid-``.
+* Note that you will need to specify the ``--master-zones`` and ``--zones`` for
+  creating the master and worker nodes. The number of master zones should be
+  * odd (1, 3, ...) for HA. For simplicity, you can just use 1 region.
+* The cluster ``NAME`` variable should end with ``k8s.local`` to use the gossip
+  protocol. If creating multiple clusters using the same kops user, then make
+  the cluster name unique by adding a prefix such as ``com-company-emailid-``.
 
 
 .. code:: bash
@@ -114,68 +134,26 @@ You may be prompted to create a ssh public-private key pair.
 
 (Please see :ref:`appendix_kops`)
 
-Kubernetes with CRD validation
-==============================
-
-Cilium recommends using CRD validation in Kubernetes. In order to enable the flag ``--feature-gates=CustomResourceValidation=true``, edit the cluster yaml:
-
-.. code:: bash
-
-        kops edit cluster --name= ${NAME}
-
-and append the following snippet for ``kupeAPIServer:`` to the ``spec:`` section:
-
-.. code:: YAML
-
-        spec:
-          ...
-          ...
-          ...
-          kubeAPIServer:
-            featureGates:
-              CustomResourceValidation: "true"
-
-
-After successful editing, apply changes using ``kops update cluster``.
-
-.. code:: bash
-
-        kops update cluster ${NAME} --yes
-        kops validate cluster
-
-
-Upgrading Cilium
-=================
-
-The default Cilium version deployed by ``kops`` is old. Upgrade the Cilium DaemonSet to a newer version with the following commands. The following illustrates the upgrade process for Kubernetes v1.10 since that is the version we created. And we are upgrading Cilium to ``v1.0.3`` but you can replace to any stable version ``vX.Y.Z``. (Please consult `Cilium Upgrade Guide <http://cilium.readthedocs.io/en/latest/install/upgrade/>`_ for more details.)
-
-**Note**: In subsequent releases of ``kops``, there will be an option to provide Cilium version. This `PR <https://github.com/kubernetes/kops/pull/5320>`_ is tracking additional options for configuring Cilium CNI in a ``kops`` cluster.
-
-.. code:: bash
-
-        kubectl delete crd ciliumendpoints.cilium.io # this ensures older CEP objects do not persist
-        kubectl apply -f https://raw.githubusercontent.com/cilium/cilium/HEAD/examples/kubernetes/1.10/cilium-rbac.yaml
-        kubectl apply -f https://raw.githubusercontent.com/cilium/cilium/HEAD/examples/kubernetes/1.10/cilium-ds.yaml
-        kubectl set image daemonset/cilium -n kube-system cilium-agent=docker.io/cilium/cilium:v1.0.3
-        kubectl rollout status daemonset/cilium -n kube-system
-
 Testing Cilium
 ==============
-Follow the `Cilium getting started guide example <http://cilium.readthedocs.io/en/latest/gettingstarted/minikube/#step-2-deploy-the-demo-application>`_ to test that the cluster is setup properly and that Cilium CNI and security policies are functional.
+
+Follow the `Cilium getting started guide example
+<http://cilium.readthedocs.io/en/latest/gettingstarted/minikube/#step-2-deploy-the-demo-application>`_
+to test that the cluster is setup properly and that Cilium CNI and security
+policies are functional.
 
 .. _appendix_kops:
-
 
 Deleting a Cluster
 ===========================
 
-To undo the dependencies and other deployment features in AWS from the ``kops`` cluster creation, use ``kops`` to destroy a cluster *immediately* with the parameter ``--yes``:
+To undo the dependencies and other deployment features in AWS from the ``kops``
+cluster creation, use ``kops`` to destroy a cluster *immediately* with the
+parameter ``--yes``:
 
 .. code:: bash
 
         kops delete cluster ${NAME} --yes
-
-
 
 Appendix: Details of kops flags used in cluster creation
 ========================================================
@@ -183,7 +161,7 @@ Appendix: Details of kops flags used in cluster creation
 The following section explains all the flags used in create cluster command.
 
 * ``KOPS_FEATURE_FLAGS=SpecOverrideFlag`` : This flag is used to override the etcd version to be used from 2.X[kops default ] to 3.1.x [requirement of cilium]
-* ``--state=${KOPS_STATE_STORE}`` : KOPS uses an s3 bucket to store the state of your cluster and representation of your cluster
+* ``--state=${KOPS_STATE_STORE}`` : KOPS uses an S3 bucket to store the state of your cluster and representation of your cluster
 * ``--node-count 3`` : No. of worker nodes in the kubernetes cluster.
 * ``--node-size t2.medium`` : The size of the AWS EC2 instance for worker nodes
 * ``--master-size t2.medium`` : The size of the AWS EC2 instance of master nodes
