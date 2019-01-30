@@ -4,8 +4,10 @@
     Please use the official rendered version released here:
     http://docs.cilium.io
 
+.. _gs_cassandra:
+
 **********************************
-Getting Started Securing Cassandra
+How to Secure a Cassandra Database
 **********************************
 
 This document serves as an introduction to using Cilium to enforce Cassandra-aware
@@ -17,12 +19,10 @@ minutes.
 production use.   Additionally, the Cassandra-specific policy language is highly likely to
 change in a future Cilium version.
 
-.. include:: gsg_intro.rst
-.. include:: minikube_intro.rst
-.. include:: cilium_install.rst
+.. include:: gsg_requirements.rst
 
-Step 2: Deploy the Demo Application
-===================================
+Deploy the Demo Application
+===========================
 
 Now that we have Cilium deployed and ``kube-dns`` operating correctly we can
 deploy our demo Cassandra application.  Since our first
@@ -127,8 +127,8 @@ in the "attendance" keyspace:
 
 We have confirmed that outposts are able to report daily attendance records as intended. We're off to a good start!
 
-Step 4:  The Danger of a Compromised Cassandra Client
-=====================================================
+The Danger of a Compromised Cassandra Client
+============================================
 
 But what if a rebel spy gains access to any of the remote outposts that act as a Cassandra client?
 Since every client has access to the Cassandra API on port 9042, it can do some bad stuff.
@@ -177,8 +177,8 @@ including the deathstar keyspace.  For example, run:
 
 We see that any outpost can actually access the deathstar scrum notes, which mentions a pretty serious issue with the exhaust port.
 
-Step 5: Securing Access to Cassandra with Cilium
-================================================
+Securing Access to Cassandra with Cilium
+========================================
 
 Obviously, it would be much more secure to limit each pod's access to the Cassandra server to be
 least privilege (i.e., only what is needed for the app to operate correctly and nothing more).
@@ -278,8 +278,8 @@ Similarly, the deathstar can still access the scrum notes:
 
   (3 rows)
 
-Step 7: Cassandra-Aware Visibility (Bonus)
-==========================================
+Cassandra-Aware Visibility (Bonus)
+==================================
 
 As a bonus, you can re-run the above queries with policy enforced and view how Cilium provides Cassandra-aware visibility, including
 whether requests are forwarded or denied.   First, use "kubectl exec" to access the cilium pod.
@@ -317,8 +317,8 @@ The second two requests are denied, a 'select' into 'attendance.daily_records' a
   <- Request cassandra from 0 ([k8s:io.cilium.k8s.policy.serviceaccount=default k8s:io.kubernetes.pod.namespace=default k8s:app=empire-outpost]) to 64503 ([k8s:app=cass-server k8s:io.kubernetes.pod.namespace=default k8s:io.cilium.k8s.policy.serviceaccount=default]), identity 12443->16168, verdict Denied query_action:select query_table:attendance.daily_records
   <- Request cassandra from 0 ([k8s:io.cilium.k8s.policy.serviceaccount=default k8s:io.kubernetes.pod.namespace=default k8s:app=empire-outpost]) to 64503 ([k8s:app=cass-server k8s:io.kubernetes.pod.namespace=default k8s:io.cilium.k8s.policy.serviceaccount=default]), identity 12443->16168, verdict Denied query_table:deathstar.scrum_notes query_action:select
 
-Step 8: Clean Up
-================
+Clean Up
+========
 
 You have now installed Cilium, deployed a demo app, and tested
 L7 Cassandra-aware network security policies.  To clean up, run:

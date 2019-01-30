@@ -4,19 +4,19 @@
     Please use the official rendered version released here:
     http://docs.cilium.io
 
-****************************************
-Getting Started Securing AWS Instances
-****************************************
+***********************************************
+Locking down external access using AWS metadata
+***********************************************
 
 This document serves as an introduction to using Cilium to enforce policies
 based on AWS instances metadata. It is a detailed walk-through of getting a
 single-node Cilium environment running on your machine. It is designed to take
 15-30 minutes with some experience running Kubernetes.
 
-.. include:: minikube_intro.rst
+.. include:: gsg_requirements.rst
 
-Step 1: Create AWS secrets
-===========================
+Create AWS secrets
+==================
 
 Before installing Cilium, a new Kubernetes Secret with the AWS Tokens needs to
 be added to your Kubernetes cluster. This Secret will allow Cilium to gather
@@ -116,8 +116,6 @@ To list all of the available AWS instances, the following command can be used:
 
    $ kubectl  -n kube-system exec -ti testing-aws-pod -- aws ec2 describe-instances
 
-.. include:: cilium_install.rst
-
 It is important for this demo that ``kube-dns`` is working correctly. To know the
 status of ``kube-dns`` you can run the following command:
 ::
@@ -129,8 +127,8 @@ status of ``kube-dns`` you can run the following command:
 Where at least one pod should be available.
 
 
-Step 2: Create a sample policy
-================================
+Create a sample policy
+======================
 
 Deploy a demo application:
 ----------------------------

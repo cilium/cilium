@@ -6,14 +6,12 @@
 
 .. _gsg_docker:
 
-***************************************
-Getting Started Using `Docker Compose`_
-***************************************
+*******************************
+Cilium with Docker & libnetwork
+*******************************
 
 This tutorial leverages Vagrant and VirtualBox, thus should run on any
 operating system supported by Vagrant, including Linux, macOS, and Windows.
-
-.. include:: gsg_intro.rst
 
 Step 0: Install Vagrant
 =======================
