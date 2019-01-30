@@ -22,6 +22,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -294,7 +295,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, n *node.Node, mtuConfig mtu.Configur
 		return nil, err
 	}
 	if !ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "initial build of health endpoint") {
-		endpointmanager.Remove(ep)
+		endpointmanager.Remove(ep, &sync.WaitGroup{})
 		ep.Unlock()
 		return nil, fmt.Errorf("unable to transition health endpoint to WaitingToRegenerate state")
 	}
@@ -305,7 +306,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, n *node.Node, mtuConfig mtu.Configur
 		Reason: "health daemon bootstrap",
 	})
 	if !buildSuccessful {
-		endpointmanager.Remove(ep)
+		endpointmanager.Remove(ep, &sync.WaitGroup{})
 		return nil, fmt.Errorf("unable to build health endpoint")
 	}
 

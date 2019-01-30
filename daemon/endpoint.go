@@ -582,9 +582,13 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []er
 	}
 	ep.SetStateLocked(endpoint.StateDisconnecting, "Deleting endpoint")
 
+	ep.CloseEventQueue()
+
+	wg := d.policy.RemoveIdentifierFromRuleCaches(ep.ID)
+
 	// Remove the endpoint before we clean up. This ensures it is no longer
 	// listed or queued for rebuilds.
-	endpointmanager.Remove(ep)
+	endpointmanager.Remove(ep, wg)
 
 	// If dry mode is enabled, no changes to BPF maps are performed
 	if !option.Config.DryMode {

@@ -20,12 +20,14 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"sync"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -221,6 +223,15 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 	// removedPrefixes tracks prefixes that we replace in the rules. It is used
 	// after we release the policy repository lock.
 	var removedPrefixes []*net.IPNet
+
+	allEndpoints := endpointmanager.EndpointIdentityMapping()
+
+	var policySelectionWG sync.WaitGroup
+
+	endpointsToRegen := &policy.EndpointIDSet{
+		Eps: map[uint16]struct{}{},
+	}
+
 	if opts != nil {
 		if opts.Replace {
 			for _, r := range rules {
@@ -228,7 +239,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 				removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(oldRules)...)
 				if len(oldRules) > 0 {
 					d.dnsRuleGen.StopManageDNSName(oldRules)
-					d.policy.DeleteByLabelsLocked(r.Labels)
+					d.policy.DeleteByLabelsLocked(r.Labels, allEndpoints, endpointsToRegen, &policySelectionWG)
 				}
 			}
 		}
@@ -237,11 +248,13 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 			removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(oldRules)...)
 			if len(oldRules) > 0 {
 				d.dnsRuleGen.StopManageDNSName(oldRules)
-				d.policy.DeleteByLabelsLocked(opts.ReplaceWithLabels)
+				d.policy.DeleteByLabelsLocked(opts.ReplaceWithLabels, allEndpoints, endpointsToRegen, &policySelectionWG)
 			}
 		}
 	}
-	rev := d.policy.AddListLocked(rules)
+
+	rev := d.policy.AddListLocked(rules, allEndpoints, endpointsToRegen, &policySelectionWG)
+
 	d.policy.Mutex.Unlock()
 
 	// remove prefixes of replaced rules above. This potentially blocks on the
@@ -264,7 +277,10 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 
 	log.WithField(logfields.PolicyRevision, rev).Info("Policy imported via API, recalculating...")
 
-	d.TriggerPolicyUpdates(false, "policy rules added")
+	// Only regenerate endpoints which are needed to be regenerated as a result
+	// of the rule update. The rules which were imported most likely do not select
+	// all endpoints in the policy repository (and may not select any at all).
+	go d.ReactToRuleUpdates(&policySelectionWG, allEndpoints, endpointsToRegen, rev)
 
 	labels := make([]string, 0, len(rules))
 	for _, r := range rules {
@@ -278,6 +294,42 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 	}
 
 	return rev, nil
+}
+
+func (d *Daemon) ReactToRuleUpdates(wg *sync.WaitGroup, allEps map[uint16]*identity.Identity, epsToRegen *policy.EndpointIDSet, rev uint64) {
+	// Wait until we have calculated which endpoints need to be selected
+	// across multiple goroutines.
+	log.Info("ReactToRuleUpdates: waiting until wait group done for calculating policy for endpoint regen")
+	wg.Wait()
+	log.Info("ReactToRuleUpdates: done waiting until wait group done for calculating policy for endpoint regen")
+
+	epsToRegen.Mutex.RLock()
+	defer epsToRegen.Mutex.RUnlock()
+
+	// If an endpoint is not in the list of endpoints to regenerate, then the
+	// policy revision for the endpoint needs to be bumped so we can reflect that
+	// said endpoint realizes the state of the policy repository at revision rev.
+	endpointsToBumpRevision := map[uint16]struct{}{}
+	for ep := range allEps {
+		if _, ok := epsToRegen.Eps[ep]; !ok {
+			endpointsToBumpRevision[ep] = struct{}{}
+		}
+	}
+
+	log.Infof("ReactToRuleUpdates: endpoints that do not need to be regenerated: %v", endpointsToBumpRevision)
+	// Launch async so we don't block on endpoint lock being held.
+	go bumpEndpointRevisions(endpointsToBumpRevision, rev)
+
+	log.Infof("ReactToRuleUpdates: endpoints that do need to be regenerated: %v", epsToRegen.Eps)
+	endpointmanager.RegenerateEndpointSet(d, &endpoint.ExternalRegenerationMetadata{Reason: "policy rules added"}, epsToRegen.Eps)
+}
+
+func bumpEndpointRevisions(epsToBumpRev map[uint16]struct{}, rev uint64) {
+	for epID := range epsToBumpRev {
+		if ep := endpointmanager.LookupCiliumID(epID); ep != nil {
+			go ep.PolicyRevisionBumpEvent(rev)
+		}
+	}
 }
 
 // PolicyDelete deletes the policy set in the given path from the policy tree.
@@ -303,7 +355,13 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
 		d.policy.Mutex.Unlock()
 		return rev, api.New(DeletePolicyNotFoundCode, "policy not found")
 	}
-	rev, deleted := d.policy.DeleteByLabelsLocked(labels)
+	endpoints := endpointmanager.EndpointIdentityMapping()
+	endpointsToRegen := policy.NewEndpointIDSet()
+
+	var policySelectionWG sync.WaitGroup
+
+	rev, deleted := d.policy.DeleteByLabelsLocked(labels, endpoints, endpointsToRegen, &policySelectionWG)
+
 	d.policy.Mutex.Unlock()
 
 	// Now that the policies are deleted, we can also attempt to remove
@@ -328,7 +386,9 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
 	// Stop polling for ToFQDN DNS names for these rules
 	d.dnsRuleGen.StopManageDNSName(rules)
 
-	d.TriggerPolicyUpdates(false, "policy rules deleted")
+	log.Infof("endpoints to regenerate after deleting policy: %v", endpointsToRegen)
+
+	go d.ReactToRuleUpdates(&policySelectionWG, endpoints, endpointsToRegen, rev)
 
 	repr, err := monitorAPI.PolicyDeleteRepr(deleted, labels.GetModel(), rev)
 	if err != nil {
@@ -412,7 +472,7 @@ func (h *getPolicy) Handle(params GetPolicyParams) middleware.Responder {
 	defer d.policy.Mutex.RUnlock()
 
 	lbls := labels.ParseSelectLabelArrayFromArray(params.Labels)
-	ruleList := d.policy.SearchRLocked(lbls)
+	ruleList := d.policy.SearchRLockedIan(lbls)
 
 	// Error if labels have been specified but no entries found, otherwise,
 	// return empty list
@@ -422,7 +482,7 @@ func (h *getPolicy) Handle(params GetPolicyParams) middleware.Responder {
 
 	policy := &models.Policy{
 		Revision: int64(d.policy.GetRevision()),
-		Policy:   policy.JSONMarshalRules(ruleList),
+		Policy:   policy.JSONMarshalRulesIan(ruleList),
 	}
 	return NewGetPolicyOK().WithPayload(policy)
 }

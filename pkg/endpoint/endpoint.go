@@ -25,6 +25,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unsafe"
 
@@ -292,6 +293,10 @@ type Endpoint struct {
 
 	realizedPolicy *policy.EndpointPolicy
 
+	eventQueueOnce sync.Once
+
+	eventQueue *EventQueue
+
 	///////////////////////
 	// DEPRECATED FIELDS //
 	///////////////////////
@@ -301,6 +306,186 @@ type Endpoint struct {
 	//
 	// Deprecated: Use Options instead.
 	DeprecatedOpts deprecatedOptions `json:"Opts"`
+}
+
+func NewEventQueue() *EventQueue {
+	return &EventQueue{
+		// Only one event can be consumed per endpoint
+		// at a time
+		events: make(chan *EndpointEvent, 1),
+		close:  make(chan struct{}),
+	}
+
+}
+
+func (e *Endpoint) PolicyRevisionBumpEvent(rev uint64) {
+	epBumpEvent := &EndpointEvent{
+		EndpointEventMetadata: EndpointRevisionBumpEvent{
+			Rev: rev,
+		},
+		EventResults: make(chan interface{}, 1),
+		Cancelled:    make(chan struct{}),
+	}
+	e.QueueEvent(epBumpEvent)
+	_ = <-epBumpEvent.EventResults
+	e.getLogger().Infof("bumped endpoint revision to %d", rev)
+
+}
+
+type EventQueue struct {
+	// This should be a buffered channel
+	events chan *EndpointEvent
+	close  chan struct{}
+}
+
+// TODO convert this to interface with a 'Run' function.
+// Run function would measure time, return a channel which would be closed if
+// the run function was done. Kill it with a context possibly.
+// How do we handle blocks that run in parallel?
+type EndpointEvent struct {
+	EndpointEventMetadata interface{}
+	EventResults          chan interface{}
+	// Cancelled is a channel which is called when the EventQueue is being drained.
+	Cancelled chan struct{}
+}
+
+func NewEndpointEvent() *EndpointEvent {
+	return &EndpointEvent{
+		EventResults: make(chan interface{}, 1),
+	}
+}
+
+// this function should last the entire lifetime of a given endpoint.
+// The endpoint's mutex must not be held.
+// Next iteration of this - make this global; in for loop, handle all endpoint builds.
+// Need to have some dependency logic similar to the buildqueue right now which
+// ensures that there is order and that so many parallel builds can occur at once.
+// condition has to be met in order for a block to be ran.
+// need to be able to run stuff in parallel. Run would be blocking, EventQueue
+// would have to handle blocking cases where need parallelism.
+// With a global queue, we can adjust number of regenerations based on system
+// load.
+// TODO (ianvernon) - create doc with this change.
+// Global queue - folding would insert a "dummy" event into the function if
+// another instance of it was ran previously.
+// Controllers are great, but we don't know the load on the system - how do
+// controllers scale with endpoints? Need to ensure that controllers do not
+// starve endpoint builds.
+// Overall: let's start simple, but ensure that we have an overall high-level
+// consensus where we want to go with an entire team. What are concrete steps
+// we can take to get there especially in reference to policy scale.
+// Pick out subtasks that show value.
+func (e *Endpoint) RunEventQueue() {
+	e.eventQueueOnce.Do(
+		func() {
+			e.runEventQueue()
+		})
+
+}
+func (e *Endpoint) QueueEvent(epEvent *EndpointEvent) {
+	e.eventQueue.events <- epEvent
+}
+
+func (e *Endpoint) runEventQueue() {
+	for {
+		e.getLogger().Info("starting endpoint event queue")
+		select {
+		// Receive the next event from the endpoint event queue
+		case endpointEvent := <-e.eventQueue.events:
+			{
+				switch endpointEvent.EndpointEventMetadata.(type) {
+				case EndpointRegenerationEvent:
+
+					ev := endpointEvent.EndpointEventMetadata.(EndpointRegenerationEvent)
+					e.getLogger().Info("received endpoint regeneration event")
+
+					err := e.regenerate(ev.owner, ev.regenContext)
+					e.getLogger().Info("sending endpoint regeneration result")
+					regenResult := EndpointRegenerationResult{
+						err: err,
+					}
+					endpointEvent.EventResults <- regenResult
+				case EndpointRevisionBumpEvent:
+					// If the endpoint is not in a 'ready' state that means that
+					// we cannot set the policy revision, as something else has
+					// changed endpoint state which necessitates regeneration,
+					// *or* the endpoint is in a not-ready state (i.e., a prior
+					// regeneration failed, so there is no way that we can
+					// realize the policy revision yet.
+					e.getLogger().Info("received endpoint revision bump event")
+					ev := endpointEvent.EndpointEventMetadata.(EndpointRevisionBumpEvent)
+					e.getLogger().Info("sending endpoint revision bump result")
+					e.SetPolicyRevision(ev.Rev)
+					endpointEvent.EventResults <- struct{}{}
+				// waiting for proxy as an event type?
+				// Three types of events:
+				// global event: global build that locks out everything else (netdev build, init.sh, etc.).
+				// - no other compilation can go on; need exclusive access.
+				// - a lot of stuff done on initialization for the daemon (unless IPAM is initialized, no
+				// endpoints can be built).
+				// everything we are doing is event driven. we are building event systems
+				// which are dependent upon each other. a lot of bootstrapping in
+				// the beginning is external events.
+				// - having some type of event queue system would allow us to see
+				// how long events take (via some timer system). emits would be
+				// emitted as JSON to allow us to see where to optimize.
+				// everything we queue would be given an ID - a 'well-known' part.
+				// (e.g., update-iptables, regeneration-endpoint), and a 'unique'
+				// part (UUID, endpointID, sequence number, etc.).
+				// for some stuff, dependency management is simple. block that
+				// depends on k8s services retrieval depends on API server connectivity,
+				// etc. a sort of "Subscriber" list of objects tht actually exist.
+				// "NewRuntimeBlock" - returns an interface. when you add a dependency,
+				// you give it that interface which has functions like "GetBlockName".
+				// "RunBlock", "GetCompletionChannel" which would indicate when operation is
+				// completed, or a timeout channel. code has to pass on dependencies.
+				// we can encode dependencies for a *specific* block.
+				// bootstrapping example: high-level block called "initialize-k8s",
+				// which then, when it runs, actually calls multiple "sub-blocks" -
+				// connect to api server, fetch services, node, policy info, etc.
+				// other blocks can depend on this high-level block of "k8s-initialization".
+				// we'd have "agent-bootstrap" as a blocker.
+				// initialization could be split into packages with init packages,
+				// which register "blocks" that need to be ran.
+				// need to figure out how to divide this into steps - build first
+				// step in a way that allows us to evolve into this.
+				// start off with Endpoint build - most extreme example. would
+				// allow us to build in rate-limiting.
+
+				default:
+					e.getLogger().Error("unsupported function type provided to Endpoint event queue")
+				}
+				close(endpointEvent.EventResults)
+			}
+		// When the endpoint is deleted, cause goroutine which consumes events
+		// from queue to exit via closing close channel.
+		case <-e.eventQueue.close:
+			{
+				e.getLogger().Info("closing endpoint event channel")
+
+				// Notify that event was 'cancelled'
+				for drainEvent := range e.eventQueue.events {
+					close(drainEvent.Cancelled)
+					close(drainEvent.EventResults)
+				}
+
+				return
+			}
+		}
+	}
+}
+
+type EndpointRegenerationEvent struct {
+	owner        Owner
+	regenContext *regenerationContext
+}
+
+type EndpointRegenerationResult struct {
+	err error
+}
+
+type EndpointRevisionBumpEvent struct {
+	Rev uint64
 }
 
 // UpdateController updates the controller with the specified name with the
@@ -420,9 +605,13 @@ func NewEndpointWithState(ID uint16, state string) *Endpoint {
 		state:         state,
 		hasBPFProgram: make(chan struct{}, 0),
 		controllers:   controller.NewManager(),
+		eventQueue:    NewEventQueue(),
 	}
 	ep.SetDefaultOpts(option.Config.Opts)
 	ep.UpdateLogger(nil)
+	// Run endpoint event queue.
+	go ep.RunEventQueue()
+
 	return ep
 }
 
@@ -451,6 +640,7 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, 
 		desiredPolicy:    &policy.EndpointPolicy{},
 		realizedPolicy:   &policy.EndpointPolicy{},
 		controllers:      controller.NewManager(),
+		eventQueue:       NewEventQueue(),
 	}
 	ep.UpdateLogger(nil)
 
@@ -490,6 +680,7 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, 
 	}
 
 	ep.SetDefaultOpts(option.Config.Opts)
+	go ep.RunEventQueue()
 
 	return ep, nil
 }
@@ -1045,6 +1236,7 @@ func ParseEndpoint(strEp string) (*Endpoint, error) {
 	ep.desiredPolicy = &policy.EndpointPolicy{}
 	ep.realizedPolicy = &policy.EndpointPolicy{}
 	ep.controllers = controller.NewManager()
+	ep.eventQueue = NewEventQueue()
 
 	// We need to check for nil in Status, CurrentStatuses and Log, since in
 	// some use cases, status will be not nil and Cilium will eventually
@@ -1057,6 +1249,8 @@ func ParseEndpoint(strEp string) (*Endpoint, error) {
 	ep.UpdateLogger(nil)
 
 	ep.SetStateLocked(StateRestoring, "Endpoint restoring")
+	// Run endpoint event queue.
+	go ep.RunEventQueue()
 
 	return &ep, nil
 }
@@ -1264,6 +1458,11 @@ func (e *Endpoint) replaceIdentityLabels(l pkgLabels.Labels) int {
 	return rev
 }
 
+func (e *Endpoint) CloseEventQueue() {
+	e.getLogger().Info("closing endpoint event queue...")
+	close(e.eventQueue.close)
+}
+
 // LeaveLocked removes the endpoint's directory from the system. Must be called
 // with Endpoint's mutex AND BuildMutex locked.
 func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup) []error {
@@ -1312,6 +1511,7 @@ func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup
 	e.SetStateLocked(StateDisconnected, "Endpoint removed")
 
 	endpointPolicyStatus.Remove(e.ID)
+
 	e.getLogger().Info("Removed endpoint")
 
 	return errors
@@ -1962,6 +2162,11 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 	elog.WithFields(logrus.Fields{logfields.Identity: identity.StringID()}).
 		Debug("Assigned new identity to endpoint")
 
+	identityChangedWG := owner.ClearPolicyConsumers(e.ID)
+	log.Infof("removing %d from consumers of policy rules", e.ID)
+	identityChangedWG.Wait()
+	log.Infof("done removing %d from consumers of policy rules", e.ID)
+
 	e.SetIdentity(identity)
 
 	if oldIdentity != nil {
@@ -2000,12 +2205,15 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 }
 
 // SetPolicyRevision sets the endpoint's policy revision with the given
-// revision.
+// revision, but only if the endpoint is in 'Ready' state.
 func (e *Endpoint) SetPolicyRevision(rev uint64) {
 	if err := e.LockAlive(); err != nil {
 		return
 	}
-	e.setPolicyRevision(rev)
+
+	if e.state == StateReady {
+		e.setPolicyRevision(rev)
+	}
 	e.Unlock()
 }
 

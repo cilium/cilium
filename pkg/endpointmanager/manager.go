@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -201,24 +202,33 @@ func UpdateReferences(ep *endpoint.Endpoint) {
 
 // Remove removes the endpoint from the global maps.
 // Must be called with ep.Mutex.RLock held.
-func Remove(ep *endpoint.Endpoint) {
+func Remove(ep *endpoint.Endpoint, wg *sync.WaitGroup) {
 	mutex.Lock()
 	defer mutex.Unlock()
 	delete(endpoints, ep.ID)
 
-	if err := endpointid.Release(ep.ID); err != nil {
-		// While restoring, endpoint IDs may not have been reused yet.
-		// Failure to release means that the endpoint ID was not reused
-		// yet.
-		//
-		// While endpoint is disconnecting, ID is already available in ID cache.
-		//
-		// Avoid irritating warning messages.
-		state := ep.GetStateLocked()
-		if state != endpoint.StateRestoring && state != endpoint.StateDisconnecting {
-			log.WithError(err).WithField("state", state).Warning("Unable to release endpoint ID")
+	go func(epID uint16, wgg *sync.WaitGroup) {
+		// Need to wait for cleanup to be done before endpoint ID is released, otherwise
+		// the same ID could be allocated for another endpoint, and that endpoint
+		// could be regenerated.
+		// Maybe check if identity in rule lookup case? :/
+		log.Info("waiting for rule cleanup to be complete for epID %d", epID)
+		wgg.Wait()
+		log.Info("done waiting for rule cleanup to be complete for epID %d", epID)
+		if err := endpointid.Release(ep.ID); err != nil {
+			// While restoring, endpoint IDs may not have been reused yet.
+			// Failure to release means that the endpoint ID was not reused
+			// yet.
+			//
+			// While endpoint is disconnecting, ID is already available in ID cache.
+			//
+			// Avoid irritating warning messages.
+			state := ep.GetStateLocked()
+			if state != endpoint.StateRestoring && state != endpoint.StateDisconnecting {
+				log.WithError(err).WithField("state", state).Warning("Unable to release endpoint ID")
+			}
 		}
-	}
+	}(ep.ID, wg)
 
 	if ep.ContainerID != "" {
 		delete(endpointsAux, endpointid.NewID(endpointid.ContainerIdPrefix, ep.ContainerID))
@@ -304,6 +314,18 @@ func lookupContainerID(id string) *endpoint.Endpoint {
 	return nil
 }
 
+// GetAllEndpointIDs returns the set of IDs of all endpoints being managed by
+// the endpointmanager.
+func EndpointIdentityMapping() map[uint16]*identity.Identity {
+	mutex.RLock()
+	defer mutex.RUnlock()
+	endpointIDs := make(map[uint16]*identity.Identity, len(endpoints))
+	for id, ep := range endpoints {
+		endpointIDs[id] = ep.SecurityIdentity
+	}
+	return endpointIDs
+}
+
 // UpdateReferences updates the mappings of various values to their corresponding
 // endpoints, such as ContainerID, Docker Container Name, Pod Name, etc.
 func updateReferences(ep *endpoint.Endpoint) {
@@ -361,6 +383,31 @@ func RegenerateAllEndpoints(owner endpoint.Owner, regenMetadata *endpoint.Extern
 		}(ep, &wg)
 	}
 
+	return &wg
+}
+
+func RegenerateEndpointSet(owner endpoint.Owner, regenMetadata *endpoint.ExternalRegenerationMetadata, endpointIDs map[uint16]struct{}) *sync.WaitGroup {
+	var wg sync.WaitGroup
+	wg.Add(len(endpointIDs))
+
+	for endpointID := range endpointIDs {
+		ep := endpoints[endpointID]
+		go func(ep *endpoint.Endpoint, wg *sync.WaitGroup) {
+			if err := ep.LockAlive(); err != nil {
+				log.WithError(err).Warnf("Endpoint disappeared while queued to be regenerated: %s", regenMetadata.Reason)
+				ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+err.Error())
+			} else {
+				ep.Logger("endpointmanager").Info("RegenerateEndpointSet: regenerating endpoint")
+				regen := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenMetadata.Reason))
+				ep.Unlock()
+				if regen {
+					// Regenerate logs status according to the build success/failure
+					<-ep.Regenerate(owner, regenMetadata)
+				}
+			}
+			wg.Done()
+		}(ep, &wg)
+	}
 	return &wg
 }
 
