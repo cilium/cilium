@@ -703,7 +703,7 @@ func initEnv(cmd *cobra.Command) {
 
 	logging.DefaultLogLevel = defaults.DefaultLogLevel
 	option.Config.Opts.SetBool(option.Debug, viper.GetBool("debug"))
-
+	option.Config.Opts.SetBool(option.DebugLB, viper.GetBool("debug"))
 	option.Config.Opts.SetBool(option.DropNotify, true)
 	option.Config.Opts.SetBool(option.TraceNotify, true)
 	option.Config.Opts.SetBool(option.PolicyTracing, enableTracing)
