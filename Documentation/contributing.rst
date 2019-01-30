@@ -2029,10 +2029,10 @@ the process for backporting these PRs.
    to configure git to have your name and email address to be used in
    the commit messages:
 
-.. code-block:: bash
+   .. code-block:: bash
 
-        $ git config --global user.name "John Doe"
-        $ git config --global user.email johndoe@example.com
+      $ git config --global user.name "John Doe"
+      $ git config --global user.email johndoe@example.com
 
 3. Make sure you have your a GitHub developer access token
    available. For details, see `contrib/backporting/README.md
@@ -2044,9 +2044,9 @@ the process for backporting these PRs.
    token, this will list the commits that need backporting, from the
    newest to oldest:
 
-.. code-block:: bash
+   .. code-block:: bash
 
-        $ GITHUB_TOKEN=xxx contrib/backporting/check-stable 1.0
+      $ GITHUB_TOKEN=xxx contrib/backporting/check-stable 1.0
 
    .. note::
       ``contrib/backporting/check-stable`` accepts a second argument to
@@ -2065,11 +2065,11 @@ the process for backporting these PRs.
    specified on the command line until one cherry pick fails or every
    commit is cherry-picked.
 
-.. code-block:: bash
+   .. code-block:: bash
 
-        $ contrib/backporting/cherry-pick <oldest-commit-sha>
-        ...
-        $ contrib/backporting/cherry-pick <newest-commit-sha>
+      $ contrib/backporting/cherry-pick <oldest-commit-sha>
+      ...
+      $ contrib/backporting/cherry-pick <newest-commit-sha>
 
 8. Push your backports branch to cilium repo, e.g., ``git push -u origin pr/v1.0-backports-YY-MM-DD``
 9. In Github, create a new PR from your branch towards the feature
