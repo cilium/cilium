@@ -2048,11 +2048,22 @@ the process for backporting these PRs.
 
         $ GITHUB_TOKEN=xxx contrib/backporting/check-stable 1.0
 
+   .. note::
+      ``contrib/backporting/check-stable`` accepts a second argument to
+      specify a path to write a nicely-formatted pull request message to.
+      This can be used alongside
+      `Github command-line tools <https://github.com/node-gh/gh>`__ to
+      send the pull request from the command line in steps 9-10 via
+      ``gh pull-request -b vX.Y -l backport/vX.Y -F <path>``.
+
 7. Cherry-pick the commits using the master git SHAs listed, starting
    from the oldest (bottom), working your way up and fixing any merge
    conflicts as they appear. Note that for PRs that have multiple
    commits you will want to check that you are cherry-picking oldest
-   commits first.
+   commits first. The ``cherry-pick`` script accepts multiple arguments,
+   in which case it will attempt to apply each commit in the order
+   specified on the command line until one cherry pick fails or every
+   commit is cherry-picked.
 
 .. code-block:: bash
 
