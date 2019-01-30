@@ -133,7 +133,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", uint16(option.Config.ToFQDNsProxyPort),
 		// LookupEPByIP
 		func(endpointIP net.IP) (endpointID string, err error) {
-			e := endpointmanager.LookupIPv4(endpointIP.String())
+			e := endpointmanager.LookupIP(endpointIP.String())
 			if e == nil {
 				return "", fmt.Errorf("Cannot find endpoint with IP %s", endpointIP.String())
 			}
@@ -217,7 +217,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 				endMetric()
 				return err
 			}
-			ep = endpointmanager.LookupIPv4(epIP)
+			ep = endpointmanager.LookupIP(epIP)
 			if ep == nil {
 				// This is a hard fail. We cannot proceed because record.Log requires a
 				// non-nil ep, and we also don't want to insert this data into the
