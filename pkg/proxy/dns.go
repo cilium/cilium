@@ -34,7 +34,7 @@ var (
 	// by the DNS Proxy. Both UDP and TCP are handled on the same port. When it
 	// is 0 a random port will be assigned, and can be obtained from
 	// DefaultDNSProxy below.
-	DNSProxyPort int
+	DNSProxyPort int = 6771
 
 	// DefaultDNSProxy is the global, shared, DNS Proxy singleton.
 	DefaultDNSProxy *dnsproxy.DNSProxy
@@ -139,7 +139,13 @@ func createDNSRedirect(r *Redirect, conf dnsConfiguration, endpointInfoRegistry 
 		// when any DNS rule is removed. We rely on that happening elsewhere.
 		DNSProxyPort: DefaultDNSProxy.BindPort,
 	}
-	r.ProxyPort = dr.DNSProxyPort
+	if r.ProxyPort != dr.DNSProxyPort {
+		log.WithFields(logrus.Fields{
+			"dnsRedirect": dr,
+			"conf":        conf,
+		}).Errorf("Mismatching DNS proxy port: %d, should be %d", r.ProxyPort, dr.DNSProxyPort)
+		r.ProxyPort = dr.DNSProxyPort
+	}
 
 	log.WithFields(logrus.Fields{
 		"dnsRedirect": dr,
