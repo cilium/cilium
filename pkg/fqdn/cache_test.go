@@ -25,6 +25,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/cilium/cilium/pkg/checker"
 	. "gopkg.in/check.v1"
 )
 
@@ -469,8 +470,60 @@ func (ds *DNSCacheTestSuite) TestCleanupEntries(c *C) {
 	cache := NewDNSCache()
 	cache.Update(now, "test.com", []net.IP{net.ParseIP("1.2.3.4")}, 3)
 	c.Assert(len(cache.cleanup), Equals, 1)
-	entries, _ := cache.CleanupExpiredEntries(time.Now().Add(5 * time.Second))
+	entries, _ := cache.cleanupExpiredEntries(time.Now().Add(5 * time.Second))
 	c.Assert(len(entries), Equals, 1)
 	c.Assert(len(cache.cleanup), Equals, 0)
 	c.Assert(len(cache.forward["test.com"]), Equals, 0)
+}
+
+func (ds *DNSCacheTestSuite) TestOverlimitEntriesWithValidLimit(c *C) {
+	limit := 5
+	cache := NewDNSCacheWithLimit(limit)
+
+	cache.Update(now, "foo.bar", []net.IP{net.ParseIP("1.1.1.1")}, 1)
+	cache.Update(now, "bar.foo", []net.IP{net.ParseIP("1.1.1.1")}, 1)
+	for i := 1; i < limit+2; i++ {
+		cache.Update(now, "test.com", []net.IP{net.ParseIP(fmt.Sprintf("1.1.1.%d", i))}, i)
+	}
+	c.Assert(cache.cleanupOverLimitEntries(), checker.DeepEquals, []string{"test.com"})
+	c.Assert(len(cache.forward["test.com"]), Equals, limit)
+	c.Assert(cache.forward["test.com"]["1.1.1.1"], IsNil)
+	c.Assert(len(cache.forward["foo.bar"]), Equals, 1)
+	c.Assert(len(cache.forward["bar.foo"]), Equals, 1)
+	c.Assert(len(cache.overLimit), Equals, 0)
+}
+
+func (ds *DNSCacheTestSuite) TestOverlimitEntriesWithoutLimit(c *C) {
+	limit := 0
+	cache := NewDNSCacheWithLimit(limit)
+	for i := 0; i < 5; i++ {
+		cache.Update(now, "test.com", []net.IP{net.ParseIP(fmt.Sprintf("1.1.1.%d", i))}, i)
+	}
+	c.Assert(cache.cleanupOverLimitEntries(), checker.DeepEquals, []string{})
+	c.Assert(len(cache.forward["test.com"]), Equals, 4)
+}
+
+func (ds *DNSCacheTestSuite) TestGCOverlimitAfterTTLCleanup(c *C) {
+	limit := 5
+	cache := NewDNSCacheWithLimit(limit)
+	cache.lastCleanup = time.Now().Add(-1 * time.Minute)
+	for i := 1; i < limit+2; i++ {
+		cache.Update(now, "test.com", []net.IP{net.ParseIP(fmt.Sprintf("1.1.1.%d", i))}, 1)
+	}
+	c.Assert(len(cache.forward["test.com"]), Equals, limit+1)
+	c.Assert(len(cache.overLimit), Equals, 1)
+
+	result, _ := cache.cleanupExpiredEntries(time.Now().Add(5 * time.Second))
+	c.Assert(result, checker.DeepEquals, []string{"test.com"})
+
+	// Due all entries are deleted on TTL, the overlimit should return 0 entries.
+	c.Assert(cache.cleanupOverLimitEntries(), checker.DeepEquals, []string{})
+}
+
+func (ds *DNSCacheTestSuite) TestOverlimitAfterDeleteForwardEntry(c *C) {
+	// Validate if something delete the forward entry no invalid key access on
+	// CG operation
+	dnsCache := NewDNSCache()
+	dnsCache.overLimit["test.com"] = true
+	c.Assert(dnsCache.cleanupOverLimitEntries(), checker.DeepEquals, []string{})
 }
