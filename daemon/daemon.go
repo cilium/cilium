@@ -1374,7 +1374,7 @@ func (d *Daemon) bootstrapFQDN() (err error) {
 	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", uint16(proxy.DNSProxyPort),
 		// LookupEPByIP
 		func(endpointIP net.IP) (endpointID string, err error) {
-			e := endpointmanager.LookupIPv4(endpointIP.String())
+			e := endpointmanager.LookupIP(endpointIP)
 			if e == nil {
 				return "", fmt.Errorf("Cannot find endpoint with IP %s", endpointIP.String())
 			}
