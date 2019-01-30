@@ -4,19 +4,16 @@
     Please use the official rendered version released here:
     http://docs.cilium.io
 
-*****************************
-Getting Started Securing gRPC
-*****************************
+******************
+How to secure gRPC
+******************
 
 This document serves as an introduction to using Cilium to enforce gRPC-aware
 security policies.  It is a detailed walk-through of getting a single-node
 Cilium environment running on your machine. It is designed to take 15-30
 minutes.
 
-.. include:: gsg_intro.rst
-.. include:: minikube_intro.rst
-
-.. include:: cilium_install.rst
+.. include:: gsg_requirements.rst
 
 It is important for this demo that ``kube-dns`` is working correctly. To know the
 status of ``kube-dns`` you can run the following command:
@@ -28,8 +25,8 @@ status of ``kube-dns`` you can run the following command:
 
 Where at least one pod should be available.
 
-Step 2: Deploy the Demo Application
-===================================
+Deploy the Demo Application
+===========================
 
 Now that we have Cilium deployed and ``kube-dns`` operating correctly we can
 deploy our demo gRPC application.  Since our first demo of Cilium + HTTP-aware security
@@ -120,8 +117,8 @@ point the setup is ready.
     svc/cc-door-server   10.0.0.72    <none>        50051/TCP   1m
     svc/kubernetes       10.0.0.1     <none>        443/TCP     6m
 
-Step 3: Test Access Between gRPC Client and Server
-==================================================
+Test Access Between gRPC Client and Server
+==========================================
 
 First, let's confirm that the public terminal can properly act as a client to the
 door service.  We can test this by running a Python gRPC client for the door service that
@@ -155,8 +152,8 @@ To see this, run:
     Successfully set AccessCode to 999
 
 
-Step 4: Securing Access to a gRPC Service with Cilium
-=====================================================
+Securing Access to a gRPC Service with Cilium
+=============================================
 
 Once the legitimate owners of Cloud City recover the city from the empire, how can they
 use Cilium to plug this key security hole and block requests to ``SetAccessCode`` and ``GetStatus``
@@ -233,8 +230,8 @@ Thank goodness that the empire IT staff hadn't had time to deploy Cilium on
 Cloud City's internal network prior to the escape attempt, or things might have
 turned out quite differently for Leia and the other Rebels!
 
-Step 5:  Clean-Up
-=================
+Clean-Up
+========
 
 You have now installed Cilium, deployed a demo app, and tested
 L7 gRPC-aware network security policies. To clean-up, run:
