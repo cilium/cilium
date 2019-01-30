@@ -423,36 +423,29 @@ func (gen *RuleGen) addRule(uuid string, sourceRule *api.Rule) (newDNSNames, old
 	// RegexpMap as regexeps, however, so we can match against them later.
 	for _, egressRule := range sourceRule.Egress {
 		for _, ToFQDN := range egressRule.ToFQDNs {
+			REsToAddForUUID := map[string]string{}
+
 			if len(ToFQDN.MatchName) > 0 {
 				dnsName := prepareMatchName(ToFQDN.MatchName)
 				dnsNameAsRE := matchpattern.ToRegexp(dnsName)
-				delete(namesToStopManaging, dnsNameAsRE) // keep this matchName
-				// check if this is already managed or not
-				if sourceUUIDs := gen.sourceRules.LookupValues(dnsNameAsRE); len(sourceUUIDs) > 0 {
-					oldDNSNames = append(oldDNSNames, ToFQDN.MatchName)
-				} else {
-					gen.namesToPoll[dnsName] = struct{}{}
-
-					// This ToFQDN.MatchName has not been seen before
-					newDNSNames = append(newDNSNames, ToFQDN.MatchName)
-					// Add this egress rule as a dependent on dnsName, but fixup the literal
-					// name so it can work as a regex
-					if err = gen.sourceRules.Add(dnsNameAsRE, uuid); err != nil {
-						return nil, nil, err
-					}
-				}
+				REsToAddForUUID[ToFQDN.MatchName] = dnsNameAsRE
+				gen.namesToPoll[dnsName] = struct{}{}
 			}
 
 			if len(ToFQDN.MatchPattern) > 0 {
 				dnsPattern := matchpattern.Sanitize(ToFQDN.MatchPattern)
 				dnsPatternAsRE := matchpattern.ToRegexp(dnsPattern)
-				delete(namesToStopManaging, dnsPatternAsRE) // keep this matchPattern
+				REsToAddForUUID[ToFQDN.MatchPattern] = dnsPatternAsRE
+			}
+
+			for policyMatchStr, dnsPatternAsRE := range REsToAddForUUID {
+				delete(namesToStopManaging, dnsPatternAsRE) // keep managing this matchName/Pattern
 				// check if this is already managed or not
-				if sourceUUIDs := gen.sourceRules.LookupValues(dnsPatternAsRE); len(sourceUUIDs) > 0 {
-					oldDNSNames = append(oldDNSNames, ToFQDN.MatchPattern)
+				if exists := gen.sourceRules.LookupContainsValue(dnsPatternAsRE, uuid); exists {
+					oldDNSNames = append(oldDNSNames, policyMatchStr)
 				} else {
-					// This ToFQDNs.MatchPattern has not been seen before
-					newDNSNames = append(newDNSNames, ToFQDN.MatchPattern)
+					// This ToFQDNs.MatchName/Pattern has not been seen before
+					newDNSNames = append(newDNSNames, policyMatchStr)
 					// Add this egress rule as a dependent on ToFQDNs.MatchPattern, but fixup the literal
 					// name so it can work as a regex
 					if err = gen.sourceRules.Add(dnsPatternAsRE, uuid); err != nil {
@@ -463,13 +456,15 @@ func (gen *RuleGen) addRule(uuid string, sourceRule *api.Rule) (newDNSNames, old
 		}
 	}
 
-	// Stop managing names that were not re-added by deleting them from the IP
-	// map Remove references to the uuid that were present in the old rule but
-	// not re-added by the new one. This may result in no longer managing the
-	// dnsName, if no other rules depend on this dnsName
+	// Stop managing names/patterns that remain in shouldStopManaging (i.e. not
+	// seen when iterating .ToFQDNs rules above). The net result is to remove
+	// dnsName -> uuid associations that existed in the older version of the rule
+	// with this UUID, but did not re-occur in the new instance.
+	// When a dnsName has no uuid associations, we remove it from the poll list
+	// outright.
 	for dnsName := range namesToStopManaging {
 		if shouldStopManaging := gen.removeFromDNSName(dnsName, uuid); shouldStopManaging {
-			delete(gen.namesToPoll, dnsName)
+			delete(gen.namesToPoll, dnsName) // A no-op for matchPattern
 		}
 	}
 
