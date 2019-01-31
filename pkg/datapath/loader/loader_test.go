@@ -237,6 +237,27 @@ func BenchmarkCompileAndLoad(b *testing.B) {
 	}
 }
 
+// BenchmarkELFRewrite benchmarks the ELF rewrite process.
+func BenchmarkELFRewrite(b *testing.B) {
+	ctx, cancel := context.WithTimeout(context.Background(), benchTimeout)
+	defer cancel()
+
+	//Init()
+	//defer uninit()
+
+	// Compile the template first, so that subsequent execs can just load
+	if err := CompileOrLoad(ctx, &ep, nil); err != nil {
+		b.Fatal(err)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if err := CompileOrLoad(ctx, &ep, nil); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 // BenchmarkReplaceDatapath compiles the datapath program, then benchmarks only
 // the loading of the program into the kernel.
 func BenchmarkReplaceDatapath(b *testing.B) {
