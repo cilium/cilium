@@ -37,6 +37,7 @@ type LoaderTestSuite struct{}
 var (
 	_              = Suite(&LoaderTestSuite{})
 	contextTimeout = 10 * time.Second
+	benchTimeout   = 5*time.Minute + 5*time.Second
 
 	dirInfo *directoryInfo
 	ep      = testutils.NewTestEndpoint()
@@ -190,7 +191,7 @@ func (s *LoaderTestSuite) TestCompileFailure(c *C) {
 
 // BenchmarkCompileOnly benchmarks the just the entire compilation process.
 func BenchmarkCompileOnly(b *testing.B) {
-	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), benchTimeout)
 	defer cancel()
 
 	b.ResetTimer()
@@ -204,7 +205,7 @@ func BenchmarkCompileOnly(b *testing.B) {
 
 // BenchmarkCompileAndLoad benchmarks the entire compilation + loading process.
 func BenchmarkCompileAndLoad(b *testing.B) {
-	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), benchTimeout)
 	defer cancel()
 
 	b.ResetTimer()
@@ -218,7 +219,7 @@ func BenchmarkCompileAndLoad(b *testing.B) {
 // BenchmarkReplaceDatapath compiles the datapath program, then benchmarks only
 // the loading of the program into the kernel.
 func BenchmarkReplaceDatapath(b *testing.B) {
-	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), benchTimeout)
 	defer cancel()
 
 	if err := compileDatapath(ctx, &ep, dirInfo, false); err != nil {
