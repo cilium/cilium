@@ -17,7 +17,6 @@ package proxy
 import (
 	"net"
 
-	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -49,7 +48,7 @@ func (r *defaultEndpointInfoRegistry) FillEndpointIdentityByID(id identity.Numer
 }
 
 func (r *defaultEndpointInfoRegistry) FillEndpointIdentityByIP(ip net.IP, info *accesslog.EndpointInfo) bool {
-	ep := endpointmanager.LookupIPv4(addressing.DeriveCiliumIPv4(ip).String())
+	ep := endpointmanager.LookupIP(ip)
 	if ep == nil {
 		return false
 	}

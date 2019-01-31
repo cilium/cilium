@@ -234,6 +234,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 	}
 
 	redir = newRedirect(localEndpoint, listenerName)
+	redir.dstPort = uint16(l4.Port)
 	redir.endpointID = localEndpoint.GetID()
 	redir.ingress = l4.Ingress
 	redir.parserType = l4.L7Parser
