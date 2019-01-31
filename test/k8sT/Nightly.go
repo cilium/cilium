@@ -345,16 +345,21 @@ var _ = Describe("NightlyExamples", func() {
 		var cleanupCallback = func() { return }
 
 		BeforeEach(func() {
-			// Delete kube-dns because if not will be a restore the old endpoints
-			// from master instead of create the new ones.
 			_ = kubectl.Delete(helpers.DNSDeployment())
 
-			// Delete etcd operator because sometimes when install from
-			// clean-state the quorum is lost.
-			// ETCD operator maybe is not installed at all, so no assert here.
-			_ = kubectl.DeleteETCDOperator()
-			ExpectAllPodsTerminated(kubectl)
+			// Delete kube-dns because if not will be a restore the old endpoints
+			// from master instead of create the new ones.
+			_ = kubectl.DeleteResource(
+				"deploy", fmt.Sprintf("-n %s kube-dns", helpers.KubeSystemNamespace))
 
+			// Sometimes PolicyGen has a lot of pods running around without delete
+			// it. Using this we are sure that we delete before this test start
+			kubectl.Exec(fmt.Sprintf(
+				"%s delete --all pods,svc,cnp -n %s", helpers.KubectlCmd, helpers.DefaultNamespace))
+
+			kubectl.DeleteETCDOperator()
+
+			ExpectAllPodsTerminated(kubectl)
 		})
 
 		AfterEach(func() {
