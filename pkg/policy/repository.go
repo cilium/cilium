@@ -352,28 +352,36 @@ nextLabel:
 // This is just a helper function for unit testing.
 // TODO: this should be in a test_helpers.go file or something similar
 // so we can clearly delineate what helpers are for testing.
-func (p *Repository) Add(r api.Rule, localRuleConsumers map[uint16]*identity.Identity) (uint64, error) {
+func (p *Repository) Add(r api.Rule, localRuleConsumers map[uint16]*identity.Identity) (uint64, map[uint16]struct{}, error) {
 	p.Mutex.Lock()
 	defer p.Mutex.Unlock()
 
 	if err := r.Sanitize(); err != nil {
-		return p.revision, err
+		return p.revision, nil, err
 	}
 
 	newList := make([]*api.Rule, 1)
 	newList[0] = &r
-	return p.AddListLocked(newList, localRuleConsumers), nil
+	rev := p.AddListLocked(newList, localRuleConsumers, map[uint16]struct{}{})
+	return rev, map[uint16]struct{}{}, nil
 }
 
 // AddListLocked inserts a rule into the policy repository with the repository already locked
 // Expects that the entire rule list has already been sanitized.
-func (p *Repository) AddListLocked(rules api.Rules, localRuleConsumers map[uint16]*identity.Identity) uint64 {
+func (p *Repository) AddListLocked(rules api.Rules, localRuleConsumers map[uint16]*identity.Identity, consumersToUpdate map[uint16]struct{}) uint64 {
+
 	newList := make([]*rule, len(rules))
 	for i := range rules {
 		newRule := &rule{Rule: *rules[i]}
-		newRule.updateLocalConsumers(localRuleConsumers)
+		ruleConsumersToUpdate := newRule.updateLocalConsumers(localRuleConsumers)
 		newList[i] = newRule
-		// TODO spawn goroutines for matching? might not be worth it due to mutex in selection
+
+		log.Infof("AddListLocked: ruleConsumersToUpdate = %v", ruleConsumersToUpdate)
+
+		for consumerID := range ruleConsumersToUpdate {
+			log.Infof("AddListLocked: setting consumersToUpdate[%d]", consumerID)
+			consumersToUpdate[consumerID] = struct{}{}
+		}
 	}
 
 	p.rules = append(p.rules, newList...)
@@ -390,23 +398,29 @@ func (p *Repository) UpdateLocalConsumers(identifiers map[uint16]*identity.Ident
 	}
 }
 
-func (r *rule) updateLocalConsumers(identifiers map[uint16]*identity.Identity) {
+func (r *rule) updateLocalConsumers(identifiers map[uint16]*identity.Identity) map[uint16]struct{} {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	log.Infof("updateLocalConsumers: identifiers provided: %s", identifiers)
+	consumersToUpdate := map[uint16]struct{}{}
+
+	log.Infof("updateLocalConsumers: identifiers provided: %v", identifiers)
 
 	for id, securityIdentity := range identifiers {
 		ruleMatches := r.EndpointSelector.Matches(securityIdentity.LabelArray)
-		log.Infof("updateLocalConsumers: ruleMatches identifier %d --> %s ? : %v", id, securityIdentity, ruleMatches)
+		log.Infof("updateLocalConsumers: ruleMatches identifier %d --> %v ? : %v", id, securityIdentity, ruleMatches)
 		if ruleMatches {
 			if r.localRuleConsumers == nil {
 				r.localRuleConsumers = map[uint16]*identity.Identity{}
 			}
 			r.localRuleConsumers[id] = securityIdentity
+			consumersToUpdate[id] = struct{}{}
 		}
 	}
-	log.Infof("updateLocalConsumers: rule %s: localConsumers: %s", r.Rule, r.localRuleConsumers)
+	log.Infof("updateLocalConsumers: rule %v: localConsumers: %v", r.Rule, r.localRuleConsumers)
+	log.Infof("updateLocalConsumers: consumersToUpdate = %v", consumersToUpdate)
+
+	return consumersToUpdate
 }
 
 // AddList inserts a rule into the policy repository.
@@ -414,12 +428,13 @@ func (p *Repository) AddList(rules api.Rules) uint64 {
 	p.Mutex.Lock()
 	defer p.Mutex.Unlock()
 	// TODO (ianvernon) plumbing
-	return p.AddListLocked(rules, map[uint16]*identity.Identity{})
+	return p.AddListLocked(rules, map[uint16]*identity.Identity{}, map[uint16]struct{}{})
 }
 
 // DeleteByLabelsLocked deletes all rules in the policy repository which
-// contain the specified labels
-func (p *Repository) DeleteByLabelsLocked(labels labels.LabelArray) (uint64, int) {
+// contain the specified labels. Returns the revision of the policy repository
+// after deleting the rules, as well as now many rules were deleted.
+func (p *Repository) DeleteByLabelsLocked(labels labels.LabelArray, localConsumers map[uint16]*identity.Identity, consumersToUpdate map[uint16]struct{}) (uint64, int) {
 	deleted := 0
 	new := p.rules[:0]
 
@@ -427,6 +442,13 @@ func (p *Repository) DeleteByLabelsLocked(labels labels.LabelArray) (uint64, int
 		if !r.Labels.Contains(labels) {
 			new = append(new, r)
 		} else {
+			ruleConsumersToUpdate := r.updateLocalConsumers(localConsumers)
+
+			for consumerID := range ruleConsumersToUpdate {
+				log.Infof("AddListLocked: setting consumersToUpdate[%d]", consumerID)
+				consumersToUpdate[consumerID] = struct{}{}
+			}
+
 			deleted++
 		}
 	}
@@ -446,7 +468,7 @@ func (p *Repository) DeleteByLabelsLocked(labels labels.LabelArray) (uint64, int
 func (p *Repository) DeleteByLabels(labels labels.LabelArray) (uint64, int) {
 	p.Mutex.Lock()
 	defer p.Mutex.Unlock()
-	return p.DeleteByLabelsLocked(labels)
+	return p.DeleteByLabelsLocked(labels, map[uint16]*identity.Identity{}, map[uint16]struct{}{})
 }
 
 // JSONMarshalRules returns a slice of policy rules as string in JSON
