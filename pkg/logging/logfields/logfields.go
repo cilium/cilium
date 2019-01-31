@@ -159,6 +159,9 @@ const (
 	// VethPair is a tuple of Veth that are paired
 	VethPair = "vethPair"
 
+	// NetNSName is a name of a network namespace
+	NetNSName = "netNSName"
+
 	// SHA is a sha of something
 	SHA = "sha"
 
