@@ -188,6 +188,20 @@ func (s *LoaderTestSuite) TestCompileFailure(c *C) {
 	c.Assert(err, NotNil)
 }
 
+// BenchmarkCompileOnly benchmarks the just the entire compilation process.
+func BenchmarkCompileOnly(b *testing.B) {
+	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
+	defer cancel()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		debug := false // Otherwise we compile lots more.
+		if err := compileDatapath(ctx, &ep, dirInfo, debug); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 // BenchmarkCompileAndLoad benchmarks the entire compilation + loading process.
 func BenchmarkCompileAndLoad(b *testing.B) {
 	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
