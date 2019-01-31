@@ -1648,6 +1648,7 @@ func (kub *Kubectl) GatherLogs() {
 		"kubectl describe pods --all-namespaces":                     "pods_status.txt",
 		"kubectl get replicationcontroller --all-namespaces -o json": "replicationcontroller.txt",
 		"kubectl get deployment --all-namespaces -o json":            "deployment.txt",
+		"kubectl get all,cnp,cep --all-namespaces -o wide":           "kubernetes_summary.txt",
 	}
 
 	kub.GeneratePodLogGatheringCommands(reportCmds)
