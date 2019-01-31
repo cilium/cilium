@@ -318,7 +318,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		defer removeLinkOnErr(veth)
 	case option.DatapathModeIpvlan:
 		var ipvlan *netlink.IPVlan
-		ipvlan, _, _, err = connector.SetupIpvlan(
+		ipvlan, _, _, err = connector.CreateIpvlanSlave(
 			create.EndpointID, int(driver.conf.DeviceMTU),
 			int(driver.conf.IpvlanConfiguration.MasterDeviceIndex),
 			driver.conf.IpvlanConfiguration.OperationMode, endpoint,

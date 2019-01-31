@@ -497,32 +497,14 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		ipvlanConf := *conf.IpvlanConfiguration
 		index := int(ipvlanConf.MasterDeviceIndex)
 
-		ipvlan, link, tmpIfName, err := connector.SetupIpvlan(ep.ContainerID, int(conf.DeviceMTU), index, ipvlanConf.OperationMode, ep)
+		mapFD, err := connector.CreateAndSetupIpvlanSlave(
+			ep.ContainerID, args.IfName, netNs,
+			int(conf.DeviceMTU), index, ipvlanConf.OperationMode, ep,
+		)
 		if err != nil {
 			return err
 		}
-
-		defer func() {
-			if err != nil {
-				if err = netlink.LinkDel(ipvlan); err != nil {
-					logger.WithError(err).WithField(logfields.Ipvlan, ipvlan.Name).Warn("failed to clean up and delete ipvlan")
-				}
-			}
-		}()
-
-		if err = netlink.LinkSetNsFd(*link, int(netNs.Fd())); err != nil {
-			return fmt.Errorf("unable to move ipvlan slave '%v' to netns: %s", link, err)
-		}
-
-		mapFD, mapID, err := connector.SetupIpvlanRemoteNs(netNs, tmpIfName, args.IfName)
-		if err != nil {
-			return err
-		}
-
-		ep.DataPathMapID = int64(mapID)
-		defer func() {
-			unix.Close(mapFD)
-		}()
+		defer unix.Close(mapFD)
 	}
 
 	ipam, err := c.IPAMAllocate("")
