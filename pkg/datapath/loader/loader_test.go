@@ -22,9 +22,14 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/cilium/cilium/pkg/datapath/linux"
+	"github.com/cilium/cilium/pkg/elf"
+	bpfconfig "github.com/cilium/cilium/pkg/maps/configmap"
+	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/testutils"
 
 	"github.com/vishvananda/netlink"
@@ -243,6 +248,64 @@ func BenchmarkReplaceDatapath(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		if err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+// BenchmarkCompileOrLoad benchmarks the ELF rewrite process.
+func BenchmarkCompileOrLoad(b *testing.B) {
+	ignorePrefixes := append(ignoredELFPrefixes, "test_cilium_policy")
+	for _, p := range ignoredELFPrefixes {
+		if strings.HasPrefix(p, "cilium_") {
+			testPrefix := fmt.Sprintf("test_%s", p)
+			ignorePrefixes = append(ignorePrefixes, testPrefix)
+		}
+	}
+	elf.IgnoreSymbolPrefixes(ignorePrefixes)
+
+	SetTestIncludes([]string{
+		fmt.Sprintf("-I%s", bpfDir),
+		fmt.Sprintf("-I%s", filepath.Join(bpfDir, "include")),
+	})
+	defer SetTestIncludes(nil)
+
+	elfMapPrefixes = []string{
+		fmt.Sprintf("test_%s", policymap.MapName),
+		fmt.Sprintf("test_%s", CallsMapName),
+		fmt.Sprintf("test_%s", bpfconfig.MapNamePrefix),
+	}
+
+	sourceFile := filepath.Join(bpfDir, endpointProg)
+	if err := os.Symlink(sourceFile, endpointProg); err != nil {
+		b.Fatal(err)
+	}
+	defer os.RemoveAll(endpointProg)
+
+	ctx, cancel := context.WithTimeout(context.Background(), benchTimeout)
+	defer cancel()
+
+	tmpDir, err := ioutil.TempDir("", "cilium_test")
+	if err != nil {
+		b.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	epDir := ep.StateDir()
+	if err := os.MkdirAll(epDir, 0755); err != nil {
+		b.Fatal(err)
+	}
+	defer os.RemoveAll(epDir)
+
+	templateCache = newObjectCache(linux.NewDatapath(linux.DatapathConfiguration{}), nil, tmpDir)
+	if err := CompileOrLoad(ctx, &ep, nil); err != nil {
+		log.Warningf("Failure in %s: %s", tmpDir, err)
+		time.Sleep(1 * time.Minute)
+		b.Fatal(err)
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if err := CompileOrLoad(ctx, &ep, nil); err != nil {
 			b.Fatal(err)
 		}
 	}
