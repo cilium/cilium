@@ -37,17 +37,19 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/mtu"
+	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
 
-	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 )
 
 const (
 	ciliumHealth = "cilium-health"
+
+	netNSName = "cilium-health"
 )
 
 var (
@@ -162,15 +164,22 @@ func KillEndpoint() {
 // This is expected to be called after the process is killed and the endpoint
 // is removed from the endpointmanager.
 func CleanupEndpoint() {
-	scopedLog := log.WithField(logfields.Veth, vethName)
-	// TODO(brb): only for the "veth" datapath mode
-	if link, err := netlink.LinkByName(vethName); err == nil {
-		err = netlink.LinkDel(link)
-		if err != nil {
-			scopedLog.WithError(err).Info("Couldn't delete cilium-health device")
+
+	switch option.Config.DatapathMode {
+	case option.DatapathModeVeth:
+		scopedLog := log.WithField(logfields.Veth, vethName)
+		if link, err := netlink.LinkByName(vethName); err == nil {
+			err = netlink.LinkDel(link)
+			if err != nil {
+				scopedLog.WithError(err).Info("Couldn't delete cilium-health device")
+			}
+		} else {
+			scopedLog.WithError(err).Debug("Didn't find existing device")
 		}
-	} else {
-		scopedLog.WithError(err).Debug("Didn't find existing device")
+	case option.DatapathModeIpvlan:
+		if err := netns.RemoveIfFromNetNSWithNameIfBothExist(netNSName, epIfaceName); err != nil {
+			log.WithError(err).WithField(logfields.Ipvlan, epIfaceName).Info("Couldn't delete cilium-health ipvlan slave device")
+		}
 	}
 }
 
@@ -207,8 +216,6 @@ func LaunchAsEndpoint(owner endpoint.Owner, n *node.Node, mtuConfig mtu.Configur
 		ip6Address = ip6WithMask.String()
 	}
 
-	netNsName := info.ContainerName
-
 	switch option.Config.DatapathMode {
 	case option.DatapathModeVeth:
 		if _, _, err := connector.SetupVethWithNames(vethName, epIfaceName, mtuConfig.GetDeviceMTU(), info); err != nil {
@@ -217,7 +224,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, n *node.Node, mtuConfig mtu.Configur
 		hostIfaceName = vethName
 
 	case option.DatapathModeIpvlan:
-		netNs, err := replaceNetNSWithName(netNsName)
+		netNS, err := netns.ReplaceNetNSWithName(netNSName)
 		if err != nil {
 			return nil, err
 		}
@@ -226,11 +233,14 @@ func LaunchAsEndpoint(owner endpoint.Owner, n *node.Node, mtuConfig mtu.Configur
 		mode := option.Config.Ipvlan.OperationMode
 
 		mapFD, err := connector.CreateAndSetupIpvlanSlave(
-			"", epIfaceName, netNs,
+			"", epIfaceName, netNS,
 			mtuConfig.GetDeviceMTU(), index, mode, info,
 		)
 		if err != nil {
-			// TODO(brb): remove named netns
+			if errDel := netns.RemoveNetNSWithName(netNSName); errDel != nil {
+				// TODO(brb): field netnsname
+				log.WithError(errDel).Info("Unable to remove named netns")
+			}
 			return nil, err
 		}
 		defer unix.Close(mapFD)
@@ -314,30 +324,4 @@ func LaunchAsEndpoint(owner endpoint.Owner, n *node.Node, mtuConfig mtu.Configur
 	metrics.SubprocessStart.WithLabelValues(ciliumHealth).Inc()
 
 	return &Client{Client: client}, nil
-}
-
-// replaceNetNSWithName creates a network namespace with the given name.
-// If such netns already exists from a previous run, it will be removed
-// and then re-created.
-//
-// FIXME: replace "ip-netns" invocations with native Go code
-func replaceNetNSWithName(name string) (ns.NetNS, error) {
-	netNSPath := filepath.Join("/var/run/netns", name)
-
-	if err := ns.IsNSorErr(netNSPath); err == nil {
-		if err := exec.Command("ip", "netns", "del", name).Run(); err != nil {
-			return nil, fmt.Errorf("Failed to delete named netns %s: %s", name, err)
-		}
-	}
-
-	if err := exec.Command("ip", "netns", "add", name).Run(); err != nil {
-		return nil, fmt.Errorf("Failed to create named netns %s: %s", name, err)
-	}
-
-	ns, err := ns.GetNS(netNSPath)
-	if err != nil {
-		return nil, fmt.Errorf("Unable to open netns %s: %s", netNSPath, err)
-	}
-
-	return ns, nil
 }
