@@ -29,19 +29,24 @@ IP6=$4
 IP4=$5
 TARGET=$6
 TARGET_ARGS=$7
+# If set, assumes that $NETNS has been already created and $NETNSDEV has been
+# moved to it.
+[ "$8" = "--skip-netns-init" ] && SKIP_NETNS_INIT=1
 
 configure_netns()
 {
-	ip netns add ${NETNS}
-	ip li set dev ${HOSTDEV} up
-	ip li set dev ${NETNSDEV} netns ${NETNS}
-	ip netns exec ${NETNS} ip li set dev ${NETNSDEV} up
+    if [ -z "${SKIP_NETNS_INIT}" ]; then
+	    ip netns add ${NETNS}
+	    ip li set dev ${HOSTDEV} up
+	    ip li set dev ${NETNSDEV} netns ${NETNS}
+    fi
 	if [ "${IP6}" != "" ]; then
 		ip netns exec ${NETNS} ip addr add dev ${NETNSDEV} ${IP6}
 	fi
 	if [ "${IP4}" != "" ]; then
 		ip netns exec ${NETNS} ip addr add dev ${NETNSDEV} ${IP4}
 	fi
+	ip netns exec ${NETNS} ip li set dev ${NETNSDEV} up
 	ip netns exec ${NETNS} ip li set dev lo up
 }
 
@@ -70,22 +75,34 @@ run_target()
 
 invalid_dev()
 {
-	! ip link show $1 2>&1 >/dev/null
+    if [ -z "$2" ]; then
+	    ! ip link show $1 2>&1 >/dev/null
+    else
+        ! ip netns exec $2 ip link show $1 2>&1 >/dev/null
+    fi
 }
 
 validate_args()
 {
 	if [ $# -lt 6 ]; then
-		echo "Usage: $0 <netns> <veth> <peer> <ip6/cidr> <ip4/cidr> <target> [<target-args>]" >&2
+		echo "Usage: $0 <netns> <host-iface> <netns-iface> <ip6/cidr> <ip4/cidr> <target> [<target-args>] [--skip-netns-init]" >&2
 		exit 1
 	fi
-	if ip netns | grep "${NETNS}"; then
+
+	if [ -z "$SKIP_NETNS_INIT" ] && ip netns | grep "${NETNS}"; then
 		ip netns del ${NETNS}
 	fi
-	if invalid_dev "${HOSTDEV}" || invalid_dev "${NETNSDEV}"; then
-		echo "Cannot find interfaces ${HOSTDEV} and ${NETNSDEV}" >&2
+
+	if invalid_dev "${HOSTDEV}";  then
+		echo "Cannot find interface ${HOSTDEV}" >&2
 		exit 1
 	fi
+
+    [ -n "$SKIP_NETNS_INIT" ] && local NS="${NETNS}"
+    if invalid_dev "${NETNSDEV}" "$NS"; then
+		echo "Cannot find interface ${NETNSDEV}" >&2
+    fi
+
 	if ! which ${TARGET} 2>&1 >/dev/null ; then
 		echo "Cannot locate ${TARGET}" >&2
 		exit 1
