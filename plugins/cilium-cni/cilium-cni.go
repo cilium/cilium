@@ -23,7 +23,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
-	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common/addressing"
@@ -35,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/uuid"
 	"github.com/cilium/cilium/pkg/version"
@@ -143,19 +143,6 @@ func loadNetConf(bytes []byte) (*netConf, string, error) {
 		return nil, "", fmt.Errorf("failed to load netconf: %s", err)
 	}
 	return n, n.CNIVersion, nil
-}
-
-func removeIfFromNSIfExists(netNs ns.NetNS, ifName string) error {
-	return netNs.Do(func(_ ns.NetNS) error {
-		l, err := netlink.LinkByName(ifName)
-		if err != nil {
-			if strings.Contains(err.Error(), "Link not found") {
-				return nil
-			}
-			return err
-		}
-		return netlink.LinkDel(l)
-	})
 }
 
 func releaseIP(client *client.Client, ip string) {
@@ -453,7 +440,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	}
 	defer netNs.Close()
 
-	if err := removeIfFromNSIfExists(netNs, args.IfName); err != nil {
+	if err := netns.RemoveIfFromNetNSIfExists(netNs, args.IfName); err != nil {
 		return fmt.Errorf("failed removing interface %q from namespace %q: %s",
 			args.IfName, args.Netns, err)
 	}
@@ -656,5 +643,5 @@ func cmdDel(args *skel.CmdArgs) error {
 	}
 	defer netNs.Close()
 
-	return removeIfFromNSIfExists(netNs, args.IfName)
+	return netns.RemoveIfFromNetNSIfExists(netNs, args.IfName)
 }
