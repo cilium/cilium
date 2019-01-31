@@ -18,9 +18,14 @@ package proxy
 
 import (
 	"fmt"
+	"net"
+	"strconv"
 	"testing"
 	"time"
 
+	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
@@ -189,7 +194,24 @@ func (k *proxyTestSuite) TestKafkaRedirect(c *C) {
 	kafkaRule2 := api.PortRuleKafka{APIKey: "produce", APIVersion: "0", Topic: "allowedTopic"}
 	c.Assert(kafkaRule2.Sanitize(), IsNil)
 
+	// Insert a mock EP to the endpointmanager so that DefaultEndpointInfoRegistry may find
+	// the EP ID by the IP.
+	ep := &endpoint.Endpoint{}
+	ep.UpdateLogger(nil)
+	ep.ID = uint16(localEndpointMock.GetID())
+	ipv4, err := addressing.NewCiliumIPv4("127.0.0.1")
+	c.Assert(err, IsNil)
+	ep.IPv4 = ipv4
+	endpointmanager.Insert(ep)
+	defer endpointmanager.Remove(ep)
+
+	_, dstPortStr, err := net.SplitHostPort(server.Address())
+	c.Assert(err, IsNil)
+	portInt, err := strconv.Atoi(dstPortStr)
+	c.Assert(err, IsNil)
 	r := newRedirect(localEndpointMock, "foo")
+	r.dstPort = uint16(portInt)
+	r.endpointID = localEndpointMock.GetID()
 	r.ProxyPort = uint16(proxyPort)
 	r.ingress = true
 
@@ -201,7 +223,7 @@ func (k *proxyTestSuite) TestKafkaRedirect(c *C) {
 
 	redir, err := createKafkaRedirect(r, kafkaConfiguration{
 		lookupNewDest: func(remoteAddr string, dport uint16) (uint32, string, error) {
-			return uint32(200), server.Address(), nil
+			return uint32(1000), server.Address(), nil
 		},
 		// Disable use of SO_MARK
 		noMarker: true,
@@ -260,7 +282,8 @@ func (k *proxyTestSuite) TestKafkaRedirect(c *C) {
 	c.Assert(err, Equals, proto.ErrTopicAuthorizationFailed)
 
 	log.Debug("Testing done, closing listen socket")
-	redir.Close(nil)
+	finalize, _ := redir.Close(nil)
+	finalize()
 
 	// In order to see in the logs that the connections get closed after the
 	// 1-minute timeout, uncomment this line:
