@@ -221,6 +221,11 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 	// removedPrefixes tracks prefixes that we replace in the rules. It is used
 	// after we release the policy repository lock.
 	var removedPrefixes []*net.IPNet
+
+	endpointIDs := endpointmanager.EndpointIdentityMapping()
+
+	endpointsToRegen := map[uint16]struct{}{}
+
 	if opts != nil {
 		if opts.Replace {
 			for _, r := range rules {
@@ -228,7 +233,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 				removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(oldRules)...)
 				if len(oldRules) > 0 {
 					d.dnsRuleGen.StopManageDNSName(oldRules)
-					d.policy.DeleteByLabelsLocked(r.Labels)
+					d.policy.DeleteByLabelsLocked(r.Labels, endpointIDs, endpointsToRegen)
 				}
 			}
 		}
@@ -237,13 +242,33 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 			removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(oldRules)...)
 			if len(oldRules) > 0 {
 				d.dnsRuleGen.StopManageDNSName(oldRules)
-				d.policy.DeleteByLabelsLocked(opts.ReplaceWithLabels)
+				d.policy.DeleteByLabelsLocked(opts.ReplaceWithLabels, endpointIDs, endpointsToRegen)
 			}
 		}
 	}
-	endpointIDs := endpointmanager.EndpointIdentityMapping()
-	rev := d.policy.AddListLocked(rules, endpointIDs)
+	rev := d.policy.AddListLocked(rules, endpointIDs, endpointsToRegen)
+
+	endpointsToBumpRevision := map[uint16]struct{}{}
+	for ep := range endpointIDs {
+		if _, ok := endpointsToRegen[ep]; !ok {
+			endpointsToBumpRevision[ep] = struct{}{}
+		}
+	}
+
 	d.policy.Mutex.Unlock()
+
+	log.Infof("endpoints that do not need to be regenerated: %v", endpointsToBumpRevision)
+
+	// Launch async so we don't block on endpoint lock being held.
+	go func(epsToBumpRev map[uint16]struct{}) {
+		for epID := range epsToBumpRev {
+			if ep := endpointmanager.LookupCiliumID(epID); ep != nil {
+				go ep.SetPolicyRevision(rev)
+			}
+		}
+	}(endpointsToBumpRevision)
+
+	log.Infof("endpoints that need to be regenerated: %v", endpointsToRegen)
 
 	// remove prefixes of replaced rules above. This potentially blocks on the
 	// kvstore and should happen without holding the policy lock. Refcounts have
@@ -265,7 +290,12 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 
 	log.WithField(logfields.PolicyRevision, rev).Info("Policy imported via API, recalculating...")
 
-	d.TriggerPolicyUpdates(false, "policy rules added")
+	// Only regenerate endpoints which are needed to be regenerated as a result
+	// of the rule update. The rules which were imported most likely do not select
+	// all endpoints in the policy repository (and may not select any at all).
+	endpointmanager.RegenerateEndpointSet(d, &endpoint.ExternalRegenerationMetadata{Reason: "policy rules added"}, endpointsToRegen)
+
+	//d.TriggerPolicyUpdates(false, "policy rules added")
 
 	labels := make([]string, 0, len(rules))
 	for _, r := range rules {
@@ -304,8 +334,28 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
 		d.policy.Mutex.Unlock()
 		return rev, api.New(DeletePolicyNotFoundCode, "policy not found")
 	}
-	rev, deleted := d.policy.DeleteByLabelsLocked(labels)
+	endpoints := endpointmanager.EndpointIdentityMapping()
+	endpointsToRegen := map[uint16]struct{}{}
+
+	rev, deleted := d.policy.DeleteByLabelsLocked(labels, endpoints, endpointsToRegen)
+
+	endpointsToBumpRevision := map[uint16]struct{}{}
+	for ep := range endpoints {
+		if _, ok := endpointsToRegen[ep]; !ok {
+			endpointsToBumpRevision[ep] = struct{}{}
+		}
+	}
+
 	d.policy.Mutex.Unlock()
+
+	// Launch async so we don't block on endpoint lock being held.
+	go func(epsToBumpRev map[uint16]struct{}) {
+		for epID := range epsToBumpRev {
+			if ep := endpointmanager.LookupCiliumID(epID); ep != nil {
+				go ep.SetPolicyRevision(rev)
+			}
+		}
+	}(endpointsToBumpRevision)
 
 	// Now that the policies are deleted, we can also attempt to remove
 	// all CIDR identities referenced by the deleted rules.
@@ -329,7 +379,12 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
 	// Stop polling for ToFQDN DNS names for these rules
 	d.dnsRuleGen.StopManageDNSName(rules)
 
-	d.TriggerPolicyUpdates(false, "policy rules deleted")
+	log.Infof("endpoints to regenerate after deleting policy: %v", endpointsToRegen)
+
+	// Only regenerate endpoints which are needed to be regenerated as a result
+	// of the rule update. The rules which were imported most likely do not select
+	// all endpoints in the policy repository (and may not select any at all).
+	endpointmanager.RegenerateEndpointSet(d, &endpoint.ExternalRegenerationMetadata{Reason: "policy rules deleted"}, endpointsToRegen)
 
 	repr, err := monitorAPI.PolicyDeleteRepr(deleted, labels.GetModel(), rev)
 	if err != nil {

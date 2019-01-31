@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium/pkg/checker"
-	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
@@ -141,9 +140,8 @@ func (ds *PolicyTestSuite) TestL7WithIngressWildcard(c *C) {
 		},
 	}
 
-	endpointIDs := endpointmanager.EndpointIdentityMapping()
 	rule1.Sanitize()
-	_, err := repo.Add(rule1, endpointIDs)
+	_, _, err := repo.Add(rule1, map[uint16]*identity.Identity{})
 	c.Assert(err, IsNil)
 
 	repo.Mutex.RLock()
@@ -217,10 +215,9 @@ func (ds *PolicyTestSuite) TestL7WithLocalHostWildcardd(c *C) {
 			},
 		},
 	}
-	endpointIDs := endpointmanager.EndpointIdentityMapping()
 
 	rule1.Sanitize()
-	_, err := repo.Add(rule1, endpointIDs)
+	_, _, err := repo.Add(rule1, map[uint16]*identity.Identity{})
 	c.Assert(err, IsNil)
 
 	repo.Mutex.RLock()
