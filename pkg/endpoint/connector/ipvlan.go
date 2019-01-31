@@ -134,10 +134,13 @@ func createTailCallMap() (int, int, error) {
 	return int(fd), int(info.MapID), nil
 }
 
-// SetupIpvlanRemoteNs creates a tail call map, renames the netdevice inside
+// SetupIpvlanInRemoteNs creates a tail call map, renames the netdevice inside
 // the target netns and attaches a BPF program to it on egress path which
 // then jumps into the tail call map index 0.
-func SetupIpvlanRemoteNs(netNs ns.NetNS, srcIfName, dstIfName string) (int, int, error) {
+//
+// NB: Do not close the returned mapFd before it has been pinned. Otherwise,
+// the map will be destroyed.
+func SetupIpvlanInRemoteNs(netNs ns.NetNS, srcIfName, dstIfName string) (int, int, error) {
 	rl := unix.Rlimit{
 		Cur: math.MaxUint64,
 		Max: math.MaxUint64,
@@ -213,19 +216,27 @@ func SetupIpvlanRemoteNs(netNs ns.NetNS, srcIfName, dstIfName string) (int, int,
 	return mapFd, mapId, nil
 }
 
-func getIpvlanMasterName() string {
-	return hostInterfacePrefix + "_master"
-}
-
-// SetupIpvlan creates an ipvlan slave in L3 based on the master device.
-func SetupIpvlan(id string, mtu, masterDev int, mode string, ep *models.EndpointChangeRequest) (*netlink.IPVlan, *netlink.Link, string, error) {
-	var ipvlanMode netlink.IPVlanMode
-
+// CreateIpvlanSlave creates an ipvlan slave in L3 based on the master device.
+func CreateIpvlanSlave(id string, mtu, masterDev int, mode string, ep *models.EndpointChangeRequest) (*netlink.IPVlan, *netlink.Link, string, error) {
 	if id == "" {
 		return nil, nil, "", fmt.Errorf("invalid: empty ID")
 	}
+
+	tmpIfName := Endpoint2TempIfName(id)
+	ipvlan, link, err := createIpvlanSlave(tmpIfName, mtu, masterDev, mode, ep)
+
+	return ipvlan, link, tmpIfName, err
+}
+
+func createIpvlanSlave(lxcIfName string, mtu, masterDev int, mode string, ep *models.EndpointChangeRequest) (*netlink.IPVlan, *netlink.Link, error) {
+	var (
+		link       netlink.Link
+		err        error
+		ipvlanMode netlink.IPVlanMode
+	)
+
 	if masterDev == 0 {
-		return nil, nil, "", fmt.Errorf("invalid: master device ifindex")
+		return nil, nil, fmt.Errorf("invalid: master device ifindex")
 	}
 
 	switch mode {
@@ -234,27 +245,15 @@ func SetupIpvlan(id string, mtu, masterDev int, mode string, ep *models.Endpoint
 	case option.OperationModeL3S:
 		ipvlanMode = netlink.IPVLAN_MODE_L3S
 	default:
-		return nil, nil, "", fmt.Errorf("invalid or unsupported ipvlan operation mode: %s", mode)
+		return nil, nil, fmt.Errorf("invalid or unsupported ipvlan operation mode: %s", mode)
 	}
-
-	tmpIfName := Endpoint2TempIfName(id)
-	ipvlan, link, err := setupIpvlanWithNames(tmpIfName, mtu, masterDev, ipvlanMode, ep)
-
-	return ipvlan, link, tmpIfName, err
-}
-
-func setupIpvlanWithNames(lxcIfName string, mtu, masterDev int, mode netlink.IPVlanMode, ep *models.EndpointChangeRequest) (*netlink.IPVlan, *netlink.Link, error) {
-	var (
-		link netlink.Link
-		err  error
-	)
 
 	ipvlan := &netlink.IPVlan{
 		LinkAttrs: netlink.LinkAttrs{
 			Name:        lxcIfName,
 			ParentIndex: masterDev,
 		},
-		Mode: mode,
+		Mode: ipvlanMode,
 	}
 
 	if err = netlink.LinkAdd(ipvlan); err != nil {
@@ -291,11 +290,41 @@ func setupIpvlanWithNames(lxcIfName string, mtu, masterDev int, mode netlink.IPV
 		return nil, nil, fmt.Errorf("unable to set MTU to %q: %s", lxcIfName, err)
 	}
 
-	// TODO(brb) check whether the following fields are used only for reporting
 	ep.Mac = link.Attrs().HardwareAddr.String()
 	ep.HostMac = master.Attrs().HardwareAddr.String()
 	ep.InterfaceIndex = int64(link.Attrs().Index)
 	ep.InterfaceName = link.Attrs().Name
 
 	return ipvlan, &link, nil
+}
+
+// CreateAndSetupIpvlanSlave creates an ipvlan slave device for the given
+// master device, moves it to the given network namespace, and finally
+// initializes it (see SetupIpvlanInRemoteNs).
+func CreateAndSetupIpvlanSlave(id string, slaveIfName string, netNs ns.NetNS, mtu int, masterDev int, mode string, ep *models.EndpointChangeRequest) (int, error) {
+	var tmpIfName string
+
+	if id == "" {
+		tmpIfName = Endpoint2TempRandIfName()
+	} else {
+		tmpIfName = Endpoint2TempIfName(id)
+	}
+
+	_, link, err := createIpvlanSlave(tmpIfName, mtu, masterDev, mode, ep)
+	if err != nil {
+		return 0, fmt.Errorf("createIpvlanSlave has failed: %s", err)
+	}
+
+	if err = netlink.LinkSetNsFd(*link, int(netNs.Fd())); err != nil {
+		return 0, fmt.Errorf("unable to move ipvlan slave '%v' to netns: %s", link, err)
+	}
+
+	mapFD, mapID, err := SetupIpvlanInRemoteNs(netNs, tmpIfName, slaveIfName)
+	if err != nil {
+		return 0, fmt.Errorf("unable to setup ipvlan slave in remote netns: %s", err)
+	}
+
+	ep.DataPathMapID = int64(mapID)
+
+	return mapFD, nil
 }
