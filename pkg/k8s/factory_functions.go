@@ -502,6 +502,7 @@ func equalV2CNP(o1, o2 interface{}) bool {
 	}
 	return cnp1.Name == cnp2.Name &&
 		cnp1.Namespace == cnp2.Namespace &&
+		comparator.MapStringEquals(cnp1.GetAnnotations(), cnp2.GetAnnotations()) &&
 		reflect.DeepEqual(cnp1.Spec, cnp2.Spec) &&
 		reflect.DeepEqual(cnp1.Specs, cnp2.Specs)
 }
