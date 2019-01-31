@@ -52,6 +52,7 @@ type Redirect struct {
 	// ProxyPort is the port the redirects redirects to where the proxy is
 	// listening on
 	ProxyPort      uint16
+	dstPort        uint16
 	endpointID     uint64
 	listenerName   string
 	ingress        bool
