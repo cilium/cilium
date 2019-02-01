@@ -17,7 +17,6 @@ package k8sTest
 import (
 	"context"
 	"fmt"
-
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 	. "github.com/onsi/gomega"
@@ -194,6 +193,11 @@ var _ = Describe("K8sPolicyTest", func() {
 				helpers.KubeSystemNamespace, l3Policy, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
 
+			for _, appName := range []string{helpers.App1, helpers.App2, helpers.App3} {
+				err = kubectl.WaitForCEPIdentity(helpers.DefaultNamespace, appPods[appName])
+				Expect(err).Should(BeNil())
+			}
+
 			trace := kubectl.CiliumExec(ciliumPod, fmt.Sprintf(
 				"cilium policy trace --src-k8s-pod default:%s --dst-k8s-pod default:%s --dport 80",
 				appPods[helpers.App2], appPods[helpers.App1]))
@@ -258,6 +262,11 @@ var _ = Describe("K8sPolicyTest", func() {
 			_, err := kubectl.CiliumPolicyAction(
 				helpers.KubeSystemNamespace, serviceAccountPolicy, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
+
+			for _, appName := range []string{helpers.App1, helpers.App2, helpers.App3} {
+				err = kubectl.WaitForCEPIdentity(helpers.DefaultNamespace, appPods[appName])
+				Expect(err).Should(BeNil())
+			}
 
 			trace := kubectl.CiliumExec(ciliumPod, fmt.Sprintf(
 				"cilium policy trace --src-k8s-pod default:%s --dst-k8s-pod default:%s --dport 80",

@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ import (
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s"
-	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/policy/trace"
 
 	"github.com/spf13/cobra"
@@ -52,7 +52,8 @@ var policyTraceCmd = &cobra.Command{
 destination. Source / destination can be provided as endpoint ID, security ID, Kubernetes Pod, YAML file, set of LABELs. LABEL is represented as
 SOURCE:KEY[=VALUE].
 dports can be can be for example: 80/tcp, 53 or 23/udp.
-If multiple sources and / or destinations are provided, each source is tested whether there is a policy allowing traffic between it and each destination`,
+If multiple sources and / or destinations are provided, each source is tested whether there is a policy allowing traffic between it and each destination.
+--src-k8s-pod and --dst-k8s-pod requires cilium-agent to be running with disable-endpoint-crd option set to "false".`,
 	Run: func(cmd *cobra.Command, args []string) {
 
 		srcSlices := [][]string{}
@@ -256,22 +257,22 @@ func getSecIDFromK8s(podName string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("unable to create rest configuration: %s", err)
 	}
-	k8sClient, err := k8s.CreateClient(restConfig)
+	ciliumK8sClient, err := clientset.NewForConfig(restConfig)
 	if err != nil {
 		return "", fmt.Errorf("unable to create k8s client: %s", err)
 	}
 
-	p, err := k8sClient.CoreV1().Pods(namespace).Get(pod, meta_v1.GetOptions{})
+	ep, err := ciliumK8sClient.CiliumV2().CiliumEndpoints(namespace).Get(pod, meta_v1.GetOptions{})
 	if err != nil {
 		return "", fmt.Errorf("unable to get pod %s in namespace %s", pod, namespace)
 	}
 
-	secID := p.GetAnnotations()[k8sConst.CiliumIdentityAnnotation]
-	if secID == "" {
-		return "", fmt.Errorf("cilium-identity annotation not set for pod %s in namespace %s", pod, namespace)
+	if ep.Status.Identity == nil {
+		return "", fmt.Errorf("cilium security identity"+
+			" not set for pod %s in namespace %s", pod, namespace)
 	}
 
-	return secID, nil
+	return strconv.Itoa(int(ep.Status.Identity.ID)), nil
 }
 
 // parseL4PortsSlice parses a given `slice` of strings. Each string should be in
