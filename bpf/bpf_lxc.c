@@ -929,7 +929,7 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 
 	ifindex = skb->cb[CB_IFINDEX];
 	if (ifindex)
-		return datapath_redirect(ifindex, 0);
+		return redirect_peer(ifindex, 0);
 
 	return TC_ACT_OK;
 }
@@ -1081,7 +1081,7 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 
 	ifindex = skb->cb[CB_IFINDEX];
 	if (ifindex)
-		return datapath_redirect(ifindex, 0);
+		return redirect_peer(ifindex, 0);
 
 	return TC_ACT_OK;
 }

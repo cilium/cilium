@@ -78,7 +78,8 @@ static inline int __inline__ icmp6_send_reply(struct __sk_buff *skb, int nh_off)
 		return DROP_WRITE_ERROR;
 
 	cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, skb->ifindex);
-	return redirect(skb->ifindex, 0);
+
+	return redirect_self(skb);
 }
 
 static inline int __icmp6_send_echo_reply(struct __sk_buff *skb, int nh_off)
