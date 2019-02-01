@@ -547,19 +547,17 @@ spec:
           defaultMode: 420
           optional: true
           secretName: cilium-etcd-secrets
-
 ---
-kind: ServiceAccount
 apiVersion: v1
+kind: ServiceAccount
 metadata:
   name: cilium-operator
   namespace: kube-system
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: cilium-operator
-  namespace: kube-system
 rules:
 - apiGroups:
   - ""
@@ -588,11 +586,10 @@ rules:
   verbs:
   - '*'
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: cilium-operator
-  namespace: kube-system
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -606,7 +603,6 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: cilium-etcd-operator
-  namespace: kube-system
 rules:
 - apiGroups:
   - etcd.database.coreos.com
@@ -676,7 +672,6 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: cilium-etcd-operator
-  namespace: kube-system
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -690,7 +685,6 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: etcd-operator
-  namespace: kube-system
 rules:
 - apiGroups:
   - etcd.database.coreos.com
@@ -744,7 +738,6 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: etcd-operator
-  namespace: kube-system
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -754,8 +747,8 @@ subjects:
   name: cilium-etcd-sa
   namespace: kube-system
 ---
-kind: ServiceAccount
 apiVersion: v1
+kind: ServiceAccount
 metadata:
   name: cilium-etcd-operator
   namespace: kube-system
