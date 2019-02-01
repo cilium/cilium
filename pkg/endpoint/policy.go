@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -41,7 +41,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/safetime"
-	"github.com/cilium/cilium/pkg/uuid"
 
 	"github.com/sirupsen/logrus"
 )
@@ -459,46 +458,6 @@ func (e *Endpoint) Regenerate(owner Owner, regenMetadata *ExternalRegenerationMe
 	return done
 }
 
-func (e *Endpoint) runIdentityToK8sPodSync() {
-	e.controllers.UpdateController(fmt.Sprintf("sync-identity-to-k8s-pod (%d)", e.ID),
-		controller.ControllerParams{
-			DoFunc: func() error {
-				id := ""
-
-				if err := e.RLockAlive(); err != nil {
-					return controller.NewExitReason("Endpoint disappeared")
-				}
-				if e.SecurityIdentity != nil {
-					id = e.SecurityIdentity.ID.StringID()
-				}
-				e.RUnlock()
-
-				// This is equivalent to checking if K8s is enabled, but by
-				// checking endpoint state instead.
-				if id != "" && e.GetK8sNamespace() != "" && e.GetK8sPodName() != "" {
-					if EpAnnotator != nil {
-						err := EpAnnotator.AnnotatePod(e.GetK8sNamespace(), e.GetK8sPodName(), k8sConst.CiliumIdentityAnnotation, id)
-						if err == nil {
-							log.WithFields(logrus.Fields{
-								logfields.EndpointID:            e.StringID(),
-								logfields.K8sNamespace:          e.GetK8sNamespace(),
-								logfields.K8sPodName:            e.GetK8sPodName(),
-								logfields.K8sIdentityAnnotation: k8sConst.CiliumIdentityAnnotation,
-								logfields.RetryUUID:             uuid.NewUUID(),
-							}).Debugf("Successfully annotated endpoint with %s=%s", logfields.K8sIdentityAnnotation, id)
-						}
-						return err
-					}
-					e.getLogger().Warningf("unable to annotate corresponding pod due to nil annotator")
-				}
-
-				return nil
-			},
-			RunInterval: 1 * time.Minute,
-		},
-	)
-}
-
 // FormatGlobalEndpointID returns the global ID of endpoint in the format
 // / <global ID Prefix>:<cluster name>:<node name>:<endpoint ID> as a string.
 func (e *Endpoint) FormatGlobalEndpointID() string {
@@ -578,8 +537,6 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) {
 	if e.GetStateLocked() == StateWaitingForIdentity {
 		e.SetStateLocked(StateReady, "Set identity for this endpoint")
 	}
-
-	e.runIdentityToK8sPodSync()
 
 	// Whenever the identity is updated, propagate change to key-value store
 	// of IP to identity mapping.
