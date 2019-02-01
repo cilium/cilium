@@ -174,21 +174,18 @@ static inline int ipv6_match_prefix_64(const union v6addr *addr, const union v6a
 	return !tmp;
 }
 
-
 static inline int ipv6_dec_hoplimit(struct __sk_buff *skb, int off)
 {
-	__u8 hoplimit, new_hl;
+	__u8 hl;
 
-	hoplimit = load_byte(skb, off + offsetof(struct ipv6hdr, hop_limit));
-	if (hoplimit <= 1) {
+	skb_load_bytes(skb, off + offsetof(struct ipv6hdr, hop_limit),
+		       &hl, sizeof(hl));
+	if (hl <= 1)
 		return 1;
-	}
-
-	new_hl = hoplimit - 1;
+	hl--;
 	if (skb_store_bytes(skb, off + offsetof(struct ipv6hdr, hop_limit),
-			    &new_hl, sizeof(new_hl), BPF_F_RECOMPUTE_CSUM) < 0)
+			    &hl, sizeof(hl), BPF_F_RECOMPUTE_CSUM) < 0)
 		return DROP_WRITE_ERROR;
-
 	return 0;
 }
 
