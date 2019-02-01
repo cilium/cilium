@@ -166,6 +166,10 @@ policy traversals between the proxy and the endpoint socket.
 veth-based versus ipvlan-based datapath
 ---------------------------------------
 
+.. note:: The ipvlan-based datapath is currently only in technology preview
+          and to be used for experimentation purposes. This restriction will
+          be lifted in future Cilium releases.
+
 By default Cilium CNI operates in veth-based datapath mode which allows for
 more flexibility in that all BPF programs are managed by Cilium out of the host
 network namespace such that containers can be granted privileges for their
@@ -180,7 +184,7 @@ peer device in the other network namespace. This egress-to-ingress switch needs
 to be done twice when communicating between local Cilium endpoints, and once
 for packet that are arriving or sent out of the host.
 
-For a more latency optimized datapath, Cilium CNI also supports ipvlan L3 mode
+For a more latency optimized datapath, Cilium CNI also supports ipvlan L3/L3S mode
 with a number of restrictions. In order to support older kernel's without ipvlan's
 hairpin mode, Cilium attaches BPF programs at the ipvlan slave device inside
 the container's network namespace on the tc egress layer, which means that
@@ -203,9 +207,11 @@ as container to host-local communication. If one of these features are needed,
 then the default veth-based datapath mode is recommended instead.
 
 The ipvlan mode in Cilium's CNI can be enabled by running the Cilium daemon
-with e.g. ``--datapath-mode=ipvlan --ipvlan-master-device=bond0`` where the latter
-typically specifies the physical networking device which then also acts as the
-ipvlan master device.
+with e.g. ``--datapath-mode=ipvlan --ipvlan-master-device=bond0`` where the
+latter typically specifies the physical networking device which then also acts
+as the ipvlan master device. Note that in case ipvlan datapath mode is deployed
+in L3S mode with Kubernetes, make sure to have a stable kernel running with the
+following ipvlan fix included: `d5256083f62e <https://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git/commit/?id=d5256083f62e2720f75bb3c5a928a0afe47d6bc3>`_.
 
 This completes the datapath overview. More BPF specifics can be found in the
 :ref:`bpf_guide`. Additional details on how to extend the L7 Policy
