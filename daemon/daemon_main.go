@@ -918,6 +918,10 @@ func initEnv(cmd *cobra.Command) {
 		if option.Config.Tunnel == "" {
 			option.Config.Tunnel = option.TunnelVXLAN
 		}
+		if option.Config.IsFlannelMasterDeviceSet() && option.Config.Tunnel != option.TunnelDisabled {
+			log.Warnf("Running Cilium in flannel mode requires tunnel mode be '%s'. Changing tunnel mode to: %s", option.TunnelDisabled, option.TunnelDisabled)
+			option.Config.Tunnel = option.TunnelDisabled
+		}
 	case option.DatapathModeIpvlan:
 		if option.Config.Tunnel != "" && option.Config.Tunnel != option.TunnelDisabled {
 			log.WithField(logfields.Tunnel, option.Config.Tunnel).
