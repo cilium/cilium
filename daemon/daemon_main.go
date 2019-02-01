@@ -912,7 +912,7 @@ func initEnv(cmd *cobra.Command) {
 	switch option.Config.DatapathMode {
 	case option.DatapathModeVeth:
 		if name := viper.GetString(option.IpvlanMasterDevice); name != "undefined" {
-			log.WithField(logfields.Device, name).
+			log.WithField(logfields.IpvlanMasterDevice, name).
 				Fatal("ipvlan master device cannot be set in the 'veth' datapath mode")
 		}
 		if option.Config.Tunnel == "" {
@@ -939,12 +939,12 @@ func initEnv(cmd *cobra.Command) {
 		// ipvlan it is desired to have a separate one, see PR #6608.
 		option.Config.Device = viper.GetString(option.IpvlanMasterDevice)
 		if option.Config.Device == "undefined" {
-			log.WithField(logfields.Device, option.Config.Device).
+			log.WithField(logfields.IpvlanMasterDevice, option.Config.Device).
 				Fatal("ipvlan master device must be specified in the 'ipvlan' datapath mode")
 		}
 		link, err := netlink.LinkByName(option.Config.Device)
 		if err != nil {
-			log.WithError(err).WithField(logfields.Device, option.Config.Device).
+			log.WithError(err).WithField(logfields.IpvlanMasterDevice, option.Config.Device).
 				Fatal("Cannot find device interface")
 		}
 		option.Config.Ipvlan.MasterDeviceIndex = link.Attrs().Index
