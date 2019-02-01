@@ -213,7 +213,6 @@ func InstallRules(ifName string) error {
 		"-o", ifName,
 		"-m", "mark", "!", "--mark", matchFromIPSecDecrypt, // Don't match ipsec traffic
 		"-m", "mark", "!", "--mark", matchFromIPSecEncrypt, // Don't match ipsec traffic
-		"!", "-s", "127.0.0.1",
 		"-m", "comment", "--comment", "cilium: clear masq bit for pkts to " + ifName,
 		"-j", "MARK", "--set-xmark", clearMasqBit}, false); err != nil {
 		return err
@@ -302,6 +301,24 @@ func InstallRules(ifName string) error {
 			"-m", "mark", "!", "--mark", matchFromIPSecEncrypt, // Don't match ipsec traffic
 			"-o", ifName,
 			"-m", "comment", "--comment", "cilium host->cluster masquerade",
+			"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String()}, false); err != nil {
+			return err
+		}
+
+		// Masquerade all traffic from the host into the ifName
+		// interface if the source is 127.0.0.1
+		//
+		// The following conditions must be met:
+		// * Must be targeted for the ifName interface
+		// * Must be from 127.0.0.1
+		if err := runProg("iptables", []string{
+			"-t", "nat",
+			"-A", ciliumPostNatChain,
+			"-s", "127.0.0.1",
+			"-m", "mark", "!", "--mark", matchFromIPSecDecrypt, // Don't match ipsec traffic
+			"-m", "mark", "!", "--mark", matchFromIPSecEncrypt, // Don't match ipsec traffic
+			"-o", ifName,
+			"-m", "comment", "--comment", "cilium host->cluster from 127.0.0.1 masquerade",
 			"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String()}, false); err != nil {
 			return err
 		}
