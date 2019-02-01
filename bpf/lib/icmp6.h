@@ -37,7 +37,9 @@
 
 static inline __u8 icmp6_load_type(struct __sk_buff *skb, int nh_off)
 {
-	return load_byte(skb, nh_off + ICMP6_TYPE_OFFSET);
+	__u8 type;
+	skb_load_bytes(skb, nh_off + ICMP6_TYPE_OFFSET, &type, sizeof(type));
+	return type;
 }
 
 static inline int __inline__ icmp6_send_reply(struct __sk_buff *skb, int nh_off)
