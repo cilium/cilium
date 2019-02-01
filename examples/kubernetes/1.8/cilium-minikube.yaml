@@ -137,6 +137,23 @@ data:
   # To run in this mode in Kubernetes change the value of the hostPID from
   # false to true. Can be found under the path `spec.spec.hostPID`
   flannel-manage-existing-containers: "false"
+
+  # DNS Polling periodically issues a DNS lookup for each `matchName` from
+  # cilium-agent. The result is used to regenerate endpoint policy.
+  # DNS lookups are repeated with an interval of 5 seconds, and are made for
+  # A(IPv4) and AAAA(IPv6) addresses. Should a lookup fail, the most recent IP
+  # data is used instead. An IP change will trigger a regeneration of the Cilium
+  # policy for each endpoint and increment the per cilium-agent policy
+  # repository revision.
+  #
+  # This option is disabled by default starting from version 1.4.x due to
+  # limitations in the implementation of DNS Polling. It has been replaced by
+  # DNS Proxy, but it requires policy changes.
+  #
+  # To ease upgrade, users may opt to set this option to "true".
+  # Otherwise please refer to the Upgrade Guide which explains how to prepare
+  # policy rules for upgrade.
+  tofqdns-enable-poller: "false"
 ---
 apiVersion: apps/v1beta2
 kind: DaemonSet

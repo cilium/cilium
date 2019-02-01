@@ -144,6 +144,12 @@ spec:
               key: flannel-manage-existing-containers
               name: cilium-config
               optional: true
+        - name: CILIUM_TOFQDNS_ENABLE_POLLER
+          valueFrom:
+            configMapKeyRef:
+              key: tofqdns-enable-poller
+              name: cilium-config
+              optional: true
         image: docker.io/cilium/cilium:__CILIUM_VERSION__
         imagePullPolicy: Always
         lifecycle:
