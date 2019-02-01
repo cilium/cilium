@@ -548,93 +548,6 @@ FQDN, each FQDN per endpoint has a max capacity of IPs that are being maintained
 automatically expired from the cache. This capacity can be changed using the
 ``--tofqdns-max-ip-per-hostname`` option.
 
-Obtaining DNS Data
-~~~~~~~~~~~~~~~~~~
-IPs are obtained via intercepting DNS requests via a proxy or DNS polling, and
-matching names are inserted irrespective of how the data is obtained. These IPs
-can be selected with ``toFQDN`` rules. DNS responses are cached within cilium
-agent respecting TTL.
-
-.. _DNS Proxy:
-
-DNS Proxy
-  A DNS Proxy intercepts DNS traffic and records IPs seen in the responses.
-  This interception is itself a separate policy rule governing the DNS
-  requests, and must be specified separately. For details on how to enforce
-  policy on DNS requests and configuring the DNS proxy, see `Layer 7
-  Examples`_.
-
-  Only IPs in intercepted DNS responses to an application will be allowed in
-  the cilium policy rules. For a given domain name, IPs from responses to all
-  pods managed by a Cilium instance are allowed by policy (respecting TTLs).
-  This ensures that allowed IPs are consistent with those returned to
-  applications. The DNS Proxy is the only method to allow IPs from responses
-  allowed by wildcard L7 DNS ``matchPattern`` rules for use in ``toFQDNs``
-  rules.
-
-  The following example obtains DNS data by interception without blocking any
-  DNS requests. It allows L3 connections to ``cilium.io``, ``sub.cilium.io``
-  and any subdomains of ``sub.cilium.io``.
-
-.. only:: html
-
-   .. tabs::
-     .. group-tab:: k8s YAML
-
-        .. literalinclude:: ../../examples/policies/l7/dns/dns-visibility.yaml
-     .. group-tab:: JSON
-
-        .. literalinclude:: ../../examples/policies/l7/dns/dns-visibility.json
-
-.. only:: epub or latex
-
-        .. literalinclude:: ../../examples/policies/l7/dns/dns-visibility.json
-
-.. _DNS Polling:
-
-DNS Polling
-  DNS Polling periodically issues a DNS lookup for each ``matchName`` from
-  cilium-agent. The result is used to regenerate endpoint policy.  Despite the
-  name, the ``matchName`` field does not have to be a fully-qualified domain
-  name. In cases where search domains are configured for cilium-agent, the DNS
-  lookups from Cilium will not be qualified and will utilize the search list.
-  Unqualified names must be matched as-is by ``matchPattern`` in order to
-  insert related IPs.
-
-  DNS lookups are repeated with an interval of 5 seconds, and are made for
-  A(IPv4) and AAAA(IPv6) addresses. Should a lookup fail, the most recent IP
-  data is used instead. An IP change will trigger a regeneration of the Cilium
-  policy for each endpoint and increment the per cilium-agent policy repository
-  revision.
-
-  Polling can be enabled by the ``--tofqdns-enable-poller`` cilium-agent
-  CLI option.
-
-  The DNS polling implementation is very limited. It may not behave as expected.
-
-  #. The DNS polling is done from the cilium-agent process. This may result in
-     different IPs being returned in the DNS response than those seen by an
-     application.
-
-  #. When using DNS Polling with DNS responses that return a new IP on every
-     query, the IP being whitelisted may differ from the one used for
-     connections by applications. This is because the application will make
-     a DNS query independent from the poll.
-
-  #. When DNS lookups return many distinct IPs over time, large values of
-     ``--tofqdns-min-ttl`` may result in unacceptably slow policy
-     regeneration. See `DNS and Long-Lived Connections`_ for details.
-
-  #. The lookups from Cilium follow the configuration of the environment it
-     is in via ``/etc/resolv.conf``. When running as a kubernetes pod, the
-     contents of ``resolv.conf`` are controlled via the ``dnsPolicy`` field of a
-     spec. When running directly on a host, it will use the host's file.
-     Irrespective of how the DNS lookups are configured, TTLs and caches on the
-     resolver will impact the IPs seen by the cilium-agent lookups.
-
-.. note:: Connections to the DNS resolver must be explicitly whitelisted to
-          allow DNS queries. This is independent of the source of DNS
-          information, whether from polling or the DNS proxy.
 
 
 .. _l4_policy:
@@ -1041,6 +954,95 @@ allowed but connections to the returned IPs are not, as there is no L3
           ``servicename`` that succeeds with
           ``servicename.namespace.svc.cluster.local.`` must have the latter
           allowed with ``matchName`` or ``matchPattern``.
+
+Obtaining DNS Data
+~~~~~~~~~~~~~~~~~~
+IPs are obtained via intercepting DNS requests via a proxy or DNS polling, and
+matching names are inserted irrespective of how the data is obtained. These IPs
+can be selected with ``toFQDN`` rules. DNS responses are cached within cilium
+agent respecting TTL.
+
+.. _DNS Proxy:
+
+DNS Proxy
+  A DNS Proxy intercepts DNS traffic and records IPs seen in the responses.
+  This interception is itself a separate policy rule governing the DNS
+  requests, and must be specified separately. For details on how to enforce
+  policy on DNS requests and configuring the DNS proxy, see `Layer 7
+  Examples`_.
+
+  Only IPs in intercepted DNS responses to an application will be allowed in
+  the cilium policy rules. For a given domain name, IPs from responses to all
+  pods managed by a Cilium instance are allowed by policy (respecting TTLs).
+  This ensures that allowed IPs are consistent with those returned to
+  applications. The DNS Proxy is the only method to allow IPs from responses
+  allowed by wildcard L7 DNS ``matchPattern`` rules for use in ``toFQDNs``
+  rules.
+
+  The following example obtains DNS data by interception without blocking any
+  DNS requests. It allows L3 connections to ``cilium.io``, ``sub.cilium.io``
+  and any subdomains of ``sub.cilium.io``.
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../examples/policies/l7/dns/dns-visibility.yaml
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../../examples/policies/l7/dns/dns-visibility.json
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../examples/policies/l7/dns/dns-visibility.json
+
+.. _DNS Polling:
+
+DNS Polling
+  DNS Polling periodically issues a DNS lookup for each ``matchName`` from
+  cilium-agent. The result is used to regenerate endpoint policy.  Despite the
+  name, the ``matchName`` field does not have to be a fully-qualified domain
+  name. In cases where search domains are configured for cilium-agent, the DNS
+  lookups from Cilium will not be qualified and will utilize the search list.
+  Unqualified names must be matched as-is by ``matchPattern`` in order to
+  insert related IPs.
+
+  DNS lookups are repeated with an interval of 5 seconds, and are made for
+  A(IPv4) and AAAA(IPv6) addresses. Should a lookup fail, the most recent IP
+  data is used instead. An IP change will trigger a regeneration of the Cilium
+  policy for each endpoint and increment the per cilium-agent policy repository
+  revision.
+
+  Polling can be enabled by the ``--tofqdns-enable-poller`` cilium-agent
+  CLI option.
+
+  The DNS polling implementation is very limited. It may not behave as expected.
+
+  #. The DNS polling is done from the cilium-agent process. This may result in
+     different IPs being returned in the DNS response than those seen by an
+     application.
+
+  #. When using DNS Polling with DNS responses that return a new IP on every
+     query, the IP being whitelisted may differ from the one used for
+     connections by applications. This is because the application will make
+     a DNS query independent from the poll.
+
+  #. When DNS lookups return many distinct IPs over time, large values of
+     ``--tofqdns-min-ttl`` may result in unacceptably slow policy
+     regeneration. See `DNS and Long-Lived Connections`_ for details.
+
+  #. The lookups from Cilium follow the configuration of the environment it
+     is in via ``/etc/resolv.conf``. When running as a kubernetes pod, the
+     contents of ``resolv.conf`` are controlled via the ``dnsPolicy`` field of a
+     spec. When running directly on a host, it will use the host's file.
+     Irrespective of how the DNS lookups are configured, TTLs and caches on the
+     resolver will impact the IPs seen by the cilium-agent lookups.
+
+.. note:: Connections to the DNS resolver must be explicitly whitelisted to
+          allow DNS queries. This is independent of the source of DNS
+          information, whether from polling or the DNS proxy.
+
 
 Kubernetes
 ==========
