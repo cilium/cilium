@@ -166,6 +166,10 @@ spec:
           valueFrom:
             configMapKeyRef:
               key: masquerade
+        - name: CILIUM_TOFQDNS_ENABLE_POLLER
+          valueFrom:
+            configMapKeyRef:
+              key: tofqdns-enable-poller
               name: cilium-config
               optional: true
         image: docker.io/cilium/cilium:latest
