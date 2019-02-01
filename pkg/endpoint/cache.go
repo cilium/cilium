@@ -58,7 +58,7 @@ func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 		id:          e.StringID(),
 		ifName:      e.IfName,
 		keys:        e.GetBPFKeys(),
-		graftToLoad: e.MustGraft(),
+		graftToLoad: e.MustGraftDatapathMap(),
 	}
 
 	var err error
@@ -91,8 +91,8 @@ func (ep *epInfoCache) Logger(subsystem string) *logrus.Entry {
 	return ep.endpoint.Logger(subsystem)
 }
 
-// MustGraft returns whether we need full replacement or grafting of object file.
-func (ep *epInfoCache) MustGraft() bool {
+// MustGraftDatapathMap returns whether we need full replacement or grafting of object file.
+func (ep *epInfoCache) MustGraftDatapathMap() bool {
 	return ep.graftToLoad
 }
 

@@ -303,7 +303,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, n *node.Node, mtuConfig mtu.Configur
 		ep.Unlock()
 		return nil, fmt.Errorf("unable to transition health endpoint to WaitingToRegenerate state")
 	}
-	ep.MapPinLocked()
+	ep.PinDatapathMap()
 	ep.Unlock()
 
 	buildSuccessful := <-ep.Regenerate(owner, &endpoint.ExternalRegenerationMetadata{

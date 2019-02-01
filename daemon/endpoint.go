@@ -257,7 +257,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 
 	// Now that we have ep.ID we can pin the map from this point. This
 	// also has to happen before the first build took place.
-	if err = ep.MapPinLocked(); err != nil {
+	if err = ep.PinDatapathMap(); err != nil {
 		d.deleteEndpoint(ep)
 		log.WithError(err).Warn("Aborting endpoint tail call map pin")
 		return nil, err

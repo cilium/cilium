@@ -120,7 +120,7 @@ func (ep *testEP) MapPath() string {
 	return "map_path"
 }
 
-func (ep *testEP) MustGraft() bool {
+func (ep *testEP) MustGraftDatapathMap() bool {
 	return false
 }
 
