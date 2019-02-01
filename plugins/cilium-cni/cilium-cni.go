@@ -300,7 +300,7 @@ func prepareIP(ipAddr string, isIPv6 bool, state *CmdState, mtu int) (*cniTypesV
 	}, rt, nil
 }
 
-func setUPWithFlannel(logger *logrus.Entry, args *skel.CmdArgs, n *netConf, cniVer string, c *client.Client) (err error) {
+func setUPWithFlannel(logger *logrus.Entry, args *skel.CmdArgs, cniArgs cniArgsSpec, n *netConf, cniVer string, c *client.Client) (err error) {
 	err = cniVersion.ParsePrevResult(&n.NetConf)
 	if err != nil {
 		return fmt.Errorf("unable to understand network config: %s", err)
@@ -388,6 +388,8 @@ func setUPWithFlannel(logger *logrus.Entry, args *skel.CmdArgs, n *netConf, cniV
 		InterfaceIndex:    int64(vethHostIdx),
 		Mac:               vethLXCMac,
 		InterfaceName:     vethHostName,
+		K8sPodName:        string(cniArgs.K8S_POD_NAME),
+		K8sNamespace:      string(cniArgs.K8S_POD_NAMESPACE),
 		SyncBuildEndpoint: true,
 	}
 
@@ -425,7 +427,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	if len(n.NetConf.RawPrevResult) != 0 {
 		switch n.Name {
 		case "cbr0":
-			err := setUPWithFlannel(logger, args, n, cniVer, c)
+			err := setUPWithFlannel(logger, args, cniArgs, n, cniVer, c)
 			if err != nil {
 				return err
 			}
