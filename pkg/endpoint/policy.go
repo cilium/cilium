@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,7 +30,6 @@ import (
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
-	"github.com/cilium/cilium/pkg/k8s"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -876,31 +875,6 @@ func (e *Endpoint) Regenerate(owner Owner, context *RegenerationContext, reloadD
 	return done
 }
 
-func (e *Endpoint) runIdentityToK8sPodSync() {
-	e.controllers.UpdateController(fmt.Sprintf("sync-identity-to-k8s-pod (%d)", e.ID),
-		controller.ControllerParams{
-			DoFunc: func() error {
-				id := ""
-
-				if err := e.RLockAlive(); err != nil {
-					return err
-				}
-				if e.SecurityIdentity != nil {
-					id = e.SecurityIdentity.ID.StringID()
-				}
-				e.RUnlock()
-
-				if id != "" && e.GetK8sNamespace() != "" && e.GetK8sPodName() != "" {
-					return k8s.AnnotatePod(e, k8sConst.CiliumIdentityAnnotation, id)
-				}
-
-				return nil
-			},
-			RunInterval: 1 * time.Minute,
-		},
-	)
-}
-
 // FormatGlobalEndpointID returns the global ID of endpoint in the format
 // / <global ID Prefix>:<cluster name>:<node name>:<endpoint ID> as a string.
 func (e *Endpoint) FormatGlobalEndpointID() string {
@@ -988,8 +962,6 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) {
 	if e.GetStateLocked() == StateWaitingForIdentity {
 		e.SetStateLocked(StateReady, "Set identity for this endpoint")
 	}
-
-	e.runIdentityToK8sPodSync()
 
 	// Whenever the identity is updated, propagate change to key-value store
 	// of IP to identity mapping.
