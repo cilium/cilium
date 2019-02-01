@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -557,7 +557,6 @@ func (d *Daemon) installIptablesRules() error {
 		"-t", "mangle",
 		"-A", ciliumPostMangleChain,
 		"-o", "cilium_host",
-		"!", "-s", "127.0.0.1",
 		"-m", "comment", "--comment", "cilium: clear masq bit for pkts to cilium_host",
 		"-j", "MARK", "--set-xmark", clearMasqBit}, false); err != nil {
 		return err
@@ -642,6 +641,22 @@ func (d *Daemon) installIptablesRules() error {
 			"!", "-d", node.GetIPv4AllocRange().String(),
 			"-o", "cilium_host",
 			"-m", "comment", "--comment", "cilium host->cluster masquerade",
+			"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String()}, false); err != nil {
+			return err
+		}
+
+		// Masquerade all traffic from the host into the ifName
+		// interface if the source is 127.0.0.1
+		//
+		// The following conditions must be met:
+		// * Must be targeted for the ifName interface
+		// * Must be from 127.0.0.1
+		if err := runProg("iptables", []string{
+			"-t", "nat",
+			"-A", ciliumPostNatChain,
+			"-s", "127.0.0.1",
+			"-o", "cilium_host",
+			"-m", "comment", "--comment", "cilium host->cluster from 127.0.0.1 masquerade",
 			"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String()}, false); err != nil {
 			return err
 		}
