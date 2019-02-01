@@ -2011,7 +2011,7 @@ func (e *Endpoint) runLabelsResolver(owner Owner, myChangeRev int, blocking bool
 				switch err {
 				case ErrNotAlive:
 					e.getLogger().Debug("not changing endpoint identity because endpoint is in process of being removed")
-					return nil
+					return controller.NewExitReason("Endpoint disappeared")
 				default:
 					return err
 				}
